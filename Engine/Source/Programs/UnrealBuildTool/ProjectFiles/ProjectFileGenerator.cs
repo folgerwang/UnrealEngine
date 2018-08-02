@@ -2094,16 +2094,16 @@ namespace UnrealBuildTool
 					{
 						if(TargetFilePath.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory))
 						{
-							RulesAssembly = RulesCompiler.CreateEnterpriseRulesAssembly(false);
+							RulesAssembly = RulesCompiler.CreateEnterpriseRulesAssembly(false, false);
 						}
 						else
 						{
-							RulesAssembly = RulesCompiler.CreateEngineRulesAssembly(false);
+							RulesAssembly = RulesCompiler.CreateEngineRulesAssembly(false, false);
 						}
 					}
 					else
 					{
-						RulesAssembly = RulesCompiler.CreateProjectRulesAssembly(CheckProjectFile, false);
+						RulesAssembly = RulesCompiler.CreateProjectRulesAssembly(CheckProjectFile, false, false);
 					}
 
 					// Create target rules for all of the platforms and configuration combinations that we want to enable support for.
@@ -2301,17 +2301,19 @@ namespace UnrealBuildTool
 		{
 			// Setup a project file entry for this module's project.  Remember, some projects may host multiple modules!
 			DirectoryReference ShadersDirectory = DirectoryReference.Combine( UnrealBuildTool.EngineDirectory, "Shaders" );
-
-			List<string> SubdirectoryNamesToExclude = new List<string>();
+			if(DirectoryReference.Exists(ShadersDirectory))
 			{
-                // Don't include binary shaders in the project file.
-                SubdirectoryNamesToExclude.Add( "Binaries" );
-				// We never want shader intermediate files in our project file
-				SubdirectoryNamesToExclude.Add( "PDBDump" );
-				SubdirectoryNamesToExclude.Add( "WorkingDirectory" );
-			}
+				List<string> SubdirectoryNamesToExclude = new List<string>();
+				{
+					// Don't include binary shaders in the project file.
+					SubdirectoryNamesToExclude.Add( "Binaries" );
+					// We never want shader intermediate files in our project file
+					SubdirectoryNamesToExclude.Add( "PDBDump" );
+					SubdirectoryNamesToExclude.Add( "WorkingDirectory" );
+				}
 
-			EngineProject.AddFilesToProject( SourceFileSearch.FindFiles( ShadersDirectory, SubdirectoryNamesToExclude ), UnrealBuildTool.EngineDirectory );
+				EngineProject.AddFilesToProject( SourceFileSearch.FindFiles( ShadersDirectory, SubdirectoryNamesToExclude ), UnrealBuildTool.EngineDirectory );
+			}
 		}
 
 

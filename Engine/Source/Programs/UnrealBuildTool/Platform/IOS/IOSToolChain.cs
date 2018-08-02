@@ -13,6 +13,7 @@ using System.Text;
 using Ionic.Zip;
 using Ionic.Zlib;
 using Tools.DotNETCommon;
+using System.Security.Cryptography.X509Certificates;
 
 namespace UnrealBuildTool
 {
@@ -79,7 +80,7 @@ namespace UnrealBuildTool
 		}
 
 		protected IOSToolChain(CppPlatform TargetPlatform, FileReference InProjectFile, IOSProjectSettings InProjectSettings, Func<IOSToolChainSettings> InCreateSettings)
-			: base(TargetPlatform, UnrealTargetPlatform.Mac, InProjectFile)
+			: base(TargetPlatform, InProjectFile)
 		{
 			ProjectSettings = InProjectSettings;
 			Settings = new Lazy<IOSToolChainSettings>(InCreateSettings);
@@ -483,28 +484,17 @@ namespace UnrealBuildTool
 
 		static void CleanIntermediateDirectory(string Path)
 		{
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+			string ResultsText;
+
+			// Delete the local dest directory if it exists
+			if (Directory.Exists(Path))
 			{
-				// Delete the intermediate directory on the mac
-				RPCUtilHelper.Command("/", String.Format("rm -rf \"{0}\"", Path), "", null);
-
-				// Create a fresh intermediate after we delete it
-				RPCUtilHelper.Command("/", String.Format("mkdir -p \"{0}\"", Path), "", null);
+				// this can deal with linked files
+				RunExecutableAndWait("rm", String.Format("-rf \"{0}\"", Path), out ResultsText);
 			}
-			else
-			{
-				string ResultsText;
 
-				// Delete the local dest directory if it exists
-				if (Directory.Exists(Path))
-				{
-					// this can deal with linked files
-					RunExecutableAndWait("rm", String.Format("-rf \"{0}\"", Path), out ResultsText);
-				}
-
-				// Create the intermediate local directory
-				RunExecutableAndWait("mkdir", String.Format("-p \"{0}\"", Path), out ResultsText);
-			}
+			// Create the intermediate local directory
+			RunExecutableAndWait("mkdir", String.Format("-p \"{0}\"", Path), out ResultsText);
 		}
 
 		bool IsBitcodeCompilingEnabled(CppConfiguration Configuration)
@@ -770,10 +760,6 @@ namespace UnrealBuildTool
 				FileArguments += string.Format(" \"{0}\"", ConvertPath(SourceFile.AbsolutePath));
 
 				string CompilerPath = Settings.Value.ToolchainDir + IOSCompiler;
-				if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-				{
-					CompileAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
-				}
 
 				string AllArgs = FilePCHArguments + Arguments + FileArguments + CompileEnvironment.AdditionalArguments;
 /*				string SourceText = System.IO.File.ReadAllText(SourceFile.AbsolutePath);
@@ -855,11 +841,6 @@ namespace UnrealBuildTool
 
 			// Create an action that invokes the linker.
 			Action LinkAction = ActionGraph.Add(ActionType.Link);
-
-			if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				LinkAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
-			}
 
 			// RPC utility parameters are in terms of the Mac side
 			LinkAction.WorkingDirectory = GetMacDevSrcRoot();
@@ -955,15 +936,7 @@ namespace UnrealBuildTool
 			{
 				bool bIsUE4Game = LinkEnvironment.OutputFilePath.FullName.Contains("UE4Game");
 				FileReference ResponsePath = FileReference.Combine(((!bIsUE4Game && ProjectFile != null) ? ProjectFile.Directory : UnrealBuildTool.EngineDirectory), "Intermediate", "Build", LinkEnvironment.Platform.ToString(), "LinkFileList_" + LinkEnvironment.OutputFilePath.GetFileNameWithoutExtension() + ".tmp");
-				if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-				{
-					FileItem.CreateIntermediateTextFile(ResponsePath, InputFileNames);
-					RPCUtilHelper.CopyFile(ResponsePath.FullName, ConvertPath(ResponsePath.FullName), true);
-				}
-				else
-				{
-					FileItem.CreateIntermediateTextFile(new FileReference(ConvertPath(ResponsePath.FullName)), InputFileNames);
-				}
+				FileItem.CreateIntermediateTextFile(new FileReference(ConvertPath(ResponsePath.FullName)), InputFileNames);
 				LinkCommandArguments += string.Format(" @\"{0}\"", ConvertPath(ResponsePath.FullName));
 			}
 
@@ -1004,77 +977,65 @@ namespace UnrealBuildTool
 			return RemoteOutputFile;
 		}
 
-        public FileItem CompileAssetCatalogHelper(FileItem Executable, string EngineDir, string BuildDir, string IntermediateDir, ActionGraph ActionGraph, CppPlatform Platform)
-        {
-            // Make a file item for the source and destination files
-            FileItem LocalExecutable = RemoteToLocalFileItem(Executable);
-			int Index = Path.GetFileName(LocalExecutable.AbsolutePath).IndexOf("-");
-			if (Index > 0)
+		static string GetAppBundleName(FileReference Executable)
+		{
+			// Get the app bundle name
+			string AppBundleName = Executable.GetFileNameWithoutExtension();
+
+			// Strip off any platform suffix
+			int SuffixIdx = AppBundleName.IndexOf('-');
+			if(SuffixIdx != -1)
 			{
-				LocalExecutable = FileItem.GetItemByPath(Path.Combine(Path.GetDirectoryName(LocalExecutable.AbsolutePath), Path.GetFileName(LocalExecutable.AbsolutePath).Substring(0, Index)));
+				AppBundleName = AppBundleName.Substring(0, SuffixIdx);
 			}
-            string FullDestPathRoot = Path.Combine(Path.GetDirectoryName(LocalExecutable.AbsolutePath), "AssetCatalog", "Assets.car");
 
-            FileItem OutputFile;
-            if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac && Platform == CppPlatform.IOS)
+			// Append the .app suffix
+			return AppBundleName + ".app";
+		}
+
+		public static FileReference GetAssetCatalogFile(CppPlatform Platform, FileReference Executable)
+		{
+			// Get the output file
+            if (Platform == CppPlatform.IOS)
             {
-                FullDestPathRoot = Path.Combine(Path.GetDirectoryName(LocalExecutable.AbsolutePath), "Payload", Path.GetFileNameWithoutExtension(LocalExecutable.AbsolutePath) + ".app", "Assets.car");
+                return FileReference.Combine(Executable.Directory, "Payload", GetAppBundleName(Executable), "Assets.car");
             }
+			else
+			{
+				return FileReference.Combine(Executable.Directory, "AssetCatalog", "Assets.car");
+			}
+		}
 
-            // Delete the Assets.car file to force the asset catalog to build every time, because
-            // removals of files or copies of icons (for instance) with a timestamp earlier than
-            // the last generated Assets.car will result in nothing built.
-            if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
-            {
-                if (File.Exists(FullDestPathRoot))
-                {
-                    File.Delete(FullDestPathRoot);
-                }
-            }
-
-            OutputFile = FileItem.GetItemByPath(FullDestPathRoot);
-
-            if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-            {
-                string RemoteFilename = ConvertPath(OutputFile.AbsolutePath);
-                RPCUtilHelper.Command("/", String.Format("rm -f {0}", RemoteFilename), "", null);
-            }
-
-            // Make the compile action
-            Action CompileAssetAction = ActionGraph.Add(ActionType.CreateAppBundle);
-            if (!Utils.IsRunningOnMono)
-            {
-                CompileAssetAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
-            }
-
-            CompileAssetAction.WorkingDirectory = GetMacDevSrcRoot();
-            CompileAssetAction.CommandPath = "/usr/bin/xcrun";
-
-            FileItem AssetCat = FileItem.GetItemByPath(Path.Combine(IntermediateDir, "Resources", "Assets.xcassets"));
-            FileItem DestFile = LocalToRemoteFileItem(OutputFile, false);
-            FileItem InputFile = LocalToRemoteFileItem(AssetCat, BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac);
-
-            string Arguments = "";
-            Arguments += " actool --output-format human-readable-text --notices --warnings";
-            Arguments += " --output-partial-info-plist \"";
-            Arguments += Path.GetDirectoryName(InputFile.AbsolutePath).Replace("\\", "/") + "/assetcatalog_generated_info.plist\"";
-            Arguments += " --app-icon AppIcon";
-            Arguments += Platform == CppPlatform.TVOS ? " --launch-image LaunchImage" : "";
-//            Arguments += " --compress-pngs";
-            Arguments += " --enable-on-demand-resources YES";
-            Arguments += Platform == CppPlatform.TVOS ? " --filter-for-device-model AppleTV5,3 --filter-for-device-os-version 9.2" : "";
-            Arguments += Platform == CppPlatform.TVOS ? " --target-device tv --minimum-deployment-target 9.2 --platform appletvos" : " --target-device iphone --target-device ipad --minimum-deployment-target 9.0 --platform iphoneos --product-type com.apple.product-type.application";
-            Arguments += " --compile \"";
-            Arguments += Path.GetDirectoryName(DestFile.AbsolutePath).Replace("\\", "/") + "\" \"" + InputFile.AbsolutePath + "\"";
-
-            CompileAssetAction.CommandArguments = Arguments;
-            CompileAssetAction.PrerequisiteItems.Add(Executable);
-            CompileAssetAction.ProducedItems.Add(DestFile);
-            CompileAssetAction.StatusDescription = CompileAssetAction.CommandArguments;// string.Format("Generating debug info for {0}", Path.GetFileName(Executable.AbsolutePath));
-            CompileAssetAction.bCanExecuteRemotely = false;
-
-            return DestFile;
-        }
+		public static string GetAssetCatalogArgs(CppPlatform Platform, string InputDir, string OutputDir)
+		{
+			StringBuilder Arguments = new StringBuilder("actool");
+            Arguments.Append(" --output-format human-readable-text");
+			Arguments.Append(" --notices");
+			Arguments.Append(" --warnings");
+            Arguments.AppendFormat(" --output-partial-info-plist '{0}/assetcatalog_generated_info.plist'", InputDir);
+            Arguments.Append(" --app-icon AppIcon");
+			if(Platform == CppPlatform.TVOS)
+			{
+				Arguments.Append(" --launch-image LaunchImage");
+				Arguments.Append(" --filter-for-device-model AppleTV5,3");
+				Arguments.Append(" --filter-for-device-os-version 9.2");
+				Arguments.Append(" --target-device tv");
+				Arguments.Append(" --minimum-deployment-target 9.2");
+				Arguments.Append(" --platform appletvos");
+			}
+			else
+			{
+				Arguments.Append(" --product-type com.apple.product-type.application");
+				Arguments.Append(" --target-device iphone");
+				Arguments.Append(" --target-device ipad");
+				Arguments.Append(" --minimum-deployment-target 9.0");
+				Arguments.Append(" --platform iphoneos");
+			}
+            Arguments.Append(" --enable-on-demand-resources YES");
+            Arguments.AppendFormat(" --compile '{0}'", OutputDir);
+			Arguments.AppendFormat(" '{0}/Assets.xcassets'", InputDir);
+			return Arguments.ToString();
+		}
 
         /// <summary>
         /// Generates debug info for a given executable
@@ -1096,10 +1057,6 @@ namespace UnrealBuildTool
 
             // Make the compile action
             Action GenDebugAction = ActionGraph.Add(ActionType.GenerateDebugInfo);
-			if (!Utils.IsRunningOnMono)
-			{
-				GenDebugAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
-			}
 
 			GenDebugAction.WorkingDirectory = GetMacDevSrcRoot();
 			GenDebugAction.CommandPath = "sh";
@@ -1154,14 +1111,6 @@ namespace UnrealBuildTool
             // Make the compile action
             Action GenDebugAction = ActionGraph.Add(ActionType.GenerateDebugInfo);
             GenDebugAction.WorkingDirectory = GetMacDevEngineRoot() + "/Binaries/Mac/";
-            if (!Utils.IsRunningOnMono)
-            {
-                GenDebugAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
-                FileItem DsymExporter = FileItem.GetItemByPath(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "/Binaries/Mac/" + "DsymExporter");
-                QueueFileForBatchUpload(DsymExporter);
-                QueueDirectoryForBatchUpload(new DirectoryReference(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "Binaries/ThirdParty/ICU/icu4c-53_1/Mac/", DirectoryReference.Sanitize.None));
-                QueueDirectoryForBatchUpload(new DirectoryReference(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "Content/Internationalization/", DirectoryReference.Sanitize.None));
-            }
 
             GenDebugAction.CommandPath = "sh";
             GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; dwarfdump --uuid \"{3}\" | cut -d\" \" -f2; chmod 777 ./DsymExporter; ./DsymExporter -UUID=$(dwarfdump --uuid \"{3}\" | cut -d\" \" -f2) \"{0}\" \"{2}\"'",
@@ -1291,20 +1240,8 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public static new void PreBuildSync()
+		public static void PreBuildSync()
 		{
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				BuiltBinaries = new List<FileReference>();
-				DirectoryReference BinaryIOS = new DirectoryReference(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "Binaries/IOS/", DirectoryReference.Sanitize.None);
-				if (DirectoryReference.Exists(BinaryIOS))
-				{
-					QueueDirectoryForBatchUpload(BinaryIOS);
-				}
-			}
-
-			RemoteToolChain.PreBuildSync();
-
 			// Unzip any third party frameworks that are stored as zips
 			foreach (UEBuildFramework Framework in RememberedAdditionalFrameworks)
 			{
@@ -1318,30 +1255,21 @@ namespace UnrealBuildTool
 				// Assume that there is another directory inside the zip with the same name as the zip
 				ZipDstPath = ZipDstPath.Substring(0, ZipDstPath.LastIndexOf('/'));
 
-				if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
-				{
-					// If we're on the mac, just unzip using the shell
-					string ResultsText;
-					RunExecutableAndWait("unzip", String.Format("-o \"{0}\" -d \"{1}\"", ZipSrcPath, ZipDstPath), out ResultsText);
-					continue;
-				}
-				else
-				{
-					// Use RPC utility if the zip is on remote mac
-					Hashtable Result = RPCUtilHelper.Command("/", String.Format("unzip -o \"{0}\" -d \"{1}\"", ZipSrcPath, ZipDstPath), "", null);
-
-					foreach (DictionaryEntry Entry in Result)
-					{
-						Log.TraceInformation("{0}", Entry.Value);
-					}
-				}
+				// If we're on the mac, just unzip using the shell
+				string ResultsText;
+				RunExecutableAndWait("unzip", String.Format("-o \"{0}\" -d \"{1}\"", ZipSrcPath, ZipDstPath), out ResultsText);
 			}
         }
 
-        public void GenerateAssetCatalogHelper(string EngineDir, string BuildDir, string IntermediateDir, CppPlatform Platform, ref bool bUserImagesExist)
+        public static DirectoryReference GenerateAssetCatalog(FileReference ProjectFile, CppPlatform Platform, ref bool bUserImagesExist)
         {
+            string EngineDir = UnrealBuildTool.EngineDirectory.ToString();
+            string BuildDir = (((ProjectFile != null) ? ProjectFile.Directory.ToString() : (string.IsNullOrEmpty(UnrealBuildTool.GetRemoteIniPath()) ? UnrealBuildTool.EngineDirectory.ToString() : UnrealBuildTool.GetRemoteIniPath()))) + "/Build/" + (Platform == CppPlatform.IOS ? "IOS" : "TVOS");
+            string IntermediateDir = (((ProjectFile != null) ? ProjectFile.Directory.ToString() : UnrealBuildTool.EngineDirectory.ToString())) + "/Intermediate/" + (Platform == CppPlatform.IOS ? "IOS" : "TVOS");
+
             bUserImagesExist = false;
 
+			string ResourcesDir = Path.Combine(IntermediateDir, "Resources");
             if (Platform == CppPlatform.TVOS)
             {
                 string[] Directories = { "Assets.xcassets",
@@ -1405,7 +1333,7 @@ namespace UnrealBuildTool
                 // create asset catalog for images
                 for (int i = 0; i < Directories.Length; ++i)
                 {
-                    string Dir = Path.Combine(IntermediateDir, "Resources", Directories[i]);
+                    string Dir = Path.Combine(ResourcesDir, Directories[i]);
                     if (!Directory.Exists(Dir))
                     {
                         Directory.CreateDirectory(Dir);
@@ -1431,7 +1359,7 @@ namespace UnrealBuildTool
             else
             {
                 // copy the template asset catalog to the appropriate directory
-                string Dir = Path.Combine(IntermediateDir, "Resources", "Assets.xcassets");
+                string Dir = Path.Combine(ResourcesDir, "Assets.xcassets");
                 if (!Directory.Exists(Dir))
                 {
                     Directory.CreateDirectory(Dir);
@@ -1500,6 +1428,7 @@ namespace UnrealBuildTool
                     }
                 }
             }
+			return new DirectoryReference(ResourcesDir);
         }
 
         public override ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment BinaryLinkEnvironment, ActionGraph ActionGraph)
@@ -1521,32 +1450,37 @@ namespace UnrealBuildTool
                 }
             }
 
-            // generate the asset catalog
-            bool bUserImagesExist = false;
-            GenerateAssetCatalog(BinaryLinkEnvironment.Platform, ref bUserImagesExist);
-            CompileAssetCatalog(Executable, BinaryLinkEnvironment.Platform, ActionGraph, OutputFiles);
+			if(ShouldCompileAssetCatalog())
+			{
+				// generate the asset catalog
+				bool bUserImagesExist = false;
+				DirectoryReference ResourcesDir = GenerateAssetCatalog(ProjectFile, BinaryLinkEnvironment.Platform, ref bUserImagesExist);
+
+				// Get the output location for the asset catalog
+				FileItem AssetCatalogFile = FileItem.GetItemByFileReference(GetAssetCatalogFile(CppPlatform, Executable.Location));
+
+				// Make the compile action
+				Action CompileAssetAction = ActionGraph.Add(ActionType.CreateAppBundle);
+				CompileAssetAction.WorkingDirectory = GetMacDevSrcRoot();
+				CompileAssetAction.CommandPath = "/usr/bin/xcrun";
+				CompileAssetAction.CommandArguments = GetAssetCatalogArgs(CppPlatform, ResourcesDir.FullName, Path.GetDirectoryName(AssetCatalogFile.AbsolutePath));
+				CompileAssetAction.PrerequisiteItems.Add(Executable);
+				CompileAssetAction.ProducedItems.Add(AssetCatalogFile);
+				CompileAssetAction.DeleteItems.Add(AssetCatalogFile);
+				CompileAssetAction.StatusDescription = CompileAssetAction.CommandArguments;// string.Format("Generating debug info for {0}", Path.GetFileName(Executable.AbsolutePath));
+				CompileAssetAction.bCanExecuteRemotely = false;
+
+				// Add it to the output files so it's always built
+				OutputFiles.Add(AssetCatalogFile);
+			}
 
 			return OutputFiles;
         }
 
-        public void GenerateAssetCatalog(CppPlatform Platform, ref bool bUserImagesExist)
-        {
-            string EngineDir = UnrealBuildTool.EngineDirectory.ToString();
-            string BuildDir = (((ProjectFile != null) ? ProjectFile.Directory.ToString() : (string.IsNullOrEmpty(UnrealBuildTool.GetRemoteIniPath()) ? UnrealBuildTool.EngineDirectory.ToString() : UnrealBuildTool.GetRemoteIniPath()))) + "/Build/" + (Platform == CppPlatform.IOS ? "IOS" : "TVOS");
-            string IntermediateDir = (((ProjectFile != null) ? ProjectFile.Directory.ToString() : UnrealBuildTool.EngineDirectory.ToString())) + "/Intermediate/" + (Platform == CppPlatform.IOS ? "IOS" : "TVOS");
-            GenerateAssetCatalogHelper(EngineDir, BuildDir, IntermediateDir, Platform, ref bUserImagesExist);
-        }
-
-        public void CompileAssetCatalog(FileItem Executable, CppPlatform Platform, ActionGraph ActionGraph, ICollection<FileItem> OutputFiles)
-        {
-            if (CppPlatform == CppPlatform.TVOS || (CppPlatform == CppPlatform.IOS && Settings.Value.IOSSDKVersionFloat >= 11.0f))
-            {
-                string EngineDir = UnrealBuildTool.EngineDirectory.ToString();
-                string BuildDir = (((ProjectFile != null) ? ProjectFile.Directory.ToString() : (string.IsNullOrEmpty(UnrealBuildTool.GetRemoteIniPath()) ? UnrealBuildTool.EngineDirectory.ToString() : UnrealBuildTool.GetRemoteIniPath()))) + "/Build/" + (Platform == CppPlatform.IOS ? "IOS" : "TVOS");
-                string IntermediateDir = (((ProjectFile != null) ? ProjectFile.Directory.ToString() : UnrealBuildTool.EngineDirectory.ToString())) + "/Intermediate/" + (Platform == CppPlatform.IOS ? "IOS" : "TVOS");
-                OutputFiles.Add(CompileAssetCatalogHelper(Executable, EngineDir, BuildDir, IntermediateDir, ActionGraph, Platform));
-            }
-        }
+		public bool ShouldCompileAssetCatalog()
+		{
+            return CppPlatform == CppPlatform.TVOS || (CppPlatform == CppPlatform.IOS && Settings.Value.IOSSDKVersionFloat >= 11.0f);
+		}
 
 		public static string GetCodesignPlatformName(UnrealTargetPlatform Platform)
 		{
@@ -1558,6 +1492,45 @@ namespace UnrealBuildTool
 					return "iphoneos";
 				default:
 					throw new BuildException("Invalid platform for GetCodesignPlatformName()");
+			}
+		}
+
+		class ProcessOutput
+		{
+			/// <summary>
+			/// Substrings that indicate a line contains an error
+			/// </summary>
+			protected static readonly string[] ErrorMessageTokens =
+			{
+				"ERROR ",
+				"** BUILD FAILED **",
+				"[BEROR]",
+				"IPP ERROR",
+				"System.Net.Sockets.SocketException"
+			};
+
+			/// <summary>
+			/// Helper function to sync source files to and from the local system and a remote Mac
+			/// </summary>
+			//This chunk looks to be required to pipe output to VS giving information on the status of a remote build.
+			public bool OutputReceivedDataEventHandlerEncounteredError = false;
+			public string OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
+			public void OutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs Line)
+			{
+				if ((Line != null) && (Line.Data != null))
+				{
+					Log.TraceInformation(Line.Data);
+
+					foreach (string ErrorToken in ErrorMessageTokens)
+					{
+						if (Line.Data.Contains(ErrorToken))
+						{
+							OutputReceivedDataEventHandlerEncounteredError = true;
+							OutputReceivedDataEventHandlerEncounteredErrorMessage += Line.Data;
+							break;
+						}
+					}
+				}
 			}
 		}
 
@@ -1574,15 +1547,16 @@ namespace UnrealBuildTool
 				FabricProcess.StartInfo.Arguments = string.Format("-c 'chmod 777 \"{0}/Fabric.framework/upload-symbols\"; \"{0}/Fabric.framework/upload-symbols\" -a 7a4cebd0324af21696e5e321802c5e26ba541cad -p ios {1}'",
                     FabricPath,
 					ExecutableDirectory + "/" + ExecutableName + ".dSYM.zip");
-                FabricProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedDataEventHandler);
-                FabricProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedDataEventHandler);
 
-                OutputReceivedDataEventHandlerEncounteredError = false;
-                OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
+				ProcessOutput Output = new ProcessOutput();
+
+                FabricProcess.OutputDataReceived += new DataReceivedEventHandler(Output.OutputReceivedDataEventHandler);
+                FabricProcess.ErrorDataReceived += new DataReceivedEventHandler(Output.OutputReceivedDataEventHandler);
+
                 Utils.RunLocalProcess(FabricProcess);
-                if (OutputReceivedDataEventHandlerEncounteredError)
+                if (Output.OutputReceivedDataEventHandlerEncounteredError)
                 {
-                    throw new Exception(OutputReceivedDataEventHandlerEncounteredErrorMessage);
+                    throw new Exception(Output.OutputReceivedDataEventHandlerEncounteredErrorMessage);
                 }
             }
         }
@@ -1603,438 +1577,246 @@ namespace UnrealBuildTool
 
 			string AppName = Target.TargetType == TargetType.Game ? Target.TargetName : Target.AppName;
 
-			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
+			string RemoteShadowDirectoryMac = Path.GetDirectoryName(Target.OutputPath.FullName);
+			string FinalRemoteExecutablePath = String.Format("{0}/Payload/{1}.app/{1}", RemoteShadowDirectoryMac, AppName);
+
+			// strip the debug info from the executable if needed
+			if (Target.Rules.bStripSymbolsOnIOS || (Target.Configuration == UnrealTargetConfiguration.Shipping))
 			{
-				string RemoteShadowDirectoryMac = Path.GetDirectoryName(Target.OutputPath.FullName);
-				string FinalRemoteExecutablePath = String.Format("{0}/Payload/{1}.app/{1}", RemoteShadowDirectoryMac, AppName);
+				Process StripProcess = new Process();
+				StripProcess.StartInfo.WorkingDirectory = RemoteShadowDirectoryMac;
+				StripProcess.StartInfo.FileName = new IOSToolChainSettings().ToolchainDir + "strip";
+				StripProcess.StartInfo.Arguments = "\"" + Target.OutputPath + "\"";
 
-				// strip the debug info from the executable if needed
-				if (Target.Rules.bStripSymbolsOnIOS || (Target.Configuration == UnrealTargetConfiguration.Shipping))
+				ProcessOutput Output = new ProcessOutput();
+				StripProcess.OutputDataReceived += new DataReceivedEventHandler(Output.OutputReceivedDataEventHandler);
+				StripProcess.ErrorDataReceived += new DataReceivedEventHandler(Output.OutputReceivedDataEventHandler);
+
+				Output.OutputReceivedDataEventHandlerEncounteredError = false;
+				Output.OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
+				Utils.RunLocalProcess(StripProcess);
+				if (Output.OutputReceivedDataEventHandlerEncounteredError)
 				{
-					Process StripProcess = new Process();
-					StripProcess.StartInfo.WorkingDirectory = RemoteShadowDirectoryMac;
-					StripProcess.StartInfo.FileName = new IOSToolChainSettings().ToolchainDir + "strip";
-					StripProcess.StartInfo.Arguments = "\"" + Target.OutputPath + "\"";
-					StripProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedDataEventHandler);
-					StripProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedDataEventHandler);
+					throw new Exception(Output.OutputReceivedDataEventHandlerEncounteredErrorMessage);
+				}
+			}
 
-					OutputReceivedDataEventHandlerEncounteredError = false;
-					OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
-					Utils.RunLocalProcess(StripProcess);
-					if (OutputReceivedDataEventHandlerEncounteredError)
+            // ensure the plist, entitlements, and provision files are properly copied
+            UEDeployIOS DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
+            DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target));
+
+			// copy the executable
+			if (!File.Exists(FinalRemoteExecutablePath))
+			{
+				Directory.CreateDirectory(String.Format("{0}/Payload/{1}.app", RemoteShadowDirectoryMac, AppName));
+			}
+			File.Copy(Target.OutputPath.FullName, FinalRemoteExecutablePath, true);
+
+			if (!Target.Rules.IOSPlatform.bSkipCrashlytics)
+			{
+				GenerateCrashlyticsData(RemoteShadowDirectoryMac, Path.GetFileName(Target.OutputPath.FullName), Target.ProjectDirectory.FullName, AppName);
+			}
+
+			if (Target.Rules.bCreateStubIPA)
+			{
+				string Project = Target.ProjectDirectory + "/" + AppName + ".uproject";
+
+				string SchemeName = AppName;
+
+				// generate the dummy project so signing works
+				if (AppName == "UE4Game" || AppName == "UE4Client" || Utils.IsFileUnderDirectory(Target.ProjectDirectory + "/" + AppName + ".uproject", Path.GetFullPath("../..")))
+				{
+					UnrealBuildTool.GenerateProjectFiles(new XcodeProjectFileGenerator(Target.ProjectFile), new string[] { "-platforms=" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS"), "-NoIntellIsense", (Target.Platform == UnrealTargetPlatform.IOS ? "-iosdeployonly" : "-tvosdeployonly"), "-ignorejunk" });
+					Project = Path.GetFullPath("../..") + "/UE4_" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS") + ".xcworkspace";
+					if (AppName == "UE4Game" || AppName == "UE4Client")
 					{
-						throw new Exception(OutputReceivedDataEventHandlerEncounteredErrorMessage);
+						SchemeName = "UE4";
 					}
 				}
-
-                // ensure the plist, entitlements, and provision files are properly copied
-                UEDeployIOS DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
-                DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target));
-
-				// copy the executable
-				if (!File.Exists(FinalRemoteExecutablePath))
+				else
 				{
-					Directory.CreateDirectory(String.Format("{0}/Payload/{1}.app", RemoteShadowDirectoryMac, AppName));
-				}
-				File.Copy(Target.OutputPath.FullName, FinalRemoteExecutablePath, true);
-
-				if (!Target.Rules.IOSPlatform.bSkipCrashlytics)
-				{
-					GenerateCrashlyticsData(RemoteShadowDirectoryMac, Path.GetFileName(Target.OutputPath.FullName), Target.ProjectDirectory.FullName, AppName);
+					UnrealBuildTool.GenerateProjectFiles(new XcodeProjectFileGenerator(Target.ProjectFile), new string[] { "-platforms" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS"), "-NoIntellIsense", (Target.Platform == UnrealTargetPlatform.IOS ? "-iosdeployonly" : "-tvosdeployonly"), "-ignorejunk", "-project=\"" + Target.ProjectDirectory + "/" + AppName + ".uproject\"", "-game" });
+					Project = Target.ProjectDirectory + "/" + AppName + "_" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS") + ".xcworkspace";
 				}
 
-				if (Target.Rules.bCreateStubIPA)
+				if (Directory.Exists(Project))
 				{
-					string Project = Target.ProjectDirectory + "/" + AppName + ".uproject";
+					// ensure the plist, entitlements, and provision files are properly copied
+					DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
+					DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target));
 
-					string SchemeName = AppName;
-
-                    // generate the dummy project so signing works
-                    if (AppName == "UE4Game" || AppName == "UE4Client" || Utils.IsFileUnderDirectory(Target.ProjectDirectory + "/" + AppName + ".uproject", Path.GetFullPath("../..")))
+					string ConfigName = Target.Configuration.ToString();
+					if (Target.Rules.Type != TargetType.Game && Target.Rules.Type != TargetType.Program)
 					{
-						UnrealBuildTool.GenerateProjectFiles(new XcodeProjectFileGenerator(Target.ProjectFile), new string[] { "-platforms=" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS"), "-NoIntellIsense", (Target.Platform == UnrealTargetPlatform.IOS ? "-iosdeployonly" : "-tvosdeployonly"), "-ignorejunk" });
-						Project = Path.GetFullPath("../..") + "/UE4_" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS") + ".xcworkspace";
-                        if (AppName == "UE4Game" || AppName == "UE4Client")
-                        {
-                            SchemeName = "UE4";
-                        }
-					}
-					else
-					{
-						UnrealBuildTool.GenerateProjectFiles(new XcodeProjectFileGenerator(Target.ProjectFile), new string[] { "-platforms" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS"), "-NoIntellIsense", (Target.Platform == UnrealTargetPlatform.IOS ? "-iosdeployonly" : "-tvosdeployonly"), "-ignorejunk", "-project=\"" + Target.ProjectDirectory + "/" + AppName + ".uproject\"", "-game" });
-						Project = Target.ProjectDirectory + "/" + AppName + "_" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS") + ".xcworkspace";
+						ConfigName += " " + Target.Rules.Type.ToString();
 					}
 
-					if (Directory.Exists(Project))
+					FileReference SignProjectScript = FileReference.Combine(Target.ProjectIntermediateDirectory, "SignProject.sh");
+					using(StreamWriter Writer = new StreamWriter(SignProjectScript.FullName))
 					{
-                        // ensure the plist, entitlements, and provision files are properly copied
-                        DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
-                        DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target));
+						// Boilerplate
+						Writer.WriteLine("#!/bin/sh");
+						Writer.WriteLine("set -e");
+						Writer.WriteLine("set -x");
 
-						string ConfigName = Target.Configuration.ToString();
-						if (Target.Rules.Type != TargetType.Game && Target.Rules.Type != TargetType.Program)
+						// Copy the mobile provision into the system store
+						if(Target.Rules.IOSPlatform.ImportProvision != null)
 						{
-							ConfigName += " " + Target.Rules.Type.ToString();
+							Writer.WriteLine("cp -f {0} ~/Library/MobileDevice/Provisioning\\ Profiles/", Utils.EscapeShellArgument(Target.Rules.IOSPlatform.ImportProvision));
+						}
+
+						// Path to the temporary keychain. When -ImportCertificate is specified, we will temporarily add this to the list of keychains to search, and remove it later.
+						FileReference TempKeychain = null;
+
+						// Get the signing certificate to use
+						string SigningCertificate;
+						if(Target.Rules.IOSPlatform.ImportCertificate == null)
+						{
+							// Take it from the standard settings
+							IOSProvisioningData ProvisioningData = IOSPlatform.ReadProvisioningData(Target.ProjectFile);
+							SigningCertificate = ProvisioningData.SigningCertificate;
+
+							// Set the identity on the command line
+							if(!ProjectSettings.bAutomaticSigning)
+							{
+								Writer.WriteLine("CODE_SIGN_IDENTITY='{0}'", String.IsNullOrEmpty(SigningCertificate)? "IPhoneDeveloper" : SigningCertificate);
+							}
+						}
+						else
+						{
+							// Read the name from the certificate
+							X509Certificate2 Certificate;
+							try
+							{
+								Certificate = new X509Certificate2(Target.Rules.IOSPlatform.ImportCertificate, Target.Rules.IOSPlatform.ImportCertificatePassword ?? "");
+							}
+							catch(Exception Ex)
+							{
+								throw new BuildException(Ex, "Unable to read certificate '{0}': {1}", Target.Rules.IOSPlatform.ImportCertificate, Ex.Message);
+							}
+							SigningCertificate = Certificate.GetNameInfo(X509NameType.SimpleName, false);
+
+							// Set the path to the temporary keychain
+							TempKeychain = FileReference.Combine(Target.ProjectIntermediateDirectory, "TempKeychain.keychain");//(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.UserProfile), "Library", "Keychains/UE4TempKeychain.keychain";
+
+							// Install a certificate given on the command line to a temporary keychain
+							Writer.WriteLine("security delete-keychain \"{0}\" || true", TempKeychain);
+							Writer.WriteLine("security create-keychain -p \"A\" \"{0}\"", TempKeychain);
+							Writer.WriteLine("security list-keychains -s \"{0}\"", TempKeychain);
+							Writer.WriteLine("security list-keychains");
+							Writer.WriteLine("security set-keychain-settings -t 3600 -l  \"{0}\"", TempKeychain);
+							Writer.WriteLine("security -v unlock-keychain -p \"A\" \"{0}\"", TempKeychain);
+							Writer.WriteLine("security import {0} -P {1} -k \"{2}\" -T /usr/bin/codesign -T /usr/bin/security -t agg", Utils.EscapeShellArgument(Target.Rules.IOSPlatform.ImportCertificate), Utils.EscapeShellArgument(Target.Rules.IOSPlatform.ImportCertificatePassword), TempKeychain);
+							Writer.WriteLine("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \"A\" -D '{0}' -t private {1}", SigningCertificate, TempKeychain);
+
+							// Set parameters to make sure it uses the correct identity and keychain
+							Writer.WriteLine("CERT_IDENTITY='{0}'", SigningCertificate);
+							Writer.WriteLine("CODE_SIGN_IDENTITY='{0}'", SigningCertificate);
+							Writer.WriteLine("CODE_SIGN_KEYCHAIN='{0}'", TempKeychain);
+						}
+
+						FileReference MobileProvisionFile;
+						string MobileProvisionUUID;
+						string TeamUUID;
+						if(Target.Rules.IOSPlatform.ImportProvision == null)
+						{
+							IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProvisioningData(ProjectSettings);
+							MobileProvisionFile = ProvisioningData.MobileProvisionFile;
+							MobileProvisionUUID = ProvisioningData.MobileProvisionUUID;
+							TeamUUID = ProvisioningData.TeamUUID;
+						}
+						else
+						{
+							MobileProvisionFile = new FileReference(Target.Rules.IOSPlatform.ImportProvision);
+
+							MobileProvisionContents MobileProvision = MobileProvisionContents.Read(MobileProvisionFile);
+							MobileProvisionUUID = MobileProvision.GetUniqueId();
+
+							TeamUUID = null;
 						}
 
 						// code sign the project
-						IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProvisioningData(ProjectSettings);
+						Console.WriteLine("Provisioning: {0}, {1}, {2}", MobileProvisionFile, MobileProvisionFile.GetFileName(), MobileProvisionUUID);
 						string CmdLine = new IOSToolChainSettings().XcodeDeveloperDir + "usr/bin/xcodebuild" +
 										" -workspace \"" + Project + "\"" +
 										" -configuration \"" + ConfigName + "\"" +
 										" -scheme '" + SchemeName + "'" +
 										" -sdk " + GetCodesignPlatformName(Target.Platform) +
 										" -destination generic/platform=" + (Target.Platform == UnrealTargetPlatform.IOS ? "iOS" : "tvOS") + 
-						                (!string.IsNullOrEmpty(ProvisioningData.TeamUUID) ? " DEVELOPMENT_TEAM=" + ProvisioningData.TeamUUID : "");
+										(!string.IsNullOrEmpty(TeamUUID) ? " DEVELOPMENT_TEAM=" + TeamUUID : "");
+						CmdLine += String.Format(" CODE_SIGN_IDENTITY='{0}'", SigningCertificate);
 						if (!ProjectSettings.bAutomaticSigning)
 						{
-							CmdLine += " CODE_SIGN_IDENTITY=\"" + (!string.IsNullOrEmpty(ProvisioningData.SigningCertificate) ? ProvisioningData.SigningCertificate : "IPhoneDeveloper") + "\"" +
-							(!string.IsNullOrEmpty(ProvisioningData.MobileProvisionUUID) ? (" PROVISIONING_PROFILE_SPECIFIER=" + ProvisioningData.MobileProvisionUUID) : "");
+							CmdLine += (!string.IsNullOrEmpty(MobileProvisionUUID) ? (" PROVISIONING_PROFILE_SPECIFIER=" + MobileProvisionUUID) : "");
 						}
-						else
+						Writer.WriteLine("/usr/bin/xcrun {0}", CmdLine);
+
+						// Remove the temporary keychain from the search list
+						if(TempKeychain != null)
 						{
-							CmdLine += " CODE_SIGN_IDENTITY=\"iPhone Developer\"";
+							Writer.WriteLine("security delete-keychain \"{0}\" || true", TempKeychain);
 						}
-
-                        Log.TraceInformation("Code signing with command line: " + CmdLine);
-
-						Process SignProcess = new Process();
-						SignProcess.StartInfo.WorkingDirectory = RemoteShadowDirectoryMac;
-						SignProcess.StartInfo.FileName = "/usr/bin/xcrun";
-						SignProcess.StartInfo.Arguments = CmdLine;
-						SignProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedDataEventHandler);
-						SignProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedDataEventHandler);
-
-						OutputReceivedDataEventHandlerEncounteredError = false;
-						OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
-						Utils.RunLocalProcess(SignProcess);
-
-						// delete the temp project
-						if (Project.Contains("_" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS") + ".xcodeproj"))
-						{
-							Directory.Delete(Project, true);
-						}
-
-						if (OutputReceivedDataEventHandlerEncounteredError)
-						{
-							throw new Exception(OutputReceivedDataEventHandlerEncounteredErrorMessage);
-						}
-
-						// Package the stub
-						PackageStub(RemoteShadowDirectoryMac, AppName, Target.OutputPath.GetFileNameWithoutExtension());
 					}
-				}
 
-				{
-					// Copy bundled assets from additional frameworks to the intermediate assets directory (so they can get picked up during staging)
-					String LocalFrameworkAssets = Path.GetFullPath(Target.ProjectDirectory + "/Intermediate/" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS") + "/FrameworkAssets");
+					Log.TraceInformation("Executing {0}", SignProjectScript);
 
-					// Clean the local dest directory if it exists
-					CleanIntermediateDirectory(LocalFrameworkAssets);
+					Process SignProcess = new Process();
+					SignProcess.StartInfo.WorkingDirectory = RemoteShadowDirectoryMac;
+					SignProcess.StartInfo.FileName = "/bin/sh";
+					SignProcess.StartInfo.Arguments = SignProjectScript.FullName;
 
-					foreach (UEBuildFramework Framework in RememberedAdditionalFrameworks)
+					ProcessOutput Output = new ProcessOutput();
+
+					SignProcess.OutputDataReceived += new DataReceivedEventHandler(Output.OutputReceivedDataEventHandler);
+					SignProcess.ErrorDataReceived += new DataReceivedEventHandler(Output.OutputReceivedDataEventHandler);
+
+					Output.OutputReceivedDataEventHandlerEncounteredError = false;
+					Output.OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
+					Utils.RunLocalProcess(SignProcess);
+
+					// delete the temp project
+					if (Project.Contains("_" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS") + ".xcodeproj"))
 					{
-						if (Framework.OwningModule == null || Framework.CopyBundledAssets == null || Framework.CopyBundledAssets == "")
-						{
-							continue;		// Only care if we need to copy bundle assets
-						}
+						Directory.Delete(Project, true);
+					}
 
-						string UnpackedZipPath = GetRemoteIntermediateFrameworkZipPath(Framework);
+					if (Output.OutputReceivedDataEventHandlerEncounteredError)
+					{
+						throw new Exception(Output.OutputReceivedDataEventHandlerEncounteredErrorMessage);
+					}
 
-						// For now, this is hard coded, but we need to loop over all modules, and copy bundled assets that need it
-						string LocalSource = UnpackedZipPath + "/" + Framework.CopyBundledAssets;
-						string BundleName = Framework.CopyBundledAssets.Substring(Framework.CopyBundledAssets.LastIndexOf('/') + 1);
-						string LocalDest = LocalFrameworkAssets + "/" + BundleName;
-
-						Log.TraceInformation("Copying bundled asset... LocalSource: {0}, LocalDest: {1}", LocalSource, LocalDest);
-
-						string ResultsText;
-                        RunExecutableAndWait("cp", String.Format("-R -L \"{0}\" \"{1}\"", LocalSource, LocalDest), out ResultsText);
-                    }
-                }
+					// Package the stub
+					PackageStub(RemoteShadowDirectoryMac, AppName, Target.OutputPath.GetFileNameWithoutExtension());
+				}
 			}
-			else
+
 			{
-				// store off the binaries
-				foreach (UEBuildBinary Binary in Target.Binaries)
+				// Copy bundled assets from additional frameworks to the intermediate assets directory (so they can get picked up during staging)
+				String LocalFrameworkAssets = Path.GetFullPath(Target.ProjectDirectory + "/Intermediate/" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS") + "/FrameworkAssets");
+
+				// Clean the local dest directory if it exists
+				CleanIntermediateDirectory(LocalFrameworkAssets);
+
+				foreach (UEBuildFramework Framework in RememberedAdditionalFrameworks)
 				{
-					BuiltBinaries.Add(Binary.OutputFilePath);
-				}
-
-				// check to see if the DangerouslyFast mode is valid (in other words, a build has gone through since a Rebuild/Clean operation)
-				FileReference DangerouslyFastValidFile = FileReference.Combine(Target.ProjectIntermediateDirectory, "DangerouslyFastIsNotDangerous");
-				bool bUseDangerouslyFastModeWasRequested = bUseDangerouslyFastMode;
-				if (bUseDangerouslyFastMode)
-				{
-					if (!FileReference.Exists(DangerouslyFastValidFile))
+					if (Framework.OwningModule == null || Framework.CopyBundledAssets == null || Framework.CopyBundledAssets == "")
 					{
-						Log.TraceInformation("Dangeroulsy Fast mode was requested, but a slow mode hasn't completed. Performing slow now...");
-						bUseDangerouslyFastMode = false;
-					}
-				}
-
-				foreach (FileReference FilePath in BuiltBinaries)
-				{
-					string RemoteExecutablePath = ConvertPath(FilePath.FullName);
-
-					// when going super fast, just copy the executable to the final resting spot
-					if (bUseDangerouslyFastMode)
-					{
-						Log.TraceInformation("==============================================================================");
-						Log.TraceInformation("USING DANGEROUSLY FAST MODE! IF YOU HAVE ANY PROBLEMS, TRY A REBUILD/CLEAN!!!!");
-						Log.TraceInformation("==============================================================================");
-
-						// copy the executable
-						string RemoteShadowDirectoryMac = ConvertPath(Path.GetDirectoryName(Target.OutputPath.FullName));
-						string FinalRemoteExecutablePath = String.Format("{0}/Payload/{1}.app/{1}", RemoteShadowDirectoryMac, Target.TargetName);
-						RPCUtilHelper.Command("/", String.Format("cp -f {0} {1}", RemoteExecutablePath, FinalRemoteExecutablePath), "", null);
-					}
-					else if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-					{
-						RPCUtilHelper.CopyFile(RemoteExecutablePath, FilePath.FullName, false);
-
-						if ((ProjectSettings.bGeneratedSYMFile == true || ProjectSettings.bGeneratedSYMBundle == true) && Path.GetExtension(FilePath.FullName) != ".a")
-						{
-							string DSYMExt;
-							if(ProjectSettings.bGeneratedSYMBundle)
-							{
-								DSYMExt = ".dSYM.zip";
-							}
-							else
-							{
-								DSYMExt = ".dSYM";
-							}
-							RPCUtilHelper.CopyFile(RemoteExecutablePath + DSYMExt, FilePath.FullName + DSYMExt, false);
-                            if (ProjectSettings.bGenerateCrashReportSymbols || Target.Rules.bUseMallocProfiler)
-                            {
-                                RPCUtilHelper.CopyFile(RemoteExecutablePath + ".udebugsymbols", FilePath.FullName + ".udebugsymbols", false);
-                            }
-
-                        }
-                    }
-				}
-
-				// Generate the stub
-				if (Target.Rules.bCreateStubIPA || bUseDangerouslyFastMode)
-				{
-                    // ensure the plist, entitlements, and provision files are properly copied
-                    UEDeployIOS DeployHandler = (Target.Platform == UnrealTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
-                    DeployHandler.PrepTargetForDeployment(new UEBuildDeployTarget(Target));
-
-					if (!bUseDangerouslyFastMode)
-					{
-						// generate the dummy project so signing works
-						UnrealBuildTool.GenerateProjectFiles(new XcodeProjectFileGenerator(Target.ProjectFile), new string[] { "-NoIntellisense", (Target.Platform == UnrealTargetPlatform.IOS ? "-iosdeployonly" : "-tvosdeployonly"), ((Target.ProjectFile != null) ? "-game" : "") });
+						continue;		// Only care if we need to copy bundle assets
 					}
 
-					// now that 
-					Process StubGenerateProcess = new Process();
-					StubGenerateProcess.StartInfo.WorkingDirectory = Path.GetFullPath("..\\Binaries\\DotNET\\IOS");
-					StubGenerateProcess.StartInfo.FileName = Path.Combine(StubGenerateProcess.StartInfo.WorkingDirectory, "iPhonePackager.exe");
+					string UnpackedZipPath = GetRemoteIntermediateFrameworkZipPath(Framework);
 
-					string Arguments = "";
-					string PathToApp = Target.RulesAssembly.GetTargetFileName(AppName).FullName;
-					string SchemeName = AppName;
+					// For now, this is hard coded, but we need to loop over all modules, and copy bundled assets that need it
+					string LocalSource = UnpackedZipPath + "/" + Framework.CopyBundledAssets;
+					string BundleName = Framework.CopyBundledAssets.Substring(Framework.CopyBundledAssets.LastIndexOf('/') + 1);
+					string LocalDest = LocalFrameworkAssets + "/" + BundleName;
 
-					// right now, no programs have a Source subdirectory, so assume the PathToApp is directly in the root
-					if (Path.GetDirectoryName(PathToApp).Contains(@"\Engine\Source\Programs"))
-					{
-						PathToApp = Path.GetDirectoryName(PathToApp);
-					}
-					else
-					{
-						Int32 SourceIndex = PathToApp.LastIndexOf(@"\Intermediate\Source");
-						if (SourceIndex != -1)
-						{
-							PathToApp = PathToApp.Substring(0, SourceIndex);
-						}
-						else
-						{
-							SourceIndex = PathToApp.LastIndexOf(@"\Source");
-							if (SourceIndex != -1)
-							{
-								PathToApp = PathToApp.Substring(0, SourceIndex);
-							}
-							else
-							{
-								throw new BuildException("The target was not in a /Source subdirectory");
-							}
-						}
-						if (AppName != "UE4Game" && AppName != "UE4Client")
-						{
-							PathToApp += "\\" + AppName + ".uproject";
-						}
-						else
-						{
-							SchemeName = "UE4";
-						}
-					}
+					Log.TraceInformation("Copying bundled asset... LocalSource: {0}, LocalDest: {1}", LocalSource, LocalDest);
 
-					string SchemeConfiguration = Target.Configuration.ToString();
-					if (Target.Rules.Type != TargetType.Game && Target.Rules.Type != TargetType.Program)
-					{
-						SchemeConfiguration += " " + Target.Rules.Type.ToString();
-					}
-
-					if (bUseDangerouslyFastMode)
-					{
-						// the quickness!
-						Arguments += "DangerouslyFast " + PathToApp;
-					}
-					else
-					{
-						Arguments += "PackageIPA \"" + PathToApp + "\" -createstub";
-                        IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProvisioningData(ProjectSettings);
-                        if (ProvisioningData != null && ProvisioningData.MobileProvisionUUID != "")
-                        {
-                            Arguments += " -provisioningUUID \"" + ProvisioningData.MobileProvisionUUID + "\"";
-                        }
-						// if we are making the dsym, then we can strip the debug info from the executable
-						if (Target.Rules.bStripSymbolsOnIOS || (Target.Configuration == UnrealTargetConfiguration.Shipping))
-						{
-							Arguments += " -strip";
-						}
-					}
-					Arguments += " -config " + Target.Configuration + " -mac " + RemoteServerName + " -schemename " + SchemeName + " -schemeconfig \"" + SchemeConfiguration + "\"";
-
-                    string Architecture = Target.Architecture;
-                    if (Architecture != "")
-					{
-						// pass along the architecture if we need, skipping the initial -, so we have "-architecture simulator"
-						Arguments += " -architecture " + Architecture.Substring(1);
-					}
-
-					if (Target.Platform == UnrealTargetPlatform.TVOS)
-					{
-						Arguments += " -tvos";
-					}
-
-					if (!bUseRPCUtil)
-					{
-						Arguments += " -usessh";
-						Arguments += " -sshexe \"" + ResolvedSSHExe + "\"";
-						Arguments += " -sshauth \"" + ResolvedSSHAuthentication + "\"";
-						Arguments += " -sshuser \"" + ResolvedRSyncUsername + "\"";
-						Arguments += " -rsyncexe \"" + ResolvedRSyncExe + "\"";
-						Arguments += " -overridedevroot \"" + UserDevRootMac + "\"";
-					}
-
-					// programmers that use Xcode packaging mode should use the following commandline instead, as it will package for Xcode on each compile
-					//				Arguments = "PackageApp " + GameName + " " + Configuration;
-					StubGenerateProcess.StartInfo.Arguments = Arguments;
-
-					StubGenerateProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedDataEventHandler);
-					StubGenerateProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedDataEventHandler);
-
-					OutputReceivedDataEventHandlerEncounteredError = false;
-					OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
-					int ExitCode = Utils.RunLocalProcess(StubGenerateProcess);
-					if (OutputReceivedDataEventHandlerEncounteredError)
-					{
-						UnrealBuildTool.ExtendedErrorCode = ExitCode;
-						throw new Exception(OutputReceivedDataEventHandlerEncounteredErrorMessage);
-					}
-
-					// now that a slow mode sync has finished, we can now do DangerouslyFast mode again (if requested)
-					if (bUseDangerouslyFastModeWasRequested)
-					{
-						File.Create(DangerouslyFastValidFile.FullName);
-					}
-					else
-					{
-						// if we didn't want dangerously fast, then delete the file so that setting/unsetting the flag will do the right thing without a Rebuild
-						File.Delete(DangerouslyFastValidFile.FullName);
-					}
-				}
-
-				{
-					// Copy bundled assets from additional frameworks to the intermediate assets directory (so they can get picked up during staging)
-					String LocalFrameworkAssets = Path.GetFullPath(Target.ProjectDirectory + "/Intermediate/" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS") + "/FrameworkAssets");
-					String RemoteFrameworkAssets = ConvertPath(LocalFrameworkAssets);
-
-					CleanIntermediateDirectory(RemoteFrameworkAssets);
-
-					// Delete the local dest directory if it exists
-					if (Directory.Exists(LocalFrameworkAssets))
-					{
-						Directory.Delete(LocalFrameworkAssets, true);
-					}
-
-					foreach (UEBuildFramework Framework in RememberedAdditionalFrameworks)
-					{
-						if (Framework.OwningModule == null || Framework.CopyBundledAssets == null || Framework.CopyBundledAssets == "")
-						{
-							continue;		// Only care if we need to copy bundle assets
-						}
-
-						string RemoteZipPath = GetRemoteIntermediateFrameworkZipPath(Framework);
-
-						RemoteZipPath = RemoteZipPath.Replace(".zip", "");
-
-						// For now, this is hard coded, but we need to loop over all modules, and copy bundled assets that need it
-						string RemoteSource = RemoteZipPath + "/" + Framework.CopyBundledAssets;
-						string BundleName = Framework.CopyBundledAssets.Substring(Framework.CopyBundledAssets.LastIndexOf('/') + 1);
-
-						String RemoteDest = RemoteFrameworkAssets + "/" + BundleName;
-						String LocalDest = LocalFrameworkAssets + "\\" + BundleName;
-
-						Log.TraceInformation("Copying bundled asset... RemoteSource: {0}, RemoteDest: {1}, LocalDest: {2}", RemoteSource, RemoteDest, LocalDest);
-
-                        Hashtable Results = RPCUtilHelper.Command("/", String.Format("cp -R -L \"{0}\" \"{1}\"", RemoteSource, RemoteDest), "", null);
-
-                        foreach (DictionaryEntry Entry in Results)
-						{
-							Log.TraceInformation("{0}", Entry.Value);
-						}
-
-						// Copy the bundled resource from the remote mac to the local dest
-						RPCUtilHelper.CopyDirectory(RemoteDest, LocalDest, RPCUtilHelper.ECopyOptions.None);
-					}
-				}
-
-                if (Target.Platform == UnrealTargetPlatform.TVOS)
-                {
-                    // copy back the built asset catalog
-                    string CatPath = Path.GetDirectoryName(Target.OutputPath.FullName) + "\\AssetCatalog\\Assets.car";
-                    RPCUtilHelper.CopyFile(ConvertPath(CatPath), CatPath, false);
+					string ResultsText;
+                    RunExecutableAndWait("cp", String.Format("-R -L \"{0}\" \"{1}\"", LocalSource, LocalDest), out ResultsText);
                 }
-
-                // If it is requested, send the app bundle back to the platform executing these commands.
-                if (Target.Rules.bCopyAppBundleBackToDevice)
-				{
-					Log.TraceInformation("Copying binaries back to this device...");
-
-					try
-					{
-						string BinaryDir = Path.GetDirectoryName(Target.OutputPath.FullName) + "\\";
-						if (BinaryDir.EndsWith(Target.AppName + "\\Binaries\\" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS") + "\\") && Target.TargetType != TargetType.Game)
-						{
-							BinaryDir = BinaryDir.Replace(Target.TargetType.ToString(), "Game");
-						}
-
-						// Get the app bundle's name
-						string AppFullName = Target.AppName;
-						if (Target.Configuration != UnrealTargetConfiguration.Development)
-						{
-							AppFullName += "-" + Target.Platform.ToString();
-							AppFullName += "-" + Target.Configuration.ToString();
-						}
-
-						foreach (string BinaryPath in BuiltBinaries.Select(x => x.FullName))
-						{
-							if (!BinaryPath.Contains("Dummy"))
-							{
-								RPCUtilHelper.CopyFile(ConvertPath(BinaryPath), BinaryPath, false);
-							}
-						}
-						Log.TraceInformation("Copied binaries successfully.");
-					}
-					catch (Exception)
-					{
-						Log.TraceInformation("Copying binaries back to this device failed.");
-					}
-				}
-			}
+            }
 		}
 
 		public static int RunExecutableAndWait(string ExeName, string ArgumentList, out string StdOutResults)

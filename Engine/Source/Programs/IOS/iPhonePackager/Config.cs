@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
  */
 
@@ -479,7 +479,7 @@ namespace iPhonePackager
 				Program.Architecture);
 
 			// make a directory for the shared XcodeSupportFiles directory
-			Config.PCXcodeStagingDir = Config.PCStagingRootDir + @"..\XcodeSupportFiles";
+			Config.PCXcodeStagingDir = Path.Combine(Config.PCStagingRootDir, @"..\XcodeSupportFiles");
 
 			// Code signing identity
 			// Rules:

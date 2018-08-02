@@ -331,18 +331,7 @@ namespace UnrealBuildTool
 				// Add source files to the unity file
 				foreach (FileItem CPPFile in UnityFile.Files)
 				{
-					string IncludePath;
-					if(BuildPlatform.UseAbsolutePathsInUnityFiles())
-					{
-						IncludePath = CPPFile.AbsolutePath;
-					}
-					else
-					{
-						// @todo: MakeRelativeTo does not work with code projects on a different drive than the engine. reverting to old version until we can come
-						// up with a better solution
-						IncludePath = RemoteExports.ConvertPath(CPPFile.AbsolutePath).Replace('\\', '/');
-					}
-					OutputUnityCPPWriter.WriteLine("#include \"{0}\"", IncludePath);
+					OutputUnityCPPWriter.WriteLine("#include \"{0}\"", CPPFile.AbsolutePath);
 				}
 
 				// Determine unity file path name

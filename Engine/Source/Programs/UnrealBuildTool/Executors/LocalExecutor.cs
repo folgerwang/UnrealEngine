@@ -170,25 +170,14 @@ namespace UnrealBuildTool
 					{
 						ActionProcess = new Process();
 						ActionProcess.StartInfo = ActionStartInfo;
-						bool bShouldRedirectOuput = Action.bPrintDebugInfo;
-						if (bShouldRedirectOuput)
-						{
-							ActionStartInfo.RedirectStandardOutput = true;
-							ActionStartInfo.RedirectStandardError = true;
-							ActionProcess.EnableRaisingEvents = true;
-
-							if (Action.bPrintDebugInfo)
-							{
-								ActionProcess.OutputDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
-								ActionProcess.ErrorDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
-							}
-						}
+						ActionStartInfo.RedirectStandardOutput = true;
+						ActionStartInfo.RedirectStandardError = true;
+						ActionProcess.OutputDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
+						ActionProcess.ErrorDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
 						ActionProcess.Start();
-						if (bShouldRedirectOuput)
-						{
-							ActionProcess.BeginOutputReadLine();
-							ActionProcess.BeginErrorReadLine();
-						}
+
+						ActionProcess.BeginOutputReadLine();
+						ActionProcess.BeginErrorReadLine();
 					}
 					catch (Exception ex)
 					{
@@ -254,12 +243,6 @@ namespace UnrealBuildTool
 
 			// track how long it took
 			Action.EndTime = DateTimeOffset.Now;
-
-			if (!Utils.IsRunningOnMono)
-			{
-				// let RPCUtilHelper clean up anything thread related
-				RPCUtilHelper.OnThreadComplete();
-			}
 
 			// we are done!!
 			bComplete = true;

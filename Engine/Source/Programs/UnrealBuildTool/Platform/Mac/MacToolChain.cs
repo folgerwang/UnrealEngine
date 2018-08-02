@@ -110,7 +110,7 @@ namespace UnrealBuildTool
 		MacToolChainOptions Options;
 
 		public MacToolChain(FileReference InProjectFile, MacToolChainOptions InOptions)
-			: base(CppPlatform.Mac, UnrealTargetPlatform.Mac, InProjectFile)
+			: base(CppPlatform.Mac, InProjectFile)
 		{
 			this.Options = InOptions;
 		}
@@ -562,11 +562,6 @@ namespace UnrealBuildTool
 				// Add the source file path to the command-line.
 				FileArguments += string.Format(" \"{0}\"", ConvertPath(SourceFile.AbsolutePath));
 
-				if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-				{
-					CompileAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
-				}
-				
 				string AllArgs = Arguments + FileArguments + CompileEnvironment.AdditionalArguments;
 				string CompilerPath = Settings.ToolchainDir + MacCompiler;
 				
@@ -697,11 +692,6 @@ namespace UnrealBuildTool
 
 			// Create an action that invokes the linker.
 			Action LinkAction = ActionGraph.Add(ActionType.Link);
-
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				LinkAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
-			}
 
 			LinkAction.WorkingDirectory = GetMacDevSrcRoot();
 			LinkAction.CommandPath = "/bin/sh";
@@ -1250,11 +1240,6 @@ namespace UnrealBuildTool
 
 			LinkAction.CommandArguments = "-c 'chmod +x \"" + RemoteFixDylibDepsScript.AbsolutePath + "\"; \"" + RemoteFixDylibDepsScript.AbsolutePath + "\"; if [[ $? -ne 0 ]]; then exit 1; fi; ";
 
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				LinkAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
-			}
-
 			// Make sure this action is executed after all the dylibs and the main executable are created
 
 			foreach (FileItem Dependency in BundleDependencies)
@@ -1276,20 +1261,6 @@ namespace UnrealBuildTool
 			LinkAction.ProducedItems.Add(RemoteOutputFile);
 
 			return RemoteOutputFile;
-		}
-
-		private static Dictionary<Action, string> DebugOutputMap = new Dictionary<Action, string>();
-		static public void RPCDebugInfoActionHandler(Action Action, out int ExitCode, out string Output)
-		{
-			RPCUtilHelper.RPCActionHandler(Action, out ExitCode, out Output);
-			if (DebugOutputMap.ContainsKey(Action))
-			{
-				if (ExitCode == 0)
-				{
-					RPCUtilHelper.CopyDirectory(Action.ProducedItems[0].AbsolutePath, DebugOutputMap[Action], RPCUtilHelper.ECopyOptions.None);
-				}
-				DebugOutputMap.Remove(Action);
-			}
 		}
 
 		/// <summary>
@@ -1326,11 +1297,6 @@ namespace UnrealBuildTool
 
 			// Make the compile action
 			Action GenDebugAction = ActionGraph.Add(ActionType.GenerateDebugInfo);
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				DebugOutputMap.Add(GenDebugAction, OutputFile.AbsolutePath);
-				GenDebugAction.ActionHandler = new Action.BlockingActionHandler(MacToolChain.RPCDebugInfoActionHandler);
-			}
 			GenDebugAction.WorkingDirectory = GetMacDevSrcRoot();
 			GenDebugAction.CommandPath = "sh";
 
@@ -1378,11 +1344,6 @@ namespace UnrealBuildTool
 			FileItem BundleScript = FileItem.GetItemByFileReference(FileReference.Combine(LinkEnvironment.IntermediateDirectory, "FinalizeAppBundle.sh"));
 			FileItem RemoteBundleScript = LocalToRemoteFileItem(BundleScript, true);
 
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				FinalizeAppBundleAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
-			}
-
 			FinalizeAppBundleAction.CommandArguments = "\"" + RemoteBundleScript.AbsolutePath + "\"";
 			FinalizeAppBundleAction.PrerequisiteItems.Add(FixDylibOutputFile);
 			FinalizeAppBundleAction.ProducedItems.Add(RemoteDestFile);
@@ -1403,15 +1364,7 @@ namespace UnrealBuildTool
 			string SourcePath = Path.Combine(Path.GetFullPath("."), Resource.ResourcePath);
 			string TargetPath = Path.Combine(BundlePath, "Contents", Resource.BundleContentsSubdir, Path.GetFileName(Resource.ResourcePath));
 
-			FileItem TargetItem;
-			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
-			{
-				TargetItem = FileItem.GetItemByPath(TargetPath);
-			}
-			else
-			{
-				TargetItem = FileItem.GetRemoteItemByPath(TargetPath, RemoteToolChainPlatform);
-			}
+			FileItem TargetItem = FileItem.GetItemByPath(TargetPath);
 
 			CopyAction.CommandArguments = string.Format("-c 'cp -f -R \"{0}\" \"{1}\"; touch -c \"{2}\"'", ConvertPath(SourcePath), Path.GetDirectoryName(TargetPath).Replace('\\', '/') + "/", TargetPath.Replace('\\', '/'));
 			CopyAction.PrerequisiteItems.Add(Executable);
@@ -1419,11 +1372,6 @@ namespace UnrealBuildTool
 			CopyAction.bShouldOutputStatusDescription = Resource.bShouldLog;
 			CopyAction.StatusDescription = string.Format("Copying {0} to app bundle", Path.GetFileName(Resource.ResourcePath));
 			CopyAction.bCanExecuteRemotely = false;
-
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				CopyAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
-			}
 
 			if (Directory.Exists(Resource.ResourcePath))
 			{
@@ -1595,174 +1543,6 @@ namespace UnrealBuildTool
 			}
 
 			AllBuildProducts.Add(Binary, new Dictionary<FileReference, BuildProductType>(BuildProducts));
-		}
-
-		public static void PostBuildSync(UEBuildTarget InTarget)
-		{
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				List<string> BuiltBinaries = new List<string>();
-				foreach (UEBuildBinary Binary in InTarget.Binaries)
-				{
-					BuiltBinaries.Add(Path.GetFullPath(Binary.ToString()));
-
-					string[] DebugExtensions = UEBuildPlatform.GetBuildPlatform(InTarget.Platform).GetDebugInfoExtensions(InTarget.Rules, Binary.Type);
-					if (Array.Exists(DebugExtensions, element => element == ".dSYM"))
-					{
-						Dictionary<FileReference, BuildProductType> BuildProducts = AllBuildProducts[Binary];
-						foreach (KeyValuePair<FileReference, BuildProductType> BuildProductPair in BuildProducts)
-						{
-							if (BuildProductPair.Value == BuildProductType.SymbolFile)
-							{
-								BuiltBinaries.Add(BuildProductPair.Key.FullName);
-							}
-						}
-					}
-				}
-
-				string IntermediateDirectory = InTarget.EngineIntermediateDirectory.FullName;
-				if (!Directory.Exists(IntermediateDirectory))
-				{
-					IntermediateDirectory = Path.GetFullPath("../../" + InTarget.AppName + "/Intermediate/Build/Mac/" + InTarget.AppName + "/" + InTarget.Configuration);
-					if (!Directory.Exists(IntermediateDirectory))
-					{
-						IntermediateDirectory = Path.GetFullPath("../../Engine/Intermediate/Build/Mac/" + InTarget.AppName + "/" + InTarget.Configuration);
-					}
-				}
-
-				string FixDylibDepsScript = Path.Combine(IntermediateDirectory, "FixDylibDependencies.sh");
-				string FinalizeAppBundleScript = Path.Combine(IntermediateDirectory, "FinalizeAppBundle.sh");
-
-				string RemoteWorkingDir = "";
-
-				bool bIsStaticLibrary = InTarget.OutputPath.HasExtension(".a");
-
-				if (!bIsStaticLibrary)
-				{
-					// Copy the command scripts to the intermediate on the target Mac.
-					string RemoteFixDylibDepsScript = ConvertPath(Path.GetFullPath(FixDylibDepsScript));
-					RemoteFixDylibDepsScript = RemoteFixDylibDepsScript.Replace("../../../../", "../../");
-					RPCUtilHelper.CopyFile(Path.GetFullPath(FixDylibDepsScript), RemoteFixDylibDepsScript, true);
-
-					if (!InTarget.Rules.bIsBuildingConsoleApplication)
-					{
-						string RemoteFinalizeAppBundleScript = ConvertPath(Path.GetFullPath(FinalizeAppBundleScript));
-						RemoteFinalizeAppBundleScript = RemoteFinalizeAppBundleScript.Replace("../../../../", "../../");
-						RPCUtilHelper.CopyFile(Path.GetFullPath(FinalizeAppBundleScript), RemoteFinalizeAppBundleScript, true);
-					}
-
-
-					// run it remotely
-					RemoteWorkingDir = ConvertPath(Path.GetDirectoryName(Path.GetFullPath(FixDylibDepsScript)));
-
-					Log.TraceInformation("Running FixDylibDependencies.sh...");
-					Hashtable Results = RPCUtilHelper.Command(RemoteWorkingDir, "/bin/sh", "FixDylibDependencies.sh", null);
-					if (Results != null)
-					{
-						string Result = (string)Results["CommandOutput"];
-						if (Result != null)
-						{
-							Log.TraceInformation(Result);
-						}
-					}
-
-					if (!InTarget.Rules.bIsBuildingConsoleApplication)
-					{
-						Log.TraceInformation("Running FinalizeAppBundle.sh...");
-						Results = RPCUtilHelper.Command(RemoteWorkingDir, "/bin/sh", "FinalizeAppBundle.sh", null);
-						if (Results != null)
-						{
-							string Result = (string)Results["CommandOutput"];
-							if (Result != null)
-							{
-								Log.TraceInformation(Result);
-							}
-						}
-					}
-				}
-
-
-				// If it is requested, send the app bundle back to the platform executing these commands.
-				if (InTarget.Rules.bCopyAppBundleBackToDevice)
-				{
-					Log.TraceInformation("Copying binaries back to this device...");
-
-					try
-					{
-						string BinaryDir = InTarget.OutputPath.Directory + "\\";
-						if (BinaryDir.EndsWith(InTarget.AppName + "\\Binaries\\Mac\\") && InTarget.TargetType != TargetType.Game)
-						{
-							BinaryDir = BinaryDir.Replace(InTarget.TargetType.ToString(), "Game");
-						}
-
-						string RemoteBinariesDir = ConvertPath(BinaryDir);
-						string LocalBinariesDir = BinaryDir;
-
-						// Get the app bundle's name
-						string AppFullName = InTarget.AppName;
-						if (InTarget.Configuration != InTarget.Rules.UndecoratedConfiguration)
-						{
-							AppFullName += "-" + InTarget.Platform.ToString();
-							AppFullName += "-" + InTarget.Configuration.ToString();
-						}
-
-						if (!InTarget.Rules.bIsBuildingConsoleApplication)
-						{
-							AppFullName += ".app";
-						}
-
-						List<string> NotBundledBinaries = new List<string>();
-						foreach (string BinaryPath in BuiltBinaries)
-						{
-							if (InTarget.Rules.bIsBuildingConsoleApplication || bIsStaticLibrary || !BinaryPath.StartsWith(LocalBinariesDir + AppFullName))
-							{
-								NotBundledBinaries.Add(BinaryPath);
-							}
-						}
-
-						// Zip the app bundle for transferring.
-						if (!InTarget.Rules.bIsBuildingConsoleApplication && !bIsStaticLibrary)
-						{
-							string ZipCommand = "zip -0 -r -y -T \"" + AppFullName + ".zip\" \"" + AppFullName + "\"";
-							RPCUtilHelper.Command(RemoteBinariesDir, ZipCommand, "", null);
-
-							// Copy the AppBundle back to the source machine
-							string LocalZipFileLocation = LocalBinariesDir + AppFullName + ".zip ";
-							string RemoteZipFileLocation = RemoteBinariesDir + AppFullName + ".zip";
-
-							RPCUtilHelper.CopyFile(RemoteZipFileLocation, LocalZipFileLocation, false);
-
-							// Extract the copied app bundle (in zip format) to the local binaries directory
-							using (ZipFile AppBundleZip = ZipFile.Read(LocalZipFileLocation))
-							{
-								foreach (ZipEntry Entry in AppBundleZip)
-								{
-									Entry.Extract(LocalBinariesDir, ExtractExistingFileAction.OverwriteSilently);
-								}
-							}
-
-							// Delete the zip as we no longer need/want it.
-							File.Delete(LocalZipFileLocation);
-							RPCUtilHelper.Command(RemoteBinariesDir, "rm -f \"" + AppFullName + ".zip\"", "", null);
-						}
-
-						if (NotBundledBinaries.Count > 0)
-						{
-
-							foreach (string BinaryPath in NotBundledBinaries)
-							{
-								RPCUtilHelper.CopyFile(ConvertPath(BinaryPath), BinaryPath, false);
-							}
-						}
-
-						Log.TraceInformation("Copied binaries successfully.");
-					}
-					catch (Exception)
-					{
-						Log.TraceInformation("Copying binaries back to this device failed.");
-					}
-				}
-			}
 		}
 
 		public override ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment BinaryLinkEnvironment, ActionGraph ActionGraph)

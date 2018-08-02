@@ -304,14 +304,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Called immediately after UnrealHeaderTool is executed to generated code for all UObjects modules.  Only is called if UnrealHeaderTool was actually run in this session.
-		/// </summary>
-		/// <param name="Manifest">List of UObject modules we generated code for.</param>
-		public virtual void PostCodeGeneration(UHTManifest Manifest)
-		{
-		}
-
-		/// <summary>
 		/// Converts the passed in path from UBT host to compiler native format.
 		/// </summary>
 		/// <param name="OriginalPath">The path to convert</param>
@@ -624,18 +616,6 @@ namespace UnrealBuildTool
 		public virtual bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 		{
 			return false;
-		}
-
-		/// <summary>
-		/// Whether this platform requires the use of absolute paths in Unity files. The compiler will try to combine paths in
-		/// each #include directive with the standard include paths, and unity files in intermediate directories can result in the
-		/// maximum path length being exceeded on Windows. On the other hand, remote compilation requires relative paths so
-		/// dependency checking works correctly on the local machine as well as on the remote machine.
-		/// </summary>
-		/// <returns>bool true if it is required, false if not</returns>
-		public virtual bool UseAbsolutePathsInUnityFiles()
-		{
-			return true;
 		}
 
 		/// <summary>

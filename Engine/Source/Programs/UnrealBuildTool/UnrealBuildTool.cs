@@ -497,7 +497,8 @@ namespace UnrealBuildTool
 					}
 
 					// Read the XML configuration files
-					if (!XmlConfig.ReadConfigFiles())
+					bool bForceXmlConfigCache = Arguments.Any(x => x.Equals("-ForceXmlConfigCache", StringComparison.InvariantCultureIgnoreCase));
+					if (!XmlConfig.ReadConfigFiles(bForceXmlConfigCache))
 					{
 						return 1;
 					}
@@ -1110,19 +1111,50 @@ namespace UnrealBuildTool
 					Log.TraceInformation("RunUBT initialization took " + RunUBTInitTime + "s");
 				}
 
+				bool bSkipRulesCompile = Arguments.Any(x => x.Equals("-skiprulescompile", StringComparison.InvariantCultureIgnoreCase));
+
 				List<TargetDescriptor> TargetDescs = new List<TargetDescriptor>();
 				{
 					DateTime TargetDescstStartTime = DateTime.UtcNow;
 
 					foreach (string[] TargetSetting in TargetSettings)
 					{
-						TargetDescs.AddRange(TargetDescriptor.ParseCommandLine(TargetSetting, BuildConfiguration.bUsePrecompiled, ref ProjectFile));
+						TargetDescs.AddRange(TargetDescriptor.ParseCommandLine(TargetSetting, BuildConfiguration.bUsePrecompiled, bSkipRulesCompile, ref ProjectFile));
 					}
 
 					if (UnrealBuildTool.bPrintPerformanceInfo)
 					{
 						double TargetDescsTime = (DateTime.UtcNow - TargetDescstStartTime).TotalSeconds;
 						Log.TraceInformation("Target descriptors took " + TargetDescsTime + "s");
+					}
+				}
+
+				// Handle remote builds
+				if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+				{
+					for(int Idx = 0; Idx < TargetDescs.Count; Idx++)
+					{
+						TargetDescriptor TargetDesc = TargetDescs[Idx];
+						if(TargetDesc.Platform == UnrealTargetPlatform.Mac || TargetDesc.Platform == UnrealTargetPlatform.IOS || TargetDesc.Platform == UnrealTargetPlatform.TVOS)
+						{
+							FileReference LogFile = null;
+							if(!String.IsNullOrEmpty(BuildConfiguration.LogFileName))
+							{
+								LogFile = new FileReference(Path.Combine(Path.GetDirectoryName(BuildConfiguration.LogFileName), Path.GetFileNameWithoutExtension(BuildConfiguration.LogFileName) + "_Remote.txt"));
+							}
+
+							RemoteMac RemoteMac = new RemoteMac(TargetDesc.ProjectFile);
+							if(!RemoteMac.Build(TargetDesc, LogFile))
+							{
+								return ECompilationResult.Unknown;
+							}
+
+							TargetDescs.RemoveAt(Idx--);
+						}
+					}
+					if(TargetDescs.Count == 0)
+					{
+						return ECompilationResult.Succeeded;
 					}
 				}
 
@@ -1285,7 +1317,7 @@ namespace UnrealBuildTool
 						// Make sure the gather phase is executed if we're not actually building anything
 						if (ProjectFileGenerator.bGenerateProjectFiles || BuildConfiguration.bGenerateManifest || BuildConfiguration.bCleanProject || BuildConfiguration.bXGEExport || GeneratingActionGraph)
 						{
-							bIsGatheringBuild = true;
+								bIsGatheringBuild = true;
 						}
 
 						// Were we asked to run in 'assembler only' mode?  If so, let's check to see if that's even possible by seeing if
@@ -1377,7 +1409,7 @@ namespace UnrealBuildTool
 						Targets = new List<UEBuildTarget>();
 						foreach (TargetDescriptor TargetDesc in TargetDescs)
 						{
-							UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, Arguments, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled, Version);
+							UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, Arguments, bSkipRulesCompile, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled, Version);
 							if ((Target == null) && (BuildConfiguration.bCleanProject))
 							{
 								continue;
@@ -1626,8 +1658,7 @@ namespace UnrealBuildTool
 								}
 								else
 								{
-									bool bIsRemoteCompile = BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac && TargetDescs.Any(x => x.Platform == UnrealTargetPlatform.Mac || x.Platform == UnrealTargetPlatform.IOS);
-									bSuccess = ActionGraph.ExecuteActions(BuildConfiguration, ActionsToExecute, bIsRemoteCompile, out ExecutorName, TargetInfoForTelemetry, HotReload);
+									bSuccess = ActionGraph.ExecuteActions(BuildConfiguration, ActionsToExecute, out ExecutorName, TargetInfoForTelemetry, HotReload);
 								}
 								TotalExecutorTime += (DateTime.UtcNow - ExecutorStartTime).TotalSeconds;
 
@@ -2111,7 +2142,6 @@ namespace UnrealBuildTool
 							// Copy the other important settings from the original file item
 							NewPrerequisiteItem.bNeedsHotReloadNumbersDLLCleanUp = OriginalPrerequisiteItem.bNeedsHotReloadNumbersDLLCleanUp;
 							NewPrerequisiteItem.ProducingAction = OriginalPrerequisiteItem.ProducingAction;
-							NewPrerequisiteItem.bIsRemoteFile = OriginalPrerequisiteItem.bIsRemoteFile;
 
 							// Keep track of it so we can fix up dependencies in a second pass afterwards
 							AffectedOriginalFileItemAndNewFileItemMap.Add(OriginalPrerequisiteItem, NewPrerequisiteItem);
@@ -2153,7 +2183,6 @@ namespace UnrealBuildTool
 						// Copy the other important settings from the original file item
 						NewProducedItem.bNeedsHotReloadNumbersDLLCleanUp = OriginalProducedItem.bNeedsHotReloadNumbersDLLCleanUp;
 						NewProducedItem.ProducingAction = OriginalProducedItem.ProducingAction;
-						NewProducedItem.bIsRemoteFile = OriginalProducedItem.bIsRemoteFile;
 
 						// Keep track of it so we can fix up dependencies in a second pass afterwards
 						AffectedOriginalFileItemAndNewFileItemMap.Add(OriginalProducedItem, NewProducedItem);

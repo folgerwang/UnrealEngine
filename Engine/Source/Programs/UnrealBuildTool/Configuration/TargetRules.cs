@@ -874,6 +874,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// If true, then a stub IPA will be generated when compiling is done (minimal files needed for a valid IPA).
 		/// </summary>
+		[CommandLine("-CreateStub", Value = "true")]
 		[CommandLine("-NoCreateStub", Value = "false")]
 		public bool bCreateStubIPA = true;
 
@@ -2109,9 +2110,9 @@ namespace UnrealBuildTool
 			get { return Inner.bGenerateProjectFiles; }
 		}
 
-#if !__MonoCS__
-#pragma warning restore C1591
-#endif
+		#if !__MonoCS__
+		#pragma warning restore C1591
+		#endif
 		#endregion
 
 		/// <summary>

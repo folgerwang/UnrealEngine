@@ -146,7 +146,7 @@ namespace UnrealBuildTool
 			UnrealBuildTool.SetIsEngineInstalled(bIsEngineInstalled);
 
 			// Read the XML configuration files
-			if(!XmlConfig.ReadConfigFiles())
+			if(!XmlConfig.ReadConfigFiles(false))
 			{
 				return false;
 			}

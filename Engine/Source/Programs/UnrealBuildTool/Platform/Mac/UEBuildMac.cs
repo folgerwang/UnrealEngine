@@ -241,16 +241,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Don't use absolute paths in unity files; we may be remote compiling.
-		/// </summary>
-		/// <returns>bool true if it is required, false if not</returns>
-		public override bool UseAbsolutePathsInUnityFiles()
-		{
-			return false;
-		}
-
-
-		/// <summary>
 		/// Return whether we wish to have this platform's binaries in our builds
 		/// </summary>
 		public override bool IsBuildRequired()
@@ -264,31 +254,6 @@ namespace UnrealBuildTool
 		public override bool IsCISRequired()
 		{
 			return false;
-		}
-
-		/// <summary>
-		/// Converts the passed in path from UBT host to compiler native format.
-		/// </summary>
-		/// <param name="OriginalPath">The path to convert</param>
-		/// <returns>The path in native format for the toolchain</returns>
-		public override string ConvertPath(string OriginalPath)
-		{
-			return MacToolChain.ConvertPath(OriginalPath);
-		}
-
-		public override void PreBuildSync()
-		{
-			MacToolChain.PreBuildSync();
-		}
-
-		public override void PostBuildSync(UEBuildTarget Target)
-		{
-			MacToolChain.PostBuildSync(Target);
-		}
-
-		public override void PostCodeGeneration(UHTManifest Manifest)
-		{
-			MacToolChain.PostCodeGeneration(Manifest);
 		}
 
 		public override DirectoryReference GetBundleDirectory(ReadOnlyTargetRules Rules, List<FileReference> OutputFiles)

@@ -427,7 +427,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Executes a list of actions.
 		/// </summary>
-		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute, bool bIsRemoteCompile, out string ExecutorName, string TargetInfoForTelemetry, EHotReload HotReload)
+		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute, out string ExecutorName, string TargetInfoForTelemetry, EHotReload HotReload)
 		{
 			bool Result = true;
 			ExecutorName = "";
@@ -436,11 +436,7 @@ namespace UnrealBuildTool
 				DateTime StartTime = DateTime.UtcNow;
 
 				ActionExecutor Executor;
-				if(bIsRemoteCompile)
-				{
-					Executor = new RemoteExecutor();
-				}
-				else if(ActionsToExecute.Any(x => x.ActionHandler != null))
+				if(ActionsToExecute.Any(x => x.ActionHandler != null))
 				{
 					Executor = new LocalExecutor();
 				}
@@ -477,18 +473,7 @@ namespace UnrealBuildTool
 						{
 							foreach (FileItem Item in BuildAction.ProducedItems)
 							{
-								bool bExists;
-								if (Item.bIsRemoteFile)
-								{
-									DateTime UnusedTime;
-									long UnusedLength;
-									bExists = RPCUtilHelper.GetRemoteFileInfo(Item.AbsolutePath, out UnusedTime, out UnusedLength);
-								}
-								else
-								{
-									// allow output to be a directory
-									bExists = File.Exists(Item.AbsolutePath) || Directory.Exists(Item.AbsolutePath);
-								}
+								bool bExists = File.Exists(Item.AbsolutePath) || Directory.Exists(Item.AbsolutePath);
 
 								if (HotReload != EHotReload.Disabled)
 								{
@@ -905,7 +890,7 @@ namespace UnrealBuildTool
 					// If the produced file doesn't exist or has zero size, consider it outdated.  The zero size check is to detect cases
 					// where aborting an earlier compile produced invalid zero-sized obj files, but that may cause actions where that's
 					// legitimate output to always be considered outdated.
-					if (ProducedItem.bExists && (ProducedItem.bIsRemoteFile || ProducedItem.Length > 0 || ProducedItem.IsDirectory))
+					if (ProducedItem.bExists && (ProducedItem.Length > 0 || ProducedItem.IsDirectory))
 					{
 						// Use the oldest produced item's time as the last execution time.
 						if (ProducedItem.LastWriteTime < LastExecutionTime)
@@ -1167,29 +1152,11 @@ namespace UnrealBuildTool
 				{
 					foreach (FileItem ProducedItem in OutdatedActionInfo.Key.ProducedItems)
 					{
-						if (ProducedItem.bIsRemoteFile)
+						string DirectoryPath = Path.GetDirectoryName(ProducedItem.AbsolutePath);
+						if (!Directory.Exists(DirectoryPath))
 						{
-							// we don't need to do this in the SSH mode, the action will have an output file, and it will use that to make the directory while executing the command
-							if (RemoteToolChain.bUseRPCUtil)
-							{
-								try
-								{
-									RPCUtilHelper.MakeDirectory(Path.GetDirectoryName(ProducedItem.AbsolutePath).Replace("\\", "/"));
-								}
-								catch (System.Exception Ex)
-								{
-									throw new BuildException(Ex, "Error while creating remote directory for '{0}'.  (Exception: {1})", ProducedItem.AbsolutePath, Ex.Message);
-								}
-							}
-						}
-						else
-						{
-							string DirectoryPath = Path.GetDirectoryName(ProducedItem.AbsolutePath);
-							if (!Directory.Exists(DirectoryPath))
-							{
-								Log.TraceVerbose("Creating directory for produced item: {0}", DirectoryPath);
-								Directory.CreateDirectory(DirectoryPath);
-							}
+							Log.TraceVerbose("Creating directory for produced item: {0}", DirectoryPath);
+							Directory.CreateDirectory(DirectoryPath);
 						}
 					}
 				}

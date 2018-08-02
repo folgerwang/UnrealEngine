@@ -1276,16 +1276,6 @@ namespace UnrealBuildTool
 
 				Progress.Write(2, 3);
 
-				// There will never be generated code if we're building UHT, so this should never be called.
-				if (!bIsBuildingUHT)
-				{
-					// Allow generated code to be sync'd to remote machines if needed. This needs to be done even if UHT did not run because
-					// generated headers include other generated headers using absolute paths which in case of building remotely are already
-					// the remote machine absolute paths. Because of that parsing headers will not result in finding all includes properly.
-					// @todo ubtmake: Need to figure out what this does in the assembler case, and whether we need to run it
-					UEBuildPlatform.GetBuildPlatform(Target.Platform).PostCodeGeneration(Manifest);
-				}
-
 				// touch the directories
 				UpdateDirectoryTimestamps(UObjectModules);
 
