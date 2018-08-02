@@ -45,7 +45,7 @@ public:
 	{
 		if (!InputDevice.IsValid())
 		{
-			TSharedPtr<IInputDevice> HandTrackingInputDevice(new FMagicLeapHandTracking(InMessageHandler));
+			TSharedPtr<FMagicLeapHandTracking> HandTrackingInputDevice(new FMagicLeapHandTracking(InMessageHandler));
 			InputDevice = HandTrackingInputDevice;
 			return InputDevice;
 		}
@@ -61,13 +61,22 @@ public:
 	{
 		if (!InputDevice.IsValid())
 		{
-			InputDevice = CreateInputDevice(FSlateApplication::Get().GetPlatformApplication()->GetMessageHandler());
+			CreateInputDevice(FSlateApplication::Get().GetPlatformApplication()->GetMessageHandler());
+		}
+		return InputDevice;
+	}
+
+	virtual TSharedPtr<ILiveLinkSource> GetLiveLinkSource() override
+	{
+		if (!InputDevice.IsValid())
+		{
+			CreateInputDevice(FSlateApplication::Get().GetPlatformApplication()->GetMessageHandler());
 		}
 		return InputDevice;
 	}
 
 private:
-	TSharedPtr<IInputDevice> InputDevice;
+	TSharedPtr<FMagicLeapHandTracking> InputDevice;
 };
 
 IMPLEMENT_MODULE(FMagicLeapHandTrackingPlugin, MagicLeapHandTracking);
@@ -144,6 +153,41 @@ const FName FMagicLeapGestureKeyNames::Right_NoPose_Name("MagicLeap_Right_NoPose
 const FKey FMagicLeapHandTracking::FStaticHandTracking::Right_NoHand("MagicLeap_Right_NoHand");
 const FName FMagicLeapGestureKeyNames::Right_NoHand_Name("MagicLeap_Right_NoHand");
 
+// KeyPoint names
+#define DEFINE_HAND_KEY_POINT_NAME(name) FName FMagicLeapHandTracking::name##_Name(TEXT(#name));
+
+DEFINE_HAND_KEY_POINT_NAME(HandCenter);
+
+DEFINE_HAND_KEY_POINT_NAME(WristCenter);
+DEFINE_HAND_KEY_POINT_NAME(WristUlnar);
+DEFINE_HAND_KEY_POINT_NAME(WristRadial);
+
+DEFINE_HAND_KEY_POINT_NAME(ThumbTip);
+DEFINE_HAND_KEY_POINT_NAME(ThumbIP);
+DEFINE_HAND_KEY_POINT_NAME(ThumbMCP);
+DEFINE_HAND_KEY_POINT_NAME(ThumbCMC);
+
+DEFINE_HAND_KEY_POINT_NAME(IndexFingerTip);
+DEFINE_HAND_KEY_POINT_NAME(IndexFingerDIP);
+DEFINE_HAND_KEY_POINT_NAME(IndexFingerPIP);
+DEFINE_HAND_KEY_POINT_NAME(IndexFingerMCP);
+
+DEFINE_HAND_KEY_POINT_NAME(MiddleFingerTip);
+DEFINE_HAND_KEY_POINT_NAME(MiddleFingerDIP);
+DEFINE_HAND_KEY_POINT_NAME(MiddleFingerPIP);
+DEFINE_HAND_KEY_POINT_NAME(MiddleFingerMCP);
+
+DEFINE_HAND_KEY_POINT_NAME(RingFingerTip);
+DEFINE_HAND_KEY_POINT_NAME(RingFingerDIP);
+DEFINE_HAND_KEY_POINT_NAME(RingFingerPIP);
+DEFINE_HAND_KEY_POINT_NAME(RingFingerMCP);
+
+DEFINE_HAND_KEY_POINT_NAME(PinkyFingerTip);
+DEFINE_HAND_KEY_POINT_NAME(PinkyFingerDIP);
+DEFINE_HAND_KEY_POINT_NAME(PinkyFingerPIP);
+DEFINE_HAND_KEY_POINT_NAME(PinkyFingerMCP);
+
+#undef DEFINE_HAND_KEY_POINT_NAME
 
 // KeyPoint names
 #define DEFINE_KEY_POINT_NAME(name) FName FMagicLeapHandTracking::name##_Name(TEXT(#name));
@@ -210,6 +254,12 @@ DEFINE_KEY_POINT_NAME(RightPinkyFingerTip);
 DEFINE_KEY_POINT_NAME(RightPinkyFingerDIP);
 DEFINE_KEY_POINT_NAME(RightPinkyFingerPIP);
 DEFINE_KEY_POINT_NAME(RightPinkyFingerMCP);
+
+#undef DEFINE_KEY_POINT_NAME
+
+FName FMagicLeapHandTracking::LiveLinkLeftHandTrackingSubjectName(TEXT("MagicLeapLeftHandTracking"));
+FName FMagicLeapHandTracking::LiveLinkRightHandTrackingSubjectName(TEXT("MagicLeapRightHandTracking"));
+
 
 #if WITH_MLSDK
 EHandTrackingKeypointFilterLevel MLToUnrealKeypointsFilterLevel(MLKeypointFilterLevel FilterLevel)
@@ -293,6 +343,7 @@ FMagicLeapHandTracking::FMagicLeapHandTracking(const TSharedRef<FGenericApplicat
 #endif //WITH_MLSDK
 
 	BuildKeypointMaps();
+	SetupLiveLinkData();
 
 	// Register "MotionController" modular feature manually
 	IModularFeatures::Get().RegisterModularFeature(GetModularFeatureName(), this);
@@ -330,68 +381,68 @@ void FMagicLeapHandTracking::BuildKeypointMaps()
 {
 	SourceToTransformMap.Reserve(EHandTrackingKeypointCount * 2);
 
-	SourceToTransformMap.Add(LeftHandCenter_Name, &LeftHand.HandCenter);
+	SourceToTransformMap.Add(LeftHandCenter_Name, &LeftHand.HandCenter.Transform);
 
-	SourceToTransformMap.Add(LeftWristCenter_Name, &LeftHand.Wrist.Center);
-	SourceToTransformMap.Add(LeftWristUlnar_Name, &LeftHand.Wrist.Ulnar);
-	SourceToTransformMap.Add(LeftWristRadial_Name, &LeftHand.Wrist.Radial);
+	SourceToTransformMap.Add(LeftWristCenter_Name, &LeftHand.Wrist.Center.Transform);
+	SourceToTransformMap.Add(LeftWristUlnar_Name, &LeftHand.Wrist.Ulnar.Transform);
+	SourceToTransformMap.Add(LeftWristRadial_Name, &LeftHand.Wrist.Radial.Transform);
 
-	SourceToTransformMap.Add(LeftThumbTip_Name, &LeftHand.Thumb.Tip);
-	SourceToTransformMap.Add(LeftThumbIP_Name, &LeftHand.Thumb.DIP);
-	SourceToTransformMap.Add(LeftThumbMCP_Name, &LeftHand.Thumb.PIP);
-	SourceToTransformMap.Add(LeftThumbCMC_Name, &LeftHand.Thumb.MCP);
+	SourceToTransformMap.Add(LeftThumbTip_Name, &LeftHand.Thumb.Tip.Transform);
+	SourceToTransformMap.Add(LeftThumbIP_Name, &LeftHand.Thumb.DIP.Transform);
+	SourceToTransformMap.Add(LeftThumbMCP_Name, &LeftHand.Thumb.PIP.Transform);
+	SourceToTransformMap.Add(LeftThumbCMC_Name, &LeftHand.Thumb.MCP.Transform);
 
-	SourceToTransformMap.Add(LeftIndexFingerTip_Name, &LeftHand.IndexFinger.Tip);
-	SourceToTransformMap.Add(LeftIndexFingerDIP_Name, &LeftHand.IndexFinger.DIP);
-	SourceToTransformMap.Add(LeftIndexFingerPIP_Name, &LeftHand.IndexFinger.PIP);
-	SourceToTransformMap.Add(LeftIndexFingerMCP_Name, &LeftHand.IndexFinger.MCP);
+	SourceToTransformMap.Add(LeftIndexFingerTip_Name, &LeftHand.IndexFinger.Tip.Transform);
+	SourceToTransformMap.Add(LeftIndexFingerDIP_Name, &LeftHand.IndexFinger.DIP.Transform);
+	SourceToTransformMap.Add(LeftIndexFingerPIP_Name, &LeftHand.IndexFinger.PIP.Transform);
+	SourceToTransformMap.Add(LeftIndexFingerMCP_Name, &LeftHand.IndexFinger.MCP.Transform);
 
-	SourceToTransformMap.Add(LeftMiddleFingerTip_Name, &LeftHand.MiddleFinger.Tip);
-	SourceToTransformMap.Add(LeftMiddleFingerDIP_Name, &LeftHand.MiddleFinger.DIP);
-	SourceToTransformMap.Add(LeftMiddleFingerPIP_Name, &LeftHand.MiddleFinger.PIP);
-	SourceToTransformMap.Add(LeftMiddleFingerMCP_Name, &LeftHand.MiddleFinger.MCP);
+	SourceToTransformMap.Add(LeftMiddleFingerTip_Name, &LeftHand.MiddleFinger.Tip.Transform);
+	SourceToTransformMap.Add(LeftMiddleFingerDIP_Name, &LeftHand.MiddleFinger.DIP.Transform);
+	SourceToTransformMap.Add(LeftMiddleFingerPIP_Name, &LeftHand.MiddleFinger.PIP.Transform);
+	SourceToTransformMap.Add(LeftMiddleFingerMCP_Name, &LeftHand.MiddleFinger.MCP.Transform);
 
-	SourceToTransformMap.Add(LeftRingFingerTip_Name, &LeftHand.RingFinger.Tip);
-	SourceToTransformMap.Add(LeftRingFingerDIP_Name, &LeftHand.RingFinger.DIP);
-	SourceToTransformMap.Add(LeftRingFingerPIP_Name, &LeftHand.RingFinger.PIP);
-	SourceToTransformMap.Add(LeftRingFingerMCP_Name, &LeftHand.RingFinger.MCP);
+	SourceToTransformMap.Add(LeftRingFingerTip_Name, &LeftHand.RingFinger.Tip.Transform);
+	SourceToTransformMap.Add(LeftRingFingerDIP_Name, &LeftHand.RingFinger.DIP.Transform);
+	SourceToTransformMap.Add(LeftRingFingerPIP_Name, &LeftHand.RingFinger.PIP.Transform);
+	SourceToTransformMap.Add(LeftRingFingerMCP_Name, &LeftHand.RingFinger.MCP.Transform);
 
-	SourceToTransformMap.Add(LeftPinkyFingerTip_Name, &LeftHand.PinkyFinger.Tip);
-	SourceToTransformMap.Add(LeftPinkyFingerDIP_Name, &LeftHand.PinkyFinger.DIP);
-	SourceToTransformMap.Add(LeftPinkyFingerPIP_Name, &LeftHand.PinkyFinger.PIP);
-	SourceToTransformMap.Add(LeftPinkyFingerMCP_Name, &LeftHand.PinkyFinger.MCP);
+	SourceToTransformMap.Add(LeftPinkyFingerTip_Name, &LeftHand.PinkyFinger.Tip.Transform);
+	SourceToTransformMap.Add(LeftPinkyFingerDIP_Name, &LeftHand.PinkyFinger.DIP.Transform);
+	SourceToTransformMap.Add(LeftPinkyFingerPIP_Name, &LeftHand.PinkyFinger.PIP.Transform);
+	SourceToTransformMap.Add(LeftPinkyFingerMCP_Name, &LeftHand.PinkyFinger.MCP.Transform);
 
 
-	SourceToTransformMap.Add(RightHandCenter_Name, &RightHand.HandCenter);
+	SourceToTransformMap.Add(RightHandCenter_Name, &RightHand.HandCenter.Transform);
 
-	SourceToTransformMap.Add(RightWristCenter_Name, &RightHand.Wrist.Center);
-	SourceToTransformMap.Add(RightWristUlnar_Name, &RightHand.Wrist.Ulnar);
-	SourceToTransformMap.Add(RightWristRadial_Name, &RightHand.Wrist.Radial);
+	SourceToTransformMap.Add(RightWristCenter_Name, &RightHand.Wrist.Center.Transform);
+	SourceToTransformMap.Add(RightWristUlnar_Name, &RightHand.Wrist.Ulnar.Transform);
+	SourceToTransformMap.Add(RightWristRadial_Name, &RightHand.Wrist.Radial.Transform);
 
-	SourceToTransformMap.Add(RightThumbTip_Name, &RightHand.Thumb.Tip);
-	SourceToTransformMap.Add(RightThumbIP_Name, &RightHand.Thumb.DIP);
-	SourceToTransformMap.Add(RightThumbMCP_Name, &RightHand.Thumb.PIP);
-	SourceToTransformMap.Add(RightThumbCMC_Name, &RightHand.Thumb.MCP);
+	SourceToTransformMap.Add(RightThumbTip_Name, &RightHand.Thumb.Tip.Transform);
+	SourceToTransformMap.Add(RightThumbIP_Name, &RightHand.Thumb.DIP.Transform);
+	SourceToTransformMap.Add(RightThumbMCP_Name, &RightHand.Thumb.PIP.Transform);
+	SourceToTransformMap.Add(RightThumbCMC_Name, &RightHand.Thumb.MCP.Transform);
 
-	SourceToTransformMap.Add(RightIndexFingerTip_Name, &RightHand.IndexFinger.Tip);
-	SourceToTransformMap.Add(RightIndexFingerDIP_Name, &RightHand.IndexFinger.DIP);
-	SourceToTransformMap.Add(RightIndexFingerPIP_Name, &RightHand.IndexFinger.PIP);
-	SourceToTransformMap.Add(RightIndexFingerMCP_Name, &RightHand.IndexFinger.MCP);
+	SourceToTransformMap.Add(RightIndexFingerTip_Name, &RightHand.IndexFinger.Tip.Transform);
+	SourceToTransformMap.Add(RightIndexFingerDIP_Name, &RightHand.IndexFinger.DIP.Transform);
+	SourceToTransformMap.Add(RightIndexFingerPIP_Name, &RightHand.IndexFinger.PIP.Transform);
+	SourceToTransformMap.Add(RightIndexFingerMCP_Name, &RightHand.IndexFinger.MCP.Transform);
 
-	SourceToTransformMap.Add(RightMiddleFingerTip_Name, &RightHand.MiddleFinger.Tip);
-	SourceToTransformMap.Add(RightMiddleFingerDIP_Name, &RightHand.MiddleFinger.DIP);
-	SourceToTransformMap.Add(RightMiddleFingerPIP_Name, &RightHand.MiddleFinger.PIP);
-	SourceToTransformMap.Add(RightMiddleFingerMCP_Name, &RightHand.MiddleFinger.MCP);
+	SourceToTransformMap.Add(RightMiddleFingerTip_Name, &RightHand.MiddleFinger.Tip.Transform);
+	SourceToTransformMap.Add(RightMiddleFingerDIP_Name, &RightHand.MiddleFinger.DIP.Transform);
+	SourceToTransformMap.Add(RightMiddleFingerPIP_Name, &RightHand.MiddleFinger.PIP.Transform);
+	SourceToTransformMap.Add(RightMiddleFingerMCP_Name, &RightHand.MiddleFinger.MCP.Transform);
 
-	SourceToTransformMap.Add(RightRingFingerTip_Name, &RightHand.RingFinger.Tip);
-	SourceToTransformMap.Add(RightRingFingerDIP_Name, &RightHand.RingFinger.DIP);
-	SourceToTransformMap.Add(RightRingFingerPIP_Name, &RightHand.RingFinger.PIP);
-	SourceToTransformMap.Add(RightRingFingerMCP_Name, &RightHand.RingFinger.MCP);
+	SourceToTransformMap.Add(RightRingFingerTip_Name, &RightHand.RingFinger.Tip.Transform);
+	SourceToTransformMap.Add(RightRingFingerDIP_Name, &RightHand.RingFinger.DIP.Transform);
+	SourceToTransformMap.Add(RightRingFingerPIP_Name, &RightHand.RingFinger.PIP.Transform);
+	SourceToTransformMap.Add(RightRingFingerMCP_Name, &RightHand.RingFinger.MCP.Transform);
 
-	SourceToTransformMap.Add(RightPinkyFingerTip_Name, &RightHand.PinkyFinger.Tip);
-	SourceToTransformMap.Add(RightPinkyFingerDIP_Name, &RightHand.PinkyFinger.DIP);
-	SourceToTransformMap.Add(RightPinkyFingerPIP_Name, &RightHand.PinkyFinger.PIP);
-	SourceToTransformMap.Add(RightPinkyFingerMCP_Name, &RightHand.PinkyFinger.MCP);
+	SourceToTransformMap.Add(RightPinkyFingerTip_Name, &RightHand.PinkyFinger.Tip.Transform);
+	SourceToTransformMap.Add(RightPinkyFingerDIP_Name, &RightHand.PinkyFinger.DIP.Transform);
+	SourceToTransformMap.Add(RightPinkyFingerPIP_Name, &RightHand.PinkyFinger.PIP.Transform);
+	SourceToTransformMap.Add(RightPinkyFingerMCP_Name, &RightHand.PinkyFinger.MCP.Transform);
 
 
 
@@ -498,8 +549,14 @@ FMagicLeapHandTracking::FHandState::FHandState()
 bool FMagicLeapHandTracking::FHandState::GetTransform(EHandTrackingKeypoint KeyPoint, FTransform& OutTransform) const
 {
 	check(static_cast<int32>(KeyPoint) >= 0 && static_cast<int32>(KeyPoint) <= EHandTrackingKeypointCount);
-	OutTransform = *EnumToTransformMap[static_cast<int32>(KeyPoint)];
+	OutTransform = EnumToTransformMap[static_cast<int32>(KeyPoint)]->Transform;
 	return IsValid();
+}
+
+const FMagicLeapHandTracking::FTransformRecord& FMagicLeapHandTracking::FHandState::GetTransform(EHandTrackingKeypoint KeyPoint) const
+{
+	check(static_cast<int32>(KeyPoint) >= 0 && static_cast<int32>(KeyPoint) <= EHandTrackingKeypointCount);
+	return *EnumToTransformMap[static_cast<int32>(KeyPoint)];
 }
 
 const FTransform* FMagicLeapHandTracking::FindTransformBySource(FName SourceName) const
@@ -552,22 +609,22 @@ bool FMagicLeapHandTracking::GetControllerOrientationAndPosition(const int32 Con
 			switch (DeviceHand)
 			{
 			case EControllerHand::Special_1:
-				ControllerTransform = &LeftHand.HandCenter;
+				ControllerTransform = &LeftHand.HandCenter.Transform;
 				break;
 			case EControllerHand::Special_3:
-				ControllerTransform = &LeftHand.IndexFinger.Tip;
+				ControllerTransform = &LeftHand.IndexFinger.Tip.Transform;
 				break;
 			case EControllerHand::Special_5:
-				ControllerTransform = &LeftHand.Thumb.Tip;
+				ControllerTransform = &LeftHand.Thumb.Tip.Transform;
 				break;
 			case EControllerHand::Special_2:
-				ControllerTransform = &RightHand.HandCenter;
+				ControllerTransform = &RightHand.HandCenter.Transform;
 				break;
 			case EControllerHand::Special_4:
-				ControllerTransform = &RightHand.IndexFinger.Tip;
+				ControllerTransform = &RightHand.IndexFinger.Tip.Transform;
 				break;
 			case EControllerHand::Special_6:
-				ControllerTransform = &RightHand.Thumb.Tip;
+				ControllerTransform = &RightHand.Thumb.Tip.Transform;
 				break;
 			default:
 				check(false);
@@ -890,20 +947,26 @@ float FMagicLeapHandTracking::GetGestureConfidenceThreshold(EHandTrackingGesture
 namespace MagicLeapHandTracking
 {
 #if WITH_MLSDK
-	bool FetchTransform(const FAppFramework& AppFramework, const MLKeyPointState& Source, FTransform& OutDest, const TCHAR* DebugString, const TCHAR* DebugString2, const TCHAR* DebugString3)
+	bool FetchTransform(const FAppFramework& AppFramework, const MLKeyPointState& Source, FMagicLeapHandTracking::FTransformRecord& OutDest, const TCHAR* DebugString, const TCHAR* DebugString2, const TCHAR* DebugString3)
 	{
 		bool bResult = false;
 
 		if (Source.is_valid)
 		{
 			EFailReason FailReason = EFailReason::None;
-			bResult = AppFramework.GetTransform(Source.frame_id, OutDest, FailReason);
+			FTransform Transform;
+			bResult = AppFramework.GetTransform(Source.frame_id, Transform, FailReason);
 			if (!bResult)
 			{
 				if (FailReason == EFailReason::NaNsInTransform)
 				{
 					UE_LOG(LogMagicLeapHandTracking, Error, TEXT("NaNs in %s %s %s transform."), DebugString, DebugString2, DebugString3);
 				}
+			}
+			else
+			{
+				OutDest.Transform = Transform;
+				OutDest.bWritten = true;
 			}
 
 		}
@@ -1072,6 +1135,8 @@ void FMagicLeapHandTracking::UpdateTrackerData()
 
 		LeftHand.GestureConfidence = HandTrackingData.left_hand_state.keypose_confidence[HandTrackingData.left_hand_state.keypose];
 		RightHand.GestureConfidence = HandTrackingData.right_hand_state.keypose_confidence[HandTrackingData.right_hand_state.keypose];
+
+		UpdateLiveLink();
 	}
 #endif //WITH_MLSDK
 }

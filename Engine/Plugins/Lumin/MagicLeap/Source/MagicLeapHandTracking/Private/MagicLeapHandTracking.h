@@ -17,13 +17,46 @@ ML_INCLUDES_END
 #include "XRMotionControllerBase.h"
 #include "InputCoreTypes.h"
 #include "AppEventHandler.h"
+#include "ILiveLinkSource.h"
 
 /**
   * MagicLeap HandTracking
   */
-class FMagicLeapHandTracking : public IMagicLeapInputDevice, public FXRMotionControllerBase, public MagicLeap::IAppEventHandler
+class FMagicLeapHandTracking : public IMagicLeapInputDevice, public FXRMotionControllerBase, public MagicLeap::IAppEventHandler, public ILiveLinkSource
 {
 public:
+	static FName HandCenter_Name;
+
+	static FName WristCenter_Name;
+	static FName WristUlnar_Name;
+	static FName WristRadial_Name;
+
+	static FName ThumbTip_Name;
+	static FName ThumbIP_Name;
+	static FName ThumbMCP_Name;
+	static FName ThumbCMC_Name;
+
+	static FName IndexFingerTip_Name;
+	static FName IndexFingerDIP_Name;
+	static FName IndexFingerPIP_Name;
+	static FName IndexFingerMCP_Name;
+
+	static FName MiddleFingerTip_Name;
+	static FName MiddleFingerDIP_Name;
+	static FName MiddleFingerPIP_Name;
+	static FName MiddleFingerMCP_Name;
+
+	static FName RingFingerTip_Name;
+	static FName RingFingerDIP_Name;
+	static FName RingFingerPIP_Name;
+	static FName RingFingerMCP_Name;
+
+	static FName PinkyFingerTip_Name;
+	static FName PinkyFingerDIP_Name;
+	static FName PinkyFingerPIP_Name;
+	static FName PinkyFingerMCP_Name;
+
+
 	static FName LeftHandCenter_Name;
 
 	static FName LeftWristCenter_Name;
@@ -87,26 +120,27 @@ public:
 	static FName RightPinkyFingerPIP_Name;
 	static FName RightPinkyFingerMCP_Name;
 
-	//struct FTransformState
-	//{
-
-	//};
+	struct FTransformRecord
+	{
+		FTransform Transform = FTransform::Identity;
+		bool bWritten = false;
+	};
 	struct FWristTransforms : public FNoncopyable
 	{
 		// Wrist center.
-		FTransform Center = FTransform::Identity;
+		FTransformRecord Center;
 		// Ulnar-sided wrist
-		FTransform Ulnar = FTransform::Identity;
+		FTransformRecord Ulnar;
 		// Radial-sided wrist.
-		FTransform Radial = FTransform::Identity;
+		FTransformRecord Radial;
 	};
 	struct FDigitTransforms : public FNoncopyable
 	{
 		// These labels are not correct anatomical nomenclature for the thumb, but they 1:1 map with the correct names.
-		FTransform Tip = FTransform::Identity; // digit tip
-		FTransform DIP = FTransform::Identity; // distal joint
-		FTransform PIP = FTransform::Identity; // proximal joint
-		FTransform MCP = FTransform::Identity; // base of digit
+		FTransformRecord Tip; // digit tip
+		FTransformRecord DIP; // distal joint
+		FTransformRecord PIP; // proximal joint
+		FTransformRecord MCP; // base of digit
 	};
 	struct FHandState : public FNoncopyable
 	{
@@ -124,13 +158,14 @@ public:
 
 		FWristTransforms Wrist;
 
-		FTransform HandCenter = FTransform::Identity;
+		FTransformRecord HandCenter;
 
 		bool IsValid() const { return Gesture != EHandTrackingGesture::NoHand; }
 		bool GetTransform(EHandTrackingKeypoint KeyPoint, FTransform& OutTransform) const;
+		const FTransformRecord& GetTransform(EHandTrackingKeypoint KeyPoint) const;
 
 	private:
-		FTransform* EnumToTransformMap[EHandTrackingKeypointCount];
+		FTransformRecord* EnumToTransformMap[EHandTrackingKeypointCount];
 	};
 
 public:
@@ -144,6 +179,14 @@ public:
 	virtual FName GetMotionControllerDeviceTypeName() const override;
 	virtual void EnumerateSources(TArray<FMotionControllerSource>& SourcesOut) const override;
 
+	// ILiveLinkSource interface
+	virtual void ReceiveClient(ILiveLinkClient* InClient, FGuid InSourceGuid) override;
+	virtual bool IsSourceStillValid() override;
+	virtual bool RequestSourceShutdown() override;
+	virtual FText GetSourceMachineName() const override;
+	virtual FText GetSourceStatus() const override;
+	virtual FText GetSourceType() const override;
+	// End ILiveLinkSource
 
 	/** IMagicLeapInputDevice interface */
 	virtual void Tick(float DeltaTime) override;
@@ -179,6 +222,10 @@ private:
 	void OnAppPause() override;
 	void OnAppResume() override;
 
+	void SetupLiveLinkData();
+	void UpdateLiveLink();
+	void UpdateLiveLinkTransforms(TArray<FTransform>& OutTransforms, const FMagicLeapHandTracking::FHandState& HandState);
+
 #if WITH_MLSDK
 	const MLHandTrackingData& GetCurrentHandTrackingData()				{ return HandTrackingDatas[CurrentHandTrackingDataIndex]; }
 	const MLHandTrackingData& GetPreviousHandTrackingData()				{ return HandTrackingDatas[1 - CurrentHandTrackingDataIndex]; }
@@ -197,6 +244,8 @@ private:
 	MLHandTrackingData HandTrackingDatas[2];
 	int32 CurrentHandTrackingDataIndex = 0;
 	MLHandTrackingStaticData HandTrackingStaticData;
+	TArray<int32> BoneParents;
+	TArray<EHandTrackingKeypoint> BoneKeypoints;
 #endif //WITH_MLSDK
 
 	FHandState LeftHand;
@@ -236,6 +285,18 @@ private:
 		static const FKey Right_NoPose;
 		static const FKey Right_NoHand;
 	};
+
+	// LiveLink Data
+	/** The local client to push data updates to */
+	ILiveLinkClient* LiveLinkClient = nullptr;
+	/** Our identifier in LiveLink */
+	FGuid LiveLinkSourceGuid;
+
+	static FName LiveLinkLeftHandTrackingSubjectName;
+	static FName LiveLinkRightHandTrackingSubjectName;
+	bool bNewLiveLinkClient = false;
+	FLiveLinkRefSkeleton LiveLinkRefSkeleton;
+
 };
 
 DEFINE_LOG_CATEGORY_STATIC(LogMagicLeapHandTracking, Display, All);

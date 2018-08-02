@@ -6,6 +6,8 @@
 #include "IMagicLeapPlugin.h"
 #include "HeadMountedDisplayFunctionLibrary.h"
 #include "Engine/World.h"
+#include "ILiveLinkClient.h"
+#include "ILiveLinkSource.h"
 
 bool UMagicLeapHandTrackingFunctionLibrary::GetHandCenter(EControllerHand Hand, FTransform& HandCenter)
 {
@@ -16,7 +18,7 @@ bool UMagicLeapHandTrackingFunctionLibrary::GetHandCenter(EControllerHand Hand, 
 		if (Hand == EControllerHand::Left || Hand == EControllerHand::Right)
 		{
 			const FMagicLeapHandTracking::FHandState& HandTrackingData = (Hand == EControllerHand::Right) ? HandTracking->GetRightHandState() : HandTracking->GetLeftHandState();
-			HandCenter = HandTrackingData.HandCenter;
+			HandCenter = HandTrackingData.HandCenter.Transform;
 			return HandTrackingData.IsValid();
 		}
 		else
@@ -42,18 +44,18 @@ bool UMagicLeapHandTrackingFunctionLibrary::GetHandIndexFingerTip(EControllerHan
 			{
 			case EGestureTransformSpace::Tracking:
 			{
-				Pointer = HandTrackingData.IndexFinger.Tip;
+				Pointer = HandTrackingData.IndexFinger.Tip.Transform;
 				break;
 			}
 			case EGestureTransformSpace::World:
 			{
 				FTransform TrackingToWorldTransform = UHeadMountedDisplayFunctionLibrary::GetTrackingToWorldTransform(GWorld);
-				Pointer = HandTrackingData.IndexFinger.Tip * TrackingToWorldTransform;
+				Pointer = HandTrackingData.IndexFinger.Tip.Transform * TrackingToWorldTransform;
 				break;
 			}
 			case EGestureTransformSpace::Hand:
 			{
-				Pointer = HandTrackingData.IndexFinger.Tip * HandTrackingData.HandCenter.Inverse();
+				Pointer = HandTrackingData.IndexFinger.Tip.Transform * HandTrackingData.HandCenter.Transform.Inverse();
 				break;
 			}
 			default:
@@ -85,18 +87,18 @@ bool UMagicLeapHandTrackingFunctionLibrary::GetHandThumbTip(EControllerHand Hand
 			{
 			case EGestureTransformSpace::Tracking:
 			{
-				Secondary = HandTrackingData.Thumb.Tip;
+				Secondary = HandTrackingData.Thumb.Tip.Transform;
 				break;
 			}
 			case EGestureTransformSpace::World:
 			{
 				FTransform TrackingToWorldTransform = UHeadMountedDisplayFunctionLibrary::GetTrackingToWorldTransform(GWorld);
-				Secondary = HandTrackingData.Thumb.Tip * TrackingToWorldTransform;
+				Secondary = HandTrackingData.Thumb.Tip.Transform * TrackingToWorldTransform;
 				break;
 			}
 			case EGestureTransformSpace::Hand:
 			{
-				Secondary = HandTrackingData.Thumb.Tip * HandTrackingData.HandCenter.Inverse();
+				Secondary = HandTrackingData.Thumb.Tip.Transform * HandTrackingData.HandCenter.Transform.Inverse();
 				break;
 			}
 			default:
@@ -157,9 +159,9 @@ bool UMagicLeapHandTrackingFunctionLibrary::GetGestureKeypoints(EControllerHand 
 		{
 			const FMagicLeapHandTracking::FHandState& HandState = (Hand == EControllerHand::Left) ? HandTracking->GetLeftHandState() : HandTracking->GetRightHandState();
 			Keypoints.SetNum(3);
-			Keypoints[0] = HandState.HandCenter;
-			Keypoints[1] = HandState.IndexFinger.Tip;
-			Keypoints[2] = HandState.Thumb.Tip;
+			Keypoints[0] = HandState.HandCenter.Transform;
+			Keypoints[1] = HandState.IndexFinger.Tip.Transform;
+			Keypoints[2] = HandState.Thumb.Tip.Transform;
 			return true;
 		}
 		else
@@ -297,3 +299,22 @@ bool UMagicLeapHandTrackingFunctionLibrary::GetCurrentGesture(EControllerHand Ha
 	Gesture = EHandTrackingGesture::NoHand;
 	return false;
 }
+
+bool UMagicLeapHandTrackingFunctionLibrary::GetMagicLeapHandTrackingLiveLinkSource(FLiveLinkSourceHandle& SourceHandle)
+{
+	IModularFeatures& ModularFeatures = IModularFeatures::Get();
+
+	if (ModularFeatures.IsModularFeatureAvailable(ILiveLinkClient::ModularFeatureName))
+	{
+		TSharedPtr<ILiveLinkSource> HandTrackingSource = StaticCastSharedPtr<FMagicLeapHandTracking>(IMagicLeapHandTrackingPlugin::Get().GetLiveLinkSource());
+		ILiveLinkClient* LiveLinkClient = &ModularFeatures.GetModularFeature<ILiveLinkClient>(ILiveLinkClient::ModularFeatureName);
+		LiveLinkClient->AddSource(HandTrackingSource);
+		SourceHandle.SetSourcePointer(HandTrackingSource);
+		return true;
+	}
+	else
+	{
+		SourceHandle.SetSourcePointer(nullptr);
+		return false;
+	}
+};

@@ -28,7 +28,8 @@ namespace UnrealBuildTool.Rules
 					"LuminRuntimeSettings",
 					"MagicLeap",
 					"MLSDK",
-					"SlateCore"
+					"SlateCore",
+					"LiveLinkInterface"
 				}
 			);
 

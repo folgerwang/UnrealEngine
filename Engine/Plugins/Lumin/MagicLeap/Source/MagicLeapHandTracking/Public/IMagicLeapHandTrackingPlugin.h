@@ -40,4 +40,11 @@ public:
 	 * @return Shared pointer to the Input Device.
 	 */
 	virtual TSharedPtr<IInputDevice> GetInputDevice() = 0;
+
+	/**
+	* Returns the LiveLinkSource associated with this MagicLeapHandTrackingPlugin.
+	*
+	* @return Shared pointer to the Input Device.
+	*/
+	virtual TSharedPtr<class ILiveLinkSource> GetLiveLinkSource() = 0;
 };

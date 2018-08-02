@@ -7,6 +7,7 @@
 #include "UObject/ObjectMacros.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "InputCoreTypes.h"
+#include "ILiveLinkSource.h"
 #include "MagicLeapHandTrackingFunctionLibrary.generated.h"
 
 UCLASS(ClassGroup = MagicLeap)
@@ -155,4 +156,15 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap")
 	static bool GetCurrentGesture(EControllerHand Hand, EHandTrackingGesture& Gesture);
+
+
+	/**
+	Get a LiveLinkSourceHandle for magic leap hand tracking.
+
+	@param SourceHandle Output parameter SourceHandle that will be filled in.
+	@return true if a LiveLink Source was assigned.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap")
+	static bool GetMagicLeapHandTrackingLiveLinkSource(struct FLiveLinkSourceHandle& SourceHandle);
+
 };
