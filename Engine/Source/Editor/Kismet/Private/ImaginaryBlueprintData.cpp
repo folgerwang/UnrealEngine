@@ -108,8 +108,10 @@ FSearchResult FImaginaryFiBData::CreateSearchTree(FSearchResult InParentSearchRe
 			}
 		}
 
-		// If the children did not match the search results but this item does, then we will want to return true
-		if (!bValidSearchResults && !CurrentData->IsCategory() && (InValidSearchResults.Find(CurrentData) != INDEX_NONE || InMatchingSearchComponents.Find(CurrentData)))
+		// If the children did not match the search results but this item does, then we will want to return true.
+		// Include "tag+value" categories in the search tree, as the relevant results need to be added as children.
+		const bool bInvalidSearchResultsCategory = CurrentData->IsCategory() && !CurrentData->IsTagAndValueCategory();
+		if (!bValidSearchResults && !bInvalidSearchResultsCategory && (InValidSearchResults.Find(CurrentData) != INDEX_NONE || InMatchingSearchComponents.Find(CurrentData)))
 		{
 			bValidSearchResults = true;
 		}
