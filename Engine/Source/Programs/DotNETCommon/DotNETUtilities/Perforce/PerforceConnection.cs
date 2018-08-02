@@ -15,6 +15,11 @@ namespace Tools.DotNETCommon.Perforce
 	/// </summary>
 	public class PerforceConnection
 	{
+		/// <summary>
+		/// Constant for the default changelist, where valid.
+		/// </summary>
+		public const int DefaultChange = -2;
+
 		#region Plumbing
 
 		/// <summary>
@@ -333,6 +338,10 @@ namespace Tools.DotNETCommon.Perforce
 							else if(Value.StartsWith("#"))
 							{
 								FieldInfo.SetValue(NewRecord, (Value == "#none") ? 0 : int.Parse(Value.Substring(1)));
+							}
+							else if(Value == "default")
+							{
+								FieldInfo.SetValue(NewRecord, DefaultChange);
 							}
 							else
 							{
@@ -812,7 +821,7 @@ namespace Tools.DotNETCommon.Perforce
 			{
 				Arguments.AppendFormat(" -s {0}", GetEnumText(typeof(ChangeStatus), Status));
 			}
-			if(ClientName != null)
+			if(UserName != null)
 			{
 				Arguments.AppendFormat(" -u {0}", UserName);
 			}
@@ -1121,6 +1130,41 @@ namespace Tools.DotNETCommon.Perforce
 			return Command<DescribeRecord>(Arguments.ToString(), null);
 		}
 
+		/// <summary>
+		/// Describes a set of changelists
+		/// </summary>
+		/// <param name="ChangeNumbers">The changelist numbers to retrieve descriptions for</param>
+		/// <returns>List of responses from the server</returns>
+		public PerforceResponseList<DescribeRecord> Describe(DescribeOptions Options, int MaxResults, params int[] ChangeNumbers)
+		{
+			StringBuilder Arguments = new StringBuilder("describe -s");
+			if((Options & DescribeOptions.ShowDescriptionForRestrictedChanges) != 0)
+			{
+				Arguments.Append(" -f");
+			}
+			if((Options & DescribeOptions.Identity) != 0)
+			{
+				Arguments.Append(" -I");
+			}
+			if(MaxResults != -1)
+			{
+				Arguments.AppendFormat(" -m{0}", MaxResults);
+			}
+			if((Options & DescribeOptions.OriginalChangeNumber) != 0)
+			{
+				Arguments.Append(" -O");
+			}
+			if((Options & DescribeOptions.Shelved) != 0)
+			{
+				Arguments.Append(" -S");
+			}
+			foreach(int ChangeNumber in ChangeNumbers)
+			{
+				Arguments.AppendFormat(" {0}", ChangeNumber);
+			}
+			return Command<DescribeRecord>(Arguments.ToString(), null);
+		}
+
 		#endregion
 
 		#region p4 edit
@@ -1418,6 +1462,59 @@ namespace Tools.DotNETCommon.Perforce
 				Arguments.Append(" -s");
 			}
 			return SingleResponseCommand<InfoRecord>(Arguments.ToString(), null);
+		}
+
+		#endregion
+
+		#region p4 opened
+
+		/// <summary>
+		/// Execute the 'opened' command
+		/// </summary>
+		/// <param name="Options">Options for the command</param>
+		/// <param name="ChangeNumber">List the files in pending changelist change. To list files in the default changelist, use DefaultChange.</param>
+		/// <param name="ClientName">List only files that are open in the given client</param>
+		/// <param name="UserName">List only files that are opened by the given user</param>
+		/// <param name="MaxResults">Maximum number of results to return</param>
+		/// <param name="FileSpecs">Specification for the files to list</param>
+		/// <returns>Response from the server</returns>
+		public PerforceResponseList<FStatRecord> Opened(OpenedOptions Options, int ChangeNumber, string ClientName, string UserName, int MaxResults, params string[] FileSpecs)
+		{
+			// Build the argument list
+			StringBuilder Arguments = new StringBuilder("opened");
+			if((Options & OpenedOptions.AllWorkspaces) != 0)
+			{
+				Arguments.AppendFormat(" -a");
+			}
+			if(ChangeNumber != -1)
+			{
+				Arguments.AppendFormat(" -c {0}", ChangeNumber);
+			}
+			if(ClientName != null)
+			{
+				Arguments.AppendFormat(" -C \"{0}\"", ClientName);
+			}
+			if(UserName != null)
+			{
+				Arguments.AppendFormat(" -u \"{0}\"", UserName);
+			}
+			if(MaxResults == DefaultChange)
+			{
+				Arguments.AppendFormat(" -m default");
+			}
+			else if(MaxResults != -1)
+			{
+				Arguments.AppendFormat(" -m {0}", MaxResults);
+			}
+			if((Options & OpenedOptions.ShortOutput) != 0)
+			{
+				Arguments.AppendFormat(" -s");
+			}
+			foreach(string FileSpec in FileSpecs)
+			{
+				Arguments.AppendFormat(" \"{0}\"", FileSpec);
+			}
+			return Command<FStatRecord>(Arguments.ToString(), null);
 		}
 
 		#endregion

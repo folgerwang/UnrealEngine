@@ -104,6 +104,7 @@
     <Compile Include="Perforce\Records\DeleteOptions.cs" />
     <Compile Include="Perforce\Records\DeleteRecord.cs" />
     <Compile Include="Perforce\Records\DescribeFileRecord.cs" />
+    <Compile Include="Perforce\Records\DescribeOptions.cs" />
     <Compile Include="Perforce\Records\DescribeRecord.cs" />
     <Compile Include="Perforce\Records\EditOptions.cs" />
     <Compile Include="Perforce\Records\EditRecord.cs" />
@@ -117,6 +118,7 @@
     <Compile Include="Perforce\Records\InfoRecord.cs" />
     <Compile Include="Perforce\Records\IntegrationAction.cs" />
     <Compile Include="Perforce\Records\IntegrationRecord.cs" />
+    <Compile Include="Perforce\Records\OpenedOptions.cs" />
     <Compile Include="Perforce\Records\PrintRecord.cs" />
     <Compile Include="Perforce\Records\ReconcileOptions.cs" />
     <Compile Include="Perforce\Records\ReconcileRecord.cs" />

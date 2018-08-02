@@ -56,7 +56,7 @@ namespace Tools.DotNETCommon.Perforce
 		/// <summary>
 		/// Narrowest path which contains all files affected by this change
 		/// </summary>
-		[PerforceTag("path")]
+		[PerforceTag("path", Optional = true)]
 		public string Path;
 
 		/// <summary>

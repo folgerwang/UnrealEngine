@@ -50,7 +50,7 @@ namespace Tools.DotNETCommon.Perforce
 		/// <summary>
 		/// The path affected by this change.
 		/// </summary>
-		[PerforceTag("path")]
+		[PerforceTag("path", Optional = true)]
 		public string Path;
 
 		/// <summary>
