@@ -112,12 +112,12 @@ void FSlateOpenGLRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 	{
 		FSlateWindowElementList& ElementList = *WindowElementLists[ListIndex];
 
-		if ( ElementList.GetWindow().IsValid() )
+		if ( ElementList.GetRenderWindow() )
 		{
-			TSharedRef<SWindow> WindowToDraw = ElementList.GetWindow().ToSharedRef();
+			SWindow* WindowToDraw = ElementList.GetRenderWindow();
 
 			const FVector2D WindowSize = WindowToDraw->GetSizeInScreen();
-			FSlateOpenGLViewport* Viewport = WindowToViewportMap.Find( &WindowToDraw.Get() );
+			FSlateOpenGLViewport* Viewport = WindowToViewportMap.Find( WindowToDraw );
 			check(Viewport);
 		
 			//@todo Slate OpenGL: Move this to ResizeViewport

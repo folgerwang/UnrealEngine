@@ -1488,15 +1488,20 @@ void FSlateApplication::DrawPrepass( TSharedPtr<SWindow> DrawOnlyThisWindow )
 	}
 }
 
-TArray<TSharedRef<SWindow>> GatherAllDescendants(const TArray< TSharedRef<SWindow> >& InWindowList)
+TArray<SWindow*> GatherAllDescendants(const TArray< TSharedRef<SWindow> >& InWindowList)
 {
-	TArray<TSharedRef<SWindow>> GatheredDescendants(InWindowList);
+	TArray<SWindow*> GatheredDescendants;
+	GatheredDescendants.Reserve(InWindowList.Num());
+	for (const TSharedRef<SWindow>& Window : InWindowList)
+	{
+		GatheredDescendants.Add(&Window.Get());
+	}
 
 	for (const TSharedRef<SWindow>& SomeWindow : InWindowList)
 	{
-		GatheredDescendants.Append( GatherAllDescendants( SomeWindow->GetChildWindows() ) );
+		GatheredDescendants.Append(GatherAllDescendants(SomeWindow->GetChildWindows()));
 	}
-	
+
 	return GatheredDescendants;
 }
 
@@ -1576,7 +1581,7 @@ void FSlateApplication::PrivateDrawWindows( TSharedPtr<SWindow> DrawOnlyThisWind
 	{
 		// Some windows may have been destroyed/removed.
 		// Do not attempt to draw any windows that have been removed.
-		TArray<TSharedRef<SWindow>> AllWindows = GatherAllDescendants(SlateWindows);
+		TArray<SWindow*> AllWindows = GatherAllDescendants(SlateWindows);
 		DrawWindowArgs.OutDrawBuffer.RemoveUnusedWindowElement(AllWindows);
 	}
 
@@ -4515,7 +4520,7 @@ TSharedPtr< FSlateWindowElementList > FSlateApplication::FCacheElementPools::Get
 	// Remove inactive lists that don't belong to this window.
 	for ( int32 i = InactiveCachedElementListPool.Num() - 1; i >= 0; i-- )
 	{
-		if ( InactiveCachedElementListPool[i]->GetWindow() != CurrentWindow )
+		if (InactiveCachedElementListPool[i]->GetPaintWindow() != CurrentWindow.Get())
 		{
 			InactiveCachedElementListPool.RemoveAtSwap(i, 1, false);
 		}
@@ -6901,6 +6906,8 @@ EWindowZone::Type FSlateApplication::GetWindowZoneForPoint( const TSharedRef< FG
 
 void FSlateApplication::PrivateDestroyWindow( const TSharedRef<SWindow>& DestroyedWindow )
 {
+	WindowBeingDestroyedEvent.Broadcast(*DestroyedWindow);
+
 	// Notify the window that it is going to be destroyed.  The window must be completely intact when this is called 
 	// because delegates are allowed to leave Slate here
 	DestroyedWindow->NotifyWindowBeingDestroyed();

@@ -122,7 +122,7 @@ int32 STutorialButton::OnPaint(const FPaintArgs& Args, const FGeometry& Allotted
 		const FLinearColor PulseColor = FEditorStyle::Get().GetColor(TEXT("TutorialLaunch.Circle.Color"));
 
 		// We should be clipped by the window size, not our containing widget, as we want to draw outside the widget
-		const FVector2D WindowSize = OutDrawElements.GetWindow()->GetSizeInScreen();
+		const FVector2D WindowSize = OutDrawElements.GetPaintWindow()->GetSizeInScreen();
 		FSlateRect WindowClippingRect(0.0f, 0.0f, WindowSize.X, WindowSize.Y);
 
 		{

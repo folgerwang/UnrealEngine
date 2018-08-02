@@ -63,7 +63,7 @@ void FSlateElementBatcher::AddElements(FSlateWindowElementList& WindowElementLis
 	BatchData = &WindowElementList.GetBatchData();
 	DrawLayer = &WindowElementList.GetRootDrawLayer();
 	
-	FVector2D ViewportSize = WindowElementList.GetWindow()->GetViewportSize();
+	FVector2D ViewportSize = WindowElementList.GetPaintWindow()->GetViewportSize();
 
 	ClippingStates = &WindowElementList.ClippingManager.GetClippingStates();
 
