@@ -25,6 +25,14 @@ enum class ENiagaraRibbonAgeOffsetMode : uint8
 	Clip
 };
 
+/** This enum decides in which order the ribbon segments will be rendered */
+UENUM()
+enum class ENiagaraRibbonDrawDirection : uint8
+{
+	FrontToBack,
+	BackToFront
+};
+
 UCLASS(editinlinenew)
 class UNiagaraRibbonRendererProperties : public UNiagaraRendererProperties
 {
@@ -72,6 +80,10 @@ public:
 	/** Defines the mode to use when offsetting UV channel 1 by age which enables smooth texture movement when particles are added and removed at the end of the ribbon.  Not used when the RibbonLinkOrder binding is in use or when tiling distance is in use. */
 	UPROPERTY(EditAnywhere, Category = "Ribbon Rendering")
 	ENiagaraRibbonAgeOffsetMode UV1AgeOffsetMode;
+
+	/** If true, the particles are only sorted when using a translucent material. */
+	UPROPERTY(EditAnywhere, Category = "Ribbon Rendering")
+	ENiagaraRibbonDrawDirection DrawDirection;
 
 	//~ UNiagaraRendererProperties interface
 	virtual NiagaraRenderer* CreateEmitterRenderer(ERHIFeatureLevel::Type FeatureLevel) override;
