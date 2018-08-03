@@ -244,9 +244,9 @@ private:
 	MLHandTrackingData HandTrackingDatas[2];
 	int32 CurrentHandTrackingDataIndex = 0;
 	MLHandTrackingStaticData HandTrackingStaticData;
+#endif //WITH_MLSDK
 	TArray<int32> BoneParents;
 	TArray<EHandTrackingKeypoint> BoneKeypoints;
-#endif //WITH_MLSDK
 
 	FHandState LeftHand;
 	FHandState RightHand;
