@@ -93,6 +93,9 @@ FAnimationViewportClient::FAnimationViewportClient(const TSharedRef<IPersonaPrev
 	((FAssetEditorModeManager*)ModeTools)->SetPreviewScene(&InPreviewScene.Get());
 	((FAssetEditorModeManager*)ModeTools)->SetDefaultMode(FPersonaEditModes::SkeletonSelection);
 
+	// Default to local space
+	SetWidgetCoordSystemSpace(COORD_Local);
+
 	// load config
 	ConfigOption = UPersonaOptions::StaticClass()->GetDefaultObject<UPersonaOptions>();
 	check (ConfigOption);
