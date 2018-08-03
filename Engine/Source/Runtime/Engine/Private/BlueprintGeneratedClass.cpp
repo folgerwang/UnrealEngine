@@ -1189,25 +1189,9 @@ void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(AActor* A
 	}
 }
 
-uint8* UBlueprintGeneratedClass::GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const
-{
-	if (Obj && UsePersistentUberGraphFrame() && UberGraphFramePointerProperty && UberGraphFunction)
-	{
-		if (UberGraphFunction == FuncToCheck)
-		{
-			FPointerToUberGraphFrame* PointerToUberGraphFrame = UberGraphFramePointerProperty->ContainerPtrToValuePtr<FPointerToUberGraphFrame>(Obj);
-			checkSlow(PointerToUberGraphFrame);
-			ensure(PointerToUberGraphFrame->RawPointer);
-			return PointerToUberGraphFrame->RawPointer;
-		}
-	}
-	UClass* ParentClass = GetSuperClass();
-	checkSlow(ParentClass);
-	return ParentClass->GetPersistentUberGraphFrame(Obj, FuncToCheck);
-}
-
 void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty, bool bSkipSuperClass, UClass* OldClass) const
 {
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
 	/** Macros should not create uber graph frames as they have no uber graph. If UBlueprints are cooked out the macro class probably does not exist as well */
 	UBlueprint* Blueprint = Cast<UBlueprint>(ClassGeneratedBy);
 	if (Blueprint && Blueprint->BlueprintType == BPTYPE_MacroLibrary)
@@ -1261,10 +1245,12 @@ void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool
 		checkSlow(ParentClass);
 		ParentClass->CreatePersistentUberGraphFrame(Obj, bCreateOnlyIfEmpty);
 	}
+#endif // USE_UBER_GRAPH_PERSISTENT_FRAME
 }
 
 void UBlueprintGeneratedClass::DestroyPersistentUberGraphFrame(UObject* Obj, bool bSkipSuperClass) const
 {
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
 	ensure(!UberGraphFramePointerProperty == !UberGraphFunction);
 	if (Obj && UsePersistentUberGraphFrame() && UberGraphFramePointerProperty && UberGraphFunction)
 	{
@@ -1293,6 +1279,7 @@ void UBlueprintGeneratedClass::DestroyPersistentUberGraphFrame(UObject* Obj, boo
 		checkSlow(ParentClass);
 		ParentClass->DestroyPersistentUberGraphFrame(Obj);
 	}
+#endif // USE_UBER_GRAPH_PERSISTENT_FRAME
 }
 
 void UBlueprintGeneratedClass::GetPreloadDependencies(TArray<UObject*>& OutDeps)
@@ -1388,6 +1375,7 @@ void UBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProperties
 {
 	Super::Link(Ar, bRelinkExistingProperties);
 
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
 	if (UsePersistentUberGraphFrame() && UberGraphFunction)
 	{
 		Ar.Preload(UberGraphFunction);
@@ -1402,6 +1390,7 @@ void UBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProperties
 		}
 		checkSlow(UberGraphFramePointerProperty);
 	}
+#endif
 
 	AssembleReferenceTokenStream(true);
 }
@@ -1410,7 +1399,6 @@ void UBlueprintGeneratedClass::PurgeClass(bool bRecompilingOnLoad)
 {
 	Super::PurgeClass(bRecompilingOnLoad);
 
-	UberGraphFramePointerProperty = NULL;
 	UberGraphFunction = NULL;
 #if WITH_EDITORONLY_DATA
 	OverridenArchetypeForCDO = NULL;
@@ -1438,6 +1426,7 @@ void UBlueprintGeneratedClass::AddReferencedObjectsInUbergraphFrame(UObject* InT
 	{
 		if (UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(CurrentClass))
 		{
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
 			if (BPGC->UberGraphFramePointerProperty)
 			{
 				FPointerToUberGraphFrame* PointerToUberGraphFrame = BPGC->UberGraphFramePointerProperty->ContainerPtrToValuePtr<FPointerToUberGraphFrame>(InThis);
@@ -1454,6 +1443,7 @@ void UBlueprintGeneratedClass::AddReferencedObjectsInUbergraphFrame(UObject* InT
 					BPGC->UberGraphFunction->SerializeBin(CollectorScope.GetArchive(), PointerToUberGraphFrame->RawPointer);
 				}
 			}
+#endif // USE_UBER_GRAPH_PERSISTENT_FRAME
 		}
 		else if (CurrentClass->HasAllClassFlags(CLASS_Native))
 		{

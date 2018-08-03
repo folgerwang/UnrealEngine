@@ -1348,8 +1348,12 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 			&& (!ClassToRegenerate || (Blueprint->ParentClass != ClassToRegenerate->GetSuperClass()));
 
 		UBlueprintGeneratedClass* BPGClassToRegenerate = Cast<UBlueprintGeneratedClass>(ClassToRegenerate);
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
 		const bool bHasPendingUberGraphFrame = BPGClassToRegenerate
 			&& (BPGClassToRegenerate->UberGraphFramePointerProperty || BPGClassToRegenerate->UberGraphFunction);
+#else 
+		const bool bHasPendingUberGraphFrame = false;
+#endif //USE_UBER_GRAPH_PERSISTENT_FRAME
 
 		const bool bDefaultComponentMustBeAdded = !bHasCode 
 			&& BPGClassToRegenerate

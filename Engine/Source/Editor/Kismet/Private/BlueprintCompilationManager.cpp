@@ -418,8 +418,10 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 				{
 					bDefaultComponentMustBeAdded = true;
 				}
-				
+
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
 				bHasPendingUberGraphFrame = BPGC->UberGraphFramePointerProperty || BPGC->UberGraphFunction;
+#endif//USE_UBER_GRAPH_PERSISTENT_FRAME
 			}
 			
 			if( FBlueprintEditorUtils::IsDataOnlyBlueprint(QueuedBP) && !QueuedBP->bHasBeenRegenerated && QueuedBP->GetLinker() && !bDefaultComponentMustBeAdded && !bHasPendingUberGraphFrame)
