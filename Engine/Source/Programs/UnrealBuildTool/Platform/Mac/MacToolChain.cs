@@ -729,38 +729,6 @@ namespace UnrealBuildTool
 
 			List<string> ThirdPartyLibraries = new List<string>();
 
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				// Add any additional files that we'll need in order to link the app
-				foreach (string AdditionalShadowFile in LinkEnvironment.AdditionalShadowFiles)
-				{
-					FileItem ShadowFile = FileItem.GetExistingItemByPath(AdditionalShadowFile);
-					if (ShadowFile != null)
-					{
-						QueueFileForBatchUpload(ShadowFile);
-						LinkAction.PrerequisiteItems.Add(ShadowFile);
-					}
-					else
-					{
-						throw new BuildException("Couldn't find required additional file to shadow: {0}", AdditionalShadowFile);
-					}
-				}
-
-				// Add any frameworks to be shadowed to the remote
-				foreach (string FrameworkPath in LinkEnvironment.Frameworks)
-				{
-					if (FrameworkPath.EndsWith(".framework"))
-					{
-						foreach (string FrameworkFile in Directory.EnumerateFiles(FrameworkPath, "*", SearchOption.AllDirectories))
-						{
-							FileItem FrameworkFileItem = FileItem.GetExistingItemByPath(FrameworkFile);
-							QueueFileForBatchUpload(FrameworkFileItem);
-							LinkAction.PrerequisiteItems.Add(FrameworkFileItem);
-						}
-					}
-				}
-			}
-
 			bool bIsBuildingAppBundle = !LinkEnvironment.bIsBuildingDLL && !LinkEnvironment.bIsBuildingLibrary && !LinkEnvironment.bIsBuildingConsoleApplication;
 
 			List<string> RPaths = new List<string>();
@@ -812,16 +780,6 @@ namespace UnrealBuildTool
 						{
 							ThirdPartyLibraries.Add(AdditionalLibrary);
 						}
-
-						if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-						{
-							// copy over libs we may need
-							FileItem ShadowFile = FileItem.GetExistingItemByPath(AdditionalLibrary);
-							if (ShadowFile != null)
-							{
-								QueueFileForBatchUpload(ShadowFile);
-							}
-						}
 					}
 
 					AddLibraryPathToRPaths(AdditionalLibrary, AbsolutePath, ref RPaths, ref LinkCommand, bIsBuildingAppBundle);
@@ -838,16 +796,6 @@ namespace UnrealBuildTool
 					LinkCommand += string.Format(" -weak_library \"{0}\"", ConvertPath(Path.GetFullPath(AdditionalLibrary)));
 
 					AddLibraryPathToRPaths(AdditionalLibrary, AbsolutePath, ref RPaths, ref LinkCommand, bIsBuildingAppBundle);
-
-                    if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-                    {
-                        // copy over libs we may need
-                        FileItem ShadowFile = FileItem.GetExistingItemByPath(AdditionalLibrary);
-                        if (ShadowFile != null)
-                        {
-                            QueueFileForBatchUpload(ShadowFile);
-                        }
-                    }
                 }
 			}
 
@@ -1162,7 +1110,6 @@ namespace UnrealBuildTool
 
 						if (CustomIcon != DefaultIcon)
 						{
-							QueueFileForBatchUpload(FileItem.GetItemByFileReference(new FileReference(CustomIcon)));
 							CustomIcon = ConvertPath(CustomIcon);
 						}
 					}
@@ -1180,7 +1127,6 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						QueueFileForBatchUpload(FileItem.GetItemByFileReference(new FileReference(InfoPlistFile)));
 						InfoPlistFile = ConvertPath(InfoPlistFile);
 					}
 
@@ -1207,13 +1153,6 @@ namespace UnrealBuildTool
 					AppendMacLine(FinalizeAppBundleScript, "touch -c \"{0}.app\"", ExeName);
 
 					FinalizeAppBundleScript.Close();
-
-					// copy over some needed files
-					// @todo mac: Make a QueueDirectoryForBatchUpload
-					QueueFileForBatchUpload(FileItem.GetItemByFileReference(new FileReference("../../Engine/Source/Runtime/Launch/Resources/Mac/" + GameName + ".icns")));
-					QueueFileForBatchUpload(FileItem.GetItemByFileReference(new FileReference("../../Engine/Source/Runtime/Launch/Resources/Mac/UProject.icns")));
-					QueueFileForBatchUpload(FileItem.GetItemByFileReference(new FileReference("../../Engine/Source/Runtime/Launch/Resources/Mac/Info.plist")));
-					QueueFileForBatchUpload(FileItem.GetItemByFileReference(FileReference.Combine(LinkEnvironment.IntermediateDirectory, "DylibCopy.sh")));
 				}
 			}
 
@@ -1372,18 +1311,6 @@ namespace UnrealBuildTool
 			CopyAction.bShouldOutputStatusDescription = Resource.bShouldLog;
 			CopyAction.StatusDescription = string.Format("Copying {0} to app bundle", Path.GetFileName(Resource.ResourcePath));
 			CopyAction.bCanExecuteRemotely = false;
-
-			if (Directory.Exists(Resource.ResourcePath))
-			{
-				foreach (string ResourceFile in Directory.GetFiles(Resource.ResourcePath, "*", SearchOption.AllDirectories))
-				{
-					QueueFileForBatchUpload(FileItem.GetItemByFileReference(new FileReference(ResourceFile)));
-				}
-			}
-			else
-			{
-				QueueFileForBatchUpload(FileItem.GetItemByFileReference(new FileReference(SourcePath)));
-			}
 
 			return TargetItem;
 		}

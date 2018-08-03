@@ -369,7 +369,7 @@ namespace UnrealBuildTool
 			{
 				if (Framework.OwningModule != null && Framework.FrameworkZipPath != null && Framework.FrameworkZipPath != "")
 				{
-					Result += " -F\"" + GetRemoteIntermediateFrameworkZipPath(Framework) + "\"";
+					Result += " -F\"" + GetExtractedFrameworkDir(Framework) + "\"";
 				}
 			}
 
@@ -444,42 +444,24 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		static string GetLocalFrameworkZipPath(UEBuildFramework Framework)
+		static FileReference GetFrameworkZip(UEBuildFramework Framework)
 		{
 			if (Framework.OwningModule == null)
 			{
 				throw new BuildException("GetLocalFrameworkZipPath: No owning module for framework {0}", Framework.FrameworkName);
 			}
 
-			return Path.GetFullPath(Framework.OwningModule.ModuleDirectory + "/" + Framework.FrameworkZipPath);
+			return FileReference.Combine(Framework.OwningModule.ModuleDirectory, Framework.FrameworkZipPath);
 		}
 
-		static string GetRemoteFrameworkZipPath(UEBuildFramework Framework)
-		{
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				return ConvertPath(GetLocalFrameworkZipPath(Framework));
-			}
-
-			return GetLocalFrameworkZipPath(Framework);
-		}
-
-		static string GetRemoteIntermediateFrameworkZipPath(UEBuildFramework Framework)
+		static DirectoryReference GetExtractedFrameworkDir(UEBuildFramework Framework)
 		{
 			if (Framework.OwningModule == null)
 			{
 				throw new BuildException("GetRemoteIntermediateFrameworkZipPath: No owning module for framework {0}", Framework.FrameworkName);
 			}
 
-			string IntermediatePath = UnrealBuildTool.EngineDirectory + "/Intermediate/UnzippedFrameworks/" + Framework.OwningModule.Name;
-			IntermediatePath = Path.GetFullPath((IntermediatePath + Framework.FrameworkZipPath).Replace(".zip", ""));
-
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				return ConvertPath(IntermediatePath);
-			}
-
-			return IntermediatePath;
+			return DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "UnzippedFrameworks", Framework.OwningModule.Name, Framework.FrameworkZipPath.Replace(".zip", ""));
 		}
 
 		static void CleanIntermediateDirectory(string Path)
@@ -605,7 +587,7 @@ namespace UnrealBuildTool
 				if (Framework.OwningModule != null && Framework.FrameworkZipPath != null && Framework.FrameworkZipPath != "")
 				{
 					// If this framework has a zip specified, we'll need to setup the path as well
-					Result += " -F\"" + GetRemoteIntermediateFrameworkZipPath(Framework) + "\"";
+					Result += " -F\"" + GetExtractedFrameworkDir(Framework) + "\"";
 				}
 
 				Result += " -framework " + Framework.FrameworkName;
@@ -815,22 +797,6 @@ namespace UnrealBuildTool
 
 				// Remember any files we need to unzip
 				RememberedAdditionalFrameworks.Add(Framework);
-
-				// Copy them to remote mac if needed
-				if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-				{
-					FileItem ShadowFile = FileItem.GetExistingItemByPath(GetLocalFrameworkZipPath(Framework));
-
-					if (ShadowFile != null)
-					{
-						QueueFileForBatchUpload(ShadowFile);
-						DependentAction.PrerequisiteItems.Add(ShadowFile);
-					}
-					else
-					{
-						throw new BuildException("Couldn't find required additional file to shadow: {0}", Framework.FrameworkZipPath);
-					}
-				}
 			}
 		}
 
@@ -873,24 +839,6 @@ namespace UnrealBuildTool
 					else
 					{
 						LinkCommandArguments += string.Format(" -l\"{0}\"", AdditionalLibrary);
-					}
-				}
-			}
-
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				// Add any additional files that we'll need in order to link the app
-				foreach (string AdditionalShadowFile in LinkEnvironment.AdditionalShadowFiles)
-				{
-					FileItem ShadowFile = FileItem.GetExistingItemByPath(AdditionalShadowFile);
-					if (ShadowFile != null)
-					{
-						QueueFileForBatchUpload(ShadowFile);
-						LinkAction.PrerequisiteItems.Add(ShadowFile);
-					}
-					else
-					{
-						throw new BuildException("Couldn't find required additional file to shadow: {0}", AdditionalShadowFile);
 					}
 				}
 			}
@@ -1245,19 +1193,26 @@ namespace UnrealBuildTool
 			// Unzip any third party frameworks that are stored as zips
 			foreach (UEBuildFramework Framework in RememberedAdditionalFrameworks)
 			{
-				string ZipSrcPath = GetRemoteFrameworkZipPath(Framework);
-				string ZipDstPath = GetRemoteIntermediateFrameworkZipPath(Framework);
+				FileReference ZipSrcPath = GetFrameworkZip(Framework);
+				if(!FileReference.Exists(ZipSrcPath))
+				{
+					throw new BuildException("Unable to find framework '{0}'", ZipSrcPath);
+				}
 
-				Log.TraceInformation("Unzipping: {0} -> {1}", ZipSrcPath, ZipDstPath);
+				DirectoryReference FrameworkDstPath = GetExtractedFrameworkDir(Framework);
+				Log.TraceInformation("Unzipping: {0} -> {1}", ZipSrcPath, FrameworkDstPath);
 
-				CleanIntermediateDirectory(ZipDstPath);
+				CleanIntermediateDirectory(FrameworkDstPath.FullName);
 
 				// Assume that there is another directory inside the zip with the same name as the zip
-				ZipDstPath = ZipDstPath.Substring(0, ZipDstPath.LastIndexOf('/'));
+				DirectoryReference ZipDstPath = FrameworkDstPath.ParentDirectory;
 
 				// If we're on the mac, just unzip using the shell
 				string ResultsText;
-				RunExecutableAndWait("unzip", String.Format("-o \"{0}\" -d \"{1}\"", ZipSrcPath, ZipDstPath), out ResultsText);
+				if(RunExecutableAndWait("unzip", String.Format("-o \"{0}\" -d \"{1}\"", ZipSrcPath, ZipDstPath), out ResultsText) != 0)
+				{
+					throw new BuildException("Unable to extract {0}:\n{1}", ZipSrcPath, ResultsText);
+				}
 			}
         }
 
@@ -1807,7 +1762,7 @@ namespace UnrealBuildTool
 						continue;		// Only care if we need to copy bundle assets
 					}
 
-					string UnpackedZipPath = GetRemoteIntermediateFrameworkZipPath(Framework);
+					string UnpackedZipPath = GetExtractedFrameworkDir(Framework).FullName;
 
 					// For now, this is hard coded, but we need to loop over all modules, and copy bundled assets that need it
 					string LocalSource = UnpackedZipPath + "/" + Framework.CopyBundledAssets;

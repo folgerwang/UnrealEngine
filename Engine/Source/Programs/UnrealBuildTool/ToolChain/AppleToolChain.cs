@@ -155,10 +155,6 @@ namespace UnrealBuildTool
 			return Item;
 		}
 
-		protected static void QueueFileForBatchUpload(FileItem Item)
-		{
-		}
-
 		protected string GetMacDevSrcRoot()
 		{
 			return UnrealBuildTool.EngineSourceDirectory.FullName;
