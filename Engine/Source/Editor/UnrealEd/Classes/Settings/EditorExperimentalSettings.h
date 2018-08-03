@@ -113,10 +113,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (ConfigRestartRequired = true))
 	bool bFacialAnimationImporter;
 
-	/** Allow animation blueprints to be recompiled while a PIE session is running */
-	UPROPERTY(EditAnywhere, config, Category = Tools)
-	bool bEnableLiveRecompilationOfAnimationBlueprints;
-
 	/** Enable experimental PIE preview device launch */
 	UPROPERTY(EditAnywhere, config, Category = PIE, meta = (DisplayName = "Enable mobile PIE with preview device launch options."))
 	bool bMobilePIEPreviewDeviceLaunch;
