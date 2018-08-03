@@ -75,6 +75,10 @@ private:
 	int32 FacingDataOffset;
 	int32 ColorDataOffset;
 	int32 LastSyncedId;
+	int32 MaterialParamOffset;
+	int32 MaterialParamOffset1;
+	int32 MaterialParamOffset2;
+	int32 MaterialParamOffset3;
 };
 
 

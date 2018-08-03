@@ -146,7 +146,7 @@ struct FVertexFactoryInterpolantsVSToPS
 	float4	TangentToWorld2	: TANGENTTOWORLD2;
 
 #if NUM_DYNAMIC_PARAMETERS > 0
-	float4 DynamicParameter0	: PARTICLE_DYNAMIC_PARAM0;
+	float4 DynamicParameter	: PARTICLE_DYNAMIC_PARAM0;
 #endif
 #if NUM_DYNAMIC_PARAMETERS > 1
 	float4 DynamicParameter1	: PARTICLE_DYNAMIC_PARAM1;
@@ -305,7 +305,7 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	Result.TwoSidedSign = 1;
 
 #if NUM_DYNAMIC_PARAMETERS > 0
-	Result.Particle.DynamicParameter0 = Interpolants.DynamicParameter0;
+	Result.Particle.DynamicParameter = Interpolants.DynamicParameter;
 #endif
 #if NUM_DYNAMIC_PARAMETERS > 1
 	Result.Particle.DynamicParameter1 = Interpolants.DynamicParameter1;
@@ -554,16 +554,16 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
 #if NUM_DYNAMIC_PARAMETERS > 0
-	Interpolants.DynamicParameter0 = Input.DynamicParameter0;
+	Interpolants.DynamicParameter = Intermediates.DynamicParameter;
 #endif
 #if NUM_DYNAMIC_PARAMETERS > 1
-	Interpolants.DynamicParameter1 = Input.DynamicParameter1;
+	Interpolants.DynamicParameter1 = Intermediates.DynamicParameter1;
 #endif
 #if NUM_DYNAMIC_PARAMETERS > 2
-	Interpolants.DynamicParameter2 = Input.DynamicParameter2;
+	Interpolants.DynamicParameter2 = Intermediates.DynamicParameter2;
 #endif
 #if NUM_DYNAMIC_PARAMETERS > 3
-	Interpolants.DynamicParameter3 = Input.DynamicParameter3;
+	Interpolants.DynamicParameter3 = Intermediates.DynamicParameter3;
 #endif
 
 	float3x3 TangentToLocal = CalcTangentBasis(Input, Intermediates);

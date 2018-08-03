@@ -168,6 +168,10 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 				PerViewUniformParameters.WidthDataOffset = WidthDataOffset;
 				PerViewUniformParameters.TwistDataOffset = TwistDataOffset;
 				PerViewUniformParameters.FacingDataOffset = FacingDataOffset;
+				PerViewUniformParameters.MaterialParamDataOffset = MaterialParamOffset;
+				PerViewUniformParameters.MaterialParam1DataOffset = MaterialParamOffset1;
+				PerViewUniformParameters.MaterialParam2DataOffset = MaterialParamOffset2;
+				PerViewUniformParameters.MaterialParam3DataOffset = MaterialParamOffset3;
 				PerViewUniformParameters.InvertDrawOrder = bInvertOrder ? 1 : 0;
 				PerViewUniformParameters.UV0TilingDistance = Properties->UV0TilingDistance;
 				PerViewUniformParameters.UV1TilingDistance = Properties->UV1TilingDistance;
@@ -407,6 +411,12 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 		Data.GetVariableComponentOffsets(Properties->RibbonWidthBinding.DataSetVariable, WidthDataOffset, IntDummy);
 		Data.GetVariableComponentOffsets(Properties->RibbonTwistBinding.DataSetVariable, TwistDataOffset, IntDummy);
 		Data.GetVariableComponentOffsets(Properties->RibbonFacingBinding.DataSetVariable, FacingDataOffset, IntDummy);
+
+		Data.GetVariableComponentOffsets(Properties->DynamicMaterialBinding.DataSetVariable, MaterialParamOffset, IntDummy);
+		Data.GetVariableComponentOffsets(Properties->DynamicMaterial1Binding.DataSetVariable, MaterialParamOffset1, IntDummy);
+		Data.GetVariableComponentOffsets(Properties->DynamicMaterial2Binding.DataSetVariable, MaterialParamOffset2, IntDummy);
+		Data.GetVariableComponentOffsets(Properties->DynamicMaterial3Binding.DataSetVariable, MaterialParamOffset3, IntDummy);
+
 		LastSyncedId = Properties->SyncId;
 	}
 
