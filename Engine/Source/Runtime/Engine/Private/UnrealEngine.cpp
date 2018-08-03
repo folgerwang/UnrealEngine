@@ -9502,6 +9502,8 @@ float DrawMapWarnings(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanv
 */
 float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas* CanvasObject, float MessageX, float MessageY)
 {
+	static TFrameValue<bool> HasUpdatedScreenDebugMessages;
+
 	int32 YPos = MessageY;
 	const int32 MaxYPos = CanvasObject ? CanvasObject->SizeY : 700;
 	if (GEngine->PriorityScreenMessages.Num() > 0)
@@ -9518,10 +9520,13 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+			if (!HasUpdatedScreenDebugMessages.IsSet())
 			{
-				GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
+				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+				{
+					GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
+				}
 			}
 		}
 	}
@@ -9541,13 +9546,19 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+			if (!HasUpdatedScreenDebugMessages.IsSet())
 			{
-				MsgIt.RemoveCurrent();
+				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+				{
+					MsgIt.RemoveCurrent();
+				}
 			}
 		}
 	}
+
+	// Flag variable that the update has already been done this frame
+	HasUpdatedScreenDebugMessages = true;
 
 	return MessageY;
 }
@@ -9575,7 +9586,6 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 	{
 		return;
 	}
-
 
 	float DPIScale = Canvas->GetDPIScale();
 
