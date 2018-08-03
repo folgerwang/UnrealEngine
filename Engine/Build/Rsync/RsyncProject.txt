@@ -23,6 +23,6 @@ protect /Intermediate/**
 + /Plugins/**/*.uplugin
 + /Plugins/**/Config/**
 + /Plugins/**/Source/**
++ /Plugins/**.embeddedframework.zip
 + /Source/
 + /Source/**
-
