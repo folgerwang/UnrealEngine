@@ -300,7 +300,9 @@ public:
 
 	void SetupPresentQueue(VkSurfaceKHR Surface);
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 	VkSamplerYcbcrConversion CreateSamplerColorConversion(const VkSamplerYcbcrConversionCreateInfo& CreateInfo);
+#endif
 
 private:
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat);

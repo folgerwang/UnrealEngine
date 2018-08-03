@@ -366,6 +366,7 @@ FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(const FSamplerState
 	}
 }
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(
 	const FSamplerStateInitializerRHI& Initializer, 
 	const FSamplerYcbcrConversionInitializer& ConversionInitializer)
@@ -400,7 +401,7 @@ FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(
 
 	return new FVulkanSamplerState(SamplerInfo, *Device, true);
 }
-
+#endif
 
 FRasterizerStateRHIRef FVulkanDynamicRHI::RHICreateRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
 {

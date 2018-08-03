@@ -1297,7 +1297,6 @@ void FVulkanDynamicRHI::InternalUpdateTexture3D(bool bFromRenderingThread, FText
 	}
 }
 
-
 VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Image, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle, const FSamplerYcbcrConversionInitializer* ConversionInitializer)
 {
 	VkImageView View = VK_NULL_HANDLE;
@@ -1316,6 +1315,7 @@ VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Imag
 		ViewInfo.components = Device.GetFormatComponentMapping(UEFormat);
 	}
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 	if (ConversionInitializer != nullptr)
 	{
 		VkSamplerYcbcrConversionCreateInfo ConversionCreateInfo;
@@ -1343,6 +1343,7 @@ VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Imag
 		ConversionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO;
 		ViewInfo.pNext = &ConversionInfo;
 	}
+#endif
 
 	ViewInfo.subresourceRange.aspectMask = AspectFlags;
 	ViewInfo.subresourceRange.baseMipLevel = FirstMip;

@@ -601,8 +601,10 @@ void FVulkanDevice::SetupFormats()
 	}
 }
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 VkSamplerYcbcrConversion FVulkanDevice::CreateSamplerColorConversion(const VkSamplerYcbcrConversionCreateInfo& CreateInfo)
 {
+
 	const uint32 CreateInfoHash = FCrc::MemCrc32(&CreateInfo, sizeof(CreateInfo));
 	VkSamplerYcbcrConversion* const FindResult = SamplerColorConversionMap.Find(CreateInfoHash);
 	if (FindResult != nullptr)
@@ -617,6 +619,7 @@ VkSamplerYcbcrConversion FVulkanDevice::CreateSamplerColorConversion(const VkSam
 		return NewConversion;
 	}
 }
+#endif
 
 void FVulkanDevice::MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat)
 {
@@ -852,11 +855,13 @@ void FVulkanDevice::Destroy()
 	delete DefaultImage;
 	DefaultImage = nullptr;
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 	for (const auto& Pair : SamplerColorConversionMap)
 	{
 		vkDestroySamplerYcbcrConversionKHR(GetInstanceHandle(), Pair.Value, nullptr);
 	}
 	SamplerColorConversionMap.Reset();
+#endif
 
 	for (int32 Index = CommandContexts.Num() - 1; Index >= 0; --Index)
 	{
