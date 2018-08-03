@@ -910,6 +910,7 @@ void SFilterList::RemoveFilter(const TSharedRef<SFilter>& FilterToRemove)
 		// Update the frontend filters collection
 		const TSharedRef<FFrontendFilter>& FrontendFilter = FilterToRemove->GetFrontendFilter().ToSharedRef();
 		SetFrontendFilterActive(FrontendFilter, false);
+		OnFilterChanged.ExecuteIfBound();
 	}
 }
 
