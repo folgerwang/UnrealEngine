@@ -124,7 +124,13 @@ namespace UnrealGameSync
 			}
 
 			// Check that we're logged in
-			if(!Perforce.IsLoggedIn(Log))
+			bool bLoggedIn;
+			if(!Perforce.GetLoggedInState(out bLoggedIn, Log))
+			{
+				ErrorMessage = "Unable to get login status.";
+				return false;
+			}
+			if(!bLoggedIn)
 			{
 				LoginResult = LoginResult.MissingPassword;
 				ErrorMessage = "User is not logged in to Perforce.";

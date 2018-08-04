@@ -305,7 +305,13 @@ namespace UnrealGameSync
 					Log.WriteLine("Syncing to {0}...", PendingChangeNumber);
 
 					// Make sure we're logged in
-					if(!Perforce.IsLoggedIn(Log))
+					bool bLoggedIn;
+					if(!Perforce.GetLoggedInState(out bLoggedIn, Log))
+					{
+						StatusMessage = "Unable to get login status.";
+						return WorkspaceUpdateResult.FailedToSync;
+					}
+					if(!bLoggedIn)
 					{
 						StatusMessage = "User is not logged in.";
 						return WorkspaceUpdateResult.FailedToSyncLoginExpired;

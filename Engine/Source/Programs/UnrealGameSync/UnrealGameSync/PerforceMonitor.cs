@@ -138,47 +138,51 @@ namespace UnrealGameSync
 				Stopwatch Timer = Stopwatch.StartNew();
 
 				// Check we still have a valid login ticket
-				if(!Perforce.IsLoggedIn(LogWriter))
+				bool bLoggedIn;
+				if(Perforce.GetLoggedInState(out bLoggedIn, LogWriter))
 				{
-					LastStatusMessage = "User is not logged in";
-					OnLoginExpired();
-				}
-				else
-				{
-					// Check we haven't switched streams
-					string NewStreamName;
-					if(Perforce.GetActiveStream(out NewStreamName, LogWriter) && NewStreamName != StreamName)
+					if(!bLoggedIn)
 					{
-						OnStreamChange();
-					}
-
-					// Update the stream list
-					if(StreamName != null)
-					{
-						List<string> NewOtherStreamNames;
-						if(!Perforce.FindStreams(PerforceUtils.GetClientOrDepotDirectoryName(StreamName) + "/*", out NewOtherStreamNames, LogWriter))
-						{
-							NewOtherStreamNames = new List<string>();
-						}
-						OtherStreamNames = NewOtherStreamNames;
-					}
-
-					// Check for any p4 changes
-					if(!UpdateChanges())
-					{
-						LastStatusMessage = "Failed to update changes";
-					}
-					else if(!UpdateChangeTypes())
-					{
-						LastStatusMessage = "Failed to update change types";
-					}
-					else if(!UpdateZippedBinaries())
-					{
-						LastStatusMessage = "Failed to update zipped binaries list";
+						LastStatusMessage = "User is not logged in";
+						OnLoginExpired();
 					}
 					else
 					{
-						LastStatusMessage = String.Format("Last update took {0}ms", Timer.ElapsedMilliseconds);
+						// Check we haven't switched streams
+						string NewStreamName;
+						if(Perforce.GetActiveStream(out NewStreamName, LogWriter) && NewStreamName != StreamName)
+						{
+							OnStreamChange();
+						}
+
+						// Update the stream list
+						if(StreamName != null)
+						{
+							List<string> NewOtherStreamNames;
+							if(!Perforce.FindStreams(PerforceUtils.GetClientOrDepotDirectoryName(StreamName) + "/*", out NewOtherStreamNames, LogWriter))
+							{
+								NewOtherStreamNames = new List<string>();
+							}
+							OtherStreamNames = NewOtherStreamNames;
+						}
+
+						// Check for any p4 changes
+						if(!UpdateChanges())
+						{
+							LastStatusMessage = "Failed to update changes";
+						}
+						else if(!UpdateChangeTypes())
+						{
+							LastStatusMessage = "Failed to update change types";
+						}
+						else if(!UpdateZippedBinaries())
+						{
+							LastStatusMessage = "Failed to update zipped binaries list";
+						}
+						else
+						{
+							LastStatusMessage = String.Format("Last update took {0}ms", Timer.ElapsedMilliseconds);
+						}
 					}
 				}
 

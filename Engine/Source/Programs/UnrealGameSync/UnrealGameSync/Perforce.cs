@@ -491,9 +491,31 @@ namespace UnrealGameSync
 			return new PerforceConnection(UserName, NewClientName, ServerAndPort);
 		}
 
-		public bool IsLoggedIn(TextWriter Log)
+		public bool GetLoggedInState(out bool bIsLoggedIn, TextWriter Log)
 		{
-			return RunCommand("login -s", CommandOptions.None, Log);
+			List<PerforceOutputLine> Lines = new List<PerforceOutputLine>();
+			bool bResult = RunCommand("login -s", null, Line => { Lines.Add(Line); return true; }, CommandOptions.None, Log);
+
+			foreach(PerforceOutputLine Line in Lines)
+			{
+				Log.WriteLine("p4>   {0}", Line.Text);
+			}
+
+			if(bResult)
+			{
+				bIsLoggedIn = true;
+				return true;
+			}
+			else if(Lines[0].Channel == PerforceOutputChannel.Error && Lines[0].Text.Contains("P4PASSWD"))
+			{
+				bIsLoggedIn = false;
+				return true;
+			}
+			else
+			{
+				bIsLoggedIn = false;
+				return false;
+			}
 		}
 
 		public LoginResult Login(string Password, out string ErrorMessage, TextWriter Log)

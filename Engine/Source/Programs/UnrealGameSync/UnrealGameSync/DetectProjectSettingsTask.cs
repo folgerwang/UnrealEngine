@@ -64,9 +64,17 @@ namespace UnrealGameSync
 				return false;
 			}
 
-			// Create the connection and make sure we're logged in
+			// Create the connection
 			PerforceConnection Perforce = new PerforceConnection(UserName, null, ServerAndPort);
-			if(!Perforce.IsLoggedIn(Log))
+
+			// Make sure we're logged in
+			bool bLoggedIn;
+			if(!Perforce.GetLoggedInState(out bLoggedIn, Log))
+			{
+				ErrorMessage = "Error while checking login status.";
+				return false;
+			}
+			if(!bLoggedIn)
 			{
 				ErrorMessage = "User is not logged in to Perforce.";
 				return false;
