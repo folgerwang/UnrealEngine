@@ -15,7 +15,7 @@ class ListThirdPartySoftware : BuildCommand
 {
 	public override void ExecuteBuild()
 	{
-		CommandUtils.Log("************************* List Third Party Software");
+		CommandUtils.LogInformation("************************* List Third Party Software");
 
 		string ProjectPath = ParseParamValue("Project", String.Empty);
 
@@ -136,7 +136,7 @@ class ListThirdPartySoftware : BuildCommand
 		// Print them all out
 		foreach(string OutputMessage in OutputMessages)
 		{
-			CommandUtils.Log(OutputMessage);
+			CommandUtils.LogInformation(OutputMessage);
 		}
 	}
 }

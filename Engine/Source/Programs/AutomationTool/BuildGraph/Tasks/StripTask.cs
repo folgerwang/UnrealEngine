@@ -95,11 +95,11 @@ namespace BuildGraph.Tasks
 				DirectoryReference.CreateDirectory(TargetFiles[Idx].Directory);
 				if (SourceFiles[Idx] == TargetFiles[Idx])
 				{
-					CommandUtils.Log("Stripping symbols: {0}", SourceFiles[Idx].FullName);
+					CommandUtils.LogInformation("Stripping symbols: {0}", SourceFiles[Idx].FullName);
 				}
 				else
 				{
-					CommandUtils.Log("Stripping symbols: {0} -> {1}", SourceFiles[Idx].FullName, TargetFiles[Idx].FullName);
+					CommandUtils.LogInformation("Stripping symbols: {0} -> {1}", SourceFiles[Idx].FullName, TargetFiles[Idx].FullName);
 				}
 				TargetPlatform.StripSymbols(SourceFiles[Idx], TargetFiles[Idx]);
 			}

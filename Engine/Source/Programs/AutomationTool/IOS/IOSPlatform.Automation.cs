@@ -246,7 +246,7 @@ public class IOSPlatform : Platform
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
-		Log("Package {0}", Params.RawProjectPath);
+		LogInformation("Package {0}", Params.RawProjectPath);
 
 		// ensure the ue4game binary exists, if applicable
 #if !PLATFORM_MAC

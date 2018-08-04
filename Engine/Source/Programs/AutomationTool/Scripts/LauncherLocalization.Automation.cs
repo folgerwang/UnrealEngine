@@ -28,7 +28,7 @@ class LauncherLocalization : BuildCommand
 
 		if (P4Enabled)
 		{
-			Log("Sync necessary content to head revision");
+			LogInformation("Sync necessary content to head revision");
 			P4.Sync(P4Env.Branch + "/Engine/Config/...");
 			P4.Sync(P4Env.Branch + "/Engine/Content/...");
 			P4.Sync(P4Env.Branch + "/Engine/Source/...");
@@ -79,9 +79,9 @@ class LauncherLocalization : BuildCommand
 		// Execute commandlet for each set of arguments.
 		foreach (var CommandletArguments in CommandletArgumentSets)
 		{
-			Log("Localization for {0} {1}", EditorArguments, CommandletArguments);
+			LogInformation("Localization for {0} {1}", EditorArguments, CommandletArguments);
 
-			Log("Running UE4Editor to generate Localization data");
+			LogInformation("Running UE4Editor to generate Localization data");
 
 			string Arguments = String.Format("-run=GatherText {0} {1}", EditorArguments, CommandletArguments);
 			var RunResult = Run(EditorExe, Arguments);

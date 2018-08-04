@@ -33,7 +33,7 @@ namespace AutomationTool
 			}
 
 			// Find all the folders which are problematic
-			CommandUtils.Log("Searching for folders under {0} named {1}...", BaseDir, String.Join(", ", RestrictedNames));
+			CommandUtils.LogInformation("Searching for folders under {0} named {1}...", BaseDir, String.Join(", ", RestrictedNames));
 			List<DirectoryInfo> ProblemFolders = new List<DirectoryInfo>();
 			FindRestrictedFolders(new DirectoryInfo(BaseDir.FullName), RestrictedNames, ProblemFolders);
 
@@ -49,7 +49,7 @@ namespace AutomationTool
 			}
 
 			// Otherwise return success
-			CommandUtils.Log("No restricted folders found under {0}", BaseDir);
+			CommandUtils.LogInformation("No restricted folders found under {0}", BaseDir);
 			return ExitCode.Success;
 		}
 

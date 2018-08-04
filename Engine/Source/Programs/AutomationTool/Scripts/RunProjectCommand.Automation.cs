@@ -94,7 +94,7 @@ public partial class Project : CommandUtils
 			return;
 		}
 
-		Log("********** RUN COMMAND STARTED **********");
+		LogInformation("********** RUN COMMAND STARTED **********");
 
 		var LogFolderOutsideOfSandbox = GetLogFolderOutsideOfSandbox();
 		if (!GlobalCommandLine.Installed && ServerProcess == null)
@@ -119,7 +119,7 @@ public partial class Project : CommandUtils
 			CopyLogsBackToLogFolder();
 		}
 
-		Log("********** RUN COMMAND COMPLETED **********");
+		LogInformation("********** RUN COMMAND COMPLETED **********");
 	}
 
 	private static void RunInternal(ProjectParams Params, string ServerLogFile, string ClientLogFile)
@@ -157,13 +157,13 @@ public partial class Project : CommandUtils
 
 		if (ServerProcess != null)
 		{
-			Log("Waiting a few seconds for the server to start...");
+			LogInformation("Waiting a few seconds for the server to start...");
 			Thread.Sleep(5000);
 		}
 
 		if (!Params.NoClient)
 		{
-			Log("Starting Client....");
+			LogInformation("Starting Client....");
 
 			var SC = CreateDeploymentContext(Params, false);
 
@@ -221,17 +221,17 @@ public partial class Project : CommandUtils
 				IProcessResult ClientProcess = null;
 				FileStream ClientProcessLog = null;
 				StreamReader ClientLogReader = null;
-				Log("Starting Client for unattended test....");
+				LogInformation("Starting Client for unattended test....");
 				ClientProcess = Run(ClientApp, ClientCmdLine + " -testexit=\"" + LookFor + "\"", null, ClientRunFlags | ERunOptions.NoWaitForExit);
 				while (!FileExists(ClientLogFile) && !ClientProcess.HasExited)
 				{
-					Log("Waiting for client logging process to start...{0}", ClientLogFile);
+					LogInformation("Waiting for client logging process to start...{0}", ClientLogFile);
 					Thread.Sleep(2000);
 				}
 				if (FileExists(ClientLogFile))
 				{
 					Thread.Sleep(2000);
-					Log("Client logging process started...{0}", ClientLogFile);
+					LogInformation("Client logging process started...{0}", ClientLogFile);
 					ClientProcessLog = File.Open(ClientLogFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 					ClientLogReader = new StreamReader(ClientProcessLog);
 				}
@@ -264,7 +264,7 @@ public partial class Project : CommandUtils
 						if (AllClientOutput.LastIndexOf(LookFor) > AllClientOutput.IndexOf(LookFor))
 						{
 							WelcomedCorrectly = true;
-							Log("Test complete...");
+							LogInformation("Test complete...");
 							bKeepReading = false;
 						}
 						else if (Params.RunAutomationTests)
@@ -320,13 +320,13 @@ public partial class Project : CommandUtils
 					}
 					else if (bClientExited && (DateTime.UtcNow - ExitTime).TotalSeconds > 30)
 					{
-						Log("Client exited and has been quiet for 30 seconds...exiting");
+						LogInformation("Client exited and has been quiet for 30 seconds...exiting");
 						bKeepReading = false;
 					}
 				}
 				if (ClientProcess != null && !ClientProcess.HasExited)
 				{
-					Log("Client is supposed to exit, lets wait a while for it to exit naturally...");
+					LogInformation("Client is supposed to exit, lets wait a while for it to exit naturally...");
 					for (int i = 0; i < 120 && !ClientProcess.HasExited; i++)
 					{
 						Thread.Sleep(1000);
@@ -334,7 +334,7 @@ public partial class Project : CommandUtils
 				}
 				if (ClientProcess != null && !ClientProcess.HasExited)
 				{
-					Log("Stopping client...");
+					LogInformation("Stopping client...");
 					ClientProcess.StopProcess();
 					Thread.Sleep(10000);
 				}
@@ -413,7 +413,7 @@ public partial class Project : CommandUtils
 			{
 				while (!FileExists(ServerLogFile) && !ServerProcess.HasExited)
 				{
-					Log("Waiting for logging process to start...");
+					LogInformation("Waiting for logging process to start...");
 					Thread.Sleep(2000);
 				}
 				Thread.Sleep(1000);
@@ -439,33 +439,33 @@ public partial class Project : CommandUtils
 								if (ClientProcess == null &&
 										(AllServerOutput.Contains("Game Engine Initialized") || AllServerOutput.Contains("Unreal Network File Server is ready")))
 								{
-									Log("Starting Client for unattended test....");
+									LogInformation("Starting Client for unattended test....");
 									ClientProcess = Run(ClientApp, ClientCmdLine + " -testexit=\"" + LookFor + "\"", null, ClientRunFlags | ERunOptions.NoWaitForExit);
 									//@todo no testing is done on these
 									if (NumClients > 1 && NumClients < 9)
 									{
 										for (int i = 1; i < NumClients; i++)
 										{
-											Log("Starting Extra Client....");
+											LogInformation("Starting Extra Client....");
 											OtherClients.Add(Run(ClientApp, ClientCmdLine, null, ClientRunFlags | ERunOptions.NoWaitForExit));
 										}
 									}
 									while (!FileExists(ClientLogFile) && !ClientProcess.HasExited)
 									{
-										Log("Waiting for client logging process to start...{0}", ClientLogFile);
+										LogInformation("Waiting for client logging process to start...{0}", ClientLogFile);
 										Thread.Sleep(2000);
 									}
 									if (!ClientProcess.HasExited)
 									{
 										Thread.Sleep(2000);
-										Log("Client logging process started...{0}", ClientLogFile);
+										LogInformation("Client logging process started...{0}", ClientLogFile);
 										ClientProcessLog = File.Open(ClientLogFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 										ClientLogReader = new StreamReader(ClientProcessLog);
 									}
 								}
 								else if (ClientProcess == null && !ServerProcess.HasExited)
 								{
-									Log("Waiting for server to start....");
+									LogInformation("Waiting for server to start....");
 									Thread.Sleep(2000);
 								}
 								if (ClientProcess != null && ClientProcess.HasExited)
@@ -496,12 +496,12 @@ public partial class Project : CommandUtils
 										{
 											if (Params.FakeClient)
 											{
-												Log("Welcomed by server or client loaded, lets wait ten minutes...");
+												LogInformation("Welcomed by server or client loaded, lets wait ten minutes...");
 												Thread.Sleep(60000 * 10);
 											}
 											else
 											{
-												Log("Welcomed by server or client loaded, lets wait 30 seconds...");
+												LogInformation("Welcomed by server or client loaded, lets wait 30 seconds...");
 												Thread.Sleep(30000);
 											}
 											WelcomedCorrectly = true;
@@ -544,7 +544,7 @@ public partial class Project : CommandUtils
 					AllClientOutput += Output;
 					if (AllClientOutput.Contains("Game Engine Initialized") || AllClientOutput.Contains("Unreal Network File Server is ready"))
 					{
-						Log("Starting Client....");
+						LogInformation("Starting Client....");
 						var SC = DeployContextList[0];
 						ClientProcess = SC.StageTargetPlatform.RunClient(ClientRunFlags | ERunOptions.NoWaitForExit, ClientApp, ClientCmdLine, Params);
 //						ClientProcess = Run(ClientApp, ClientCmdLine, null, ClientRunFlags | ERunOptions.NoWaitForExit);
@@ -552,7 +552,7 @@ public partial class Project : CommandUtils
 						{
 							for (int i = 1; i < NumClients; i++)
 							{
-								Log("Starting Extra Client....");
+								LogInformation("Starting Extra Client....");
 								IProcessResult NewClient = SC.StageTargetPlatform.RunClient(ClientRunFlags | ERunOptions.NoWaitForExit, ClientApp, ClientCmdLine, Params);
 								OtherClients.Add(NewClient);
 							}
@@ -561,7 +561,7 @@ public partial class Project : CommandUtils
 				}
 				else if (ClientProcess == null && !ServerProcess.HasExited)
 				{
-					Log("Waiting for server to start....");
+					LogInformation("Waiting for server to start....");
 					Thread.Sleep(2000);
 				}
 
@@ -573,7 +573,7 @@ public partial class Project : CommandUtils
 				if (ClientProcess != null && ClientProcess.HasExited)
 				{
 
-					Log("Client exited, stopping server....");
+					LogInformation("Client exited, stopping server....");
 					if (!GlobalCommandLine.NoKill)
 					{
 						ServerProcess.StopProcess();
@@ -584,7 +584,7 @@ public partial class Project : CommandUtils
 				return bKeepReading; // Keep reading
 			});
 		}
-		Log("Server exited....");
+		LogInformation("Server exited....");
 		if (ClientProcess != null && !ClientProcess.HasExited)
 		{
 			ClientProcess.StopProcess();
@@ -904,8 +904,8 @@ public partial class Project : CommandUtils
 			ClientCmdLine += "-Params=\"" + TempCmdLine + "\"";
 			ClientApp = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/Win64/UnrealFrontend.exe");
 
-			Log("Launching via UFE:");
-			Log("\tClientCmdLine: " + ClientCmdLine + "");
+			LogInformation("Launching via UFE:");
+			LogInformation("\tClientCmdLine: " + ClientCmdLine + "");
 		}
 		else
 		{
@@ -926,7 +926,7 @@ public partial class Project : CommandUtils
 		{
 			if (String.IsNullOrEmpty(Output) == false)
 			{
-				Log(Output);
+				LogInformation(Output);
 			}
 			return true;
 		});
@@ -1078,7 +1078,7 @@ public partial class Project : CommandUtils
 #endif
 		var UnrealFileServerExe = HostPlatform.Current.GetUE4ExePath("UnrealFileServer.exe");
 
-		Log("Running UnrealFileServer *******");
+		LogInformation("Running UnrealFileServer *******");
 		var Args = String.Format("{0} -abslog={1} -unattended -CrashForUAT -log {2}",
 						CommandUtils.MakePathSafeToUseWithCommandLine(Params.RawProjectPath.FullName),
 						CommandUtils.MakePathSafeToUseWithCommandLine(ServerLogFile),

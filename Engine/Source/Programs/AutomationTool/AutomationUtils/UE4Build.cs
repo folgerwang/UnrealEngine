@@ -1455,7 +1455,7 @@ namespace AutomationTool
 				CommandUtils.LogLog("Build products *******");
 				if (BuildProductFiles.Count < 1)
 				{
-					CommandUtils.Log("No build products were made");
+					CommandUtils.LogInformation("No build products were made");
 				}
 				else
 				{
@@ -1479,7 +1479,7 @@ namespace AutomationTool
 		/// <param name="Files">List of files to check out</param>
 		public static void AddBuildProductsToChangelist(int WorkingCL, List<string> Files)
 		{
-			CommandUtils.Log("Adding {0} build products to changelist {1}...", Files.Count, WorkingCL);
+			CommandUtils.LogInformation("Adding {0} build products to changelist {1}...", Files.Count, WorkingCL);
 			foreach (var File in Files)
 			{
 				CommandUtils.P4.Sync("-f -k " + CommandUtils.MakePathSafeToUseWithCommandLine(File) + "#head"); // sync the file without overwriting local one

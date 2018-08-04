@@ -157,7 +157,7 @@ namespace AutomationTool
 							if (ProcessResult.HasAnyDescendants(Process.GetCurrentProcess()))
 							{
 								AllDone = false;
-								CommandUtils.Log("Waiting for descendants of main process...");
+								CommandUtils.LogInformation("Waiting for descendants of main process...");
 							}
 						}
 						catch (Exception Ex)
@@ -1058,7 +1058,7 @@ namespace AutomationTool
 		{
 			while (!FileExists(LogFilename) && !LogProcess.HasExited)
 			{
-				Log("Waiting for logging process to start...");
+				LogInformation("Waiting for logging process to start...");
 				Thread.Sleep(2000);
 			}
 			Thread.Sleep(1000);

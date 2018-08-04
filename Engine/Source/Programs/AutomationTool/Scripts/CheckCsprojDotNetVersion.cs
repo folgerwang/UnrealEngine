@@ -18,7 +18,7 @@ class CheckCsprojDotNetVersion : BuildCommand
 		{
 			throw new AutomationException("-TargetVersion was not specified.");
 		}
-		CommandUtils.Log("Scanning for all csproj's...");
+		CommandUtils.LogInformation("Scanning for all csproj's...");
 		// Check for all csproj's in the engine dir
 		DirectoryReference EngineDir = CommandUtils.EngineDirectory;
 
@@ -64,7 +64,7 @@ class CheckCsprojDotNetVersion : BuildCommand
                 Match = PossibleAppConfigRegex.Match(Contents);
 				if (!Match.Success)
 				{
-					CommandUtils.Log("No TargetFrameworkVersion or TargetFrameworkProfile found for project {0}, is it a mono project? If not, does it compile properly?", CsProj);
+					CommandUtils.LogInformation("No TargetFrameworkVersion or TargetFrameworkProfile found for project {0}, is it a mono project? If not, does it compile properly?", CsProj);
 					continue;
 				}
 
@@ -73,7 +73,7 @@ class CheckCsprojDotNetVersion : BuildCommand
 				string Profile = Match.Groups[1].Value;
 				if (!FileReference.Exists(AppConfigFile))
 				{
-					CommandUtils.Log("Found TargetFrameworkProfile but no associated app.config containing the version for project {0}.", CsProj);
+					CommandUtils.LogInformation("Found TargetFrameworkProfile but no associated app.config containing the version for project {0}.", CsProj);
 					continue;
 				}
 
@@ -82,7 +82,7 @@ class CheckCsprojDotNetVersion : BuildCommand
                 Match = AppConfigRegex.Match(Contents);
 				if (!Match.Success)
 				{
-					CommandUtils.Log("Couldn't find a supportedRuntime match for the version in the app.config for project {0}.", CsProj);
+					CommandUtils.LogInformation("Couldn't find a supportedRuntime match for the version in the app.config for project {0}.", CsProj);
 					continue;
 				}
 

@@ -85,7 +85,7 @@ namespace AutomationTool
 		{
 			List<BuildAction> Actions = ReadActions(ActionsFileName);
 
-			CommandUtils.Log("Building {0} {1} with {2} {3}...", Actions.Count, (Actions.Count == 1) ? "action" : "actions", MaxProcesses, (MaxProcesses == 1)? "process" : "processes");
+			CommandUtils.LogInformation("Building {0} {1} with {2} {3}...", Actions.Count, (Actions.Count == 1) ? "action" : "actions", MaxProcesses, (MaxProcesses == 1)? "process" : "processes");
 
 			using (LogIndentScope Indent = new LogIndentScope("  "))
 			{
@@ -148,11 +148,11 @@ namespace AutomationTool
 										if(CurrentPrefix != CompletedAction.Action.GroupPrefix)
 										{
 											CurrentPrefix = CompletedAction.Action.GroupPrefix;
-											CommandUtils.Log(CurrentPrefix);
+											CommandUtils.LogInformation(CurrentPrefix);
 										}
 										foreach(string LogLine in CompletedAction.LogLines)
 										{
-											CommandUtils.Log(LogLine);
+											CommandUtils.LogInformation(LogLine);
 										}
 									}
 

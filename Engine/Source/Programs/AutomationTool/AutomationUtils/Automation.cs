@@ -565,7 +565,7 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 .
 					{
 						return Result;
 					}
-					CommandUtils.Log("BUILD SUCCESSFUL");
+					CommandUtils.LogInformation("BUILD SUCCESSFUL");
 				}
 				finally
 				{
@@ -629,7 +629,7 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 .
 			{
 				Message += String.Format("  {0}{1}", AvailableCommand.Key, Environment.NewLine);
 			}
-			CommandUtils.Log(Message);
+			CommandUtils.LogInformation(Message);
 		}
 
 		#endregion

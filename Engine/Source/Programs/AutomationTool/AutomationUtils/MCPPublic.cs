@@ -197,7 +197,7 @@ namespace EpicGames.MCP.Automation
 					return _ManifestFilename;
 				}
 
-				CommandUtils.Log("Using legacy behavior of constructing manifest filename from appname, build version and platform. Update your code to specify manifest filename when constructing BuildPatchToolStagingInfo or call RetrieveManifestFilename to query it.");
+				CommandUtils.LogInformation("Using legacy behavior of constructing manifest filename from appname, build version and platform. Update your code to specify manifest filename when constructing BuildPatchToolStagingInfo or call RetrieveManifestFilename to query it.");
 				var BaseFilename = string.Format("{0}{1}-{2}.manifest",
 					AppName,
 					BuildVersion,

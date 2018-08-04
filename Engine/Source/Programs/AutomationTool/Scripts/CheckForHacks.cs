@@ -71,7 +71,7 @@ namespace AutomationTool
 			}
 
 			// Enumerate all the files in the workspace
-			Log("Finding files in workspace...");
+			LogInformation("Finding files in workspace...");
 
 			List<FileInfo> FilesToCheck = new List<FileInfo>();
 			using (ThreadPoolWorkQueue Queue = new ThreadPoolWorkQueue())
@@ -82,7 +82,7 @@ namespace AutomationTool
 			}
 
 			// Scan all of the files for invalid comments
-			Log("Scanning files...", FilesToCheck.Count);
+			LogInformation("Scanning files...", FilesToCheck.Count);
 			using (ThreadPoolWorkQueue Queue = new ThreadPoolWorkQueue())
 			{
 				foreach(FileInfo File in FilesToCheck)
@@ -94,7 +94,7 @@ namespace AutomationTool
 				{
 					lock(this)
 					{
-						Log("Scanning files... [{0}/{1}]", FilesToCheck.Count - Queue.NumRemaining, FilesToCheck.Count);
+						LogInformation("Scanning files... [{0}/{1}]", FilesToCheck.Count - Queue.NumRemaining, FilesToCheck.Count);
 					}
 				}
 			}

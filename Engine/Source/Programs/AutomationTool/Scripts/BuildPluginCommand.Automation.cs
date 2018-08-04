@@ -83,7 +83,7 @@ class BuildPlugin : BuildCommand
 		FileReference HostProjectPluginFile = CreateHostProject(HostProjectFile, PluginFile);
 
 		// Read the plugin
-		CommandUtils.Log("Reading plugin from {0}...", HostProjectPluginFile);
+		CommandUtils.LogInformation("Reading plugin from {0}...", HostProjectPluginFile);
 		PluginDescriptor Plugin = PluginDescriptor.FromFile(HostProjectPluginFile);
 
 		// Compile the plugin for all the target platforms
@@ -125,7 +125,7 @@ class BuildPlugin : BuildCommand
 		// Build the host platforms
 		if(HostPlatforms.Count > 0)
 		{
-			CommandUtils.Log("Building plugin for host platforms: {0}", String.Join(", ", HostPlatforms));
+			CommandUtils.LogInformation("Building plugin for host platforms: {0}", String.Join(", ", HostPlatforms));
 			foreach (UnrealTargetPlatform HostPlatform in HostPlatforms)
 			{
 				if (Plugin.bCanBeUsedWithUnrealHeaderTool)
@@ -139,7 +139,7 @@ class BuildPlugin : BuildCommand
 		// Add the game targets
 		if(TargetPlatforms.Count > 0)
 		{
-			CommandUtils.Log("Building plugin for target platforms: {0}", String.Join(", ", TargetPlatforms));
+			CommandUtils.LogInformation("Building plugin for target platforms: {0}", String.Join(", ", TargetPlatforms));
 			foreach (UnrealTargetPlatform TargetPlatform in TargetPlatforms)
 			{
 				if(Plugin.SupportsTargetPlatform(TargetPlatform))
@@ -245,7 +245,7 @@ class BuildPlugin : BuildCommand
 		FileReference FilterFile = FileReference.Combine(PluginFile.Directory, "Config", "FilterPlugin.ini");
 		if(FileReference.Exists(FilterFile))
 		{
-			CommandUtils.Log("Reading filter rules from {0}", FilterFile);
+			CommandUtils.LogInformation("Reading filter rules from {0}", FilterFile);
 			Filter.ReadRulesFromFile(FilterFile, "FilterPlugin");
 		}
 

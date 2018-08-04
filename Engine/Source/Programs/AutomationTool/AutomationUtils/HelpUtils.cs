@@ -149,7 +149,7 @@ namespace AutomationTool
 				}
 			}
 
-			Log(HelpMessage);
+			LogInformation(HelpMessage);
 		}
 
 		/// <summary>

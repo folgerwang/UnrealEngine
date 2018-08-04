@@ -59,7 +59,7 @@ class CopySharedCookedBuild : BuildCommand
 
 	public override void ExecuteBuild()
 	{
-		Log("************************* CopySharedCookedBuild");
+		LogInformation("************************* CopySharedCookedBuild");
 
 		// Parse the project filename (as a local path)
 		

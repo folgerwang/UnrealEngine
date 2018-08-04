@@ -282,7 +282,7 @@ public partial class Project : CommandUtils
 		}
 		var ThisPlatform = SC.StageTargetPlatform;
 
-		Log("Creating Staging Manifest...");
+		LogInformation("Creating Staging Manifest...");
 
 		if (Params.HasIterateSharedCookedBuild)
 		{
@@ -897,7 +897,7 @@ public partial class Project : CommandUtils
 			}
 			else
 			{
-				CommandUtils.Log("Excluding config file {0}", ConfigFile);
+				CommandUtils.LogInformation("Excluding config file {0}", ConfigFile);
 			}
 		}
 	}
@@ -1140,7 +1140,7 @@ public partial class Project : CommandUtils
 
 	public static void CopyManifestFilesToStageDir(Dictionary<StagedFileReference, FileReference> Mapping, DirectoryReference StageDir, DirectoryReference ManifestDir, string ManifestName, HashSet<StagedFileReference> CRCFiles, string PlatformName)
 	{
-		Log("Copying {0} to staging directory: {1}", ManifestName, StageDir);
+		LogInformation("Copying {0} to staging directory: {1}", ManifestName, StageDir);
 		FileReference ManifestPath = null;
 		string ManifestFile = "";
 		if (!String.IsNullOrEmpty(ManifestName))
@@ -1228,7 +1228,7 @@ public partial class Project : CommandUtils
 	/// <param name="SC"></param>
 	private static void CreatePakUsingStagingManifest(ProjectParams Params, DeploymentContext SC)
 	{
-		Log("Creating pak using staging manifest.");
+		LogInformation("Creating pak using staging manifest.");
 
 		DumpManifest(SC, CombinePaths(CmdEnv.LogFolder, "PrePak" + (SC.DedicatedServer ? "_Server" : "")));
 
@@ -1250,7 +1250,7 @@ public partial class Project : CommandUtils
 	/// <param name="SC">Staging context</param>
 	private static void CreatePakForCrashReporter(ProjectParams Params, DeploymentContext SC)
 	{
-		Log("Creating pak for crash reporter.");
+		LogInformation("Creating pak for crash reporter.");
 
 		Dictionary<string, string> PakResponseFile = CreatePakResponseFileFromStagingManifest(SC, SC.CrashReporterUFSFiles);
 		FileReference OutputLocation = FileReference.Combine(SC.RuntimeRootDir, "Engine", "Programs", "CrashReportClient", "Content", "Paks", "CrashReportClient.pak");
@@ -1280,7 +1280,7 @@ public partial class Project : CommandUtils
 			FileReference PakBlacklistFilename = FileReference.Combine(SC.ProjectRoot, "Build", SC.PlatformDir, string.Format("PakBlacklist-{0}.txt", SC.StageTargetConfigurations[0].ToString()));
 			if (FileReference.Exists(PakBlacklistFilename))
 			{
-				Log("Applying PAK blacklist file {0}", PakBlacklistFilename);
+				LogInformation("Applying PAK blacklist file {0}", PakBlacklistFilename);
 				string[] BlacklistContents = FileReference.ReadAllLines(PakBlacklistFilename);
 				foreach (string Candidate in BlacklistContents)
 				{
@@ -1318,7 +1318,7 @@ public partial class Project : CommandUtils
 
 				if (bExcludeFile)
 				{
-					Log("Excluding {0}", Src);
+					LogInformation("Excluding {0}", Src);
 					continue;
 				}
 			}
@@ -1398,7 +1398,7 @@ public partial class Project : CommandUtils
 
 		if (bShouldGeneratePatch && !Params.HasBasedOnReleaseVersion)
 		{
-			Log("Generating patch required a based on release version flag");
+			LogInformation("Generating patch required a based on release version flag");
 		}
 
 		string PostFix = "";
@@ -1507,7 +1507,7 @@ public partial class Project : CommandUtils
 
 					if (InternalUtils.SafeCopyFile(SourceOutputLocation.FullName, OutputLocation.FullName))
 					{
-						Log("Copying source pak from {0} to {1} instead of creating new pak", SourceOutputLocation, OutputLocation);
+						LogInformation("Copying source pak from {0} to {1} instead of creating new pak", SourceOutputLocation, OutputLocation);
 						bCopiedExistingPak = true;
 
 						FileReference InSigFile = SourceOutputLocation.ChangeExtension(".sig");
@@ -1515,11 +1515,11 @@ public partial class Project : CommandUtils
 						{
 							FileReference OutSigFile = OutputLocation.ChangeExtension(".sig");
 
-							Log("Copying pak sig from {0} to {1}", InSigFile, OutSigFile);
+							LogInformation("Copying pak sig from {0} to {1}", InSigFile, OutSigFile);
 
 							if (!InternalUtils.SafeCopyFile(InSigFile.FullName, OutSigFile.FullName))
 							{
-								Log("Failed to copy pak sig {0} to {1}, creating new pak", InSigFile, InSigFile);
+								LogInformation("Failed to copy pak sig {0} to {1}, creating new pak", InSigFile, InSigFile);
 								bCopiedExistingPak = false;
 							}
 						}
@@ -1528,7 +1528,7 @@ public partial class Project : CommandUtils
 				}
 				if (!bCopiedExistingPak)
 				{
-					Log("Failed to copy source pak from {0} to {1}, creating new pak", SourceOutputLocation, OutputLocation);
+					LogInformation("Failed to copy source pak from {0} to {1}, creating new pak", SourceOutputLocation, OutputLocation);
 				}
 			}
 
@@ -1706,7 +1706,7 @@ public partial class Project : CommandUtils
     /// <param name="SC"></param>
     private static void CopyPaksFromNetwork(ProjectParams Params, DeploymentContext SC)
     {
-        Log("Copying paks from network.");
+        LogInformation("Copying paks from network.");
 
         if (!CommandUtils.P4Enabled)
         {
@@ -1785,7 +1785,7 @@ public partial class Project : CommandUtils
                             var InfoCache = new System.IO.FileInfo(CacheSrcFile);
                             if (Info.Exists && InfoCache.Exists && Info.Length == InfoCache.Length)
                             {
-                                Log("Copying from cache {0} -> {1}", CacheSrcFile, DestFileName);
+                                LogInformation("Copying from cache {0} -> {1}", CacheSrcFile, DestFileName);
                                 CopyFileIncremental(new FileReference(CacheSrcFile), new FileReference(DestFileName));
                                 continue;
                             }
@@ -1796,7 +1796,7 @@ public partial class Project : CommandUtils
 
                     }
                 }
-                Log("Copying {0} -> {1}", SrcFile, DestFileName);
+                LogInformation("Copying {0} -> {1}", SrcFile, DestFileName);
                 CopyFileIncremental(new FileReference(SrcFile), new FileReference(DestFileName));
             }
         }
@@ -1825,7 +1825,7 @@ public partial class Project : CommandUtils
     /// <param name="SC"></param>
     private static void CreatePaksUsingChunkManifests(ProjectParams Params, DeploymentContext SC)
 	{
-		Log("Creating pak using streaming install manifests.");
+		LogInformation("Creating pak using streaming install manifests.");
 		DumpManifest(SC, CombinePaths(CmdEnv.LogFolder, "PrePak" + (SC.DedicatedServer ? "_Server" : "")));
 
 
@@ -1988,7 +1988,7 @@ public partial class Project : CommandUtils
 
 		System.Threading.Tasks.ParallelOptions Options = new System.Threading.Tasks.ParallelOptions();
 
-		Log("Creating Pak files utilizing {0} cores", Environment.ProcessorCount);
+		LogInformation("Creating Pak files utilizing {0} cores", Environment.ProcessorCount);
 		Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
 
 		List<CreatePakParams> PakInputs = new List<CreatePakParams>();
@@ -2140,7 +2140,7 @@ public partial class Project : CommandUtils
 
 	public static void CleanStagingDirectory(ProjectParams Params, DeploymentContext SC)
 	{
-		Log("Cleaning Stage Directory: {0}", SC.StageDirectory.FullName);
+		LogInformation("Cleaning Stage Directory: {0}", SC.StageDirectory.FullName);
 		if (SC.Stage && !Params.NoCleanStage && !Params.SkipStage && !Params.IterativeDeploy)
 		{
 			try
@@ -2224,7 +2224,7 @@ public partial class Project : CommandUtils
 			return;
 		}
 
-		Log("Creating UE4CommandLine.txt");
+		LogInformation("Creating UE4CommandLine.txt");
 		if (!string.IsNullOrEmpty(Params.StageCommandline) || !string.IsNullOrEmpty(Params.RunCommandline))
 		{
 			string FileHostParams = " ";
@@ -2703,7 +2703,7 @@ public partial class Project : CommandUtils
 		{
 			Params.ValidateAndLog();
 
-			Log("********** STAGE COMMAND STARTED **********");
+			LogInformation("********** STAGE COMMAND STARTED **********");
 
 			if (!Params.NoClient)
 			{
@@ -2780,7 +2780,7 @@ public partial class Project : CommandUtils
 					ApplyStagingManifest(Params, SC);
 				}
 			}
-			Log("********** STAGE COMMAND COMPLETED **********");
+			LogInformation("********** STAGE COMMAND COMPLETED **********");
 		}
 	}
 
