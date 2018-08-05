@@ -2166,7 +2166,7 @@ AActor* USceneComponent::GetAttachmentRootActor() const
 	return AttachmentRootComponent ? AttachmentRootComponent->GetOwner() : nullptr;
 }
 
-bool USceneComponent::IsAttachedTo(class USceneComponent* TestComp) const
+bool USceneComponent::IsAttachedTo(const USceneComponent* TestComp) const
 {
 	if(TestComp != nullptr)
 	{

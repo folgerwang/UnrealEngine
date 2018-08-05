@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -1237,7 +1237,7 @@ public:
 	AActor* GetAttachmentRootActor() const;
 
 	/** Walks up the attachment chain to see if this component is attached to the supplied component. If TestComp == this, returns false.*/
-	bool IsAttachedTo(USceneComponent* TestComp) const;
+	bool IsAttachedTo(const USceneComponent* TestComp) const;
 
 	/**
 	 * Find the world-space location and rotation of the given named socket.
