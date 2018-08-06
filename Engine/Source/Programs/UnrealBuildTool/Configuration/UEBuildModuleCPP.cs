@@ -87,6 +87,11 @@ namespace UnrealBuildTool
 		public readonly DirectoryReference GeneratedCodeDirectory;
 
 		/// <summary>
+		/// Set for modules that have generated code
+		/// </summary>
+		public bool bAddGeneratedCodeIncludePath;
+
+		/// <summary>
 		/// Wildcard matching the *.gen.cpp files for this module.  If this is null then this module doesn't have any UHT-produced code.
 		/// </summary>
 		public string GeneratedCodeWildcard;
@@ -315,7 +320,7 @@ namespace UnrealBuildTool
 			bool bLegacyPublicIncludePaths
 			)
 		{
-			if(GeneratedCodeWildcard != null)
+			if(bAddGeneratedCodeIncludePath)
 			{
 				IncludePaths.Add(GeneratedCodeDirectory);
 			}
