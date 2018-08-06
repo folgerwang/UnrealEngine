@@ -59,8 +59,18 @@ UWidgetAnimation* UWidgetAnimation::GetNullAnimation()
 	return NullAnimation;
 }
 
-#endif
+void UWidgetAnimation::SetDisplayLabel(const FString& InDisplayLabel)
+{
+	DisplayLabel = InDisplayLabel;
+}
 
+FText UWidgetAnimation::GetDisplayName() const
+{
+	const bool bHasDisplayLabel = !DisplayLabel.IsEmpty();
+	return bHasDisplayLabel ? FText::FromString(DisplayLabel) : Super::GetDisplayName();
+}
+
+#endif
 
 float UWidgetAnimation::GetStartTime() const
 {

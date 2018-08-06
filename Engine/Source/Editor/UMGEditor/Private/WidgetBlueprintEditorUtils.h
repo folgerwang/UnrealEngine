@@ -34,6 +34,9 @@ public:
 	static bool IsBindWidgetProperty(UProperty* InProperty);
 	static bool IsBindWidgetProperty(UProperty* InProperty, bool& bIsOptional);
 
+	static bool IsBindWidgetAnimProperty(UProperty* InProperty);
+	static bool IsBindWidgetAnimProperty(UProperty* InProperty, bool& bIsOptional);
+
 	static bool IsUsableWidgetClass(UClass* WidgetClass);
 
 public:

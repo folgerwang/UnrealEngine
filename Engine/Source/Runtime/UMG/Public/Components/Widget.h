@@ -67,6 +67,14 @@ namespace UMWidget
 		// UPROPERTY(meta=(BindWidget, OptionalWidget=true))
 		OptionalWidget,
 
+		// [PropertyMetadata] This property requires a widget animation be bound to it in the designer.  Allows easy native access to designer defined animations.
+		// UPROPERTY(meta=(BindWidgetAnim))
+		BindWidgetAnim,
+
+		// [PropertyMetadata] This property optionally allows a animation widget be bound to it in the designer.  Allows easy native access to designer defined animation.
+		// UPROPERTY(meta=(BindWidgetAnimOptional))
+		BindWidgetAnimOptional,
+
 		// [PropertyMetadata] Exposes a dynamic delegate property in the details panel for the widget.
 		// UPROPERTY(meta=(IsBindableEvent))
 		IsBindableEvent,

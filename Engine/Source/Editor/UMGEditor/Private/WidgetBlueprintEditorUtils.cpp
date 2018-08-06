@@ -1312,6 +1312,25 @@ bool FWidgetBlueprintEditorUtils::IsBindWidgetProperty(UProperty* InProperty, bo
 	return false;
 }
 
+bool FWidgetBlueprintEditorUtils::IsBindWidgetAnimProperty(UProperty* InProperty)
+{
+	bool bIsOptional;
+	return IsBindWidgetAnimProperty(InProperty, bIsOptional);
+}
+
+bool FWidgetBlueprintEditorUtils::IsBindWidgetAnimProperty(UProperty* InProperty, bool& bIsOptional)
+{
+	if (InProperty)
+	{
+		bool bIsBindWidgetAnim = InProperty->HasMetaData("BindWidgetAnim") || InProperty->HasMetaData("BindWidgetAnimOptional");
+		bIsOptional = InProperty->HasMetaData("BindWidgetAnimOptional");
+
+		return bIsBindWidgetAnim;
+	}
+
+	return false;
+}
+
 bool FWidgetBlueprintEditorUtils::IsUsableWidgetClass(UClass* WidgetClass)
 {
 	if ( WidgetClass->IsChildOf(UWidget::StaticClass()) )
