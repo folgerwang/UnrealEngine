@@ -172,27 +172,6 @@ namespace UnrealBuildTool
 			}
 		}
 
-		/// <returns>The remote FileItem that represents the given file path.</returns>
-		public static FileItem GetRemoteItemByPath(string AbsoluteRemotePath, UnrealTargetPlatform Platform)
-		{
-			if (AbsoluteRemotePath.StartsWith("."))
-			{
-				throw new BuildException("GetRemoteItemByPath must be passed an absolute path, not a relative path '{0}'", AbsoluteRemotePath);
-			}
-
-			FileReference RemoteFileReference = FileReference.MakeRemote(AbsoluteRemotePath);
-
-			FileItem Result = null;
-			if (UniqueSourceFileMap.TryGetValue(RemoteFileReference, out Result))
-			{
-				return Result;
-			}
-			else
-			{
-				return new FileItem(RemoteFileReference, true, Platform);
-			}
-		}
-
 		/// <summary>
 		/// If the given file path identifies a file that already exists, returns the FileItem that represents it.
 		/// </summary>

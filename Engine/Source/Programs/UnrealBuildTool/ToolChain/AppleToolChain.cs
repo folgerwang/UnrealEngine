@@ -140,21 +140,6 @@ namespace UnrealBuildTool
 			ProjectFile = InProjectFile;
 		}
 
-		protected static string ConvertPath(string Path)
-		{
-			return Path;
-		}
-
-		protected static FileItem RemoteToLocalFileItem(FileItem Executable)
-		{
-			return Executable;
-		}
-
-		protected static FileItem LocalToRemoteFileItem(FileItem Item, bool bSomething = false)
-		{
-			return Item;
-		}
-
 		protected string GetMacDevSrcRoot()
 		{
 			return UnrealBuildTool.EngineSourceDirectory.FullName;

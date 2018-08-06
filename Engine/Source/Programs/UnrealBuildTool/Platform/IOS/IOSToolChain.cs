@@ -147,7 +147,7 @@ namespace UnrealBuildTool
 					FileReference AssetFile = FileReference.Combine(Binary.OutputFilePath.Directory, "AssetCatalog", "Assets.car");
                     BuildProducts.Add(AssetFile, BuildProductType.RequiredResource);
                 }
-				else if (CppPlatform == CppPlatform.IOS && Settings.Value.IOSSDKVersionFloat >= 11.0f && BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
+				else if (CppPlatform == CppPlatform.IOS && Settings.Value.IOSSDKVersionFloat >= 11.0f)
 				{
 					int Index = Binary.OutputFilePath.GetFileNameWithoutExtension().IndexOf("-");
 					string OutputFile = Binary.OutputFilePath.GetFileNameWithoutExtension().Substring(0, Index > 0 ? Index : Binary.OutputFilePath.GetFileNameWithoutExtension().Length);
@@ -541,10 +541,9 @@ namespace UnrealBuildTool
 			if(IsBitcodeCompilingEnabled(LinkEnvironment.Configuration))
 			{
 				FileItem OutputFile = FileItem.GetItemByFileReference(LinkEnvironment.OutputFilePath);
-				FileItem RemoteOutputFile = LocalToRemoteFileItem(OutputFile, false);
 
 				Result += " -fembed-bitcode -Xlinker -bitcode_verify -Xlinker -bitcode_hide_symbols -Xlinker -bitcode_symbol_map ";
-				Result += " -Xlinker " + Path.GetDirectoryName(RemoteOutputFile.AbsolutePath);
+				Result += " -Xlinker " + Path.GetDirectoryName(OutputFile.AbsolutePath);
 			}
 
 			Result += " -dead_strip";
@@ -616,12 +615,12 @@ namespace UnrealBuildTool
 
 			if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 			{
-				PCHArguments += string.Format(" -include \"{0}\"", ConvertPath(CompileEnvironment.PrecompiledHeaderIncludeFilename.FullName));
+				PCHArguments += string.Format(" -include \"{0}\"", CompileEnvironment.PrecompiledHeaderIncludeFilename.FullName);
 			}
 
 			foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
 			{
-				Arguments += String.Format(" -include \"{0}\"", ConvertPath(ForceIncludeFile.Location.FullName));
+				Arguments += String.Format(" -include \"{0}\"", ForceIncludeFile.Location.FullName);
 			}
 
 			// Add include paths to the argument list.
@@ -629,28 +628,7 @@ namespace UnrealBuildTool
 			AllIncludes.UnionWith(CompileEnvironment.IncludePaths.SystemIncludePaths);
 			foreach (DirectoryReference IncludePath in AllIncludes)
 			{
-				Arguments += string.Format(" -I\"{0}\"", ConvertPath(IncludePath.FullName));
-
-				if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-				{
-					// sync any third party headers we may need
-					if (IncludePath.FullName.Contains("ThirdParty") && DirectoryReference.Exists(IncludePath))
-					{
-						string[] FileList = Directory.GetFiles(IncludePath.FullName, "*.h", SearchOption.AllDirectories);
-						foreach (string File in FileList)
-						{
-							FileItem ExternalDependency = FileItem.GetItemByPath(File);
-							LocalToRemoteFileItem(ExternalDependency, true);
-						}
-
-						FileList = Directory.GetFiles(IncludePath.FullName, "*.cpp", SearchOption.AllDirectories);
-						foreach (string File in FileList)
-						{
-							FileItem ExternalDependency = FileItem.GetItemByPath(File);
-							LocalToRemoteFileItem(ExternalDependency, true);
-						}
-					}
-				}
+				Arguments += string.Format(" -I\"{0}\"", IncludePath.FullName);
 			}
 
 			foreach (string Definition in CompileEnvironment.Definitions)
@@ -714,12 +692,11 @@ namespace UnrealBuildTool
 					// Add the precompiled header file to the produced item list.
 					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + ".gch"));
 
-					FileItem RemotePrecompiledHeaderFile = LocalToRemoteFileItem(PrecompiledHeaderFile, false);
-					CompileAction.ProducedItems.Add(RemotePrecompiledHeaderFile);
-					Result.PrecompiledHeaderFile = RemotePrecompiledHeaderFile;
+					CompileAction.ProducedItems.Add(PrecompiledHeaderFile);
+					Result.PrecompiledHeaderFile = PrecompiledHeaderFile;
 
 					// Add the parameters needed to compile the precompiled header file to the command-line.
-					FileArguments += string.Format(" -o \"{0}\"", RemotePrecompiledHeaderFile.AbsolutePath);
+					FileArguments += string.Format(" -o \"{0}\"", PrecompiledHeaderFile.AbsolutePath);
 				}
 				else
 				{
@@ -731,15 +708,14 @@ namespace UnrealBuildTool
 					// Add the object file to the produced item list.
 					FileItem ObjectFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + ".o"));
 
-					FileItem RemoteObjectFile = LocalToRemoteFileItem(ObjectFile, false);
-					CompileAction.ProducedItems.Add(RemoteObjectFile);
-					Result.ObjectFiles.Add(RemoteObjectFile);
-					FileArguments += string.Format(" -o \"{0}\"", RemoteObjectFile.AbsolutePath);
-					OutputFilePath = RemoteObjectFile.AbsolutePath;
+					CompileAction.ProducedItems.Add(ObjectFile);
+					Result.ObjectFiles.Add(ObjectFile);
+					FileArguments += string.Format(" -o \"{0}\"", ObjectFile.AbsolutePath);
+					OutputFilePath = ObjectFile.AbsolutePath;
 				}
 
 				// Add the source file path to the command-line.
-				FileArguments += string.Format(" \"{0}\"", ConvertPath(SourceFile.AbsolutePath));
+				FileArguments += string.Format(" \"{0}\"", SourceFile.AbsolutePath);
 
 				string CompilerPath = Settings.Value.ToolchainDir + IOSCompiler;
 
@@ -819,7 +795,7 @@ namespace UnrealBuildTool
 				// Add the library paths to the argument list.
 				foreach (DirectoryReference LibraryPath in LinkEnvironment.LibraryPaths)
 				{
-					LinkCommandArguments += string.Format(" -L\"{0}\"", ConvertPath(LibraryPath.FullName));
+					LinkCommandArguments += string.Format(" -L\"{0}\"", LibraryPath.FullName);
 				}
 
 				// Add the additional libraries to the argument list.
@@ -830,11 +806,10 @@ namespace UnrealBuildTool
 					{
 						// add it to the prerequisites to make sure it's built first (this should be the case of non-system libraries)
 						FileItem LibFile = FileItem.GetItemByPath(AdditionalLibrary);
-						FileItem RemoteLibFile = LocalToRemoteFileItem(LibFile, true);
-						LinkAction.PrerequisiteItems.Add(RemoteLibFile);
+						LinkAction.PrerequisiteItems.Add(LibFile);
 
 						// and add to the commandline
-						LinkCommandArguments += string.Format(" \"{0}\"", ConvertPath(Path.GetFullPath(AdditionalLibrary)));
+						LinkCommandArguments += string.Format(" \"{0}\"", Path.GetFullPath(AdditionalLibrary));
 					}
 					else
 					{
@@ -848,8 +823,7 @@ namespace UnrealBuildTool
 
 			// Add the output file as a production of the link action.
 			FileItem OutputFile = FileItem.GetItemByFileReference(LinkEnvironment.OutputFilePath);
-			FileItem RemoteOutputFile = LocalToRemoteFileItem(OutputFile, false);
-			LinkAction.ProducedItems.Add(RemoteOutputFile);
+			LinkAction.ProducedItems.Add(OutputFile);
 
 			// Add arguments to generate a map file too
 			if (!LinkEnvironment.bIsBuildingLibrary && LinkEnvironment.bCreateMapFile)
@@ -863,7 +837,7 @@ namespace UnrealBuildTool
 			List<string> InputFileNames = new List<string>();
 			foreach (FileItem InputFile in LinkEnvironment.InputFiles)
 			{
-				string FileNamePath = string.Format("\"{0}\"", ConvertPath(InputFile.AbsolutePath));
+				string FileNamePath = string.Format("\"{0}\"", InputFile.AbsolutePath);
 				InputFileNames.Add(FileNamePath);
 				LinkAction.PrerequisiteItems.Add(InputFile);
 			}
@@ -884,12 +858,12 @@ namespace UnrealBuildTool
 			{
 				bool bIsUE4Game = LinkEnvironment.OutputFilePath.FullName.Contains("UE4Game");
 				FileReference ResponsePath = FileReference.Combine(((!bIsUE4Game && ProjectFile != null) ? ProjectFile.Directory : UnrealBuildTool.EngineDirectory), "Intermediate", "Build", LinkEnvironment.Platform.ToString(), "LinkFileList_" + LinkEnvironment.OutputFilePath.GetFileNameWithoutExtension() + ".tmp");
-				FileItem.CreateIntermediateTextFile(new FileReference(ConvertPath(ResponsePath.FullName)), InputFileNames);
-				LinkCommandArguments += string.Format(" @\"{0}\"", ConvertPath(ResponsePath.FullName));
+				FileItem.CreateIntermediateTextFile(ResponsePath, InputFileNames);
+				LinkCommandArguments += string.Format(" @\"{0}\"", ResponsePath.FullName);
 			}
 
 			// Add the output file to the command-line.
-			LinkCommandArguments += string.Format(" -o \"{0}\"", RemoteOutputFile.AbsolutePath);
+			LinkCommandArguments += string.Format(" -o \"{0}\"", OutputFile.AbsolutePath);
 
 			// Add the additional arguments specified by the environment.
 			LinkCommandArguments += LinkEnvironment.AdditionalArguments;
@@ -900,7 +874,7 @@ namespace UnrealBuildTool
 			LinkAction.StatusDescription = string.Format("{0}", OutputFile.AbsolutePath);
 
 			LinkAction.CommandPath = "sh";
-			if(LinkEnvironment.Configuration == CppConfiguration.Shipping && Path.GetExtension(RemoteOutputFile.AbsolutePath) != ".a")
+			if(LinkEnvironment.Configuration == CppConfiguration.Shipping && Path.GetExtension(OutputFile.AbsolutePath) != ".a")
 			{
 				// When building a shipping package, symbols are stripped from the exe as the last build step. This is a problem
 				// when re-packaging and no source files change because the linker skips symbol generation and dsymutil will 
@@ -908,8 +882,8 @@ namespace UnrealBuildTool
 				// the output file to force the linker to recreate it with symbols again.
 				string	linkCommandArguments = "-c '";
 
-				linkCommandArguments += string.Format("rm -f \"{0}\";", RemoteOutputFile.AbsolutePath);
-				linkCommandArguments += string.Format("rm -f \"{0}\\*.bcsymbolmap\";", Path.GetDirectoryName(RemoteOutputFile.AbsolutePath));
+				linkCommandArguments += string.Format("rm -f \"{0}\";", OutputFile.AbsolutePath);
+				linkCommandArguments += string.Format("rm -f \"{0}\\*.bcsymbolmap\";", Path.GetDirectoryName(OutputFile.AbsolutePath));
 				linkCommandArguments += LinkerPath + " " + LinkCommandArguments + ";";
 
 				linkCommandArguments += "'";
@@ -922,7 +896,7 @@ namespace UnrealBuildTool
 				LinkAction.CommandArguments = string.Format("-c '{0} {1}'", LinkerPath, LinkCommandArguments);
 			}
 
-			return RemoteOutputFile;
+			return OutputFile;
 		}
 
 		static string GetAppBundleName(FileReference Executable)
@@ -993,15 +967,10 @@ namespace UnrealBuildTool
         public FileItem GenerateDebugInfo(FileItem Executable, ActionGraph ActionGraph)
 		{
             // Make a file item for the source and destination files
-            FileItem LocalExecutable = RemoteToLocalFileItem(Executable);
-			string FullDestPathRoot = Path.Combine(Path.GetDirectoryName(LocalExecutable.AbsolutePath), Path.GetFileName(LocalExecutable.AbsolutePath) + ".dSYM");
+			string FullDestPathRoot = Path.Combine(Path.GetDirectoryName(Executable.AbsolutePath), Path.GetFileName(Executable.AbsolutePath) + ".dSYM");
 
-            FileItem OutputFile;
-            OutputFile = FileItem.GetItemByPath(FullDestPathRoot);
-            FileItem ZipOutputFile;
-            ZipOutputFile = FileItem.GetItemByPath(FullDestPathRoot + ".zip");
-            FileItem DestFile = LocalToRemoteFileItem(OutputFile, false);
-            FileItem ZipDestFile = LocalToRemoteFileItem(ZipOutputFile, false);
+            FileItem OutputFile = FileItem.GetItemByPath(FullDestPathRoot);
+            FileItem ZipOutputFile = FileItem.GetItemByPath(FullDestPathRoot + ".zip");
 
             // Make the compile action
             Action GenDebugAction = ActionGraph.Add(ActionType.GenerateDebugInfo);
@@ -1012,23 +981,23 @@ namespace UnrealBuildTool
 			{
 				GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; /usr/bin/dsymutil \"{0}\" -o \"{1}\"; cd \"{1}/..\"; zip -r -y -1 {2}.zip {2}'",
 					Executable.AbsolutePath,
-                    DestFile.AbsolutePath,
+                    OutputFile.AbsolutePath,
 					Path.GetFileName(FullDestPathRoot));
-                GenDebugAction.ProducedItems.Add(ZipDestFile);
-                Log.TraceInformation("Zip file: " + ZipDestFile.AbsolutePath);
+                GenDebugAction.ProducedItems.Add(ZipOutputFile);
+                Log.TraceInformation("Zip file: " + ZipOutputFile.AbsolutePath);
             }
             else
 			{
 				GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; /usr/bin/dsymutil \"{0}\" -f -o \"{1}\"'",
 						Executable.AbsolutePath,
-						DestFile.AbsolutePath);
+						OutputFile.AbsolutePath);
 			}
 			GenDebugAction.PrerequisiteItems.Add(Executable);
-            GenDebugAction.ProducedItems.Add(DestFile);
+            GenDebugAction.ProducedItems.Add(OutputFile);
             GenDebugAction.StatusDescription = GenDebugAction.CommandArguments;// string.Format("Generating debug info for {0}", Path.GetFileName(Executable.AbsolutePath));
 			GenDebugAction.bCanExecuteRemotely = false;
 
-			return (ProjectSettings.bGeneratedSYMBundle ? ZipDestFile : DestFile);
+			return (ProjectSettings.bGeneratedSYMBundle ? ZipOutputFile : OutputFile);
 		}
 
         /// <summary>
@@ -1039,22 +1008,15 @@ namespace UnrealBuildTool
         public FileItem GeneratePseudoPDB(FileItem Executable, ActionGraph ActionGraph)
         {
             // Make a file item for the source and destination files
-            FileItem LocalExecutable = RemoteToLocalFileItem(Executable);
-            string FullDestPathRoot = Path.Combine(Path.GetDirectoryName(LocalExecutable.AbsolutePath), Path.GetFileName(LocalExecutable.AbsolutePath) + ".udebugsymbols");
-            string FulldSYMPathRoot = Path.Combine(Path.GetDirectoryName(LocalExecutable.AbsolutePath), Path.GetFileName(LocalExecutable.AbsolutePath) + ".dSYM");
-            string PathToDWARF = Path.Combine(FulldSYMPathRoot, "Contents", "Resources", "DWARF", Path.GetFileName(LocalExecutable.AbsolutePath));
+            string FullDestPathRoot = Path.Combine(Path.GetDirectoryName(Executable.AbsolutePath), Path.GetFileName(Executable.AbsolutePath) + ".udebugsymbols");
+            string FulldSYMPathRoot = Path.Combine(Path.GetDirectoryName(Executable.AbsolutePath), Path.GetFileName(Executable.AbsolutePath) + ".dSYM");
+            string PathToDWARF = Path.Combine(FulldSYMPathRoot, "Contents", "Resources", "DWARF", Path.GetFileName(Executable.AbsolutePath));
 
-            FileItem dSYMFile;
-            dSYMFile = FileItem.GetItemByPath(FulldSYMPathRoot);
-            FileItem dSYMOutFile = LocalToRemoteFileItem(dSYMFile, false);
+            FileItem dSYMFile = FileItem.GetItemByPath(FulldSYMPathRoot);
 
-            FileItem DWARFFile;
-            DWARFFile = FileItem.GetItemByPath(PathToDWARF);
-            FileItem DWARFOutFile = LocalToRemoteFileItem(DWARFFile, false);
+            FileItem DWARFFile = FileItem.GetItemByPath(PathToDWARF);
 
-            FileItem OutputFile;
-            OutputFile = FileItem.GetItemByPath(FullDestPathRoot);
-            FileItem DestFile = LocalToRemoteFileItem(OutputFile, false);
+            FileItem OutputFile = FileItem.GetItemByPath(FullDestPathRoot);
 
             // Make the compile action
             Action GenDebugAction = ActionGraph.Add(ActionType.GenerateDebugInfo);
@@ -1062,16 +1024,16 @@ namespace UnrealBuildTool
 
             GenDebugAction.CommandPath = "sh";
             GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; dwarfdump --uuid \"{3}\" | cut -d\" \" -f2; chmod 777 ./DsymExporter; ./DsymExporter -UUID=$(dwarfdump --uuid \"{3}\" | cut -d\" \" -f2) \"{0}\" \"{2}\"'",
-                    DWARFOutFile.AbsolutePath,
-                    DestFile.AbsolutePath,
-                    Path.GetDirectoryName(DestFile.AbsolutePath),
-                    dSYMOutFile.AbsolutePath);
-            GenDebugAction.PrerequisiteItems.Add(dSYMOutFile);
-            GenDebugAction.ProducedItems.Add(DestFile);
+                    DWARFFile.AbsolutePath,
+                    OutputFile.AbsolutePath,
+                    Path.GetDirectoryName(OutputFile.AbsolutePath),
+                    dSYMFile.AbsolutePath);
+            GenDebugAction.PrerequisiteItems.Add(dSYMFile);
+            GenDebugAction.ProducedItems.Add(OutputFile);
             GenDebugAction.StatusDescription = GenDebugAction.CommandArguments;// string.Format("Generating debug info for {0}", Path.GetFileName(Executable.AbsolutePath));
             GenDebugAction.bCanExecuteRemotely = false;
 
-            return DestFile;
+            return OutputFile;
         }
 
         private static void PackageStub(string BinaryPath, string GameName, string ExeName)
@@ -1294,7 +1256,6 @@ namespace UnrealBuildTool
                         Directory.CreateDirectory(Dir);
                     }
                     File.WriteAllText(Path.Combine(Dir, "Contents.json"), Contents[i]);
-                    LocalToRemoteFileItem(FileItem.GetItemByPath(Path.Combine(Dir, "Contents.json")), BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac);
                     if (Images[i] != null)
                     {
                         // This assumption might not be true, but we need the asset catalog process to fire anyway.
@@ -1304,7 +1265,6 @@ namespace UnrealBuildTool
                         if (File.Exists(Image))
                         {
                             File.Copy(Image, Path.Combine(Dir, Images[i]), true);
-                            LocalToRemoteFileItem(FileItem.GetItemByPath(Path.Combine(Dir, Images[i])), BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac);
                             FileInfo DestFileInfo = new FileInfo(Path.Combine(Dir, Images[i]));
                             DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
                         }
@@ -1333,7 +1293,6 @@ namespace UnrealBuildTool
                 {
                     Dir = file.Replace(Path.Combine(EngineDir, "Build", "IOS"), IntermediateDir);
                     File.Copy(file, Dir, true);
-                    LocalToRemoteFileItem(FileItem.GetItemByPath(Dir), BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac);
                     FileInfo DestFileInfo = new FileInfo(Dir);
                     DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
                 }
@@ -1377,7 +1336,6 @@ namespace UnrealBuildTool
                         bUserImagesExist |= Image.StartsWith(BuildResourcesGraphicsDir);
 
                         File.Copy(Image, Path.Combine(Dir, Images[Index][0]), true);
-                        LocalToRemoteFileItem(FileItem.GetItemByPath(Path.Combine(Dir, Images[Index][0])), BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac);
                         FileInfo DestFileInfo = new FileInfo(Path.Combine(Dir, Images[Index][0]));
                         DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
                     }
