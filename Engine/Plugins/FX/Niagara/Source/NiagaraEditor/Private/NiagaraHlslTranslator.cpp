@@ -710,8 +710,8 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 		TranslationStages[1].PassNamespace = TEXT("MapUpdate");
 		TranslationStages[0].ChunkModeIndex = ENiagaraCodeChunkMode::SpawnBody;
 		TranslationStages[1].ChunkModeIndex = ENiagaraCodeChunkMode::UpdateBody;
-		TranslationStages[0].OutputNode = SourceGraph->FindOutputNode(ENiagaraScriptUsage::ParticleSpawnScript, TranslationStages[0].UsageId);
-		TranslationStages[1].OutputNode = SourceGraph->FindOutputNode(TranslationStages[1].ScriptUsage, TranslationStages[1].UsageId);
+		TranslationStages[0].OutputNode = SourceGraph->FindEquivalentOutputNode(ENiagaraScriptUsage::ParticleSpawnScript, TranslationStages[0].UsageId);
+		TranslationStages[1].OutputNode = SourceGraph->FindEquivalentOutputNode(TranslationStages[1].ScriptUsage, TranslationStages[1].UsageId);
 		TranslationStages[1].bInterpolatePreviousParams = true;
 		ParamMapHistories.AddDefaulted(2);
 		ParamMapSetVariablesToChunks.AddDefaulted(2);
@@ -723,8 +723,8 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 		TranslationStages[1].PassNamespace = TEXT("MapUpdate");
 		TranslationStages[0].ChunkModeIndex = ENiagaraCodeChunkMode::SpawnBody;
 		TranslationStages[1].ChunkModeIndex = ENiagaraCodeChunkMode::UpdateBody;
-		TranslationStages[0].OutputNode = SourceGraph->FindOutputNode(ENiagaraScriptUsage::ParticleSpawnScript, TranslationStages[0].UsageId);
-		TranslationStages[1].OutputNode = SourceGraph->FindOutputNode(TranslationStages[1].ScriptUsage, TranslationStages[1].UsageId);
+		TranslationStages[0].OutputNode = SourceGraph->FindEquivalentOutputNode(ENiagaraScriptUsage::ParticleSpawnScript, TranslationStages[0].UsageId);
+		TranslationStages[1].OutputNode = SourceGraph->FindEquivalentOutputNode(TranslationStages[1].ScriptUsage, TranslationStages[1].UsageId);
 		TranslationStages[1].bInterpolatePreviousParams = bHasInterpolatedSpawn;
 		ParamMapHistories.AddDefaulted(2);
 		ParamMapSetVariablesToChunks.AddDefaulted(2);
@@ -732,7 +732,7 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 	default:
 		TranslationStages.Add(FHlslNiagaraTranslationStage(CompileOptions.TargetUsage, CompileOptions.TargetUsageId));
 		TranslationStages[0].PassNamespace = TEXT("Map");		
-		TranslationStages[0].OutputNode = SourceGraph->FindOutputNode(TranslationStages[0].ScriptUsage, TranslationStages[0].UsageId);
+		TranslationStages[0].OutputNode = SourceGraph->FindEquivalentOutputNode(TranslationStages[0].ScriptUsage, TranslationStages[0].UsageId);
 		TranslationStages[0].ChunkModeIndex = ENiagaraCodeChunkMode::Body;
 		ParamMapHistories.AddDefaulted(1);
 		ParamMapSetVariablesToChunks.AddDefaulted(1);
