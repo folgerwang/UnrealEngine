@@ -1316,6 +1316,7 @@ VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Imag
 	}
 
 #if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+	VkSamplerYcbcrConversionInfo ConversionInfo;
 	if (ConversionInitializer != nullptr)
 	{
 		VkSamplerYcbcrConversionCreateInfo ConversionCreateInfo;
@@ -1337,7 +1338,6 @@ VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Imag
 
 		check(ConversionInitializer->Format != VK_FORMAT_UNDEFINED); // No support for VkExternalFormatANDROID yet.
 
-		VkSamplerYcbcrConversionInfo ConversionInfo;
 		FMemory::Memzero(&ConversionInfo, sizeof(VkSamplerYcbcrConversionInfo));
 		ConversionInfo.conversion = Device.CreateSamplerColorConversion(ConversionCreateInfo);
 		ConversionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO;
