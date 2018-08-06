@@ -414,7 +414,7 @@ void FLinuxWindow::BringToFront( bool bForce )
 	}
 	else
 	{
-		SDL_ShowWindow(HWnd);
+		Show();
 	}
 }
 
