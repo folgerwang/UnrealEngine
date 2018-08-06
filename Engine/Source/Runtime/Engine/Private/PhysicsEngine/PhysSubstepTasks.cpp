@@ -2,10 +2,21 @@
 
 #include "PhysicsEngine/PhysSubstepTasks.h"
 #include "PhysicsEngine/PhysicsSettings.h"
+#include "Physics/PhysScene_PhysX.h"
 
 #if WITH_PHYSX
 #include "PhysXPublic.h"
 #endif
+
+uint8* PhysXCompletionTask::GetScratchBufferData()
+{
+	return ScratchBuffer ? ScratchBuffer->Buffer : nullptr;
+}
+
+int32 PhysXCompletionTask::GetScratchBufferSize()
+{
+	return ScratchBuffer ? ScratchBuffer->BufferSize : 0;
+}
 
 struct FSubstepCallbackGuard
 {
@@ -162,6 +173,18 @@ void FPhysSubstepTask::AddTorque_AssumesLocked(FBodyInstance* Body, const FVecto
 #endif
 }
 
+void FPhysSubstepTask::ClearTorques_AssumesLocked(FBodyInstance* Body)
+{
+#if WITH_PHYSX
+	if (Body->IsNonKinematic())
+	{
+		SUBSTEPPING_WARNING()
+		FPhysTarget & TargetState = PhysTargetBuffers[External].FindOrAdd(Body);
+		TargetState.Torques.Empty();
+	}
+#endif
+}
+
 void FPhysSubstepTask::AddRadialForceToBody_AssumesLocked(FBodyInstance* Body, const FVector& Origin, const float Radius, const float Strength, const uint8 Falloff, const bool bAccelChange)
 {
 #if WITH_PHYSX
@@ -178,6 +201,19 @@ void FPhysSubstepTask::AddRadialForceToBody_AssumesLocked(FBodyInstance* Body, c
 
 		FPhysTarget & TargetState = PhysTargetBuffers[External].FindOrAdd(Body);
 		TargetState.RadialForces.Add(RadialForceTarget);
+	}
+#endif
+}
+
+void FPhysSubstepTask::ClearForces_AssumesLocked(FBodyInstance* Body)
+{
+#if WITH_PHYSX
+	if (Body->IsNonKinematic())
+	{
+		SUBSTEPPING_WARNING()
+		FPhysTarget & TargetState = PhysTargetBuffers[External].FindOrAdd(Body);
+		TargetState.Forces.Empty();
+		TargetState.RadialForces.Empty();
 	}
 #endif
 }
@@ -208,8 +244,11 @@ bool IsKinematicHelper(const PxRigidBody* PRigidBody)
 void FPhysSubstepTask::ApplyForces_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance)
 {
 #if WITH_PHYSX
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+    check(false);
+#else
 	/** Apply Forces */
-	PxRigidBody* PRigidBody = BodyInstance->GetPxRigidBody_AssumesLocked();
+	PxRigidBody* PRigidBody = FPhysicsInterface::GetPxRigidBody_AssumesLocked(BodyInstance->GetPhysicsActorHandle());
 
 	for (int32 i = 0; i < PhysTarget.Forces.Num(); ++i)
 	{
@@ -232,14 +271,18 @@ void FPhysSubstepTask::ApplyForces_AssumesLocked(const FPhysTarget& PhysTarget, 
 		}
 	}
 #endif
+#endif
 }
 
 /** Applies torques - Assumes caller has obtained writer lock */
 void FPhysSubstepTask::ApplyTorques_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance)
 {
 #if WITH_PHYSX
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+    check(false);
+#else
 	/** Apply Torques */
-	PxRigidBody* PRigidBody = BodyInstance->GetPxRigidBody_AssumesLocked();
+	PxRigidBody* PRigidBody = FPhysicsInterface_PhysX::GetPxRigidBody_AssumesLocked(BodyInstance->GetPhysicsActorHandle());
 
 	for (int32 i = 0; i < PhysTarget.Torques.Num(); ++i)
 	{
@@ -247,20 +290,25 @@ void FPhysSubstepTask::ApplyTorques_AssumesLocked(const FPhysTarget& PhysTarget,
 		PRigidBody->addTorque(U2PVector(TorqueTarget.Torque), TorqueTarget.bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE, true);
 	}
 #endif
+#endif
 }
 
 /** Applies radial forces - Assumes caller has obtained writer lock */
 void FPhysSubstepTask::ApplyRadialForces_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance)
 {
 #if WITH_PHYSX
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+    check(false);
+#else
 	/** Apply Torques */
-	PxRigidBody* PRigidBody = BodyInstance->GetPxRigidBody_AssumesLocked();
+	PxRigidBody* PRigidBody = FPhysicsInterface_PhysX::GetPxRigidBody_AssumesLocked(BodyInstance->GetPhysicsActorHandle());
 
 	for (int32 i = 0; i < PhysTarget.RadialForces.Num(); ++i)
 	{
 		const FRadialForceTarget& RadialForceTArget= PhysTarget.RadialForces[i];
 		AddRadialForceToPxRigidBody_AssumesLocked(*PRigidBody, RadialForceTArget.Origin, RadialForceTArget.Radius, RadialForceTArget.Strength, RadialForceTArget.Falloff, RadialForceTArget.bAccelChange);
 	}
+#endif
 #endif
 }
 
@@ -269,7 +317,10 @@ void FPhysSubstepTask::ApplyRadialForces_AssumesLocked(const FPhysTarget& PhysTa
 void FPhysSubstepTask::InterpolateKinematicActor_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance, float InAlpha)
 {
 #if WITH_PHYSX
-	PxRigidDynamic * PRigidDynamic = BodyInstance->GetPxRigidDynamic_AssumesLocked();
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+    check(false);
+#else
+	PxRigidDynamic * PRigidDynamic = FPhysicsInterface_PhysX::GetPxRigidDynamic_AssumesLocked(BodyInstance->GetPhysicsActorHandle());
 	InAlpha = FMath::Clamp(InAlpha, 0.f, 1.f);
 
 	/** Interpolate kinematic actors */
@@ -292,6 +343,7 @@ void FPhysSubstepTask::InterpolateKinematicActor_AssumesLocked(const FPhysTarget
 		}
 	}
 #endif
+#endif
 }
 
 void FPhysSubstepTask::SubstepInterpolation(float InAlpha, float DeltaTime)
@@ -304,6 +356,9 @@ void FPhysSubstepTask::SubstepInterpolation(float InAlpha, float DeltaTime)
 	PxScene * PScene = PAScene;
 	SCOPED_SCENE_WRITE_LOCK(PScene);
 #endif
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+    check(false);
+#else
 
 	/** Note: We lock the entire scene before iterating. The assumption is that removing an FBodyInstance from the map will also be wrapped by this lock */
 	
@@ -314,7 +369,7 @@ void FPhysSubstepTask::SubstepInterpolation(float InAlpha, float DeltaTime)
 	{
 		FPhysTarget & PhysTarget = Itr.Value();
 		FBodyInstance * BodyInstance = Itr.Key();
-		PxRigidBody* PRigidBody = BodyInstance->GetPxRigidBody_AssumesLocked();
+		PxRigidBody* PRigidBody = FPhysicsInterface_PhysX::GetPxRigidBody_AssumesLocked(BodyInstance->GetPhysicsActorHandle());
 
 		if (PRigidBody == NULL)
 		{
@@ -341,6 +396,7 @@ void FPhysSubstepTask::SubstepInterpolation(float InAlpha, float DeltaTime)
 	{
 		Targets.Empty(Targets.Num());
 	}
+#endif
 #endif
 }
 
@@ -421,11 +477,13 @@ void FPhysSubstepTask::SubstepSimulationStart()
 	float Interpolation = bLastSubstep ? 1.f : Alpha;
 
 	// Call scene step delegate
+#if !WITH_APEIRON
 	if (PhysScene != nullptr)
 	{
 		FSubstepCallbackGuard Guard(*this);
 		PhysScene->OnPhysSceneStep.Broadcast(PhysScene, SceneType, DeltaTime);
 	}
+#endif
 
 	SubstepInterpolation(Interpolation, DeltaTime);
 
@@ -488,5 +546,3 @@ void FPhysSubstepTask::SubstepSimulationEnd(ENamedThreads::Type CurrentThread, c
 	}
 #endif
 }
-
-

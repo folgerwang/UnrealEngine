@@ -97,7 +97,7 @@ void UTireConfig::BeginDestroy()
 
 void UTireConfig::NotifyTireFrictionUpdated()
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	FPhysXVehicleManager::UpdateTireFrictionTable();
 #endif // WITH_PHYSX
 }

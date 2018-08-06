@@ -7336,11 +7336,12 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 
 							UWorld* World = Cast<UWorld>(Obj);
 							bool bInitializedPhysicsSceneForSave = false;
+							bool bForceInitializedWorld = false;
 							if (World && bSaveConcurrent)
 							{
 								SCOPE_TIMER(FullLoadAndSave_SettingUpWorlds);
 								// We need a physics scene at save time in case code does traces during onsave events.
-								bInitializedPhysicsSceneForSave = GEditor->InitializePhysicsSceneForSaveIfNecessary(World);
+								bInitializedPhysicsSceneForSave = GEditor->InitializePhysicsSceneForSaveIfNecessary(World, bForceInitializedWorld);
 
 								GIsCookerLoadingPackage = true;
 								{
@@ -7388,7 +7389,7 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 							if (World && bInitializedPhysicsSceneForSave)
 							{
 								SCOPE_TIMER(FullLoadAndSave_CleaningUpWorlds);
-								GEditor->CleanupPhysicsSceneThatWasInitializedForSave(World);
+								GEditor->CleanupPhysicsSceneThatWasInitializedForSave(World, bForceInitializedWorld);
 							}
 						}
 					} while (bObjectsMayHaveBeenCreated);

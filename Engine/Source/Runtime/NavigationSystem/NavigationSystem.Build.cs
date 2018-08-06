@@ -48,7 +48,7 @@ namespace UnrealBuildTool.Rules
                 DynamicallyLoadedModuleNames.Add("DerivedDataCache");
             }
 
-            SetupModulePhysXAPEXSupport(Target);
+            SetupModulePhysicsSupport(Target);
 
             if (Target.bCompileRecast)
             {

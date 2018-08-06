@@ -5,6 +5,7 @@
 #include "UObject/ObjectMacros.h"
 #include "Engine/EngineTypes.h"
 #include "EngineDefines.h"
+#include "Physics/PhysicsInterfaceDeclares.h"
 #include "ConstraintTypes.generated.h"
 
 #if WITH_PHYSX
@@ -80,10 +81,8 @@ struct ENGINE_API FLinearConstraint : public FConstraintBaseParams
 
 	FLinearConstraint();
 
-#if WITH_PHYSX
 	/** Updates physx linear constraint from unreal data. */
-	void UpdatePhysXLinearLimit_AssumesLocked(physx::PxD6Joint* PD6Joint, float AverageMass, float Scale) const;
-#endif
+	void UpdateLinearLimit_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef, float AverageMass, float Scale) const;
 };
 
 
@@ -113,7 +112,7 @@ struct ENGINE_API FConeConstraint : public FConstraintBaseParams
 
 #if WITH_PHYSX
 	/** Updates physx cone limit from unreal data. */
-	void UpdatePhysXConeLimit_AssumesLocked(physx::PxD6Joint* Joint, float AverageMass) const;
+	void UpdateConeLimit_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef, float AverageMass) const;
 #endif
 };
 
@@ -135,7 +134,7 @@ struct ENGINE_API FTwistConstraint : public FConstraintBaseParams
 
 #if WITH_PHYSX
 	/** Updates physx twist limit from unreal data. */
-	void UpdatePhysXTwistLimit_AssumesLocked(physx::PxD6Joint* Joint, float AverageMass) const;
+	void UpdateTwistLimit_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef, float AverageMass) const;
 #endif
 };
 

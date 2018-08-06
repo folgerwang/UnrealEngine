@@ -308,44 +308,9 @@ namespace UnrealBuildTool
 			return AllBinaries;
 		}
 
-		private bool IsVulkanSDKAvailable()
-		{
-			bool bHaveVulkan = false;
-
-			// First look for VulkanSDK (two possible env variables)
-			string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
-			if (String.IsNullOrEmpty(VulkanSDKPath))
-			{
-				VulkanSDKPath = Environment.GetEnvironmentVariable("VK_SDK_PATH");
-			}
-
-			// Note: header is the same for all architectures so just use arch-arm
-			string NDKPath = Environment.GetEnvironmentVariable("NDKROOT");
-			string NDKVulkanIncludePath = NDKPath + "/platforms/android-24/arch-arm/usr/include/vulkan";
-
-			// Use NDK Vulkan header if discovered, or VulkanSDK if available
-			if (File.Exists(NDKVulkanIncludePath + "/vulkan.h"))
-			{
-				bHaveVulkan = true;
-			}
-			else
-			if (!String.IsNullOrEmpty(VulkanSDKPath))
-			{
-				bHaveVulkan = true;
-			}
-			else
-			if (File.Exists("ThirdParty/Vulkan/Windows/Include/vulkan/vulkan.h"))
-			{
-				bHaveVulkan = true;
-			}
-
-			return bHaveVulkan;
-		}
-
 		public override void AddExtraModules(ReadOnlyTargetRules Target, List<string> PlatformExtraModules)
 		{
-			bool bVulkanExists = IsVulkanSDKAvailable();
-			if (bVulkanExists && Target.Type != TargetType.Program)
+			if (Target.Type != TargetType.Program)
 			{
 				PlatformExtraModules.Add("VulkanRHI");
 			}

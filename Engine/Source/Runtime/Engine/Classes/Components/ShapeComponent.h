@@ -64,7 +64,7 @@ protected:
 	}
 
 	template <typename ShapeElemType> void AddShapeToGeomArray();
-	template <typename ShapeElemType> void SetShapeToNewGeom(physx::PxShape* PShape);
+	template <typename ShapeElemType> void SetShapeToNewGeom(const FPhysicsShapeHandle& Shape);
 	template <typename ShapeElemType> void CreateShapeBodySetupIfNeeded();
 
 public:
