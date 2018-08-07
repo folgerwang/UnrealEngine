@@ -108,6 +108,7 @@ struct FNiagaraCustomVersion
 
 		TextureDataInterfaceUsesCustomSerialize, // The cpu cache of the texture is now directly serialized instead of using array property serialization.
 
+		TextureDataInterfaceSizeSerialize, // The texture data interface now streams size info
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1,

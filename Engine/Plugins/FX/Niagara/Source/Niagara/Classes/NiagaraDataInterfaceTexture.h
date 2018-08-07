@@ -35,6 +35,7 @@ public:
 
 	template<typename XType, typename YType>
 	void SampleTexture(FVectorVMContext& Context);
+	void GetTextureDimensions(FVectorVMContext& Context);
 
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
 
@@ -46,6 +47,7 @@ public:
 	//FRWBuffer& GetGPUBuffer();
 	static const FString TextureName;
 	static const FString SamplerName;
+	static const FString DimensionsBaseName;
 protected:
 #if WITH_EDITOR
 	bool CopyTextureToCPUBackup(UTexture* SourceTexture, TArray<uint8>& TargetBuffer);
@@ -57,4 +59,5 @@ protected:
 	TArray<uint8> CPUTextureData;
 
 	static const FName SampleTextureName;
+	static const FName TextureDimsName;
 };
