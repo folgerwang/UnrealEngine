@@ -2590,6 +2590,19 @@ UAnimInstance* USkeletalMeshComponent::GetPostProcessInstance() const
 	return PostProcessAnimInstance;
 }
 
+UAnimInstance* USkeletalMeshComponent::GetSubInstanceByName(FName InName) const
+{
+	for(UAnimInstance* SubInstance : SubInstances)
+	{
+		if(SubInstance->GetFName() == InName)
+		{
+			return SubInstance;
+		}
+	}
+
+	return nullptr;
+}
+
 bool USkeletalMeshComponent::HasValidAnimationInstance() const
 {
 	return AnimScriptInstance || PostProcessAnimInstance;
