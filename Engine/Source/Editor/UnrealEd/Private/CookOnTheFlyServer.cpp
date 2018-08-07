@@ -5975,6 +5975,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 			IBlueprintNativeCodeGenModule::Get().FillPlatformNativizationDetails(Entry, PlatformNativizationDetails);
 			CodeGenData.CodegenTargets.Push(PlatformNativizationDetails);
 		}
+		CodeGenData.ManifestIdentifier = -1;
 		IBlueprintNativeCodeGenModule::InitializeModule(CodeGenData);
 	}
 
