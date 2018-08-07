@@ -819,7 +819,7 @@ void UGameViewportClient::SetVirtualCursorWidget(EMouseCursor::Type Cursor, UUse
 
 void UGameViewportClient::AddSoftwareCursor(EMouseCursor::Type Cursor, const FSoftClassPath& CursorClass)
 {
-	if (ensureMsgf(CursorClass.IsValid(), TEXT("UGameViewportClient::AddCusor: Cursor class is not valid!")))
+	if (CursorClass.IsValid())
 	{
 		UClass* Class = CursorClass.TryLoadClass<UUserWidget>();
 		if (Class)
@@ -829,8 +829,12 @@ void UGameViewportClient::AddSoftwareCursor(EMouseCursor::Type Cursor, const FSo
 		}
 		else
 		{
-			UE_LOG(LogPlayerManagement, Warning, TEXT("UGameViewportClient::AddCursor: Could not load cursor class %s."), *CursorClass.GetAssetName());
+			FMessageLog("PIE").Warning(FText::Format(LOCTEXT("AddCursor:LoadFailed", "UGameViewportClient::AddCursor: Could not load cursor class '{0}'."), FText::FromString(CursorClass.GetAssetName())));
 		}
+	}
+	else
+	{
+		FMessageLog("PIE").Warning(LOCTEXT("AddCursor:InvalidClass", "UGameViewportClient::AddCursor: Invalid class specified."));
 	}
 }
 
