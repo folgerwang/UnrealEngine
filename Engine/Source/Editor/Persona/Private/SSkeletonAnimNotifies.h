@@ -15,6 +15,7 @@
 #include "Widgets/Views/STableRow.h"
 #include "Widgets/Views/SListView.h"
 #include "EditorObjectsTracker.h"
+#include "EditorUndoClient.h"
 
 #define LOCTEXT_NAMESPACE "SkeletonAnimnotifies"
 
@@ -22,12 +23,15 @@ class IEditableSkeleton;
 class SToolTip;
 struct FNotificationInfo;
 
+/** Delegate fired when a notify is selected */
+DECLARE_DELEGATE_OneParam(FOnNotifySelected, const FName& /*InSelectedNotify*/);
+
 /////////////////////////////////////////////////////
 // FSkeletonAnimNotifiesSummoner
 struct FSkeletonAnimNotifiesSummoner : public FWorkflowTabFactory
 {
 public:
-	FSkeletonAnimNotifiesSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnChangeAnimNotifies, FSimpleMulticastDelegate& InOnPostUndo, FOnObjectsSelected InOnObjectsSelected);
+	FSkeletonAnimNotifiesSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FOnObjectsSelected InOnObjectsSelected);
 
 	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
 
@@ -39,8 +43,6 @@ public:
 
 private:
 	TWeakPtr<class IEditableSkeleton> EditableSkeleton;
-	FSimpleMulticastDelegate& OnChangeAnimNotifies;
-	FSimpleMulticastDelegate& OnPostUndo;
 	FOnObjectsSelected OnObjectsSelected;
 };
 
@@ -55,6 +57,9 @@ public:
 	/** Handle to editable text block for rename */
 	TSharedPtr<SInlineEditableTextBlock> InlineEditableText;
 
+	/** Flag to say whether this is a new item we are creating */
+	bool bIsNew;
+
 	/** Static function for creating a new item, but ensures that you can only have a TSharedRef to one */
 	static TSharedRef<FDisplayedAnimNotifyInfo> Make(const FName& NotifyName)
 	{
@@ -65,6 +70,7 @@ protected:
 	/** Hidden constructor, always use Make above */
 	FDisplayedAnimNotifyInfo(const FName& InNotifyName)
 		: Name( InNotifyName )
+		, bIsNew(false)
 	{}
 
 	/** Hidden constructor, always use Make above */
@@ -74,17 +80,27 @@ protected:
 /** Widgets list type */
 typedef SListView< TSharedPtr<FDisplayedAnimNotifyInfo> > SAnimNotifyListType;
 
-class SSkeletonAnimNotifies : public SCompoundWidget, public FGCObject
+class SSkeletonAnimNotifies : public SCompoundWidget, public FGCObject, public FEditorUndoClient
 {
 public:
 	SLATE_BEGIN_ARGS( SSkeletonAnimNotifies )
+		: _IsPicker(false)
 	{}
 
+	/** Delegate called to select an object in the details panel */
 	SLATE_EVENT(FOnObjectsSelected, OnObjectsSelected)
-		
+
+	/** Delegate fired when a notify is selected */
+	SLATE_EVENT(FOnNotifySelected, OnNotifySelected)
+
+	/** Whether we should use this dialog as a picker or an editor. In picker mode we cant add, remove or rename notifies. */
+	SLATE_ARGUMENT(bool, IsPicker)
+
 	SLATE_END_ARGS()
 public:
-	void Construct(const FArguments& InArgs, const TSharedRef<IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnChangeAnimNotifies, FSimpleMulticastDelegate& InOnPostUndo);
+	void Construct(const FArguments& InArgs, const TSharedRef<IEditableSkeleton>& InEditableSkeleton);
+
+	~SSkeletonAnimNotifies();
 
 	/**
 	* Accessor so our rows can grab the filter text for highlighting
@@ -98,8 +114,9 @@ public:
 	/** Clears the detail view of whatever we displayed last */
 	void ClearDetailsView();
 
-	/** This triggers a UI repopulation after undo has been called */
-	void PostUndo();
+	/** FEditorUndoClient interface */
+	virtual void PostUndo( bool bSuccess ) override;
+	virtual void PostRedo( bool bSuccess ) override;
 
 	// FGCObject interface start
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
@@ -139,6 +156,9 @@ private:
 	/** Delegate handler for determining whether we can show the rename menu options */
 	bool CanPerformRename() const;
 
+	/** Delegate handler for adding anim notifies */
+	void OnAddAnimNotify();
+
 	/** Delegate handler for renaming anim notifies */
 	void OnRenameAnimNotify();
 
@@ -156,6 +176,9 @@ private:
 
 	/** Handler function for when notifies are modified on the skeleton */
 	void OnNotifiesChanged();
+
+	/** Handle when an item is scrolled into view, triggers a rename for new items */
+	void OnItemScrolledIntoView(TSharedPtr<FDisplayedAnimNotifyInfo> InItem, const TSharedPtr<ITableRow>& InTableRow);
 
 	/** The skeleton we are currently editing */
 	TSharedPtr<class IEditableSkeleton> EditableSkeleton;
@@ -177,6 +200,12 @@ private:
 
 	/** Delegate called to select an object in the details panel */
 	FOnObjectsSelected OnObjectsSelected;
+
+	/** Delegate fired when a notify is selected */
+	FOnNotifySelected OnNotifySelected;
+
+	/** Whether we should use this dialog as a picker or an editor. In picker mode we cant add, remove or rename notifies. */
+	bool bIsPicker;
 };
 
 #undef LOCTEXT_NAMESPACE

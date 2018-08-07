@@ -16,6 +16,7 @@
 #include "AssetData.h"
 #include "Framework/Commands/Commands.h"
 #include "SAnimTimingPanel.h"
+#include "EditorUndoClient.h"
 
 class FSlateWindowElementList;
 class SAnimNotifyNode;
@@ -153,7 +154,7 @@ public:
 
 // @todo anim : register when it's opened for the animsequence
 // broadcast when animsequence changed, so that we refresh for multiple window
-class SAnimNotifyPanel: public SAnimTrackPanel
+class SAnimNotifyPanel: public SAnimTrackPanel, public FEditorUndoClient
 {
 public:
 	SLATE_BEGIN_ARGS( SAnimNotifyPanel )
@@ -182,12 +183,11 @@ public:
 	SLATE_EVENT( FOnGetScrubValue, OnGetScrubValue )
 	SLATE_EVENT( FRefreshOffsetsRequest, OnRequestRefreshOffsets )
 	SLATE_EVENT( FOnGetTimingNodeVisibility, OnGetTimingNodeVisibility )
-	SLATE_EVENT( FSimpleDelegate, OnAnimNotifiesChanged )
 	SLATE_EVENT( FOnInvokeTab, OnInvokeTab )
 
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnPostUndo);
+	void Construct(const FArguments& InArgs, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton);
 	virtual ~SAnimNotifyPanel();
 
 	void SetSequence(class UAnimSequenceBase *	InSequence);
@@ -273,7 +273,10 @@ private:
 	// this just refresh notify tracks - UI purpose only
 	// do not call this from here. This gets called by asset. 
 	void RefreshNotifyTracks();
-	void PostUndo();
+
+	/** FEditorUndoClient interface */
+	virtual void PostUndo( bool bSuccess ) override;
+	virtual void PostRedo( bool bSuccess ) override;
 
 	/** Handler for delete command */
 	void OnDeletePressed();
@@ -334,9 +337,6 @@ private:
 
 	/** Handle to the registered OnPropertyChangedHandle delegate */
 	FDelegateHandle OnPropertyChangedHandleDelegateHandle;
-
-	/** Delegate fired when anim notifies are changed */
-	FSimpleDelegate OnAnimNotifiesChanged;
 
 	/** Delegate used to invoke a tab */
 	FOnInvokeTab OnInvokeTab;

@@ -103,6 +103,9 @@ public:
 	 */	
 	virtual int32 RenameNotify(const FName& NewName, const FName& OldName) = 0;
 
+	/** Inform the system that something about a notify changed */	
+	virtual void BroadcastNotifyChanged() = 0;
+
 	/** Populates OutAssets with the AnimSequences that match this current skeleton */
 	virtual void GetCompatibleAnimSequences(TArray<struct FAssetData>& OutAssets) = 0;
 

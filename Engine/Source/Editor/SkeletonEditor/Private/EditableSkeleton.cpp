@@ -1151,6 +1151,11 @@ int32 FEditableSkeleton::RenameNotify(const FName& NewName, const FName& OldName
 	return NumAnimationsModified;
 }
 
+void FEditableSkeleton::BroadcastNotifyChanged()
+{
+	OnNotifiesChanged.Broadcast();
+}
+
 void FEditableSkeleton::GetCompatibleAnimSequences(TArray<struct FAssetData>& OutAssets)
 {
 	//Get the skeleton tag to search for
