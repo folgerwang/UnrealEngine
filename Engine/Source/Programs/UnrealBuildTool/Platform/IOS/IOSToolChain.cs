@@ -680,6 +680,12 @@ namespace UnrealBuildTool
 				// Add the C++ source file and its included files to the prerequisite item list.
 				AddPrerequisiteSourceFile(CompileEnvironment, SourceFile, CompileAction.PrerequisiteItems);
 
+				// Add the precompiled header
+				if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
+				{
+					CompileAction.PrerequisiteItems.Add(CompileEnvironment.PrecompiledHeaderFile);
+				}
+
 				// Upload the force included files
 				foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
 				{
