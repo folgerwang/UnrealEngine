@@ -572,10 +572,39 @@ int32 FComponentEditorUtils::DeleteComponents(const TArray<UActorComponent*>& Co
 		NumDeletedComponents++;
 	}
 
+	// Non-native components will be reinstanced, so we have to update the ptr after reconstruction
+	// in order to avoid pointing at an invalid (trash) instance after re-running construction scripts.
+	FName ComponentToSelectName;
+	const AActor* ComponentToSelectOwner = nullptr;
+	if (OutComponentToSelect && OutComponentToSelect->CreationMethod != EComponentCreationMethod::Native)
+	{
+		// Keep track of the pending selection's name and owner
+		ComponentToSelectName = OutComponentToSelect->GetFName();
+		ComponentToSelectOwner = OutComponentToSelect->GetOwner();
+
+		// Reset the ptr value - we'll reassign it after reconstruction
+		OutComponentToSelect = nullptr;
+	}
+
 	// Reconstruct owner instance(s) after deletion
 	for(AActor* ActorToReconstruct : ActorsToReconstruct)
 	{
 		ActorToReconstruct->RerunConstructionScripts();
+
+		// If this actor matches the owner of the component to be selected, find the new instance of the component in the actor
+		if (ComponentToSelectName != NAME_None && OutComponentToSelect == nullptr && ActorToReconstruct == ComponentToSelectOwner)
+		{
+			TInlineComponentArray<UActorComponent*> ActorComponents;
+			ActorToReconstruct->GetComponents(ActorComponents);
+			for (UActorComponent* ActorComponent : ActorComponents)
+			{
+				if (ActorComponent->GetFName() == ComponentToSelectName)
+				{
+					OutComponentToSelect = ActorComponent;
+					break;
+				}
+			}
+		}
 	}
 
 	return NumDeletedComponents;

@@ -133,9 +133,9 @@ void UUnrealEdEngine::edactCopySelected( UWorld* InWorld, FString* DestinationDa
 {
 	if (GetSelectedComponentCount() > 0)
 	{
-		// Copy components
+		// Copy selected components
 		TArray<UActorComponent*> SelectedComponents;
-		for (FSelectedEditableComponentIterator It(GetSelectedEditableComponentIterator()); It; ++It)
+		for (FSelectionIterator It(GetSelectedComponentIterator()); It; ++It)
 		{
 			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
 		}
@@ -469,17 +469,13 @@ void UUnrealEdEngine::edactDuplicateSelected( ULevel* InLevel, bool bOffsetLocat
 		TArray<UActorComponent*> NewComponentClones;
 		NewComponentClones.Reserve(NumSelectedComponents);
 
-		// Duplicate selected components if they are an Instance component
-		for (FSelectedEditableComponentIterator It(GetSelectedEditableComponentIterator()); It; ++It)
+		// Duplicate selected components
+		for (FSelectionIterator It(GetSelectedComponentIterator()); It; ++It)
 		{
 			UActorComponent* Component = CastChecked<UActorComponent>(*It);
-			if (Component->CreationMethod == EComponentCreationMethod::Instance)
+			if (UActorComponent* Clone = FComponentEditorUtils::DuplicateComponent(Component))
 			{
-				UActorComponent* Clone = FComponentEditorUtils::DuplicateComponent(Component);
-				if (Clone)
-				{
-					NewComponentClones.Add(Clone);
-				}
+				NewComponentClones.Add(Clone);
 			}
 		}
 
@@ -715,6 +711,9 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 					// Make sure the selection changed event fires so the SCS trees can update their selection
 					ComponentSelection->MarkBatchDirty();
 					ComponentSelection->EndBatchSelectOperation(true);
+
+					// Notify the level editor of the new component selection
+					NoteSelectionChange();
 				}
 
 				UE_LOG(LogEditorActor, Log, TEXT("Deleted %d Components (%3.3f secs)"), NumDeletedComponents, FPlatformTime::Seconds() - StartSeconds);

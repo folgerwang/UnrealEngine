@@ -1598,6 +1598,9 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 
 		if (bComponentsSelected)
 		{
+			// Same transaction language used in CopySelectedActorsToClipboard below
+			const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "Cut", "Cut"));
+
 			edactCopySelected(InWorld);
 			edactDeleteSelected(InWorld);
 		}
@@ -2000,6 +2003,9 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 {
 	// Keep a pointer to the beginning of the string to use for message displaying purposes
 	const TCHAR* const FullStr = Str;
+
+	// Determine whether or not components are selected (used to properly label transaction names)
+	const bool bComponentsSelected = GetSelectedComponentCount() > 0;
 
 	if( FParse::Command(&Str,TEXT("ADD")) )
 	{
@@ -2563,7 +2569,7 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		// if not specially handled by the current editing mode,
 		if (!bHandled)
 		{
-			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "DeleteActors", "Delete Actors") );
+			const FScopedTransaction Transaction( bComponentsSelected ? NSLOCTEXT("UnrealEd", "DeleteComponents", "Delete Components") : NSLOCTEXT("UnrealEd", "DeleteActors", "Delete Actors") );
 			edactDeleteSelected( InWorld );
 		}
 		return true;
@@ -2746,7 +2752,7 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		if (!bHandled)
 		{
 			//@todo locked levels - if all actor levels are locked, cancel the transaction
-			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "DuplicateActors", "Duplicate Actors") );
+			const FScopedTransaction Transaction( bComponentsSelected ? NSLOCTEXT("UnrealEd", "DuplicateComponents", "Duplicate Components") : NSLOCTEXT("UnrealEd", "DuplicateActors", "Duplicate Actors") );
 
 			// duplicate selected
 			ABrush::SetSuppressBSPRegeneration(true);
