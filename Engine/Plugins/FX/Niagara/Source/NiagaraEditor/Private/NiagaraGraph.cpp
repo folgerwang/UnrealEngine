@@ -198,13 +198,6 @@ FGuid UNiagaraGraph::GetCompileID(ENiagaraScriptUsage InUsage, const FGuid& InUs
 {
 	RebuildCachedData();
 
-	// Since there gpu compute script contains spawn, update, and emitter logic, and we can only return one,
-	// just return the particle spawn script here.
-	if (InUsage == ENiagaraScriptUsage::ParticleGPUComputeScript)
-	{
-		InUsage = ENiagaraScriptUsage::ParticleSpawnScript;
-	}
-
 	for (int32 j = 0; j < CachedUsageInfo.Num(); j++)
 	{
 		if (UNiagaraScript::IsEquivalentUsage(CachedUsageInfo[j].UsageType, InUsage) && CachedUsageInfo[j].UsageId == InUsageId)
@@ -750,6 +743,9 @@ void UNiagaraGraph::RebuildCachedData(bool bForce)
 	UEnum* FoundEnum = nullptr;
 	bool bNeedsAnyNewCompileIds = false;
 
+	FNiagaraGraphScriptUsageInfo* ParticleSpawnUsageInfo = nullptr;
+	FNiagaraGraphScriptUsageInfo* ParticleUpdateUsageInfo = nullptr;
+
 	for (int32 i = 0; i < NiagaraOutputNodes.Num(); i++)
 	{
 		UNiagaraNodeOutput* OutputNode = NiagaraOutputNodes[i];
@@ -823,6 +819,49 @@ void UNiagaraGraph::RebuildCachedData(bool bForce)
 				//UE_LOG(LogNiagaraEditor, Log, TEXT("'%s' changes NOT detected in %s .. keeping guid: %s"), *GetFullName(), *ResultsEnum, *NewUsageCache[i].GeneratedCompileId.ToString());
 			}
 		}
+
+		if (UNiagaraScript::IsEquivalentUsage(NewUsageCache[i].UsageType, ENiagaraScriptUsage::ParticleSpawnScript) && NewUsageCache[i].UsageId == FGuid())
+		{
+			ParticleSpawnUsageInfo = &NewUsageCache[i];
+		}
+
+		if (UNiagaraScript::IsEquivalentUsage(NewUsageCache[i].UsageType, ENiagaraScriptUsage::ParticleUpdateScript) && NewUsageCache[i].UsageId == FGuid())
+		{
+			ParticleUpdateUsageInfo = &NewUsageCache[i];
+		}
+	}
+
+	if (ParticleSpawnUsageInfo != nullptr && ParticleUpdateUsageInfo != nullptr)
+	{
+		// If we have info for both spawn and update generate the gpu version too.
+		FNiagaraGraphScriptUsageInfo GpuUsageInfo;
+		GpuUsageInfo.UsageType = ENiagaraScriptUsage::ParticleGPUComputeScript;
+		GpuUsageInfo.UsageId = FGuid();
+		GpuUsageInfo.Traversal.Append(ParticleSpawnUsageInfo->Traversal);
+		GpuUsageInfo.Traversal.Append(ParticleUpdateUsageInfo->Traversal);
+
+		FSHA1 HashState;
+		for (UNiagaraNode* Node : GpuUsageInfo.Traversal)
+		{
+			FGuid Guid = Node->GetChangeId();
+			HashState.Update((const uint8*)&Guid, sizeof(FGuid));
+		}
+		HashState.Final();
+
+		check(sizeof(uint8) * GpuUsageInfo.DataHash.Num() == sizeof(FSHAHash));
+		HashState.GetHash(GpuUsageInfo.DataHash.GetData());
+
+		FNiagaraGraphScriptUsageInfo* OldGpuUsageInfo = CachedUsageInfo.FindByPredicate([](const FNiagaraGraphScriptUsageInfo& UsageInfo) { return UsageInfo.UsageType == ENiagaraScriptUsage::ParticleGPUComputeScript && UsageInfo.UsageId == FGuid(); });
+		if (OldGpuUsageInfo != nullptr && OldGpuUsageInfo->DataHash == GpuUsageInfo.DataHash)
+		{
+			GpuUsageInfo.GeneratedCompileId = OldGpuUsageInfo->GeneratedCompileId;
+		}
+		else
+		{
+			GpuUsageInfo.GeneratedCompileId = FGuid::NewGuid();
+		}
+
+		NewUsageCache.Add(GpuUsageInfo);
 	}
 
 	// Debug logic, usually disabled at top of file.
@@ -910,12 +949,8 @@ void UNiagaraGraph::GatherExternalDependencyIDs(ENiagaraScriptUsage InUsage, con
 			// Add all chains that we depend on.
 			if (UNiagaraScript::IsUsageDependentOn(InUsage, CachedUsageInfo[i].UsageType)) 
 			{
-				// Skip adding to list because we already did it in GetCompileId above if spawn script.
-				if (CachedUsageInfo[i].UsageType != ENiagaraScriptUsage::ParticleSpawnScript)
-				{
-					InReferencedIDs.Add(CachedUsageInfo[i].GeneratedCompileId);
-					InReferencedObjs.Add(CachedUsageInfo[i].Traversal.Last());
-				}
+				InReferencedIDs.Add(CachedUsageInfo[i].GeneratedCompileId);
+				InReferencedObjs.Add(CachedUsageInfo[i].Traversal.Last());
 
 				for (UNiagaraNode* Node : CachedUsageInfo[i].Traversal)
 				{

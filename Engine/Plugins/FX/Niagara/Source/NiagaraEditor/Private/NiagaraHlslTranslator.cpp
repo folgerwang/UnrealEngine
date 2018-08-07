@@ -1636,7 +1636,8 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 	{
 		OutHlslOutput += TEXT("\t") + MainPreSimulateChunks[i] + TEXT("\n");
 	}
-	
+
+	bool bInitializeAliveForGPU = false;
 	{
 		// call the read data set function
 		OutHlslOutput += TEXT("\tReadDataSets(Context);\n");
@@ -1644,14 +1645,43 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 		// branch between spawn and update
 		if (CompilationTarget == ENiagaraSimTarget::GPUComputeSim)
 		{
+			// Determine 
+			TArray<FName> DataSetNames;
+			for (const FNiagaraDataSetID& ReadId : ReadIds)
+			{
+				DataSetNames.AddUnique(ReadId.Name);
+			}
+			for (const FNiagaraDataSetID& WriteId : WriteIds)
+			{
+				DataSetNames.AddUnique(WriteId.Name);
+			}
+
+			for (int32 i = 0; i < ParamMapHistories.Num(); i++)
+			{
+				for (FName DataSetName : DataSetNames)
+				{
+					if (ParamMapHistories[i].FindVariable(*(DataSetName.ToString() + TEXT(".Alive")), FNiagaraTypeDefinition::GetBoolDef()) != INDEX_NONE)
+					{
+						bInitializeAliveForGPU = true;
+						break;
+					}
+				}
+				if (bInitializeAliveForGPU)
+				{
+					break;
+				}
+			}
+
 			OutHlslOutput += TEXT("\tint StartingPhase = Phase;\n");
 			OutHlslOutput += TEXT("\tGCurrentPhase = Phase;\n");
 
 			for (int32 StageIdx = 0; StageIdx < TranslationStages.Num(); StageIdx++)
 			{
 				OutHlslOutput += FString::Printf(TEXT("\tif(Phase==%d)\n\t{\n"), StageIdx);
-				
-				OutHlslOutput += FString::Printf(TEXT("\t\tif (StartingPhase == %d)\n\t\t{\n\t\t\tContext.%s.DataInstance.Alive=true;\n\t\t}\n"), StageIdx, *TranslationStages[StageIdx].PassNamespace);
+				if (bInitializeAliveForGPU)
+				{
+					OutHlslOutput += FString::Printf(TEXT("\t\tif (StartingPhase == %d)\n\t\t{\n\t\t\tContext.%s.DataInstance.Alive=true;\n\t\t}\n"), StageIdx, *TranslationStages[StageIdx].PassNamespace);
+				}
 
 				if (StageIdx == 0)
 				{
@@ -1669,7 +1699,9 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 					OutHlslOutput += TEXT("\t\t//Begin Transfer of Attributes!\n");
 					if (ParamMapDefinedAttributesToNamespaceVars.Num() != 0)
 					{
-						FString CopyStr = TEXT("\t\tContext.") + TranslationStages[StageIdx + 1].PassNamespace + TEXT(".Particles = Context.") + TranslationStages[StageIdx].PassNamespace + TEXT(".Particles;\n");
+						FString CopyStr =
+							TEXT("\t\tContext.") + TranslationStages[StageIdx + 1].PassNamespace + TEXT(".Particles = Context.") + TranslationStages[StageIdx].PassNamespace + TEXT(".Particles;\n") +
+							TEXT("\t\tContext.") + TranslationStages[StageIdx + 1].PassNamespace + TEXT(".DataInstance = Context.") + TranslationStages[StageIdx].PassNamespace + TEXT(".DataInstance;\n");
 						OutHlslOutput += CopyStr;
 					}
 					OutHlslOutput += TEXT("\t\t//End Transfer of Attributes!\n\n");
@@ -1680,11 +1712,6 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 				{
 					OutHlslOutput += FString::Printf(TEXT("\t\tPhase = %d;\n"), StageIdx + 1);
 					OutHlslOutput += FString::Printf(TEXT("\t\tGCurrentPhase = %d;\n"), StageIdx + 1);
-				}
-
-				else if (StageIdx + 1 < TranslationStages.Num())
-				{
-					OutHlslOutput += FString::Printf(TEXT("\t\tContext.%s.Particles = Context.%s.Particles;\n"), *TranslationStages[TranslationStages.Num() - 1].PassNamespace, *TranslationStages[StageIdx].PassNamespace);
 				}
 				
 				OutHlslOutput += TEXT("\t}\n");
@@ -1750,7 +1777,10 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 				DefineDataSetVariableReads(HlslOutput, ReadIds[VarArrayIdx], VarArrayIdx, *ArrayRef);
 			}
 
-			OutHlslOutput += TEXT("\tContext.Map.DataInstance.Alive = true;\n");
+			if (bInitializeAliveForGPU)
+			{
+				OutHlslOutput += TEXT("\tContext.Map.DataInstance.Alive = true;\n");
+			}
 
 			for (int32 VarArrayIdx = 0; VarArrayIdx < InstanceWriteVars.Num(); VarArrayIdx++)
 			{
