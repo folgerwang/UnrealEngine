@@ -112,7 +112,7 @@ public partial class Project : CommandUtils
 		// Build any tools we need to stage
 		if ((TargetMask & ProjectBuildTargets.UnrealPak) == ProjectBuildTargets.UnrealPak && !Automation.IsEngineInstalled())
 		{
-			if (Params.Pak && Params.EditorTargets.Contains("UnrealPak") == false)
+			if (Params.EditorTargets.Contains("UnrealPak") == false)
 			{
 				Agenda.AddTargets(new string[] { "UnrealPak" }, HostPlatform.Current.HostEditorPlatform, UnrealTargetConfiguration.Development, Params.CodeBasedUprojectPath);
 			}
