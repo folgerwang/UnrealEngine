@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 
-class FMeshDescription;
+struct FMeshDescription;
 struct FRawMesh;
 struct FOverlappingCorners;
 enum class ELightmapUVVersion : int32;

@@ -8,6 +8,10 @@ void UDEPRECATED_MeshDescription::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
 
+	if( !HasAnyFlags( RF_ClassDefaultObject ) )
+	{
+		UE_LOG( LogLoad, Error, TEXT( "UMeshDescription about to be deprecated - please resave %s" ), *GetPathName() );
+	}
 	// Discard the contents
 	FMeshDescription MeshDescription;
 	Ar << MeshDescription;
@@ -17,6 +21,11 @@ void UDEPRECATED_MeshDescription::Serialize( FArchive& Ar )
 FArchive& operator<<( FArchive& Ar, FMeshDescription& MeshDescription )
 {
 	Ar.UsingCustomVersion( FReleaseObjectVersion::GUID );
+
+	if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) < FReleaseObjectVersion::MeshDescriptionNewSerialization )
+	{
+		UE_LOG( LogLoad, Warning, TEXT( "Deprecated serialization format" ) );
+	}
 
 	Ar << MeshDescription.VertexArray;
 	Ar << MeshDescription.VertexInstanceArray;

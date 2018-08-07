@@ -9,7 +9,7 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogMeshBuilder, Log, All);
 
 class UObject;
-class FMeshDescription;
+struct FMeshDescription;
 struct FMeshBuildSettings;
 struct FVertexInstanceID;
 struct FMeshReductionSettings;

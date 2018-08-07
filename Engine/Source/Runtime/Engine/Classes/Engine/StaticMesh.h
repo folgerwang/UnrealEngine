@@ -25,7 +25,7 @@ class FSpeedTreeWind;
 class UAssetUserData;
 class UMaterialInterface;
 class UNavCollisionBase;
-class FMeshDescription;
+struct FMeshDescription;
 struct FStaticMeshLODResources;
 
 /*-----------------------------------------------------------------------------

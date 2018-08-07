@@ -26,8 +26,8 @@ class UGeometryCacheTrackStreamable;
 class UAbcImportSettings;
 class FSkeletalMeshImportData;
 class UAbcAssetImportData;
-class FMeshDescription;
 
+struct FMeshDescription;
 struct FAbcImportData;
 struct FGeometryCacheMeshData;
 struct FAbcMeshSample;

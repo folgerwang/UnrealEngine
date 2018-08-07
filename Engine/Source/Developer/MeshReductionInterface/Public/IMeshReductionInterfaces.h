@@ -9,7 +9,7 @@
 
 struct FOverlappingCorners;
 struct FRawMesh;
-class FMeshDescription;
+struct FMeshDescription;
 
 /**
 * Mesh reduction interface.
