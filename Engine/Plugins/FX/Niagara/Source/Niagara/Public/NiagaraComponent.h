@@ -220,6 +220,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Float)"))
 	void SetNiagaraVariableFloat(const FString& InVariableName, float InValue);
 
+	/** Sets a Niagara int parameter by name, overriding locally if necessary.*/
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Int32)"))
+	void SetNiagaraVariableInt(const FString& InVariableName, int32 InValue);
+
 	/** Sets a Niagara float parameter by name, overriding locally if necessary.*/
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Bool)"))
 	void SetNiagaraVariableBool(const FString& InVariableName, bool InValue);

@@ -916,6 +916,13 @@ void UNiagaraComponent::SetNiagaraVariableFloat(const FString& InVariableName, f
 	OverrideParameters.SetParameterValue(InValue, FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), VarName), true);
 }
 
+void UNiagaraComponent::SetNiagaraVariableInt(const FString& InVariableName, int32 InValue)
+{
+	FName VarName = FName(*InVariableName);
+
+	OverrideParameters.SetParameterValue(InValue, FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), VarName), true);
+}
+
 void UNiagaraComponent::SetNiagaraVariableBool(const FString& InVariableName, bool InValue)
 {
 	FName VarName = FName(*InVariableName);
