@@ -11,8 +11,6 @@
 #include "CollisionQueryFilterCallback.h"
 #include "PxQueryFilterCallback.h"
 
-#if WITH_PHYSX
-
 #if DETECT_SQ_HITCHES
 struct FSQHitchRepeaterCVars
 {
@@ -26,6 +24,8 @@ struct FSQHitchRepeaterCVars
 	static FAutoConsoleVariableRef CVarSQHitchDetectionThreshold;
 };
 #endif 
+
+#if WITH_PHYSX
 
 /** Various info we want to capture for hitch detection reporting */
 struct FHitchDetectionInfo

@@ -268,11 +268,13 @@ public:
 		return &OwningSimulation.Actors[ActorDataIndex];
 	}
 
+#if WITH_PHYSX
 	immediate::PxRigidBodyData* GetSimulationRigidBodyData() const
 	{
 		immediate::PxRigidBodyData& Data = OwningSimulation.GetLowLevelBody(ActorDataIndex);
 		return &Data;
 	}
+#endif
 
 private:
 	/** Converts from actor space (i.e. the transform in world space as the client gives us) to body space (body with its origin at the COM and oriented to inertia tensor) */
