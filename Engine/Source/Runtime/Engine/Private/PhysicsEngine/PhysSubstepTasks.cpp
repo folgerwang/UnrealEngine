@@ -6,7 +6,6 @@
 
 #if WITH_PHYSX
 #include "PhysXPublic.h"
-#endif
 
 uint8* PhysXCompletionTask::GetScratchBufferData()
 {
@@ -17,6 +16,7 @@ int32 PhysXCompletionTask::GetScratchBufferSize()
 {
 	return ScratchBuffer ? ScratchBuffer->BufferSize : 0;
 }
+#endif
 
 struct FSubstepCallbackGuard
 {

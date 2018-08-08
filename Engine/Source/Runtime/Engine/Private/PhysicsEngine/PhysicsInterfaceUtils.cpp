@@ -6,6 +6,8 @@
 #include "Physics/PhysicsFiltering.h"
 #include "Physics/PhysicsInterfaceTypes.h"
 
+#if WITH_PHYSX
+
 PxShapeFlags BuildPhysXShapeFlags(FBodyCollisionFlags BodyCollisionFlags, bool bPhysicsStatic, bool bIsSync, bool bIsTriangleMesh)
 {
 	PxShapeFlags ShapeFlags;
@@ -163,9 +165,6 @@ uint32 FindFaceIndex(const PxSweepHit& PHit, const PxVec3& unitDir)
 
 	return PHit.faceIndex;	//If no custom logic just return whatever face index they initially had
 }
-
-
-
 
 FPhysXShapeAdaptor::FPhysXShapeAdaptor(const FQuat& Rot, const FCollisionShape& CollisionShape)
 	: Rotation(physx::PxIdentity)
@@ -342,3 +341,5 @@ PxFilterData CreateQueryFilterData(const uint8 MyChannel, const bool bTraceCompl
 		return CreateTraceQueryFilterData(MyChannel, bTraceComplex, InCollisionResponseContainer, QueryParam);
 	}
 }
+
+#endif

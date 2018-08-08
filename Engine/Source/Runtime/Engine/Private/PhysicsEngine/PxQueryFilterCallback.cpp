@@ -6,6 +6,8 @@
 #include "Physics/PhysicsInterfaceUtils.h"
 #include "Collision.h"
 
+#if WITH_PHYSX
+
 PxQueryHitType::Enum FPxQueryFilterCallback::preFilter(const PxFilterData& filterData, const PxShape* shape, const PxRigidActor* actor, PxHitFlags& queryFlags)
 {
 	SCOPE_CYCLE_COUNTER(STAT_Collision_PreFilter);
@@ -52,3 +54,5 @@ PxQueryHitType::Enum FPxQueryFilterCallback::postFilter(const PxFilterData& filt
 	const ECollisionQueryHitType HitType = PostFilter(FilterData, bIsOverlap);
 	return HitTypeToPxQueryHitType(HitType);
 }
+
+#endif

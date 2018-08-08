@@ -291,8 +291,6 @@ float ComputeAverageMass_AssumesLocked(const FPhysicsActorHandle& InActor1, cons
 	return AverageMass;
 }
 
-#if WITH_PHYSX
-
 bool GetActorRefs(FBodyInstance* Body1, FBodyInstance* Body2, FPhysicsActorHandle& OutActorRef1, FPhysicsActorHandle& OutActorRef2, UObject* DebugOwner)
 {
 	FPhysicsActorHandle ActorRef1 = Body1 ? Body1->ActorHandle : FPhysicsActorHandle();
@@ -416,8 +414,6 @@ void EnsureSleepingActorsStaySleeping_AssumesLocked(const FPhysicsActorHandle& I
 		}
 	}
 }
-
-#endif
 
 /** 
  *	Create physics engine constraint.

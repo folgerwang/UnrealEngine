@@ -12,8 +12,6 @@ struct FConstraintInstance;
 struct FKShapeElem;
 class FPhysScene_PhysX;
 
-#if WITH_PHYSX
-
 /** Forward declarations */
 struct FKShapeElem;
 struct FCustomPhysXPayload;
@@ -73,6 +71,3 @@ template <> FORCEINLINE void FPhysxUserData::Set(void* UserData, FConstraintInst
 template <> FORCEINLINE void FPhysxUserData::Set(void* UserData, UPrimitiveComponent* Payload)		{ check(UserData); ((FPhysxUserData*)UserData)->Type = EPhysxUserDataType::PrimitiveComponent; ((FPhysxUserData*)UserData)->Payload = Payload; }
 template <> FORCEINLINE void FPhysxUserData::Set(void* UserData, FKShapeElem* Payload)	{ check(UserData); ((FPhysxUserData*)UserData)->Type = EPhysxUserDataType::AggShape; ((FPhysxUserData*)UserData)->Payload = Payload; }
 template <> FORCEINLINE void FPhysxUserData::Set(void* UserData, FCustomPhysXPayload* Payload) { check(UserData); ((FPhysxUserData*)UserData)->Type = EPhysxUserDataType::CustomPayload; ((FPhysxUserData*)UserData)->Payload = Payload; }
-
-
-#endif // WITH_PHYSICS

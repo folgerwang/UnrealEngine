@@ -410,7 +410,6 @@ public:
 	ENGINE_API virtual void CopyBodySetupProperty(const UBodySetup* Other);
 #endif // WITH_EDITOR
 
-#if WITH_PHYSX
 	/** 
 	 *   Add the shapes defined by this body setup to the supplied PxRigidBody. 
 	 */
@@ -424,7 +423,6 @@ public:
 		const FTransform& RelativeTM = FTransform::Identity, 
 		TArray<FPhysicsShapeHandle>* NewShapes = NULL, 
 		bool bShapeSharing = false);
-#endif // WITH_PHYSX
 
 	friend struct FIterateBodySetupHelper;
 

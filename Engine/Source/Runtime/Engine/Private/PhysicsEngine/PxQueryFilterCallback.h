@@ -29,7 +29,4 @@ public:
 	virtual PxQueryHitType::Enum postFilter(const PxFilterData& filterData, const PxQueryHit& hit) override;
 };
 
-
-
-
 #endif // WITH_PHYX

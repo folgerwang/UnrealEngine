@@ -1164,6 +1164,8 @@ TArray<Apeiron::TVector<int32, 3>> GetMeshElements(const PHYSX_MESH* PhysXMesh)
 	check(false);
 }
 
+#if WITH_PHYSX
+
 template<>
 TArray<Apeiron::TVector<int32, 3>> GetMeshElements(const physx::PxConvexMesh* PhysXMesh)
 {
@@ -1249,6 +1251,8 @@ TUniquePtr<Apeiron::TImplicitObject<float, 3>> ConvertPhysXMeshToLevelset(const 
 #endif
 }
 
+#endif
+
 FPhysicsShapeHandle FPhysInterface_Apeiron::CreateShape(physx::PxGeometry* InGeom, bool bSimulation, bool bQuery, UPhysicalMaterial* InSimpleMaterial, TArray<UPhysicalMaterial*>* InComplexMaterials, bool bShared)
 {
     // @todo(mlentine): Should we be doing anything with the InGeom here?
@@ -1315,18 +1319,22 @@ void FPhysInterface_Apeiron::AddGeometry(const FPhysicsActorHandle& InActor, con
 			}
 		}
 #endif
+#if WITH_PHYSX
 		for (uint32 i = 0; i < static_cast<uint32>(InParams.Geometry->ConvexElems.Num()); ++i)
 		{
 			const auto& CollisionBody = InParams.Geometry->ConvexElems[i];
 			Objects.Add(ConvertPhysXMeshToLevelset(CollisionBody.GetConvexMesh(), Scale));
 		}
+#endif
 	}
 	else
 	{
+#if WITH_PHYSX
 		for (const auto& PhysXMesh : InParams.TriMeshes)
 		{
 			Objects.Add(ConvertPhysXMeshToLevelset(PhysXMesh, Scale));
 		}
+#endif
 	}
 	if (Objects.Num() == 0) return;
     TArray<RigidBodyId> BodiesToModify = { InActor.First };
@@ -1492,6 +1500,8 @@ void FinishSceneStat(uint32 Scene)
 {
 }
 
+#if WITH_PHYSX
+
 void FPhysInterface_Apeiron::CalculateMassPropertiesFromShapeCollection(physx::PxMassProperties& OutProperties, const TArray<FPhysicsShapeHandle>& InShapes, float InDensityKGPerCM)
 {
     // What does it mean when if there is more than one collision object?
@@ -1510,6 +1520,8 @@ void FPhysInterface_Apeiron::CalculateMassPropertiesFromShapeCollection(physx::P
         OutProperties.mass = LocalParticles.M(Index);
     }
 }
+
+#endif
 
 bool FPhysInterface_Apeiron::LineTrace_Geom(FHitResult& OutHit, const FBodyInstance* InInstance, const FVector& InStart, const FVector& InEnd, bool bTraceComplex, bool bExtractPhysMaterial)
 {
