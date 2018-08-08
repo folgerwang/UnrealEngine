@@ -71,7 +71,9 @@ struct SLATECORE_API FFontOutlineSettings
 	bool operator==(const FFontOutlineSettings& Other) const
 	{
 		return OutlineSize == Other.OutlineSize
-			&& bSeparateFillAlpha == Other.bSeparateFillAlpha;
+			&& bSeparateFillAlpha == Other.bSeparateFillAlpha
+			&& OutlineMaterial == Other.OutlineMaterial
+			&& OutlineColor == Other.OutlineColor;
 	}
 
 	friend inline uint32 GetTypeHash(const FFontOutlineSettings& OutlineSettings)
