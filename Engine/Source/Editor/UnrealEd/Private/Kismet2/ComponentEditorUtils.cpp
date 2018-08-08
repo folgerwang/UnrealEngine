@@ -296,6 +296,21 @@ USceneComponent* FComponentEditorUtils::FindClosestParentInList(UActorComponent*
 	return nullptr;
 }
 
+bool FComponentEditorUtils::CanCopyComponent(const UActorComponent* ComponentToCopy)
+{
+	if (ComponentToCopy != nullptr && ComponentToCopy->GetFName() != USceneComponent::GetDefaultSceneRootVariableName())
+	{
+		UClass* ComponentClass = ComponentToCopy->GetClass();
+		check(ComponentClass != nullptr);
+
+		// Component class cannot be abstract and must also be tagged as BlueprintSpawnable
+		return !ComponentClass->HasAnyClassFlags(CLASS_Abstract)
+			&& ComponentClass->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent);
+	}
+
+	return false;
+}
+
 bool FComponentEditorUtils::CanCopyComponents(const TArray<UActorComponent*>& ComponentsToCopy)
 {
 	bool bCanCopy = ComponentsToCopy.Num() > 0;
@@ -305,16 +320,7 @@ bool FComponentEditorUtils::CanCopyComponents(const TArray<UActorComponent*>& Co
 		{
 			// Check for the default scene root; that cannot be copied/duplicated
 			UActorComponent* Component = ComponentsToCopy[i];
-			bCanCopy = Component != nullptr && Component->GetFName() != USceneComponent::GetDefaultSceneRootVariableName();
-			if (bCanCopy)
-			{
-				UClass* ComponentClass = Component->GetClass();
-				check(ComponentClass != nullptr);
-
-				// Component class cannot be abstract and must also be tagged as BlueprintSpawnable
-				bCanCopy = !ComponentClass->HasAnyClassFlags(CLASS_Abstract)
-					&& ComponentClass->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent);
-			}
+			bCanCopy = CanCopyComponent(Component);
 		}
 	}
 

@@ -473,9 +473,13 @@ void UUnrealEdEngine::edactDuplicateSelected( ULevel* InLevel, bool bOffsetLocat
 		for (FSelectionIterator It(GetSelectedComponentIterator()); It; ++It)
 		{
 			UActorComponent* Component = CastChecked<UActorComponent>(*It);
-			if (UActorComponent* Clone = FComponentEditorUtils::DuplicateComponent(Component))
+
+			if (FComponentEditorUtils::CanCopyComponent(Component))
 			{
-				NewComponentClones.Add(Clone);
+				if (UActorComponent* Clone = FComponentEditorUtils::DuplicateComponent(Component))
+				{
+					NewComponentClones.Add(Clone);
+				}
 			}
 		}
 
