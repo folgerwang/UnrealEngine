@@ -175,7 +175,7 @@ public:
 		// Default debug layer desc
 		IStereoLayers::FLayerDesc StereoLayerDesc;
 		StereoLayerDesc.Transform = FTransform(FVector(100.f, 0, 0));
-		StereoLayerDesc.QuadSize = FVector2D(200.f, 200.f);
+		StereoLayerDesc.QuadSize = FVector2D(120.f, 120.f);
 		StereoLayerDesc.PositionType = IStereoLayers::ELayerType::FaceLocked;
 		StereoLayerDesc.ShapeType = IStereoLayers::ELayerShape::QuadLayer;
 		StereoLayerDesc.Texture = Texture;

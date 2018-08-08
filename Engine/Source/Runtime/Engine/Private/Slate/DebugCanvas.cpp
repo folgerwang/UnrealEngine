@@ -120,6 +120,7 @@ void FDebugCanvasDrawer::BeginRenderingCanvas( const FIntRect& CanvasRect )
 {
 	if( CanvasRect.Size().X > 0 && CanvasRect.Size().Y > 0 )
 	{
+		bCanvasRenderedLastFrame = true;
 		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER
 		(
 			BeginRenderingDebugCanvas,
@@ -194,6 +195,8 @@ void FDebugCanvasDrawer::InitDebugCanvas(FViewportClient* ViewportClient, UWorld
 				LayerID = INVALID_LAYER_ID;
 			}
 		}
+
+		bCanvasRenderedLastFrame = false;
 	}
 }
 
@@ -242,7 +245,6 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 			RenderThreadCanvas->SetRenderTargetRect( RenderTarget->GetViewRect() );
 		}
 
-		bCanvasRenderedLastFrame = RenderThreadCanvas->HasBatchesToRender();
 		RenderThreadCanvas->Flush_RenderThread(RHICmdList, true);
 		RenderThreadCanvas->SetAllowSwitchVerticalAxis(bNeedToFlipVertical);
 		RenderTarget->ClearRenderTargetTexture();
