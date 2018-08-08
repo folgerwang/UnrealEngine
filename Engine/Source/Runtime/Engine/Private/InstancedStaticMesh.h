@@ -65,9 +65,6 @@ public:
 	ENGINE_API void InitFromPreallocatedData(FStaticMeshInstanceData& Other);
 	ENGINE_API void UpdateFromCommandBuffer_Concurrent(FInstanceUpdateCmdBuffer& CmdBuffer);
 
-	/** Serializer. */
-	friend FArchive& operator<<(FArchive& Ar, FStaticMeshInstanceBuffer& VertexBuffer);
-
 	/**
 	 * Specialized assignment operator, only used when importing LOD's. 
 	 */

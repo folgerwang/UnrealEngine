@@ -23,7 +23,7 @@ private:
 private:
 	static bool bIsEngineLoopInitComplete;
 	static bool bIsAppPaused;
-	static MLLifecycleErrorCode LifecycleState;
+	static MLResult LifecycleState;
 	static MLLifecycleCallbacks LifecycleCallbacks;
 	static TArray<FString> PendingStartupArgs;
 };

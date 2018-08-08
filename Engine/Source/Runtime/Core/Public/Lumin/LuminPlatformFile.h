@@ -38,6 +38,24 @@ public:
 	virtual bool DirectoryExists(const TCHAR* Directory) override;
 	virtual bool CreateDirectory(const TCHAR* Directory) override;
 	virtual bool DeleteDirectory(const TCHAR* Directory) override;
+	/**
+	 *	Enables/disables application sandbox jail. When sandboxing is enabled all paths are prepended with
+	 *	the app root directory. When disabled paths are not prepended or checked for safety. For example,
+	 *	reading files from the directory /system/etc/security/cacerts requires reading from outside the app root directory,
+	 *	which cannot be done when sandboxing is enabled. Toggling the sandbox must be done manually by calling this function both
+	 *	before and after attempting to access any path outside of the app  root directory. Only disable sandboxing when certain you know what you're doing.
+	 *	
+	 *	@param bInEnabled True to enable sandboxing, false to disable
+	 */
+	virtual void SetSandboxEnabled(bool bInEnabled) override;
+	/**
+	 *	Returns whether sandboxing is enabled or disabled.
+	 *
+	 *	@return bool Returns true when sandboxing is enabled, otherwise returns false.
+	*/
+	virtual bool IsSandboxEnabled() const override;
+	virtual FString ConvertToAbsolutePathForExternalAppForWrite(const TCHAR* AbsolutePath) override;
+	virtual FString ConvertToAbsolutePathForExternalAppForRead(const TCHAR* AbsolutePath) override;
 
 	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override;
 
@@ -50,6 +68,7 @@ public:
 
 protected:
 	bool IterateDirectoryCommon(const TCHAR* Directory, const TFunctionRef<bool(struct dirent*)>& Visitor);
+	bool bIsSandboxEnabled = true;
 
 private:
 	bool FileExistsCaseInsensitive(const FString& NormalizedFilename) const;

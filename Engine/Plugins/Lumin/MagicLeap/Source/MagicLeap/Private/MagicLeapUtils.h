@@ -2,12 +2,9 @@
 
 #pragma once
 
-#include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
-
 #if WITH_MLSDK
-ML_INCLUDES_START
-#include <ml_graphics.h>
-ML_INCLUDES_END
+
+#include "MagicLeapGraphics.h"
 
 namespace MagicLeap
 {

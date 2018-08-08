@@ -18,7 +18,7 @@ namespace UnrealBuildTool.Rules
 					"RHI",
 					"RenderCore",
 					"HeadMountedDisplay"
-				});
+                });
 
 			// TODO: Explore linking Unreal modules against a commong header and
 			// having a runtime dll linking against the library according to the platform.
@@ -43,18 +43,7 @@ namespace UnrealBuildTool.Rules
 						Path.Combine(EngineSourceDirectory, "Runtime/VulkanRHI/Private", ((Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64) ? "Windows" : Target.Platform.ToString()))
 					});
 
-				AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
-
-				// HACK This is to get access to vulkan headers on Lumin.
-				// The way Lumininterprets dependency headers is broken.
-				if (Target.Platform == UnrealTargetPlatform.Lumin)
-				{
-					PrivateIncludePaths.AddRange(
-						new string[] {
-							Path.Combine(System.Environment.GetEnvironmentVariable("MLSDK"), "lumin/usr/include/vulkan"),
-						}
-					);
-				}
+                AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
 			}
 
 		}

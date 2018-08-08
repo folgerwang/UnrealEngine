@@ -9,8 +9,7 @@
 #include "Async/TaskGraphInterfaces.h"
 #include "EngineDefines.h"
 #include "Engine/World.h"
-#include "PhysicsPublic.h"
-
+#include "Physics/PhysicsInterfaceCore.h"
 #include "Physics/IPhysXCookingModule.h"
 #include "Physics/IPhysXCooking.h"
 #include "Modules/ModuleManager.h"

@@ -828,7 +828,7 @@ void FMeshMergeHelpers::RetrieveCullingLandscapeAndVolumes(UWorld* InWorld, cons
 	}
 }
 
-void FMeshMergeHelpers::TransformPhysicsGeometry(const FTransform& InTransform, struct FKAggregateGeom& AggGeom)
+void FMeshMergeHelpers::TransformPhysicsGeometry(const FTransform& InTransform, const bool bBakeConvexTransform, struct FKAggregateGeom& AggGeom)
 {
 	FTransform NoScaleInTransform = InTransform;
 	NoScaleInTransform.SetScale3D(FVector(1, 1, 1));
@@ -877,11 +877,22 @@ void FMeshMergeHelpers::TransformPhysicsGeometry(const FTransform& InTransform, 
 	for (FKConvexElem& Elem : AggGeom.ConvexElems)
 	{
 		FTransform ElemTM = Elem.GetTransform();
-		Elem.SetTransform(ElemTM*InTransform);
+        if (bBakeConvexTransform)
+        {
+            for (FVector& Position : Elem.VertexData)
+            {
+                Position = ElemTM.TransformPosition(Position);
+            }
+		    Elem.SetTransform(InTransform);
+        }
+        else
+        {
+            Elem.SetTransform(ElemTM*InTransform);
+        }
 	}
 }
 
-void FMeshMergeHelpers::ExtractPhysicsGeometry(UBodySetup* InBodySetup, const FTransform& ComponentToWorld, struct FKAggregateGeom& OutAggGeom)
+void FMeshMergeHelpers::ExtractPhysicsGeometry(UBodySetup* InBodySetup, const FTransform& ComponentToWorld, const bool bBakeConvexTransform, struct FKAggregateGeom& OutAggGeom)
 {
 	if (InBodySetup == nullptr)
 	{
@@ -908,7 +919,7 @@ void FMeshMergeHelpers::ExtractPhysicsGeometry(UBodySetup* InBodySetup, const FT
 	}
 
 	// Transform geometry to world space
-	TransformPhysicsGeometry(ComponentToWorld, OutAggGeom);
+	TransformPhysicsGeometry(ComponentToWorld, bBakeConvexTransform, OutAggGeom);
 }
 
 FVector2D FMeshMergeHelpers::GetValidUV(const FVector2D& UV)

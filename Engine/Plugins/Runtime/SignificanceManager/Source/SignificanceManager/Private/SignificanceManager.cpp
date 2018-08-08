@@ -6,8 +6,10 @@
 #include "GameFramework/HUD.h"
 #include "Engine/Engine.h"
 #include "Async/ParallelFor.h"
+#if ALLOW_CONSOLE
 #include "Engine/Console.h"
 #include "ConsoleSettings.h"
+#endif // ALLOW_CONSOLE
 
 IMPLEMENT_MODULE( FSignificanceManagerModule, SignificanceManager );
 
@@ -49,7 +51,9 @@ void FSignificanceManagerModule::StartupModule()
 		AHUD::OnShowDebugInfo.AddStatic(&FSignificanceManagerModule::OnShowDebugInfo);
 	}
 
+#if ALLOW_CONSOLE
 	UConsole::RegisterConsoleAutoCompleteEntries.AddStatic(&FSignificanceManagerModule::PopulateAutoCompleteEntries);
+#endif // ALLOW_CONSOLE
 }
 
 void FSignificanceManagerModule::AddReferencedObjects( FReferenceCollector& Collector )
@@ -100,6 +104,7 @@ void FSignificanceManagerModule::OnShowDebugInfo(AHUD* HUD, UCanvas* Canvas, con
 	}
 }
 
+#if ALLOW_CONSOLE
 void FSignificanceManagerModule::PopulateAutoCompleteEntries(TArray<FAutoCompleteCommand>& AutoCompleteList)
 {
 	const UConsoleSettings* ConsoleSettings = GetDefault<UConsoleSettings>();
@@ -111,6 +116,7 @@ void FSignificanceManagerModule::PopulateAutoCompleteEntries(TArray<FAutoComplet
 	AutoCompleteCommand.Desc = TEXT("Toggles display of significance manager calculations");
 	AutoCompleteCommand.Color = ConsoleSettings->AutoCompleteCommandColor;
 }
+#endif // ALLOW_CONSOLE
 
 USignificanceManager::USignificanceManager()
 	: Super()

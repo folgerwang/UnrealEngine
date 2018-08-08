@@ -247,17 +247,21 @@ void FCurlHttpManager::InitCurl()
 			UE_LOG(LogInit, Log, TEXT(" Libcurl: did not find a cert bundle in any of known locations, TLS may not work"));
 		}
 	}
-#if PLATFORM_ANDROID && USE_ANDROID_FILE
-	// used #if here to protect against GExternalFilePath only available on Android
+#if (PLATFORM_ANDROID && USE_ANDROID_FILE) || (PLATFORM_LUMIN)
 	else
-	if (PLATFORM_ANDROID)
+	if (PLATFORM_ANDROID || PLATFORM_LUMIN)
 	{
 		const int32 PathLength = 200;
 		static ANSICHAR capath[PathLength] = { 0 };
 
-		// if file does not already exist, create local PEM file with system trusted certificates
+		// used #if here to protect against GExternalFilePath only available on Android
+#if PLATFORM_ANDROID && USE_ANDROID_FILE
 		extern FString GExternalFilePath;
 		FString PEMFilename = GExternalFilePath / TEXT("ca-bundle.pem");
+#else
+		FString PEMFilename = FPlatformFileManager::Get().GetPlatformFile().ConvertToAbsolutePathForExternalAppForWrite(TEXT("ca-bundle.pem"));
+#endif
+		// if file does not already exist, create local PEM file with system trusted certificates
 		if (!FPaths::FileExists(PEMFilename))
 		{
 			FString Contents;
@@ -279,6 +283,9 @@ void FCurlHttpManager::InitCurl()
 					// gather all the files in system certificates directory
 					TArray<FString> directoriesToIgnoreAndNotRecurse;
 					FLocalTimestampDirectoryVisitor Visitor(FPlatformFileManager::Get().GetPlatformFile(), directoriesToIgnoreAndNotRecurse, directoriesToIgnoreAndNotRecurse, false);
+#if PLATFORM_LUMIN
+					FPlatformFileManager::Get().GetPlatformFile().GetPlatformPhysical().SetSandboxEnabled(false);
+#endif
 					FileManager->IterateDirectory(TEXT("/system/etc/security/cacerts"), Visitor);
 
 					for (TMap<FString, FDateTime>::TIterator TimestampIt(Visitor.FileTimes); TimestampIt; ++TimestampIt)
@@ -301,6 +308,9 @@ void FCurlHttpManager::InitCurl()
 						auto Src = StringCast<ANSICHAR>(StrPtr, Contents.Len());
 						Ar->Serialize((ANSICHAR*)Src.Get(), Src.Length() * sizeof(ANSICHAR));
 					}
+#if PLATFORM_LUMIN
+					FPlatformFileManager::Get().GetPlatformFile().GetPlatformPhysical().SetSandboxEnabled(true);
+#endif
 				}
 
 				FPlatformString::Strncpy(capath, TCHAR_TO_ANSI(*PEMFilename), PathLength);

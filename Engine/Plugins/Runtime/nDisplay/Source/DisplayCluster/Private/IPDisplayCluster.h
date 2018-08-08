@@ -30,6 +30,4 @@ struct IPDisplayCluster
 	virtual IPDisplayClusterInputManager*     GetPrivateInputMgr() const = 0;
 	virtual IPDisplayClusterConfigManager*    GetPrivateConfigMgr() const = 0;
 	virtual IPDisplayClusterGameManager*      GetPrivateGameMgr() const = 0;
-
-	virtual EDisplayClusterOperationMode       GetOperationMode() const = 0;
 };

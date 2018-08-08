@@ -41,6 +41,9 @@
 #include "TimerManager.h"
 #include "Camera/CameraPhotography.h"
 #include "HAL/LowLevelMemTracker.h"
+#if WITH_APEIRON
+#include "PhysicsEngine/CollisionAnalyzerCapture.h"
+#endif
 
 //#include "SoundDefinitions.h"
 #include "FXSystem.h"
@@ -1248,7 +1251,7 @@ void FTickableGameObject::TickObjects(UWorld* World, const int32 InTickType, con
 					if ((GIsEditor && TickableObject->IsTickableInEditor()) ||
 						(bIsGameWorld && ((!bIsPaused && TickType != LEVELTICK_TimeOnly) || (bIsPaused && TickableObject->IsTickableWhenPaused()))))
 					{
-						STAT(FScopeCycleCounter Context(TickableObject->GetStatId());)
+						FScopeCycleCounter Context(TickableObject->GetStatId());
 						TickableObject->Tick(DeltaSeconds);
 
 						// In case it was removed during tick

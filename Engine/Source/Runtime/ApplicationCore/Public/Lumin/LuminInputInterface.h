@@ -5,6 +5,7 @@
 #include "GenericPlatform/IInputInterface.h"
 #include "Math/Color.h"
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
+#include "GenericPlatform/ICursor.h"
 
 /**
  * Interface class for Lumin input devices.

@@ -285,11 +285,18 @@ bool FPhysXCooking::CookTriMeshImp(FName Format, EPhysXMeshCookFlags CookFlags, 
 		NewParams.suppressTriangleMeshRemapTable = true;
 	}
 
+	if (!!(CookFlags & EPhysXMeshCookFlags::DisableActiveEdgePrecompute))
+	{
+		// Disable ActiveEdgePrecompute (This makes cooking faster, but will slow contact generation) 
+		NewParams.meshPreprocessParams |= PxMeshPreprocessingFlag::eDISABLE_ACTIVE_EDGES_PRECOMPUTE;
+	}
+
 	if (!!(CookFlags & EPhysXMeshCookFlags::DeformableMesh))
 	{
 		// In the case of a deformable mesh, we have to change the cook params
-		NewParams.meshPreprocessParams = PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH;
-
+		NewParams.meshPreprocessParams |= PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH;
+		NewParams.meshPreprocessParams &= ~(PxMeshPreprocessingFlags(PxMeshPreprocessingFlag::eWELD_VERTICES));
+		
 		// The default BVH34 midphase does not support refit
 		NewParams.midphaseDesc = PxMeshMidPhase::eBVH33;
 	}

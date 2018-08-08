@@ -9,6 +9,10 @@
 #include "PhysXVehicleManager.h"
 #include "UObject/UObjectIterator.h"
 #include "Components/SkeletalMeshComponent.h"
+#if ALLOW_CONSOLE
+#include "Engine/Console.h"
+#include "ConsoleSettings.h"
+#endif // ALLOW_CONSOLE
 
 class FPhysXVehiclesPlugin : public IPhysXVehiclesPlugin
 {
@@ -16,7 +20,7 @@ private:
 
 	void UpdatePhysXMaterial(UPhysicalMaterial* PhysicalMaterial)
 	{
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 		FPhysXVehicleManager::UpdateTireFrictionTable();
 #endif // WITH_PHYSX
 	}
@@ -43,7 +47,7 @@ private:
 		// Only create PhysXVehicleManager in the sync scene
 		if (SceneType == PST_Sync)
 		{
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 			new FPhysXVehicleManager(PhysScene, SceneType);
 #endif // WITH_PHYSX
 		}
@@ -53,7 +57,7 @@ private:
 	{
 		if (SceneType == PST_Sync)
 		{
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 			FPhysXVehicleManager* VehicleManager = FPhysXVehicleManager::GetVehicleManagerFromScene(PhysScene);
 			if (VehicleManager != nullptr)
 			{
@@ -74,7 +78,7 @@ public:
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override
 	{
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 		PxInitVehicleSDK(*GPhysXSDK);
 #endif // WITH_PHYSX
 
@@ -82,6 +86,10 @@ public:
 		OnPhysicsAssetChangedHandle = FPhysicsDelegates::OnPhysicsAssetChanged.AddRaw(this, &FPhysXVehiclesPlugin::PhysicsAssetChanged);
 		OnPhysSceneInitHandle = FPhysicsDelegates::OnPhysSceneInit.AddRaw(this, &FPhysXVehiclesPlugin::PhysSceneInit);
 		OnPhysSceneTermHandle = FPhysicsDelegates::OnPhysSceneTerm.AddRaw(this, &FPhysXVehiclesPlugin::PhysSceneTerm);
+
+#if ALLOW_CONSOLE
+		UConsole::RegisterConsoleAutoCompleteEntries.AddStatic(&FPhysXVehiclesPlugin::PopulateAutoCompleteEntries);
+#endif // ALLOW_CONSOLE
 	}
 
 	virtual void ShutdownModule() override
@@ -91,13 +99,27 @@ public:
 		FPhysicsDelegates::OnPhysSceneInit.Remove(OnPhysSceneInitHandle);
 		FPhysicsDelegates::OnPhysSceneTerm.Remove(OnPhysSceneTermHandle);
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 		if (GPhysXSDK != NULL)
 		{
 			PxCloseVehicleSDK();
 		}
 #endif // WITH_PHYSX
 	}
+
+#if ALLOW_CONSOLE
+	static void PopulateAutoCompleteEntries(TArray<FAutoCompleteCommand>& AutoCompleteList)
+	{
+		const UConsoleSettings* ConsoleSettings = GetDefault<UConsoleSettings>();
+
+		AutoCompleteList.AddDefaulted();
+
+		FAutoCompleteCommand& AutoCompleteCommand = AutoCompleteList.Last();
+		AutoCompleteCommand.Command = TEXT("ShowDebug VEHICLE");
+		AutoCompleteCommand.Desc = TEXT("Toggles display of vehicle information");
+		AutoCompleteCommand.Color = ConsoleSettings->AutoCompleteCommandColor;
+	}
+#endif // ALLOW_CONSOLE
 };
 
 IMPLEMENT_MODULE(FPhysXVehiclesPlugin, PhysXVehicles )

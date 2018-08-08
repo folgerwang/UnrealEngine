@@ -36,7 +36,6 @@
 #include "CascadeEmitterCanvasClient.h"
 #include "SCascadePreviewViewport.h"
 #include "CascadeActions.h"
-#include "PhysicsPublic.h"
 #include "UObject/UObjectIterator.h"
 #include "Widgets/Colors/SColorPicker.h"
 
@@ -63,6 +62,8 @@
 #include "Widgets/Input/STextEntryPopup.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "UnrealEngine.h"
+#include "Physics/PhysicsInterfaceCore.h"
+
 
 static const FName Cascade_PreviewViewportTab("Cascade_PreviewViewport");
 static const FName Cascade_EmmitterCanvasTab("Cascade_EmitterCanvas");

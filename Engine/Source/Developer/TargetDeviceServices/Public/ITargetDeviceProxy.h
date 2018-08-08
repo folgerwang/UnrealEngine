@@ -255,6 +255,13 @@ public:
 	virtual bool IsConnected() const = 0;
 
 	/**
+	 * Checks whether the device is authorized.
+	 *
+	 * @return true if the device is authorized, false otherwise.
+	 */
+	virtual bool IsAuthorized() const = 0;
+
+	/**
 	 * Checks whether this device is being shared with other users.
 	 *
 	 * @return true if the device is being shared, false otherwise.

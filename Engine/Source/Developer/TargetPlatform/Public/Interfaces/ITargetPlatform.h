@@ -62,6 +62,9 @@ enum class ETargetPlatformFeatures
 
 	/* The platform uses software rasterization of the scene for primitive occlusion */
 	SoftwareOcclusion,
+
+	/* The platform supports half float vertex format */
+	HalfFloatVertexFormat,
 };
 
 
@@ -432,6 +435,11 @@ public:
 	* Project settings to check to determine if a build should occurr
 	*/
 	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const = 0;
+
+	/**
+	 * Give the platform a chance to refresh internal settings before a cook, etc
+	 */
+	virtual void RefreshSettings() = 0;
 
 public:
 
