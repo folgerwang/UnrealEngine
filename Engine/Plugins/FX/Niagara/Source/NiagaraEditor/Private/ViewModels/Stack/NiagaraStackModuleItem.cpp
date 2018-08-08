@@ -333,7 +333,7 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 		}
 	}
 
-	if (FunctionCallNode && FunctionCallNode->FunctionScript)
+	if (ModuleIndex != INDEX_NONE && FunctionCallNode && FunctionCallNode->FunctionScript)
 	{
 		for (FNiagaraModuleDependency Dependency : FunctionCallNode->FunctionScript->RequiredDependencies)
 		{
