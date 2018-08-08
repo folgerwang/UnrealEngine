@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 
 /** Indicates the socket protocol of socket being used, typically for BSD Sockets */
-enum class ESocketProtocolFamily : uint32
+enum class ESocketProtocolFamily : uint8
 {
 	/** No protocol family specification. Typically defined as AF_UNSPEC */
 	None,

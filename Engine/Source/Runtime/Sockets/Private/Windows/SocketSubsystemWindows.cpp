@@ -76,6 +76,7 @@ FSocket* FSocketSubsystemWindows::CreateSocket(const FName& SocketType, const FS
 	if (NewSocket != nullptr)
 	{
 		::SetHandleInformation((HANDLE)NewSocket->GetNativeSocket(), HANDLE_FLAG_INHERIT, 0);
+		NewSocket->SetIPv6Only(false);
 	}
 	else
 	{
@@ -134,9 +135,10 @@ bool FSocketSubsystemWindows::GetLocalAdapterAddresses( TArray<TSharedPtr<FInter
 	ULONG Flags = GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER | GAA_FLAG_SKIP_FRIENDLY_NAME;
 	ULONG Result;
 	ULONG Size = 0;
+	ULONG Family = (PLATFORM_HAS_BSD_IPV6_SOCKETS) ? AF_UNSPEC : AF_INET;
 
 	// determine the required size of the address list buffer
-	Result = GetAdaptersAddresses(AF_INET, Flags, NULL, NULL, &Size);
+	Result = GetAdaptersAddresses(Family, Flags, NULL, NULL, &Size);
 
 	if (Result != ERROR_BUFFER_OVERFLOW)
 	{
@@ -146,7 +148,7 @@ bool FSocketSubsystemWindows::GetLocalAdapterAddresses( TArray<TSharedPtr<FInter
 	PIP_ADAPTER_ADDRESSES AdapterAddresses = (PIP_ADAPTER_ADDRESSES)FMemory::Malloc(Size);
 
 	// get the actual list of adapters
-	Result = GetAdaptersAddresses(AF_INET, Flags, NULL, AdapterAddresses, &Size);
+	Result = GetAdaptersAddresses(Family, Flags, NULL, AdapterAddresses, &Size);
 	
 	if (Result != ERROR_SUCCESS)
 	{
@@ -168,6 +170,7 @@ bool FSocketSubsystemWindows::GetLocalAdapterAddresses( TArray<TSharedPtr<FInter
 					const sockaddr_storage* RawAddress = (const sockaddr_storage*)(UnicastAddress->Address.lpSockaddr);
 					TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD);
 					NewAddress->SetIp(*RawAddress);
+					NewAddress->SetScopeId(ntohl(AdapterAddress->Ipv6IfIndex));
 					OutAdresses.Add(NewAddress);
 				}
 			}

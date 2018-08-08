@@ -29,7 +29,10 @@ public:
 
 	virtual void DestroySocket( class FSocket* Socket ) override;
 
-	virtual TArray<TSharedRef<FInternetAddr> > GetAddressInfo(const ANSICHAR* HostName, bool bResolveAddress, ESocketProtocolFamily ProtocolType = ESocketProtocolFamily::None);
+	virtual FAddressInfoResult GetAddressInfo(const TCHAR* HostName, const TCHAR* ServiceName = nullptr,
+		EAddressInfoFlags QueryFlags = EAddressInfoFlags::Default,
+		ESocketProtocolFamily ProtocolType = ESocketProtocolFamily::None,
+		ESocketType SocketType = ESocketType::SOCKTYPE_Unknown) override;
 
 	virtual ESocketErrors GetHostByName( const ANSICHAR* HostName, FInternetAddr& OutAddr ) override;
 
@@ -69,6 +72,11 @@ protected:
 	 * Allows a subsystem subclass to create a FSocketBSD sub class.
 	 */
 	virtual class FSocketBSDIPv6* InternalBSDSocketFactory( SOCKET Socket, ESocketType SocketType, const FString& SocketDescription );
+
+	/**
+	 * Translates an ESocketAddressInfoFlags into a value usable by getaddrinfo
+	 */
+	virtual int32 GetAddressInfoHintFlag(EAddressInfoFlags InFlags) const;
 
 	// allow BSD sockets to use this when creating new sockets from accept() etc
 	friend class FSocketBSDIPv6;

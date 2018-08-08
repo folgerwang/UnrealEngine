@@ -52,10 +52,12 @@ class FSocket* FSocketSubsystemBSD::CreateSocket(const FName& SocketType, const 
 
 ESocketErrors FSocketSubsystemBSD::CreateAddressFromIP(const ANSICHAR* IPAddress, FInternetAddr& OutAddr)
 {
-	TArray<TSharedRef<FInternetAddr> > Results = GetAddrInfo(IPAddress, false);
-	if (Results.Num() > 0)
+	FAddressInfoResult GAIResult = GetAddressInfo(ANSI_TO_TCHAR(IPAddress), nullptr,
+		EAddressInfoFlags::AllResultsWithMapping | EAddressInfoFlags::NoResolveHost | EAddressInfoFlags::OnlyUsableAddresses);
+
+	if (GAIResult.Results.Num() > 0)
 	{
-		OutAddr.SetRawIp(Results[0]->GetRawIp());
+		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
 		return SE_NO_ERROR;
 	}
 	
@@ -64,10 +66,12 @@ ESocketErrors FSocketSubsystemBSD::CreateAddressFromIP(const ANSICHAR* IPAddress
 
 ESocketErrors FSocketSubsystemBSD::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
 {
-	TArray<TSharedRef<FInternetAddr> > Results = GetAddrInfo(HostName, true);
-	if (Results.Num() > 0)
+	FAddressInfoResult GAIResult = GetAddressInfo(ANSI_TO_TCHAR(HostName), nullptr,
+		EAddressInfoFlags::AllResultsWithMapping | EAddressInfoFlags::OnlyUsableAddresses | EAddressInfoFlags::BindableAddress);
+
+	if (GAIResult.Results.Num() > 0)
 	{
-		OutAddr.SetRawIp(Results[0]->GetRawIp());
+		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
 		return SE_NO_ERROR;
 	}
 
@@ -79,9 +83,16 @@ void FSocketSubsystemBSD::DestroySocket(FSocket* Socket)
 	delete Socket;
 }
 
-TArray<TSharedRef<FInternetAddr> > FSocketSubsystemBSD::GetAddrInfo(const ANSICHAR* HostName, bool bResolveAddress, ESocketProtocolFamily ProtocolType)
+FAddressInfoResult FSocketSubsystemBSD::GetAddressInfo(const TCHAR* HostName, const TCHAR* ServiceName,
+	EAddressInfoFlags QueryFlags, ESocketProtocolFamily ProtocolType, ESocketType SocketType)
 {
-	TArray<TSharedRef<FInternetAddr> > GetAddrArray;
+	FAddressInfoResult AddrQueryResult = FAddressInfoResult(HostName, ServiceName);
+
+	if (HostName == nullptr && ServiceName == nullptr)
+	{
+		UE_LOG(LogSockets, Warning, TEXT("GetAddressInfo was passed with both a null host and service name, returning empty array"));
+		return AddrQueryResult;
+	}
 
 #if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
 	addrinfo* AddrInfo = nullptr;
@@ -93,17 +104,25 @@ TArray<TSharedRef<FInternetAddr> > FSocketSubsystemBSD::GetAddrInfo(const ANSICH
 	addrinfo HintAddrInfo;
 	FMemory::Memzero(&HintAddrInfo, sizeof(HintAddrInfo));
 	HintAddrInfo.ai_family = GetProtocolFamilyValue(ProtocolType);
-	HintAddrInfo.ai_flags = AI_ADDRCONFIG;
+	HintAddrInfo.ai_flags = GetAddressInfoHintFlag(QueryFlags);
 
-	if (!bResolveAddress)
+	if (SocketType != ESocketType::SOCKTYPE_Unknown)
 	{
-		HintAddrInfo.ai_flags |= AI_NUMERICHOST;
+		bool bIsUDP = (SocketType == ESocketType::SOCKTYPE_Datagram);
+		HintAddrInfo.ai_protocol = bIsUDP ? IPPROTO_UDP : IPPROTO_TCP;
+		HintAddrInfo.ai_socktype = bIsUDP ? SOCK_DGRAM : SOCK_STREAM;
 	}
 
-	int32 ErrorCode = getaddrinfo(HostName, nullptr, &HintAddrInfo, &AddrInfo);
+	int32 ErrorCode = getaddrinfo(TCHAR_TO_UTF8(HostName), TCHAR_TO_UTF8(ServiceName), &HintAddrInfo, &AddrInfo);
 	ESocketErrors SocketError = TranslateGAIErrorCode(ErrorCode);
 	if (SocketError == SE_NO_ERROR)
 	{
+		// The canonical name will always be stored in only the first result in a getaddrinfo query
+		if (AddrInfo != nullptr && AddrInfo->ai_canonname != nullptr)
+		{
+			AddrQueryResult.CanonicalNameResult = UTF8_TO_TCHAR(AddrInfo->ai_canonname);
+		}
+
 		for (; AddrInfo != nullptr; AddrInfo = AddrInfo->ai_next)
 		{
 			if (AddrInfo->ai_family == AF_INET || (AddrInfo->ai_family == AF_INET6 && bCanUseIPv6))
@@ -111,22 +130,19 @@ TArray<TSharedRef<FInternetAddr> > FSocketSubsystemBSD::GetAddrInfo(const ANSICH
 				sockaddr_storage* AddrData = reinterpret_cast<sockaddr_storage*>(AddrInfo->ai_addr);
 				if (AddrData != nullptr)
 				{
-					// This might not be good as it locks GetAddrInfo into one class.
-					// TODO: Fix this when GetAddrInfo moves to the base class.
-					// Just convert the sockaddr_storage into the raw ip array format (do we want to make a new helper in this class?)
-					// and push it to SetRawIp
 					TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD);
-					NewAddress->SetIp(*AddrData);
-					GetAddrArray.Add(NewAddress);
+					NewAddress->Set(*AddrData, AddrInfo->ai_addrlen);
+					AddrQueryResult.Results.Add(FAddressInfoResultData(NewAddress, AddrInfo->ai_addrlen,
+						GetProtocolFamilyType(AddrInfo->ai_family), GetSocketType(AddrInfo->ai_protocol)));
 				}
 			}
 		}
 		freeaddrinfo(AddrInfo);
 	}
 #else
-	UE_LOG(LogSockets, Error, TEXT("Platform has no getaddrinfo(), but did not override FSocketSubsystem::GetHostByName()"));
+	UE_LOG(LogSockets, Error, TEXT("Platform has no getaddrinfo(), but did not override FSocketSubsystem::GetAddressInfo()"));
 #endif
-	return GetAddrArray;
+	return AddrQueryResult;
 }
 
 bool FSocketSubsystemBSD::GetHostName(FString& HostName)
@@ -287,6 +303,84 @@ int32 FSocketSubsystemBSD::GetProtocolFamilyValue(ESocketProtocolFamily InProtoc
 		case ESocketProtocolFamily::IPv4: return AF_INET;
 		case ESocketProtocolFamily::IPv6: return AF_INET6;
 	}
+}
+
+ESocketProtocolFamily FSocketSubsystemBSD::GetProtocolFamilyType(int32 InProtocol) const
+{
+	switch (InProtocol)
+	{
+		default:
+		case AF_UNSPEC: return ESocketProtocolFamily::None;
+		case AF_INET:   return ESocketProtocolFamily::IPv4;
+		case AF_INET6:  return ESocketProtocolFamily::IPv6;
+	}
+}
+
+ESocketType FSocketSubsystemBSD::GetSocketType(int32 InSocketType) const
+{
+	switch (InSocketType)
+	{
+		case SOCK_STREAM:
+		case IPPROTO_TCP: return ESocketType::SOCKTYPE_Streaming;
+		case SOCK_DGRAM:
+		case IPPROTO_UDP: return ESocketType::SOCKTYPE_Datagram;
+		default: return SOCKTYPE_Unknown;
+	}
+}
+
+int32 FSocketSubsystemBSD::GetAddressInfoHintFlag(EAddressInfoFlags InFlags) const
+{
+	int32 ReturnFlagsCode = 0;
+
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
+	if (InFlags == EAddressInfoFlags::Default)
+	{
+		return ReturnFlagsCode;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::NoResolveHost))
+	{
+		ReturnFlagsCode |= AI_NUMERICHOST;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::NoResolveService))
+	{
+		ReturnFlagsCode |= AI_NUMERICSERV;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::OnlyUsableAddresses))
+	{
+		ReturnFlagsCode |= AI_ADDRCONFIG;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::BindableAddress))
+	{
+		ReturnFlagsCode |= AI_PASSIVE;
+	}
+
+	/* This means nothing unless AI_ALL is also specified. */
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::AllowV4MappedAddresses))
+	{
+		ReturnFlagsCode |= AI_V4MAPPED;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::AllResults))
+	{
+		ReturnFlagsCode |= AI_ALL;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::CanonicalName))
+	{
+		ReturnFlagsCode |= AI_CANONNAME;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::FQDomainName))
+	{
+		ReturnFlagsCode |= AI_FQDN;
+	}
+#endif
+
+	return ReturnFlagsCode;
 }
 
 #endif	//PLATFORM_HAS_BSD_SOCKETS

@@ -97,13 +97,20 @@ public:
 
 	/**
 	 * Sets the address data via a sockaddr_storage
+	 * Can only really safely set with a sockaddr_storage
 	 *
 	 * @param AddrData the new data to use
 	 */
-	virtual void Set(const sockaddr_storage& AddrData)
-	{
-		Addr = AddrData;
-	}
+	virtual void Set(const sockaddr_storage& AddrData);
+
+	/**
+	 * Sets the address data via a sockaddr_storage.
+	 * Uses memcpy to assign the data.
+	 *
+	 * @param AddrData the new data to use
+	 * @param AddrSize size of the addr data being passed in.
+	 */
+	virtual void Set(const sockaddr_storage& AddrData, SOCKLEN AddrSize);
 
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 	/**
@@ -143,16 +150,7 @@ public:
 	 *
 	 * @param OutAddr the out param receiving the ip address
 	 */
-	virtual void GetIp(uint32& OutAddr) const override
-	{
-		if (GetProtocolFamily() != ESocketProtocolFamily::IPv4)
-		{
-			OutAddr = 0;
-			return;
-		}
-
-		OutAddr = ntohl(((sockaddr_in*)&Addr)->sin_addr.s_addr);
-	}
+	virtual void GetIp(uint32& OutAddr) const override;
 
 	/**
 	 * Sets the port number from a host byte order int
@@ -248,6 +246,23 @@ public:
 	 * @return size of addr
 	 */
 	virtual SOCKLEN GetStorageSize() const;
+	
+	/**
+	 * Sets the scope interface id of the currently held address if this address
+	 * is an IPv6 address internally. If it is not, no data will be assigned.
+	 * The NewScopeId must be in host byte order.
+	 *
+	 * @param NewScopeId the new scope interface id to set this address to
+	 */
+	virtual void SetScopeId(uint32 NewScopeId);
+
+	/**
+	 * Returns the IPv6 scope interface id of the currently held address
+	 * if the address is an IPv6 address.
+	 *
+	 * @return the scope interface id
+	 */
+	virtual uint32 GetScopeId() const;
 	
 	virtual uint32 GetTypeHash() override;
 

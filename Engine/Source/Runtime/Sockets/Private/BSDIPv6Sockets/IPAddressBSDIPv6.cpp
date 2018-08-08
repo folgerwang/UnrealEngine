@@ -24,7 +24,7 @@ void FInternetAddrBSDIPv6::SetRawIp(const TArray<uint8>& RawAddr)
 		// If this address has an interface, we'll copy it over too.
 		if (RawAddr.Num() == 20)
 		{
-			Addr.sin6_scope_id = (RawAddr[16] << 24) | (RawAddr[17] << 16) | (RawAddr[18] << 8) | (RawAddr[19] << 0);
+			Addr.sin6_scope_id = (RawAddr[16] << 0) | (RawAddr[17] << 8) | (RawAddr[18] << 16) | (RawAddr[19] << 24);
 		}
 
 		Addr.sin6_family = AF_INET6;
@@ -48,10 +48,10 @@ TArray<uint8> FInternetAddrBSDIPv6::GetRawIp() const
 	if (Addr.sin6_scope_id != 0)
 	{
 		uint32 RawScopeId = Addr.sin6_scope_id;
-		RawAddressArray.Add((RawScopeId >> 24) & 0xFF);
-		RawAddressArray.Add((RawScopeId >> 16) & 0xFF);
-		RawAddressArray.Add((RawScopeId >> 8) & 0xFF);
 		RawAddressArray.Add((RawScopeId >> 0) & 0xFF);
+		RawAddressArray.Add((RawScopeId >> 8) & 0xFF);
+		RawAddressArray.Add((RawScopeId >> 16) & 0xFF);
+		RawAddressArray.Add((RawScopeId >> 24) & 0xFF);
 	}
 	return RawAddressArray;
 }

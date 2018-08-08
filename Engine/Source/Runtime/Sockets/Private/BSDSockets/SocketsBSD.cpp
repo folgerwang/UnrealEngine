@@ -31,14 +31,14 @@ bool FSocketBSD::Close(void)
 bool FSocketBSD::Bind(const FInternetAddr& Addr)
 {
 	const FInternetAddrBSD& BSDAddr = static_cast<const FInternetAddrBSD&>(Addr);
-	return bind(Socket, (sockaddr*)&BSDAddr.Addr, BSDAddr.GetStorageSize()) == 0;
+	return bind(Socket, (const sockaddr*)&(BSDAddr.Addr), BSDAddr.GetStorageSize()) == 0;
 }
 
 
 bool FSocketBSD::Connect(const FInternetAddr& Addr)
 {
 	const FInternetAddrBSD& BSDAddr = static_cast<const FInternetAddrBSD&>(Addr);
-	int32 Return = connect(Socket, (sockaddr*)&BSDAddr.Addr, BSDAddr.GetStorageSize());
+	int32 Return = connect(Socket, (const sockaddr*)&(BSDAddr.Addr), BSDAddr.GetStorageSize());
 	
 	check(SocketSubsystem);
 	ESocketErrors Error = SocketSubsystem->TranslateErrorCode(Return);
@@ -132,7 +132,7 @@ bool FSocketBSD::SendTo(const uint8* Data, int32 Count, int32& BytesSent, const 
 {
 	const FInternetAddrBSD& BSDAddr = static_cast<const FInternetAddrBSD&>(Destination);
 	// Write the data and see how much was written
-	BytesSent = sendto(Socket, (const char*)Data, Count, 0, (sockaddr*)&(BSDAddr.Addr), BSDAddr.GetStorageSize());
+	BytesSent = sendto(Socket, (const char*)Data, Count, 0, (const sockaddr*)&(BSDAddr.Addr), BSDAddr.GetStorageSize());
 
 //	NETWORK_PROFILER(FSocket::SendTo(Data,Count,BytesSent,Destination));
 

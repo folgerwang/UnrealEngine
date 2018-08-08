@@ -110,7 +110,7 @@ TSharedRef<FInternetAddr> FSocketSubsystemUnix::GetLocalHostAddr(FOutputDevice& 
 		return Addr;
 	}
 
-	TArray<TSharedPtr<FInternetAddr> > ResultArray;
+	TArray<TSharedPtr<FInternetAddr>> ResultArray;
 	if (GetLocalAdapterAddresses(ResultArray))
 	{
 		return ResultArray[0]->Clone();
@@ -124,7 +124,10 @@ TSharedRef<FInternetAddr> FSocketSubsystemUnix::GetLocalHostAddr(FOutputDevice& 
 bool FSocketSubsystemUnix::GetLocalAdapterAddresses(TArray<TSharedPtr<FInternetAddr> >& OutAddresses)
 {
 	TSharedRef<FInternetAddr> MultihomeAddress = FSocketSubsystemBSD::CreateInternetAddr();
-	if (GetMultihomeAddress(MultihomeAddress))
+	bool bHasMultihome = GetMultihomeAddress(MultihomeAddress);
+
+	// Multihome addresses should always be the first in the array.
+	if (bHasMultihome)
 	{
 		OutAddresses.Add(MultihomeAddress);
 	}
@@ -144,13 +147,24 @@ bool FSocketSubsystemUnix::GetLocalAdapterAddresses(TArray<TSharedPtr<FInternetA
 
 			uint16 AddrFamily = Travel->ifa_addr->sa_family;
 			// Find any up and non-loopback addresses
-			if ((Travel->ifa_flags & IFF_UP) && 
+			if ((Travel->ifa_flags & IFF_UP) != 0 && 
 				(Travel->ifa_flags & IFF_LOOPBACK) == 0 && 
 				(AddrFamily == AF_INET || AddrFamily == AF_INET6))
 			{
 				TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD);
 				NewAddress->SetIp(*((sockaddr_storage*)Travel->ifa_addr));
-				OutAddresses.Add(NewAddress);
+
+				// Write the scope id if what we found was the multihome address.
+				// Don't write it to our list again though.
+				if (bHasMultihome && NewAddress == MultihomeAddress)
+				{
+					static_cast<FInternetAddrBSD&>(MultihomeAddress.Get()).SetScopeId(ntohl(if_nametoindex(Travel->ifa_name)));
+				}
+				else
+				{
+					NewAddress->SetScopeId((ntohl(if_nametoindex(Travel->ifa_name)));
+					OutAddresses.Add(NewAddress);
+				}
 			}
 		}
 
@@ -159,7 +173,7 @@ bool FSocketSubsystemUnix::GetLocalAdapterAddresses(TArray<TSharedPtr<FInternetA
 	else
 	{
 		UE_LOG(LogSockets, Warning, TEXT("getifaddrs returned result %d"), InterfaceQueryRet);
-		return (OutAddresses.Num() == 0); // if getifaddrs somehow doesn't work but we have multihome, then it's fine.
+		return bHasMultihome; // if getifaddrs somehow doesn't work but we have multihome, then it's fine.
 	}
 
 	return true;

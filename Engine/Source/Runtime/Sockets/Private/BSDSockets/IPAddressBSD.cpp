@@ -26,6 +26,27 @@ void FInternetAddrBSD::ResetScopeId()
 #endif
 }
 
+uint32 FInternetAddrBSD::GetScopeId() const
+{
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+	if (Addr.ss_family == AF_INET6)
+	{
+		return ntohl(((sockaddr_in6*)&Addr)->sin6_scope_id);
+	}
+#endif
+	return 0;
+}
+
+void FInternetAddrBSD::SetScopeId(uint32 NewScopeId)
+{
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+	if (Addr.ss_family == AF_INET6)
+	{
+		((sockaddr_in6*)&Addr)->sin6_scope_id = htonl(NewScopeId);
+	}
+#endif
+}
+
 void FInternetAddrBSD::SetIp(const sockaddr_storage& IpAddr)
 {
 	// Instead of just replacing the structures entirely, we copy only the ip portion.
@@ -85,22 +106,33 @@ void FInternetAddrBSD::SetIp(const TCHAR* InAddr, bool& bIsValid)
 	}
 }
 
+void FInternetAddrBSD::Set(const sockaddr_storage& AddrData)
+{
+	Addr = AddrData;
+}
+
+void FInternetAddrBSD::Set(const sockaddr_storage& AddrData, SOCKLEN AddrLen)
+{
+	Clear();
+	FMemory::Memcpy(&Addr, &AddrData, (size_t)AddrLen);
+}
+
 TArray<uint8> FInternetAddrBSD::GetRawIp() const
 {
 	TArray<uint8> RawAddressArray;
 	if (Addr.ss_family == AF_INET)
 	{
-		sockaddr_in* IPv4Addr = ((sockaddr_in*)&Addr);
+		const sockaddr_in* IPv4Addr = ((const sockaddr_in*)&Addr);
 		uint32 IntAddr = IPv4Addr->sin_addr.s_addr;
-		RawAddressArray.Add((IntAddr >> 24) & 0xFF);
-		RawAddressArray.Add((IntAddr >> 16) & 0xFF);
-		RawAddressArray.Add((IntAddr >> 8) & 0xFF);
 		RawAddressArray.Add((IntAddr >> 0) & 0xFF);
+		RawAddressArray.Add((IntAddr >> 8) & 0xFF);
+		RawAddressArray.Add((IntAddr >> 16) & 0xFF);
+		RawAddressArray.Add((IntAddr >> 24) & 0xFF);
 	}
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 	else if (Addr.ss_family == AF_INET6)
 	{
-		sockaddr_in6* IPv6Addr = ((sockaddr_in6*)&Addr);
+		const sockaddr_in6* IPv6Addr = ((const sockaddr_in6*)&Addr);
 		for (int i = 0; i < 16; ++i)
 		{
 			RawAddressArray.Add(IPv6Addr->sin6_addr.s6_addr[i]);
@@ -110,10 +142,10 @@ TArray<uint8> FInternetAddrBSD::GetRawIp() const
 		if (IPv6Addr->sin6_scope_id != 0)
 		{
 			uint32 RawScopeId = IPv6Addr->sin6_scope_id;
-			RawAddressArray.Add((RawScopeId >> 24) & 0xFF);
-			RawAddressArray.Add((RawScopeId >> 16) & 0xFF);
-			RawAddressArray.Add((RawScopeId >> 8) & 0xFF);
 			RawAddressArray.Add((RawScopeId >> 0) & 0xFF);
+			RawAddressArray.Add((RawScopeId >> 8) & 0xFF);
+			RawAddressArray.Add((RawScopeId >> 16) & 0xFF);
+			RawAddressArray.Add((RawScopeId >> 24) & 0xFF);
 		}
 	}
 #endif
@@ -127,7 +159,7 @@ void FInternetAddrBSD::SetRawIp(const TArray<uint8>& RawAddr)
 	{
 		Addr.ss_family = AF_INET;
 		sockaddr_in* IPv4Addr = ((sockaddr_in*)&Addr);
-		IPv4Addr->sin_addr.s_addr = (RawAddr[0] << 24) | (RawAddr[1] << 16) | (RawAddr[2] << 8) | (RawAddr[3] << 0);
+		IPv4Addr->sin_addr.s_addr =	(RawAddr[0] << 0) | (RawAddr[1] << 8) | (RawAddr[2] << 16) | (RawAddr[3] << 24);
 	}
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 	else if(RawAddr.Num() >= 16) // We are IPv6
@@ -141,7 +173,7 @@ void FInternetAddrBSD::SetRawIp(const TArray<uint8>& RawAddr)
 		// If this address has an interface, we'll copy it over too.
 		if (RawAddr.Num() == 20)
 		{
-			IPv6Addr->sin6_scope_id = (RawAddr[16] << 24) | (RawAddr[17] << 16) | (RawAddr[18] << 8) | (RawAddr[19] << 0);
+			IPv6Addr->sin6_scope_id = (RawAddr[16] << 0) | (RawAddr[17] << 8) | (RawAddr[18] << 16) | (RawAddr[19] << 24);
 		}
 
 		Addr.ss_family = AF_INET6;
@@ -151,6 +183,29 @@ void FInternetAddrBSD::SetRawIp(const TArray<uint8>& RawAddr)
 	{
 		Clear();
 	}
+}
+
+void FInternetAddrBSD::GetIp(uint32& OutAddr) const
+{
+	if (GetProtocolFamily() != ESocketProtocolFamily::IPv4)
+	{
+		OutAddr = 0;
+
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+		sockaddr_in6* IPv6Addr = ((sockaddr_in6*)&Addr);
+		if (IN6_IS_ADDR_V4MAPPED(&IPv6Addr->sin6_addr))
+		{
+#if PLATFORM_LITTLE_ENDIAN
+			OutAddr = (IPv6Addr->sin6_addr.s6_addr[12] << 24) | (IPv6Addr->sin6_addr.s6_addr[13] << 16) | (IPv6Addr->sin6_addr.s6_addr[14] << 8) | (IPv6Addr->sin6_addr.s6_addr[15]);
+#else
+			OutAddr = (IPv6Addr->sin6_addr.s6_addr[15] << 24) | (IPv6Addr->sin6_addr.s6_addr[14] << 16) | (IPv6Addr->sin6_addr.s6_addr[13] << 8) | (IPv6Addr->sin6_addr.s6_addr[12]);
+#endif
+		}
+#endif
+		return;
+	}
+
+	OutAddr = ntohl(((sockaddr_in*)&Addr)->sin_addr.s_addr);
 }
 
 void FInternetAddrBSD::SetPort(int32 InPort)
@@ -232,7 +287,6 @@ void FInternetAddrBSD::SetIPv6BroadcastAddress()
 #endif // in6addr_allnodesonlink
 	SetIp(in6addr_allnodesonlink);
 #endif
-	ResetScopeId();
 	SetPort(0);
 }
 
@@ -299,6 +353,13 @@ FString FInternetAddrBSD::ToString(bool bAppendPort) const
 bool FInternetAddrBSD::operator==(const FInternetAddr& Other) const
 {
 	const FInternetAddrBSD& OtherBSD = static_cast<const FInternetAddrBSD&>(Other);
+	ESocketProtocolFamily CurrentFamily = GetProtocolFamily();
+
+	// Check if the addr families match
+	if (OtherBSD.GetProtocolFamily() != CurrentFamily)
+	{
+		return false;
+	}
 
 	// If the ports don't match, already fail out.
 	if (GetPort() != OtherBSD.GetPort())
@@ -306,37 +367,16 @@ bool FInternetAddrBSD::operator==(const FInternetAddr& Other) const
 		return false;
 	}
 
-	// On IPv6, we'll want to just convert our addresses to IPv6 and then do the comparison.
-	// This fixes issues like mapped addresses not matching when they should.
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
-
-	auto GetInAddrStruct = [](const FInternetAddrBSD& x) { return (x.Addr.ss_family == AF_INET6) ?
-		(void*)(&(reinterpret_cast<const sockaddr_in6*>(&x.Addr)->sin6_addr)) :
-		(void*)(&(reinterpret_cast<const sockaddr_in*>(&x.Addr)->sin_addr)); };
-
-	char ThisAddressBuffer[INET6_ADDRSTRLEN];
-	char OtherAddressBuffer[INET6_ADDRSTRLEN];
-	FMemory::Memzero(&ThisAddressBuffer, sizeof(ThisAddressBuffer));
-	FMemory::Memzero(&OtherAddressBuffer, sizeof(OtherAddressBuffer));
-
-	if (inet_ntop(AF_INET6, GetInAddrStruct(OtherBSD), OtherAddressBuffer, sizeof(OtherAddressBuffer)) != nullptr &&
-		inet_ntop(AF_INET6, GetInAddrStruct((*this)), ThisAddressBuffer, sizeof(ThisAddressBuffer)) != nullptr)
+	if (CurrentFamily == ESocketProtocolFamily::IPv6)
 	{
-		int32 AddressLen = FCStringAnsi::Strlen(ThisAddressBuffer);
-		int32 OtherLen = FCStringAnsi::Strlen(OtherAddressBuffer);
-		// THIS IS TEMP: REMOVE THIS AFTER TESTS.
-		UE_LOG(LogSockets, Verbose, TEXT("Comparing the two sockaddrs. Ours[%s, Len: %d] Theirs[%s, Len: %d]"), ThisAddressBuffer, AddressLen, OtherAddressBuffer, OtherLen);
-		if (AddressLen == OtherLen)
-		{
-			return FCStringAnsi::Strncmp(ThisAddressBuffer, OtherAddressBuffer, AddressLen) == 0;
-		}
-
-		return false;
+		const sockaddr_in6* OtherBSDAddr = (sockaddr_in6*)&(OtherBSD.Addr);
+		const sockaddr_in6* ThisBSDAddr = ((sockaddr_in6*)&Addr);
+		return memcmp(&(ThisBSDAddr->sin6_addr), &(OtherBSDAddr->sin6_addr), sizeof(in6_addr)) == 0;
 	}
-
 #endif
 
-	if (Addr.ss_family == AF_INET && OtherBSD.Addr.ss_family == AF_INET)
+	if (CurrentFamily == ESocketProtocolFamily::IPv4)
 	{
 		const sockaddr_in* OtherBSDAddr = (sockaddr_in*)&(OtherBSD.Addr);
 		const sockaddr_in* ThisBSDAddr = ((sockaddr_in*)&Addr);
@@ -403,7 +443,6 @@ SOCKLEN FInternetAddrBSD::GetStorageSize() const
 		return sizeof(sockaddr_in6);
 #endif
 	}
-
 	return sizeof(sockaddr_storage);
 }
 

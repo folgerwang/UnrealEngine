@@ -5,6 +5,7 @@
 #include "Modules/ModuleManager.h"
 #include "BSDSockets/SocketsBSD.h"
 #include "IPAddress.h"
+#include <net/if.h>
 #include <ifaddrs.h>
 #include "SocketsBSDIOS.h"
 #include "IPAddressBSDIOS.h"
@@ -112,17 +113,20 @@ TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& O
 			}
 
 			sockaddr_storage* AddrData = reinterpret_cast<sockaddr_storage*>(Travel->ifa_addr);
+			uint32 ScopeInterfaceId = ntohl(if_nametoindex(Travel->ifa_name));
 			if (Travel->ifa_addr->sa_family == AF_INET6)
 			{
 				if (strcmp(Travel->ifa_name, "en0") == 0)
 				{
 					HostAddr->SetIp(*AddrData);
+					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasWifiSet = true;
 					bWasIPv6Set = true;
 				}
 				else if (!bWasWifiSet && strcmp(Travel->ifa_name, "pdp_ip0") == 0)
 				{
 					HostAddr->SetIp(*AddrData);
+					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasCellSet = true;
 				}
 			}
@@ -131,11 +135,13 @@ TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& O
 				if (strcmp(Travel->ifa_name, "en0") == 0)
 				{
 					HostAddr->SetIp(*AddrData);
+					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasWifiSet = true;
 				}
 				else if (!bWasWifiSet && strcmp(Travel->ifa_name, "pdp_ip0") == 0)
 				{
 					HostAddr->SetIp(*AddrData);
+					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasCellSet = true;
 				}
 			}
