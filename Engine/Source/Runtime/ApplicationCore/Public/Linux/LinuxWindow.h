@@ -169,7 +169,7 @@ public:
 		return DPIScaleFactor;
 	}
 
-	void SetDPIScaleFactor(float Value)
+	virtual void SetDPIScaleFactor(float Value) override
 	{
 		DPIScaleFactor = Value;
 	}

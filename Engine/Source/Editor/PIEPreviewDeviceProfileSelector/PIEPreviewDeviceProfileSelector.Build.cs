@@ -13,7 +13,7 @@ namespace UnrealBuildTool.Rules
 				{
 					"Core",
 				    "CoreUObject",
-				}
+                }
 				);
 
 			PrivateDependencyModuleNames.AddRange(
@@ -24,8 +24,12 @@ namespace UnrealBuildTool.Rules
 					"JsonUtilities",
 					"MaterialShaderQualitySettings",
 					"Slate",
-					"SlateCore"
-				}
+					"SlateCore",
+                    "ApplicationCore",
+					"Engine",
+					"UnrealEd",
+					"EditorStyle"
+                }
 				);
 		}
 	}
