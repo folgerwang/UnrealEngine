@@ -7,18 +7,20 @@
 #include "Async/TaskGraphInterfaces.h"
 #include "ARSystem.h"
 #include "Misc/ConfigCacheIni.h"
+#include "AppleARKitFaceSupportModule.h"
 
-DECLARE_STATS_GROUP(TEXT("AppleARKitFaceSupport"), STATGROUP_APPLEARKITFACE, STATCAT_Advanced);
+DECLARE_CYCLE_STAT(TEXT("Conversion"), STAT_FaceAR_Conversion, STATGROUP_FaceAR);
 
 #if SUPPORTS_ARKIT_1_0
 
-static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor, const FRotator& AdjustBy)
+static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor, const FRotator& AdjustBy, EARFaceTrackingUpdate UpdateSetting)
 {
+	SCOPE_CYCLE_COUNTER(STAT_FaceAR_Conversion);
+	
     TSharedPtr<FAppleARKitAnchorData> NewAnchor;
     if ([Anchor isKindOfClass:[ARFaceAnchor class]])
     {
         ARFaceAnchor* FaceAnchor = (ARFaceAnchor*)Anchor;
-//@joeg -- Eye tracking support
 		FTransform LeftEyeTransform;
 		FTransform RightEyeTransform;
 		FVector LookAtTarget;
@@ -34,13 +36,13 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor, const 
 			FAppleARKitConversion::ToFGuid(FaceAnchor.identifier),
 			FAppleARKitConversion::ToFTransform(FaceAnchor.transform, AdjustBy),
 			ToBlendShapeMap(FaceAnchor.blendShapes, FAppleARKitConversion::ToFTransform(FaceAnchor.transform, AdjustBy), LeftEyeTransform, RightEyeTransform),
-			ToVertexBuffer(FaceAnchor.geometry.vertices, FaceAnchor.geometry.vertexCount),
+			UpdateSetting == EARFaceTrackingUpdate::CurvesAndGeo ? ToVertexBuffer(FaceAnchor.geometry.vertices, FaceAnchor.geometry.vertexCount) : TArray<FVector>(),
 			LeftEyeTransform,
 			RightEyeTransform,
 			LookAtTarget
 		);
         // Only convert from 16bit to 32bit once
-        if (FAppleARKitAnchorData::FaceIndices.Num() == 0)
+        if (UpdateSetting == EARFaceTrackingUpdate::CurvesAndGeo && FAppleARKitAnchorData::FaceIndices.Num() == 0)
         {
             FAppleARKitAnchorData::FaceIndices = To32BitIndexBuffer(FaceAnchor.geometry.triangleIndices, FaceAnchor.geometry.triangleCount * 3);
         }
@@ -76,7 +78,7 @@ void FAppleARKitFaceSupport::Shutdown()
 
 ARConfiguration* FAppleARKitFaceSupport::ToARConfiguration(UARSessionConfig* SessionConfig)
 {
-	ARConfiguration* SessionConfiguration = nullptr;
+	ARFaceTrackingConfiguration* SessionConfiguration = nullptr;
 	if (SessionConfig->GetSessionType() == EARSessionType::Face)
 	{
 		if (ARFaceTrackingConfiguration.isSupported == FALSE)
@@ -91,16 +93,26 @@ ARConfiguration* FAppleARKitFaceSupport::ToARConfiguration(UARSessionConfig* Ses
 	SessionConfiguration.providesAudioData = NO;
 	SessionConfiguration.worldAlignment = FAppleARKitConversion::ToARWorldAlignment(SessionConfig->GetWorldAlignment());
 
+#if SUPPORTS_ARKIT_1_5
+	if (FAppleARKitAvailability::SupportsARKit15())
+	{
+		ARVideoFormat* Format = FAppleARKitConversion::ToARVideoFormat(SessionConfig->GetDesiredVideoFormat(), ARFaceTrackingConfiguration.supportedVideoFormats);
+		if (Format != nullptr)
+		{
+			SessionConfiguration.videoFormat = Format;
+		}
+	}
+#endif
 	return SessionConfiguration;
 }
 
-TArray<TSharedPtr<FAppleARKitAnchorData>> FAppleARKitFaceSupport::MakeAnchorData(NSArray<ARAnchor*>* Anchors, double Timestamp, uint32 FrameNumber, const FRotator& AdjustBy)
+TArray<TSharedPtr<FAppleARKitAnchorData>> FAppleARKitFaceSupport::MakeAnchorData(NSArray<ARAnchor*>* Anchors, double Timestamp, uint32 FrameNumber, const FRotator& AdjustBy, EARFaceTrackingUpdate UpdateSetting)
 {
 	TArray<TSharedPtr<FAppleARKitAnchorData>> AnchorList;
 
 	for (ARAnchor* Anchor in Anchors)
 	{
-		TSharedPtr<FAppleARKitAnchorData> AnchorData = ::MakeAnchorData(Anchor, AdjustBy);
+		TSharedPtr<FAppleARKitAnchorData> AnchorData = ::MakeAnchorData(Anchor, AdjustBy, UpdateSetting);
 		if (AnchorData.IsValid())
 		{
 			AnchorList.Add(AnchorData);
@@ -140,3 +152,10 @@ bool FAppleARKitFaceSupport::DoesSupportFaceAR()
 	return ARFaceTrackingConfiguration.isSupported == TRUE;
 }
 #endif
+#if SUPPORTS_ARKIT_1_5
+TArray<FARVideoFormat> FAppleARKitFaceSupport::ToARConfiguration()
+{
+	return FAppleARKitConversion::FromARVideoFormatArray(ARFaceTrackingConfiguration.supportedVideoFormats);
+}
+#endif
+

@@ -507,6 +507,7 @@ ID3D11Buffer* FD3D11DynamicBuffer::Unlock()
 
 
 DEFINE_STAT(STAT_D3D11PresentTime);
+DEFINE_STAT(STAT_D3D11CustomPresentTime);
 DEFINE_STAT(STAT_D3D11TexturesAllocated);
 DEFINE_STAT(STAT_D3D11TexturesReleased);
 DEFINE_STAT(STAT_D3D11ClearShaderResourceTime);

@@ -1298,112 +1298,6 @@ namespace OculusHMD
 #endif
 	}
 
-
-	static ovrpMatrix4f ovrpMatrix4f_OrthoSubProjection(const ovrpMatrix4f& projection, const ovrpVector2f& orthoScale, float orthoDistance, float hmdToEyeOffsetX)
-	{
-		ovrpMatrix4f ortho;
-
-		// Negative sign is correct!
-		// If the eye is offset to the left, then the ortho view needs to be offset to the right relative to the camera.
-		float orthoHorizontalOffset = -hmdToEyeOffsetX / orthoDistance;
-
-		/*
-		// Current projection maps real-world vector (x,y,1) to the RT.
-		// We want to find the projection that maps the range [-FovPixels/2,FovPixels/2] to
-		// the physical [-orthoHalfFov,orthoHalfFov]
-		// Note moving the offset from M[0][2]+M[1][2] to M[0][3]+M[1][3] - this means
-		// we don't have to feed in Z=1 all the time.
-		// The horizontal offset math is a little hinky because the destination is
-		// actually [-orthoHalfFov+orthoHorizontalOffset,orthoHalfFov+orthoHorizontalOffset]
-		// So we need to first map [-FovPixels/2,FovPixels/2] to
-		//                         [-orthoHalfFov+orthoHorizontalOffset,orthoHalfFov+orthoHorizontalOffset]:
-		// x1 = x0 * orthoHalfFov/(FovPixels/2) + orthoHorizontalOffset;
-		//    = x0 * 2*orthoHalfFov/FovPixels + orthoHorizontalOffset;
-		// But then we need the same mapping as the existing projection matrix, i.e.
-		// x2 = x1 * Projection.M[0][0] + Projection.M[0][2];
-		//    = x0 * (2*orthoHalfFov/FovPixels + orthoHorizontalOffset) * Projection.M[0][0] + Projection.M[0][2];
-		//    = x0 * Projection.M[0][0]*2*orthoHalfFov/FovPixels +
-		//      orthoHorizontalOffset*Projection.M[0][0] + Projection.M[0][2];
-		// So in the new projection matrix we need to scale by Projection.M[0][0]*2*orthoHalfFov/FovPixels and
-		// offset by orthoHorizontalOffset*Projection.M[0][0] + Projection.M[0][2].
-		*/
-
-		ortho.M[0][0] = projection.M[0][0] * orthoScale.x;
-		ortho.M[0][1] = 0.0f;
-		ortho.M[0][2] = 0.0f;
-		ortho.M[0][3] = projection.M[0][2] * projection.M[3][2] + (orthoHorizontalOffset * projection.M[0][0]);
-
-		ortho.M[1][0] = 0.0f;
-		ortho.M[1][1] = -projection.M[1][1] * orthoScale.y;       /* Note sign flip (text rendering uses Y=down). */
-		ortho.M[1][2] = 0.0f;
-		ortho.M[1][3] = projection.M[1][2] * projection.M[3][2];
-
-		ortho.M[2][0] = 0.0f;
-		ortho.M[2][1] = 0.0f;
-		ortho.M[2][2] = 0.0f;
-		ortho.M[2][3] = 0.0f;
-
-		/* No perspective correction for ortho. */
-		ortho.M[3][0] = 0.0f;
-		ortho.M[3][1] = 0.0f;
-		ortho.M[3][2] = 0.0f;
-		ortho.M[3][3] = 1.0f;
-
-		return ortho;
-	}
-
-
-	void FOculusHMD::GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const
-	{
-		CheckInGameThread();
-
-		// We deliberately ignore the world to meters setting and always use 100 here, as canvas distance is hard coded based on an 100 uus per meter assumption.
-		float orthoDistance = OrthoDistance / 100.f;
-
-		for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++)
-		{
-			const FIntRect& eyeRenderViewport = Settings->EyeRenderViewport[eyeIndex];
-			const ovrpMatrix4f& PerspectiveProjection = Settings->EyeProjectionMatrices[eyeIndex];
-
-			ovrpVector2f pixelsPerTanAngleAtCenter = ovrpVector2f{ 0.0f, 0.0f };
-			ovrp_GetEyePixelsPerTanAngleAtCenter2(eyeIndex, &pixelsPerTanAngleAtCenter);
-			ovrpVector2f orthoScale;
-			orthoScale.x = 1.0f / pixelsPerTanAngleAtCenter.x;
-			orthoScale.y = 1.0f / pixelsPerTanAngleAtCenter.y;
-			ovrpVector3f hmdToEyeOffset = ovrpVector3f{ 0.0f, 0.0f, 0.0f };
-			ovrp_GetHmdToEyeOffset2(eyeIndex, &hmdToEyeOffset);
-
-			ovrpMatrix4f orthoSubProjection = ovrpMatrix4f_OrthoSubProjection(PerspectiveProjection, orthoScale, orthoDistance, hmdToEyeOffset.x);
-			const float WidthDivider = Settings->Flags.bIsUsingDirectMultiview ? 1.0f : 2.0f;
-
-			OrthoProjection[eyeIndex] = FScaleMatrix(FVector(
-				WidthDivider / (float)Settings->RenderTargetSize.X,
-				1.0f / (float)Settings->RenderTargetSize.Y,
-				1.0f));
-
-			OrthoProjection[eyeIndex] *= FTranslationMatrix(FVector(
-				orthoSubProjection.M[0][3] * 0.5f,
-				0.0f,
-				0.0f));
-
-			OrthoProjection[eyeIndex] *= FScaleMatrix(FVector(
-				(float)eyeRenderViewport.Width(),
-				(float)eyeRenderViewport.Height(),
-				1.0f));
-
-			OrthoProjection[eyeIndex] *= FTranslationMatrix(FVector(
-				(float)eyeRenderViewport.Min.X,
-				(float)eyeRenderViewport.Min.Y,
-				0.0f));
-
-			OrthoProjection[eyeIndex] *= FScaleMatrix(FVector(
-				(float)RTWidth / (float)Settings->RenderTargetSize.X,
-				(float)RTHeight / (float)Settings->RenderTargetSize.Y,
-				1.0f));
-		}
-	}
-
-
 	FVector2D FOculusHMD::GetEyeCenterPoint_RenderThread(EStereoscopicPass StereoPassType) const
 	{
 		CheckInRenderThread();
@@ -1844,7 +1738,7 @@ namespace OculusHMD
 		IStereoLayers::FLayerDesc StereoLayerDesc;
 		StereoLayerDesc.Transform = FTransform(FVector(0.f, 0, 0)); //100/0/0 for quads
 		StereoLayerDesc.CylinderHeight = 180.f;
-		StereoLayerDesc.CylinderOverlayArc = 628.f/4;
+		StereoLayerDesc.CylinderOverlayArc = 488.f/4;
 		StereoLayerDesc.CylinderRadius = 100.f;
 		StereoLayerDesc.QuadSize = FVector2D(180.f, 180.f);
 		StereoLayerDesc.PositionType = IStereoLayers::ELayerType::FaceLocked;
@@ -2488,20 +2382,6 @@ namespace OculusHMD
 			Settings->Flags.bIsUsingDirectMultiview = true;
 		}
 
-		if (Settings->Flags.bIsUsingDirectMultiview)
-		{
-			IConsoleVariable* DebugCanvasInLayerCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("vr.DebugCanvasInLayer"));
-			if (DebugCanvasInLayerCVar && DebugCanvasInLayerCVar->GetInt() == 0)
-			{
-				const EConsoleVariableFlags CVarSetByFlags = (EConsoleVariableFlags)(DebugCanvasInLayerCVar->GetFlags() & ECVF_SetByMask);
-				// if this was set by anything else (manually by the user), then we don't want to reset the "default" here
-				if (CVarSetByFlags == ECVF_SetByConstructor)
-				{
-					// when direct multiview is enabled, the default for this should be on
-					DebugCanvasInLayerCVar->Set(1, ECVF_Default);
-				}
-			}
-		}
 #endif
 
 		ovrpLayerDesc_EyeFov EyeLayerDesc;
@@ -3632,10 +3512,6 @@ namespace OculusHMD
 		{
 			check(!FMath::IsNaN(f));
 			Settings->PixelDensityMin = FMath::Clamp(f, Settings->PixelDensityMin, ClampPixelDensityMax);
-		}
-		if (GConfig->GetBool(OculusSettings, TEXT("bPixelDensityAdaptive"), v, GEngineIni))
-		{
-			Settings->bPixelDensityAdaptive = v;
 		}
 		if (GConfig->GetBool(OculusSettings, TEXT("bPixelDensityAdaptive"), v, GEngineIni))
 		{

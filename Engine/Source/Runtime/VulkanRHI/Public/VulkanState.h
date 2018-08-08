@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanState.h: Vulkan state definitions.
@@ -14,11 +14,16 @@ class FVulkanDevice;
 class FVulkanSamplerState : public FRHISamplerState
 {
 public:
-	FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVulkanDevice& InDevice);
+	FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVulkanDevice& InDevice, const bool bInIsImmutable = false);
+	
+	virtual bool IsImmutable() const override { return bIsImmutable; }
 
 	VkSampler Sampler;
 
 	static void SetupSamplerCreateInfo(const FSamplerStateInitializerRHI& Initializer, FVulkanDevice& InDevice, VkSamplerCreateInfo& OutSamplerInfo);
+
+private:
+	bool bIsImmutable;
 };
 
 class FVulkanRasterizerState : public FRHIRasterizerState

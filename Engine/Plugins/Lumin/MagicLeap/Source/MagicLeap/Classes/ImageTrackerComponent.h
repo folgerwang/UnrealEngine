@@ -8,6 +8,7 @@
 #include "Engine/Texture2D.h"
 #include "Misc/ScopeLock.h"
 #include "HAL/ThreadSafeBool.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "ImageTrackerComponent.generated.h"
 
 /**
@@ -31,6 +32,21 @@ public:
 	/** Polls for and handles incoming messages from the asynchronous image tracking system. */
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
+	/**
+		Attempts to change the currently tracked target.  Initiates an asynchronous call on a worker thread.
+		When the task completes, the instigating blueprint will be notified by either a FSetImageTargetSucceeded
+		or FSetImageTargetFailed event.
+		@param ImageTarget The new texture to be tracked.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "ImageTracking|MagicLeap")
+	void SetTargetAsync(UTexture2D* ImageTarget);
+
+	/** Delegate used to notify the instigating blueprint that the target image was successfully set. */
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSetImageTargetSucceeded);
+
+	/** Delegate used to notify the instigating blueprint that the target image failed to be set. */
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSetImageTargetFailed);
+
 	/** Delegate used to notify the instigating blueprint that the target image is currently visible to the camera */
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FImageTargetFound);
 
@@ -45,6 +61,14 @@ public:
 	  @param NewUnreliableRotation The new rotation of the target image (which may or may not be accurate).
 	*/
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FImageTargetUnreliableTracking, const FVector&, LastTrackedLocation, const FRotator&, LastTrackedRotation, const FVector&, NewUnreliableLocation, const FRotator&, NewUnreliableRotation);
+
+	/** Activated when the target image is successfully set. */
+	UPROPERTY(BlueprintAssignable)
+	FSetImageTargetSucceeded OnSetImageTargetSucceeded;
+
+	/** Activated when the target image fails to be set. */
+	UPROPERTY(BlueprintAssignable)
+	FSetImageTargetFailed OnSetImageTargetFailed;
 
 	/** Activated when the target image becomes visible to the camera */
 	UPROPERTY(BlueprintAssignable)
@@ -91,6 +115,7 @@ public:
 	bool bUseUnreliablePose;
 
 private:
+	friend class FImageTrackerImpl;
 	class FImageTrackerImpl *Impl;
 	bool bTick;
 
@@ -99,4 +124,55 @@ public:
 	void PreEditChange(UProperty* PropertyAboutToChange) override;
 	void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
+};
+
+UCLASS(ClassGroup = MagicLeap)
+class MAGICLEAP_API UImageTrackerFunctionLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+	/**
+	  Set maximum number of Image Targets that can be tracked at any given time.
+
+	  If the tracker is already tracking the maximum number of targets
+	  possible then it will stop searching for new targets which helps
+	  in reducing the load on the CPU. For example, if you are interested in
+	  tracking a maximum of x targets from a list y (x < y) targets then set this
+	  parameter to x.
+
+	  The valid range for this parameter is from 1 through 25.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "ImageTracking|MagicLeap")
+	static void SetMaxSimultaneousTargets(int32 MaxSimultaneousTargets);
+
+	/**
+		Gets the maximum number of Image Targets that can be tracked at any given time.
+		@return The maximum number of Image Targets that can be tracked at any given time.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "ImageTracking|MagicLeap")
+	static int32 GetMaxSimultaneousTargets();
+
+	/**
+	  If true, image tracker will detect and track targets.
+
+	  When enabled Image Tracker will gain access to the camera and start
+	  trackingimages. Enabling image tracker is expensive, takes about 1500ms
+	  on the average.
+
+	  When disabled Image Tracker will release the camera and stop tracking
+	  images. Internal state of the tracker will be maintained (i.e. list of
+	  active/inactive argets and their target_handles).
+
+	  This is done automatically on application pause / resume.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "ImageTracking|MagicLeap")
+	static void EnableImageTracking(bool bEnable);
+
+	/**
+		Gets the active state of the image tracking system.
+		@return True if image tracking is enabled, false otherwise.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "ImageTracking|MagicLeap")
+	static bool IsImageTrackingEnabled();
 };

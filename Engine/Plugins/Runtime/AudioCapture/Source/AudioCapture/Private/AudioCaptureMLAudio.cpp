@@ -1,6 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioCaptureInternal.h"
+#include "Misc/CoreDelegates.h"
+
 #if PLATFORM_LUMIN
 
 namespace Audio 
@@ -15,26 +17,33 @@ FAudioCaptureImpl::FAudioCaptureImpl()
 {
 }
 
-static void OnAudioCaptureCallback(void* CallbackContext)
+static void OnAudioCaptureCallback(MLHandle Handle, void* CallbackContext)
 {
+	(void)Handle;
 	FAudioCaptureImpl* AudioCapture = (FAudioCaptureImpl*)CallbackContext;
 	check(MLHandleIsValid(AudioCapture->InputDeviceHandle));
 	MLAudioBuffer OutputBuffer;
-	MLAudioError Result;
-	if (MLAudioGetInputStreamBuffer(AudioCapture->InputDeviceHandle, &OutputBuffer, &Result))
+	MLResult Result = MLAudioGetInputStreamBuffer(AudioCapture->InputDeviceHandle, &OutputBuffer);
+	if (Result == MLResult_Ok)
 	{
 		AudioCapture->OnAudioCapture(OutputBuffer.ptr, OutputBuffer.size / sizeof(int16), 0.0, false);
-		MLAudioReleaseInputStreamBuffer(AudioCapture->InputDeviceHandle, &Result);
+		Result = MLAudioReleaseInputStreamBuffer(AudioCapture->InputDeviceHandle);
+		if (Result != MLResult_Ok)
+		{
+			UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioReleaseInputStreamBuffer failed with error %d"), Result);
+		}
 	}
 	else
 	{
-		UE_LOG(LogAudioCapture, Warning, TEXT("CALLBACK ERROR %u"), Result);
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioGetInputStreamBuffer failed with error %d"), Result);
 	}
 }
 
 void FAudioCaptureImpl::OnAudioCapture(void* InBuffer, uint32 InBufferFrames, double StreamTime, bool bOverflow)
 {
 	check(Callback);
+
+	FScopeLock ScopeLock(&ApplicationResumeCriticalSection);
 
 	int32 NumSamples = (int32)(InBufferFrames * NumChannels);
 
@@ -60,11 +69,10 @@ bool FAudioCaptureImpl::GetDefaultCaptureDeviceInfo(FCaptureDeviceInfo& OutInfo)
 	MLAudioBufferFormat DefaultBufferFormat;
 	uint32 BufferSize = 0;
 	uint32 MinBufferSize = 0;
-	MLAudioError Result;
 	uint32 UnsignedSampleRate = SampleRate;
-	MLAudioGetInputStreamDefaults(ChannelCount, UnsignedSampleRate, &DefaultBufferFormat, &BufferSize, &MinBufferSize, &Result);
 
-	if (Result == MLAudioError_Success)
+	MLResult Result = MLAudioGetInputStreamDefaults(ChannelCount, UnsignedSampleRate, &DefaultBufferFormat, &BufferSize, &MinBufferSize);
+	if (Result == MLResult_Ok)
 	{
 		OutInfo.DeviceName = TEXT("MLAudio Microphones");
 		OutInfo.InputChannels = ChannelCount;
@@ -73,17 +81,17 @@ bool FAudioCaptureImpl::GetDefaultCaptureDeviceInfo(FCaptureDeviceInfo& OutInfo)
 	}
 	else
 	{
-		UE_LOG(LogAudioCapture, Error, TEXT("Unable to retrieve settings from MLAudio error: %u! Sample rate %u"), Result, UnsignedSampleRate);
+		UE_LOG(LogAudioCapture, Error, TEXT("Unable to retrieve settings from MLAudio error: %d! Sample rate %u"), Result, UnsignedSampleRate);
+		return false;
 	}
 	
-
 	return true;
 }
 
 bool FAudioCaptureImpl::OpenDefaultCaptureStream(const FAudioCaptureStreamParam& StreamParams)
 {
 	UE_LOG(LogAudioCapture, Warning, TEXT("OPENING STREAM"));
-	if (InputDeviceHandle != ML_INVALID_HANDLE)
+	if (MLHandleIsValid(InputDeviceHandle))
 	{
 		UE_LOG(LogAudioCapture, Error, TEXT("Capture Stream Already Opened"));
 	}
@@ -94,28 +102,31 @@ bool FAudioCaptureImpl::OpenDefaultCaptureStream(const FAudioCaptureStreamParam&
 		return false;
 	}
 
+	FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddRaw(this, &FAudioCaptureImpl::OnApplicationSuspend);
+	FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddRaw(this, &FAudioCaptureImpl::OnApplicationResume);
+
 	// set up variables to be populated by ML Audio
 	uint32 ChannelCount = NumChannels;
 	MLAudioBufferFormat DefaultBufferFormat;
-	uint32 BufferSize = 0;
+	uint32 RecommendedBufferSize = 0;
 	uint32 MinBufferSize = 0;
 	uint32 UnsignedSampleRate = SampleRate;
-	MLAudioError Result;
-
-	MLAudioGetInputStreamDefaults(ChannelCount, UnsignedSampleRate, &DefaultBufferFormat, &BufferSize, &MinBufferSize, &Result);
-	
 	uint32 NumFrames = StreamParams.NumFramesDesired;
-	uint32 RequestedBufferSize = StreamParams.NumFramesDesired * NumChannels * sizeof(int16);
+	uint32 BufferSize = StreamParams.NumFramesDesired * NumChannels * sizeof(int16);
 
-	if (RequestedBufferSize < MinBufferSize)
+	MLResult Result = MLAudioGetInputStreamDefaults(ChannelCount, UnsignedSampleRate, &DefaultBufferFormat, &RecommendedBufferSize, &MinBufferSize);
+	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogAudioCapture, Warning, TEXT("Requested buffer size of %u is smaller than the minimum buffer size, reverting to a buffer size of %u"), RequestedBufferSize, BufferSize);
+		UE_LOG(LogAudioCapture, Error, TEXT("MLAudioGetInputStreamDefaults failed with error %d"), Result);
+		return false;
 	}
-	else
+
+	if (BufferSize < RecommendedBufferSize)
 	{
-		BufferSize = StreamParams.NumFramesDesired * NumChannels;
-		UE_LOG(LogAudioCapture, Display, TEXT("Using buffer size of %u"), StreamParams.NumFramesDesired * NumChannels);
+		UE_LOG(LogAudioCapture, Warning, TEXT("Requested buffer size of %u is smaller than the recommended buffer size, reverting to a buffer size of %u"), BufferSize, RecommendedBufferSize);
+		BufferSize = RecommendedBufferSize;
 	}
+	UE_LOG(LogAudioCapture, Display, TEXT("Using buffer size of %u"), BufferSize);
 
 	DefaultBufferFormat.bits_per_sample = 16;
 	DefaultBufferFormat.sample_format = MLAudioSampleFormat_Int;
@@ -125,14 +136,16 @@ bool FAudioCaptureImpl::OpenDefaultCaptureStream(const FAudioCaptureStreamParam&
 	Callback = StreamParams.Callback;
 
 	// Open up new audio stream
-	MLAudioCreateInputFromVoiceComm(&DefaultBufferFormat, BufferSize, &OnAudioCaptureCallback, this, &InputDeviceHandle, &Result);
-	if (Result != MLAudioError_Success)
+	Result = MLAudioCreateInputFromVoiceComm(&DefaultBufferFormat, BufferSize, &OnAudioCaptureCallback, this, &InputDeviceHandle);
+	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioCreateInputFromVoiceComm failed with code %u"), Result);
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioCreateInputFromVoiceComm failed with code %d"), Result);
+		return false;
 	}
-	else if (InputDeviceHandle == ML_INVALID_HANDLE)
+	else if (!MLHandleIsValid(InputDeviceHandle))
 	{
-		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioCreateInputFromVoiceComm failed to generate an input device handle"), Result);
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioCreateInputFromVoiceComm failed to generate an input device handle."));
+		return false;
 	}
 	return true;
 }
@@ -140,24 +153,28 @@ bool FAudioCaptureImpl::OpenDefaultCaptureStream(const FAudioCaptureStreamParam&
 bool FAudioCaptureImpl::CloseStream()
 {
 	UE_LOG(LogAudioCapture, Warning, TEXT("CLOSING STREAM"));
-	MLAudioError Result;
-	if (!MLAudioDestroyInput(InputDeviceHandle, &Result))
+	MLResult Result = MLAudioDestroyInput(InputDeviceHandle);
+	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioDestroyInput failed with code %u"), Result);
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioDestroyInput failed with code %d"), Result);
 		return false;
 	}
 
 	InputDeviceHandle = ML_INVALID_HANDLE;
+
+	FCoreDelegates::ApplicationHasEnteredForegroundDelegate.RemoveAll(this);
+	FCoreDelegates::ApplicationWillEnterBackgroundDelegate.RemoveAll(this);
+
 	return true;
 }
 
 bool FAudioCaptureImpl::StartStream()
 {
 	UE_LOG(LogAudioCapture, Warning, TEXT("STARTING STREAM"));
-	MLAudioError Result;
-	if (!MLAudioStartInput(InputDeviceHandle, &Result))
+	MLResult Result = MLAudioStartInput(InputDeviceHandle);
+	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioStartInput failed with code %u"), Result);
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioStartInput failed with code %d"), Result);
 		return false;
 	}
 
@@ -168,10 +185,10 @@ bool FAudioCaptureImpl::StartStream()
 bool FAudioCaptureImpl::StopStream()
 {
 	UE_LOG(LogAudioCapture, Warning, TEXT("STOPPING STREAM"));
-	MLAudioError Result;
-	if (!MLAudioStopInput(InputDeviceHandle, &Result))
+	MLResult Result = MLAudioStopInput(InputDeviceHandle);
+	if (Result != MLResult_Ok)
 	{
-		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioStopInput failed with code %u"), Result);
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioStopInput failed with code %d"), Result);
 		return false;
 	}
 
@@ -195,7 +212,7 @@ bool FAudioCaptureImpl::GetStreamTime(double& OutStreamTime)
 
 bool FAudioCaptureImpl::IsStreamOpen() const
 {
-	return InputDeviceHandle != ML_INVALID_HANDLE;
+	return MLHandleIsValid(InputDeviceHandle);
 }
 
 bool FAudioCaptureImpl::IsCapturing() const
@@ -206,6 +223,27 @@ bool FAudioCaptureImpl::IsCapturing() const
 TUniquePtr<FAudioCaptureImpl> FAudioCapture::CreateImpl()
 {
 	return TUniquePtr<FAudioCaptureImpl>(new FAudioCaptureImpl());
+}
+
+void FAudioCaptureImpl::OnApplicationSuspend()
+{
+	FScopeLock ScopeLock(&ApplicationResumeCriticalSection);
+	MLResult Result = MLAudioStopInput(InputDeviceHandle);
+	if (Result != MLResult_Ok)
+	{
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioStopInput failed with code %d"), Result);
+		return;
+	}
+}
+
+void FAudioCaptureImpl::OnApplicationResume()
+{
+	MLResult Result = MLAudioStartInput(InputDeviceHandle);
+	if (Result != MLResult_Ok)
+	{
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioStartInput failed with code %d"), Result);
+		return;
+	}
 }
 
 } // namespace Audio

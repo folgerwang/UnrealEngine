@@ -624,10 +624,10 @@ namespace UnrealBuildTool
 				}
 			}
 
-			//  Lumin debugger is only supported on game projects for now.
-			if (OnlyGameProject != null)
+			if (!IsStubProject)
 			{
-				// TODO: Restrict this to only the Lumin platform targets.
+				// TODO: Restrict this to only the Lumin platform targets, routing via GetVisualStudioGlobalProperties().
+				// Currently hacking here because returning true from HasVisualStudioSupport() for lumin causes bunch of faiures in VS.
 				string LuminDebuggerItemGroup =
 						"	<ItemGroup>" + ProjectFileGenerator.NewLine +
 						"		<ProjectCapability Include=\"MLProject\" />" + ProjectFileGenerator.NewLine +

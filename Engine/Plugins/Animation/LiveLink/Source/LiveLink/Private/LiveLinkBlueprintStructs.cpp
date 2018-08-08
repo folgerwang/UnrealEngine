@@ -343,8 +343,3 @@ void FSubjectFrameHandle::SetCachedFrame(TSharedPtr<FCachedSubjectFrame> InCache
 {
 	CachedFrame = InCachedFrame;
 };
-
-void FLiveLinkSourceHandle::SetSourcePointer(TSharedPtr<ILiveLinkSource> InSourcePointer)
-{
-	SourcePointer = InSourcePointer;
-};

@@ -467,7 +467,7 @@
 	<Property Name="CopyLuminFilter">
 		<!-- Build Files -->
 		Engine/Build/Lumin/...
-		Engine/Source/ThirdParty/ResonanceAudioApi/Lumin/ResonanceAudio_LPL.xml
+		Engine/Source/ThirdParty/ResonanceAudioApi/...
 	</Property>
 	
 	<Property Name="CopyLuminExceptions">

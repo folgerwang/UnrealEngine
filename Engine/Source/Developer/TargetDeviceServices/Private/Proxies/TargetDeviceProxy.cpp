@@ -14,6 +14,7 @@
 
 FTargetDeviceProxy::FTargetDeviceProxy(const FString& InName)
 	: Connected(false)
+	, Authorized(false)
 	, LastUpdateTime(0)
 	, Name(InName)
 	, SupportsMultiLaunch(false)
@@ -29,6 +30,7 @@ FTargetDeviceProxy::FTargetDeviceProxy(const FString& InName)
 
 FTargetDeviceProxy::FTargetDeviceProxy(const FString& InName, const FTargetDeviceServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, bool InIsAggregated)
 	: Connected(false)
+	, Authorized(false)
 	, Name(InName)
 	, SupportsMultiLaunch(false)
 	, SupportsPowerOff(false)
@@ -54,6 +56,7 @@ void FTargetDeviceProxy::UpdateFromMessage( const FTargetDeviceServicePong& Mess
 	MessageAddress = Context->GetSender();
 
 	Connected = Message.Connected;
+	Authorized = Message.Authorized;
 	HostName = Message.HostName;
 	HostUser = Message.HostUser;
 	Make = Message.Make;

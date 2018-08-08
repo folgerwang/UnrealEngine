@@ -74,6 +74,9 @@ public:
 			{
 				// The default VDZI dir.
 				DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("lib")));
+				// We also need to add the default bin dir as dependent libs are placed there instead
+				// of in the lib directory.
+				DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("bin")));
 			}
 		}
 #endif

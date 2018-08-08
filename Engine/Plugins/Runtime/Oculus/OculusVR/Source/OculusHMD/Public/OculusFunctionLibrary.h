@@ -350,6 +350,18 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	static void SetDisplayFrequency(float RequestedFrequency);
 
 	/**
+	* Enables/disables positional tracking on devices that support it.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	static void EnablePositionTracking(bool bPositionTracking);
+
+	/**
+	* Enables/disables orientation tracking on devices that support it.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	static void EnableOrientationTracking(bool bOrientationTracking);
+
+	/**
 	 * Returns IStereoLayers interface to work with overlays.
 	 */
 	static class IStereoLayers* GetStereoLayers();

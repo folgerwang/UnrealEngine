@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanPipeline.cpp: Vulkan device RHI implementation.
@@ -1156,7 +1156,7 @@ FVulkanLayout* FVulkanPipelineStateCacheManager::GetOrGenerateGfxLayout(const FG
 	{
 		OutShaders[DescriptorSet::Pixel] = PS;
 		const FVulkanCodeHeader& PSHeader = PS->GetCodeHeader();
-		DescriptorSetLayoutInfo.AddBindingsForStage(VK_SHADER_STAGE_FRAGMENT_BIT, DescriptorSet::Pixel, PSHeader);
+		DescriptorSetLayoutInfo.AddBindingsForStage(VK_SHADER_STAGE_FRAGMENT_BIT, DescriptorSet::Pixel, PSHeader, &PSOInitializer.ImmutableSamplerState);
 	}
 
 	if (BSI.GeometryShaderRHI)
@@ -1324,7 +1324,6 @@ FGraphicsPipelineStateRHIRef FVulkanDynamicRHI::RHICreateGraphicsPipelineState(c
 		PSOInitializer.BoundShaderState.DomainShaderRHI,
 		PSOInitializer.BoundShaderState.PixelShaderRHI,
 		PSOInitializer.BoundShaderState.GeometryShaderRHI);
-
 
 	// First try the hash based off runtime objects
 	uint32 PSOInitializerHash = 0;

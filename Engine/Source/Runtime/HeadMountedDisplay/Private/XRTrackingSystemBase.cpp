@@ -74,6 +74,35 @@ void FXRTrackingSystemBase::UpdateTrackingToWorldTransform(const FTransform& Tra
 	CachedTrackingToWorld = TrackingToWorldOverride;
 }
 
+void FXRTrackingSystemBase::CalibrateExternalTrackingSource(const FTransform& ExternalTrackingTransform)
+{
+	FVector HMDPos;
+	FQuat HMDOrientation;
+	GetCurrentPose(IXRTrackingSystem::HMDDeviceId, HMDOrientation, HMDPos);
+
+	FTransform CameraLocalTransform(HMDOrientation, HMDPos);
+
+	CalibratedOffset = ExternalTrackingTransform.GetRelativeTransform(CameraLocalTransform * GetTrackingToWorldTransform());
+	UE_LOG(LogHMD, Log, TEXT("XRTracker is now using calibrated offset to external tracking source: [%s]"), *CalibratedOffset.GetTranslation().ToCompactString());
+}
+
+void FXRTrackingSystemBase::UpdateExternalTrackingPosition(const FTransform& ExternalTrackingTransform)
+{
+	FVector HMDPos;
+	FQuat HMDOrientation;
+	GetCurrentPose(IXRTrackingSystem::HMDDeviceId, HMDOrientation, HMDPos);
+
+	const FTransform CameraLocalTransform(HMDOrientation, HMDPos);
+	const FTransform NewRelativeOffset = ExternalTrackingTransform.GetRelativeTransform(CameraLocalTransform * GetTrackingToWorldTransform());
+	const FTransform DeltaOffset = NewRelativeOffset.GetRelativeTransform(CalibratedOffset);
+
+	//UE_LOG(LogHMD, Warning, TEXT("---> Delta from Calibrated: [%s] (%s)"), *DeltaOffset.GetTranslation().ToCompactString(), *DeltaOffset.GetRotation().Rotator().ToCompactString());
+
+	SetBaseOrientation((DeltaOffset.GetRotation().Inverse() * GetBaseOrientation()).GetNormalized());
+	SetBasePosition(GetBasePosition() - DeltaOffset.GetTranslation());
+}
+
+
 FTransform FXRTrackingSystemBase::RefreshTrackingToWorldTransform(FWorldContext& WorldContext)
 {
 	CachedTrackingToWorld = ComputeTrackingToWorldTransform(WorldContext);
@@ -138,6 +167,21 @@ FTransform FXRTrackingSystemBase::ComputeTrackingToWorldTransform(FWorldContext&
 						if (ViewParent)
 						{
 							TrackingToWorld = ViewParent->GetComponentTransform();
+
+							if (PlayerCamera->bAbsoluteLocation)
+							{
+								TrackingToWorld.SetLocation(FVector::ZeroVector);
+							}
+
+							if (PlayerCamera->bAbsoluteRotation)
+							{
+								TrackingToWorld.SetRotation(FQuat::Identity);
+							}
+
+							if (PlayerCamera->bAbsoluteScale)
+							{
+								TrackingToWorld.SetScale3D(FVector::OneVector);
+							}
 						}
 						// else, if the camera is the root component (not attached to an origin point)
 						// then it is directly relative to the world - the tracking origin is the world's origin (i.e. the identity)

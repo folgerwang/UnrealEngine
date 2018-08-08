@@ -3,7 +3,6 @@
 #pragma once
 
 #include "Engine/DataAsset.h"
-//@joeg -- ARKit 2.0 support
 #include "HAL/ThreadSafeBool.h"
 #include "ARTypes.generated.h"
 
@@ -90,7 +89,6 @@ enum class EARSessionStatus : uint8
 	Other,
 };
 
-//@joeg -- ARKit 2.0 support
 /** Gives feedback as to whether the AR data can be saved and relocalized or not */
 UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
 enum class EARWorldMappingState : uint8
@@ -212,8 +210,6 @@ private:
 	EARCandidateImageOrientation Orientation;
 };
 
-//@joeg -- ARKit 2.0 support
-
 /** An asset that points to an object to be detected in a scene */
 UCLASS(BlueprintType)
 class AUGMENTEDREALITY_API UARCandidateObject :
@@ -320,3 +316,36 @@ public:
 		bIsDone = true;
 	}
 };
+
+/** A specific AR video format */
+USTRUCT(BlueprintType)
+struct AUGMENTEDREALITY_API FARVideoFormat
+{
+	GENERATED_BODY()
+
+public:
+	FARVideoFormat() { }
+	
+	FARVideoFormat(int32 InFPS, int32 InWidth, int32 InHeight)
+		: FPS(InFPS)
+		, Width(InWidth)
+		, Height(InHeight)
+	{
+		
+	}
+	
+	/** The desired or supported number of frames per second for this video format */
+	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Session")
+	int32 FPS;
+	
+	/** The desired or supported width in pixels for this video format */
+	UPROPERTY(BlueprintReadOnly, Category = "AR AugmentedReality|Session")
+	int32 Width;
+
+	/** The desired or supported height in pixels for this video format */
+	UPROPERTY(BlueprintReadOnly, Category = "AR AugmentedReality|Session")
+	int32 Height;
+
+	bool IsValidFormat() { return FPS > 0 && Width > 0 && Height > 0; }
+};
+
