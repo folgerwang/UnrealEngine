@@ -338,7 +338,11 @@ int32 FSocketSubsystemBSDIPv6::GetAddressInfoHintFlag(EAddressInfoFlags InFlags)
 
 	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::FQDomainName))
 	{
+#ifdef AI_FQDN
 		ReturnFlagsCode |= AI_FQDN;
+#else
+		ReturnFlagsCode |= AI_CANONNAME;
+#endif
 	}
 #endif
 
