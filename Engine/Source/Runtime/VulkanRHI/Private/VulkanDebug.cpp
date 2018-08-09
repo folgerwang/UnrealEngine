@@ -21,6 +21,16 @@ DEFINE_LOG_CATEGORY(LogVulkanRHI);
 
 #if VULKAN_HAS_DEBUGGING_ENABLED
 
+#if PLATFORM_ANDROID
+	#define VULKAN_REPORT_LOG(Format, ...)	UE_LOG(LogVulkanRHI, Warning, Format, __VA_ARGS__)
+#else
+	#define VULKAN_REPORT_LOG(Format, ...)	do { if (FPlatformMisc::IsDebuggerPresent()) \
+											{ \
+												FPlatformMisc::LowLevelOutputDebugStringf(Format, __VA_ARGS__); FPlatformMisc::LowLevelOutputDebugString(TEXT("\n")); \
+											} \
+											UE_LOG(LogVulkanRHI, Warning, Format, __VA_ARGS__); } while (0)
+#endif // PLATFORM_ANDROID
+
 extern TAutoConsoleVariable<int32> GValidationCvar;
 
 static VkBool32 VKAPI_PTR DebugReportFunction(
@@ -128,7 +138,7 @@ static VkBool32 VKAPI_PTR DebugReportFunction(
 	static TSet<FString> SeenCodes;
 	if (GCVarUniqueValidationMessages->GetInt() == 0 || !SeenCodes.Contains(LayerCode))
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*** [%s:%s] Obj 0x%p Loc %d %s\n"), ANSI_TO_TCHAR(MsgPrefix), *LayerCode, (void*)SrcObject, (uint32)Location, ANSI_TO_TCHAR(Msg));
+		VULKAN_REPORT_LOG(TEXT("*** [%s:%s] Obj 0x%p Loc %d %s\n"), ANSI_TO_TCHAR(MsgPrefix), *LayerCode, (void*)SrcObject, (uint32)Location, ANSI_TO_TCHAR(Msg));
 		if (GCVarUniqueValidationMessages->GetInt() == 1)
 		{
 			SeenCodes.Add(LayerCode);
@@ -192,9 +202,18 @@ static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSev
 	const TCHAR* Type = TEXT("");
 	if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT)
 	{
-		ensure((MsgType & ~VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) == 0);
-		Type = TEXT(" General");
-		MsgBucket = 1;
+		if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+		{
+			ensure((MsgType & ~(VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)) == 0);
+			Type = TEXT(" General/Validation");
+			MsgBucket = 2;
+		}
+		else
+		{
+			ensure((MsgType & ~VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) == 0);
+			Type = TEXT(" General");
+			MsgBucket = 1;
+		}
 	}
 	else if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
 	{
@@ -223,11 +242,11 @@ static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSev
 	{
 		if (CallbackData->pMessageIdName)
 		{
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*** %s %s:%d(%s) %s\n"), Type, Severity, CallbackData->messageIdNumber, ANSI_TO_TCHAR(CallbackData->pMessageIdName), ANSI_TO_TCHAR(CallbackData->pMessage));
+			VULKAN_REPORT_LOG(TEXT("*** %s %s:%d(%s) %s\n"), Type, Severity, CallbackData->messageIdNumber, ANSI_TO_TCHAR(CallbackData->pMessageIdName), ANSI_TO_TCHAR(CallbackData->pMessage));
 		}
 		else
 		{
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*** %s %s:%d %s\n"), Type, Severity, CallbackData->messageIdNumber, ANSI_TO_TCHAR(CallbackData->pMessage));
+			VULKAN_REPORT_LOG(TEXT("*** %s %s:%d %s\n"), Type, Severity, CallbackData->messageIdNumber, ANSI_TO_TCHAR(CallbackData->pMessage));
 		}
 		if (GCVarUniqueValidationMessages->GetInt() == 1)
 		{
