@@ -109,7 +109,7 @@ namespace UnrealBuildTool
 						throw new BuildException("Unexpected output from mabu in --print-tools: '{0}'", Line);
 					}
 
-					ToolsDict.Add(Split[0].Trim(), Split[1].Trim());
+					ToolsDict.Add(Split[0].Trim(), "\"" + Split[1].Trim() + "\"");
 				}
 			}
 
@@ -120,10 +120,7 @@ namespace UnrealBuildTool
 			ObjCopyPath = ToolsDict["OBJCOPY"];
 
 			// force the compiler to be executed through a command prompt instance
-			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
-			{
-				bExecuteCompilerThroughShell = true;
-			}
+			bExecuteCompilerThroughShell = true;
 
 			// toolchain params
 			ToolchainParamsArm64 = " --sysroot=\"" + Path.Combine(MLSDKPath, "lumin") + "\"";
@@ -136,8 +133,8 @@ namespace UnrealBuildTool
 
 		public bool UseVulkan()
 		{
-			// @todo Lumin: Switch to Lumin once we have sub-platform ini
-			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(ProjectFile), UnrealTargetPlatform.Android);
+			DirectoryReference DirRef = (!string.IsNullOrEmpty(UnrealBuildTool.GetRemoteIniPath()) ? new DirectoryReference(UnrealBuildTool.GetRemoteIniPath()) : (ProjectFile != null ? ProjectFile.Directory : null));
+			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirRef, UnrealTargetPlatform.Lumin);
 			// go by string
 			bool bUseVulkan = true;
 			Ini.GetBool("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "bUseVulkan", out bUseVulkan);
@@ -147,8 +144,8 @@ namespace UnrealBuildTool
 
 		public bool UseMobileRendering()
 		{
-			// @todo Lumin: Switch to Lumin once we have sub-platform ini
-			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(ProjectFile), UnrealTargetPlatform.Android);
+			DirectoryReference DirRef = (!string.IsNullOrEmpty(UnrealBuildTool.GetRemoteIniPath()) ? new DirectoryReference(UnrealBuildTool.GetRemoteIniPath()) : (ProjectFile != null ? ProjectFile.Directory : null));
+			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirRef, UnrealTargetPlatform.Lumin);
 
 			// go by string
 			bool bUseMobileRendering = true;
@@ -235,6 +232,10 @@ namespace UnrealBuildTool
 			Result += " -Wl,-rpath=$ORIGIN";
 			Result += " -fdiagnostics-format=msvc";
 
+			if (!LinkEnvironment.bCreateDebugInfo)
+			{
+				Result += " -Wl,--strip-debug";
+			}
 
 			if (!LinkEnvironment.bIsBuildingDLL)
 			{

@@ -157,7 +157,7 @@ public:
 		}
 
 		if (Options.bOverride_OverrideTimeTo)
-		{
+{
 			// Turn off time the ultimate source of noise.
 			InViewFamily.CurrentWorldTime = Options.OverrideTimeTo;
 			InViewFamily.CurrentRealTime = Options.OverrideTimeTo;
@@ -165,7 +165,7 @@ public:
 		}
 
 		if (Options.bDisableNoisyRenderingFeatures)
-		{
+	{
 			//// Turn off common show flags for noisy sources of rendering.
 			//InViewFamily.EngineShowFlags.SetAntiAliasing(false);
 			//InViewFamily.EngineShowFlags.SetMotionBlur(false);
@@ -188,7 +188,7 @@ public:
 			//InViewFamily.EngineShowFlags.SetEyeAdaptation(false);
 			//InViewFamily.EngineShowFlags.SetTonemapper(false);
 		}
-	}
+		}
 
 	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) {}
 	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) {}
@@ -202,8 +202,8 @@ public:
 			if (Client)
 			{
 				return WorldPtr->GetWorld() == Client->GetWorld();
-			}
-		}
+	}
+}
 
 		return false;
 	}
@@ -368,6 +368,7 @@ public:
 
 		if (GEngine->GameViewport)
 		{
+			// remove before we restore the viewport's size - a resize can trigger a redraw, which would trigger OnScreenshotCaptured() again (endless loop)
 			GEngine->GameViewport->OnScreenshotCaptured().RemoveAll(this);
 		}
 
@@ -377,9 +378,9 @@ public:
 		{
 			if (GEngine->GameViewport)
 			{
-				FSceneViewport* GameViewport = GEngine->GameViewport->GetGameViewport();
-				GameViewport->SetViewportSize(ViewportRestoreSize.X, ViewportRestoreSize.Y);
-			}
+			FSceneViewport* GameViewport = GEngine->GameViewport->GetGameViewport();
+			GameViewport->SetViewportSize(ViewportRestoreSize.X, ViewportRestoreSize.Y);
+		}
 		}
 
 		EnvSetup.Restore();
@@ -395,44 +396,44 @@ public:
 		{
 			FAutomationScreenshotData Data = AutomationCommon::BuildScreenshotData(World->GetName(), Name, InSizeX, InSizeY);
 
-			// Copy the relevant data into the metadata for the screenshot.
-			Data.bHasComparisonRules = true;
-			Data.ToleranceRed = Options.ToleranceAmount.Red;
-			Data.ToleranceGreen = Options.ToleranceAmount.Green;
-			Data.ToleranceBlue = Options.ToleranceAmount.Blue;
-			Data.ToleranceAlpha = Options.ToleranceAmount.Alpha;
-			Data.ToleranceMinBrightness = Options.ToleranceAmount.MinBrightness;
-			Data.ToleranceMaxBrightness = Options.ToleranceAmount.MaxBrightness;
-			Data.bIgnoreAntiAliasing = Options.bIgnoreAntiAliasing;
-			Data.bIgnoreColors = Options.bIgnoreColors;
-			Data.MaximumLocalError = Options.MaximumLocalError;
-			Data.MaximumGlobalError = Options.MaximumGlobalError;
+		// Copy the relevant data into the metadata for the screenshot.
+		Data.bHasComparisonRules = true;
+		Data.ToleranceRed = Options.ToleranceAmount.Red;
+		Data.ToleranceGreen = Options.ToleranceAmount.Green;
+		Data.ToleranceBlue = Options.ToleranceAmount.Blue;
+		Data.ToleranceAlpha = Options.ToleranceAmount.Alpha;
+		Data.ToleranceMinBrightness = Options.ToleranceAmount.MinBrightness;
+		Data.ToleranceMaxBrightness = Options.ToleranceAmount.MaxBrightness;
+		Data.bIgnoreAntiAliasing = Options.bIgnoreAntiAliasing;
+		Data.bIgnoreColors = Options.bIgnoreColors;
+		Data.MaximumLocalError = Options.MaximumLocalError;
+		Data.MaximumGlobalError = Options.MaximumGlobalError;
 
 			// Record any user notes that were made to accompany this shot.
 			Data.Notes = Notes;
 
 			bool bAttemptToCompareShot = FAutomationTestFramework::Get().OnScreenshotCaptured().ExecuteIfBound(InImageData, Data);
 
-			UE_LOG(AutomationFunctionLibrary, Log, TEXT("Screenshot captured as %s"), *Data.Path);
+		UE_LOG(AutomationFunctionLibrary, Log, TEXT("Screenshot captured as %s"), *Data.Path);
 
-			if (GIsAutomationTesting)
-			{
-				FAutomationTestFramework::Get().OnScreenshotCompared.AddRaw(this, &FAutomationScreenshotTaker::OnComparisonComplete);
+		if ( GIsAutomationTesting )
+		{
+			FAutomationTestFramework::Get().OnScreenshotCompared.AddRaw(this, &FAutomationScreenshotTaker::OnComparisonComplete);
 				FScreenshotRequest::OnScreenshotRequestProcessed().RemoveAll(this);
 				return;
 			}
 		}
 		
 		delete this;
-	}
+		}
 
 	void OnScreenshotProcessed()
-	{
+		{
 		UE_LOG(AutomationFunctionLibrary, Log, TEXT("Screenshot processed, but not compared."));
 
 		// If it's done being processed 
-		delete this;
-	}
+			delete this;
+		}
 
 	void OnComparisonComplete(const FAutomationScreenshotCompareResults& CompareResults)
 	{
@@ -444,18 +445,18 @@ public:
 		}
 
 		delete this;
-	}
+			}
 
 	void WorldDestroyed(ULevel* InLevel, UWorld* InWorld)
-	{
+			{
 		// If the InLevel is null, it's a signal that the entire world is about to disappear, so
 		// go ahead and remove this widget from the viewport, it could be holding onto too many
 		// dangerous actor references that won't carry over into the next world.
 		if (InLevel == nullptr && InWorld == World.Get())
-		{
+				{
 			delete this;
-		}
-	}
+				}
+			}
 
 private:
 

@@ -859,6 +859,12 @@ void UProceduralMeshComponent::UpdateCollision()
 
 	if(bUseAsyncCook)
 	{
+		// Abort all previous ones still standing
+		for (UBodySetup* OldBody : AsyncBodySetupQueue)
+		{
+			OldBody->AbortPhysicsMeshAsyncCreation();
+		}
+
 		AsyncBodySetupQueue.Add(CreateBodySetupHelper());
 	}
 	else
@@ -891,7 +897,7 @@ void UProceduralMeshComponent::UpdateCollision()
 	}
 }
 
-void UProceduralMeshComponent::FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup)
+void UProceduralMeshComponent::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup)
 {
 	TArray<UBodySetup*> NewQueue;
 	NewQueue.Reserve(AsyncBodySetupQueue.Num());
@@ -899,17 +905,24 @@ void UProceduralMeshComponent::FinishPhysicsAsyncCook(UBodySetup* FinishedBodySe
 	int32 FoundIdx;
 	if(AsyncBodySetupQueue.Find(FinishedBodySetup, FoundIdx))
 	{
-		//The new body was found in the array meaning it's newer so use it
-		ProcMeshBodySetup = FinishedBodySetup;
-		RecreatePhysicsState();
-
-		//remove any async body setups that were requested before this one
-		for(int32 AsyncIdx = FoundIdx+1; AsyncIdx < AsyncBodySetupQueue.Num(); ++AsyncIdx)
+		if (bSuccess)
 		{
-			NewQueue.Add(AsyncBodySetupQueue[AsyncIdx]);
-		}
+			//The new body was found in the array meaning it's newer so use it
+			ProcMeshBodySetup = FinishedBodySetup;
+			RecreatePhysicsState();
 
-		AsyncBodySetupQueue = NewQueue;
+			//remove any async body setups that were requested before this one
+			for (int32 AsyncIdx = FoundIdx + 1; AsyncIdx < AsyncBodySetupQueue.Num(); ++AsyncIdx)
+			{
+				NewQueue.Add(AsyncBodySetupQueue[AsyncIdx]);
+			}
+
+			AsyncBodySetupQueue = NewQueue;
+		}
+		else
+		{
+			AsyncBodySetupQueue.RemoveAt(FoundIdx);
+		}
 	}
 }
 

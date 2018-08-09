@@ -14,6 +14,8 @@
 #include "Engine/Classes/GameFramework/PlayerController.h"
 #include "Engine/Classes/GameFramework/PlayerState.h"
 #include "Engine/Classes/Engine/Player.h"
+#include "Physics/PhysicsInterfaceCore.h"
+#include "Physics/PhysScene_PhysX.h"
 
 namespace CharacterMovementCVars
 {
@@ -50,7 +52,7 @@ namespace CharacterMovementCVars
 	static float LinearVelocityCoefficient = 100.0f;
 	static FAutoConsoleVariableRef CVarLinLerp(TEXT("p.LinearVelocityCoefficient"), LinearVelocityCoefficient, TEXT(""));
 
-	static float AngleLerp = 0.4f;
+	static float AngleLerp = 0.2f;
 	static FAutoConsoleVariableRef CVarAngSet(TEXT("p.AngleLerp"), AngleLerp, TEXT(""));
 
 	static float AngularVelocityCoefficient = 10.0f;
@@ -147,14 +149,14 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 	NewState.AngVel.FVector::ToDirectionAndLength(NewStateAngVelAxis, NewStateAngVel);
 	NewStateAngVel = FMath::DegreesToRadians(NewStateAngVel);
 	const FQuat ExtrapolationDeltaQuaternion = FQuat(NewStateAngVelAxis, NewStateAngVel * ExtrapolationDeltaSeconds);
-	const FQuat TargetAng = ExtrapolationDeltaQuaternion * NewState.Quaternion;
+	FQuat TargetQuat = ExtrapolationDeltaQuaternion * NewState.Quaternion;
 
 	/////// COMPUTE DIFFERENCES ///////
 
 	const FVector LinDiff = TargetPos - CurrentState.Position;
 	FVector AngDiffAxis;
 	float AngDiff;
-	const FQuat DeltaQuat = TargetAng * InvCurrentQuat;
+	const FQuat DeltaQuat = InvCurrentQuat * TargetQuat;
 	DeltaQuat.ToAxisAndAngle(AngDiffAxis, AngDiff);
 	AngDiff = FMath::RadiansToDegrees(FMath::UnwindRadians(AngDiff));
 
@@ -225,10 +227,10 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 	/////// SIMPLE EXPONENTIAL MATCH ///////
 
 	const FVector NewLinVel = bHardSnap ? FVector(NewState.LinVel) : FVector(NewState.LinVel) + (LinDiff * CharacterMovementCVars::LinearVelocityCoefficient * DeltaSeconds);
-	const FVector NewAngVel = bHardSnap ? FVector(NewState.AngVel) : FVector(NewState.AngVel) + (AngDiff * CharacterMovementCVars::AngularVelocityCoefficient * DeltaSeconds);
+	const FVector NewAngVel = bHardSnap ? FVector(NewState.AngVel) : FVector(NewState.AngVel) + (AngDiffAxis * AngDiff * CharacterMovementCVars::AngularVelocityCoefficient * DeltaSeconds);
 
 	const FVector NewPos = FMath::Lerp(CurrentState.Position, TargetPos, bHardSnap ? 1.0f : CharacterMovementCVars::PositionLerp);
-	const FQuat NewAng = FQuat::Slerp(CurrentState.Quaternion, TargetAng, bHardSnap ? 1.0f : CharacterMovementCVars::AngleLerp);
+	const FQuat NewAng = FQuat::Slerp(CurrentState.Quaternion, TargetQuat, bHardSnap ? 1.0f : CharacterMovementCVars::AngleLerp);
 
 	/////// UPDATE BODY ///////
 
@@ -257,7 +259,7 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 		PhysicsTarget.ErrorHistory.MinValue = 0.0f;
 		PhysicsTarget.ErrorHistory.MaxValue = 1.0f;
 		PhysicsTarget.ErrorHistory.AddSample(PhysicsTarget.AccumulatedErrorSeconds / ErrorAccumulationSeconds);
-		if (UWorld* OwningWorld = PhysScene->GetOwningWorld())
+		if (UWorld* OwningWorld = GetOwningWorld())
 		{
 			FColor Color = FColor::White;
 			DrawDebugDirectionalArrow(OwningWorld, CurrentState.Position, TargetPos, 5.0f, Color, true, CharacterMovementCVars::NetCorrectionLifetime, 0, 1.5f);
@@ -269,9 +271,19 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 	return bRestoredState;
 }
 
+UWorld* FPhysicsReplication::GetOwningWorld()
+{
+	return PhysScene ? PhysScene->GetOwningWorld() : nullptr;
+}
+
+const UWorld* FPhysicsReplication::GetOwningWorld() const
+{
+	return PhysScene ? PhysScene->GetOwningWorld() : nullptr;
+}
+
 float FPhysicsReplication::GetLocalPing() const
 {
-	if (UWorld* World = PhysScene->GetOwningWorld())
+	if (const UWorld* World = GetOwningWorld())
 	{
 		if (APlayerController* PlayerController = World->GetFirstPlayerController())
 		{
@@ -297,7 +309,7 @@ float FPhysicsReplication::GetOwnerPing(const AActor* const Owner, const FReplic
 #if false
 	if (UPlayer* OwningPlayer = OwningActor->GetNetOwningPlayer())
 	{
-		if (UWorld* World = PhysScene->GetOwningWorld())
+		if (UWorld* World = GetOwningWorld())
 		{
 			if (APlayerController* PlayerController = OwningPlayer->GetPlayerController(World))
 			{
@@ -386,7 +398,7 @@ FPhysicsReplication::FPhysicsReplication(FPhysScene* InPhysicsScene)
 
 void FPhysicsReplication::SetReplicatedTarget(UPrimitiveComponent* Component, FName BoneName, const FRigidBodyState& ReplicatedTarget)
 {
-	if (UWorld* OwningWorld = PhysScene->GetOwningWorld())
+	if (UWorld* OwningWorld = GetOwningWorld())
 	{
 		//TODO: there's a faster way to compare this
 		FReplicatedPhysicsTarget& Target = ComponentToTargets.FindOrAdd(TWeakObjectPtr<UPrimitiveComponent>(Component));

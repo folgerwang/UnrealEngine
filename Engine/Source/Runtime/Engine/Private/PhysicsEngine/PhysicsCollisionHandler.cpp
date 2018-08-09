@@ -3,7 +3,7 @@
 #include "PhysicsEngine/PhysicsCollisionHandler.h"
 #include "Kismet/GameplayStatics.h"
 #include "PhysicsPublic.h"
-
+#include "PhysicsEngine/BodyInstance.h"
 UPhysicsCollisionHandler::UPhysicsCollisionHandler(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {

@@ -2,7 +2,7 @@
 	"FileVersion" : 3,
 	"Version" : 1,
 	"VersionName": "1.0",
-	"FriendlyName" : "MagicLeapEmulator",
+	"FriendlyName" : "Magic Leap Emulator",
 	"CreatedBy" : "Magic Leap, Inc.",
 	"CreatedByURL" : "http://magicleap.com",
 	"Description" : "Support for the emulating a Magic Leap Head Mounted Display with an alternate display device.",

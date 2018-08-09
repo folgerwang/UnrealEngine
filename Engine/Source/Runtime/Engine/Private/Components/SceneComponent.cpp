@@ -20,7 +20,7 @@
 #include "Engine/Texture2D.h"
 #include "ComponentReregisterContext.h"
 #include "UnrealEngine.h"
-#include "PhysicsPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
 #include "Logging/MessageLog.h"
 #include "Net/UnrealNetwork.h"
 #include "ComponentUtils.h"

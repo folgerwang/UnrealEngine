@@ -143,7 +143,12 @@ private:
 // State blocks
 //
 
-class FRHISamplerState : public FRHIResource {};
+class FRHISamplerState : public FRHIResource 
+{
+public:
+	virtual bool IsImmutable() const { return false; }
+};
+
 class FRHIRasterizerState : public FRHIResource
 {
 public:
@@ -1535,6 +1540,36 @@ struct FBoundShaderStateInput
 	}
 };
 
+struct FImmutableSamplerState
+{
+	static constexpr uint32 MaxTextureSamplers = 16;
+	using TImmutableSamplers = TStaticArray<FSamplerStateRHIParamRef, MaxTextureSamplers>;
+
+	FImmutableSamplerState()
+		: ImmutableSamplers(nullptr)
+	{}
+
+	void Reset()
+	{
+		for (uint32 Index = 0; Index < MaxTextureSamplers; ++Index)
+		{
+			ImmutableSamplers[Index] = nullptr;
+		}
+	}
+
+	bool operator==(const FImmutableSamplerState& rhs) const
+	{
+		return ImmutableSamplers == rhs.ImmutableSamplers;
+	}
+
+	bool operator!=(const FImmutableSamplerState& rhs) const
+	{
+		return ImmutableSamplers != rhs.ImmutableSamplers;
+	}
+
+	TImmutableSamplers ImmutableSamplers;
+};
+
 class FGraphicsPipelineStateInitializer
 {
 public:
@@ -1581,7 +1616,8 @@ public:
 		ERenderTargetLoadAction				InStencilTargetLoadAction,
 		ERenderTargetStoreAction			InStencilTargetStoreAction,
 		FExclusiveDepthStencil				InDepthStencilAccess,
-		uint32								InNumSamples
+		uint32								InNumSamples,
+		FImmutableSamplerState				InImmutableSamplerState
 		)
 		: BoundShaderState(InBoundShaderState)
 		, BlendState(InBlendState)
@@ -1601,6 +1637,7 @@ public:
 		, StencilTargetStoreAction(InStencilTargetStoreAction)
 		, DepthStencilAccess(InDepthStencilAccess)
 		, NumSamples(InNumSamples)
+		, ImmutableSamplerState(InImmutableSamplerState)
 	{
 	}
 
@@ -1629,7 +1666,8 @@ public:
 			StencilTargetLoadAction != rhs.StencilTargetLoadAction ||
 			StencilTargetStoreAction != rhs.StencilTargetStoreAction || 
 			DepthStencilAccess != rhs.DepthStencilAccess ||
-			NumSamples != rhs.NumSamples) 
+			NumSamples != rhs.NumSamples ||
+			ImmutableSamplerState != rhs.ImmutableSamplerState)
 		{
 			return false;
 		}
@@ -1732,6 +1770,7 @@ public:
 	ERenderTargetStoreAction		StencilTargetStoreAction;
 	FExclusiveDepthStencil			DepthStencilAccess;
 	uint16							NumSamples;
+	FImmutableSamplerState			ImmutableSamplerState;
 
 	friend class FMeshDrawingPolicy;
 };

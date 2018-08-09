@@ -15,6 +15,7 @@
 #include "GameFramework/Actor.h"
 #include "CollisionQueryParams.h"
 #include "SceneTypes.h"
+#include "Engine/EngineTypes.h"
 #include "PhysicsEngine/BodyInstance.h"
 #include "Engine/TextureStreamingTypes.h"
 #include "AI/Navigation/NavRelevantInterface.h"
@@ -1386,9 +1387,46 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Collision")	
 	virtual void SetCollisionObjectType(ECollisionChannel Channel);
 
-	/** Perform a line trace against a single component */
-	UFUNCTION(BlueprintCallable, Category="Collision", meta=(DisplayName = "Line Trace Component", ScriptName = "LineTraceComponent", bTraceComplex="true", UnsafeDuringActorConstruction="true"))	
-	bool K2_LineTraceComponent(FVector TraceStart, FVector TraceEnd, bool bTraceComplex, bool bShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit);
+	/** Perform a line trace against a single component
+	 * @param TraceStart The start of the trace in world-space
+	 * @param TraceEnd The end of the trace in world-space
+	 * @param bTraceComplex Whether or not to trace the complex physics representation or just the simple representation
+	 * @param bShowTrace Whether or not to draw the trace in the world (for debugging)
+	 * @param bPersistentShowTrace Whether or not to make the debugging draw stay in the world permanently
+	 */
+	UFUNCTION(BlueprintCallable, Category="Collision", meta=(DisplayName = "Line Trace Component", ScriptName = "LineTraceComponent", bTraceComplex="true", bPersistentShowTrace="false", UnsafeDuringActorConstruction="true"))	
+	bool K2_LineTraceComponent(FVector TraceStart, FVector TraceEnd, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit);
+
+	/** Perform a sphere trace against a single component
+	* @param TraceStart The start of the trace in world-space
+	* @param TraceEnd The end of the trace in world-space
+	* @param SphereRadius Radius of the sphere to trace against the component
+	* @param bTraceComplex Whether or not to trace the complex physics representation or just the simple representation
+	* @param bShowTrace Whether or not to draw the trace in the world (for debugging)
+	* @param bPersistentShowTrace Whether or not to make the debugging draw stay in the world permanently
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (DisplayName = "Sphere Trace Component", ScriptName = "SphereTraceComponent", bTraceComplex = "true", bPersistentShowTrace="false", UnsafeDuringActorConstruction = "true"))
+	bool K2_SphereTraceComponent(FVector TraceStart, FVector TraceEnd, float SphereRadius, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit);
+
+	/** Perform a box overlap against a single component as an AABB (No rotation)
+	* @param InBoxCentre The centre of the box to overlap with the component
+	* @param InBox Description of the box to use in the overlap
+	* @param bTraceComplex Whether or not to trace the complex physics representation or just the simple representation
+	* @param bShowTrace Whether or not to draw the trace in the world (for debugging)
+	* @param bPersistentShowTrace Whether or not to make the debugging draw stay in the world permanently
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (DisplayName = "Box Overlap Component", ScriptName = "BoxOverlapComponent", bTraceComplex = "true", bPersistentShowTrace="false", UnsafeDuringActorConstruction = "true"))
+	bool K2_BoxOverlapComponent(FVector InBoxCentre, const FBox InBox, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit);
+
+	/** Perform a sphere overlap against a single component
+	* @param InSphereCentre The centre of the sphere to overlap with the component
+	* @param InSphereRadius The Radius of the sphere to overlap with the component
+	* @param bTraceComplex Whether or not to trace the complex physics representation or just the simple representation
+	* @param bShowTrace Whether or not to draw the trace in the world (for debugging)
+	* @param bPersistentShowTrace Whether or not to make the debugging draw stay in the world permanently
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (DisplayName = "Sphere Overlap Component", ScriptName = "SphereOverlapComponent", bTraceComplex = "true", bPersistentShowTrace="false", UnsafeDuringActorConstruction = "true"))
+	bool K2_SphereOverlapComponent(FVector InSphereCentre, float InSphereRadius, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit);
 
 	/** Sets the bRenderCustomDepth property and marks the render state dirty. */
 	UFUNCTION(BlueprintCallable, Category="Rendering")
@@ -1884,7 +1922,7 @@ public:
 	 * Dispatch notification for wake events and propagate to any welded bodies
 	 */
 
-	void DispatchWakeEvents(int32 WakeEvent, FName BoneName);
+	void DispatchWakeEvents(ESleepEvent WakeEvent, FName BoneName);
 
 	/**
 	 * Set collision params on OutParams (such as CollisionResponse, bTraceAsyncScene) to match the settings on this PrimitiveComponent.

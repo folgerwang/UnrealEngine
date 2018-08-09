@@ -19,11 +19,11 @@ void FMagicLeapXRCamera::PreRenderView_RenderThread(FRHICommandListImmediate& RH
 	if (View.StereoPass != eSSP_FULL)
 	{
 		const int EyeIdx = (View.StereoPass == eSSP_LEFT_EYE) ? 0 : 1;
-		FTrackingFrame* const Frame = MagicLeapSystem.GetCurrentFrame();
+		const FTrackingFrame& Frame = MagicLeapSystem.GetCurrentFrame();
 
 		// update to use render projection matrix
 		// #todo: Roll UpdateProjectionMatrix into UpdateViewMatrix?
-		FMatrix RenderInfoProjectionMatrix = MagicLeap::ToFMatrix(Frame->RenderInfoArray.virtual_cameras[EyeIdx].projection);
+		FMatrix RenderInfoProjectionMatrix = MagicLeap::ToFMatrix(Frame.RenderInfoArray.virtual_cameras[EyeIdx].projection);
 
 		// Set the near clipping plane to GNearClippingPlane which is clamped to the minimum value allowed for the device. (ref: MLGraphicsGetRenderTargets())
 		RenderInfoProjectionMatrix.M[3][2] = GNearClippingPlane;

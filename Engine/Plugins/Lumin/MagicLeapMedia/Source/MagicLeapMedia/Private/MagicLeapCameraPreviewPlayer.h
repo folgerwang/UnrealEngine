@@ -20,10 +20,12 @@ public:
 	bool Open(const FString& Url, const IMediaOptions* Options) override;
 	bool GetVideoTrackFormat(int32 TrackIndex, int32 FormatIndex, FMediaVideoTrackFormat& OutFormat) const override;
 	bool IsLooping() const override;
+	FTimespan GetTime() const override;
 
 private:
 	bool SetRateOne() override;
 	bool GetMediaPlayerState(uint16 FlagToPoll) const override;
+	void RegisterExternalTexture(const FGuid& InGuid, FTextureRHIRef& InTextureRHI, FSamplerStateRHIRef& InSamplerStateRHI) override;
 	bool RenderThreadIsBufferAvailable(MLHandle MediaPlayerHandle) override;
 	bool RenderThreadGetNativeBuffer(const MLHandle MediaPlayerHandle, MLHandle& NativeBuffer) override;
 	bool RenderThreadReleaseNativeBuffer(const MLHandle MediaPlayerHandle, MLHandle NativeBuffer) override;

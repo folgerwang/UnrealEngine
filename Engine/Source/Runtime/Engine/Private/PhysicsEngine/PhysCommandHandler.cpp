@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "EngineDefines.h"
 #include "PhysicsPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
 
 #if WITH_PHYSX
 	#include "PhysicsEngine/PhysXSupport.h"

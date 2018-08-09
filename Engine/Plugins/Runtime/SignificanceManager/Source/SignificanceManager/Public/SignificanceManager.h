@@ -50,8 +50,10 @@ private:
 	// Callback function registered with HUD to supply debug info when ShowDebug SignificanceManager has been entered on the console
 	static void OnShowDebugInfo(AHUD* HUD, UCanvas* Canvas, const FDebugDisplayInfo& DisplayInfo, float& YL, float& YPos);
 
+#if ALLOW_CONSOLE
 	// Callback function registered with Console to inject show debug auto complete command
 	static void PopulateAutoCompleteEntries(TArray<FAutoCompleteCommand>& AutoCompleteList);
+#endif // ALLOW_CONSOLE
 
 	// Map of worlds to their significance manager
 	static TMap<const UWorld*, USignificanceManager*> WorldSignificanceManagers;

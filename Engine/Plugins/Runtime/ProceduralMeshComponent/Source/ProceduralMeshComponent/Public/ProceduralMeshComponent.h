@@ -313,7 +313,7 @@ private:
 	/** Mark collision data as dirty, and re-create on instance if necessary */
 	void UpdateCollision();
 	/** Once async physics cook is done, create needed state */
-	void FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup);
+	void FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup);
 
 	/** Helper to create new body setup objects */
 	UBodySetup* CreateBodySetupHelper();

@@ -59,19 +59,21 @@ uint32 FMediaWorker::Run()
 {
 	while (StopTaskCounter.GetValue() == 0)
 	{
-		if (!(MLMediaPlayerPollingStateFlag_IsBufferAvailable & MLMediaPlayerPollStates(MediaPlayerHandle, MLMediaPlayerPollingStateFlag_IsBufferAvailable)))
+		uint16_t States = 0;
+		MLResult Result = MLMediaPlayerPollStates(MediaPlayerHandle, MLMediaPlayerPollingStateFlag_IsBufferAvailable, &States);
+		if (Result != MLResult_Ok || !(MLMediaPlayerPollingStateFlag_IsBufferAvailable & States))
 		{
 			continue;
 		}
 
 		int32 currentPositionMilSec = 0;
-		bool bResult = MLMediaPlayerGetCurrentPosition(MediaPlayerHandle, &currentPositionMilSec);
+		Result = MLMediaPlayerGetCurrentPosition(MediaPlayerHandle, &currentPositionMilSec);
 		const FTimespan Time = FTimespan::FromMilliseconds(currentPositionMilSec);
 
 		int32 width = 0;
 		int32 height = 0;
-		bResult = MLMediaPlayerGetVideoSize(MediaPlayerHandle, &width, &height);
-		if (!bResult)
+		Result = MLMediaPlayerGetVideoSize(MediaPlayerHandle, &width, &height);
+		if (Result != MLResult_Ok)
 		{
 			UE_LOG(LogMagicLeapMedia, Error, TEXT("Error getting video dimensions"));
 			continue;
@@ -95,9 +97,9 @@ uint32 FMediaWorker::Run()
 		// MLHandle because Unreal's uint64 is 'unsigned long long *' whereas uint64_t for the C-API is 'unsigned long *'
 		// TODO: Fix the Unreal types for the above comment.
 		MLHandle nativeBuffer = ML_INVALID_HANDLE;
-		bResult = MLMediaPlayerAcquireNextAvailableBuffer(MediaPlayerHandle, &nativeBuffer);
+		Result = MLMediaPlayerAcquireNextAvailableBuffer(MediaPlayerHandle, &nativeBuffer);
 
-		if (!bResult)
+		if (Result != MLResult_Ok)
 		{
 			UE_LOG(LogMagicLeapMedia, Error, TEXT("Error acquiring next video buffer"));
 			continue;

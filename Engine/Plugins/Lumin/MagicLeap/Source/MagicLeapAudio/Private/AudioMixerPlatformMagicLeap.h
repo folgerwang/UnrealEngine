@@ -54,7 +54,7 @@ namespace Audio
 
 	private:
 #if WITH_MLSDK
-		static const TCHAR* GetErrorString(MLAudioError Result);
+		static const TCHAR* GetErrorString(MLResult Result);
 #endif //WITH_MLSDK
 
 		bool bSuspended;
@@ -63,10 +63,10 @@ namespace Audio
 
 #if WITH_MLSDK
 		MLHandle StreamHandle;
-#endif //WITH_MLSDK
 
 		// Static callback used for MLAudio:
-		static void MLAudioCallback(void* CallbackContext);
+		static void MLAudioCallback(MLHandle Handle, void* CallbackContext);
+#endif //WITH_MLSDK
 	};
 
 }
