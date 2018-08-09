@@ -377,3 +377,5 @@ FNiagaraDataInterfaceParametersCS* UNiagaraDataInterfaceTexture::ConstructComput
 {
 	return new FNiagaraDataInterfaceParametersCS_Texture();
 }
+
+#undef LOCTEXT_NAMESPACE
