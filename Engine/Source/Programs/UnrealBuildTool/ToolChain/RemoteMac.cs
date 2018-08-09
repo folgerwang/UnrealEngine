@@ -380,7 +380,7 @@ namespace UnrealBuildTool
 				RemoteArguments.Add("-CreateStub");
 
 				// Get the provisioning data for this project
-				IOSProvisioningData ProvisioningData = IOSPlatform.ReadProvisioningData(TargetDesc.ProjectFile);
+				IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(TargetDesc.Platform)).ReadProvisioningData(TargetDesc.ProjectFile);
 				if(ProvisioningData == null || ProvisioningData.MobileProvisionFile == null)
 				{
 					throw new BuildException("Unable to find mobile provision for {0}. See log for more information.", TargetDesc.Name);

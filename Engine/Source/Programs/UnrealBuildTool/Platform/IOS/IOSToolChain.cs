@@ -1583,7 +1583,7 @@ namespace UnrealBuildTool
 					if(Target.Rules.IOSPlatform.ImportCertificate == null)
 					{
 						// Take it from the standard settings
-						IOSProvisioningData ProvisioningData = IOSPlatform.ReadProvisioningData(Target.ProjectFile);
+						IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProvisioningData(Target.ProjectFile);
 						SigningCertificate = ProvisioningData.SigningCertificate;
 
 						// Set the identity on the command line

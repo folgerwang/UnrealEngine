@@ -691,12 +691,10 @@ namespace UnrealBuildTool
 			return new IOSProjectSettings(ProjectFile);
 		}
 
-		public static IOSProvisioningData ReadProvisioningData(FileReference ProjectFile, bool bForDistribution = false)
+		public IOSProvisioningData ReadProvisioningData(FileReference ProjectFile, bool bForDistribution = false)
 		{
-			IOSPlatform Platform = (IOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS);
-
-			IOSProjectSettings ProjectSettings = Platform.ReadProjectSettings(ProjectFile);
-			return Platform.ReadProvisioningData(ProjectSettings, bForDistribution);
+			IOSProjectSettings ProjectSettings = ReadProjectSettings(ProjectFile);
+			return ReadProvisioningData(ProjectSettings, bForDistribution);
 		}
 
 		public IOSProvisioningData ReadProvisioningData(IOSProjectSettings ProjectSettings, bool bForDistribution = false)
