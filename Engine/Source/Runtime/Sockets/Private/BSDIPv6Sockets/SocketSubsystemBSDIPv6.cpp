@@ -112,6 +112,7 @@ FAddressInfoResult FSocketSubsystemBSDIPv6::GetAddressInfo(const TCHAR* HostName
 	ESocketErrors SocketError = TranslateGAIErrorCode(ErrorCode);
 	if (SocketError == SE_NO_ERROR)
 	{
+		addrinfo* AddrInfoHead = AddrInfo;
 		if (AddrInfo != nullptr && AddrInfo->ai_canonname != nullptr)
 		{
 			AddrQueryResult.CanonicalNameResult = UTF8_TO_TCHAR(AddrInfo->ai_canonname);
@@ -164,7 +165,7 @@ FAddressInfoResult FSocketSubsystemBSDIPv6::GetAddressInfo(const TCHAR* HostName
 					ESocketProtocolFamily::IPv6, ResultAddrConfiguration));
 			}
 		}
-		freeaddrinfo(AddrInfo);
+		freeaddrinfo(AddrInfoHead);
 	}
 #else
 	UE_LOG(LogSockets, Error, TEXT("Platform has no getaddrinfo(), but did not override FSocketSubsystem::GetAddressInfo()"));

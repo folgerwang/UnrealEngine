@@ -117,6 +117,7 @@ FAddressInfoResult FSocketSubsystemBSD::GetAddressInfo(const TCHAR* HostName, co
 	ESocketErrors SocketError = TranslateGAIErrorCode(ErrorCode);
 	if (SocketError == SE_NO_ERROR)
 	{
+		addrinfo* AddrInfoHead = AddrInfo;
 		// The canonical name will always be stored in only the first result in a getaddrinfo query
 		if (AddrInfo != nullptr && AddrInfo->ai_canonname != nullptr)
 		{
@@ -137,7 +138,7 @@ FAddressInfoResult FSocketSubsystemBSD::GetAddressInfo(const TCHAR* HostName, co
 				}
 			}
 		}
-		freeaddrinfo(AddrInfo);
+		freeaddrinfo(AddrInfoHead);
 	}
 #else
 	UE_LOG(LogSockets, Error, TEXT("Platform has no getaddrinfo(), but did not override FSocketSubsystem::GetAddressInfo()"));
