@@ -1641,8 +1641,7 @@ namespace UnrealBuildTool
 
 						MobileProvisionContents MobileProvision = MobileProvisionContents.Read(MobileProvisionFile);
 						MobileProvisionUUID = MobileProvision.GetUniqueId();
-
-						TeamUUID = null;
+						MobileProvision.TryGetTeamUniqueId(out TeamUUID);
 					}
 
 					string ConfigName = Target.Configuration.ToString();

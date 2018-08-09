@@ -62,6 +62,31 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets the team unique id for this mobileprovision
+		/// </summary>
+		/// <param name="UniqueId">Receives the team unique id</param>
+		/// <returns>True if the team unique ID was found, false otherwise</returns>
+		public bool TryGetTeamUniqueId(out string UniqueId)
+		{
+			XmlElement UniqueIdElement;
+			if(!NameToValue.TryGetValue("TeamIdentifier", out UniqueIdElement) || UniqueIdElement.Name != "array")
+			{
+				UniqueId = null;
+				return false;
+			}
+
+			XmlElement ValueElement = UniqueIdElement.SelectSingleNode("string") as XmlElement;
+			if(ValueElement == null)
+			{
+				UniqueId = null;
+				return false;
+			}
+
+			UniqueId = ValueElement.InnerText;
+			return true;
+		}
+
+		/// <summary>
 		/// Reads a mobileprovision from a file on disk
 		/// </summary>
 		/// <param name="Location">Path to the file</param>
