@@ -204,7 +204,7 @@ public:
 
 	/** Pin this component's owner actor instead of just the component itself. Relevant only when using 'OnlyOnDataRestoration' or 'Always' as AutoPinType. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "ContentPersistence|MagicLeap")
-	bool bPinActor;
+	bool bShouldPinActor;
 
 	/**
 	 * Delegate used to notify the instigating blueprint that an entity (component or actor) has been successfuly pinned to the real-world.
