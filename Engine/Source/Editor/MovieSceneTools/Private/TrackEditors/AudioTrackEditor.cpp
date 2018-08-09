@@ -1007,6 +1007,11 @@ FKeyPropertyResult FAudioTrackEditor::AddNewMasterSound( FFrameNumber KeyTime, U
 	if (TrackResult.bWasCreated)
 	{
 		AudioTrack->SetDisplayName(LOCTEXT("AudioTrackName", "Audio"));
+
+		if (GetSequencer().IsValid())
+		{
+			GetSequencer()->OnAddTrack(AudioTrack);
+		}
 	}
 
 	KeyPropertyResult.bTrackModified = true;

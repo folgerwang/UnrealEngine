@@ -3950,6 +3950,15 @@ FGuid FSequencer::MakeNewSpawnable( UObject& Object, UActorFactory* ActorFactory
 		return FGuid();
 	}
 
+	TArray<UMovieSceneFolder*> SelectedParentFolders;
+	FString NewNodePath;
+	CalculateSelectedFolderAndPath(SelectedParentFolders, NewNodePath);
+
+	if (SelectedParentFolders.Num() > 0)
+	{
+		SelectedParentFolders[0]->AddChildObjectBinding(NewGuid);
+	}
+
 	FMovieSceneSpawnable* Spawnable = GetFocusedMovieSceneSequence()->GetMovieScene()->FindSpawnable(NewGuid);
 	if (!Spawnable)
 	{
