@@ -241,6 +241,7 @@ protect /Binaries/ThirdParty/Mono/Mac/lib/mono/monodoc/monodoc.dll
 + /Plugins/**/Source/**.m
 + /Plugins/**/Source/**.cs
 + /Plugins/**/Source/**.inl
++ /Plugins/**.a
 + /Plugins/**.embeddedframework.zip
 + /Source/
 + /Source/*
