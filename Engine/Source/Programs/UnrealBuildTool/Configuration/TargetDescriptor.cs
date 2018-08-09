@@ -191,6 +191,7 @@ namespace UnrealBuildTool
 					Log.TraceVerbose("Found project file for {0} - {1}", TargetName, ProjectFile);
 				}
 
+				// Create the target descriptor
 				TargetDescriptor Target = new TargetDescriptor(ProjectFile, TargetName, Platform, Configuration, Architecture, AdditionalArguments.ToArray());
 				Target.OnlyModules = OnlyModules;
 				Target.ForeignPlugin = ForeignPlugin;

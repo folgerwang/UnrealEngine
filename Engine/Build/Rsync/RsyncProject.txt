@@ -18,6 +18,11 @@ protect /Intermediate/**
 + /Build/TVOS/**
 + /Config/
 + /Config/**
++ /Content/
++ /Content/Slate/
++ /Content/Slate/**
++ /Content/SlateDebug/
++ /Content/SlateDebug/**
 + /Plugins/
 + /Plugins/**/
 + /Plugins/**/*.uplugin

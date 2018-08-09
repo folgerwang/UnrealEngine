@@ -388,30 +388,7 @@ namespace UnrealBuildTool
 		{
 			DateTime CreateTargetStartTime = DateTime.UtcNow;
 
-			RulesAssembly RulesAssembly;
-			if (Desc.ProjectFile != null)
-			{
-				RulesAssembly = RulesCompiler.CreateProjectRulesAssembly(Desc.ProjectFile, bUsePrecompiled, bSkipRulesCompile);
-			}
-			else
-			{
-				RulesAssembly = RulesCompiler.CreateEngineRulesAssembly(bUsePrecompiled, bSkipRulesCompile);
-
-				if (RulesAssembly.GetTargetFileName(Desc.Name) == null)
-				{
-					// Target isn't part of the engine assembly, try the enterprise assembly
-					RulesAssembly EnterpriseRulesAssembly = RulesCompiler.CreateEnterpriseRulesAssembly(bUsePrecompiled, bSkipRulesCompile);
-
-					if (EnterpriseRulesAssembly != null)
-					{
-						RulesAssembly = EnterpriseRulesAssembly;
-					}
-				}
-			}
-			if (Desc.ForeignPlugin != null)
-			{
-				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(Desc.ForeignPlugin, bSkipRulesCompile, RulesAssembly, true);
-			}
+			RulesAssembly RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(Desc.ProjectFile, Desc.Name, bSkipRulesCompile, bUsePrecompiled, Desc.ForeignPlugin);
 
 			FileReference TargetFileName;
 			TargetRules RulesObject = RulesAssembly.CreateTargetRules(Desc.Name, Desc.Platform, Desc.Configuration, Desc.Architecture, Desc.ProjectFile, Version, Arguments, out TargetFileName);

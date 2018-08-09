@@ -223,6 +223,11 @@ protect /Binaries/ThirdParty/Mono/Mac/lib/mono/monodoc/monodoc.dll
 + /Build/IOS/**
 + /Config/
 + /Config/**
++ /Content/
++ /Content/Slate/
++ /Content/Slate/**
++ /Content/SlateDebug/
++ /Content/SlateDebug/**
 + /Intermediate/
 + /Intermediate/Build/
 + /Intermediate/Build/XmlConfigCache.bin

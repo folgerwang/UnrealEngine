@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.IO;
@@ -431,6 +431,43 @@ namespace UnrealBuildTool
 				LoadedAssemblyMap.Add(PluginFileName, PluginRulesAssembly);
 			}
 			return PluginRulesAssembly;
+		}
+
+		/// <summary>
+		/// Compile a rules assembly for the current target
+		/// </summary>
+		/// <param name="ProjectFile">The project file being compiled</param>
+		/// <param name="TargetName">The target being built</param>
+		/// <param name="bSkipRulesCompile">Whether to skip compiling any rules assemblies</param>
+		/// <param name="bUsePrecompiled">Whether to use a precompiled engine/enterprise build</param>
+		/// <param name="ForeignPlugin">Foreign plugin to be compiled</param>
+		/// <returns>The compiled rules assembly</returns>
+		public static RulesAssembly CreateTargetRulesAssembly(FileReference ProjectFile, string TargetName, bool bSkipRulesCompile, bool bUsePrecompiled, FileReference ForeignPlugin)
+		{
+			RulesAssembly RulesAssembly;
+			if (ProjectFile != null)
+			{
+				RulesAssembly = CreateProjectRulesAssembly(ProjectFile, bUsePrecompiled, bSkipRulesCompile);
+			}
+			else
+			{
+				RulesAssembly = CreateEngineRulesAssembly(bUsePrecompiled, bSkipRulesCompile);
+
+				if (RulesAssembly.GetTargetFileName(TargetName) == null)
+				{
+					// Target isn't part of the engine assembly, try the enterprise assembly
+					RulesAssembly EnterpriseRulesAssembly = CreateEnterpriseRulesAssembly(bUsePrecompiled, bSkipRulesCompile);
+					if (EnterpriseRulesAssembly != null)
+					{
+						RulesAssembly = EnterpriseRulesAssembly;
+					}
+				}
+			}
+			if (ForeignPlugin != null)
+			{
+				RulesAssembly = CreatePluginRulesAssembly(ForeignPlugin, bSkipRulesCompile, RulesAssembly, true);
+			}
+			return RulesAssembly;
 		}
 
 		/// <summary>
