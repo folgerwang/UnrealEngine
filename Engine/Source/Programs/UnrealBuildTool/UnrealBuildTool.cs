@@ -1694,11 +1694,11 @@ namespace UnrealBuildTool
 						}
 
 						// Execute all the post-build steps
-							if (BuildResult.Succeeded() && !ProjectFileGenerator.bGenerateProjectFiles && !BuildConfiguration.bXGEExport)
+						if (BuildResult.Succeeded() && !ProjectFileGenerator.bGenerateProjectFiles && !BuildConfiguration.bXGEExport)
 						{
-								foreach (UEBuildTarget Target in Targets)
+							foreach (UEBuildTarget Target in Targets)
 							{
-									if (!Target.ExecuteCustomPostBuildSteps())
+								if (!Target.Rules.bDisableLinking && !Target.ExecuteCustomPostBuildSteps())
 								{
 									BuildResult = ECompilationResult.OtherCompilationError;
 									break;
