@@ -24,6 +24,21 @@ public:
 	}
 
 	/**
+	 * Compares FInternetAddrs together, comparing the logical net addresses (endpoints)
+	 * of the data stored, rather than doing a memory comparison like the equality operator does.
+	 * If it is not explicitly implemented, this falls back to just doing the same behavior of the
+	 * comparison operator.
+	 *
+	 * @Param InAddr The address to compare with.
+	 *
+	 * @return true if the endpoint stored in this FInternetAddr is the same as the input.
+	 */
+	virtual bool CompareEndpoints(const FInternetAddr& InAddr) const
+	{
+		return *this == InAddr;
+	}
+
+	/**
 	 * Sets the ip address from a host byte order uint32
 	 *
 	 * @param InAddr the new address to use (must convert to network byte order)

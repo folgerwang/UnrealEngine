@@ -292,7 +292,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 
 					if (MyServerConnection)
 					{
-						if (*MyServerConnection->RemoteAddr == *FromAddr)
+						if (MyServerConnection->RemoteAddr->CompareEndpoints(*FromAddr))
 						{
 							Connection = MyServerConnection;
 						}
@@ -353,7 +353,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 		// Figure out which socket the received data came from.
 		if (MyServerConnection)
 		{
-			if ((*MyServerConnection->RemoteAddr == *FromAddr))
+			if (MyServerConnection->RemoteAddr->CompareEndpoints(*FromAddr))
 			{
 				Connection = MyServerConnection;
 			}
@@ -371,7 +371,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 
 			Connection = (Result != nullptr ? Cast<UIpConnection>(*Result) : nullptr);
 
-			check(Connection == nullptr || *Connection->RemoteAddr == *FromAddr);
+			check(Connection == nullptr || Connection->RemoteAddr->CompareEndpoints(*FromAddr));
 		}
 
 

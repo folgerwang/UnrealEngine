@@ -10,6 +10,62 @@ FInternetAddrBSD::FInternetAddrBSD()
 	Clear();
 }
 
+bool FInternetAddrBSD::CompareEndpoints(const FInternetAddr& InAddr) const
+{
+	const FInternetAddrBSD& OtherBSD = static_cast<const FInternetAddrBSD&>(InAddr);
+	if (GetPort() != OtherBSD.GetPort())
+	{
+		return false;
+	}
+
+	// If we share the same addresses, then just let the comparison operator take over.
+	if (Addr.ss_family == OtherBSD.Addr.ss_family)
+	{
+		return *this == InAddr;
+	}
+	else if (Addr.ss_family == AF_INET || OtherBSD.Addr.ss_family == AF_INET)
+	{
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+		// To handle mapped addresses, we want to raise one of the addresses to IPv6 and then do the comparison.
+		const in6_addr* IPv6Addr = (Addr.ss_family == AF_INET6) ? &((sockaddr_in6*)&Addr)->sin6_addr
+			: &((sockaddr_in6*)&(OtherBSD.Addr))->sin6_addr;
+
+		// Figure out which address is the one that needs to be raised to IPv6
+		const in_addr* IPv4Addr = (Addr.ss_family == AF_INET) ? &((sockaddr_in*)&Addr)->sin_addr
+			: &((sockaddr_in*)&(OtherBSD.Addr))->sin_addr;
+
+		// Check special addresses first (Multicast, Any, Loopback)
+		if ((IN6_IS_ADDR_MC_LINKLOCAL(IPv6Addr) && IN_MULTICAST(IPv4Addr->s_addr)) ||
+			(IN6_IS_ADDR_UNSPECIFIED(IPv6Addr) && IPv4Addr->s_addr == INADDR_ANY) ||
+			(IN6_IS_ADDR_LOOPBACK(IPv6Addr) && IPv4Addr->s_addr == INADDR_LOOPBACK))
+		{
+			return true;
+		}
+
+		// If we're not IPv4 mapped already, then we're not able to be compared
+		// and should early out
+		if (!IN6_IS_ADDR_V4MAPPED(IPv6Addr))
+		{
+			return false;
+		}
+
+		in6_addr ConvertedAddrData;
+		FMemory::Memzero(ConvertedAddrData);
+		ConvertedAddrData.s6_addr[10] = 0xff;
+		ConvertedAddrData.s6_addr[11] = 0xff;
+		ConvertedAddrData.s6_addr[12] = (static_cast<uint32>(IPv4Addr->s_addr) & 0xFF);
+		ConvertedAddrData.s6_addr[13] = ((static_cast<uint32>(IPv4Addr->s_addr) >> 8) & 0xFF);
+		ConvertedAddrData.s6_addr[14] = ((static_cast<uint32>(IPv4Addr->s_addr) >> 16) & 0xFF);
+		ConvertedAddrData.s6_addr[15] = ((static_cast<uint32>(IPv4Addr->s_addr) >> 24) & 0xFF);
+
+		return memcmp(&(ConvertedAddrData), IPv6Addr, sizeof(in6_addr)) == 0;
+#else
+		return false;
+#endif
+	}
+	return false;
+}
+
 void FInternetAddrBSD::Clear()
 {
 	FMemory::Memzero(&Addr, sizeof(Addr));
@@ -369,7 +425,7 @@ bool FInternetAddrBSD::operator==(const FInternetAddr& Other) const
 
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 	if (CurrentFamily == ESocketProtocolFamily::IPv6)
-	{
+		{
 		const sockaddr_in6* OtherBSDAddr = (sockaddr_in6*)&(OtherBSD.Addr);
 		const sockaddr_in6* ThisBSDAddr = ((sockaddr_in6*)&Addr);
 		return memcmp(&(ThisBSDAddr->sin6_addr), &(OtherBSDAddr->sin6_addr), sizeof(in6_addr)) == 0;

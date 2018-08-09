@@ -52,6 +52,16 @@ public:
 	FInternetAddrBSD();
 
 	/**
+	 * Compares FInternetAddrs together, comparing the logical net addresses (endpoints)
+	 * of the data stored, rather than doing a memory comparison like the equality operator does.
+	 *
+	 * @Param InAddr The address to compare with.
+	 *
+	 * @return true if the endpoint stored in this FInternetAddr is the same as the input.
+	 */
+	virtual bool CompareEndpoints(const FInternetAddr& InAddr) const override;
+
+	/**
 	 * Sets the ip address from a raw network byte order array.
 	 *
 	 * @param RawAddr the new address to use (must be converted to network byte order)
