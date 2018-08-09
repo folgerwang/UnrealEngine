@@ -1698,7 +1698,7 @@ namespace UnrealBuildTool
 						{
 							foreach (UEBuildTarget Target in Targets)
 							{
-								if (!Target.Rules.bDisableLinking && !Target.ExecuteCustomPostBuildSteps())
+								if (!Target.ExecuteCustomPostBuildSteps())
 								{
 									BuildResult = ECompilationResult.OtherCompilationError;
 									break;
