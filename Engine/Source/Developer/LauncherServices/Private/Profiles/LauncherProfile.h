@@ -2474,6 +2474,7 @@ protected:
 		}
 
 		ValidatePlatformSDKs();
+		ValidateDeviceStatus();
 	}
 	
 	void ValidatePlatformSDKs(void)
@@ -2537,7 +2538,33 @@ protected:
 			}
 		}
 	}
-	
+
+	void ValidateDeviceStatus(void)
+	{
+		ValidationErrors.Remove(ELauncherProfileValidationErrors::LaunchDeviceIsUnauthorized);
+
+		if (DeployedDeviceGroup.IsValid())
+		{
+			const TArray<FString>& Devices = DeployedDeviceGroup->GetDeviceIDs();
+			for (auto DeviceId : Devices)
+			{
+				ITargetDeviceServicesModule* TargetDeviceServicesModule = static_cast<ITargetDeviceServicesModule*>(FModuleManager::Get().LoadModule(TEXT("TargetDeviceServices")));
+				if (TargetDeviceServicesModule)
+				{
+					TSharedPtr<ITargetDeviceProxy> DeviceProxy = TargetDeviceServicesModule->GetDeviceProxyManager()->FindProxyDeviceForTargetDevice(DeviceId);
+					if (DeviceProxy.IsValid())
+					{
+						if (!DeviceProxy->IsAuthorized())
+						{
+							ValidationErrors.Add(ELauncherProfileValidationErrors::LaunchDeviceIsUnauthorized);
+							return;
+						}
+					}
+				}
+			}
+		}
+	}
+
 	void OnLauncherDeviceGroupDeviceAdded(const ILauncherDeviceGroupRef& DeviceGroup, const FString& DeviceId)
 	{
 		if( DeviceGroup == DeployedDeviceGroup )

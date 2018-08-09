@@ -28,7 +28,7 @@ limitations under the License.
 #endif
 
 #define OVRP_MAJOR_VERSION 1
-#define OVRP_MINOR_VERSION 25
+#define OVRP_MINOR_VERSION 27
 #define OVRP_PATCH_VERSION 0
 
 #define OVRP_VERSION OVRP_MAJOR_VERSION, OVRP_MINOR_VERSION, OVRP_PATCH_VERSION
@@ -787,6 +787,8 @@ typedef enum {
   ovrpLayerSubmitFlag_NoDepth = (1 << 3),
   /// Use inverse alpha for timewarp blending
   ovrpLayerSubmitFlag_InverseAlpha = (1 << 4),
+  /// Combine the submitted layer with the layers generated from OVROverlay commands
+  ovrpLayerSubmitFlag_CombineLayerSubmits = (1 << 5),
 } ovrpLayerSubmitFlags;
 
 /// Layer state to submit to ovrp_EndFrame
@@ -844,5 +846,21 @@ typedef union {
 
 #undef OVRP_LAYER_SUBMIT
 #undef OVRP_LAYER_SUBMIT_TYPE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #endif

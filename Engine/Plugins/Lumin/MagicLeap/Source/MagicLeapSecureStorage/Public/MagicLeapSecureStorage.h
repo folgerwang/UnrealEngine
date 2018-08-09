@@ -188,4 +188,29 @@ public:
 	*/
 	template<class T>
 	static bool GetSecureBlob(const FString& Key, T& DataToRetrieve);
+
+private:
+	static bool PutSecureBlobImpl(const FString& Key, const void* DataToStore, size_t DataTypeSize);
+
+	static uint8* GetSecureBlobImpl(const FString& Key, size_t DataTypeSize);
+
+	static void FreeBlobBufferImpl(uint8* Buffer);
 };
+
+template<class T>
+bool UMagicLeapSecureStorage::PutSecureBlob(const FString& Key, const T* DataToStore)
+{
+	return UMagicLeapSecureStorage::PutSecureBlobImpl(Key, reinterpret_cast<const void*>(DataToStore), sizeof(T));
+}
+
+template<class T>
+bool UMagicLeapSecureStorage::GetSecureBlob(const FString& Key, T& DataToRetrieve)
+{
+	uint8* blob = UMagicLeapSecureStorage::GetSecureBlobImpl(Key, sizeof(T));
+	if (blob != nullptr)
+	{
+		DataToRetrieve = *reinterpret_cast<T*>(blob);
+		UMagicLeapSecureStorage::FreeBlobBufferImpl(blob);
+	}
+	return blob != nullptr;
+}

@@ -907,7 +907,7 @@ void FSteamVRHMD::PoseToOrientationAndPosition(const vr::HmdMatrix34_t& InPose, 
 	OutOrientation.Z = Orientation.Y;
 	OutOrientation.W = -Orientation.W;
 
-	FVector Position = ((FVector(-Pose.M[3][2], Pose.M[3][0], Pose.M[3][1]) - BaseOffset) * WorldToMetersScale);
+	FVector Position = ((FVector(-Pose.M[3][2], Pose.M[3][0], Pose.M[3][1])) * WorldToMetersScale - BaseOffset);
 	OutPosition = BaseOrientation.Inverse().RotateVector(Position);
 
 	OutOrientation = BaseOrientation.Inverse() * OutOrientation;
@@ -1207,7 +1207,7 @@ void FSteamVRHMD::ResetPosition()
 {
 	const FTrackingFrame& TrackingFrame = GetTrackingFrame();
 	FMatrix Pose = ToFMatrix(TrackingFrame.RawPoses[vr::k_unTrackedDeviceIndex_Hmd]);
-	BaseOffset = FVector(-Pose.M[3][2], Pose.M[3][0], Pose.M[3][1]);
+	BaseOffset = FVector(-Pose.M[3][2], Pose.M[3][0], Pose.M[3][1]) * TrackingFrame.WorldToMetersScale;
 }
 
 void FSteamVRHMD::SetBaseRotation(const FRotator& BaseRot)
@@ -1227,6 +1227,16 @@ void FSteamVRHMD::SetBaseOrientation(const FQuat& BaseOrient)
 FQuat FSteamVRHMD::GetBaseOrientation() const
 {
 	return BaseOrientation;
+}
+
+void FSteamVRHMD::SetBasePosition(const FVector& BasePosition)
+{
+	BaseOffset = BasePosition;
+}
+
+FVector FSteamVRHMD::GetBasePosition() const
+{
+	return BaseOffset;
 }
 
 bool FSteamVRHMD::IsStereoEnabled() const
@@ -1376,20 +1386,6 @@ FMatrix FSteamVRHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass Ster
 
 	return Mat;
 
-}
-
-void FSteamVRHMD::GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const
-{
-	const int32 RenderTargetWidth = FMath::CeilToInt(static_cast<float>(IdealRenderTargetSize.X) * PixelDensity);
-	const int32 RenderTargetHeight = FMath::CeilToInt(static_cast<float>(IdealRenderTargetSize.Y) * PixelDensity);
-
-	const float HudOffset = 50.0f;
-	OrthoProjection[0] = FTranslationMatrix(FVector(HudOffset, 0.0f, 0.0f));
-	OrthoProjection[1] = FTranslationMatrix(FVector(-HudOffset + RenderTargetWidth * 0.5, 0.0f, 0.0f));
-
-	const FScaleMatrix RTScale(FVector(static_cast<float>(RTWidth) / static_cast<float>(RenderTargetWidth), static_cast<float>(RTHeight) / static_cast<float>(RenderTargetHeight), 1.0f));
-	OrthoProjection[0] *= RTScale;
-	OrthoProjection[1] *= RTScale;
 }
 
 void FSteamVRHMD::GetEyeRenderParams_RenderThread(const FRenderingCompositePassContext& Context, FVector2D& EyeToSrcUVScaleValue, FVector2D& EyeToSrcUVOffsetValue) const

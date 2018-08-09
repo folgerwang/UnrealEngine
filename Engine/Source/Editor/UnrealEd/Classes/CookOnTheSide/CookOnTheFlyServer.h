@@ -1463,6 +1463,11 @@ private:
 	void InitializeSandbox();
 
 	/**
+	* Initialize all target platforms
+	*/
+	void InitializeTargetPlatforms();
+
+	/**
 	* Clean up the sandbox
 	*/
 	void TermSandbox();

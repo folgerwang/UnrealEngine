@@ -182,7 +182,7 @@ namespace GitDependencies
 				{
 					ExcludeFolders.Add("Mac");
 				}
-				if(Environment.GetEnvironmentVariable("NDKROOT") == null)
+				if(Environment.GetEnvironmentVariable("NDKROOT") == null && Environment.GetEnvironmentVariable("MLSDK") == null)
 				{
 					ExcludeFolders.Add("Android");
 				}

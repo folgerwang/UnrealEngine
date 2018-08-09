@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanPipelineState.h: Vulkan pipeline state definitions.
@@ -36,7 +36,7 @@ public:
 		return SetLayouts;
 	}
 
-	void AddBindingsForStage(VkShaderStageFlagBits StageFlags, DescriptorSet::EStage DescSet, const FVulkanCodeHeader& CodeHeader);
+	void AddBindingsForStage(VkShaderStageFlagBits StageFlags, DescriptorSet::EStage DescSet, const FVulkanCodeHeader& CodeHeader, const FImmutableSamplerState* const ImmutableSamplerState = nullptr);
 
 	friend uint32 GetTypeHash(const FVulkanDescriptorSetsLayoutInfo& In)
 	{

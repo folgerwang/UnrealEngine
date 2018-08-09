@@ -15,6 +15,7 @@
 #include "SceneManagement.h"
 #include "Collision.h"
 #include "Physics/PhysicsInterfaceCore.h"
+#include "Physics/PhysicsFiltering.h"
 #include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsEngine/ShapeElem.h"
 #include "PhysicsEngine/ConvexElem.h"
@@ -924,8 +925,6 @@ void GetSimulatingAndBlendWeight(const USkeletalMeshComponent* SkelMeshComp, con
 	}
 }
 
-#if WITH_PHYSX
-
 struct FPhysicsActorCreatePayload_PhysX
 {
 	bool bUseAsync;
@@ -1225,8 +1224,6 @@ struct FInitBodiesHelper
 		}
 	}
 };
-#endif // WITH_PHYSX
-
 
 FBodyInstance::FInitBodySpawnParams::FInitBodySpawnParams(const UPrimitiveComponent* PrimComp)
 {
@@ -3402,7 +3399,6 @@ bool FBodyInstance::ValidateTransform(const FTransform &Transform, const FString
 	return true;
 }
 
-#if WITH_PHYSX
 void FBodyInstance::InitDynamicProperties_AssumesLocked()
 {
 	if(!BodySetup.IsValid())
@@ -3588,7 +3584,6 @@ void FBodyInstance::BuildBodyFilterData(FBodyCollisionFilterData& OutFilterData)
 		OutFilterData.QueryComplexFilter = ComplexQueryData;
 	}
 }
-#endif // WITH_PHYSX
 
 void FBodyInstance::InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, UBodySetup* BodySetup, UPrimitiveComponent* PrimitiveComp, FPhysScene* InRBScene)
 {

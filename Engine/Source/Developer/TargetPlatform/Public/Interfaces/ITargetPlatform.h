@@ -437,6 +437,11 @@ public:
 	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const = 0;
 
 	/**
+	 * Give the platform a chance to refresh internal settings before a cook, etc
+	 */
+	virtual void RefreshSettings() = 0;
+
+	/**
 	 * Get unique integer identifier for this platform.
 	 *
 	 * The implementation will assign an ordinal to each target platform at startup, assigning

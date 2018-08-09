@@ -2,6 +2,20 @@
 
 #include "AppleImageUtilsBlueprintSupport.h"
 #include "AppleImageUtilsBlueprintProxy.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+
+
+class FAppleImageUtilsBlueprintSupport :
+	public IModuleInterface
+{
+	/** IModuleInterface implementation */
+	virtual void StartupModule() override {}
+	virtual void ShutdownModule() override {}
+
+};
+
+IMPLEMENT_MODULE(FAppleImageUtilsBlueprintSupport, AppleImageUtilsBlueprintSupport);
 
 UK2Node_ConvertToJPEG::UK2Node_ConvertToJPEG(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

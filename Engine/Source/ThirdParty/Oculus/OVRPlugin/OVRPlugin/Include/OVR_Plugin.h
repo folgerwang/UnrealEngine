@@ -514,6 +514,10 @@ OVRP_EXPORT ovrpResult ovrp_SetThreadPerformance(int threadId, ovrpThreadPerf pe
 /// This is specifically for Unity to fix Core Affinity wrong assignment.
 OVRP_EXPORT ovrpResult ovrp_AutoThreadScheduling(unsigned int bigCoreMaskFromEngine, unsigned int* threadIds, ovrpThreadPerf* threadPerfFlags, int threadCount);
 
+
+
+
+
 #ifdef __cplusplus
 }
 #endif

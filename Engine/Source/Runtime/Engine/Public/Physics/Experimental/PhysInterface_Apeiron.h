@@ -239,9 +239,6 @@ public:
     ENGINE_API void SyncBodies();
 
     // Interface needed for interface
-    static ENGINE_API physx::PxRigidActor* GetPxRigidActorFromScene_AssumesLocked(const FPhysicsActorReference_Apeiron& InActorRef, int32 SceneType = -1) { return nullptr; }
-    static ENGINE_API physx::PxRigidActor* GetPxRigidActor_AssumesLocked(const FPhysicsActorReference_Apeiron& InRef) { return nullptr; }
-
 	static ENGINE_API FPhysicsActorHandle CreateActor(const FActorCreationParams& Params);
 	static ENGINE_API void ReleaseActor(FPhysicsActorReference_Apeiron& InActorReference, FPhysScene* InScene = nullptr, bool bNeverDeferRelease=false);
 
@@ -526,9 +523,11 @@ public:
 	{
 		return InActorReference.Second;
 	}
-	
+
+#if WITH_PHYSX
     static void CalculateMassPropertiesFromShapeCollection(physx::PxMassProperties& OutProperties, const TArray<FPhysicsShapeHandle>& InShapes, float InDensityKGPerCM);
-    
+#endif
+
     static const Apeiron::TPBDRigidParticles<float, 3>& GetParticlesAndIndex(const FPhysicsActorReference_Apeiron& InActorReference, uint32& Index);
     static const TArray<Apeiron::TVector<int32, 2>>& GetConstraintArrayAndIndex(const FPhysicsConstraintReference_Apeiron& InActorReference, uint32& Index);
 
