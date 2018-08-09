@@ -91,34 +91,39 @@ FString FBuildPatchUtils::GetDataTypeOldFilename( EBuildPatchDataType DataType, 
 
 FString FBuildPatchUtils::GetDataFilename(const FBuildPatchAppManifestRef& Manifest, const FString& RootDirectory, const FGuid& DataGUID)
 {
-	const EBuildPatchDataType DataType = Manifest->IsFileDataManifest() ? EBuildPatchDataType::FileData : EBuildPatchDataType::ChunkData;
-	if (Manifest->GetManifestVersion() < EBuildPatchAppManifestVersion::DataFileRenames)
+	return GetDataFilename(Manifest.Get(), RootDirectory, DataGUID);
+}
+
+FString FBuildPatchUtils::GetDataFilename(const FBuildPatchAppManifest& Manifest, const FString& RootDirectory, const FGuid& DataGUID)
+{
+	const EBuildPatchDataType DataType = Manifest.IsFileDataManifest() ? EBuildPatchDataType::FileData : EBuildPatchDataType::ChunkData;
+	if (Manifest.GetManifestVersion() < EBuildPatchAppManifestVersion::DataFileRenames)
 	{
 		return FBuildPatchUtils::GetDataTypeOldFilename(DataType, RootDirectory, DataGUID);
 	}
-	else if (!Manifest->IsFileDataManifest())
+	else if (!Manifest.IsFileDataManifest())
 	{
 		uint64 ChunkHash;
-		const bool bFound = Manifest->GetChunkHash(DataGUID, ChunkHash);
+		const bool bFound = Manifest.GetChunkHash(DataGUID, ChunkHash);
 		// Should be impossible to not exist
 		check(bFound);
-		return FBuildPatchUtils::GetChunkNewFilename(Manifest->GetManifestVersion(), RootDirectory, DataGUID, ChunkHash);
+		return FBuildPatchUtils::GetChunkNewFilename(Manifest.GetManifestVersion(), RootDirectory, DataGUID, ChunkHash);
 	}
-	else if (Manifest->GetManifestVersion() <= EBuildPatchAppManifestVersion::StoredAsCompressedUClass)
+	else if (Manifest.GetManifestVersion() <= EBuildPatchAppManifestVersion::StoredAsCompressedUClass)
 	{
 		FSHAHash FileHash;
-		const bool bFound = Manifest->GetFileHash(DataGUID, FileHash);
+		const bool bFound = Manifest.GetFileHash(DataGUID, FileHash);
 		// Should be impossible to not exist
 		check(bFound);
-		return FBuildPatchUtils::GetFileNewFilename(Manifest->GetManifestVersion(), RootDirectory, DataGUID, FileHash);
+		return FBuildPatchUtils::GetFileNewFilename(Manifest.GetManifestVersion(), RootDirectory, DataGUID, FileHash);
 	}
 	else
 	{
 		uint64 FileHash;
-		const bool bFound = Manifest->GetFilePartHash(DataGUID, FileHash);
+		const bool bFound = Manifest.GetFilePartHash(DataGUID, FileHash);
 		// Should be impossible to not exist
 		check(bFound);
-		return FBuildPatchUtils::GetFileNewFilename(Manifest->GetManifestVersion(), RootDirectory, DataGUID, FileHash);
+		return FBuildPatchUtils::GetFileNewFilename(Manifest.GetManifestVersion(), RootDirectory, DataGUID, FileHash);
 	}
 	return TEXT("");
 }

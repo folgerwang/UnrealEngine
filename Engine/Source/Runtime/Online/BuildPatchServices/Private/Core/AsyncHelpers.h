@@ -2,6 +2,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "HAL/ThreadSafeCounter64.h"
 #include "Async/Async.h"
 
 namespace BuildPatchServices
@@ -62,4 +64,33 @@ namespace BuildPatchServices
 			return Promise->GetFuture();
 		}
 	}
+
+	/**
+	 * Additional atomic functionality
+	 */
+	namespace AsyncHelpers
+	{
+		/**
+		 * LockFreePeak will set the destination value, to NewSample, if NewSample is higher.
+		 * This works by spinning on InterlockedCompareExchange. For other usage examples see reference code in GenericPlatformAtomics.h
+		 * @param PeakValue     The destination variable to set.
+		 * @param NewSample     The sample to set with if higher.
+		 */
+		template<typename IntegerType>
+		void LockFreePeak(volatile IntegerType* PeakValue, IntegerType NewSample)
+		{
+			IntegerType CurrentPeak;
+			do
+			{
+				// Read the current value.
+				CurrentPeak = *PeakValue;
+			}
+			// If the value was lower than the sample, try to update it to NewSample if the current value has not been set by another thread.
+			// If the current value change since we read it, try again to see if our sample is still higher.
+			while (CurrentPeak < NewSample && FPlatformAtomics::InterlockedCompareExchange(PeakValue, NewSample, CurrentPeak) != CurrentPeak);
+		}
+	}
+
+	typedef FThreadSafeCounter64 FThreadSafeInt64;
+	typedef FThreadSafeCounter FThreadSafeInt32;
 }

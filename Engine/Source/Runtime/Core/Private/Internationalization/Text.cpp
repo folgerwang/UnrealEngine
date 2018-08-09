@@ -678,30 +678,44 @@ FText FText::AsTimespan(const FTimespan& Timespan, const FCulturePtr& TargetCult
 	}
 }
 
-FText FText::AsMemory(uint64 NumBytes, const FNumberFormattingOptions* const Options, const FCulturePtr& TargetCulture)
+FText FText::AsMemory(uint64 NumBytes, const FNumberFormattingOptions* const Options, const FCulturePtr& TargetCulture, EMemoryUnitStandard UnitStandard)
 {
 	checkf(FInternationalization::Get().IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
 	FFormatNamedArguments Args;
 
-	if (NumBytes < 1024)
+	static const TCHAR* Prefixes = TEXT("KMGTPEZYkMGTPEZY");
+	int32 Prefix = 0;
+	FString Suffix = TEXT("iB");
+	uint64 Unit = 1024;
+	if (UnitStandard == EMemoryUnitStandard::SI)
+	{
+		Prefix = 8;
+		Suffix = TEXT("B");
+		Unit = 1000;
+	}
+
+	// We consistently use decimal magnitude for testing, so that both IEC and SI remain friendly as a stringified decimal number.
+	if (NumBytes < 1000)
 	{
 		Args.Add( TEXT("Number"), FText::AsNumber( NumBytes, Options, TargetCulture) );
 		Args.Add( TEXT("Unit"), FText::FromString( FString( TEXT("B") ) ) );
 		return FText::Format( NSLOCTEXT("Internationalization", "ComputerMemoryFormatting", "{Number} {Unit}"), Args );
 	}
-
-	static const TCHAR* Prefixes = TEXT("kMGTPEZY");
-	int32 Prefix = 0;
-
-	for (; NumBytes > 1024 * 1024; NumBytes >>= 10)
+	while (NumBytes >= (1000000))
 	{
+		NumBytes /= Unit;
 		++Prefix;
 	}
 
-	const double MemorySizeAsDouble = (double)NumBytes / 1024.0;
+	const double MemorySizeAsDouble = (double)NumBytes / (double)Unit;
 	Args.Add( TEXT("Number"), FText::AsNumber( MemorySizeAsDouble, Options, TargetCulture) );
-	Args.Add( TEXT("Unit"), FText::FromString( FString( 1, &Prefixes[Prefix] ) + TEXT("B") ) );
+	Args.Add( TEXT("Unit"), FText::FromString( FString( 1, &Prefixes[Prefix] ) + Suffix) );
 	return FText::Format( NSLOCTEXT("Internationalization", "ComputerMemoryFormatting", "{Number} {Unit}"), Args);
+}
+
+FText FText::AsMemory(uint64 NumBytes, EMemoryUnitStandard UnitStandard)
+{
+	return FText::AsMemory(NumBytes, nullptr, nullptr, UnitStandard);
 }
 
 FString FText::GetInvariantTimeZone()

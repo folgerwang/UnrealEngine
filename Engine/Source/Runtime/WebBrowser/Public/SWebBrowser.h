@@ -25,6 +25,7 @@ public:
 	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, const FString&, const FWebNavigationRequest& /*Request*/)
 	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnLoadUrl, const FString& /*Method*/, const FString& /*Url*/, FString& /* Response */)
 	DECLARE_DELEGATE_RetVal_OneParam(EWebBrowserDialogEventResponse, FOnShowDialog, const TWeakPtr<IWebBrowserDialog>&);
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnDragWindow, const FPointerEvent& /* MouseEvent */);
 
 	SLATE_BEGIN_ARGS(SWebBrowser)
 		: _InitialURL(TEXT("https://www.google.com"))
@@ -112,6 +113,9 @@ public:
 		SLATE_EVENT(FSimpleDelegate, OnDismissAllDialogs)
 
 		SLATE_EVENT(FOnSuppressContextMenu, OnSuppressContextMenu);
+
+		/** Called when drag is detected in a web page area tagged as a drag region. */
+		SLATE_EVENT(FOnDragWindow, OnDragWindow);
 
 
 	SLATE_END_ARGS()

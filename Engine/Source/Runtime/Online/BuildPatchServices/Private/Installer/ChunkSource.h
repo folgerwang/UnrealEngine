@@ -33,6 +33,14 @@ namespace BuildPatchServices
 		virtual TSet<FGuid> AddRuntimeRequirements(TSet<FGuid> NewRequirements) = 0;
 
 		/**
+		 * Adds a requirement to reacquire a chunk that may have already been acquired before by this source. This allows the source implementation to
+		 * to support forward reading of chunks, and track which it would not need to request.
+		 * @param RepeatRequirement     The chunk that needs reacquiring.
+		 * @return true if the chunk provided can be acquired by this source.
+		 */
+		virtual bool AddRepeatRequirement(const FGuid& RepeatRequirement) = 0;
+
+		/**
 		 * Sets a callback to be used when chunks that are being fetched by this source are no longer available.
 		 * @param Callback          The function to call with the set of chunks no longer still available.
 		 */

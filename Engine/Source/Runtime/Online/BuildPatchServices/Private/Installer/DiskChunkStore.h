@@ -5,6 +5,7 @@
 
 namespace BuildPatchServices
 {
+	class IFileSystem;
 	class IChunkDataSerialization;
 	class IDiskChunkStoreStat;
 	enum class EChunkSaveResult : uint8;
@@ -20,6 +21,26 @@ namespace BuildPatchServices
 		virtual ~IDiskChunkStore() {}
 	};
 
+	struct FDiskChunkStoreConfig
+	{
+		// The directory path for where to store chunk files.
+		FString StoreRootPath;
+		// The number of requests to allow to queue up before blocking Put/Get calls.
+		int32 QueueSize;
+		// The max time in seconds to wait before retrying file handle for dump file.
+		double MaxRetryTime;
+
+		/**
+		 * Constructor which sets usual defaults.
+		 */
+		FDiskChunkStoreConfig(FString InStoreRootPath)
+			: StoreRootPath(MoveTemp(InStoreRootPath))
+			, QueueSize(50)
+			, MaxRetryTime(2.0)
+		{
+		}
+	};
+
 	/**
 	 * A factory for creating an IDiskChunkStore instance.
 	 */
@@ -31,13 +52,14 @@ namespace BuildPatchServices
 		 * As per the IChunkStore contract, the ptr returned by Get() will be valid at least until another Get() call is made.
 		 * A Remove() call will not actually delete the data from disk.
 		 * A Get(), Put(), or Remove() call may block on the file IO.
+		 * @param FileSystem            Required ptr to file system for file IO.
 		 * @param Serializer            Required ptr to the serialization implementation to use. If existing chunks used a different serializer,
 		 *                              then Get() and Remove() calls for those could fail.
 		 * @param DiskChunkStoreStat    Pointer to the statistics receiver.
-		 * @param StoreRootPath         The directory path for where to store chunk files.
+		 * @param Configuration         The configuration struct.
 		 * @return the new IDiskChunkStore instance created.
 		 */
-		static IDiskChunkStore* Create(IChunkDataSerialization* Serializer, IDiskChunkStoreStat* DiskChunkStoreStat, FString StoreRootPath);
+		static IDiskChunkStore* Create(IFileSystem* FileSystem, IChunkDataSerialization* Serializer, IDiskChunkStoreStat* DiskChunkStoreStat, FDiskChunkStoreConfig Configuration);
 	};
 
 	/**
@@ -56,6 +78,12 @@ namespace BuildPatchServices
 		 * @param SaveResult        The serialization result, including whether the operation was successful.
 		 */
 		virtual void OnChunkStored(const FGuid& ChunkId, const FString& ChunkFilename, EChunkSaveResult SaveResult) = 0;
+
+		/**
+		 * Called whenever chunk is going to be loaded from the store.
+		 * @param ChunkId           The id of the chunk.
+		 */
+		virtual void OnBeforeChunkLoad(const FGuid& ChunkId) = 0;
 
 		/**
 		 * Called whenever a new chunk has been loaded from the store.

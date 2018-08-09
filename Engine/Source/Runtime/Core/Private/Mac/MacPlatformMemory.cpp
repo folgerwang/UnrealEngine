@@ -115,8 +115,10 @@ FMalloc* FMacPlatformMemory::BaseAllocator()
 	case EMemoryAllocatorToUse::Stomp:
 		return new FMallocStomp();
 #endif
+#if TBB_ALLOCATOR_ALLOWED
 	case EMemoryAllocatorToUse::TBB:
 		return new FMallocTBB();
+#endif
 	case EMemoryAllocatorToUse::Binned2:
 		return new FMallocBinned2();
 

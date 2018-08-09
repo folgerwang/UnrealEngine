@@ -5,6 +5,7 @@
 #include "UObject/Stack.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Textures/SlateUpdatableTexture.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 #if WITH_CEF3
 
@@ -13,6 +14,7 @@
 #include "CEFBrowserClosureTask.h"
 #include "CEFJSScripting.h"
 #include "CEFImeHandler.h"
+#include "Async/Async.h"
 
 #if PLATFORM_MAC
 // Needed for character code definitions
@@ -371,6 +373,7 @@ FCEFWebBrowserWindow::FCEFWebBrowserWindow(CefRefPtr<CefBrowser> InBrowser, CefR
 	, WebBrowserHandler(InHandler)
 	, CurrentUrl(InUrl)
 	, ViewportSize(FIntPoint::ZeroValue)
+	, ViewportDPIScaleFactor(1.0f)
 	, bIsClosing(false)
 	, bIsInitialized(false)
 	, ContentsToLoad(InContentsToLoad)
@@ -382,6 +385,7 @@ FCEFWebBrowserWindow::FCEFWebBrowserWindow(CefRefPtr<CefBrowser> InBrowser, CefR
 	, bIsHidden(false)
 	, bTickedLastFrame(true)
 	, bNeedsResize(false)
+	, bDraggingWindow(false)
 	, PreviousKeyDownEvent()
 	, PreviousKeyUpEvent()
 	, PreviousCharacterEvent()
@@ -390,6 +394,7 @@ FCEFWebBrowserWindow::FCEFWebBrowserWindow(CefRefPtr<CefBrowser> InBrowser, CefR
 	, bIgnoreCharacterEvent(false)
 	, bMainHasFocus(false)
 	, bPopupHasFocus(false)
+	, bSupportsMouseWheel(true)
 	, bRecoverFromRenderProcessCrash(false)
 	, ErrorCode(0)
 	, bDeferNavigations(false)
@@ -400,29 +405,90 @@ FCEFWebBrowserWindow::FCEFWebBrowserWindow(CefRefPtr<CefBrowser> InBrowser, CefR
 {
 	check(InBrowser.get() != nullptr);
 
-	if (FSlateApplication::IsInitialized())
+	UpdatableTextures[0] = nullptr;
+	UpdatableTextures[1] = nullptr;
+
+	if (!CreateInitialTextures())
 	{
-		if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
-		{
-			// Create a transparent dummy texture for our buffers which will prevent slate from applying an 
-			// undesirable quad if it happens to ask for this buffer before we get a chance to paint to it.
-			TArray<uint8> RawData;
-			RawData.AddZeroed(4);
-			UpdatableTextures[0] = Renderer->CreateUpdatableTexture(1, 1);
-			UpdatableTextures[0]->UpdateTextureThreadSafeRaw(1, 1, RawData.GetData());
-			UpdatableTextures[1] = Renderer->CreateUpdatableTexture(1, 1);
-			UpdatableTextures[1]->UpdateTextureThreadSafeRaw(1, 1, RawData.GetData());
-		}
-	}
-	else
-	{
-		UpdatableTextures[0] = nullptr;
-		UpdatableTextures[1] = nullptr;
+		ReleaseTextures();
 	}
 
 #if USE_BUFFERED_VIDEO
 	BufferedVideo = TUniquePtr<FBrowserBufferedVideo>(new FBrowserBufferedVideo(4));
 #endif
+}
+
+void FCEFWebBrowserWindow::ReleaseTextures()
+{
+	for (int I = 0; I < 2; ++I)
+	{
+		if (UpdatableTextures[I] != nullptr)
+		{
+			FSlateUpdatableTexture* TextureToRelease = UpdatableTextures[I];
+			AsyncTask(ENamedThreads::GameThread, [TextureToRelease]()
+			{
+				if (FSlateApplication::IsInitialized())
+				{
+					if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
+					{
+						Renderer->ReleaseUpdatableTexture(TextureToRelease);
+					}
+				}
+			});
+
+			UpdatableTextures[I] = nullptr;
+		}
+	}
+}
+
+bool FCEFWebBrowserWindow::CreateInitialTextures()
+{
+	if (FSlateApplication::IsInitialized())
+	{
+		if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
+		{
+			if (Renderer->HasLostDevice())
+			{
+				return false;
+			}
+
+			// Create a transparent dummy texture for our buffers which will prevent slate from applying an 
+			// undesirable quad if it happens to ask for this buffer before we get a chance to paint to it.
+			TArray<uint8> RawData;
+			RawData.AddZeroed(4);
+			UpdatableTextures[0] = Renderer->CreateUpdatableTexture(1, 1);
+
+			if (Renderer->HasLostDevice())
+			{
+				return false;
+			}
+
+			UpdatableTextures[0]->UpdateTextureThreadSafeRaw(1, 1, RawData.GetData());
+
+			if (Renderer->HasLostDevice())
+			{
+				return false;
+			}
+
+			UpdatableTextures[1] = Renderer->CreateUpdatableTexture(1, 1);
+
+			if (Renderer->HasLostDevice())
+			{
+				return false;
+			}
+
+			UpdatableTextures[1]->UpdateTextureThreadSafeRaw(1, 1, RawData.GetData());
+
+			if (Renderer->HasLostDevice())
+			{
+				return false;
+			}
+
+			return true;
+		}
+	}
+
+	return false;
 }
 
 FCEFWebBrowserWindow::~FCEFWebBrowserWindow()
@@ -431,21 +497,7 @@ FCEFWebBrowserWindow::~FCEFWebBrowserWindow()
 	WebBrowserHandler->OnBeforePopup().Unbind();
 	CloseBrowser(true);
 
-	if (FSlateApplication::IsInitialized())
-	{
-		if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
-		{
-			for (int I = 0; I < 1; ++I)
-			{
-				if (UpdatableTextures[I] != nullptr)
-				{
-					Renderer->ReleaseUpdatableTexture(UpdatableTextures[I]);
-				}
-			}
-		}
-	}
-	UpdatableTextures[0] = nullptr;
-	UpdatableTextures[1] = nullptr;
+	ReleaseTextures();
 
 	BufferedVideo.Reset();
 }
@@ -484,11 +536,14 @@ void FCEFWebBrowserWindow::SetViewportSize(FIntPoint WindowSize, FIntPoint Windo
 	}
 	bTickedLastFrame=true;
 
+	const float WindowDPIScaleFactor = ParentWindow.IsValid() ? ParentWindow->GetNativeWindow()->GetDPIScaleFactor() : 1.0f;
+
 	// Ignore sizes that can't be seen as it forces CEF to re-render whole image
-	if (WindowSize.X > 0 && WindowSize.Y > 0 && ViewportSize != WindowSize)
+	if ((WindowSize.X > 0 && WindowSize.Y > 0 && ViewportSize != WindowSize) || WindowDPIScaleFactor != ViewportDPIScaleFactor)
 	{
 		bool bFirstSize = ViewportSize == FIntPoint::ZeroValue;
 		ViewportSize = WindowSize;
+		ViewportDPIScaleFactor = WindowDPIScaleFactor;
 
 		if (IsValid())
 		{
@@ -1152,12 +1207,19 @@ FReply FCEFWebBrowserWindow::OnMouseButtonDown(const FGeometry& MyGeometry, cons
 
 		if(bIsCefSupportedButton)
 		{
-		CefBrowserHost::MouseButtonType Type =
-			(Button == EKeys::LeftMouseButton ? MBT_LEFT : (
-			Button == EKeys::RightMouseButton ? MBT_RIGHT : MBT_MIDDLE));
+			CefBrowserHost::MouseButtonType Type =
+				(Button == EKeys::LeftMouseButton ? MBT_LEFT : (
+				Button == EKeys::RightMouseButton ? MBT_RIGHT : MBT_MIDDLE));
 
-		CefMouseEvent Event = GetCefMouseEvent(MyGeometry, MouseEvent, bIsPopup);
-		InternalCefBrowser->GetHost()->SendMouseClickEvent(Event, Type, false,1);
+			CefMouseEvent Event = GetCefMouseEvent(MyGeometry, MouseEvent, bIsPopup);
+
+			// If the click happened inside a drag region we enable window dragging which will start firing OnDragWindow events on mouse move
+			if (Type == MBT_LEFT && IsInDragRegion(FIntPoint(Event.x, Event.y)))
+			{
+				bDraggingWindow = true;
+			}
+
+			InternalCefBrowser->GetHost()->SendMouseClickEvent(Event, Type, false,1);
 			Reply = FReply::Handled();
 		}
 	}
@@ -1175,12 +1237,17 @@ FReply FCEFWebBrowserWindow::OnMouseButtonUp(const FGeometry& MyGeometry, const 
 
 		if(bIsCefSupportedButton)
 		{
-		CefBrowserHost::MouseButtonType Type =
-			(Button == EKeys::LeftMouseButton ? MBT_LEFT : (
-			Button == EKeys::RightMouseButton ? MBT_RIGHT : MBT_MIDDLE));
+			CefBrowserHost::MouseButtonType Type =
+				(Button == EKeys::LeftMouseButton ? MBT_LEFT : (
+				Button == EKeys::RightMouseButton ? MBT_RIGHT : MBT_MIDDLE));
 
-		CefMouseEvent Event = GetCefMouseEvent(MyGeometry, MouseEvent, bIsPopup);
-		InternalCefBrowser->GetHost()->SendMouseClickEvent(Event, Type, true, 1);
+			if (Type == MBT_LEFT)
+			{
+				bDraggingWindow = false;
+			}
+
+			CefMouseEvent Event = GetCefMouseEvent(MyGeometry, MouseEvent, bIsPopup);
+			InternalCefBrowser->GetHost()->SendMouseClickEvent(Event, Type, true, 1);
 			Reply = FReply::Handled();
 		}
 		else if(Button == EKeys::ThumbMouseButton && bThumbMouseButtonNavigation)
@@ -1216,14 +1283,14 @@ FReply FCEFWebBrowserWindow::OnMouseButtonDoubleClick(const FGeometry& MyGeometr
 
 		if(bIsCefSupportedButton)
 		{
-		CefBrowserHost::MouseButtonType Type =
-			(Button == EKeys::LeftMouseButton ? MBT_LEFT : (
-			Button == EKeys::RightMouseButton ? MBT_RIGHT : MBT_MIDDLE));
+			CefBrowserHost::MouseButtonType Type =
+				(Button == EKeys::LeftMouseButton ? MBT_LEFT : (
+				Button == EKeys::RightMouseButton ? MBT_RIGHT : MBT_MIDDLE));
 
-		CefMouseEvent Event = GetCefMouseEvent(MyGeometry, MouseEvent, bIsPopup);
-		InternalCefBrowser->GetHost()->SendMouseClickEvent(Event, Type, false, 2);
+			CefMouseEvent Event = GetCefMouseEvent(MyGeometry, MouseEvent, bIsPopup);
+			InternalCefBrowser->GetHost()->SendMouseClickEvent(Event, Type, false, 2);
 			Reply = FReply::Handled();
-	}
+		}
 	}
 	return Reply;
 }
@@ -1234,7 +1301,26 @@ FReply FCEFWebBrowserWindow::OnMouseMove(const FGeometry& MyGeometry, const FPoi
 	if (IsValid())
 	{
 		CefMouseEvent Event = GetCefMouseEvent(MyGeometry, MouseEvent, bIsPopup);
-		InternalCefBrowser->GetHost()->SendMouseMoveEvent(Event, false);
+
+		bool bEventConsumedByDragCallback = false;
+		FIntRect test;
+		if (bDraggingWindow && OnDragWindow().IsBound())
+		{
+			if (MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton))
+			{
+				bEventConsumedByDragCallback = OnDragWindow().Execute(MouseEvent);
+			}
+			else
+			{
+				bDraggingWindow = false;
+			}
+		}
+
+		if (!bEventConsumedByDragCallback)
+		{
+			InternalCefBrowser->GetHost()->SendMouseMoveEvent(Event, false);
+		}
+		
 		Reply = FReply::Handled();
 	}
 	return Reply;
@@ -1246,10 +1332,20 @@ void FCEFWebBrowserWindow::OnMouseLeave(const FPointerEvent& MouseEvent)
 	SetToolTip(CefString());
 }
 
+void FCEFWebBrowserWindow::SetSupportsMouseWheel(bool bValue)
+{
+	bSupportsMouseWheel = bValue;
+}
+
+bool FCEFWebBrowserWindow::GetSupportsMouseWheel() const
+{
+	return bSupportsMouseWheel;
+}
+
 FReply FCEFWebBrowserWindow::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup)
 {
 	FReply Reply = FReply::Unhandled();
-	if(IsValid())
+	if(IsValid() && bSupportsMouseWheel)
 	{
 		// The original delta is reduced so this should bring it back to what CEF expects
 		const float SpinFactor = 50.0f;
@@ -1505,33 +1601,41 @@ void FCEFWebBrowserWindow::NotifyDocumentLoadingStateChange(bool IsLoading)
 			: EWebBrowserDocumentState::Completed;
 		DocumentStateChangedEvent.Broadcast(DocumentState);
 	}
+}
 
+FSlateRenderer* const FCEFWebBrowserWindow::GetRenderer()
+{
+	if (FSlateApplication::IsInitialized())
+	{
+		if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
+		{
+			if (!Renderer->HasLostDevice())
+			{
+				return Renderer;
+			}
+		}
+	}
+
+	ReleaseTextures();
+	return nullptr;
+}
+
+void FCEFWebBrowserWindow::HandleRenderingError()
+{
+	// GetRenderer handles errors already
+	GetRenderer();
 }
 
 void FCEFWebBrowserWindow::OnPaint(CefRenderHandler::PaintElementType Type, const CefRenderHandler::RectList& DirtyRects, const void* Buffer, int Width, int Height)
 {
 	bool bNeedsRedraw = false;
 
-#if PLATFORM_MAC
-	// @todo: Ugly workaround for OPP-7200 and OPP-7449 until proper fix can be found.  CEF returns invalid OnPaint() buffer size on Retina display Macs, or Macs with 
-	//    HiDPI enabled, once rendering is disabled/enabled using WasHidden().  Invalidating the view or calling WasResized() after enabling rendering is 
-	//    not sufficient.  For the current workaround, we must dirty the viewport size and call WasResized().
-	if (FIntPoint(Width, Height) == (ViewportSize * 2))
+	if (UpdatableTextures[Type] == nullptr)
 	{
-		ViewportSize.Y += 1;
-		InternalCefBrowser->GetHost()->WasResized();
-
-		// We ignore this frame.
-		return;
-	}
-#endif
-
-
-	if (UpdatableTextures[Type] == nullptr && FSlateApplication::IsInitialized())
-	{
-		if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
+		if (FSlateRenderer* const Renderer = GetRenderer())
 		{
 			UpdatableTextures[Type] = Renderer->CreateUpdatableTexture(Width, Height);
+			HandleRenderingError();
 		}
 	}
 
@@ -1549,12 +1653,16 @@ void FCEFWebBrowserWindow::OnPaint(CefRenderHandler::PaintElementType Type, cons
 		else
 		{
 			UpdatableTextures[Type]->UpdateTextureThreadSafeRaw(Width, Height, Buffer, Dirty);
+			HandleRenderingError();
 
 		    if (Type == PET_POPUP && bShowPopupRequested)
 		    {
 			    bShowPopupRequested = false;
 			    bPopupHasFocus = true;
-			    FIntPoint PopupSize = FIntPoint(Width, Height);
+
+				const float DPIScale = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(PopupPosition.X, PopupPosition.Y);
+			    FIntPoint PopupSize = FIntPoint(Width / DPIScale, Height / DPIScale);
+
 			    FIntRect PopupRect = FIntRect(PopupPosition, PopupPosition + PopupSize);
 			    OnShowPopup().Broadcast(PopupRect);
 		    }
@@ -1579,6 +1687,7 @@ void FCEFWebBrowserWindow::UpdateVideoBuffering()
 		if (SlateTextureData != nullptr )
 		{
 			UpdatableTextures[PET_VIEW]->UpdateTextureThreadSafeWithTextureData(SlateTextureData);
+			HandleRenderingError();
 		}
 	}
 }
@@ -1799,7 +1908,8 @@ int32 FCEFWebBrowserWindow::GetCefMouseModifiers(const FPointerEvent& InMouseEve
 CefMouseEvent FCEFWebBrowserWindow::GetCefMouseEvent(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup)
 {
 	CefMouseEvent Event;
-	FVector2D LocalPos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
+	const float DPIScale = MyGeometry.Scale / (ParentWindow.IsValid() ? ParentWindow->GetNativeWindow()->GetDPIScaleFactor() : 1.0f);
+	FVector2D LocalPos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()) * DPIScale;
 	if (bIsPopup)
 	{
 		LocalPos += PopupPosition;
@@ -2077,5 +2187,25 @@ void FCEFWebBrowserWindow::OnImeCompositionRangeChanged(
 	}
 }
 #endif
+
+void FCEFWebBrowserWindow::UpdateDragRegions(const TArray<FWebBrowserDragRegion>& Regions)
+{
+	DragRegions = Regions;
+}
+
+bool FCEFWebBrowserWindow::IsInDragRegion(const FIntPoint& Point)
+{
+	// Here we traverse the array of drag regions backwards because we assume the drag regions are z ordered such that 
+	//    the end of the list contains the drag regions of the top most elements of the web page.  We can stop checking
+	//    once we hit a region that contains our point.
+	for (int32 Idx = DragRegions.Num() - 1; Idx >= 0; --Idx)
+	{
+		if (DragRegions[Idx].Rect.Contains(Point))
+		{
+			return DragRegions[Idx].bDraggable;
+		}
+	}
+	return false;
+}
 
 #endif

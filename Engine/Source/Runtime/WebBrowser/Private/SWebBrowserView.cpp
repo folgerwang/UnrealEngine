@@ -63,16 +63,15 @@ SWebBrowserView::~SWebBrowserView()
 		}
 	}
 
-	if (SlateParentWindowSetupTickHandle.IsValid())
+	TSharedPtr<SWindow> SlateParentWindow = SlateParentWindowPtr.Pin();
+	if (SlateParentWindow.IsValid())
 	{
-		FTicker::GetCoreTicker().RemoveTicker(SlateParentWindowSetupTickHandle);
-		SlateParentWindowSetupTickHandle.Reset();
+		SlateParentWindow->GetOnWindowDeactivatedEvent().RemoveAll(this);
 	}
 
-	if (SlateParentWindowPtr.IsValid())
+	if (SlateParentWindow.IsValid())
 	{
-		SlateParentWindowPtr.Pin()->GetOnWindowDeactivatedEvent().RemoveAll(this);
-		SlateParentWindowPtr.Pin()->GetOnWindowActivatedEvent().RemoveAll(this);
+		SlateParentWindow->GetOnWindowActivatedEvent().RemoveAll(this);
 	}
 }
 
@@ -108,6 +107,7 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 			Settings.bShowErrorMessage = InArgs._ShowErrorMessage;
 			Settings.BackgroundColor = InArgs._BackgroundColor;
 			Settings.Context = InArgs._ContextSettings;
+			Settings.AltRetryDomains = InArgs._AltRetryDomains;
 
 			BrowserWindow = IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(Settings);
 		}
@@ -142,6 +142,7 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 		BrowserWindow->OnTitleChanged().AddSP(this, &SWebBrowserView::HandleTitleChanged);
 		BrowserWindow->OnUrlChanged().AddSP(this, &SWebBrowserView::HandleUrlChanged);
 		BrowserWindow->OnToolTip().AddSP(this, &SWebBrowserView::HandleToolTip);
+		OnCreateToolTip = InArgs._OnCreateToolTip;
 
 		if (!BrowserWindow->OnBeforeBrowse().IsBound())
 		{
@@ -178,24 +179,15 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 		BrowserWindow->OnSuppressContextMenu().BindSP(this, &SWebBrowserView::HandleSuppressContextMenu);
 		OnSuppressContextMenu = InArgs._OnSuppressContextMenu;
 
+		BrowserWindow->OnDragWindow().BindSP(this, &SWebBrowserView::HandleDrag);
+		OnDragWindow = InArgs._OnDragWindow;
+
 		BrowserViewport = MakeShareable(new FWebBrowserViewport(BrowserWindow));
 #if WITH_CEF3
 		BrowserWidget->SetViewportInterface(BrowserViewport.ToSharedRef());
 #endif
-		SetupParentWindowHandlers();
 		// If we could not obtain the parent window during widget construction, we'll defer and keep trying.
-		if (!SlateParentWindowPtr.IsValid())
-		{
-			SlateParentWindowSetupTickHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([this](float) -> bool
-			{
-                QUICK_SCOPE_CYCLE_COUNTER(STAT_SWebBrowserView_SetupParentWindowHandlers_LambdaTick);
-				this->SetupParentWindowHandlers();
-				bool ContinueTick = !SlateParentWindowPtr.IsValid();
-				return ContinueTick;
-			}));
-		}
-
-		BrowserWindow->SetParentWindow(InArgs._ParentWindow);
+		SetupParentWindowHandlers();
 	}
 	else
 	{
@@ -205,6 +197,12 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 
 int32 SWebBrowserView::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
+	if (!SlateParentWindowPtr.IsValid())
+	{
+		SWebBrowserView* MutableThis = const_cast<SWebBrowserView*>(this);
+		MutableThis->SetupParentWindowHandlers();
+	}
+
 	int32 Layer = SCompoundWidget::OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 	
 	// Cache a reference to our parent window, if we didn't already reference it.
@@ -363,10 +361,25 @@ bool SWebBrowserView::IsInitialized() const
 
 void SWebBrowserView::SetupParentWindowHandlers()
 {
-	if (SlateParentWindowPtr.IsValid() && BrowserWindow.IsValid())
+	if (!SlateParentWindowPtr.IsValid())
 	{
-		SlateParentWindowPtr.Pin()->GetOnWindowDeactivatedEvent().AddSP(this, &SWebBrowserView::HandleWindowDeactivated);
-		SlateParentWindowPtr.Pin()->GetOnWindowActivatedEvent().AddSP(this, &SWebBrowserView::HandleWindowActivated);
+		SlateParentWindowPtr = FSlateApplication::Get().FindWidgetWindow(SharedThis(this));
+
+		TSharedPtr<SWindow> SlateParentWindow = SlateParentWindowPtr.Pin();
+		if (SlateParentWindow.IsValid() && BrowserWindow.IsValid())
+		{
+			if (!SlateParentWindow->GetOnWindowDeactivatedEvent().IsBoundToObject(this))
+			{
+				SlateParentWindow->GetOnWindowDeactivatedEvent().AddSP(this, &SWebBrowserView::HandleWindowDeactivated);
+			}
+
+			if (!SlateParentWindow->GetOnWindowActivatedEvent().IsBoundToObject(this))
+			{
+				SlateParentWindow->GetOnWindowActivatedEvent().AddSP(this, &SWebBrowserView::HandleWindowActivated);
+			}
+
+			BrowserWindow->SetParentWindow(SlateParentWindow);
+		}
 	}
 }
 
@@ -425,6 +438,11 @@ void SWebBrowserView::HandleToolTip(FString ToolTipText)
 	{
 		FSlateApplication::Get().CloseToolTip();
 		SetToolTip(nullptr);
+	}
+	else if (OnCreateToolTip.IsBound())
+	{
+		SetToolTip(OnCreateToolTip.Execute(FText::FromString(ToolTipText)));
+		FSlateApplication::Get().UpdateToolTip(true);
 	}
 	else
 	{
@@ -612,6 +630,15 @@ bool SWebBrowserView::HandleSuppressContextMenu()
 		return OnSuppressContextMenu.Execute();
 	}
 
+	return false;
+}
+
+bool SWebBrowserView::HandleDrag(const FPointerEvent& MouseEvent)
+{
+	if (OnDragWindow.IsBound())
+	{
+		return OnDragWindow.Execute(MouseEvent);
+	}
 	return false;
 }
 

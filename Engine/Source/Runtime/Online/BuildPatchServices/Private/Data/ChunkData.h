@@ -74,8 +74,16 @@ namespace BuildPatchServices
 		DecompressFailure,
 
 		// The expected data hash in the header did not match the hash of the data.
-		HashCheckFailed
+		HashCheckFailed,
+
+		// The operation was aborted.
+		Aborted
 	};
+
+	/**
+	 * A ToString implementation for EChunkLoadResult.
+	 */
+	const TCHAR* ToString(const EChunkLoadResult& ChunkLoadResult);
 
 	/**
 	 * Enum which describes success, or the reason for failure when saving a chunk.
@@ -93,6 +101,11 @@ namespace BuildPatchServices
 		// There was a serialization problem when writing to the chunk file.
 		SerializationError
 	};
+
+	/**
+	 * A ToString implementation for EChunkSaveResult.
+	 */
+	const TCHAR* ToString(const EChunkSaveResult& ChunkSaveResult);
 
 	/**
 	 * Declares a struct to store the info for a chunk header.
