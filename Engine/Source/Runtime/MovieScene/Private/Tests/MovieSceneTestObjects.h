@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
+#include "MovieScene.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneSection.h"
+#include "MovieSceneSequence.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
-#include "MovieSceneSegmentCompilerTests.generated.h"
+#include "MovieSceneTestObjects.generated.h"
 
 USTRUCT()
 struct FTestMovieSceneEvalTemplate : public FMovieSceneEvalTemplate
@@ -18,7 +18,7 @@ struct FTestMovieSceneEvalTemplate : public FMovieSceneEvalTemplate
 };
 
 UCLASS(MinimalAPI)
-class UMovieSceneSegmentCompilerTestTrack : public UMovieSceneTrack
+class UTestMovieSceneTrack : public UMovieSceneTrack
 {
 public:
 
@@ -36,9 +36,29 @@ public:
 };
 
 UCLASS(MinimalAPI)
-class UMovieSceneSegmentCompilerTestSection : public UMovieSceneSection
+class UTestMovieSceneSection : public UMovieSceneSection
 {
 public:
 	GENERATED_BODY()
 };
 
+UCLASS(MinimalAPI)
+class UTestMovieSceneSequence : public UMovieSceneSequence
+{
+public:
+	GENERATED_BODY()
+
+	UTestMovieSceneSequence(const FObjectInitializer& ObjInit)
+		: Super(ObjInit)
+	{
+		if (!HasAnyFlags(RF_ClassDefaultObject))
+		{
+			MovieScene = ObjInit.CreateDefaultSubobject<UMovieScene>(this, "MovieScene");
+		}
+	}
+
+	virtual UMovieScene* GetMovieScene() const override { return MovieScene; }
+
+	UPROPERTY()
+	UMovieScene* MovieScene;
+};
