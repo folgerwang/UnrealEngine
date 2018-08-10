@@ -948,6 +948,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The build version string
 		/// </summary>
+		[CommandLine("-BuildVersion")]
 		public string BuildVersion;
 
 		/// <summary>
@@ -1152,7 +1153,17 @@ namespace UnrealBuildTool
 			}
 
 			// Set the default build version
-			BuildVersion = String.Format("{0}-CL-{1}", Target.Version.BranchName, Target.Version.Changelist);
+			if(String.IsNullOrEmpty(BuildVersion))
+			{
+				if(String.IsNullOrEmpty(Target.Version.BuildVersionString))
+				{
+					BuildVersion = String.Format("{0}-CL-{1}", Target.Version.BranchName, Target.Version.Changelist);
+				}
+				else
+				{
+					BuildVersion = Target.Version.BuildVersionString;
+				}
+			}
 
 			// Setup macros for signing and encryption keys
 			EncryptionAndSigning.CryptoSettings CryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(ProjectFile), Platform);

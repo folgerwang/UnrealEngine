@@ -62,6 +62,11 @@ namespace UnrealBuildTool
 		public string BuildId;
 
 		/// <summary>
+		/// The build version string
+		/// </summary>
+		public string BuildVersionString;
+
+		/// <summary>
 		/// Returns the value which can be used as the compatible changelist. Requires that the regular changelist is also set, and defaults to the 
 		/// regular changelist if a specific compatible changelist is not set.
 		/// </summary>
@@ -169,6 +174,7 @@ namespace UnrealBuildTool
 
 			Object.TryGetStringField("BranchName", out NewVersion.BranchName);
 			Object.TryGetStringField("BuildId", out NewVersion.BuildId);
+			Object.TryGetStringField("BuildVersion", out NewVersion.BuildVersionString);
 
 			Version = NewVersion;
 			return true;
@@ -216,6 +222,7 @@ namespace UnrealBuildTool
 			Writer.WriteValue("IsPromotedBuild", IsPromotedBuild? 1 : 0);
 			Writer.WriteValue("BranchName", BranchName);
 			Writer.WriteValue("BuildId", BuildId);
+			Writer.WriteValue("BuildVersion", BuildVersionString);
 		}
 	}
 
@@ -286,6 +293,11 @@ namespace UnrealBuildTool
 		public string BranchName
 		{
 			get { return Inner.BranchName; }
+		}
+
+		public string BuildVersionString
+		{
+			get { return Inner.BuildVersionString; }
 		}
 
 		#if !__MonoCS__

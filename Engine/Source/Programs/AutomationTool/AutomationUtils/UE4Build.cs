@@ -485,6 +485,7 @@ namespace AutomationTool
 					CommandUtils.LogLog("  IsLicenseeVersion={0}", bIsLicenseeVersion? 1 : 0);
 					CommandUtils.LogLog("  IsPromotedBuild={0}", bIsPromotedBuild? 1 : 0);
 					CommandUtils.LogLog("  BranchName={0}", Branch);
+					CommandUtils.LogLog("  BuildVersion={0}", Build);
 
 					Version.Changelist = ChangelistNumber;
 					if(CompatibleChangelistNumber > 0)
@@ -494,6 +495,7 @@ namespace AutomationTool
 					Version.IsLicenseeVersion = bIsLicenseeVersion;
 					Version.IsPromotedBuild = bIsPromotedBuild;
 					Version.BranchName = Branch;
+					Version.BuildVersionString = Build;
 
 					VersionFileUpdater.MakeFileWriteable(BuildVersionFile.FullName);
 
