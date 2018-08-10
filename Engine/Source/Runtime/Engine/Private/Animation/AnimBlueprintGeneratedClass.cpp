@@ -10,6 +10,7 @@
 #include "BonePose.h"
 #include "Animation/AnimNodeBase.h"
 #include "Animation/AnimInstance.h"
+#include "UObject/AnimObjectVersion.h"
 
 /////////////////////////////////////////////////////
 // FStateMachineDebugData
@@ -234,9 +235,19 @@ UAnimBlueprintGeneratedClass::UAnimBlueprintGeneratedClass(const FObjectInitiali
 	RootAnimNodeIndex = INDEX_NONE;
 }
 
+void UAnimBlueprintGeneratedClass::Serialize(FArchive& Ar)
+{
+	Ar.UsingCustomVersion(FAnimObjectVersion::GUID);
+
+	Super::Serialize(Ar);
+}
+
 void UAnimBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 {
 	Super::Link(Ar, bRelinkExistingProperties);
+
+	// We cant reference FAnimNode_Root directly as it is in AnimGraphRuntime, so we just hard-code the name instead.
+	static const FName NAME_AnimNode_Root(TEXT("AnimNode_Root"));
 
 	// @TODO: Shouldn't be necessary to clear these, but currently the class gets linked twice during compilation
 	AnimNodeProperties.Empty();
@@ -249,6 +260,19 @@ void UAnimBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProper
 		{
 			if (StructProp->Struct->IsChildOf(FAnimNode_Base::StaticStruct()))
 			{
+				if(StructProp->Struct->GetFName() == NAME_AnimNode_Root)
+				{
+					// If we are loading from a newer version, we must verify that there is only one root here.
+					// When linking an older version on load we may find multiple roots until the class is recompiled or saved
+#if DO_CHECK
+					if(Ar.IsLoading() && Ar.CustomVer(FAnimObjectVersion::GUID) >= FAnimObjectVersion::LinkTimeAnimBlueprintRootDiscovery)
+					{
+						check(RootAnimNodeProperty == nullptr);
+					}
+#endif
+					RootAnimNodeProperty = StructProp;
+					RootAnimNodeIndex = AnimNodeProperties.Num();
+				}
 				AnimNodeProperties.Add(StructProp);
 			}
 		}
@@ -273,11 +297,7 @@ void UAnimBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProper
 	if (AnimNodeProperties.Num() > 0)
 	{
 		const bool bValidRootIndex = (RootAnimNodeIndex >= 0) && (RootAnimNodeIndex < AnimNodeProperties.Num());
-		if (bValidRootIndex)
-		{
-			RootAnimNodeProperty = AnimNodeProperties[AnimNodeProperties.Num() - 1 - RootAnimNodeIndex];
-		}
-		else
+		if (!bValidRootIndex)
 		{
 			UE_LOG(LogAnimation, Warning, TEXT("Invalid animation root node index %d on '%s' (only %d nodes)"), RootAnimNodeIndex, *GetPathName(), AnimNodeProperties.Num());
 			AnimNodeProperties.Empty();
