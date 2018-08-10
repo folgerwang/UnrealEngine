@@ -36,6 +36,7 @@ public:
 	template<typename XType, typename YType>
 	void SampleTexture(FVectorVMContext& Context);
 	void GetTextureDimensions(FVectorVMContext& Context);
+	void NoOp(FVectorVMContext& Context);
 
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
 
@@ -58,6 +59,8 @@ protected:
 
 	TArray<uint8> CPUTextureData;
 
-	static const FName SampleTextureName;
+	static const FName SampleTexture2DName;
+	static const FName SampleVolumeTextureName;
+	static const FName SamplePseudoVolumeTextureName;
 	static const FName TextureDimsName;
 };
