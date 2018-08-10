@@ -3534,7 +3534,9 @@ FReply SDesignerView::HandleSwapAspectRatioClicked()
 	ScaleFactor = 1.0f;
 	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
 	const UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PreviewOverrideName, false);
-	if (DeviceProfile)
+
+	// Rescale the swapped sizes if we are on Android
+	if (DeviceProfile && DeviceProfile->DeviceType == TEXT("Android"))
 	{
 		PlayInSettings->RescaleForMobilePreview(DeviceProfile, PreviewWidth, PreviewHeight, ScaleFactor);
 	}
