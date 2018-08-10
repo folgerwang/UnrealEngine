@@ -3096,7 +3096,7 @@ TSharedRef<SDockTab> FMaterialEditor::SpawnTab_GraphCanvas(const FSpawnTabArgs& 
 
 TSharedRef<SDockTab> FMaterialEditor::SpawnTab_MaterialProperties(const FSpawnTabArgs& Args)
 {
-	TSharedRef<SDockTab> SpawnedTab = SNew(SDockTab)
+	SpawnedDetailsTab = SNew(SDockTab)
 		.Icon( FEditorStyle::GetBrush("LevelEditor.Tabs.Details") )
 		.Label( LOCTEXT("MaterialDetailsTitle", "Details") )
 		[
@@ -3109,7 +3109,7 @@ TSharedRef<SDockTab> FMaterialEditor::SpawnTab_MaterialProperties(const FSpawnTa
 		GraphEditor->ClearSelectionSet();
 	}
 
-	return SpawnedTab;
+	return SpawnedDetailsTab.ToSharedRef();
 }
 
 TSharedRef<SDockTab> FMaterialEditor::SpawnTab_Palette(const FSpawnTabArgs& Args)
@@ -4427,6 +4427,7 @@ void FMaterialEditor::OnSelectedNodesChanged(const TSet<class UObject*>& NewSele
 	}
 
 	GetDetailView()->SetObjects( SelectedObjects, true );
+	FocusDetailsPanel();
 }
 
 void FMaterialEditor::OnNodeDoubleClicked(class UEdGraphNode* Node)
@@ -4605,6 +4606,14 @@ void FMaterialEditor::UpdateStatsMaterials()
 void FMaterialEditor::NotifyExternalMaterialChange()
 {
 	MaterialStatsManager->SignalMaterialChanged();
+}
+
+void FMaterialEditor::FocusDetailsPanel()
+{
+	if (SpawnedDetailsTab)
+	{
+		SpawnedDetailsTab->DrawAttention();
+	}
 }
 
 #undef LOCTEXT_NAMESPACE
