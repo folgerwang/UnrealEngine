@@ -575,7 +575,11 @@ void ULevelEditorPlaySettings::RescaleForMobilePreview(const UDeviceProfile* Dev
 		const FString* ParentScaleFactorPtr = ParentValues.Find(TEXT("r.MobileContentScaleFactor"));
 		if (ParentScaleFactorPtr != nullptr)
 		{
-			CVarMobileContentScaleFactor = FCString::Atof(**ParentScaleFactorPtr);
+			FString CompleteString = *ParentScaleFactorPtr;
+			FString DiscardString;
+			FString ValueString;
+			CompleteString.Split(TEXT("="), &DiscardString, &ValueString);
+			CVarMobileContentScaleFactor = FCString::Atof(*ValueString);
 			if (!FMath::IsNearlyEqual(CVarMobileContentScaleFactor, 0.0f))
 			{
 				bShouldScale = true;
