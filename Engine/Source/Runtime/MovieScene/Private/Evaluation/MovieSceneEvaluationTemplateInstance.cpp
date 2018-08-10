@@ -152,8 +152,8 @@ FMovieSceneEvaluationPtrCache::FMovieSceneEvaluationPtrCache(const FMovieSceneRo
 
 FMovieSceneRootEvaluationTemplateInstance::FMovieSceneRootEvaluationTemplateInstance()
 	: RootSequence(nullptr)
-	, TemplateStore(MakeShared<FMovieSceneSequencePrecompiledTemplateStore>())
 	, RootID(MovieSceneSequenceID::Root)
+	, TemplateStore(MakeShared<FMovieSceneSequencePrecompiledTemplateStore>())
 {
 }
 
