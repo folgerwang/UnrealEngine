@@ -217,5 +217,7 @@ static FORCEINLINE typename TMetalResourceTraits<TRHIType>::TConcreteType* Resou
 
 uint32 SafeGetRuntimeDebuggingLevel();
 
+mtlpp::LanguageVersion ValidateVersion(uint8 Version);
+
 #include "MetalStateCache.h"
 #include "MetalContext.h"
