@@ -24,6 +24,7 @@ public:
 
 	/** Default constructor */
 	AVREditorDockableWindow();
+	virtual void PostActorCreated() override;
 
 	/** Updates the meshes for the UI */
 	virtual void TickManually( float DeltaTime ) override;
