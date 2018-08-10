@@ -3,6 +3,7 @@
 #include "K2Node_InputTouch.h"
 #include "GraphEditorSettings.h"
 #include "EdGraphSchema_K2.h"
+#include "EdGraphSchema_K2_Actions.h"
 #include "K2Node_AssignmentStatement.h"
 #include "K2Node_TemporaryVariable.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -105,6 +106,13 @@ void UK2Node_InputTouch::GetMenuActions(FBlueprintActionDatabaseRegistrar& Actio
 FText UK2Node_InputTouch::GetMenuCategory() const
 {
 	return FEditorCategoryUtils::GetCommonCategory(FCommonEditorCategory::Input);
+}
+
+TSharedPtr<FEdGraphSchemaAction> UK2Node_InputTouch::GetEventNodeAction(const FText& ActionCategory)
+{
+	TSharedPtr<FEdGraphSchemaAction_K2InputAction> EventNodeAction = MakeShareable(new FEdGraphSchemaAction_K2InputAction(ActionCategory, GetNodeTitle(ENodeTitleType::EditableTitle), GetTooltipText(), 0));
+	EventNodeAction->NodeTemplate = this;
+	return EventNodeAction;
 }
 
 bool UK2Node_InputTouch::IsCompatibleWithGraph(const UEdGraph* TargetGraph) const
