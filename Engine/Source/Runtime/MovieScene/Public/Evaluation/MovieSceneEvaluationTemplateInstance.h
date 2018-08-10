@@ -2,7 +2,10 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
+#include "Containers/Map.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/WeakObjectPtrTemplates.h"
 #include "MovieSceneSequenceID.h"
 #include "Evaluation/MovieSceneSequenceTransform.h"
 #include "Evaluation/MovieScenePlayback.h"
@@ -14,93 +17,8 @@
 
 class UMovieSceneSequence;
 struct FDelayedPreAnimatedStateRestore;
-struct FCompileOnTheFlyData;
+struct FMovieSceneEvaluationPtrCache;
 
-/**
- * An instance of an evaluation template. Fast to initialize and evaluate.
- */
-USTRUCT()
-struct FMovieSceneEvaluationTemplateInstance
-{
-	GENERATED_BODY()
-
-	FMovieSceneEvaluationTemplateInstance();
-
-	FMovieSceneEvaluationTemplateInstance(UMovieSceneSequence& InSequence, FMovieSceneEvaluationTemplate* InTemplate);
-
-	FMovieSceneEvaluationTemplateInstance(const FMovieSceneSubSequenceData* InSubData, IMovieSceneSequenceTemplateStore& TemplateStore);
-
-	bool IsValid() const
-	{
-		return Sequence && Template;
-	}
-
-	/** The sequence this applies to */
-	UPROPERTY()
-	UMovieSceneSequence* Sequence;
-
-	/** Pointer to the evaluation template we're evaluating */
-	FMovieSceneEvaluationTemplate* Template;
-
-	/** Sub Data or nullptr */
-	const FMovieSceneSubSequenceData* SubData;
-
-	/** The sequence this applies to */
-	UPROPERTY()
-	UObject* DirectorInstance;
-};
-
-USTRUCT()
-struct FMovieSceneEvaluationTemplateInstanceContainer
-{
-	GENERATED_BODY()
-
-	FMovieSceneEvaluationTemplateInstanceContainer()
-		: RootID(MovieSceneSequenceID::Invalid)
-	{}
-
-	void Reset()
-	{
-		RootID = MovieSceneSequenceID::Invalid;
-		RootInstance = FMovieSceneEvaluationTemplateInstance();
-		ResetSubInstances();
-	}
-
-	void ResetSubInstances()
-	{
-		SubInstances.Reset();
-	}
-
-	void Add(FMovieSceneSequenceID InID, const FMovieSceneEvaluationTemplateInstance& InInstance)
-	{
-		check(InID != RootID);
-		SubInstances.Add(InID, InInstance);
-	}
-
-	const FMovieSceneEvaluationTemplateInstance& GetChecked(FMovieSceneSequenceID InID) const
-	{
-		return InID == MovieSceneSequenceID::Root ? RootInstance : SubInstances.FindChecked(InID);
-	}
-
-	FMovieSceneEvaluationTemplateInstance* Find(FMovieSceneSequenceID InID)
-	{
-		return InID == MovieSceneSequenceID::Root ? &RootInstance : SubInstances.Find(InID);
-	}
-
-	const FMovieSceneEvaluationTemplateInstance* Find(FMovieSceneSequenceID InID) const
-	{
-		return InID == MovieSceneSequenceID::Root ? &RootInstance : SubInstances.Find(InID);
-	}
-
-	/** Sequence ID that is used to evaluate from for the current frame */
-	FMovieSceneSequenceID RootID;
-	
-	UPROPERTY()
-	FMovieSceneEvaluationTemplateInstance RootInstance;
-
-	UPROPERTY()
-	TMap<FMovieSceneSequenceID, FMovieSceneEvaluationTemplateInstance> SubInstances;
-};
 
 /**
  * Root evaluation template instance used to play back any sequence
@@ -232,36 +150,37 @@ public:
 	 */
 	MOVIESCENE_API void CopyActuators(FMovieSceneBlendingAccumulator& Accumulator) const;
 
-	/**
-	 * Const access to all the instances contained within this template instance
-	 */
-	const FMovieSceneEvaluationTemplateInstanceContainer& GetInstances() const
-	{
-		return Instances;
-	}
-
 private:
 
 	/**
 	 * Setup the current frame by finding or generating the necessary evaluation group and meta-data
 	 *
-	 * @param Context				Evaluation context containing the time (or range) to evaluate
+	 * @param OverrideRootSequence	Pointer to the sequence that is considered the root for this evaluation (that maps to InOverrideRootID)
+	 * @param OverrideRootID		The sequence ID of the currently considered root (normally MovieSceneSequenceID::Root unless Evaluate Sub-Sequences in Isolation is active)
+	 * @param Context				The evaluation context for this frame
+	 * @return The evaluation group within the root template's evaluation field to evaluate, or nullptr if none could be found or compiled
 	 */
-	const FMovieSceneEvaluationGroup* SetupFrame(IMovieScenePlayer& Player, FMovieSceneSequenceID InOverrideRootID, FMovieSceneContext Context);
+	const FMovieSceneEvaluationGroup* SetupFrame(UMovieSceneSequence* OverrideRootSequence, FMovieSceneSequenceID InOverrideRootID, FMovieSceneContext Context);
 
 	/**
 	 * Process entities that are newly evaluated, and those that are no longer being evaluated
 	 */
-	void CallSetupTearDown(IMovieScenePlayer& Player, FDelayedPreAnimatedStateRestore* DelayedRestore = nullptr);
+	void CallSetupTearDown(IMovieScenePlayer& Player);
+
+	/**
+	 * Process entities that are newly evaluated, and those that are no longer being evaluated
+	 */
+	void CallSetupTearDown(const FMovieSceneEvaluationPtrCache& EvaluationCache, IMovieScenePlayer& Player, FDelayedPreAnimatedStateRestore* DelayedRestore = nullptr);
 
 	/**
 	 * Evaluate a particular group of a segment
 	 */
-	void EvaluateGroup(const FMovieSceneEvaluationGroup& Group, const FMovieSceneContext& Context, IMovieScenePlayer& Player);
+	void EvaluateGroup(const FMovieSceneEvaluationPtrCache& EvaluationCache, const FMovieSceneEvaluationGroup& Group, const FMovieSceneContext& Context, IMovieScenePlayer& Player);
 
-private:
-
-	void RecreateInstances(const FMovieSceneEvaluationTemplateInstance& RootOverrideInstance, FMovieSceneSequenceID InOverrideRootID, IMovieScenePlayer& Player);
+	/**
+	 * Construct all the template and sub-data ptrs required for this frame by combining all those needed last frame, with those needed this frame
+	 */
+	FMovieSceneEvaluationPtrCache ConstructEvaluationPtrCacheForFrame(UMovieSceneSequence* OverrideRootSequence);
 
 private:
 
@@ -269,8 +188,12 @@ private:
 
 	FMovieSceneEvaluationTemplate* RootTemplate;
 
+	/** Sequence ID that was last used to evaluate from */
+	FMovieSceneSequenceID RootID;
+
+	/** Map of director instances by sequence ID. Kept alive by this map assuming this struct is reference collected */
 	UPROPERTY()
-	FMovieSceneEvaluationTemplateInstanceContainer Instances;
+	TMap<FMovieSceneSequenceID, UObject*> DirectorInstances;
 
 	/** Cache of everything that was evaluated last frame */
 	FMovieSceneEvaluationMetaData LastFrameMetaData;
