@@ -14,14 +14,14 @@ namespace BuildPatchServices
 		virtual ~IMachineConfig() { }
 
 		/**
-		 * Loads the list of installed prereq ids whose corresponding prerequisistes are installed on this computer.
+		 * Loads the list of installed prereq ids whose corresponding prerequisites are installed on this computer.
 		 * @return         A set containing the prerequisite ids which are installed on this computer.
 		 */
 		virtual TSet<FString> LoadInstalledPrereqIds() = 0;
 
 		/**
 		 * Saves updated list of installed prereqs to the configuration file.
-		 * @param InstalledPrereqIds       A set of all installed prerequisistes to save to configuration.
+		 * @param InstalledPrereqIds       A set of all installed prerequisites to save to configuration.
 		 */
 		virtual void SaveInstalledPrereqIds(const TSet<FString>& InstalledPrereqIds) = 0;
 	};

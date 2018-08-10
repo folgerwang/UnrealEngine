@@ -14,6 +14,7 @@ namespace BuildPatchServices
 		virtual IChunkDataAccess* Get(const FGuid& DataId) override;
 		virtual TSet<FGuid> AddRuntimeRequirements(TSet<FGuid> NewRequirements) override;
 		virtual void SetUnavailableChunksCallback(TFunction<void(TSet<FGuid>)> Callback) override;
+		virtual bool AddRepeatRequirement(const FGuid& RepeatRequirement) override;
 		// IChunkSource interface end.
 
 	private:
@@ -63,6 +64,16 @@ namespace BuildPatchServices
 	TSet<FGuid> FChainedChunkSource::AddRuntimeRequirements(TSet<FGuid> NewRequirements)
 	{
 		return CascadeRuntimeRequirements(MoveTemp(NewRequirements));
+	}
+
+	bool FChainedChunkSource::AddRepeatRequirement(const FGuid& RepeatRequirement) 
+	{
+		bool bAtLeastOneAccepted = false;
+		for (IChunkSource* ChunkSource : ChunkSources)
+		{
+			bAtLeastOneAccepted = ChunkSource->AddRepeatRequirement(RepeatRequirement) || bAtLeastOneAccepted;
+		}
+		return bAtLeastOneAccepted;
 	}
 
 	void FChainedChunkSource::SetUnavailableChunksCallback(TFunction<void(TSet<FGuid>)> Callback)

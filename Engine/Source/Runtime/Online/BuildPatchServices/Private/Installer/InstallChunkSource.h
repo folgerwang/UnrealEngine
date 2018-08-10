@@ -3,6 +3,7 @@
 
 #include "Installer/ChunkSource.h"
 #include "Installer/Controllable.h"
+#include "Common/SpeedRecorder.h"
 #include "BuildPatchManifest.h"
 
 namespace BuildPatchServices
@@ -28,6 +29,13 @@ namespace BuildPatchServices
 		 * @return the set of chunks that should be available locally.
 		 */
 		virtual const TSet<FGuid>& GetAvailableChunks() const = 0;
+
+		/**
+		 * Given an installation file path, harvest all remaining required chunks from the file immediately.
+		 * NB: The filepath must match a file contained in one of the installation sources provided in order to load chunks.
+		 * @param FilePath  The full filepath to the file to harvest.
+		 */
+		virtual void HarvestRemainingChunksFromFile(const FString& FilePath) = 0;
 	};
 
 	/**
@@ -113,6 +121,12 @@ namespace BuildPatchServices
 		virtual ~IInstallChunkSourceStat() {}
 
 		/**
+		 * Called when a batch of chunks are going to be loaded.
+		 * @param ChunkIds  The ids of each chunk.
+		 */
+		virtual void OnBatchStarted(const TArray<FGuid>& ChunkIds) = 0;
+
+		/**
 		 * Called each time a chunk load begins.
 		 * @param ChunkId   The id of the chunk.
 		 */
@@ -122,7 +136,19 @@ namespace BuildPatchServices
 		 * Called each time a chunk load completes.
 		 * @param ChunkId   The id of the chunk.
 		 * @param Result    The load result.
+		 * @param Record    The recording for the received data.
 		 */
-		virtual void OnLoadComplete(const FGuid& ChunkId, ELoadResult Result) = 0;
+		virtual void OnLoadComplete(const FGuid& ChunkId, const ELoadResult& Result, const ISpeedRecorder::FRecord& Record) = 0;
+
+		/**
+		 * Called when a batch of chunks are added and accepted via IChunkSource::AddRuntimeRequirements.
+		 * @param ChunkIds  The ids of each chunk.
+		 */
+		virtual void OnAcceptedNewRequirements(const TSet<FGuid>& ChunkIds) = 0;
 	};
+	
+	/**
+	 * A ToString implementation for IInstallChunkSourceStat::ELoadResult.
+	 */
+	const TCHAR* ToString(const IInstallChunkSourceStat::ELoadResult& LoadResult);
 }

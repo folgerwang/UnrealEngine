@@ -140,15 +140,25 @@ bool FSlateD3DRenderer::Initialize()
 		bool bResult = CreateDevice();
 		if (bResult)
 		{
+			GEncounteredCriticalD3DDeviceError = false;
+
 			TextureManager = MakeShareable(new FSlateD3DTextureManager);
 			FSlateDataPayload::ResourceManager = TextureManager.Get();
 
-			TextureManager->LoadUsedTextures();
+			if (!GEncounteredCriticalD3DDeviceError)
+			{
+				TextureManager->LoadUsedTextures();
+			}
 
-			RenderingPolicy = MakeShareable(new FSlateD3D11RenderingPolicy(SlateFontServices.ToSharedRef(), TextureManager.ToSharedRef()));
+			if (!GEncounteredCriticalD3DDeviceError)
+			{
+				RenderingPolicy = MakeShareable(new FSlateD3D11RenderingPolicy(SlateFontServices.ToSharedRef(), TextureManager.ToSharedRef()));
+			}
 
-			ElementBatcher = MakeShareable(new FSlateElementBatcher(RenderingPolicy.ToSharedRef()));
-			GEncounteredCriticalD3DDeviceError = false;
+			if (!GEncounteredCriticalD3DDeviceError)
+			{
+				ElementBatcher = MakeShareable(new FSlateElementBatcher(RenderingPolicy.ToSharedRef()));
+			}
 		}
 		else
 		{

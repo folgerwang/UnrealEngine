@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
+#include "Common/SpeedRecorder.h"
 
 namespace BuildPatchServices
 {
@@ -117,18 +118,28 @@ namespace BuildPatchServices
 			bool bSuccess;
 			// The response code for the request.
 			int32 ResponseCode;
-			// The time in seconds when the request was started.
-			double StartedAt;
-			// The time in seconds when the request was completed.
-			double CompletedAt;
-			// The number of bytes received.
-			int32 BytesReceived;
+			// The timing record.
+			ISpeedRecorder::FRecord SpeedRecord;
 		};
+
+		/**
+		 * Called as each request has started.
+		 * @param RequestId             The id for the request.
+		 * @param Uri                   The uri for the request.
+		 */
+		virtual void OnDownloadStarted(int32 RequestId, const FString& Uri) = 0;
+
+		/**
+		 * Called for each request completion.
+		 * @param RequestId             The id for the request.
+		 * @param BytesReceived         The bytes received so far.
+		 */
+		virtual void OnDownloadProgress(int32 RequestId, int32 BytesReceived) = 0;
 
 		/**
 		 * Called for each request completion.
 		 * @param DownloadRecord        The struct containing the stats for this request.
 		 */
-		virtual void OnDownloadComplete(FDownloadRecord DownloadRecord) = 0;
+		virtual void OnDownloadComplete(const FDownloadRecord& DownloadRecord) = 0;
 	};
 }

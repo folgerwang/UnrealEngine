@@ -28,5 +28,6 @@ public class BuildPatchToolTarget : TargetRules
 		bUseChecksInShipping = true;
 		bIsBuildingConsoleApplication = true;
 		bHasExports = false;
+		bWithServerCode = false;
 	}
 }

@@ -421,7 +421,7 @@ namespace BuildPatchServices
 		FString IgnoreFileList = TEXT("");
 		FFileHelper::LoadFileToString(IgnoreFileList, *IgnoreListFile);
 		TArray< FString > IgnoreFiles;
-		IgnoreFileList.ParseIntoArray(IgnoreFiles, TEXT("\r\n"), true);
+		IgnoreFileList.ParseIntoArrayLines(IgnoreFiles, true);
 
 		// Normalize all paths first
 		for (FString& Filename : AllFiles)

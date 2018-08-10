@@ -1,9 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/MemoryChunkStore.h"
-#include "Installer/ChunkEvictionPolicy.h"
-#include "Data/ChunkData.h"
 #include "Misc/ScopeLock.h"
+#include "Installer/ChunkEvictionPolicy.h"
 
 namespace BuildPatchServices
 {
@@ -12,13 +11,14 @@ namespace BuildPatchServices
 	{
 	public:
 		FMemoryChunkStore(int32 InStoreSize, IChunkEvictionPolicy* InEvictionPolicy, IChunkStore* InOverflowStore, IMemoryChunkStoreStat* InMemoryChunkStoreStat);
-		~FMemoryChunkStore() {}
+		~FMemoryChunkStore();
 
 		// IChunkStore interface begin.
 		virtual void Put(const FGuid& DataId, TUniquePtr<IChunkDataAccess> ChunkData) override;
 		virtual IChunkDataAccess* Get(const FGuid& DataId) override;
 		virtual TUniquePtr<IChunkDataAccess> Remove(const FGuid& DataId) override;
 		virtual int32 GetSlack() const override;
+		virtual void SetLostChunkCallback(TFunction<void(const FGuid&)> Callback) override;
 		// IChunkStore interface end.
 
 		// IMemoryChunkStore interface begin.
@@ -26,8 +26,9 @@ namespace BuildPatchServices
 		// IMemoryChunkStore interface end.
 
 	private:
-		void PutInternal(const FGuid& DataId, TUniquePtr<IChunkDataAccess> ChunkData);
+		void PutInternal(const FGuid& DataId, TUniquePtr<IChunkDataAccess> ChunkData, bool bIsNewChunk);
 		void UpdateStoreUsage() const;
+		void ExecLostChunkCallback(const FGuid& LostChunk);
 
 	private:
 		int32 StoreSize;
@@ -35,6 +36,8 @@ namespace BuildPatchServices
 		IChunkEvictionPolicy* EvictionPolicy;
 		IChunkStore* OverflowStore;
 		IMemoryChunkStoreStat* MemoryChunkStoreStat;
+		mutable FCriticalSection LostChunkCallbackCs;
+		TFunction<void(const FGuid&)> LostChunkCallback;
 		FGuid LastGetId;
 		TUniquePtr<IChunkDataAccess> LastGetData;
 		mutable FCriticalSection ThreadLockCs;
@@ -46,16 +49,31 @@ namespace BuildPatchServices
 		, EvictionPolicy(InEvictionPolicy)
 		, OverflowStore(InOverflowStore)
 		, MemoryChunkStoreStat(InMemoryChunkStoreStat)
+		, LostChunkCallbackCs()
+		, LostChunkCallback(nullptr)
 		, LastGetId()
 		, LastGetData(nullptr)
 		, ThreadLockCs()
 	{
+		MemoryChunkStoreStat->OnStoreSizeUpdated(StoreSize);
+	}
+
+	FMemoryChunkStore::~FMemoryChunkStore()
+	{
+		for (const TPair<FGuid, TUniquePtr<IChunkDataAccess>>& Entry : Store)
+		{
+			MemoryChunkStoreStat->OnChunkReleased(Entry.Key);
+		}
+		if (LastGetData.IsValid())
+		{
+			MemoryChunkStoreStat->OnChunkReleased(LastGetId);
+		}
+		MemoryChunkStoreStat->OnStoreUseUpdated(0);
 	}
 
 	void FMemoryChunkStore::Put(const FGuid& DataId, TUniquePtr<IChunkDataAccess> ChunkData)
 	{
-		PutInternal(DataId, MoveTemp(ChunkData));
-		MemoryChunkStoreStat->OnChunkStored(DataId);
+		PutInternal(DataId, MoveTemp(ChunkData), true);
 	}
 
 	IChunkDataAccess* FMemoryChunkStore::Get(const FGuid& DataId)
@@ -69,7 +87,7 @@ namespace BuildPatchServices
 			{
 				if (Store.Contains(LastGetId) == false)
 				{
-					PutInternal(LastGetId, MoveTemp(LastGetData));
+					PutInternal(LastGetId, MoveTemp(LastGetData), false);
 				}
 			}
 			// Invalidate last get.
@@ -84,6 +102,11 @@ namespace BuildPatchServices
 			else if (OverflowStore != nullptr)
 			{
 				LastGetData = OverflowStore->Remove(DataId);
+				if (LastGetData.IsValid())
+				{
+					MemoryChunkStoreStat->OnChunkStored(DataId);
+					UpdateStoreUsage();
+				}
 			}
 			// Save ID if successful.
 			if (LastGetData.IsValid())
@@ -123,6 +146,13 @@ namespace BuildPatchServices
 		return StoreSize - (Store.Num() - Cleanable.Num());
 	}
 
+	void FMemoryChunkStore::SetLostChunkCallback(TFunction<void(const FGuid&)> Callback)
+	{
+		// Thread lock to protect access to LostChunkCallback.
+		FScopeLock ThreadLock(&LostChunkCallbackCs);
+		LostChunkCallback = MoveTemp(Callback);
+	}
+
 	void FMemoryChunkStore::DumpToOverflow()
 	{
 		// Thread lock to protect access to Store.
@@ -144,12 +174,17 @@ namespace BuildPatchServices
 		UpdateStoreUsage();
 	}
 
-	void FMemoryChunkStore::PutInternal(const FGuid& DataId, TUniquePtr<IChunkDataAccess> ChunkData)
+	void FMemoryChunkStore::PutInternal(const FGuid& DataId, TUniquePtr<IChunkDataAccess> ChunkData, bool bIsNewChunk)
 	{
 		// Thread lock to protect access to Store, LastGetId, and LastGetData.
 		FScopeLock ThreadLock(&ThreadLockCs);
 		// Add this new chunk.
 		Store.Add(DataId, MoveTemp(ChunkData));
+		if (bIsNewChunk)
+		{
+			MemoryChunkStoreStat->OnChunkStored(DataId);
+			UpdateStoreUsage();
+		}
 		// Clean out our store.
 		TSet<FGuid> Cleanable;
 		TSet<FGuid> Bootable;
@@ -167,16 +202,30 @@ namespace BuildPatchServices
 			{
 				OverflowStore->Put(BootId, MoveTemp(Store[BootId]));
 			}
+			else
+			{
+				ExecLostChunkCallback(BootId);
+			}
 			Store.Remove(BootId);
 			MemoryChunkStoreStat->OnChunkBooted(BootId);
 		}
-		UpdateStoreUsage();
 	}
 
 	void FMemoryChunkStore::UpdateStoreUsage() const
 	{
 		const int32 LastGetCount = LastGetId.IsValid() && !Store.Contains(LastGetId);
-		MemoryChunkStoreStat->OnStoreUseUpdated(Store.Num() + LastGetCount);
+		const int32 StoreNum = Store.Num();
+		MemoryChunkStoreStat->OnStoreUseUpdated(StoreNum + LastGetCount);
+	}
+
+	void FMemoryChunkStore::ExecLostChunkCallback(const FGuid& LostChunk)
+	{
+		// Thread lock to protect access to LostChunkCallback.
+		FScopeLock ThreadLock(&LostChunkCallbackCs);
+		if (LostChunkCallback)
+		{
+			LostChunkCallback(LostChunk);
+		}
 	}
 
 	IMemoryChunkStore* FMemoryChunkStoreFactory::Create(int32 StoreSize, IChunkEvictionPolicy* EvictionPolicy, IChunkStore* OverflowStore, IMemoryChunkStoreStat* MemoryChunkStoreStat)

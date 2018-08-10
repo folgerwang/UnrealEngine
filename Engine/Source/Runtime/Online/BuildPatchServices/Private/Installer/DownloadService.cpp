@@ -1,6 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/DownloadService.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Misc/ScopeLock.h"
 #include "Core/AsyncHelpers.h"
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
@@ -8,8 +10,6 @@
 #include "Installer/InstallerAnalytics.h"
 #include "Common/HttpManager.h"
 #include "Common/FileSystem.h"
-#include "HAL/ThreadSafeBool.h"
-#include "Misc/ScopeLock.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDownloadService, Warning, All);
 DEFINE_LOG_CATEGORY(LogDownloadService);
@@ -37,11 +37,27 @@ namespace BuildPatchServices
 	{
 	}
 
-	class FHttpDownload
+	class FDownloadBase
 		: public IDownload
 	{
 	public:
-		FHttpDownload(const FHttpResponsePtr& InHttpResponse, bool bInSuccess);
+		FDownloadBase(IDownloadServiceStat::FDownloadRecord&& InDownloadRecord);
+
+	public:
+		IDownloadServiceStat::FDownloadRecord DownloadRecord;
+	};
+	typedef TSharedRef<FDownloadBase, ESPMode::ThreadSafe> FDownloadBaseRef;
+
+	FDownloadBase::FDownloadBase(IDownloadServiceStat::FDownloadRecord&& InDownloadRecord)
+		: DownloadRecord(MoveTemp(InDownloadRecord))
+	{
+	}
+
+	class FHttpDownload
+		: public FDownloadBase
+	{
+	public:
+		FHttpDownload(const FHttpResponsePtr& HttpResponse, bool bSuccess, IDownloadServiceStat::FDownloadRecord&& DownloadRecord);
 		~FHttpDownload();
 
 		// IDownload interface begin.
@@ -55,8 +71,9 @@ namespace BuildPatchServices
 		bool bSuccess;
 	};
 
-	FHttpDownload::FHttpDownload(const FHttpResponsePtr& InHttpResponse, bool bInSuccess)
-		: HttpResponse(InHttpResponse)
+	FHttpDownload::FHttpDownload(const FHttpResponsePtr& InHttpResponse, bool bInSuccess, IDownloadServiceStat::FDownloadRecord&& InDownloadRecord)
+		: FDownloadBase(MoveTemp(InDownloadRecord))
+		, HttpResponse(InHttpResponse)
 		, bSuccess(bInSuccess)
 	{
 	}
@@ -81,10 +98,10 @@ namespace BuildPatchServices
 	}
 
 	class FFileDownload
-		: public IDownload
+		: public FDownloadBase
 	{
 	public:
-		FFileDownload(TArray<uint8> InDataArray, bool bInSuccess);
+		FFileDownload(TArray<uint8> DataArray, bool bSuccess, IDownloadServiceStat::FDownloadRecord&& DownloadRecord);
 		~FFileDownload();
 
 		// IDownload interface begin.
@@ -98,8 +115,9 @@ namespace BuildPatchServices
 		bool bSuccess;
 	};
 
-	FFileDownload::FFileDownload(TArray<uint8> InDataArray, bool bInSuccess)
-		: DataArray(MoveTemp(InDataArray))
+	FFileDownload::FFileDownload(TArray<uint8> InDataArray, bool bInSuccess, IDownloadServiceStat::FDownloadRecord&& InDownloadRecord)
+		: FDownloadBase(MoveTemp(InDownloadRecord))
+		, DataArray(MoveTemp(InDataArray))
 		, bSuccess(bInSuccess)
 	{
 	}
@@ -150,7 +168,7 @@ namespace BuildPatchServices
 	{
 		void ExecuteCancelled(int32 RequestId, const FDownloadDelegates& DownloadDelegates)
 		{
-			DownloadDelegates.OnCompleteDelegate.ExecuteIfBound(RequestId, MakeShareable(new FFileDownload(TArray<uint8>(), false)));
+			DownloadDelegates.OnCompleteDelegate.ExecuteIfBound(RequestId, MakeShareable(new FFileDownload(TArray<uint8>(), false, IDownloadServiceStat::FDownloadRecord())));
 		}
 
 		void ExecuteCancelledAndReset(int32 RequestId, FDownloadDelegates& DownloadDelegates)
@@ -206,8 +224,8 @@ namespace BuildPatchServices
 		void HttpRequestProgress(FHttpRequestPtr Request, int32 BytesSent, int32 BytesReceived, int32 RequestId);
 		void HttpRequestComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSuccess, IDownloadServiceStat::FDownloadRecord DownloadRecord);
 		void SetRequestProgress(int32 RequestId, int32 BytesSoFar);
-		void SetFileRequestComplete(int32 RequestId, bool bSuccess, TArray<uint8> FileDataArray);
-		void SetHttpRequestComplete(int32 RequestId, bool bSuccess, FHttpResponsePtr Response);
+		void SetFileRequestComplete(int32 RequestId, bool bSuccess, TArray<uint8> FileDataArray, IDownloadServiceStat::FDownloadRecord&& DownloadRecord);
+		void SetHttpRequestComplete(int32 RequestId, bool bSuccess, FHttpResponsePtr Response, IDownloadServiceStat::FDownloadRecord&& DownloadRecord);
 
 	private:
 		TSharedRef<FHttpDelegates, ESPMode::ThreadSafe> HttpDelegates;
@@ -236,7 +254,7 @@ namespace BuildPatchServices
 		TMap<int32, int32> ProgressUpdates;
 
 		FCriticalSection CompletedRequestsCS;
-		TMap<int32, FDownloadRef> CompletedRequests;
+		TMap<int32, FDownloadBaseRef> CompletedRequests;
 
 		FDelegateHandle TickerHandle;
 	};
@@ -439,6 +457,7 @@ namespace BuildPatchServices
 				FileRequest->Future = Async(EAsyncExecution::ThreadPool, MakeFileLoadTask(NewRequest.Key, NewRequest.Value, FileRequestPtr));
 				RegisterRequest(NewRequest.Key, MoveTemp(FileRequest));
 			}
+			DownloadServiceStat->OnDownloadStarted(NewRequest.Key, NewRequest.Value);
 		}
 	}
 
@@ -460,19 +479,23 @@ namespace BuildPatchServices
 			}
 		}
 		RequestDelegatesCS.Unlock();
+		for (const TPair<int32, int32>& FrameProgressUpdate : FrameProgressUpdates)
+		{
+			DownloadServiceStat->OnDownloadProgress(FrameProgressUpdate.Key, FrameProgressUpdate.Value);
+		}
 	}
 
 	void FDownloadService::ProcessCompletedRequests()
 	{
 		// Grab the completed requests for this frame.
-		TMap<int32, FDownloadRef> FrameCompletedRequests;
+		TMap<int32, FDownloadBaseRef> FrameCompletedRequests;
 		CompletedRequestsCS.Lock();
 		FrameCompletedRequests = MoveTemp(CompletedRequests);
 		CompletedRequestsCS.Unlock();
 
 		// Process completed requests.
 		RequestDelegatesCS.Lock();
-		for (const TPair<int32, FDownloadRef>& FrameCompletedRequest : FrameCompletedRequests)
+		for (const TPair<int32, FDownloadBaseRef>& FrameCompletedRequest : FrameCompletedRequests)
 		{
 			if (ensureMsgf(RequestDelegates.Contains(FrameCompletedRequest.Key), TEXT("Missing request delegates for %d"), FrameCompletedRequest.Key))
 			{
@@ -482,6 +505,10 @@ namespace BuildPatchServices
 			}
 		}
 		RequestDelegatesCS.Unlock();
+		for (const TPair<int32, FDownloadBaseRef>& FrameCompletedRequest : FrameCompletedRequests)
+		{
+			DownloadServiceStat->OnDownloadComplete(MoveTemp(FrameCompletedRequest.Value->DownloadRecord));
+		}
 	}
 
 	int32 FDownloadService::MakeRequestId()
@@ -496,9 +523,9 @@ namespace BuildPatchServices
 		DownloadRecord.Uri = MoveTemp(Uri);
 		DownloadRecord.bSuccess = false;
 		DownloadRecord.ResponseCode = INDEX_NONE;
-		DownloadRecord.StartedAt = FStatsCollector::GetSeconds();
-		DownloadRecord.CompletedAt = DownloadRecord.StartedAt;
-		DownloadRecord.BytesReceived = 0;
+		DownloadRecord.SpeedRecord.CyclesStart = FStatsCollector::GetCycles();
+		DownloadRecord.SpeedRecord.CyclesEnd = DownloadRecord.SpeedRecord.CyclesStart;
+		DownloadRecord.SpeedRecord.Size = 0;
 		return DownloadRecord;
 	}
 
@@ -510,9 +537,9 @@ namespace BuildPatchServices
 			TSharedPtr<FThreadSafeBool, ESPMode::ThreadSafe> LambdaShouldRun = WeakShouldRun.Pin();
 			TArray<uint8> FileDataArray;
 			bool bSuccess = LambdaShouldRun.IsValid() && *LambdaShouldRun.Get() && !FileRequest->ShouldCancel;
+			IDownloadServiceStat::FDownloadRecord DownloadRecord = MakeDownloadRecord(RequestId, FileUri);
 			if (bSuccess)
 			{
-				IDownloadServiceStat::FDownloadRecord DownloadRecord = MakeDownloadRecord(RequestId, FileUri);
 				TUniquePtr<FArchive> Reader = FileSystem->CreateFileReader(*FileUri);
 				bSuccess = Reader.IsValid();
 				if (bSuccess)
@@ -528,14 +555,13 @@ namespace BuildPatchServices
 						BytesRead += ReadLen;
 						SetRequestProgress(RequestId, BytesRead);
 					}
-					DownloadRecord.BytesReceived = BytesRead;
+					DownloadRecord.SpeedRecord.Size = BytesRead;
 					bSuccess = Reader->Close() && BytesRead == FileSize;
 				}
-				DownloadRecord.CompletedAt = FStatsCollector::GetSeconds();
+				DownloadRecord.SpeedRecord.CyclesEnd = FStatsCollector::GetCycles();
 				DownloadRecord.bSuccess = bSuccess;
-				DownloadServiceStat->OnDownloadComplete(MoveTemp(DownloadRecord));
 			}
-			SetFileRequestComplete(RequestId, bSuccess, MoveTemp(FileDataArray));
+			SetFileRequestComplete(RequestId, bSuccess, MoveTemp(FileDataArray), MoveTemp(DownloadRecord));
 		};
 	}
 
@@ -568,10 +594,9 @@ namespace BuildPatchServices
 		InstallerAnalytics->TrackRequest(Request);
 		DownloadRecord.bSuccess = bSuccess;
 		DownloadRecord.ResponseCode = Response.IsValid() ? Response->GetResponseCode() : INDEX_NONE;
-		DownloadRecord.CompletedAt = FStatsCollector::GetSeconds();
-		DownloadRecord.BytesReceived = Response.IsValid() ? Response->GetContent().Num() : 0;
-		SetHttpRequestComplete(DownloadRecord.RequestId, bSuccess, MoveTemp(Response));
-		DownloadServiceStat->OnDownloadComplete(MoveTemp(DownloadRecord));
+		DownloadRecord.SpeedRecord.CyclesEnd = FStatsCollector::GetCycles();
+		DownloadRecord.SpeedRecord.Size = Response.IsValid() ? Response->GetContent().Num() : 0;
+		SetHttpRequestComplete(DownloadRecord.RequestId, bSuccess, MoveTemp(Response), MoveTemp(DownloadRecord));
 	}
 
 	void FDownloadService::SetRequestProgress(int32 RequestId, int32 BytesSoFar)
@@ -580,16 +605,16 @@ namespace BuildPatchServices
 		ProgressUpdates.Add(RequestId, BytesSoFar);
 	}
 
-	void FDownloadService::SetFileRequestComplete(int32 RequestId, bool bSuccess, TArray<uint8> FileDataArray)
+	void FDownloadService::SetFileRequestComplete(int32 RequestId, bool bSuccess, TArray<uint8> FileDataArray, IDownloadServiceStat::FDownloadRecord&& DownloadRecord)
 	{
 		FScopeLock ScopeLock(&CompletedRequestsCS);
-		CompletedRequests.Emplace(RequestId, MakeShareable(new FFileDownload(MoveTemp(FileDataArray), bSuccess)));
+		CompletedRequests.Emplace(RequestId, MakeShareable(new FFileDownload(MoveTemp(FileDataArray), bSuccess, MoveTemp(DownloadRecord))));
 	}
 
-	void FDownloadService::SetHttpRequestComplete(int32 RequestId, bool bSuccess, FHttpResponsePtr Response)
+	void FDownloadService::SetHttpRequestComplete(int32 RequestId, bool bSuccess, FHttpResponsePtr Response, IDownloadServiceStat::FDownloadRecord&& DownloadRecord)
 	{
 		FScopeLock ScopeLock(&CompletedRequestsCS);
-		CompletedRequests.Emplace(RequestId, MakeShareable(new FHttpDownload(MoveTemp(Response), bSuccess)));
+		CompletedRequests.Emplace(RequestId, MakeShareable(new FHttpDownload(MoveTemp(Response), bSuccess, MoveTemp(DownloadRecord))));
 	}
 
 	IDownloadService* FDownloadServiceFactory::Create(FTicker& Ticker, IHttpManager* HttpManager, IFileSystem* FileSystem, IDownloadServiceStat* DownloadServiceStat, IInstallerAnalytics* InstallerAnalytics)

@@ -15,6 +15,54 @@
 
 namespace BuildPatchServices
 {
+	const TCHAR* ToString(const EChunkLoadResult& ChunkLoadResult)
+	{
+		switch(ChunkLoadResult)
+		{
+			case EChunkLoadResult::Success:
+				return TEXT("Success");
+			case EChunkLoadResult::OpenFileFail:
+				return TEXT("OpenFileFail");
+			case EChunkLoadResult::BadArchive:
+				return TEXT("BadArchive");
+			case EChunkLoadResult::CorruptHeader:
+				return TEXT("CorruptHeader");
+			case EChunkLoadResult::IncorrectFileSize:
+				return TEXT("IncorrectFileSize");
+			case EChunkLoadResult::UnsupportedStorage:
+				return TEXT("UnsupportedStorage");
+			case EChunkLoadResult::MissingHashInfo:
+				return TEXT("MissingHashInfo");
+			case EChunkLoadResult::SerializationError:
+				return TEXT("SerializationError");
+			case EChunkLoadResult::DecompressFailure:
+				return TEXT("DecompressFailure");
+			case EChunkLoadResult::HashCheckFailed:
+				return TEXT("HashCheckFailed");
+			case EChunkLoadResult::Aborted:
+				return TEXT("Aborted");
+			default:
+				return TEXT("Unknown");
+		}
+	}
+
+	const TCHAR* ToString(const EChunkSaveResult& ChunkSaveResult)
+	{
+		switch(ChunkSaveResult)
+		{
+			case EChunkSaveResult::Success:
+				return TEXT("Success");
+			case EChunkSaveResult::FileCreateFail:
+				return TEXT("FileCreateFail");
+			case EChunkSaveResult::BadArchive:
+				return TEXT("BadArchive");
+			case EChunkSaveResult::SerializationError:
+				return TEXT("SerializationError");
+			default:
+				return TEXT("Unknown");
+		}
+	}
+
 	namespace HeaderHelpers
 	{
 		void ZeroHeader(FChunkHeader& Header)
@@ -566,7 +614,7 @@ namespace BuildPatchServices
 			// Setup Header.
 			FChunkHeader Header;
 			FMemory::Memcpy(Header, *ChunkAccessHeader);
-			const int32 StartPos = Writer.Tell();
+			const int64 StartPos = Writer.Tell();
 			Writer << Header;
 			Header.HeaderSize = Writer.Tell() - StartPos;
 			Header.StoredAs = bDataIsCompressed ? EChunkStorageFlags::Compressed : EChunkStorageFlags::None;

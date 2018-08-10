@@ -20,8 +20,9 @@ public class WebBrowser : ModuleRules
 				"Slate",
 				"SlateCore",
 				"Serialization",
-			}
-		);
+                "HTTP"
+            }
+        );
 
 		if (Target.Platform == UnrealTargetPlatform.Android ||
             Target.Platform == UnrealTargetPlatform.IOS ||

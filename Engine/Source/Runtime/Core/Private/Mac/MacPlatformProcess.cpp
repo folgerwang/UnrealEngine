@@ -672,9 +672,6 @@ FString FMacPlatformProcess::GetApplicationName( uint32 ProcessId )
 
 bool FMacPlatformProcess::IsSandboxedApplication()
 {
-	// Temporarily disabled as it can take 15 seconds or more to execute this function in Fortnite on a low spec Macs.
-	return false;
-#if 0
 	SCOPED_AUTORELEASE_POOL;
 	
 	bool bIsSandboxedApplication = false;
@@ -702,7 +699,6 @@ bool FMacPlatformProcess::IsSandboxedApplication()
 	}
 	
 	return bIsSandboxedApplication;
-#endif
 }
 
 void FMacPlatformProcess::CleanFileCache()
