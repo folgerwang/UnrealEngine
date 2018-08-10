@@ -60,6 +60,7 @@
 #include "Stats/StatsMisc.h"
 #include "Engine/ReplicationDriver.h"
 #include "ProfilingDebugging/CsvProfiler.h"
+#include "Engine/LevelScriptActor.h"
 
 #if USE_SERVER_PERF_COUNTERS
 #include "PerfCountersModule.h"
@@ -1362,6 +1363,15 @@ void UNetDriver::Shutdown()
 	// Client closing connection to server
 	if (ServerConnection)
 	{
+		for (UChannel* Channel : ServerConnection->OpenChannels)
+		 {
+			 UActorChannel* ActorChannel = Cast<UActorChannel>(Channel);
+			 if (ActorChannel)
+			 {
+				 ActorChannel->CleanupReplicators();
+			 }
+		 }
+
 		// Calls Channel[0]->Close to send a close bunch to server
 		ServerConnection->Close();
 		ServerConnection->FlushNet();
@@ -4326,6 +4336,44 @@ void UNetDriver::CleanPackageMaps()
 	}
 }
 
+void UNetDriver::RemoveClassRepLayoutReferences(UClass* Class)
+{
+	RepLayoutMap.Remove(Class);
+
+	for (auto Func : TFieldRange<UFunction>(Class, EFieldIteratorFlags::ExcludeSuper))
+	{
+		if (Func && Func->HasAnyFunctionFlags(EFunctionFlags::FUNC_Net))
+		{
+			RepLayoutMap.Remove(Func);
+		}
+	}
+}
+
+void UNetDriver::CleanupWorldForSeamlessTravel()
+{
+	if (World != nullptr)
+	{
+		for (auto LevelIt(World->GetLevelIterator()); LevelIt; ++LevelIt)
+		{
+			if (const ULevel* Level = *LevelIt)
+			{
+				if (Level->LevelScriptActor)
+				{
+					// workaround for this not being called on clients
+					if (ServerConnection != nullptr)
+					{
+						NotifyActorLevelUnloaded(Level->LevelScriptActor);
+					}
+
+					RemoveClassRepLayoutReferences(Level->LevelScriptActor->GetClass());
+
+					ReplicationChangeListMap.Remove(Level->LevelScriptActor);
+				}
+			}
+		}
+	}
+}
+
 void UNetDriver::PreSeamlessTravelGarbageCollect()
 {
 	ResetGameWorldState();
@@ -4446,6 +4494,12 @@ void UNetDriver::OnLevelRemovedFromWorld(class ULevel* InLevel, class UWorld* In
 				NotifyActorLevelUnloaded(Actor);
 				RemoveNetworkActor(Actor);
 			}
+		}
+
+		if (InLevel && InLevel->LevelScriptActor)
+		{
+			RemoveClassRepLayoutReferences(InLevel->LevelScriptActor->GetClass());
+			ReplicationChangeListMap.Remove(InLevel->LevelScriptActor);
 		}
 
 		TArray<FNetworkGUID> RemovedGUIDs;

@@ -779,6 +779,10 @@ public:
 
 	ENGINE_API virtual void CleanPackageMaps();
 
+	void RemoveClassRepLayoutReferences(UClass* Class);
+
+	ENGINE_API void CleanupWorldForSeamlessTravel();
+
 	ENGINE_API void PreSeamlessTravelGarbageCollect();
 
 	ENGINE_API void PostSeamlessTravelGarbageCollect();

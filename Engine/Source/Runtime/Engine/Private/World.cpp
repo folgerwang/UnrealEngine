@@ -5683,6 +5683,11 @@ UWorld* FSeamlessTravelHandler::Tick()
 				}
 			}
 
+			if (NetDriver)
+			{
+				NetDriver->CleanupWorldForSeamlessTravel();
+			}
+
 			bool bCreateNewGameMode = !bIsClient;
 			{
 				// scope because after GC the kept pointers will be bad
