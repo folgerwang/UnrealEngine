@@ -344,7 +344,7 @@ FMovieSceneEventSectionTemplate::FMovieSceneEventSectionTemplate(const UMovieSce
 {
 }
 
-void FMovieSceneEventSectionTemplate::EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
+void FMovieSceneEventSectionTemplate::EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const TRange<FFrameNumber>& SweptRange, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
 	// Don't allow events to fire when playback is in a stopped state. This can occur when stopping 
 	// playback and returning the current position to the start of playback. It's not desireable to have 
@@ -363,8 +363,6 @@ void FMovieSceneEventSectionTemplate::EvaluateSwept(const FMovieSceneEvaluationO
 	}
 
 	TArray<FMovieSceneEventData> Events;
-
-	TRange<FFrameNumber>            SweptRange = Context.GetFrameNumberRange();
 
 	TArrayView<const FFrameNumber>  KeyTimes   = EventData.GetKeyTimes();
 	TArrayView<const FEventPayload> KeyValues  = EventData.GetKeyValues();
@@ -423,7 +421,7 @@ FMovieSceneEventTriggerTemplate::FMovieSceneEventTriggerTemplate(const UMovieSce
 	}
 }
 
-void FMovieSceneEventTriggerTemplate::EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
+void FMovieSceneEventTriggerTemplate::EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const TRange<FFrameNumber>& SweptRange, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
 	// Don't allow events to fire when playback is in a stopped state. This can occur when stopping 
 	// playback and returning the current position to the start of playback. It's not desireable to have 
@@ -442,8 +440,6 @@ void FMovieSceneEventTriggerTemplate::EvaluateSwept(const FMovieSceneEvaluationO
 	}
 
 	TArray<FName> Events;
-
-	TRange<FFrameNumber> SweptRange = Context.GetFrameNumberRange();
 
 	const int32 First = bBackwards ? EventTimes.Num() - 1 : 0;
 	const int32 Last = bBackwards ? 0 : EventTimes.Num() - 1;
@@ -488,12 +484,12 @@ FMovieSceneEventRepeaterTemplate::FMovieSceneEventRepeaterTemplate(const UMovieS
 {
 }
 
-void FMovieSceneEventRepeaterTemplate::EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
+void FMovieSceneEventRepeaterTemplate::EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const TRange<FFrameNumber>& SweptRange, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
 	// Don't allow events to fire when playback is in a stopped state. This can occur when stopping 
 	// playback and returning the current position to the start of playback. It's not desireable to have 
 	// all the events from the last playback position to the start of playback be fired.
-	if (Context.GetStatus() == EMovieScenePlayerStatus::Stopped || Context.IsSilent())
+	if (!SweptRange.Contains(Context.GetTime().FrameNumber) || Context.GetStatus() == EMovieScenePlayerStatus::Stopped || Context.IsSilent())
 	{
 		return;
 	}
