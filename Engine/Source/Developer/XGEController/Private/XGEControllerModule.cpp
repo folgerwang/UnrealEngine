@@ -586,4 +586,9 @@ XGECONTROLLER_API IXGEController& IXGEController::Get()
 
 IMPLEMENT_MODULE(FXGEControllerModule, XGEController);
 
+#else
+
+// Workaround for module not having any exported symbols
+XGECONTROLLER_API int XgeControllerExportedSymbol = 0;
+
 #endif // WITH_XGE_CONTROLLER
