@@ -638,7 +638,8 @@ namespace AutomationTool
 			/// the solution file base name, but with various binary file extensions
 			public List<string> HTML5DotNetProjects = new List<string>();
 
-			public string SwarmProject = "";
+			public string SwarmAgentProject = "";
+			public string SwarmCoordinatorProject = "";
 
 
 			/// List of targets to build.  These can be various Unreal projects, programs or libraries in various configurations
@@ -1260,12 +1261,21 @@ namespace AutomationTool
 				PrepareBuildProductsForCSharpProj(Path.Combine(CommandUtils.CmdEnv.LocalRoot, File));
 			}
 
-			if (Agenda.SwarmProject != "")
+			if (Agenda.SwarmAgentProject != "")
 			{
-				string SwarmSolution = Path.Combine(CommandUtils.CmdEnv.LocalRoot, Agenda.SwarmProject);
-				PrepareBuildProductsForCSharpProj(SwarmSolution);
+				string SwarmAgentSolution = Path.Combine(CommandUtils.CmdEnv.LocalRoot, Agenda.SwarmAgentProject);
+				PrepareBuildProductsForCSharpProj(SwarmAgentSolution);
 
-				CommandUtils.BuildSolution(CommandUtils.CmdEnv, SwarmSolution, "Development", "Mixed Platforms");
+				CommandUtils.BuildSolution(CommandUtils.CmdEnv, SwarmAgentSolution, "Development", "Mixed Platforms");
+				AddSwarmBuildProducts();
+			}
+
+			if (Agenda.SwarmCoordinatorProject != "")
+			{
+				string SwarmCoordinatorSolution = Path.Combine(CommandUtils.CmdEnv.LocalRoot, Agenda.SwarmCoordinatorProject);
+				PrepareBuildProductsForCSharpProj(SwarmCoordinatorSolution);
+
+				CommandUtils.BuildSolution(CommandUtils.CmdEnv, SwarmCoordinatorSolution, "Development", "Mixed Platforms");
 				AddSwarmBuildProducts();
 			}
 
