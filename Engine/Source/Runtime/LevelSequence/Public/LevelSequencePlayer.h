@@ -65,10 +65,19 @@ struct FLevelSequencePlayerSnapshot
 	FQualifiedFrameTime MasterTime;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
+	FQualifiedFrameTime SourceTime;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
 	FString CurrentShotName;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
 	FQualifiedFrameTime CurrentShotLocalTime;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
+	FQualifiedFrameTime CurrentShotSourceTime;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
+	FString SourceTimecode;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="General")
 	UCameraComponent* CameraComponent;

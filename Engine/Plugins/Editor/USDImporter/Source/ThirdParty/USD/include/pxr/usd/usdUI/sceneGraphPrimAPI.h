@@ -28,7 +28,7 @@
 
 #include "pxr/pxr.h"
 #include "pxr/usd/usdUI/api.h"
-#include "pxr/usd/usd/schemaBase.h"
+#include "pxr/usd/usd/apiSchemaBase.h"
 #include "pxr/usd/usd/prim.h"
 #include "pxr/usd/usd/stage.h"
 #include "pxr/usd/usdUI/tokens.h"
@@ -61,7 +61,7 @@ class SdfAssetPath;
 /// So to set an attribute to the value "rightHanded", use UsdUITokens->rightHanded
 /// as the value.
 ///
-class UsdUISceneGraphPrimAPI : public UsdSchemaBase
+class UsdUISceneGraphPrimAPI : public UsdAPISchemaBase
 {
 public:
     /// Compile-time constant indicating whether or not this class corresponds
@@ -70,12 +70,28 @@ public:
     /// a non-empty typeName.
     static const bool IsConcrete = false;
 
+    /// Compile-time constant indicating whether or not this class inherits from
+    /// UsdTyped. Types which inherit from UsdTyped can impart a typename on a
+    /// UsdPrim.
+    static const bool IsTyped = false;
+
+    /// Compile-time constant indicating whether or not this class represents an 
+    /// applied API schema, i.e. an API schema that has to be applied to a prim
+    /// with a call to auto-generated Apply() method before any schema 
+    /// properties are authored.
+    static const bool IsApplied = true;
+    
+    /// Compile-time constant indicating whether or not this class represents a 
+    /// multiple-apply API schema. Mutiple-apply API schemas can be applied 
+    /// to the same prim multiple times with different instance names. 
+    static const bool IsMultipleApply = false;
+
     /// Construct a UsdUISceneGraphPrimAPI on UsdPrim \p prim .
     /// Equivalent to UsdUISceneGraphPrimAPI::Get(prim.GetStage(), prim.GetPath())
     /// for a \em valid \p prim, but will not immediately throw an error for
     /// an invalid \p prim
     explicit UsdUISceneGraphPrimAPI(const UsdPrim& prim=UsdPrim())
-        : UsdSchemaBase(prim)
+        : UsdAPISchemaBase(prim)
     {
     }
 
@@ -83,7 +99,7 @@ public:
     /// Should be preferred over UsdUISceneGraphPrimAPI(schemaObj.GetPrim()),
     /// as it preserves SchemaBase state.
     explicit UsdUISceneGraphPrimAPI(const UsdSchemaBase& schemaObj)
-        : UsdSchemaBase(schemaObj)
+        : UsdAPISchemaBase(schemaObj)
     {
     }
 
@@ -112,6 +128,22 @@ public:
     Get(const UsdStagePtr &stage, const SdfPath &path);
 
 
+    /// Applies this <b>single-apply</b> API schema to the given \p prim.
+    /// This information is stored by adding "SceneGraphPrimAPI" to the 
+    /// token-valued, listOp metadata \em apiSchemas on the prim.
+    /// 
+    /// \return A valid UsdUISceneGraphPrimAPI object is returned upon success. 
+    /// An invalid (or empty) UsdUISceneGraphPrimAPI object is returned upon 
+    /// failure. See \ref UsdAPISchemaBase::_ApplyAPISchema() for conditions 
+    /// resulting in failure. 
+    /// 
+    /// \sa UsdPrim::GetAppliedSchemas()
+    /// \sa UsdPrim::HasAPI()
+    ///
+    USDUI_API
+    static UsdUISceneGraphPrimAPI 
+    Apply(const UsdPrim &prim);
+
 private:
     // needs to invoke _GetStaticTfType.
     friend class UsdSchemaRegistry;
@@ -123,6 +155,11 @@ private:
     // override SchemaBase virtuals.
     USDUI_API
     virtual const TfType &_GetTfType() const;
+
+    // This override returns true since UsdUISceneGraphPrimAPI is an 
+    // applied API schema.
+    USDUI_API
+    virtual bool _IsAppliedAPISchema() const override;
 
 public:
     // --------------------------------------------------------------------- //
@@ -153,7 +190,7 @@ public:
     // --------------------------------------------------------------------- //
     /// When publishing a nodegraph or a material, it can be useful to
     /// provide an optional display group, for organizational purposes and 
-    /// readability. This is because often the usd shading hiearchy is rather 
+    /// readability. This is because often the usd shading hierarchy is rather
     /// flat while we want to display it in organized groups.
     /// 
     ///

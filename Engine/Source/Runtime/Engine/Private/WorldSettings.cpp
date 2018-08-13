@@ -21,10 +21,13 @@
 #include "Particles/ParticleEventManager.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "UObject/ReleaseObjectVersion.h"
+#include "UObject/EnterpriseObjectVersion.h"
 #include "SceneManagement.h"
 #include "AI/AISystemBase.h"
 #include "AI/NavigationSystemConfig.h"
 #include "AI/NavigationSystemBase.h"
+#include "Engine/BookmarkBase.h"
+#include "Engine/BookMark.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -35,9 +38,16 @@
 
 #define LOCTEXT_NAMESPACE "ErrorChecking"
 
+DEFINE_LOG_CATEGORY_STATIC(LogWorldSettings, Log, All);
+
 // @todo vreditor urgent: Temporary hack to allow world-to-meters to be set before
 // input is polled for motion controller devices each frame.
 ENGINE_API float GNewWorldToMetersScale = 0.0f;
+
+#if WITH_EDITOR
+AWorldSettings::FOnBookmarkClassChanged AWorldSettings::OnBookmarkClassChanged;
+AWorldSettings::FOnNumberOfBookmarksChanged AWorldSettings::OnNumberOfBoomarksChanged;
+#endif
 
 AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.DoNotCreateDefaultSubobject(TEXT("Sprite")))
@@ -98,6 +108,11 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 #endif // WITH_EDITORONLY_DATA
 
 	bReplayRewindable = true;
+
+	MaxNumberOfBookmarks = 10;
+
+	DefaultBookmarkClass = UBookMark::StaticClass();
+	LastBookmarkClass = DefaultBookmarkClass;
 }
 
 void AWorldSettings::PostInitProperties()
@@ -130,6 +145,12 @@ void AWorldSettings::PostInitProperties()
 	if (MaxUndilatedFrameTime < 0)
 	{
 		MaxUndilatedFrameTime = 0;
+	}
+
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		UpdateNumberOfBookmarks();
+		UpdateBookmarkClass();
 	}
 }
 
@@ -255,6 +276,7 @@ void AWorldSettings::Serialize( FArchive& Ar )
 	Super::Serialize(Ar);
 
 	Ar.UsingCustomVersion(FReleaseObjectVersion::GUID);
+	Ar.UsingCustomVersion(FEnterpriseObjectVersion::GUID);
 
 	if (Ar.UE4Ver() < VER_UE4_ADD_OVERRIDE_GRAVITY_FLAG)
 	{
@@ -285,6 +307,19 @@ void AWorldSettings::Serialize( FArchive& Ar )
 		}
 	}
 #endif
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	if (Ar.IsLoading())
+	{
+		if (Ar.CustomVer(FEnterpriseObjectVersion::GUID) < FEnterpriseObjectVersion::BookmarkExtensibilityUpgrade)
+		{
+			UBookmarkBase** LocalBookmarks = reinterpret_cast<UBookmarkBase**>(static_cast<UBookMark**>(BookMarks)); //-V777
+			const int32 NumBookmarks = sizeof(BookMarks) / sizeof(UBookMark*);
+			BookmarkArray = TArray<UBookmarkBase*>(LocalBookmarks, NumBookmarks);
+			AdjustNumberOfBookmarks();
+		}
+	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 void AWorldSettings::AddAssetUserData(UAssetUserData* InUserData)
@@ -560,6 +595,14 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 				}
 			}
 		}
+		else if (PropertyName == GET_MEMBER_NAME_CHECKED(AWorldSettings, MaxNumberOfBookmarks))
+		{
+			UpdateNumberOfBookmarks();
+		}
+		else if (PropertyName == GET_MEMBER_NAME_CHECKED(AWorldSettings, DefaultBookmarkClass))
+		{
+			UpdateBookmarkClass();
+		}
 	}
 
 	LightmassSettings.NumIndirectLightingBounces = FMath::Clamp(LightmassSettings.NumIndirectLightingBounces, 0, 100);
@@ -629,8 +672,156 @@ void UHierarchicalLODSetup::PostEditChangeProperty(struct FPropertyChangedEvent&
 		}
 	}
 }
-
 #endif // WITH_EDITOR
+
+void AWorldSettings::CompactBookmarks()
+{
+	int32 LowIndex = 0;
+	int32 HighIndex = NumMappedBookmarks;
+
+	while (true)
+	{
+		// Find the next available spot.
+		while (true)
+		{
+			if (BookmarkArray.IsValidIndex(LowIndex))
+			{
+				// Found an empty spot, so we can move on.
+				if (BookmarkArray[LowIndex] == nullptr)
+				{
+					break;
+				}
+
+				++LowIndex;
+			}
+			else
+			{
+				// There's no more spots to check, so we're done.
+				return;
+			}
+		}
+
+		// Find the next filled spot.
+		HighIndex = FMath::Max(HighIndex, LowIndex + 1);
+		while (true)
+		{
+			if (BookmarkArray.IsValidIndex(HighIndex))
+			{
+				// Found a valid filled spot, so we can move on.
+				if (BookmarkArray[HighIndex] != nullptr)
+				{
+					break;
+				}
+
+				++HighIndex;
+			}
+			else
+			{
+				// There's no more spots to check, so we're done.
+				return;
+			}
+		}
+
+		// Swap the filled slot element into the empty slot.
+		BookmarkArray.Swap(LowIndex, HighIndex);
+		++LowIndex;
+		++HighIndex;
+	}
+}
+
+
+class UBookmarkBase* AWorldSettings::GetOrAddBookmark(const uint32 BookmarkIndex, const bool bRecreateOnClassMismatch)
+{
+	if (BookmarkArray.IsValidIndex(BookmarkIndex))
+	{
+		UBookmarkBase*& Bookmark = BookmarkArray[BookmarkIndex];
+
+		if (Bookmark == nullptr || (bRecreateOnClassMismatch && Bookmark->GetClass() != GetDefaultBookmarkClass()))
+		{
+			Bookmark = NewObject<UBookmarkBase>(this, GetDefaultBookmarkClass());
+		}
+
+		return Bookmark;
+	}
+
+	return nullptr;
+}
+
+void AWorldSettings::AdjustNumberOfBookmarks()
+{
+	if (MaxNumberOfBookmarks < 0)
+	{
+		UE_LOG(LogWorldSettings, Warning, TEXT("%s: MaxNumberOfBookmarks cannot be below 0 (Value=%d). Defaulting to 10"), *GetPathName(this), MaxNumberOfBookmarks);
+		MaxNumberOfBookmarks = NumMappedBookmarks;
+	}
+
+	if (MaxNumberOfBookmarks < BookmarkArray.Num())
+	{
+		UE_LOG(LogWorldSettings, Warning, TEXT("%s: MaxNumberOfBookmarks set below current number of bookmarks. Clearing %d bookmarks."), *GetPathNameSafe(this), BookmarkArray.Num() - MaxNumberOfBookmarks);
+	}
+
+	BookmarkArray.SetNumZeroed(MaxNumberOfBookmarks);
+}
+
+void AWorldSettings::UpdateNumberOfBookmarks()
+{
+	if (MaxNumberOfBookmarks != BookmarkArray.Num())
+	{
+		AdjustNumberOfBookmarks();
+
+#if WITH_EDITOR
+		OnNumberOfBoomarksChanged.Broadcast(this);
+#endif
+	}
+}
+
+void AWorldSettings::SanitizeBookmarkClasses()
+{
+	if (UClass* ExpectedClass = GetDefaultBookmarkClass().Get())
+	{
+		bool bFoundInvalidBookmarks = false;
+		for (int32 i = 0; i < BookmarkArray.Num(); ++i)
+		{
+			if (UBookmarkBase* Bookmark = BookmarkArray[i])
+			{
+				if (Bookmark->GetClass() != ExpectedClass)
+				{
+					// Just clear the reference, this bookmark should get cleaned up next GC cycle.
+					BookmarkArray[i] = nullptr;
+					bFoundInvalidBookmarks = true;
+				}
+			}
+		}
+
+		if (bFoundInvalidBookmarks)
+		{
+			UE_LOG(LogWorldSettings, Warning, TEXT("%s: Bookmarks found with invalid classes"), *GetPathName(this));
+		}
+	}
+	else
+	{
+		UE_LOG(LogWorldSettings, Warning, TEXT("%s: Invalid bookmark class, clearing existing bookmarks."), *GetPathName(this));
+		DefaultBookmarkClass = UBookMark::StaticClass();
+		SanitizeBookmarkClasses();
+	}
+}
+
+void AWorldSettings::UpdateBookmarkClass()
+{
+	if (LastBookmarkClass != DefaultBookmarkClass)
+	{
+
+#if WITH_EDITOR
+		OnBookmarkClassChanged.Broadcast(this);
+#endif
+
+		// Explicitly done after OnBookmarkClassChanged, in case there's any upgrade work
+		// that can be done.
+		SanitizeBookmarkClasses();
+		
+		LastBookmarkClass = DefaultBookmarkClass;
+	}
+}
 
 FSoftClassPath AWorldSettings::GetAISystemClassName() const
 {
@@ -638,4 +829,3 @@ FSoftClassPath AWorldSettings::GetAISystemClassName() const
 }
 
 #undef LOCTEXT_NAMESPACE
-

@@ -683,7 +683,7 @@ bool ContentBrowserUtils::SavePackages(const TArray<UPackage*>& Packages)
 {
 	TArray< UPackage* > PackagesWithExternalRefs;
 	FString PackageNames;
-	if( PackageTools::CheckForReferencesToExternalPackages( &Packages, &PackagesWithExternalRefs ) )
+	if( UPackageTools::CheckForReferencesToExternalPackages( &Packages, &PackagesWithExternalRefs ) )
 	{
 		for(int32 PkgIdx = 0; PkgIdx < PackagesWithExternalRefs.Num(); ++PkgIdx)
 		{
@@ -744,7 +744,7 @@ TArray<UPackage*> ContentBrowserUtils::LoadPackages(const TArray<FString>& Packa
 		else
 		{
 			// The package is unloaded. Try to load the package from disk.
-			Package = PackageTools::LoadPackage(PackageName);
+			Package = UPackageTools::LoadPackage(PackageName);
 		}
 
 		// If the package was loaded, add it to the loaded packages list.
@@ -2063,10 +2063,10 @@ void ContentBrowserUtils::SyncPackagesFromSourceControl(const TArray<FString>& P
 		});
 
 		// Hot-reload the new packages...
-		PackageTools::ReloadPackages(LoadedPackages);
+		UPackageTools::ReloadPackages(LoadedPackages);
 
 		// Unload any deleted packages...
-		PackageTools::UnloadPackages(PackagesToUnload);
+		UPackageTools::UnloadPackages(PackagesToUnload);
 
 		// Re-cache the SCC state...
 		SCCProvider.Execute(ISourceControlOperation::Create<FUpdateStatus>(), PackageFilenames, EConcurrency::Asynchronous);
@@ -2183,10 +2183,10 @@ void ContentBrowserUtils::SyncPathsFromSourceControl(const TArray<FString>& Cont
 		}
 
 		// Hot-reload the new packages...
-		PackageTools::ReloadPackages(LoadedPackages);
+		UPackageTools::ReloadPackages(LoadedPackages);
 
 		// Unload any deleted packages...
-		PackageTools::UnloadPackages(PackagesToUnload);
+		UPackageTools::UnloadPackages(PackagesToUnload);
 
 		// Re-cache the SCC state...
 		SCCProvider.Execute(ISourceControlOperation::Create<FUpdateStatus>(), PathsOnDisk, EConcurrency::Asynchronous);

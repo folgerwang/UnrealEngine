@@ -1193,9 +1193,8 @@ void CopyCameraProperties(FbxCamera* CameraNode, ACineCameraActor* CameraActor)
 	CineCameraComponent->CurrentFocalLength = FocalLength;
 }
 
-bool ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene, ISequencer& InSequencer, TMap<FGuid, FString>& InObjectBindingMap, bool bMatchByNameOnly, bool bCreateCameras)
+void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene, ISequencer& InSequencer, TMap<FGuid, FString>& InObjectBindingMap, bool bMatchByNameOnly, bool bCreateCameras)
 {
-	bool bCamsCreated = false;
 	if (bCreateCameras)
 	{
 		TArray<FbxCamera*> AllCameras;
@@ -1231,7 +1230,7 @@ bool ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 		if (UnmatchedCameras.Num() != 0)
 		{
 			InObjectBindingMap.Reset();
-			bCamsCreated = true;
+			bMatchByNameOnly = true;
 		}
 
 		for (auto UnmatchedCamera : UnmatchedCameras)
@@ -1345,7 +1344,6 @@ bool ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 			}
 		}
 	}
-	return bCamsCreated;
 }
 
 FGuid FindCameraGuid(FbxCamera* Camera, TMap<FGuid, FString>& InObjectBindingMap)
@@ -1517,23 +1515,22 @@ private:
 			return FReply::Unhandled();
 		}
 		
+		if (MovieScene->IsReadOnly())
+		{
+			return FReply::Unhandled();
+		}
+		
 		const bool bMatchByNameOnly = ImportFBXSettings->bMatchByNameOnly;
 
 		const FScopedTransaction Transaction( NSLOCTEXT( "MovieSceneTools", "ImportFBXTransaction", "Import FBX" ) );
 
 		// Import static cameras first
-		bool bCamsCreated = ImportFBXCamera(FbxImporter, MovieScene, *Sequencer, ObjectBindingMap, bMatchByNameOnly, bCreateCameras.IsSet() ? bCreateCameras.GetValue() : ImportFBXSettings->bCreateCameras);
+		ImportFBXCamera(FbxImporter, MovieScene, *Sequencer, ObjectBindingMap, bMatchByNameOnly, bCreateCameras.IsSet() ? bCreateCameras.GetValue() : ImportFBXSettings->bCreateCameras);
 
 		UnFbx::FFbxCurvesAPI CurveAPI;
 		FbxImporter->PopulateAnimatedCurveData(CurveAPI);
 		TArray<FString> AllNodeNames;
 		CurveAPI.GetAllNodeNameArray(AllNodeNames);
-
-		// Import a camera cut track if cams were created, do it after populating curve data ensure only one animation layer, if any
-		if (bCamsCreated)
-		{
-			ImportCameraCut(FbxImporter, MovieScene, *Sequencer, ObjectBindingMap);
-		}
 
 		for (FString NodeName : AllNodeNames)
 		{
@@ -1614,7 +1611,6 @@ bool MovieSceneToolHelpers::ImportFBX(UMovieScene* InMovieScene, ISequencer& InS
 		.Sequencer(&InSequencer);
 	DialogWidget->SetObjectBindingMap(InObjectBindingMap);
 	DialogWidget->SetCreateCameras(bCreateCameras);
-	
 	Window->SetContent(DialogWidget);
 
 	FSlateApplication::Get().AddWindow(Window);

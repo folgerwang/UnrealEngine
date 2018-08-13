@@ -63,7 +63,7 @@ void SCreateAssetFromObject::Construct(const FArguments& InArgs, TSharedPtr<SWin
 		ActorInstanceLabel = InArgs._DefaultNameOverride.ToString();
 	}
 
-	ActorInstanceLabel = PackageTools::SanitizePackageName(ActorInstanceLabel + AssetFilenameSuffix);
+	ActorInstanceLabel = UPackageTools::SanitizePackageName(ActorInstanceLabel + AssetFilenameSuffix);
 
 	FString AssetName = ActorInstanceLabel;
 	FString BasePath = AssetPath / AssetName;

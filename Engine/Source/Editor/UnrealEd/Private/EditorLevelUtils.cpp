@@ -748,7 +748,7 @@ bool UEditorLevelUtils::EditorDestroyLevel(ULevel* InLevel)
 
 	TArray<UPackage*> Packages;
 	Packages.Add(Package);
-	if (!PackageTools::UnloadPackages(Packages))
+	if (!UPackageTools::UnloadPackages(Packages))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("Package"), FText::FromString(Package->GetName()));

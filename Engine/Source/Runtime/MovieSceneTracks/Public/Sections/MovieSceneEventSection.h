@@ -18,7 +18,7 @@
 
 struct EventData;
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct MOVIESCENETRACKS_API FMovieSceneEventParameters
 {
 	GENERATED_BODY()
@@ -101,7 +101,7 @@ struct TStructOpsTypeTraits<FMovieSceneEventParameters> : public TStructOpsTypeT
 	};
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FEventPayload
 {
 	GENERATED_BODY()
@@ -119,24 +119,24 @@ struct FEventPayload
 		return A.EventName != B.EventName || A.Parameters != B.Parameters;
 	}
 	/** The name of the event to trigger */
-	UPROPERTY(EditAnywhere, Category=Event)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Event)
 	FName EventName;
 
 	/** The event parameters */
-	UPROPERTY(EditAnywhere, Category=Event, meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Event, meta=(ShowOnlyInnerProperties))
 	FMovieSceneEventParameters Parameters;
 };
 
 /** A curve of events */
 USTRUCT()
-struct FMovieSceneEventSectionData : public FMovieSceneChannel
+struct MOVIESCENETRACKS_API FMovieSceneEventSectionData : public FMovieSceneChannel
 {
 	GENERATED_BODY()
 
 	/**
 	 * Called after this section data has been serialized to upgrade old data
 	 */
-	MOVIESCENETRACKS_API void PostSerialize(const FArchive& Ar);
+	void PostSerialize(const FArchive& Ar);
 
 	/**
 	 * Access a mutable interface for this channel's data

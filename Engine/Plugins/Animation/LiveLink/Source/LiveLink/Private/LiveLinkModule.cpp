@@ -116,13 +116,12 @@ public:
 		TArray<FLiveLinkSubjectKey> SubjectKeys = Client.GetSubjects();
 
 		TMap<FGuid, TArray<FName>> LiveLinkSubjects;
+		LiveLinkSubjects.Add(WildcardSource);
 
-		TArray<FName>& UniqueNames = LiveLinkSubjects.Add(WildcardSource);
-		
 		for (const FLiveLinkSubjectKey& Subject : SubjectKeys)
 		{
 			LiveLinkSubjects.FindOrAdd(Subject.Source).Add(Subject.SubjectName);
-			UniqueNames.AddUnique(Subject.SubjectName);
+			LiveLinkSubjects.FindChecked(WildcardSource).Add(Subject.SubjectName);
 		}
 
 		TArray<FGuid> SourceGuids;

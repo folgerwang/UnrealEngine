@@ -11,6 +11,8 @@
 
 class AActor;
 class ISequenceAudioRecorder;
+class ISequenceRecorderExtender;
+class USequenceRecordingBase;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRecordingStarted, class UMovieSceneSequence* /*Sequence*/);
 
@@ -106,6 +108,12 @@ public:
 	virtual UActorRecording* QueueActorToRecord(AActor* ActorToRecord) = 0;
 
 	/**
+	 * Add an object to be recorded when the next recording pass begins
+	 * @param	ObjectToRecord	The object to queue for recording	
+	 */
+	virtual USequenceRecordingBase* QueueObjectToRecord(UObject* ObjectToRecord) = 0;
+
+	/**
 	 * Get the take number of an actor that is queued to record in the current group
 	 * @param	InActor		The actor to fetch the take number for
 	 * @return the take number for the given actor, 0 if actor isn't queued or no group is active
@@ -151,4 +159,10 @@ public:
 
 	/** Get the Recording Group added delegate */
 	virtual FOnRecordingGroupAdded& OnRecordingGroupAdded() = 0;
+
+	/** Add an extension to the SequenceRecorder */
+	virtual void AddSequenceRecorderExtender(TSharedPtr<ISequenceRecorderExtender> SequenceRecorderExternder) = 0;
+
+	/** Remove an extension from the SequenceRecorder */
+	virtual void RemoveSequenceRecorderExtender(TSharedPtr<ISequenceRecorderExtender> SequenceRecorderExternder) = 0;
 };

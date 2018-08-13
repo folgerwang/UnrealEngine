@@ -318,14 +318,14 @@ void BuildVertexBuffer(
 	const FPolygonArray& PolygonArray = MeshDescription.Polygons();
 	
 	OutWedgeMap.Reset();
-	OutWedgeMap.AddZeroed(VertexInstances.Num());
+	OutWedgeMap.AddZeroed(VertexInstances.GetArraySize());
 
 	TArray<int32> RemapVertexInstanceID;
 	// set up vertex buffer elements
-	StaticMeshBuildVertices.Reserve(VertexInstances.Num());
+	StaticMeshBuildVertices.Reserve(VertexInstances.GetArraySize());
 	bool bHasColor = false;
 	//Fill the remap array
-	RemapVerts.AddZeroed(VertexInstances.Num());
+	RemapVerts.AddZeroed(VertexInstances.GetArraySize());
 	for (int32& RemapIndex : RemapVerts)
 	{
 		RemapIndex = INDEX_NONE;
@@ -467,10 +467,10 @@ void BuildVertexBuffer(
 
 
 	//Optimize before setting the buffer
-	if (VertexInstances.Num() < 100000 * 3)
+	if (VertexInstances.GetArraySize() < 100000 * 3)
 	{
 		BuildOptimizationHelper::CacheOptimizeVertexAndIndexBuffer(StaticMeshBuildVertices, OutPerSectionIndices, OutWedgeMap);
-		check(OutWedgeMap.Num() == MeshDescription.VertexInstances().Num());
+		//check(OutWedgeMap.Num() == MeshDescription->VertexInstances().Num());
 	}
 
 	StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.SetUseHighPrecisionTangentBasis(LODBuildSettings.bUseHighPrecisionTangentBasis);

@@ -34,13 +34,20 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-
 SDF_DECLARE_HANDLES(SdfPrimSpec);
 
 /// \class UsdSpecializes
 ///
 /// A proxy class for applying listOp edits to the specializes list for a
 /// prim.
+///
+/// All paths passed to the UsdSpecializes API are expected to be in the 
+/// namespace of the owning prim's stage. Local specializes paths (i.e., 
+/// non-root prim paths) will be translated from this namespace to the
+/// namespace of the current edit target, if necessary. If a path cannot 
+/// be translated, a coding error will be issued and no changes will be
+/// made. Global specializes paths (i.e., root prim paths) will not be 
+/// translated.
 ///
 class UsdSpecializes {
     friend class UsdPrim;
@@ -49,9 +56,11 @@ class UsdSpecializes {
 
 public:
 
-    /// Appends a path to the specializes listOp at the current EditTarget.
+    /// Adds a path to the specializes listOp at the current EditTarget,
+    /// in the position specified by \p position.
     USD_API
-    bool AppendSpecialize(const SdfPath &primPath);
+    bool AddSpecialize(const SdfPath &primPath,
+                       UsdListPosition position=UsdListPositionTempDefault);
 
     /// Removes the specified path from the specializes listOp at the
     /// current EditTarget.
@@ -83,7 +92,6 @@ private:
     SdfPrimSpecHandle _CreatePrimSpecForEditing();
     UsdPrim _prim;
 };
-
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

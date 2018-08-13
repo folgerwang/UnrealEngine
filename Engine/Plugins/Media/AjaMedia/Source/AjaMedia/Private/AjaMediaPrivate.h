@@ -26,8 +26,7 @@ namespace AjaMediaOption
 	static const FName LogDropFrame("LogDropFrame");
 	static const FName EncodeTimecodeInTexel("EncodeTimecodeInTexel");
 	static const FName CaptureWithAutoCirculating("CaptureWithAutoCirculating");
-	static const FName CaptureAncillary1("CaptureAncillary1");
-	static const FName CaptureAncillary2("CaptureAncillary2");
+	static const FName CaptureAncillary("CaptureAncillary");
 	static const FName CaptureAudio("CaptureAudio");
 	static const FName CaptureVideo("CaptureVideo");
 	static const FName MaxAncillaryFrameBuffer("MaxAncillaryFrameBuffer");

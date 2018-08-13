@@ -417,10 +417,15 @@ void FPyWrapperTypeRegistry::GenerateWrappedTypes()
 	{
 		FScopedDurationTimer GenerateDurationTimer(GenerateDuration);
 
-		ForEachObjectOfClass(UObject::StaticClass(), [this, &GeneratedWrappedTypeReferences, &DirtyModules](UObject* InObj)
+		// Need to use Get rather than ForEach as generating wrapped types 
+		// may generate new objects which breaks the iteration
+		TArray<UObject*> ObjectsToProcess;
+		GetObjectsOfClass(UObject::StaticClass(), ObjectsToProcess);
+
+		for (UObject* ObjectToProcess : ObjectsToProcess)
 		{
-			GenerateWrappedTypeForObject(InObj, GeneratedWrappedTypeReferences, DirtyModules);
-		});
+			GenerateWrappedTypeForObject(ObjectToProcess, GeneratedWrappedTypeReferences, DirtyModules);
+		}
 
 		GenerateWrappedTypesForReferences(GeneratedWrappedTypeReferences, DirtyModules);
 	}
@@ -445,10 +450,15 @@ void FPyWrapperTypeRegistry::GenerateWrappedTypesForModule(const FName ModuleNam
 	{
 		FScopedDurationTimer GenerateDurationTimer(GenerateDuration);
 
-		ForEachObjectWithOuter(ModulePackage, [this, &GeneratedWrappedTypeReferences, &DirtyModules](UObject* InObj)
+		// Need to use Get rather than ForEach as generating wrapped types 
+		// may generate new objects which breaks the iteration
+		TArray<UObject*> ObjectsToProcess;
+		GetObjectsWithOuter(ModulePackage, ObjectsToProcess);
+
+		for (UObject* ObjectToProcess : ObjectsToProcess)
 		{
-			GenerateWrappedTypeForObject(InObj, GeneratedWrappedTypeReferences, DirtyModules);
-		});
+			GenerateWrappedTypeForObject(ObjectToProcess, GeneratedWrappedTypeReferences, DirtyModules);
+		}
 
 		GenerateWrappedTypesForReferences(GeneratedWrappedTypeReferences, DirtyModules);
 	}

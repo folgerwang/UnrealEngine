@@ -7,13 +7,14 @@
 #include "Framework/Docking/TabManager.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Framework/MultiBox/MultiBoxDefs.h"
+#include "LevelEditor.h"
 #include "LevelEditorViewport.h"
 #include "SlateOptMacros.h"
 #include "Slate/SceneViewport.h"
 #include "Textures/SlateIcon.h"
-#include "UI/MediaBundleEditorStyle.h"
+#include "UI/MediaFrameworkUtilitiesEditorStyle.h"
 #include "Widgets/Docking/SDockTab.h"
-#include "Widgets/Layout/SScrollBorder.h"
+#include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SSplitter.h"
 #include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
@@ -30,7 +31,7 @@
 namespace MediaFrameworkUtilities
 {
 	static const FName MediaFrameworkUtilitiesApp = FName("MediaFrameworkCaptureCameraViewportApp");
-
+	static const FName LevelEditorModuleName("LevelEditor");
 
 	TSharedRef<SDockTab> CreateMediaFrameworkCaptureCameraViewportTab(const FSpawnTabArgs& Args)
 	{
@@ -41,27 +42,88 @@ namespace MediaFrameworkUtilities
 			];
 	}
 
+	static float CaptureVerticalBoxPadding = 4.f;
 	class SCaptureVerticalBox : public SVerticalBox
 	{
 	public:
 		TWeakPtr<SMediaFrameworkCapture> Owner;
+		TArray<TSharedPtr<SMediaFrameworkCaptureOutputWidget>> CaptureOutputWidget;
+
+		void AddCaptureWidget(const TSharedPtr<SMediaFrameworkCaptureOutputWidget>& InWidget)
+		{
+			AddSlot()
+			.Padding(FMargin(0.0f, CaptureVerticalBoxPadding, 0.0f, 0.0f))
+			[
+				InWidget.ToSharedRef()
+			];
+
+			CaptureOutputWidget.Add(InWidget);
+		}
+
+		void RemoveCaptureWidget(const TSharedPtr<SMediaFrameworkCaptureOutputWidget>& InWidget)
+		{
+			RemoveSlot(InWidget.ToSharedRef());
+			CaptureOutputWidget.RemoveSingleSwap(InWidget);
+		}
+
+		virtual FVector2D ComputeDesiredSize(float Scale) const override
+		{
+			FVector2D SuperComputeDesiredSize = SVerticalBox::ComputeDesiredSize(Scale);
+			float ChildComputeDesiredSizeY = 0.f;
+			for(TSharedPtr<SMediaFrameworkCaptureOutputWidget> Widget : CaptureOutputWidget)
+			{
+				const FVector2D& CurChildDesiredSize = Widget->GetDesiredSize();
+				ChildComputeDesiredSizeY += CurChildDesiredSize.Y;
+				ChildComputeDesiredSizeY += CaptureVerticalBoxPadding;
+			}
+			return FVector2D(SuperComputeDesiredSize.X, FMath::Max(SuperComputeDesiredSize.Y, ChildComputeDesiredSizeY));
+		}
 	};
 }
 
+FDelegateHandle SMediaFrameworkCapture::LevelEditorTabManagerChangedHandle;
+
 void SMediaFrameworkCapture::RegisterNomadTabSpawner()
 {
-	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(MediaFrameworkUtilities::MediaFrameworkUtilitiesApp, FOnSpawnTab::CreateStatic(&MediaFrameworkUtilities::CreateMediaFrameworkCaptureCameraViewportTab))
-		.SetDisplayName(LOCTEXT("TabTitle", "Media Capture"))
-		.SetTooltipText(LOCTEXT("TooltipText", "Displays Capture Camera Viewport and Render Target."))
-		.SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
-		.SetIcon(FSlateIcon(FMediaBundleEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Capture.Small"));
+	auto RegisterTabSpawner = []()
+	{
+		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>(MediaFrameworkUtilities::LevelEditorModuleName);
+		TSharedPtr<FTabManager> LevelEditorTabManager = LevelEditorModule.GetLevelEditorTabManager();
+
+		LevelEditorTabManager->RegisterTabSpawner(MediaFrameworkUtilities::MediaFrameworkUtilitiesApp, FOnSpawnTab::CreateStatic(&MediaFrameworkUtilities::CreateMediaFrameworkCaptureCameraViewportTab))
+			.SetDisplayName(LOCTEXT("TabTitle", "Media Capture"))
+			.SetTooltipText(LOCTEXT("TooltipText", "Displays Capture Camera Viewport and Render Target."))
+			.SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
+			.SetIcon(FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Capture.Small"));
+	};
+
+	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
+	if (LevelEditorModule.GetLevelEditorTabManager())
+	{
+		RegisterTabSpawner();
+	}
+	else
+	{
+		LevelEditorTabManagerChangedHandle = LevelEditorModule.OnTabManagerChanged().AddLambda(RegisterTabSpawner);
+	}
 }
 
 void SMediaFrameworkCapture::UnregisterNomadTabSpawner()
 {
-	if (FSlateApplication::IsInitialized())
+	if (FSlateApplication::IsInitialized() && FModuleManager::Get().IsModuleLoaded(MediaFrameworkUtilities::LevelEditorModuleName))
 	{
-		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(MediaFrameworkUtilities::MediaFrameworkUtilitiesApp);
+		FLevelEditorModule* LevelEditorModule = FModuleManager::GetModulePtr<FLevelEditorModule>(MediaFrameworkUtilities::LevelEditorModuleName);
+		TSharedPtr<FTabManager> LevelEditorTabManager;
+		if (LevelEditorModule)
+		{
+			LevelEditorTabManager = LevelEditorModule->GetLevelEditorTabManager();
+			LevelEditorModule->OnTabManagerChanged().Remove(LevelEditorTabManagerChangedHandle);
+		}
+
+		if (LevelEditorTabManager.IsValid())
+		{
+			LevelEditorTabManager->UnregisterTabSpawner(MediaFrameworkUtilities::MediaFrameworkUtilitiesApp);
+		}
 	}
 }
 
@@ -95,7 +157,7 @@ void SMediaFrameworkCapture::Construct(const FArguments& InArgs)
 	DetailsViewArgs.bShowOptions = false;
 	DetailsViewArgs.bShowPropertyMatrixButton = false;
 	DetailsViewArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
-	DetailsViewArgs.ViewIdentifier = "FrameworkUtilitites";
+	DetailsViewArgs.ViewIdentifier = "MediaFrameworkUtilitites";
 	DetailView = PropertyEditorModule.CreateDetailView(DetailsViewArgs);
 	DetailView->SetObject(AssetUserData);
 
@@ -117,17 +179,20 @@ void SMediaFrameworkCapture::Construct(const FArguments& InArgs)
 			SNew(SSplitter)
 			.Orientation(EOrientation::Orient_Vertical)
 			+ SSplitter::Slot()
-			.Value(0.5f)
 			[
 				SNew(SBorder)
-				.IsEnabled_Lambda([this]() { return !bIsCapturing; })
+				.IsEnabled_Lambda([this]() { return !IsCapturing(); })
 				[
 					DetailView.ToSharedRef()
 				]
 			]
 			+ SSplitter::Slot()
 			[
-				CaptureBoxes.ToSharedRef()
+				SNew(SScrollBox)
+				+ SScrollBox::Slot()
+				[
+					CaptureBoxes.ToSharedRef()
+				]
 			]
 		]
 	];
@@ -152,7 +217,7 @@ TSharedRef<class SWidget> SMediaFrameworkCapture::MakeToolBar()
 			NAME_None,
 			LOCTEXT("Output_Label", "Capture"),
 			LOCTEXT("Output_ToolTip", "Capture the camera's viewport and the render target."),
-			FSlateIcon(FMediaBundleEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Capture")
+			FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Capture")
 			);
 		ToolBarBuilder.AddToolBarButton(
 			FUIAction(
@@ -168,7 +233,7 @@ TSharedRef<class SWidget> SMediaFrameworkCapture::MakeToolBar()
 			NAME_None,
 			LOCTEXT("Stop_Label", "Stop"),
 			LOCTEXT("Stop_ToolTip", "Stop the capturing of the camera's viewport and the render target."),
-			FSlateIcon(FMediaBundleEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Stop")
+			FSlateIcon(FMediaFrameworkUtilitiesEditorStyle::GetStyleSetName(), "CaptureCameraViewport_Stop")
 			);
 	}
 	ToolBarBuilder.EndSection();
@@ -185,10 +250,10 @@ bool SMediaFrameworkCapture::CanEnableViewport() const
 	{
 		for (const FMediaFrameworkCaptureCameraViewportCameraOutputInfo& Info : AssetUserData->ViewportCaptures)
 		{
-			bEnabled = Info.MediaOutput && Info.LockedCameraActors.Num() > 0;
-			for (ACameraActor* CameraActor : Info.LockedCameraActors)
+			bEnabled = Info.MediaOutput && Info.LockedActors.Num() > 0;
+			for (const TLazyObjectPtr<AActor>& CameraActorRef : Info.LockedActors)
 			{
-				bEnabled = bEnabled && CameraActor != nullptr;
+				bEnabled = bEnabled && CameraActorRef.IsValid();
 			}
 
 			if (!bEnabled)
@@ -231,24 +296,24 @@ void SMediaFrameworkCapture::EnabledCapture(bool bEnabled)
 		check(AssetUserData);
 		for (const FMediaFrameworkCaptureCameraViewportCameraOutputInfo& Info : AssetUserData->ViewportCaptures)
 		{
-			TArray<TWeakObjectPtr<ACameraActor>> InfoPreviewActors;
-			InfoPreviewActors.Reserve(Info.LockedCameraActors.Num());
-			for (ACameraActor* Actor : Info.LockedCameraActors)
+			TArray<TWeakObjectPtr<AActor>> InfoPreviewActors;
+			InfoPreviewActors.Reserve(Info.LockedActors.Num());
+			for (const TLazyObjectPtr<AActor>& ActorRef : Info.LockedActors)
 			{
-				InfoPreviewActors.Add(Actor);
+				AActor* Actor = ActorRef.Get();
+				if (Actor)
+				{
+					InfoPreviewActors.Add(Actor);
+				}
 			}
 
 			TSharedPtr<SMediaFrameworkCaptureCameraViewportWidget> CaptureCamaraViewport = SNew(SMediaFrameworkCaptureCameraViewportWidget)
 				.Owner(SharedThis(this))
 				.PreviewActors(InfoPreviewActors)
-				.MediaOutput(Info.MediaOutput);
+				.MediaOutput(Info.MediaOutput)
+				.ViewMode(Info.ViewMode);
 
-			CaptureBoxes->AddSlot()
-			.Padding(FMargin(0.0f, 4.0f, 0.0f, 0.0f))
-			[
-				CaptureCamaraViewport.ToSharedRef()
-			];
-
+			CaptureBoxes->AddCaptureWidget(CaptureCamaraViewport);
 			CaptureCamaraViewport->StartOutput();
 			CaptureCameraViewports.Add(CaptureCamaraViewport);
 		}
@@ -260,12 +325,7 @@ void SMediaFrameworkCapture::EnabledCapture(bool bEnabled)
 				.MediaOutput(Info.MediaOutput)
 				.RenderTarget(Info.RenderTarget);
 
-			CaptureBoxes->AddSlot()
-			.Padding(FMargin(0.0f, 4.0f, 0.0f, 0.0f))
-			[
-				CaptureRenderTarget.ToSharedRef()
-			];
-
+			CaptureBoxes->AddCaptureWidget(CaptureRenderTarget);
 			CaptureRenderTarget->StartOutput();
 			CaptureRenderTargets.Add(CaptureRenderTarget);
 		}
@@ -274,12 +334,12 @@ void SMediaFrameworkCapture::EnabledCapture(bool bEnabled)
 	{
 		for (TSharedPtr<SMediaFrameworkCaptureCameraViewportWidget> CaptureCameraViewport : CaptureCameraViewports)
 		{
-			CaptureBoxes->RemoveSlot(CaptureCameraViewport.ToSharedRef());
+			CaptureBoxes->RemoveCaptureWidget(CaptureCameraViewport.ToSharedRef());
 		}
 		CaptureCameraViewports.Reset();
 		for (TSharedPtr<SMediaFrameworkCaptureRenderTargetWidget> CaptureRenderTarget : CaptureRenderTargets)
 		{
-			CaptureBoxes->RemoveSlot(CaptureRenderTarget.ToSharedRef());
+			CaptureBoxes->RemoveCaptureWidget(CaptureRenderTarget.ToSharedRef());
 		}
 		CaptureRenderTargets.Reset();
 	}
@@ -341,7 +401,7 @@ void SMediaFrameworkCapture::OnLevelActorsRemoved(AActor* InActor)
 	{
 		for (const FMediaFrameworkCaptureCameraViewportCameraOutputInfo& Info : AssetUserData->ViewportCaptures)
 		{
-			if (Info.LockedCameraActors.Contains(InActor))
+			if (Info.LockedActors.Contains(InActor))
 			{
 				EnabledCapture(false);
 				return;

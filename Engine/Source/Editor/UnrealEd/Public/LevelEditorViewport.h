@@ -178,6 +178,7 @@ public:
 	virtual UWorld* GetWorld() const override;
 	virtual void BeginCameraMovement(bool bHasMovement) override;
 	virtual void EndCameraMovement() override;
+	virtual void SetVREditView(bool bGameViewEnable) override;
 
 	virtual bool OverrideHighResScreenshotCaptureRegion(FIntRect& OutCaptureRegion) override;
 
@@ -556,6 +557,15 @@ public:
 	virtual bool CanAttachTransportControls() const { return true; }
 
 protected:
+	/**
+	* Sets the state of creating a preview actor in the viewport.
+	*/
+	static void SetIsDroppingPreviewActor(bool bNewIsDroppingPreviewActor)
+	{
+		bIsDroppingPreviewActor = bNewIsDroppingPreviewActor;
+	}
+
+
 	/** 
 	 * Checks the viewport to see if the given blueprint asset can be dropped on the viewport.
 	 * @param AssetInfo		The blueprint Asset in question to be dropped

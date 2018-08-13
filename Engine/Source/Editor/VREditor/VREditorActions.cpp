@@ -41,6 +41,7 @@ namespace VREd
 FText FVREditorActionCallbacks::GizmoCoordinateSystemText;
 FText FVREditorActionCallbacks::GizmoModeText;
 FText FVREditorActionCallbacks::SelectingCandidateActorsText;
+FText FVREditorActionCallbacks::SequencerLoopText;
 
 ECheckBoxState FVREditorActionCallbacks::GetTranslationSnapState()
 {
@@ -460,29 +461,76 @@ void FVREditorActionCallbacks::PlayFromBeginning(UVREditorMode* InVRMode)
 void FVREditorActionCallbacks::ToggleLooping(UVREditorMode* InVRMode)
 {
 	ISequencer* CurrentSequencer = InVRMode->GetCurrentSequencer();
+	
 	if (CurrentSequencer != nullptr)
 	{
-		if (CurrentSequencer->GetSequencerSettings()->GetLoopMode() == SLM_NoLoop)
+		ESequencerLoopMode LoopMode = CurrentSequencer->GetSequencerSettings()->GetLoopMode();
+		if (LoopMode == ESequencerLoopMode::SLM_NoLoop)
 		{
-			CurrentSequencer->GetSequencerSettings()->SetLoopMode(SLM_Loop);
+			CurrentSequencer->GetSequencerSettings()->SetLoopMode(ESequencerLoopMode::SLM_Loop);
 		}
-		else
+		else if (LoopMode == ESequencerLoopMode::SLM_Loop && !CurrentSequencer->GetSelectionRange().IsEmpty())
 		{
-			CurrentSequencer->GetSequencerSettings()->SetLoopMode(SLM_NoLoop);
+			CurrentSequencer->GetSequencerSettings()->SetLoopMode(ESequencerLoopMode::SLM_LoopSelectionRange);
+		}
+		else if (LoopMode == ESequencerLoopMode::SLM_LoopSelectionRange || CurrentSequencer->GetSelectionRange().IsEmpty())
+		{
+			CurrentSequencer->GetSequencerSettings()->SetLoopMode(ESequencerLoopMode::SLM_NoLoop);
 		}
 	}
 }
 
-ECheckBoxState FVREditorActionCallbacks::IsLoopingChecked(UVREditorMode* InVRMode)
+FText FVREditorActionCallbacks::GetSequencerLoopingText()
 {
-	bool bShouldReturnChecked = false;
+	return FVREditorActionCallbacks::SequencerLoopText;
+}
+
+void FVREditorActionCallbacks::UpdateSequencerLoopingText(UVREditorMode* InVRMode)
+{
 	ISequencer* CurrentSequencer = InVRMode->GetCurrentSequencer();
 	if (CurrentSequencer != nullptr)
 	{
-		bShouldReturnChecked = CurrentSequencer->GetSequencerSettings()->GetLoopMode() != SLM_NoLoop;
-	}
-	return bShouldReturnChecked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		const ESequencerLoopMode CurrentLoopingType = CurrentSequencer->GetSequencerSettings()->GetLoopMode();
+		FText LoopText;
+		switch (CurrentLoopingType)
+		{
+		case ESequencerLoopMode::SLM_NoLoop:
+			LoopText = LOCTEXT("NoLooping", "No Looping");
+			break;
 
+		case ESequencerLoopMode::SLM_Loop:
+			LoopText = LOCTEXT("LoopAll", "Loop All");
+			break;
+
+		case ESequencerLoopMode::SLM_LoopSelectionRange:
+			LoopText = LOCTEXT("LoopRange", "Loop Range");
+			break;
+
+		default:
+			check(0);	// Unrecognized type
+			break;
+		}
+
+		FVREditorActionCallbacks::SequencerLoopText = LoopText;
+	}
+}
+
+void FVREditorActionCallbacks::SetSelectionRangeStart(UVREditorMode* InVRMode)
+{
+	ISequencer* CurrentSequencer = InVRMode->GetCurrentSequencer();
+	if (CurrentSequencer != nullptr)
+	{
+		CurrentSequencer->SetSelectionRangeStart();
+	}
+}
+
+void FVREditorActionCallbacks::SetSelectionRangeEnd(UVREditorMode* InVRMode)
+{
+	ISequencer* CurrentSequencer = InVRMode->GetCurrentSequencer();
+	if (CurrentSequencer != nullptr)
+	{
+		CurrentSequencer->SetSelectionRangeEnd();
+	}
 }
 
 void FVREditorActionCallbacks::ToggleSequencerScrubbing(UVREditorMode* InVRMode, UVREditorMotionControllerInteractor* InController)

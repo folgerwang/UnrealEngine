@@ -28,7 +28,7 @@
 
 #include "pxr/pxr.h"
 #include "pxr/usd/usd/api.h"
-#include "pxr/usd/usd/schemaBase.h"
+#include "pxr/usd/usd/apiSchemaBase.h"
 #include "pxr/usd/usd/prim.h"
 #include "pxr/usd/usd/stage.h"
 
@@ -69,7 +69,7 @@ class SdfAssetPath;
 /// \todo GetModelInstanceName()
 /// 
 ///
-class UsdModelAPI : public UsdSchemaBase
+class UsdModelAPI : public UsdAPISchemaBase
 {
 public:
     /// Compile-time constant indicating whether or not this class corresponds
@@ -78,12 +78,28 @@ public:
     /// a non-empty typeName.
     static const bool IsConcrete = false;
 
+    /// Compile-time constant indicating whether or not this class inherits from
+    /// UsdTyped. Types which inherit from UsdTyped can impart a typename on a
+    /// UsdPrim.
+    static const bool IsTyped = false;
+
+    /// Compile-time constant indicating whether or not this class represents an 
+    /// applied API schema, i.e. an API schema that has to be applied to a prim
+    /// with a call to auto-generated Apply() method before any schema 
+    /// properties are authored.
+    static const bool IsApplied = false;
+    
+    /// Compile-time constant indicating whether or not this class represents a 
+    /// multiple-apply API schema. Mutiple-apply API schemas can be applied 
+    /// to the same prim multiple times with different instance names. 
+    static const bool IsMultipleApply = false;
+
     /// Construct a UsdModelAPI on UsdPrim \p prim .
     /// Equivalent to UsdModelAPI::Get(prim.GetStage(), prim.GetPath())
     /// for a \em valid \p prim, but will not immediately throw an error for
     /// an invalid \p prim
     explicit UsdModelAPI(const UsdPrim& prim=UsdPrim())
-        : UsdSchemaBase(prim)
+        : UsdAPISchemaBase(prim)
     {
     }
 
@@ -91,7 +107,7 @@ public:
     /// Should be preferred over UsdModelAPI(schemaObj.GetPrim()),
     /// as it preserves SchemaBase state.
     explicit UsdModelAPI(const UsdSchemaBase& schemaObj)
-        : UsdSchemaBase(schemaObj)
+        : UsdAPISchemaBase(schemaObj)
     {
     }
 

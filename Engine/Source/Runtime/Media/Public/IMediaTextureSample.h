@@ -34,6 +34,9 @@ enum class EMediaTextureSampleFormat
 	/** Four 8-bit unsigned integer components (Blue, Green, Red, Alpha) per texel. */
 	CharBGRA,
 
+	/** Four 10-bit unsigned integer components (Blue, Green, Red) & 2-bit alpha per texel. */
+	CharBGR10A2,
+
 	/**  Windows bitmap (like CharBGRA, but flipped vertically). */
 	CharBMP,
 

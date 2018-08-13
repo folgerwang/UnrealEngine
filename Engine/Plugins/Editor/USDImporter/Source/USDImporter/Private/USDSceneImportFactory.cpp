@@ -21,6 +21,7 @@
 
 #define LOCTEXT_NAMESPACE "USDImportPlugin"
 
+#if 0
 UUSDSceneImportFactory::UUSDSceneImportFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -219,6 +220,7 @@ void UUSDSceneImportFactory::OnActorSpawned(AActor* SpawnedActor, const FActorSp
 		PropertySetter.ApplyPropertiesToActor(SpawnedActor, SpawnData.ActorPrim, TEXT(""));
 	}
 }
+#endif
 
 void FUSDSceneImportContext::Init(UObject* InParent, const FString& InName, IUsdStage* InStage)
 {

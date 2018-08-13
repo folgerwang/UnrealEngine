@@ -294,6 +294,10 @@ public:
 	DECLARE_EVENT_ThreeParams( UVREditorPlacement, FOnPlaceDraggedMaterial, UPrimitiveComponent*, UMaterialInterface*, bool& );
 	FOnPlaceDraggedMaterial& OnPlaceDraggedMaterial() { return OnPlaceDraggedMaterialEvent; };
 
+	/** Delegate to be called when a preview actor is placed **/
+	DECLARE_EVENT_OneParam(UVREditorPlacement, FOnPlacePreviewActor, bool);
+	FOnPlacePreviewActor& OnPlacePreviewActor() { return OnPlacePreviewActorEvent; };
+
 	/** Call this to force the 'Actions' radial menu to refresh.  This is useful if the menu generator that you've bound
 	    needs to be re-run (usually because it switches on something that has changed since the last time it ran.) */
 	void RefreshRadialMenuActionsSubmenu();
@@ -407,6 +411,9 @@ protected:
 	/** Event broadcast when a material is placed */
 	FOnPlaceDraggedMaterial OnPlaceDraggedMaterialEvent;
 
+	/** Event broadcast when a preview actor is placed */
+	FOnPlacePreviewActor OnPlacePreviewActorEvent;
+
 	//
 	// Subsystems
 	//
@@ -477,7 +484,13 @@ public:
 	void RefreshVREditorSequencer(class ISequencer* InCurrentSequencer);
 
 	/** Refresh the current actor preview widget on an in-world UI panel */
-	void RefreshActorPreviewWidget(TSharedRef<SWidget> InWidget);
+	void RefreshActorPreviewWidget(TSharedRef<SWidget> InWidget, int32 Index);
+
+	/** General way to spawn an external UMG UI from a radial menu */
+	void UpdateExternalUMGUI(TSubclassOf<class UUserWidget> InUMGClass, FName Name);
+
+	/** General way to spawn an external Slate UI from a radial menu */
+	void UpdateExternalSlateUI(TSharedRef<SWidget> InWidget, FName Name);
 
 	/** Returns the currently active sequencer */
 	class ISequencer* GetCurrentSequencer();

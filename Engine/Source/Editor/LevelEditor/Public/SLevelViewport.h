@@ -349,7 +349,44 @@ public:
 	EVisibility GetFullToolbarVisibility() const { return bShowFullToolbar ? EVisibility::Visible : EVisibility::Collapsed; }
 
 	/** Unpin and close all actor preview windows */
-	void RemoveAllPreviews();
+	void RemoveAllPreviews(const bool bRemoveFromDesktopViewport = true);
+
+	/**
+	 * Called to set a bookmark
+	 *
+	 * @param BookmarkIndex	The index of the bookmark to set
+	 */
+	void OnSetBookmark( int32 BookmarkIndex );
+
+	/**
+	 * Called to jump to a bookmark
+	 *
+	 * @param BookmarkIndex	The index of the bookmark to jump to
+	 */
+	void OnJumpToBookmark( int32 BookmarkIndex );
+
+	/**
+	 * Called to clear a bookmark
+	 *
+	 * @param BookmarkIndex The index of the bookmark to clear
+	 */
+	void OnClearBookmark( int32 BookmarkIndex );
+
+	DEPRECATED(4.21, "Please use the version with corrected spelling (OnClearBookmark)")
+	void OnClearBookMark( int32 BookmarkIndex );
+
+	/**
+	 * Called to clear all bookmarks
+	 */
+	void OnClearAllBookmarks();
+
+	DEPRECATED(4.21, "Please use the version with corrected spelling (OnClearAllBookmarks)")
+	void OnClearAllBookMarks();
+
+	/**
+	 * Called to Compact Bookmarks.
+	 */
+	void OnCompactBookmarks();
 
 protected:
 	/** SEditorViewport interface */
@@ -392,7 +429,7 @@ private:
 	void OnToggleMaximizeMode();
 
 	/** Starts previewing any selected camera actors using live "PIP" sub-views */
-	void PreviewSelectedCameraActors();
+	void PreviewSelectedCameraActors(const bool bPreviewInDesktopViewport = true);
 
 	/**
 	 * Called to create a cameraActor in the currently selected perspective viewport
@@ -469,32 +506,6 @@ private:
 	 * Called when show flags for this viewport should be reset to default, or the saved settings
 	 */
 	void OnUseDefaultShowFlags(bool bUseSavedDefaults = false);
-
-	/**
-	 * Called to set a bookmark
-	 *
-	 * @param BookmarkIndex	The index of the bookmark to set
-	 */
-	void OnSetBookmark( int32 BookmarkIndex );
-
-	/**
-	 * Called to jump to a bookmark
-	 *
-	 * @param BookmarkIndex	The index of the bookmark to jump to
-	 */
-	void OnJumpToBookmark( int32 BookmarkIndex );
-
-	/**
-	 * Called to clear a bookmark
-	 *
-	 * @param BookmarkIndex The index of the bookmark to clear
-	 */
-	void OnClearBookMark( int32 BookmarkIndex );
-
-	/**
-	 * Called to clear all bookmarks
-	 */
-	void OnClearAllBookMarks();
 
 	/**
 	 * Called to toggle allowing matinee to use this viewport to preview in
@@ -619,7 +630,7 @@ private:
 	 *
 	 * @param	ActorsToPreview		List of actors to draw previews for
 	 */
-	void PreviewActors( const TArray< AActor* >& ActorsToPreview );
+	void PreviewActors( const TArray< AActor* >& ActorsToPreview, const bool bPreviewInDesktopViewport = true);
 
 	/** Called every frame to update any actor preview viewports we may have */
 	void UpdateActorPreviewViewports();
@@ -629,7 +640,7 @@ private:
 	 *
 	 * @param PreviewIndex Array index of the preview to remove.
 	 */
-	void RemoveActorPreview( int32 PreviewIndex );
+	void RemoveActorPreview( int32 PreviewIndex, const bool bRemoveFromDesktopViewport = true);
 	
 	/** Returns true if this viewport is the active viewport and can process UI commands */
 	bool CanProduceActionForCommand(const TSharedRef<const FUICommandInfo>& Command) const;

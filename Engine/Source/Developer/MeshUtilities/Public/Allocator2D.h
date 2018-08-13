@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "MeshUtilities.h" // For ELightmapUVVersion
 
 struct FRect;
 struct Rect;
@@ -61,7 +62,7 @@ public:
 	void		CreateUsedSegments();
 	void		MergeSegments( FRect Rect, const FAllocator2D& Other );
 
-	void		FlipX( FRect Rect );
+	void		FlipX( FRect Rect, ELightmapUVVersion LayoutVersion = ELightmapUVVersion::Latest );
 	void		FlipY( FRect Rect );
 
 protected:

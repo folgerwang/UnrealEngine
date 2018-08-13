@@ -80,6 +80,8 @@ public:
 
 	virtual void Close() override;
 
+	double GetEstimatedCaptureDurationSeconds() const override;
+	
 	/** Override the render frames with the given start/end frames. Restore the values when done rendering. */
 	void SetFrameOverrides(FFrameNumber InStartFrame, FFrameNumber InEndFrame);
 
@@ -118,7 +120,7 @@ private:
 
 private:
 
-	virtual void Tick(float DeltaSeconds) override;
+	virtual void OnTick(float DeltaSeconds) override;
 
 	/** Initialize all the shots to be recorded, ie. expand section ranges with handle frames */
 	bool InitializeShots();

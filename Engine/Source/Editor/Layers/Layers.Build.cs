@@ -25,5 +25,11 @@ public class Layers : ModuleRules
 				"PropertyEditor",
 			}
 		);
+
+		PublicIncludePathModuleNames.AddRange(
+			new string[] {
+				"UnrealEd",
+			}
+		);
 	}
 }

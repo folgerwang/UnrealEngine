@@ -131,11 +131,23 @@ public:
 	using FLiveLinkTimeCode_Base_DEPRECATED::FLiveLinkTimeCode_Base_DEPRECATED;
 
 	// Implicit conversion to FTimecode
-	operator FQualifiedFrameTime()
+	operator FQualifiedFrameTime() const
 	{
 		int32 TotalFrameNumber = (int32)FMath::RoundToZero(Seconds * (FrameRate.Numerator / (double)FrameRate.Denominator)) + Frames;
 		FFrameTime FrameTime = FFrameTime(TotalFrameNumber);
 		return FQualifiedFrameTime(FrameTime, FrameRate);
+	}
+
+	FLiveLinkTimeCode& operator=(const FQualifiedFrameTime& InFrameTime)
+	{
+		const int32 NumberOfFramesInSecond = FMath::CeilToInt(InFrameTime.Rate.AsDecimal());
+		const int32 NumberOfFrames = FMath::RoundToZero(InFrameTime.Time.AsDecimal());
+
+		Seconds = (int32)FMath::RoundToZero(NumberOfFrames / (double)NumberOfFramesInSecond);
+		Frames = NumberOfFrames % NumberOfFramesInSecond;
+		FrameRate = FLiveLinkFrameRate(InFrameTime.Rate.Numerator, InFrameTime.Rate.Denominator);
+
+		return *this;
 	}
 };
 
@@ -250,4 +262,21 @@ struct FLiveLinkSubjectFrame
 
 	// Metadata for this frame
 	FLiveLinkMetaData MetaData;
+};
+
+
+struct FLiveLinkFrame
+{
+public:
+	TArray<FTransform>		Transforms;
+	TArray<FOptionalCurveElement>	Curves;
+
+	FLiveLinkMetaData		MetaData;
+
+	FLiveLinkWorldTime WorldTime;
+
+	void ExtendCurveData(int32 ExtraCurves)
+	{
+		Curves.AddDefaulted(ExtraCurves);
+	}
 };

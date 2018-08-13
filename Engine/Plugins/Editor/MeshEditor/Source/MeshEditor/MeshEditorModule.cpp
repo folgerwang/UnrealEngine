@@ -117,7 +117,7 @@ void FMeshEditorModule::Register()
 	}
 
 	{
-		FExtender& RadialMenuExtender = *IVREditorModule::Get().GetRadialMenuExtender();
+		FExtender& RadialMenuExtender = *IVREditorModule::Get().GetRadialMenuExtender().ToSharedRef();
 		VRRadialMenuModesExtension = RadialMenuExtender.AddMenuExtension(
 			"Modes",
 			EExtensionHook::After,
@@ -145,7 +145,7 @@ void FMeshEditorModule::Unregister()
 	{
 		if( IVREditorModule::IsAvailable() )
 		{
-			FExtender& RadialMenuExtender = *IVREditorModule::Get().GetRadialMenuExtender();
+			FExtender& RadialMenuExtender = *IVREditorModule::Get().GetRadialMenuExtender().ToSharedRef();
 			RadialMenuExtender.RemoveExtension( VRRadialMenuModesExtension.ToSharedRef() );
 		}
 		VRRadialMenuModesExtension = nullptr;

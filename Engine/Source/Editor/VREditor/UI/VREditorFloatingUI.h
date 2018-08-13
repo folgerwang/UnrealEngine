@@ -31,7 +31,7 @@ public:
 	void SetSlateWidget(const TSharedRef<SWidget>& InitSlateWidget);
 
 	/** Creates a FVREditorFloatingUI using a UMG user widget, and sets up safe defaults */
-	void SetUMGWidget(class UVREditorUISystem& InitOwner, const VREditorPanelID& InID, class TSubclassOf<class UVREditorBaseUserWidget> InitUserWidgetClass, const FIntPoint InitResolution, const float InitScale, const EDockedTo InitDockedTo);
+	void SetUMGWidget(class UVREditorUISystem& InitOwner, const VREditorPanelID& InID, class TSubclassOf<class UUserWidget> InitUserWidgetClass, const FIntPoint InitResolution, const float InitScale, const EDockedTo InitDockedTo);
 
 	virtual void TickManually(float DeltaTime) override;
 
@@ -108,7 +108,7 @@ public:
 	}
 
 	/** Gets the current user widget of this floating UI, return nullptr if using slate widget */
-	UVREditorBaseUserWidget* GetUserWidget();
+	UUserWidget* GetUserWidget();
 
 	/** Gets the initial size of this UI */
 	float GetInitialScale() const;
@@ -144,7 +144,7 @@ protected:
 	
 	/** UMG user widget we're drawing, or nullptr if we're drawing a Slate widget */
 	UPROPERTY()
-	UVREditorBaseUserWidget* UserWidget;
+	UUserWidget* UserWidget;
 	
 	/** When in a spawned state, this is the widget component to represent the widget */
 	UPROPERTY()
@@ -156,6 +156,8 @@ protected:
 
 	/** Resolution we should draw this UI at, regardless of scale */
 	FIntPoint Resolution;
+
+	float WorldPlacedScaleFactor;
 
 private:
 
@@ -184,6 +186,5 @@ private:
 
 	/** Null out the widget when hidden. */
 	bool bClearWidgetOnHide;
-
 
 };

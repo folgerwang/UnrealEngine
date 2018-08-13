@@ -337,6 +337,33 @@ void UCineCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& Desi
 	bResetInterpolation = false;
 }
 
+#if WITH_EDITOR
+FText UCineCameraComponent::GetFilmbackText() const
+{
+	const float SensorWidth = FilmbackSettings.SensorWidth;
+	const float SensorHeight = FilmbackSettings.SensorHeight;
+
+	// Search presets for one that matches
+	const FNamedFilmbackPreset* Preset = UCineCameraComponent::GetFilmbackPresets().FindByPredicate([&](const FNamedFilmbackPreset& InPreset) {
+		return InPreset.FilmbackSettings.SensorWidth == SensorWidth && InPreset.FilmbackSettings.SensorHeight == SensorHeight;
+	});
+
+	if (Preset)
+	{
+		return FText::FromString(Preset->Name);
+	}
+	else
+	{
+		FNumberFormattingOptions Opts = FNumberFormattingOptions().SetMaximumFractionalDigits(1);
+		return FText::Format(
+			LOCTEXT("CustomFilmbackFormat", "Custom ({0}mm x {1}mm)"),
+			FText::AsNumber(SensorWidth, &Opts),
+			FText::AsNumber(SensorHeight, &Opts)
+		);
+	}
+}
+#endif
+
 void UCineCameraComponent::UpdateDebugFocusPlane()
 {
 	if (FocusPlaneVisualizationMesh && DebugFocusPlaneComponent)

@@ -34,6 +34,27 @@ FText UMovieSceneBindingExtensions::GetDisplayName(const FSequencerBindingProxy&
 	return FText();
 }
 
+FString UMovieSceneBindingExtensions::GetName(const FSequencerBindingProxy& InBinding)
+{
+	UMovieScene* MovieScene = InBinding.Sequence ? InBinding.Sequence->GetMovieScene() : nullptr;
+	if (MovieScene && InBinding.BindingID.IsValid())
+	{
+		FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(InBinding.BindingID);
+		if (Spawnable)
+		{
+			return Spawnable->GetName();
+		}
+
+		FMovieScenePossessable* Possessable = MovieScene->FindPossessable(InBinding.BindingID);
+		if (Possessable)
+		{
+			return Possessable->GetName();
+		}
+	}
+
+	return FString();
+}
+
 TArray<UMovieSceneTrack*> UMovieSceneBindingExtensions::GetTracks(const FSequencerBindingProxy& InBinding)
 {
 	UMovieScene* MovieScene = InBinding.GetMovieScene();
@@ -122,4 +143,76 @@ UMovieSceneTrack* UMovieSceneBindingExtensions::AddTrack(const FSequencerBinding
 		}
 	}
 	return nullptr;
+}
+
+TArray<FSequencerBindingProxy> UMovieSceneBindingExtensions::GetChildPossessables(const FSequencerBindingProxy& InBinding)
+{
+	TArray<FSequencerBindingProxy> Result;
+
+	UMovieScene* MovieScene = InBinding.GetMovieScene();
+	if (MovieScene)
+	{
+		FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(InBinding.BindingID);
+		if (Spawnable)
+		{
+			for (const FGuid& ChildGuid : Spawnable->GetChildPossessables())
+			{
+				Result.Emplace(ChildGuid, InBinding.Sequence);
+			}
+			return Result;
+		}
+
+		const int32 Count = MovieScene->GetPossessableCount();
+		for (int32 i = 0; i < Count; ++i)
+		{
+			FMovieScenePossessable& PossessableChild = MovieScene->GetPossessable(i);
+			if (PossessableChild.GetParent() == InBinding.BindingID)
+			{
+				Result.Emplace(PossessableChild.GetGuid(), InBinding.Sequence);
+			}
+		}
+	}
+	return Result;
+}
+
+UObject* UMovieSceneBindingExtensions::GetObjectTemplate(const FSequencerBindingProxy& InBinding)
+{
+	UMovieScene* MovieScene = InBinding.GetMovieScene();
+	if (MovieScene)
+	{
+		FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(InBinding.BindingID);
+		if (Spawnable)
+		{
+			return Spawnable->GetObjectTemplate();
+		}
+	}
+	return nullptr;
+}
+
+UClass* UMovieSceneBindingExtensions::GetPossessedObjectClass(const FSequencerBindingProxy& InBinding)
+{
+	UMovieScene* MovieScene = InBinding.GetMovieScene();
+	if (MovieScene)
+	{
+		FMovieScenePossessable* Possessable = MovieScene->FindPossessable(InBinding.BindingID);
+		if (Possessable)
+		{
+			return const_cast<UClass*>(Possessable->GetPossessedObjectClass());
+		}
+	}
+	return nullptr;
+}
+
+FSequencerBindingProxy UMovieSceneBindingExtensions::GetParent(const FSequencerBindingProxy& InBinding)
+{
+	UMovieScene* MovieScene = InBinding.GetMovieScene();
+	if (MovieScene)
+	{
+		FMovieScenePossessable* Possessable = MovieScene->FindPossessable(InBinding.BindingID);
+		if (Possessable)
+		{
+			return FSequencerBindingProxy(Possessable->GetParent(), InBinding.Sequence);
+		}
+	}
+	return FSequencerBindingProxy();
 }

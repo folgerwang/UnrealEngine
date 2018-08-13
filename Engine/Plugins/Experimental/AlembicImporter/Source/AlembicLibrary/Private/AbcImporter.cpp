@@ -142,7 +142,7 @@ T* FAbcImporter::CreateObjectInstance(UObject*& InParent, const FString& ObjectN
 
 	// Setup package name and create one accordingly
 	NewPackageName = FPackageName::GetLongPackagePath(InParent->GetOutermost()->GetName() + TEXT("/") + ObjectName);
-	NewPackageName = PackageTools::SanitizePackageName(NewPackageName);
+	NewPackageName = UPackageTools::SanitizePackageName(NewPackageName);
 	Package = CreatePackage(nullptr, *NewPackageName);
 
 	const FString SanitizedObjectName = ObjectTools::SanitizeObjectName(ObjectName);

@@ -113,6 +113,7 @@ void UMediaPlayer::Close()
 
 	PlayerFacade->Close();
 
+	Playlist = nullptr;
 	if (!HasAnyFlags(RF_ClassDefaultObject) && !GExitPurge)
 	{
 		SetPlaylistInternal(NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient));

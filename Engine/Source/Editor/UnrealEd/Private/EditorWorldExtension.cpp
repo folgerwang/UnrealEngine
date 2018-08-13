@@ -376,7 +376,12 @@ void UEditorWorldExtensionCollection::ShowAllActors(const bool bShow)
 		{
 			if (Actor != nullptr)
 			{
-				Actor->SetActorHiddenInGame(!bShow);
+				TInlineComponentArray<USceneComponent*> ComponentArray;
+				Actor->GetComponents(ComponentArray);
+				for (USceneComponent* Component : ComponentArray)
+				{
+					Component->SetVisibility(bShow);
+				}
 				Actor->SetActorEnableCollision(bShow);
 			}
 		}

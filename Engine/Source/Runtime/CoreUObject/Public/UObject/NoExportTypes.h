@@ -958,7 +958,7 @@ struct FFrameNumber
 
 /** A frame rate represented as a fraction comprising 2 integers: a numerator (number of frames), and a denominator (per second). */
 
-USTRUCT(noexport, BlueprintType)
+USTRUCT(noexport, BlueprintType, meta=(HasNativeMake="Engine.KismetMathLibrary.MakeFrameRate", HasNativeBreak="Engine.KismetMathLibrary.BreakFrameRate"))
 struct FFrameRate
 {
 	/** The numerator of the framerate represented as a number of frames per second (e.g. 60 for 60 fps) */
@@ -978,13 +978,13 @@ struct FFrameTime
 	UPROPERTY(BlueprintReadWrite, Category=FrameTime)
 	FFrameNumber FrameNumber;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=FrameTime)
 	float SubFrame;
 };
 
 /** A frame time qualified by a frame rate context. */
 
-USTRUCT(noexport, BlueprintType)
+USTRUCT(noexport, BlueprintType, meta=(ScriptName="QualifiedTime", HasNativeMake="Engine.KismetMathLibrary.MakeQualifiedFrameTime", HasNativeBreak="Engine.KismetMathLibrary.BreakQualifiedFrameTime"))
 struct FQualifiedFrameTime
 {
 	UPROPERTY(BlueprintReadWrite, Category=QualifiedFrameTime)

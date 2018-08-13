@@ -10,47 +10,65 @@
 #include "RichCurve.generated.h"
 
 /** Method of interpolation between this key and the next. */
-UENUM()
+UENUM(BlueprintType)
 enum ERichCurveInterpMode
 {
+	/** Use linear interpolation between values. */
 	RCIM_Linear UMETA(DisplayName="Linear"),
+	/** Use a constant value. Represents stepped values. */
 	RCIM_Constant UMETA(DisplayName="Constant"),
+	/** Cubic interpolation. See TangentMode for different cubic interpolation options. */
 	RCIM_Cubic UMETA(DisplayName="Cubic"),
+	/** No interpolation. */
 	RCIM_None UMETA(DisplayName="None")
 };
 
 
 /** If using RCIM_Cubic, this enum describes how the tangents should be controlled in editor. */
-UENUM()
+UENUM(BlueprintType)
 enum ERichCurveTangentMode
 {
+	/** Automatically calculates tangents to create smooth curves between values. */
 	RCTM_Auto UMETA(DisplayName="Auto"),
+	/** User specifies the tangent as a unified tangent where the two tangents are locked to each other, presenting a consistent curve before and after. */
 	RCTM_User UMETA(DisplayName="User"),
+	/** User specifies the tangent as two separate broken tangents on each side of the key which can allow a sharp change in evaluation before or after. */
 	RCTM_Break UMETA(DisplayName="Break"),
+	/** No tangents. */
 	RCTM_None UMETA(DisplayName="None")
 };
 
 
 /** Enumerates tangent weight modes. */
-UENUM()
+UENUM(BlueprintType)
 enum ERichCurveTangentWeightMode
 {
+	/** Don't take tangent weights into account. */
 	RCTWM_WeightedNone UMETA(DisplayName="None"),
+	/** Only take the arrival tangent weight into account for evaluation. */
 	RCTWM_WeightedArrive UMETA(DisplayName="Arrive"),
+	/** Only take the leaving tangent weight into account for evaluation. */
 	RCTWM_WeightedLeave UMETA(DisplayName="Leave"),
+	/** Take both the arrival and leaving tangent weights into account for evaluation. */
 	RCTWM_WeightedBoth UMETA(DisplayName="Both")
 };
 
 
 /** Enumerates extrapolation options. */
-UENUM()
+UENUM(BlueprintType)
 enum ERichCurveExtrapolation
 {
-	RCCE_Cycle UMETA(DisplayName="Cycle"),
+	/** Repeat the curve without an offset. */
+	RCCE_Cycle UMETA(DisplayName = "Cycle"),
+	/** Repeat the curve with an offset relative to the first or last key's value. */
 	RCCE_CycleWithOffset UMETA(DisplayName="CycleWithOffset"),
-	RCCE_Oscillate UMETA(DisplayName="Oscillate"),
-	RCCE_Linear UMETA(DisplayName="Linear"),
-	RCCE_Constant UMETA(DisplayName="Constant"),
+	/** Sinusoidally extrapolate. */
+	RCCE_Oscillate UMETA(DisplayName = "Oscillate"),
+	/** Use a linearly increasing value for extrapolation.*/
+	RCCE_Linear UMETA(DisplayName = "Linear"),
+	/** Use a constant value for extrapolation */
+	RCCE_Constant UMETA(DisplayName = "Constant"),
+	/** No Extrapolation */
 	RCCE_None UMETA(DisplayName="None")
 };
 

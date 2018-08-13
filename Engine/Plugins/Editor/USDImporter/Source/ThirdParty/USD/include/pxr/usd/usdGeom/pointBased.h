@@ -64,6 +64,11 @@ public:
     /// a non-empty typeName.
     static const bool IsConcrete = false;
 
+    /// Compile-time constant indicating whether or not this class inherits from
+    /// UsdTyped. Types which inherit from UsdTyped can impart a typename on a
+    /// UsdPrim.
+    static const bool IsTyped = true;
+
     /// Construct a UsdGeomPointBased on UsdPrim \p prim .
     /// Equivalent to UsdGeomPointBased::Get(prim.GetStage(), prim.GetPath())
     /// for a \em valid \p prim, but will not immediately throw an error for
@@ -145,12 +150,17 @@ public:
     // VELOCITIES 
     // --------------------------------------------------------------------- //
     /// If provided, 'velocities' should be used by renderers to 
-    /// compute motion blur for a given 'points' sample, rather than 
-    /// interpolating to a neighboring 'points' sample.  This is the only
-    /// reasonable means of specifying motion blur for topologically
+    /// 
+    /// compute positions between samples for the 'points' attribute, rather
+    /// than interpolating between neighboring 'points' samples.  This is the
+    /// only reasonable means of computing motion blur for topologically
     /// varying PointBased primitives.  It follows that the length of each
     /// 'velocities' sample must match the length of the corresponding
-    /// 'points' sample.
+    /// 'points' sample.  Velocity is measured in position units per second,
+    /// as per most simulation software. To convert to position units per
+    /// UsdTimeCode, divide by UsdStage::GetTimeCodesPerSecond().
+    /// 
+    /// See also \ref UsdGeom_VelocityInterpolation .
     ///
     /// \n  C++ Type: VtArray<GfVec3f>
     /// \n  Usd Type: SdfValueTypeNames->Vector3fArray
@@ -242,9 +252,15 @@ public:
     ///
     /// This function is to provide easy authoring of extent for usd authoring
     /// tools, hence it is static and acts outside a specific prim (as in 
-    /// attribute based methods). 
+    /// attribute based methods).
     USDGEOM_API
     static bool ComputeExtent(const VtVec3fArray& points, VtVec3fArray* extent);
+
+    /// \overload
+    /// Computes the extent as if the matrix \p transform was first applied.
+    USDGEOM_API
+    static bool ComputeExtent(const VtVec3fArray& points,
+        const GfMatrix4d& transform, VtVec3fArray* extent);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

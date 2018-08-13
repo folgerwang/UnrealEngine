@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SLevelViewportToolBar.h"
 #include "Framework/Commands/UIAction.h"
@@ -30,6 +30,7 @@
 #include "BufferVisualizationData.h"
 #include "FoliageType.h"
 #include "ShowFlagMenuCommands.h"
+#include "Bookmarks/BookmarkUI.h"
 
 #define LOCTEXT_NAMESPACE "LevelViewportToolBar"
 
@@ -419,12 +420,33 @@ bool SLevelViewportToolBar::IsPerspectiveViewport() const
 /**
  * Called to generate the set bookmark submenu
  */
-static void OnGenerateSetBookmarkMenu( FMenuBuilder& MenuBuilder )
+static void OnGenerateSetBookmarkMenu( FMenuBuilder& MenuBuilder , TWeakPtr<class SLevelViewport> Viewport )
 {
 	// Add a menu entry for each bookmark
-	for( int32 BookmarkIndex = 0; BookmarkIndex < AWorldSettings::MAX_BOOKMARK_NUMBER; ++BookmarkIndex )
+	FEditorModeTools& Tools = GLevelEditorModeTools();
+	TSharedPtr<SLevelViewport> SharedViewport = Viewport.Pin();
+	FLevelEditorViewportClient& ViewportClient = SharedViewport->GetLevelViewportClient();
+
+	const int32 NumberOfBookmarks = static_cast<int32>(Tools.GetMaxNumberOfBookmarks(&ViewportClient));
+	const int32 NumberOfMappedBookmarks = FMath::Min<int32>(AWorldSettings::NumMappedBookmarks, NumberOfBookmarks);
+
+	for( int32 BookmarkIndex = 0; BookmarkIndex < NumberOfMappedBookmarks; ++BookmarkIndex )
 	{
-		MenuBuilder.AddMenuEntry( FLevelViewportCommands::Get().SetBookmarkCommands[ BookmarkIndex ], NAME_None, FText::Format( LOCTEXT("SetBookmarkOverride", "Bookmark {0}"), FText::AsNumber( BookmarkIndex ) ) );
+		MenuBuilder.AddMenuEntry( FLevelViewportCommands::Get().SetBookmarkCommands[ BookmarkIndex ], NAME_None, FBookmarkUI::GetPlainLabel(BookmarkIndex) );
+	}
+
+	// Only mapped bookmarks will have predefined actions.
+	// So, create any additional actions we need to hit the max number of bookmarks.
+	for (int32 BookmarkIndex = NumberOfMappedBookmarks; BookmarkIndex < NumberOfBookmarks; ++BookmarkIndex)
+	{
+		FUIAction Action;
+		Action.ExecuteAction.BindSP(SharedViewport.ToSharedRef(), &SLevelViewport::OnSetBookmark, BookmarkIndex);
+
+		MenuBuilder.AddMenuEntry(
+			FBookmarkUI::GetPlainLabel(BookmarkIndex),
+			FBookmarkUI::GetSetTooltip(BookmarkIndex),
+			FBookmarkUI::GetDefaultIcon(),
+			Action);
 	}
 }
 
@@ -435,16 +457,79 @@ static void OnGenerateClearBookmarkMenu( FMenuBuilder& MenuBuilder , TWeakPtr<cl
 {
 	// Add a menu entry for each bookmark
 	FEditorModeTools& Tools = GLevelEditorModeTools();
+	TSharedPtr<SLevelViewport> SharedViewport = Viewport.Pin();
+	FLevelEditorViewportClient& ViewportClient = SharedViewport->GetLevelViewportClient();
 
-	// Get the viewport client to pass down to the CheckBookmark function
-	FLevelEditorViewportClient& ViewportClient = Viewport.Pin()->GetLevelViewportClient();	
-	for( int32 BookmarkIndex = 0; BookmarkIndex < AWorldSettings::MAX_BOOKMARK_NUMBER; ++BookmarkIndex )
+	const int32 NumberOfBookmarks = static_cast<int32>(Tools.GetMaxNumberOfBookmarks(&ViewportClient));
+	const int32 NumberOfMappedBookmarks = FMath::Min<int32>(AWorldSettings::NumMappedBookmarks, NumberOfBookmarks);
+
+	for( int32 BookmarkIndex = 0; BookmarkIndex < NumberOfMappedBookmarks; ++BookmarkIndex )
 	{
 		if ( Tools.CheckBookmark( BookmarkIndex , &ViewportClient ) )
 		{
-			MenuBuilder.AddMenuEntry( FLevelViewportCommands::Get().ClearBookmarkCommands[ BookmarkIndex ], NAME_None, FText::Format( LOCTEXT("ClearBookmarkOverride", "Bookmark {0}"), FText::AsNumber( BookmarkIndex ) ) );
+			MenuBuilder.AddMenuEntry( FLevelViewportCommands::Get().ClearBookmarkCommands[ BookmarkIndex ], NAME_None, FBookmarkUI::GetPlainLabel(BookmarkIndex) );
 		}
 	}
+
+	for (int32 BookmarkIndex = NumberOfMappedBookmarks; BookmarkIndex < NumberOfBookmarks; ++BookmarkIndex)
+	{
+		if ( Tools.CheckBookmark(BookmarkIndex, &ViewportClient) )
+		{
+			FUIAction Action;
+			Action.ExecuteAction.BindSP(SharedViewport.ToSharedRef(), &SLevelViewport::OnClearBookmark, BookmarkIndex);
+			
+			MenuBuilder.AddMenuEntry(
+				FBookmarkUI::GetPlainLabel(BookmarkIndex),
+				FBookmarkUI::GetClearTooltip(BookmarkIndex),
+				FBookmarkUI::GetDefaultIcon(),
+				Action);
+		}
+	}
+}
+
+/**
+ * Called to generate the jump to bookmark menu.
+ */
+static bool GenerateJumpToBookmarkMenu( FMenuBuilder& MenuBuilder , TWeakPtr<class SLevelViewport> Viewport )
+{
+	// Add a menu entry for each bookmark
+	
+	FEditorModeTools& Tools = GLevelEditorModeTools();
+	TSharedPtr<SLevelViewport> SharedViewport = Viewport.Pin();
+	FLevelEditorViewportClient& ViewportClient = SharedViewport->GetLevelViewportClient();
+
+	const int32 NumberOfBookmarks = static_cast<int32>(Tools.GetMaxNumberOfBookmarks(&ViewportClient));
+	const int32 NumberOfMappedBookmarks = FMath::Min<int32>(AWorldSettings::NumMappedBookmarks, NumberOfBookmarks);
+
+	bool bFoundAnyBookmarks = false;
+
+	for( int32 BookmarkIndex = 0; BookmarkIndex < NumberOfMappedBookmarks; ++BookmarkIndex )
+	{
+		if ( Tools.CheckBookmark( BookmarkIndex , &ViewportClient ) )
+		{
+			bFoundAnyBookmarks = true;
+			MenuBuilder.AddMenuEntry( FLevelViewportCommands::Get().JumpToBookmarkCommands[ BookmarkIndex ] );
+		}
+	}
+
+	for (int32 BookmarkIndex = NumberOfMappedBookmarks; BookmarkIndex < NumberOfBookmarks; ++BookmarkIndex)
+	{
+		if ( Tools.CheckBookmark(BookmarkIndex, &ViewportClient) )
+		{
+			bFoundAnyBookmarks = true;
+
+			FUIAction Action;
+			Action.ExecuteAction.BindSP(SharedViewport.ToSharedRef(), &SLevelViewport::OnJumpToBookmark, BookmarkIndex);
+			
+			MenuBuilder.AddMenuEntry(
+				FBookmarkUI::GetJumpToLabel(BookmarkIndex),
+				FBookmarkUI::GetJumpToTooltip(BookmarkIndex),
+				FBookmarkUI::GetDefaultIcon(),
+				Action);
+		}
+	}
+	
+	return bFoundAnyBookmarks;
 }
 
 /**
@@ -462,15 +547,7 @@ static void OnGenerateBookmarkMenu( FMenuBuilder& MenuBuilder , TWeakPtr<class S
 
 	MenuBuilder.BeginSection("LevelViewportActiveBoookmarks", LOCTEXT("JumpToBookmarkHeader", "Active Bookmarks") );
 
-	for( int32 BookmarkIndex = 0; BookmarkIndex < AWorldSettings::MAX_BOOKMARK_NUMBER; ++BookmarkIndex )
-	{
-		// Only add bookmarks to the menu if the bookmark is valid
-		if ( Tools.CheckBookmark( BookmarkIndex , &ViewportClient ) )
-		{
-			bFoundBookmark = true;
-			MenuBuilder.AddMenuEntry( FLevelViewportCommands::Get().JumpToBookmarkCommands[ BookmarkIndex ] );
-		}
-	}
+	const bool bFoundBookmarks = GenerateJumpToBookmarkMenu( MenuBuilder, Viewport );
 
 	MenuBuilder.EndSection();
 
@@ -479,10 +556,13 @@ static void OnGenerateBookmarkMenu( FMenuBuilder& MenuBuilder , TWeakPtr<class S
 		MenuBuilder.AddSubMenu( 
 			LOCTEXT("SetBookmarkSubMenu", "Set Bookmark"),
 			LOCTEXT("SetBookmarkSubMenu_ToolTip", "Set viewport bookmarks"),
-			FNewMenuDelegate::CreateStatic( &OnGenerateSetBookmarkMenu )
+			FNewMenuDelegate::CreateStatic( &OnGenerateSetBookmarkMenu, Viewport )
 			);
 
-		if( bFoundBookmark )
+		const FLevelViewportCommands& Actions = FLevelViewportCommands::Get();
+		MenuBuilder.AddMenuEntry( Actions.CompactBookmarks );
+
+		if( bFoundBookmarks )
 		{
 			MenuBuilder.AddSubMenu( 
 				LOCTEXT("ClearBookmarkSubMenu", "Clear Bookmark"),
@@ -490,8 +570,7 @@ static void OnGenerateBookmarkMenu( FMenuBuilder& MenuBuilder , TWeakPtr<class S
 				FNewMenuDelegate::CreateStatic( &OnGenerateClearBookmarkMenu , Viewport )
 				);
 
-			const FLevelViewportCommands& Actions = FLevelViewportCommands::Get();
-			MenuBuilder.AddMenuEntry( Actions.ClearAllBookMarks );
+			MenuBuilder.AddMenuEntry( Actions.ClearAllBookmarks );
 		}
 	}
 	MenuBuilder.EndSection();

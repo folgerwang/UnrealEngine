@@ -259,24 +259,41 @@ namespace MeshDescriptionOp
 		return true;
 	}
 
-	void FAllocator2D::FlipX(FRect Rect)
+	void FAllocator2D::FlipX(FRect Rect, FMeshDescriptionOperations::ELightmapUVVersion LayoutVersion)
 	{
-		uint32 MinY = 0;
-
+		// If we have empty padding around the Rect, keep it there
 		uint32 MaxY = Rect.H - 1;
 		for (int32 Y = Rect.H - 1; Y > 0; --Y)
 		{
 			if (Rows[Y].UsedSegments.Num() > 0)
+		{
 				break;
+		}
 
 			--MaxY;
 		}
 
+		uint32 MaxX = 0;
+		if ( LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::Allocator2DFlipFix )
+		{
+			for ( uint32 Y = 0; Y <= MaxY; ++Y )
+			{
+				for ( const FSegment& UsedSegment : Rows[ Y ].UsedSegments )
+				{
+					MaxX = FMath::Max( MaxX, UsedSegment.StartPos + UsedSegment.Length - 1 );
+				}
+			}
+		}
+		else
+		{
+			MaxX = Rect.W - 1;
+		}
+
 		for (uint32 Y = 0; Y <= MaxY; ++Y)
 		{
-			for (uint32 LowX = 0; LowX < Rect.W / 2; ++LowX)
+			for (uint32 LowX = 0; LowX < (MaxX + 1) / 2; ++LowX)
 			{
-				uint32 HighX = Rect.W - 1 - LowX;
+				uint32 HighX = MaxX - LowX;
 
 				const uint64 BitLow = GetBit(LowX, Y);
 				const uint64 BitHigh = GetBit(HighX, Y);

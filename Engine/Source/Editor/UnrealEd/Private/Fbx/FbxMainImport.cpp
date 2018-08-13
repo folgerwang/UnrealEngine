@@ -31,6 +31,7 @@
 #include "ARFilter.h"
 #include "Animation/Skeleton.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Editor/EditorPerProjectUserSettings.h"
 
 DEFINE_LOG_CATEGORY(LogFbx);
 
@@ -946,6 +947,8 @@ void FFbxImporter::FixMaterialClashName()
 
 void FFbxImporter::EnsureNodeNameAreValid()
 {
+	const bool bKeepNamespace = GetDefault<UEditorPerProjectUserSettings>()->bKeepFbxNamespace;
+
 	TSet<FString> AllNodeName;
 	int32 CurrentNameIndex = 1;
 	for (int32 NodeIndex = 0; NodeIndex < Scene->GetNodeCount(); ++NodeIndex)
@@ -968,25 +971,28 @@ void FFbxImporter::EnsureNodeNameAreValid()
 					FFbxErrors::Generic_LoadingSceneFailed);
 			}
 		}
-		if (NodeName.Contains(TEXT(":")))
+		if (bKeepNamespace)
 		{
-			NodeName = NodeName.Replace(TEXT(":"), TEXT("_"));
-			Node->SetName(TCHAR_TO_UTF8(*NodeName));
-		}
-		if (AllNodeName.Contains(NodeName))
-		{
-			FString UniqueNodeName;
-			do
+			if (NodeName.Contains(TEXT(":")))
 			{
-				UniqueNodeName = NodeName + FString::FromInt(CurrentNameIndex++);
-			} while (AllNodeName.Contains(UniqueNodeName));
-			Node->SetName(TCHAR_TO_UTF8(*UniqueNodeName));
-			if (!GIsAutomationTesting)
+				NodeName = NodeName.Replace(TEXT(":"), TEXT("_"));
+				Node->SetName(TCHAR_TO_UTF8(*NodeName));
+			}
+			if (AllNodeName.Contains(NodeName))
 			{
-				AddTokenizedErrorMessage(
-					FTokenizedMessage::Create(EMessageSeverity::Warning,
-						FText::Format(LOCTEXT("FbxImport_NodeNameClash", "FBX File Loading: Found name clash, node '{0}' was rename '{1}'"), FText::FromString(NodeName), FText::FromString(UniqueNodeName))),
-					FFbxErrors::Generic_LoadingSceneFailed);
+				FString UniqueNodeName;
+				do
+				{
+					UniqueNodeName = NodeName + FString::FromInt(CurrentNameIndex++);
+				} while (AllNodeName.Contains(UniqueNodeName));
+				Node->SetName(TCHAR_TO_UTF8(*UniqueNodeName));
+				if (!GIsAutomationTesting)
+				{
+					AddTokenizedErrorMessage(
+						FTokenizedMessage::Create(EMessageSeverity::Warning,
+							FText::Format(LOCTEXT("FbxImport_NodeNameClash", "FBX File Loading: Found name clash, node '{0}' was rename '{1}'"), FText::FromString(NodeName), FText::FromString(UniqueNodeName))),
+						FFbxErrors::Generic_LoadingSceneFailed);
+				}
 			}
 		}
 		AllNodeName.Add(NodeName);

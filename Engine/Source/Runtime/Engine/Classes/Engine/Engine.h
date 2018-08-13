@@ -1292,7 +1292,7 @@ public:
 	 * This class will be responsible of updating the application Time and DeltaTime.
 	 * Can be used to synchronize the engine with another process (gen-lock).
 	 */
-	UPROPERTY(AdvancedDisplay, config, EditAnywhere, Category=Framerate, meta=(MetaClass="EngineCustomTimeStep", DisplayName="Custom TimeStep"))
+	UPROPERTY(AdvancedDisplay, config, EditAnywhere, Category=Framerate, meta=(MetaClass="EngineCustomTimeStep", DisplayName="Custom TimeStep", ConfigRestartRequired=true))
 	FSoftClassPath CustomTimeStepClassName;
 
 private:
@@ -1302,8 +1302,8 @@ private:
 
 public:
 	/** Provide a timecode to the Engine */
-	UPROPERTY(config, EditAnywhere, Category=Timecode, meta=(MetaClass="TimecodeProvider", DisplayName="TimecodeProvider"))
-	FSoftClassPath TimecodeFrameRateClassName;
+	UPROPERTY(config, EditAnywhere, Category=Timecode, meta=(MetaClass="TimecodeProvider", DisplayName="TimecodeProvider", ConfigRestartRequired=true))
+	FSoftClassPath TimecodeProviderClassName;
 
 	/**
 	 * Frame rate used to generated the engine Timecode's frame number when no TimecodeProvider are specified.

@@ -7,7 +7,6 @@
 #include "Modules/ModuleManager.h"
 #include "MovieSceneCaptureHandle.h"
 
-class FMovieSceneCaptureProtocolRegistry;
 class FSceneViewport;
 class IMovieSceneCaptureInterface;
 
@@ -30,7 +29,6 @@ public:
 	virtual void DestroyMovieSceneCapture(FMovieSceneCaptureHandle Handle) = 0;
 
 	virtual void DestroyAllActiveCaptures() = 0;
-	virtual FMovieSceneCaptureProtocolRegistry& GetProtocolRegistry() = 0;
 	virtual bool IsStereoAllowed() = 0;
 };
 

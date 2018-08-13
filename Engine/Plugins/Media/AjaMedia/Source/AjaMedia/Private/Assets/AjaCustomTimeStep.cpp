@@ -37,6 +37,7 @@ struct UAjaCustomTimeStep::FAJACallback : public AJA::IAJASyncChannelCallbackInt
 //--------------------------------------------------------------------
 UAjaCustomTimeStep::UAjaCustomTimeStep(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bUseReferenceIn(false)
 	, TimecodeFormat(EAjaMediaTimecodeFormat::LTC)
 	, bEnableOverrunDetection(false)
 	, SyncChannel(nullptr)
@@ -47,6 +48,7 @@ UAjaCustomTimeStep::UAjaCustomTimeStep(const FObjectInitializer& ObjectInitializ
 	, LastAutoSynchronizeInEditorAppTime(0.0)
 #endif
 	, bDidAValidUpdateTimeStep(false)
+	, bWarnedAboutVSync(false)
 {
 }
 
@@ -63,13 +65,6 @@ bool UAjaCustomTimeStep::Initialize(UEngine* InEngine)
 	{
 		State = ECustomTimeStepSynchronizationState::Error;
 		UE_LOG(LogAjaMedia, Warning, TEXT("The CustomTimeStep '%s' can't be initialized. Aja is not initialized on your machine."), *GetName());
-		return false;
-	}
-
-	if (!FAja::CanUseAJACard())
-	{
-		State = ECustomTimeStepSynchronizationState::Error;
-		UE_LOG(LogAjaMedia, Warning, TEXT("The CustomTimeStep '%s' can't be initialized because Aja card cannot be used. Are you in a Commandlet? You may override this behavior by launching with -ForceAjaUsage"), *GetName());
 		return false;
 	}
 
@@ -95,21 +90,25 @@ bool UAjaCustomTimeStep::Initialize(UEngine* InEngine)
 	AJA::AJASyncChannelOptions Options(*GetName(), MediaPort.PortIndex);
 	Options.CallbackInterface = SyncCallback;
 	Options.VideoFormatIndex = CurrentMediaMode.VideoFormatIndex;
+	Options.bOutput = bUseReferenceIn;
 
 	Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
-	switch (TimecodeFormat)
+	if (!Options.bOutput)
 	{
-	case EAjaMediaTimecodeFormat::None:
-		Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
-		break;
-	case EAjaMediaTimecodeFormat::LTC:
-		Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_LTC;
-		break;
-	case EAjaMediaTimecodeFormat::VITC:
-		Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_VITC1;
-		break;
-	default:
-		break;
+		switch (TimecodeFormat)
+		{
+		case EAjaMediaTimecodeFormat::None:
+			Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
+			break;
+		case EAjaMediaTimecodeFormat::LTC:
+			Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_LTC;
+			break;
+		case EAjaMediaTimecodeFormat::VITC:
+			Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_VITC1;
+			break;
+		default:
+			break;
+		}
 	}
 
 	check(SyncChannel == nullptr);
@@ -147,13 +146,24 @@ bool UAjaCustomTimeStep::UpdateTimeStep(UEngine* InEngine)
 	bool bRunEngineTimeStep = true;
 	if (State == ECustomTimeStepSynchronizationState::Synchronized)
 	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VSync"));
+		if (!bWarnedAboutVSync)
+		{
+			bool bLockToVsync = CVar->GetValueOnGameThread() != 0;
+			if (bLockToVsync)
+			{
+				UE_LOG(LogAjaMedia, Warning, TEXT("The Engine is using VSync and the AJACustomTimeStep. It may break the 'genlock'."));
+				bWarnedAboutVSync = true;
+			}
+		}
+
 		// Updates logical last time to match logical current time from last tick
 		UpdateApplicationLastTime();
 
 		WaitForSync();
 
 		// Use fixed delta time and update time.
-		FApp::SetDeltaTime(FixedFrameRate.AsInterval());
+		FApp::SetDeltaTime(GetFixedFrameRate().AsInterval());
 		FApp::SetCurrentTime(FApp::GetCurrentTime() + FApp::GetDeltaTime());
 
 		bRunEngineTimeStep = false;
@@ -187,6 +197,11 @@ ECustomTimeStepSynchronizationState UAjaCustomTimeStep::GetSynchronizationState(
 		return bDidAValidUpdateTimeStep ? ECustomTimeStepSynchronizationState::Synchronized : ECustomTimeStepSynchronizationState::Synchronizing;
 	}
 	return State;
+}
+
+FFrameRate UAjaCustomTimeStep::GetFixedFrameRate() const
+{
+	return MediaMode.FrameRate;
 }
 
 //~ UObject implementation
@@ -268,5 +283,7 @@ void UAjaCustomTimeStep::ReleaseResources()
 		delete SyncCallback;
 		SyncCallback = nullptr;
 	}
+
+	bWarnedAboutVSync = false;
 }
 

@@ -12,6 +12,8 @@ namespace UnrealBuildTool.Rules
                 "Core",
                 "CoreUObject",
                 "Engine",
+                "MovieScene",
+                "MovieSceneTracks",
                 "Projects",
 
                 "Messaging",
