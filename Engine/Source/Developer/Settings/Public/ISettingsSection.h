@@ -143,6 +143,13 @@ public:
 	 */
 	virtual bool ResetDefaults() = 0;
 
+
+	/** Notifies a section that a single property has been modified 
+	*
+ 	* @return true if settings should be saved, false otherwise.
+	*/
+	virtual bool NotifySectionOnPropertyModified() = 0;
+
 	/**
 	 * Saves the settings in this section.
 	 *
