@@ -210,9 +210,15 @@ public:
 	DEPRECATED(4.14, "bWantsBeginPlay was inconsistently enforced and is now unused. BeginPlay will now always be called for Actor Components.")
 	uint8 bWantsBeginPlay:1;
 
+#if WITH_EDITORONLY_DATA
 	/** If true, the component will be excluded from non-editor builds */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Cooking)
 	uint8 bIsEditorOnly:1;
+
+private:
+	UPROPERTY()
+	uint8 bIsVisualizationComponent : 1;
+#endif
 
 private:
 	/** Indicates that OnCreatedComponent has been called, but OnDestroyedComponent has not yet */
@@ -393,13 +399,28 @@ public:
 
 	virtual bool GetComponentClassCanReplicate() const;
 
+#if WITH_EDITORONLY_DATA
 	/** Returns whether this component is an editor-only object or not */
 	virtual bool IsEditorOnly() const override { return bIsEditorOnly; }
 
 	virtual void MarkAsEditorOnlySubobject() override
 	{
 		bIsEditorOnly = true;
+		// A bit sketchy, but is best for backwards compatibility as the vast majority of editor only components were for visualization, 
+		// so for the very few where visualization is not the purpose, it can be cleared after the subobject is created
+		bIsVisualizationComponent = true; 
 	}
+
+	bool IsVisualizationComponent() const { return bIsVisualizationComponent; }
+	void SetIsVisualizationComponent(const bool bInIsVisualizationComponent)
+	{
+		bIsVisualizationComponent = bInIsVisualizationComponent;
+		if (bIsVisualizationComponent)
+		{
+			bIsEditorOnly = true;
+		}
+	}
+#endif
 
 	/** Returns net role of the owning actor */
 	/** Returns true if we are replicating and not authorative */

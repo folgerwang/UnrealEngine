@@ -1682,7 +1682,7 @@ public:
 			{
 				for (UActorComponent* ComponentToConsider : Actor->GetComponents())
 				{
-					if (ComponentToConsider && !ComponentToConsider->IsEditorOnly())
+					if (ComponentToConsider && !ComponentToConsider->IsVisualizationComponent())
 					{
 						AllSelectedComponents.Add(ComponentToConsider);
 					}

@@ -552,13 +552,18 @@ int32 FComponentEditorUtils::DeleteComponents(const TArray<UActorComponent*>& Co
 				else
 				{
 					// For a non-scene component, try to select the preceding non-scene component
-					TInlineComponentArray<UActorComponent*> ActorComponents;
-					Owner->GetComponents(ActorComponents);
-					for (int32 i = 0; i < ActorComponents.Num() && ComponentToDelete != ActorComponents[i]; ++i)
+					for (UActorComponent* Component : Owner->GetComponents())
 					{
-						if (!ActorComponents[i]->IsA(USceneComponent::StaticClass()))
+						if (Component == nullptr)
 						{
-							OutComponentToSelect = ActorComponents[i];
+							if (Component == ComponentToDelete)
+							{
+								break;
+							}
+							else if (!Component->IsA<USceneComponent>())
+							{
+								OutComponentToSelect = Component;
+							}
 						}
 					}
 				}
@@ -623,7 +628,7 @@ UActorComponent* FComponentEditorUtils::DuplicateComponent(UActorComponent* Temp
 
 	UActorComponent* NewCloneComponent = nullptr;
 	AActor* Actor = TemplateComponent->GetOwner();
-	if (!TemplateComponent->IsEditorOnly() && Actor)
+	if (!TemplateComponent->IsVisualizationComponent() && Actor)
 	{
 		Actor->Modify();
 		UClass* ComponentClass = TemplateComponent->GetClass();

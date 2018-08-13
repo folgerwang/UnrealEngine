@@ -669,7 +669,7 @@ void USceneComponent::OnRegister()
 		SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
 		SpriteComponent->Mobility = EComponentMobility::Movable;
 		SpriteComponent->AlwaysLoadOnClient = false;
-		SpriteComponent->bIsEditorOnly = true;
+		SpriteComponent->SetIsVisualizationComponent(true);
 		SpriteComponent->SpriteInfo.Category = TEXT("Misc");
 		SpriteComponent->SpriteInfo.DisplayName = NSLOCTEXT( "SpriteCategory", "Misc", "Misc" );
 		SpriteComponent->CreationMethod = CreationMethod;

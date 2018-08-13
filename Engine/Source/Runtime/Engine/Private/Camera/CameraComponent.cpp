@@ -93,7 +93,7 @@ void UCameraComponent::OnRegister()
 		{
 			ProxyMeshComponent = NewObject<UStaticMeshComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
 			ProxyMeshComponent->SetupAttachment(this);
-			ProxyMeshComponent->bIsEditorOnly = true;
+			ProxyMeshComponent->SetIsVisualizationComponent(true);
 			ProxyMeshComponent->SetStaticMesh(CameraMesh);
 			ProxyMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			ProxyMeshComponent->bHiddenInGame = true;
@@ -107,7 +107,7 @@ void UCameraComponent::OnRegister()
 		{
 			DrawFrustum = NewObject<UDrawFrustumComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
 			DrawFrustum->SetupAttachment(this);
-			DrawFrustum->bIsEditorOnly = true;
+			DrawFrustum->SetIsVisualizationComponent(true);
 			DrawFrustum->CreationMethod = CreationMethod;
 			DrawFrustum->RegisterComponentWithWorld(GetWorld());
 		}
