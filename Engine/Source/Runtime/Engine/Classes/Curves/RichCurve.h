@@ -16,7 +16,7 @@ enum ERichCurveInterpMode
 	RCIM_Linear UMETA(DisplayName="Linear"),
 	RCIM_Constant UMETA(DisplayName="Constant"),
 	RCIM_Cubic UMETA(DisplayName="Cubic"),
-	RCIM_None UMETA(DisplayName="None")
+	RCIM_None UMETA(Hidden)
 };
 
 
@@ -27,7 +27,7 @@ enum ERichCurveTangentMode
 	RCTM_Auto UMETA(DisplayName="Auto"),
 	RCTM_User UMETA(DisplayName="User"),
 	RCTM_Break UMETA(DisplayName="Break"),
-	RCTM_None UMETA(DisplayName="None")
+	RCTM_None UMETA(Hidden)
 };
 
 
