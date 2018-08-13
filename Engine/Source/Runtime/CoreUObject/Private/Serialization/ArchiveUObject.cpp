@@ -62,8 +62,11 @@ FArchive& FArchiveUObject::SerializeSoftObjectPtr(FArchive& Ar, FSoftObjectPtr& 
 {
 	if (Ar.IsSaving() || Ar.IsLoading())
 	{
-		// Reset before serializing to clear the internal weak pointer. 
-		Value.ResetWeakPtr();
+		if (Ar.IsLoading())
+		{
+			// Reset before serializing to clear the internal weak pointer. 
+			Value.ResetWeakPtr();
+		}
 		Ar << Value.GetUniqueID();
 	}
 	else if (!Ar.IsObjectReferenceCollector() || Ar.IsModifyingWeakAndStrongReferences())
@@ -127,6 +130,23 @@ FArchive& FObjectAndNameAsStringProxyArchive::operator<<(UObject*& Obj)
 FArchive& FObjectAndNameAsStringProxyArchive::operator<<(FWeakObjectPtr& Obj)
 {
 	Obj.Serialize(*this);
+	return *this;
+}
+
+FArchive& FObjectAndNameAsStringProxyArchive::operator<<(FSoftObjectPtr& Value)
+{
+	if (IsLoading())
+	{
+		// Reset before serializing to clear the internal weak pointer. 
+		Value.ResetWeakPtr();
+	}
+	*this << Value.GetUniqueID();
+	return *this;
+}
+
+FArchive& FObjectAndNameAsStringProxyArchive::operator<<(FSoftObjectPath& Value)
+{
+	Value.SerializePath(*this);
 	return *this;
 }
 
