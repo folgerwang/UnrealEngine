@@ -774,6 +774,7 @@ protected:
 	void MakeNewNotifyPicker(FMenuBuilder& MenuBuilder, bool bIsReplaceWithMenu = false);
 	void FillNewNotifyMenu(FMenuBuilder& MenuBuilderbool, bool bIsReplaceWithMenu = false);
 	void FillNewNotifyStateMenu(FMenuBuilder& MenuBuilder, bool bIsReplaceWithMenu  = false);
+	void FillNewSyncMarkerMenu(FMenuBuilder& MenuBuilder);
 
 	// New notify functions
 	void CreateNewBlueprintNotifyAtCursor(FString NewNotifyName, FString BlueprintPath);
@@ -2436,7 +2437,7 @@ void SAnimNotifyTrack::FillNewNotifyMenu(FMenuBuilder& MenuBuilder, bool bIsRepl
 						[
 							SNew(SSkeletonAnimNotifies, EditableSkeleton)
 							.IsPicker(true)
-							.OnNotifySelected_Lambda([this, bIsReplaceWithMenu](const FName& InNotifyName)
+							.OnItemSelected_Lambda([this, bIsReplaceWithMenu](const FName& InNotifyName)
 							{
 								FSlateApplication::Get().DismissAllMenus();
 
@@ -2459,6 +2460,48 @@ void SAnimNotifyTrack::FillNewNotifyMenu(FMenuBuilder& MenuBuilder, bool bIsRepl
 
 	// Add a notify picker
 	MakeNewNotifyPicker<UAnimNotify>(MenuBuilder, bIsReplaceWithMenu);
+}
+
+void SAnimNotifyTrack::FillNewSyncMarkerMenu(FMenuBuilder& MenuBuilder)
+{
+	USkeleton* SeqSkeleton = Sequence->GetSkeleton();
+	if (SeqSkeleton)
+	{
+		MenuBuilder.BeginSection("AnimSyncMarkerSubMenu", LOCTEXT("NewSyncMarkerSubMenu_Skeleton", "Sync Markers"));
+		{
+			FUIAction UIAction;
+			UIAction.ExecuteAction.BindSP(
+				this, &SAnimNotifyTrack::OnNewSyncMarkerClicked);
+			MenuBuilder.AddMenuEntry(LOCTEXT("NewSyncMarker", "New Sync Marker..."), LOCTEXT("NewSyncMarkerToolTip", "Create a new animation sync marker"), FSlateIcon(), UIAction);
+
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("NewSyncMarkerSubMenu_Existing", "Existing Sync Markers"),
+				LOCTEXT("NewSyncMarkerSubMenu_Existing_Tooltip", "Choose from existing sync marker names on the skeleton"),
+				FNewMenuDelegate::CreateLambda([this, SeqSkeleton](FMenuBuilder& InSubMenuBuilder)
+			{
+				ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+				TSharedRef<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(SeqSkeleton);
+
+				InSubMenuBuilder.AddWidget(
+					SNew(SBox)
+					.MinDesiredWidth(300.0f)
+					.MaxDesiredHeight(400.0f)
+					[
+						SNew(SSkeletonAnimNotifies, EditableSkeleton)
+						.IsSyncMarker(true)
+						.OnItemSelected_Lambda([this](const FName& InNotifyName)
+						{
+							FSlateApplication::Get().DismissAllMenus();
+
+							CreateNewSyncMarkerAtCursor(InNotifyName.ToString(), nullptr);
+						})
+					],
+					FText(), true, false
+					);
+			}));
+		}
+		MenuBuilder.EndSection();
+	}
 }
 
 FAnimNotifyEvent& SAnimNotifyTrack::CreateNewBlueprintNotify(FString NewNotifyName, FString BlueprintPath, float StartTime)
@@ -2931,11 +2974,10 @@ TSharedPtr<SWidget> SAnimNotifyTrack::SummonContextMenu(const FGeometry& MyGeome
 
 			if (Sequence->IsA(UAnimSequence::StaticClass()))
 			{
-				MenuBuilder.AddMenuEntry(
-					LOCTEXT("NewSyncMarker", "Add Sync Marker"),
-					LOCTEXT("NewSyncMarkerToolTip", "Create a new animation sync marker"),
-					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateSP(this, &SAnimNotifyTrack::OnNewSyncMarkerClicked)));
+				MenuBuilder.AddSubMenu(
+					NSLOCTEXT("NewSyncMarkerSubMenu", "NewSyncMarkerSubMenuAddNotifyState", "Add Sync Marker..."),
+					NSLOCTEXT("NewSyncMarkerSubMenu", "NewSyncMarkerSubMenuAddNotifyStateToolTip", "Create a new animation sync marker"),
+					FNewMenuDelegate::CreateRaw(this, &SAnimNotifyTrack::FillNewSyncMarkerMenu));
 			}
 
 			MenuBuilder.AddMenuEntry(
@@ -3194,8 +3236,13 @@ void SAnimNotifyTrack::AddNewSyncMarker(const FText& NewNotifyName, ETextCommit:
 	if ((CommitInfo == ETextCommit::OnEnter) && SeqSkeleton)
 	{
 		const FScopedTransaction Transaction(LOCTEXT("AddNewSyncMarker", "Add New Sync Marker"));
-		//FName NewName = FName(*NewNotifyName.ToString());
-		//SeqSkeleton->AddNewAnimationNotify(NewName);
+
+		FName NewName = FName(*NewNotifyName.ToString());
+
+		ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+		TSharedRef<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(SeqSkeleton);
+
+		EditableSkeleton->AddSyncMarker(NewName);
 
 		FBlueprintActionDatabase::Get().RefreshAssetActions(SeqSkeleton);
 

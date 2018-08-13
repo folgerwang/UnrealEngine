@@ -536,6 +536,11 @@ void UAnimSequence::PostLoad()
 
 #if WITH_EDITOR
 		VerifyCurveNames<FTransformCurve>(*CurrentSkeleton, USkeleton::AnimTrackCurveMappingName, RawCurveData.TransformCurves);
+
+		for (const FAnimSyncMarker& SyncMarker : AuthoredSyncMarkers)
+		{
+			CurrentSkeleton->RegisterMarkerName(SyncMarker.MarkerName);
+		}
 #endif
 	}
 

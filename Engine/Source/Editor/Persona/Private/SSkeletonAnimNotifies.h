@@ -24,7 +24,7 @@ class SToolTip;
 struct FNotificationInfo;
 
 /** Delegate fired when a notify is selected */
-DECLARE_DELEGATE_OneParam(FOnNotifySelected, const FName& /*InSelectedNotify*/);
+DECLARE_DELEGATE_OneParam(FOnItemSelected, const FName& /*InSelectedNotify*/);
 
 /////////////////////////////////////////////////////
 // FSkeletonAnimNotifiesSummoner
@@ -85,16 +85,20 @@ class SSkeletonAnimNotifies : public SCompoundWidget, public FGCObject, public F
 public:
 	SLATE_BEGIN_ARGS( SSkeletonAnimNotifies )
 		: _IsPicker(false)
+		, _IsSyncMarker(false)
 	{}
 
 	/** Delegate called to select an object in the details panel */
 	SLATE_EVENT(FOnObjectsSelected, OnObjectsSelected)
 
 	/** Delegate fired when a notify is selected */
-	SLATE_EVENT(FOnNotifySelected, OnNotifySelected)
+	SLATE_EVENT(FOnItemSelected, OnItemSelected)
 
 	/** Whether we should use this dialog as a picker or an editor. In picker mode we cant add, remove or rename notifies. */
 	SLATE_ARGUMENT(bool, IsPicker)
+
+	/** Whether we should use this dialog for sync markers instead of notifies */
+	SLATE_ARGUMENT(bool, IsSyncMarker)
 
 	SLATE_END_ARGS()
 public:
@@ -153,6 +157,9 @@ private:
 	/** Delegate handler for deleting anim notifies */
 	void OnDeleteAnimNotify();
 
+	/** Delegate handler for deleting a sync marker */
+	void OnDeleteSyncMarker();
+
 	/** Delegate handler for determining whether we can show the rename menu options */
 	bool CanPerformRename() const;
 
@@ -202,10 +209,13 @@ private:
 	FOnObjectsSelected OnObjectsSelected;
 
 	/** Delegate fired when a notify is selected */
-	FOnNotifySelected OnNotifySelected;
+	FOnItemSelected OnItemSelected;
 
 	/** Whether we should use this dialog as a picker or an editor. In picker mode we cant add, remove or rename notifies. */
 	bool bIsPicker;
+
+	/** Whether we are using this dialog for sync markers instead of notifies */
+	bool bIsSyncMarker;
 };
 
 #undef LOCTEXT_NAMESPACE
