@@ -129,6 +129,7 @@ UAnimSequence::UAnimSequence(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, Interpolation(EAnimInterpolationType::Linear)
 	, bEnableRootMotion(false)
+	, bUseNormalizedRootMotionScale(true)
 	, RootMotionRootLock(ERootMotionRootLock::RefPose)
 	, bRootMotionSettingsCopiedFromMontage(false)
 	, bUseRawDataOnly(!FPlatformProperties::RequiresCookedData())
@@ -1008,9 +1009,21 @@ FTransform UAnimSequence::ExtractRootMotionFromRange(float StartTrackPosition, f
 	FTransform StartTransform = ExtractRootTrackTransform(StartTrackPosition, NULL);
 	FTransform EndTransform = ExtractRootTrackTransform(EndTrackPosition, NULL);
 
-	//Clear scale as it will muck up GetRelativeTransform
-	StartTransform.SetScale3D(FVector(1.f));
-	EndTransform.SetScale3D(FVector(1.f));
+	// Use old calculation if needed.
+	if (bUseNormalizedRootMotionScale)
+	{
+		//Clear scale as it will muck up GetRelativeTransform
+		StartTransform.SetScale3D(FVector(1.f));
+		EndTransform.SetScale3D(FVector(1.f));
+	}
+	else
+	{
+		if (IsValidAdditive())
+		{
+			StartTransform.SetScale3D(StartTransform.GetScale3D() + DefaultScale);
+			EndTransform.SetScale3D(EndTransform.GetScale3D() + DefaultScale);
+		}
+	}
 
 	// Transform to Component Space Rotation (inverse root transform from first frame)
 	const FTransform RootToComponentRot = FTransform(InitialTransform.GetRotation().Inverse());

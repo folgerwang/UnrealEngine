@@ -514,6 +514,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = RootMotion)
 	bool bForceRootLock;
 
+	/** If this is on, it will use a normalized scale value for the root motion extracted: FVector(1.0, 1.0, 1.0) **/
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable, Category = RootMotion, meta = (DisplayName = "Use Normalized Root Motion Scale"))
+	bool bUseNormalizedRootMotionScale;
+
 	/** Have we copied root motion settings from an owning montage */
 	UPROPERTY()
 	bool bRootMotionSettingsCopiedFromMontage;
