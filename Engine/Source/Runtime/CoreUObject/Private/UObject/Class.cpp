@@ -1254,8 +1254,7 @@ void UStruct::Serialize( FArchive& Ar )
 		//       introduce unwanted dependency loads at this time)
 		ScriptLoadHelper.LoadStructWithScript(this, Ar, bAllowDeferredScriptSerialization);
 
-		// UClass and UScriptStruct are linked in the their respective ::Serialize implementation:
-		if (!dynamic_cast<UClass*>(this) && !dynamic_cast<UScriptStruct*>(this) && !(Ar.GetPortFlags() & PPF_Duplicate))
+		if (!dynamic_cast<UClass*>(this) && !(Ar.GetPortFlags() & PPF_Duplicate)) // classes are linked in the UClass serializer, which just called me
 		{
 			// Link the properties.
 			Link(Ar, true);
@@ -2014,9 +2013,10 @@ void UScriptStruct::Serialize( FArchive& Ar )
 	// serialize the struct's flags
 	Ar << (uint32&)StructFlags;
 
-	if (Ar.IsLoading() && !(Ar.GetPortFlags() & PPF_Duplicate))
+	if (Ar.IsLoading())
 	{
-		Link(Ar, true);
+		ClearCppStructOps(); // we want to be sure to do this from scratch
+		PrepareCppStructOps();
 	}
 }
 
