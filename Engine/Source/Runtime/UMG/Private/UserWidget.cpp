@@ -1282,13 +1282,11 @@ const FText UUserWidget::GetPaletteCategory()
 
 void UUserWidget::SetDesignerFlags(EWidgetDesignFlags::Type NewFlags)
 {
-	Super::SetDesignerFlags(NewFlags);
+	UWidget::SetDesignerFlags(NewFlags);
 
 	if ( ensure(WidgetTree) )
 	{
-		WidgetTree->ForEachWidget([&] (UWidget* Widget) {
-			Widget->SetDesignerFlags(NewFlags);
-		});
+		WidgetTree->RootWidget->SetDesignerFlags(NewFlags);
 	}
 }
 
