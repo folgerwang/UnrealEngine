@@ -1286,7 +1286,10 @@ void UUserWidget::SetDesignerFlags(EWidgetDesignFlags::Type NewFlags)
 
 	if ( ensure(WidgetTree) )
 	{
-		WidgetTree->RootWidget->SetDesignerFlags(NewFlags);
+		if (WidgetTree->RootWidget)
+		{
+			WidgetTree->RootWidget->SetDesignerFlags(NewFlags);
+		}
 	}
 }
 
