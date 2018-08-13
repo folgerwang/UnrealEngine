@@ -39,6 +39,7 @@ public:
 
 	/**  */
 	void ReleaseNamedSlotSlateResources(bool bReleaseChildren);
-
+#if WITH_EDITOR
 	void SetNamedSlotDesignerFlags(EWidgetDesignFlags::Type NewFlags);
+#endif
 };

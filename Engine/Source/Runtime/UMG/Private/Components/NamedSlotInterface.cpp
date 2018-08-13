@@ -40,7 +40,7 @@ void INamedSlotInterface::ReleaseNamedSlotSlateResources(bool bReleaseChildren)
 		}
 	}
 }
-
+#if WITH_EDITOR
 void INamedSlotInterface::SetNamedSlotDesignerFlags(EWidgetDesignFlags::Type NewFlags)
 {
 	TArray<FName> SlotNames;
@@ -54,3 +54,4 @@ void INamedSlotInterface::SetNamedSlotDesignerFlags(EWidgetDesignFlags::Type New
 		}
 	}
 }
+#endif
