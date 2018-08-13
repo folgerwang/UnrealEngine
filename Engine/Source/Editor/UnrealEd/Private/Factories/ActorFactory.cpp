@@ -529,13 +529,14 @@ void UActorFactoryDeferredDecal::PostSpawnActor(UObject* Asset, AActor* NewActor
 	if (Material != NULL )
 	{
 		// Change properties
-		TInlineComponentArray<UDecalComponent*> DecalComponents;
-		NewActor->GetComponents(DecalComponents);
-
-		UDecalComponent* DecalComponent = NULL;
-		for (int32 Idx = 0; Idx < DecalComponents.Num() && DecalComponent == NULL; Idx++)
+		UDecalComponent* DecalComponent = nullptr;
+		for (UActorComponent* Component : NewActor->GetComponents())
+		{
+			if (UDecalComponent* DecalComp = Cast<UDecalComponent>(Component))
 			{
-			DecalComponent = DecalComponents[Idx];
+				DecalComponent = DecalComp;
+				break;
+			}
 		}
 
 		check(DecalComponent);
@@ -557,13 +558,14 @@ void UActorFactoryDeferredDecal::PostCreateBlueprint( UObject* Asset, AActor* CD
 
 		if (Material != NULL)
 		{
-			TInlineComponentArray<UDecalComponent*> DecalComponents;
-			CDO->GetComponents(DecalComponents);
-
-			UDecalComponent* DecalComponent = NULL;
-			for (int32 Idx = 0; Idx < DecalComponents.Num() && DecalComponent == NULL; Idx++)
+			UDecalComponent* DecalComponent = nullptr;
+			for (UActorComponent* Component : CDO->GetComponents())
 			{
-				DecalComponent = DecalComponents[Idx];
+				if (UDecalComponent* DecalComp = Cast<UDecalComponent>(Component))
+				{
+					DecalComponent = DecalComp;
+					break;
+				}
 			}
 
 			check(DecalComponent);

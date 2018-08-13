@@ -2208,16 +2208,15 @@ void UUnrealEdEngine::edactSelectMatchingMaterial()
 		if( CurrentActor )
 		{
 			// Find the materials by iterating over every primitive component.
-			TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-			CurrentActor->GetComponents(PrimitiveComponents);
-
-			for (int32 ComponentIdx = 0; ComponentIdx < PrimitiveComponents.Num(); ComponentIdx++)
+			for (UActorComponent* Component : CurrentActor->GetComponents())
 			{
-				UPrimitiveComponent* CurrentComponent = PrimitiveComponents[ComponentIdx];
-				TArray<UMaterialInterface*> UsedMaterials;
-				CurrentComponent->GetUsedMaterials( UsedMaterials );
-				MaterialsInSelection.Append( UsedMaterials );
-				SelectedWorlds.AddUnique( CurrentActor->GetWorld() );
+				if (UPrimitiveComponent* CurrentComponent = Cast<UPrimitiveComponent>(Component))
+				{
+					TArray<UMaterialInterface*> UsedMaterials;
+					CurrentComponent->GetUsedMaterials(UsedMaterials);
+					MaterialsInSelection.Append(UsedMaterials);
+					SelectedWorlds.AddUnique(CurrentActor->GetWorld());
+				}
 			}
 		}
 	}
@@ -2337,14 +2336,11 @@ void UUnrealEdEngine::edactSelectRelevantLights( UWorld* InWorld )
 
 		if (Actor->GetLevel()->IsCurrentLevel() )
 		{
-			TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-			Actor->GetComponents(PrimitiveComponents);
-
 			// Gather static lighting info from each of the actor's components.
-			for(int32 ComponentIndex = 0;ComponentIndex < PrimitiveComponents.Num();ComponentIndex++)
+			for (UActorComponent* Component : Actor->GetComponents())
 			{
-				UPrimitiveComponent* Primitive = PrimitiveComponents[ComponentIndex];
-				if (Primitive->IsRegistered())
+				UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component);
+				if (Primitive && Primitive->IsRegistered())
 				{
 					TArray<const ULightComponent*> RelevantLightComponents;
 					InWorld->Scene->GetRelevantLights(Primitive, &RelevantLightComponents);

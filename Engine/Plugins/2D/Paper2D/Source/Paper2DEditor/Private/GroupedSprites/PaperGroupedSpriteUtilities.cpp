@@ -34,13 +34,10 @@ void FPaperGroupedSpriteUtilities::BuildHarvestList(const TArray<UObject*>& Obje
 
 		if (AActor* SelectedActor = Cast<AActor>(Object))
 		{
-			TArray<UActorComponent*> Components;
-			SelectedActor->GetComponents(Components);
-
 			bool bHadHarvestableComponents = false;
-			for (UActorComponent* Component : Components)
+			for (UActorComponent* Component : SelectedActor->GetComponents())
 			{
-				if (Component->IsA(HarvestClassType) && !Component->IsEditorOnly())
+				if (Component && Component->IsA(HarvestClassType) && !Component->IsEditorOnly())
 				{
 					bHadHarvestableComponents = true;
 					OutComponentsToHarvest.Add(Component);

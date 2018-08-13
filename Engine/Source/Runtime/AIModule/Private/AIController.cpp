@@ -67,11 +67,12 @@ void AAIController::PostInitializeComponents()
 	}
 
 #if ENABLE_VISUAL_LOG
-	TInlineComponentArray<UActorComponent*> ComponentSet;
-	GetComponents(ComponentSet);
-	for (auto Component : ComponentSet)
+	for (UActorComponent* Component : GetComponents())
 	{
-		REDIRECT_OBJECT_TO_VLOG(Component, this);
+		if (Component)
+		{
+			REDIRECT_OBJECT_TO_VLOG(Component, this);
+		}
 	}
 #endif // ENABLE_VISUAL_LOG
 }

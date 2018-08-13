@@ -510,13 +510,13 @@ void USimpleConstructionScript::FixupRootNodeParentReferences()
 				if(CDO != NULL)
 				{
 					// Look for the parent component in the CDO's components array
-					TInlineComponentArray<UActorComponent*> Components;
-					CDO->GetComponents(Components);
-
-					for (auto CompIter = Components.CreateConstIterator(); CompIter && !bWasFound; ++CompIter)
+					for (UActorComponent* ComponentTemplate : CDO->GetComponents())
 					{
-						UActorComponent* ComponentTemplate = *CompIter;
-						bWasFound = ComponentTemplate->GetFName() == RootNode->ParentComponentOrVariableName;
+						if (ComponentTemplate && ComponentTemplate->GetFName() == RootNode->ParentComponentOrVariableName)
+						{
+							bWasFound = true;
+							break;
+						}
 					}
 				}
 				else 
@@ -969,11 +969,13 @@ USceneComponent* USimpleConstructionScript::GetSceneRootComponentTemplate(USCS_N
 		RootComponentTemplate = CDO->GetRootComponent();
 		if(!RootComponentTemplate)
 		{
-			TInlineComponentArray<USceneComponent*> SceneComponents;
-			CDO->GetComponents(SceneComponents);
-			if(SceneComponents.Num() > 0)
+			for (UActorComponent* Component : CDO->GetComponents())
 			{
-				RootComponentTemplate = SceneComponents[0];
+				if (USceneComponent* SceneComp = Cast<USceneComponent>(Component))
+				{
+					RootComponentTemplate = SceneComp;
+					break;
+				}
 			}
 		}
 	}

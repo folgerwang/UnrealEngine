@@ -553,12 +553,10 @@ USceneComponent* USCS_Node::GetParentComponentTemplate(UBlueprint* InBlueprint) 
 			if(CDO != nullptr)
 			{
 				// Find the component template in the CDO that matches the specified name
-				TInlineComponentArray<USceneComponent*> Components;
-				CDO->GetComponents(Components);
-
-				for (USceneComponent* CompTemplate : Components)
+				for (UActorComponent* ActorComp : CDO->GetComponents())
 				{
-					if(CompTemplate->GetFName() == ParentComponentOrVariableName)
+					USceneComponent* CompTemplate = Cast<USceneComponent>(ActorComp);
+					if (CompTemplate && CompTemplate->GetFName() == ParentComponentOrVariableName)
 					{
 						// Found a match; this is our parent, we're done
 						ParentComponentTemplate = CompTemplate;

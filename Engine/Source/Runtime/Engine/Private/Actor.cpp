@@ -1449,13 +1449,10 @@ void AActor::NotifyHit(class UPrimitiveComponent* MyComp, AActor* Other, class U
  */
 static void MarkOwnerRelevantComponentsDirty(AActor* TheActor)
 {
-	TInlineComponentArray<UPrimitiveComponent*> Components;
-	TheActor->GetComponents(Components);
-
-	for (int32 i = 0; i < Components.Num(); i++)
+	for (UActorComponent* Component : TheActor->GetComponents())
 	{
-		UPrimitiveComponent* Primitive = Components[i];
-		if (Primitive->IsRegistered() && (Primitive->bOnlyOwnerSee || Primitive->bOwnerNoSee))
+		UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component);
+		if (Primitive && Primitive->IsRegistered() && (Primitive->bOnlyOwnerSee || Primitive->bOwnerNoSee))
 		{
 			Primitive->MarkRenderStateDirty();
 		}
@@ -1975,14 +1972,11 @@ void AActor::PrestreamTextures( float Seconds, bool bEnableStreaming, int32 Cine
 	}
 
 	// Iterate over all components of that actor
-	TInlineComponentArray<UMeshComponent*> Components;
-	GetComponents(Components);
-
-	for (int32 ComponentIndex=0; ComponentIndex < Components.Num(); ComponentIndex++)
+	for (UActorComponent* Component : GetComponents())
 	{
 		// If its a static mesh component, with a static mesh
-		UMeshComponent* MeshComponent = Components[ComponentIndex];
-		if ( MeshComponent->IsRegistered() )
+		UMeshComponent* MeshComponent = Cast<UMeshComponent>(Component);
+		if (MeshComponent && MeshComponent->IsRegistered() )
 		{
 			MeshComponent->PrestreamTextures( Duration, false, CinematicTextureGroups );
 		}
@@ -2054,14 +2048,11 @@ FVector AActor::GetPlacementExtent() const
 	FVector Extent(0.f);
 	if( (RootComponent && GetRootComponent()->ShouldCollideWhenPlacing()) && bCollideWhenPlacing) 
 	{
-		TInlineComponentArray<USceneComponent*> Components;
-		GetComponents(Components);
-
 		FBox ActorBox(ForceInit);
-		for (int32 ComponentID=0; ComponentID<Components.Num(); ++ComponentID)
+		for (UActorComponent* Component : GetComponents())
 		{
-			USceneComponent* SceneComp = Components[ComponentID];
-			if (SceneComp->ShouldCollideWhenPlacing() )
+			USceneComponent* SceneComp = Cast<USceneComponent>(Component);
+			if (SceneComp && SceneComp->ShouldCollideWhenPlacing())
 			{
 				ActorBox += SceneComp->GetPlacementExtent().GetBox();
 			}
@@ -2372,17 +2363,16 @@ void AActor::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 	static FName NAME_Bones = FName(TEXT("Bones"));
 	if (DebugDisplay.IsDisplayOn(NAME_Animation) || DebugDisplay.IsDisplayOn(NAME_Bones))
 	{
-		TInlineComponentArray<USkeletalMeshComponent*> Components;
-		GetComponents(Components);
-
 		if (DebugDisplay.IsDisplayOn(NAME_Animation))
 		{
-			for (USkeletalMeshComponent* Comp : Components)
+			for (UActorComponent* Comp : GetComponents())
 			{
-				UAnimInstance* AnimInstance = Comp->GetAnimInstance();
-				if (AnimInstance)
+				if (USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(Comp))
 				{
-					AnimInstance->DisplayDebug(Canvas, DebugDisplay, YL, YPos);
+					if (UAnimInstance* AnimInstance = SkelMeshComp->GetAnimInstance())
+					{
+						AnimInstance->DisplayDebug(Canvas, DebugDisplay, YL, YPos);
+					}
 				}
 			}
 		}
@@ -2715,12 +2705,12 @@ TArray<UActorComponent*> AActor::GetComponentsByTag(TSubclassOf<UActorComponent>
 
 void AActor::DisableComponentsSimulatePhysics()
 {
-	TInlineComponentArray<UPrimitiveComponent*> Components;
-	GetComponents(Components);
-
-	for (UPrimitiveComponent* Component : Components)
+	for (UActorComponent* Component : GetComponents())
 	{
-		Component->SetSimulatePhysics(false);
+		if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
+		{
+			PrimComp->SetSimulatePhysics(false);
+		}
 	}
 }
 
@@ -2740,7 +2730,7 @@ static void DispatchOnComponentsCreated(AActor* NewActor)
 
 	for (UActorComponent* ActorComp : Components)
 	{
-		if (ActorComp && !ActorComp->HasBeenCreated())
+		if (!ActorComp->HasBeenCreated())
 		{
 			ActorComp->OnComponentCreated();
 		}
@@ -4329,29 +4319,27 @@ void AActor::UninitializeComponents()
 void AActor::DrawDebugComponents(FColor const& BaseColor) const
 {
 #if ENABLE_DRAW_DEBUG
-	TInlineComponentArray<USceneComponent*> Components;
-	GetComponents(Components);
-
 	UWorld* MyWorld = GetWorld();
 
-	for(int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+	for (UActorComponent* ActorComp : GetComponents())
 	{
-		USceneComponent const* const Component = Components[ComponentIndex]; 
-
-		FVector const Loc = Component->GetComponentLocation();
-		FRotator const Rot = Component->GetComponentRotation();
-
-		// draw coord system at component loc
-		DrawDebugCoordinateSystem(MyWorld, Loc, Rot, 10.f);
-
-		// draw line from me to my parent
-		if (Component->GetAttachParent())
+		if (USceneComponent const* const Component = Cast<USceneComponent>(ActorComp))
 		{
-			DrawDebugLine(MyWorld, Component->GetAttachParent()->GetComponentLocation(), Loc, BaseColor);
-		}
+			FVector const Loc = Component->GetComponentLocation();
+			FRotator const Rot = Component->GetComponentRotation();
 
-		// draw component name
-		DrawDebugString(MyWorld, Loc+FVector(0,0,32), *Component->GetName());
+			// draw coord system at component loc
+			DrawDebugCoordinateSystem(MyWorld, Loc, Rot, 10.f);
+
+			// draw line from me to my parent
+			if (Component->GetAttachParent())
+			{
+				DrawDebugLine(MyWorld, Component->GetAttachParent()->GetComponentLocation(), Loc, BaseColor);
+			}
+
+			// draw component name
+			DrawDebugString(MyWorld, Loc+FVector(0,0,32), *Component->GetName());
+		}
 	}
 #endif // ENABLE_DRAW_DEBUG
 }
@@ -4377,14 +4365,11 @@ bool AActor::ActorLineTraceSingle(struct FHitResult& OutHit, const FVector& Star
 	OutHit.TraceEnd = End;
 	bool bHasHit = false;
 	
-	TInlineComponentArray<UPrimitiveComponent*> Components;
-	GetComponents(Components);
-
-	for (int32 ComponentIndex=0; ComponentIndex<Components.Num(); ComponentIndex++)
+	for (UActorComponent* Component : GetComponents())
 	{
 		FHitResult HitResult;
-		UPrimitiveComponent* Primitive = Components[ComponentIndex];
-		if( Primitive->IsRegistered() && Primitive->IsCollisionEnabled() 
+		UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component);
+		if (Primitive && Primitive->IsRegistered() && Primitive->IsCollisionEnabled() 
 			&& (Primitive->GetCollisionResponseToChannel(TraceChannel) == ECollisionResponse::ECR_Block) 
 			&& Primitive->LineTraceComponent(HitResult, Start, End, Params) )
 		{

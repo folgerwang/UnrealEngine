@@ -6834,22 +6834,17 @@ bool FBlueprintEditorUtils::IsSCSComponentProperty(UObjectProperty* MemberProper
 		}
 		else if (const AActor* ActorCDO = GetDefault<AActor>(OwnerClass))
 		{
-			TInlineComponentArray<UActorComponent*> CDOComponents;
-			ActorCDO->GetComponents(CDOComponents);
-
 			const void* PropertyAddress = MemberProperty->ContainerPtrToValuePtr<void>(ActorCDO);
 			UObject* PropertyValue = MemberProperty->GetObjectPropertyValue(PropertyAddress);
 
-			for (UActorComponent* Component : CDOComponents)
+			for (UActorComponent* Component : ActorCDO->GetComponents())
 			{
-				if (!Component->GetClass()->IsChildOf(MemberProperty->PropertyClass))
+				if (Component && Component->GetClass()->IsChildOf(MemberProperty->PropertyClass))
 				{
-					continue;
-				}
-
-				if (PropertyValue == Component)
-				{
-					return true;
+					if (PropertyValue == Component)
+					{
+						return true;
+					}
 				}
 			}
 		}

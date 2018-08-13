@@ -165,9 +165,13 @@ FText GetViewModeOptionsMenuLabel(EViewModeIndex ViewModeIndex)
 			GEditor->GetSelectedActors()->GetSelectedObjects(SelectedActors);
 			for (AActor* Actor : SelectedActors)
 			{
-				TArray<UPrimitiveComponent*> ActorComponents;
-				Actor->GetComponents(ActorComponents);
-				SelectedComponents.Append(ActorComponents);
+				for (UActorComponent* Component : Actor->GetComponents())
+				{
+					if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
+					{
+						SelectedComponents.Add(PrimComp);
+					}
+				}
 			}
 
 			for (const UPrimitiveComponent* SelectedComponent : SelectedComponents)
@@ -226,9 +230,13 @@ static void GetSelectedMaterials(TArray<const UMaterialInterface*>& SelectedMate
 		GEditor->GetSelectedActors()->GetSelectedObjects(SelectedActors);
 		for (AActor* Actor : SelectedActors)
 		{
-			TArray<UPrimitiveComponent*> ActorComponents;
-			Actor->GetComponents(ActorComponents);
-			SelectedComponents.Append(ActorComponents);
+			for (UActorComponent* Component : Actor->GetComponents())
+			{
+				if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
+				{
+					SelectedComponents.Add(PrimComp);
+				}
+			}
 		}
 
 		for (const UPrimitiveComponent* SelectedComponent : SelectedComponents)

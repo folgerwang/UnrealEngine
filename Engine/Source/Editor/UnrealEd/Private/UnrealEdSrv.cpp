@@ -1823,14 +1823,11 @@ TArray<FPoly*> GetSelectedPolygons()
 		checkSlow( Actor->IsA(AActor::StaticClass()) );
 		FTransform ActorToWorld = Actor->ActorToWorld();
 		
-		TInlineComponentArray<UStaticMeshComponent*> StaticMeshComponents;
-		Actor->GetComponents(StaticMeshComponents);
-
-		for(int32 j=0; j<StaticMeshComponents.Num(); j++)
+		for (UActorComponent* Component : Actor->GetComponents())
 		{
 			// If its a static mesh component, with a static mesh
-			UStaticMeshComponent* SMComp = StaticMeshComponents[j];
-			if(SMComp->IsRegistered() && SMComp->GetStaticMesh())
+			UStaticMeshComponent* SMComp = Cast<UStaticMeshComponent>(Component);
+			if (SMComp && SMComp->IsRegistered() && SMComp->GetStaticMesh())
 			{
 				UStaticMesh* StaticMesh = SMComp->GetStaticMesh();
 				if ( StaticMesh )

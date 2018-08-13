@@ -2645,13 +2645,12 @@ void UNavigationSystemV1::UpdateActorAndComponentsInNavOctree(AActor& Actor, boo
 {
 	UpdateActorInNavOctree(Actor);
 		
-	TInlineComponentArray<UActorComponent*> Components;
-	Actor.GetComponents(Components);
-
-	for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+	for (UActorComponent* Component : Actor.GetComponents())
 	{
-		check(Components[ComponentIndex]);
-		UpdateComponentInNavOctree(*Components[ComponentIndex]);
+		if (Component)
+		{
+			UpdateComponentInNavOctree(*Component);
+		}
 	}
 
 	if (bUpdateAttachedActors)
@@ -2697,12 +2696,9 @@ void UNavigationSystemV1::UpdateAttachedActorsInNavOctree(AActor& RootActor)
 
 void UNavigationSystemV1::UpdateNavOctreeBounds(AActor* Actor)
 {
-	TInlineComponentArray<UActorComponent*> Components;
-	Actor->GetComponents(Components);
-
-	for (int32 Idx = 0; Idx < Components.Num(); Idx++)
+	for (UActorComponent* Component : Actor->GetComponents())
 	{
-		INavRelevantInterface* NavElement = Cast<INavRelevantInterface>(Components[Idx]);
+		INavRelevantInterface* NavElement = Cast<INavRelevantInterface>(Component);
 		if (NavElement)
 		{
 			NavElement->UpdateNavigationBounds();

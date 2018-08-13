@@ -2686,11 +2686,12 @@ void AInstancedFoliageActor::Serialize(FArchive& Ar)
 	// Clean up any old cluster components and convert to hierarchical instanced foliage.
 	if (Ar.CustomVer(FFoliageCustomVersion::GUID) < FFoliageCustomVersion::FoliageUsingHierarchicalISMC)
 	{
-		TInlineComponentArray<UInstancedStaticMeshComponent*> ClusterComponents;
-		GetComponents(ClusterComponents);
-		for (UInstancedStaticMeshComponent* Component : ClusterComponents)
+		for (UActorComponent* Component : GetComponents())
 		{
-			Component->bAutoRegister = false;
+			if (Cast<UInstancedStaticMeshComponent>(Component))
+			{
+				Component->bAutoRegister = false;
+			}
 		}
 	}
 }
@@ -2970,12 +2971,12 @@ void AInstancedFoliageActor::OnLevelActorMoved(AActor* InActor)
 
 	if (!InWorld || !InWorld->IsGameWorld())
 	{
-		TInlineComponentArray<UActorComponent*> Components;
-		InActor->GetComponents(Components);
-
-		for (auto Component : Components)
+		for (UActorComponent* Component : GetComponents())
 		{
-			MoveInstancesForMovedComponent(Component);
+			if (Component)
+			{
+				MoveInstancesForMovedComponent(Component);
+			}
 		}
 	}
 }
@@ -2986,12 +2987,12 @@ void AInstancedFoliageActor::OnLevelActorDeleted(AActor* InActor)
 
 	if (!InWorld || !InWorld->IsGameWorld())
 	{
-		TInlineComponentArray<UActorComponent*> Components;
-		InActor->GetComponents(Components);
-
-		for (auto Component : Components)
+		for (UActorComponent* Component : GetComponents())
 		{
-			DeleteInstancesForComponent(Component);
+			if (Component)
+			{
+				DeleteInstancesForComponent(Component);
+			}
 		}
 	}
 }
