@@ -263,12 +263,18 @@ namespace PropertyCustomizationHelpers
 			.OnAssetSelected( OnAssetSelectedFromPicker );
 	}
 
-	TSharedRef<SWidget> MakeAssetPickerWithMenu( const FAssetData& InitialObject, const bool AllowClear, const TArray<const UClass*>& AllowedClasses, const TArray<UFactory*>& NewAssetFactories, FOnShouldFilterAsset OnShouldFilterAsset, FOnAssetSelected OnSet, FSimpleDelegate OnClose)
+	TSharedRef<SWidget> MakeAssetPickerWithMenu(const FAssetData& InitialObject, const bool AllowClear, const TArray<const UClass*>& AllowedClasses, const TArray<UFactory*>& NewAssetFactories, FOnShouldFilterAsset OnShouldFilterAsset, FOnAssetSelected OnSet, FSimpleDelegate OnClose)
+	{
+		return MakeAssetPickerWithMenu(InitialObject, AllowClear, false, AllowedClasses, NewAssetFactories, OnShouldFilterAsset, OnSet, OnClose);
+	}
+
+	TSharedRef<SWidget> MakeAssetPickerWithMenu( const FAssetData& InitialObject, const bool AllowClear, const bool AllowCopyPaste, const TArray<const UClass*>& AllowedClasses, const TArray<UFactory*>& NewAssetFactories, FOnShouldFilterAsset OnShouldFilterAsset, FOnAssetSelected OnSet, FSimpleDelegate OnClose)
 	{
 		return
 			SNew(SPropertyMenuAssetPicker)
 			.InitialObject(InitialObject)
 			.AllowClear(AllowClear)
+			.AllowCopyPaste(AllowCopyPaste)
 			.AllowedClasses(AllowedClasses)
 			.NewAssetFactories(NewAssetFactories)
 			.OnShouldFilterAsset(OnShouldFilterAsset)
@@ -543,6 +549,7 @@ void SClassPropertyEntryBox::Construct(const FArguments& InArgs)
 				.IsBlueprintBaseOnly(InArgs._IsBlueprintBaseOnly)
 				.AllowNone(InArgs._AllowNone)
 				.ShowViewOptions(!InArgs._HideViewOptions)
+				.ShowDisplayNames(InArgs._ShowDisplayNames)
 				.ShowTree(InArgs._ShowTreeView)
 				.SelectedClass(InArgs._SelectedClass)
 				.OnSetClass(InArgs._OnSetClass)

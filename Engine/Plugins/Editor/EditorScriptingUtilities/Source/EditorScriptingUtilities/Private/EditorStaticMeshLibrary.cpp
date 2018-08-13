@@ -800,5 +800,133 @@ void UEditorStaticMeshLibrary::SetAllowCPUAccess(UStaticMesh* StaticMesh, bool b
 	StaticMesh->PostEditChange();
 }
 
+int32 UEditorStaticMeshLibrary::GetNumUVChannels(UStaticMesh* StaticMesh, int32 LODIndex)
+{
+	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
+
+	if (!EditorScriptingUtils::CheckIfInEditorAndPIE())
+	{
+		return 0;
+	}
+
+	if (StaticMesh == nullptr)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("GetNumUVChannels: The StaticMesh is null."));
+		return 0;
+	}
+
+	if (LODIndex >= StaticMesh->GetNumLODs() || LODIndex < 0)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("GetNumUVChannels: The StaticMesh doesn't have LOD %d."), LODIndex);
+		return 0;
+	}
+
+	return StaticMesh->GetNumUVChannels(LODIndex);
+}
+
+bool UEditorStaticMeshLibrary::AddUVChannel(UStaticMesh* StaticMesh, int32 LODIndex)
+{
+	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
+
+	if (!EditorScriptingUtils::CheckIfInEditorAndPIE())
+	{
+		return false;
+	}
+
+	if (StaticMesh == nullptr)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("AddUVChannel: The StaticMesh is null."));
+		return false;
+	}
+
+	if (LODIndex >= StaticMesh->GetNumLODs() || LODIndex < 0)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("AddUVChannel: The StaticMesh doesn't have LOD %d."), LODIndex);
+		return false;
+	}
+
+	if (StaticMesh->GetNumUVChannels(LODIndex) >= MAX_MESH_TEXTURE_COORDS)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("AddUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS);
+		return false;
+	}
+
+	return StaticMesh->AddUVChannel(LODIndex);
+}
+
+bool UEditorStaticMeshLibrary::InsertUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex)
+{
+	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
+
+	if (!EditorScriptingUtils::CheckIfInEditorAndPIE())
+	{
+		return false;
+	}
+
+	if (StaticMesh == nullptr)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("InsertUVChannel: The StaticMesh is null."));
+		return false;
+	}
+
+	if (LODIndex >= StaticMesh->GetNumLODs() || LODIndex < 0)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("InsertUVChannel: The StaticMesh doesn't have LOD %d."), LODIndex);
+		return false;
+	}
+
+	int32 NumUVChannels = StaticMesh->GetNumUVChannels(LODIndex);
+	if (UVChannelIndex < 0 || UVChannelIndex > NumUVChannels)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("InsertUVChannel: Cannot insert UV channel. Given UV channel index %d is out of bounds."), UVChannelIndex);
+		return false;
+	}
+
+	if (NumUVChannels >= MAX_MESH_TEXTURE_COORDS)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("InsertUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS);
+		return false;
+	}
+
+	return StaticMesh->InsertUVChannel(LODIndex, UVChannelIndex);
+}
+
+bool UEditorStaticMeshLibrary::RemoveUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex)
+{
+	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
+
+	if (!EditorScriptingUtils::CheckIfInEditorAndPIE())
+	{
+		return false;
+	}
+
+	if (StaticMesh == nullptr)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("RemoveUVChannel: The StaticMesh is null."));
+		return false;
+	}
+
+	if (LODIndex >= StaticMesh->GetNumLODs() || LODIndex < 0)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("RemoveUVChannel: The StaticMesh doesn't have LOD %d."), LODIndex);
+		return false;
+	}
+
+	int32 NumUVChannels = StaticMesh->GetNumUVChannels(LODIndex);
+	if (NumUVChannels == 1)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("RemoveUVChannel: Cannot remove UV channel. There must be at least one channel."));
+		return false;
+	}
+
+	if (UVChannelIndex < 0 || UVChannelIndex >= NumUVChannels)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("RemoveUVChannel: Cannot remove UV channel. Given UV channel index %d is out of bounds."), UVChannelIndex);
+		return false;
+	}
+
+	return StaticMesh->RemoveUVChannel(LODIndex, UVChannelIndex);
+}
+
 #undef LOCTEXT_NAMESPACE
 

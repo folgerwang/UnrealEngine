@@ -3,45 +3,46 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AjaMediaCapture.h"
-#include "AjaMediaOutput.h"
 #include "Protocols/FrameGrabberProtocol.h"
 #include "UObject/StrongObjectPtr.h"
 
 #include "AjaMediaFrameGrabberProtocol.generated.h"
 
-struct AJAMEDIAOUTPUT_API FAjaFrameGrabberProtocol : public IMovieSceneCaptureProtocol
+class UAjaMediaCapture;
+class UAjaMediaOutput;
+
+UCLASS(meta=(DisplayName="AJA Output", CommandLineID="AJAOutput"))
+class AJAMEDIAOUTPUT_API UAjaFrameGrabberProtocol : public UMovieSceneImageCaptureProtocolBase
 {
 public:
-	FAjaFrameGrabberProtocol();
+	GENERATED_BODY()
 
-	/** ~FFrameGrabberProtocol implementation */
-	virtual bool Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host) override;
-	virtual bool HasFinishedProcessing() const override;
-	virtual void Finalize() override;
-	virtual bool CanWriteToFile(const TCHAR* InFilename, bool bOverwriteExisting) const { return false; }
-	/** ~End FFrameGrabberProtocol implementation */
+	UAjaFrameGrabberProtocol(const FObjectInitializer& ObjInit);
 
-private:
-	TStrongObjectPtr<UAjaMediaCapture> MediaCapture;
-	TStrongObjectPtr<UAjaMediaOutput> MediaOutput;
-	bool bInitialized;
-};
+	/** ~UMovieSceneCaptureProtocolBase implementation */
+	virtual bool StartCaptureImpl() override;
+	virtual bool HasFinishedProcessingImpl() const override;
+	virtual void FinalizeImpl() override;
+	virtual bool CanWriteToFileImpl(const TCHAR* InFilename, bool bOverwriteExisting) const { return false; }
+	/** ~End UMovieSceneCaptureProtocolBase implementation */
 
-/**
- * Protocol to use with the FrameGrabber 
- */
-UCLASS()
-class AJAMEDIAOUTPUT_API UAjaFrameGrabberProtocolSettings : public UFrameGrabberProtocolSettings
-{
 public:
-	GENERATED_UCLASS_BODY()
 
 	/** Aja Setting to use for the FrameGrabberProtocol */
-	UPROPERTY(EditAnywhere, Category=AJA)
-	UAjaMediaOutput* MediaOutput;
+	UPROPERTY(config, BlueprintReadWrite, EditAnywhere, Category=AJA, meta=(AllowedClasses=AjaMediaOutput))
+	FSoftObjectPath MediaOutput;
 
 	/** States unused options for AJAFrameGrabberProtocolSettings */
 	UPROPERTY(VisibleAnywhere, Transient, Category=AJA)
 	FString Information;
+
+private:
+
+	/** Transient media output pointer to keep the media output alive while this protocol is in use */
+	UPROPERTY(Transient)
+	UAjaMediaOutput* TransientMediaOutputPtr;
+
+	/** Transient media capture pointer that will capture the viewport */
+	UPROPERTY(Transient)
+	UAjaMediaCapture* TransientMediaCapturePtr;
 };

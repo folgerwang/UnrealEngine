@@ -226,5 +226,45 @@ public:
 	/** Sets StaticMeshFlag bAllowCPUAccess  */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh")
 	static void SetAllowCPUAccess(UStaticMesh* StaticMesh, bool bAllowCPUAccess);
+
+public:
+
+	/**
+	 * Returns the number of UV channels for the given LOD of a StaticMesh.
+	 * @param	StaticMesh			Static mesh to query.
+	 * @param	LODIndex			Index of the StaticMesh LOD.
+	 * @return the number of UV channels.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh")
+	static int32 GetNumUVChannels(UStaticMesh* StaticMesh, int32 LODIndex);
+
+	/**
+	 * Adds an empty UV channel at the end of the existing channels on the given LOD of a StaticMesh.
+	 * @param	StaticMesh			Static mesh on which to add a UV channel.
+	 * @param	LODIndex			Index of the StaticMesh LOD.
+	 * @return true if a UV channel was added.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh")
+	static bool AddUVChannel(UStaticMesh* StaticMesh, int32 LODIndex);
+
+	/**
+	 * Inserts an empty UV channel at the specified channel index on the given LOD of a StaticMesh.
+	 * @param	StaticMesh			Static mesh on which to insert a UV channel.
+	 * @param	LODIndex			Index of the StaticMesh LOD.
+	 * @param	UVChannelIndex		Index where to insert the UV channel.
+	 * @return true if a UV channel was added.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh")
+	static bool InsertUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex);
+
+	/**
+	 * Removes the UV channel at the specified channel index on the given LOD of a StaticMesh.
+	 * @param	StaticMesh			Static mesh on which to remove the UV channel.
+	 * @param	LODIndex			Index of the StaticMesh LOD.
+	 * @param	UVChannelIndex		Index where to remove the UV channel.
+	 * @return true if the UV channel was removed.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh")
+	static bool RemoveUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex);
 };
 

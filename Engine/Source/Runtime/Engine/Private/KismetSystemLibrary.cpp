@@ -2,6 +2,7 @@
 
 #include "Kismet/KismetSystemLibrary.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/FileManager.h"
 #include "GenericPlatform/GenericApplication.h"
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
@@ -105,6 +106,23 @@ FString UKismetSystemLibrary::GetProjectContentDirectory()
 FString UKismetSystemLibrary::GetProjectSavedDirectory()
 {
 	return FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir());
+}
+
+FString UKismetSystemLibrary::ConvertToRelativePath(const FString& InPath)
+{
+	return IFileManager::Get().ConvertToRelativePath(*InPath);
+}
+
+FString UKismetSystemLibrary::ConvertToAbsolutePath(const FString& Filename)
+{
+	return FPaths::ConvertRelativePathToFull(Filename);
+}
+
+FString UKismetSystemLibrary::NormalizeFilename(const FString& InPath)
+{
+	FString Normalized(InPath);
+	FPaths::NormalizeFilename(Normalized);
+	return Normalized;
 }
 
 FString UKismetSystemLibrary::GetGameBundleId()

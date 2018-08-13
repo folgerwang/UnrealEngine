@@ -6,6 +6,7 @@
 #include "Misc/FrameNumber.h"
 #include "Misc/FrameTime.h"
 #include "Misc/FrameRate.h"
+#include "Misc/Optional.h"
 #include "MovieSceneChannelEditorData.h"
 
 enum class EMovieSceneKeyInterpolation : uint8;
@@ -71,9 +72,10 @@ namespace MovieScene
 	 * @param InChannel     The channel the value is contained within
 	 * @param InKeyHandle   The handle of the key to assign to
 	 * @param InValue       The new value
+	 * @return If the value was successfully assigned. Will return false if the key handle doesn't belong to that channel.
 	 */
 	template<typename ChannelType, typename ValueType>
-	void AssignValue(ChannelType* InChannel, FKeyHandle InKeyHandle, ValueType&& InValue)
+	bool AssignValue(ChannelType* InChannel, FKeyHandle InKeyHandle, ValueType&& InValue)
 	{
 		auto ChannelData = InChannel->GetData();
 		int32 ValueIndex = ChannelData.GetIndex(InKeyHandle);
@@ -81,7 +83,27 @@ namespace MovieScene
 		if (ValueIndex != INDEX_NONE)
 		{
 			ChannelData.GetValues()[ValueIndex] = Forward<ValueType>(InValue);
+			return true;
 		}
+
+		// The key handle doesn't belong to this channel if it can't be found in the channel data, so report failure.
+		return false;
+	}
+
+	template<typename ChannelType, typename ValueType>
+	bool GetKeyValue(ChannelType* InChannel, FKeyHandle InKeyHandle, ValueType& OutValue)
+	{
+		auto ChannelData = InChannel->GetData();
+		int32 ValueIndex = ChannelData.GetIndex(InKeyHandle);
+		
+		if (ValueIndex != INDEX_NONE)
+		{
+			OutValue = ChannelData.GetValues()[ValueIndex];
+			return true;
+		}
+
+		// The key handle doesn't belong to this channel if it can't be found in the channel data, so report failure.
+		return false;
 	}
 
 	/**
@@ -143,6 +165,43 @@ namespace MovieScene
 	template<typename ChannelType, typename ValueType>
 	typename TEnableIf<!TMovieSceneChannelTraits<ChannelType>::SupportsDefaults>::Type SetChannelDefault(ChannelType* Channel, ValueType&& DefaultValue)
 	{}
+
+	/**
+	* Removes a channel's default value
+	*
+	* @param InChannel      The channel to remove the default from.
+	*/
+	template<typename ChannelType>
+	typename TEnableIf<TMovieSceneChannelTraits<ChannelType>::SupportsDefaults>::Type RemoveChannelDefault(ChannelType* Channel)
+	{
+		Channel->RemoveDefault();
+	}
+	template<typename ChannelType>
+	typename TEnableIf<!TMovieSceneChannelTraits<ChannelType>::SupportsDefaults>::Type RemoveChannelDefault(ChannelType* Channel)
+	{}
+
+	/**
+	* Gets the default value for the channel if set 
+	*
+	* @param InChannel      The channel to set the default on
+	* @return	If there is a default value or not.
+	*/
+	template<typename ChannelType, typename ValueType>
+	typename TEnableIf<TMovieSceneChannelTraits<ChannelType>::SupportsDefaults, bool>::Type GetChannelDefault(ChannelType* Channel, ValueType& OutDefaultValue)
+	{
+		if (Channel->GetDefault().IsSet())
+		{
+			OutDefaultValue = Channel->GetDefault().GetValue();
+			return true;
+		}
+		return false;
+	}
+
+	template<typename ChannelType, typename ValueType>
+	typename TEnableIf<!TMovieSceneChannelTraits<ChannelType>::SupportsDefaults, bool>::Type GetChannelDefault(ChannelType* Channel, ValueType& OutDefaultValue)
+	{
+		return false;
+	}
 
 	/**
 	 * Optimize the specified channel by removing any redundant keys

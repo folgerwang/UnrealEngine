@@ -203,6 +203,10 @@
 #include "EditorBuildUtils.h"
 #include "MaterialStatsCommon.h"
 
+#include "Bookmarks/IBookmarkTypeTools.h"
+#include "Bookmarks/BookMarkTypeActions.h"
+#include "Bookmarks/BookMark2DTypeActions.h"
+
 DEFINE_LOG_CATEGORY_STATIC(LogEditor, Log, All);
 
 #define LOCTEXT_NAMESPACE "UnrealEd.Editor"
@@ -670,6 +674,10 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 	IHotReloadModule& HotReloadModule = IHotReloadModule::Get();
 	HotReloadModule.OnModuleCompilerStarted ().AddUObject(this, &UEditorEngine::OnModuleCompileStarted);
 	HotReloadModule.OnModuleCompilerFinished().AddUObject(this, &UEditorEngine::OnModuleCompileFinished);
+
+	IBookmarkTypeTools& BookmarkTools = IBookmarkTypeTools::Get();
+	BookmarkTools.RegisterBookmarkTypeActions(MakeShared<FBookMark2DTypeActions>());
+	BookmarkTools.RegisterBookmarkTypeActions(MakeShared<FBookMarkTypeActions>());
 }
 
 bool UEditorEngine::HandleOpenAsset(UObject* Asset)
@@ -986,7 +994,8 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 			TEXT("LocalizationDashboard"),
 			TEXT("MergeActors"),
 			TEXT("InputBindingEditor"),
-			TEXT("AudioEditor")
+			TEXT("AudioEditor"),
+			TEXT("TimeManagementEditor")
 		};
 
 		FScopedSlowTask ModuleSlowTask(ARRAY_COUNT(ModuleNames));

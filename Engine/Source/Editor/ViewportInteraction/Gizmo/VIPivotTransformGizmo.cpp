@@ -43,6 +43,7 @@ APivotTransformGizmo::APivotTransformGizmo() :
 	{
 		return;
 	}
+	bIsEditorOnlyActor = true;
 
 	const UViewportInteractionAssetContainer& AssetContainer = UViewportWorldInteraction::LoadAssetContainer(); 
 	UMaterialInterface* GizmoMaterial = AssetContainer.TransformGizmoMaterial;

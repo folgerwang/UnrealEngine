@@ -108,6 +108,11 @@ void FMovieSceneVisibilitySectionRecorder::FinalizeSection(float CurrentTime)
 
 void FMovieSceneVisibilitySectionRecorder::Record(float CurrentTime)
 {
+	if (!MovieSceneSection.IsValid())
+	{
+		return;
+	}
+
 	if(ObjectToRecord.IsValid())
 	{
 		FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();

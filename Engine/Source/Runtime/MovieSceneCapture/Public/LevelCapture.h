@@ -27,7 +27,7 @@ public:
 	void SetPrerequisiteActor(AActor* Prereq);
 
 	virtual void Initialize(TSharedPtr<FSceneViewport> InViewport, int32 PIEInstance = -1) override;
-	virtual void Tick(float DeltaSeconds) override;
+	virtual void OnTick(float DeltaSeconds) override;
 	
 private:
 

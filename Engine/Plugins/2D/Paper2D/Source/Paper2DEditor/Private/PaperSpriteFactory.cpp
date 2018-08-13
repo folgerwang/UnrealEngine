@@ -56,7 +56,7 @@ UObject* UPaperSpriteFactory::FactoryCreateNew(UClass* Class, UObject* InParent,
 	if (InitialTexture != nullptr)
 	{
 		// Look for an associated normal map to go along with the base map
-		const FString SanitizedBasePackageName = PackageTools::SanitizePackageName(InitialTexture->GetOutermost()->GetName());
+		const FString SanitizedBasePackageName = UPackageTools::SanitizePackageName(InitialTexture->GetOutermost()->GetName());
 		const FString PackagePath = FPackageName::GetLongPackagePath(SanitizedBasePackageName);
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 

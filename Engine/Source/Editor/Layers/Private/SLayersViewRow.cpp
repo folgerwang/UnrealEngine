@@ -17,7 +17,7 @@ void SLayersViewRow::Construct(const FArguments& InArgs, TSharedRef< FLayerViewM
 
 	HighlightText = InArgs._HighlightText;
 
-	SMultiColumnTableRow< TSharedPtr< FLayerViewModel > >::Construct(FSuperRowType::FArguments(), InOwnerTableView);
+	SMultiColumnTableRow< TSharedPtr< FLayerViewModel > >::Construct(FSuperRowType::FArguments().OnDragDetected(InArgs._OnDragDetected), InOwnerTableView);
 }
 
 SLayersViewRow::~SLayersViewRow()

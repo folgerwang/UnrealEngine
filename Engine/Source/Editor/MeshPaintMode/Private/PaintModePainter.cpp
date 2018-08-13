@@ -2054,7 +2054,7 @@ void FPaintModePainter::SavePaintedAssets()
 
 	if (ObjectsToSave.Num() > 0)
 	{
-		PackageTools::SavePackagesForObjects(ObjectsToSave);
+		UPackageTools::SavePackagesForObjects(ObjectsToSave);
 	}
 }
 
@@ -2066,7 +2066,7 @@ void FPaintModePainter::SaveModifiedTextures()
 	{
 		TArray<UObject*> TexturesToSaveArray;
 		TexturesToSaveArray.Add(SelectedTexture);
-		PackageTools::SavePackagesForObjects(TexturesToSaveArray);
+		UPackageTools::SavePackagesForObjects(TexturesToSaveArray);
 	}
 }
 

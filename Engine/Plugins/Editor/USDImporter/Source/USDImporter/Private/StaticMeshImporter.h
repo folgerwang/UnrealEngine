@@ -11,6 +11,4 @@ class FUSDStaticMeshImporter
 {
 public:
 	static UStaticMesh* ImportStaticMesh(FUsdImportContext& ImportContext, const FUsdAssetPrimToImport& PrimToImport);
-private:
-	static bool IsTriangleMesh(const FUsdGeomData* GeomData);
 };

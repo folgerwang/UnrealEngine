@@ -24,7 +24,7 @@ class UExporter : public UObject
 	GENERATED_UCLASS_BODY()
 
 	/** Supported class of this exporter */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	TSubclassOf<class UObject>  SupportedClass;
 
 	/**
@@ -35,11 +35,11 @@ class UExporter : public UObject
 	class UObject* ExportRootScope;    // transient
 
 	/** File extension to use for this exporter */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	TArray<FString> FormatExtension;
 
 	/** Descriptiong of the export format */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	TArray<FString> FormatDescription;
 
 	/** Index into FormatExtension/FormatDescription of the preferred export format. */
@@ -51,7 +51,7 @@ class UExporter : public UObject
 	int32 TextIndent;
 
 	/** If true, this will export the data as text */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	uint32 bText:1;
 
 	/** If true, this will export only the selected objects */
@@ -62,7 +62,7 @@ class UExporter : public UObject
 	UPROPERTY()
 	uint32 bForceFileOperations:1;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	class UAssetExportTask* ExportTask;
 
 	ENGINE_API static		FString	CurrentFilename;
@@ -260,6 +260,16 @@ class UExporter : public UObject
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Miscellaneous")
 	static ENGINE_API bool RunAssetExportTask( class UAssetExportTask* Task );
+
+	/**
+	* Export the given object to file.  Overridden by script based exporters.
+	*
+	* @param	Task		The task to export.
+	*
+	* @return	true if overridden by script exporter.
+	*/
+	UFUNCTION(BlueprintImplementableEvent, Category = "Miscellaneous")
+	bool ScriptRunAssetExportTask( class UAssetExportTask* Task );
 
 	/**
 	 * Export the given objects to files.  Child classes do not override this, but they do provide an Export() function

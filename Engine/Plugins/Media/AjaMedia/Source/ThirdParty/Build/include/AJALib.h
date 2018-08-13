@@ -34,7 +34,7 @@ namespace AJA
 	{
 		PF_8BIT_YCBCR,	// As Input
 		PF_8BIT_ARGB,	// As Input/Output
-		PF_10BIT_RGB,	// As Output
+		PF_10BIT_RGB,	// As Input/Output
 	};
 
 	/*
@@ -77,11 +77,27 @@ namespace AJA
 
 	/* AJADeviceScanner definition
 	*****************************************************************************/
-	class  AJA_API AJADeviceScanner
+	class AJA_API AJADeviceScanner
 	{
 	public:
 		const static int32_t FormatedTextSize = 64;
 		using FormatedTextType = TCHAR[FormatedTextSize];
+
+		struct AJA_API DeviceInfo
+		{
+			bool bIsSupported;
+			bool bCanDoCapture;
+			bool bCanDoPlayback;
+			bool bCanFrameStore1DoPlayback;
+			bool bCanDo2K;
+			bool bCanDo4K;
+			bool bCanDoMultiFormat;
+			bool bCanDoAlpha;
+			bool bCanDoCustomAnc;
+			bool bSupportPixelFormat8bitYCBCR;
+			bool bSupportPixelFormat8bitARGB;
+			bool bSupportPixelFormat10bitRGB;
+		};
 
 		AJADeviceScanner();
 		~AJADeviceScanner();
@@ -92,6 +108,7 @@ namespace AJA
 		int32_t GetNumDevices() const;
 		bool GetDeviceTextId(int32_t InDeviceIndex, FormatedTextType& OutTextId) const;
 		bool GetNumberVideoChannels(int32_t InDeviceIndex, int32_t& OutInput, int32_t& OutOutput) const;
+		bool GetDeviceInfo(int32_t InDeviceIndex, DeviceInfo& OutDeviceInfo) const;
 
 	private:
 		Private::DeviceScanner* Scanner;
@@ -270,6 +287,7 @@ namespace AJA
 		uint32_t ChannelIndex; // [1...x]
 		uint32_t SynchronizeChannelIndex; // [1...x]
 		uint32_t OutputKeyChannelIndex; // [1...x] for output
+		uint32_t OutputNumberOfBuffers; // [1...x] supported but not suggested (min of 2 is suggested)
 		FAJAVideoFormat VideoFormatIndex;
 		EPixelFormat PixelFormat;
 		ETimecodeFormat TimecodeFormat;
@@ -282,9 +300,8 @@ namespace AJA
 				uint32_t bUseAutoCirculating : 1;
 				uint32_t bOutput : 1; // port is output
 				uint32_t bOutputKey : 1; // output will also sent the key on OutputKeyPortIndex
-				uint32_t bOutputFreeRun : 1; // output as fast as the card & game can do
+				uint32_t bOutputInterlacedFieldsTimecodeNeedToMatch : 1; // when trying to find the odd field that correspond to the even field, the 2 timecode need to match
 				uint32_t bUseAncillary : 1; // enable ANC system
-				uint32_t bUseAncillaryField2 : 1; // enable ANC Field 2 system
 				uint32_t bUseAudio : 1; // enable audio input/output
 				uint32_t bUseVideo : 1; // enable video input/output
 			};
@@ -314,6 +331,18 @@ namespace AJA
 		Private::InputChannel* Channel;
 	};
 
+	/* AJAOutputFrameBufferData definition
+	*****************************************************************************/
+	struct AJA_API AJAOutputFrameBufferData
+	{
+		AJAOutputFrameBufferData();
+
+		static const uint32_t InvalidFrameIdentifier;
+
+		FTimecode Timecode;
+		uint32_t FrameIdentifier;
+	};
+
 	/* AJAOutputChannel definition
 	*****************************************************************************/
 	class AJA_API AJAOutputChannel
@@ -329,8 +358,10 @@ namespace AJA
 		bool Initialize(const AJADeviceOptions& InDevice, const AJAInputOutputChannelOptions& Options);
 		void Uninitialize();
 
-		// Set a new video buffer that will be copied to the AJA.
-		bool SetVideoBuffer(const FTimecode& InTimecode, const uint8_t* InVideoBuffer, uint32_t InVideoBufferSize);
+		// Set a new buffer that will be copied to the AJA.
+		bool SetAncillaryFrameData(const AJAOutputFrameBufferData& InFrameData, uint8_t* AncillaryBuffer, uint32_t AncillaryBufferSize);
+		bool SetAudioFrameData(const AJAOutputFrameBufferData& InFrameData, uint8_t* AudioBuffer, uint32_t AudioBufferSize);
+		bool SetVideoFrameData(const AJAOutputFrameBufferData& InFrameData, uint8_t* VideoBuffer, uint32_t VideoBufferSize);
 
 		bool GetOutputDimension(uint32_t& OutWidth, uint32_t& OutHeight) const;
 

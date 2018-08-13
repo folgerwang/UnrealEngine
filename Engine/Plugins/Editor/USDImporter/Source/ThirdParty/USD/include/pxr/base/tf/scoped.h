@@ -26,9 +26,7 @@
 
 #include "pxr/pxr.h"
 
-#include <boost/bind.hpp>
-#include <boost/function.hpp>
-#include <boost/utility.hpp>
+#include <functional>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -49,8 +47,10 @@ PXR_NAMESPACE_OPEN_SCOPE
 ///     }
 /// \endcode
 ///
-template <typename T = boost::function<void ()> >
-class TfScoped : boost::noncopyable {
+template <typename T = std::function<void ()> >
+class TfScoped {
+    TfScoped(TfScoped const &) = delete;
+    TfScoped &operator=(TfScoped const &) = delete;
 public:
     /// The type of the function executed on destruction.
     typedef T Procedure;
@@ -61,7 +61,7 @@ public:
     ~TfScoped() { _onExit(); }
 
 private:
-    // Can't put these on the heap.  No implemention needed.
+    // Can't put these on the heap.  No implementation needed.
     static void *operator new(::std::size_t size);
 
 private:
@@ -70,7 +70,9 @@ private:
 
 // Specialization of TfScoped for member functions.
 template <typename T>
-class TfScoped<void (T::*)()> : boost::noncopyable {
+class TfScoped<void (T::*)()> {
+    TfScoped(TfScoped const &) = delete;
+    TfScoped &operator=(TfScoped const &) = delete;
 public:
     /// The type of the function executed on destruction.
     typedef void (T::*Procedure)();
@@ -82,7 +84,7 @@ public:
     ~TfScoped() { (_obj->*_onExit)(); }
 
 private:
-    // Can't put these on the heap.  No implemention needed.
+    // Can't put these on the heap.  No implementation needed.
     static void *operator new(::std::size_t size);
 
 private:
@@ -92,7 +94,9 @@ private:
 
 // Specialization of TfScoped for functions taking one pointer argument.
 template <typename T>
-class TfScoped<void (*)(T*)> : boost::noncopyable {
+class TfScoped<void (*)(T*)> {
+    TfScoped(TfScoped const &) = delete;
+    TfScoped &operator=(TfScoped const &) = delete;
 public:
     /// The type of the function executed on destruction.
     typedef void (*Procedure)(T*);
@@ -104,7 +108,7 @@ public:
     ~TfScoped() { _onExit(_obj); }
 
 private:
-    // Can't put these on the heap.  No implemention needed.
+    // Can't put these on the heap.  No implementation needed.
     static void *operator new(::std::size_t size);
 
 private:
@@ -126,7 +130,9 @@ private:
 ///     }
 /// \endcode
 template <typename T>
-class TfScopedVar : boost::noncopyable {
+class TfScopedVar {
+    TfScopedVar(TfScopedVar const &) = delete;
+    TfScopedVar &operator=(TfScopedVar const &) = delete;
 public:
     /// Set/reset variable
     ///
@@ -142,7 +148,7 @@ public:
     ~TfScopedVar() { *_x = _old; }
 
 private:
-    // Can't put these on the heap.  No implemention needed.
+    // Can't put these on the heap.  No implementation needed.
     static void *operator new(::std::size_t size);
 
 private:
@@ -171,7 +177,9 @@ private:
 /// TfScopedVar instead.
 ///
 /// \see TfScopedVar
-class TfScopedAutoVar : boost::noncopyable {
+class TfScopedAutoVar {
+    TfScopedAutoVar(TfScopedAutoVar const &) = delete;
+    TfScopedAutoVar &operator=(TfScopedAutoVar const &) = delete;
 public:
     /// Set/reset variable
     ///
@@ -179,7 +187,7 @@ public:
     /// goes out of scope.
     template <typename T>
     explicit TfScopedAutoVar(T& x, const T& val) :
-        _scope(boost::bind(&TfScopedAutoVar::_Set<T>, &x, x))
+        _scope(std::bind(&TfScopedAutoVar::_Set<T>, &x, x))
     {
         x = val;
     }
@@ -192,7 +200,7 @@ private:
         *x = val;
     }
 
-    // Can't put these on the heap.  No implemention needed.
+    // Can't put these on the heap.  No implementation needed.
     static void *operator new(::std::size_t size);
 
 private:

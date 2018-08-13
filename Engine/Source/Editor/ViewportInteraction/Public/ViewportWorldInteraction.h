@@ -44,7 +44,6 @@ class VIEWPORTINTERACTION_API UViewportWorldInteraction : public UEditorWorldExt
 public:
 
 	UViewportWorldInteraction();
-
 	// UEditorExtension overrides
 	virtual void Init() override;
 	virtual void Shutdown() override;
@@ -340,6 +339,9 @@ public:
 	bool IsInVR() const;
 
 	FVector SnapLocation(const bool bLocalSpaceSnapping, const FVector& DesiredGizmoLocation, const FTransform &GizmoStartTransform, const FVector SnapGridBase, const bool bShouldConstrainMovement, const FVector AlignAxes);
+
+	/** Forces the VWI to fall back to standard desktop interactions */
+	void UseLegacyInteractions();
 
 protected:
 

@@ -66,7 +66,7 @@ private:
 	void RecursivelyProcess(const FRenderingCompositeOutputRef& InOutputRef, FRenderingCompositePassContext& Context) const;
 
 	/** Write the contents of the specified output to a file */
-	TFuture<void> DumpOutputToFile(FRenderingCompositePassContext& Context, const FString& Filename, FRenderingCompositeOutput* Output) const;
+	TFuture<bool> DumpOutputToFile(FRenderingCompositePassContext& Context, const FString& Filename, FRenderingCompositeOutput* Output) const;
 
 	/**
 	 * for debugging purpose O(n)

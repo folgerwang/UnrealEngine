@@ -428,6 +428,9 @@ private:
 	/** Controls how fast Spinboxes change values. */
 	double GetSpinboxDelta() const;
 
+	bool GetIsSequenceReadOnly() const;
+	void OnSetSequenceReadOnly(ECheckBoxState CheckBoxState);
+
 public:
 	/** On Paste Command */
 	void OnPaste();

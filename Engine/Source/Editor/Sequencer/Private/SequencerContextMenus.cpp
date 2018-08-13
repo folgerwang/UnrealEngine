@@ -447,10 +447,12 @@ void FSectionContextMenu::AddEditMenu(FMenuBuilder& MenuBuilder)
 	);
 
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("SyncToSourceTimecode", "Sync to Source Timecode"),
-		LOCTEXT("SyncToSourceTimecodeTooltip", "Sync section start time to source timecode"),
+		LOCTEXT("SyncSectionsUsingSourceTimecode", "Synchronize Selected Sections using Source Timecode"),
+		LOCTEXT("SyncSectionsUsingSourceTimecodeTooltip", "Sync selected sections using the source timecode.  The first selected section will be unchanged and subsequent sections will be adjusted according to their source timecode as relative to the first section's."),
 		FSlateIcon(),
-		FUIAction(FExecuteAction::CreateLambda([=] { return Shared->Sequencer->SyncToSourceTimecode(); }))
+		FUIAction(
+			FExecuteAction::CreateLambda([=] { return Shared->Sequencer->SyncSectionsUsingSourceTimecode(); }),
+			FCanExecuteAction::CreateLambda([=]{ return (Shared->Sequencer->GetSelection().GetSelectedSections().Num() > 1); }))
 	);
 }
 

@@ -6,115 +6,89 @@
 #include "Misc/FileHelper.h"
 #include "HAL/RunnableThread.h"
 #include "Misc/ScopeLock.h"
+#include "Misc/FeedbackContext.h"
+#include "Misc/ScopedSlowTask.h"
 #include "Modules/ModuleManager.h"
 #include "Async/Future.h"
 #include "Async/Async.h"
 #include "Templates/Casts.h"
 #include "MovieSceneCaptureSettings.h"
-
-
-void UBmpImageCaptureSettings::OnReleaseConfig(FMovieSceneCaptureSettings& InSettings)
-{
-	// Remove .{frame} if it exists. The "." before the {frame} is intentional because some media players denote frame numbers separated by "."
-	InSettings.OutputFormat = InSettings.OutputFormat.Replace(TEXT(".{frame}"), TEXT(""));
-
-	Super::OnReleaseConfig(InSettings);
-}
-
-void UBmpImageCaptureSettings::OnLoadConfig(FMovieSceneCaptureSettings& InSettings)
-{
-	// Add .{frame} if it doesn't already exist
-	FString OutputFormat = InSettings.OutputFormat;
-
-	if (!OutputFormat.Contains(TEXT("{frame}")))
-	{
-		OutputFormat.Append(TEXT(".{frame}"));
-
-		InSettings.OutputFormat = OutputFormat;
-	}
-
-	Super::OnLoadConfig(InSettings);
-}
-
-void UImageCaptureSettings::OnReleaseConfig(FMovieSceneCaptureSettings& InSettings)
-{
-	// Remove .{frame} if it exists. The "." before the {frame} is intentional because some media players denote frame numbers separated by "."
-	InSettings.OutputFormat = InSettings.OutputFormat.Replace(TEXT(".{frame}"), TEXT(""));
-
-	Super::OnReleaseConfig(InSettings);
-}
-
-void UImageCaptureSettings::OnLoadConfig(FMovieSceneCaptureSettings& InSettings)
-{
-	// Add .{frame} if it doesn't already exist
-	FString OutputFormat = InSettings.OutputFormat;
-
-	if (!OutputFormat.Contains(TEXT("{frame}")))
-	{
-		OutputFormat.Append(TEXT(".{frame}"));
-
-		InSettings.OutputFormat = OutputFormat;
-	}
-
-	Super::OnLoadConfig(InSettings);
-}
-
-#if WITH_EDITOR
-
-#include "IImageWrapperModule.h"
-
-namespace
-{
-	static const int32 MaxAsyncWrites = 6;
-}
+#include "ImageWriteQueue.h"
 
 struct FImageFrameData : IFramePayload
 {
 	FString Filename;
 };
 
-FImageSequenceProtocol::FImageSequenceProtocol(EImageFormat InFormat)
+UImageSequenceProtocol::UImageSequenceProtocol(const FObjectInitializer& ObjInit)
+	: Super(ObjInit)
 {
-	Format = InFormat;
-	CompressionQuality = 100;
+	Format = EImageFormat::BMP;
+	ImageWriteQueue = nullptr;
 }
 
-bool FImageSequenceProtocol::Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host)
+void UImageSequenceProtocol::OnLoadConfigImpl(FMovieSceneCaptureSettings& InSettings)
 {
-	if (!FFrameGrabberProtocol::Initialize(InSettings, Host))
+	// Add .{frame} if it doesn't already exist
+	FString OutputFormat = InSettings.OutputFormat;
+
+	if (!OutputFormat.Contains(TEXT("{frame}")))
 	{
-		return false;
+		OutputFormat.Append(TEXT(".{frame}"));
+
+		InSettings.OutputFormat = OutputFormat;
 	}
 
-	UImageCaptureSettings* CaptureSettings = Cast<UImageCaptureSettings>(InSettings.ProtocolSettings);
-	if (CaptureSettings)
-	{
-		CompressionQuality = CaptureSettings->CompressionQuality;
-		
-		FParse::Value( FCommandLine::Get(), TEXT( "-MovieQuality=" ), CompressionQuality );
+	Super::OnLoadConfigImpl(InSettings);
+}
 
-		CompressionQuality = FMath::Clamp<int32>(CompressionQuality, 1, 100);
+void UImageSequenceProtocol::OnReleaseConfigImpl(FMovieSceneCaptureSettings& InSettings)
+{
+	// Remove .{frame} if it exists. The "." before the {frame} is intentional because some media players denote frame numbers separated by "."
+	InSettings.OutputFormat = InSettings.OutputFormat.Replace(TEXT(".{frame}"), TEXT(""));
+
+	Super::OnReleaseConfigImpl(InSettings);
+}
+
+bool UImageSequenceProtocol::SetupImpl()
+{
+	ImageWriteQueue = &FModuleManager::Get().LoadModuleChecked<IImageWriteQueueModule>("ImageWriteQueue").GetWriteQueue();
+	FinalizeFence = TFuture<void>();
+
+	return Super::SetupImpl();
+}
+
+bool UImageSequenceProtocol::HasFinishedProcessingImpl() const
+{
+	return Super::HasFinishedProcessingImpl() && (!FinalizeFence.IsValid() || FinalizeFence.WaitFor(0));
+}
+
+void UImageSequenceProtocol::BeginFinalizeImpl()
+{
+	FinalizeFence = ImageWriteQueue->CreateFence();
+}
+
+void UImageSequenceProtocol::FinalizeImpl()
+{
+	if (FinalizeFence.IsValid())
+	{
+		double StartTime = FPlatformTime::Seconds();
+
+		FScopedSlowTask SlowTask(0, NSLOCTEXT("ImageSequenceProtocol", "Finalizing", "Finalizing write operations..."));
+		SlowTask.MakeDialogDelayed(.1f, true, true);
+
+		FTimespan HalfSecond = FTimespan::FromSeconds(0.5);
+		while ( !GWarn->ReceivedUserCancel() && !FinalizeFence.WaitFor(HalfSecond) )
+		{
+			// Tick the slow task
+			SlowTask.EnterProgressFrame(0);
+		}
 	}
 
-	CaptureThread.Reset(new FImageCaptureThread(Format, CompressionQuality));
-	
-	return true;
+	Super::FinalizeImpl();
 }
 
-bool FImageSequenceProtocol::HasFinishedProcessing() const
-{
-	return FFrameGrabberProtocol::HasFinishedProcessing() && CaptureThread->GetNumOutstandingFrames() == 0;
-}
-
-void FImageSequenceProtocol::Finalize()
-{
-	CaptureThread->Close();
-	CaptureThread.Reset();
-
-	FFrameGrabberProtocol::Finalize();
-}
-
-FFramePayloadPtr FImageSequenceProtocol::GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host)
+FFramePayloadPtr UImageSequenceProtocol::GetFramePayload(const FFrameMetrics& FrameMetrics)
 {
 	TSharedRef<FImageFrameData, ESPMode::ThreadSafe> FrameData = MakeShareable(new FImageFrameData);
 
@@ -124,10 +98,11 @@ FFramePayloadPtr FImageSequenceProtocol::GetFramePayload(const FFrameMetrics& Fr
 	case EImageFormat::BMP:		Extension = TEXT(".bmp"); break;
 	case EImageFormat::PNG:		Extension = TEXT(".png"); break;
 	case EImageFormat::JPEG:	Extension = TEXT(".jpg"); break;
+	case EImageFormat::EXR:		Extension = TEXT(".exr"); break;
 	}
 
-	FrameData->Filename = Host.GenerateFilename(FrameMetrics, Extension);
-	Host.EnsureFileWritable(FrameData->Filename);
+	FrameData->Filename = GenerateFilenameImpl(FrameMetrics, Extension);
+	EnsureFileWritableImpl(FrameData->Filename);
 
 	// Add our custom formatting rules as well
 	// @todo: document these on the tooltip?
@@ -136,181 +111,124 @@ FFramePayloadPtr FImageSequenceProtocol::GetFramePayload(const FFrameMetrics& Fr
 	return FrameData;
 }
 
-void FImageSequenceProtocol::ProcessFrame(FCapturedFrameData Frame)
+void UImageSequenceProtocol::ProcessFrame(FCapturedFrameData Frame)
 {
-	CaptureThread->Add(MoveTemp(Frame));
+	check(Frame.ColorBuffer.Num() >= Frame.BufferSize.X * Frame.BufferSize.Y);
+
+	TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
+
+	// Move the color buffer into a raw image data container that we can pass to the write queue
+	ImageTask->PixelData = MakeUnique<TImagePixelData<FColor>>(Frame.BufferSize, MoveTemp(Frame.ColorBuffer));
+	if (Format == EImageFormat::PNG)
+	{
+		// Always write full alpha for PNGs
+		ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
+	}
+
+	switch (Format)
+	{
+	case EImageFormat::EXR:
+	case EImageFormat::PNG:
+	case EImageFormat::BMP:
+	case EImageFormat::JPEG:
+		ImageTask->Format = Format;
+		break;
+
+	default:
+		check(false);
+		break;
+	}
+
+	ImageTask->CompressionQuality = GetCompressionQuality();
+	ImageTask->Filename = Frame.GetPayload<FImageFrameData>()->Filename;
+
+	ImageWriteQueue->Enqueue(MoveTemp(ImageTask));
 }
 
-void FImageSequenceProtocol::AddFormatMappings(TMap<FString, FStringFormatArg>& FormatMappings) const
+void UImageSequenceProtocol::AddFormatMappingsImpl(TMap<FString, FStringFormatArg>& FormatMappings) const
 {
-	if (Format == EImageFormat::JPEG || Format == EImageFormat::PNG)
+	FormatMappings.Add(TEXT("quality"), TEXT(""));
+}
+
+bool UCompressedImageSequenceProtocol::SetupImpl()
+{
+	FParse::Value( FCommandLine::Get(), TEXT( "-MovieQuality=" ), CompressionQuality );
+	CompressionQuality = FMath::Clamp<int32>(CompressionQuality, 1, 100);
+
+	return Super::SetupImpl();
+}
+
+void UCompressedImageSequenceProtocol::AddFormatMappingsImpl(TMap<FString, FStringFormatArg>& FormatMappings) const
+{
+	FormatMappings.Add(TEXT("quality"), CompressionQuality);
+}
+
+UImageSequenceProtocol_EXR::UImageSequenceProtocol_EXR(const FObjectInitializer& ObjInit)
+	: Super(ObjInit)
+{
+	Format = EImageFormat::EXR;
+	bCompressed = false;
+	CaptureGamut = HCGM_Rec709;
+}
+
+bool UImageSequenceProtocol_EXR::SetupImpl()
+{
 	{
-		FormatMappings.Add(TEXT("quality"), CompressionQuality);
+		int32 OverrideCaptureGamut = (int32)CaptureGamut;
+		FParse::Value(FCommandLine::Get(), TEXT("-CaptureGamut="), OverrideCaptureGamut);
+		CaptureGamut = (EHDRCaptureGamut)OverrideCaptureGamut;
+	}
+
+	int32 HDRCompressionQuality = 0;
+	if ( FParse::Value( FCommandLine::Get(), TEXT( "-HDRCompressionQuality=" ), HDRCompressionQuality ) )
+	{
+		bCompressed = HDRCompressionQuality != (int32)EImageCompressionQuality::Uncompressed;
+	}
+
+	IConsoleVariable* CVarDumpGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.ColorGamut"));
+	IConsoleVariable* CVarDumpDevice = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.OutputDevice"));
+
+	RestoreColorGamut = CVarDumpGamut->GetInt();
+	RestoreOutputDevice = CVarDumpDevice->GetInt();
+
+	if (CaptureGamut == HCGM_Linear)
+	{
+		CVarDumpGamut->Set(1);
+		CVarDumpDevice->Set(7);
 	}
 	else
 	{
-		FormatMappings.Add(TEXT("quality"), TEXT(""));
+		CVarDumpGamut->Set(CaptureGamut);
 	}
+
+	return Super::SetupImpl();
 }
 
-
-FImageCaptureThread::FImageCaptureThread(EImageFormat InFormat, int32 InCompressionQuality)
+void UImageSequenceProtocol_EXR::FinalizeImpl()
 {
-	Format = InFormat;
-	CompressionQuality = InCompressionQuality;
+	Super::FinalizeImpl();
 
-	WorkToDoEvent = FPlatformProcess::GetSynchEventFromPool();
-	ThreadEmptyEvent = FPlatformProcess::GetSynchEventFromPool();
+	IConsoleVariable* CVarDumpGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.ColorGamut"));
+	IConsoleVariable* CVarDumpDevice = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.OutputDevice"));
 
-	CapturedFrames.Reserve(MaxAsyncWrites);
+	CVarDumpGamut->Set(RestoreColorGamut);
+	CVarDumpDevice->Set(RestoreOutputDevice);
+}
 
-	if (Format == EImageFormat::PNG || Format == EImageFormat::JPEG)
+void UImageSequenceProtocol_EXR::AddFormatMappingsImpl(TMap<FString, FStringFormatArg>& FormatMappings) const
+{
+	FormatMappings.Add(TEXT("quality"), bCompressed ? TEXT("Compressed") : TEXT("Uncompressed"));
+
+	const TCHAR* GamutString = TEXT("");
+	switch (CaptureGamut)
 	{
-		IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>( FName("ImageWrapper") );
-
-		for (int32 Index = 0; Index < MaxAsyncWrites; ++Index)
-		{
-			ImageWrappers.Add(ImageWrapperModule.CreateImageWrapper(Format));
-		}
+		case HCGM_Rec709:  GamutString = TEXT("sRGB"); break;
+		case HCGM_P3DCI:   GamutString = TEXT("P3D65"); break;
+		case HCGM_Rec2020: GamutString = TEXT("Rec2020"); break;
+		case HCGM_ACES:    GamutString = TEXT("ACES"); break;
+		case HCGM_ACEScg:  GamutString = TEXT("ACEScg"); break;
+		case HCGM_Linear:  GamutString = TEXT("Linear"); break;
+		default: check(false); break;
 	}
-
-	static int32 Index = 0;
-	Thread = FRunnableThread::Create(this, *FString::Printf(TEXT("ImageCaptureThread_%d"), ++Index));
+	FormatMappings.Add(TEXT("gamut"), GamutString);
 }
-
-FImageCaptureThread::~FImageCaptureThread()
-{
-	FPlatformProcess::ReturnSynchEventToPool(WorkToDoEvent);
-	FPlatformProcess::ReturnSynchEventToPool(ThreadEmptyEvent);
-}
-
-void FImageCaptureThread::Add(FCapturedFrameData Frame)
-{
-	bool bThreadIsChoked = false;
-	{
-		FScopeLock Lock(&CommandMutex);
-		CapturedFrames.Add(MoveTemp(Frame));
-
-		bThreadIsChoked = CapturedFrames.Num() > MaxAsyncWrites;
-	}
-
-	WorkToDoEvent->Trigger();
-
-	if (bThreadIsChoked)
-	{
-		ThreadEmptyEvent->Wait(~0);
-	}
-}
-
-uint32 FImageCaptureThread::GetNumOutstandingFrames() const
-{
-	FScopeLock Lock(&CommandMutex);
-	return CapturedFrames.Num();
-}
-
-void FImageCaptureThread::Close()
-{
-	Thread->Kill(true);
-}
-
-void FImageCaptureThread::Stop()
-{
-	bRunning = false;
-	WorkToDoEvent->Trigger();
-}
-
-uint32 FImageCaptureThread::Run()
-{
-	bRunning = true;
-
-	TArray<TFuture<void>> FrameFutures;
-	TArray<FCapturedFrameData> ProcessingFrames;
-
-	ProcessingFrames.Reserve(MaxAsyncWrites);
-	FrameFutures.Reserve(MaxAsyncWrites);
-
-	for(;;)
-	{
-		WorkToDoEvent->Wait(~0);
-		if (!bRunning)
-		{
-			ThreadEmptyEvent->Trigger();
-			return 0;
-		}
-
-		// process all outstanding frames, MaxAsyncWrites at a time
-		for (;;)
-		{
-			{
-				FScopeLock Lock(&CommandMutex);
-				for (int32 Index = 0; Index < MaxAsyncWrites && Index < CapturedFrames.Num(); ++Index)
-				{
-					ProcessingFrames.Add(MoveTemp(CapturedFrames[Index]));
-				}
-
-				if (ProcessingFrames.Num())
-				{
-					CapturedFrames.RemoveAt(0, ProcessingFrames.Num(), false);
-				}
-				else
-				{
-					break;
-				}
-			}
-
-			for (int32 FrameIndex = 0; FrameIndex < ProcessingFrames.Num(); ++FrameIndex)
-			{
-				FrameFutures.Add(Async<void>(EAsyncExecution::TaskGraph, [&, FrameIndex] {
-					TSharedPtr<IImageWrapper> ImageWrapper = ImageWrappers.Num() ? ImageWrappers[FrameIndex] : nullptr;
-					WriteFrameToDisk(ProcessingFrames[FrameIndex], ImageWrapper);
-				}));
-			}
-
-			for (TFuture<void>& Future : FrameFutures)
-			{
-				Future.Wait();
-			}
-
-			ProcessingFrames.Reset();
-			FrameFutures.Reset();
-		}
-
-		ThreadEmptyEvent->Trigger();
-	}
-
-	return 0;
-}
-
-void FImageCaptureThread::WriteFrameToDisk(FCapturedFrameData& Frame, TSharedPtr<IImageWrapper> ImageWrapper) const
-{
-	const float Width = Frame.BufferSize.X;
-	const float Height = Frame.BufferSize.Y;
-
-	FImageFrameData* Payload = Frame.GetPayload<FImageFrameData>();
-	switch (Format)
-	{
-	case EImageFormat::BMP:
-		FFileHelper::CreateBitmap(*Payload->Filename, Width, Height, Frame.ColorBuffer.GetData());
-		break;
-	case EImageFormat::PNG:
-		for (FColor& Color : Frame.ColorBuffer)
-		{
-			Color.A = 255;
-		}
-
-		if (ImageWrapper->SetRaw(Frame.ColorBuffer.GetData(), Frame.ColorBuffer.Num() * sizeof(FColor), Width, Height, ERGBFormat::BGRA, 8))
-		{
-			FFileHelper::SaveArrayToFile(ImageWrapper->GetCompressed(CompressionQuality), *Payload->Filename);
-		}
-		break;
-
-	case EImageFormat::JPEG:
-		if (ImageWrapper->SetRaw(Frame.ColorBuffer.GetData(), Frame.ColorBuffer.Num() * sizeof(FColor), Width, Height, ERGBFormat::BGRA, 8))
-		{
-			FFileHelper::SaveArrayToFile(ImageWrapper->GetCompressed(CompressionQuality), *Payload->Filename);
-		}
-		break;
-	}
-}
-
-#endif

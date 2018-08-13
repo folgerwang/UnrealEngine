@@ -34,11 +34,11 @@ public:
 	virtual void EnableVREditor( const bool bEnable, const bool bForceWithoutHMD ) override;
 	virtual bool IsVREditorModeActive() override;
 	virtual UVREditorMode* GetVRMode() override;
-	virtual void UpdateActorPreview(TSharedRef<SWidget> InWidget) override;
-
-	virtual const TSharedRef<FExtender>& GetRadialMenuExtender() override
+	virtual void UpdateActorPreview(TSharedRef<SWidget> InWidget, int32 Index) override;
+	virtual void UpdateExternalUMGUI(TSubclassOf<UUserWidget> InUMGClass, FName Name) override;
+	virtual void UpdateExternalSlateUI(TSharedRef<SWidget> InSlateWidget, FName Name) override;
+	virtual TSharedPtr<FExtender> GetRadialMenuExtender() override
 	{
-		static TSharedRef<class FExtender> RadialMenuExtender( new FExtender() );
 		return RadialMenuExtender;
 	}
 
@@ -46,6 +46,7 @@ public:
 	static void ToggleForceVRMode();
 
 private:
+	TSharedPtr<class FExtender> RadialMenuExtender;
 
 	/** Handles turning VR Editor mode on and off */
 	FVREditorModeManager ModeManager;
@@ -58,6 +59,7 @@ namespace VREd
 
 void FVREditorModule::StartupModule()
 {
+	RadialMenuExtender = MakeShareable(new FExtender());
 }
 
 void FVREditorModule::ShutdownModule()
@@ -99,9 +101,19 @@ UVREditorMode* FVREditorModule::GetVRMode()
 	return ModeManager.GetCurrentVREditorMode();
 }
 
-void FVREditorModule::UpdateActorPreview(TSharedRef<SWidget> InWidget)
+void FVREditorModule::UpdateActorPreview(TSharedRef<SWidget> InWidget, int32 Index)
 {
-	GetVRMode()->RefreshActorPreviewWidget(InWidget);
+	GetVRMode()->RefreshActorPreviewWidget(InWidget, Index);
+}
+
+void FVREditorModule::UpdateExternalUMGUI(TSubclassOf<UUserWidget> InUMGClass, FName Name)
+{
+	GetVRMode()->UpdateExternalUMGUI(InUMGClass, Name);
+}
+
+void FVREditorModule::UpdateExternalSlateUI(TSharedRef<SWidget> InSlateWidget, FName Name)
+{
+	GetVRMode()->UpdateExternalSlateUI(InSlateWidget, Name);
 }
 
 void FVREditorModule::ToggleForceVRMode()

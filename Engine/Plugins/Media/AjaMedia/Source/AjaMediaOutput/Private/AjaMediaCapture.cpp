@@ -2,7 +2,6 @@
 
 #include "AjaMediaCapture.h"
 
-#include "IAjaMediaModule.h"
 #include "AjaMediaOutput.h"
 #include "Engine/RendererSettings.h"
 #include "HAL/Event.h"
@@ -39,6 +38,7 @@ struct UAjaMediaCapture::FAjaOutputCallback : public AJA::IAJAInputOutputChannel
 	virtual void OnInitializationCompleted(bool bSucceed) override;
 	virtual bool OnInputFrameReceived(const AJA::AJAInputFrameData& InInputFrame, const AJA::AJAAncillaryFrameData& InAncillaryFrame, const AJA::AJAAudioFrameData& AudioFrame, const AJA::AJAVideoFrameData& VideoFrame) override;
 	virtual bool OnOutputFrameCopied(const AJA::AJAOutputFrameData& InFrameData) override;
+	virtual void OnOutputFrameStarted() override;
 	virtual void OnCompletion(bool bSucceed) override;
 	UAjaMediaCapture* Owner;
 };
@@ -83,7 +83,7 @@ bool UAjaMediaCapture::ValidateMediaOutput() const
 	return true;
 }
 
-bool UAjaMediaCapture::CaptureSceneViewportImpl(const TSharedPtr<FSceneViewport>& InSceneViewport)
+bool UAjaMediaCapture::CaptureSceneViewportImpl(TSharedPtr<FSceneViewport>& InSceneViewport)
 {
 	UAjaMediaOutput* AjaMediaSource = CastChecked<UAjaMediaOutput>(MediaOutput);
 	bool bResult = InitAJA(AjaMediaSource);
@@ -164,13 +164,6 @@ bool UAjaMediaCapture::InitAJA(UAjaMediaOutput* InAjaMediaOutput)
 {
 	check(InAjaMediaOutput);
 
-	IAjaMediaModule& MediaModule = FModuleManager::LoadModuleChecked<IAjaMediaModule>(TEXT("AjaMedia"));
-	if (!MediaModule.CanBeUsed())
-	{
-		UE_LOG(LogAjaMediaOutput, Warning, TEXT("The AjaMediaCapture can't open MediaOutput '%s' because Aja card cannot be used. Are you in a Commandlet? You may override this behavior by launching with -ForceAjaUsage"), *InAjaMediaOutput->GetName());
-		return false;
-	}
-
 	// Init general settings
 	bWaitForSyncEvent = InAjaMediaOutput->bWaitForSyncEvent;
 	bEncodeTimecodeInTexel = InAjaMediaOutput->bEncodeTimecodeInTexel;
@@ -190,13 +183,14 @@ bool UAjaMediaCapture::InitAJA(UAjaMediaOutput* InAjaMediaOutput)
 	ChannelOptions.NumberOfAudioChannel = 0;
 	ChannelOptions.SynchronizeChannelIndex = InAjaMediaOutput->SyncPort.PortIndex;
 	ChannelOptions.OutputKeyChannelIndex = InAjaMediaOutput->KeyPort.PortIndex;
+	ChannelOptions.OutputNumberOfBuffers = InAjaMediaOutput->NumberOfAJABuffers;
 	ChannelOptions.VideoFormatIndex = InAjaMediaOutput->GetMediaMode().VideoFormatIndex;
 	ChannelOptions.bUseAutoCirculating = InAjaMediaOutput->bOutputWithAutoCirculating;
 	ChannelOptions.bOutputKey = InAjaMediaOutput->OutputType == EAjaMediaOutputType::FillAndKey;  // must be RGBA to support Fill+Key
 	ChannelOptions.bUseAncillary = false;
-	ChannelOptions.bUseAncillaryField2 = false;
 	ChannelOptions.bUseAudio = false;
 	ChannelOptions.bUseVideo = true;
+	ChannelOptions.bOutputInterlacedFieldsTimecodeNeedToMatch = InAjaMediaOutput->bInterlacedFieldsTimecodeNeedToMatch;
 
 	switch (InAjaMediaOutput->PixelFormat)
 	{
@@ -256,6 +250,13 @@ bool UAjaMediaCapture::InitAJA(UAjaMediaOutput* InAjaMediaOutput)
 
 	if (bWaitForSyncEvent)
 	{
+		const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VSync"));
+		bool bLockToVsync = CVar->GetValueOnGameThread() != 0;
+		if (bLockToVsync)
+		{
+			UE_LOG(LogAjaMediaOutput, Warning, TEXT("The Engine use VSync and '%s' wants to wait for the sync event. This may break the \"gen-lock\"."));
+		}
+
 		const bool bIsManualReset = false;
 		WakeUpEvent = FPlatformProcess::GetSynchEventFromPool(bIsManualReset);
 	}
@@ -263,13 +264,13 @@ bool UAjaMediaCapture::InitAJA(UAjaMediaOutput* InAjaMediaOutput)
 	return true;
 }
 
-void UAjaMediaCapture::OnFrameCaptured_RenderingThread(const FTimecode& InTimecode, TSharedPtr<FMediaCaptureUserData> InUserData, void* InBuffer, int32 Width, int32 Height)
+void UAjaMediaCapture::OnFrameCaptured_RenderingThread(const FCaptureBaseData& InBaseData, TSharedPtr<FMediaCaptureUserData> InUserData, void* InBuffer, int32 Width, int32 Height)
 {
 	// Prevent the rendering thread from copying while we are stopping the capture.
 	FScopeLock ScopeLock(&RenderThreadCriticalSection);
 	if (OutputChannel)
 	{
-		AJA::FTimecode Timecode = AjaMediaCaptureDevice::ConvertToAJATimecode(InTimecode, FrameRate.AsDecimal());
+		AJA::FTimecode Timecode = AjaMediaCaptureDevice::ConvertToAJATimecode(InBaseData.SourceFrameTimecode, FrameRate.AsDecimal());
 
 		if (bEncodeTimecodeInTexel)
 		{
@@ -277,7 +278,11 @@ void UAjaMediaCapture::OnFrameCaptured_RenderingThread(const FTimecode& InTimeco
 			EncodeTime.Render(0, 0, Timecode.Hours, Timecode.Minutes, Timecode.Seconds, Timecode.Frames);
 		}
 
-		OutputChannel->SetVideoBuffer(Timecode, reinterpret_cast<uint8_t*>(InBuffer), Width*Height*4);
+		AJA::AJAOutputFrameBufferData FrameBuffer;
+		FrameBuffer.Timecode = Timecode;
+		FrameBuffer.FrameIdentifier = InBaseData.SourceFrameNumberRenderThread;
+		OutputChannel->SetVideoFrameData(FrameBuffer, reinterpret_cast<uint8_t*>(InBuffer), Width * Height * 4);
+
 		WaitForSync_RenderingThread();
 	}
 	else if (MediaState != EMediaCaptureState::Stopped)
@@ -290,7 +295,7 @@ void UAjaMediaCapture::WaitForSync_RenderingThread() const
 {
 	if (bWaitForSyncEvent)
 	{
-		if (WakeUpEvent) // In render thread, could be shutdown in a middle of a frame
+		if (WakeUpEvent && MediaState != EMediaCaptureState::Error) // In render thread, could be shutdown in a middle of a frame
 		{
 			WakeUpEvent->Wait();
 		}
@@ -316,11 +321,6 @@ void UAjaMediaCapture::FAjaOutputCallback::OnInitializationCompleted(bool bSucce
 
 bool UAjaMediaCapture::FAjaOutputCallback::OnOutputFrameCopied(const AJA::AJAOutputFrameData& InFrameData)
 {
-	if (Owner->WakeUpEvent)
-	{
-		Owner->WakeUpEvent->Trigger();
-	}
-
 	const uint32 FrameDropCount = InFrameData.FramesDropped;
 	if (FrameDropCount > Owner->LastFrameDropCount_AjaThread)
 	{
@@ -329,6 +329,14 @@ bool UAjaMediaCapture::FAjaOutputCallback::OnOutputFrameCopied(const AJA::AJAOut
 	Owner->LastFrameDropCount_AjaThread = FrameDropCount;
 
 	return true;
+}
+
+void UAjaMediaCapture::FAjaOutputCallback::OnOutputFrameStarted()
+{
+	if (Owner->WakeUpEvent)
+	{
+		Owner->WakeUpEvent->Trigger();
+	}
 }
 
 void UAjaMediaCapture::FAjaOutputCallback::OnCompletion(bool bSucceed)

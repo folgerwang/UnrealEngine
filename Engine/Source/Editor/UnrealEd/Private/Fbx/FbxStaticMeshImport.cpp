@@ -322,7 +322,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		else
 		{
 			FString MaterialFullName = GetMaterialFullName(*FbxMaterial);
-			FString BasePackageName = PackageTools::SanitizePackageName(FPackageName::GetLongPackagePath(StaticMesh->GetOutermost()->GetName()) / MaterialFullName);
+			FString BasePackageName = UPackageTools::SanitizePackageName(FPackageName::GetLongPackagePath(StaticMesh->GetOutermost()->GetName()) / MaterialFullName);
 			UMaterialInterface* UnrealMaterialInterface = FindObject<UMaterialInterface>(NULL, *(BasePackageName + TEXT(".") + MaterialFullName));
 			if (UnrealMaterialInterface == NULL)
 			{
@@ -1503,7 +1503,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		if (Package == nullptr)
 		{
 			NewPackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) + TEXT("/") + MeshName;
-			NewPackageName = PackageTools::SanitizePackageName(NewPackageName);
+			NewPackageName = UPackageTools::SanitizePackageName(NewPackageName);
 			Package = CreatePackage(NULL, *NewPackageName);
 		}
 		Package->FullyLoad();

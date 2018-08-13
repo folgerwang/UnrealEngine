@@ -63,6 +63,11 @@ public:
     /// a non-empty typeName.
     static const bool IsConcrete = false;
 
+    /// Compile-time constant indicating whether or not this class inherits from
+    /// UsdTyped. Types which inherit from UsdTyped can impart a typename on a
+    /// UsdPrim.
+    static const bool IsTyped = false;
+
     /// Construct and store \p prim as the held prim.
     USD_API
     explicit UsdSchemaBase(const UsdPrim& prim = UsdPrim());
@@ -120,15 +125,12 @@ public:
     /// the held prim is not expired and its type is the schema's type or a
     /// subtype of the schema's type.  Otherwise return false.  This method
     /// invokes polymorphic behavior.
-#ifdef doxygen
-    operator unspecified-bool-type() const();
-#else
-    operator _UnspecifiedBoolType() const {
-        return (_primData &&
-                _IsCompatible(UsdPrim(_primData, _proxyPrimPath)))
-                    ? &UsdSchemaBase::_primData : NULL;
+    /// 
+    /// \sa UsdSchemaBase::_IsCompatible()
+    USD_API
+    explicit operator bool() const {
+        return _primData && _IsCompatible();
     }
-#endif // doxygen
 
 protected:
     // Helper for subclasses to get the TfType for this schema object's dynamic
@@ -144,14 +146,14 @@ protected:
                              VtValue const &defaultValue, 
                              bool writeSparsely) const;
     
-private:
-    // Subclasses may override _IsCompatible to do specific compatibility
-    // checking with the given prim, such as type compatibility or value
-    // compatibility.  This check is performed when clients invoke the
-    // _UnspecifiedBoolType operator.
+    /// Subclasses may override _IsCompatible to do specific compatibility
+    /// checking with the given prim, such as type compatibility or value
+    /// compatibility.  This check is performed when clients invoke the
+    /// explicit bool operator.
     USD_API
-    virtual bool _IsCompatible(const UsdPrim &prim) const;
+    virtual bool _IsCompatible() const;
 
+private:
     // Subclasses should not override _GetTfType.  It is implemented by the
     // schema class code generator.
     USD_API

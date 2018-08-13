@@ -424,7 +424,7 @@ void FAutoReimportManager::OnAssetRenamed(const FAssetData& AssetData, const FSt
 		FString NewFileName = FPaths::GetBaseFilename(RelativeFilename);
 
 		bool bRequireReimportPathUpdate = false;
-		if (PackageTools::SanitizePackageName(NewFileName) == OldAssetName)
+		if (UPackageTools::SanitizePackageName(NewFileName) == OldAssetName)
 		{
 			NewFileName = AssetData.AssetName.ToString();
 			bRequireReimportPathUpdate = true;

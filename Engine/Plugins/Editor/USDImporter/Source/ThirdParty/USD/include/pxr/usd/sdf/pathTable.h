@@ -304,16 +304,33 @@ public:
         }
     }
 
+    /// Move constructor.
+    SdfPathTable(SdfPathTable &&other)
+        : _buckets(std::move(other._buckets))
+        , _size(other._size)
+        , _mask(other._mask)
+    {
+        other._size = 0;
+        other._mask = 0;
+    }
+
     /// Destructor.
     ~SdfPathTable() {
         // Call clear to free all nodes.
         clear();
     }
 
-    /// Assignment.
+    /// Copy assignment.
     SdfPathTable &operator=(SdfPathTable const &other) {
         if (this != &other)
             SdfPathTable(other).swap(*this);
+        return *this;
+    }
+
+    /// Move assignment.
+    SdfPathTable &operator=(SdfPathTable &&other) {
+        if (this != &other)
+            SdfPathTable(std::move(other)).swap(*this);
         return *this;
     }
 
@@ -508,6 +525,27 @@ public:
             }
         }
         return sizes;
+    }
+
+    /// Replaces all prefixes from \p oldName to \p newName.
+    /// Note that \p oldName and \p newName need to be silbing paths (ie. 
+    /// their parent paths must be the same).
+    void UpdateForRename(const SdfPath &oldName, const SdfPath &newName) {
+
+        if (oldName.GetParentPath() != newName.GetParentPath()) {
+            TF_CODING_ERROR("Unexpected arguments.");
+            return;
+        }
+    
+        std::pair<iterator, iterator> range = FindSubtreeRange(oldName);
+        for (iterator i=range.first; i!=range.second; ++i) {
+            insert(value_type(
+                i->first.ReplacePrefix(oldName, newName),
+                i->second));
+        }
+        
+        if (range.first != range.second)
+            erase(oldName);
     }
 
     /// @}

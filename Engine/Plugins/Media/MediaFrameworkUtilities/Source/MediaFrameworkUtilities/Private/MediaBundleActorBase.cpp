@@ -56,6 +56,7 @@ void AMediaBundleActorBase::SetSoundComponentMediaPlayer(UMediaPlayer* InMediaPl
 
 void AMediaBundleActorBase::CreateDynamicMaterial()
 {
+	check(MediaBundle);
 	Material = UMaterialInstanceDynamic::Create(MediaBundle->GetMaterial(), this, *(TEXT("MID_") + GetName()));
 
 	//Set all parameters driven by this class
@@ -63,6 +64,8 @@ void AMediaBundleActorBase::CreateDynamicMaterial()
 	{
 		Material->SetTextureParameterValue(MediaBundleMaterialParametersName::GarbageMatteTextureName, GarbageMatteMask);
 	}
+
+	SetIsValidMaterialParameter(MediaBundle->IsPlaying());
 }
 
 bool AMediaBundleActorBase::RequestOpenMediaSource()
@@ -89,6 +92,14 @@ void AMediaBundleActorBase::RequestCloseMediaSource()
 	}
 }
 
+void AMediaBundleActorBase::SetIsValidMaterialParameter(bool bIsPlaying)
+{
+	if (Material)
+	{
+		Material->SetScalarParameterValue(MediaBundleMaterialParametersName::IsValidMediaName, bIsPlaying ? 1.0f : 0.0f);
+	}
+}
+
 void AMediaBundleActorBase::BeginPlay()
 {
 	Super::BeginPlay();
@@ -112,6 +123,11 @@ void AMediaBundleActorBase::PostActorCreated()
 
 	if (!HasAnyFlags(RF_Transient))
 	{
+		if (MediaBundle && !MediaStateChangedHandle.IsValid())
+		{
+			MediaStateChangedHandle = MediaBundle->OnMediaStateChanged().AddUObject(this, &AMediaBundleActorBase::SetIsValidMaterialParameter);
+		}
+
 		if (bAutoPlay && bPlayWhileEditing)
 		{
 			RequestOpenMediaSource();
@@ -123,25 +139,46 @@ void AMediaBundleActorBase::PostLoadSubobjects(FObjectInstancingGraph* OuterInst
 {
 	Super::PostLoadSubobjects(OuterInstanceGraph);
 
-	if (MediaBundle && PrimitiveCmp)
+	if (MediaBundle)
 	{
-		PrimitiveCmp->SetMaterial(PrimitiveMaterialIndex, Material);
-	}
+		if (PrimitiveCmp)
+		{
+			PrimitiveCmp->SetMaterial(PrimitiveMaterialIndex, Material);
+		}
 
-	if (MediaBundle && MediaSoundCmp)
-	{
-		SetSoundComponentMediaPlayer(MediaBundle->GetMediaPlayer());
-	}
+		if (MediaSoundCmp)
+		{
+			SetSoundComponentMediaPlayer(MediaBundle->GetMediaPlayer());
+		}
 
-	if (bAutoPlay && bPlayWhileEditing)
+		if (!MediaStateChangedHandle.IsValid())
+		{
+			MediaStateChangedHandle = MediaBundle->OnMediaStateChanged().AddUObject(this, &AMediaBundleActorBase::SetIsValidMaterialParameter);
+		}
+
+		if (bAutoPlay && bPlayWhileEditing)
+		{
+			RequestOpenMediaSource();
+		}
+	}
+}
+
+namespace MediaBundleActorBasePrivate
+{
+	void MediaStateChangedRemove(FDelegateHandle& InHandle, UMediaBundle* InBundle)
 	{
-		RequestOpenMediaSource();
+		if (InBundle && InHandle.IsValid())
+		{
+			InBundle->OnMediaStateChanged().Remove(InHandle);
+			InHandle.Reset();
+		}
 	}
 }
 
 void AMediaBundleActorBase::Destroyed()
 {
 	RequestCloseMediaSource();
+	MediaBundleActorBasePrivate::MediaStateChangedRemove(MediaStateChangedHandle, MediaBundle);
 
 	Super::Destroyed();
 }
@@ -149,6 +186,7 @@ void AMediaBundleActorBase::Destroyed()
 void AMediaBundleActorBase::BeginDestroy()
 {
 	RequestCloseMediaSource();
+	MediaBundleActorBasePrivate::MediaStateChangedRemove(MediaStateChangedHandle, MediaBundle);
 
 	Super::BeginDestroy();
 }
@@ -166,6 +204,10 @@ void AMediaBundleActorBase::PreEditChange(UProperty* PropertyAboutToChange)
 			|| PropertyAboutToChange->GetFName() == GET_MEMBER_NAME_CHECKED(AMediaBundleActorBase, bPlayWhileEditing))
 		{
 			bResetComponent = PropertyAboutToChange->GetFName() == GET_MEMBER_NAME_CHECKED(AMediaBundleActorBase, MediaBundle);
+			if (bResetComponent)
+			{
+				MediaBundleActorBasePrivate::MediaStateChangedRemove(MediaStateChangedHandle, MediaBundle);
+			}
 			RequestCloseMediaSource();
 		}
 		else if (PropertyAboutToChange->GetFName() == GET_MEMBER_NAME_CHECKED(AMediaBundleActorBase, PrimitiveCmp)
@@ -210,6 +252,14 @@ void AMediaBundleActorBase::PostEditChangeProperty(FPropertyChangedEvent& Proper
 		if ((HasActorBegunPlay() && bAutoPlay) || (bPlayWhileEditing && bAutoPlay))
 		{
 			bPlayingMedia = RequestOpenMediaSource();
+		}
+
+		if (PropertyName == GET_MEMBER_NAME_CHECKED(AMediaBundleActorBase, MediaBundle))
+		{
+			if (MediaBundle && !MediaStateChangedHandle.IsValid())
+			{
+				MediaStateChangedHandle = MediaBundle->OnMediaStateChanged().AddUObject(this, &AMediaBundleActorBase::SetIsValidMaterialParameter);
+			}
 		}
 
 		bSetComponent = true;
@@ -330,4 +380,4 @@ void AMediaBundleActorBase::CheckForErrors()
 #endif //WITH_EDITOR
 
 
-#undef LOCTEXT_NAMESPAC
+#undef LOCTEXT_NAMESPACE

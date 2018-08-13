@@ -29,6 +29,7 @@ public class Renderer : ModuleRules
 				"CoreUObject", 
 				"ApplicationCore",
 				"RenderCore", 
+				"ImageWriteQueue",
 				"RHI", 
 				"ShaderCore",
 				"UtilityShaders",

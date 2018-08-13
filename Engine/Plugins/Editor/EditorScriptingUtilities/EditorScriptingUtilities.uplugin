@@ -14,13 +14,19 @@
 	"CanContainContent" : false,
 	"IsBetaVersion" : true,
 	"Installed" : false,
-	
 	"Modules" :
 	[
 		{
 			"Name" : "EditorScriptingUtilities",
 			"Type" : "Editor",
 			"LoadingPhase" : "Default"
+		}
+	],
+	"Plugins" : 
+	[
+		{
+			"Name" : "PythonScriptPlugin",
+			"Enabled" : true
 		}
 	]
 }

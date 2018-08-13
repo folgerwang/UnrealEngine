@@ -24,11 +24,14 @@
 #ifndef VT_VALUE_H
 #define VT_VALUE_H
 
+#include "pxr/pxr.h"
+
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
 // XXX: Include pyLock.h after pyObjWrapper.h to work around
 // Python include ordering issues.
-
-#include "pxr/pxr.h"
 #include "pxr/base/tf/pyObjWrapper.h"
+#endif // PXR_PYTHON_SUPPORT_ENABLED
+
 #include "pxr/base/tf/pyLock.h"
 
 #include "pxr/base/arch/demangle.h"
@@ -125,7 +128,10 @@ VtValue const *VtGetProxiedValue(T const &) { return NULL; }
 template <class T> struct Vt_ValueStoredType { typedef T Type; };
 VT_VALUE_SET_STORED_TYPE(char const *, std::string);
 VT_VALUE_SET_STORED_TYPE(char *, std::string);
+
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
 VT_VALUE_SET_STORED_TYPE(boost::python::object, TfPyObjWrapper);
+#endif // PXR_PYTHON_SUPPORT_ENABLED
 
 #undef VT_VALUE_SET_STORED_TYPE
 
@@ -244,10 +250,12 @@ class VtValue
         virtual size_t Hash(_Storage const &) const = 0;
         virtual bool Equal(_Storage const &, _Storage const &) const = 0;
         virtual void MakeMutable(_Storage &) const = 0;
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
         virtual TfPyObjWrapper GetPyObj(_Storage const &) const = 0;
+#endif // PXR_PYTHON_SUPPORT_ENABLED
         virtual std::ostream & StreamOut(_Storage const &,
                                          std::ostream &) const = 0;
-        virtual const Vt_Reserved* GetReserved(_Storage const &) const = 0;
+        virtual const Vt_ShapeData* GetShapeData(_Storage const &) const = 0;
         virtual size_t GetNumElements(_Storage const &) const = 0;
         virtual bool ProxyHoldsType(_Storage const &,
                                     std::type_info const &) const = 0;
@@ -265,15 +273,15 @@ class VtValue
     // Array type helper.
     template <class T, class Enable=void>
     struct _ArrayHelper {
-        static const Vt_Reserved* GetReserved(T const &) { return NULL; }
+        static const Vt_ShapeData* GetShapeData(T const &) { return NULL; }
         static size_t GetNumElements(T const &) { return 0; }
         constexpr static std::type_info const &GetElementTypeid() { return typeid(void); }
     };
     template <class Array>
     struct _ArrayHelper<Array,
                         typename boost::enable_if<VtIsArray<Array> >::type> {
-        static const Vt_Reserved* GetReserved(Array const &obj) {
-            return obj._GetReserved();
+        static const Vt_ShapeData* GetShapeData(Array const &obj) {
+            return obj._GetShapeData();
         }
         static size_t GetNumElements(Array const &obj) {
             return obj.size();
@@ -347,18 +355,20 @@ class VtValue
             GetMutableObj(storage);
         }
 
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
         virtual TfPyObjWrapper GetPyObj(_Storage const &storage) const {
             TfPyLock lock;
             return boost::python::api::object(this->GetObj(storage));
         }
+#endif // PXR_PYTHON_SUPPORT_ENABLED
 
         virtual std::ostream &StreamOut(
             _Storage const &storage, std::ostream &out) const {
             return VtStreamOut(GetObj(storage), out);
         }
 
-        virtual const Vt_Reserved* GetReserved(_Storage const &storage) const {
-            return _ArrayHelper<T>::GetReserved(GetObj(storage));
+        virtual const Vt_ShapeData* GetShapeData(_Storage const &storage) const {
+            return _ArrayHelper<T>::GetShapeData(GetObj(storage));
         }
 
         virtual size_t GetNumElements(_Storage const &storage) const {
@@ -687,7 +697,7 @@ public:
 
     /// Return the number of elements in the held value if IsArrayValued(),
     /// return 0 otherwise.
-    VT_API size_t GetArraySize() const { return _GetNumElements(); }
+    size_t GetArraySize() const { return _GetNumElements(); }
 
     /// Returns the typeid of the type held by this value.
     VT_API std::type_info const &GetTypeid() const;
@@ -909,9 +919,9 @@ public:
     operator << (std::ostream &out, const VtValue &self);
 
 private:
-    const Vt_Reserved* _GetReserved() const;
-    size_t _GetNumElements() const;
-    friend struct Vt_ValueReservedAccess;
+    VT_API const Vt_ShapeData* _GetShapeData() const;
+    VT_API size_t _GetNumElements() const;
+    friend struct Vt_ValueShapeDataAccess;
 
     static void _Copy(VtValue const &src, VtValue &dst) {
         if (src.IsEmpty()) {
@@ -1031,6 +1041,7 @@ private:
         return VtValue(To(val.UncheckedGet<From>()));
     }
 
+#ifdef PXR_PYTHON_SUPPORT_ENABLED
     // This grants friend access to a function in the wrapper file for this
     // class.  This lets the wrapper reach down into a value to get a
     // boost::python wrapped object corresponding to the held type.  This
@@ -1039,6 +1050,7 @@ private:
     Vt_GetPythonObjectFromHeldValue(VtValue const &self);
 
     VT_API TfPyObjWrapper _GetPythonObject() const;
+#endif // PXR_PYTHON_SUPPORT_ENABLED
 
     _Storage _storage;
     TfPointerAndBits<const _TypeInfo> _info;
@@ -1058,9 +1070,9 @@ struct Vt_DefaultValueFactory {
     }
 };
 
-struct Vt_ValueReservedAccess {
-    static const Vt_Reserved* _GetReserved(const VtValue& value) {
-        return value._GetReserved();
+struct Vt_ValueShapeDataAccess {
+    static const Vt_ShapeData* _GetShapeData(const VtValue& value) {
+        return value._GetShapeData();
     }
 
     static size_t _GetNumElements(const VtValue& value) {
