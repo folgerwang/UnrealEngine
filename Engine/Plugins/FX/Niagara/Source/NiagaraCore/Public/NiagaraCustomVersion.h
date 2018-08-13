@@ -109,6 +109,8 @@ struct FNiagaraCustomVersion
 		TextureDataInterfaceUsesCustomSerialize, // The cpu cache of the texture is now directly serialized instead of using array property serialization.
 
 		TextureDataInterfaceSizeSerialize, // The texture data interface now streams size info
+
+		SkelMeshInterfaceAPIImprovements, //API to skeletal mesh interface was improved but requires a recompile and some graph fixup.
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1,

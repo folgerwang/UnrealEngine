@@ -558,7 +558,7 @@ struct op_base
 	virtual FString to_string() = 0;
 	virtual void add_to_bytecode(TArray<uint8>& bytecode) = 0;
 	virtual bool finalize(_mesa_glsl_parse_state* parse_state, FVectorVMCompilationOutput&CompilationOutput, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx) { return true; }
-	virtual void validate(_mesa_glsl_parse_state* parse_state) = 0;
+	virtual void validate(_mesa_glsl_parse_state* parse_state, unsigned op_idx) = 0;
 
 	virtual struct op_standard* as_standard() { return nullptr; }
 	virtual struct op_hook* as_hook() { return nullptr; }
@@ -569,9 +569,9 @@ struct op_base
 	virtual struct op_id_update* as_id_update() { return nullptr; }
 	virtual struct op_external_func* as_external_func() { return nullptr; }
 
-	static void validate_component_offset(_mesa_glsl_parse_state* parse_state, variable_info_node* component)
+	static void validate_component_offset(_mesa_glsl_parse_state* parse_state, variable_info_node* component, unsigned op_idx)
 	{
-		if (component->offset == INDEX_NONE)
+		if (component->offset == INDEX_NONE && component->last_read > (uint32)op_idx)
 		{
 			FString ErrorStr = FString::Printf(TEXT("Component %s of variable %s has no valid offset. Possibly uninitialized data being used."), ANSI_TO_TCHAR(component->name), ANSI_TO_TCHAR(component->owner->root->name));
 
@@ -583,6 +583,14 @@ struct op_base
 	static bool finalize_component_temporary_allocation(_mesa_glsl_parse_state* parse_state, variable_info_node* component, const unsigned num_temp_registers, unsigned *registers, unsigned op_idx)
 	{
 		check(component);
+
+		if (component->last_read <= op_idx)
+		{
+			//This component is not used so we can avoid using a temporary for it in some cases.
+			check(component->offset == INDEX_NONE);
+			return true;
+		}
+
 		if (ir_variable* var = component->owner->ir->as_variable())
 		{
 			if (var->mode == ir_var_temporary || var->mode == ir_var_auto)
@@ -668,11 +676,11 @@ struct op_hook : public op_base
 		}
 	}
 
-	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	virtual void validate(_mesa_glsl_parse_state* parse_state, unsigned op_idx)override
 	{
 		if (source_component)
 		{
-			validate_component_offset(parse_state, source_component);
+			validate_component_offset(parse_state, source_component, op_idx);
 		}
 	}
 };
@@ -752,14 +760,14 @@ struct op_standard : public op_base
 		return finalize_component_temporary_allocation(parse_state, dest_component, num_temp_registers, registers, op_idx);
 	}
 
-	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	virtual void validate(_mesa_glsl_parse_state* parse_state, unsigned op_idx)override
 	{
 		for (unsigned operand_idx = 0; operand_idx < num_operands; ++operand_idx)
 		{
-			validate_component_offset(parse_state, source_components[operand_idx]);
+			validate_component_offset(parse_state, source_components[operand_idx], op_idx);
 		}
 
-		validate_component_offset(parse_state, dest_component);
+		validate_component_offset(parse_state, dest_component, op_idx);
 	}
 };
 
@@ -810,9 +818,9 @@ struct op_input : public op_base
 		return finalize_component_temporary_allocation(parse_state, dest_component, num_temp_registers, registers, op_idx);
 	}
 
-	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	virtual void validate(_mesa_glsl_parse_state* parse_state, unsigned op_idx)override
 	{
-		validate_component_offset(parse_state, dest_component);
+		validate_component_offset(parse_state, dest_component, op_idx);
 	}
 };
 
@@ -857,9 +865,9 @@ struct op_input_noadvance : public op_input
 		return finalize_component_temporary_allocation(parse_state, dest_component, num_temp_registers, registers, op_idx);
 	}
 
-	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	virtual void validate(_mesa_glsl_parse_state* parse_state, unsigned op_idx)override
 	{
-		validate_component_offset(parse_state, dest_component);
+		validate_component_offset(parse_state, dest_component, op_idx);
 	}
 };
 
@@ -903,9 +911,9 @@ struct op_output : public op_base
 		emit_short(register_idx + VectorVM::FirstOutputRegister, bytecode);
 	}
 
-	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	virtual void validate(_mesa_glsl_parse_state* parse_state, unsigned op_idx)override
 	{
-		validate_component_offset(parse_state, value_component);
+		validate_component_offset(parse_state, value_component, op_idx);
 	}
 };
 
@@ -950,9 +958,9 @@ struct op_index_acquire : public op_base
 		return finalize_component_temporary_allocation(parse_state, dest_component, num_temp_registers, registers, op_idx);
 	}
 
-	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	virtual void validate(_mesa_glsl_parse_state* parse_state, unsigned op_idx)override
 	{
-		validate_component_offset(parse_state, dest_component);
+		validate_component_offset(parse_state, dest_component, op_idx);
 	}
 };
 
@@ -1003,10 +1011,10 @@ struct op_id_acquire : public op_base
 		return true;
 	}
 
-	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	virtual void validate(_mesa_glsl_parse_state* parse_state, unsigned op_idx)override
 	{
-		validate_component_offset(parse_state, id_index_component);
-		validate_component_offset(parse_state, id_tag_component);
+		validate_component_offset(parse_state, id_index_component, op_idx);
+		validate_component_offset(parse_state, id_tag_component, op_idx);
 	}
 };
 
@@ -1050,10 +1058,10 @@ struct op_id_update : public op_base
 		return true;
 	}
 
-	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	virtual void validate(_mesa_glsl_parse_state* parse_state, unsigned op_idx)override
 	{
-		validate_component_offset(parse_state, id_component);
-		validate_component_offset(parse_state, index_component);
+		validate_component_offset(parse_state, id_component, op_idx);
+		validate_component_offset(parse_state, index_component, op_idx);
 	}
 };
 
@@ -1158,6 +1166,7 @@ struct op_external_func : public op_base
 	{
 		finalize_temp_register_ctx* ctx = (finalize_temp_register_ctx*)user_ptr;
 		check(node->is_scalar());
+
 		ctx->success &= finalize_component_temporary_allocation(ctx->parse_state, node, ctx->num_temp_registers, ctx->registers, ctx->op_idx);
 	}
 
@@ -1198,7 +1207,7 @@ struct op_external_func : public op_base
 		return ctx.success;
 	}
 
-	virtual void validate(_mesa_glsl_parse_state* parse_state)override
+	virtual void validate(_mesa_glsl_parse_state* parse_state, unsigned op_idx)override
 	{
 		if (function_index == -1)
 		{
@@ -1207,11 +1216,11 @@ struct op_external_func : public op_base
 
 		for (variable_info_node* input : inputs)
 		{
-			validate_component_offset(parse_state, input);
+			validate_component_offset(parse_state, input, op_idx);
 		}
 		for (variable_info_node* output : outputs)
 		{
-			validate_component_offset(parse_state, output);
+			validate_component_offset(parse_state, output, op_idx);
 		}
 	}
 };
@@ -2011,15 +2020,10 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 			if (ordered_ops[i]->finalize(parse_state, CompilationOutput, num_temp_registers, registers, i))
 			{
 				stripped_ops.Add(ordered_ops[i]);
+				ordered_ops[i]->validate(parse_state, i);
 			}
 		}
 		
-		//Final error checking.
-		for (int32 i = 0; i < stripped_ops.Num(); ++i)
-		{
-			stripped_ops[i]->validate(parse_state);
-		}
-
 		if (!parse_state->error)
 		{
 			//Now emit the bytecode
