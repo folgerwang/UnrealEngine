@@ -66,7 +66,7 @@ void FAnimGraphConnectionDrawingPolicy::BuildExecutionRoadmap()
 						FExecPairingMap& Predecessors = PredecessorPins.FindOrAdd((UEdGraphNode*)SourceNode);
 						FTimePair& Timings = Predecessors.FindOrAdd(PoseNet);
 						Timings.PredExecTime = 0.0;
-						Timings.ThisExecTime = VisitRecord.Weight;
+						Timings.ThisExecTime = FMath::Clamp(VisitRecord.Weight, 0.f, 1.f);
 					}
 				}
 			}
