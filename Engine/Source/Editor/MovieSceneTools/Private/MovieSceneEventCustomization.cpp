@@ -542,7 +542,9 @@ void FMovieSceneEventCustomization::CreateEventEndpointFromFunction(UFunction* Q
 	UK2Node_CallFunction* CallFuncNode = NewObject<UK2Node_CallFunction>(Graph);
 	CallFuncNode->NodePosX = NewFunctionEntry->NodePosX + NewFunctionEntry->NodeWidth + 200;
 	CallFuncNode->NodePosY = NewFunctionEntry->NodePosY;
-	CallFuncNode->FunctionReference.SetFromField<UFunction>(QuickBindFunction, false);
+	CallFuncNode->CreateNewGuid();
+	CallFuncNode->SetFromFunction(QuickBindFunction);
+	CallFuncNode->PostPlacedNewNode();
 	CallFuncNode->ReconstructNode();
 
 	Graph->AddNode(CallFuncNode, false, false);
