@@ -16,14 +16,16 @@ class FBuildPatchOutputDevice : public FOutputDevice
 public:
 	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override
 	{
-#if PLATFORM_WINDOWS
+		// Only forward verbosities higher than Display as they will already be sent to stdout.
+		if (Verbosity > ELogVerbosity::Display)
+		{
 #if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
-		printf("\n%ls", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
+			printf("\n%ls", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
 #else
-		wprintf(TEXT("\n%s"), *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
+			wprintf(TEXT("\n%s"), *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
 #endif
-		fflush( stdout );
-#endif
+			fflush( stdout );
+		}
 	}
 };
 
@@ -69,14 +71,17 @@ const TCHAR* HandleLegacyCommandline(const TCHAR* CommandLine)
 
 EReturnCode RunBuildPatchTool()
 {
-	// Load the BuildPatchServices Module
-	IBuildPatchServicesModule& BuildPatchServicesModule = FModuleManager::LoadModuleChecked<IBuildPatchServicesModule>(TEXT("BuildPatchServices"));
-
-	// Initialise the UObject system and process our uobject classes
+	// Initialise the UObject module.
 	FModuleManager::Get().LoadModule(TEXT("CoreUObject"));
 	FCoreDelegates::OnInit.Broadcast();
+
+	// Load the BuildPatchServices Module.
+	IBuildPatchServicesModule& BuildPatchServicesModule = FModuleManager::LoadModuleChecked<IBuildPatchServicesModule>(TEXT("BuildPatchServices"));
+
+	// Make sure we have processed UObjects from BPS.
 	ProcessNewlyLoadedUObjects();
 
+	// Instantiate and execute the tool.
 	TSharedRef<IToolMode> ToolMode = FToolModeFactory::Create(BuildPatchServicesModule);
 	return ToolMode->Execute();
 }
@@ -84,7 +89,10 @@ EReturnCode RunBuildPatchTool()
 EReturnCode BuildPatchToolMain(const TCHAR* CommandLine)
 {
 	// Add log device for stdout
-	GLog->AddOutputDevice(new FBuildPatchOutputDevice());
+	if (FParse::Param(CommandLine, TEXT("stdout")))
+	{
+		GLog->AddOutputDevice(new FBuildPatchOutputDevice());
+	}
 
 	// Handle legacy commandlines
 	CommandLine = HandleLegacyCommandline(CommandLine);

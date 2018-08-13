@@ -2,9 +2,9 @@
 
 #include "Installer/InstallerError.h"
 #include "Misc/ScopeLock.h"
+#include "HAL/ThreadSafeCounter.h"
 #include "Interfaces/IBuildInstaller.h"
 #include "BuildPatchServicesPrivate.h"
-#include "HAL/ThreadSafeCounter.h"
 
 namespace BuildPatchServices
 {
@@ -56,9 +56,9 @@ namespace BuildPatchServices
 		FormatOptions = FormatOptions == nullptr ? &DefaultOptions : FormatOptions;
 		FFormatNamedArguments Arguments;
 		Arguments.Emplace(TEXT("Location"), FText::FromString(Location));
-		Arguments.Emplace(TEXT("RequiredBytes"), FText::AsMemory(RequiredBytes, FormatOptions));
-		Arguments.Emplace(TEXT("AvailableBytes"), FText::AsMemory(AvailableBytes, FormatOptions));
-		Arguments.Emplace(TEXT("SpaceAdditional"), FText::AsMemory(RequiredBytes - AvailableBytes, FormatOptions));
+		Arguments.Emplace(TEXT("RequiredBytes"), FText::AsMemory(RequiredBytes, FormatOptions, nullptr, EMemoryUnitStandard::SI));
+		Arguments.Emplace(TEXT("AvailableBytes"), FText::AsMemory(AvailableBytes, FormatOptions, nullptr, EMemoryUnitStandard::SI));
+		Arguments.Emplace(TEXT("SpaceAdditional"), FText::AsMemory(RequiredBytes - AvailableBytes, FormatOptions, nullptr, EMemoryUnitStandard::SI));
 		return FText::Format(OutOfDiskSpace, Arguments);
 	}
 
@@ -76,7 +76,7 @@ namespace BuildPatchServices
 		virtual EBuildPatchInstallError GetErrorType() const override;
 		virtual FString GetErrorCode() const override;
 		virtual FText GetErrorText() const override;
-		virtual void SetError(EBuildPatchInstallError InErrorType, const TCHAR* InErrorCode, FText InErrorText) override;
+		virtual void SetError(EBuildPatchInstallError InErrorType, const TCHAR* InErrorSubType, uint32 InErrorCode, FText InErrorText) override;
 		virtual int32 RegisterForErrors(FOnErrorDelegate Delegate) override;
 		virtual void UnregisterForErrors(int32 Handle) override;
 		// IInstallerError interface end.
@@ -145,7 +145,7 @@ namespace BuildPatchServices
 		return ErrorText;
 	}
 
-	void FInstallerError::SetError(EBuildPatchInstallError InErrorType, const TCHAR* InErrorCode, FText InErrorText)
+	void FInstallerError::SetError(EBuildPatchInstallError InErrorType, const TCHAR* InErrorSubType, uint32 InErrorCode, FText InErrorText)
 	{
 		// Only accept the first error
 		TArray<FOnErrorDelegate> DelegatesToCall;
@@ -154,7 +154,8 @@ namespace BuildPatchServices
 		{
 			ErrorType = InErrorType;
 			ErrorCode = InstallErrorPrefixes::ErrorTypeStrings[static_cast<int32>(InErrorType)];
-			ErrorCode += InErrorCode;
+			ErrorCode += InErrorSubType;
+			ErrorCode += (InErrorCode > 0) ? FString::Printf(TEXT("-%u"), InErrorCode): TEXT("");
 			ErrorText = InErrorText.IsEmpty() ? GetStandardErrorText(ErrorType) : MoveTemp(InErrorText);
 			RegisteredDelegates.GenerateValueArray(DelegatesToCall);
 			if (IsCancelled())

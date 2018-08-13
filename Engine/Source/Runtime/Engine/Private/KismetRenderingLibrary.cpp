@@ -514,6 +514,11 @@ UTexture2D* UKismetRenderingLibrary::ImportFileAsTexture2D(UObject* WorldContext
 	return FImageUtils::ImportFileAsTexture2D(Filename);
 }
 
+UTexture2D* UKismetRenderingLibrary::ImportBufferAsTexture2D(UObject* WorldContextObject, const TArray<uint8>& Buffer)
+{
+	return FImageUtils::ImportBufferAsTexture2D(Buffer);
+}
+
 void UKismetRenderingLibrary::BeginDrawCanvasToRenderTarget(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, UCanvas*& Canvas, FVector2D& Size, FDrawToRenderTargetContext& Context)
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);

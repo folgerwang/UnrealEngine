@@ -23,7 +23,7 @@ public struct XLocConfig
 	public string LocalizationId;
 };
 
-struct XLocUtils
+public struct XLocUtils
 {
 	public static string MD5HashString(string Str)
 	{
@@ -288,7 +288,7 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		}
 	}
 
-	private XLocApiClient CreateXLocApiClient()
+	protected XLocApiClient CreateXLocApiClient()
 	{
 		var Binding = new BasicHttpBinding();
 		Binding.Name = "basicHttpXLocApi";
@@ -317,7 +317,7 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		return new XLocApiClient(Binding, Endpoint);
 	}
 
-	private TransferServiceClient CreateTransferServiceClient()
+	protected TransferServiceClient CreateTransferServiceClient()
 	{
 		var Binding = new BasicHttpBinding();
 		Binding.Name = "transfer";
@@ -329,12 +329,12 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		return new TransferServiceClient(Binding, Endpoint);
 	}
 
-	private string RequestAuthToken(XLocApiClient XLocApiClient)
+	protected string RequestAuthToken(XLocApiClient XLocApiClient)
 	{
 		return XLocApiClient.GetAuthToken(Config.APIKey, XLocUtils.MD5HashString(Config.APIKey + Config.APISecret));
 	}
 
-	private string RequestAuthTokenWithRetry(XLocApiClient XLocApiClient)
+	protected string RequestAuthTokenWithRetry(XLocApiClient XLocApiClient)
 	{
 		const int MAX_COUNT = 3;
 
@@ -359,7 +359,7 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		}
 	}
 
-	private string RequestLatestBuild(XLocApiClient XLocApiClient, string AuthToken, string LanguageId, string RemoteFilename)
+	protected string RequestLatestBuild(XLocApiClient XLocApiClient, string AuthToken, string LanguageId, string RemoteFilename)
 	{
 		return XLocApiClient.GetLatestBuildByFile(Config.APIKey, AuthToken, XLocUtils.MD5HashString(Config.APIKey + Config.APISecret + Config.LocalizationId + LanguageId + RemoteFilename), Config.LocalizationId, LanguageId, RemoteFilename);
 	}

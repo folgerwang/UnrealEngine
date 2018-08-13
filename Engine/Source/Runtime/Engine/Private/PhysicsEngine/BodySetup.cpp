@@ -186,7 +186,9 @@ UBodySetup::UBodySetup(const FObjectInitializer& ObjectInitializer)
 	SetFlags(RF_Transactional);
 	bSharedCookedData = false;
 	CookedFormatDataOverride = nullptr;
+#if WITH_PHYSX
 	CurrentCookHelper = nullptr;
+#endif
 }
 
 void UBodySetup::CopyBodyPropertiesFrom(const UBodySetup* FromSetup)
@@ -558,9 +560,11 @@ void UBodySetup::FinishCreatingPhysicsMeshes(const TArray<PxConvexMesh*>& Convex
 void UBodySetup::CreatePhysicsMeshesAsync(FOnAsyncPhysicsCookFinished OnAsyncPhysicsCookFinished)
 {
 	check(IsInGameThread());
-	
+
+#if WITH_PHYSX
 	// Don't start another cook cycle if one's already in progress
 	check(CurrentCookHelper == nullptr);
+#endif
 
 #if WITH_PHYSX_COOKING
 	UActorComponent* OwningComp = Cast<UActorComponent>(GetOuter());
@@ -678,8 +682,6 @@ void UBodySetup::ClearPhysicsMeshes()
 	AggGeom.FreeRenderInfo();
 }
 
-#if WITH_PHYSX
-
 void UBodySetup::AddShapesToRigidActor_AssumesLocked(
 	FBodyInstance* OwningInstance, 
 	EPhysicsSceneType SceneType, 
@@ -716,12 +718,12 @@ void UBodySetup::AddShapesToRigidActor_AssumesLocked(
 	AddParams.ComplexMaterials = TArrayView<UPhysicalMaterial*>(ComplexMaterials);
 	AddParams.LocalTransform = RelativeTM;
 	AddParams.Geometry = &AggGeom;
+#if WITH_PHYSX
 	AddParams.TriMeshes = TArrayView<PxTriangleMesh*>(TriMeshes);
+#endif
 
 	FPhysicsInterface::AddGeometry(OwningInstance->ActorHandle, AddParams, NewShapes);
 }
-
-#endif // WITH_PHYSX
 
 void UBodySetup::RemoveSimpleCollision()
 {

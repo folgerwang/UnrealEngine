@@ -9,6 +9,7 @@
 #include "Misc/ScopeLock.h"
 
 #include "XRRenderTargetManager.h"
+#include "IStereoLayers.h"
 #include "AppFramework.h"
 #include "SceneViewExtension.h"
 #include "MagicLeapMath.h"
@@ -16,6 +17,7 @@
 #include "MagicLeapHMDFunctionLibrary.h"
 #include "LuminRuntimeSettings.h"
 #include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
+#include "IHeadMountedDisplayVulkanExtensions.h"
 
 #if WITH_MLSDK
 ML_INCLUDES_START
@@ -101,7 +103,6 @@ public:
 
 	virtual FMatrix GetStereoProjectionMatrix(const EStereoscopicPass StereoPassType) const override;
 
-	virtual void GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const override;
 	virtual void SetClippingPlanes(float NCP, float FCP) override;
 	virtual void RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture, FVector2D WindowSize) const override;
 
@@ -109,6 +110,21 @@ public:
 	{
 		return false;
 	}
+
+	/** Vulkan Extensions */
+	class FMagicLeapVulkanExtensions : public IHeadMountedDisplayVulkanExtensions, public TSharedFromThis<FMagicLeapVulkanExtensions, ESPMode::ThreadSafe>
+	{
+	public:
+		FMagicLeapVulkanExtensions() {}
+		virtual ~FMagicLeapVulkanExtensions() {}
+
+		// IHeadMountedDisplayVulkanExtensions
+		virtual bool GetVulkanInstanceExtensionsRequired(TArray<const ANSICHAR*>& Out) override;
+		virtual bool GetVulkanDeviceExtensionsRequired(struct VkPhysicalDevice_T *pPhysicalDevice, TArray<const ANSICHAR*>& Out) override;
+	};
+
+
+	IStereoLayers* GetStereoLayers() override;
 
 	// FXRRenderTargetManager interface
 	virtual void UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& Viewport, FRHIViewport* const ViewportRHI) override;
@@ -120,7 +136,7 @@ public:
 
 public:
 	/** Constructor */
-	FMagicLeapHMD(IMagicLeapPlugin* MagicLeapPlugin, bool bEnableVDZI = false);
+	FMagicLeapHMD(IMagicLeapPlugin* MagicLeapPlugin, bool bEnableVDZI = false, bool bUseVulkan = false);
 
 	/** Destructor */
 	virtual ~FMagicLeapHMD();
@@ -169,9 +185,11 @@ public:
 public:
 
 	uint32 GetViewportCount() const { return AppFramework.IsInitialized() ? AppFramework.GetViewportCount() : 0; }
-	FTrackingFrame* GetCurrentFrame() const;
-	FTrackingFrame* GetOldFrame() const;
 
+	// TODO: add const versions
+	FTrackingFrame& GetCurrentFrameMutable();
+	const FTrackingFrame& GetCurrentFrame() const;
+	const FTrackingFrame& GetOldFrame() const;
 
 	// HACK: This is a hack in order to pass variables from game frame to render frame
 	// This should be removed once graphics provides vergence based focus distance
@@ -224,6 +242,9 @@ private:
 	void EnableLuminProfile();
 	void RestoreBaseProfile();
 
+	void EnablePrivileges();
+	void DisablePrivileges();
+
 	void EnableInputDevices();
 	void DisableInputDevices();
 
@@ -275,7 +296,9 @@ private:
 	bool bIsPlaying;
 	bool bIsPerceptionEnabled;
 	bool bIsVDZIEnabled;
+	bool bUseVulkanForZI;
 	bool bVDZIWarningDisplayed;
+	bool bPrivilegesEnabled;
 
 	/** Current hint to the Lumin system about what our target framerate should be */
 	ELuminFrameTimingHint CurrentFrameTimingHint;
@@ -289,7 +312,7 @@ private:
 #if PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
 	TRefCountPtr<FMagicLeapCustomPresentOpenGL> CustomPresentOpenGL;
 #endif // PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
-#if PLATFORM_LUMIN
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 	TRefCountPtr<FMagicLeapCustomPresentVulkan> CustomPresentVulkan;
 #endif // PLATFORM_LUMIN
 

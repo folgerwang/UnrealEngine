@@ -1397,9 +1397,7 @@ void FHTTPChunkInstall::ParseTitleFileManifest(const FString& ManifestFileHash)
 		return;
 	}
 #endif
-	FString JsonBuffer;
-	FFileHelper::BufferToString(JsonBuffer, FileContentBuffer.GetData(), FileContentBuffer.Num());
-	auto RemoteManifest = BPSModule->MakeManifestFromJSON(JsonBuffer);
+	auto RemoteManifest = BPSModule->MakeManifestFromData(FileContentBuffer);
 	if (!RemoteManifest.IsValid())
 	{
 		UE_LOG(LogHTTPChunkInstaller, Warning, TEXT("Manifest was invalid"));

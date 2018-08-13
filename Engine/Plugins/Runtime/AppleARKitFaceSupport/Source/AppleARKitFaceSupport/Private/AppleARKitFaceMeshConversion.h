@@ -54,7 +54,6 @@ static FORCEINLINE FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLoc
 	BlendShapeMap.Add(EARFaceBlendShape::HeadYaw, HeadYaw);
 	BlendShapeMap.Add(EARFaceBlendShape::HeadPitch, HeadPitch);
 	BlendShapeMap.Add(EARFaceBlendShape::HeadRoll, HeadRoll);
-//@joeg -- Eye tracking support
 	FRotator LeftEyeRot(LeftEyeTransform.GetRotation());
 	float LeftEyeYaw = (float)LeftEyeRot.Yaw / 180.f;
 	float LeftEyePitch = (float)LeftEyeRot.Pitch / 180.f;
@@ -191,7 +190,6 @@ static FORCEINLINE FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLoc
 	SET_BLEND_SHAPE(ARBlendShapeLocationMouthShrugUpper, EARFaceBlendShape::MouthShrugUpper);
 	SET_BLEND_SHAPE(ARBlendShapeLocationBrowInnerUp, EARFaceBlendShape::BrowInnerUp);
 	SET_BLEND_SHAPE(ARBlendShapeLocationCheekPuff, EARFaceBlendShape::CheekPuff);
-//@joeg -- Tongue blend shape
 #if SUPPORTS_ARKIT_2_0
 	if (FAppleARKitAvailability::SupportsARKit20())
 	{

@@ -49,6 +49,11 @@ namespace BuildPatchServices
 			RxTrackRequest.Emplace(FStatsCollector::GetSeconds(), Request);
 		}
 
+		virtual void Flush() override
+		{
+			++RxFlush;
+		}
+
 	public:
 		TArray<FRecordChunkDownloadError> RxRecordChunkDownloadError;
 		TArray<FRecordChunkDownloadAborted> RxRecordChunkDownloadAborted;
@@ -56,6 +61,7 @@ namespace BuildPatchServices
 		TArray<FRecordConstructionError> RxRecordConstructionError;
 		TArray<FRecordPrereqInstallationError> RxRecordPrereqInstallationError;
 		TArray<FTrackRequest> RxTrackRequest;
+		uint64 RxFlush;
 	};
 }
 

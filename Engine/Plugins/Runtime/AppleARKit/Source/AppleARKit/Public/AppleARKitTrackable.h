@@ -8,7 +8,6 @@
 
 class UAppleARKitEnvironmentCaptureProbeTexture;
 
-//@joeg -- Added support for environment capture
 UCLASS(BlueprintType)
 class APPLEARKIT_API UAppleARKitEnvironmentCaptureProbe :
 	public UAREnvironmentCaptureProbe

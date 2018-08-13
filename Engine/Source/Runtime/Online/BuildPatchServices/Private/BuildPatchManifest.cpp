@@ -1064,7 +1064,14 @@ TArray<FString> FBuildPatchAppManifest::GetBuildFileList() const
 {
 	TArray<FString> Filenames;
 	GetFileList(Filenames);
-	return MoveTemp(Filenames);
+	return Filenames;
+}
+
+TArray<FString> FBuildPatchAppManifest::GetBuildFileList(const TSet<FString>& Tags) const
+{
+	TArray<FString> Filenames;
+	GetTaggedFileList(Tags, Filenames);
+	return Filenames;
 }
 
 int64 FBuildPatchAppManifest::GetFileSize(const TArray<FString>& Filenames) const
@@ -1139,6 +1146,21 @@ void FBuildPatchAppManifest::GetFileTagList(TSet<FString>& Tags) const
 	TArray<FString> TagsArray;
 	TaggedFilesLookup.GetKeys(TagsArray);
 	Tags.Append(MoveTemp(TagsArray));
+}
+
+void FBuildPatchAppManifest::GetTaggedFileList(const TSet<FString>& Tags, TArray<FString>& TaggedFiles) const
+{
+	for (const FString& Tag : Tags)
+	{
+		const TArray<FFileManifest*>* Files = TaggedFilesLookup.Find(Tag);
+		if (Files != nullptr)
+		{
+			for (const FFileManifest* File : *Files)
+			{
+				TaggedFiles.Add(File->Filename);
+			}
+		}
+	}
 }
 
 void FBuildPatchAppManifest::GetTaggedFileList(const TSet<FString>& Tags, TSet<FString>& TaggedFiles) const

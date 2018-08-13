@@ -104,6 +104,29 @@ public:
 	 */
 	virtual bool SupportsDynamicProxy() const;
 
+	/**
+	 * Set the method used to set a Correlation id on each request, if one is not already specified.
+	 *
+	 * This method allows you to override the Engine default method.
+	 *
+	 * @param InCorrelationIdMethod The method to use when sending a request, if no Correlation id is already set
+	 */
+	void SetCorrelationIdMethod(TFunction<FString()> InCorrelationIdMethod);
+
+	/**
+	 * Create a new correlation id for a request
+	 *
+	 * @return The new correlationid string
+	 */
+	FString CreateCorrelationId() const;
+
+	/**
+	 * Get the default method for creating new correlation ids for a request
+	 *
+	 * @return The default correlationid creation method
+	 */
+	static TFunction<FString()> GetDefaultCorrelationIdMethod();
+
 protected:
 	/** 
 	 * Create HTTP thread object
@@ -139,6 +162,9 @@ protected:
 	TArray<FRequestPendingDestroy> PendingDestroyRequests;
 
 	FHttpThread* Thread;
+
+	/** This method will be called to generate a CorrelationId on all requests being sent if one is not already set */
+	TFunction<FString()> CorrelationIdMethod;
 
 PACKAGE_SCOPE:
 

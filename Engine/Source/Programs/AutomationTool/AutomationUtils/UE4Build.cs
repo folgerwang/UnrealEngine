@@ -1412,14 +1412,17 @@ namespace AutomationTool
 						throw new AutomationException("BUILD FAILED: no tool present to process XGE files");
 					}
 
-					CommandUtils.LogSetProgress(InShowProgress, "Building...");
-					if (!ProcessXGEItems(XGEItems, XGETool, Args, TaskFilePath, Agenda.DoRetries, Agenda.SpecialTestFlag, InShowProgress))
+					if (!String.IsNullOrEmpty(XGETool))
 					{
-						throw new AutomationException("BUILD FAILED: {0} failed, retries not enabled:", XGETool);
-					}
-					else
-					{
-						bUsedXGE = true;
+						CommandUtils.LogSetProgress(InShowProgress, "Building...");
+						if (!ProcessXGEItems(XGEItems, XGETool, Args, TaskFilePath, Agenda.DoRetries, Agenda.SpecialTestFlag, InShowProgress))
+						{
+							throw new AutomationException("BUILD FAILED: {0} failed, retries not enabled:", XGETool);
+						}
+						else
+						{
+							bUsedXGE = true;
+						}
 					}
 				}
 				else

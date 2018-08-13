@@ -190,6 +190,9 @@ void FOculusInput::SendControllerEvents()
 	{
 		if (MessageHandler.IsValid())
 		{
+			OculusHMD::FOculusHMD* OculusHMD = static_cast<OculusHMD::FOculusHMD*>(GEngine->XRSystem->GetHMDDevice());
+			ovrp_Update3(ovrpStep_Render, OculusHMD->GetNextFrameNumber(), 0.0);
+
 			ovrpControllerState4 OvrpControllerState;
 			
 			if (OVRP_SUCCESS(ovrp_GetControllerState4(ovrpController_Remote, &OvrpControllerState)) &&
@@ -285,7 +288,6 @@ void FOculusInput::SendControllerEvents()
 			if (OVRP_SUCCESS(ovrp_GetControllerState4(ovrpController_Touchpad, &OvrpControllerState)) && OvrpControllerState.ConnectedControllerTypes == ovrpController_Touchpad)
 			{
 				ovrpVector2f ThumbstickValue = OvrpControllerState.Touchpad[0];
-				UE_LOG(LogOcInput, Log, TEXT("Get touchpad main with data %f %f"), ThumbstickValue.x, ThumbstickValue.y);
 
 				if (ThumbstickValue.x != Touchpad.TouchpadPosition.X)
 				{
@@ -886,7 +888,7 @@ void FOculusInput::SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const
 									}
 								}
 							}
-						}
+						} 
 						else
 						{
 							// Buffered haptics is currently only supported on Touch

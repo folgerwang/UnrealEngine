@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/Prerequisites.h"
+#include "Misc/Paths.h"
 #include "BuildPatchManifest.h"
 #include "BuildPatchProgress.h"
 #include "BuildPatchSettings.h"
@@ -12,7 +13,6 @@
 #include "Installer/InstallerAnalytics.h"
 #include "Installer/InstallerError.h"
 #include "Installer/MachineConfig.h"
-#include "Misc/Paths.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPrerequisites, Log, All);
 DEFINE_LOG_CATEGORY(LogPrerequisites);
@@ -105,14 +105,14 @@ namespace BuildPatchServices
 
 		bool bUsingInstallRoot = false;
 		bool bUsingStageRoot = false;
-		if (Configuration.bStageOnly)
+		if (Configuration.InstallMode == EInstallMode::StageFiles)
 		{
 			if (PrereqPath.ReplaceInline(RootDirectoryVariable, *StageDirWithSlash) == 0)
 			{
 				PrereqPath = StageDirWithSlash + BuildManifest->GetPrereqPath();
 			}
 			int64 FileSize;
-			if (FileSystem->GetFileSize(*PrereqPath, FileSize) && FileSize > 0)
+			if (FileSystem->GetFileSize(*PrereqPath, FileSize))
 			{
 				bUsingStageRoot = true;
 			}
@@ -124,7 +124,7 @@ namespace BuildPatchServices
 				PrereqPath = InstallDirWithSlash + BuildManifest->GetPrereqPath();
 			}
 			int64 FileSize;
-			if (FileSystem->GetFileSize(*PrereqPath, FileSize) && FileSize > 0)
+			if (FileSystem->GetFileSize(*PrereqPath, FileSize))
 			{
 				bUsingInstallRoot = true;
 			}
@@ -168,6 +168,7 @@ namespace BuildPatchServices
 
 		if (bPrereqInstallSuccessful)
 		{
+			UE_LOG(LogPrerequisites, Log, TEXT("Prerequisite installation successful"));
 			BuildProgress.SetStateProgress(EBuildPatchState::PrerequisitesInstall, 1.0f);
 			InstalledPrereqs.Append(PrereqIds);
 			MachineConfig->SaveInstalledPrereqIds(InstalledPrereqs);

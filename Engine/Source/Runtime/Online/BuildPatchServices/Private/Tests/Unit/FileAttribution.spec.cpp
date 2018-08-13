@@ -88,7 +88,7 @@ void FFileAttributionSpec::Define()
 					for (const FString& File : NewFiles)
 					{
 						MockFileSystem->FileSizes.Add(StagedFileDirectory / File, 64);
-						MockFileSystem->FileAttributes.Add(StagedFileDirectory / File, EFileAttributes::Exists);
+						MockFileSystem->FileAttributes.Add(StagedFileDirectory / File, EAttributeFlags::Exists);
 					}
 				});
 
@@ -116,9 +116,9 @@ void FFileAttributionSpec::Define()
 					FFileManifest FileManifest;
 					FileManifest.Filename = MissingFile;
 					MockFileSystem->FileSizes.Add(StagedFileDirectory / MissingFile, INDEX_NONE);
-					MockFileSystem->FileAttributes.Add(StagedFileDirectory / MissingFile, EFileAttributes::None);
+					MockFileSystem->FileAttributes.Add(StagedFileDirectory / MissingFile, EAttributeFlags::None);
 					MockFileSystem->FileSizes.Add(InstallDirectory / MissingFile, INDEX_NONE);
-					MockFileSystem->FileAttributes.Add(InstallDirectory / MissingFile, EFileAttributes::None);
+					MockFileSystem->FileAttributes.Add(InstallDirectory / MissingFile, EAttributeFlags::None);
 					MockNewManifest->BuildFileList.Add(MissingFile);
 					MockNewManifest->FileManifests.Add(MissingFile, FileManifest);
 				});
@@ -346,7 +346,7 @@ void FFileAttributionSpec::MakeUnit()
 			MockOldManifest->FileManifests.Add(File, FileManifest);
 		}
 		MockFileSystem->FileSizes.Add(InstallDirectory / File, FileManifest.GetFileSize());
-		MockFileSystem->FileAttributes.Add(InstallDirectory / File, EFileAttributes::Exists);
+		MockFileSystem->FileAttributes.Add(InstallDirectory / File, EAttributeFlags::Exists);
 	}
 	FileAttribution.Reset(BuildPatchServices::FFileAttributionFactory::Create(
 		MockFileSystem.Get(),

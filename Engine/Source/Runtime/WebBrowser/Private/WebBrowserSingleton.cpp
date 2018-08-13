@@ -240,6 +240,9 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	CefSettings Settings;
 	Settings.no_sandbox = true;
 	Settings.command_line_args_disabled = true;
+#if !PLATFORM_LINUX
+	Settings.enable_net_security_expiration = true;
+#endif
 
 	FString CefLogFile(FPaths::Combine(*FPaths::ProjectLogDir(), TEXT("cef3.log")));
 	CefLogFile = FPaths::ConvertRelativePathToFull(CefLogFile);
@@ -384,7 +387,6 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	FString InitialURL = BrowserWindowInfo->Browser->GetMainFrame()->GetURL().ToWString().c_str();
 	TSharedPtr<FCEFWebBrowserWindow> NewBrowserWindow(new FCEFWebBrowserWindow(BrowserWindowInfo->Browser, BrowserWindowInfo->Handler, InitialURL, ContentsToLoad, bShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency, bJSBindingsToLoweringEnabled));
 	BrowserWindowInfo->Handler->SetBrowserWindow(NewBrowserWindow);
-
 	{
 		FScopeLock Lock(&WindowInterfacesCS);
 		WindowInterfaces.Add(NewBrowserWindow);
@@ -402,7 +404,8 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	TOptional<FString> ContentsToLoad,
 	bool ShowErrorMessage,
 	FColor BackgroundColor,
-	int BrowserFrameRate )
+	int BrowserFrameRate,
+	const TArray<FString>& AltRetryDomains)
 {
 	FCreateBrowserWindowSettings Settings;
 	Settings.OSWindowHandle = OSWindowHandle;
@@ -413,6 +416,7 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	Settings.bShowErrorMessage = ShowErrorMessage;
 	Settings.BackgroundColor = BackgroundColor;
 	Settings.BrowserFrameRate = BrowserFrameRate;
+	Settings.AltRetryDomains = AltRetryDomains;
 
 	return CreateBrowserWindow(Settings);
 }
@@ -457,7 +461,7 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 
 
 		// WebBrowserHandler implements browser-level callbacks.
-		CefRefPtr<FCEFBrowserHandler> NewHandler(new FCEFBrowserHandler(WindowSettings.bUseTransparency));
+		CefRefPtr<FCEFBrowserHandler> NewHandler(new FCEFBrowserHandler(WindowSettings.bUseTransparency, WindowSettings.AltRetryDomains));
 
 		CefRefPtr<CefRequestContext> RequestContext = nullptr;
 		if (WindowSettings.Context.IsSet())
@@ -472,6 +476,9 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 				CefString(&RequestContextSettings.cache_path) = *Context.CookieStorageLocation;
 				RequestContextSettings.persist_session_cookies = Context.bPersistSessionCookies;
 				RequestContextSettings.ignore_certificate_errors = Context.bIgnoreCertificateErrors;
+#if !PLATFORM_LINUX
+				RequestContextSettings.enable_net_security_expiration = Context.bEnableNetSecurityExpiration;
+#endif
 
 				//Create a new one
 				RequestContext = CefRequestContext::CreateContext(RequestContextSettings, nullptr);
@@ -499,11 +506,11 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 				WindowSettings.bUseTransparency,
 				bJSBindingsToLoweringEnabled));
 			NewHandler->SetBrowserWindow(NewBrowserWindow);
-
 			{
 				FScopeLock Lock(&WindowInterfacesCS);
 				WindowInterfaces.Add(NewBrowserWindow);
 			}
+			
 			return NewBrowserWindow;
 		}
 	}
@@ -517,7 +524,6 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 		WindowSettings.bUseTransparency,
 		bJSBindingsToLoweringEnabled));
 
-	//WindowInterfaces.Add(NewBrowserWindow);
 	return NewBrowserWindow;
 #elif PLATFORM_IOS || PLATFORM_PS4
 	// Create new window
@@ -528,7 +534,6 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 		WindowSettings.bThumbMouseButtonNavigation, 
 		WindowSettings.bUseTransparency));
 
-	//WindowInterfaces.Add(NewBrowserWindow);
 	return NewBrowserWindow;
 #endif
 	return nullptr;
@@ -539,25 +544,28 @@ bool FWebBrowserSingleton::Tick(float DeltaTime)
     QUICK_SCOPE_CYCLE_COUNTER(STAT_FWebBrowserSingleton_Tick);
 
 #if WITH_CEF3
-	FScopeLock Lock(&WindowInterfacesCS);
-	bool bIsSlateAwake = FSlateApplication::IsInitialized() && !FSlateApplication::Get().IsSlateAsleep();
-	// Remove any windows that have been deleted and check whether it's currently visible
-	for (int32 Index = WindowInterfaces.Num() - 1; Index >= 0; --Index)
 	{
-		if (!WindowInterfaces[Index].IsValid())
+		FScopeLock Lock(&WindowInterfacesCS);
+		bool bIsSlateAwake = FSlateApplication::IsInitialized() && !FSlateApplication::Get().IsSlateAsleep();
+		// Remove any windows that have been deleted and check whether it's currently visible
+		for (int32 Index = WindowInterfaces.Num() - 1; Index >= 0; --Index)
 		{
-			WindowInterfaces.RemoveAt(Index);
-		}
-		else if (bIsSlateAwake) // only check for Tick activity if Slate is currently ticking
-		{
-			TSharedPtr<FCEFWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
-			if(BrowserWindow.IsValid())
+			if (!WindowInterfaces[Index].IsValid())
 			{
-				// Test if we've ticked recently. If not assume the browser window has become hidden.
-				BrowserWindow->CheckTickActivity();
+				WindowInterfaces.RemoveAt(Index);
+			}
+			else if (bIsSlateAwake) // only check for Tick activity if Slate is currently ticking
+			{
+				TSharedPtr<FCEFWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
+				if(BrowserWindow.IsValid())
+				{
+					// Test if we've ticked recently. If not assume the browser window has become hidden.
+					BrowserWindow->CheckTickActivity();
+				}
 			}
 		}
 	}
+
 	CefDoMessageLoopWork();
 
 	// Update video buffering for any windows that need it
@@ -637,6 +645,9 @@ bool FWebBrowserSingleton::RegisterContext(const FBrowserContextSettings& Settin
 	CefString(&RequestContextSettings.cache_path) = *Settings.CookieStorageLocation;
 	RequestContextSettings.persist_session_cookies = Settings.bPersistSessionCookies;
 	RequestContextSettings.ignore_certificate_errors = Settings.bIgnoreCertificateErrors;
+#if !PLATFORM_LINUX
+	RequestContextSettings.enable_net_security_expiration = Settings.bEnableNetSecurityExpiration;
+#endif
 
 	//Create a new one
 	CefRefPtr<CefRequestContext> RequestContext = CefRequestContext::CreateContext(RequestContextSettings, nullptr);

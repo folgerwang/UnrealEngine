@@ -83,8 +83,6 @@ struct ENGINE_API FConstraintProfileProperties
 
 	FConstraintProfileProperties();
 
-#if WITH_PHYSX
-
 	/** Updates physx joint properties from unreal properties (limits, drives, flags, etc...) */
 	void Update_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef, float AverageMass, float UseScale) const;
 
@@ -93,7 +91,6 @@ struct ENGINE_API FConstraintProfileProperties
 
 	/** Updates physx joint flag based on profile properties */
 	void UpdateConstraintFlags_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef) const;
-#endif
 
 #if WITH_EDITOR
 	void SyncChangedConstraintProperties(struct FPropertyChangedChainEvent& PropertyChangedEvent);
@@ -185,9 +182,7 @@ public:
 	/** Get underlying physics engine constraint */
 	const FPhysicsConstraintHandle& GetPhysicsConstraintRef() const;
 
-#if WITH_PHYSX
 	FPhysxUserData PhysxUserData;
-#endif
 
 private:
 	/** The component scale passed in during initialization*/

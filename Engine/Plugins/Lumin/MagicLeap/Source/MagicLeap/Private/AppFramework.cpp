@@ -3,9 +3,11 @@
 #include "AppFramework.h"
 #include "MagicLeapHMD.h"
 #include "GameFramework/WorldSettings.h"
+#include "GameFramework/PlayerController.h"
 #include "RenderingThread.h"
 #include "Engine/Engine.h"
 #include "Misc/CoreDelegates.h"
+#include "RenderingThread.h"
 #include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
@@ -37,14 +39,6 @@ void FAppFramework::Startup()
 
 	base_position_ = FVector::ZeroVector;
 	base_orientation_ = FQuat::Identity;
-
-	{
-		FScopeLock Lock(&EventHandlersCriticalSection);
-	for (auto EventHandler : EventHandlers)
-	{
-		EventHandler->OnAppStartup();
-	}
-	}
 
 	// Register application lifecycle delegates
 	FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddRaw(this, &FAppFramework::ApplicationPauseDelegate);
@@ -82,15 +76,19 @@ void FAppFramework::BeginUpdate()
 			base_orientation_ = FQuat::Identity;
 			base_dirty_ = false;
 		}
+
+		FScopeLock Lock(&EventHandlersCriticalSection);
+		for (auto EventHandler : EventHandlers)
+		{
+			EventHandler->OnAppTick();
+		}
 	}
 #endif //WITH_MLSDK
 }
 
 void FAppFramework::ApplicationPauseDelegate()
 {
-	FPlatformMisc::LowLevelOutputDebugString(TEXT("+++++++ AppFramework APP PAUSE ++++++"));
-
-	FlushRenderingCommands();
+	UE_LOG(LogMagicLeap, Log, TEXT("+++++++ ML AppFramework APP PAUSE ++++++"));
 
 	FMagicLeapHMD * hmd = GEngine ? static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice()) : nullptr;
 
@@ -102,7 +100,14 @@ void FAppFramework::ApplicationPauseDelegate()
 	if (GEngine)
 	{
 		saved_max_fps_ = GEngine->GetMaxFPS();
-		GEngine->SetMaxFPS(0.0f);
+		// MaxFPS = 0 means uncapped. So we set it to something trivial like 10 to keep network connections alive.
+		GEngine->SetMaxFPS(10.0f);
+
+		APlayerController* PlayerController = GEngine->GetFirstLocalPlayerController(GWorld);
+		if (PlayerController != nullptr)
+		{
+			PlayerController->SetPause(true);
+		}
 	}
 
 	FScopeLock Lock(&EventHandlersCriticalSection);
@@ -110,13 +115,46 @@ void FAppFramework::ApplicationPauseDelegate()
 	{
 		EventHandler->OnAppPause();
 	}
+
+	// Pause rendering
+	if (GUseThreadedRendering)
+	{
+		if (GIsThreadedRendering)
+		{
+			StopRenderingThread(); 
+		}
+	}
+	else
+	{
+		RHIReleaseThreadOwnership();
+	}
 }
 
 void FAppFramework::ApplicationResumeDelegate()
 {
-	FPlatformMisc::LowLevelOutputDebugString(TEXT("+++++++ MLContext APP RESUME ++++++"));
+	UE_LOG(LogMagicLeap, Log, TEXT("+++++++ ML AppFramework APP RESUME ++++++"));
+
+	// Resume rendering
+	if (GUseThreadedRendering)
+	{
+		if (!GIsThreadedRendering)
+		{
+			StartRenderingThread();
+		}
+	}
+	else
+	{
+		RHIAcquireThreadOwnership();
+	}
+
 	if (GEngine)
 	{
+		APlayerController* PlayerController = GEngine->GetFirstLocalPlayerController(GWorld);
+		if (PlayerController != nullptr)
+		{
+			PlayerController->SetPause(false);
+		}
+
 		GEngine->SetMaxFPS(saved_max_fps_);
 	}
 
@@ -162,16 +200,16 @@ void FAppFramework::SetBaseRotation(const FRotator& InBaseRotation)
 	base_dirty_ = true;
 }
 
-FTrackingFrame* FAppFramework::GetCurrentFrame() const
+const FTrackingFrame* FAppFramework::GetCurrentFrame() const
 {
 	FMagicLeapHMD* hmd = GEngine ? static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice()) : nullptr;
-	return hmd ? hmd->GetCurrentFrame() : nullptr;
+	return hmd ? &(hmd->GetCurrentFrame()) : nullptr;
 }
 
-FTrackingFrame* FAppFramework::GetOldFrame() const
+const FTrackingFrame* FAppFramework::GetOldFrame() const
 {
 	FMagicLeapHMD* hmd = GEngine ? static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice()) : nullptr;
-	return hmd ? hmd->GetOldFrame() : nullptr;
+	return hmd ? &(hmd->GetOldFrame()) : nullptr;
 }
 
 FVector2D FAppFramework::GetFieldOfView() const
@@ -227,14 +265,14 @@ float FAppFramework::GetWorldToMetersScale() const
 
 FTransform FAppFramework::GetCurrentFrameUpdatePose() const
 {
-	FTrackingFrame* frame = GetCurrentFrame();
+	const FTrackingFrame* frame = GetCurrentFrame();
 	return frame ? frame->RawPose : FTransform::Identity;
 }
 
 #if WITH_MLSDK
 bool FAppFramework::GetTransform(const MLCoordinateFrameUID& Id, FTransform& OutTransform, EFailReason& OutReason) const
 {
-	FTrackingFrame* frame = GetCurrentFrame();
+	const FTrackingFrame* frame = GetCurrentFrame();
 	if (frame == nullptr)
 	{
 		OutReason = EFailReason::InvalidTrackingFrame;
@@ -242,12 +280,12 @@ bool FAppFramework::GetTransform(const MLCoordinateFrameUID& Id, FTransform& Out
 	}
 
 	MLTransform transform = MagicLeap::kIdentityTransform;
-	if (MLSnapshotGetTransform(frame->Snapshot, &Id, &transform))
+	MLResult Result = MLSnapshotGetTransform(frame->Snapshot, &Id, &transform);
+	if (Result == MLResult_Ok)
 	{
 		OutTransform = MagicLeap::ToFTransform(transform, GetWorldToMetersScale());
 		if (OutTransform.ContainsNaN())
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("MLSnapshotGetTransform() returned an invalid transform with NaNs."));
 			OutReason = EFailReason::NaNsInTransform;
 			return false;
 		}
@@ -261,10 +299,55 @@ bool FAppFramework::GetTransform(const MLCoordinateFrameUID& Id, FTransform& Out
 		OutReason = EFailReason::None;
 		return true;
 	}
-	OutReason = EFailReason::CallFailed;
+	else if (Result == MLSnapshotResult_PoseNotFound)
+	{
+		OutReason = EFailReason::PoseNotFound;
+	}
+	else
+	{
+		OutReason = EFailReason::CallFailed;
+	}
+
 	return false;
 }
 #endif //WITH_MLSDK
+
+TSharedPtr<FCameraCaptureRunnable, ESPMode::ThreadSafe> FAppFramework::GetCameraCaptureRunnable()
+{
+	if (!CameraCaptureRunnable.IsValid())
+	{
+		CameraCaptureRunnable = MakeShared<FCameraCaptureRunnable, ESPMode::ThreadSafe>();
+	}
+	return CameraCaptureRunnable;
+}
+
+void FAppFramework::RefreshCameraCaptureRunnableReferences()
+{
+	// a reference count of 1 is a self reference
+	if (CameraCaptureRunnable.GetSharedReferenceCount() == 1)
+	{
+		CameraCaptureRunnable.Reset();
+	}
+}
+
+TSharedPtr<FImageTrackerRunnable, ESPMode::ThreadSafe> FAppFramework::GetImageTrackerRunnable()
+{
+	if (!ImageTrackerRunnable.IsValid())
+	{
+		ImageTrackerRunnable = MakeShared<FImageTrackerRunnable, ESPMode::ThreadSafe>();
+	}
+
+	return ImageTrackerRunnable;
+}
+
+void FAppFramework::RefreshImageTrackerRunnableReferences()
+{
+	// a reference count of 1 is a self reference
+	if (ImageTrackerRunnable.GetSharedReferenceCount() == 1)
+	{
+		ImageTrackerRunnable.Reset();
+	}
+}
 
 void FAppFramework::AddEventHandler(MagicLeap::IAppEventHandler* EventHandler)
 {

@@ -29,6 +29,7 @@ DEFINE_STAT(STAT_MetalTexturePageOffTime);
 DEFINE_STAT(STAT_MetalGPUWorkTime);
 DEFINE_STAT(STAT_MetalGPUIdleTime);
 DEFINE_STAT(STAT_MetalPresentTime);
+DEFINE_STAT(STAT_MetalCustomPresentTime);
 DEFINE_STAT(STAT_MetalCommandBufferCreatedPerFrame);
 DEFINE_STAT(STAT_MetalCommandBufferCommittedPerFrame);
 DEFINE_STAT(STAT_MetalBufferMemory);

@@ -39,7 +39,9 @@
 #include "HAL/LowLevelMemTracker.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 
-#define SLATE_HAS_WIDGET_REFLECTOR !(UE_BUILD_TEST || UE_BUILD_SHIPPING) && PLATFORM_DESKTOP
+#ifndef SLATE_HAS_WIDGET_REFLECTOR
+	#define SLATE_HAS_WIDGET_REFLECTOR !(UE_BUILD_TEST || UE_BUILD_SHIPPING) && PLATFORM_DESKTOP
+#endif
 
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsHWrapper.h"
@@ -7341,4 +7343,3 @@ void FSlateApplication::InputPreProcessorsHelper::RemoveAll()
 	InputPreProcessorList.Reset();
 }
 
-#undef SLATE_HAS_WIDGET_REFLECTOR

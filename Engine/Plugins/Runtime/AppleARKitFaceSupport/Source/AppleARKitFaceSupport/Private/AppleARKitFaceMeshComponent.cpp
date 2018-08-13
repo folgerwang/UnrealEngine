@@ -2,6 +2,7 @@
 
 #include "AppleARKitFaceMeshComponent.h"
 #include "ARBlueprintLibrary.h"
+#include "AppleARKitFaceSupportModule.h"
 
 #if SUPPORTS_ARKIT_1_0
 	#import <ARKit/ARKit.h>
@@ -13,6 +14,7 @@
 #include "AppleARKitSettings.h"
 #include "AppleARKitConversion.h"
 
+DECLARE_CYCLE_STAT(TEXT("Update"), STAT_FaceAR_Component_Update, STATGROUP_FaceAR);
 
 #if SUPPORTS_ARKIT_1_0
 
@@ -316,6 +318,8 @@ void UAppleARKitFaceMeshComponent::SetAutoBind(bool bAutoBind)
 
 void UAppleARKitFaceMeshComponent::TickComponent(float DeltaTime, ELevelTick, FActorComponentTickFunction*)
 {
+	SCOPE_CYCLE_COUNTER(STAT_FaceAR_Component_Update);
+
 	if (!bAutoBindToLocalFaceMesh)
 	{
 		return;

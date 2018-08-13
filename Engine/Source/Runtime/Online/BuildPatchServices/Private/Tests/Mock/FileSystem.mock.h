@@ -16,16 +16,16 @@ namespace BuildPatchServices
 		: public IFileSystem
 	{
 	public:
-		typedef TTuple<double, FArchive*, FString, EFileRead> FCreateFileReader;
-		typedef TTuple<double, FArchive*, FString, EFileWrite> FCreateFileWriter;
+		typedef TTuple<double, FArchive*, FString, EReadFlags> FCreateFileReader;
+		typedef TTuple<double, FArchive*, FString, EWriteFlags> FCreateFileWriter;
 		typedef TTuple<double, FString, int64> FGetFileSize;
-		typedef TTuple<double, FString, EFileAttributes> FGetFileAttributes;
+		typedef TTuple<double, FString, EAttributeFlags> FGetAttributes;
 		typedef TTuple<double, FString, bool> FSetReadOnly;
 		typedef TTuple<double, FString, bool> FSetCompressed;
 		typedef TTuple<double, FString, bool> FSetExecutable;
 
 	public:
-		virtual TUniquePtr<FArchive> CreateFileReader(const TCHAR* Filename, EFileRead ReadFlags = EFileRead::None) const override
+		virtual TUniquePtr<FArchive> CreateFileReader(const TCHAR* Filename, EReadFlags ReadFlags = EReadFlags::None) const override
 		{
 			FScopeLock ScopeLock(&ThreadLock);
 			TUniquePtr<FArchive> Reader(new FMemoryReader(ReadFile));
@@ -33,7 +33,7 @@ namespace BuildPatchServices
 			return Reader;
 		}
 
-		virtual TUniquePtr<FArchive> CreateFileWriter(const TCHAR* Filename, EFileWrite WriteFlags = EFileWrite::None) const override
+		virtual TUniquePtr<FArchive> CreateFileWriter(const TCHAR* Filename, EWriteFlags WriteFlags = EWriteFlags::None) const override
 		{
 			FScopeLock ScopeLock(&ThreadLock);
 			TUniquePtr<FArchive> Writer(new FMemoryWriter(WriteFile));
@@ -53,25 +53,31 @@ namespace BuildPatchServices
 			return false;
 		}
 
+		bool CopyFile(const TCHAR* FileDest, const TCHAR* FileSource) const
+		{
+			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::CopyFile");
+			return false;
+		}
+
 		virtual bool GetFileSize(const TCHAR* Filename, int64& OutFileSize) const override
 		{
-			OutFileSize = INDEX_NONE;
+			OutFileSize = -1;
 			if (FileSizes.Contains(Filename))
 			{
 				OutFileSize = FileSizes[Filename];
 			}
 			RxGetFileSize.Emplace(FStatsCollector::GetSeconds(), Filename, OutFileSize);
-			return true;
+			return OutFileSize >= 0;
 		}
 
-		virtual bool GetFileAttributes(const TCHAR* Filename, EFileAttributes& OutFileAttributes) const override
+		virtual bool GetAttributes(const TCHAR* Filename, EAttributeFlags& OutFileAttributes) const override
 		{
-			OutFileAttributes = EFileAttributes::None;
+			OutFileAttributes = EAttributeFlags::None;
 			if (FileAttributes.Contains(Filename))
 			{
 				OutFileAttributes = FileAttributes[Filename];
 			}
-			RxGetFileAttributes.Emplace(FStatsCollector::GetSeconds(), Filename, OutFileAttributes);
+			RxGetAttributes.Emplace(FStatsCollector::GetSeconds(), Filename, OutFileAttributes);
 			return true;
 		}
 
@@ -93,11 +99,17 @@ namespace BuildPatchServices
 			return true;
 		}
 
+		virtual bool FileExists(const TCHAR* Filename) const override
+		{
+			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::FileExists");
+			return true;
+		}
+
 	public:
 		mutable FCriticalSection ThreadLock;
 		mutable TArray<FCreateFileReader> RxCreateFileReader;
 		mutable TArray<FCreateFileWriter> RxCreateFileWriter;
-		mutable TArray<FGetFileAttributes> RxGetFileAttributes;
+		mutable TArray<FGetAttributes> RxGetAttributes;
 		mutable TArray<FGetFileSize> RxGetFileSize;
 		mutable TArray<FSetReadOnly> RxSetReadOnly;
 		mutable TArray<FSetCompressed> RxSetCompressed;
@@ -105,7 +117,7 @@ namespace BuildPatchServices
 		mutable TArray<uint8> ReadFile;
 		mutable TArray<uint8> WriteFile;
 		mutable TMap<FString, int64> FileSizes;
-		mutable TMap<FString, EFileAttributes> FileAttributes;
+		mutable TMap<FString, EAttributeFlags> FileAttributes;
 	};
 }
 

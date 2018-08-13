@@ -91,29 +91,8 @@ public class VulkanRHI : ModuleRules
 			bool bHaveVulkan = false;
 			if (Target.Platform == UnrealTargetPlatform.Lumin)
 			{
-				// Note: Lumin include path is public because plugin type requirements
-				// Note: header is the same for all architectures so just use default
-				string MLSDKPath = Environment.GetEnvironmentVariable("MLSDK");
-				string MLSDKVulkanIncludePath = MLSDKPath + "/lumin/usr/include/vulkan";
-
-				// Use MLSDK Vulkan header if discovered, or VulkanSDK if available
-				if (File.Exists(MLSDKVulkanIncludePath + "/vulkan.h"))
-				{
-					bHaveVulkan = true;
-					PrivateIncludePaths.Add(MLSDKVulkanIncludePath);
-				}
-				else if (!String.IsNullOrEmpty(VulkanSDKPath))
-				{
-					// If the user has an installed SDK, use that instead
-					bHaveVulkan = true;
-					PrivateIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
-				}
-				else
-				{
-					// Fall back to the Windows Vulkan SDK (the headers are the same)
-					bHaveVulkan = true;
-					PrivateIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Vulkan/Windows/Include/vulkan");
-				}
+				PrivateIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Vulkan/Include/vulkan");
+				bHaveVulkan = true;
 			}
 			else if (!String.IsNullOrEmpty(VulkanSDKPath))
 			{

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShared.h: Shared material definitions.
@@ -1628,6 +1628,9 @@ public:
 
 	/** Cached uniform expressions. */
 	mutable FUniformExpressionCache UniformExpressionCache[ERHIFeatureLevel::Num];
+
+	/** Cached external texture immutable samplers */
+	mutable FImmutableSamplerState ImmutableSamplerState;
 
 	/** Default constructor. */
 	ENGINE_API FMaterialRenderProxy();

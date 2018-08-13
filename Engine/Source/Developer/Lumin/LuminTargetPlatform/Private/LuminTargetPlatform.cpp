@@ -8,6 +8,10 @@
 #include "UObject/NameTypes.h"
 #include "Logging/LogMacros.h"
 #include "Stats/Stats.h"
+#if WITH_EDITOR
+#include "Materials/Material.h"
+#endif
+#include "LuminTargetDevice.h"
 #include "Modules/ModuleManager.h"
 
 /*=============================================================================
@@ -25,19 +29,7 @@ FLuminTargetPlatform::FLuminTargetPlatform(bool bIsClient)
 	// by using the FAndroidPlatformProperties, the PlatformInfo up in TTargetPlatformBase/FTargetPlatformBase would be Android
 	this->PlatformInfo = PlatformInfo::FindPlatformInfo("Lumin");
 
-	FConfigCacheIni::LoadLocalIniFile(EngineSettings, TEXT("Engine"), true, *IniPlatformName());
-
-	// Get the Target RHIs for this platform, we do not always want all those that are supported.
-	TArray<FName> TargetedShaderFormats;
-	GetAllTargetedShaderFormats(TargetedShaderFormats);
-
-	// If we are targeting ES 2.0/3.1, we also must cook encoded HDR reflection captures
-	static FName NAME_VULKAN_ES31(TEXT("SF_VULKAN_ES31_LUMIN"));
-	static FName NAME_GLSL_ES2(TEXT("GLSL_ES2"));
-	static FName NAME_GLSL_SM5(TEXT("GLSL_430"));
-	bRequiresEncodedHDRReflectionCaptures = TargetedShaderFormats.Contains(NAME_VULKAN_ES31)
-		|| TargetedShaderFormats.Contains(NAME_GLSL_ES2)
-		|| TargetedShaderFormats.Contains(NAME_GLSL_SM5);
+	RefreshSettings();
 #endif
 }
 
@@ -71,22 +63,62 @@ int32 FLuminTargetPlatform::CheckRequirements(const FString& ProjectPath, bool b
 bool FLuminTargetPlatform::SupportsMobileRendering() const
 {
 	bool bUseMobileRendering = true;
-	EngineSettings.GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bUseMobileRendering"), bUseMobileRendering);
+	LuminEngineSettings.GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bUseMobileRendering"), bUseMobileRendering);
 	return bUseMobileRendering;
 }
 
 bool FLuminTargetPlatform::SupportsDesktopRendering() const
 {
 	bool bUseMobileRendering = true;
-	EngineSettings.GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bUseMobileRendering"), bUseMobileRendering);
+	LuminEngineSettings.GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bUseMobileRendering"), bUseMobileRendering);
 	return bUseMobileRendering == false;
 }
 
-static bool LuminSupportsVulkan(const FConfigFile& EngineSettings)
+static bool LuminSupportsVulkan(const FConfigFile& InLuminEngineSettings)
 {
 	bool bSupportsVulkan = false;
-	EngineSettings.GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bUseVulkan"), bSupportsVulkan);
+	InLuminEngineSettings.GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bUseVulkan"), bSupportsVulkan);
 	return bSupportsVulkan;
+}
+
+void FLuminTargetPlatform::RefreshSettings()
+{
+#if WITH_ENGINE
+	//UE_LOG(LogCore, Warning, TEXT("*** DIAGNOSE - REFRESH!!!"));
+
+	FConfigFile NewEngineSettings;
+	FConfigCacheIni::LoadLocalIniFile(NewEngineSettings, TEXT("Engine"), true, *IniPlatformName(), true);
+	//the load above does not move settings from "SourceConfig" member to the object itself.  New loads will do that.
+	LuminEngineSettings = NewEngineSettings;
+	//override the android version too
+	EngineSettings = NewEngineSettings;
+
+	// Get the Target RHIs for this platform, we do not always want all those that are supported.
+	TArray<FName> TargetedShaderFormats;
+	GetAllTargetedShaderFormats(TargetedShaderFormats);
+
+	// If we are targeting ES 2.0/3.1, we also must cook encoded HDR reflection captures
+	static FName NAME_VULKAN_ES31(TEXT("SF_VULKAN_ES31_LUMIN"));
+	static FName NAME_GLSL_ES2(TEXT("GLSL_ES2"));
+	static FName NAME_GLSL_SM5(TEXT("GLSL_430"));
+	bRequiresEncodedHDRReflectionCaptures = TargetedShaderFormats.Contains(NAME_VULKAN_ES31)
+		|| TargetedShaderFormats.Contains(NAME_GLSL_ES2)
+		|| TargetedShaderFormats.Contains(NAME_GLSL_SM5);
+
+#if WITH_EDITOR
+	//ensure that we wipe out the material cached data before we begin serializing.  It is cleared *after* a serialize, but changes made ini files will not be taken into account for materials without this
+	TArray<UObject*> Materials;
+	GetObjectsOfClass(UMaterial::StaticClass(), Materials, true);
+	for (UObject* Material : Materials)
+	{
+		if (Material->GetOutermost() != GetTransientPackage())
+		{
+			Material->ClearCachedCookedPlatformData(this);
+		}
+	}
+#endif
+
+#endif
 }
 
 bool FLuminTargetPlatform::SupportsFeature(ETargetPlatformFeatures Feature) const
@@ -116,9 +148,9 @@ bool FLuminTargetPlatform::SupportsFeature(ETargetPlatformFeatures Feature) cons
 	return TTargetPlatformBase<FAndroidPlatformProperties>::SupportsFeature(Feature);
 }
 
-FAndroidTargetDeviceRef FLuminTargetPlatform::CreateNewDevice(const FAndroidDeviceInfo &DeviceInfo)
+FAndroidTargetDevicePtr FLuminTargetPlatform::CreateTargetDevice(const ITargetPlatform& InTargetPlatform, const FString& InSerialNumber, const FString& InAndroidVariant) const
 {
-	return MakeShareable(new FLuminTargetDevice(*this, DeviceInfo.SerialNumber, GetAndroidVariantName()));
+	return MakeShareable(new FLuminTargetDevice(InTargetPlatform, InSerialNumber, InAndroidVariant));
 }
 
 void FLuminTargetPlatform::InitializeDeviceDetection()
@@ -130,7 +162,7 @@ void FLuminTargetPlatform::InitializeDeviceDetection()
 #else
 	TEXT("tools/mldb/mldb"),
 #endif
-	TEXT("getprop"), false);
+	TEXT("getprop"), /*bGetExtensionsViaSurfaceFlinger*/ false, /*bForLumin*/ true);
 
 }
 
@@ -148,22 +180,25 @@ void FLuminTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormat
 
 	if (SupportsMobileRendering())
 	{
-		OutFormats.AddUnique(NAME_GLSL_ES2);
-		if (LuminSupportsVulkan(EngineSettings))
+		if (LuminSupportsVulkan(LuminEngineSettings))
 		{
 			OutFormats.AddUnique(NAME_VULKAN_ES31_LUMIN);
+		}
+		else
+		{
+			OutFormats.AddUnique(NAME_GLSL_ES2);
 		}
 	}
 
 	if (SupportsDesktopRendering())
 	{
-//		OutFormats.AddUnique(NAME_GLSL_310_ES_EXT);
-//		OutFormats.AddUnique(NAME_GLSL_SM4);
-		OutFormats.AddUnique(NAME_GLSL_SM5);
-
-		if (LuminSupportsVulkan(EngineSettings))
+		if (LuminSupportsVulkan(LuminEngineSettings))
 		{
 			OutFormats.AddUnique(NAME_VULKAN_SM5_LUMIN);
+		}
+		else
+		{
+			OutFormats.AddUnique(NAME_GLSL_SM5);
 		}
 	}
 }
@@ -197,7 +232,7 @@ void FLuminTargetPlatform::GetTextureFormats(const UTexture* InTexture, TArray<F
 	// if we didn't assign anything specially, then use the defaults
 	if (TextureFormatName == NAME_None)
 	{
-		TextureFormatName = GetDefaultTextureFormatName(this, InTexture, EngineSettings, false);
+		TextureFormatName = GetDefaultTextureFormatName(this, InTexture, LuminEngineSettings, false);
 	}
 
 	// perform any remapping away from defaults

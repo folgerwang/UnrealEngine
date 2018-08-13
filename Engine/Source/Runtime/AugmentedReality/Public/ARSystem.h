@@ -120,7 +120,6 @@ public:
 	/** @return the last camera depth information the AR system has seen */
 	virtual UARTextureCameraDepth* OnGetCameraDepth() = 0;
 
-//@joeg -- ARKit 2.0 additions
 	/** Tells the ARSystem to generate a capture probe at the specified location if supported */
 	virtual bool OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent) = 0;
 	
@@ -132,7 +131,9 @@ public:
 	
 	/** @return the current mapping status */
 	virtual EARWorldMappingState OnGetWorldMappingStatus() const = 0;
-//@joeg -- End additions
+	
+	/** @return The list of supported video formats for this device and session type */
+	virtual TArray<FARVideoFormat> OnGetSupportedVideoFormats(EARSessionType SessionType) const = 0;
 	
 public:
 	virtual ~IARSystemSupport(){}
@@ -193,7 +194,6 @@ public:
 	UARTextureCameraImage* GetCameraImage();
 	/** \see UARBlueprintLibrary::GetCameraDepth() */
 	UARTextureCameraDepth* GetCameraDepth();
-//@joeg -- ARKit 2.0 additions
 	/**\see UARBlueprintLibrary::IsEnvironmentCaptureSupported() */
 	bool IsEnvironmentCaptureSupported() const;
 	/**\see UARBlueprintLibrary::AddEnvironmentCaptureProbe() */
@@ -204,7 +204,6 @@ public:
 	TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> SaveWorld() const;
 	/** @return the current mapping status */
 	EARWorldMappingState GetWorldMappingStatus() const;
-//@joeg -- End additions
 
 	/** \see UARBlueprintLibrary::GetCurrentLightEstimate() */
 	UARLightEstimate* GetCurrentLightEstimate() const;
@@ -216,6 +215,9 @@ public:
 	/** \see UARBlueprintLibrary::RemovePin() */
 	void RemovePin( UARPin* PinToRemove );
 
+	/** \see UARBlueprintLibrary::GetSupportedVideoFormats() */
+	TArray<FARVideoFormat> GetSupportedVideoFormats(EARSessionType SessionType = EARSessionType::World) const;
+	
 	virtual void* GetARSessionRawPointer() = 0;
 	virtual void* GetGameThreadARFrameRawPointer() = 0;
 	

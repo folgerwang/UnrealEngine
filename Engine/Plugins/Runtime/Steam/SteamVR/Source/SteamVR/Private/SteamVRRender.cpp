@@ -41,12 +41,8 @@ void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLis
 		DrawClearQuad(RHICmdList, FLinearColor(0, 0, 0, 0));
 	}
 
-	//@todo Fix for crash on exit, but do not merge, since there is a more robust fix in Main
-	if (bStereoDesired && bStereoEnabled)
-	{
-		check(SpectatorScreenController);
-		SpectatorScreenController->RenderSpectatorScreen_RenderThread(RHICmdList, BackBuffer, SrcTexture, WindowSize);
-	}
+	check(SpectatorScreenController);
+	SpectatorScreenController->RenderSpectatorScreen_RenderThread(RHICmdList, BackBuffer, SrcTexture, WindowSize);
 }
 
 static void DrawOcclusionMesh(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass, const FHMDViewMesh MeshAssets[])
