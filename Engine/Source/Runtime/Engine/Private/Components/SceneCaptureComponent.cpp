@@ -50,9 +50,11 @@ ASceneCapture::ASceneCapture(const FObjectInitializer& ObjectInitializer)
 ASceneCapture2D::ASceneCapture2D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITOR
 	DrawFrustum = CreateDefaultSubobject<UDrawFrustumComponent>(TEXT("DrawFrust0"));
 	DrawFrustum->SetIsVisualizationComponent(true);
 	DrawFrustum->SetupAttachment(GetMeshComp());
+#endif
 
 	CaptureComponent2D = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("NewSceneCaptureComponent2D"));
 	CaptureComponent2D->SetupAttachment(GetMeshComp());
@@ -63,6 +65,7 @@ void ASceneCapture2D::OnInterpToggle(bool bEnable)
 	CaptureComponent2D->SetVisibility(bEnable);
 }
 
+#if WITH_EDITOR
 void ASceneCapture2D::UpdateDrawFrustum()
 {
 	if(DrawFrustum && CaptureComponent2D)
@@ -83,7 +86,6 @@ void ASceneCapture2D::PostActorCreated()
 	Super::PostActorCreated();
 
 	// no need load the editor mesh when there is no editor
-#if WITH_EDITOR
 	if(GetMeshComp())
 	{
 		if (!IsRunningCommandlet())
@@ -95,19 +97,21 @@ void ASceneCapture2D::PostActorCreated()
 			}
 		}
 	}
-#endif
 
 	// Sync component with CameraActor frustum settings.
 	UpdateDrawFrustum();
 }
+#endif
 // -----------------------------------------------
 
 ASceneCaptureCube::ASceneCaptureCube(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITOR
 	DrawFrustum = CreateDefaultSubobject<UDrawFrustumComponent>(TEXT("DrawFrust0"));
 	DrawFrustum->SetIsVisualizationComponent(true);
 	DrawFrustum->SetupAttachment(GetMeshComp());
+#endif
 
 	CaptureComponentCube = CreateDefaultSubobject<USceneCaptureComponentCube>(TEXT("NewSceneCaptureComponentCube"));
 	CaptureComponentCube->SetupAttachment(GetMeshComp());
@@ -118,6 +122,7 @@ void ASceneCaptureCube::OnInterpToggle(bool bEnable)
 	CaptureComponentCube->SetVisibility(bEnable);
 }
 
+#if WITH_EDITOR
 void ASceneCaptureCube::UpdateDrawFrustum()
 {
 	if(DrawFrustum && CaptureComponentCube)
@@ -137,7 +142,6 @@ void ASceneCaptureCube::PostActorCreated()
 	Super::PostActorCreated();
 
 	// no need load the editor mesh when there is no editor
-#if WITH_EDITOR
 	if(GetMeshComp())
 	{
 		if (!IsRunningCommandlet())
@@ -149,12 +153,10 @@ void ASceneCaptureCube::PostActorCreated()
 			}
 		}
 	}
-#endif
 
 	// Sync component with CameraActor frustum settings.
 	UpdateDrawFrustum();
 }
-#if WITH_EDITOR
 
 void ASceneCaptureCube::PostEditMove(bool bFinished)
 {
@@ -250,7 +252,7 @@ void USceneCaptureComponent::ShowOnlyActorComponents(AActor* InActor)
 		PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
 
 		for (UActorComponent* Component : InActor->GetComponents())
-		{
+			{
 			if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
 			{
 				ShowOnlyComponents.Add(PrimComp);

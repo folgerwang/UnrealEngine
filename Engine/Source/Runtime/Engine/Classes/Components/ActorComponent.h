@@ -210,11 +210,11 @@ public:
 	DEPRECATED(4.14, "bWantsBeginPlay was inconsistently enforced and is now unused. BeginPlay will now always be called for Actor Components.")
 	uint8 bWantsBeginPlay:1;
 
-#if WITH_EDITORONLY_DATA
 	/** If true, the component will be excluded from non-editor builds */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Cooking)
 	uint8 bIsEditorOnly:1;
 
+#if WITH_EDITORONLY_DATA
 private:
 	UPROPERTY()
 	uint8 bIsVisualizationComponent : 1;
