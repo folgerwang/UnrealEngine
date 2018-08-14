@@ -9,14 +9,6 @@
 ML_INCLUDES_START
 
 #include <ml_api.h>
-
-#if PLATFORM_LUMIN
-#include <vulkan.h>
-#include <ml_graphics.h>
-#else
-#include <ml_graphics.h>
-#endif // PLATFORM_LUMIN
-
 #include <ml_coordinate_frame_uid.h>
 
 ML_INCLUDES_END
@@ -25,6 +17,8 @@ ML_INCLUDES_END
 #include "CoreMinimal.h"
 #include "AppEventHandler.h"
 #include "AsyncDestroyer.h"
+#include "CameraCaptureRunnable.h"
+#include "ImageTrackerRunnable.h"
 
 class FMagicLeapHMD;
 struct FTrackingFrame;
@@ -34,7 +28,8 @@ enum class EFailReason : uint8
 	None,
 	InvalidTrackingFrame,
 	NaNsInTransform,
-	CallFailed
+	CallFailed,
+	PoseNotFound
 };
 
 class MAGICLEAP_API FAppFramework
@@ -81,13 +76,18 @@ public:
 	bool GetTransform(const MLCoordinateFrameUID& Id, FTransform& OutTransform, EFailReason& OutReason) const;
 #endif //WITH_MLSDK
 
+	TSharedPtr<FCameraCaptureRunnable, ESPMode::ThreadSafe> GetCameraCaptureRunnable();
+	void RefreshCameraCaptureRunnableReferences();
+	TSharedPtr<FImageTrackerRunnable, ESPMode::ThreadSafe> GetImageTrackerRunnable();
+	void RefreshImageTrackerRunnableReferences();
+
 	static void AddEventHandler(MagicLeap::IAppEventHandler* InEventHandler);
 	static void RemoveEventHandler(MagicLeap::IAppEventHandler* InEventHandler);
 	static void AsyncDestroy(MagicLeap::IAppEventHandler* InEventHandler);
 
 private:
-	FTrackingFrame* GetCurrentFrame() const;
-	FTrackingFrame* GetOldFrame() const;
+	const FTrackingFrame* GetCurrentFrame() const;
+	const FTrackingFrame* GetOldFrame() const;
 
 	bool bInitialized = false;
 
@@ -104,6 +104,8 @@ private:
 	static TArray<MagicLeap::IAppEventHandler*> EventHandlers;
 	static FCriticalSection EventHandlersCriticalSection;
 	static MagicLeap::FAsyncDestroyer* AsyncDestroyer;
+	TSharedPtr<FCameraCaptureRunnable, ESPMode::ThreadSafe> CameraCaptureRunnable;
+	TSharedPtr<FImageTrackerRunnable, ESPMode::ThreadSafe> ImageTrackerRunnable;
 };
 
 DEFINE_LOG_CATEGORY_STATIC(LogMagicLeap, Log, All);

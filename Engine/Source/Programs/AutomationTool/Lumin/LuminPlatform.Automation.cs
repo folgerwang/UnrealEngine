@@ -21,11 +21,14 @@ public class LuminPlatform : Platform
 	//private static string PackageInstallPath = "/package";
 	private static string PackageWritePath = "/documents/c2";
 
+	private List<FileReference> RuntimeDependenciesForMabu;
+
 	public LuminPlatform()
 		: base(UnrealTargetPlatform.Lumin)
 	{
 		// @todo Lumin: once we get ini subplatforms, fix this and also TVOS stuff!
 		TargetIniPlatformType = UnrealTargetPlatform.Android;
+		RuntimeDependenciesForMabu = new List<FileReference>();
 	}
 
 	private static string GetElfNameWithoutArchitecture(ProjectParams Params, string DecoratedExeName)
@@ -184,11 +187,10 @@ public class LuminPlatform : Platform
 				foreach (FileReference File in CommandUtils.ResolveFilespec(CommandUtils.RootDirectory, RuntimeDependency.Path.FullName, ExcludePatterns))
 				{
 					// Stage all libraries described as Runtime Dependencies in the bin folder.
-					// Assuming all libraries have the prefix "lib" e.g. libsome_lib_name.so
-					if (File.GetExtension() == ".so" && File.GetFileName().IndexOf("lib") == 0)
+					if (File.GetExtension() == ".so")
 					{
-						string OutputPath = "bin/" + File.GetFileName();
-						SC.StageFile(StagedFileType.NonUFS, File, new StagedFileReference(OutputPath));
+						// third party lbs should be packaged in the bin folder, without changing their filename casing. Staging via Unreal's system changes their case.
+						RuntimeDependenciesForMabu.Add(File);
 						DependenciesToRemove.Add(RuntimeDependency);
 					}
 				}
@@ -341,13 +343,20 @@ public class LuminPlatform : Platform
 				"@if \"%ERRORLEVEL%\" NEQ \"0\" goto Error",
 				"@echo.",
 				"@echo Installation successful",
+				"%MLDB% %DEVICE% ps > nul",
+				"@if \"%ERRORLEVEL%\" NEQ \"0\" goto OobeError",
 				"goto:eof",
+				":OobeError",
+				"@echo Device is not ready for use. Run \"%MLSDK% ps\" from a command prompt for details.",
+				"goto Pause",
 				":Error",
 				"@echo.",
 				"@echo There was an error installing the game. Look above for more info.",
 				"@echo.",
 				"@echo Things to try:",
 				"@echo Check that the device (and only the device) is listed with \"%MLDB% devices\" from a command prompt.",
+				"@echo Check if the device is ready for use with \"%MLSDK% ps\" from a command prompt.",
+				":Pause",
 				"@pause"
 			};
 		}
@@ -370,11 +379,16 @@ public class LuminPlatform : Platform
 					"\techo",
 					"\techo \"Things to try:\"",
 					"\techo \"Check that the device (and only the device) is listed with \"$MLDB devices\" from a command prompt.\"",
+					"\techo \"Check if the device is ready for use with \"%MLSDK% ps\" from a command prompt.\"",
 					"\techo",
 					"\texit 1",
 				"fi",
 				"echo",
 				"echo \"Installation successful\"",
+				"$MLDB $DEVICE ps > /dev/null",
+				"if [ $? -ne 0 ]; then",
+					"\techo \"Device is not ready for use. Run \"%MLSDK% ps\" from a command prompt for details.\"",				
+				"fi",
 				"exit 0",
 			};
 		}
@@ -541,6 +555,9 @@ public class LuminPlatform : Platform
 
 		Deploy.InitUPL(Params.ShortProjectName, SC.ProjectRoot, SC.StageTargets[0].Receipt.Configuration);
 
+		string MpkName = GetFinalMpkName(Params, SC);
+		string PackageName = GetPackageName(Params);
+
 		if (!Params.Prebuilt)
 		{
 			string additionalFiles = Deploy.StageFiles();
@@ -592,6 +609,12 @@ public class LuminPlatform : Platform
 				}
 			}
 
+			// third party lbs should be packaged in the bin folder, without changing their filename casing.
+			foreach (FileReference LibFile in RuntimeDependenciesForMabu)
+			{
+				Builder.AppendLine(String.Format("\"{0}\" : \"bin/{1}\"\\", LibFile.FullName, LibFile.GetFileName()));
+			}
+
 			// Stage icon files directly to mabu instead of via Unreal to avoid the file casing issues.
 			// Icon files must be staged as is, without changing the case as the fbx, obj etc could have 
 			// embedded references to texture files.
@@ -606,17 +629,14 @@ public class LuminPlatform : Platform
 
 			// now put the exe into the data list (coming from original location)
 			string ExePath = GetExePath(Params, SC);
-			Builder.AppendLine(String.Format("\"{0}\" : \"bin/{1}\"", ExePath, Params.ShortProjectName));
+			Builder.AppendLine(String.Format("\"{0}/Binaries/{1}\" : \"bin/{2}\"", Path.GetDirectoryName(MabuFile), Path.GetFileName(ExePath), Params.ShortProjectName));
 
 			Directory.CreateDirectory(Path.GetDirectoryName(MabuFile));
 			WriteAllText(MabuFile, Builder.ToString());
 
 			string ElfName = GetElfNameWithoutArchitecture(Params, SC.StageExecutables[0]);
-			Deploy.PrepForUATPackageOrDeploy(Params.RawProjectPath, Params.ShortProjectName, SC.ProjectRoot, ElfName, SC.LocalRoot + "/Engine", Params.Distribution, "", false);
+			Deploy.PrepForUATPackageOrDeploy(Params.RawProjectPath, Params.ShortProjectName, SC.ProjectRoot, ExePath, SC.LocalRoot + "/Engine", Params.Distribution, "", false, MpkName);
 		}
-
-		string MpkName = GetFinalMpkName(Params, SC);
-		string PackageName = GetPackageName(Params);
 
 		// Write install batch file(s).
 		string BatchName = GetFinalBatchName(Params, SC, false);
@@ -825,7 +845,11 @@ public class LuminPlatform : Platform
 					// install the package only if was (re-)created during the package step
 					if (!IsPackageUpToDate(Params, SC))
 					{
-						RunDeviceCommand(Params, DeviceName, string.Format("install -u \"{0}\"", GetFinalMpkName(Params, SC)), null);
+						IProcessResult InstallResult = RunDeviceCommand(Params, DeviceName, string.Format("install -u \"{0}\"", GetFinalMpkName(Params, SC)), null);
+						if (InstallResult.ExitCode != 0)
+						{
+							throw new AutomationException((ExitCode)InstallResult.ExitCode, "Failed to install {0}", GetFinalMpkName(Params, SC));
+						}
 					}
 
 					// cache the timestamp of the exe
@@ -901,7 +925,11 @@ public class LuminPlatform : Platform
 		RunDeviceCommand(Params, DeviceName, UninstallCmd, null);
 
 		string InstallCmd = string.Format("install \"{0}\"", MpkName);
-		RunDeviceCommand(Params, DeviceName, InstallCmd, null);
+		IProcessResult InstallResult = RunDeviceCommand(Params, DeviceName, InstallCmd, null);
+		if (InstallResult.ExitCode != 0)
+		{
+			throw new AutomationException((ExitCode)InstallResult.ExitCode, "Failed to install {0}", GetFinalMpkName(Params, SC));
+		}
 	}
 
 	// adb shell quoted arguments need to be wrapped twice - once for Windows, and once for /bin/sh, otherwise sh can get confused
@@ -976,6 +1004,12 @@ public class LuminPlatform : Platform
 			if (!Params.CookOnTheFly && !Params.CookOnTheFlyStreaming && !Params.FileServer)
 			{
 				Argument = "-x";
+			}
+			if (Params.CookOnTheFlyStreaming || Params.CookOnTheFly)
+			{
+				// 'LocalAreaNetwork' privilege is required for CookOnTheFly. Being a sensitive privilege, it needs to be requested at runtime.
+				// We use the --auto-net-privs launch option to bypass this requirement.
+				Argument += " --auto-net-privs";
 			}
 			string LaunchArgs = string.Format("launch {0} {1}", Argument, PackageName);
 

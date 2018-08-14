@@ -450,9 +450,7 @@ public:
 	// Internal physics representation of our body instance
 	FPhysicsActorHandle ActorHandle;
 
-#if WITH_PHYSX
 	TSharedPtr<TArray<ANSICHAR>> CharDebugName;
-#endif	//WITH_PHYSX
 
 	/** PrimitiveComponent containing this body.   */
 	TWeakObjectPtr<class UPrimitiveComponent> OwnerComponent;

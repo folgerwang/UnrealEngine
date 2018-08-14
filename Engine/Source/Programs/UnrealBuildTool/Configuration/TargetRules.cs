@@ -1066,7 +1066,7 @@ namespace UnrealBuildTool
 		/// Macros to define globally across the whole target.
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
-		[CommandLine("-Define", ValueAfterSpace = true)]
+		[CommandLine("-Define:")]
 		public List<string> GlobalDefinitions = new List<string>();
 
 		/// <summary>

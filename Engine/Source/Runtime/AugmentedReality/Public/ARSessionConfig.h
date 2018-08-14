@@ -40,11 +40,9 @@ enum class EARSessionType : uint8
 	/** AR meant to overlay onto a face */
 	Face,
 
-//@joeg -- Added image tracking support
     /** Tracking of images supplied by the app. No world tracking, just images */
     Image,
 
-//@joeg -- Object scanning support
 	/** A session used to scan objects for object detection in a world tracking session */
 	ObjectScanning
 };
@@ -85,7 +83,6 @@ enum class EARFrameSyncMode : uint8
 	SyncTickWithoutCameraImage = 1,
 };
 
-//@joeg -- Added texture probe settings
 /**
  * Tells the AR system what type of environmental texture capturing to perform
  */
@@ -100,7 +97,19 @@ enum class EAREnvironmentCaptureProbeType : uint8
 	Automatic
 };
 
-UCLASS(BlueprintType, Category="AR AugmentedReality")
+/**
+ * Tells the AR system how much of the face work to perform
+ */
+UENUM(BlueprintType)
+enum class EARFaceTrackingUpdate : uint8
+{
+	/** Curves and geometry will be updated (only needed for mesh visualization) */
+	CurvesAndGeo,
+	/** Only the curve data is updated */
+	CurvesOnly
+};
+
+UCLASS(BlueprintType, Category="AR Settings")
 class AUGMENTEDREALITY_API UARSessionConfig : public UDataAsset
 {
 	GENERATED_BODY()
@@ -111,49 +120,106 @@ public:
 	
 public:
 	/** @see EARWorldAlignment */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EARWorldAlignment GetWorldAlignment() const;
 
 	/** @see SessionType */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EARSessionType GetSessionType() const;
 
 	/** @see PlaneDetectionMode */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EARPlaneDetectionMode GetPlaneDetectionMode() const;
 
 	/** @see LightEstimationMode */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EARLightEstimationMode GetLightEstimationMode() const;
 
 	/** @see FrameSyncMode */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EARFrameSyncMode GetFrameSyncMode() const;
 
 	/** @see bEnableAutomaticCameraOverlay */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	bool ShouldRenderCameraOverlay() const;
 
 	/** @see bEnableAutomaticCameraTracking */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	bool ShouldEnableCameraTracking() const;
 
 	/** @see bEnableAutoFocus */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	bool ShouldEnableAutoFocus() const;
 
+	/** @see bEnableAutoFocus */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetEnableAutoFocus(bool bNewValue);
+
+	/** @see bResetCameraTracking */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	bool ShouldResetCameraTracking() const;
+	
+	/** @see bResetCameraTracking */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetResetCameraTracking(bool bNewValue);
+
+	/** @see bResetTrackedObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	bool ShouldResetTrackedObjects() const;
+
+	/** @see bResetTrackedObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetResetTrackedObjects(bool bNewValue);
+	
 	/** @see CandidateImages */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	const TArray<UARCandidateImage*>& GetCandidateImageList() const;
     
-//@joeg -- Added image tracking support
 	/** @see MaxNumSimultaneousImagesTracked */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
     int32 GetMaxNumSimultaneousImagesTracked() const;
 	
-//@joeg -- Added environmental texture probe support
 	/** @see EnvironmentCaptureProbeType */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EAREnvironmentCaptureProbeType GetEnvironmentCaptureProbeType() const;
 	
-//@joeg -- Added for load/save of worlds
 	/** @see WorldMapData */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	const TArray<uint8>& GetWorldMapData() const;
 	/** @see WorldMapData */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	void SetWorldMapData(TArray<uint8> WorldMapData);
 
-//@joeg -- For object detection
+	/** @see CandidateObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	const TArray<UARCandidateObject*>& GetCandidateObjectList() const;
+	/** @see CandidateObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetCandidateObjectList(const TArray<UARCandidateObject*>& InCandidateObjects);
+	/** @see CandidateObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	void AddCandidateObject(UARCandidateObject* CandidateObject);
+	
+	/** @see DesiredVideoFormat */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	FARVideoFormat GetDesiredVideoFormat() const;
+	/** @see DesiredVideoFormat */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetDesiredVideoFormat(FARVideoFormat NewFormat);
+
+	/** @see FaceTrackingDirection */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARFaceTrackingDirection GetFaceTrackingDirection() const;
+	/** @see FaceTrackingDirection */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetFaceTrackingDirection(EARFaceTrackingDirection InDirection);
+	
+	/** @see FaceTrackingUpdate */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARFaceTrackingUpdate GetFaceTrackingUpdate() const;
+	/** @see FaceTrackingUpdate */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetFaceTrackingUpdate(EARFaceTrackingUpdate InUpdate);
 	
 private:
 	//~ UObject interface
@@ -201,27 +267,46 @@ protected:
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	bool bEnableAutomaticCameraTracking;
 
+	/** Whether the AR system should reset camera tracking (origin, transform) or not. Defaults to true. */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	bool bResetCameraTracking;
+	
+	/** Whether the AR system should remove any tracked objects or not. Defaults to true. */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	bool bResetTrackedObjects;
+	
 	/** The list of candidate images to detect within the AR camera view */
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	TArray<UARCandidateImage*> CandidateImages;
 
-//@joeg -- Added image tracking support
     /** The maximum number of images to track at the same time. Defaults to 1 */
     UPROPERTY(EditAnywhere, Category="AR Settings")
     int32 MaxNumSimultaneousImagesTracked;
 	
-//@joeg -- Added environmental texture probe support
 	/** How the AR system should handle texture probe capturing */
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	EAREnvironmentCaptureProbeType EnvironmentCaptureProbeType;
 
-//@joeg -- For loading a saved world
 	/** A previously saved world that is to be loaded when the session starts */
 	UPROPERTY(VisibleAnywhere, Category="AR Settings")
 	TArray<uint8> WorldMapData;
 
-//@joeg -- For object detection
 	/** A list of candidate objects to search for in the scene */
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	TArray<UARCandidateObject*> CandidateObjects;
+
+	/**
+	 * The desired video format (or the default if not supported) that this session should use if the camera is enabled
+	 * Note: Call GetSupportedVideoFormats to get a list of device supported formats
+	 */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	FARVideoFormat DesiredVideoFormat;
+	
+	/** Whether to track the face as if you are looking out of the device or as a mirror */
+	UPROPERTY(EditAnywhere, Category="Face AR Settings")
+	EARFaceTrackingDirection FaceTrackingDirection;
+
+	/** Whether to track the face as if you are looking out of the device or as a mirror */
+	UPROPERTY(EditAnywhere, Category="Face AR Settings")
+	EARFaceTrackingUpdate FaceTrackingUpdate;
 };

@@ -24,6 +24,12 @@ namespace BuildPatchServices
 		virtual void SendMessage(FChunkSourceEvent Message) = 0;
 
 		/**
+		 * Sends an installation file action message.
+		 * @param Message   The message to be sent.
+		 */
+		virtual void SendMessage(FInstallationFileAction Message) = 0;
+
+		/**
 		 * Dequeues received messages, pushing them to the provided handlers.
 		 * @param Handlers      The array of handlers.
 		 */

@@ -35,7 +35,9 @@ namespace ImmediatePhysics
 {
 	struct FActorData
 	{
+#if WITH_PHYSX
 		immediate::PxRigidBodyData RigidBodyData;
+#endif
 		FTransform InitialTransform;
 
 		bool bStatic;
@@ -122,8 +124,10 @@ public:
 
 	TArray<FActorHandle*>& GetActorHandles() { return ActorHandles; }
 	const TArray<FActorHandle*>& GetActorHandles() const { return ActorHandles; }
+#if WITH_PHYSX
 	TArray<immediate::PxRigidBodyData>& GetRigidBodyData() { return RigidBodiesData; }
 	const TArray<immediate::PxRigidBodyData>& GetRigidBodyData() const { return RigidBodiesData; }
+#endif
 
 	int32 NumActors() const { return ActorHandles.Num(); }
 

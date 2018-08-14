@@ -2,6 +2,9 @@
 
 #include "Installer/CloudChunkSource.h"
 #include "CoreMinimal.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Containers/Queue.h"
+#include "Misc/ScopeLock.h"
 #include "Async/Async.h"
 #include "Async/Future.h"
 #include "Core/Platform.h"
@@ -12,9 +15,6 @@
 #include "Common/StatsCollector.h"
 #include "Interfaces/IBuildInstaller.h"
 #include "BuildPatchUtil.h"
-#include "HAL/ThreadSafeBool.h"
-#include "Containers/Queue.h"
-#include "Misc/ScopeLock.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogCloudChunkSource, Warning, All);
 DEFINE_LOG_CATEGORY(LogCloudChunkSource);
@@ -184,6 +184,7 @@ namespace BuildPatchServices
 		// IChunkSource interface begin.
 		virtual IChunkDataAccess* Get(const FGuid& DataId) override;
 		virtual TSet<FGuid> AddRuntimeRequirements(TSet<FGuid> NewRequirements) override;
+		virtual bool AddRepeatRequirement(const FGuid& RepeatRequirement) override;
 		virtual void SetUnavailableChunksCallback(TFunction<void(TSet<FGuid>)> Callback) override;
 		// IChunkSource interface end.
 
@@ -192,7 +193,7 @@ namespace BuildPatchServices
 		const FString& GetCloudRoot(int32 RetryNum) const;
 		float GetRetryDelay(int32 RetryNum);
 		EBuildPatchDownloadHealth GetDownloadHealth(bool bIsDisconnected, float ChunkSuccessRate);
-		FGuid GetNextTask(const TMap<FGuid, FTaskInfo>& TaskInfos, const TMap<int32, FGuid>& InFlightDownloads, const TSet<FGuid>& PriorityRequests, const TSet<FGuid>& FailedDownloads, const TSet<FGuid>& Stored, TArray<FGuid>& DownloadQueue);
+		FGuid GetNextTask(const TMap<FGuid, FTaskInfo>& TaskInfos, const TMap<int32, FGuid>& InFlightDownloads, const TSet<FGuid>& TotalRequiredChunks, const TSet<FGuid>& PriorityRequests, const TSet<FGuid>& FailedDownloads, const TSet<FGuid>& Stored, TArray<FGuid>& DownloadQueue);
 		void ThreadRun();
 		void OnDownloadProgress(int32 RequestId, int32 BytesSoFar);
 		void OnDownloadComplete(int32 RequestId, const FDownloadRef& Download);
@@ -230,8 +231,10 @@ namespace BuildPatchServices
 		TArray<FGuid> RequestedDownloads;
 
 		// Communication and storage of incoming additional requirements.
-		TQueue<TSet<FGuid>, EQueueMode::Spsc> RuntimeRequestMessages;
-		TSet<FGuid> RuntimeRequests;
+		TQueue<TSet<FGuid>, EQueueMode::Mpsc> RuntimeRequestMessages;
+
+		// Communication and storage of incoming repeat requirements.
+		TQueue<FGuid, EQueueMode::Mpsc> RepeatRequirementMessages;
 	};
 
 	FCloudChunkSource::FDownloadDelegates::FDownloadDelegates(FCloudChunkSource& InCloudChunkSource)
@@ -319,9 +322,17 @@ namespace BuildPatchServices
 
 	TSet<FGuid> FCloudChunkSource::AddRuntimeRequirements(TSet<FGuid> NewRequirements)
 	{
+		CloudChunkSourceStat->OnAcceptedNewRequirements(NewRequirements);
 		RuntimeRequestMessages.Enqueue(MoveTemp(NewRequirements));
 		// We don't have a concept of being unavailable yet.
 		return TSet<FGuid>();
+	}
+
+	bool FCloudChunkSource::AddRepeatRequirement(const FGuid& RepeatRequirement)
+	{
+		RepeatRequirementMessages.Enqueue(RepeatRequirement);
+		// We don't have a concept of being unavailable yet.
+		return true;
 	}
 
 	void FCloudChunkSource::SetUnavailableChunksCallback(TFunction<void(TSet<FGuid>)> Callback)
@@ -372,7 +383,7 @@ namespace BuildPatchServices
 		return DownloadHealth;
 	}
 
-	FGuid FCloudChunkSource::GetNextTask(const TMap<FGuid, FTaskInfo>& TaskInfos, const TMap<int32, FGuid>& InFlightDownloads, const TSet<FGuid>& PriorityRequests, const TSet<FGuid>& FailedDownloads, const TSet<FGuid>& Stored, TArray<FGuid>& DownloadQueue)
+	FGuid FCloudChunkSource::GetNextTask(const TMap<FGuid, FTaskInfo>& TaskInfos, const TMap<int32, FGuid>& InFlightDownloads, const TSet<FGuid>& TotalRequiredChunks, const TSet<FGuid>& PriorityRequests, const TSet<FGuid>& FailedDownloads, const TSet<FGuid>& Stored, TArray<FGuid>& DownloadQueue)
 	{
 		// Check for aborting.
 		if (bShouldAbort)
@@ -410,17 +421,10 @@ namespace BuildPatchServices
 			// Find the next chunks to get if we completed the last batch.
 			if (DownloadQueue.Num() == 0)
 			{
-				// Process new runtime requests.
-				TSet<FGuid> Temp;
-				while (RuntimeRequestMessages.Dequeue(Temp))
-				{
-					RuntimeRequests.Append(MoveTemp(Temp));
-				}
-
 				// Select the next X chunks that we initially instructed to download.
-				TFunction<bool(const FGuid&)> SelectPredicate = [this](const FGuid& ChunkId)
+				TFunction<bool(const FGuid&)> SelectPredicate = [&TotalRequiredChunks](const FGuid& ChunkId)
 				{
-					return InitialDownloadSet.Contains(ChunkId) || RuntimeRequests.Contains(ChunkId);
+					return TotalRequiredChunks.Contains(ChunkId);
 				};
 				// Clamp fetch count between min and max according to current space in the store.
 				int32 StoreSlack = ChunkStore->GetSlack();
@@ -463,10 +467,12 @@ namespace BuildPatchServices
 		EBuildPatchDownloadHealth TrackedDownloadHealth = EBuildPatchDownloadHealth::Excellent;
 		int32 TrackedActiveRequestCount = 0;
 		TSet<FGuid> TotalRequiredChunks = InitialDownloadSet;
+		int64 TotalRequiredChunkSize = InstallManifest->GetDataSize(TotalRequiredChunks);
 		int64 TotalReceivedData = 0;
+		int64 RepeatRequirementSize = 0;
 
 		// Provide initial stat values.
-		CloudChunkSourceStat->OnRequiredDataUpdated(InstallManifest->GetDataSize(TotalRequiredChunks));
+		CloudChunkSourceStat->OnRequiredDataUpdated(TotalRequiredChunkSize + RepeatRequirementSize);
 		CloudChunkSourceStat->OnReceivedDataUpdated(TotalReceivedData);
 		CloudChunkSourceStat->OnDownloadHealthUpdated(TrackedDownloadHealth);
 		CloudChunkSourceStat->OnSuccessRateUpdated(ChunkSuccessRate.GetOverall());
@@ -474,6 +480,30 @@ namespace BuildPatchServices
 
 		while (!bShouldAbort)
 		{
+			bool bRequiredDataUpdated = false;
+			// 'Forget' any repeat requirements.
+			FGuid RepeatRequirement;
+			while (RepeatRequirementMessages.Dequeue(RepeatRequirement))
+			{
+				if (PlacedInStore.Remove(RepeatRequirement) > 0)
+				{
+					RepeatRequirementSize += InstallManifest->GetDataSize(RepeatRequirement);
+					bRequiredDataUpdated = true;
+				}
+			}
+			// Process new runtime requests.
+			TSet<FGuid> Temp;
+			while (RuntimeRequestMessages.Dequeue(Temp))
+			{
+				Temp = Temp.Intersect(ChunkReferenceTracker->GetReferencedChunks());
+				Temp = Temp.Difference(TotalRequiredChunks);
+				if (Temp.Num() > 0)
+				{
+					TotalRequiredChunkSize += InstallManifest->GetDataSize(Temp);
+					TotalRequiredChunks.Append(MoveTemp(Temp));
+					bRequiredDataUpdated = true;
+				}
+			}
 			// Grab incoming requests as a priority.
 			TArray<FGuid> FrameRequestedDownloads;
 			RequestedDownloadsCS.Lock();
@@ -482,23 +512,33 @@ namespace BuildPatchServices
 			for (const FGuid& FrameRequestedDownload : FrameRequestedDownloads)
 			{
 				bDownloadsStarted = true;
-				if (PlacedInStore.Contains(FrameRequestedDownload) == false && TaskInfos.Contains(FrameRequestedDownload) == false)
+				if (!TaskInfos.Contains(FrameRequestedDownload) && !PlacedInStore.Contains(FrameRequestedDownload))
 				{
 					PriorityRequests.Add(FrameRequestedDownload);
 					if (!TotalRequiredChunks.Contains(FrameRequestedDownload))
 					{
 						TotalRequiredChunks.Add(FrameRequestedDownload);
-						CloudChunkSourceStat->OnRequiredDataUpdated(InstallManifest->GetDataSize(TotalRequiredChunks));
+						TotalRequiredChunkSize += InstallManifest->GetDataSize(FrameRequestedDownload);
+						bRequiredDataUpdated = true;
 					}
 				}
 			}
-
 			// Trim our initial download list on first begin.
 			if (!bTotalRequiredTrimmed && bDownloadsStarted)
 			{
 				bTotalRequiredTrimmed = true;
 				TotalRequiredChunks = TotalRequiredChunks.Intersect(ChunkReferenceTracker->GetReferencedChunks());
-				CloudChunkSourceStat->OnRequiredDataUpdated(InstallManifest->GetDataSize(TotalRequiredChunks));
+				const int64 NewChunkSize = InstallManifest->GetDataSize(TotalRequiredChunks);
+				if (NewChunkSize != TotalRequiredChunkSize)
+				{
+					TotalRequiredChunkSize = NewChunkSize;
+					bRequiredDataUpdated = true;
+				}
+			}
+			// Update required data spec.
+			if (bRequiredDataUpdated)
+			{
+				CloudChunkSourceStat->OnRequiredDataUpdated(TotalRequiredChunkSize + RepeatRequirementSize);
 			}
 
 			// Process completed downloads.
@@ -534,10 +574,11 @@ namespace BuildPatchServices
 					if (bDownloadSuccess)
 					{
 						TotalReceivedData += TaskInfo.ExpectedSize;
-						CloudChunkSourceStat->OnReceivedDataUpdated(TotalReceivedData);
 						TaskInfos.Remove(DownloadId);
 						PlacedInStore.Add(DownloadId);
 						ChunkStore->Put(DownloadId, MoveTemp(ChunkDataAccess));
+						CloudChunkSourceStat->OnDownloadSuccess(DownloadId);
+						CloudChunkSourceStat->OnReceivedDataUpdated(TotalReceivedData);
 					}
 					else
 					{
@@ -598,7 +639,7 @@ namespace BuildPatchServices
 			if (bDownloadsStarted)
 			{
 				FGuid NextTask;
-				while ((NextTask = GetNextTask(TaskInfos, InFlightDownloads, PriorityRequests, FailedDownloads, PlacedInStore, DownloadQueue)).IsValid())
+				while ((NextTask = GetNextTask(TaskInfos, InFlightDownloads, TotalRequiredChunks, PriorityRequests, FailedDownloads, PlacedInStore, DownloadQueue)).IsValid())
 				{
 					FTaskInfo& TaskInfo = TaskInfos.FindOrAdd(NextTask);
 					TaskInfo.UrlUsed = FBuildPatchUtils::GetDataFilename(InstallManifest, GetCloudRoot(TaskInfo.RetryNum), NextTask);

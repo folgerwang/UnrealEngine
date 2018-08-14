@@ -178,6 +178,7 @@ public:
 class FManifestUObject
 {
 public:
+	static void Init();
 	static bool LoadFromMemory(const TArray<uint8>& DataInput, FBuildPatchAppManifest& AppManifest);
 	static bool SaveToArchive(FArchive& Ar, const FBuildPatchAppManifest& AppManifest);
 

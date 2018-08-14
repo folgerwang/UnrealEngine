@@ -36,7 +36,12 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("MagicLeap");
 	}
 
-	virtual bool IsMagicLeapHMDValidAndConnected() const = 0;
+	/**
+	 * Checks to see if the XRSystem instance is a MagicLeap HMD.
+	 *
+	 * @return True if the current XRSystem instance is a MagicLeap HMD device
+	 */
+	virtual bool IsMagicLeapHMDValid() const = 0;
 
 	/**
 	* Returns the HMD associated with the ML plugin.

@@ -24,6 +24,11 @@ namespace BuildPatchServices
 			return MoveTemp(NewRequirements);
 		}
 
+		bool AddRepeatRequirement(const FGuid& RepeatRequirement)
+		{
+			return false;
+		}
+
 		virtual void SetUnavailableChunksCallback(TFunction<void(TSet<FGuid>)> Callback) override
 		{
 		}

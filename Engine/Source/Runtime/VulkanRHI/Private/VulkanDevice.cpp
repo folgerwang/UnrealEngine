@@ -269,6 +269,8 @@ void FVulkanDevice::CreateDevice()
 	FVulkanPlatform::RestrictEnabledPhysicalDeviceFeatures(Features, EnabledFeatures);
 	DeviceInfo.pEnabledFeatures = &EnabledFeatures;
 
+	FVulkanPlatform::EnablePhysicalDeviceFeatureExtensions(DeviceInfo);
+
 	// Create the device
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateDevice(Gpu, &DeviceInfo, nullptr, &Device));
 
@@ -599,6 +601,26 @@ void FVulkanDevice::SetupFormats()
 	}
 }
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+VkSamplerYcbcrConversion FVulkanDevice::CreateSamplerColorConversion(const VkSamplerYcbcrConversionCreateInfo& CreateInfo)
+{
+
+	const uint32 CreateInfoHash = FCrc::MemCrc32(&CreateInfo, sizeof(CreateInfo));
+	VkSamplerYcbcrConversion* const FindResult = SamplerColorConversionMap.Find(CreateInfoHash);
+	if (FindResult != nullptr)
+	{
+		return *FindResult;
+	}
+	else
+	{
+		VkSamplerYcbcrConversion NewConversion;
+		VERIFYVULKANRESULT(vkCreateSamplerYcbcrConversionKHR(GetInstanceHandle(), &CreateInfo, nullptr, &NewConversion));
+		SamplerColorConversionMap.Add(CreateInfoHash, NewConversion);
+		return NewConversion;
+	}
+}
+#endif
+
 void FVulkanDevice::MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat)
 {
 	FPixelFormatInfo& FormatInfo = GPixelFormats[UEFormat];
@@ -833,6 +855,14 @@ void FVulkanDevice::Destroy()
 	delete DefaultImage;
 	DefaultImage = nullptr;
 
+#if VULKAN_SUPPORTS_COLOR_CONVERSIONS
+	for (const auto& Pair : SamplerColorConversionMap)
+	{
+		vkDestroySamplerYcbcrConversionKHR(GetInstanceHandle(), Pair.Value, nullptr);
+	}
+	SamplerColorConversionMap.Reset();
+#endif
+
 	for (int32 Index = CommandContexts.Num() - 1; Index >= 0; --Index)
 	{
 		delete CommandContexts[Index];
@@ -889,12 +919,12 @@ void FVulkanDevice::Destroy()
 
 	ResourceHeapManager.Deinit();
 
+	FRHIResource::FlushPendingDeletes();
+	DeferredDeletionQueue.Clear();
+
 	delete TransferQueue;
 	delete ComputeQueue;
 	delete GfxQueue;
-
-	FRHIResource::FlushPendingDeletes();
-	DeferredDeletionQueue.Clear();
 
 	FenceManager.Deinit();
 	MemoryManager.Deinit();

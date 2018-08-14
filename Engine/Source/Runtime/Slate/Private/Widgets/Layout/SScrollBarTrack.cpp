@@ -8,7 +8,7 @@ static const int32 NUM_SCROLLBAR_SLOTS = 3;
 void SScrollBarTrack::Construct(const FArguments& InArgs)
 {
 	OffsetFraction = 0;
-	ThumbSizeFraction = 0;
+	ThumbSizeFraction = 1.0; // default to zero offset from the top with a full track thumb (scrolling not needed)
 	MinThumbSize = 35;
 	Orientation = InArgs._Orientation;
 
@@ -117,6 +117,12 @@ void SScrollBarTrack::SetSizes(float InThumbOffsetFraction, float InThumbSizeFra
 {
 	OffsetFraction = InThumbOffsetFraction;
 	ThumbSizeFraction = InThumbSizeFraction;
+
+	// If you have no thumb, then it's effectively the size of the whole track
+	if (ThumbSizeFraction == 0.0f)
+	{
+		ThumbSizeFraction = 1.0f;
+	}
 }
 
 bool SScrollBarTrack::IsNeeded() const

@@ -1318,7 +1318,7 @@ TSharedRef<SDockingNode> FTabManager::RestoreArea_Helper( const TSharedRef<FLayo
 				: SNew(SWindow)
 					.AutoCenter( EAutoCenter::None )
 					.ScreenPosition( NodeAsArea->UnscaledWindowPosition )
-					.ClientSize( NodeAsArea->UnscaledWindowSize)
+					.ClientSize( NodeAsArea->UnscaledWindowSize )
 					.CreateTitleBar( false )
 					.IsInitiallyMaximized( NodeAsArea->bIsMaximized );
 

@@ -230,9 +230,9 @@ void FPngImageWrapper::UncompressPNGData(const ERGBFormat InFormat, const int32 
 	try
 #endif
 	{
-	    png_bytep* row_pointers = (png_bytep*) png_malloc( png_ptr, Height*sizeof(png_bytep) );
-	    PNGReadGuard PNGGuard( &png_ptr, &info_ptr );
-	    PNGGuard.SetRowPointers(row_pointers);
+		png_bytep* row_pointers = (png_bytep*) png_malloc( png_ptr, Height*sizeof(png_bytep) );
+		PNGReadGuard PNGGuard( &png_ptr, &info_ptr );
+		PNGGuard.SetRowPointers(row_pointers);
 		{
 			if (ColorType == PNG_COLOR_TYPE_PALETTE)
 			{

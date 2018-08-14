@@ -237,16 +237,17 @@ public:
 struct FCompiledToken : FExpressionToken
 {
 	// Todo: add callable types here?
-	enum EType { Operand, PreUnaryOperator, PostUnaryOperator, BinaryOperator, Benign };
+	enum EType { Operand, PreUnaryOperator, PostUnaryOperator, BinaryOperator, ShortCircuit, Benign };
 
-	FCompiledToken(EType InType, FExpressionToken InToken)
-		: FExpressionToken(MoveTemp(InToken)), Type(InType)
+	FCompiledToken(EType InType, FExpressionToken InToken, TOptional<int32> InShortCircuitIndex = TOptional<int32>())
+		: FExpressionToken(MoveTemp(InToken)), Type(InType), ShortCircuitIndex(InShortCircuitIndex)
 	{}
 
 	FCompiledToken(FCompiledToken&& In) : FExpressionToken(MoveTemp(In)), Type(In.Type) {}
 	FCompiledToken& operator=(FCompiledToken&& In) { FExpressionToken::operator=(MoveTemp(In)); Type = In.Type; return *this; }
 
 	EType Type;
+	TOptional<int32> ShortCircuitIndex;
 };
 
 /** Struct used to identify a function for a specific operator overload */
@@ -280,6 +281,8 @@ struct TOperatorJumpTable
 	FExpressionResult ExecPostUnary(const FExpressionToken& Operator, const FExpressionToken& L, const ContextType* Context) const;
 	/** Execute the specified token as a binary operator, if such an overload exists */
 	FExpressionResult ExecBinary(const FExpressionToken& Operator, const FExpressionToken& L, const FExpressionToken& R, const ContextType* Context) const;
+	/** Check whether we should short circuit the specified operator */
+	bool ShouldShortCircuit(const FExpressionToken& Operator, const FExpressionToken& L, const ContextType* Context) const;
 
 	/**
 	 * Map an expression node to a pre-unary operator with the specified implementation.
@@ -345,17 +348,22 @@ struct TOperatorJumpTable
 	template<typename OperatorType, typename FuncType>
 	void MapBinary(FuncType InFunc);
 
+	template<typename OperatorType, typename FuncType>
+	void MapShortCircuit(FuncType InFunc);
+
 public:
 
 	typedef TFunction<FExpressionResult(const FExpressionNode&, const ContextType* Context)> FUnaryFunction;
 	typedef TFunction<FExpressionResult(const FExpressionNode&, const FExpressionNode&, const ContextType* Context)> FBinaryFunction;
+	typedef TFunction<bool(const FExpressionNode&, const ContextType* Context)> FShortCircuit;
 
 private:
 
 	/** Maps of unary/binary operators */
-	TMap<FOperatorFunctionID, FUnaryFunction> PreUnaryOps;
-	TMap<FOperatorFunctionID, FUnaryFunction> PostUnaryOps;
+	TMap<FOperatorFunctionID, FUnaryFunction>  PreUnaryOps;
+	TMap<FOperatorFunctionID, FUnaryFunction>  PostUnaryOps;
 	TMap<FOperatorFunctionID, FBinaryFunction> BinaryOps;
+	TMap<FOperatorFunctionID, FShortCircuit>   BinaryShortCircuits;
 };
 
 typedef TOperatorJumpTable<> FOperatorJumpTable;
@@ -371,6 +379,8 @@ struct IOperatorEvaluationEnvironment
 	virtual FExpressionResult ExecPostUnary(const FExpressionToken& Operator, const FExpressionToken& L) const = 0;
 	/** Execute the specified token as a binary operator, if such an overload exists */
 	virtual FExpressionResult ExecBinary(const FExpressionToken& Operator, const FExpressionToken& L, const FExpressionToken& R) const = 0;
+	/** Check whether we should short circuit the specified operator */
+	virtual bool ShouldShortCircuit(const FExpressionToken& Operator, const FExpressionToken& L) const = 0;
 };
 template<typename ContextType = void>
 struct TOperatorEvaluationEnvironment : IOperatorEvaluationEnvironment
@@ -390,6 +400,10 @@ struct TOperatorEvaluationEnvironment : IOperatorEvaluationEnvironment
 	virtual FExpressionResult ExecBinary(const FExpressionToken& Operator, const FExpressionToken& L, const FExpressionToken& R) const override
 	{
 		return Operators.ExecBinary(Operator, L, R, Context);
+	}
+	virtual bool ShouldShortCircuit(const FExpressionToken& Operator, const FExpressionToken& L) const override
+	{
+		return Operators.ShouldShortCircuit(Operator, L, Context);
 	}
 
 private:
@@ -487,9 +501,13 @@ struct FOpParameters
 	/** The associativity of the operator */
 	EAssociativity	Associativity;
 
-	FOpParameters(int32 InPrecedence, EAssociativity InAssociativity)
+	/** Whether this operator can be short circuited or not */
+	bool bCanShortCircuit;
+
+	FOpParameters(int32 InPrecedence, EAssociativity InAssociativity, bool bInCanShortCircuit)
 		: Precedence(InPrecedence)
 		, Associativity(InAssociativity)
+		, bCanShortCircuit(bInCanShortCircuit)
 	{
 	}
 };
@@ -518,7 +536,7 @@ public:
 	 * @param InAssociativity	With operators of the same precedence, determines whether they execute left to right, or right to left
 	 */
 	template<typename TExpressionNode>
-	void DefineBinaryOperator(int32 InPrecedence, EAssociativity InAssociativity=EAssociativity::RightToLeft)
+	void DefineBinaryOperator(int32 InPrecedence, EAssociativity InAssociativity=EAssociativity::RightToLeft, bool bCanShortCircuit = false)
 	{
 #if DO_CHECK
 		for (TMap<FGuid, FOpParameters>::TConstIterator It(BinaryOperators); It; ++It)
@@ -533,7 +551,7 @@ public:
 		}
 #endif
 
-		BinaryOperators.Add(TGetExpressionNodeTypeId<TExpressionNode>::GetTypeId(), FOpParameters(InPrecedence, InAssociativity));
+		BinaryOperators.Add(TGetExpressionNodeTypeId<TExpressionNode>::GetTypeId(), FOpParameters(InPrecedence, InAssociativity, bCanShortCircuit));
 	}
 
 public:

@@ -110,10 +110,8 @@ struct ENGINE_API FConeConstraint : public FConstraintBaseParams
 
 	FConeConstraint();
 
-#if WITH_PHYSX
-	/** Updates physx cone limit from unreal data. */
+	/** Updates cone limit from unreal data. */
 	void UpdateConeLimit_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef, float AverageMass) const;
-#endif
 };
 
 /** Angular roll constraint */
@@ -132,10 +130,8 @@ struct ENGINE_API FTwistConstraint : public FConstraintBaseParams
 
 	FTwistConstraint();
 
-#if WITH_PHYSX
-	/** Updates physx twist limit from unreal data. */
+	/** Updates twist limit from unreal data. */
 	void UpdateTwistLimit_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef, float AverageMass) const;
-#endif
 };
 
 #define		RB_MinSizeToLockDOF				(0.1)

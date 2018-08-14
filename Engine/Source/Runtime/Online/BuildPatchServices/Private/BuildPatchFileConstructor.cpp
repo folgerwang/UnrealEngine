@@ -16,6 +16,9 @@
 #include "BuildPatchServicesPrivate.h"
 #include "Interfaces/IBuildInstaller.h"
 #include "Data/ChunkData.h"
+#include "Common/StatsCollector.h"
+#include "Common/SpeedRecorder.h"
+#include "Common/FileSystem.h"
 #include "Installer/ChunkSource.h"
 #include "Installer/ChunkReferenceTracker.h"
 #include "Installer/InstallerError.h"
@@ -40,7 +43,7 @@ namespace FileConstructorHelpers
 		}
 	}
 
-	bool CheckAndReportRemainingDiskSpaceError(IInstallerError* InstallerError, const FString& InstallDirectory, uint64 RemainingBytesRequired)
+	bool CheckAndReportRemainingDiskSpaceError(IInstallerError* InstallerError, const FString& InstallDirectory, uint64 RemainingBytesRequired, const TCHAR* SpaceErrorCode)
 	{
 		bool bContinueConstruction = true;
 		uint64 TotalSize = 0;
@@ -52,7 +55,8 @@ namespace FileConstructorHelpers
 				UE_LOG(LogBuildPatchServices, Error, TEXT("Out of HDD space. Needs %llu bytes, Free %llu bytes"), RemainingBytesRequired, AvailableSpace);
 				InstallerError->SetError(
 					EBuildPatchInstallError::OutOfDiskSpace,
-					DiskSpaceErrorCodes::InitialSpaceCheck,
+					SpaceErrorCode,
+					0,
 					BuildPatchServices::GetDiskSpaceMessage(InstallDirectory, RemainingBytesRequired, AvailableSpace));
 				bContinueConstruction = false;
 			}
@@ -158,8 +162,9 @@ public:
 
 /* FBuildPatchFileConstructor implementation
  *****************************************************************************/
-FBuildPatchFileConstructor::FBuildPatchFileConstructor(FBuildPatchAppManifestRef InBuildManifest, FString InInstallDirectory, FString InStageDirectory, TArray<FString> InConstructList, IChunkSource* InChunkSource, IChunkReferenceTracker* InChunkReferenceTracker, IInstallerError* InInstallerError, IInstallerAnalytics* InInstallerAnalytics, IFileConstructorStat* InFileConstructorStat)
-	: Thread(nullptr)
+FBuildPatchFileConstructor::FBuildPatchFileConstructor(FFileConstructorConfig InConfiguration, IFileSystem* InFileSystem, IChunkSource* InChunkSource, IChunkReferenceTracker* InChunkReferenceTracker, IInstallerError* InInstallerError, IInstallerAnalytics* InInstallerAnalytics, IFileConstructorStat* InFileConstructorStat)
+	: Configuration(MoveTemp(InConfiguration))
+	, Thread(nullptr)
 	, bIsRunning(false)
 	, bIsInited(false)
 	, bInitFailed(false)
@@ -168,10 +173,8 @@ FBuildPatchFileConstructor::FBuildPatchFileConstructor(FBuildPatchAppManifestRef
 	, bIsPaused(false)
 	, bShouldAbort(false)
 	, ThreadLock()
-	, BuildManifest(MoveTemp(InBuildManifest))
-	, InstallDirectory(MoveTemp(InInstallDirectory))
-	, StagingDirectory(MoveTemp(InStageDirectory))
-	, FilesToConstruct(MoveTemp(InConstructList))
+	, ConstructionStack()
+	, FileSystem(InFileSystem)
 	, ChunkSource(InChunkSource)
 	, ChunkReferenceTracker(InChunkReferenceTracker)
 	, InstallerError(InInstallerError)
@@ -179,12 +182,16 @@ FBuildPatchFileConstructor::FBuildPatchFileConstructor(FBuildPatchAppManifestRef
 	, FileConstructorStat(InFileConstructorStat)
 	, TotalJobSize(0)
 	, ByteProcessed(0)
-	, FilesConstructed()
 {
 	// Count initial job size
-	for (const FString& FileToConstruct : FilesToConstruct)
+	const int32 ConstructListNum = Configuration.ConstructList.Num();
+	ConstructionStack.Reserve(ConstructListNum);
+	ConstructionStack.AddDefaulted(ConstructListNum);
+	for (int32 ConstructListIdx = 0; ConstructListIdx < ConstructListNum ; ++ConstructListIdx)
 	{
-		TotalJobSize += BuildManifest->GetFileSize(*FileToConstruct);
+		const FString& ConstructListElem = Configuration.ConstructList[ConstructListIdx];
+		TotalJobSize += Configuration.BuildManifest->GetFileSize(ConstructListElem);
+		ConstructionStack[(ConstructListNum - 1) - ConstructListIdx] = ConstructListElem;
 	}
 	// Start thread!
 	const TCHAR* ThreadName = TEXT("FileConstructorThread");
@@ -205,10 +212,10 @@ FBuildPatchFileConstructor::~FBuildPatchFileConstructor()
 bool FBuildPatchFileConstructor::Init()
 {
 	// We are ready to go if our delegates are bound and directories successfully created
-	bool bStageDirExists = IFileManager::Get().DirectoryExists(*StagingDirectory);
+	bool bStageDirExists = IFileManager::Get().DirectoryExists(*Configuration.StagingDirectory);
 	if (!bStageDirExists)
 	{
-		UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Stage directory missing %s"), *StagingDirectory);
+		UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Stage directory missing %s"), *Configuration.StagingDirectory);
 		InstallerError->SetError(EBuildPatchInstallError::InitializationError, InitializationErrorCodes::MissingStageDirectory);
 	}
 	SetInitFailed(!bStageDirExists);
@@ -217,44 +224,40 @@ bool FBuildPatchFileConstructor::Init()
 
 uint32 FBuildPatchFileConstructor::Run()
 {
-	SetRunning( true );
-	SetInited( true );
-	const bool bIsFileData = BuildManifest->IsFileDataManifest();
+	SetRunning(true);
+	SetInited(true);
 	FileConstructorStat->OnTotalRequiredUpdated(TotalJobSize);
 
-	// Save the list of completed files
-	TArray< FString > ConstructedFiles;
-
 	// Check for resume data
-	FResumeData ResumeData( StagingDirectory, BuildManifest );
+	FResumeData ResumeData(Configuration.StagingDirectory, Configuration.BuildManifest);
 
-	// If we found incompatible resume data, we need to clean out the staging folder
-	// We don't delete the folder itself though as we should presume it was created with desired attributes
+	// If we found incompatible resume data, we need to clean out the staging folder.
+	// We don't delete the folder itself though as we should presume it was created with desired attributes.
 	if (ResumeData.bHasIncompatibleResumeData)
 	{
 		GLog->Logf(TEXT("BuildPatchServices: Deleting incompatible stage files"));
-		DeleteDirectoryContents(StagingDirectory);
+		DeleteDirectoryContents(Configuration.StagingDirectory);
 	}
 
-	// Save for started version
+	// Save for started version.
 	ResumeData.SaveOut();
 
-	// Start resume progress at zero or one
+	// Start resume progress at zero or one.
 	FileConstructorStat->OnResumeStarted();
 
-	// While we have files to construct, run
+	// While we have files to construct, run.
 	FString FileToConstruct;
-	while( GetFileToConstruct( FileToConstruct ) && !bShouldAbort)
+	while (GetFileToConstruct(FileToConstruct) && !bShouldAbort)
 	{
-		int64 FileSize = BuildManifest->GetFileSize(FileToConstruct);
+		int64 FileSize = Configuration.BuildManifest->GetFileSize(FileToConstruct);
 		FileConstructorStat->OnFileStarted(FileToConstruct, FileSize);
 		// Check resume status, currently we are only supporting sequential resume, so once we start downloading, we can't resume any more.
 		// this only comes up if the resume data has been changed externally.
-		ResumeData.CheckFile( FileToConstruct );
-		const bool bFilePreviouslyComplete = !bIsDownloadStarted && ResumeData.FilesCompleted.Contains( FileToConstruct );
-		const bool bFilePreviouslyStarted = !bIsDownloadStarted && ResumeData.FilesStarted.Contains( FileToConstruct );
+		ResumeData.CheckFile(FileToConstruct);
+		const bool bFilePreviouslyComplete = !bIsDownloadStarted && ResumeData.FilesCompleted.Contains(FileToConstruct);
+		const bool bFilePreviouslyStarted = !bIsDownloadStarted && ResumeData.FilesStarted.Contains(FileToConstruct);
 
-		// Construct or skip the file
+		// Construct or skip the file.
 		bool bFileSuccess;
 		if (bFilePreviouslyComplete)
 		{
@@ -262,7 +265,7 @@ uint32 FBuildPatchFileConstructor::Run()
 			CountBytesProcessed(FileSize);
 			GLog->Logf(TEXT("FBuildPatchFileConstructor::SkipFile %s"), *FileToConstruct);
 			// Get the file manifest.
-			const FFileManifest* FileManifest = BuildManifest->GetFileManifest(FileToConstruct);
+			const FFileManifest* FileManifest = Configuration.BuildManifest->GetFileManifest(FileToConstruct);
 			// Go through each chunk part, and dereference it from the reference tracker.
 			for (const FChunkPart& ChunkPart : FileManifest->FileChunkParts)
 			{
@@ -274,20 +277,32 @@ uint32 FBuildPatchFileConstructor::Run()
 			bFileSuccess = ConstructFileFromChunks(FileToConstruct, bFilePreviouslyStarted);
 		}
 
-		// If the file succeeded, add to lists
-		if( bFileSuccess )
+		if (bFileSuccess)
 		{
-			ConstructedFiles.Add( FileToConstruct );
+			// If we are destructive, remove the old file.
+			if (Configuration.InstallMode == EInstallMode::DestructiveInstall)
+			{
+				const bool bRequireExists = false;
+				const bool bEvenReadOnly = true;
+				FString FileToDelete = Configuration.InstallDirectory / FileToConstruct;
+				FPaths::NormalizeFilename(FileToDelete);
+				FPaths::CollapseRelativeDirectories(FileToDelete);
+				if (FileSystem->FileExists(*FileToDelete))
+				{
+					OnBeforeDeleteFile().Broadcast(FileToDelete);
+					IFileManager::Get().Delete(*FileToDelete, bRequireExists, bEvenReadOnly);
+				}
+			}
 		}
 		else
 		{
-			// This will only record and log if a failure was not already registered
+			// This will only record and log if a failure was not already registered.
 			bShouldAbort = true;
 			InstallerError->SetError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::UnknownFail);
 		}
 		FileConstructorStat->OnFileCompleted(FileToConstruct, bFileSuccess);
 
-		// Wait while paused
+		// Wait while paused.
 		FileConstructorHelpers::WaitWhilePaused(bIsPaused, bShouldAbort);
 	}
 
@@ -296,13 +311,9 @@ uint32 FBuildPatchFileConstructor::Run()
 	{
 		FileConstructorStat->OnResumeCompleted();
 	}
+	FileConstructorStat->OnConstructionCompleted();
 
-	// Set constructed files
-	ThreadLock.Lock();
-	FilesConstructed = MoveTemp(ConstructedFiles);
-	ThreadLock.Unlock();
-
-	SetRunning( false );
+	SetRunning(false);
 	return 0;
 }
 
@@ -318,6 +329,11 @@ bool FBuildPatchFileConstructor::IsComplete()
 {
 	FScopeLock Lock( &ThreadLock );
 	return ( !bIsRunning && bIsInited ) || bInitFailed;
+}
+
+FBuildPatchFileConstructor::FOnBeforeDeleteFile& FBuildPatchFileConstructor::OnBeforeDeleteFile()
+{
+	return BeforeDeleteFileEvent;
 }
 
 void FBuildPatchFileConstructor::SetRunning( bool bRunning )
@@ -347,11 +363,11 @@ void FBuildPatchFileConstructor::CountBytesProcessed( const int64& ByteCount )
 bool FBuildPatchFileConstructor::GetFileToConstruct(FString& Filename)
 {
 	FScopeLock Lock(&ThreadLock);
-	const bool bFileAvailable = FilesToConstruct.IsValidIndex(0);
+	const bool bFileAvailable = ConstructionStack.Num() > 0;
 	if (bFileAvailable)
 	{
-		Filename = FilesToConstruct[0];
-		FilesToConstruct.RemoveAt(0);
+		const bool bAllowShrinking = false;
+		Filename = ConstructionStack.Pop(bAllowShrinking);
 	}
 	return bFileAvailable;
 }
@@ -359,22 +375,62 @@ bool FBuildPatchFileConstructor::GetFileToConstruct(FString& Filename)
 int64 FBuildPatchFileConstructor::GetRemainingBytes()
 {
 	FScopeLock Lock(&ThreadLock);
-	return BuildManifest->GetFileSize(FilesToConstruct);
+	return Configuration.BuildManifest->GetFileSize(ConstructionStack);
+}
+
+int64 FBuildPatchFileConstructor::CalculateRequiredDiskSpace(const FString& InProgressFile, int64 InProgressFileSize)
+{
+	int64 DiskSpaceDeltaPeak = InProgressFileSize;
+	if (Configuration.InstallMode == EInstallMode::DestructiveInstall)
+	{
+		// The simplest method will be to run through each high level file operation, tracking peak disk usage delta.
+		const bool bCurrentManifestIsValid = Configuration.CurrentManifest.IsValid();
+		int64 DiskSpaceDelta = InProgressFileSize;
+
+		// Can remove old in progress file.
+		if (bCurrentManifestIsValid)
+		{
+			DiskSpaceDelta -= Configuration.CurrentManifest->GetFileSize(InProgressFile);
+		}
+
+		// Loop through all files to be made next, in order.
+		for (int32 ConstructionStackIdx = ConstructionStack.Num() - 1; ConstructionStackIdx >= 0; --ConstructionStackIdx)
+		{
+			const FString& FileToConstruct = ConstructionStack[ConstructionStackIdx];
+			// First we would need to make the new file.
+			DiskSpaceDelta += Configuration.BuildManifest->GetFileSize(FileToConstruct);
+			if (DiskSpaceDeltaPeak < DiskSpaceDelta)
+			{
+				DiskSpaceDeltaPeak = DiskSpaceDelta;
+			}
+			// Then we can remove the current existing file.
+			if (bCurrentManifestIsValid)
+			{
+				DiskSpaceDelta -= Configuration.CurrentManifest->GetFileSize(FileToConstruct);
+			}
+		}
+	}
+	else
+	{
+		// When not destructive, we always stage all new and changed files.
+		DiskSpaceDeltaPeak += Configuration.BuildManifest->GetFileSize(ConstructionStack);
+	}
+	return DiskSpaceDeltaPeak;
 }
 
 bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filename, bool bResumeExisting )
 {
-	const bool bIsFileData = BuildManifest->IsFileDataManifest();
+	const bool bIsFileData = Configuration.BuildManifest->IsFileDataManifest();
 	bResumeExisting = bResumeExisting && !bIsFileData;
 	bool bSuccess = true;
-	FString NewFilename = StagingDirectory / Filename;
+	FString NewFilename = Configuration.StagingDirectory / Filename;
 
 	// Calculate the hash as we write the data
 	FSHA1 HashState;
 	FSHAHash HashValue;
 
 	// First make sure we can get the file manifest
-	const FFileManifest* FileManifest = BuildManifest->GetFileManifest(Filename);
+	const FFileManifest* FileManifest = Configuration.BuildManifest->GetFileManifest(Filename);
 	bSuccess = FileManifest != nullptr;
 	if( bSuccess )
 	{
@@ -413,9 +469,15 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 					const int64 NextBytePosition = ByteCounter + ChunkPart.Size;
 					if (NextBytePosition <= StartPosition)
 					{
+						ISpeedRecorder::FRecord ActivityRecord;
 						// Read data for hash check
+						FileConstructorStat->OnBeforeRead();
+						ActivityRecord.CyclesStart = FStatsCollector::GetCycles();
 						NewFileReader->Serialize(ReadBuffer.GetData(), ChunkPart.Size);
+						ActivityRecord.CyclesEnd = FStatsCollector::GetCycles();
+						ActivityRecord.Size = ChunkPart.Size;
 						HashState.Update(ReadBuffer.GetData(), ChunkPart.Size);
+						FileConstructorStat->OnAfterRead(ActivityRecord);
 						// Count bytes read from file
 						ByteCounter = NextBytePosition;
 						// Set to resume from next chunk part
@@ -423,6 +485,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 						// Inform the reference tracker of the chunk part skip
 						bSuccess = ChunkReferenceTracker->PopReference(ChunkPart.Guid) && bSuccess;
 						CountBytesProcessed(ChunkPart.Size);
+						FileConstructorStat->OnFileProgress(Filename, NewFileReader->Tell());
 						// Wait if paused
 						FileConstructorHelpers::WaitWhilePaused(bIsPaused, bShouldAbort);
 					}
@@ -443,8 +506,8 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 		if (!bInitialDiskSizeCheck)
 		{
 			bInitialDiskSizeCheck = true;
-			const uint64 RequiredSpace = (FileManifest->GetFileSize() - StartPosition) + GetRemainingBytes();
-			if (!FileConstructorHelpers::CheckAndReportRemainingDiskSpaceError(InstallerError, InstallDirectory, RequiredSpace))
+			const uint64 RequiredSpace = CalculateRequiredDiskSpace(Filename, FileManifest->GetFileSize() - StartPosition);
+			if (!FileConstructorHelpers::CheckAndReportRemainingDiskSpaceError(InstallerError, Configuration.InstallDirectory, RequiredSpace, DiskSpaceErrorCodes::InitialSpaceCheck))
 			{
 				return false;
 			}
@@ -458,21 +521,35 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 		}
 
 		// Attempt to create the file
-		FArchive* NewFile = IFileManager::Get().CreateFileWriter( *NewFilename, bResumeExisting ? ::EFileWrite::FILEWRITE_Append : 0 );
+		ISpeedRecorder::FRecord ActivityRecord;
+		FileConstructorStat->OnBeforeAdminister();
+		ActivityRecord.CyclesStart = FStatsCollector::GetCycles();
+		TUniquePtr<FArchive> NewFile = FileSystem->CreateFileWriter( *NewFilename, bResumeExisting ? EWriteFlags::Append : EWriteFlags::None );
 		uint32 LastError = FPlatformMisc::GetLastError();
+		ActivityRecord.CyclesEnd = FStatsCollector::GetCycles();
+		ActivityRecord.Size = 0;
+		FileConstructorStat->OnAfterAdminister(ActivityRecord);
 		bSuccess = NewFile != nullptr;
-		if( bSuccess )
+		if (bSuccess)
 		{
 			// Seek to file write position
-			NewFile->Seek( StartPosition );
+			if (NewFile->Tell() != StartPosition)
+			{
+				FileConstructorStat->OnBeforeAdminister();
+				ActivityRecord.CyclesStart = FStatsCollector::GetCycles();
+				NewFile->Seek(StartPosition);
+				ActivityRecord.CyclesEnd = FStatsCollector::GetCycles();
+				ActivityRecord.Size = 0;
+				FileConstructorStat->OnAfterAdminister(ActivityRecord);
+			}
 
 			// For each chunk, load it, and place it's data into the file
-			for( int32 ChunkPartIdx = StartChunkPart; ChunkPartIdx < FileManifest->FileChunkParts.Num() && bSuccess && !bShouldAbort; ++ChunkPartIdx )
+			for (int32 ChunkPartIdx = StartChunkPart; ChunkPartIdx < FileManifest->FileChunkParts.Num() && bSuccess && !bShouldAbort; ++ChunkPartIdx)
 			{
 				const FChunkPart& ChunkPart = FileManifest->FileChunkParts[ChunkPartIdx];
-				bSuccess = InsertChunkData( ChunkPart, *NewFile, HashState );
+				bSuccess = InsertChunkData(ChunkPart, *NewFile, HashState);
 				FileConstructorStat->OnFileProgress(Filename, NewFile->Tell());
-				if( bSuccess )
+				if (bSuccess)
 				{
 					CountBytesProcessed(ChunkPart.Size);
 					// Wait while paused
@@ -491,14 +568,19 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 			}
 
 			// Close the file writer
+			FileConstructorStat->OnBeforeAdminister();
+			ActivityRecord.CyclesStart = FStatsCollector::GetCycles();
 			NewFile->Close();
-			delete NewFile;
+			NewFile.Reset();
+			ActivityRecord.CyclesEnd = FStatsCollector::GetCycles();
+			ActivityRecord.Size = 0;
+			FileConstructorStat->OnAfterAdminister(ActivityRecord);
 		}
 		else
 		{
 			// Check if drive space was the issue here
-			const uint64 RequiredSpace = FileManifest->GetFileSize() + GetRemainingBytes();
-			bool bError = !FileConstructorHelpers::CheckAndReportRemainingDiskSpaceError(InstallerError, InstallDirectory, RequiredSpace);
+			const uint64 RequiredSpace = CalculateRequiredDiskSpace(Filename, FileManifest->GetFileSize());
+			bool bError = !FileConstructorHelpers::CheckAndReportRemainingDiskSpaceError(InstallerError, Configuration.InstallDirectory, RequiredSpace, DiskSpaceErrorCodes::DuringInstallation);
 
 			// Otherwise we just couldn't make the file
 			if (!bError)
@@ -510,7 +592,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 					UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Could not create %s"), *Filename);
 				}
 				// Always set
-				InstallerError->SetError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::FileCreateFail);
+				InstallerError->SetError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::FileCreateFail, LastError);
 			}
 		}
 	}
@@ -567,7 +649,10 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 	// Delete the staging file if unsuccessful by means of construction fail (i.e. keep if canceled or download issue)
 	if( !bSuccess && InstallerError->GetErrorType() == EBuildPatchInstallError::FileConstructionFail )
 	{
-		IFileManager::Get().Delete( *NewFilename, false, true );
+		if (!FileSystem->DeleteFile(*NewFilename))
+		{
+			UE_LOG(LogBuildPatchServices, Warning, TEXT("FBuildPatchFileConstructor: Error deleting file: %s (Error Code %i)"), *NewFilename, FPlatformMisc::GetLastError());
+		}
 	}
 
 	return bSuccess;
@@ -577,14 +662,21 @@ bool FBuildPatchFileConstructor::InsertChunkData(const FChunkPart& ChunkPart, FA
 {
 	uint8* Data;
 	uint8* DataStart;
+	ISpeedRecorder::FRecord ActivityRecord;
+	FileConstructorStat->OnChunkGet(ChunkPart.Guid);
 	IChunkDataAccess* ChunkDataAccess = ChunkSource->Get(ChunkPart.Guid);
 	bool bSuccess = ChunkDataAccess != nullptr && !bShouldAbort;
 	if (bSuccess)
 	{
 		ChunkDataAccess->GetDataLock(&Data, nullptr);
+		FileConstructorStat->OnBeforeWrite();
+		ActivityRecord.CyclesStart = FStatsCollector::GetCycles();
 		DataStart = &Data[ChunkPart.Offset];
 		HashState.Update(DataStart, ChunkPart.Size);
 		DestinationFile.Serialize(DataStart, ChunkPart.Size);
+		ActivityRecord.Size = ChunkPart.Size;
+		ActivityRecord.CyclesEnd = FStatsCollector::GetCycles();
+		FileConstructorStat->OnAfterWrite(ActivityRecord);
 		ChunkDataAccess->ReleaseDataLock();
 		bSuccess = ChunkReferenceTracker->PopReference(ChunkPart.Guid);
 	}

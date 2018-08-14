@@ -30,22 +30,18 @@ ML_INCLUDES_END
 class FImageTrackerEngineInterface : public MagicLeap::IAppEventHandler
 {
 public:
-	static TWeakPtr<FImageTrackerEngineInterface, ESPMode::ThreadSafe> Get()
+	static TWeakPtr<FImageTrackerEngineInterface, ESPMode::ThreadSafe> Get(bool bCreateTracker = true)
 	{
 		if (!Instance.IsValid())
 		{
 			Instance = MakeShareable(new FImageTrackerEngineInterface());
 		}
-		// Because this is a singleton, when running in ZI, consecutive VRPreview launches would fail
-		// because the tracker would be destroyed but created only on the very first launch, when
-		// FImageTrackerEngineInterface was constructed.
-		// Thus, we need to create the tracker separately.
-#if WITH_MLSDK
-		if (!MLHandleIsValid(Instance->GetHandle()))
+
+		if (bCreateTracker)
 		{
+			// needs to be a separate call instead of being embedded in the runnable constructor so it works in consequetive VRPreview calls.
 			Instance->CreateTracker();
 		}
-#endif //WITH_MLSDK
 
 		return Instance;
 	}
@@ -53,36 +49,72 @@ public:
 #if WITH_MLSDK
 	MLHandle GetHandle() const
 	{
+		FScopeLock Lock(&TrackerMutex);
 		return ImageTracker;
+	}
+
+	uint32 GetMaxSimultaneousTargets() const
+	{
+		FScopeLock Lock(&TrackerMutex);
+		return Settings.max_simultaneous_targets;
+	}
+
+	void SetMaxSimultaneousTargets(uint32 NewNumTargets)
+	{
+		FScopeLock Lock(&TrackerMutex);
+		Settings.max_simultaneous_targets = NewNumTargets;
+		UpdateImageTrackerSettings();
+	}
+
+	bool GetImageTrackerEnabled() const
+	{
+		FScopeLock Lock(&TrackerMutex);
+		return Settings.enable_image_tracking && MLHandleIsValid(ImageTracker);
+	}
+
+	void SetImageTrackerEnabled(bool bEnabled)
+	{
+		FScopeLock Lock(&TrackerMutex);
+		Settings.enable_image_tracking = bEnabled;
+		// TODO: this should be async.
+		UpdateImageTrackerSettings();
 	}
 #endif //WITH_MLSDK
 
 private:
 	FImageTrackerEngineInterface()
 #if WITH_MLSDK
-	: ImageTracker(ML_INVALID_HANDLE)
+	: MagicLeap::IAppEventHandler({ MLPrivilegeID_CameraCapture })
+	, ImageTracker(ML_INVALID_HANDLE)
 #endif //WITH_MLSDK
 	{
-		CreateTracker();
+#if WITH_MLSDK
+		FMemory::Memset(&Settings, 0, sizeof(Settings));
+		MLResult Result = MLImageTrackerInitSettings(&Settings);
+		if (Result != MLResult_Ok)
+		{
+			UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Could not initialize image tracker settings mofo"));
+		}
+#endif //WITH_MLSDK
 	}
 
 	void CreateTracker()
 	{
 #if WITH_MLSDK
-		UE_LOG(LogMagicLeap, Display, TEXT("[FImageTrackerEngineInterface] Creating Image Tracker"));
-		FMemory::Memset(&Settings, 0, sizeof(Settings));
-		bool bResult = MLImageTrackerInitSettings(&Settings);
-
-		if (!bResult)
-		{
-			UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Could not initialize image tracker settings mofo"));
-		}
-
-		ImageTracker = MLImageTrackerCreate(&Settings);
-
+		FScopeLock Lock(&TrackerMutex);
 		if (!MLHandleIsValid(ImageTracker))
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Could not create Image tracker."));
+			UE_LOG(LogMagicLeap, Display, TEXT("[FImageTrackerEngineInterface] Creating Image Tracker"));
+
+			if (MagicLeap::EPrivilegeState::Granted == GetPrivilegeStatus(MLPrivilegeID_CameraCapture))
+			{
+				MLImageTrackerCreate(&Settings, &ImageTracker);
+
+				if (!MLHandleIsValid(ImageTracker))
+				{
+					UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Could not create Image tracker."));
+				}
+			}
 		}
 #endif //WITH_MLSDK
 	}	
@@ -90,7 +122,10 @@ private:
 	void OnAppPause() override
 	{
 #if WITH_MLSDK
-		bWasSystemEnabledOnPause = Settings.enable_image_tracking;
+		{
+			FScopeLock Lock(&TrackerMutex);
+			bWasSystemEnabledOnPause = Settings.enable_image_tracking;
+		}
 
 		if (!bWasSystemEnabledOnPause)
 		{
@@ -104,11 +139,12 @@ private:
 			}
 			else
 			{
+				FScopeLock Lock(&TrackerMutex);
 				Settings.enable_image_tracking = false;
-
-				if (!MLImageTrackerUpdateSettings(ImageTracker, &Settings))
+				MLResult Result = MLImageTrackerUpdateSettings(ImageTracker, &Settings);
+				if (Result != MLResult_Ok)
 				{
-					UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Failed to disable image tracker on application pause."));
+					UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Failed to disable image tracker on application pause due to error %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
 				}
 				else
 				{
@@ -134,15 +170,24 @@ private:
 			}
 			else
 			{
-				Settings.enable_image_tracking = true;
-
-				if (!MLImageTrackerUpdateSettings(ImageTracker, &Settings))
+				if (GetPrivilegeStatus(MLPrivilegeID_CameraCapture) == MagicLeap::EPrivilegeState::Granted)
 				{
-					UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Failed to re-enable image tracker on application resume."));
+					FScopeLock Lock(&TrackerMutex);
+					Settings.enable_image_tracking = true;
+					// TODO: this should be async
+					MLResult Result = MLImageTrackerUpdateSettings(ImageTracker, &Settings);
+					if (Result != MLResult_Ok)
+					{
+						UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerRunnable] Failed to re-enable image tracker on application resume due to error %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
+					}
+					else
+					{
+						UE_LOG(LogMagicLeap, Log, TEXT("[FImageTrackerRunnable] Image tracker re-enabled on application resume."));
+					}
 				}
 				else
 				{
-					UE_LOG(LogMagicLeap, Log, TEXT("[FImageTrackerEngineInterface] Image tracker re-enabled on application resume."));
+					UE_LOG(LogMagicLeap, Log, TEXT("[FImageTrackerRunnable] Image tracking failed to resume due to lack of privilege!"));
 				}
 			}
 		}
@@ -154,9 +199,9 @@ private:
 #if WITH_MLSDK
 		if (MLHandleIsValid(ImageTracker))
 		{
-			bool bResult = MLImageTrackerDestroy(ImageTracker);
+			MLResult Result = MLImageTrackerDestroy(ImageTracker);
 
-			if (!bResult)
+			if (Result != MLResult_Ok)
 			{
 				UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Error destroying image tracker."));
 			}
@@ -166,36 +211,39 @@ private:
 #endif //WITH_MLSDK
 	}
 
+	void UpdateImageTrackerSettings()
+	{
 #if WITH_MLSDK
-	MLHandle ImageTracker;
-	MLImageTrackerSettings Settings;
+		if (MLHandleIsValid(ImageTracker))
+		{
+			if (GetPrivilegeStatus(MLPrivilegeID_CameraCapture) == MagicLeap::EPrivilegeState::Granted)
+			{
+				FScopeLock Lock(&TrackerMutex);
+				MLResult Result = MLImageTrackerUpdateSettings(ImageTracker, &Settings);
+				if (Result != MLResult_Ok)
+				{
+					UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerRunnable] Failed to update image tracker settings due to error %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
+				}
+			}
+			else
+			{
+				UE_LOG(LogMagicLeap, Log, TEXT("[FImageTrackerRunnable] Image tracking settings failed to updatee due to lack of privilege!"));
+			}
+		}
 #endif //WITH_MLSDK
+	}
+
+	mutable FCriticalSection TrackerMutex;
 	static TSharedPtr<FImageTrackerEngineInterface, ESPMode::ThreadSafe> Instance;
+
+#if WITH_MLSDK
+	MLImageTrackerSettings Settings;
+private:
+	MLHandle ImageTracker;
+#endif //WITH_MLSDK
 };
 
 TSharedPtr<FImageTrackerEngineInterface, ESPMode::ThreadSafe> FImageTrackerEngineInterface::Instance;
-
-struct FTrackerMessage
-{
-	enum TaskType
-	{
-		None,
-		Create,
-		ReportStatus,
-	};
-
-	TaskType TaskType;
-	FString TargetName;
-	UTexture2D* TargetImageTexture;
-#if WITH_MLSDK
-	MLImageTrackerTargetSettings TargetSettings;
-	MLImageTrackerTargetResult TrackingStatus;
-#endif //WITH_MLSDK
-
-	FTrackerMessage()
-	: TaskType(TaskType::None)
-	{}
-};
 
 class FImageTrackerImpl : public FRunnable, public MagicLeap::IAppEventHandler
 {
@@ -215,12 +263,6 @@ public:
 #if WITH_MLSDK
 		OldTrackingStatus.status = MLImageTrackerTargetStatus_Ensure32Bits;
 #endif //WITH_MLSDK
-
-#if PLATFORM_LUMIN
-		Thread = FRunnableThread::Create(this, TEXT("ImageTrackerWorker"), 0, TPri_BelowNormal, FLuminAffinity::GetPoolThreadMask());
-#else
-		Thread = FRunnableThread::Create(this, TEXT("ImageTrackerWorker"), 0, TPri_BelowNormal);
-#endif // PLATFORM_LUMIN
 	};
 
 	virtual ~FImageTrackerImpl()
@@ -248,16 +290,25 @@ public:
 
 	virtual uint32 Run() override
 	{
+#if WITH_MLSDK
 		while (StopTaskCounter.GetValue() == 0)
 		{
-			if (IncomingMessages.Dequeue(CurrentMessage))
+			if (!ImageTracker.IsValid())
 			{
-				DoTasks();
+				ImageTracker = FImageTrackerEngineInterface::Get();
+			}
+			if (MLHandleIsValid(ImageTracker.Pin()->GetHandle()))
+			{
+				if (IncomingMessages.Dequeue(CurrentMessage))
+				{
+					DoTasks();
+				}
 			}
 
 			FPlatformProcess::Sleep(0.5f);
 		}
 
+#endif //WITH_MLSDK
 		return 0;
 	}
 
@@ -274,10 +325,21 @@ public:
 		TargetSettings.longer_dimension = InLongerDimension;
 		TargetSettings.is_stationary = bInIsStationary;
 		FTrackerMessage CreateTargetMsg;
-		CreateTargetMsg.TaskType = FTrackerMessage::TaskType::Create;
+		CreateTargetMsg.TaskType = FTrackerMessage::TaskType::TryCreateTarget;
 		CreateTargetMsg.TargetName = InName;
 		CreateTargetMsg.TargetSettings = TargetSettings;
 		CreateTargetMsg.TargetImageTexture = InTargetTexture;
+
+		if (Thread == nullptr)
+		{
+			StopTaskCounter.Reset();
+#if PLATFORM_LUMIN
+			Thread = FRunnableThread::Create(this, TEXT("ImageTrackerWorker"), 0, TPri_BelowNormal, FLuminAffinity::GetPoolThreadMask());
+#else
+			Thread = FRunnableThread::Create(this, TEXT("ImageTrackerWorker"), 0, TPri_BelowNormal);
+#endif // PLATFORM_LUMIN
+		}
+
 		IncomingMessages.Enqueue(CreateTargetMsg);
 #endif //WITH_MLSDK
 	}
@@ -307,8 +369,8 @@ public:
 		switch (CurrentMessage.TaskType)
 		{
 		case FTrackerMessage::TaskType::None: break;
-		case FTrackerMessage::TaskType::Create: SetTarget(); break;
-		case FTrackerMessage::TaskType::ReportStatus: break;
+		case FTrackerMessage::TaskType::TryCreateTarget: SetTarget(); break;
+		//case FTrackerMessage::TaskType::ReportStatus: break;
 		}
 	}
 
@@ -317,11 +379,12 @@ public:
 #if WITH_MLSDK
 		if (!MLHandleIsValid(Target))
 		{
+			UE_LOG(LogMagicLeap, Warning, TEXT("SetTarget for %s"), *CurrentMessage.TargetName);
 			CurrentMessage.TargetSettings.name = TCHAR_TO_UTF8(*CurrentMessage.TargetName);
 			FTexture2DMipMap& Mip = CurrentMessage.TargetImageTexture->PlatformData->Mips[0];
 			const unsigned char* PixelData = static_cast<const unsigned char*>(Mip.BulkData.Lock(LOCK_READ_ONLY));
 			checkf(ImageTracker.Pin().IsValid(), TEXT("[FImageTrackerImpl] ImageTracker weak pointer is invalid!"));
-			Target = MLImageTrackerAddTargetFromArray(ImageTracker.Pin()->GetHandle(), &CurrentMessage.TargetSettings, PixelData, CurrentMessage.TargetImageTexture->GetSurfaceWidth(), CurrentMessage.TargetImageTexture->GetSurfaceHeight(), MLImageTrackerImageFormat_RGBA);
+			MLImageTrackerAddTargetFromArray(ImageTracker.Pin()->GetHandle(), &CurrentMessage.TargetSettings, PixelData, CurrentMessage.TargetImageTexture->GetSurfaceWidth(), CurrentMessage.TargetImageTexture->GetSurfaceHeight(), MLImageTrackerImageFormat_RGBA, &Target);
 			Mip.BulkData.Unlock();
 
 			if (!MLHandleIsValid(Target))
@@ -332,11 +395,14 @@ public:
 
 			// [3] Cache all the static data for this target.
 			checkf(ImageTracker.Pin().IsValid(), TEXT("[FImageTrackerImpl] ImageTracker weak pointer is invalid!"));
-			if (!MLImageTrackerGetTargetStaticData(ImageTracker.Pin()->GetHandle(), Target, &Data))
+			MLResult Result = MLImageTrackerGetTargetStaticData(ImageTracker.Pin()->GetHandle(), Target, &Data);
+			if (Result != MLResult_Ok)
 			{
 				UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerImpl] Could not get the static data for the Image Target."));
 				return;
 			}
+
+			UE_LOG(LogMagicLeap, Warning, TEXT("SetTarget successfully set for %s"), *CurrentMessage.TargetName);			
 
 			bIsTracking = true;
 		}
@@ -421,7 +487,7 @@ void UImageTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick Tick
 		checkf(Impl->ImageTracker.Pin().IsValid(), TEXT("[FImageTrackerImpl] ImageTracker weak pointer is invalid!"));
 
 		MLImageTrackerTargetResult TrackingStatus;
-		if (!MLImageTrackerGetTargetResult(Impl->ImageTracker.Pin()->GetHandle(), Impl->Target, &TrackingStatus))
+		if (MLImageTrackerGetTargetResult(Impl->ImageTracker.Pin()->GetHandle(), Impl->Target, &TrackingStatus) != MLResult_Ok)
 		{
 			TrackingStatus.status = MLImageTrackerTargetStatus_NotTracked;
 		}
@@ -479,6 +545,11 @@ void UImageTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick Tick
 #endif //WITH_MLSDK
 }
 
+void UImageTrackerComponent::SetTargetAsync(UTexture2D* ImageTarget)
+{
+
+}
+
 #if WITH_EDITOR
 void UImageTrackerComponent::PreEditChange(UProperty* PropertyAboutToChange)
 {
@@ -506,3 +577,35 @@ void UImageTrackerComponent::PostEditChangeProperty(FPropertyChangedEvent& Prope
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif
+
+void UImageTrackerFunctionLibrary::SetMaxSimultaneousTargets(int32 MaxSimultaneousTargets)
+{
+#if WITH_MLSDK
+	FImageTrackerEngineInterface::Get(false).Pin()->SetMaxSimultaneousTargets(MaxSimultaneousTargets);
+#endif //WITH_MLSDK
+}
+
+int32 UImageTrackerFunctionLibrary::GetMaxSimultaneousTargets()
+{
+#if WITH_MLSDK
+	return FImageTrackerEngineInterface::Get(false).Pin()->GetMaxSimultaneousTargets();
+#else
+	return 0;
+#endif //WITH_MLSDK
+}
+
+void UImageTrackerFunctionLibrary::EnableImageTracking(bool bEnable)
+{
+#if WITH_MLSDK
+	FImageTrackerEngineInterface::Get(false).Pin()->SetImageTrackerEnabled(bEnable);
+#endif //WITH_MLSDK
+}
+
+bool UImageTrackerFunctionLibrary::IsImageTrackingEnabled()
+{
+#if WITH_MLSDK
+	return FImageTrackerEngineInterface::Get(false).Pin()->GetImageTrackerEnabled();
+#else
+	return false;
+#endif //WITH_MLSDK
+}

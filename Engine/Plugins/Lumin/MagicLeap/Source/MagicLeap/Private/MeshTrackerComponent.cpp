@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshTrackerComponent.h"
+#include "IMagicLeapHMD.h"
 #include "MagicLeapHMD.h"
 #include "AppFramework.h"
 #include "MagicLeapMath.h"
@@ -19,188 +20,145 @@
 
 #if WITH_MLSDK
 ML_INCLUDES_START
-#include <ml_meshing.h>
-#include <ml_data_array.h>
+#include <ml_meshing2.h>
 ML_INCLUDES_END
 #endif //WITH_MLSDK
 
-static TAutoConsoleVariable<float> CVarFakeMeshTrackerData(
-	TEXT("vr.MagicLeap.FakeMeshTrackerData"),
-	0.0f,
-	TEXT("If True MeshTrackerComponent will generate some simple fake mesh data.\n"),
-	ECVF_Default);
+#if WITH_MLSDK
+// Map an Unreal meshing LOD to the corresponding ML meshing LOD
+FORCEINLINE MLMeshingLOD MLToUnreal_MeshLOD(EMeshLOD UnrealMeshLOD)
+{
+	switch (UnrealMeshLOD)
+	{
+		case EMeshLOD::Minimum:
+			return MLMeshingLOD_Minimum;
+		case EMeshLOD::Medium:
+			return MLMeshingLOD_Medium;
+		case EMeshLOD::Maximum:
+			return MLMeshingLOD_Maximum;
+	}
+	check(false);
+	return MLMeshingLOD_Minimum;
+}
+
+// Makes MLCoordinateFrameUID a hashable type for use with TMap and TSet
+template<typename ValueType> struct TMLCoordinateFrameUIDKeyFuncs : 
+	BaseKeyFuncs<TPair<MLCoordinateFrameUID, ValueType>, MLCoordinateFrameUID>
+{
+private:
+	typedef BaseKeyFuncs<TPair<MLCoordinateFrameUID, ValueType>, MLCoordinateFrameUID> Super;
+public:
+	typedef typename Super::ElementInitType ElementInitType;
+	typedef typename Super::KeyInitType KeyInitType;
+
+	static KeyInitType GetSetKey(ElementInitType Element)
+	{
+		return Element.Key;
+	}
+	static bool Matches(KeyInitType A, KeyInitType B)
+	{
+		return A.data[0] == B.data[0] && A.data[1] == B.data[1];
+	}
+	static uint32 GetKeyHash(KeyInitType Key)
+	{
+		return GetTypeHash(static_cast<uint64>(Key.data[0])) ^ ~GetTypeHash(static_cast<uint64>(Key.data[1]));
+	}
+};
+#endif //WITH_MLSDK
 
 class FMeshTrackerImpl : public MagicLeap::IAppEventHandler
 {
 public:
 	FMeshTrackerImpl()
 #if WITH_MLSDK
-		: Tracker(ML_INVALID_HANDLE)
-		, bUpdateRequested(false)
+		: MeshTracker(ML_INVALID_HANDLE)
+		, MeshBrickIndex(0)
+		, CurrentMeshInfoRequest(ML_INVALID_HANDLE)
+		, CurrentMeshRequest(ML_INVALID_HANDLE)
 #endif //WITH_MLSDK
 	{
-#if WITH_MLSDK
-		UnrealToMLMeshTypeMap.Add(EMeshType::Full, MLMeshingType_Full);
-		UnrealToMLMeshTypeMap.Add(EMeshType::Blocks, MLMeshingType_Blocks);
-		UnrealToMLMeshTypeMap.Add(EMeshType::PointCloud, MLMeshingType_PointCloud);
-#endif //WITH_MLSDK
 	};
 
 #if WITH_MLSDK
-	MLMeshingSettings CreateSettings(const UMeshTrackerComponent& MeshTracker)
+	MLMeshingSettings CreateSettings(const UMeshTrackerComponent& MeshTrackerComponent)
 	{
+		MLMeshingSettings Settings;
+
+		MLMeshingInitSettings(&Settings);
+
 		float WorldToMetersScale = 100.0f;
-		if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice())
+		if (IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
 		{
-			const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
+			const FAppFramework& AppFramework = static_cast<FMagicLeapHMD *>
+				(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
 			if (AppFramework.IsInitialized())
 			{
 				WorldToMetersScale = AppFramework.GetWorldToMetersScale();
 			}
 		}
 
-		MLMeshingSettings Settings;
-		FMemory::Memset(&Settings, 0, sizeof(Settings));
-
-		// Convert all of the times from float seconds -> uint64 nanoseconds.
-		Settings.meshing_poll_time = static_cast<uint64_t>(MeshTracker.MeshingPollTime * 1e9);
-
-		Settings.mesh_type = UnrealToMLMeshTypeMap[MeshTracker.MeshType];
-
-		Settings.bounds_center = MagicLeap::ToMLVector(BoundsCenter, WorldToMetersScale);
-		Settings.bounds_rotation = MagicLeap::ToMLQuat(BoundsRotation);
-		Settings.bounds_extents = MagicLeap::ToMLVector(MeshTracker.BoundingVolume->GetScaledBoxExtent(), WorldToMetersScale);
-
-		// MagicLeap::ToMLVector() causes the Z component to be negated.
-		// The bounds were thus invalid and resulted in everything being meshed. 
-		// This provides the content devs with an option to ignore the bounding volume at will.
-		// TODO: Can this be improved?
-		if (!MeshTracker.IgnoreBoundingVolume)
+		if (MeshTrackerComponent.MeshType == EMeshType::PointCloud)
 		{
-			Settings.bounds_extents.x = FMath::Abs<float>(Settings.bounds_extents.x);
-			Settings.bounds_extents.y = FMath::Abs<float>(Settings.bounds_extents.y);
-			Settings.bounds_extents.z = FMath::Abs<float>(Settings.bounds_extents.z);
+			Settings.flags |= MLMeshingFlags_PointCloud;
+		}
+		if (MeshTrackerComponent.RequestNormals)
+		{
+			Settings.flags |= MLMeshingFlags_ComputeNormals;
+		}
+		if (MeshTrackerComponent.RequestVertexConfidence)
+		{
+			Settings.flags |= MLMeshingFlags_ComputeConfidence;
+		}
+		if (MeshTrackerComponent.Planarize)
+		{
+			Settings.flags |= MLMeshingFlags_Planarize;
+		}
+		if (MeshTrackerComponent.RemoveOverlappingTriangles)
+		{
+			Settings.flags |= MLMeshingFlags_RemoveMeshSkirt;
 		}
 
-		Settings.target_number_triangles = static_cast<uint32>(MeshTracker.TargetNumberTriangles);
-		Settings.target_number_triangles_per_block = static_cast<uint32>(MeshTracker.TargetNumberTriangles);
-
-		Settings.enable_meshing = MeshTracker.ScanWorld;
-		Settings.index_order_ccw = false;
-		Settings.fill_holes = MeshTracker.FillGaps;
-		Settings.fill_hole_length = MeshTracker.PerimeterOfGapsToFill / WorldToMetersScale;
-		Settings.compute_normals = MeshTracker.RequestNormals;
-		Settings.planarize = MeshTracker.Planarize;
-		Settings.remove_disconnected_components = MeshTracker.RemoveDisconnectedSections;
-		Settings.disconnected_component_area = MeshTracker.DisconnectedSectionArea / (WorldToMetersScale * WorldToMetersScale);
-		Settings.request_vertex_confidence = MeshTracker.RequestVertexConfidence;
-		Settings.remove_mesh_skirt = MeshTracker.RemoveOverlappingTriangles;
+		Settings.fill_hole_length = MeshTrackerComponent.PerimeterOfGapsToFill / WorldToMetersScale;
+		Settings.disconnected_component_area = MeshTrackerComponent.
+			DisconnectedSectionArea / (WorldToMetersScale * WorldToMetersScale);
 
 		return Settings;
 	};
 
-	bool SettingsChanged(const MLMeshingSettings& lhs, const MLMeshingSettings& rhs, const UMeshTrackerComponent& MeshTracker)
-	{
-		return (lhs.meshing_poll_time != rhs.meshing_poll_time ||
-			lhs.mesh_type != rhs.mesh_type ||
-			MagicLeap::ToFVector(lhs.bounds_extents, 1.0f) != MagicLeap::ToFVector(rhs.bounds_extents, 1.0f) ||
-			lhs.target_number_triangles != rhs.target_number_triangles ||
-			lhs.target_number_triangles_per_block != rhs.target_number_triangles_per_block ||
-			lhs.enable_meshing != rhs.enable_meshing ||
-			lhs.fill_holes != rhs.fill_holes ||
-			lhs.planarize != rhs.planarize ||
-			lhs.remove_disconnected_components != rhs.remove_disconnected_components ||
-			lhs.disconnected_component_area != rhs.disconnected_component_area ||
-			lhs.request_vertex_confidence != rhs.request_vertex_confidence ||
-			lhs.remove_mesh_skirt != rhs.remove_mesh_skirt ||
-			FVector(lhs.bounds_center.xyz.x - rhs.bounds_center.xyz.x,
-				lhs.bounds_center.xyz.y - rhs.bounds_center.xyz.y,
-				lhs.bounds_center.xyz.z - rhs.bounds_center.xyz.z).Size() > MeshTracker.MinDistanceRescan
-			);
-		// TODO: (njain) Account for a minimum change in bounds_rotation and bounds_extents.
-	}
 #endif //WITH_MLSDK
 
 	void OnAppPause() override
 	{
-#if WITH_MLSDK
-		bWasSystemEnabledOnPause = CurrentSettings.enable_meshing;
-
-		if (!bWasSystemEnabledOnPause)
-		{
-			UE_LOG(LogMagicLeap, Log, TEXT("Mesh tracking was not enabled at time of application pause."));
-		}
-		else
-		{
-			if (!MLHandleIsValid(Tracker))
-			{
-				UE_LOG(LogMagicLeap, Error, TEXT("Mesh tracker was invalid on application pause."));
-			}
-			else
-			{
-				CurrentSettings.enable_meshing = false;
-
-				if (!MLMeshingUpdate(Tracker, &CurrentSettings))
-				{
-					UE_LOG(LogMagicLeap, Error, TEXT("Failed to disable mesh tracker on application pause."));
-				}
-				else
-				{
-					UE_LOG(LogMagicLeap, Log, TEXT("Mesh tracker paused until app resumes."));
-				}
-			}
-		}
-#endif //WITH_MLSDK
 	}
 
 	void OnAppResume() override
 	{
-#if WITH_MLSDK
-		if (!bWasSystemEnabledOnPause)
-		{
-			UE_LOG(LogMagicLeap, Log, TEXT("Not resuming mesh tracker as it was not enabled at time of application pause."));
-		}
-		else
-		{
-			if (!MLHandleIsValid(Tracker))
-			{
-				UE_LOG(LogMagicLeap, Error, TEXT("Mesh tracker was invalid on application resume."));
-			}
-			else
-			{
-				CurrentSettings.enable_meshing = true;
-
-				if (!MLMeshingUpdate(Tracker, &CurrentSettings))
-				{
-					UE_LOG(LogMagicLeap, Error, TEXT("Failed to re-enable mesh tracker on application resume."));
-				}
-				else
-				{
-					UE_LOG(LogMagicLeap, Log, TEXT("Mesh tracker re-enabled on application resume."));
-				}
-			}
-		}
-#endif //WITH_MLSDK
 	}
 
 public:
 #if WITH_MLSDK
-	MLCoordinateFrameUID CoordinateFrame;
-	MLHandle Tracker;
-	MLMeshingStaticData Data;
+	// Handle to ML mesh tracker
+	MLHandle MeshTracker;
 
-	MLDataArrayDiff GroupDiff;
-	int32 SectionCounter;
+	// Next ID for bricks created with MR Mesh
+	int32 MeshBrickIndex;
 
-	MLMeshingSettings CurrentSettings;
+	// Handle to ML mesh info request
+	MLHandle CurrentMeshInfoRequest;
 
-	struct MeshCache
-	{
-		MLDataArrayDiff Diff;
-		int32 Section;
-	};
+	// Handle to ML mesh request
+	MLHandle CurrentMeshRequest;
 
-	TMap<uint64, MeshCache> MeshHandleCacheMap;
+	// Current ML meshing settings
+	MLMeshingSettings CurrentMeshSettings;
+
+	// List of ML mesh block IDs and states
+	TArray<MLMeshingBlockRequest> MeshBlockRequests;
+
+	// Map of ML mesh block IDs to MR Mesh brick IDs
+	TMap<MLCoordinateFrameUID, uint64, FDefaultSetAllocator, 
+		TMLCoordinateFrameUIDKeyFuncs<uint64>> MeshBrickCache;
+
 #endif //WITH_MLSDK
 
 	// Keep a copy of the mesh data here.  MRMeshComponent will use it from the game and render thread.
@@ -211,7 +169,8 @@ public:
 		FMeshTrackerImpl* Owner = nullptr;
 		
 		IMRMesh::FBrickId BrickId = 0;
-		TArray<FVector> Vertices;
+		TArray<FVector> OffsetVertices;
+		TArray<FVector> WorldVertices;
 		TArray<uint32> Triangles;
 		TArray<FVector> Normals;
 		TArray<FVector2D> UV0;
@@ -226,7 +185,8 @@ public:
 			Owner = nullptr;
 	
 			BrickId = 0;
-			Vertices.Reset();
+			OffsetVertices.Reset();
+			WorldVertices.Reset();
 			Triangles.Reset();
 			Normals.Reset();
 			UV0.Reset();
@@ -288,34 +248,26 @@ public:
 	FVector BoundsCenter;
 	FQuat BoundsRotation;
 
-#if WITH_MLSDK
-	bool bUpdateRequested;
-#endif //WITH_MLSDK
-
-	bool Create(const UMeshTrackerComponent& MeshTracker)
+	bool Create(const UMeshTrackerComponent& MeshTrackerComponent)
 	{
 #if WITH_MLSDK
-		if (!MLHandleIsValid(Tracker))
+		if (!MLHandleIsValid(MeshTracker))
 		{
 			// Create the tracker on demand.
-			UE_LOG(LogMagicLeap, Display, TEXT("Creating Mesh Tracker"));
-			MLMeshingSettings Settings = CreateSettings(MeshTracker);
-			Tracker = MLMeshingCreate(&Settings);
+			//UE_LOG(LogMagicLeap, Log, TEXT("Creating Mesh MeshTracker"));
+			
+			CurrentMeshSettings = CreateSettings(MeshTrackerComponent);
 
-			if (!MLHandleIsValid(Tracker))
+			MLResult Result = MLMeshingCreateClient(&MeshTracker, &CurrentMeshSettings);
+
+			if (Result != MLResult_Ok)
 			{
-				UE_LOG(LogMagicLeap, Error, TEXT("Could not create mesh tracker."));
+				UE_LOG(LogMagicLeap, Error, TEXT("MLMeshingCreateClient failed: %s."), 
+					UTF8_TO_TCHAR(MLGetResultString(Result)));
 				return false;
 			}
 
-			CurrentSettings = Settings;
-			FMemory::Memset(&GroupDiff, 0, sizeof(MLDataArrayDiff));
-			SectionCounter = 0;
-			// TODO: pull out of current scope and handle separately.
-			if (MLMeshingGetStaticData(Tracker, &Data))
-			{
-				CoordinateFrame = Data.frame;
-			}
+			MeshBrickIndex = 0;
 		}
 #endif //WITH_MLSDK
 		return true;
@@ -324,22 +276,20 @@ public:
 	void Destroy()
 	{
 #if WITH_MLSDK
-		if (MLHandleIsValid(Tracker))
+		if (MLHandleIsValid(MeshTracker))
 		{
-			bool bResult = MLMeshingDestroy(Tracker);
-			if (!bResult)
+			MLResult Result = MLMeshingDestroyClient(&MeshTracker);
+			if (Result != MLResult_Ok)
 			{
-				UE_LOG(LogMagicLeap, Error, TEXT("Error destroying mesh tracker."));
+				UE_LOG(LogMagicLeap, Error, 
+					TEXT("MLMeshingDestroyClient failed: %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
 			}
-			Tracker = ML_INVALID_HANDLE;
+			MeshTracker = ML_INVALID_HANDLE;
 		}
 #endif //WITH_MLSDK
 	}
 
 private:
-#if WITH_MLSDK
-	TMap<EMeshType, MLMeshingType> UnrealToMLMeshTypeMap;
-#endif //WITH_MLSDK
 
 	// A free list to recycle the CachedMeshData instances.  
 	TArray<FMLCachedMeshData::SharedPtr> CachedMeshDatas;
@@ -393,14 +343,22 @@ UMeshTrackerComponent::~UMeshTrackerComponent()
 
 void UMeshTrackerComponent::ConnectMRMesh(UMRMeshComponent* InMRMeshPtr)
 {
-	if (MRMesh)
+	if (!InMRMeshPtr)
 	{
-		UE_LOG(LogMagicLeap, Warning, TEXT("MeshTrackerComponent already has a MRMesh connected.  Ignoring this connect."));
+		UE_LOG(LogMagicLeap, Warning,
+			TEXT("MRMesh given is not valid. Ignoring this connect."));
+		return;
+	}
+	else if (MRMesh)
+	{
+		UE_LOG(LogMagicLeap, Warning, 
+			TEXT("MeshTrackerComponent already has a MRMesh connected.  Ignoring this connect."));
 		return;
 	}
 	else if (InMRMeshPtr->IsConnected())
 	{
-		UE_LOG(LogMagicLeap, Warning, TEXT("MRMesh is already connected to a UMeshTrackerComponent. Ignoring this connect."));
+		UE_LOG(LogMagicLeap, Warning, 
+			TEXT("MRMesh is already connected to a UMeshTrackerComponent. Ignoring this connect."));
 		return;
 	}
 	else
@@ -414,12 +372,15 @@ void UMeshTrackerComponent::DisconnectMRMesh(class UMRMeshComponent* InMRMeshPtr
 {
 	if (!MRMesh)
 	{
-		UE_LOG(LogMagicLeap, Warning, TEXT("MeshTrackerComponent MRMesh is already disconnected. Ignoring this diconnect."));
+		UE_LOG(LogMagicLeap, Warning, 
+			TEXT("MeshTrackerComponent MRMesh is already disconnected. Ignoring this disconnect."));
 		return;
 	}
 	else if (InMRMeshPtr != MRMesh)
 	{
-		UE_LOG(LogMagicLeap, Warning, TEXT("MeshTrackerComponent MRMesh given is not the MRMesh connected. Ignoring this diconnect."));
+		UE_LOG(LogMagicLeap, Warning, 
+			TEXT("MeshTrackerComponent MRMesh given is not the MRMesh connected. "
+				 "Ignoring this disconnect."));
 		return;
 	}
 	else
@@ -434,10 +395,28 @@ void UMeshTrackerComponent::DisconnectMRMesh(class UMRMeshComponent* InMRMeshPtr
 void UMeshTrackerComponent::PostEditChangeProperty(FPropertyChangedEvent& e)
 {
 #if WITH_MLSDK
-	if (MLHandleIsValid(Impl->Tracker) && e.Property != nullptr)
+	if (MLHandleIsValid(Impl->MeshTracker) && e.Property != nullptr)
 	{
-		MLMeshingSettings Settings = Impl->CreateSettings(*this);
-		MLMeshingUpdate(Impl->Tracker, &Settings);
+		MLMeshingSettings MeshSettings = Impl->CreateSettings(*this);
+
+		// Just brute compare
+		if (0 != memcmp(&Impl->CurrentMeshSettings, &MeshSettings, sizeof(MeshSettings)))
+		{
+			UE_LOG(LogMagicLeap, Log, 
+				TEXT("PostEditChangeProperty is changing MLMeshingSettings"));
+
+			auto Result = MLMeshingUpdateSettings(Impl->MeshTracker, &Impl->CurrentMeshSettings);
+
+			if (MLResult_Ok != Result)
+			{
+				UE_LOG(LogMagicLeap, Error, 
+					TEXT("MLMeshingUpdateSettings failed: %s"), UTF8_TO_TCHAR(MLGetResultString(Result)));
+			}
+			else
+			{
+				Impl->CurrentMeshSettings = MeshSettings;
+			}
+		}
 	}
 #endif //WITH_MLSDK
 
@@ -445,60 +424,23 @@ void UMeshTrackerComponent::PostEditChangeProperty(FPropertyChangedEvent& e)
 }
 #endif
 
-bool UMeshTrackerComponent::ForceMeshUpdate()
-{
-#if WITH_MLSDK
-	if (MLHandleIsValid(Impl->Tracker))
-	{
-		Impl->bUpdateRequested = MLMeshingRefresh(Impl->Tracker);
-	}
-	return Impl->bUpdateRequested;
-#else
-	return true;
-#endif //WITH_MLSDK
-}
-
-void UMeshTrackerComponent::LogMLDataArray(const MLDataArray& Data) const
-{
-#if WITH_MLSDK
-	UE_LOG(LogMagicLeap, Log, TEXT("  Data:"));
-	const uint64 timestamp = Data.timestamp;
-	const uint32 stream_count = Data.stream_count;
-	UE_LOG(LogMagicLeap, Log, TEXT("    timestamp:    %llu"), timestamp);
-	UE_LOG(LogMagicLeap, Log, TEXT("    stream_count: %i"), stream_count);
-	for (uint32 i = 0; i < stream_count; ++i)
-	{
-		const MLDataArrayStream& stream = Data.streams[i];
-		UE_LOG(LogMagicLeap, Log, TEXT("      stream: %i"), i);
-		UE_LOG(LogMagicLeap, Log, TEXT("        type: %i"), (int32)stream.type);
-		UE_LOG(LogMagicLeap, Log, TEXT("        count: %i"), stream.count);
-		UE_LOG(LogMagicLeap, Log, TEXT("        data_size: %i"), stream.data_size);
-	}
-#endif //WITH_MLSDK
-}
-
 void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-#if WITH_MLSDK
 
+#if WITH_MLSDK
 	if (!MRMesh)
 	{
 		return;
 	}
 
-	static const auto FakeMeshTrackerDataCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("vr.MagicLeap.FakeMeshTrackerData"));
-	if (FakeMeshTrackerDataCVar != nullptr && FakeMeshTrackerDataCVar->GetInt())
+	if (!IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
 	{
-		TickWithFakeData();
 		return;
 	}
 
-	if (!GEngine->XRSystem.IsValid() || !GEngine->XRSystem->GetHMDDevice())
-	{
-		return;
-	}
-	const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
+	const FAppFramework& AppFramework = 
+		static_cast<FMagicLeapHMD *>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
 	if (!AppFramework.IsInitialized())
 	{
 		return;
@@ -515,545 +457,330 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 	Impl->BoundsCenter = PoseInverse.TransformPosition(BoundingVolume->GetComponentLocation());
 	Impl->BoundsRotation = PoseInverse.GetRotation();
 
-	// Update the tracker on demand.
-	MLMeshingSettings NewSettings = Impl->CreateSettings(*this);
-	// Hack because MLMeshSettings does not support the comparison operator.
-	if (Impl->SettingsChanged(Impl->CurrentSettings, NewSettings, *this))
-	{
-		UE_LOG(LogMagicLeap, Display, TEXT("Updating Mesh Tracker Settings"));
-		if (Impl->CurrentSettings.mesh_type != NewSettings.mesh_type && MRMesh != nullptr)
-		{
-			MRMesh->Clear();
-		}
-		MLMeshingUpdate(Impl->Tracker, &NewSettings);
-		Impl->CurrentSettings = NewSettings;
-	}
-
-	// Update the general position of the object so the mesh is in the right position.
 	float WorldToMetersScale = AppFramework.GetWorldToMetersScale();
 
-	EFailReason FailReason = EFailReason::None;
-	FTransform Pose = FTransform::Identity;
-	if (AppFramework.GetTransform(Impl->Data.frame, Pose, FailReason))
-	{
-		if (MRMesh)
-		{
-			MRMesh->SendRelativeTransform(Pose);
-		}
-	}
-	else if (FailReason == EFailReason::NaNsInTransform)
-	{
-		UE_LOG(LogMagicLeap, Warning, TEXT("NaNs in mesh frame transform."));
-	}
+	// Make sure MR Mesh is at 0,0,0 (verts received from ML meshing are in world space)
+	MRMesh->SendRelativeTransform(FTransform::Identity);
 
-	// Only draw meshes during the scan phase in order to maintain a steady framerate.
-	if (ScanWorld || Impl->bUpdateRequested)
+	if (ScanWorld)
 	{
-		// Collect current mesh handles.
-		TSet<uint64> CurrentMeshHandleSet;
-
-		// Lock group data array.
-		MLDataArray GroupData;
-		MLDataArrayLockResult mainDataArray = MLDataArrayTryLock(Impl->Data.meshes, &GroupData, &Impl->GroupDiff);
-		if (mainDataArray == MLDataArrayLockResult_New)
+		// Request mesh info
+		if (Impl->CurrentMeshInfoRequest == ML_INVALID_HANDLE && Impl->CurrentMeshRequest == ML_INVALID_HANDLE)
 		{
-			// Work with the locked group MLDataArray.
+			MLMeshingExtents Extents = {};
+			Extents.center = MagicLeap::ToMLVector(Impl->BoundsCenter, WorldToMetersScale);
+			Extents.rotation = MagicLeap::ToMLQuat(Impl->BoundsRotation);
+			Extents.extents = MagicLeap::ToMLVector(BoundingVolume->GetScaledBoxExtent(), WorldToMetersScale);
+
+			// MagicLeap::ToMLVector() is, as the name implies, meant for vectors (not extents) and using it
+			// causes the Z component to be negated. We'll abs all of them for safety.
+			Extents.extents.x = FMath::Abs<float>(Extents.extents.x);
+			Extents.extents.y = FMath::Abs<float>(Extents.extents.y);
+			Extents.extents.z = FMath::Abs<float>(Extents.extents.z);
+
+			auto Result = MLMeshingRequestMeshInfo(Impl->MeshTracker, &Extents, &Impl->CurrentMeshInfoRequest);
+			if (MLResult_Ok != Result)
 			{
-				//UE_LOG(LogMagicLeap, Log, TEXT("UMeshTrackerComponent::TickComponent found new group data."));
-				//LogMLDataArray(GroupData);
-
-				Impl->bUpdateRequested = false;
-				MLDataArrayHandle* groupBegin = GroupData.streams[0].handle_array;
-				MLDataArrayHandle* groupEnd = GroupData.streams[0].handle_array + GroupData.streams[0].count;
-
-				for (MLDataArrayHandle* groupIterator = groupBegin; groupIterator != groupEnd; ++groupIterator)
-				{
-					CurrentMeshHandleSet.Add(*groupIterator);
-				}
-
-				// Unlock group data array.
-				MLDataArrayUnlock(Impl->Data.meshes);
+				UE_LOG(LogMagicLeap, Error, TEXT("MLMeshingRequestMeshInfo failed: %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
+				Impl->CurrentMeshInfoRequest = ML_INVALID_HANDLE;
 			}
+		}
 
-			// Clear unnecessary meshes.
-			TMap<uint64, FMeshTrackerImpl::MeshCache> NewMeshHandleCacheMap;
-			for (const auto& MeshHandleCachePair : Impl->MeshHandleCacheMap)
+		// Request block meshes for current mesh info and block list
+		if (Impl->CurrentMeshRequest == ML_INVALID_HANDLE && Impl->MeshBlockRequests.Num() > 0)
+		{
+			MLMeshingMeshRequest MeshRequest = {};
+			MeshRequest.request_count = static_cast<int>(Impl->MeshBlockRequests.Num());
+			MeshRequest.data = Impl->MeshBlockRequests.GetData();
+			auto Result = MLMeshingRequestMesh(Impl->MeshTracker, &MeshRequest, &Impl->CurrentMeshRequest);
+			if (MLResult_Ok != Result)
 			{
-				if (!CurrentMeshHandleSet.Contains(MeshHandleCachePair.Key))
+				UE_LOG(LogMagicLeap, Error, TEXT("MLMeshingRequestMesh failed: %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
+				Impl->CurrentMeshInfoRequest = ML_INVALID_HANDLE;
+			}
+		}
+
+		// Request IDs and states of block meshes
+		if (Impl->CurrentMeshInfoRequest != ML_INVALID_HANDLE)
+		{
+			MLMeshingMeshInfo MeshInfo = {};
+
+			auto Result = MLMeshingGetMeshInfoResult(Impl->MeshTracker, Impl->CurrentMeshInfoRequest, &MeshInfo);
+			if (MLResult_Ok != Result)
+			{
+				// Just silently wait for pending result
+				if (MLResult_Pending != Result)
 				{
-					// We don't add any sections to the procedural mesh component for point clouds.
-					if (MeshType != EMeshType::PointCloud)
+					UE_LOG(LogMagicLeap, Error, 
+						TEXT("MLMeshingGetMeshInfoResult failed: %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
+				}
+			}
+			else
+			{
+				// Clear our stored block requests
+				Impl->MeshBlockRequests.Empty();
+
+				//UE_LOG(LogMagicLeap, Log, TEXT("Mesh tracker received %d mesh block infos"), MeshInfo.data_count);
+
+				for (uint32_t MeshInfoIndex = 0; MeshInfoIndex < MeshInfo.data_count; ++ MeshInfoIndex)
+				{
+					const auto &MeshInfoData = MeshInfo.data[MeshInfoIndex];
+
+					MLMeshingBlockRequest BlockRequest = {};
+
+					BlockRequest.id = MeshInfoData.id;
+					BlockRequest.level = MLToUnreal_MeshLOD(LevelOfDetail);
+
+					switch (MeshInfoData.state)
 					{
-						// MRMeshComponent may reference this data from multiple threads
-						const static TArray<FVector> EmptyVertices;
-						const static TArray<FVector2D> EmptyUVs;
-						const static TArray<FPackedNormal> EmptyTangents;
-						const static TArray<FColor> EmptyVertexColors;
-						const static TArray<uint32> EmptyTriangles;
-						if (MRMesh)
+						case MLMeshingMeshState_New:
+						case MLMeshingMeshState_Updated:
 						{
-							static_cast<IMRMesh*>(MRMesh)->SendBrickData(IMRMesh::FSendBrickDataArgs
+							// Store the block request so we can update it
+							Impl->MeshBlockRequests.Add(BlockRequest);
+							break;
+						}
+						case MLMeshingMeshState_Deleted:
+						{
+							// Delete the brick and its cache entry
+							if (Impl->MeshBrickCache.Contains(MeshInfoData.id))
 							{
-								nullptr,
-								MeshHandleCachePair.Key,
-								EmptyVertices,
-								EmptyUVs,
-								EmptyTangents,
-								EmptyVertexColors,
-								EmptyTriangles
+								const auto& BrickId = Impl->MeshBrickCache[MeshInfoData.id];
+
+								if (MeshType != EMeshType::PointCloud)
+								{
+									const static TArray<FVector> EmptyVertices;
+									const static TArray<FVector2D> EmptyUVs;
+									const static TArray<FPackedNormal> EmptyTangents;
+									const static TArray<FColor> EmptyVertexColors;
+									const static TArray<uint32> EmptyTriangles;
+									static_cast<IMRMesh*>(MRMesh)->SendBrickData(IMRMesh::FSendBrickDataArgs
+										{
+											nullptr,
+											BrickId,
+											EmptyVertices,
+											EmptyUVs,
+											EmptyTangents,
+											EmptyVertexColors,
+											EmptyTriangles
+										}
+									);
+								}
+
+								if (OnMeshTrackerUpdated.IsBound())
+								{
+									OnMeshTrackerUpdated.Broadcast(BrickId, 
+										TArray<FVector>(), TArray<int32>(), TArray<FVector>(), TArray<float>());
+								}
+
+								Impl->MeshBrickCache.Remove(MeshInfoData.id);
 							}
-							);
+							break;
 						}
+						default:
+							break;
 					}
+				}
 
-					OnMeshTrackerUpdated.Broadcast(MeshHandleCachePair.Value.Section, TArray<FVector>(), TArray<int32>(), TArray<FVector>(), TArray<float>());
-				}
-				else
-				{
-					NewMeshHandleCacheMap.Add(MeshHandleCachePair.Key, MeshHandleCachePair.Value);
-				}
-			}
-			Impl->MeshHandleCacheMap = NewMeshHandleCacheMap;
-
-			// Add new mesh handles.
-			for (auto CurrentMeshHandle : CurrentMeshHandleSet)
-			{
-				if (!Impl->MeshHandleCacheMap.Contains(CurrentMeshHandle))
-				{
-					FMeshTrackerImpl::MeshCache CurrentMeshCache;
-					FMemory::Memset(&CurrentMeshCache.Diff, 0, sizeof(MLDataArrayDiff));
-					CurrentMeshCache.Section = (Impl->SectionCounter)++;
-					Impl->MeshHandleCacheMap.Add(CurrentMeshHandle, CurrentMeshCache);
-					// We don't add any sections to the procedural mesh component for point clouds.
-					// If number of sections is more than number of materials for this component, set the first section's material as the new section's material.
-				}
+				// Free up the ML meshing resources
+				MLMeshingFreeResource(Impl->MeshTracker, &Impl->CurrentMeshInfoRequest);
+				Impl->CurrentMeshInfoRequest = ML_INVALID_HANDLE;
 			}
 		}
 
-		for (auto& MeshData : Impl->MeshHandleCacheMap)
+		// Request mesh data
+		if (Impl->CurrentMeshRequest != ML_INVALID_HANDLE)
 		{
-			// Lock mesh data array.
-			uint64 CurrentMeshHandle = MeshData.Key;
-			MLDataArray CurrentMeshData;
-			MLDataArrayLockResult meshDataArray = MLDataArrayTryLock(CurrentMeshHandle, &CurrentMeshData, &MeshData.Value.Diff);
-			if (meshDataArray == MLDataArrayLockResult_New)
+			MLMeshingMesh Mesh = {};
+
+			auto Result = MLMeshingGetMeshResult(Impl->MeshTracker, Impl->CurrentMeshRequest, &Mesh);
+
+			if (MLResult_Ok != Result)
 			{
-				// Collect current mesh data.
-				FMeshTrackerImpl::FMLCachedMeshData::SharedPtr CurrentMeshDataCache = Impl->AquireMeshDataCache();
-				CurrentMeshDataCache->BrickId = CurrentMeshHandle;
-
-				// Work with the locked mesh MLDataArray.
+				// Just silently wait for pending result
+				if (MLResult_Pending != Result)
 				{
-					//UE_LOG(LogMagicLeap, Log, TEXT("UMeshTrackerComponent::TickComponent found new mesh data."));
-					//LogMLDataArray(CurrentMeshData);
+					UE_LOG(LogMagicLeap, Error, TEXT("MLMeshingGetMeshResult failed: %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
+				}
+			}
+			else
+			{
+				//UE_LOG(LogMagicLeap, Log, TEXT("Mesh tracker received %d blocks for mesh request %d"), 
+					//Mesh.data_count, static_cast<int>(Impl->CurrentMeshRequest));
 
-					Impl->bUpdateRequested = false;
+				FVector VertexOffset = UHeadMountedDisplayFunctionLibrary::GetTrackingToWorldTransform(this).Inverse().GetLocation();
+				for (uint32_t MeshIndex = 0; MeshIndex < Mesh.data_count; ++ MeshIndex)
+				{
+					const auto &MeshData = Mesh.data[MeshIndex];
 
-					// TODO: Copying the position and normal arrays could be a mem copy if we're sure about the memory layout of things.
-
-					// Read position stream
+					// Create a brick index for any new mesh block
+					if (!Impl->MeshBrickCache.Contains(MeshData.id))
 					{
-						const uint32 PositionCount = CurrentMeshData.streams[Impl->Data.position_stream_index].count;
-						CurrentMeshDataCache->Vertices.Reserve(PositionCount);
-						for (uint32 i = 0; i < PositionCount; ++i)
+						Impl->MeshBrickCache.Add(MeshData.id, Impl->MeshBrickIndex ++);
+					}
+
+					auto BrickId = Impl->MeshBrickCache[MeshData.id];
+
+					// Acquire mesh data cache and mark its brick ID
+					FMeshTrackerImpl::FMLCachedMeshData::SharedPtr CurrentMeshDataCache = Impl->AquireMeshDataCache();
+					CurrentMeshDataCache->BrickId = BrickId;
+
+					// Pull vertices
+					CurrentMeshDataCache->OffsetVertices.Reserve(MeshData.vertex_count);
+					CurrentMeshDataCache->WorldVertices.Reserve(MeshData.vertex_count);
+					for (uint32_t v = 0; v < MeshData.vertex_count; ++ v)
+					{
+							CurrentMeshDataCache->OffsetVertices.Add(MagicLeap::ToFVector(MeshData.vertex[v], WorldToMetersScale) - VertexOffset);
+							CurrentMeshDataCache->WorldVertices.Add(MagicLeap::ToFVector(MeshData.vertex[v], WorldToMetersScale));
+					}
+
+					// Pull indices
+					CurrentMeshDataCache->Triangles.Reserve(MeshData.index_count);
+					for (uint16_t i = 0; i < MeshData.index_count; ++ i)
+					{
+						CurrentMeshDataCache->Triangles.Add(static_cast<uint32>(MeshData.index[i]));
+					}
+
+					// Pull normals
+					CurrentMeshDataCache->Normals.Reserve(MeshData.vertex_count);
+					if (nullptr != MeshData.normal)
+					{
+						for (uint32_t n = 0; n < MeshData.vertex_count; ++ n)
 						{
-							const auto &position = CurrentMeshData.streams[Impl->Data.position_stream_index].xyz_array[i];
-							CurrentMeshDataCache->Vertices.Add(MagicLeap::ToFVector(position, WorldToMetersScale));
+							CurrentMeshDataCache->Normals.Add(MagicLeap::
+								ToFVector(MeshData.normal[n], WorldToMetersScale));
 						}
 					}
-
-					// Read triangle (indices) stream
-					if (Impl->Data.triangle_index_stream_index == MLDataArray_InvalidStreamIndex || CurrentMeshData.streams[Impl->Data.triangle_index_stream_index].uint_array == nullptr)
-					{
-						const int32 TriangleCount = CurrentMeshData.streams[Impl->Data.triangle_index_stream_index].count;
-						CurrentMeshDataCache->Triangles.AddZeroed(TriangleCount);
-					}
+					// If no normals were provided we need to pack fake ones for Vulkan
 					else
 					{
-						CurrentMeshDataCache->Triangles.Append(CurrentMeshData.streams[Impl->Data.triangle_index_stream_index].uint_array, CurrentMeshData.streams[Impl->Data.triangle_index_stream_index].count);
-					}
-
-					// Read normal stream
-					{
-						uint32 NormalsCount = 0;
-						if (Impl->Data.normal_stream_index != MLDataArray_InvalidStreamIndex && CurrentMeshData.streams[Impl->Data.normal_stream_index].type != MLDataArrayType_None)
+						for (uint32_t n = 0; n < MeshData.vertex_count; ++ n)
 						{
-							NormalsCount = CurrentMeshData.streams[Impl->Data.normal_stream_index].count;
-							CurrentMeshDataCache->Normals.Reserve(NormalsCount);
-							for (uint32 i = 0; i < NormalsCount; ++i)
-							{
-								const auto &normal = CurrentMeshData.streams[Impl->Data.normal_stream_index].xyz_array[i];
-								CurrentMeshDataCache->Normals.Add(MagicLeap::ToFVector(normal, 1.0f));
-							}
-						}
-						else
-						{
-							// Vulkan requires that tangent data exist, so we provide fake normals and tangents even if it does not
-
-							NormalsCount = CurrentMeshDataCache->Vertices.Num();
-							CurrentMeshDataCache->Normals.Reserve(NormalsCount);
-							for (uint32 i = 0; i < NormalsCount; ++i)
-							{
-								FVector Normal = CurrentMeshDataCache->Vertices[i];
-								Normal.Normalize();
-								CurrentMeshDataCache->Normals.Add(Normal);
-							}
-						}
-
-						// Also write normals into tangents
-						CurrentMeshDataCache->Tangents.Reserve(NormalsCount * 2);
-						for (uint32 i = 0; i < NormalsCount; ++i)
-						{
-							const FVector Normal = CurrentMeshDataCache->Normals[i];
-							const FVector NonNormal = Normal.X < Normal.Z ? FVector(0, 0, 1) : FVector(0, 1, 0);
-							const FVector TangentX = FVector::CrossProduct(Normal, NonNormal);
-							CurrentMeshDataCache->Tangents.Add(TangentX);
-							CurrentMeshDataCache->Tangents.Add(Normal);
-						}
-
-					}
-
-					// Read confidence stream
-					if (Impl->Data.confidence_stream_index != MLDataArray_InvalidStreamIndex && CurrentMeshData.streams[Impl->Data.confidence_stream_index].type != MLDataArrayType_None)
-					{
-						const uint32 ConfidenceCount = CurrentMeshData.streams[Impl->Data.confidence_stream_index].count;
-						CurrentMeshDataCache->Confidence.Reserve(ConfidenceCount);
-						for (uint32 i = 0; i < ConfidenceCount; ++i)
-						{
-							const float Confidence = CurrentMeshData.streams[Impl->Data.confidence_stream_index].float_array[i];
-							CurrentMeshDataCache->Confidence.Add(Confidence);
+							FVector FakeNormal = CurrentMeshDataCache->OffsetVertices[n];
+							FakeNormal.Normalize();
+							CurrentMeshDataCache->Normals.Add(FakeNormal);
 						}
 					}
 
-					// Write VertexColor
+					// Calculate and pack tangents
+					CurrentMeshDataCache->Tangents.Reserve(MeshData.vertex_count * 2);
+					for (uint32_t t = 0; t < MeshData.vertex_count; ++ t)
 					{
-						switch (VertexColorMode)
-						{
+						const FVector& Norm = CurrentMeshDataCache->Normals[t];
+
+						// Calculate tangent
+						auto Perp = Norm.X < Norm.Z ? 
+							FVector(1.0f, 0.0f, 0.0f) : FVector(0.0f, 1.0f, 0.0f);
+						auto Tang = FVector::CrossProduct(Norm, Perp);
+
+						CurrentMeshDataCache->Tangents.Add(Tang);
+						CurrentMeshDataCache->Tangents.Add(Norm);
+					}
+
+					// Pull confidence
+					if (nullptr != MeshData.confidence)
+					{
+						CurrentMeshDataCache->Confidence.Append(MeshData.confidence, MeshData.vertex_count);
+					}
+
+					// Apply chosen vertex color mode
+					switch (VertexColorMode)
+					{
 						case EMLMeshVertexColorMode::Confidence:
 						{
-							const uint32 ConfidenceCount = CurrentMeshDataCache->Confidence.Num();
-							const uint32 PositionCount = CurrentMeshDataCache->Vertices.Num();
-							// Length of VertexColor array needs to be same as length of Position array.
-							CurrentMeshDataCache->VertexColors.Reserve(PositionCount);
-							for (uint32 i = 0; i < ConfidenceCount; ++i)
+							if (nullptr != MeshData.confidence)
 							{
-								const float Confidence = CurrentMeshDataCache->Confidence[i];
-								const FLinearColor VertexColor = FMath::Lerp(VertexColorFromConfidenceZero, VertexColorFromConfidenceOne, Confidence);
-								CurrentMeshDataCache->VertexColors.Add(VertexColor.ToFColor(false));
+								CurrentMeshDataCache->VertexColors.Reserve(MeshData.vertex_count);
+								for (uint32 v = 0; v < MeshData.vertex_count; ++ v)
+								{
+									const FLinearColor VertexColor = FMath::Lerp(VertexColorFromConfidenceZero, 
+										VertexColorFromConfidenceOne, CurrentMeshDataCache->Confidence[v]);
+									CurrentMeshDataCache->VertexColors.Add(VertexColor.ToFColor(false));
+								}
 							}
-							for (uint32 i = ConfidenceCount; i < PositionCount; ++i)
+							else
 							{
-								CurrentMeshDataCache->VertexColors.Add(VertexColorFromConfidenceZero.ToFColor(false));
+								UE_LOG(LogMagicLeap, Warning, TEXT("MeshTracker vertex color mode is Confidence "
+									"but no confidence values available. Using white for all blocks."));
 							}
 							break;
 						}
 						case EMLMeshVertexColorMode::Block:
 						{
-							const uint32 VertexCount = CurrentMeshDataCache->Vertices.Num();
-							const uint32 ColorCount = BlockVertexColors.Num();
-							const FColor VertexColor = ColorCount > 0 ? BlockVertexColors[MeshData.Value.Section % ColorCount] : FColor::White;
-							if (BlockVertexColors.Num() == 0)
+							if (BlockVertexColors.Num() > 0)
 							{
-								UE_LOG(LogMagicLeap, Warning, TEXT("MeshTracker is in EMLMeshVertexColorMode::Block, but has no BlockVertexColors set.  Using White for all blocks."));
+								const FColor& VertexColor = BlockVertexColors[BrickId % BlockVertexColors.Num()];
+
+								CurrentMeshDataCache->VertexColors.Reserve(MeshData.vertex_count);
+								for (uint32 v = 0; v < MeshData.vertex_count; ++ v)
+								{
+									CurrentMeshDataCache->VertexColors.Add(VertexColor);
+								}
 							}
-							for (uint32 i = 0; i < VertexCount; ++i)
+							else
 							{
-								CurrentMeshDataCache->VertexColors.Add(VertexColor);
+								UE_LOG(LogMagicLeap, Warning, TEXT("MeshTracker vertex color mode is Block but "
+									"no BlockVertexColors set. Using white for all blocks."));
 							}
 							break;
 						}
 						case EMLMeshVertexColorMode::None:
 						{
-							// Vulkan requires that we fill everything in.
-							const uint32 VertexCount = CurrentMeshDataCache->Vertices.Num();
-							for (uint32 i = 0; i < VertexCount; ++i)
-							{
-								CurrentMeshDataCache->VertexColors.Add(FColor::White);
-							}
 							break;
 						}
 						default:
 							check(false);
+							break;
+					}
+
+					// To work in all rendering paths we always set a vertex color
+					if (CurrentMeshDataCache->VertexColors.Num() == 0)
+					{
+						for (uint32 v = 0; v < MeshData.vertex_count; ++ v)
+						{
+							CurrentMeshDataCache->VertexColors.Add(FColor::White);
 						}
 					}
 
-					// Unlock mesh data array.
-					MLDataArrayUnlock(CurrentMeshHandle);
-				}
-
-				// Write UVs
-				{
-					const uint32 VertexCount = CurrentMeshDataCache->Vertices.Num();
-					for (uint32 i = 0; i < VertexCount; ++i)
+					// Write UVs
+					CurrentMeshDataCache->UV0.Reserve(MeshData.vertex_count);
+					for (uint32 v = 0; v < MeshData.vertex_count; ++ v)
 					{
-						const float FakeCoord = (float)i / (float)VertexCount;
+						const float FakeCoord = static_cast<float>(v) / static_cast<float>(MeshData.vertex_count);
 						CurrentMeshDataCache->UV0.Add(FVector2D(FakeCoord, FakeCoord));
 					}
-				}
 
-				// We don't add any sections to the procedural mesh component for point clouds.
-				if (MeshType != EMeshType::PointCloud)
-				{
-					// Create or Update. Create on existing mesh section will overwrite that section.
-
-					if (MRMesh)
+					// Create/update brick
+					if (MeshType != EMeshType::PointCloud)
 					{
 						static_cast<IMRMesh*>(MRMesh)->SendBrickData(IMRMesh::FSendBrickDataArgs
-						{
-							TSharedPtr<IMRMesh::FBrickDataReceipt, ESPMode::ThreadSafe>(new FMeshTrackerImpl::FMeshTrackerComponentBrickDataReceipt(CurrentMeshDataCache)),
-							CurrentMeshDataCache->BrickId,
-							CurrentMeshDataCache->Vertices,
-							CurrentMeshDataCache->UV0,
-							CurrentMeshDataCache->Tangents,
-							CurrentMeshDataCache->VertexColors,
-							CurrentMeshDataCache->Triangles
-						}
-						);
-					}
-				}
-				if (OnMeshTrackerUpdated.IsBound())
-				{
-					// Hack because blueprints don't support uint32.
-					TArray<int32> Triangles(reinterpret_cast<const int32*>(CurrentMeshDataCache->Triangles.GetData()), CurrentMeshDataCache->Triangles.Num());
-					OnMeshTrackerUpdated.Broadcast(MeshData.Value.Section, CurrentMeshDataCache->Vertices, Triangles, CurrentMeshDataCache->Normals, CurrentMeshDataCache->Confidence);
-				}
-			}
-		}
-	}
-#endif //WITH_MLSDK
-}
-
-void UMeshTrackerComponent::TickWithFakeData()
-{
-#if WITH_MLSDK
-	// fake only works at default worldscale
-	float WorldToMetersScale = 100;
-
-	FTransform Pose = FTransform::Identity;
-	if (MRMesh)
-	{
-		MRMesh->SendRelativeTransform(Pose);
-	}
-
-	// Only draw meshes during the scan phase in order to maintain a steady framerate.
-	if (ScanWorld || Impl->bUpdateRequested)
-	{
-		// Collect current mesh handles.
-		TSet<uint64> CurrentMeshHandleSet;
-
-		// Figure out new fake data mode, so we can cycle through a few different setups.
-		static int period = 60;
-		static int count = 0;
-		count = (count + 1) % (period * 2);
-		bool bTest = count < period;
-		static bool bOldTest = false;
-
-		static int modes = 3;
-		bool bModeChanged = false;
-		static int oldMode = -1;
-		int newMode = 0;
-		if (bOldTest != bTest)
-		{
-			bOldTest = bTest;
-			bModeChanged = true;
-
-			newMode = (oldMode + 1) % modes;
-			oldMode = newMode;
-		}
-		
-		if (bModeChanged)
-		{
-			UE_LOG(LogMagicLeap, Display, TEXT("TickWithFakeData() mode changed to %i"), newMode);
-			Impl->bUpdateRequested = false;
-
-			if (newMode != 0)
-			{
-				CurrentMeshHandleSet.Add(newMode);
-			}
-
-			// Clear unnecessary meshes.
-			TMap<uint64, FMeshTrackerImpl::MeshCache> NewMeshHandleCacheMap;
-			for (const auto& MeshHandleCachePair : Impl->MeshHandleCacheMap)
-			{
-				if (!CurrentMeshHandleSet.Contains(MeshHandleCachePair.Key))
-				{
-					// We don't add any sections to the procedural mesh component for point clouds.
-					//if (MeshType != EMeshType::PointCloud)
-					{
-						static TArray<FVector> EmptyVertices;
-						const static TArray<FVector2D> EmptyUVs;
-						const static TArray<FPackedNormal> EmptyTangents;
-						static TArray<FColor> EmptyVertexColors;
-						static TArray<uint32> EmptyTriangles;
-						if (MRMesh)
-						{
-							UE_LOG(LogMagicLeap, Display, TEXT("TickWithFakeData() sending empty brick to remove %llu"), MeshHandleCachePair.Key);
-							static_cast<IMRMesh*>(MRMesh)->SendBrickData(IMRMesh::FSendBrickDataArgs
 							{
-								nullptr,
-								MeshHandleCachePair.Key,
-								EmptyVertices,
-								EmptyUVs,
-								EmptyTangents,
-								EmptyVertexColors,
-								EmptyTriangles
+								TSharedPtr<IMRMesh::FBrickDataReceipt, ESPMode::ThreadSafe>
+									(new FMeshTrackerImpl::FMeshTrackerComponentBrickDataReceipt(CurrentMeshDataCache)),
+								CurrentMeshDataCache->BrickId,
+								CurrentMeshDataCache->WorldVertices,
+								CurrentMeshDataCache->UV0,
+								CurrentMeshDataCache->Tangents,
+								CurrentMeshDataCache->VertexColors,
+								CurrentMeshDataCache->Triangles
 							}
-							);
-						}
-					}
-					OnMeshTrackerUpdated.Broadcast(MeshHandleCachePair.Value.Section, TArray<FVector>(), TArray<int32>(), TArray<FVector>(), TArray<float>());
-				}
-				else
-				{
-					NewMeshHandleCacheMap.Add(MeshHandleCachePair.Key, MeshHandleCachePair.Value);
-				}
-			}
-			Impl->MeshHandleCacheMap = NewMeshHandleCacheMap;
-
-			// Add new mesh handles.
-			for (auto CurrentMeshHandle : CurrentMeshHandleSet)
-			{
-				if (!Impl->MeshHandleCacheMap.Contains(CurrentMeshHandle))
-				{
-					FMeshTrackerImpl::MeshCache CurrentMeshCache;
-					memset(&CurrentMeshCache.Diff, 0, sizeof(MLDataArrayDiff));
-					CurrentMeshCache.Section = (Impl->SectionCounter)++;
-					Impl->MeshHandleCacheMap.Add(CurrentMeshHandle, CurrentMeshCache);
-				}
-			}
-		}
-
-		for (auto& MeshData : Impl->MeshHandleCacheMap)
-		{
-			// Lock mesh data array.
-			uint64 CurrentMeshHandle = MeshData.Key;
-			if (bModeChanged && CurrentMeshHandle == newMode)
-			{
-				Impl->bUpdateRequested = false;
-				// Collect current mesh data.
-				FMeshTrackerImpl::FMLCachedMeshData::SharedPtr CurrentMeshDataCache = Impl->AquireMeshDataCache();
-				CurrentMeshDataCache->BrickId = CurrentMeshHandle;
-
-				FVector Origin = FVector((CurrentMeshHandle + 1) * 50, 0, 0);
-				static FVector Extents(20.0f, 20.0f, 50.0f);
-
-				const int32 VertCount = 8;
-				CurrentMeshDataCache->Vertices.Reserve(VertCount);
-
-				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X + Extents.X, Origin.Y - Extents.Y, Origin.Z + Extents.Z));  // 0
-				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X + Extents.X, Origin.Y + Extents.Y, Origin.Z + Extents.Z));  // 1
-				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X + Extents.X, Origin.Y + Extents.Y, Origin.Z - Extents.Z));  // 2
-				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X + Extents.X, Origin.Y - Extents.Y, Origin.Z - Extents.Z));  // 3
-				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X - Extents.X, Origin.Y - Extents.Y, Origin.Z + Extents.Z));  // 4
-				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X - Extents.X, Origin.Y + Extents.Y, Origin.Z + Extents.Z));  // 5
-				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X - Extents.X, Origin.Y + Extents.Y, Origin.Z - Extents.Z));  // 6
-				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X - Extents.X, Origin.Y - Extents.Y, Origin.Z - Extents.Z));  // 7
-
-				CurrentMeshDataCache->UV0.Reserve(VertCount);
-				CurrentMeshDataCache->VertexColors.Reserve(VertCount);
-				for (int i = 0; i < VertCount; ++i)
-				{
-					int imod = i % 10;
-					CurrentMeshDataCache->VertexColors.Emplace(FColor::MakeRandomColor());
-					CurrentMeshDataCache->UV0.Add(FVector2D(imod*0.1f, imod*0.1f));
-				}
-				
-				// Vulkan requires that tangent data exist
-
-				CurrentMeshDataCache->Normals.Reserve(VertCount);
-				for (uint32 i = 0; i < VertCount; ++i)
-				{
-					CurrentMeshDataCache->Normals.Add(FVector(0,0,1));
-				}
-
-				// Also write normals into tangents
-				CurrentMeshDataCache->Tangents.Reserve(VertCount * 2);
-				for (uint32 i = 0; i < VertCount; ++i)
-				{
-					const FVector Normal = CurrentMeshDataCache->Normals[i];
-					const FVector NonNormal = Normal.X < Normal.Z ? FVector(0, 0, 1) : FVector(0, 1, 0);
-					const FVector TangentX = FVector::CrossProduct(Normal, NonNormal);
-					CurrentMeshDataCache->Tangents.Add(TangentX);
-					CurrentMeshDataCache->Tangents.Add(Normal);
-				}
-				
-				CurrentMeshDataCache->Triangles.Reserve(6 * 2 * 3);
-				// Read triangle (indices) stream
-				// This makes half the triangles of a box, one per side.
-				//CurrentMeshDataCache->Triangles.Add(0);
-				//CurrentMeshDataCache->Triangles.Add(1);
-				//CurrentMeshDataCache->Triangles.Add(2);
-
-				CurrentMeshDataCache->Triangles.Add(0);
-				CurrentMeshDataCache->Triangles.Add(2);
-				CurrentMeshDataCache->Triangles.Add(3);
-
-				//CurrentMeshDataCache->Triangles.Add(0);
-				//CurrentMeshDataCache->Triangles.Add(4);
-				//CurrentMeshDataCache->Triangles.Add(1);
-
-				CurrentMeshDataCache->Triangles.Add(1);
-				CurrentMeshDataCache->Triangles.Add(4);
-				CurrentMeshDataCache->Triangles.Add(5);
-
-				//CurrentMeshDataCache->Triangles.Add(7);
-				//CurrentMeshDataCache->Triangles.Add(5);
-				//CurrentMeshDataCache->Triangles.Add(4);
-
-				CurrentMeshDataCache->Triangles.Add(6);
-				CurrentMeshDataCache->Triangles.Add(5);
-				CurrentMeshDataCache->Triangles.Add(7);
-
-				//CurrentMeshDataCache->Triangles.Add(7);
-				//CurrentMeshDataCache->Triangles.Add(3);
-				//CurrentMeshDataCache->Triangles.Add(2);
-
-				CurrentMeshDataCache->Triangles.Add(7);
-				CurrentMeshDataCache->Triangles.Add(2);
-				CurrentMeshDataCache->Triangles.Add(6);
-
-				//CurrentMeshDataCache->Triangles.Add(7);
-				//CurrentMeshDataCache->Triangles.Add(4);
-				//CurrentMeshDataCache->Triangles.Add(0);
-
-				CurrentMeshDataCache->Triangles.Add(7);
-				CurrentMeshDataCache->Triangles.Add(0);
-				CurrentMeshDataCache->Triangles.Add(3);
-
-				//CurrentMeshDataCache->Triangles.Add(1);
-				//CurrentMeshDataCache->Triangles.Add(5);
-				//CurrentMeshDataCache->Triangles.Add(6);
-
-				CurrentMeshDataCache->Triangles.Add(2);
-				CurrentMeshDataCache->Triangles.Add(1);
-				CurrentMeshDataCache->Triangles.Add(6);
-
-
-				// We don't add any sections to the mesh component for point clouds.
-				if (MeshType != EMeshType::PointCloud)
-				{
-					if (MRMesh)
-					{
-						UE_LOG(LogMagicLeap, Error, TEXT("TickWithFakeData() Sending fake brick %llu."), CurrentMeshDataCache->BrickId);
-						static_cast<IMRMesh*>(MRMesh)->SendBrickData(IMRMesh::FSendBrickDataArgs
-						{
-							TSharedPtr<IMRMesh::FBrickDataReceipt, ESPMode::ThreadSafe>(new FMeshTrackerImpl::FMeshTrackerComponentBrickDataReceipt(CurrentMeshDataCache)),
-							CurrentMeshDataCache->BrickId,
-							CurrentMeshDataCache->Vertices,
-							CurrentMeshDataCache->UV0,
-							CurrentMeshDataCache->Tangents,
-							CurrentMeshDataCache->VertexColors,
-							CurrentMeshDataCache->Triangles
-						}
 						);
 					}
+
+					// Broadcast that a mesh was updated
+					if (OnMeshTrackerUpdated.IsBound())
+					{
+						// Hack because blueprints don't support uint32.
+						TArray<int32> Triangles(reinterpret_cast<const int32*>(CurrentMeshDataCache->
+							Triangles.GetData()), CurrentMeshDataCache->Triangles.Num());
+						OnMeshTrackerUpdated.Broadcast(CurrentMeshDataCache->BrickId, CurrentMeshDataCache->OffsetVertices, 
+							Triangles, CurrentMeshDataCache->Normals, CurrentMeshDataCache->Confidence);
+					}
 				}
-				if (OnMeshTrackerUpdated.IsBound())
-				{
-					// Hack because blueprints don't support uint32.
-					TArray<int32> Triangles(reinterpret_cast<const int32*>(CurrentMeshDataCache->Triangles.GetData()), CurrentMeshDataCache->Triangles.Num());
-					OnMeshTrackerUpdated.Broadcast(MeshData.Value.Section, CurrentMeshDataCache->Vertices, Triangles, CurrentMeshDataCache->Normals, CurrentMeshDataCache->Confidence);
-				}
+
+				// All meshes pulled and/or updated; free the ML resource
+				MLMeshingFreeResource(Impl->MeshTracker, &Impl->CurrentMeshRequest);
+				Impl->CurrentMeshRequest = ML_INVALID_HANDLE;
 			}
 		}
 	}

@@ -4,6 +4,7 @@
 #include "IMagicLeapMediaModule.h"
 #include "IMediaEventSink.h"
 #include "CameraCaptureComponent.h"
+#include "ExternalTexture.h"
 
 FMagicLeapCameraPreviewPlayer::FMagicLeapCameraPreviewPlayer(IMediaEventSink& InEventSink)
 	: FMagicLeapMediaPlayer(InEventSink)
@@ -43,6 +44,16 @@ bool FMagicLeapCameraPreviewPlayer::GetVideoTrackFormat(int32 TrackIndex, int32 
 bool FMagicLeapCameraPreviewPlayer::IsLooping() const
 {
 	return true;
+}
+
+FTimespan FMagicLeapCameraPreviewPlayer::GetTime() const
+{
+	return FTimespan::Zero();
+}
+
+void FMagicLeapCameraPreviewPlayer::RegisterExternalTexture(const FGuid& InGuid, FTextureRHIRef& InTextureRHI, FSamplerStateRHIRef& InSamplerStateRHI)
+{
+	FExternalTextureRegistry::Get().RegisterExternalTexture(InGuid, InTextureRHI, InSamplerStateRHI, FLinearColor(1.0f, 0.0f, 0.0f, 1.0f), FLinearColor(0.0f, 0.0f, 0.0f, 0.0f));
 }
 
 bool FMagicLeapCameraPreviewPlayer::SetRateOne()

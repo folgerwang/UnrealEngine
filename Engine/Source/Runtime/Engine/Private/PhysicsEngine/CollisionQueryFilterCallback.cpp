@@ -42,11 +42,6 @@ ECollisionQueryHitType FCollisionQueryFilterCallback::CalcQueryHitType(const FCo
 	}
 	else
 	{
-		// Then see if the channel wants to be blocked
-		// @todo delete once we fix up object/trace APIs to work separate
-		PxU32 ShapeFlags = ShapeFilter.Word3 & 0xFFFFFF;
-		bool bStaticShape = ((ShapeFlags & EPDF_StaticShape) != 0);
-
 		// if query channel is Touch All, then just return touch
 		if (QuerierChannel == ECC_OverlapAll_Deprecated)
 		{

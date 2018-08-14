@@ -15,6 +15,7 @@
 #include "SceneManagement.h"
 #include "Collision.h"
 #include "Physics/PhysicsInterfaceCore.h"
+#include "Physics/PhysicsFiltering.h"
 #include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsEngine/ShapeElem.h"
 #include "PhysicsEngine/ConvexElem.h"
@@ -393,7 +394,6 @@ FBodyInstance* FindParentBodyInstance(FName BodyName, USkeletalMeshComponent* Sk
 	return NULL;
 }
 
-#if WITH_PHYSX
 //Determine that the shape is associated with this subbody (or root body)
 bool FBodyInstance::IsShapeBoundToBody(const FPhysicsShapeHandle& Shape) const
 {
@@ -412,8 +412,6 @@ int32 FBodyInstance::GetAllShapes_AssumesLocked(TArray<FPhysicsShapeHandle>& Out
 	EPhysicsSceneType SceneType = HasSharedShapes() ? PST_Sync : PST_MAX;
 	return FPhysicsInterface::GetAllShapes_AssumedLocked(ActorHandle, OutShapes, SceneType);
 }
-
-#endif
 
 void FBodyInstance::UpdateTriMeshVertices(const TArray<FVector> & NewPositions)
 {
@@ -924,8 +922,6 @@ void GetSimulatingAndBlendWeight(const USkeletalMeshComponent* SkelMeshComp, con
 	}
 }
 
-#if WITH_PHYSX
-
 struct FPhysicsActorCreatePayload_PhysX
 {
 	bool bUseAsync;
@@ -1225,8 +1221,6 @@ struct FInitBodiesHelper
 		}
 	}
 };
-#endif // WITH_PHYSX
-
 
 FBodyInstance::FInitBodySpawnParams::FInitBodySpawnParams(const UPrimitiveComponent* PrimComp)
 {
@@ -3402,7 +3396,6 @@ bool FBodyInstance::ValidateTransform(const FTransform &Transform, const FString
 	return true;
 }
 
-#if WITH_PHYSX
 void FBodyInstance::InitDynamicProperties_AssumesLocked()
 {
 	if(!BodySetup.IsValid())
@@ -3588,7 +3581,6 @@ void FBodyInstance::BuildBodyFilterData(FBodyCollisionFilterData& OutFilterData)
 		OutFilterData.QueryComplexFilter = ComplexQueryData;
 	}
 }
-#endif // WITH_PHYSX
 
 void FBodyInstance::InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, UBodySetup* BodySetup, UPrimitiveComponent* PrimitiveComp, FPhysScene* InRBScene)
 {

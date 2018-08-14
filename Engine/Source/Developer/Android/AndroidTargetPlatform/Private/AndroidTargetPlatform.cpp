@@ -208,6 +208,11 @@ FAndroidTargetPlatform::~FAndroidTargetPlatform()
 	 FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
 }
 
+FAndroidTargetDevicePtr FAndroidTargetPlatform::CreateTargetDevice(const ITargetPlatform& InTargetPlatform, const FString& InSerialNumber, const FString& InAndroidVariant) const
+{
+	return MakeShareable(new FAndroidTargetDevice(InTargetPlatform, InSerialNumber, InAndroidVariant));
+}
+
 bool FAndroidTargetPlatform::SupportsES2() const
 {
 	// default to support ES2
@@ -778,8 +783,7 @@ bool FAndroidTargetPlatform::HandleTicker( float DeltaTime )
 			// create target device
 			FAndroidTargetDevicePtr& Device = Devices.Add(DeviceInfo.SerialNumber);
 
-			Device = CreateNewDevice(DeviceInfo);
-
+			Device = CreateTargetDevice(*this, DeviceInfo.SerialNumber, GetAndroidVariantName());
 
 			Device->SetConnected(true);
 			Device->SetModel(DeviceInfo.Model);

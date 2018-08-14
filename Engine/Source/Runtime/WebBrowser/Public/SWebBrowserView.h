@@ -23,6 +23,7 @@ enum class EWebBrowserDocumentState;
 DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString);
 DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnCreateWindowDelegate, const TWeakPtr<IWebBrowserWindow>&, const TWeakPtr<IWebBrowserPopupFeatures>&);
 DECLARE_DELEGATE_RetVal_OneParam(bool, FOnCloseWindowDelegate, const TWeakPtr<IWebBrowserWindow>&);
+DECLARE_DELEGATE_RetVal_OneParam(TSharedPtr<IToolTip>, FOnCreateToolTip, const FText&);
 
 #if WITH_CEF3
 typedef SViewport SWebBrowserWidget;
@@ -38,6 +39,7 @@ public:
 	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnLoadUrl, const FString& /*Method*/, const FString& /*Url*/, FString& /* Response */)
 	DECLARE_DELEGATE_RetVal_OneParam(EWebBrowserDialogEventResponse, FOnShowDialog, const TWeakPtr<IWebBrowserDialog>&);
 	DECLARE_DELEGATE_RetVal(bool, FOnSuppressContextMenu);
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnDragWindow, const FPointerEvent& /* MouseEvent */);
 
 	SLATE_BEGIN_ARGS(SWebBrowserView)
 		: _InitialURL(TEXT("https://www.google.com"))
@@ -47,6 +49,7 @@ public:
 		, _BackgroundColor(255,255,255,255)
 		, _PopupMenuMethod(TOptional<EPopupMethod>())
 		, _ContextSettings()
+		, _AltRetryDomains(TArray<FString>())
 		, _ViewportSize(FVector2D::ZeroVector)
 	{ }
 
@@ -76,6 +79,9 @@ public:
 
 		/** Override the default global context settings for this specific window. If not set, the global default will be used. */
 		SLATE_ARGUMENT(TOptional<FBrowserContextSettings>, ContextSettings)
+
+		/** Domains to retry if original domain cannot connect. */
+		SLATE_ARGUMENT(TArray<FString>, AltRetryDomains)
 
 		/** Desired size of the web browser viewport. */
 		SLATE_ATTRIBUTE(FVector2D, ViewportSize);
@@ -117,6 +123,12 @@ public:
 		SLATE_EVENT(FSimpleDelegate, OnDismissAllDialogs)
 
 		SLATE_EVENT(FOnSuppressContextMenu, OnSuppressContextMenu);
+
+		/** Called to allow overriding of ToolTip widget construction. */
+		SLATE_EVENT(FOnCreateToolTip, OnCreateToolTip)
+
+		/** Called when drag is detected in a web page area tagged as a drag region. */
+		SLATE_EVENT(FOnDragWindow, OnDragWindow)
 
 	SLATE_END_ARGS()
 
@@ -306,6 +318,8 @@ private:
 	void HandleWindowDeactivated();
 	void HandleWindowActivated();
 
+	bool HandleDrag(const FPointerEvent& MouseEvent);
+
 private:
 
 	/** Interface for dealing with a web browser window. */
@@ -369,9 +383,13 @@ private:
 	/** A delegate that is invoked when when the browser needs to dismiss all dialogs */
 	FSimpleDelegate OnDismissAllDialogs;
 
-	FDelegateHandle SlateParentWindowSetupTickHandle;
-
 	FOnSuppressContextMenu OnSuppressContextMenu;
+
+	/** A delegate that is invoked when when the browser wishes to create a tooltip */
+	FOnCreateToolTip OnCreateToolTip;
+
+	/** A delegate that is invoked when the browser detects drag event in within drag region */
+	FOnDragWindow OnDragWindow;
 
 protected:
 	bool HandleSuppressContextMenu();

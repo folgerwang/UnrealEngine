@@ -125,8 +125,7 @@ public:
   FCameraCaptureVidToFileFailure& OnCaptureVidToFileFailure();  
 
 private:
-  class FImageCaptureImpl *Impl;
-  bool bCapturing;
+  class FCameraCaptureImpl *Impl;
 
   UPROPERTY(BlueprintAssignable, Category = "CameraCapture|MagicLeap", meta = (AllowPrivateAccess = true))
   FCameraCaptureLogMessage CaptureLogMessage;

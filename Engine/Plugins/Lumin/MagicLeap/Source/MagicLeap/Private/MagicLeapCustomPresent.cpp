@@ -16,11 +16,13 @@ ML_INCLUDES_END
 #include "MagicLeapHelperOpenGL.h"
 #endif // PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
 
-#if PLATFORM_LUMIN
+#include "MagicLeapGraphics.h"
+
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 #include "VulkanRHIPrivate.h"
 #include "XRThreadUtils.h"
 #include "MagicLeapHelperVulkan.h"
-#endif // PLATFORM_LUMIN
+#endif // PLATFORM_WINDOWS || PLATFORM_LUMIN
 
 bool FMagicLeapCustomPresent::NeedsNativePresent()
 {
@@ -181,25 +183,28 @@ void FMagicLeapCustomPresentOpenGL::BeginRendering()
 #if WITH_MLSDK
 	check(IsInRenderingThread());
 
-	FTrackingFrame* frame = Plugin->GetCurrentFrame();
-	if (frame && bCustomPresentIsSet)
+	FTrackingFrame& frame = Plugin->GetCurrentFrameMutable();
+	if (bCustomPresentIsSet)
 	{
 		// TODO [Blake] : Need to see if we can use this newer matrix and override the view
 		// projection matrix (since they query GetStereoProjectionMatrix on the main thread)
-		MLStatus InitCameraStatus;
 		MLGraphicsFrameParams camera_params;
-		MLGraphicsInitFrameParams(&camera_params, &InitCameraStatus);
+		MLResult Result = MLGraphicsInitFrameParams(&camera_params);
+		if (Result != MLResult_Ok)
+		{
+			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsInitFrameParams failed with status %d"), Result);
+		}
 		camera_params.projection_type = MLGraphicsProjectionType_ReversedInfiniteZ;
-		camera_params.surface_scale = frame->ScreenPercentage;
+		camera_params.surface_scale = frame.ScreenPercentage;
 		camera_params.protected_surface = false;
 		GConfig->GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bProtectedContent"), camera_params.protected_surface, GEngineIni);
 
 		// The near clipping plane is expected in meters despite what is documented in the header.
-		camera_params.near_clip = GNearClippingPlane / frame->WorldToMetersScale;
-		camera_params.far_clip = frame->FarClippingPlane / frame->WorldToMetersScale;
+		camera_params.near_clip = GNearClippingPlane / frame.WorldToMetersScale;
+		camera_params.far_clip = frame.FarClippingPlane / frame.WorldToMetersScale;
 		// Only focus distance equaling 1 engine unit seems to work on board without wearable and on desktop.
 #if PLATFORM_LUMIN
-		camera_params.focus_distance = frame->FocusDistance / frame->WorldToMetersScale;
+		camera_params.focus_distance = frame.FocusDistance / frame.WorldToMetersScale;
 #else
 		camera_params.focus_distance = 1.0f;
 #endif
@@ -208,42 +213,58 @@ void FMagicLeapCustomPresentOpenGL::BeginRendering()
 		if (BalanceCounter != 0)
 		{
 			UE_LOG(LogMagicLeap, Error, TEXT("Begin / End frame calls out of balance!"));
-			MLStatus OutStatus;
-			bool bResult = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, BalanceHandles[0], &OutStatus);
-			bResult = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, BalanceHandles[1], &OutStatus);
-			bResult = MLGraphicsEndFrame(Plugin->GraphicsClient, BalancePrevFrameHandle, &OutStatus);
+			MLResult Result = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, BalanceHandles[0]);
+			if (Result != MLResult_Ok)
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsSignalSyncObjectGL for BalanceHandles[0] failed with status %d"), Result);
+			}
+
+			Result = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, BalanceHandles[1]);
+			if (Result != MLResult_Ok)
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsSignalSyncObjectGL for BalanceHandles[1] failed with status %d"), Result);
+			}
+
+			Result = MLGraphicsEndFrame(Plugin->GraphicsClient, BalancePrevFrameHandle);
+			if (Result != MLResult_Ok)
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsEndFrame failed with status %d"), Result);
+			}
 			--BalanceCounter;
 		}
 #endif
 
-		MLStatus OutStatus;
-		frame->bBeginFrameSucceeded = MLGraphicsBeginFrame(Plugin->GraphicsClient, &camera_params, &frame->Handle, &frame->RenderInfoArray, &OutStatus);
-		if (frame->bBeginFrameSucceeded)
+		Result = MLGraphicsBeginFrame(Plugin->GraphicsClient, &camera_params, &frame.Handle, &frame.RenderInfoArray);
+		frame.bBeginFrameSucceeded = (Result == MLResult_Ok);
+		if (frame.bBeginFrameSucceeded)
 		{
 #if BEGIN_END_FRAME_BALANCE_HACK
 			++BalanceCounter;
-			BalancePrevFrameHandle = frame->Handle;
-			BalanceHandles[0] = frame->RenderInfoArray.virtual_cameras[0].sync_object;
-			BalanceHandles[1] = frame->RenderInfoArray.virtual_cameras[1].sync_object;
+			BalancePrevFrameHandle = frame.Handle;
+			BalanceHandles[0] = frame.RenderInfoArray.virtual_cameras[0].sync_object;
+			BalanceHandles[1] = frame.RenderInfoArray.virtual_cameras[1].sync_object;
 #endif //BEGIN_END_FRAME_BALANCE_HACK
 
 			/* Convert eye extents from Graphics Projection Model to Unreal Projection Model */
 			// Unreal expects the projection matrix to be in centimeters and uses it for various purposes
 			// such as bounding volume calculations for lights in the shadow algorithm.
 			// We're overwriting the near value to match the units of unreal here instead of using the units of the SDK
-			for (uint32_t eye = 0; eye < frame->RenderInfoArray.num_virtual_cameras; ++eye)
+			for (uint32_t eye = 0; eye < frame.RenderInfoArray.num_virtual_cameras; ++eye)
 			{
-				frame->RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[10] = 0.0f; // Model change hack
-				frame->RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[11] = -1.0f; // Model change hack
-				frame->RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[14] = GNearClippingPlane; // Model change hack
+				frame.RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[10] = 0.0f; // Model change hack
+				frame.RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[11] = -1.0f; // Model change hack
+				frame.RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[14] = GNearClippingPlane; // Model change hack
 			}
 		}
 		else
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsBeginFrame failed with status %d"), static_cast<int32>(OutStatus));
+			if (Result != MLResult_Timeout)
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsBeginFrame failed with status %d"), Result);
+			}
 			// TODO: See if this is only needed for ZI.
-			frame->Handle = ML_INVALID_HANDLE;
-			MagicLeap::ResetVirtualCameraInfoArray(frame->RenderInfoArray);
+			frame.Handle = ML_INVALID_HANDLE;
+			MagicLeap::ResetVirtualCameraInfoArray(frame.RenderInfoArray);
 		}
 	}
 #endif //WITH_MLSDK
@@ -254,23 +275,27 @@ void FMagicLeapCustomPresentOpenGL::FinishRendering()
 #if WITH_MLSDK
 	check(IsInRenderingThread());
 
-	if (Plugin->IsDeviceInitialized() && Plugin->GetCurrentFrame()->bBeginFrameSucceeded)
+	if (Plugin->IsDeviceInitialized() && Plugin->GetCurrentFrame().bBeginFrameSucceeded)
 	{
 		if (bNotifyLifecycleOfFirstPresent)
 		{
-			MLLifecycleErrorCode result;
 			// Lifecycle tells the system's loading indicator to stop.
 			// App's rendering takes over.
-			bool bResult = MLLifecycleSetReadyIndication(&result);
-			bNotifyLifecycleOfFirstPresent = !bResult;
-			if (!bResult || result != MLLifecycleErrorCode_Success)
+			MLResult Result = MLLifecycleSetReadyIndication();
+			bNotifyLifecycleOfFirstPresent = (Result != MLResult_Ok);
+			if (Result != MLResult_Ok)
 			{
-				UE_LOG(LogMagicLeap, Error, TEXT("Error sending app ready indication to lifecycle."));
+				UE_LOG(LogMagicLeap, Error, TEXT("Error (%d) sending app ready indication to lifecycle."), Result);
+			}
+			else
+			{
+				// [temporary] used for KPI tracking.
+				UE_LOG(LogMagicLeap, Display, TEXT("Presenting first render from app."));
 			}
 		}
 
 		// TODO [Blake] : Hack since we cannot yet specify a handle per view in the view family
-		const MLGraphicsVirtualCameraInfoArray& vp_array = Plugin->GetCurrentFrame()->RenderInfoArray;
+		const MLGraphicsVirtualCameraInfoArray& vp_array = Plugin->GetCurrentFrame().RenderInfoArray;
 		const uint32 vp_width = static_cast<uint32>(vp_array.viewport.w);
 		const uint32 vp_height = static_cast<uint32>(vp_array.viewport.h);
 
@@ -290,7 +315,7 @@ void FMagicLeapCustomPresentOpenGL::FinishRendering()
 			glDisable(GL_FRAMEBUFFER_SRGB);
 		}
 
-		check(vp_array.num_virtual_cameras >= 2); // We assume at least one virtual camera per eye
+		//check(vp_array.num_virtual_cameras >= 2); // We assume at least one virtual camera per eye
 
 		FVector2D InternalTextureDims;
 		Plugin->GetAppFrameworkConst().GetDeviceResolution(InternalTextureDims);
@@ -306,19 +331,18 @@ void FMagicLeapCustomPresentOpenGL::FinishRendering()
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, Framebuffers[1]);
 		FOpenGL::BlitFramebuffer(0, 0, InternalTextureDims.X / 2, InternalTextureDims.Y, 0, 0, vp_width, vp_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-		MLStatus OutStatus;
-		bool bResult = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, vp_array.virtual_cameras[0].sync_object, &OutStatus);
-		if (!bResult)
+		MLResult Result = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, vp_array.virtual_cameras[0].sync_object);
+		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsSignalSyncObjectGL for eye 0 failed with status %d"), static_cast<int32>(OutStatus));
+			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsSignalSyncObjectGL for eye 0 failed with status %d"), Result);
 		}
 
 		FOpenGL::FramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, vp_array.color_id, 0, 1);
 		FOpenGL::BlitFramebuffer(InternalTextureDims.X / 2, 0, InternalTextureDims.X, InternalTextureDims.Y, 0, 0, vp_width, vp_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-		bResult = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, vp_array.virtual_cameras[1].sync_object, &OutStatus);
-		if (!bResult)
+		Result = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, vp_array.virtual_cameras[1].sync_object);
+		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsSignalSyncObjectGL for eye 1 failed with status %d"), static_cast<int32>(OutStatus));
+			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsSignalSyncObjectGL for eye 1 failed with status %d"), Result);
 		}
 
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CurrentFB);
@@ -331,10 +355,10 @@ void FMagicLeapCustomPresentOpenGL::FinishRendering()
 #if 0 // Enable this in case the MLSDK increases the size of the virtual_cameras array past 2
 		for (uint32 i = 2; i < vp_array.num_virtual_cameras; ++i)
 		{
-			bResult = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, vp_array.virtual_cameras[i].sync_object, &OutStatus);
-			if (!bResult)
+			Result = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, vp_array.virtual_cameras[i].sync_object);
+			if (Result != MLResult_Ok)
 			{
-				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsSignalSyncObjectGL for eye %d failed with status %d"), i, static_cast<int32>(OutStatus));
+				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsSignalSyncObjectGL for eye %d failed with status %d"), i, Result);
 			}
 		}
 #endif
@@ -343,10 +367,10 @@ void FMagicLeapCustomPresentOpenGL::FinishRendering()
 		--BalanceCounter;
 #endif //BEGIN_END_FRAME_BALANCE_HACK
 
-		bResult = MLGraphicsEndFrame(Plugin->GraphicsClient, Plugin->GetCurrentFrame()->Handle, &OutStatus);
-		if (!bResult)
+		Result = MLGraphicsEndFrame(Plugin->GraphicsClient, Plugin->GetCurrentFrame().Handle);
+		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsEndFrame failed with status %d"), static_cast<int32>(OutStatus));
+			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsEndFrame failed with status %d"), Result);
 		}
 	}
 	Plugin->InitializeOldFrameFromRenderFrame();
@@ -423,7 +447,7 @@ bool FMagicLeapCustomPresentOpenGL::Present(int& SyncInterval)
 
 #endif  // PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
 
-#if PLATFORM_LUMIN
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 
 FMagicLeapCustomPresentVulkan::FMagicLeapCustomPresentVulkan(FMagicLeapHMD* plugin)
 	: FMagicLeapCustomPresent(plugin)
@@ -437,107 +461,102 @@ FMagicLeapCustomPresentVulkan::FMagicLeapCustomPresentVulkan(FMagicLeapHMD* plug
 
 void FMagicLeapCustomPresentVulkan::BeginRendering()
 {
+#if WITH_MLSDK
 	check(IsInRenderingThread());
-
-	FTrackingFrame* frame = Plugin->GetCurrentFrame();
-	if (frame && bCustomPresentIsSet)
+	FTrackingFrame& frame = Plugin->GetCurrentFrameMutable();
+	if (bCustomPresentIsSet)
 	{
 		// TODO [Blake] : Need to see if we can use this newer matrix and override the view
 		// projection matrix (since they query GetStereoProjectionMatrix on the main thread)
-		MLStatus InitCameraStatus;
 		MLGraphicsFrameParams camera_params;
-		MLGraphicsInitFrameParams(&camera_params, &InitCameraStatus);
+		MLResult InitResult = MLGraphicsInitFrameParams(&camera_params);
+		if (InitResult != MLResult_Ok)
+		{
+			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsInitFrameParams failed with status %d"), InitResult);
+		}
 		camera_params.projection_type = MLGraphicsProjectionType_ReversedInfiniteZ;
 		camera_params.surface_scale = 1.0f;
 		camera_params.protected_surface = false;
 		GConfig->GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bProtectedContent"), camera_params.protected_surface, GEngineIni);
 
 		// The near clipping plane is expected in meters despite what is documented in the header.
-		camera_params.near_clip = GNearClippingPlane / frame->WorldToMetersScale;
-		camera_params.far_clip = frame->FarClippingPlane / frame->WorldToMetersScale;
+		camera_params.near_clip = GNearClippingPlane / frame.WorldToMetersScale;
+		camera_params.far_clip = frame.FarClippingPlane / frame.WorldToMetersScale;
 
 		// The focus distance is expected in meters despite what is documented in the header.
 		// Only focus distance equaling 1 engine unit seems to work on board without wearable and on desktop.
 #if PLATFORM_LUMIN
-		camera_params.focus_distance = frame->FocusDistance / frame->WorldToMetersScale;
+		camera_params.focus_distance = frame.FocusDistance / frame.WorldToMetersScale;
 #else
 		camera_params.focus_distance = 1.0f;
 #endif
 
 	  ExecuteOnRHIThread_DoNotWait([this, camera_params]()
 	  {
-		  FTrackingFrame* RHIframe = Plugin->GetCurrentFrame();
-		  MLStatus OutStatus;
+		  FTrackingFrame& RHIframe = Plugin->GetCurrentFrameMutable();
 
 #if BEGIN_END_FRAME_BALANCE_HACK
 			if (BalanceCounter != 0)
 			{
 				UE_LOG(LogMagicLeap, Error, TEXT("Begin / End frame calls out of balance!"));
 				FMagicLeapHelperVulkan::SignalObjects((uint64)BalanceHandles[0], (uint64)BalanceHandles[1]);
-				bool bResult = MLGraphicsEndFrame(Plugin->GraphicsClient, BalancePrevFrameHandle, &OutStatus);
+				MLResult Result = MLGraphicsEndFrame(Plugin->GraphicsClient, BalancePrevFrameHandle);
+				if (Result != MLResult_Ok)
+				{
+					UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsEndFrame failed with status %d"), Result);
+				}
 				--BalanceCounter;
 			}
 #endif
 
-		  RHIframe->bBeginFrameSucceeded = MLGraphicsBeginFrame(Plugin->GraphicsClient, &camera_params, &RHIframe->Handle, &RHIframe->RenderInfoArray, &OutStatus);
-		  if (RHIframe->bBeginFrameSucceeded)
+		  MLResult Result = MLGraphicsBeginFrame(Plugin->GraphicsClient, &camera_params, &RHIframe.Handle, &RHIframe.RenderInfoArray);
+		  RHIframe.bBeginFrameSucceeded = (Result == MLResult_Ok);
+		  if (RHIframe.bBeginFrameSucceeded)
 		  {
 #if BEGIN_END_FRAME_BALANCE_HACK
 				++BalanceCounter;
-				BalancePrevFrameHandle = RHIframe->Handle;
-				BalanceHandles[0] = RHIframe->RenderInfoArray.virtual_cameras[0].sync_object;
-				BalanceHandles[1] = RHIframe->RenderInfoArray.virtual_cameras[1].sync_object;
+				BalancePrevFrameHandle = RHIframe.Handle;
+				BalanceHandles[0] = RHIframe.RenderInfoArray.virtual_cameras[0].sync_object;
+				BalanceHandles[1] = RHIframe.RenderInfoArray.virtual_cameras[1].sync_object;
 #endif //BEGIN_END_FRAME_BALANCE_HACK
 			  /* Convert eye extents from Graphics Projection Model to Unreal Projection Model */
 			  // Unreal expects the projection matrix to be in centimeters and uses it for various purposes
 			  // such as bounding volume calculations for lights in the shadow algorithm.
 			  // We're overwriting the near value to match the units of unreal here instead of using the units of the SDK
-			  for (uint32_t eye = 0; eye < RHIframe->RenderInfoArray.num_virtual_cameras; ++eye)
+			  for (uint32_t eye = 0; eye < RHIframe.RenderInfoArray.num_virtual_cameras; ++eye)
 			  {
-				  RHIframe->RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[10] = 0.0f; // Model change hack
-				  RHIframe->RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[11] = -1.0f; // Model change hack
-				  RHIframe->RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[14] = GNearClippingPlane; // Model change hack
+				  RHIframe.RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[10] = 0.0f; // Model change hack
+				  RHIframe.RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[11] = -1.0f; // Model change hack
+				  RHIframe.RenderInfoArray.virtual_cameras[eye].projection.matrix_colmajor[14] = GNearClippingPlane; // Model change hack
 			  }
 		  }
 		  else
 		  {
-			  UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsBeginFrame failed with status %d"), static_cast<int32>(OutStatus));
+			  if (Result != MLResult_Timeout)
+			  {
+				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsBeginFrame failed with status %d"), Result);
+			  }
 			  // TODO: See if this is only needed for ZI.
-			  RHIframe->Handle = ML_INVALID_HANDLE;
-			  MagicLeap::ResetVirtualCameraInfoArray(RHIframe->RenderInfoArray);
+			  RHIframe.Handle = ML_INVALID_HANDLE;
+			  MagicLeap::ResetVirtualCameraInfoArray(RHIframe.RenderInfoArray);
 		  }
 	  });
   }
+#endif // WITH_MLSDK
 }
 
 void FMagicLeapCustomPresentVulkan::FinishRendering()
 {
+#if WITH_MLSDK
 	check(IsInRenderingThread() || IsInRHIThread());
 
-	if (Plugin->IsDeviceInitialized() && Plugin->GetCurrentFrame()->bBeginFrameSucceeded)
+	if (Plugin->IsDeviceInitialized() && Plugin->GetCurrentFrame().bBeginFrameSucceeded)
 	{
-#if !PLATFORM_LUMIN
-		// Set up the viewport
-		if (Plugin->WindowMirrorMode == 1)
-		{
-			// TODO Implement this similar to OpenGL.
-		}
-		else if (Plugin->WindowMirrorMode == 2)
-		{
-			// TODO Implement this similar to OpenGL.
-		}
-		else if (Plugin->WindowMirrorMode == 0)
-		{
-			// TODO Implement this similar to OpenGL.
-		}
-#endif
-
 		// TODO [Blake] : Hack since we cannot yet specify a handle per view in the view family
-		const MLGraphicsVirtualCameraInfoArray& vp_array = Plugin->GetCurrentFrame()->RenderInfoArray;
+		const MLGraphicsVirtualCameraInfoArray& vp_array = Plugin->GetCurrentFrame().RenderInfoArray;
 		const uint32 vp_width = static_cast<uint32>(vp_array.viewport.w);
 		const uint32 vp_height = static_cast<uint32>(vp_array.viewport.h);
 
-		MLStatus OutStatus;
 		bool bTestClear = false;
 		if (bTestClear)
 		{
@@ -555,7 +574,7 @@ void FMagicLeapCustomPresentVulkan::FinishRendering()
 				UE_LOG(LogMagicLeap, Log, TEXT("Aliased render target for correct sRGB ouput."));
 			}
 
-			const VkImage FinalTarget = (RenderTargetTextureSRGB != VK_NULL_HANDLE) ? RenderTargetTextureSRGB : RenderTargetTexture;
+			const VkImage FinalTarget = (RenderTargetTextureSRGB != VK_NULL_HANDLE) ? reinterpret_cast<const VkImage>(RenderTargetTextureSRGB) : reinterpret_cast<const VkImage>(RenderTargetTexture);
 			FMagicLeapHelperVulkan::BlitImage((uint64)FinalTarget, 0, 0, 0, 0, vp_width, vp_height, 1, (uint64)vp_array.color_id, 0, 0, 0, 0, vp_width, vp_height, 1);
 			FMagicLeapHelperVulkan::BlitImage((uint64)FinalTarget, 0, vp_width, 0, 0, vp_width, vp_height, 1, (uint64)vp_array.color_id, 1, 0, 0, 0, vp_width, vp_height, 1);
 		}
@@ -566,14 +585,15 @@ void FMagicLeapCustomPresentVulkan::FinishRendering()
 		--BalanceCounter;
 #endif //BEGIN_END_FRAME_BALANCE_HACK
 
-		bool bResult = MLGraphicsEndFrame(Plugin->GraphicsClient, Plugin->GetCurrentFrame()->Handle, &OutStatus);
-		if (!bResult)
+		MLResult Result = MLGraphicsEndFrame(Plugin->GraphicsClient, Plugin->GetCurrentFrame().Handle);
+		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsEndFrame failed with status %d"), static_cast<int32>(OutStatus));
+			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsEndFrame failed with status %d"), Result);
 		}
 	}
   
 	Plugin->InitializeOldFrameFromRenderFrame();
+#endif // WITH_MLSDK
 }
 
 void FMagicLeapCustomPresentVulkan::Reset()
@@ -598,9 +618,9 @@ void FMagicLeapCustomPresentVulkan::UpdateViewport(const FViewport& Viewport, FR
 	const FTexture2DRHIRef& RT = Viewport.GetRenderTargetTexture();
 	check(IsValidRef(RT));
 
-	RenderTargetTexture = (VkImage)RT->GetNativeResource();
-	RenderTargetTextureAllocation = reinterpret_cast<FVulkanTexture2D*>(RT->GetTexture2D())->Surface.GetAllocationHandle();
-	RenderTargetTextureAllocationOffset = reinterpret_cast<FVulkanTexture2D*>(RT->GetTexture2D())->Surface.GetAllocationOffset();
+	RenderTargetTexture = RT->GetNativeResource();
+	RenderTargetTextureAllocation = static_cast<FVulkanTexture2D*>(RT->GetTexture2D())->Surface.GetAllocationHandle();
+	RenderTargetTextureAllocationOffset = static_cast<FVulkanTexture2D*>(RT->GetTexture2D())->Surface.GetAllocationOffset();
 
 	InViewportRHI->SetCustomPresent(this);
 	
@@ -628,18 +648,21 @@ void FMagicLeapCustomPresentVulkan::OnBackBufferResize()
 
 bool FMagicLeapCustomPresentVulkan::Present(int& SyncInterval)
 {
+#if WITH_MLSDK
 	check(IsInRenderingThread() || IsInRHIThread());
 
 	if (bNotifyLifecycleOfFirstPresent)
 	{
-		MLLifecycleErrorCode result;
-		// Lifecycle tells the system's loading indicator to stop.
-		// App's rendering takes over.
-		bool bResult = MLLifecycleSetReadyIndication(&result);
-		bNotifyLifecycleOfFirstPresent = !bResult;
-		if (!bResult || result != MLLifecycleErrorCode_Success)
+		MLResult Result = MLLifecycleSetReadyIndication();
+		bNotifyLifecycleOfFirstPresent = (Result != MLResult_Ok);
+		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("Error sending app ready indication to lifecycle."));
+			UE_LOG(LogMagicLeap, Error, TEXT("MLLifecycleSetReadyIndication failed with error %d."), Result);
+		}
+		else
+		{
+			// [temporary] used for KPI tracking.
+			UE_LOG(LogMagicLeap, Display, TEXT("Presenting first render from app."));
 		}
 	}
 
@@ -657,6 +680,9 @@ bool FMagicLeapCustomPresentVulkan::Present(int& SyncInterval)
 	bCustomPresentIsSet = false;
 
 	return bHostPresent;
+#else
+	return false;
+#endif // WITH_MLSDK
 }
 
-#endif // PLATFORM_LUMIN
+#endif // PLATFORM_WINDOWS || PLATFORM_LUMIN

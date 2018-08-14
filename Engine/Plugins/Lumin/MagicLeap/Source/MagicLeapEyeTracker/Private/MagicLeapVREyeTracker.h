@@ -34,6 +34,7 @@ public:
 	void DrawDebug(AHUD* HUD, UCanvas* Canvas, const FDebugDisplayInfo& DisplayInfo, float& YL, float& YPos);
 
 	bool IsEyeTrackerCalibrated() const;
+	EMagicLeapEyeTrackingCalibrationStatus GetCalibrationStatus() const;
 
 public:
 	virtual const FMagicLeapVREyeTrackingData& GetVREyeTrackingData() override;
@@ -43,13 +44,12 @@ public:
 private:
 	TWeakObjectPtr<APlayerController> ActivePlayerController;
 	EMagicLeapEyeTrackingStatus EyeTrackingStatus;
+	EMagicLeapEyeTrackingCalibrationStatus EyeCalibrationStatus;
 
 	FMagicLeapVREyeTrackingData UnfilteredEyeTrackingData;
 
-	
 	bool bReadyToInit;
 	bool bInitialized;
-	bool bIsCalibrated;
 
 #if WITH_MLSDK
 	MLHandle EyeTrackingHandle;

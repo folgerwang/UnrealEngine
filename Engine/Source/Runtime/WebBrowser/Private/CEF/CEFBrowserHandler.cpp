@@ -14,7 +14,7 @@
 #include "CEFBrowserByteResource.h"
 #include "Framework/Application/SlateApplication.h"
 #include "HAL/ThreadingBase.h"
-
+#include "PlatformHttp.h"
 
 #define LOCTEXT_NAMESPACE "WebBrowserHandler"
 
@@ -22,8 +22,9 @@
 // Used to force returning custom content instead of performing a request.
 const FString CustomContentMethod(TEXT("X-GET-CUSTOM-CONTENT"));
 
-FCEFBrowserHandler::FCEFBrowserHandler(bool InUseTransparency)
-: bUseTransparency(InUseTransparency)
+FCEFBrowserHandler::FCEFBrowserHandler(bool InUseTransparency, const TArray<FString>& InAltRetryDomains)
+: bUseTransparency(InUseTransparency),
+AltRetryDomains(InAltRetryDomains)
 { }
 
 void FCEFBrowserHandler::OnTitleChange(CefRefPtr<CefBrowser> Browser, const CefString& Title)
@@ -204,6 +205,7 @@ void FCEFBrowserHandler::OnLoadError(CefRefPtr<CefBrowser> Browser,
 	const CefString& ErrorText,
 	const CefString& FailedUrl)
 {
+
 	// notify browser window
 	if (Frame->IsMain())
 	{
@@ -211,6 +213,18 @@ void FCEFBrowserHandler::OnLoadError(CefRefPtr<CefBrowser> Browser,
 
 		if (BrowserWindow.IsValid())
 		{
+			if (AltRetryDomains.Num() > 0 && AltRetryDomainIdx < (uint32)AltRetryDomains.Num())
+			{
+				FString Url = FailedUrl.ToWString().c_str();
+				FString OriginalUrlDomain = FPlatformHttp::GetUrlDomain(Url);
+				if (!OriginalUrlDomain.IsEmpty())
+				{
+					const FString NewUrl(Url.Replace(*OriginalUrlDomain, *AltRetryDomains[AltRetryDomainIdx++]));
+					BrowserWindow->LoadURL(NewUrl);
+					return;
+				}
+
+			}
 			BrowserWindow->NotifyDocumentError(InErrorCode, ErrorText, FailedUrl);
 		}
 	}
@@ -610,13 +624,28 @@ void FCEFBrowserHandler::OnResetDialogState(CefRefPtr<CefBrowser> Browser)
 	}
 }
 
-
 void FCEFBrowserHandler::OnBeforeContextMenu(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, CefRefPtr<CefContextMenuParams> Params, CefRefPtr<CefMenuModel> Model)
 {
 	TSharedPtr<FCEFWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
 	if ( BrowserWindow.IsValid() && BrowserWindow->OnSuppressContextMenu().IsBound() && BrowserWindow->OnSuppressContextMenu().Execute() )
 	{
 		Model->Clear();
+	}
+}
+
+void FCEFBrowserHandler::OnDraggableRegionsChanged(CefRefPtr<CefBrowser> Browser, const std::vector<CefDraggableRegion>& Regions)
+{
+	TSharedPtr<FCEFWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
+	if (BrowserWindow.IsValid())
+	{
+		TArray<FWebBrowserDragRegion> DragRegions;
+		for (uint32 Idx = 0; Idx < Regions.size(); Idx++)
+		{
+			DragRegions.Add(FWebBrowserDragRegion(
+				FIntRect(Regions[Idx].bounds.x, Regions[Idx].bounds.y, Regions[Idx].bounds.x + Regions[Idx].bounds.width, Regions[Idx].bounds.y + Regions[Idx].bounds.height),
+				Regions[Idx].draggable ? true : false));
+		}
+		BrowserWindow->UpdateDragRegions(DragRegions);
 	}
 }
 

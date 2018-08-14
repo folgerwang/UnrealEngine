@@ -488,6 +488,7 @@ void FTargetDeviceService::HandlePingMessage(const FTargetDeviceServicePing& InM
 		Message->HostName = FPlatformProcess::ComputerName();
 		Message->HostUser = FPlatformProcess::UserName(false);
 		Message->Connected = DefaultDevice->IsConnected();
+		Message->Authorized = DefaultDevice->IsAuthorized();
 		Message->Make = TEXT("@todo");
 		Message->Model = TEXT("@todo");
 		DefaultDevice->GetUserCredentials(Message->DeviceUser, Message->DeviceUserPassword);

@@ -231,7 +231,6 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyCon
 ,	CurrentDeltaWorldTime(0)
 ,	FeatureLevel(InFeatureLevel)
 ,	bUseInternalTexture(false)
-,	StereoDepth(150)
 ,	DrawMode(InDrawMode)
 ,	DPIScale(InDPIScale)
 {
@@ -258,7 +257,6 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyCons
 ,	CurrentDeltaWorldTime(InWorldDeltaTime)
 ,	FeatureLevel(InFeatureLevel)
 ,	bUseInternalTexture(false)
-,	StereoDepth(150)
 ,	DrawMode(CDM_DeferDrawing)
 ,	DPIScale(InDPIScale)
 {
@@ -269,8 +267,6 @@ void FCanvas::Construct()
 {
 	check(RenderTarget);
 
-	CachedOrthoProjection[0] = CachedOrthoProjection[1] = FMatrix::Identity;
-	CachedRTWidth = CachedRTHeight = CachedDrawDepth = -1;
 	bStereoRendering = false;
 	bScaledToRenderTarget = false;
 	bAllowsToSwitchVerticalAxis = true;
@@ -1377,12 +1373,6 @@ void UCanvas::UpdateAllCanvasSafeZoneData()
 	}
 }
 
-
-void UCanvas::SetStereoDepth(uint32 depth)
-{
-	Canvas->SetStereoDepth(depth);
-}
-
 void UCanvas::Update()
 {
 	// Reset canvas params.
@@ -1828,55 +1818,10 @@ void UCanvas::DrawItem( class FCanvasItem& Item, float X, float Y )
 	Canvas->DrawItem( Item, X, Y  );
 }
 
-bool FCanvas::GetOrthoProjectionMatrices(float InDrawDepth, FMatrix OutOrthoProjection[2])
-{
-	bool rv = false;
-
-	if (bStereoRendering)
-	{
-		rv = true;
-		const int32 RTWidth = RenderTarget->GetSizeXY().X;
-		const int32 RTHeight = RenderTarget->GetSizeXY().Y;
-		if (RTWidth != CachedRTWidth || RTHeight != CachedRTHeight || InDrawDepth != CachedDrawDepth)
-		{
-			rv = false;
-			if (GEngine && GEngine->StereoRenderingDevice.IsValid())
-			{
-				GEngine->StereoRenderingDevice->GetOrthoProjection(RTWidth, RTHeight, InDrawDepth, CachedOrthoProjection);
-				CachedRTWidth = RTWidth;
-				CachedRTHeight= RTHeight;
-				CachedDrawDepth=InDrawDepth;
-				rv = true;
-			}
-		}
-		OutOrthoProjection[0] = CachedOrthoProjection[0];
-		OutOrthoProjection[1] = CachedOrthoProjection[1];
-	}
-	return rv;
-}
-
 void FCanvas::DrawItem(FCanvasItem& Item)
 {
-	const uint32 DrawDepth = Item.StereoDepth ? Item.StereoDepth : StereoDepth;
-	FMatrix OrthoProjection[2];
-	if (GetOrthoProjectionMatrices(DrawDepth, OrthoProjection))
-	{
-		//left eye
-		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
-		Item.Draw(this);
-		PopTransform();
-		if (!bUseInternalTexture)
-		{
-			//right eye
-			PushRelativeTransform(OrthoProjection[1]);
-			Item.Draw(this);
-			PopTransform();
-		}
-	}
-	else
-	{
-		Item.Draw(this);
-	}
+
+	Item.Draw(this);
 
 	if (DrawMode == CDM_ImmediateDrawing)
 	{
@@ -1886,26 +1831,7 @@ void FCanvas::DrawItem(FCanvasItem& Item)
 
 void FCanvas::DrawItem(FCanvasItem& Item, const FVector2D& InPosition)
 {
-	uint32 DrawDepth = Item.StereoDepth ? Item.StereoDepth : StereoDepth;
-	FMatrix OrthoProjection[2];
-	if (GetOrthoProjectionMatrices(DrawDepth, OrthoProjection))
-	{
-		//left eye
-		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
-		Item.Draw(this, InPosition);
-		PopTransform();
-		if (!bUseInternalTexture)
-		{
-			//right eye
-			PushRelativeTransform(OrthoProjection[1]);
-			Item.Draw(this, InPosition);
-			PopTransform();
-		}
-	}
-	else
-	{
-		Item.Draw(this , InPosition);
-	}
+	Item.Draw(this , InPosition);
 
 	if (DrawMode == CDM_ImmediateDrawing)
 	{
@@ -1915,26 +1841,7 @@ void FCanvas::DrawItem(FCanvasItem& Item, const FVector2D& InPosition)
 
 void FCanvas::DrawItem(FCanvasItem& Item, float X, float Y)
 {
-	uint32 DrawDepth = Item.StereoDepth ? Item.StereoDepth : StereoDepth;
-	FMatrix OrthoProjection[2];
-	if (GetOrthoProjectionMatrices(DrawDepth, OrthoProjection))
-	{
-		//left eye
-		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
-		Item.Draw(this, X, Y);
-		PopTransform();
-		if (!bUseInternalTexture)
-		{
-			//right eye
-			PushRelativeTransform(OrthoProjection[1]);
-			Item.Draw(this, X, Y);
-			PopTransform();
-		}
-	}
-	else
-	{
-		Item.Draw(this, X, Y);
-	}
+	Item.Draw(this, X, Y);
 
 	if (DrawMode == CDM_ImmediateDrawing)
 	{

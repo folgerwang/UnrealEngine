@@ -686,7 +686,7 @@ public:
 		ERHIFeatureLevel::Type FeatureLevel,
 		bool bInEnableReceiveDecalOutput = false
 		):
-		FMeshDrawingPolicy(nullptr,nullptr,InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
+		FMeshDrawingPolicy(nullptr, InMaterialRenderProxy, InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
 		VertexDeclaration(InVertexFactory->GetDeclaration()),
 		LightMapPolicy(InLightMapPolicy),
 		NumMovablePointLights(InNumMovablePointLights),
@@ -694,6 +694,11 @@ public:
 		bEnableReceiveDecalOutput(bInEnableReceiveDecalOutput)
 	{
 		static_assert(MAX_BASEPASS_DYNAMIC_POINT_LIGHTS == 4, "If you change MAX_BASEPASS_DYNAMIC_POINT_LIGHTS, you need to change the switch statement below");
+
+		if (InMaterialRenderProxy != nullptr)
+		{
+			ImmutableSamplerState = InMaterialRenderProxy->ImmutableSamplerState;
+		}
 
 		switch (NumMovablePointLights)
 		{
@@ -780,7 +785,8 @@ public:
 			DRAWING_POLICY_MATCH(LightMapPolicy == Other.LightMapPolicy) &&
 			DRAWING_POLICY_MATCH(NumMovablePointLights == Other.NumMovablePointLights) &&
 			DRAWING_POLICY_MATCH(bEnableReceiveDecalOutput == Other.bEnableReceiveDecalOutput) &&
-			DRAWING_POLICY_MATCH(UseDebugViewPS() == Other.UseDebugViewPS());
+			DRAWING_POLICY_MATCH(UseDebugViewPS() == Other.UseDebugViewPS()) &&
+			DRAWING_POLICY_MATCH(ImmutableSamplerState == Other.ImmutableSamplerState);
 		DRAWING_POLICY_MATCH_END 
 	}
 
@@ -985,6 +991,7 @@ protected:
 	FVertexDeclarationRHIRef VertexDeclaration;
 	LightMapPolicyType LightMapPolicy;
 	int32 NumMovablePointLights;
+	FImmutableSamplerState ImmutableSamplerState;
 	EBlendMode BlendMode;
 	uint32 bEnableReceiveDecalOutput : 1;
 };

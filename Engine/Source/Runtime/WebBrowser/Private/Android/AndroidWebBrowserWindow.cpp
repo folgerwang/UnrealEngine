@@ -144,6 +144,15 @@ void FAndroidWebBrowserWindow::OnMouseLeave(const FPointerEvent& MouseEvent)
 {
 }
 
+void FAndroidWebBrowserWindow::SetSupportsMouseWheel(bool bValue)
+{
+}
+
+bool FAndroidWebBrowserWindow::GetSupportsMouseWheel() const
+{
+	return false;
+}
+
 FReply FAndroidWebBrowserWindow::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup)
 {
 	return FReply::Unhandled();

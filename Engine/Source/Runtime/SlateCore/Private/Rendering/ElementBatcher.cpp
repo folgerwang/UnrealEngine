@@ -1888,7 +1888,8 @@ void FSlateElementBatcher::AddViewportElement( const FSlateDrawElement& DrawElem
 	// If the viewport disallows scaling, force size to current texture size.
 	if (ViewportResource != nullptr && !InPayload.bAllowViewportScaling)
 	{
-		BotRight = FVector2D(ViewportResource->GetWidth(), ViewportResource->GetHeight());
+		const float ElementScale = DrawElement.GetScale();
+		BotRight = FVector2D(ViewportResource->GetWidth() / ElementScale, ViewportResource->GetHeight() / ElementScale);
 	}
 
 	FVector2D TopRight = FVector2D( BotRight.X, TopLeft.Y);

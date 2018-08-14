@@ -674,6 +674,16 @@ void FWebBrowserWindow::OnMouseLeave(const FPointerEvent& MouseEvent)
 {
 }
 
+void FWebBrowserWindow::SetSupportsMouseWheel(bool bValue)
+{
+
+}
+
+bool FWebBrowserWindow::GetSupportsMouseWheel() const
+{
+	return false;
+}
+
 FReply FWebBrowserWindow::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup)
 {
 	return FReply::Unhandled();

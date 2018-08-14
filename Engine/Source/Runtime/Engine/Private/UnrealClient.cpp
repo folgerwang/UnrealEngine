@@ -708,7 +708,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 		const float GraphBottomYPos = GraphHeight + 80.0f;
 #else
 		const float GraphLeftXPos = 80.0f;
-		const float GraphBottomYPos = InViewport->GetSizeXY().Y / InCanvas->GetDPIScale() - 50.0f;
+		const float GraphBottomYPos = InCanvas->GetRenderTarget()->GetSizeXY().Y / InCanvas->GetDPIScale() - 50.0f;
 #endif
 
 		const float GraphBackgroundMarginSize = 8.0f;
@@ -1062,7 +1062,7 @@ int32 FStatHitchesData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32
 			}
 		}
 
-		const int32 MaxY = InViewport->GetSizeXY().Y;
+		const int32 MaxY = InCanvas->GetRenderTarget()->GetSizeXY().Y;
 		static const double TravelTime = 4.2;
 		for (int32 i = 0; i < NumHitches; i++)
 		{

@@ -20,6 +20,12 @@ FHTML5HttpRequest::FHTML5HttpRequest()
 	,	ElapsedTime(0.0f)
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::FHTML5HttpRequest()"));
+	// Add default headers
+	const TMap<FString, FString>& DefaultHeaders = FHttpModule::Get().GetDefaultHeaders();
+	for (TMap<FString, FString>::TConstIterator It(DefaultHeaders); It; ++It)
+	{
+		SetHeader(It.Key(), It.Value());
+	}
 }
 
 

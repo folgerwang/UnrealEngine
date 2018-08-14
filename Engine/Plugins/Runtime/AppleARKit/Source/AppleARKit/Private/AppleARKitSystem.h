@@ -79,12 +79,11 @@ protected:
 	virtual void OnRemovePin(UARPin* PinToRemove) override;
 	virtual UARTextureCameraImage* OnGetCameraImage() override;
 	virtual UARTextureCameraDepth* OnGetCameraDepth() override;
-//@joeg -- ARKit 2.0 additions
 	virtual bool OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent) override;
 	virtual TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> OnGetCandidateObject(FVector Location, FVector Extent) const override;
 	virtual TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> OnSaveWorld() const override;
 	virtual EARWorldMappingState OnGetWorldMappingStatus() const override;
-//@joeg -- End additions
+	virtual TArray<FARVideoFormat> OnGetSupportedVideoFormats(EARSessionType SessionType) const override;
 	//~IARSystemSupport
 
 private:
@@ -168,7 +167,6 @@ private:
 	UAppleARKitTextureCameraImage* CameraImage;
 	UAppleARKitTextureCameraDepth* CameraDepth;
 	TMap< FString, UARCandidateImage* > CandidateImages;
-//@joeg -- Object detection
 	TMap< FString, UARCandidateObject* > CandidateObjects;
 	// ...
 	// PROPERTIES REPORTED TO FGCObject

@@ -540,6 +540,30 @@ void UOculusFunctionLibrary::SetDisplayFrequency(float RequestedFrequency)
 #endif
 }
 
+void UOculusFunctionLibrary::EnablePositionTracking(bool bPositionTracking)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrp_SetTrackingPositionEnabled2(bPositionTracking);
+	}
+#endif
+}
+
+
+void UOculusFunctionLibrary::EnableOrientationTracking(bool bOrientationTracking)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrp_SetTrackingOrientationEnabled2(bOrientationTracking);
+	}
+#endif
+}
+
+
 class IStereoLayers* UOculusFunctionLibrary::GetStereoLayers()
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS

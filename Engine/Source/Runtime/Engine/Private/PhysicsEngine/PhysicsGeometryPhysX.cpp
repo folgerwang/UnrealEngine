@@ -1,16 +1,18 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
+#if WITH_PHYSX
+
 #include "Physics/PhysicsGeometryPhysX.h"
 
 #include "PhysicsEngine/AggregateGeom.h"
 
 //#include "PhysXPublic.h"
 #include "PhysicsEngine/PhysXSupport.h"
-#include "PxSphereGeometry.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "Engine/Engine.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PxSphereGeometry.h"
 
 using namespace physx;
 
@@ -293,3 +295,5 @@ template void FBodySetupShapeIterator::ForEachShape(const TArrayView<FKBoxElem>&
 template void FBodySetupShapeIterator::ForEachShape(const TArrayView<FKSphylElem>&, TFunctionRef<void(const FKSphylElem&, const physx::PxCapsuleGeometry&, const physx::PxTransform&, float, float)>) const;
 template void FBodySetupShapeIterator::ForEachShape(const TArrayView<FKConvexElem>&, TFunctionRef<void(const FKConvexElem&, const physx::PxConvexMeshGeometry&, const physx::PxTransform&, float, float)>) const;
 template void FBodySetupShapeIterator::ForEachShape(const TArrayView<physx::PxTriangleMesh*>&, TFunctionRef<void(physx::PxTriangleMesh* const &, const physx::PxTriangleMeshGeometry&, const physx::PxTransform&, float, float)>) const;
+
+#endif

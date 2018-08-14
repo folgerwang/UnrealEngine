@@ -603,7 +603,10 @@ void FMetalDeviceContext::EndDrawingViewport(FMetalViewport* Viewport, bool bPre
 		if (CustomPresent != nullptr)
 		{
 			int32 SyncInterval = 0;
-			CustomPresent->Present(SyncInterval);
+			{
+				SCOPE_CYCLE_COUNTER(STAT_MetalCustomPresentTime);
+				CustomPresent->Present(SyncInterval);
+			}
 			
 			mtlpp::CommandBuffer CurrentCommandBuffer = GetCurrentCommandBuffer();
 			check(CurrentCommandBuffer);
