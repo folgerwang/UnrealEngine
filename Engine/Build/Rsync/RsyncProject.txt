@@ -19,6 +19,8 @@ protect /Intermediate/**
 + /Config/
 + /Config/**
 + /Content/
++ /Content/Oodle/
++ /Content/Oodle/**
 + /Content/Slate/
 + /Content/Slate/**
 + /Content/SlateDebug/
