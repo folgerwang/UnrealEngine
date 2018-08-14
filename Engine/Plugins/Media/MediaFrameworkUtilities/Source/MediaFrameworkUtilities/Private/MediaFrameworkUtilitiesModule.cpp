@@ -3,9 +3,6 @@
 #include "MediaFrameworkUtilitiesModule.h"
 
 #include "Engine/Engine.h"
-#include "Features/IModularFeatures.h"
-#include "ISettingsModule.h"
-#include "ISettingsSection.h"
 #include "Misc/App.h"
 #include "Misc/CoreDelegates.h"
 #include "Modules/ModuleInterface.h"
@@ -14,14 +11,19 @@
 #include "Profile/MediaProfileManager.h"
 #include "Profile/MediaProfileSettings.h"
 
+#if WITH_EDITOR
+#include "ISettingsModule.h"
+#include "ISettingsSection.h"
+#endif //WITH_EDITOR
+
 
 DEFINE_LOG_CATEGORY(LogMediaFrameworkUtilities);
 
 #define LOCTEXT_NAMESPACE "MediaFrameworkUtilities"
 
 /**
- * Implements the MediaFrameworkUtilitiesModule module.
- */
+* Implements the MediaFrameworkUtilitiesModule module.
+*/
 class FMediaFrameworkUtilitiesModule : public IMediaFrameworkUtilitiesModule
 {
 	FMediaProfileManager MediaProfileManager;
@@ -46,6 +48,7 @@ class FMediaFrameworkUtilitiesModule : public IMediaFrameworkUtilitiesModule
 
 	void RegisterSettings()
 	{
+#if WITH_EDITOR
 		if (GIsEditor)
 		{
 			// register settings
@@ -65,10 +68,12 @@ class FMediaFrameworkUtilitiesModule : public IMediaFrameworkUtilitiesModule
 				);
 			}
 		}
+#endif //WITH_EDITOR
 	}
 
 	void UnregisterSettings()
 	{
+#if WITH_EDITOR
 		if (GIsEditor)
 		{
 			// unregister settings
@@ -79,25 +84,26 @@ class FMediaFrameworkUtilitiesModule : public IMediaFrameworkUtilitiesModule
 				SettingsModule->UnregisterSettings("Editor", "Media", "MediaProfile");
 			}
 		}
+#endif //WITH_EDITOR
 	}
 
 	void ApplyStartupMediaProfile()
 	{
 		auto ApplyMediaProfile = [this]()
+		{
+			UMediaProfile* MediaProfile = nullptr;
+
+#if WITH_EDITOR
+			MediaProfile = GetDefault<UMediaProfileEditorSettings>()->GetUserMediaProfile();
+#endif
+
+			if (MediaProfile == nullptr)
 			{
-				UMediaProfile* MediaProfile = nullptr;
+				MediaProfile = GetDefault<UMediaProfileSettings>()->GetStartupMediaProfile();
+			}
 
-	#if WITH_EDITOR
-				MediaProfile = GetDefault<UMediaProfileEditorSettings>()->GetUserMediaProfile();
-	#endif
-
-				if (MediaProfile == nullptr)
-				{
-					MediaProfile = GetDefault<UMediaProfileSettings>()->GetStartupMediaProfile();
-				}
-
-				MediaProfileManager.SetCurrentMediaProfile(MediaProfile);
-			};
+			MediaProfileManager.SetCurrentMediaProfile(MediaProfile);
+		};
 
 		if (FApp::CanEverRender() || GetDefault<UMediaProfileSettings>()->bApplyInCommandlet)
 		{

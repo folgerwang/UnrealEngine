@@ -1166,14 +1166,12 @@ void UObject::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 	}
 }
 
-void UObject::Serialize(FStructuredArchive::FRecord Record)
-{
-	FArchiveUObjectFromStructuredArchive Ar(Record.EnterField(FIELD_NAME_TEXT("BaseClassAutoGen")));
-	UObject::Serialize(Ar);
-}
+IMPLEMENT_FARCHIVE_SERIALIZER(UObject)
 
-void UObject::Serialize( FArchive& Ar )
+void UObject::Serialize( FStructuredArchive::FRecord Record )
 {
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
+
 	// These three items are very special items from a serialization standpoint. They aren't actually serialized.
 	UClass *ObjClass = GetClass();
 	UObject* LoadOuter = GetOuter();
@@ -1182,7 +1180,7 @@ void UObject::Serialize( FArchive& Ar )
 	// Make sure this object's class's data is loaded.
 	if(ObjClass->HasAnyFlags(RF_NeedLoad) )
 	{
-		Ar.Preload(ObjClass);
+		UnderlyingArchive.Preload(ObjClass);
 
 		// make sure this object's template data is loaded - the only objects
 		// this should actually affect are those that don't have any defaults
@@ -1191,31 +1189,31 @@ void UObject::Serialize( FArchive& Ar )
 		// we've hit this code.
 		if ( !HasAnyFlags(RF_ClassDefaultObject) && ObjClass->GetDefaultsCount() > 0 )
 		{
-			Ar.Preload(ObjClass->GetDefaultObject());
+			UnderlyingArchive.Preload(ObjClass->GetDefaultObject());
 		}
 	}
 
 	// Special info.
-	if( (!Ar.IsLoading() && !Ar.IsSaving() && !Ar.IsObjectReferenceCollector()) )
+	if( (!UnderlyingArchive.IsLoading() && !UnderlyingArchive.IsSaving() && !UnderlyingArchive.IsObjectReferenceCollector()) )
 	{
-		Ar << LoadName;
-		if(!Ar.IsIgnoringOuterRef())
+		Record << NAMED_FIELD(LoadName);
+		if(!UnderlyingArchive.IsIgnoringOuterRef())
 		{
-			Ar << LoadOuter;
+			Record << NAMED_FIELD(LoadOuter);
 		}
-		if ( !Ar.IsIgnoringClassRef() )
+		if ( !UnderlyingArchive.IsIgnoringClassRef() )
 		{
-			Ar << ObjClass;
+			Record << NAMED_FIELD(ObjClass);
 		}
 	}
 	// Special support for supporting undo/redo of renaming and changing Archetype.
-	else if( Ar.IsTransacting() )
+	else if( UnderlyingArchive.IsTransacting() )
 	{
-		if(!Ar.IsIgnoringOuterRef())
+		if(!UnderlyingArchive.IsIgnoringOuterRef())
 		{
-			if(Ar.IsLoading())
+			if(UnderlyingArchive.IsLoading())
 			{
-				Ar << LoadName << LoadOuter;
+				Record << NAMED_FIELD(LoadName) << NAMED_FIELD(LoadOuter);
 
 				// If the name we loaded is different from the current one,
 				// unhash the object, change the name and hash it again.
@@ -1228,7 +1226,7 @@ void UObject::Serialize( FArchive& Ar )
 			}
 			else
 			{
-				Ar << LoadName << LoadOuter;
+				Record << NAMED_FIELD(LoadName) << NAMED_FIELD(LoadOuter);
 			}
 		}
 	}
@@ -1237,16 +1235,16 @@ void UObject::Serialize( FArchive& Ar )
 	// Handle derived UClass objects (exact UClass objects are native only and shouldn't be touched)
 	if (ObjClass != UClass::StaticClass())
 	{
-		SerializeScriptProperties(Ar);
+		SerializeScriptProperties(Record.EnterField(FIELD_NAME_TEXT("Properties")));
 	}
 
 	// Keep track of pending kill
-	if( Ar.IsTransacting() )
+	if( UnderlyingArchive.IsTransacting() )
 	{
 		bool WasKill = IsPendingKill();
-		if( Ar.IsLoading() )
+		if( UnderlyingArchive.IsLoading() )
 		{
-			Ar << WasKill;
+			Record << NAMED_FIELD(WasKill);
 			if (WasKill)
 			{
 				MarkPendingKill();
@@ -1256,79 +1254,85 @@ void UObject::Serialize( FArchive& Ar )
 				ClearPendingKill();
 			}
 		}
-		else if( Ar.IsSaving() )
+		else if( UnderlyingArchive.IsSaving() )
 		{
-			Ar << WasKill;
+			Record << NAMED_FIELD(WasKill);
 		}
 	}
 
 	// Serialize a GUID if this object has one mapped to it
-	FLazyObjectPtr::PossiblySerializeObjectGuid(this, Ar);
+	FLazyObjectPtr::PossiblySerializeObjectGuid(this, Record);
 
 	// Invalidate asset pointer caches when loading a new object
-	if (Ar.IsLoading() )
+	if (UnderlyingArchive.IsLoading() )
 	{
 		FSoftObjectPath::InvalidateTag();
 	}
 
 	// Memory counting (with proper alignment to match C++)
 	SIZE_T Size = GetClass()->GetStructureSize();
-	Ar.CountBytes( Size, Size );
+	UnderlyingArchive.CountBytes( Size, Size );
 }
 
-
-
-void UObject::SerializeScriptProperties( FArchive& Ar ) const
+void UObject::SerializeScriptProperties(FArchive& Ar) const
 {
-	Ar.MarkScriptSerializationStart(this);
+	SerializeScriptProperties(FStructuredArchiveFromArchive(Ar).GetSlot());
+}
+
+void UObject::SerializeScriptProperties( FStructuredArchive::FSlot Slot ) const
+{
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
+	UnderlyingArchive.MarkScriptSerializationStart(this);
 	if( HasAnyFlags(RF_ClassDefaultObject) )
 	{
-		Ar.StartSerializingDefaults();
+		UnderlyingArchive.StartSerializingDefaults();
 	}
 
 	UClass *ObjClass = GetClass();
 
-	if( (Ar.IsLoading() || Ar.IsSaving()) && !Ar.WantBinaryPropertySerialization() )
+	if(UnderlyingArchive.IsTextFormat() || ((UnderlyingArchive.IsLoading() || UnderlyingArchive.IsSaving()) && !UnderlyingArchive.WantBinaryPropertySerialization()))
 	{
 		//@todoio GetArchetype is pathological for blueprint classes and the event driven loader; the EDL already knows what the archetype is; just calling this->GetArchetype() tries to load some other stuff.
-		UObject* DiffObject = Ar.GetArchetypeFromLoader(this);
+		UObject* DiffObject = UnderlyingArchive.GetArchetypeFromLoader(this);
 		if (!DiffObject)
 		{
 			DiffObject = GetArchetype();
 		}
 #if WITH_EDITOR
 		static const FBoolConfigValueHelper BreakSerializationRecursion(TEXT("StructSerialization"), TEXT("BreakSerializationRecursion"));
-		const bool bBreakSerializationRecursion = BreakSerializationRecursion && Ar.IsLoading() && Ar.GetLinker();
+		const bool bBreakSerializationRecursion = BreakSerializationRecursion && UnderlyingArchive.IsLoading() && UnderlyingArchive.GetLinker();
 #else 
 		const bool bBreakSerializationRecursion = false;
 #endif
 #if WITH_EDITOR
 		static const FName NAME_SerializeScriptProperties = FName(TEXT("SerializeScriptProperties"));
-		FArchive::FScopeAddDebugData P(Ar, NAME_SerializeScriptProperties);
-		FArchive::FScopeAddDebugData S(Ar, ObjClass->GetFName());
+		FArchive::FScopeAddDebugData P(UnderlyingArchive, NAME_SerializeScriptProperties);
+		FArchive::FScopeAddDebugData S(UnderlyingArchive, ObjClass->GetFName());
 #endif
-		ObjClass->SerializeTaggedProperties(Ar, (uint8*)this, HasAnyFlags(RF_ClassDefaultObject) ? ObjClass->GetSuperClass() : ObjClass, (uint8*)DiffObject, bBreakSerializationRecursion ? this : NULL);
+
+		ObjClass->SerializeTaggedProperties(Slot, (uint8*)this, HasAnyFlags(RF_ClassDefaultObject) ? ObjClass->GetSuperClass() : ObjClass, (uint8*)DiffObject, bBreakSerializationRecursion ? this : NULL);
 	}
-	else if ( Ar.GetPortFlags() != 0 && !Ar.ArUseCustomPropertyList )
+	else if (UnderlyingArchive.GetPortFlags() != 0 && !UnderlyingArchive.ArUseCustomPropertyList )
 	{
 		//@todoio GetArchetype is pathological for blueprint classes and the event driven loader; the EDL already knows what the archetype is; just calling this->GetArchetype() tries to load some other stuff.
-		UObject* DiffObject = Ar.GetArchetypeFromLoader(this);
+		UObject* DiffObject = UnderlyingArchive.GetArchetypeFromLoader(this);
 		if (!DiffObject)
 		{
 			DiffObject = GetArchetype();
 		}
-		ObjClass->SerializeBinEx( Ar, const_cast<UObject *>(this), DiffObject, DiffObject ? DiffObject->GetClass() : NULL );
+		ObjClass->SerializeBinEx(Slot, const_cast<UObject *>(this), DiffObject, DiffObject ? DiffObject->GetClass() : NULL);
 	}
 	else
 	{
-		ObjClass->SerializeBin( Ar, const_cast<UObject *>(this) );
+		ObjClass->SerializeBin(Slot, const_cast<UObject *>(this));
 	}
 
 	if( HasAnyFlags(RF_ClassDefaultObject) )
 	{
-		Ar.StopSerializingDefaults();
+		UnderlyingArchive.StopSerializingDefaults();
 	}
-	Ar.MarkScriptSerializationEnd(this);
+	UnderlyingArchive.MarkScriptSerializationEnd(this);
 }
 
 
@@ -1889,7 +1893,8 @@ void UObject::LoadConfig( UClass* ConfigClass/*=NULL*/, const TCHAR* InFilename/
 	// because ProcessNewlyLoadedUObjects hasn't happened yet
 	checkf(ConfigClass->PropertyLink != nullptr
 		|| (ConfigClass->GetSuperStruct() && ConfigClass->PropertiesSize == ConfigClass->GetSuperStruct()->PropertiesSize)
-		|| ConfigClass->PropertiesSize == 0,
+		|| ConfigClass->PropertiesSize == 0
+		|| GIsRequestingExit, // Ignore this check when exiting as we may have requested exit during init when not everything is initialized
 		TEXT("class %s has uninitialized properties. Accessed too early?"), *ConfigClass->GetName());
 #endif
 

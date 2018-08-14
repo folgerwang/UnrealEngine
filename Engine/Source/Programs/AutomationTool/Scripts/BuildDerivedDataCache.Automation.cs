@@ -76,7 +76,7 @@ public class BuildDerivedDataCache : BuildCommand
 				ProjectSpecificPlatforms = CommandUtils.CombineCommandletParams(FilteredPlatforms.Distinct().ToArray());
 			}
 
-			CommandUtils.Log("Generating DDC data for {0} on {1}", GameName, ProjectSpecificPlatforms);
+			CommandUtils.LogInformation("Generating DDC data for {0} on {1}", GameName, ProjectSpecificPlatforms);
 			CommandUtils.DDCCommandlet(FileRef, EditorExe, null, ProjectSpecificPlatforms, "-fill -DDC=CreateInstalledEnginePak -ProjectOnly");
 
 			string ProjectPakFile = CommandUtils.CombinePaths(Path.GetDirectoryName(OutputPakFile), String.Format("Compressed-{0}.ddp", GameName));
@@ -92,7 +92,7 @@ public class BuildDerivedDataCache : BuildCommand
 		}
 
 		// Generate DDC for the editor, and merge all the other PAK files in
-		CommandUtils.Log("Generating DDC data for engine content on {0}", TargetPlatforms);
+		CommandUtils.LogInformation("Generating DDC data for engine content on {0}", TargetPlatforms);
 		CommandUtils.DDCCommandlet(null, EditorExe, null, TargetPlatforms, "-fill -DDC=CreateInstalledEnginePak " + CommandUtils.MakePathSafeToUseWithCommandLine("-MergePaks=" + String.Join("+", ProjectPakFiles)));
 
 		string SavedPakFile = CommandUtils.CombinePaths(SavedDir, RelativePakPath);

@@ -32,7 +32,7 @@ namespace AutomationTool
 
 			foreach(FileReference PluginFile in DirectoryReference.EnumerateFiles(new DirectoryReference(RootDirParam), "*.uplugin", System.IO.SearchOption.AllDirectories))
 			{
-				Log("Reading {0}", PluginFile);
+				LogInformation("Reading {0}", PluginFile);
 				string InputText = File.ReadAllText(PluginFile.FullName);
 
 				// Parse the descriptor
@@ -50,12 +50,12 @@ namespace AutomationTool
 				// Update the fields
 				if(CreatedBy != null && Descriptor.CreatedBy != CreatedBy)
 				{
-					Log("  Updating 'CreatedBy' field from '{0}' to '{1}'", Descriptor.CreatedBy ?? "<empty>", CreatedBy);
+					LogInformation("  Updating 'CreatedBy' field from '{0}' to '{1}'", Descriptor.CreatedBy ?? "<empty>", CreatedBy);
 					Descriptor.CreatedBy = CreatedBy;
 				}
 				if(CreatedByUrl != null)
 				{
-					Log("  Updating 'CreatedByURL' field from '{0}' to '{1}'", Descriptor.CreatedByURL ?? "<empty>", CreatedByUrl);
+					LogInformation("  Updating 'CreatedByURL' field from '{0}' to '{1}'", Descriptor.CreatedByURL ?? "<empty>", CreatedByUrl);
 					Descriptor.CreatedByURL = CreatedByUrl;
 				}
 
@@ -81,7 +81,7 @@ namespace AutomationTool
 						}
 						CommandUtils.SetFileAttributes(PluginFile.FullName, ReadOnly: false);
 					}
-					Log("  Writing updated file.", PluginFile);
+					LogInformation("  Writing updated file.", PluginFile);
 					FileReference.WriteAllText(PluginFile, OutputText);
 				}
 			}

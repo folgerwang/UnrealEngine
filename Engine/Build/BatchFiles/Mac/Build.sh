@@ -39,15 +39,15 @@ case $ACTION in
 		case $2 in 
 			"iphoneos"|"IOS")
 		        Platform="IOS"
-				AdditionalFlags+=" -deploy -nocreatestub "
+				AdditionalFlags+=" -deploy "
 			;; 
 			"appletvos")
 		        Platform="TVOS"
-				AdditionalFlags+=" -deploy -nocreatestub "
+				AdditionalFlags+=" -deploy "
 			;; 
   			"iphonesimulator")
 		        	Platform="IOS"
-		         	AdditionalFlags+=" -deploy -simulator -nocreatestub"
+		         	AdditionalFlags+=" -deploy -simulator"
 			;;
 			"macosx")
 					Platform="Mac"
@@ -81,12 +81,12 @@ case $ACTION in
 		case $3 in 
 			"iphoneos"|"IOS")
 	        	        Platform="IOS"
-				AdditionalFlags+=" -nocreatestub"
+				AdditionalFlags+=" "
 			;;
 			"iphonesimulator")
 			        Platform="IOS"
 		        	AdditionalFlags+=" -simulator"
-				AdditionalFlags+=" -nocreatestub"
+				AdditionalFlags+=" "
 			;; 
 			"macosx")
 					Platform="Mac"

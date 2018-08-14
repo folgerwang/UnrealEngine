@@ -162,6 +162,7 @@ public class UnrealEd : ModuleRules
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface",
 				"PIEPreviewDeviceProfileSelector",
+				"PakFileUtilities",
 				"TimeManagement",
 			}
 		);

@@ -13,6 +13,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogApp, Log, All);
 /* FApp static initialization
  *****************************************************************************/
 
+#if UE_BUILD_DEVELOPMENT
+bool FApp::bIsDebugGame = false;
+#endif
+
 FGuid FApp::InstanceId = FGuid::NewGuid();
 FGuid FApp::SessionId = FGuid::NewGuid();
 FString FApp::SessionName = FString();
@@ -82,13 +86,7 @@ EBuildConfigurations::Type FApp::GetBuildConfiguration()
 	return EBuildConfigurations::Debug;
 
 #elif UE_BUILD_DEVELOPMENT
-	// Detect DebugGame using an extern variable in monolithic configurations, or a command line argument in modular configurations.
-	#if IS_MONOLITHIC
-		extern const bool GIsDebugGame;
-		return GIsDebugGame? EBuildConfigurations::DebugGame : EBuildConfigurations::Development;
-	#else
-		return IsRunningDebug() ? EBuildConfigurations::DebugGame : EBuildConfigurations::Development;
-	#endif
+	return bIsDebugGame ? EBuildConfigurations::DebugGame : EBuildConfigurations::Development;
 
 #elif UE_BUILD_SHIPPING
 	return EBuildConfigurations::Shipping;
@@ -101,14 +99,12 @@ EBuildConfigurations::Type FApp::GetBuildConfiguration()
 #endif
 }
 
-bool FApp::IsRunningDebug()
+#if UE_BUILD_DEVELOPMENT
+void FApp::SetDebugGame(bool bInIsDebugGame)
 {
-	static FString RunConfig;
-	static const bool bHasRunConfig = FParse::Value(FCommandLine::Get(), TEXT("RunConfig="), RunConfig);
-	static const bool bRunningDebug = FParse::Param(FCommandLine::Get(), TEXT("debug"))
-	                                  || (bHasRunConfig && RunConfig.StartsWith(TEXT("Debug")));
-	return bRunningDebug;
+	bIsDebugGame = bInIsDebugGame;
 }
+#endif
 
 FString FApp::GetBuildDate()
 {

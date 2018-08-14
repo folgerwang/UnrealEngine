@@ -40,19 +40,19 @@ bool FPrimaryAssetType::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UO
 	return true;
 }
 
-bool FPrimaryAssetType::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
+bool FPrimaryAssetType::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot)
 {
 	if (Tag.Type == NAME_NameProperty)
 	{
 		FName InName;
-		Ar << InName;
+		Slot << InName;
 		*this = FPrimaryAssetType(InName);
 		return true;
 	}
 	else if (Tag.Type == NAME_StrProperty)
 	{
 		FString InString;
-		Ar << InString;
+		Slot << InString;
 		*this = FPrimaryAssetType(*InString);
 		return true;
 	}
@@ -95,19 +95,19 @@ bool FPrimaryAssetId::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObj
 	return true;
 }
 
-bool FPrimaryAssetId::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
+bool FPrimaryAssetId::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot)
 {
 	if (Tag.Type == NAME_NameProperty)
 	{
 		FName InName;
-		Ar << InName;
+		Slot << InName;
 		*this = FPrimaryAssetId(InName.ToString());
 		return true;
 	}
 	else if (Tag.Type == NAME_StrProperty)
 	{
 		FString InString;
-		Ar << InString;
+		Slot << InString;
 		*this = FPrimaryAssetId(InString);
 		return true;
 	}

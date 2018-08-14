@@ -35,8 +35,8 @@ public:
 	 *
 	 * @param InCompletionCallback A function that is called when the state is completed.
 	 */
-	FFutureState(TFunction<void()>&& InCompletionCallback)
-		: CompletionCallback(InCompletionCallback)
+	FFutureState(TUniqueFunction<void()>&& InCompletionCallback)
+		: CompletionCallback(MoveTemp(InCompletionCallback))
 		, CompletionEvent(FPlatformProcess::GetSynchEventFromPool(true))
 		, Complete(false)
 	{ }
@@ -95,7 +95,7 @@ protected:
 private:
 
 	/** An optional callback function that is executed the state is completed. */
-	TFunction<void()> CompletionCallback;
+	TUniqueFunction<void()> CompletionCallback;
 
 	/** Holds an event signaling that the result is available. */
 	FEvent* CompletionEvent;
@@ -124,7 +124,7 @@ public:
 	 *
 	 * @param CompletionCallback A function that is called when the state is completed.
 	 */
-	TFutureState(TFunction<void()>&& CompletionCallback)
+	TFutureState(TUniqueFunction<void()>&& CompletionCallback)
 		: FFutureState(MoveTemp(CompletionCallback))
 	{ }
 
@@ -745,7 +745,7 @@ public:
 
 	/** Default constructor. */
 	TPromiseBase()
-		: State(MakeShareable(new TFutureState<InternalResultType>))
+		: State(MakeShared<TFutureState<InternalResultType>, ESPMode::ThreadSafe>())
 	{ }
 
 	/**
@@ -764,8 +764,8 @@ public:
 	 *
 	 * @param CompletionCallback A function that is called when the future state is completed.
 	 */
-	TPromiseBase(TFunction<void()>&& CompletionCallback)
-		: State(MakeShareable(new TFutureState<InternalResultType>(MoveTemp(CompletionCallback))))
+	TPromiseBase(TUniqueFunction<void()>&& CompletionCallback)
+		: State(MakeShared<TFutureState<InternalResultType>, ESPMode::ThreadSafe>(MoveTemp(CompletionCallback)))
 	{ }
 
 public:
@@ -844,7 +844,7 @@ public:
 	 *
 	 * @param CompletionCallback A function that is called when the future state is completed.
 	 */
-	TPromise(TFunction<void()>&& CompletionCallback)
+	TPromise(TUniqueFunction<void()>&& CompletionCallback)
 		: BaseType(MoveTemp(CompletionCallback))
 		, FutureRetrieved(false)
 	{ }
@@ -944,7 +944,7 @@ public:
 	 *
 	 * @param CompletionCallback A function that is called when the future state is completed.
 	 */
-	TPromise(TFunction<void()>&& CompletionCallback)
+	TPromise(TUniqueFunction<void()>&& CompletionCallback)
 		: BaseType(MoveTemp(CompletionCallback))
 		, FutureRetrieved(false)
 	{ }
@@ -1031,7 +1031,7 @@ public:
 	 *
 	 * @param CompletionCallback A function that is called when the future state is completed.
 	 */
-	TPromise(TFunction<void()>&& CompletionCallback)
+	TPromise(TUniqueFunction<void()>&& CompletionCallback)
 		: BaseType(MoveTemp(CompletionCallback))
 		, FutureRetrieved(false)
 	{ }

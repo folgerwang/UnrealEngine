@@ -90,31 +90,31 @@ FD3D12CommandContextBase::FD3D12CommandContextBase(class FD3D12Adapter* InParent
 
 FD3D12CommandContext::FD3D12CommandContext(FD3D12Device* InParent, FD3D12SubAllocatedOnlineHeap::SubAllocationDesc& SubHeapDesc, bool InIsDefaultContext, bool InIsAsyncComputeContext) :
 	FD3D12CommandContextBase(InParent->GetParentAdapter(), InParent->GetGPUMask(), InIsDefaultContext, InIsAsyncComputeContext),
+	FD3D12DeviceChild(InParent),
+	ConstantsAllocator(InParent, InParent->GetGPUMask(), GetConstantAllocatorSize(InIsAsyncComputeContext, InIsDefaultContext) ),
+	CommandListHandle(),
+	CommandAllocator(nullptr),
+	CommandAllocatorManager(InParent, InIsAsyncComputeContext ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT),
+	StateCache(InParent->GetGPUMask()),
 	OwningRHI(*InParent->GetOwningRHI()),
-	bUsingTessellation(false),
+	CurrentDepthStencilTarget(nullptr),
 	CurrentDepthTexture(nullptr),
 	NumSimultaneousRenderTargets(0),
 	NumUAVs(0),
 	CurrentDSVAccessType(FExclusiveDepthStencil::DepthWrite_StencilWrite),
 	bDiscardSharedConstants(false),
+	bUsingTessellation(false),
 #if PLATFORM_SUPPORTS_VIRTUAL_TEXTURES
 	bNeedFlushTextureCache(false),
 #endif
-	CommandListHandle(),
-	CommandAllocator(nullptr),
-	CommandAllocatorManager(InParent, InIsAsyncComputeContext ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT),
-	ConstantsAllocator(InParent, InParent->GetGPUMask(), GetConstantAllocatorSize(InIsAsyncComputeContext, InIsDefaultContext) ),
 	DynamicVB(InParent),
 	DynamicIB(InParent),
-	StateCache(InParent->GetGPUMask()),
 	VSConstantBuffer(InParent, ConstantsAllocator),
 	HSConstantBuffer(InParent, ConstantsAllocator),
 	DSConstantBuffer(InParent, ConstantsAllocator),
 	PSConstantBuffer(InParent, ConstantsAllocator),
 	GSConstantBuffer(InParent, ConstantsAllocator),
-	CSConstantBuffer(InParent, ConstantsAllocator),
-	CurrentDepthStencilTarget(nullptr),
-	FD3D12DeviceChild(InParent)
+	CSConstantBuffer(InParent, ConstantsAllocator)
 {
 	FMemory::Memzero(DirtyUniformBuffers);
 	FMemory::Memzero(BoundUniformBuffers);
@@ -760,13 +760,13 @@ void FD3D12CommandContextRedirector::RHITransitionResources(EResourceTransitionA
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 FD3D12TemporalEffect::FD3D12TemporalEffect()
-	: EffectFence(nullptr, FRHIGPUMask::GPU0(), "TemporalEffectFence")
-	, FD3D12AdapterChild(nullptr)
+	: FD3D12AdapterChild(nullptr)
+	, EffectFence(nullptr, FRHIGPUMask::GPU0(), "TemporalEffectFence")
 {}
 
 FD3D12TemporalEffect::FD3D12TemporalEffect(FD3D12Adapter* Parent, const FName& InEffectName)
-	: EffectFence(Parent, FRHIGPUMask::All(), InEffectName.GetPlainANSIString())
-	, FD3D12AdapterChild(Parent)
+	: FD3D12AdapterChild(Parent)
+	, EffectFence(Parent, FRHIGPUMask::All(), InEffectName.GetPlainANSIString())
 {}
 
 FD3D12TemporalEffect::FD3D12TemporalEffect(const FD3D12TemporalEffect& Other)

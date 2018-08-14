@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -8,6 +8,7 @@ using System.Xml;
 using System.Xml.Linq;
 using System.Diagnostics;
 using System.IO;
+using Tools.DotNETCommon;
 
 using Ionic.Zip;
 

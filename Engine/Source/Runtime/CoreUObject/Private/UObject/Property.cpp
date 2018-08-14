@@ -224,6 +224,7 @@ struct TStructOpsTypeTraits<FGuid> : public TStructOpsTypeTraitsBase2<FGuid>
 		WithImportTextItem = true,
 		WithZeroConstructor = true,
 		WithSerializer = true,
+		WithStructuredSerializer = true,
 	};
 };
 IMPLEMENT_STRUCT(Guid);
@@ -752,7 +753,7 @@ bool UProperty::ShouldSerializeValue( FArchive& Ar ) const
 //
 bool UProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData ) const
 {
-	SerializeItem( Ar, Data, NULL );
+	SerializeItem( FStructuredArchiveFromArchive(Ar).GetSlot(), Data, NULL );
 	return 1;
 }
 
@@ -819,7 +820,7 @@ void UProperty::LinkInternal(FArchive& Ar)
 	check(0); // Link shouldn't call super...and we should never link an abstract property, like this base class
 }
 
-EConvertFromTypeResult UProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	return EConvertFromTypeResult::UseSerializeItem;
 }

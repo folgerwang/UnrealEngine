@@ -3,6 +3,7 @@
 #include "Internationalization/PolyglotTextData.h"
 #include "Internationalization/TextLocalizationManager.h"
 #include "Internationalization/TextLocalizationResource.h"
+#include "Internationalization/Internationalization.h"
 
 #define LOCTEXT_NAMESPACE "PolyglotTextData"
 

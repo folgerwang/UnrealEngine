@@ -1644,8 +1644,8 @@ void* UTrueTypeFontFactory::LoadFontFace( void* FTLibrary, int32 Height, FFeedba
 
 	if( FontPath )
 	{
-		ANSICHAR AnsiPath[MAX_PATH];
-		if( CFStringGetFileSystemRepresentation( FontPath, AnsiPath, MAX_PATH ) )
+		ANSICHAR AnsiPath[MAC_MAX_PATH];
+		if( CFStringGetFileSystemRepresentation( FontPath, AnsiPath, MAC_MAX_PATH ) )
 		{
 			int32 Error = FT_New_Face( (FT_Library)FTLibrary, AnsiPath, 0, &Face );
 			if( Error != 0 )

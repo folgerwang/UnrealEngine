@@ -318,7 +318,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="NewIncludePaths">List of include paths to add</param>
 		/// <param name="bAddingSystemIncludes"></param>
-		public void AddInteliiSenseIncludePaths(HashSet<DirectoryReference> NewIncludePaths, bool bAddingSystemIncludes)
+		public void AddIntelliSenseIncludePaths(HashSet<DirectoryReference> NewIncludePaths, bool bAddingSystemIncludes)
 		{
 			if (ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == null ||
 				ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == this)

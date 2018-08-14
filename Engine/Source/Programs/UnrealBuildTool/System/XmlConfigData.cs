@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -70,7 +70,7 @@ namespace UnrealBuildTool
 				}
 
 				// Read the input files
-				FileReference[] InputFiles = Reader.ReadArray(x => x.ReadFileReference());
+				FileReference[] InputFiles = Reader.ReadArray(() => Reader.ReadFileReference());
 
 				// Read the types
 				int NumTypes = Reader.ReadInt32();
@@ -95,7 +95,7 @@ namespace UnrealBuildTool
 						string FieldName = Reader.ReadString();
 
 						// Find the matching field on the output type
-						FieldInfo Field = Type.GetField(FieldName);
+						FieldInfo Field = Type.GetField(FieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
 						if(Field == null || Field.GetCustomAttribute<XmlConfigFileAttribute>() == null)
 						{
 							Data = null;
@@ -129,7 +129,7 @@ namespace UnrealBuildTool
 				Writer.Write(SerializationVersion);
 
 				// Save all the input files. The cache will not be valid if these change.
-				Writer.Write(InputFiles, (x, y) => x.Write(y));
+				Writer.Write(InputFiles, Item => Writer.Write(Item));
 
 				// Write all the categories
 				Writer.Write(TypeToValues.Count);

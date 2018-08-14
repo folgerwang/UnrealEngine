@@ -163,7 +163,7 @@ struct FWidgetAnimation_DEPRECATED
 	UPROPERTY()
 	TArray<FWidgetAnimationBinding> AnimationBindings;
 
-	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
 
 };
 

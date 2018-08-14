@@ -14,6 +14,7 @@
 	"CanContainContent" : false,
 	"IsBetaVersion" : false,
 	"Installed" : false,
+	"SupportedPrograms": [ "UnrealFrontend" ],
 	"Modules" :
 	[
 		{
@@ -24,7 +25,8 @@
 			[
 				"Win64",
 				"Win32"
-			]
+			],
+			"WhitelistPrograms" : [ "UnrealFrontend" ]
 		}
 	]
 }

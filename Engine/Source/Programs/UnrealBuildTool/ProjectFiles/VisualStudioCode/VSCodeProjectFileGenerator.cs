@@ -365,10 +365,6 @@ namespace UnrealBuildTool
 				{
 					foreach (ProjectTarget Target in Project.ProjectTargets)
 					{
-						TargetRules.CPPEnvironmentConfiguration CppEnvironment = new TargetRules.CPPEnvironmentConfiguration(Target.TargetRules);
-						TargetRules.LinkEnvironmentConfiguration LinkEnvironment = new TargetRules.LinkEnvironmentConfiguration(Target.TargetRules);
-						Target.TargetRules.SetupGlobalEnvironment(new TargetInfo(new ReadOnlyTargetRules(Target.TargetRules)), ref LinkEnvironment, ref CppEnvironment);
-
 						Array Configs = Enum.GetValues(typeof(UnrealTargetConfiguration));
 						List<UnrealTargetPlatform> Platforms = new List<UnrealTargetPlatform>(UEBuildTarget.GetSupportedPlatforms(Target.TargetRules));
 
@@ -395,7 +391,7 @@ namespace UnrealBuildTool
 											Config = Config,
 											UProjectFile = Target.UnrealProjectFilePath,
 											OutputType = ProjectData.EOutputType.Exe,
-											OutputFile = GetExecutableFilename(Project, Target, Platform, Config, LinkEnvironment),
+											OutputFile = GetExecutableFilename(Project, Target, Platform, Config),
 											CSharpInfo = null
 										});
 									}
@@ -863,7 +859,7 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		private FileReference GetExecutableFilename(ProjectFile Project, ProjectTarget Target, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, TargetRules.LinkEnvironmentConfiguration LinkEnvironment)
+		private FileReference GetExecutableFilename(ProjectFile Project, ProjectTarget Target, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration)
 		{
 			TargetRules TargetRulesObject = Target.TargetRules;
 			FileReference TargetFilePath = Target.TargetFilePath;
@@ -935,7 +931,7 @@ namespace UnrealBuildTool
 				ExecutableFilename += ".app/Contents/MacOS/" + Path.GetFileName(ExecutableFilename);
 			}
 
-			return FileReference.MakeFromNormalizedFullPath(ExecutableFilename);
+			return new FileReference(ExecutableFilename);
 		}
 
 		private void WriteNativeLaunchConfig(ProjectData.Project InProject, JsonFile OutFile)
@@ -969,11 +965,6 @@ namespace UnrealBuildTool
 										{
 											OutFile.AddUnnamedField(InProject.Name);
 										}
-									}
-
-									if (BuildProduct.Config == UnrealTargetConfiguration.Debug || BuildProduct.Config == UnrealTargetConfiguration.DebugGame)
-									{
-										OutFile.AddUnnamedField("-debug");
 									}
 								}
 

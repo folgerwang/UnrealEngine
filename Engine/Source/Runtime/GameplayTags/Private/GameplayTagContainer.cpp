@@ -1134,11 +1134,11 @@ FGameplayTag::FGameplayTag(FName Name)
 	// This constructor is used to bypass the table check and is only usable by GameplayTagManager
 }
 
-bool FGameplayTag::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)
+bool FGameplayTag::SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
 {
 	if (Tag.Type == NAME_NameProperty)
 	{
-		Ar << TagName;
+		Slot << TagName;
 		return true;
 	}
 	return false;

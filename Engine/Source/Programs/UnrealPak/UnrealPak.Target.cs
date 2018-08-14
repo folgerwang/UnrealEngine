@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -8,11 +8,12 @@ public class UnrealPakTarget : TargetRules
 	public UnrealPakTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Program;
-		LinkType = TargetLinkType.Monolithic;
+		LinkType = TargetLinkType.Modular;
 		LaunchModuleName = "UnrealPak";
 
 		bCompileLeanAndMeanUE = true;
 		bUseMallocProfiler = false;
+		bCompileWithPluginSupport = true;
 
 		// No editor needed
 		bBuildEditor = false;
@@ -27,6 +28,7 @@ public class UnrealPakTarget : TargetRules
 		bCompileICU = false;
 
 		// UnrealHeaderTool is a console application, not a Windows app (sets entry point to main(), instead of WinMain())
+		bCompileAgainstApplicationCore = false;
 		bIsBuildingConsoleApplication = true;
 	}
 }

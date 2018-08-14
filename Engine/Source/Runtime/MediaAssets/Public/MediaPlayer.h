@@ -1080,6 +1080,9 @@ private:
 	/** Callback for when a media event occurred in the player. */
 	void HandlePlayerMediaEvent(EMediaEvent Event);
 
+	/** Sets the playlist and properly handles cases when this MediaPlayer object is in disregard for GC set */
+	void SetPlaylistInternal(UMediaPlaylist* InPlaylist);
+
 private:
 
 	/** An event delegate that is invoked when a media event occurred. */

@@ -779,7 +779,7 @@ private:
 						void*         Map = StackEntryData + ReferenceInfo.Offset;
 						UMapProperty* MapProperty = (UMapProperty*)TokenStream->ReadPointer(TokenStreamIndex);
 						TokenReturnCount = ReferenceInfo.ReturnCount;
-						MapProperty->SerializeItem(ReferenceCollector.GetVerySlowReferenceCollectorArchive(), Map, nullptr);
+						MapProperty->SerializeItem(FStructuredArchiveFromArchive(ReferenceCollector.GetVerySlowReferenceCollectorArchive()).GetSlot(), Map, nullptr);
 					}
 					break;
 					case GCRT_AddTSetReferencedObjects:
@@ -787,7 +787,7 @@ private:
 						void*         Set = StackEntryData + ReferenceInfo.Offset;
 						USetProperty* SetProperty = (USetProperty*)TokenStream->ReadPointer(TokenStreamIndex);
 						TokenReturnCount = ReferenceInfo.ReturnCount;
-						SetProperty->SerializeItem(ReferenceCollector.GetVerySlowReferenceCollectorArchive(), Set, nullptr);
+						SetProperty->SerializeItem(FStructuredArchiveFromArchive(ReferenceCollector.GetVerySlowReferenceCollectorArchive()).GetSlot(), Set, nullptr);
 					}
 					break;
 					case GCRT_EndOfPointer:

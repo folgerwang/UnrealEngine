@@ -335,6 +335,12 @@ void FAndroidMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Resu
 	// @todo Android : get environment variable.
 }
 
+FString FAndroidMisc::GetEnvironmentVariable(const TCHAR* VariableName)
+{
+	// @todo Android : get environment variable.
+	return FString();
+}
+
 const TCHAR* FAndroidMisc::GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error)
 {
 	check(OutBuffer && BufferCount);

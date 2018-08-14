@@ -2580,7 +2580,7 @@ void UWorld::RenameToPIEWorld(int32 PIEInstanceID)
 	WorldPackage->SetPackageFlags(PKG_PlayInEditor);
 
 	const FString PIEPackageName = *UWorld::ConvertToPIEPackageName(WorldPackage->GetName(), PIEInstanceID);
-	WorldPackage->Rename(*PIEPackageName);
+	WorldPackage->Rename(*PIEPackageName, nullptr, REN_ForceNoResetLoaders);
 	FSoftObjectPath::AddPIEPackageName(FName(*PIEPackageName));
 
 	StreamingLevelsPrefix = UWorld::BuildPIEPackagePrefix(PIEInstanceID);

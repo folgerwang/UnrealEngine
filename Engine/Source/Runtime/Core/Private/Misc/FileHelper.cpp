@@ -574,7 +574,7 @@ bool FFileHelper::LoadANSITextFileToStrings(const TCHAR* InFilename, IFileManage
 
 /**
 * Checks to see if a filename is valid for saving.
-* A filename must be under MAX_UNREAL_FILENAME_LENGTH to be saved
+* A filename must be under FPlatformMisc::GetMaxPathLength() to be saved
 *
 * @param Filename	Filename, with or without path information, to check.
 * @param OutError	If an error occurs, this is the reason why
@@ -589,7 +589,7 @@ bool FFileHelper::IsFilenameValidForSaving(const FString& Filename, FText& OutEr
 	// Check length of the filename
 	if (BaseFilename.Len() > 0)
 	{
-		if (BaseFilename.Len() <= MAX_UNREAL_FILENAME_LENGTH)
+		if (BaseFilename.Len() <= FPlatformMisc::GetMaxPathLength())
 		{
 			bFilenameIsValid = true;
 
@@ -637,7 +637,7 @@ bool FFileHelper::IsFilenameValidForSaving(const FString& Filename, FText& OutEr
 		else
 		{
 			OutError = FText::Format(NSLOCTEXT("UnrealEd", "Error_FilenameIsTooLongForCooking", "Filename '{0}' is too long; this may interfere with cooking for consoles.  Unreal filenames should be no longer than {1} characters."),
-				FText::FromString(BaseFilename), FText::AsNumber(MAX_UNREAL_FILENAME_LENGTH));
+				FText::FromString(BaseFilename), FText::AsNumber(FPlatformMisc::GetMaxPathLength()));
 		}
 	}
 	else

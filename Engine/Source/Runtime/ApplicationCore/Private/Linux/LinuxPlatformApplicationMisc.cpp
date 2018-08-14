@@ -6,7 +6,7 @@
 #include "HAL/ThreadHeartBeat.h"
 #include "Modules/ModuleManager.h"
 #include "Linux/LinuxConsoleOutputDevice.h"
-#include "Unix/UnixErrorOutputDevice.h"
+#include "Unix/UnixApplicationErrorOutputDevice.h"
 #include "Unix/UnixFeedbackContext.h"
 #include "Linux/LinuxApplication.h"
 
@@ -389,7 +389,7 @@ class FOutputDeviceConsole* FLinuxPlatformApplicationMisc::CreateConsoleOutputDe
 
 class FOutputDeviceError* FLinuxPlatformApplicationMisc::GetErrorOutputDevice()
 {
-	static FUnixErrorOutputDevice Singleton;
+	static FUnixApplicationErrorOutputDevice Singleton;
 	return &Singleton;
 }
 

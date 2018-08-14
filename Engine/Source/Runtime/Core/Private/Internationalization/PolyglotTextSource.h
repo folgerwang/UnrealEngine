@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
 #include "Internationalization/ILocalizedTextSource.h"
 #include "Internationalization/PolyglotTextData.h"
 #include "Internationalization/LocKeyFuncs.h"

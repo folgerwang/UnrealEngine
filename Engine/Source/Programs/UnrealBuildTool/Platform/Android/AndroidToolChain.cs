@@ -1251,7 +1251,7 @@ namespace UnrealBuildTool
 
 			string BasePCHName = "";
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(UEBuildPlatform.CPPTargetPlatformToUnrealTargetPlatform(CompileEnvironment.Platform));
-			string PCHExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+			string PCHExtension = ".gch";
 			if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 			{
 				BasePCHName = RemoveArchName(CompileEnvironment.PrecompiledHeaderFile.AbsolutePath).Replace(PCHExtension, "");
@@ -1341,7 +1341,7 @@ namespace UnrealBuildTool
 							FileArguments += GetCompileArguments_C(bDisableOptimizations);
 
 							// remove shadow variable warnings for externally included files
-							if (!SourceFile.AbsolutePath.Replace("\\", "/").StartsWith(Path.GetFullPath(UnrealBuildTool.RootDirectory.CanonicalName)))
+							if (!SourceFile.Location.IsUnderDirectory(UnrealBuildTool.RootDirectory))
 							{
 								bDisableShadowWarning = true;
 							}
@@ -1386,11 +1386,14 @@ namespace UnrealBuildTool
 								CompileAction.PrerequisiteItems.Add(ArchPrecompiledHeaderFile);
 							}
 
-							string ObjectFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.Object);
-
+							string ObjectFileExtension;
 							if(CompileEnvironment.AdditionalArguments != null && CompileEnvironment.AdditionalArguments.Contains("-emit-llvm"))
 							{
 								ObjectFileExtension = ".bc";
+							}
+							else
+							{
+								ObjectFileExtension = ".o";
 							}
 
 							// Add the object file to the produced item list.

@@ -102,16 +102,24 @@ public:
 		return DEFAULT_ZLIB_BIT_WINDOW;
 	}
 
+	virtual int32 GetPlatformOrdinal() const override
+	{
+		return PlatformOrdinal;
+	}
+
 protected:
 
 	FTargetPlatformBase(const PlatformInfo::FPlatformInfo *const InPlatformInfo)
 		: PlatformInfo(InPlatformInfo)
 	{
 		check(PlatformInfo);
+
+		PlatformOrdinal = AssignPlatformOrdinal(*this);
 	}
 
 	/** Information about this platform */
 	const PlatformInfo::FPlatformInfo *PlatformInfo;
+	int32 PlatformOrdinal;
 };
 
 

@@ -84,9 +84,9 @@ namespace UnrealBuildTool
 		public List<string> AdditionalLibraries = new List<string>();
 
 		/// <summary>
-		/// A list of runtime dependencies for the resulting binary.
+		/// Paths to add as search paths for runtime libraries
 		/// </summary>
-		public List<FileReference> RuntimeDependencies = new List<FileReference>();
+		public List<string> RuntimeLibraryPaths = new List<string>();
 
 		/// <summary>
 		/// A list of additional frameworks to link in.
@@ -318,7 +318,7 @@ namespace UnrealBuildTool
 			LibraryPaths.AddRange(Other.LibraryPaths);
 			ExcludedLibraries.AddRange(Other.ExcludedLibraries);
 			AdditionalLibraries.AddRange(Other.AdditionalLibraries);
-			RuntimeDependencies.AddRange(Other.RuntimeDependencies);
+			RuntimeLibraryPaths.AddRange(Other.RuntimeLibraryPaths);
 			Frameworks.AddRange(Other.Frameworks);
 			AdditionalShadowFiles.AddRange(Other.AdditionalShadowFiles);
 			AdditionalFrameworks.AddRange(Other.AdditionalFrameworks);

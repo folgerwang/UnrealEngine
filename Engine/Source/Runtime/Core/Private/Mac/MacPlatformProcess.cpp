@@ -69,7 +69,7 @@ FString FMacPlatformProcess::GenerateApplicationPath( const FString& AppName, EB
 	
 	FString PlatformName = TEXT("Mac");
 	FString ExecutableName = AppName;
-	if (BuildConfiguration != EBuildConfigurations::Development && BuildConfiguration != EBuildConfigurations::DebugGame)
+	if (BuildConfiguration != EBuildConfigurations::Development)
 	{
 		ExecutableName += FString::Printf(TEXT("-%s-%s"), *PlatformName, EBuildConfigurations::ToString(BuildConfiguration));
 	}
@@ -661,7 +661,7 @@ FString FMacPlatformProcess::GetApplicationName( uint32 ProcessId )
 {
 	FString Output = TEXT("");
 
-	char Buffer[MAX_PATH];
+	char Buffer[MAC_MAX_PATH];
 	int32 Ret = proc_pidpath(ProcessId, Buffer, sizeof(Buffer));
 	if (Ret > 0)
 	{
@@ -732,7 +732,7 @@ void FMacPlatformProcess::CleanFileCache()
 
 const TCHAR* FMacPlatformProcess::BaseDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -759,7 +759,7 @@ const TCHAR* FMacPlatformProcess::BaseDir()
 				BasePath = [BasePath stringByDeletingLastPathComponent];
 			}
 		}
-		FCString::Strcpy(Result, MAX_PATH, *FString(BasePath));
+		FCString::Strcpy(Result, MAC_MAX_PATH, *FString(BasePath));
 		FCString::Strcat(Result, TEXT("/"));
 	}
 	return Result;
@@ -767,7 +767,7 @@ const TCHAR* FMacPlatformProcess::BaseDir()
 
 const TCHAR* FMacPlatformProcess::UserDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -795,7 +795,7 @@ const TCHAR* FMacPlatformProcess::UserSettingsDir()
 
 static TCHAR* UserLibrarySubDirectory()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		FString SubDirectory = IsRunningGame() ? FString(FApp::GetProjectName()) : FString(TEXT("Unreal Engine")) / FApp::GetProjectName();
@@ -817,7 +817,7 @@ static TCHAR* UserLibrarySubDirectory()
 
 const TCHAR* FMacPlatformProcess::UserPreferencesDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -831,7 +831,7 @@ const TCHAR* FMacPlatformProcess::UserPreferencesDir()
 
 const TCHAR* FMacPlatformProcess::UserLogsDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -845,7 +845,7 @@ const TCHAR* FMacPlatformProcess::UserLogsDir()
 
 const TCHAR* FMacPlatformProcess::ApplicationSettingsDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
@@ -908,7 +908,7 @@ void FMacPlatformProcess::SetCurrentWorkingDirectoryToBaseDir()
 FString FMacPlatformProcess::GetCurrentWorkingDirectory()
 {
 	// get the current directory
-	ANSICHAR CurrentDir[MAX_PATH] = { 0 };
+	ANSICHAR CurrentDir[MAC_MAX_PATH] = { 0 };
 	getcwd(CurrentDir, sizeof(CurrentDir));
 	return UTF8_TO_TCHAR(CurrentDir);
 }
@@ -1151,7 +1151,7 @@ FMacPlatformProcess::FProcEnumerator::FProcEnumerator()
 
 	if (sysctl(Mib, 4, NULL, &BufferSize, NULL, 0) != -1 && BufferSize > 0)
 	{
-		char Buffer[MAX_PATH];
+		char Buffer[MAC_MAX_PATH];
 		Processes = (struct kinfo_proc*)FMemory::Malloc(BufferSize);
 		if (sysctl(Mib, 4, Processes, &BufferSize, NULL, 0) != -1)
 		{
@@ -1202,7 +1202,7 @@ uint32 FMacPlatformProcess::FProcEnumInfo::GetParentPID() const
 
 FString FMacPlatformProcess::FProcEnumInfo::GetFullPath() const
 {
-	char Buffer[MAX_PATH];
+	char Buffer[MAC_MAX_PATH];
 	proc_pidpath(GetPID(), Buffer, sizeof(Buffer));
 
 	return Buffer;

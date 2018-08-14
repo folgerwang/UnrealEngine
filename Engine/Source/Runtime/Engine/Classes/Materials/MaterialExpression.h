@@ -202,7 +202,7 @@ class ENGINE_API UMaterialExpression : public UObject
 	
 	virtual bool Modify( bool bAlwaysMarkDirty=true ) override;
 #endif // WITH_EDITOR
-	virtual void Serialize( FArchive& Ar ) override;
+	virtual void Serialize( FStructuredArchive::FRecord Record ) override;
 	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForEditorGame() const override
 	{

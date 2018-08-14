@@ -51,24 +51,15 @@ void FShotgunUIManagerImpl::Initialize()
 {
 	bIsShotgunEnabled = false;
 
-	TCHAR EnvVariable[4096];
-
 	// Check if the bootstrap environment variable is set and that the script exists
-	FPlatformMisc::GetEnvironmentVariable(TEXT("UE_SHOTGUN_BOOTSTRAP"), EnvVariable, ARRAY_COUNT(EnvVariable));
-	FString ShotgunBootstrap(EnvVariable);
-
+	FString ShotgunBootstrap = FPlatformMisc::GetEnvironmentVariable(TEXT("UE_SHOTGUN_BOOTSTRAP"));
 	if (!ShotgunBootstrap.IsEmpty() && FPaths::FileExists(ShotgunBootstrap))
 	{
 		// The following environment variables must be set for the Shotgun apps to be fully functional
 		// These variables are automatically set when the editor is launched through Shotgun Desktop
-		FPlatformMisc::GetEnvironmentVariable(TEXT("SHOTGUN_ENGINE"), EnvVariable, ARRAY_COUNT(EnvVariable));
-		FString ShotgunEngine(EnvVariable);
-
-		FPlatformMisc::GetEnvironmentVariable(TEXT("SHOTGUN_ENTITY_TYPE"), EnvVariable, ARRAY_COUNT(EnvVariable));
-		FString ShotgunEntityType(EnvVariable);
-
-		FPlatformMisc::GetEnvironmentVariable(TEXT("SHOTGUN_ENTITY_ID"), EnvVariable, ARRAY_COUNT(EnvVariable));
-		FString ShotgunEntityId(EnvVariable);
+		FString ShotgunEngine = FPlatformMisc::GetEnvironmentVariable(TEXT("SHOTGUN_ENGINE"));
+		FString ShotgunEntityType = FPlatformMisc::GetEnvironmentVariable(TEXT("SHOTGUN_ENTITY_TYPE"));
+		FString ShotgunEntityId = FPlatformMisc::GetEnvironmentVariable(TEXT("SHOTGUN_ENTITY_ID"));
 
 		if (ShotgunEngine == TEXT("tk-unreal") && !ShotgunEntityType.IsEmpty() && !ShotgunEntityId.IsEmpty())
 		{

@@ -30,17 +30,17 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// All the platform folder names
 		/// </summary>
-		private static FileSystemName[] CachedPlatformFolderNames;
+		private static string[] CachedPlatformFolderNames;
 
 		/// <summary>
 		/// Cached copy of the list of folders to include for this platform
 		/// </summary>
-		private FileSystemName[] CachedIncludedFolderNames;
+		private string[] CachedIncludedFolderNames;
 
 		/// <summary>
 		/// Cached copy of the list of folders to exclude for this platform
 		/// </summary>
-		private FileSystemName[] CachedExcludedFolderNames;
+		private string[] CachedExcludedFolderNames;
 
 		/// <summary>
 		/// Constructor.
@@ -57,25 +57,25 @@ namespace UnrealBuildTool
 		/// Gets an array of all platform folder names
 		/// </summary>
 		/// <returns>Array of platform folders</returns>
-		public static FileSystemName[] GetPlatformFolderNames()
+		public static string[] GetPlatformFolderNames()
 		{
 			if(CachedPlatformFolderNames == null)
 			{
-				List<FileSystemName> PlatformFolderNames = new List<FileSystemName>();
+				List<string> PlatformFolderNames = new List<string>();
 
 				// Find all the platform folders to exclude from the list of precompiled modules
 				foreach (UnrealTargetPlatform TargetPlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
 				{
 					if (TargetPlatform != UnrealTargetPlatform.Unknown)
 					{
-						PlatformFolderNames.Add(new FileSystemName(TargetPlatform.ToString()));
+						PlatformFolderNames.Add(TargetPlatform.ToString());
 					}
 				}
 
 				// Also exclude all the platform groups that this platform is not a part of
 				foreach (UnrealPlatformGroup PlatformGroup in Enum.GetValues(typeof(UnrealPlatformGroup)))
 				{
-					PlatformFolderNames.Add(new FileSystemName(PlatformGroup.ToString()));
+					PlatformFolderNames.Add(PlatformGroup.ToString());
 				}
 
 				// Save off the list as an array
@@ -87,16 +87,16 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Finds a list of folder names to include when building for this platform
 		/// </summary>
-		virtual public FileSystemName[] GetIncludedFolderNames()
+		virtual public string[] GetIncludedFolderNames()
 		{
 			if(CachedIncludedFolderNames == null)
 			{
-				List<FileSystemName> Names = new List<FileSystemName>();
+				List<string> Names = new List<string>();
 
-				Names.Add(new FileSystemName(Platform.ToString()));
+				Names.Add(Platform.ToString());
 				foreach(UnrealPlatformGroup Group in UEBuildPlatform.GetPlatformGroups(Platform))
 				{
-					Names.Add(new FileSystemName(Group.ToString()));
+					Names.Add(Group.ToString());
 				}
 
 				CachedIncludedFolderNames = Names.ToArray();
@@ -107,7 +107,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Finds a list of folder names to exclude when building for this platform
 		/// </summary>
-		public FileSystemName[] GetExcludedFolderNames()
+		public string[] GetExcludedFolderNames()
 		{
 			if(CachedExcludedFolderNames == null)
 			{
@@ -300,14 +300,6 @@ namespace UnrealBuildTool
 		}
 
 		public virtual void PostBuildSync(UEBuildTarget Target)
-		{
-		}
-
-		/// <summary>
-		/// Called immediately after UnrealHeaderTool is executed to generated code for all UObjects modules.  Only is called if UnrealHeaderTool was actually run in this session.
-		/// </summary>
-		/// <param name="Manifest">List of UObject modules we generated code for.</param>
-		public virtual void PostCodeGeneration(UHTManifest Manifest)
 		{
 		}
 
@@ -616,17 +608,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Whether the editor should be built for this platform or not
-		/// </summary>
-		/// <param name="InPlatform"> The UnrealTargetPlatform being built</param>
-		/// <param name="InConfiguration">The UnrealTargetConfiguration being built</param>
-		/// <returns>bool   true if the editor should be built, false if not</returns>
-		public virtual bool ShouldNotBuildEditor(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
-			return false;
-		}
-
-		/// <summary>
 		/// Whether this build should support ONLY cooked data or not
 		/// </summary>
 		/// <param name="InPlatform"> The UnrealTargetPlatform being built</param>
@@ -635,18 +616,6 @@ namespace UnrealBuildTool
 		public virtual bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 		{
 			return false;
-		}
-
-		/// <summary>
-		/// Whether this platform requires the use of absolute paths in Unity files. The compiler will try to combine paths in
-		/// each #include directive with the standard include paths, and unity files in intermediate directories can result in the
-		/// maximum path length being exceeded on Windows. On the other hand, remote compilation requires relative paths so
-		/// dependency checking works correctly on the local machine as well as on the remote machine.
-		/// </summary>
-		/// <returns>bool true if it is required, false if not</returns>
-		public virtual bool UseAbsolutePathsInUnityFiles()
-		{
-			return true;
 		}
 
 		/// <summary>

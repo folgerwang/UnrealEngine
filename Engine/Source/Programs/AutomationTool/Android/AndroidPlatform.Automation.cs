@@ -252,7 +252,7 @@ public class AndroidPlatform : Platform
 				if (PluginExtras.FirstOrDefault(x => x == PluginPath) == null)
 				{
 					PluginExtras.Add(PluginPath);
-					Log("AndroidPlugin: {0}", PluginPath);
+					LogInformation("AndroidPlugin: {0}", PluginPath);
 				}
 			}
 		}
@@ -292,7 +292,7 @@ public class AndroidPlatform : Platform
 		bool bPackageDataInsideApk = Deploy.GetPackageDataInsideApk();
 
 		string BaseApkName = GetFinalApkName(Params, SC.StageExecutables[0], true, "", "");
-		Log("BaseApkName = {0}", BaseApkName);
+		LogInformation("BaseApkName = {0}", BaseApkName);
 
 		// Create main OBB with entire contents of staging dir. This
 		// includes any PAK files, movie files, etc.
@@ -306,7 +306,7 @@ public class AndroidPlatform : Platform
 		}
 
 		// Now create the OBB as a ZIP archive.
-		Log("Creating {0} from {1}", LocalObbName, SC.StageDirectory);
+		LogInformation("Creating {0} from {1}", LocalObbName, SC.StageDirectory);
 		using (ZipFile ObbFile = new ZipFile(LocalObbName))
 		{
 			ObbFile.CompressionMethod = CompressionMethod.None;
@@ -320,7 +320,7 @@ public class AndroidPlatform : Platform
 					if (e.EventType == ZipProgressEventType.Adding_AfterAddEntry)
 					{
 						ObbFileCount += 1;
-						Log("[{0}/{1}] Adding {2} to OBB",
+						LogInformation("[{0}/{1}] Adding {2} to OBB",
 							ObbFileCount, e.EntriesTotal,
 							e.CurrentEntry.FileName);
 					}
@@ -355,7 +355,7 @@ public class AndroidPlatform : Platform
 			}
 			catch (Exception)
 			{
-				Log("Failed to build OBB: " + LocalObbName);
+				LogInformation("Failed to build OBB: " + LocalObbName);
 				throw new AutomationException(ExitCode.Error_AndroidOBBError, "Stage Failed. Could not build OBB {0}. The file may be too big to fit in an OBB (2 GiB limit)", LocalObbName);
 			}
 		}
@@ -365,7 +365,7 @@ public class AndroidPlatform : Platform
 		Int64 ObbFileLength = OBBFileInfo.Length;
 		if (ObbFileLength > MaxOBBSizeAllowed)
 		{
-			Log("OBB exceeds 2 GiB limit: " + ObbFileLength + " bytes");
+			LogInformation("OBB exceeds 2 GiB limit: " + ObbFileLength + " bytes");
 			throw new AutomationException(ExitCode.Error_AndroidOBBError, "Stage Failed. OBB {0} exceeds 2 GiB limit)", LocalObbName);
 		}
 
@@ -377,7 +377,7 @@ public class AndroidPlatform : Platform
 		Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "MinSDKVersion", out MinSDKVersion);
 		int TargetSDKVersion = MinSDKVersion;
 		Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "TargetSDKVersion", out TargetSDKVersion);
-		Log("Target SDK Version" + TargetSDKVersion);
+		LogInformation("Target SDK Version" + TargetSDKVersion);
 
 		foreach (string Architecture in Architectures)
 		{
@@ -390,7 +390,7 @@ public class AndroidPlatform : Platform
                     UE4SOName = UE4SOName.Replace(".apk", ".so");
                     if (FileExists_NoExceptions(UE4SOName) == false)
 					{
-						Log("Failed to find game .so " + UE4SOName);
+						LogInformation("Failed to find game .so " + UE4SOName);
                         throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find .so {0}. You may need to build the UE4 project with your target configuration and platform.", UE4SOName);
 					}
 				}
@@ -503,7 +503,7 @@ public class AndroidPlatform : Platform
 			// Note that $STORAGE/Android/obb will be the folder that contains the obb if you download the app from playstore.
 			string OBBInstallCommand = bNoObbInstall ? "shell 'rm -r $EXTERNAL_STORAGE/" + DeviceObbName + "'" : "push " + Path.GetFileName(ObbName) + " $STORAGE/" + (bIsDistribution ? "Download/" : "") + DeviceObbName;
 
-            Log("Writing shell script for install with {0}", bPackageDataInsideApk ? "data in APK" : "separate obb");
+            LogInformation("Writing shell script for install with {0}", bPackageDataInsideApk ? "data in APK" : "separate obb");
             BatchLines = new string[] {
 						"#!/bin/sh",
 						"cd \"`dirname \"$0\"`\"",
@@ -553,7 +553,7 @@ public class AndroidPlatform : Platform
         {
 			string OBBInstallCommand = bNoObbInstall ? "shell rm -r %STORAGE%/" + DeviceObbName : "push " + Path.GetFileName(ObbName) + " %STORAGE%/" + (bIsDistribution ? "Download/" : "") + DeviceObbName;
 
-			Log("Writing bat for install with {0}", bPackageDataInsideApk ? "data in APK" : "separate OBB");
+			LogInformation("Writing bat for install with {0}", bPackageDataInsideApk ? "data in APK" : "separate OBB");
             BatchLines = new string[] {
 						"setlocal",
                         "set ANDROIDHOME=%ANDROID_HOME%",
@@ -606,7 +606,7 @@ public class AndroidPlatform : Platform
 
 		if (!bIsPC)
 		{
-			Log("Writing shell script for uninstall with {0}", bPackageDataInsideApk ? "data in APK" : "separate obb");
+			LogInformation("Writing shell script for uninstall with {0}", bPackageDataInsideApk ? "data in APK" : "separate obb");
 			BatchLines = new string[] {
 						"#!/bin/sh",
 						"cd \"`dirname \"$0\"`\"",
@@ -630,7 +630,7 @@ public class AndroidPlatform : Platform
 		}
 		else
 		{
-			Log("Writing bat for uninstall with {0}", bPackageDataInsideApk ? "data in APK" : "separate OBB");
+			LogInformation("Writing bat for uninstall with {0}", bPackageDataInsideApk ? "data in APK" : "separate OBB");
 			BatchLines = new string[] {
 						"setlocal",
 						"set ANDROIDHOME=%ANDROID_HOME%",
@@ -661,7 +661,7 @@ public class AndroidPlatform : Platform
 
 		if (!bIsPC)
 		{
-			Log("Writing shell script for symbolize with {0}", "data in APK" );
+			LogInformation("Writing shell script for symbolize with {0}", "data in APK" );
 			BatchLines = new string[] {
 				"#!/bin/sh",
 				"if [ $? -ne 0]; then",
@@ -677,7 +677,7 @@ public class AndroidPlatform : Platform
 		}
 		else
 		{
-			Log("Writing bat for symbolize");
+			LogInformation("Writing bat for symbolize");
 			BatchLines = new string[] {
 						"@echo off",
 						"IF %1.==. GOTO NoArgs",
@@ -1495,7 +1495,7 @@ public class AndroidPlatform : Platform
 		CachedAaptPath = BestToolPath;
 		LastAndroidHomePath = HomePath;
 
-		Log("Using this aapt: {0}", CachedAaptPath);
+		LogInformation("Using this aapt: {0}", CachedAaptPath);
 
 		return CachedAaptPath;
 	}
@@ -1664,7 +1664,7 @@ public class AndroidPlatform : Platform
 					TimeSpan DeltaRunTime = DateTime.Now - StartTime;
 					if ((DeltaRunTime.TotalSeconds > TimeOutSeconds) && (TimeOutSeconds != 0))
 					{
-						Log("Device: " + DeviceName + " timed out while waiting for run to finish");
+						LogInformation("Device: " + DeviceName + " timed out while waiting for run to finish");
 						FinishedRunning = true;
 					}
 				}

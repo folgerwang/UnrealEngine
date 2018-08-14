@@ -17,6 +17,8 @@
 #include "Internationalization/TextNamespaceUtil.h"
 #include "Internationalization/FastDecimalFormat.h"
 
+#include "Serialization/ArchiveFromStructuredArchive.h"
+
 #include "UObject/EditorObjectVersion.h"
 #include "HAL/PlatformProcess.h"
 
@@ -119,27 +121,27 @@ FNumberFormattingOptions::FNumberFormattingOptions()
 
 }
 
-FArchive& operator<<(FArchive& Ar, FNumberFormattingOptions& Value)
+void operator<<(FStructuredArchive::FSlot Slot, FNumberFormattingOptions& Value)
 {
-	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+	UnderlyingArchive.UsingCustomVersion(FEditorObjectVersion::GUID);
 
-	if (Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::AddedAlwaysSignNumberFormattingOption)
+	if (UnderlyingArchive.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::AddedAlwaysSignNumberFormattingOption)
 	{
-		Ar << Value.AlwaysSign;
+		Record << NAMED_ITEM("AlwaysSign", Value.AlwaysSign);
 	}
 
-	Ar << Value.UseGrouping;
+	Record << NAMED_ITEM("UseGrouping", Value.UseGrouping);
 
 	int8 RoundingModeInt8 = (int8)Value.RoundingMode;
-	Ar << RoundingModeInt8;
+	Record << NAMED_ITEM("RoundingMode", RoundingModeInt8);
 	Value.RoundingMode = (ERoundingMode)RoundingModeInt8;
 
-	Ar << Value.MinimumIntegralDigits;
-	Ar << Value.MaximumIntegralDigits;
-	Ar << Value.MinimumFractionalDigits;
-	Ar << Value.MaximumFractionalDigits;
-
-	return Ar;
+	Record << NAMED_ITEM("MinimumIntegralDigits", Value.MinimumIntegralDigits);
+	Record << NAMED_ITEM("MaximumIntegralDigits", Value.MaximumIntegralDigits);
+	Record << NAMED_ITEM("MinimumFractionalDigits", Value.MinimumFractionalDigits);
+	Record << NAMED_ITEM("MaximumFractionalDigits", Value.MaximumFractionalDigits);
 }
 
 uint32 GetTypeHash( const FNumberFormattingOptions& Key )
@@ -738,26 +740,34 @@ bool FText::FindText( const FString& Namespace, const FString& Key, FText& OutTe
 
 void FText::SerializeText(FArchive& Ar, FText& Value)
 {
+	SerializeText(FStructuredArchiveFromArchive(Ar).GetSlot(), Value);
+}
+
+void FText::SerializeText(FStructuredArchive::FSlot Slot, FText& Value)
+{
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+
 	//When duplicating, the CDO is used as the template, then values for the instance are assigned.
 	//If we don't duplicate the string, the CDO and the instance are both pointing at the same thing.
 	//This would result in all subsequently duplicated objects stamping over formerly duplicated ones.
 
 	// Older FText's stored their "SourceString", that is now stored in a history class so move it there
-	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_FTEXT_HISTORY)
+	if (UnderlyingArchive.IsLoading() && UnderlyingArchive.UE4Ver() < VER_UE4_FTEXT_HISTORY)
 	{
 		FString SourceStringToImplantIntoHistory;
-		Ar << SourceStringToImplantIntoHistory;
+		Record << NAMED_FIELD(SourceStringToImplantIntoHistory);
 
 		FTextDisplayStringPtr DisplayString;
 
 		// Namespaces and keys are no longer stored in the FText, we need to read them in and discard
-		if (Ar.UE4Ver() >= VER_UE4_ADDED_NAMESPACE_AND_KEY_DATA_TO_FTEXT)
+		if (UnderlyingArchive.UE4Ver() >= VER_UE4_ADDED_NAMESPACE_AND_KEY_DATA_TO_FTEXT)
 		{
 			FString Namespace;
 			FString Key;
 
-			Ar << Namespace;
-			Ar << Key;
+			Record << NAMED_FIELD(Namespace);
+			Record << NAMED_FIELD(Key);
 
 			// Get the DisplayString using the namespace, key, and source string.
 			DisplayString = FTextLocalizationManager::Get().GetDisplayString(Namespace, Key, &SourceStringToImplantIntoHistory);
@@ -772,61 +782,61 @@ void FText::SerializeText(FArchive& Ar, FText& Value)
 	}
 
 #if WITH_EDITOR
-	if (Ar.IsCooking() && Ar.IsSaving() && Ar.IsPersistent() && (Ar.GetDebugSerializationFlags() & DSF_EnableCookerWarnings))
+	if (UnderlyingArchive.IsCooking() && UnderlyingArchive.IsSaving() && UnderlyingArchive.IsPersistent() && (UnderlyingArchive.GetDebugSerializationFlags() & DSF_EnableCookerWarnings))
 	{
 		if (!!(Value.Flags & ETextFlag::ConvertedProperty))
 		{
-			UE_LOG(LogText, Warning, TEXT("Saving FText \"%s\" which has been converted at load time please resave source package %s to avoid determinisitic cook and localization issues."), *Value.ToString(), *Ar.GetArchiveName());
+			UE_LOG(LogText, Warning, TEXT("Saving FText \"%s\" which has been converted at load time please resave source package %s to avoid determinisitic cook and localization issues."), *Value.ToString(), *UnderlyingArchive.GetArchiveName());
 		}
 		else if (!!(Value.Flags & ETextFlag::InitializedFromString))
 		{
-			UE_LOG(LogText, Warning, TEXT("Saving FText \"%s\" which has been initialized from FString at cook time resave of source package %s may fix issue."), *Value.ToString(), *Ar.GetArchiveName())
+			UE_LOG(LogText, Warning, TEXT("Saving FText \"%s\" which has been initialized from FString at cook time resave of source package %s may fix issue."), *Value.ToString(), *UnderlyingArchive.GetArchiveName())
 		}
 	}
 #endif
 
 	const int32 OriginalFlags = Value.Flags;
 
-	if(Ar.IsSaving())
+	if(UnderlyingArchive.IsSaving())
 	{
 		Value.TextData->PersistText(); // We always need to do this when saving so that we can save the history correctly
-		if(Ar.IsPersistent())
+		if(UnderlyingArchive.IsPersistent())
 		{
 			Value.Flags &= ~(ETextFlag::ConvertedProperty | ETextFlag::InitializedFromString); // Remove conversion flag before saving.
 		}
 	}
-	Ar << Value.Flags;
+	Record << NAMED_ITEM("Flags", Value.Flags);
 
-	if (Ar.IsLoading() && Ar.IsPersistent())
+	if (UnderlyingArchive.IsLoading() && UnderlyingArchive.IsPersistent())
 	{
 		Value.Flags &= ~(ETextFlag::ConvertedProperty | ETextFlag::InitializedFromString); // Remove conversion flag before saving.
 	}
 
-	if (Ar.IsSaving())
+	if (UnderlyingArchive.IsSaving())
 	{
 		Value.Flags = OriginalFlags;
 	}
 
-	if (Ar.UE4Ver() >= VER_UE4_FTEXT_HISTORY)
+	if (UnderlyingArchive.UE4Ver() >= VER_UE4_FTEXT_HISTORY)
 	{
 		bool bSerializeHistory = true;
 
-		if (Ar.IsSaving())
+		if (UnderlyingArchive.IsSaving())
 		{
 			// Skip the history for empty texts
 			bSerializeHistory = !Value.IsEmpty();
 
 			if (!bSerializeHistory)
 			{
-				int8 NoHistory = INDEX_NONE;
-				Ar << NoHistory;
+				int8 HistoryType = INDEX_NONE;
+				Record << NAMED_FIELD(HistoryType);
 			}
 		}
-		else if (Ar.IsLoading())
+		else if (UnderlyingArchive.IsLoading())
 		{
 			// The type is serialized during the serialization of the history, during deserialization we need to deserialize it and create the correct history
 			int8 HistoryType = INDEX_NONE;
-			Ar << HistoryType;
+			Record << NAMED_FIELD(HistoryType);
 
 			// Create the history class based on the serialized type
 			switch((ETextHistoryType)HistoryType)
@@ -903,16 +913,16 @@ void FText::SerializeText(FArchive& Ar, FText& Value)
 		if(bSerializeHistory)
 		{
 			FTextHistory& MutableTextHistory = Value.TextData->GetMutableTextHistory();
-			MutableTextHistory.Serialize(Ar);
+			MutableTextHistory.Serialize(Record);
 
 			if (Value.TextData->OwnsLocalizedString())
 			{
-				MutableTextHistory.SerializeForDisplayString(Ar, Value.TextData->GetMutableLocalizedString());
+				MutableTextHistory.SerializeForDisplayString(Record, Value.TextData->GetMutableLocalizedString());
 			}
 		}
 	}
 
-	if(Ar.IsLoading())
+	if(UnderlyingArchive.IsLoading())
 	{
 		Value.Rebuild();
 	}
@@ -925,7 +935,7 @@ void FText::SerializeText(FArchive& Ar, FText& Value)
 
 	if( Value.ShouldGatherForLocalization() )
 	{
-		Ar.ThisRequiresLocalizationGather();
+		UnderlyingArchive.ThisRequiresLocalizationGather();
 	}
 }
 
@@ -1092,46 +1102,45 @@ bool FText::IdenticalTo( const FText& Other ) const
 	return TextData == Other.TextData || TextData->GetLocalizedString() == Other.TextData->GetLocalizedString();
 }
 
-FArchive& operator<<(FArchive& Ar, FFormatArgumentValue& Value)
+void operator<<(FStructuredArchive::FSlot Slot, FFormatArgumentValue& Value)
 {
-	int8 TypeAsInt8 = Value.Type;
-	Ar << TypeAsInt8;
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+	int8 TypeAsInt8 = Value.GetType();
+	Record << NAMED_ITEM("Type", TypeAsInt8);
 	Value.Type = (EFormatArgumentType::Type)TypeAsInt8;
 
 	switch(Value.Type)
 	{
 	case EFormatArgumentType::Double:
 		{
-			Ar << Value.DoubleValue;
+			Record << NAMED_ITEM("Value", Value.DoubleValue);
 			break;
 		}
 	case EFormatArgumentType::Float:
 		{
-			Ar << Value.FloatValue;
+			Record << NAMED_ITEM("Value", Value.FloatValue);
 			break;
 		}
 	case EFormatArgumentType::Int:
 		{
-			Ar << Value.IntValue;
+			Record << NAMED_ITEM("Value", Value.IntValue);
 			break;
 		}
 	case EFormatArgumentType::UInt:
 		{
-			Ar << Value.UIntValue;
+			Record << NAMED_ITEM("Value", Value.UIntValue);
 			break;
 		}
 	case EFormatArgumentType::Text:
 		{
-			if(Ar.IsLoading())
+			if(Slot.GetUnderlyingArchive().IsLoading())
 			{
 				Value.TextValue = FText();
 			}
-			Ar << Value.TextValue.GetValue();
+			Record << NAMED_ITEM("Value", Value.TextValue.GetValue());
 			break;
 		}
 	}
-	
-	return Ar;
 }
 
 FString FFormatArgumentValue::ToFormattedString(const bool bInRebuildText, const bool bInRebuildAsSource) const
@@ -1197,37 +1206,40 @@ void FFormatArgumentData::ResetValue()
 	ArgumentValueGender = ETextGender::Masculine;
 }
 
-FArchive& operator<<(FArchive& Ar, FFormatArgumentData& Value)
+void operator<<(FStructuredArchive::FSlot Slot, FFormatArgumentData& Value)
 {
-	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
 
-	if (Ar.IsLoading())
+	UnderlyingArchive.UsingCustomVersion(FEditorObjectVersion::GUID);
+
+	if (UnderlyingArchive.IsLoading())
 	{
 		// ArgumentName was changed to be FString rather than FText, so we need to convert older data to ensure serialization stays happy outside of UStruct::SerializeTaggedProperties.
-		if (Ar.UE4Ver() >= VER_UE4_K2NODE_VAR_REFERENCEGUIDS) // There was no version bump for this change, but VER_UE4_K2NODE_VAR_REFERENCEGUIDS was made at almost the same time.
+		if (UnderlyingArchive.UE4Ver() >= VER_UE4_K2NODE_VAR_REFERENCEGUIDS) // There was no version bump for this change, but VER_UE4_K2NODE_VAR_REFERENCEGUIDS was made at almost the same time.
 		{
-			Ar << Value.ArgumentName;
+			Record << NAMED_ITEM("ArgumentName", Value.ArgumentName);
 		}
 		else
 		{
 			FText TempValue;
-			Ar << TempValue;
+			Record << NAMED_ITEM("ArgumentName", TempValue);
 			Value.ArgumentName = TempValue.ToString();
 		}
 	}
-	if (Ar.IsSaving())
+	if (UnderlyingArchive.IsSaving())
 	{
-		Ar << Value.ArgumentName;
+		Record << NAMED_ITEM("ArgumentName", Value.ArgumentName);
 	}
 
 	uint8 TypeAsByte = Value.ArgumentValueType;
-	if (Ar.IsLoading())
+	if (UnderlyingArchive.IsLoading())
 	{
 		Value.ResetValue();
 
-		if (Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::TextFormatArgumentDataIsVariant)
+		if (UnderlyingArchive.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::TextFormatArgumentDataIsVariant)
 		{
-			Ar << TypeAsByte;
+			Record << NAMED_ITEM("Type", TypeAsByte);
 		}
 		else
 		{
@@ -1235,31 +1247,32 @@ FArchive& operator<<(FArchive& Ar, FFormatArgumentData& Value)
 			TypeAsByte = EFormatArgumentType::Text;
 		}
 	}
-	else if (Ar.IsSaving())
+	else if (UnderlyingArchive.IsSaving())
 	{
-		Ar << TypeAsByte;
+		Record << NAMED_ITEM("Type", TypeAsByte);
 	}
 
 	Value.ArgumentValueType = (EFormatArgumentType::Type)TypeAsByte;
 	switch (Value.ArgumentValueType)
 	{
 	case EFormatArgumentType::Int:
-		Ar << Value.ArgumentValueInt;
+		Record << NAMED_ITEM("Value", Value.ArgumentValueInt);
 		break;
 	case EFormatArgumentType::Float:
-		Ar << Value.ArgumentValueFloat;
+		Record << NAMED_ITEM("Value", Value.ArgumentValueFloat);
 		break;
 	case EFormatArgumentType::Text:
-		Ar << Value.ArgumentValue;
+		Record << NAMED_ITEM("Value", Value.ArgumentValue);
 		break;
 	case EFormatArgumentType::Gender:
-		Ar << (uint8&)Value.ArgumentValueGender;
-		break;
+		{
+			uint8& Gender = (uint8&)Value.ArgumentValueGender;
+			Record << NAMED_ITEM("Value", Gender);
+			break;
+		}
 	default:
 		break;
 	}
-
-	return Ar;
 }
 
 FTextSnapshot::FTextSnapshot()

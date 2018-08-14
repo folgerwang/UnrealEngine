@@ -462,12 +462,12 @@ void FScalableFloat::SetScalingValue(float InCoeffecient, FName InRowName, UCurv
 	LocalCachedCurveID = INDEX_NONE;
 }
 
-bool FScalableFloat::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)
+bool FScalableFloat::SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
 {
 	if (Tag.Type == NAME_FloatProperty)
 	{
 		float OldValue;
-		Ar << OldValue;
+		Slot << OldValue;
 		*this = FScalableFloat(OldValue);
 
 		return true;
@@ -475,7 +475,7 @@ bool FScalableFloat::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchiv
 	else if (Tag.Type == NAME_IntProperty)
 	{
 		int32 OldValue;
-		Ar << OldValue;
+		Slot << OldValue;
 		*this = FScalableFloat((float)OldValue);
 
 		return true;
@@ -483,7 +483,7 @@ bool FScalableFloat::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchiv
 	else if (Tag.Type == NAME_Int8Property)
 	{
 		int8 OldValue;
-		Ar << OldValue;
+		Slot << OldValue;
 		*this = FScalableFloat((float)OldValue);
 
 		return true;
@@ -491,7 +491,7 @@ bool FScalableFloat::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchiv
 	else if (Tag.Type == NAME_Int16Property)
 	{
 		int16 OldValue;
-		Ar << OldValue;
+		Slot << OldValue;
 		*this = FScalableFloat((float)OldValue);
 
 		return true;

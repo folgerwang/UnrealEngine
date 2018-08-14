@@ -28,4 +28,4 @@ TArray<AActor*> ULayersBlueprintLibrary::GetActors(UObject* WorldContextObject, 
 	return AllActors;
 }
 
-IMPLEMENT_MODULE(FDefaultModuleImpl, "ActorLayerUtilities")
+IMPLEMENT_MODULE(FDefaultModuleImpl, ActorLayerUtilities)
