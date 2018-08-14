@@ -36,4 +36,4 @@ class FActorLayerUtilitiesEditorModule : public IModuleInterface
 };
 
 
-IMPLEMENT_MODULE(FActorLayerUtilitiesEditorModule, "ActorLayerUtilities")
+IMPLEMENT_MODULE(FActorLayerUtilitiesEditorModule, ActorLayerUtilities)

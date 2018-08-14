@@ -24,12 +24,16 @@ namespace UnrealBuildTool.Rules
 					"MediaAssets",
 					"MediaIOCore",
 					"MediaUtils",
-					"Settings",
 				});
 
 			if (Target.bBuildEditor == true)
 			{
-				PrivateDependencyModuleNames.Add("UnrealEd");
+				PrivateDependencyModuleNames.AddRange(
+					new string[]
+					{
+						"Settings",
+						"UnrealEd"
+					});
 			}
 		}
 	}
