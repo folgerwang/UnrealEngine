@@ -10,6 +10,7 @@
 #include "Misc/Paths.h"
 #include "JsonObjectConverter.h"
 #include "USDAssetImportData.h"
+#include "AssetImportTask.h"
 
 void FUSDAssetImportContext::Init(UObject* InParent, const FString& InName, class IUsdStage* InStage)
 {
@@ -46,13 +47,42 @@ UObject* UUSDAssetImportFactory::FactoryCreateFile(UClass* InClass, UObject* InP
 		if (Stage)
 		{
 			ImportContext.Init(InParent, InName.ToString(), Stage);
-			ImportContext.ImportOptions = ImportOptions;
-			ImportContext.bApplyWorldTransformToGeometry = ImportOptions->bApplyWorldTransformToGeometry;
+			
+			if (AssetImportTask && AssetImportTask->Options)
+			{
+				ImportContext.ImportOptions = Cast<UUSDImportOptions>(AssetImportTask->Options);
+			}
+			
+			if (ImportContext.ImportOptions == nullptr)
+			{
+				ImportContext.ImportOptions = ImportOptions;
+			}
+
+			ImportContext.bApplyWorldTransformToGeometry = ImportContext.ImportOptions->bApplyWorldTransformToGeometry;
 
 			TArray<FUsdAssetPrimToImport> PrimsToImport;
+			UUSDBatchImportOptions* BatchImportOptions = Cast<UUSDBatchImportOptions>(ImportContext.ImportOptions);
+			if (BatchImportOptions)
+			{
+				for (UUSDBatchImportOptionsSubTask* SubTask : BatchImportOptions->SubTasks)
+				{
+					FUsdAssetPrimToImport NewTopLevelPrim;
 
-			ImportContext.PrimResolver->FindMeshAssetsToImport(ImportContext, ImportContext.RootPrim, PrimsToImport);
+					NewTopLevelPrim.Prim = Stage->GetPrimAtPath(TCHAR_TO_ANSI(*SubTask->SourcePath));
+					if (NewTopLevelPrim.Prim == nullptr)
+						continue;
 
+					NewTopLevelPrim.AssetPath = SubTask->DestPath;
+					NewTopLevelPrim.MeshPrims.Add(NewTopLevelPrim.Prim);
+
+					PrimsToImport.Add(NewTopLevelPrim);
+				}
+			}
+			else
+			{
+				ImportContext.PrimResolver->FindMeshAssetsToImport(ImportContext, ImportContext.RootPrim, PrimsToImport);
+			}
+						
 			TArray<UObject*> ImportedObjects = USDImporter->ImportMeshes(ImportContext, PrimsToImport);
 
 			// Just return the first one imported

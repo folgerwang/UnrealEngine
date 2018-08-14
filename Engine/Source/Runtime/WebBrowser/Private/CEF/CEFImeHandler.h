@@ -29,10 +29,12 @@ THIRD_PARTY_INCLUDES_END
 #include "Windows/HideWindowsPlatformAtomics.h"
 #include "Windows/HideWindowsPlatformTypes.h"
 #endif
+#include "Layout/Geometry.h"
 
 class ITextInputMethodSystem;
 class FCEFTextInputMethodContext;
 class ITextInputMethodChangeNotifier;
+class SWidget;
 
 class FCEFImeHandler
 	: public TSharedFromThis<FCEFImeHandler>

@@ -10,6 +10,7 @@
 #include "PhysxUserData.h"
 #include "Vehicles/TireType.h"
 #include "PhysicsEngine/PhysicsSettingsEnums.h"
+#include "Physics/PhysicsInterfaceCore.h"
 #include "PhysicalMaterial.generated.h"
 
 struct FPropertyChangedEvent;
@@ -114,10 +115,10 @@ class ENGINE_API UPhysicalMaterial : public UObject
 	TArray<FTireFrictionScalePair> TireFrictionScales;
 
 public:
-#if WITH_PHYSX
-	/** Internal pointer to PhysX material object */
-	physx::PxMaterial* PMaterial;
 
+	FPhysicsMaterialHandle MaterialHandle;
+
+#if WITH_PHYSX
 	FPhysxUserData PhysxUserData;
 #endif
 
@@ -130,12 +131,7 @@ public:
 	virtual void FinishDestroy() override;
 	//~ End UObject Interface
 
-#if WITH_PHYSX
-	physx::PxMaterial* GetPhysXMaterial();
-#endif // WITH_PHYSX
-
-	/** Update the PhysX material from this objects properties */
-	void UpdatePhysXMaterial();
+	const FPhysicsMaterialHandle& GetPhysicsMaterial();
 
 	/** Determine Material Type from input PhysicalMaterial **/
 	static EPhysicalSurface DetermineSurfaceType(UPhysicalMaterial const* PhysicalMaterial);

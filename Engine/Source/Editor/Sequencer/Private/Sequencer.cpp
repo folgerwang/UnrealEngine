@@ -120,6 +120,8 @@
 #include "Fonts/FontMeasure.h"
 #include "MovieSceneTimeHelpers.h"
 #include "FrameNumberNumericInterface.h"
+#include "UObject/StrongObjectPtr.h"
+#include "SequencerExportTask.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
@@ -442,6 +444,7 @@ FSequencer::FSequencer()
 
 FSequencer::~FSequencer()
 {
+	RootTemplateInstance.Finish(*this);
 	if (GEditor)
 	{
 		GEditor->UnregisterForUndo(this);
@@ -460,6 +463,7 @@ FSequencer::~FSequencer()
 
 void FSequencer::Close()
 {
+	RootTemplateInstance.Finish(*this);
 	RestorePreAnimatedState();
 
 	for (auto TrackEditor : TrackEditors)
@@ -1353,9 +1357,14 @@ void FSequencer::TranslateSelectedKeysAndSections(bool bTranslateLeft)
 
 void FSequencer::BakeTransform()
 {
+	UMovieScene* FocusedMovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	FScopedTransaction BakeTransform(NSLOCTEXT("Sequencer", "BakeTransform", "Bake Transform"));
 
-	UMovieScene* FocusedMovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
 	FocusedMovieScene->Modify();
 
 	for (const TSharedRef<FSequencerDisplayNode>& Node : Selection.GetSelectedOutlinerNodes())
@@ -1525,36 +1534,45 @@ void FSequencer::BakeTransform()
 	NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemsChanged );
 }
 
-void FSequencer::SyncToSourceTimecode()
+
+void FSequencer::SyncSectionsUsingSourceTimecode()
 {
-	FScopedTransaction SynctoSourceTimecodeTransaction( LOCTEXT("SyncToSourceTimecode_Transaction", "Sync to Source Timecode") );
+	FScopedTransaction SyncSectionsUsingSourceTimecodeTransaction( LOCTEXT("SyncSectionsUsingSourceTimecode_Transaction", "Sync Sections Using Source Timecode") );
 	bool bAnythingChanged = false;
 
 	TArray<UMovieSceneSection*> Sections;
-
 	for (auto Section : GetSelection().GetSelectedSections())
 	{
-		if (Section.IsValid())
+		if (Section.IsValid() && Section->HasStartFrame())
 		{
 			Sections.Add(Section.Get());
 		}
 	}
 
-	if (!Sections.Num())
+	if (Sections.Num() < 2) 
 	{
-		UMovieScene* FocusedMovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
-		Sections = FocusedMovieScene->GetAllSections();
+		return;
 	}
+
+	const UMovieSceneSection* FirstSection = Sections[0];
+	FFrameNumber FirstSectionSourceTimecode = FirstSection->TimecodeSource.Timecode.ToFrameNumber(GetFocusedTickResolution());
+	FFrameNumber FirstSectionCurrentStartFrame = FirstSection->GetInclusiveStartFrame();// - FirstSection->TimecodeSource.DeltaFrame;
+	Sections.RemoveAt(0);
 
 	for (auto Section : Sections)
 	{
 		if (Section->HasStartFrame())
 		{
-			bAnythingChanged = true;
+			FFrameNumber SectionSourceTimecode = Section->TimecodeSource.Timecode.ToFrameNumber(GetFocusedTickResolution());
+			FFrameNumber SectionCurrentStartFrame = Section->GetInclusiveStartFrame();// - Section->TimecodeSource.DeltaFrame;
 
-			FFrameNumber DeltaFrame = Section->TimecodeSource.Timecode.ToFrameNumber(GetFocusedTickResolution()) - Section->TimecodeSource.DeltaFrame;
+			FFrameNumber TimecodeDelta = SectionSourceTimecode - FirstSectionSourceTimecode;
+			FFrameNumber CurrentDelta = SectionCurrentStartFrame - FirstSectionCurrentStartFrame;
+			FFrameNumber Delta = -CurrentDelta + TimecodeDelta;
 
-			Section->MoveSection(DeltaFrame);
+			Section->MoveSection(Delta);
+
+			bAnythingChanged = bAnythingChanged || (Delta.Value != 0);
 		}
 	}
 
@@ -1970,8 +1988,14 @@ void FSequencer::TogglePlaybackRangeLocked()
 	UMovieSceneSequence* FocusedMovieSceneSequence = GetFocusedMovieSceneSequence();
 	if ( FocusedMovieSceneSequence != nullptr )
 	{
-		FScopedTransaction TogglePlaybackRangeLockTransaction( NSLOCTEXT( "Sequencer", "TogglePlaybackRangeLocked", "Toggle playback range lock" ) );
 		UMovieScene* MovieScene = FocusedMovieSceneSequence->GetMovieScene();
+
+		if (MovieScene->IsReadOnly())
+		{
+			return;
+		}
+
+		FScopedTransaction TogglePlaybackRangeLockTransaction( NSLOCTEXT( "Sequencer", "TogglePlaybackRangeLocked", "Toggle playback range lock" ) );
 		MovieScene->Modify();
 		MovieScene->SetPlaybackRangeLocked( !MovieScene->IsPlaybackRangeLocked() );
 	}
@@ -2362,7 +2386,7 @@ void FSequencer::RenderMovieInternal(TRange<FFrameNumber> Range, bool bSetFrameO
 	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
 
 	// Create a new movie scene capture object for an automated level sequence, and open the tab
-	UAutomatedLevelSequenceCapture* MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), UAutomatedLevelSequenceCapture::AutomatedLevelSequenceCaptureUIName, RF_Transient);
+	UAutomatedLevelSequenceCapture* MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), UMovieSceneCapture::MovieSceneCaptureUIName, RF_Transient);
 	MovieSceneCapture->LoadFromConfig();
 
 	MovieSceneCapture->LevelSequenceAsset = GetCurrentAsset()->GetPathName();
@@ -2524,6 +2548,11 @@ FGuid FSequencer::GetHandleToObject( UObject* Object, bool bCreateHandleIfMissin
 	UMovieSceneSequence* FocusedMovieSceneSequence = GetFocusedMovieSceneSequence();
 	UMovieScene* FocusedMovieScene = FocusedMovieSceneSequence->GetMovieScene();
 	
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return FGuid();
+	}
+
 	// Attempt to resolve the object through the movie scene instance first, 
 	FGuid ObjectGuid = FindObjectId(*Object, ActiveTemplateIDs.Top());
 
@@ -3884,7 +3913,7 @@ UObject* FSequencer::GetCurrentAsset() const
 
 bool FSequencer::IsReadOnly() const
 {
-	return bReadOnly;
+	return bReadOnly || (GetFocusedMovieSceneSequence() && GetFocusedMovieSceneSequence()->GetMovieScene()->IsReadOnly());
 }
 
 void FSequencer::VerticalScroll(float ScrollAmountUnits)
@@ -3938,11 +3967,16 @@ FGuid FSequencer::AddSpawnable(UObject& Object, UActorFactory* ActorFactory)
 
 FGuid FSequencer::MakeNewSpawnable( UObject& Object, UActorFactory* ActorFactory )
 {
-	// @todo sequencer: Undo doesn't seem to be working at all
-	const FScopedTransaction Transaction( LOCTEXT("UndoAddingObject", "Add Object to MovieScene") );
-
 	UMovieSceneSequence* Sequence = GetFocusedMovieSceneSequence();
 	UMovieScene* MovieScene = Sequence->GetMovieScene();
+
+	if (MovieScene->IsReadOnly())
+	{
+		return FGuid();
+	}
+
+	// @todo sequencer: Undo doesn't seem to be working at all
+	const FScopedTransaction Transaction( LOCTEXT("UndoAddingObject", "Add Object to MovieScene") );
 
 	FGuid NewGuid = AddSpawnable(Object, ActorFactory);
 	if (!NewGuid.IsValid())
@@ -3977,6 +4011,11 @@ void FSequencer::AddSubSequence(UMovieSceneSequence* Sequence)
 
 	// Grab the MovieScene that is currently focused.  This is the movie scene that will contain the sub-moviescene
 	UMovieScene* OwnerMovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	if (OwnerMovieScene->IsReadOnly())
+	{
+		return;
+	}
 
 	// @todo sequencer: Undo doesn't seem to be working at all
 	const FScopedTransaction Transaction( LOCTEXT("UndoAddingObject", "Add Object to MovieScene") );
@@ -4044,6 +4083,11 @@ bool FSequencer::OnRequestNodeDeleted( TSharedRef<const FSequencerDisplayNode> N
 	
 	UMovieSceneSequence* Sequence = GetFocusedMovieSceneSequence();
 	UMovieScene* OwnerMovieScene = Sequence->GetMovieScene();
+
+	if (OwnerMovieScene->IsReadOnly())
+	{
+		return bAnythingRemoved;
+	}
 
 	// Remove the selected object from our selection otherwise invisible objects are still selected and it causes confusion with
 	// things that are based on having a selection or not.
@@ -4212,6 +4256,11 @@ void FSequencer::OnNewActorsDropped(const TArray<UObject*>& DroppedObjects, cons
 		
 		UMovieSceneSequence* Sequence = GetFocusedMovieSceneSequence();
 		UMovieScene* OwnerMovieScene = Sequence->GetMovieScene();
+
+		if (OwnerMovieScene->IsReadOnly())
+		{
+			return;
+		}
 
 		Sequence->Modify();
 
@@ -4560,10 +4609,16 @@ void FSequencer::SaveCurrentMovieSceneAs()
 
 TArray<FGuid> FSequencer::AddActors(const TArray<TWeakObjectPtr<AActor> >& InActors)
 {
+	TArray<FGuid> PossessableGuids;
+
+	if (GetFocusedMovieSceneSequence()->GetMovieScene()->IsReadOnly())
+	{
+		return PossessableGuids;
+	}
+
 	const FScopedTransaction Transaction(LOCTEXT("UndoPossessingObject", "Possess Object in Sequencer"));
 	GetFocusedMovieSceneSequence()->Modify();
 
-	TArray<FGuid> PossessableGuids;
 	bool bPossessableAdded = false;
 	for (TWeakObjectPtr<AActor> WeakActor : InActors)
 	{
@@ -5364,10 +5419,15 @@ FGuid FSequencer::DoAssignActor(AActor*const* InActors, int32 NumActors, FGuid I
 		return FGuid();
 	}
 
-	FScopedTransaction AssignActor( NSLOCTEXT("Sequencer", "AssignActor", "Assign Actor") );
-
 	UMovieSceneSequence* OwnerSequence = GetFocusedMovieSceneSequence();
 	UMovieScene* OwnerMovieScene = OwnerSequence->GetMovieScene();
+
+	if (OwnerMovieScene->IsReadOnly())
+	{
+		return FGuid();
+	}
+
+	FScopedTransaction AssignActor( NSLOCTEXT("Sequencer", "AssignActor", "Assign Actor") );
 
 	Actor->Modify();
 	OwnerSequence->Modify();
@@ -6136,9 +6196,14 @@ bool FSequencer::IsNodeLocked() const
 
 void FSequencer::SaveSelectedNodesSpawnableState()
 {
-	const FScopedTransaction Transaction( LOCTEXT("SaveSpawnableState", "Save spawnable state") );
-
 	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	if (MovieScene->IsReadOnly())
+	{
+		return;
+	}
+
+	const FScopedTransaction Transaction( LOCTEXT("SaveSpawnableState", "Save spawnable state") );
 
 	MovieScene->Modify();
 
@@ -6177,9 +6242,14 @@ void FSequencer::SaveSelectedNodesSpawnableState()
 
 void FSequencer::SetSelectedNodesSpawnableLevel(FName InLevelName)
 {							
-	const FScopedTransaction Transaction( LOCTEXT("SetSpawnableLevel", "Set Spawnable Level") );
-
 	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	if (MovieScene->IsReadOnly())
+	{	
+		return;
+	}
+
+	const FScopedTransaction Transaction( LOCTEXT("SetSpawnableLevel", "Set Spawnable Level") );
 
 	MovieScene->Modify();
 
@@ -6200,6 +6270,11 @@ void FSequencer::SetSelectedNodesSpawnableLevel(FName InLevelName)
 
 void FSequencer::ConvertToSpawnable(TSharedRef<FSequencerObjectBindingNode> NodeToBeConverted)
 {
+	if (GetFocusedMovieSceneSequence()->GetMovieScene()->IsReadOnly())
+	{
+		return;
+	}
+
 	const FScopedTransaction Transaction( LOCTEXT("ConvertSelectedNodeSpawnable", "Convert Node to Spawnables") );
 
 	// Ensure we're in a non-possessed state
@@ -6215,10 +6290,15 @@ void FSequencer::ConvertToSpawnable(TSharedRef<FSequencerObjectBindingNode> Node
 
 void FSequencer::ConvertSelectedNodesToSpawnables()
 {
+	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	if (MovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	// @todo sequencer: Undo doesn't seem to be working at all
 	const FScopedTransaction Transaction( LOCTEXT("ConvertSelectedNodesSpawnable", "Convert Selected Nodes to Spawnables") );
-
-	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
 
 	// Ensure we're in a non-possessed state
 	RestorePreAnimatedState();
@@ -6300,6 +6380,11 @@ FMovieSceneSpawnable* FSequencer::ConvertToSpawnableInternal(FGuid PossessableGu
 	UMovieSceneSequence* Sequence = GetFocusedMovieSceneSequence();
 	UMovieScene* MovieScene = Sequence->GetMovieScene();
 
+	if (MovieScene->IsReadOnly())
+	{
+		return nullptr;
+	}
+
 	//@todo: this code doesn't work where multiple objects are bound
 	TArrayView<TWeakObjectPtr<>> FoundObjects = FindBoundObjects(PossessableGuid, ActiveTemplateIDs.Top());
 	if (FoundObjects.Num() != 1)
@@ -6341,6 +6426,11 @@ FMovieSceneSpawnable* FSequencer::ConvertToSpawnableInternal(FGuid PossessableGu
 
 void FSequencer::ConvertToPossessable(TSharedRef<FSequencerObjectBindingNode> NodeToBeConverted)
 {
+	if (GetFocusedMovieSceneSequence()->GetMovieScene()->IsReadOnly())
+	{
+		return;
+	}
+
 	const FScopedTransaction Transaction( LOCTEXT("ConvertSelectedNodePossessable", "Convert Node to Possessables") );
 
 	// Ensure we're in a non-possessed state
@@ -6357,6 +6447,11 @@ void FSequencer::ConvertToPossessable(TSharedRef<FSequencerObjectBindingNode> No
 void FSequencer::ConvertSelectedNodesToPossessables()
 {
 	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	if (MovieScene->IsReadOnly())
+	{
+		return;
+	}
 
 	TArray<TSharedRef<FSequencerObjectBindingNode>> ObjectBindingNodes;
 
@@ -6436,6 +6531,11 @@ FMovieScenePossessable* FSequencer::ConvertToPossessableInternal(FGuid Spawnable
 	UMovieSceneSequence* Sequence = GetFocusedMovieSceneSequence();
 	UMovieScene* MovieScene = Sequence->GetMovieScene();
 
+	if (MovieScene->IsReadOnly())
+	{
+		return nullptr;
+	}
+
 	// Find the object in the environment
 	UMovieSceneSequence* FocusedSequence = GetFocusedMovieSceneSequence();
 	FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(SpawnableGuid);
@@ -6506,6 +6606,13 @@ FMovieScenePossessable* FSequencer::ConvertToPossessableInternal(FGuid Spawnable
 
 void FSequencer::OnAddFolder()
 {
+	UMovieScene* FocusedMovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	FScopedTransaction AddFolderTransaction( NSLOCTEXT("Sequencer", "AddFolder_Transaction", "Add Folder") );
 
 	// Check if a folder, or child of a folder is currently selected.
@@ -6514,7 +6621,6 @@ void FSequencer::OnAddFolder()
 	CalculateSelectedFolderAndPath(SelectedParentFolders, NewNodePath);
 
 	TArray<FName> ExistingFolderNames;
-	UMovieScene* FocusedMovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
 	
 	// If there is a folder selected the existing folder names are the sibling folders.
 	if ( SelectedParentFolders.Num() == 1 )
@@ -7211,7 +7317,7 @@ void FSequencer::DiscardChanges()
 	PackagesToUnload.Add(SequencePackage);
 
 	FText PackageUnloadError;
-	PackageTools::UnloadPackages(PackagesToUnload, PackageUnloadError);
+	UPackageTools::UnloadPackages(PackagesToUnload, PackageUnloadError);
 
 	if (!PackageUnloadError.IsEmpty())
 	{
@@ -7263,6 +7369,12 @@ void FSequencer::DiscardChanges()
 
 void FSequencer::CreateCamera()
 {
+	UMovieScene* FocusedMovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	UWorld* World = GCurrentLevelEditingViewportClient ? GCurrentLevelEditingViewportClient->GetWorld() : nullptr;
 	if (!World)
 	{
@@ -7473,12 +7585,17 @@ void FSequencer::FixActorReferences()
 
 void FSequencer::RebindPossessableReferences()
 {
+	UMovieSceneSequence* FocusedSequence = GetFocusedMovieSceneSequence();
+	UMovieScene* FocusedMovieScene = FocusedSequence->GetMovieScene();
+
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	FScopedTransaction Transaction(LOCTEXT("RebindAllPossessables", "Rebind Possessable References"));
 
-	UMovieSceneSequence* FocusedSequence = GetFocusedMovieSceneSequence();
 	FocusedSequence->Modify();
-
-	UMovieScene* FocusedMovieScene = FocusedSequence->GetMovieScene();
 
 	TMap<FGuid, TArray<UObject*, TInlineAllocator<1>>> AllObjects;
 
@@ -7513,7 +7630,7 @@ void FSequencer::ImportFBX()
 	TMap<FGuid, FString> ObjectBindingNameMap;
 
 	TArray<TSharedRef<FSequencerObjectBindingNode>> RootObjectBindingNodes;
-	GetRootObjectBindingNodes( NodeTree->GetRootNodes(), RootObjectBindingNodes );
+	GetRootObjectBindingNodes(NodeTree->GetRootNodes(), RootObjectBindingNodes);
 
 	for (auto RootObjectBindingNode : RootObjectBindingNodes)
 	{
@@ -7547,20 +7664,52 @@ void FSequencer::ImportFBXOntoSelectedNodes()
 	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap, TOptional<bool>(false));
 }
 
-
 void FSequencer::ExportFBX()
 {
+	TArray<UExporter*> Exporters;
 	TArray<FString> SaveFilenames;
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
 	bool bExportFileNamePicked = false;
 	if ( DesktopPlatform != NULL )
 	{
+		FString FileTypes = "FBX document|*.fbx";
+		UMovieSceneSequence* Sequence = GetFocusedMovieSceneSequence();
+		for (TObjectIterator<UClass> It; It; ++It)
+		{
+			if (!It->IsChildOf(UExporter::StaticClass()) || It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
+			{
+				continue;
+			}
+
+			UExporter* Default = It->GetDefaultObject<UExporter>();
+			if (!Default->SupportsObject(Sequence))
+			{
+				continue;
+			}
+
+			for (int32 i = 0; i < Default->FormatExtension.Num(); ++i)
+			{
+				const FString& FormatExtension = Default->FormatExtension[i];
+				const FString& FormatDescription = Default->FormatDescription[i];
+
+				if (FileTypes.Len() > 0)
+				{
+					FileTypes += TEXT("|");
+				}
+				FileTypes += FormatDescription;
+				FileTypes += TEXT("|*.");
+				FileTypes += FormatExtension;
+			}
+
+			Exporters.Add(Default);
+		}
+
 		bExportFileNamePicked = DesktopPlatform->SaveFileDialog(
 			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
 			LOCTEXT( "ExportLevelSequence", "Export Level Sequence" ).ToString(),
 			*( FEditorDirectories::Get().GetLastDirectory( ELastDirectory::FBX ) ),
 			TEXT( "" ),
-			TEXT( "FBX document|*.fbx" ),
+			*FileTypes,
 			EFileDialogFlags::None,
 			SaveFilenames );
 	}
@@ -7570,6 +7719,71 @@ void FSequencer::ExportFBX()
 		FString ExportFilename = SaveFilenames[0];
 		FEditorDirectories::Get().SetLastDirectory( ELastDirectory::FBX, FPaths::GetPath( ExportFilename ) ); // Save path as default for next time.
 
+		// Select selected nodes if there are selected nodes
+		TArray<FGuid> Bindings;
+		for (const TSharedRef<FSequencerDisplayNode>& Node : Selection.GetSelectedOutlinerNodes())
+		{
+			if (Node->GetType() == ESequencerNode::Object)
+			{
+				auto ObjectBindingNode = StaticCastSharedRef<FSequencerObjectBindingNode>(Node);
+				Bindings.Add(ObjectBindingNode.Get().GetObjectBinding());
+
+				TSet<TSharedRef<FSequencerDisplayNode> > DescendantNodes;
+				SequencerHelpers::GetDescendantNodes(Node, DescendantNodes);
+				for (auto DescendantNode : DescendantNodes)
+				{
+					if (!Selection.IsSelected(DescendantNode) && DescendantNode->GetType() == ESequencerNode::Object)
+					{
+						auto DescendantObjectBindingNode = StaticCastSharedRef<FSequencerObjectBindingNode>(DescendantNode);
+						Bindings.Add(DescendantObjectBindingNode.Get().GetObjectBinding());
+					}
+				}
+			}
+		}
+
+		FString FileExtension = FPaths::GetExtension(ExportFilename);
+		if (FileExtension == TEXT("fbx"))
+		{
+			ExportFBXInternal(ExportFilename, Bindings);
+		}
+		else
+		{
+			for (UExporter* Exporter : Exporters)
+			{
+				if (Exporter->FormatExtension.Contains(FileExtension))
+				{
+					USequencerExportTask* ExportTask = NewObject<USequencerExportTask>();
+					TStrongObjectPtr<USequencerExportTask> ExportTaskGuard(ExportTask);
+					ExportTask->Object = GetFocusedMovieSceneSequence();
+					ExportTask->Exporter = nullptr;
+					ExportTask->Filename = ExportFilename;
+					ExportTask->bSelected = false;
+					ExportTask->bReplaceIdentical = true;
+					ExportTask->bPrompt = false;
+					ExportTask->bUseFileArchive = false;
+					ExportTask->bWriteEmptyFiles = false;
+					ExportTask->bAutomated = false;
+					ExportTask->Exporter = NewObject<UExporter>(GetTransientPackage(), Exporter->GetClass());
+
+					ExportTask->SequencerContext = GetPlaybackContext();
+
+					UExporter::RunAssetExportTask(ExportTask);
+
+					ExportTask->Object = nullptr;
+					ExportTask->Exporter = nullptr;
+					ExportTask->SequencerContext = nullptr;
+
+					break;
+				}
+			}
+		}
+	}
+}
+
+
+void FSequencer::ExportFBXInternal(const FString& ExportFilename, TArray<FGuid>& Bindings)
+{
+	{
 		UnFbx::FFbxExporter* Exporter = UnFbx::FFbxExporter::GetInstance();
 		//Show the fbx export dialog options
 		bool ExportCancel = false;
@@ -7580,28 +7794,6 @@ void FSequencer::ExportFBX()
 			Exporter->CreateDocument();
 			Exporter->SetTrasformBaking(false);
 			Exporter->SetKeepHierarchy(true);
-
-			// Select selected nodes if there are selected nodes
-			TArray<FGuid> Bindings;
-			for (const TSharedRef<FSequencerDisplayNode>& Node : Selection.GetSelectedOutlinerNodes())
-			{
-				if (Node->GetType() == ESequencerNode::Object)
-				{
-					auto ObjectBindingNode = StaticCastSharedRef<FSequencerObjectBindingNode>(Node);
-					Bindings.Add(ObjectBindingNode.Get().GetObjectBinding());
-
-					TSet<TSharedRef<FSequencerDisplayNode> > DescendantNodes;
-					SequencerHelpers::GetDescendantNodes(Node, DescendantNodes);
-					for (auto DescendantNode : DescendantNodes)
-					{
-						if (!Selection.IsSelected(DescendantNode) && DescendantNode->GetType() == ESequencerNode::Object)
-						{
-							auto DescendantObjectBindingNode = StaticCastSharedRef<FSequencerObjectBindingNode>(DescendantNode);
-							Bindings.Add(DescendantObjectBindingNode.Get().GetObjectBinding());
-						}
-					}
-				}
-			}
 
 			const bool bSelectedOnly = Bindings.Num() != 0;
 
@@ -8046,7 +8238,7 @@ void FSequencer::BindCommands()
 	SequencerCommandBindings->MapAction(
 		Commands.ToggleShowCurveEditor,
 		FExecuteAction::CreateLambda( [this]{ SetShowCurveEditor(!GetShowCurveEditor()); } ),
-		FCanExecuteAction::CreateLambda( []{ return true; } ),
+		FCanExecuteAction::CreateLambda( [this]{ return !IsReadOnly(); } ),
 		FIsActionChecked::CreateLambda( [this]{ return GetShowCurveEditor(); } ) );
 
 	SequencerCommandBindings->MapAction(
@@ -8246,9 +8438,9 @@ void FSequencer::BindCommands()
 		FCanExecuteAction::CreateLambda( []{ return true; } ) );
 
 	SequencerCommandBindings->MapAction(
-		Commands.SyncToSourceTimecode,
-		FExecuteAction::CreateSP( this, &FSequencer::SyncToSourceTimecode ),
-		FCanExecuteAction::CreateLambda( []{ return true; } ) );
+		Commands.SyncSectionsUsingSourceTimecode,
+		FExecuteAction::CreateSP( this, &FSequencer::SyncSectionsUsingSourceTimecode ),
+		FCanExecuteAction::CreateLambda( [this]{ return (GetSelection().GetSelectedSections().Num() > 1); } ) );
 
 	SequencerCommandBindings->MapAction(
 		Commands.FixActorReferences,

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -24,11 +24,6 @@ namespace UnrealBuildTool
 		/// Specifies a fixed value for this argument. Specifying an alternate value is not permitted.
 		/// </summary>
 		public string Value = null;
-
-		/// <summary>
-		/// Indicates that the value of the argument is separated by a space rather than an equals symbol.
-		/// </summary>
-		public bool ValueAfterSpace = false;
 
 		/// <summary>
 		/// For collection types, specifies the separator character between multiple arguments

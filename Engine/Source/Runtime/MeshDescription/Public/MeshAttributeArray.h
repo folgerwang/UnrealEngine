@@ -59,8 +59,6 @@ public:
 
 protected:
 
-	friend class UMeshDescription;
-
 	/** Should not instance this base class directly */
 	TMeshAttributeArrayBase() = default;
 
@@ -260,6 +258,26 @@ public:
 		{
 			ArrayForIndex[ ElementID ] = DefaultValue;
 		}
+	}
+
+	/** Add an array filled with the default value */
+	FORCEINLINE void AddArray()
+	{
+		TMeshAttributeArray<AttributeType, ElementIDType>& NewArray = ArrayForIndices.AddDefaulted_GetRef();
+		NewArray.Initialize(NumElements, DefaultValue);
+	}
+
+	/** Insert an array at the given index, filled with the default value */
+	FORCEINLINE void InsertArray(int32 Index)
+	{
+		TMeshAttributeArray<AttributeType, ElementIDType>& NewArray = ArrayForIndices.InsertDefaulted_GetRef(Index);
+		NewArray.Initialize(NumElements, DefaultValue);
+	}
+
+	/** Remove the array at the given index */
+	FORCEINLINE void RemoveArray(int32 Index)
+	{
+		ArrayForIndices.RemoveAt(Index);
 	}
 
 	/** Return the TMeshAttributeArray corresponding to the given attribute index */

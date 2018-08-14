@@ -259,7 +259,7 @@ namespace ObjectTools
 			}
 		}
 
-		return PackageTools::HandleFullyLoadingPackages( TopLevelPackages, OperationText );
+		return UPackageTools::HandleFullyLoadingPackages( TopLevelPackages, OperationText );
 	}
 
 
@@ -380,7 +380,7 @@ namespace ObjectTools
 			}
 
 			if( (ExistingPackage && InOutPackagesUserRefusedToFullyLoad.Contains(ExistingPackage)) ||
-				!PackageTools::HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "Duplicate", "Duplicate") ) )
+				!UPackageTools::HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "Duplicate", "Duplicate") ) )
 			{
 				// HandleFullyLoadingPackages should never return false for empty input.
 				check( ExistingPackage );
@@ -1765,7 +1765,7 @@ namespace ObjectTools
 			AllPackagesToUnload.Append(PackagesToDelete);
 			AllPackagesToUnload.Append(EmptyPackagesToUnload);
 
-			PackageTools::UnloadPackages(AllPackagesToUnload);
+			UPackageTools::UnloadPackages(AllPackagesToUnload);
 		}
 		CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
 
@@ -2949,7 +2949,7 @@ namespace ObjectTools
 				// Used in the IsValidObjectName checks below
 				FText Reason;
 
-				if( ExistingPackage && ( InOutPackagesUserRefusedToFullyLoad.Contains(ExistingPackage) || !PackageTools::HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "Rename", "Rename") ) ) )
+				if( ExistingPackage && ( InOutPackagesUserRefusedToFullyLoad.Contains(ExistingPackage) || !UPackageTools::HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "Rename", "Rename") ) ) )
 				{
 					// HandleFullyLoadingPackages should never return false for empty input.
 					check( ExistingPackage );

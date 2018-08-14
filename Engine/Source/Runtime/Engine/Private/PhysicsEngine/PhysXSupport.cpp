@@ -8,6 +8,7 @@
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
 #include "PhysicsEngine/RigidBodyIndexPair.h"
+#include "Physics/PhysicsInterfaceCore.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "CustomPhysXPayload.h"
 
@@ -34,11 +35,8 @@ ENGINE_API apex::Module*				GApexModuleLegacy = NULL;
 ENGINE_API apex::ModuleClothing*		GApexModuleClothing		= NULL;
 #endif //WITH_APEX_CLOTHING
 
-TMap<int16, apex::Scene*>				GPhysXSceneMap;
 FApexNullRenderResourceManager		GApexNullRenderResourceManager;
 FApexResourceCallback				GApexResourceCallback;
-#else	// #if WITH_APEX
-TMap<int16, PxScene*>		GPhysXSceneMap;
 #endif	// #if WITH_APEX
 
 int32						GNumPhysXConvexMeshes = 0;
@@ -138,46 +136,6 @@ FTransform P2UTransform(const PxTransform& PTM)
 ///////////////////// Utils /////////////////////
 
 
-#if WITH_APEX
-
-PxScene* GetPhysXSceneFromIndex(int32 InSceneIndex)
-{
-	apex::Scene** ScenePtr = GPhysXSceneMap.Find(InSceneIndex);
-	if(ScenePtr != NULL)
-	{
-		return (*ScenePtr)->getPhysXScene();
-	}
-
-	return NULL;
-}
-
-apex::Scene* GetApexSceneFromIndex(int32 InSceneIndex)
-{
-	apex::Scene** ScenePtr = GPhysXSceneMap.Find(InSceneIndex);
-	if(ScenePtr != NULL)
-	{
-		return *ScenePtr;
-	}
-
-	return NULL;
-}
-
-#else	// #if WITH_APEX
-
-PxScene* GetPhysXSceneFromIndex(int32 InSceneIndex)
-{
-	PxScene** ScenePtr = GPhysXSceneMap.Find(InSceneIndex);
-	if(ScenePtr != NULL)
-	{
-		return *ScenePtr;
-	}
-
-	return NULL;
-}
-
-#endif	// #if WITH_APEX
-
-
 void AddRadialImpulseToPxRigidBody_AssumesLocked(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bVelChange)
 {
 #if WITH_PHYSX
@@ -249,17 +207,6 @@ void AddRadialForceToPxRigidBody_AssumesLocked(PxRigidBody& PRigidBody, const FV
 #endif // WITH_PHYSX
 }
 
-bool IsRigidBodyKinematic_AssumesLocked(const PxRigidBody* PRigidBody)
-{
-	if (PRigidBody)
-	{
-		//For some cases we only consider an actor kinematic if it's in the simulation scene. This is in cases where we set a kinematic target
-		return (PRigidBody->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC);
-	}
-
-	return false;
-}
-
 bool IsRigidBodyKinematicAndInSimulationScene_AssumesLocked(const PxRigidBody* PRigidBody)
 {
 	if (PRigidBody)
@@ -324,6 +271,7 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 	}
 	
 	// if these bodies are from the same component, use the disable table to see if we should disable collision. This case should only happen for things like skeletalmesh and destruction. The table is only created for skeletal mesh components at the moment
+#if !WITH_APEIRON && !PHYSICS_INTERFACE_LLIMMEDIATE
 	if(filterData0.word2 == filterData1.word2)
 	{
 		check(constantBlockSize == sizeof(FPhysSceneShaderInfo));
@@ -345,6 +293,7 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 
 		}
 	}
+#endif
 
 	// Find out which channels the objects are in
 	ECollisionChannel Channel0 = GetCollisionChannel(filterData0.word3);
@@ -385,6 +334,69 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 	}
 
 	return PxFilterFlags();
+}
+
+#if !WITH_APEIRON && !PHYSICS_INTERFACE_LLIMMEDIATE
+
+/** Figures out the new FCollisionNotifyInfo needed for pending notification. It adds it, and then returns an array that goes from pair index to notify collision index */
+TArray<int32> AddCollisionNotifyInfo(const FBodyInstance* Body0, const FBodyInstance* Body1, const physx::PxContactPair * Pairs, uint32 NumPairs, TArray<FCollisionNotifyInfo> & PendingNotifyInfos)
+{
+	TArray<int32> PairNotifyMapping;
+	PairNotifyMapping.Empty(NumPairs);
+
+	TMap<const FBodyInstance*, TMap<const FBodyInstance*, int32> > BodyPairNotifyMap;
+	for(uint32 PairIdx = 0; PairIdx < NumPairs; ++PairIdx)
+	{
+		const PxContactPair* Pair = Pairs + PairIdx;
+		PairNotifyMapping.Add(-1);	//start as -1 because we can have collisions that we don't want to actually record collision
+
+									// Check if either shape has been removed
+		if(!Pair->events.isSet(PxPairFlag::eNOTIFY_TOUCH_LOST) &&
+			!Pair->events.isSet(PxPairFlag::eNOTIFY_THRESHOLD_FORCE_LOST) &&
+			!Pair->flags.isSet(PxContactPairFlag::eREMOVED_SHAPE_0) &&
+			!Pair->flags.isSet(PxContactPairFlag::eREMOVED_SHAPE_1))
+		{
+			// Get the two shapes that are involved in the collision
+			const PxShape* Shape0 = Pair->shapes[0];
+			check(Shape0);
+			const PxShape* Shape1 = Pair->shapes[1];
+			check(Shape1);
+
+			PxU32 FilterFlags0 = Shape0->getSimulationFilterData().word3 & 0xFFFFFF;
+			PxU32 FilterFlags1 = Shape1->getSimulationFilterData().word3 & 0xFFFFFF;
+
+			const bool bBody0Notify = (FilterFlags0 & EPDF_ContactNotify) != 0;
+			const bool bBody1Notify = (FilterFlags1 & EPDF_ContactNotify) != 0;
+
+			if(bBody0Notify || bBody1Notify)
+			{
+#if WITH_IMMEDIATE_PHYSX
+                check(false);
+#else
+				const FBodyInstance* SubBody0 = FPhysicsInterface_PhysX::ShapeToOriginalBodyInstance(Body0, Shape0);
+				const FBodyInstance* SubBody1 = FPhysicsInterface_PhysX::ShapeToOriginalBodyInstance(Body1, Shape1);
+
+				TMap<const FBodyInstance *, int32> & SubBodyNotifyMap = BodyPairNotifyMap.FindOrAdd(SubBody0);
+				int32* NotifyInfoIndex = SubBodyNotifyMap.Find(SubBody1);
+
+				if(NotifyInfoIndex == NULL)
+				{
+					FCollisionNotifyInfo * NotifyInfo = new (PendingNotifyInfos) FCollisionNotifyInfo;
+					NotifyInfo->bCallEvent0 = bBody0Notify;
+					NotifyInfo->Info0.SetFrom(SubBody0);
+					NotifyInfo->bCallEvent1 = bBody1Notify;
+					NotifyInfo->Info1.SetFrom(SubBody1);
+
+					NotifyInfoIndex = &SubBodyNotifyMap.Add(SubBody0, PendingNotifyInfos.Num() - 1);
+				}
+
+				PairNotifyMapping[PairIdx] = *NotifyInfoIndex;
+#endif
+			}
+		}
+	}
+
+	return PairNotifyMapping;
 }
 
 ///////// FPhysXSimEventCallback //////////////////////////////////
@@ -449,7 +461,7 @@ void FPhysXSimEventCallback::onContact(const PxContactPairHeader& PairHeader, co
 	TArray<FCollisionNotifyInfo>& PendingCollisionNotifies = OwningScene->GetPendingCollisionNotifies(SceneType);
 
 	uint32 PreAddingCollisionNotify = PendingCollisionNotifies.Num() - 1;
-	TArray<int32> PairNotifyMapping = FBodyInstance::AddCollisionNotifyInfo(BodyInst0, BodyInst1, Pairs, NumPairs, PendingCollisionNotifies);
+	TArray<int32> PairNotifyMapping = AddCollisionNotifyInfo(BodyInst0, BodyInst1, Pairs, NumPairs, PendingCollisionNotifies);
 
 	// Iterate through contact points
 	for(uint32 PairIdx=0; PairIdx<NumPairs; PairIdx++)
@@ -559,7 +571,10 @@ void FPhysXSimEventCallback::onWake(PxActor** Actors, PxU32 Count)
 {
 	for(PxU32 ActorIdx = 0; ActorIdx < Count; ++ActorIdx)
 	{
-		OwningScene->AddPendingSleepingEvent(Actors[ActorIdx], SleepEvent::SET_Wakeup, SceneType);
+		if (FBodyInstance* BodyInstance = FPhysxUserData::Get<FBodyInstance>(Actors[ActorIdx]->userData))
+		{
+			OwningScene->AddPendingSleepingEvent(BodyInstance, ESleepEvent::SET_Wakeup, SceneType);
+		}
 	}
 }
 
@@ -567,10 +582,13 @@ void FPhysXSimEventCallback::onSleep(PxActor** Actors, PxU32 Count)
 {
 	for (PxU32 ActorIdx = 0; ActorIdx < Count; ++ActorIdx)
 	{
-		OwningScene->AddPendingSleepingEvent(Actors[ActorIdx], SleepEvent::SET_Sleep, SceneType);
+		if (FBodyInstance* BodyInstance = FPhysxUserData::Get<FBodyInstance>(Actors[ActorIdx]->userData))
+		{
+			OwningScene->AddPendingSleepingEvent(BodyInstance, ESleepEvent::SET_Sleep, SceneType);
+		}
 	}
 }
-
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // FPhysXCookingDataReader
@@ -834,13 +852,17 @@ void AddToCollection(PxCollection* PCollection, PxBase* PBase)
 
 PxCollection* MakePhysXCollection(const TArray<UPhysicalMaterial*>& PhysicalMaterials, const TArray<UBodySetup*>& BodySetups, uint64 BaseId)
 {
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+    ensure(false);
+    return nullptr;
+#else
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_CreateSharedData);
 	PxCollection* PCollection = PxCreateCollection();
 	for (UPhysicalMaterial* PhysicalMaterial : PhysicalMaterials)
 	{
 		if (PhysicalMaterial)
 		{
-			PCollection->add(*PhysicalMaterial->GetPhysXMaterial());
+			PCollection->add(*PhysicalMaterial->GetPhysicsMaterial().Material);
 		}
 	}
 
@@ -861,6 +883,7 @@ PxCollection* MakePhysXCollection(const TArray<UPhysicalMaterial*>& PhysicalMate
 	PxSerialization::createSerialObjectIds(*PCollection, PxSerialObjectId(BaseId));
 
 	return PCollection;
+#endif
 }
 
 /** Util to convert PhysX error code to string */

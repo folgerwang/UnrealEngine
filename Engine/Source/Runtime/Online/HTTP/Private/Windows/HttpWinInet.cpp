@@ -355,7 +355,12 @@ FHttpRequestWinInet::FHttpRequestWinInet()
 ,	ElapsedTime(0.0f)
 ,	bDebugVerbose(false)
 {
-
+	// Add default headers
+	const TMap<FString, FString>& DefaultHeaders = FHttpModule::Get().GetDefaultHeaders();
+	for (TMap<FString, FString>::TConstIterator It(DefaultHeaders); It; ++It)
+	{
+		SetHeader(It.Key(), It.Value());
+	}
 }
 
 FHttpRequestWinInet::~FHttpRequestWinInet()

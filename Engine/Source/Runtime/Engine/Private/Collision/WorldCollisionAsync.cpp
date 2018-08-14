@@ -13,7 +13,7 @@
 #include "WorldCollision.h"
 #include "Engine/World.h"
 #include "PhysicsEngine/BodyInstance.h"
-#include "Collision/PhysXCollision.h"
+#include "Physics/PhysicsInterfaceCore.h"
 
 /**
  * Async trace functions
@@ -113,7 +113,7 @@ namespace
 					// MULTI
 					if (TraceData.TraceType == EAsyncTraceType::Multi)
 					{
-						RaycastMulti(TraceData.PhysWorld.Get(), TraceData.OutHits, TraceData.Start, TraceData.End, TraceData.TraceChannel,
+						FPhysicsInterface::RaycastMulti(TraceData.PhysWorld.Get(), TraceData.OutHits, TraceData.Start, TraceData.End, TraceData.TraceChannel,
 							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
 					}
 					// SINGLE
@@ -121,7 +121,7 @@ namespace
 					{
 						FHitResult Result;
 
-						bool bHit = RaycastSingle(TraceData.PhysWorld.Get(), Result, TraceData.Start, TraceData.End, TraceData.TraceChannel,
+						bool bHit = FPhysicsInterface::RaycastSingle(TraceData.PhysWorld.Get(), Result, TraceData.Start, TraceData.End, TraceData.TraceChannel,
 							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
 
 						if(bHit)
@@ -132,7 +132,7 @@ namespace
 					// TEST
 					else
 					{
-						bool bHit = RaycastTest(TraceData.PhysWorld.Get(), TraceData.Start, TraceData.End, TraceData.TraceChannel,
+						bool bHit = FPhysicsInterface::RaycastTest(TraceData.PhysWorld.Get(), TraceData.Start, TraceData.End, TraceData.TraceChannel,
 							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
 
 						if(bHit)
@@ -148,7 +148,7 @@ namespace
 					// MULTI
 					if (TraceData.TraceType == EAsyncTraceType::Multi)
 					{
-						GeomSweepMulti(TraceData.PhysWorld.Get(), TraceData.CollisionParams.CollisionShape, FQuat::Identity, TraceData.OutHits, TraceData.Start, TraceData.End, TraceData.TraceChannel,
+						FPhysicsInterface::GeomSweepMulti(TraceData.PhysWorld.Get(), TraceData.CollisionParams.CollisionShape, FQuat::Identity, TraceData.OutHits, TraceData.Start, TraceData.End, TraceData.TraceChannel,
 							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
 					}
 					// SINGLE
@@ -156,7 +156,7 @@ namespace
 					{
 						FHitResult Result;
 
-						bool bHit = GeomSweepSingle(TraceData.PhysWorld.Get(), TraceData.CollisionParams.CollisionShape, FQuat::Identity, Result, TraceData.Start, TraceData.End, TraceData.TraceChannel,
+						bool bHit = FPhysicsInterface::GeomSweepSingle(TraceData.PhysWorld.Get(), TraceData.CollisionParams.CollisionShape, FQuat::Identity, Result, TraceData.Start, TraceData.End, TraceData.TraceChannel,
 							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
 
 						if(bHit)
@@ -167,7 +167,7 @@ namespace
 					// TEST
 					else
 					{
-						bool bHit = GeomSweepTest(TraceData.PhysWorld.Get(), TraceData.CollisionParams.CollisionShape, FQuat::Identity, TraceData.Start, TraceData.End, TraceData.TraceChannel,
+						bool bHit = FPhysicsInterface::GeomSweepTest(TraceData.PhysWorld.Get(), TraceData.CollisionParams.CollisionShape, FQuat::Identity, TraceData.Start, TraceData.End, TraceData.TraceChannel,
 							TraceData.CollisionParams.CollisionQueryParam, TraceData.CollisionParams.ResponseParam, TraceData.CollisionParams.ObjectQueryParam);
 
 						if(bHit)
@@ -196,7 +196,7 @@ namespace
 				continue;
 			}
 
-			GeomOverlapMulti(
+			FPhysicsInterface::GeomOverlapMulti(
 				OverlapData.PhysWorld.Get(),
 				OverlapData.CollisionParams.CollisionShape,
 				OverlapData.Pos,

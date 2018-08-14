@@ -135,6 +135,14 @@ enum ERoundingMode
 	// Add new enum types at the end only! They are serialized by index.
 };
 
+enum EMemoryUnitStandard
+{
+	/* International Electrotechnical Commission (MiB) 1024-based */
+	IEC,
+	/* International System of Units 1000-based */
+	SI
+};
+
 struct CORE_API FNumberFormattingOptions
 {
 	FNumberFormattingOptions();
@@ -358,7 +366,12 @@ public:
 	/**
 	 * Generate an FText that represents the passed number as a memory size in the current culture
 	 */
-	static FText AsMemory(uint64 NumBytes, const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
+	static FText AsMemory(uint64 NumBytes, const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL, EMemoryUnitStandard UnitStandard = EMemoryUnitStandard::IEC);
+
+	/**
+	 * Generate an FText that represents the passed number as a memory size in the current culture
+	 */
+	static FText AsMemory(uint64 NumBytes, EMemoryUnitStandard UnitStandard);
 
 	/**
 	 * Attempts to find an existing FText using the representation found in the loc tables for the specified namespace and key

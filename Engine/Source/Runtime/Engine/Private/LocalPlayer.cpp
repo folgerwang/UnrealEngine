@@ -25,7 +25,7 @@
 #include "Matinee/InterpGroupInst.h"
 #include "Net/OnlineEngineInterface.h"
 #include "SceneManagement.h"
-#include "PhysicsPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "HAL/PlatformApplicationMisc.h"
 
@@ -1147,14 +1147,13 @@ bool ULocalPlayer::HandleListMoveBodyCommand( const TCHAR* Cmd, FOutputDevice& A
 
 bool ULocalPlayer::HandleListAwakeBodiesCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
-	ListAwakeRigidBodies(true, GetWorld());
+	GetWorld()->GetPhysicsScene()->ListAwakeRigidBodies(true);
 	return true;
 }
 
-
 bool ULocalPlayer::HandleListSimBodiesCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
-	ListAwakeRigidBodies(false, GetWorld());
+	GetWorld()->GetPhysicsScene()->ListAwakeRigidBodies(false);
 	return true;
 }
 

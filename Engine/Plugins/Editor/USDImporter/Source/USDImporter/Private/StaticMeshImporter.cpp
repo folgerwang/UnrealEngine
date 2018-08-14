@@ -11,21 +11,379 @@
 #include "UObject/Package.h"
 #include "USDAssetImportData.h"
 #include "Factories/Factory.h"
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "IMeshBuilderModule.h"
+#include "PackageTools.h"
 
 #define LOCTEXT_NAMESPACE "USDImportPlugin"
+
+struct FMeshDescriptionWrapper
+{
+	struct FVertexAttributes
+	{
+		FVertexAttributes(FMeshDescription* MeshDescription) :
+			Positions(MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position)),
+			Normals(MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal)),
+			Tangents(MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent)),
+			BinormalSigns(MeshDescription->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign)),
+			Colors(MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color)),
+			UVs(MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate))
+		{
+		}
+		TVertexAttributeArray<FVector>& Positions;
+		TVertexInstanceAttributeArray<FVector>& Normals;
+		TVertexInstanceAttributeArray<FVector>& Tangents;
+		TVertexInstanceAttributeArray<float>& BinormalSigns;
+		TVertexInstanceAttributeArray<FVector4>& Colors;
+		TVertexInstanceAttributeIndicesArray<FVector2D>& UVs;
+	};
+
+	FMeshDescriptionWrapper(FMeshDescription* MeshDescription) :
+		Vertex(MeshDescription),
+		EdgeHardnesses(MeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard)),
+		EdgeCreaseSharpnesses(MeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness)),
+		PolygonGroupImportedMaterialSlotNames(MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName))
+	{
+	}
+
+	FVertexAttributes Vertex;
+	TEdgeAttributeArray<bool>& EdgeHardnesses;
+	TEdgeAttributeArray<float>& EdgeCreaseSharpnesses;
+	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames;
+};
+
+struct FUSDImportMaterialInfo
+{
+	FUSDImportMaterialInfo() :
+		UnrealMaterial(nullptr)
+	{
+
+	}
+	FString Name;
+	UMaterialInterface* UnrealMaterial;
+};
+
+struct FUSDStaticMeshImportState
+{
+public:
+	FUSDStaticMeshImportState(FUsdImportContext& ImportContext, TArray<FUSDImportMaterialInfo>& Materials) :
+		ImportContext(ImportContext),
+		Materials(Materials),
+		MeshDescription(nullptr)
+	{
+	}
+
+	FUsdImportContext& ImportContext;
+	TArray<FUSDImportMaterialInfo>& Materials;
+	FTransform FinalTransform;
+	FMatrix FinalTransformIT;
+	FMeshDescription* MeshDescription;
+	UUSDImportOptions* ImportOptions;
+	UStaticMesh* NewMesh;
+	bool bFlip;
+
+private:
+	int32 VertexOffset;
+	int32 VertexInstanceOffset;
+	int32 PolygonOffset;
+	int32 MaterialIndexOffset;
+
+public:
+	void ProcessStaticUSDGeometry(IUsdPrim* GeomPrim, int32 LODIndex);
+	void ProcessMaterials(int32 LODIndex);
+
+private:
+	void AddVertexPositions(FMeshDescriptionWrapper& DestMeshWrapper, const FUsdGeomData& GeomData);
+	bool AddPolygons(FMeshDescriptionWrapper& DestMeshWrapper, const FUsdGeomData& GeomData);
+};
+
+void FUSDStaticMeshImportState::ProcessStaticUSDGeometry(IUsdPrim* GeomPrim, int32 LODIndex)
+{
+	const FUsdGeomData* GeomDataPtr = GeomPrim->GetGeometryData();
+	const FUsdGeomData& GeomData = *GeomDataPtr;
+
+	FMeshDescriptionWrapper DestMeshWrapper(MeshDescription);
+
+	VertexOffset = MeshDescription->Vertices().Num();
+	VertexInstanceOffset = MeshDescription->VertexInstances().Num();
+	PolygonOffset = MeshDescription->Polygons().Num();
+	MaterialIndexOffset = Materials.Num();
+	Materials.AddDefaulted(GeomData.MaterialNames.size());
+
+	AddVertexPositions(DestMeshWrapper, GeomData);
+	AddPolygons(DestMeshWrapper, GeomData);
+}
+
+void FUSDStaticMeshImportState::AddVertexPositions(FMeshDescriptionWrapper& DestMeshWrapper, const FUsdGeomData& GeomData)
+{
+	TVertexAttributeArray<FVector>& VertexPositions = DestMeshWrapper.Vertex.Positions;
+	for (int32 LocalPointIndex = 0; LocalPointIndex < GeomData.Points.size(); ++LocalPointIndex)
+	{
+		const FUsdVectorData& Point = GeomData.Points[LocalPointIndex];
+		FVector Pos = FVector(-Point.X, Point.Y, Point.Z);
+		Pos = FinalTransform.TransformPosition(Pos);
+
+		FVertexID AddedVertexId = MeshDescription->CreateVertex();
+		VertexPositions[AddedVertexId] = Pos;
+	}
+}
+
+bool FUSDStaticMeshImportState::AddPolygons(FMeshDescriptionWrapper& DestMeshWrapper, const FUsdGeomData& GeomData)
+{
+	// When importing multiple mesh pieces to the same static mesh.  Ensure each mesh piece has the same number of Uv's
+	{
+		int32 ExistingUVCount = 0;
+		for (int32 UVChannelIndex = 0; UVChannelIndex < DestMeshWrapper.Vertex.UVs.GetNumIndices(); ++UVChannelIndex)
+		{
+			if (DestMeshWrapper.Vertex.UVs.GetArrayForIndex(UVChannelIndex).Num() > 0)
+			{
+				ExistingUVCount++;
+			}
+			else
+			{
+				break;
+			}
+		}
+		int32 NumUVs = FMath::Max(GeomData.NumUVs, ExistingUVCount);
+		NumUVs = FMath::Min<int32>(MAX_MESH_TEXTURE_COORDS, NumUVs);
+		// At least one UV set must exist.  
+		NumUVs = FMath::Max<int32>(1, NumUVs);
+
+		//Make sure all Vertex instance have the correct number of UVs
+		DestMeshWrapper.Vertex.UVs.SetNumIndices(NumUVs);
+	}
+
+	TMap<int32, FPolygonGroupID> PolygonGroupMapping;
+	TArray<FVertexInstanceID> CornerInstanceIDs;
+	TArray<FVertexID> CornerVerticesIDs;
+	TArray<FMeshDescription::FContourPoint> Contours;
+	int32 CurrentVertexInstanceIndex = 0;
+
+	bool bFlipThisGeometry = bFlip;
+	if (GeomData.Orientation == EUsdGeomOrientation::LeftHanded)
+	{
+		bFlipThisGeometry = !bFlip;
+	}
+
+	for (int32 PolygonIndex = 0; PolygonIndex < GeomData.FaceVertexCounts.size(); ++PolygonIndex)
+	{
+		int32 PolygonVertexCount = GeomData.FaceVertexCounts[PolygonIndex];
+		CornerInstanceIDs.Reset();
+		CornerInstanceIDs.AddUninitialized(PolygonVertexCount);
+		CornerVerticesIDs.Reset();
+		CornerVerticesIDs.AddUninitialized(PolygonVertexCount);
+
+		for (int32 CornerIndex = 0; CornerIndex < PolygonVertexCount; ++CornerIndex, ++CurrentVertexInstanceIndex)
+		{
+			int32 VertexInstanceIndex = VertexInstanceOffset + CurrentVertexInstanceIndex;
+			const FVertexInstanceID VertexInstanceID(VertexInstanceIndex);
+			CornerInstanceIDs[CornerIndex] = VertexInstanceID;
+			const int32 ControlPointIndex = GeomData.FaceIndices[CurrentVertexInstanceIndex];
+			const FVertexID VertexID(VertexOffset + ControlPointIndex);
+			const FVector VertexPosition = DestMeshWrapper.Vertex.Positions[VertexID];
+			CornerVerticesIDs[CornerIndex] = VertexID;
+
+			FVertexInstanceID AddedVertexInstanceId = MeshDescription->CreateVertexInstance(VertexID);
+
+			if (GeomData.Normals.size() > 0)
+			{
+				const int32 NormalIndex = GeomData.Normals.size() != GeomData.FaceIndices.size() ? GeomData.FaceIndices[CurrentVertexInstanceIndex] : CurrentVertexInstanceIndex;
+				check(NormalIndex < GeomData.Normals.size());
+				const FUsdVectorData& Normal = GeomData.Normals[NormalIndex];
+				//FVector TransformedNormal = ConversionMatrixIT.TransformVector(PrimToWorldIT.TransformVector(FVector(Normal.X, Normal.Y, Normal.Z)));
+				FVector TransformedNormal = FinalTransformIT.TransformVector(FVector(-Normal.X, Normal.Y, Normal.Z));
+
+				DestMeshWrapper.Vertex.Normals[AddedVertexInstanceId] = TransformedNormal.GetSafeNormal();
+			}
+
+			for (int32 UVLayerIndex = 0; UVLayerIndex < GeomData.NumUVs; ++UVLayerIndex)
+			{
+				EUsdInterpolationMethod UVInterpMethod = GeomData.UVs[UVLayerIndex].UVInterpMethod;
+
+				// Get the index into the point array for this wedge
+				const int32 PointIndex = UVInterpMethod != EUsdInterpolationMethod::FaceVarying ? GeomData.FaceIndices[CurrentVertexInstanceIndex] : CurrentVertexInstanceIndex;
+
+				// In this mode there is a single vertex per vertex so 
+				// the point index should match up
+				check(PointIndex < GeomData.UVs[UVLayerIndex].Coords.size());
+				const FUsdVector2Data& UV = GeomData.UVs[UVLayerIndex].Coords[PointIndex];
+
+				// Flip V for Unreal uv's which match directx
+				FVector2D FinalUVVector(UV.X, 1.f - UV.Y);
+				DestMeshWrapper.Vertex.UVs.GetArrayForIndex(UVLayerIndex)[AddedVertexInstanceId] = FinalUVVector;
+			}
+		}
+
+		int32 MaterialIndex = 0;
+		if (PolygonIndex >= 0 && PolygonIndex < GeomData.FaceMaterialIndices.size())
+		{
+			MaterialIndex = GeomData.FaceMaterialIndices[PolygonIndex];
+			if (MaterialIndex < 0 || MaterialIndex > GeomData.MaterialNames.size())
+			{
+				MaterialIndex = 0;
+			}
+		}
+
+		int32 RealMaterialIndex = MaterialIndexOffset + MaterialIndex;
+		if (!PolygonGroupMapping.Contains(RealMaterialIndex))
+		{
+			FName ImportedMaterialSlotName;
+			if (MaterialIndex >= 0 && MaterialIndex < GeomData.MaterialNames.size())
+			{
+				FString MaterialName = USDToUnreal::ConvertString(GeomData.MaterialNames[MaterialIndex]);
+				ImportedMaterialSlotName = FName(*MaterialName);
+				Materials[RealMaterialIndex].Name = MaterialName;
+			}
+
+			FPolygonGroupID ExistingPolygonGroup = FPolygonGroupID::Invalid;
+			for (const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
+			{
+				if (DestMeshWrapper.PolygonGroupImportedMaterialSlotNames[PolygonGroupID] == ImportedMaterialSlotName)
+				{
+					ExistingPolygonGroup = PolygonGroupID;
+					break;
+				}
+			}
+			if (ExistingPolygonGroup == FPolygonGroupID::Invalid)
+			{
+				ExistingPolygonGroup = MeshDescription->CreatePolygonGroup();
+				DestMeshWrapper.PolygonGroupImportedMaterialSlotNames[ExistingPolygonGroup] = ImportedMaterialSlotName;
+			}
+			PolygonGroupMapping.Add(RealMaterialIndex, ExistingPolygonGroup);
+		}
+
+		// Create polygon edges
+		Contours.Reset();
+		for (uint32 PolygonEdgeNumber = 0; PolygonEdgeNumber < (uint32)PolygonVertexCount; ++PolygonEdgeNumber)
+		{
+			int32 ContourPointIndex = Contours.AddDefaulted();
+			FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+			//Find the matching edge ID
+			uint32 CornerIndices[2];
+			CornerIndices[0] = (PolygonEdgeNumber + 0) % PolygonVertexCount;
+			CornerIndices[1] = (PolygonEdgeNumber + 1) % PolygonVertexCount;
+
+			FVertexID EdgeVertexIDs[2];
+			EdgeVertexIDs[0] = CornerVerticesIDs[CornerIndices[0]];
+			EdgeVertexIDs[1] = CornerVerticesIDs[CornerIndices[1]];
+
+			FEdgeID MatchEdgeId = MeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+			if (MatchEdgeId == FEdgeID::Invalid)
+			{
+				MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+			}
+			ContourPoint.EdgeID = MatchEdgeId;
+			ContourPoint.VertexInstanceID = CornerInstanceIDs[CornerIndices[0]];
+		}
+
+		FPolygonGroupID PolygonGroupID = PolygonGroupMapping[RealMaterialIndex];
+		// Insert a polygon into the mesh
+		const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(PolygonGroupID, Contours);
+		if (bFlipThisGeometry)
+		{
+			MeshDescription->ReversePolygonFacing(NewPolygonID);
+		}
+		else
+		{
+			FMeshPolygon& Polygon = MeshDescription->GetPolygon(NewPolygonID);
+			MeshDescription->ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
+		}
+	}
+
+	return true;
+}
+
+void FUSDStaticMeshImportState::ProcessMaterials(int32 LODIndex)
+{
+	const FString BasePackageName = FPackageName::GetLongPackagePath(NewMesh->GetOutermost()->GetName());
+
+	FMeshDescriptionWrapper DestMeshWrapper(MeshDescription);
+	TArray<FStaticMaterial> MaterialToAdd;
+	for (const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
+	{
+		const FName& ImportedMaterialSlotName = DestMeshWrapper.PolygonGroupImportedMaterialSlotNames[PolygonGroupID];
+		const FString ImportedMaterialSlotNameString = ImportedMaterialSlotName.ToString();
+		const FName MaterialSlotName = ImportedMaterialSlotName;
+		int32 MaterialIndex = INDEX_NONE;
+		for (int32 MeshMaterialIndex = 0; MeshMaterialIndex < Materials.Num(); ++MeshMaterialIndex)
+		{
+			FUSDImportMaterialInfo& MeshMaterial = Materials[MeshMaterialIndex];
+			if (MeshMaterial.Name.Equals(ImportedMaterialSlotNameString))
+			{
+				MaterialIndex = MeshMaterialIndex;
+				break;
+			}
+		}
+		if (MaterialIndex == INDEX_NONE)
+		{
+			MaterialIndex = PolygonGroupID.GetValue();
+		}
+
+		UMaterialInterface* Material = nullptr;
+		if (Materials.IsValidIndex(MaterialIndex))
+		{
+			Material = Materials[MaterialIndex].UnrealMaterial;
+			if (Material == nullptr)
+			{
+				const FString& MaterialFullName = Materials[MaterialIndex].Name;
+				FString MaterialBasePackageName = BasePackageName;
+				MaterialBasePackageName += TEXT("/");
+				MaterialBasePackageName += MaterialFullName;
+				MaterialBasePackageName = UPackageTools::SanitizePackageName(MaterialBasePackageName);
+
+				// The material could already exist in the project
+				//FName ObjectPath = *(MaterialBasePackageName + TEXT(".") + MaterialFullName);
+
+				FText Error;
+				Material = UMaterialImportHelpers::FindExistingMaterialFromSearchLocation(MaterialFullName, MaterialBasePackageName, ImportOptions->MaterialSearchLocation, Error);
+				if (Material)
+				{
+					Materials[MaterialIndex].UnrealMaterial = Material;
+				}
+				else
+				{
+					Material = UMaterial::GetDefaultMaterial(MD_Surface);
+				}
+			}
+		}
+		if (Material == nullptr)
+		{
+			Material = UMaterial::GetDefaultMaterial(MD_Surface);
+		}
+
+		FStaticMaterial StaticMaterial(Material, MaterialSlotName, ImportedMaterialSlotName);
+		if (LODIndex > 0)
+		{
+			MaterialToAdd.Add(StaticMaterial);
+		}
+		else
+		{
+			NewMesh->StaticMaterials.Add(StaticMaterial);
+		}
+	}
+	if (LODIndex > 0)
+	{
+		//Insert the new materials in the static mesh
+		// TODO
+	}
+}
 
 UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportContext, const FUsdAssetPrimToImport& PrimToImport)
 {
 	IUsdPrim* Prim = PrimToImport.Prim;
 
 	const FTransform& ConversionTransform = ImportContext.ConversionTransform;
-
 	const FMatrix PrimToWorld = ImportContext.bApplyWorldTransformToGeometry ? USDToUnreal::ConvertMatrix(Prim->GetLocalToWorldTransform()) : FMatrix::Identity;
-
-	FTransform FinalTransform = FTransform(PrimToWorld)*ConversionTransform;
+	FTransform FinalTransform = FTransform(PrimToWorld) * ConversionTransform;
+	if (ImportContext.ImportOptions->Scale != 1.0)
+	{
+		FVector Scale3D = FinalTransform.GetScale3D() * ImportContext.ImportOptions->Scale;
+		FinalTransform.SetScale3D(Scale3D);
+	}
 	FMatrix FinalTransformIT = FinalTransform.ToInverseMatrixWithScale().GetTransposed();
+	bool bFlip = FinalTransform.GetDeterminant() < 0.0f;
 
-	const bool bFlip = FinalTransform.GetDeterminant() > 0.0f;
 
 	int32 NumLODs = PrimToImport.NumLODs;
 
@@ -39,6 +397,10 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 		ImportData->ImportOptions = DuplicateObject<UUSDImportOptions>(ImportContext.ImportOptions, ImportData);
 		NewMesh->AssetImportData = ImportData;
 	}
+	else if (!ImportData->ImportOptions)
+	{
+		ImportData->ImportOptions = DuplicateObject<UUSDImportOptions>(ImportContext.ImportOptions, ImportData);
+	}
 	ImportOptions = CastChecked<UUSDAssetImportData>(NewMesh->AssetImportData)->ImportOptions;
 	check(ImportOptions);
 
@@ -50,11 +412,26 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 
 	NewMesh->StaticMaterials.Empty();
 
-	TArray<UMaterialInterface*> Materials;
+	TArray<FUSDImportMaterialInfo> Materials;
+	FUSDStaticMeshImportState State(ImportContext, Materials);
+	State.FinalTransform = FinalTransform;
+	State.FinalTransformIT = FinalTransformIT;
+	State.bFlip = bFlip;
+	State.ImportOptions = ImportOptions;
+	State.NewMesh = NewMesh;
 
 	for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
 	{
-		FRawMesh RawTriangles;
+		if (NewMesh->SourceModels.Num() < LODIndex + 1)
+		{
+			// Add one LOD 
+			NewMesh->AddSourceModel();
+
+			if (NewMesh->SourceModels.Num() < LODIndex + 1)
+			{
+				LODIndex = NewMesh->SourceModels.Num() - 1;
+			}
+		}
 
 		TArray<IUsdPrim*> PrimsWithGeometry;
 		for (IUsdPrim* MeshPrim : PrimToImport.MeshPrims)
@@ -73,212 +450,27 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 			}
 		}
 
+		//Create private asset in the same package as the StaticMesh, and make sure reference are set to avoid GC
+		NewMesh->ClearOriginalMeshDescription(LODIndex);
+		State.MeshDescription = NewMesh->CreateOriginalMeshDescription(LODIndex);
+		check(State.MeshDescription != nullptr);
+
+		bool bRecomputeNormals = false;
+
 		for (IUsdPrim* GeomPrim : PrimsWithGeometry)
 		{
 			// If we dont have a geom prim this might not be an error so dont message it.  The geom prim may not contribute to the LOD for whatever reason
 			if (GeomPrim)
 			{
 				const FUsdGeomData* GeomDataPtr = GeomPrim->GetGeometryData();
-
-				if (GeomDataPtr && IsTriangleMesh(GeomDataPtr))
+				if (GeomDataPtr)
 				{
-					const FUsdGeomData& GeomData = *GeomDataPtr;
-
-					const int32 FaceOffset = RawTriangles.FaceMaterialIndices.Num();
-					const int32 VertexOffset = RawTriangles.VertexPositions.Num();
-					const int32 WedgeOffset = RawTriangles.WedgeIndices.Num();
-
-					// Fill in the raw data
+					if (GeomDataPtr->Normals.size() == 0 && GeomDataPtr->Points.size() > 0)
 					{
-						{
-							// @todo Smoothing.  Not supported by USD
-							RawTriangles.FaceSmoothingMasks.AddUninitialized(GeomData.FaceVertexCounts.size());
-							for (int32 LocalFaceIndex = 0; LocalFaceIndex < GeomData.FaceVertexCounts.size(); ++LocalFaceIndex)
-							{
-								RawTriangles.FaceSmoothingMasks[FaceOffset + LocalFaceIndex] = 0xFFFFFFFF;
-							}
-						}
-
-						// Positions
-						{
-							RawTriangles.VertexPositions.AddUninitialized(GeomData.Points.size());
-							for (int32 LocalPointIndex = 0; LocalPointIndex < GeomData.Points.size(); ++LocalPointIndex)
-							{
-								const FUsdVectorData& Point = GeomData.Points[LocalPointIndex];
-								FVector Pos = FVector(Point.X, Point.Y, Point.Z);
-								Pos = FinalTransform.TransformPosition(Pos);
-								RawTriangles.VertexPositions[VertexOffset + LocalPointIndex] = Pos;
-							}
-						}
-
-						// Indices
-						{
-							RawTriangles.WedgeIndices.AddUninitialized(GeomData.FaceIndices.size());
-							for (int32 LocalFaceIndex = 0; LocalFaceIndex < GeomData.FaceIndices.size(); ++LocalFaceIndex)
-							{
-								RawTriangles.WedgeIndices[WedgeOffset + LocalFaceIndex] = GeomData.FaceIndices[LocalFaceIndex] + VertexOffset;
-							}
-						}
-
-						const int32 NumFaces = GeomData.FaceIndices.size() / 3;
-
-						// Material names and indices 
-						{
-
-							// There must always be one material
-							int32 NumMaterials = FMath::Max<int32>(1, GeomData.MaterialNames.size());
-
-							TArray<int32> LocalToGlobalMaterialMap;
-							LocalToGlobalMaterialMap.AddUninitialized(NumMaterials);
-							FString BasePackageName = FPackageName::GetLongPackagePath(NewMesh->GetOutermost()->GetName());
-
-							// Add a material slot for each material
-							for (int32 LocalMaterialIndex = 0; LocalMaterialIndex < NumMaterials; ++LocalMaterialIndex)
-							{
-
-								UMaterialInterface* ExistingMaterial = nullptr;
-
-								if (LocalMaterialIndex < GeomData.MaterialNames.size())
-								{
-									FString MaterialName = USDToUnreal::ConvertString(GeomData.MaterialNames[LocalMaterialIndex]);
-
-									FText Error;
-									BasePackageName /= MaterialName;
-
-									FString MaterialPath = MaterialName;
-
-									ExistingMaterial = UMaterialImportHelpers::FindExistingMaterialFromSearchLocation(MaterialPath, BasePackageName, ImportOptions->MaterialSearchLocation, Error);
-
-									if (!Error.IsEmpty())
-									{
-										ImportContext.AddErrorMessage(EMessageSeverity::Error, Error);
-									}
-								}
-
-
-								Materials.Add(ExistingMaterial ? ExistingMaterial : UMaterial::GetDefaultMaterial(MD_Surface));
-
-								int32 GlobalIndex = NewMesh->StaticMaterials.AddUnique(ExistingMaterial ? ExistingMaterial : UMaterial::GetDefaultMaterial(MD_Surface));
-								NewMesh->SectionInfoMap.Set(LODIndex, GlobalIndex, FMeshSectionInfo(GlobalIndex));
-
-								LocalToGlobalMaterialMap[LocalMaterialIndex] = GlobalIndex;
-							}
-
-							// Material Indices 
-							{
-								RawTriangles.FaceMaterialIndices.AddZeroed(GeomData.FaceVertexCounts.size());
-								for (int32 FaceMaterialIndex = 0; FaceMaterialIndex < GeomData.FaceVertexCounts.size(); ++FaceMaterialIndex)
-								{
-									RawTriangles.FaceMaterialIndices[FaceOffset + FaceMaterialIndex] = LocalToGlobalMaterialMap[GeomData.FaceMaterialIndices[FaceMaterialIndex]];
-								}
-							}
-
-						}
-
-						// UVs and normals
-						{
-
-							if (GeomData.NumUVs > 0)
-							{
-								for (int32 UVIndex = 0; UVIndex < GeomData.NumUVs; ++UVIndex)
-								{
-									RawTriangles.WedgeTexCoords[UVIndex].AddUninitialized(GeomData.FaceIndices.size());
-								}
-							}
-							else
-							{
-								// Have to at least have one UV set
-								ImportContext.AddErrorMessage(EMessageSeverity::Warning,
-									FText::Format(LOCTEXT("StaticMeshesHaveNoUVS", "{0} (LOD {1}) has no UVs.  At least one valid UV set should exist on a static mesh. This mesh will likely have rendering issues"),
-										FText::FromString(ImportContext.ObjectName),
-										FText::AsNumber(LODIndex)));
-
-								RawTriangles.WedgeTexCoords[0].AddZeroed(GeomData.FaceIndices.size());
-							}
-
-							// Add one normal per tri vert
-							RawTriangles.WedgeTangentZ.AddUninitialized(NumFaces * 3);
-
-							for (int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
-							{
-								const int32 DestFaceIndex = FaceOffset + FaceIndex;
-
-								// Assume triangles for now
-								for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
-								{
-									const int32 LocalWedgeIndex = FaceIndex * 3 + CornerIndex;
-
-									const int32 WedgeIndex = WedgeOffset + FaceIndex * 3 + CornerIndex;
-
-									// Normals
-									if (GeomData.Normals.size() > 0)
-									{
-										// Note about this mapping:  Normals are not primvars in USD files.  If the normals do not have a 1:1 mapping with indices we assume they are face varying
-										// todo: fix this in the usd wrapper not here so it is consistent with UVs 
-										const int32 NormalIndex = GeomData.Normals.size() != GeomData.FaceIndices.size() ? GeomData.FaceIndices[LocalWedgeIndex] : LocalWedgeIndex;
-
-										check(NormalIndex < GeomData.Normals.size());
-
-										const FUsdVectorData& Normal = GeomData.Normals[NormalIndex];
-										//FVector TransformedNormal = ConversionMatrixIT.TransformVector(PrimToWorldIT.TransformVector(FVector(Normal.X, Normal.Y, Normal.Z)));
-										FVector TransformedNormal = FinalTransformIT.TransformVector(FVector(Normal.X, Normal.Y, Normal.Z));
-
-										RawTriangles.WedgeTangentZ[WedgeIndex] = TransformedNormal.GetSafeNormal();
-									}
-
-
-									// UVs
-									if (GeomData.NumUVs > 0)
-									{
-										for (int32 UVIndex = 0; UVIndex < GeomData.NumUVs; ++UVIndex)
-										{
-											TArray<FVector2D>& TexCoords = RawTriangles.WedgeTexCoords[UVIndex];
-
-											EUsdInterpolationMethod UVInterpMethod = GeomData.UVs[UVIndex].UVInterpMethod;
-
-											// Get the index into the point array for this wedge
-											const int32 PointIndex = UVInterpMethod == EUsdInterpolationMethod::FaceVarying ? LocalWedgeIndex : GeomData.FaceIndices[LocalWedgeIndex];
-
-											// In this mode there is a single vertex per vertex so 
-											// the point index should match up
-											check(PointIndex < GeomData.UVs[UVIndex].Coords.size());
-											const FUsdVector2Data& UV = GeomData.UVs[UVIndex].Coords[PointIndex];
-
-											// Flip V for Unreal uv's which match directx
-											TexCoords[WedgeIndex] = FVector2D(UV.X, -UV.Y);
-										}
-									}
-
-								}
-							}
-						}
-
-
-						if (bFlip)
-						{
-							// Flip anything that is indexed
-							for (int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
-							{
-								const int32 I0 = WedgeOffset + FaceIndex * 3 + 0;
-								const int32 I2 = WedgeOffset + FaceIndex * 3 + 2;
-								Swap(RawTriangles.WedgeIndices[I0], RawTriangles.WedgeIndices[I2]);
-
-								if (RawTriangles.WedgeTangentZ.Num())
-								{
-									Swap(RawTriangles.WedgeTangentZ[I0], RawTriangles.WedgeTangentZ[I2]);
-								}
-
-								for (int32 TexCoordIndex = 0; TexCoordIndex < MAX_MESH_TEXTURE_COORDS; ++TexCoordIndex)
-								{
-									TArray<FVector2D>& TexCoords = RawTriangles.WedgeTexCoords[TexCoordIndex];
-									if (TexCoords.Num() > 0)
-									{
-										Swap(TexCoords[I0], TexCoords[I2]);
-									}
-								}
-							}
-						}
+						bRecomputeNormals = true;
 					}
+
+					State.ProcessStaticUSDGeometry(GeomPrim, LODIndex);
 				}
 				else
 				{
@@ -294,50 +486,33 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 			}
 		}
 
-		
-		if(NewMesh)
+		if (!NewMesh)
 		{
-			if (!NewMesh->SourceModels.IsValidIndex(LODIndex))
-			{
-				// Add one LOD 
-				NewMesh->AddSourceModel();
-			}
-
-			
-			FStaticMeshSourceModel& SrcModel = NewMesh->SourceModels[LODIndex];
-
-			RawTriangles.CompactMaterialIndices();
-
-			if(RawTriangles.IsValidOrFixable())
-			{
-
-				SrcModel.RawMeshBulkData->SaveRawMesh(RawTriangles);
-
-				// Recompute normals if we didnt import any
-				SrcModel.BuildSettings.bRecomputeNormals = RawTriangles.WedgeTangentZ.Num() == 0;
-
-				// Always recompute tangents as USD files do not contain tangent information
-				SrcModel.BuildSettings.bRecomputeTangents = true;
-
-				// Use mikktSpace if we have normals
-				SrcModel.BuildSettings.bUseMikkTSpace = RawTriangles.WedgeTangentZ.Num() != 0;
-				SrcModel.BuildSettings.bGenerateLightmapUVs = true;
-				SrcModel.BuildSettings.bBuildAdjacencyBuffer = false;
-				SrcModel.BuildSettings.bBuildReversedIndexBuffer = false;
-			}
-			else
-			{
-				ImportContext.AddErrorMessage(EMessageSeverity::Error, FText::Format(LOCTEXT("StaticMeshesNoValidSourceData","'{0}' does not have valid source data, mesh will not be imported"), FText::FromString(NewMesh->GetName())));
-				NewMesh->ClearFlags(RF_Standalone);
-				NewMesh = nullptr;
-			}
+			break;
 		}
 
+		if (!NewMesh->SourceModels.IsValidIndex(LODIndex))
+		{
+			// Add one LOD 
+			NewMesh->AddSourceModel();
+		}
+
+		State.ProcessMaterials(LODIndex);
+
+		NewMesh->CommitOriginalMeshDescription(LODIndex);
+
+		FStaticMeshSourceModel& SrcModel = NewMesh->SourceModels[LODIndex];
+		SrcModel.BuildSettings.bGenerateLightmapUVs = false;
+		SrcModel.BuildSettings.bRecomputeNormals = bRecomputeNormals;
+		SrcModel.BuildSettings.bRecomputeTangents = true;
+		SrcModel.BuildSettings.bBuildAdjacencyBuffer = false;
+
+		NewMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
 	}
 
 	if(NewMesh)
 	{
-		NewMesh->ImportVersion = EImportStaticMeshVersion::BeforeImportStaticMeshVersionWasAdded;
+		NewMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
 
 		NewMesh->CreateBodySetup();
 
@@ -347,21 +522,6 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 	}
 
 	return NewMesh;
-}
-
-bool FUSDStaticMeshImporter::IsTriangleMesh(const FUsdGeomData* GeomData)
-{
-	bool bIsTriangleMesh = true;
-	for (int32 VertexCount : GeomData->FaceVertexCounts)
-	{
-		if (VertexCount != 3)
-		{
-			bIsTriangleMesh = false;
-			break;
-		}
-	}
-
-	return bIsTriangleMesh;
 }
 
 #undef LOCTEXT_NAMESPACE

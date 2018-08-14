@@ -100,7 +100,7 @@ namespace BuildPatchServices
 		{
 			InstallFilename = StagedFileDirectory / BuildFile;
 			int64 FileSize;
-			if (FileSystem->GetFileSize(*InstallFilename, FileSize) && FileSize != INDEX_NONE)
+			if (FileSystem->GetFileSize(*InstallFilename, FileSize))
 			{
 				return InstallFilename;
 			}
@@ -123,14 +123,14 @@ namespace BuildPatchServices
 
 	void FFileAttribution::SetupFileAttributes(const FString& FilePath, const FFileManifest& FileManifest, bool bForce)
 	{
-		EFileAttributes FileAttributes = EFileAttributes::None;
+		EAttributeFlags FileAttributes = EAttributeFlags::None;
 
 		// First check file attributes as it's much faster to read and do nothing
-		bool bKnownAttributes = FileSystem->GetFileAttributes(*FilePath, FileAttributes);
-		bool bIsReadOnly = (FileAttributes & EFileAttributes::ReadOnly) != EFileAttributes::None;
-		const bool bFileExists = (FileAttributes & EFileAttributes::Exists) != EFileAttributes::None;
-		const bool bIsCompressed = (FileAttributes & EFileAttributes::Compressed) != EFileAttributes::None;
-		const bool bIsUnixExecutable = (FileAttributes & EFileAttributes::Executable) != EFileAttributes::None;
+		bool bKnownAttributes = FileSystem->GetAttributes(*FilePath, FileAttributes);
+		bool bIsReadOnly = (FileAttributes & EAttributeFlags::ReadOnly) != EAttributeFlags::None;
+		const bool bFileExists = (FileAttributes & EAttributeFlags::Exists) != EAttributeFlags::None;
+		const bool bIsCompressed = (FileAttributes & EAttributeFlags::Compressed) != EAttributeFlags::None;
+		const bool bIsUnixExecutable = (FileAttributes & EAttributeFlags::Executable) != EAttributeFlags::None;
 
 		// If we know the file is missing, skip out
 		if (bKnownAttributes && !bFileExists)

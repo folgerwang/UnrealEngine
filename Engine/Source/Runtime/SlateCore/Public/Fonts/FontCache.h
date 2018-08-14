@@ -228,6 +228,17 @@ public:
 		int32 TextLen;
 	};
 
+	explicit FShapedGlyphSequence()
+		: GlyphsToRender()
+		, TextBaseline(0)
+		, MaxTextHeight(0)
+		, FontMaterial(nullptr)
+		, OutlineSettings()
+		, SequenceWidth(0)
+		, GlyphFontFaces()
+		, SourceIndicesToGlyphData(FSourceTextRange(0, 0))
+	{ }
+
 	FShapedGlyphSequence(TArray<FShapedGlyphEntry> InGlyphsToRender, const int16 InTextBaseline, const uint16 InMaxTextHeight, const UObject* InFontMaterial, const FFontOutlineSettings& InOutlineSettings, const FSourceTextRange& InSourceTextRange);
 	~FShapedGlyphSequence();
 

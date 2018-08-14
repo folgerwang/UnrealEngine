@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,21 +17,7 @@
 // Live Link Log Category
 DECLARE_LOG_CATEGORY_EXTERN(LogLiveLink, Log, All);
 
-struct FLiveLinkFrame
-{
-public:
-	TArray<FTransform>		Transforms;
-	TArray<FOptionalCurveElement>	Curves;
 
-	FLiveLinkMetaData		MetaData;
-
-	FLiveLinkWorldTime WorldTime;
-
-	void ExtendCurveData(int32 ExtraCurves)
-	{
-		Curves.AddDefaulted(ExtraCurves);
-	}
-};
 
 struct FLiveLinkSubject
 {
@@ -66,10 +52,10 @@ struct FLiveLinkSubject
 	{}
 
 	// Add a frame of data from a FLiveLinkFrameData
-	void AddFrame(const FLiveLinkFrameData& FrameData, FGuid FrameSource);
+	void AddFrame(const FLiveLinkFrameData& FrameData, FGuid FrameSource, bool bSaveFrame);
 
 	// Populate OutFrame with a frame based off of the supplied time and our own offsets
-	void BuildInterpolatedFrame(const double InSeconds, FLiveLinkSubjectFrame& OutFrame);
+	void GetFrameAtWorldTime(const double InSeconds, FLiveLinkSubjectFrame& OutFrame);
 
 	// Get this subjects ref skeleton
 	const FLiveLinkRefSkeleton& GetRefSkeleton() const { return RefSkeleton; }
@@ -84,6 +70,12 @@ private:
 
 	// Allow us to track changes to the ref skeleton
 	FGuid RefSkeletonGuid;
+
+	// Copy a frame from the buffer to a FLiveLinkSubjectFrame
+	void CopyFrameData(const FLiveLinkFrame& InFrame, FLiveLinkSubjectFrame& OutFrame);
+
+	// Blend two frames from the buffer and copy the result to a FLiveLinkSubjectFrame
+	void CopyFrameDataBlended(const FLiveLinkFrame& PreFrame, const FLiveLinkFrame& PostFrame, float BlendWeight, FLiveLinkSubjectFrame& OutFrame);
 };
 
 // Structure that identifies an individual subject
@@ -116,7 +108,7 @@ struct FLiveLinkVirtualSubjectSource : public ILiveLinkSource
 class LIVELINK_API FLiveLinkClient : public ILiveLinkClient, public FTickableGameObject, public FGCObject
 {
 public:
-	FLiveLinkClient() : LastValidationCheck(0.0), VirtualSubjectGuid(FGuid::NewGuid()) { AddVirtualSubjectSource(); }
+	FLiveLinkClient() : LastValidationCheck(0.0), VirtualSubjectGuid(FGuid::NewGuid()), bSaveFrames(false) { AddVirtualSubjectSource(); }
 	~FLiveLinkClient();
 
 	// Begin FTickableGameObject implementation
@@ -148,14 +140,23 @@ public:
 
 	virtual void ClearSubject(FName SubjectName) override;
 	virtual void PushSubjectData(FGuid SourceGuid, FName SubjectName, const FLiveLinkFrameData& FrameData) override;
-	// End ILiveLinkClient Interface
+	virtual void ClearSubjectsFrames(FName SubjectName) override;
+	virtual void ClearAllSubjectsFrames() override;
 
 	// Add a new virtual subject to the client
 	void AddVirtualSubject(FName NewVirtualSubjectName);
 
 	virtual const FLiveLinkSubjectFrame* GetSubjectData(FName SubjectName) override;
 
+	const FLiveLinkSubjectFrame* GetSubjectDataAtWorldTime(FName SubjectName, double WorldTime) override;
+
 	const TArray<FGuid>& GetSourceEntries() const { return SourceGuids; }
+	const TArray<FLiveLinkFrame>*	GetSubjectRawFrames(FName SubjectName) override;
+
+	bool GetSaveFrames() const override;
+	bool SetSaveFrames(bool InSave) override;
+
+	// End ILiveLinkClient Interface
 
 	// Get a list of currently active subjects
 	TArray<FLiveLinkSubjectKey> GetSubjects();
@@ -259,4 +260,7 @@ private:
 
 	// "source guid" for virtual subjects
 	FGuid VirtualSubjectGuid;
+
+	//Whether or not we save the Frames , or just keep as set of minimal ones for resolution.
+	bool bSaveFrames;
 };

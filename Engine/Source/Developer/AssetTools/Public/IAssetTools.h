@@ -313,6 +313,10 @@ public:
 
 	/** Expands any folders found in the files list, and returns a flattened list of destination paths and files.  Mirrors directory structure. */
 	virtual void ExpandDirectories(const TArray<FString>& Files, const FString& DestinationPath, TArray<TPair<FString, FString>>& FilesAndDestinations) const = 0;
+
+	/** Opens editor for assets */
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Asset Tools")
+	virtual void OpenEditorForAssets(const TArray<UObject*>& Assets) const = 0;
 };
 
 UCLASS(transient)

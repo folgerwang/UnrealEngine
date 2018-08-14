@@ -52,7 +52,6 @@ FAjaMediaPlayer::FAjaMediaPlayer(IMediaEventSink& InEventSink)
 	, AjaThreadAutoCirculateVideoFrameDropCount(0)
 	, bEncodeTimecodeInTexel(false)
 	, bUseAncillary(false)
-	, bUseAncillaryField2(false)
 	, bUseAudio(false)
 	, bUseVideo(false)
 	, bVerifyFrameDropCount(true)
@@ -84,12 +83,6 @@ bool FAjaMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 
 	if (!ReadMediaOptions(Options))
 	{
-		return false;
-	}
-
-	if (!FAja::CanUseAJACard())
-	{
-		UE_LOG(LogAjaMedia, Warning, TEXT("The AjaMediaPlayer can't open URL '%s' because Aja card cannot be used. Are you in a Commandlet? You may override this behavior by launching with -ForceAjaUsage"), *DeviceSource.ToString());
 		return false;
 	}
 
@@ -135,12 +128,25 @@ bool FAjaMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 	}
 	{
 		EAjaMediaSourceColorFormat ColorFormat = (EAjaMediaSourceColorFormat)(Options->GetMediaOption(AjaMediaOption::ColorFormat, (int64)EMediaTextureSampleFormat::CharBGRA));
-		VideoSampleFormat = (ColorFormat == EAjaMediaSourceColorFormat::BGRA) ? EMediaTextureSampleFormat::CharBGRA : EMediaTextureSampleFormat::CharUYVY;
-		AjaOptions.PixelFormat = (ColorFormat == EAjaMediaSourceColorFormat::BGRA) ? AJA::EPixelFormat::PF_8BIT_ARGB : AJA::EPixelFormat::PF_8BIT_YCBCR;
+		switch(ColorFormat)
+		{
+		case EAjaMediaSourceColorFormat::UYVY:
+			VideoSampleFormat = EMediaTextureSampleFormat::CharUYVY;
+			AjaOptions.PixelFormat = AJA::EPixelFormat::PF_8BIT_YCBCR;
+			break;
+		case EAjaMediaSourceColorFormat::BGR10:
+			VideoSampleFormat = EMediaTextureSampleFormat::CharBGR10A2;
+			AjaOptions.PixelFormat = AJA::EPixelFormat::PF_10BIT_RGB;
+			break;
+		case EAjaMediaSourceColorFormat::BGRA:
+		default:
+			VideoSampleFormat = EMediaTextureSampleFormat::CharBGRA;
+			AjaOptions.PixelFormat = AJA::EPixelFormat::PF_8BIT_ARGB;
+			break;
+		}
 	}
 	{
-		AjaOptions.bUseAncillary = bUseAncillary = Options->GetMediaOption(AjaMediaOption::CaptureAncillary1, false);
-		AjaOptions.bUseAncillaryField2 = bUseAncillaryField2 = Options->GetMediaOption(AjaMediaOption::CaptureAncillary2, false);
+		AjaOptions.bUseAncillary = bUseAncillary = Options->GetMediaOption(AjaMediaOption::CaptureAncillary, false);
 		AjaOptions.bUseAudio = bUseAudio = Options->GetMediaOption(AjaMediaOption::CaptureAudio, false);
 		AjaOptions.bUseVideo = bUseVideo = Options->GetMediaOption(AjaMediaOption::CaptureVideo, true);
 		AjaOptions.bUseAutoCirculating = Options->GetMediaOption(AjaMediaOption::CaptureWithAutoCirculating, true);
@@ -428,18 +434,37 @@ bool FAjaMediaPlayer::OnInputFrameReceived(const AJA::AJAInputFrameData& InInput
 
 	if (AjaThreadNewState == EMediaState::Playing)
 	{
-		if ((bUseAncillary && InAncillaryFrame.AncBuffer) || (bUseAncillaryField2 && InAncillaryFrame.AncF2Buffer))
+		if (bUseAncillary && InAncillaryFrame.AncBuffer)
 		{
-			if (Samples->NumMetadataSamples() >= MaxNumMetadataFrameBuffer)
+			const bool bHaveField2 = (InAncillaryFrame.AncF2Buffer && !InVideoFrame.bIsProgressivePicture);
+
+			const int32 NumMetadataSamples = Samples->NumMetadataSamples() + (bHaveField2 ? 1 : 0);
+			if (NumMetadataSamples >= MaxNumMetadataFrameBuffer)
 			{
 				FPlatformAtomics::InterlockedIncrement(&AjaThreadAutoCirculateMetadataFrameDropCount);
 				Samples->PopMetadata();
+				if (!InVideoFrame.bIsProgressivePicture)
+				{
+					Samples->PopMetadata();
+				}
 			}
 
-			auto MetaDataSample = MetadataSamplePool->AcquireShared();
-			if (MetaDataSample->Initialize(InAncillaryFrame, AjaThreadCurrentTime))
 			{
-				Samples->AddMetadata(MetaDataSample);
+				auto MetaDataSample = MetadataSamplePool->AcquireShared();
+				if (MetaDataSample->Initialize(InAncillaryFrame.AncBuffer, InAncillaryFrame.AncBufferSize, AjaThreadCurrentTime))
+				{
+					Samples->AddMetadata(MetaDataSample);
+				}
+			}
+
+			if (bHaveField2)
+			{
+				FTimespan CurrentOddTime = AjaThreadCurrentTime + FTimespan::FromSeconds(VideoFrameRate.AsInterval() / 2.0);
+				auto MetaDataSample = MetadataSamplePool->AcquireShared();
+				if (MetaDataSample->Initialize(InAncillaryFrame.AncF2Buffer, InAncillaryFrame.AncF2BufferSize, AjaThreadCurrentTime))
+				{
+					Samples->AddMetadata(MetaDataSample);
+				}
 			}
 		}
 
@@ -463,10 +488,15 @@ bool FAjaMediaPlayer::OnInputFrameReceived(const AJA::AJAInputFrameData& InInput
 
 		if (bUseVideo && InVideoFrame.VideoBuffer)
 		{
-			if (Samples->NumVideoSamples() >= MaxNumVideoFrameBuffer)
+			const int32 NumVideoSamples = Samples->NumVideoSamples() + (!InVideoFrame.bIsProgressivePicture ? 1 : 0);
+			if (NumVideoSamples >= MaxNumVideoFrameBuffer)
 			{
 				FPlatformAtomics::InterlockedIncrement(&AjaThreadAutoCirculateVideoFrameDropCount);
 				Samples->PopVideo();
+				if (!InVideoFrame.bIsProgressivePicture)
+				{
+					Samples->PopVideo();
+				}
 			}
 
 			auto TextureSample = TextureSamplePool->AcquireShared();

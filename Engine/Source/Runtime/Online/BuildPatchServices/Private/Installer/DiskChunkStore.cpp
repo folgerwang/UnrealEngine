@@ -1,16 +1,31 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/DiskChunkStore.h"
-#include "Data/ChunkData.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Containers/Union.h"
+#include "Containers/Queue.h"
 #include "Misc/ScopeLock.h"
+#include "Async/Async.h"
+#include "Math/UnitConversion.h"
+#include "Core/AsyncHelpers.h"
+#include "Data/ChunkData.h"
+#include "Common/FileSystem.h"
 
 namespace BuildPatchServices
 {
+	typedef TTuple<EChunkLoadResult, IChunkDataAccess*> FLoadResult;
+	typedef TFuture<FLoadResult> FLoadFuture;
+	typedef TPromise<FLoadResult> FLoadPromise;
+	typedef TTuple<FGuid, FLoadPromise*> FQueuedChunkLoad;
+	typedef TTuple<FGuid, IChunkDataAccess*> FQueuedChunkSave;
+	typedef TUnion<FQueuedChunkLoad, FQueuedChunkSave> FQueuedChunk;
+	typedef TQueue<FQueuedChunk, EQueueMode::Mpsc> FChunkQueue;
+
 	class FDiskChunkStore
 		: public IDiskChunkStore
 	{
 	public:
-		FDiskChunkStore(IChunkDataSerialization* InSerializer, IDiskChunkStoreStat* InDiskChunkStoreStat, FString InStoreRootPath);
+		FDiskChunkStore(IFileSystem* FileSystem, IChunkDataSerialization* InSerializer, IDiskChunkStoreStat* InDiskChunkStoreStat, FDiskChunkStoreConfig InConfiguration);
 		~FDiskChunkStore();
 
 		// IChunkStore interface begin.
@@ -18,51 +33,89 @@ namespace BuildPatchServices
 		virtual IChunkDataAccess* Get(const FGuid& DataId) override;
 		virtual TUniquePtr<IChunkDataAccess> Remove(const FGuid& DataId) override;
 		virtual int32 GetSlack() const override;
+		virtual void SetLostChunkCallback(TFunction<void(const FGuid&)> Callback) override;
 		// IChunkStore interface end.
 
 	private:
-		FString GetChunkFilename(const FGuid& DataId) const;
+		void IoThread();
+		FLoadFuture QueueLoadRequest(const FGuid& DataId);
+		void QueueSaveRequest(const FGuid& DataId, TUniquePtr<IChunkDataAccess>&& ChunkData);
+		void ExecLostChunkCallback(const FGuid& LostChunk);
 
 	private:
-		IChunkDataSerialization* Serializer;
-		IDiskChunkStoreStat* DiskChunkStoreStat;
-		FString StoreRootPath;
+		IFileSystem* const FileSystem;
+		IChunkDataSerialization* const Serializer;
+		IDiskChunkStoreStat* const DiskChunkStoreStat;
+		const FDiskChunkStoreConfig Configuration;
+		mutable FCriticalSection LostChunkCallbackCs;
+		TFunction<void(const FGuid&)> LostChunkCallback;
 		mutable FCriticalSection ThreadLockCs;
 		FGuid LastGetId;
 		TUniquePtr<IChunkDataAccess> LastGetData;
 		TSet<FGuid> PlacedInStore;
+		FThreadSafeBool bShouldRun;
+		FChunkQueue Queue;
+		FThreadSafeInt32 QueueNum;
+		FEvent* QueueTrigger;
+		TFuture<void> IoThreadFuture;
+		FEvent* IoThreadTrigger;
 	};
 
-	FDiskChunkStore::FDiskChunkStore(IChunkDataSerialization* InSerializer, IDiskChunkStoreStat* InDiskChunkStoreStat, FString InStoreRootPath)
-		: Serializer(InSerializer)
+	FDiskChunkStore::FDiskChunkStore(IFileSystem* InFileSystem, IChunkDataSerialization* InSerializer, IDiskChunkStoreStat* InDiskChunkStoreStat, FDiskChunkStoreConfig InConfiguration)
+		: FileSystem(InFileSystem)
+		, Serializer(InSerializer)
 		, DiskChunkStoreStat(InDiskChunkStoreStat)
-		, StoreRootPath(InStoreRootPath)
+		, Configuration(MoveTemp(InConfiguration))
+		, LostChunkCallbackCs()
+		, LostChunkCallback(nullptr)
 		, ThreadLockCs()
 		, LastGetId()
 		, LastGetData(nullptr)
 		, PlacedInStore()
+		, bShouldRun(true)
+		, QueueNum(0)
 	{
+		QueueTrigger = FPlatformProcess::GetSynchEventFromPool(true);
+		IoThreadTrigger = FPlatformProcess::GetSynchEventFromPool(true);
+		IoThreadFuture = Async<void>(EAsyncExecution::Thread, [this]()
+		{
+			return IoThread();
+		});
 	}
 
 	FDiskChunkStore::~FDiskChunkStore()
 	{
+		// Signal running loops to exit.
+		bShouldRun = false;
+		QueueTrigger->Trigger();
+		IoThreadTrigger->Trigger();
+		IoThreadFuture.Wait();
+		// Return events.
+		FPlatformProcess::ReturnSynchEventToPool(IoThreadTrigger);
+		FPlatformProcess::ReturnSynchEventToPool(QueueTrigger);
+		// Clean up allocations left in the queue.
+		FQueuedChunk QueuedChunk;
+		while (Queue.Dequeue(QueuedChunk))
+		{
+			if (QueuedChunk.HasSubtype<FQueuedChunkLoad>())
+			{
+				TUniquePtr<FLoadPromise> LoadPromisePtr(QueuedChunk.GetSubtype<FQueuedChunkLoad>().Get<1>());
+				LoadPromisePtr->SetValue(FLoadResult(EChunkLoadResult::Aborted, nullptr));
+			}
+			else if (QueuedChunk.HasSubtype<FQueuedChunkSave>())
+			{
+				TUniquePtr<IChunkDataAccess>(QueuedChunk.GetSubtype<FQueuedChunkSave>().Get<1>());
+			}
+		}
 	}
 
 	void FDiskChunkStore::Put(const FGuid& DataId, TUniquePtr<IChunkDataAccess> ChunkData)
 	{
 		// Thread lock to protect access to PlacedInStore.
 		FScopeLock ThreadLock(&ThreadLockCs);
-		if (!PlacedInStore.Contains(DataId))
-		{
-			const FString ChunkFilename = GetChunkFilename(DataId);
-			const EChunkSaveResult SaveResult = Serializer->SaveToFile(ChunkFilename, ChunkData.Get());
-			if (SaveResult == EChunkSaveResult::Success)
-			{
-				PlacedInStore.Add(DataId);
-				DiskChunkStoreStat->OnCacheUseUpdated(PlacedInStore.Num());
-			}
-			DiskChunkStoreStat->OnChunkStored(DataId, ChunkFilename, SaveResult);
-		}
+		QueueSaveRequest(DataId, MoveTemp(ChunkData));
+		PlacedInStore.Add(DataId);
+		DiskChunkStoreStat->OnCacheUseUpdated(PlacedInStore.Num());
 	}
 
 	IChunkDataAccess* FDiskChunkStore::Get(const FGuid& DataId)
@@ -75,20 +128,19 @@ namespace BuildPatchServices
 		{
 			if (PlacedInStore.Contains(DataId))
 			{
-				const FString ChunkFilename = GetChunkFilename(DataId);
-				EChunkLoadResult LoadResult;
-				ChunkData = Serializer->LoadFromFile(ChunkFilename, LoadResult);
-				if (LoadResult == EChunkLoadResult::Success)
+				FLoadFuture ChunkLoadFuture = QueueLoadRequest(DataId);
+				FLoadResult LoadResult = ChunkLoadFuture.Get();
+				if (LoadResult.Get<0>() == EChunkLoadResult::Success)
 				{
 					LastGetId = DataId;
-					LastGetData.Reset(ChunkData);
+					LastGetData.Reset(LoadResult.Get<1>());
+					ChunkData = LastGetData.Get();
 				}
 				else
 				{
 					PlacedInStore.Remove(DataId);
 					DiskChunkStoreStat->OnCacheUseUpdated(PlacedInStore.Num());
 				}
-				DiskChunkStoreStat->OnChunkLoaded(DataId, ChunkFilename, LoadResult);
 			}
 		}
 		else
@@ -107,15 +159,14 @@ namespace BuildPatchServices
 		{
 			if (PlacedInStore.Contains(DataId))
 			{
-				const FString ChunkFilename = GetChunkFilename(DataId);
-				EChunkLoadResult LoadResult;
-				ReturnValue.Reset(Serializer->LoadFromFile(ChunkFilename, LoadResult));
-				if (LoadResult != EChunkLoadResult::Success)
+				FLoadFuture ChunkLoadFuture = QueueLoadRequest(DataId);
+				FLoadResult LoadResult = ChunkLoadFuture.Get();
+				ReturnValue.Reset(LoadResult.Get<1>());
+				if (LoadResult.Get<0>() != EChunkLoadResult::Success)
 				{
 					PlacedInStore.Remove(DataId);
 					DiskChunkStoreStat->OnCacheUseUpdated(PlacedInStore.Num());
 				}
-				DiskChunkStoreStat->OnChunkLoaded(DataId, ChunkFilename, LoadResult);
 			}
 		}
 		else
@@ -132,16 +183,186 @@ namespace BuildPatchServices
 		return MAX_int32;
 	}
 
-	FString FDiskChunkStore::GetChunkFilename(const FGuid& DataId) const
+	void FDiskChunkStore::SetLostChunkCallback(TFunction<void(const FGuid&)> Callback)
 	{
-		return StoreRootPath / DataId.ToString() + TEXT(".chunk");
+		// Thread lock to protect access to LostChunkCallback.
+		FScopeLock ThreadLock(&LostChunkCallbackCs);
+		LostChunkCallback = MoveTemp(Callback);
 	}
 
-	IDiskChunkStore* FDiskChunkStoreFactory::Create(IChunkDataSerialization* Serializer, IDiskChunkStoreStat* DiskChunkStoreStat, FString StoreRootPath)
+	void FDiskChunkStore::IoThread()
 	{
+		FString DumpFilename = Configuration.StoreRootPath / TEXT("chunkdump");
+		TMap<FGuid, int64> ChunkIdToDumpLocation;
+
+		TUniquePtr<FArchive> DumpWriter = FileSystem->CreateFileWriter(*DumpFilename, EWriteFlags::AllowRead);
+		TUniquePtr<FArchive> DumpReader = FileSystem->CreateFileReader(*DumpFilename, EReadFlags::AllowWrite);
+		bool bValidFileHandle = DumpReader.IsValid() && DumpWriter.IsValid();
+		if (bValidFileHandle)
+		{
+			DumpWriter->Seek(0);
+		}
+
+		FQueuedChunk QueuedChunk;
+		while (bShouldRun)
+		{
+			if (Queue.Dequeue(QueuedChunk))
+			{
+				QueueNum.Decrement();
+				QueueTrigger->Trigger();
+				if (QueuedChunk.HasSubtype<FQueuedChunkLoad>())
+				{
+					FQueuedChunkLoad& QueuedChunkLoad = QueuedChunk.GetSubtype<FQueuedChunkLoad>();
+					FGuid& DataId = QueuedChunkLoad.Get<0>();
+					TUniquePtr<FLoadPromise> LoadPromisePtr(QueuedChunkLoad.Get<1>());
+					DiskChunkStoreStat->OnBeforeChunkLoad(DataId);
+					FLoadResult LoadResult(EChunkLoadResult::BadArchive, nullptr);
+					EChunkLoadResult& ChunkLoadResult = LoadResult.Get<0>();
+					IChunkDataAccess*& ChunkDataAccess = LoadResult.Get<1>();
+					if (ChunkIdToDumpLocation.Contains(DataId))
+					{
+						if (bValidFileHandle && DumpReader->TotalSize() != DumpWriter->TotalSize())
+						{
+							// We have to re-open the reader when the size has not been refreshed.
+							DumpReader = FileSystem->CreateFileReader(*DumpFilename, EReadFlags::AllowWrite);
+							bValidFileHandle = DumpReader.IsValid();
+						}
+						if (bValidFileHandle)
+						{
+							DumpWriter->Flush();
+							const int64& ChunkStartPos = ChunkIdToDumpLocation[DataId];
+							DumpReader->Seek(ChunkStartPos);
+							ChunkDataAccess = Serializer->LoadFromArchive(*DumpReader, ChunkLoadResult);
+							bValidFileHandle = !DumpReader->IsError() && !DumpWriter->IsError();
+						}
+						if (ChunkLoadResult != EChunkLoadResult::Success)
+						{
+							ChunkIdToDumpLocation.Remove(DataId);
+							ExecLostChunkCallback(DataId);
+						}
+					}
+					LoadPromisePtr->SetValue(LoadResult);
+					DiskChunkStoreStat->OnChunkLoaded(DataId, DumpFilename, ChunkLoadResult);
+				}
+				else if (QueuedChunk.HasSubtype<FQueuedChunkSave>())
+				{
+					FQueuedChunkSave& QueuedChunkSave = QueuedChunk.GetSubtype<FQueuedChunkSave>();
+					FGuid& DataId = QueuedChunkSave.Get<0>();
+					TUniquePtr<IChunkDataAccess> ChunkDataPtr(QueuedChunkSave.Get<1>());
+					if (!ChunkIdToDumpLocation.Contains(DataId))
+					{
+						EChunkSaveResult SaveResult = EChunkSaveResult::FileCreateFail;
+						if (bValidFileHandle)
+						{
+							DumpWriter->Seek(DumpWriter->TotalSize());
+							const int64 ChunkStartPos = DumpWriter->Tell();
+							SaveResult = Serializer->SaveToArchive(*DumpWriter, ChunkDataPtr.Get());
+							const int64 ChunkEndPos = DumpWriter->Tell();
+							bValidFileHandle = !DumpWriter->IsError();
+							if (SaveResult == EChunkSaveResult::Success)
+							{
+								ChunkIdToDumpLocation.Add(DataId, ChunkStartPos);
+							}
+						}
+						if (SaveResult != EChunkSaveResult::Success)
+						{
+							ExecLostChunkCallback(DataId);
+						}
+						DiskChunkStoreStat->OnChunkStored(DataId, DumpFilename, SaveResult);
+					}
+				}
+				else
+				{
+					checkf(0, TEXT("Union has no recognized type"));
+				}
+			}
+			else if (bValidFileHandle && DumpReader->TotalSize() != DumpWriter->TotalSize())
+			{
+				// We have to re-open the reader when the size has not been refreshed.
+				DumpReader = FileSystem->CreateFileReader(*DumpFilename, EReadFlags::AllowWrite);
+				bValidFileHandle = DumpReader.IsValid();
+			}
+			else
+			{
+				// Flush when waiting for jobs.
+				if (bValidFileHandle)
+				{
+					DumpWriter->Flush();
+					bValidFileHandle = !DumpWriter->IsError();
+				}
+				// Or try to fix our file access issue if we have one.
+				else
+				{
+					DumpWriter = FileSystem->CreateFileWriter(*DumpFilename, EWriteFlags::AllowRead);
+					DumpReader = FileSystem->CreateFileReader(*DumpFilename, EReadFlags::AllowWrite);
+					bValidFileHandle = DumpReader.IsValid() && DumpWriter.IsValid();
+				}
+				// Max wait time allows us to periodically retry inaccessible file.
+				static const uint32 WaitTime = Configuration.MaxRetryTime * 1000.0;
+				IoThreadTrigger->Wait(WaitTime);
+				IoThreadTrigger->Reset();
+			}
+		}
+
+		DumpWriter.Reset();
+		DumpReader.Reset();
+		FileSystem->DeleteFile(*DumpFilename);
+	}
+
+	BuildPatchServices::FLoadFuture FDiskChunkStore::QueueLoadRequest(const FGuid& DataId)
+	{
+		while (QueueNum.GetValue() > Configuration.QueueSize && bShouldRun)
+		{
+			// Wait 1 second max in case of abort.
+			static const uint32 WaitTime = 1000;
+			QueueTrigger->Wait(WaitTime);
+			QueueTrigger->Reset();
+		}
+		QueueNum.Increment();
+		TUniquePtr<FLoadPromise> PromisePtr(new FLoadPromise());
+		FLoadFuture Future = PromisePtr->GetFuture();
+		if (bShouldRun)
+		{
+			Queue.Enqueue(FQueuedChunk(FQueuedChunkLoad(DataId, PromisePtr.Release())));
+			IoThreadTrigger->Trigger();
+		}
+		else
+		{
+			PromisePtr->SetValue(FLoadResult(EChunkLoadResult::Aborted, nullptr));
+		}
+		return Future;
+	}
+
+	void FDiskChunkStore::QueueSaveRequest(const FGuid& DataId, TUniquePtr<IChunkDataAccess>&& ChunkData)
+	{
+		while (QueueNum.GetValue() > Configuration.QueueSize && bShouldRun)
+		{
+			// Wait 1 second max in case of abort.
+			static const uint32 WaitTime = 1000;
+			QueueTrigger->Wait(WaitTime);
+			QueueTrigger->Reset();
+		}
+		QueueNum.Increment();
+		Queue.Enqueue(FQueuedChunk(FQueuedChunkSave(DataId, ChunkData.Release())));
+		IoThreadTrigger->Trigger();
+	}
+
+	void FDiskChunkStore::ExecLostChunkCallback(const FGuid& LostChunk)
+	{
+		// Thread lock to protect access to LostChunkCallback.
+		FScopeLock ThreadLock(&LostChunkCallbackCs);
+		if (LostChunkCallback)
+		{
+			LostChunkCallback(LostChunk);
+		}
+	}
+
+	IDiskChunkStore* FDiskChunkStoreFactory::Create(IFileSystem* FileSystem, IChunkDataSerialization* Serializer, IDiskChunkStoreStat* DiskChunkStoreStat, FDiskChunkStoreConfig Configuration)
+	{
+		check(FileSystem != nullptr);
 		check(Serializer != nullptr);
 		check(DiskChunkStoreStat != nullptr);
-		check(StoreRootPath.IsEmpty() == false);
-		return new FDiskChunkStore(Serializer, DiskChunkStoreStat, MoveTemp(StoreRootPath));
+		check(Configuration.StoreRootPath.IsEmpty() == false);
+		return new FDiskChunkStore(FileSystem, Serializer, DiskChunkStoreStat, MoveTemp(Configuration));
 	}
 }

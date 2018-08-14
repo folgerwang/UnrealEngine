@@ -966,6 +966,7 @@ bool UCookOnTheFlyServer::StartNetworkFileServer( const bool BindAnyPort )
 	GenerateAssetRegistry();
 
 	InitializeSandbox();
+	InitializeTargetPlatforms();
 
 	const TArray<ITargetPlatform*>& Platforms = GetCookingTargetPlatforms();
 
@@ -2519,7 +2520,6 @@ void UCookOnTheFlyServer::TickPrecacheObjectsForPlatforms(const float TimeSlice,
 	
 	FCookerTimer Timer(TimeSlice, true);
 
-	++LastUpdateTick;
 	if (LastUpdateTick > 50 ||
 		((CachedMaterialsToCacheArray.Num() == 0) && (CachedTexturesToCacheArray.Num() == 0)))
 	{
@@ -2543,6 +2543,7 @@ void UCookOnTheFlyServer::TickPrecacheObjectsForPlatforms(const float TimeSlice,
 			CachedTexturesToCacheArray.Add(Texture);
 		}
 	}
+	++LastUpdateTick;
 
 	if (Timer.IsTimeUp())
 		return;
@@ -6188,6 +6189,23 @@ void UCookOnTheFlyServer::InitializeSandbox()
 	}
 }
 
+
+void UCookOnTheFlyServer::InitializeTargetPlatforms()
+{
+	const TArray<ITargetPlatform*>& TargetPlatforms = GetCookingTargetPlatforms();
+
+	//allow each platform to update its internals before cooking
+	for (int32 TargetPlatformIndex = 0; TargetPlatformIndex < TargetPlatforms.Num(); ++TargetPlatformIndex)
+	{
+		ITargetPlatform* TargetPlatform = TargetPlatforms[TargetPlatformIndex];
+		if (TargetPlatform)
+		{
+			TargetPlatform->RefreshSettings();
+		}
+	}
+}
+
+
 void UCookOnTheFlyServer::TermSandbox()
 {
 	ClearAllCookedData();
@@ -6225,6 +6243,9 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 
 	check( IsInGameThread() );
 	check( IsCookByTheBookMode() );
+
+	//force precache objects to refresh themselves before cooking anything
+	LastUpdateTick = INT_MAX;
 
 	CookByTheBookOptions->bRunning = true;
 	CookByTheBookOptions->bCancel = false;
@@ -6355,6 +6376,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 
 	// This will either delete the sandbox or iteratively clean it
 	InitializeSandbox();
+	InitializeTargetPlatforms();
 
 	if (CurrentCookMode == ECookMode::CookByTheBook && !IsCookFlagSet(ECookInitializationFlags::Iterative))
 	{
@@ -7336,11 +7358,12 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 
 							UWorld* World = Cast<UWorld>(Obj);
 							bool bInitializedPhysicsSceneForSave = false;
+							bool bForceInitializedWorld = false;
 							if (World && bSaveConcurrent)
 							{
 								SCOPE_TIMER(FullLoadAndSave_SettingUpWorlds);
 								// We need a physics scene at save time in case code does traces during onsave events.
-								bInitializedPhysicsSceneForSave = GEditor->InitializePhysicsSceneForSaveIfNecessary(World);
+								bInitializedPhysicsSceneForSave = GEditor->InitializePhysicsSceneForSaveIfNecessary(World, bForceInitializedWorld);
 
 								GIsCookerLoadingPackage = true;
 								{
@@ -7388,7 +7411,7 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 							if (World && bInitializedPhysicsSceneForSave)
 							{
 								SCOPE_TIMER(FullLoadAndSave_CleaningUpWorlds);
-								GEditor->CleanupPhysicsSceneThatWasInitializedForSave(World);
+								GEditor->CleanupPhysicsSceneThatWasInitializedForSave(World, bForceInitializedWorld);
 							}
 						}
 					} while (bObjectsMayHaveBeenCreated);

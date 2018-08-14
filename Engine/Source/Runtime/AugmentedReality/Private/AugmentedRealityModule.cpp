@@ -8,3 +8,5 @@ class FAugmentedRealityModule : public IModuleInterface
 };
 
 IMPLEMENT_MODULE(FAugmentedRealityModule, AugmentedReality);
+
+DEFINE_LOG_CATEGORY(LogAR);

@@ -29,31 +29,6 @@ class UTextureLODSettings;
 enum class ETargetPlatformFeatures;
 
 /**
-* Implements a Lumin target device.
-*/
-class FLuminTargetDevice : public FAndroidTargetDevice
-{
-public:
-
-	/**
-	* Creates and initializes a new Lumin target device.
-	*
-	* @param InTargetPlatform - The target platform.
-	* @param InSerialNumber - The ADB serial number of the target device.
-	* @param InAndroidVariant - The variant of the Android platform, i.e. ATC, DXT or PVRTC.
-	*/
-	FLuminTargetDevice(const ITargetPlatform& InTargetPlatform, const FString& InSerialNumber, const FString& InAndroidVariant)
-		: FAndroidTargetDevice(InTargetPlatform, InSerialNumber, InAndroidVariant)
-	{ }
-
-	// Return true if the devices can be grouped in an aggregate (All_<platform>_devices_on_<host>) proxy
-	virtual bool IsPlatformAggregated() const override
-	{
-		return false;
-	}
-};
-
-/**
  * FSeakTargetPlatform, abstraction for cooking Lumin platforms
  */
 class FLuminTargetPlatform : public FAndroidTargetPlatform
@@ -75,6 +50,11 @@ public:
 	// Begin ITargetPlatform interface
 
 	virtual FString PlatformName() const override
+	{
+		return TEXT("Lumin");
+	}
+
+	virtual FString IniPlatformName() const override
 	{
 		return TEXT("Lumin");
 	}
@@ -114,11 +94,14 @@ public:
 
 	virtual bool SupportsFeature(ETargetPlatformFeatures Feature) const override;
 
-protected:
-	virtual FAndroidTargetDeviceRef CreateNewDevice(const FAndroidDeviceInfo &DeviceInfo);
+	virtual void RefreshSettings() override;
 
+protected:
+	virtual FAndroidTargetDevicePtr CreateTargetDevice(const ITargetPlatform& InTargetPlatform, const FString& InSerialNumber, const FString& InAndroidVariant) const override;
+
+protected:
 	// Holds the Engine INI settings, for quick use.
-	FConfigFile EngineSettings;
+	FConfigFile LuminEngineSettings;
 
 };
 

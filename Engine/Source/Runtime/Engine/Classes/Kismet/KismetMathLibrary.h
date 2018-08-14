@@ -11,6 +11,8 @@
 #include "UObject/Stack.h"
 #include "UObject/ScriptMacros.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Misc/QualifiedFrameTime.h"
+
 #include "KismetMathLibrary.generated.h"
 
 // Whether to inline functions at all
@@ -1070,6 +1072,30 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	static float NormalizeAxis(float Angle);
 
 	//
+	// Matrix functions
+	//
+
+	/** Convert a Matrix to a Transform */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToTransform (Matrix)", CompactNodeTitle = "->", ScriptMethod = "Transform", Keywords = "cast convert", BlueprintAutocast), Category = "Math|Conversions")
+	static FTransform Conv_MatrixToTransform(const FMatrix& InMatrix);
+
+	/** Convert a Matrix to a Rotator */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToRotator (Matrix)", CompactNodeTitle = "->", ScriptMethod = "Rotator", Keywords = "cast convert", BlueprintAutocast), Category = "Math|Conversions")
+	static FRotator Conv_MatrixToRotator(const FMatrix& InMatrix);
+
+	/** Convert Rotator to Transform */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToTransform (Rotator)", CompactNodeTitle = "->", ScriptMethod = "Transform", Keywords = "cast convert", BlueprintAutocast), Category = "Math|Conversions")
+	static FTransform Conv_RotatorToTransform(const FRotator& InRotator);
+
+	/**
+	 * Get the origin of the co-ordinate system
+	 *
+	 * @return co-ordinate system origin
+	 */
+	UFUNCTION(BlueprintPure, meta = (ScriptMethod = "GetOrigin"), Category = "Math|Matrix")
+	static FVector Matrix_GetOrigin(const FMatrix& InMatrix);
+
+	//
 	//	LinearColor functions
 	//
 
@@ -1395,7 +1421,26 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category="Math|Timespan")
 	static bool TimespanFromString(FString TimespanString, FTimespan& Result);
 
+	//
+	// Frame Time and Frame Rate Functions
+	//
 
+	/** Creates a FQualifiedFrameTime out of a frame number, frame rate, and optional 0-1 clamped subframe. */
+	UFUNCTION(BlueprintPure, Category = "Time Management", meta = (NativeMakeFunc))
+	static FQualifiedFrameTime MakeQualifiedFrameTime(FFrameNumber Frame, FFrameRate FrameRate, float SubFrame = 0.f);
+
+	/** Breaks a FQualifiedFrameTime into its component parts again. */
+	UFUNCTION(BlueprintPure, Category = "Time Management", meta = (NativeBreakFunc))
+	static void BreakQualifiedFrameTime(const FQualifiedFrameTime& InFrameTime, FFrameNumber& Frame, FFrameRate& FrameRate, float& SubFrame);
+
+	/** Creates a FFrameRate from a Numerator and a Denominator. Enforces that the Denominator is at least one. */
+	UFUNCTION(BlueprintPure, Category = "Time Management", meta = (NativeMakeFunc))
+	static FFrameRate MakeFrameRate(int32 Numerator, int32 Denominator = 1);
+
+	/** Breaks a FFrameRate into a numerator and denominator. */
+	UFUNCTION(BlueprintPure, Category = "Time Management", meta = (NativeBreakFunc))
+	static void BreakFrameRate(const FFrameRate& InFrameRate, int32& Numerator, int32& Denominator);
+	
 	// -- Begin K2 utilities
 
 	/** Converts a byte to a float */

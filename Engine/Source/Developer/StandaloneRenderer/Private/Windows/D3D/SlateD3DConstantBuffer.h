@@ -21,7 +21,12 @@ public:
 		Desc.StructureByteStride = 0;
 
 		HRESULT Hr = GD3DDevice->CreateBuffer(&Desc, NULL, Buffer.GetInitReference() );
-		checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
+		if (FAILED(Hr))
+		{
+			LogSlateD3DRendererFailure(TEXT("FSlateD3DConstantBuffer::Create() - ID3D11Device::CreateBuffer"), Hr);
+			GEncounteredCriticalD3DDeviceError = true;
+			return;
+		}
 	}
 
 	TRefCountPtr<ID3D11Buffer> GetResource() { return Buffer; }

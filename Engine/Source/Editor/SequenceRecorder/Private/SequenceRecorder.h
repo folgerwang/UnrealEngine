@@ -10,9 +10,12 @@
 #include "Sections/MovieSceneMultiPropertyRecorder.h"
 
 class APlayerController;
+class AActor;
 class ALevelSequenceActor;
 class ISequenceAudioRecorder;
 class UCanvas;
+class USequenceRecordingBase;
+class UActorRecording;
 class UTexture;
 class ASequenceRecorderGroup;
 class USequenceRecorderActorGroup;
@@ -38,7 +41,7 @@ public:
 	bool StartRecordingForReplay(UWorld* World, const struct FSequenceRecorderActorFilter& ActorFilter);
 
 	/** Stops any currently recording sequence */
-	bool StopRecording();
+	bool StopRecording(bool bAllowLooping = false);
 
 	/** Tick the sequence recorder */
 	void Tick(float DeltaSeconds);
@@ -52,8 +55,10 @@ public:
 	TWeakObjectPtr<class ULevelSequence> GetCurrentSequence() { return CurrentSequence; }
 
 	bool IsRecordingQueued(AActor* Actor) const;
+	bool IsRecordingQueued(UObject* SequenceRecordingObjectToRecord) const;
 
-	class UActorRecording* FindRecording(AActor* Actor) const;
+	UActorRecording* FindRecording(AActor* Actor) const;
+	USequenceRecordingBase* FindRecording(UObject* SequenceRecordingObjectToRecord) const;
 
 	void StartAllQueuedRecordings();
 
@@ -68,16 +73,16 @@ public:
 	bool CanAddNewQueuedRecordingForCurrentPlayer() const;
 
 	class UActorRecording* AddNewQueuedRecording(AActor* Actor = nullptr, UAnimSequence* AnimSequence = nullptr, float Length = 0.0f);
+	class USequenceRecordingBase* AddNewQueuedRecording(UObject* SequenceRecordingObjectToRecord);
 
-	void RemoveQueuedRecording(AActor* Actor);
-
-	void RemoveQueuedRecording(class UActorRecording* Recording);
+	void RemoveQueuedRecording(USequenceRecordingBase* Recording);
 
 	bool HasQueuedRecordings() const;
 
 	void ClearQueuedRecordings();
 
-	const TArray<class UActorRecording*>& GetQueuedRecordings() { return QueuedRecordings; }
+	const TArray<UActorRecording*>& GetQueuedActorRecordings() { return QueuedActorRecordings; }
+	const TArray<USequenceRecordingBase*>& GetQueuedRecordings() { return QueuedRecordings; }
 
 	bool AreQueuedRecordingsDirty() const { return bQueuedRecordingsDirty; }
 
@@ -110,6 +115,8 @@ public:
 
 	FString GetSequenceRecordingBasePath() const;
 	FString GetSequenceRecordingName() const;
+
+	TArray<TSharedPtr<ISequenceRecorderExtender>>& GetSequenceRecorderExtenders() { return SequenceRecorderExtenders; }
 
 	/** Get the built-in animation factory (as this uses special case handling) */
 	const FMovieSceneAnimationSectionRecorderFactory& GetAnimationRecorderFactory() const
@@ -157,6 +164,8 @@ private:
 	/** Restore immersive mode to stored value */
 	void RestoreImmersive();
 
+	void BuildQueuedRecordings();
+
 private:
 	/** Constructor, private - use Get() function */
 	FSequenceRecorder();
@@ -164,8 +173,11 @@ private:
 	/** Currently recording level sequence, if any */
 	TWeakObjectPtr<class ULevelSequence> CurrentSequence;
 
-	/** World we are recording a replay for, if any */
+	/** World we are recording a replay for, if any. Is only valid if we're recording from Replay network drivers.*/
 	TLazyObjectPtr<class UWorld> CurrentReplayWorld;
+
+	/** Actor World that our last started recording was. Null if there is not a recording in progress. */
+	TWeakObjectPtr<class UWorld> CurrentRecordingWorld;
 
 	/** Recorder Group that our actor recordings go into.  */
 	TWeakObjectPtr<USequenceRecorderActorGroup> CurrentRecorderGroup;
@@ -173,19 +185,27 @@ private:
 	/** Cached actor for this level who holds the recording group. */
 	TWeakObjectPtr<ASequenceRecorderGroup> CachedRecordingActor;
 
-	TArray<class UActorRecording*> QueuedRecordings;
+	TArray<UActorRecording*> QueuedActorRecordings;
 
-	TArray<class UActorRecording*> DeadRecordings;
+	TArray<USequenceRecordingBase*> QueuedRecordings;
+
+	TArray<USequenceRecordingBase*> DeadRecordings;
 
 	bool bQueuedRecordingsDirty;
 
 	bool bWasImmersive;
+
+	/**  Recorder Extenders  */
+	TArray<TSharedPtr<ISequenceRecorderExtender>> SequenceRecorderExtenders;
 
 	/** The delay we are currently waiting for */
 	float CurrentDelay;
 
 	/** Current recording time */
 	float CurrentTime;
+
+	/** Cached Global Time dilation, used to restore previous time dilation after recording stops. */
+	float CachedGlobalTimeDilation;
 
 	/** Delegate handles for FOnActorSpawned events */
 	TMap<TWeakObjectPtr<UWorld>, FDelegateHandle> ActorSpawningDelegateHandles;
@@ -219,4 +239,7 @@ private:
 
 	/** Duplicated level sequence actors to trigger, to be stopped at the end of recording */
 	TArray<TWeakObjectPtr<ALevelSequenceActor>> DupActorsToTrigger;
+
+	/** Whether or not the live client is saving data, set this back after recording */
+	bool bLiveLinkWasSaving;
 };

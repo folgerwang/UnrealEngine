@@ -36,10 +36,6 @@ void FActiveMovieSceneCaptures::Tick(float DeltaSeconds)
 		else
 		{
 			Capture->Tick(DeltaSeconds);
-			if (IMovieSceneCaptureProtocol* Protocol = Capture->GetCaptureProtocol())
-			{
-				Protocol->Tick();
-			}
 		}
 	}
 }

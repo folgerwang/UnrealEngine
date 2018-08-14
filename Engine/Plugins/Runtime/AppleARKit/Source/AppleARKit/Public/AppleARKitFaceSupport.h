@@ -13,7 +13,7 @@
 
 class UARSessionConfig;
 struct FAppleARKitAnchorData;
-
+struct FARVideoFormat;
 
 class APPLEARKIT_API IAppleARKitFaceSupport :
 	public IModularFeature
@@ -27,10 +27,11 @@ public:
 	 * @param Timestamp the timestamp of this update
 	 * @param FrameNumber the frame number for this update
 	 * @param AdjustBy the additional rotation to apply to put the rotation in the proper space (camera alignment only)
+	 * @param UpdateSetting whether to just update curves or geo too
 	 *
 	 * @return the set of face anchors to dispatch
 	 */
-	virtual TArray<TSharedPtr<FAppleARKitAnchorData>> MakeAnchorData(NSArray<ARAnchor*>* NewAnchors, double Timestamp, uint32 FrameNumber, const FRotator& AdjustBy) { return TArray<TSharedPtr<FAppleARKitAnchorData>>(); }
+	virtual TArray<TSharedPtr<FAppleARKitAnchorData>> MakeAnchorData(NSArray<ARAnchor*>* NewAnchors, double Timestamp, uint32 FrameNumber, const FRotator& AdjustBy, EARFaceTrackingUpdate UpdateSetting) { return TArray<TSharedPtr<FAppleARKitAnchorData>>(); }
 
 	/**
 	 * Publishes any face AR data that needs to be sent to LiveLink. Done as a separate step because MakeAnchorData is called
@@ -55,6 +56,12 @@ public:
 	 * @return whether this device supports face ar
 	 */
 	virtual bool DoesSupportFaceAR() { return false; }
+#endif
+#if SUPPORTS_ARKIT_1_5
+	/**
+	 * @return the supported video formats by the face ar device
+	 */
+	virtual TArray<FARVideoFormat> ToARConfiguration() { return TArray<FARVideoFormat>(); }
 #endif
 
 	static FName GetModularFeatureName()

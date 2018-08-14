@@ -19,6 +19,42 @@ public:
 		: Time(FTimespan::Zero())
 	{ }
 
+	/**
+	 * Initialize the sample.
+	 *
+	 * @param InBinaryBuffer The metadata frame data.
+	 * @param InBufferSize The size of the InBinaryBuffer.
+	 * @param InTime The sample time (in the player's own clock).
+	 */
+	bool Initialize(const uint8* InBinaryBuffer, uint32 InBufferSize, FTimespan InTime)
+	{
+		if (InBinaryBuffer == nullptr)
+		{
+			Buffer.Reset();
+			return false;
+		}
+
+		Buffer.Reset(InBufferSize);
+		Buffer.Append(InBinaryBuffer, InBufferSize);
+		Time = InTime;
+
+		return true;
+	}
+
+	/**
+	 * Initialize the sample.
+	 *
+	 * @param InBinaryBuffer The metadata frame data.
+	 * @param InTime The sample time (in the player's own clock).
+	 */
+	bool Initialize(TArray<uint8> InBinaryBuffer, FTimespan InTime)
+	{
+		Buffer = MoveTemp(InBinaryBuffer);
+		Time = InTime;
+
+		return true;
+	}
+
 public:
 
 	//~ IMediaBinarySample interface

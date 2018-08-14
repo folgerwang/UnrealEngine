@@ -33,15 +33,24 @@ namespace UnrealBuildTool.Rules
 					"SlateCore",
                     "PropertyEditor",
 					"Slate",
-					"RawMesh",
+                    "EditorStyle",
+                    "RawMesh",
                     "GeometryCache",
+					"MeshDescription",
 					"MeshUtilities",
+                    "PythonScriptPlugin",
                     "RenderCore",
                     "RHI",
                     "MessageLog",
 					"JsonUtilities",
                 }
 				);
+
+			PrivateIncludePathModuleNames.AddRange(
+				new string[] {
+					"MeshDescription"
+				}
+			);
 
 			string BaseLibDir = ModuleDirectory + "/../UnrealUSDWrapper/Lib/";
 

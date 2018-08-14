@@ -97,8 +97,6 @@ UARTextureCameraDepth* FARSystemBase::GetCameraDepth()
 	return OnGetCameraDepth();
 }
 
-//@joeg -- ARKit 2.0 additions
-
 bool FARSystemBase::AddManualEnvironmentCaptureProbe(FVector Location, FVector Extent)
 {
 	return OnAddManualEnvironmentCaptureProbe(Location, Extent);
@@ -118,7 +116,6 @@ EARWorldMappingState FARSystemBase::GetWorldMappingStatus() const
 {
 	return OnGetWorldMappingStatus();
 }
-//@joeg -- End additions
 
 bool FARSystemBase::IsSessionTypeSupported(EARSessionType SessionType) const
 {
@@ -132,6 +129,10 @@ void FARSystemBase::SetAlignmentTransform( const FTransform& InAlignmentTransfor
 
 }
 
+TArray<FARVideoFormat> FARSystemBase::GetSupportedVideoFormats(EARSessionType SessionType) const
+{
+	return OnGetSupportedVideoFormats(SessionType);
+}
 
 UARLightEstimate* FARSystemBase::GetCurrentLightEstimate() const
 {

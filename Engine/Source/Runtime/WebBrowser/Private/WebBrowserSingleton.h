@@ -84,7 +84,8 @@ public:
 		TOptional<FString> ContentsToLoad = TOptional<FString>(),
 		bool ShowErrorMessage = true,
 		FColor BackgroundColor = FColor(255, 255, 255, 255),
-		int BrowserFrameRate = 24 ) override;
+		int BrowserFrameRate = 24,
+		const TArray<FString>& AltRetryDomains = TArray<FString>()) override;
 
 	TSharedPtr<IWebBrowserWindow> CreateBrowserWindow(const FCreateBrowserWindowSettings& Settings) override;
 

@@ -766,7 +766,7 @@ void UResavePackagesCommandlet::DeleteOnePackage(const FString& Filename)
 		// Unload package so we can delete it
 		TArray<UPackage *> PackagesToDelete;
 		PackagesToDelete.Add(Package);
-		PackageTools::UnloadPackages(PackagesToDelete);
+		UPackageTools::UnloadPackages(PackagesToDelete);
 		PackagesToDelete.Empty();
 		Package = nullptr;
 	}

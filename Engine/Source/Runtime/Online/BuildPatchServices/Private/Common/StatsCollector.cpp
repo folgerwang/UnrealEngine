@@ -27,7 +27,16 @@ namespace BuildPatchServices
 
 	uint64 FStatsCollector::SecondsToCycles(double Seconds)
 	{
-		return Seconds / FPlatformTime::GetSecondsPerCycle64();
+		const double Result = Seconds / FPlatformTime::GetSecondsPerCycle64();
+		// We upper clamp to cover cases where Seconds is too high to represent the resulting cycles as uint64.
+		if (Result >= TNumericLimits<uint64>::Max())
+		{
+			return TNumericLimits<uint64>::Max();
+		}
+		else
+		{
+			return Result;
+		}
 	}
 
 	void FStatsCollector::AccumulateTimeBegin(uint64& TempValue)
@@ -138,10 +147,10 @@ namespace BuildPatchServices
 					GLog->Logf(TEXT("| %s%s"), *AtomicNameMap[NameLookup], *FPlatformTime::PrettyTime(FStatsCollector::CyclesToSeconds(*Stat.Value)));
 					break;
 				case EStatFormat::DataSize:
-					GLog->Logf(TEXT("| %s%s"), *AtomicNameMap[NameLookup], *FText::AsMemory(*Stat.Value).ToString());
+					GLog->Logf(TEXT("| %s%s, %s"), *AtomicNameMap[NameLookup], *FText::AsMemory(*Stat.Value, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(*Stat.Value, EMemoryUnitStandard::IEC).ToString());
 					break;
 				case EStatFormat::DataSpeed:
-					GLog->Logf(TEXT("| %s%s/s"), *AtomicNameMap[NameLookup], *FText::AsMemory(*Stat.Value).ToString());
+					GLog->Logf(TEXT("| %s%s/s, %s/s"), *AtomicNameMap[NameLookup], *FText::AsMemory(*Stat.Value, EMemoryUnitStandard::SI).ToString(), *FText::AsMemory(*Stat.Value, EMemoryUnitStandard::IEC).ToString());
 					break;
 				case EStatFormat::Percentage:
 					GLog->Logf(TEXT("| %s%s"), *AtomicNameMap[NameLookup], *FText::AsPercent(GetAsPercentage(Stat.Value), &PercentageFormattingOptions).ToString());

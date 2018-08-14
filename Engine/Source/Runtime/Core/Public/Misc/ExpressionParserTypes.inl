@@ -143,6 +143,25 @@ namespace Impl
 		};
 	}
 
+	/** Wrapper function for supplied functions of the signature bool(A, const ContextType* Context) */
+	template<typename OperandType, typename ContextType, typename FuncType>
+	static typename TEnableIf<Impl::TCallableInfo<FuncType>::NumArgs == 1, typename TOperatorJumpTable<ContextType>::FShortCircuit>::Type WrapShortCircuitFunction(FuncType In)
+	{
+		// Ignore the context
+		return [=](const FExpressionNode& InOperand, const ContextType* Context) {
+			return In(*InOperand.Cast<OperandType>());
+		};
+	}
+
+	/** Wrapper function for supplied functions of the signature bool(A, const ContextType* Context) */
+	template<typename OperandType, typename ContextType, typename FuncType>
+	static typename TEnableIf<Impl::TCallableInfo<FuncType>::NumArgs == 2, typename TOperatorJumpTable<ContextType>::FShortCircuit>::Type WrapShortCircuitFunction(FuncType In)
+	{
+		// Ignore the context
+		return [=](const FExpressionNode& InOperand, const ContextType* Context) {
+			return In(*InOperand.Cast<OperandType>(), Context);
+		};
+	}
 }
 
 template<typename T>
@@ -179,6 +198,18 @@ FExpressionResult TOperatorJumpTable<ContextType>::ExecBinary(const FExpressionT
 	Args.Add(FText::FromString(L.Context.GetString()));
 	Args.Add(FText::FromString(R.Context.GetString()));
 	return MakeError(FText::Format(LOCTEXT("BinaryExecutionError", "Binary operator {0} cannot operate on {1} and {2}"), Args));
+}
+
+template<typename ContextType>
+bool TOperatorJumpTable<ContextType>::ShouldShortCircuit(const FExpressionToken& Operator, const FExpressionToken& L, const ContextType* Context) const
+{
+	FOperatorFunctionID ID = { Operator.Node.GetTypeId(), L.Node.GetTypeId(), FGuid() };
+	if (const auto* Func = BinaryShortCircuits.Find(ID))
+	{
+		return (*Func)(L.Node, Context);
+	}
+
+	return false;
 }
 
 template<typename ContextType>
@@ -256,6 +287,22 @@ void TOperatorJumpTable<ContextType>::MapBinary(FuncType InFunc)
 
 	BinaryOps.Add(ID, Impl::WrapBinaryFunction<LeftOperandType, RightOperandType, ContextType>(InFunc));
 }
+
+template<typename ContextType>
+template<typename OperatorType, typename FuncType>
+void TOperatorJumpTable<ContextType>::MapShortCircuit(FuncType InFunc)
+{
+	typedef typename TRemoveConst<typename TRemoveReference<typename Impl::TCallableInfo<FuncType>::Arg1>::Type>::Type OperandType;
+
+	FOperatorFunctionID ID = {
+		TGetExpressionNodeTypeId<OperatorType>::GetTypeId(),
+		TGetExpressionNodeTypeId<OperandType>::GetTypeId(),
+		FGuid()
+	};
+
+	BinaryShortCircuits.Add(ID, Impl::WrapShortCircuitFunction<OperandType, ContextType>(InFunc));
+}
+
 
 typedef TOperatorEvaluationEnvironment<> FOperatorEvaluationEnvironment;
 

@@ -37,19 +37,20 @@ struct FUSDSceneImportContext : public FUsdImportContext
 	virtual void Init(UObject* InParent, const FString& InName, class IUsdStage* InStage);
 };
 
+/*
 UCLASS(transient)
 class UUSDSceneImportFactory : public USceneImportFactory, public IImportSettingsParser
 {
 	GENERATED_UCLASS_BODY()
 
 public:
-	/** UFactory Interface */
+	// UFactory Interface
 	virtual UObject* FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled) override;
 	virtual bool FactoryCanImport(const FString& Filename) override;
 	virtual void CleanUp() override;
 	virtual IImportSettingsParser* GetImportSettingsParser() override { return this; }
 
-	/** IImportSettingsParser interface */
+	// IImportSettingsParser interface
 	virtual void ParseFromJson(TSharedRef<class FJsonObject> ImportSettingsJson) override;
 private:
 	void GenerateSpawnables(TArray<FActorSpawnData>& OutRootSpawnData, int32& OutTotalNumSpawnables);
@@ -63,3 +64,4 @@ private:
 	UPROPERTY()
 	UUSDSceneImportOptions* ImportOptions;
 };
+*/

@@ -20,7 +20,7 @@ UCLASS()
 class UMovieSceneSequenceExtensions : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
-
+public:
 	/**
 	 * Get this sequence's movie scene data
 	 *
@@ -93,21 +93,30 @@ class UMovieSceneSequenceExtensions : public UBlueprintFunctionLibrary
 	 * @param Sequence        The sequence within which to find the binding
 	 * @param StartFrame      The frame at which to start the range
 	 * @param Duration        The length of the range
-	 * @return The display rate that this sequence is displayed as
+	 * @return Specified sequencer range
 	 */
 	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
 	static FSequencerScriptingRange MakeRange(UMovieSceneSequence* Sequence, int32 StartFrame, int32 Duration);
 
 	/**
-	 * Make a new range for this sequence in its display rate
+	 * Make a new range for this sequence in seconds
 	 *
 	 * @param Sequence        The sequence within which to find the binding
 	 * @param StartTime       The time in seconds at which to start the range
 	 * @param Duration        The length of the range in seconds
-	 * @return The display rate that this sequence is displayed as
+	 * @return Specified sequencer range
 	 */
 	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
 	static FSequencerScriptingRange MakeRangeSeconds(UMovieSceneSequence* Sequence, float StartTime, float Duration);
+
+	/**
+	 * Get playback range of this sequence
+	 *
+	 * @param Sequence        The sequence within which to get the playback range
+	 * @return Playback range of this sequence
+	 */
+	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
+	static FSequencerScriptingRange GetPlaybackRange(UMovieSceneSequence* Sequence);
 
 	/**
 	 * Attempt to locate a binding in this sequence by its name
@@ -127,6 +136,24 @@ class UMovieSceneSequenceExtensions : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
 	static TArray<FSequencerBindingProxy> GetBindings(UMovieSceneSequence* Sequence);
+
+	/**
+	* Get all the spawnables in this sequence
+	*
+	* @param Sequence        The sequence to get spawnables for
+	* @return Spawnables in this sequence
+	*/
+	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
+	static TArray<FSequencerBindingProxy> GetSpawnables(UMovieSceneSequence* Sequence);
+
+	/**
+	* Get all the possessables in this sequence
+	*
+	* @param Sequence        The sequence to get possessables for
+	* @return Possessables in this sequence
+	*/
+	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
+	static TArray<FSequencerBindingProxy> GetPossessables(UMovieSceneSequence* Sequence);
 
 	/**
 	 * Add a new binding to this sequence that will possess the specified object
@@ -157,6 +184,17 @@ class UMovieSceneSequenceExtensions : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
 	static FSequencerBindingProxy AddSpawnableFromClass(UMovieSceneSequence* Sequence, UClass* ClassToSpawn);
+
+	/**
+	 * Locate all the objects that correspond to the specified object ID, using the specified context
+	 *
+	 * @param Sequence   The sequence to locate bound objects for
+	 * @param InBinding  The object binding
+	 * @param Context    Optional context to use to find the required object
+	 * @return An array of all bound objects
+	 */
+	UFUNCTION(BlueprintCallable, Category="Sequence", meta=(ScriptMethod))
+	static TArray<UObject*> LocateBoundObjects(UMovieSceneSequence* Sequence, const FSequencerBindingProxy& InBinding, UObject* Context);
 
 public:
 

@@ -17,8 +17,53 @@
 #include "JsonObjectConverter.h"
 #include "Misc/RemoteConfigIni.h"
 #include "MovieSceneCaptureModule.h"
+#include "Engine/GameViewportClient.h"
+#include "Protocols/VideoCaptureProtocol.h"
+#include "Slate/SceneViewport.h"
+#include "Engine/Engine.h"
+#include "AssetRegistryModule.h"
+#include "UObject/UObjectIterator.h"
+#include "Protocols/AudioCaptureProtocol.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCapture"
+
+const FName UMovieSceneCapture::MovieSceneCaptureUIName = FName(TEXT("MovieSceneCaptureUIInstance"));
+
+TArray<UClass*> FindAllCaptureProtocolClasses()
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	// Retrieve all blueprint classes 
+	TArray<FAssetData> BlueprintList;
+
+	FARFilter Filter;
+	Filter.ClassNames.Add(UMovieSceneCaptureProtocolBase::StaticClass()->GetFName());
+
+	// Include any Blueprint based objects as well, this includes things like Blutilities, UMG, and GameplayAbility objects
+	Filter.bRecursiveClasses = true;
+	AssetRegistryModule.Get().GetAssets(Filter, BlueprintList);
+
+	TArray<UClass*> Classes;
+
+	for (const FAssetData& Data : BlueprintList)
+	{
+		UClass* Class = Data.GetClass();
+		if (Class)
+		{
+			Classes.Add(Class);
+		}
+	}
+
+	for (TObjectIterator<UClass> ClassIterator; ClassIterator; ++ClassIterator)
+	{
+		if (ClassIterator->IsChildOf(UMovieSceneCaptureProtocolBase::StaticClass()) && !ClassIterator->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
+		{
+			Classes.Add(*ClassIterator);
+		}
+	}
+
+	return Classes;
+}
 
 struct FUniqueMovieSceneCaptureHandle : FMovieSceneCaptureHandle
 {
@@ -70,40 +115,114 @@ UMovieSceneCapture::UMovieSceneCapture(const FObjectInitializer& Initializer)
 
 	bCapturing = false;
 	FrameNumberOffset = 0;
-	CaptureType = TEXT("Video");
+	ImageCaptureProtocolType = UVideoCaptureProtocol::StaticClass();
+	AudioCaptureProtocolType = UNullAudioCaptureProtocol::StaticClass();
 }
 
 void UMovieSceneCapture::PostInitProperties()
 {
-	InitializeSettings();
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		InitializeCaptureProtocols();
+	}
 
 	Super::PostInitProperties();
 }
 
-void UMovieSceneCapture::InitializeSettings()
+void UMovieSceneCapture::SetImageCaptureProtocolType(TSubclassOf<UMovieSceneCaptureProtocolBase> ProtocolType)
 {
-	if (HasAnyFlags(RF_ClassDefaultObject))
+	ImageCaptureProtocolType = ProtocolType.Get();
+	InitializeCaptureProtocols();
+}
+
+void UMovieSceneCapture::SetAudioCaptureProtocolType(TSubclassOf<UMovieSceneCaptureProtocolBase> ProtocolType)
+{
+	AudioCaptureProtocolType = ProtocolType.Get();
+	InitializeCaptureProtocols();
+}
+
+void UMovieSceneCapture::ForciblyReinitializeCaptureProtocols()
+{
+	UClass* ImageProtocolType = ImageCaptureProtocolType.TryLoadClass<UMovieSceneImageCaptureProtocolBase>();
+	UClass* AudioProtocolType = AudioCaptureProtocolType.TryLoadClass<UMovieSceneAudioCaptureProtocolBase>();
+
+	if (ImageCaptureProtocol)
+	{
+		// Release the protocol since we know now that it's either not needed (the type is None), or it's the wrong type
+		ImageCaptureProtocol->OnReleaseConfig(Settings);
+		FName UniqueDeadName = MakeUniqueObjectName(GetTransientPackage(), UMovieSceneImageCaptureProtocolBase::StaticClass(), "ImageCaptureProtocol_DEAD");
+		ImageCaptureProtocol->Rename(*UniqueDeadName.ToString(), GetTransientPackage());
+		ImageCaptureProtocol = nullptr;
+	}
+	
+	if (AudioCaptureProtocol)
+	{
+		// Release the protocol since we know now that it's either not needed (the type is None), or it's the wrong type
+		AudioCaptureProtocol->OnReleaseConfig(Settings);
+		FName UniqueDeadName = MakeUniqueObjectName(GetTransientPackage(), UMovieSceneAudioCaptureProtocolBase::StaticClass(), "AudioCaptureProtocol_DEAD");
+		AudioCaptureProtocol->Rename(*UniqueDeadName.ToString(), GetTransientPackage());
+		AudioCaptureProtocol = nullptr;
+	}
+
+	if (ImageProtocolType)
+	{
+		FString ProtocolName = GetName() + TEXT("_ImageProtocol");
+		ImageCaptureProtocol = NewObject<UMovieSceneImageCaptureProtocolBase>(this, ImageProtocolType, *ProtocolName);
+		if (ImageCaptureProtocol)
+		{
+			ImageCaptureProtocol->LoadConfig();
+			ImageCaptureProtocol->OnLoadConfig(Settings);
+		}
+		
+#if WITH_EDITOR
+		FPropertyChangedEvent PropertyChangedEvent(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, ImageCaptureProtocol)), EPropertyChangeType::ValueSet);
+		PostEditChangeProperty(PropertyChangedEvent);
+#endif
+	}
+	
+	if (AudioProtocolType)
+	{
+		FString ProtocolName = GetName() + TEXT("_AudioProtocol");
+		AudioCaptureProtocol = NewObject<UMovieSceneAudioCaptureProtocolBase>(this, AudioProtocolType, *ProtocolName);
+		if (AudioCaptureProtocol)
+		{
+			AudioCaptureProtocol->LoadConfig();
+			AudioCaptureProtocol->OnLoadConfig(Settings);
+		}
+		
+#if WITH_EDITOR
+		FPropertyChangedEvent PropertyChangedEvent(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, AudioCaptureProtocol)), EPropertyChangeType::ValueSet);
+		PostEditChangeProperty(PropertyChangedEvent);
+#endif
+	}
+
+}
+
+void UMovieSceneCapture::InitializeCaptureProtocols()
+{
+	UClass* ImageProtocolType = ImageCaptureProtocolType.TryLoadClass<UMovieSceneCaptureProtocolBase>();
+	UClass* AudioProtocolType = AudioCaptureProtocolType.TryLoadClass<UMovieSceneCaptureProtocolBase>();
+
+	// If there's no type and we've no protocol, do nothing
+	if (!ImageProtocolType && !AudioProtocolType && !ImageCaptureProtocol && !AudioCaptureProtocol)
 	{
 		return;
 	}
 
-	if (ProtocolSettings)
+	// If we have a type and we've already got a protocol of that type, do nothing
+	if (ImageProtocolType && ImageCaptureProtocol && ImageCaptureProtocol->GetClass() == ImageProtocolType && 
+		AudioCaptureProtocol && AudioCaptureProtocol->GetClass() == AudioProtocolType)
 	{
-		ProtocolSettings->OnReleaseConfig(Settings);
+		return;
 	}
-	
-	ProtocolSettings = IMovieSceneCaptureModule::Get().GetProtocolRegistry().FactorySettingsType(CaptureType, this);
-	if (ProtocolSettings)
-	{
-		ProtocolSettings->LoadConfig();
-		ProtocolSettings->OnLoadConfig(Settings);
-	}
+
+	ForciblyReinitializeCaptureProtocols();
 }
+
 
 void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, int32 PIEInstance)
 {
 	ensure(!bCapturing);
-
 	// Apply command-line overrides
 	{
 		FString OutputPathOverride;
@@ -148,13 +267,76 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 			Settings.bCinematicMode = bOverrideCinematicMode;
 		}
 
-		FString FormatOverride;
-		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieFormat=" ), FormatOverride ) )
-		{
-			CaptureType = *FormatOverride;
-			InitializeSettings();
-		}
 
+		bool bProtocolOverride = false;
+
+		FString ImageProtocolOverrideString;
+		if (   FParse::Value( FCommandLine::Get(), TEXT( "-MovieFormat=" ), ImageProtocolOverrideString )
+			|| FParse::Value( FCommandLine::Get(), TEXT( "-ImageCaptureProtocol=" ), ImageProtocolOverrideString ) )
+		{
+			static const TCHAR* const CommandLineIDString = TEXT("CommandLineID");
+
+			UClass* OverrideClass = nullptr;
+
+			TArray<UClass*> AllProtocolTypes = FindAllCaptureProtocolClasses();
+			for (UClass* Class : AllProtocolTypes)
+			{
+				bool bMetaDataMatch = 
+#if WITH_EDITOR
+					Class->GetMetaData(CommandLineIDString) == ImageProtocolOverrideString;
+#else
+					false;
+#endif
+				if ( bMetaDataMatch || Class->GetName() == ImageProtocolOverrideString )
+				{
+					OverrideClass = Class;
+					break;
+				}
+			}
+
+			if (!OverrideClass)
+			{
+				UE_LOG(LogMovieSceneCapture, Error, TEXT("Unrecognized image capture type (-MovieFormat or -ImageCaptureProtocol): %s."), *ImageProtocolOverrideString);
+			}
+			else
+			{
+				ImageCaptureProtocolType = OverrideClass;				
+			}
+		}
+		
+		FString AudioProtocolOverrideString;
+		if (FParse::Value( FCommandLine::Get(), TEXT( "-AudioCaptureProtocol=" ), AudioProtocolOverrideString ) )
+		{
+			static const TCHAR* const CommandLineIDString = TEXT("CommandLineID");
+
+			UClass* OverrideClass = nullptr;
+
+			TArray<UClass*> AllProtocolTypes = FindAllCaptureProtocolClasses();
+			for (UClass* Class : AllProtocolTypes)
+			{
+				bool bMetaDataMatch = 
+#if WITH_EDITOR
+					Class->GetMetaData(CommandLineIDString) == AudioProtocolOverrideString;
+#else
+					false;
+#endif
+				if ( bMetaDataMatch || Class->GetName() == AudioProtocolOverrideString )
+				{
+					OverrideClass = Class;
+					break;
+				}
+			}
+
+			if (!OverrideClass)
+			{
+				UE_LOG(LogMovieSceneCapture, Error, TEXT("Unrecognized audio capture type (-AudioCaptureProtocol): %s."), *AudioProtocolOverrideString);
+			}
+			else
+			{
+				AudioCaptureProtocolType = OverrideClass;				
+			}
+		}
+			
 		FString FrameRateOverrideString;
 		if ( FParse::Value( FCommandLine::Get(), TEXT( "-MovieFrameRate=" ), FrameRateOverrideString ) )
 		{
@@ -166,8 +348,9 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 	}
 
 	bFinalizeWhenReady = false;
+	bIsAudioCapturePass = false;
 
-	InitSettings = FCaptureProtocolInitSettings::FromSlateViewport(InSceneViewport.ToSharedRef(), ProtocolSettings);
+	InitSettings = FCaptureProtocolInitSettings::FromSlateViewport(InSceneViewport.ToSharedRef());
 
 	CachedMetrics = FCachedMetrics();
 	CachedMetrics.Width = InitSettings->DesiredSize.X;
@@ -188,14 +371,19 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 	FormatMappings.Add(TEXT("height"), FString::Printf(TEXT("%d"), CachedMetrics.Height));
 	FormatMappings.Add(TEXT("world"), InSceneViewport->GetClient()->GetWorld()->GetName());
 
-	if (!HasAnyFlags(RF_ClassDefaultObject))
+	if( !CaptureStrategy.IsValid() )
 	{
-		FActiveMovieSceneCaptures::Get().Add(this);
+		CaptureStrategy = MakeShareable( new FRealTimeCaptureStrategy( Settings.FrameRate ) );
+		CaptureStrategy->OnInitialize();
 	}
-}
 
-void UMovieSceneCapture::StartWarmup()
-{
+	InitializeCaptureProtocols();
+	if (ensure(ImageCaptureProtocol) && ensure(AudioCaptureProtocol))
+	{
+		ImageCaptureProtocol->Setup(InitSettings.GetValue(), this);
+		AudioCaptureProtocol->Setup(InitSettings.GetValue(), this);
+	}
+
 	if (Settings.bCinematicEngineScalability)
 	{
 		CachedQualityLevels = Scalability::GetQualityLevels();
@@ -204,12 +392,30 @@ void UMovieSceneCapture::StartWarmup()
 		Scalability::SetQualityLevels(QualityLevels);
 	}
 
-	check( !bCapturing );
-	if( !CaptureStrategy.IsValid() )
+	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		CaptureStrategy = MakeShareable( new FRealTimeCaptureStrategy( Settings.FrameRate ) );
+		FActiveMovieSceneCaptures::Get().Add(this);
 	}
-	CaptureStrategy->OnWarmup();
+}
+
+void UMovieSceneCapture::StartWarmup()
+{
+	bCapturing = false;
+
+	if (bIsAudioCapturePass)
+	{
+		if (ensure(AudioCaptureProtocol))
+		{
+			AudioCaptureProtocol->WarmUp();
+		}
+	}
+	else
+	{
+		if (ensure(ImageCaptureProtocol))
+		{
+			ImageCaptureProtocol->WarmUp();
+		}
+	}
 }
 
 void UMovieSceneCapture::StartCapture()
@@ -217,23 +423,46 @@ void UMovieSceneCapture::StartCapture()
 	bFinalizeWhenReady = false;
 	bCapturing = true;
 
-	if (!CaptureStrategy.IsValid())
+	// Audio Captures will always use Real Time capture strategies due to the Audio engine's need for real-time processing.
+	if (!CaptureStrategy.IsValid() || bIsAudioCapturePass)
 	{
+		if (CaptureStrategy.IsValid())
+		{
+			CaptureStrategy->OnStop();
+		}
+
 		CaptureStrategy = MakeShareable(new FRealTimeCaptureStrategy(Settings.FrameRate));
 	}
 
-	CaptureStrategy->OnStart();
+	CaptureStrategy->OnInitialize();
 
-	CaptureProtocol = IMovieSceneCaptureModule::Get().GetProtocolRegistry().Factory(CaptureType);
-	if (ensure(CaptureProtocol.IsValid()))
+	// We only initialize the image capture protocol on the first pass and then stop ticking it (but don't finalize it)
+	// until the audio capture pass has finished as well. StartCapture can get called up to two times, once for the image
+	// pass, and again for the audio pass (if needed).
+	if(!bIsAudioCapturePass)
 	{
-		CaptureProtocol->Initialize(InitSettings.GetValue(), *this);
+		ImageCaptureProtocol->StartCapture();
+		
+		// Disable audio so when the image pass runs it doesn't play stuttering audio.
+		// ToDo: This doesn't work very well in the editor due to some conflicting code in the engine tick loop
+		// that also sets the volume each frame, overriding the effect of this.
+		FApp::SetVolumeMultiplier(0.0f);
+		FApp::SetUnfocusedVolumeMultiplier(0.0f);
+	}
+	else
+	{
+		// Unmute the audio
+		FApp::SetVolumeMultiplier(1.0f);
+		// Ensure non-focused apps still play audio as the audio has to be emitted for the recording to capture it.
+		FApp::SetUnfocusedVolumeMultiplier(1.0f); 
+		
+		AudioCaptureProtocol->StartCapture();
 	}
 }
 
 void UMovieSceneCapture::CaptureThisFrame(float DeltaSeconds)
 {
-	if (!bCapturing || !CaptureStrategy.IsValid() || !CaptureProtocol.IsValid() || bFinalizeWhenReady)
+	if (!bCapturing || !CaptureStrategy.IsValid() || !ImageCaptureProtocol || !AudioCaptureProtocol || bFinalizeWhenReady)
 	{
 		return;
 	}
@@ -244,25 +473,64 @@ void UMovieSceneCapture::CaptureThisFrame(float DeltaSeconds)
 		uint32 NumDroppedFrames = CaptureStrategy->GetDroppedFrames(CachedMetrics.ElapsedSeconds, CachedMetrics.Frame);
 		CachedMetrics.Frame += NumDroppedFrames;
 
-		CaptureStrategy->OnPresent(CachedMetrics.ElapsedSeconds, CachedMetrics.Frame);
-
 		const FFrameMetrics ThisFrameMetrics(
 			CachedMetrics.ElapsedSeconds,
 			DeltaSeconds,
 			CachedMetrics.Frame,
 			NumDroppedFrames
 			);
-		CaptureProtocol->CaptureFrame(ThisFrameMetrics, *this);
-
+		if (!bIsAudioCapturePass)
+		{
+			ImageCaptureProtocol->CaptureFrame(ThisFrameMetrics);
+		}
+		else
+		{
+			AudioCaptureProtocol->CaptureFrame(ThisFrameMetrics);
+		}
 		UE_LOG(LogMovieSceneCapture, Verbose, TEXT("Captured frame: %d"), CachedMetrics.Frame);
-
 		++CachedMetrics.Frame;
+		}
+}
+void UMovieSceneCapture::Tick(float DeltaSeconds)
+{
+	if (ImageCaptureProtocol)
+	{
+		ImageCaptureProtocol->PreTick();
+	}
+	if(AudioCaptureProtocol)
+	{
+		AudioCaptureProtocol->PreTick();
+	}
+
+	OnTick(DeltaSeconds);
+
+	if (ImageCaptureProtocol)
+	{
+		ImageCaptureProtocol->Tick();
+	}
+	
+	if(AudioCaptureProtocol)
+	{
+		AudioCaptureProtocol->Tick();
 	}
 }
 
 void UMovieSceneCapture::FinalizeWhenReady()
 {
-	bFinalizeWhenReady = true;
+	if (!bFinalizeWhenReady)
+	{
+		bFinalizeWhenReady = true;
+
+		if (ImageCaptureProtocol)
+		{
+			ImageCaptureProtocol->BeginFinalize();
+		}
+		
+		if(AudioCaptureProtocol)
+		{
+			AudioCaptureProtocol->BeginFinalize();
+		}
+	}
 }
 
 void UMovieSceneCapture::Finalize()
@@ -284,14 +552,22 @@ void UMovieSceneCapture::Finalize()
 			CaptureStrategy = nullptr;
 		}
 
-		if (CaptureProtocol.IsValid())
+		if (ImageCaptureProtocol)
 		{
-			CaptureProtocol->Finalize();
-			CaptureProtocol = nullptr;
+			ImageCaptureProtocol->Finalize();
 		}
+		if(AudioCaptureProtocol)
+		{
+			AudioCaptureProtocol->Finalize();
+		}
+		
+		// Reinitialize the object to ensure no transient state is carried over from one capture to the next
+		ForciblyReinitializeCaptureProtocols();
 
 		OnCaptureFinishedDelegate.Broadcast();
 	}
+
+	bFinalizeWhenReady = false;
 }
 
 FString UMovieSceneCapture::ResolveFileFormat(const FString& Format, const FFrameMetrics& FrameMetrics) const
@@ -302,66 +578,31 @@ FString UMovieSceneCapture::ResolveFileFormat(const FString& Format, const FFram
 
 	AddFormatMappings(AllArgs, FrameMetrics);
 
-	if (CaptureProtocol.IsValid())
+	// Allow the capture protocols to add their own format mappings
+	if (ImageCaptureProtocol)
 	{
-		CaptureProtocol->AddFormatMappings(AllArgs);
+		ImageCaptureProtocol->AddFormatMappings(AllArgs);
 	}
+	if (AudioCaptureProtocol)
+	{
+		AudioCaptureProtocol->AddFormatMappings(AllArgs);
+	}
+
 	return FString::Format(*Format, AllArgs);
-}
-
-void UMovieSceneCapture::EnsureFileWritable(const FString& File) const
-{
-	FString Directory = FPaths::GetPath(File);
-
-	if (!IFileManager::Get().DirectoryExists(*Directory))
-	{
-		IFileManager::Get().MakeDirectory(*Directory);
-	}
-
-	if (Settings.bOverwriteExisting)
-	{
-		// Try and delete it first
-		while (IFileManager::Get().FileSize(*File) != -1 && !FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*File))
-		{
-			// popup a message box
-			FText MessageText = FText::Format(LOCTEXT("UnableToRemoveFile_Format", "The destination file '{0}' could not be deleted because it's in use by another application.\n\nPlease close this application before continuing."), FText::FromString(File));
-			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *MessageText.ToString(), *LOCTEXT("UnableToRemoveFile", "Unable to remove file").ToString());
-		}
-	}
-}
-
-FString UMovieSceneCapture::GenerateFilename(const FFrameMetrics& FrameMetrics, const TCHAR* Extension) const
-{
-	const FString BaseFilename = ResolveFileFormat(Settings.OutputDirectory.Path, FrameMetrics) / ResolveFileFormat(Settings.OutputFormat, FrameMetrics);
-
-	FString ThisTry = BaseFilename + Extension;
-
-	if (CaptureProtocol->CanWriteToFile(*ThisTry, Settings.bOverwriteExisting))
-	{
-		return ThisTry;
-	}
-
-	int32 DuplicateIndex = 2;
-	for (;;)
-	{
-		ThisTry = BaseFilename + FString::Printf(TEXT("_(%d)"), DuplicateIndex) + Extension;
-
-		// If the file doesn't exist, we can use that, else, increment the index and try again
-		if (CaptureProtocol->CanWriteToFile(*ThisTry, Settings.bOverwriteExisting))
-		{
-			return ThisTry;
-		}
-
-		++DuplicateIndex;
-	}
-
-	return ThisTry;
 }
 
 void UMovieSceneCapture::LoadFromConfig()
 {
 	LoadConfig();
-	ProtocolSettings->LoadConfig();
+	InitializeCaptureProtocols();
+	if(ImageCaptureProtocol)
+	{
+		ImageCaptureProtocol->LoadConfig();
+	}
+	if(AudioCaptureProtocol)
+	{
+		AudioCaptureProtocol->LoadConfig();
+	}
 
 	FString JsonString;
 	FString Section = GetClass()->GetPathName() + TEXT("_Json");
@@ -397,18 +638,35 @@ void UMovieSceneCapture::SaveToConfig()
 	}
 
 	SaveConfig();
-	ProtocolSettings->SaveConfig();
+	
+	if(ImageCaptureProtocol)
+	{
+		ImageCaptureProtocol->SaveConfig();
+	}
+	if(AudioCaptureProtocol)
+	{
+		AudioCaptureProtocol->SaveConfig();
+	}
 }
-
 void UMovieSceneCapture::SerializeJson(FJsonObject& Object)
 {
-	if (ProtocolSettings)
+	if (ImageCaptureProtocol)
 	{
-		Object.SetField(TEXT("ProtocolType"), MakeShareable(new FJsonValueString(ProtocolSettings->GetClass()->GetPathName())));
+		Object.SetField(TEXT("ImageProtocolType"), MakeShareable(new FJsonValueString(ImageCaptureProtocol->GetClass()->GetPathName())));
 		TSharedRef<FJsonObject> ProtocolDataObject = MakeShareable(new FJsonObject);
-		if (FJsonObjectConverter::UStructToJsonObject(ProtocolSettings->GetClass(), ProtocolSettings, ProtocolDataObject, 0, 0))
+		if (FJsonObjectConverter::UStructToJsonObject(ImageCaptureProtocol->GetClass(), ImageCaptureProtocol, ProtocolDataObject, 0, 0))
 		{
-			Object.SetField(TEXT("ProtocolData"), MakeShareable(new FJsonValueObject(ProtocolDataObject)));
+			Object.SetField(TEXT("ImageProtocolData"), MakeShareable(new FJsonValueObject(ProtocolDataObject)));
+		}
+	}
+	
+	if (AudioCaptureProtocol)
+	{
+		Object.SetField(TEXT("AudioProtocolType"), MakeShareable(new FJsonValueString(AudioCaptureProtocol->GetClass()->GetPathName())));
+		TSharedRef<FJsonObject> ProtocolDataObject = MakeShareable(new FJsonObject);
+		if (FJsonObjectConverter::UStructToJsonObject(AudioCaptureProtocol->GetClass(), AudioCaptureProtocol, ProtocolDataObject, 0, 0))
+		{
+			Object.SetField(TEXT("AudioProtocolData"), MakeShareable(new FJsonValueObject(ProtocolDataObject)));
 		}
 	}
 
@@ -417,35 +675,83 @@ void UMovieSceneCapture::SerializeJson(FJsonObject& Object)
 
 void UMovieSceneCapture::DeserializeJson(const FJsonObject& Object)
 {
-	TSharedPtr<FJsonValue> ProtocolTypeField = Object.TryGetField(TEXT("ProtocolType"));
-	if (ProtocolTypeField.IsValid())
+	TSharedPtr<FJsonValue> ImageProtocolTypeField = Object.TryGetField(TEXT("ImageProtocolType"));
+	if (ImageProtocolTypeField.IsValid())
 	{
-		UClass* ProtocolTypeClass = FindObject<UClass>(nullptr, *ProtocolTypeField->AsString());
-		if (ProtocolTypeClass)
+		UClass* ProtocolTypeClass = FindObject<UClass>(nullptr, *ImageProtocolTypeField->AsString());
+		if (ProtocolTypeClass && ProtocolTypeClass->IsChildOf(UMovieSceneCaptureProtocolBase::StaticClass()))
 		{
-			ProtocolSettings = NewObject<UMovieSceneCaptureProtocolSettings>(this, ProtocolTypeClass);
-			if (ProtocolSettings)
+			SetImageCaptureProtocolType(ProtocolTypeClass);
+			if (ImageCaptureProtocol)
 			{
-				TSharedPtr<FJsonValue> ProtocolDataField = Object.TryGetField(TEXT("ProtocolData"));
+				TSharedPtr<FJsonValue> ProtocolDataField = Object.TryGetField(TEXT("ImageProtocolData"));
 				if (ProtocolDataField.IsValid())
 				{
-					FJsonObjectConverter::JsonAttributesToUStruct(ProtocolDataField->AsObject()->Values, ProtocolTypeClass, ProtocolSettings, 0, 0);
+					FJsonObjectConverter::JsonAttributesToUStruct(ProtocolDataField->AsObject()->Values, ProtocolTypeClass, ImageCaptureProtocol, 0, 0);
 				}
 			}
+
+#if WITH_EDITOR
+			FPropertyChangedEvent PropertyChangedEvent(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, ImageCaptureProtocol)), EPropertyChangeType::ValueSet);
+			PostEditChangeProperty(PropertyChangedEvent);
+#endif
+		}
+	}
+	
+	TSharedPtr<FJsonValue> AudioProtocolTypeField = Object.TryGetField(TEXT("AudioProtocolType"));
+	if (AudioProtocolTypeField.IsValid())
+	{
+		UClass* ProtocolTypeClass = FindObject<UClass>(nullptr, *AudioProtocolTypeField->AsString());
+		if (ProtocolTypeClass && ProtocolTypeClass->IsChildOf(UMovieSceneCaptureProtocolBase::StaticClass()))
+		{
+			SetAudioCaptureProtocolType(ProtocolTypeClass);
+			if (AudioCaptureProtocol)
+			{
+				TSharedPtr<FJsonValue> ProtocolDataField = Object.TryGetField(TEXT("AudioProtocolData"));
+				if (ProtocolDataField.IsValid())
+				{
+					FJsonObjectConverter::JsonAttributesToUStruct(ProtocolDataField->AsObject()->Values, ProtocolTypeClass, AudioCaptureProtocol, 0, 0);
+				}
+			}
+
+#if WITH_EDITOR
+			FPropertyChangedEvent PropertyChangedEvent(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, AudioCaptureProtocol)), EPropertyChangeType::ValueSet);
+			PostEditChangeProperty(PropertyChangedEvent);
+#endif
 		}
 	}
 
 	DeserializeAdditionalJson(Object);
 }
 
+
+bool UMovieSceneCapture::ShouldFinalize() const
+{
+	return bFinalizeWhenReady && ImageCaptureProtocol->HasFinishedProcessing() && AudioCaptureProtocol->HasFinishedProcessing();
+}
+
+bool UMovieSceneCapture::IsAudioPassIfNeeded() const
+{
+	return AudioCaptureProtocolType == UNullAudioCaptureProtocol::StaticClass() || bIsAudioCapturePass;
+}
+
 #if WITH_EDITOR
-void UMovieSceneCapture::PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent)
+void UMovieSceneCapture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	FName PropertyName = (PropertyChangedEvent.MemberProperty != NULL) ? PropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
 
-	if (PropertyName == GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, CaptureType))
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, ImageCaptureProtocolType)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(UMovieSceneCapture, AudioCaptureProtocolType))
 	{
-		InitializeSettings();
+		InitializeCaptureProtocols();
+	}
+
+	// We only want to save changes to the UI instance. This makes it so that closing the Movie Scene Capture UI
+	// saves your changes (without having to render a movie) but doesn't leak changes into the Python scripting
+	// environment.
+	if (GetFName() == MovieSceneCaptureUIName)
+	{
+		SaveToConfig();
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -457,13 +763,7 @@ FFixedTimeStepCaptureStrategy::FFixedTimeStepCaptureStrategy(FFrameRate InFrameR
 {
 }
 
-void FFixedTimeStepCaptureStrategy::OnWarmup()
-{
-	FApp::SetFixedDeltaTime(FrameRate.AsInterval());
-	FApp::SetUseFixedTimeStep(true);
-}
-
-void FFixedTimeStepCaptureStrategy::OnStart()
+void FFixedTimeStepCaptureStrategy::OnInitialize()
 {
 	FApp::SetFixedDeltaTime(FrameRate.AsInterval());
 	FApp::SetUseFixedTimeStep(true);
@@ -472,10 +772,6 @@ void FFixedTimeStepCaptureStrategy::OnStart()
 void FFixedTimeStepCaptureStrategy::OnStop()
 {
 	FApp::SetUseFixedTimeStep(false);
-}
-
-void FFixedTimeStepCaptureStrategy::OnPresent(double CurrentTimeSeconds, uint32 FrameIndex)
-{
 }
 
 bool FFixedTimeStepCaptureStrategy::ShouldPresent(double CurrentTimeSeconds, uint32 FrameIndex) const
@@ -493,19 +789,11 @@ FRealTimeCaptureStrategy::FRealTimeCaptureStrategy(FFrameRate InFrameRate)
 {
 }
 
-void FRealTimeCaptureStrategy::OnWarmup()
-{
-}
-
-void FRealTimeCaptureStrategy::OnStart()
+void FRealTimeCaptureStrategy::OnInitialize()
 {
 }
 
 void FRealTimeCaptureStrategy::OnStop()
-{
-}
-
-void FRealTimeCaptureStrategy::OnPresent(double CurrentTimeSeconds, uint32 FrameIndex)
 {
 }
 

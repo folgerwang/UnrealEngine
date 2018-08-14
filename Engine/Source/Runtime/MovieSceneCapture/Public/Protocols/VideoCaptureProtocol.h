@@ -4,19 +4,26 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "IMovieSceneCaptureProtocol.h"
+#include "MovieSceneCaptureProtocolBase.h"
 #include "FrameGrabber.h"
 #include "Protocols/FrameGrabberProtocol.h"
 #include "AVIWriter.h"
 #include "VideoCaptureProtocol.generated.h"
 
-UCLASS(config=EditorPerProjectUserSettings, PerObjectConfig, DisplayName="Video Encoding")
-class MOVIESCENECAPTURE_API UVideoCaptureSettings : public UFrameGrabberProtocolSettings
+
+UCLASS(meta=(DisplayName="Video Sequence (avi)", CommandLineID="Video"))
+class MOVIESCENECAPTURE_API UVideoCaptureProtocol : public UFrameGrabberProtocol
 {
 public:
-	UVideoCaptureSettings(const FObjectInitializer& Init) : UFrameGrabberProtocolSettings(Init), bUseCompression(true), CompressionQuality(75) {}
-
 	GENERATED_BODY()
+
+	UVideoCaptureProtocol(const FObjectInitializer& Init)
+		: Super(Init)
+		, bUseCompression(true)
+		, CompressionQuality(75)
+	{}
+
+public:
 
 	UPROPERTY(config, EditAnywhere, Category=VideoSettings)
 	bool bUseCompression;
@@ -26,22 +33,18 @@ public:
 
 	UPROPERTY(config, EditAnywhere, Category=VideoSettings, AdvancedDisplay)
 	FString VideoCodec;
-};
 
-struct MOVIESCENECAPTURE_API FVideoCaptureProtocol : FFrameGrabberProtocol
-{
-	virtual bool Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host) override;
-	virtual void Finalize() override;
-	virtual FFramePayloadPtr GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host);
+public:
+	virtual bool SetupImpl() override;
+	virtual void FinalizeImpl() override;
+	virtual FFramePayloadPtr GetFramePayload(const FFrameMetrics& FrameMetrics);
 	virtual void ProcessFrame(FCapturedFrameData Frame);
-	virtual bool CanWriteToFile(const TCHAR* InFilename, bool bOverwriteExisting) const override;
+	virtual bool CanWriteToFileImpl(const TCHAR* InFilename, bool bOverwriteExisting) const override;
 
 protected:
 
-	void ConditionallyCreateWriter(const ICaptureProtocolHost& Host);
+	void ConditionallyCreateWriter();
 private:
-
-	TOptional<FCaptureProtocolInitSettings> InitSettings;
 
 	TArray<TUniquePtr<FAVIWriter>> AVIWriters;
 };

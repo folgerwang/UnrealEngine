@@ -9,10 +9,11 @@
 
 class UTireConfig;
 class UWheeledVehicleMovementComponent;
+class FPhysScene_PhysX;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogVehicles, Log, All);
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 
 /**
  * Manages vehicles and tire surface data for all scenes
@@ -89,7 +90,7 @@ private:
 	static PxVehicleDrivableSurfaceToTireFrictionPairs*			SurfaceTirePairs;
 
 	/** Map of physics scenes to corresponding vehicle manager */
-	static TMap<FPhysScene*, FPhysXVehicleManager*>				SceneToVehicleManagerMap;
+	static TMap<FPhysScene*, FPhysXVehicleManager*>		        SceneToVehicleManagerMap;
 
 
 	// The scene we belong to

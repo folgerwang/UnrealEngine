@@ -180,7 +180,7 @@ void UDestructibleMesh::Serialize(FArchive& Ar)
 			ApexDestructibleAsset = (apex::DestructibleAsset*)ApexAsset;
 			// Release our temporary objects
 			Serializer->release();
-			GApexSDK->releaseMemoryReadStream( *Stream );
+            GApexSDK->releaseMemoryReadStream(*Stream);
 #endif
 		}
 		if (Ar.CustomVer(FFrameworkObjectVersion::GUID) >= FFrameworkObjectVersion::CacheDestructibleOverlaps)
@@ -199,6 +199,7 @@ void UDestructibleMesh::Serialize(FArchive& Ar)
 					physx::PxFileBuf* Stream = GApexSDK->createMemoryReadStream( Buffer.GetData(), Size );
 					ModuleCachedData* cacheData = GApexSDK->getCachedData().getCacheForModule(GApexModuleDestructible->getModuleID());
 					cacheData->deserializeSingleAsset(*ApexDestructibleAsset, *Stream);
+                    GApexSDK->releaseMemoryReadStream(*Stream);
 				}
 #endif
 			}

@@ -432,6 +432,10 @@ struct FTargetDeviceServicePong
 	UPROPERTY(EditAnywhere, Category="Message")
 	bool Connected;
 
+	/** Holds a flag indicating whether the device is authorized. */
+	UPROPERTY(EditAnywhere, Category="Message")
+	bool Authorized;
+
 	/** Holds the name of the host computer that the device is attached to. */
 	UPROPERTY(EditAnywhere, Category="Message")
 	FString HostName;

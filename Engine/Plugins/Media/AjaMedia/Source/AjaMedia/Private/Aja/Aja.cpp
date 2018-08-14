@@ -11,7 +11,6 @@
  //~ Static initialization
  //--------------------------------------------------------------------
 void* FAja::LibHandle = nullptr; 
-bool FAja::bCanForceAJAUsage = false; 
 
 //~ Initialization functions implementation
 //--------------------------------------------------------------------
@@ -44,9 +43,6 @@ bool FAja::Initialize()
 		UE_LOG(LogAjaMedia, Error, TEXT("Failed to load required library %s. Plug-in will not be functional."), *AjaDllPath);
 		return false;
 	}
-
-	//Check if command line argument to force AJA card usage is there
-	bCanForceAJAUsage = FParse::Param(FCommandLine::Get(), TEXT("forceajausage"));
 
 #if !NO_LOGGING
 	AJA::SetLoggingCallbacks(&LogInfo, &LogWarning, &LogError);

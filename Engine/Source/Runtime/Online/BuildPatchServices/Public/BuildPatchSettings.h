@@ -2,12 +2,32 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Interfaces/IBuildManifest.h"
 #include "Misc/Variant.h"
+#include "Interfaces/IBuildManifest.h"
+#include "BuildPatchInstall.h"
 #include "BuildPatchVerify.h"
 
 namespace BuildPatchServices
 {
+	/**
+	 * Defines a list of all build patch services initialization settings, can be used to override default init behaviors.
+	 */
+	struct FBuildPatchServicesInitSettings
+	{
+	public:
+		/**
+		 * Default constructor. Initializes all members with default behavior values.
+		 */
+		FBuildPatchServicesInitSettings();
+
+		// The application settings directory.
+		FString ApplicationSettingsDir;
+		// The application project name.
+		FString ProjectName;
+		// The local machine config file name.
+		FString LocalMachineConfigFileName;
+	};
+
 	/**
 	 * Defines a list of all the options of an installation task.
 	 */
@@ -29,14 +49,16 @@ namespace BuildPatchServices
 		TArray<FString> CloudDirectories;
 		// The set of tags that describe what to be installed. Empty set means full installation.
 		TSet<FString> InstallTags;
+		// The mode for installation.
+		EInstallMode InstallMode;
 		// The mode for verification.
 		EVerifyMode VerifyMode;
 		// Whether the operation is a repair to an existing installation only.
 		bool bIsRepair;
-		// Whether the operation should only produce the necessary staged data, without performing the final install stage yet.
-		bool bStageOnly;
 		// Whether to run the prerequisite installer provided if it hasn't been ran before on this machine.
 		bool bRunRequiredPrereqs;
+		// Whether to allow this installation to run concurrently with any existing installations.
+		bool bAllowConcurrentExecution;
 
 		/**
 		 * Construct with install manifest, provides common defaults for other settings.
@@ -50,10 +72,11 @@ namespace BuildPatchServices
 			, ChunkDatabaseFiles()
 			, CloudDirectories()
 			, InstallTags()
+			, InstallMode(EInstallMode::NonDestructiveInstall)
 			, VerifyMode(EVerifyMode::ShaVerifyAllFiles)
 			, bIsRepair(false)
-			, bStageOnly(false)
 			, bRunRequiredPrereqs(true)
+			, bAllowConcurrentExecution(false)
 		{}
 
 		/**
@@ -68,10 +91,11 @@ namespace BuildPatchServices
 			, ChunkDatabaseFiles(MoveTemp(MoveFrom.ChunkDatabaseFiles))
 			, CloudDirectories(MoveTemp(MoveFrom.CloudDirectories))
 			, InstallTags(MoveTemp(MoveFrom.InstallTags))
-			, VerifyMode(MoveTemp(MoveFrom.VerifyMode))
-			, bIsRepair(MoveTemp(MoveFrom.bIsRepair))
-			, bStageOnly(MoveTemp(MoveFrom.bStageOnly))
-			, bRunRequiredPrereqs(MoveTemp(MoveFrom.bRunRequiredPrereqs))
+			, InstallMode(MoveFrom.InstallMode)
+			, VerifyMode(MoveFrom.VerifyMode)
+			, bIsRepair(MoveFrom.bIsRepair)
+			, bRunRequiredPrereqs(MoveFrom.bRunRequiredPrereqs)
+			, bAllowConcurrentExecution(MoveFrom.bAllowConcurrentExecution)
 		{}
 
 		/**
@@ -86,10 +110,11 @@ namespace BuildPatchServices
 			, ChunkDatabaseFiles(CopyFrom.ChunkDatabaseFiles)
 			, CloudDirectories(CopyFrom.CloudDirectories)
 			, InstallTags(CopyFrom.InstallTags)
+			, InstallMode(CopyFrom.InstallMode)
 			, VerifyMode(CopyFrom.VerifyMode)
 			, bIsRepair(CopyFrom.bIsRepair)
-			, bStageOnly(CopyFrom.bStageOnly)
 			, bRunRequiredPrereqs(CopyFrom.bRunRequiredPrereqs)
+			, bAllowConcurrentExecution(CopyFrom.bAllowConcurrentExecution)
 		{}
 	};
 

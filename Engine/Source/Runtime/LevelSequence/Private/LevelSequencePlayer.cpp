@@ -342,12 +342,25 @@ void ULevelSequencePlayer::TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSn
 		{
 			// Assume that shots with no sequence start at 0.
 			FMovieSceneSequenceTransform OuterToInnerTransform = ActiveShot->OuterToInnerTransform();
-			UMovieSceneSequence*         InnerSequence         = ActiveShot->GetSequence();
-			FFrameRate                   InnerFrameRate        = InnerSequence ? InnerSequence->GetMovieScene()->GetDisplayRate() : PlayPosition.GetInputRate();
+			UMovieSceneSequence*         InnerSequence = ActiveShot->GetSequence();
+			FFrameRate                   InnerTickResoloution = InnerSequence ? InnerSequence->GetMovieScene()->GetTickResolution() : PlayPosition.GetOutputRate();
+			FFrameRate                   InnerFrameRate = InnerSequence ? InnerSequence->GetMovieScene()->GetDisplayRate() : PlayPosition.GetInputRate();
+			FFrameTime                   InnerDisplayTime = ConvertFrameTime(CurrentSequenceTime * OuterToInnerTransform, InnerTickResoloution, InnerFrameRate);
 
-			OutSnapshot.CurrentShotName      = ActiveShot->GetShotDisplayName();
-			OutSnapshot.CurrentShotLocalTime = FQualifiedFrameTime(CurrentPlayTime * OuterToInnerTransform, InnerFrameRate);
+			OutSnapshot.CurrentShotName = ActiveShot->GetShotDisplayName();
+			OutSnapshot.CurrentShotLocalTime = FQualifiedFrameTime(InnerDisplayTime, InnerFrameRate);
 			OutSnapshot.ShotID = ActiveShot->GetSequenceID();
+
+#if WITH_EDITORONLY_DATA
+			FFrameNumber  InnerFrameNumber = InnerFrameRate.AsFrameNumber(InnerFrameRate.AsSeconds(InnerDisplayTime));
+			FFrameNumber  InnerStartFrameNumber = ActiveShot->TimecodeSource.Timecode.ToFrameNumber(InnerFrameRate);
+			FFrameNumber  InnerCurrentFrameNumber = InnerStartFrameNumber + InnerFrameNumber;
+			FTimecode     InnerCurrentTimecode = ActiveShot->TimecodeSource.Timecode.FromFrameNumber(InnerCurrentFrameNumber, InnerFrameRate, false);
+
+			OutSnapshot.SourceTimecode = InnerCurrentTimecode.ToString();
+#else
+			OutSnapshot.SourceTimecode = FTimecode().ToString();
+#endif
 		}
 	}
 }

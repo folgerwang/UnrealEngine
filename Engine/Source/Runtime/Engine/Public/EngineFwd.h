@@ -142,7 +142,6 @@ class FMeshElementCollector;
 class FMeshMapBuildData;
 class FNetworkNotify;
 class FOutBunch;
-class FPhysScene;
 class FPoly;
 class FPositionVertexBuffer;
 class FPreviewScene;

@@ -1,43 +1,52 @@
 {
-	"FileVersion" : 3,
-	"Version" : 1,
-	"VersionName" : "1.0",
-	"FriendlyName" : "OculusVR",
-	"Description" : "Support for Oculus headsets and controllers",
-	"Category" : "Virtual Reality",
-	"CreatedBy" : "Epic Games, Inc.",
-	"CreatedByURL" : "http://epicgames.com",
-	"DocsURL" : "",
-	"MarketplaceURL" : "",
-	"SupportURL" : "",
-	"EnabledByDefault" : true,
-	"CanContainContent" : true,
-	"IsBetaVersion" : false,
-	"Installed" : false,
-	"Modules" :
-	[
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.27.0",
+	"FriendlyName": "Oculus VR",
+	"Description": "Support for Oculus headsets and controllers",
+	"Category": "Virtual Reality",
+	"CreatedBy": "Oculus",
+	"CreatedByURL": "https://www.oculus.com/",
+	"DocsURL": "https://developer.oculus.com/documentation/unreal/latest/concepts/unreal-engine/",
+	"MarketplaceURL": "",
+	"SupportURL": "https://forums.oculusvr.com/developer/categories/unreal",
+	"EnabledByDefault": true,
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
 		{
-			"Name" : "OculusHMD",
-			"Type" : "Runtime",
-			"LoadingPhase" : "PostConfigInit",
-			"WhitelistPlatforms" : [ "Win64", "Win32", "Android" ]
+			"Name": "OculusHMD",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Android"
+			]
 		},
 		{
-			"Name" : "OculusInput",
-			"Type" : "Runtime",
-			"WhitelistPlatforms" : [ "Win64", "Win32", "Android" ]
+			"Name": "OculusInput",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Android"
+			]
 		},
 		{
-			"Name" : "OculusEditor",
-			"Type" : "Editor",
-			"LoadingPhase" : "PreDefault",
-			"WhitelistPlatforms" : [ "Win64" ]
-		},
+			"Name": "OculusEditor",
+			"Type": "Editor",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPlatforms": [
+				"Win64"
+			]
+		}
 	],
-	"Plugins" :
-	[
+	"Plugins": [
 		{
-			"Name" : "ProceduralMeshComponent",
+			"Name": "ProceduralMeshComponent",
 			"Enabled": true
 		}
 	]

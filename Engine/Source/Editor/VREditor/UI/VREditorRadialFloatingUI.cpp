@@ -302,10 +302,12 @@ void AVREditorRadialFloatingUI::UpdateFadingState( const float DeltaTime )
 			// At least a little bit visible
 			if( bHidden )
 			{
-				SetActorHiddenInGame( false );
-				for (UVREditorWidgetComponent* WidgetComponent : WidgetComponents)
+				bHidden =  false ;
+				TInlineComponentArray<USceneComponent*> ComponentArray;
+				GetComponents(ComponentArray);
+				for (USceneComponent* Component : ComponentArray)
 				{
-					WidgetComponent->SetVisibility(true);
+					Component->SetVisibility(true);
 				}
 				FadeDelay = 0.0f;
 			}
@@ -320,10 +322,12 @@ void AVREditorRadialFloatingUI::UpdateFadingState( const float DeltaTime )
 			// Fully invisible
 			if( !bHidden )
 			{
-				SetActorHiddenInGame( true );
-				for (UVREditorWidgetComponent* WidgetComponent : WidgetComponents)
+				bHidden = true;
+				TInlineComponentArray<USceneComponent*> ComponentArray;
+				GetComponents(ComponentArray);
+				for (USceneComponent* Component : ComponentArray)
 				{
-					WidgetComponent->SetVisibility(false);
+					Component->SetVisibility(false);
 				}
 				FadeDelay = 0.0f;
 			}
@@ -384,10 +388,12 @@ void AVREditorRadialFloatingUI::ShowUI( const bool bShow, const bool bAllowFadin
 
 		if( !bAllowFading )
 		{
-			SetActorHiddenInGame( !bShow );
-			for (UVREditorWidgetComponent* WidgetComponent : WidgetComponents)
+			bHidden = !bShow;
+			TInlineComponentArray<USceneComponent*> ComponentArray;
+			GetComponents(ComponentArray);
+			for (USceneComponent* Component : ComponentArray)
 			{
-				WidgetComponent->SetVisibility(bShow);
+				Component->SetVisibility(bShow);
 			}
 			FadeAlpha = bShow ? 1.0f : 0.0f;
 		}

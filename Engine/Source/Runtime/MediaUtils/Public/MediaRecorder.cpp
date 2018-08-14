@@ -7,9 +7,12 @@
 #include "HAL/FileManager.h"
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
+#include "ImagePixelData.h"
+#include "ImageWriteQueue.h"
 #include "IMediaClock.h"
 #include "IMediaClockSink.h"
 #include "IMediaModule.h"
+#include "MediaUtilsPrivate.h"
 #include "Modules/ModuleManager.h"
 #include "Serialization/Archive.h"
 
@@ -37,7 +40,7 @@ public:
 
 	virtual void TickOutput(FTimespan DeltaTime, FTimespan Timecode) override
 	{
-		Owner.TickRecording(Timecode);
+		Owner.TickRecording();
 	}
 
 private:
@@ -46,21 +49,90 @@ private:
 };
 
 
-/* FMediaRecorder structors
+/**
+ * ImagePixelData for TextureSample.
+ * Can only be used when Stride == Dim.X*"Number of channels"
+ */
+struct FMediaImagePixelData : FImagePixelData
+{
+	FMediaImagePixelData(TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe>& InSample
+		, const FIntPoint& InSize
+		, EImagePixelType InPixelType
+		, ERGBFormat InPixelLayout
+		, uint8 InBitDepth
+		, uint8 InNumChannels)
+		: FImagePixelData(InSize, InPixelType, InPixelLayout, InBitDepth, InNumChannels)
+		, Sample(InSample)
+	{
+	}
+
+	TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe> Sample;
+
+	virtual TUniquePtr<FImagePixelData> Move() override
+	{
+		return MakeUnique<FMediaImagePixelData>(MoveTemp(*this));
+	}
+
+	virtual TUniquePtr<FImagePixelData> Copy() const override
+	{
+		return MakeUnique<FMediaImagePixelData>(*this);
+	}
+
+	virtual void RetrieveData(const void*& OutDataPtr, int32& OutSizeBytes) const override
+	{
+		OutDataPtr = Sample->GetBuffer();
+		OutSizeBytes = Sample->GetStride() * Sample->GetDim().Y;
+	}
+};
+
+
+/* MediaRecorderHelpers namespace
+*****************************************************************************/
+
+namespace MediaRecorderHelpers
+{
+	template<class TColorType>
+	TUniquePtr<TImagePixelData<TColorType>> CreatePixelData(TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe> InSample, const FIntPoint InSize, int32 InNumChannels)
+	{
+		const int32 NumberOfTexel = InSize.Y * InSize.X;
+		TUniquePtr<TImagePixelData<TColorType>> PixelData = MakeUnique<TImagePixelData<TColorType>>(InSize);
+		PixelData->Pixels.Reset(NumberOfTexel);
+
+		const void* Buffer = InSample->GetBuffer();
+		const uint32 Stride = InSample->GetStride();
+		if (NumberOfTexel == Stride *InSize.Y / InNumChannels)
+		{
+			PixelData->Pixels.Append(reinterpret_cast<const TColorType*>(Buffer), NumberOfTexel);
+		}
+		else
+		{
+			for (int IndexY = 0; IndexY < InSize.Y; ++IndexY)
+			{
+				PixelData->Pixels.Append(reinterpret_cast<const TColorType*>(reinterpret_cast<const uint8*>(Buffer) + (Stride*IndexY)), InSize.X);
+			}
+		}
+
+		return MoveTemp(PixelData);
+	};
+}
+
+/* FMediaRecorder implementation
  *****************************************************************************/
 
 FMediaRecorder::FMediaRecorder()
-	: FrameCount(0)
-	, Recording(false)
+	: bRecording(false)
+	, bUnsupportedWarningShowed(false)
+	, FrameCount(0)
+	, NumerationStyle(EMediaRecorderNumerationStyle::AppendSampleTime)
+	, bSetAlpha(false)
+	, CompressionQuality(0)
+	, ImageWriteQueue(nullptr)
 { }
 
 
-/* FMediaRecorder interface
- *****************************************************************************/
-
-void FMediaRecorder::StartRecording(const TSharedRef<FMediaPlayerFacade, ESPMode::ThreadSafe>& PlayerFacade)
+void FMediaRecorder::StartRecording(const FMediaRecorderData& InRecoderData)
 {
-	if (Recording)
+	if (bRecording)
 	{
 		StopRecording();
 	}
@@ -72,43 +144,63 @@ void FMediaRecorder::StartRecording(const TSharedRef<FMediaPlayerFacade, ESPMode
 		return;
 	}
 
+	BaseFilename = InRecoderData.BaseFilename;
+	NumerationStyle = InRecoderData.NumerationStyle;
+	TargetImageFormat = InRecoderData.TargetImageFormat;
+	bSetAlpha = InRecoderData.bResetAlpha;
+	CompressionQuality = InRecoderData.CompressionQuality;
+
 	SampleQueue = MakeShared<FMediaTextureSampleQueue, ESPMode::ThreadSafe>();
-	PlayerFacade->AddVideoSampleSink(SampleQueue.ToSharedRef());
+	InRecoderData.PlayerFacade->AddVideoSampleSink(SampleQueue.ToSharedRef());
 
 	ClockSink = MakeShared<FMediaRecorderClockSink, ESPMode::ThreadSafe>(*this);
 	MediaModule->GetClock().AddSink(ClockSink.ToSharedRef());
 
-	FrameCount = 0;
-	Recording = true;
+	ImageWriteQueue = &FModuleManager::LoadModuleChecked<IImageWriteQueueModule>("ImageWriteQueue").GetWriteQueue();
+
+	bRecording = true;
 }
 
 
 void FMediaRecorder::StopRecording()
 {
-	Recording = false;
+	if (bRecording && ImageWriteQueue)
+	{
+		CompletedFence = ImageWriteQueue->CreateFence();
+	}
+	bRecording = false;
 
+	ImageWriteQueue = nullptr;
 	ClockSink.Reset();
 	SampleQueue.Reset();
 }
 
 
-/* FMediaRecorder interface
- *****************************************************************************/
-
-void FMediaRecorder::TickRecording(FTimespan Timecode)
+bool FMediaRecorder::WaitPendingTasks(const FTimespan& InDuration)
 {
-	if (!Recording)
+	bool bResult = true;
+	if (CompletedFence.IsValid())
+	{
+		bResult = CompletedFence.WaitFor(InDuration);
+	}
+	CompletedFence = TFuture<void>();
+	return bResult;
+}
+
+
+void FMediaRecorder::TickRecording()
+{
+	if (!bRecording)
 	{
 		return; // not recording
 	}
 
 	check(SampleQueue.IsValid());
 
-	IImageWrapperModule* ImageWrapperModule = FModuleManager::LoadModulePtr<IImageWrapperModule>(FName("ImageWrapper"));
-
-	if (ImageWrapperModule == nullptr)
+	if (ImageWriteQueue == nullptr)
 	{
 		while (SampleQueue->Pop());
+		StopRecording();
 	}
 	else
 	{
@@ -128,45 +220,87 @@ void FMediaRecorder::TickRecording(FTimespan Timecode)
 				continue; // nothing to save
 			}
 
-			if (Sample->GetFormat() != EMediaTextureSampleFormat::CharBGRA)
+			if (Sample->GetFormat() != EMediaTextureSampleFormat::CharBGRA && Sample->GetFormat() != EMediaTextureSampleFormat::FloatRGBA)
 			{
-				continue; // only supports BGRA for now
-			}
-
-			TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule->CreateImageWrapper(EImageFormat::PNG);
-
-			if (!ImageWrapper.IsValid())
-			{
-				continue; // failed to create image wrapper
-			}
-
-			const int32 FrameNumber = FrameCount;
-
-			// convert, compress and write frame asynchronously
-			TFunction<void()> AsyncWrite = [FrameNumber, ImageWrapper, Sample]()
-			{
-				const FIntPoint BufferDim = Sample->GetDim();
-				const SIZE_T BufferSize = BufferDim.X * BufferDim.Y * 4;
-				const FString Filename = FString::Printf(TEXT("%08d.png"), FrameNumber);
-
-				IFileManager* FileManager = &IFileManager::Get();
-				FArchive* Archive = FileManager->CreateFileWriter(*Filename);
-
-				if (Archive != nullptr)
+				if (!bUnsupportedWarningShowed)
 				{
-					ImageWrapper->SetRaw(Sample->GetBuffer(), BufferSize, BufferDim.X, BufferDim.Y, ERGBFormat::BGRA, 32);
-
-					const TArray<uint8>& CompressedData = ImageWrapper->GetCompressed((int32)EImageCompressionQuality::Default);
-					const int32 CompressedSize = CompressedData.Num();
-
-					Archive->Serialize((void*)CompressedData.GetData(), CompressedSize);
-
-					delete Archive;
+					UE_LOG(LogMediaUtils, Warning, TEXT("Texture Sample Format '%d' is not supported by Media Recorder."), (int32)Sample->GetFormat());
+					bUnsupportedWarningShowed = true;
+					continue;
 				}
-			};
+			}
 
-			Async(EAsyncExecution::ThreadPool, AsyncWrite);
+			TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
 
+			// Set PixelData
+			{
+				const FIntPoint Size = Sample->GetDim();
+				EImagePixelType PixelType = EImagePixelType::Color;
+				ERGBFormat PixelLayout = ERGBFormat::BGRA;
+				int32 BitDepth = 8;
+				int32 NumChannels = 4;
+
+				if (Sample->GetFormat() == EMediaTextureSampleFormat::FloatRGBA)
+				{
+					PixelType = EImagePixelType::Float16;
+					PixelLayout = ERGBFormat::RGBA;
+					BitDepth = 16;
+				}
+
+				// Should we move the color buffer into a raw image data container.
+				bool bUseFMediaImagePixelData = bSetAlpha || (Sample->GetStride() != Size.X * NumChannels);
+
+				if (bUseFMediaImagePixelData)
+				{
+					const int32 NumberOfTexel = Size.Y * Size.X;
+					if (Sample->GetFormat() == EMediaTextureSampleFormat::FloatRGBA)
+					{
+						ImageTask->PixelData = MediaRecorderHelpers::CreatePixelData<FFloat16Color>(Sample, Size, NumChannels);
+					}
+					else
+					{
+						check(Sample->GetFormat() == EMediaTextureSampleFormat::CharBGRA);
+						ImageTask->PixelData = MediaRecorderHelpers::CreatePixelData<FColor>(Sample, Size, NumChannels);
+					}
+				}
+				else
+				{
+					// Use the MediaSample to save memory
+					ImageTask->PixelData = MakeUnique<FMediaImagePixelData>(Sample, Size, PixelType, PixelLayout, BitDepth, NumChannels);
+				}
+
+				if (bSetAlpha)
+				{
+					check(bUseFMediaImagePixelData);
+
+					if (Sample->GetFormat() == EMediaTextureSampleFormat::FloatRGBA)
+					{
+						ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FFloat16Color>(1.f));
+					}
+					else if (Sample->GetFormat() == EMediaTextureSampleFormat::CharBGRA)
+					{
+						ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
+					}
+					else
+					{
+						check(false);
+					}
+				}
+			}
+
+			ImageTask->Format = TargetImageFormat;
+			ImageTask->CompressionQuality = CompressionQuality;
+			ImageTask->bOverwriteFile = true;
+			if (NumerationStyle == EMediaRecorderNumerationStyle::AppendFrameNumber)
+			{
+				ImageTask->Filename = FString::Printf(TEXT("%s_%08d"), *BaseFilename, FrameCount);
+			}
+			else
+			{
+				ImageTask->Filename = FString::Printf(TEXT("%s_%.16lu"), *BaseFilename, Sample->GetTime().GetTicks());
+			}
+
+			ImageWriteQueue->Enqueue(MoveTemp(ImageTask), false);
 			++FrameCount;
 		}
 	}

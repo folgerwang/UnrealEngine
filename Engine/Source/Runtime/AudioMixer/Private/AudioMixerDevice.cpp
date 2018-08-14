@@ -1153,6 +1153,34 @@ namespace Audio
 		}
 	}
 
+	void FMixerDevice::PauseRecording(USoundSubmix* InSubmix)
+	{
+		// if we can find the submix here, pause that submix. Otherwise, just pause the master submix.
+		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
+		if (FoundSubmix)
+		{
+			(*FoundSubmix)->PauseRecordingOutput();
+		}
+		else
+		{
+			GetMasterSubmix()->PauseRecordingOutput();
+		}
+	}
+
+	void FMixerDevice::ResumeRecording(USoundSubmix* InSubmix)
+	{
+		// if we can find the submix here, resume that submix. Otherwise, just resume the master submix.
+		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);
+		if (FoundSubmix)
+		{
+			(*FoundSubmix)->ResumeRecordingOutput();
+		}
+		else
+		{
+			GetMasterSubmix()->ResumeRecordingOutput();
+		}
+	}
+
 	void FMixerDevice::RegisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix)
 	{
 		Audio::FMixerSubmixPtr* FoundSubmix = Submixes.Find(InSubmix);

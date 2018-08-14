@@ -1018,6 +1018,11 @@ void FSequencerObjectBindingNode::ModifyAndSetSortingOrder(const int32 InSorting
 {
 	UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
 
+	if (MovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	MovieScene->Modify();
 	SetSortingOrder(InSortingOrder);
 }

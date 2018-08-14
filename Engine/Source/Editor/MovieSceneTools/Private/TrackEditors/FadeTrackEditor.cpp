@@ -137,6 +137,11 @@ void FFadeTrackEditor::HandleAddFadeTrackMenuEntryExecute()
 		return;
 	}
 
+	if (MovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	UMovieSceneTrack* FadeTrack = MovieScene->FindMasterTrack<UMovieSceneFadeTrack>();
 
 	if (FadeTrack != nullptr)

@@ -4,6 +4,7 @@
 #include "Installer/ChunkSource.h"
 #include "Installer/Controllable.h"
 #include "Containers/Set.h"
+#include "Common/SpeedRecorder.h"
 
 namespace BuildPatchServices
 {
@@ -118,6 +119,12 @@ namespace BuildPatchServices
 		virtual ~IChunkDbChunkSourceStat() {}
 
 		/**
+		 * Called when a batch of chunks are going to be loaded.
+		 * @param ChunkIds  The ids of each chunk.
+		 */
+		virtual void OnBatchStarted(const TArray<FGuid>& ChunkIds) = 0;
+
+		/**
 		 * Called each time a chunk load begins.
 		 * @param ChunkId   The id of the chunk.
 		 */
@@ -127,7 +134,13 @@ namespace BuildPatchServices
 		 * Called each time a chunk load completes.
 		 * @param ChunkId   The id of the chunk.
 		 * @param Result    The load result.
+		 * @param Record    The recording for the received data.
 		 */
-		virtual void OnLoadComplete(const FGuid& ChunkId, ELoadResult Result) = 0;
+		virtual void OnLoadComplete(const FGuid& ChunkId, ELoadResult Result, const ISpeedRecorder::FRecord& Record) = 0;
 	};
+	
+	/**
+	 * A ToString implementation for IChunkDbChunkSourceStat::ELoadResult.
+	 */
+	const TCHAR* ToString(const IChunkDbChunkSourceStat::ELoadResult& LoadResult);
 }

@@ -17,7 +17,6 @@ UARTextureCameraDepth::UARTextureCameraDepth(const FObjectInitializer& ObjectIni
 {
 }
 
-//@joeg -- Added environmental texture probe support
 UAREnvironmentCaptureProbeTexture::UAREnvironmentCaptureProbeTexture(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, TextureType(EARTextureType::EnvironmentCapture)

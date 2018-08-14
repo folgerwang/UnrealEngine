@@ -2,61 +2,51 @@
 
 #include "AjaMediaFrameGrabberProtocol.h"
 
+#include "AjaMediaCapture.h"
+#include "AjaMediaOutput.h"
 #include "IAjaMediaOutputModule.h"
-#include "IMovieSceneCaptureProtocol.h"
+#include "MovieSceneCaptureProtocolBase.h"
 
 #define LOCTEXT_NAMESPACE "AjaMediaOutput"
 
 
 /**
- * UAjaFrameGrabberProtocolSettings
+ * UAjaFrameGrabberProtocol
  */
 
-UAjaFrameGrabberProtocolSettings::UAjaFrameGrabberProtocolSettings(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+UAjaFrameGrabberProtocol::UAjaFrameGrabberProtocol(const FObjectInitializer& ObjInit)
+	: Super(ObjInit)
 	, Information("FrameRate, Resolution, Output Directory and Filename Format options won't be used with AJA output")
+	, TransientMediaOutputPtr(nullptr)
+	, TransientMediaCapturePtr(nullptr)
 {
 }
 
-/**
- * FAjaFrameGrabberProtocol
- */
-
-FAjaFrameGrabberProtocol::FAjaFrameGrabberProtocol()
-	: bInitialized(false)
+bool UAjaFrameGrabberProtocol::StartCaptureImpl()
 {
-}
-
-bool FAjaFrameGrabberProtocol::Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host)
-{
-	bInitialized = false;
-	Finalize();
-
-	UAjaFrameGrabberProtocolSettings* AjaSettings = Cast<UAjaFrameGrabberProtocolSettings>(InSettings.ProtocolSettings);
-	if (AjaSettings == nullptr)
-	{
-		UE_LOG(LogAjaMediaOutput, Error, TEXT("Setting provided don't match with the AjaFramGrabberProtocol"));
-		return bInitialized;
-	}
-
-	if (AjaSettings->MediaOutput == nullptr)
+	if (MediaOutput == nullptr)
 	{
 		UE_LOG(LogAjaMediaOutput, Error, TEXT("Couldn't start the capture. No Media Output was provided."));
-		return bInitialized;
-	}
-
-	MediaOutput = TStrongObjectPtr<UAjaMediaOutput>(AjaSettings->MediaOutput);
-
-	if (MediaOutput->GetMediaMode().FrameRate != Host.GetCaptureFrameRate())
-	{
-		UE_LOG(LogAjaMediaOutput, Warning, TEXT("AjaMediaOutput %s FrameRate doesn't match sequence FrameRate."), *AjaSettings->MediaOutput->GetName());
 		return false;
 	}
 
-	MediaCapture.Reset(CastChecked<UAjaMediaCapture>(MediaOutput->CreateMediaCapture(), ECastCheckedType::NullAllowed));
-	if (MediaCapture.IsValid())
+	TransientMediaOutputPtr = Cast<UAjaMediaOutput>(MediaOutput.TryLoad());
+	if (TransientMediaOutputPtr == nullptr)
 	{
-		bool bResult = MediaCapture->CaptureSceneViewport(InSettings.SceneViewport);
+		UE_LOG(LogAjaMediaOutput, Error, TEXT("Couldn't start the capture. No Media Output was provided."));
+		return false;
+	}
+
+	if (TransientMediaOutputPtr->GetMediaMode().FrameRate != CaptureHost->GetCaptureFrameRate())
+	{
+		UE_LOG(LogAjaMediaOutput, Warning, TEXT("AjaMediaOutput %s FrameRate doesn't match sequence FrameRate."), *TransientMediaOutputPtr->GetName());
+		return false;
+	}
+
+	TransientMediaCapturePtr = CastChecked<UAjaMediaCapture>(TransientMediaOutputPtr->CreateMediaCapture(), ECastCheckedType::NullAllowed);
+	if (TransientMediaCapturePtr)
+	{
+		bool bResult = TransientMediaCapturePtr->CaptureSceneViewport(InitSettings->SceneViewport);
 		if (!bResult)
 		{
 			UE_LOG(LogAjaMediaOutput, Error, TEXT("Could not initialize the Media Capture."));
@@ -69,24 +59,21 @@ bool FAjaFrameGrabberProtocol::Initialize(const FCaptureProtocolInitSettings& In
 		return false;
 	}
 
-	bInitialized = true;
-	return bInitialized;
+	return true;
 }
 
-bool FAjaFrameGrabberProtocol::HasFinishedProcessing() const
+bool UAjaFrameGrabberProtocol::HasFinishedProcessingImpl() const
 {
-	return !bInitialized || !MediaCapture.IsValid() || MediaCapture->HasFinishedProcessing();
+	return TransientMediaCapturePtr == nullptr || TransientMediaCapturePtr->HasFinishedProcessing();
 }
 
-void FAjaFrameGrabberProtocol::Finalize()
+void UAjaFrameGrabberProtocol::FinalizeImpl()
 {
-	if (MediaCapture.IsValid())
+	if (TransientMediaCapturePtr)
 	{
-		MediaCapture->StopCapture(true);
-		MediaCapture.Reset();
+		TransientMediaCapturePtr->StopCapture(true);
+		TransientMediaCapturePtr = nullptr;
 	}
-	MediaOutput.Reset();
-	bInitialized = false;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -450,7 +450,7 @@ UObject* UAssetToolsImpl::CreateAsset(const FString& AssetName, const FString& P
 		return nullptr;
 	}
 
-	const FString PackageName = PackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
+	const FString PackageName = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + AssetName);
 
 	// Make sure we can create the asset without conflicts
 	if ( !CanCreateAsset(AssetName, PackageName, LOCTEXT("CreateANewObject", "Create a new object")) )
@@ -873,7 +873,7 @@ TArray<UObject*> UAssetToolsImpl::ImportAssets(const TArray<FString>& Files, con
 
 void UAssetToolsImpl::CreateUniqueAssetName(const FString& InBasePackageName, const FString& InSuffix, FString& OutPackageName, FString& OutAssetName) const
 {
-	const FString SanitizedBasePackageName = PackageTools::SanitizePackageName(InBasePackageName);
+	const FString SanitizedBasePackageName = UPackageTools::SanitizePackageName(InBasePackageName);
 
 	const FString PackagePath = FPackageName::GetLongPackagePath(SanitizedBasePackageName);
 	const FString BaseAssetNameWithSuffix = FPackageName::GetLongPackageAssetName(SanitizedBasePackageName) + InSuffix;
@@ -1616,6 +1616,7 @@ TArray<UObject*> UAssetToolsImpl::ImportAssetsInternal(const TArray<FString>& Fi
 							{
 								// succeed, recreate package since it has been deleted
 								Pkg = CreatePackage(nullptr, *PackageName);
+								Pkg->MarkAsFullyLoaded();
 							}
 						}
 						else
@@ -2105,7 +2106,7 @@ bool UAssetToolsImpl::CanCreateAsset(const FString& AssetName, const FString& Pa
 	// Handle fully loading packages before creating new objects.
 	TArray<UPackage*> TopLevelPackages;
 	TopLevelPackages.Add( Pkg );
-	if( !PackageTools::HandleFullyLoadingPackages( TopLevelPackages, OperationText ) )
+	if( !UPackageTools::HandleFullyLoadingPackages( TopLevelPackages, OperationText ) )
 	{
 		// User aborted.
 		return false;
@@ -2146,6 +2147,7 @@ bool UAssetToolsImpl::CanCreateAsset(const FString& AssetName, const FString& Pa
 
 				// Old package will be GC'ed... create a new one here
 				Pkg = CreatePackage(nullptr,*PackageName);
+				Pkg->MarkAsFullyLoaded();
 			}
 			else
 			{
@@ -2467,6 +2469,11 @@ void UAssetToolsImpl::RecursiveGetDependencies(const FName& PackageName, TSet<FN
 void UAssetToolsImpl::FixupReferencers(const TArray<UObjectRedirector*>& Objects) const
 {
 	AssetFixUpRedirectors->FixupReferencers(Objects);
+}
+
+void UAssetToolsImpl::OpenEditorForAssets(const TArray<UObject*>& Assets) const
+{
+	FAssetEditorManager::Get().OpenEditorForAssets(Assets);
 }
 
 #undef LOCTEXT_NAMESPACE

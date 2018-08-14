@@ -3,6 +3,7 @@
 #include "MovieSceneCaptureEnvironment.h"
 #include "MovieSceneCapture.h"
 #include "MovieSceneCaptureModule.h"
+#include "Protocols/UserDefinedCaptureProtocol.h"
 
 int32 UMovieSceneCaptureEnvironment::GetCaptureFrameNumber()
 {
@@ -14,4 +15,21 @@ float UMovieSceneCaptureEnvironment::GetCaptureElapsedTime()
 {
 	UMovieSceneCapture* Capture = static_cast<UMovieSceneCapture*>(IMovieSceneCaptureModule::Get().GetFirstActiveMovieSceneCapture());
 	return Capture ? Capture->GetMetrics().ElapsedSeconds : 0.f;
+}
+
+bool UMovieSceneCaptureEnvironment::IsCaptureInProgress()
+{
+	return IMovieSceneCaptureModule::Get().GetFirstActiveMovieSceneCapture() != nullptr;
+}
+
+UMovieSceneImageCaptureProtocolBase* UMovieSceneCaptureEnvironment::FindImageCaptureProtocol()
+{
+	UMovieSceneCapture* Capture = static_cast<UMovieSceneCapture*>(IMovieSceneCaptureModule::Get().GetFirstActiveMovieSceneCapture());
+	return Capture ? Cast<UMovieSceneImageCaptureProtocolBase>(Capture->GetImageCaptureProtocol()) : nullptr;
+}
+
+UMovieSceneAudioCaptureProtocolBase* UMovieSceneCaptureEnvironment::FindAudioCaptureProtocol()
+{
+	UMovieSceneCapture* Capture = static_cast<UMovieSceneCapture*>(IMovieSceneCaptureModule::Get().GetFirstActiveMovieSceneCapture());
+	return Capture ? Cast<UMovieSceneAudioCaptureProtocolBase>(Capture->GetAudioCaptureProtocol()) : nullptr;
 }

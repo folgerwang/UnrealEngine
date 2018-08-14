@@ -159,7 +159,10 @@ void UGoogleARCoreAugmentedImageDatabase::Serialize(FArchive& Ar)
 					*FPaths::EnginePluginsDir(),
 					TEXT("Runtime"),
 					TEXT("GoogleARCore"),
-					TEXT("Tools"),
+					TEXT("Binaries"),
+					TEXT("ThirdParty"),
+					TEXT("Google"),
+					TEXT("ARCoreImg"),
 					*UGameplayStatics::GetPlatformName(),
 #if PLATFORM_LINUX
 					TEXT("arcoreimg")

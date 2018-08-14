@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/MachineConfig.h"
-#include "Core/AsyncHelpers.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Core/AsyncHelpers.h"
 
 namespace MachineConfigHelpers
 {

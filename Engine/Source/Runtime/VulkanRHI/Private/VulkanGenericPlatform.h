@@ -77,4 +77,7 @@ public:
 		FeaturesToEnable.sparseResidency8Samples	= VK_FALSE;
 		FeaturesToEnable.sparseResidencyAliased		= VK_FALSE;
 	}
+
+	// Allow platforms to add extension features to the DeviceInfo pNext chain
+	static void EnablePhysicalDeviceFeatureExtensions(VkDeviceCreateInfo& DeviceInfo) {};
 };

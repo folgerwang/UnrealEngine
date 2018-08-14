@@ -3727,7 +3727,8 @@ static TAutoConsoleVariable<int32> CVarLogTimestamp(
 	TEXT("  0 = Do not display log timestamps\n")
 	TEXT("  1 = Log time stamps in UTC and frame time (default) e.g. [2015.11.25-21.28.50:803][376]\n")
 	TEXT("  2 = Log timestamps in seconds elapsed since GStartTime e.g. [0130.29][420]")
-	TEXT("  3 = Log timestamps in local time and frame time e.g. [2017.08.04-17.59.50:803][420]"),
+	TEXT("  3 = Log timestamps in local time and frame time e.g. [2017.08.04-17.59.50:803][420]")
+	TEXT("  4 = Log timestamps with the engine's timecode and frame time e.g. [17:59:50:18][420]"),
 	ECVF_Default);
 
 
@@ -3757,6 +3758,7 @@ static void CVarLogSinkFunction()
 			case 1: GPrintLogTimes = ELogTimes::UTC; break;
 			case 2: GPrintLogTimes = ELogTimes::SinceGStartTime; break;
 			case 3: GPrintLogTimes = ELogTimes::Local; break;
+			case 4: GPrintLogTimes = ELogTimes::Timecode; break;
 		}
 	}
 
@@ -3793,6 +3795,10 @@ static void CheckForPrintTimesOverride()
 		{
 			CVarLogTimestamp->Set((int)ELogTimes::Local, ECVF_SetBySystemSettingsIni);
 		}
+		else if (LogTimes == TEXT( "Timecode" ))
+		{
+			CVarLogTimestamp->Set((int)ELogTimes::Timecode, ECVF_SetBySystemSettingsIni);
+		}
 		// Assume this is a bool for backward compatibility
 		else if (FCString::ToBool( *LogTimes ))
 		{
@@ -3819,6 +3825,10 @@ static void CheckForPrintTimesOverride()
 	else if (FParse::Param( FCommandLine::Get(), TEXT( "LOCALLOGTIMES" ) ))
 	{
 		CVarLogTimestamp->Set((int)ELogTimes::Local, ECVF_SetByCommandline);
+	}
+	else if (FParse::Param(FCommandLine::Get(), TEXT( "LOGTIMECODE" )))
+	{
+		CVarLogTimestamp->Set((int)ELogTimes::Timecode, ECVF_SetByCommandline);
 	}
 }
 

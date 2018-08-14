@@ -11,7 +11,7 @@ public class Engine : ModuleRules
 
 		SharedPCHHeaderFile = "Public/EngineSharedPCH.h";
 
-		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer", "AnimationCore" });
+        PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer", "AnimationCore" });
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -25,6 +25,7 @@ public class Engine : ModuleRules
 			new string[] {
 				"TargetPlatform",
 				"ImageWrapper",
+				"ImageWriteQueue",
 				"HeadMountedDisplay",
 				"EyeTracker",
 				"MRMesh",
@@ -101,6 +102,7 @@ public class Engine : ModuleRules
 
 		DynamicallyLoadedModuleNames.Add("EyeTracker");
 
+		
 		if (Target.bUseXGEController &&
 			Target.Type == TargetType.Editor &&
 			(Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32))
@@ -340,8 +342,9 @@ public class Engine : ModuleRules
 			PrivateIncludePathModuleNames.Add("PIEPreviewDeviceProfileSelector");
 		}
 
-		SetupModulePhysXAPEXSupport(Target);
-		if(Target.bCompilePhysX && (Target.bBuildEditor || Target.bCompileAPEX))
+		SetupModulePhysicsSupport(Target);
+		
+		if (Target.bCompilePhysX && (Target.bBuildEditor || Target.bCompileAPEX))
 		{
 			DynamicallyLoadedModuleNames.Add("PhysXCooking");
 		}
@@ -426,7 +429,7 @@ public class Engine : ModuleRules
 		PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=0");
 
         // Add a reference to the stats HTML files referenced by UEngine::DumpFPSChartToHTML. Previously staged by CopyBuildToStagingDirectory.
-        if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
+    if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{
 			RuntimeDependencies.Add("$(EngineDir)/Content/Stats/...", StagedFileType.UFS);
 		}

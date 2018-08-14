@@ -21,6 +21,7 @@
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
 #include "DragAndDrop/ActorDragDropOp.h"
+#include "DragAndDrop/AssetDragDropOp.h"
 #include "SequenceRecorderCommands.h"
 #include "SequenceRecorderSettings.h"
 #include "SequenceRecorderUtils.h"
@@ -32,26 +33,29 @@
 #include "Widgets/Layout/SUniformGridPanel.h"
 #include "Framework/Application/SlateApplication.h"
 #include "SequenceRecorderActorGroup.h"
+#include "ISequenceRecorderExtender.h"
 #include "ISinglePropertyView.h"
 #include "ActorGroupDetailsCustomization.h"
 #include "EditorSupportDelegates.h"
 #include "Editor.h"
 #include "LevelEditor.h"
+#include "Templates/UnrealTemplate.h"
 
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
 static const FName ActiveColumnName(TEXT("Active"));
-static const FName ActorColumnName(TEXT("Actor"));
+static const FName ItemColumnName(TEXT("Item"));
 static const FName TargetNameColumnName(TEXT("Name"));
 static const FName AnimationColumnName(TEXT("Animation"));
 static const FName TakeColumnName(TEXT("Take"));
+static const FName FrameColumnName(TEXT("Frame"));
 
 /** A widget to display information about an animation recording in the list view */
-class SSequenceRecorderListRow : public SMultiColumnTableRow<UActorRecording*>
+class SSequenceRecorderActorListRow : public SMultiColumnTableRow<UActorRecording*>
 {
 public:
-	SLATE_BEGIN_ARGS(SSequenceRecorderListRow) {}
+	SLATE_BEGIN_ARGS(SSequenceRecorderActorListRow) {}
 
 	/** The list item for this row */
 	SLATE_ARGUMENT(UActorRecording*, Recording)
@@ -77,7 +81,7 @@ public:
 			return
 				SNew(SButton)
 				.ContentPadding(0)
-				.OnClicked(this, &SSequenceRecorderListRow::ToggleRecordingActive)
+				.OnClicked(this, &SSequenceRecorderActorListRow::ToggleRecordingActive)
 				.ButtonStyle(FEditorStyle::Get(), "NoBorder")
 				.ToolTipText(LOCTEXT("ActiveButtonToolTip", "Toggle Recording Active"))
 				.HAlign(HAlign_Center)
@@ -85,10 +89,10 @@ public:
 				.Content()
 				[
 					SNew(SImage)
-					.Image(this, &SSequenceRecorderListRow::GetActiveBrushForRecording)
+					.Image(this, &SSequenceRecorderActorListRow::GetActiveBrushForRecording)
 				];
 		}
-		else if (ColumnName == ActorColumnName)
+		else if (ColumnName == ItemColumnName)
 		{
 			return SNew( SHorizontalBox )
 				+SHorizontalBox::Slot()
@@ -96,7 +100,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequenceRecorderListRow::GetRecordingActorName)))
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequenceRecorderActorListRow::GetRecordingActorName)))
 				];
 		}
 		else if (ColumnName == TargetNameColumnName)
@@ -108,8 +112,8 @@ public:
 				[
 					SNew(SEditableTextBox)
 					.ToolTipText(LOCTEXT("TargetNameToolTip", "Optional target track name to record to"))
-					.Text(this, &SSequenceRecorderListRow::GetRecordingTargetName)
-					.OnTextChanged(this, &SSequenceRecorderListRow::SetRecordingTargetName)
+					.Text(this, &SSequenceRecorderActorListRow::GetRecordingTargetName)
+					.OnTextChanged(this, &SSequenceRecorderActorListRow::SetRecordingTargetName)
 				];
 		}
 		else if (ColumnName == AnimationColumnName)
@@ -120,7 +124,7 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequenceRecorderListRow::GetRecordingAnimationName)))
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SSequenceRecorderActorListRow::GetRecordingAnimationName)))
 				];
 		}
 		else if (ColumnName == TakeColumnName)
@@ -128,12 +132,12 @@ public:
 			return
 				SNew(SBorder)
 				.BorderImage(FEditorStyle::GetBrush("WhiteBrush"))
-				.BorderBackgroundColor(this, &SSequenceRecorderListRow::GetRecordingTakeBorderColor)
+				.BorderBackgroundColor(this, &SSequenceRecorderActorListRow::GetRecordingTakeBorderColor)
 				.VAlign(VAlign_Center)
 				[
 					SNew(SNumericEntryBox<int32>)
-					.Value(this, &SSequenceRecorderListRow::GetRecordingTake)
-					.OnValueChanged(this, &SSequenceRecorderListRow::SetRecordingTake)
+					.Value(this, &SSequenceRecorderActorListRow::GetRecordingTake)
+					.OnValueChanged(this, &SSequenceRecorderActorListRow::SetRecordingTake)
 				];
 		}
 
@@ -269,9 +273,9 @@ private:
 	TWeakObjectPtr<UActorRecording> RecordingPtr;
 };
 
-
 void SSequenceRecorder::Construct(const FArguments& Args)
 {
+	bInsideSelectionChanged = false;
 	CommandList = MakeShareable(new FUICommandList);
 
 	BindCommands();
@@ -282,7 +286,7 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 	DetailsViewArgs.NameAreaSettings = FDetailsViewArgs::HideNameArea;
 	DetailsViewArgs.bAllowSearch = false;
 
-	ActorRecordingDetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
+	SelectedRecordingItemDetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 	SequenceRecordingDetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 	RecordingGroupDetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 
@@ -310,6 +314,9 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 	}
 	ToolBarBuilder.EndSection();
 
+	TSharedPtr<SVerticalBox> DetailsViewVerticalBox;
+	TSharedPtr<SVerticalBox> ListViewVerticalBox;
+
 	ChildSlot
 	[
 		SNew(SSplitter)
@@ -335,20 +342,20 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 					SNew(SOverlay)
 					+SOverlay::Slot()
 					[
-						SNew(SVerticalBox)
+						SAssignNew(ListViewVerticalBox, SVerticalBox)
 						+SVerticalBox::Slot()
 						.FillHeight(1.0f)
 						[
 							SNew( SDropTarget )
-							.OnAllowDrop( this, &SSequenceRecorder::OnRecordingListAllowDrop )
-							.OnDrop( this, &SSequenceRecorder::OnRecordingListDrop )
+							.OnAllowDrop( this, &SSequenceRecorder::OnRecordingActorListAllowDrop )
+							.OnDrop( this, &SSequenceRecorder::OnRecordingActorListDrop )
 							.Content()
 							[
-								SAssignNew(ListView, SListView<UActorRecording*>)
-								.ListItemsSource(&FSequenceRecorder::Get().GetQueuedRecordings())
+								SAssignNew(ActorListView, SListView<UActorRecording*>)
+								.ListItemsSource(&FSequenceRecorder::Get().GetQueuedActorRecordings())
 								.SelectionMode(ESelectionMode::SingleToggle)
 								.OnGenerateRow(this, &SSequenceRecorder::MakeListViewWidget)
-								.OnSelectionChanged(this, &SSequenceRecorder::OnSelectionChanged)
+								.OnSelectionChanged(this, &SSequenceRecorder::OnActorListSelectionChanged)
 								.HeaderRow
 								(
 									SNew(SHeaderRow)
@@ -356,7 +363,7 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 									.FillWidth(10.0f)
 									.DefaultLabel(LOCTEXT("ActiveColumnName", "Active"))
 
-									+ SHeaderRow::Column(ActorColumnName)
+									+ SHeaderRow::Column(ItemColumnName)
 									.FillWidth(30.0f)
 									.DefaultLabel(LOCTEXT("ActorHeaderName", "Actor"))
 
@@ -373,12 +380,6 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 									.DefaultLabel(LOCTEXT("TakeHeaderName", "Take"))
 								)
 							]
-						]
-						+SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							SNew(STextBlock)
-							.Text(this, &SSequenceRecorder::GetTargetSequenceName)
 						]
 					]
 					+SOverlay::Slot()
@@ -402,7 +403,7 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 			SNew(SScrollBox)
 			+SScrollBox::Slot()
 			[
-				SNew(SVerticalBox)
+				SAssignNew(DetailsViewVerticalBox, SVerticalBox)
 				.IsEnabled_Lambda([]() { return !FSequenceRecorder::Get().IsRecording(); })
 				+SVerticalBox::Slot()
 				[
@@ -413,13 +414,52 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 				[
 					SequenceRecordingDetailsView.ToSharedRef()
 				]
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					ActorRecordingDetailsView.ToSharedRef()
-				]	
 			]
 		]
+	];
+
+	// Add additional Detail view
+	for (TSharedPtr<ISequenceRecorderExtender> Extender : FSequenceRecorder::Get().GetSequenceRecorderExtenders())
+	{
+		TSharedPtr<IDetailsView> DetailView = Extender->MakeSettingDetailsView();
+		if (DetailView.IsValid())
+		{
+			DetailsViewVerticalBox->AddSlot()
+			.AutoHeight()
+			[
+				DetailView.ToSharedRef()
+			];
+		}
+	}
+	DetailsViewVerticalBox->AddSlot()
+	.AutoHeight()
+	[
+		SelectedRecordingItemDetailsView.ToSharedRef()
+	];
+
+	// Add additional ListView
+	{
+		for (TSharedPtr<ISequenceRecorderExtender> Extender : FSequenceRecorder::Get().GetSequenceRecorderExtenders())
+		{
+			TSharedPtr<SListView<USequenceRecordingBase*>> CreatedListView;
+			TSharedPtr<SWidget> ListWidget = Extender->MakeListWidget(CreatedListView, ISequenceRecorderExtender::FListViewSelectionChanged::CreateRaw(this, &SSequenceRecorder::OnListSelectionChanged));
+			if (ListWidget.IsValid() && CreatedListView.IsValid())
+			{
+				ListViewVerticalBox->AddSlot()
+				.FillHeight(1.0f)
+				[
+					ListWidget.ToSharedRef()
+				];
+
+				ExtenderListViews.Add(CreatedListView);
+			}
+		}
+	}
+	ListViewVerticalBox->AddSlot()
+	.AutoHeight()
+	[
+		SNew(STextBlock)
+		.Text(this, &SSequenceRecorder::GetTargetSequenceName)
 	];
 
 	// Register refresh timer
@@ -450,13 +490,17 @@ void SSequenceRecorder::HandleMapUnload(UObject* Object)
 	{
 		// When a map object is about to be GC'd we want to make sure the UI releases all references
 		// to anything that is owned by the scene.
-		ActorRecordingDetailsView->SetObject(nullptr);
+		SelectedRecordingItemDetailsView->SetObject(nullptr);
 
 		// Force the list view to rebuild after clearing it's data source. This clears the list view's
 		// widget children. The ListView should only contain TWeakObjectPtrs but it's holding a hard
 		// reference anyways that's causes a gc leak on map change.
 		FSequenceRecorder::Get().ClearQueuedRecordings();
-		ListView->RebuildList();
+		ActorListView->RebuildList();
+		for (TSharedPtr<SListView<USequenceRecordingBase*>>& ListView : ExtenderListViews)
+		{
+			ListView->RebuildList();
+		}
 
 		// We also want to construct a new mutable default so it resets the recording paths to the
 		// default paths for the new map.
@@ -523,19 +567,54 @@ void SSequenceRecorder::BindCommands()
 TSharedRef<ITableRow> SSequenceRecorder::MakeListViewWidget(UActorRecording* Recording, const TSharedRef<STableViewBase>& OwnerTable) const
 {
 	return
-		SNew(SSequenceRecorderListRow, OwnerTable)
+		SNew(SSequenceRecorderActorListRow, OwnerTable)
 		.Recording(Recording);
 }
 
-void SSequenceRecorder::OnSelectionChanged(UActorRecording* Recording, ESelectInfo::Type SelectionType) const
+void SSequenceRecorder::OnActorListSelectionChanged(UActorRecording* Recording, ESelectInfo::Type SelectionType)
 {
+	if (bInsideSelectionChanged)
+	{
+		return;
+	}
+
+	TGuardValue<bool> TmpValue(bInsideSelectionChanged, true);
+	for (TSharedPtr<ISequenceRecorderExtender> Extender : FSequenceRecorder::Get().GetSequenceRecorderExtenders())
+	{
+		Extender->SetListViewSelection(nullptr);
+	}
+
 	if(Recording)
 	{
-		ActorRecordingDetailsView->SetObject(Recording);
+		SelectedRecordingItemDetailsView->SetObject(Recording);
 	}
 	else
 	{
-		ActorRecordingDetailsView->SetObject(nullptr);
+		SelectedRecordingItemDetailsView->SetObject(nullptr);
+	}
+}
+
+void SSequenceRecorder::OnListSelectionChanged(USequenceRecordingBase* InRecoderBase)
+{
+	if (bInsideSelectionChanged)
+	{
+		return;
+	}
+
+	TGuardValue<bool> TmpValue(bInsideSelectionChanged, true);
+	ActorListView->SetSelection(nullptr, ESelectInfo::Direct);
+	for (TSharedPtr<ISequenceRecorderExtender> Extender : FSequenceRecorder::Get().GetSequenceRecorderExtenders())
+	{
+		Extender->SetListViewSelection(nullptr);
+	}
+
+	if (InRecoderBase)
+	{
+		SelectedRecordingItemDetailsView->SetObject(InRecoderBase);
+	}
+	else
+	{
+		SelectedRecordingItemDetailsView->SetObject(nullptr);
 	}
 }
 
@@ -591,32 +670,59 @@ bool SSequenceRecorder::CanAddCurrentPlayerRecording() const
 
 void SSequenceRecorder::HandleRemoveRecording()
 {
-	TArray<UActorRecording*> SelectedRecordings;
-	ListView->GetSelectedItems(SelectedRecordings);
-	UActorRecording* SelectedRecording = SelectedRecordings.Num() > 0 ? SelectedRecordings[0] : nullptr;
-	if(SelectedRecording)
+	TArray<UActorRecording*> SelectedActorRecordings;
+	ActorListView->GetSelectedItems(SelectedActorRecordings);
+	UActorRecording* SelectedActorRecording = SelectedActorRecordings.Num() > 0 ? SelectedActorRecordings[0] : nullptr;
+
+	if(SelectedActorRecording)
 	{
-		FSequenceRecorder::Get().RemoveQueuedRecording(SelectedRecording);
+		FSequenceRecorder::Get().RemoveQueuedRecording(SelectedActorRecording);
 
 		// Remove the recording from the current group here. We can't use the
 		// FSequenceRecorder function as they are called when switching groups,
 		// and not just when the user removes items.
 		if (FSequenceRecorder::Get().GetCurrentRecordingGroup().IsValid())
 		{
-			FSequenceRecorder::Get().GetCurrentRecordingGroup()->RecordedActors.Remove(SelectedRecording);
+			FSequenceRecorder::Get().GetCurrentRecordingGroup()->RecordedActors.Remove(SelectedActorRecording);
 		}
 
-		TArray<TWeakObjectPtr<UObject>> SelectedObjects = ActorRecordingDetailsView->GetSelectedObjects();
-		if(SelectedObjects.Num() > 0 && SelectedObjects[0].Get() == SelectedRecording)
+		TArray<TWeakObjectPtr<UObject>> SelectedObjects = SelectedRecordingItemDetailsView->GetSelectedObjects();
+		if(SelectedObjects.Num() > 0 && SelectedObjects[0].Get() == SelectedActorRecording)
 		{
-			ActorRecordingDetailsView->SetObject(nullptr);
+			SelectedRecordingItemDetailsView->SetObject(nullptr);
+		}
+	}
+	else
+	{
+		for (TSharedPtr<SListView<USequenceRecordingBase*>>& ListView : ExtenderListViews)
+		{
+			TArray<USequenceRecordingBase*> SelectedBaseRecordings;
+			ListView->GetSelectedItems(SelectedBaseRecordings);
+
+			USequenceRecordingBase* SelectedBaseRecording = SelectedBaseRecordings.Num() > 0 ? SelectedBaseRecordings[0] : nullptr;
+			if (SelectedBaseRecording)
+			{
+				FSequenceRecorder::Get().RemoveQueuedRecording(SelectedBaseRecording);
+
+				TArray<TWeakObjectPtr<UObject>> SelectedObjects = SelectedRecordingItemDetailsView->GetSelectedObjects();
+				if (SelectedObjects.Num() > 0 && SelectedObjects[0].Get() == SelectedBaseRecording)
+				{
+					SelectedRecordingItemDetailsView->SetObject(nullptr);
+					break;
+				}
+			}
 		}
 	}
 }
 
 bool SSequenceRecorder::CanRemoveRecording() const
 {
-	return ListView->GetNumItemsSelected() > 0 && !FAnimationRecorderManager::Get().IsRecording();
+	int32 NumItemsSelected = 0;
+	for (const TSharedPtr<SListView<USequenceRecordingBase*>>& ListView : ExtenderListViews)
+	{
+		NumItemsSelected += ListView->GetNumItemsSelected();
+	}
+	return (ActorListView->GetNumItemsSelected() > 0 || NumItemsSelected > 0) && !FSequenceRecorder::Get().IsRecording() && !FAnimationRecorderManager::Get().IsRecording();
 }
 
 void SSequenceRecorder::HandleRemoveAllRecordings()
@@ -626,19 +732,23 @@ void SSequenceRecorder::HandleRemoveAllRecordings()
 	{
 		FSequenceRecorder::Get().GetCurrentRecordingGroup()->RecordedActors.Empty();
 	}
-	ActorRecordingDetailsView->SetObject(nullptr);
+	SelectedRecordingItemDetailsView->SetObject(nullptr);
 }
 
 bool SSequenceRecorder::CanRemoveAllRecordings() const
 {
-	return FSequenceRecorder::Get().HasQueuedRecordings() && !FAnimationRecorderManager::Get().IsRecording();
+	return FSequenceRecorder::Get().HasQueuedRecordings() && !FSequenceRecorder::Get().IsRecording() && !FAnimationRecorderManager::Get().IsRecording();
 }
 
 EActiveTimerReturnType SSequenceRecorder::HandleRefreshItems(double InCurrentTime, float InDeltaTime)
 {
 	if(FSequenceRecorder::Get().AreQueuedRecordingsDirty())
 	{
-		ListView->RequestListRefresh();
+		ActorListView->RequestListRefresh();
+		for (TSharedPtr<SListView<USequenceRecordingBase*>>& ListView : ExtenderListViews)
+		{
+			ListView->RequestListRefresh();
+		}
 		FSequenceRecorder::Get().ResetQueuedRecordingsDirty();
 	}
 
@@ -749,13 +859,12 @@ FText SSequenceRecorder::GetTargetSequenceName() const
 	return FText::Format(LOCTEXT("NextSequenceFormat", "Next Sequence: {0}"), FText::FromString(FSequenceRecorder::Get().GetNextSequenceName()));
 }
 
-bool SSequenceRecorder::OnRecordingListAllowDrop( TSharedPtr<FDragDropOperation> DragDropOperation )
+bool SSequenceRecorder::OnRecordingActorListAllowDrop( TSharedPtr<FDragDropOperation> DragDropOperation )
 {
 	return DragDropOperation->IsOfType<FActorDragDropOp>();
 }
 
-
-FReply SSequenceRecorder::OnRecordingListDrop( TSharedPtr<FDragDropOperation> DragDropOperation )
+FReply SSequenceRecorder::OnRecordingActorListDrop( TSharedPtr<FDragDropOperation> DragDropOperation )
 {
 	if ( DragDropOperation->IsOfType<FActorDragDropOp>() )
 	{

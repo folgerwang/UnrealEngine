@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DrawingPolicy.h: Drawing policy definitions.
@@ -277,6 +277,12 @@ void CommitGraphicsPipelineState(FRHICommandList& RHICmdList, const DrawingPolic
 	GraphicsPSOInit.PrimitiveType = DrawingPolicy.GetPrimitiveType();
 	GraphicsPSOInit.BoundShaderState = BoundShaderStateInput;
 	GraphicsPSOInit.RasterizerState = DrawingPolicy.ComputeRasterizerState(DrawRenderState.GetViewOverrideFlags());
+
+	const FMaterialRenderProxy* const MaterialRenderProxy = DrawingPolicy.GetMaterialRenderProxy();
+	if (MaterialRenderProxy != nullptr)
+	{
+		GraphicsPSOInit.ImmutableSamplerState = MaterialRenderProxy->ImmutableSamplerState;
+	}
 
 	check(DrawRenderState.GetDepthStencilState());
 	check(DrawRenderState.GetBlendState());

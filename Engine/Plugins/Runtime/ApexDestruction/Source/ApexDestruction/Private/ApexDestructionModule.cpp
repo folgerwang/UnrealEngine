@@ -5,6 +5,7 @@
 #include "ApexDestructionCustomPayload.h"
 #include "Engine/World.h"
 #include "DestructibleComponent.h"
+#include "Physics/PhysicsInterfaceCore.h"
 
 #ifndef APEX_STATICALLY_LINKED
 #define APEX_STATICALLY_LINKED	0
@@ -185,7 +186,6 @@ public:
 		OnPhysSceneInitHandle = FPhysicsDelegates::OnPhysSceneInit.AddRaw(this, &FApexDestructionModule::OnInitPhys);
 		OnPhysDispatchNotifications = FPhysicsDelegates::OnPhysDispatchNotifications.AddRaw(this, &FApexDestructionModule::OnDispatchNotifications);
 
-
 		Singleton = this;
 
 	}
@@ -200,12 +200,12 @@ public:
 			PScene->setFlag(PxSceneFlag::eENABLE_KINEMATIC_PAIRS, true);
 		}*/
 
-		if((PhysScene->bAsyncSceneEnabled && SceneType == PST_Async) || (!PhysScene->bAsyncSceneEnabled && SceneType == PST_Sync))
+		if((PhysScene->HasAsyncScene() && SceneType == PST_Async) || (!PhysScene->HasAsyncScene() && SceneType == PST_Sync))
 		{
 			// Make sure we use the sync scene for apex world support of destructibles in the async scene
-			apex::Scene* ApexScene = PhysScene->GetApexScene(PhysScene->bAsyncSceneEnabled ? PST_Async : PST_Sync);
+			apex::Scene* ApexScene = PhysScene->GetApexScene(PhysScene->HasAsyncScene() ? PST_Async : PST_Sync);
 			check(ApexScene);
-			PxScene* SyncPhysXScene = PhysScene->GetPhysXScene(PST_Sync);
+			PxScene* SyncPhysXScene = PhysScene->GetPxScene(PST_Sync);
 			check(SyncPhysXScene);
 			check(GApexModuleDestructible);
 			GApexModuleDestructible->setWorldSupportPhysXScene(*ApexScene, SyncPhysXScene);
@@ -237,9 +237,12 @@ public:
 	void AddPendingDamageEvent(UDestructibleComponent* DestructibleComponent, const nvidia::apex::DamageEventReportData& DamageEvent)
 	{
 #if WITH_APEX
-		FPhysScene* PhysScene = DestructibleComponent->GetWorld()->GetPhysicsScene();
-		TArray<FPendingApexDamageEvent>& PendingDamageEvents = PendingDamageEventsMap.FindChecked(PhysScene);
-		PendingDamageEvents.Emplace(DestructibleComponent, DamageEvent);
+        if (DestructibleComponent->GetWorld())
+        {
+		    FPhysScene* PhysScene = DestructibleComponent->GetWorld()->GetPhysicsScene();
+		    TArray<FPendingApexDamageEvent>& PendingDamageEvents = PendingDamageEventsMap.FindChecked(PhysScene);
+		    PendingDamageEvents.Emplace(DestructibleComponent, DamageEvent);
+        }
 #endif
 	}
 

@@ -69,6 +69,11 @@ void FSlomoTrackEditor::HandleAddSlomoTrackMenuEntryExecute()
 		return;
 	}
 
+	if (MovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	UMovieSceneTrack* SlomoTrack = MovieScene->FindMasterTrack<UMovieSceneSlomoTrack>();
 
 	if (SlomoTrack != nullptr)

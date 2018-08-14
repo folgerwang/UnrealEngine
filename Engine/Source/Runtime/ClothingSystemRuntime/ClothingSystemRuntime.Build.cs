@@ -8,7 +8,7 @@ public class ClothingSystemRuntime : ModuleRules
 	{
 		PrivateIncludePaths.Add("Runtime/ClothingSystemRuntime/Private");
         
-        SetupModulePhysXAPEXSupport(Target);
+        SetupModulePhysicsSupport(Target);
 
         PublicIncludePathModuleNames.Add("ClothingSystemRuntimeInterface");
 

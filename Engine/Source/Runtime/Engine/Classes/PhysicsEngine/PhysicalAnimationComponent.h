@@ -128,7 +128,7 @@ private:
 	{
 		struct FConstraintInstance* ConstraintInstance;
 #if WITH_PHYSX
-		physx::PxRigidDynamic* TargetActor;
+		physx::PxRigidDynamic* TargetActor; // #PHYS2 Should prob change to FPhysicsActorReference?
 #endif
 	};
 
@@ -137,8 +137,6 @@ private:
 	TArray<FPhysicalAnimationData> DriveData;
 
 	FDelegateHandle OnTeleportDelegateHandle;
-
-	int32 SceneIndex;
 
 	void UpdatePhysicsEngine();
 	void ReleasePhysicsEngine();

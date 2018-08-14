@@ -218,6 +218,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	public static VirtualKeyboardCommand lastVirtualKeyboardCommand = VirtualKeyboardCommand.VK_CMD_NONE;
 	public static final int lastVirtualKeyboardCommandDelay = 200;
 	public static final int checkLastVirtualKeyboardCommandDelay = 500;
+	public static final boolean bSamsungDevice = android.os.Build.MANUFACTURER.equals("samsung");
 	
 	static GameActivity _activity;
 	static Bundle _bundle;
@@ -1002,14 +1003,6 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		GooglePlayLicensing.GoogleLicensing = new GooglePlayLicensing();
 		GooglePlayLicensing.GoogleLicensing.Init(this, Log);
 
-		// Build Google Play API Client
-		googleClient = new GoogleApiClient.Builder(this)
-			.addConnectionCallbacks(this)
-			.addOnConnectionFailedListener(this)
-			.addApi(Games.API).addScope(Games.SCOPE_GAMES)
-			.addApi(Plus.API).addScope(Plus.SCOPE_PLUS_LOGIN)
-			.build();
-
 		// Now okay for event handler to be set up on native side
 		//	nativeResumeMainInit();
 				
@@ -1097,7 +1090,9 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 
         			nativeVirtualKeyboardShown( keyboardRect.left, keyboardRect.top, keyboardRect.right, keyboardRect.bottom );
 					//Log.debug("VK: show?" + visibleScreenYOffset + "," + newVirtualKeyboardInput.getY());
-                    if(visibleScreenYOffset > 200)
+
+					// Samsung Game Tools floating keyboard is only 1 pixel tall
+					if(visibleScreenYOffset > 200 || (bSamsungDevice && visibleScreenYOffset > 0))
                     {
 						//Log.debug("VK: show");
 						//#jira UE-55117 Android virtual keyboard can have text input hidden by software buttons
@@ -2028,7 +2023,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 
 		try
         {
-			if (PermissionHelper.checkPermission("android.permission.GET_ACCOUNTS"))
+			if (PermissionHelper.checkPermission("android.permission.GET_ACCOUNTS") && googleClient != null)
 			{
 				String email = Plus.AccountApi.getAccountName(googleClient);
 				Log.debug("GetAccessToken: using email " + email);
