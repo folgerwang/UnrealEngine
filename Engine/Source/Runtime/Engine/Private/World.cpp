@@ -4318,9 +4318,21 @@ void UWorld::WelcomePlayer(UNetConnection* Connection)
 {
 	check(CurrentLevel);
 	Connection->SendPackageMap();
-	
-	FString LevelName = CurrentLevel->GetOutermost()->GetName();
-	Connection->SetClientWorldPackageName(CurrentLevel->GetOutermost()->GetFName());
+
+	FString LevelName;
+
+	const FSeamlessTravelHandler& SeamlessTravelHandler = GEngine->SeamlessTravelHandlerForWorld(this);
+	if (SeamlessTravelHandler.IsInTransition())
+	{
+		// Tell the client to go to the destination map
+		LevelName = SeamlessTravelHandler.GetDestinationMapName();
+		Connection->SetClientWorldPackageName(NAME_None);
+	}
+	else
+	{
+		LevelName = CurrentLevel->GetOutermost()->GetName();
+		Connection->SetClientWorldPackageName(CurrentLevel->GetOutermost()->GetFName());
+	}
 
 	FString GameName;
 	FString RedirectURL;
