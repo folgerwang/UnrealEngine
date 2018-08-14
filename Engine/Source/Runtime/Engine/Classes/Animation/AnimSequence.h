@@ -610,6 +610,9 @@ public:
 #endif
 	//~ End UAnimSequenceBase Interface
 
+	// Returns the framerate of the animation
+	float GetFrameRate() const { return (float)(FMath::Max(NumFrames - 1, 1)) / (SequenceLength > 0.f ? SequenceLength : 1.f); }
+
 	// Extract Root Motion transform from the animation
 	FTransform ExtractRootMotion(float StartTime, float DeltaTime, bool bAllowLooping) const;
 
