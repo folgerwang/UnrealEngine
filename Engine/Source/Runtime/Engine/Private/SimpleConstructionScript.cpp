@@ -23,7 +23,9 @@ const FString USimpleConstructionScript::ComponentTemplateNameSuffix(TEXT("_GEN_
 USimpleConstructionScript::USimpleConstructionScript(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	RootNode_DEPRECATED = nullptr;
+#endif
 	DefaultSceneRootNode = nullptr;
 
 #if WITH_EDITOR
@@ -45,6 +47,7 @@ void USimpleConstructionScript::Serialize(FArchive& Ar)
 
 	if(Ar.IsLoading())
 	{
+#if WITH_EDITORONLY_DATA
 		if(Ar.UE4Ver() < VER_UE4_REMOVE_NATIVE_COMPONENTS_FROM_BLUEPRINT_SCS)
 		{
 			// If we previously had a root node, we need to move it into the new RootNodes array. This is done in Serialize() in order to support SCS preloading (which relies on a valid RootNodes array).
@@ -114,6 +117,7 @@ void USimpleConstructionScript::Serialize(FArchive& Ar)
 			// Clear the deprecated ActorComponent list
 			ActorComponentNodes_DEPRECATED.Empty();
 		}
+#endif // WITH_EDITORONLY_DATA
 	}
 }
 

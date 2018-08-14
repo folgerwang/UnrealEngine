@@ -13,13 +13,15 @@
 USCS_Node::USCS_Node(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	bIsFalseRoot_DEPRECATED = false;
 	bIsNative_DEPRECATED = false;
+#endif
 
 	bIsParentComponentNative = false;
 
 #if WITH_EDITOR
-	EditorComponentInstance = NULL;
+	EditorComponentInstance = nullptr;
 #endif
 }
 
@@ -390,14 +392,9 @@ void USCS_Node::SetVariableName(const FName& NewName, bool bRenameTemplate)
 	}
 
 	InternalVariableName = NewName;
-
-	// >>> Backwards Compatibility: Support existing projects/tools that might be reading the variable name directly. This can be removed in a future release.
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	VariableName = InternalVariableName;
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	// <<< End Backwards Compatibility
 }
 
+#if WITH_EDITOR
 void USCS_Node::NameWasModified()
 {
 	OnNameChangedExternal.ExecuteIfBound(InternalVariableName);
@@ -407,6 +404,7 @@ void USCS_Node::SetOnNameChanged( const FSCSNodeNameChanged& OnChange )
 {
 	OnNameChangedExternal = OnChange;
 }
+#endif
 
 int32 USCS_Node::FindMetaDataEntryIndexForKey(const FName& Key)
 {
@@ -457,12 +455,6 @@ void USCS_Node::Serialize(FArchive& Ar)
 	{
 		if (Ar.IsPersistent() && !Ar.HasAnyPortFlags(PPF_Duplicate | PPF_DuplicateForPIE))
 		{
-			// >>> Backwards Compatibility: Support existing projects/tools that might be reading the variable name directly. This can be removed in a future release.
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-			VariableName = InternalVariableName;
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
-			// <<< End Backwards Compatibility
-
 			// Fix up the component class property, if it has not already been set.
 			// Note: This is done here, instead of in PostLoad(), because it needs to be set before Blueprint class compilation.
 			if (ComponentClass == nullptr && ComponentTemplate != nullptr)
