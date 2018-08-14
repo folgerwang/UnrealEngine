@@ -6,6 +6,7 @@
 
 #include "MovieSceneMediaSection.generated.h"
 
+class UMediaPlayer;
 class UMediaSoundComponent;
 class UMediaSource;
 class UMediaTexture;
@@ -22,21 +23,32 @@ public:
 
 	GENERATED_BODY()
 
-	/** Should the media player be set to loop? This can be helpful for media formats that can use this information (such as exr sequences) to pre-cache the starting data when nearing the end of playback. Media playback is still limited by length of section. */
-	UPROPERTY(EditAnywhere, Category = "Media")
+
+public:
+	/** The source to play with this video track. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media")
+	UMediaSource* MediaSource;
+
+	/** Should the media player be set to loop? This can be helpful for media formats that can use this information (such as exr sequences) to pre-cache the starting data when nearing the end of playback. Does not cause the media to continue playing after the end of the section is reached. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Media")
 	bool bLooping;
 
-	/** The media source proxy to use. This allows the usage of a lower resolution (or otherwise modified) version during development. */
-	UPROPERTY(EditAnywhere, Category="Media")
-	FString Proxy;
+	/** The media texture that receives the track's video output. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media", meta = (EditCondition = "!bUseExternalMediaPlayer"))
+	UMediaTexture* MediaTexture;
 
 	/** The media sound component that receives the track's audio output. */
-	UPROPERTY(EditAnywhere, Category="Media")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media")
 	UMediaSoundComponent* MediaSoundComponent;
 
-	/** The media texture that receives the track's video output. */
-	UPROPERTY(EditAnywhere, Category="Media")
-	UMediaTexture* MediaTexture;
+	/** If true, this track will control a previously created media player instead of automatically creating one. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media", AdvancedDisplay)
+	bool bUseExternalMediaPlayer;
+
+	/** The external media player this track should control. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Media", meta = (EditCondition = "bUseExternalMediaPlayer"), AdvancedDisplay)
+	UMediaPlayer* ExternalMediaPlayer;
+
 public:
 
 	/**
@@ -88,12 +100,6 @@ public:
 	}
 
 #endif //WITH_EDITORONLY_DATA
-
-private:
-
-	/** The source to play with this video track. */
-	UPROPERTY(EditAnywhere, Category="Media")
-	UMediaSource* MediaSource;
 
 #if WITH_EDITORONLY_DATA
 

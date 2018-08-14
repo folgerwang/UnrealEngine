@@ -393,7 +393,7 @@ UTexture2D* UKismetRenderingLibrary::RenderTargetCreateStaticTexture2DEditorOnly
 		if (!InName.Contains(TEXT("/")))
 		{
 			FString AssetName = RenderTarget->GetOutermost()->GetName();
-			const FString SanitizedBasePackageName = PackageTools::SanitizePackageName(AssetName);
+			const FString SanitizedBasePackageName = UPackageTools::SanitizePackageName(AssetName);
 			const FString PackagePath = FPackageName::GetLongPackagePath(SanitizedBasePackageName) + TEXT("/");
 			AssetTools.CreateUniqueAssetName(PackagePath, InName, PackageName, Name);
 		}

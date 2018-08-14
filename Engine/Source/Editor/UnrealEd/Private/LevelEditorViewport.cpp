@@ -74,6 +74,8 @@
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 #include "ActorGroupingUtils.h"
+#include "EditorWorldExtension.h"
+#include "VREditorMode.h"
 
 DEFINE_LOG_CATEGORY(LogEditorViewport);
 
@@ -419,7 +421,7 @@ UObject* FLevelEditorViewportClient::GetOrCreateMaterialFromTexture( UTexture* U
 	
 	FString MaterialFullName = TextureShortName + "_Mat";
 	FString NewPackageName = FPackageName::GetLongPackagePath( UnrealTexture->GetOutermost()->GetName() ) + TEXT( "/" ) + MaterialFullName;
-	NewPackageName = PackageTools::SanitizePackageName( NewPackageName );
+	NewPackageName = UPackageTools::SanitizePackageName( NewPackageName );
 	UPackage* Package = CreatePackage( NULL, *NewPackageName );
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>( TEXT( "AssetRegistry" ) );
@@ -3155,6 +3157,26 @@ void FLevelEditorViewportClient::RedrawAllViewportsIntoThisScene()
 {
 	// Invalidate all viewports, so the new gizmo is rendered in each one
 	GEditor->RedrawLevelEditingViewports();
+}
+
+void FLevelEditorViewportClient::SetVREditView(bool bGameViewEnable)
+{
+	UEditorWorldExtensionCollection* ExtensionCollection = GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(GetWorld());
+	check(ExtensionCollection != nullptr);
+	UVREditorMode* VREditorMode = Cast<UVREditorMode>(ExtensionCollection->FindExtension(UVREditorMode::StaticClass()));
+	if (VREditorMode && VREditorMode->IsFullyInitialized())
+	{
+		if (bGameViewEnable)
+		{
+			VREditorMode->OnPlacePreviewActor().AddStatic(&FLevelEditorViewportClient::SetIsDroppingPreviewActor);
+		}
+		else
+		{
+			VREditorMode->OnPlacePreviewActor().RemoveAll(this);
+		}
+	}
+
+	FEditorViewportClient::SetVREditView(bGameViewEnable);
 }
 
 FWidget::EWidgetMode FLevelEditorViewportClient::GetWidgetMode() const

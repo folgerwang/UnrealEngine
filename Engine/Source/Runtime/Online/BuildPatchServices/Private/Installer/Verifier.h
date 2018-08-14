@@ -2,12 +2,53 @@
 #pragma once
 
 #include "Installer/Controllable.h"
+#include "Common/SpeedRecorder.h"
 #include "BuildPatchManifest.h"
 
 namespace BuildPatchServices
 {
+	class IFileSystem;
 	class IVerifierStat;
 	enum class EVerifyMode : uint32;
+	enum class EVerifyError : uint32;
+	/**
+	 * An enum defining the result of a verification process.
+	 */
+	enum class EVerifyResult : uint32
+	{
+		Success = 0,
+
+		// If the process was ended due to an external cancel.
+		Aborted,
+
+		// The verify failed due to a missing file.
+		FileMissing,
+
+		// The verify failed due to a file failing to open.
+		OpenFileFailed,
+
+		// The expected data hash for a file did not match.
+		HashCheckFailed,
+
+		// A file did not match the expected size.
+		FileSizeFailed,
+	};
+
+	/**
+	 * Used to convert a EVerifyError to a EVerifyResult.
+	 * @param InVerifyError   - Error to convert.
+	 * @param OutVerifyResult - Reference to completed.
+	 * @return true if successful.
+	 */
+	bool TryConvertToVerifyResult(EVerifyError InVerifyError, EVerifyResult& OutVerifyResult);
+
+	/**
+	 * Used to convert a EVerifyResult to a EVerifyError.
+	 * @param InVerifyResult - Result to convert.
+	 * @param OutVerifyError - Reference to complete.
+	 * @return true if successful.
+	 */
+	bool TryConvertToVerifyError(EVerifyResult InVerifyResult, EVerifyError& OutVerifyError);
 
 	/**
 	 * An interface providing the functionality to verify a local installation.
@@ -20,9 +61,10 @@ namespace BuildPatchServices
 		 * Verifies a local directory structure against a given manifest.
 		 * NOTE: This function is blocking and will not return until finished. Don't run on main thread.
 		 * @param OutDatedFiles    OUT  The array of files that do not match or are locally missing.
-		 * @return    true if no file errors occurred AND the verification was successful
+		 * @return    EVerifiyResult::Success if no file errors occurred AND the verification was successful.
+		 *            Otherwise it will return the first error encountered during verification.
 		 */
-		virtual bool Verify(TArray<FString>& OutDatedFiles) = 0;
+		virtual EVerifyResult Verify(TArray<FString>& OutDatedFiles) = 0;
 	};
 
 	class FVerifierFactory
@@ -71,9 +113,15 @@ namespace BuildPatchServices
 		/**
 		 * Called each time a file has finished being verified.
 		 * @param Filename      The filename of the file.
-		 * @param bSuccess      True if the file data was correct.
+		 * @param VerifyResult  The result of the file's verify test.
 		 */
-		virtual void OnFileCompleted(const FString& Filename, bool bSuccess) = 0;
+		virtual void OnFileCompleted(const FString& Filename, EVerifyResult VerifyResult) = 0;
+
+		/**
+		 * Called each time a read operation is made.
+		 * @param Record        The details for the operation.
+		 */
+		virtual void OnFileRead(const ISpeedRecorder::FRecord& Record) = 0;
 
 		/**
 		 * Called to update the total amount of bytes which have been processed.

@@ -58,12 +58,6 @@ namespace BuildPatchServices
 		virtual EBuildPatchState GetState() const;
 
 		/**
-		 * Gets the text for the current progress state
-		 * @return The display text for the current progress state
-		 */
-		virtual const FText& GetStateText() const;
-
-		/**
 		 * Gets the current overall progress
 		 * @return The current progress value. Range 0 to 1. -1 indicates undetermined, i.e. show a marquee style bar.
 		 */

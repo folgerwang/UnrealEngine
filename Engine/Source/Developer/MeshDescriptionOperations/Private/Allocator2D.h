@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "MeshDescriptionOperations.h"
 
 struct FRect;
 struct Rect;
@@ -63,7 +64,7 @@ namespace MeshDescriptionOp
 		void		CreateUsedSegments();
 		void		MergeSegments(FRect Rect, const FAllocator2D& Other);
 
-		void		FlipX(FRect Rect);
+		void		FlipX(FRect Rect, FMeshDescriptionOperations::ELightmapUVVersion LayoutVersion = FMeshDescriptionOperations::ELightmapUVVersion::Latest);
 		void		FlipY(FRect Rect);
 
 	protected:

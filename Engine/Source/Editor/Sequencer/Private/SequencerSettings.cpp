@@ -407,6 +407,7 @@ void USequencerSettings::SetLoopMode(ESequencerLoopMode InLoopMode)
 	if (LoopMode != InLoopMode)
 	{
 		LoopMode = InLoopMode;
+		OnLoopStateChangedEvent.Broadcast();
 		SaveConfig();
 	}
 }
@@ -661,6 +662,12 @@ USequencerSettings::FOnCurveEditorCurveVisibilityChanged& USequencerSettings::Ge
 {
 	return OnCurveEditorCurveVisibilityChanged;
 }
+
+USequencerSettings::FOnLoopStateChanged& USequencerSettings::GetOnLoopStateChanged()
+{
+	return OnLoopStateChangedEvent;
+}
+
 
 void USequencerSettings::SetTimeDisplayFormat(EFrameNumberDisplayFormats InFormat)
 {

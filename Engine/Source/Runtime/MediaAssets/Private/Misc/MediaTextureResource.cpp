@@ -64,6 +64,9 @@ namespace MediaTextureResource
 		case EMediaTextureSampleFormat::FloatRGBA:
 			return PF_FloatRGBA;
 
+		case EMediaTextureSampleFormat::CharBGR10A2:
+			return PF_A2B10G10R10;
+
 		default:
 			return PF_Unknown;
 		}
@@ -590,6 +593,15 @@ void FMediaTextureResource::ConvertSample(const TSharedPtr<IMediaTextureSample, 
 		}
 		break;
 
+		case EMediaTextureSampleFormat::CharBGR10A2:
+		{
+			TShaderMapRef<FRGBConvertPS> ConvertShader(ShaderMap);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*ConvertShader);
+			SetGraphicsPipelineState(CommandList, GraphicsPSOInit);
+			ConvertShader->SetParameters(CommandList, InputTexture, OutputDim, Sample->IsOutputSrgb());
+		}
+		break;
+
 		case EMediaTextureSampleFormat::CharBGRA:
 		case EMediaTextureSampleFormat::FloatRGB:
 		case EMediaTextureSampleFormat::FloatRGBA:
@@ -597,7 +609,7 @@ void FMediaTextureResource::ConvertSample(const TSharedPtr<IMediaTextureSample, 
 			TShaderMapRef<FRGBConvertPS> ConvertShader(ShaderMap);
 			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*ConvertShader);
 			SetGraphicsPipelineState(CommandList, GraphicsPSOInit);
-			ConvertShader->SetParameters(CommandList, InputTexture, OutputDim);
+			ConvertShader->SetParameters(CommandList, InputTexture, OutputDim, false);
 		}
 		break;
 

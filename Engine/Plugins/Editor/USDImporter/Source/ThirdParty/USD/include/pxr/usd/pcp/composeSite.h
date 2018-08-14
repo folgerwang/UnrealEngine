@@ -76,6 +76,7 @@ class PcpLayerStackSite;
 struct PcpSourceReferenceInfo {
     SdfLayerHandle layer;
     SdfLayerOffset layerOffset;
+    std::string authoredAssetPath;
 };
 
 /// A vector of reference arc information.
@@ -256,6 +257,17 @@ PcpComposeSiteVariantSelections(PcpNodeRef const &node,
     return PcpComposeSiteVariantSelections(node.GetLayerStack(), node.GetPath(),
                                            result);
 }
+
+/// Compose child names.
+/// If the optional \p orderField is provided, its order will be applied.
+PCP_API
+void
+PcpComposeSiteChildNames(SdfLayerRefPtrVector const &layers,
+                         SdfPath const &path,
+                         const TfToken & namesField,
+                         TfTokenVector *nameOrder,
+                         PcpTokenSet *nameSet,
+                         const TfToken *orderField = nullptr);
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

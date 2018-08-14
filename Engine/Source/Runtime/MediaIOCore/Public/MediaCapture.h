@@ -63,7 +63,7 @@ public:
 	 * The SceneViewport needs to be of the same size and have the same pixel format as requested by the media output.
 	 * @note make sure the size of the SceneViewport doesn't change during capture.
 	 */
-	bool CaptureSceneViewport(const TSharedPtr<FSceneViewport>& SceneViewport);
+	bool CaptureSceneViewport(TSharedPtr<FSceneViewport>& SceneViewport);
 
 	/**
 	 * Find and capture every frame from active SceneViewport.
@@ -115,12 +115,18 @@ public:
 protected:
 	//~ UMediaCapture interface
 	virtual bool ValidateMediaOutput() const;
-	virtual bool CaptureSceneViewportImpl(const TSharedPtr<FSceneViewport>& InSceneViewport) { return true; }
+	virtual bool CaptureSceneViewportImpl(TSharedPtr<FSceneViewport>& InSceneViewport) { return true; }
 	virtual bool CaptureRenderTargetImpl(UTextureRenderTarget2D* InRenderTarget) { return true; }
 	virtual void StopCaptureImpl(bool bAllowPendingFrameToBeProcess) { }
 
+
+	struct FCaptureBaseData
+	{
+		FTimecode SourceFrameTimecode;
+		uint32 SourceFrameNumberRenderThread;
+	};
 	virtual TSharedPtr<FMediaCaptureUserData> GetCaptureFrameUserData_GameThread() { return TSharedPtr<FMediaCaptureUserData>(); }
-	virtual void OnFrameCaptured_RenderingThread(const FTimecode& InTimecode, TSharedPtr<FMediaCaptureUserData> InUserData, void* InBuffer, int32 Width, int32 Height) { }
+	virtual void OnFrameCaptured_RenderingThread(const FCaptureBaseData& InBaseData, TSharedPtr<FMediaCaptureUserData> InUserData, void* InBuffer, int32 Width, int32 Height) { }
 
 protected:
 	UTextureRenderTarget2D* GetTextureRenderTarget() { return CapturingRenderTarget; }
@@ -140,7 +146,7 @@ private:
 	struct FCaptureFrame
 	{
 		FTexture2DRHIRef ReadbackTexture;
-		FTimecode SourceFrameTimecode;
+		FCaptureBaseData CaptureBaseData;
 		bool bResolvedTargetRequested;
 		TSharedPtr<FMediaCaptureUserData> UserData;
 	};

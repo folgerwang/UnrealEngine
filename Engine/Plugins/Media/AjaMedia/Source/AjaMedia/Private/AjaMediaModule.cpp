@@ -27,6 +27,12 @@ namespace AJAHelpers
 		Mode.VideoFormatIndex = InDescriptor.VideoFormatIndex;
 		Mode.FrameRate = FFrameRate(InDescriptor.FrameRateNumerator, InDescriptor.FrameRateDenominator);
 		Mode.TargetSize = FIntPoint(InDescriptor.Width, InDescriptor.Height);
+
+		if (!InDescriptor.bIsProgressive)
+		{
+			Mode.FrameRate.Numerator *= 2;
+		}
+
 		return Mode;
 	}
 }
@@ -50,8 +56,6 @@ public:
 	}
 
 	virtual bool IsInitialized() const override { return FAja::IsInitialized(); }
-
-	virtual bool CanBeUsed() const override { return FAja::CanUseAJACard(); }
 
 public:
 

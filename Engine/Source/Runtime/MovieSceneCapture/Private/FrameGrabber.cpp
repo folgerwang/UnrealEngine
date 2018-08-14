@@ -234,27 +234,9 @@ void FViewportSurfaceReader::ResolveRenderTarget(FViewportSurfaceReader* RenderT
 	);
 }
 
-FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat, uint32 NumSurfaces, bool bAlwaysFlushOnDraw)
+FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat, uint32 NumSurfaces)
 {
 	State = EFrameGrabberState::Inactive;
-
-	if (bAlwaysFlushOnDraw)
-	{
-		// cause the viewport to always flush on draw
-		Viewport->IncrementFlushOnDraw();
-
-		{
-			// Setup a functor to decrement the flag on destruction (this class isn't necessarily tied to scene viewports)
-			TWeakPtr<FSceneViewport> WeakViewport = Viewport;
-			OnShutdown = [WeakViewport] {
-				TSharedPtr<FSceneViewport> PinnedViewport = WeakViewport.Pin();
-				if (PinnedViewport.IsValid())
-				{
-					PinnedViewport->DecrementFlushOnDraw();
-				}
-			};
-		}
-	}
 
 	TargetSize = DesiredBufferSize;
 
@@ -321,11 +303,6 @@ FFrameGrabber::~FFrameGrabber()
 	{
 		FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().Remove(OnWindowRendered);
 	}
-	
-	if (OnShutdown)
-	{
-		OnShutdown();
-	}
 }
 
 void FFrameGrabber::StartCapturingFrames()
@@ -337,6 +314,11 @@ void FFrameGrabber::StartCapturingFrames()
 
 	State = EFrameGrabberState::Active;
 	OnWindowRendered = FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().AddRaw(this, &FFrameGrabber::OnSlateWindowRendered);
+}
+
+bool FFrameGrabber::IsCapturingFrames() const
+{
+	return State == EFrameGrabberState::Active;
 }
 
 void FFrameGrabber::CaptureThisFrame(FFramePayloadPtr Payload)

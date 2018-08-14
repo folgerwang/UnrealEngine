@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelViewportActions.h"
 #include "ShowFlags.h"
@@ -9,11 +9,13 @@
 #include "EditorShowFlags.h"
 #include "Stats/StatsData.h"
 #include "BufferVisualizationData.h"
+#include "Bookmarks/BookmarkUI.h"
 
 #define LOCTEXT_NAMESPACE "LevelViewportActions"
 
 FLevelViewportCommands::FOnNewStatCommandAdded FLevelViewportCommands::NewStatCommandDelegate;
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 FLevelViewportCommands::~FLevelViewportCommands()
 {
 	UEngine::NewStatDelegate.RemoveAll(this);
@@ -21,6 +23,7 @@ FLevelViewportCommands::~FLevelViewportCommands()
 	FStatGroupGameThreadNotifier::Get().NewStatGroupDelegate.Unbind();
 #endif
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 /** UI_COMMAND takes long for the compile to optimize */
 PRAGMA_DISABLE_OPTIMIZATION
@@ -93,7 +96,6 @@ void FLevelViewportCommands::RegisterCommands()
 	}
 
 	// Map the bookmark index to default key.
-	// If the max bookmark number ever increases the new bookmarks will not have default keys
 	TArray< FKey > NumberKeyNames;
 	NumberKeyNames.Add( EKeys::Zero );
 	NumberKeyNames.Add( EKeys::One );
@@ -106,14 +108,14 @@ void FLevelViewportCommands::RegisterCommands()
 	NumberKeyNames.Add( EKeys::Eight );
 	NumberKeyNames.Add( EKeys::Nine );
 
-	for( int32 BookmarkIndex = 0; BookmarkIndex < AWorldSettings::MAX_BOOKMARK_NUMBER; ++BookmarkIndex )
+	for( int32 BookmarkIndex = 0; BookmarkIndex < AWorldSettings::NumMappedBookmarks; ++BookmarkIndex )
 	{
 		TSharedRef< FUICommandInfo > JumpToBookmark =
 			FUICommandInfoDecl(
 			this->AsShared(), //Command class
-			FName( *FString::Printf( TEXT( "JumpToBookmark%i" ), BookmarkIndex ) ), //CommandName
-			FText::Format( NSLOCTEXT("LevelEditorCommands", "JumpToBookmark", "Jump to Bookmark {0}"), FText::AsNumber( BookmarkIndex ) ), //Localized label
-			FText::Format( NSLOCTEXT("LevelEditorCommands", "JumpToBookmark_ToolTip", "Moves the viewport to the location and orientation stored at bookmark {0}"), FText::AsNumber( BookmarkIndex ) ) )//Localized tooltip
+			FBookmarkUI::GetJumpToCommandName(BookmarkIndex), //CommandName
+			FBookmarkUI::GetJumpToLabel(BookmarkIndex), //Localized label
+			FBookmarkUI::GetJumpToTooltip(BookmarkIndex) )//Localized tooltip
 			.UserInterfaceType( EUserInterfaceActionType::Button ) //interface type
 			.DefaultChord( FInputChord( NumberKeyNames.IsValidIndex( BookmarkIndex ) ? NumberKeyNames[BookmarkIndex] : EKeys::Invalid ) ); //default chord
 
@@ -122,9 +124,9 @@ void FLevelViewportCommands::RegisterCommands()
 		TSharedRef< FUICommandInfo > SetBookmark =
 			FUICommandInfoDecl(
 			this->AsShared(), //Command class
-			FName( *FString::Printf( TEXT( "SetBookmark%i" ), BookmarkIndex ) ), //CommandName
-			FText::Format( NSLOCTEXT("LevelEditorCommands", "SetBookmark", "Set Bookmark {0}"), FText::AsNumber( BookmarkIndex ) ), //Localized label
-			FText::Format( NSLOCTEXT("LevelEditorCommands", "SetBookmark_ToolTip", "Stores the viewports location and orientation in bookmark {0}"), FText::AsNumber( BookmarkIndex ) ) )//Localized tooltip
+			FBookmarkUI::GetSetCommandName(BookmarkIndex), //CommandName
+			FBookmarkUI::GetSetLabel(BookmarkIndex), //Localized label
+			FBookmarkUI::GetSetTooltip(BookmarkIndex) )//Localized tooltip
 			.UserInterfaceType( EUserInterfaceActionType::Button ) //interface type
 			.DefaultChord( FInputChord( EModifierKey::Control, NumberKeyNames.IsValidIndex( BookmarkIndex ) ? NumberKeyNames[BookmarkIndex] : EKeys::Invalid ) ); //default chord
 
@@ -133,15 +135,21 @@ void FLevelViewportCommands::RegisterCommands()
 		TSharedRef< FUICommandInfo > ClearBookMark =
 			FUICommandInfoDecl(
 			this->AsShared(), //Command class
-			FName( *FString::Printf( TEXT( "ClearBookmark%i" ), BookmarkIndex ) ), //CommandName
-			FText::Format( NSLOCTEXT("LevelEditorCommands", "ClearBookmark", "Clear Bookmark {0}"), FText::AsNumber( BookmarkIndex ) ), //Localized label
-			FText::Format( NSLOCTEXT("LevelEditorCommands", "ClearBookmark_ToolTip", "Clears the viewports location and orientation in bookmark {0}"), FText::AsNumber( BookmarkIndex ) ) )//Localized tooltip
+			FBookmarkUI::GetClearCommandName(BookmarkIndex), //CommandName
+			FBookmarkUI::GetClearLabel(BookmarkIndex), //Localized label
+			FBookmarkUI::GetClearTooltip(BookmarkIndex) )//Localized tooltip
 			.UserInterfaceType( EUserInterfaceActionType::Button ) //interface type
 			.DefaultChord( FInputChord() ); //default chord 
 
 		ClearBookmarkCommands.Add( ClearBookMark );
 	}
-	UI_COMMAND( ClearAllBookMarks, "Clear All Bookmarks", "Clears all the bookmarks", EUserInterfaceActionType::Button, FInputChord() );
+
+	UI_COMMAND( CompactBookmarks, "Compact Bookmarks", "Attempts to move bookmark indices so they are continuous (does not mapped bookmarks).", EUserInterfaceActionType::Button, FInputChord() );
+
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	UI_COMMAND( ClearAllBookmarks, "Clear All Bookmarks", "Clears all the bookmarks", EUserInterfaceActionType::Button, FInputChord() );
+	ClearAllBookMarks = ClearAllBookmarks;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	UI_COMMAND( EnablePreviewMesh, "Hold To Enable Preview Mesh", "When held down a preview mesh appears under the cursor", EUserInterfaceActionType::Button, FInputChord(EKeys::Backslash) );
 	UI_COMMAND( CyclePreviewMesh, "Cycles Preview Mesh", "Cycles available preview meshes", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift, EKeys::Backslash ) );

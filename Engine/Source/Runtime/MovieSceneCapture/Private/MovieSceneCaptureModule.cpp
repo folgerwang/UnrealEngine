@@ -11,16 +11,11 @@
 #include "Engine/GameEngine.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
-#include "IMovieSceneCaptureProtocol.h"
-#include "MovieSceneCaptureProtocolRegistry.h"
 #include "UObject/Package.h"
 #include "MovieSceneCapture.h"
 #include "JsonObjectConverter.h"
 #include "ActiveMovieSceneCaptures.h"
-
-#include "Protocols/ImageSequenceProtocol.h"
-#include "Protocols/CompositionGraphCaptureProtocol.h"
-#include "Protocols/VideoCaptureProtocol.h"
+#include "Slate/SceneViewport.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCapture"
 
@@ -32,13 +27,7 @@ private:
 
 	/** Handle to a movie capture implementation created from the command line, to be initialized once a world is loaded */
 	FMovieSceneCaptureHandle StartupMovieCaptureHandle;
-	FMovieSceneCaptureProtocolRegistry ProtocolRegistry;
 	bool bStereoAllowed;
-	
-	virtual FMovieSceneCaptureProtocolRegistry& GetProtocolRegistry()
-	{
-		return ProtocolRegistry;
-	}
 
 	virtual bool IsStereoAllowed() override
 	{
@@ -48,53 +37,9 @@ private:
 	virtual void StartupModule() override
 	{
 		bStereoAllowed = false;
-		
+
 		FCoreDelegates::OnPreExit.AddRaw(this, &FMovieSceneCaptureModule::PreExit);
 		FCoreUObjectDelegates::PostLoadMapWithWorld.AddRaw(this, &FMovieSceneCaptureModule::OnPostLoadMap );
-
-		FMovieSceneCaptureProtocolInfo Info;
-		{
-			Info.DisplayName = LOCTEXT("CompositionGraphDescription", "Custom Render Passes");
-			Info.SettingsClassType = UCompositionGraphCaptureSettings::StaticClass();
-			Info.Factory = []() -> TSharedRef<IMovieSceneCaptureProtocol> {
-				return MakeShareable(new FCompositionGraphCaptureProtocol());
-			};
-			ProtocolRegistry.RegisterProtocol(TEXT("CustomRenderPasses"), Info);
-		}
-#if WITH_EDITOR
-		{
-			Info.DisplayName = LOCTEXT("VideoDescription", "Video Sequence");
-			Info.SettingsClassType = UVideoCaptureSettings::StaticClass();
-			Info.Factory = []() -> TSharedRef<IMovieSceneCaptureProtocol> {
-				return MakeShareable(new FVideoCaptureProtocol);
-			};
-			ProtocolRegistry.RegisterProtocol(TEXT("Video"), Info);
-		}
-		{
-			Info.DisplayName = LOCTEXT("PNGDescription", "Image Sequence (png)");
-			Info.SettingsClassType = UImageCaptureSettings::StaticClass();
-			Info.Factory = []() -> TSharedRef<IMovieSceneCaptureProtocol> {
-				return MakeShareable(new FImageSequenceProtocol(EImageFormat::PNG));
-			};
-			ProtocolRegistry.RegisterProtocol(TEXT("PNG"), Info);
-		}
-		{
-			Info.DisplayName = LOCTEXT("JPEGDescription", "Image Sequence (jpg)");
-			Info.SettingsClassType = UImageCaptureSettings::StaticClass();
-			Info.Factory = []() -> TSharedRef<IMovieSceneCaptureProtocol> {
-				return MakeShareable(new FImageSequenceProtocol(EImageFormat::JPEG));
-			};
-			ProtocolRegistry.RegisterProtocol(TEXT("JPG"), Info);
-		}
-		{
-			Info.DisplayName = LOCTEXT("BMPDescription", "Image Sequence (bmp)");
-			Info.SettingsClassType = UBmpImageCaptureSettings::StaticClass();
-			Info.Factory = []() -> TSharedRef<IMovieSceneCaptureProtocol> {
-				return MakeShareable(new FImageSequenceProtocol(EImageFormat::BMP));
-			};
-			ProtocolRegistry.RegisterProtocol(TEXT("BMP"), Info);
-		}
-#endif
 	}
 
 	void PreExit()

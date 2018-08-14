@@ -6,16 +6,20 @@
 
 #include "BuildPatchServicesModule.h"
 #include "Containers/Ticker.h"
-#include "Misc/CommandLine.h"
-#include "Misc/Paths.h"
+#include "Algo/Transform.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/CoreDelegates.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
 #include "Misc/App.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Modules/ModuleManager.h"
 #include "HttpModule.h"
 #include "HttpManager.h"
+#include "Data/ManifestUObject.h"
+#include "Installer/BuildStatistics.h"
+#include "Installer/MachineConfig.h"
 #include "BuildPatchCompactifier.h"
 #include "BuildPatchDataEnumeration.h"
 #include "BuildPatchMergeManifests.h"
@@ -25,6 +29,8 @@
 #include "BuildPatchServicesPrivate.h"
 #include "BuildPatchPackageChunkData.h"
 #include "BuildPatchVerifyChunkData.h"
+#include "BuildPatchServicesSingleton.h"
+
 
 using namespace BuildPatchServices;
 
@@ -51,8 +57,9 @@ void FBuildPatchServicesModule::StartupModule()
 	// We need to initialize the lookup for our hashing functions
 	FRollingHashConst::Init();
 
+	const FBuildPatchServicesInitSettings& InitSettings = FBuildPatchServices::GetSettings();
 	// Set the local machine config filename
-	LocalMachineConfigFile = FPaths::Combine(FPlatformProcess::ApplicationSettingsDir(), FApp::GetProjectName(), TEXT("BuildPatchServicesLocal.ini"));
+	LocalMachineConfigFile = FPaths::Combine(InitSettings.ApplicationSettingsDir, InitSettings.ProjectName, InitSettings.LocalMachineConfigFileName);
 
 	// Fix up any legacy configuration data
 	FixupLegacyConfig();
@@ -82,6 +89,9 @@ void FBuildPatchServicesModule::StartupModule()
 
 	// Test the rolling hash algorithm
 	check( CheckRollingHashAlgorithm() );
+
+	// Init Manifest serialization
+	FManifestUObject::Init();
 }
 
 void FBuildPatchServicesModule::ShutdownModule()
@@ -95,6 +105,12 @@ void FBuildPatchServicesModule::ShutdownModule()
 	FTicker::GetCoreTicker().RemoveTicker( TickDelegateHandle );
 
 	GLog->Log(ELogVerbosity::VeryVerbose, TEXT( "BuildPatchServicesModule: Finished shutting down" ) );
+}
+
+IBuildStatisticsRef FBuildPatchServicesModule::CreateBuildStatistics(const IBuildInstallerRef& Installer) const
+{
+	checkSlow(IsInGameThread());
+	return MakeShareable(FBuildStatisticsFactory::Create(StaticCastSharedRef<FBuildPatchInstaller>(Installer)));
 }
 
 IBuildManifestPtr FBuildPatchServicesModule::LoadManifestFromFile( const FString& Filename )
@@ -120,6 +136,7 @@ IBuildManifestPtr FBuildPatchServicesModule::MakeManifestFromData(const TArray<u
 	return NULL;
 }
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 IBuildManifestPtr FBuildPatchServicesModule::MakeManifestFromJSON( const FString& ManifestJSON )
 {
 	FBuildPatchAppManifestRef Manifest = MakeShareable( new FBuildPatchAppManifest() );
@@ -129,10 +146,18 @@ IBuildManifestPtr FBuildPatchServicesModule::MakeManifestFromJSON( const FString
 	}
 	return NULL;
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 bool FBuildPatchServicesModule::SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest, bool bUseBinary/* = true*/)
 {
 	return StaticCastSharedRef< FBuildPatchAppManifest >(Manifest)->SaveToFile(Filename, bUseBinary);
+}
+
+TSet<FString> FBuildPatchServicesModule::GetInstalledPrereqIds() const
+{
+	const bool bAlwaysFlushChanges = true;
+	TUniquePtr<IMachineConfig> MachineConfig(FMachineConfigFactory::Create(LocalMachineConfigFile, bAlwaysFlushChanges));
+	return MachineConfig->LoadInstalledPrereqIds();
 }
 
 IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, bool bIsRepair, TSet<FString> InstallTags)
@@ -145,7 +170,6 @@ IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstall(IBuildManifestPt
 		InstallerConfiguration.InstallDirectory = InstallDirectory;
 		InstallerConfiguration.InstallTags = InstallTags;
 		InstallerConfiguration.bIsRepair = bIsRepair;
-		InstallerConfiguration.bStageOnly = false;
 		return StartBuildInstall(MoveTemp(InstallerConfiguration), OnCompleteDelegate);
 	}
 	else
@@ -163,8 +187,8 @@ IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstallStageOnly(IBuildM
 		InstallerConfiguration.CurrentManifest = CurrentManifest;
 		InstallerConfiguration.InstallDirectory = InstallDirectory;
 		InstallerConfiguration.InstallTags = InstallTags;
+		InstallerConfiguration.InstallMode = EInstallMode::StageFiles;
 		InstallerConfiguration.bIsRepair = bIsRepair;
-		InstallerConfiguration.bStageOnly = true;
 		return StartBuildInstall(MoveTemp(InstallerConfiguration), OnCompleteDelegate);
 	}
 	else
@@ -175,7 +199,7 @@ IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstallStageOnly(IBuildM
 
 IBuildInstallerRef FBuildPatchServicesModule::StartBuildInstall(BuildPatchServices::FInstallerConfiguration Configuration, FBuildPatchBoolManifestDelegate OnCompleteDelegate)
 {
-	checkf(IsInGameThread(), TEXT("FBuildPatchServicesModule::StartBuildInstall must be called from main thread."));
+	checkSlow(IsInGameThread());
 	// Handle any of the global module overrides, while they are not yet fully deprecated.
 	if (Configuration.StagingDirectory.IsEmpty())
 	{
@@ -198,17 +222,20 @@ IBuildInstallerRef FBuildPatchServicesModule::StartBuildInstall(BuildPatchServic
 	FBuildPatchInstallerRef Installer = MakeShareable(new FBuildPatchInstaller(MoveTemp(Configuration), AvailableInstallations, LocalMachineConfigFile, Analytics, HttpTracker, OnCompleteDelegate));
 	Installer->StartInstallation();
 	BuildPatchInstallers.Add(Installer);
+	BuildPatchInstallerInterfaces.Add(Installer);
 	return Installer;
 }
 
-bool FBuildPatchServicesModule::Tick( float Delta )
+const TArray<IBuildInstallerRef>& FBuildPatchServicesModule::GetInstallers() const
+{
+	checkSlow(IsInGameThread());
+	return BuildPatchInstallerInterfaces;
+}
+
+bool FBuildPatchServicesModule::Tick(float Delta)
 {
     QUICK_SCOPE_CYCLE_COUNTER(STAT_FBuildPatchServicesModule_Tick);
-
-	// Using a local bool for this check will improve the assert message that gets displayed.
-	// This one is unlikely to assert unless the FTicker's core tick is not ticked on the main thread for some reason.
-	const bool bIsCalledFromMainThread = IsInGameThread();
-	check( bIsCalledFromMainThread );
+	checkSlow(IsInGameThread());
 
 	// Pump installer messages.
 	for (FBuildPatchInstallerPtr& Installer : BuildPatchInstallers)
@@ -225,8 +252,15 @@ bool FBuildPatchServicesModule::Tick( float Delta )
 		}
 	}
 
-	// Remove completed (invalids) from the list.
+	// Remove invalids from the list.
 	BuildPatchInstallers.RemoveAll([](const FBuildPatchInstallerPtr& Installer){ return Installer.IsValid() == false; });
+
+	// Check for resetting the BuildPatchInstallerInterfaces array.
+	if (BuildPatchInstallers.Num() != BuildPatchInstallerInterfaces.Num())
+	{
+		BuildPatchInstallerInterfaces.Empty(BuildPatchInstallers.Num());
+		Algo::Transform(BuildPatchInstallers, BuildPatchInstallerInterfaces, &FBuildPatchInstallerPtr::ToSharedRef);
+	}
 
 	// More ticks.
 	return true;
@@ -253,9 +287,9 @@ bool FBuildPatchServicesModule::VerifyChunkData(const FString& SearchPath, const
 	return FBuildVerifyChunkData::VerifyChunkData(SearchPath, OutputFile);
 }
 
-bool FBuildPatchServicesModule::PackageChunkData(const FString& ManifestFilePath, const FString& OutputFile, const FString& CloudDir, uint64 MaxOutputFileSize)
+bool FBuildPatchServicesModule::PackageChunkData(const FString& ManifestFilePath, const FString& PrevManifestFilePath, const TArray<TSet<FString>>& TagSetArray, const FString& OutputFile, const FString& CloudDir, uint64 MaxOutputFileSize, const FString& ResultDataFilePath)
 {
-	return FBuildPackageChunkData::PackageChunkData(ManifestFilePath, OutputFile, CloudDir, MaxOutputFileSize);
+	return FBuildPackageChunkData::PackageChunkData(ManifestFilePath, PrevManifestFilePath, TagSetArray, OutputFile, CloudDir, MaxOutputFileSize, ResultDataFilePath);
 }
 
 bool FBuildPatchServicesModule::MergeManifests(const FString& ManifestFilePathA, const FString& ManifestFilePathB, const FString& ManifestFilePathC, const FString& NewVersionString, const FString& SelectionDetailFilePath)
@@ -322,6 +356,8 @@ void FBuildPatchServicesModule::SetHttpTracker( TSharedPtr< FHttpServiceTracker 
 
 void FBuildPatchServicesModule::RegisterAppInstallation(IBuildManifestRef AppManifest, FString AppInstallDirectory)
 {
+	FPaths::NormalizeDirectoryName(AppInstallDirectory);
+	FPaths::CollapseRelativeDirectories(AppInstallDirectory);
 	FBuildPatchAppManifestRef InternalRef = StaticCastSharedRef<FBuildPatchAppManifest>(MoveTemp(AppManifest));
 	AvailableInstallations.Add(MoveTemp(AppInstallDirectory), MoveTemp(InternalRef));
 }

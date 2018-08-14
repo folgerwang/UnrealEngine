@@ -131,9 +131,8 @@ public:
 	 * @param DesiredBufferSize		The desired size of captured frames
 	 * @param InPixelFormat			The desired pixel format to store captured frames as
 	 * @param InNumSurfaces			The number of destination surfaces contained in our buffer 
-	 * @param bAlwaysFlushOnDraw	The viewport will flush at everydraw (increase synchronization, reduce performance)
 	 */
-	FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat = PF_B8G8R8A8, uint32 NumSurfaces = 3, bool bAlwaysFlushOnDraw = true);
+	FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat = PF_B8G8R8A8, uint32 NumSurfaces = 3);
 
 	/** Destructor */
 	~FFrameGrabber();
@@ -142,6 +141,9 @@ public:
 
 	/** Instruct the frame grabber to start capturing frames */
 	void StartCapturingFrames();
+
+	/** Check whether we're capturing frames or not */
+	bool IsCapturingFrames() const;
 
 	/** Instruct the frame grabber capture this frame, when it receives an event from slate */
 	void CaptureThisFrame(FFramePayloadPtr Payload);
@@ -208,9 +210,6 @@ private:
 	/** Pending frame payloads to be passed with frames captured from slate  */
 	FCriticalSection PendingFramePayloadsMutex;
 	TArray<FFramePayloadPtr> PendingFramePayloads;
-
-	/** Optional RAII shutdown functor */
-	TFunction<void()> OnShutdown;
 
 	int32 FrameGrabLatency;
 

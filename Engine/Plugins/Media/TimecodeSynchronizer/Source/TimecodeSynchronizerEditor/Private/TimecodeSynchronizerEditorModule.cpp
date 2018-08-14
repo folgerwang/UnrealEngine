@@ -25,7 +25,10 @@ public:
 		{
 			FTimecodeSynchronizerEditorStyle::Register();
 			FTimecodeSynchronizerEditorCommand::Register();
-			LevelToolbar = new FTimecodeSynchronizerEditorLevelToolbar();
+			if (GetDefault<UTimecodeSynchronizerProjectSettings>()->bDisplayInToolbar)
+			{
+				LevelToolbar = new FTimecodeSynchronizerEditorLevelToolbar();
+			}
 
 			// Register AssetTypeActions
 			AssetTypeAction = MakeShareable(new FAssetTypeActions_TimecodeSynchronizer());

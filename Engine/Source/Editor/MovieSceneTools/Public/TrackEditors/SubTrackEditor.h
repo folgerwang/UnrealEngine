@@ -56,8 +56,8 @@ public:
 	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
 	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
 	
-	/** Switch the sub section's take */
-	void SwitchTake(UMovieSceneSubSection* Section, uint32 TakeNumber);
+	/** Switch the selected sub section's take */
+	void SwitchTake(uint32 TakeNumber);
 
 protected:
 

@@ -77,8 +77,9 @@ namespace Audio
 				bIsLoading = false;
 				bIsLoaded = true;
 
-				SampleBuffer.RawPCMData.Reset(new int16[SoundWave->RawPCMDataSize]);
-				FMemory::Memcpy(SampleBuffer.RawPCMData.Get(), SoundWave->RawPCMData, SoundWave->RawPCMDataSize);
+				SampleBuffer.RawPCMData.Reset(SoundWave->RawPCMDataSize);
+				SampleBuffer.RawPCMData.AddUninitialized(SoundWave->RawPCMDataSize);
+				FMemory::Memcpy(SampleBuffer.RawPCMData.GetData(), SoundWave->RawPCMData, SoundWave->RawPCMDataSize);
 				SampleBuffer.NumSamples = SoundWave->RawPCMDataSize / sizeof(int16);
 				SampleBuffer.NumChannels = SoundWave->NumChannels;
 				SampleBuffer.NumFrames = SampleBuffer.NumSamples / SoundWave->NumChannels;
@@ -216,21 +217,34 @@ namespace Audio
 			return false;
 		}
 
-		FPaths::NormalizeDirectoryName(FilePath);
+		const bool bIsRelativePath = FPaths::IsRelative(FilePath);
+		if (bIsRelativePath)
+		{
+			AbsoluteFilePath = FPaths::ProjectSavedDir() + TEXT("BouncedWavFiles/") + FilePath;
+			AbsoluteFilePath = FPaths::ConvertRelativePathToFull(AbsoluteFilePath);
+		}
+		else
+		{
+			AbsoluteFilePath = FilePath;
+		}
 
-		FilePath = FPaths::ProjectSavedDir() + TEXT("BouncedWavFiles") + TEXT("/") + FilePath;
+		// Fix up any slashes
+		FPaths::NormalizeDirectoryName(AbsoluteFilePath);
+
+		// Remove any "../.." from the path.
+		FPaths::CollapseRelativeDirectories(AbsoluteFilePath);
 
 		CurrentState = ESoundWavePCMWriterState::Generating;
 
-		if (!CreateDirectoryIfNeeded(FilePath))
+		if (!CreateDirectoryIfNeeded(AbsoluteFilePath))
 		{
-			UE_LOG(LogAudio, Error, TEXT("Write to Wav File failed: Invalid directory path %s"), *FilePath);
+			UE_LOG(LogAudio, Error, TEXT("Write to Wav File failed: Invalid directory path %s"), *AbsoluteFilePath);
 			CurrentState = ESoundWavePCMWriterState::Failed;
 			return false;
 		}
 
-		AbsoluteFilePath = FilePath + FString(TEXT("/")) + FileName + FString(TEXT(".wav"));
-		AbsoluteFilePath = AbsoluteFilePath.Replace(TEXT("//"), TEXT("/"), ESearchCase::CaseSensitive);
+		// Now append the FileName
+		AbsoluteFilePath = AbsoluteFilePath + TEXT("/") + FileName + TEXT(".wav");
 
 		CurrentBuffer = InSampleBuffer;
 
@@ -486,6 +500,8 @@ namespace Audio
 			return;
 		}
 
+		// Clamp buffer to prevent wraparound when serializing:
+		CurrentBuffer.Clamp(0.9999f);
 		SerializeWaveFile(SerializedWavData, (const uint8*) CurrentBuffer.GetData(), CurrentBuffer.GetNumSamples() * sizeof(int16), CurrentBuffer.GetNumChannels(), CurrentBuffer.GetSampleRate());
 		UE_LOG(LogAudio, Display, TEXT("Serializing %d sample file (%d bytes) to %s"), CurrentBuffer.GetNumSamples(), SerializedWavData.Num(), *AbsoluteFilePath);
 		if (SerializedWavData.Num() == 0)

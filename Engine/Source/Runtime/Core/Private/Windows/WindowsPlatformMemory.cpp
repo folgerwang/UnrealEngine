@@ -110,10 +110,12 @@ FMalloc* FWindowsPlatformMemory::BaseAllocator()
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::Ansi;
 	}
+#if TBB_ALLOCATOR_ALLOWED
 	else if (FCString::Stristr(CommandLine, TEXT("-tbbmalloc")))
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::TBB;
 	}
+#endif
 	else if (FCString::Stristr(CommandLine, TEXT("-binnedmalloc2")))
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::Binned2;
@@ -138,8 +140,10 @@ FMalloc* FWindowsPlatformMemory::BaseAllocator()
 	case EMemoryAllocatorToUse::Stomp:
 		return new FMallocStomp();
 #endif
+#if TBB_ALLOCATOR_ALLOWED
 	case EMemoryAllocatorToUse::TBB:
 		return new FMallocTBB();
+#endif
 	case EMemoryAllocatorToUse::Binned2:
 		return new FMallocBinned2();
 		

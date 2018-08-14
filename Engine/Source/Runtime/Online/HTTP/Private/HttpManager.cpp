@@ -5,6 +5,7 @@
 #include "HAL/PlatformProcess.h"
 #include "Misc/ScopeLock.h"
 #include "Http.h"
+#include "Misc/Guid.h"
 
 #include "HttpThread.h"
 #include "Misc/ConfigCacheIni.h"
@@ -17,6 +18,8 @@ FCriticalSection FHttpManager::RequestLock;
 
 FHttpManager::FHttpManager()
 	:	FTickerObjectBase(0.0f)
+	,	Thread(nullptr)
+	,	CorrelationIdMethod(FHttpManager::GetDefaultCorrelationIdMethod())
 	,	DeferredDestroyDelay(10.0f)
 {
 }
@@ -34,6 +37,23 @@ void FHttpManager::Initialize()
 {
 	Thread = CreateHttpThread();
 	Thread->StartThread();
+}
+
+void FHttpManager::SetCorrelationIdMethod(TFunction<FString()> InCorrelationIdMethod)
+{
+	check(InCorrelationIdMethod);
+	CorrelationIdMethod = MoveTemp(InCorrelationIdMethod);
+}
+
+FString FHttpManager::CreateCorrelationId() const
+{
+	return CorrelationIdMethod();
+}
+
+/*static*/
+TFunction<FString()> FHttpManager::GetDefaultCorrelationIdMethod()
+{
+	return []{ return FGuid::NewGuid().ToString(); };
 }
 
 FHttpThread* FHttpManager::CreateHttpThread()

@@ -11,6 +11,14 @@ namespace BuildPatchServices
 		: public IChunkDataAccess
 	{
 	public:
+		virtual ~FFakeChunkDataAccess()
+		{
+			if (OnDeleted)
+			{
+				OnDeleted();
+			}
+		}
+
 		virtual void GetDataLock(const uint8** OutChunkData, const FChunkHeader** OutChunkHeader) const override
 		{
 			(*OutChunkData) = ChunkData;
@@ -35,6 +43,7 @@ namespace BuildPatchServices
 	public:
 		FChunkHeader ChunkHeader;
 		uint8* ChunkData;
+		TFunction<void()> OnDeleted;
 	};
 }
 

@@ -1500,7 +1500,7 @@ void FUnrealEdMisc::OnGotoAsset(const FString& InAssetPath) const
 			TArray<UPackage*> Packages;
 			Packages.Add(CastChecked<UPackage>(AssetData.GetAsset()));
 			TArray<UObject*> ObjectsInPackages;
-			PackageTools::GetObjectsInPackages(&Packages, ObjectsInPackages);
+			UPackageTools::GetObjectsInPackages(&Packages, ObjectsInPackages);
 
 			for(auto It(ObjectsInPackages.CreateConstIterator()); It; ++It)
 			{

@@ -3573,7 +3573,7 @@ bool UEditorEngine::PackageUsingExternalObjects( ULevel* LevelToCheck, bool bAdd
 	check(LevelToCheck);
 	bool bFoundExternal = false;
 	TArray<UObject*> ExternalObjects;
-	if(PackageTools::CheckForReferencesToExternalPackages(NULL, NULL, LevelToCheck, &ExternalObjects ))
+	if(UPackageTools::CheckForReferencesToExternalPackages(NULL, NULL, LevelToCheck, &ExternalObjects ))
 	{
 		for(int32 ObjectIndex = 0; ObjectIndex < ExternalObjects.Num(); ++ObjectIndex)
 		{

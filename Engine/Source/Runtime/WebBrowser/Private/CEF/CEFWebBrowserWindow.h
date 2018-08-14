@@ -75,6 +75,20 @@ struct FWebBrowserWindowInfo
 };
 
 /**
+* Representation of a window drag region.
+*/
+struct FWebBrowserDragRegion
+{
+	FWebBrowserDragRegion(const FIntRect& InRect, bool bInDraggable)
+		: Rect(InRect)
+		, bDraggable(bInDraggable)
+	{}
+
+	FIntRect Rect;
+	bool bDraggable;
+};
+
+/**
  * Implementation of interface for dealing with a Web Browser window.
  */
 class FCEFWebBrowserWindow
@@ -141,7 +155,8 @@ public:
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) override;
-
+	virtual void SetSupportsMouseWheel(bool bValue) override;
+	virtual bool GetSupportsMouseWheel() const override;
 	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual void OnFocus(bool SetFocus, bool bIsPopup) override;
 	virtual void OnCaptureLost() override;
@@ -248,6 +263,11 @@ public:
 	virtual FOnSuppressContextMenu& OnSuppressContextMenu() override
 	{
 		return SuppressContextMenuDelgate;
+	}
+
+	virtual FOnDragWindow& OnDragWindow() override
+	{
+		return DragWindowDelegate;
 	}
 
 private:
@@ -423,6 +443,8 @@ private:
 		const CefRenderHandler::RectList& CharacterBounds);
 #endif
 
+	void UpdateDragRegions(const TArray<FWebBrowserDragRegion>& Regions);
+
 public:
 
 	/**
@@ -474,6 +496,18 @@ public:
 
 private:
 
+	/** @return the currently valid renderer, if available */
+	FSlateRenderer* const GetRenderer();
+
+	/**Checks whether an error with the renderer occurred and handles it if one has */
+	void HandleRenderingError();
+
+	/** Releases the updatable textures */
+	void ReleaseTextures();
+
+	/** Creates the initial updatable textures */
+	bool CreateInitialTextures();
+
 	/** Executes or defers a LoadUrl navigation */
 	void RequestNavigationInternal(FString Url, FString Contents);
 
@@ -491,6 +525,9 @@ private:
 
 	/** Used to convert a FPointerEvent to a CefMouseEvent */
 	CefMouseEvent GetCefMouseEvent(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup);
+
+	/** Specifies whether or not a point falls within any tagged drag regions that are draggable. */
+	bool IsInDragRegion(const FIntPoint& Point);
 
 private:
 
@@ -517,6 +554,9 @@ private:
 
 	/** Current size of this window. */
 	FIntPoint ViewportSize;
+
+	/** Current DPI scale factor of this window. */
+	float ViewportDPIScaleFactor;
 
 	/** Whether this window is closing. */
 	bool bIsClosing;
@@ -575,6 +615,8 @@ private:
 	/** Delegate for suppressing context menu */
 	FOnSuppressContextMenu SuppressContextMenuDelgate;
 
+	/** Delegate that is executed when a drag event is detected in an area of the web page tagged as a drag region. */
+	FOnDragWindow DragWindowDelegate;
 
 	/** Tracks the current mouse cursor */
 	EMouseCursor::Type Cursor;
@@ -591,6 +633,9 @@ private:
 	/** Tracks whether the widget has been resized and needs to be refreshed */
 	bool bNeedsResize;
 
+	/** Tracks whether or not the user initiated a window drag by clicking on a page's drag region. */
+	bool bDraggingWindow;
+
 	/** Used for unhandled key events forwarding*/
 	TOptional<FKeyEvent> PreviousKeyDownEvent;
 	TOptional<FKeyEvent> PreviousKeyUpEvent;
@@ -602,6 +647,8 @@ private:
 	/** Used to ignore any popup menus when forwarding focus gained/lost events*/
 	bool bMainHasFocus;
 	bool bPopupHasFocus;
+
+	bool bSupportsMouseWheel;
 
 	FIntPoint PopupPosition;
 	bool bShowPopupRequested;
@@ -629,6 +676,8 @@ private:
 	/** Handling of foreign language character input is delegated to a helper class */
 	TSharedPtr<FCEFImeHandler> Ime;
 #endif
+
+	TArray<FWebBrowserDragRegion> DragRegions;
 
 	TSharedPtr<SWindow> ParentWindow;
 };

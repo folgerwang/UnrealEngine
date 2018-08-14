@@ -107,6 +107,7 @@ public:
 	DECLARE_MULTICAST_DELEGATE( FOnShowSelectedNodesOnlyChanged );
 	DECLARE_MULTICAST_DELEGATE_OneParam( FOnAllowEditsModeChanged, EAllowEditsMode );
 	DECLARE_MULTICAST_DELEGATE( FOnCurveEditorCurveVisibilityChanged );
+	DECLARE_MULTICAST_DELEGATE(FOnLoopStateChanged);
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
@@ -332,6 +333,8 @@ public:
 
 	FOnCurveEditorCurveVisibilityChanged& GetOnCurveEditorCurveVisibilityChanged();
 
+	FOnLoopStateChanged& GetOnLoopStateChanged();
+
 	/** What format should we display the UI controls in when representing time in a sequence? */
 	EFrameNumberDisplayFormats GetTimeDisplayFormat() const { return FrameNumberDisplayFormat; }
 	/** Sets the time display format to the specified type. */
@@ -516,4 +519,5 @@ protected:
 	FOnEvaluateSubSequencesInIsolationChanged OnEvaluateSubSequencesInIsolationChangedEvent;
 	FOnShowSelectedNodesOnlyChanged OnShowSelectedNodesOnlyChangedEvent;
 	FOnAllowEditsModeChanged OnAllowEditsModeChangedEvent;
+	FOnLoopStateChanged OnLoopStateChangedEvent;
 };

@@ -41,6 +41,11 @@ namespace BuildPatchServices
 			return INDEX_NONE;
 		}
 
+		virtual void SetLostChunkCallback(TFunction<void(const FGuid&)> Callback) override
+		{
+			MOCK_FUNC_NOT_IMPLEMENTED("FMockChunkStore::SetLostChunkCallback");
+		}
+
 	public:
 		mutable TArray<FPut> RxPut;
 		mutable TArray<FGet> RxGet;

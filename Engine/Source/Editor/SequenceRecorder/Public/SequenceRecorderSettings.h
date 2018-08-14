@@ -7,7 +7,7 @@
 #include "UObject/Object.h"
 #include "Templates/SubclassOf.h"
 #include "Engine/EngineTypes.h"
-#include "Components/SceneComponent.h"
+#include "Components/ActorComponent.h"
 #include "GameFramework/Actor.h"
 #include "Animation/AnimationRecordingSettings.h"
 #include "SequenceRecorderActorFilter.h"
@@ -25,6 +25,27 @@ enum class EAudioRecordingMode : uint8
 };
 
 USTRUCT()
+struct FPropertiesToRecordForActorClass
+{
+	GENERATED_BODY()
+
+	FPropertiesToRecordForActorClass()
+	{}
+
+	FPropertiesToRecordForActorClass(TSubclassOf<AActor> InClass)
+		: Class(InClass)
+	{}
+
+	/** The class of the actor we can record */
+	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
+	TSubclassOf<AActor> Class;
+
+	/** List of properties we want to record for this class */
+	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
+	TArray<FName> Properties;
+};
+
+USTRUCT()
 struct FPropertiesToRecordForClass
 {
 	GENERATED_BODY()
@@ -32,13 +53,13 @@ struct FPropertiesToRecordForClass
 	FPropertiesToRecordForClass()
 	{}
 
-	FPropertiesToRecordForClass(TSubclassOf<USceneComponent> InClass)
+	FPropertiesToRecordForClass(TSubclassOf<UActorComponent> InClass)
 		: Class(InClass)
 	{}
 
 	/** The class of the object we can record */
 	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
-	TSubclassOf<USceneComponent> Class;
+	TSubclassOf<UActorComponent> Class;
 
 	/** List of properties we want to record for this class */
 	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
@@ -82,6 +103,18 @@ public:
 	/** Delay that we will use before starting recording */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording", meta = (ClampMin="0.0", UIMin = "0.0", ClampMax="9.0", UIMax = "9.0"))
 	float RecordingDelay;
+
+	/** Allow the recording to be looped. Subsequence recorded assets will be saved to unique filenames. */
+	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
+	bool bAllowLooping;
+
+	/** Global Time dilation to set the world to when recording starts. Useful for playing back a scene in slow motion. */
+	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording", meta = (ClampMin = "0.0", UIMin = "0.0", UIMax = "10.0"))
+	float GlobalTimeDilation;
+
+	/** Should Sequence Recorder ignore global time dilation? If true recorded animations will only be as long as they would have been without global time dilation. */
+	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
+	bool bIgnoreTimeDilation;
 
 	/** The name of the subdirectory animations will be placed in. Leave this empty to place into the same directory as the sequence base path */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
@@ -150,6 +183,10 @@ public:
 	/** The properties to record for specified classes. Component classes specified here will be recorded. If an actor does not contain one of these classes it will be ignored. */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	TArray<FPropertiesToRecordForClass> ClassesAndPropertiesToRecord;
+
+	/** The properties to record for specified actors. Actor classes specified here will be recorded. If an actor does not contain one of these properties it will be ignored. */
+	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
+	TArray<FPropertiesToRecordForActorClass> ActorsAndPropertiesToRecord;
 
 	/** Settings applied to actors of a specified class */
 	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")

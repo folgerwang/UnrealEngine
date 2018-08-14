@@ -30,7 +30,10 @@ public:
 		BitByBit = 0,
 		Segments = 1,
 		SmallChartPacking = 2,
-		Latest = SmallChartPacking
+		ScaleChartsOrderingFix = 3,
+		ChartJoiningLFix = 4,
+		Allocator2DFlipFix = 5,
+		Latest = ScaleChartsOrderingFix
 	};
 
 	/** Convert this mesh description into the old FRawMesh format. */
@@ -63,6 +66,15 @@ public:
 
 	/** Create some UVs from the specified mesh description data. */
 	static bool GenerateUniqueUVsForStaticMesh(const FMeshDescription& MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords);
+
+	/** Add a UV channel to the MeshDescription. */
+	static bool AddUVChannel(FMeshDescription& MeshDescription);
+
+	/** Insert a UV channel at the given index to the MeshDescription. */
+	static bool InsertUVChannel(FMeshDescription& MeshDescription, int32 UVChannelIndex);
+
+	/** Remove the UV channel at the given index from the MeshDescription. */
+	static bool RemoveUVChannel(FMeshDescription& MeshDescription, int32 UVChannelIndex);
 
 private:
 	

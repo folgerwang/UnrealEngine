@@ -16,10 +16,13 @@ namespace BuildPatchServices
 		typedef TTuple<FString, EChunkLoadResult> FRxLoadFromFile;
 		typedef TTuple<FString, const IChunkDataAccess*> FRxSaveToFile;
 		typedef TTuple<TArray<uint8>, EChunkLoadResult> FRxLoadFromMemory;
+		typedef TTuple<EChunkLoadResult> FRxLoadFromArchive;
+		typedef TTuple<const IChunkDataAccess*> FRxSaveToArchive;
 		typedef TTuple<TArray<uint8>, FSHAHash> FRxInjectShaToChunkData;
 
 		typedef TTuple<IChunkDataAccess*, EChunkLoadResult> FTxLoadFromFile;
 		typedef TTuple<IChunkDataAccess*, EChunkLoadResult> FTxLoadFromMemory;
+		typedef TTuple<IChunkDataAccess*, EChunkLoadResult> FTxLoadFromArchive;
 
 	public:
 		virtual IChunkDataAccess* LoadFromFile(const FString& Filename, EChunkLoadResult& OutLoadResult) const override
@@ -62,15 +65,26 @@ namespace BuildPatchServices
 
 		virtual IChunkDataAccess* LoadFromArchive(FArchive& Archive, EChunkLoadResult& OutLoadResult) const override
 		{
-			MOCK_FUNC_NOT_IMPLEMENTED("FMockChunkDataSerialization::LoadFromArchive");
-			OutLoadResult = EChunkLoadResult::SerializationError;
-			return nullptr;
+			IChunkDataAccess* Result = nullptr;
+			if (TxLoadFromArchive.Num())
+			{
+				FTxLoadFromFile LoadFromArchiveResult = TxLoadFromArchive.Pop();
+				Result = LoadFromArchiveResult.Get<0>();
+				OutLoadResult = LoadFromArchiveResult.Get<1>();
+			}
+			RxLoadFromArchive.Emplace(OutLoadResult);
+			return Result;
 		}
 
 		virtual EChunkSaveResult SaveToArchive(FArchive& Archive, const IChunkDataAccess* ChunkDataAccess) const override
 		{
-			MOCK_FUNC_NOT_IMPLEMENTED("FMockChunkDataSerialization::SaveToArchive");
-			return EChunkSaveResult::SerializationError;
+			EChunkSaveResult Result = EChunkSaveResult::Success;
+			if (SaveToArchiveFunc)
+			{
+				Result = SaveToArchiveFunc(Archive, ChunkDataAccess);
+			}
+			RxSaveToArchive.Emplace(ChunkDataAccess);
+			return Result;
 		}
 
 		virtual void InjectShaToChunkData(TArray<uint8>& Memory, const FSHAHash& ShaHashData) const override
@@ -82,10 +96,15 @@ namespace BuildPatchServices
 		mutable TArray<FRxLoadFromFile> RxLoadFromFile;
 		mutable TArray<FRxSaveToFile> RxSaveToFile;
 		mutable TArray<FRxLoadFromMemory> RxLoadFromMemory;
+		mutable TArray<FRxLoadFromArchive> RxLoadFromArchive;
+		mutable TArray<FRxSaveToArchive> RxSaveToArchive;
 		mutable TArray<FRxInjectShaToChunkData> RxInjectShaToChunkData;
 
 		mutable TArray<FTxLoadFromFile> TxLoadFromFile;
 		mutable TArray<FTxLoadFromMemory> TxLoadFromMemory;
+		mutable TArray<FTxLoadFromArchive> TxLoadFromArchive;
+
+		TFunction<EChunkSaveResult(FArchive&, const IChunkDataAccess*)> SaveToArchiveFunc;
 	};
 }
 

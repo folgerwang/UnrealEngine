@@ -69,6 +69,11 @@ void FMovieSceneParticleTrackSectionRecorder::FinalizeSection(float CurrentTime)
 
 void FMovieSceneParticleTrackSectionRecorder::Record(float CurrentTime)
 {
+	if (!MovieSceneSection.IsValid())
+	{
+		return;
+	}
+
 	if(SystemToRecord.IsValid())
 	{
 		FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();

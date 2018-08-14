@@ -238,6 +238,11 @@ void FEventTrackEditor::HandleAddEventTrackMenuEntryExecute(FGuid InObjectBindin
 		return;
 	}
 
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	const FScopedTransaction Transaction(NSLOCTEXT("Sequencer", "AddEventTrack_Transaction", "Add Event Track"));
 	FocusedMovieScene->Modify();
 

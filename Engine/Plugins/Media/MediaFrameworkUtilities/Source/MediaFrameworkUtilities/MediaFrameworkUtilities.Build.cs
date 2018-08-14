@@ -22,7 +22,9 @@ namespace UnrealBuildTool.Rules
 					"Engine",
 					"Media",
 					"MediaAssets",
+					"MediaIOCore",
 					"MediaUtils",
+					"Settings",
 				});
 
 			if (Target.bBuildEditor == true)

@@ -89,6 +89,11 @@ public:
 	virtual const TArray<FAnalyticsEventAttribute>& GetDefaultEventAttributes() const = 0;
 
 	/**
+	 * Updates the default URL endpoint and AltDomains.
+	 */
+	virtual void SetURLEndpoint(const FString& UrlEndpoint, const TArray<FString>& AltDomains) = 0;
+
+	/**
 	* Set a callback to be invoked any time an event is queued.
 	* 
 	* @param the callback

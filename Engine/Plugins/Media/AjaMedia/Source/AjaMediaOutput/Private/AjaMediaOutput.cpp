@@ -14,6 +14,8 @@ UAjaMediaOutput::UAjaMediaOutput(const FObjectInitializer& ObjectInitializer)
 	, bOutputWithAutoCirculating(false)
 	, TimecodeFormat(EAjaMediaTimecodeFormat::LTC)
 	, PixelFormat(EAjaMediaOutputPixelFormat::PF_10BIT_RGB)
+	, NumberOfAJABuffers(2)
+	, bInterlacedFieldsTimecodeNeedToMatch(false)
 	, bWaitForSyncEvent(false)
 	, bEncodeTimecodeInTexel(false)
 {
@@ -75,6 +77,49 @@ bool UAjaMediaOutput::Validate(FString& OutFailureReason) const
 		return false;
 	}
 
+	TUniquePtr<AJA::AJADeviceScanner> Scanner = MakeUnique<AJA::AJADeviceScanner>();
+	AJA::AJADeviceScanner::DeviceInfo DeviceInfo;
+	if (!Scanner->GetDeviceInfo(FillPort.DeviceIndex, DeviceInfo))
+	{
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that doesn't exist on this machine."), *GetName(), *FillPort.DeviceName);
+		return false;
+	}
+
+	if (!DeviceInfo.bIsSupported)
+	{
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that is not supported by the AJA SDK."), *GetName(), *FillPort.DeviceName);
+		return false;
+	}
+
+	if (!DeviceInfo.bCanDoPlayback)
+	{
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that can't do playback."), *GetName(), *FillPort.DeviceName);
+		return false;
+	}
+
+	if (FillPort.PortIndex == 1 && !DeviceInfo.bCanFrameStore1DoPlayback)
+	{
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that can't do playback on port 1."), *GetName(), *FillPort.DeviceName);
+		return false;
+	}
+
+	if (OutputType == EAjaMediaOutputType::FillAndKey && KeyPort.PortIndex == 1 && !DeviceInfo.bCanFrameStore1DoPlayback)
+	{
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that can't do playback on port 1."), *GetName(), *FillPort.DeviceName);
+		return false;
+}
+
+	if (PixelFormat == EAjaMediaOutputPixelFormat::PF_8BIT_ARGB && !DeviceInfo.bSupportPixelFormat8bitARGB)
+	{
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that doesn't support the 8bit ARGB pixel format."), *GetName(), *FillPort.DeviceName);
+		return false;
+	}
+	if (PixelFormat == EAjaMediaOutputPixelFormat::PF_10BIT_RGB && !DeviceInfo.bSupportPixelFormat10bitRGB)
+	{
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that doesn't support the 10bit RGB pixel format."), *GetName(), *FillPort.DeviceName);
+		return false;
+	}
+
 	return true;
 }
 
@@ -115,7 +160,12 @@ EPixelFormat UAjaMediaOutput::GetRequestedPixelFormat() const
 
 UMediaCapture* UAjaMediaOutput::CreateMediaCaptureImpl()
 {
-	return NewObject<UAjaMediaCapture>();
+	UMediaCapture* Result = NewObject<UAjaMediaCapture>();
+	if (Result)
+	{
+		Result->SetMediaOutput(this);
+	}
+	return Result;
 }
 
 #if WITH_EDITOR
@@ -136,18 +186,5 @@ bool UAjaMediaOutput::CanEditChange(const UProperty* InProperty) const
 	}
 
 	return true;
-}
-
-void UAjaMediaOutput::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(UAjaMediaOutput, bOutputWithAutoCirculating))
-	{
-		if (!bOutputWithAutoCirculating)
-		{
-			bWaitForSyncEvent = false;
-		}
-	}
-
-	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif //WITH_EDITOR

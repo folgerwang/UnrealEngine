@@ -73,6 +73,11 @@ public:
     /// a non-empty typeName.
     static const bool IsConcrete = true;
 
+    /// Compile-time constant indicating whether or not this class inherits from
+    /// UsdTyped. Types which inherit from UsdTyped can impart a typename on a
+    /// UsdPrim.
+    static const bool IsTyped = true;
+
     /// Construct a UsdGeomCone on UsdPrim \p prim .
     /// Equivalent to UsdGeomCone::Get(prim.GetStage(), prim.GetPath())
     /// for a \em valid \p prim, but will not immediately throw an error for
@@ -255,6 +260,27 @@ public:
     //  - Close the include guard with #endif
     // ===================================================================== //
     // --(BEGIN CUSTOM CODE)--
+
+    /// Compute the extent for the cone defined by the height, radius, and
+    /// axis.
+    ///
+    /// \return true upon success, false if unable to calculate extent.
+    ///
+    /// On success, extent will contain an approximate axis-aligned bounding 
+    /// box of the cone defined by the height, radius, and axis.
+    ///
+    /// This function is to provide easy authoring of extent for usd authoring 
+    /// tools, hence it is static and acts outside a specific prim (as in 
+    /// attribute based methods).
+    USDGEOM_API
+    static bool ComputeExtent(double height, double radius, const TfToken& axis,
+        VtVec3fArray* extent);
+
+    /// \overload
+    /// Computes the extent as if the matrix \p transform was first applied.
+    USDGEOM_API
+    static bool ComputeExtent(double height, double radius, const TfToken& axis,
+        const GfMatrix4d& transform, VtVec3fArray* extent);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

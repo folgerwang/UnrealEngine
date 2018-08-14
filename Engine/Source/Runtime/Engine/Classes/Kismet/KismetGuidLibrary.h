@@ -36,7 +36,7 @@ class ENGINE_API UKismetGuidLibrary
 	static FGuid NewGuid();
 	
 	/** Converts a GUID value to a string, in the form 'A-B-C-D' */
-	UFUNCTION(BlueprintPure, meta=(DisplayName="ToString (Guid)", CompactNodeTitle="->"), Category="Guid")
+	UFUNCTION(BlueprintPure, meta=(DisplayName="ToString (Guid)", CompactNodeTitle="->", ScriptMethod="ToString"), Category="Guid")
 	static FString Conv_GuidToString( const FGuid& InGuid );
 
 	/** Converts a String of format EGuidFormats to a Guid. Returns Guid OutGuid, Returns bool Success */

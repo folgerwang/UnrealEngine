@@ -98,6 +98,13 @@ FCurlHttpRequest::FCurlHttpRequest()
 	}
 
 	InfoMessageCache.AddDefaulted(NumberOfInfoMessagesToCache);
+
+	// Add default headers
+	const TMap<FString, FString>& DefaultHeaders = FHttpModule::Get().GetDefaultHeaders();
+	for (TMap<FString, FString>::TConstIterator It(DefaultHeaders); It; ++It)
+	{
+		SetHeader(It.Key(), It.Value());
+	}
 }
 
 FCurlHttpRequest::~FCurlHttpRequest()

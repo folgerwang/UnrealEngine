@@ -158,9 +158,16 @@ public:
 
 	/**
 	 * Get the list of files in this build. Filenames are all relative to an install directory
-	 * @return		an array containing build files
+	 * @return an array containing build files
 	 */
 	virtual TArray<FString> GetBuildFileList() const = 0;
+
+	/**
+	 * Get the list of files in this build which match a tag from a given set. Filenames are all relative to an install directory
+	 * @param		Tags	The set of tags to query
+	 * @return an array containing build files
+	 */
+	virtual TArray<FString> GetBuildFileList(const TSet<FString>& Tags) const = 0;
 
 	/**
 	 * Get the list of install tags in this manifest

@@ -2,6 +2,7 @@
 
 #include "Misc/ExpressionParser.h"
 #include "Misc/AutomationTest.h"
+#include "Math/BasicMathExpressionEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "ExpressionParser"
 
@@ -447,8 +448,8 @@ struct FExpressionCompiler
 
 	struct FWrappedOperator : FNoncopyable
 	{
-		FWrappedOperator(FCompiledToken InToken, int32 InPrecedence = 0)
-			: Token(MoveTemp(InToken)), Precedence(InPrecedence)
+		FWrappedOperator(FCompiledToken InToken, int32 InPrecedence = 0, int32 InShortCircuitIndex = INDEX_NONE)
+			: Token(MoveTemp(InToken)), Precedence(InPrecedence), ShortCircuitIndex(InShortCircuitIndex)
 		{}
 
 		FWrappedOperator(FWrappedOperator&& In) : Token(MoveTemp(In.Token)), Precedence(In.Precedence) {}
@@ -458,6 +459,7 @@ struct FExpressionCompiler
 
 		FCompiledToken Token;
 		int32 Precedence;
+		int32 ShortCircuitIndex;
 	};
 
 	TOptional<FExpressionError> CompileGroup(const FExpressionToken* GroupStart, const FGuid* StopAt)
@@ -466,6 +468,17 @@ struct FExpressionCompiler
 
 		TArray<FWrappedOperator> OperatorStack;
 		OperatorStack.Reserve(Tokens.Num() - CurrentTokenIndex);
+
+		auto PopOperator = [&]
+		{
+			int32 ShortCircuitIndex = OperatorStack.Last().ShortCircuitIndex;
+
+			Commands.Add(OperatorStack.Pop(false).Steal());
+			if (ShortCircuitIndex != INDEX_NONE)
+			{
+				Commands[ShortCircuitIndex].ShortCircuitIndex = Commands.Num() - 1;
+			}
+		};
 
 		bool bFoundEndOfGroup = StopAt == nullptr;
 
@@ -516,7 +529,7 @@ struct FExpressionCompiler
 					// Pop off any pending unary operators
 					while (OperatorStack.Num() > 0 && OperatorStack.Last().Precedence <= 0)
 					{
-						Commands.Add(OperatorStack.Pop(false).Steal());
+						PopOperator();
 					}
 
 					// Make this a post-unary op
@@ -536,7 +549,7 @@ struct FExpressionCompiler
 					// Pop off any pending unary operators
 					while (OperatorStack.Num() > 0 && OperatorStack.Last().Precedence <= 0)
 					{
-						Commands.Add(OperatorStack.Pop(false).Steal());
+						PopOperator();
 					}
 
 					// Make this a post-unary op
@@ -555,11 +568,18 @@ struct FExpressionCompiler
 						// Pop off anything of higher (or equal, if LTR associative) precedence than this one onto the command stack
 						while (OperatorStack.Num() > 0 && CheckPrecedence(OperatorStack.Last().Precedence, OpParms->Precedence))
 						{
-							Commands.Add(OperatorStack.Pop(false).Steal());
+							PopOperator();
+						}
+
+						int32 ShortCircuitIndex = INDEX_NONE;
+						if (OpParms->bCanShortCircuit)
+						{
+							Commands.Add(FCompiledToken(FCompiledToken::ShortCircuit, FExpressionToken(Token.Context, Token.Node.Copy()), Commands.Num()));
+							ShortCircuitIndex = Commands.Num() - 1;
 						}
 
 						// Add the operator itself to the op stack
-						OperatorStack.Emplace(FCompiledToken(FCompiledToken::BinaryOperator, MoveTemp(Token)), OpParms->Precedence);
+						OperatorStack.Emplace(FCompiledToken(FCompiledToken::BinaryOperator, MoveTemp(Token)), OpParms->Precedence, ShortCircuitIndex);
 
 						// Check for a unary op again
 						State = EState::PreUnary;
@@ -587,7 +607,7 @@ struct FExpressionCompiler
 		// Pop everything off the operator stack, onto the command stack
 		while (OperatorStack.Num() > 0)
 		{
-			Commands.Add(OperatorStack.Pop(false).Token);
+			PopOperator();
 		}
 
 		return TOptional<FExpressionError>();
@@ -690,6 +710,13 @@ namespace ExpressionParser
 				OperandStack.Push(Index);
 				continue;
 
+			case FCompiledToken::ShortCircuit:
+				if (OperandStack.Num() >= 1 && Token.ShortCircuitIndex.IsSet() && InEnvironment.ShouldShortCircuit(Token, GetToken(OperandStack.Last())))
+				{
+					Index = Token.ShortCircuitIndex.GetValue();
+				}
+				continue;
+
 			case FCompiledToken::BinaryOperator:
 				if (OperandStack.Num() >= 2)
 				{
@@ -762,6 +789,12 @@ namespace Tests
 {
 PRAGMA_DISABLE_OPTIMIZATION
 	struct FOperator {};
+
+	struct FAnd { static const TCHAR* const Moniker; };
+	struct FOr { static const TCHAR* const Moniker; };
+
+	const TCHAR* const FAnd::Moniker = TEXT("&&");
+	const TCHAR* const FOr::Moniker = TEXT("||");
 
 	struct FMoveableType
 	{
@@ -923,6 +956,138 @@ PRAGMA_DISABLE_OPTIMIZATION
 DEFINE_EXPRESSION_NODE_TYPE(Tests::FMoveableType, 0xB7F3F127, 0xD5E74833, 0x9EAB754E, 0x6CF3AAC1)
 DEFINE_EXPRESSION_NODE_TYPE(Tests::FHugeType, 0x4A329D81, 0x102343A8, 0xAB95BF45, 0x6578EE54)
 DEFINE_EXPRESSION_NODE_TYPE(Tests::FOperator, 0xC777A5D7, 0x6895456C, 0x9854BFA0, 0xB71B5A8D)
+DEFINE_EXPRESSION_NODE_TYPE(Tests::FAnd, 0x0687f9c5, 0xd8914cb0, 0xae52cc4c, 0x6770f520)
+DEFINE_EXPRESSION_NODE_TYPE(Tests::FOr, 0x81e2b2a3, 0xbcf545d6, 0x95ae2eac, 0xcc5a9ba5)
+
+DEFINE_EXPRESSION_NODE_TYPE(bool, 0x9d5a4b67, 0x8c8f4fc1, 0xb61e561a, 0x5e4114b6)
+
+struct FShortCircuitTestContext
+{
+	FShortCircuitTestContext() : NumOperatorsCalled(0) {}
+	mutable int32 NumOperatorsCalled;
+};
+
+/** A basic math expression evaluator */
+class FShortCircuitParser
+{
+public:
+	/** Constructor that sets up the parser's lexer and compiler */
+	FShortCircuitParser()
+	{
+		using namespace ExpressionParser;
+		using namespace Tests;
+
+		// A || !(B && C)
+		TokenDefinitions.IgnoreWhitespace();
+		TokenDefinitions.DefineToken([](FExpressionTokenConsumer& Consumer) -> TOptional<FExpressionError> {
+			TOptional<FStringToken> Token = Consumer.GetStream().ParseToken(TEXT("true"));
+			if (Token.IsSet())
+			{
+				Consumer.Add(Token.GetValue(), true);
+			}
+
+			Token = Consumer.GetStream().ParseToken(TEXT("false"));
+			if (Token.IsSet())
+			{
+				Consumer.Add(Token.GetValue(), false);
+			}
+
+			return TOptional<FExpressionError>();
+		});
+
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FSubExpressionStart>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FSubExpressionEnd>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FAnd>);
+		TokenDefinitions.DefineToken(&ConsumeSymbol<FOr>);
+
+		Grammar.DefineGrouping<FSubExpressionStart, FSubExpressionEnd>();
+
+		bool bCanShortCircuit = true;
+		Grammar.DefineBinaryOperator<FAnd>(1, EAssociativity::RightToLeft, bCanShortCircuit);
+		Grammar.DefineBinaryOperator<FOr>(1, EAssociativity::RightToLeft, bCanShortCircuit);
+
+		JumpTable.MapBinary<FAnd>([](bool A, bool B, const FShortCircuitTestContext* Context) {
+			++Context->NumOperatorsCalled;
+			return A && B;
+		});
+
+		JumpTable.MapBinary<FOr>([](bool A, bool B, const FShortCircuitTestContext* Context) {
+			++Context->NumOperatorsCalled;
+			return A || B;
+		});
+
+		JumpTable.MapShortCircuit<FOr>([](bool A) { return A; });
+		JumpTable.MapShortCircuit<FAnd>([](bool A) { return !A; });
+	}
+
+	TValueOrError<bool, FExpressionError> Evaluate(const TCHAR* InExpression, const FShortCircuitTestContext& TestContext) const
+	{
+		using namespace ExpressionParser;
+
+		TValueOrError<TArray<FExpressionToken>, FExpressionError> LexResult = ExpressionParser::Lex(InExpression, TokenDefinitions);
+		if (!LexResult.IsValid())
+		{
+			return MakeError(LexResult.StealError());
+		}
+
+		TValueOrError<TArray<FCompiledToken>, FExpressionError> CompilationResult = ExpressionParser::Compile(LexResult.StealValue(), Grammar);
+		if (!CompilationResult.IsValid())
+		{
+			return MakeError(CompilationResult.StealError());
+		}
+
+		TOperatorEvaluationEnvironment<FShortCircuitTestContext> Env(JumpTable, &TestContext);
+		TValueOrError<FExpressionNode, FExpressionError> Result = ExpressionParser::Evaluate(CompilationResult.GetValue(), Env);
+		if (!Result.IsValid())
+		{
+			return MakeError(Result.GetError());
+		}
+
+		if (const bool* Value = Result.GetValue().Cast<bool>())
+		{
+			return MakeValue(*Value);
+		}
+
+		return MakeError(NSLOCTEXT("Anon", "UnrecognizedResult", "Unrecognized result returned from expression"));
+	}
+
+private:
+
+	FTokenDefinitions TokenDefinitions;
+	FExpressionGrammar Grammar;
+	TOperatorJumpTable<FShortCircuitTestContext> JumpTable;
+
+} TestParser;
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FShortCircuitParserTest, "System.Core.Expression Parser.Short Circuit", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter | EAutomationTestFlags::HighPriority)
+bool FShortCircuitParserTest::RunTest(const FString& Parameters)
+{
+	struct FExpectedResult
+	{
+		const TCHAR* const Expression;
+		bool Result;
+		int32 NumOperatorsCalled;
+	};
+	const FExpectedResult ExpectedResults[] = {
+		FExpectedResult{ TEXT("true || (true && true)"), true, 0 },
+		FExpectedResult{ TEXT("false && (true)"), false, 0 },
+	};
+
+	for (const FExpectedResult& Expected : ExpectedResults)
+	{
+		FShortCircuitTestContext Context;
+
+		TValueOrError<bool, FExpressionError> Result = TestParser.Evaluate(Expected.Expression, Context);
+		if (ensureAlways(Result.IsValid()))
+		{
+			ensureAlways(Expected.Result == Result.GetValue());
+			ensureAlways(Expected.NumOperatorsCalled == Context.NumOperatorsCalled);
+		}
+	}
+
+	return true;
+}
+
 
 PRAGMA_ENABLE_OPTIMIZATION
 

@@ -21,6 +21,7 @@ void SPropertyMenuAssetPicker::Construct( const FArguments& InArgs )
 {
 	CurrentObject = InArgs._InitialObject;
 	bAllowClear = InArgs._AllowClear;
+	bAllowCopyPaste = InArgs._AllowCopyPaste;
 	AllowedClasses = InArgs._AllowedClasses;
 	NewAssetFactories = InArgs._NewAssetFactories;
 	OnShouldFilterAsset = InArgs._OnShouldFilterAsset;
@@ -51,44 +52,50 @@ void SPropertyMenuAssetPicker::Construct( const FArguments& InArgs )
 		MenuBuilder.EndSection();
 	}
 
-	MenuBuilder.BeginSection(NAME_None, LOCTEXT("CurrentAssetOperationsHeader", "Current Asset"));
+	if (CurrentObject.IsValid() || bAllowCopyPaste || bAllowClear)
 	{
-		if( CurrentObject.IsValid() )
+		MenuBuilder.BeginSection(NAME_None, LOCTEXT("CurrentAssetOperationsHeader", "Current Asset"));
 		{
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("EditAsset", "Edit"), 
-				LOCTEXT("EditAsset_Tooltip", "Edit this asset"),
-				FSlateIcon(),
-				FUIAction( FExecuteAction::CreateSP( this, &SPropertyMenuAssetPicker::OnEdit ) ) );
-		}
+			if (CurrentObject.IsValid())
+			{
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("EditAsset", "Edit"),
+					LOCTEXT("EditAsset_Tooltip", "Edit this asset"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateSP(this, &SPropertyMenuAssetPicker::OnEdit)));
+			}
 
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("CopyAsset", "Copy"),
-			LOCTEXT("CopyAsset_Tooltip", "Copies the asset to the clipboard"),
-			FSlateIcon(),
-			FUIAction( FExecuteAction::CreateSP( this, &SPropertyMenuAssetPicker::OnCopy ) )
-		);
-
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("PasteAsset", "Paste"),
-			LOCTEXT("PasteAsset_Tooltip", "Pastes an asset from the clipboard to this field"),
-			FSlateIcon(),
-			FUIAction( 
-				FExecuteAction::CreateSP( this, &SPropertyMenuAssetPicker::OnPaste ),
-				FCanExecuteAction::CreateSP( this, &SPropertyMenuAssetPicker::CanPaste ) )
-		);
-
-		if( bAllowClear )
-		{
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("ClearAsset", "Clear"),
-				LOCTEXT("ClearAsset_ToolTip", "Clears the asset set on this field"),
-				FSlateIcon(),
-				FUIAction( FExecuteAction::CreateSP( this, &SPropertyMenuAssetPicker::OnClear ) )
+			if (bAllowCopyPaste)
+			{
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("CopyAsset", "Copy"),
+					LOCTEXT("CopyAsset_Tooltip", "Copies the asset to the clipboard"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateSP(this, &SPropertyMenuAssetPicker::OnCopy))
 				);
+
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("PasteAsset", "Paste"),
+					LOCTEXT("PasteAsset_Tooltip", "Pastes an asset from the clipboard to this field"),
+					FSlateIcon(),
+					FUIAction(
+						FExecuteAction::CreateSP(this, &SPropertyMenuAssetPicker::OnPaste),
+						FCanExecuteAction::CreateSP(this, &SPropertyMenuAssetPicker::CanPaste))
+				);
+			}
+
+			if (bAllowClear)
+			{
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("ClearAsset", "Clear"),
+					LOCTEXT("ClearAsset_ToolTip", "Clears the asset set on this field"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateSP(this, &SPropertyMenuAssetPicker::OnClear))
+				);
+			}
 		}
+		MenuBuilder.EndSection();
 	}
-	MenuBuilder.EndSection();
 
 	MenuBuilder.BeginSection(NAME_None, LOCTEXT("BrowseHeader", "Browse"));
 	{

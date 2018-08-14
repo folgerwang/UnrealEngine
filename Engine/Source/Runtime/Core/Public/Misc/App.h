@@ -14,6 +14,7 @@
 #include "Misc/CoreMisc.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Timecode.h"
+#include "Misc/FrameRate.h"
 #include "HAL/PlatformProcess.h"
 
 // platforms which can have runtime threading switches
@@ -599,13 +600,32 @@ public:
 	}
 
 	/**
-	 * Sets the current timecode.
+	 * Gets the current timecode frame rate.
 	 *
-	 * @param InTimecode - current timecode.
+	 * @return the current timecode frame rate.
 	 */
+	FORCEINLINE static FFrameRate GetTimecodeFrameRate()
+	{
+		return TimecodeFrameRate;
+	}
+	
+	DEPRECATED(4.21, "Please use the version of SetTimecodeAndFrameRate")
 	static void SetTimecode(FTimecode InTimecode)
 	{
 		Timecode = InTimecode;
+		TimecodeFrameRate = FFrameRate(60, 1);
+	}
+
+	/**
+	 * Sets the current timecode, and the frame rate to which it's relative.
+	 *
+	 * @param InTimecode - current timecode.
+	 * @param InTimecodeFrameRate - current timecode framerate.
+	 */
+	static void SetTimecodeAndFrameRate(FTimecode InTimecode, FFrameRate InTimecodeFrameRate)
+	{
+		Timecode = InTimecode;
+		TimecodeFrameRate = InTimecodeFrameRate;
 	}
 
 	/**
@@ -720,6 +740,9 @@ private:
 
 	/** Holds the current timecode. */
 	static FTimecode Timecode;
+
+	/** Holds the current timecode frame rate. */
+	static FFrameRate TimecodeFrameRate;
 
 	/** Use to affect the app volume when it loses focus */
 	static float VolumeMultiplier;

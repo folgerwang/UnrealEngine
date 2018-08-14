@@ -114,6 +114,7 @@ public class UnrealEd : ModuleRules
 				"LauncherPlatform",
 				"EditorStyle",
 				"EngineSettings",
+				"ImageWriteQueue",
 				"InputCore",
 				"InputBindingEditor",
 				"LauncherServices",
@@ -224,6 +225,7 @@ public class UnrealEd : ModuleRules
 				"AnimationModifiers",
 				"ClothPainter",
 				"Media",
+				"TimeManagementEditor",
 			}
 		);
 

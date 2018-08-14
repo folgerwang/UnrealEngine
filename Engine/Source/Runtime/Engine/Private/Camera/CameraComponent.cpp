@@ -18,6 +18,8 @@
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 #include "IXRCamera.h"
+#include "Math/UnitConversion.h"
+#include "Widgets/Input/NumericTypeInterface.h"
 
 #define LOCTEXT_NAMESPACE "CameraComponent"
 
@@ -81,6 +83,13 @@ void UCameraComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 	{
 		DrawFrustum->DestroyComponent();
 	}
+}
+#endif
+
+#if WITH_EDITOR
+FText UCameraComponent::GetFilmbackText() const
+{
+	return FText::FromString(LexToString(FNumericUnit<float>(FieldOfView, EUnit::Degrees)));
 }
 #endif
 

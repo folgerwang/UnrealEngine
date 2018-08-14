@@ -63,70 +63,47 @@ void Blend(const TArray<Type>& A, const TArray<Type>& B, TArray<Type>& Output, f
 	}
 }
 
-void FLiveLinkSubject::AddFrame(const FLiveLinkFrameData& FrameData, FGuid FrameSource)
+void FLiveLinkSubject::AddFrame(const FLiveLinkFrameData& FrameData, FGuid FrameSource, bool bSaveFrame)
 {
 	LastModifier = FrameSource;
 
 	FLiveLinkFrame* NewFrame = nullptr;
 
-	if (CachedInterpolationSettings.bUseInterpolation)
+	if (!bSaveFrame && FrameData.WorldTime.Time < LastReadTime)
 	{
-		if (FrameData.WorldTime.Time < LastReadTime)
-		{
-			//Gone back in time
-			Frames.Reset();
-			LastReadTime = 0;
-			SubjectTimeOffset = FrameData.WorldTime.Offset;
-		}
+		//Gone back in time
+		Frames.Reset();
+		LastReadTime = 0;
+		SubjectTimeOffset = FrameData.WorldTime.Offset;
+	}
 
-		if (Frames.Num() == 0)
-		{
-			Frames.AddDefaulted();
-			NewFrame = &Frames[0];
-			LastReadFrame = 0;
-		}
-		else
-		{
-			if (LastReadFrame > MIN_FRAMES_TO_REMOVE)
-			{
-				check(Frames.Num() > LastReadFrame);
-				Frames.RemoveAt(0, LastReadFrame, false);
-				LastReadFrame = 0;
-			}
-
-			int32 FrameIndex = Frames.Num() - 1;
-
-			for (; FrameIndex >= 0; --FrameIndex)
-			{
-				if (Frames[FrameIndex].WorldTime.Time < FrameData.WorldTime.Time)
-				{
-					break;
-				}
-			}
-
-			int32 NewFrameIndex = Frames.Insert(FLiveLinkFrame(), FrameIndex + 1);
-			NewFrame = &Frames[NewFrameIndex];
-		}
+	if (Frames.Num() == 0)
+	{
+		Frames.AddDefaulted();
+		NewFrame = &Frames[0];
+		LastReadFrame = 0;
 	}
 	else
 	{
-		//No interpolation
-		if (Frames.Num() > 1)
+		if (!bSaveFrame && (LastReadFrame > MIN_FRAMES_TO_REMOVE))
 		{
-			Frames.Reset();
+			check(Frames.Num() > LastReadFrame);
+			Frames.RemoveAt(0, LastReadFrame, false);
+			LastReadFrame = 0;
 		}
 
-		if (Frames.Num() == 0)
+		int32 FrameIndex = Frames.Num() - 1;
+
+		for (; FrameIndex >= 0; --FrameIndex)
 		{
-			Frames.AddDefaulted();
+			if (Frames[FrameIndex].WorldTime.Time <= FrameData.WorldTime.Time)
+			{
+				break;
+			}
 		}
 
-		NewFrame = &Frames[0];
-
-		LastReadTime = 0;
-		LastReadFrame = 0;
-
-		SubjectTimeOffset = FrameData.WorldTime.Offset;
+		int32 NewFrameIndex = Frames.Insert(FLiveLinkFrame(), FrameIndex + 1);
+		NewFrame = &Frames[NewFrameIndex];
 	}
 
 	FLiveLinkCurveIntegrationData IntegrationData = CurveKeyData.UpdateCurveKey(FrameData.CurveElements);
@@ -147,8 +124,21 @@ void FLiveLinkSubject::AddFrame(const FLiveLinkFrameData& FrameData, FGuid Frame
 	}
 }
 
+void FLiveLinkSubject::CopyFrameData(const FLiveLinkFrame& InFrame, FLiveLinkSubjectFrame& OutFrame)
+{
+	OutFrame.Transforms = InFrame.Transforms;
+	OutFrame.Curves = InFrame.Curves;
+	OutFrame.MetaData = InFrame.MetaData;
+}
 
-void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkSubjectFrame& OutFrame)
+void FLiveLinkSubject::CopyFrameDataBlended(const FLiveLinkFrame& PreFrame, const FLiveLinkFrame& PostFrame, float BlendWeight, FLiveLinkSubjectFrame& OutFrame)
+{
+	Blend(PreFrame.Transforms, PostFrame.Transforms, OutFrame.Transforms, BlendWeight);
+	Blend(PreFrame.Curves, PostFrame.Curves, OutFrame.Curves, BlendWeight);
+}
+
+
+void FLiveLinkSubject::GetFrameAtWorldTime(const double InSeconds, FLiveLinkSubjectFrame& OutFrame)
 {
 	OutFrame.RefSkeleton = RefSkeleton;
 	OutFrame.RefSkeletonGuid = RefSkeletonGuid;
@@ -156,12 +146,11 @@ void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkS
 
 	OutFrame.Transforms.Reset();
 	OutFrame.Curves.Reset();
+	OutFrame.MetaData.StringMetaData.Reset();
 
 	if (!CachedInterpolationSettings.bUseInterpolation)
 	{
-		OutFrame.Transforms = Frames.Last().Transforms;
-		OutFrame.Curves = Frames.Last().Curves;
-		OutFrame.MetaData = Frames.Last().MetaData;
+		CopyFrameData(Frames.Last(), OutFrame);
 		LastReadTime = Frames.Last().WorldTime.Time;
 		LastReadFrame = Frames.Num()-1;
 	}
@@ -180,9 +169,7 @@ void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkS
 				if (FrameIndex == Frames.Num() - 1)
 				{
 					LastReadFrame = FrameIndex;
-					OutFrame.Transforms = Frames[FrameIndex].Transforms;
-					OutFrame.Curves = Frames[FrameIndex].Curves;
-					OutFrame.MetaData = Frames[FrameIndex].MetaData;
+					CopyFrameData(Frames[FrameIndex], OutFrame);
 					bBuiltFrame = true;
 					break;
 				}
@@ -195,10 +182,7 @@ void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkS
 					// Calc blend weight (Amount through frame gap / frame gap) 
 					const float BlendWeight = (LastReadTime - PreFrame.WorldTime.Time) / (PostFrame.WorldTime.Time - PreFrame.WorldTime.Time);
 
-					Blend(PreFrame.Transforms, PostFrame.Transforms, OutFrame.Transforms, BlendWeight);
-					Blend(PreFrame.Curves, PostFrame.Curves, OutFrame.Curves, BlendWeight);
-					// MetaData doesn't interpolate so use the PreFrame
-					OutFrame.MetaData = PreFrame.MetaData;
+					CopyFrameDataBlended(PreFrame, PostFrame, BlendWeight, OutFrame);
 
 					bBuiltFrame = true;
 					break;
@@ -210,9 +194,7 @@ void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkS
 		{
 			LastReadFrame = 0;
 			// Failed to find an interp point so just take earliest frame
-			OutFrame.Transforms = Frames[0].Transforms;
-			OutFrame.Curves = Frames[0].Curves;
-			OutFrame.MetaData = Frames[0].MetaData;
+			CopyFrameData(Frames[0], OutFrame);
 		}
 	}
 }
@@ -323,7 +305,7 @@ void FLiveLinkClient::BuildThisTicksSubjectSnapshot()
 					SnapshotSubject = &ActiveSubjectSnapshots.Add(SubjectName);
 				}
 
-				SourceSubject.BuildInterpolatedFrame(CurrentInterpTime, *SnapshotSubject);
+				SourceSubject.GetFrameAtWorldTime(CurrentInterpTime, *SnapshotSubject);
 			}
 		}
 	}
@@ -481,13 +463,34 @@ void FLiveLinkClient::ClearSubject(FName SubjectName)
 	LiveSubjectData.Remove(SubjectName);
 }
 
+void FLiveLinkClient::ClearSubjectsFrames(FName SubjectName)
+{
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+	if (FLiveLinkSubject* Subject = LiveSubjectData.Find(SubjectName))
+	{
+		Subject->Frames.Reset();
+		Subject->LastReadTime = 0;
+	}
+	
+}
+
+void FLiveLinkClient::ClearAllSubjectsFrames()
+{
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+	for (TPair<FName, FLiveLinkSubject>& LiveSubject : LiveSubjectData)
+	{
+		LiveSubject.Value.Frames.Reset();
+		LiveSubject.Value.LastReadTime = 0;
+	}
+
+}
 void FLiveLinkClient::PushSubjectData(FGuid SourceGuid, FName SubjectName, const FLiveLinkFrameData& FrameData)
 {
 	FScopeLock Lock(&SubjectDataAccessCriticalSection);
 
 	if (FLiveLinkSubject* Subject = LiveSubjectData.Find(SubjectName))
 	{
-		Subject->AddFrame(FrameData, SourceGuid);
+		Subject->AddFrame(FrameData, SourceGuid, bSaveFrames);
 	}
 }
 
@@ -498,6 +501,43 @@ const FLiveLinkSubjectFrame* FLiveLinkClient::GetSubjectData(FName SubjectName)
 		return Subject;
 	}
 	return nullptr;
+}
+
+const FLiveLinkSubjectFrame* FLiveLinkClient::GetSubjectDataAtWorldTime(FName SubjectName, double WorldTime)
+{
+	FLiveLinkSubjectFrame* OutFrame = nullptr;
+
+	FLiveLinkSubject* Subject;
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
+	Subject = LiveSubjectData.Find(SubjectName);
+	
+	if (Subject != nullptr)
+	{
+		OutFrame = new FLiveLinkSubjectFrame();
+		Subject->GetFrameAtWorldTime(WorldTime, *OutFrame);
+	}
+	else
+	{
+		// Try Virtual Subjects
+		// TODO: Currently only works on real subjects
+	}
+
+	return OutFrame;
+}
+
+const TArray<FLiveLinkFrame>*	FLiveLinkClient::GetSubjectRawFrames(FName SubjectName)
+{
+	FLiveLinkSubject* Subject;
+	FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
+	Subject = LiveSubjectData.Find(SubjectName);
+	TArray<FLiveLinkFrame>*  Frames = nullptr;
+	if (Subject != nullptr)
+	{
+		Frames = &Subject->Frames;
+	}
+	return Frames;
 }
 
 TArray<FLiveLinkSubjectKey> FLiveLinkClient::GetSubjects()
@@ -541,6 +581,22 @@ void FLiveLinkClient::GetSubjectNames(TArray<FName>& SubjectNames)
 		SubjectNames.Emplace(VirtualSubject.Key);
 	}
 }
+
+bool FLiveLinkClient::GetSaveFrames() const
+{
+	return bSaveFrames;
+}
+
+bool FLiveLinkClient::SetSaveFrames(bool InSave)
+{
+	bool Prev = bSaveFrames;
+	if (bSaveFrames != InSave)
+	{
+		bSaveFrames = InSave;
+	}
+	return Prev;
+}
+
 
 int32 FLiveLinkClient::GetSourceIndexForPointer(TSharedPtr<ILiveLinkSource> InSource) const
 {
@@ -665,3 +721,4 @@ FText FLiveLinkVirtualSubjectSource::GetSourceType() const
 {
 	return NSLOCTEXT("TempLocTextLiveLink", "LiveLinkVirtualSubjectName", "Virtual Subjects");
 }
+
