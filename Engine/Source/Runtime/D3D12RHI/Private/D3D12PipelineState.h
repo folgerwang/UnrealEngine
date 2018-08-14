@@ -351,7 +351,7 @@ protected:
 	struct TStateCacheKeyFuncs : BaseKeyFuncs<TPair<TDesc, TValue>, TDesc, false>
 	{
 		typedef typename TTypeTraits<TDesc>::ConstPointerType KeyInitType;
-		typedef const typename TPairInitializer<typename TTypeTraits<TDesc>::ConstInitType, typename TTypeTraits<TValue>::ConstInitType>& ElementInitType;
+		typedef const TPairInitializer<typename TTypeTraits<TDesc>::ConstInitType, typename TTypeTraits<TValue>::ConstInitType>& ElementInitType;
 
 		static FORCEINLINE KeyInitType GetSetKey(ElementInitType Element)
 		{

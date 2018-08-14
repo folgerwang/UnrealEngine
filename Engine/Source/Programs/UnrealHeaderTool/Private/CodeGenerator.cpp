@@ -5178,22 +5178,13 @@ FNativeClassHeaderGenerator::FNativeClassHeaderGenerator(
 
 	const FManifestModule* ModuleInfo = GPackageToManifestModuleMap.FindChecked(Package);
 
-	// Find other includes to put at the top of the .cpp
-	FUHTStringBuilder OtherIncludes;
-	if (ModuleInfo->PCH.Len())
-	{
-		FString PCH = ModuleInfo->PCH;
-		ConvertToBuildIncludePath(Package, PCH);
-		OtherIncludes.Logf(TEXT("#include \"%s\"") LINE_TERMINATOR, *PCH);
-	}
-
 	// Generate CPP files
 	TArray<FString> GeneratedCPPNames;
 	for (const TPair<FUnrealSourceFile*, FGeneratedCPP>& GeneratedCPP : GeneratedCPPs)
 	{
 		FUHTStringBuilder FileText;
 
-		FString GeneratedIncludes = OtherIncludes;
+		FString GeneratedIncludes;
 		for (const FString& RelativeInclude : GeneratedCPP.Value.RelativeIncludes)
 		{
 			GeneratedIncludes += FString::Printf(TEXT("#include \"%s\"\r\n"), *RelativeInclude);

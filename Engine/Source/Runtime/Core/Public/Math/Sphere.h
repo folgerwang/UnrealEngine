@@ -195,7 +195,7 @@ FORCEINLINE bool FMath::SphereAABBIntersection(const FSphere& Sphere,const FBox&
 FORCEINLINE FSphere FMath::ComputeBoundingSphereForCone(FVector const& ConeOrigin, FVector const& ConeDirection, float ConeRadius, float CosConeAngle, float SinConeAngle)
 {
 	// Based on: https://bartwronski.com/2017/04/13/cull-that-cone/
-	const float COS_PI_OVER_4 = 0.707107f; // Cos(Pi/4);
+	const float COS_PI_OVER_4 = 0.70710678118f; // Cos(Pi/4);
 	if (CosConeAngle < COS_PI_OVER_4)
 	{
 		return FSphere(ConeOrigin + ConeDirection * ConeRadius * CosConeAngle, ConeRadius * SinConeAngle);

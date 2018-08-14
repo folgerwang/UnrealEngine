@@ -11,7 +11,7 @@ class CodeSurgery : BuildCommand
 {
 	public override void ExecuteBuild()
 	{
-		Log("************************* Reworking stats code");
+		LogInformation("************************* Reworking stats code");
 
 		var Wildcards = new List<string>() { "*.h", "*.cpp", "*.inl" };
 
@@ -44,7 +44,7 @@ class CodeSurgery : BuildCommand
 						!ThisFile.Contains(@"\ThirdParty\")
 						)
 					{
-						Log("Source File: {0}", ThisFile);
+						LogInformation("Source File: {0}", ThisFile);
 						AllFiles.Add(ThisFile);
 					}
 				}
@@ -124,7 +124,7 @@ class CodeSurgery : BuildCommand
 
 						if (bEnumLine || bDeclareLine)
 						{
-							Log("{0} {1} Line: {2} : {3}", bEnumLine ? "Enum" : "Declare", TypeString, StatName, Line);
+							LogInformation("{0} {1} Line: {2} : {3}", bEnumLine ? "Enum" : "Declare", TypeString, StatName, Line);
 
 							if (bEnumLine)
 							{
@@ -189,32 +189,32 @@ class CodeSurgery : BuildCommand
 		}
 
 		var ToCheckOuts = new HashSet<string>();
-		Log("Stats *************************");
+		LogInformation("Stats *************************");
 		foreach (var AllGoodStat in AllGoodStats)
 		{
-			Log("{0}", AllGoodStat);
+			LogInformation("{0}", AllGoodStat);
 			ToCheckOuts.Add(DeclareFiles[AllGoodStat]);
 			ToCheckOuts.Add(EnumFiles[AllGoodStat]);
 		}
-		Log("Groups *************************");
+		LogInformation("Groups *************************");
 		foreach (var AllGoodGroup in AllGoodGroups)
 		{
-			Log("{0}", AllGoodGroup);
+			LogInformation("{0}", AllGoodGroup);
 			ToCheckOuts.Add(DeclareFiles[AllGoodGroup]);
 			ToCheckOuts.Add(EnumFiles[AllGoodGroup]);
 		}
-		Log("Broken *************************");
+		LogInformation("Broken *************************");
 		foreach (var BrokenItem in Broken)
 		{
-			Log("{0}", BrokenItem.Key);
+			LogInformation("{0}", BrokenItem.Key);
 		}
-		Log("*************************");
+		LogInformation("*************************");
 
 		int WorkingCL = -1;
 		if (P4Enabled)
 		{
 			WorkingCL = P4.CreateChange(P4Env.Client, "Stat code surgery");
-			Log("Working in {0}", WorkingCL);
+			LogInformation("Working in {0}", WorkingCL);
 		}
 		else
 		{
@@ -229,20 +229,20 @@ class CodeSurgery : BuildCommand
 				CheckedOuts.Add(ToCheckOut);
 			}
 		}
-		Log("Checked Out *************************");
+		LogInformation("Checked Out *************************");
 		foreach (var CheckedOut in CheckedOuts)
 		{
-			Log("{0}", CheckedOut);
+			LogInformation("{0}", CheckedOut);
 		}
-		Log("Failed to check out *************************");
+		LogInformation("Failed to check out *************************");
 		foreach (var ToCheckOut in ToCheckOuts)
 		{
 			if (!CheckedOuts.Contains(ToCheckOut))
 			{
-				Log("{0}", ToCheckOut);
+				LogInformation("{0}", ToCheckOut);
 			}
 		}
-		Log("*************************");
+		LogInformation("*************************");
 		foreach (var AllGoodStat in AllGoodStats)
 		{
 			if (EnumFiles[AllGoodStat].EndsWith(".cpp", StringComparison.InvariantCultureIgnoreCase))
@@ -286,7 +286,7 @@ class CodeSurgery : BuildCommand
 			WriteAllText(EnumFiles[AllGoodGroup], EnumFileText);
 		}
 
-		Log("*************************");
+		LogInformation("*************************");
 
 	}
 }

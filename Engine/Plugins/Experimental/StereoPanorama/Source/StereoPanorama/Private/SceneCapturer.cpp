@@ -111,8 +111,8 @@ USceneCapturer::USceneCapturer(FVTableHelper& Helper)
     , bOverrideInitialYaw(FStereoPanoramaManager::ShouldOverrideInitialYaw->GetInt() != 0)
     , ForcedInitialYaw(FRotator::ClampAxis(FStereoPanoramaManager::ForcedInitialYaw->GetFloat()))
     , OutputDir(FStereoPanoramaManager::OutputDir->GetString().IsEmpty() ? FPaths::ProjectSavedDir() / TEXT("StereoPanorama") : FStereoPanoramaManager::OutputDir->GetString())
-    , dbgDisableOffsetRotation(FStereoPanoramaManager::FadeStereoToZeroAtSides->GetInt() != 0)
 	, UseCameraRotation(FStereoPanoramaManager::UseCameraRotation->GetInt())
+    , dbgDisableOffsetRotation(FStereoPanoramaManager::FadeStereoToZeroAtSides->GetInt() != 0)
 {}
 
 USceneCapturer::USceneCapturer()
@@ -133,8 +133,8 @@ USceneCapturer::USceneCapturer()
     , bOverrideInitialYaw( FStereoPanoramaManager::ShouldOverrideInitialYaw->GetInt() != 0 )
     , ForcedInitialYaw( FRotator::ClampAxis(FStereoPanoramaManager::ForcedInitialYaw->GetFloat()) )
     , OutputDir( FStereoPanoramaManager::OutputDir->GetString().IsEmpty() ? FPaths::ProjectSavedDir() / TEXT("StereoPanorama") : FStereoPanoramaManager::OutputDir->GetString() )
-    , dbgDisableOffsetRotation( FStereoPanoramaManager::FadeStereoToZeroAtSides->GetInt() != 0 )
 	, UseCameraRotation(FStereoPanoramaManager::UseCameraRotation->GetInt())
+    , dbgDisableOffsetRotation( FStereoPanoramaManager::FadeStereoToZeroAtSides->GetInt() != 0 )
 {
     //NOTE: ikrimae: Keeping the old sampling mechanism just until we're sure the new way is always better
     dbgMatchCaptureSliceFovToAtlasSliceFov = false;

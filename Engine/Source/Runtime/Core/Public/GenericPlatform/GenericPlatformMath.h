@@ -406,6 +406,28 @@ struct FGenericPlatformMath
 	}
 
 	/**
+	 * Counts the number of trailing zeros in the bit representation of the value
+	 *
+	 * @param Value the value to determine the number of trailing zeros for
+	 *
+	 * @return the number of zeros after the last "on" bit
+	 */
+	static FORCEINLINE uint64 CountTrailingZeros64(uint64 Value)
+	{
+		if (Value == 0)
+		{
+			return 64;
+		}
+		uint64 Result = 0;
+		while ((Value & 1) == 0)
+		{
+			Value >>= 1;
+			++Result;
+		}
+		return Result;
+	}
+
+	/**
 	 * Returns smallest N such that (1<<N)>=Arg.
 	 * Note: CeilLogTwo(0)=0 because (1<<0)=1 >= 0.
 	 */

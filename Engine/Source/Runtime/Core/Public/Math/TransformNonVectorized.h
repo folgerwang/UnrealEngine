@@ -591,7 +591,7 @@ public:
 		return Rotation.Rotator();
 	}
 
-	/** Calculate the  */
+	/** Calculate the determinant of this transformation */
 	FORCEINLINE float GetDeterminant() const
 	{
 		return Scale3D.X * Scale3D.Y * Scale3D.Z;

@@ -229,7 +229,7 @@ public class DeploymentContext //: ProjectParams
 	/// <summary>
 	/// List of restricted folder names which are not permitted in staged build
 	/// </summary>
-	public HashSet<FileSystemName> RestrictedFolderNames = new HashSet<FileSystemName>();
+	public HashSet<string> RestrictedFolderNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 	/// <summary>
 	/// List of directories to remap during the stage
@@ -421,8 +421,8 @@ public class DeploymentContext //: ProjectParams
 		{
 			RestrictedFolderNames.ExceptWith(PlatformExports.GetIncludedFolderNames(StagePlatform));
 		}
-		RestrictedFolderNames.UnionWith(FileFilter.RestrictedFolderNames);
-		RestrictedFolderNames.Remove(new FileSystemName(StageTargetPlatform.IniPlatformType.ToString()));
+		RestrictedFolderNames.UnionWith(RestrictedFolders.Names);
+		RestrictedFolderNames.Remove(StageTargetPlatform.IniPlatformType.ToString());
 
 		// Read the game config files
 		ConfigHierarchy GameConfig = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, ProjectRoot, InTargetPlatform.PlatformType);
@@ -549,7 +549,7 @@ public class DeploymentContext //: ProjectParams
 		{
 			foreach(DirectoryReference SubDir in DirectoryReference.EnumerateDirectories(BaseDir))
 			{
-				FileSystemName Name = new FileSystemName(SubDir);
+				string Name = SubDir.GetDirectoryName();
 				if(!RestrictedFolderNames.Contains(Name))
 				{
 					FindFilesToStageInternal(SubDir, Pattern, Option, Files);

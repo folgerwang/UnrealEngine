@@ -14,6 +14,7 @@ struct CORE_API FWindowsPlatformOutputDevices
 	: public FGenericPlatformOutputDevices
 {
 	static FOutputDevice*			GetEventLog();
+	static FOutputDeviceError*      GetError();
 };
 
 

@@ -134,7 +134,7 @@ public:
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 #endif
 	virtual void PostLoad() override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	//~ End UObject Interface.
 
 	//~ Begin USoundBase Interface.

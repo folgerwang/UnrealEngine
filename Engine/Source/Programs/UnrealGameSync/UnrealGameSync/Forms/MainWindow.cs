@@ -230,7 +230,10 @@ namespace UnrealGameSync
 			if(!bAllowClose && Settings.bKeepInTray)
 			{
 				Hide();
-				EventArgs.Cancel = true; 
+				EventArgs.Cancel = true;
+
+				Settings.bWindowVisible = Visible;
+				Settings.Save();
 			}
 			else
 			{
@@ -268,7 +271,7 @@ namespace UnrealGameSync
 
 		private void CreateErrorPanel(int ReplaceTabIdx, UserSelectedProjectSettings Project, string Message)
 		{
-			Log.WriteLine(Message);
+			Log.WriteLine(Message ?? "Unknown error");
 
 			ErrorPanel ErrorPanel = new ErrorPanel(Project);
 			ErrorPanel.Parent = TabPanel;
@@ -281,7 +284,12 @@ namespace UnrealGameSync
 
 			string SummaryText = String.Format("Unable to open '{0}'.", Project.ToString());
 
-			int NewContentWidth = Math.Max(Math.Max(TextRenderer.MeasureText(SummaryText, ErrorPanel.Font).Width, TextRenderer.MeasureText(Message, ErrorPanel.Font).Width), 400);
+			int NewContentWidth = Math.Max(TextRenderer.MeasureText(SummaryText, ErrorPanel.Font).Width, 400);
+			if(!String.IsNullOrEmpty(Message))
+			{
+				NewContentWidth = Math.Max(NewContentWidth, TextRenderer.MeasureText(Message, ErrorPanel.Font).Width);
+			}
+
 			ErrorPanel.SetContentWidth(NewContentWidth);
 
 			List<StatusLine> Lines = new List<StatusLine>();
@@ -290,18 +298,25 @@ namespace UnrealGameSync
 			SummaryLine.AddText(SummaryText);
 			Lines.Add(SummaryLine);
 
-			Lines.Add(new StatusLine(){ LineHeight = 0.5f });
+			if(!String.IsNullOrEmpty(Message))
+			{
+				Lines.Add(new StatusLine(){ LineHeight = 0.5f });
 
-			StatusLine ErrorLine = new StatusLine();
-			ErrorLine.AddText(Message);
-			Lines.Add(ErrorLine);
+				foreach(string MessageLine in Message.Split('\n'))
+				{
+					StatusLine ErrorLine = new StatusLine();
+					ErrorLine.AddText(MessageLine);
+					ErrorLine.LineHeight = 0.8f;
+					Lines.Add(ErrorLine);
+				}
+			}
 
 			Lines.Add(new StatusLine(){ LineHeight = 0.5f });
 
 			StatusLine ActionLine = new StatusLine();
-			ActionLine.AddLink("Open...", FontStyle.Bold | FontStyle.Underline, () => { BeginInvoke(new MethodInvoker(() => { EditSelectedProject(ErrorPanel); })); });
-			ActionLine.AddText(" | ");
 			ActionLine.AddLink("Retry", FontStyle.Bold | FontStyle.Underline, () => { BeginInvoke(new MethodInvoker(() => { TryOpenProject(Project, TabControl.FindTabIndex(ErrorPanel)); })); });
+			ActionLine.AddText(" | ");
+			ActionLine.AddLink("Settings", FontStyle.Bold | FontStyle.Underline, () => { BeginInvoke(new MethodInvoker(() => { EditSelectedProject(ErrorPanel); })); });
 			ActionLine.AddText(" | ");
 			ActionLine.AddLink("Close", FontStyle.Bold | FontStyle.Underline, () => { BeginInvoke(new MethodInvoker(() => { TabControl.RemoveTab(TabControl.FindTabIndex(ErrorPanel)); })); });
 			Lines.Add(ActionLine);
@@ -337,7 +352,14 @@ namespace UnrealGameSync
 		public void ShowAndActivate()
 		{
 			Show();
+			if(WindowState == FormWindowState.Minimized)
+			{
+				WindowState = FormWindowState.Normal;
+			}
 			Activate();
+
+			Settings.bWindowVisible = Visible;
+			Settings.Save();
 		}
 
 		public bool CanPerformUpdate()
@@ -565,12 +587,19 @@ namespace UnrealGameSync
 			Refresh();
 		}
 
-		public void RequestProjectChange(WorkspaceControl Workspace, UserSelectedProjectSettings Project)
+		public void RequestProjectChange(WorkspaceControl Workspace, UserSelectedProjectSettings Project, bool bModal)
 		{
 			int TabIdx = TabControl.FindTabIndex(Workspace);
-			if(TabIdx != -1)
+			if(TabIdx != -1 && !Workspace.IsBusy() && CanFocus)
 			{
-				TryOpenProject(Project, TabIdx);
+				if(bModal)
+				{
+					TryOpenProject(Project, TabIdx);
+				}
+				else
+				{
+					TryOpenProject(Project, TabIdx, OpenProjectOptions.Quiet);
+				}
 			}
 		}
 
@@ -650,12 +679,20 @@ namespace UnrealGameSync
 			using(DetectProjectSettingsTask DetectProjectSettings = new DetectProjectSettingsTask(Project, DataFolder, new PrefixedTextWriter("  ", Log)))
 			{
 				string ErrorMessage;
-				if(ModalTask.Execute(this, DetectProjectSettings, "Opening Project", "Opening project, please wait...", out ErrorMessage) != ModalTaskResult.Succeeded)
+
+				ModalTaskResult Result;
+				if((Options & OpenProjectOptions.Quiet) != 0)
 				{
-					if(!String.IsNullOrEmpty(ErrorMessage) && (Options & OpenProjectOptions.Quiet) == 0)
-					{
-						CreateErrorPanel(ReplaceTabIdx, Project, ErrorMessage);
-					}
+					Result = ModalTask.Execute(this, DetectProjectSettings, "Opening Project", "Opening project, please wait...", out ErrorMessage);
+				}
+				else
+				{
+					Result = PerforceModalTask.Execute(this, Project.LocalPath, Project.ServerAndPort, Project.UserName, DetectProjectSettings, "Opening Project", "Opening project, please wait...", Log, out ErrorMessage);
+				}
+
+				if(Result != ModalTaskResult.Succeeded)
+				{
+					CreateErrorPanel(ReplaceTabIdx, Project, ErrorMessage);
 					return -1;
 				}
 				return TryOpenProject(DetectProjectSettings, ReplaceTabIdx, Options);

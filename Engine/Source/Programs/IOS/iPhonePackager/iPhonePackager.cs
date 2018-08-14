@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
  */
 
@@ -929,7 +929,7 @@ namespace iPhonePackager
                             if (CodeSignatureBuilder.FindRequiredFiles(out Provision, out Cert, out bHasOverrideFile, out bNameMatch) && Cert != null)
                             {
                                 // print out the provision and cert name
-                                Program.LogVerbose("CERTIFICATE-{0},PROVISION-{1}", Cert.FriendlyName, Path.GetFileName(Provision.FileName));
+                                Program.LogVerbose("CERTIFICATE-{0},PROVISION-{1}", Cert.FriendlyName, Provision.FileName);
                             }
                             else
                             {

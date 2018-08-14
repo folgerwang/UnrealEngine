@@ -104,14 +104,14 @@ namespace UnrealBuildTool
 		static bool ShouldInclude(FileSystemReference Reference, string[] InvariantExcludedSuffixes)
 		{
 			// Ignore Mac resource fork files on non-HFS partitions
-			if (Path.GetFileName(Reference.CanonicalName).StartsWith("._"))
+			if (Path.GetFileName(Reference.FullName).StartsWith("._"))
 			{
 				return false;
 			}
 			
 			foreach (string InvariantExcludedSuffix in InvariantExcludedSuffixes)
 			{
-				if (StringUtils.FastEndsWith(Reference.CanonicalName, InvariantExcludedSuffix))
+				if (StringUtils.FastEndsWith(Reference.FullName, InvariantExcludedSuffix))
 				{
 					return false;
 				}

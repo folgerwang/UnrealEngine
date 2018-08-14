@@ -42,10 +42,14 @@ public:
 	 */
 	static EBuildConfigurations::Type GetBuildConfiguration();
 
+#if UE_BUILD_DEVELOPMENT
 	/**
-	 * Gets whether the application is running with Debug game libraries (set from commandline)
+	 * For development configurations, sets whether the application should load DebugGame game modules.
+	 *
+	 * @param Whether we're running in debug game or not.
 	 */
-	static bool IsRunningDebug();
+	static void SetDebugGame(bool bIsDebugGame);
+#endif
 
 	/*
 	* Gets the unique version string for this build. This string is not assumed to have any particular format other being a unique identifier for the build.
@@ -695,6 +699,11 @@ public:
 	static bool bUseFixedSeed;
 
 private:
+
+#if UE_BUILD_DEVELOPMENT
+	/** The current build configuration */
+	static bool bIsDebugGame;
+#endif
 
 	/** Holds the instance identifier. */
 	static FGuid InstanceId;

@@ -753,7 +753,8 @@ bool FPackageName::FindPackageFileWithoutExtension(const FString& InPackageFilen
 	};
 
 	// Loop through all known extensions and check if the file exist.
-	const int32 BaseIndex = (InAllowTextFormats && WITH_TEXT_ARCHIVE_SUPPORT) ? 0 : 2;
+	const bool bDebuggingTextFormatEnable = true;
+	const int32 BaseIndex = (bDebuggingTextFormatEnable && InAllowTextFormats && WITH_TEXT_ARCHIVE_SUPPORT) ? 0 : 2;
 	for (int32 ExtensionIndex = BaseIndex; ExtensionIndex < ARRAY_COUNT(PackageExtensions); ++ExtensionIndex)
 	{
 		FString   PackageFilename = InPackageFilename + *PackageExtensions[ExtensionIndex];
@@ -817,9 +818,8 @@ bool FPackageName::DoesPackageExist(const FString& LongPackageName, const FGuid*
 
 	if (!FPackageName::TryConvertFilenameToLongPackageName(LongPackageName, PackageName))
 	{
-		verify(!FPackageName::IsValidLongPackageName(PackageName, true, &Reason));
+		verify(!FPackageName::IsValidLongPackageName(LongPackageName, true, &Reason));
 		UE_LOG(LogPackageName, Error, TEXT("Illegal call to DoesPackageExist: '%s' is not a standard unreal filename or a long path name. Reason: %s"), *LongPackageName, *Reason.ToString());
-		ensureMsgf(false, TEXT("Illegal call to DoesPackageExist: '%s' is not a standard unreal filename or a long path name. Reason: %s"), *LongPackageName, *Reason.ToString());
 		return false;
 	}
 	// Once we have the real Package Name, we can exit early if it's a script package - they exist only in memory.

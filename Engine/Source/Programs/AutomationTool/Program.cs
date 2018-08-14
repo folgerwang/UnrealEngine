@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 // This software is provided "as-is," without any express or implied warranty. 
 // In no event shall the author, nor Epic Games, Inc. be held liable for any damages arising from the use of this software.
 // This software will not be supported.
@@ -35,7 +35,7 @@ namespace AutomationTool
             }
 
 			// Parse the log level argument
-			UnrealBuildTool.LogEventType LogLevel = LogEventType.Log;
+			LogEventType LogLevel = LogEventType.Log;
 			if(CommandUtils.ParseParam(Arguments, "-Verbose"))
 			{
 				LogLevel = LogEventType.Verbose;
@@ -47,7 +47,7 @@ namespace AutomationTool
 
 			// Initialize the log system, buffering the output until we can create the log file
 			StartupTraceListener StartupListener = new StartupTraceListener();
-			UnrealBuildTool.Log.InitLogging(
+			Log.InitLogging(
                 bLogTimestamps: CommandUtils.ParseParam(Arguments, "-Timestamps"),
 				InLogLevel: LogLevel,
                 bLogSeverity: true,
@@ -57,7 +57,6 @@ namespace AutomationTool
                 bColorConsoleOutput: true,
                 TraceListeners: new TraceListener[]
                 {
-                    new UEConsoleTraceListener(),
 					StartupListener
 				}
 			);
@@ -102,13 +101,13 @@ namespace AutomationTool
 			catch (AutomationException Ex)
 			{
 				// Take the exit code from the exception
-				ExceptionUtils.PrintExceptionInfo(Ex, LogUtils.FinalLogFileName);
+				Log.WriteException(Ex, LogUtils.FinalLogFileName);
 				ReturnCode = Ex.ErrorCode;
 			}
 			catch (Exception Ex)
 			{
 				// Use a default exit code
-				ExceptionUtils.PrintExceptionInfo(Ex, LogUtils.FinalLogFileName);
+				Log.WriteException(Ex, LogUtils.FinalLogFileName);
 				ReturnCode = ExitCode.Error_Unknown;
 			}
             finally

@@ -63,9 +63,9 @@ bool FTextHistory::GetHistoricNumericData(const FText& InText, FHistoricTextNume
 	return false;
 }
 
-void FTextHistory::SerializeForDisplayString(FArchive& Ar, FTextDisplayStringPtr& InOutDisplayString)
+void FTextHistory::SerializeForDisplayString(FStructuredArchive::FRecord Record, FTextDisplayStringPtr& InOutDisplayString)
 {
-	if(Ar.IsLoading())
+	if(Record.GetUnderlyingArchive().IsLoading())
 	{
 		// We will definitely need to do a rebuild later
 		Revision = 0;
@@ -135,19 +135,21 @@ const FString* FTextHistory_Base::GetSourceString() const
 	return &SourceString;
 }
 
-void FTextHistory_Base::Serialize( FArchive& Ar )
+void FTextHistory_Base::Serialize(FStructuredArchive::FRecord Record)
 {
 	// If I serialize out the Namespace and Key HERE, then we can load it up.
-	if(Ar.IsSaving())
+	if(Record.GetUnderlyingArchive().IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::Base;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 }
 
-void FTextHistory_Base::SerializeForDisplayString(FArchive& Ar, FTextDisplayStringPtr& InOutDisplayString)
+void FTextHistory_Base::SerializeForDisplayString(FStructuredArchive::FRecord Record, FTextDisplayStringPtr& InOutDisplayString)
 {
-	if(Ar.IsLoading())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if(BaseArchive.IsLoading())
 	{
 		// We will definitely need to do a rebuild later
 		Revision = 0;
@@ -155,16 +157,16 @@ void FTextHistory_Base::SerializeForDisplayString(FArchive& Ar, FTextDisplayStri
 		FString Namespace;
 		FString Key;
 
-		Ar << Namespace;
-		Ar << Key;
-		Ar << SourceString;
+		Record << NAMED_FIELD(Namespace);
+		Record << NAMED_FIELD(Key);
+		Record << NAMED_FIELD(SourceString);
 
 #if USE_STABLE_LOCALIZATION_KEYS
 		// Make sure the package namespace for this text property is up-to-date
 		// We do this on load (as well as save) to handle cases where data is being duplicated, as it will be written by one package and loaded into another
-		if (GIsEditor && !Ar.HasAnyPortFlags(PPF_DuplicateVerbatim | PPF_DuplicateForPIE))
+		if (GIsEditor && !Record.GetUnderlyingArchive().HasAnyPortFlags(PPF_DuplicateVerbatim | PPF_DuplicateForPIE))
 		{
-			const FString PackageNamespace = TextNamespaceUtil::GetPackageNamespace(Ar);
+			const FString PackageNamespace = TextNamespaceUtil::GetPackageNamespace(BaseArchive);
 			if (!PackageNamespace.IsEmpty())
 			{
 				const FString FullNamespace = TextNamespaceUtil::BuildFullNamespace(Namespace, PackageNamespace);
@@ -189,7 +191,7 @@ void FTextHistory_Base::SerializeForDisplayString(FArchive& Ar, FTextDisplayStri
 		// Using the deserialized namespace and key, find the DisplayString.
 		InOutDisplayString = FTextLocalizationManager::Get().GetDisplayString(Namespace, Key, &SourceString);
 	}
-	else if(Ar.IsSaving())
+	else if(BaseArchive.IsSaving())
 	{
 		check(InOutDisplayString.IsValid());
 
@@ -197,7 +199,7 @@ void FTextHistory_Base::SerializeForDisplayString(FArchive& Ar, FTextDisplayStri
 		FString Key;
 		const bool bFoundNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(InOutDisplayString.ToSharedRef(), Namespace, Key);
 
-		if (Ar.IsCooking())
+		if (BaseArchive.IsCooking())
 		{
 			// We strip the package localization off the serialized text for a cooked game, as they're not used at runtime
 			Namespace = TextNamespaceUtil::StripPackageNamespace(Namespace);
@@ -205,9 +207,9 @@ void FTextHistory_Base::SerializeForDisplayString(FArchive& Ar, FTextDisplayStri
 		else
 #if USE_STABLE_LOCALIZATION_KEYS
 		// Make sure the package namespace for this text property is up-to-date
-		if (GIsEditor && !Ar.HasAnyPortFlags(PPF_DuplicateVerbatim | PPF_DuplicateForPIE))
+		if (GIsEditor && !BaseArchive.HasAnyPortFlags(PPF_DuplicateVerbatim | PPF_DuplicateForPIE))
 		{
-			const FString PackageNamespace = TextNamespaceUtil::GetPackageNamespace(Ar);
+			const FString PackageNamespace = TextNamespaceUtil::GetPackageNamespace(BaseArchive);
 			if (!PackageNamespace.IsEmpty())
 			{
 				const FString FullNamespace = TextNamespaceUtil::BuildFullNamespace(Namespace, PackageNamespace);
@@ -223,7 +225,7 @@ void FTextHistory_Base::SerializeForDisplayString(FArchive& Ar, FTextDisplayStri
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
 		// If this has no key, give it a GUID for a key
-		if (!bFoundNamespaceAndKey && GIsEditor && (Ar.IsPersistent() && !Ar.HasAnyPortFlags(PPF_Duplicate)))
+		if (!bFoundNamespaceAndKey && GIsEditor && (BaseArchive.IsPersistent() && !BaseArchive.HasAnyPortFlags(PPF_Duplicate)))
 		{
 			Key = FGuid::NewGuid().ToString();
 			if (!FTextLocalizationManager::Get().AddDisplayString(InOutDisplayString.ToSharedRef(), Namespace, Key))
@@ -235,13 +237,13 @@ void FTextHistory_Base::SerializeForDisplayString(FArchive& Ar, FTextDisplayStri
 		}
 
 		// Serialize the Namespace
-		Ar << Namespace;
+		Record << NAMED_FIELD(Namespace);
 
 		// Serialize the Key
-		Ar << Key;
+		Record << NAMED_FIELD(Key);
 
 		// Serialize the SourceString
-		Ar << SourceString;
+		Record << NAMED_FIELD(SourceString);
 	}
 }
 
@@ -282,27 +284,29 @@ FString FTextHistory_NamedFormat::BuildInvariantDisplayString() const
 	return FTextFormatter::FormatStr(SourceFmt, Arguments, true, true);
 }
 
-void FTextHistory_NamedFormat::Serialize( FArchive& Ar )
+void FTextHistory_NamedFormat::Serialize(FStructuredArchive::FRecord Record)
 {
-	if(Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if(BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::NamedFormat;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	if (Ar.IsSaving())
+	if (BaseArchive.IsSaving())
 	{
 		FText FormatText = SourceFmt.GetSourceText();
-		Ar << FormatText;
+		Record.EnterField(FIELD_NAME_TEXT("FormatText")) << FormatText;
 	}
-	else if (Ar.IsLoading())
+	else if (BaseArchive.IsLoading())
 	{
 		FText FormatText;
-		Ar << FormatText;
+		Record.EnterField(FIELD_NAME_TEXT("FormatText")) << FormatText;
 		SourceFmt = FTextFormat(FormatText);
 	}
 
-	Ar << Arguments;
+	Record << NAMED_FIELD(Arguments);
 }
 
 void FTextHistory_NamedFormat::GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const
@@ -361,27 +365,29 @@ FString FTextHistory_OrderedFormat::BuildInvariantDisplayString() const
 	return FTextFormatter::FormatStr(SourceFmt, Arguments, true, true);
 }
 
-void FTextHistory_OrderedFormat::Serialize( FArchive& Ar )
+void FTextHistory_OrderedFormat::Serialize(FStructuredArchive::FRecord Record)
 {
-	if(Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if(BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::OrderedFormat;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	if (Ar.IsSaving())
+	if (BaseArchive.IsSaving())
 	{
 		FText FormatText = SourceFmt.GetSourceText();
-		Ar << FormatText;
+		Record.EnterField(FIELD_NAME_TEXT("FormatText")) << FormatText;
 	}
-	else if (Ar.IsLoading())
+	else if (BaseArchive.IsLoading())
 	{
 		FText FormatText;
-		Ar << FormatText;
+		Record.EnterField(FIELD_NAME_TEXT("FormatText")) << FormatText;
 		SourceFmt = FTextFormat(FormatText);
 	}
 
-	Ar << Arguments;
+	Record << NAMED_FIELD(Arguments);
 }
 
 void FTextHistory_OrderedFormat::GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const
@@ -447,27 +453,29 @@ FString FTextHistory_ArgumentDataFormat::BuildInvariantDisplayString() const
 	return FTextFormatter::FormatStr(SourceFmt, Arguments, true, true);
 }
 
-void FTextHistory_ArgumentDataFormat::Serialize( FArchive& Ar )
+void FTextHistory_ArgumentDataFormat::Serialize(FStructuredArchive::FRecord Record)
 {
-	if(Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if(BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::ArgumentFormat;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	if (Ar.IsSaving())
+	if (BaseArchive.IsSaving())
 	{
 		FText FormatText = SourceFmt.GetSourceText();
-		Ar << FormatText;
+		Record.EnterField(FIELD_NAME_TEXT("FormatText")) << FormatText;
 	}
-	else if (Ar.IsLoading())
+	else if (BaseArchive.IsLoading())
 	{
 		FText FormatText;
-		Ar << FormatText;
+		Record.EnterField(FIELD_NAME_TEXT("FormatText")) << FormatText;
 		SourceFmt = FTextFormat(FormatText);
 	}
 
-	Ar << Arguments;
+	Record << NAMED_FIELD(Arguments);
 }
 
 void FTextHistory_ArgumentDataFormat::GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const
@@ -545,14 +553,16 @@ FTextHistory_FormatNumber& FTextHistory_FormatNumber::operator=(FTextHistory_For
 	return *this;
 }
 
-void FTextHistory_FormatNumber::Serialize(FArchive& Ar)
+void FTextHistory_FormatNumber::Serialize(FStructuredArchive::FRecord Record)
 {
-	Ar << SourceValue;
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	Record << NAMED_FIELD(SourceValue);
 
 	bool bHasFormatOptions = FormatOptions.IsSet();
-	Ar << bHasFormatOptions;
+	Record << NAMED_FIELD(bHasFormatOptions);
 
-	if(Ar.IsLoading())
+	if(BaseArchive.IsLoading())
 	{
 		if(bHasFormatOptions)
 		{
@@ -566,18 +576,19 @@ void FTextHistory_FormatNumber::Serialize(FArchive& Ar)
 	if(bHasFormatOptions)
 	{
 		check(FormatOptions.IsSet());
-		Ar << FormatOptions.GetValue();
+		FNumberFormattingOptions& Options = FormatOptions.GetValue();
+		Record << NAMED_FIELD(Options);
 	}
 
-	if(Ar.IsSaving())
+	if(BaseArchive.IsSaving())
 	{
 		FString CultureName = TargetCulture.IsValid()? TargetCulture->GetName() : FString();
-		Ar << CultureName;
+		Record << NAMED_FIELD(CultureName);
 	}
-	else if(Ar.IsLoading())
+	else if(BaseArchive.IsLoading())
 	{
 		FString CultureName;
-		Ar << CultureName;
+		Record << NAMED_FIELD(CultureName);
 
 		if(!CultureName.IsEmpty())
 		{
@@ -646,15 +657,17 @@ FString FTextHistory_AsNumber::BuildInvariantDisplayString() const
 	return BuildNumericDisplayString(FormattingRules);
 }
 
-void FTextHistory_AsNumber::Serialize( FArchive& Ar )
+void FTextHistory_AsNumber::Serialize(FStructuredArchive::FRecord Record)
 {
-	if(Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if(BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::AsNumber;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	FTextHistory_FormatNumber::Serialize(Ar);
+	FTextHistory_FormatNumber::Serialize(Record);
 }
 
 bool FTextHistory_AsNumber::GetHistoricNumericData(const FText& InText, FHistoricTextNumericData& OutHistoricNumericData) const
@@ -702,15 +715,17 @@ FString FTextHistory_AsPercent::BuildInvariantDisplayString() const
 	return BuildNumericDisplayString(FormattingRules, 100);
 }
 
-void FTextHistory_AsPercent::Serialize( FArchive& Ar )
+void FTextHistory_AsPercent::Serialize(FStructuredArchive::FRecord Record)
 {
-	if(Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if(BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::AsPercent;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	FTextHistory_FormatNumber::Serialize(Ar);
+	FTextHistory_FormatNumber::Serialize(Record);
 }
 
 bool FTextHistory_AsPercent::GetHistoricNumericData(const FText& InText, FHistoricTextNumericData& OutHistoricNumericData) const
@@ -766,20 +781,22 @@ FString FTextHistory_AsCurrency::BuildInvariantDisplayString() const
 	return BuildNumericDisplayString(FormattingRules);
 }
 
-void FTextHistory_AsCurrency::Serialize( FArchive& Ar )
+void FTextHistory_AsCurrency::Serialize(FStructuredArchive::FRecord Record)
 {
-	if(Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if(BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::AsCurrency;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	if (Ar.UE4Ver() >= VER_UE4_ADDED_CURRENCY_CODE_TO_FTEXT)
+	if (BaseArchive.UE4Ver() >= VER_UE4_ADDED_CURRENCY_CODE_TO_FTEXT)
 	{
-		Ar << CurrencyCode;
+		Record << NAMED_FIELD(CurrencyCode);
 	}
 
-	FTextHistory_FormatNumber::Serialize(Ar);
+	FTextHistory_FormatNumber::Serialize(Record);
 }
 
 ///////////////////////////////////////
@@ -815,34 +832,36 @@ FTextHistory_AsDate& FTextHistory_AsDate::operator=(FTextHistory_AsDate&& Other)
 	return *this;
 }
 
-void FTextHistory_AsDate::Serialize(FArchive& Ar)
+void FTextHistory_AsDate::Serialize(FStructuredArchive::FRecord Record)
 {
-	if(Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if(BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::AsDate;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	Ar << SourceDateTime;
+	Record << NAMED_FIELD(SourceDateTime);
 
 	int8 DateStyleInt8 = (int8)DateStyle;
-	Ar << DateStyleInt8;
+	Record << NAMED_FIELD(DateStyleInt8);
 	DateStyle = (EDateTimeStyle::Type)DateStyleInt8;
 
-	if( Ar.UE4Ver() >= VER_UE4_FTEXT_HISTORY_DATE_TIMEZONE )
+	if( BaseArchive.UE4Ver() >= VER_UE4_FTEXT_HISTORY_DATE_TIMEZONE )
 	{
-		Ar << TimeZone;
+		Record << NAMED_FIELD(TimeZone);
 	}
 
-	if(Ar.IsSaving())
+	if(BaseArchive.IsSaving())
 	{
 		FString CultureName = TargetCulture.IsValid()? TargetCulture->GetName() : FString();
-		Ar << CultureName;
+		Record << NAMED_FIELD(CultureName);
 	}
-	else if(Ar.IsLoading())
+	else if(BaseArchive.IsLoading())
 	{
 		FString CultureName;
-		Ar << CultureName;
+		Record << NAMED_FIELD(CultureName);
 
 		if(!CultureName.IsEmpty())
 		{
@@ -902,31 +921,33 @@ FTextHistory_AsTime& FTextHistory_AsTime::operator=(FTextHistory_AsTime&& Other)
 	return *this;
 }
 
-void FTextHistory_AsTime::Serialize(FArchive& Ar)
+void FTextHistory_AsTime::Serialize(FStructuredArchive::FRecord Record)
 {
-	if(Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if(BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::AsTime;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	Ar << SourceDateTime;
+	Record << NAMED_FIELD(SourceDateTime);
 
 	int8 TimeStyleInt8 = (int8)TimeStyle;
-	Ar << TimeStyleInt8;
+	Record << NAMED_ITEM("TimeStyle", TimeStyleInt8);
 	TimeStyle = (EDateTimeStyle::Type)TimeStyleInt8;
 
-	Ar << TimeZone;
+	Record << NAMED_FIELD(TimeZone);
 
-	if(Ar.IsSaving())
+	if(BaseArchive.IsSaving())
 	{
 		FString CultureName = TargetCulture.IsValid()? TargetCulture->GetName() : FString();
-		Ar << CultureName;
+		Record << NAMED_FIELD(CultureName);
 	}
-	else if(Ar.IsLoading())
+	else if(BaseArchive.IsLoading())
 	{
 		FString CultureName;
-		Ar << CultureName;
+		Record << NAMED_FIELD(CultureName);
 
 		if(!CultureName.IsEmpty())
 		{
@@ -989,35 +1010,37 @@ FTextHistory_AsDateTime& FTextHistory_AsDateTime::operator=(FTextHistory_AsDateT
 	return *this;
 }
 
-void FTextHistory_AsDateTime::Serialize(FArchive& Ar)
+void FTextHistory_AsDateTime::Serialize(FStructuredArchive::FRecord Record)
 {
-	if(Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if(BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::AsDateTime;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	Ar << SourceDateTime;
+	Record << NAMED_FIELD(SourceDateTime);
 
 	int8 DateStyleInt8 = (int8)DateStyle;
-	Ar << DateStyleInt8;
+	Record << NAMED_ITEM("DateStyle", DateStyleInt8);
 	DateStyle = (EDateTimeStyle::Type)DateStyleInt8;
 
 	int8 TimeStyleInt8 = (int8)TimeStyle;
-	Ar << TimeStyleInt8;
+	Record << NAMED_ITEM("TimeStyle", TimeStyleInt8);
 	TimeStyle = (EDateTimeStyle::Type)TimeStyleInt8;
 
-	Ar << TimeZone;
+	Record << NAMED_FIELD(TimeZone);
 
-	if(Ar.IsSaving())
+	if(BaseArchive.IsSaving())
 	{
 		FString CultureName = TargetCulture.IsValid()? TargetCulture->GetName() : FString();
-		Ar << CultureName;
+		Record << NAMED_FIELD(CultureName);
 	}
-	else if(Ar.IsLoading())
+	else if(BaseArchive.IsLoading())
 	{
 		FString CultureName;
-		Ar << CultureName;
+		Record << NAMED_FIELD(CultureName);
 
 		if(!CultureName.IsEmpty())
 		{
@@ -1071,16 +1094,20 @@ FTextHistory_Transform& FTextHistory_Transform::operator=(FTextHistory_Transform
 	return *this;
 }
 
-void FTextHistory_Transform::Serialize(FArchive& Ar)
+void FTextHistory_Transform::Serialize(FStructuredArchive::FRecord Record)
 {
-	if (Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if (BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::Transform;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	Ar << SourceText;
-	Ar << (uint8&)TransformType;
+	Record << NAMED_FIELD(SourceText);
+
+	uint8& TransformTypeRef = (uint8&)TransformType;
+	Record << NAMED_ITEM("TransformType", TransformTypeRef);
 }
 
 FString FTextHistory_Transform::BuildLocalizedDisplayString() const
@@ -1201,21 +1228,23 @@ void FTextHistory_StringTableEntry::GetTableIdAndKey(FName& OutTableId, FString&
 	OutKey = Key;
 }
 
-void FTextHistory_StringTableEntry::Serialize(FArchive& Ar)
+void FTextHistory_StringTableEntry::Serialize(FStructuredArchive::FRecord Record)
 {
-	if (Ar.IsSaving())
+	FArchive& BaseArchive = Record.GetUnderlyingArchive();
+
+	if (BaseArchive.IsSaving())
 	{
 		int8 HistoryType = (int8)ETextHistoryType::StringTableEntry;
-		Ar << HistoryType;
+		Record << NAMED_FIELD(HistoryType);
 	}
 
-	if (Ar.IsLoading())
+	if (BaseArchive.IsLoading())
 	{
 		// We will definitely need to do a rebuild later
 		Revision = 0;
 
-		Ar << TableId;
-		Ar << Key;
+		Record << NAMED_FIELD(TableId);
+		Record << NAMED_FIELD(Key);
 
 		// String Table assets should already have been created via dependency loading when using the EDL (although they may not be fully loaded yet)
 		const bool bIsAsset = IStringTableEngineBridge::IsStringTableFromAsset(TableId);
@@ -1229,7 +1258,7 @@ void FTextHistory_StringTableEntry::Serialize(FArchive& Ar)
 		// If we couldn't load a string table asset because this wasn't the game thread, defer the loading request until we're able to process it
 		bStringTableAssetPendingLoad = !StringTableEntryPin.IsValid() && bIsAsset && !IsInGameThread() && !GEventDrivenLoaderEnabled;
 	}
-	else if (Ar.IsSaving())
+	else if (BaseArchive.IsSaving())
 	{
 		// Update the table ID and key on save to make sure they're up-to-date
 		FStringTableEntryConstPtr StringTableEntryPin = GetStringTableEntry();
@@ -1239,17 +1268,17 @@ void FTextHistory_StringTableEntry::Serialize(FArchive& Ar)
 			FStringTableRegistry::Get().FindTableIdAndKey(DisplayString.ToSharedRef(), TableId, Key);
 		}
 
-		Ar << TableId;
-		Ar << Key;
+		Record << NAMED_FIELD(TableId);
+		Record << NAMED_FIELD(Key);
 	}
 
 	// Collect string table asset references
-	FStringTableReferenceCollection::CollectAssetReferences(TableId, Ar);
+	FStringTableReferenceCollection::CollectAssetReferences(TableId, Record);
 }
 
-void FTextHistory_StringTableEntry::SerializeForDisplayString(FArchive& Ar, FTextDisplayStringPtr& InOutDisplayString)
+void FTextHistory_StringTableEntry::SerializeForDisplayString(FStructuredArchive::FRecord Record, FTextDisplayStringPtr& InOutDisplayString)
 {
-	if (Ar.IsLoading())
+	if (Record.GetUnderlyingArchive().IsLoading())
 	{
 		// We will definitely need to do a rebuild later
 		Revision = 0;

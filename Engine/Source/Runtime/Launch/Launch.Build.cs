@@ -36,6 +36,16 @@ public class Launch : ModuleRules
 				"UtilityShaders",
 		});
 
+		// Set a macro allowing us to switch between debuggame/development configuration
+		if(Target.Configuration == UnrealTargetConfiguration.DebugGame)
+		{
+			PrivateDefinitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=1");
+		}
+		else
+		{
+			PrivateDefinitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=0");
+		}
+
 		// Enable the LauncherCheck module to be used for platforms that support the Launcher.
 		// Projects should set Target.bUseLauncherChecks in their Target.cs to enable the functionality.
 		if (Target.bUseLauncherChecks &&

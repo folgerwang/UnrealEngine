@@ -15,5 +15,8 @@ void VARARGS FError::ThrowfImpl(const TCHAR* Fmt, ...)
 #else
 	UE_LOG(LogOutputDevice, Fatal, TEXT("THROW: %s"), TempStr);
 #endif
+#if PLATFORM_WINDOWS && defined(__clang__)
+	abort();
+#endif
 }					
 #endif

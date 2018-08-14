@@ -57,7 +57,7 @@ public:
 #if USE_STATIC_ROOT_SIGNATURE
 	template<> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator<D3D12_CONSTANT_BUFFER_VIEW_DESC>() { return CBVAllocator; }
 #else
-	template<> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator<D3D12_CONSTANT_BUFFER_VIEW_DESC>() { check(false); }
+	template<> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator<D3D12_CONSTANT_BUFFER_VIEW_DESC>() { check(false); abort(); }
 #endif
 
 	inline FD3D12OfflineDescriptorManager& GetSamplerDescriptorAllocator() { return SamplerAllocator; }

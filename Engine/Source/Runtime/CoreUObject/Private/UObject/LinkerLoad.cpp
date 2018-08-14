@@ -949,16 +949,18 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader(
 					
 					FName FullObjectPath = *InName.Right(InName.Len() - EndOfClassNameIndex - 1);
 					UObject* Result = nullptr;
-					const FPackageIndex* PackageIndex = ObjectNameToPackageIndex.Find(FullObjectPath);
-					if (PackageIndex != nullptr)
+					const FPackageIndex* ExportIndex = ObjectNameToPackageExportIndex.Find(FullObjectPath);
+					if (ExportIndex)
 					{
-						if (PackageIndex->IsExport())
+						Result = CreateExport(ExportIndex->ToExport());
+					}
+					else
+					{
+						const FPackageIndex* ImportIndex = ObjectNameToPackageImportIndex.Find(FullObjectPath);
+
+						if (ImportIndex)
 						{
-							Result = CreateExport(PackageIndex->ToExport());
-						}
-						else if (PackageIndex->IsImport())
-						{
-							Result = CreateImport(PackageIndex->ToImport());
+							Result = CreateImport(ImportIndex->ToImport());
 						}
 					}
 
@@ -968,9 +970,17 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader(
 			else
 #endif
 			{
-				Loader = new FArchiveAsync2(*Filename
-					, GEventDrivenLoaderEnabled ? Forward<TFunction<void()>>(InSummaryReadyCallback) : TFunction<void()>([]() {})
-				);
+				bool bCanUseFArchiveAsync2 = FPlatformProperties::RequiresCookedData();
+				if (bCanUseFArchiveAsync2)
+				{
+					Loader = new FArchiveAsync2(*Filename
+						, GEventDrivenLoaderEnabled ? Forward<TFunction<void()>>(InSummaryReadyCallback) : TFunction<void()>([]() {})
+					);
+				}
+				else
+				{
+					Loader = IFileManager::Get().CreateFileReader(*Filename);
+				}
 
 				if (!Loader)
 				{
@@ -1012,7 +1022,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader(
 				}
 				else
 				{
-					bLoaderIsFArchiveAsync2 = true;
+					bLoaderIsFArchiveAsync2 = bCanUseFArchiveAsync2;
 				}
 			}
 		} 
@@ -1318,7 +1328,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		}
 		
 		// Propagate fact that package cannot use lazy loading to archive (aka this).
-		if( (Summary.PackageFlags & PKG_DisallowLazyLoading) )
+		if( (Summary.PackageFlags & PKG_DisallowLazyLoading) || IsTextFormat() )
 		{
 			ArAllowLazyLoading = false;
 		}
@@ -1951,7 +1961,8 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FinalizeCreation()
 
 		if (IsTextFormat())
 		{
-			ObjectNameToPackageIndex.Empty(ExportMap.Num() + ImportMap.Num());
+			ObjectNameToPackageExportIndex.Empty(ExportMap.Num());
+			ObjectNameToPackageImportIndex.Empty(ImportMap.Num());
 
 			// Build full export map name lookup
 			for (int32 ExportIndex = 0; ExportIndex < ExportMap.Num(); ++ExportIndex)
@@ -1968,19 +1979,27 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FinalizeCreation()
 					}
 					FullName = Export.ObjectName.ToString() + FullName;
 					CurIndex = Export.OuterIndex;
-
 				} while (!CurIndex.IsNull());
 				
-				int32 DotIndex = INDEX_NONE;
-				if (FullName.FindChar('.', DotIndex))
+				// In some cases, the export in this package can be pathed into a different package (map BuiltInData stuff mainly) so we only want to attach
+				// this package path to the name if it doesn't look like a long package name
+				if (FullName[0] != '/')
 				{
-					FullName[DotIndex] = ':';
+					int32 DotIndex = INDEX_NONE;
+					if (FullName.FindChar('.', DotIndex))
+					{
+						FullName[DotIndex] = ':';
+					}
+
+					FullName = LinkerRoot->GetName() + TEXT(".") + FullName;
 				}
-				FullName = LinkerRoot->GetName() + TEXT(".") + FullName;
-				ObjectNameToPackageIndex.Add(*FullName, FPackageIndex::FromExport(ExportIndex));
+
+				check(ObjectNameToPackageExportIndex.Find(*FullName) == nullptr);
+				ObjectNameToPackageExportIndex.Add(*FullName, FPackageIndex::FromExport(ExportIndex));
 			}
 
 			// Same for import map
+			ObjectNameToPackageImportIndex.Reserve(ImportMap.Num());
 			for (int32 ImportIndex = 0; ImportIndex < ImportMap.Num(); ++ImportIndex)
 			{
 				FPackageIndex CurIndex = FPackageIndex::FromImport(ImportIndex);
@@ -1996,7 +2015,10 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FinalizeCreation()
 					CurIndex = Import.OuterIndex;
 				}
 				while (!CurIndex.IsNull());
-				ObjectNameToPackageIndex.Add(*FullName, FPackageIndex::FromImport(ImportIndex));
+
+				FName FullFName(*FullName);
+				check(!ObjectNameToPackageImportIndex.Contains(FullFName));
+				ObjectNameToPackageImportIndex.Add(FullFName, FPackageIndex::FromImport(ImportIndex));
 			}
 		}
 
@@ -3410,7 +3432,7 @@ void FLinkerLoad::Preload( UObject* Object )
 					FScopedPlaceholderContainerTracker SerializingObjTracker(Object);
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
-#if WITH_EDITOR
+#if WITH_EDITOR && WITH_TEXT_ARCHIVE_SUPPORT
 					bool bClassSupportsTextFormat = UClass::IsSafeToSerializeToStructuredArchives(Object->GetClass());
 #endif
 
@@ -3444,14 +3466,22 @@ void FLinkerLoad::Preload( UObject* Object )
 						UObject* PrevSerializedObject = ThreadContext.SerializedObject;
 						ThreadContext.SerializedObject = Object;
 
-#if WITH_TEXT_ARCHIVE_SUPPORT
+#if WITH_EDITOR && WITH_TEXT_ARCHIVE_SUPPORT
 						if (IsTextFormat())
 						{
 							FString ObjectName = Object->GetPathName(Object->GetOutermost());
 							FStructuredArchive::FSlot ExportSlot = StructuredArchiveRootRecord->EnterField(FIELD_NAME(*ObjectName));
 
-							FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
-							Object->GetClass()->SerializeDefaultObject(Object, Adapter);
+							if (bClassSupportsTextFormat)
+							{
+								Object->GetClass()->SerializeDefaultObject(Object, ExportSlot);
+							}
+							else
+							{
+								FStructuredArchiveChildReader ChildReader(ExportSlot);
+								FArchiveUObjectFromStructuredArchive Adapter(ChildReader.GetRoot());
+								Object->GetClass()->SerializeDefaultObject(Object, Adapter);
+							}
 						}
 						else
 #endif
@@ -3480,7 +3510,16 @@ void FLinkerLoad::Preload( UObject* Object )
 #if WITH_EDITOR && WITH_TEXT_ARCHIVE_SUPPORT
 						if (IsTextFormat())
 						{
-							FString ObjectName = Object->GetPathName(Object->GetOutermost());
+							const FName* FullObjectPath = ObjectNameToPackageExportIndex.FindKey(Export.ThisIndex);
+							check(FullObjectPath);
+							FString ObjectPath = FullObjectPath->ToString();
+							FString PackagePath = LinkerRoot->GetPathName(nullptr);
+							FString ObjectName = ObjectPath;
+							if (ObjectPath.StartsWith(PackagePath + TEXT(".")))
+							{
+								ObjectName = ObjectPath.Right(ObjectPath.Len() - PackagePath.Len() - 1);
+							}
+
 							FStructuredArchive::FSlot ExportSlot = StructuredArchiveRootRecord->EnterField(FIELD_NAME(*ObjectName));
 
 							if (bClassSupportsTextFormat)
@@ -4172,7 +4211,7 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			// to be refreshed and regenerated.  If so, regenerate and patch it 
 			// back into the export table
 			if( !LoadClass->bCooked && bIsBlueprintCDO && (LoadClass->GetOutermost() != GetTransientPackage()) )
-			{			
+			{							
 				{
 					// For classes that are about to be regenerated, make sure we register them with the linker, so future references to this linker index will be valid
 					const EObjectFlags OldFlags = Export.Object->GetFlags();
@@ -4581,13 +4620,10 @@ void FLinkerLoad::Detach()
 		FUObjectThreadContext::Get().DelayedLinkerClosePackages.Remove(this);
 	}
 
-	if (StructuredArchiveFormatter)
-	{
-		delete StructuredArchive;
-		StructuredArchive = nullptr;
-		delete StructuredArchiveFormatter;
-		StructuredArchiveFormatter = nullptr;
-	}
+	delete StructuredArchive;
+	StructuredArchive = nullptr;
+	delete StructuredArchiveFormatter;
+	StructuredArchiveFormatter = nullptr;
 
 	if (Loader)
 	{
@@ -4789,9 +4825,9 @@ UObject* FLinkerLoad::GetArchetypeFromLoader(const UObject* Obj)
 {
 	if (GEventDrivenLoaderEnabled)
 	{
-	check(!TemplateForGetArchetypeFromLoader || FUObjectThreadContext::Get().SerializedObject == Obj);
-	return TemplateForGetArchetypeFromLoader;
-}
+		check(!TemplateForGetArchetypeFromLoader || FUObjectThreadContext::Get().SerializedObject == Obj);
+		return TemplateForGetArchetypeFromLoader;
+	}
 	else
 	{
 		return FArchiveUObject::GetArchetypeFromLoader(Obj);

@@ -144,7 +144,7 @@ void FDirectoryWatchRequestMac::ProcessChanges( size_t EventCount, void* EventPa
 		return;
 	}
 
-	TCHAR FilePath[MAX_PATH];
+	TCHAR FilePath[MAC_MAX_PATH];
 
 	CFArrayRef EventPathArray = (CFArrayRef)EventPaths;
 

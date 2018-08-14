@@ -752,8 +752,7 @@ namespace UnrealBuildTool
 					if (bWritePerFilePCHInfo && VCFileType == "ClCompile")
 					{
 						FileReference TruePath = FileReference.Combine(ProjectFilePath.Directory, AliasedFile.FileSystemPath);
-						FileItem SourceFile = FileItem.GetItemByFileReference(TruePath);
-						List <DependencyInclude> DirectlyIncludedFilenames = CPPHeaders.GetUncachedDirectIncludeDependencies(SourceFile, null);
+						List <DependencyInclude> DirectlyIncludedFilenames = CPPHeaders.GetUncachedDirectIncludeDependencies(TruePath, null);
 						if (DirectlyIncludedFilenames.Count > 0)
 						{
 							PCHFileName = DirectlyIncludedFilenames[0].IncludeName;
@@ -1189,19 +1188,14 @@ namespace UnrealBuildTool
 
 					// Get the executable name (minus any platform or config suffixes)
 					string BaseExeName = TargetName;
-					if (!bShouldCompileMonolithic && TargetRulesObject.Type != TargetType.Program)
+					if (!bShouldCompileMonolithic && TargetRulesObject.Type != TargetType.Program && TargetRulesObject.BuildEnvironment != TargetBuildEnvironment.Unique)
 					{
-						// Figure out what the compiled binary will be called so that we can point the IDE to the correct file
-						string TargetConfigurationName = TargetRulesObject.Type.ToString();
-						if (TargetConfigurationName != TargetType.Game.ToString() && TargetConfigurationName != TargetType.Program.ToString())
-						{
-							BaseExeName = "UE4" + TargetConfigurationName;
-						}
+						BaseExeName = "UE4" + TargetRulesObject.Type.ToString();
 					}
 
 					// Make the output file path
 					FileReference NMakePath = FileReference.Combine(OutputDirectory, BaseExeName);
-					if (Configuration != TargetRulesObject.UndecoratedConfiguration && (Configuration != UnrealTargetConfiguration.DebugGame || bShouldCompileMonolithic))
+					if (Configuration != TargetRulesObject.UndecoratedConfiguration)
 					{
 						NMakePath += "-" + UBTPlatformName + "-" + UBTConfigurationName;
 					}
@@ -1309,11 +1303,6 @@ namespace UnrealBuildTool
 							else if (TargetRulesObject.Type == TargetType.Editor && ProjectName != "UE4")
 							{
 								DebugOptions += ProjectName;
-							}
-
-							if (Configuration == UnrealTargetConfiguration.Debug || Configuration == UnrealTargetConfiguration.DebugGame)
-							{
-								DebugOptions += " -debug";
 							}
 
 							VCUserFileContent.Append(

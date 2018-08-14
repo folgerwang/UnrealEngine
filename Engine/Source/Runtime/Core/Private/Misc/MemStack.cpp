@@ -98,7 +98,7 @@ void *FPageAllocator::Alloc()
 		Result = TheAllocatorReady.Pop();
 		if (!Result)
 		{
-			Result = VirtualAlloc(NULL, PageSize, MEM_COMMIT, PAGE_READWRITE);
+			Result = VirtualAlloc(NULL, PageSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 			BigBlocksOutstanding.Increment();
 		}
 		BigBlocksInUse.Increment();
@@ -146,7 +146,7 @@ void *FPageAllocator::AllocSmall()
 		Result = TheSmallAllocatorReady.Pop();
 		if (!Result)
 		{
-			Result = VirtualAlloc(NULL, SmallPageSize, MEM_COMMIT, PAGE_READWRITE);
+			Result = VirtualAlloc(NULL, SmallPageSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 			SmallBlocksOutstanding.Increment();
 		}
 		SmallBlocksInUse.Increment();

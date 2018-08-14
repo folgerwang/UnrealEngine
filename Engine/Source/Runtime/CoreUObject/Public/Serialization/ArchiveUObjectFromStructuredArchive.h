@@ -5,98 +5,41 @@
 #include "Serialization/ArchiveFromStructuredArchive.h"
 #include "Serialization/ArchiveUObject.h"
 #include "UObject/ObjectResource.h"
+
+#include "UObject/SoftObjectPath.h"
+#include "UObject/SoftObjectPtr.h"
+#include "UObject/LazyObjectPtr.h"
 #include "UObject/WeakObjectPtr.h"
 
-class FArchiveUObjectFromStructuredArchive : public FArchiveFromStructuredArchive
+class COREUOBJECT_API FArchiveUObjectFromStructuredArchive : public FArchiveFromStructuredArchive
 {
 public:
 
-	FArchiveUObjectFromStructuredArchive(FStructuredArchive::FSlot Slot)
-		: FArchiveFromStructuredArchive(Slot)
-		, ExternalObjectIndicesMap(nullptr)
-	{
-
-	}
-
-	void SetExternalObjectIndicesMap(const TMap<UObject*, FPackageIndex>* InObjectIndicesMap)
-	{
-		ExternalObjectIndicesMap = InObjectIndicesMap;
-	}
+	FArchiveUObjectFromStructuredArchive(FStructuredArchive::FSlot Slot);
+	virtual ~FArchiveUObjectFromStructuredArchive();
 
 	using FArchive::operator<<; // For visibility of the overloads we don't override
 
 	//~ Begin FArchive Interface
-	virtual FArchive& operator<<(FLazyObjectPtr& Value) override
-	{
-		if (InnerArchive.IsTextFormat())
-		{
-			FArchiveUObject::SerializeLazyObjectPtr(*this, Value);
-		}
-		else
-		{
-			InnerArchive << Value;
-		}
-		return *this;
-	}
-
-	virtual FArchive& operator<<(FSoftObjectPtr& Value) override
-	{
-		if (InnerArchive.IsTextFormat())
-		{
-			FArchiveUObject::SerializeSoftObjectPtr(*this, Value);
-		}
-		else
-		{
-			InnerArchive << Value;
-		}
-		return *this;
-	}
-
-	virtual FArchive& operator<<(FSoftObjectPath& Value) override
-	{
-		if (InnerArchive.IsTextFormat())
-		{
-			FArchiveUObject::SerializeSoftObjectPath(*this, Value);
-		}
-		else
-		{
-			InnerArchive << Value;
-		}
-		return *this;
-	}
-
-	virtual FArchive& operator<<(FWeakObjectPtr& Value) override
-	{
-		if (InnerArchive.IsTextFormat())
-		{
-			UObject* Object = Value.IsValid() ? Value.Get() : nullptr;
-
-			if (!IsObjectAllowed(Object))
-			{
-				Object = nullptr;
-			}
-
-			*this << Object;
-
-			if (IsLoading())
-			{
-				Value = Object;
-			}
-		}
-		else
-		{
-			InnerArchive << Value;
-		}
-		return *this;
-	}
+	virtual FArchive& operator<<(FLazyObjectPtr& Value) override;
+	virtual FArchive& operator<<(FSoftObjectPtr& Value) override;
+	virtual FArchive& operator<<(FSoftObjectPath& Value) override;
+	virtual FArchive& operator<<(FWeakObjectPtr& Value) override;
 	//~ End FArchive Interface
 
 private:
 
-	const TMap<UObject *, FPackageIndex>* ExternalObjectIndicesMap;
+	bool bPendingSerialize;
 
-	bool IsObjectAllowed(UObject* InObject) const
-	{
-		return IsLoading() || (ExternalObjectIndicesMap == nullptr) || (ExternalObjectIndicesMap->Contains(InObject));
-	}
+	TArray<FLazyObjectPtr> LazyObjectPtrs;
+	TArray<FWeakObjectPtr> WeakObjectPtrs;
+	TArray<FSoftObjectPtr> SoftObjectPtrs;
+	TArray<FSoftObjectPath> SoftObjectPaths;
+
+	TMap<FLazyObjectPtr, int32> LazyObjectPtrToIndex;
+	TMap<FWeakObjectPtr, int32> WeakObjectPtrToIndex;
+	TMap<FSoftObjectPtr, int32> SoftObjectPtrToIndex;
+	TMap<FSoftObjectPath, int32> SoftObjectPathToIndex;
+
+	virtual void SerializeInternal(FStructuredArchive::FRecord Record) override;
 };

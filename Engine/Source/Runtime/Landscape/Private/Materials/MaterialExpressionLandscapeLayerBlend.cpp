@@ -42,11 +42,12 @@ FGuid& UMaterialExpressionLandscapeLayerBlend::GetParameterExpressionId()
 }
 
 
-void UMaterialExpressionLandscapeLayerBlend::Serialize(FArchive& Ar)
+void UMaterialExpressionLandscapeLayerBlend::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_ADD_LB_WEIGHTBLEND)
+	if (UnderlyingArchive.IsLoading() && UnderlyingArchive.UE4Ver() < VER_UE4_ADD_LB_WEIGHTBLEND)
 	{
 		// convert any LB_AlphaBlend entries to LB_WeightBlend
 		for (FLayerBlendInput& LayerInput : Layers)

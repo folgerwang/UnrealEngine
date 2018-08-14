@@ -177,6 +177,61 @@ namespace iPhonePackager
 			}
 		}
 
+		static bool FindMobileProvision(string BundleIdentifier, out string OutFileName)
+		{
+			bool bNameMatch;
+			string ProvisionWithPrefix = MobileProvision.FindCompatibleProvision(BundleIdentifier, out bNameMatch, true, true, false);
+			if (!File.Exists(ProvisionWithPrefix))
+			{
+				ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.BuildDirectory, Program.GameName + ".mobileprovision");
+				if (!File.Exists(ProvisionWithPrefix))
+				{
+					ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.BuildDirectory + "/NotForLicensees/", Program.GameName + ".mobileprovision");
+					if (!File.Exists(ProvisionWithPrefix))
+					{
+						ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.EngineBuildDirectory, "UE4Game.mobileprovision");
+						if (!File.Exists(ProvisionWithPrefix))
+						{
+							ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.EngineBuildDirectory + "/NotForLicensees/", "UE4Game.mobileprovision");
+							if(!File.Exists(ProvisionWithPrefix))
+							{
+								OutFileName = null;
+								return false;
+							}
+						}
+					}
+				}
+			}
+
+			OutFileName = ProvisionWithPrefix;
+			return true;
+		}
+
+		/// <summary>
+		/// Export the certificate to a file
+		/// </summary>
+		static public void ExportCertificate()
+		{
+			string ProvisionWithPrefix;
+			if(!FindMobileProvision("", out ProvisionWithPrefix))
+			{
+				Program.Error("Missing provision");
+				return;
+			}
+
+			if(Config.Certificate == null)
+			{
+				Program.Error("Missing -Certificate=... argument");
+				return;
+			}
+
+			// export the signing certificate to a file
+			MobileProvision Provision = MobileProvisionParser.ParseFile(ProvisionWithPrefix);
+			var Certificate = CodeSignatureBuilder.FindCertificate(Provision);
+			byte[] Data = Certificate.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pkcs12, "A");
+			File.WriteAllBytes(Config.Certificate, Data);
+		}
+
 		/// <summary>
 		/// Copy the files always needed (even in a stub IPA)
 		/// </summary>
@@ -243,23 +298,12 @@ namespace iPhonePackager
 				// Copy the mobile provision file over
 				string CFBundleIdentifier = null;
 				Info.GetString("CFBundleIdentifier", out CFBundleIdentifier);
-				bool bNameMatch;
-				string ProvisionWithPrefix = MobileProvision.FindCompatibleProvision(CFBundleIdentifier, out bNameMatch, true, true, false);
-				if (!File.Exists(ProvisionWithPrefix))
+
+				string ProvisionWithPrefix;
+				if(!FindMobileProvision(CFBundleIdentifier, out ProvisionWithPrefix))
 				{
-					ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.BuildDirectory, Program.GameName + ".mobileprovision");
-					if (!File.Exists(ProvisionWithPrefix))
-					{
-						ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.BuildDirectory + "/NotForLicensees/", Program.GameName + ".mobileprovision");
-						if (!File.Exists(ProvisionWithPrefix))
-						{
-							ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.EngineBuildDirectory, "UE4Game.mobileprovision");
-							if (!File.Exists(ProvisionWithPrefix))
-							{
-								ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.EngineBuildDirectory + "/NotForLicensees/", "UE4Game.mobileprovision");
-							}
-						}
-					}
+					Program.Error("Unable to find mobileprovision");
+					return;
 				}
 				FinalMobileProvisionFilename = Path.Combine(Config.PCXcodeStagingDir, MacMobileProvisionFilename);
 				FileOperations.CopyRequiredFile(ProvisionWithPrefix, FinalMobileProvisionFilename);
@@ -686,6 +730,10 @@ namespace iPhonePackager
 					Program.Log("Copying all staged files to Mac " + MacName + " ...");
 					FileOperations.BatchUploadFolder(MacName, Config.PCStagingRootDir, MacStagingRootDir, false);
 					FileOperations.BatchUploadFolder(MacName, Config.PCXcodeStagingDir, MacXcodeStagingDir, false);
+					break;
+
+				case "exportcertificate":
+					CompileTime.ExportCertificate();
 					break;
 
 				default:

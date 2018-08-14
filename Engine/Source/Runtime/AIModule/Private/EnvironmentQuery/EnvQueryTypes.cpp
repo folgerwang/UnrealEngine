@@ -280,10 +280,10 @@ namespace FEQSHelpers
 		if (NavAgent)
 		{
 			const FNavAgentProperties& NavAgentProps = NavAgent->GetNavAgentPropertiesRef();
-			return Cast<const ANavigationData>(NavSys->GetNavDataForProps(NavAgentProps));
+			return NavSys->GetNavDataForProps(NavAgentProps);
 		}
 
-		return Cast<const ANavigationData>(NavSys->GetDefaultNavDataInstance());
+		return NavSys->GetDefaultNavDataInstance();
 	}
 }
 

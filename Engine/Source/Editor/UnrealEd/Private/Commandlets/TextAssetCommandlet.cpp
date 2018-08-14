@@ -14,6 +14,12 @@
 #include "UObject/UObjectIterator.h"
 #include "Stats/StatsMisc.h"
 #include "Misc/FileHelper.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/StructuredArchive.h"
+#include "Serialization/Formatters/JsonArchiveOutputFormatter.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 DEFINE_LOG_CATEGORY(LogTextAsset);
 
@@ -32,6 +38,17 @@ bool HashFile(const TCHAR* InFilename, FSHAHash& OutHash)
 	return false;
 }
 
+void FindMismatchedSerializers()
+{
+	for (TObjectIterator<UClass> It; It; ++It)
+	{
+		if (!It->HasAnyClassFlags(CLASS_MatchedSerializers))
+		{
+			UE_LOG(LogTextAsset, Display, TEXT("Class Mismatched Serializers: %s"), *It->GetName());
+		}
+	}
+}
+
 int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 {
 	TArray<FString> Blacklist;
@@ -43,6 +60,7 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 	FParse::Value(*CmdLineParams, TEXT("mode="), ModeString);
 	FParse::Value(*CmdLineParams, TEXT("filter="), FilenameFilterString);
 	FParse::Value(*CmdLineParams, TEXT("outputpath="), OutputPathString);
+	bool bVerifyJson = !FParse::Param(*CmdLineParams, TEXT("noverifyjson"));
 
 	enum class EMode
 	{
@@ -50,6 +68,7 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 		ResaveBinary,
 		RoundTrip,
 		LoadText,
+		FindMismatchedSerializers
 	};
 
 	TMap<FString, EMode> Modes;
@@ -57,9 +76,16 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 	Modes.Add(TEXT("ResaveBinary"), EMode::ResaveBinary);
 	Modes.Add(TEXT("RoundTrip"), EMode::RoundTrip);
 	Modes.Add(TEXT("LoadText"), EMode::LoadText);
+	Modes.Add(TEXT("FindMismatchedSerializers"), EMode::FindMismatchedSerializers);
 
 	check(Modes.Contains(ModeString));
 	EMode Mode = Modes[ModeString];
+
+	if (Mode == EMode::FindMismatchedSerializers)
+	{
+		FindMismatchedSerializers();
+		return 0;
+	}
 
 	TArray<UObject*> Objects;	
 
@@ -201,6 +227,10 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 		FString MinTimePackage;
 		float IterationPackageLoadTime = 0.0;
 		float IterationPackageSaveTime = 0.0;
+
+		TArray<FString> PhaseSuccess;
+		TArray<TArray<FString>> PhaseFails;
+		PhaseFails.AddDefaulted(3);
 
 		for (const TTuple<FString, FString>& FileToProcess : FilesToProcess)
 		{
@@ -387,6 +417,21 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 					UE_LOG(LogTextAsset, Error, TEXT("Binary determinism tests succeeded, but text and/or alternating tests failed for asset '%s'"), *SourceLongPackageName);
 				}
 
+				bool bSuccess = true;
+				for (int32 PhaseIndex = 0; PhaseIndex < NumPhases; ++PhaseIndex)
+				{
+					if (!bPhasesMatched[PhaseIndex])
+					{
+						bSuccess = false;
+						PhaseFails[PhaseIndex].Add(SourceLongPackageName);
+					}
+				}
+
+				if (bSuccess)
+				{
+					PhaseSuccess.Add(SourceLongPackageName);
+				}
+
 				UE_LOG(LogTextAsset, Display, TEXT("-----------------------------------------------------------------------------------------"));
 				UE_LOG(LogTextAsset, Display, TEXT("Completed roundtrip test for '%s'"), *SourceLongPackageName);
 				UE_LOG(LogTextAsset, Display, TEXT("-----------------------------------------------------------------------------------------"));
@@ -398,6 +443,8 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 			case EMode::ResaveText:
 			{
 				UPackage* Package = nullptr;
+
+				UE_LOG(LogTextAsset, Display, TEXT("Resaving asset %s"), *SourceFilename);
 
 				double Timer = 0.0;
 				{
@@ -419,11 +466,20 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 					IterationPackageSaveTime += Timer;
 				}
 
+				if (bVerifyJson)
+				{
+					FArchive* File = IFileManager::Get().CreateFileReader(*DestinationFilename);
+					TSharedPtr< FJsonObject > RootObject;
+					TSharedRef< TJsonReader<char> > Reader = TJsonReaderFactory<char>::Create(File);
+					ensure(FJsonSerializer::Deserialize(Reader, RootObject));
+					delete File;
+				}
+
 				if (OutputPathString.Len() > 0)
 				{
 					FString CopyFilename = DestinationFilename;
-					FPaths::MakePathRelativeTo(CopyFilename, *FPaths::ProjectContentDir());
-					CopyFilename = OutputPathString / FApp::GetProjectName() / CopyFilename;
+					FPaths::MakePathRelativeTo(CopyFilename, *FPaths::RootDir());
+					CopyFilename = OutputPathString / CopyFilename;
 					CopyFilename.RemoveFromEnd(TEXT(".tmp"));
 					IFileManager::Get().MakeDirectory(*FPaths::GetPath(CopyFilename));
 					IFileManager::Get().Move(*CopyFilename, *DestinationFilename);
@@ -436,12 +492,14 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 			{
 				UPackage* Package = nullptr;
 
+				CollectGarbage(RF_NoFlags, true);
 				double Timer = 0.0;
 				{
 					SCOPE_SECONDS_COUNTER(Timer);
 					UE_LOG(LogTextAsset, Display, TEXT("Loading Text Asset '%s'"), *SourceFilename);
 					Package = LoadPackage(nullptr, *SourceFilename, 0);
 				}
+				CollectGarbage(RF_NoFlags, true);
 				IterationPackageLoadTime += Timer;
 				TotalPackageLoadTime += Timer;
 
@@ -469,7 +527,32 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 			TotalTime += Time;
 			NumFiles++;
 		}
-		
+
+		if (Mode == EMode::RoundTrip)
+		{
+			UE_LOG(LogTextAsset, Display, TEXT("\t-----------------------------------------------------"));
+			UE_LOG(LogTextAsset, Display, TEXT("\tRoundTrip Results"));
+			UE_LOG(LogTextAsset, Display, TEXT("\tTotal Packages: %i"), FilesToProcess.Num());
+			UE_LOG(LogTextAsset, Display, TEXT("\tNum Successful Packages: %i"), PhaseSuccess.Num());
+			UE_LOG(LogTextAsset, Display, TEXT("\tPhase 0 Fails: %i (Binary Package Determinism Fails)"), PhaseFails[0].Num());
+			UE_LOG(LogTextAsset, Display, TEXT("\tPhase 1 Fails: %i (Text Package Determinism Fails)"), PhaseFails[1].Num());
+			UE_LOG(LogTextAsset, Display, TEXT("\tPhase 2 Fails: %i (Mixed Package Determinism Fails)"), PhaseFails[2].Num());
+			UE_LOG(LogTextAsset, Display, TEXT("\t-----------------------------------------------------"));
+
+			for (int32 PhaseIndex = 0; PhaseIndex < PhaseFails.Num(); ++PhaseIndex)
+			{
+				if (PhaseFails[PhaseIndex].Num() > 0)
+				{
+					UE_LOG(LogTextAsset, Display, TEXT("\tPhase %i Fails:"), PhaseIndex);
+					for (const FString& PhaseFail : PhaseFails[PhaseIndex])
+					{
+						UE_LOG(LogTextAsset, Display, TEXT("\t\t%s"), *PhaseFail);
+					}
+					UE_LOG(LogTextAsset, Display, TEXT("\t-----------------------------------------------------"));
+				}
+			}
+		}
+
 		UE_LOG(LogTextAsset, Display, TEXT("\tTotal Time:\t%.2fs"), TotalTime);
 		UE_LOG(LogTextAsset, Display, TEXT("\tAvg File Time:  \t%.2fms"), (TotalTime * 1000.0) / (double)NumFiles);
 		UE_LOG(LogTextAsset, Display, TEXT("\tMin File Time:  \t%.2fms (%s)"), MinTime * 1000.0, *MinTimePackage);

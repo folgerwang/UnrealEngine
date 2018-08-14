@@ -156,7 +156,7 @@ namespace Win.Automation
                 {
                     foreach (string Message in Messages)
                     {
-                        CommandUtils.Log(Message);
+                        CommandUtils.LogInformation(Message);
                     }
                 }
 

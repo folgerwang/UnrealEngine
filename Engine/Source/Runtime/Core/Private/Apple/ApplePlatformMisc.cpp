@@ -30,6 +30,23 @@ void FApplePlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCHAR
 	}
 }
 
+FString FApplePlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName)
+{
+	// Replace hyphens with underscores. Some legacy UE environment variables (eg. UE-SharedDataCachePath) are in widespread
+	// usage in their hyphenated form, but are not normally valid shell variables.
+	FString FixedVariableName = VariableName;
+	FixedVariableName.ReplaceInline(TEXT("-"), TEXT("_"));
+	ANSICHAR *AnsiResult = getenv(TCHAR_TO_ANSI(*FixedVariableName));
+	if (AnsiResult)
+	{
+		return ANSI_TO_TCHAR(AnsiResult);
+	}
+	else
+	{
+		return FString();
+	}
+}
+
 void FApplePlatformMisc::LowLevelOutputDebugString( const TCHAR *Message )
 {
 	//NsLog will out to all iOS output consoles, instead of just the Xcode console.

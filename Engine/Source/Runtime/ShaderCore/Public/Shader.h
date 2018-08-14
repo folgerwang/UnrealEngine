@@ -1169,8 +1169,8 @@ protected:
 		);
 
 /** A macro to implement a templated shader type, the function name and the source filename comes from the class. */
-#define IMPLEMENT_SHADER_TYPE2(ShaderClass,Frequency) \
-	template<> \
+#define IMPLEMENT_SHADER_TYPE2_WITH_TEMPLATE_PREFIX(TemplatePrefix,ShaderClass,Frequency) \
+	TemplatePrefix \
 	ShaderClass::ShaderMetaType ShaderClass::StaticType( \
 	TEXT(#ShaderClass), \
 	ShaderClass::GetSourceFilename(), \
@@ -1185,6 +1185,8 @@ protected:
 	ShaderClass::GetStreamOutElements \
 	);
 
+#define IMPLEMENT_SHADER_TYPE2(ShaderClass,Frequency) \
+	IMPLEMENT_SHADER_TYPE2_WITH_TEMPLATE_PREFIX(template<>, ShaderClass, Frequency)
 
 /** todo: this should replace IMPLEMENT_SHADER_TYPE */
 #define IMPLEMENT_SHADER_TYPE3(ShaderClass,Frequency) \

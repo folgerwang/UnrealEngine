@@ -86,7 +86,7 @@ namespace UnrealBuildTool
 				{
 					if (!ConfigFile.bHasErrors)
 					{
-						Log.WriteLine(LogEventType.Error, LogFormatOptions.NoSeverityPrefix, "{0}({1}): error: {2}", File.FullName, Ex.LineNumber, Ex.Message);
+						Log.TraceError(File, Ex.LineNumber, "{0}", Ex.Message);
 						ConfigFile.bHasErrors = true;
 					}
 				}
@@ -124,7 +124,7 @@ namespace UnrealBuildTool
 		/// <param name="Args">Standard argument for ValidationEventHandler</param>
 		void ValidationEvent(object Sender, ValidationEventArgs Args)
 		{
-			Log.TraceWarning("{0}({1}): {2}", File.FullName, Args.Exception.LineNumber, Args.Message);
+			Log.TraceWarning(File, Args.Exception.LineNumber, "{0}", Args.Message);
 		}
 	}
 

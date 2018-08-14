@@ -108,11 +108,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdSrv, Log, All);
 
 #define LOCTEXT_NAMESPACE "UnrealEdSrv"
 
-//@hack: this needs to be cleaned up!
-static TCHAR TempStr[MAX_EDCMD];
-static uint16 Word1;
-
-
 /**
  * Dumps a set of selected objects to debugf.
  */
@@ -281,8 +276,8 @@ UPackage* UUnrealEdEngine::GeneratePackageThumbnailsIfRequired( const TCHAR* Str
 	UPackage* Pkg = NULL;
 	if( FParse::Command( &Str, TEXT( "SavePackage" ) ) )
 	{
-		static TCHAR TempFname[MAX_EDCMD];
-		if( FParse::Value( Str, TEXT( "FILE=" ), TempFname, 256 ) && ParseObject<UPackage>( Str, TEXT( "Package=" ), Pkg, NULL ) )
+		FString TempFname;
+		if( FParse::Value( Str, TEXT( "FILE=" ), TempFname ) && ParseObject<UPackage>( Str, TEXT( "Package=" ), Pkg, NULL ) )
 		{
 			// Update any thumbnails for objects in this package that were modified or generate
 			// new thumbnails for objects that don't have any
@@ -1649,16 +1644,18 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 			// How should this paste be handled
 			EPasteTo PasteTo = PT_OriginalLocation;
 			FText TransDescription = NSLOCTEXT("UnrealEd", "Paste", "Paste");
-			if (FParse::Value(Str, TEXT("TO="), TempStr, 15))
+
+			FString TempStr;
+			if (FParse::Value(Str, TEXT("TO="), TempStr))
 			{
-				if (!FCString::Strcmp(TempStr, TEXT("HERE")))
+				if (!FCString::Strcmp(*TempStr, TEXT("HERE")))
 				{
 					PasteTo = PT_Here;
 					TransDescription = NSLOCTEXT("UnrealEd", "PasteHere", "Paste Here");
 				}
 				else
 				{
-					if (!FCString::Strcmp(TempStr, TEXT("ORIGIN")))
+					if (!FCString::Strcmp(*TempStr, TEXT("ORIGIN")))
 					{
 						PasteTo = PT_WorldOrigin;
 						TransDescription = NSLOCTEXT("UnrealEd", "PasteToWorldOrigin", "Paste To World Origin");
@@ -2981,8 +2978,6 @@ bool UUnrealEdEngine::Exec_Mode( const TCHAR* Str, FOutputDevice& Ar )
 		{
 			GEdSelectionLock=!!DWord1;
 		}
-
-		Word1 = MAX_uint16;
 	}
 
 	if( FParse::Value(Str,TEXT("USESIZINGBOX="), DWord1) )
@@ -2993,7 +2988,6 @@ bool UUnrealEdEngine::Exec_Mode( const TCHAR* Str, FOutputDevice& Ar )
 			UseSizingBox=(UseSizingBox == 0) ? 1 : 0;
 		else
 			UseSizingBox=DWord1;
-		Word1=MAX_uint16;
 	}
 	
 	if(GCurrentLevelEditingViewportClient)

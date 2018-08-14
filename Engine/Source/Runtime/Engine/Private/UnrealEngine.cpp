@@ -8436,8 +8436,7 @@ void UEngine::EnableScreenSaver( bool bEnable )
 		return;
 	}
 
-	TCHAR EnvVariable[32];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("UE-DisallowScreenSaverInhibitor"), EnvVariable, ARRAY_COUNT(EnvVariable));
+	FString EnvVariable = FPlatformMisc::GetEnvironmentVariable(TEXT("UE-DisallowScreenSaverInhibitor"));
 	const bool bDisallowScreenSaverInhibitor = FString(EnvVariable).ToBool();
 
 	// By default we allow to use screen saver inhibitor, but in some cases user can override this setting.

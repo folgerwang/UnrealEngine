@@ -30,7 +30,7 @@ FString UObjectProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 	return TEXT("OBJECT");
 }
 
-EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	static FName NAME_AssetObjectProperty = "AssetObjectProperty"; // old name of soft object property
 
@@ -38,7 +38,7 @@ EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag,
 	{
 		// This property used to be a TSoftObjectPtr<Foo> but is now a raw UObjectProperty Foo*, we can convert without loss of data
 		FSoftObjectPtr PreviousValue;
-		Ar << PreviousValue;
+		Slot << PreviousValue;
 
 		UObject* PreviousValueObj = nullptr;
 
@@ -49,7 +49,7 @@ EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag,
 
 			if (!PreviousValueObj && !PreviousValue.IsNull())
 			{
-				UE_LOG(LogClass, Error, TEXT("Failed to convert soft path %s to unloaded object as this is not safe during async loading. Load and resave %s in the editor to fix!"), *PreviousValue.ToString(), *Ar.GetArchiveName());
+				UE_LOG(LogClass, Error, TEXT("Failed to convert soft path %s to unloaded object as this is not safe during async loading. Load and resave %s in the editor to fix!"), *PreviousValue.ToString(), *Slot.GetUnderlyingArchive().GetArchiveName());
 			}
 		}
 		else
@@ -69,18 +69,20 @@ EConvertFromTypeResult UObjectProperty::ConvertFromType(const FPropertyTag& Tag,
 	return EConvertFromTypeResult::UseSerializeItem;
 }
 
-void UObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UObjectProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
 {
-	if (Ar.IsObjectReferenceCollector())
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
+	if (UnderlyingArchive.IsObjectReferenceCollector())
 	{
 		// Serialize in place
 		UObject** ObjectPtr = GetPropertyValuePtr(Value);
-		Ar << (*ObjectPtr);
+		Slot << (*ObjectPtr);
 	}
 	else
 	{
 		UObject* ObjectValue = GetObjectPropertyValue(Value);
-		Ar << ObjectValue;
+		Slot << ObjectValue;
 
 		UObject* CurrentValue = GetObjectPropertyValue(Value);
 		if (ObjectValue != CurrentValue)

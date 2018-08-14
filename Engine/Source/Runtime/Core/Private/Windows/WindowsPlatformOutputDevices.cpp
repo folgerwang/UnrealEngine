@@ -17,6 +17,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
 #include "HAL/FeedbackContextAnsi.h"
+#include "Windows/WindowsErrorOutputDevice.h"
 #include "Windows/WindowsEventLogOutputDevice.h"
 #include "HAL/ThreadHeartBeat.h"
 
@@ -41,3 +42,10 @@ class FOutputDevice* FWindowsPlatformOutputDevices::GetEventLog()
 	return NULL;
 #endif //WANTS_WINDOWS_EVENT_LOGGING
 }
+
+FOutputDeviceError* FWindowsPlatformOutputDevices::GetError()
+{
+	static FWindowsErrorOutputDevice Singleton;
+	return &Singleton;
+}
+

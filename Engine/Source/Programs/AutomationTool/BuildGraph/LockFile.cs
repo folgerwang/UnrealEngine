@@ -58,11 +58,11 @@ namespace AutomationTool
 
                     if (Iterations == 0)
                     {
-                        CommandUtils.Log("Waiting for lock file '{0}' to be removed...", LockFilePath);
+                        CommandUtils.LogInformation("Waiting for lock file '{0}' to be removed...", LockFilePath);
                     }
                     else if ((Iterations % 30) == 0)
                     {
-                        CommandUtils.Log("Still waiting for lock file '{0}' after {1} seconds.", LockFilePath, CurrentTime.Subtract(StartTime).TotalSeconds);
+                        CommandUtils.LogInformation("Still waiting for lock file '{0}' after {1} seconds.", LockFilePath, CurrentTime.Subtract(StartTime).TotalSeconds);
                     }
 
                     // Wait for a while before retrying.

@@ -29,6 +29,7 @@
 
 //#include "config.h"
 #include "Hash/CityHash.h"
+#include "HAL/UnrealMemory.h"
 
 
 static uint64 UNALIGNED_LOAD64(const char *p) {

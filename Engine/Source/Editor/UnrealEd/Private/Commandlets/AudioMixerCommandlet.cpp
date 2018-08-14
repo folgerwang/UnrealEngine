@@ -209,8 +209,8 @@ public:
 	FAudioMixerCommand(const FString& InName, const FString& InDescription = FString(), int32 InNumArgs = 0, const FString& InArgDescription = FString())
 		: Name(InName)
 		, Description(InDescription)
-		, NumArgs(InNumArgs)
 		, ArgDescription(InArgDescription)
+		, NumArgs(InNumArgs)
 	{
 		Commands.Add(this);
 	}

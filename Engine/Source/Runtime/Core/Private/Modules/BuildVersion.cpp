@@ -32,6 +32,21 @@ FString FBuildVersion::GetFileNameForCurrentExecutable()
 		AppExecutableName = AppExecutableName.Left(AppExecutableName.Len() - 4);
 	}
 #endif
+#if UE_BUILD_DEVELOPMENT
+	// For DebugGame builds we want to read the development version file because it's in an engine folder
+	if (FApp::GetBuildConfiguration() == EBuildConfigurations::DebugGame)
+	{
+		for (int32 Idx = 0; Idx < 2; Idx++)
+		{
+			int EndIdx;
+			if (!AppExecutableName.FindLastChar('-', EndIdx))
+			{
+				break;
+			}
+			AppExecutableName = AppExecutableName.Left(EndIdx);
+		}
+	}
+#endif
 	FString Result = FPlatformProcess::GetModulesDirectory() / AppExecutableName + TEXT(".version");
 	return Result;
 }

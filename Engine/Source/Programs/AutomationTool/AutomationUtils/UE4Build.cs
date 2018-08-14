@@ -95,10 +95,6 @@ namespace AutomationTool
 					PrepareBuildProduct(Item);
 				}
 			}
-			foreach(string Item in Manifest.LibraryBuildProducts)
-			{
-				LibraryBuildProductFiles.Add(Item);
-			}
 			return Manifest;
 		}
 
@@ -124,10 +120,6 @@ namespace AutomationTool
 					throw new AutomationException("BUILD FAILED {0} was in manifest but was not produced.", Item);
 				}
 				AddBuildProduct(Item);
-			}
-			foreach(string Item in Manifest.LibraryBuildProducts)
-			{
-				LibraryBuildProductFiles.Add(Item);
 			}
 		}
 		
@@ -447,7 +439,7 @@ namespace AutomationTool
 		/// <summary>
 		/// Updates the engine version files
 		/// </summary>
-		public List<FileReference> UpdateVersionFiles(bool ActuallyUpdateVersionFiles = true, int? ChangelistNumberOverride = null, int? CompatibleChangelistNumberOverride = null, string Build = null, bool? IsPromotedOverride = null, bool bSkipHeader = false)
+		public List<FileReference> UpdateVersionFiles(bool ActuallyUpdateVersionFiles = true, int? ChangelistNumberOverride = null, int? CompatibleChangelistNumberOverride = null, string Build = null, bool? IsPromotedOverride = null)
 		{
 			bool bIsLicenseeVersion = ParseParam("Licensee") || !FileReference.Exists(FileReference.Combine(CommandUtils.EngineDirectory, "Build", "NotForLicensees", "EpicInternal.txt"));
 			bool bIsPromotedBuild = IsPromotedOverride.HasValue? IsPromotedOverride.Value : (ParseParamInt("Promoted", 1) != 0);
@@ -469,10 +461,10 @@ namespace AutomationTool
 				Branch = CommandUtils.P4Enabled ? CommandUtils.EscapePath(CommandUtils.P4Env.Branch) : "";
 			}
 
-			return StaticUpdateVersionFiles(ChangelistNumber, CompatibleChangelistNumber, Branch, Build, bIsLicenseeVersion, bIsPromotedBuild, bDoUpdateVersionFiles, bSkipHeader);
+			return StaticUpdateVersionFiles(ChangelistNumber, CompatibleChangelistNumber, Branch, Build, bIsLicenseeVersion, bIsPromotedBuild, bDoUpdateVersionFiles);
 		}
 
-		public static List<FileReference> StaticUpdateVersionFiles(int ChangelistNumber, int CompatibleChangelistNumber, string Branch, string Build, bool bIsLicenseeVersion, bool bIsPromotedBuild, bool bDoUpdateVersionFiles, bool bSkipHeader)
+		public static List<FileReference> StaticUpdateVersionFiles(int ChangelistNumber, int CompatibleChangelistNumber, string Branch, string Build, bool bIsLicenseeVersion, bool bIsPromotedBuild, bool bDoUpdateVersionFiles)
 		{
 			FileReference BuildVersionFile = BuildVersion.GetDefaultFileName();
 
@@ -493,6 +485,7 @@ namespace AutomationTool
 					CommandUtils.LogLog("  IsLicenseeVersion={0}", bIsLicenseeVersion? 1 : 0);
 					CommandUtils.LogLog("  IsPromotedBuild={0}", bIsPromotedBuild? 1 : 0);
 					CommandUtils.LogLog("  BranchName={0}", Branch);
+					CommandUtils.LogLog("  BuildVersion={0}", Build);
 
 					Version.Changelist = ChangelistNumber;
 					if(CompatibleChangelistNumber > 0)
@@ -502,6 +495,7 @@ namespace AutomationTool
 					Version.IsLicenseeVersion = bIsLicenseeVersion;
 					Version.IsPromotedBuild = bIsPromotedBuild;
 					Version.BranchName = Branch;
+					Version.BuildVersionString = Build;
 
 					VersionFileUpdater.MakeFileWriteable(BuildVersionFile.FullName);
 
@@ -710,7 +704,6 @@ namespace AutomationTool
 		{
 			OwnerCommand = Command;
 			BuildProductFiles.Clear();
-			LibraryBuildProductFiles.Clear();
 		}
 
 		public List<string> FindXGEFiles()
@@ -1467,7 +1460,7 @@ namespace AutomationTool
 				CommandUtils.LogLog("Build products *******");
 				if (BuildProductFiles.Count < 1)
 				{
-					CommandUtils.Log("No build products were made");
+					CommandUtils.LogInformation("No build products were made");
 				}
 				else
 				{
@@ -1491,7 +1484,7 @@ namespace AutomationTool
 		/// <param name="Files">List of files to check out</param>
 		public static void AddBuildProductsToChangelist(int WorkingCL, List<string> Files)
 		{
-			CommandUtils.Log("Adding {0} build products to changelist {1}...", Files.Count, WorkingCL);
+			CommandUtils.LogInformation("Adding {0} build products to changelist {1}...", Files.Count, WorkingCL);
 			foreach (var File in Files)
 			{
 				CommandUtils.P4.Sync("-f -k " + CommandUtils.MakePathSafeToUseWithCommandLine(File) + "#head"); // sync the file without overwriting local one
@@ -1667,9 +1660,6 @@ namespace AutomationTool
 
 		// List of everything we built so far
 		public readonly List<string> BuildProductFiles = new List<string>();
-
-		// Library files that were part of the build
-		public readonly List<string> LibraryBuildProductFiles = new List<string>();
 
 		private bool DeleteBuildProducts = true;
 	}

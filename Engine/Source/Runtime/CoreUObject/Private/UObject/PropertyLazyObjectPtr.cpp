@@ -25,21 +25,29 @@ FName ULazyObjectProperty::GetID() const
 	return NAME_LazyObjectProperty;
 }
 
-void ULazyObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void ULazyObjectProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
 {
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
 	// We never serialize our reference while the garbage collector is harvesting references
 	// to objects, because we don't want lazy pointers to keep objects from being garbage collected
 
-	if( !Ar.IsObjectReferenceCollector() || Ar.IsModifyingWeakAndStrongReferences() )
+	if( !UnderlyingArchive.IsObjectReferenceCollector() || UnderlyingArchive.IsModifyingWeakAndStrongReferences() )
 	{
 		UObject* ObjectValue = GetObjectPropertyValue(Value);
 
-		Ar << *(FLazyObjectPtr*)Value;
+		Slot << *(FLazyObjectPtr*)Value;
 
-		if ((Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences()) && ObjectValue != GetObjectPropertyValue(Value))
+		if ((UnderlyingArchive.IsLoading() || UnderlyingArchive.IsModifyingWeakAndStrongReferences()) && ObjectValue != GetObjectPropertyValue(Value))
 		{
 			CheckValidObject(Value);
 		}
+	}
+	else
+	{
+		// TODO: This isn't correct, but it keeps binary serialization happy. We should ALWAYS be serializing the pointer
+		// to the archive in this function, and allowing the underlying archive to ignore it if necessary
+		Slot.EnterStream();
 	}
 }
 

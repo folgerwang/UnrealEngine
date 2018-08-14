@@ -9,7 +9,7 @@ public class UE4EditorTarget : TargetRules
 	{
 		Type = TargetType.Editor;
 		BuildEnvironment = TargetBuildEnvironment.Shared;
-		bPrecompile = true;
+		bBuildAllModules = true;
 		ExtraModuleNames.Add("UE4Game");
 	}
 }

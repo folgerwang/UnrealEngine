@@ -74,6 +74,8 @@ public:
 	TArray<FLinkerLoad*> DelayedLinkerClosePackages;
 	/** true when we are routing ConditionalPostLoad/PostLoad to objects										*/
 	bool IsRoutingPostLoad;
+	/** The object we are routing PostLoad from the Async Loading code for */
+	UObject* CurrentlyPostLoadedObjectByALT;
 	/** true when FLinkerManager deletes linkers */
 	bool IsDeletingLinkers;
 	/* Global flag so that FObjectFinders know if they are called from inside the UObject constructors or not. */

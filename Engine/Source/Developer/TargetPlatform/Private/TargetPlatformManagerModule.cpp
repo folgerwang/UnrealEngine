@@ -37,6 +37,36 @@ DEFINE_LOG_CATEGORY_STATIC(LogTargetPlatformManager, Log, All);
 	#define AUTOSDKS_ENABLED 0
 #endif
 
+static const size_t MaxPlatformCount = 64;		// In the unlikely event that someone bumps this please note that there's
+												// an implicit assumption that there won't be more than 64 unique target
+												// platforms in the FTargetPlatformSet code since it uses one bit of an
+												// uint64 per platform.
+
+static const ITargetPlatform* TargetPlatformArray[MaxPlatformCount];
+
+static int32 PlatformCounter = 0;
+
+int32 
+ITargetPlatform::AssignPlatformOrdinal(const ITargetPlatform& Platform)
+{
+	check(PlatformCounter < MaxPlatformCount);
+
+	const int32 Ordinal = PlatformCounter++;
+
+	check(TargetPlatformArray[Ordinal] == nullptr);
+	TargetPlatformArray[Ordinal] = &Platform;
+
+	return Ordinal;
+}
+
+const ITargetPlatform* 
+ITargetPlatform::GetPlatformFromOrdinal(int32 Ordinal)
+{
+	check(Ordinal < PlatformCounter);
+
+	return TargetPlatformArray[Ordinal];
+}
+
 
 /**
  * Module for the target platform manager
@@ -572,12 +602,11 @@ protected:
 	bool IsAutoSDKsEnabled()
 	{
 		static const FString SDKRootEnvFar(TEXT("UE_SDKS_ROOT"));
-		const int32 MaxPathSize = 16384;
-		TCHAR SDKPath[MaxPathSize] = { 0 };
-		FPlatformMisc::GetEnvironmentVariable(*SDKRootEnvFar, SDKPath, MaxPathSize);
+
+		FString SDKPath = FPlatformMisc::GetEnvironmentVariable(*SDKRootEnvFar);
 
 		// AutoSDKs only enabled if UE_SDKS_ROOT is set.
-		if (SDKPath[0] != 0)
+		if (SDKPath.Len() != 0)
 		{
 			return true;
 		}
@@ -707,9 +736,7 @@ RETRY_SETUPANDVALIDATE:
 #endif		
 
 		static const FString SDKRootEnvFar(TEXT("UE_SDKS_ROOT"));
-		const int32 MaxPathSize = 16384;
-		FString SDKPath = FString::ChrN(16384, TEXT('\0'));
-		FPlatformMisc::GetEnvironmentVariable(*SDKRootEnvFar, SDKPath.GetCharArray().GetData(), MaxPathSize);
+		FString SDKPath = FPlatformMisc::GetEnvironmentVariable(*SDKRootEnvFar);
 
 		FString TargetSDKRoot = FPaths::Combine(*SDKPath, *HostPlatform, *AutoSDKPath);
 		static const FString SDKInstallManifestFileName(TEXT("CurrentlyInstalled.txt"));
@@ -812,9 +839,7 @@ RETRY_SETUPANDVALIDATE:
 			SetupEnvironmentVariables(EnvVarNames, EnvVarValues);
 
 
-			const int32 MaxPathVarLen = 32768;
-			FString OrigPathVar = FString::ChrN(MaxPathVarLen, TEXT('\0'));
-			FPlatformMisc::GetEnvironmentVariable(TEXT("PATH"), OrigPathVar.GetCharArray().GetData(), MaxPathVarLen);
+			FString OrigPathVar = FPlatformMisc::GetEnvironmentVariable(TEXT("PATH"));
 
 			// actually perform the PATH stripping / adding.
 			const TCHAR* PathDelimiter = FPlatformMisc::GetPathVarDelimiter();

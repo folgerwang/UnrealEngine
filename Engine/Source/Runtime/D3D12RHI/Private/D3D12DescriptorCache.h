@@ -193,10 +193,10 @@ private: // Types
 
 public: // Methods
 	FD3D12OfflineDescriptorManager(FRHIGPUMask Node, D3D12_DESCRIPTOR_HEAP_TYPE Type, uint32 NumDescriptorsPerHeap)
-		: m_Desc(CreateDescriptor(Node, Type, NumDescriptorsPerHeap))
+		: FD3D12SingleNodeGPUObject(Node)
+		, m_Desc(CreateDescriptor(Node, Type, NumDescriptorsPerHeap))
 		, m_DescriptorSize(0)
 		, m_pDevice(nullptr)
-		, FD3D12SingleNodeGPUObject(Node)
 	{}
 
 	void Init(ID3D12Device* pDevice)
@@ -378,8 +378,8 @@ class FD3D12GlobalOnlineHeap : public FD3D12OnlineHeap
 {
 public:
 	FD3D12GlobalOnlineHeap(FD3D12Device* Device, FRHIGPUMask Node)
-		: bUniqueDescriptorTablesAreDirty(false)
-		, FD3D12OnlineHeap(Device, Node, false)
+		: FD3D12OnlineHeap(Device, Node, false)
+		, bUniqueDescriptorTablesAreDirty(false)
 	{ }
 
 	void Init(uint32 TotalSize, D3D12_DESCRIPTOR_HEAP_TYPE Type);

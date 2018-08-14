@@ -95,8 +95,8 @@ class FD3D12SingleNodeGPUObject : public FD3D12GPUObject
 {
 public:
 	FD3D12SingleNodeGPUObject(FRHIGPUMask GPUMask)
-		: GPUIndex(GPUMask.ToIndex())
-		, FD3D12GPUObject(GPUMask, GPUMask)
+		: FD3D12GPUObject(GPUMask, GPUMask)
+		, GPUIndex(GPUMask.ToIndex())
 	{}
 
 	FORCEINLINE const uint32 GetGPUIndex() const
