@@ -201,12 +201,13 @@ public:
 	 * Creates a socket
 	 *
 	 * @Param SocketType type of socket to create (DGram, Stream, etc)
- 	 * @param SocketDescription debug description
+	 * @param SocketDescription debug description
+	 * @param ProtocolType the socket protocol to be used
 	 * @param bForceUDP overrides any platform specific protocol with UDP instead
 	 *
 	 * @return the new socket or NULL if failed
 	 */
-	virtual class FSocket* CreateSocket(const FName& SocketType, const FString& SocketDescription, bool bForceUDP = false) override;
+	virtual class FSocket* CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP = false) override;
 
 	/**
 	 * Cleans up a socket class

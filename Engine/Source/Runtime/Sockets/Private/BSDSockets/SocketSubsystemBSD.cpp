@@ -26,6 +26,14 @@ FSocket* FSocketSubsystemBSD::CreateSocket(const FName& SocketType, const FStrin
 	FSocket* NewSocket = nullptr;
 	int PlatformSpecificTypeFlags = 0;
 
+	// For platforms that have two subsystems (ex: Steam) but don't explicitly inherit from SocketSubsystemBSD
+	// so they don't know which protocol to end up using and pass in None.
+	// This is invalid, so we need to attempt to still resolve it.
+	if (ProtocolType == ESocketProtocolFamily::None)
+	{
+		ProtocolType = GetDefaultSocketProtocolFamily();
+	}
+
 	// Don't support any other protocol families.
 	if (ProtocolType != ESocketProtocolFamily::IPv4 && ProtocolType != ESocketProtocolFamily::IPv6)
 	{

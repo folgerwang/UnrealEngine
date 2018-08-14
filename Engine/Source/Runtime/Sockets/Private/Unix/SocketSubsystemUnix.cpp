@@ -3,7 +3,6 @@
 #include "Unix/SocketSubsystemUnix.h"
 #include "Misc/CommandLine.h"
 #include "SocketSubsystemModule.h"
-#include "IPAddress.h"
 #include "BSDSockets/IPAddressBSD.h"
 
 #include <ifaddrs.h>
@@ -89,6 +88,22 @@ bool FSocketSubsystemUnix::HasNetworkDevice()
 {
 	// @TODO: implement
 	return true;
+}
+
+FSocket* FSocketSubsystemUnix::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP)
+{
+	FSocketBSD* NewSocket = (FSocketBSD*)FSocketSubsystemBSD::CreateSocket(SocketType, SocketDescription, ProtocolType, bForceUDP);
+
+	if (NewSocket != nullptr)
+	{
+		NewSocket->SetIPv6Only(false);
+	}
+	else
+	{
+		UE_LOG(LogSockets, Warning, TEXT("Failed to create socket %s [%s]"), *SocketType.ToString(), *SocketDescription);
+	}
+
+	return NewSocket;
 }
 
 TSharedRef<FInternetAddr> FSocketSubsystemUnix::GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll)

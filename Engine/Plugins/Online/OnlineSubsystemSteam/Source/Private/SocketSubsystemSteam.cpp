@@ -150,11 +150,12 @@ void FSocketSubsystemSteam::Shutdown()
  *
  * @Param SocketType type of socket to create (DGram, Stream, etc)
  * @param SocketDescription debug description
+ * @param ProtocolType the socket protocol to be used
  * @param bForceUDP overrides any platform specific protocol with UDP instead
  *
  * @return the new socket or NULL if failed
  */
-FSocket* FSocketSubsystemSteam::CreateSocket(const FName& SocketType, const FString& SocketDescription, bool bForceUDP)
+FSocket* FSocketSubsystemSteam::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP)
 {
 	FSocket* NewSocket = NULL;
 	if (SocketType == FName("SteamClientSocket"))
@@ -199,10 +200,10 @@ FSocket* FSocketSubsystemSteam::CreateSocket(const FName& SocketType, const FStr
 		ISocketSubsystem* PlatformSocketSub = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
 		if (PlatformSocketSub)
 		{
-			NewSocket = PlatformSocketSub->CreateSocket(SocketType, SocketDescription, bForceUDP);
+			NewSocket = PlatformSocketSub->CreateSocket(SocketType, SocketDescription, ProtocolType, bForceUDP);
 		}
 	}
-	
+
 	if (!NewSocket)
 	{
 		UE_LOG(LogSockets, Warning, TEXT("Failed to create socket %s [%s]"), *SocketType.ToString(), *SocketDescription);
