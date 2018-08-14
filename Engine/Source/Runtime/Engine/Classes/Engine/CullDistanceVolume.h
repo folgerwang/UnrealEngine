@@ -38,7 +38,7 @@ struct FCullDistanceSizePair
 };
 
 
-UCLASS(hidecategories=(Advanced, Attachment, Collision, Volume))
+UCLASS(hidecategories=(Advanced, Attachment, Collision, Volume), MinimalAPI)
 class ACullDistanceVolume
 	: public AVolume
 {
