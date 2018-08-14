@@ -7,7 +7,7 @@
 namespace BuildPatchServices
 {
 	// Union of all possible message types.
-	typedef TUnion<FChunkSourceEvent> FMessageUnion;
+	typedef TUnion<FChunkSourceEvent, FInstallationFileAction> FMessageUnion;
 
 	// Queue type for messages.
 	typedef TQueue<FMessageUnion, EQueueMode::Mpsc> FMessageQueue;
@@ -41,6 +41,7 @@ namespace BuildPatchServices
 
 		// IMessagePump interface begin.
 		virtual void SendMessage(FChunkSourceEvent Message) override;
+		virtual void SendMessage(FInstallationFileAction Message) override;
 		virtual void PumpMessages(const TArray<FMessageHandler*>& Handlers) override;
 		// IMessagePump interface end.
 
@@ -61,12 +62,21 @@ namespace BuildPatchServices
 		MessageQueue.Enqueue(FMessageUnion(MoveTemp(Message)));
 	}
 
+	void FMessagePump::SendMessage(FInstallationFileAction Message)
+	{
+		MessageQueue.Enqueue(FMessageUnion(MoveTemp(Message)));
+	}
+
 	void FMessagePump::PumpMessages(const TArray<FMessageHandler*>& Handlers)
 	{
 		FMessageUnion MessageUnion;
 		while (MessageQueue.Dequeue(MessageUnion))
 		{
 			if (MessagePumpHelpers::TryPump<FChunkSourceEvent>(Handlers, MessageUnion))
+			{
+				continue;
+			}
+			else if (MessagePumpHelpers::TryPump<FInstallationFileAction>(Handlers, MessageUnion))
 			{
 				continue;
 			}

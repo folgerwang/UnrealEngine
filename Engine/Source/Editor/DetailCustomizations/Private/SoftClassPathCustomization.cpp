@@ -19,6 +19,7 @@ void FSoftClassPathCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> In
 	const bool bAllowNone = !(PropertyHandle->GetMetaDataProperty()->PropertyFlags & CPF_NoClear);
 	const bool bShowTreeView = PropertyHandle->HasMetaData("ShowTreeView");
 	const bool bHideViewOptions = PropertyHandle->HasMetaData("HideViewOptions");
+	const bool bShowDisplayNames = PropertyHandle->HasMetaData("ShowDisplayNames");
 	
 	const UClass* const MetaClass = !MetaClassName.IsEmpty()
 		? FEditorClassUtils::GetClassFromString(MetaClassName)
@@ -45,6 +46,7 @@ void FSoftClassPathCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> In
 			.AllowNone(bAllowNone)
 			.ShowTreeView(bShowTreeView)
 			.HideViewOptions(bHideViewOptions)
+			.ShowDisplayNames(bShowDisplayNames)
 			.SelectedClass(this, &FSoftClassPathCustomization::OnGetClass)
 			.OnSetClass(this, &FSoftClassPathCustomization::OnSetClass)
 	];

@@ -375,7 +375,7 @@ bool UMagicLeapARPinFunctionLibrary::GetARPinPositionAndOrientation(const FGuid&
 
 UMagicLeapARPinComponent::UMagicLeapARPinComponent()
 : AutoPinType(EAutoPinType::OnlyOnDataRestoration)
-, bPinActor(false)
+, bShouldPinActor(false)
 , PinnedSceneComponent(nullptr)
 , OldComponentWorldTransform(FTransform::Identity)
 , OldCFUIDTransform(FTransform::Identity)
@@ -425,7 +425,7 @@ void UMagicLeapARPinComponent::BeginPlay()
 
 	if ((AutoPinType == EAutoPinType::Always) || (bDataRestored && AutoPinType == EAutoPinType::OnlyOnDataRestoration))
 	{
-		if (bPinActor)
+		if (bShouldPinActor)
 		{
 			PinActor(GetOwner());
 		}

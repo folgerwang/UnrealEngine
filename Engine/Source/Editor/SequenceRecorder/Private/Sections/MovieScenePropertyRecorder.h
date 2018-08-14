@@ -51,6 +51,11 @@ public:
 
 	virtual void Record(UObject* InObjectToRecord, float InCurrentTime) override
 	{
+		if (!MovieSceneSection.IsValid())
+		{
+			return;
+		}
+
 		if (InObjectToRecord != nullptr)
 		{
 			FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
@@ -74,15 +79,20 @@ public:
 
 	virtual void Finalize(UObject* InObjectToRecord, float InCurrentTime) override
 	{
+		if (!MovieSceneSection.IsValid())
+		{
+			return;
+		}
+
 		for (const FPropertyKey<PropertyType>& Key : Keys)
 		{
-			AddKeyToSection(MovieSceneSection, Key);
+			AddKeyToSection(MovieSceneSection.Get(), Key);
 		}
 
 		const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 		if (Settings->bReduceKeys)
 		{
-			ReduceKeys(MovieSceneSection);
+			ReduceKeys(MovieSceneSection.Get());
 		}
 	}
 
@@ -110,7 +120,7 @@ private:
 	TArray<FPropertyKey<PropertyType>> Keys;
 
 	/** Section we are recording */
-	UMovieSceneSection* MovieSceneSection;
+	TWeakObjectPtr<class UMovieSceneSection> MovieSceneSection;
 
 	/** Previous value we use to establish whether we should key */
 	PropertyType PreviousValue;
@@ -138,6 +148,11 @@ public:
 
 	virtual void Record(UObject* InObjectToRecord, float InCurrentTime) override
 	{
+		if (!MovieSceneSection.IsValid())
+		{
+			return;
+		}
+
 		if (InObjectToRecord != nullptr)
 		{
 			FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
@@ -161,12 +176,17 @@ public:
 
 	virtual void Finalize(UObject* InObjectToRecord, float InCurrentTime) override
 	{
-		for (const FPropertyKey<int64>& Key : Keys)
+		if (!MovieSceneSection.IsValid())
 		{
-			AddKeyToSection(MovieSceneSection, Key);
+			return;
 		}
 
-		ReduceKeys(MovieSceneSection);
+		for (const FPropertyKey<int64>& Key : Keys)
+		{
+			AddKeyToSection(MovieSceneSection.Get(), Key);
+		}
+
+		ReduceKeys(MovieSceneSection.Get());
 	}
 
 private:
@@ -193,7 +213,7 @@ private:
 	TArray<FPropertyKey<int64>> Keys;
 
 	/** Section we are recording */
-	UMovieSceneSection* MovieSceneSection;
+	TWeakObjectPtr<class UMovieSceneSection> MovieSceneSection;
 
 	/** Previous value we use to establish whether we should key */
 	int64 PreviousValue;

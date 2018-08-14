@@ -214,7 +214,9 @@ public:
 	UCineCameraComponent();
 
 	virtual void GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView) override;
-
+#if WITH_EDITOR
+	virtual FText GetFilmbackText() const override;
+#endif
 	/** Controls the filmback of the camera. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Current Camera Settings")
 	FCameraFilmbackSettings FilmbackSettings;

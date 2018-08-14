@@ -280,6 +280,52 @@ bool FTextTest::RunTest (const FString& Parameters)
 
 #undef INVTEXT
 
+#define TEST(NumBytes, UnitStandard, ExpectedString) \
+	if (!FText::FromString(TEXT(ExpectedString)).EqualTo(FText::AsMemory(NumBytes, &NumberFormattingOptions, nullptr, UnitStandard))) \
+	{ \
+		AddError(FString::Printf(TEXT("FText::AsMemory expected %s bytes in %s to be %s - got %s"), TEXT(#NumBytes), TEXT(#UnitStandard), TEXT(ExpectedString), *FText::AsMemory(NumBytes, &NumberFormattingOptions, nullptr, UnitStandard).ToString())); \
+	} \
+
+	{
+		FNumberFormattingOptions NumberFormattingOptions = FNumberFormattingOptions()
+			.SetRoundingMode(ERoundingMode::HalfFromZero)
+			.SetMinimumFractionalDigits(0)
+			.SetMaximumFractionalDigits(3);
+
+		TEST(0, EMemoryUnitStandard::SI, "0 B");
+		TEST(1, EMemoryUnitStandard::SI, "1 B");
+		TEST(1000, EMemoryUnitStandard::SI, "1 kB");
+		TEST(1000000, EMemoryUnitStandard::SI, "1 MB");
+		TEST(1000000000, EMemoryUnitStandard::SI, "1 GB");
+		TEST(1000000000000, EMemoryUnitStandard::SI, "1 TB");
+		TEST(1000000000000000, EMemoryUnitStandard::SI, "1 PB");
+		TEST(1000000000000000000, EMemoryUnitStandard::SI, "1 EB");
+		TEST(999, EMemoryUnitStandard::SI, "999 B");
+		TEST(999999, EMemoryUnitStandard::SI, "999.999 kB");
+		TEST(999999999, EMemoryUnitStandard::SI, "999.999 MB");
+		TEST(999999999999, EMemoryUnitStandard::SI, "999.999 GB");
+		TEST(999999999999999, EMemoryUnitStandard::SI, "999.999 TB");
+		TEST(999999999999999999, EMemoryUnitStandard::SI, "999.999 PB");
+		TEST(18446744073709551615ULL, EMemoryUnitStandard::SI, "18.446 EB");
+
+		TEST(0, EMemoryUnitStandard::IEC, "0 B");
+		TEST(1, EMemoryUnitStandard::IEC, "1 B");
+		TEST(1024, EMemoryUnitStandard::IEC, "1 KiB");
+		TEST(1048576, EMemoryUnitStandard::IEC, "1 MiB");
+		TEST(1073741824, EMemoryUnitStandard::IEC, "1 GiB");
+		TEST(1099511627776, EMemoryUnitStandard::IEC, "1 TiB");
+		TEST(1125899906842624, EMemoryUnitStandard::IEC, "1 PiB");
+		TEST(1152921504606846976, EMemoryUnitStandard::IEC, "1 EiB");
+		TEST(1023, EMemoryUnitStandard::IEC, "0.999 KiB");
+		TEST(1048575, EMemoryUnitStandard::IEC, "0.999 MiB");
+		TEST(1073741823, EMemoryUnitStandard::IEC, "0.999 GiB");
+		TEST(1099511627775, EMemoryUnitStandard::IEC, "0.999 TiB");
+		TEST(1125899906842623, EMemoryUnitStandard::IEC, "0.999 PiB");
+		TEST(1152921504606846975, EMemoryUnitStandard::IEC, "0.999 EiB");
+		TEST(18446744073709551615ULL, EMemoryUnitStandard::IEC, "15.999 EiB");
+	}
+#undef TEST
+
 #if UE_ENABLE_ICU
 	if (I18N.SetCurrentCulture("en-US"))
 	{

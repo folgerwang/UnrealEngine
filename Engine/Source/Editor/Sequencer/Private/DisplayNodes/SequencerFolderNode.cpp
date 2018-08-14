@@ -222,6 +222,11 @@ void FSequencerFolderNode::MoveDisplayNodeToFolder(TSharedRef<FSequencerDisplayN
 			TSharedRef<FSequencerFolderNode> DraggedFolderNode = StaticCastSharedRef<FSequencerFolderNode>(Node);
 			UMovieScene* FocusedMovieScene = GetParentTree().GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
 
+			if (FocusedMovieScene->IsReadOnly())
+			{
+				break;
+			}
+
 			// Remove the folder from where it currently resides, and then we'll add it to it's new location later.
 			// We remove it before adding so that when you move a folder within the same hierarchy it doesn't end up
 			// removing it after changing order.

@@ -316,7 +316,7 @@ private:
 				FText::Format(LOCTEXT("TakeNumber", "Take {0}"), FText::AsNumber(TakeNumber)),
 				FText::Format(LOCTEXT("TakeNumberTooltip", "Switch to take {0}"), FText::AsNumber(TakeNumber)),
 				TakeNumber == CurrentTakeNumber ? FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.Star") : FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.Empty"),
-				FUIAction(FExecuteAction::CreateSP(SubTrackEditor.Pin().ToSharedRef(), &FSubTrackEditor::SwitchTake, &SectionObject, TakeNumber))
+				FUIAction(FExecuteAction::CreateSP(SubTrackEditor.Pin().ToSharedRef(), &FSubTrackEditor::SwitchTake, TakeNumber))
 			);
 		}
 	}
@@ -560,6 +560,11 @@ void FSubTrackEditor::HandleAddSubTrackMenuEntryExecute()
 		return;
 	}
 
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	const FScopedTransaction Transaction(LOCTEXT("AddSubTrack_Transaction", "Add Sub Track"));
 	FocusedMovieScene->Modify();
 
@@ -761,40 +766,60 @@ FKeyPropertyResult FSubTrackEditor::HandleRecordNewSequenceInternal(FFrameNumber
 	return KeyPropertyResult;
 }
 
-void FSubTrackEditor::SwitchTake(UMovieSceneSubSection* Section, uint32 TakeNumber)
+void FSubTrackEditor::SwitchTake(uint32 TakeNumber)
 {
+	bool bSwitchedTake = false;
+
 	const FScopedTransaction Transaction(LOCTEXT("SwitchTake_Transaction", "Switch Take"));
 
-	UObject* TakeObject = MovieSceneToolHelpers::GetTake(Section, TakeNumber);
+	TArray<UMovieSceneSection*> Sections;
+	GetSequencer()->GetSelectedSections(Sections);
 
-	if (TakeObject && TakeObject->IsA(UMovieSceneSequence::StaticClass()))
+	for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
 	{
-		UMovieSceneSequence* MovieSceneSequence = CastChecked<UMovieSceneSequence>(TakeObject);
-
-		UMovieSceneSubTrack* SubTrack = FindOrCreateMasterTrack<UMovieSceneSubTrack>().Track;
-		
-		TRange<FFrameNumber> NewShotRange         = Section->GetRange();
-		int32                NewShotStartOffset   = Section->Parameters.GetStartFrameOffset();
-		float                NewShotTimeScale     = Section->Parameters.TimeScale;
-		int32                NewShotPrerollFrames = Section->GetPreRollFrames();
-		int32                NewRowIndex          = Section->GetRowIndex();
-		FFrameNumber         NewShotStartTime     = NewShotRange.GetLowerBound().IsClosed() ? MovieScene::DiscreteInclusiveLower(NewShotRange) : 0;
-		int32                NewShotRowIndex      = Section->GetRowIndex();
-
-		const int32 Duration = (NewShotRange.GetLowerBound().IsClosed() && NewShotRange.GetUpperBound().IsClosed() ) ? MovieScene::DiscreteSize(NewShotRange) : 1;
-		UMovieSceneSubSection* NewShot = SubTrack->AddSequence(MovieSceneSequence, NewShotStartTime, Duration);
-
-		if (NewShot != nullptr)
+		if (!Sections[SectionIndex]->IsA<UMovieSceneSubSection>())
 		{
-			SubTrack->RemoveSection(*Section);
-
-			NewShot->SetRange(NewShotRange);
-			NewShot->Parameters.SetStartFrameOffset(NewShotStartOffset);
-			NewShot->Parameters.TimeScale = NewShotTimeScale;
-			NewShot->SetPreRollFrames(NewShotPrerollFrames);
-			NewShot->SetRowIndex(NewShotRowIndex);
+			continue;
 		}
 
+		UMovieSceneSubSection* Section = Cast<UMovieSceneSubSection>(Sections[SectionIndex]);
+
+		UObject* TakeObject = MovieSceneToolHelpers::GetTake(Section, TakeNumber);
+
+		if (TakeObject && TakeObject->IsA(UMovieSceneSequence::StaticClass()))
+		{
+			UMovieSceneSequence* MovieSceneSequence = CastChecked<UMovieSceneSequence>(TakeObject);
+
+			UMovieSceneSubTrack* SubTrack = FindOrCreateMasterTrack<UMovieSceneSubTrack>().Track;
+		
+			TRange<FFrameNumber> NewShotRange         = Section->GetRange();
+			int32                NewShotStartOffset   = Section->Parameters.GetStartFrameOffset();
+			float                NewShotTimeScale     = Section->Parameters.TimeScale;
+			int32                NewShotPrerollFrames = Section->GetPreRollFrames();
+			int32                NewRowIndex          = Section->GetRowIndex();
+			FFrameNumber         NewShotStartTime     = NewShotRange.GetLowerBound().IsClosed() ? MovieScene::DiscreteInclusiveLower(NewShotRange) : 0;
+			int32                NewShotRowIndex      = Section->GetRowIndex();
+
+			const int32 Duration = (NewShotRange.GetLowerBound().IsClosed() && NewShotRange.GetUpperBound().IsClosed() ) ? MovieScene::DiscreteSize(NewShotRange) : 1;
+			UMovieSceneSubSection* NewShot = SubTrack->AddSequence(MovieSceneSequence, NewShotStartTime, Duration);
+
+			if (NewShot != nullptr)
+			{
+				SubTrack->RemoveSection(*Section);
+
+				NewShot->SetRange(NewShotRange);
+				NewShot->Parameters.SetStartFrameOffset(NewShotStartOffset);
+				NewShot->Parameters.TimeScale = NewShotTimeScale;
+				NewShot->SetPreRollFrames(NewShotPrerollFrames);
+				NewShot->SetRowIndex(NewShotRowIndex);
+
+				bSwitchedTake = true;
+			}
+		}
+	}
+
+	if (bSwitchedTake)
+	{
 		GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemsChanged );
 	}
 }

@@ -256,15 +256,15 @@ void ExtendSequencePlaybackRange(ULevelSequence* LevelSequence)
 	}
 }
 
-void SaveLevelSequence(ULevelSequence* LevelSequence)
+void SaveAsset(UObject* InObject)
 {
-	if (!LevelSequence)
+	if (!InObject)
 	{
 		return;
 	}
 
 	// auto-save asset outside of the editor
-	UPackage* const Package = LevelSequence->GetOutermost();
+	UPackage* const Package = InObject->GetOutermost();
 	FString const PackageName = Package->GetName();
 	FString const PackageFileName = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());
 

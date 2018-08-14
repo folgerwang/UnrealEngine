@@ -115,6 +115,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 #if WITH_EDITOR
 // by default we are always drawn
 ,	HiddenEditorViews(0)
+,	DrawInVREditMode(0)
 #endif
 ,	TranslucencySortPriority(FMath::Clamp(InComponent->TranslucencySortPriority, SHRT_MIN, SHRT_MAX))
 ,	VisibilityId(InComponent->VisibilityId)
@@ -168,6 +169,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 #if WITH_EDITOR
 		// cache the actor's group membership
 		HiddenEditorViews = InComponent->GetHiddenEditorViews();
+		DrawInVREditMode = InComponent->GetOwner()->IsEditorOnly();
 #endif
 	}
 	
@@ -548,6 +550,15 @@ void FPrimitiveSceneProxy::SetCollisionEnabled_RenderThread(const bool bNewEnabl
 bool FPrimitiveSceneProxy::IsShown(const FSceneView* View) const
 {
 #if WITH_EDITOR
+	if (!View->Family->EngineShowFlags.VREditing)
+	{
+		if (DrawInVREditMode)
+		{
+			return false;
+		}
+	}
+
+	// After checking for VR Edit mode specific actors, check for Editor vs. Game
 	if(View->Family->EngineShowFlags.Editor)
 	{
 		if(!DrawInEditor)

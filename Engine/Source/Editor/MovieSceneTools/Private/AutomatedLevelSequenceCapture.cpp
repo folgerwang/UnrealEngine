@@ -19,6 +19,7 @@
 #include "MovieSceneCaptureModule.h"
 #include "MovieSceneTimeHelpers.h"
 #include "MovieSceneToolHelpers.h"
+#include "Protocols/AudioCaptureProtocol.h"
 
 const FName UAutomatedLevelSequenceCapture::AutomatedLevelSequenceCaptureUIName = FName(TEXT("AutomatedLevelSequenceCaptureUIInstance"));
 
@@ -95,7 +96,7 @@ UAutomatedLevelSequenceCapture::UAutomatedLevelSequenceCapture(const FObjectInit
 	NumShots = 0;
 	ShotIndex = -1;
 
-	BurnInOptions = Init.CreateDefaultSubobject<ULevelSequenceBurnInOptions>(this, AutomatedLevelSequenceCaptureUIName);
+	BurnInOptions = Init.CreateDefaultSubobject<ULevelSequenceBurnInOptions>(this, MovieSceneCaptureUIName);
 #endif
 }
 
@@ -248,6 +249,7 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 
 	CaptureState = ELevelSequenceCaptureState::Setup;
 	CaptureStrategy = MakeShareable(new FFixedTimeStepCaptureStrategy(Settings.FrameRate));
+	CaptureStrategy->OnInitialize();
 }
 
 UMovieScene* GetMovieScene(TWeakObjectPtr<ALevelSequenceActor> LevelSequenceActor)
@@ -498,7 +500,7 @@ void UAutomatedLevelSequenceCapture::EnableCinematicMode()
 	}
 }
 
-void UAutomatedLevelSequenceCapture::Tick(float DeltaSeconds)
+void UAutomatedLevelSequenceCapture::OnTick(float DeltaSeconds)
 {
 	ALevelSequenceActor* Actor = LevelSequenceActor.Get();
 
@@ -515,7 +517,12 @@ void UAutomatedLevelSequenceCapture::Tick(float DeltaSeconds)
 		EnableCinematicMode();
 		
 		// Bind to the event so we know when to capture a frame
-		OnPlayerUpdatedBinding = Actor->SequencePlayer->OnSequenceUpdated().AddUObject( this, &UAutomatedLevelSequenceCapture::SequenceUpdated );
+		if (!bIsAudioCapturePass)
+		{
+			OnPlayerUpdatedBinding = Actor->SequencePlayer->OnSequenceUpdated().AddUObject( this, &UAutomatedLevelSequenceCapture::SequenceUpdated );
+		}
+
+		StartWarmup();
 
 		if (DelayBeforeWarmUp + DelayBeforeShotWarmUp > 0)
 		{
@@ -569,21 +576,40 @@ void UAutomatedLevelSequenceCapture::Tick(float DeltaSeconds)
 			Actor->SequencePlayer->SetFrameRange(StartTimePlayRateSpace.Value, (EndTimePlayRateSpace - StartTimePlayRateSpace).Value);
 			Actor->SequencePlayer->JumpToFrame(StartTimePlayRateSpace.Value);
 			Actor->SequencePlayer->Play();
+
 			CaptureState = ELevelSequenceCaptureState::FinishedWarmUp;
 			UpdateFrameState();
 		}
 		else
 		{
-			Actor->SequencePlayer->OnSequenceUpdated().Remove( OnPlayerUpdatedBinding );
-			FinalizeWhenReady();
+			// This is called when the sequence finishes playing and we've reached the end of all shots within the sequence.
+			// We only render the audio pass if they have specified an audio capture protocol, so we allow this early out 
+			// when there is no audio, or when we have finished the audio pass.
+			if (IsAudioPassIfNeeded() && CaptureState != ELevelSequenceCaptureState::Setup)
+			{
+				// If they don't want to render audio, or they have rendered an audio pass, we finish and finalize the data.
+				Actor->SequencePlayer->OnSequenceUpdated().Remove( OnPlayerUpdatedBinding );
+				FinalizeWhenReady();
+			}
+			else
+			{
+				// Reset us to use the platform clock for controlling the playback rate of the sequence. The audio system
+				// uses the platform clock for timings as well.
+				Actor->PlaybackSettings.TimeController = MakeShared<FMovieSceneTimeController_PlatformClock>();
+				CaptureState = ELevelSequenceCaptureState::Setup;
+				
+				// We'll now repeat the whole process including warmups and delays. The audio capture will pause recording while we are delayed.
+				// This creates an audio discrepancy during the transition point (if there is shot warmup) but it allows a complex scenes to spend
+				// enough time loading that it doesn't cause an audio desync.
+				bIsAudioCapturePass = true;
+				bCapturing = false;
+			}
 		}
 	}
 }
 
 void UAutomatedLevelSequenceCapture::DelayBeforeWarmupFinished()
 {
-	StartWarmup();
-
 	// Wait a frame to go by after we've set the fixed time step, so that the animation starts
 	// playback at a consistent time
 	CaptureState = ELevelSequenceCaptureState::ReadyToWarmUp;
@@ -604,6 +630,16 @@ void UAutomatedLevelSequenceCapture::PauseFinished()
 		Actor->SequencePlayer->SetPlayRate(CachedPlayRate.GetValue());
 		CachedPlayRate.Reset();
 	}
+	
+	
+	if (bIsAudioCapturePass)
+	{
+		UE_LOG(LogMovieSceneCapture, Log, TEXT("WarmUp pause finished. Resuming the capture of audio."));
+	}
+	else
+	{
+		UE_LOG(LogMovieSceneCapture, Log, TEXT("WarmUp pause finished. Resuming the capture of images."));
+	}
 }
 
 void UAutomatedLevelSequenceCapture::SequenceUpdated(const UMovieSceneSequencePlayer& Player, FFrameTime CurrentTime, FFrameTime PreviousTime)
@@ -623,22 +659,58 @@ void UAutomatedLevelSequenceCapture::SequenceUpdated(const UMovieSceneSequencePl
 			
 			if (bNewShot && Actor->SequencePlayer->IsPlaying() && DelayBeforeShotWarmUp > 0)
 			{
+				if (bIsAudioCapturePass)
+				{
+					UE_LOG(LogMovieSceneCapture, Log, TEXT("Entering WarmUp pause, pausing audio capture."));
+					if (AudioCaptureProtocol)
+					{
+						AudioCaptureProtocol->WarmUp();
+					}
+				}
+				else
+				{
+					UE_LOG(LogMovieSceneCapture, Log, TEXT("Entering WarmUp pause, pausing image capture."));
+					if (ImageCaptureProtocol)
+					{
+						ImageCaptureProtocol->WarmUp();
+					}
+				}
+				
 				CaptureState = ELevelSequenceCaptureState::Paused;
+
 				Actor->GetWorld()->GetTimerManager().SetTimer(DelayTimer, FTimerDelegate::CreateUObject(this, &UAutomatedLevelSequenceCapture::PauseFinished), DelayBeforeShotWarmUp, false);
 				CachedPlayRate = Actor->SequencePlayer->GetPlayRate();
 				Actor->SequencePlayer->SetPlayRate(0.f);
 			}
 			else if (CaptureState == ELevelSequenceCaptureState::FinishedWarmUp)
 			{
+				// These are called each frame to allow the state machine inside the protocol to transition back to capturing
+				// after paused if needed. This is needed for things like the avi writer who spin up an avi writer per shot (if needed)
+				// so that we can capture the movies into individual avi files per shot due to the format text.
+				if (bIsAudioCapturePass)
+				{
+					if (AudioCaptureProtocol)
+					{
+						AudioCaptureProtocol->StartCapture();
+					}
+				}
+				else
+				{
+					if (ImageCaptureProtocol)
+					{
+						ImageCaptureProtocol->StartCapture();
+					}
+				}
+
 				CaptureThisFrame( (CurrentTime - PreviousTime) / Settings.FrameRate);
 
-				bool bOnLastFrame = ( CurrentTime.FrameNumber >= Actor->SequencePlayer->GetStartTime().Time.FrameNumber + Actor->SequencePlayer->GetFrameDuration() - 1 );
+				// This bit of logic helps ensure we don't capture an extra frame by waiting until the next tick. 
+				bool bOnLastFrame = (CurrentTime.FrameNumber >= Actor->SequencePlayer->GetStartTime().Time.FrameNumber + Actor->SequencePlayer->GetFrameDuration() - 1);
 				bool bLastShot = NumShots == 0 ? true : ShotIndex == NumShots - 1;
-
-				if ((bOnLastFrame && bLastShot) || bFinalizeWhenReady)
+				if ((bOnLastFrame && bLastShot && IsAudioPassIfNeeded()) || bFinalizeWhenReady)
 				{
 					FinalizeWhenReady();
-					Actor->SequencePlayer->OnSequenceUpdated().Remove( OnPlayerUpdatedBinding );
+					Actor->SequencePlayer->OnSequenceUpdated().Remove(OnPlayerUpdatedBinding);
 				}
 			}
 		}
@@ -690,7 +762,7 @@ void UAutomatedLevelSequenceCapture::SaveToConfig()
 void UAutomatedLevelSequenceCapture::Close()
 {
 	Super::Close();
-			
+	CachedState = FLevelSequencePlayerSnapshot();
 	RestoreShots();
 }
 
@@ -802,6 +874,21 @@ void UAutomatedLevelSequenceCapture::ExportEDL()
 	int32 HandleFrames = Settings.HandleFrames;
 
 	MovieSceneTranslatorEDL::ExportEDL(MovieScene, Settings.FrameRate, SaveFilename, HandleFrames);
+}
+
+double UAutomatedLevelSequenceCapture::GetEstimatedCaptureDurationSeconds() const
+{
+	ALevelSequenceActor* Actor = LevelSequenceActor.Get();
+
+	if (Actor)
+	{
+		TRange<FFrameNumber> PlaybackRange = Actor->GetSequence()->GetMovieScene()->GetPlaybackRange();
+		int32 MovieSceneDurationFrameCount = MovieScene::DiscreteSize(PlaybackRange);
+		
+		return Actor->GetSequence()->GetMovieScene()->GetTickResolution().AsSeconds(FFrameTime(FFrameNumber(MovieSceneDurationFrameCount)));
+	}
+
+	return 0.0;
 }
 
 void UAutomatedLevelSequenceCapture::ExportFCPXML()

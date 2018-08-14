@@ -13,6 +13,7 @@ namespace BuildPatchServices
 	{
 	public:
 		typedef TTuple<double, FGuid> FDownloadRequested;
+		typedef TTuple<double, FGuid> FDownloadSuccess;
 		typedef TTuple<double, FGuid, FString> FDownloadFailed;
 		typedef TTuple<double, FGuid, FString, EChunkLoadResult> FDownloadCorrupt;
 		typedef TTuple<double, FGuid, FString, double, double, double, double> FDownloadAborted;
@@ -26,6 +27,11 @@ namespace BuildPatchServices
 		virtual void OnDownloadRequested(const FGuid& ChunkId) override
 		{
 			RxDownloadRequested.Emplace(FStatsCollector::GetSeconds(), ChunkId);
+		}
+
+		virtual void OnDownloadSuccess(const FGuid& ChunkId) override
+		{
+			RxDownloadSuccess.Emplace(FStatsCollector::GetSeconds(), ChunkId);
 		}
 
 		virtual void OnDownloadFailed(const FGuid& ChunkId, const FString& Url) override
@@ -68,8 +74,13 @@ namespace BuildPatchServices
 			RxActiveRequestCountUpdated.Emplace(FStatsCollector::GetSeconds(), RequestCount);
 		}
 
+		virtual void OnAcceptedNewRequirements(const TSet<FGuid>& ChunkIds) override
+		{
+		}
+
 	public:
 		TArray<FDownloadRequested> RxDownloadRequested;
+		TArray<FDownloadSuccess> RxDownloadSuccess;
 		TArray<FDownloadFailed> RxDownloadFailed;
 		TArray<FDownloadCorrupt> RxDownloadCorrupt;
 		TArray<FDownloadAborted> RxDownloadAborted;

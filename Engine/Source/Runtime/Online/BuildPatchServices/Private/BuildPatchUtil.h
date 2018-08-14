@@ -104,6 +104,7 @@ struct FBuildPatchUtils
 	 * @return	the data part path
 	 */
 	static FString GetDataFilename(const FBuildPatchAppManifestRef& Manifest, const FString& RootDirectory, const FGuid& DataGUID);
+	static FString GetDataFilename(const FBuildPatchAppManifest&    Manifest, const FString& RootDirectory, const FGuid& DataGUID);
 
 	/**
 	 * Gets the GUID for a data file according to it's filename (new or old)

@@ -176,6 +176,16 @@ public:
 	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) = 0;
 
 	/**
+	 * Sets whether mouse wheel events should be handled by the window
+	 */
+	virtual void SetSupportsMouseWheel(bool bValue) = 0;
+
+	/**
+	 * Returns whether mouse wheel events should be handled by the window
+	 */
+	virtual bool GetSupportsMouseWheel() const = 0;
+
+	/**
 	 * Called when the mouse wheel is spun
 	 *
 	 * @param MyGeometry The Geometry of the browser
@@ -349,6 +359,10 @@ public:
 	/** Should return true if this dialog wants to suppress the context menu */
 	DECLARE_DELEGATE_RetVal(bool, FOnSuppressContextMenu);
 	virtual FOnSuppressContextMenu& OnSuppressContextMenu() = 0;
+
+	/** A delegate that is invoked when drag is detected in an area specified as a drag region on the web page. */
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnDragWindow, const FPointerEvent& /*MouseEvent*/)
+	virtual FOnDragWindow& OnDragWindow() = 0;
 
 protected:
 

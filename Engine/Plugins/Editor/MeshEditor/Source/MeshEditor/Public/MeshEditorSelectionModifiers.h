@@ -104,6 +104,21 @@ public:
 	virtual void RegisterUICommand( FBindingContext* BindingContext ) override;
 };
 
+/**
+ * Selects all the polygons that have the same smoothing group as the selection polygons.
+ */
+UCLASS()
+class MESHEDITOR_API USelectPolygonsBySmoothingGroup : public UMeshEditorSelectionModifier
+{
+	GENERATED_BODY()
+public:
+	virtual EEditableMeshElementType GetElementType() const override { return EEditableMeshElementType::Polygon; }
+
+	virtual bool ModifySelection(TMap< UEditableMesh*, TArray< FMeshElement > >& InOutSelection) override;
+
+	virtual void RegisterUICommand(FBindingContext* BindingContext) override;
+};
+
 UCLASS()
 class MESHEDITOR_API UMeshEditorSelectionModifiersList : public UObject
 {

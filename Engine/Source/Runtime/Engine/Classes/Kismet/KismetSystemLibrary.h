@@ -133,6 +133,18 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category="Utilities|Paths", meta=(BlueprintThreadSafe))
 	static FString GetProjectSavedDirectory();
 
+	/* Converts passed in filename to use a relative path */
+	UFUNCTION(BlueprintPure, Category="Utilities|Paths")
+	static FString ConvertToRelativePath(const FString& Filename);
+
+	/* Converts passed in filename to use a absolute path */
+	UFUNCTION(BlueprintPure, Category="Utilities|Paths")
+	static FString ConvertToAbsolutePath(const FString& Filename);
+
+	/* Convert all / and \ to TEXT("/") */
+	UFUNCTION(BlueprintPure, Category="Utilities|Paths", meta=(BlueprintThreadSafe))
+	static FString NormalizeFilename(const FString& InFilename);
+
 	/**
 	 * Retrieves the game's platform-specific bundle identifier or package name of the game
 	 *

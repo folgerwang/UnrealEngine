@@ -1,12 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Data/ChunkData.h"
-#include "Misc/Guid.h"
-#include "Templates/UniquePtr.h"
+#include "CoreMinimal.h"
+#include "Templates/Function.h"
 
 namespace BuildPatchServices
 {
+	class IChunkDataAccess;
+
 	/**
 	 * An interface providing access to storage of chunk data instances.
 	 */
@@ -49,5 +50,15 @@ namespace BuildPatchServices
 		 * @return the slack space for the store.
 		 */
 		virtual int32 GetSlack() const = 0;
+
+		/**
+		 * Sets a callback to be used when chunks which have been Put, are lost.
+		 * Examples of why this may occur:
+		 *     An eviction policy instructs the store to boot a chunk, but this store has no overflow store provided. (see IChunkEvictionPolicy::Query).
+		 *     The system backing this store (e.g. a file on disk storage) experiences a failure and the chunk could not be held.
+		 * NB: The callback is not executed for a standard Clean instruction from an eviction policy.
+		 * @param Callback  The function to call with the chunk that is no longer available.
+		 */
+		virtual void SetLostChunkCallback(TFunction<void(const FGuid&)> Callback) = 0;
 	};
 }

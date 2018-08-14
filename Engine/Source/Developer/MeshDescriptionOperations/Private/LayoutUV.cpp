@@ -22,6 +22,7 @@ namespace MeshDescriptionOp
 		, BestChartRaster(TextureResolution, TextureResolution)
 		, ChartShader(&ChartRaster)
 		, LayoutVersion(FMeshDescriptionOperations::ELightmapUVVersion::Latest)
+		, NextMeshChartId( 0 )
 	{}
 
 	void FLayoutUV::FindCharts(const TMultiMap<int32, int32>& OverlappingCorners)
@@ -40,7 +41,8 @@ namespace MeshDescriptionOp
 		TranslatedMatches.SetNumUninitialized(NumIndexes);
 		TexCoords.SetNumUninitialized(NumIndexes);
 		int32 WedgeIndex = 0;
-		RemapVerts.SetNumUninitialized(NumIndexes);
+		VertexIndexToID.SetNumUninitialized(NumIndexes);
+		VertexIDToIndex.SetNumUninitialized(MeshDescription.VertexInstances().GetArraySize());
 
 		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
 
@@ -55,7 +57,8 @@ namespace MeshDescriptionOp
 
 					TranslatedMatches[WedgeIndex] = -1;
 					TexCoords[WedgeIndex] = VertexUVs[VertexInstanceID];
-					RemapVerts[WedgeIndex] = VertexInstanceID.GetValue();
+					VertexIndexToID[WedgeIndex] = VertexInstanceID.GetValue();
+					VertexIDToIndex[VertexInstanceID.GetValue()] = WedgeIndex;
 					++WedgeIndex;
 				}
 			}
@@ -67,7 +70,8 @@ namespace MeshDescriptionOp
 		{
 			for (auto It = OverlappingCorners.CreateConstKeyIterator(i); It; ++It)
 			{
-				uint32 j = It.Value();
+				// OverlappingCorners has been computed with ids of vertex instances.
+				uint32 j = VertexIDToIndex[It.Value()];
 
 				if (j > i)
 				{
@@ -184,6 +188,7 @@ namespace MeshDescriptionOp
 		{
 			int32 i = Charts.AddUninitialized();
 			FMeshChart& Chart = Charts[i];
+			Chart.Id = NextMeshChartId++;
 
 			Chart.MinUV = FVector2D(FLT_MAX, FLT_MAX);
 			Chart.MaxUV = FVector2D(-FLT_MAX, -FLT_MAX);
@@ -205,7 +210,7 @@ namespace MeshDescriptionOp
 				{
 					uint32 Index = 3 * SortedTris[Tri] + k;
 
-					FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
+					FVertexInstanceID VertexInstanceID(VertexIndexToID[Index]);
 					Positions[k] = VertexPositions[MeshDescription.GetVertexInstanceVertex(VertexInstanceID)];
 					UVs[k] = TexCoords[Index];
 
@@ -510,6 +515,11 @@ namespace MeshDescriptionOp
 
 						ChartA.Join[Side ^ 1] = ChartB.Join[Side ^ 1];
 						ChartA.MaxUV[Axis] += ChartB.MaxUV[Axis] - ChartB.MinUV[Axis];
+						if( LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::ChartJoiningLFix )
+						{
+							// Fixing joined chart MaxUV value to properly inflate non-joined axis extent
+							ChartA.MaxUV[ Axis ^ 1 ] = FMath::Max( ChartA.MaxUV[ Axis ^ 1 ], ChartA.MinUV[ Axis ^ 1 ] + ( ChartB.MaxUV[ Axis ^ 1 ] - ChartB.MinUV[ Axis ^ 1 ] ) );
+						}
 						ChartA.WorldScale += ChartB.WorldScale;
 						ChartA.UVArea += ChartB.UVArea;
 
@@ -638,6 +648,15 @@ namespace MeshDescriptionOp
 		{
 			FMeshChart& Chart = Charts[i];
 			Chart.UVScale = Chart.WorldScale * UVScale;
+		}
+
+		if ( LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::ScaleChartsOrderingFix )
+		{
+			// Unsort the charts to make sure ScaleCharts always return the same ordering
+			Algo::IntroSort( Charts, []( const FMeshChart& A, const FMeshChart& B )
+			{
+				return A.Id < B.Id;
+			});
 		}
 
 		// Scale charts such that they all fit and roughly total the same area as before
@@ -827,7 +846,7 @@ namespace MeshDescriptionOp
 				{
 					if (LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::Segments && Orientation % 4 == 1)
 					{
-						ChartRaster.FlipX(Rect);
+						ChartRaster.FlipX(Rect, LayoutVersion);
 					}
 					else if (LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::Segments && Orientation % 4 == 3)
 					{
@@ -1093,7 +1112,7 @@ namespace MeshDescriptionOp
 				{
 					uint32 Index = 3 * SortedTris[Tri] + k;
 					const FVector2D& UV = TexCoords[Index];
-					const FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
+					const FVertexInstanceID VertexInstanceID(VertexIndexToID[Index]);
 					VertexUVs[VertexInstanceID] = UV.X * Chart.PackingScaleU + UV.Y * Chart.PackingScaleV + Chart.PackingBias;
 				}
 			}

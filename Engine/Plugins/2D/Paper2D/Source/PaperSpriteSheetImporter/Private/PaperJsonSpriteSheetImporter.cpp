@@ -584,7 +584,7 @@ bool FPaperJsonSpriteSheetImporter::PerformImport(const FString& LongPackagePath
 		if (TargetSprite == nullptr)
 		{
 			const FString SanitizedFrameName = ObjectTools::SanitizeObjectName(Frame.FrameName.ToString());
-			const FString TentativePackagePath = PackageTools::SanitizePackageName(TargetSubPath + TEXT("/") + SanitizedFrameName);
+			const FString TentativePackagePath = UPackageTools::SanitizePackageName(TargetSubPath + TEXT("/") + SanitizedFrameName);
 			FString DefaultSuffix;
 			FString AssetName;
 			FString PackageName;

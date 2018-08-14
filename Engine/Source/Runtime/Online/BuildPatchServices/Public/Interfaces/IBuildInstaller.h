@@ -12,8 +12,9 @@
 
 class IBuildInstaller;
 
-typedef TSharedPtr< class IBuildInstaller, ESPMode::ThreadSafe > IBuildInstallerPtr;
-typedef TSharedRef< class IBuildInstaller, ESPMode::ThreadSafe > IBuildInstallerRef;
+typedef TSharedPtr<IBuildInstaller, ESPMode::ThreadSafe> IBuildInstallerPtr;
+typedef TSharedRef<IBuildInstaller, ESPMode::ThreadSafe> IBuildInstallerRef;
+typedef TWeakPtr<IBuildInstaller, ESPMode::ThreadSafe> IBuildInstallerWeakPtr;
 
 /**
  * Declares the error type enum for use with the error system
@@ -121,18 +122,26 @@ struct FBuildInstallStats
 		, NumChunksDownloaded(0)
 		, NumChunksRecycled(0)
 		, NumChunksReadFromChunkDbs(0)
-		, NumChunksCacheBooted(0)
-		, NumDriveCacheChunkLoads(0)
 		, NumFailedDownloads(0)
 		, NumBadDownloads(0)
 		, NumAbortedDownloads(0)
 		, NumRecycleFailures(0)
-		, NumDriveCacheLoadFailures(0)
+		, NumChunksStoreBooted(0)
+		, NumDriveStoreChunkLoads(0)
+		, NumDriveStoreLoadFailures(0)
 		, NumChunkDbChunksFailed(0)
 		, TotalDownloadedData(0)
 		, AverageDownloadSpeed(0.0)
+		, PeakDownloadSpeed(0.0)
 		, FinalDownloadSpeed(-1.0)
 		, TheoreticalDownloadTime(0.0f)
+		, TotalReadData(0)
+		, AverageDiskReadSpeed(0.0)
+		, PeakDiskReadSpeed(0.0)
+		, TotalWrittenData(0)
+		, AverageDiskWriteSpeed(0.0)
+		, PeakDiskWriteSpeed(0.0)
+		, NumFilesConstructed(0)
 		, InitializeTime(0.0f)
 		, ConstructTime(0.0f)
 		, MoveFromStageTime(0.0f)
@@ -157,6 +166,11 @@ struct FBuildInstallStats
 		, OkDownloadHealthTime(0.0f)
 		, PoorDownloadHealthTime(0.0f)
 		, DisconnectedDownloadHealthTime(0.0f)
+		, AverageMemoryStoreUse(0.0f)
+		, PeakMemoryStoreUse(0)
+		, AverageMemoryStoreRetained(0.0f)
+		, PeakMemoryStoreRetained(0)
+		, MemoryStoreSize(0)
 	{}
 
 	// The name of the app being installed.
@@ -187,10 +201,6 @@ struct FBuildInstallStats
 	uint32 NumChunksRecycled;
 	// The number of chunks successfully read from chunkdbs.
 	uint32 NumChunksReadFromChunkDbs;
-	// The number of chunks that had to be booted from the cache.
-	uint32 NumChunksCacheBooted;
-	// The number of chunks that had to be loaded from the drive cache.
-	uint32 NumDriveCacheChunkLoads;
 	// The number of chunks we did not successfully receive.
 	uint32 NumFailedDownloads;
 	// The number of chunks we received but were determined bad data.
@@ -199,18 +209,38 @@ struct FBuildInstallStats
 	uint32 NumAbortedDownloads;
 	// The number of chunks that failed to be recycled from existing build.
 	uint32 NumRecycleFailures;
-	// The number of chunks that failed to load from the drive cache.
-	uint32 NumDriveCacheLoadFailures;
+	// The number of chunks that had to be booted from the memory stores.
+	uint32 NumChunksStoreBooted;
+	// The number of chunks that had to be loaded from the drive store.
+	uint32 NumDriveStoreChunkLoads;
+	// The number of chunks that failed to load from the drive store.
+	uint32 NumDriveStoreLoadFailures;
 	// The number of chunks that were not successfully loaded from provided chunkdbs.
 	uint32 NumChunkDbChunksFailed;
 	// The total number of bytes downloaded.
-	int64 TotalDownloadedData;
+	uint64 TotalDownloadedData;
 	// The average chunk download speed.
 	double AverageDownloadSpeed;
+	// The peak chunk download speed.
+	double PeakDownloadSpeed;
 	// The download speed registered at the end of the installation.
 	double FinalDownloadSpeed;
 	// The theoretical download time (data/speed).
 	float TheoreticalDownloadTime;
+	// The total number of bytes read to disk.
+	uint64 TotalReadData;
+	// The average disk read speed.
+	double AverageDiskReadSpeed;
+	// The peak disk read speed.
+	double PeakDiskReadSpeed;
+	// The total number of bytes written to disk.
+	uint64 TotalWrittenData;
+	// The average disk write speed.
+	double AverageDiskWriteSpeed;
+	// The peak disk write speed.
+	double PeakDiskWriteSpeed;
+	// The total number of files constructed.
+	uint32 NumFilesConstructed;
 	// The time spent during the initialization stage.
 	float InitializeTime;
 	// The time spent during the construction stage.
@@ -259,10 +289,20 @@ struct FBuildInstallStats
 	float PoorDownloadHealthTime;
 	// The amount of time that was spent with Disconnected download health.
 	float DisconnectedDownloadHealthTime;
+	// AverageMemoryStoreUse
+	float AverageMemoryStoreUse;
+	// PeakMemoryStoreUse
+	uint32 PeakMemoryStoreUse;
+	// AverageMemoryStoreRetained
+	float AverageMemoryStoreRetained;
+	// PeakMemoryStoreRetained
+	uint32 PeakMemoryStoreRetained;
+	// MemoryStoreSize
+	uint32 MemoryStoreSize;
 };
 
 /**
- * Interface to a Build Manifest.
+ * Interface to a Build Installer, exposes installation control, progress, and state information.
  */
 class IBuildInstaller
 {
@@ -297,6 +337,12 @@ public:
 	virtual bool IsResumable() const = 0;
 
 	/**
+	 * Get whether the install is performing an update of an existing install.
+	 * @return	true if installation is an update
+	 */
+	virtual bool IsUpdate() const = 0;
+
+	/**
 	 * Get whether the install failed. Only valid if complete.
 	 * @return	true if installation was a failure
 	 */
@@ -308,20 +354,10 @@ public:
 	 */
 	virtual EBuildPatchInstallError GetErrorType() const = 0;
 
-	/**
-	 * This is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
-	 *
-	 * Get the percentage complete text for the current process
-	 * @return	percentage complete text progress
-	 */
+	DEPRECATED(4.21, "GetPercentageText has been deprecated.  It will no longer be supported in the future.")
 	virtual FText GetPercentageText() const = 0;
 
-	/**
-	 * This is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
-	 *
-	 * Get the download speed text for the current process
-	 * @return	download speed text progress
-	 */
+	DEPRECATED(4.21, "GetDownloadSpeedText has been deprecated.  It will no longer be supported in the future.")
 	virtual FText GetDownloadSpeedText() const = 0;
 
 	/**
@@ -330,15 +366,18 @@ public:
 	 */
 	virtual double GetDownloadSpeed() const = 0;
 
-	/**
-	 * Get the initial download size
-	 * @return	the initial download size
-	 */
-	virtual int64 GetInitialDownloadSize() const = 0;
+	DEPRECATED(4.21, "GetInitialDownloadSize has been deprecated.  Please use GetTotalDownloadRequired instead.")
+	virtual int64 GetInitialDownloadSize() const { return GetTotalDownloadRequired(); }
 
 	/**
-	 * Get the total currently downloaded
-	 * @return	the total currently downloaded
+	 * Get the total download bytes required to complete
+	 * @return	the total required bytes
+	 */
+	virtual int64 GetTotalDownloadRequired() const = 0;
+
+	/**
+	 * Get the total bytes downloaded
+	 * @return	the total bytes downloaded
 	 */
 	virtual int64 GetTotalDownloaded() const = 0;
 
@@ -348,13 +387,7 @@ public:
 	 */
 	virtual BuildPatchServices::EBuildPatchState GetState() const = 0;
 
-	/**
-	 * This is deprecated and redundant [2016/06/12 leigh.swift]
-	 * Instead, you can BuildPatchServices::StateToText(Installer->GetState()).
-	 *
-	 * Get the text for status of the install process.
-	 * @return Status of the install process.
-	 */
+	DEPRECATED(4.21, "GetStatusText has been deprecated.  It will no longer be supported in the future.")
 	virtual FText GetStatusText() const = 0;
 
 	/**

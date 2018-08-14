@@ -233,7 +233,7 @@ FMovieSceneBlendTypeField UMovieSceneSection::GetSupportedBlendTypes() const
 
 bool UMovieSceneSection::TryModify(bool bAlwaysMarkDirty)
 {
-	if (IsLocked())
+	if (IsReadOnly())
 	{
 		return false;
 	}
@@ -243,6 +243,25 @@ bool UMovieSceneSection::TryModify(bool bAlwaysMarkDirty)
 	return true;
 }
 
+bool UMovieSceneSection::IsReadOnly() const
+{
+	if (IsLocked())
+	{
+		return true;
+	}
+
+#if WITH_EDITORONLY_DATA
+	if (UMovieScene* OuterScene = GetTypedOuter<UMovieScene>())
+	{
+		if (OuterScene->IsReadOnly())
+		{
+			return true;
+		}
+	}
+#endif
+
+	return false;
+}
 
 void UMovieSceneSection::GetOverlappingSections(TArray<UMovieSceneSection*>& OutSections, bool bSameRow, bool bIncludeThis)
 {

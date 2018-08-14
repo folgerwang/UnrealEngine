@@ -266,7 +266,7 @@ void FContentDirectoryMonitor::ProcessAdditions(const DirectoryWatcher::FTimeLim
 		const FString FullFilename = Cache.GetDirectory() + Addition.Filename.Get();
 
 		FString NewAssetName = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(FullFilename));
-		FString PackagePath = PackageTools::SanitizePackageName(MountedContentPath / FPaths::GetPath(Addition.Filename.Get()) / NewAssetName);
+		FString PackagePath = UPackageTools::SanitizePackageName(MountedContentPath / FPaths::GetPath(Addition.Filename.Get()) / NewAssetName);
 
 		// Don't create assets for new files if assets already exist for the filename
 		auto ExistingReferences = Utils::FindAssetsPertainingToFile(*Registry, FullFilename);
@@ -367,7 +367,7 @@ void FContentDirectoryMonitor::ProcessAdditions(const DirectoryWatcher::FTimeLim
 					TGuardValue<bool> SuppressSlowTaskMessages(Context.bSuppressSlowTaskMessages, true);
 
 					FText ErrorMessage;
-					if (!PackageTools::UnloadPackages(Packages, ErrorMessage))
+					if (!UPackageTools::UnloadPackages(Packages, ErrorMessage))
 					{
 						Context.AddMessage(EMessageSeverity::Error, FText::Format(LOCTEXT("Error_UnloadingPackage", "There was an error unloading a package: {0}."), ErrorMessage));
 					}
@@ -431,7 +431,7 @@ void FContentDirectoryMonitor::ProcessModifications(const DirectoryWatcher::FTim
 					const bool bAssetWasDirty = IsAssetDirty(Asset);
 
 					const FString NewAssetName = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Change.Filename.Get()));
-					const FString PackagePath = PackageTools::SanitizePackageName(MountedContentPath / FPaths::GetPath(Change.Filename.Get()));
+					const FString PackagePath = UPackageTools::SanitizePackageName(MountedContentPath / FPaths::GetPath(Change.Filename.Get()));
 					const FString FullDestPath = PackagePath / NewAssetName;
 
 					if (ExistingPackage && ExistingPackage->FileName.ToString() == FullDestPath)

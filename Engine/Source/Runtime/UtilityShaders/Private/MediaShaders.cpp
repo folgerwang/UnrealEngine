@@ -189,6 +189,7 @@ void FNV21ConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FR
 
 BEGIN_UNIFORM_BUFFER_STRUCT(FRGBConvertUB, )
 UNIFORM_MEMBER(FVector2D, UVScale)
+UNIFORM_MEMBER(uint32, SrgbToLinear)
 UNIFORM_MEMBER_TEXTURE(Texture2D, Texture)
 UNIFORM_MEMBER_SAMPLER(SamplerState, Sampler)
 END_UNIFORM_BUFFER_STRUCT(FRGBConvertUB)
@@ -197,11 +198,12 @@ IMPLEMENT_UNIFORM_BUFFER_STRUCT(FRGBConvertUB, TEXT("RGBConvertUB"));
 IMPLEMENT_SHADER_TYPE(, FRGBConvertPS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("RGBConvertPS"), SF_Pixel);
 
 
-void FRGBConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> RGBTexture, const FIntPoint& OutputDimensions)
+void FRGBConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> RGBTexture, const FIntPoint& OutputDimensions, bool bSrgbToLinear)
 {
 	FRGBConvertUB UB;
 	{
 		UB.Sampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
+		UB.SrgbToLinear = bSrgbToLinear;
 		UB.Texture = RGBTexture;
 		UB.UVScale = FVector2D((float)OutputDimensions.X / (float)RGBTexture->GetSizeX(), (float)OutputDimensions.Y / (float)RGBTexture->GetSizeY());
 	}

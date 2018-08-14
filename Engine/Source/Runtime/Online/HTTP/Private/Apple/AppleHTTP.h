@@ -124,6 +124,8 @@ private:
 @property BOOL bIsReady;
 /** When the response is complete, indicates whether the response was received without error. */
 @property BOOL bHadError;
+/** When the response is complete, indicates whether the response failed with an error specific to connecting to the host. */
+@property BOOL bIsHostConnectionFailure;
 /** The total number of bytes written out during the request/response */
 @property int32 BytesWritten;
 

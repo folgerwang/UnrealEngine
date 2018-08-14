@@ -19,7 +19,7 @@ UCLASS()
 class UMovieSceneBindingExtensions : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
-
+public:
 	/**
 	 * Check whether the specified binding is valid
 	 */
@@ -43,6 +43,15 @@ class UMovieSceneBindingExtensions : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintCallable, Category=Sequence, meta=(ScriptMethod))
 	static FText GetDisplayName(const FSequencerBindingProxy& InBinding);
+
+	/**
+	 * Get this binding's object non-display name
+	 *
+	 * @param InBinding     The binding to get the name of
+	 * @return The name of the binding
+	 */
+	UFUNCTION(BlueprintCallable, Category=Sequence, meta=(ScriptMethod))
+	static FString GetName(const FSequencerBindingProxy& InBinding);
 
 	/**
 	 * Get all the tracks stored within this binding
@@ -99,4 +108,40 @@ class UMovieSceneBindingExtensions : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintCallable, Category=Sequence, meta=(ScriptMethod))
 	static UMovieSceneTrack* AddTrack(const FSequencerBindingProxy& InBinding, TSubclassOf<UMovieSceneTrack> TrackType);
+
+	/**
+	* Get all the children of this binding
+	*
+	* @param InBinding     The binding to to get children of
+	* @return An array containing all the binding's children
+	*/
+	UFUNCTION(BlueprintCallable, Category=Sequence, meta=(ScriptMethod))
+	static TArray<FSequencerBindingProxy> GetChildPossessables(const FSequencerBindingProxy& InBinding);
+
+	/**
+	* Get this binding's object template
+	*
+	* @param InBinding     The binding to get the object template of
+	* @return The object template of the binding
+	*/
+	UFUNCTION(BlueprintCallable, Category=Sequence, meta=(ScriptMethod))
+	static UObject* GetObjectTemplate(const FSequencerBindingProxy& InBinding);
+
+	/**
+	* Get this binding's possessed object class
+	*
+	* @param InBinding     The binding to get the possessed object class of
+	* @return The possessed object class of the binding
+	*/
+	UFUNCTION(BlueprintCallable, Category=Sequence, meta=(ScriptMethod))
+	static UClass* GetPossessedObjectClass(const FSequencerBindingProxy& InBinding);
+
+	/**
+	* Get the parent of this binding
+	*
+	* @param InBinding     The binding to get the parent of
+	* @return The binding's parent
+	*/
+	UFUNCTION(BlueprintCallable, Category=Sequence, meta=(ScriptMethod))
+	static FSequencerBindingProxy GetParent(const FSequencerBindingProxy& InBinding);
 };

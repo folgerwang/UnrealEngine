@@ -4,6 +4,7 @@
 #include "Misc/DateTime.h"
 #include "HAL/PlatformTime.h"
 #include "Containers/StringConv.h"
+#include "Misc/App.h"
 #include "CoreGlobals.h"
 
 const TCHAR* FOutputDeviceHelper::VerbosityToString(ELogVerbosity::Type Verbosity)
@@ -50,6 +51,10 @@ FString FOutputDeviceHelper::FormatLogLine( ELogVerbosity::Type Verbosity, const
 
 		case ELogTimes::Local:
 			Format = FString::Printf(TEXT("[%s][%3llu]"), *FDateTime::Now().ToString(TEXT("%Y.%m.%d-%H.%M.%S:%s")), GFrameCounter % 1000);
+			break;
+
+		case ELogTimes::Timecode:
+			Format = FString::Printf(TEXT("[%s][%3llu]"), *FApp::GetTimecode().ToString(), GFrameCounter % 1000);
 			break;
 
 		default:

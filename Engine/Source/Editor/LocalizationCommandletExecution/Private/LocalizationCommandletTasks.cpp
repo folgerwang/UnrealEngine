@@ -2,7 +2,6 @@
 
 #include "LocalizationCommandletTasks.h"
 #include "Misc/MessageDialog.h"
-#include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Internationalization/Culture.h"
 #include "UObject/UObjectHash.h"
@@ -10,87 +9,10 @@
 #include "Sound/DialogueWave.h"
 #include "LocalizationCommandletExecution.h"
 #include "LocalizationConfigurationScript.h"
-#include "LocalizationSettings.h"
-#include "ISourceControlOperation.h"
-#include "SourceControlOperations.h"
-#include "ISourceControlProvider.h"
-#include "ISourceControlModule.h"
-#include "HAL/PlatformFilemanager.h"
-
+#include "LocalizationTargetTypes.h"
+#include "HAL/FileManager.h"
 
 #define LOCTEXT_NAMESPACE "LocalizationCommandletTasks"
-
-namespace LocalizationConfigSCC
-{
-
-void PreWriteFile(const FString& InFilename)
-{
-	const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(InFilename);
-
-	if (!FPaths::FileExists(AbsoluteFilename))
-	{
-		return;
-	}
-
-	// Check out it if it's under SCC
-	if (FLocalizationSourceControlSettings::IsSourceControlAvailable() && FLocalizationSourceControlSettings::IsSourceControlEnabled())
-	{
-		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
-		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
-
-		if (SourceControlState.IsValid() && SourceControlState->IsDeleted())
-		{
-			// If it's deleted, we need to revert that first
-			SourceControlProvider.Execute(ISourceControlOperation::Create<FRevert>(), AbsoluteFilename);
-			SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
-		}
-
-		if (SourceControlState.IsValid())
-		{
-			if (SourceControlState->IsAdded() || SourceControlState->IsCheckedOut())
-			{
-				// Nothing to do
-			}
-			else if (SourceControlState->CanCheckout())
-			{
-				SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), AbsoluteFilename);
-			}
-		}
-	}
-
-	// Failing that, just make it writable
-	if (IFileManager::Get().IsReadOnly(*AbsoluteFilename))
-	{
-		FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*AbsoluteFilename, false);
-	}
-}
-
-void PostWriteFile(const FString& InFilename)
-{
-	const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(InFilename);
-
-	if (!FPaths::FileExists(AbsoluteFilename))
-	{
-		return;
-	}
-
-	// Add the file if it's not already under SCC
-	if (FLocalizationSourceControlSettings::IsSourceControlAvailable() && FLocalizationSourceControlSettings::IsSourceControlEnabled())
-	{
-		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
-		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
-
-		if (SourceControlState.IsValid())
-		{
-			if (!SourceControlState->IsSourceControlled() && SourceControlState->CanAdd())
-			{
-				SourceControlProvider.Execute(ISourceControlOperation::Create<FMarkForAdd>(), AbsoluteFilename);
-			}
-		}
-	}
-}
-
-}
 
 bool LocalizationCommandletTasks::GatherTextForTargets(const TSharedRef<SWindow>& ParentWindow, const TArray<ULocalizationTarget*>& Targets)
 {
@@ -105,9 +27,7 @@ bool LocalizationCommandletTasks::GatherTextForTargets(const TSharedRef<SWindow>
 
 		const FText GatherTaskName = FText::Format(LOCTEXT("GatherTaskNameFormat", "Gather Text for {TargetName}"), Arguments);
 		const FString GatherScriptPath = LocalizationConfigurationScript::GetGatherTextConfigPath(Target);
-		LocalizationConfigSCC::PreWriteFile(GatherScriptPath);
-		LocalizationConfigurationScript::GenerateGatherTextConfigFile(Target).Write(GatherScriptPath);
-		LocalizationConfigSCC::PostWriteFile(GatherScriptPath);
+		LocalizationConfigurationScript::GenerateGatherTextConfigFile(Target).WriteWithSCC(GatherScriptPath);
 		Tasks.Add(LocalizationCommandletExecution::FTask(GatherTaskName, GatherScriptPath, ShouldUseProjectFile));
 	}
 
@@ -120,9 +40,7 @@ bool LocalizationCommandletTasks::GatherTextForTarget(const TSharedRef<SWindow>&
 	const bool ShouldUseProjectFile = !Target->IsMemberOfEngineTargetSet();
 
 	const FString GatherScriptPath = LocalizationConfigurationScript::GetGatherTextConfigPath(Target);
-	LocalizationConfigSCC::PreWriteFile(GatherScriptPath);
-	LocalizationConfigurationScript::GenerateGatherTextConfigFile(Target).Write(GatherScriptPath);
-	LocalizationConfigSCC::PostWriteFile(GatherScriptPath);
+	LocalizationConfigurationScript::GenerateGatherTextConfigFile(Target).WriteWithSCC(GatherScriptPath);
 	Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("GatherTaskName", "Gather Text"), GatherScriptPath, ShouldUseProjectFile));
 
 	FFormatNamedArguments Arguments;
@@ -147,16 +65,12 @@ bool LocalizationCommandletTasks::ImportTextForTargets(const TSharedRef<SWindow>
 		const FText ImportTaskName = FText::Format(LOCTEXT("ImportTaskNameFormat", "Import Translations for {TargetName}"), Arguments);
 		const FString ImportScriptPath = LocalizationConfigurationScript::GetImportTextConfigPath(Target, TOptional<FString>());
 		const TOptional<FString> DirectoryPathForTarget = DirectoryPath.IsSet() ? DirectoryPath.GetValue() / Target->Settings.Name : TOptional<FString>();
-		LocalizationConfigSCC::PreWriteFile(ImportScriptPath);
-		LocalizationConfigurationScript::GenerateImportTextConfigFile(Target, TOptional<FString>(), DirectoryPathForTarget).Write(ImportScriptPath);
-		LocalizationConfigSCC::PostWriteFile(ImportScriptPath);
+		LocalizationConfigurationScript::GenerateImportTextConfigFile(Target, TOptional<FString>(), DirectoryPathForTarget).WriteWithSCC(ImportScriptPath);
 		Tasks.Add(LocalizationCommandletExecution::FTask(ImportTaskName, ImportScriptPath, ShouldUseProjectFile));
 
 		const FText ReportTaskName = FText::Format(LOCTEXT("ReportTaskNameFormat", "Generate Reports for {TargetName}"), Arguments);
 		const FString ReportScriptPath = LocalizationConfigurationScript::GetWordCountReportConfigPath(Target);
-		LocalizationConfigSCC::PreWriteFile(ReportScriptPath);
-		LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).Write(ReportScriptPath);
-		LocalizationConfigSCC::PostWriteFile(ReportScriptPath);
+		LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).WriteWithSCC(ReportScriptPath);
 		Tasks.Add(LocalizationCommandletExecution::FTask(ReportTaskName, ReportScriptPath, ShouldUseProjectFile));
 	}
 
@@ -169,15 +83,11 @@ bool LocalizationCommandletTasks::ImportTextForTarget(const TSharedRef<SWindow>&
 	const bool ShouldUseProjectFile = !Target->IsMemberOfEngineTargetSet();
 
 	const FString ImportScriptPath = LocalizationConfigurationScript::GetImportTextConfigPath(Target, TOptional<FString>());
-	LocalizationConfigSCC::PreWriteFile(ImportScriptPath);
-	LocalizationConfigurationScript::GenerateImportTextConfigFile(Target, TOptional<FString>(), DirectoryPath).Write(ImportScriptPath);
-	LocalizationConfigSCC::PostWriteFile(ImportScriptPath);
+	LocalizationConfigurationScript::GenerateImportTextConfigFile(Target, TOptional<FString>(), DirectoryPath).WriteWithSCC(ImportScriptPath);
 	Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("ImportTaskName", "Import Translations"), ImportScriptPath, ShouldUseProjectFile));
 
 	const FString ReportScriptPath = LocalizationConfigurationScript::GetWordCountReportConfigPath(Target);
-	LocalizationConfigSCC::PreWriteFile(ReportScriptPath);
-	LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).Write(ReportScriptPath);
-	LocalizationConfigSCC::PostWriteFile(ReportScriptPath);
+	LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).WriteWithSCC(ReportScriptPath);
 	Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("ReportTaskName", "Generate Reports"), ReportScriptPath, ShouldUseProjectFile));
 
 	FFormatNamedArguments Arguments;
@@ -232,9 +142,7 @@ bool LocalizationCommandletTasks::ExportTextForTargets(const TSharedRef<SWindow>
 		const FText ExportTaskName = FText::Format(LOCTEXT("ExportTaskNameFormat", "Export Translations for {TargetName}"), Arguments);
 		const FString ExportScriptPath = LocalizationConfigurationScript::GetExportTextConfigPath(Target, TOptional<FString>());
 		const TOptional<FString> DirectoryPathForTarget = DirectoryPath.IsSet() ? DirectoryPath.GetValue() / Target->Settings.Name : TOptional<FString>();
-		LocalizationConfigSCC::PreWriteFile(ExportScriptPath);
-		LocalizationConfigurationScript::GenerateExportTextConfigFile(Target, TOptional<FString>(), DirectoryPathForTarget).Write(ExportScriptPath);
-		LocalizationConfigSCC::PostWriteFile(ExportScriptPath);
+		LocalizationConfigurationScript::GenerateExportTextConfigFile(Target, TOptional<FString>(), DirectoryPathForTarget).WriteWithSCC(ExportScriptPath);
 		Tasks.Add(LocalizationCommandletExecution::FTask(ExportTaskName, ExportScriptPath, ShouldUseProjectFile));
 	}
 
@@ -247,9 +155,7 @@ bool LocalizationCommandletTasks::ExportTextForTarget(const TSharedRef<SWindow>&
 	const bool ShouldUseProjectFile = !Target->IsMemberOfEngineTargetSet();
 
 	const FString ExportScriptPath = LocalizationConfigurationScript::GetExportTextConfigPath(Target, TOptional<FString>());
-	LocalizationConfigSCC::PreWriteFile(ExportScriptPath);
-	LocalizationConfigurationScript::GenerateExportTextConfigFile(Target, TOptional<FString>(), DirectoryPath).Write(ExportScriptPath);
-	LocalizationConfigSCC::PostWriteFile(ExportScriptPath);
+	LocalizationConfigurationScript::GenerateExportTextConfigFile(Target, TOptional<FString>(), DirectoryPath).WriteWithSCC(ExportScriptPath);
 	Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("ExportTaskName", "Export Translations"), ExportScriptPath, ShouldUseProjectFile));
 
 	FFormatNamedArguments Arguments;
@@ -300,16 +206,12 @@ bool LocalizationCommandletTasks::ImportDialogueScriptForTargets(const TSharedRe
 		const FText ImportTaskName = FText::Format(LOCTEXT("ImportDialogueScriptsTaskNameFormat", "Import Dialogue Scripts for {TargetName}"), Arguments);
 		const FString ImportScriptPath = LocalizationConfigurationScript::GetImportDialogueScriptConfigPath(Target, TOptional<FString>());
 		const TOptional<FString> DirectoryPathForTarget = DirectoryPath.IsSet() ? DirectoryPath.GetValue() / Target->Settings.Name : TOptional<FString>();
-		LocalizationConfigSCC::PreWriteFile(ImportScriptPath);
-		LocalizationConfigurationScript::GenerateImportDialogueScriptConfigFile(Target, TOptional<FString>(), DirectoryPathForTarget).Write(ImportScriptPath);
-		LocalizationConfigSCC::PostWriteFile(ImportScriptPath);
+		LocalizationConfigurationScript::GenerateImportDialogueScriptConfigFile(Target, TOptional<FString>(), DirectoryPathForTarget).WriteWithSCC(ImportScriptPath);
 		Tasks.Add(LocalizationCommandletExecution::FTask(ImportTaskName, ImportScriptPath, ShouldUseProjectFile));
 
 		const FText ReportTaskName = FText::Format(LOCTEXT("ReportTaskNameFormat", "Generate Reports for {TargetName}"), Arguments);
 		const FString ReportScriptPath = LocalizationConfigurationScript::GetWordCountReportConfigPath(Target);
-		LocalizationConfigSCC::PreWriteFile(ReportScriptPath);
-		LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).Write(ReportScriptPath);
-		LocalizationConfigSCC::PostWriteFile(ReportScriptPath);
+		LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).WriteWithSCC(ReportScriptPath);
 		Tasks.Add(LocalizationCommandletExecution::FTask(ReportTaskName, ReportScriptPath, ShouldUseProjectFile));
 	}
 
@@ -322,15 +224,11 @@ bool LocalizationCommandletTasks::ImportDialogueScriptForTarget(const TSharedRef
 	const bool ShouldUseProjectFile = !Target->IsMemberOfEngineTargetSet();
 
 	const FString ImportScriptPath = LocalizationConfigurationScript::GetImportDialogueScriptConfigPath(Target, TOptional<FString>());
-	LocalizationConfigSCC::PreWriteFile(ImportScriptPath);
-	LocalizationConfigurationScript::GenerateImportDialogueScriptConfigFile(Target, TOptional<FString>(), DirectoryPath).Write(ImportScriptPath);
-	LocalizationConfigSCC::PostWriteFile(ImportScriptPath);
+	LocalizationConfigurationScript::GenerateImportDialogueScriptConfigFile(Target, TOptional<FString>(), DirectoryPath).WriteWithSCC(ImportScriptPath);
 	Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("ImportDialogueScriptsTaskName", "Import Dialogue Scripts"), ImportScriptPath, ShouldUseProjectFile));
 
 	const FString ReportScriptPath = LocalizationConfigurationScript::GetWordCountReportConfigPath(Target);
-	LocalizationConfigSCC::PreWriteFile(ReportScriptPath);
-	LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).Write(ReportScriptPath);
-	LocalizationConfigSCC::PostWriteFile(ReportScriptPath);
+	LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).WriteWithSCC(ReportScriptPath);
 	Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("ReportTaskName", "Generate Reports"), ReportScriptPath, ShouldUseProjectFile));
 
 	FFormatNamedArguments Arguments;
@@ -385,9 +283,7 @@ bool LocalizationCommandletTasks::ExportDialogueScriptForTargets(const TSharedRe
 		const FText ExportTaskName = FText::Format(LOCTEXT("ExportDialogueScriptsTaskNameFormat", "Export Dialogue Scripts for {TargetName}"), Arguments);
 		const FString ExportScriptPath = LocalizationConfigurationScript::GetExportDialogueScriptConfigPath(Target, TOptional<FString>());
 		const TOptional<FString> DirectoryPathForTarget = DirectoryPath.IsSet() ? DirectoryPath.GetValue() / Target->Settings.Name : TOptional<FString>();
-		LocalizationConfigSCC::PreWriteFile(ExportScriptPath);
-		LocalizationConfigurationScript::GenerateExportDialogueScriptConfigFile(Target, TOptional<FString>(), DirectoryPathForTarget).Write(ExportScriptPath);
-		LocalizationConfigSCC::PostWriteFile(ExportScriptPath);
+		LocalizationConfigurationScript::GenerateExportDialogueScriptConfigFile(Target, TOptional<FString>(), DirectoryPathForTarget).WriteWithSCC(ExportScriptPath);
 		Tasks.Add(LocalizationCommandletExecution::FTask(ExportTaskName, ExportScriptPath, ShouldUseProjectFile));
 	}
 
@@ -400,9 +296,7 @@ bool LocalizationCommandletTasks::ExportDialogueScriptForTarget(const TSharedRef
 	const bool ShouldUseProjectFile = !Target->IsMemberOfEngineTargetSet();
 
 	const FString ExportScriptPath = LocalizationConfigurationScript::GetExportDialogueScriptConfigPath(Target, TOptional<FString>());
-	LocalizationConfigSCC::PreWriteFile(ExportScriptPath);
-	LocalizationConfigurationScript::GenerateExportDialogueScriptConfigFile(Target, TOptional<FString>(), DirectoryPath).Write(ExportScriptPath);
-	LocalizationConfigSCC::PostWriteFile(ExportScriptPath);
+	LocalizationConfigurationScript::GenerateExportDialogueScriptConfigFile(Target, TOptional<FString>(), DirectoryPath).WriteWithSCC(ExportScriptPath);
 	Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("ExportDialogueScriptsTaskName", "Export Dialogue Scripts"), ExportScriptPath, ShouldUseProjectFile));
 
 	FFormatNamedArguments Arguments;
@@ -452,9 +346,7 @@ bool LocalizationCommandletTasks::ImportDialogueForTargets(const TSharedRef<SWin
 
 		const FText ImportDialogueTaskName = FText::Format(LOCTEXT("ImportDialogueTaskNameFormat", "Import Dialogue for {TargetName}"), Arguments);
 		const FString ImportDialogueScriptPath = LocalizationConfigurationScript::GetImportDialogueConfigPath(Target);
-		LocalizationConfigSCC::PreWriteFile(ImportDialogueScriptPath);
-		LocalizationConfigurationScript::GenerateImportDialogueConfigFile(Target).Write(ImportDialogueScriptPath);
-		LocalizationConfigSCC::PostWriteFile(ImportDialogueScriptPath);
+		LocalizationConfigurationScript::GenerateImportDialogueConfigFile(Target).WriteWithSCC(ImportDialogueScriptPath);
 		Tasks.Add(LocalizationCommandletExecution::FTask(ImportDialogueTaskName, ImportDialogueScriptPath, ShouldUseProjectFile));
 	}
 
@@ -467,9 +359,7 @@ bool LocalizationCommandletTasks::ImportDialogueForTarget(const TSharedRef<SWind
 	const bool ShouldUseProjectFile = !Target->IsMemberOfEngineTargetSet();
 
 	const FString ImportDialogueScriptPath = LocalizationConfigurationScript::GetImportDialogueConfigPath(Target);
-	LocalizationConfigSCC::PreWriteFile(ImportDialogueScriptPath);
-	LocalizationConfigurationScript::GenerateImportDialogueConfigFile(Target).Write(ImportDialogueScriptPath);
-	LocalizationConfigSCC::PostWriteFile(ImportDialogueScriptPath);
+	LocalizationConfigurationScript::GenerateImportDialogueConfigFile(Target).WriteWithSCC(ImportDialogueScriptPath);
 	Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("ImportDialogueTaskName", "Import Dialogue"), ImportDialogueScriptPath, ShouldUseProjectFile));
 
 	FFormatNamedArguments Arguments;
@@ -519,9 +409,7 @@ bool LocalizationCommandletTasks::GenerateWordCountReportsForTargets(const TShar
 
 		const FText ReportTaskName = FText::Format(LOCTEXT("WordCountReportTaskNameFormat", "Generate Word Count Report for {TargetName}"), Arguments);
 		const FString ReportScriptPath = LocalizationConfigurationScript::GetWordCountReportConfigPath(Target);
-		LocalizationConfigSCC::PreWriteFile(ReportScriptPath);
-		LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).Write(ReportScriptPath);
-		LocalizationConfigSCC::PostWriteFile(ReportScriptPath);
+		LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).WriteWithSCC(ReportScriptPath);
 		Tasks.Add(LocalizationCommandletExecution::FTask(ReportTaskName, ReportScriptPath, ShouldUseProjectFile));
 	}
 
@@ -534,9 +422,7 @@ bool LocalizationCommandletTasks::GenerateWordCountReportForTarget(const TShared
 	const bool ShouldUseProjectFile = !Target->IsMemberOfEngineTargetSet();
 
 	const FString ReportScriptPath = LocalizationConfigurationScript::GetWordCountReportConfigPath(Target);
-	LocalizationConfigSCC::PreWriteFile(ReportScriptPath);
-	LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).Write(ReportScriptPath);
-	LocalizationConfigSCC::PostWriteFile(ReportScriptPath);
+	LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).WriteWithSCC(ReportScriptPath);
 	Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("WordCountReportTaskName_NoTarget", "Generate Word Count Report"), ReportScriptPath, ShouldUseProjectFile));
 
 	FFormatNamedArguments Arguments;
@@ -559,9 +445,7 @@ bool LocalizationCommandletTasks::CompileTextForTargets(const TSharedRef<SWindow
 
 		const FText CompileTaskName = FText::Format(LOCTEXT("CompileTaskNameFormat", "Compile Translations for {TargetName}"), Arguments);
 		const FString CompileScriptPath = LocalizationConfigurationScript::GetCompileTextConfigPath(Target);
-		LocalizationConfigSCC::PreWriteFile(CompileScriptPath);
-		LocalizationConfigurationScript::GenerateCompileTextConfigFile(Target).Write(CompileScriptPath);
-		LocalizationConfigSCC::PostWriteFile(CompileScriptPath);
+		LocalizationConfigurationScript::GenerateCompileTextConfigFile(Target).WriteWithSCC(CompileScriptPath);
 		Tasks.Add(LocalizationCommandletExecution::FTask(CompileTaskName, CompileScriptPath, ShouldUseProjectFile));
 	}
 
@@ -574,9 +458,7 @@ bool LocalizationCommandletTasks::CompileTextForTarget(const TSharedRef<SWindow>
 	const bool ShouldUseProjectFile = !Target->IsMemberOfEngineTargetSet();
 
 	const FString CompileScriptPath = LocalizationConfigurationScript::GetCompileTextConfigPath(Target);
-	LocalizationConfigSCC::PreWriteFile(CompileScriptPath);
-	LocalizationConfigurationScript::GenerateCompileTextConfigFile(Target).Write(CompileScriptPath);
-	LocalizationConfigSCC::PostWriteFile(CompileScriptPath);
+	LocalizationConfigurationScript::GenerateCompileTextConfigFile(Target).WriteWithSCC(CompileScriptPath);
 	Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("CompileTaskName", "Compile Translations"), CompileScriptPath, ShouldUseProjectFile));
 
 	FFormatNamedArguments Arguments;

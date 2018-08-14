@@ -1834,7 +1834,7 @@ void FAssetContextMenu::ExecuteSaveAsset()
 
 	TArray< UPackage* > PackagesWithExternalRefs;
 	FString PackageNames;
-	if( PackageTools::CheckForReferencesToExternalPackages( &PackagesToSave, &PackagesWithExternalRefs ) )
+	if( UPackageTools::CheckForReferencesToExternalPackages( &PackagesToSave, &PackagesWithExternalRefs ) )
 	{
 		for(int32 PkgIdx = 0; PkgIdx < PackagesWithExternalRefs.Num(); ++PkgIdx)
 		{
@@ -2047,7 +2047,7 @@ void FAssetContextMenu::ExecuteReload()
 
 		if (PackagesToReload.Num() > 0)
 		{
-			PackageTools::ReloadPackages(PackagesToReload);
+			UPackageTools::ReloadPackages(PackagesToReload);
 		}
 	}
 }

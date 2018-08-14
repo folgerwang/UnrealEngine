@@ -41,23 +41,26 @@
 
 #include <stddef.h>
 
-#if !defined(BUILD_COMPONENT_SRC_PREFIX)
-#error -DBUILD_COMPONENT_SRC_PREFIX was not specified.
-#endif
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 /// \hideinitializer
 #define TF_CALL_CONTEXT \
-TfCallContext(BUILD_COMPONENT_SRC_PREFIX __FILE__, __ARCH_FUNCTION__, __LINE__, __ARCH_PRETTY_FUNCTION__)
+TfCallContext(__ARCH_FILE__, __ARCH_FUNCTION__, __LINE__, __ARCH_PRETTY_FUNCTION__)
 
 class TfCallContext
 {
 public:
-    TfCallContext(char const *file,
-                  char const *function,
-                  size_t line,
-                  char const *prettyFunction) :
+    constexpr TfCallContext()
+        : _file(nullptr)
+        , _function(nullptr)
+        , _line(0)
+        , _prettyFunction(nullptr)
+        , _hidden(false) {}
+    
+    constexpr TfCallContext(char const *file,
+                            char const *function,
+                            size_t line,
+                            char const *prettyFunction) :
         _file(file),
         _function(function),
         _line(line),
@@ -90,6 +93,8 @@ public:
     bool IsHidden() const {
         return _hidden;
     }
+
+    explicit operator bool() const { return _file && _function; }
     
   private:
 
@@ -99,12 +104,6 @@ public:
     char const *_prettyFunction;
     mutable bool _hidden;
 };
-
-TF_API TfCallContext
-Tf_PythonCallContext(char const *fileName,
-                     char const *moduleName,
-                     char const *functionName,
-                     size_t line);
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

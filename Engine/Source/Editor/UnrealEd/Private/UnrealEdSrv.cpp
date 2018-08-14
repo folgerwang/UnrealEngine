@@ -307,7 +307,7 @@ UPackage* UUnrealEdEngine::GeneratePackageThumbnailsIfRequired( const TCHAR* Str
 			FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
 				
 			// NOTE: The package should really be fully loaded before we try to generate thumbnails
-			PackageTools::GetObjectsInPackages(
+			UPackageTools::GetObjectsInPackages(
 				&Packages,														// Packages to search
 				BrowsableObjectsInPackage );									// Out: Objects
 

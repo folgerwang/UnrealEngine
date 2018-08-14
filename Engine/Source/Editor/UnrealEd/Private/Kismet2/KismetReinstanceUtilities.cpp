@@ -1346,7 +1346,7 @@ namespace InstancedPropertyUtils
 			if (Obj != nullptr)
 			{
 				UProperty* SerializingProperty = GetSerializedProperty();
-				const bool bHasInstancedValue = SerializingProperty->HasAnyPropertyFlags(CPF_PersistentInstance);
+				const bool bHasInstancedValue = SerializingProperty && SerializingProperty->HasAnyPropertyFlags(CPF_PersistentInstance);
 
 				// default sub-objects are handled by CopyPropertiesForUnrelatedObjects()
 				if (bHasInstancedValue && !Obj->IsDefaultSubobject())

@@ -34,6 +34,7 @@ public:
 	virtual void Shutdown(UEngine* InEngine) override;
 	virtual bool UpdateTimeStep(UEngine* InEngine) override;
 	virtual ECustomTimeStepSynchronizationState GetSynchronizationState() const override;
+	virtual FFrameRate GetFixedFrameRate() const override;
 
 	//~ UObject interface
 	virtual void BeginDestroy() override;
@@ -67,9 +68,15 @@ private:
 	FAjaMediaMode MediaMode;
 
 public:
+	/**
+	 * If true, the Engine will wait for a signal coming in from the Reference In pin.
+	 * It will also configure the card Genlock mode and configure the selected Media Port as an output.
+	 */
+	UPROPERTY(EditAnywhere, Category = "Genlock options")
+	bool bUseReferenceIn;
 
 	/** The type of Timecode to read from SDI stream. */
-	UPROPERTY(EditAnywhere, Category = "Genlock options")
+	UPROPERTY(EditAnywhere, Category="Genlock options", meta=(EditCondition="!bUseReferenceIn"))
 	EAjaMediaTimecodeFormat TimecodeFormat;
 
 	/** Enable mechanism to detect Engine loop overrunning the source */
@@ -99,4 +106,6 @@ private:
 	/** The current SynchronizationState of the CustomTimeStep */
 	ECustomTimeStepSynchronizationState State;
 	bool bDidAValidUpdateTimeStep;
+
+	bool bWarnedAboutVSync;
 };

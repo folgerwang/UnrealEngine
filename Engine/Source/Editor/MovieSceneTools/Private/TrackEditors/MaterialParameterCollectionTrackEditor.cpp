@@ -121,6 +121,11 @@ void FMaterialParameterCollectionTrackEditor::AddTrackToSequence(const FAssetDat
 		return;
 	}
 
+	if (MovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	// Attempt to find an existing MPC track that animates this object
 	for (UMovieSceneTrack* Track : MovieScene->GetMasterTracks())
 	{

@@ -301,7 +301,7 @@ void FBlueprintUnloader::UnloadBlueprint(const bool bResetPackage)
 			PackagesToUnload.Add(OldPackage);
 
 			FText PackageUnloadError;
-			PackageTools::UnloadPackages(PackagesToUnload, PackageUnloadError);
+			UPackageTools::UnloadPackages(PackagesToUnload, PackageUnloadError);
 
 			if (!PackageUnloadError.IsEmpty())
 			{

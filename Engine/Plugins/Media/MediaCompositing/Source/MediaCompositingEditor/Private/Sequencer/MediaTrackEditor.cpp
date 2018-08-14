@@ -290,6 +290,11 @@ void FMediaTrackEditor::HandleAddMediaTrackMenuEntryExecute()
 		return;
 	}
 
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return;
+	}
+
 	const FScopedTransaction Transaction(NSLOCTEXT("Sequencer", "AddMediaTrack_Transaction", "Add Media Track"));
 	FocusedMovieScene->Modify();
 	

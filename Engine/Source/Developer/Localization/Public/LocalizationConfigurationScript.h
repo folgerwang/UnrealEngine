@@ -9,6 +9,8 @@ class ULocalizationTarget;
 
 struct LOCALIZATION_API FLocalizationConfigurationScript : public FConfigFile
 {
+	bool WriteWithSCC(const FString& InConfigFilename);
+
 	FConfigSection& CommonSettings()
 	{
 		return FindOrAdd(TEXT("CommonSettings"));
@@ -47,6 +49,9 @@ namespace LocalizationConfigurationScript
 	LOCALIZATION_API FString GetLocResFileName(const ULocalizationTarget* const Target);
 	LOCALIZATION_API FString GetLocResPath(const ULocalizationTarget* const Target, const FString& CultureName);
 
+	LOCALIZATION_API FString GetLocMetaFileName(const ULocalizationTarget* const Target);
+	LOCALIZATION_API FString GetLocMetaPath(const ULocalizationTarget* const Target);
+
 	LOCALIZATION_API FString GetWordCountCSVFileName(const ULocalizationTarget* const Target);
 	LOCALIZATION_API FString GetWordCountCSVPath(const ULocalizationTarget* const Target);
 
@@ -79,4 +84,6 @@ namespace LocalizationConfigurationScript
 
 	LOCALIZATION_API FLocalizationConfigurationScript GenerateRegenerateResourcesConfigFile(const ULocalizationTarget* const Target);
 	LOCALIZATION_API FString GetRegenerateResourcesConfigPath(const ULocalizationTarget* const Target);
+
+	LOCALIZATION_API bool WriteConfigFileWithSCC(const FString& InConfigFilename, FLocalizationConfigurationScript& InConfigScript);
 }

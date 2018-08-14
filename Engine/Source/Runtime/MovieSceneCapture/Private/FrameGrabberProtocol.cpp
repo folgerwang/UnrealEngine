@@ -3,45 +3,50 @@
 #include "Protocols/FrameGrabberProtocol.h"
 #include "Templates/Casts.h"
 
-bool FFrameGrabberProtocol::HasFinishedProcessing() const
+bool UFrameGrabberProtocol::HasFinishedProcessingImpl() const
 {
-	return !FrameGrabber->HasOutstandingFrames();
+	return FrameGrabber.IsValid() && !FrameGrabber->HasOutstandingFrames();
 }
 
-bool FFrameGrabberProtocol::Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host)
+bool UFrameGrabberProtocol::SetupImpl()
 {
-	EPixelFormat PixelFormat = PF_B8G8R8A8;
-	uint32 RingBufferSize = 3;
-
-	if (UFrameGrabberProtocolSettings* Settings = Cast<UFrameGrabberProtocolSettings>(InSettings.ProtocolSettings))
-	{
-		PixelFormat = Settings->DesiredPixelFormat;
-		RingBufferSize = Settings->RingBufferSize;
-	}
-
 	// We'll use our own grabber to capture the entire viewport
-	FrameGrabber.Reset(new FFrameGrabber(InSettings.SceneViewport.ToSharedRef(), InSettings.DesiredSize, PixelFormat, RingBufferSize));
+	FrameGrabber.Reset(new FFrameGrabber(InitSettings->SceneViewport.ToSharedRef(), InitSettings->DesiredSize, DesiredPixelFormat, RingBufferSize));
 	FrameGrabber->StartCapturingFrames();
 	return true;
 }
 
-void FFrameGrabberProtocol::CaptureFrame(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host)
+void UFrameGrabberProtocol::BeginFinalizeImpl()
 {
-	FrameGrabber->CaptureThisFrame(GetFramePayload(FrameMetrics, Host));
+	FrameGrabber->StopCapturingFrames();
 }
 
-void FFrameGrabberProtocol::Tick()
+void UFrameGrabberProtocol::CaptureFrameImpl(const FFrameMetrics& FrameMetrics)
 {
-	TArray<FCapturedFrameData> CapturedFrames = FrameGrabber->GetCapturedFrames();
-
-	for (FCapturedFrameData& Frame : CapturedFrames)
+	if (FrameGrabber.IsValid())
 	{
-		ProcessFrame(MoveTemp(Frame));
+		FrameGrabber->CaptureThisFrame(GetFramePayload(FrameMetrics));
 	}
 }
 
-void FFrameGrabberProtocol::Finalize()
+void UFrameGrabberProtocol::TickImpl()
 {
-	FrameGrabber->Shutdown();
-	FrameGrabber.Reset();
+	if (FrameGrabber.IsValid())
+	{
+		TArray<FCapturedFrameData> CapturedFrames = FrameGrabber->GetCapturedFrames();
+
+		for (FCapturedFrameData& Frame : CapturedFrames)
+		{
+			ProcessFrame(MoveTemp(Frame));
+		}
+	}
+}
+
+void UFrameGrabberProtocol::FinalizeImpl()
+{
+	if (FrameGrabber.IsValid())
+	{
+		FrameGrabber->Shutdown();
+		FrameGrabber.Reset();
+	}
 }

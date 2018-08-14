@@ -946,7 +946,8 @@ void FSlateRHIRenderingPolicy::DrawElements(
 
 					PixelShader->SetTexture(RHICmdList, TextureRHI, SamplerState);
 					PixelShader->SetShaderParams(RHICmdList, ShaderParams.PixelParams);
-					PixelShader->SetDisplayGammaAndInvertAlpha(RHICmdList, EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::NoGamma) ? 1.0f : DisplayGamma, EnumHasAllFlags(DrawEffects, ESlateDrawEffect::InvertAlpha) ? 1.0f : 0.0f);
+					const float FinalGamma = EnumHasAnyFlags(DrawFlags, ESlateBatchDrawFlag::ReverseGamma) ? (1.0f / EngineGamma) : EnumHasAnyFlags(DrawFlags, ESlateBatchDrawFlag::NoGamma) ? 1.0f : DisplayGamma;
+					PixelShader->SetDisplayGammaAndInvertAlpha(RHICmdList, FinalGamma, EnumHasAllFlags(DrawEffects, ESlateDrawEffect::InvertAlpha) ? 1.0f : 0.0f);
 				}
 
 				{
@@ -1067,7 +1068,8 @@ void FSlateRHIRenderingPolicy::DrawElements(
 								VertexShader->SetMaterialShaderParameters(RHICmdList, ActiveSceneView, MaterialRenderProxy, Material);
 
 								PixelShader->SetParameters(RHICmdList, ActiveSceneView, MaterialRenderProxy, Material, ShaderParams.PixelParams);
-								PixelShader->SetDisplayGamma(RHICmdList, EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::NoGamma) ? 1.0f : DisplayGamma);
+								const float FinalGamma = EnumHasAnyFlags(DrawFlags, ESlateBatchDrawFlag::ReverseGamma) ? 1.0f / EngineGamma : EnumHasAnyFlags(DrawFlags, ESlateBatchDrawFlag::NoGamma) ? 1.0f : DisplayGamma;
+								PixelShader->SetDisplayGamma(RHICmdList, FinalGamma);
 
 								if (MaskResource)
 								{

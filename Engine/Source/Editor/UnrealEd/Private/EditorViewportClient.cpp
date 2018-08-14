@@ -50,6 +50,7 @@
 #include "EditorWorldExtension.h"
 #include "ViewportWorldInteraction.h"
 #include "Editor/EditorPerformanceSettings.h"
+#include "ImageWriteQueue.h"
 
 #define LOCTEXT_NAMESPACE "EditorViewportClient"
 
@@ -372,6 +373,7 @@ FEditorViewportClient::FEditorViewportClient(FEditorModeTools* InModeTools, FPre
 	, NearPlane(-1.0f)
 	, FarPlane(0.0f)
 	, bInGameViewMode(false)
+	, bInVREditViewMode(false)
 	, bShouldInvalidateViewportWidget(false)
 	, DragStartView(nullptr)
 	, DragStartViewFamily(nullptr)
@@ -5118,6 +5120,13 @@ void FEditorViewportClient::OpenScreenshot( FString SourceFilePath )
 
 void FEditorViewportClient::TakeScreenshot(FViewport* InViewport, bool bInValidatViewport)
 {
+	FHighResScreenshotConfig& HighResScreenshotConfig = GetHighResScreenshotConfig();
+
+	if (!ensure(HighResScreenshotConfig.ImageWriteQueue))
+	{
+		return;
+	}
+
 	// The old method for taking screenshots does this for us on mousedown, so we do not have
 	//	to do this for all situations.
 	if( bInValidatViewport )
@@ -5129,75 +5138,94 @@ void FEditorViewportClient::TakeScreenshot(FViewport* InViewport, bool bInValida
 	// Redraw the viewport so we don't end up with clobbered data from other viewports using the same frame buffer.
 	InViewport->Draw();
 
-	// Default the result to fail it will be set to  SNotificationItem::CS_Success if saved ok
-	SNotificationItem::ECompletionState SaveResultState = SNotificationItem::CS_Fail;
-	// The string we will use to tell the user the result of the save
-	FText ScreenshotSaveResultText;
-	FString HyperLinkString;
-
-	// Read the contents of the viewport into an array.
-	TArray<FColor> Bitmap;
-	if( InViewport->ReadPixels(Bitmap) )
-	{
-		check(Bitmap.Num() == InViewport->GetSizeXY().X * InViewport->GetSizeXY().Y);
-
-		// Initialize alpha channel of bitmap
-		for (auto& Pixel : Bitmap)
-		{
-			Pixel.A = 255;
-		}
-
-		// Create screenshot folder if not already present.
-		
-		if ( IFileManager::Get().MakeDirectory(*(GetDefault<ULevelEditorMiscSettings>()->EditorScreenshotSaveDirectory.Path), true ) )
-		{
-			// Save the contents of the array to a bitmap file.
-			FHighResScreenshotConfig& HighResScreenshotConfig = GetHighResScreenshotConfig();
-			HighResScreenshotConfig.SetHDRCapture(false);
-
-			FString ScreenshotSaveName;
-			if (FFileHelper::GenerateNextBitmapFilename(GetDefault<ULevelEditorMiscSettings>()->EditorScreenshotSaveDirectory.Path / TEXT("ScreenShot"), TEXT("png"), ScreenshotSaveName) &&
-				HighResScreenshotConfig.SaveImage(ScreenshotSaveName, Bitmap, InViewport->GetSizeXY()))
-			{
-				// Setup the string with the path and name of the file
-				ScreenshotSaveResultText = NSLOCTEXT( "UnrealEd", "ScreenshotSavedAs", "Screenshot capture saved as" );					
-				HyperLinkString = FPaths::ConvertRelativePathToFull( ScreenshotSaveName );	
-				// Flag success
-				SaveResultState = SNotificationItem::CS_Success;
-			}
-			else
-			{
-				// Failed to save the bitmap
-				ScreenshotSaveResultText = NSLOCTEXT( "UnrealEd", "ScreenshotFailedBitmap", "Screenshot failed, unable to save" );									
-			}
-		}
-		else
-		{
-			// Failed to make save directory
-			ScreenshotSaveResultText = NSLOCTEXT( "UnrealEd", "ScreenshotFailedFolder", "Screenshot capture failed, unable to create save directory (see log)" );					
-			UE_LOG(LogEditorViewport, Warning, TEXT("Failed to create directory %s"), *FPaths::ConvertRelativePathToFull(GetDefault<ULevelEditorMiscSettings>()->EditorScreenshotSaveDirectory.Path));
-		}
-	}
-	else
-	{
-		// Failed to read the image from the viewport
-		ScreenshotSaveResultText = NSLOCTEXT( "UnrealEd", "ScreenshotFailedViewport", "Screenshot failed, unable to read image from viewport" );					
-	}
-
 	// Inform the user of the result of the operation
-	FNotificationInfo Info( ScreenshotSaveResultText );
+	FNotificationInfo Info(FText::GetEmpty());
 	Info.ExpireDuration = 5.0f;
 	Info.bUseSuccessFailIcons = false;
 	Info.bUseLargeFont = false;
-	if ( !HyperLinkString.IsEmpty() )
+
+	TSharedPtr<SNotificationItem> SaveMessagePtr = FSlateNotificationManager::Get().AddNotification(Info);
+	SaveMessagePtr->SetCompletionState(SNotificationItem::CS_Fail);
+
+	TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
+
 	{
-		Info.Hyperlink = FSimpleDelegate::CreateRaw(this, &FEditorViewportClient::OpenScreenshot, HyperLinkString );
-		Info.HyperlinkText = FText::FromString( HyperLinkString );
+		// Read the contents of the viewport into an array.
+		TUniquePtr<TImagePixelData<FColor>> PixelData = MakeUnique<TImagePixelData<FColor>>(InViewport->GetSizeXY());
+		if( !InViewport->ReadPixels(PixelData->Pixels) )
+		{
+			// Failed to read the image from the viewport
+			SaveMessagePtr->SetText(NSLOCTEXT( "UnrealEd", "ScreenshotFailedViewport", "Screenshot failed, unable to read image from viewport" ));
+			return;
+		}
+
+		check(PixelData->IsDataWellFormed());
+		ImageTask->PixelData = MoveTemp(PixelData);
 	}
 
-	TWeakPtr<SNotificationItem> SaveMessagePtr;
-	SaveMessagePtr = FSlateNotificationManager::Get().AddNotification(Info);
-	SaveMessagePtr.Pin()->SetCompletionState(SaveResultState);
+	// Ensure the alpha channel is full alpha (this happens on the background thread)
+	ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
+
+	// Create screenshot folder if not already present.
+	const FString& Directory = GetDefault<ULevelEditorMiscSettings>()->EditorScreenshotSaveDirectory.Path;
+	if ( !IFileManager::Get().MakeDirectory(*Directory, true ) )
+	{
+		// Failed to make save directory
+		UE_LOG(LogEditorViewport, Warning, TEXT("Failed to create directory %s"), *FPaths::ConvertRelativePathToFull(Directory));
+		SaveMessagePtr->SetText(NSLOCTEXT( "UnrealEd", "ScreenshotFailedFolder", "Screenshot capture failed, unable to create save directory (see log)" ));
+		return;
+	}
+
+	// Save the contents of the array to a bitmap file.
+	HighResScreenshotConfig.SetHDRCapture(false);
+
+	// Set the image task parameters
+	ImageTask->Format = EImageFormat::PNG;
+	ImageTask->CompressionQuality = (int32)EImageCompressionQuality::Default;
+
+	bool bGeneratedFilename = FFileHelper::GenerateNextBitmapFilename(Directory / TEXT("ScreenShot"), TEXT("png"), ImageTask->Filename);
+	if (!bGeneratedFilename)
+	{
+		SaveMessagePtr->SetText(NSLOCTEXT( "UnrealEd", "ScreenshotFailedBitmap", "Screenshot failed, too many screenshots in output directory" ));
+		return;
+	}
+
+	FString HyperLinkString = FPaths::ConvertRelativePathToFull(ImageTask->Filename);
+
+	// Define the callback to be called on the main thread when the image has completed
+	// This will be called regardless of whether the write succeeded or not, and will update
+	// the text and completion state of the notification.
+	ImageTask->OnCompleted = [HyperLinkString, SaveMessagePtr](bool bCompletedSuccessfully)
+	{
+		if (bCompletedSuccessfully)
+		{
+			auto OpenScreenshotFolder = [HyperLinkString]
+			{
+				FPlatformProcess::ExploreFolder( *FPaths::GetPath(HyperLinkString) );
+			};
+
+			SaveMessagePtr->SetText(NSLOCTEXT( "UnrealEd", "ScreenshotSavedAs", "Screenshot capture saved as" ));
+
+			SaveMessagePtr->SetHyperlink(FSimpleDelegate::CreateLambda(OpenScreenshotFolder), FText::FromString(HyperLinkString));
+			SaveMessagePtr->SetCompletionState(SNotificationItem::CS_Success);
+		}
+		else
+		{
+			SaveMessagePtr->SetText(NSLOCTEXT( "UnrealEd", "ScreenshotFailedBitmap", "Screenshot failed, unable to save" ));
+			SaveMessagePtr->SetCompletionState(SNotificationItem::CS_Fail);
+		}
+	};
+
+	TFuture<bool> CompletionFuture = HighResScreenshotConfig.ImageWriteQueue->Enqueue(MoveTemp(ImageTask));
+	if (CompletionFuture.IsValid())
+	{
+		SaveMessagePtr->SetCompletionState(SNotificationItem::CS_Pending);
+	}
+	else
+	{
+		// Unable to write the data for an unknown reason
+		SaveMessagePtr->SetText(NSLOCTEXT( "UnrealEd", "ScreenshotFailedWrite", "Screenshot failed, corrupt data captured from the viewport." ));
+	}
 }
 
 /**
@@ -5248,6 +5276,11 @@ void FEditorViewportClient::ProcessScreenShots(FViewport* InViewport)
 		FHighResScreenshotConfig& HighResScreenshotConfig = GetHighResScreenshotConfig();
 		bool bCaptureAreaValid = HighResScreenshotConfig.CaptureRegion.Area() > 0;
 
+		if (!ensure(HighResScreenshotConfig.ImageWriteQueue))
+		{
+			return;
+		}
+
 		// If capture region isn't valid, we need to determine which rectangle to capture from.
 		// We need to calculate a proper view rectangle so that we can take into account camera
 		// properties, such as it being aspect ratio constrained
@@ -5272,7 +5305,6 @@ void FEditorViewportClient::ProcessScreenShots(FViewport* InViewport)
 			CaptureRect = View->UnscaledViewRect;
 		}
 
-		FString ScreenShotName = FScreenshotRequest::GetFilename();
 		TArray<FColor> Bitmap;
 		if (GetViewportScreenShot(InViewport, Bitmap, CaptureRect))
 		{
@@ -5317,17 +5349,24 @@ void FEditorViewportClient::ProcessScreenShots(FViewport* InViewport)
 				BitmapSize = FIntPoint(NewWidth, NewHeight);
 			}
 
+			TUniquePtr<FImageWriteTask> ImageTask = MakeUnique<FImageWriteTask>();
+			ImageTask->PixelData = MakeUnique<TImagePixelData<FColor>>(BitmapSize, MoveTemp(Bitmap));
+
 			// Set full alpha on the bitmap
 			if (!bWriteAlpha)
 			{
-				for (auto& Pixel : Bitmap)
-				{
-					Pixel.A = 255;
-				}
+				ImageTask->PixelPreProcessors.Add(TAsyncAlphaWrite<FColor>(255));
 			}
 
+			HighResScreenshotConfig.PopulateImageTaskParams(*ImageTask);
+			ImageTask->Filename = FScreenshotRequest::GetFilename();
+
 			// Save the bitmap to disc
-			HighResScreenshotConfig.SaveImage(ScreenShotName, Bitmap, BitmapSize);
+			TFuture<bool> CompletionFuture = HighResScreenshotConfig.ImageWriteQueue->Enqueue(MoveTemp(ImageTask));
+			if (CompletionFuture.IsValid())
+			{
+				CompletionFuture.Wait();
+			}
 		}
 		
 		// Done with the request
@@ -5504,6 +5543,60 @@ void FEditorViewportClient::SetGameView(bool bGameViewEnable)
 	ApplyViewMode(GetViewMode(), IsPerspective(), EngineShowFlags);
 
 	bInGameViewMode = bGameViewEnable;
+
+	Invalidate();
+}
+
+
+void FEditorViewportClient::SetVREditView(bool bVREditViewEnable)
+{
+	// backup this state as we want to preserve it
+	bool bCompositeEditorPrimitives = EngineShowFlags.CompositeEditorPrimitives;
+
+	// defaults
+	FEngineShowFlags VREditFlags(ESFIM_VREditing);
+	FEngineShowFlags EditorFlags(ESFIM_Editor);
+	{
+		// likely we can take the existing state
+		if (EngineShowFlags.VREditing)
+		{
+			VREditFlags = EngineShowFlags;
+			EditorFlags = LastEngineShowFlags;
+		}
+		else if (LastEngineShowFlags.VREditing)
+		{
+			VREditFlags = LastEngineShowFlags;
+			EditorFlags = EngineShowFlags;
+		}
+	}
+
+	// toggle between the game and engine flags
+	if (bVREditViewEnable)
+	{
+		EngineShowFlags = VREditFlags;
+		LastEngineShowFlags = EditorFlags;
+	}
+	else
+	{
+		EngineShowFlags = EditorFlags;
+		LastEngineShowFlags = VREditFlags;
+	}
+	// maintain this state
+	EngineShowFlags.SetCompositeEditorPrimitives(bCompositeEditorPrimitives);
+	LastEngineShowFlags.SetCompositeEditorPrimitives(bCompositeEditorPrimitives);
+
+	//reset game engine show flags that may have been turned on by making a selection in game view
+	if (bVREditViewEnable)
+	{
+		EngineShowFlags.SetModeWidgets(false);
+		EngineShowFlags.SetBillboardSprites(false);
+	}
+
+	EngineShowFlags.SetSelectionOutline(bVREditViewEnable ? true : GetDefault<ULevelEditorViewportSettings>()->bUseSelectionOutline);
+
+	ApplyViewMode(GetViewMode(), IsPerspective(), EngineShowFlags);
+
+	bInVREditViewMode = bVREditViewEnable;
 
 	Invalidate();
 }

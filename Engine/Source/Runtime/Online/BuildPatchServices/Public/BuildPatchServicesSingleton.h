@@ -4,11 +4,11 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 #include "Interfaces/IBuildPatchServicesModule.h"
+#include "BuildPatchSettings.h"
 
 class BUILDPATCHSERVICES_API FBuildPatchServices
 {
 public:
-
 	static bool IsAvailable()
 	{
 		return FModuleManager::Get().IsModuleLoaded(ModuleName);
@@ -19,13 +19,21 @@ public:
 		return FModuleManager::Get().GetModuleChecked<IBuildPatchServicesModule>(ModuleName);
 	}
 
-	static void Set(const FName& Value)
+	static const BuildPatchServices::FBuildPatchServicesInitSettings& GetSettings()
+	{
+		return InitSettings;
+	}
+
+	static void Set(
+		const FName& Value, 
+		const BuildPatchServices::FBuildPatchServicesInitSettings& BuildPatchServicesInitSettings = BuildPatchServices::FBuildPatchServicesInitSettings())
 	{
 		if(IsAvailable())
 		{
 			Shutdown();
 		}
 		ModuleName = Value;
+		InitSettings = BuildPatchServicesInitSettings;
 		FModuleManager::Get().LoadModuleChecked<IBuildPatchServicesModule>(ModuleName);
 	}
 
@@ -40,4 +48,5 @@ public:
 private:
 
 	static FName ModuleName;
+	static BuildPatchServices::FBuildPatchServicesInitSettings InitSettings;
 };

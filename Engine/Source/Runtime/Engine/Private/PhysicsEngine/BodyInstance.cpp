@@ -394,7 +394,6 @@ FBodyInstance* FindParentBodyInstance(FName BodyName, USkeletalMeshComponent* Sk
 	return NULL;
 }
 
-#if WITH_PHYSX
 //Determine that the shape is associated with this subbody (or root body)
 bool FBodyInstance::IsShapeBoundToBody(const FPhysicsShapeHandle& Shape) const
 {
@@ -413,8 +412,6 @@ int32 FBodyInstance::GetAllShapes_AssumesLocked(TArray<FPhysicsShapeHandle>& Out
 	EPhysicsSceneType SceneType = HasSharedShapes() ? PST_Sync : PST_MAX;
 	return FPhysicsInterface::GetAllShapes_AssumedLocked(ActorHandle, OutShapes, SceneType);
 }
-
-#endif
 
 void FBodyInstance::UpdateTriMeshVertices(const TArray<FVector> & NewPositions)
 {

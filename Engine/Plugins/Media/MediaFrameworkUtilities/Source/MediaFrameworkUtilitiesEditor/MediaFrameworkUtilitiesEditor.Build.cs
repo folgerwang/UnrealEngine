@@ -10,11 +10,13 @@ namespace UnrealBuildTool.Rules
 				new string[]
 				{
 					"AssetRegistry",
+					"AssetTools",
 					"Core",
 					"CoreUObject",
 					"EditorStyle",
 					"Engine",
 					"InputCore",
+					"LevelEditor",
 					"MaterialEditor",
 					"MediaAssets",
 					"MediaFrameworkUtilities",

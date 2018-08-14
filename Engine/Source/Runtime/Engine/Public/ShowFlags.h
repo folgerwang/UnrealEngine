@@ -30,6 +30,7 @@ enum EShowFlagInitMode
 {
 	ESFIM_Game,
 	ESFIM_Editor,
+	ESFIM_VREditing,
 	ESFIM_All0
 };
 
@@ -314,7 +315,7 @@ private:
 		SetVisualizeBuffer(false);
 		SetVectorFields(false);
 		SetGBufferHints(false);
-		SetCompositeEditorPrimitives(InitMode == ESFIM_Editor);
+		SetCompositeEditorPrimitives(InitMode == ESFIM_Editor || InitMode == ESFIM_VREditing);
 		SetTestImage(false);
 		SetVisualizeDOF(false);
 		SetVisualizeAdaptiveDOF(false);
@@ -341,24 +342,24 @@ private:
 		SetAudioRadius(InitMode == ESFIM_Editor);
 		SetBSPSplit(false);
 		SetBrushes(false);
-		SetEditor(InitMode == ESFIM_Editor);
+		SetEditor(InitMode == ESFIM_Editor || InitMode == ESFIM_VREditing);
 		SetLargeVertices(false);
 		SetGrid(InitMode == ESFIM_Editor);
 		SetMeshEdges(false);
 		SetCover(false);
 		SetSplines(InitMode == ESFIM_Editor);
-		SetSelection(InitMode == ESFIM_Editor);
+		SetSelection(InitMode == ESFIM_Editor || InitMode == ESFIM_VREditing);
 		SetModeWidgets(InitMode == ESFIM_Editor);
 		SetBounds(false);
 		SetHitProxies(false);
 		SetPropertyColoration(false);
 		SetLightInfluences(false);
-		SetPivot(InitMode == ESFIM_Editor);
+		SetPivot(InitMode == ESFIM_Editor || InitMode == ESFIM_VREditing);
 		SetShadowFrustums(false);
 		SetWireframe(false);
 		SetLightRadius(InitMode == ESFIM_Editor);
 		SetVolumes(InitMode == ESFIM_Editor);
-		SetGame(InitMode != ESFIM_Editor);
+		SetGame(InitMode != ESFIM_Editor && InitMode != ESFIM_VREditing);
 		SetLevelColoration(false);
 		SetCollision(false);
 		SetCollisionPawn(false);
@@ -388,9 +389,10 @@ private:
 		SetMaterialTextureScaleAccuracy(false);
 		SetOutputMaterialTextureScales(false);
 		SetRequiredTextureResolution(false);
-		SetMotionBlur(InitMode != ESFIM_Editor);
+		SetMotionBlur(InitMode != ESFIM_Editor && InitMode != ESFIM_VREditing);
 		SetBones(false);
-		SetScreenPercentage(InitMode != ESFIM_Editor);
+		SetScreenPercentage(InitMode != ESFIM_Editor && InitMode != ESFIM_VREditing);
+		SetVREditing(InitMode == ESFIM_VREditing);
 	}
 
 

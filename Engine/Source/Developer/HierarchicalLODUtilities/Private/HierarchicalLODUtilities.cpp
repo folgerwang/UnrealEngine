@@ -910,7 +910,7 @@ bool FHierarchicalLODUtilities::IsWorldUsedForStreaming(const UWorld* InWorld)
 				TArray<UPackage*> Packages;
 				Packages.Add(ReferencingPackage);
 				TArray<UObject*> Objects;
-				PackageTools::GetObjectsInPackages(&Packages, Objects);
+				UPackageTools::GetObjectsInPackages(&Packages, Objects);
 
 				// Loop over all objects in package and try to find a world
 				for (UObject* Object : Objects)

@@ -12,6 +12,7 @@
 #include "pxr/base/plug/plugin.h"
 #include "pxr/usd/sdf/schema.h"
 #include "pxr/usd/usd/attribute.h"
+#include "pxr/usd/usd/modelAPI.h"
 #include "pxr/usd/usd/relationship.h"
 #include "pxr/usd/usd/references.h"
 #include "pxr/usd/usdGeom/modelAPI.h"
@@ -19,6 +20,7 @@
 #include "pxr/usd/usdGeom/xformCommonAPI.h"
 #include "pxr/usd/usdGeom/faceSetAPI.h"
 #include "pxr/usd/usdGeom/metrics.h"
+#include "pxr/usd/usdShade/materialBindingAPI.h"
 #include "pxr/base/tf/getenv.h"
 #include "pxr/base/tf/setenv.h"
 #include "pxr/usd/ar/defaultResolver.h"
@@ -599,7 +601,7 @@ public:
 
 	virtual bool HasTransform() const override
 	{
-		return UsdGeomXformable(Prim);
+		return UsdGeomXformable(Prim) ? true : false;
 	}
 
 	static GfMatrix4d GetLocalToWorldTransform(const UsdPrim& Prim, double Time, const SdfPath& AbsoluteRootPath)
@@ -716,9 +718,7 @@ public:
 
 	virtual bool HasGeometryData() const override
 	{
-		UsdGeomMesh Mesh(Prim);
-
-		return Mesh;
+		return UsdGeomMesh(Prim) ? true : false;
 	}
 
 	virtual bool HasGeometryDataOrLODVariants() const override
@@ -855,7 +855,7 @@ public:
 					TfToken OrientationValue;
 					Orientation.Get(&OrientationValue, Time);
 
-					GeomData->Orientation = OrientationValue == RightHanded ? EUsdGeomOrientation::RightHanded : EUsdGeomOrientation::LeftHanded;
+					GeomData->Orientation = OrientationValue == LeftHanded ? EUsdGeomOrientation::LeftHanded : EUsdGeomOrientation::RightHanded;
 				}
 
 			}
@@ -907,88 +907,7 @@ public:
 				}
 			}
 
-			// Material mappings
-			// @todo time not supported yet
-			if(GeomData->FaceMaterialIndices.size() == 0)
-			{
-				vector<UsdGeomFaceSetAPI> FaceSets = UsdGeomFaceSetAPI::GetFaceSets(Prim);
-
-				GeomData->FaceMaterialIndices.resize(GeomData->FaceVertexCounts.size());
-				memset(&GeomData->FaceMaterialIndices[0], 0, sizeof(int)*GeomData->FaceMaterialIndices.size());
-			
-				// Figure out a zero based mateiral index for each face.  The mapping is FaceMaterialIndices[FaceIndex] = MaterialIndex;
-				// This is done by walking the face sets and for each face set getting the number number of unique groups of faces in the set
-				// Each one of these groups represents a material index for that face set.  If there are multiple face sets the material index is offset by the face set index
-				// Once the groups of faces are determined, walk the indices for the total number of faces in each group.  Each element in the face indices array represents a single global face index
-				// Assign the current material index to it
-
-				// @todo USD/Unreal.  This is probably wrong for multiple face sets.  They don't make a ton of sense for unreal as there can only be one "set" of materials at once and there is no construct in the engine for material sets
-			
-				//GeomData->MaterialNames.resize(FaceSets)
-				if(FaceSets.size() > 0)
-				{
-					for (int FaceSetIdx = 0; FaceSetIdx < FaceSets.size(); ++FaceSetIdx)
-					{
-						const UsdGeomFaceSetAPI& FaceSet = FaceSets[FaceSetIdx];
-
-						SdfPathVector BindingTargets;
-						FaceSet.GetBindingTargets(&BindingTargets);
-
-
-						UsdStageWeakPtr Stage = Prim.GetStage();
-						for (const SdfPath& Path : BindingTargets)
-						{
-							FillMaterialInfo(Path, *GeomData);
-						}
-						// Faces must be mutually exclusive
-						if (FaceSet.GetIsPartition())
-						{
-							// Get the list of faces in the face set.  The size of this list determines the number of materials in this set
-							VtIntArray FaceCounts;
-							FaceSet.GetFaceCounts(&FaceCounts, Time);
-
-							// Get the list of global face indices mapped in this set
-							VtIntArray FaceIndices;
-							FaceSet.GetFaceIndices(&FaceIndices, Time);
-
-							// How far we are into the face indices list
-							int Offset = 0;
-
-							// Walk each face group in the set
-							for (int FaceCountIdx = 0; FaceCountIdx < FaceCounts.size(); ++FaceCountIdx)
-							{
-								int MaterialIdx = FaceSetIdx * FaceSets.size() + FaceCountIdx;
-
-								// Number of faces with the material index
-								int FaceCount = FaceCounts[FaceCountIdx];
-
-								// Walk each face and map it to the computed material index
-								for (int FaceNum = 0; FaceNum < FaceCount; ++FaceNum)
-								{
-									int Face = FaceIndices[FaceNum + Offset];
-									GeomData->FaceMaterialIndices[Face] = MaterialIdx;
-								}
-								Offset += FaceCount;
-							}
-						}
-					}
-				}
-				else
-				{
-					// No face sets, find a relationship that defines the material 
-					UsdRelationship Relationship = Prim.GetRelationship(UnrealIdentifiers::MaterialRelationship);
-					if (Relationship)
-					{
-						SdfPathVector Targets;
-						Relationship.GetTargets(&Targets);
-						// Note there should only be one target without a face set but fill them out so we can warn later
-						for (const SdfPath& Path : Targets)
-						{
-							FillMaterialInfo(Path, *GeomData);
-						}
-					}
-				}
-			}
+			GetGeometryMaterials(Time, *GeomData);
 
 			// SubD
 			{
@@ -1184,6 +1103,9 @@ private:
 			}
 		}
 	}
+
+	void GetGeometryMaterials(double Time, FUsdGeomData& GeomData);
+
 private:
 	UsdPrim Prim;
 	vector<FPrimAndData> Children;
@@ -1197,6 +1119,192 @@ private:
 	string Kind;
 	FUsdGeomData* GeomData;
 };
+
+std::string DiscoverInformationAboutUsdMaterial(const UsdShadeMaterial& ShadeMaterial, const UsdGeomGprim& boundPrim)
+{
+	std::string ShadingEngineName = (ShadeMaterial ? ShadeMaterial.GetPrim() : boundPrim.GetPrim()).GetName().GetString();
+	return ShadingEngineName;
+}
+
+void FUsdPrim::GetGeometryMaterials(double Time, FUsdGeomData& GeomData)
+{
+	// Material mappings
+	// @todo time not supported yet
+
+	UsdShadeMaterialBindingAPI BindingAPI(Prim);
+	UsdShadeMaterial& ShadeMaterial = BindingAPI.ComputeBoundMaterial();
+	UsdPrim& ShadeMaterialPrim = ShadeMaterial.GetPrim();
+	if (ShadeMaterialPrim)
+	{
+		SdfPath& Path = ShadeMaterialPrim.GetPath();
+		std::string ShadingEngineName = DiscoverInformationAboutUsdMaterial(ShadeMaterial, UsdGeomGprim());
+		GeomData.MaterialNames.resize(1);
+		GeomData.MaterialNames[0] = ShadingEngineName;
+		return;
+	}
+
+	// If the gprim does not have a material faceSet which represents per-face 
+	// shader assignments, assign the shading engine to the entire gprim.
+	std::vector<UsdGeomSubset> FaceSubsets = UsdShadeMaterialBindingAPI(Prim).GetMaterialBindSubsets();
+	std::vector<UsdGeomFaceSetAPI> FaceSets = UsdGeomFaceSetAPI::GetFaceSets(Prim);
+
+	bool bHasOldStyleFaceSets = UsdShadeMaterial::HasMaterialFaceSet(Prim);
+
+	if (FaceSubsets.empty() && !bHasOldStyleFaceSets && FaceSets.size() == 0)
+	{
+		return;
+	}
+
+	if (!FaceSubsets.empty())
+	{
+		int FaceCount = GeomData.FaceVertexCounts.size();
+		if (FaceCount == 0)
+		{
+			//MGlobal::displayError(TfStringPrintf("Unable to get face count "
+			//	"for gprim at path <%s>.", primSchema.GetPath().GetText()).c_str());
+			return;
+		}
+
+		std::string ReasonWhyNotPartition;
+
+		bool ValidPartition = UsdGeomSubset::ValidateSubsets(FaceSubsets, FaceCount, UsdGeomTokens->partition, &ReasonWhyNotPartition);
+		if (!ValidPartition)
+		{
+			VtIntArray unassignedIndices = UsdGeomSubset::GetUnassignedIndices(FaceSubsets, FaceCount);
+		}
+
+		GeomData.MaterialNames.resize(FaceSubsets.size());
+
+		GeomData.FaceMaterialIndices.resize(GeomData.FaceVertexCounts.size());
+		memset(&GeomData.FaceMaterialIndices[0], 0, sizeof(int)*GeomData.FaceMaterialIndices.size());
+
+		int MaterialIndex = 0;
+		for (const auto &Subset : FaceSubsets)
+		{
+			UsdShadeMaterialBindingAPI SubsetBindingAPI(Subset.GetPrim());
+			UsdShadeMaterial BoundMaterial = SubsetBindingAPI.ComputeBoundMaterial();
+
+			// Only transfer the first timeSample or default Indices, if 
+			// there are no time-samples.
+			VtIntArray Indices;
+			Subset.GetIndicesAttr().Get(&Indices, UsdTimeCode::EarliestTime());
+
+			if (!BoundMaterial)
+			{
+				++MaterialIndex;
+				continue;
+			}
+
+			std::string ShadingEngineName = DiscoverInformationAboutUsdMaterial(BoundMaterial, UsdGeomGprim());
+			GeomData.MaterialNames[MaterialIndex] = ShadingEngineName;
+
+			for (int i = 0; i < Indices.size(); ++i)
+			{
+				int PolygonIndex = Indices[i];
+				if (PolygonIndex >= 0 && PolygonIndex < GeomData.FaceMaterialIndices.size())
+				{
+					GeomData.FaceMaterialIndices[PolygonIndex] = MaterialIndex;
+				}
+			}
+
+			++MaterialIndex;
+		}
+	}
+
+	// Import per-face-set shader bindings.
+	if (bHasOldStyleFaceSets)
+	{
+		UsdGeomFaceSetAPI MaterialFaceSet =
+			UsdShadeMaterial::GetMaterialFaceSet(Prim);
+
+		SdfPathVector BindingTargets;
+		// TODO: ...
+	}
+
+	// TODO: ...
+
+/////////////////////////////////////////////
+	if (GeomData.FaceMaterialIndices.size() != 0)
+	{
+		return;
+	}
+
+	GeomData.FaceMaterialIndices.resize(GeomData.FaceVertexCounts.size());
+	memset(&GeomData.FaceMaterialIndices[0], 0, sizeof(int)*GeomData.FaceMaterialIndices.size());
+
+	// Figure out a zero based mateiral index for each face.  The mapping is FaceMaterialIndices[FaceIndex] = MaterialIndex;
+	// This is done by walking the face sets and for each face set getting the number number of unique groups of faces in the set
+	// Each one of these groups represents a material index for that face set.  If there are multiple face sets the material index is offset by the face set index
+	// Once the groups of faces are determined, walk the Indices for the total number of faces in each group.  Each element in the face Indices array represents a single global face index
+	// Assign the current material index to it
+
+	// @todo USD/Unreal.  This is probably wrong for multiple face sets.  They don't make a ton of sense for unreal as there can only be one "set" of materials at once and there is no construct in the engine for material sets
+
+	//GeomData.MaterialNames.resize(FaceSets)
+	if (FaceSets.size() > 0)
+	{
+		for (int FaceSetIdx = 0; FaceSetIdx < FaceSets.size(); ++FaceSetIdx)
+		{
+			const UsdGeomFaceSetAPI& FaceSet = FaceSets[FaceSetIdx];
+
+			SdfPathVector BindingTargets;
+			FaceSet.GetBindingTargets(&BindingTargets);
+
+
+			UsdStageWeakPtr Stage = Prim.GetStage();
+			for (const SdfPath& Path : BindingTargets)
+			{
+				FillMaterialInfo(Path, GeomData);
+			}
+			// Faces must be mutually exclusive
+			if (FaceSet.GetIsPartition())
+			{
+				// Get the list of faces in the face set.  The size of this list determines the number of materials in this set
+				VtIntArray FaceCounts;
+				FaceSet.GetFaceCounts(&FaceCounts, Time);
+
+				// Get the list of global face Indices mapped in this set
+				VtIntArray FaceIndices;
+				FaceSet.GetFaceIndices(&FaceIndices, Time);
+
+				// How far we are into the face Indices list
+				int Offset = 0;
+
+				// Walk each face group in the set
+				for (int FaceCountIdx = 0; FaceCountIdx < FaceCounts.size(); ++FaceCountIdx)
+				{
+					int MaterialIdx = FaceSetIdx * FaceSets.size() + FaceCountIdx;
+
+					// Number of faces with the material index
+					int FaceCount = FaceCounts[FaceCountIdx];
+
+					// Walk each face and map it to the computed material index
+					for (int FaceNum = 0; FaceNum < FaceCount; ++FaceNum)
+					{
+						int Face = FaceIndices[FaceNum + Offset];
+						GeomData.FaceMaterialIndices[Face] = MaterialIdx;
+					}
+					Offset += FaceCount;
+				}
+			}
+		}
+	}
+	else
+	{
+		// No face sets, find a relationship that defines the material 
+		UsdRelationship Relationship = Prim.GetRelationship(UnrealIdentifiers::MaterialRelationship);
+		if (Relationship)
+		{
+			SdfPathVector Targets;
+			Relationship.GetTargets(&Targets);
+			// Note there should only be one target without a face set but fill them out so we can warn later
+			for (const SdfPath& Path : Targets)
+			{
+				FillMaterialInfo(Path, GeomData);
+			}
+		}
+	}
+}
 
 class FUsdStage : public IUsdStage
 {
@@ -1226,9 +1334,46 @@ public:
 		if (Stage && !RootPrim)
 		{
 			RootPrim = new FUsdPrim(Stage->GetPseudoRoot());
+
+			
 		}
 
 		return RootPrim;
+	}
+
+	void ResetGetPrimAtPathLookup() override
+	{
+		LookupByPath.clear();
+	}
+
+	void BuildLookupByPath(IUsdPrim* Prim)
+	{
+		LookupByPath[Prim->GetPrimPath()] = Prim;
+		int NumChildren = Prim->GetNumChildren();
+		for (int i = 0; i < NumChildren; ++i)
+		{
+			BuildLookupByPath(Prim->GetChild(i));
+		}
+	}
+
+	IUsdPrim* GetPrimAtPath(const std::string& InPath) override
+	{
+		IUsdPrim* RootPrim = GetRootPrim();
+		if (Stage && RootPrim)
+		{
+			if (LookupByPath.size() == 0)
+			{
+				BuildLookupByPath(RootPrim);
+			}
+
+			auto found = LookupByPath.find(InPath);
+			if (found != LookupByPath.end())
+			{
+				return found->second;
+			}
+		}
+
+		return nullptr;
 	}
 
 	virtual bool HasAuthoredTimeCodeRange() const override
@@ -1259,6 +1404,7 @@ public:
 private:
 	UsdStageRefPtr Stage;
 	FUsdPrim* RootPrim;
+	std::map<std::string, IUsdPrim*> LookupByPath;
 };
 
 bool UnrealUSDWrapper::bInitialized = false;
