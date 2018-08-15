@@ -452,22 +452,18 @@ bool FSoftObjectPath::FixupCoreRedirects()
 {
 	FString OldString = ToString();
 	FCoreRedirectObjectName OldName = FCoreRedirectObjectName(OldString);
+	FCoreRedirectObjectName NewName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Object, OldName);
 
-	// Always try the object redirect, this will pick up any package redirects as well
-	// For things that look like native objects, try all types as we don't know which it would be
-	const bool bIsNative = OldString.StartsWith(TEXT("/Script/"));
-	FCoreRedirectObjectName NewName = FCoreRedirects::GetRedirectedName(bIsNative ? ECoreRedirectFlags::Type_AllMask : ECoreRedirectFlags::Type_Object, OldName);
+	// This also might be a class
+	if (OldName == NewName && OldString.StartsWith(TEXT("/Script/")))
+	{
+		NewName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Class, OldName);
+	}
 
 	if (OldName != NewName)
 	{
-		// Only do the fixup if the old object isn't in memory, this avoids false positives
-		UObject* FoundOldObject = FindObject<UObject>(nullptr, *OldString);
-
-		if (!FoundOldObject)
-		{
-			SetPath(NewName.ToString());
-			return true;
-		}
+		SetPath(NewName.ToString());
+		return true;
 	}
 
 	return false;

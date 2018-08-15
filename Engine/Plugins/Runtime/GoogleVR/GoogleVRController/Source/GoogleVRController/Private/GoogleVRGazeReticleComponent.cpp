@@ -64,7 +64,7 @@ void UGoogleVRGazeReticleComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	TInlineComponentArray<UGoogleVRPointerInputComponent*> Components;
+	TArray<UGoogleVRPointerInputComponent*> Components;
 	UGoogleVRPointerInputComponent* InputComponent = nullptr;
 
 	GetOwner()->GetComponents(Components);
@@ -91,7 +91,7 @@ void UGoogleVRGazeReticleComponent::BeginPlay()
 		InputComponent->SetPointer(this);
 	}
 
-	TInlineComponentArray<UCameraComponent*> CameraComponents;
+	TArray<UCameraComponent*> CameraComponents;
 	GetOwner()->GetComponents(CameraComponents);
 	if (CameraComponents.Num() == 0)
 	{

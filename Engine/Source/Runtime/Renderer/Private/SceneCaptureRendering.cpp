@@ -540,12 +540,11 @@ void SetupViewVamilyForSceneCapture(
 
 			if (Actor)
 			{
-				for (UActorComponent* Component : Actor->GetComponents())
+				TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+				Actor->GetComponents(PrimitiveComponents);
+				for (int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ++ComponentIndex)
 				{
-					if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
-					{
-						View->HiddenPrimitives.Add(PrimComp->ComponentId);
-					}
+					View->HiddenPrimitives.Add(PrimitiveComponents[ComponentIndex]->ComponentId);
 				}
 			}
 		}
@@ -570,12 +569,11 @@ void SetupViewVamilyForSceneCapture(
 
 				if (Actor)
 				{
-					for (UActorComponent* Component : Actor->GetComponents())
+					TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+					Actor->GetComponents(PrimitiveComponents);
+					for (int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ++ComponentIndex)
 					{
-						if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
-						{
-							View->ShowOnlyPrimitives->Add(PrimComp->ComponentId);
-						}
+						View->ShowOnlyPrimitives->Add(PrimitiveComponents[ComponentIndex]->ComponentId);
 					}
 				}
 			}

@@ -7,14 +7,13 @@
 #include "SAnimNotifyPanel.h"
 #include "SAnimTrackCurvePanel.h"
 #include "AnimPreviewInstance.h"
-#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "AnimSequenceEditor"
 
 //////////////////////////////////////////////////////////////////////////
 // SSequenceEditor
 
-void SSequenceEditor::Construct(const FArguments& InArgs, TSharedRef<class IPersonaPreviewScene> InPreviewScene, TSharedRef<class IEditableSkeleton> InEditableSkeleton)
+void SSequenceEditor::Construct(const FArguments& InArgs, TSharedRef<class IPersonaPreviewScene> InPreviewScene, TSharedRef<class IEditableSkeleton> InEditableSkeleton, FSimpleMulticastDelegate& OnPostUndo)
 {
 	SequenceObj = InArgs._Sequence;
 	check(SequenceObj);
@@ -24,16 +23,13 @@ void SSequenceEditor::Construct(const FArguments& InArgs, TSharedRef<class IPers
 		.OnObjectsSelected(InArgs._OnObjectsSelected), 
 		InPreviewScene );
 
-	if(GEditor)
-	{
-		GEditor->RegisterForUndo(this);
-	}
+	OnPostUndo.Add(FSimpleDelegate::CreateSP( this, &SSequenceEditor::PostUndo ) );
 
 	EditorPanels->AddSlot()
 	.AutoHeight()
 	.Padding(0, 10)
 	[
-		SAssignNew( AnimNotifyPanel, SAnimNotifyPanel, InEditableSkeleton )
+		SAssignNew( AnimNotifyPanel, SAnimNotifyPanel, OnPostUndo)
 		.Sequence(SequenceObj)
 		.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
 		.ViewInputMin(this, &SAnimEditorBase::GetViewMinInput)
@@ -43,6 +39,7 @@ void SSequenceEditor::Construct(const FArguments& InArgs, TSharedRef<class IPers
 		.OnSetInputViewRange(this, &SAnimEditorBase::SetInputViewRange)
 		.OnGetScrubValue(this, &SAnimEditorBase::GetScrubValue)
 		.OnSelectionChanged(this, &SAnimEditorBase::OnSelectionChanged)
+		.OnAnimNotifiesChanged(InArgs._OnAnimNotifiesChanged)
 		.OnInvokeTab(InArgs._OnInvokeTab)
 	];
 
@@ -81,25 +78,7 @@ void SSequenceEditor::Construct(const FArguments& InArgs, TSharedRef<class IPers
 	}
 }
 
-SSequenceEditor::~SSequenceEditor()
-{
-	if(GEditor)
-	{
-		GEditor->UnregisterForUndo(this);
-	}
-}
-
-void SSequenceEditor::PostUndo( bool bSuccess )
-{
-	PostUndoRedo();
-}
-
-void SSequenceEditor::PostRedo( bool bSuccess )
-{
-	PostUndoRedo();
-}
-
-void SSequenceEditor::PostUndoRedo()
+void SSequenceEditor::PostUndo()
 {
 	GetPreviewScene()->SetPreviewAnimationAsset(SequenceObj);
 

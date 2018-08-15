@@ -2972,7 +2972,13 @@ UClass* FLinkerLoad::GetExportLoadClass(int32 Index)
 		VerifyImport(Export.ClassIndex.ToImport());
 	}
 
-	return (UClass*)IndexToObject(Export.ClassIndex);
+	UClass* ExportClass = (UClass*)IndexToObject(Export.ClassIndex);
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+	check(!Export.ClassIndex.IsImport() || !(LoadFlags & LOAD_DeferDependencyLoads) || 
+		(ExportClass && ExportClass->HasAnyClassFlags(CLASS_Native)) || (Cast<ULinkerPlaceholderClass>(ExportClass) != nullptr));
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+	return ExportClass;
 }
 
 #if WITH_EDITORONLY_DATA

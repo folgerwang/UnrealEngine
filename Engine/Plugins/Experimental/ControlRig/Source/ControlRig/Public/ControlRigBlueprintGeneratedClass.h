@@ -20,6 +20,7 @@ public:
 
 	// UClass interface
 	virtual void PurgeClass(bool bRecompilingOnLoad) override;
+	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
 
 public:
 #if WITH_EDITORONLY_DATA

@@ -154,7 +154,6 @@ FText SPaperExtractSpritesViewport::GetTitleText() const
 void SPaperExtractSpritesDialog::Construct(const FArguments& InArgs, UTexture2D* InSourceTexture)
 {
 	SourceTexture = InSourceTexture;
-	bDirtyExtractedSprites = false;
 
 	ExtractSpriteSettings = NewObject<UPaperExtractSpritesSettings>();
 	ExtractSpriteSettings->AddToRoot();
@@ -220,7 +219,6 @@ void SPaperExtractSpritesDialog::Construct(const FArguments& InArgs, UTexture2D*
 						SNew(SButton)
 						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
 						.ForegroundColor(FLinearColor::White)
-						.ContentPadding(FMargin(6, 2))
 						.Text(LOCTEXT("PaperExtractSpritesExtractButton", "Extract..."))
 						.OnClicked(this, &SPaperExtractSpritesDialog::ExtractClicked)
 					]
@@ -229,7 +227,6 @@ void SPaperExtractSpritesDialog::Construct(const FArguments& InArgs, UTexture2D*
 						SNew(SButton)
 						.ButtonStyle(FEditorStyle::Get(), "FlatButton")
 						.ForegroundColor(FLinearColor::White)
-						.ContentPadding(FMargin(6, 2))
 						.Text(LOCTEXT("PaperExtractSpritesCancelButton", "Cancel"))
 						.OnClicked(this, &SPaperExtractSpritesDialog::CancelClicked)
 					]
@@ -396,13 +393,8 @@ void SPaperExtractSpritesDialog::OnFinishedChangingProperties(const FPropertyCha
 	if (PropertyChangedEvent.Property != nullptr)
 	{
 		const FName PropertyName(PropertyChangedEvent.Property->GetFName());
-
-		if (PropertyName == GET_MEMBER_NAME_CHECKED(UPaperExtractSpritesSettings, NamingTemplate) ||
-			PropertyName == GET_MEMBER_NAME_CHECKED(UPaperExtractSpritesSettings, NamingStartIndex))
-		{
-			bDirtyExtractedSprites = true;
-		}
-		else if (PropertyName != GET_MEMBER_NAME_CHECKED(UPaperExtractSpritesSettings, OutlineColor) &&
+		
+		if (PropertyName != GET_MEMBER_NAME_CHECKED(UPaperExtractSpritesSettings, OutlineColor) &&
 			PropertyName != GET_MEMBER_NAME_CHECKED(UPaperExtractSpritesSettings, BackgroundColor) &&
 			PropertyName != GET_MEMBER_NAME_CHECKED(UPaperExtractSpritesSettings, ViewportTextureTint))
 		{
@@ -418,12 +410,6 @@ void SPaperExtractSpritesDialog::OnFinishedChangingProperties(const FPropertyCha
 
 FReply SPaperExtractSpritesDialog::ExtractClicked()
 {
-	if (bDirtyExtractedSprites)
-	{
-		bDirtyExtractedSprites = false;
-		PreviewExtractedSprites();
-	}
-
 	CreateExtractedSprites();
 
 	CloseContainingWindow();

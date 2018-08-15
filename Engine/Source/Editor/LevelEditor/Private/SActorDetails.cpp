@@ -282,9 +282,6 @@ void SActorDetails::PostUndo(bool bSuccess)
 	if (SelectedActor)
 	{
 		GUnrealEd->SetActorSelectionFlags(SelectedActor);
-
-		// Update the pivot (widget) as the current selection may be a component within the Actor instance
-		GUnrealEd->UpdatePivotLocationForSelection();
 	}
 }
 

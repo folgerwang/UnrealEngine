@@ -118,14 +118,7 @@ void UChildActorComponent::Serialize(FArchive& Ar)
 			if (ChildActorTemplate->GetOuter() != this)
 			{
 				const FString TemplateName = FString::Printf(TEXT("%s_%s_CAT"), *GetName(), *ChildActorClass->GetName());
-				if (UObject* ExistingTemplate = StaticFindObject(nullptr, this, *TemplateName))
-				{
-					ChildActorTemplate = CastChecked<AActor>(ExistingTemplate);
-				}
-				else
-				{
-					ChildActorTemplate = CastChecked<AActor>(StaticDuplicateObject(ChildActorTemplate, this, *TemplateName));
-				}
+				ChildActorTemplate = CastChecked<AActor>(StaticDuplicateObject(ChildActorTemplate, this, *TemplateName));
 			}
 		}
 		else

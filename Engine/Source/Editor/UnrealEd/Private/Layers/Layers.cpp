@@ -698,10 +698,10 @@ void FLayers::RemoveViewFromActorViewVisibility( FLevelEditorViewportClient* Vie
 		TInlineComponentArray<UPrimitiveComponent*> Components;
 		Actor->GetComponents(Components);
 
-		for (UActorComponent* Component : Actor->GetComponents())
+		for( int32 ComponentIdx = 0; ComponentIdx < Components.Num(); ++ComponentIdx )
 		{
-			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component);
-			if (PrimitiveComponent && PrimitiveComponent->IsRegistered())
+			UPrimitiveComponent* PrimitiveComponent = Components[ComponentIdx];
+			if (PrimitiveComponent->IsRegistered())
 			{
 				// Push visibility to the render thread
 				PrimitiveComponent->PushEditorVisibilityToProxy( Actor->HiddenEditorViews );

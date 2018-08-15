@@ -324,7 +324,7 @@ USkinnedMeshComponent::USkinnedMeshComponent(const FObjectInitializer& ObjectIni
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
 
-	VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+	MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 
@@ -595,7 +595,7 @@ void USkinnedMeshComponent::SendRenderDynamicData_Concurrent()
 
 	// if we have not updated the transforms then no need to send them to the rendering thread
 	// @todo GIsEditor used to be bUpdateSkelWhenNotRendered. Look into it further to find out why it doesn't update animations in the AnimSetViewer, when a level is loaded in UED (like POC_Cover.gear).
-	if( MeshObject && SkeletalMesh && (bForceMeshObjectUpdate || (bRecentlyRendered || VisibilityBasedAnimTickOption == EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones || GIsEditor || MeshObject->bHasBeenUpdatedAtLeastOnce == false)) )
+	if( MeshObject && SkeletalMesh && (bForceMeshObjectUpdate || (bRecentlyRendered || MeshComponentUpdateFlag == EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones || GIsEditor || MeshObject->bHasBeenUpdatedAtLeastOnce == false)) )
 	{
 		SCOPE_CYCLE_COUNTER(STAT_MeshObjectUpdate);
 
@@ -679,12 +679,12 @@ void USkinnedMeshComponent::InitLODInfos()
 
 bool USkinnedMeshComponent::ShouldTickPose() const
 {
-	return ((VisibilityBasedAnimTickOption < EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered) || bRecentlyRendered);
+	return ((MeshComponentUpdateFlag < EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered) || bRecentlyRendered);
 }
 
 bool USkinnedMeshComponent::ShouldUpdateTransform(bool bLODHasChanged) const
 {
-	return (bRecentlyRendered || (VisibilityBasedAnimTickOption == EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones));
+	return (bRecentlyRendered || (MeshComponentUpdateFlag == EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones));
 }
 
 bool USkinnedMeshComponent::ShouldUseUpdateRateOptimizations() const
@@ -753,7 +753,7 @@ void USkinnedMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 			RefreshBoneTransforms(ThisTickFunction);
 		}
 	}
-	else if(VisibilityBasedAnimTickOption == EVisibilityBasedAnimTickOption::AlwaysTickPose)
+	else if(MeshComponentUpdateFlag == EMeshComponentUpdateFlag::AlwaysTickPose)
 	{
 		// We are not refreshing bone transforms, but we do want to tick pose. We may need to kick off a parallel task
 		DispatchParallelTickPose(ThisTickFunction);
@@ -1047,8 +1047,7 @@ FMatrix USkinnedMeshComponent::GetBoneMatrix(int32 BoneIdx) const
 	}
 	else
 	{
-		const int32 NumTransforms = GetNumComponentSpaceTransforms();
-		if(BoneIdx >= 0 && BoneIdx < NumTransforms)
+		if(GetNumComponentSpaceTransforms() && BoneIdx < GetNumComponentSpaceTransforms() )
 		{
 			return GetComponentSpaceTransforms()[BoneIdx].ToMatrixWithScale() * GetComponentTransform().ToMatrixWithScale();
 		}
@@ -1109,7 +1108,7 @@ FTransform USkinnedMeshComponent::GetBoneTransform(int32 BoneIdx, const FTransfo
 	else
 	{
 		const int32 NumTransforms = GetNumComponentSpaceTransforms();
-		if(BoneIdx >= 0 && BoneIdx < NumTransforms)
+		if(NumTransforms > 0 && BoneIdx < NumTransforms)
 		{
 			return GetComponentSpaceTransforms()[BoneIdx] * LocalToWorld;
 		}

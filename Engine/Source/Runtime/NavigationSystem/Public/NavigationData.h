@@ -510,7 +510,7 @@ protected:
 	uint32 bForceRebuildOnLoad : 1;
 
 	/** If set, navigation data can act as default one in navigation system's queries */
-	UPROPERTY(config, EditAnywhere, Category = Runtime, AdvancedDisplay)
+	UPROPERTY(config, VisibleAnywhere, Category = Runtime, AdvancedDisplay)
 	uint32 bCanBeMainNavData : 1;
 
 	/** If set, navigation data will be spawned in persistent level during rebuild if actor doesn't exist */

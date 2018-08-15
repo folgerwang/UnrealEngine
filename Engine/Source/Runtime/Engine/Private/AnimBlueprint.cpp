@@ -178,7 +178,7 @@ void UAnimBlueprint::PostLoad()
 
 bool UAnimBlueprint::CanRecompileWhilePlayingInEditor() const
 {
-	return true;
+	return GetDefault<UEditorExperimentalSettings>()->bEnableLiveRecompilationOfAnimationBlueprints;
 }
 #endif
 

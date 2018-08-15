@@ -201,10 +201,13 @@ bool FDragTool_ActorFrustumSelect::IntersectsFrustum( AActor& InActor, const FCo
 	if( !bActorIsHiddenByShowFlags && !InActor.IsHiddenEd() && !FActorEditorUtils::IsABuilderBrush(&InActor) )
 	{
 		// Iterate over all actor components, selecting out primitive components
-		for (UActorComponent* Component : InActor.GetComponents())
+		TInlineComponentArray<UPrimitiveComponent*> Components;
+		InActor.GetComponents(Components);
+
+		for (const UPrimitiveComponent* PrimitiveComponent : Components)
 		{
-			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component);
-			if (PrimitiveComponent && PrimitiveComponent->IsRegistered() && PrimitiveComponent->IsVisibleInEditor() )
+			check(PrimitiveComponent != nullptr);
+			if ( PrimitiveComponent->IsRegistered() && PrimitiveComponent->IsVisibleInEditor() )
 			{
 				if (PrimitiveComponent->ComponentIsTouchingSelectionFrustum(InFrustum, LevelViewportClient->EngineShowFlags, bGeometryMode, bUseStrictSelection))
 				{

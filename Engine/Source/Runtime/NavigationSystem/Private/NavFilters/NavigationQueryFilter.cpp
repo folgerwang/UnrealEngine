@@ -29,7 +29,7 @@ FSharedConstNavQueryFilter UNavigationQueryFilter::GetQueryFilter(const ANavigat
 			check(DefFilterOb);
 			if (DefFilterOb->bIsMetaFilter == false)
 			{
-				return DefFilterOb->GetQueryFilter(NavData, Querier);
+				return DefFilterOb->GetQueryFilter(NavData, nullptr);
 			}
 		}
 	}

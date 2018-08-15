@@ -10,7 +10,6 @@
 #include "Engine/MemberReference.h"
 #include "EdGraph/EdGraphNodeUtils.h"
 #include "K2Node_EditablePinBase.h"
-#include "K2Node_EventNodeInterface.h"
 #include "K2Node_Event.generated.h"
 
 class FKismetCompilerContext;
@@ -18,7 +17,7 @@ class FNodeHandlingFunctor;
 class UEdGraph;
 
 UCLASS(MinimalAPI)
-class UK2Node_Event : public UK2Node_EditablePinBase, public IK2Node_EventNodeInterface
+class UK2Node_Event : public UK2Node_EditablePinBase
 {
 	GENERATED_UCLASS_BODY()
 	BLUEPRINTGRAPH_API static const FName DelegateOutputName;
@@ -89,10 +88,6 @@ class UK2Node_Event : public UK2Node_EditablePinBase, public IK2Node_EventNodeIn
 	BLUEPRINTGRAPH_API virtual FText GetMenuCategory() const override;
 	BLUEPRINTGRAPH_API virtual bool HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const override;
 	//~ End UK2Node Interface
-
-	//~ Begin IK2Node_EventNodeInterface Interface.
-	BLUEPRINTGRAPH_API virtual TSharedPtr<FEdGraphSchemaAction> GetEventNodeAction(const FText& ActionCategory) override;
-	//~ End IK2Node_EventNodeInterface Interface.
 
 	/** Checks whether the parameters for this event node are compatible with the specified function entry node */
 	BLUEPRINTGRAPH_API virtual bool IsFunctionEntryCompatible(const class UK2Node_FunctionEntry* EntryNode) const;

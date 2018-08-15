@@ -18,7 +18,7 @@ ASkeletalMeshActor::ASkeletalMeshActor(const FObjectInitializer& ObjectInitializ
 {
 
 	SkeletalMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMeshComponent0"));
-	SkeletalMeshComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPose;
+	SkeletalMeshComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose;
 	// check BaseEngine.ini for profile setup
 	SkeletalMeshComponent->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
 	RootComponent = SkeletalMeshComponent;

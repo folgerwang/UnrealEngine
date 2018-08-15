@@ -66,11 +66,6 @@ public:
 	static const FGenericTeamId NoTeam;
 };
 
-FORCEINLINE uint32 GetTypeHash(const FGenericTeamId TeamID)
-{
-	return TeamID.GetId();
-}
-
 UINTERFACE()
 class AIMODULE_API UGenericTeamAgentInterface : public UInterface
 {

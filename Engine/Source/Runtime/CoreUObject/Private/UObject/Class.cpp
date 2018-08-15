@@ -4055,10 +4055,6 @@ void UClass::PurgeClass(bool bRecompilingOnLoad)
 	}
 #endif
 
-#if USE_UBER_GRAPH_PERSISTENT_FRAME
-	UberGraphFramePointerProperty = NULL;
-#endif//USE_UBER_GRAPH_PERSISTENT_FRAME
-
 	ClassDefaultObject = NULL;
 
 	Interfaces.Empty();
@@ -4139,9 +4135,6 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer)
 ,	ClassCastFlags(CASTCLASS_None)
 ,	ClassWithin( UObject::StaticClass() )
 ,	ClassGeneratedBy(nullptr)
-#if USE_UBER_GRAPH_PERSISTENT_FRAME
-,	UberGraphFramePointerProperty(nullptr)
-#endif // USE_UBER_GRAPH_PERSISTENT_FRAME
 ,	ClassDefaultObject(nullptr)
 {
 	// If you add properties here, please update the other constructors and PurgeClass()
@@ -4160,9 +4153,6 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer, UClass* InBaseClass)
 ,	ClassCastFlags(CASTCLASS_None)
 ,	ClassWithin(UObject::StaticClass())
 ,	ClassGeneratedBy(nullptr)
-#if USE_UBER_GRAPH_PERSISTENT_FRAME
-,	UberGraphFramePointerProperty(nullptr)
-#endif // USE_UBER_GRAPH_PERSISTENT_FRAME
 ,	ClassDefaultObject(nullptr)
 {
 	// If you add properties here, please update the other constructors and PurgeClass()
@@ -4809,7 +4799,7 @@ void UFunction::Invoke(UObject* Obj, FFrame& Stack, RESULT_DECL)
 {
 	checkSlow(Func);
 
-	UClass* OuterClass = (UClass*)GetOuter();
+	UClass* OuterClass = GetOuterUClass();
 	if (OuterClass->IsChildOf(UInterface::StaticClass()))
 	{
 		Obj = (UObject*)Obj->GetInterfaceAddress(OuterClass);

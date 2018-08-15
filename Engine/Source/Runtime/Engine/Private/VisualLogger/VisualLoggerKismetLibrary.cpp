@@ -62,7 +62,7 @@ void UVisualLoggerKismetLibrary::LogBox(UObject* WorldContextObject, FBox Box, F
 {
 #if ENABLE_VISUAL_LOG
 	const ELogVerbosity::Type DefaultVerbosity = ELogVerbosity::Log;
-	FVisualLogger::GeometryBoxLogf(WorldContextObject, CategoryName, DefaultVerbosity
+	FVisualLogger::GeometryShapeLogf(WorldContextObject, CategoryName, DefaultVerbosity
 		, Box, FMatrix::Identity, ObjectColor.ToFColor(true), TEXT("%s"), *Text);
 #endif
 	if (bAddToMessageLog)

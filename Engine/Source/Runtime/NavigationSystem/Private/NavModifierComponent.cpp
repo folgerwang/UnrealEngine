@@ -19,11 +19,14 @@ void UNavModifierComponent::CalcAndCacheBounds() const
 	const AActor* MyOwner = GetOwner();
 	if (MyOwner)
 	{
+		TInlineComponentArray<UPrimitiveComponent*> PrimComponents;
+		MyOwner->GetComponents(PrimComponents);
+
 		Bounds = FBox(ForceInit);
 		ComponentBounds.Reset();
-		for (UActorComponent* Component : MyOwner->GetComponents())
+		for (int32 Idx = 0; Idx < PrimComponents.Num(); Idx++)
 		{
-			UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component);
+			UPrimitiveComponent* PrimComp = PrimComponents[Idx];
 			if (PrimComp && PrimComp->IsRegistered() && PrimComp->IsCollisionEnabled())
 			{
 				UBodySetup* BodySetup = PrimComp->GetBodySetup();

@@ -23,9 +23,7 @@ const FString USimpleConstructionScript::ComponentTemplateNameSuffix(TEXT("_GEN_
 USimpleConstructionScript::USimpleConstructionScript(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-#if WITH_EDITORONLY_DATA
 	RootNode_DEPRECATED = nullptr;
-#endif
 	DefaultSceneRootNode = nullptr;
 
 #if WITH_EDITOR
@@ -47,7 +45,6 @@ void USimpleConstructionScript::Serialize(FArchive& Ar)
 
 	if(Ar.IsLoading())
 	{
-#if WITH_EDITORONLY_DATA
 		if(Ar.UE4Ver() < VER_UE4_REMOVE_NATIVE_COMPONENTS_FROM_BLUEPRINT_SCS)
 		{
 			// If we previously had a root node, we need to move it into the new RootNodes array. This is done in Serialize() in order to support SCS preloading (which relies on a valid RootNodes array).
@@ -117,7 +114,6 @@ void USimpleConstructionScript::Serialize(FArchive& Ar)
 			// Clear the deprecated ActorComponent list
 			ActorComponentNodes_DEPRECATED.Empty();
 		}
-#endif // WITH_EDITORONLY_DATA
 	}
 }
 
@@ -514,13 +510,13 @@ void USimpleConstructionScript::FixupRootNodeParentReferences()
 				if(CDO != NULL)
 				{
 					// Look for the parent component in the CDO's components array
-					for (UActorComponent* ComponentTemplate : CDO->GetComponents())
+					TInlineComponentArray<UActorComponent*> Components;
+					CDO->GetComponents(Components);
+
+					for (auto CompIter = Components.CreateConstIterator(); CompIter && !bWasFound; ++CompIter)
 					{
-						if (ComponentTemplate && ComponentTemplate->GetFName() == RootNode->ParentComponentOrVariableName)
-						{
-							bWasFound = true;
-							break;
-						}
+						UActorComponent* ComponentTemplate = *CompIter;
+						bWasFound = ComponentTemplate->GetFName() == RootNode->ParentComponentOrVariableName;
 					}
 				}
 				else 
@@ -973,13 +969,11 @@ USceneComponent* USimpleConstructionScript::GetSceneRootComponentTemplate(USCS_N
 		RootComponentTemplate = CDO->GetRootComponent();
 		if(!RootComponentTemplate)
 		{
-			for (UActorComponent* Component : CDO->GetComponents())
+			TInlineComponentArray<USceneComponent*> SceneComponents;
+			CDO->GetComponents(SceneComponents);
+			if(SceneComponents.Num() > 0)
 			{
-				if (USceneComponent* SceneComp = Cast<USceneComponent>(Component))
-				{
-					RootComponentTemplate = SceneComp;
-					break;
-				}
+				RootComponentTemplate = SceneComponents[0];
 			}
 		}
 	}

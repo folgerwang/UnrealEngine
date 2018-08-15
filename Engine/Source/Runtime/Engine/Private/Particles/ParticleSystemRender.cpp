@@ -7326,14 +7326,16 @@ void DrawParticleSystemHelpers(UParticleSystemComponent* InPSysComp, const FScen
 
 ENGINE_API void DrawParticleSystemHelpers(const FSceneView* View,FPrimitiveDrawInterface* PDI)
 {
+	TInlineComponentArray<UParticleSystemComponent*> PSCArray;
+
 	for (TObjectIterator<AActor> It; It; ++It)
 	{
-		for (UActorComponent* Component : It->GetComponents())
+		PSCArray.Reset();
+		(*It)->GetComponents(PSCArray);
+
+		for (int PSCIndex = 0; PSCIndex < PSCArray.Num(); ++PSCIndex)
 		{
-			if (UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Component))
-			{
-				DrawParticleSystemHelpers(PSC, View, PDI);
-			}
+			DrawParticleSystemHelpers(PSCArray[PSCIndex], View, PDI);
 		}
 	}
 }

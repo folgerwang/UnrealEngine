@@ -9502,8 +9502,6 @@ float DrawMapWarnings(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanv
 */
 float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas* CanvasObject, float MessageX, float MessageY)
 {
-	static TFrameValue<bool> HasUpdatedScreenDebugMessages;
-
 	int32 YPos = MessageY;
 	const int32 MaxYPos = CanvasObject ? CanvasObject->SizeY : 700;
 	if (GEngine->PriorityScreenMessages.Num() > 0)
@@ -9520,13 +9518,10 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			if (!HasUpdatedScreenDebugMessages.IsSet())
+			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
 			{
-				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
-				{
-					GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
-				}
+				GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
 			}
 		}
 	}
@@ -9546,19 +9541,13 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			if (!HasUpdatedScreenDebugMessages.IsSet())
+			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
 			{
-				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
-				{
-					MsgIt.RemoveCurrent();
-				}
+				MsgIt.RemoveCurrent();
 			}
 		}
 	}
-
-	// Flag variable that the update has already been done this frame
-	HasUpdatedScreenDebugMessages = true;
 
 	return MessageY;
 }
@@ -11673,7 +11662,7 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 			if (!MakeSureMapNameIsValid(Context.PendingNetGame->URL.Map))
 			{
 				BrowseToDefaultMap(Context);
-				BroadcastTravelFailure(Context.World(), ETravelFailure::PackageMissing, Context.PendingNetGame->URL.Map);
+				BroadcastTravelFailure(Context.World(), ETravelFailure::PackageMissing, Context.PendingNetGame->URL.RedirectURL);
 			}
 			else
 			{
@@ -13496,9 +13485,12 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	AActor* NewActor = Cast<AActor>(NewObject);
 	if (NewActor != nullptr)
 	{
-		for (UActorComponent* Component : NewActor->GetComponents())
+		TInlineComponentArray<UActorComponent*> Components;
+		NewActor->GetComponents(Components);
+
+		for(int32 i=0; i<Components.Num(); i++)
 		{
-			ensure(Component == nullptr || !Component->IsRegistered());
+			ensure(!Components[i]->IsRegistered());
 		}
 	}
 

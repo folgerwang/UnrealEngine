@@ -1147,7 +1147,7 @@ void SAnimationSequenceBrowser::CreateAssetTooltipResources()
 	ViewportWidget->SetViewportInterface(SceneViewport.ToSharedRef());
 
 	// Setup the preview component to ensure an animation will update when requested
-	PreviewComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+	PreviewComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	PreviewScene.AddComponent(PreviewComponent, FTransform::Identity);
 
 	const USkeletalMeshEditorSettings* Options = GetDefault<USkeletalMeshEditorSettings>();

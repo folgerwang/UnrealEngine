@@ -12,20 +12,23 @@ enum class ERootMotionFinishVelocityMode : uint8;
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTargetActorSwapped, AActor*, AActor*);
 
 /** Base class for ability tasks that apply root motion */
-UCLASS()
-class GAMEPLAYABILITIES_API UAbilityTask_ApplyRootMotion_Base : public UAbilityTask
+UCLASS(MinimalAPI)
+class UAbilityTask_ApplyRootMotion_Base : public UAbilityTask
 {
 	GENERATED_UCLASS_BODY()
 
 	virtual void InitSimulatedTask(UGameplayTasksComponent& InGameplayTasksComponent) override;
 
 	//..See notes on delegate definition FOnTargetActorSwapped.
-	static FOnTargetActorSwapped OnTargetActorSwapped;
+	static GAMEPLAYABILITIES_API FOnTargetActorSwapped OnTargetActorSwapped;
 
 protected:
 
 	virtual void SharedInitAndApply() {};
-	virtual bool HasTimedOut() const;
+
+	bool HasTimedOut() const;
+
+protected:
 
 	UPROPERTY(Replicated)
 	FName ForceName;

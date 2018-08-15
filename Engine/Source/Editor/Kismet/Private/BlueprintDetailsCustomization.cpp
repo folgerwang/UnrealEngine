@@ -1419,17 +1419,14 @@ void FBlueprintVarActionDetails::PopulateCategories(SMyBlueprint* MyBlueprint, T
 		UK2Node_EditablePinBase* EntryNode = FBlueprintEditorUtils::GetEntryNode(MacroGraph);
 		if (UK2Node_Tunnel* TypedEntryNode = ExactCast<UK2Node_Tunnel>(EntryNode))
 		{
-			if (!TypedEntryNode->MetaData.Category.IsEmpty())
+			bool bNewCategory = true;
+			for (int32 j = 0; j < CategorySource.Num() && bNewCategory; ++j)
 			{
-				bool bNewCategory = true;
-				for (int32 j = 0; j < CategorySource.Num() && bNewCategory; ++j)
-				{
-					bNewCategory &= !CategorySource[j].Get()->EqualTo(TypedEntryNode->MetaData.Category);
-				}
-				if (bNewCategory)
-				{
-					CategorySource.Add(MakeShareable(new FText(TypedEntryNode->MetaData.Category)));
-				}
+				bNewCategory &= !CategorySource[j].Get()->EqualTo(TypedEntryNode->MetaData.Category);
+			}
+			if (bNewCategory)
+			{
+				CategorySource.Add(MakeShareable(new FText(TypedEntryNode->MetaData.Category)));
 			}
 		}
 	}

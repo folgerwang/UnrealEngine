@@ -169,14 +169,14 @@ void FSCSEditorViewportClient::Tick(float DeltaSeconds)
 	AActor* PreviewActor = GetPreviewActor();
 	if (PreviewActor != nullptr)
 	{
-		for (UActorComponent* Component : PreviewActor->GetComponents())
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+		PreviewActor->GetComponents(PrimitiveComponents, true);
+
+		for (UPrimitiveComponent* PrimComponent : PrimitiveComponents)
 		{
-			if (UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(Component))
+			if (!PrimComponent->SelectionOverrideDelegate.IsBound())
 			{
-				if (!PrimComponent->SelectionOverrideDelegate.IsBound())
-				{
-					SCSEditor->SetSelectionOverride(PrimComponent);
-				}
+				SCSEditor->SetSelectionOverride(PrimComponent);
 			}
 		}
 	}
@@ -959,16 +959,17 @@ void FSCSEditorViewportClient::RefreshPreviewBounds()
 	if(PreviewActor)
 	{
 		// Compute actor bounds as the sum of its visible parts
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+		PreviewActor->GetComponents(PrimitiveComponents);
+
 		PreviewActorBounds = FBoxSphereBounds(ForceInitToZero);
-		for (UActorComponent* Component : PreviewActor->GetComponents())
+		for(auto CompIt = PrimitiveComponents.CreateConstIterator(); CompIt; ++CompIt)
 		{
 			// Aggregate primitive components that either have collision enabled or are otherwise visible components in-game
-			if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
+			UPrimitiveComponent* PrimComp = *CompIt;
+			if(PrimComp->IsRegistered() && (!PrimComp->bHiddenInGame || PrimComp->IsCollisionEnabled()) && PrimComp->Bounds.SphereRadius < HALF_WORLD_MAX)
 			{
-				if (PrimComp->IsRegistered() && (!PrimComp->bHiddenInGame || PrimComp->IsCollisionEnabled()) && PrimComp->Bounds.SphereRadius < HALF_WORLD_MAX)
-				{
-					PreviewActorBounds = PreviewActorBounds + PrimComp->Bounds;
-				}
+				PreviewActorBounds = PreviewActorBounds + PrimComp->Bounds;
 			}
 		}
 	}

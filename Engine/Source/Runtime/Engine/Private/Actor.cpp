@@ -661,6 +661,17 @@ void AActor::PostLoadSubobjects(FObjectInstancingGraph* OuterInstanceGraph)
 
 	Super::PostLoadSubobjects(OuterInstanceGraph);
 
+	// If this is a Blueprint class, we may need to manually apply default value overrides to some inherited components in a cooked
+	// build scenario. This can occur, for example, if we have a nativized Blueprint class somewhere in the class inheritance hierarchy.
+	if (FPlatformProperties::RequiresCookedData() && !IsTemplate())
+	{
+		const UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(GetClass());
+		if (BPGC != nullptr && BPGC->bHasNativizedParent)
+		{
+			UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(this);
+		}
+	}
+
 	ResetOwnedComponents();
 
 	if (RootComponent && bHadRoot && OldRoot != RootComponent && OldRoot->IsIn(this))
@@ -1438,10 +1449,13 @@ void AActor::NotifyHit(class UPrimitiveComponent* MyComp, AActor* Other, class U
  */
 static void MarkOwnerRelevantComponentsDirty(AActor* TheActor)
 {
-	for (UActorComponent* Component : TheActor->GetComponents())
+	TInlineComponentArray<UPrimitiveComponent*> Components;
+	TheActor->GetComponents(Components);
+
+	for (int32 i = 0; i < Components.Num(); i++)
 	{
-		UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component);
-		if (Primitive && Primitive->IsRegistered() && (Primitive->bOnlyOwnerSee || Primitive->bOwnerNoSee))
+		UPrimitiveComponent* Primitive = Components[i];
+		if (Primitive->IsRegistered() && (Primitive->bOnlyOwnerSee || Primitive->bOwnerNoSee))
 		{
 			Primitive->MarkRenderStateDirty();
 		}
@@ -1961,11 +1975,14 @@ void AActor::PrestreamTextures( float Seconds, bool bEnableStreaming, int32 Cine
 	}
 
 	// Iterate over all components of that actor
-	for (UActorComponent* Component : GetComponents())
+	TInlineComponentArray<UMeshComponent*> Components;
+	GetComponents(Components);
+
+	for (int32 ComponentIndex=0; ComponentIndex < Components.Num(); ComponentIndex++)
 	{
 		// If its a static mesh component, with a static mesh
-		UMeshComponent* MeshComponent = Cast<UMeshComponent>(Component);
-		if (MeshComponent && MeshComponent->IsRegistered() )
+		UMeshComponent* MeshComponent = Components[ComponentIndex];
+		if ( MeshComponent->IsRegistered() )
 		{
 			MeshComponent->PrestreamTextures( Duration, false, CinematicTextureGroups );
 		}
@@ -2037,11 +2054,14 @@ FVector AActor::GetPlacementExtent() const
 	FVector Extent(0.f);
 	if( (RootComponent && GetRootComponent()->ShouldCollideWhenPlacing()) && bCollideWhenPlacing) 
 	{
+		TInlineComponentArray<USceneComponent*> Components;
+		GetComponents(Components);
+
 		FBox ActorBox(ForceInit);
-		for (UActorComponent* Component : GetComponents())
+		for (int32 ComponentID=0; ComponentID<Components.Num(); ++ComponentID)
 		{
-			USceneComponent* SceneComp = Cast<USceneComponent>(Component);
-			if (SceneComp && SceneComp->ShouldCollideWhenPlacing())
+			USceneComponent* SceneComp = Components[ComponentID];
+			if (SceneComp->ShouldCollideWhenPlacing() )
 			{
 				ActorBox += SceneComp->GetPlacementExtent().GetBox();
 			}
@@ -2352,16 +2372,17 @@ void AActor::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 	static FName NAME_Bones = FName(TEXT("Bones"));
 	if (DebugDisplay.IsDisplayOn(NAME_Animation) || DebugDisplay.IsDisplayOn(NAME_Bones))
 	{
+		TInlineComponentArray<USkeletalMeshComponent*> Components;
+		GetComponents(Components);
+
 		if (DebugDisplay.IsDisplayOn(NAME_Animation))
 		{
-			for (UActorComponent* Comp : GetComponents())
+			for (USkeletalMeshComponent* Comp : Components)
 			{
-				if (USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>(Comp))
+				UAnimInstance* AnimInstance = Comp->GetAnimInstance();
+				if (AnimInstance)
 				{
-					if (UAnimInstance* AnimInstance = SkelMeshComp->GetAnimInstance())
-					{
-						AnimInstance->DisplayDebug(Canvas, DebugDisplay, YL, YPos);
-					}
+					AnimInstance->DisplayDebug(Canvas, DebugDisplay, YL, YPos);
 				}
 			}
 		}
@@ -2694,12 +2715,12 @@ TArray<UActorComponent*> AActor::GetComponentsByTag(TSubclassOf<UActorComponent>
 
 void AActor::DisableComponentsSimulatePhysics()
 {
-	for (UActorComponent* Component : GetComponents())
+	TInlineComponentArray<UPrimitiveComponent*> Components;
+	GetComponents(Components);
+
+	for (UPrimitiveComponent* Component : Components)
 	{
-		if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
-		{
-			PrimComp->SetSimulatePhysics(false);
-		}
+		Component->SetSimulatePhysics(false);
 	}
 }
 
@@ -2719,7 +2740,7 @@ static void DispatchOnComponentsCreated(AActor* NewActor)
 
 	for (UActorComponent* ActorComp : Components)
 	{
-		if (!ActorComp->HasBeenCreated())
+		if (ActorComp && !ActorComp->HasBeenCreated())
 		{
 			ActorComp->OnComponentCreated();
 		}
@@ -2814,55 +2835,47 @@ void AActor::PostSpawnInitialize(FTransform const& UserSpawnTransform, AActor* I
 	check(Role == ROLE_Authority);
 	ExchangeNetRoles(bRemoteOwned);
 
-	// Set the actor's world transform if it has a native rootcomponent.
 	USceneComponent* const SceneRootComponent = FixupNativeActorComponents(this);
 	if (SceneRootComponent != nullptr)
 	{
 		check(SceneRootComponent->GetOwner() == this);
+		
+		FVector RootComponentRelativeLocation = SceneRootComponent->RelativeLocation;
+		FRotator RootComponentRelativeRotation = SceneRootComponent->RelativeRotation;
 
-		// Determine if the native root component's archetype originates from a converted (nativized) Blueprint class.
-		UObject* RootComponentArchetype = SceneRootComponent->GetArchetype();
-		UClass* ArchetypeOwnerClass = RootComponentArchetype->GetOuter()->GetClass();
-		if (UBlueprintGeneratedClass* ArchetypeOwnerClassAsBPGC = Cast<UBlueprintGeneratedClass>(ArchetypeOwnerClass))
+		// For converted BP root components, we must zero out RelativeLocation/RelativeRotation here. The reason is that in the non-nativized
+		// case, we ignore them when we instance a scene component that will also become the root (see USCS_Node::ExecuteNodeOnActor). Once
+		// a Blueprint class is nativized, we no longer run through that path, but we need to keep the same rotation/translation as before.
+		// We used to ignore them at nativization time, but that doesn't work because existing placements of the Blueprint component may rely
+		// on the value that's stored in the CDO, because it won't have been serialized out to the instance as a result of delta serialization.
+		if (Cast<UDynamicClass>(SceneRootComponent->GetArchetype()->GetOuter()->GetClass()))
 		{
-			// In this case, the Actor CDO is a non-nativized Blueprint class (e.g. a child class) and the component's archetype
-			// is an instanced default subobject within the non-nativized Blueprint's CDO. If the owner class also has a nativized
-			// parent class somewhere in its inheritance hierarchy, we must redirect the query by walking up the archetype chain.
-			if (ArchetypeOwnerClassAsBPGC->bHasNativizedParent)
-			{
-				do 
-				{
-					RootComponentArchetype = RootComponentArchetype->GetArchetype();
-					ArchetypeOwnerClass = RootComponentArchetype->GetOuter()->GetClass();
-				} while (Cast<UBlueprintGeneratedClass>(ArchetypeOwnerClass) != nullptr);
-			}
+			RootComponentRelativeLocation = FVector::ZeroVector;
+			RootComponentRelativeRotation = FRotator::ZeroRotator;
 		}
 
-		if (Cast<UDynamicClass>(ArchetypeOwnerClass) != nullptr)
-		{
-			// For native root components either belonging to or inherited from a converted (nativized) Blueprint class, we currently do not use
-			// the transformation that's set on the root component in the CDO. The reason is that in the non-nativized case, we ignore the default
-			// transform when we instance a Blueprint-owned scene component that will also become the root (see USCS_Node::ExecuteNodeOnActor; in
-			// the case of dynamically-spawned Blueprint instances, 'bIsDefaultTransform' will be false, and the scale from the SCS node's template
-			// will not be applied in that code path in that case). Once a Blueprint class is nativized, we no longer run through that code path
-			// when we spawn new instances of that class dynamically, but for consistency, we need to keep the same transform as in the non-
-			// nativized case. We used to ignore any non-default transform value set on the root component at cook (nativization) time, but that 
-			// doesn't work because existing placements of the Blueprint component in a scene may rely on the value that's stored in the CDO,
-			// and as a result the instance-specific override value doesn't get serialized out to the instance as a result of delta serialization.
-			SceneRootComponent->SetWorldTransform(UserSpawnTransform);
-		}
-		else
-		{
-			// In the "normal" case we do respect any non-default transform value that the root component may have received from the archetype
-			// that's owned by the native CDO, so the final transform might not always necessarily equate to the passed-in UserSpawnTransform.
-			const FTransform RootTransform(SceneRootComponent->RelativeRotation, SceneRootComponent->RelativeLocation, SceneRootComponent->RelativeScale3D);
-			const FTransform FinalRootComponentTransform = RootTransform * UserSpawnTransform;
-			SceneRootComponent->SetWorldTransform(FinalRootComponentTransform);
-		}
+		// Set the actor's location and rotation since it has a native rootcomponent
+		// Note that we respect any initial transformation the root component may have from the CDO, so the final transform
+		// might necessarily be exactly the passed-in UserSpawnTransform.
+ 		const FTransform RootTransform(RootComponentRelativeRotation, RootComponentRelativeLocation, SceneRootComponent->RelativeScale3D);
+ 		const FTransform FinalRootComponentTransform = RootTransform * UserSpawnTransform;
+		SceneRootComponent->SetWorldTransform(FinalRootComponentTransform);
 	}
 
 	// Call OnComponentCreated on all default (native) components
 	DispatchOnComponentsCreated(this);
+
+	// If this is a Blueprint class, we may need to manually apply default value overrides to some inherited components in a
+	// cooked build scenario. This can occur, for example, if we have a nativized Blueprint class in the inheritance hierarchy.
+	// Note: This should be done prior to executing the construction script, in case there are any dependencies on default values.
+	if (FPlatformProperties::RequiresCookedData())
+	{
+		const UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(GetClass());
+		if (BPGC != nullptr && BPGC->bHasNativizedParent)
+		{
+			UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(this);
+		}
+	}
 
 	// Register the actor's default (native) components, but only if we have a native scene root. If we don't, it implies that there could be only non-scene components
 	// at the native class level. In that case, if this is a Blueprint instance, we need to defer native registration until after SCS execution can establish a scene root.
@@ -4316,27 +4329,29 @@ void AActor::UninitializeComponents()
 void AActor::DrawDebugComponents(FColor const& BaseColor) const
 {
 #if ENABLE_DRAW_DEBUG
+	TInlineComponentArray<USceneComponent*> Components;
+	GetComponents(Components);
+
 	UWorld* MyWorld = GetWorld();
 
-	for (UActorComponent* ActorComp : GetComponents())
+	for(int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
 	{
-		if (USceneComponent const* const Component = Cast<USceneComponent>(ActorComp))
+		USceneComponent const* const Component = Components[ComponentIndex]; 
+
+		FVector const Loc = Component->GetComponentLocation();
+		FRotator const Rot = Component->GetComponentRotation();
+
+		// draw coord system at component loc
+		DrawDebugCoordinateSystem(MyWorld, Loc, Rot, 10.f);
+
+		// draw line from me to my parent
+		if (Component->GetAttachParent())
 		{
-			FVector const Loc = Component->GetComponentLocation();
-			FRotator const Rot = Component->GetComponentRotation();
-
-			// draw coord system at component loc
-			DrawDebugCoordinateSystem(MyWorld, Loc, Rot, 10.f);
-
-			// draw line from me to my parent
-			if (Component->GetAttachParent())
-			{
-				DrawDebugLine(MyWorld, Component->GetAttachParent()->GetComponentLocation(), Loc, BaseColor);
-			}
-
-			// draw component name
-			DrawDebugString(MyWorld, Loc+FVector(0,0,32), *Component->GetName());
+			DrawDebugLine(MyWorld, Component->GetAttachParent()->GetComponentLocation(), Loc, BaseColor);
 		}
+
+		// draw component name
+		DrawDebugString(MyWorld, Loc+FVector(0,0,32), *Component->GetName());
 	}
 #endif // ENABLE_DRAW_DEBUG
 }
@@ -4362,11 +4377,14 @@ bool AActor::ActorLineTraceSingle(struct FHitResult& OutHit, const FVector& Star
 	OutHit.TraceEnd = End;
 	bool bHasHit = false;
 	
-	for (UActorComponent* Component : GetComponents())
+	TInlineComponentArray<UPrimitiveComponent*> Components;
+	GetComponents(Components);
+
+	for (int32 ComponentIndex=0; ComponentIndex<Components.Num(); ComponentIndex++)
 	{
 		FHitResult HitResult;
-		UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component);
-		if (Primitive && Primitive->IsRegistered() && Primitive->IsCollisionEnabled() 
+		UPrimitiveComponent* Primitive = Components[ComponentIndex];
+		if( Primitive->IsRegistered() && Primitive->IsCollisionEnabled() 
 			&& (Primitive->GetCollisionResponseToChannel(TraceChannel) == ECollisionResponse::ECR_Block) 
 			&& Primitive->LineTraceComponent(HitResult, Start, End, Params) )
 		{

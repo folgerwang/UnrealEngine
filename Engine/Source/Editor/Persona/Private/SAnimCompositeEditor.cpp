@@ -6,7 +6,6 @@
 #include "IDocumentation.h"
 
 #include "SAnimNotifyPanel.h"
-#include "Editor.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SAnimCompositeEditor
@@ -16,7 +15,7 @@ TSharedRef<SWidget> SAnimCompositeEditor::CreateDocumentAnchor()
 	return IDocumentation::Get()->CreateAnchor(TEXT("Engine/Animation/AnimationComposite"));
 }
 
-void SAnimCompositeEditor::Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton)
+void SAnimCompositeEditor::Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& OnPostUndo)
 {
 	bIsActiveTimerRegistered = false;
 	CompositeObj = InArgs._Composite;
@@ -26,10 +25,7 @@ void SAnimCompositeEditor::Construct(const FArguments& InArgs, const TSharedRef<
 		.OnObjectsSelected(InArgs._OnObjectsSelected), 
 		InPreviewScene );
 
-	if(GEditor)
-	{
-		GEditor->RegisterForUndo(this);
-	}
+	OnPostUndo.Add(FSimpleDelegate::CreateSP( this, &SAnimCompositeEditor::PostUndo ) );
 
 	EditorPanels->AddSlot()
 		.AutoHeight()
@@ -48,7 +44,7 @@ void SAnimCompositeEditor::Construct(const FArguments& InArgs, const TSharedRef<
 		.AutoHeight()
 		.Padding(0, 10)
 		[
-			SAssignNew( AnimNotifyPanel, SAnimNotifyPanel, InEditableSkeleton )
+			SAssignNew( AnimNotifyPanel, SAnimNotifyPanel, OnPostUndo)
 			.Sequence(CompositeObj)
 			.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
 			.InputMin(this, &SAnimEditorBase::GetMinInput)
@@ -58,6 +54,7 @@ void SAnimCompositeEditor::Construct(const FArguments& InArgs, const TSharedRef<
 			.OnSetInputViewRange(this, &SAnimEditorBase::SetInputViewRange)
 			.OnGetScrubValue(this, &SAnimEditorBase::GetScrubValue)
 			.OnSelectionChanged(this, &SAnimEditorBase::OnSelectionChanged)
+			.OnAnimNotifiesChanged(InArgs._OnAnimNotifiesChanged)
 			.OnInvokeTab(InArgs._OnInvokeTab)
 		];
 
@@ -77,14 +74,6 @@ void SAnimCompositeEditor::Construct(const FArguments& InArgs, const TSharedRef<
 		];
 
 	CollapseComposite();
-}
-
-SAnimCompositeEditor::~SAnimCompositeEditor()
-{
-	if(GEditor)
-	{
-		GEditor->UnregisterForUndo(this);
-	}
 }
 
 void SAnimCompositeEditor::PreAnimUpdate()
@@ -136,17 +125,7 @@ void SAnimCompositeEditor::CollapseComposite()
 	RecalculateSequenceLength();
 }
 
-void SAnimCompositeEditor::PostUndo( bool bSuccess )
-{
-	PostUndoRedo();
-}
-
-void SAnimCompositeEditor::PostRedo( bool bSuccess )
-{
-	PostUndoRedo();
-}
-
-void SAnimCompositeEditor::PostUndoRedo()
+void SAnimCompositeEditor::PostUndo()
 {
 	if (!bIsActiveTimerRegistered)
 	{

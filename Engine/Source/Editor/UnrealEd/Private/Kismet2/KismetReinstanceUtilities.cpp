@@ -226,7 +226,7 @@ FBlueprintCompileReinstancer::FBlueprintCompileReinstancer(UClass* InClassToRein
 	, bIsRootReinstancer(false)
 	, bAllowResaveAtTheEndIfRequested(false)
 {
-	if( InClassToReinstance != nullptr && InClassToReinstance->ClassDefaultObject )
+	if( InClassToReinstance != nullptr )
 	{
 		bool bAutoInferSaveOnCompile = !!(Flags & EBlueprintCompileReinstancerFlags::AutoInferSaveOnCompile);
 		bool bIsBytecodeOnly = !!(Flags & EBlueprintCompileReinstancerFlags::BytecodeOnly);

@@ -9,7 +9,6 @@
 #include "SAnimCurvePanel.h"
 #include "SAnimationScrubPanel.h"
 #include "SAnimEditorBase.h"
-#include "EditorUndoClient.h"
 
 class SAnimNotifyPanel;
 class SAnimTrackCurvePanel;
@@ -18,7 +17,7 @@ class SAnimTrackCurvePanel;
 // SSequenceEditor
 
 /** Overall animation sequence editing widget */
-class SSequenceEditor : public SAnimEditorBase, public FEditorUndoClient
+class SSequenceEditor : public SAnimEditorBase
 {
 public:
 	SLATE_BEGIN_ARGS( SSequenceEditor )
@@ -27,6 +26,7 @@ public:
 
 		SLATE_ARGUMENT(UAnimSequenceBase*, Sequence)
 		SLATE_EVENT(FOnObjectsSelected, OnObjectsSelected)
+		SLATE_EVENT(FSimpleDelegate, OnAnimNotifiesChanged)
 		SLATE_EVENT(FOnInvokeTab, OnInvokeTab)
 
 	SLATE_END_ARGS()
@@ -38,9 +38,7 @@ private:
 	TSharedPtr<class SAnimationScrubPanel> AnimScrubPanel;
 	TWeakPtr<class IPersonaPreviewScene> PreviewScenePtr;
 public:
-	void Construct(const FArguments& InArgs, TSharedRef<class IPersonaPreviewScene> InPreviewScene, TSharedRef<class IEditableSkeleton> InEditableSkeleton);
-
-	~SSequenceEditor();
+	void Construct(const FArguments& InArgs, TSharedRef<class IPersonaPreviewScene> InPreviewScene, TSharedRef<class IEditableSkeleton> InEditableSkeleton, FSimpleMulticastDelegate& OnPostUndo);
 
 	virtual UAnimationAsset* GetEditorObject() const override { return SequenceObj; }
 
@@ -48,10 +46,6 @@ private:
 	/** Pointer to the animation sequence being edited */
 	UAnimSequenceBase* SequenceObj;
 
-	/** FEditorUndoClient interface */
-	virtual void PostUndo( bool bSuccess ) override;
-	virtual void PostRedo( bool bSuccess ) override;
-
 	/** Post undo **/
-	void PostUndoRedo();
+	void PostUndo();
 };

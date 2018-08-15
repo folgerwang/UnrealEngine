@@ -2079,9 +2079,8 @@ FString FEmitDefaultValueHelper::HandleInstancedSubobject(FEmitterLocalContext& 
 			}
 			else
 			{
-				const int32 ObjectFlags = ((int32)Object->GetFlags() & ~RF_ArchetypeObject);
 				Context.AddLine(FString::Printf(TEXT("auto %s = NewObject<%s>(%s, TEXT(\"%s\"), (EObjectFlags)0x%08x);")
-					, *LocalNativeName, *FEmitHelper::GetCppName(ObjectClass), *OuterStr, *Object->GetName(), ObjectFlags));
+					, *LocalNativeName, *FEmitHelper::GetCppName(ObjectClass), *OuterStr, *Object->GetName(), (int32)Object->GetFlags()));
 			}
 		}
 		else

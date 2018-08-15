@@ -27,8 +27,6 @@
 #include "Engine/PreviewMeshCollection.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Animation/AnimBlueprint.h"
-#include "UObject/AnimObjectVersion.h"
-#include "EngineUtils.h"
 
 #define LOCTEXT_NAMESPACE "Skeleton"
 #define ROOT_BONE_PARENT	INDEX_NONE
@@ -155,8 +153,6 @@ void USkeleton::PostDuplicate(bool bDuplicateForPIE)
 
 void USkeleton::Serialize( FArchive& Ar )
 {
-	Ar.UsingCustomVersion(FAnimObjectVersion::GUID);
-
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("USkeleton::Serialize"), STAT_Skeleton_Serialize, STATGROUP_LoadTime );
 
 	Super::Serialize(Ar);
@@ -240,15 +236,6 @@ void USkeleton::Serialize( FArchive& Ar )
 		PreviewAttachedAssetContainer.SaveAttachedObjectsFromDeprecatedProperties();
 	}
 #endif
-
-	if (Ar.CustomVer(FAnimObjectVersion::GUID) >= FAnimObjectVersion::StoreMarkerNamesOnSkeleton)
-	{
-		FStripDataFlags StripFlags(Ar);
-		if (!StripFlags.IsEditorDataStripped())
-		{
-			Ar << ExistingMarkerNames;
-		}
-	}
 
 	const bool bRebuildNameMap = false;
 	ReferenceSkeleton.RebuildRefSkeleton(this, bRebuildNameMap);

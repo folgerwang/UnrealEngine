@@ -5259,9 +5259,14 @@ static void CopyLightComponentProperties( const AActor& InOldActor, AActor& InNe
 	UActorComponent* LightComponentToCopy = NULL;
 
 	// Go through the old actor's components and look for a light component to copy.
-	for (UActorComponent* Component : InOldActor.GetComponents())
+	TInlineComponentArray<UActorComponent*> OldActorComponents;
+	InOldActor.GetComponents(OldActorComponents);
+
+	for( int32 CompToCopyIdx = 0; CompToCopyIdx < OldActorComponents.Num(); ++CompToCopyIdx )
 	{
-		if (Component && Component->IsRegistered() && Component->IsA( CopyableComponentClass ) ) 
+		UActorComponent* Component = OldActorComponents[CompToCopyIdx];
+
+		if( Component->IsRegistered() && Component->IsA( CopyableComponentClass ) ) 
 		{
 			// A light component has been found. 
 			CompToCopyClass = Component->GetClass();
@@ -5275,13 +5280,17 @@ static void CopyLightComponentProperties( const AActor& InOldActor, AActor& InNe
 	// The class of the new actors light component
 	const UClass* CommonLightComponentClass = NULL;
 
-	// Don't do anything if there is no valid light component to copy from
+	// Dont do anything if there is no valid light component to copy from
 	if( LightComponentToCopy )
 	{
+		TInlineComponentArray<UActorComponent*> NewActorComponents;
+		InNewActor.GetComponents(NewActorComponents);
+
 		// Find a light component to overwrite in the new actor
-		for (UActorComponent* Component : InNewActor.GetComponents())
+		for( int32 NewCompIdx = 0; NewCompIdx < NewActorComponents.Num(); ++NewCompIdx )
 		{
-			if (Component && Component->IsRegistered())
+			UActorComponent* Component = NewActorComponents[ NewCompIdx ];
+			if(Component->IsRegistered())
 			{
 				// Find a common component class between the new and old actor.   
 				// This needs to be done so we can copy as many properties as possible. 
@@ -5520,31 +5529,37 @@ void CopyActorComponentProperties( const AActor* SourceActor, AActor* DestActor,
 
 		// Construct a mapping from the default actor of its relevant component names to its actual components. Here relevant component
 		// names are those that match a name provided as a parameter.
+		TInlineComponentArray<UActorComponent*> CDOComponents;
+		SrcActorDefaultActor->GetComponents(CDOComponents);
+
 		TMap<FString, const UActorComponent*> NameToDefaultComponentMap; 
-		for (UActorComponent* CurComp : SrcActorDefaultActor->GetComponents())
+		for ( TInlineComponentArray<UActorComponent*>::TConstIterator CompIter( CDOComponents ); CompIter; ++CompIter )
 		{
-			if (CurComp)
+			const UActorComponent* CurComp = *CompIter;
+			check( CurComp );
+
+			const FString CurCompName = CurComp->GetName();
+			if ( ComponentNames.Contains( CurCompName ) )
 			{
-				FString CurCompName = CurComp->GetName();
-				if (ComponentNames.Contains(CurCompName))
-				{
-					NameToDefaultComponentMap.Add(MoveTemp(CurCompName), CurComp);
-				}
+				NameToDefaultComponentMap.Add( CurCompName, CurComp );
 			}
 		}
 
 		// Construct a mapping from the source actor of its relevant component names to its actual components. Here relevant component names
 		// are those that match a name provided as a parameter.
+		TInlineComponentArray<UActorComponent*> SourceComponents;
+		SourceActor->GetComponents(SourceComponents);
+
 		TMap<FString, const UActorComponent*> NameToSourceComponentMap;
-		for (UActorComponent* CurComp : SourceActor->GetComponents())
+		for ( TInlineComponentArray<UActorComponent*>::TConstIterator CompIter( SourceComponents ); CompIter; ++CompIter )
 		{
-			if (CurComp)
+			const UActorComponent* CurComp = *CompIter;
+			check( CurComp );
+
+			const FString CurCompName = CurComp->GetName();
+			if ( ComponentNames.Contains( CurCompName ) )
 			{
-				FString CurCompName = CurComp->GetName();
-				if (ComponentNames.Contains(CurCompName))
-				{
-					NameToSourceComponentMap.Add(MoveTemp(CurCompName), CurComp);
-				}
+				NameToSourceComponentMap.Add( CurCompName, CurComp );
 			}
 		}
 
@@ -7056,8 +7071,6 @@ void UEditorEngine::InitializeNewlyCreatedInactiveWorld(UWorld* World)
 	check(World);
 	if (!World->bIsWorldInitialized && World->WorldType == EWorldType::Inactive)
 	{
-		const bool bOldDirtyState = World->GetOutermost()->IsDirty();
-
 		// Create the world without a physics scene because creating too many physics scenes causes deadlock issues in PhysX. The scene will be created when it is opened in the level editor.
 		// Also, don't create an FXSystem because it consumes too much video memory. This is also created when the level editor opens this world.
 		World->InitWorld(GetEditorWorldInitializationValues()
@@ -7067,12 +7080,6 @@ void UEditorEngine::InitializeNewlyCreatedInactiveWorld(UWorld* World)
 
 		// Update components so the scene is populated
 		World->UpdateWorldComponents(true, true);
-
-		// Need to restore the dirty state as registering components dirties the world
-		if (!bOldDirtyState)
-		{
-			World->GetOutermost()->SetDirtyFlag(bOldDirtyState);
-		}
 	}
 }
 

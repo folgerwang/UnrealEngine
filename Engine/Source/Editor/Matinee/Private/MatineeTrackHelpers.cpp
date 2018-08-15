@@ -251,16 +251,17 @@ bool UMatineeTrackAnimControlHelper::PreCreateKeyframe( UInterpTrack *Track, flo
 
 	USkeletalMeshComponent * SkelMeshComp = NULL;
 
-	for (UActorComponent* Component : Actor->GetComponents())
+	TInlineComponentArray<USkeletalMeshComponent*> SkeletalMeshComponents;
+	Actor->GetComponents(SkeletalMeshComponents);
+
+	for (int32 I=0; I<SkeletalMeshComponents.Num(); ++I)
 	{
-		if (USkeletalMeshComponent* CurSkelMeshComp = Cast<USkeletalMeshComponent>(Component))
+		USkeletalMeshComponent * CurSkelMeshComp = SkeletalMeshComponents[I];
+		// if qualified to play animation, break
+		if (CurSkelMeshComp->SkeletalMesh && CurSkelMeshComp->SkeletalMesh->Skeleton)
 		{
-			// if qualified to play animation, break
-			if (CurSkelMeshComp->SkeletalMesh && CurSkelMeshComp->SkeletalMesh->Skeleton)
-			{
-				SkelMeshComp = CurSkelMeshComp;
-				break;
-			}
+			SkelMeshComp = CurSkelMeshComp;
+			break;
 		}
 	}
 

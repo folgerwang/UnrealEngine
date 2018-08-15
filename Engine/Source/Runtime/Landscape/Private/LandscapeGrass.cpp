@@ -1946,12 +1946,11 @@ void ALandscapeProxy::FlushGrassComponents(const TSet<ULandscapeComponent*>* Onl
 		if (GIsEditor && bFlushGrassMaps && GetWorld() && GetWorld()->Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 		{
 			// Clear GrassMaps
-			for (UActorComponent* Component : GetComponents())
+			TInlineComponentArray<ULandscapeComponent*> LandComps;
+			GetComponents(LandComps);
+			for (ULandscapeComponent* Component : LandComps)
 			{
-				if (ULandscapeComponent* LandscapeComp = Cast<ULandscapeComponent>(Component))
-				{
-					LandscapeComp->RemoveGrassMap();
-				}
+				Component->RemoveGrassMap();
 			}
 		}
 #endif

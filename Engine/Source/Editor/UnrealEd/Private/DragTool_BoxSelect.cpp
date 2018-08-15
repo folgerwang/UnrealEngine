@@ -304,10 +304,13 @@ bool FDragTool_ActorBoxSelect::IntersectsBox( AActor& InActor, const FBox& InBox
 	if( !bActorIsHiddenByShowFlags && !InActor.IsHiddenEd() && !FActorEditorUtils::IsABuilderBrush(&InActor) && bActorRecentlyRendered )
 	{
 		// Iterate over all actor components, selecting out primitive components
-		for (UActorComponent* Component : InActor.GetComponents())
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+		InActor.GetComponents(PrimitiveComponents);
+
+		for (const UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)
 		{
-			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component);
-			if (PrimitiveComponent && PrimitiveComponent->IsRegistered() && PrimitiveComponent->IsVisibleInEditor())
+			check(PrimitiveComponent != nullptr);
+			if (PrimitiveComponent->IsRegistered() && PrimitiveComponent->IsVisibleInEditor())
 			{
 				if (PrimitiveComponent->ComponentIsTouchingSelectionBox(InBox, LevelViewportClient->EngineShowFlags, bGeometryMode, bUseStrictSelection))
 				{

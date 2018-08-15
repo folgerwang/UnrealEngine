@@ -100,13 +100,13 @@ void USpringArmComponent::UpdateDesiredArmLocation(bool bDoTrace, bool bDoLocati
 				LerpTarget += ArmRotStep * (LerpAmount * InverseCameraLagMaxTimeStep);
 				RemainingTime -= LerpAmount;
 
-				DesiredRot = FRotator(FMath::QInterpTo(FQuat(PreviousDesiredRot), FQuat(LerpTarget), LerpAmount, CameraRotationLagSpeed));
+				DesiredRot = FMath::RInterpTo(PreviousDesiredRot, LerpTarget, LerpAmount, CameraRotationLagSpeed);
 				PreviousDesiredRot = DesiredRot;
 			}
 		}
 		else
 		{
-			DesiredRot = FRotator(FMath::QInterpTo(FQuat(PreviousDesiredRot), FQuat(DesiredRot), DeltaTime, CameraRotationLagSpeed));
+			DesiredRot = FMath::RInterpTo(PreviousDesiredRot, DesiredRot, DeltaTime, CameraRotationLagSpeed);
 		}
 	}
 	PreviousDesiredRot = DesiredRot;

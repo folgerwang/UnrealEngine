@@ -7,7 +7,6 @@
 
 FAnimNode_SubInstance::FAnimNode_SubInstance()
 	: InstanceClass(nullptr)
-	, Tag(NAME_None)
 	, InstanceToRun(nullptr)
 {
 
@@ -143,10 +142,8 @@ void FAnimNode_SubInstance::OnInitializeAnimInstance(const FAnimInstanceProxy* I
 			InstanceToRun = nullptr;
 		}
 
-		// Need an instance to run, so create it now
-		// We use the tag to name the object, but as we verify there are no duplicates in the compiler we
-		// dont need to verify it is unique here.
-		InstanceToRun = NewObject<UAnimInstance>(MeshComp, InstanceClass, Tag);
+		// Need an instance to run
+		InstanceToRun = NewObject<UAnimInstance>(MeshComp, InstanceClass);
 
 		// Set up bone transform array
 		AllocateBoneTransforms(InstanceToRun);

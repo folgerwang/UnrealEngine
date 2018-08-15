@@ -24,8 +24,10 @@
 #include "K2Node_CreateDelegate.h"
 #include "K2Node_CustomEvent.h"
 #include "K2Node_FunctionEntry.h"
-#include "K2Node_EventNodeInterface.h"
+#include "K2Node_InputAction.h"
+#include "K2Node_InputKey.h"
 #include "ScopedTransaction.h"
+
 
 #include "DetailLayoutBuilder.h"
 
@@ -887,7 +889,7 @@ TSharedRef<SWidget> SMyBlueprint::OnCreateWidgetForAction(FCreateWidgetForAction
 	return BlueprintEditorPtr.IsValid() ? SNew(SBlueprintPaletteItem, InCreateData, BlueprintEditorPtr.Pin()) : SNew(SBlueprintPaletteItem, InCreateData, GetBlueprintObj());
 }
 
-void SMyBlueprint::GetChildGraphs(UEdGraph* InEdGraph, int32 const SectionId, FGraphActionSort& SortList, const FText& ParentCategory)
+void SMyBlueprint::GetChildGraphs(UEdGraph* InEdGraph, int32 const SectionId, FGraphActionSort& SortList, FText ParentCategory)
 {
 	check(InEdGraph);
 
@@ -922,11 +924,11 @@ void SMyBlueprint::GetChildGraphs(UEdGraph* InEdGraph, int32 const SectionId, FG
 			Category = EdGraphDisplayName;
 		}
 
-		const FName DisplayName = FName(*DisplayText.ToString());
-		FText ChildTooltip = DisplayText;
-		FText ChildDesc = MoveTemp(DisplayText);
+		const FText ChildTooltip = DisplayText;
+		const FText ChildDesc = DisplayText;
+		const FName DisplayName =  FName(*DisplayText.ToString());
 
-		TSharedPtr<FEdGraphSchemaAction_K2Graph> NewChildAction = MakeShareable(new FEdGraphSchemaAction_K2Graph(EEdGraphSchemaAction_K2Graph::Subgraph, Category, MoveTemp(ChildDesc), MoveTemp(ChildTooltip), 1, SectionId));
+		TSharedPtr<FEdGraphSchemaAction_K2Graph> NewChildAction = MakeShareable(new FEdGraphSchemaAction_K2Graph(EEdGraphSchemaAction_K2Graph::Subgraph, Category, ChildDesc, ChildTooltip, 1, SectionId));
 		NewChildAction->FuncName = DisplayName;
 		NewChildAction->EdGraph = Graph;
 		SortList.AddAction(NewChildAction);
@@ -936,7 +938,27 @@ void SMyBlueprint::GetChildGraphs(UEdGraph* InEdGraph, int32 const SectionId, FG
 	}
 }
 
-void SMyBlueprint::GetChildEvents(UEdGraph const* InEdGraph, int32 const SectionId, FGraphActionSort& SortList, const FText& ParentCategory) const
+struct FCreateEdGraphSchemaActionHelper
+{
+	template<class ActionType, class NodeType>
+	static void CreateAll(UEdGraph const* EdGraph, int32 SectionId, FGraphActionSort& SortList, const FText& ActionCategory)
+	{
+		TArray<NodeType*> EventNodes;
+		EdGraph->GetNodesOfClass<NodeType>(EventNodes);
+		for (NodeType* const EventNode : EventNodes)
+		{
+			const FText Tooltip = EventNode->GetTooltipText();
+			const FText Description = EventNode->GetNodeTitle(ENodeTitleType::EditableTitle);
+
+			TSharedPtr<ActionType> EventNodeAction = MakeShareable(new ActionType(ActionCategory, Description, Tooltip, 0));
+			EventNodeAction->NodeTemplate = EventNode;
+			EventNodeAction->SectionID = SectionId;
+			SortList.AddAction(EventNodeAction);
+		}
+	}
+};
+
+void SMyBlueprint::GetChildEvents(UEdGraph const* InEdGraph, int32 const SectionId, FGraphActionSort& SortList, FText ParentCategory) const
 {
 	if (!ensure(InEdGraph != NULL))
 	{
@@ -949,7 +971,7 @@ void SMyBlueprint::GetChildEvents(UEdGraph const* InEdGraph, int32 const Section
 	{
 		Schema->GetGraphDisplayInformation(*InEdGraph, EdGraphDisplayInfo);
 	}
-	FText EdGraphDisplayName = EdGraphDisplayInfo.DisplayName;
+	FText const EdGraphDisplayName = EdGraphDisplayInfo.DisplayName;
 	FText ActionCategory;
 	if (!ParentCategory.IsEmpty())
 	{
@@ -957,18 +979,12 @@ void SMyBlueprint::GetChildEvents(UEdGraph const* InEdGraph, int32 const Section
 	}
 	else
 	{
-		ActionCategory = MoveTemp(EdGraphDisplayName);
+		ActionCategory = EdGraphDisplayName;
 	}
 
-	for (UEdGraphNode* GraphNode : InEdGraph->Nodes)
-	{
-		if (GraphNode && GraphNode->GetClass()->ImplementsInterface(UK2Node_EventNodeInterface::StaticClass()))
-		{
-			TSharedPtr<FEdGraphSchemaAction> EventNodeAction = CastChecked<IK2Node_EventNodeInterface>(GraphNode)->GetEventNodeAction(ActionCategory);
-			EventNodeAction->SectionID = SectionId;
-			SortList.AddAction(EventNodeAction);
-		}
-	}
+	FCreateEdGraphSchemaActionHelper::CreateAll<FEdGraphSchemaAction_K2Event, UK2Node_Event>(InEdGraph, SectionId, SortList, ActionCategory);
+	FCreateEdGraphSchemaActionHelper::CreateAll<FEdGraphSchemaAction_K2InputAction, UK2Node_InputKey>(InEdGraph, SectionId, SortList, ActionCategory);
+	FCreateEdGraphSchemaActionHelper::CreateAll<FEdGraphSchemaAction_K2InputAction, UK2Node_InputAction>(InEdGraph, SectionId, SortList, ActionCategory);
 }
 
 void SMyBlueprint::GetLocalVariables(FGraphActionSort& SortList) const
@@ -983,6 +999,7 @@ void SMyBlueprint::GetLocalVariables(FGraphActionSort& SortList) const
 		{
 			Schema->GetGraphDisplayInformation(*TopLevelGraph, EdGraphDisplayInfo);
 		}
+		FText const EdGraphDisplayName = EdGraphDisplayInfo.DisplayName;
 
 		TArray<UK2Node_FunctionEntry*> FunctionEntryNodes;
 		TopLevelGraph->GetNodesOfClass<UK2Node_FunctionEntry>(FunctionEntryNodes);

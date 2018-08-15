@@ -724,7 +724,7 @@ bool UUnrealEdEngine::IsComponentSelected(const UPrimitiveComponent* PrimCompone
 		}
 		else
 		{
-			PotentiallySelectedComponent = (PrimComponent->IsVisualizationComponent() ? PrimComponent->GetAttachParent() : PrimComponent);
+			PotentiallySelectedComponent = (PrimComponent->IsEditorOnly() ? PrimComponent->GetAttachParent() : PrimComponent);
 		}
 
 		bIsSelected = GetSelectedComponents()->IsSelected(PotentiallySelectedComponent);

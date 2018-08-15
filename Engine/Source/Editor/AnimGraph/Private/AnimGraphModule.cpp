@@ -18,7 +18,6 @@
 #include "EditModes/PoseDriverEditMode.h"
 #include "EditModes/SplineIKEditMode.h"
 #include "EditModes/LookAtEditMode.h"
-#include "EditModes/CCDIKEditMode.h"
 
 IMPLEMENT_MODULE(FAnimGraphModule, AnimGraph);
 
@@ -37,7 +36,6 @@ void FAnimGraphModule::StartupModule()
 	FEditorModeRegistry::Get().RegisterMode<FPoseDriverEditMode>(AnimNodeEditModes::PoseDriver, LOCTEXT("PoseDriverEditMode", "PoseDriver"), FSlateIcon(), false);
 	FEditorModeRegistry::Get().RegisterMode<FSplineIKEditMode>(AnimNodeEditModes::SplineIK, LOCTEXT("SplineIKEditMode", "Spline IK"), FSlateIcon(), false);
 	FEditorModeRegistry::Get().RegisterMode<FLookAtEditMode>(AnimNodeEditModes::LookAt, LOCTEXT("LookAtEditMode", "LookAt"), FSlateIcon(), false);
-	FEditorModeRegistry::Get().RegisterMode<FCCDIKEditMode>(AnimNodeEditModes::CCDIK, LOCTEXT("CCDIKEditMode", "CCD IK"), FSlateIcon(), false);
 
 	// Register details customization
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
@@ -47,7 +45,6 @@ void FAnimGraphModule::StartupModule()
 void FAnimGraphModule::ShutdownModule()
 {
 	// Unregister the editor modes
-	FEditorModeRegistry::Get().UnregisterMode(AnimNodeEditModes::CCDIK);
 	FEditorModeRegistry::Get().UnregisterMode(AnimNodeEditModes::SplineIK);
 	FEditorModeRegistry::Get().UnregisterMode(AnimNodeEditModes::PoseDriver);
 	FEditorModeRegistry::Get().UnregisterMode(AnimNodeEditModes::Fabrik);

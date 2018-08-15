@@ -59,13 +59,6 @@ public:
 	{
 	}
 
-	~FKismetDebugUtilitiesData()
-	{
-		volatile int32 a = 0;
-		++a;
-		(void)a;
-	}
-
 	void Reset()
 	{
 		TargetGraphNodes.Empty();
@@ -125,7 +118,7 @@ public:
 
 void FKismetDebugUtilities::EndOfScriptExecution()
 {
-#if DO_BLUEPRINT_GUARD
+	
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 	if(BlueprintExceptionTracker.ScriptEntryTag == 1)
 	{
@@ -134,22 +127,18 @@ void FKismetDebugUtilities::EndOfScriptExecution()
 
 		Data.Reset();
 	}
-#endif // DO_BLUEPRINT_GUARD
 }
 
 void FKismetDebugUtilities::RequestSingleStepIn()
 {
-#if DO_BLUEPRINT_GUARD
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 
 	Data.bIsSingleStepping = true;
-#endif // DO_BLUEPRINT_GUARD
 }
 
 void FKismetDebugUtilities::RequestStepOver()
 {
-#if DO_BLUEPRINT_GUARD
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 
@@ -182,12 +171,10 @@ void FKismetDebugUtilities::RequestStepOver()
 			}
 		}
 	}
-#endif // DO_BLUEPRINT_GUARD
 }
 
 void FKismetDebugUtilities::RequestStepOut()
 {
-#if DO_BLUEPRINT_GUARD
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 
@@ -197,7 +184,6 @@ void FKismetDebugUtilities::RequestStepOut()
 		Data.bIsSteppingOut = true;
 		Data.TargetGraphStackDepth = BlueprintExceptionTracker.ScriptStack.Num() - 1;
 	}
-#endif // DO_BLUEPRINT_GUARD
 }
 
 void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const FFrame& StackFrame, const FBlueprintExceptionInfo& Info)
@@ -515,7 +501,6 @@ UEdGraphNode* FKismetDebugUtilities::FindSourceNodeForCodeLocation(const UObject
 
 void FKismetDebugUtilities::CheckBreakConditions(UEdGraphNode* NodeStoppedAt, bool bHitBreakpoint, int32 BreakpointOffset, bool& InOutBreakExecution)
 {
-#if DO_BLUEPRINT_GUARD
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 
@@ -614,12 +599,10 @@ void FKismetDebugUtilities::CheckBreakConditions(UEdGraphNode* NodeStoppedAt, bo
 			}
 		}
 	}
-#endif // DO_BLUEPRINT_GUARD
 }
 
 void FKismetDebugUtilities::AttemptToBreakExecution(UBlueprint* BlueprintObj, const UObject* ActiveObject, const FFrame& StackFrame, const FBlueprintExceptionInfo& Info, UEdGraphNode* NodeStoppedAt, int32 DebugOpcodeOffset)
 {
-#if DO_BLUEPRINT_GUARD
 	checkSlow(BlueprintObj->GetObjectBeingDebugged() == ActiveObject);
 
 	FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
@@ -716,7 +699,6 @@ void FKismetDebugUtilities::AttemptToBreakExecution(UBlueprint* BlueprintObj, co
 		WatchViewer::UpdateInstancedWatchDisplay();
 		FSlateApplication::Get().EnterDebuggingMode();
 	}
-#endif // DO_BLUEPRINT_GUARD
 }
 
 UEdGraphNode* FKismetDebugUtilities::GetCurrentInstruction()
@@ -1215,10 +1197,10 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData
 			UFunction* OuterFunction = Cast<UFunction>(Property->GetOuter());
 			if (!PropertyBase && OuterFunction)
 			{
-				UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(OuterFunction->GetOuter());
+				UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
 				if (BPGC && ActiveObject->IsA(BPGC))
 				{
-					PropertyBase = GetPersistentUberGraphFrame( OuterFunction, ActiveObject );
+					PropertyBase = BPGC->GetPersistentUberGraphFrame(ActiveObject, OuterFunction);
 				}
 			}
 #endif // USE_UBER_GRAPH_PERSISTENT_FRAME

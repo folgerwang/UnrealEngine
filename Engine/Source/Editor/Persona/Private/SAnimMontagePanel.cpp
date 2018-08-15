@@ -19,17 +19,13 @@
 #include "TabSpawners.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "Styling/CoreStyle.h"
-#include "ISkeletonEditorModule.h"
-#include "Modules/ModuleManager.h"
-#include "IEditableSkeleton.h"
-#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "AnimMontagePanel"
 
 //////////////////////////////////////////////////////////////////////////
 // SAnimMontagePanel
 
-void SAnimMontagePanel::Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnSectionsChanged)
+void SAnimMontagePanel::Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnAnimNotifiesChanged, FSimpleMulticastDelegate& OnSectionsChanged)
 {
 	SAnimTrackPanel::Construct( SAnimTrackPanel::FArguments()
 		.WidgetWidth(InArgs._WidgetWidth)
@@ -69,10 +65,7 @@ void SAnimMontagePanel::Construct(const FArguments& InArgs, FSimpleMulticastDele
 		]
 	];
 
-	ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
-	TSharedPtr<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(Montage->GetSkeleton());
-	EditableSkeleton->RegisterOnNotifiesChanged(FSimpleDelegate::CreateSP(this, &SAnimMontagePanel::Update));
-
+	OnAnimNotifiesChanged.Add(FSimpleDelegate::CreateSP(this, &SAnimMontagePanel::Update));
 	OnSectionsChanged.Add(FSimpleDelegate::CreateSP(this, &SAnimMontagePanel::Update));
 
 	Update();

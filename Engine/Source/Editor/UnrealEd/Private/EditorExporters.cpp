@@ -1483,13 +1483,15 @@ ULevelExporterFBX::ULevelExporterFBX(const FObjectInitializer& ObjectInitializer
 bool IsSomethingToExport(AActor* Actor)
 {
 	check(Actor);
+	TInlineComponentArray<USceneComponent*> SceneComponents;
+	Actor->GetComponents(SceneComponents);
 
 	TInlineComponentArray<USceneComponent*> ComponentsToExport;
-	for (UActorComponent* ActorComp : Actor->GetComponents())
+	for (int32 ComponentIndex = 0; ComponentIndex < SceneComponents.Num(); ++ComponentIndex)
 	{
-		USceneComponent* Component = Cast<USceneComponent>(ActorComp);
+		USceneComponent* Component = SceneComponents[ComponentIndex];
 
-		if (Component == nullptr || Component->bHiddenInGame)
+		if (Component == nullptr || (Component && Component->bHiddenInGame))
 		{
 			//Skip hidden component like camera mesh or other editor helper
 			continue;

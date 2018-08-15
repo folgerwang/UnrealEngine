@@ -20,9 +20,12 @@ bool UClassThumbnailRenderer::CanVisualizeAsset(UObject* Object)
 		// Try to find any visible primitive components in the class' CDO
 		AActor* CDO = Class->GetDefaultObject<AActor>();
 
-		for (UActorComponent* Component : CDO->GetComponents())
+		TInlineComponentArray<UActorComponent*> Components;
+		CDO->GetComponents(Components);
+
+		for (auto CompIt = Components.CreateConstIterator(); CompIt; ++CompIt)
 		{
-			if (FClassThumbnailScene::IsValidComponentForVisualization(Component))
+			if (FClassThumbnailScene::IsValidComponentForVisualization(*CompIt))
 			{
 				return true;
 			}

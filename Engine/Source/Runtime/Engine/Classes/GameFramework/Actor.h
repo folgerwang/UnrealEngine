@@ -3064,11 +3064,11 @@ class TInlineComponentArray : public TArray<T, TInlineAllocator<NumElements>>
 
 public:
 	TInlineComponentArray() : Super() { }
-	TInlineComponentArray(const class AActor* Actor, bool bIncludeFromChildActors = false) : Super()
+	TInlineComponentArray(const class AActor* Actor) : Super()
 	{
 		if (Actor)
 		{
-			Actor->GetComponents(*this, bIncludeFromChildActors);
+			Actor->GetComponents(*this);
 		}
 	};
 };

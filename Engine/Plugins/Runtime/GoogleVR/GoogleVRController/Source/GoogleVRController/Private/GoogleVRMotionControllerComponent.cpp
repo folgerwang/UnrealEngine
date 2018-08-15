@@ -217,7 +217,7 @@ void UGoogleVRMotionControllerComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	TInlineComponentArray<UGoogleVRPointerInputComponent*> PointerInputComponents;
+	TArray<UGoogleVRPointerInputComponent*> PointerInputComponents;
 	GetOwner()->GetComponents(PointerInputComponents);
 
 	if (PointerInputComponents.Num() == 0)

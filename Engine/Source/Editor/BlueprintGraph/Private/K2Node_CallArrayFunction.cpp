@@ -86,6 +86,7 @@ void UK2Node_CallArrayFunction::NotifyPinConnectionListChanged(UEdGraphPin* Pin)
 			{
 				UEdGraphPin* LinkedTo = Pin->LinkedTo[0];
 				check(LinkedTo);
+				check(Pin->PinType.ContainerType == LinkedTo->PinType.ContainerType);
 
 				Pin->PinType.PinCategory = LinkedTo->PinType.PinCategory;
 				Pin->PinType.PinSubCategory = LinkedTo->PinType.PinSubCategory;

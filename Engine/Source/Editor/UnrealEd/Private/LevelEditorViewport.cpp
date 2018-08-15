@@ -1382,12 +1382,12 @@ bool FLevelEditorViewportClient::DropObjectsAtCoordinates(int32 MouseX, int32 Mo
 					}
 
 					// Prevent future selection. This also prevents the hit proxy from interfering with placement logic.
-					for (UActorComponent* Component : NewActor->GetComponents())
+					TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+					NewActor->GetComponents(PrimitiveComponents);
+
+					for ( auto CompIt = PrimitiveComponents.CreateConstIterator(); CompIt; ++CompIt )
 					{
-						if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
-						{
-							PrimComp->bSelectable = false;
-						}
+						(*CompIt)->bSelectable = false;
 					}
 				}
 
@@ -4150,10 +4150,13 @@ void FLevelEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDrawInter
 				continue;
 			}
 
-			for (UActorComponent* Component : Actor->GetComponents())
+			TInlineComponentArray<USceneComponent*> Components;
+			Actor->GetComponents(Components);
+
+			for (int32 ComponentIndex = 0 ; ComponentIndex < Components.Num(); ++ComponentIndex)
 			{
-				USceneComponent* SceneComponent = Cast<USceneComponent>(Component);
-				if (SceneComponent && SceneComponent->HasAnySockets())
+				USceneComponent* SceneComponent = Components[ComponentIndex];
+				if (SceneComponent->HasAnySockets())
 				{
 					TArray<FComponentSocketDescription> Sockets;
 					SceneComponent->QuerySupportedSockets(Sockets);
@@ -4583,10 +4586,13 @@ void FLevelEditorViewportClient::AddHoverEffect( const FViewportHoverTarget& InH
 
 	if( ActorUnderCursor != nullptr )
 	{
-		for (UActorComponent* Component : ActorUnderCursor->GetComponents())
+		TInlineComponentArray<UPrimitiveComponent*> Components;
+		ActorUnderCursor->GetComponents(Components);
+
+		for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
 		{
-			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component);
-			if (PrimitiveComponent && PrimitiveComponent->IsRegistered())
+			UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
+			if (PrimitiveComponent->IsRegistered())
 			{
 				PrimitiveComponent->PushHoveredToProxy( true );
 			}
@@ -4612,10 +4618,13 @@ void FLevelEditorViewportClient::RemoveHoverEffect( const FViewportHoverTarget& 
 	AActor* CurHoveredActor = InHoverTarget.HoveredActor;
 	if( CurHoveredActor != nullptr )
 	{
-		for (UActorComponent* Component : CurHoveredActor->GetComponents())
+		TInlineComponentArray<UPrimitiveComponent*> Components;
+		CurHoveredActor->GetComponents(Components);
+
+		for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
 		{
-			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component);
-			if (PrimitiveComponent && PrimitiveComponent->IsRegistered())
+			UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
+			if (PrimitiveComponent->IsRegistered())
 			{
 				check(PrimitiveComponent->IsRegistered());
 				PrimitiveComponent->PushHoveredToProxy( false );

@@ -44,7 +44,7 @@ void UGoogleVRControllerTooltipComponent::BeginPlay()
 	}
 
 	// Attempt to attach this tooltip to the motion controller and set it's position.
-	TInlineComponentArray<UMotionControllerComponent*> Components;
+	TArray<UMotionControllerComponent*> Components;
 	GetOwner()->GetComponents(Components);
 	if(Components.Num() == 0)
 	{

@@ -18,14 +18,18 @@ class SAnimTimingPanel;
 
 struct FMontageEditorRequiredArgs
 {
-	FMontageEditorRequiredArgs(const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnSectionsChanged)
+	FMontageEditorRequiredArgs(const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnPostUndo, FSimpleMulticastDelegate& InOnAnimNotifiesChanged, FSimpleMulticastDelegate& InOnSectionsChanged)
 		: PreviewScene(InPreviewScene)
 		, EditableSkeleton(InEditableSkeleton)
+		, OnPostUndo(InOnPostUndo)
+		, OnAnimNotifiesChanged(InOnAnimNotifiesChanged)
 		, OnSectionsChanged(InOnSectionsChanged)
 	{}
 
 	TSharedRef<class IPersonaPreviewScene> PreviewScene;
 	TSharedRef<class IEditableSkeleton> EditableSkeleton;
+	FSimpleMulticastDelegate& OnPostUndo;
+	FSimpleMulticastDelegate& OnAnimNotifiesChanged;
 	FSimpleMulticastDelegate& OnSectionsChanged;
 };
 
@@ -38,7 +42,7 @@ struct FMontageEditorRequiredArgs
 	portion of the Montage tool and registering callbacks to the SMontageEditor to do the actual editing.
 	
 */
-class SMontageEditor : public SAnimEditorBase, public FEditorUndoClient
+class SMontageEditor : public SAnimEditorBase 
 {
 public:
 	SLATE_BEGIN_ARGS( SMontageEditor )
@@ -50,6 +54,7 @@ public:
 		SLATE_EVENT(FSimpleDelegate, OnSectionsChanged)
 		SLATE_ARGUMENT( UAnimMontage*, Montage )
 		SLATE_EVENT(FOnObjectsSelected, OnObjectsSelected)
+		SLATE_EVENT(FSimpleDelegate, OnAnimNotifiesChanged)
 	SLATE_END_ARGS()
 
 	~SMontageEditor();
@@ -116,12 +121,7 @@ private:
 	void EnsureStartingSection();
 	void EnsureSlotNode();
 	virtual bool ClampToEndTime(float NewEndTime) override;
-
-	/** FEditorUndoClient interface */
-	virtual void PostUndo( bool bSuccess ) override;
-	virtual void PostRedo( bool bSuccess ) override;
-
-	void PostRedoUndo();
+	void PostUndo();
 	
 	bool GetSectionTime( int32 SectionIndex, float &OutTime ) const;
 

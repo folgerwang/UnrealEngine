@@ -141,10 +141,13 @@ void ADebugCameraHUD::PostRender()
 				}
 				else
 				{
-					for (UActorComponent* Component : GetComponents())
+					TInlineComponentArray<UMeshComponent*> Components;
+					GetComponents(Components);
+
+					for ( int32 i=0; i<Components.Num(); i++ )
 					{
-						UMeshComponent* MeshComp = Cast<UMeshComponent>(Component);
-						if (MeshComp && MeshComp->IsRegistered())
+						UMeshComponent* MeshComp = Components[i];
+						if ( MeshComp->IsRegistered() )
 						{
 							bFoundMaterial = bFoundMaterial || DisplayMaterials( X, yl, Y, MeshComp );	
 						}

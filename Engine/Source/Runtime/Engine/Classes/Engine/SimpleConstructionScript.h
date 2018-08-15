@@ -113,7 +113,6 @@ private:
 	UPROPERTY()
 	class USCS_Node* DefaultSceneRootNode;
 
-#if WITH_EDITORONLY_DATA
 	/** (DEPRECATED) Root node of the construction script */
 	UPROPERTY()
 	class USCS_Node* RootNode_DEPRECATED;
@@ -121,7 +120,6 @@ private:
 	/** (DEPRECATED) Actor Component based nodes are stored here.  They cannot be in the tree hierarchy */
 	UPROPERTY()
 	TArray<USCS_Node*> ActorComponentNodes_DEPRECATED;
-#endif
 
 	/** Helper function to find an appropriate child node index that can be promoted to the parent's level */
 	int32 FindPromotableChildNodeIndex(USCS_Node* InParentNode) const;

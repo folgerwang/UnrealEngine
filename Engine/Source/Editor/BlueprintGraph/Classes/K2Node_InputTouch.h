@@ -7,7 +7,6 @@
 #include "UObject/ObjectMacros.h"
 #include "Textures/SlateIcon.h"
 #include "K2Node.h"
-#include "K2Node_EventNodeInterface.h"
 #include "K2Node_InputTouch.generated.h"
 
 class FBlueprintActionDatabaseRegistrar;
@@ -16,7 +15,7 @@ class UEdGraph;
 class UEdGraphPin;
 
 UCLASS(MinimalAPI)
-class UK2Node_InputTouch : public UK2Node, public IK2Node_EventNodeInterface
+class UK2Node_InputTouch : public UK2Node
 {
 	GENERATED_UCLASS_BODY()
 
@@ -51,10 +50,6 @@ class UK2Node_InputTouch : public UK2Node, public IK2Node_EventNodeInterface
 	virtual FText GetMenuCategory() const override;
 	virtual bool IsCompatibleWithGraph(const UEdGraph* TargetGraph) const override;
 	//~ End UEdGraphNode Interface.
-
-	//~ Begin IK2Node_EventNodeInterface Interface.
-	virtual TSharedPtr<FEdGraphSchemaAction> GetEventNodeAction(const FText& ActionCategory) override;
-	//~ End IK2Node_EventNodeInterface Interface.
 
 	BLUEPRINTGRAPH_API static UEnum* GetTouchIndexEnum();
 

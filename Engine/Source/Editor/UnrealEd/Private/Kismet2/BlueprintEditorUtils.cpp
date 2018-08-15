@@ -1348,12 +1348,8 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 			&& (!ClassToRegenerate || (Blueprint->ParentClass != ClassToRegenerate->GetSuperClass()));
 
 		UBlueprintGeneratedClass* BPGClassToRegenerate = Cast<UBlueprintGeneratedClass>(ClassToRegenerate);
-#if USE_UBER_GRAPH_PERSISTENT_FRAME
 		const bool bHasPendingUberGraphFrame = BPGClassToRegenerate
 			&& (BPGClassToRegenerate->UberGraphFramePointerProperty || BPGClassToRegenerate->UberGraphFunction);
-#else 
-		const bool bHasPendingUberGraphFrame = false;
-#endif //USE_UBER_GRAPH_PERSISTENT_FRAME
 
 		const bool bDefaultComponentMustBeAdded = !bHasCode 
 			&& BPGClassToRegenerate
@@ -1913,16 +1909,7 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 			Blueprint->Timelines = NewBPGC->Timelines;
 			Blueprint->InheritableComponentHandler = NewBPGC->InheritableComponentHandler;
 
-			if (GBlueprintUseCompilationManager)
-			{
-				FBlueprintCompilationManager::CompileSynchronously(
-					FBPCompileRequest(Blueprint, EBlueprintCompileOptions::RegenerateSkeletonOnly, nullptr)
-				);
-			}
-			else
-			{
-				Compiler.CompileBlueprint(Blueprint, CompileOptions, Results);
-			}
+			Compiler.CompileBlueprint(Blueprint, CompileOptions, Results);
 
 			// Create a new blueprint guid
 			Blueprint->GenerateNewGuid();
@@ -1955,7 +1942,7 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 							}
 							else
 							{
-								TargetClass = NewClass;
+								TargetClass = Blueprint->SkeletonGeneratedClass->GetAuthoritativeClass();
 							}
 
 							SelfPin->PinType.PinSubCategoryObject = TargetClass;
@@ -1964,18 +1951,9 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 				}
 			}
 
-			if (GBlueprintUseCompilationManager)
-			{
-				FBlueprintCompilationManager::CompileSynchronously(
-					FBPCompileRequest(Blueprint, EBlueprintCompileOptions::None, nullptr)
-				);
-			}
-			else
-			{
-				// Needs a full compile to handle the ArchiveReplaceObjectRef
-				CompileOptions.CompileType = EKismetCompileType::Full;
-				Compiler.CompileBlueprint(Blueprint, CompileOptions, Results);
-			}
+			// Needs a full compile to handle the ArchiveReplaceObjectRef
+			CompileOptions.CompileType = EKismetCompileType::Full;
+			Compiler.CompileBlueprint(Blueprint, CompileOptions, Results);
 
 			FArchiveReplaceObjectRef<UObject> ReplaceTemplateRefs(NewBPGC, OldToNewMap, /*bNullPrivateRefs=*/ false, /*bIgnoreOuterRef=*/ false, /*bIgnoreArchetypeRef=*/ false);
 
@@ -2046,13 +2024,13 @@ void FBlueprintEditorUtils::UpdateDelegatesInBlueprint(UBlueprint* Blueprint)
 void FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(UBlueprint* Blueprint)
 {
 	FSecondsCounterScope Timer(BlueprintCompileAndLoadTimerData);
-
+	
 	struct FRefreshHelper
 	{
 		static void SkeletalRecompileChildren(TArray<UClass*> SkelClassesToRecompile, bool bIsCompilingOnLoad)
 		{
 			FSecondsCounterScope SkeletalRecompileTimer(BlueprintCompileAndLoadTimerData);
-
+			
 			for (UClass* SkelClass : SkelClassesToRecompile)
 			{
 				if (SkelClass->HasAnyClassFlags(CLASS_NewerVersionExists))
@@ -2102,63 +2080,54 @@ void FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(UBlueprint* Blue
 	Blueprint->bCachedDependenciesUpToDate = false;
 	if (Blueprint->Status != BS_BeingCreated && !Blueprint->bBeingCompiled)
 	{
+		FCompilerResultsLog Results;
+		Results.bLogInfoOnly = Blueprint->bIsRegeneratingOnLoad;
+
 		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_MarkBlueprintasStructurallyModified);
 
-		if (GBlueprintUseCompilationManager)
+		TArray<UClass*> ChildrenOfClass;
+		if (UClass* SkelClass = Blueprint->SkeletonGeneratedClass)
 		{
-			FBlueprintCompilationManager::CompileSynchronously(
-				FBPCompileRequest(Blueprint, EBlueprintCompileOptions::RegenerateSkeletonOnly, nullptr)
-			);
-		}
-		else
-		{
-			FCompilerResultsLog Results;
-			Results.bLogInfoOnly = Blueprint->bIsRegeneratingOnLoad;
-
-			TArray<UClass*> ChildrenOfClass;
-			if (UClass* SkelClass = Blueprint->SkeletonGeneratedClass)
+			if (!Blueprint->bIsRegeneratingOnLoad)
 			{
-				if (!Blueprint->bIsRegeneratingOnLoad)
+				if (IsInterfaceBlueprint(Blueprint))
 				{
-					if (IsInterfaceBlueprint(Blueprint))
+					// Find all dependent Blueprints that implement the interface. Note: Using
+					// GetDependentBlueprints() here as the result is cached and thus it should
+					// generally be a faster path than iterating through all loaded Blueprints.
+					TArray<UBlueprint*> DependentBlueprints;
+					GetDependentBlueprints(Blueprint, DependentBlueprints, true);
+					for (UBlueprint* DependentBlueprint : DependentBlueprints)
 					{
-						// Find all dependent Blueprints that implement the interface. Note: Using
-						// GetDependentBlueprints() here as the result is cached and thus it should
-						// generally be a faster path than iterating through all loaded Blueprints.
-						TArray<UBlueprint*> DependentBlueprints;
-						GetDependentBlueprints(Blueprint, DependentBlueprints, true);
-						for (UBlueprint* DependentBlueprint : DependentBlueprints)
+						const bool bDependentBPImplementsInterface = DependentBlueprint->ImplementedInterfaces.ContainsByPredicate([&Blueprint](const FBPInterfaceDescription& InterfaceDesc)
 						{
-							const bool bDependentBPImplementsInterface = DependentBlueprint->ImplementedInterfaces.ContainsByPredicate([&Blueprint](const FBPInterfaceDescription& InterfaceDesc)
-							{
-								return InterfaceDesc.Interface == Blueprint->GeneratedClass;
-							});
+							return InterfaceDesc.Interface == Blueprint->GeneratedClass;
+						});
 
-							if (bDependentBPImplementsInterface)
-							{
-								ChildrenOfClass.Add(DependentBlueprint->SkeletonGeneratedClass);
-							}
+						if (bDependentBPImplementsInterface)
+						{
+							ChildrenOfClass.Add(DependentBlueprint->SkeletonGeneratedClass);
 						}
 					}
-					else
-					{
-						GetDerivedClasses(SkelClass, ChildrenOfClass, false);
-					}
+				}
+				else
+				{
+					GetDerivedClasses(SkelClass, ChildrenOfClass, false);
 				}
 			}
-
-			{
-				// Invoke the compiler to update the skeleton class definition
-				IKismetCompilerInterface& Compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
-
-				FKismetCompilerOptions CompileOptions;
-				CompileOptions.CompileType = EKismetCompileType::SkeletonOnly;
-				Compiler.CompileBlueprint(Blueprint, CompileOptions, Results);
-			}
-			UpdateDelegatesInBlueprint(Blueprint);
-
-			FRefreshHelper::SkeletalRecompileChildren(ChildrenOfClass, Blueprint->bIsRegeneratingOnLoad);
 		}
+
+		{
+			// Invoke the compiler to update the skeleton class definition
+			IKismetCompilerInterface& Compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
+
+			FKismetCompilerOptions CompileOptions;
+			CompileOptions.CompileType = EKismetCompileType::SkeletonOnly;
+			Compiler.CompileBlueprint(Blueprint, CompileOptions, Results);
+		}
+		UpdateDelegatesInBlueprint(Blueprint);
+
+		FRefreshHelper::SkeletalRecompileChildren(ChildrenOfClass, Blueprint->bIsRegeneratingOnLoad);
 
 		// Call general modification callback as well
 		MarkBlueprintAsModified(Blueprint);
@@ -6834,17 +6803,22 @@ bool FBlueprintEditorUtils::IsSCSComponentProperty(UObjectProperty* MemberProper
 		}
 		else if (const AActor* ActorCDO = GetDefault<AActor>(OwnerClass))
 		{
+			TInlineComponentArray<UActorComponent*> CDOComponents;
+			ActorCDO->GetComponents(CDOComponents);
+
 			const void* PropertyAddress = MemberProperty->ContainerPtrToValuePtr<void>(ActorCDO);
 			UObject* PropertyValue = MemberProperty->GetObjectPropertyValue(PropertyAddress);
 
-			for (UActorComponent* Component : ActorCDO->GetComponents())
+			for (UActorComponent* Component : CDOComponents)
 			{
-				if (Component && Component->GetClass()->IsChildOf(MemberProperty->PropertyClass))
+				if (!Component->GetClass()->IsChildOf(MemberProperty->PropertyClass))
 				{
-					if (PropertyValue == Component)
-					{
-						return true;
-					}
+					continue;
+				}
+
+				if (PropertyValue == Component)
+				{
+					return true;
 				}
 			}
 		}

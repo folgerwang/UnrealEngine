@@ -50,38 +50,26 @@ enum EPhysBodyOp
 	PBO_MAX,
 };
 
-/** Skinned Mesh Animation Tick option based on rendered or not. This dictates "TickPose and RefreshBoneTransforms" */
-UENUM(BlueprintType)
-enum class EVisibilityBasedAnimTickOption : uint8
-{
-	/** Always Tick and Refresh BoneTransforms whether rendered or not. */
-	AlwaysTickPoseAndRefreshBones,
-	/** Always Tick, but Refresh BoneTransforms only when rendered. */
-	AlwaysTickPose,
-	/**
-		When rendered Tick Pose and Refresh Bone Transforms,
-		otherwise, just update montages and skip everything else.
-		(AnimBP graph will not be updated).
-	*/
-	OnlyTickMontagesWhenNotRendered,
-	/** Tick only when rendered, and it will only RefreshBoneTransforms when rendered. */
-	OnlyTickPoseWhenRendered,
-};
-
-/** Previous deprecated animation tick option. */
+/** Skinned Mesh Update Flag based on rendered or not. */
+UENUM()
 namespace EMeshComponentUpdateFlag
 {
-	DEPRECATED(4.20, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
-	typedef int32 Type;
-	DEPRECATED(4.20, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
-	static const uint8 AlwaysTickPoseAndRefreshBones = 0;
-	DEPRECATED(4.20, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
-	static const uint8 AlwaysTickPose = 1;
-	DEPRECATED(4.20, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
-	static const uint8 OnlyTickMontagesWhenNotRendered = 2;
-	DEPRECATED(4.20, "EMeshComponentUpdateFlag has been deprecated use EVisibilityBasedAnimTickOption instead")
-	static const uint8 OnlyTickPoseWhenRendered = 3;
-};
+	enum Type
+	{
+		/** Always Tick and Refresh BoneTransforms whether rendered or not. */
+		AlwaysTickPoseAndRefreshBones,
+		/** Always Tick, but Refresh BoneTransforms only when rendered. */
+		AlwaysTickPose,
+		/**
+			When rendered Tick Pose and Refresh Bone Transforms,
+			otherwise, just update montages and skip everything else.
+			(AnimBP graph will not be updated).
+		*/
+		OnlyTickMontagesWhenNotRendered,
+		/** Tick only when rendered, and it will only RefreshBoneTransforms when rendered. */
+		OnlyTickPoseWhenRendered,
+	};
+}
 
 /** Values for specifying bone space. */
 UENUM()
@@ -370,13 +358,15 @@ public:
 	/** Array of bone visibilities (containing one of the values in EBoneVisibilityStatus for each bone).  A bone is only visible if it is *exactly* 1 (BVS_Visible) */
 	TArray<uint8> BoneVisibilityStates;
 
-	/*
-	 * This is tick animation frequency option based on this component rendered or not or using montage
-	 *  You can change this default value in the INI file 
-	 * Mostly related with performance
+	/** This is update frequency flag even when our Owner has not been rendered recently
+	 * 
+	 * SMU_AlwaysTickPoseAndRefreshBones,			// Always Tick and Refresh BoneTransforms whether rendered or not
+	 * SMU_AlwaysTickPose,							// Always Tick, but Refresh BoneTransforms only when rendered
+	 * SMU_OnlyTickPoseWhenRendered,				// Tick only when rendered, and it will only RefreshBoneTransforms when rendered
+	 * 
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Config, Category=Optimization)
-	EVisibilityBasedAnimTickOption VisibilityBasedAnimTickOption;
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
+	TEnumAsByte<EMeshComponentUpdateFlag::Type> MeshComponentUpdateFlag;
 
 	/** 
 	 * When true, we will just using the bounds from our MasterPoseComponent.  This is useful for when we have a Mesh Parented
@@ -412,11 +402,11 @@ public:
 	//
 	
 	/** When true, skip using the physics asset etc. and always use the fixed bounds defined in the SkeletalMesh. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Optimization)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	uint8 bComponentUseFixedSkelBounds:1;
 
 	/** If true, when updating bounds from a PhysicsAsset, consider _all_ BodySetups, not just those flagged with bConsiderForBounds. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Optimization)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	uint8 bConsiderAllBodiesForBounds:1;
 
 	/** If true, this component uses its parents LOD when attached if available

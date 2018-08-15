@@ -400,7 +400,7 @@ void SAnimationRefPoseViewport::Construct(const FArguments& InArgs)
 
 	// Create the preview component
 	PreviewComponent = NewObject<UDebugSkelMeshComponent>();
-	PreviewComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+	PreviewComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	PreviewScene.AddComponent( PreviewComponent, FTransform::Identity );
 
 	this->ChildSlot

@@ -133,9 +133,9 @@ void UUnrealEdEngine::edactCopySelected( UWorld* InWorld, FString* DestinationDa
 {
 	if (GetSelectedComponentCount() > 0)
 	{
-		// Copy selected components
+		// Copy components
 		TArray<UActorComponent*> SelectedComponents;
-		for (FSelectionIterator It(GetSelectedComponentIterator()); It; ++It)
+		for (FSelectedEditableComponentIterator It(GetSelectedEditableComponentIterator()); It; ++It)
 		{
 			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
 		}
@@ -469,14 +469,14 @@ void UUnrealEdEngine::edactDuplicateSelected( ULevel* InLevel, bool bOffsetLocat
 		TArray<UActorComponent*> NewComponentClones;
 		NewComponentClones.Reserve(NumSelectedComponents);
 
-		// Duplicate selected components
-		for (FSelectionIterator It(GetSelectedComponentIterator()); It; ++It)
+		// Duplicate selected components if they are an Instance component
+		for (FSelectedEditableComponentIterator It(GetSelectedEditableComponentIterator()); It; ++It)
 		{
 			UActorComponent* Component = CastChecked<UActorComponent>(*It);
-
-			if (FComponentEditorUtils::CanCopyComponent(Component))
+			if (Component->CreationMethod == EComponentCreationMethod::Instance)
 			{
-				if (UActorComponent* Clone = FComponentEditorUtils::DuplicateComponent(Component))
+				UActorComponent* Clone = FComponentEditorUtils::DuplicateComponent(Component);
+				if (Clone)
 				{
 					NewComponentClones.Add(Clone);
 				}
@@ -715,9 +715,6 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 					// Make sure the selection changed event fires so the SCS trees can update their selection
 					ComponentSelection->MarkBatchDirty();
 					ComponentSelection->EndBatchSelectOperation(true);
-
-					// Notify the level editor of the new component selection
-					NoteSelectionChange();
 				}
 
 				UE_LOG(LogEditorActor, Log, TEXT("Deleted %d Components (%3.3f secs)"), NumDeletedComponents, FPlatformTime::Seconds() - StartSeconds);
@@ -2208,15 +2205,16 @@ void UUnrealEdEngine::edactSelectMatchingMaterial()
 		if( CurrentActor )
 		{
 			// Find the materials by iterating over every primitive component.
-			for (UActorComponent* Component : CurrentActor->GetComponents())
+			TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+			CurrentActor->GetComponents(PrimitiveComponents);
+
+			for (int32 ComponentIdx = 0; ComponentIdx < PrimitiveComponents.Num(); ComponentIdx++)
 			{
-				if (UPrimitiveComponent* CurrentComponent = Cast<UPrimitiveComponent>(Component))
-				{
-					TArray<UMaterialInterface*> UsedMaterials;
-					CurrentComponent->GetUsedMaterials(UsedMaterials);
-					MaterialsInSelection.Append(UsedMaterials);
-					SelectedWorlds.AddUnique(CurrentActor->GetWorld());
-				}
+				UPrimitiveComponent* CurrentComponent = PrimitiveComponents[ComponentIdx];
+				TArray<UMaterialInterface*> UsedMaterials;
+				CurrentComponent->GetUsedMaterials( UsedMaterials );
+				MaterialsInSelection.Append( UsedMaterials );
+				SelectedWorlds.AddUnique( CurrentActor->GetWorld() );
 			}
 		}
 	}
@@ -2336,11 +2334,14 @@ void UUnrealEdEngine::edactSelectRelevantLights( UWorld* InWorld )
 
 		if (Actor->GetLevel()->IsCurrentLevel() )
 		{
+			TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+			Actor->GetComponents(PrimitiveComponents);
+
 			// Gather static lighting info from each of the actor's components.
-			for (UActorComponent* Component : Actor->GetComponents())
+			for(int32 ComponentIndex = 0;ComponentIndex < PrimitiveComponents.Num();ComponentIndex++)
 			{
-				UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component);
-				if (Primitive && Primitive->IsRegistered())
+				UPrimitiveComponent* Primitive = PrimitiveComponents[ComponentIndex];
+				if (Primitive->IsRegistered())
 				{
 					TArray<const ULightComponent*> RelevantLightComponents;
 					InWorld->Scene->GetRelevantLights(Primitive, &RelevantLightComponents);

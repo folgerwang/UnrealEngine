@@ -10,7 +10,7 @@
 #include "UObject/Object.h"
 #include "EditorSkeletonNotifyObj.generated.h"
 
-class IEditableSkeleton;
+class UAnimSequenceBase;
 
 DECLARE_DELEGATE_TwoParams( FOnAnimObjectChange, class UObject*, bool)
 
@@ -19,10 +19,11 @@ class UEditorSkeletonNotifyObj : public UObject
 {
 	GENERATED_UCLASS_BODY()
 public:
-	/** Current skeleton to try to grab objects from */
-	TWeakPtr<IEditableSkeleton> EditableSkeleton;
+	
+	UObject* EditedObject;
 
-	/** The name of the notify we represent */
 	UPROPERTY(VisibleAnywhere, Category=SkeletonNotifies)
 	FName Name;
+
+	TArray< TSharedPtr<FString> > AnimationNames;
 };

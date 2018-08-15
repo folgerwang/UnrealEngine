@@ -138,16 +138,6 @@ public:
 
 	// Go to node documentation
 	TSharedPtr< FUICommandInfo > GoToDocumentation;
-
-	// Quick jump commands
-	struct FQuickJumpCommandInfo
-	{
-		TSharedPtr< FUICommandInfo > QuickJump;
-		TSharedPtr< FUICommandInfo > SetQuickJump;
-		TSharedPtr< FUICommandInfo > ClearQuickJump;
-	};
-	TArray< FQuickJumpCommandInfo > QuickJumpCommands;
-	TSharedPtr< FUICommandInfo > ClearAllQuickJumps;
 };
 
 class GRAPHEDITOR_API FGraphEditorCommands
@@ -159,3 +149,5 @@ public:
 
 	static void Unregister();
 };
+
+

@@ -271,9 +271,9 @@ void FPersonaModule::RegisterPersonaViewportTabFactories(FWorkflowAllowedTabSet&
 	TabSet.RegisterFactory(MakeShareable(new FPreviewViewportSummoner(InHostingApp, InArgs, 3)));
 }
 
-TSharedRef<class FWorkflowTabFactory> FPersonaModule::CreateAnimNotifiesTabFactory(const TSharedRef<class FWorkflowCentricApplication>& InHostingApp, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FOnObjectsSelected InOnObjectsSelected) const
+TSharedRef<class FWorkflowTabFactory> FPersonaModule::CreateAnimNotifiesTabFactory(const TSharedRef<class FWorkflowCentricApplication>& InHostingApp, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnChangeAnimNotifies, FSimpleMulticastDelegate& InOnPostUndo, FOnObjectsSelected InOnObjectsSelected) const
 {
-	return MakeShareable(new FSkeletonAnimNotifiesSummoner(InHostingApp, InEditableSkeleton, InOnObjectsSelected));
+	return MakeShareable(new FSkeletonAnimNotifiesSummoner(InHostingApp, InEditableSkeleton, InOnChangeAnimNotifies, InOnPostUndo, InOnObjectsSelected));
 }
 
 TSharedRef<class FWorkflowTabFactory> FPersonaModule::CreateCurveViewerTabFactory(const TSharedRef<class FWorkflowCentricApplication>& InHostingApp, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, const TSharedRef<IPersonaPreviewScene>& InPreviewScene, FSimpleMulticastDelegate& InOnPostUndo, FOnObjectsSelected InOnObjectsSelected) const
@@ -328,31 +328,34 @@ TSharedRef<SWidget> FPersonaModule::CreateEditorWidgetForAnimDocument(const TSha
 	{
 		if (UAnimSequence* Sequence = Cast<UAnimSequence>(InAnimAsset))
 		{
-			Result = SNew(SSequenceEditor, InArgs.PreviewScene.Pin().ToSharedRef(), InArgs.EditableSkeleton.Pin().ToSharedRef())
+			Result = SNew(SSequenceEditor, InArgs.PreviewScene.Pin().ToSharedRef(), InArgs.EditableSkeleton.Pin().ToSharedRef(), InArgs.OnPostUndo)
 				.Sequence(Sequence)
 				.OnObjectsSelected(InArgs.OnDespatchObjectsSelected)
+				.OnAnimNotifiesChanged(InArgs.OnDespatchAnimNotifiesChanged)
 				.OnInvokeTab(InArgs.OnDespatchInvokeTab);
 
 			OutDocumentLink = TEXT("Engine/Animation/Sequences");
 		}
 		else if (UAnimComposite* Composite = Cast<UAnimComposite>(InAnimAsset))
 		{
-			Result = SNew(SAnimCompositeEditor, InArgs.PreviewScene.Pin().ToSharedRef(), InArgs.EditableSkeleton.Pin().ToSharedRef())
+			Result = SNew(SAnimCompositeEditor, InArgs.PreviewScene.Pin().ToSharedRef(), InArgs.EditableSkeleton.Pin().ToSharedRef(), InArgs.OnPostUndo)
 				.Composite(Composite)
 				.OnObjectsSelected(InArgs.OnDespatchObjectsSelected)
+				.OnAnimNotifiesChanged(InArgs.OnDespatchAnimNotifiesChanged)
 				.OnInvokeTab(InArgs.OnDespatchInvokeTab);
 
 			OutDocumentLink = TEXT("Engine/Animation/AnimationComposite");
 		}
 		else if (UAnimMontage* Montage = Cast<UAnimMontage>(InAnimAsset))
 		{
-			FMontageEditorRequiredArgs RequiredArgs(InArgs.PreviewScene.Pin().ToSharedRef(), InArgs.EditableSkeleton.Pin().ToSharedRef(), InArgs.OnSectionsChanged);
+			FMontageEditorRequiredArgs RequiredArgs(InArgs.PreviewScene.Pin().ToSharedRef(), InArgs.EditableSkeleton.Pin().ToSharedRef(), InArgs.OnPostUndo, InArgs.OnAnimNotifiesChanged, InArgs.OnSectionsChanged);
 
 			Result = SNew(SMontageEditor, RequiredArgs)
 				.Montage(Montage)
 				.OnSectionsChanged(InArgs.OnDespatchSectionsChanged)
 				.OnInvokeTab(InArgs.OnDespatchInvokeTab)
-				.OnObjectsSelected(InArgs.OnDespatchObjectsSelected);
+				.OnObjectsSelected(InArgs.OnDespatchObjectsSelected)
+				.OnAnimNotifiesChanged(InArgs.OnDespatchAnimNotifiesChanged);
 
 			OutDocumentLink = TEXT("Engine/Animation/AnimMontage");
 		}

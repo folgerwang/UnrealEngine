@@ -50,11 +50,9 @@ ASceneCapture::ASceneCapture(const FObjectInitializer& ObjectInitializer)
 ASceneCapture2D::ASceneCapture2D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-#if WITH_EDITOR
 	DrawFrustum = CreateDefaultSubobject<UDrawFrustumComponent>(TEXT("DrawFrust0"));
-	DrawFrustum->SetIsVisualizationComponent(true);
+	DrawFrustum->bIsEditorOnly = true;
 	DrawFrustum->SetupAttachment(GetMeshComp());
-#endif
 
 	CaptureComponent2D = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("NewSceneCaptureComponent2D"));
 	CaptureComponent2D->SetupAttachment(GetMeshComp());
@@ -65,7 +63,6 @@ void ASceneCapture2D::OnInterpToggle(bool bEnable)
 	CaptureComponent2D->SetVisibility(bEnable);
 }
 
-#if WITH_EDITOR
 void ASceneCapture2D::UpdateDrawFrustum()
 {
 	if(DrawFrustum && CaptureComponent2D)
@@ -86,6 +83,7 @@ void ASceneCapture2D::PostActorCreated()
 	Super::PostActorCreated();
 
 	// no need load the editor mesh when there is no editor
+#if WITH_EDITOR
 	if(GetMeshComp())
 	{
 		if (!IsRunningCommandlet())
@@ -97,21 +95,19 @@ void ASceneCapture2D::PostActorCreated()
 			}
 		}
 	}
+#endif
 
 	// Sync component with CameraActor frustum settings.
 	UpdateDrawFrustum();
 }
-#endif
 // -----------------------------------------------
 
 ASceneCaptureCube::ASceneCaptureCube(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-#if WITH_EDITOR
 	DrawFrustum = CreateDefaultSubobject<UDrawFrustumComponent>(TEXT("DrawFrust0"));
-	DrawFrustum->SetIsVisualizationComponent(true);
+	DrawFrustum->bIsEditorOnly = true;
 	DrawFrustum->SetupAttachment(GetMeshComp());
-#endif
 
 	CaptureComponentCube = CreateDefaultSubobject<USceneCaptureComponentCube>(TEXT("NewSceneCaptureComponentCube"));
 	CaptureComponentCube->SetupAttachment(GetMeshComp());
@@ -122,7 +118,6 @@ void ASceneCaptureCube::OnInterpToggle(bool bEnable)
 	CaptureComponentCube->SetVisibility(bEnable);
 }
 
-#if WITH_EDITOR
 void ASceneCaptureCube::UpdateDrawFrustum()
 {
 	if(DrawFrustum && CaptureComponentCube)
@@ -142,6 +137,7 @@ void ASceneCaptureCube::PostActorCreated()
 	Super::PostActorCreated();
 
 	// no need load the editor mesh when there is no editor
+#if WITH_EDITOR
 	if(GetMeshComp())
 	{
 		if (!IsRunningCommandlet())
@@ -153,10 +149,12 @@ void ASceneCaptureCube::PostActorCreated()
 			}
 		}
 	}
+#endif
 
 	// Sync component with CameraActor frustum settings.
 	UpdateDrawFrustum();
 }
+#if WITH_EDITOR
 
 void ASceneCaptureCube::PostEditMove(bool bFinished)
 {
@@ -214,8 +212,7 @@ void USceneCaptureComponent::HideComponent(UPrimitiveComponent* InComponent)
 {
 	if (InComponent)
 	{
-		TWeakObjectPtr<UPrimitiveComponent> WeakComponent(InComponent);
-		HiddenComponents.AddUnique(WeakComponent);
+		HiddenComponents.AddUnique(InComponent);
 	}
 }
 
@@ -223,13 +220,11 @@ void USceneCaptureComponent::HideActorComponents(AActor* InActor)
 {
 	if (InActor)
 	{
-		for (UActorComponent* Component : InActor->GetComponents())
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+		InActor->GetComponents(PrimitiveComponents);
+		for (int32 ComponentIndex = 0, NumComponents = PrimitiveComponents.Num(); ComponentIndex < NumComponents; ++ComponentIndex)
 		{
-			if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
-			{
-				TWeakObjectPtr<UPrimitiveComponent> WeakComponent(PrimComp);
-				HiddenComponents.AddUnique(WeakComponent);
-			}
+			HiddenComponents.AddUnique(PrimitiveComponents[ComponentIndex]);
 		}
 	}
 }
@@ -251,33 +246,29 @@ void USceneCaptureComponent::ShowOnlyActorComponents(AActor* InActor)
 		// Backward compatibility - set PrimitiveRenderMode to PRM_UseShowOnlyList if BP / game code tries to add a ShowOnlyComponent
 		PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
 
-		for (UActorComponent* Component : InActor->GetComponents())
-			{
-			if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
-			{
-				ShowOnlyComponents.Add(PrimComp);
-			}
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+		InActor->GetComponents(PrimitiveComponents);
+		for (int32 ComponentIndex = 0, NumComponents = PrimitiveComponents.Num(); ComponentIndex < NumComponents; ++ComponentIndex)
+		{
+			ShowOnlyComponents.Add(PrimitiveComponents[ComponentIndex]);
 		}
 	}
 }
 
 void USceneCaptureComponent::RemoveShowOnlyComponent(UPrimitiveComponent* InComponent)
 {
-	TWeakObjectPtr<UPrimitiveComponent> WeakComponent(InComponent);
-	ShowOnlyComponents.Remove(WeakComponent);
+	ShowOnlyComponents.Remove(InComponent);
 }
 
 void USceneCaptureComponent::RemoveShowOnlyActorComponents(AActor* InActor)
 {
 	if (InActor)
 	{
-		for (UActorComponent* Component : InActor->GetComponents())
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+		InActor->GetComponents(PrimitiveComponents);
+		for (int32 ComponentIndex = 0, NumComponents = PrimitiveComponents.Num(); ComponentIndex < NumComponents; ++ComponentIndex)
 		{
-			if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
-			{
-				TWeakObjectPtr<UPrimitiveComponent> WeakComponent(PrimComp);
-				ShowOnlyComponents.Remove(WeakComponent);
-			}
+			ShowOnlyComponents.Remove(PrimitiveComponents[ComponentIndex]);
 		}
 	}
 }

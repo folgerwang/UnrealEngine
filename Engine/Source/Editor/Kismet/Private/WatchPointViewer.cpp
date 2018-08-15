@@ -214,6 +214,7 @@ namespace
 
 	void UpdateWatchListFromBlueprintImpl(TWeakObjectPtr<UBlueprint> BlueprintObj, const bool bShouldWatch)
 	{
+
 		if (bShouldWatch)
 		{
 			// make sure the blueprint is in our list
@@ -237,7 +238,7 @@ namespace
 						--Idx;
 					}
 				}
-
+				
 				if (!bRemovedBP)
 				{
 					return;
@@ -763,7 +764,6 @@ TSharedRef<SWidget> SWatchTreeWidgetItem::GenerateWidgetForColumn(const FName& C
 
 void WatchViewer::UpdateInstancedWatchDisplay()
 {
-#if DO_BLUEPRINT_GUARD
 	{
 		const TArray<const FFrame*>& ScriptStack = FBlueprintExceptionTracker::Get().ScriptStack;
 
@@ -872,7 +872,6 @@ void WatchViewer::UpdateInstancedWatchDisplay()
 		// Notify subscribers:
 		WatchListSubscribers.Broadcast(&Private_InstanceWatchSource);
 	}
-#endif
 }
 
 void WatchViewer::ContinueExecution()

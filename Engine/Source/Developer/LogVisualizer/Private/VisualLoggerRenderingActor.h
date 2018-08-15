@@ -31,7 +31,6 @@ class LOGVISUALIZER_API AVisualLoggerRenderingActor : public AActor
 		TArray<FDebugRenderSceneProxy::FText3d> Texts;
 		TArray<FDebugRenderSceneProxy::FWireCylinder> Cylinders;
 		TArray<FDebugRenderSceneProxy::FCapsule> Capsules;
-		TArray<FDebugRenderSceneProxy::FArrowLine> Arrows;
 		TArray<FVector> LogEntriesPath;
 
 		void Reset()
@@ -44,7 +43,6 @@ class LOGVISUALIZER_API AVisualLoggerRenderingActor : public AActor
 			Texts.Reset();
 			Cylinders.Reset();
 			Capsules.Reset();
-			Arrows.Reset();
 			LogEntriesPath.Reset();
 		}
 	};

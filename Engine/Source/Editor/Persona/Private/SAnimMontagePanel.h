@@ -13,7 +13,6 @@
 #include "SMontageEditor.h"
 #include "Animation/EditorAnimBaseObj.h"
 #include "STrack.h"
-#include "EditorUndoClient.h"
 
 class FMenuBuilder;
 class SBorder;
@@ -69,8 +68,7 @@ public:
 	SLATE_ARGUMENT(bool, bChildAnimMontage)
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnSectionsChanged);
-
+	void Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnAnimNotifiesChanged, FSimpleMulticastDelegate& OnSectionsChanged);
 	void SetMontage(class UAnimMontage * InMontage);
 
 	// SWidget interface
