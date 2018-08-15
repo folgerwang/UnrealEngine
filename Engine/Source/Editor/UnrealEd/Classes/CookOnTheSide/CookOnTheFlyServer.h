@@ -1409,15 +1409,6 @@ private:
 	// general functions
 
 	/**
-	* Determines if a package should be cooked
-	* 
-	* @param InFileName		package file name
-	* @param InPlatformName	desired platform to cook for
-	* @return If the package should be cooked
-	*/
-	bool ShouldCook(const FString& InFileName, const FName& InPlatformName);
-
-	/**
 	 * Tries to save all the UPackages in the PackagesToSave list
 	 *  uses the timer to time slice, any packages not saved are requeued in the CookRequests list
 	 *  internal function should not be used externally Call Tick / RequestPackage to initiate
