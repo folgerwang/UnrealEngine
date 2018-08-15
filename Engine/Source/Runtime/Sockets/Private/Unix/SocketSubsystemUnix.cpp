@@ -4,6 +4,7 @@
 #include "Misc/CommandLine.h"
 #include "SocketSubsystemModule.h"
 #include "BSDSockets/IPAddressBSD.h"
+#include "BSDSockets/SocketsBSD.h"
 
 #include <ifaddrs.h>
 #include <net/if.h>
