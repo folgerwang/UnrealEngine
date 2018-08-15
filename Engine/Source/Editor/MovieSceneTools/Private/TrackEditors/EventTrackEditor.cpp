@@ -306,6 +306,9 @@ void FEventTrackEditor::CreateNewSection(UMovieSceneTrack* Track, int32 RowIndex
 		Track->UpdateEasing();
 
 		SequencerPtr->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
+		SequencerPtr->EmptySelection();
+		SequencerPtr->SelectSection(NewSection);
+		SequencerPtr->ThrobSectionSelection();
 	}
 }
 
