@@ -12,36 +12,37 @@
 	"EnabledByDefault" : false,
 	"IsBetaVersion": true,
 
-	"Modules": [
+	"Modules" :
+	[
 		{
-			"Name": "AjaMedia",
-			"Type": "RuntimeNoCommandlet",
-			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"Name" : "AjaMedia",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "Default",
+			"WhitelistPlatforms" : [ "Win64" ]
 		},
 		{
 			"Name": "AjaMediaOutput",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "Default",
+			"WhitelistPlatforms" : [ "Win64" ]
+		},
+		{
+			"Name" : "AjaMediaFactory",
+			"Type" : "Editor",
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms" : [ "Win64" ]
+		},
+		{
+			"Name" : "AjaMediaFactory",
 			"Type": "RuntimeNoCommandlet",
-			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms" : [ "Win64" ]
 		},
 		{
-			"Name": "AjaMediaFactory",
-			"Type": "Editor",
-			"LoadingPhase": "PostEngineInit",
-			"WhitelistPlatforms": [ "Win64" ]
-		},
-		{
-			"Name": "AjaMediaFactory",
-			"Type": "RuntimeNoCommandlet",
-			"LoadingPhase": "PostEngineInit",
-			"WhitelistPlatforms": [ "Win64" ]
-		},
-		{
-			"Name": "AjaMediaEditor",
-			"Type": "Editor",
-			"LoadingPhase": "PostEngineInit",
-			"WhitelistPlatforms": [ "Win64" ]
+			"Name" : "AjaMediaEditor",
+			"Type" : "Editor",
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms" : [ "Win64" ]
 		}
 	],
 	"Plugins" :

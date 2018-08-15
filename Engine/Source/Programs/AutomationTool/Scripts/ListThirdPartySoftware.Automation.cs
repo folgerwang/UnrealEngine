@@ -15,7 +15,7 @@ class ListThirdPartySoftware : BuildCommand
 {
 	public override void ExecuteBuild()
 	{
-		CommandUtils.Log("************************* List Third Party Software");
+		CommandUtils.LogInformation("************************* List Third Party Software");
 
 		string ProjectPath = ParseParamValue("Project", String.Empty);
 
@@ -94,7 +94,7 @@ class ListThirdPartySoftware : BuildCommand
 
 			// Get the platforms to exclude
 			List<UnrealTargetPlatform> SupportedPlatforms = new List<UnrealTargetPlatform> { (UnrealTargetPlatform)Enum.Parse(typeof(UnrealTargetPlatform), Object.GetStringField("Platform")) };
-			FileSystemName[] ExcludePlatformNames = Utils.MakeListOfUnsupportedPlatforms(SupportedPlatforms).Select(x => new FileSystemName(x)).ToArray();
+			string[] ExcludePlatformNames = Utils.MakeListOfUnsupportedPlatforms(SupportedPlatforms).ToArray();
 
 			// Find all the TPS files under the engine directory which match
 			foreach(DirectoryReference DirectoryToScan in SortedDirectoriesToScan)
@@ -136,7 +136,7 @@ class ListThirdPartySoftware : BuildCommand
 		// Print them all out
 		foreach(string OutputMessage in OutputMessages)
 		{
-			CommandUtils.Log(OutputMessage);
+			CommandUtils.LogInformation(OutputMessage);
 		}
 	}
 }

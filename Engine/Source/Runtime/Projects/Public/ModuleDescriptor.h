@@ -69,7 +69,6 @@ namespace EHostType
 	{
 		Runtime,
 		RuntimeNoCommandlet,
-		RuntimeAndProgram,
 		CookedOnly,
 		Developer,
 		Editor,
@@ -130,6 +129,9 @@ struct PROJECTS_API FModuleDescriptor
 
 	/** List of disallowed target configurations */
 	TArray<FString> BlacklistTargetConfigurations;
+
+	/** List of supported programs. No blacklist, because weprograms don't support plugins by default. */
+	TArray<FString> WhitelistPrograms;
 
 	/** List of additional dependencies for building this module. */
 	TArray<FString> AdditionalDependencies;

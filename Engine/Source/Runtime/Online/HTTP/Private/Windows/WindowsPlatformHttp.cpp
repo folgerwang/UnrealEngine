@@ -10,6 +10,11 @@
 
 #include "Windows/AllowWindowsPlatformTypes.h"
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpragma-pack"
+#endif
+
 // recreating parts of winhttp.h in here because winhttp.h and wininet.h do not play well with each other.
 #if defined(_WIN64)
 #include <pshpack8.h>
@@ -54,6 +59,12 @@ extern "C" {
 
 #if defined(__cplusplus)
 }
+#endif
+
+#include <poppack.h>
+
+#ifdef __clang__
+#pragma clang diagnostic pop
 #endif
 
 #include "Windows/HideWindowsPlatformTypes.h"

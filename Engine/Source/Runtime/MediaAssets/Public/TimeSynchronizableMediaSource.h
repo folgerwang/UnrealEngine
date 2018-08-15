@@ -28,7 +28,7 @@ public:
 public:
 
 	/** Synchronize the media with the engine's timecode. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=Synchronization)
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=Synchronization, meta=(DisplayName="Synchronize with Engine's Timecode"))
 	bool bUseTimeSynchronization;
 
 public:

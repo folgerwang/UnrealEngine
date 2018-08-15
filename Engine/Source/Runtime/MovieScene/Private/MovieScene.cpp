@@ -41,6 +41,7 @@ UMovieScene::UMovieScene(const FObjectInitializer& ObjectInitializer)
 	}
 
 #if WITH_EDITORONLY_DATA
+	bReadOnly = false;
 	bPlaybackRangeLocked = false;
 	PlaybackRange.MigrationDefault = FFloatRange::Empty();
 	EditorData.WorkingRange_DEPRECATED = EditorData.ViewRange_DEPRECATED = TRange<float>::Empty();

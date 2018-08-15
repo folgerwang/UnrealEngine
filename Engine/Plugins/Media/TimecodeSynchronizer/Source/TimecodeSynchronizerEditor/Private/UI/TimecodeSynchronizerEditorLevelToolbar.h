@@ -2,7 +2,16 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Templates/SharedPointer.h"
+#include "TimecodeSynchronizer.h"
+#include "UObject/WeakObjectPtr.h"
+
+struct FAssetData;
+class FExtender;
+class FMenuBuilder;
+class FToolBarBuilder;
+class SWidget;
 
 //////////////////////////////////////////////////////////////////////////
 // FTimecodeSynchronizerEditorLevelToolbar
@@ -15,9 +24,18 @@ public:
 
 private:
 	void ExtendLevelEditorToolbar();
-	void FillToolbar(class FToolBarBuilder& ToolbarBuilder);
+	void FillToolbar(FToolBarBuilder& ToolbarBuilder);
+
+	void AddObjectSubMenu(FMenuBuilder& MenuBuilder);
+	TSharedRef<SWidget> GenerateMenuContent();
+	FText GetMenuLabel();
+	void OpenCurrentTimecodeSynchronizer();
+	void CreateNewTimecodeSynchronizer();
+	void NewTimecodeSynchronizerSelected(const FAssetData& AssetData);
+
 
 private:
-	TSharedPtr<class FExtender>			LevelToolbarExtender;
+	TSharedPtr<FExtender> LevelToolbarExtender;
+	TWeakObjectPtr<UTimecodeSynchronizer> CurrentTimecodeSynchronizer;
 };
 

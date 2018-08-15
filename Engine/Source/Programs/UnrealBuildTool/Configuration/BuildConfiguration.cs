@@ -28,6 +28,12 @@ namespace UnrealBuildTool
 		public bool bUseActionHistory = true;
 
 		/// <summary>
+		/// Use existing static libraries for all engine modules in this target.
+		/// </summary>
+		[CommandLine("-UsePrecompiled")]
+		public bool bUsePrecompiled = false;
+
+		/// <summary>
 		/// Whether debug info should be written to the console.
 		/// </summary>
 		[XmlConfigFile]
@@ -68,12 +74,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		[XmlConfigFile]
 		public bool bAllowSNDBS = true;
-
-		/// <summary>
-		/// Whether or not to delete outdated produced items.
-		/// </summary>
-		[XmlConfigFile]
-		public bool bShouldDeleteAllOutdatedProducedItems = false;
 
 		/// <summary>
 		/// Whether we should export a JSON file containing detailed target information.

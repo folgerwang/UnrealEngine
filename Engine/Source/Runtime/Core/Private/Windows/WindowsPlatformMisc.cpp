@@ -108,11 +108,20 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 	OsVersionInfo.dwOSVersionInfoSize = sizeof( OSVERSIONINFOEX );
 	out_OSVersionLabel = TEXT( "Windows (unknown version)" );
 	out_OSSubVersionLabel = FString();
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
 #pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated
+#endif
 	CA_SUPPRESS(28159)
 	if( GetVersionEx( (LPOSVERSIONINFO)&OsVersionInfo ) )
+#ifdef __clang__
+#pragma clang diagnostic pop
+#else
 #pragma warning(pop)
+#endif
 	{
 		bool bIsInvalidVersion = false;
 
@@ -369,11 +378,20 @@ FString FWindowsOSVersionHelper::GetOSVersion()
 
 	OSVERSIONINFOEX OsVersionInfo = { 0 };
 	OsVersionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
 #pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated
+#endif
 	CA_SUPPRESS(28159)
 	if (GetVersionEx((LPOSVERSIONINFO)&OsVersionInfo))
+#ifdef __clang__
+#pragma clang diagnostic pop
+#else
 #pragma warning(pop)
+#endif
 	{
 		return FString::Printf(TEXT("%d.%d.%d.%d.%d.%s"), OsVersionInfo.dwMajorVersion, OsVersionInfo.dwMinorVersion, OsVersionInfo.dwBuildNumber, OsVersionInfo.wProductType, OsVersionInfo.wSuiteMask, Architecture);
 	}
@@ -587,6 +605,32 @@ void FWindowsPlatformMisc::SetGracefulTerminationHandler()
 	SetConsoleCtrlHandler(ConsoleCtrlHandler, true);
 }
 
+int32 FWindowsPlatformMisc::GetMaxPathLength()
+{
+	struct FLongPathsEnabled
+	{
+		bool bValue;
+
+		FLongPathsEnabled()
+		{
+			HMODULE Handle = GetModuleHandle(TEXT("ntdll.dll"));
+			if (Handle == NULL)
+			{
+				bValue = false;
+			}
+			else
+			{
+				typedef BOOLEAN(NTAPI *RtlAreLongPathsEnabledFunc)();
+				RtlAreLongPathsEnabledFunc RtlAreLongPathsEnabled = (RtlAreLongPathsEnabledFunc)(void*)GetProcAddress(Handle, "RtlAreLongPathsEnabled");
+				bValue = (RtlAreLongPathsEnabled != NULL && RtlAreLongPathsEnabled());
+			}
+		}
+	};
+
+	static FLongPathsEnabled LongPathsEnabled;
+	return LongPathsEnabled.bValue? 32767 : MAX_PATH;
+}
+
 void FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength)
 {
 	uint32 Error = ::GetEnvironmentVariableW(VariableName, Result, ResultLength);
@@ -594,6 +638,30 @@ void FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCH
 	{		
 		*Result = 0;
 	}
+}
+
+FString FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName)
+{
+	// Allocate the data for the string. Loop in case the variable happens to change while running, or the buffer isn't large enough.
+	FString Buffer;
+	for(uint32 Length = 128;;)
+	{
+		TArray<TCHAR>& CharArray = Buffer.GetCharArray();
+		CharArray.SetNumUninitialized(Length);
+
+		Length = ::GetEnvironmentVariableW(VariableName, CharArray.GetData(), CharArray.Num());
+		if (Length == 0)
+		{
+			Buffer.Reset();
+			break;
+		}
+		else if (Length < (uint32)CharArray.Num())
+		{
+			CharArray.SetNum(Length + 1);
+			break;
+		}
+	}
+	return Buffer;
 }
 
 void FWindowsPlatformMisc::SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value)

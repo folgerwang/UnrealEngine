@@ -57,20 +57,23 @@ bool UArrayProperty::Identical( const void* A, const void* B, uint32 PortFlags )
 
 	return true;
 }
-void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+
+void UArrayProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
 {
 	checkSlow(Inner);
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
 
 	// Ensure that the Inner itself has been loaded before calling SerializeItem() on it
-	Ar.Preload(Inner);
+	UnderlyingArchive.Preload(Inner);
 
 	FScriptArrayHelper ArrayHelper(this, Value);
 	int32		n		= ArrayHelper.Num();
-	Ar << n;
-	if( Ar.IsLoading() )
+	Record << NAMED_ITEM("Count", n);
+	if( UnderlyingArchive.IsLoading() )
 	{
 		// If using a custom property list, don't empty the array on load. Not all indices may have been serialized, so we need to preserve existing values at those slots.
-		if (Ar.ArUseCustomPropertyList)
+		if (UnderlyingArchive.ArUseCustomPropertyList)
 		{
 			const int32 OldNum = ArrayHelper.Num();
 			if (n > OldNum)
@@ -87,21 +90,21 @@ void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defau
 			ArrayHelper.EmptyAndAddValues(n);
 		}
 	}
-	ArrayHelper.CountBytes( Ar );
+	ArrayHelper.CountBytes( UnderlyingArchive );
 
 	// Serialize a PropertyTag for the inner property of this array, allows us to validate the inner struct to see if it has changed
-	FPropertyTag InnerTag(Ar, Inner, 0, (uint8*)Value, (uint8*)Defaults);
-	if (Ar.UE4Ver() >= VER_UE4_INNER_ARRAY_TAG_INFO && InnerTag.Type == NAME_StructProperty)
+	FPropertyTag InnerTag(UnderlyingArchive, Inner, 0, (uint8*)Value, (uint8*)Defaults);
+	if (UnderlyingArchive.UE4Ver() >= VER_UE4_INNER_ARRAY_TAG_INFO && InnerTag.Type == NAME_StructProperty)
 	{
-		if (Ar.IsSaving())
+		if (UnderlyingArchive.IsSaving())
 		{
-			Ar << InnerTag;
+			Record << NAMED_FIELD(InnerTag);
 		}
-		else if (Ar.IsLoading())
+		else if (UnderlyingArchive.IsLoading())
 		{
-			Ar << InnerTag;
+			Record << NAMED_FIELD(InnerTag);
 
-			auto CanSerializeFromStructWithDifferentName = [](const FArchive& InAr, const FPropertyTag& PropertyTag, const UStructProperty* StructProperty)
+			auto CanSerializeFromStructWithDifferentName = [](const FPropertyTag& PropertyTag, const UStructProperty* StructProperty)
 			{
 				return PropertyTag.StructGuid.IsValid()
 					&& StructProperty 
@@ -120,10 +123,10 @@ void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defau
 			}
 
 			if (InnerTag.StructName != StructProperty->Struct->GetFName()
-				&& !CanSerializeFromStructWithDifferentName(Ar, InnerTag, StructProperty))
+				&& !CanSerializeFromStructWithDifferentName(InnerTag, StructProperty))
 			{
 				UE_LOG(LogClass, Warning, TEXT("Property %s of %s has a struct type mismatch (tag %s != prop %s) in package:  %s. If that struct got renamed, add an entry to ActiveStructRedirects."),
-					*InnerTag.Name.ToString(), *GetName(), *InnerTag.StructName.ToString(), *CastChecked<UStructProperty>(Inner)->Struct->GetName(), *Ar.GetArchiveName());
+					*InnerTag.Name.ToString(), *GetName(), *InnerTag.StructName.ToString(), *CastChecked<UStructProperty>(Inner)->Struct->GetName(), *UnderlyingArchive.GetArchiveName());
 
 #if WITH_EDITOR
 				// Ensure the structure is initialized
@@ -133,13 +136,16 @@ void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defau
 				}
 #endif // WITH_EDITOR
 
-				// Skip the property
-				const int64 StartOfProperty = Ar.Tell();
-				const int64 RemainingSize = InnerTag.Size - (Ar.Tell() - StartOfProperty);
-				uint8 B;
-				for (int64 i = 0; i < RemainingSize; i++)
+				if (!UnderlyingArchive.IsTextFormat())
 				{
-					Ar << B;
+					// Skip the property
+					const int64 StartOfProperty = UnderlyingArchive.Tell();
+					const int64 RemainingSize = InnerTag.Size - (UnderlyingArchive.Tell() - StartOfProperty);
+					uint8 B;
+					for (int64 i = 0; i < RemainingSize; i++)
+					{
+						UnderlyingArchive << B;
+					}
 				}
 				return;
 			}
@@ -147,20 +153,22 @@ void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defau
 	}
 
 	// need to know how much data this call to SerializeItem consumes, so mark where we are
-	int64 DataOffset = Ar.Tell();
+	int64 DataOffset = UnderlyingArchive.Tell();
+
+	FStructuredArchive::FStream ValueStream = Record.EnterField(FIELD_NAME_TEXT("Values")).EnterStream();
 
 	// If we're using a custom property list, first serialize any explicit indices
 	int32 i = 0;
 	bool bSerializeRemainingItems = true;
-	bool bUsingCustomPropertyList = Ar.ArUseCustomPropertyList;
-	if (bUsingCustomPropertyList && Ar.ArCustomPropertyList != nullptr)
+	bool bUsingCustomPropertyList = UnderlyingArchive.ArUseCustomPropertyList;
+	if (bUsingCustomPropertyList && UnderlyingArchive.ArCustomPropertyList != nullptr)
 	{
 		// Initially we only serialize indices that are explicitly specified (in order)
 		bSerializeRemainingItems = false;
 
-		const FCustomPropertyListNode* CustomPropertyList = Ar.ArCustomPropertyList;
+		const FCustomPropertyListNode* CustomPropertyList = UnderlyingArchive.ArCustomPropertyList;
 		const FCustomPropertyListNode* PropertyNode = CustomPropertyList;
-		FSerializedPropertyScope SerializedProperty(Ar, Inner, this);
+		FSerializedPropertyScope SerializedProperty(UnderlyingArchive, Inner, this);
 		while (PropertyNode && i < n && !bSerializeRemainingItems)
 		{
 			if (PropertyNode->Property != Inner)
@@ -179,15 +187,15 @@ void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defau
 				FCustomPropertyListNode ItemNode = *PropertyNode;
 				ItemNode.ArrayIndex = 0;
 				ItemNode.PropertyListNext = nullptr;
-				Ar.ArCustomPropertyList = &ItemNode;
+				UnderlyingArchive.ArCustomPropertyList = &ItemNode;
 
 				// Serialize the item at this array index
 				i = PropertyNode->ArrayIndex;
-				Inner->SerializeItem(Ar, ArrayHelper.GetRawPtr(i));
+				Inner->SerializeItem(ValueStream.EnterElement(), ArrayHelper.GetRawPtr(i));
 				PropertyNode = PropertyNode->PropertyListNext;
 
 				// Restore the current property list
-				Ar.ArCustomPropertyList = CustomPropertyList;
+				UnderlyingArchive.ArCustomPropertyList = CustomPropertyList;
 			}
 		}
 	}
@@ -195,41 +203,41 @@ void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defau
 	if (bSerializeRemainingItems)
 	{
 		// Temporarily suspend the custom property list (as we need these items to be serialized in full)
-		Ar.ArUseCustomPropertyList = false;
+		UnderlyingArchive.ArUseCustomPropertyList = false;
 
 		// Serialize each item until we get to the end of the array
-		FSerializedPropertyScope SerializedProperty(Ar, Inner, this);
+		FSerializedPropertyScope SerializedProperty(UnderlyingArchive, Inner, this);
 		while (i < n)
 		{
 #if WITH_EDITOR
 			static const FName NAME_UArraySerialize = FName(TEXT("UArrayProperty::Serialize"));
 			FName NAME_UArraySerializeCount = FName(NAME_UArraySerialize);
 			NAME_UArraySerializeCount.SetNumber(i);
-			FArchive::FScopeAddDebugData P(Ar, NAME_UArraySerializeCount);
+			FArchive::FScopeAddDebugData P(UnderlyingArchive, NAME_UArraySerializeCount);
 #endif
-			Inner->SerializeItem(Ar, ArrayHelper.GetRawPtr(i++));
+			Inner->SerializeItem(ValueStream.EnterElement(), ArrayHelper.GetRawPtr(i++));
 		}
 
 		// Restore use of the custom property list (if it was previously enabled)
-		Ar.ArUseCustomPropertyList = bUsingCustomPropertyList;
+		UnderlyingArchive.ArUseCustomPropertyList = bUsingCustomPropertyList;
 	}
 
-	if (Ar.UE4Ver() >= VER_UE4_INNER_ARRAY_TAG_INFO && Ar.IsSaving() && InnerTag.Type == NAME_StructProperty)
+	if (UnderlyingArchive.UE4Ver() >= VER_UE4_INNER_ARRAY_TAG_INFO && UnderlyingArchive.IsSaving() && InnerTag.Type == NAME_StructProperty && !UnderlyingArchive.IsTextFormat())
 	{
 		// set the tag's size
-		InnerTag.Size = Ar.Tell() - DataOffset;
+		InnerTag.Size = UnderlyingArchive.Tell() - DataOffset;
 
 		if (InnerTag.Size > 0)
 		{
 			// mark our current location
-			DataOffset = Ar.Tell();
+			DataOffset = UnderlyingArchive.Tell();
 
 			// go back and re-serialize the size now that we know it
-			Ar.Seek(InnerTag.SizeOffset);
-			Ar << InnerTag.Size;
+			UnderlyingArchive.Seek(InnerTag.SizeOffset);
+			UnderlyingArchive << InnerTag.Size;
 
 			// return to the current location
-			Ar.Seek(DataOffset);
+			UnderlyingArchive.Seek(DataOffset);
 		}
 	}
 }
@@ -530,7 +538,7 @@ bool UArrayProperty::SameType(const UProperty* Other) const
 	return Super::SameType(Other) && Inner && Inner->SameType(((UArrayProperty*)Other)->Inner);
 }
 
-EConvertFromTypeResult UArrayProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UArrayProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	// TODO: The ArrayProperty Tag really doesn't have adequate information for
 	// many types. This should probably all be moved in to ::SerializeItem
@@ -539,8 +547,10 @@ EConvertFromTypeResult UArrayProperty::ConvertFromType(const FPropertyTag& Tag, 
 	{
 		void* ArrayPropertyData = ContainerPtrToValuePtr<void>(Data);
 
+		FStructuredArchive::FRecord ArrayRecord = Slot.EnterRecord();
+
 		int32 ElementCount = 0;
-		Ar << ElementCount;
+		ArrayRecord << NAMED_ITEM("Count", ElementCount);
 
 		FScriptArrayHelper ScriptArrayHelper(this, ArrayPropertyData);
 		ScriptArrayHelper.EmptyAndAddValues(ElementCount);
@@ -552,11 +562,13 @@ EConvertFromTypeResult UArrayProperty::ConvertFromType(const FPropertyTag& Tag, 
 			InnerPropertyTag.Type = Tag.InnerType;
 			InnerPropertyTag.ArrayIndex = 0;
 
-			if (Inner->ConvertFromType(InnerPropertyTag, Ar, ScriptArrayHelper.GetRawPtr(0), DefaultsStruct) == EConvertFromTypeResult::Converted)
+			FStructuredArchive::FStream ValueStream = ArrayRecord.EnterField(FIELD_NAME_TEXT("Value")).EnterStream();
+
+			if (Inner->ConvertFromType(InnerPropertyTag, ValueStream.EnterElement(), ScriptArrayHelper.GetRawPtr(0), DefaultsStruct) == EConvertFromTypeResult::Converted)
 			{
 				for (int32 i = 1; i < ElementCount; ++i)
 				{
-					verify(Inner->ConvertFromType(InnerPropertyTag, Ar, ScriptArrayHelper.GetRawPtr(i), DefaultsStruct) == EConvertFromTypeResult::Converted);
+					verify(Inner->ConvertFromType(InnerPropertyTag, ValueStream.EnterElement(), ScriptArrayHelper.GetRawPtr(i), DefaultsStruct) == EConvertFromTypeResult::Converted);
 				}
 
 				return EConvertFromTypeResult::Converted;
@@ -564,7 +576,7 @@ EConvertFromTypeResult UArrayProperty::ConvertFromType(const FPropertyTag& Tag, 
 			// TODO: Implement SerializeFromMismatchedTag handling for arrays of structs
 			else
 			{
-				UE_LOG(LogClass, Warning, TEXT("Array Inner Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.InnerType.ToString(), *Inner->GetID().ToString(), *Ar.GetArchiveName() );
+				UE_LOG(LogClass, Warning, TEXT("Array Inner Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.InnerType.ToString(), *Inner->GetID().ToString(), *Slot.GetUnderlyingArchive().GetArchiveName() );
 				return EConvertFromTypeResult::CannotConvert;
 			}
 		}

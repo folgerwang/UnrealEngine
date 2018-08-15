@@ -16,6 +16,14 @@ namespace Tools.DotNETCommon
 	public class FileReference : FileSystemReference, IEquatable<FileReference>
 	{
 		/// <summary>
+		/// Dummy enum to allow invoking the constructor which takes a sanitized full path
+		/// </summary>
+		public enum Sanitize
+		{
+			None
+		}
+
+		/// <summary>
 		/// Default constructor.
 		/// </summary>
 		/// <param name="InPath">Path to this file</param>
@@ -40,8 +48,10 @@ namespace Tools.DotNETCommon
 		/// <summary>
 		/// Default constructor.
 		/// </summary>
-		protected FileReference(string InFullName, string InCanonicalName)
-			: base(InFullName, InCanonicalName)
+		/// <param name="InFullName">The full sanitized path</param>
+		/// <param name="InSanitize">Dummary argument to use the sanitized overload</param>
+		public FileReference(string InFullName, Sanitize InSanitize)
+			: base(InFullName)
 		{
 		}
 
@@ -99,7 +109,7 @@ namespace Tools.DotNETCommon
 		public FileReference ChangeExtension(string Extension)
 		{
 			string NewFullName = Path.ChangeExtension(FullName, Extension);
-			return new FileReference(NewFullName, NewFullName.ToLowerInvariant());
+			return new FileReference(NewFullName, Sanitize.None);
 		}
 
 		/// <summary>
@@ -120,7 +130,7 @@ namespace Tools.DotNETCommon
 		public static FileReference Combine(DirectoryReference BaseDirectory, params string[] Fragments)
 		{
 			string FullName = FileSystemReference.CombineStrings(BaseDirectory, Fragments);
-			return new FileReference(FullName, FullName.ToLowerInvariant());
+			return new FileReference(FullName, Sanitize.None);
 		}
 
 		/// <summary>
@@ -131,7 +141,7 @@ namespace Tools.DotNETCommon
 		/// <returns>The new file reference</returns>
 		public static FileReference operator +(FileReference A, string B)
 		{
-			return new FileReference(A.FullName + B, A.CanonicalName + B.ToLowerInvariant());
+			return new FileReference(A.FullName + B, Sanitize.None);
 		}
 
 		/// <summary>
@@ -148,7 +158,7 @@ namespace Tools.DotNETCommon
 			}
 			else
 			{
-				return (object)B != null && A.CanonicalName == B.CanonicalName;
+				return (object)B != null && A.FullName.Equals(B.FullName, Comparison);
 			}
 		}
 
@@ -189,7 +199,7 @@ namespace Tools.DotNETCommon
 		/// <returns></returns>
 		public override int GetHashCode()
 		{
-			return CanonicalName.GetHashCode();
+			return Comparer.GetHashCode(FullName);
 		}
 
 		/// <summary>
@@ -200,17 +210,7 @@ namespace Tools.DotNETCommon
 		/// <returns>New file reference</returns>
 		public static FileReference MakeRemote(string AbsolutePath)
 		{
-			return new FileReference(AbsolutePath, AbsolutePath.ToLowerInvariant());
-		}
-
-		/// <summary>
-		/// Helper function to create a file reference from a raw platform path. The path provided *MUST* be exactly the same as that returned by Path.GetFullPath(). 
-		/// </summary>
-		/// <param name="AbsolutePath">The absolute path in the file system</param>
-		/// <returns>New file reference</returns>
-		public static FileReference MakeFromNormalizedFullPath(string AbsolutePath)
-		{
-			return new FileReference(AbsolutePath, AbsolutePath.ToLowerInvariant());
+			return new FileReference(AbsolutePath, Sanitize.None);
 		}
 
 		/// <summary>
@@ -560,7 +560,7 @@ namespace Tools.DotNETCommon
 		public static FileReference ReadFileReference(this BinaryReader Reader)
 		{
 			string FullName = Reader.ReadString();
-			return (FullName.Length == 0) ? null : FileReference.MakeFromNormalizedFullPath(FullName);
+			return (FullName.Length == 0) ? null : new FileReference(FullName, FileReference.Sanitize.None);
 		}
 
 		/// <summary>

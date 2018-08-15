@@ -88,6 +88,11 @@ public:
     /// a non-empty typeName.
     static const bool IsConcrete = false;
 
+    /// Compile-time constant indicating whether or not this class inherits from
+    /// UsdTyped. Types which inherit from UsdTyped can impart a typename on a
+    /// UsdPrim.
+    static const bool IsTyped = true;
+
     /// Construct a UsdGeomBoundable on UsdPrim \p prim .
     /// Equivalent to UsdGeomBoundable::Get(prim.GetStage(), prim.GetPath())
     /// for a \em valid \p prim, but will not immediately throw an error for
@@ -203,6 +208,14 @@ public:
     USDGEOM_API
     static bool ComputeExtentFromPlugins(const UsdGeomBoundable &boundable,
                                          const UsdTimeCode &time,
+                                         VtVec3fArray *extent);
+
+    /// \overload
+    /// Computes the extent as if the matrix \p transform was first applied.
+    USDGEOM_API
+    static bool ComputeExtentFromPlugins(const UsdGeomBoundable &boundable,
+                                         const UsdTimeCode &time,
+                                         const GfMatrix4d &transform,
                                          VtVec3fArray *extent);
 
 };

@@ -68,7 +68,7 @@ namespace BuildGraph.Tasks
 			// Print the message
 			if(!String.IsNullOrEmpty(Parameters.Message))
 			{
-				CommandUtils.Log(Parameters.Message);
+				CommandUtils.LogInformation(Parameters.Message);
 			}
 
 			// Print the contents of the given tag, if specified
@@ -77,12 +77,12 @@ namespace BuildGraph.Tasks
 				HashSet<FileReference> Files = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet);
 				foreach(FileReference File in Files.OrderBy(x => x.FullName))
 				{
-					CommandUtils.Log("  {0}", File.FullName);
+					CommandUtils.LogInformation("  {0}", File.FullName);
 					if(Parameters.IncludeContents)
 					{
 						foreach(string Line in System.IO.File.ReadAllLines(File.FullName))
 						{
-							CommandUtils.Log("    {0}", Line);
+							CommandUtils.LogInformation("    {0}", Line);
 						}
 					}
 				}

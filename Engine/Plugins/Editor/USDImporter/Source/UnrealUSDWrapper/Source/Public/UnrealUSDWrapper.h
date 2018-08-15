@@ -286,6 +286,8 @@ public:
 	virtual ~IUsdStage() {}
 	virtual EUsdUpAxis GetUpAxis() const = 0;
 	virtual IUsdPrim* GetRootPrim() = 0;
+	virtual void ResetGetPrimAtPathLookup() = 0;
+	virtual IUsdPrim* GetPrimAtPath(const std::string& InPath) = 0;
 	virtual bool HasAuthoredTimeCodeRange() const = 0;
 	virtual double GetStartTimeCode() const = 0;
 	virtual double GetEndTimeCode() const = 0;

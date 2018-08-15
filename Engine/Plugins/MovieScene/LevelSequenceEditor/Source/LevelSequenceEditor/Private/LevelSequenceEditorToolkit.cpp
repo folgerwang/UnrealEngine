@@ -59,6 +59,7 @@
 // To override Sequencer editor behavior for VR Editor 
 #include "EditorWorldExtension.h"
 #include "VREditorMode.h"
+#include "VRModeSettings.h"
 
 
 #define LOCTEXT_NAMESPACE "LevelSequenceEditor"
@@ -292,9 +293,12 @@ void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, cons
 			VRMode->OnVREditingModeExit_Handler.BindSP(this, &FLevelSequenceEditorToolkit::HandleVREditorModeExit);
 			USequencerSettings& SavedSequencerSettings = *Sequencer->GetSequencerSettings();
 			VRMode->SaveSequencerSettings(Sequencer->GetKeyGroupMode() == EKeyGroupMode::KeyAll, Sequencer->GetAutoChangeMode(), SavedSequencerSettings);
-			// Override currently set auto-change behavior to always autokey
-			Sequencer->SetAutoChangeMode(EAutoChangeMode::All);
-			Sequencer->SetKeyGroupMode(EKeyGroupMode::KeyAll);
+			if (GetDefault<UVRModeSettings>()->bAutokeySequences)
+			{
+				// Override currently set auto-change behavior to always autokey
+				Sequencer->SetAutoChangeMode(EAutoChangeMode::All);
+				Sequencer->SetKeyGroupMode(EKeyGroupMode::KeyAll);
+			}
 			// Tell the VR Editor mode that Sequencer has refreshed
 			VRMode->RefreshVREditorSequencer(Sequencer.Get());
 		}
@@ -614,6 +618,11 @@ void FLevelSequenceEditorToolkit::HandleAddComponentMaterialActionExecute(UPrimi
 	FName IndexName( *FString::FromInt(MaterialIndex) );
 	if ( FocusedMovieScene->FindTrack( UMovieSceneComponentMaterialTrack::StaticClass(), ObjectHandle, IndexName ) == nullptr )
 	{
+		if (FocusedMovieScene->IsReadOnly())
+		{
+			return;
+		}
+
 		const FScopedTransaction Transaction( LOCTEXT( "AddComponentMaterialTrack", "Add component material track" ) );
 
 		FocusedMovieScene->Modify();

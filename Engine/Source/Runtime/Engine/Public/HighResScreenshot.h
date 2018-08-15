@@ -2,11 +2,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "HAL/ThreadSafeBool.h"
 
 class FSceneViewport;
 class IImageWrapper;
 class UMaterial;
+class FImageWriteTask;
+class IImageWriteQueue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogHighResScreenshot, Log, All);
 
@@ -32,10 +33,16 @@ struct ENGINE_API FHighResScreenshotConfig
 	UMaterial* HighResScreenshotMaskMaterial;
 	UMaterial* HighResScreenshotCaptureRegionMaterial;
 
+	/** Pointer to the image write queue to use for async image writes */
+	IImageWriteQueue* ImageWriteQueue;
+
 	FHighResScreenshotConfig();
 
-	/** Initialize the image wrapper modules (required for SaveImage) **/
-	void Init(uint32 NumAsyncWriters = 6);
+	/** Initialize the Image write queue necessary for asynchronously saving screenshots **/
+	void Init();
+
+	/** Populate the specified task with parameters from the current high-res screenshot request */
+	void PopulateImageTaskParams(FImageWriteTask& InOutTask);
 
 	/** Point the screenshot UI at a different viewport **/
 	void ChangeViewport(TWeakPtr<FSceneViewport> InViewport);
@@ -56,21 +63,6 @@ struct ENGINE_API FHighResScreenshotConfig
 
 	/** Configure taking a high res screenshot */
 	bool SetResolution(uint32 ResolutionX, uint32 ResolutionY, float ResolutionScale = 1.0f);
-
-	/** Save to image file **/
-	template<typename TPixelType>
-	ENGINE_API bool SaveImage(const FString& File, const TArray<TPixelType>& Bitmap, const FIntPoint& BitmapSize, FString* OutFilename = nullptr) const;
-
-private:
-	struct FImageWriter
-	{
-		FImageWriter(const TSharedPtr<class IImageWrapper>& InWrapper);
-
-		TSharedPtr<class IImageWrapper> ImageWrapper;
-		mutable FThreadSafeBool bInUse;
-	};
-	TArray<FImageWriter> ImageCompressorsLDR;
-	TArray<FImageWriter> ImageCompressorsHDR;
 };
 
 ENGINE_API FHighResScreenshotConfig& GetHighResScreenshotConfig();

@@ -29,8 +29,7 @@
 #include "pxr/usd/usd/editTarget.h"
 #include "pxr/base/tf/declarePtrs.h"
 
-#include <boost/noncopyable.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <utility>
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -65,8 +64,10 @@ TF_DECLARE_WEAK_PTRS(UsdStage);
 /// to either query or mutate it.  Using this class with a stage in such a way
 /// that it modifies the stage's EditTarget constitutes a mutation.
 ///
-class UsdEditContext : boost::noncopyable
+class UsdEditContext
 {
+    UsdEditContext(UsdEditContext const &) = delete;
+    UsdEditContext &operator=(UsdEditContext const &) = delete;
 public:
     /// Construct without modifying \a stage's current EditTarget.  Save
     /// \a stage's current EditTarget to restore on destruction.
@@ -103,25 +104,6 @@ private:
     // The stage's original EditTarget.
     UsdEditTarget _originalEditTarget;
 };
-
-// Utility class for returning UsdEditContexts to python.  For use in wrapping
-// code.
-struct UsdPyEditContext
-{
-    USD_API
-    explicit UsdPyEditContext(
-        const std::pair<UsdStagePtr, UsdEditTarget> &stageTarget);
-    USD_API
-    explicit UsdPyEditContext(const UsdStagePtr &stage,
-                              const UsdEditTarget &editTarget=UsdEditTarget());
-private:
-    friend struct Usd_PyEditContextAccess;
-
-    UsdStagePtr _stage;
-    UsdEditTarget _editTarget;
-    boost::shared_ptr<UsdEditContext> _editContext;
-};
-
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

@@ -8,6 +8,9 @@
 #include "Delegates/Delegate.h"
 #include "HAL/PlatformTime.h"
 #include "HAL/ThreadSingleton.h"
+#include "StatsCommon.h"
+#include "ProfilingDebugging/UMemoryDefines.h"
+#include "Stats/Stats2.h"
 
 /** 
  *	Unreal Engine Stats system
@@ -289,16 +292,6 @@
  *				}
  */
 
-#define FORCEINLINE_STATS FORCEINLINE
-//#define FORCEINLINE_STATS FORCEINLINE_DEBUGGABLE
-#define checkStats(x)
-
-#if !defined(STATS)
-#error "STATS must be defined as either zero or one."
-#endif
-
-#include "ProfilingDebugging/UMemoryDefines.h"
-
 struct TStatId;
 
 // used by the profiler
@@ -322,8 +315,6 @@ enum EStatType
 #else
 	#define STAT(x)
 #endif
-
-#include "Stats/Stats2.h"
 
 #if STATS
 

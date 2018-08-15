@@ -640,23 +640,6 @@ bool UCookCommandlet::CookByTheBook( const TArray<ITargetPlatform*>& Platforms, 
 	CookFlags |= Switches.Contains(TEXT("IgnoreIniSettingsOutOfDate")) || CookerSettings->bIgnoreIniSettingsOutOfDateForIteration ? ECookInitializationFlags::IgnoreIniSettingsOutOfDate : ECookInitializationFlags::None;
 	CookFlags |= Switches.Contains(TEXT("IgnoreScriptPackagesOutOfDate")) || CookerSettings->bIgnoreScriptPackagesOutOfDateForIteration ? ECookInitializationFlags::IgnoreScriptPackagesOutOfDate : ECookInitializationFlags::None;
 
-	TArray<UClass*> FullGCAssetClasses;
-	if (FullGCAssetClassNames.Num())
-	{
-		for (const auto& ClassName : FullGCAssetClassNames)
-		{
-			UClass* ClassToForceFullGC = FindObject<UClass>(nullptr, *ClassName);
-			if (ClassToForceFullGC)
-			{
-				FullGCAssetClasses.Add(ClassToForceFullGC);
-			}
-			else
-			{
-				UE_LOG(LogCookCommandlet, Warning, TEXT("Configured to force full GC for assets of type (%s) but that class does not exist."), *ClassName);
-			}
-		}
-	}
-
 	//////////////////////////////////////////////////////////////////////////
 	// parse commandline options 
 
@@ -665,12 +648,6 @@ bool UCookCommandlet::CookByTheBook( const TArray<ITargetPlatform*>& Platforms, 
 
 	FString ChildCookFile;
 	FParse::Value(*Params, TEXT("cookchild="), ChildCookFile);
-
-	int32 ChildCookIdentifier = -1;
-	FParse::Value(*Params, TEXT("childIdentifier="), ChildCookIdentifier);
-
-	int32 NumProcesses = 0;
-	FParse::Value(*Params, TEXT("numcookerstospawn="), NumProcesses);
 
 	FString BasedOnReleaseVersion;
 	FParse::Value( *Params, TEXT("BasedOnReleaseVersion="), BasedOnReleaseVersion);
@@ -746,12 +723,6 @@ bool UCookCommandlet::CookByTheBook( const TArray<ITargetPlatform*>& Platforms, 
 	}
 
 	CookOnTheFlyServer->Initialize(ECookMode::CookByTheBook, CookFlags, OutputDirectoryOverride);
-
-	// for backwards compat use the FullGCAssetClasses that we got from the cook commandlet ini section
-	if (FullGCAssetClasses.Num() > 0)
-	{
-		CookOnTheFlyServer->SetFullGCAssetClasses(FullGCAssetClasses);
-	}
 
 	// Add any map sections specified on command line
 	TArray<FString> AlwaysCookMapList;
@@ -859,9 +830,6 @@ bool UCookCommandlet::CookByTheBook( const TArray<ITargetPlatform*>& Platforms, 
 	StartupOptions.bErrorOnEngineContentUse = bErrorOnEngineContentUse;
 	StartupOptions.bGenerateDependenciesForMaps = Switches.Contains(TEXT("GenerateDependenciesForMaps"));
 	StartupOptions.bGenerateStreamingInstallManifests = bGenerateStreamingInstallManifests;
-	StartupOptions.ChildCookFileName = ChildCookFile;
-	StartupOptions.ChildCookIdentifier = ChildCookIdentifier;
-	StartupOptions.NumProcesses = NumProcesses;
 
 	COOK_STAT(
 	{

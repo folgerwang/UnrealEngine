@@ -2,7 +2,7 @@
 
 #pragma once 
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
 #include "Misc/Guid.h"
 
 /** Version information for compiled LocMeta (Localization MetaData Resource) and LocRes (Localization Resource) files */

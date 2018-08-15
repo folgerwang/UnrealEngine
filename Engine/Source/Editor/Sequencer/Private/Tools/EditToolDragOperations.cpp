@@ -617,9 +617,16 @@ FMoveKeysAndSections::FMoveKeysAndSections(FSequencer& InSequencer, const TSet<F
 	: FEditToolDragOperation(InSequencer)
 	, bHotspotWasSection(InbHotspotWasSection)
 {
-	// Keys are always movable so we simply pass the selected set on to be tracked
-	Keys = InSelectedKeys;
-	KeysAsArray = InSelectedKeys.Array();
+	// Filter out the keys on sections that are read only
+	for (auto SelectedKey : InSelectedKeys)
+	{
+		if (!SelectedKey.Section->IsReadOnly())
+		{
+			Keys.Add(SelectedKey);
+		}
+	}
+
+	KeysAsArray = Keys.Array();
 
 	// However, we don't want infinite sections to be movable, so we discard them from our selection.
 	// We support partially infinite (infinite on one side) sections however.
@@ -642,7 +649,7 @@ FMoveKeysAndSections::~FMoveKeysAndSections()
 }
 
 void FMoveKeysAndSections::OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea)
-	{
+{
 	// Early out if we've somehow started a drag operation without any sections or keys. This prevents an empty Undo/Redo Transaction from being created.
 	if (!Sections.Num() && !Keys.Num())
 	{

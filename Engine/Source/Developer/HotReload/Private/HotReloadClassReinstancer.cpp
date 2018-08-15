@@ -185,8 +185,7 @@ void FHotReloadClassReinstancer::SerializeCDOProperties(UObject* InObject, FHotR
 		}
 		FArchive& operator<<(FWeakObjectPtr& WeakObjectPtr) override
 		{
-			WeakObjectPtr.Serialize(*this);
-			return *this;
+			return FArchiveUObject::SerializeWeakObjectPtr(*this, WeakObjectPtr);
 		}
 		/** Archive name, for debugging */
 		virtual FString GetArchiveName() const override { return TEXT("FCDOWriter"); }
@@ -425,8 +424,7 @@ void FHotReloadClassReinstancer::UpdateDefaultProperties()
 		}
 		FArchive& operator<<(FWeakObjectPtr& WeakObjectPtr) override
 		{
-			WeakObjectPtr.Serialize(*this);
-			return *this;
+			return FArchiveUObject::SerializeWeakObjectPtr(*this, WeakObjectPtr);
 		}
 	};
 
@@ -510,7 +508,7 @@ void FHotReloadClassReinstancer::UpdateDefaultProperties()
 					// Serialize current value to a byte array as we don't have the previous CDO to compare against, we only have its serialized property data
 					CurrentValueSerializedData.Empty(CurrentValueSerializedData.Num() + CurrentValueSerializedData.GetSlack());
 					FPropertyValueMemoryWriter CurrentValueWriter(CurrentValueSerializedData);
-					PropertyToUpdate.Property->SerializeItem(CurrentValueWriter, InstanceValuePtr);
+					PropertyToUpdate.Property->SerializeItem(FStructuredArchiveFromArchive(CurrentValueWriter).GetSlot(), InstanceValuePtr);
 
 					// Update only when the current value on the instance is identical to the original CDO
 					if (CurrentValueSerializedData.Num() == PropertyToUpdate.OldSerializedSize &&

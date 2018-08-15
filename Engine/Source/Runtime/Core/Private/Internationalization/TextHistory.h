@@ -51,11 +51,11 @@ public:
 	/** Build the display string for the invariant culture */
 	virtual FString BuildInvariantDisplayString() const = 0;
 	
-	/** Serializes the history to/from an FArchive */
-	virtual void Serialize(FArchive& Ar) = 0;
+	/** Serializes the history to/from a structured archive slot */
+	virtual void Serialize(FStructuredArchive::FRecord Record) = 0;
 
 	/** Serializes data needed to get the FText's DisplayString */
-	virtual void SerializeForDisplayString(FArchive& Ar, FTextDisplayStringPtr& InOutDisplayString);
+	virtual void SerializeForDisplayString(FStructuredArchive::FRecord Record, FTextDisplayStringPtr& InOutDisplayString);
 
 	/** Returns TRUE if the Revision is out of date */
 	virtual bool IsOutOfDate() const;
@@ -103,8 +103,8 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::Base; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
-	virtual void SerializeForDisplayString(FArchive& Ar, FTextDisplayStringPtr& InOutDisplayString) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
+	virtual void SerializeForDisplayString(FStructuredArchive::FRecord Record, FTextDisplayStringPtr& InOutDisplayString) override;
 	virtual const FString* GetSourceString() const override;
 	//~ End FTextHistory Interface
 
@@ -137,7 +137,7 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::NamedFormat; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual void GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const override;
 	//~ End FTextHistory Interface
 
@@ -167,7 +167,7 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::OrderedFormat; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual void GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const override;
 	//~ End FTextHistory Interface
 
@@ -197,7 +197,7 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::ArgumentFormat; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual void GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const override;
 	//~ End FTextHistory Interface
 
@@ -224,7 +224,7 @@ public:
 	FTextHistory_FormatNumber& operator=(FTextHistory_FormatNumber&& Other);
 
 	//~ Begin FTextHistory Interface
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	//~ End FTextHistory interface
 
 protected:
@@ -259,7 +259,7 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsNumber; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual bool GetHistoricNumericData(const FText& InText, FHistoricTextNumericData& OutHistoricNumericData) const override;
 	//~ End FTextHistory interface
 
@@ -284,7 +284,7 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsPercent; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual bool GetHistoricNumericData(const FText& InText, FHistoricTextNumericData& OutHistoricNumericData) const override;
 	//~ End FTextHistory interface
 
@@ -309,7 +309,7 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsCurrency; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	//~ End FTextHistory Interface
 
 private:
@@ -336,7 +336,7 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsDate; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	//~ End FTextHistory Interface
 
 private:
@@ -369,7 +369,7 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsTime; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	//~ End FTextHistory Interface
 
 private:
@@ -402,7 +402,7 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::AsDateTime; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	//~ End FTextHistory Interfaces
 
 private:
@@ -445,7 +445,7 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::Transform; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual void GetHistoricFormatData(const FText& InText, TArray<FHistoricTextFormatData>& OutHistoricFormatData) const override;
 	virtual bool GetHistoricNumericData(const FText& InText, FHistoricTextNumericData& OutHistoricNumericData) const override;
 	//~ End FTextHistory Interfaces
@@ -476,8 +476,8 @@ public:
 	virtual ETextHistoryType GetType() const override { return ETextHistoryType::StringTableEntry; }
 	virtual FString BuildLocalizedDisplayString() const override;
 	virtual FString BuildInvariantDisplayString() const override;
-	virtual void Serialize(FArchive& Ar) override;
-	virtual void SerializeForDisplayString(FArchive& Ar, FTextDisplayStringPtr& InOutDisplayString) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
+	virtual void SerializeForDisplayString(FStructuredArchive::FRecord Record, FTextDisplayStringPtr& InOutDisplayString) override;
 	virtual const FString* GetSourceString() const override;
 	//~ End FTextHistory Interface
 

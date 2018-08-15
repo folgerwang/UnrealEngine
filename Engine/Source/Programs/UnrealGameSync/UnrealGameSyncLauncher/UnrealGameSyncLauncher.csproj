@@ -58,6 +58,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -68,20 +69,57 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="UpdateLogWindow.cs">
+    <Compile Include="..\UnrealGameSync\ChildProcess.cs">
+      <Link>Shared\ChildProcess.cs</Link>
+    </Compile>
+    <Compile Include="..\UnrealGameSync\Forms\ModalTaskWindow.cs">
+      <Link>UnrealGameSync\ModalTaskWindow.cs</Link>
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="UpdateLogWindow.Designer.cs">
-      <DependentUpon>UpdateLogWindow.cs</DependentUpon>
+    <Compile Include="..\UnrealGameSync\Forms\ModalTaskWindow.Designer.cs">
+      <Link>UnrealGameSync\ModalTaskWindow.Designer.cs</Link>
     </Compile>
+    <Compile Include="..\UnrealGameSync\Forms\PasswordWindow.cs">
+      <Link>UnrealGameSync\PasswordWindow.cs</Link>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="..\UnrealGameSync\Forms\PasswordWindow.Designer.cs">
+      <Link>UnrealGameSync\PasswordWindow.Designer.cs</Link>
+    </Compile>
+    <Compile Include="..\UnrealGameSync\ModalTask.cs">
+      <Link>Shared\ModalTask.cs</Link>
+    </Compile>
+    <Compile Include="..\UnrealGameSync\Perforce.cs">
+      <Link>Shared\Perforce.cs</Link>
+    </Compile>
+    <Compile Include="..\UnrealGameSync\PerforceModalTask.cs">
+      <Link>UnrealGameSync\PerforceModalTask.cs</Link>
+    </Compile>
+    <Compile Include="..\UnrealGameSync\Utility.cs">
+      <Link>Shared\Utility.cs</Link>
+    </Compile>
+    <Compile Include="Forms\LogWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\LogWindow.Designer.cs">
+      <DependentUpon>LogWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\SettingsWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\SettingsWindow.Designer.cs">
+      <DependentUpon>SettingsWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="SyncAndRunModalTask.cs" />
+    <Compile Include="SyncAndRunPerforceTask.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="UpdateErrorWindow.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="UpdateErrorWindow.Designer.cs">
-      <DependentUpon>UpdateErrorWindow.cs</DependentUpon>
-    </Compile>
+    <EmbeddedResource Include="Forms\LogWindow.resx">
+      <DependentUpon>LogWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\SettingsWindow.resx">
+      <DependentUpon>SettingsWindow.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
@@ -91,12 +129,6 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <EmbeddedResource Include="UpdateErrorWindow.resx">
-      <DependentUpon>UpdateErrorWindow.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UpdateLogWindow.resx">
-      <DependentUpon>UpdateLogWindow.cs</DependentUpon>
-    </EmbeddedResource>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -113,6 +145,7 @@
   <ItemGroup>
     <Content Include="Resources\Icon.ico" />
   </ItemGroup>
+  <ItemGroup />
   <Choose>
     <When Condition="Exists('NotForLicensees\ProgramSettings.cs')">
       <ItemGroup>

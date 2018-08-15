@@ -127,7 +127,7 @@ class AnalyzeThirdPartyLibs : BuildCommand
 
 	public override void ExecuteBuild()
 	{
-		Log("************************* Analyze Third Party Libs");
+		LogInformation("************************* Analyze Third Party Libs");
 
 		// figure out what batch/script to run
 		switch (UnrealBuildTool.BuildHostPlatform.Current.Platform)
@@ -194,19 +194,19 @@ class AnalyzeThirdPartyLibs : BuildCommand
 
 			long Size = Info.GetSize(Platforms);
 
-			Log("Library {0} is {1}", Lib, ToMegabytes(Size));
+			LogInformation("Library {0} is {1}", Lib, ToMegabytes(Size));
 
 			long Total = 0;
 			for (int Index = 0; Index < Platforms.Count; ++Index)
 			{
 				PlatformLibraryInfo Platform = Platforms[Index];
 				long Growth = Platform.TotalSize - LastSizes[Index];
-				Log("  {0} is {1}", Platform.PlatformName, ToMegabytes(Growth));
+				LogInformation("  {0} is {1}", Platform.PlatformName, ToMegabytes(Growth));
 
 				LastSizes[Index] = Platform.TotalSize;
 				Total += Growth;
 			}
-			Log("  Platform neutral is probably {0} (specific sum {1})", ToMegabytes(Size - Total), ToMegabytes(Total));
+			LogInformation("  Platform neutral is probably {0} (specific sum {1})", ToMegabytes(Size - Total), ToMegabytes(Total));
 
 			TotalSize += Size;
 		}
@@ -217,19 +217,19 @@ class AnalyzeThirdPartyLibs : BuildCommand
 		LargeFileExtensions.AddRange(new string[] { ".pdb", ".a", ".lib", ".dll", ".dylib", ".bc", ".so" });
 
 		// Hackery, look for big files (re-traverses everything)
-		Log("----");
+		LogInformation("----");
 		foreach (string Lib in LibsToEvaluate)
 		{
 			ThirdPartyLibraryInfo Info = new ThirdPartyLibraryInfo(Lib);
 			Info.FindLargeFiles(LargeFileExtensions, 1024 * 1024);
 		}
 
-		Log("----");
+		LogInformation("----");
 		foreach (var Platform in Platforms)
 		{
-			Log("  {0} is {1} (estimate)", Platform.PlatformName, ToMegabytes(Platform.TotalSize));
+			LogInformation("  {0} is {1} (estimate)", Platform.PlatformName, ToMegabytes(Platform.TotalSize));
 		}
-		Log("  OVERALL is {0} (accurate)", ToMegabytes(TotalSize));
+		LogInformation("  OVERALL is {0} (accurate)", ToMegabytes(TotalSize));
 
 		// undo the LibDir push
 		CommandUtils.PopDir();

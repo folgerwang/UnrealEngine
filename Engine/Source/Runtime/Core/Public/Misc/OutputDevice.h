@@ -107,7 +107,10 @@ namespace ELogTimes
 		SinceGStartTime,
 
 		// Display log timestamps in local time
-		Local
+		Local,
+
+		// Display log timestamps in timecode format
+		Timecode
 	};
 }
 

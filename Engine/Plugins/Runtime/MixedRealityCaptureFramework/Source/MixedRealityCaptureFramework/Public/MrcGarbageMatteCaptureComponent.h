@@ -7,8 +7,9 @@
 #include "MrcCalibrationData.h" // for FMrcGarbageMatteSaveData
 #include "MrcGarbageMatteCaptureComponent.generated.h"
 
-class AMrcGarbageMatteActor;
 class UMrcCalibrationData;
+class UMrcFocalDriver;
+class AMrcGarbageMatteActor;
 
 /**
  *	
@@ -21,6 +22,7 @@ class MIXEDREALITYCAPTUREFRAMEWORK_API UMrcGarbageMatteCaptureComponent : public
 public:
 	//~ UActorComponent interface
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
 public:
 	//~ USceneCaptureComponent interface
@@ -39,11 +41,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MixedRealityCapture|GarbageMatting")
 	void GetGarbageMatteData(TArray<FMrcGarbageMatteSaveData>& GarbageMatteDataOut);
 
+	UFUNCTION(BlueprintCallable, Category = "MixedRealityCapture|GarbageMatting")
+	void SetFocalDriver(TScriptInterface<IMrcFocalDriver> InFocalDriver);
+
 	UFUNCTION(BlueprintNativeEvent, Category = "MixedRealityCapture|GarbageMatting")
 	AMrcGarbageMatteActor* SpawnNewGarbageMatteActor(USceneComponent* TrackingOrigin);
 
 private:
 	void CleanupSpawnedActors();
+
+	void PollFocalDriver();
 
 private:
 	UPROPERTY(Transient, Config)
@@ -57,6 +64,9 @@ private:
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<USceneComponent> TrackingOriginPtr;
+	
+	UPROPERTY(Transient)
+	TScriptInterface<IMrcFocalDriver> FocalDriver;
 };
 
 /* AMrcGarbageMatteActor

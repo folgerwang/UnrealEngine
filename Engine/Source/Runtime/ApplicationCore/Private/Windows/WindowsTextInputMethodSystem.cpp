@@ -434,11 +434,20 @@ bool FWindowsTextInputMethodSystem::InitializeTSF()
 
 		TSFActivationProxy = new FTSFActivationProxy(this);
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
 #pragma warning(push)
-#pragma warning(disable : 4996) // 'function' was was declared deprecated
+#pragma warning(disable : 4996) // 'function' was declared deprecated
+#endif
 		CA_SUPPRESS(28159)
 		const DWORD WindowsVersion = ::GetVersion();
+#ifdef __clang__
+#pragma clang diagnostic pop
+#else
 #pragma warning(pop)
+#endif
 
 		const DWORD WindowsMajorVersion = LOBYTE(LOWORD(WindowsVersion));
 		const DWORD WindowsMinorVersion = HIBYTE(LOWORD(WindowsVersion));

@@ -10,28 +10,17 @@ public class IntelTBB : ModuleRules
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Win32))
 		{
-			string IntelTBBPath = Target.UEThirdPartySourceDirectory + "IntelTBB/";
-			switch (Target.WindowsPlatform.Compiler)
-			{
-				case WindowsCompiler.VisualStudio2017:
-				case WindowsCompiler.VisualStudio2015: IntelTBBPath += "IntelTBB-4.4u3/"; break;
-			}
+			string IntelTBBPath = Target.UEThirdPartySourceDirectory + "IntelTBB/IntelTBB-4.4u3/";
 
 			PublicSystemIncludePaths.Add(IntelTBBPath + "Include");
 
 			if (Target.Platform == UnrealTargetPlatform.Win64)
 			{
-				if (Target.WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 || Target.WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2017)
-				{
-					PublicLibraryPaths.Add(IntelTBBPath + "lib/Win64/vc14");
-				}
+				PublicLibraryPaths.Add(IntelTBBPath + "lib/Win64/vc14");
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Win32)
 			{
-				if (Target.WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2015 || Target.WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2017)
-				{
-					PublicLibraryPaths.Add(IntelTBBPath + "lib/Win32/vc14");
-				}
+				PublicLibraryPaths.Add(IntelTBBPath + "lib/Win32/vc14");
 			}
 
 			// Disable the #pragma comment(lib, ...) used by default in MallocTBB...

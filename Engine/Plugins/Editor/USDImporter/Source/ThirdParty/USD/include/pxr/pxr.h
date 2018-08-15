@@ -27,25 +27,22 @@
 /// \file pxr/pxr.h
 
 #define PXR_MAJOR_VERSION 0
-#define PXR_MINOR_VERSION 7
+#define PXR_MINOR_VERSION 8
 #define PXR_PATCH_VERSION 5
 
-#define PXR_VERSION 075
+#define PXR_VERSION 085
 
 #define PXR_USE_NAMESPACES 1
 
 #if PXR_USE_NAMESPACES
 
 #define PXR_NS pxr
-#define PXR_INTERNAL_NS pxrInternal_v0_7__pxrReserved__
+#define PXR_INTERNAL_NS pxrInternal_v0_8__pxrReserved__
 #define PXR_NS_GLOBAL ::PXR_NS
 
 namespace PXR_INTERNAL_NS { }
 
-/// \namespace pxr 
-///
-/// The root level namespace for all source in the USD distribution.
-///
+// The root level namespace for all source in the USD distribution.
 namespace PXR_NS {
     using namespace PXR_INTERNAL_NS;
 }
@@ -63,5 +60,9 @@ namespace PXR_NS {
 #define PXR_NAMESPACE_USING_DIRECTIVE
 
 #endif // PXR_USE_NAMESPACES
+
+#if 1
+#define PXR_PYTHON_SUPPORT_ENABLED
+#endif
 
 #endif //PXR_H

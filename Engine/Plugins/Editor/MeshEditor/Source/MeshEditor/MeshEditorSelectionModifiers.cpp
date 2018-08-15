@@ -4,6 +4,7 @@
 
 #include "EditableMesh.h"
 #include "IMeshEditorModeUIContract.h"
+#include "MeshAttributes.h"
 #include "MeshEditorStyle.h"
 #include "UObject/UObjectIterator.h"
 
@@ -182,6 +183,84 @@ bool USelectPolygonsByConnectivity::ModifySelection( TMap< UEditableMesh*, TArra
 void USelectPolygonsByConnectivity::RegisterUICommand( FBindingContext* BindingContext )
 {
 	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "PolygonsByConnectivity", "Element", "", EUserInterfaceActionType::RadioButton, FInputChord() );
+}
+
+bool USelectPolygonsBySmoothingGroup::ModifySelection(TMap< UEditableMesh*, TArray< FMeshElement > >& InOutSelection)
+{
+	if (InOutSelection.Num() == 0)
+	{
+		return false;
+	}
+
+	TMap< UEditableMesh*, TArray< FMeshElement > > MeshElementsToSelect;
+
+	for (const auto& MeshAndPolygons : InOutSelection)
+	{
+		UEditableMesh* EditableMesh = MeshAndPolygons.Key;
+		FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+		TArray< FMeshElement >& SelectedMeshElements = MeshElementsToSelect.Add(EditableMesh);
+
+		const TArray<FMeshElement>& Polygons = MeshAndPolygons.Value;
+
+		TSet< FPolygonID > CheckedPolygons;		// set of polygons that have already been checked
+
+		const TEdgeAttributeArray<bool>& EdgeHardnesses = EditableMesh->GetMeshDescription()->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
+		for (const FMeshElement& PolygonElement : Polygons)
+		{
+			FPolygonID PolygonID(PolygonElement.ElementAddress.ElementID);
+
+			TSet< FPolygonID > ConnectedPolygons;	// set of adjacent polygons that share the same smoothing group
+			TSet< FPolygonID > PolygonsToCheck;		// set of polygons to check for same smoothing group
+
+			ConnectedPolygons.Add(PolygonID);
+			PolygonsToCheck.Add(PolygonID);
+
+			while (PolygonsToCheck.Num() > 0)
+			{
+				const FPolygonID PolygonIDToCheck = *PolygonsToCheck.CreateConstIterator();
+
+				// For each polygon, check its neighboring polygons if they share a soft edge (different smoothing groups are delimited by hard edges)
+				PolygonsToCheck.Remove(PolygonIDToCheck);
+				if (!CheckedPolygons.Contains(PolygonIDToCheck))
+				{
+					CheckedPolygons.Add(PolygonIDToCheck);
+
+					TArray<FEdgeID> PolygonEdges;
+					EditableMesh->GetPolygonPerimeterEdges(PolygonIDToCheck, PolygonEdges);
+
+					for (const FEdgeID& EdgeID : PolygonEdges)
+					{
+						if (!EdgeHardnesses[EdgeID])
+						{
+							const FMeshEdge& Edge = MeshDescription->GetEdge(EdgeID);
+							for (const FPolygonID& ConnectedPolygonID : Edge.ConnectedPolygons)
+							{
+								if (!CheckedPolygons.Contains(ConnectedPolygonID))
+								{
+									PolygonsToCheck.Add(ConnectedPolygonID);
+									ConnectedPolygons.Add(ConnectedPolygonID);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			for (const FPolygonID& ConnectedPolygonID : ConnectedPolygons)
+			{
+				SelectedMeshElements.Emplace(PolygonElement.Component.Get(), EditableMesh->GetSubMeshAddress(), ConnectedPolygonID);
+			}
+		}
+	}
+
+	InOutSelection = MeshElementsToSelect;
+
+	return true;
+}
+
+void USelectPolygonsBySmoothingGroup::RegisterUICommand(FBindingContext* BindingContext)
+{
+	UI_COMMAND_EXT(BindingContext, /* Out */ UICommandInfo, "PolygonsBySmoothingGroup", "Smoothing Group", "", EUserInterfaceActionType::RadioButton, FInputChord());
 }
 
 #undef LOCTEXT_NAMESPACE

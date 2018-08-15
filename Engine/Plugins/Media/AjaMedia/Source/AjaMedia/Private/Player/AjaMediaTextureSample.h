@@ -65,7 +65,7 @@ public:
 		}
 
 		Buffer.Reset(InVideoData.VideoBufferSize/2);
-		Stride = InVideoData.Width * 4;
+		Stride = InVideoData.Stride;
 		Width = InVideoData.Width;
 		Height = InVideoData.Height / 2;
 		SampleFormat = InSampleFormat;

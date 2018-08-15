@@ -12,6 +12,12 @@
 
 #include "CoreTypes.h"
 
+#ifdef __clang__
+	#define MINIMAL_WINDOWS_API CORE_API
+#else
+	#define MINIMAL_WINDOWS_API extern "C" __declspec(dllimport)
+#endif
+
 // Use strongly typed handles
 #ifndef STRICT
 #define STRICT
@@ -80,42 +86,42 @@ namespace Windows
 	typedef RTL_SRWLOCK SRWLOCK, *PSRWLOCK;
 
 	// Modules
-	extern "C" __declspec(dllimport) HMODULE WINAPI LoadLibraryW(LPCTSTR lpFileName);
-	extern "C" __declspec(dllimport) BOOL WINAPI FreeLibrary(HMODULE hModule);
+	MINIMAL_WINDOWS_API HMODULE WINAPI LoadLibraryW(LPCTSTR lpFileName);
+	MINIMAL_WINDOWS_API BOOL WINAPI FreeLibrary(HMODULE hModule);
 
 	// Critical sections
-	extern "C" __declspec(dllimport) void WINAPI InitializeCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
-	extern "C" __declspec(dllimport) BOOL WINAPI InitializeCriticalSectionAndSpinCount(LPCRITICAL_SECTION lpCriticalSection, DWORD dwSpinCount);
-	extern "C" __declspec(dllimport) DWORD WINAPI SetCriticalSectionSpinCount(LPCRITICAL_SECTION lpCriticalSection, DWORD dwSpinCount);
-	extern "C" __declspec(dllimport) BOOL WINAPI TryEnterCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
-	extern "C" __declspec(dllimport) void WINAPI EnterCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
-	extern "C" __declspec(dllimport) void WINAPI LeaveCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
-	extern "C" __declspec(dllimport) void WINAPI DeleteCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
+	MINIMAL_WINDOWS_API void WINAPI InitializeCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
+	MINIMAL_WINDOWS_API BOOL WINAPI InitializeCriticalSectionAndSpinCount(LPCRITICAL_SECTION lpCriticalSection, DWORD dwSpinCount);
+	MINIMAL_WINDOWS_API DWORD WINAPI SetCriticalSectionSpinCount(LPCRITICAL_SECTION lpCriticalSection, DWORD dwSpinCount);
+	MINIMAL_WINDOWS_API BOOL WINAPI TryEnterCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
+	MINIMAL_WINDOWS_API void WINAPI EnterCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
+	MINIMAL_WINDOWS_API void WINAPI LeaveCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
+	MINIMAL_WINDOWS_API void WINAPI DeleteCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
 
-	extern "C" __declspec(dllimport) void WINAPI InitializeSRWLock(PSRWLOCK SRWLock);
-	extern "C" __declspec(dllimport) void WINAPI AcquireSRWLockShared(PSRWLOCK SRWLock);
-	extern "C" __declspec(dllimport) void WINAPI ReleaseSRWLockShared(PSRWLOCK SRWLock);
-	extern "C" __declspec(dllimport) void WINAPI AcquireSRWLockExclusive(PSRWLOCK SRWLock);
-	extern "C" __declspec(dllimport) void WINAPI ReleaseSRWLockExclusive(PSRWLOCK SRWLock);
+	MINIMAL_WINDOWS_API void WINAPI InitializeSRWLock(PSRWLOCK SRWLock);
+	MINIMAL_WINDOWS_API void WINAPI AcquireSRWLockShared(PSRWLOCK SRWLock);
+	MINIMAL_WINDOWS_API void WINAPI ReleaseSRWLockShared(PSRWLOCK SRWLock);
+	MINIMAL_WINDOWS_API void WINAPI AcquireSRWLockExclusive(PSRWLOCK SRWLock);
+	MINIMAL_WINDOWS_API void WINAPI ReleaseSRWLockExclusive(PSRWLOCK SRWLock);
 
 	// I/O
-	extern "C" __declspec(dllimport) BOOL WINAPI ConnectNamedPipe(HANDLE hNamedPipe, LPOVERLAPPED lpOverlapped);
-	extern "C" __declspec(dllimport) BOOL WINAPI GetOverlappedResult(HANDLE hFile, LPOVERLAPPED lpOverlapped, LPDWORD lpNumberOfBytesTransferred, BOOL bWait);
-	extern "C" __declspec(dllimport) BOOL WINAPI WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped);
-	extern "C" __declspec(dllimport) BOOL WINAPI ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped);
+	MINIMAL_WINDOWS_API BOOL WINAPI ConnectNamedPipe(HANDLE hNamedPipe, LPOVERLAPPED lpOverlapped);
+	MINIMAL_WINDOWS_API BOOL WINAPI GetOverlappedResult(HANDLE hFile, LPOVERLAPPED lpOverlapped, LPDWORD lpNumberOfBytesTransferred, BOOL bWait);
+	MINIMAL_WINDOWS_API BOOL WINAPI WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped);
+	MINIMAL_WINDOWS_API BOOL WINAPI ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped);
 
 	// Timing
-	extern "C" __declspec(dllimport) BOOL WINAPI QueryPerformanceCounter(LPLARGE_INTEGER Cycles);
+	MINIMAL_WINDOWS_API BOOL WINAPI QueryPerformanceCounter(LPLARGE_INTEGER Cycles);
 
 	// Thread-local storage functions
-	extern "C" __declspec(dllimport) DWORD WINAPI GetCurrentThreadId();
-	extern "C" __declspec(dllimport) DWORD WINAPI TlsAlloc();
-	extern "C" __declspec(dllimport) LPVOID WINAPI TlsGetValue(DWORD dwTlsIndex);
-	extern "C" __declspec(dllimport) BOOL WINAPI TlsSetValue(DWORD dwTlsIndex, LPVOID lpTlsValue);
-	extern "C" __declspec(dllimport) BOOL WINAPI TlsFree(DWORD dwTlsIndex);
+	MINIMAL_WINDOWS_API DWORD WINAPI GetCurrentThreadId();
+	MINIMAL_WINDOWS_API DWORD WINAPI TlsAlloc();
+	MINIMAL_WINDOWS_API LPVOID WINAPI TlsGetValue(DWORD dwTlsIndex);
+	MINIMAL_WINDOWS_API BOOL WINAPI TlsSetValue(DWORD dwTlsIndex, LPVOID lpTlsValue);
+	MINIMAL_WINDOWS_API BOOL WINAPI TlsFree(DWORD dwTlsIndex);
 
 	// System
-	extern "C" __declspec(dllimport) BOOL WINAPI IsProcessorFeaturePresent(DWORD ProcessorFeature);
+	MINIMAL_WINDOWS_API BOOL WINAPI IsProcessorFeaturePresent(DWORD ProcessorFeature);
 
 	// For structures which are opaque
 	struct CRITICAL_SECTION { void* Opaque1[1]; long Opaque2[2]; void* Opaque3[3]; };

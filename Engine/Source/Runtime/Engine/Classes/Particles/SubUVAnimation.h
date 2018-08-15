@@ -58,7 +58,7 @@ public:
 	TArray<FVector2D> BoundingGeometry;
 
 	static FString GetDDCKeyString(const FGuid& StateId, int32 SizeX, int32 SizeY, int32 Mode, float AlphaThreshold, int32 OpacitySourceMode);
-	void Serialize(FArchive& Ar);
+	void Serialize(FStructuredArchive::FSlot Slot);
 	void Build(UTexture2D* SubUVTexture, int32 SubImages_Horizontal, int32 SubImages_Vertical, ESubUVBoundingVertexCount BoundingMode, float AlphaThreshold, EOpacitySourceMode OpacitySourceMode);
 };
 
@@ -200,7 +200,7 @@ public:
 
 	//~ Begin UObject Interface.
     virtual void PostInitProperties() override;
-	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;

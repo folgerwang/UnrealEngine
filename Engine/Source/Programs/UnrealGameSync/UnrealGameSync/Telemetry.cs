@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Concurrent;
@@ -109,7 +109,7 @@ namespace UnrealGameSync
 			if(WorkerThread != null)
 			{
 				RefreshEvent.Set();
-				if(!WorkerThread.Join(100))
+				if(!WorkerThread.Join(10 * 1000))
 				{
 					WorkerThread.Abort();
 					WorkerThread.Join();

@@ -30,8 +30,5 @@ public class UnrealVersionSelectorTarget : TargetRules
 		// Currently this app is not linking against the engine, so we'll compile out references from Core to the rest of the engine
 		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = bUsingSlate;
-		
-		// UnrealHeaderTool is a console application, not a Windows app (sets entry point to main(), instead of WinMain())
-		//OutLinkEnvironmentConfiguration.bIsBuildingConsoleApplication = true;
 	}
 }

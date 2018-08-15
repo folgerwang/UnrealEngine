@@ -42,7 +42,7 @@ struct FMovieSceneActorReferenceKey
 
 /** A curve of events */
 USTRUCT()
-struct FMovieSceneActorReferenceData : public FMovieSceneChannel
+struct MOVIESCENETRACKS_API FMovieSceneActorReferenceData : public FMovieSceneChannel
 {
 	GENERATED_BODY()
 
@@ -76,7 +76,7 @@ struct FMovieSceneActorReferenceData : public FMovieSceneChannel
 	 * @param InTime     The time to evaluate at
 	 * @return the result of the evaluation
 	 */
-	MOVIESCENETRACKS_API FMovieSceneActorReferenceKey Evaluate(FFrameTime InTime) const;
+	FMovieSceneActorReferenceKey Evaluate(FFrameTime InTime) const;
 
 public:
 

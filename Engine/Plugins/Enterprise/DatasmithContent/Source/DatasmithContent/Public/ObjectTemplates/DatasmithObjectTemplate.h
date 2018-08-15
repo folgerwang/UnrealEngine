@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "DatasmithAssetUserData.h"
-#include "Interfaces/Interface_AssetUserData.h"
 #include "UObject/Object.h"
 
 #include "DatasmithObjectTemplate.generated.h"
@@ -41,82 +39,13 @@ public:
 		Destination->MemberName = MemberName; \
 	}
 
-struct FDatasmithObjectTemplateUtils
+struct DATASMITHCONTENT_API FDatasmithObjectTemplateUtils
 {
-	inline static bool HasObjectTemplates( UObject* Outer )
-	{
-#if WITH_EDITORONLY_DATA
-		if ( !Outer )
-		{
-			return false;
-		}
+	static bool HasObjectTemplates( UObject* Outer );
 
-		UDatasmithAssetUserData* UserData = nullptr;
+	static TMap< TSubclassOf< UDatasmithObjectTemplate >, UDatasmithObjectTemplate* >* FindOrCreateObjectTemplates( UObject* Outer );
 
-		if ( Outer->GetClass()->ImplementsInterface( UInterface_AssetUserData::StaticClass() ) )
-		{
-			IInterface_AssetUserData* AssetUserDataInterface = Cast< IInterface_AssetUserData >( Outer );
-
-			UserData = AssetUserDataInterface->GetAssetUserData< UDatasmithAssetUserData >();
-		}
-
-		return UserData != nullptr && UserData->ObjectTemplates.Num() > 0;
-#else
-		return false;
-#endif // #if WITH_EDITORONLY_DATA
-	}
-
-	inline static TMap< TSubclassOf< UDatasmithObjectTemplate >, UDatasmithObjectTemplate* >* FindOrCreateObjectTemplates( UObject* Outer )
-	{
-#if WITH_EDITORONLY_DATA
-		if ( !Outer )
-		{
-			return nullptr;
-		}
-
-		UDatasmithAssetUserData* UserData = nullptr;
-
-		if ( Outer->GetClass()->ImplementsInterface( UInterface_AssetUserData::StaticClass() ) )
-		{
-			IInterface_AssetUserData* AssetUserDataInterface = Cast< IInterface_AssetUserData >( Outer );
-
-			UserData = AssetUserDataInterface->GetAssetUserData< UDatasmithAssetUserData >();
-
-			if ( !UserData )
-			{
-				UserData = NewObject< UDatasmithAssetUserData >( Outer, NAME_None );
-				AssetUserDataInterface->AddAssetUserData( UserData );
-			}
-		}
-
-		if ( !UserData )
-		{
-			return nullptr;
-		}
-
-		return &UserData->ObjectTemplates;
-#else
-		return nullptr;
-#endif // #if WITH_EDITORONLY_DATA
-	}
-
-	inline static UDatasmithObjectTemplate* GetObjectTemplate( UObject* Outer, TSubclassOf< UDatasmithObjectTemplate > Subclass )
-	{
-#if WITH_EDITORONLY_DATA
-		TMap< TSubclassOf< UDatasmithObjectTemplate >, UDatasmithObjectTemplate* >* ObjectTemplatesMap = FindOrCreateObjectTemplates( Outer );
-
-		if ( !ObjectTemplatesMap )
-		{
-			return nullptr;
-		}
-
-		UDatasmithObjectTemplate** ObjectTemplatePtr = ObjectTemplatesMap->Find( Subclass );
-
-		return ObjectTemplatePtr ? *ObjectTemplatePtr : nullptr;
-#else
-		return nullptr;
-#endif // #if WITH_EDITORONLY_DATA
-	}
+	static UDatasmithObjectTemplate* GetObjectTemplate( UObject* Outer, TSubclassOf< UDatasmithObjectTemplate > Subclass );
 
 	template < typename T >
 	static T* GetObjectTemplate( UObject* Outer )
@@ -124,18 +53,25 @@ struct FDatasmithObjectTemplateUtils
 		return Cast< T >( GetObjectTemplate( Outer, T::StaticClass() ) );
 	}
 
-	inline static void SetObjectTemplate( UObject* Outer, UDatasmithObjectTemplate* ObjectTemplate )
-	{
-#if WITH_EDITORONLY_DATA
-		TMap< TSubclassOf< UDatasmithObjectTemplate >, UDatasmithObjectTemplate* >* ObjectTemplatesMap = FindOrCreateObjectTemplates( Outer );
-		ensure( ObjectTemplatesMap );
+	static void SetObjectTemplate( UObject* Outer, UDatasmithObjectTemplate* ObjectTemplate );
 
-		if ( !ObjectTemplatesMap )
-		{
-			return;
-		}
+	/**
+	 * Based on existing data, last import and current import, deduce resulting data that reflects User work.
+	 *  - Use values from the new set
+	 *  - Keep User-added values
+	 *  - Ignore User-removed values
+	 *
+	 * @param OldSet        Previously imported set
+	 * @param CurrentSet    Data after user edition
+	 * @param NewSet        Data being imported
+	 * @return              Merged data set
+	 */
+	static TSet<FName> ThreeWaySetMerge(const TSet<FName>& OldSet, const TSet<FName>& CurrentSet, const TSet<FName>& NewSet);
 
-		ObjectTemplatesMap->FindOrAdd( ObjectTemplate->GetClass() ) = ObjectTemplate;
-#endif // #if WITH_EDITORONLY_DATA
-	}
+	/**
+	 * Compares two sets for equality. Order has no influence.
+	 * @note: LegacyCompareEqual also check for order
+	 */
+	static bool SetsEquals(const TSet<FName>& Left, const TSet<FName>& Right);
+
 };

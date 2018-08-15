@@ -402,11 +402,6 @@ void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 		OptionalParams += TEXT(" -iterate");
 	}
 
-	if (FApp::IsRunningDebug())
-	{
-		OptionalParams += TEXT(" -UseDebugParamForEditorExe");
-	}
-
 	FString ProjectPath = FPaths::IsProjectFilePathSet() ? FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()) : FPaths::RootDir() / FApp::GetProjectName() / FApp::GetProjectName() + TEXT(".uproject");
 	FString CommandLine = FString::Printf(TEXT("BuildCookRun %s%s -nop4 -project=\"%s\" -cook -skipstage -ue4exe=%s %s -utf8output"),
 		GetUATCompilationFlags(),
@@ -720,11 +715,6 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	if (NumCookers > 0 )
 	{
 		OptionalParams += FString::Printf(TEXT(" -NumCookersToSpawn=%d"), NumCookers); 
-	}
-
-	if (FApp::IsRunningDebug())
-	{
-		OptionalParams += TEXT(" -UseDebugParamForEditorExe");
 	}
 
 	FString Configuration = FindObject<UEnum>(ANY_PACKAGE, TEXT("EProjectPackagingBuildConfigurations"))->GetNameStringByValue(PackagingSettings->BuildConfiguration);

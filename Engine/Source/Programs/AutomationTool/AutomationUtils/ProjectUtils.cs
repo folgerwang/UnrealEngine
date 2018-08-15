@@ -761,7 +761,7 @@ namespace AutomationTool
 				{
 					Proj.Dump(InHostPlatforms);
 				}
-				CommandUtils.LogVerbose("  {0} Non-Code projects:", CodeProjects.Count);
+				CommandUtils.LogVerbose("  {0} Non-Code projects:", NonCodeProjects.Count);
 				foreach (var Proj in NonCodeProjects)
 				{
 					Proj.Dump(InHostPlatforms);

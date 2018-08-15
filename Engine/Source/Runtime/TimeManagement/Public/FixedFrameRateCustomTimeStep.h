@@ -18,12 +18,20 @@ class TIMEMANAGEMENT_API UFixedFrameRateCustomTimeStep : public UEngineCustomTim
 {
 	GENERATED_UCLASS_BODY()
 
-public:
+protected:
 	/** The fixed FrameRate */
-	UPROPERTY(EditAnywhere, Category=Time)
+	DEPRECATED(4.21, "The FixedFrameRateCustomTimeStep.FixedFrameRate is replaced by the function GetFixedFrameRate and will be removed from the codebase in a future release. Please use the function GetFixedFrameRate().")
+	UPROPERTY()
 	FFrameRate FixedFrameRate;
 
+public:
+	/** Get The fixed FrameRate */
+	virtual FFrameRate GetFixedFrameRate() const PURE_VIRTUAL(UFixedFrameRateCustomTimeStep::GetFixedFrameRate, return GetFixedFrameRate_PureVirtual(););
+
 protected:
-	/** Default behaviour of the engine. Used FixedFrameRate */
+	/** Default behavior of the engine. Used FixedFrameRate */
 	void WaitForFixedFrameRate() const;
+
+private:
+	FFrameRate GetFixedFrameRate_PureVirtual() const;
 };

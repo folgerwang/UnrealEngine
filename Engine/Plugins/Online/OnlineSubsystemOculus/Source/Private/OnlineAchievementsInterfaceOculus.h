@@ -38,17 +38,17 @@ struct FOnlineAchievementDescOculus : FOnlineAchievementDesc
 struct FOnlineAchievementOculus : FOnlineAchievement
 {
 	FOnlineAchievementOculus(const ovrAchievementProgressHandle& AchievementProgress) :
-		bIsUnlocked(ovr_AchievementProgress_GetIsUnlocked(AchievementProgress)),
 		Count(ovr_AchievementProgress_GetCount(AchievementProgress)),
-		Bitfield(ovr_AchievementProgress_GetBitfield(AchievementProgress))
+		Bitfield(ovr_AchievementProgress_GetBitfield(AchievementProgress)),
+		bIsUnlocked(ovr_AchievementProgress_GetIsUnlocked(AchievementProgress))
 	{
 		FString AchievementName(ovr_AchievementProgress_GetName(AchievementProgress));
 		Id = AchievementName;
 	}
 
 	FOnlineAchievementOculus(const FOnlineAchievementDescOculus& AchievementDesc) :
-		bIsUnlocked(false),
-		Count(0)
+		Count(0),
+		bIsUnlocked(false)
 	{
 		Id = AchievementDesc.Title.ToString();
 		Progress = 0;

@@ -67,7 +67,7 @@ void FBlendSampleDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailBui
 	}
 	
 	TArray<UObject*> Objects;
-	PackageTools::GetObjectsInPackages(&Packages, Objects);
+	UPackageTools::GetObjectsInPackages(&Packages, Objects);
 
 	UBlendSpaceBase* BlendSpaceBase = nullptr;
 	// Find blendspace in found objects

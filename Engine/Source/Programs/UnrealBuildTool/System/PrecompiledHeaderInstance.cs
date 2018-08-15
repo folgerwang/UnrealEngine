@@ -29,6 +29,11 @@ namespace UnrealBuildTool
 		public bool bUseRTTI;
 
 		/// <summary>
+		/// Whether to enable exceptions
+		/// </summary>
+		public bool bEnableExceptions;
+
+		/// <summary>
 		/// The output files for the shared PCH
 		/// </summary>
 		public CPPOutput Output;
@@ -36,11 +41,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor
 		/// </summary>
-		public PrecompiledHeaderInstance(FileItem HeaderFile, bool bOptimizeCode, bool bUseRTTI, CPPOutput Output)
+		public PrecompiledHeaderInstance(FileItem HeaderFile, bool bOptimizeCode, bool bUseRTTI, bool bEnableExceptions, CPPOutput Output)
 		{
 			this.HeaderFile = HeaderFile;
 			this.bOptimizeCode = bOptimizeCode;
 			this.bUseRTTI = bUseRTTI;
+			this.bEnableExceptions = bEnableExceptions;
 			this.Output = Output;
 		}
 
@@ -50,7 +56,7 @@ namespace UnrealBuildTool
 		/// <returns>String representation of the object</returns>
 		public override string ToString()
 		{
-			return String.Format("{0} (Optimized={1}, RTTI={2})", HeaderFile.Location.GetFileName(), bOptimizeCode, bUseRTTI);
+			return String.Format("{0} (Optimized={1}, RTTI={2}, Exceptions={3})", HeaderFile.Location.GetFileName(), bOptimizeCode, bUseRTTI, bEnableExceptions);
 		}
 	}
 }

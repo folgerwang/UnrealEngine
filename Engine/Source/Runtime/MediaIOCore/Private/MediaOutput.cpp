@@ -22,10 +22,6 @@ UMediaCapture* UMediaOutput::CreateMediaCapture()
 	if (Validate(FailureReason))
 	{
 		Result = CreateMediaCaptureImpl();
-		if (Result)
-		{
-			Result->SetMediaOutput(this);
-		}
 	}
 	else
 	{

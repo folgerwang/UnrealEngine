@@ -370,7 +370,6 @@ private:
 	private:
 		mutable FCriticalSection	SynchronizationObject;
 		TMap<FName, FFilePlatformCookedPackage> FilesProcessed;
-	public:
 
 		void Lock()
 		{
@@ -381,7 +380,8 @@ private:
 			SynchronizationObject.Unlock();
 		}
 
-		int32 Num() 
+	public:
+		int32 Num()
 		{ 
 			return FilesProcessed.Num();
 		}
@@ -793,18 +793,6 @@ private:
 	//////////////////////////////////////////////////////////////////////////
 	// Cook by the book options
 public:
-	struct FChildCooker
-	{
-		FChildCooker() : ReadPipe(nullptr), ReturnCode(-1), bFinished(false),  Thread(nullptr) { }
-
-		FProcHandle ProcessHandle;
-		FString ResponseFileName;
-		FString BaseResponseFileName;
-		void* ReadPipe;
-		int32 ReturnCode;
-		bool bFinished;
-		FRunnableThread* Thread;
-	};
 private:
 	struct FCookByTheBookOptions
 	{
@@ -816,10 +804,8 @@ private:
 			CookTime( 0.0 ),
 			CookStartTime( 0.0 ), 
 			bErrorOnEngineContentUse(false),
-			bIsChildCooker(false),
 			bDisableUnsolicitedPackages(false),
-			bFullLoadAndSave(false),
-			ChildCookIdentifier(-1)
+			bFullLoadAndSave(false)
 		{ }
 
 		/** Should we test for UObject leaks */
@@ -849,13 +835,8 @@ private:
 		double CookStartTime;
 		/** error when detecting engine content being used in this cook */
 		bool bErrorOnEngineContentUse;
-		bool bIsChildCooker;
 		bool bDisableUnsolicitedPackages;
 		bool bFullLoadAndSave;
-		int32 ChildCookIdentifier;
-		FString ChildCookFilename;
-		TSet<FName> ChildUnsolicitedPackages;
-		TArray<FChildCooker> ChildCookers;
 		TArray<FName> TargetPlatformNames;
 		TArray<FName> StartupPackages;
 		/** Mapping from source packages to their localized variants (based on the culture list in FCookByTheBookStartupOptions) */
@@ -872,7 +853,7 @@ private:
 
 	//////////////////////////////////////////////////////////////////////////
 	// General cook options
-	TArray<UClass*> FullGCAssetClasses;
+
 	/** Number of packages to load before performing a garbage collect. Set to 0 to never GC based on number of loaded packages */
 	uint32 PackagesPerGC;
 	/** Amount of time that is allowed to be idle before forcing a garbage collect. Set to 0 to never force GC due to idle time */
@@ -885,7 +866,7 @@ private:
 	uint64 MinFreeMemory;
 	/** Max number of packages to save before we partial gc */
 	int32 MaxNumPackagesBeforePartialGC;
-	/** Max number of conncurrent shader jobs reducing this too low will increase cook time */
+	/** Max number of concurrent shader jobs reducing this too low will increase cook time */
 	int32 MaxConcurrentShaderJobs;
 	ECookInitializationFlags CookFlags;
 	TUniquePtr<class FSandboxPlatformFile> SandboxFile;
@@ -1032,7 +1013,6 @@ public:
 		COSR_ErrorLoadingPackage	= 0x00000004,
 		COSR_RequiresGC				= 0x00000008,
 		COSR_WaitingOnCache			= 0x00000010,
-		COSR_WaitingOnChildCookers	= 0x00000020,
 		COSR_MarkedUpKeepPackages	= 0x00000040
 	};
 
@@ -1098,20 +1078,15 @@ public:
 		FString DLCName;
 		FString CreateReleaseVersion;
 		FString BasedOnReleaseVersion;
-		FString ChildCookFileName; // if we are the child cooker 
-		int32 ChildCookIdentifier; // again, only if you are the child cooker
 		bool bGenerateStreamingInstallManifests; 
 		bool bGenerateDependenciesForMaps; 
 		bool bErrorOnEngineContentUse; // this is a flag for dlc, will cause the cooker to error if the dlc references engine content
-		int32 NumProcesses;
 		FCookByTheBookStartupOptions() :
 			CookOptions(ECookByTheBookOptions::None),
 			DLCName(FString()),
-			ChildCookIdentifier(-1),
 			bGenerateStreamingInstallManifests(false),
 			bGenerateDependenciesForMaps(false),
-			bErrorOnEngineContentUse(false),
-			NumProcesses(0)
+			bErrorOnEngineContentUse(false)
 		{ }
 	};
 
@@ -1148,7 +1123,7 @@ public:
 	/**
 	* Get any packages which are in memory, these were probably required to be loaded because of the current package we are cooking, so we should probably cook them also
 	*/
-	void GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, bool &ContainsFullGCAssetClasses, const TArray<FName>& TargetPlatformNames) const;
+	void GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames) const;
 
 	/**
 	* PostLoadPackageFixup
@@ -1243,12 +1218,6 @@ public:
 
 
 	virtual void BeginDestroy() override;
-
-	/**
-	* SetFullGCAssetClasses FullGCAssetClasses is used to determine when TickCookOnTheSide returns RequiresGC
-	*   When one of these classes is saved it will return COSR_RequiresGC
-	*/
-	void SetFullGCAssetClasses( const TArray<UClass*>& InFullGCAssetClasses );
 
 	/** Returns the configured number of packages to process before GC */
 	uint32 GetPackagesPerGC() const;
@@ -1365,28 +1334,6 @@ private:
 	void CookByTheBookFinished();
 
 	/**
-	* StartChildCookers to help out with cooking
-	* only valid in cook by the book (not from the editor)
-	* 
-	* @param NumChildCookersToSpawn, number of child cookers we want to use
-	*/
-	void StartChildCookers(int32 NumChildCookersToSpawn, const TArray<FName>& TargetPlatformNames, const FString& ExtraCmdParams = FString());
-
-	/**
-	* TickChildCookers
-	* output the information form the child cookers to the main cooker output
-	* 
-	* @return return true if all child cookers are finished
-	*/
-	bool TickChildCookers();
-
-	/**
-	* CleanUPChildCookers
-	* can only be called after TickChildCookers returns true
-	*/
-	void CleanUpChildCookers();
-
-	/**
 	* Get all the packages which are listed in asset registry passed in.  
 	*
 	* @param AssetRegistryPath path of the assetregistry.bin file to read
@@ -1411,20 +1358,6 @@ private:
 	*/
 	void WriteMapDependencyGraph(const FName& PlatformName);
 
-	/**
-	* IsChildCooker, 
-	* returns if this cooker is a sue chef for some other master chef.
-	*/
-	bool IsChildCooker() const
-	{
-		if (IsCookByTheBookMode())
-		{
-			return !(CookByTheBookOptions->ChildCookFilename.IsEmpty());
-		}
-		return false;
-	}
-
-
 	//////////////////////////////////////////////////////////////////////////
 	// cook on the fly specific functions
 
@@ -1436,7 +1369,7 @@ private:
 	 */
 	bool HandleNetworkFileServerNewConnection( const FString& VersionInfo, const FString& PlatformName );
 
-	void GetCookOnTheFlyUnsolicitedFiles(const FName& PlatformName, TArray<FString> UnsolicitedFiles, const FString& Filename);
+	void GetCookOnTheFlyUnsolicitedFiles(const FName& PlatformName, TArray<FString>& UnsolicitedFiles, const FString& Filename);
 
 	/**
 	* Cook requests for a package from network
@@ -1506,7 +1439,7 @@ private:
 	 * @param ContainsFullAssetGCClasses do these packages contain any of the assets which require a GC after cooking 
 	 *				(this is mostly historical for when objects like UWorld were global, almost nothing should require a GC to work correctly after being cooked anymore).
 	 */
-	void GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, bool& ContainsFullAssetGCClasses);
+	void GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames);
 
 
 	/**
@@ -1780,6 +1713,8 @@ private:
 
 	uint32 FullLoadAndSave(uint32& CookedPackageCount);
 
+	uint32		StatLoadedPackageCount = 0;
+	uint32		StatSavedPackageCount = 0;
 };
 
 FORCEINLINE uint32 GetTypeHash(const UCookOnTheFlyServer::FFilePlatformRequest &Key)

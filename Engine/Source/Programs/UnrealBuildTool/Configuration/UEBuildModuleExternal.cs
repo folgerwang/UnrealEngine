@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -14,22 +14,8 @@ namespace UnrealBuildTool
 	/// </summary>
 	class UEBuildModuleExternal : UEBuildModule
 	{
-		public UEBuildModuleExternal(
-			UHTModuleType InType,
-			string InName,
-			DirectoryReference InModuleDirectory,
-			ModuleRules InRules,
-			FileReference InRulesFile,
-			List<RuntimeDependency> InRuntimeDependencies
-			)
-			: base(
-				InType: InType,
-				InName: InName,
-				InModuleDirectory: InModuleDirectory,
-				InRules: InRules,
-				InRulesFile: InRulesFile,
-				InRuntimeDependencies: InRuntimeDependencies
-				)
+		public UEBuildModuleExternal(ModuleRules Rules)
+			: base(Rules)
 		{
 		}
 

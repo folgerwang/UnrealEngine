@@ -2819,7 +2819,7 @@ static void	AddSimulatedNetConnections(const TArray<FString>& Args, UWorld* Worl
 	APlayerController* PC = nullptr;
 	for (auto Iterator = BestNetDriver->GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
-		PC = Cast<APlayerController>(*Iterator);
+		PC = Iterator->Get();
 		if (PC)
 		{
 			DefaultViewTarget = PC->GetViewTarget();

@@ -52,6 +52,17 @@ void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce 
 		SceneComponent->SetRelativeTransform( RelativeTransform );
 	}
 
+
+	if ( !PreviousTemplate )
+	{
+		SceneComponent->ComponentTags = Tags.Array();
+	}
+	else
+	{
+		SceneComponent->ComponentTags = FDatasmithObjectTemplateUtils::ThreeWaySetMerge(PreviousTemplate->Tags, TSet<FName>(SceneComponent->ComponentTags), Tags).Array();
+	}
+
+
 	FDatasmithObjectTemplateUtils::SetObjectTemplate( Destination, this );
 #endif // #if WITH_EDITORONLY_DATA
 }
@@ -69,6 +80,8 @@ void UDatasmithSceneComponentTemplate::Load( const UObject* Source )
 	RelativeTransform = SceneComponent->GetRelativeTransform();
 	Mobility = SceneComponent->Mobility;
 	AttachParent = SceneComponent->GetAttachParent();
+	Tags = TSet<FName>(SceneComponent->ComponentTags);
+
 #endif // #if WITH_EDITORONLY_DATA
 }
 
@@ -84,6 +97,7 @@ bool UDatasmithSceneComponentTemplate::Equals( const UDatasmithObjectTemplate* O
 	bool bEquals = AreTransformsEqual( RelativeTransform, TypedOther->RelativeTransform );
 	bEquals = bEquals && ( Mobility == TypedOther->Mobility );
 	bEquals = bEquals && ( AttachParent == TypedOther->AttachParent );
+	bEquals = bEquals && FDatasmithObjectTemplateUtils::SetsEquals(Tags, TypedOther->Tags);
 
 	return bEquals;
 }

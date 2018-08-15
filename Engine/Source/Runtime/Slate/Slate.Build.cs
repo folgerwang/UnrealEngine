@@ -53,5 +53,18 @@ public class Slate : ModuleRules
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
 		}
+
+		// Add slate runtime dependencies
+		if (Target.bUsesSlate)
+		{
+			RuntimeDependencies.Add("$(EngineDir)/Content/Slate/...", StagedFileType.UFS);
+			RuntimeDependencies.Add("$(EngineDir)/Content/SlateDebug/...", StagedFileType.UFS);
+
+			if (Target.ProjectFile != null)
+			{
+				RuntimeDependencies.Add("$(ProjectDir)/Content/Slate/...", StagedFileType.UFS);
+				RuntimeDependencies.Add("$(ProjectDir)/Content/SlateDebug/...", StagedFileType.UFS);
+			}
+		}
 	}
 }

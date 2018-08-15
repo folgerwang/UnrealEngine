@@ -43,6 +43,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "LiveLink")
 	void GetSubjectData(const FName SubjectName, bool& bSuccess, FSubjectFrameHandle& SubjectFrameHandle);
 
+	// Returns a handle to the current frame of data in LiveLink for a given subject along with a boolean for whether a frame was found.
+	// Returns a handle to an empty frame if no frame of data is found.
+	UFUNCTION(BlueprintCallable, Category = "LiveLink")
+	void GetSubjectDataAtWorldTime(const FName SubjectName, const float WorldTime, bool& bSuccess, FSubjectFrameHandle& SubjectFrameHandle);
+
 private:
 	bool HasLiveLinkClient();
 

@@ -23,6 +23,11 @@ namespace UnrealBuildTool
 		private Assembly CompiledAssembly;
 
 		/// <summary>
+		/// The base directory for this assembly
+		/// </summary>
+		private DirectoryReference BaseDir;
+
+		/// <summary>
 		/// All the plugins included in this assembly
 		/// </summary>
 		private IReadOnlyList<PluginInfo> Plugins;
@@ -59,9 +64,9 @@ namespace UnrealBuildTool
 		private bool bUseBackwardsCompatibleDefaults;
 
 		/// <summary>
-		/// Whether the modules and targets in this assembly are installed.
+		/// Whether the modules and targets in this assembly are read-only
 		/// </summary>
-		private bool bInstalled;
+		private bool bReadOnly;
 
 		/// <summary>
 		/// The parent rules assembly that this assembly inherits. Game assemblies inherit the engine assembly, and the engine assembly inherits nothing.
@@ -71,6 +76,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor. Compiles a rules assembly from the given source files.
 		/// </summary>
+		/// <param name="BaseDir">The base directory for this assembly</param>
 		/// <param name="Plugins">All the plugins included in this assembly</param>
 		/// <param name="ModuleFiles">List of module files to compile</param>
 		/// <param name="TargetFiles">List of target files to compile</param>
@@ -78,15 +84,17 @@ namespace UnrealBuildTool
 		/// <param name="AssemblyFileName">The output path for the compiled assembly</param>
 		/// <param name="bContainsEngineModules">Whether this assembly contains engine modules. Used to initialize the default value for ModuleRules.bTreatAsEngineModule.</param>
 		/// <param name="bUseBackwardsCompatibleDefaults">Whether modules in this assembly should use backwards-compatible defaults.</param>
-		/// <param name="bInstalled">Whether the modules and targets in this assembly are installed, and should be created with the bUsePrecompiled flag set</param> 
+		/// <param name="bReadOnly">Whether the modules and targets in this assembly are installed, and should be created with the bUsePrecompiled flag set</param> 
+		/// <param name="bSkipCompile">Whether to skip compiling this assembly</param>
 		/// <param name="Parent">The parent rules assembly</param>
-		public RulesAssembly(IReadOnlyList<PluginInfo> Plugins, List<FileReference> ModuleFiles, List<FileReference> TargetFiles, Dictionary<FileReference, PluginInfo> ModuleFileToPluginInfo, FileReference AssemblyFileName, bool bContainsEngineModules, bool bUseBackwardsCompatibleDefaults, bool bInstalled, RulesAssembly Parent)
+		public RulesAssembly(DirectoryReference BaseDir, IReadOnlyList<PluginInfo> Plugins, List<FileReference> ModuleFiles, List<FileReference> TargetFiles, Dictionary<FileReference, PluginInfo> ModuleFileToPluginInfo, FileReference AssemblyFileName, bool bContainsEngineModules, bool bUseBackwardsCompatibleDefaults, bool bReadOnly, bool bSkipCompile, RulesAssembly Parent)
 		{
+			this.BaseDir = BaseDir;
 			this.Plugins = Plugins;
 			this.ModuleFileToPluginInfo = ModuleFileToPluginInfo;
 			this.bContainsEngineModules = bContainsEngineModules;
 			this.bUseBackwardsCompatibleDefaults = bUseBackwardsCompatibleDefaults;
-			this.bInstalled = bInstalled;
+			this.bReadOnly = bReadOnly;
 			this.Parent = Parent;
 
 			// Find all the source files
@@ -98,7 +106,7 @@ namespace UnrealBuildTool
 			if (AssemblySourceFiles.Count > 0)
 			{
 				List<string> PreprocessorDefines = GetPreprocessorDefinitions();
-				CompiledAssembly = DynamicCompilation.CompileAndLoadAssembly(AssemblyFileName, AssemblySourceFiles, PreprocessorDefines: PreprocessorDefines);
+				CompiledAssembly = DynamicCompilation.CompileAndLoadAssembly(AssemblyFileName, AssemblySourceFiles, PreprocessorDefines: PreprocessorDefines, DoNotCompile: bSkipCompile);
 			}
 
 			// Setup the module map
@@ -154,6 +162,27 @@ namespace UnrealBuildTool
 						}
 					}
 				}
+			}
+		}
+
+		/// <summary>
+		/// Determines if the given path is read-only
+		/// </summary>
+		/// <param name="Location">The location to check</param>
+		/// <returns>True if the path is read-only, false otherwise</returns>
+		public bool IsReadOnly(FileSystemReference Location)
+		{
+			if(Location.IsUnderDirectory(BaseDir))
+			{
+				return bReadOnly;
+			}
+			else if(Parent != null)
+			{
+				return Parent.IsReadOnly(Location);
+			}
+			else
+			{
+				return false;
 			}
 		}
 
@@ -305,29 +334,16 @@ namespace UnrealBuildTool
 		/// Creates an instance of a module rules descriptor object for the specified module name
 		/// </summary>
 		/// <param name="ModuleName">Name of the module</param>
-		/// <param name="ReferenceChain">Chain of references leading to this module</param>
 		/// <param name="Target">Information about the target associated with this module</param>
+		/// <param name="ReferenceChain">Chain of references leading to this module</param>
 		/// <returns>Compiled module rule info</returns>
 		public ModuleRules CreateModuleRules(string ModuleName, ReadOnlyTargetRules Target, string ReferenceChain)
-		{
-			FileReference ModuleFileName;
-			return CreateModuleRules(ModuleName, Target, ReferenceChain, out ModuleFileName);
-		}
-
-		/// <summary>
-		/// Creates an instance of a module rules descriptor object for the specified module name
-		/// </summary>
-		/// <param name="ModuleName">Name of the module</param>
-		/// <param name="Target">Information about the target associated with this module</param>
-		/// <param name="ReferenceChain">Chain of references leading to this module</param>
-		/// <param name="ModuleFileName">The original source file name for the Module.cs file for this module</param>
-		/// <returns>Compiled module rule info</returns>
-		public ModuleRules CreateModuleRules(string ModuleName, ReadOnlyTargetRules Target, string ReferenceChain, out FileReference ModuleFileName)
 		{
 			// Currently, we expect the user's rules object type name to be the same as the module name
 			string ModuleTypeName = ModuleName;
 
 			// Make sure the module file is known to us
+			FileReference ModuleFileName;
 			if (!ModuleNameToModuleFile.TryGetValue(ModuleName, out ModuleFileName))
 			{
 				if (Parent == null)
@@ -336,7 +352,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					return Parent.CreateModuleRules(ModuleName, Target, ReferenceChain, out ModuleFileName);
+					return Parent.CreateModuleRules(ModuleName, Target, ReferenceChain);
 				}
 			}
 
@@ -352,10 +368,14 @@ namespace UnrealBuildTool
 			{
 				// Create an uninitialized ModuleRules object and set some defaults.
 				ModuleRules RulesObject = (ModuleRules)FormatterServices.GetUninitializedObject(RulesObjectType);
+				RulesObject.Name = ModuleName;
+				RulesObject.File = ModuleFileName;
+				RulesObject.Directory = ModuleFileName.Directory;
+				ModuleFileToPluginInfo.TryGetValue(RulesObject.File, out RulesObject.Plugin);
 				RulesObject.bTreatAsEngineModule = bContainsEngineModules;
 				RulesObject.bUseBackwardsCompatibleDefaults = bUseBackwardsCompatibleDefaults && Target.bUseBackwardsCompatibleDefaults;
 				RulesObject.bPrecompile = RulesObject.bTreatAsEngineModule && Target.bPrecompile;
-				RulesObject.bUsePrecompiled = (RulesObject.bTreatAsEngineModule && Target.bUsePrecompiled) || bInstalled;
+				RulesObject.bUsePrecompiled = bReadOnly;
 
 				// Call the constructor
 				ConstructorInfo Constructor = RulesObjectType.GetConstructor(new Type[] { typeof(ReadOnlyTargetRules) });
@@ -365,11 +385,6 @@ namespace UnrealBuildTool
 				}
 				Constructor.Invoke(RulesObject, new object[] { Target });
 
-				// Update the precompiled flags
-				if(RulesObject.bPrecompile && !RulesObject.CanPrecompile(ModuleFileName))
-				{
-					RulesObject.bPrecompile = false;
-				}
 				return RulesObject;
 			}
 			catch (Exception Ex)
@@ -393,8 +408,9 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="TypeName">Type name of the target rules</param>
 		/// <param name="TargetInfo">Target configuration information to pass to the constructor</param>
+		/// <param name="Arguments">Command line arguments for this target</param>
 		/// <returns>Instance of the corresponding TargetRules</returns>
-		protected TargetRules CreateTargetRulesInstance(string TypeName, TargetInfo TargetInfo)
+		protected TargetRules CreateTargetRulesInstance(string TypeName, TargetInfo TargetInfo, string[] Arguments)
 		{
 			// The build module must define a type named '<TargetName>Target' that derives from our 'TargetRules' type.  
 			Type RulesType = CompiledAssembly.GetType(TypeName);
@@ -424,7 +440,83 @@ namespace UnrealBuildTool
 				throw new BuildException(Ex, "Unable to instantiate instance of '{0}' object type from compiled assembly '{1}'.  Unreal Build Tool creates an instance of your module's 'Rules' object in order to find out about your module's requirements.  The CLR exception details may provide more information:  {2}", TypeName, Path.GetFileNameWithoutExtension(CompiledAssembly.Location), Ex.ToString());
 			}
 
+			// Set the default overriddes for the configured target type
 			Rules.SetOverridesForTargetType();
+
+			// Parse any additional command-line arguments. These override default settings specified in config files or the .target.cs files.
+			if(Arguments != null)
+			{
+				foreach(object ConfigurableObject in Rules.GetConfigurableObjects())
+				{
+					CommandLine.ParseArguments(Arguments, ConfigurableObject);
+				}
+			}
+
+			// Set the final value for the link type in the target rules
+			if(Rules.LinkType == TargetLinkType.Default)
+			{
+				throw new BuildException("TargetRules.LinkType should be inferred from TargetType");
+			}
+
+			// Set the default value for whether to use the shared build environment
+			if(Rules.BuildEnvironment == TargetBuildEnvironment.Default)
+			{
+				if(Rules.Type == TargetType.Program && TargetInfo.ProjectFile != null && TargetNameToTargetFile[Rules.Name].IsUnderDirectory(TargetInfo.ProjectFile.Directory))
+				{
+					Rules.BuildEnvironment = TargetBuildEnvironment.Unique;
+				}
+				else if(UnrealBuildTool.IsEngineInstalled() || Rules.LinkType != TargetLinkType.Monolithic)
+				{
+					Rules.BuildEnvironment = TargetBuildEnvironment.Shared;
+				}
+				else
+				{
+					Rules.BuildEnvironment = TargetBuildEnvironment.Unique;
+				}
+			}
+
+			// Lean and mean means no Editor and other frills.
+			if (Rules.bCompileLeanAndMeanUE)
+			{
+				Rules.bBuildEditor = false;
+				Rules.bBuildDeveloperTools = false;
+				Rules.bCompileSimplygon = false;
+				Rules.bCompileSimplygonSSF = false;
+				Rules.bCompileSpeedTree = false;
+			}
+
+			// Automatically include CoreUObject
+			if (Rules.bCompileAgainstEngine)
+			{
+				Rules.bCompileAgainstCoreUObject = true;
+			}
+
+			// Must have editor only data if building the editor.
+			if (Rules.bBuildEditor)
+			{
+				Rules.bBuildWithEditorOnlyData = true;
+			}
+
+			// Apply the override to force debug info to be enabled
+			if (Rules.bForceDebugInfo)
+			{
+				Rules.bDisableDebugInfo = false;
+				Rules.bOmitPCDebugInfoInDevelopment = false;
+			}
+
+			// Setup the malloc profiler
+			if (Rules.bUseMallocProfiler)
+			{
+				Rules.bOmitFramePointers = false;
+				Rules.GlobalDefinitions.Add("USE_MALLOC_PROFILER=1");
+			}
+
+			// Set a macro if we allow using generated inis
+			if (!Rules.bAllowGeneratedIniWhenCooked)
+			{
+				Rules.GlobalDefinitions.Add("DISABLE_GENERATED_INI_WHEN_COOKED=1");
+			}
+
 			return Rules;
 		}
 
@@ -436,12 +528,13 @@ namespace UnrealBuildTool
 		/// <param name="Configuration">The configuration the target is being built for</param>
 		/// <param name="Architecture">The architecture the target is being built for</param>
 		/// <param name="ProjectFile">The project containing the target being built</param>
+		/// <param name="Arguments">Command line arguments for the target</param>
 		/// <param name="Version">The current build version</param>
 		/// <returns>The build target rules for the specified target</returns>
-		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version)
+		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version, string[] Arguments)
 		{
 			FileReference TargetFileName;
-			return CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, out TargetFileName);
+			return CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, Arguments, out TargetFileName);
 		}
 
 		/// <summary>
@@ -453,9 +546,10 @@ namespace UnrealBuildTool
 		/// <param name="Architecture">Architecture being built</param>
 		/// <param name="ProjectFile">Path to the project file for this target</param>
 		/// <param name="Version">The current build version</param>
+		/// <param name="Arguments">Command line arguments for this target</param>
 		/// <param name="TargetFileName">The original source file name of the Target.cs file for this target</param>
 		/// <returns>The build target rules for the specified target</returns>
-		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version, out FileReference TargetFileName)
+		public TargetRules CreateTargetRules(string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version, string[] Arguments, out FileReference TargetFileName)
 		{
 			bool bFoundTargetName = TargetNameToTargetFile.ContainsKey(TargetName);
 			if (bFoundTargetName == false)
@@ -481,7 +575,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					return Parent.CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, out TargetFileName);
+					return Parent.CreateTargetRules(TargetName, Platform, Configuration, Architecture, ProjectFile, Version, Arguments, out TargetFileName);
 				}
 			}
 
@@ -492,7 +586,7 @@ namespace UnrealBuildTool
 			string TargetTypeName = TargetName + "Target";
 
 			// The build module must define a type named '<TargetName>Target' that derives from our 'TargetRules' type.  
-			return CreateTargetRulesInstance(TargetTypeName, new TargetInfo(TargetName, Platform, Configuration, Architecture, ProjectFile, Version));
+			return CreateTargetRulesInstance(TargetTypeName, new TargetInfo(TargetName, Platform, Configuration, Architecture, ProjectFile, Version), Arguments);
 		}
 
 		/// <summary>
@@ -511,7 +605,7 @@ namespace UnrealBuildTool
 			List<string> Matches = new List<string>();
 			foreach(KeyValuePair<string, FileReference> TargetPair in TargetNameToTargetFile)
 			{
-				TargetRules Rules = CreateTargetRulesInstance(TargetPair.Key + "Target", new TargetInfo(TargetPair.Key, Platform, Configuration, Architecture, ProjectFile, Version));
+				TargetRules Rules = CreateTargetRulesInstance(TargetPair.Key + "Target", new TargetInfo(TargetPair.Key, Platform, Configuration, Architecture, ProjectFile, Version), null);
 				if(Rules.Type == Type)
 				{
 					Matches.Add(TargetPair.Key);

@@ -58,7 +58,6 @@ DECLARE_MEMORY_STAT(TEXT("Streaming Memory Used"),STAT_StreamingAllocSize,STATGR
 DECLARE_STATS_GROUP_VERBOSE(TEXT("Async Load"), STATGROUP_AsyncLoad, STATCAT_Advanced);
 
 DECLARE_CYCLE_STAT(TEXT("Tick AsyncPackage"),STAT_FAsyncPackage_Tick,STATGROUP_AsyncLoad);
-DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("Tick AsyncPackage Time"), STAT_FAsyncPackage_TickTime, STATGROUP_AsyncLoad);
 
 DECLARE_CYCLE_STAT(TEXT("CreateLinker AsyncPackage"),STAT_FAsyncPackage_CreateLinker,STATGROUP_AsyncLoad);
 DECLARE_CYCLE_STAT(TEXT("FinishLinker AsyncPackage"),STAT_FAsyncPackage_FinishLinker,STATGROUP_AsyncLoad);
@@ -4859,13 +4858,16 @@ FMaxPackageSummarySize::FMaxPackageSummarySize()
 	// the editor packages may not have the AdditionalPackagesToCook array stripped so we need to allocate more memory
 #if WITH_EDITORONLY_DATA
 	const int32 MinimumPackageSummarySize = 1024;
-	check(GConfig);
+	check(GConfig || GIsRequestingExit);
 	Value = 16384;
-	GConfig->GetInt(TEXT("/Script/Engine.StreamingSettings"), TEXT("s.MaxPackageSummarySize"), Value, GEngineIni);
-	if (Value <= MinimumPackageSummarySize)
+	if (GConfig)
 	{
-		UE_LOG(LogStreaming, Warning, TEXT("Invalid minimum package file summary size (s.MaxPackageSummarySize=%d), %d is min."), Value, MinimumPackageSummarySize);
-		Value = MinimumPackageSummarySize;
+		GConfig->GetInt(TEXT("/Script/Engine.StreamingSettings"), TEXT("s.MaxPackageSummarySize"), Value, GEngineIni);
+		if (Value <= MinimumPackageSummarySize)
+		{
+			UE_LOG(LogStreaming, Warning, TEXT("Invalid minimum package file summary size (s.MaxPackageSummarySize=%d), %d is min."), Value, MinimumPackageSummarySize);
+			Value = MinimumPackageSummarySize;
+		}
 	}
 #else
 	Value = 8192;
@@ -5042,7 +5044,7 @@ void FAsyncLoadingThread::CheckForCycles()
 }
 
 
-EAsyncPackageState::Type  FAsyncLoadingThread::TickAsyncThread(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, bool& bDidSomething, FFlushTree* FlushTree)
+EAsyncPackageState::Type FAsyncLoadingThread::TickAsyncThread(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, bool& bDidSomething, FFlushTree* FlushTree)
 {
 	check(!IsInGameThread() || !IsMultithreaded());
 	EAsyncPackageState::Type Result = EAsyncPackageState::Complete;
@@ -5062,7 +5064,7 @@ EAsyncPackageState::Type  FAsyncLoadingThread::TickAsyncThread(bool bUseTimeLimi
 			}
 			float TimeUsed = (float)(FPlatformTime::Seconds() - TickStartTime);
 			const float RemainingTimeLimit = FMath::Max(0.0f, TimeLimit - TimeUsed);
-			if (RemainingTimeLimit <= 0.0f && bUseTimeLimit && !IsMultithreaded())
+			if (IsGarbageCollectionWaiting() || (RemainingTimeLimit <= 0.0f && bUseTimeLimit && !IsMultithreaded()))
 			{
 				Result = EAsyncPackageState::TimeOut;
 			}
@@ -5073,7 +5075,7 @@ EAsyncPackageState::Type  FAsyncLoadingThread::TickAsyncThread(bool bUseTimeLimi
 				bDidSomething = bDidSomething || ProcessedRequests > 0;
 			}
 		}
-		if (ProcessedRequests == 0 && IsMultithreaded())
+		if (ProcessedRequests == 0 && IsMultithreaded() && Result == EAsyncPackageState::Complete)
 		{
 			uint32 WaitTime = 30;
 			if (IsEventDrivenLoaderEnabled())
@@ -6380,9 +6382,10 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 	// GC can't run in here
 	FGCScopeGuard GCGuard;
 
-	TGuardValue<bool> GuardIsRoutingPostLoad(FUObjectThreadContext::Get().IsRoutingPostLoad, true);
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+	TGuardValue<bool> GuardIsRoutingPostLoad(ThreadContext.IsRoutingPostLoad, true);
 
-	TArray<UObject*>& ThreadObjLoaded = FUObjectThreadContext::Get().ObjLoaded;
+	TArray<UObject*>& ThreadObjLoaded = ThreadContext.ObjLoaded;
 	if (ThreadObjLoaded.Num())
 	{
 		// New objects have been loaded. They need to go through PreLoad first so exit now and come back after they've been preloaded.
@@ -6414,7 +6417,9 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 				// We want this check only with EDL enabled
 				check(!GEventDrivenLoaderEnabled || !Object->HasAnyFlags(RF_NeedLoad));
 
+				ThreadContext.CurrentlyPostLoadedObjectByALT = Object;
 				Object->ConditionalPostLoad();
+				ThreadContext.CurrentlyPostLoadedObjectByALT = nullptr;
 
 				LastObjectWorkWasPerformedOn = Object;
 				LastTypeOfWorkPerformed = TEXT("postloading_async");
@@ -6476,7 +6481,9 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 
 		FScopeCycleCounterUObject ConstructorScope(Object, GET_STATID(STAT_FAsyncPackage_PostLoadObjectsGameThread));
 
+		PackageScope.ThreadContext.CurrentlyPostLoadedObjectByALT = Object;
 		Object->ConditionalPostLoad();
+		PackageScope.ThreadContext.CurrentlyPostLoadedObjectByALT = nullptr;
 
 		if (ObjLoadedInPostLoad.Num())
 		{
@@ -7131,14 +7138,17 @@ bool IsEventDrivenLoaderEnabledInCookedBuilds()
 		FEventDrivenLoaderEnabledInCookedBuildsInit()
 			: bEventDrivenLoaderEnabled(false)
 		{
-			check(GConfig);
-			GConfig->GetBool(TEXT("/Script/Engine.StreamingSettings"), TEXT("s.EventDrivenLoaderEnabled"), bEventDrivenLoaderEnabled, GEngineIni);
-#if !UE_BUILD_SHIPPING
-			if (FParse::Param(FCommandLine::Get(), TEXT("NOEDL")))
+			check(GConfig || GIsRequestingExit);
+			if (GConfig)
 			{
-				bEventDrivenLoaderEnabled = false;
-			}
+				GConfig->GetBool(TEXT("/Script/Engine.StreamingSettings"), TEXT("s.EventDrivenLoaderEnabled"), bEventDrivenLoaderEnabled, GEngineIni);
+#if !UE_BUILD_SHIPPING
+				if (FParse::Param(FCommandLine::Get(), TEXT("NOEDL")))
+				{
+					bEventDrivenLoaderEnabled = false;
+				}
 #endif
+			}
 		}
 	} EventDrivenLoaderEnabledInCookedBuilds;
 	return EventDrivenLoaderEnabledInCookedBuilds.bEventDrivenLoaderEnabled;
@@ -7385,6 +7395,7 @@ void FArchiveAsync2::FlushPrecacheBlock()
 #if USE_DETAILED_FARCHIVEASYNC2_MEMORY_TRACKING
 		GArchiveAsync2MemTracker.Deallocate(FileName, PrecacheEndPos - PrecacheStartPos);
 #endif
+		check(!GEventDrivenLoaderEnabled || LoadPhase > ELoadPhase::WaitingForHeader);
 	}
 	PrecacheBuffer = nullptr;
 	PrecacheStartPos = 0;
@@ -8007,6 +8018,7 @@ void FArchiveAsync2::Serialize(void* Data, int64 Count)
 			// no before block and head of desired block is in the cache
 			int64 CopyLen = FMath::Min(PrecacheEndPos - CurrentPos, Count);
 			check(CopyLen > 0);
+			check(PrecacheBuffer);
 			FMemory::Memcpy(Data, PrecacheBuffer + CurrentPos - PrecacheStartPos, CopyLen);
 			AfterBlockSize = Count - CopyLen;
 			check(AfterBlockSize >= 0);
@@ -8023,6 +8035,7 @@ void FArchiveAsync2::Serialize(void* Data, int64 Count)
 				// tail of desired block is in the cache
 				int64 CopyLen = FMath::Min(PrecacheEndPos - CurrentPos - BeforeBlockSize, Count - BeforeBlockSize);
 				check(CopyLen > 0);
+				check(PrecacheBuffer);
 				FMemory::Memcpy(((uint8*)Data) + BeforeBlockSize, PrecacheBuffer, CopyLen);
 				AfterBlockSize = Count - CopyLen - BeforeBlockSize;
 				check(AfterBlockSize >= 0);
@@ -8043,6 +8056,7 @@ void FArchiveAsync2::Serialize(void* Data, int64 Count)
 			return;
 		}
 		check(BeforeBlockOffset >= PrecacheStartPos && BeforeBlockOffset + BeforeBlockSize <= PrecacheEndPos);
+		check(PrecacheBuffer);
 		FMemory::Memcpy(Data, PrecacheBuffer + BeforeBlockOffset - PrecacheStartPos, BeforeBlockSize);
 	}
 	if (AfterBlockSize)
@@ -8088,6 +8102,7 @@ void FArchiveAsync2::Serialize(void* Data, int64 Count)
 			return;
 		}
 		checkf(AfterBlockOffset >= PrecacheStartPos && AfterBlockOffset + AfterBlockSize <= PrecacheEndPos, TEXT("Sync After Block ????   %lld %lld %lld %lld"), AfterBlockOffset, AfterBlockSize, PrecacheStartPos, PrecacheEndPos);
+		check(PrecacheBuffer);
 		FMemory::Memcpy(((uint8*)Data) + Count - AfterBlockSize, PrecacheBuffer + AfterBlockOffset - PrecacheStartPos, AfterBlockSize);
 	}
 #if DEVIRTUALIZE_FLinkerLoad_Serialize

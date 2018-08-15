@@ -1,16 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MrcGarbageMatteCaptureComponent.h"
-#include "Engine/TextureRenderTarget2D.h"
-#include "Materials/Material.h"
-#include "UObject/ConstructorHelpers.h"
-#include "MrcCalibrationData.h"
+
+#include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
-#include "Components/StaticMeshComponent.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "IMrcFocalDriver.h"
+#include "Materials/Material.h"
+#include "MrcCalibrationData.h"
+#include "MrcFrameworkSettings.h"
 #include "MrcUtilLibrary.h"
 #include "UObject/ConstructorHelpers.h"
-#include "MrcFrameworkSettings.h"
 
 /* UMrcGarbageMatteCaptureComponent
  *****************************************************************************/
@@ -40,6 +41,14 @@ void UMrcGarbageMatteCaptureComponent::OnComponentDestroyed(bool bDestroyingHier
 	GarbageMatteActor = nullptr;
 
 	Super::OnComponentDestroyed(bDestroyingHierarchy);
+}
+
+//-----------------------------------------------------------------------------
+void UMrcGarbageMatteCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	PollFocalDriver();
 }
 
 //------------------------------------------------------------------------------
@@ -95,6 +104,12 @@ void UMrcGarbageMatteCaptureComponent::GetGarbageMatteData(TArray<FMrcGarbageMat
 	}
 }
 
+//-----------------------------------------------------------------------------
+void UMrcGarbageMatteCaptureComponent::SetFocalDriver(TScriptInterface<IMrcFocalDriver> InFocalDriver)
+{
+	FocalDriver = InFocalDriver;
+}
+
 //------------------------------------------------------------------------------
 void UMrcGarbageMatteCaptureComponent::CleanupSpawnedActors()
 {
@@ -106,6 +121,15 @@ void UMrcGarbageMatteCaptureComponent::CleanupSpawnedActors()
 			Actor->Destroy();
 		}
 		SpawnedActors.RemoveAtSwap(0);
+	}
+}
+
+//------------------------------------------------------------------------------
+void UMrcGarbageMatteCaptureComponent::PollFocalDriver()
+{
+	if (FocalDriver.GetObject() != nullptr && FocalDriver.GetObject()->Implements<UMrcFocalDriver>())
+	{
+		FOVAngle = IMrcFocalDriver::Execute_GetHorizontalFieldOfView(FocalDriver.GetObject());
 	}
 }
 

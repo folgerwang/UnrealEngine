@@ -49,6 +49,11 @@ enum class EArchiveValueType
 	String,
 	Name,
 	Object,
+	Text,
+	WeakObjectPtr,
+	SoftObjectPtr,
+	SoftObjectPath,
+	LazyObjectPtr,
 	RawData,
 };
 
@@ -56,36 +61,46 @@ enum class EArchiveValueType
  * Interface to format data to and from an underlying archive. Methods on this class are validated to be correct
  * with the current archive state (eg. EnterObject/LeaveObject calls are checked to be matching), and do not need
  * to be validated by implementations.
+ *
+ * Any functions with the _TextOnly suffix are intended to be implemented when reading text archives that have
+ * a fully defined document tree, and allow querying additional properties that aren't available when reading from
+ * a pure binary archive. These functions will assert if called on a binary archive.
  */
 class CORE_API FStructuredArchiveFormatter
 {
 public:
 	virtual ~FStructuredArchiveFormatter();
 
-	virtual bool RequiresStructuralMetadata() const;
-	
 	virtual FArchive& GetUnderlyingArchive() = 0;
 	virtual FStructuredArchiveFormatter* CreateSubtreeReader() { return this; }
 
+	virtual bool HasDocumentTree() const = 0;
+
 	virtual void EnterRecord() = 0;
+	virtual void EnterRecord_TextOnly(TArray<FString>& OutFieldNames) = 0;
 	virtual void LeaveRecord() = 0;
 	virtual void EnterField(FArchiveFieldName Name) = 0;
+	virtual void EnterField_TextOnly(FArchiveFieldName Name, EArchiveValueType& OutType) = 0;
 	virtual void LeaveField() = 0;
 	virtual bool TryEnterField(FArchiveFieldName Name, bool bEnterWhenWriting) = 0;
 
 	virtual void EnterArray(int32& NumElements) = 0;
 	virtual void LeaveArray() = 0;
 	virtual void EnterArrayElement() = 0;
+	virtual void EnterArrayElement_TextOnly(EArchiveValueType& OutType) = 0;
 	virtual void LeaveArrayElement() = 0;
 
 	virtual void EnterStream() = 0;
+	virtual void EnterStream_TextOnly(int32& OutNumElements) = 0;
 	virtual void LeaveStream() = 0;
 	virtual void EnterStreamElement() = 0;
+	virtual void EnterStreamElement_TextOnly(EArchiveValueType& OutType) = 0;
 	virtual void LeaveStreamElement() = 0;
 
 	virtual void EnterMap(int32& NumElements) = 0;
 	virtual void LeaveMap() = 0;
 	virtual void EnterMapElement(FString& Name) = 0;
+	virtual void EnterMapElement_TextOnly(FString& Name, EArchiveValueType& OutType) = 0;
 	virtual void LeaveMapElement() = 0;
 
 	virtual void Serialize(uint8& Value) = 0;
@@ -102,39 +117,18 @@ public:
 	virtual void Serialize(FString& Value) = 0;
 	virtual void Serialize(FName& Value) = 0;
 	virtual void Serialize(UObject*& Value) = 0;
+	virtual void Serialize(FText& Value) = 0;
+	virtual void Serialize(struct FWeakObjectPtr& Value) = 0;
+	virtual void Serialize(struct FSoftObjectPtr& Value) = 0;
+	virtual void Serialize(struct FSoftObjectPath& Value) = 0;
+	virtual void Serialize(struct FLazyObjectPtr& Value) = 0;
 	virtual void Serialize(TArray<uint8>& Value) = 0;
 	virtual void Serialize(void* Data, uint64 DataSize) = 0;
-};
-
-/**
- * Base class for formatters that include context-free annotations for typing while reading.
- * Text-based formats implement this to allow context-free conversions between archives without being dependent on C++ serialization code.
- */
-class CORE_API FAnnotatedStructuredArchiveFormatter : public FStructuredArchiveFormatter
-{
-public:
-	using FStructuredArchiveFormatter::EnterRecord;
-	virtual void EnterRecord(TArray<FString>& Keys) = 0;
-
-	using FStructuredArchiveFormatter::EnterStream;
-	virtual void EnterStream(int32& NumElements) = 0;
-
-	using FStructuredArchiveFormatter::EnterField;
-	virtual void EnterField(FArchiveFieldName Name, EArchiveValueType& OutType) = 0;
-
-	using FStructuredArchiveFormatter::EnterArrayElement;
-	virtual void EnterArrayElement(EArchiveValueType& OutType) = 0;
-
-	using FStructuredArchiveFormatter::EnterStreamElement;
-	virtual void EnterStreamElement(EArchiveValueType& OutType) = 0;
-
-	using FStructuredArchiveFormatter::EnterMapElement;
-	virtual void EnterMapElement(FString& OutName, EArchiveValueType& OutType) = 0;
 };
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
 	/**
 	 * Copies formatted data from one place to another. Useful for conversion functions or visitor patterns.
 	 */
-	CORE_API void CopyFormattedData(FAnnotatedStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter);
+	CORE_API void CopyFormattedData(FStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter);
 #endif

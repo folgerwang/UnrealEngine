@@ -8,14 +8,15 @@
 #include "Internationalization/TextPackageNamespaceUtil.h"
 #include "Internationalization/StringTableRegistry.h"
 #include "Internationalization/StringTableCore.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
-EConvertFromTypeResult UTextProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UTextProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	// Convert serialized string to text.
 	if (Tag.Type==NAME_StrProperty)
 	{
 		FString str;
-		Ar << str;
+		Slot << str;
 		FText Text = FText::FromString(str);
 		Text.TextData->PersistText();
 		Text.Flags |= ETextFlag::ConvertedProperty;
@@ -27,7 +28,7 @@ EConvertFromTypeResult UTextProperty::ConvertFromType(const FPropertyTag& Tag, F
 	if (Tag.Type==NAME_NameProperty)
 	{
 		FName Name;
-		Ar << Name;
+		Slot << Name;
 		FText Text = FText::FromName(Name);
 		Text.Flags |= ETextFlag::ConvertedProperty;
 		SetPropertyValue_InContainer(Data, Text, Tag.ArrayIndex);
@@ -97,10 +98,10 @@ bool UTextProperty::Identical( const void* A, const void* B, uint32 PortFlags ) 
 	return FTextInspector::GetDisplayString(ValueA).IsEmpty();
 }
 
-void UTextProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UTextProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
 {
 	TCppType* TextPtr = GetPropertyValuePtr(Value);
-	Ar << *TextPtr;
+	Slot << *TextPtr;
 }
 
 void UTextProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const

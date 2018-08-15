@@ -29,6 +29,7 @@ public:
 		, _AllowAbstract(false)
 		, _IsBlueprintBaseOnly(false)
 		, _AllowNone(true)
+		, _ShowDisplayNames(false)
 		{}
 		SLATE_ARGUMENT(FSlateFontInfo, Font)
 
@@ -49,6 +50,8 @@ public:
 		SLATE_ARGUMENT(bool, ShowViewOptions)
 		/** Should we show the class picker in tree mode or list mode?*/
 		SLATE_ARGUMENT(bool, ShowTree)
+		/** Should we prettify class names on the class picker? (ie show their display name) */
+		SLATE_ARGUMENT(bool, ShowDisplayNames)
 		/** Delegate used to set the currently selected class (required if PropertyEditor == null) */
 		SLATE_EVENT(FOnSetClass, OnSetClass)
 	SLATE_END_ARGS()
@@ -106,6 +109,8 @@ private:
 	bool bShowViewOptions;
 	/** Should we show the class picker in tree mode or list mode?*/
 	bool bShowTree;
+	/** Should we prettify class names on the class picker? (ie show their display name) */
+	bool bShowDisplayNames;
 
 	/** Attribute used to get the currently selected class (required if PropertyEditor == null) */
 	TAttribute<const UClass*> SelectedClass;

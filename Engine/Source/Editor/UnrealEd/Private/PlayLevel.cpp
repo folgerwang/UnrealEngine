@@ -1330,10 +1330,6 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	}
 
 	FString AdditionalParameters(TEXT(" -messaging -SessionName=\"Play in Standalone Game\""));
-	if (FApp::IsRunningDebug())
-	{
-		AdditionalParameters += TEXT(" -debug");
-	}
 
 	const FString PreviewGameLanguage = FTextLocalizationManager::Get().GetConfiguredGameLocalizationPreviewLanguage();
 	if (!PreviewGameLanguage.IsEmpty())
@@ -3573,7 +3569,7 @@ bool UEditorEngine::PackageUsingExternalObjects( ULevel* LevelToCheck, bool bAdd
 	check(LevelToCheck);
 	bool bFoundExternal = false;
 	TArray<UObject*> ExternalObjects;
-	if(PackageTools::CheckForReferencesToExternalPackages(NULL, NULL, LevelToCheck, &ExternalObjects ))
+	if(UPackageTools::CheckForReferencesToExternalPackages(NULL, NULL, LevelToCheck, &ExternalObjects ))
 	{
 		for(int32 ObjectIndex = 0; ObjectIndex < ExternalObjects.Num(); ++ObjectIndex)
 		{

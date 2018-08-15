@@ -128,7 +128,7 @@ void FPaperSpriteSheetAssetTypeActions::ExecuteCreateFlipbooks(TArray<TWeakObjec
 					const FString& FlipbookName = It.Key;
 					TArray<UPaperSprite*>& Sprites = It.Value;
 
-					const FString TentativePackagePath = PackageTools::SanitizePackageName(PackagePath + TEXT("/") + FlipbookName);
+					const FString TentativePackagePath = UPackageTools::SanitizePackageName(PackagePath + TEXT("/") + FlipbookName);
 					FString DefaultSuffix;
 					FString AssetName;
 					FString PackageName;

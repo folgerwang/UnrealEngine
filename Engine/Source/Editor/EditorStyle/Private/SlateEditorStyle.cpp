@@ -1913,6 +1913,8 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 		Set( "Sequencer.TrackHoverHighlight_Top", new IMAGE_BRUSH( TEXT("Sequencer/TrackHoverHighlight_Top"), FVector2D(4, 4) ) );
 		Set( "Sequencer.TrackHoverHighlight_Bottom", new IMAGE_BRUSH( TEXT("Sequencer/TrackHoverHighlight_Bottom"), FVector2D(4, 4) ) );
 		Set( "Sequencer.SpawnableIconOverlay", new IMAGE_BRUSH( TEXT("Sequencer/SpawnableIconOverlay"), FVector2D(13, 13) ) );
+		Set( "Sequencer.LockSequence", new IMAGE_BRUSH("Sequencer/Main_Icons/Icon_Sequencer_Locked_16x", Icon16x16) );
+		Set( "Sequencer.UnlockSequence", new IMAGE_BRUSH("Sequencer/Main_Icons/Icon_Sequencer_Unlocked_16x", Icon16x16) );
 
 		Set( "Sequencer.GeneralOptions", new IMAGE_BRUSH( "Sequencer/Main_Icons/Icon_Sequencer_General_Options_24x", Icon48x48 ) );
 		Set( "Sequencer.GeneralOptions.Small", new IMAGE_BRUSH( "Sequencer/Main_Icons/Icon_Sequencer_General_Options_24x", Icon24x24 ) );
@@ -2858,6 +2860,11 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 			.SetPadding(FMargin(0.0f));
 
 		Set("Common.GotoBlueprintHyperlink", EditBPHyperlinkStyle);
+	}
+
+	// Timecode Provider
+	{
+		Set("TimecodeProvider.TabIcon", new IMAGE_BRUSH("Icons/icon_tab_TimecodeProvider_16x", Icon16x16));
 	}
 #endif
 }
@@ -6246,6 +6253,7 @@ void FSlateEditorStyle::FStyle::SetupClassIconsAndThumbnails()
 			TEXT("TriggerSphere"),
 			TEXT("TriggerVolume"),
 			TEXT("TouchInterface"),
+			TEXT("UserDefinedCaptureProtocol"),
 			TEXT("UserDefinedEnum"),
 			TEXT("UserDefinedStruct"),
 			TEXT("WidgetBlueprint"),

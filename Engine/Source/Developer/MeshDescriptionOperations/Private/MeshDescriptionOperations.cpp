@@ -948,16 +948,21 @@ namespace MeshDescriptionMikktSpaceInterface
 {
 	int MikkGetNumFaces(const SMikkTSpaceContext* Context)
 	{
-		FMeshDescription* MeshDescription = (FMeshDescription*)(Context->m_pUserData);
-		return MeshDescription->Polygons().Num();
+		FMeshDescription *MeshDescription = (FMeshDescription*)(Context->m_pUserData);
+		return MeshDescription->Polygons().GetArraySize();
 	}
 
 	int MikkGetNumVertsOfFace(const SMikkTSpaceContext* Context, const int FaceIdx)
 	{
 		// All of our meshes are triangles.
-		FMeshDescription* MeshDescription = (FMeshDescription*)(Context->m_pUserData);
-		const FMeshPolygon& Polygon = MeshDescription->GetPolygon(FPolygonID(FaceIdx));
-		return Polygon.PerimeterContour.VertexInstanceIDs.Num();
+		FMeshDescription *MeshDescription = (FMeshDescription*)(Context->m_pUserData);
+		if (MeshDescription->IsPolygonValid(FPolygonID(FaceIdx)))
+		{
+			const FMeshPolygon& Polygon = MeshDescription->GetPolygon(FPolygonID(FaceIdx));
+			return Polygon.PerimeterContour.VertexInstanceIDs.Num();
+		}
+
+		return 0;
 	}
 
 	void MikkGetPosition(const SMikkTSpaceContext* Context, float Position[3], const int FaceIdx, const int VertIdx)
@@ -1097,6 +1102,57 @@ bool FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(const FMeshDescr
 	}
 
 	return bPackSuccess;
+}
+
+bool FMeshDescriptionOperations::AddUVChannel(FMeshDescription& MeshDescription)
+{
+	TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	if (VertexInstanceUVs.GetNumIndices() >= MAX_MESH_TEXTURE_COORDS)
+	{
+		UE_LOG(LogMeshDescriptionOperations, Error, TEXT("AddUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS);
+		return false;
+	}
+
+	VertexInstanceUVs.AddArray();
+	return true;
+}
+
+bool FMeshDescriptionOperations::InsertUVChannel(FMeshDescription& MeshDescription, int32 UVChannelIndex)
+{
+	TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	if (UVChannelIndex < 0 || UVChannelIndex > VertexInstanceUVs.GetNumIndices())
+	{
+		UE_LOG(LogMeshDescriptionOperations, Error, TEXT("InsertUVChannel: Cannot insert UV channel. Given UV channel index %d is out of bounds."), UVChannelIndex);
+		return false;
+	}
+
+	if (VertexInstanceUVs.GetNumIndices() >= MAX_MESH_TEXTURE_COORDS)
+	{
+		UE_LOG(LogMeshDescriptionOperations, Error, TEXT("InsertUVChannel: Cannot insert UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS);
+		return false;
+	}
+
+	VertexInstanceUVs.InsertArray(UVChannelIndex);
+	return true;
+}
+
+bool FMeshDescriptionOperations::RemoveUVChannel(FMeshDescription& MeshDescription, int32 UVChannelIndex)
+{
+	TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	if (VertexInstanceUVs.GetNumIndices() == 1)
+	{
+		UE_LOG(LogMeshDescriptionOperations, Error, TEXT("RemoveUVChannel: Cannot remove UV channel. There must be at least one channel."));
+		return false;
+	}
+
+	if (UVChannelIndex < 0 || UVChannelIndex >= VertexInstanceUVs.GetNumIndices())
+	{
+		UE_LOG(LogMeshDescriptionOperations, Error, TEXT("RemoveUVChannel: Cannot remove UV channel. Given UV channel index %d is out of bounds."), UVChannelIndex);
+		return false;
+	}
+
+	VertexInstanceUVs.RemoveArray(UVChannelIndex);
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

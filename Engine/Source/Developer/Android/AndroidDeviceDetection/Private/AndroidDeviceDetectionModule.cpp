@@ -439,13 +439,12 @@ public:
 	virtual void UpdateADBPath() override
 	{
 		FScopeLock PathUpdateLock(&ADBPathCheckLock);
-		TCHAR AndroidDirectory[32768] = { 0 };
-		FPlatformMisc::GetEnvironmentVariable(*SDKDirEnvVar, AndroidDirectory, 32768);
+		FString AndroidDirectory = FPlatformMisc::GetEnvironmentVariable(*SDKDirEnvVar);
 
 		ADBPath.Empty();
 		
 #if PLATFORM_MAC || PLATFORM_LINUX
-		if (AndroidDirectory[0] == 0)
+		if (AndroidDirectory.Len() == 0)
 		{
 #if PLATFORM_LINUX
 			// didn't find ANDROID_HOME, so parse the .bashrc file on Linux
@@ -469,22 +468,22 @@ public:
 
 				for (int32 Index = Lines.Num()-1; Index >=0; Index--)
 				{
-					if (AndroidDirectory[0] == 0 && Lines[Index].StartsWith(FString::Printf(TEXT("export %s="), *SDKDirEnvVar)))
+					if (AndroidDirectory.Len() == 0 && Lines[Index].StartsWith(FString::Printf(TEXT("export %s="), *SDKDirEnvVar)))
 					{
 						FString Directory;
 						Lines[Index].Split(TEXT("="), NULL, &Directory);
 						Directory = Directory.Replace(TEXT("\""), TEXT(""));
-						FCString::Strcpy(AndroidDirectory, *Directory);
-						setenv(TCHAR_TO_ANSI(*SDKDirEnvVar), TCHAR_TO_ANSI(AndroidDirectory), 1);
+						AndroidDirectory = Directory;
+						setenv(TCHAR_TO_ANSI(*SDKDirEnvVar), TCHAR_TO_ANSI(*AndroidDirectory), 1);
 					}
 				}
 			}
 		}
 #endif
 
-		if (AndroidDirectory[0] != 0)
+		if (AndroidDirectory.Len() > 0)
 		{
-			ADBPath = FPaths::Combine(AndroidDirectory, SDKRelativeExePath);
+			ADBPath = FPaths::Combine(*AndroidDirectory, SDKRelativeExePath);
 
 			// if it doesn't exist then just clear the path as we might set it later
 			if (!FPaths::FileExists(*ADBPath))

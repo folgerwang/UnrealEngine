@@ -19,9 +19,10 @@ public enum ProjectBuildTargets
 	Bootstrap = 1 << 3,
 	CrashReporter = 1 << 4,
 	Programs = 1 << 5,
+	UnrealPak = 1 << 6,
 
 	// All targets
-	All = Editor | ClientCooked | ServerCooked | Bootstrap | CrashReporter | Programs,
+	All = Editor | ClientCooked | ServerCooked | Bootstrap | CrashReporter | Programs | UnrealPak,
 }
 
 /// <summary>
@@ -66,7 +67,7 @@ public partial class Project : CommandUtils
 			return;
 		}
 
-		Log("********** BUILD COMMAND STARTED **********");
+		LogInformation("********** BUILD COMMAND STARTED **********");
 
 		var UE4Build = new UE4Build(Command);
 		var Agenda = new UE4Build.BuildAgenda();
@@ -92,10 +93,6 @@ public partial class Project : CommandUtils
 				{
 					Agenda.AddTargets(new string[] { "ShaderCompileWorker" }, EditorPlatform, EditorConfiguration);
 				}
-				if (Params.Pak && Params.EditorTargets.Contains("UnrealPak") == false)
-				{
-					Agenda.AddTargets(new string[] { "UnrealPak" }, EditorPlatform, EditorConfiguration);
-				}
 				if (Params.FileServer && Params.EditorTargets.Contains("UnrealFileServer") == false)
 				{
 					Agenda.AddTargets(new string[] { "UnrealFileServer" }, EditorPlatform, EditorConfiguration);
@@ -110,6 +107,15 @@ public partial class Project : CommandUtils
 		foreach (UnrealTargetPlatform TargetPlatform in UniquePlatforms)
 		{
 			Platform.GetPlatform(TargetPlatform).PreBuildAgenda(UE4Build, Agenda);
+		}
+
+		// Build any tools we need to stage
+		if ((TargetMask & ProjectBuildTargets.UnrealPak) == ProjectBuildTargets.UnrealPak && !Automation.IsEngineInstalled())
+		{
+			if (Params.EditorTargets.Contains("UnrealPak") == false)
+			{
+				Agenda.AddTargets(new string[] { "UnrealPak" }, HostPlatform.Current.HostEditorPlatform, UnrealTargetConfiguration.Development, Params.CodeBasedUprojectPath);
+			}
 		}
 
 		// Additional compile arguments
@@ -214,7 +220,7 @@ public partial class Project : CommandUtils
 			UE4Build.AddBuildProductsToChangelist(WorkingCL, UE4Build.BuildProductFiles);
 		}
 
-		Log("********** BUILD COMMAND COMPLETED **********");
+		LogInformation("********** BUILD COMMAND COMPLETED **********");
 	}
 
 	#endregion

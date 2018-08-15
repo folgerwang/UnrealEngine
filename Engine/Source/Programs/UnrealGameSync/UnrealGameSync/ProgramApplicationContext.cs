@@ -155,13 +155,17 @@ namespace UnrealGameSync
 			DetectStartupProjectSettingsTask = new DetectMultipleProjectSettingsTask(Tasks);
 
 			DetectStartupProjectSettingsWindow = new ModalTaskWindow(DetectStartupProjectSettingsTask, "Opening Projects", "Opening projects, please wait...", FormStartPosition.CenterScreen);
-			if(Settings.bWindowVisible)
+			if(bRestoreState)
+			{
+				if(Settings.bWindowVisible)
+				{
+					DetectStartupProjectSettingsWindow.Show();
+				}
+			}
+			else
 			{
 				DetectStartupProjectSettingsWindow.Show();
-				if(!bRestoreState)
-				{
-					DetectStartupProjectSettingsWindow.Activate();
-				}
+				DetectStartupProjectSettingsWindow.Activate();
 			}
 			DetectStartupProjectSettingsWindow.Complete += OnDetectStartupProjectsComplete;
 		}
@@ -239,6 +243,12 @@ namespace UnrealGameSync
 			{
 				Components.Dispose();
 				Components = null;
+			}
+
+			if(NotifyIcon != null)
+			{
+				NotifyIcon.Dispose();
+				NotifyIcon = null;
 			}
 
 			if(Log != null)
@@ -348,7 +358,10 @@ namespace UnrealGameSync
 		{
 			base.ExitThreadCore();
 
-			NotifyIcon.Visible = false;
+			if(NotifyIcon != null)
+			{
+				NotifyIcon.Visible = false;
+			}
 		}
 	}
 }

@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorPythonExecuter.h"
+#include "IPythonScriptPlugin.h"
 
 #include "AssetRegistryModule.h"
 #include "Editor.h"
@@ -163,9 +164,7 @@ namespace InternalEditorPythonRunner
 					if (!AssetRegistryModule.Get().IsLoadingAssets())
 					{
 						bIsRunning = true;
-
-						// Run the command on the next frame
-						GEngine->HandleDeferCommand(*FString::Printf(TEXT("py %s"), *FileName), *GLog);
+						IPythonScriptPlugin::Get()->ExecPythonCommand(*FileName);
 					}
 				}
 				else
@@ -205,16 +204,24 @@ void FEditorPythonExecuter::OnStartupModule()
 	{
 		if (!GIsEditor)
 		{
-			UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be used outside of the editor"));
+			UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be used outside of the editor."));
 		}
 		else if (IsRunningCommandlet())
 		{
-			UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be by a commandlet"));
+			UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be used by a commandlet."));
 		}
 		else
 		{
-			InternalEditorPythonRunner::Executer = new InternalEditorPythonRunner::FExecuterTickable(MoveTemp(FileValue));
-			InternalEditorPythonRunner::SExecutingDialog::OpenDialog();
+			IPythonScriptPlugin* PythonScriptPlugin = IPythonScriptPlugin::Get();
+			if (PythonScriptPlugin && PythonScriptPlugin->IsPythonAvailable())
+			{
+				InternalEditorPythonRunner::Executer = new InternalEditorPythonRunner::FExecuterTickable(MoveTemp(FileValue));
+				InternalEditorPythonRunner::SExecutingDialog::OpenDialog();
+			}
+			else
+			{
+				UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be used without a valid Python Script Plugin. Ensure the plugin is enabled and wasn't compiled with Python support stubbed out."));
+			}
 		}
 	}
 }

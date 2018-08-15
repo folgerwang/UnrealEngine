@@ -782,7 +782,7 @@ void FNVAnselCameraPhotographyPrivate::ReconfigureAnsel()
 	ansel::SetConfigurationStatus status = ansel::setConfiguration(*AnselConfig);
 	if (status != ansel::kSetConfigurationSuccess)
 	{
-		UE_LOG(LogAnsel, Log, TEXT("ReconfigureAnsel setConfiguration returned %ld"), long int(status));
+		UE_LOG(LogAnsel, Log, TEXT("ReconfigureAnsel setConfiguration returned %ld"), (long int)(status));
 	}
 }
 
@@ -799,7 +799,7 @@ void FNVAnselCameraPhotographyPrivate::DeconfigureAnsel()
 	ansel::SetConfigurationStatus status = ansel::setConfiguration(*AnselConfig);
 	if (status != ansel::kSetConfigurationSuccess)
 	{
-		UE_LOG(LogAnsel, Log, TEXT("DeconfigureAnsel setConfiguration returned %ld"), long int(status));
+		UE_LOG(LogAnsel, Log, TEXT("DeconfigureAnsel setConfiguration returned %ld"), (long int)(status));
 	}
 }
 

@@ -6,6 +6,7 @@
 #include "UObject/UnrealType.h"
 #include "UObject/PropertyHelper.h"
 #include "UObject/LinkerPlaceholderFunction.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 /*-----------------------------------------------------------------------------
 	UMulticastDelegateProperty.
@@ -109,8 +110,9 @@ bool UMulticastDelegateProperty::Identical( const void* A, const void* B, uint32
 	return true;
 }
 
-void UMulticastDelegateProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UMulticastDelegateProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
 {
+	FArchiveUObjectFromStructuredArchive Ar(Slot);
 	Ar << *GetPropertyValuePtr(Value);
 }
 
