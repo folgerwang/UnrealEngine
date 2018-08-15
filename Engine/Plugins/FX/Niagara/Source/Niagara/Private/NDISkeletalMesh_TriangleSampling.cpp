@@ -673,6 +673,7 @@ void UNiagaraDataInterfaceSkeletalMesh::GetTriCoordUV(FVectorVMContext& Context)
 	FMultiSizeIndexContainer& Indices = LODData.MultiSizeIndexContainer;
 	FRawStaticIndexBuffer16or32Interface* IndexBuffer = Indices.GetIndexBuffer();
 	int32 TriMax = IndexBuffer->Num() - 3;
+	int32 UVSetMax = LODData.StaticVertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords() - 1;
 	float InvDt = 1.0f / InstData->DeltaSeconds;
 	for (int32 i = 0; i < Context.NumInstances; ++i)
 	{
@@ -684,6 +685,7 @@ void UNiagaraDataInterfaceSkeletalMesh::GetTriCoordUV(FVectorVMContext& Context)
 		int32 Idx2 = IndexBuffer->Get(Tri + 2);
 		FVector2D UV0;		FVector2D UV1;		FVector2D UV2;
 		int32 UVSet = UVSetParam.Get();
+		UVSet = FMath::Clamp(UVSet, 0, UVSetMax);
 		UV0 = VertAccessor.GetVertexUV(LODData, Idx0, UVSet);
 		UV1 = VertAccessor.GetVertexUV(LODData, Idx1, UVSet);
 		UV2 = VertAccessor.GetVertexUV(LODData, Idx2, UVSet);

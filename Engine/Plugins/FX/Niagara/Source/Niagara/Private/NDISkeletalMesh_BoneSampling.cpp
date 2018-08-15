@@ -246,10 +246,17 @@ void UNiagaraDataInterfaceSkeletalMesh::GetSpecificBoneAt(FVectorVMContext& Cont
 	const TArray<int32>& SpecificBonesArray = InstData->SpecificBones;
 
 	int32 Max = SpecificBones.Num() - 1;
-	for (int32 i = 0; i < Context.NumInstances; ++i)
+	if (Max != INDEX_NONE)
 	{
-		int32 BoneIndex = FMath::Clamp(BoneParam.GetAndAdvance(), 0, Max);
-		*OutBone.GetDestAndAdvance() = SpecificBonesArray[BoneIndex];
+		for (int32 i = 0; i < Context.NumInstances; ++i)
+		{
+			int32 BoneIndex = FMath::Clamp(BoneParam.GetAndAdvance(), 0, Max);
+			*OutBone.GetDestAndAdvance() = SpecificBonesArray[BoneIndex];
+		}
+	}
+	else
+	{
+		FMemory::Memset(OutBone.GetDest(), 0xFF, Context.NumInstances * sizeof(int32));
 	}
 }
 
@@ -263,10 +270,17 @@ void UNiagaraDataInterfaceSkeletalMesh::RandomSpecificBone(FVectorVMContext& Con
 	const TArray<int32>& SpecificBonesArray = InstData->SpecificBones;
 
 	int32 Max = SpecificBones.Num() - 1;
-	for (int32 i = 0; i < Context.NumInstances; ++i)
+	if (Max != INDEX_NONE)
 	{
-		int32 BoneIndex = Context.RandStream.RandRange(0, Max);
-		*OutBone.GetDestAndAdvance() = SpecificBonesArray[BoneIndex];
+		for (int32 i = 0; i < Context.NumInstances; ++i)
+		{
+			int32 BoneIndex = Context.RandStream.RandRange(0, Max);
+			*OutBone.GetDestAndAdvance() = SpecificBonesArray[BoneIndex];
+		}
+	}
+	else
+	{
+		FMemory::Memset(OutBone.GetDest(), 0xFF, Context.NumInstances * sizeof(int32));
 	}
 }
 
@@ -419,7 +433,7 @@ void UNiagaraDataInterfaceSkeletalMesh::GetSpecificSocketBoneAt(FVectorVMContext
 	const TArray<int32>& SpecificSocketsArray = InstData->SpecificSocketBones;
 
 	int32 Max = SpecificSockets.Num() - 1;
-	if (Max >= 0)
+	if (Max != INDEX_NONE)
 	{
 		for (int32 i = 0; i < Context.NumInstances; ++i)
 		{
@@ -429,10 +443,7 @@ void UNiagaraDataInterfaceSkeletalMesh::GetSpecificSocketBoneAt(FVectorVMContext
 	}
 	else
 	{
-		for (int32 i = 0; i < Context.NumInstances; ++i)
-		{
-			*OutSocketBone.GetDestAndAdvance() = INDEX_NONE;
-		}
+		FMemory::Memset(OutSocketBone.GetDest(), 0xFF, Context.NumInstances * sizeof(int32));
 	}
 }
 
@@ -446,7 +457,7 @@ void UNiagaraDataInterfaceSkeletalMesh::RandomSpecificSocketBone(FVectorVMContex
 	const TArray<int32>& SpecificSocketsArray = InstData->SpecificSocketBones;
 
 	int32 Max = SpecificSockets.Num() - 1;
-	if (Max >= 0)
+	if (Max != INDEX_NONE)
 	{
 		for (int32 i = 0; i < Context.NumInstances; ++i)
 		{
@@ -456,10 +467,7 @@ void UNiagaraDataInterfaceSkeletalMesh::RandomSpecificSocketBone(FVectorVMContex
 	}
 	else
 	{
-		for (int32 i = 0; i < Context.NumInstances; ++i)
-		{
-			*OutSocketBone.GetDestAndAdvance() = INDEX_NONE;
-		}
+		FMemory::Memset(OutSocketBone.GetDest(), 0xFF, Context.NumInstances * sizeof(int32));
 	}
 }
 
