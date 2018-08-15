@@ -626,6 +626,14 @@ public:
 	FVector GetSafeNormal2D(float Tolerance=SMALL_NUMBER) const;
 
 	/**
+	* Calculates normalized 2D version of vector without checking for zero length.
+	*
+	* @return Normalized 2D version of vector.
+	* @see GetSafeNormal2D()
+	*/
+	FVector GetUnsafeNormal2D() const;
+
+	/**
 	 * Returns the cosine of the angle between this vector and another projected onto the XY plane (no Z).
 	 *
 	 * @param B the other vector to find the 2D cosine of the angle with.
@@ -1799,6 +1807,12 @@ FORCEINLINE FVector FVector::GetSafeNormal2D(float Tolerance) const
 	}
 
 	const float Scale = FMath::InvSqrt(SquareSum);
+	return FVector(X*Scale, Y*Scale, 0.f);
+}
+
+FORCEINLINE FVector FVector::GetUnsafeNormal2D() const
+{
+	const float Scale = FMath::InvSqrt(X * X + Y * Y);
 	return FVector(X*Scale, Y*Scale, 0.f);
 }
 

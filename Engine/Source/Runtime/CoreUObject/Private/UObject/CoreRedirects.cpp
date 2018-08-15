@@ -489,83 +489,90 @@ const TMap<FString, FString>* FCoreRedirects::GetValueRedirects(ECoreRedirectFla
 	return nullptr;
 }
 
-bool FCoreRedirects::GetMatchingRedirects(ECoreRedirectFlags Type, const FCoreRedirectObjectName& OldObjectName, TArray<const FCoreRedirect*>& FoundRedirects)
+static FORCEINLINE bool CheckRedirectFlagsMatch(ECoreRedirectFlags FlagsA, ECoreRedirectFlags FlagsB)
+{
+	// For type, check it includes the matching type
+	const bool bTypeMatches = !!((FlagsA & FlagsB) & ECoreRedirectFlags::Type_AllMask);
+
+	// For options, instance/remove must match exactly but allow both substring and non-substring matches
+	const bool bOptionsMatch = (FlagsA & ECoreRedirectFlags::Option_ExactMatchMask) == (FlagsB & ECoreRedirectFlags::Option_ExactMatchMask);
+
+	return bTypeMatches && bOptionsMatch;
+}
+
+bool FCoreRedirects::GetMatchingRedirects(ECoreRedirectFlags SearchFlags, const FCoreRedirectObjectName& OldObjectName, TArray<const FCoreRedirect*>& FoundRedirects)
 {
 	// Look for all redirects that match the given names and flags
 	bool bFound = false;
-	FRedirectNameMap* RedirectNameMap = RedirectTypeMap.Find(Type);
-	if (RedirectNameMap)
-	{
-		TArray<FCoreRedirect>* RedirectsForName = RedirectNameMap->RedirectMap.Find(OldObjectName.GetSearchKey(Type));
+	
+	// If we're not explicitly searching for packages or looking for removed things, add the implicit package redirects
+	const bool bSearchPackageRedirects = !(SearchFlags & ECoreRedirectFlags::Type_Package) && !(SearchFlags & ECoreRedirectFlags::Option_Removed);
 
-		if (RedirectsForName)
+	// Determine list of maps to look over, need to handle being passed multiple types in a bit mask
+	for (const TPair<ECoreRedirectFlags, FRedirectNameMap>& Pair : RedirectTypeMap)
+	{
+		ECoreRedirectFlags PairFlags = Pair.Key;
+
+		// We need to check all maps that match the search or package flags
+		if (CheckRedirectFlagsMatch(PairFlags, SearchFlags) || (bSearchPackageRedirects && CheckRedirectFlagsMatch(PairFlags, ECoreRedirectFlags::Type_Package)))
 		{
-			for (FCoreRedirect& CheckRedirect : *RedirectsForName)
+			const TArray<FCoreRedirect>* RedirectsForName = Pair.Value.RedirectMap.Find(OldObjectName.GetSearchKey(PairFlags));
+
+			if (RedirectsForName)
 			{
-				if (CheckRedirect.Matches(Type, OldObjectName))
+				for (const FCoreRedirect& CheckRedirect : *RedirectsForName)
 				{
-					bFound = true;
-					FoundRedirects.Add(&CheckRedirect);
-				}
-			}
-		}
-	}
-
-	// Add Package redirects now as well
-	if (!(Type & ECoreRedirectFlags::Type_Package))
-	{
-		bFound |= GetMatchingRedirects(ECoreRedirectFlags::Type_Package, OldObjectName, FoundRedirects);
-	}
-
-	// Add substring matches as well, these can be slow
-	if (!(Type & ECoreRedirectFlags::Option_MatchSubstring))
-	{
-		bFound |= GetMatchingRedirects(Type | ECoreRedirectFlags::Option_MatchSubstring, OldObjectName, FoundRedirects);
-	}
-
-	return bFound;
-}
-
-bool FCoreRedirects::FindPreviousNames(ECoreRedirectFlags Type, const FCoreRedirectObjectName& NewObjectName, TArray<FCoreRedirectObjectName>& PreviousNames)
-{
-	bool bFound = false;
-
-	FRedirectNameMap* RedirectNameMap = RedirectTypeMap.Find(Type);
-	if (RedirectNameMap)
-	{
-		for (TPair<FName, TArray<FCoreRedirect> >& Pair : RedirectNameMap->RedirectMap)
-		{
-			for (FCoreRedirect& Redirect : Pair.Value)
-			{
-				if (Redirect.NewName.Matches(NewObjectName, Redirect.IsSubstringMatch()))
-				{
-					// Construct a reverse redirect
-					FCoreRedirect ReverseRedirect = FCoreRedirect(Redirect);
-					ReverseRedirect.OldName = Redirect.NewName;
-					ReverseRedirect.NewName = Redirect.OldName;
-
-					FCoreRedirectObjectName OldName = ReverseRedirect.RedirectName(NewObjectName);
-
-					if (OldName != NewObjectName)
+					if (CheckRedirect.Matches(PairFlags, OldObjectName))
 					{
 						bFound = true;
-						PreviousNames.AddUnique(OldName);
+						FoundRedirects.Add(&CheckRedirect);
 					}
 				}
 			}
 		}
 	}
 
-	// Add Package redirects now as well
-	if (!(Type & ECoreRedirectFlags::Type_Package))
-	{
-		bFound |= FindPreviousNames(ECoreRedirectFlags::Type_Package, NewObjectName, PreviousNames);
-	}
+	return bFound;
+}
 
-	// Add substring matches as well, these can be slow
-	if (!(Type & ECoreRedirectFlags::Option_MatchSubstring))
+bool FCoreRedirects::FindPreviousNames(ECoreRedirectFlags SearchFlags, const FCoreRedirectObjectName& NewObjectName, TArray<FCoreRedirectObjectName>& PreviousNames)
+{
+	// Look for reverse direction redirects
+	bool bFound = false;
+
+	// If we're not explicitly searching for packages or looking for removed things, add the implicit package redirects
+	const bool bSearchPackageRedirects = !(SearchFlags & ECoreRedirectFlags::Type_Package) && !(SearchFlags & ECoreRedirectFlags::Option_Removed);
+
+	// Determine list of maps to look over, need to handle being passed multiple Flagss in a bit mask
+	for (const TPair<ECoreRedirectFlags, FRedirectNameMap>& Pair : RedirectTypeMap)
 	{
-		bFound |= FindPreviousNames(Type | ECoreRedirectFlags::Option_MatchSubstring, NewObjectName, PreviousNames);
+		ECoreRedirectFlags PairFlags = Pair.Key;
+
+		// We need to check all maps that match the search or package flags
+		if (CheckRedirectFlagsMatch(PairFlags, SearchFlags) || (bSearchPackageRedirects && CheckRedirectFlagsMatch(PairFlags, ECoreRedirectFlags::Type_Package)))
+		{
+			for (const TPair<FName, TArray<FCoreRedirect> >& RedirectPair : Pair.Value.RedirectMap)
+			{
+				for (const FCoreRedirect& Redirect : RedirectPair.Value)
+				{
+					if (Redirect.NewName.Matches(NewObjectName, Redirect.IsSubstringMatch()))
+					{
+						// Construct a reverse redirect
+						FCoreRedirect ReverseRedirect = FCoreRedirect(Redirect);
+						ReverseRedirect.OldName = Redirect.NewName;
+						ReverseRedirect.NewName = Redirect.OldName;
+
+						FCoreRedirectObjectName OldName = ReverseRedirect.RedirectName(NewObjectName);
+
+						if (OldName != NewObjectName)
+						{
+							bFound = true;
+							PreviousNames.AddUnique(OldName);
+						}
+					}
+				}
+			}
+		}
 	}
 
 	return bFound;
@@ -605,7 +612,7 @@ bool FCoreRedirects::RunTests()
 	new (NewRedirects) FCoreRedirect(ECoreRedirectFlags::Type_Property, TEXT("/game/Package.Class.OtherProperty"), TEXT("/game/Package.Class.OtherProperty2"));
 	new (NewRedirects) FCoreRedirect(ECoreRedirectFlags::Type_Class, TEXT("Class"), TEXT("Class2"));
 	new (NewRedirects) FCoreRedirect(ECoreRedirectFlags::Type_Class, TEXT("/game/Package.Class"), TEXT("Class3"));
-	new (NewRedirects) FCoreRedirect(ECoreRedirectFlags::Type_Class | ECoreRedirectFlags::Option_InstanceOnly, TEXT("/game/Package.Class"), TEXT("ClassInstance"));
+	new (NewRedirects) FCoreRedirect(ECoreRedirectFlags::Type_Class | ECoreRedirectFlags::Option_InstanceOnly, TEXT("/game/Package.Class"), TEXT("/game/Package.ClassInstance"));
 	new (NewRedirects) FCoreRedirect(ECoreRedirectFlags::Type_Package, TEXT("/game/Package"), TEXT("/game/Package2"));
 	new (NewRedirects) FCoreRedirect(ECoreRedirectFlags::Type_Package | ECoreRedirectFlags::Option_MatchSubstring, TEXT("/oldgame"), TEXT("/newgame"));
 	new (NewRedirects) FCoreRedirect(ECoreRedirectFlags::Type_Package | ECoreRedirectFlags::Option_Removed, TEXT("/game/RemovedPackage"), TEXT("/game/RemovedPackage"));

@@ -64,6 +64,8 @@ FSimpleMulticastDelegate FKismetCompilerContext::OnPostCompile;
 
 #define LOCTEXT_NAMESPACE "KismetCompiler"
 
+extern COREUOBJECT_API bool GBlueprintUseCompilationManager;
+
 //////////////////////////////////////////////////////////////////////////
 // Stats for this module
 DECLARE_CYCLE_STAT(TEXT("Create Schema"), EKismetCompilerStats_CreateSchema, STATGROUP_KismetCompiler );
@@ -654,7 +656,8 @@ void FKismetCompilerContext::CreateClassVariablesFromBlueprint()
 				if(UMulticastDelegateProperty* AsDelegate = Cast<UMulticastDelegateProperty>(NewProperty))
 				{
 					AsDelegate->SignatureFunction = FindField<UFunction>(NewClass, *(Variable.VarName.ToString() + HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX));
-					ensure(AsDelegate->SignatureFunction);
+					// Skeleton compilation phase may run when the delegate has been created but the function has not:
+					ensureAlways(AsDelegate->SignatureFunction || !bIsFullCompile);
 				}
 			}
 
@@ -1735,6 +1738,7 @@ void FKismetCompilerContext::PrecompileFunction(FKismetFunctionContext& Context,
 		{
 			ensure(!NewClass->UberGraphFunction);
 			NewClass->UberGraphFunction = Context.Function;
+			NewClass->UberGraphFunction->FunctionFlags |= FUNC_UbergraphFunction;
 		}
 
 		// Register nets from function entry/exit nodes first, even for skeleton compiles (as they form the signature)
@@ -3815,7 +3819,7 @@ void FKismetCompilerContext::CompileClassLayout(EInternalCompilerFlags InternalF
 		}
 	}
 
-	if (CompileOptions.DoesRequireBytecodeGeneration() && !Blueprint->bIsRegeneratingOnLoad)
+	if (CompileOptions.DoesRequireBytecodeGeneration() && !GBlueprintUseCompilationManager)
 	{
 		TArray<UEdGraph*> AllGraphs;
 		Blueprint->GetAllGraphs(AllGraphs);
@@ -4004,23 +4008,6 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 			}
 		}
 
-		// Save off intermediate build products if requested
-		if (CompileOptions.bSaveIntermediateProducts && !Blueprint->bIsRegeneratingOnLoad)
-		{
-			// Generate code for each function (done in a second pass to allow functions to reference each other)
-			for (int32 i = 0; i < FunctionList.Num(); ++i)
-			{
-				FKismetFunctionContext& ContextFunction = FunctionList[i];
-				if (FunctionList[i].SourceGraph != NULL)
-				{
-					// Record this graph as an intermediate product
-					ContextFunction.SourceGraph->Schema = UEdGraphSchema_K2::StaticClass();
-					Blueprint->IntermediateGeneratedGraphs.Add(ContextFunction.SourceGraph);
-					ContextFunction.SourceGraph->SetFlags(RF_Transient);
-				}
-			}
-		}
-
 		for (TFieldIterator<UMulticastDelegateProperty> PropertyIt(NewClass); PropertyIt; ++PropertyIt)
 		{
 			if(const UMulticastDelegateProperty* MCDelegateProp = *PropertyIt)
@@ -4042,6 +4029,23 @@ void FKismetCompilerContext::CompileFunctions(EInternalCompilerFlags InternalFla
 			{
 				BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_PostcompileFunction);
 				FinishCompilingFunction(Function);
+			}
+		}
+	}
+
+	// Save off intermediate build products if requested
+	if (bIsFullCompile && CompileOptions.bSaveIntermediateProducts && !Blueprint->bIsRegeneratingOnLoad)
+	{
+		// Generate code for each function (done in a second pass to allow functions to reference each other)
+		for (int32 i = 0; i < FunctionList.Num(); ++i)
+		{
+			FKismetFunctionContext& ContextFunction = FunctionList[i];
+			if (FunctionList[i].SourceGraph != NULL)
+			{
+				// Record this graph as an intermediate product
+				ContextFunction.SourceGraph->Schema = UEdGraphSchema_K2::StaticClass();
+				Blueprint->IntermediateGeneratedGraphs.Add(ContextFunction.SourceGraph);
+				ContextFunction.SourceGraph->SetFlags(RF_Transient);
 			}
 		}
 	}

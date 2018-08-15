@@ -30,6 +30,19 @@ void UDataTableFunctionLibrary::EvaluateCurveTableRow(UCurveTable* CurveTable, F
 	}
 }
 
+bool UDataTableFunctionLibrary::DoesDataTableRowExist(UDataTable* Table, FName RowName)
+{
+	if (!Table)
+	{
+		return false;
+	}
+	else if (Table->RowStruct == nullptr)
+	{
+		return false;
+	}
+	return Table->RowMap.Find(RowName) != nullptr;
+}
+
 TArray<FString> UDataTableFunctionLibrary::GetDataTableColumnAsString(const UDataTable* DataTable, FName PropertyName)
 {
 	if (DataTable && PropertyName != NAME_None)

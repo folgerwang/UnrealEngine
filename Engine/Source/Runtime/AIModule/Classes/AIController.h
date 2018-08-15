@@ -441,6 +441,11 @@ public:
 	UBrainComponent* GetBrainComponent() const { return BrainComponent; }
 	const UBlackboardComponent* GetBlackboardComponent() const { return Blackboard; }
 	UBlackboardComponent* GetBlackboardComponent() { return Blackboard; }
+
+	/** Note that his function does not do any pathfollowing state transfer. 
+	 *	Intended to be called as part of initialization/setup process */
+	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
+	void SetPathFollowingComponent(UPathFollowingComponent* NewPFComponent);
 };
 
 //----------------------------------------------------------------------//

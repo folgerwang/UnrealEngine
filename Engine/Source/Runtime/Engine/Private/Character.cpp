@@ -347,10 +347,12 @@ void ACharacter::OnRep_IsCrouched()
 	{
 		if (bIsCrouched)
 		{
+			CharacterMovement->bWantsToCrouch = true;
 			CharacterMovement->Crouch(true);
 		}
 		else
 		{
+			CharacterMovement->bWantsToCrouch = false;
 			CharacterMovement->UnCrouch(true);
 		}
 	}

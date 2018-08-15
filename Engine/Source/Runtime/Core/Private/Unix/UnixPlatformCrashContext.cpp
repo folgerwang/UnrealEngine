@@ -26,7 +26,6 @@
 #include "Unix/UnixPlatformRunnableThread.h"
 #include "HAL/ExceptionHandling.h"
 #include "Stats/Stats.h"
-
 #include "HAL/ThreadHeartBeat.h"
 
 extern CORE_API bool GIsGPUCrashed;

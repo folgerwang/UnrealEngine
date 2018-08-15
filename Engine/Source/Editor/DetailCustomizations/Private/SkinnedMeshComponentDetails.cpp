@@ -70,27 +70,25 @@ void FSkinnedMeshComponentDetails::CreateActuallyUsedPhysicsAssetWidget(FDetailW
 
 bool FSkinnedMeshComponentDetails::FindUniqueUsedPhysicsAsset(IDetailLayoutBuilder* DetailBuilder, UPhysicsAsset*& OutFoundPhysicsAsset) const
 {
-	int UsedPhysicsAssetCount = 0;
-	OutFoundPhysicsAsset = NULL;
-	const TArray< TWeakObjectPtr<UObject> >& SelectedObjectsList = DetailBuilder->GetSelectedObjects();
-	for (auto SelectionIt = SelectedObjectsList.CreateConstIterator(); SelectionIt; ++SelectionIt)
+	int32 UsedPhysicsAssetCount = 0;
+	OutFoundPhysicsAsset = nullptr;
+	
+	for (const TWeakObjectPtr<UObject>& SelectedObject : DetailBuilder->GetSelectedObjects())
 	{
-		if (AActor* Actor = Cast<AActor>(SelectionIt->Get()))
+		if (AActor* Actor = Cast<AActor>(SelectedObject.Get()))
 		{
-			TInlineComponentArray<USkinnedMeshComponent*> SkinnedMeshComponents;
-			Actor->GetComponents(SkinnedMeshComponents);
-
-			for (int32 CompIdx = 0; CompIdx < SkinnedMeshComponents.Num(); CompIdx++)
+			for (UActorComponent* Component : Actor->GetComponents())
 			{
-				USkinnedMeshComponent* SkinnedMeshComp = SkinnedMeshComponents[CompIdx];
-
-				// Only use registered and visible primitive components when calculating bounds
-				if (UsedPhysicsAssetCount > 0)
+				if (USkinnedMeshComponent* SkinnedMeshComp = Cast<USkinnedMeshComponent>(Component))
 				{
-					return false;
+					// Only use registered and visible primitive components when calculating bounds
+					if (UsedPhysicsAssetCount > 0)
+					{
+						return false;
+					}
+					++UsedPhysicsAssetCount;
+					OutFoundPhysicsAsset = SkinnedMeshComp->GetPhysicsAsset();
 				}
-				++UsedPhysicsAssetCount;
-				OutFoundPhysicsAsset = SkinnedMeshComp->GetPhysicsAsset();
 			}
 		}
 	}
