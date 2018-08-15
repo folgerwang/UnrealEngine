@@ -494,7 +494,11 @@ namespace UnrealBuildTool
 						{
 							foreach(FileReference GeneratedCodeFile in DirectoryReference.EnumerateFiles(Module.GeneratedCodeDirectory))
 							{
-								BuildProducts.Add(GeneratedCodeFile, BuildProductType.BuildResource);
+								// Exclude timestamp files, since they're always updated and cause collisions between builds
+								if(!GeneratedCodeFile.GetFileName().Equals("Timestamp", StringComparison.OrdinalIgnoreCase))
+								{
+									BuildProducts.Add(GeneratedCodeFile, BuildProductType.BuildResource);
+								}
 							}
 						}
 						if(Target.LinkType == TargetLinkType.Monolithic)
