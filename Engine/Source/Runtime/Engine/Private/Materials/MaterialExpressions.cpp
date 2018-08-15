@@ -5977,6 +5977,7 @@ int32 UMaterialExpressionDesaturation::Compile(class FMaterialCompiler* Compiler
 //
 //	UMaterialExpressionParameter
 //
+FName UMaterialExpressionParameter::ParameterDefaultName = TEXT("Param");
 
 UMaterialExpressionParameter::UMaterialExpressionParameter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -5985,14 +5986,17 @@ UMaterialExpressionParameter::UMaterialExpressionParameter(const FObjectInitiali
 	struct FConstructorStatics
 	{
 		FText NAME_Parameters;
+		FName ParameterName;
 		FConstructorStatics()
 			: NAME_Parameters(LOCTEXT( "Parameters", "Parameters" ))
+			, ParameterName(UMaterialExpressionParameter::ParameterDefaultName)
 		{
 		}
 	};
 	static FConstructorStatics ConstructorStatics;
 
 	bIsParameterExpression = true;
+	ParameterName = ConstructorStatics.ParameterName;
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
@@ -6013,6 +6017,26 @@ bool UMaterialExpressionParameter::MatchesSearchQuery( const TCHAR* SearchQuery 
 
 	return Super::MatchesSearchQuery(SearchQuery);
 }
+
+void UMaterialExpressionParameter::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
+	if (PropertyThatChanged != NULL)
+	{
+		// Update the preview for this node if we adjusted a property
+		bNeedToUpdatePreview = true;
+
+		const FName PropertyName = PropertyThatChanged->GetFName();
+		if (PropertyName == GET_MEMBER_NAME_CHECKED(UMaterialExpressionParameter, ParameterName))
+		{
+			ValidateParameterName();
+		}
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+
+
 
 FString UMaterialExpressionParameter::GetEditableName() const
 {
@@ -6036,6 +6060,53 @@ void UMaterialExpressionParameter::GetAllParameterInfo(TArray<FMaterialParameter
 		OutParameterIds.Add(ExpressionGUID);
 	}
 }
+
+void UMaterialExpressionParameter::ValidateParameterName()
+{
+	if (Material != nullptr)
+	{
+		int32 NameIndex = 1;
+		bool FoundValidName = false;
+		FName PotentialName;
+
+		// Find an available unique name
+		while (!FoundValidName)
+		{
+			PotentialName = GetParameterName();
+
+			// Parameters cannot be named Name_None, use the default name instead
+			if (PotentialName == NAME_None)
+			{
+				PotentialName = UMaterialExpressionParameter::ParameterDefaultName;
+			}
+
+			if (NameIndex != 1)
+			{
+				PotentialName.SetNumber(NameIndex);
+			}
+
+			FoundValidName = true;
+
+			for (UMaterialExpression* Expression : Material->Expressions)
+			{
+				if (Expression != nullptr && Expression->HasAParameterName())
+				{
+					// Name are unique per class type
+					if (Expression != this && Expression->GetClass() == GetClass() && Expression->GetParameterName() == PotentialName)
+					{
+						FoundValidName = false;
+						break;
+					}
+				}
+			}
+
+			++NameIndex;
+		}
+
+		SetParameterName(PotentialName);
+	}
+}
+
 
 bool UMaterialExpressionParameter::NeedsLoadForClient() const
 {
