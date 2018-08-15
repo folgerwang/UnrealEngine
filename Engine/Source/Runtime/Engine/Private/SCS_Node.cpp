@@ -130,7 +130,10 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 				FTransform WorldTransform = *RootTransform;
 				if(bIsDefaultTransform)
 				{
-					// Note: We use the scale vector from the component template when spawning (to match what happens with a native root)
+					// Note: We use the scale vector from the component template when spawning (to match what happens with a native root). This
+					// does NOT occur when this component is instanced as part of dynamically spawning a Blueprint class in a cooked build (i.e.
+					// 'bIsDefaultTransform' will be 'false' in that situation). In order to maintain the same behavior between a nativized and
+					// non-nativized cooked build, if this ever changes, we would also need to update the code in AActor::PostSpawnInitialize().
 					WorldTransform.SetScale3D(NewSceneComp->RelativeScale3D);
 				}
 

@@ -358,10 +358,18 @@ void UBlueprintGeneratedClass::PostLoadDefaultObject(UObject* Object)
 	{
 		// Rebuild the custom property list used in post-construct initialization logic. Note that PostLoad() may have altered some serialized properties.
 		UpdateCustomPropertyListForPostConstruction();
+
 		// Restore any property values from config file
 		if (HasAnyClassFlags(CLASS_Config))
 		{
 			ClassDefaultObject->LoadConfig();
+		}
+
+		// We may need to manually apply default value overrides to some inherited components in a cooked build
+		// scenario. This can occur if we have a nativized Blueprint class somewhere in the parent class ancestry.
+		if (bHasNativizedParent)
+		{
+			CheckAndApplyComponentTemplateOverrides(ClassDefaultObject);
 		}
 	}
 }
@@ -1107,13 +1115,11 @@ void UBlueprintGeneratedClass::CreateComponentsForActor(const UClass* ThisClass,
 	}
 }
 
-void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(AActor* Actor)
+void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(UObject* InClassDefaultObject)
 {
-	check(Actor != nullptr);
-
 	// Get the Blueprint class hierarchy (if valid).
 	TArray<const UBlueprintGeneratedClass*> ParentBPClassStack;
-	GetGeneratedClassesHierarchy(Actor->GetClass(), ParentBPClassStack);
+	GetGeneratedClassesHierarchy(InClassDefaultObject->GetClass(), ParentBPClassStack);
 	if (ParentBPClassStack.Num() > 0)
 	{
 		// If the nearest native antecedent is also a nativized BP class, we may have an override
@@ -1154,8 +1160,8 @@ void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(AActor* A
 							const FBlueprintCookedComponentInstancingData* OverrideData = ICH->GetOverridenComponentTemplateData(ComponentKey);
 							if (OverrideData != nullptr && OverrideData->bIsValid)
 							{
-								// This is the instance of the inherited component subobject that's owned by the given Actor instance
-								if (UObject* NativizedComponentSubobjectInstance = Actor->GetDefaultSubobjectByName(NativizedComponentSubobjectName))
+								// This is the instance of the inherited component subobject that's owned by the given class default object
+								if (UObject* NativizedComponentSubobjectInstance = InClassDefaultObject->GetDefaultSubobjectByName(NativizedComponentSubobjectName))
 								{
 									// Nativized component override data loader implementation.
 									class FNativizedComponentOverrideDataLoader : public FObjectReader
@@ -1176,7 +1182,7 @@ void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(AActor* A
 									// Ensure that the ICH has gotten a PostLoad() call - we need to ensure that any cooked data will have been fully processed before proceeding.
 									ICH->ConditionalPostLoad();
 
-									// Serialize cached override data to the instanced subobject that's based on the default subobject from the nativized parent class and owned by the Actor instance.
+									// Serialize cached override data to the instanced subobject that's based on the default subobject from the nativized parent class and owned by the non-nativized child class default object.
 									FNativizedComponentOverrideDataLoader OverrideDataLoader(OverrideData->GetCachedPropertyDataForSerialization(), OverrideData->GetCachedPropertyListForSerialization());
 									NativizedComponentSubobjectInstance->Serialize(OverrideDataLoader);
 								}

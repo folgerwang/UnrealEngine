@@ -666,9 +666,6 @@ public:
 	static void CreateComponentsForActor(const UClass* ThisClass, AActor* Actor);
 	static void CreateTimelineComponent(AActor* Actor, const UTimelineTemplate* TimelineTemplate);
 
-	/** Check for and handle manual application of default value overrides to instanced component subobjects that were inherited from a nativized parent class */
-	static void CheckAndApplyComponentTemplateOverrides(AActor* Actor);
-
 	// UObject interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
@@ -736,6 +733,9 @@ protected:
 	* @param	DefaultDataPtr		source address (where to start copying the defaults data from)
 	*/
 	static void InitArrayPropertyFromCustomList(const UArrayProperty* ArrayProperty, const FCustomPropertyListNode* InPropertyList, uint8* DataPtr, const uint8* DefaultDataPtr);
+
+	/** Check for and handle manual application of default value overrides to component subobjects that were inherited from a nativized parent class */
+	static void CheckAndApplyComponentTemplateOverrides(UObject* InClassDefaultObject);
 
 public:
 
