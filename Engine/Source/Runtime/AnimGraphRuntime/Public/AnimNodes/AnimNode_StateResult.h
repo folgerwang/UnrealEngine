@@ -15,7 +15,7 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_StateResult : public FAnimNode_Root
 	GENERATED_USTRUCT_BODY()
 
 	/** Used to upgrade old FAnimNode_Roots to FAnimNode_StateResult */
-	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot);
 };
 
 template<>
