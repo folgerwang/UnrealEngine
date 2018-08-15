@@ -405,7 +405,7 @@ bool FWidgetBlueprintCompiler::CanAllowTemplate(FCompilerResultsLog& MessageLog,
 	}
 
 	// For now we don't support nativization, it's going to require some extra work moving the template support
-	// during the nativization process.
+	// during the nativization process. Also see UUserWidget::CreateInstanceInternal (we skip the runtime warning for the nativized case).
 	if ( WidgetBP->NativizationFlag != EBlueprintNativizationFlag::Disabled )
 	{
 		MessageLog.Warning(*LOCTEXT("TemplatingAndNativization", "Nativization and Fast Widget Creation is not supported at this time.").ToString());

@@ -191,6 +191,7 @@ public:
 	virtual void JumpToPin(const class UEdGraphPin* Pin) override;
 	virtual void SummonSearchUI(bool bSetFindWithinBlueprint, FString NewSearchTerms = FString(), bool bSelectFirstResult = false) override;
 	virtual void SummonFindAndReplaceUI() override;
+	virtual TSharedPtr<SGraphEditor> OpenGraphAndBringToFront(UEdGraph* Graph) override;
 	virtual TArray<TSharedPtr<class FSCSEditorTreeNode> > GetSelectedSCSEditorTreeNodes() const override;
 	virtual TSharedPtr<class FSCSEditorTreeNode> FindAndSelectSCSEditorTreeNode(const UActorComponent* InComponent, bool IsCntrlDown) override;
 	virtual int32 GetNumberOfSelectedNodes() const override;
@@ -978,6 +979,18 @@ protected:
 	/** Attempts to invoke the details tab if it's currently possible to. */
 	void TryInvokingDetailsTab(bool bFlash = true);
 
+	/** Handles activation of a graph editor "quick jump" command */
+	void OnGraphEditorQuickJump(int32 BookmarkIndex);
+
+	/** Binds a graph editor "quick jump" to the command at the given index */
+	void SetGraphEditorQuickJump(int32 BookmarkIndex);
+
+	/** Unbinds a graph editor "quick jump" from the command at the given index */
+	void ClearGraphEditorQuickJump(int32 BookmarkIndex);
+
+	/** Unbinds all graph editor "quick jump" commands */
+	void ClearAllGraphEditorQuickJumps();
+
 private:
 
 	/** Returns true if modules can be recompiled */
@@ -1157,9 +1170,6 @@ protected:
 	mutable TWeakObjectPtr<AActor> PreviewActorPtr;
 
 public:
-	// Tries to open the specified graph and bring it's document to the front (note: this can return NULL)
-	TSharedPtr<SGraphEditor> OpenGraphAndBringToFront(UEdGraph* Graph);
-
 	//@TODO: To be moved/merged
 	TSharedPtr<SDockTab> OpenDocument(const UObject* DocumentID, FDocumentTracker::EOpenDocumentCause Cause);
 
@@ -1168,7 +1178,6 @@ public:
 
 	// Finds any open tabs containing the specified document and adds them to the specified array; returns true if at least one is found
 	bool FindOpenTabsContainingDocument(const UObject* DocumentID, /*inout*/ TArray< TSharedPtr<SDockTab> >& Results);
-
 
 public:
 	/** Broadcasts a notification whenever the editor needs associated controls to refresh */

@@ -864,13 +864,10 @@ void FLightmassExporter::WriteVisibilityData( int32 Channel )
 				AActor* CurrentActor = Volume->OverrideVisibleActors[ActorIndex];
 				if (CurrentActor)
 				{
-					TInlineComponentArray<UPrimitiveComponent*> Components;
-					CurrentActor->GetComponents(Components);
-
-					for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+					for (UActorComponent* Component : CurrentActor->GetComponents())
 					{
-						UPrimitiveComponent* CurrentComponent = Components[ComponentIndex];
-						if ((CurrentComponent->Mobility == EComponentMobility::Static) && CurrentComponent->VisibilityId != INDEX_NONE)
+						UPrimitiveComponent* CurrentComponent = Cast<UPrimitiveComponent>(Component);
+						if (CurrentComponent && (CurrentComponent->Mobility == EComponentMobility::Static) && CurrentComponent->VisibilityId != INDEX_NONE)
 						{
 							VisibilityIds.AddUnique(CurrentComponent->VisibilityId);
 						}
@@ -883,13 +880,10 @@ void FLightmassExporter::WriteVisibilityData( int32 Channel )
 				AActor* RemoveActor = Volume->OverrideInvisibleActors[RemoveActorIndex];
 				if (RemoveActor)
 				{
-					TInlineComponentArray<UPrimitiveComponent*> Components;
-					RemoveActor->GetComponents(Components);
-
-					for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+					for (UActorComponent* Component : RemoveActor->GetComponents())
 					{
-						UPrimitiveComponent* RemoveComponent = Components[ComponentIndex];
-						if ((RemoveComponent->Mobility == EComponentMobility::Static) && RemoveComponent->VisibilityId != INDEX_NONE)
+						UPrimitiveComponent* RemoveComponent = Cast<UPrimitiveComponent>(Component);
+						if (RemoveComponent && (RemoveComponent->Mobility == EComponentMobility::Static) && RemoveComponent->VisibilityId != INDEX_NONE)
 						{
 							InvisibilityIds.AddUnique(RemoveComponent->VisibilityId);
 						}
@@ -907,13 +901,10 @@ void FLightmassExporter::WriteVisibilityData( int32 Channel )
 						AActor* RemoveActor = Level->Actors[RemoveActorIndex];
 						if (RemoveActor)
 						{
-							TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-							RemoveActor->GetComponents(PrimitiveComponents);
-
-							for (int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ComponentIndex++)
+							for (UActorComponent* Component : RemoveActor->GetComponents())
 							{
-								UPrimitiveComponent* RemoveComponent = PrimitiveComponents[ComponentIndex];
-								if ((RemoveComponent->Mobility == EComponentMobility::Static) && RemoveComponent->VisibilityId != INDEX_NONE)
+								UPrimitiveComponent* RemoveComponent = Cast<UPrimitiveComponent>(Component);
+								if (RemoveComponent && (RemoveComponent->Mobility == EComponentMobility::Static) && RemoveComponent->VisibilityId != INDEX_NONE)
 								{
 									InvisibilityIds.AddUnique(RemoveComponent->VisibilityId);
 								}
@@ -2452,20 +2443,19 @@ void FLightmassExporter::WriteDebugInput( Lightmass::FDebugLightingInputData& In
 	{
 		for (FSelectedActorIterator It(World); It; ++It)
 		{
-			TInlineComponentArray<UPrimitiveComponent*> Components;
-			It->GetComponents(Components);
-
-			for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+			for (UActorComponent* Comp : It->GetComponents())
 			{
-				UPrimitiveComponent* Component = Components[ComponentIndex];
-				if (DebugVisibilityId == INDEX_NONE)
+				if (UPrimitiveComponent* Component = Cast<UPrimitiveComponent>(Comp))
 				{
-					DebugVisibilityId = Component->VisibilityId;
-				}
-				else if (DebugVisibilityId != Component->VisibilityId)
-				{
-					UE_LOG(LogLightmassSolver, Warning, TEXT("Not debugging visibility for component %s with vis id %u, as it was not the first component on the selected actor."),
-						*Component->GetPathName(), Component->VisibilityId);
+					if (DebugVisibilityId == INDEX_NONE)
+					{
+						DebugVisibilityId = Component->VisibilityId;
+					}
+					else if (DebugVisibilityId != Component->VisibilityId)
+					{
+						UE_LOG(LogLightmassSolver, Warning, TEXT("Not debugging visibility for component %s with vis id %u, as it was not the first component on the selected actor."),
+							*Component->GetPathName(), Component->VisibilityId);
+					}
 				}
 			}
 		}

@@ -5163,34 +5163,34 @@ void UEditorEngine::ExecFile( UWorld* InWorld, const TCHAR* InFilename, FOutputD
 
 void UEditorEngine::AssignReplacementComponentsByActors(TArray<AActor*>& ActorsToReplace, AActor* Replacement, UClass* ClassToReplace)
 {
-	// the code will use this to find the best possible component, in the priority listed here
-	// (ie it will first look for a mesh component, then a particle, and finally a sprite)
-	UClass* PossibleReplacementClass[] = 
-	{
-		UMeshComponent::StaticClass(),
-		UParticleSystemComponent::StaticClass(),
-		UBillboardComponent::StaticClass(),
-	};
-
 	// look for a mesh component to replace with
-	UPrimitiveComponent* ReplacementComponent = NULL;
+	UPrimitiveComponent* ReplacementComponent = nullptr;
 
-	// loop over the clases until a component is found
-	for (int32 ClassIndex = 0; ClassIndex < ARRAY_COUNT(PossibleReplacementClass); ClassIndex++)
+	// if we are clearing the replacement, then we don't need to find a component
+	if (Replacement)
 	{
-		// use ClassToReplace of UMeshComponent if not specified
-		UClass* ReplacementComponentClass = ClassToReplace ? ClassToReplace : PossibleReplacementClass[ClassIndex];
+		// the code will use this to find the best possible component, in the priority listed here
+		// (ie it will first look for a mesh component, then a particle, and finally a sprite)
+		TArray<UClass*, TInlineAllocator<3>> PossibleReplacementClasses;
 
-		// if we are clearing the replacement, then we don't need to find a component
-		if (Replacement)
+		if (ClassToReplace)
 		{
-			TInlineComponentArray<UPrimitiveComponent*> Components;
-			Replacement->GetComponents(Components);
+			PossibleReplacementClasses.Emplace(ClassToReplace);
+		}
+		else
+		{
+			PossibleReplacementClasses.Emplace(UMeshComponent::StaticClass());
+			PossibleReplacementClasses.Emplace(UParticleSystemComponent::StaticClass());
+			PossibleReplacementClasses.Emplace(UBillboardComponent::StaticClass());
+		}
 
-			for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+		// loop over the clases until a component is found
+		for (UClass* ReplacementComponentClass : PossibleReplacementClasses)
+		{
+			for (UActorComponent* Component : Replacement->GetComponents())
 			{
-				UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
-				if (PrimitiveComponent->IsA(ReplacementComponentClass))
+				UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component);
+				if (PrimitiveComponent && PrimitiveComponent->IsA(ReplacementComponentClass))
 				{
 					ReplacementComponent = PrimitiveComponent;
 					goto FoundComponent;
@@ -5198,6 +5198,7 @@ void UEditorEngine::AssignReplacementComponentsByActors(TArray<AActor*>& ActorsT
 			}
 		}
 	}
+
 FoundComponent:
 
 	// attempt to set replacement component for all selected actors
@@ -5212,8 +5213,8 @@ FoundComponent:
 		{
 			UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
 			// if the primitive component matches the class we are looking for (if specified)
-			// then set it's replacement component
-			if (ClassToReplace == NULL || PrimitiveComponent->IsA(ClassToReplace))
+			// then set its replacement component
+			if (ClassToReplace == nullptr || PrimitiveComponent->IsA(ClassToReplace))
 			{
 				// need to reregister the component
 				FComponentReregisterContext ComponentReattch(PrimitiveComponent);
@@ -5221,7 +5222,7 @@ FoundComponent:
 				// set the replacement
 				PrimitiveComponent->SetLODParentPrimitive(ReplacementComponent);
 
-				// makr the package as dirty now that we've modified it
+				// mark the package as dirty now that we've modified it
 				Actor->MarkPackageDirty();
 			}
 		}
@@ -6118,17 +6119,16 @@ bool UEditorEngine::HandleSetReplacementCommand( const TCHAR* Str, FOutputDevice
 	// attempt to set replacement component for all selected actors
 	for( FSelectedActorIterator It(InWorld); It; ++It )
 	{
-		TInlineComponentArray<UPrimitiveComponent*> Components;
-		It->GetComponents(Components);
-
-		for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+		for (UActorComponent* Component : It->GetComponents())
 		{
-			UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
-			// if the primitive component matches the class we are looking for (if specified)
-			// then set it's replacement component
-			if (ClassToReplace == NULL || PrimitiveComponent->IsA(ClassToReplace))
+			if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component))
 			{
-				PrimitiveComponent->SetLODParentPrimitive(ReplacementComponent);
+				// if the primitive component matches the class we are looking for (if specified)
+				// then set it's replacement component
+				if (ClassToReplace == NULL || PrimitiveComponent->IsA(ClassToReplace))
+				{
+					PrimitiveComponent->SetLODParentPrimitive(ReplacementComponent);
+				}
 			}
 		}
 	}
@@ -6364,14 +6364,11 @@ bool UEditorEngine::HandleSetDetailModeCommand( const TCHAR* Str, FOutputDevice&
 			AActor* Actor = static_cast<AActor*>( *It );
 			checkSlow( Actor->IsA(AActor::StaticClass()) );
 
-			TInlineComponentArray<UPrimitiveComponent*> Components;
-			Actor->GetComponents(Components);
-
-			for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
+			for (UActorComponent* Component : Actor->GetComponents())
 			{
-				UPrimitiveComponent* primComp = Components[ComponentIndex];
+				UPrimitiveComponent* primComp = Cast<UPrimitiveComponent>(Component);
 
-				if( primComp->DetailMode != ParsedDetailMode )
+				if (primComp && primComp->DetailMode != ParsedDetailMode )
 				{
 					primComp->Modify();
 					primComp->DetailMode = EDetailMode(ParsedDetailMode);

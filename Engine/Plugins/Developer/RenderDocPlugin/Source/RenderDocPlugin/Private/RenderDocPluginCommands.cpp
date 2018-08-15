@@ -8,7 +8,7 @@
  
 void FRenderDocPluginCommands::RegisterCommands()
 {
-	UI_COMMAND(CaptureFrameCommand, "Capture Frame", "Captures the next frame and launches the renderdoc UI (Alt+F12)", EUserInterfaceActionType::Button, FInputGesture(EKeys::F12, EModifierKey::Alt));
+	UI_COMMAND(CaptureFrameCommand, "Capture Frame", "Captures the next frame and launches the renderdoc UI (Alt+F12)", EUserInterfaceActionType::Button, FInputChord(EKeys::F12, EModifierKey::Alt));
 }
 
 #undef LOCTEXT_NAMESPACE

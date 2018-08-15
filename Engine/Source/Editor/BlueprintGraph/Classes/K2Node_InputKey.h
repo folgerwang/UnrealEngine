@@ -11,6 +11,7 @@
 #include "EdGraph/EdGraphNodeUtils.h"
 #include "BlueprintNodeSignature.h"
 #include "K2Node.h"
+#include "K2Node_EventNodeInterface.h"
 
 #include "K2Node_InputKey.generated.h"
 
@@ -18,7 +19,7 @@ class FBlueprintActionDatabaseRegistrar;
 class FKismetCompilerContext;
 
 UCLASS()
-class BLUEPRINTGRAPH_API UK2Node_InputKey : public UK2Node
+class BLUEPRINTGRAPH_API UK2Node_InputKey : public UK2Node, public IK2Node_EventNodeInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -76,6 +77,11 @@ class BLUEPRINTGRAPH_API UK2Node_InputKey : public UK2Node
 	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	virtual bool IsCompatibleWithGraph(UEdGraph const* Graph) const override;
 	//~ End UEdGraphNode Interface.
+
+	//~ Begin IK2Node_EventNodeInterface Interface.
+	virtual TSharedPtr<FEdGraphSchemaAction> GetEventNodeAction(const FText& ActionCategory) override;
+	//~ End IK2Node_EventNodeInterface Interface.
+
 
 	FText GetModifierText() const;
 

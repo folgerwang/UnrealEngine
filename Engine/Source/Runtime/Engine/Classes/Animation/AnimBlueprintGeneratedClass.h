@@ -340,7 +340,6 @@ public:
 
 	// UClass interface
 	virtual void PurgeClass(bool bRecompilingOnLoad) override;
-	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
 	virtual void PostLoadDefaultObject(UObject* Object) override;
 	// End of UClass interface
 };
