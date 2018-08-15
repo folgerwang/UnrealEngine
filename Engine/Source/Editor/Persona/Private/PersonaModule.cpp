@@ -76,6 +76,7 @@
 #include "PersonaPreviewSceneAnimationController.h"
 #include "PersonaPreviewSceneRefPoseController.h"
 #include "AssetViewerSettings.h"
+#include "Customization/SkeletalMeshRegionCustomization.h"
 
 IMPLEMENT_MODULE( FPersonaModule, Persona );
 
@@ -131,6 +132,9 @@ void FPersonaModule::StartupModule()
 
 		PropertyModule.RegisterCustomPropertyTypeLayout("BlendParameter", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FBlendParameterDetails::MakeInstance));
 		PropertyModule.RegisterCustomPropertyTypeLayout("InterpolationParameter", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FInterpolationParameterDetails::MakeInstance));
+
+		PropertyModule.RegisterCustomPropertyTypeLayout("SkeletalMeshSamplingRegionBoneFilter", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FNiagaraSkeletalMeshRegionBoneFilterDetails::MakeInstance));
+		PropertyModule.RegisterCustomPropertyTypeLayout("SkeletalMeshSamplingRegionMaterialFilter", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FNiagaraSkeletalMeshRegionMaterialFilterDetails::MakeInstance));
 	}
 
 	// Register the editor modes
@@ -166,6 +170,9 @@ void FPersonaModule::ShutdownModule()
 
 		PropertyModule.UnregisterCustomPropertyTypeLayout("BlendParameter");
 		PropertyModule.UnregisterCustomPropertyTypeLayout("InterpolationParameter");
+
+		PropertyModule.UnregisterCustomClassLayout("SkeletalMeshSamplingRegionBoneFilter");
+		PropertyModule.UnregisterCustomClassLayout("SkeletalMeshSamplingRegionMaterialFilter");
 	}
 }
 
