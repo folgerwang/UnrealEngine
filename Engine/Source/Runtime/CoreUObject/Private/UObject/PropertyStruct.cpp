@@ -89,6 +89,14 @@ void UStructProperty::LinkInternal(FArchive& Ar)
 	{
 		PropertyFlags |= CPF_ZeroConstructor;
 	}
+	if (Struct->StructFlags & STRUCT_IsPlainOldData)
+	{
+		PropertyFlags |= CPF_IsPlainOldData;
+	}
+	if (Struct->StructFlags & STRUCT_NoDestructor)
+	{
+		PropertyFlags |= CPF_NoDestructor;
+	}
 }
 
 bool UStructProperty::Identical( const void* A, const void* B, uint32 PortFlags ) const
