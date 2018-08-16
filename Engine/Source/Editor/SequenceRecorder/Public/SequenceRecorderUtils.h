@@ -177,8 +177,8 @@ SEQUENCERECORDER_API void CreateCameraCutTrack(ULevelSequence* LevelSequence, co
 /** Extend the level sequence playback range to encompass the section ranges */
 SEQUENCERECORDER_API void ExtendSequencePlaybackRange(ULevelSequence* LevelSequence);
 
-/** Save the level sequence */
-SEQUENCERECORDER_API void SaveLevelSequence(ULevelSequence* LevelSequence);
+/** Save the asset */
+SEQUENCERECORDER_API void SaveAsset(UObject* InObject);
 
 struct FTakeInfo
 {

@@ -11,7 +11,8 @@ enum class ELightmapUVVersion : int32
 	SmallChartPacking = 2,
 	ScaleChartsOrderingFix = 3,
 	ChartJoiningLFix = 4,
-	Latest = ChartJoiningLFix
+	Allocator2DFlipFix = 5,
+	Latest = ScaleChartsOrderingFix
 };
 
 /** Helper struct for building acceleration structures. */

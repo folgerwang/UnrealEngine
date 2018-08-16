@@ -1207,7 +1207,7 @@ namespace UnrealBuildTool
 			}
 
 			ProcessStartInfo StartInfo = new ProcessStartInfo();
-			StartInfo.FileName = AndroidToolChain.GetStripExecutablePath(UE4Arch);
+			StartInfo.FileName = AndroidToolChain.GetStripExecutablePath(UE4Arch).Trim('"');
 			if (bStripAll)
 			{
 				StartInfo.Arguments = "--strip-unneeded \"" + TargetFileName + "\"";

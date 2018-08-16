@@ -39,6 +39,14 @@ public:
 	virtual bool FactoryCanImport(const FString& Filename);
 
 	/**
+	 * Whether the specified file can be imported by this factory. (Implemented in script)
+	 *
+	 * @return true if the file is supported, false otherwise.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Miscellaneous")
+	bool ScriptFactoryCanImport(const FString& Filename);
+
+	/**
 	 * Create a new object by importing it from a file name.
 	 *
 	 * The default implementation of this method will load the contents of the entire
@@ -91,6 +99,15 @@ public:
 	}
 
 	virtual UObject* ImportObject(UClass* InClass, UObject* InOuter, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, bool& OutCanceled);
+
+	/**
+	 * Import object(s) using a task via script
+	 *
+	 * @param InTask
+	 * @return True if script implements
+	 */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Miscellaneous")
+	bool ScriptFactoryCreateFile(UAssetImportTask* InTask);
 
 	/** Returns true if this factory should be shown in the New Asset menu (by default calls CanCreateNew). */
 	virtual bool ShouldShowInNewMenu() const;
@@ -174,7 +191,7 @@ public:
 	 *
 	 * @param Task	The import task or nullptr if it does not exist
 	 */
-	void SetAssetImportTask(const class UAssetImportTask* Task);
+	void SetAssetImportTask(class UAssetImportTask* Task);
 
 	/**
 	 * @return true if this factory is being used for automated import.  Dialogs and user input should be disabled if this method returns true
@@ -233,7 +250,7 @@ public:
 protected:
 
 	/** The default value to return from CanCreateNew() */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	uint32 bCreateNew : 1;
 
 protected:
@@ -298,27 +315,27 @@ protected:
 public:
 
 	/** The class manufactured by this factory. */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	TSubclassOf<UObject>  SupportedClass;
 
 	/** Class of the context object used to help create the object. */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	TSubclassOf<UObject>  ContextClass;
 
 	/** List of formats supported by the factory. Each entry is of the form "ext;Description" where ext is the file extension. */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	TArray<FString> Formats;
 
 	/** true if the associated editor should be opened after creating a new object. */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	uint32 bEditAfterNew:1;
 
 	/** true if the factory imports objects from files. */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	uint32 bEditorImport:1;
 
 	/** true if the factory imports objects from text. */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	uint32 bText:1;
 
 	/** Determines the order in which factories are tried when importing or reimporting an object.
@@ -327,12 +344,12 @@ public:
 	int32 ImportPriority;
 
 	/** Data for how to import files via the automated command line importing interface */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
 	const class UAutomatedAssetImportData* AutomatedImportData;
 
 	/** Task for importing file via script interfaces */
-	UPROPERTY()
-	const class UAssetImportTask* AssetImportTask;
+	UPROPERTY(BlueprintReadWrite, Category=Misc)
+	class UAssetImportTask* AssetImportTask;
 
 protected:
 

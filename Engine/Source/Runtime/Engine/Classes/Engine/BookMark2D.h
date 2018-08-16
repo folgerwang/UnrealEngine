@@ -1,19 +1,22 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
-#include "UObject/Object.h"
+#include "BookmarkBase.h"
 #include "BookMark2D.generated.h"
 
+USTRUCT()
+struct FBookmark2DJumpToSettings
+{
+	GENERATED_BODY()
+};
 
 /**
  * Simple class to store 2D camera information.
  */
 UCLASS(hidecategories=Object)
-class UBookMark2D
-	: public UObject
+class ENGINE_API UBookMark2D : public UBookmarkBase
 {
 	GENERATED_UCLASS_BODY()
 

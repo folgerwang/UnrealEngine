@@ -5,12 +5,13 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "IMovieSceneCaptureProtocol.h"
+#include "UObject/ScriptInterface.h"
+#include "MovieSceneCaptureProtocolBase.h"
 #include "MovieSceneCaptureHandle.h"
 #include "MovieSceneCaptureSettings.h"
 #include "IMovieSceneCapture.h"
-#include "MovieSceneCaptureProtocolRegistry.h"
 #include "Scalability.h"
+#include "UObject/SoftObjectPath.h"
 #include "MovieSceneCapture.generated.h"
 
 class FJsonObject;
@@ -37,6 +38,9 @@ public:
 	UMovieSceneCapture(const FObjectInitializer& Initializer);
 
 	GENERATED_BODY()
+
+	/** This name is used by the UI to save/load a specific instance of the settings from config that doesn't affect the CDO which would affect scripting environments. */
+	static const FName MovieSceneCaptureUIName;
 
 	virtual void PostInitProperties() override;
 
@@ -68,15 +72,24 @@ protected:
 	/** Custom, additional json deserialization */
 	virtual void DeserializeAdditionalJson(const FJsonObject& Object){}
 
+	/** Returns true if this is currently the audio pass, or if an audio pass is not needed. Shorthand for checking if we're in a state where we should finish capture. */
+	virtual bool IsAudioPassIfNeeded() const;
 public:
 
-	/** The type of capture protocol to use */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=CaptureSettings, DisplayName="Output Format")
-	FCaptureProtocolID CaptureType;
+	/** The type of capture protocol to use for image data */
+	UPROPERTY(config, EditAnywhere, NoClear, Category=CaptureSettings, DisplayName="Image Output Format", meta=(MetaClass="MovieSceneImageCaptureProtocolBase", HideViewOptions, ShowDisplayNames))
+	FSoftClassPath ImageCaptureProtocolType;
+	
+	/** The type of capture protocol to use for audio data. Requires experimental audio mixer (launch editor via with -audiomixer). */
+	UPROPERTY(config, EditAnywhere, NoClear, Category=CaptureSettings, DisplayName="Audio Output Format", meta=(MetaClass="MovieSceneAudioCaptureProtocolBase", HideViewOptions, ShowDisplayNames))
+	FSoftClassPath AudioCaptureProtocolType;
 
-	/** Settings specific to the capture protocol */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CaptureSettings)
-	UMovieSceneCaptureProtocolSettings* ProtocolSettings;
+	/** Capture protocol responsible for actually capturing frame data */
+	UPROPERTY(VisibleAnywhere, Category=CaptureSettings, Transient, Instanced)
+	UMovieSceneImageCaptureProtocolBase* ImageCaptureProtocol;
+	
+	UPROPERTY(VisibleAnywhere, Category = CaptureSettings, Transient, Instanced)
+	UMovieSceneAudioCaptureProtocolBase* AudioCaptureProtocol;
 
 	/** Settings that define how to capture */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=CaptureSettings, meta=(ShowOnlyInnerProperties))
@@ -108,7 +121,16 @@ public:
 	const FCachedMetrics& GetMetrics() const { return CachedMetrics; }
 
 	/** Access the capture protocol we are using */
-	IMovieSceneCaptureProtocol* GetCaptureProtocol() { return CaptureProtocol.Get(); }
+	UFUNCTION(BlueprintCallable, Category=Capture)
+	UMovieSceneCaptureProtocolBase* GetImageCaptureProtocol() { return ImageCaptureProtocol; }
+	UFUNCTION(BlueprintCallable, Category=Capture)
+	UMovieSceneCaptureProtocolBase* GetAudioCaptureProtocol() { return AudioCaptureProtocol; }
+	
+	
+	UFUNCTION(BlueprintCallable, Category=Capture)
+	void SetImageCaptureProtocolType(TSubclassOf<UMovieSceneCaptureProtocolBase> ProtocolType);
+	UFUNCTION(BlueprintCallable, Category=Capture)
+	void SetAudioCaptureProtocolType(TSubclassOf<UMovieSceneCaptureProtocolBase> ProtocolType);
 
 public:
 
@@ -126,7 +148,7 @@ public:
 	void FinalizeWhenReady();
 
 	/** Check whether we should automatically finalize this capture */
-	bool ShouldFinalize() const { return bFinalizeWhenReady && CaptureProtocol->HasFinishedProcessing(); }
+	bool ShouldFinalize() const;
 
 	/** Finalize the capturing process, assumes all frames have been processed. */
 	void Finalize();
@@ -134,25 +156,32 @@ public:
 public:
 
 	/** Called at the end of a frame, before a frame is presented by slate */
-	virtual void Tick(float DeltaSeconds) { CaptureThisFrame(DeltaSeconds); }
+	void Tick(float DeltaSeconds);
 
-protected:
-
-	/**~ ICaptureProtocolHost interface */
-	virtual FString GenerateFilename(const FFrameMetrics& FrameMetrics, const TCHAR* Extension) const override;
-	virtual void EnsureFileWritable(const FString& File) const override;
-	virtual FFrameRate GetCaptureFrameRate() const { return Settings.FrameRate; }
-	virtual const ICaptureStrategy& GetCaptureStrategy() const { return *CaptureStrategy; }
-
-	/** Add additional format mappings to be used when generating filenames */
-	virtual void AddFormatMappings(TMap<FString, FStringFormatArg>& OutFormatMappings, const FFrameMetrics& FrameMetrics) const {}
-
+	// ICaptureProtocolHost interface
 	/** Resolve the specified format using the user supplied formatting rules. */
 	FString ResolveFileFormat(const FString& Format, const FFrameMetrics& FrameMetrics) const;
 
-	/** Initialize the settings structure for the current capture type */
-	void InitializeSettings();
+	/** Estimate how long our duration is going to be for pre-allocation purposes. */
+	double GetEstimatedCaptureDurationSeconds() const { return 0.0; }
 
+
+	virtual FFrameRate GetCaptureFrameRate() const { return Settings.FrameRate; }
+	virtual const ICaptureStrategy& GetCaptureStrategy() const { return *CaptureStrategy; }
+	// ~ICaptureProtocolHost interface
+
+protected:
+	/** Add additional format mappings to be used when generating filenames */
+	virtual void AddFormatMappings(TMap<FString, FStringFormatArg>& OutFormatMappings, const FFrameMetrics& FrameMetrics) const {}
+
+
+	/** Initialize the settings structure for the current capture type */
+	void InitializeCaptureProtocols();
+	
+	void ForciblyReinitializeCaptureProtocols();
+
+	/** Called at the end of a frame, before a frame is presented by slate */
+	virtual void OnTick(float DeltaSeconds) { CaptureThisFrame(DeltaSeconds); }
 protected:
 
 #if WITH_EDITOR
@@ -160,8 +189,6 @@ protected:
 #endif
 
 protected:
-	/** Capture protocol responsible for actually capturing frame data */
-	TSharedPtr<IMovieSceneCaptureProtocol> CaptureProtocol;
 	/** Strategy used for capture (real-time/fixed-time-step) */
 	TSharedPtr<ICaptureStrategy> CaptureStrategy;
 	/** The settings we will use to set up the capture protocol */
@@ -176,6 +203,9 @@ protected:
 	TMap<FString, FStringFormatArg> FormatMappings;
 	/** Whether we have started capturing or not */
 	bool bCapturing;
+	/** If we're currently doing an audio pass or not */
+	bool bIsAudioCapturePass;
+
 	/** Frame number index offset when saving out frames.  This is used to allow the frame numbers on disk to match
 	    what they would be in the authoring application, rather than a simple 0-based sequential index */
 	int32 FrameNumberOffset;
@@ -190,10 +220,8 @@ struct MOVIESCENECAPTURE_API FFixedTimeStepCaptureStrategy : ICaptureStrategy
 {
 	FFixedTimeStepCaptureStrategy(FFrameRate InFrameRate);
 
-	virtual void OnWarmup() override;
-	virtual void OnStart() override;
+	virtual void OnInitialize() override;
 	virtual void OnStop() override;
-	virtual void OnPresent(double CurrentTimeSeconds, uint32 FrameIndex) override;
 	virtual bool ShouldPresent(double CurrentTimeSeconds, uint32 FrameIndex) const override;
 	virtual int32 GetDroppedFrames(double CurrentTimeSeconds, uint32 FrameIndex) const override;
 
@@ -206,10 +234,8 @@ struct MOVIESCENECAPTURE_API FRealTimeCaptureStrategy : ICaptureStrategy
 {
 	FRealTimeCaptureStrategy(FFrameRate InFrameRate);
 
-	virtual void OnWarmup() override;
-	virtual void OnStart() override;
+	virtual void OnInitialize() override;
 	virtual void OnStop() override;
-	virtual void OnPresent(double CurrentTimeSeconds, uint32 FrameIndex) override;
 	virtual bool ShouldSynchronizeFrames() const override { return false; }
 	virtual bool ShouldPresent(double CurrentTimeSeconds, uint32 FrameIndex) const override;
 	virtual int32 GetDroppedFrames(double CurrentTimeSeconds, uint32 FrameIndex) const override;

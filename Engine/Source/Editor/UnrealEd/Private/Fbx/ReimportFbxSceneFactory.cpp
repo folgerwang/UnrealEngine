@@ -151,8 +151,8 @@ void RecursivelyCreateOriginalPath(UnFbx::FFbxImporter* FbxImporter, TSharedPtr<
 	{
 		FString AssetName = AssetPath + TEXT("/") + NodeInfo->AttributeInfo->Name;
 		NodeInfo->AttributeInfo->SetOriginalImportPath(AssetName);
-		FString OriginalFullImportName = PackageTools::SanitizePackageName(AssetName);
-		OriginalFullImportName = OriginalFullImportName + TEXT(".") + PackageTools::SanitizePackageName(NodeInfo->AttributeInfo->Name);
+		FString OriginalFullImportName = UPackageTools::SanitizePackageName(AssetName);
+		OriginalFullImportName = OriginalFullImportName + TEXT(".") + UPackageTools::SanitizePackageName(NodeInfo->AttributeInfo->Name);
 		NodeInfo->AttributeInfo->SetOriginalFullImportName(OriginalFullImportName);
 		AssetPathDone.Add(NodeInfo->AttributeInfo->UniqueId);
 	}
@@ -436,8 +436,8 @@ EReimportResult::Type UReimportFbxSceneFactory::Reimport(UObject* Obj)
 		{
 			FString AssetName = Path + TEXT("/") + MeshInfo->Name;
 			MeshInfo->SetOriginalImportPath(AssetName);
-			FString OriginalFullImportName = PackageTools::SanitizePackageName(AssetName);
-			OriginalFullImportName = OriginalFullImportName + TEXT(".") + PackageTools::SanitizePackageName(MeshInfo->Name);
+			FString OriginalFullImportName = UPackageTools::SanitizePackageName(AssetName);
+			OriginalFullImportName = OriginalFullImportName + TEXT(".") + UPackageTools::SanitizePackageName(MeshInfo->Name);
 			MeshInfo->SetOriginalFullImportName(OriginalFullImportName);
 		}
 	}

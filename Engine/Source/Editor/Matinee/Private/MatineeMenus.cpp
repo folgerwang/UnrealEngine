@@ -2898,7 +2898,7 @@ void FMatinee::ExportCameraAnimationNameCommitted(const FText& InAnimationPackag
 			if (ExistingObject == NULL)
 			{
 				// attempting to create a new object, need to handle fully loading
-				if( PackageTools::HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "ExportCameraAnim", "Export To CameraAnim") ) )
+				if( UPackageTools::HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "ExportCameraAnim", "Export To CameraAnim") ) )
 				{
 					FText Reason;
 

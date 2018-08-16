@@ -17,5 +17,10 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, ULocalizationTargetSet* const InProjectSettings, ULocalizationTarget* const InTarget, const FIsPropertyEditingEnabled& IsPropertyEditingEnabled);
-};
 
+private:
+	void OnFinishedChangingProperties(const FPropertyChangedEvent& InEvent);
+
+	/** Localization target being edited */
+	TWeakObjectPtr<ULocalizationTarget> LocalizationTarget;
+};

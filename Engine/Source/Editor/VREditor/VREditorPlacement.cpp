@@ -100,6 +100,8 @@ void UVREditorPlacement::StopDragging( UViewportInteractor* Interactor )
 	}	
 	else if (Interactor->GetDraggingMode() == EViewportInteractionDraggingMode::TransformablesFreely)
 	{
+		VRMode->OnPlacePreviewActor().Broadcast(false);
+		GEditor->NoteSelectionChange();
 		UVREditorMotionControllerInteractor* MotionController = Cast<UVREditorMotionControllerInteractor>(Interactor);
 		if (VRMode->GetUISystem().GetUIInteractor() == MotionController)
 		{
@@ -228,6 +230,7 @@ void UVREditorPlacement::OnAssetDragStartedFromContentBrowser( const TArray<FAss
 
 void UVREditorPlacement::StartPlacingObjects( const TArray<UObject*>& ObjectsToPlace, UActorFactory* FactoryToUse, UVREditorInteractor* PlacingWithInteractor, const bool bShouldInterpolateFromDragLocation )
 {
+	VRMode->OnPlacePreviewActor().Broadcast(true);
 	const bool bToEndOfLaser = VREd::PlacementToEndOfLaser->GetInt() == 1;
 
 	if( ViewportWorldInteraction == nullptr || PlacingWithInteractor == nullptr )

@@ -23,6 +23,14 @@ bool FMovieSceneMultiPropertyRecorderFactory::CanRecordObject(UObject* InObjectT
 		}
 	}
 
+	for (const FPropertiesToRecordForActorClass& PropertiesToRecordForClass : Settings->ActorsAndPropertiesToRecord)
+	{
+		if (*PropertiesToRecordForClass.Class == InObjectToRecord->GetClass() && PropertiesToRecordForClass.Properties.Num() > 0)
+		{
+			return true;
+		}
+	}
+
 	return false;
 }
 
@@ -37,9 +45,16 @@ void FMovieSceneMultiPropertyRecorder::CreateSection(UObject* InObjectToRecord, 
 	// collect all properties to record from classes we are recording
 	TArray<FName> PropertiesToRecord;
 
-	const FPropertiesToRecordForClass* PropertiesToRecordForClassPtr = nullptr;
 	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 	for (const FPropertiesToRecordForClass& PropertiesToRecordForClass : Settings->ClassesAndPropertiesToRecord)
+	{
+		if (*PropertiesToRecordForClass.Class == InObjectToRecord->GetClass() && PropertiesToRecordForClass.Properties.Num() > 0)
+		{
+			PropertiesToRecord.Append(PropertiesToRecordForClass.Properties);
+		}
+	}
+
+	for (const FPropertiesToRecordForActorClass& PropertiesToRecordForClass : Settings->ActorsAndPropertiesToRecord)
 	{
 		if (*PropertiesToRecordForClass.Class == InObjectToRecord->GetClass() && PropertiesToRecordForClass.Properties.Num() > 0)
 		{

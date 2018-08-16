@@ -775,6 +775,11 @@ void SSequencerSection::CreateKeysUnderMouse( const FVector2D& MousePosition, co
 {
 	UMovieSceneSection& Section = *SectionInterface->GetSectionObject();
 
+	if (Section.IsReadOnly())
+	{
+		return;
+	}
+
 	// If the pressed key exists, offset the new key and look for it in the newly laid out key areas
 	if (InPressedKeys.Num())
 	{

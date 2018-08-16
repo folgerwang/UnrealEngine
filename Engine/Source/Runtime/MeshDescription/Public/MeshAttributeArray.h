@@ -117,7 +117,6 @@ public:
 	FORCEINLINE AttributeType& operator[]( const int32 Index ) { return Container[ Index ]; }
 
 protected:
-
 	/** The actual container, represented by a regular array */
 	TArray<AttributeType> Container;
 };
@@ -322,6 +321,13 @@ public:
 		}
 	}
 
+	/** Add an array filled with the default value */
+	FORCEINLINE void AddArray()
+	{
+		TMeshAttributeArrayBase<AttributeType>& NewArray = ArrayForIndices.AddDefaulted_GetRef();
+		NewArray.Initialize(NumElements, DefaultValue);
+	}
+
 	/** Sets the number of elements to the exact number provided, and initializes them to the default value */
 	virtual void Initialize( const int32 Count )
 	{
@@ -331,6 +337,20 @@ public:
 			ArrayForIndex.Initialize( Count, DefaultValue );
 		}
 	}
+
+	/** Insert an array at the given index, filled with the default value */
+	FORCEINLINE void InsertArray(int32 Index)
+	{
+		TMeshAttributeArrayBase<AttributeType>& NewArray = ArrayForIndices.InsertDefaulted_GetRef(Index);
+		NewArray.Initialize(NumElements, DefaultValue);
+	}
+
+	/** Remove the array at the given index */
+	FORCEINLINE void RemoveArray(int32 Index)
+	{
+		ArrayForIndices.RemoveAt(Index);
+	}
+
 
 	/** Polymorphic serialization */
 	virtual void Serialize( FArchive& Ar )

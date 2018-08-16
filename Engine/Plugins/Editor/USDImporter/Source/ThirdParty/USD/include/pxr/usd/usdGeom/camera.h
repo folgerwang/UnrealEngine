@@ -78,7 +78,7 @@ class SdfAssetPath;
 /// will transform the world such that the camera is at the origin, looking 
 /// down the -Z axis, with Y as the up axis.
 /// 
-/// \sa \ref usdGeom_linAlgBasics "UsdGeom Linear Algebra Basic Assumptions"
+/// \sa \ref UsdGeom_LinAlgBasics
 /// 
 ///
 /// For any described attribute \em Fallback \em Value or \em Allowed \em Values below
@@ -94,6 +94,11 @@ public:
     /// true, GetStaticPrimDefinition() will return a valid prim definition with
     /// a non-empty typeName.
     static const bool IsConcrete = true;
+
+    /// Compile-time constant indicating whether or not this class inherits from
+    /// UsdTyped. Types which inherit from UsdTyped can impart a typename on a
+    /// UsdPrim.
+    static const bool IsTyped = true;
 
     /// Construct a UsdGeomCamera on UsdPrim \p prim .
     /// Equivalent to UsdGeomCamera::Get(prim.GetStage(), prim.GetPath())
@@ -481,13 +486,8 @@ public:
 
     /// Creates a GfCamera object from the attribute values at \p time.
     ///
-    /// Outside of Pixar, never touch \p isZup, it is deprecated !
-    ///
-    /// Set \p isZup to UsdUtilsGetCamerasAreZup(prim.GetStage()). Eventually,
-    /// z-Up encoding of cameras will be dropped and this parameter will go
-    /// away.
     USDGEOM_API
-    GfCamera GetCamera(const UsdTimeCode &time, const bool isZup = false) const;
+    GfCamera GetCamera(const UsdTimeCode &time) const;
 
     /// Write attribute values from \p camera for \p time.
     ///

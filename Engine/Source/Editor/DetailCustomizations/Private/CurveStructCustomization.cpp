@@ -306,7 +306,7 @@ FReply FCurveStructCustomization::OnCreateButtonClicked()
 
 			TArray<UPackage*> TopLevelPackages;
 			TopLevelPackages.Add( OutermostPkg );
-			if (!PackageTools::HandleFullyLoadingPackages(TopLevelPackages, LOCTEXT("CreateANewObject", "Create a new object")))
+			if (!UPackageTools::HandleFullyLoadingPackages(TopLevelPackages, LOCTEXT("CreateANewObject", "Create a new object")))
 			{
 				// User aborted.
 				return FReply::Handled();

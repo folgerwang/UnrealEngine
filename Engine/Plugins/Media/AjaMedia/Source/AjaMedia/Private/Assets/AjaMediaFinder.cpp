@@ -157,7 +157,7 @@ bool FAjaMediaMode::IsValid() const
 bool FAjaMediaFinder::GetSources(TArray<FAjaMediaPort>& OutSources)
 {
 	OutSources.Reset();
-	if (!FAja::IsInitialized() || !FAja::CanUseAJACard())
+	if (!FAja::IsInitialized())
 	{
 		return false;
 	}
@@ -191,7 +191,7 @@ bool FAjaMediaFinder::GetSources(TArray<FAjaMediaPort>& OutSources)
 bool FAjaMediaFinder::GetModes(int32 DeviceIndex, bool bInOutput, TArray<FAjaMediaMode>& OutModes)
 {
 	OutModes.Reset();
-	if (!FAja::IsInitialized() || !FAja::CanUseAJACard())
+	if (!FAja::IsInitialized())
 	{
 		return false;
 	}

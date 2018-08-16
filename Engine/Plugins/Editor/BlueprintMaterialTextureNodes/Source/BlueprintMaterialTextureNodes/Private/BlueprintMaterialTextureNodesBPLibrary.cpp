@@ -273,7 +273,7 @@ UMaterialInstanceConstant* UBlueprintMaterialTextureNodesBPLibrary::CreateMIC_Ed
 		if (!InName.Contains(TEXT("/")))
 		{
 			FString AssetName = Material->GetOutermost()->GetName();
-			const FString SanitizedBasePackageName = PackageTools::SanitizePackageName(AssetName);
+			const FString SanitizedBasePackageName = UPackageTools::SanitizePackageName(AssetName);
 			const FString PackagePath = FPackageName::GetLongPackagePath(SanitizedBasePackageName) + TEXT("/");
 			AssetTools.CreateUniqueAssetName(PackagePath, InName, PackageName, Name);
 		}

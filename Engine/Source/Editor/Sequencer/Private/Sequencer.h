@@ -109,13 +109,7 @@ public:
 
 public:
 
-	/**
-	 * Get the selection range.
-	 *
-	 * @return The selection range.
-	 * @see SetSelectionRange, SetSelectionRangeEnd, SetSelectionRangeStart
-	 */
-	TRange<FFrameNumber> GetSelectionRange() const;
+	virtual TRange<FFrameNumber> GetSelectionRange() const override;
 
 	/**
 	 * Set the selection selection range.
@@ -125,19 +119,9 @@ public:
 	 */
 	void SetSelectionRange(TRange<FFrameNumber> Range);
 	
-	/**
-	 * Set the selection range's end position to the current global time.
-	 *
-	 * @see GetSelectionRange, SetSelectionRange, SetSelectionRangeStart
-	 */
-	void SetSelectionRangeEnd();
-	
-	/**
-	 * Set the selection range's start position to the current global time.
-	 *
-	 * @see GetSelectionRange, SetSelectionRange, SetSelectionRangeEnd
-	 */
-	void SetSelectionRangeStart();
+	virtual void SetSelectionRangeEnd() override;
+
+	virtual void SetSelectionRangeStart() override;
 
 	/** Clear and reset the selection range. */
 	void ResetSelectionRange();
@@ -267,8 +251,8 @@ public:
 	/** Bake transform */
 	void BakeTransform();
 
-	/** Sync to source timecode */
-	void SyncToSourceTimecode();
+	/** Sync using source timecode */
+	void SyncSectionsUsingSourceTimecode();
 
 	/**
 	 * @return Movie scene tools used by the sequencer
@@ -790,6 +774,9 @@ protected:
 
 	/** Get the unqualified local time */
 	FFrameTime GetLocalFrameTime() const { return GetLocalTime().Time; }
+
+	/** Exports sequence to a FBX file */
+	void ExportFBXInternal(const FString& Filename, TArray<FGuid>& Bindings);
 
 protected:
 

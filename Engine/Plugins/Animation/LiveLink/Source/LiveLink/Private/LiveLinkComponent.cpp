@@ -82,3 +82,16 @@ void ULiveLinkComponent::GetSubjectData(const FName SubjectName, bool& bSuccess,
 		}
 	}
 }
+
+void ULiveLinkComponent::GetSubjectDataAtWorldTime(const FName SubjectName, const float WorldTime, bool& bSuccess, FSubjectFrameHandle& SubjectFrameHandle)
+{
+	bSuccess = false;
+	if (HasLiveLinkClient())
+	{
+		if (const FLiveLinkSubjectFrame* SubjectFrame = LiveLinkClient->GetSubjectDataAtWorldTime(SubjectName, WorldTime))
+		{
+			SubjectFrameHandle.SetCachedFrame(MakeShared<FCachedSubjectFrame>(SubjectFrame));
+			bSuccess = true;
+		}
+	}
+}

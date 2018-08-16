@@ -4,10 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "Engine/AssetUserData.h"
+#include "Engine/EngineBaseTypes.h"
+#include "GameFramework/Actor.h"
+#include "UObject/LazyObjectPtr.h"
 
 #include "MediaFrameworkWorldSettingsAssetUserData.generated.h"
 
-class ACameraActor;
+class UMediaFrameworkWorldSettingsAssetUserData;
 class UMediaOutput;
 class UTextureRenderTarget2D;
 
@@ -19,12 +22,24 @@ struct FMediaFrameworkCaptureCameraViewportCameraOutputInfo
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, Category="MediaViewportCapture")
-	TArray<ACameraActor*> LockedCameraActors;
+	FMediaFrameworkCaptureCameraViewportCameraOutputInfo();
+
+	UPROPERTY(EditAnywhere, Category="MediaViewportCapture", meta=(DisplayName="Cameras"))
+	TArray<TLazyObjectPtr<AActor>> LockedActors;
 
 	UPROPERTY(EditAnywhere, Category="MediaViewportCapture")
 	UMediaOutput* MediaOutput;
+
+	UPROPERTY()
+	TEnumAsByte<EViewModeIndex> ViewMode;
+
+private:
+	//DEPRECATED 4.21 The type of LockedCameraActors has changed and will be removed from the code base in a future release. Use LockedActors.
+	UPROPERTY()
+	TArray<AActor*> LockedCameraActors_DEPRECATED;
+	friend UMediaFrameworkWorldSettingsAssetUserData;
 };
+
 
 /**
  * FMediaFrameworkCaptureRenderTargetCameraOutputInfo
@@ -41,6 +56,7 @@ struct FMediaFrameworkCaptureRenderTargetCameraOutputInfo
 	UMediaOutput* MediaOutput;
 };
 
+
 /**
  * UMediaFrameworkCaptureCameraViewportAssetUserData
  */
@@ -55,4 +71,7 @@ public:
 
 	UPROPERTY(EditAnywhere, Category="MediaViewportCapture", meta=(ShowOnlyInnerProperties))
 	TArray<FMediaFrameworkCaptureCameraViewportCameraOutputInfo> ViewportCaptures;
+
+public:
+	virtual void Serialize(FArchive& Ar) override;
 };

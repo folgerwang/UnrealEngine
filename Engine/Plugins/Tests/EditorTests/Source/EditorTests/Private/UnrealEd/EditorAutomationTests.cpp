@@ -604,7 +604,7 @@ bool FCleanupConvertToValidation::Update()
 		// Now unload the package
 		TArray<UPackage*> PackagesToUnload;
 		PackagesToUnload.Add(NewPackage);
-		PackageTools::UnloadPackages(PackagesToUnload);
+		UPackageTools::UnloadPackages(PackagesToUnload);
 	}
 
 	// Unmount /Automation.

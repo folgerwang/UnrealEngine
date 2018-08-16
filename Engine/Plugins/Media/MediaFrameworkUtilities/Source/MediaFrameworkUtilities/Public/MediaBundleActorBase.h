@@ -89,8 +89,16 @@ protected:
 	UPROPERTY(AdvancedDisplay, EditAnywhere, Category="MediaBundle")
 	int32 PrimitiveMaterialIndex;
 	
-	/** Wheter we're actually playing the media */
+	/** Whether we're actually playing the media */
 	bool bPlayingMedia;
+
+private:
+
+	/** Handle to handle to show the invalid material */
+	FDelegateHandle MediaStateChangedHandle;
+
+	/** Based on success or failure of MediaSource opening, will change parameter to update displayed texture */
+	void SetIsValidMaterialParameter(bool bIsValid);
 
 public:
 	//~ Begin AActor Interface

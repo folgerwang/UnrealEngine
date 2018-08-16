@@ -468,7 +468,7 @@ void FInEditorCapture::OverridePlaySettings(ULevelEditorPlaySettings* PlayInEdit
 	PlayInEditorSettings->bOnlyLoadVisibleLevelsInPIE = false;
 	PlayInEditorSettings->bPreferToStreamLevelsInPIE = false;
 	PlayInEditorSettings->PIEAlwaysOnTop = false;
-	PlayInEditorSettings->DisableStandaloneSound = true;
+	PlayInEditorSettings->DisableStandaloneSound = false;
 	PlayInEditorSettings->AdditionalLaunchParameters = TEXT("");
 	PlayInEditorSettings->BuildGameBeforeLaunch = EPlayOnBuildMode::PlayOnBuild_Never;
 	PlayInEditorSettings->LaunchConfiguration = EPlayOnLaunchConfiguration::LaunchConfig_Default;
@@ -583,11 +583,13 @@ void FInEditorCapture::OnLevelSequenceFinished()
 
 void FInEditorCapture::OnCaptureStarted()
 {
+	FString CapturePath = CaptureObject->ResolveFileFormat(CaptureObject->Settings.OutputDirectory.Path, FFrameMetrics());
+
 	FNotificationInfo Info
 	(
 		SNew(SCaptureMovieNotification)
 		.CaptureState_Raw(this, &FInEditorCapture::GetCaptureState)
-		.CapturePath(CaptureObject->Settings.OutputDirectory.Path)
+		.CapturePath(CapturePath)
 		.OnCaptureFinished_Raw(this, &FInEditorCapture::OnCaptureFinished)
 		.OnCancel_Raw(this, &FInEditorCapture::Cancel)
 	);

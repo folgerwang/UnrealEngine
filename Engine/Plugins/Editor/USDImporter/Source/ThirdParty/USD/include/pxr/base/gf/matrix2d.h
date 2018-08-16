@@ -188,7 +188,7 @@ public:
     /// Fills a 2x2 array of \c double values with the values in
     /// the matrix, specified in row-major order.
     GF_API
-    double* Get(double m[2][2]);
+    double* Get(double m[2][2]) const;
 
     /// Returns vector components as an array of \c double values.
     double* GetArray()  {
@@ -353,6 +353,13 @@ private:
     // Friend declarations
     friend class GfMatrix2f;
 };
+
+
+/// Tests for equality within a given tolerance, returning \c true if the
+/// difference between each component of the matrix is less than or equal
+/// to \p tolerance, or false otherwise.
+GF_API 
+bool GfIsClose(GfMatrix2d const &m1, GfMatrix2d const &m2, double tolerance);
 
 /// Output a GfMatrix2d
 /// \ingroup group_gf_DebuggingOutput

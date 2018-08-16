@@ -4,112 +4,151 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "MovieSceneCaptureProtocolSettings.h"
-#include "HAL/Runnable.h"
-#include "HAL/ThreadSafeBool.h"
-
-#if WITH_EDITOR
-	#include "IImageWrapper.h"
-#endif
-
-#include "FrameGrabber.h"
 #include "Protocols/FrameGrabberProtocol.h"
+#include "IImageWrapper.h"
+#include "Async/Future.h"
+#include "CompositionGraphCaptureProtocol.h"
 #include "ImageSequenceProtocol.generated.h"
 
 struct FMovieSceneCaptureSettings;
+class IImageWriteQueue;
 
-UCLASS(DisplayName="Image Encoding")
-class MOVIESCENECAPTURE_API UBmpImageCaptureSettings : public UMovieSceneCaptureProtocolSettings
+UCLASS(Abstract, config=EditorPerProjectUserSettings)
+class MOVIESCENECAPTURE_API UImageSequenceProtocol : public UFrameGrabberProtocol
 {
 public:
-	UBmpImageCaptureSettings(const FObjectInitializer& Init) : UMovieSceneCaptureProtocolSettings(Init) {}
 
 	GENERATED_BODY()
 
-	/**~ UMovieSceneCaptureProtocolSettings implementation */
-	virtual void OnReleaseConfig(FMovieSceneCaptureSettings& InSettings) override;
-	virtual void OnLoadConfig(FMovieSceneCaptureSettings& InSettings) override;
+	UImageSequenceProtocol(const FObjectInitializer& ObjInit);
+
+public:
+
+	/** ~UFrameGrabberProtocol implementation */
+	virtual FFramePayloadPtr GetFramePayload(const FFrameMetrics& FrameMetrics);
+	virtual void ProcessFrame(FCapturedFrameData Frame);
+	/** ~End UFrameGrabberProtocol implementation */
+
+	/** ~ UMovieSceneCaptureProtocol implementation */
+	virtual bool SetupImpl() override;
+	virtual void AddFormatMappingsImpl(TMap<FString, FStringFormatArg>& FormatMappings) const override;
+	virtual void BeginFinalizeImpl() override;
+	virtual void FinalizeImpl() override;
+	virtual bool HasFinishedProcessingImpl() const override;
+	virtual void OnReleaseConfigImpl(FMovieSceneCaptureSettings& InSettings) override;
+	virtual void OnLoadConfigImpl(FMovieSceneCaptureSettings& InSettings) override;
+	/** ~End UMovieSceneCaptureProtocol implementation */
+
+protected:
+
+	/** The format of the image to write out */
+	EImageFormat Format;
+
+
+private:
+
+	virtual int32 GetCompressionQuality() const { return 0; }
+
+	/** Custom string format arguments for filenames */
+	TMap<FString, FStringFormatArg> StringFormatMap;
+
+	/** A pointer to the image write queue used for asynchronously writing images */
+	IImageWriteQueue* ImageWriteQueue;
+
+	/** A future that is created on BeginFinalize from a fence in the image write queue that will be fulfilled when all currently pending tasks have been completed */
+	TFuture<void> FinalizeFence;
 };
 
-UCLASS(config=EditorPerProjectUserSettings, DisplayName="Image Encoding")
-class MOVIESCENECAPTURE_API UImageCaptureSettings : public UFrameGrabberProtocolSettings
+UCLASS(config=EditorPerProjectUserSettings, Abstract)
+class MOVIESCENECAPTURE_API UCompressedImageSequenceProtocol : public UImageSequenceProtocol
 {
 public:
-	UImageCaptureSettings(const FObjectInitializer& Init) : UFrameGrabberProtocolSettings(Init), CompressionQuality(100) {}
 
 	GENERATED_BODY()
-
-	/**~ UMovieSceneCaptureProtocolSettings implementation */
-	virtual void OnReleaseConfig(FMovieSceneCaptureSettings& InSettings) override;
-	virtual void OnLoadConfig(FMovieSceneCaptureSettings& InSettings) override;
 
 	/** Level of compression to apply to the image, between 1 (worst quality, best compression) and 100 (best quality, worst compression)*/
 	UPROPERTY(config, EditAnywhere, Category=ImageSettings, meta=(ClampMin=1, ClampMax=100))
 	int32 CompressionQuality;
+
+	UCompressedImageSequenceProtocol(const FObjectInitializer& ObjInit)
+		: Super(ObjInit)
+	{
+		CompressionQuality = 100;
+	}
+
+protected:
+
+	virtual int32 GetCompressionQuality() const override { return CompressionQuality; }
+	virtual bool SetupImpl() override;
+	virtual void AddFormatMappingsImpl(TMap<FString, FStringFormatArg>& FormatMappings) const override;
 };
 
-#if WITH_EDITOR
-
-/** Single runnable thread used to dispatch captured frames */
-struct FImageCaptureThread : public FRunnable
+UCLASS(meta=(DisplayName="Image Sequence (bmp)", CommandLineID="BMP"))
+class MOVIESCENECAPTURE_API UImageSequenceProtocol_BMP : public UImageSequenceProtocol
 {
-	FImageCaptureThread(EImageFormat InFormat, int32 InCompressionQuality);
-	~FImageCaptureThread();
+public:
 
-	void Add(FCapturedFrameData Frame);
-	uint32 GetNumOutstandingFrames() const;
-	void Close();
+	GENERATED_BODY()
 
-	virtual uint32 Run();
-	virtual void Stop() override;
-
-private:
-
-	void WriteFrameToDisk(FCapturedFrameData& Frame, TSharedPtr<IImageWrapper> ImageWrapper) const;
-
-private:
-	/** The thread itself */
-	FRunnableThread* Thread;
-	/** Command stack on which commands are pushed */
-	mutable FCriticalSection CommandMutex;
-	TArray<FCapturedFrameData> CapturedFrames;
-	/** Event that is triggered when we have something to do */
-	FEvent* WorkToDoEvent;
-	/** Event that is triggered when we've finished processing outstanding frames */
-	FEvent* ThreadEmptyEvent;
-	/** Set to false when the thread should terminate */
-	FThreadSafeBool bRunning;
-	/** The format we are writing out */
-	EImageFormat Format;
-	/** Level of compression to apply to the image, between 1 (worst quality, best compression) and 100 (best quality, worst compression) */
-	int32 CompressionQuality;
-	/** array of image writer pointers for async writing */
-	TArray<TSharedPtr<IImageWrapper>> ImageWrappers;
+	UImageSequenceProtocol_BMP(const FObjectInitializer& ObjInit)
+		: Super(ObjInit)
+	{
+		Format = EImageFormat::BMP;
+	}
 };
 
-struct MOVIESCENECAPTURE_API FImageSequenceProtocol : FFrameGrabberProtocol
+UCLASS(meta=(DisplayName="Image Sequence (png)", CommandLineID="PNG"))
+class MOVIESCENECAPTURE_API UImageSequenceProtocol_PNG : public UCompressedImageSequenceProtocol
 {
-	FImageSequenceProtocol(EImageFormat InFormat);
+public:
 
-	/** ~FFrameGrabberProtocol implementation */
-	virtual bool Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host) override;
-	virtual FFramePayloadPtr GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host);
-	virtual void ProcessFrame(FCapturedFrameData Frame);
-	virtual void AddFormatMappings(TMap<FString, FStringFormatArg>& FormatMappings) const override;
-	virtual void Finalize() override;
-	virtual bool HasFinishedProcessing() const override;
-	/** ~End FFrameGrabberProtocol implementation */
+	GENERATED_BODY()
 
-private:
-
-	/** Custom string format arguments for filenames */
-	TMap<FString, FStringFormatArg> StringFormatMap;
-	/** Level of compression to apply to the image, between 1 (worst quality, best compression) and 100 (best quality, worst compression)*/
-	int32 CompressionQuality;
-	/** The format of the image to write out */
-	EImageFormat Format;
-	/** Thread responsible for writing out frames to disk */
-	TUniquePtr<FImageCaptureThread> CaptureThread;
+	UImageSequenceProtocol_PNG(const FObjectInitializer& ObjInit)
+		: Super(ObjInit)
+	{
+		Format = EImageFormat::PNG;
+	}
 };
 
-#endif
+UCLASS(meta=(DisplayName="Image Sequence (jpg)", CommandLineID="JPG"))
+class MOVIESCENECAPTURE_API UImageSequenceProtocol_JPG : public UCompressedImageSequenceProtocol
+{
+public:
+
+	GENERATED_BODY()
+
+	UImageSequenceProtocol_JPG(const FObjectInitializer& ObjInit)
+		: Super(ObjInit)
+	{
+		Format = EImageFormat::JPEG;
+	}
+};
+
+UCLASS(meta=(DisplayName="Image Sequence (exr)", CommandLineID="EXR"))
+class MOVIESCENECAPTURE_API UImageSequenceProtocol_EXR : public UImageSequenceProtocol
+{
+public:
+
+	GENERATED_BODY()
+
+	/** Whether to write out compressed or uncompressed EXRs */
+	UPROPERTY(config, EditAnywhere, Category=ImageSettings)
+	bool bCompressed;
+
+	/** The color gamut to use when storing HDR captured data. */
+	UPROPERTY(config, EditAnywhere, Category=ImageSettings)
+	TEnumAsByte<EHDRCaptureGamut> CaptureGamut;
+
+	UImageSequenceProtocol_EXR(const FObjectInitializer& ObjInit);
+
+private:
+	virtual int32 GetCompressionQuality() const override { return bCompressed ? (int32)EImageCompressionQuality::Default : (int32)EImageCompressionQuality::Uncompressed; }
+	virtual bool SetupImpl() override;
+	virtual void FinalizeImpl() override;
+	virtual void AddFormatMappingsImpl(TMap<FString, FStringFormatArg>& FormatMappings) const override;
+
+	int32 RestoreColorGamut;
+	int32 RestoreOutputDevice;
+};
+

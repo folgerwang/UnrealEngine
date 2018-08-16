@@ -192,8 +192,8 @@ void SFbxSceneMaterialsListView::GetMaterialsFromHierarchy(TArray<FbxMaterialInf
 				}
 				FString AssetName = GlobalImportSettings->MaterialBasePath == NAME_None ? FullPath + NodeTreePath + TEXT("/") + MaterialInfo->Name : GlobalImportSettings->MaterialBasePath.ToString() + MaterialInfo->Name;
 				MaterialInfo->SetOriginalImportPath(AssetName);
-				FString OriginalFullImportName = PackageTools::SanitizePackageName(AssetName);
-				OriginalFullImportName = OriginalFullImportName + TEXT(".") + PackageTools::SanitizePackageName(MaterialInfo->Name);
+				FString OriginalFullImportName = UPackageTools::SanitizePackageName(AssetName);
+				OriginalFullImportName = OriginalFullImportName + TEXT(".") + UPackageTools::SanitizePackageName(MaterialInfo->Name);
 				MaterialInfo->SetOriginalFullImportName(OriginalFullImportName);
 			}
 			OutMaterials.Add(MaterialInfo);

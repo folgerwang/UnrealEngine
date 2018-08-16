@@ -15,8 +15,8 @@
 #include "MediaBundleFactoryNew.h"
 #include "MediaFrameworkUtilitiesPlacement.h"
 #include "CaptureTab/SMediaFrameworkCapture.h"
-#include "UI/MediaBundleEditorStyle.h"
-
+#include "UI/MediaFrameworkUtilitiesEditorStyle.h"
+#include "UI/MediaProfileMenuEntry.h"
 
 #define LOCTEXT_NAMESPACE "MediaFrameworkEditor"
 
@@ -33,38 +33,42 @@ public:
 	{
 		if (GEditor)
 		{
+			FMediaFrameworkUtilitiesEditorStyle::Register();
+
 			GEditor->ActorFactories.Add(NewObject<UActorFactoryMediaBundle>());
+
+			FMediaFrameworkUtilitiesPlacement::RegisterPlacement();
+
+			// Register AssetTypeActions
+			AssetTypeAction = MakeShareable(new FAssetTypeActions_MediaBundle());
+			FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get().RegisterAssetTypeActions(AssetTypeAction.ToSharedRef());
+
+			FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+			PropertyModule.RegisterCustomClassLayout("MediaBundleActorBase", FOnGetDetailCustomizationInstance::CreateStatic(&FMediaBundleActorDetails::MakeInstance));
+
+			SMediaFrameworkCapture::RegisterNomadTabSpawner();
+			FMediaProfileMenuEntry::Register();
 		}
-		FMediaFrameworkUtilitiesPlacement::RegisterPlacement();
-		
-		FMediaBundleEditorStyle::Register();
-
-		// Register AssetTypeActions
-		AssetTypeAction = MakeShareable(new FAssetTypeActions_MediaBundle());
-		FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get().RegisterAssetTypeActions(AssetTypeAction.ToSharedRef());
-
-		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		PropertyModule.RegisterCustomClassLayout("MediaBundleActorBase", FOnGetDetailCustomizationInstance::CreateStatic(&FMediaBundleActorDetails::MakeInstance));
-
-		SMediaFrameworkCapture::RegisterNomadTabSpawner();
 	}
 
 	virtual void ShutdownModule() override
 	{
 		if (!GIsRequestingExit && GEditor && UObjectInitialized())
 		{
+			FMediaProfileMenuEntry::Register();
 			SMediaFrameworkCapture::UnregisterNomadTabSpawner();
-
-			GEditor->ActorFactories.RemoveAll([](const UActorFactory* ActorFactory) { return ActorFactory->IsA<UActorFactoryMediaBundle>(); });
-			FMediaFrameworkUtilitiesPlacement::UnregisterPlacement();
-
-			// Unregister AssetTypeActions
-			FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get().UnregisterAssetTypeActions(AssetTypeAction.ToSharedRef());
 
 			FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
 			PropertyModule.UnregisterCustomClassLayout("MediaBundleActorBase");
 
-			FMediaBundleEditorStyle::Unregister();
+			// Unregister AssetTypeActions
+			FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get().UnregisterAssetTypeActions(AssetTypeAction.ToSharedRef());
+
+			FMediaFrameworkUtilitiesPlacement::UnregisterPlacement();
+
+			GEditor->ActorFactories.RemoveAll([](const UActorFactory* ActorFactory) { return ActorFactory->IsA<UActorFactoryMediaBundle>(); });
+
+			FMediaFrameworkUtilitiesEditorStyle::Unregister();
 		}
 	}
 

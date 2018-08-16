@@ -3,8 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SlateFwd.h"
+
+#include "Delegates/IDelegateInstance.h"
 #include "Engine/EngineTypes.h"
+#include "SlateFwd.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 
@@ -36,6 +38,8 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
+	bool IsCapturing() const { return bIsCapturing; }
+
 private:
 	void OnMapChange(uint32 InMapFlags);
 	void OnLevelActorsRemoved(AActor* InActor);
@@ -55,4 +59,6 @@ private:
 
 	TArray<TSharedPtr<SMediaFrameworkCaptureCameraViewportWidget>> CaptureCameraViewports;
 	TArray<TSharedPtr<SMediaFrameworkCaptureRenderTargetWidget>> CaptureRenderTargets;
+
+	static FDelegateHandle LevelEditorTabManagerChangedHandle;
 };

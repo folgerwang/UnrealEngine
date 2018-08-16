@@ -2439,7 +2439,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 							WorldPackages.AddUnique(Package);
 						}
 					}
-					PackageTools::UnloadPackages(WorldPackages);
+					UPackageTools::UnloadPackages(WorldPackages);
 
 					// Refresh ExistingPackage and Existing World now that GC has occurred.
 					ExistingPackage = FindPackage(NULL, *LongTempFname);

@@ -57,7 +57,16 @@ public:
 	/** Create some UVs from the specified mesh description data. */
 	static bool GenerateUniqueUVsForStaticMesh(const FMeshDescription& MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords);
 
-	
+	/** Add a UV channel to the MeshDescription. */
+	static bool AddUVChannel(FMeshDescription& MeshDescription);
+
+	/** Insert a UV channel at the given index to the MeshDescription. */
+	static bool InsertUVChannel(FMeshDescription& MeshDescription, int32 UVChannelIndex);
+
+	/** Remove the UV channel at the given index from the MeshDescription. */
+	static bool RemoveUVChannel(FMeshDescription& MeshDescription, int32 UVChannelIndex);
+
+
 	static void ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, FRawMesh& DestinationRawMesh);
 
 	static void ConvertSmoothGroupToHardEdges(const TArray<uint32>& FaceSmoothingMasks, FMeshDescription& DestinationMeshDescription);

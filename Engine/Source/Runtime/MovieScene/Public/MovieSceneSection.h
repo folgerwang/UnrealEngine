@@ -152,6 +152,13 @@ public:
 	 */
 	MOVIESCENE_API bool TryModify(bool bAlwaysMarkDirty=true);
 
+	/*
+	 * A section is read only if it or its outer movie are read only
+	 * 
+	 * @return Returns whether this section is read only
+	 */
+	MOVIESCENE_API bool IsReadOnly() const;
+
 	/**
 	 * @return The range of times of the section
 	 */

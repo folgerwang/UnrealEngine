@@ -15,8 +15,7 @@ class FAudioDevice;
 namespace Audio
 {
 	typedef int16 DefaultUSoundWaveSampleType;
-
-	// An object which fully loads/decodes a sound wave and allows direct access to sound wave data.	
+	
 	/************************************************************************/
 	/* TSampleBuffer<class SampleType>                                      */
 	/* This class owns an audio buffer.                                     */
@@ -27,11 +26,11 @@ namespace Audio
 	/* TSampleBuffer<int16> AnIntBuffer = AFloatBuffer;                     */
 	/************************************************************************/
 	template <class SampleType = DefaultUSoundWaveSampleType>
-	class ENGINE_API TSampleBuffer
+	class TSampleBuffer
 	{
 	public:
-		// Ptr to raw PCM data buffer
-		TUniquePtr<SampleType[]> RawPCMData;
+		// raw PCM data buffer
+		TArray<SampleType> RawPCMData;
 		// The number of samples in the buffer
 		int32 NumSamples;
 		// The number of frames in the buffer
@@ -44,9 +43,8 @@ namespace Audio
 		float SampleDuration;
 
 	public:
-		TSampleBuffer()
-			: RawPCMData(nullptr)
-			, NumSamples(0)
+		FORCEINLINE TSampleBuffer()
+			: NumSamples(0)
 			, NumFrames(0)
 			, NumChannels(0)
 			, SampleRate(0)
@@ -61,24 +59,30 @@ namespace Audio
 			SampleRate = Other.SampleRate;
 			SampleDuration = Other.SampleDuration;
 
-			RawPCMData.Reset(new SampleType[NumSamples]);
-			FMemory::Memcpy(RawPCMData.Get(), Other.RawPCMData.Get(), NumSamples * sizeof(SampleType));
+			RawPCMData.Reset(NumSamples);
+			RawPCMData.AddUninitialized(NumSamples);
+			FMemory::Memcpy(RawPCMData.GetData(), Other.RawPCMData.GetData(), NumSamples * sizeof(SampleType));
 		}
 
 		FORCEINLINE TSampleBuffer(AlignedFloatBuffer& InData, int32 InNumChannels, int32 InSampleRate)
 		{
-			NumSamples = InData.Num();
+			*this =  TSampleBuffer(InData.GetData(), InData.Num(), InNumChannels, InSampleRate);
+		}
+
+		FORCEINLINE TSampleBuffer(float* InBufferPtr, int32 InNumSamples, int32 InNumChannels, int32 InSampleRate)
+		{
+			NumSamples = InNumSamples;
 			NumFrames = NumSamples / InNumChannels;
 			NumChannels = InNumChannels;
 			SampleRate = InSampleRate;
 			SampleDuration = ((float)NumFrames) / SampleRate;
 
-			RawPCMData.Reset(new SampleType[NumSamples]);
-			float* InBufferPtr = InData.GetData();
+			RawPCMData.Reset(NumSamples);
+			RawPCMData.AddUninitialized(NumSamples);
 
 			if (TIsSame<SampleType, float>::Value)
 			{
-				FMemory::Memcpy(RawPCMData.Get(), InBufferPtr, NumSamples * sizeof(float));
+				FMemory::Memcpy(RawPCMData.GetData(), InBufferPtr, NumSamples * sizeof(float));
 			}
 			else if (TIsSame<SampleType, int16>::Value)
 			{
@@ -90,7 +94,7 @@ namespace Audio
 			}
 			else
 			{
-				// rely on casts:
+				// for any other types, we don't know how to explicitly convert, so we fall back to casts:
 				for (int32 SampleIndex = 0; SampleIndex < NumSamples; SampleIndex++)
 				{
 					RawPCMData[SampleIndex] = (SampleType)(InBufferPtr[SampleIndex]);
@@ -99,7 +103,7 @@ namespace Audio
 		}
 
 		// Vanilla assignment operator:
-		FORCEINLINE TSampleBuffer& operator=(const TSampleBuffer& Other)
+		TSampleBuffer& operator=(const TSampleBuffer& Other)
 		{
 			NumSamples = Other.NumSamples;
 			NumFrames = Other.NumFrames;
@@ -107,15 +111,17 @@ namespace Audio
 			SampleRate = Other.SampleRate;
 			SampleDuration = Other.SampleDuration;
 
-			RawPCMData.Reset(new SampleType[NumSamples]);
-			FMemory::Memcpy(RawPCMData.Get(), Other.RawPCMData.Get(), NumSamples * sizeof(SampleType));
+			RawPCMData.Reset(NumSamples);
+			RawPCMData.AddUninitialized(NumSamples);
+
+			FMemory::Memcpy(RawPCMData.GetData(), Other.RawPCMData.GetData(), NumSamples * sizeof(SampleType));
 
 			return *this;
 		}
 
 		//SampleType converting assignment operator:
 		template<class OtherSampleType>
-		FORCEINLINE TSampleBuffer& operator=(const TSampleBuffer<OtherSampleType>& Other)
+		TSampleBuffer& operator=(const TSampleBuffer<OtherSampleType>& Other)
 		{
 			NumSamples = Other.NumSamples;
 			NumFrames = Other.NumFrames;
@@ -123,11 +129,13 @@ namespace Audio
 			SampleRate = Other.SampleRate;
 			SampleDuration = Other.SampleDuration;
 
-			RawPCMData.Reset(new SampleType[NumSamples]);
+			RawPCMData.Reset(NumSamples);
+			RawPCMData.AddUninitialized(NumSamples);
+
 			if (TIsSame<SampleType, OtherSampleType>::Value)
 			{
 				// If buffers are of the same type, copy over:
-				FMemory::Memcpy(RawPCMData.Get(), Other.RawPCMData.Get(), NumSamples * sizeof(SampleType));
+				FMemory::Memcpy(RawPCMData.GetData(), Other.RawPCMData.GetData(), NumSamples * sizeof(SampleType));
 			}
 			else if (TIsSame<SampleType, int16>::Value && TIsSame<OtherSampleType, float>::Value)
 			{
@@ -162,7 +170,7 @@ namespace Audio
 		// Gets the raw PCM data of the sound wave
 		FORCEINLINE const SampleType* GetData() const
 		{
-			return RawPCMData.Get();
+			return RawPCMData.GetData();
 		}
 
 		// Gets the number of samples of the sound wave
@@ -189,9 +197,9 @@ namespace Audio
 			return SampleRate;
 		}
 
-		FORCEINLINE void MixBufferToChannels(int32 InNumChannels)
+		void MixBufferToChannels(int32 InNumChannels)
 		{
-			if (!RawPCMData.IsValid() || InNumChannels <= 0)
+			if (!RawPCMData.Num() || InNumChannels <= 0)
 			{
 				return;
 			}
@@ -219,8 +227,47 @@ namespace Audio
 			NumSamples = NumFrames * NumChannels;
 			
 			// Resize our buffer and copy the result in:
-			RawPCMData.Reset(new SampleType[NumChannels * NumFrames]);
-			FMemory::Memcpy(RawPCMData.Get(), TempBuffer.Get(), NumSamples * sizeof(SampleType));
+			RawPCMData.Reset(NumSamples);
+			RawPCMData.AddUninitialized(NumSamples);
+
+			FMemory::Memcpy(RawPCMData.GetData(), TempBuffer.Get(), NumSamples * sizeof(SampleType));
+		}
+
+		void Clamp(float Ceiling = 1.0f)
+		{
+			if (TIsSame<SampleType, float>::Value)
+			{
+				// Float case:
+				float ClampMin = Ceiling * -1.0f;
+
+				for (int32 SampleIndex = 0; SampleIndex < RawPCMData.Num(); SampleIndex++)
+				{
+					RawPCMData[SampleIndex] = FMath::Clamp<float>(RawPCMData[SampleIndex], ClampMin, Ceiling);
+				}
+			}
+			else if (TIsSame<SampleType, int16>::Value)
+			{
+				// int16 case:
+				Ceiling = FMath::Clamp(Ceiling, 0.0f, 1.0f);
+
+				int16 ClampMax = Ceiling * 32767.0f;
+				int16 ClampMin = Ceiling * -32767.0f;
+
+				for (int32 SampleIndex = 0; SampleIndex < NumSamples; SampleIndex++)
+				{
+					RawPCMData[SampleIndex] = FMath::Clamp<int16>(RawPCMData[SampleIndex], ClampMin, ClampMax);
+				}
+			}
+			else
+			{
+				// Unknown type case:
+				float ClampMin = Ceiling * -1.0f;
+
+				for (int32 SampleIndex = 0; SampleIndex < RawPCMData.Num(); SampleIndex++)
+				{
+					RawPCMData[SampleIndex] = FMath::Clamp<SampleType>(RawPCMData[SampleIndex], ClampMin, Ceiling);
+				}
+			}
 		}
 	};
 
@@ -363,9 +410,9 @@ namespace Audio
 		// If a USoundWave asset already exists 
 		bool BeginWriteToSoundWave(const FString& FileName, const TSampleBuffer<>& InSampleBuffer, FString InPath, TFunction<void(const USoundWave*)> OnSuccess = [](const USoundWave* ResultingWave) {});
 	
-		// This writes out the InSampleBuffer as a wav file at a path relative to
-		// the BouncedWavFiles folder in the Saved directory. This can be used
-		// in non-editor builds.
+		// This writes out the InSampleBuffer as a wav file at the path specified by FilePath and FileName.
+		// If FilePath is a relative path, it will be relative to the /Saved/BouncedWavFiles folder, otherwise specified absolute path will be used.
+		// FileName should not contain the extension. This can be used in non-editor builds.
 		bool BeginWriteToWavFile(const TSampleBuffer<>& InSampleBuffer, const FString& FileName, FString& FilePath, TFunction<void()> OnSuccess = []() {});
 
 		// This is a blocking call that will return the SoundWave generated from InSampleBuffer.

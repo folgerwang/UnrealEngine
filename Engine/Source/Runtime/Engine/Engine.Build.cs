@@ -25,6 +25,7 @@ public class Engine : ModuleRules
 			new string[] {
 				"TargetPlatform",
 				"ImageWrapper",
+				"ImageWriteQueue",
 				"HeadMountedDisplay",
 				"EyeTracker",
 				"MRMesh",

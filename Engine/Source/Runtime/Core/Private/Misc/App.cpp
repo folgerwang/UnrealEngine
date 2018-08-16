@@ -29,6 +29,7 @@ double FApp::DeltaTime = 1 / 30.0;
 double FApp::IdleTime = 0.0;
 double FApp::IdleTimeOvershoot = 0.0;
 FTimecode FApp::Timecode = FTimecode();
+FFrameRate FApp::TimecodeFrameRate = FFrameRate(60,1);
 float FApp::VolumeMultiplier = 1.0f;
 float FApp::UnfocusedVolumeMultiplier = 0.0f;
 bool FApp::bUseVRFocus = false;

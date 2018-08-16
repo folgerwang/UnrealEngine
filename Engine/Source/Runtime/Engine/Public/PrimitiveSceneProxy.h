@@ -958,6 +958,9 @@ private:
 #if WITH_EDITOR
 	/** A copy of the actor's group membership for handling per-view group hiding */
 	uint64 HiddenEditorViews;
+
+	/** Whether this should only draw in VR Editing mode*/
+	uint32 DrawInVREditMode : 1;
 #endif
 
 	/** The translucency sort priority */

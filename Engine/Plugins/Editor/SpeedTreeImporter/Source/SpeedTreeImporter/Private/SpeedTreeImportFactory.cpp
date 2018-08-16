@@ -354,7 +354,7 @@ UTexture* CreateSpeedTreeMaterialTexture(UObject* Parent, FString Filename, bool
 
 	// set where to place the textures
 	FString NewPackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) + TEXT("/") + TextureName;
-	NewPackageName = PackageTools::SanitizePackageName(NewPackageName);
+	NewPackageName = UPackageTools::SanitizePackageName(NewPackageName);
 	UPackage* Package = CreatePackage(NULL, *NewPackageName);
 
 #if 0
@@ -550,7 +550,7 @@ UMaterialInterface* CreateSpeedTreeMaterial7(UObject* Parent, FString MaterialFu
 	// set where to place the materials
 	FString FixedMaterialName = MaterialFullName + TEXT("_Mat");
 	FString NewPackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) + TEXT("/") + FixedMaterialName;
-	NewPackageName = PackageTools::SanitizePackageName(NewPackageName);
+	NewPackageName = UPackageTools::SanitizePackageName(NewPackageName);
 	UPackage* Package = CreatePackage(NULL, *NewPackageName);
 	
 	// does not override existing materials
@@ -865,7 +865,7 @@ UMaterialInterface* CreateSpeedTreeMaterial8(UObject* Parent, FString MaterialFu
 	// set where to place the materials
 	FString FixedMaterialName = ObjectTools::SanitizeObjectName(MaterialFullName);
 	FString NewPackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) + TEXT("/") + FixedMaterialName;
-	NewPackageName = PackageTools::SanitizePackageName(NewPackageName);
+	NewPackageName = UPackageTools::SanitizePackageName(NewPackageName);
 	UPackage* Package = CreatePackage(NULL, *NewPackageName);
 
 	// does not override existing materials
@@ -1504,7 +1504,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 
 	FString MeshName = ObjectTools::SanitizeObjectName(InName.ToString());
 	FString NewPackageName = FPackageName::GetLongPackagePath(InParent->GetOutermost()->GetName()) + TEXT("/") + MeshName;
-	NewPackageName = PackageTools::SanitizePackageName(NewPackageName);
+	NewPackageName = UPackageTools::SanitizePackageName(NewPackageName);
 	UPackage* Package = CreatePackage(NULL, *NewPackageName);
 
 	UStaticMesh* ExistingMesh = FindObject<UStaticMesh>(Package, *MeshName);
@@ -2074,7 +2074,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 
 	FString MeshName = ObjectTools::SanitizeObjectName(InName.ToString());
 	FString NewPackageName = FPackageName::GetLongPackagePath(InParent->GetOutermost()->GetName()) + TEXT("/") + MeshName;
-	NewPackageName = PackageTools::SanitizePackageName(NewPackageName);
+	NewPackageName = UPackageTools::SanitizePackageName(NewPackageName);
 	UPackage* Package = CreatePackage(NULL, *NewPackageName);
 
 	UStaticMesh* ExistingMesh = FindObject<UStaticMesh>(Package, *MeshName);

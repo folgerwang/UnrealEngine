@@ -64,6 +64,12 @@ class ENGINE_API UCameraComponent : public USceneComponent
 	UFUNCTION(BlueprintCallable, Category = Camera)
 	void SetUseFieldOfViewForLOD(bool bInUseFieldOfViewForLOD) { bUseFieldOfViewForLOD = bInUseFieldOfViewForLOD; }
 
+#if WITH_EDITOR
+	// Returns the filmback text used for burnins on preview viewports
+	UFUNCTION()
+	virtual FText GetFilmbackText() const;
+#endif
+
 	/** True if the camera's orientation and position should be locked to the HMD */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CameraOptions)
 	uint32 bLockToHmd : 1;

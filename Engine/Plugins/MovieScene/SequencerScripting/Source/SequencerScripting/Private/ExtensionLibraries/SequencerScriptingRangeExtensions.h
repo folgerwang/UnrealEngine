@@ -16,7 +16,7 @@ UCLASS()
 class USequencerScriptingRangeExtensions : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
-
+public:
 	/**
 	 * Check whether this range has a start
 	 *

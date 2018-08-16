@@ -18,6 +18,7 @@ class UMaterial;
 class UMaterialInterface;
 class UMediaTexture;
 class UMediaPlayer;
+class UMediaProfile;
 class UMediaSource;
 class UTexture;
 class UTextureRenderTarget2D;
@@ -87,6 +88,10 @@ public:
 	UPROPERTY(EditAnywhere, Category="MediaBundle")
 	bool bLoopMediaSource;
 
+	/** Automatically try to open the MediaSource again if an error is detected */
+	UPROPERTY(EditAnywhere, Category="MediaBundle")
+	bool bReopenSourceOnError;
+
 #if WITH_EDITORONLY_DATA
 	/* Class to spawn for that asset. */
 	UPROPERTY(AdvancedDisplay, EditAnywhere, NoClear, Category="MediaBundle")
@@ -153,9 +158,25 @@ public:
 	void CloseMediaSource();
 
 	/**
-	 * Based on success or failure of MediaSource opening, will change parameter to update displayed texture.
+	 * The media is playing. Some reference may have requested the media but it is possible that it is not playing because of an internal error.
 	 */
-	void SetIsValidMaterialParameter(bool bIsValid);
+	bool IsPlaying() const;
+
+public:
+
+	/** Delegate type for media state changed event */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMediaStateChanged, bool /*bIsPlaying*/);
+
+	/**
+	 * Media state changed event
+	 * To use when the you want to be inform if the media is playing or not.
+	 */
+	FOnMediaStateChanged& OnMediaStateChanged() { return MediaStateChangedDelegate; }
+
+private:
+
+	/** Delegate for the media state changed event */
+	FOnMediaStateChanged MediaStateChangedDelegate;
 
 private:
 	/**
@@ -167,6 +188,9 @@ private:
 	void OnMediaOpenOpened(FString DeviceUrl);
 	UFUNCTION()
 	void OnMediaOpenFailed(FString DeviceUrl);
+
+	/** Reopen the media when the media profile changed. */
+	void OnMediaProfileChanged(UMediaProfile* OldMediaProfile, UMediaProfile* NewMediaProfile);
 
 	/**
 	 * Regenerate displacement map associated to lens parameters

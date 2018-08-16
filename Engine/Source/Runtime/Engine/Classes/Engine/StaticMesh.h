@@ -768,7 +768,36 @@ public:
 	 */
 	void FixupMaterialSlotName();
 
+	/**
+	 * Adds an empty UV channel at the end of the existing channels on the given LOD of a StaticMesh.
+	 * @param	LODIndex			Index of the StaticMesh LOD.
+	 * @return true if a UV channel was added.
+	 */
+	ENGINE_API bool AddUVChannel(int32 LODIndex);
+
+	/**
+	 * Inserts an empty UV channel at the specified channel index on the given LOD of a StaticMesh.
+	 * @param	LODIndex			Index of the StaticMesh LOD.
+	 * @param	UVChannelIndex		Index where to insert the UV channel.
+	 * @return true if a UV channel was added.
+	 */
+	ENGINE_API bool InsertUVChannel(int32 LODIndex, int32 UVChannelIndex);
+
+	/**
+	 * Removes the UV channel at the specified channel index on the given LOD of a StaticMesh.
+	 * @param	LODIndex			Index of the StaticMesh LOD.
+	 * @param	UVChannelIndex		Index where to remove the UV channel.
+	 * @return true if the UV channel was removed.
+	 */
+	ENGINE_API bool RemoveUVChannel(int32 LODIndex, int32 UVChannelIndex);
 #endif
+
+	/**
+	 * Returns the number of UV channels for the given LOD of a StaticMesh.
+	 * @param	LODIndex			Index of the StaticMesh LOD.
+	 * @return the number of UV channels.
+	 */
+	ENGINE_API int32 GetNumUVChannels(int32 LODIndex);
 
 	/** Pre-build navigation collision */
 	UPROPERTY(VisibleAnywhere, transient, duplicatetransient, Instanced, Category = Navigation)

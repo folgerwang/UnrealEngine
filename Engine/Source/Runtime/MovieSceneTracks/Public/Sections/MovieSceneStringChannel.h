@@ -11,7 +11,7 @@
 #include "MovieSceneStringChannel.generated.h"
 
 USTRUCT()
-struct FMovieSceneStringChannel : public FMovieSceneChannel
+struct MOVIESCENETRACKS_API FMovieSceneStringChannel : public FMovieSceneChannel
 {
 	GENERATED_BODY()
 
@@ -22,7 +22,7 @@ struct FMovieSceneStringChannel : public FMovieSceneChannel
 	/**
 	 * Serialize this type from another
 	 */
-	MOVIESCENETRACKS_API bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
 
 	/**
 	 * Access a mutable interface for this channel's data
@@ -50,7 +50,7 @@ struct FMovieSceneStringChannel : public FMovieSceneChannel
 	 * @param InTime     The time to evaluate at
 	 * @return A pointer to the string, or nullptr
 	 */
-	MOVIESCENETRACKS_API const FString* Evaluate(FFrameTime InTime) const;
+	const FString* Evaluate(FFrameTime InTime) const;
 
 public:
 
