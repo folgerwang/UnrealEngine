@@ -663,6 +663,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh", meta = (Keywords = "AnimBlueprint"))
 	UAnimInstance* GetPostProcessInstance() const;
 
+	/**
+	 * Returns the a tagged sub-instance node. If non sub instances are found or none are tagged with the
+	 * supplied name, this will return NULL.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh", meta = (Keywords = "AnimBlueprint"))
+	UAnimInstance* GetSubInstanceByName(FName InName) const;
+
 	/** 
 	 * Returns whether there are any valid instances to run, currently this means whether we have
 	 * have an animation instance or a post process instance available to process.
@@ -1159,7 +1166,7 @@ public:
 	FOnAnimInitialized OnAnimInitialized;
 
 	/**
-		If MeshComponentUpdateFlag == EMeshComponentUpdateFlag::OnlyTickMontagesWhenNotRendered
+		If VisibilityBasedAnimTickOption == EVisibilityBasedAnimTickOption::OnlyTickMontagesWhenNotRendered
 		Should we tick Montages only?
 	*/
 	bool ShouldOnlyTickMontages(const float DeltaTime) const;

@@ -500,6 +500,8 @@ void SAnimationEditorViewportTabBody::Construct(const FArguments& InArgs, const 
 	GetPreviewScene()->OnRecordingStateChanged().AddSP(this, &SAnimationEditorViewportTabBody::AddRecordingNotification);
 
 	AddPostProcessNotification();
+
+	AddMinLODNotification();
 }
 
 void SAnimationEditorViewportTabBody::BindCommands()
@@ -2154,6 +2156,55 @@ void SAnimationEditorViewportTabBody::AddPostProcessNotification()
 					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
 					.Text(LOCTEXT("EditPostProcessAnimBPButtonText", "Edit"))
 				]
+			]
+		]
+	);
+}
+
+void SAnimationEditorViewportTabBody::AddMinLODNotification()
+{
+	if(WeakMinLODNotification.IsValid())
+	{
+		return;
+	}
+
+	auto GetMinLODNotificationVisibility = [this]()
+	{
+		if (GetPreviewScene()->GetPreviewMesh() && GetPreviewScene()->GetPreviewMesh()->MinLod.Default != 0)
+		{
+			return EVisibility::Visible;
+		}
+
+		return EVisibility::Collapsed;
+	};
+
+	WeakMinLODNotification = AddNotification(EMessageSeverity::Info,
+		true,
+		SNew(SHorizontalBox)
+		.Visibility_Lambda(GetMinLODNotificationVisibility)
+		.ToolTipText(LOCTEXT("MinLODNotificationTooltip", "This asset has a minimum LOD applied."))
+		+SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		.Padding(2.0f, 4.0f)
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+			[
+				SNew(STextBlock)
+				.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+				.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+				.Text(FEditorFontGlyphs::Level_Down)
+			]
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.FillWidth(1.0f)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("MinLODNotification", "Min LOD applied"))
+				.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
 			]
 		]
 	);

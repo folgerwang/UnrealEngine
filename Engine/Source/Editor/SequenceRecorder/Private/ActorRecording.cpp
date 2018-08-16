@@ -491,7 +491,7 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 						{
 							SkeletalMeshComponent->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 							SkeletalMeshComponent->bEnableUpdateRateOptimizations = false;
-							SkeletalMeshComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+							SkeletalMeshComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 							SkeletalMeshComponent->ForcedLodModel = 1;
 						}
 					}

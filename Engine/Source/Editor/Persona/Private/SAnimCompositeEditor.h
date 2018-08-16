@@ -22,7 +22,7 @@ class SAnimNotifyPanel;
 	portion of the composite tool and registering callbacks to the SAnimCompositeEditor to do the actual editing.
 	
 */
-class SAnimCompositeEditor : public SAnimEditorBase
+class SAnimCompositeEditor : public SAnimEditorBase, public FEditorUndoClient
 {
 public:
 	SLATE_BEGIN_ARGS( SAnimCompositeEditor )
@@ -31,7 +31,6 @@ public:
 
 		SLATE_ARGUMENT( UAnimComposite*, Composite)
 		SLATE_EVENT(FOnObjectsSelected, OnObjectsSelected)
-		SLATE_EVENT(FSimpleDelegate, OnAnimNotifiesChanged)
 		SLATE_EVENT(FOnInvokeTab, OnInvokeTab)
 
 	SLATE_END_ARGS()
@@ -56,8 +55,10 @@ protected:
 	virtual void InitDetailsViewEditorObject(class UEditorAnimBaseObj* EdObj) override;
 
 public:
-	void Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& OnPostUndo);
-	
+	void Construct(const FArguments& InArgs, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton);
+
+	~SAnimCompositeEditor();
+
 	/** Return the animation composite being edited */
 	UAnimComposite* GetCompositeObj() const { return CompositeObj; }
 	virtual UAnimationAsset* GetEditorObject() const override { return GetCompositeObj(); }
@@ -66,8 +67,11 @@ private:
 	/** Pointer to the animation composite being edited */
 	UAnimComposite* CompositeObj;
 	
-	void PostUndo();
-	
+	/** FEditorUndoClient interface */
+	virtual void PostUndo( bool bSuccess ) override;
+	virtual void PostRedo( bool bSuccess ) override;
+	void PostUndoRedo();
+
 	virtual float CalculateSequenceLengthOfEditorObject() const override;
 
 	/** This will sort all components of the montage and update (recreate) the UI */
