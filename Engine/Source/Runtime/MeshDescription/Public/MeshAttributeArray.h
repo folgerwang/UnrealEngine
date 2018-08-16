@@ -249,6 +249,8 @@ public:
 	virtual void Remap( const TSparseArray<int32>& IndexRemap ) = 0;
 	virtual int32 GetNumIndices() const = 0;
 	virtual void SetNumIndices( const int32 NumIndices ) = 0;
+	virtual void InsertIndex( const int32 Index ) = 0;
+	virtual void RemoveIndex( const int32 Index ) = 0;
 
 	/** Determine whether this attribute array set is of the given type */
 	template <typename T>
@@ -321,13 +323,6 @@ public:
 		}
 	}
 
-	/** Add an array filled with the default value */
-	FORCEINLINE void AddArray()
-	{
-		TMeshAttributeArrayBase<AttributeType>& NewArray = ArrayForIndices.AddDefaulted_GetRef();
-		NewArray.Initialize(NumElements, DefaultValue);
-	}
-
 	/** Sets the number of elements to the exact number provided, and initializes them to the default value */
 	virtual void Initialize( const int32 Count )
 	{
@@ -337,20 +332,6 @@ public:
 			ArrayForIndex.Initialize( Count, DefaultValue );
 		}
 	}
-
-	/** Insert an array at the given index, filled with the default value */
-	FORCEINLINE void InsertArray(int32 Index)
-	{
-		TMeshAttributeArrayBase<AttributeType>& NewArray = ArrayForIndices.InsertDefaulted_GetRef(Index);
-		NewArray.Initialize(NumElements, DefaultValue);
-	}
-
-	/** Remove the array at the given index */
-	FORCEINLINE void RemoveArray(int32 Index)
-	{
-		ArrayForIndices.RemoveAt(Index);
-	}
-
 
 	/** Polymorphic serialization */
 	virtual void Serialize( FArchive& Ar )
@@ -383,6 +364,20 @@ public:
 			ArrayForIndices[ Index ].Initialize( NumElements, DefaultValue );
 		}
 	}
+
+	/** Insert a new attribute index */
+	virtual void InsertIndex( const int32 Index )
+	{
+		ArrayForIndices.InsertDefaulted( Index );
+		ArrayForIndices[ Index ].Initialize( NumElements, DefaultValue );
+	}
+
+	/** Remove the array at the given index */
+	virtual void RemoveIndex( const int32 Index )
+	{
+		ArrayForIndices.RemoveAt( Index );
+	}
+
 
 	/** Return the TMeshAttributeArrayBase corresponding to the given attribute index */
 	FORCEINLINE const TMeshAttributeArrayBase<AttributeType>& GetArrayForIndex( const int32 Index ) const { return ArrayForIndices[ Index ]; }
@@ -530,9 +525,21 @@ public:
 	}
 
 	/** Sets number of indices this attribute has */
-	FORCEINLINE void SetNumIndices( const int32 NumIndices )
+	FORCEINLINE void SetNumIndices( const int32 NumIndices ) const
 	{
 		const_cast<ArrayType*>( this->ArrayPtr )->ArrayType::SetNumIndices( NumIndices );	// note: override virtual dispatch
+	}
+
+	/** Inserts an attribute index */
+	FORCEINLINE void InsertIndex( const int32 Index ) const
+	{
+		const_cast<ArrayType*>( this->ArrayPtr )->ArrayType::InsertIndex( Index );	// note: override virtual dispatch
+	}
+
+	/** Removes an attribute index */
+	FORCEINLINE void RemoveIndex( const int32 Index ) const
+	{
+		const_cast<ArrayType*>( this->ArrayPtr )->ArrayType::RemoveIndex( Index );	// note: override virtual dispatch
 	}
 };
 
@@ -631,6 +638,18 @@ public:
 	FORCEINLINE void SetNumIndices( const int32 NumIndices ) const
 	{
 		const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr )->SetNumIndices( NumIndices );
+	}
+
+	/** Inserts an attribute index */
+	FORCEINLINE void InsertIndex( const int32 Index ) const
+	{
+		const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr )->InsertIndex( Index );
+	}
+
+	/** Removes an attribute index */
+	FORCEINLINE void RemoveIndex( const int32 Index )
+	{
+		const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr )->RemoveIndex( Index );
 	}
 };
 
@@ -951,6 +970,34 @@ public:
 			{
 				using ArrayType = TMeshAttributeArraySet<AttributeType>;
 				static_cast<ArrayType*>( ArraySetPtr->Get() )->ArrayType::SetNumIndices( NumIndices );	// note: override virtual dispatch
+			}
+		}
+	}
+
+	/** Insert a new index for the attribute with the given name */
+	template <typename AttributeType>
+	void InsertAttributeIndex( const FName AttributeName, const int32 Index )
+	{
+		if( FAttributesSetEntry* ArraySetPtr = this->Map.Find( AttributeName ) )
+		{
+			if( ( *ArraySetPtr )->HasType<AttributeType>() )
+			{
+				using ArrayType = TMeshAttributeArraySet<AttributeType>;
+				static_cast<ArrayType*>( ArraySetPtr->Get() )->ArrayType::InsertIndex( Index );	// note: override virtual dispatch
+			}
+		}
+	}
+
+	/** Remove an existing index from the attribute with the given name */
+	template <typename AttributeType>
+	void RemoveAttributeIndex( const FName AttributeName, const int32 Index )
+	{
+		if( FAttributesSetEntry* ArraySetPtr = this->Map.Find( AttributeName ) )
+		{
+			if( ( *ArraySetPtr )->HasType<AttributeType>() )
+			{
+				using ArrayType = TMeshAttributeArraySet<AttributeType>;
+				static_cast<ArrayType*>( ArraySetPtr->Get() )->ArrayType::RemoveIndex( Index );	// note: override virtual dispatch
 			}
 		}
 	}
