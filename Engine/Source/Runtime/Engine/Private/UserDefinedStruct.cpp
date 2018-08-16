@@ -126,6 +126,13 @@ void UUserDefinedStruct::Serialize(FStructuredArchive::FRecord Record)
 
 			FScopedPlaceholderRawContainerTracker TrackStruct(StructData);
 			SerializeItem(Record.EnterField(FIELD_NAME_TEXT("Data")), StructData, nullptr);
+
+			// Now that defaults have been loaded we can inspect our properties
+			// and default values and set the StructFlags accordingly:
+			if(UnderlyingArchive.IsLoading())
+			{
+				UpdateStructFlags();
+			}
 		}
 	}
 
@@ -434,4 +441,48 @@ void UUserDefinedStruct::AddReferencedObjects(UObject* InThis, FReferenceCollect
 	}
 
 	Super::AddReferencedObjects(This, Collector);
+}
+
+void UUserDefinedStruct::UpdateStructFlags()
+{
+	// Adapted from PrepareCppStructOps, where we 'discover' zero constructability
+	// for native types:
+	bool bIsZeroConstruct = true;
+	
+	uint8* StructData = DefaultStructInstance.GetStructMemory();
+	if (StructData)
+	{
+		int32 Size = GetStructureSize();
+		for (int32 Index = 0; Index < Size; Index++)
+		{
+			if (StructData[Index])
+			{
+				bIsZeroConstruct = false;
+				break;
+			}
+		}
+	}
+
+	if(bIsZeroConstruct)
+	{	
+		for (TFieldIterator<UProperty> It(this); It; ++It)
+		{
+			UProperty* Property = *It;
+			if (Property && !Property->HasAnyPropertyFlags(CPF_ZeroConstructor))
+			{
+				bIsZeroConstruct = false;
+				break;
+			}
+		}
+	}
+
+	if(!bIsZeroConstruct)
+	{
+		StructFlags = EStructFlags(StructFlags & ~STRUCT_ZeroConstructor);
+	}
+	else
+	{
+		StructFlags = EStructFlags(StructFlags | STRUCT_ZeroConstructor);
+	}
+
 }
