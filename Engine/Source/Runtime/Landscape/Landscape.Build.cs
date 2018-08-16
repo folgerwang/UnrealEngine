@@ -36,7 +36,7 @@ public class Landscape : ModuleRules
 			}
 		);
 
-		SetupModulePhysXAPEXSupport(Target);
+		SetupModulePhysicsSupport(Target);
 		if (Target.bCompilePhysX && Target.bBuildEditor)
 		{
 			DynamicallyLoadedModuleNames.Add("PhysXCooking");

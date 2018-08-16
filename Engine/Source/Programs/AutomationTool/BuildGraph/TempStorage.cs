@@ -148,7 +148,7 @@ namespace AutomationTool
 			{
 				if(Message != null)
 				{
-					CommandUtils.Log(Message);
+					CommandUtils.LogInformation(Message);
 				}
 				return true;
 			}
@@ -672,7 +672,7 @@ namespace AutomationTool
 			FileReference LocalFileListLocation = GetTaggedFileListLocation(LocalDir, NodeName, TagName);
 			if(FileReference.Exists(LocalFileListLocation))
 			{
-				CommandUtils.Log("Reading local file list from {0}", LocalFileListLocation.FullName);
+				CommandUtils.LogInformation("Reading local file list from {0}", LocalFileListLocation.FullName);
 				FileList = TempStorageFileList.Load(LocalFileListLocation);
 			}
 			else
@@ -691,7 +691,7 @@ namespace AutomationTool
 				}
 
 				// Read the shared manifest
-				CommandUtils.Log("Copying shared tag set from {0} to {1}", SharedFileListLocation.FullName, LocalFileListLocation.FullName);
+				CommandUtils.LogInformation("Copying shared tag set from {0} to {1}", SharedFileListLocation.FullName, LocalFileListLocation.FullName);
 				FileList = TempStorageFileList.Load(SharedFileListLocation);
 
 				// Save the manifest locally
@@ -719,14 +719,14 @@ namespace AutomationTool
 			if(SharedDir != null && bWriteToSharedStorage)
 			{
 				FileReference SharedFileListLocation = GetTaggedFileListLocation(SharedDir, NodeName, TagName);
-				CommandUtils.Log("Saving file list to {0} and {1}", LocalFileListLocation.FullName, SharedFileListLocation.FullName);
+				CommandUtils.LogInformation("Saving file list to {0} and {1}", LocalFileListLocation.FullName, SharedFileListLocation.FullName);
 
 				DirectoryReference.CreateDirectory(SharedFileListLocation.Directory);
 				FileList.Save(SharedFileListLocation);
 			}
 			else
 			{
-				CommandUtils.Log("Saving file list to {0}", LocalFileListLocation.FullName);
+				CommandUtils.LogInformation("Saving file list to {0}", LocalFileListLocation.FullName);
 			}
 
 			// Save the local file list
@@ -767,13 +767,13 @@ namespace AutomationTool
 					Manifest.ZipFiles = ZipFiles.Select(x => new TempStorageZipFile(x)).ToArray();
 
 					// Save the shared manifest
-					CommandUtils.Log("Saving shared manifest to {0}", SharedManifestFile.FullName);
+					CommandUtils.LogInformation("Saving shared manifest to {0}", SharedManifestFile.FullName);
 					Manifest.Save(SharedManifestFile);
 				}
 
 				// Save the local manifest
 				FileReference LocalManifestFile = GetManifestLocation(LocalDir, NodeName, BlockName);
-				CommandUtils.Log("Saving local manifest to {0}", LocalManifestFile.FullName);
+				CommandUtils.LogInformation("Saving local manifest to {0}", LocalManifestFile.FullName);
 				Manifest.Save(LocalManifestFile);
 
 				// Update the stats
@@ -801,7 +801,7 @@ namespace AutomationTool
 				TempStorageManifest Manifest;
 				if(bLocal)
 				{
-					CommandUtils.Log("Reading shared manifest from {0}", LocalManifestFile.FullName);
+					CommandUtils.LogInformation("Reading shared manifest from {0}", LocalManifestFile.FullName);
 					Manifest = TempStorageManifest.Load(LocalManifestFile);
 				}
 				else
@@ -822,7 +822,7 @@ namespace AutomationTool
 					}
 
 					// Read the shared manifest
-					CommandUtils.Log("Copying shared manifest from {0} to {1}", SharedManifestFile.FullName, LocalManifestFile.FullName);
+					CommandUtils.LogInformation("Copying shared manifest from {0} to {1}", SharedManifestFile.FullName, LocalManifestFile.FullName);
 					Manifest = TempStorageManifest.Load(SharedManifestFile);
 
 					// Unzip all the build products
@@ -1142,12 +1142,12 @@ namespace AutomationTool
 			CheckManifest(WorkingDir, NamedManifest, NamedOutput);
 
 			// Delete local temp storage and the working directory and try again
-			CommandUtils.Log("Clearing local folders...");
+			CommandUtils.LogInformation("Clearing local folders...");
 			CommandUtils.DeleteDirectoryContents(WorkingDir.FullName);
 			CommandUtils.DeleteDirectoryContents(LocalDir.FullName);
 
 			// First output should fail
-			CommandUtils.Log("Checking default manifest is now unavailable...");
+			CommandUtils.LogInformation("Checking default manifest is now unavailable...");
 			bool bGotManifest = false;
 			try
 			{
@@ -1257,12 +1257,12 @@ namespace AutomationTool
 			DateTime RetainTime = DateTime.UtcNow - TimeSpan.FromDays(DaysValue);
 
 			// Enumerate all the build directories
-			CommandUtils.Log("Scanning {0}...", TempStorageDir);
+			CommandUtils.LogInformation("Scanning {0}...", TempStorageDir);
 			int NumBuilds = 0;
 			List<DirectoryInfo> BuildsToDelete = new List<DirectoryInfo>();
 			foreach (DirectoryInfo StreamDirectory in new DirectoryInfo(TempStorageDir).EnumerateDirectories().OrderBy(x => x.Name))
 			{
-				CommandUtils.Log("Scanning {0}...", StreamDirectory.FullName);
+				CommandUtils.LogInformation("Scanning {0}...", StreamDirectory.FullName);
 				foreach (DirectoryInfo BuildDirectory in StreamDirectory.EnumerateDirectories())
 				{
 					if(!BuildDirectory.EnumerateFiles("*", SearchOption.AllDirectories).Any(x => x.LastWriteTimeUtc > RetainTime))
@@ -1272,14 +1272,14 @@ namespace AutomationTool
 					NumBuilds++;
 				}
 			}
-			CommandUtils.Log("Found {0} builds; {1} to delete.", NumBuilds, BuildsToDelete.Count);
+			CommandUtils.LogInformation("Found {0} builds; {1} to delete.", NumBuilds, BuildsToDelete.Count);
 
 			// Loop through them all, checking for files older than the delete time
 			for (int Idx = 0; Idx < BuildsToDelete.Count; Idx++)
 			{
 				try
 				{
-					CommandUtils.Log("[{0}/{1}] Deleting {2}...", Idx + 1, BuildsToDelete.Count, BuildsToDelete[Idx].FullName);
+					CommandUtils.LogInformation("[{0}/{1}] Deleting {2}...", Idx + 1, BuildsToDelete.Count, BuildsToDelete[Idx].FullName);
 					BuildsToDelete[Idx].Delete(true);
 				}
 				catch (Exception Ex)

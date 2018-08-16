@@ -23,8 +23,8 @@ enum class EAjaMediaOutputType : uint8
 UENUM()
 enum class EAjaMediaOutputPixelFormat : uint8
 {
-	PF_10BIT_RGB,
-	PF_8BIT_ARGB,
+	PF_8BIT_ARGB UMETA(DisplayName = "8bit RGBA"),
+	PF_10BIT_RGB UMETA(DisplayName = "10bit RGB"),
 };
 
 UENUM()
@@ -100,12 +100,29 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Output")
 	bool bOutputWithAutoCirculating;
 
-	/** Whether to embed the timecode to the output frame (if enabled by the Engine). */
+	/** Whether to embed the Engine's timecode to the output frame. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Output")
 	EAjaMediaTimecodeFormat TimecodeFormat;
 
+	/** Pixel format we wish to capture from and format to send to AJA. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Output")
 	EAjaMediaOutputPixelFormat PixelFormat;
+
+	/**
+	 * Number of frame used to transfer from the system memory to the AJA card.
+	 * A smaller number is most likely miss frame will occur.
+	 * A bigger number is most likely to increase latency.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category="Output", meta=(ClampMin=1, ClampMax=4))
+	int32 NumberOfAJABuffers;
+
+	/**
+	 * Only make sense in interlaced mode.
+	 * When creating a new Frame the 2 fields need to have the same timecode value.
+	 * The Engine's need a TimecodeProvider (or the default system clock) that is in sync with the generated fields.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category="Output", meta=(ClampMin=1, ClampMax=4))
+	bool bInterlacedFieldsTimecodeNeedToMatch;
 
 	/** Try to maintain a the engine "Genlock" with the VSync signal. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Synchronization")
@@ -133,7 +150,6 @@ protected:
 #if WITH_EDITOR
 public:
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 	//~ End UObject interface
 };

@@ -41,6 +41,7 @@
 #include "BusyCursor.h"
 #include "MRUFavoritesList.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Exporters/Exporter.h"
 
 
 #include "PackagesDialog.h"
@@ -375,6 +376,7 @@ static FString GetDefaultDirectory()
 FString FEditorFileUtils::GetFilterString(EFileInteraction Interaction)
 {
 	FString Result;
+	TSet<FString> Extensions;
 
 	switch( Interaction )
 	{
@@ -391,7 +393,7 @@ FString FEditorFileUtils::GetFilterString(EFileInteraction Interaction)
 			TArray<UFactory*> Factories;
 			for (UClass* Class : TObjectRange<UClass>())
 			{
-				if (Class->IsChildOf<USceneImportFactory>())
+				if (Class->IsChildOf<USceneImportFactory>() && !Class->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
 				{
 					UFactory* Factory = Class->GetDefaultObject<UFactory>();
 					if (Factory->bEditorImport)
@@ -420,7 +422,51 @@ FString FEditorFileUtils::GetFilterString(EFileInteraction Interaction)
 		break;
 
 	case FI_ExportScene:
-		Result = TEXT("FBX (*.fbx)|*.fbx|Object (*.obj)|*.obj|Unreal Text (*.t3d)|*.t3d|Stereo Litho (*.stl)|*.stl|LOD Export (*.lod.obj)|*.lod.obj");
+		{
+			for (UClass* Class : TObjectRange<UClass>())
+			{
+				if (!Class->IsChildOf<UExporter>() || Class->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
+				{
+					continue;
+				}
+
+				UExporter* Exporter = Class->GetDefaultObject<UExporter>();
+				if (!Exporter->SupportsObject(UWorld::StaticClass()->GetDefaultObject()))
+				{
+					continue;
+				}
+
+				// Ignore generic UObject exporters
+				if (!Exporter->SupportedClass || !Exporter->SupportedClass->IsChildOf<UWorld>())
+				{
+					continue;
+				}
+
+				for (int32 i = 0; i < Exporter->FormatExtension.Num(); ++i)
+				{
+					FString FormatExtensionLower = Exporter->FormatExtension[i].ToLower();
+					if (FormatExtensionLower == TEXT("copy"))
+					{
+						continue;
+					}
+
+					// Skip over duplicates
+					if (Extensions.Contains(FormatExtensionLower))
+					{
+						continue;
+					}
+					Extensions.Add(FormatExtensionLower);
+
+					if (Result.Len() > 0)
+					{
+						Result += TEXT("|");
+					}
+
+					const FString& FormatDescription = Exporter->FormatDescription[i];
+					Result += FString::Printf(TEXT("%s (*.%s)|*.%s"), *FormatDescription, *FormatExtensionLower, *FormatExtensionLower);
+				}
+			}
+		}
 		break;
 
 	default:
@@ -653,7 +699,7 @@ static bool SaveWorld(UWorld* World,
 							{
 								TArray<UPackage*> AllPackagesToUnload;
 								AllPackagesToUnload.Add(Cast<UPackage>(ExistingObject));
-								PackageTools::UnloadPackages(AllPackagesToUnload);
+								UPackageTools::UnloadPackages(AllPackagesToUnload);
 							}
 						}
 
@@ -1207,7 +1253,7 @@ void FEditorFileUtils::Import(const FString& InFilename)
 	USceneImportFactory *SceneFactory = nullptr;
 	for (UClass* Class : TObjectRange<UClass>())
 	{
-		if (Class->IsChildOf<USceneImportFactory>())
+		if (Class->IsChildOf<USceneImportFactory>() && !Class->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
 		{
 			USceneImportFactory* TestFactory = Class->GetDefaultObject<USceneImportFactory>();
 			if (TestFactory->FactoryCanImport(InFilename))
@@ -2133,7 +2179,7 @@ bool FEditorFileUtils::AttemptUnloadInactiveWorldPackage(UPackage* PackageToUnlo
 		TArray<UPackage*> PackagesToUnload;
 		PackagesToUnload.Add(PackageToUnload);
 		TWeakObjectPtr<UPackage> WeakPackage = PackageToUnload;
-		if (!PackageTools::UnloadPackages(PackagesToUnload, OutErrorMessage))
+		if (!UPackageTools::UnloadPackages(PackagesToUnload, OutErrorMessage))
 		{
 			return false;
 		}
@@ -4029,7 +4075,7 @@ UWorld* UEditorLoadingAndSavingUtils::LoadMapWithDialog()
 static bool InternalCheckForReferencesToExternalPackages(const TArray<UPackage*>& PackagesToSave)
 {
 	TArray<UPackage*> PackagesWithExternalRefs;
-	if (PackageTools::CheckForReferencesToExternalPackages(&PackagesToSave, &PackagesWithExternalRefs))
+	if (UPackageTools::CheckForReferencesToExternalPackages(&PackagesToSave, &PackagesWithExternalRefs))
 	{
 		FString PackageNames;
 		for (UPackage* Package : PackagesWithExternalRefs)
@@ -4164,7 +4210,7 @@ void UEditorLoadingAndSavingUtils::ExportScene(bool bExportSelectedActorsOnly)
 
 void UEditorLoadingAndSavingUtils::UnloadPackages(const TArray<UPackage*>& PackagesToUnload, bool& bOutAnyPackagesUnloaded, FText& OutErrorMessage)
 {
-	bOutAnyPackagesUnloaded = PackageTools::UnloadPackages(PackagesToUnload, OutErrorMessage);
+	bOutAnyPackagesUnloaded = UPackageTools::UnloadPackages(PackagesToUnload, OutErrorMessage);
 }
 
 #undef LOCTEXT_NAMESPACE

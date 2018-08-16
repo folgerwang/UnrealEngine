@@ -141,6 +141,11 @@ public:
 	virtual FIntPoint GetIdealRenderTargetSize() const { return FIntPoint(); }
 
 	/**
+	* Gets the ideal render target size for the debug canvas on the device.
+	*/
+	virtual FIntPoint GetIdealDebugCanvasRenderTargetSize() const { return FIntPoint(1024, 1024); }
+
+	/**
 	 * Gets the scaling factor, applied to the post process warping effect
 	 */
 	virtual float GetDistortionScalingFactor() const { return 0; }

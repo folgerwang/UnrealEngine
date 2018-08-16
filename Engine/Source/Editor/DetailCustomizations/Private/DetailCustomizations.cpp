@@ -103,7 +103,6 @@
 #include "ConfigEditorPropertyDetails.h"
 #include "AssetImportDataCustomization.h"
 #include "CaptureResolutionCustomization.h"
-#include "CaptureTypeCustomization.h"
 #include "RenderPassesCustomization.h"
 #include "MovieSceneCaptureCustomization.h"
 #include "MovieSceneEvalOptionsCustomization.h"
@@ -124,6 +123,7 @@
 #include "VectorStructCustomization.h"
 #include "Vector4StructCustomization.h"
 #include "AssetViewerSettingsCustomization.h"
+#include "EngineCustomization.h"
 #include "MeshMergingSettingsCustomization.h"
 #include "MaterialAttributePropertyDetails.h"
 #include "CollectionReferenceStructCustomization.h"
@@ -245,7 +245,6 @@ void FDetailCustomizationsModule::RegisterPropertyTypeCustomizations()
 	RegisterCustomPropertyTypeLayout("PostProcessSettings", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FPostProcessSettingsCustomization::MakeInstance));
 	RegisterCustomPropertyTypeLayout("AssetImportInfo", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FAssetImportDataCustomization::MakeInstance));
 	RegisterCustomPropertyTypeLayout("CaptureResolution", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FCaptureResolutionCustomization::MakeInstance));
-	RegisterCustomPropertyTypeLayout("CaptureProtocolID", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FCaptureTypeCustomization::MakeInstance));
 	RegisterCustomPropertyTypeLayout("CompositionGraphCapturePasses", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FRenderPassesCustomization::MakeInstance));
 	RegisterCustomPropertyTypeLayout("WeightedBlendable", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FWeightedBlendableCustomization::MakeInstance));
 	RegisterCustomPropertyTypeLayout("MaterialProxySettings", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FMaterialProxySettingsCustomizations::MakeInstance));
@@ -363,6 +362,7 @@ void FDetailCustomizationsModule::RegisterObjectCustomizations()
 	RegisterCustomClassLayout("AnalyticsPrivacySettings", FOnGetDetailCustomizationInstance::CreateStatic(&FImportantToggleSettingCustomization::MakeInstance));
 
 	RegisterCustomClassLayout("AssetViewerSettings", FOnGetDetailCustomizationInstance::CreateStatic(&FAssetViewerSettingsCustomization::MakeInstance));
+	RegisterCustomClassLayout("Engine", FOnGetDetailCustomizationInstance::CreateStatic(&FEngineCustomization::MakeInstance));
 
 	RegisterCustomClassLayout("MeshMergingSettingsObject", FOnGetDetailCustomizationInstance::CreateStatic(&FMeshMergingSettingsObjectCustomization::MakeInstance));
 

@@ -270,7 +270,7 @@ void FInstallChunkSourceSpec::Define()
 				MockChunkReferenceTracker->NextReferences = SomeAvailableChunks.Array();
 				bHasPaused = false;
 				PauseTime = 0.1f;
-				MockInstallChunkSourceStat->OnLoadCompleteFunc = [this](const FGuid& ChunkId, IInstallChunkSourceStat::ELoadResult Result)
+				MockInstallChunkSourceStat->OnLoadCompleteFunc = [this](const FGuid& ChunkId, const IInstallChunkSourceStat::ELoadResult& Result, const ISpeedRecorder::FRecord& Record)
 				{
 					if (!bHasPaused)
 					{
@@ -370,13 +370,13 @@ void FInstallChunkSourceSpec::InventUsableChunkData()
 		switch (DataListIdx % 3)
 		{
 			case 0:
-			MockInstallationManifestA->ProducibleChunks.Add(TheChunk);
-			SomeAvailableChunks.Add(TheChunk);
-			break;
+				MockInstallationManifestA->ProducibleChunks.Add(TheChunk);
+				SomeAvailableChunks.Add(TheChunk);
+				break;
 			case 1:
-			MockInstallationManifestB->ProducibleChunks.Add(TheChunk);
-			SomeAvailableChunks.Add(TheChunk);
-			break;
+				MockInstallationManifestB->ProducibleChunks.Add(TheChunk);
+				SomeAvailableChunks.Add(TheChunk);
+				break;
 		}
 	}
 	uint32 FileCounter = 1;

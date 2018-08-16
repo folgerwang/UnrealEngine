@@ -19,6 +19,8 @@
 #include "MediaPlayerFacade.h"
 #include "MediaSource.h"
 #include "MediaTexture.h"
+#include "Profile/IMediaProfileManager.h"
+#include "Profile/MediaProfile.h"
 
 
 /* UMediaBundle
@@ -44,20 +46,28 @@ bool UMediaBundle::OpenMediaSource()
 	{
 		bResult = true;
 
-		// Only play once
-		const EMediaState MediaState = MediaPlayer->GetPlayerFacade()->GetPlayer().IsValid() ? MediaPlayer->GetPlayerFacade()->GetPlayer()->GetControls().GetState() : EMediaState::Closed;
-		if (MediaState == EMediaState::Closed || MediaState == EMediaState::Error)
+		if (FApp::CanEverRender())
 		{
-			bResult = MediaPlayer->OpenSource(MediaSource);
-			MediaPlayer->SetLooping(bLoopMediaSource);
-		}
+			// Only play once
+			const EMediaState MediaState = MediaPlayer->GetPlayerFacade()->GetPlayer().IsValid() ? MediaPlayer->GetPlayerFacade()->GetPlayer()->GetControls().GetState() : EMediaState::Closed;
+			if (MediaState == EMediaState::Closed || MediaState == EMediaState::Error)
+			{
+				bResult = MediaPlayer->OpenSource(MediaSource);
+				MediaPlayer->SetLooping(bLoopMediaSource);
+			}
 
-		if (bResult)
-		{
-			MediaPlayer->OnMediaClosed.AddUniqueDynamic(this, &UMediaBundle::OnMediaClosed);
-			MediaPlayer->OnMediaOpened.AddUniqueDynamic(this, &UMediaBundle::OnMediaOpenOpened);
-			MediaPlayer->OnMediaOpenFailed.AddUniqueDynamic(this, &UMediaBundle::OnMediaOpenFailed);
-			++ReferenceCount;
+			if (bResult)
+			{
+				MediaPlayer->OnMediaClosed.AddUniqueDynamic(this, &UMediaBundle::OnMediaClosed);
+				MediaPlayer->OnMediaOpened.AddUniqueDynamic(this, &UMediaBundle::OnMediaOpenOpened);
+				MediaPlayer->OnMediaOpenFailed.AddUniqueDynamic(this, &UMediaBundle::OnMediaOpenFailed);
+				++ReferenceCount;
+
+				if (ReferenceCount == 1)
+				{
+					IMediaProfileManager::Get().OnMediaProfileChanged().AddUObject(this, &UMediaBundle::OnMediaProfileChanged);
+				}
+			}
 		}
 	}
 	return bResult;
@@ -69,50 +79,68 @@ void UMediaBundle::CloseMediaSource()
 	if (ReferenceCount == 0 && MediaPlayer)
 	{
 		MediaPlayer->Close();
+		IMediaProfileManager::Get().OnMediaProfileChanged().RemoveAll(this);
 	}
 }
 
-void UMediaBundle::SetIsValidMaterialParameter(bool bIsValid)
+bool UMediaBundle::IsPlaying() const
 {
-#if WITH_EDITOR
-	if (GIsEditor)
+	bool bResult = false;
+	if (MediaSource && MediaPlayer)
 	{
-		if (UMaterialInstanceConstant* Instance = Cast<UMaterialInstanceConstant>(Material))
-		{
-			Instance->SetScalarParameterValueEditorOnly(FMaterialParameterInfo(MediaBundleMaterialParametersName::IsValidMediaName), bIsValid ? 1.0f : 0.0f);
-			Instance->PostEditChange();
-		}
+		const EMediaState MediaState = MediaPlayer->GetPlayerFacade()->GetPlayer().IsValid() ? MediaPlayer->GetPlayerFacade()->GetPlayer()->GetControls().GetState() : EMediaState::Closed;
+		bResult = MediaState == EMediaState::Playing;
 	}
-#endif
+	return bResult;
 }
 
 void UMediaBundle::OnMediaClosed()
 {
+	check(MediaPlayer);
+
 	const EMediaState MediaState = MediaPlayer->GetPlayerFacade()->GetPlayer().IsValid() ? MediaPlayer->GetPlayerFacade()->GetPlayer()->GetControls().GetState() : EMediaState::Closed;
 	if (MediaState == EMediaState::Closed || MediaState == EMediaState::Error)
 	{
-		SetIsValidMaterialParameter(false);
+		OnMediaStateChanged().Broadcast(false);
+
+		if (bReopenSourceOnError && ReferenceCount > 0)
+		{
+			if (MediaSource && FApp::CanEverRender())
+			{
+				MediaPlayer->OpenSource(MediaSource);
+				MediaPlayer->SetLooping(bLoopMediaSource);
+			}
+		}
 	}
 }
 
 void UMediaBundle::OnMediaOpenOpened(FString DeviceUrl)
 {
-	SetIsValidMaterialParameter(true);
+	OnMediaStateChanged().Broadcast(true);
 }
 
 void UMediaBundle::OnMediaOpenFailed(FString DeviceUrl)
 {
-	SetIsValidMaterialParameter(false);
+	OnMediaStateChanged().Broadcast(false);
+}
+
+void UMediaBundle::OnMediaProfileChanged(UMediaProfile* OldMediaProfile, UMediaProfile* NewMediaProfile)
+{
+	if (ReferenceCount > 0 && MediaPlayer && MediaSource && FApp::CanEverRender())
+	{
+		MediaPlayer->OpenSource(MediaSource);
+		MediaPlayer->SetLooping(bLoopMediaSource);
+	}
 }
 
 void UMediaBundle::RefreshLensDisplacementMap()
 {
-	if (FApp::CanEverRender())
+	if (LensDisplacementMap)
 	{
-		if (LensDisplacementMap)
-		{
-			CurrentLensParameters = LensParameters;
+		CurrentLensParameters = LensParameters;
 
+		if (FApp::CanEverRender())
+		{
 			UTexture2D* PreComputed = CurrentLensParameters.CreateUndistortUVDisplacementMap(FIntPoint(256, 256), 0.0f, UndistortedCameraViewInfo);
 
 			if (PreComputed != nullptr)
@@ -175,12 +203,12 @@ void UMediaBundle::CreateInternalsEditor()
 		NewMaterial->SetTextureParameterValueEditorOnly(FMaterialParameterInfo(MediaBundleMaterialParametersName::LensDisplacementMapTextureName), LensDisplacementMap);
 		NewMaterial->PostEditChange();
 		Material = NewMaterial;
+	}
 
-		//If we are creating a new object, set the default actor class. Duplicates won't change this.
-		if (MediaBundleActorClass == nullptr)
-		{
-			MediaBundleActorClass = DefaultActorClass;
-		}
+	//If we are creating a new object, set the default actor class. Duplicates won't change this.
+	if (MediaBundleActorClass == nullptr)
+	{
+		MediaBundleActorClass = DefaultActorClass;
 	}
 #endif // WITH_EDITOR && WITH_EDITORONLY_DATA
 }
@@ -194,14 +222,11 @@ void UMediaBundle::PostLoad()
 		//Handle DisplacementMap PostLoad on our own to avoid our texture being reset
 		LensDisplacementMap->ConditionalPostLoad();
 
-		if (!HasAnyFlags(RF_ClassDefaultObject))
-		{
-			//No need to clear render target. We will generate it right after.
-			const bool bClearRenderTarget = false;
-			LensDisplacementMap->UpdateResourceImmediate(bClearRenderTarget);
+		//No need to clear render target. We will generate it right after.
+		const bool bClearRenderTarget = false;
+		LensDisplacementMap->UpdateResourceImmediate(bClearRenderTarget);
 
-			RefreshLensDisplacementMap();
-		}
+		RefreshLensDisplacementMap();
 	}
 }
 
@@ -222,7 +247,7 @@ void UMediaBundle::PostEditChangeProperty(FPropertyChangedEvent& PropertyChanged
 		if (MediaPlayer)
 		{
 			MediaPlayer->Close();
-			if (MediaSource && ReferenceCount > 0)
+			if (MediaSource && ReferenceCount > 0 && FApp::CanEverRender())
 			{
 				MediaPlayer->OpenSource(MediaSource);
 			}
@@ -234,7 +259,7 @@ void UMediaBundle::PostEditChangeProperty(FPropertyChangedEvent& PropertyChanged
 		{
 			MediaPlayer->SetLooping(bLoopMediaSource);
 			const EMediaState MediaState = MediaPlayer->GetPlayerFacade()->GetPlayer().IsValid() ? MediaPlayer->GetPlayerFacade()->GetPlayer()->GetControls().GetState() : EMediaState::Closed;
-			if (MediaState == EMediaState::Stopped && ReferenceCount > 0)
+			if (MediaState == EMediaState::Stopped && ReferenceCount > 0 && FApp::CanEverRender())
 			{
 				MediaPlayer->OpenSource(MediaSource);
 			}

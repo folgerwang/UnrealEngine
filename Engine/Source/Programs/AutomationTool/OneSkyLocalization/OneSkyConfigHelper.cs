@@ -75,8 +75,8 @@ namespace EpicGames.OneSkyLocalization.Config
 
 		public void SpewValues()
 		{
-			CommandUtils.Log("Name : {0}", Name);
-			CommandUtils.Log("ApiKey : {0}", ApiKey);
+			CommandUtils.LogInformation("Name : {0}", Name);
+			CommandUtils.LogInformation("ApiKey : {0}", ApiKey);
 			//CommandUtils.LogConsole("ApiSecret : {0}", ApiSecret);  // This should probably never be revealed.
 		}
 	}

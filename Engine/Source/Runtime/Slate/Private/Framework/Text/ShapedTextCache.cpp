@@ -19,7 +19,14 @@ FShapedGlyphSequencePtr FShapedTextCache::FindShapedText(const FCachedShapedText
 
 FShapedGlyphSequenceRef FShapedTextCache::AddShapedText(const FCachedShapedTextKey& InKey, const TCHAR* InText)
 {
-	FShapedGlyphSequenceRef ShapedText = FontCache.ShapeBidirectionalText(
+	const TSharedPtr<FSlateFontCache> FontCache = FontCachePtr.Pin();
+
+	if (!FontCache.IsValid())
+	{
+		return MakeShareable(new FShapedGlyphSequence());
+	}
+
+	FShapedGlyphSequenceRef ShapedText = FontCache->ShapeBidirectionalText(
 		InText, 
 		InKey.TextRange.BeginIndex, 
 		InKey.TextRange.Len(), 
@@ -34,7 +41,14 @@ FShapedGlyphSequenceRef FShapedTextCache::AddShapedText(const FCachedShapedTextK
 
 FShapedGlyphSequenceRef FShapedTextCache::AddShapedText(const FCachedShapedTextKey& InKey, const TCHAR* InText, const TextBiDi::ETextDirection InTextDirection)
 {
-	FShapedGlyphSequenceRef ShapedText = FontCache.ShapeUnidirectionalText(
+	const TSharedPtr<FSlateFontCache> FontCache = FontCachePtr.Pin();
+
+	if (!FontCache.IsValid())
+	{
+		return MakeShareable(new FShapedGlyphSequence());
+	}
+
+	FShapedGlyphSequenceRef ShapedText = FontCache->ShapeUnidirectionalText(
 		InText, 
 		InKey.TextRange.BeginIndex, 
 		InKey.TextRange.Len(), 
@@ -105,12 +119,17 @@ FVector2D ShapedTextCacheUtil::MeasureShapedText(const FShapedTextCacheRef& InSh
 
 int32 ShapedTextCacheUtil::FindCharacterIndexAtOffset(const FShapedTextCacheRef& InShapedTextCache, const FCachedShapedTextKey& InRunKey, const FTextRange& InTextRange, const TCHAR* InText, const int32 InHorizontalOffset)
 {
-	FSlateFontCache& FontCache = InShapedTextCache->GetFontCache();
+	TSharedPtr<FSlateFontCache> FontCache = InShapedTextCache->GetFontCache();
+
+	if (!FontCache.IsValid())
+	{
+		return INDEX_NONE;
+	}
 
 	// Get the shaped text for the entire run and try and take a sub-measurement from it - this can help minimize the amount of text shaping that needs to be done when measuring text
 	FShapedGlyphSequenceRef ShapedText = InShapedTextCache->FindOrAddShapedText(InRunKey, InText);
 
-	TOptional<FShapedGlyphSequence::FGlyphOffsetResult> GlyphOffsetResult = ShapedText->GetGlyphAtOffset(FontCache, InTextRange.BeginIndex, InTextRange.EndIndex, InHorizontalOffset);
+	TOptional<FShapedGlyphSequence::FGlyphOffsetResult> GlyphOffsetResult = ShapedText->GetGlyphAtOffset(*FontCache, InTextRange.BeginIndex, InTextRange.EndIndex, InHorizontalOffset);
 	if (!GlyphOffsetResult.IsSet())
 	{
 		FCachedShapedTextKey IndexAtOffsetKey = InRunKey;
@@ -118,7 +137,7 @@ int32 ShapedTextCacheUtil::FindCharacterIndexAtOffset(const FShapedTextCacheRef&
 
 		// Couldn't search the sub-range, try and search from a shape of the specified range
 		ShapedText = InShapedTextCache->FindOrAddShapedText(IndexAtOffsetKey, InText);
-		GlyphOffsetResult = ShapedText->GetGlyphAtOffset(FontCache, InHorizontalOffset);
+		GlyphOffsetResult = ShapedText->GetGlyphAtOffset(*FontCache, InHorizontalOffset);
 	}
 
 	check(GlyphOffsetResult.IsSet());
@@ -143,7 +162,7 @@ int32 ShapedTextCacheUtil::FindCharacterIndexAtOffset(const FShapedTextCacheRef&
 			{
 				FShapedGlyphSequenceRef GraphemeShapedText = GetShapedTextSubSequence(InShapedTextCache, LigatureKey, FTextRange(PrevCharIndex, CurrentCharIndex), *LigatureString, GlyphOffsetResultValue.Glyph->TextDirection);
 				
-				const FShapedGlyphSequence::FGlyphOffsetResult GraphemeOffsetResult = GraphemeShapedText->GetGlyphAtOffset(FontCache, InHorizontalOffset, CurrentOffset);
+				const FShapedGlyphSequence::FGlyphOffsetResult GraphemeOffsetResult = GraphemeShapedText->GetGlyphAtOffset(*FontCache, InHorizontalOffset, CurrentOffset);
 				if (GraphemeOffsetResult.Glyph)
 				{
 					return GlyphOffsetResultValue.Glyph->SourceIndex + GraphemeOffsetResult.CharacterIndex;
@@ -162,7 +181,7 @@ int32 ShapedTextCacheUtil::FindCharacterIndexAtOffset(const FShapedTextCacheRef&
 			{
 				FShapedGlyphSequenceRef GraphemeShapedText = GetShapedTextSubSequence(InShapedTextCache, LigatureKey, FTextRange(CurrentCharIndex, PrevCharIndex), *LigatureString, GlyphOffsetResultValue.Glyph->TextDirection);
 
-				const FShapedGlyphSequence::FGlyphOffsetResult GraphemeOffsetResult = GraphemeShapedText->GetGlyphAtOffset(FontCache, InHorizontalOffset, CurrentOffset);
+				const FShapedGlyphSequence::FGlyphOffsetResult GraphemeOffsetResult = GraphemeShapedText->GetGlyphAtOffset(*FontCache, InHorizontalOffset, CurrentOffset);
 				if (GraphemeOffsetResult.Glyph)
 				{
 					return GlyphOffsetResultValue.Glyph->SourceIndex + ((PrevCharIndex != INDEX_NONE) ? PrevCharIndex : GraphemeOffsetResult.CharacterIndex);

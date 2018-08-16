@@ -1,8 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Data/ChunkData.h"
+#include "CoreMinimal.h"
 #include "Templates/UniquePtr.h"
+#include "Data/ChunkData.h"
 
 namespace BuildPatchServices
 {

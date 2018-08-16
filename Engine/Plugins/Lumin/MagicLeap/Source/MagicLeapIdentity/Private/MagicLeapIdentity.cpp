@@ -22,7 +22,7 @@ public:
 		APISetup.Startup();
 #if WITH_MLSDK
 		APISetup.LoadDLL(TEXT("ml_identity"));
-#endif
+#endif //WITH_MLSDK
 	}
 
 	void ShutdownModule() override
@@ -73,109 +73,73 @@ public:
 		UMagicLeapIdentity::FModifyIdentityAttributeValueDelegate RequestDelegate;
 	};
 
-	EMagicLeapIdentityError MLToUnrealIdentityError(MLIdentityError error)
+	EMagicLeapIdentityError MLToUnrealIdentityError(MLResult error)
 	{
+		#define MLRESULTCASE(x) case MLResult_##x: { return EMagicLeapIdentityError::x; }
+		#define MLIDENTITYRESULTCASE(x) case MLIdentityResult_##x: { return EMagicLeapIdentityError::x; }
 		switch (error)
 		{
-		case MLIdentityError_Ok:
-			return EMagicLeapIdentityError::Ok;
-		case MLIdentityError_FailedToConnectToLocalService:
-			return EMagicLeapIdentityError::FailedToConnectToLocalService;
-		case MLIdentityError_FailedToConnectToCloudService:
-			return EMagicLeapIdentityError::FailedToConnectToCloudService;
-		case MLIdentityError_CloudAuthentication:
-			return EMagicLeapIdentityError::CloudAuthentication;
-		case MLIdentityError_InvalidInformationFromCloud:
-			return EMagicLeapIdentityError::InvalidInformationFromCloud;
-		case MLIdentityError_InvalidArgument:
-			return EMagicLeapIdentityError::InvalidArgument;
-		case MLIdentityError_AsyncOperationNotComplete:
-			return EMagicLeapIdentityError::AsyncOperationNotComplete;
-		case MLIdentityError_OtherError:
-			return EMagicLeapIdentityError::OtherError;
+			MLRESULTCASE(Ok)
+			MLRESULTCASE(InvalidParam)
+			MLRESULTCASE(AllocFailed)
+			MLRESULTCASE(PrivilegeDenied)
+			MLRESULTCASE(UnspecifiedFailure)
+			MLIDENTITYRESULTCASE(FailedToConnectToLocalService)
+			MLIDENTITYRESULTCASE(FailedToConnectToCloudService)
+			MLIDENTITYRESULTCASE(CloudAuthentication)
+			MLIDENTITYRESULTCASE(InvalidInformationFromCloud)
+			MLIDENTITYRESULTCASE(NotLoggedIn)
+			MLIDENTITYRESULTCASE(ExpiredCredentials)
+			MLIDENTITYRESULTCASE(FailedToGetUserProfile)
+			MLIDENTITYRESULTCASE(Unauthorized)
+			MLIDENTITYRESULTCASE(CertificateError)
+			MLIDENTITYRESULTCASE(RejectedByCloud)
+			MLIDENTITYRESULTCASE(AlreadyLoggedIn)
+			MLIDENTITYRESULTCASE(ModifyIsNotSupported)
+			MLIDENTITYRESULTCASE(NetworkError)
+			default:
+				break;
 		}
 
-		return EMagicLeapIdentityError::OtherError;
+		return EMagicLeapIdentityError::UnspecifiedFailure;
 	}
 
-	EMagicLeapIdentityAttribute MLToUnrealIdentityAttribute(MLIdentityAttributeEnum attribute)
+	EMagicLeapIdentityKey MLToUnrealIdentityAttribute(MLIdentityAttributeKey attribute)
 	{
+#define MLIDENTITYKEYCASE(x) case MLIdentityAttributeKey_##x: { return EMagicLeapIdentityKey::x; }
 		switch (attribute)
 		{
-		case MLIdentityAttributeEnum_UserId:
-			return EMagicLeapIdentityAttribute::UserID;
-		case MLIdentityAttributeEnum_GivenName:
-			return EMagicLeapIdentityAttribute::GivenName;
-		case MLIdentityAttributeEnum_FamilyName:
-			return EMagicLeapIdentityAttribute::FamilyName;
-		case MLIdentityAttributeEnum_Email:
-			return EMagicLeapIdentityAttribute::Email;
-		case MLIdentityAttributeEnum_Status:
-			return EMagicLeapIdentityAttribute::Status;
-		case MLIdentityAttributeEnum_TermsAccepted:
-			return EMagicLeapIdentityAttribute::TermsAccepted;
-		case MLIdentityAttributeEnum_Birthday:
-			return EMagicLeapIdentityAttribute::Birthday;
-		case MLIdentityAttributeEnum_Company:
-			return EMagicLeapIdentityAttribute::Company;
-		case MLIdentityAttributeEnum_Industry:
-			return EMagicLeapIdentityAttribute::Industry;
-		case MLIdentityAttributeEnum_Location:
-			return EMagicLeapIdentityAttribute::Location;
-		case MLIdentityAttributeEnum_Tagline:
-			return EMagicLeapIdentityAttribute::Tagline;
-		case MLIdentityAttributeEnum_PhoneNumber:
-			return EMagicLeapIdentityAttribute::PhoneNumber;
-		case MLIdentityAttributeEnum_Avatar2D:
-			return EMagicLeapIdentityAttribute::Avatar2D;
-		case MLIdentityAttributeEnum_Avatar3D:
-			return EMagicLeapIdentityAttribute::Avatar3D;
-		case MLIdentityAttributeEnum_IsDeveloper:
-			return EMagicLeapIdentityAttribute::IsDeveloper;
-		case MLIdentityAttributeEnum_Unknown:
-			return EMagicLeapIdentityAttribute::Unknown;
+			MLIDENTITYKEYCASE(GivenName)
+			MLIDENTITYKEYCASE(FamilyName)
+			MLIDENTITYKEYCASE(Email)
+			MLIDENTITYKEYCASE(Bio)
+			MLIDENTITYKEYCASE(PhoneNumber)
+			MLIDENTITYKEYCASE(Avatar2D)
+			MLIDENTITYKEYCASE(Avatar3D)
+			default:
+				break;
 		}
-		return EMagicLeapIdentityAttribute::Unknown;
+		return EMagicLeapIdentityKey::Unknown;
+#undef MLIDENTITYKEYCASE
 	}
 
-	MLIdentityAttributeEnum UnrealToMLIdentityAttribute(EMagicLeapIdentityAttribute attribute)
+	MLIdentityAttributeKey UnrealToMLIdentityAttribute(EMagicLeapIdentityKey attribute)
 	{
+#define MLIDENTITYKEYCASE(x) case EMagicLeapIdentityKey::x: { return MLIdentityAttributeKey_##x; }
 		switch (attribute)
 		{
-		case EMagicLeapIdentityAttribute::UserID:
-			return MLIdentityAttributeEnum_UserId;
-		case EMagicLeapIdentityAttribute::GivenName:
-			return MLIdentityAttributeEnum_GivenName;
-		case EMagicLeapIdentityAttribute::FamilyName:
-			return MLIdentityAttributeEnum_FamilyName;
-		case EMagicLeapIdentityAttribute::Email:
-			return MLIdentityAttributeEnum_Email;
-		case EMagicLeapIdentityAttribute::Status:
-			return MLIdentityAttributeEnum_Status;
-		case EMagicLeapIdentityAttribute::TermsAccepted:
-			return MLIdentityAttributeEnum_TermsAccepted;
-		case EMagicLeapIdentityAttribute::Birthday:
-			return MLIdentityAttributeEnum_Birthday;
-		case EMagicLeapIdentityAttribute::Company:
-			return MLIdentityAttributeEnum_Company;
-		case EMagicLeapIdentityAttribute::Industry:
-			return MLIdentityAttributeEnum_Industry;
-		case EMagicLeapIdentityAttribute::Location:
-			return MLIdentityAttributeEnum_Location;
-		case EMagicLeapIdentityAttribute::Tagline:
-			return MLIdentityAttributeEnum_Tagline;
-		case EMagicLeapIdentityAttribute::PhoneNumber:
-			return MLIdentityAttributeEnum_PhoneNumber;
-		case EMagicLeapIdentityAttribute::Avatar2D:
-			return MLIdentityAttributeEnum_Avatar2D;
-		case EMagicLeapIdentityAttribute::Avatar3D:
-			return MLIdentityAttributeEnum_Avatar3D;
-		case EMagicLeapIdentityAttribute::IsDeveloper:
-			return MLIdentityAttributeEnum_IsDeveloper;
-		case EMagicLeapIdentityAttribute::Unknown:
-			return MLIdentityAttributeEnum_Unknown;
+			MLIDENTITYKEYCASE(GivenName)
+			MLIDENTITYKEYCASE(FamilyName)
+			MLIDENTITYKEYCASE(Email)
+			MLIDENTITYKEYCASE(Bio)
+			MLIDENTITYKEYCASE(PhoneNumber)
+			MLIDENTITYKEYCASE(Avatar2D)
+			MLIDENTITYKEYCASE(Avatar3D)
+			default:
+				break;
 		}
-		return MLIdentityAttributeEnum_Unknown;
+		return MLIdentityAttributeKey_Unknown;
+#undef MLIDENTITYKEYCASE
 	}
 
 
@@ -193,66 +157,74 @@ UMagicLeapIdentity::~UMagicLeapIdentity()
 	delete Impl;
 }
 
-EMagicLeapIdentityError UMagicLeapIdentity::GetAllAvailableAttributes(TArray<EMagicLeapIdentityAttribute>& AvailableAttributes)
+EMagicLeapIdentityError UMagicLeapIdentity::GetAllAvailableAttributes(TArray<EMagicLeapIdentityKey>& AvailableAttributes)
 {
 #if WITH_MLSDK
 	MLIdentityProfile* profile = nullptr;
-	MLIdentityError result = MLIdentityGetAttributeNames(&profile);
+	MLResult Result = MLIdentityGetAttributeNames(&profile);
 
 	AvailableAttributes.Empty();
-	if (result == MLIdentityError_Ok && profile != nullptr)
+	if (Result == MLResult_Ok && profile != nullptr)
 	{
 		for (uint32 i = 0; i < static_cast<uint32>(profile->attribute_count); ++i)
 		{
 			const MLIdentityAttribute* attribute = profile->attribute_ptrs[i];
-			AvailableAttributes.Add(Impl->MLToUnrealIdentityAttribute(attribute->enum_value));
+			AvailableAttributes.Add(Impl->MLToUnrealIdentityAttribute(attribute->key));
 		}
 
 		MLIdentityReleaseUserProfile(profile);
 	}
 
-	return Impl->MLToUnrealIdentityError(result);
+	return Impl->MLToUnrealIdentityError(Result);
 #else
-	return EMagicLeapIdentityError::OtherError;
+	return EMagicLeapIdentityError::UnspecifiedFailure;
 #endif //WITH_MLSDK
-
 }
 
 void UMagicLeapIdentity::GetAllAvailableAttributesAsync(const FAvailableIdentityAttributesDelegate& ResultDelegate)
 {
 #if WITH_MLSDK
-	Impl->AllAvailableAttribsFutures.Add(MLIdentityGetAttributeNamesAsync(), ResultDelegate);
+	MLInvokeFuture* InvokeFuture = nullptr;
+	MLResult Result = MLIdentityGetAttributeNamesAsync(&InvokeFuture);
+	if (Result == MLResult_Ok)
+	{
+		Impl->AllAvailableAttribsFutures.Add(InvokeFuture, ResultDelegate);
+	}
+	else
+	{
+		UE_LOG(LogMagicLeapIdentity, Error, TEXT("MLIdentityGetAttributeNamesAsync failed with error %d!"), Result);
+	}
 #endif //WITH_MLSDK
 }
 
-EMagicLeapIdentityError UMagicLeapIdentity::RequestAttributeValue(const TArray<EMagicLeapIdentityAttribute>& Attribute, TArray<FMagicLeapIdentityAttribute>& AttributeValue)
+EMagicLeapIdentityError UMagicLeapIdentity::RequestAttributeValue(const TArray<EMagicLeapIdentityKey>& Attribute, TArray<FMagicLeapIdentityAttribute>& AttributeValue)
 {
 #if WITH_MLSDK
 	MLIdentityProfile* profile = nullptr;
-	TArray<MLIdentityAttributeEnum> mlAttributes;
-	for (EMagicLeapIdentityAttribute attrib : Attribute)
+	TArray<MLIdentityAttributeKey> mlAttributes;
+	for (EMagicLeapIdentityKey attrib : Attribute)
 	{
 		mlAttributes.Add(Impl->UnrealToMLIdentityAttribute(attrib));
 	}
-	MLIdentityError result = MLIdentityGetKnownAttributeNames(mlAttributes.GetData(), mlAttributes.Num(), &profile);
+	MLResult Result = MLIdentityGetKnownAttributeNames(mlAttributes.GetData(), mlAttributes.Num(), &profile);
 
 	AttributeValue.Empty();
-	if (result == MLIdentityError_Ok && profile != nullptr)
+	if (Result == MLResult_Ok && profile != nullptr)
 	{
 		for (uint32 i = 0; i < static_cast<uint32>(profile->attribute_count); ++i)
 		{
 			profile->attribute_ptrs[i]->is_requested = true;
 		}
 
-		result = MLIdentityRequestAttributeValues(profile);
+		Result = MLIdentityRequestAttributeValues(profile);
 
-		if (result == MLIdentityError_Ok)
+		if (Result == MLResult_Ok)
 		{
 			for (uint32 i = 0; i < static_cast<uint32>(profile->attribute_count); ++i)
 			{
 				if (profile->attribute_ptrs[i]->is_granted)
 				{
-					AttributeValue.Add(FMagicLeapIdentityAttribute(Impl->MLToUnrealIdentityAttribute(profile->attribute_ptrs[i]->enum_value), FString(ANSI_TO_TCHAR(profile->attribute_ptrs[i]->value))));
+					AttributeValue.Add(FMagicLeapIdentityAttribute(Impl->MLToUnrealIdentityAttribute(profile->attribute_ptrs[i]->key), FString(ANSI_TO_TCHAR(profile->attribute_ptrs[i]->value))));
 				}
 			}
 		}
@@ -260,47 +232,46 @@ EMagicLeapIdentityError UMagicLeapIdentity::RequestAttributeValue(const TArray<E
 		MLIdentityReleaseUserProfile(profile);
 	}
 
-	return Impl->MLToUnrealIdentityError(result);
+	return Impl->MLToUnrealIdentityError(Result);
 #else
-	return EMagicLeapIdentityError::OtherError;
+	return EMagicLeapIdentityError::UnspecifiedFailure;
 #endif //WITH_MLSDK
 }
 
-EMagicLeapIdentityError UMagicLeapIdentity::RequestAttributeValueAsync(const TArray<EMagicLeapIdentityAttribute>& Attribute, const FRequestIdentityAttributeValueDelegate& ResultDelegate)
+EMagicLeapIdentityError UMagicLeapIdentity::RequestAttributeValueAsync(const TArray<EMagicLeapIdentityKey>& Attribute, const FRequestIdentityAttributeValueDelegate& ResultDelegate)
 {
 #if WITH_MLSDK
 	MLIdentityProfile* profile = nullptr;
-	TArray<MLIdentityAttributeEnum> mlAttributes;
-	for (EMagicLeapIdentityAttribute attrib : Attribute)
+	TArray<MLIdentityAttributeKey> mlAttributes;
+	for (EMagicLeapIdentityKey attrib : Attribute)
 	{
 		mlAttributes.Add(Impl->UnrealToMLIdentityAttribute(attrib));
 	}
-	MLIdentityError result = MLIdentityGetKnownAttributeNames(mlAttributes.GetData(), mlAttributes.Num(), &profile);
+	MLResult Result = MLIdentityGetKnownAttributeNames(mlAttributes.GetData(), mlAttributes.Num(), &profile);
 
-	if (result == MLIdentityError_Ok && profile != nullptr)
+	if (Result == MLResult_Ok && profile != nullptr)
 	{
 		for (uint32 i = 0; i < static_cast<uint32>(profile->attribute_count); ++i)
 		{
 			profile->attribute_ptrs[i]->is_requested = true;
 		}
 
-		Impl->AllRequestAttribsFutures.Add(MLIdentityRequestAttributeValuesAsync(profile), FIdentityImpl::FRequestAttribData(profile, ResultDelegate));
+		MLInvokeFuture* InvokeFuture = nullptr;
+		MLResult RequestAtrrValRes = MLIdentityRequestAttributeValuesAsync(profile, &InvokeFuture);
+		if (RequestAtrrValRes == MLResult_Ok)
+		{
+			Impl->AllRequestAttribsFutures.Add(InvokeFuture, FIdentityImpl::FRequestAttribData(profile, ResultDelegate));
+		}
+		else
+		{
+			UE_LOG(LogMagicLeapIdentity, Error, TEXT("MLIdentityRequestAttributeValuesAsync failed with error %d!"), RequestAtrrValRes);
+		}
 	}
 
-	return Impl->MLToUnrealIdentityError(result);
+	return Impl->MLToUnrealIdentityError(Result);
 #else
-	return EMagicLeapIdentityError::OtherError;
+	return EMagicLeapIdentityError::UnspecifiedFailure;
 #endif //WITH_MLSDK
-}
-
-EMagicLeapIdentityError UMagicLeapIdentity::ModifyAttributeValue(const TArray<FMagicLeapIdentityAttribute>& UpdatedAttributeValue, TArray<EMagicLeapIdentityAttribute>& AttributesUpdatedSuccessfully)
-{
-	return EMagicLeapIdentityError::OtherError;
-}
-
-EMagicLeapIdentityError UMagicLeapIdentity::ModifyAttributeValueAsync(const TArray<FMagicLeapIdentityAttribute>& UpdatedAttributeValue, const FModifyIdentityAttributeValueDelegate& ResultDelegate)
-{
-	return EMagicLeapIdentityError::OtherError;
 }
 
 UWorld* UMagicLeapIdentity::GetWorld() const
@@ -317,23 +288,28 @@ void UMagicLeapIdentity::Tick(float DeltaTime)
 	for (const auto& AvailableAttribsFuture : Impl->AllAvailableAttribsFutures)
 	{
 		MLInvokeFuture* future = AvailableAttribsFuture.Key;
-		MLIdentityError error = MLIdentityError_OtherError;
 		MLIdentityProfile* profile = nullptr;
+		MLResult Result = MLIdentityGetAttributeNamesWait(future, 0, &profile);
 
-		if (MLIdentityGetAttributeNamesWait(future, 0, &error, &profile))
+		TArray<EMagicLeapIdentityKey> AvailableAttributes;
+		if (Result == MLResult_Ok)
 		{
 			FuturesToDelete.Add(future);
-			TArray<EMagicLeapIdentityAttribute> AvailableAttributes;
-			if (error == MLIdentityError_Ok && profile != nullptr)
+			if (profile != nullptr)
 			{
 				for (uint32 i = 0; i < static_cast<uint32>(profile->attribute_count); ++i)
 				{
 					const MLIdentityAttribute* attribute = profile->attribute_ptrs[i];
-					AvailableAttributes.Add(Impl->MLToUnrealIdentityAttribute(attribute->enum_value));
+					AvailableAttributes.Add(Impl->MLToUnrealIdentityAttribute(attribute->key));
 				}
 				MLIdentityReleaseUserProfile(profile);
 			}
-			AvailableAttribsFuture.Value.ExecuteIfBound(Impl->MLToUnrealIdentityError(error), AvailableAttributes);
+			AvailableAttribsFuture.Value.ExecuteIfBound(Impl->MLToUnrealIdentityError(Result), AvailableAttributes);
+		}
+		else if (Result != MLResult_Pending)
+		{
+			FuturesToDelete.Add(future);			
+			AvailableAttribsFuture.Value.ExecuteIfBound(Impl->MLToUnrealIdentityError(Result), AvailableAttributes);
 		}
 	}
 
@@ -348,26 +324,29 @@ void UMagicLeapIdentity::Tick(float DeltaTime)
 	for (const auto& RequestAttribsFuture : Impl->AllRequestAttribsFutures)
 	{
 		MLInvokeFuture* future = RequestAttribsFuture.Key;
-		MLIdentityError error = MLIdentityError_OtherError;
+		MLResult Result = MLIdentityRequestAttributeValuesWait(future, 0);
 
-		if (MLIdentityRequestAttributeValuesWait(future, 0, &error))
+		TArray<FMagicLeapIdentityAttribute> AttributeValue;
+		if (Result == MLResult_Ok)
 		{
 			FuturesToDelete.Add(future);
-			TArray<FMagicLeapIdentityAttribute> AttributeValue;
 			MLIdentityProfile* profile = RequestAttribsFuture.Value.Profile;
 
-			if (error == MLIdentityError_Ok)
+			for (uint32 i = 0; i < static_cast<uint32>(profile->attribute_count); ++i)
 			{
-				for (uint32 i = 0; i < static_cast<uint32>(profile->attribute_count); ++i)
+				if (profile->attribute_ptrs[i]->is_granted)
 				{
-					if (profile->attribute_ptrs[i]->is_granted)
-					{
-						AttributeValue.Add(FMagicLeapIdentityAttribute(Impl->MLToUnrealIdentityAttribute(profile->attribute_ptrs[i]->enum_value), FString(ANSI_TO_TCHAR(profile->attribute_ptrs[i]->value))));
-					}
+					AttributeValue.Add(FMagicLeapIdentityAttribute(Impl->MLToUnrealIdentityAttribute(profile->attribute_ptrs[i]->key), FString(ANSI_TO_TCHAR(profile->attribute_ptrs[i]->value))));
 				}
 			}
-			RequestAttribsFuture.Value.RequestDelegate.ExecuteIfBound(Impl->MLToUnrealIdentityError(error), AttributeValue);
+
+			RequestAttribsFuture.Value.RequestDelegate.ExecuteIfBound(Impl->MLToUnrealIdentityError(Result), AttributeValue);
 			MLIdentityReleaseUserProfile(profile);
+		}
+		else if (Result != MLResult_Pending)
+		{
+			FuturesToDelete.Add(future);			
+			RequestAttribsFuture.Value.RequestDelegate.ExecuteIfBound(Impl->MLToUnrealIdentityError(Result), AttributeValue);
 		}
 	}
 

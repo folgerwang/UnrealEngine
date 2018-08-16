@@ -24,8 +24,5 @@ public:
 
 	/** @return true if the Aja module and Aja dll could be loaded */
 	virtual bool IsInitialized() const = 0;
-	
-	/** @return true if the Aja card can be used */
-	virtual bool CanBeUsed() const = 0;
 };
 

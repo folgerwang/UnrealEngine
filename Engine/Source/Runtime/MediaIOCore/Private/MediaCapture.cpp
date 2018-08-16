@@ -75,7 +75,7 @@ bool UMediaCapture::CaptureActiveSceneViewport()
 	return CaptureSceneViewport(FoundSceneViewport);
 }
 
-bool UMediaCapture::CaptureSceneViewport(const TSharedPtr<FSceneViewport>& InSceneViewport)
+bool UMediaCapture::CaptureSceneViewport(TSharedPtr<FSceneViewport>& InSceneViewport)
 {
 	StopCapture(false);
 	check(IsInGameThread());
@@ -312,7 +312,8 @@ void UMediaCapture::OnEndFrame_GameThread()
 
 	if (CapturingFrame)
 	{
-		CapturingFrame->SourceFrameTimecode = FApp::GetTimecode();
+		CapturingFrame->CaptureBaseData.SourceFrameTimecode = FApp::GetTimecode();
+		CapturingFrame->CaptureBaseData.SourceFrameNumberRenderThread = GFrameNumberRenderThread;
 		CapturingFrame->UserData = GetCaptureFrameUserData_GameThread();
 	}
 
@@ -406,7 +407,7 @@ void UMediaCapture::OnEndFrame_GameThread()
 			int32 Width = 0, Height = 0;
 			RHICmdList.MapStagingSurface(InReadyFrame->ReadbackTexture, ColorDataBuffer, Width, Height);
 
-			OnFrameCaptured_RenderingThread(InReadyFrame->SourceFrameTimecode, InReadyFrame->UserData, ColorDataBuffer, Width, Height);
+			OnFrameCaptured_RenderingThread(InReadyFrame->CaptureBaseData, InReadyFrame->UserData, ColorDataBuffer, Width, Height);
 			InReadyFrame->bResolvedTargetRequested = false;
 
 			RHICmdList.UnmapStagingSurface(InReadyFrame->ReadbackTexture);

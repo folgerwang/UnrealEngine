@@ -54,6 +54,6 @@ public class StaticMeshEditor : ModuleRules
             }
 		);
 
-		SetupModulePhysXAPEXSupport(Target);
+		SetupModulePhysicsSupport(Target);
 	}
 }

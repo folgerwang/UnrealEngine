@@ -37,6 +37,7 @@ struct WEBBROWSER_API FBrowserContextSettings
 		, CookieStorageLocation()
 		, bPersistSessionCookies(false)
 		, bIgnoreCertificateErrors(false)
+		, bEnableNetSecurityExpiration(true)
 	{ }
 
 	FString Id;
@@ -44,6 +45,7 @@ struct WEBBROWSER_API FBrowserContextSettings
 	FString CookieStorageLocation;
 	bool bPersistSessionCookies;
 	bool bIgnoreCertificateErrors;
+	bool bEnableNetSecurityExpiration;
 };
 
 
@@ -60,6 +62,7 @@ struct WEBBROWSER_API FCreateBrowserWindowSettings
 		, BackgroundColor(FColor(255, 255, 255, 255))
 		, BrowserFrameRate(24)
 		, Context()
+		, AltRetryDomains()
 	{ }
 
 	void* OSWindowHandle;
@@ -71,6 +74,7 @@ struct WEBBROWSER_API FCreateBrowserWindowSettings
 	FColor BackgroundColor;
 	int BrowserFrameRate;
 	TOptional<FBrowserContextSettings> Context;
+	TArray<FString> AltRetryDomains;
 };
 
 /**
@@ -121,7 +125,8 @@ public:
 		TOptional<FString> ContentsToLoad = TOptional<FString>(),
 		bool ShowErrorMessage = true,
 		FColor BackgroundColor = FColor(255, 255, 255, 255),
-		int BrowserFrameRate = 24 ) = 0;
+		int BrowserFrameRate = 24,
+		const TArray<FString>& AltRetryDomains = TArray<FString>()) = 0;
 
 	virtual TSharedPtr<IWebBrowserWindow> CreateBrowserWindow(const FCreateBrowserWindowSettings& Settings) = 0;
 

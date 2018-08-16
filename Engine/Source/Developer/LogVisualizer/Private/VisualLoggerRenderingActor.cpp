@@ -78,6 +78,7 @@ FPrimitiveSceneProxy* UVisualLoggerRenderingComponent::CreateSceneProxy()
 		VLogSceneProxy->Cones.Append(CurrentShapes.Value.Cones);
 		VLogSceneProxy->Texts.Append(CurrentShapes.Value.Texts);
 		VLogSceneProxy->Cylinders.Append(CurrentShapes.Value.Cylinders);
+		VLogSceneProxy->ArrowLines.Append(CurrentShapes.Value.Arrows);
 		VLogSceneProxy->Capsles.Append(CurrentShapes.Value.Capsules);
 	}
 
@@ -89,6 +90,7 @@ FPrimitiveSceneProxy* UVisualLoggerRenderingComponent::CreateSceneProxy()
 		VLogSceneProxy->Cones.Append(RenderingActor->TestDebugShapes.Cones);
 		VLogSceneProxy->Texts.Append(RenderingActor->TestDebugShapes.Texts);
 		VLogSceneProxy->Cylinders.Append(RenderingActor->TestDebugShapes.Cylinders);
+		VLogSceneProxy->ArrowLines.Append(RenderingActor->TestDebugShapes.Arrows);
 		VLogSceneProxy->Capsles.Append(RenderingActor->TestDebugShapes.Capsules);
 	}
 
@@ -634,7 +636,9 @@ void AVisualLoggerRenderingActor::GetDebugShapes(const FVisualLogDevice::FVisual
 		case EVisualLoggerShapeElement::NavAreaMesh:
 		{
 			if (ElementToDraw->Points.Num() == 0)
+			{
 				continue;
+			}
 
 			struct FHeaderData
 			{
@@ -695,6 +699,30 @@ void AVisualLoggerRenderingActor::GetDebugShapes(const FVisualLogDevice::FVisual
 					);
 			}
 
+		}
+			break;
+
+		case EVisualLoggerShapeElement::Arrow:
+		{
+			const bool bDrawLabels = ElementToDraw->Description.IsEmpty() == false && ElementToDraw->Points.Num() > 2;
+			const FVector* Location = ElementToDraw->Points.GetData();
+
+			if (bDrawLabels)
+			{
+				for (int32 Index = 0; Index + 1 < ElementToDraw->Points.Num(); Index += 2, Location += 2)
+				{
+					DebugShapes.Arrows.Add(FDebugRenderSceneProxy::FArrowLine(*Location, *(Location + 1), Color));
+					const FString PrintString = FString::Printf(TEXT("%s_%d"), *ElementToDraw->Description, Index);
+					DebugShapes.Texts.Add(FDebugRenderSceneProxy::FText3d(PrintString, (*Location + (*(Location + 1) - *Location) / 2), Color));
+				}
+			}
+			else
+			{
+				for (int32 Index = 0; Index + 1 < ElementToDraw->Points.Num(); Index += 2, Location += 2)
+				{
+					DebugShapes.Arrows.Add(FDebugRenderSceneProxy::FArrowLine(*Location, *(Location + 1), Color));
+				}
+			}
 		}
 			break;
 		}

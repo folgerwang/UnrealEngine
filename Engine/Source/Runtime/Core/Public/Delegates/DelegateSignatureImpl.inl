@@ -134,6 +134,20 @@ public:
 	}
 
 	/**
+	 * Static: Creates a weak object C++ lambda delegate
+	 * technically this works for any functor types, but lambdas are the primary use case
+	 */
+	template<typename UserClass, typename FunctorType, typename... VarTypes>
+	FUNCTION_CHECK_RETURN_START
+	inline static TBaseDelegate<RetValType, ParamTypes...> CreateWeakLambda(UserClass* InUserObject, FunctorType&& InFunctor, VarTypes... Vars)
+	FUNCTION_CHECK_RETURN_END
+	{
+		TBaseDelegate<RetValType, ParamTypes...> Result;
+		TWeakBaseFunctorDelegateInstance<UserClass, TFuncType, typename TRemoveReference<FunctorType>::Type, VarTypes...>::Create(Result, InUserObject, Forward<FunctorType>(InFunctor), Vars...);
+		return Result;
+	}
+
+	/**
 	 * Static: Creates a raw C++ pointer member function delegate.
 	 *
 	 * Raw pointer doesn't use any sort of reference, so may be unsafe to call if the object was
@@ -404,6 +418,16 @@ public:
 	inline void BindLambda(FunctorType&& InFunctor, VarTypes... Vars)
 	{
 		*this = CreateLambda(Forward<FunctorType>(InFunctor), Vars...);
+	}
+
+	/**
+	 * Static: Binds a weak object C++ lambda delegate
+	 * technically this works for any functor types, but lambdas are the primary use case
+	 */
+	template<typename UserClass, typename FunctorType, typename... VarTypes>
+	inline void BindWeakLambda(UserClass* InUserObject, FunctorType&& InFunctor, VarTypes... Vars)
+	{
+		*this = CreateWeakLambda(InUserObject, Forward<FunctorType>(InFunctor), Vars...);
 	}
 
 	/**
@@ -713,6 +737,19 @@ public:
 	inline FDelegateHandle AddLambda(FunctorType&& InFunctor, VarTypes... Vars)
 	{
 		return Add(FDelegate::CreateLambda(Forward<FunctorType>(InFunctor), Vars...));
+	}
+
+	/**
+	 * Adds a weak object C++ lambda delegate
+	 * technically this works for any functor types, but lambdas are the primary use case
+	 *
+	 * @param	InUserObject	User object to bind to
+	 * @param	InFunctor		Functor (e.g. Lambda)
+	 */
+	template<typename UserClass, typename FunctorType, typename... VarTypes>
+	inline FDelegateHandle AddWeakLambda(UserClass* InUserObject, FunctorType&& InFunctor, VarTypes... Vars)
+	{
+		return Add(FDelegate::CreateWeakLambda(InUserObject, Forward<FunctorType>(InFunctor), Vars...));
 	}
 
 	/**

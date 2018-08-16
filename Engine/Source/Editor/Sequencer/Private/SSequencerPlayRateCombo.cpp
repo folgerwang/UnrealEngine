@@ -313,10 +313,17 @@ void SSequencerPlayRateCombo::SetClockSource(EUpdateClockSource NewClockSource)
 	UMovieSceneSequence*   RootSequence = Sequencer.IsValid() ? Sequencer->GetRootMovieSceneSequence() : nullptr;
 	if (RootSequence)
 	{
+		UMovieScene* MovieScene = RootSequence->GetMovieScene();
+
+		if (MovieScene->IsReadOnly())
+		{
+			return;
+		}
+
 		FScopedTransaction ScopedTransaction(LOCTEXT("SetClockSource", "Set Clock Source"));
 
-		RootSequence->GetMovieScene()->Modify();
-		RootSequence->GetMovieScene()->SetClockSource(NewClockSource);
+		MovieScene->Modify();
+		MovieScene->SetClockSource(NewClockSource);
 
 		Sequencer->ResetTimeController();
 	}
@@ -328,10 +335,16 @@ void SSequencerPlayRateCombo::SetDisplayRate(FFrameRate InFrameRate)
 	UMovieSceneSequence* FocusedSequence = Sequencer.IsValid() ? Sequencer->GetFocusedMovieSceneSequence() : nullptr;
 	if (FocusedSequence)
 	{
+		UMovieScene* MovieScene = FocusedSequence->GetMovieScene();
+		if (MovieScene->IsReadOnly())
+		{
+			return;
+		}
+
 		FScopedTransaction ScopedTransaction(FText::Format(LOCTEXT("SetDisplayRate", "Set Display Rate to {0}"), InFrameRate.ToPrettyText()));
 
-		FocusedSequence->GetMovieScene()->Modify();
-		FocusedSequence->GetMovieScene()->SetDisplayRate(InFrameRate);
+		MovieScene->Modify();
+		MovieScene->SetDisplayRate(InFrameRate);
 	}
 }
 
@@ -387,6 +400,11 @@ void SSequencerPlayRateCombo::OnToggleFrameLocked()
 
 	if (FocusedMovieScene)
 	{
+		if (FocusedMovieScene->IsReadOnly())
+		{
+			return;
+		}
+
 		EMovieSceneEvaluationType NewType = FocusedMovieScene->GetEvaluationType() == EMovieSceneEvaluationType::WithSubFrames
 			? EMovieSceneEvaluationType::FrameLocked
 			: EMovieSceneEvaluationType::WithSubFrames;

@@ -61,7 +61,7 @@ namespace AutomationTool
 					LogLines.Add(Action.OutputPrefix);
 				}
 
-				using(ManagedProcess Process = new ManagedProcess(ProcessGroup, Action.ToolPath, Action.ToolArguments, Action.WorkingDirectory, Action.Environment, null, ManagedProcessPriority.BelowNormal))
+				using(ManagedProcess Process = new ManagedProcess(ProcessGroup, Action.ToolPath, Action.ToolArguments, Action.WorkingDirectory, Action.Environment, null, ProcessPriorityClass.BelowNormal))
 				{
 					LogLines.AddRange(Process.ReadAllLines());
 					ExitCode = Process.ExitCode;
@@ -85,9 +85,9 @@ namespace AutomationTool
 		{
 			List<BuildAction> Actions = ReadActions(ActionsFileName);
 
-			CommandUtils.Log("Building {0} {1} with {2} {3}...", Actions.Count, (Actions.Count == 1) ? "action" : "actions", MaxProcesses, (MaxProcesses == 1)? "process" : "processes");
+			CommandUtils.LogInformation("Building {0} {1} with {2} {3}...", Actions.Count, (Actions.Count == 1) ? "action" : "actions", MaxProcesses, (MaxProcesses == 1)? "process" : "processes");
 
-			using (UnrealBuildTool.ScopedLogIndent Indent = new UnrealBuildTool.ScopedLogIndent("  "))
+			using (LogIndentScope Indent = new LogIndentScope("  "))
 			{
 				// Create the list of things to process
 				List<BuildAction> QueuedActions = new List<BuildAction>();
@@ -148,11 +148,11 @@ namespace AutomationTool
 										if(CurrentPrefix != CompletedAction.Action.GroupPrefix)
 										{
 											CurrentPrefix = CompletedAction.Action.GroupPrefix;
-											CommandUtils.Log(CurrentPrefix);
+											CommandUtils.LogInformation(CurrentPrefix);
 										}
 										foreach(string LogLine in CompletedAction.LogLines)
 										{
-											CommandUtils.Log(LogLine);
+											CommandUtils.LogInformation(LogLine);
 										}
 									}
 

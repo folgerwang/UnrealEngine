@@ -100,9 +100,12 @@ FDebugCanvasDrawer::~FDebugCanvasDrawer()
 		RenderThreadCanvas = nullptr;
 	}
 
-	if (LayerID != INVALID_LAYER_ID)
+	if (LayerID != INVALID_LAYER_ID && GEngine->StereoRenderingDevice && GEngine->StereoRenderingDevice->GetStereoLayers())
 	{
-		GEngine->StereoRenderingDevice->GetStereoLayers()->DestroyLayer(LayerID);
+		if (GEngine->StereoRenderingDevice.IsValid())
+		{
+			GEngine->StereoRenderingDevice->GetStereoLayers()->DestroyLayer(LayerID);
+		}
 		LayerID = INVALID_LAYER_ID;
 	}
 }
@@ -165,11 +168,9 @@ void FDebugCanvasDrawer::InitDebugCanvas(FViewportClient* ViewportClient, UWorld
 		IStereoLayers* const StereoLayers = (bIsStereoscopic3D && GEngine && GEngine->StereoRenderingDevice.IsValid()) ? GEngine->StereoRenderingDevice->GetStereoLayers() : nullptr;
 		const bool bHMDAvailable = StereoLayers && bIsStereoscopic3D;
 
-		static const auto DebugCanvasInLayerCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.DebugCanvasInLayer"));
-		const bool bDebugInLayer = bHMDAvailable && DebugCanvasInLayerCVar && DebugCanvasInLayerCVar->GetValueOnAnyThread() != 0;
-		GameThreadCanvas->SetUseInternalTexture(bDebugInLayer);
+		GameThreadCanvas->SetUseInternalTexture(bHMDAvailable);
 
-		if (bDebugInLayer && LayerTexture && bCanvasRenderedLastFrame)
+		if (bHMDAvailable && LayerTexture && bCanvasRenderedLastFrame)
 		{
 			if (StereoLayers)
 			{
@@ -185,13 +186,13 @@ void FDebugCanvasDrawer::InitDebugCanvas(FViewportClient* ViewportClient, UWorld
 			}
 		}
 
-		if (LayerID != INVALID_LAYER_ID && (!bDebugInLayer || !bCanvasRenderedLastFrame))
+		if (LayerID != INVALID_LAYER_ID && (!bHMDAvailable || !bCanvasRenderedLastFrame))
 		{
 			if (StereoLayers)
 			{
 				StereoLayers->DestroyLayer(LayerID);
+				LayerID = INVALID_LAYER_ID;
 			}
-			LayerID = INVALID_LAYER_ID;
 		}
 	}
 }
@@ -203,7 +204,7 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 	QUICK_SCOPE_CYCLE_COUNTER(Stat_DrawDebugCanvas);
 	if( RenderThreadCanvas.IsValid() )
 	{
-		FTexture2DRHIRef& RT = *(FTexture2DRHIRef*)InWindowBackBuffer;
+		FTexture2DRHIRef* RT = (FTexture2DRHIRef*)InWindowBackBuffer;
 		if (RenderThreadCanvas->IsUsingInternalTexture())
 		{
 			if (LayerTexture && RenderThreadCanvas->GetParentCanvasSize() != LayerTexture->GetDesc().Extent)
@@ -225,20 +226,16 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 			{
 				StereoLayers->GetAllocatedTexture(LayerID, HMDSwapchain, HMDNull);
 			}
-			FTexture2DRHIRef& LayerTextureRT = *reinterpret_cast<FTexture2DRHIRef*>(HMDSwapchain == nullptr ? &LayerTexture->GetRenderTargetItem().ShaderResourceTexture : &HMDSwapchain);
-			RenderTarget->SetRenderTargetTexture(LayerTextureRT);
+			RT = reinterpret_cast<FTexture2DRHIRef*>(HMDSwapchain == nullptr ? &LayerTexture->GetRenderTargetItem().ShaderResourceTexture : &HMDSwapchain);
 		}
-		else
-		{
-			RenderTarget->SetRenderTargetTexture(RT);
-		}
+		RenderTarget->SetRenderTargetTexture(*RT);
 
 		bool bNeedToFlipVertical = RenderThreadCanvas->GetAllowSwitchVerticalAxis();
 		// Do not flip when rendering to the back buffer
 		RenderThreadCanvas->SetAllowSwitchVerticalAxis(false);
-		if (RenderThreadCanvas->IsScaledToRenderTarget() && IsValidRef(RT)) 
+		if (RenderThreadCanvas->IsScaledToRenderTarget() && IsValidRef(*RT)) 
 		{
-			RenderThreadCanvas->SetRenderTargetRect( FIntRect(0, 0, RT->GetSizeX(), RT->GetSizeY()) );
+			RenderThreadCanvas->SetRenderTargetRect( FIntRect(0, 0, (*RT)->GetSizeX(), (*RT)->GetSizeY()) );
 		}
 		else
 		{
@@ -267,6 +264,13 @@ void FDebugCanvasDrawer::DeleteRenderThreadCanvas()
 void FDebugCanvasDrawer::SetRenderThreadCanvas( const FIntRect& InCanvasRect, FCanvasPtr& Canvas )
 {
 	check( IsInRenderingThread() );
-	RenderTarget->SetViewRect( InCanvasRect );
+	if (Canvas->IsUsingInternalTexture())
+	{
+		RenderTarget->SetViewRect(FIntRect(FIntPoint(0, 0), Canvas->GetParentCanvasSize()));
+	}
+	else
+	{
+		RenderTarget->SetViewRect(InCanvasRect);
+	}
 	RenderThreadCanvas = Canvas;
 }

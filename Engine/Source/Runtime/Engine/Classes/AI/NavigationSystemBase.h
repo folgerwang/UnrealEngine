@@ -18,6 +18,7 @@ class IPathFollowingAgentInterface;
 class AWorldSettings;
 class ULevel;
 class AController;
+class UNavAreaBase;
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogNavigation, Warning, All);
 
@@ -140,6 +141,7 @@ namespace FNavigationSystem
 	ENGINE_API const FNavDataConfig& GetDefaultSupportedAgent();
 
 	ENGINE_API TSubclassOf<UNavAreaBase> GetDefaultWalkableArea();
+	ENGINE_API TSubclassOf<UNavAreaBase> GetDefaultObstacleArea();
 
 	ENGINE_API const FTransform& GetCoordTransformTo(const ENavigationCoordSystem::Type CoordType);
 	ENGINE_API const FTransform& GetCoordTransformFrom(const ENavigationCoordSystem::Type CoordType);
@@ -178,7 +180,7 @@ namespace FNavigationSystem
 	DECLARE_DELEGATE_OneParam(FLevelBasedSignature, ULevel& /*Level*/);
 	DECLARE_DELEGATE_OneParam(FControllerBasedSignature, const AController& /*Controller*/);
 	DECLARE_DELEGATE_TwoParams(FNavigationAutoUpdateEnableSignature, const bool /*bNewEnable*/, UNavigationSystemBase* /*InNavigationSystem*/);
-	DECLARE_DELEGATE_RetVal_OneParam(bool, FBoolControllerBasedSignature, const AController& /*World*/);
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FBoolControllerBasedSignature, const AController& /*Controller*/);
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FBoolActorComponentBasedSignature, UActorComponent& /*Comp*/);
 	DECLARE_DELEGATE_RetVal(TSubclassOf<UNavAreaBase>, FNavAreaBasedSignature);
 	DECLARE_DELEGATE_RetVal(const FNavDataConfig&, FNavDatConfigBasedSignature);
@@ -203,9 +205,6 @@ public:
 	virtual void Tick(float DeltaSeconds) PURE_VIRTUAL(UNavigationSystemBase::Tick, );
 	virtual void CleanUp(const FNavigationSystem::ECleanupMode Mode) PURE_VIRTUAL(UNavigationSystemBase::CleanUp, );
 	virtual void Configure(const UNavigationSystemConfig& Config) PURE_VIRTUAL(UNavigationSystemBase::Configure, );
-
-	// possibly editor-only
-	
 
 	/**
 	*	Called when owner-UWorld initializes actors
@@ -232,6 +231,9 @@ protected:
 	
 	static void SetCoordTransformTo(const ENavigationCoordSystem::Type CoordType, const FTransform& Transform);
 	static void SetCoordTransformFrom(const ENavigationCoordSystem::Type CoordType, const FTransform& Transform);
+	static void SetWantsComponentChangeNotifies(const bool bEnable);
+	static void SetDefaultWalkableArea(TSubclassOf<UNavAreaBase> InAreaClass);
+	static void SetDefaultObstacleArea(TSubclassOf<UNavAreaBase> InAreaClass);
 
 	static FNavigationSystem::FActorBasedSignature& UpdateActorDataDelegate();
 	static FNavigationSystem::FActorComponentBasedSignature& UpdateComponentDataDelegate();
@@ -245,11 +247,9 @@ protected:
 	static FNavigationSystem::FActorComponentBasedSignature& OnComponentUnregisteredDelegate();
 	static FNavigationSystem::FActorBasedSignature& RemoveActorDataDelegate();
 	static FNavigationSystem::FBoolActorComponentBasedSignature& HasComponentDataDelegate();
-	static FNavigationSystem::FNavAreaBasedSignature& GetDefaultWalkableAreaDelegate();
 	static FNavigationSystem::FNavDatConfigBasedSignature& GetDefaultSupportedAgentDelegate();
 	static FNavigationSystem::FActorBooleBasedSignature& UpdateActorAndComponentDataDelegate();
 	static FNavigationSystem::FComponentBoundsChangeSignature& OnComponentBoundsChangedDelegate();
-	//static FNavigationSystem::FNavDataForPropsSignature& GetNavDataForPropsDelegate();
 	static FNavigationSystem::FNavDataForActorSignature& GetNavDataForActorDelegate();
 	static FNavigationSystem::FNavDataClassFetchSignature& GetDefaultNavDataClassDelegate();
 	static FNavigationSystem::FWorldBoolBasedSignature& VerifyNavigationRenderingComponentsDelegate();
@@ -312,10 +312,16 @@ public:
 	static bool ShouldUpdateNavOctreeOnComponentChange();
 	DEPRECATED(4.20, "GetDefaultWalkableArea is deprecated. Use FNavigationSystem::GetDefaultWalkableArea instead")
 	static TSubclassOf<UNavAreaBase> GetDefaultWalkableArea();
-	DEPRECATED(4.20, "UNavigationSystem::GetNavDataForProps is deprecated. Use UNavigationSystemV1::GetDefaultObstacleArea instead")
+	DEPRECATED(4.20, "UNavigationSystem::GetNavDataForProps is deprecated. Use FNavigationSystem::GetDefaultObstacleArea instead")
 	static TSubclassOf<UNavAreaBase> GetDefaultObstacleArea();
 	DEPRECATED(4.20, "UNavigationSystem::K2_GetRandomReachablePointInRadius is deprecated. Use UNavigationSystemV1::K2_GetRandomReachablePointInRadius instead")
 	static bool K2_GetRandomReachablePointInRadius(UObject* WorldContextObject, const FVector& Origin, FVector& RandomLocation, float Radius, UObject* NavData = NULL, TSubclassOf<UObject> FilterClass = NULL) { return false; }
+	DEPRECATED(4.20, "UNavigationSystem::SimpleMoveToActor is deprecated. Use UAIBlueprintHelperLibrary::SimpleMoveToActor instead")
+	UFUNCTION(BlueprintCallable, Category = "AI|Navigation", meta = (DisplayName = "SimpleMoveToActor_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "SimpleMoveToActor is deprecated. Use AIBlueprintHelperLibrary::SimpleMoveToActor instead"))
+	static void SimpleMoveToActor(AController* Controller, const AActor* Goal) {}
+	DEPRECATED(4.20, "UNavigationSystem::SimpleMoveToLocation is deprecated. Use UAIBlueprintHelperLibrary::SimpleMoveToLocation instead")
+	UFUNCTION(BlueprintCallable, Category = "AI|Navigation", meta = (DisplayName = "SimpleMoveToLocation_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "SimpleMoveToLocation is deprecated. Use AIBlueprintHelperLibrary::SimpleMoveToLocation instead"))
+	static void SimpleMoveToLocation(AController* Controller, const FVector& Goal) {}
 
 	DEPRECATED(4.20, "UpdateNavOctreeElementBounds is deprecated. Use FNavigationSystem::OnComponentBoundsChanged instead")
 	bool UpdateNavOctreeElementBounds(UActorComponent* Comp, const FBox& NewBounds, const FBox& DirtyArea);

@@ -295,11 +295,7 @@ public:
 				FirstFreeIndex = FreeIndex;
 				++NumFreeIndices;
 			}
-			//@fixme - this will have to do until TBitArray has a Reserve method....
-			for ( int32 i = 0; i < ElementsToAdd; i++ )
-			{
-				AllocationFlags.Add(false);
-			}
+			AllocationFlags.Add(false, ElementsToAdd);
 		}
 	}
 

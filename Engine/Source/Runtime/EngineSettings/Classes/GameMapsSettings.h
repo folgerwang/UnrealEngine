@@ -27,9 +27,17 @@ namespace EThreePlayerSplitScreenType
 	enum Type
 	{
 		FavorTop,
-		FavorBottom
+		FavorBottom,
+		Vertical
 	};
 }
+
+UENUM()
+enum class EFourPlayerSplitScreenType : uint8
+{
+	Grid,
+	Vertical
+};
 
 /** Helper structure, used to associate GameModes with shortcut names. */
 USTRUCT()
@@ -124,6 +132,10 @@ public:
 	/** The viewport layout to use if the screen should be split and there are three local players */
 	UPROPERTY(config, EditAnywhere, Category=LocalMultiplayer, meta=(editcondition="bUseSplitScreen"))
 	TEnumAsByte<EThreePlayerSplitScreenType::Type> ThreePlayerSplitscreenLayout;
+
+	/** The viewport layout to use if the screen should be split and there are three local players */
+	UPROPERTY(config, EditAnywhere, Category=LocalMultiplayer, meta=(editcondition="bUseSplitScreen"))
+	EFourPlayerSplitScreenType FourPlayerSplitscreenLayout;
 
 	/**
 	* If enabled, this will make so that gamepads start being assigned to the second controller ID in local multiplayer games.

@@ -21,6 +21,24 @@ namespace UnrealBuildTool
 		/// </summary>
 		[CommandLine("-skipcrashlytics")]
 		public bool bSkipCrashlytics = false;
+
+		/// <summary>
+		/// Manual override for the provision to use. Should be a full path.
+		/// </summary>
+		[CommandLine("-ImportProvision=")]
+		public string ImportProvision = null;
+
+		/// <summary>
+		/// Imports the given certificate (inc private key) into a temporary keychain before signing.
+		/// </summary>
+		[CommandLine("-ImportCertificate=")]
+		public string ImportCertificate = null;
+
+		/// <summary>
+		/// Password for the imported certificate
+		/// </summary>
+		[CommandLine("-ImportCertificatePassword=")]
+		public string ImportCertificatePassword = null;
 	}
 
 	/// <summary>
@@ -52,6 +70,21 @@ namespace UnrealBuildTool
 		public bool bSkipCrashlytics
 		{
 			get { return Inner.bSkipCrashlytics; }
+		}
+
+		public string ImportProvision
+		{
+			get { return Inner.ImportProvision; }
+		}
+
+		public string ImportCertificate
+		{
+			get { return Inner.ImportCertificate; }
+		}
+
+		public string ImportCertificatePassword
+		{
+			get { return Inner.ImportCertificatePassword; }
 		}
 
 #if !__MonoCS__
@@ -318,11 +351,16 @@ namespace UnrealBuildTool
     class IOSProvisioningData
     {
 		public string SigningCertificate;
-		public string MobileProvision;
+		public FileReference MobileProvisionFile;
         public string MobileProvisionUUID;
         public string MobileProvisionName;
         public string TeamUUID;
 		public bool bHaveCertificate = false;
+
+		public string MobileProvision
+		{
+			get { return (MobileProvisionFile == null)? null : MobileProvisionFile.GetFileName(); }
+		}
 
 		public IOSProvisioningData(IOSProjectSettings ProjectSettings, bool bForDistribution)
 			: this(ProjectSettings, false, bForDistribution)
@@ -332,7 +370,7 @@ namespace UnrealBuildTool
 		protected IOSProvisioningData(IOSProjectSettings ProjectSettings, bool bIsTVOS, bool bForDistribtion)
 		{
             SigningCertificate = ProjectSettings.SigningCertificate;
-            MobileProvision = ProjectSettings.MobileProvision;
+            string MobileProvision = ProjectSettings.MobileProvision;
 
 			FileReference ProjectFile = ProjectSettings.ProjectFile;
             if (!string.IsNullOrEmpty(SigningCertificate))
@@ -365,13 +403,31 @@ namespace UnrealBuildTool
                 bHaveCertificate = true;
             }
 
-            if (string.IsNullOrEmpty(MobileProvision) // no provision specified
-                || !File.Exists((BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac ? (Environment.GetEnvironmentVariable("HOME") + "/Library/MobileDevice/Provisioning Profiles/") : (Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/Apple Computer/MobileDevice/Provisioning Profiles/")) + MobileProvision) // file doesn't exist
-                || !bHaveCertificate) // certificate doesn't exist
+			if(!string.IsNullOrEmpty(MobileProvision))
+			{
+				DirectoryReference MobileProvisionDir;
+				if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
+				{
+					MobileProvisionDir = DirectoryReference.Combine(new DirectoryReference(Environment.GetEnvironmentVariable("HOME")), "Library", "MobileDevice", "Provisioning Profiles");
+				}
+				else
+				{
+					MobileProvisionDir = DirectoryReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.LocalApplicationData), "Apple Computer", "MobileDevice", "Provisioning Profiles");
+				}
+
+				FileReference PossibleMobileProvisionFile = FileReference.Combine(MobileProvisionDir, MobileProvision);
+				if(FileReference.Exists(PossibleMobileProvisionFile))
+				{
+					MobileProvisionFile = PossibleMobileProvisionFile;
+				}
+			}
+
+            if (MobileProvisionFile == null || !bHaveCertificate)
             {
 
                 SigningCertificate = "";
                 MobileProvision = "";
+				MobileProvisionFile = null;
                 Log.TraceLog("Provision not specified or not found for " + ((ProjectFile != null) ? ProjectFile.GetFileNameWithoutAnyExtensions() : "UE4Game") + ", searching for compatible match...");
                 Process IPPProcess = new Process();
                 if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
@@ -393,16 +449,27 @@ namespace UnrealBuildTool
                     IPPProcess.ErrorDataReceived += new DataReceivedEventHandler(IPPDataReceivedHandler);
                 }
                 Utils.RunLocalProcess(IPPProcess);
-                Log.TraceLog("Provision found for " + ((ProjectFile != null) ? ProjectFile.GetFileNameWithoutAnyExtensions() : "UE4Game") + ", Provision: " + MobileProvision + " Certificate: " + SigningCertificate);
+				if(MobileProvisionFile != null)
+				{
+					Log.TraceLog("Provision found for " + ((ProjectFile != null) ? ProjectFile.GetFileNameWithoutAnyExtensions() : "UE4Game") + ", Provision: " + MobileProvisionFile + " Certificate: " + SigningCertificate);
+				}
             }
+
             // add to the dictionary
             SigningCertificate = SigningCertificate.Replace("\"", "");
 
             // read the provision to get the UUID
-            string filename = (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac ? (Environment.GetEnvironmentVariable("HOME") + "/Library/MobileDevice/Provisioning Profiles/") : (Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/Apple Computer/MobileDevice/Provisioning Profiles/")) + MobileProvision;
-            if (File.Exists(filename))
+			if(MobileProvisionFile == null)
+			{
+				Log.TraceLog("No matching provision file was discovered for {0}. Please ensure you have a compatible provision installed.", ProjectFile);
+			}
+			else if(!FileReference.Exists(MobileProvisionFile))
+			{
+				Log.TraceLog("Selected mobile provision for {0} ({1}) was not found. Please ensure you have a compatible provision installed.", ProjectFile, MobileProvisionFile);
+			}
+			else
             {
-				byte[] AllBytes = File.ReadAllBytes(filename);
+				byte[] AllBytes = FileReference.ReadAllBytes(MobileProvisionFile);
 
 				uint StartIndex = (uint)AllBytes.Length;
 				uint EndIndex = (uint)AllBytes.Length;
@@ -473,16 +540,13 @@ namespace UnrealBuildTool
 					Log.TraceLog("Failed to parse the mobile provisioning profile.");
 				}
             }
-            else
-            {
-                Log.TraceLog("No matching provision file was discovered. Please ensure you have a compatible provision installed.");
-            }
 		}
 
         void IPPDataReceivedHandler(Object Sender, DataReceivedEventArgs Line)
         {
             if ((Line != null) && (Line.Data != null))
             {
+				Log.TraceLog("{0}", Line.Data);
                 if (!string.IsNullOrEmpty(SigningCertificate))
                 {
                     if (Line.Data.Contains("CERTIFICATE-") && Line.Data.Contains(SigningCertificate))
@@ -499,7 +563,10 @@ namespace UnrealBuildTool
                         cindex += "CERTIFICATE-".Length;
                         SigningCertificate = Line.Data.Substring(cindex, pindex - cindex - 1);
                         pindex += "PROVISION-".Length;
-                        MobileProvision = Line.Data.Substring(pindex);
+						if(pindex < Line.Data.Length)
+						{
+							MobileProvisionFile = new FileReference(Line.Data.Substring(pindex));
+						}
                     }
                 }
             }
@@ -553,8 +620,6 @@ namespace UnrealBuildTool
 
 		public override void ValidateTarget(TargetRules Target)
 		{
-			Target.bUsePCHFiles = false;
-
 			// we assume now we are building with IOS8 or later
 			if (Target.bCompileAgainstEngine)
 			{
@@ -606,10 +671,6 @@ namespace UnrealBuildTool
 					return "";
 				case UEBuildBinaryType.StaticLibrary:
 					return ".a";
-				case UEBuildBinaryType.Object:
-					return ".o";
-				case UEBuildBinaryType.PrecompiledHeader:
-					return ".gch";
 			}
 			return base.GetBinaryExtension(InBinaryType);
 		}
@@ -628,6 +689,12 @@ namespace UnrealBuildTool
 		protected virtual IOSProjectSettings CreateProjectSettings(FileReference ProjectFile)
 		{
 			return new IOSProjectSettings(ProjectFile);
+		}
+
+		public IOSProvisioningData ReadProvisioningData(FileReference ProjectFile, bool bForDistribution = false)
+		{
+			IOSProjectSettings ProjectSettings = ReadProjectSettings(ProjectFile);
+			return ReadProvisioningData(ProjectSettings, bForDistribution);
 		}
 
 		public IOSProvisioningData ReadProvisioningData(IOSProjectSettings ProjectSettings, bool bForDistribution = false)
@@ -682,11 +749,6 @@ namespace UnrealBuildTool
 		public override void PostBuildSync(UEBuildTarget Target)
 		{
 			IOSToolChain.PostBuildSync(Target);
-		}
-
-		public override void PostCodeGeneration(UHTManifest Manifest)
-		{
-			IOSToolChain.PostCodeGeneration(Manifest);
 		}
 
 		public bool HasCustomIcons(DirectoryReference ProjectDirectoryName)
@@ -750,17 +812,6 @@ namespace UnrealBuildTool
 			return HasCustomIcons(ProjectDirectoryName);
 		}
 
-		/// <summary>
-		/// Whether the editor should be built for this platform or not
-		/// </summary>
-		/// <param name="InPlatform"> The UnrealTargetPlatform being built</param>
-		/// <param name="InConfiguration">The UnrealTargetConfiguration being built</param>
-		/// <returns>bool   true if the editor should be built, false if not</returns>
-		public override bool ShouldNotBuildEditor(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
-			return true;
-		}
-
 		public override bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 		{
 			return true; // for iOS can only run cooked. this is mostly for testing console code paths.
@@ -770,11 +821,6 @@ namespace UnrealBuildTool
 		{
 			// This platform currently always compiles monolithic
 			return true;
-		}
-
-		public override bool UseAbsolutePathsInUnityFiles()
-		{
-			return false;
 		}
 
 		/// <summary>
@@ -826,16 +872,6 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-		}
-
-		/// <summary>
-		/// Converts the passed in path from UBT host to compiler native format.
-		/// </summary>
-		/// <param name="OriginalPath">The path to convert</param>
-		/// <returns>The path in native format for the toolchain</returns>
-		public override string ConvertPath(string OriginalPath)
-		{
-			return IOSToolChain.ConvertPath(OriginalPath);
 		}
 
 		/// <summary>

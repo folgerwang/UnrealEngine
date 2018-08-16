@@ -64,8 +64,8 @@ public:
 	virtual void OnCaptureStarted() {}
 	virtual void OnCaptureFinished(bool bSuccess);
 	virtual UWorld* GetWorld() const { return nullptr; }
-	virtual void Start() {};
-	virtual void Cancel() {};
+	virtual void Start() {}
+	virtual void Cancel() {}
 	virtual FCaptureState GetCaptureState() const
 	{
 		return FCaptureState();

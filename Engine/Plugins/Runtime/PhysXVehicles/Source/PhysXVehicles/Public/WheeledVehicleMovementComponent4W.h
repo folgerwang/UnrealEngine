@@ -183,7 +183,7 @@ class PHYSXVEHICLES_API UWheeledVehicleMovementComponent4W : public UWheeledVehi
 protected:
 
 
-#if WITH_PHYSX
+#if WITH_PHYSX && PHYSICS_INTERFACE_PHYSX
 
 	/** Allocate and setup the PhysX vehicle */
 	virtual void SetupVehicleDrive(physx::PxVehicleWheelsSimData* PWheelsSimData) override;

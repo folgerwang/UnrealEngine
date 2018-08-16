@@ -26,6 +26,7 @@ namespace UnrealBuildTool.Rules
 					"LuminRuntimeSettings",
 					"MLSDK",
                     "MagicLeap",
+                    "MagicLeapHelperVulkan",
             });
 
 			PrivateIncludePathModuleNames.AddRange(

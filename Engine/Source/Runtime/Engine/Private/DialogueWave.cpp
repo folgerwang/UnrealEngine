@@ -72,7 +72,7 @@ namespace
 				continue;
 			}
 
-			FTextSourceSiteContext& Context = ContextSpecificVariations[ContextSpecificVariations.AddDefaulted()];
+			FTextSourceSiteContext& Context = ContextSpecificVariations.AddDefaulted_GetRef();
 
 			// Setup the variation context
 			Context.KeyName = DialogueWave->GetContextLocalizationKey(ContextMapping);
@@ -329,7 +329,7 @@ namespace
 				});
 				if (!GatherableTextData)
 				{
-					GatherableTextData = &GatherableTextDataArray[GatherableTextDataArray.AddDefaulted()];
+					GatherableTextData = &GatherableTextDataArray.AddDefaulted_GetRef();
 					GatherableTextData->NamespaceName = InNamespace;
 					GatherableTextData->SourceData = SourceData;
 				}
@@ -369,7 +369,7 @@ namespace
 			{
 				FGatherableTextData& GatherableTextData = FindOrAddDialogueTextData(DialogueWave->VoiceActorDirection, FDialogueConstants::DialogueNotesNamespace);
 
-				FTextSourceSiteContext& SourceSiteContext = GatherableTextData.SourceSiteContexts[GatherableTextData.SourceSiteContexts.AddDefaulted()];
+				FTextSourceSiteContext& SourceSiteContext = GatherableTextData.SourceSiteContexts.AddDefaulted_GetRef();
 				SourceSiteContext.KeyName = DialogueWave->LocalizationGUID.ToString() + FDialogueConstants::ActingDirectionKeySuffix;
 				SourceSiteContext.SiteDescription = DialogueWave->GetPathName();
 				SourceSiteContext.IsEditorOnly = true;
@@ -723,14 +723,16 @@ void UDialogueWave::UpdateMappingProxy(FDialogueContextMapping& ContextMapping)
 		FSubtitleCue NewSubtitleCue;
 
 		// Do we have a subtitle override?
+		const FString* NewSubtitleCueSourceString = &SpokenText;
 		FString Key = GetContextLocalizationKey(ContextMapping);
 		if (bOverride_SubtitleOverride)
 		{
+			NewSubtitleCueSourceString = &SubtitleOverride;
 			Key += FDialogueConstants::SubtitleKeySuffix;
 		}
 
 		// First try and find a context specific localization
-		if (!FText::FindText(FDialogueConstants::DialogueNamespace, Key, /*OUT*/NewSubtitleCue.Text))
+		if (!FText::FindText(FDialogueConstants::DialogueNamespace, Key, /*OUT*/NewSubtitleCue.Text, NewSubtitleCueSourceString))
 		{
 			// Failing that, try and find a general dialogue wave localization
 			Key = LocalizationGUID.ToString();
@@ -739,9 +741,9 @@ void UDialogueWave::UpdateMappingProxy(FDialogueContextMapping& ContextMapping)
 				Key += FDialogueConstants::SubtitleKeySuffix;
 			}
 
-			if (!FText::FindText(FDialogueConstants::DialogueNamespace, Key, /*OUT*/NewSubtitleCue.Text))
+			if (!FText::FindText(FDialogueConstants::DialogueNamespace, Key, /*OUT*/NewSubtitleCue.Text, NewSubtitleCueSourceString))
 			{
-				NewSubtitleCue.Text = bOverride_SubtitleOverride ? FText::FromString(SubtitleOverride) : FText::FromString(SpokenText);
+				NewSubtitleCue.Text = bOverride_SubtitleOverride ? FText::AsCultureInvariant(SubtitleOverride) : FText::AsCultureInvariant(SpokenText);
 			}
 		}
 		NewSubtitleCue.Time = 0.0f;

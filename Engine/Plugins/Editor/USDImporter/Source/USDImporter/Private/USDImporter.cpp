@@ -211,7 +211,7 @@ TArray<UObject*> UUSDImporter::ImportMeshes(FUsdImportContext& ImportContext, co
 			}
 
 
-			NewPackageName = PackageTools::SanitizePackageName(FinalPackagePathName);
+			NewPackageName = UPackageTools::SanitizePackageName(FinalPackagePathName);
 		
 			// Once we've already imported it we dont need to import it again
 			if(!ImportContext.PathToImportAssetMap.Contains(NewPackageName))
@@ -334,26 +334,15 @@ void FUsdImportContext::Init(UObject* InParent, const FString& InName, IUsdStage
 	if(InStage->GetUpAxis() == EUsdUpAxis::ZAxis)
 	{
 		// A matrix that converts Z up right handed coordinate system to Z up left handed (unreal)
-		ConversionTransform =
-			FTransform(FMatrix
-			(
-				FPlane(1, 0, 0, 0),
-				FPlane(0, -1, 0, 0),
-				FPlane(0, 0, 1, 0),
-				FPlane(0, 0, 0, 1)
-			));
+		ConversionTransform = FTransform(FRotator(0, 180, 0));
 	}
-	else
+	else if (InStage->GetUpAxis() == EUsdUpAxis::YAxis)
 	{
-		// A matrix that converts Y up right handed coordinate system to Z up left handed (unreal)
-		ConversionTransform =
-			FTransform(FMatrix
-			(
-				FPlane(1, 0, 0, 0),
-				FPlane(0, 0, 1, 0),
-				FPlane(0, -1, 0, 0),
-				FPlane(0, 0, 0, 1)
-			));
+		ConversionTransform = FTransform(FRotator(0, 180, -90));
+	}
+	else if (InStage->GetUpAxis() == EUsdUpAxis::XAxis)
+	{
+		ConversionTransform = FTransform(FRotator(0, 0, 0));
 	}
 	Stage = InStage;
 	RootPrim = InStage->GetRootPrim();

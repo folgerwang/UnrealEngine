@@ -16,6 +16,7 @@ USequenceRecorderSettings::USequenceRecorderSettings(const FObjectInitializer& O
 	bImmersiveMode = false;
 	SequenceLength = FAnimationRecordingSettings::DefaultMaximumLength;
 	RecordingDelay = 4.0f;
+	bAllowLooping = false;
 	AnimationSubDirectory = TEXT("Animations");
 	AudioSubDirectory = TEXT("Audio");
 	AudioGain = 0.0f;
@@ -26,6 +27,8 @@ USequenceRecorderSettings::USequenceRecorderSettings(const FObjectInitializer& O
 	bRecordWorldSettingsActor = true;
 	bReduceKeys = true;
 	bAutoSaveAsset = false;
+	GlobalTimeDilation = 1.0f;
+	bIgnoreTimeDilation = false;
 
 	ClassesAndPropertiesToRecord.Add(FPropertiesToRecordForClass(USkeletalMeshComponent::StaticClass()));
 	ClassesAndPropertiesToRecord.Add(FPropertiesToRecordForClass(UStaticMeshComponent::StaticClass()));

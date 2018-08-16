@@ -819,7 +819,7 @@ bool FLayoutUV::PackCharts()
 			{
 				if ( LayoutVersion >= ELightmapUVVersion::Segments && Orientation % 4 == 1 )
 				{
-					ChartRaster.FlipX( Rect );
+					ChartRaster.FlipX( Rect, LayoutVersion );
 				}
 				else if ( LayoutVersion >= ELightmapUVVersion::Segments && Orientation % 4 == 3 )
 				{

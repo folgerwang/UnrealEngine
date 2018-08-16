@@ -124,7 +124,13 @@ class UKismetRenderingLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (WorldContext = "WorldContextObject"))
 	static ENGINE_API UTexture2D* ImportFileAsTexture2D(UObject* WorldContextObject, const FString& Filename);
 
-	/** 
+	/**
+	 * Imports a texture from a buffer and creates Texture2D from it.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (WorldContext = "WorldContextObject"))
+	static ENGINE_API UTexture2D* ImportBufferAsTexture2D(UObject* WorldContextObject, const TArray<uint8>& Buffer);
+	
+	/**
 	 * Returns a Canvas object that can be used to draw to the specified render target.
 	 * Canvas has functions like DrawMaterial with size parameters that can be used to draw to a specific area of a render target.
 	 * Be sure to call EndDrawCanvasToRenderTarget to complete the rendering!

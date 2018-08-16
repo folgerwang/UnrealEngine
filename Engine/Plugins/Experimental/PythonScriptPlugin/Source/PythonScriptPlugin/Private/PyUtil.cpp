@@ -988,8 +988,8 @@ FString GetFriendlyStructValue(const UScriptStruct* InStruct, const void* InStru
 	}
 	else
 	{
-		const UScriptStruct* ScriptStruct = CastChecked<UScriptStruct>(InStruct);
-		ScriptStruct->ExportText(FriendlyStructValue, InStructValue, InStructValue, nullptr, InPortFlags, nullptr);
+		check(InStruct);
+		InStruct->ExportText(FriendlyStructValue, InStructValue, InStructValue, nullptr, InPortFlags, nullptr);
 	}
 
 	return FriendlyStructValue;

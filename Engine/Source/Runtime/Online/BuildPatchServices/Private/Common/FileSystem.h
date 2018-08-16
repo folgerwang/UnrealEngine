@@ -6,7 +6,7 @@
 
 namespace BuildPatchServices
 {
-	enum class EFileAttributes : uint32
+	enum class EAttributeFlags : uint32
 	{
 		// Value for no attributes.
 		None        = 0,
@@ -19,9 +19,9 @@ namespace BuildPatchServices
 		// Whether the file is executable.
 		Executable  = 1 << 3
 	};
-	ENUM_CLASS_FLAGS(EFileAttributes);
+	ENUM_CLASS_FLAGS(EAttributeFlags);
 
-	enum class EFileWrite : uint32
+	enum class EWriteFlags : uint32
 	{
 		None                = 0,
 		NoFail              = 1 << 0,
@@ -30,16 +30,16 @@ namespace BuildPatchServices
 		Append              = 1 << 3,
 		AllowRead           = 1 << 4
 	};
-	ENUM_CLASS_FLAGS(EFileWrite);
+	ENUM_CLASS_FLAGS(EWriteFlags);
 
-	enum class EFileRead : uint32
+	enum class EReadFlags : uint32
 	{
 		None                = 0,
 		NoFail              = 1 << 0,
 		Silent              = 1 << 1,
 		AllowWrite          = 1 << 2
 	};
-	ENUM_CLASS_FLAGS(EFileRead);
+	ENUM_CLASS_FLAGS(EReadFlags);
 
 	/**
 	 * The File System class is used for classes which require file access. It wraps Core IFileManager, and IPlatformFile. Also provides additional
@@ -62,10 +62,10 @@ namespace BuildPatchServices
 		/**
 		 * Get the attributes for a file.
 		 * @param Filename          The filename for the request.
-		 * @param FileAttributes    Receives the attribute flags if successful.
+		 * @param Attributes        Receives the attribute flags if successful.
 		 * @return true if successful.
 		 */
-		virtual bool GetFileAttributes(const TCHAR* Filename, EFileAttributes& FileAttributes) const = 0;
+		virtual bool GetAttributes(const TCHAR* Filename, EAttributeFlags& Attributes) const = 0;
 
 		/**
 		 * Set whether the file is readonly.
@@ -97,7 +97,7 @@ namespace BuildPatchServices
 		 * @param ReadFlags         The file open flags.
 		 * @return unique pointer to the created archive, invalid if failed to open the file.
 		 */
-		virtual TUniquePtr<FArchive> CreateFileReader(const TCHAR* Filename, EFileRead ReadFlags = EFileRead::None) const = 0;
+		virtual TUniquePtr<FArchive> CreateFileReader(const TCHAR* Filename, EReadFlags ReadFlags = EReadFlags::None) const = 0;
 
 		/**
 		 * Creates file writer archive.
@@ -105,7 +105,7 @@ namespace BuildPatchServices
 		 * @param WriteFlags        The file open flags.
 		 * @return unique pointer to the created archive, invalid if failed to open the file.
 		 */
-		virtual TUniquePtr<FArchive> CreateFileWriter(const TCHAR* Filename, EFileWrite WriteFlags = EFileWrite::None) const = 0;
+		virtual TUniquePtr<FArchive> CreateFileWriter(const TCHAR* Filename, EWriteFlags WriteFlags = EWriteFlags::None) const = 0;
 
 		/**
 		 * Delete a file.
@@ -121,6 +121,21 @@ namespace BuildPatchServices
 		 * @return true if the file was moved/renamed successfully.
 		 */
 		virtual bool MoveFile(const TCHAR* FileDest, const TCHAR* FileSource) const = 0;
+
+		/**
+		 * Copy a file.
+		 * @param FileDest          The destination file path.
+		 * @param FileSource        The source file path.
+		 * @return true if the file was copied successfully.
+		 */
+		virtual bool CopyFile(const TCHAR* FileDest, const TCHAR* FileSource) const = 0;
+
+		/**
+		 * Checks whether a file exists.
+		 * @param Filename          The file to check.
+		 * @return true if file exists.
+		 */
+		virtual bool FileExists(const TCHAR* Filename) const = 0;
 	};
 
 	/**

@@ -1195,11 +1195,15 @@ PyObject* FindOrLoadAssetImpl(PyObject* InSelf, PyObject* InArgs, PyObject* InKw
 		return nullptr;
 	}
 
-	UClass* ObjectType = UObject::StaticClass();
+	UClass* ObjectType = nullptr;
 	if (PyTypeObj && !PyConversion::NativizeClass(PyTypeObj, ObjectType, nullptr))
 	{
 		PyUtil::SetPythonError(PyExc_TypeError, InFuncName, *FString::Printf(TEXT("Failed to convert 'type' (%s) to 'Class'"), *PyUtil::GetFriendlyTypename(PyTypeObj)));
 		return nullptr;
+	}
+	if (!ObjectType)
+	{
+		ObjectType = UObject::StaticClass();
 	}
 
 	UObject* PotentialAsset = InFunc(UObject::StaticClass(), nullptr, *ObjectName);

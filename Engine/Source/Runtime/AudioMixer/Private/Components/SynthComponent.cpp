@@ -157,52 +157,55 @@ void USynthComponent::Deactivate()
 
 void USynthComponent::Initialize(int32 SampleRateOverride)
 {
-	if (!bIsInitialized)
+	// Try to get a proper sample rate
+	int32 SampleRate = SampleRateOverride;
+	if (SampleRate == INDEX_NONE)
 	{
-		// Try to get a proper sample rate
-		int32 SampleRate = SampleRateOverride;
-		if (SampleRate == INDEX_NONE)
+		// Check audio device if we've not explicitly been told what sample rate to use
+		FAudioDevice* AudioDevice = GetAudioDevice();
+		if (AudioDevice)
 		{
-			// Check audio device if we've not explicitly been told what sample rate to use
-			FAudioDevice* AudioDevice = GetAudioDevice();
-			if (AudioDevice)
-			{
-				SampleRate = AudioDevice->SampleRate;
-			}
+			SampleRate = AudioDevice->SampleRate;
+		}
+	}
+
+	// Only allow initialization if we've gota  proper sample rate
+	if (SampleRate != INDEX_NONE)
+	{
+#if SYNTH_GENERATOR_TEST_TONE
+		NumChannels = 2;
+		TestSineLeft.Init(SampleRate, 440.0f, 0.5f);
+		TestSineRight.Init(SampleRate, 220.0f, 0.5f);
+#else	
+		// Initialize the synth component
+		this->Init(SampleRate);
+
+		if (NumChannels < 0 || NumChannels > 2)
+		{
+			UE_LOG(LogAudioMixer, Error, TEXT("Synthesis component '%s' has set an invalid channel count '%d' (only mono and stereo currently supported)."), *GetName(), NumChannels);
 		}
 
-		// Only allow initialization if we've gota  proper sample rate
-		if (SampleRate != INDEX_NONE)
-		{
-			bIsInitialized = true;
-
-#if SYNTH_GENERATOR_TEST_TONE
-			NumChannels = 2;
-			TestSineLeft.Init(SampleRate, 440.0f, 0.5f);
-			TestSineRight.Init(SampleRate, 220.0f, 0.5f);
-#else	
-			// Initialize the synth component
-			this->Init(SampleRate);
-
-			if (NumChannels < 0 || NumChannels > 2)
-			{
-				UE_LOG(LogAudioMixer, Error, TEXT("Synthesis component '%s' has set an invalid channel count '%d' (only mono and stereo currently supported)."), *GetName(), NumChannels);
-			}
-
-			NumChannels = FMath::Clamp(NumChannels, 1, 2);
+		NumChannels = FMath::Clamp(NumChannels, 1, 2);
 #endif
 
+		if (nullptr == Synth)
+		{
 			Synth = NewObject<USynthSound>(this, TEXT("Synth"));
+		}
 
-			// Copy sound base data to the sound
-			Synth->SourceEffectChain = SourceEffectChain;
-			Synth->SoundSubmixObject = SoundSubmix;
-			Synth->SoundSubmixSends = SoundSubmixSends;
-			Synth->BusSends = BusSends;
-			Synth->PreEffectBusSends = PreEffectBusSends;
-			Synth->bOutputToBusOnly = bOutputToBusOnly;
+		// Copy sound base data to the sound
+		Synth->SourceEffectChain = SourceEffectChain;
+		Synth->SoundSubmixObject = SoundSubmix;
+		Synth->SoundSubmixSends = SoundSubmixSends;
+		Synth->BusSends = BusSends;
+		Synth->PreEffectBusSends = PreEffectBusSends;
+		Synth->bOutputToBusOnly = bOutputToBusOnly;
 
-			Synth->Init(this, NumChannels, SampleRate, PreferredBufferLength);
+		Synth->Init(this, NumChannels, SampleRate, PreferredBufferLength);
+
+		if (FAudioDevice* AudioDevice = AudioComponent->GetAudioDevice())
+		{
+			Synth->StartOnAudioDevice(AudioDevice);
 		}
 	}
 }
@@ -239,13 +242,6 @@ void USynthComponent::CreateAudioComponent()
 			// Set defaults to be the same as audio component defaults
 			AudioComponent->EnvelopeFollowerAttackTime = EnvelopeFollowerAttackTime;
 			AudioComponent->EnvelopeFollowerReleaseTime = EnvelopeFollowerReleaseTime;
-
-			Initialize();
-
-			if (FAudioDevice* AudioDevice = AudioComponent->GetAudioDevice())
-			{
-				Synth->StartOnAudioDevice(AudioDevice);
-			}
 		}
 	}
 }
@@ -253,8 +249,6 @@ void USynthComponent::CreateAudioComponent()
 
 void USynthComponent::OnRegister()
 {
-	CreateAudioComponent();
-
 	Super::OnRegister();
 }
 

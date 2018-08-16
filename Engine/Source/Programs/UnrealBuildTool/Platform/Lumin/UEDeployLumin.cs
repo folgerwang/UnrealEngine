@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using Tools.DotNETCommon;
 using System.Linq;
 using System.Xml;
@@ -76,6 +77,33 @@ namespace UnrealBuildTool
 			return ApplicationDisplayName;
 		}
 
+        private string GetMinimumOSVersionRequired()
+        {
+            string MinOSVersionRequired = GetRuntimeSetting("MinimumOSVersion");
+            return String.IsNullOrWhiteSpace(MinOSVersionRequired) ? "nova_1.0" : MinOSVersionRequired;
+        }
+
+        private void GetAppPrivileges(ConfigHierarchy EngineIni, StringBuilder Text)
+        {
+			List<string> AppPrivileges;
+			EngineIni.GetArray("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "AppPrivileges", out AppPrivileges);
+			if (AppPrivileges != null)
+			{
+				foreach (string Privilege in AppPrivileges)
+				{
+					string TrimmedPrivilege = Privilege.Trim(' ');
+					if (TrimmedPrivilege != "")
+					{
+						string PrivilegeString = string.Format("\t\t\t<uses-privilege ml:name=\"{0}\"/>", TrimmedPrivilege);
+						if (!Text.ToString().Contains(PrivilegeString))
+						{
+							Text.AppendLine(PrivilegeString);
+						}
+					}
+				}
+			}
+        }
+
 		private string CleanFilePath(string FilePath)
 		{
 			// Removes the extra characters from a FFilePath parameter.
@@ -96,6 +124,45 @@ namespace UnrealBuildTool
 			return "Icon/Portal";
 		}
 
+        public string GetMLSDKVersion(ConfigHierarchy EngineIni)
+        {
+            string MLSDKPath;
+            string Major = "0";
+            string Minor = "0";
+            if (EngineIni.GetString("/Script/LuminPlatformEditor.MagicLeapSDKSettings", "MLSDKPath", out MLSDKPath) && !string.IsNullOrWhiteSpace(MLSDKPath))
+            {
+                Dictionary<string, string> PathEntry;
+                ConfigHierarchy.TryParse(MLSDKPath, out PathEntry);
+                MLSDKPath = PathEntry.Values.First();
+            }
+            if (string.IsNullOrWhiteSpace(MLSDKPath))
+            {
+                MLSDKPath = Environment.GetEnvironmentVariable("MLSDK");
+            }
+            if (!string.IsNullOrEmpty(MLSDKPath))
+            {
+                if (Directory.Exists(MLSDKPath))
+                {
+                    String VersionFile = string.Format("{0}/include/ml_version.h", MLSDKPath).Replace('/', Path.DirectorySeparatorChar);
+                    if (File.Exists(VersionFile))
+                    {
+                        string FileText = File.ReadAllText(VersionFile);
+                        string Pattern = @"(MLSDK_VERSION_MAJOR) (?'MAJOR'\d+).*(MLSDK_VERSION_MINOR) (?'MINOR'\d+).*(MLSDK_VERSION_REVISION) (?'REV'\d+)";
+                        Regex VersionRegex = new Regex(Pattern, RegexOptions.Singleline);
+                        MatchCollection Matches = VersionRegex.Matches(FileText);
+                        if (Matches.Count > 0 &&
+                            !string.IsNullOrEmpty(Matches[0].Groups["MAJOR"].Value) &&
+                            !string.IsNullOrEmpty(Matches[0].Groups["MINOR"].Value))
+                        {
+                            Major = Matches[0].Groups["MAJOR"].Value;
+                            Minor = Matches[0].Groups["MINOR"].Value;
+                        }
+                    }
+                }
+            }
+            return string.Format("{0}.{1}", Major, Minor);
+        }
+
 		public string GenerateManifest(string ProjectName, bool bForDistribution, string Architecture)
 		{
 			ConfigHierarchy GameIni = GetConfigCacheIni(ConfigHierarchyType.Game);
@@ -110,39 +177,24 @@ namespace UnrealBuildTool
 			int VersionCode;
 			EngineIni.GetInt32("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "VersionCode", out VersionCode);
 
-			bool bInternetRequired;
-			EngineIni.GetBool("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "bInternetRequired", out bInternetRequired);
+			string SDKVersion = GetMLSDKVersion(EngineIni);
 
 			StringBuilder Text = new StringBuilder();
 
 			string PackageName = GetPackageName(ProjectName);
 			string ApplicationDisplayName = GetApplicationDisplayName(ProjectName);
+			string MinimumOSVersion = GetMinimumOSVersionRequired();
 			string TargetExecutableName = "bin/" + ProjectName;
 
 			Text.AppendLine(string.Format("<manifest xmlns:ml=\"magicleap\" ml:package=\"{0}\" ml:version_name=\"{1}\" ml:version_code=\"{2}\">", PackageName, ProjectVersion, VersionCode));
-			// @mltodo: query sdk_version
-			Text.AppendLine(string.Format("\t<application ml:visible_name=\"{0}\" ml:is_debuggable=\"{1}\" ml:sdk_version=\"1.0\" ml:minimum_os=\"mlos_1.0\" ml:internet_required=\"{2}\">", ApplicationDisplayName, bForDistribution ? "false" : "true", bInternetRequired ? "true" : "false"));
+			Text.AppendLine(string.Format("\t<application ml:visible_name=\"{0}\" ml:sdk_version=\"{1}\" ml:minimum_os=\"{2}\">",
+                ApplicationDisplayName,
+                SDKVersion,
+                MinimumOSVersion));
+            GetAppPrivileges(EngineIni, Text);
 			Text.AppendLine(string.Format("\t\t<component ml:name=\".fullscreen\" ml:visible_name=\"{0}\" ml:binary_name=\"{1}\" ml:type=\"{2}\">", ApplicationDisplayName, TargetExecutableName, GetApplicationType()));
 
-			List<string> AppPrivileges;
-			EngineIni.GetArray("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "AppPrivileges", out AppPrivileges);
-			if (AppPrivileges != null)
-			{
-				foreach (string Privilege in AppPrivileges)
-				{
-					string TrimmedPrivilege = Privilege.Trim(' ');
-					if (TrimmedPrivilege != "")
-					{
-						string PrivilegeString = string.Format("\t\t\t<uses-privilege ml:name=\"{0}\"/>", TrimmedPrivilege);
-						if (!Text.ToString().Contains(PrivilegeString))
-						{
-							Text.AppendLine(PrivilegeString);
-						}
-					}
-				}
-			}
-
-			string IconTag = string.Format("<icon ml:name=\"fullscreen\" ml:model_folder=\"{0}\" ml:portal_folder=\"{1}\"/>", GetIconModelStagingPath(), GetIconPortalStagingPath());
+			string IconTag = string.Format("<icon ml:model_folder=\"{0}\" ml:portal_folder=\"{1}\"/>", GetIconModelStagingPath(), GetIconPortalStagingPath());
 			Text.AppendLine(string.Format("\t\t\t{0}", IconTag));
 
 			List<string> ExtraComponentNodes;
@@ -167,7 +219,6 @@ namespace UnrealBuildTool
 				}
 			}
 
-			Text.AppendLine(string.Format("\t\t{0}", IconTag));
 			Text.AppendLine("\t</application>");
 			Text.AppendLine("</manifest>");
 
@@ -245,7 +296,7 @@ namespace UnrealBuildTool
 			return UPL.ProcessPluginNode(Architecture, "stageFiles", "");
 		}
 
-		public void MakeMabuPackage(string ProjectName, DirectoryReference ProjectDirectory, string ExePath, bool bForDistribution, string EngineDir)
+		private void MakeMabuPackage(string ProjectName, DirectoryReference ProjectDirectory, string ExePath, bool bForDistribution, string EngineDir, string MpkName)
 		{
 			string UE4BuildPath = Path.Combine(ProjectDirectory.FullName, "Intermediate/Lumin/Mabu");
 			string MabuOutputPath = Path.Combine(UE4BuildPath, "Packaged");
@@ -255,6 +306,20 @@ namespace UnrealBuildTool
 
 
 			LuminToolChain ToolChain = new LuminToolChain(ProjectFile);
+
+			// If asked for, and if we are doing a distribution package, we strip debug symbols.
+			string ExecSrcFile = Path.Combine(UE4BuildPath, "Binaries", Path.GetFileName(ExePath));
+			if (bForDistribution)
+			{
+				Directory.CreateDirectory(Path.GetDirectoryName(ExecSrcFile));
+				ToolChain.StripSymbols(new Tools.DotNETCommon.FileReference(ExePath), new Tools.DotNETCommon.FileReference(ExecSrcFile));
+			}
+			else
+			{
+				// The generated mabu needs the src exe file. So we copy the original as-is so mabu can find it.
+				Directory.CreateDirectory(Path.GetDirectoryName(ExecSrcFile));
+				File.Copy(ExePath, ExecSrcFile, true);
+			}
 
 			// Generate manifest (after UPL is setup
 			string Architecture = "arm64-v8a";
@@ -296,28 +361,22 @@ namespace UnrealBuildTool
 			// @todo Lumin: This is losing the -Debug-Lumin stuff :|
 			string SourceMpkPath = Path.Combine(MabuOutputPath, GetPackageName(ProjectName) + ".mpk");
 
-			string MpkName = Path.GetFileNameWithoutExtension(ExePath) + ".mpk";
-			if (MpkName.StartsWith("UE4Game"))
+			if (!Directory.Exists(Path.GetDirectoryName(MpkName)))
 			{
-				MpkName = MpkName.Replace("UE4Game", ProjectName);
+				Directory.CreateDirectory(Path.GetDirectoryName(MpkName));
 			}
-			string DestMpkPath = Path.Combine(ProjectDirectory.FullName, "Binaries/Lumin", MpkName);
-			if (!Directory.Exists(Path.GetDirectoryName(DestMpkPath)))
+			if (File.Exists(MpkName))
 			{
-				Directory.CreateDirectory(Path.GetDirectoryName(DestMpkPath));
+				File.Delete(MpkName);
 			}
-			if (File.Exists(DestMpkPath))
-			{
-				File.Delete(DestMpkPath);
-			}
-			File.Copy(SourceMpkPath, DestMpkPath);
+			File.Copy(SourceMpkPath, MpkName);
 		}
 
-		public bool PrepForUATPackageOrDeploy(FileReference ProjectFile, string InProjectName, DirectoryReference InProjectDirectory, string InExecutablePath, string InEngineDir, bool bForDistribution, string CookFlavor, bool bIsDataDeploy)
+		public bool PrepForUATPackageOrDeploy(FileReference ProjectFile, string InProjectName, DirectoryReference InProjectDirectory, string InExecutablePath, string InEngineDir, bool bForDistribution, string CookFlavor, bool bIsDataDeploy, string MpkName)
 		{
 			if (!bIsDataDeploy)
 			{
-				MakeMabuPackage(InProjectName, InProjectDirectory, InExecutablePath, bForDistribution, InEngineDir);
+				MakeMabuPackage(InProjectName, InProjectDirectory, InExecutablePath, bForDistribution, InEngineDir, MpkName);
 			}
 			return true;
 		}

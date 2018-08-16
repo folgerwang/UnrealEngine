@@ -11,33 +11,28 @@ FStructuredArchiveFormatter::~FStructuredArchiveFormatter()
 {
 }
 
-bool FStructuredArchiveFormatter::RequiresStructuralMetadata() const
-{
-	return true;
-}
-
 //////////// Functions ////////////
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
-	static void CopyFormattedSlot(FAnnotatedStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter, EArchiveValueType Type);
+	static void CopyFormattedSlot(FStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter, EArchiveValueType Type);
 
-	template<typename Type> static void CopyFormattedValue(FAnnotatedStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
+	template<typename Type> static void CopyFormattedValue(FStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
 	{
 		Type Value;
 		InputFormatter.Serialize(Value);
 		OutputFormatter.Serialize(Value);
 	}
 
-	static void CopyFormattedRecord(FAnnotatedStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
+	static void CopyFormattedRecord(FStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
 	{
 		TArray<FString> Fields;
-		InputFormatter.EnterRecord(Fields);
+		InputFormatter.EnterRecord_TextOnly(Fields);
 		OutputFormatter.EnterRecord();
 
 		for (const FString& Field : Fields)
 		{
 			EArchiveValueType Type;
-			InputFormatter.EnterField(FArchiveFieldName(*Field), Type);
+			InputFormatter.EnterField_TextOnly(FArchiveFieldName(*Field), Type);
 			OutputFormatter.EnterField(FArchiveFieldName(*Field));
 
 			CopyFormattedSlot(InputFormatter, OutputFormatter, Type);
@@ -50,7 +45,7 @@ bool FStructuredArchiveFormatter::RequiresStructuralMetadata() const
 		InputFormatter.LeaveRecord();
 	}
 
-	static void CopyFormattedArray(FAnnotatedStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
+	static void CopyFormattedArray(FStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
 	{
 		int32 NumElements = 0;
 		InputFormatter.EnterArray(NumElements);
@@ -59,7 +54,7 @@ bool FStructuredArchiveFormatter::RequiresStructuralMetadata() const
 		for (int32 Idx = 0; Idx < NumElements; Idx++)
 		{
 			EArchiveValueType Type;
-			InputFormatter.EnterArrayElement(Type);
+			InputFormatter.EnterArrayElement_TextOnly(Type);
 			OutputFormatter.EnterArrayElement();
 
 			CopyFormattedSlot(InputFormatter, OutputFormatter, Type);
@@ -72,16 +67,16 @@ bool FStructuredArchiveFormatter::RequiresStructuralMetadata() const
 		InputFormatter.LeaveArray();
 	}
 
-	static void CopyFormattedStream(FAnnotatedStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
+	static void CopyFormattedStream(FStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
 	{
 		int32 NumElements = 0;
-		InputFormatter.EnterStream(NumElements);
+		InputFormatter.EnterStream_TextOnly(NumElements);
 		OutputFormatter.EnterStream();
 
 		for (int32 Idx = 0; Idx < NumElements; Idx++)
 		{
 			EArchiveValueType Type;
-			InputFormatter.EnterStreamElement(Type);
+			InputFormatter.EnterStreamElement_TextOnly(Type);
 			OutputFormatter.EnterStreamElement();
 
 			CopyFormattedSlot(InputFormatter, OutputFormatter, Type);
@@ -94,7 +89,7 @@ bool FStructuredArchiveFormatter::RequiresStructuralMetadata() const
 		InputFormatter.LeaveStream();
 	}
 
-	static void CopyFormattedMap(FAnnotatedStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
+	static void CopyFormattedMap(FStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
 	{
 		int32 NumElements = 0;
 		InputFormatter.EnterMap(NumElements);
@@ -104,7 +99,7 @@ bool FStructuredArchiveFormatter::RequiresStructuralMetadata() const
 		{
 			FString Key;
 			EArchiveValueType Type;
-			InputFormatter.EnterMapElement(Key, Type);
+			InputFormatter.EnterMapElement_TextOnly(Key, Type);
 			OutputFormatter.EnterMapElement(Key);
 
 			CopyFormattedSlot(InputFormatter, OutputFormatter, Type);
@@ -117,7 +112,7 @@ bool FStructuredArchiveFormatter::RequiresStructuralMetadata() const
 		InputFormatter.LeaveMap();
 	}
 
-	static void CopyFormattedSlot(FAnnotatedStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter, EArchiveValueType Type)
+	static void CopyFormattedSlot(FStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter, EArchiveValueType Type)
 	{
 		switch (Type)
 		{
@@ -181,7 +176,7 @@ bool FStructuredArchiveFormatter::RequiresStructuralMetadata() const
 		}
 	}
 
-	CORE_API void CopyFormattedData(FAnnotatedStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
+	CORE_API void CopyFormattedData(FStructuredArchiveFormatter& InputFormatter, FStructuredArchiveFormatter& OutputFormatter)
 	{
 		CopyFormattedRecord(InputFormatter, OutputFormatter);
 	}

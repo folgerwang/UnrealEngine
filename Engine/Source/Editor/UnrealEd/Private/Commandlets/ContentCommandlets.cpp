@@ -766,7 +766,7 @@ void UResavePackagesCommandlet::DeleteOnePackage(const FString& Filename)
 		// Unload package so we can delete it
 		TArray<UPackage *> PackagesToDelete;
 		PackagesToDelete.Add(Package);
-		PackageTools::UnloadPackages(PackagesToDelete);
+		UPackageTools::UnloadPackages(PackagesToDelete);
 		PackagesToDelete.Empty();
 		Package = nullptr;
 	}
@@ -866,9 +866,8 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	bForceUATEnvironmentVariableSet = false;
 	if (bShouldBuildHLOD)
 	{
-		TCHAR MutexVariableValue = 0;
-		FPlatformMisc::GetEnvironmentVariable(TEXT("uebp_UATMutexNoWait"), &MutexVariableValue, 1);
-		if (MutexVariableValue != 1)
+		FString MutexVariableValue = FPlatformMisc::GetEnvironmentVariable(TEXT("uebp_UATMutexNoWait"));
+		if (MutexVariableValue != TEXT("1"))
 		{
 			FPlatformMisc::SetEnvironmentVar(TEXT("uebp_UATMutexNoWait"), TEXT("1"));
 			bForceUATEnvironmentVariableSet = true;

@@ -62,7 +62,7 @@
 #ifndef CITY_HASH_H_
 #define CITY_HASH_H_
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
 
 struct Uint128_64
 {

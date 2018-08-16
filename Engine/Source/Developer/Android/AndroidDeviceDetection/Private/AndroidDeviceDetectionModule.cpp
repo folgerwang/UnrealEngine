@@ -84,11 +84,12 @@ public:
 		return 0;
 	}
 
-	void UpdateADBPath(FString &InADBPath, FString& InGetPropCommand, bool InbGetExtensionsViaSurfaceFlinger)
+	void UpdateADBPath(FString &InADBPath, FString& InGetPropCommand, bool InbGetExtensionsViaSurfaceFlinger, bool InbForLumin)
 	{
 		ADBPath = InADBPath;
 		GetPropCommand = InGetPropCommand;
 		bGetExtensionsViaSurfaceFlinger = InbGetExtensionsViaSurfaceFlinger;
+		bForLumin = InbForLumin;
 
 		HasADBPath = !ADBPath.IsEmpty();
 		// Force a check next time we go around otherwise it can take over 10sec to find devices
@@ -175,6 +176,22 @@ private:
 			const FString DeviceState = DeviceString.Mid(TabIndex + 1).TrimStart();
 
 			NewDeviceInfo.bAuthorizedDevice = DeviceState != TEXT("unauthorized");
+			if (bForLumin)
+			{
+				// 'mldb oobestaus' is deprecated. 'mldb ps' gives us similar functionality for checking device readiness to some extent.
+				const FString OobeCommand = FString::Printf(TEXT("-s %s ps"), *NewDeviceInfo.SerialNumber);
+				FString OobeStatus;
+				NewDeviceInfo.bAuthorizedDevice = ExecuteAdbCommand(*OobeCommand, &OobeStatus, nullptr);
+				if (DeviceMap.Contains(NewDeviceInfo.SerialNumber))
+				{
+					if (DeviceMap[NewDeviceInfo.SerialNumber].bAuthorizedDevice != NewDeviceInfo.bAuthorizedDevice)
+					{
+						// if this device is already in the connected list but authorization has changed, remove it.
+						// it will be added in the next query which will allow UI to refresh properly.
+						continue;
+					}
+				}
+			}
 
 			// add it to our list of currently connected devices
 			CurrentlyConnectedDevices.Add(NewDeviceInfo.SerialNumber);
@@ -182,12 +199,12 @@ private:
 			// move on to next device if this one is already a known device that has either already been authorized or the authorization
 			// status has not changed
 			if (DeviceMap.Contains(NewDeviceInfo.SerialNumber) && 
-				(DeviceMap[NewDeviceInfo.SerialNumber].bAuthorizedDevice || !NewDeviceInfo.bAuthorizedDevice))
-			{					
+				(DeviceMap[NewDeviceInfo.SerialNumber].bAuthorizedDevice == NewDeviceInfo.bAuthorizedDevice))
+			{
 				continue;
 			}
 
-			if (!NewDeviceInfo.bAuthorizedDevice)
+			if (!NewDeviceInfo.bAuthorizedDevice && !bForLumin)
 			{
 				//note: AndroidTargetDevice::GetName() does not fetch this value, do not rely on this
 				NewDeviceInfo.DeviceName = TEXT("Unauthorized - enable USB debugging");
@@ -356,6 +373,7 @@ private:
 	FString ADBPath;
 	FString GetPropCommand;
 	bool bGetExtensionsViaSurfaceFlinger;
+	bool bForLumin;
 
 	// > 0 if we've been asked to abort work in progress at the next opportunity
 	FThreadSafeCounter StopTaskCounter;
@@ -392,12 +410,13 @@ public:
 		}
 	}
 
-	virtual void Initialize(const TCHAR* InSDKDirectoryEnvVar, const TCHAR* InSDKRelativeExePath, const TCHAR* InGetPropCommand, bool InbGetExtensionsViaSurfaceFlinger) override
+	virtual void Initialize(const TCHAR* InSDKDirectoryEnvVar, const TCHAR* InSDKRelativeExePath, const TCHAR* InGetPropCommand, bool InbGetExtensionsViaSurfaceFlinger, bool InbForLumin = false) override
 	{
 		SDKDirEnvVar = InSDKDirectoryEnvVar;
 		SDKRelativeExePath = InSDKRelativeExePath;
 		GetPropCommand = InGetPropCommand;
 		bGetExtensionsViaSurfaceFlinger = InbGetExtensionsViaSurfaceFlinger;
+		bForLumin = InbForLumin;
 		UpdateADBPath();
 	}
 
@@ -420,13 +439,12 @@ public:
 	virtual void UpdateADBPath() override
 	{
 		FScopeLock PathUpdateLock(&ADBPathCheckLock);
-		TCHAR AndroidDirectory[32768] = { 0 };
-		FPlatformMisc::GetEnvironmentVariable(*SDKDirEnvVar, AndroidDirectory, 32768);
+		FString AndroidDirectory = FPlatformMisc::GetEnvironmentVariable(*SDKDirEnvVar);
 
 		ADBPath.Empty();
 		
 #if PLATFORM_MAC || PLATFORM_LINUX
-		if (AndroidDirectory[0] == 0)
+		if (AndroidDirectory.Len() == 0)
 		{
 #if PLATFORM_LINUX
 			// didn't find ANDROID_HOME, so parse the .bashrc file on Linux
@@ -450,22 +468,22 @@ public:
 
 				for (int32 Index = Lines.Num()-1; Index >=0; Index--)
 				{
-					if (AndroidDirectory[0] == 0 && Lines[Index].StartsWith(FString::Printf(TEXT("export %s="), *SDKDirEnvVar)))
+					if (AndroidDirectory.Len() == 0 && Lines[Index].StartsWith(FString::Printf(TEXT("export %s="), *SDKDirEnvVar)))
 					{
 						FString Directory;
 						Lines[Index].Split(TEXT("="), NULL, &Directory);
 						Directory = Directory.Replace(TEXT("\""), TEXT(""));
-						FCString::Strcpy(AndroidDirectory, *Directory);
-						setenv(TCHAR_TO_ANSI(*SDKDirEnvVar), TCHAR_TO_ANSI(AndroidDirectory), 1);
+						AndroidDirectory = Directory;
+						setenv(TCHAR_TO_ANSI(*SDKDirEnvVar), TCHAR_TO_ANSI(*AndroidDirectory), 1);
 					}
 				}
 			}
 		}
 #endif
 
-		if (AndroidDirectory[0] != 0)
+		if (AndroidDirectory.Len() > 0)
 		{
-			ADBPath = FPaths::Combine(AndroidDirectory, SDKRelativeExePath);
+			ADBPath = FPaths::Combine(*AndroidDirectory, SDKRelativeExePath);
 
 			// if it doesn't exist then just clear the path as we might set it later
 			if (!FPaths::FileExists(*ADBPath))
@@ -473,7 +491,7 @@ public:
 				ADBPath.Empty();
 			}
 		}
-		DetectionThreadRunnable->UpdateADBPath(ADBPath, GetPropCommand, bGetExtensionsViaSurfaceFlinger);
+		DetectionThreadRunnable->UpdateADBPath(ADBPath, GetPropCommand, bGetExtensionsViaSurfaceFlinger, bForLumin);
 	}
 
 private:
@@ -485,6 +503,7 @@ private:
 	FString SDKRelativeExePath;
 	FString GetPropCommand;
 	bool bGetExtensionsViaSurfaceFlinger;
+	bool bForLumin;
 
 	FRunnableThread* DetectionThread;
 	FAndroidDeviceDetectionRunnable* DetectionThreadRunnable;

@@ -295,7 +295,7 @@ class PHYSXVEHICLES_API UWheeledVehicleMovementComponent : public UPawnMovementC
 	/** Compute the forces generates from a spinning tire */
 	virtual void GenerateTireForces(class UVehicleWheel* Wheel, const FTireShaderInput& Input, FTireShaderOutput& Output);
 
-#if WITH_PHYSX
+#if WITH_PHYSX && PHYSICS_INTERFACE_PHYSX
 
 	/** Return true if we are ready to create a vehicle */
 	virtual bool CanCreateVehicle() const;
@@ -632,7 +632,7 @@ protected:
 	virtual int32 GetGroupsToIgnoreMask() override;
 	/** END IRVOAvoidanceInterface */
 
-#if WITH_PHYSX
+#if WITH_PHYSX && PHYSICS_INTERFACE_PHYSX
 
 	int32 GearToPhysXGear(const int32 Gear) const;
 
@@ -678,13 +678,13 @@ protected:
 
 	void UpdateMassProperties(FBodyInstance* BI);
 
-#endif // WITH_PHYSX
+	void ShowDebugInfo(class AHUD* HUD, class UCanvas* Canvas, const class FDebugDisplayInfo& DisplayInfo, float& YL, float& YPos);
+#endif // WITH_PHYSX && PHYSICS_INTERFACE_PHYSX
 
 private:
 	UPROPERTY(transient, Replicated)
 	AController* OverrideController;
 
-	void ShowDebugInfo(class AHUD* HUD, class UCanvas* Canvas, const class FDebugDisplayInfo& DisplayInfo, float& YL, float& YPos);
 };
 
 //some helper functions for converting units

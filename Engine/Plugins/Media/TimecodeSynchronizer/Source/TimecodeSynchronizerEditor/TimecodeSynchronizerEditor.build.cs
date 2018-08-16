@@ -16,11 +16,13 @@ public class TimecodeSynchronizerEditor : ModuleRules
 			
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
+				"AssetTools",
 				"Core",
 				"CoreUObject",
 				"Engine",
 				"EditorStyle",
 				"InputCore",
+				"PropertyEditor",
 				"SlateCore",
 				"Slate",
 				"UnrealEd",

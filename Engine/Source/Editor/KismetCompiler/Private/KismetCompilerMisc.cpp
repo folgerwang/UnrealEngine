@@ -1096,11 +1096,14 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 	// Check to see if there's already a object on this scope with the same name, and throw an internal compiler error if so
 	// If this happens, it breaks the property link, which causes stack corruption and hard-to-track errors, so better to fail at this point
 	{
+#if !USE_UBER_GRAPH_PERSISTENT_FRAME
+	#error "Without the uber graph frame we will intentionally create properties with conflicting names on the same scope - disable this error at your own risk"
+#else
 		if (UObject* ExistingObject = CheckPropertyNameOnScope(Scope, PropertyName))
 		{
 			const FString ScopeName((Scope != nullptr) ? Scope->GetName() : FString(TEXT("None")));
 			const FString ExistingTypeAndPath(ExistingObject->GetFullName(Scope));
-			MessageLog.Error(*FString::Printf(TEXT("Internal Compiler Error: Tried to create a property %s in scope %s, but another object (%s) already already exists there."), *PropertyName.ToString(), *ScopeName, *ExistingTypeAndPath));
+			MessageLog.Error(*FString::Printf(TEXT("Internal Compiler Error: Tried to create a property %s in scope %s, but another object (%s) already exists there."), *PropertyName.ToString(), *ScopeName, *ExistingTypeAndPath));
 
 			// Find a free name, so we can still create the property to make it easier to spot the duplicates, and avoid crashing
 			uint32 Counter = 0;
@@ -1114,6 +1117,7 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 
 			ValidatedPropertyName = TestName;
 		}
+#endif
 	}
 
 	UProperty* NewProperty = nullptr;

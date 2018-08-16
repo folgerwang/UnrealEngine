@@ -1790,6 +1790,33 @@ void UKismetMathLibrary::BreakTransform(const FTransform& InTransform, FVector& 
 	Scale = InTransform.GetScale3D();
 }
 
+/* FMatrix
+*****************************************************************************/
+
+KISMET_MATH_FORCEINLINE
+FTransform UKismetMathLibrary::Conv_MatrixToTransform(const FMatrix& InMatrix)
+{
+	return FTransform(InMatrix);
+}
+
+KISMET_MATH_FORCEINLINE
+FRotator UKismetMathLibrary::Conv_MatrixToRotator(const FMatrix& InMatrix)
+{
+	return InMatrix.Rotator();
+}
+
+KISMET_MATH_FORCEINLINE
+FTransform UKismetMathLibrary::Conv_RotatorToTransform(const FRotator& InRotator)
+{
+	return FTransform(InRotator);
+}
+
+KISMET_MATH_FORCEINLINE
+FVector UKismetMathLibrary::Matrix_GetOrigin(const FMatrix& InMatrix)
+{
+	return InMatrix.GetOrigin();
+}
+
 KISMET_MATH_FORCEINLINE
 FLinearColor UKismetMathLibrary::MakeColor(float R, float G, float B, float A)
 {

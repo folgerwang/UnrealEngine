@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Common/FileSystem.h"
+#include "Containers/StringConv.h"
 #include "HAL/FileManager.h"
 #include "GenericPlatform/GenericPlatformFile.h"
-#include "Containers/StringConv.h"
 
 #if PLATFORM_WINDOWS
 // Start of region that uses windows types.
@@ -16,21 +16,21 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 namespace FileSystemHelpers
 {
-	bool PlatformGetAttributes(const TCHAR* Filename, BuildPatchServices::EFileAttributes& OutFileAttributes)
+	bool PlatformGetAttributes(const TCHAR* Filename, BuildPatchServices::EAttributeFlags& OutFileAttributes)
 	{
-		OutFileAttributes = BuildPatchServices::EFileAttributes::None;
+		OutFileAttributes = BuildPatchServices::EAttributeFlags::None;
 		DWORD FileAttributes = ::GetFileAttributesW(Filename);
 		DWORD Error = ::GetLastError();
 		if (FileAttributes != INVALID_FILE_ATTRIBUTES)
 		{
-			OutFileAttributes |= BuildPatchServices::EFileAttributes::Exists;
+			OutFileAttributes |= BuildPatchServices::EAttributeFlags::Exists;
 			if ((FileAttributes & FILE_ATTRIBUTE_READONLY) != 0)
 			{
-				OutFileAttributes |= BuildPatchServices::EFileAttributes::ReadOnly;
+				OutFileAttributes |= BuildPatchServices::EAttributeFlags::ReadOnly;
 			}
 			if ((FileAttributes & FILE_ATTRIBUTE_COMPRESSED) != 0)
 			{
-				OutFileAttributes |= BuildPatchServices::EFileAttributes::Compressed;
+				OutFileAttributes |= BuildPatchServices::EAttributeFlags::Compressed;
 			}
 			return true;
 		}
@@ -92,29 +92,27 @@ namespace FileSystemHelpers
 }
 // End of region that uses windows types.
 #include "Windows/HideWindowsPlatformTypes.h"
-// Stop windows header breaking our class's function name.
-#undef GetFileAttributes
 #elif PLATFORM_MAC
 namespace FileSystemHelpers
 {
-	bool PlatformGetAttributes(const TCHAR* Filename, BuildPatchServices::EFileAttributes& OutFileAttributes)
+	bool PlatformGetAttributes(const TCHAR* Filename, BuildPatchServices::EAttributeFlags& OutFileAttributes)
 	{
 		struct stat FileInfo;
 		const FTCHARToUTF8 FilenameUtf8(Filename);
 		int32 Result = stat(FilenameUtf8.Get(), &FileInfo);
 		int32 Error = errno;
-		OutFileAttributes = BuildPatchServices::EFileAttributes::None;
+		OutFileAttributes = BuildPatchServices::EAttributeFlags::None;
 		if (Result == 0)
 		{
-			OutFileAttributes |= BuildPatchServices::EFileAttributes::Exists;
+			OutFileAttributes |= BuildPatchServices::EAttributeFlags::Exists;
 			if ((FileInfo.st_mode & S_IWUSR) == 0)
 			{
-				OutFileAttributes |= BuildPatchServices::EFileAttributes::ReadOnly;
+				OutFileAttributes |= BuildPatchServices::EAttributeFlags::ReadOnly;
 			}
 			const mode_t ExeFlags = S_IXUSR | S_IXGRP | S_IXOTH;
 			if ((FileInfo.st_mode & ExeFlags) == ExeFlags)
 			{
-				OutFileAttributes |= BuildPatchServices::EFileAttributes::Executable;
+				OutFileAttributes |= BuildPatchServices::EAttributeFlags::Executable;
 			}
 			return true;
 		}
@@ -149,7 +147,7 @@ namespace FileSystemHelpers
 #else
 namespace FileSystemHelpers
 {
-	bool PlatformGetAttributes(const TCHAR* Filename, BuildPatchServices::EFileAttributes& OutFileAttributes)
+	bool PlatformGetAttributes(const TCHAR* Filename, BuildPatchServices::EAttributeFlags& OutFileAttributes)
 	{
 		// Not implemented.
 		return true;
@@ -170,16 +168,16 @@ namespace FileSystemHelpers
 #endif
 
 // We are forwarding flags, so assert they are all equal.
-static_assert((uint32)BuildPatchServices::EFileWrite::None == (uint32)::EFileWrite::FILEWRITE_None, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::None with ::EFileWrite::FILEWRITE_None");
-static_assert((uint32)BuildPatchServices::EFileWrite::NoFail == (uint32)::EFileWrite::FILEWRITE_NoFail, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::NoFail with ::EFileWrite::FILEWRITE_NoFail");
-static_assert((uint32)BuildPatchServices::EFileWrite::NoReplaceExisting == (uint32)::EFileWrite::FILEWRITE_NoReplaceExisting, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::NoReplaceExisting with ::EFileWrite::FILEWRITE_NoReplaceExisting");
-static_assert((uint32)BuildPatchServices::EFileWrite::EvenIfReadOnly == (uint32)::EFileWrite::FILEWRITE_EvenIfReadOnly, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::EvenIfReadOnly with ::EFileWrite::FILEWRITE_EvenIfReadOnly");
-static_assert((uint32)BuildPatchServices::EFileWrite::Append == (uint32)::EFileWrite::FILEWRITE_Append, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::Append with ::EFileWrite::FILEWRITE_Append");
-static_assert((uint32)BuildPatchServices::EFileWrite::AllowRead == (uint32)::EFileWrite::FILEWRITE_AllowRead, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::AllowRead with ::EFileWrite::FILEWRITE_AllowRead");
-static_assert((uint32)BuildPatchServices::EFileRead::None == (uint32)::EFileRead::FILEREAD_None, "Please update FileSystem.h to match BuildPatchServices::EFileRead::None with ::EFileRead::FILEREAD_None");
-static_assert((uint32)BuildPatchServices::EFileRead::NoFail == (uint32)::EFileRead::FILEREAD_NoFail, "Please update FileSystem.h to match BuildPatchServices::EFileRead::NoFail with ::EFileRead::FILEREAD_NoFail");
-static_assert((uint32)BuildPatchServices::EFileRead::Silent == (uint32)::EFileRead::FILEREAD_Silent, "Please update FileSystem.h to match BuildPatchServices::EFileRead::Silent with ::EFileRead::FILEREAD_Silent");
-static_assert((uint32)BuildPatchServices::EFileRead::AllowWrite == (uint32)::EFileRead::FILEREAD_AllowWrite, "Please update FileSystem.h to match BuildPatchServices::EFileRead::AllowWrite with ::EFileRead::FILEREAD_AllowWrite");
+static_assert((uint32)BuildPatchServices::EWriteFlags::None == (uint32)::EFileWrite::FILEWRITE_None, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::None with ::EFileWrite::FILEWRITE_None");
+static_assert((uint32)BuildPatchServices::EWriteFlags::NoFail == (uint32)::EFileWrite::FILEWRITE_NoFail, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::NoFail with ::EFileWrite::FILEWRITE_NoFail");
+static_assert((uint32)BuildPatchServices::EWriteFlags::NoReplaceExisting == (uint32)::EFileWrite::FILEWRITE_NoReplaceExisting, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::NoReplaceExisting with ::EFileWrite::FILEWRITE_NoReplaceExisting");
+static_assert((uint32)BuildPatchServices::EWriteFlags::EvenIfReadOnly == (uint32)::EFileWrite::FILEWRITE_EvenIfReadOnly, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::EvenIfReadOnly with ::EFileWrite::FILEWRITE_EvenIfReadOnly");
+static_assert((uint32)BuildPatchServices::EWriteFlags::Append == (uint32)::EFileWrite::FILEWRITE_Append, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::Append with ::EFileWrite::FILEWRITE_Append");
+static_assert((uint32)BuildPatchServices::EWriteFlags::AllowRead == (uint32)::EFileWrite::FILEWRITE_AllowRead, "Please update FileSystem.h to match BuildPatchServices::EFileWrite::AllowRead with ::EFileWrite::FILEWRITE_AllowRead");
+static_assert((uint32)BuildPatchServices::EReadFlags::None == (uint32)::EFileRead::FILEREAD_None, "Please update FileSystem.h to match BuildPatchServices::EFileRead::None with ::EFileRead::FILEREAD_None");
+static_assert((uint32)BuildPatchServices::EReadFlags::NoFail == (uint32)::EFileRead::FILEREAD_NoFail, "Please update FileSystem.h to match BuildPatchServices::EFileRead::NoFail with ::EFileRead::FILEREAD_NoFail");
+static_assert((uint32)BuildPatchServices::EReadFlags::Silent == (uint32)::EFileRead::FILEREAD_Silent, "Please update FileSystem.h to match BuildPatchServices::EFileRead::Silent with ::EFileRead::FILEREAD_Silent");
+static_assert((uint32)BuildPatchServices::EReadFlags::AllowWrite == (uint32)::EFileRead::FILEREAD_AllowWrite, "Please update FileSystem.h to match BuildPatchServices::EFileRead::AllowWrite with ::EFileRead::FILEREAD_AllowWrite");
 
 namespace BuildPatchServices
 {
@@ -192,14 +190,16 @@ namespace BuildPatchServices
 
 		// IFileSystem interface begin.
 		virtual bool GetFileSize(const TCHAR* Filename, int64& FileSize) const override;
-		virtual bool GetFileAttributes(const TCHAR* Filename, EFileAttributes& FileAttributes) const override;
+		virtual bool GetAttributes(const TCHAR* Filename, EAttributeFlags& Attributes) const override;
 		virtual bool SetReadOnly(const TCHAR* Filename, bool bIsReadOnly) const override;
 		virtual bool SetCompressed(const TCHAR* Filename, bool bIsCompressed) const override;
 		virtual bool SetExecutable(const TCHAR* Filename, bool bIsExecutable) const override;
-		virtual TUniquePtr<FArchive> CreateFileReader(const TCHAR* Filename, EFileRead ReadFlags = EFileRead::None) const override;
-		virtual TUniquePtr<FArchive> CreateFileWriter(const TCHAR* Filename, EFileWrite WriteFlags = EFileWrite::None) const override;
+		virtual TUniquePtr<FArchive> CreateFileReader(const TCHAR* Filename, EReadFlags ReadFlags = EReadFlags::None) const override;
+		virtual TUniquePtr<FArchive> CreateFileWriter(const TCHAR* Filename, EWriteFlags WriteFlags = EWriteFlags::None) const override;
 		virtual bool DeleteFile(const TCHAR* Filename) const override;
 		virtual bool MoveFile(const TCHAR* FileDest, const TCHAR* FileSource) const override;
+		virtual bool CopyFile(const TCHAR* FileDest, const TCHAR* FileSource) const override;
+		virtual bool FileExists(const TCHAR* Filename) const override;
 		// IFileSystem interface end.
 
 	private:
@@ -220,12 +220,12 @@ namespace BuildPatchServices
 	bool FFileSystem::GetFileSize(const TCHAR* Filename, int64& FileSize) const
 	{
 		FileSize = PlatformFile.FileSize(Filename);
-		return true;
+		return FileSize >= 0;
 	}
 
-	bool FFileSystem::GetFileAttributes(const TCHAR* Filename, EFileAttributes& FileAttributes) const
+	bool FFileSystem::GetAttributes(const TCHAR* Filename, EAttributeFlags& Attributes) const
 	{
-		return FileSystemHelpers::PlatformGetAttributes(Filename, FileAttributes);
+		return FileSystemHelpers::PlatformGetAttributes(Filename, Attributes);
 	}
 
 	bool FFileSystem::SetReadOnly(const TCHAR* Filename, bool bIsReadOnly) const
@@ -243,12 +243,12 @@ namespace BuildPatchServices
 		return FileSystemHelpers::PlatformSetExecutable(Filename, bIsExecutable);
 	}
 
-	TUniquePtr<FArchive> FFileSystem::CreateFileReader(const TCHAR* Filename, EFileRead ReadFlags) const
+	TUniquePtr<FArchive> FFileSystem::CreateFileReader(const TCHAR* Filename, EReadFlags ReadFlags) const
 	{
 		return TUniquePtr<FArchive>(FileManager.CreateFileReader(Filename, static_cast<uint32>(ReadFlags)));
 	}
 
-	TUniquePtr<FArchive> FFileSystem::CreateFileWriter(const TCHAR* Filename, EFileWrite WriteFlags) const
+	TUniquePtr<FArchive> FFileSystem::CreateFileWriter(const TCHAR* Filename, EWriteFlags WriteFlags) const
 	{
 		return TUniquePtr<FArchive>(FileManager.CreateFileWriter(Filename, static_cast<uint32>(WriteFlags)));
 	}
@@ -260,7 +260,17 @@ namespace BuildPatchServices
 
 	bool FFileSystem::MoveFile(const TCHAR* FileDest, const TCHAR* FileSource) const
 	{
-		return FileManager.Move(FileDest, FileSource, true, true, true, false);
+		return FileManager.Move(FileDest, FileSource, true, true, true, true);
+	}
+
+	bool FFileSystem::CopyFile(const TCHAR* FileDest, const TCHAR* FileSource) const
+	{
+		return FileManager.Copy(FileDest, FileSource, true, true, true) == COPY_OK;
+	}
+
+	bool FFileSystem::FileExists(const TCHAR* Filename) const
+	{
+		return FileManager.FileExists(Filename);
 	}
 
 	IFileSystem* FFileSystemFactory::Create()

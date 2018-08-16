@@ -15,6 +15,7 @@ namespace BuildPatchServices
 		typedef TTuple<double, FGuid> FChunkReleased;
 		typedef TTuple<double, FGuid> FChunkBooted;
 		typedef TTuple<double, int32> FStoreUseUpdated;
+		typedef TTuple<double, int32> FStoreSizeUpdated;
 
 	public:
 		virtual void OnChunkStored(const FGuid& ChunkId) override
@@ -36,11 +37,18 @@ namespace BuildPatchServices
 		{
 			RxStoreUseUpdated.Emplace(FStatsCollector::GetSeconds(), ChunkCount);
 		}
+
+		virtual void OnStoreSizeUpdated(int32 Size) override
+		{
+			RxStoreSizeUpdated.Emplace(FStatsCollector::GetSeconds(), Size);
+		}
+
 	public:
 		TArray<FChunkStored> RxChunkStored;
 		TArray<FChunkReleased> RxChunkReleased;
 		TArray<FChunkBooted> RxChunkBooted;
 		TArray<FStoreUseUpdated> RxStoreUseUpdated;
+		TArray<FStoreSizeUpdated> RxStoreSizeUpdated;
 	};
 }
 

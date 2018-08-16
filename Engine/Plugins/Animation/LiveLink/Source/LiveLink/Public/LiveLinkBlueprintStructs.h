@@ -132,17 +132,3 @@ private:
 	TSharedPtr<FCachedSubjectFrame> CachedFrame;
 };
 
-// A Blueprint handle to a specific LiveLink Source
-USTRUCT(BlueprintType)
-struct FLiveLinkSourceHandle
-{
-	GENERATED_USTRUCT_BODY()
-	
-	FLiveLinkSourceHandle() = default;
-
-	virtual ~FLiveLinkSourceHandle() = default;
-
-	void SetSourcePointer(TSharedPtr<ILiveLinkSource> InSourcePointer);
-
-	TSharedPtr<ILiveLinkSource> SourcePointer;
-};

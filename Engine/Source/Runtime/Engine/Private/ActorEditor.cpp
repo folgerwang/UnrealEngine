@@ -818,13 +818,9 @@ void AActor::CheckForErrors()
 	}
 
 	// Route error checking to components.
-	TInlineComponentArray<UActorComponent*> Components;
-	GetComponents(Components);
-
-	for ( int32 ComponentIndex = 0 ; ComponentIndex < Components.Num() ; ++ComponentIndex )
+	for (UActorComponent* ActorComponent : GetComponents())
 	{
-		UActorComponent* ActorComponent = Components[ ComponentIndex ];
-		if (ActorComponent->IsRegistered())
+		if (ActorComponent && ActorComponent->IsRegistered())
 		{
 			ActorComponent->CheckForErrors();
 		}

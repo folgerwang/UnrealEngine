@@ -83,12 +83,6 @@ namespace BuildPatchServices
 		return CurrentState;
 	}
 
-	const FText& FBuildPatchProgress::GetStateText() const
-	{
-		FScopeLock ScopeLock(&ThreadLock);
-		return StateToText(CurrentState);
-	}
-
 	float FBuildPatchProgress::GetProgress() const
 	{
 		FScopeLock ScopeLock(&ThreadLock);

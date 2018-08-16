@@ -33,6 +33,13 @@ public:
 	bool bLeftBlink;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blink Data")
 	bool bRightBlink;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eye Fixation Comfort")
+	bool FixationDepthIsUncomfortable;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eye Fixation Comfort")
+	bool FixationDepthViolationHasOccurred;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eye Fixation Comfort")
+	float RemainingTimeAtUncomfortableDepth;
 };
 
 struct FMagicLeapVRStabilityData
@@ -48,4 +55,16 @@ enum class EMagicLeapEyeTrackingStatus : uint8
 	UserNotPresent					UMETA(DisplayName = "User Not Present"),                          //The eyetracker is running but has not yet detected a user.
 	UserPresent						UMETA(DisplayName = "User Present"),                              //The eyetracker has detected a user and is actively tracking them. They appear not to be focusing on the game window at the moment however.
 	UserPresentAndWatchingWindow	UMETA(DisplayName = "User Present And Watching The Game Window"), //The user is being tracked and is looking at the game window.
+};
+
+/** Possible calibration statuses the eye tracker could report. */
+UENUM(BlueprintType)
+enum class EMagicLeapEyeTrackingCalibrationStatus : uint8
+{
+	/** Calibration was not completed */
+	None,
+	/** Calibration was completed with bad results */
+	Bad,
+	/** Calibration was completed with good results */
+	Good
 };

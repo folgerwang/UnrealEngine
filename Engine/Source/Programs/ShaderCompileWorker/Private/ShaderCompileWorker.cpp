@@ -1039,7 +1039,8 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 	}
 #endif
 
-	TCHAR OutputFilePath[PLATFORM_MAX_FILEPATH_LENGTH] = TEXT("");
+	FString OutputFilePath;
+
 	bool bDirectMode = false;
 	for (int32 Index = 1; Index < ArgC; ++Index)
 	{
@@ -1062,9 +1063,9 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		// so just make sure we have at least the minimum number of parameters.
 		check(ArgC >= 6);
 
-		FCString::Strncpy(OutputFilePath, ArgV[1], PLATFORM_MAX_FILEPATH_LENGTH);
-		FCString::Strncat(OutputFilePath, ArgV[5], PLATFORM_MAX_FILEPATH_LENGTH);
+		OutputFilePath = ArgV[1];
+		OutputFilePath += ArgV[5];
 	}
 
-	return GuardedMainWrapper(ArgC, ArgV, OutputFilePath, bDirectMode);
+	return GuardedMainWrapper(ArgC, ArgV, *OutputFilePath, bDirectMode);
 }

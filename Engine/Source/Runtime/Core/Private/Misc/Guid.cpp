@@ -261,6 +261,11 @@ bool FGuid::ParseExact(const FString& GuidString, EGuidFormats Format, FGuid& Ou
 	return true;
 }
 
+FArchive& operator<<(FArchive& Ar, FGuid& G)
+{
+	return Ar << G.A << G.B << G.C << G.D;
+}
+
 void operator<<(FStructuredArchive::FSlot Slot, FGuid& G)
 {
 	if (Slot.GetUnderlyingArchive().IsTextFormat())

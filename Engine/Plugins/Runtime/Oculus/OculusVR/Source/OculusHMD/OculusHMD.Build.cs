@@ -137,33 +137,42 @@ namespace UnrealBuildTool.Rules
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Android)
 			{
-				// Vulkan
-				{
-					string NDKPath = Environment.GetEnvironmentVariable("NDKROOT");
-					// Note: header is the same for all architectures so just use arch-arm
-					string NDKVulkanIncludePath = NDKPath + "/platforms/android-24/arch-arm/usr/include/vulkan";
+                // Vulkan
+                {
+                    string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
+                    bool bSDKInstalled = !String.IsNullOrEmpty(VulkanSDKPath);
+                    bool bUseThirdParty = true;
+                    if (bSDKInstalled)
+                    {
+                        // Check if the installed SDK is newer or the same than the provided headers distributed with the Engine
+                        int ThirdPartyVersion = GetThirdPartyVersion();
+                        int SDKVersion = GetSDKVersion(VulkanSDKPath);
+                        if (SDKVersion >= ThirdPartyVersion)
+                        {
+                            // If the user has an installed SDK, use that instead
+                            PrivateIncludePaths.Add(VulkanSDKPath + "/Include");
+                            // Older SDKs have an extra subfolder
+                            PrivateIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
 
-					if (File.Exists(NDKVulkanIncludePath + "/vulkan.h"))
-					{
-						// Use NDK Vulkan header if discovered
-						PrivateIncludePaths.Add(NDKVulkanIncludePath);
-					}
-					else
-					{
-						string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
+                            if (Target.Platform == UnrealTargetPlatform.Win32)
+                            {
+                                PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib32");
+                            }
+                            else
+                            {
+                                PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib");
+                            }
 
-						if (!String.IsNullOrEmpty(VulkanSDKPath))
-						{
-							// If the user has an installed SDK, use that instead
-							PrivateIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
-						}
-						else
-						{
-							// Fall back to the Windows Vulkan SDK (the headers are the same)
-							PrivateIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Vulkan/Windows/Include/vulkan");
-						}
-					}
-				}
+                            PublicAdditionalLibraries.Add("vulkan-1.lib");
+                            PublicAdditionalLibraries.Add("vkstatic.1.lib");
+                            bUseThirdParty = false;
+                        }
+                    }
+                    if (bUseThirdParty)
+                    {
+                        AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
+                    }
+                }
 
 				// AndroidPlugin
 				{

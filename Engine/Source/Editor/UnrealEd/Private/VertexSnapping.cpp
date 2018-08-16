@@ -272,13 +272,10 @@ void FVertexSnappingImpl::ClearSnappingHelpers( bool bClearImmediately )
 
 static void DrawSnapVertices( AActor* Actor, float PointSize, FPrimitiveDrawInterface* PDI )
 {
-	TInlineComponentArray<UActorComponent*> Components;
-	Actor->GetComponents(Components);
-
 	// Get the closest vertex on each component
-	for( int32 ComponentIndex  = 0; ComponentIndex < Components.Num(); ++ComponentIndex )
+	for (UActorComponent* Component : Actor->GetComponents())
 	{
-		TSharedPtr<FVertexIterator> VertexGetter = MakeVertexIterator( Cast<UPrimitiveComponent>( Components[ComponentIndex] ) );
+		TSharedPtr<FVertexIterator> VertexGetter = MakeVertexIterator( Cast<UPrimitiveComponent>(Component) );
 		if( VertexGetter.IsValid() )
 		{
 			FVertexIterator& VertexGetterRef = *VertexGetter;
@@ -472,13 +469,16 @@ FSnappingVertex FVertexSnappingImpl::GetClosestVertex( const TArray<FSnapActor>&
 		AActor* Actor = SnapActor.Actor;
 
 		// Get the closest vertex on each component
-		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-		Actor->GetComponents(PrimitiveComponents);
-
-		for( int32 ComponentIndex  = 0; ComponentIndex < PrimitiveComponents.Num(); ++ComponentIndex )
+		for (UActorComponent* Component : Actor->GetComponents())
 		{
+			UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component);
+			if (PrimComp == nullptr)
+			{
+				continue;
+			}
+
 			FSnappingVertex ClosestLocationOnComponent( CurrentLocation );
-			if( !GetClosestVertexOnComponent( SnapActor, PrimitiveComponents[ComponentIndex], InArgs, ClosestLocationOnComponent ) )
+			if( !GetClosestVertexOnComponent( SnapActor, PrimComp, InArgs, ClosestLocationOnComponent ) )
 			{
 				ClosestLocationOnComponent.Position = Actor->GetActorLocation();
 				ClosestLocationOnComponent.Normal = FVector::ZeroVector;

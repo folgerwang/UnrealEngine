@@ -15,6 +15,7 @@ struct CORE_API FUnixOutputDevices : public FGenericPlatformOutputDevices
 	static void SetupOutputDevices();
 	static FString GetAbsoluteLogFilename();
 	static FOutputDevice* GetEventLog();
+	static FOutputDeviceError* GetError();
 };
 
 typedef FUnixOutputDevices FPlatformOutputDevices;

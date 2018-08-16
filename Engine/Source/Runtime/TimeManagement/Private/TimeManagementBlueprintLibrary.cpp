@@ -30,3 +30,70 @@ FTimecode UTimeManagementBlueprintLibrary::GetTimecode()
 {
 	return FApp::GetTimecode();
 }
+
+bool UTimeManagementBlueprintLibrary::IsValid_Framerate(const FFrameRate& InFrameRate) 
+{ 
+	return InFrameRate.IsValid();
+}
+
+bool UTimeManagementBlueprintLibrary::IsValid_MultipleOf(const FFrameRate& InFrameRate, const FFrameRate& OtherFramerate) 
+{ 
+	return InFrameRate.IsMultipleOf(OtherFramerate);
+}
+
+FFrameTime UTimeManagementBlueprintLibrary::TransformTime(const FFrameTime& SourceTime, const FFrameRate& SourceRate, const FFrameRate& DestinationRate)
+{
+	return FFrameRate::TransformTime(SourceTime, SourceRate, DestinationRate); 
+}
+
+FFrameTime UTimeManagementBlueprintLibrary::SnapFrameTimeToRate(const FFrameTime& SourceTime, const FFrameRate& SourceRate, const FFrameRate& SnapToRate)
+{ 
+	return FFrameRate::Snap(SourceTime, SourceRate, SnapToRate); 
+}
+
+FFrameNumber UTimeManagementBlueprintLibrary::Add_FrameNumberFrameNumber(FFrameNumber A, FFrameNumber B)
+{
+	FFrameNumber Result = A;
+	Result.Value += B.Value;
+	return Result;
+}
+
+FFrameNumber UTimeManagementBlueprintLibrary::Subtract_FrameNumberFrameNumber(FFrameNumber A, FFrameNumber B)
+{
+	FFrameNumber Result = A;
+	Result.Value -= B.Value;
+	return Result;
+}
+
+FFrameNumber UTimeManagementBlueprintLibrary::Add_FrameNumberInteger(FFrameNumber A, int32 B)
+{
+	FFrameNumber Result = A;
+	Result.Value += B;
+	return Result;
+}
+
+FFrameNumber UTimeManagementBlueprintLibrary::Subtract_FrameNumberInteger(FFrameNumber A, int32 B)
+{
+	FFrameNumber Result = A;
+	Result.Value -= B;
+	return Result;
+}
+
+FFrameNumber UTimeManagementBlueprintLibrary::Multiply_FrameNumberInteger(FFrameNumber A, int32 B)
+{
+	FFrameNumber Result = A;
+	Result.Value *= B;
+	return Result;
+}
+
+FFrameNumber UTimeManagementBlueprintLibrary::Divide_FrameNumberInteger(FFrameNumber A, int32 B)
+{
+	FFrameNumber Result = A;
+	Result.Value /= B;
+	return Result;
+}
+
+int32 UTimeManagementBlueprintLibrary::Conv_FrameNumberToInteger(const FFrameNumber& InFrameNumber)
+{
+	return InFrameNumber.Value;
+}

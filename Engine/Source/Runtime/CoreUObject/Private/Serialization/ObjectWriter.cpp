@@ -43,8 +43,7 @@ FArchive& FObjectWriter::operator<<(FSoftObjectPath& Value)
 
 FArchive& FObjectWriter::operator<<(FWeakObjectPtr& Value)
 {
-	Value.Serialize(*this);
-	return *this;
+	return FArchiveUObject::SerializeWeakObjectPtr(*this, Value);
 }
 
 FString FObjectWriter::GetArchiveName() const

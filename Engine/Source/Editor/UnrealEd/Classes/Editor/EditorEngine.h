@@ -2198,8 +2198,8 @@ public:
 		uint32 SaveFlags = SAVE_None, const class ITargetPlatform* TargetPlatform = NULL, const FDateTime& FinalTimeStamp = FDateTime::MinValue(), 
 		bool bSlowTask = true, class FArchiveDiffMap* InOutDiffMap = nullptr);
 
-	virtual bool InitializePhysicsSceneForSaveIfNecessary(UWorld* World);
-	void CleanupPhysicsSceneThatWasInitializedForSave(UWorld* World);
+	virtual bool InitializePhysicsSceneForSaveIfNecessary(UWorld* World, bool &bOutForceInitialized);
+	void CleanupPhysicsSceneThatWasInitializedForSave(UWorld* World, bool bForceInitialized);
 
 	/** Invoked before a UWorld is saved to update editor systems */
 	virtual void OnPreSaveWorld(uint32 SaveFlags, UWorld* World);

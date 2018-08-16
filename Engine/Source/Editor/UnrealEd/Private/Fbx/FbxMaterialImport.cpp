@@ -52,7 +52,7 @@ UTexture* UnFbx::FFbxImporter::ImportTexture(FbxFileTexture* FbxTexture, bool bS
 
 	// set where to place the textures
 	FString BasePackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) / TextureName;
-	BasePackageName = PackageTools::SanitizePackageName(BasePackageName);
+	BasePackageName = UPackageTools::SanitizePackageName(BasePackageName);
 
 	UTexture* ExistingTexture = NULL;
 	UPackage* TexturePackage = NULL;
@@ -529,7 +529,7 @@ void UnFbx::FFbxImporter::CreateUnrealMaterial(FbxSurfaceMaterial& FbxMaterial, 
 	}
 	BasePackageName += MaterialFullName;
 	
-	BasePackageName = PackageTools::SanitizePackageName(BasePackageName);
+	BasePackageName = UPackageTools::SanitizePackageName(BasePackageName);
 
 	// The material could already exist in the project
 	FName ObjectPath = *(BasePackageName + TEXT(".") + MaterialFullName);

@@ -241,7 +241,7 @@ class Localise : BuildCommand
 		// Make sure the Localization configs and content is up-to-date to ensure we don't get errors later on
 		if (P4Enabled)
 		{
-			Log("Sync necessary content to head revision");
+			LogInformation("Sync necessary content to head revision");
 			P4.Sync(P4Env.Branch + "/" + LocalizationBatch.LocalizationTargetDirectory + "/Config/Localization/...");
 			P4.Sync(P4Env.Branch + "/" + LocalizationBatch.LocalizationTargetDirectory + "/Content/Localization/...");
 		}
@@ -301,11 +301,11 @@ class Localise : BuildCommand
 				}
 
 				string Arguments = String.Format("{0} -run=GatherText {1} {2}", UEProjectName, EditorArguments, CommandletArguments);
-				Log("Running localization commandlet: {0}", Arguments);
+				LogInformation("Running localization commandlet: {0}", Arguments);
 				var StartTime = DateTime.UtcNow;
 				var RunResult = Run(EditorExe, Arguments, null, ERunOptions.Default | ERunOptions.NoLoggingOfRunCommand); // Disable logging of the run command as it will print the exit code which GUBP can pick up as an error (we do that ourselves below)
 				var RunDuration = (DateTime.UtcNow - StartTime).TotalMilliseconds;
-				Log("Localization commandlet finished in {0}s", RunDuration / 1000);
+				LogInformation("Localization commandlet finished in {0}s", RunDuration / 1000);
 
 				if (RunResult.ExitCode != 0)
 				{

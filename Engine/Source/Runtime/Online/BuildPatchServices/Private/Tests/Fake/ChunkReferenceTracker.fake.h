@@ -29,10 +29,10 @@ namespace BuildPatchServices
 			{
 				case ESortDirection::Ascending:
 					Algo::SortBy(ChunkList, [this](const FGuid& Element) { return NextReferences.IndexOfByKey(Element); }, TLess<int32>());
-				break;
+					break;
 				case ESortDirection::Descending:
 					Algo::SortBy(ChunkList, [this](const FGuid& Element) { return NextReferences.IndexOfByKey(Element); }, TGreater<int32>());
-				break;
+					break;
 			}
 		}
 

@@ -62,8 +62,11 @@ FArchive& FArchiveUObject::SerializeSoftObjectPtr(FArchive& Ar, FSoftObjectPtr& 
 {
 	if (Ar.IsSaving() || Ar.IsLoading())
 	{
-		// Reset before serializing to clear the internal weak pointer. 
-		Value.ResetWeakPtr();
+		if (Ar.IsLoading())
+		{
+			// Reset before serializing to clear the internal weak pointer. 
+			Value.ResetWeakPtr();
+		}
 		Ar << Value.GetUniqueID();
 	}
 	else if (!Ar.IsObjectReferenceCollector() || Ar.IsModifyingWeakAndStrongReferences())
@@ -90,7 +93,24 @@ FArchive& FArchiveUObject::SerializeSoftObjectPath(FArchive& Ar, FSoftObjectPath
 
 FArchive& FArchiveUObject::SerializeWeakObjectPtr(FArchive& Ar, FWeakObjectPtr& Value)
 {
-	Value.Serialize(Ar);
+	// NOTE: When changing this function, make sure to update the SavePackage.cpp version in the import and export tagger.
+	
+	// We never serialize our reference while the garbage collector is harvesting references
+	// to objects, because we don't want weak object pointers to keep objects from being garbage
+	// collected.  That would defeat the whole purpose of a weak object pointer!
+	// However, when modifying both kinds of references we want to serialize and writeback the updated value.
+	if (!Ar.IsObjectReferenceCollector() || Ar.IsModifyingWeakAndStrongReferences())
+	{
+		UObject* Object = Value.Get(true);
+	
+		Ar << Object;
+	
+		if (Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences())
+		{
+			Value = Object;
+		}
+	}
+
 	return Ar;
 }
 
@@ -126,7 +146,23 @@ FArchive& FObjectAndNameAsStringProxyArchive::operator<<(UObject*& Obj)
 
 FArchive& FObjectAndNameAsStringProxyArchive::operator<<(FWeakObjectPtr& Obj)
 {
-	Obj.Serialize(*this);
+	return FArchiveUObject::SerializeWeakObjectPtr(*this, Obj);
+}
+
+FArchive& FObjectAndNameAsStringProxyArchive::operator<<(FSoftObjectPtr& Value)
+{
+	if (IsLoading())
+	{
+		// Reset before serializing to clear the internal weak pointer. 
+		Value.ResetWeakPtr();
+	}
+	*this << Value.GetUniqueID();
+	return *this;
+}
+
+FArchive& FObjectAndNameAsStringProxyArchive::operator<<(FSoftObjectPath& Value)
+{
+	Value.SerializePath(*this);
 	return *this;
 }
 

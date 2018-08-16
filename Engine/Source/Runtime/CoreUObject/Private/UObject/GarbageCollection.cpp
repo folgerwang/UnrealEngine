@@ -1061,7 +1061,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 	// Depending on platform FPlatformTime::Seconds might take a noticeable amount of time if called thousands of times so we avoid
 	// enforcing the time limit too often, especially as neither Destroy nor actual deletion should take significant
 	// amounts of time.
-	const int32	TimeLimitEnforcementGranularityForDestroy	= 10;	
+	const int32	TimeLimitEnforcementGranularityForDestroy	= 10;
 	const int32	TimeLimitEnforcementGranularityForDeletion	= 100;
 
 	if (GUnrechableObjectIndex < GUnreachableObjects.Num())
@@ -1432,7 +1432,7 @@ void GatherUnreachableObjects(bool bForceSingleThreaded)
 			UE_LOG(LogGarbage, Log, TEXT("Destroying cluster (%d) %s"), ClusterRootItem->GetClusterIndex(), *static_cast<UObject*>(ClusterRootItem->Object)->GetFullName());
 #endif
 			ClusterRootItem->ClearFlags(EInternalObjectFlags::ClusterRoot);
-			
+
 			const int32 ClusterIndex = ClusterRootItem->GetClusterIndex();
 			FUObjectCluster& Cluster = GUObjectClusters[ClusterIndex];
 			for (int32 ClusterObjectIndex : Cluster.Objects)
@@ -1451,8 +1451,8 @@ void GatherUnreachableObjects(bool bForceSingleThreaded)
 		}
 	}
 
-	UE_LOG(LogGarbage, Log, TEXT("%f ms for Gather Unreachable Objects (%d objects collected including %d cluster objects from %d clusters)"), 
-		(FPlatformTime::Seconds() - StartTime) * 1000, 
+	UE_LOG(LogGarbage, Log, TEXT("%f ms for Gather Unreachable Objects (%d objects collected including %d cluster objects from %d clusters)"),
+		(FPlatformTime::Seconds() - StartTime) * 1000,
 		GUnreachableObjects.Num(),
 		ClusterObjects,
 		ClusterItemsToDestroy.Num());
@@ -1609,7 +1609,7 @@ bool UnhashUnreachableObjects(bool bUseTimeLimit, float TimeLimit)
 	const double StartTime = FPlatformTime::Seconds();
 	const int32 TimeLimitEnforcementGranularityForBeginDestroy = 10;
 	int32 Items = 0;
-	int32 TimePollCounter = 0;	
+	int32 TimePollCounter = 0;
 
 	while (GUnrechableObjectIndex < GUnreachableObjects.Num())
 	{
@@ -1632,10 +1632,10 @@ bool UnhashUnreachableObjects(bool bUseTimeLimit, float TimeLimit)
 		}
 	}
 
-	UE_LOG(LogGarbage, Log, TEXT("%f ms for %sunhashing unreachable objects. Items %d (%d/%d)"), 
-		(FPlatformTime::Seconds() - StartTime) * 1000, 
+	UE_LOG(LogGarbage, Log, TEXT("%f ms for %sunhashing unreachable objects. Items %d (%d/%d)"),
+		(FPlatformTime::Seconds() - StartTime) * 1000,
 		bUseTimeLimit ? TEXT("incrementally ") : TEXT(""),
-		Items, 
+		Items,
 		GUnrechableObjectIndex, GUnreachableObjects.Num());
 
 	FCoreUObjectDelegates::PostGarbageCollectConditionalBeginDestroy.Broadcast();

@@ -659,14 +659,24 @@ public:
 
 public:
 
-	/** 
-	 * Return whether the playback range is locked.
-	 */
+	/*
+	* @return Returns whether this movie scene is read only
+	*/
+	bool IsReadOnly() const { return bReadOnly; }
+
+	/**
+	* Set whether this movie scene is read only.
+	*/
+	void SetReadOnly(bool bInReadOnly) { bReadOnly = bInReadOnly; }
+
+	/**
+	* Return whether the playback range is locked.
+	*/
 	bool IsPlaybackRangeLocked() const;
 
 	/**
-	 * Set whether the playback range is locked.
-	 */
+	* Set whether the playback range is locked.
+	*/
 	void SetPlaybackRangeLocked(bool bLocked);
 
 	/**
@@ -764,6 +774,10 @@ private:
 	EUpdateClockSource ClockSource;
 
 #if WITH_EDITORONLY_DATA
+
+	/** Indicates whether this movie scene is read only */
+	UPROPERTY()
+	bool bReadOnly;
 
 	/** User-defined playback range is locked. */
 	UPROPERTY()

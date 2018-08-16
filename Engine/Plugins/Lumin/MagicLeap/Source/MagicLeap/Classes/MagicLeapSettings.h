@@ -14,7 +14,7 @@ class MAGICLEAP_API UMagicLeapSettings : public UObject
 public:
 	GENERATED_BODY()
 
-	// Enables 'Zero Iteration mode'. Note: OpenGL rendering will be used.
+	// Enables 'Zero Iteration mode'. Note: Vulkan rendering will be used by default. Set bUseVulkan to false to use OpenGL instead.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "General", Meta = (DisplayName = "Enable Zero Iteration", ConfigRestartRequired = true))
 	bool bEnableZI;
 };

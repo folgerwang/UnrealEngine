@@ -10,12 +10,14 @@ namespace UnrealBuildTool.Rules
 				new string[]
 				{
 					"Core",
+					"ImageWrapper",
 					"Media",
 				});
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
-					"ImageWrapper",
+					"CoreUObject",
+					"ImageWriteQueue",
 				});
 
 			PrivateIncludePaths.AddRange(

@@ -28,7 +28,6 @@ public:
 		// We search various places for the ML API DLLs to support loading alternate
 		// implementations. For example to use VDZI on PC platforms.
 		// Public MLSDK path.
-		FString MLSDK = FString::ChrN(1024, TEXT('\0'));
 
 		// Give preference to the config setting.
 		FString MLSDKPath;
@@ -56,8 +55,7 @@ public:
 			}
 		}
 
-		FPlatformMisc::GetEnvironmentVariable(TEXT("MLSDK"), MLSDK.GetCharArray().GetData(), 1024);
-		MLSDK.TrimToNullTerminator();
+		FString MLSDK = FPlatformMisc::GetEnvironmentVariable(TEXT("MLSDK"));
 
 		if (CheckForVDZILibraries)
 		{
@@ -74,6 +72,9 @@ public:
 			{
 				// The default VDZI dir.
 				DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("lib")));
+				// We also need to add the default bin dir as dependent libs are placed there instead
+				// of in the lib directory.
+				DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("bin")));
 			}
 		}
 #endif
@@ -104,10 +105,7 @@ public:
 #if PLATFORM_WINDOWS
 		// Need to adjust PATH with additional MLSDK load path to allow the delay-loaded DLLs
 		// to work in the plugin.
-		const int32 MaxPathVarLen = 32768;
-		FString PathVar = FString::ChrN(MaxPathVarLen, TEXT('\0'));
-		FPlatformMisc::GetEnvironmentVariable(TEXT("PATH"), PathVar.GetCharArray().GetData(), MaxPathVarLen);
-		PathVar.TrimToNullTerminator();
+		FString PathVar = FPlatformMisc::GetEnvironmentVariable(TEXT("PATH"));
 		for (const FString& path : DllSearchPaths)
 		{
 			PathVar.Append(FPlatformMisc::GetPathVarDelimiter());

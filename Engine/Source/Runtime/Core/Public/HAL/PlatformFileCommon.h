@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
 #include "HAL/ThreadSafeCounter.h"
 #include "Misc/ScopeLock.h"
 

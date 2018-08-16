@@ -64,6 +64,9 @@ struct PROJECTS_API FPluginDescriptor
 	/** List of target platforms supported by this plugin. This list will be copied to any plugin reference from a project file, to allow filtering entire plugins from staged builds. */
 	TArray<FString> SupportedTargetPlatforms;
 
+	/** List of programs that are supported by this plugin. */
+	TArray<FString> SupportedPrograms;
+
 	/** List of all modules associated with this plugin */
 	TArray<FModuleDescriptor> Modules;
 

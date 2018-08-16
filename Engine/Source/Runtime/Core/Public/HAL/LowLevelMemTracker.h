@@ -210,6 +210,7 @@ extern FName LLMGetTagStat(ELLMTag Tag);
  * LLM utility macros
  */
 #define LLM(x) x
+#define LLM_IF_ENABLED(x) if (!FLowLevelMemTracker::bIsDisabled) { x; }
 #define SCOPE_NAME PREPROCESSOR_JOIN(LLMScope,__LINE__)
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -332,9 +333,17 @@ class CORE_API FLowLevelMemTracker
 public:
 
 	// get the singleton, which makes sure that we always have a valid object
-	static FLowLevelMemTracker& Get();
+	inline static FLowLevelMemTracker& Get()
+	{
+		if (TrackerInstance)
+			return *TrackerInstance;
+		else
+			return Construct();
+	}
 
-	bool IsEnabled();
+	static FLowLevelMemTracker& Construct();
+
+	static bool IsEnabled();
 
 	// we always start up running, but if the commandline disables us, we will do it later after main
 	// (can't get the commandline early enough in a cross-platform way)
@@ -392,8 +401,6 @@ private:
 
 	uint64 ProgramSize;
 
-	TAtomic<bool> bIsDisabled;
-
 	bool ActiveSets[(int32)ELLMTagSet::Max];
 
 	bool bCanEnable;
@@ -405,6 +412,11 @@ private:
 	FLLMPlatformTag PlatformTags[(int32)ELLMTag::PlatformTagEnd + 1 - (int32)ELLMTag::PlatformTagStart];
 
 	FLLMTracker* Trackers[(int32)ELLMTracker::Max];
+
+	static FLowLevelMemTracker* TrackerInstance;
+
+public: // really internal but needs to be visible for LLM_IF_ENABLED macro
+	static bool bIsDisabled;
 };
 
 /*
@@ -440,6 +452,7 @@ protected:
 
 #else
 	#define LLM(...)
+	#define LLM_IF_ENABLED(...)
 	#define LLM_SCOPE(...)
 	#define LLM_PLATFORM_SCOPE(...)
 	#define LLM_SCOPED_TAG_WITH_STAT(...)

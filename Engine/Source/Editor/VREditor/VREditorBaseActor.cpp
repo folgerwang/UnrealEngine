@@ -27,7 +27,7 @@ AVREditorBaseActor::AVREditorBaseActor()
 	MoveToResultDock( EDockedTo::Nothing ),
 	LastDockedUIToWorld()
 {
-
+	bIsEditorOnlyActor = true;
 }
 
 void AVREditorBaseActor::SetVRMode( UVREditorMode* InVRMode )

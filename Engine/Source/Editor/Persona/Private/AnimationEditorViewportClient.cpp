@@ -1231,11 +1231,7 @@ void FAnimationViewportClient::DrawMeshBones(UDebugSkelMeshComponent * MeshCompo
 		TArray<FLinearColor> BoneColours;
 		BoneColours.AddUninitialized(MeshComponent->GetNumDrawTransform());
 
-		TArray<int32> SelectedBones;
-		if(UDebugSkelMeshComponent* DebugMeshComponent = Cast<UDebugSkelMeshComponent>(MeshComponent))
-		{
-			SelectedBones = DebugMeshComponent->BonesOfInterest;
-		}
+		TArray<int32> SelectedBones = MeshComponent->BonesOfInterest;
 
 		// we could cache parent bones as we calculate, but right now I'm not worried about perf issue of this
 		const TArray<FBoneIndexType>& DrawBoneIndices = MeshComponent->GetDrawBoneIndices();

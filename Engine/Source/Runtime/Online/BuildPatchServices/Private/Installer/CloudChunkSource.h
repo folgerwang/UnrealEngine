@@ -54,7 +54,8 @@ namespace BuildPatchServices
 		TArray<float> HealthPercentages;
 		// When all requests are failing, how many seconds before a success until we determine the state as disconnected.
 		float DisconnectedDelay;
-		// If true, the downloads will not begin until the first Get request is made.
+		// If true, the downloads will not begin until the first Get request is made. It is fairly fundamental to stop downloads of chunks until resume
+		// data is processed, but can be special case disabled.
 		bool bBeginDownloadsOnFirstGet;
 		// The minimum time to allow a http download before assessing it as affected by TCP zero window issue.
 		float TcpZeroWindowMinimumSeconds;
@@ -65,7 +66,7 @@ namespace BuildPatchServices
 		 */
 		FCloudSourceConfig(TArray<FString> InCloudRoots)
 			: CloudRoots(MoveTemp(InCloudRoots))
-			, NumSimultaneousDownloads(8)
+			, NumSimultaneousDownloads(16)
 			, MaxRetryCount(6)
 			, PreFetchMinimum(16)
 			, PreFetchMaximum(256)
@@ -126,6 +127,12 @@ namespace BuildPatchServices
 		virtual void OnDownloadRequested(const FGuid& ChunkId) = 0;
 
 		/**
+		 * Called whenever a chunk download request has succeeded.
+		 * @param ChunkId           The id of the chunk.
+		 */
+		virtual void OnDownloadSuccess(const FGuid& ChunkId) = 0;
+
+		/**
 		 * Called whenever a chunk download request has failed.
 		 * @param ChunkId           The id of the chunk.
 		 * @param Url               The url used to request the chunk.
@@ -182,5 +189,11 @@ namespace BuildPatchServices
 		 * @param RequestCount      The number of currently active requests, this will range between 0 and NumSimultaneousDownloads config.
 		 */
 		virtual void OnActiveRequestCountUpdated(int32 RequestCount) = 0;
+
+		/**
+		 * Called when a batch of chunks are added and accepted via IChunkSource::AddRuntimeRequirements.
+		 * @param ChunkIds  The ids of each chunk.
+		 */
+		virtual void OnAcceptedNewRequirements(const TSet<FGuid>& ChunkIds) = 0;
 	};
 }

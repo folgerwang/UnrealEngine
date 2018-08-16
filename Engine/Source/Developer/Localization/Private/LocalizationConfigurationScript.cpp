@@ -4,6 +4,85 @@
 #include "LocalizationTargetTypes.h"
 #include "LocalizationSettings.h"
 #include "UObject/Package.h"
+#include "ISourceControlOperation.h"
+#include "SourceControlOperations.h"
+#include "ISourceControlProvider.h"
+#include "ISourceControlModule.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/FileHelper.h"
+
+namespace LocalizationConfigSCC
+{
+
+void PreWriteFile(const FString& InFilename)
+{
+	const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(InFilename);
+
+	if (!FPaths::FileExists(AbsoluteFilename))
+	{
+		return;
+	}
+
+	// Check out it if it's under SCC
+	if (FLocalizationSourceControlSettings::IsSourceControlAvailable() && FLocalizationSourceControlSettings::IsSourceControlEnabled())
+	{
+		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
+
+		if (SourceControlState.IsValid() && SourceControlState->IsDeleted())
+		{
+			// If it's deleted, we need to revert that first
+			SourceControlProvider.Execute(ISourceControlOperation::Create<FRevert>(), AbsoluteFilename);
+			SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
+		}
+
+		if (SourceControlState.IsValid())
+		{
+			if (SourceControlState->IsAdded() || SourceControlState->IsCheckedOut())
+			{
+				// Nothing to do
+			}
+			else if (SourceControlState->CanCheckout())
+			{
+				SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), AbsoluteFilename);
+			}
+		}
+	}
+
+	// Failing that, just make it writable
+	if (IFileManager::Get().IsReadOnly(*AbsoluteFilename))
+	{
+		FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*AbsoluteFilename, false);
+	}
+}
+
+void PostWriteFile(const FString& InFilename)
+{
+	const FString AbsoluteFilename = FPaths::ConvertRelativePathToFull(InFilename);
+
+	if (!FPaths::FileExists(AbsoluteFilename))
+	{
+		return;
+	}
+
+	// Add the file if it's not already under SCC
+	if (FLocalizationSourceControlSettings::IsSourceControlAvailable() && FLocalizationSourceControlSettings::IsSourceControlEnabled())
+	{
+		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(AbsoluteFilename, EStateCacheUsage::ForceUpdate);
+
+		if (SourceControlState.IsValid())
+		{
+			if (!SourceControlState->IsSourceControlled() && SourceControlState->CanAdd())
+			{
+				SourceControlProvider.Execute(ISourceControlOperation::Create<FMarkForAdd>(), AbsoluteFilename);
+			}
+		}
+	}
+}
+
+}
 
 namespace
 {
@@ -16,6 +95,11 @@ namespace
 	{
 		return Target->IsMemberOfEngineTargetSet() ? FPaths::EngineContentDir() : FPaths::ProjectContentDir();
 	}
+}
+
+bool FLocalizationConfigurationScript::WriteWithSCC(const FString& InConfigFilename)
+{
+	return LocalizationConfigurationScript::WriteConfigFileWithSCC(InConfigFilename, *this);
 }
 
 namespace LocalizationConfigurationScript
@@ -50,19 +134,21 @@ namespace LocalizationConfigurationScript
 		Result.Add(GetImportDialogueScriptConfigPath(Target));
 		Result.Add(GetExportDialogueScriptConfigPath(Target));
 		Result.Add(GetImportDialogueConfigPath(Target));
+		Result.Add(GetCompileTextConfigPath(Target));
 		Result.Add(GetWordCountReportConfigPath(Target));
 		return Result;
 	}
 
 	void GenerateAllConfigFiles(const ULocalizationTarget* const Target)
 	{
-		GenerateGatherTextConfigFile(Target).Write(GetGatherTextConfigPath(Target));
-		GenerateImportTextConfigFile(Target).Write(GetImportTextConfigPath(Target));
-		GenerateExportTextConfigFile(Target).Write(GetExportTextConfigPath(Target));
-		GenerateImportDialogueScriptConfigFile(Target).Write(GetImportDialogueScriptConfigPath(Target));
-		GenerateExportDialogueScriptConfigFile(Target).Write(GetExportDialogueScriptConfigPath(Target));
-		GenerateImportDialogueConfigFile(Target).Write(GetImportDialogueConfigPath(Target));
-		GenerateWordCountReportConfigFile(Target).Write(GetWordCountReportConfigPath(Target));
+		GenerateGatherTextConfigFile(Target).WriteWithSCC(GetGatherTextConfigPath(Target));
+		GenerateImportTextConfigFile(Target).WriteWithSCC(GetImportTextConfigPath(Target));
+		GenerateExportTextConfigFile(Target).WriteWithSCC(GetExportTextConfigPath(Target));
+		GenerateImportDialogueScriptConfigFile(Target).WriteWithSCC(GetImportDialogueScriptConfigPath(Target));
+		GenerateExportDialogueScriptConfigFile(Target).WriteWithSCC(GetExportDialogueScriptConfigPath(Target));
+		GenerateImportDialogueConfigFile(Target).WriteWithSCC(GetImportDialogueConfigPath(Target));
+		GenerateCompileTextConfigFile(Target).Write(GetCompileTextConfigPath(Target));
+		GenerateWordCountReportConfigFile(Target).WriteWithSCC(GetWordCountReportConfigPath(Target));
 	}
 
 	TArray<FString> GetOutputFilePaths(const ULocalizationTarget* const Target)
@@ -70,6 +156,7 @@ namespace LocalizationConfigurationScript
 		TArray<FString> Result;
 
 		// Culture agnostic paths
+		Result.Add(GetLocMetaPath(Target));
 		Result.Add(GetManifestPath(Target));
 		Result.Add(GetWordCountCSVPath(Target));
 		Result.Add(GetConflictReportPath(Target));
@@ -135,6 +222,16 @@ namespace LocalizationConfigurationScript
 	FString GetLocResPath(const ULocalizationTarget* const Target, const FString& CultureName)
 	{
 		return GetDataDirectory(Target) / CultureName / GetLocResFileName(Target);
+	}
+
+	FString GetLocMetaFileName(const ULocalizationTarget* const Target)
+	{
+		return FString::Printf(TEXT("%s.locmeta"), *Target->Settings.Name);
+	}
+
+	FString GetLocMetaPath(const ULocalizationTarget* const Target)
+	{
+		return GetDataDirectory(Target) / GetLocMetaFileName(Target);
 	}
 
 	FString GetWordCountCSVFileName(const ULocalizationTarget* const Target)
@@ -1053,5 +1150,44 @@ namespace LocalizationConfigurationScript
 	{
 		return GetConfigDirectory(Target) / FString::Printf(TEXT("Regenerate%s.ini"), *(Target->Settings.Name));
 	}
+	
+	bool WriteConfigFileWithSCC(const FString& InConfigFilename, FLocalizationConfigurationScript& InConfigScript)
+	{
+		FString NewConfigContents;
+		{
+			// We only want to write the file if it's changed, but our config system can only write to files, so we have to use a temporary file :(
+			const FString TempConfigFilename = FPaths::CreateTempFilename(*(FPaths::ProjectIntermediateDir() / TEXT("Localization")), TEXT("Localization"));
+			if (!InConfigScript.Write(TempConfigFilename))
+			{
+				return false;
+			}
 
+			// Read the contents of the temp file back and clean it up
+			const bool bReadFile = FFileHelper::LoadFileToString(NewConfigContents, *TempConfigFilename);
+			IFileManager::Get().Delete(*TempConfigFilename);
+			if (!bReadFile)
+			{
+				return false;
+			}
+		}
+
+		bool bWriteFile = true;
+		{
+			FString OldConfigContents;
+			if (FFileHelper::LoadFileToString(OldConfigContents, *InConfigFilename))
+			{
+				bWriteFile = !OldConfigContents.Equals(NewConfigContents, ESearchCase::CaseSensitive);
+			}
+		}
+
+		if (bWriteFile)
+		{
+			LocalizationConfigSCC::PreWriteFile(InConfigFilename);
+			const bool bWroteFile = FFileHelper::SaveStringToFile(NewConfigContents, *InConfigFilename);
+			LocalizationConfigSCC::PostWriteFile(InConfigFilename);
+			return bWroteFile;
+		}
+
+		return true;
+	}
 }

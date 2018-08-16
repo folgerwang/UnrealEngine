@@ -2,8 +2,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Interfaces/IBuildInstaller.h"
 #include "Modules/ModuleInterface.h"
+#include "Interfaces/IBuildInstaller.h"
+#include "Interfaces/IBuildStatistics.h"
 #include "BuildPatchSettings.h"
 
 class FHttpServiceTracker;
@@ -33,22 +34,29 @@ public:
 	/**
 	 * Virtual destructor.
 	 */
-	virtual ~IBuildPatchServicesModule( ) { }
-	
+	virtual ~IBuildPatchServicesModule() { }
+
+	/**
+	 * Factory providing construction of a build statistics class.
+	 * @param Installer     The installer to create a build statistics for.
+	 * @return an instance of an IBuildStatistics implementation. 
+	 */
+	virtual BuildPatchServices::IBuildStatisticsRef CreateBuildStatistics(const IBuildInstallerRef& Installer) const = 0;
+
 	/**
 	 * Loads a Build Manifest from file and returns the interface
 	 * @param Filename		The file to load from
 	 * @return		a shared pointer to the manifest, which will be invalid if load failed.
 	 */
 	virtual IBuildManifestPtr LoadManifestFromFile( const FString& Filename ) = 0;
-	
+
 	/**
 	 * Constructs a Build Manifest from a data
 	 * @param ManifestData		The data received from a web api
 	 * @return		a shared pointer to the manifest, which will be invalid if creation failed.
 	 */
 	virtual IBuildManifestPtr MakeManifestFromData( const TArray<uint8>& ManifestData ) = 0;
-	
+
 	/**
 	 * Saves a Build Manifest to file
 	 * @param Filename		The file to save to
@@ -57,6 +65,12 @@ public:
 	 * @return		If the save was successful.
 	 */
 	virtual bool SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest, bool bUseBinary = true) = 0;
+
+	/**
+	 * Gets an array of prerequisite identifiers that are registered as installed on this system.
+	 * @return a set containing all installed prerequisite identifiers.
+	 */
+	virtual TSet<FString> GetInstalledPrereqIds() const = 0;
 
 	/**
 	 * Starts an installer thread for the provided manifests
@@ -94,6 +108,12 @@ public:
 	 * @return  An interface to the created installer.
 	 */
 	virtual IBuildInstallerRef StartBuildInstall(BuildPatchServices::FInstallerConfiguration Configuration, FBuildPatchBoolManifestDelegate OnCompleteDelegate) = 0;
+
+	/**
+	 * Gets a list of currently active installers
+	 * @return all installers that are currently active.
+	 */
+	virtual const TArray<IBuildInstallerRef>& GetInstallers() const = 0;
 
 	/**
 	 * Sets the directory used for staging intermediate files.
@@ -185,12 +205,15 @@ public:
 	/**
 	 * Packages data referenced by a manifest file into chunkdb files, supporting a maximum filesize per chunkdb.
 	 * @param ManifestFilePath      A full file path to the manifest to enumerate chunks from.
+	 * @param PrevManifestFilePath  A full file path to a manifest describing a previous build, which will filter out saved chunks for patch only chunkdbs.
+	 * @param TagSetArray           Optional list of tagsets to split chunkdb files on. Empty array will include all data as normal.
 	 * @param OutputFile            A full file path to the chunkdb file to save. Extension of .chunkdb will be added if not present.
 	 * @param CloudDir              Cloud directory where chunks to be packaged can be found.
 	 * @param MaxOutputFileSize     The maximum desired size for each chunkdb file.
+	 * @param ResultDataFilePath    A full file path to use when saving the json output data.
 	 * @return true if successful.
 	 */
-	virtual bool PackageChunkData(const FString& ManifestFilePath, const FString& OutputFile, const FString& CloudDir, uint64 MaxOutputFileSize) = 0;
+	virtual bool PackageChunkData(const FString& ManifestFilePath, const FString& PrevManifestFilePath, const TArray<TSet<FString>>& TagSetArray, const FString& OutputFile, const FString& CloudDir, uint64 MaxOutputFileSize, const FString& ResultDataFilePath) = 0;
 
 	/**
 	 * Takes two manifests as input, in order to merge together producing a new manifest containing all files.
@@ -217,14 +240,9 @@ public:
 	 */
 	virtual bool DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const FString& OutputFilePath) = 0;
 
-	/**
-	 * Deprecated function, use MakeManifestFromData instead.
-	 */
+	DEPRECATED(4.21, "MakeManifestFromJSON(const FString& ManifestJSON) has been deprecated.  Please use MakeManifestFromData(const TArray<uint8>& ManifestData) instead.")
 	virtual IBuildManifestPtr MakeManifestFromJSON(const FString& ManifestJSON) = 0;
 
 	DEPRECATED(4.16, "Please use EnumeratePatchData instead.")
-	virtual bool EnumerateManifestData(const FString& ManifestFilePath, const FString& OutputFile, bool bIncludeSizes)
-	{
-		return EnumeratePatchData(ManifestFilePath, OutputFile, bIncludeSizes);
-	}
+	virtual bool EnumerateManifestData(const FString& ManifestFilePath, const FString& OutputFile, bool bIncludeSizes) { return EnumeratePatchData(ManifestFilePath, OutputFile, bIncludeSizes); }
 };

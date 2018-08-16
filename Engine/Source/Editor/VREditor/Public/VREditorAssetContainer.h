@@ -120,6 +120,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = Mesh)
 	UStaticMesh* JointSphereMesh;
 
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* DockingButtonMesh;
+
 	//
 	// Materials
 	//

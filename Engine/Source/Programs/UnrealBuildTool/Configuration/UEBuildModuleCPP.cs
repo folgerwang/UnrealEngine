@@ -16,60 +16,23 @@ namespace UnrealBuildTool
 	/// </summary>
 	class UEBuildModuleCPP : UEBuildModule
 	{
-		public class AutoGenerateCppInfoClass
-		{
-			public class BuildInfoClass
-			{
-				/// <summary>
-				/// The wildcard of the *.gen.cpp file which was generated for the module
-				/// </summary>
-				public readonly string FileWildcard;
-
-				public BuildInfoClass(string InWildcard)
-				{
-					Debug.Assert(InWildcard != null);
-
-					FileWildcard = InWildcard;
-				}
-			}
-
-			/// <summary>
-			/// Information about how to build the .gen.cpp files. If this is null, then we're not building .gen.cpp files for this module.
-			/// </summary>
-			public BuildInfoClass BuildInfo;
-
-			public AutoGenerateCppInfoClass(BuildInfoClass InBuildInfo)
-			{
-				BuildInfo = InBuildInfo;
-			}
-		}
-
-		/// <summary>
-		/// Information about the .gen.cpp file.  If this is null then this module doesn't have any UHT-produced code.
-		/// </summary>
-		public AutoGenerateCppInfoClass AutoGenerateCppInfo = null;
-
 		public class SourceFilesClass
 		{
-			public readonly List<FileItem> MissingFiles = new List<FileItem>();
 			public readonly List<FileItem> CPPFiles = new List<FileItem>();
 			public readonly List<FileItem> CFiles = new List<FileItem>();
 			public readonly List<FileItem> CCFiles = new List<FileItem>();
 			public readonly List<FileItem> MMFiles = new List<FileItem>();
 			public readonly List<FileItem> RCFiles = new List<FileItem>();
-			public readonly List<FileItem> OtherFiles = new List<FileItem>();
 
 			public int Count
 			{
 				get
 				{
-					return MissingFiles.Count +
-						   CPPFiles.Count +
+					return CPPFiles.Count +
 						   CFiles.Count +
 						   CCFiles.Count +
 						   MMFiles.Count +
-						   RCFiles.Count +
-						   OtherFiles.Count;
+						   RCFiles.Count;
 				}
 			}
 
@@ -90,24 +53,12 @@ namespace UnrealBuildTool
 			/// <param name="Other">Source object.</param>
 			public void CopyFrom(SourceFilesClass Other)
 			{
-				CopyFromListToList(Other.MissingFiles, MissingFiles);
 				CopyFromListToList(Other.CPPFiles, CPPFiles);
 				CopyFromListToList(Other.CFiles, CFiles);
 				CopyFromListToList(Other.CCFiles, CCFiles);
 				CopyFromListToList(Other.MMFiles, MMFiles);
 				CopyFromListToList(Other.RCFiles, RCFiles);
-				CopyFromListToList(Other.OtherFiles, OtherFiles);
 			}
-		}
-
-		/// <summary>
-		/// Adds additional source cpp files for this module.
-		/// </summary>
-		/// <param name="Files">Files to add.</param>
-		public void AddAdditionalCPPFiles(IEnumerable<FileItem> Files)
-		{
-			SourceFiles.AddRange(Files);
-			SourceFilesToBuild.CPPFiles.AddRange(Files);
 		}
 
 		/// <summary>
@@ -135,32 +86,20 @@ namespace UnrealBuildTool
 		/// </summary>
 		public readonly DirectoryReference GeneratedCodeDirectory;
 
-		public List<DirectoryReference> IncludeSearchPaths = new List<DirectoryReference>();
-
-		public class ProcessedDependenciesClass
-		{
-			/// <summary>
-			/// The file, if any, which is used as the unique PCH for this module
-			/// </summary>
-			public FileItem UniquePCHHeaderFile = null;
-		}
+		/// <summary>
+		/// Set for modules that have generated code
+		/// </summary>
+		public bool bAddGeneratedCodeIncludePath;
 
 		/// <summary>
-		/// The processed dependencies for the class
+		/// Wildcard matching the *.gen.cpp files for this module.  If this is null then this module doesn't have any UHT-produced code.
 		/// </summary>
-		public ProcessedDependenciesClass ProcessedDependencies = null;
+		public string GeneratedCodeWildcard;
 
 		/// <summary>
 		/// List of invalid include directives. These are buffered up and output before we start compiling.
 		/// </summary>
 		public List<string> InvalidIncludeDirectiveMessages;
-
-		public IEnumerable<string> FindGeneratedCppFiles()
-		{
-			return ((null == GeneratedCodeDirectory) || !DirectoryReference.Exists(GeneratedCodeDirectory))
-				? Enumerable.Empty<string>()
-				: DirectoryReference.EnumerateFiles(GeneratedCodeDirectory, "*.gen.cpp", SearchOption.TopDirectoryOnly).Select((Dir) => Dir.FullName);
-		}
 
 		protected override void GetReferencedDirectories(HashSet<DirectoryReference> Directories)
 		{
@@ -180,11 +119,7 @@ namespace UnrealBuildTool
 			foreach (FileItem SourceFile in InSourceFiles)
 			{
 				string Extension = Path.GetExtension(SourceFile.AbsolutePath).ToUpperInvariant();
-				if (!SourceFile.bExists)
-				{
-					OutSourceFiles.MissingFiles.Add(SourceFile);
-				}
-				else if (Extension == ".CPP")
+				if (Extension == ".CPP")
 				{
 					OutSourceFiles.CPPFiles.Add(SourceFile);
 				}
@@ -203,10 +138,6 @@ namespace UnrealBuildTool
 				else if (Extension == ".RC")
 				{
 					OutSourceFiles.RCFiles.Add(SourceFile);
-				}
-				else
-				{
-					OutSourceFiles.OtherFiles.Add(SourceFile);
 				}
 			}
 		}
@@ -271,34 +202,16 @@ namespace UnrealBuildTool
         };
 
 
-		public UEBuildModuleCPP(
-			string InName,
-			UHTModuleType InType,
-			DirectoryReference InModuleDirectory,
-			DirectoryReference InIntermediateDirectory,
-			DirectoryReference InGeneratedCodeDirectory,
-			IEnumerable<FileItem> InSourceFiles,
-			ModuleRules InRules,
-			bool bInBuildSourceFiles,
-			FileReference InRulesFile,
-			List<RuntimeDependency> InRuntimeDependencies
-			)
-			: base(
-					InName,
-					InType,
-					InModuleDirectory,
-					InRules,
-					InRulesFile,
-					InRuntimeDependencies
-				)
+		public UEBuildModuleCPP(ModuleRules Rules, DirectoryReference IntermediateDirectory, DirectoryReference GeneratedCodeDirectory, IEnumerable<FileItem> SourceFiles, bool bBuildSourceFiles)
+			: base(Rules)
 		{
-			IntermediateDirectory = InIntermediateDirectory;
-			GeneratedCodeDirectory = InGeneratedCodeDirectory;
+			this.IntermediateDirectory = IntermediateDirectory;
+			this.GeneratedCodeDirectory = GeneratedCodeDirectory;
 
-			SourceFiles = InSourceFiles.ToList();
+			this.SourceFiles = SourceFiles.ToList();
 
-			CategorizeSourceFiles(InSourceFiles, SourceFilesFound);
-			if (bInBuildSourceFiles)
+			CategorizeSourceFiles(SourceFiles, SourceFilesFound);
+			if (bBuildSourceFiles)
 			{
 				SourceFilesToBuild.CopyFrom(SourceFilesFound);
 			}
@@ -348,7 +261,7 @@ namespace UnrealBuildTool
 			{
 				PublicIncludePaths.Add(PublicDirectory);
 
-				FileSystemName[] ExcludedFolderNames = UEBuildPlatform.GetBuildPlatform(Rules.Target.Platform).GetExcludedFolderNames();
+				string[] ExcludedFolderNames = UEBuildPlatform.GetBuildPlatform(Rules.Target.Platform).GetExcludedFolderNames();
 				foreach (DirectoryReference PublicSubDirectory in DirectoryLookupCache.EnumerateDirectoriesRecursively(PublicDirectory))
 				{
 					if(!PublicSubDirectory.ContainsAnyNames(ExcludedFolderNames, PublicDirectory))
@@ -384,8 +297,15 @@ namespace UnrealBuildTool
 		{
 			CppCompileEnvironment ModuleCompileEnvironment = CreateModuleCompileEnvironment(Target, BinaryCompileEnvironment);
 			ProjectFile.AddIntelliSensePreprocessorDefinitions(ModuleCompileEnvironment.Definitions);
-			ProjectFile.AddInteliiSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.SystemIncludePaths, true);
-			ProjectFile.AddInteliiSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.UserIncludePaths, false);
+			ProjectFile.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.SystemIncludePaths, true);
+			ProjectFile.AddIntelliSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.UserIncludePaths, false);
+
+			// This directory may not exist for this module (or ever exist, if it doesn't contain any generated headers), but we want the project files
+			// to search it so we can pick up generated code definitions after UHT is run for the first time.
+			if(GeneratedCodeDirectory != null)
+			{
+				ProjectFile.AddIntelliSenseIncludePaths(new HashSet<DirectoryReference>{ GeneratedCodeDirectory }, false);
+			}
 		}
 
 		/// <summary>
@@ -400,7 +320,7 @@ namespace UnrealBuildTool
 			bool bLegacyPublicIncludePaths
 			)
 		{
-			if(AutoGenerateCppInfo != null)
+			if(bAddGeneratedCodeIncludePath)
 			{
 				IncludePaths.Add(GeneratedCodeDirectory);
 			}
@@ -416,11 +336,9 @@ namespace UnrealBuildTool
 			List<FileItem> LinkInputFiles = new List<FileItem>();
 
 			CppCompileEnvironment ModuleCompileEnvironment = CreateModuleCompileEnvironment(Target, BinaryCompileEnvironment);
-			IncludeSearchPaths = ModuleCompileEnvironment.IncludePaths.UserIncludePaths.ToList();
-			IncludeSearchPaths.AddRange(ModuleCompileEnvironment.IncludePaths.SystemIncludePaths.ToList());
 
 			// If the module is precompiled, read the object files from the manifest
-			if(Rules.bUsePrecompiled)
+			if(Rules.bUsePrecompiled && Target.LinkType == TargetLinkType.Monolithic)
 			{
 				PrecompiledManifest Manifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
 				foreach(FileReference OutputFile in Manifest.OutputFiles)
@@ -432,28 +350,16 @@ namespace UnrealBuildTool
 				return LinkInputFiles;
 			}
 
-			// Throw an error if the module's source file list referenced any non-existent files.
-			if (SourceFilesToBuild.MissingFiles.Count > 0)
-			{
-				throw new BuildException(
-					"UBT ERROR: Module \"{0}\" references non-existent files:\n{1} (perhaps a file was added to the project but not checked in)",
-					Name,
-					string.Join("\n", SourceFilesToBuild.MissingFiles.Select(M => M.AbsolutePath))
-				);
-			}
+			// Process all of the header file dependencies for this module
+			CheckFirstIncludeMatchesEachCppFile(Target, ModuleCompileEnvironment);
 
+			// Make sure our RC files have cached includes.  
+			foreach (FileItem RCFile in SourceFilesToBuild.RCFiles)
 			{
-				// Process all of the header file dependencies for this module
-				this.CachePCHUsageForModuleSourceFiles(Target, ModuleCompileEnvironment);
-
-				// Make sure our RC files have cached includes.  
-				foreach (FileItem RCFile in SourceFilesToBuild.RCFiles)
+				// The default resource file (PCLaunch.rc) is created in a module-agnostic way, so we want to avoid overriding the include paths for it
+				if(RCFile.CachedIncludePaths == null)
 				{
-					// The default resource file (PCLaunch.rc) is created in a module-agnostic way, so we want to avoid overriding the include paths for it
-					if(RCFile.CachedIncludePaths == null)
-					{
-						RCFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-					}
+					RCFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
 				}
 			}
 
@@ -477,7 +383,7 @@ namespace UnrealBuildTool
 			// the module rules file.  By default, game modules only use unity of they have enough source files for that
 			// to be worthwhile.  If you have a lot of small game modules, consider specifying MinSourceFilesForUnityBuildOverride=0
 			// in the modules that you don't typically iterate on source files in very frequently.
-			int MinSourceFilesForUnityBuild = 0;
+			int MinSourceFilesForUnityBuild = 2;
 			if (Rules.MinSourceFilesForUnityBuildOverride != 0)
 			{
 				MinSourceFilesForUnityBuild = Rules.MinSourceFilesForUnityBuildOverride;
@@ -523,8 +429,8 @@ namespace UnrealBuildTool
 			CppCompileEnvironment CompileEnvironment = ModuleCompileEnvironment;
 			if (Target.bUsePCHFiles)
 			{
-				// If this module has an explicit PCH, use that
-				if(Rules.PrivatePCHHeaderFile != null)
+				// If this module doesn't need a shared PCH, configure that
+				if(Rules.PrivatePCHHeaderFile != null && (Rules.PCHUsage == ModuleRules.PCHUsageMode.NoSharedPCHs || Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs))
 				{
 					PrecompiledHeaderInstance Instance = CreatePrivatePCH(ToolChain, FileItem.GetItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile)), CompileEnvironment, ActionGraph);
 
@@ -548,7 +454,7 @@ namespace UnrealBuildTool
 					PrecompiledHeaderTemplate Template = SharedPCHs.FirstOrDefault(x => ReferencedModules.Contains(x.Module));
 					if(Template != null && Template.IsValidFor(CompileEnvironment))
 					{
-						PrecompiledHeaderInstance Instance = FindOrCreateSharedPCH(ToolChain, Template, ModuleCompileEnvironment.bOptimizeCode, ModuleCompileEnvironment.bUseRTTI, ActionGraph);
+						PrecompiledHeaderInstance Instance = FindOrCreateSharedPCH(ToolChain, Template, ModuleCompileEnvironment.bOptimizeCode, ModuleCompileEnvironment.bUseRTTI, ModuleCompileEnvironment.bEnableExceptions, ActionGraph);
 
 						FileReference PrivateDefinitionsFile = FileReference.Combine(IntermediateDirectory, String.Format("Definitions.{0}.h", Name));
 
@@ -580,20 +486,6 @@ namespace UnrealBuildTool
 						LinkInputFiles.AddRange(Instance.Output.ObjectFiles);
 					}
 				}
-
-				// If there was one header that was included first by enough C++ files, use it as the precompiled header. Only use precompiled headers for projects with enough files to make the PCH creation worthwhile.
-				if (CompileEnvironment.PrecompiledHeaderFile == null && SourceFilesToBuild.CPPFiles.Count >= MinFilesUsingPrecompiledHeader && ProcessedDependencies != null)
-				{
-					PrecompiledHeaderInstance Instance = CreatePrivatePCH(ToolChain, ProcessedDependencies.UniquePCHHeaderFile, CompileEnvironment, ActionGraph);
-
-					CompileEnvironment = new CppCompileEnvironment(CompileEnvironment);
-					CompileEnvironment.Definitions.Clear();
-					CompileEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.Include;
-					CompileEnvironment.PrecompiledHeaderIncludeFilename = Instance.HeaderFile.Location;
-					CompileEnvironment.PrecompiledHeaderFile = Instance.Output.PrecompiledHeaderFile;
-
-					LinkInputFiles.AddRange(Instance.Output.ObjectFiles);
-				}
 			}
 
 			// Write all the definitions to a separate file
@@ -612,9 +504,9 @@ namespace UnrealBuildTool
 			}
 
 			// Compile all the generated CPP files
-			if (AutoGenerateCppInfo != null && AutoGenerateCppInfo.BuildInfo != null && !CompileEnvironment.bHackHeaderGenerator)
+			if (GeneratedCodeWildcard != null && !CompileEnvironment.bHackHeaderGenerator)
 			{
-				string[] GeneratedFiles = Directory.GetFiles(Path.GetDirectoryName(AutoGenerateCppInfo.BuildInfo.FileWildcard), Path.GetFileName(AutoGenerateCppInfo.BuildInfo.FileWildcard));
+				string[] GeneratedFiles = Directory.GetFiles(Path.GetDirectoryName(GeneratedCodeWildcard), Path.GetFileName(GeneratedCodeWildcard));
 				if(GeneratedFiles.Length > 0)
 				{
 					// Create a compile environment for the generated files. We can disable creating debug info here to improve link times.
@@ -625,13 +517,19 @@ namespace UnrealBuildTool
 						GeneratedCPPCompileEnvironment.bCreateDebugInfo = false;
 					}
 
+					// Always force include the PCH, even if PCHs are disabled, for generated code. Legacy code can rely on PCHs being included to compile correctly, and this used to be done by UHT manually including it.
+					if(GeneratedCPPCompileEnvironment.PrecompiledHeaderFile == null && Rules.PrivatePCHHeaderFile != null && Rules.PCHUsage != ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs)
+					{
+						GeneratedCPPCompileEnvironment = new CppCompileEnvironment(GeneratedCPPCompileEnvironment);
+						GeneratedCPPCompileEnvironment.ForceIncludeFiles.Add(FileItem.GetExistingItemByFileReference(FileReference.Combine(ModuleDirectory, Rules.PrivatePCHHeaderFile)));
+					}
+
 					// Compile all the generated files
 					List<FileItem> GeneratedFileItems = new List<FileItem>();
 					foreach (string GeneratedFilename in GeneratedFiles)
 					{
 						FileItem GeneratedCppFileItem = FileItem.GetItemByPath(GeneratedFilename);
-
-						CachePCHUsageForModuleSourceFile(CompileEnvironment, GeneratedCppFileItem);
+						GeneratedCppFileItem.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
 
 						// @todo ubtmake: Check for ALL other places where we might be injecting .cpp or .rc files for compiling without caching CachedCPPIncludeInfo first (anything platform specific?)
 						GeneratedFileItems.Add(GeneratedCppFileItem);
@@ -677,7 +575,7 @@ namespace UnrealBuildTool
 			}
 
 			// Write the compiled manifest
-			if(Rules.bPrecompile)
+			if(Rules.bPrecompile && Target.LinkType == TargetLinkType.Monolithic)
 			{
 				DirectoryReference.CreateDirectory(PrecompiledManifestLocation.Directory);
 
@@ -702,7 +600,7 @@ namespace UnrealBuildTool
 			HeaderFile.CachedIncludePaths = CompileEnvironment.IncludePaths;
 
 			DirectoryReference PrecompiledHeaderDir;
-			if(Target.Rules.bUsePrecompiled)
+			if(Rules.bUsePrecompiled)
 			{
 				PrecompiledHeaderDir = DirectoryReference.Combine(Target.ProjectIntermediateDirectory, Name);
 			}
@@ -743,7 +641,7 @@ namespace UnrealBuildTool
 
 			// Create the action to compile the PCH file.
 			CPPOutput Output = ToolChain.CompileCPPFiles(CompileEnvironment, new List<FileItem>() { WrapperFile }, IntermediateDirectory, Name, ActionGraph);
-			return new PrecompiledHeaderInstance(WrapperFile, CompileEnvironment.bOptimizeCode, CompileEnvironment.bUseRTTI, Output);
+			return new PrecompiledHeaderInstance(WrapperFile, CompileEnvironment.bOptimizeCode, CompileEnvironment.bUseRTTI, CompileEnvironment.bEnableExceptions, Output);
 		}
 
 		/// <summary>
@@ -753,11 +651,12 @@ namespace UnrealBuildTool
 		/// <param name="Template">The PCH template</param>
 		/// <param name="bOptimizeCode">Whether optimization should be enabled for this PCH</param>
 		/// <param name="bUseRTTI">Whether to enable RTTI for this PCH</param>
+		/// <param name="bEnableExceptions">Whether to enable exceptions for this PCH</param>
 		/// <param name="ActionGraph">Graph containing build actions</param>
 		/// <returns>Instance of a PCH</returns>
-		public PrecompiledHeaderInstance FindOrCreateSharedPCH(UEToolChain ToolChain, PrecompiledHeaderTemplate Template, bool bOptimizeCode, bool bUseRTTI, ActionGraph ActionGraph)
+		public PrecompiledHeaderInstance FindOrCreateSharedPCH(UEToolChain ToolChain, PrecompiledHeaderTemplate Template, bool bOptimizeCode, bool bUseRTTI, bool bEnableExceptions, ActionGraph ActionGraph)
 		{
-			PrecompiledHeaderInstance Instance = Template.Instances.Find(x => x.bOptimizeCode == bOptimizeCode && x.bUseRTTI == bUseRTTI);
+			PrecompiledHeaderInstance Instance = Template.Instances.Find(x => x.bOptimizeCode == bOptimizeCode && x.bUseRTTI == bUseRTTI && x.bEnableExceptions == bEnableExceptions);
 			if(Instance == null)
 			{
 				// Create a suffix to distinguish this shared PCH variant from any others. Currently only optimized and non-optimized shared PCHs are supported.
@@ -784,6 +683,17 @@ namespace UnrealBuildTool
 						Variant += ".NonRTTI";
 					}
 				}
+				if (bEnableExceptions != Template.BaseCompileEnvironment.bEnableExceptions)
+				{
+					if (bEnableExceptions)
+					{
+						Variant += ".Exceptions";
+					}
+					else
+					{
+						Variant += ".NoExceptions";
+					}
+				}
 
 				// Create the wrapper file, which sets all the definitions needed to compile it
 				FileReference WrapperLocation = FileReference.Combine(Template.OutputDir, String.Format("SharedPCH.{0}{1}.h", Template.Module.Name, Variant));
@@ -796,10 +706,11 @@ namespace UnrealBuildTool
 				CompileEnvironment.PrecompiledHeaderIncludeFilename = WrapperFile.Location;
 				CompileEnvironment.bOptimizeCode = bOptimizeCode;
 				CompileEnvironment.bUseRTTI = bUseRTTI;
+				CompileEnvironment.bEnableExceptions = bEnableExceptions;
 
 				// Create the PCH
 				CPPOutput Output = ToolChain.CompileCPPFiles(CompileEnvironment, new List<FileItem>() { WrapperFile }, Template.OutputDir, "Shared", ActionGraph);
-				Instance = new PrecompiledHeaderInstance(WrapperFile, bOptimizeCode, bUseRTTI, Output);
+				Instance = new PrecompiledHeaderInstance(WrapperFile, bOptimizeCode, bUseRTTI, bEnableExceptions, Output);
 				Template.Instances.Add(Instance);
 			}
 			return Instance;
@@ -815,7 +726,7 @@ namespace UnrealBuildTool
 
 			bool bAdaptiveUnityDisablesPCH = (Target.bAdaptiveUnityDisablesPCH && Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs);
 
-			if ((Target.bAdaptiveUnityDisablesOptimizations || bAdaptiveUnityDisablesPCH) && !Target.bStressTestUnity)
+			if ((Target.bAdaptiveUnityDisablesOptimizations || bAdaptiveUnityDisablesPCH || Target.bAdaptiveUnityCreatesDedicatedPCH) && !Target.bStressTestUnity)
 			{
 				foreach (FileItem File in SourceFiles)
 				{
@@ -850,13 +761,25 @@ namespace UnrealBuildTool
 				{
 					AdaptiveUnityEnvironment.bOptimizeCode = false;
 				}
-				AdaptiveUnityEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.None;
+				if (Target.bAdaptiveUnityEnablesEditAndContinue)
+				{
+					AdaptiveUnityEnvironment.bSupportEditAndContinue = true;
+				}
 
-				// Write all the definitions out to a separate file
-				CreateHeaderForDefinitions(AdaptiveUnityEnvironment, IntermediateDirectory, "Adaptive");
-
-				// Compile the files
-				CPPOutput AdaptiveOutput = ToolChain.CompileCPPFiles(AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+				// Create a per-file PCH
+				CPPOutput AdaptiveOutput;
+				if(Target.bAdaptiveUnityCreatesDedicatedPCH)
+				{
+					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithDedicatedPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+				}
+				else if(bAdaptiveUnityDisablesPCH)
+				{
+					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithoutPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+				}
+				else
+				{
+					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+				}
 
 				// Merge output
 				OutputFiles.ObjectFiles.AddRange(AdaptiveOutput.ObjectFiles);
@@ -864,6 +787,73 @@ namespace UnrealBuildTool
 			}
 
 			return OutputFiles;
+		}
+
+		static CPPOutput CompileAdaptiveNonUnityFilesWithPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, ActionGraph ActionGraph)
+		{
+			// Compile the files
+			return ToolChain.CompileCPPFiles(CompileEnvironment, Files, IntermediateDirectory, ModuleName, ActionGraph);
+		}
+
+		static CPPOutput CompileAdaptiveNonUnityFilesWithoutPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, ActionGraph ActionGraph)
+		{
+			// Disable precompiled headers
+			CompileEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.None;
+
+			// Write all the definitions out to a separate file
+			CreateHeaderForDefinitions(CompileEnvironment, IntermediateDirectory, "Adaptive");
+
+			// Compile the files
+			return ToolChain.CompileCPPFiles(CompileEnvironment, Files, IntermediateDirectory, ModuleName, ActionGraph);
+		}
+
+		static CPPOutput CompileAdaptiveNonUnityFilesWithDedicatedPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, ActionGraph ActionGraph)
+		{
+			CPPOutput Output = new CPPOutput();
+			foreach(FileItem File in Files)
+			{
+				// Build the contents of the wrapper file
+				StringBuilder WrapperContents = new StringBuilder();
+				using (StringWriter Writer = new StringWriter(WrapperContents))
+				{
+					Writer.WriteLine("// Dedicated PCH for {0}", File.AbsolutePath);
+					Writer.WriteLine();
+					WriteDefinitions(CompileEnvironment.Definitions, Writer);
+					Writer.WriteLine();
+					using(StreamReader Reader = new StreamReader(File.Location.FullName))
+					{
+						CppIncludeParser.CopyIncludeDirectives(Reader, Writer);
+					}
+				}
+
+				// Write the PCH header
+				FileReference DedicatedPchLocation = FileReference.Combine(IntermediateDirectory, String.Format("PCH.Dedicated.{0}.h", File.Location.GetFileNameWithoutExtension()));
+				FileItem DedicatedPchFile = FileItem.CreateIntermediateTextFile(DedicatedPchLocation, WrapperContents.ToString());
+				DedicatedPchFile.CachedIncludePaths = File.CachedIncludePaths;
+
+				// Create a new C++ environment to compile the PCH
+				CppCompileEnvironment PchEnvironment = new CppCompileEnvironment(CompileEnvironment);
+				PchEnvironment.Definitions.Clear();
+				PchEnvironment.IncludePaths.UserIncludePaths.Add(File.Location.Directory); // Need to be able to include headers in the same directory as the source file
+				PchEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.Create;
+				PchEnvironment.PrecompiledHeaderIncludeFilename = DedicatedPchFile.Location;
+
+				// Create the action to compile the PCH file.
+				CPPOutput PchOutput = ToolChain.CompileCPPFiles(PchEnvironment, new List<FileItem>() { DedicatedPchFile }, IntermediateDirectory, ModuleName, ActionGraph);
+				Output.ObjectFiles.AddRange(PchOutput.ObjectFiles);
+
+				// Create a new C++ environment to compile the original file
+				CppCompileEnvironment FileEnvironment = new CppCompileEnvironment(CompileEnvironment);
+				FileEnvironment.Definitions.Clear();
+				FileEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.Include;
+				FileEnvironment.PrecompiledHeaderIncludeFilename = DedicatedPchFile.Location;
+				FileEnvironment.PrecompiledHeaderFile = PchOutput.PrecompiledHeaderFile;
+
+				// Create the action to compile the PCH file.
+				CPPOutput FileOutput = ToolChain.CompileCPPFiles(FileEnvironment, new List<FileItem>() { File }, IntermediateDirectory, ModuleName, ActionGraph);
+				Output.ObjectFiles.AddRange(FileOutput.ObjectFiles);
+			}
+			return Output;
 		}
 
 		/// <summary>
@@ -952,34 +942,14 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public static FileItem CachePCHUsageForModuleSourceFile(CppCompileEnvironment ModuleCompileEnvironment, FileItem CPPFile)
+		/// <summary>
+		/// Checks that the first header included by the source files in this module all include the same header
+		/// </summary>
+		/// <param name="Target">The target being compiled</param>
+		/// <param name="ModuleCompileEnvironment">Compile environment for the module</param>
+		private void CheckFirstIncludeMatchesEachCppFile(ReadOnlyTargetRules Target, CppCompileEnvironment ModuleCompileEnvironment)
 		{
-			if (!CPPFile.bExists)
-			{
-				throw new BuildException("Required source file not found: " + CPPFile.AbsolutePath);
-			}
-
-			DateTime PCHCacheTimerStart = DateTime.UtcNow;
-
-			// Store the module compile environment along with the .cpp file.  This is so that we can use it later on when looking
-			// for header dependencies
-			CPPFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-
-			FileItem PCHFile = ModuleCompileEnvironment.Headers.CachePCHUsageForCPPFile(CPPFile, ModuleCompileEnvironment.IncludePaths, ModuleCompileEnvironment.Platform);
-
-			if (UnrealBuildTool.bPrintPerformanceInfo)
-			{
-				double PCHCacheTime = (DateTime.UtcNow - PCHCacheTimerStart).TotalSeconds;
-				TotalPCHCacheTime += PCHCacheTime;
-			}
-
-			return PCHFile;
-		}
-
-
-		public void CachePCHUsageForModuleSourceFiles(ReadOnlyTargetRules Target, CppCompileEnvironment ModuleCompileEnvironment)
-		{
-			if(Rules == null || Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs || Rules.PrivatePCHHeaderFile != null)
+			if(Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs)
 			{
 				if(InvalidIncludeDirectiveMessages == null)
 				{
@@ -1026,118 +996,12 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-			else
-			{
-				if (ProcessedDependencies == null)
-				{
-					DateTime PCHCacheTimerStart = DateTime.UtcNow;
-
-					bool bFoundAProblemWithPCHs = false;
-
-					FileItem UniquePCH = null;
-					foreach (FileItem CPPFile in SourceFilesFound.CPPFiles)	// @todo ubtmake: We're not caching CPPEnvironments for .c/.mm files, etc.  Even though they don't use PCHs, they still have #includes!  This can break dependency checking!
-					{
-						// Store the module compile environment along with the .cpp file.  This is so that we can use it later on when looking
-						// for header dependencies
-						CPPFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-
-						// Find headers used by the source file.
-						FileItem PCH = ModuleCompileEnvironment.Headers.CachePCHUsageForCPPFile(CPPFile, ModuleCompileEnvironment.IncludePaths, ModuleCompileEnvironment.Platform);
-						if (PCH == null)
-						{
-							throw new BuildException("Source file \"{0}\" is not including any headers.  We expect all modules to include a header file for precompiled header generation.  Please add an #include statement.", CPPFile.AbsolutePath);
-						}
-
-						if (UniquePCH == null)
-						{
-							UniquePCH = PCH;
-						}
-						else if (!UniquePCH.Info.Name.Equals(PCH.Info.Name, StringComparison.InvariantCultureIgnoreCase))		// @todo ubtmake: We do a string compare on the file name (not path) here, because sometimes the include resolver will pick an Intermediate copy of a PCH header file and throw off our comparisons
-						{
-							// OK, looks like we have multiple source files including a different header file first.  We'll keep track of this and print out
-							// helpful information afterwards.
-							bFoundAProblemWithPCHs = true;
-						}
-					}
-
-					ProcessedDependencies = new ProcessedDependenciesClass { UniquePCHHeaderFile = UniquePCH };
-
-
-					if (bFoundAProblemWithPCHs)
-					{
-						// Map from pch header string to the source files that use that PCH
-						Dictionary<FileReference, List<FileItem>> UsageMapPCH = new Dictionary<FileReference, List<FileItem>>();
-						foreach (FileItem CPPFile in SourceFilesToBuild.CPPFiles)
-						{
-							// Create a new entry if not in the pch usage map
-							List<FileItem> Files;
-							if (!UsageMapPCH.TryGetValue(CPPFile.PrecompiledHeaderIncludeFilename, out Files))
-							{
-								Files = new List<FileItem>();
-								UsageMapPCH.Add(CPPFile.PrecompiledHeaderIncludeFilename, Files);
-							}
-							Files.Add(CPPFile);
-						}
-
-						if (UnrealBuildTool.bPrintDebugInfo)
-						{
-							Log.TraceVerbose("{0} PCH files for module {1}:", UsageMapPCH.Count, Name);
-							int MostFilesIncluded = 0;
-							foreach (KeyValuePair<FileReference, List<FileItem>> CurPCH in UsageMapPCH)
-							{
-								if (CurPCH.Value.Count > MostFilesIncluded)
-								{
-									MostFilesIncluded = CurPCH.Value.Count;
-								}
-
-								Log.TraceVerbose("   {0}  ({1} files including it: {2}, ...)", CurPCH.Key, CurPCH.Value.Count, CurPCH.Value[0].AbsolutePath);
-							}
-						}
-
-						if (UsageMapPCH.Count > 1)
-						{
-							// Keep track of the PCH file that is most used within this module
-							FileReference MostFilesAreIncludingPCH = null;
-							int MostFilesIncluded = 0;
-							foreach (KeyValuePair<FileReference, List<FileItem>> CurPCH in UsageMapPCH.Where(PCH => PCH.Value.Count > MostFilesIncluded))
-							{
-								MostFilesAreIncludingPCH = CurPCH.Key;
-								MostFilesIncluded = CurPCH.Value.Count;
-							}
-
-							// Find all of the files that are not including our "best" PCH header
-							StringBuilder FilesNotIncludingBestPCH = new StringBuilder();
-							foreach (KeyValuePair<FileReference, List<FileItem>> CurPCH in UsageMapPCH.Where(PCH => PCH.Key != MostFilesAreIncludingPCH))
-							{
-								foreach (FileItem SourceFile in CurPCH.Value)
-								{
-									FilesNotIncludingBestPCH.AppendFormat("{0} (including {1})\n", SourceFile.AbsolutePath, CurPCH.Key);
-								}
-							}
-
-							// Bail out and let the user know which source files may need to be fixed up
-							throw new BuildException(
-								"All source files in module \"{0}\" must include the same precompiled header first.  Currently \"{1}\" is included by most of the source files.  The following source files are not including \"{1}\" as their first include:\n\n{2}\n\nTo compile this module without implicit precompiled headers, add \"PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;\" to {0}.build.cs.",
-								Name,
-								MostFilesAreIncludingPCH,
-								FilesNotIncludingBestPCH);
-						}
-					}
-
-					if (UnrealBuildTool.bPrintPerformanceInfo)
-					{
-						double PCHCacheTime = (DateTime.UtcNow - PCHCacheTimerStart).TotalSeconds;
-						TotalPCHCacheTime += PCHCacheTime;
-					}
-				}
-			}
 		}
 
 		private bool IgnoreMismatchedHeader(string ExpectedName)
 		{
 			switch(ExpectedName)
 			{
-				case "Stats2":
 				case "DynamicRHI":
 				case "RHICommandList":
 				case "RHIUtilities":
@@ -1222,19 +1086,6 @@ namespace UnrealBuildTool
 				Result.Definitions.Add("UE_IS_ENGINE_MODULE=0");
 			}
 
-			// Switch the optimization flag if we're building a game module. Also pass the definition for building in DebugGame along (see ModuleManager.h for notes).
-			if (!Rules.bTreatAsEngineModule)
-			{
-				if (Target.Configuration == UnrealTargetConfiguration.DebugGame)
-				{
-					Result.Definitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=1");
-				}
-				else
-				{
-					Result.Definitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=0");
-				}
-			}
-
 			// For game modules, set the define for the project name. This will be used by the IMPLEMENT_PRIMARY_GAME_MODULE macro.
 			if (!Rules.bTreatAsEngineModule)
 			{
@@ -1289,19 +1140,6 @@ namespace UnrealBuildTool
 				CompileEnvironment.Definitions.Add("UE_IS_ENGINE_MODULE=0");
 			}
 
-			// Switch the optimization flag if we're building a game module. Also pass the definition for building in DebugGame along (see ModuleManager.h for notes).
-			if (!Rules.bTreatAsEngineModule)
-			{
-				if (Target.Configuration == UnrealTargetConfiguration.DebugGame)
-				{
-					CompileEnvironment.Definitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=1");
-				}
-				else
-				{
-					CompileEnvironment.Definitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=0");
-				}
-			}
-
 			// Add the module's private definitions.
 			CompileEnvironment.Definitions.AddRange(PublicDefinitions);
 
@@ -1315,66 +1153,6 @@ namespace UnrealBuildTool
 				Module.AddModuleToCompileEnvironment(null, CompileEnvironment.IncludePaths.UserIncludePaths, CompileEnvironment.IncludePaths.SystemIncludePaths, CompileEnvironment.Definitions, CompileEnvironment.AdditionalFrameworks, (Rules != null)? Rules.bLegacyPublicIncludePaths.Value : true);
 			}
 			return CompileEnvironment;
-		}
-
-		public class UHTModuleInfoCacheType
-		{
-			public UHTModuleInfoCacheType(IEnumerable<string> InHeaderFilenames, UHTModuleInfo InInfo)
-			{
-				HeaderFilenames = InHeaderFilenames;
-				Info = InInfo;
-			}
-
-			public IEnumerable<string> HeaderFilenames = null;
-			public UHTModuleInfo Info = null;
-		}
-
-		private UHTModuleInfoCacheType UHTModuleInfoCache = null;
-
-		/// Total time spent generating PCHs for modules (not actually compiling, but generating the PCH's input data)
-		public static double TotalPCHGenTime = 0.0;
-
-		/// Time spent caching which PCH header is included by each module and source file
-		public static double TotalPCHCacheTime = 0.0;
-
-
-		/// <summary>
-		/// If any of this module's source files contain UObject definitions, this will return those header files back to the caller
-		/// </summary>
-		/// <returns></returns>
-		public UHTModuleInfoCacheType GetCachedUHTModuleInfo(EGeneratedCodeVersion GeneratedCodeVersion)
-		{
-			if (UHTModuleInfoCache == null)
-			{
-				List<FileReference> HeaderFiles = new List<FileReference>();
-				FileSystemName[] ExcludedFolders = UEBuildPlatform.GetBuildPlatform(Rules.Target.Platform, true).GetExcludedFolderNames();
-				FindHeaders(new DirectoryInfo(ModuleDirectory.FullName), ExcludedFolders, HeaderFiles);
-				UHTModuleInfo Info = ExternalExecution.CreateUHTModuleInfo(HeaderFiles, Name, RulesFile, ModuleDirectory, Type, GeneratedCodeVersion);
-				UHTModuleInfoCache = new UHTModuleInfoCacheType(Info.PublicUObjectHeaders.Concat(Info.PublicUObjectClassesHeaders).Concat(Info.PrivateUObjectHeaders).Select(x => x.AbsolutePath).ToList(), Info);
-			}
-
-			return UHTModuleInfoCache;
-		}
-
-		/// <summary>
-		/// Find all the headers under the given base directory, excluding any other platform folders.
-		/// </summary>
-		/// <param name="BaseDir">Base directory to search</param>
-		/// <param name="ExcludeFolders">Array of folders to exclude</param>
-		/// <param name="Headers">Receives the list of headers that was found</param>
-		static void FindHeaders(DirectoryInfo BaseDir, FileSystemName[] ExcludeFolders, List<FileReference> Headers)
-		{
-			if (!ExcludeFolders.Any(x => x.DisplayName.Equals(BaseDir.Name, StringComparison.InvariantCultureIgnoreCase)))
-			{
-				foreach (DirectoryInfo SubDir in BaseDir.EnumerateDirectories())
-				{
-					FindHeaders(SubDir, ExcludeFolders, Headers);
-				}
-				foreach (FileInfo File in BaseDir.EnumerateFiles("*.h"))
-				{
-					Headers.Add(new FileReference(File));
-				}
-			}
 		}
 
 		public override void GetAllDependencyModules(List<UEBuildModule> ReferencedModules, HashSet<UEBuildModule> IgnoreReferencedModules, bool bIncludeDynamicallyLoaded, bool bForceCircular, bool bOnlyDirectDependencies)

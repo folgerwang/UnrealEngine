@@ -64,6 +64,9 @@ public:
 	/** Invokes the Find and Replace UI */
 	virtual void SummonFindAndReplaceUI() = 0;
 
+	/** Tries to open the specified graph and bring it's document to the front (note: this can return NULL) */
+	virtual TSharedPtr<class SGraphEditor> OpenGraphAndBringToFront(class UEdGraph* Graph) = 0;
+
 	virtual void RefreshEditors(ERefreshBlueprintEditorReason::Type Reason = ERefreshBlueprintEditorReason::UnknownReason) = 0;
 
 	virtual void AddToSelection(UEdGraphNode* InNode) = 0;

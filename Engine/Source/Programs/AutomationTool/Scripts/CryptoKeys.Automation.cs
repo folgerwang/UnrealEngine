@@ -22,7 +22,7 @@ namespace AutomationTool
 				RawProjectPath: ProjectPath
 			);
 
-			Log("********** CRYPTOKEYS COMMAND STARTED **********");
+			LogInformation("********** CRYPTOKEYS COMMAND STARTED **********");
 
 			string UE4EditorExe = HostPlatform.Current.GetUE4ExePath(Params.UE4Exe);
 			if (!FileExists(UE4EditorExe))
@@ -87,7 +87,7 @@ namespace AutomationTool
 			}
 			else
 			{
-				Log(ChangeDescription);
+				LogInformation(ChangeDescription);
 				FileReference.MakeWriteable(OutputFile);
 			}
 

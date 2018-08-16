@@ -8,8 +8,9 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "CoreMinimal.h"
 #include "Containers/Queue.h"
+#include "UObject/NameTypes.h"
+#include "Templates/UniquePtr.h"
 
 #if WITH_SERVER_CODE
   #define CSV_PROFILER (WITH_ENGINE && 1)

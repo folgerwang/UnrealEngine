@@ -80,9 +80,6 @@ const TCHAR* EHostType::ToString( const EHostType::Type Value )
 		case RuntimeNoCommandlet:
 			return TEXT( "RuntimeNoCommandlet" );
 
-		case RuntimeAndProgram:
-			return TEXT("RuntimeAndProgram");
-
 		case CookedOnly:
 			return TEXT("CookedOnly");
 
@@ -220,6 +217,17 @@ bool FModuleDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 		}
 	}
 
+	// Read the supported programs
+	TSharedPtr<FJsonValue> WhitelistProgramsValue = Object.TryGetField(TEXT("WhitelistPrograms"));
+	if (WhitelistProgramsValue.IsValid() && WhitelistProgramsValue->Type == EJson::Array)
+	{
+		const TArray< TSharedPtr< FJsonValue > >& ProgramsArray = WhitelistProgramsValue->AsArray();
+		for (int Idx = 0; Idx < ProgramsArray.Num(); Idx++)
+		{
+			WhitelistPrograms.Add(ProgramsArray[Idx]->AsString());
+		}
+	}
+
 	// Read the additional dependencies
 	TSharedPtr<FJsonValue> AdditionalDependenciesValue = Object.TryGetField(TEXT("AdditionalDependencies"));
 	if (AdditionalDependenciesValue.IsValid() && AdditionalDependenciesValue->Type == EJson::Array)
@@ -328,6 +336,15 @@ void FModuleDescriptor::Write(TJsonWriter<>& Writer) const
 		}
 		Writer.WriteArrayEnd();
 	}
+	if (WhitelistPrograms.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("WhitelistPrograms"));
+		for (int Idx = 0; Idx < WhitelistPrograms.Num(); Idx++)
+		{
+			Writer.WriteValue(WhitelistPrograms[Idx]);
+		}
+		Writer.WriteArrayEnd();
+	}
 	if (AdditionalDependencies.Num() > 0)
 	{
 		Writer.WriteArrayStart(TEXT("AdditionalDependencies"));
@@ -396,18 +413,19 @@ bool FModuleDescriptor::IsCompiledInCurrentConfiguration() const
 		return false;
 	}
 
+#if IS_PROGRAM
+	// Check the program is allowed
+	if (!WhitelistPrograms.Contains(UE_APP_NAME))
+	{
+		return false;
+	}
+#endif
+
 	// Check the module is compatible with this target. This should match ModuleDescriptor.IsCompiledInConfiguration in UBT
 	switch (Type)
 	{
 	case EHostType::Runtime:
 	case EHostType::RuntimeNoCommandlet:
-#if IS_PROGRAM
-		return false;
-#else
-		return true;
-#endif
-
-	case EHostType::RuntimeAndProgram:
 		return true;
 
 	case EHostType::CookedOnly:
@@ -462,20 +480,14 @@ bool FModuleDescriptor::IsLoadedInCurrentConfiguration() const
 	// Check that the runtime environment allows it to be loaded
 	switch (Type)
 	{
-	case EHostType::RuntimeAndProgram:
-		#if (WITH_ENGINE || WITH_PLUGIN_SUPPORT)
-			return true;
-		#endif
-		break;
-
 	case EHostType::Runtime:
-		#if (WITH_ENGINE || WITH_PLUGIN_SUPPORT) && !IS_PROGRAM
+		#if WITH_ENGINE || WITH_PLUGIN_SUPPORT
 			return true;
 		#endif
 		break;
 	
 	case EHostType::RuntimeNoCommandlet:
-		#if (WITH_ENGINE || WITH_PLUGIN_SUPPORT)  && !IS_PROGRAM
+		#if WITH_ENGINE || WITH_PLUGIN_SUPPORT
 			if(!IsRunningCommandlet()) return true;
 		#endif
 		break;

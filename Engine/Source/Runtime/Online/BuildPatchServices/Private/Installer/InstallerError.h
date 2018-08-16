@@ -17,6 +17,7 @@ namespace BuildPatchServices
 		static const TCHAR* MissingCompleteDelegate = TEXT("03");
 		static const TCHAR* InvalidInstallTags = TEXT("04");
 		static const TCHAR* ChunkReferenceTracking = TEXT("05");
+		static const TCHAR* MissingPrereqForPrereqOnlyInstall = TEXT("06");
 	}
 
 	/**
@@ -34,6 +35,7 @@ namespace BuildPatchServices
 	namespace PathLengthErrorCodes
 	{
 		static const TCHAR* StagingDirectory = TEXT("01");
+		static const TCHAR* InstallDirectory = TEXT("02");
 	}
 
 	/**
@@ -63,6 +65,7 @@ namespace BuildPatchServices
 	namespace MoveErrorCodes
 	{
 		static const TCHAR* StageToInstall = TEXT("01");
+		static const TCHAR* DeleteFileFailed = TEXT("02");
 	}
 
 	/**
@@ -70,7 +73,12 @@ namespace BuildPatchServices
 	 */
 	namespace VerifyErrorCodes
 	{
+		static const TCHAR* UnknownFail = TEXT("00");
 		static const TCHAR* FinalCheck = TEXT("01");
+		static const TCHAR* FileMissing = TEXT("02");
+		static const TCHAR* OpenFileFailed = TEXT("03");
+		static const TCHAR* HashCheckFailed = TEXT("04");
+		static const TCHAR* FileSizeFailed = TEXT("05");
 	}
 
 	/**
@@ -166,10 +174,11 @@ namespace BuildPatchServices
 		/**
 		 * Report a fatal error that has occurred which should cause other systems to abort.
 		 * @param ErrorType     The enum value for the error.
-		 * @param ErrorCode     The error code string for the error.
+		 * @param ErrorSubType  The error sub type string for the error.
+		 * @param ErrorCode     The error code for the error. 0 means no additional information.
 		 * @param ErrorText     Optional specific error display text to use instead of the standard generic one.
 		 */
-		virtual void SetError(EBuildPatchInstallError ErrorType, const TCHAR* ErrorCode, FText ErrorText = FText::GetEmpty()) = 0;
+		virtual void SetError(EBuildPatchInstallError ErrorType, const TCHAR* ErrorSubType, uint32 ErrorCode = 0, FText ErrorText = FText::GetEmpty()) = 0;
 
 		/**
 		 * Register a delegate to be called upon an error occurring.
@@ -205,4 +214,4 @@ namespace BuildPatchServices
 	 * @return A string value for the EBuildPatchInstallError enum.
 	 */
 	const FString& EnumToString(const EBuildPatchInstallError& ErrorType);
-};
+}

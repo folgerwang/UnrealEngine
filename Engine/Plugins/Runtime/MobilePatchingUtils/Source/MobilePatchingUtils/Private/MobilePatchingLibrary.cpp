@@ -34,6 +34,51 @@ static IBuildPatchServicesModule* GetBuildPatchServices()
 	return BuildPatchServices;
 }
 
+static const FText& GetBuildPatchStateText(const BuildPatchServices::EBuildPatchState& State)
+{
+	static const FText Queued = LOCTEXT("EBuildPatchState_Queued", "Queued");
+	static const FText Initializing = LOCTEXT("EBuildPatchState_Initialising", "Initializing");
+	static const FText Resuming = LOCTEXT("EBuildPatchState_Resuming", "Resuming");
+	static const FText Downloading = LOCTEXT("EBuildPatchState_Downloading", "Downloading");
+	static const FText Installing = LOCTEXT("EBuildPatchState_Installing", "Installing");
+	static const FText BuildVerification = LOCTEXT("EBuildPatchState_BuildVerification", "Verifying");
+	static const FText CleanUp = LOCTEXT("EBuildPatchState_CleanUp", "Cleaning up");
+	static const FText PrerequisitesInstall = LOCTEXT("EBuildPatchState_PrerequisitesInstall", "Prerequisites");
+	static const FText Completed = LOCTEXT("EBuildPatchState_Complete", "Complete");
+	static const FText Paused = LOCTEXT("EBuildPatchState_Paused", "Paused");
+	static const FText Empty = FText::GetEmpty();
+
+	switch (State)
+	{
+		case BuildPatchServices::EBuildPatchState::Queued:
+			return Queued;
+		case BuildPatchServices::EBuildPatchState::Initializing:
+			return Initializing;
+		case BuildPatchServices::EBuildPatchState::Resuming:
+			return Resuming;
+		case BuildPatchServices::EBuildPatchState::Downloading:
+			return Downloading;
+		case BuildPatchServices::EBuildPatchState::Installing:
+			// falls through
+		case BuildPatchServices::EBuildPatchState::MovingToInstall:
+			// falls through
+		case BuildPatchServices::EBuildPatchState::SettingAttributes:
+			return Installing;
+		case BuildPatchServices::EBuildPatchState::BuildVerification:
+			return BuildVerification;
+		case BuildPatchServices::EBuildPatchState::CleanUp:
+			return CleanUp;
+		case BuildPatchServices::EBuildPatchState::PrerequisitesInstall:
+			return PrerequisitesInstall;
+		case BuildPatchServices::EBuildPatchState::Completed:
+			return Completed;
+		case BuildPatchServices::EBuildPatchState::Paused:
+			return Paused;
+		default:
+			return Empty;
+	}
+}
+
 static const FText& GetRequestContentErrorText(ERequestContentError ErrorCode)
 {
 	static const FText NoError(LOCTEXT("RequestContentError_NoError", "The operation was successful."));
@@ -180,7 +225,7 @@ FText UMobilePendingContent::GetDownloadStatusText()
 {
 	if (Installer.IsValid())
 	{
-		return Installer->GetStatusText();
+		return GetBuildPatchStateText(Installer->GetState());
 	}
 	return FText::GetEmpty();
 }

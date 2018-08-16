@@ -135,6 +135,14 @@ enum ERoundingMode
 	// Add new enum types at the end only! They are serialized by index.
 };
 
+enum EMemoryUnitStandard
+{
+	/* International Electrotechnical Commission (MiB) 1024-based */
+	IEC,
+	/* International System of Units 1000-based */
+	SI
+};
+
 struct CORE_API FNumberFormattingOptions
 {
 	FNumberFormattingOptions();
@@ -160,7 +168,7 @@ struct CORE_API FNumberFormattingOptions
 	int32 MaximumFractionalDigits;
 	FNumberFormattingOptions& SetMaximumFractionalDigits( int32 InValue ){ MaximumFractionalDigits = InValue; return *this; }
 
-	friend FArchive& operator<<(FArchive& Ar, FNumberFormattingOptions& Value);
+	friend void operator<<(FStructuredArchive::FSlot Slot, FNumberFormattingOptions& Value);
 
 	/** Get the hash code to use for the given formatting options */
 	friend uint32 GetTypeHash( const FNumberFormattingOptions& Key );
@@ -182,7 +190,7 @@ struct CORE_API FNumberParsingOptions
 	bool UseGrouping;
 	FNumberParsingOptions& SetUseGrouping( bool InValue ){ UseGrouping = InValue; return *this; }
 
-	friend FArchive& operator<<(FArchive& Ar, FNumberParsingOptions& Value);
+	friend void operator<<(FStructuredArchive::FSlot Slot, FNumberParsingOptions& Value);
 
 	/** Get the hash code to use for the given parsing options */
 	friend uint32 GetTypeHash( const FNumberParsingOptions& Key );
@@ -358,7 +366,12 @@ public:
 	/**
 	 * Generate an FText that represents the passed number as a memory size in the current culture
 	 */
-	static FText AsMemory(uint64 NumBytes, const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
+	static FText AsMemory(uint64 NumBytes, const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL, EMemoryUnitStandard UnitStandard = EMemoryUnitStandard::IEC);
+
+	/**
+	 * Generate an FText that represents the passed number as a memory size in the current culture
+	 */
+	static FText AsMemory(uint64 NumBytes, EMemoryUnitStandard UnitStandard);
 
 	/**
 	 * Attempts to find an existing FText using the representation found in the loc tables for the specified namespace and key
@@ -537,7 +550,8 @@ private:
 
 	FText( FString&& InSourceString, const FString& InNamespace, const FString& InKey, uint32 InFlags=0 );
 
-	static void SerializeText( FArchive& Ar, FText& Value );
+	static void SerializeText(FArchive& Ar, FText& Value);
+	static void SerializeText(FStructuredArchive::FSlot Slot, FText& Value);
 
 	/** Returns the source string of the FText */
 	const FString& GetSourceString() const;
@@ -578,6 +592,8 @@ public:
 	friend class FStringTableRegistry;
 	friend class FArchive;
 	friend class FArchiveFromStructuredArchive;
+	friend class FJsonArchiveInputFormatter;
+	friend class FJsonArchiveOutputFormatter;
 	friend class UTextProperty;
 	friend class FFormatArgumentValue;
 	friend class FTextHistory_NamedFormat;
@@ -650,7 +666,7 @@ public:
 		UIntValue = (uint64)Value;
 	}
 
-	friend FArchive& operator<<(FArchive& Ar, FFormatArgumentValue& Value);
+	friend void operator<<(FStructuredArchive::FSlot Slot, FFormatArgumentValue& Value);
 
 	FString ToFormattedString(const bool bInRebuildText, const bool bInRebuildAsSource) const;
 	void ToFormattedString(const bool bInRebuildText, const bool bInRebuildAsSource, FString& OutResult) const;
@@ -722,7 +738,7 @@ struct CORE_API FFormatArgumentData
 
 	void ResetValue();
 
-	friend FArchive& operator<<(FArchive& Ar, FFormatArgumentData& Value);
+	friend void operator<<(FStructuredArchive::FSlot Slot, FFormatArgumentData& Value);
 
 	FString ArgumentName;
 

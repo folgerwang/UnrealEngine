@@ -87,7 +87,7 @@ UObject* USoundSurroundFactory::FactoryCreateBinary
 		if (Sound == nullptr)
 		{
 			// If This is a single asset package, then create package so that its name will be identical to the asset.
-			if (PackageTools::IsSingleAssetPackage(InParent->GetName()))
+			if (UPackageTools::IsSingleAssetPackage(InParent->GetName()))
 			{
 				InParent = CreatePackage(nullptr, *InParent->GetName().LeftChop(3));
 

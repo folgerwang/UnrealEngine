@@ -69,7 +69,7 @@ namespace Win.Automation
             try
             {
                 Directory.Delete(true);
-                CommandUtils.Log("Removed '{0}'", Directory.FullName);
+                CommandUtils.LogInformation("Removed '{0}'", Directory.FullName);
             }
             catch
             {
@@ -127,7 +127,7 @@ namespace Win.Automation
 
             // Get the time at which to expire files
             DateTime ExpireTimeUtc = DateTime.UtcNow - TimeSpan.FromDays(Parameters.Days);
-            CommandUtils.Log("Expiring all files before {0}...", ExpireTimeUtc);
+            CommandUtils.LogInformation("Expiring all files before {0}...", ExpireTimeUtc);
             
             // Scan the store directory and delete old symbol files
             DirectoryReference SymbolServerDirectory = ResolveDirectory(Parameters.StoreDir);

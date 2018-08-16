@@ -18,6 +18,7 @@ class UBodySetup;
 class UPhysicalMaterial;
 struct FByteBulkData;
 struct FCollisionShape;
+class FPhysScene_PhysX;
 
 #if WITH_PHYSX
 
@@ -38,10 +39,6 @@ struct FCollisionShape;
 
 #define PHYSX_MEMORY_STAT_ONLY (0)
 
-#if WITH_APEX
-/** Get a pointer to the ApexScene from an SceneIndex (will be NULL if scene already shut down) */
-nvidia::apex::Scene* GetApexSceneFromIndex(int32 InSceneIndex);
-#endif
 
 //////// GEOM CONVERSION
 // we need this helper struct since PhysX needs geoms to be on the stack
@@ -88,20 +85,6 @@ extern ENGINE_API TAutoConsoleVariable<float> CVarToleranceScaleLength;
 
 extern ENGINE_API TAutoConsoleVariable<float> CVarToleranceScaleSpeed;
 	
-#if WITH_APEX
-/** 
- *	Map from SceneIndex to actual ApexScene. This indirection allows us to set it to null when we kill the scene, 
- *	and therefore abort trying to destroy PhysX objects after the scene has been destroyed (eg. on game exit). 
- */
-extern TMap<int16, nvidia::apex::Scene*>	GPhysXSceneMap;
-#else // #if WITH_APEX
-/** 
- *	Map from SceneIndex to actual PxScene. This indirection allows us to set it to null when we kill the scene, 
- *	and therefore abort trying to destroy PhysX objects after the scene has been destroyed (eg. on game exit). 
- */
-extern TMap<int16, PxScene*>	GPhysXSceneMap;
-#endif // #if WITH_APEX
-
 /** Total number of PhysX convex meshes around currently. */
 extern int32					GNumPhysXConvexMeshes;
 
@@ -121,6 +104,7 @@ extern TArray<PxMaterial*>		GPhysXPendingKillMaterial;
 
 
 extern const physx::PxQuat U2PSphylBasis;
+extern const FQuat U2PSphylBasis_UE;
 
 /** Utility class to keep track of shared physics data */
 class FPhysxSharedData
@@ -422,8 +406,7 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 									PxFilterObjectAttributes attributes1, PxFilterData filterData1,
 									PxPairFlags& pairFlags, const void* constantBlock, PxU32 constantBlockSize );
 
-class FPhysScene;
-
+#if !WITH_APEIRON && !PHYSICS_INTERFACE_LLIMMEDIATE
 /** Event callback used to notify engine about various collision events */
 class ENGINE_API FPhysXSimEventCallback : public PxSimulationEventCallback
 {
@@ -441,6 +424,7 @@ private:
 	FPhysScene* OwningScene;
 	int32 SceneType;
 };
+#endif
 
 class FPhysXProfilerCallback : public PxProfilerCallback
 {
@@ -556,9 +540,6 @@ extern FApexResourceCallback GApexResourceCallback;
 
 #endif // #if WITH_APEX
 
-/** Util to determine whether to use NegX version of mesh, and what transform (rotation) to apply. */
-bool CalcMeshNegScaleCompensation(const FVector& InScale3D, PxTransform& POutTransform);
-
 /** Utility wrapper for a PhysX output stream that only counts the memory. */
 class FPhysXCountMemoryStream : public PxOutputStream
 {
@@ -586,36 +567,5 @@ public:
  **/
 ENGINE_API SIZE_T GetPhysxObjectSize(PxBase* Obj, const PxCollection* SharedCollection);
 
-/** Helper struct holding physics body filter data during initialisation */
-struct FShapeFilterData
-{
-	PxFilterData SimFilter;
-	PxFilterData QuerySimpleFilter;
-	PxFilterData QueryComplexFilter;
-};
 
-/** Helper object to hold initialisation data for shapes */
-struct FShapeData
-{
-	FShapeData()
-		: CollisionEnabled(ECollisionEnabled::NoCollision)
-		, SyncShapeFlags(0)
-		, AsyncShapeFlags(0)
-		, SimpleShapeFlags(0)
-		, ComplexShapeFlags(0)
-		, SyncBodyFlags(0)
-		, AsyncBodyFlags(0)
-	{
-
-	}
-
-	TEnumAsByte<ECollisionEnabled::Type> CollisionEnabled;
-	FShapeFilterData FilterData;
-	PxShapeFlags SyncShapeFlags;
-	PxShapeFlags AsyncShapeFlags;
-	PxShapeFlags SimpleShapeFlags;
-	PxShapeFlags ComplexShapeFlags;
-	PxRigidBodyFlags SyncBodyFlags;
-	PxRigidBodyFlags AsyncBodyFlags;
-};
 #endif // WITH_PHYSX

@@ -167,7 +167,7 @@ public:
     /// on success, false if the value can not be written.
     ///
     /// \b Note that this value should not be changed as it is typically either
-    /// automatically authored or provided by a property defintion. This method
+    /// automatically authored or provided by a property definition. This method
     /// is provided primarily for fixing invalid scene description.
     USD_API
     bool SetVariability(SdfVariability variability) const;
@@ -224,9 +224,7 @@ public:
     /// contribute time samples for this attribute in the given interval, 
     /// opening them if necessary.
     /// 
-    /// \param interval -  may have any combination of open/infinite and 
-    /// closed/finite endpoints; it may not have open/finite endpoints, however,
-    /// this restriction may be lifted in the future.
+    /// \param interval - the \ref GfInterval on which to gather time samples.     
     ///
     /// \param times - on return, will contain the \em sorted, ascending
     /// timeSample ordinates.  Any data in \p times will be lost, as this
@@ -236,6 +234,53 @@ public:
     USD_API
     bool GetTimeSamplesInInterval(const GfInterval& interval,
                                   std::vector<double>* times) const;
+
+    /// Populates the given vector, \p times with the union of all the 
+    /// authored sample times on all of the given attributes, \p attrs.
+    /// 
+    /// \note This function will query all value clips that may contribute 
+    /// time samples for the attributes in \p attrs, opening them if needed. 
+    /// This may be expensive, especially if many clips are involved.
+    /// 
+    /// The accumulated sample times will be in sorted (increasing) order and 
+    /// will not contain any duplicates.
+    /// 
+    /// This clears any existing values in the \p times vector before 
+    /// accumulating sample times of the given attributes.
+    /// 
+    /// \return false if any of the attributes in \p attr are invalid or  if 
+    /// there's an error when fetching time-samples for any of the attributes.
+    /// 
+    /// \sa UsdAttribute::GetTimeSamples
+    /// \sa UsdAttribute::GetUnionedTimeSamplesInInterval
+    USD_API
+    static bool GetUnionedTimeSamples(const std::vector<UsdAttribute> &attrs, 
+                                      std::vector<double> *times);
+
+    /// Populates the given vector, \p times with the union of all the 
+    /// authored sample times in the GfInterval, \p interval on all of the 
+    /// given attributes, \p attrs.
+    /// 
+    /// \note This function will only query the value clips that may 
+    /// contribute time samples for the attributes in \p attrs, in the 
+    /// given \p interval, opening them if necessary.
+    ///
+    /// The accumulated sample times will be in sorted (increasing) order and 
+    /// will not contain any duplicates.
+    /// 
+    /// This clears any existing values in the \p times vector before 
+    /// accumulating sample times of the given attributes.
+    /// 
+    /// \return false if any of the attributes in \p attr are invalid or if 
+    /// there's an error fetching time-samples for any of the attributes.
+    ///
+    /// \sa UsdAttribute::GetTimeSamplesInInterval
+    /// \sa UsdAttribute::GetUnionedTimeSamples
+    USD_API
+    static bool GetUnionedTimeSamplesInInterval(
+        const std::vector<UsdAttribute> &attrs, 
+        const GfInterval &interval,
+        std::vector<double> *times);
 
     /// Returns the number of time samples that have been authored.
     ///
@@ -412,14 +457,15 @@ public:
     /// if there is a fallback, the client will receive that, otherwise they
     /// will receive false when calling Get(). 
     USD_API
-    void Block();
+    void Block() const;
 
     /// @}
 
     /// \name Querying and Editing Connections
     /// @{
 
-    /// Appends \p source to the list of connections.
+    /// Adds \p source to the list of connections, in the position
+    /// specified by \p position.
     ///
     /// Issue an error if \p source identifies a master prim or an object
     /// descendant to a master prim.  It is not valid to author connections to
@@ -429,7 +475,8 @@ public:
     /// authored in the authoring layer, with respect to list-editing
     /// semantics, which we will document soon 
     USD_API
-    bool AppendConnection(const SdfPath& source) const;
+    bool AddConnection(const SdfPath& source,
+                   UsdListPosition position=UsdListPositionTempDefault) const;
 
     /// Removes \p target from the list of targets.
     ///
@@ -481,6 +528,43 @@ public:
     /// @}
     
     // ---------------------------------------------------------------------- //
+    /// \anchor Usd_AttributeColorSpaceAPI
+    /// \name ColorSpace API
+    /// 
+    /// The color space in which a given color or texture valued attribute is 
+    /// authored is set as token-valued metadata 'colorSpace' on the attribute. 
+    /// For color or texture attributes that don't have an authored 'colorSpace'
+    /// value, the fallback color-space is gleaned from whatever color 
+    /// management system is specified by UsdStage::GetColorManagementSystem().
+    /// 
+    /// @{
+    // ---------------------------------------------------------------------- //
+
+    /// Gets the color space in which the attribute is authored.
+    /// \sa SetColorSpace()
+    /// \ref Usd_ColorConfigurationAPI
+    USD_API
+    TfToken GetColorSpace() const;
+
+    /// Sets the color space of the attribute to \p colorSpace.
+    /// \sa GetColorSpace()
+    /// \ref Usd_ColorConfigurationAPI
+    USD_API
+    void SetColorSpace(const TfToken &colorSpace) const;
+
+    /// Returns whether color-space is authored on the attribute.
+    /// \sa GetColorSpace()
+    USD_API
+    bool HasColorSpace() const;
+
+    /// Clears authored color-space value on the attribute.
+    /// \sa SetColorSpace()
+    USD_API
+    bool ClearColorSpace() const;
+
+    /// @}
+
+    // ---------------------------------------------------------------------- //
     // Private Methods and Members 
     // ---------------------------------------------------------------------- //
 private:
@@ -489,7 +573,8 @@ private:
     friend class UsdPrim;
     friend class UsdSchemaBase;
     friend class Usd_PrimData;
-
+    friend struct UsdPrim_AttrConnectionFinder;
+    
     UsdAttribute(const Usd_PrimDataHandle &prim,
                  const SdfPath &proxyPrimPath,
                  const TfToken &attrName)

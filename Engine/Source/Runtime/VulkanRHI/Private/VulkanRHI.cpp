@@ -927,6 +927,11 @@ FTexture2DRHIRef FVulkanDynamicRHI::RHICreateTexture2DFromResource(EPixelFormat 
 	return new FVulkanTexture2D(*Device, Format, SizeX, SizeY, NumMips, NumSamples, NumSamplesTileMem, Resource, Flags, FRHIResourceCreateInfo());
 }
 
+FTexture2DRHIRef FVulkanDynamicRHI::RHICreateTexture2DFromResource(EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, VkImage Resource, FSamplerYcbcrConversionInitializer& ConversionInitializer, uint32 Flags)
+{
+	return new FVulkanTexture2D(*Device, Format, SizeX, SizeY, NumMips, NumSamples, Resource, ConversionInitializer, Flags, FRHIResourceCreateInfo());
+}
+
 FTexture2DArrayRHIRef FVulkanDynamicRHI::RHICreateTexture2DArrayFromResource(EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 ArraySize, uint32 NumMips, VkImage Resource, uint32 Flags)
 {
 	return new FVulkanTexture2DArray(*Device, Format, SizeX, SizeY, ArraySize, NumMips, Resource, Flags, nullptr, FClearValueBinding());
@@ -1065,9 +1070,6 @@ void FVulkanDescriptorSetsLayoutInfo::AddDescriptor(int32 DescriptorSetIndex, co
 	{
 		ensure(DescSetLayout.LayoutBindings[Index].binding != BindingIndex || &DescSetLayout.LayoutBindings[Index] != Binding);
 	}
-
-	//#todo-rco: Needs a change for the hashing!
-	ensure(!Descriptor.pImmutableSamplers);
 
 	Hash = FCrc::MemCrc32(&Binding, sizeof(Binding), Hash);
 }

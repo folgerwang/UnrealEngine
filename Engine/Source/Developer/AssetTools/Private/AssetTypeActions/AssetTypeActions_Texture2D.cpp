@@ -103,7 +103,7 @@ void FAssetTypeActions_Texture2D::ExecuteCreateVolumeTexture(TArray<TWeakObjectP
 
 	if( Objects.Num() == 1 )
 	{
-		auto Object = Objects[0].Get();
+		UTexture2D* Object = Objects[0].Get();
 
 		if( Object )
 		{
@@ -114,7 +114,7 @@ void FAssetTypeActions_Texture2D::ExecuteCreateVolumeTexture(TArray<TWeakObjectP
 
 			// Create the factory used to generate the asset
 			UVolumeTextureFactory* Factory = NewObject<UVolumeTextureFactory>();
-			Factory->InitialTexture = CastChecked<UTexture2D>(Object);
+			Factory->InitialTexture = Object;
 			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 			ContentBrowserModule.Get().CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackagePath), UVolumeTexture::StaticClass(), Factory);
 		}

@@ -38,7 +38,7 @@ public:
 	void SeekOnOpen(FTimespan Time);
 
 	/** Set up this persistent data object. */
-	void Setup();
+	void Setup(UMediaPlayer* OverrideMediaPlayer);
 
 private:
 
@@ -46,6 +46,7 @@ private:
 	void HandleMediaPlayerEvent(EMediaEvent Event);
 
 private:
+	bool bOverrideMediaPlayer;
 
 	/** The media player used by this object. */
 	UMediaPlayer* MediaPlayer;

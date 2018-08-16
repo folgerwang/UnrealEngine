@@ -25,6 +25,8 @@ enum EStereoscopicPass
 class IStereoRendering
 {
 public:
+	virtual ~IStereoRendering() { }
+
 	/** 
 	 * Whether or not stereo rendering is on this frame.
 	 */
@@ -132,15 +134,6 @@ public:
 	// Renders texture into a backbuffer. Could be empty if no rendertarget texture is used, or if direct-rendering 
 	// through RHI bridge is implemented. 
 	virtual void RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture, FVector2D WindowSize) const {}
-
-	/**
-	 * Returns orthographic projection , used from Canvas::DrawItem.
-	 */
-	virtual void GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const
-	{
-		OrthoProjection[0] = OrthoProjection[1] = FMatrix::Identity;
-		OrthoProjection[1] = FTranslationMatrix(FVector(OrthoProjection[1].M[0][3] * RTWidth * .25 + RTWidth * .5, 0, 0));
-	}
 
 	/**
 	 * Returns currently active render target manager.

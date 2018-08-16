@@ -172,16 +172,11 @@ namespace
 {
 	/////////////////////////////////////////
 	// 8 bit per channel source
-	float ToLinear(uint8 LDRValue)
-	{
-		return pow((float)(LDRValue) / 255.f, 2.2f);
-	}
-
 	void ExtractAndConvertChannel(const uint8*Src, uint32 SrcChannels, uint32 x, uint32 y, float* ChannelOUT)
 	{
 		for (uint32 i = 0; i < x*y; i++, Src += SrcChannels)
 		{
-			ChannelOUT[i] = ToLinear(*Src);
+			ChannelOUT[i] = *Src / 255.f;
 		}
 	}
 
@@ -189,7 +184,7 @@ namespace
 	{
 		for (uint32 i = 0; i < x*y; i++, Src += SrcChannels)
 		{
-			ChannelOUT[i] = FFloat16(ToLinear(*Src));
+			ChannelOUT[i] = FFloat16(*Src / 255.f);
 		}
 	}
 

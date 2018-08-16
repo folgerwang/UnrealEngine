@@ -103,12 +103,12 @@ private:
 		}
 	}
 
-	virtual void CollectStringTableAssetReferencesImpl(const FName InTableId, FArchive& InAr) override
+	virtual void CollectStringTableAssetReferencesImpl(const FName InTableId, FStructuredArchive::FSlot Slot) override
 	{
-		check(InAr.IsObjectReferenceCollector());
+		check(Slot.GetUnderlyingArchive().IsObjectReferenceCollector());
 
-		UStringTable* StringTableAsset = FStringTableRegistry::Get().FindStringTableAsset(InTableId);
-		InAr << StringTableAsset;
+		UObject* StringTableAsset = FStringTableRegistry::Get().FindStringTableAsset(InTableId);
+		Slot << StringTableAsset;
 	}
 
 	virtual bool IsStringTableFromAssetImpl(const FName InTableId) override

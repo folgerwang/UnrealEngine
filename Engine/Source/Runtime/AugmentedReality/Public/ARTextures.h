@@ -13,7 +13,6 @@ enum class EARTextureType : uint8
 {
 	CameraImage,
 	CameraDepth,
-//@joeg -- Addedd environment capture support
 	EnvironmentCapture
 };
 
@@ -97,7 +96,6 @@ public:
 	bool bIsTemporallySmoothed;
 };
 
-//@joeg -- Added for environment capture support
 /**
  * Base class for all AR textures that represent the environment for lighting and reflection
  */

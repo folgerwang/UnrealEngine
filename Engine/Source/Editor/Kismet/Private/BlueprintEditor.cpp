@@ -894,12 +894,12 @@ void FBlueprintEditor::OnSelectionUpdated(const TArray<FSCSEditorTreeNodePtrType
 	AActor* EditorActorInstance = Blueprint->SimpleConstructionScript->GetComponentEditorActorInstance();
 	if (EditorActorInstance != nullptr)
 	{
-		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-		EditorActorInstance->GetComponents(PrimitiveComponents, true);
-
-		for (UPrimitiveComponent* PrimitiveComponent : PrimitiveComponents)
+		for (UActorComponent* Component : EditorActorInstance->GetComponents())
 		{
-			PrimitiveComponent->PushSelectionToProxy();
+			if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component))
+			{
+				PrimitiveComponent->PushSelectionToProxy();
+			}
 		}
 	}
 
@@ -2623,6 +2623,29 @@ void FBlueprintEditor::CreateDefaultCommands()
 			}),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateLambda([]()->bool{ return GetDefault<UBlueprintEditorSettings>()->bShowActionMenuItemSignatures; }));
+
+	for (int32 QuickJumpIndex = 0; QuickJumpIndex < FGraphEditorCommands::Get().QuickJumpCommands.Num(); ++QuickJumpIndex)
+	{
+		ToolkitCommands->MapAction(
+			FGraphEditorCommands::Get().QuickJumpCommands[QuickJumpIndex].QuickJump,
+			FExecuteAction::CreateSP(this, &FBlueprintEditor::OnGraphEditorQuickJump, QuickJumpIndex)
+		);
+
+		ToolkitCommands->MapAction(
+			FGraphEditorCommands::Get().QuickJumpCommands[QuickJumpIndex].SetQuickJump,
+			FExecuteAction::CreateSP(this, &FBlueprintEditor::SetGraphEditorQuickJump, QuickJumpIndex)
+		);
+
+		ToolkitCommands->MapAction(
+			FGraphEditorCommands::Get().QuickJumpCommands[QuickJumpIndex].ClearQuickJump,
+			FExecuteAction::CreateSP(this, &FBlueprintEditor::ClearGraphEditorQuickJump, QuickJumpIndex)
+		);
+	}
+
+	ToolkitCommands->MapAction(
+		FGraphEditorCommands::Get().ClearAllQuickJumps,
+		FExecuteAction::CreateSP(this, &FBlueprintEditor::ClearAllGraphEditorQuickJumps)
+	);
 }
 
 void FBlueprintEditor::OpenNativeCodeGenerationTool()
@@ -8479,6 +8502,59 @@ void FBlueprintEditor::RemoveBookmark(const FGuid& BookmarkNodeId, bool bRefresh
 	{
 		BookmarksWidget->RefreshBookmarksTree();
 	}
+}
+
+void FBlueprintEditor::SetGraphEditorQuickJump(int32 QuickJumpIndex)
+{
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
+	{
+		if (UEdGraph* GraphObject = FocusedGraphEd->GetCurrentGraph())
+		{
+			UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+			FEditedDocumentInfo& QuickJumpInfo = LocalSettings->GraphEditorQuickJumps.FindOrAdd(QuickJumpIndex);
+
+			QuickJumpInfo.EditedObjectPath = GraphObject;
+			FocusedGraphEd->GetViewLocation(QuickJumpInfo.SavedViewOffset, QuickJumpInfo.SavedZoomAmount);
+
+			LocalSettings->SaveConfig();
+		}
+	}
+}
+
+void FBlueprintEditor::ClearGraphEditorQuickJump(int32 QuickJumpIndex)
+{
+	UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+	LocalSettings->GraphEditorQuickJumps.Remove(QuickJumpIndex);
+	LocalSettings->SaveConfig();
+}
+
+void FBlueprintEditor::OnGraphEditorQuickJump(int32 QuickJumpIndex)
+{
+	const UBlueprintEditorSettings* LocalSettings = GetDefault<UBlueprintEditorSettings>();
+	if (const FEditedDocumentInfo* QuickJumpInfo = LocalSettings->GraphEditorQuickJumps.Find(QuickJumpIndex))
+	{
+		if (UObject* EditedObject = QuickJumpInfo->EditedObjectPath.TryLoad())
+		{
+			TSharedPtr<IBlueprintEditor> IBlueprintEditorPtr = FKismetEditorUtilities::GetIBlueprintEditorForObject(EditedObject, true);
+			if (IBlueprintEditorPtr.IsValid())
+			{
+				IBlueprintEditorPtr->FocusWindow();
+				TSharedPtr<SGraphEditor> GraphEditorPtr = IBlueprintEditorPtr->OpenGraphAndBringToFront(Cast<UEdGraph>(EditedObject));
+				if (GraphEditorPtr.IsValid())
+				{
+					GraphEditorPtr->SetViewLocation(QuickJumpInfo->SavedViewOffset, QuickJumpInfo->SavedZoomAmount);
+				}
+			}
+		}
+	}
+}
+
+void FBlueprintEditor::ClearAllGraphEditorQuickJumps()
+{
+	UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+	LocalSettings->GraphEditorQuickJumps.Empty();
+	LocalSettings->SaveConfig();
 }
 
 /////////////////////////////////////////////////////

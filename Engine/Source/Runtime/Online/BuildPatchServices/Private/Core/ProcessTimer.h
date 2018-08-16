@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "Common/StatsCollector.h"
 #include "Misc/ScopeLock.h"
+#include "Common/StatsCollector.h"
 
 namespace BuildPatchServices
 {

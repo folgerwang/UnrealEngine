@@ -16,7 +16,7 @@ DEFINE_LOG_CATEGORY(LogAudioMixerMagicLeap);
 
 // Macro to check result for failure, get string version, log, and return false
 #define MLAUDIO_RETURN_ON_FAIL(Result)						\
-	if (Result != MLAudioError_Success)						\
+	if (Result != MLResult_Ok)						\
 	{														\
 		const TCHAR* ErrorString = FMixerPlatformMagicLeap::GetErrorString(Result);	\
 		AUDIO_PLATFORM_ERROR(ErrorString);					\
@@ -24,15 +24,14 @@ DEFINE_LOG_CATEGORY(LogAudioMixerMagicLeap);
 	}
 
 #define MLAUDIO_CHECK_ON_FAIL(Result)						\
-	if (Result != MLAudioError_Success)						\
+	if (Result != MLResult_Ok)						\
 	{														\
 		const TCHAR* ErrorString = FMixerPlatformMagicLeap::GetErrorString(Result);	\
 		AUDIO_PLATFORM_ERROR(ErrorString);					\
 		check(false);										\
 	}
 
-#define MLAUDIO_LOG_ON_FAIL(Result)							\
-	if (Result != MLAudioError_Success)						\
+#define MLAUDIO_LOG_FAILURE(Result)							\
 	{														\
 		const TCHAR* ErrorString = FMixerPlatformMagicLeap::GetErrorString(Result);	\
 		UE_LOG(LogAudioMixerMagicLeap, Error, TEXT("Error in %s, line %s: %s"), __FILE__, __LINE__,ErrorString); \
@@ -42,27 +41,36 @@ namespace Audio
 {
 	// ML1 currently only has stereo speakers and stereo aux support.
 	const uint32 DefaultNumChannels = 2;
-	// TODO: @Epic check the value tp be used. Setting default for now.
+	// TODO: @Epic check the value to be used. Setting default for now.
 	const uint32 DefaultSamplesPerSecond = 48000;  // presumed 48KHz and 16 bits for the sample
+	// TODO: @Epic check the value to be used. Setting default for now.
+	const float DefaultMaxPitch = 1.0f;
 
 #if WITH_MLSDK
-	static void GetMLDeviceDefaults(MLAudioBufferFormat& OutFormat, uint32& OutSize, uint32& OutMinSize, MLAudioError& Result)
+	static void GetMLDeviceDefaults(MLAudioBufferFormat& OutFormat, uint32& OutSize, uint32& OutMinSize)
 	{
 		static bool bRetrievedDeviceDefaults = false;
 		static uint32 CachedSize = 0;
 		static uint32 CachedMinSize = 0;
 		static MLAudioBufferFormat CachedBufferFormat;
-		static MLAudioError CachedResult;
 
 		if (!bRetrievedDeviceDefaults)
 		{
-			bRetrievedDeviceDefaults = MLAudioGetOutputStreamDefaults(DefaultNumChannels, DefaultSamplesPerSecond, &CachedBufferFormat, &CachedSize, &CachedMinSize, &CachedResult);
+			MLResult Result = MLAudioGetOutputStreamDefaults(DefaultNumChannels, DefaultSamplesPerSecond, DefaultMaxPitch, &CachedBufferFormat, &CachedSize, &CachedMinSize);
+			if (Result == MLResult_Ok)
+			{
+				bRetrievedDeviceDefaults = true;
+			}
+			else
+			{
+				bRetrievedDeviceDefaults = false;
+				UE_LOG(LogAudioMixerMagicLeap, Error, TEXT("MLAudioGetOutputStreamDefaults failed with error %d."), Result);
+			}
 		}
 
 		OutFormat = CachedBufferFormat;
 		OutSize = CachedSize;
 		OutMinSize = CachedMinSize;
-		Result = CachedResult;
 	}
 #endif //WITH_MLSDK
 
@@ -86,28 +94,25 @@ namespace Audio
 	}
 
 #if WITH_MLSDK
-	const TCHAR* FMixerPlatformMagicLeap::GetErrorString(MLAudioError Result)
+	const TCHAR* FMixerPlatformMagicLeap::GetErrorString(MLResult Result)
 	{
 		switch (Result)
 		{
-		case MLAudioError_Success:					return TEXT("MLAudioError_Success");
-		case MLAudioError_NotImplemented:			return TEXT("MLAudioError_NotImplemented");
-		case MLAudioError_UnspecifiedFailure:       return TEXT("MLAudioError_UnspecifiedFailure");
-		case MLAudioError_UnauthorizedCommand:      return TEXT("MLAudioError_UnauthorizedCommand");
-		case MLAudioError_HandleNotFound:           return TEXT("MLAudioError_HandleNotFound");
-		case MLAudioError_InvalidArgument:          return TEXT("MLAudioError_InvalidArgument");
-		case MLAudioError_InvalidSampleRate:        return TEXT("MLAudioError_InvalidSampleRate");
-		case MLAudioError_InvalidBitsPerSample:     return TEXT("MLAudioError_InvalidBitsPerSample");
-		case MLAudioError_InvalidValidBits:         return TEXT("MLAudioError_InvalidValidBits");
-		case MLAudioError_InvalidSampleFormat:      return TEXT("MLAudioError_InvalidSampleFormat");
-		case MLAudioError_InvalidChannelCount:      return TEXT("MLAudioError_InvalidChannelCount");
-		case MLAudioError_InvalidChannelFormat:     return TEXT("MLAudioError_InvalidChannelFormat");
-		case MLAudioError_InvalidBufferSize:        return TEXT("MLAudioError_InvalidBufferSize");
-		case MLAudioError_BufferAllocFailure:       return TEXT("MLAudioError_BufferAllocFailure");
-		case MLAudioError_BufferNotReady:           return TEXT("MLAudioError_BufferNotReady");
-		case MLAudioError_FileNotFound:             return TEXT("MLAudioError_FileNotFound");
-		case MLAudioError_FileNotRecognized:        return TEXT("MLAudioError_FileNotRecognized");
-		default:                                return TEXT("MlAudioError_UnknownError");
+		case MLResult_UnspecifiedFailure:			 return TEXT("MLResult_UnspecifiedFailure");
+		case MLResult_InvalidParam:					 return TEXT("MLResult_InvalidParam");
+		case MLResult_AllocFailed:					 return TEXT("MLResult_AllocFailed");
+		case MLAudioResult_NotImplemented:			 return TEXT("MLAudioResult_NotImplemented");
+		case MLAudioResult_HandleNotFound:           return TEXT("MLAudioResult_HandleNotFound");
+		case MLAudioResult_InvalidSampleRate:        return TEXT("MLAudioResult_InvalidSampleRate");
+		case MLAudioResult_InvalidBitsPerSample:     return TEXT("MLAudioResult_InvalidBitsPerSample");
+		case MLAudioResult_InvalidValidBits:         return TEXT("MLAudioResult_InvalidValidBits");
+		case MLAudioResult_InvalidSampleFormat:      return TEXT("MLAudioResult_InvalidSampleFormat");
+		case MLAudioResult_InvalidChannelCount:      return TEXT("MLAudioResult_InvalidChannelCount");
+		case MLAudioResult_InvalidBufferSize:        return TEXT("MLAudioResult_InvalidBufferSize");
+		case MLAudioResult_BufferNotReady:           return TEXT("MLAudioResult_BufferNotReady");
+		case MLAudioResult_FileNotFound:             return TEXT("MLAudioResult_FileNotFound");
+		case MLAudioResult_FileNotRecognized:        return TEXT("MLAudioResult_FileNotRecognized");
+		default:                                return TEXT("MlAudioResult_UnknownError");
 		}
 	}
 #endif //WITH_MLSDK
@@ -158,12 +163,11 @@ namespace Audio
 	bool FMixerPlatformMagicLeap::GetOutputDeviceInfo(const uint32 InDeviceIndex, FAudioPlatformDeviceInfo& OutInfo)
 	{
 #if WITH_MLSDK
-		MLAudioError Result = MLAudioError_Success;
 		MLAudioBufferFormat DesiredBufferFormat;
 		uint32 OutSize;
 		uint32 OutMinimalSize;
 
-		GetMLDeviceDefaults(DesiredBufferFormat, OutSize, OutMinimalSize, Result);
+		GetMLDeviceDefaults(DesiredBufferFormat, OutSize, OutMinimalSize);
 
 		OutInfo.Name = TEXT("Magic Leap Audio Device");
 		OutInfo.DeviceId = 0;
@@ -213,12 +217,11 @@ namespace Audio
 			return false;
 		}
 
-		MLAudioError Result = MLAudioError_Success;
 		MLAudioBufferFormat DesiredBufferFormat;
 		uint32 OutSize;
 		uint32 OutMinimalSize;
 
-		GetMLDeviceDefaults(DesiredBufferFormat, OutSize, OutMinimalSize, Result);
+		GetMLDeviceDefaults(DesiredBufferFormat, OutSize, OutMinimalSize);
 
 		OpenStreamParams = Params;
 
@@ -236,9 +239,11 @@ namespace Audio
 
 		DesiredBufferFormat.channel_count = DefaultNumChannels;
 
-		if (!MLAudioCreateSoundWithOutputStream(&DesiredBufferFormat, OutSize, &MLAudioCallback, this, &StreamHandle, &Result))
+		MLResult Result = MLAudioCreateSoundWithOutputStream(&DesiredBufferFormat, OutSize, &MLAudioCallback, this, &StreamHandle);
+
+		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return false;
 		}
 
@@ -258,11 +263,11 @@ namespace Audio
 			return false;
 		}
 
-		MLAudioError Result = MLAudioError_Success;
+		MLResult Result = MLAudioDestroySound(StreamHandle);
 
-		if (!MLAudioDestroySound(StreamHandle, &Result))
+		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return false;
 		}
 
@@ -280,32 +285,33 @@ namespace Audio
 
 		check(MLHandleIsValid(StreamHandle));
 
-		MLAudioError Result = MLAudioError_Success;
+		MLResult Result = MLResult_Ok;
 
 		//Pre buffer with two zeroed buffers:
 		static const int32 NumberOfBuffersToPrecache = 2;
 		for (int32 BufferIndex = 0; BufferIndex < NumberOfBuffersToPrecache; BufferIndex++)
 		{
 			MLAudioBuffer PrecacheBuffer;
-
-			if (!MLAudioGetOutputStreamBuffer(StreamHandle, &PrecacheBuffer, &Result))
+			Result = MLAudioGetOutputStreamBuffer(StreamHandle, &PrecacheBuffer);
+			if (Result != MLResult_Ok)
 			{
-				MLAUDIO_LOG_ON_FAIL(Result);
+				MLAUDIO_LOG_FAILURE(Result);
 				break;
 			}
 
 			FMemory::Memzero(PrecacheBuffer.ptr, PrecacheBuffer.size);
-
-			if (!MLAudioReleaseOutputStreamBuffer(StreamHandle, &Result))
+			Result = MLAudioReleaseOutputStreamBuffer(StreamHandle);
+			if (Result != MLResult_Ok)
 			{
-				MLAUDIO_LOG_ON_FAIL(Result);
+				MLAUDIO_LOG_FAILURE(Result);
 				break;
 			}
 		}
 
-		if (!MLAudioStartSound(StreamHandle, &Result))
+		Result = MLAudioStartSound(StreamHandle);
+		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return false;
 		}
 #endif //WITH_MLSDK
@@ -316,15 +322,15 @@ namespace Audio
 	bool FMixerPlatformMagicLeap::StopAudioStream()
 	{
 #if WITH_MLSDK
-		MLAudioError Result;
 		if (!bInitialized || AudioStreamInfo.StreamState != EAudioOutputStreamState::Running)
 		{
 			return false;
 		}
 
-		if (!MLAudioStopSound(StreamHandle, &Result))
+		MLResult Result = MLAudioStopSound(StreamHandle);
+		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return false;
 		}
 
@@ -348,12 +354,11 @@ namespace Audio
 	FAudioPlatformSettings FMixerPlatformMagicLeap::GetPlatformSettings() const
 	{
 #if WITH_MLSDK
-		MLAudioError Result = MLAudioError_Success;
 		MLAudioBufferFormat DesiredBufferFormat;
 		uint32 OutSize;
 		uint32 OutMinimalSize;
 
-		GetMLDeviceDefaults(DesiredBufferFormat, OutSize, OutMinimalSize, Result);
+		GetMLDeviceDefaults(DesiredBufferFormat, OutSize, OutMinimalSize);
 
 		FAudioPlatformSettings PlatformSettings;
 		PlatformSettings.CallbackBufferFrameSize = OutSize / (DefaultNumChannels * (DesiredBufferFormat.bits_per_sample / 8));
@@ -417,11 +422,10 @@ namespace Audio
 		{
 			if (MLHandleIsValid(StreamHandle))
 			{
-				MLAudioError Result;
-
-				if (!MLAudioStartSound(StreamHandle, &Result))
+				MLResult Result = MLAudioStartSound(StreamHandle);
+				if (Result != MLResult_Ok)
 				{
-					MLAUDIO_LOG_ON_FAIL(Result);
+					MLAUDIO_LOG_FAILURE(Result);
 					return;
 				}
 			}
@@ -434,12 +438,11 @@ namespace Audio
 	int32 FMixerPlatformMagicLeap::GetNumFrames(const int32 InNumReqestedFrames)
 	{
 #if WITH_MLSDK
-		MLAudioError Result = MLAudioError_Success;
 		MLAudioBufferFormat DesiredBufferFormat;
 		uint32 OutSize;
 		uint32 OutMinimalSize;
 
-		GetMLDeviceDefaults(DesiredBufferFormat, OutSize, OutMinimalSize, Result);
+		GetMLDeviceDefaults(DesiredBufferFormat, OutSize, OutMinimalSize);
 		return OutSize / (DefaultNumChannels * (DesiredBufferFormat.bits_per_sample / 8));
 #else
 		return 0;
@@ -453,11 +456,10 @@ namespace Audio
 		{
 			if (MLHandleIsValid(StreamHandle))
 			{
-				MLAudioError Result;
-
-				if (!MLAudioStopSound(StreamHandle, &Result))
+				MLResult Result = MLAudioStopSound(StreamHandle);
+				if (Result != MLResult_Ok)
 				{
-					MLAUDIO_LOG_ON_FAIL(Result);
+					MLAUDIO_LOG_FAILURE(Result);
 					return;
 				}
 			}
@@ -467,20 +469,24 @@ namespace Audio
 #endif //WITH_MLSDK
 	}
 
-	void FMixerPlatformMagicLeap::MLAudioCallback(void* CallbackContext)
-	{
 #if WITH_MLSDK
+	void FMixerPlatformMagicLeap::MLAudioCallback(MLHandle Handle, void* CallbackContext)
+	{
 		FMixerPlatformMagicLeap* InPlatform = (FMixerPlatformMagicLeap*)CallbackContext;
-		MLAudioError Result;
 
 		MLAudioBuffer CallbackBuffer;
 
 		check(MLHandleIsValid(InPlatform->StreamHandle));
-
-		// Get the callback buffer from MLAudio 
-		if (!MLAudioGetOutputStreamBuffer(InPlatform->StreamHandle, &CallbackBuffer, &Result))
+		// TODO: should this be an assert?
+		if (Handle != InPlatform->StreamHandle)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			return;
+		}
+		// Get the callback buffer from MLAudio 
+		MLResult Result = MLAudioGetOutputStreamBuffer(InPlatform->StreamHandle, &CallbackBuffer);
+		if (Result != MLResult_Ok)
+		{
+			MLAUDIO_LOG_FAILURE(Result);
 			return;
 		}
 
@@ -497,14 +503,14 @@ namespace Audio
 			FMemory::Memcpy(CallbackBuffer.ptr, InPlatform->CachedBufferHandle, CallbackBuffer.size);
 		}
 
-		if (!MLAudioReleaseOutputStreamBuffer(InPlatform->StreamHandle, &Result))
+		Result = MLAudioReleaseOutputStreamBuffer(InPlatform->StreamHandle);
+		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return;
 		}
 
 		InPlatform->CachedBufferHandle = nullptr;
-#endif //WITH_MLSDK
 	}
-
+#endif //WITH_MLSDK
 }

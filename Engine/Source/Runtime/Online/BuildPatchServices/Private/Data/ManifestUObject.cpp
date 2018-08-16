@@ -388,6 +388,17 @@ private:
 /* FManifestUObject implementation
 *****************************************************************************/
 
+void FManifestUObject::Init()
+{
+#if !BUILDPATCHSERVICES_NOUOBJECT
+	// This fixes a potential crash if async loading manifests.
+	// We make sure that NewObject<UBuildPatchManifest>() has been called from main thread before it can be called for the 'first time' concurrently
+	// on multiple threads, otherwise a race condition can hit unprotected Emplace on UPackage::ClassUniqueNameIndexMap.
+	// The object will be GC'd on next GC run.
+	NewObject<UBuildPatchManifest>();
+#endif // !BUILDPATCHSERVICES_NOUOBJECT
+}
+
 bool FManifestUObject::LoadFromMemory(const TArray<uint8>& DataInput, FBuildPatchAppManifest& AppManifest)
 {
 #if !BUILDPATCHSERVICES_NOUOBJECT

@@ -114,6 +114,12 @@ namespace Audio
 		// This is called by the corresponding USoundSubmix when StopRecordingOutput is called.
 		AlignedFloatBuffer& OnStopRecordingOutput(float& OutNumChannels, float& OutSampleRate);
 
+		// This is called by the corresponding USoundSubmix when PauseRecording is called.
+		void PauseRecordingOutput();
+
+		// This is called by the corresponding USoundSubmix when ResumeRecording is called.
+		void ResumeRecordingOutput();
+
 		// Register buffer listener with this submix
 		void RegisterBufferListener(ISubmixBufferListener* BufferListener);
 		

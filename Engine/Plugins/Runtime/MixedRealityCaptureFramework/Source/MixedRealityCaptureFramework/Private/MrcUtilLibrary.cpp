@@ -136,21 +136,20 @@ UCameraComponent* UMrcUtilLibrary::GetHMDCameraComponent(const APawn* PlayerPawn
 	UCameraComponent* HMDCam = nullptr;
 	if (PlayerPawn)
 	{
-		TArray<UCameraComponent*> CameraComponents;
-		PlayerPawn->GetComponents(CameraComponents);
-
-		for (UCameraComponent* Camera : CameraComponents)
+		for (UActorComponent* Component : PlayerPawn->GetComponents())
 		{
-			if (Camera->bLockToHmd)
+			if (UCameraComponent* Camera = Cast<UCameraComponent>(Component))
 			{
-				HMDCam = Camera;
-				break;
+				if (Camera->bLockToHmd)
+				{
+					HMDCam = Camera;
+					break;
+				}
+				else if (HMDCam == nullptr)
+				{
+					HMDCam = Camera;
+				}
 			}
-		}
-
-		if (HMDCam == nullptr && CameraComponents.Num() > 0)
-		{
-			HMDCam = CameraComponents[0];
 		}
 	}
 	return HMDCam;

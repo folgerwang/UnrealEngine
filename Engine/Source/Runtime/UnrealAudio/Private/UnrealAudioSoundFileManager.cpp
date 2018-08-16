@@ -12,9 +12,9 @@ namespace UAudio
 		: SoundFileManager(InSoundFileManager)
 		, SoundFileHandle(InSoundFileHandle)
 		, SoundFileState((int32)(ESoundFileState::UNINITIALIZED))
+		, NumReferences(1)
 		, Error(ESoundFileError::NONE)
 		, TimeSinceUsed(0.0f)
-		, NumReferences(1)
 		, bIsStreamed(bInIsStreamed)
 	{}
 

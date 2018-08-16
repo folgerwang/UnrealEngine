@@ -1027,7 +1027,7 @@ bool BuildDestructibleMeshFromFractureSettings(UDestructibleMesh& DestructibleMe
 
 	return Success;
 }
-    #endif
+
 UDestructibleMesh* ImportDestructibleMeshFromApexDestructibleAsset(UObject* InParent, apex::DestructibleAsset& ApexDestructibleAsset, FName Name, EObjectFlags Flags, FSkeletalMeshImportData* OutData, EDestructibleImportOptions::Type Options)
 {
 	// The APEX Destructible Asset contains an APEX Render Mesh Asset, get a pointer to this
@@ -1102,3 +1102,4 @@ UDestructibleMesh* ImportDestructibleMeshFromApexDestructibleAsset(UObject* InPa
 }
 
 #endif // WITH_APEX
+#endif // WITH_EDITOR

@@ -641,6 +641,7 @@ public:
 	/** EDITOR ONLY SETTINGS **/
 	
 	/** Level Bookmarks: 10 should be MAX_BOOKMARK_NUMBER @fixmeconst */
+	DEPRECATED(4.21, "This member will be removed. Please use the Bookmark accessor functions instead.")
 	UPROPERTY()
 	class UBookMark* BookMarks[10];
 
@@ -705,6 +706,7 @@ public:
 	// ************************************
 
 	/** Maximum number of bookmarks	*/
+	DEPRECATED(4.21, "Please use GetMaxNumberOfBookmarks or NumMappedBookmarks instead.")
 	static const int32 MAX_BOOKMARK_NUMBER = 10;
 
 	protected:
@@ -793,7 +795,109 @@ private:
 
 	virtual void Serialize( FArchive& Ar ) override;
 
+private:
+
+	void AdjustNumberOfBookmarks();
+	void UpdateNumberOfBookmarks();
+
+	void SanitizeBookmarkClasses();
+	void UpdateBookmarkClass();
+
+	/**
+	 * Maximum number of bookmarks allowed.
+	 * Changing this will change the allocation of the bookmarks array, and when shrinking
+	 * may cause some bookmarks to become eligible for GC.
+	 */
+	UPROPERTY(Config, Meta=(ClampMin=0))
+	int32 MaxNumberOfBookmarks;
+
+	/**
+	 * Class that will be used when creating new bookmarks.
+	 * Old bookmarks may be recreated with the new class where possible.
+	 */
+	UPROPERTY(Config, Meta=(AllowAbstract="false", ExactClass="false", AllowedClasses="BookmarkBase"))
+	TSubclassOf<class UBookmarkBase> DefaultBookmarkClass;
+
+	UPROPERTY()
+	TArray<class UBookmarkBase*> BookmarkArray;
+
+	// Tracked so we can detect changes from Config
+	UPROPERTY()
+	TSubclassOf<class UBookmarkBase> LastBookmarkClass;
+
 public:
 	virtual FSoftClassPath GetAISystemClassName() const;
+
+	/**
+	 * The number of bookmarks that will have mapped keyboard shortcuts by default.
+	 */
+	static const uint32 NumMappedBookmarks = 10;
+
+#if WITH_EDITOR
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnBookmarkClassChanged, AWorldSettings*);
+	static FOnBookmarkClassChanged OnBookmarkClassChanged;
+
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnNumberOfBookmarksChanged, AWorldSettings*);
+	static FOnNumberOfBookmarksChanged OnNumberOfBoomarksChanged;
+#endif
+
+	const int32 GetMaxNumberOfBookmarks() const
+	{
+		return MaxNumberOfBookmarks;
+	}
+
+	TSubclassOf<class UBookmarkBase> GetDefaultBookmarkClass() const
+	{
+		return DefaultBookmarkClass;
+	}
+
+	/**
+	 * Gets the array of bookmarks.
+	 * It's common for entries to be null as this is treated more like a sparse array.
+	 */
+	const TArray<class UBookmarkBase*>& GetBookmarks() const
+	{
+		return BookmarkArray;
+	}
+
+	/**
+	 * Attempts to move bookmarks such that all bookmarks are adjacent in memory.
+	 *
+	 * Note, this will not rearrange any valid Bookmarks inside the mapped range, but
+	 * may move bookmarks outside that range to fill up mapped bookmarks.
+	 */
+	void CompactBookmarks();
+
+	/**
+	 * Gets the bookmark at the specified index, creating it if a bookmark doesn't exist.
+	 *
+	 * This will fail if the specified index is greater than MaxNumberOfBookmarks.
+	 *
+	 * For "plain" access that doesn't cause reallocation, use GetBookmarks
+	 *
+	 * @param bRecreateOnClassMismatch	Whether or not we should recreate an existing bookmark if it's class
+	 *									doesn't match the default bookmark class.
+	 */
+	class UBookmarkBase* GetOrAddBookmark(const uint32 BookmarkIndex, const bool bRecreateOnClassMismatch);
+
+	/**
+	 * Clears the reference to the bookmark from the specified index.
+	 */
+	void ClearBookmark(const uint32 BookmarkIndex)
+	{
+		if (BookmarkArray.IsValidIndex(BookmarkIndex))
+		{
+			BookmarkArray[BookmarkIndex] = nullptr;
+		}
+	}
+
+	/**
+	 * Clears all references to current bookmarks.
+	 */
+	void ClearAllBookmarks()
+	{
+		BookmarkArray.Reset();
+		BookmarkArray.SetNumZeroed(MaxNumberOfBookmarks);
+	}
 };
 

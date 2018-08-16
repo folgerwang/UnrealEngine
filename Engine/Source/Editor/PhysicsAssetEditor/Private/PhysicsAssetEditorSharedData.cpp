@@ -208,7 +208,7 @@ void FPhysicsAssetEditorSharedData::CopyConstraintProperties(UPhysicsConstraintT
 	// frame position offsets taken from old, but frame orientations are taken from new source
 	ToConstraintSetup->DefaultInstance.ConstraintIndex = OldInstance.ConstraintIndex;
 #if WITH_PHYSX
-	ToConstraintSetup->DefaultInstance.ConstraintData = OldInstance.ConstraintData;
+	ToConstraintSetup->DefaultInstance.ConstraintHandle = OldInstance.ConstraintHandle;
 #endif	//WITH_PHYSX
 	ToConstraintSetup->DefaultInstance.JointName = OldInstance.JointName;
 	ToConstraintSetup->DefaultInstance.ConstraintBone1 = OldInstance.ConstraintBone1;

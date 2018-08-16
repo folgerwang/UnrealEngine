@@ -52,13 +52,6 @@ namespace BuildPatchServices
 			return EBuildPatchState();
 		}
 
-		virtual const FText& GetStateText() const override
-		{
-			static FText NotImp;
-			MOCK_FUNC_NOT_IMPLEMENTED("FMockBuildPatchProgress::GetStateText");
-			return NotImp;
-		}
-
 		virtual float GetProgress() const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockBuildPatchProgress::GetProgress");
@@ -101,7 +94,7 @@ namespace BuildPatchServices
 			return bool();
 		}
 
-		virtual void SetIsDownloading(bool IsDownloading) override
+		virtual void SetIsDownloading(bool bInIsDownloading) override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockBuildPatchProgress::SetIsDownloading");
 		}

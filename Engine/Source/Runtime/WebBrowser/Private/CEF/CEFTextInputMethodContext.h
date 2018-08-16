@@ -34,9 +34,11 @@ THIRD_PARTY_INCLUDES_END
 #endif
 
 #include "GenericPlatform/ITextInputMethodSystem.h"
+#include "Layout/Geometry.h"
 
 class FCEFWebBrowserWindow;
 class FCEFImeHandler;
+class SWindow;
 
 class FCEFTextInputMethodContext : public ITextInputMethodContext
 {

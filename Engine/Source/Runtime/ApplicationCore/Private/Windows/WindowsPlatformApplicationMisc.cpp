@@ -2,7 +2,7 @@
 
 #include "Windows/WindowsPlatformApplicationMisc.h"
 #include "Windows/WindowsApplication.h"
-#include "Windows/WindowsErrorOutputDevice.h"
+#include "Windows/WindowsApplicationErrorOutputDevice.h"
 #include "Windows/WindowsConsoleOutputDevice.h"
 #include "Windows/WindowsFeedbackContext.h"
 #include "HAL/FeedbackContextAnsi.h"
@@ -10,6 +10,8 @@
 #include "Math/Color.h"
 #include "Windows/WindowsHWrapper.h"
 #include "Modules/ModuleManager.h"
+#include "Misc/CoreDelegates.h"
+#include "Windows/WindowsPlatformOutputDevices.h"
 
 // Resource includes.
 #include "Runtime/Launch/Resources/Windows/Resource.h"
@@ -53,7 +55,7 @@ class FOutputDeviceConsole* FWindowsPlatformApplicationMisc::CreateConsoleOutput
 
 class FOutputDeviceError* FWindowsPlatformApplicationMisc::GetErrorOutputDevice()
 {
-	static FWindowsErrorOutputDevice Singleton;
+	static FWindowsApplicationErrorOutputDevice Singleton;
 	return &Singleton;
 }
 
@@ -63,8 +65,7 @@ class FFeedbackContext* FWindowsPlatformApplicationMisc::GetFeedbackContext()
 	static FWindowsFeedbackContext Singleton;
 	return &Singleton;
 #else
-	static FFeedbackContextAnsi Singleton;
-	return &Singleton;
+	return FPlatformOutputDevices::GetFeedbackContext();
 #endif
 }
 

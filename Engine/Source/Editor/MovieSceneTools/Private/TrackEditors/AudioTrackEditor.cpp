@@ -995,6 +995,11 @@ FKeyPropertyResult FAudioTrackEditor::AddNewMasterSound( FFrameNumber KeyTime, U
 	FKeyPropertyResult KeyPropertyResult;
 
 	UMovieScene* FocusedMovieScene = GetFocusedMovieScene();
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return KeyPropertyResult;
+	}
+
 	FocusedMovieScene->Modify();
 
 	FFindOrCreateMasterTrackResult<UMovieSceneAudioTrack> TrackResult = FindOrCreateMasterTrack<UMovieSceneAudioTrack>();
@@ -1064,6 +1069,11 @@ void FAudioTrackEditor::HandleAddAudioTrackMenuEntryExecute()
 	UMovieScene* FocusedMovieScene = GetFocusedMovieScene();
 
 	if (FocusedMovieScene == nullptr)
+	{
+		return;
+	}
+
+	if (FocusedMovieScene->IsReadOnly())
 	{
 		return;
 	}

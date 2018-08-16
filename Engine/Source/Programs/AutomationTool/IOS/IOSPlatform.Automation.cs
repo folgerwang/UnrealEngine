@@ -168,65 +168,6 @@ public class IOSPlatform : Platform
 		SDKName = (TargetPlatform == UnrealTargetPlatform.TVOS) ? "appletvos" : "iphoneos";
 	}
 
-	// Run the integrated IPP code
-	// @todo ipp: How to log the output in a nice UAT way?
-	protected static int RunIPP(string IPPArguments)
-	{
-		List<string> Args = new List<string>();
-
-		StringBuilder Token = null;
-		int Index = 0;
-		bool bInQuote = false;
-		while (Index < IPPArguments.Length)
-		{
-			if (IPPArguments[Index] == '\"')
-			{
-				bInQuote = !bInQuote;
-			}
-			else if (IPPArguments[Index] == ' ' && !bInQuote)
-			{
-				if (Token != null)
-				{
-					Args.Add(Token.ToString());
-					Token = null;
-				}
-			}
-			else
-			{
-				if (Token == null)
-				{
-					Token = new StringBuilder();
-				}
-				Token.Append(IPPArguments[Index]);
-			}
-			Index++;
-		}
-
-		if (Token != null)
-		{
-			Args.Add(Token.ToString());
-		}
-	
-		return RunIPP(Args.ToArray());
-	}
-
-	protected static int RunIPP(string[] Args)
-	{
-		return 5;//@TODO: Reintegrate IPP to IOS.Automation iPhonePackager.Program.RealMain(Args);
-	}
-
-	public override int RunCommand(string Command)
-	{
-		// run generic IPP commands through the interface
-		if (Command.StartsWith("IPP:"))
-		{
-			return RunIPP(Command.Substring(4));
-		}
-
-		// non-zero error code
-		return 4;
-	}
-
 	public virtual bool PrepForUATPackageOrDeploy(UnrealTargetConfiguration Config, FileReference ProjectFile, string InProjectName, DirectoryReference InProjectDirectory, string InExecutablePath, DirectoryReference InEngineDir, bool bForDistribution, string CookFlavor, bool bIsDataDeploy, bool bCreateStubIPA, bool bIsUE4Game)
 	{
 		string TargetName = Path.GetFileNameWithoutExtension(InExecutablePath).Split("-".ToCharArray())[0];
@@ -305,7 +246,7 @@ public class IOSPlatform : Platform
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
-		Log("Package {0}", Params.RawProjectPath);
+		LogInformation("Package {0}", Params.RawProjectPath);
 
 		// ensure the ue4game binary exists, if applicable
 #if !PLATFORM_MAC
@@ -384,7 +325,7 @@ public class IOSPlatform : Platform
 			}
 		}
 
-		IOSExports.GenerateAssetCatalog(Params.RawProjectPath, FullExePath, CombinePaths(Params.BaseStageDirectory, (Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS")), Platform);
+		IOSExports.GenerateAssetCatalog(Params.RawProjectPath, new FileReference(FullExePath), new DirectoryReference(CombinePaths(Params.BaseStageDirectory, (Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS"))), Platform);
 
         bCreatedIPA = false;
 		bool bNeedsIPA = false;
@@ -461,137 +402,63 @@ public class IOSPlatform : Platform
 
 				bCreatedIPA = true;
 
-				if (IOSExports.UseRPCUtil())
+				string IPPArguments = "RepackageFromStage \"" + (Params.IsCodeBasedProject ? Params.RawProjectPath.FullName : "Engine") + "\"";
+				IPPArguments += " -config " + TargetConfiguration.ToString();
+				IPPArguments += " -schemename " + SchemeName + " -schemeconfig \"" + SchemeConfiguration + "\"";
+
+				if (TargetConfiguration == UnrealTargetConfiguration.Shipping)
 				{
-					string IPPArguments = "RepackageFromStage \"" + (Params.IsCodeBasedProject ? Params.RawProjectPath.FullName : "Engine") + "\"";
-					IPPArguments += " -config " + TargetConfiguration.ToString();
-					IPPArguments += " -schemename " + SchemeName + " -schemeconfig \"" + SchemeConfiguration + "\"";
+					IPPArguments += " -compress=best";
+				}
 
-					if (TargetConfiguration == UnrealTargetConfiguration.Shipping)
-					{
-						IPPArguments += " -compress=best";
-					}
+				// Determine if we should sign
+				bool bNeedToSign = GetCodeSignDesirability(Params);
 
-					// Determine if we should sign
-					bool bNeedToSign = GetCodeSignDesirability(Params);
-
-					if (!String.IsNullOrEmpty(Params.BundleName))
-					{
-						// Have to sign when a bundle name is specified
-						bNeedToSign = true;
-						IPPArguments += " -bundlename " + Params.BundleName;
-					}
-
-					if (bNeedToSign)
-					{
-						IPPArguments += " -sign";
-						if (Params.Distribution)
-						{
-							IPPArguments += " -distribution";
-						}
-						if (Params.IsCodeBasedProject)
-						{
-							IPPArguments += (" -codebased");
-						}
-					}
-
-					IPPArguments += (cookonthefly ? " -cookonthefly" : "");
-					IPPArguments += " -stagedir \"" + CombinePaths(Params.BaseStageDirectory, PlatformName) + "\"";
-					IPPArguments += " -project \"" + Params.RawProjectPath + "\"";
-					if (Params.IterativeDeploy)
-					{
-						IPPArguments += " -iterate";
-					}
-					if (!string.IsNullOrEmpty(Params.Provision))
-					{
-						IPPArguments += " -provision \"" + Params.Provision + "\""; 
-					}
-					if (!string.IsNullOrEmpty(Params.Certificate))
-					{
-						IPPArguments += " -certificate \"" + Params.Certificate + "\"";
-					}
-					if (PlatformName == "TVOS")
-					{
-						IPPArguments += " -tvos";
-					}
-					RunAndLog(CmdEnv, IPPExe, IPPArguments);
-
-                    if (IPPProjectIPA.Length > 0)
-                    {
-                        CopyFile(IPPProjectIPA, ProjectIPA);
-                        DeleteFile(IPPProjectIPA);
-                    }
-                }
-                else
+				if (!String.IsNullOrEmpty(Params.BundleName))
 				{
-					List<string> IPPArguments = new List<string>();
-					IPPArguments.Add("RepackageFromStage");
-					IPPArguments.Add(Params.IsCodeBasedProject ? Params.RawProjectPath.FullName : "Engine");
-					IPPArguments.Add("-config");
-					IPPArguments.Add(TargetConfiguration.ToString());
-					IPPArguments.Add("-schemename");
-					IPPArguments.Add(SchemeName);
-					IPPArguments.Add("-schemeconfig");
-					IPPArguments.Add("\"" + SchemeConfiguration + "\"");
+					// Have to sign when a bundle name is specified
+					bNeedToSign = true;
+					IPPArguments += " -bundlename " + Params.BundleName;
+				}
+
+				if (bNeedToSign)
+				{
+					IPPArguments += " -sign";
+					if (Params.Distribution)
+					{
+						IPPArguments += " -distribution";
+					}
 					if (Params.IsCodeBasedProject)
 					{
-						IPPArguments.Add("-codebased");
+						IPPArguments += (" -codebased");
 					}
+				}
 
-					if (TargetConfiguration == UnrealTargetConfiguration.Shipping)
-					{
-						IPPArguments.Add("-compress=best");
-					}
+				IPPArguments += (cookonthefly ? " -cookonthefly" : "");
+				IPPArguments += " -stagedir \"" + CombinePaths(Params.BaseStageDirectory, PlatformName) + "\"";
+				IPPArguments += " -project \"" + Params.RawProjectPath + "\"";
+				if (Params.IterativeDeploy)
+				{
+					IPPArguments += " -iterate";
+				}
+				if (!string.IsNullOrEmpty(Params.Provision))
+				{
+					IPPArguments += " -provision \"" + Params.Provision + "\""; 
+				}
+				if (!string.IsNullOrEmpty(Params.Certificate))
+				{
+					IPPArguments += " -certificate \"" + Params.Certificate + "\"";
+				}
+				if (PlatformName == "TVOS")
+				{
+					IPPArguments += " -tvos";
+				}
+				RunAndLog(CmdEnv, IPPExe, IPPArguments);
 
-					// Determine if we should sign
-					bool bNeedToSign = GetCodeSignDesirability(Params);
-
-					if (!String.IsNullOrEmpty(Params.BundleName))
-					{
-						// Have to sign when a bundle name is specified
-						bNeedToSign = true;
-						IPPArguments.Add("-bundlename");
-						IPPArguments.Add(Params.BundleName);
-					}
-
-					if (bNeedToSign)
-					{
-						IPPArguments.Add("-sign");
-					}
-
-					if (cookonthefly)
-					{
-						IPPArguments.Add(" -cookonthefly");
-					}
-					IPPArguments.Add(" -stagedir");
-					IPPArguments.Add(CombinePaths(Params.BaseStageDirectory, "IOS"));
-					IPPArguments.Add(" -project");
-					IPPArguments.Add(Params.RawProjectPath.FullName);
-					if (Params.IterativeDeploy)
-					{
-						IPPArguments.Add(" -iterate");
-					}
-					if (!string.IsNullOrEmpty(Params.Provision))
-					{
-						IPPArguments.Add(" -provision");
-						IPPArguments.Add(Params.Provision);
-					}
-					if (!string.IsNullOrEmpty(Params.Certificate))
-					{
-						IPPArguments.Add(" -certificate");
-						IPPArguments.Add(Params.Certificate);
-					}
-
-					if (RunIPP(IPPArguments.ToArray()) != 0)
-					{
-						throw new AutomationException("IPP Failed");
-					}
-
-                    if (IPPProjectIPA.Length > 0)
-                    {
-                        CopyFile(IPPProjectIPA, ProjectIPA);
-                        DeleteFile(IPPProjectIPA);
-                    }
+                if (IPPProjectIPA.Length > 0)
+                {
+                    CopyFile(IPPProjectIPA, ProjectIPA);
+                    DeleteFile(IPPProjectIPA);
                 }
             }
 

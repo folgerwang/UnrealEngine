@@ -70,6 +70,13 @@ private:
 	/** Set the color on the dynamic materials of the close button */
 	void SetCloseButtonColor( const FLinearColor& LinearColor );
 
+	/** Set the color on the dynamic materials of the dock button */
+	void SetDockButtonColor(const FLinearColor& LinearColor);
+
+	/** Mesh underneath the window for docking it to the world */
+	UPROPERTY()
+	class UStaticMeshComponent* DockButtonMeshComponent;
+
 	/** Mesh underneath the window for easy selecting and dragging */
 	UPROPERTY()
 	class UStaticMeshComponent* SelectionBarMeshComponent;
@@ -77,6 +84,10 @@ private:
 	/** Mesh that represents the close button for this UI */
 	UPROPERTY()
 	class UStaticMeshComponent* CloseButtonMeshComponent;
+
+	/** Dock Button dynamic material  (opaque) */
+	UPROPERTY()
+	class UMaterialInstanceDynamic* DockButtonMID;
 
 	/** Selection bar dynamic material  (opaque) */
 	UPROPERTY()
@@ -112,11 +123,18 @@ private:
 	/** True if we're hovering over the close button */
 	bool bIsHoveringOverCloseButton;
 
+	/** True if we're hovering over the dock button */
+	bool bIsHoveringOverDockButton;
+
 	/** Scalar that will advance toward 1.0 over time as we hover over the close button */
 	float CloseButtonHoverAlpha;
 
+	/** Scalar that will advance toward 1.0 over time as we hover over the dock button */
+	float DockButtonHoverAlpha;
+
 	/** Distance from interactor laser to the handle when starting dragging */
 	float DockSelectDistance;
+
 };
 
 /**

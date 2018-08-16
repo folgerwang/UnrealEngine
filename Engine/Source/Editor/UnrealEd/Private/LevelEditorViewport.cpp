@@ -74,6 +74,8 @@
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 #include "ActorGroupingUtils.h"
+#include "EditorWorldExtension.h"
+#include "VREditorMode.h"
 
 DEFINE_LOG_CATEGORY(LogEditorViewport);
 
@@ -419,7 +421,7 @@ UObject* FLevelEditorViewportClient::GetOrCreateMaterialFromTexture( UTexture* U
 	
 	FString MaterialFullName = TextureShortName + "_Mat";
 	FString NewPackageName = FPackageName::GetLongPackagePath( UnrealTexture->GetOutermost()->GetName() ) + TEXT( "/" ) + MaterialFullName;
-	NewPackageName = PackageTools::SanitizePackageName( NewPackageName );
+	NewPackageName = UPackageTools::SanitizePackageName( NewPackageName );
 	UPackage* Package = CreatePackage( NULL, *NewPackageName );
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>( TEXT( "AssetRegistry" ) );
@@ -1380,12 +1382,12 @@ bool FLevelEditorViewportClient::DropObjectsAtCoordinates(int32 MouseX, int32 Mo
 					}
 
 					// Prevent future selection. This also prevents the hit proxy from interfering with placement logic.
-					TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-					NewActor->GetComponents(PrimitiveComponents);
-
-					for ( auto CompIt = PrimitiveComponents.CreateConstIterator(); CompIt; ++CompIt )
+					for (UActorComponent* Component : NewActor->GetComponents())
 					{
-						(*CompIt)->bSelectable = false;
+						if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
+						{
+							PrimComp->bSelectable = false;
+						}
 					}
 				}
 
@@ -3157,6 +3159,26 @@ void FLevelEditorViewportClient::RedrawAllViewportsIntoThisScene()
 	GEditor->RedrawLevelEditingViewports();
 }
 
+void FLevelEditorViewportClient::SetVREditView(bool bGameViewEnable)
+{
+	UEditorWorldExtensionCollection* ExtensionCollection = GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(GetWorld());
+	check(ExtensionCollection != nullptr);
+	UVREditorMode* VREditorMode = Cast<UVREditorMode>(ExtensionCollection->FindExtension(UVREditorMode::StaticClass()));
+	if (VREditorMode && VREditorMode->IsFullyInitialized())
+	{
+		if (bGameViewEnable)
+		{
+			VREditorMode->OnPlacePreviewActor().AddStatic(&FLevelEditorViewportClient::SetIsDroppingPreviewActor);
+		}
+		else
+		{
+			VREditorMode->OnPlacePreviewActor().RemoveAll(this);
+		}
+	}
+
+	FEditorViewportClient::SetVREditView(bGameViewEnable);
+}
+
 FWidget::EWidgetMode FLevelEditorViewportClient::GetWidgetMode() const
 {
 	if (GUnrealEd->ComponentVisManager.IsActive() && GUnrealEd->ComponentVisManager.IsVisualizingArchetype())
@@ -4128,13 +4150,10 @@ void FLevelEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDrawInter
 				continue;
 			}
 
-			TInlineComponentArray<USceneComponent*> Components;
-			Actor->GetComponents(Components);
-
-			for (int32 ComponentIndex = 0 ; ComponentIndex < Components.Num(); ++ComponentIndex)
+			for (UActorComponent* Component : Actor->GetComponents())
 			{
-				USceneComponent* SceneComponent = Components[ComponentIndex];
-				if (SceneComponent->HasAnySockets())
+				USceneComponent* SceneComponent = Cast<USceneComponent>(Component);
+				if (SceneComponent && SceneComponent->HasAnySockets())
 				{
 					TArray<FComponentSocketDescription> Sockets;
 					SceneComponent->QuerySupportedSockets(Sockets);
@@ -4564,13 +4583,10 @@ void FLevelEditorViewportClient::AddHoverEffect( const FViewportHoverTarget& InH
 
 	if( ActorUnderCursor != nullptr )
 	{
-		TInlineComponentArray<UPrimitiveComponent*> Components;
-		ActorUnderCursor->GetComponents(Components);
-
-		for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
+		for (UActorComponent* Component : ActorUnderCursor->GetComponents())
 		{
-			UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
-			if (PrimitiveComponent->IsRegistered())
+			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component);
+			if (PrimitiveComponent && PrimitiveComponent->IsRegistered())
 			{
 				PrimitiveComponent->PushHoveredToProxy( true );
 			}
@@ -4596,13 +4612,10 @@ void FLevelEditorViewportClient::RemoveHoverEffect( const FViewportHoverTarget& 
 	AActor* CurHoveredActor = InHoverTarget.HoveredActor;
 	if( CurHoveredActor != nullptr )
 	{
-		TInlineComponentArray<UPrimitiveComponent*> Components;
-		CurHoveredActor->GetComponents(Components);
-
-		for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
+		for (UActorComponent* Component : CurHoveredActor->GetComponents())
 		{
-			UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
-			if (PrimitiveComponent->IsRegistered())
+			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component);
+			if (PrimitiveComponent && PrimitiveComponent->IsRegistered())
 			{
 				check(PrimitiveComponent->IsRegistered());
 				PrimitiveComponent->PushHoveredToProxy( false );

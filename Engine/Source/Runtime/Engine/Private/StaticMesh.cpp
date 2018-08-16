@@ -3055,7 +3055,125 @@ void UStaticMesh::CacheMeshData()
 	}
 }
 
+bool UStaticMesh::AddUVChannel(int32 LODIndex)
+{
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (MeshDescription)
+	{
+		Modify();
+
+		if (FMeshDescriptionOperations::AddUVChannel(*MeshDescription))
+		{
+			CommitOriginalMeshDescription(LODIndex);
+			PostEditChange();
+
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UStaticMesh::InsertUVChannel(int32 LODIndex, int32 UVChannelIndex)
+{
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (MeshDescription)
+	{
+		Modify();
+
+		if (FMeshDescriptionOperations::InsertUVChannel(*MeshDescription, UVChannelIndex))
+		{
+			// Adjust the lightmap UV indices in the Build Settings to account for the new channel
+			FMeshBuildSettings& LODBuildSettings = SourceModels[LODIndex].BuildSettings;
+			if (UVChannelIndex <= LODBuildSettings.SrcLightmapIndex)
+			{
+				++LODBuildSettings.SrcLightmapIndex;
+			}
+
+			if (UVChannelIndex <= LODBuildSettings.DstLightmapIndex)
+			{
+				++LODBuildSettings.DstLightmapIndex;
+			}
+
+			if (UVChannelIndex <= LightMapCoordinateIndex)
+			{
+				++LightMapCoordinateIndex;
+			}
+
+			CommitOriginalMeshDescription(LODIndex);
+			PostEditChange();
+
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UStaticMesh::RemoveUVChannel(int32 LODIndex, int32 UVChannelIndex)
+{
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (MeshDescription)
+	{
+		FMeshBuildSettings& LODBuildSettings = SourceModels[LODIndex].BuildSettings;
+
+		if (LODBuildSettings.bGenerateLightmapUVs)
+		{
+			if (UVChannelIndex == LODBuildSettings.SrcLightmapIndex)
+			{
+				UE_LOG(LogStaticMesh, Error, TEXT("RemoveUVChannel: To remove the lightmap source UV channel, disable \"Generate Lightmap UVs\" in the Build Settings."));
+				return false;
+			}
+
+			if (UVChannelIndex == LODBuildSettings.DstLightmapIndex)
+			{
+				UE_LOG(LogStaticMesh, Error, TEXT("RemoveUVChannel: To remove the lightmap destination UV channel, disable \"Generate Lightmap UVs\" in the Build Settings."));
+				return false;
+			}
+		}
+
+		Modify();
+
+		if (FMeshDescriptionOperations::RemoveUVChannel(*MeshDescription, UVChannelIndex))
+		{
+			// Adjust the lightmap UV indices in the Build Settings to account for the removed channel
+			if (UVChannelIndex < LODBuildSettings.SrcLightmapIndex)
+			{
+				--LODBuildSettings.SrcLightmapIndex;
+			}
+
+			if (UVChannelIndex < LODBuildSettings.DstLightmapIndex)
+			{
+				--LODBuildSettings.DstLightmapIndex;
+			}
+
+			if (UVChannelIndex < LightMapCoordinateIndex)
+			{
+				--LightMapCoordinateIndex;
+			}
+
+			CommitOriginalMeshDescription(LODIndex);
+			PostEditChange();
+
+			return true;
+		}
+	}
+	return false;
+}
+
 #endif
+
+int32 UStaticMesh::GetNumUVChannels(int32 LODIndex)
+{
+	int32 NumUVChannels = 0;
+#if WITH_EDITORONLY_DATA
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (MeshDescription)
+	{
+		TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		NumUVChannels = VertexInstanceUVs.GetNumIndices();
+	}
+#endif
+	return NumUVChannels;
+}
 
 void UStaticMesh::CacheDerivedData()
 {

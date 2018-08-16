@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Tests/AutomationEditorCommon.h"
 #include "UObject/UnrealType.h"
@@ -845,13 +845,13 @@ bool FChangeViewportToFirstAvailableBookmarkCommand::Update()
 	for ( int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++ )
 	{
 		ViewportClient = GEditor->LevelViewportClients[i];
-
-		for ( ViewportIndex = 0; ViewportIndex <= AWorldSettings::MAX_BOOKMARK_NUMBER; ViewportIndex++ )
+		const uint32 NumberOfBookmarks = EditorModeTools.GetMaxNumberOfBookmarks(ViewportClient);
+		for ( ViewportIndex = 0; ViewportIndex <= NumberOfBookmarks; ViewportIndex++ )
 		{
 			if ( EditorModeTools.CheckBookmark(ViewportIndex, ViewportClient) )
 			{
 				UE_LOG(LogEditorAutomationTests, VeryVerbose, TEXT("Changing a viewport view to the set bookmark %i"), ViewportIndex);
-				EditorModeTools.JumpToBookmark(ViewportIndex, true, ViewportClient);
+				EditorModeTools.JumpToBookmark(ViewportIndex, TSharedPtr<struct FBookmarkBaseJumpToSettings>(), ViewportClient);
 				break;
 			}
 		}

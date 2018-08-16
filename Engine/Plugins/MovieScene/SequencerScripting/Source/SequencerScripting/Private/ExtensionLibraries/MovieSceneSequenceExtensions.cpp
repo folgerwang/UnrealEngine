@@ -131,6 +131,19 @@ FSequencerScriptingRange UMovieSceneSequenceExtensions::MakeRangeSeconds(UMovieS
 	return FSequencerScriptingRange::FromNative(TRange<FFrameNumber>((StartTime*FrameRate).FloorToFrame(), ((StartTime+Duration) * FrameRate).CeilToFrame()), FrameRate, FrameRate);
 }
 
+FSequencerScriptingRange UMovieSceneSequenceExtensions::GetPlaybackRange(UMovieSceneSequence* Sequence)
+{
+	UMovieScene* MovieScene = Sequence->GetMovieScene();
+	if (MovieScene)
+	{
+		return FSequencerScriptingRange::FromNative(MovieScene->GetPlaybackRange(), GetTickResolution(Sequence));
+	}
+	else
+	{
+		return FSequencerScriptingRange();
+	}
+}
+
 FSequencerBindingProxy UMovieSceneSequenceExtensions::FindBindingByName(UMovieSceneSequence* Sequence, FString Name)
 {
 	UMovieScene* MovieScene = Sequence->GetMovieScene();
@@ -161,6 +174,42 @@ TArray<FSequencerBindingProxy> UMovieSceneSequenceExtensions::GetBindings(UMovie
 	return AllBindings;
 }
 
+TArray<FSequencerBindingProxy> UMovieSceneSequenceExtensions::GetSpawnables(UMovieSceneSequence* Sequence)
+{
+	TArray<FSequencerBindingProxy> AllSpawnables;
+
+	UMovieScene* MovieScene = Sequence->GetMovieScene();
+	if (MovieScene)
+	{
+		int32 Count = MovieScene->GetSpawnableCount();
+		AllSpawnables.Reserve(Count);
+		for (int32 i=0; i < Count; ++i)
+		{
+			AllSpawnables.Emplace(MovieScene->GetSpawnable(i).GetGuid(), Sequence);
+		}
+	}
+
+	return AllSpawnables;
+}
+
+TArray<FSequencerBindingProxy> UMovieSceneSequenceExtensions::GetPossessables(UMovieSceneSequence* Sequence)
+{
+	TArray<FSequencerBindingProxy> AllPossessables;
+
+	UMovieScene* MovieScene = Sequence->GetMovieScene();
+	if (MovieScene)
+	{
+		int32 Count = MovieScene->GetPossessableCount();
+		AllPossessables.Reserve(Count);
+		for (int32 i = 0; i < Count; ++i)
+		{
+			AllPossessables.Emplace(MovieScene->GetPossessable(i).GetGuid(), Sequence);
+		}
+	}
+
+	return AllPossessables;
+}
+
 FSequencerBindingProxy UMovieSceneSequenceExtensions::AddPossessable(UMovieSceneSequence* Sequence, UObject* ObjectToPossess)
 {
 	FGuid NewGuid = Sequence->CreatePossessable(ObjectToPossess);
@@ -178,3 +227,17 @@ FSequencerBindingProxy UMovieSceneSequenceExtensions::AddSpawnableFromClass(UMov
 	FGuid NewGuid = Sequence->AllowsSpawnableObjects() ? Sequence->CreateSpawnable(ClassToSpawn) : FGuid();
 	return FSequencerBindingProxy(NewGuid, Sequence);
 }
+
+TArray<UObject*> UMovieSceneSequenceExtensions::LocateBoundObjects(UMovieSceneSequence* Sequence, const FSequencerBindingProxy& InBinding, UObject* Context)
+{
+	TArray<UObject*> Result;
+	if (Sequence)
+	{
+		TArray<UObject*, TInlineAllocator<1>> OutObjects;
+		Sequence->LocateBoundObjects(InBinding.BindingID, Context, OutObjects);
+		Result.Append(OutObjects);
+	}
+
+	return Result;
+}
+

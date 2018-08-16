@@ -363,10 +363,6 @@ namespace UnrealBuildTool
 							if (TargetName != "UE4Editor" && GameProjectFile != "")
 							{
 								string commandArguments = "\"" + GameProjectFile + "\"" + " -game";
-								if (CurConf.ToString ().Contains ("Debug")) 
-								{
-									commandArguments += " -debug";
-								}
 								XAttribute CommandArguments = new XAttribute("CommandArguments", commandArguments);
 								CodeLiteConfigurationGeneral.Add(CommandArguments);
 							}

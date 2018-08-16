@@ -2981,6 +2981,7 @@ static bool GenerateDestIniFile(FConfigFile& DestConfigFile, const FString& Dest
 		if (DestConfigFile.SourceConfigFile)
 		{
 			delete DestConfigFile.SourceConfigFile;
+			DestConfigFile.SourceConfigFile = nullptr;
 		}
 		DestConfigFile.SourceConfigFile = new FConfigFile( DestConfigFile );
 

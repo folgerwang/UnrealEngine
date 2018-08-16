@@ -53,6 +53,18 @@ void UFactory::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collec
 
 UObject* UFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled)
 {
+	UAssetImportTask* Task = AssetImportTask;
+	if (Task == nullptr)
+	{
+		Task = NewObject<UAssetImportTask>();
+		Task->Filename = Filename;
+	}
+
+	if (ScriptFactoryCreateFile(Task))
+	{
+		return Task->Result;
+	}
+
 	FString FileExtension = FPaths::GetExtension(Filename);
 
 	// load as text
@@ -91,6 +103,11 @@ UObject* UFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName I
 
 bool UFactory::FactoryCanImport( const FString& Filename )
 {
+	if (ScriptFactoryCanImport(Filename))
+	{
+		return true;
+	}
+
 	// only T3D is supported
 	if (FPaths::GetExtension(Filename) != TEXT("t3d"))
 	{
@@ -613,7 +630,7 @@ void UFactory::SetAutomatedAssetImportData(const UAutomatedAssetImportData* Data
 	AutomatedImportData = Data;
 }
 
-void UFactory::SetAssetImportTask(const UAssetImportTask* Task)
+void UFactory::SetAssetImportTask(class UAssetImportTask* Task)
 {
 	AssetImportTask = Task;
 }

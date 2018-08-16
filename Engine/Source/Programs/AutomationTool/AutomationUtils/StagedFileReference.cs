@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -26,7 +26,7 @@ public class StagedFileReference : StagedFileSystemReference, IEquatable<StagedF
 	/// </summary>
 	/// <param name="Name">The name of this entity.</param>
 	/// <param name="CanonicalName">Canonical name of this entity. Should be equal to Name.ToLowerInvariant().</param>
-	private StagedFileReference(string Name, string CanonicalName) : base(Name, CanonicalName)
+	private StagedFileReference(string Name, Sanitize Sanitize) : base(Name, Sanitize)
 	{
 	}
 
@@ -52,22 +52,22 @@ public class StagedFileReference : StagedFileSystemReference, IEquatable<StagedF
 	/// <summary>
 	/// Determines if the name contains the given fragment
 	/// </summary>
-	/// <param name="Name"></param>
+	/// <param name="OtherName"></param>
 	/// <returns></returns>
-	public bool ContainsName(FileSystemName Name)
+	public bool ContainsName(string OtherName)
 	{
 		int StartIdx = 0;
 		for(;;)
 		{
-			int Idx = CanonicalName.IndexOf(Name.CanonicalName, StartIdx);
+			int Idx = Name.IndexOf(OtherName, StartIdx, FileSystemReference.Comparison);
 			if(Idx == -1)
 			{
 				return false;
 			}
-			if (Idx == 0 || CanonicalName[Idx - 1] == '/')
+			if (Idx == 0 || Name[Idx - 1] == '/')
 			{
-				int EndIdx = Idx + Name.CanonicalName.Length;
-				if(EndIdx < CanonicalName.Length && CanonicalName[EndIdx] == '/')
+				int EndIdx = Idx + OtherName.Length;
+				if(EndIdx < Name.Length && Name[EndIdx] == '/')
 				{
 					return true;
 				}
@@ -85,9 +85,9 @@ public class StagedFileReference : StagedFileSystemReference, IEquatable<StagedF
 	/// <returns>True if the file was remapped, false otherwise</returns>
 	public static bool TryRemap(StagedFileReference InputFile, StagedDirectoryReference SourceDir, StagedDirectoryReference TargetDir, out StagedFileReference RemappedFile)
 	{
-		if (InputFile.CanonicalName.StartsWith(SourceDir.CanonicalName) && InputFile.CanonicalName.Length > SourceDir.CanonicalName.Length && InputFile.CanonicalName[SourceDir.CanonicalName.Length] == '/')
+		if (InputFile.Name.StartsWith(SourceDir.Name, FileSystemReference.Comparison) && InputFile.Name.Length > SourceDir.Name.Length && InputFile.Name[SourceDir.Name.Length] == '/')
 		{
-			RemappedFile = new StagedFileReference(TargetDir.Name + InputFile.Name.Substring(SourceDir.Name.Length), TargetDir.CanonicalName + InputFile.CanonicalName.Substring(SourceDir.CanonicalName.Length));
+			RemappedFile = new StagedFileReference(TargetDir.Name + InputFile.Name.Substring(SourceDir.Name.Length), Sanitize.None);
 			return true;
 		}
 		else
@@ -125,7 +125,7 @@ public class StagedFileReference : StagedFileSystemReference, IEquatable<StagedF
 	/// <returns>Lowercase version of this file reference.</returns>
 	public StagedFileReference ToLowerInvariant()
 	{
-		return new StagedFileReference(CanonicalName, CanonicalName);
+		return new StagedFileReference(Name.ToLowerInvariant(), Sanitize.None);
 	}
 
 	/// <summary>
@@ -142,7 +142,7 @@ public class StagedFileReference : StagedFileSystemReference, IEquatable<StagedF
 		}
 		else
 		{
-			return (object)B != null && A.CanonicalName == B.CanonicalName;
+			return (object)B != null && A.Name.Equals(B.Name, FileSystemReference.Comparison);
 		}
 	}
 
@@ -165,7 +165,7 @@ public class StagedFileReference : StagedFileSystemReference, IEquatable<StagedF
 	public override bool Equals(object Obj)
 	{
 		StagedFileReference Other = Obj as StagedFileReference;
-		return Other != null && Other.CanonicalName == CanonicalName;
+		return Other != null && Other.Name.Equals(Name, FileSystemReference.Comparison);
 	}
 
 	/// <summary>
@@ -175,7 +175,7 @@ public class StagedFileReference : StagedFileSystemReference, IEquatable<StagedF
 	/// <returns>True if the two directories are identical. Case is ignored.</returns>
 	public bool Equals(StagedFileReference Other)
 	{
-		return CanonicalName == Other.CanonicalName;
+		return Name.Equals(Other.Name, FileSystemReference.Comparison);
 	}
 
 	/// <summary>
@@ -184,7 +184,7 @@ public class StagedFileReference : StagedFileSystemReference, IEquatable<StagedF
 	/// <returns>Hash code for the current object.</returns>
 	public override int GetHashCode()
 	{
-		return CanonicalName.GetHashCode();
+		return FileSystemReference.Comparer.GetHashCode(Name);
 	}
 }
 

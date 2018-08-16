@@ -38,7 +38,7 @@ namespace MagicLeap
 		while (StopTaskCounter.GetValue() == 0)
 		{
 			IAppEventHandler* EventHandler = nullptr;
-			if (IncomingEventHandlers.Dequeue(EventHandler))
+			while (IncomingEventHandlers.Dequeue(EventHandler))
 			{
 				delete EventHandler;
 				EventHandler = nullptr;

@@ -12,17 +12,44 @@
 #include "BuildPatchProgress.h"
 #include "BuildPatchManifest.h"
 #include "Installer/Controllable.h"
+#include "Common/SpeedRecorder.h"
+#include "BuildPatchInstall.h"
 
 // Forward declarations
 class FBuildPatchAppManifest;
 struct FChunkPart;
 namespace BuildPatchServices
 {
+	class IFileSystem;
 	class IChunkSource;
 	class IChunkReferenceTracker;
 	class IInstallerError;
 	class IInstallerAnalytics;
 	class IFileConstructorStat;
+
+	/**
+	 * A struct containing the configuration values for a file constructor.
+	 */
+	struct FFileConstructorConfig
+	{
+		// The Manifest for the build we are installing.
+		FBuildPatchAppManifestRef BuildManifest;
+
+		// The Manifest for the build we currently installed, if applicable.
+		FBuildPatchAppManifestPtr CurrentManifest;
+
+		// The root location where the installation is going.
+		FString InstallDirectory;
+
+		// The location where we will store temporary files.
+		FString StagingDirectory;
+
+		// The list of files to be constructed, filename paths should match those contained in manifest.
+		TArray<FString> ConstructList;
+
+		// The install mode used for this installation.
+		EInstallMode InstallMode;
+	};
 
 	/**
 	 * FBuildPatchFileConstructor
@@ -32,85 +59,19 @@ namespace BuildPatchServices
 		: public FRunnable
 		, public IControllable
 	{
-	private:
-		// Hold a pointer to my thread for easier deleting
-		FRunnableThread* Thread;
-
-		// A flag marking that we a running
-		bool bIsRunning;
-
-		// A flag marking that we initialized correctly
-		bool bIsInited;
-
-		// A flag marking that our init returned a failure (true means failed)
-		bool bInitFailed;
-
-		// A flag marking that we told the chunk cache to queue required downloads
-		bool bIsDownloadStarted;
-
-		// A flag marking that we have made the initial disk space check following resume logic compelte
-		bool bInitialDiskSizeCheck;
-
-		// A flag marking whether we should be paused
-		FThreadSafeBool bIsPaused;
-
-		// A flag marking whether we should abort operations and exit
-		FThreadSafeBool bShouldAbort;
-
-		// A critical section to protect the flags and variables
-		FCriticalSection ThreadLock;
-
-		// The build manifest for the app we are installing
-		FBuildPatchAppManifestRef BuildManifest;
-
-		// The root installation directory 
-		FString InstallDirectory;
-
-		// The directory for staging files
-		FString StagingDirectory;
-
-		// A list of filenames for files that need to be constructed in this build
-		TArray<FString> FilesToConstruct;
-
-		// Pointer to chunk source.
-		IChunkSource* ChunkSource;
-
-		// Pointer to the chunk reference tracker.
-		IChunkReferenceTracker* ChunkReferenceTracker;
-
-		// Pointer to the installer error class.
-		IInstallerError* InstallerError;
-
-		// Pointer to the installer analytics handler.
-		IInstallerAnalytics* InstallerAnalytics;
-
-		// Pointer to the stat class.
-		IFileConstructorStat* FileConstructorStat;
-
-		// Total job size for tracking progress
-		int64 TotalJobSize;
-
-		// Byte processed so far for tracking progress
-		int64 ByteProcessed;
-
-		// A list of filenames for files that have been constructed
-		TArray<FString> FilesConstructed;
-
 	public:
 
 		/**
 		 * Constructor
-		 * @param BuildManifest             The Manifest for the build we are installing.
-		 * @param InstallDirectory          The root location where the installation is going.
-		 * @param StageDirectory            The location where we will store temporary files.
-		 * @param ConstructList             The list of files to be constructed, filename paths should match those contained in manifest.
+		 * @param Configuration             The configuration for the constructor.
+		 * @param FileSystem                The service used to open files.
 		 * @param ChunkSource               Pointer to the chunk source.
 		 * @param ChunkReferenceTracker     Pointer to the chunk reference tracker.
 		 * @param InstallerError            Pointer to the installer error class for reporting fatal errors.
 		 * @param InstallerAnalytics        Pointer to the installer analytics handler for reporting events.
 		 * @param FileConstructorStat       Pointer to the stat class for receiving updates.
 		 */
-		FBuildPatchFileConstructor(FBuildPatchAppManifestRef BuildManifest, FString InstallDirectory, FString StageDirectory, TArray<FString> ConstructList, IChunkSource* ChunkSource, IChunkReferenceTracker* ChunkReferenceTracker, IInstallerError* InstallerError, IInstallerAnalytics* InstallerAnalytics, IFileConstructorStat* FileConstructorStat);
+		FBuildPatchFileConstructor(FFileConstructorConfig Configuration, IFileSystem* FileSystem, IChunkSource* ChunkSource, IChunkReferenceTracker* ChunkReferenceTracker, IInstallerError* InstallerError, IInstallerAnalytics* InstallerAnalytics, IFileConstructorStat* FileConstructorStat);
 
 		/**
 		 * Default Destructor, will delete the allocated Thread
@@ -144,6 +105,13 @@ namespace BuildPatchServices
 		 * @return	true if the thread completed
 		 */
 		bool IsComplete();
+
+		/**
+		 * Broadcasts with full filepath to file that the constructor is about to delete in order to free up space.
+		 * @return	Reference to the event object.
+		 */
+		DECLARE_EVENT_OneParam(FBuildPatchFileConstructor, FOnBeforeDeleteFile, const FString& /*BuildFile*/);
+		FOnBeforeDeleteFile& OnBeforeDeleteFile();
 
 	private:
 
@@ -184,6 +152,14 @@ namespace BuildPatchServices
 		int64 GetRemainingBytes();
 
 		/**
+		 * Calculates the minimum required disk space for the remaining work to be completed, based on a current file, and the list of files left in ConstructionStack.
+		 * @param InProgressFile		The filename for the file currently being constructed.
+		 * @param InProgressFileSize	The remaining size required for the file currently being constructed.
+		 * @return the number of bytes required on disk to complete the installation.
+		 */
+		int64 CalculateRequiredDiskSpace(const FString& InProgressFile, int64 InProgressFileSize);
+
+		/**
 		 * Constructs a particular file referenced by the given BuildManifest. The function takes an interface to a class that can provide availability information of chunks so that this
 		 * file construction process can be ran alongside chunk acquisition threads. It will Sleep while waiting for chunks that it needs.
 		 * @param Filename			The Filename for the file to construct, that matches an entry in the BuildManifest.
@@ -206,6 +182,67 @@ namespace BuildPatchServices
 		 * @param RootDirectory	 	Directory to make empty
 		 */
 		void DeleteDirectoryContents(const FString& RootDirectory);
+
+	private:
+		// The configuration for the constructor.
+		const FFileConstructorConfig Configuration;
+
+		// Hold a pointer to my thread for easier deleting.
+		FRunnableThread* Thread;
+
+		// A flag marking that we a running.
+		bool bIsRunning;
+
+		// A flag marking that we initialized correctly.
+		bool bIsInited;
+
+		// A flag marking that our init returned a failure (true means failed).
+		bool bInitFailed;
+
+		// A flag marking that we told the chunk cache to queue required downloads.
+		bool bIsDownloadStarted;
+
+		// A flag marking that we have made the initial disk space check following resume logic complete.
+		bool bInitialDiskSizeCheck;
+
+		// A flag marking whether we should be paused.
+		FThreadSafeBool bIsPaused;
+
+		// A flag marking whether we should abort operations and exit.
+		FThreadSafeBool bShouldAbort;
+
+		// A critical section to protect the flags and variables.
+		FCriticalSection ThreadLock;
+
+		// A stack of filenames for files that need to be constructed.
+		TArray<FString> ConstructionStack;
+
+		// Pointer to the file system.
+		IFileSystem* FileSystem;
+
+		// Pointer to chunk source.
+		IChunkSource* ChunkSource;
+
+		// Pointer to the chunk reference tracker.
+		IChunkReferenceTracker* ChunkReferenceTracker;
+
+		// Pointer to the installer error class.
+		IInstallerError* InstallerError;
+
+		// Pointer to the installer analytics handler.
+		IInstallerAnalytics* InstallerAnalytics;
+
+		// Pointer to the stat class.
+		IFileConstructorStat* FileConstructorStat;
+
+		// Total job size for tracking progress.
+		int64 TotalJobSize;
+
+		// Byte processed so far for tracking progress.
+		int64 ByteProcessed;
+
+		// Event executed before deleting an old installation file.
+		FOnBeforeDeleteFile BeforeDeleteFileEvent;
 	};
 
 	/**
@@ -226,6 +263,12 @@ namespace BuildPatchServices
 		 * Called when the resume process completes.
 		 */
 		virtual void OnResumeCompleted() = 0;
+
+		/**
+		 * Called for each Get made to the chunk source.
+		 * @param ChunkId       The id for the chunk required.
+		 */
+		virtual void OnChunkGet(const FGuid& ChunkId) = 0;
 
 		/**
 		 * Called when a file construction has started.
@@ -249,6 +292,11 @@ namespace BuildPatchServices
 		virtual void OnFileCompleted(const FString& Filename, bool bSuccess) = 0;
 
 		/**
+		 * Called when the construction process completes.
+		 */
+		virtual void OnConstructionCompleted() = 0;
+
+		/**
 		 * Called to update the total amount of bytes which have been constructed.
 		 * @param TotalBytes    The number of bytes constructed so far.
 		 */
@@ -259,6 +307,39 @@ namespace BuildPatchServices
 		 * @param TotalBytes    The total number of bytes to be constructed.
 		 */
 		virtual void OnTotalRequiredUpdated(int64 TotalBytes) = 0;
+
+		/**
+		 * Called when we are beginning a file administration, such as open, close, seek.
+		 */
+		virtual void OnBeforeAdminister() = 0;
+
+		/**
+		 * Called upon completing an admin operation, with activity recording.
+		 * @param Record        The activity record.
+		 */
+		virtual void OnAfterAdminister(const ISpeedRecorder::FRecord& Record) = 0;
+
+		/**
+		 * Called when we are beginning a read operation.
+		 */
+		virtual void OnBeforeRead() = 0;
+
+		/**
+		 * Called upon completing a read operation, with activity recording.
+		 * @param Record        The activity record.
+		 */
+		virtual void OnAfterRead(const ISpeedRecorder::FRecord& Record) = 0;
+
+		/**
+		 * Called when we are beginning a write operation.
+		 */
+		virtual void OnBeforeWrite() = 0;
+
+		/**
+		 * Called upon completing a write operation, with activity recording.
+		 * @param Record        The activity record.
+		 */
+		virtual void OnAfterWrite(const ISpeedRecorder::FRecord& Record) = 0;
 	};
 
 }

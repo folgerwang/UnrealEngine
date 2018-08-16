@@ -293,7 +293,6 @@ public:
 		FORCEINLINE void MoveToEmpty(ForElementType& Other)
 		{
 			checkSlow(this != &Other);
-			check(!Data);
 
 			Data       = Other.Data;
 			Other.Data = nullptr;

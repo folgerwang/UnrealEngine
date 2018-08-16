@@ -9,6 +9,7 @@
 #include "Widgets/Views/STableViewBase.h"
 #include "Widgets/Views/STableRow.h"
 #include "ActorRecording.h"
+#include "SequenceRecordingBase.h"
 #include "PropertyEditorDelegates.h"
 #include "ISinglePropertyView.h"
 #include "IStructureDetailsView.h"
@@ -38,11 +39,13 @@ private:
 
 	void BindCommands();
 
-	TSharedRef<ITableRow> MakeListViewWidget(class UActorRecording* Recording, const TSharedRef<STableViewBase>& OwnerTable) const;
+	TSharedRef<ITableRow> MakeListViewWidget(UActorRecording* Recording, const TSharedRef<STableViewBase>& OwnerTable) const;
 
-	FText GetRecordingActorName(class UActorRecording* Recording) const;
+	FText GetRecordingActorName(UActorRecording* Recording) const;
 
-	void OnSelectionChanged(UActorRecording* Recording, ESelectInfo::Type SelectionType) const;
+	void OnActorListSelectionChanged(UActorRecording* Recording, ESelectInfo::Type SelectionType);
+
+	void OnListSelectionChanged(USequenceRecordingBase* Recording);
 
 	void HandleRecord();
 
@@ -102,9 +105,9 @@ private:
 
 	FText GetTargetSequenceName() const;
 
-	FReply OnRecordingListDrop( TSharedPtr<FDragDropOperation> DragDropOperation );
+	FReply OnRecordingActorListDrop( TSharedPtr<FDragDropOperation> DragDropOperation );
 
-	bool OnRecordingListAllowDrop( TSharedPtr<FDragDropOperation> DragDropOperation );
+	bool OnRecordingActorListAllowDrop( TSharedPtr<FDragDropOperation> DragDropOperation );
 
 public:
 	TSharedPtr<FUICommandList> GetCommandList() const
@@ -118,13 +121,16 @@ private:
 	/** This is the Detail View for the USequenceRecorderSettings */
 	TSharedPtr<IDetailsView> SequenceRecordingDetailsView;
 
-	/** This is the Detail View for the currently selected UActorRecording */
-	TSharedPtr<IDetailsView> ActorRecordingDetailsView;
+	/** This is the Detail View for the currently selected UActorRecording or an item from an Extender */
+	TSharedPtr<IDetailsView> SelectedRecordingItemDetailsView;
 
 	/** This is the Detail View for the currently selected USequenceActorGroup */
 	TSharedPtr<IDetailsView> RecordingGroupDetailsView;
 
-	TSharedPtr<SListView<UActorRecording*>> ListView;
+	TSharedPtr<SListView<UActorRecording*>> ActorListView;
+
+	/** List of all the the Detail View created by Extenders */
+	TArray<TSharedPtr<SListView<USequenceRecordingBase*>>> ExtenderListViews;
 
 	TSharedPtr<FUICommandList> CommandList;
 
@@ -132,4 +138,6 @@ private:
 	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
 
 	TSharedPtr<SProgressBar> DelayProgressBar;
+
+	mutable bool bInsideSelectionChanged;
 };

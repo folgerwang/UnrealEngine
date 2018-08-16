@@ -711,35 +711,7 @@ void SCinematicLevelViewport::Tick(const FGeometry& AllottedGeometry, const doub
 			UIData.CameraName = FText::FromString(OuterActor->GetActorLabel());
 		}
 
-		if (UCineCameraComponent* CineCam = Cast<UCineCameraComponent>(CameraComponent))
-		{
-			const float SensorWidth = CineCam->FilmbackSettings.SensorWidth;
-			const float SensorHeight = CineCam->FilmbackSettings.SensorHeight;
-
-			// Search presets for one that matches
-			const FNamedFilmbackPreset* Preset = UCineCameraComponent::GetFilmbackPresets().FindByPredicate([&](const FNamedFilmbackPreset& InPreset){
-				return InPreset.FilmbackSettings.SensorWidth == SensorWidth && InPreset.FilmbackSettings.SensorHeight == SensorHeight;
-			});
-
-			if (Preset)
-			{
-				UIData.Filmback = FText::FromString(Preset->Name);
-			}
-			else
-			{
-				FNumberFormattingOptions Opts = FNumberFormattingOptions().SetMaximumFractionalDigits(1);
-				UIData.Filmback = FText::Format(
-					LOCTEXT("CustomFilmbackFormat", "Custom ({0}mm x {1}mm)"),
-					FText::AsNumber(SensorWidth, &Opts),
-					FText::AsNumber(SensorHeight, &Opts)
-				);
-			}
-		}
-		else
-		{
-			// Just use the FoV
-			UIData.Filmback = FText::FromString(LexToString(FNumericUnit<float>(CameraComponent->FieldOfView, EUnit::Degrees)));
-		}
+		UIData.Filmback = CameraComponent->GetFilmbackText();
 	}
 	else
 	{

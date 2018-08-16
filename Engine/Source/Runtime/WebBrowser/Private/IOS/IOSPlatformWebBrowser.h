@@ -123,6 +123,8 @@ public:
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) override;
+	virtual void SetSupportsMouseWheel(bool bValue) override;
+	virtual bool GetSupportsMouseWheel() const override;
 	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, bool bIsPopup) override;
 	virtual void OnFocus(bool SetFocus, bool bIsPopup) override;
 	virtual void OnCaptureLost() override;
@@ -240,7 +242,13 @@ public:
 		return SuppressContextMenuDelgate;
 	}
 
+	virtual FOnDragWindow& OnDragWindow() override
+	{
+		return DragWindowDelegate;
+	}
+
 	void NotifyUrlChanged(const FString& InCurrentUrl);
+
 public:
 
 private:
@@ -302,6 +310,9 @@ private:
 
 	/** Delegate for suppressing context menu */
 	FOnSuppressContextMenu SuppressContextMenuDelgate;
+
+	/** Delegate that is executed when a drag event is detected in an area of the web page tagged as a drag region. */
+	FOnDragWindow DragWindowDelegate;
 
 	TSharedPtr<SWindow> ParentWindow;
 

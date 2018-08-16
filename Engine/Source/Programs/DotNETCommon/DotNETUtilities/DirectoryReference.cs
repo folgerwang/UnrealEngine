@@ -16,6 +16,14 @@ namespace Tools.DotNETCommon
 	public class DirectoryReference : FileSystemReference, IEquatable<DirectoryReference>
 	{
 		/// <summary>
+		/// Special value used to invoke the non-sanitizing constructor overload
+		/// </summary>
+		public enum Sanitize
+		{
+			None
+		}
+
+		/// <summary>
 		/// Default constructor.
 		/// </summary>
 		/// <param name="InPath">Path to this directory.</param>
@@ -36,10 +44,10 @@ namespace Tools.DotNETCommon
 		/// <summary>
 		/// Constructor for creating a directory object directly from two strings.
 		/// </summary>
-		/// <param name="InFullName"></param>
-		/// <param name="InCanonicalName"></param>
-		protected DirectoryReference(string InFullName, string InCanonicalName)
-			: base(InFullName, InCanonicalName)
+		/// <param name="InFullName">The full, sanitized path name</param>
+		/// <param name="InSanitize">Dummy argument used to resolve this overload</param>
+		public DirectoryReference(string InFullName, Sanitize InSanitize)
+			: base(InFullName)
 		{
 		}
 
@@ -91,13 +99,13 @@ namespace Tools.DotNETCommon
 					return null;
 				}
 
-				int ParentLength = CanonicalName.LastIndexOf(Path.DirectorySeparatorChar);
-				if (ParentLength == 2 && CanonicalName[1] == ':')
+				int ParentLength = FullName.LastIndexOf(Path.DirectorySeparatorChar);
+				if (ParentLength == 2 && FullName[1] == ':')
 				{
 					ParentLength++;
 				}
 
-				return new DirectoryReference(FullName.Substring(0, ParentLength), CanonicalName.Substring(0, ParentLength));
+				return new DirectoryReference(FullName.Substring(0, ParentLength), Sanitize.None);
 			}
 		}
 
@@ -108,8 +116,12 @@ namespace Tools.DotNETCommon
 		/// <returns>The full directory name containing the given file</returns>
 		public static DirectoryReference GetParentDirectory(FileReference File)
 		{
-			int ParentLength = File.CanonicalName.LastIndexOf(Path.DirectorySeparatorChar);
-			return new DirectoryReference(File.FullName.Substring(0, ParentLength), File.CanonicalName.Substring(0, ParentLength));
+			int ParentLength = File.FullName.LastIndexOf(Path.DirectorySeparatorChar);
+			if(ParentLength == 2 && File.FullName[1] == ':')
+			{
+				ParentLength++;
+			}
+			return new DirectoryReference(File.FullName.Substring(0, ParentLength), Sanitize.None);
 		}
 
 		/// <summary>
@@ -129,7 +141,7 @@ namespace Tools.DotNETCommon
 		/// <returns>True if this path is a root directory, false otherwise</returns>
 		public bool IsRootDirectory()
 		{
-			return CanonicalName[CanonicalName.Length - 1] == Path.DirectorySeparatorChar;
+			return FullName[FullName.Length - 1] == Path.DirectorySeparatorChar;
 		}
 
 		/// <summary>
@@ -141,7 +153,7 @@ namespace Tools.DotNETCommon
 		public static DirectoryReference Combine(DirectoryReference BaseDirectory, params string[] Fragments)
 		{
 			string FullName = FileSystemReference.CombineStrings(BaseDirectory, Fragments);
-			return new DirectoryReference(FullName, FullName.ToLowerInvariant());
+			return new DirectoryReference(FullName, Sanitize.None);
 		}
 
 		/// <summary>
@@ -158,7 +170,7 @@ namespace Tools.DotNETCommon
 			}
 			else
 			{
-				return (object)B != null && A.CanonicalName == B.CanonicalName;
+				return (object)B != null && A.FullName.Equals(B.FullName, Comparison);
 			}
 		}
 
@@ -199,7 +211,7 @@ namespace Tools.DotNETCommon
 		/// <returns></returns>
 		public override int GetHashCode()
 		{
-			return CanonicalName.GetHashCode();
+			return Comparer.GetHashCode(FullName);
 		}
 
 		/// <summary>
@@ -209,17 +221,7 @@ namespace Tools.DotNETCommon
 		/// <returns>New directory reference</returns>
 		public static DirectoryReference MakeRemote(string AbsolutePath)
 		{
-			return new DirectoryReference(AbsolutePath, AbsolutePath.ToLowerInvariant());
-		}
-
-		/// <summary>
-		/// Helper function to create a directory reference from a raw platform path. The path provided *MUST* be exactly the same as that returned by Path.GetFullPath(). 
-		/// </summary>
-		/// <param name="AbsolutePath">The absolute path in the file system</param>
-		/// <returns>New file reference</returns>
-		public static DirectoryReference MakeFromNormalizedFullPath(string AbsolutePath)
-		{
-			return new DirectoryReference(AbsolutePath, AbsolutePath.ToLowerInvariant());
+			return new DirectoryReference(AbsolutePath, Sanitize.None);
 		}
 
 		/// <summary>
@@ -290,7 +292,7 @@ namespace Tools.DotNETCommon
 		{
 			foreach (string FileName in Directory.EnumerateFiles(BaseDir.FullName))
 			{
-				yield return FileReference.MakeFromNormalizedFullPath(FileName);
+				yield return new FileReference(FileName, FileReference.Sanitize.None);
 			}
 		}
 
@@ -304,7 +306,7 @@ namespace Tools.DotNETCommon
 		{
 			foreach (string FileName in Directory.EnumerateFiles(BaseDir.FullName, Pattern))
 			{
-				yield return FileReference.MakeFromNormalizedFullPath(FileName);
+				yield return new FileReference(FileName, FileReference.Sanitize.None);
 			}
 		}
 
@@ -319,7 +321,7 @@ namespace Tools.DotNETCommon
 		{
 			foreach (string FileName in Directory.EnumerateFiles(BaseDir.FullName, Pattern, Option))
 			{
-				yield return FileReference.MakeFromNormalizedFullPath(FileName);
+				yield return new FileReference(FileName, FileReference.Sanitize.None);
 			}
 		}
 
@@ -332,7 +334,7 @@ namespace Tools.DotNETCommon
 		{
 			foreach (string DirectoryName in Directory.EnumerateDirectories(BaseDir.FullName))
 			{
-				yield return DirectoryReference.MakeFromNormalizedFullPath(DirectoryName);
+				yield return new DirectoryReference(DirectoryName, Sanitize.None);
 			}
 		}
 
@@ -346,7 +348,7 @@ namespace Tools.DotNETCommon
 		{
 			foreach (string DirectoryName in Directory.EnumerateDirectories(BaseDir.FullName, Pattern))
 			{
-				yield return DirectoryReference.MakeFromNormalizedFullPath(DirectoryName);
+				yield return new DirectoryReference(DirectoryName, Sanitize.None);
 			}
 		}
 
@@ -361,7 +363,7 @@ namespace Tools.DotNETCommon
 		{
 			foreach (string DirectoryName in Directory.EnumerateDirectories(BaseDir.FullName, Pattern, Option))
 			{
-				yield return DirectoryReference.MakeFromNormalizedFullPath(DirectoryName);
+				yield return new DirectoryReference(DirectoryName, Sanitize.None);
 			}
 		}
 
@@ -400,7 +402,7 @@ namespace Tools.DotNETCommon
 		public static DirectoryReference ReadDirectoryReference(this BinaryReader Reader)
 		{
 			string FullName = Reader.ReadString();
-			return (FullName.Length == 0) ? null : DirectoryReference.MakeFromNormalizedFullPath(FullName);
+			return (FullName.Length == 0) ? null : new DirectoryReference(FullName, DirectoryReference.Sanitize.None);
 		}
 	}
 }

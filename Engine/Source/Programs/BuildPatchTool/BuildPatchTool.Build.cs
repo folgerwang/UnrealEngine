@@ -17,7 +17,6 @@ public class BuildPatchTool : ModuleRules
 			{
 				"Core",
 				"CoreUObject",
-				"ApplicationCore",
 				"BuildPatchServices",
 				"Projects",
 				// The below items are not strictly needed by BPT, but core appears to need them during initialization
@@ -33,6 +32,7 @@ public class BuildPatchTool : ModuleRules
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
+					"ApplicationCore", // Required by AutomationController
 					"Messaging",
 					"AutomationWorker",
 					"AutomationController"

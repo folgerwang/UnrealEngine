@@ -21,9 +21,14 @@ namespace Tools.DotNETCommon
 		public readonly string FullName;
 
 		/// <summary>
-		/// The canonical full name for this object.
+		/// The comparer to use for file system references
 		/// </summary>
-		public readonly string CanonicalName;
+		public static readonly StringComparer Comparer = StringComparer.OrdinalIgnoreCase;
+
+		/// <summary>
+		/// The comparison to use for file system references
+		/// </summary>
+		public static readonly StringComparison Comparison = StringComparison.OrdinalIgnoreCase;
 
 		/// <summary>
 		/// Direct constructor for a path
@@ -31,7 +36,6 @@ namespace Tools.DotNETCommon
 		protected FileSystemReference(string InFullName)
 		{
 			FullName = InFullName;
-			CanonicalName = InFullName.ToLowerInvariant();
 		}
 
 		/// <summary>
@@ -40,7 +44,6 @@ namespace Tools.DotNETCommon
 		protected FileSystemReference(string InFullName, string InCanonicalName)
 		{
 			FullName = InFullName;
-			CanonicalName = InCanonicalName;
 		}
 
 		/// <summary>
@@ -130,11 +133,11 @@ namespace Tools.DotNETCommon
 		{
 			if (Extension.Length > 0 && Extension[0] != '.')
 			{
-				return HasExtension("." + Extension);
+				return FullName.Length >= Extension.Length + 1 && FullName[FullName.Length - Extension.Length - 1] == '.' && FullName.EndsWith(Extension, Comparison);
 			}
 			else
 			{
-				return CanonicalName.EndsWith(Extension, StringComparison.InvariantCultureIgnoreCase);
+				return FullName.EndsWith(Extension, Comparison);
 			}
 		}
 
@@ -145,7 +148,7 @@ namespace Tools.DotNETCommon
 		/// <returns>True if this path is under the given directory</returns>
 		public bool IsUnderDirectory(DirectoryReference Other)
 		{
-			return CanonicalName.StartsWith(Other.CanonicalName) && (CanonicalName.Length == Other.CanonicalName.Length || CanonicalName[Other.CanonicalName.Length] == Path.DirectorySeparatorChar || Other.IsRootDirectory());
+			return FullName.StartsWith(Other.FullName, Comparison) && (FullName.Length == Other.FullName.Length || FullName[Other.FullName.Length] == Path.DirectorySeparatorChar || Other.IsRootDirectory());
 		}
 
 		/// <summary>
@@ -154,7 +157,7 @@ namespace Tools.DotNETCommon
 		/// <param name="Name">Name to check for</param>
 		/// <param name="Offset">Offset within the string to start the search</param>
 		/// <returns>True if the given name is found within the path</returns>
-		public bool ContainsName(FileSystemName Name, int Offset)
+		public bool ContainsName(string Name, int Offset)
 		{
 			return ContainsName(Name, Offset, FullName.Length - Offset);
 		}
@@ -166,10 +169,10 @@ namespace Tools.DotNETCommon
 		/// <param name="Offset">Offset within the string to start the search</param>
 		/// <param name="Length">Length of the substring to search</param>
 		/// <returns>True if the given name is found within the path</returns>
-		public bool ContainsName(FileSystemName Name, int Offset, int Length)
+		public bool ContainsName(string Name, int Offset, int Length)
 		{
 			// Check the substring to search is at least long enough to contain a match
-			if(Length < Name.CanonicalName.Length)
+			if(Length < Name.Length)
 			{
 				return false;
 			}
@@ -179,21 +182,21 @@ namespace Tools.DotNETCommon
 			for(;;)
 			{
 				// Find the next occurrence
-				MatchIdx = CanonicalName.IndexOf(Name.CanonicalName, MatchIdx, Offset + Length - MatchIdx);
+				MatchIdx = FullName.IndexOf(Name, MatchIdx, Offset + Length - MatchIdx, Comparison);
 				if(MatchIdx == -1)
 				{
 					return false;
 				}
 
 				// Check if the substring is a directory
-				int MatchEndIdx = MatchIdx + Name.CanonicalName.Length;
-				if(CanonicalName[MatchIdx - 1] == Path.DirectorySeparatorChar && (MatchEndIdx == CanonicalName.Length || CanonicalName[MatchEndIdx] == Path.DirectorySeparatorChar))
+				int MatchEndIdx = MatchIdx + Name.Length;
+				if(FullName[MatchIdx - 1] == Path.DirectorySeparatorChar && (MatchEndIdx == FullName.Length || FullName[MatchEndIdx] == Path.DirectorySeparatorChar))
 				{
 					return true;
 				}
 
 				// Move past the string that didn't match
-				MatchIdx += Name.CanonicalName.Length;
+				MatchIdx += Name.Length;
 			}
 		}
 
@@ -203,7 +206,7 @@ namespace Tools.DotNETCommon
 		/// <param name="Name">Name of a subfolder to also check for</param>
 		/// <param name="BaseDir">Base directory to check against</param>
 		/// <returns>True if the path is under the given directory</returns>
-		public bool ContainsName(FileSystemName Name, DirectoryReference BaseDir)
+		public bool ContainsName(string Name, DirectoryReference BaseDir)
 		{
 			// Check that this is under the base directory
 			if(!IsUnderDirectory(BaseDir))
@@ -222,7 +225,7 @@ namespace Tools.DotNETCommon
 		/// <param name="Names">Names of subfolders to also check for</param>
 		/// <param name="BaseDir">Base directory to check against</param>
 		/// <returns>True if the path is under the given directory</returns>
-		public bool ContainsAnyNames(FileSystemName[] Names, DirectoryReference BaseDir)
+		public bool ContainsAnyNames(IEnumerable<string> Names, DirectoryReference BaseDir)
 		{
 			// Check that this is under the base directory
 			if(!IsUnderDirectory(BaseDir))
@@ -246,25 +249,25 @@ namespace Tools.DotNETCommon
 			int CommonDirectoryLength = -1;
 			for (int Idx = 0; ; Idx++)
 			{
-				if (Idx == CanonicalName.Length)
+				if (Idx == FullName.Length)
 				{
 					// The two paths are identical. Just return the "." character.
-					if (Idx == Directory.CanonicalName.Length)
+					if (Idx == Directory.FullName.Length)
 					{
 						return ".";
 					}
 
 					// Check if we're finishing on a complete directory name
-					if (Directory.CanonicalName[Idx] == Path.DirectorySeparatorChar)
+					if (Directory.FullName[Idx] == Path.DirectorySeparatorChar)
 					{
 						CommonDirectoryLength = Idx;
 					}
 					break;
 				}
-				else if (Idx == Directory.CanonicalName.Length)
+				else if (Idx == Directory.FullName.Length)
 				{
 					// Check whether the end of the directory name coincides with a boundary for the current name.
-					if (CanonicalName[Idx] == Path.DirectorySeparatorChar)
+					if (FullName[Idx] == Path.DirectorySeparatorChar)
 					{
 						CommonDirectoryLength = Idx;
 					}
@@ -273,11 +276,11 @@ namespace Tools.DotNETCommon
 				else
 				{
 					// Check the two paths match, and bail if they don't. Increase the common directory length if we've reached a separator.
-					if (CanonicalName[Idx] != Directory.CanonicalName[Idx])
+					if(String.Compare(FullName, Idx, Directory.FullName, Idx, 1, Comparison) != 0)
 					{
 						break;
 					}
-					if (CanonicalName[Idx] == Path.DirectorySeparatorChar)
+					if (FullName[Idx] == Path.DirectorySeparatorChar)
 					{
 						CommonDirectoryLength = Idx;
 					}
@@ -292,14 +295,14 @@ namespace Tools.DotNETCommon
 
 			// Append all the '..' separators to get back to the common directory, then the rest of the string to reach the target item
 			StringBuilder Result = new StringBuilder();
-			for (int Idx = CommonDirectoryLength + 1; Idx < Directory.CanonicalName.Length; Idx++)
+			for (int Idx = CommonDirectoryLength + 1; Idx < Directory.FullName.Length; Idx++)
 			{
 				// Move up a directory
 				Result.Append("..");
 				Result.Append(Path.DirectorySeparatorChar);
 
 				// Scan to the next directory separator
-				while (Idx < Directory.CanonicalName.Length && Directory.CanonicalName[Idx] != Path.DirectorySeparatorChar)
+				while (Idx < Directory.FullName.Length && Directory.FullName[Idx] != Path.DirectorySeparatorChar)
 				{
 					Idx++;
 				}

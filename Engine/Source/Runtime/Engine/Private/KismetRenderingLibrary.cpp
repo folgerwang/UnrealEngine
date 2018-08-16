@@ -393,7 +393,7 @@ UTexture2D* UKismetRenderingLibrary::RenderTargetCreateStaticTexture2DEditorOnly
 		if (!InName.Contains(TEXT("/")))
 		{
 			FString AssetName = RenderTarget->GetOutermost()->GetName();
-			const FString SanitizedBasePackageName = PackageTools::SanitizePackageName(AssetName);
+			const FString SanitizedBasePackageName = UPackageTools::SanitizePackageName(AssetName);
 			const FString PackagePath = FPackageName::GetLongPackagePath(SanitizedBasePackageName) + TEXT("/");
 			AssetTools.CreateUniqueAssetName(PackagePath, InName, PackageName, Name);
 		}
@@ -512,6 +512,11 @@ void UKismetRenderingLibrary::ExportTexture2D(UObject* WorldContextObject, UText
 UTexture2D* UKismetRenderingLibrary::ImportFileAsTexture2D(UObject* WorldContextObject, const FString& Filename)
 {
 	return FImageUtils::ImportFileAsTexture2D(Filename);
+}
+
+UTexture2D* UKismetRenderingLibrary::ImportBufferAsTexture2D(UObject* WorldContextObject, const TArray<uint8>& Buffer)
+{
+	return FImageUtils::ImportBufferAsTexture2D(Buffer);
 }
 
 void UKismetRenderingLibrary::BeginDrawCanvasToRenderTarget(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, UCanvas*& Canvas, FVector2D& Size, FDrawToRenderTargetContext& Context)

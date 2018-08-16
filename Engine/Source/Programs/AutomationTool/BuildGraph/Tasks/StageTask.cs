@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using AutomationTool;
 using System;
@@ -126,7 +126,7 @@ namespace BuildGraph.Tasks
 
 			// Stage all the build products needed at runtime
 			HashSet<FileReference> SourceFiles = new HashSet<FileReference>();
-			foreach(BuildProduct BuildProduct in Receipt.BuildProducts.Where(x => x.Type != BuildProductType.StaticLibrary && x.Type != BuildProductType.ImportLibrary))
+			foreach(BuildProduct BuildProduct in Receipt.BuildProducts)
 			{
 				SourceFiles.Add(BuildProduct.Path);
 			}

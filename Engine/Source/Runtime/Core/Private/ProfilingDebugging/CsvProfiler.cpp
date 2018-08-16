@@ -1,7 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /**
-*
 * A lightweight multi-threaded CSV profiler which can be used for profiling in Test/Shipping builds
 */
 

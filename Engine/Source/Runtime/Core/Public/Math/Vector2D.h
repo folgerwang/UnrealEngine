@@ -107,18 +107,18 @@ public:
 	FVector2D operator/(float Scale) const;
 
 	/**
-	 * Gets the result of this vector + float A.
+	 * Gets the result of adding A to each component of the vector.
 	 *
 	 * @param A Float to add to each component.
-	 * @return The result of this vector + float A.
+	 * @return The result of adding A to each component.
 	 */
 	FORCEINLINE FVector2D operator+(float A) const;
 
 	/**
-	 * Gets the result of subtracting from each component of the vector.
+	 * Gets the result of subtracting A from each component of the vector.
 	 *
 	 * @param A Float to subtract from each component
-	 * @return The result of this vector - float A.
+	 * @return The result of subtracting A from each component.
 	 */
 	FORCEINLINE FVector2D operator-(float A) const;
 
@@ -494,9 +494,24 @@ public:
 		return Ar << V.X << V.Y;
 	}
 
+	friend void operator<<(FStructuredArchive::FSlot Slot, FVector2D& V)
+	{
+		// @warning BulkSerialize: FVector2D is serialized as memory dump
+		// See TArray::BulkSerialize for detailed description of implied limitations.
+		FStructuredArchive::FStream Stream = Slot.EnterStream();
+		Stream.EnterElement() << V.X;
+		Stream.EnterElement() << V.Y;
+	}
+
 	bool Serialize(FArchive& Ar)
 	{
 		Ar << *this;
+		return true;
+	}
+
+	bool Serialize(FStructuredArchive::FSlot Slot)
+	{
+		Slot << *this;
 		return true;
 	}
 

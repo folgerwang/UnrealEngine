@@ -139,7 +139,7 @@ bool FSocketSubsystemBSD::GetHostName(FString& HostName)
 	bool bRead = gethostname(Buffer,256) == 0;
 	if (bRead == true)
 	{
-		HostName = Buffer;
+		HostName = UTF8_TO_TCHAR(Buffer);
 	}
 	return bRead;
 #else

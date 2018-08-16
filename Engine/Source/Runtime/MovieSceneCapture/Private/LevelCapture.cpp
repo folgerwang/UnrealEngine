@@ -18,6 +18,7 @@ void ULevelCapture::SetPrerequisiteActor(AActor* InPrerequisiteActor)
 void ULevelCapture::Initialize(TSharedPtr<FSceneViewport> InViewport, int32 PIEInstance)
 {
 	CaptureStrategy = MakeShareable(new FFixedTimeStepCaptureStrategy(Settings.FrameRate));
+	CaptureStrategy->OnInitialize();
 	Super::Initialize(InViewport, PIEInstance);
 
 	PIECaptureInstance = PIEInstance;
@@ -28,7 +29,7 @@ void ULevelCapture::Initialize(TSharedPtr<FSceneViewport> InViewport, int32 PIEI
 	}
 }
 
-void ULevelCapture::Tick(float DeltaSeconds)
+void ULevelCapture::OnTick(float DeltaSeconds)
 {
 	AActor* Actor = PrerequisiteActor.Get();
 	if (!Actor)
