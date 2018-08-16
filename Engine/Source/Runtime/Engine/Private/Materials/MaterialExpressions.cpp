@@ -375,6 +375,53 @@ bool CanConnectMaterialValueTypes(uint32 InputType, uint32 OutputType)
 
 #if WITH_EDITOR
 
+
+void ValidateParameterNameInternal(class UMaterialExpression* ExpressionToValidate, class UMaterial* OwningMaterial)
+{
+	if (OwningMaterial != nullptr)
+	{
+		int32 NameIndex = 1;
+		bool FoundValidName = false;
+		FName PotentialName;
+
+		// Find an available unique name
+		while (!FoundValidName)
+		{
+			PotentialName = ExpressionToValidate->GetParameterName();
+
+			// Parameters cannot be named Name_None, use the default name instead
+			if (PotentialName == NAME_None)
+			{
+				PotentialName = UMaterialExpressionParameter::ParameterDefaultName;
+			}
+
+			if (NameIndex != 1)
+			{
+				PotentialName.SetNumber(NameIndex);
+			}
+
+			FoundValidName = true;
+
+			for (UMaterialExpression* Expression : OwningMaterial->Expressions)
+			{
+				if (Expression != nullptr && Expression->HasAParameterName())
+				{
+					// Name are unique per class type
+					if (Expression != ExpressionToValidate && Expression->GetClass() == ExpressionToValidate->GetClass() && Expression->GetParameterName() == PotentialName)
+					{
+						FoundValidName = false;
+						break;
+					}
+				}
+			}
+
+			++NameIndex;
+		}
+
+		ExpressionToValidate->SetParameterName(PotentialName);
+	}
+}
+
 /**
  * Helper function that wraps the supplied texture coordinates in the necessary math to transform them for external textures
  *
@@ -672,6 +719,13 @@ void UMaterialExpression::PostEditChangeProperty(FPropertyChangedEvent& Property
 		bNeedToUpdatePreview = true;
 
 		const FName PropertyName = PropertyThatChanged->GetFName();
+
+		const FName ParameterName = TEXT("ParameterName");
+		if (PropertyName == ParameterName)
+		{
+			ValidateParameterName();
+		}
+
 		if (PropertyName == GET_MEMBER_NAME_CHECKED(UMaterialExpression, Desc) && !IsA(UMaterialExpressionComment::StaticClass()))
 		{
 			if (GraphNode)
@@ -1155,42 +1209,7 @@ void UMaterialExpression::SetEditableName(const FString& NewName)
 
 void UMaterialExpression::ValidateParameterName()
 {
-	if (Material != nullptr)
-	{
-		int32 NameIndex = 1;
-		bool FoundValidName = false;
-		FName PotentialName;
-
-		// Find an available unique name
-		while (!FoundValidName)
-		{
-			PotentialName = GetParameterName();
-
-			if (NameIndex != 1)
-			{
-				PotentialName.SetNumber(NameIndex);
-			}
-
-			FoundValidName = true;
-
-			for (UMaterialExpression* Expression : Material->Expressions)
-			{
-				if (Expression != nullptr && Expression->HasAParameterName())
-				{
-					// Name are unique per class type
-					if (Expression != this && Expression->GetClass() == GetClass() && Expression->GetParameterName() == PotentialName)
-					{
-						FoundValidName = false;
-						break;
-					}
-				}
-			}
-
-			++NameIndex;
-		}
-
-		SetParameterName(PotentialName);
-	}
+	// Incrementing the name is now handled in UMaterialExpressionParameter::ValidateParameterName
 }
 
 #endif // WITH_EDITOR
@@ -1865,6 +1884,12 @@ void UMaterialExpressionTextureSampleParameter::GetCaption(TArray<FString>& OutC
 	OutCaptions.Add(TEXT("Texture Param")); 
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
+
+void UMaterialExpressionTextureSampleParameter::ValidateParameterName()
+{
+	ValidateParameterNameInternal(this, Material);
+}
+
 #endif // WITH_EDITOR
 
 bool UMaterialExpressionTextureSampleParameter::IsNamedParameter(const FMaterialParameterInfo& ParameterInfo, UTexture*& OutValue) const
@@ -6018,24 +6043,6 @@ bool UMaterialExpressionParameter::MatchesSearchQuery( const TCHAR* SearchQuery 
 	return Super::MatchesSearchQuery(SearchQuery);
 }
 
-void UMaterialExpressionParameter::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
-	if (PropertyThatChanged != NULL)
-	{
-		// Update the preview for this node if we adjusted a property
-		bNeedToUpdatePreview = true;
-
-		const FName PropertyName = PropertyThatChanged->GetFName();
-		if (PropertyName == GET_MEMBER_NAME_CHECKED(UMaterialExpressionParameter, ParameterName))
-		{
-			ValidateParameterName();
-		}
-	}
-
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-}
-
 
 
 FString UMaterialExpressionParameter::GetEditableName() const
@@ -6061,52 +6068,12 @@ void UMaterialExpressionParameter::GetAllParameterInfo(TArray<FMaterialParameter
 	}
 }
 
+#if WITH_EDITOR
 void UMaterialExpressionParameter::ValidateParameterName()
 {
-	if (Material != nullptr)
-	{
-		int32 NameIndex = 1;
-		bool FoundValidName = false;
-		FName PotentialName;
-
-		// Find an available unique name
-		while (!FoundValidName)
-		{
-			PotentialName = GetParameterName();
-
-			// Parameters cannot be named Name_None, use the default name instead
-			if (PotentialName == NAME_None)
-			{
-				PotentialName = UMaterialExpressionParameter::ParameterDefaultName;
-			}
-
-			if (NameIndex != 1)
-			{
-				PotentialName.SetNumber(NameIndex);
-			}
-
-			FoundValidName = true;
-
-			for (UMaterialExpression* Expression : Material->Expressions)
-			{
-				if (Expression != nullptr && Expression->HasAParameterName())
-				{
-					// Name are unique per class type
-					if (Expression != this && Expression->GetClass() == GetClass() && Expression->GetParameterName() == PotentialName)
-					{
-						FoundValidName = false;
-						break;
-					}
-				}
-			}
-
-			++NameIndex;
-		}
-
-		SetParameterName(PotentialName);
-	}
+	ValidateParameterNameInternal(this, Material);
 }
-
+#endif
 
 bool UMaterialExpressionParameter::NeedsLoadForClient() const
 {
@@ -8788,6 +8755,11 @@ void UMaterialExpressionFontSampleParameter::GetCaption(TArray<FString>& OutCapt
 {
 	OutCaptions.Add(TEXT("Font Param")); 
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
+}
+
+void UMaterialExpressionFontSampleParameter::ValidateParameterName()
+{
+	ValidateParameterNameInternal(this, Material);
 }
 #endif // WITH_EDITOR
 

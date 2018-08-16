@@ -669,6 +669,25 @@ void UMaterialGraphNode::OnRenameNode(const FString& NewName)
 	MaterialExpression->Modify();
 	SetParameterName(NewName);
 	MaterialExpression->MarkPackageDirty();
+	MaterialExpression->ValidateParameterName();
+	UProperty* NameProperty = nullptr;
+	if (Cast<UMaterialExpressionParameter>(MaterialExpression))
+	{
+		NameProperty = FindFieldChecked<UProperty>(UMaterialExpressionParameter::StaticClass(), GET_MEMBER_NAME_CHECKED(UMaterialExpressionParameter, ParameterName));
+	}
+	else if (Cast<UMaterialExpressionFontSampleParameter>(MaterialExpression))
+	{
+		NameProperty = FindFieldChecked<UProperty>(UMaterialExpressionFontSampleParameter::StaticClass(), GET_MEMBER_NAME_CHECKED(UMaterialExpressionFontSampleParameter, ParameterName));
+	}
+	else if (Cast<UMaterialExpressionTextureSampleParameter>(MaterialExpression))
+	{
+		NameProperty = FindFieldChecked<UProperty>(UMaterialExpressionTextureSampleParameter::StaticClass(), GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSampleParameter, ParameterName));
+	}
+	if(NameProperty)
+	{
+		FPropertyChangedEvent PropertyChangeEvent(NameProperty, EPropertyChangeType::ValueSet);
+		MaterialExpression->PostEditChangeProperty(PropertyChangeEvent);
+	}
 	MaterialDirtyDelegate.ExecuteIfBound();
 }
 
