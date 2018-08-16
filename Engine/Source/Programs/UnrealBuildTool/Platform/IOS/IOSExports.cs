@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,16 +15,6 @@ namespace UnrealBuildTool
 	/// </summary>
 	public static class IOSExports
 	{
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-		public static bool UseRPCUtil()
-		{
-			XmlConfig.ReadConfigFiles();
-			return RemoteToolChain.bUseRPCUtil;
-		}
-
 		/// <summary>
 		/// 
 		/// </summary>
@@ -132,16 +123,13 @@ namespace UnrealBuildTool
 		/// <param name="Executable"></param>
 		/// <param name="StageDirectory"></param>
 		/// <param name="PlatformType"></param>
-		public static void GenerateAssetCatalog(FileReference ProjectFile, string Executable, string StageDirectory, UnrealTargetPlatform PlatformType)
+		public static void GenerateAssetCatalog(FileReference ProjectFile, FileReference Executable, DirectoryReference StageDirectory, UnrealTargetPlatform PlatformType)
 		{
-			// Initialize the toolchain.
-			IOSProjectSettings ProjectSettings = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(PlatformType)).ReadProjectSettings(null);
-			IOSToolChain ToolChain = new IOSToolChain(ProjectFile, ProjectSettings);
+			CppPlatform Platform = PlatformType == UnrealTargetPlatform.IOS ? CppPlatform.IOS : CppPlatform.TVOS;
 
 			// Determine whether the user has modified icons that require a remote Mac to build.
-			CppPlatform Platform = PlatformType == UnrealTargetPlatform.IOS ? CppPlatform.IOS : CppPlatform.TVOS;
 			bool bUserImagesExist = false;
-			ToolChain.GenerateAssetCatalog(Platform, ref bUserImagesExist);
+			DirectoryReference ResourcesDir = IOSToolChain.GenerateAssetCatalog(ProjectFile, Platform, ref bUserImagesExist);
 
 			// Don't attempt to do anything remotely if the user is using the default UE4 images.
 			if (!bUserImagesExist)
@@ -155,111 +143,36 @@ namespace UnrealBuildTool
                 return;
             }
 
-			// Save off the current bUseRPCUtil setting to restore at the end of this function.
-			// At this time, iPhonePackager needs to be called with bUseRPCUtil == true.
-			bool bSaveUseRPCUtil = RemoteToolChain.bUseRPCUtil;
-
-			// Initialize the remote calling environment, taking into account the user's SSH setting.
-			ToolChain.SetUpGlobalEnvironment(false);
-
-			// Build the asset catalog ActionGraph.
-			ActionGraph ActionGraph = new ActionGraph();
-			List<FileItem> OutputFiles = new List<FileItem>();
-			ToolChain.CompileAssetCatalog(FileItem.GetItemByPath(Executable), Platform, ActionGraph, OutputFiles);
-
-			ActionGraph.FinalizeActionGraph();
-
-			// I'm not sure how to derive the UE4Game and Development arguments programmatically.
-			string[] Arguments = new string[] { "UE4Game", (PlatformType == UnrealTargetPlatform.IOS ? "IOS" : "TVOS"), "Development", "-UniqueBuildEnvironment" };
-
-			// Perform all of the setup necessary to actually execute the ActionGraph instance.
-			ReadOnlyBuildVersion Version = new ReadOnlyBuildVersion(BuildVersion.ReadDefault());
-			List<string[]> TargetSettings = new List<string[]>();
-			TargetSettings.Add(Arguments);
-			var Targets = new List<UEBuildTarget>();
-			Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders = new Dictionary<UEBuildTarget, CPPHeaders>();
-			List<TargetDescriptor> TargetDescs = new List<TargetDescriptor>();
-			foreach (string[] TargetSetting in TargetSettings)
+			// Compile the asset catalog immediately
+			if(BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 			{
-				TargetDescs.AddRange(TargetDescriptor.ParseCommandLine(TargetSetting, ref ProjectFile));
+				FileReference OutputFile = FileReference.Combine(StageDirectory, "Assets.car");
+
+				RemoteMac Remote = new RemoteMac(ProjectFile);
+				Remote.RunAssetCatalogTool(Platform, ResourcesDir, OutputFile);
 			}
-			foreach (TargetDescriptor TargetDesc in TargetDescs)
+			else
 			{
-				UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, Arguments, false, Version);
-				if (Target == null)
+				// Get the output file
+				FileReference OutputFile = IOSToolChain.GetAssetCatalogFile(Platform, Executable);
+
+				// Delete the Assets.car file to force the asset catalog to build every time, because
+				// removals of files or copies of icons (for instance) with a timestamp earlier than
+				// the last generated Assets.car will result in nothing built.
+				if (FileReference.Exists(OutputFile))
 				{
-					continue;
+					FileReference.Delete(OutputFile);
 				}
-				Targets.Add(Target);
-				TargetToHeaders.Add(Target, null);
-			}
 
-			bool bIsRemoteCompile = BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac;
-
-			// Create the build configuration object, and read the settings
-			BuildConfiguration BuildConfiguration = new BuildConfiguration();
-			XmlConfig.ApplyTo(BuildConfiguration);
-			CommandLine.ParseArguments(Arguments, BuildConfiguration);
-			BuildConfiguration.bUseUBTMakefiles = false;
-
-			Action[] PrerequisiteActions;
-			{
-				HashSet<Action> PrerequisiteActionsSet = new HashSet<Action>();
-				foreach (FileItem OutputFile in OutputFiles)
+				// Run the process locally
+				using(Process Process = new Process())
 				{
-					ActionGraph.GatherPrerequisiteActions(OutputFile, ref PrerequisiteActionsSet);
-				}
-				PrerequisiteActions = PrerequisiteActionsSet.ToArray();
-			}
-
-			// Copy any asset catalog files to the remote Mac, if necessary.
-			foreach (UEBuildTarget Target in Targets)
-			{
-				UEBuildPlatform.GetBuildPlatform(Target.Platform).PreBuildSync();
-			}
-
-			// Begin execution of the ActionGraph.
-			Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap;
-			List<Action> ActionsToExecute = ActionGraph.GetActionsToExecute(BuildConfiguration, PrerequisiteActions, Targets, TargetToHeaders, true, true, out TargetToOutdatedPrerequisitesMap);
-			string ExecutorName = "Unknown";
-			bool bSuccess = ActionGraph.ExecuteActions(BuildConfiguration, ActionsToExecute, bIsRemoteCompile, out ExecutorName, "", EHotReload.Disabled);
-			if (bSuccess)
-			{
-				if (bIsRemoteCompile)
-				{
-					// Copy the remotely built AssetCatalog directory locally.
-					foreach (FileItem OutputFile in OutputFiles)
-					{
-						string RemoteDirectory = System.IO.Path.GetDirectoryName(OutputFile.AbsolutePath).Replace("\\", "/");
-						FileItem LocalExecutable = ToolChain.RemoteToLocalFileItem(FileItem.GetItemByPath(Executable));
-						string LocalDirectory = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(LocalExecutable.AbsolutePath), "AssetCatalog");
-						LocalDirectory = StageDirectory;
-						RPCUtilHelper.CopyDirectory(RemoteDirectory, LocalDirectory, RPCUtilHelper.ECopyOptions.DoNotReplace);
-					}
-				}
-				else
-				{
-					// Copy the built AssetCatalog directory to the StageDirectory.
-					foreach (FileItem OutputFile in OutputFiles)
-					{
-						string SourceDirectory = System.IO.Path.GetDirectoryName(OutputFile.AbsolutePath).Replace("\\", "/");
-						System.IO.DirectoryInfo SourceDirectoryInfo = new System.IO.DirectoryInfo(SourceDirectory);
-						if (!System.IO.Directory.Exists(StageDirectory))
-						{
-							System.IO.Directory.CreateDirectory(StageDirectory);
-						}
-						System.IO.FileInfo[] SourceFiles = SourceDirectoryInfo.GetFiles();
-						foreach (System.IO.FileInfo SourceFile in SourceFiles)
-						{
-							string DestinationPath = System.IO.Path.Combine(StageDirectory, SourceFile.Name);
-							SourceFile.CopyTo(DestinationPath, true);
-						}
-					}
+					Process.StartInfo.FileName = "/usr/bin/xcrun";
+					Process.StartInfo.Arguments = IOSToolChain.GetAssetCatalogArgs(Platform, ResourcesDir.FullName, OutputFile.Directory.FullName);; 
+					Process.StartInfo.UseShellExecute = false;
+					Utils.RunLocalProcess(Process);
 				}
 			}
-
-			// Restore the former bUseRPCUtil setting.
-			RemoteToolChain.bUseRPCUtil = bSaveUseRPCUtil;
 		}
 
         /// <summary>

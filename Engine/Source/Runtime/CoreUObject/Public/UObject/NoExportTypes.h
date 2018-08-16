@@ -47,7 +47,7 @@
 
 #include "Internationalization/PolyglotTextData.h"
 
-#include "GenericPlatform/ICursor.h"
+#include "../../../ApplicationCore/Public/GenericPlatform/ICursor.h"
 
 #endif
 

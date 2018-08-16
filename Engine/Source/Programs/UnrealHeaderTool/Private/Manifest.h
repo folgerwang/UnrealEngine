@@ -37,9 +37,6 @@ struct FManifestModule
 	/** List of C++ private header files with UObjects in them */
 	TArray<FString> PrivateUObjectHeaders;
 
-	/** Absolute path to the module's PCH */
-	FString PCH;
-
 	/** Base (i.e. extensionless) path+filename of where to write out the module's .generated.* files */
 	FString GeneratedCPPFilenameBase;
 
@@ -66,7 +63,6 @@ struct FManifestModule
 		Ar << ManifestModule.PublicUObjectClassesHeaders;
 		Ar << ManifestModule.PublicUObjectHeaders;
 		Ar << ManifestModule.PrivateUObjectHeaders;
-		Ar << ManifestModule.PCH;
 		Ar << ManifestModule.GeneratedCPPFilenameBase;
 		Ar << ManifestModule.SaveExportedHeaders;
 		Ar << ManifestModule.GeneratedCodeVersion;

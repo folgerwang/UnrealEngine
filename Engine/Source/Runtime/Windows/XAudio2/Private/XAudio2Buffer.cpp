@@ -429,6 +429,8 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreatePreviewBuffer( FXAudio2Device* X
 	// Create new buffer.
 	Buffer = new FXAudio2SoundBuffer( XAudio2Device, SoundFormat_PCMPreview );
 
+	check(!Wave->RawPCMData || Wave->RawPCMDataSize);
+
 	// Take ownership the PCM data
 	Buffer->PCM.PCMData = Wave->RawPCMData;
 	Buffer->PCM.PCMDataSize = Wave->RawPCMDataSize;
@@ -451,6 +453,8 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateNativeBuffer( FXAudio2Device* XA
 
 	// Create new buffer.
 	FXAudio2SoundBuffer* Buffer = new FXAudio2SoundBuffer( XAudio2Device, SoundFormat_PCM );
+
+	check(!Wave->RawPCMData || Wave->RawPCMDataSize);
 
 	// Take ownership the PCM data
 	Buffer->PCM.PCMData = Wave->RawPCMData;

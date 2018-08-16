@@ -222,6 +222,11 @@ FString FSHA256Signature::ToString() const
 	bool FGenericPlatformMisc::bPromptForRemoteDebugOnEnsure = false;
 #endif	//#if !UE_BUILD_SHIPPING
 
+FString FGenericPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName)
+{
+	return FString();
+}
+
 void FGenericPlatformMisc::SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value)
 {
 	UE_LOG(LogGenericPlatformMisc, Error, TEXT("SetEnvironmentVar not implemented for this platform: %s = %s"), VariableName, Value);

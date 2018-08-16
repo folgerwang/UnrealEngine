@@ -13,13 +13,15 @@
 USCS_Node::USCS_Node(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	bIsFalseRoot_DEPRECATED = false;
 	bIsNative_DEPRECATED = false;
+#endif
 
 	bIsParentComponentNative = false;
 
 #if WITH_EDITOR
-	EditorComponentInstance = NULL;
+	EditorComponentInstance = nullptr;
 #endif
 }
 
@@ -128,7 +130,10 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 				FTransform WorldTransform = *RootTransform;
 				if(bIsDefaultTransform)
 				{
-					// Note: We use the scale vector from the component template when spawning (to match what happens with a native root)
+					// Note: We use the scale vector from the component template when spawning (to match what happens with a native root). This
+					// does NOT occur when this component is instanced as part of dynamically spawning a Blueprint class in a cooked build (i.e.
+					// 'bIsDefaultTransform' will be 'false' in that situation). In order to maintain the same behavior between a nativized and
+					// non-nativized cooked build, if this ever changes, we would also need to update the code in AActor::PostSpawnInitialize().
 					WorldTransform.SetScale3D(NewSceneComp->RelativeScale3D);
 				}
 
@@ -390,14 +395,9 @@ void USCS_Node::SetVariableName(const FName& NewName, bool bRenameTemplate)
 	}
 
 	InternalVariableName = NewName;
-
-	// >>> Backwards Compatibility: Support existing projects/tools that might be reading the variable name directly. This can be removed in a future release.
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	VariableName = InternalVariableName;
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	// <<< End Backwards Compatibility
 }
 
+#if WITH_EDITOR
 void USCS_Node::NameWasModified()
 {
 	OnNameChangedExternal.ExecuteIfBound(InternalVariableName);
@@ -407,6 +407,7 @@ void USCS_Node::SetOnNameChanged( const FSCSNodeNameChanged& OnChange )
 {
 	OnNameChangedExternal = OnChange;
 }
+#endif
 
 int32 USCS_Node::FindMetaDataEntryIndexForKey(const FName& Key)
 {
@@ -457,12 +458,6 @@ void USCS_Node::Serialize(FArchive& Ar)
 	{
 		if (Ar.IsPersistent() && !Ar.HasAnyPortFlags(PPF_Duplicate | PPF_DuplicateForPIE))
 		{
-			// >>> Backwards Compatibility: Support existing projects/tools that might be reading the variable name directly. This can be removed in a future release.
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-			VariableName = InternalVariableName;
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
-			// <<< End Backwards Compatibility
-
 			// Fix up the component class property, if it has not already been set.
 			// Note: This is done here, instead of in PostLoad(), because it needs to be set before Blueprint class compilation.
 			if (ComponentClass == nullptr && ComponentTemplate != nullptr)
@@ -553,12 +548,10 @@ USceneComponent* USCS_Node::GetParentComponentTemplate(UBlueprint* InBlueprint) 
 			if(CDO != nullptr)
 			{
 				// Find the component template in the CDO that matches the specified name
-				TInlineComponentArray<USceneComponent*> Components;
-				CDO->GetComponents(Components);
-
-				for (USceneComponent* CompTemplate : Components)
+				for (UActorComponent* ActorComp : CDO->GetComponents())
 				{
-					if(CompTemplate->GetFName() == ParentComponentOrVariableName)
+					USceneComponent* CompTemplate = Cast<USceneComponent>(ActorComp);
+					if (CompTemplate && CompTemplate->GetFName() == ParentComponentOrVariableName)
 					{
 						// Found a match; this is our parent, we're done
 						ParentComponentTemplate = CompTemplate;

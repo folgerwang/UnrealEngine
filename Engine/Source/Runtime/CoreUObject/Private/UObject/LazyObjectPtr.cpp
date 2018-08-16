@@ -95,16 +95,18 @@ FThreadSafeCounter FUniqueObjectGuid::CurrentAnnotationTag(1);
 	FLazyObjectPtr
 -------------------------------------------------------------------------------------------------------------*/
 
-void FLazyObjectPtr::PossiblySerializeObjectGuid(UObject *Object, FArchive& Ar)
+void FLazyObjectPtr::PossiblySerializeObjectGuid(UObject *Object, FStructuredArchive::FRecord Record)
 {
-	if (Ar.IsSaving() || Ar.IsCountingMemory())
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
+
+	if (UnderlyingArchive.IsSaving() || UnderlyingArchive.IsCountingMemory())
 	{
 		FUniqueObjectGuid Guid = GuidAnnotation.GetAnnotation(Object);
 		bool HasGuid = Guid.IsValid();
-		Ar << HasGuid;
+		Record << NAMED_FIELD(HasGuid);
 		if (HasGuid)
 		{
-			if (Ar.GetPortFlags() & PPF_DuplicateForPIE)
+			if (UnderlyingArchive.GetPortFlags() & PPF_DuplicateForPIE)
 			{
 				check(GPlayInEditorID != -1);
 				FGuid &FoundGuid = PIEGuidMap[GPlayInEditorID % MAX_PIE_INSTANCES].FindOrAdd(Guid.GetGuid());
@@ -118,22 +120,22 @@ void FLazyObjectPtr::PossiblySerializeObjectGuid(UObject *Object, FArchive& Ar)
 				}
 			}
 
-			Ar << Guid;
+			Record << NAMED_FIELD(Guid);
 		}
 	}
-	else if (Ar.IsLoading())
+	else if (UnderlyingArchive.IsLoading())
 	{
 		bool HasGuid = false;
-		Ar << HasGuid;
+		Record << NAMED_FIELD(HasGuid);
 		if (HasGuid)
 		{
 			FUniqueObjectGuid Guid;
-			Ar << Guid;
+			Record << NAMED_FIELD(Guid);
 
 			// Don't try and resolve GUIDs when loading a package for diffing
 			const UPackage* Package = Object->GetOutermost();
 			const bool bLoadedForDiff = Package->HasAnyPackageFlags(PKG_ForDiffing);
-			if (!bLoadedForDiff && (!(Ar.GetPortFlags() & PPF_Duplicate) || (Ar.GetPortFlags() & PPF_DuplicateForPIE)))
+			if (!bLoadedForDiff && (!(UnderlyingArchive.GetPortFlags() & PPF_Duplicate) || (UnderlyingArchive.GetPortFlags() & PPF_DuplicateForPIE)))
 			{
 				check(!Guid.IsDefault());
 				UObject* OtherObject = Guid.ResolveObject();

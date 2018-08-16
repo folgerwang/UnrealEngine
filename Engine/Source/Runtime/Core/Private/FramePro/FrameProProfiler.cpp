@@ -4,7 +4,7 @@
 
 #if FRAMEPRO_ENABLED
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
 #include "HAL/ThreadSingleton.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/FileManager.h"

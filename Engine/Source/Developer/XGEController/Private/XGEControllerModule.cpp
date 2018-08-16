@@ -143,16 +143,16 @@ public:
 };
 
 FXGEControllerModule::FXGEControllerModule()
-	: bShutdown(false)
-	, bSupported(false)
+	: bSupported(false)
 	, bInitialized(false)
-	, bRestartWorker(false)
 	, ControlWorkerDirectory(FPaths::ConvertRelativePathToFull(XGE_CONTROL_WORKER_REL_DIR))
 	, RootWorkingDirectory(FString::Printf(TEXT("%sUnrealXGEWorkingDir/"), FPlatformProcess::UserTempDir()))
 	, WorkingDirectory(RootWorkingDirectory + FGuid::NewGuid().ToString(EGuidFormats::Digits))
 	, PipeName(FString::Printf(TEXT("UnrealEngine-XGE-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Digits)))
-	, WriteOutThreadEvent(FPlatformProcess::CreateSynchEvent(false))
 	, TasksCS(new FCriticalSection)
+	, bShutdown(false)
+	, bRestartWorker(false)
+	, WriteOutThreadEvent(FPlatformProcess::CreateSynchEvent(false))
 	, LastEventTime(0)
 {}
 
@@ -200,9 +200,7 @@ bool FXGEControllerModule::IsSupported()
 		// Try to find xgConsole.exe from the PATH environment variable
 		FString PathString;
 		{
-			TCHAR EnvVariable[32 * 1024];
-			FPlatformMisc::GetEnvironmentVariable(TEXT("Path"), EnvVariable, ARRAY_COUNT(EnvVariable));
-			FString EnvString(EnvVariable);
+			FString EnvString = FPlatformMisc::GetEnvironmentVariable(TEXT("Path"));
 			int32 PathStart = EnvString.Find(TEXT("Xoreax\\IncrediBuild"), ESearchCase::IgnoreCase, ESearchDir::FromStart);
 			if (PathStart != INDEX_NONE)
 			{
@@ -587,5 +585,10 @@ XGECONTROLLER_API IXGEController& IXGEController::Get()
 }
 
 IMPLEMENT_MODULE(FXGEControllerModule, XGEController);
+
+#else
+
+// Workaround for module not having any exported symbols
+XGECONTROLLER_API int XgeControllerExportedSymbol = 0;
 
 #endif // WITH_XGE_CONTROLLER

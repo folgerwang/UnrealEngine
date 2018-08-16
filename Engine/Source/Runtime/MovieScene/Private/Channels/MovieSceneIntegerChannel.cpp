@@ -8,13 +8,13 @@
 #include "MovieSceneFrameMigration.h"
 
 
-bool FMovieSceneIntegerChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)
+bool FMovieSceneIntegerChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
 {
 	static const FName IntegralCurveName("IntegralCurve");
 	if (Tag.Type == NAME_StructProperty && Tag.StructName == IntegralCurveName)
 	{
 		FIntegralCurve IntegralCurve;
-		FIntegralCurve::StaticStruct()->SerializeItem(Ar, &IntegralCurve, nullptr);
+		FIntegralCurve::StaticStruct()->SerializeItem(Slot, &IntegralCurve, nullptr);
 
 		if (IntegralCurve.GetDefaultValue() != MAX_int32)
 		{

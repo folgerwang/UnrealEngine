@@ -168,6 +168,11 @@ namespace UnrealBuildTool
 		public UnrealTargetConfiguration[] BlacklistTargetConfigurations;
 
 		/// <summary>
+		/// List of allowed programs
+		/// </summary>
+		public string[] WhitelistPrograms;
+
+		/// <summary>
 		/// List of additional dependencies for building this module.
 		/// </summary>
 		public string[] AdditionalDependencies;
@@ -232,6 +237,12 @@ namespace UnrealBuildTool
 			if (InObject.TryGetEnumArrayField<UnrealTargetConfiguration>("BlacklistTargetConfigurations", out BlacklistTargetConfigurations))
 			{
 				Module.BlacklistTargetConfigurations = BlacklistTargetConfigurations;
+			}
+
+			string[] WhitelistPrograms;
+			if (InObject.TryGetStringArrayField("WhitelistPrograms", out WhitelistPrograms))
+			{
+				Module.WhitelistPrograms = WhitelistPrograms;
 			}
 
 			string[] AdditionalDependencies;
@@ -307,6 +318,10 @@ namespace UnrealBuildTool
 				}
 				Writer.WriteArrayEnd();
 			}
+			if(WhitelistPrograms != null && WhitelistPrograms.Length > 0)
+			{
+				Writer.WriteStringArrayField("WhitelistPrograms", WhitelistPrograms);
+			}
 			if (AdditionalDependencies != null && AdditionalDependencies.Length > 0)
 			{
 				Writer.WriteArrayStart("AdditionalDependencies");
@@ -343,11 +358,12 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Platform">The platform being compiled for</param>
 		/// <param name="TargetConfiguration">The target configuration being compiled for</param>
+		/// <param name="TargetName">Name of the target being built</param>
 		/// <param name="TargetType">The type of the target being compiled</param>
 		/// <param name="bBuildDeveloperTools">Whether the configuration includes developer tools (typically UEBuildConfiguration.bBuildDeveloperTools for UBT callers)</param>
 		/// <param name="bBuildEditor">Whether the configuration includes the editor (typically UEBuildConfiguration.bBuildEditor for UBT callers)</param>
 		/// <param name="bBuildRequiresCookedData">Whether the configuration requires cooked content (typically UEBuildConfiguration.bBuildRequiresCookedData for UBT callers)</param>
-		public bool IsCompiledInConfiguration(UnrealTargetPlatform Platform, UnrealTargetConfiguration TargetConfiguration, TargetType TargetType, bool bBuildDeveloperTools, bool bBuildEditor, bool bBuildRequiresCookedData)
+		public bool IsCompiledInConfiguration(UnrealTargetPlatform Platform, UnrealTargetConfiguration TargetConfiguration, string TargetName, TargetType TargetType, bool bBuildDeveloperTools, bool bBuildEditor, bool bBuildRequiresCookedData)
 		{
 			// Check the platform is whitelisted
 			if (WhitelistPlatforms != null && WhitelistPlatforms.Length > 0 && !WhitelistPlatforms.Contains(Platform))
@@ -385,12 +401,18 @@ namespace UnrealBuildTool
 				return false;
 			}
 
+			// Check the program name is whitelisted
+			if(TargetType == TargetType.Program && (WhitelistPrograms == null || !WhitelistPrograms.Contains(TargetName)))
+			{
+				return false;
+			}
+
 			// Check the module is compatible with this target.
 			switch (Type)
 			{
 				case ModuleHostType.Runtime:
 				case ModuleHostType.RuntimeNoCommandlet:
-                    return TargetType != TargetType.Program;
+                    return true;
                 case ModuleHostType.CookedOnly:
                     return bBuildRequiresCookedData;
                 case ModuleHostType.RuntimeAndProgram:

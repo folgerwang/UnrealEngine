@@ -108,6 +108,7 @@ USoundWave::USoundWave(const FObjectInitializer& ObjectInitializer)
 	CompressionQuality = 40;
 	SubtitlePriority = DEFAULT_SUBTITLE_PRIORITY;
 	ResourceState = ESoundWaveResourceState::NeedsFree;
+	RawPCMDataSize = 0;
 	SetPrecacheState(ESoundWavePrecacheState::NotStarted);
 
 #if !WITH_EDITOR
@@ -130,6 +131,7 @@ void USoundWave::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 	{
 		if (LocalAudioDevice->HasCompressedAudioInfoClass(this) && DecompressionType == DTYPE_Native)
 		{
+			check(!RawPCMData || RawPCMDataSize);
 			CumulativeResourceSize.AddDedicatedSystemMemoryBytes(RawPCMDataSize);
 		}
 		else 
@@ -878,16 +880,16 @@ bool USoundWave::IsReadyForFinishDestroy()
 
 	// Wait till streaming and decompression finishes before deleting resource.
 	if (!bIsStreamingInProgress && ResourceState == ESoundWaveResourceState::NeedsFree)
-	{
-		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.FreeResources"), STAT_AudioFreeResources, STATGROUP_AudioThreadCommands);
-
-		USoundWave* SoundWave = this;
-		ResourceState = ESoundWaveResourceState::Freeing;
-		FAudioThread::RunCommandOnAudioThread([SoundWave]()
 		{
-			SoundWave->FreeResources();
-		}, GET_STATID(STAT_AudioFreeResources));
-	}
+			DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.FreeResources"), STAT_AudioFreeResources, STATGROUP_AudioThreadCommands);
+
+			USoundWave* SoundWave = this;
+			ResourceState = ESoundWaveResourceState::Freeing;
+			FAudioThread::RunCommandOnAudioThread([SoundWave]()
+			{
+				SoundWave->FreeResources();
+			}, GET_STATID(STAT_AudioFreeResources));
+		}
 	
 	// bIsSoundActive is set in audio mixer when decoding sound waves or generating PCM data
 	return ResourceState == ESoundWaveResourceState::Freed && NumSoundsActive.GetValue() == 0;

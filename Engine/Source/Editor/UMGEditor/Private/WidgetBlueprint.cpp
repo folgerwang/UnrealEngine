@@ -501,13 +501,14 @@ FDelegateRuntimeBinding FDelegateEditorBinding::ToRuntimeBinding(UWidgetBlueprin
 	return Binding;
 }
 
-bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
+bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot)
 {
 	static FName AnimationDataName("AnimationData");
 	if(Tag.Type == NAME_StructProperty && Tag.Name == AnimationDataName)
 	{
-		Ar << MovieScene;
-		Ar << AnimationBindings;
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_FIELD(MovieScene);
+		Record << NAMED_FIELD(AnimationBindings);
 		return true;
 	}
 

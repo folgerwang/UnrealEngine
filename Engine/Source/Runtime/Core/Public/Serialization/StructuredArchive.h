@@ -69,7 +69,7 @@ public:
 	 * @param InFormatter Formatter for the archive data
 	 */
 	FStructuredArchive(FArchiveFormatterType& InFormatter);
-
+	
 	/**
 	 * Default destructor. Closes the archive.
 	 */
@@ -106,8 +106,10 @@ public:
 	{
 	public:
 		FRecord EnterRecord();
+		FRecord EnterRecord_TextOnly(TArray<FString>& OutFieldNames);
 		FArray EnterArray(int32& Num);
 		FStream EnterStream();
+		FStream EnterStream_TextOnly(int32& OutNumElements);
 		FMap EnterMap(int32& Num);
 
 		// We don't support chaining writes to a single slot, so these return void.
@@ -126,6 +128,11 @@ public:
 		void operator << (FString& Value);
 		void operator << (FName& Value);
 		void operator << (UObject*& Value);
+		void operator << (FText& Value);
+		void operator << (FWeakObjectPtr& Value);
+		void operator << (FSoftObjectPtr& Value);
+		void operator << (FSoftObjectPath& Value);
+		void operator << (FLazyObjectPtr& Value);
 
 		void Serialize(TArray<uint8>& Data);
 		void Serialize(void* Data, uint64 DataSize);
@@ -133,6 +140,15 @@ public:
 		FORCEINLINE FArchive& GetUnderlyingArchive()
 		{
 			return Ar.GetUnderlyingArchive();
+		}
+
+		FORCEINLINE bool IsFilled() const
+		{
+#if WITH_TEXT_ARCHIVE_SUPPORT
+			return Ar.CurrentSlotElementId != ElementId;
+#else
+			return true;
+#endif
 		}
 
 	private:
@@ -166,9 +182,12 @@ public:
 	{
 	public:
 		FSlot EnterField(FArchiveFieldName Name);
+		FSlot EnterField_TextOnly(FArchiveFieldName Name, EArchiveValueType& OutType);
 		FRecord EnterRecord(FArchiveFieldName Name);
+		FRecord EnterRecord_TextOnly(FArchiveFieldName Name, TArray<FString>& OutFieldNames);
 		FArray EnterArray(FArchiveFieldName Name, int32& Num);
 		FStream EnterStream(FArchiveFieldName Name);
+		FStream EnterStream_TextOnly(FArchiveFieldName Name, int32& OutNumElements);
 		FMap EnterMap(FArchiveFieldName Name, int32& Num);
 
 		TOptional<FSlot> TryEnterField(FArchiveFieldName Name, bool bEnterForSaving);
@@ -214,6 +233,7 @@ public:
 	{
 	public:
 		FSlot EnterElement();
+		FSlot EnterElement_TextOnly(EArchiveValueType& OutType);
 
 		template<typename T> FORCEINLINE FArray& operator<<(T& Item)
 		{
@@ -255,6 +275,7 @@ public:
 	{
 	public:
 		FSlot EnterElement();
+		FSlot EnterElement_TextOnly(EArchiveValueType& OutType);
 
 		template<typename T> FORCEINLINE FStream& operator<<(T& Item)
 		{
@@ -297,6 +318,7 @@ public:
 	{
 	public:
 		FSlot EnterElement(FString& Name);
+		FSlot EnterElement_TextOnly(FString& Name, EArchiveValueType& OutType);
 
 		FORCEINLINE FArchive& GetUnderlyingArchive()
 		{
@@ -504,6 +526,12 @@ private:
 		return FRecord(Ar);
 	}
 
+	FORCEINLINE FStructuredArchive::FRecord FStructuredArchive::FSlot::EnterRecord_TextOnly(TArray<FString>& OutFieldNames)
+	{
+		Ar.Formatter.EnterRecord_TextOnly(OutFieldNames);
+		return FRecord(Ar);
+	}
+
 	FORCEINLINE FStructuredArchive::FArray FStructuredArchive::FSlot::EnterArray(int32& Num)
 	{
 		Ar.Formatter.EnterArray(Num);
@@ -512,6 +540,12 @@ private:
 
 	FORCEINLINE FStructuredArchive::FStream FStructuredArchive::FSlot::EnterStream()
 	{
+		return FStream(Ar);
+	}
+
+	FORCEINLINE FStructuredArchive::FStream FStructuredArchive::FSlot::EnterStream_TextOnly(int32& OutNumElements)
+	{
+		Ar.Formatter.EnterStream_TextOnly(OutNumElements);
 		return FStream(Ar);
 	}
 
@@ -598,6 +632,31 @@ private:
 		Ar.Formatter.Serialize(Value);
 	}
 
+	FORCEINLINE void FStructuredArchive::FSlot::operator<< (FText& Value)
+	{
+		Ar.Formatter.Serialize(Value);
+	}
+
+	FORCEINLINE void FStructuredArchive::FSlot::operator<< (FWeakObjectPtr& Value)
+	{
+		Ar.Formatter.Serialize(Value);
+	}
+
+	FORCEINLINE void FStructuredArchive::FSlot::operator<< (FSoftObjectPath& Value)
+	{
+		Ar.Formatter.Serialize(Value);
+	}
+
+	FORCEINLINE void FStructuredArchive::FSlot::operator<< (FSoftObjectPtr& Value)
+	{
+		Ar.Formatter.Serialize(Value);
+	}
+
+	FORCEINLINE void FStructuredArchive::FSlot::operator<< (FLazyObjectPtr& Value)
+	{
+		Ar.Formatter.Serialize(Value);
+	}
+
 	FORCEINLINE void FStructuredArchive::FSlot::Serialize(TArray<uint8>& Data)
 	{
 		Ar.Formatter.Serialize(Data);
@@ -608,16 +667,27 @@ private:
 		Ar.Formatter.Serialize(Data, DataSize);
 	}
 
-	//////////// FStructuredArchive::FObject ////////////
+	//////////// FStructuredArchive::FRecord ////////////
 
 	FORCEINLINE FStructuredArchive::FSlot FStructuredArchive::FRecord::EnterField(FArchiveFieldName Name)
 	{
 		return FSlot(Ar);
 	}
 
+	FORCEINLINE FStructuredArchive::FSlot FStructuredArchive::FRecord::EnterField_TextOnly(FArchiveFieldName Name, EArchiveValueType& OutType)
+	{
+		Ar.Formatter.EnterField_TextOnly(Name, OutType);
+		return FSlot(Ar);
+	}
+
 	FORCEINLINE FStructuredArchive::FRecord FStructuredArchive::FRecord::EnterRecord(FArchiveFieldName Name)
 	{
 		return EnterField(Name).EnterRecord();
+	}
+
+	FORCEINLINE FStructuredArchive::FRecord FStructuredArchive::FRecord::EnterRecord_TextOnly(FArchiveFieldName Name, TArray<FString>& OutFieldNames)
+	{
+		return EnterField(Name).EnterRecord_TextOnly(OutFieldNames);
 	}
 
 	FORCEINLINE FStructuredArchive::FArray FStructuredArchive::FRecord::EnterArray(FArchiveFieldName Name, int32& Num)
@@ -654,10 +724,22 @@ private:
 		return FSlot(Ar);
 	}
 
+	FORCEINLINE FStructuredArchive::FSlot FStructuredArchive::FArray::EnterElement_TextOnly(EArchiveValueType& OutType)
+	{
+		Ar.Formatter.EnterArrayElement_TextOnly(OutType);
+		return FSlot(Ar);
+	}
+
 	//////////// FStructuredArchive::FStream ////////////
 
 	FORCEINLINE FStructuredArchive::FSlot FStructuredArchive::FStream::EnterElement()
 	{
+		return FSlot(Ar);
+	}
+
+	FORCEINLINE FStructuredArchive::FSlot FStructuredArchive::FStream::EnterElement_TextOnly(EArchiveValueType& OutType)
+	{
+		Ar.Formatter.EnterStreamElement_TextOnly(OutType);
 		return FSlot(Ar);
 	}
 
@@ -666,6 +748,12 @@ private:
 	FORCEINLINE FStructuredArchive::FSlot FStructuredArchive::FMap::EnterElement(FString& Name)
 	{
 		Ar.Formatter.EnterMapElement(Name);
+		return FSlot(Ar);
+	}
+
+	FORCEINLINE FStructuredArchive::FSlot FStructuredArchive::FMap::EnterElement_TextOnly(FString& Name, EArchiveValueType& OutType)
+	{
+		Ar.Formatter.EnterMapElement_TextOnly(Name, OutType);
 		return FSlot(Ar);
 	}
 

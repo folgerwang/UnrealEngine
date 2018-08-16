@@ -239,7 +239,7 @@ public:
 					UObject* OtherClusterRootObject = static_cast<UObject*>(OtherClusterRootItem->Object);
 					UE_CLOG(OtherClusterRootIndex != Cluster->RootIndex &&
 						!Cluster->ReferencedClusters.Contains(OtherClusterRootIndex) &&
-						!Cluster->MutableObjects.Contains(OtherClusterRootIndex), LogGarbage, Fatal,
+						!Cluster->MutableObjects.Contains(OtherClusterRootIndex), LogGarbage, Warning,
 						TEXT("Object %s from source cluster %s (%d) is referencing cluster root object %s (0x%016llx) (%d) which is not referenced by the source cluster."),
 						*GetFullNameSafe(ReferencingObject),
 						*ClusterRootObject->GetFullName(),
@@ -260,7 +260,7 @@ public:
 				UObject* OtherClusterRootObject = static_cast<UObject*>(OtherClusterRootItem->Object);
 				UE_CLOG(OtherClusterRootIndex != Cluster->RootIndex &&
 					!Cluster->ReferencedClusters.Contains(OtherClusterRootIndex) &&
-					!Cluster->MutableObjects.Contains(GUObjectArray.ObjectToIndex(Object)), LogGarbage, Fatal,
+					!Cluster->MutableObjects.Contains(GUObjectArray.ObjectToIndex(Object)), LogGarbage, Warning,
 					TEXT("Object %s from source cluster %s (%d) is referencing object %s (0x%016llx) from cluster %s (%d) which is not referenced by the source cluster."),
 					*GetFullNameSafe(ReferencingObject),
 					*ClusterRootObject->GetFullName(),
@@ -324,7 +324,6 @@ void VerifyClustersAssumptions()
 }
 
 #endif // VERIFY_DISREGARD_GC_ASSUMPTIONS
-
 #if PROFILE_GCConditionalBeginDestroy
 
 TMap<FName, FCBDTime> CBDTimings;

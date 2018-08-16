@@ -477,14 +477,15 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 
 				if (ObjectTemplate)
 				{
-					TInlineComponentArray<USkeletalMeshComponent*> SkeletalMeshComponents;
-					ObjectTemplate->GetComponents(SkeletalMeshComponents);
-					for (USkeletalMeshComponent* SkeletalMeshComponent : SkeletalMeshComponents)
+					for (UActorComponent* Component : ObjectTemplate->GetComponents())
 					{
-						SkeletalMeshComponent->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-						SkeletalMeshComponent->bEnableUpdateRateOptimizations = false;
-						SkeletalMeshComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
-						SkeletalMeshComponent->ForcedLodModel = 1;
+						if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(Component))
+						{
+							SkeletalMeshComponent->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+							SkeletalMeshComponent->bEnableUpdateRateOptimizations = false;
+							SkeletalMeshComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+							SkeletalMeshComponent->ForcedLodModel = 1;
+						}
 					}
 
 					// Disable possession of pawns otherwise the recorded character will auto possess the player
@@ -1069,16 +1070,16 @@ void UActorRecording::StartRecordingNewComponents(ULevelSequence* CurrentSequenc
 							{
 								FName AttachName = SceneComponent->GetAttachParent()->GetFName();
 
-								TInlineComponentArray<USceneComponent*> AllChildren;
-								ObjectTemplate->GetComponents(AllChildren);
-
-								for (USceneComponent* Child : AllChildren)
+								for (UActorComponent* Component : ObjectTemplate->GetComponents())
 								{
-									CA_SUPPRESS(28182); // Dereferencing NULL pointer. 'Child' contains the same NULL value as 'AttachToComponent' did.
-									if (Child->GetFName() == AttachName)
+									if (USceneComponent* Child = Cast<USceneComponent>(Component))
 									{
-										AttachToComponent = Child;
-										break;
+										CA_SUPPRESS(28182); // Dereferencing NULL pointer. 'Child' contains the same NULL value as 'AttachToComponent' did.
+										if (Child->GetFName() == AttachName)
+										{
+											AttachToComponent = Child;
+											break;
+										}
 									}
 								}
 							}

@@ -90,12 +90,12 @@ namespace BuildGraph.Tasks
 			// Check we got some files
 			if(TargetFileToSourceFile.Count == 0)
 			{
-				CommandUtils.Log("No files found matching '{0}'", SourcePattern);
+				CommandUtils.LogInformation("No files found matching '{0}'", SourcePattern);
 				return;
 			}
 
 			// Copy them all
-			CommandUtils.Log("Moving {0} file{1} from {2} to {3}...", TargetFileToSourceFile.Count, (TargetFileToSourceFile.Count == 1)? "" : "s", SourcePattern.BaseDirectory, TargetPattern.BaseDirectory);
+			CommandUtils.LogInformation("Moving {0} file{1} from {2} to {3}...", TargetFileToSourceFile.Count, (TargetFileToSourceFile.Count == 1)? "" : "s", SourcePattern.BaseDirectory, TargetPattern.BaseDirectory);
 			CommandUtils.ParallelMoveFiles(TargetFileToSourceFile.Select(x => new KeyValuePair<FileReference, FileReference>(x.Value, x.Key)));
 
 			// Update the list of build products

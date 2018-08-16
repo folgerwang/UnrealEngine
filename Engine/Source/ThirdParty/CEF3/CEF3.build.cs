@@ -135,6 +135,8 @@ public class CEF3 : ModuleRules
 
 				PublicAdditionalLibraries.Add(Path.Combine(WrapperLibraryPath, "libcef_dll_wrapper.a"));
 
+				PrivateRuntimeLibraryPaths.Add("$(EngineDir)/Binaries/ThirdParty/CEF3/" + Target.Platform.ToString());
+
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/CEF3/" + Target.Platform.ToString() + "/libcef.so");
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/CEF3/" + Target.Platform.ToString() + "/icudtl.dat");
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/CEF3/" + Target.Platform.ToString() + "/natives_blob.bin");

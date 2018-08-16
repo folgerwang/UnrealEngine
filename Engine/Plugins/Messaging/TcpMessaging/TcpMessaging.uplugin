@@ -14,16 +14,18 @@
 	"CanContainContent" : false,
 	"IsBetaVersion" : false,
 	"Installed" : false,
+	"SupportedPrograms": [ "UnrealFrontend" ],
 	"Modules" :
 	[
 		{
 			"Name" : "TcpMessaging",
-			"Type" : "RuntimeAndProgram",
+			"Type" : "Runtime",
 			"LoadingPhase" : "PreDefault",
 			"BlacklistPlatforms" :
 			[
 				"HTML5"
-			]
-    }
+			],
+			"WhitelistPrograms" : [ "UnrealFrontend" ]
+	    }
 	]
 }

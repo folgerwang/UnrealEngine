@@ -123,13 +123,22 @@ public:
 	 * @param InCount how many characters to copy
 	 * @param InSrc String to copy from
 	 */
-	FORCEINLINE explicit FString( int32 InCount, const TCHAR* InSrc )
+	template <
+		typename CharType,
+		typename = typename TEnableIf<TIsCharType<CharType>::Value>::Type // This TEnableIf is to ensure we don't instantiate this constructor for non-char types, like id* in Obj-C
+	>
+	FORCEINLINE explicit FString(int32 InCount, const CharType* InSrc)
 	{
-		Data.AddUninitialized(InCount ? InCount + 1 : 0);
-
-		if( Data.Num() > 0 )
+		if (InSrc && *InSrc)
 		{
-			FCString::Strncpy(Data.GetData(), InSrc, InCount + 1);
+			int32 DestLen = FPlatformString::ConvertedLength<TCHAR>(InSrc, InCount);
+			if (DestLen > 0)
+			{
+				Data.AddUninitialized(DestLen + 1);
+
+				FPlatformString::Convert(Data.GetData(), DestLen, InSrc, InCount);
+				*(Data.GetData() + Data.Num() - 1) = TEXT('\0');
+			}
 		}
 	}
 
@@ -502,6 +511,13 @@ public:
 			}
 		}
 	}
+	/**
+	 * Removes the text from the start of the string if it exists.
+	 *
+	 * @param InPrefix the prefix to search for at the start of the string to remove.
+	 * @return true if the prefix was removed, otherwise false.
+	 */
+	bool RemoveFromStart( const TCHAR* InPrefix, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase );
 
 	/**
 	 * Removes the text from the start of the string if it exists.
@@ -510,6 +526,14 @@ public:
 	 * @return true if the prefix was removed, otherwise false.
 	 */
 	bool RemoveFromStart( const FString& InPrefix, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase );
+
+	/**
+	 * Removes the text from the end of the string if it exists.
+	 *
+	 * @param InSuffix the suffix to search for at the end of the string to remove.
+	 * @return true if the suffix was removed, otherwise false.
+	 */
+	bool RemoveFromEnd( const TCHAR* InSuffix, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase );
 
 	/**
 	 * Removes the text from the end of the string if it exists.

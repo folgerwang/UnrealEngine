@@ -390,14 +390,8 @@ namespace UnrealBuildTool
 
 				// Add the source file path to the command-line.
 				string FileArguments = string.Format(" \"{0}\"", SourceFile.AbsolutePath);
-				string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.HTML5).GetBinaryExtension(UEBuildBinaryType.Object);
 				// Add the object file to the produced item list.
-				FileItem ObjectFile = FileItem.GetItemByFileReference(
-					FileReference.Combine(
-						OutputDir,
-						Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension
-						)
-					);
+				FileItem ObjectFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + ".bc"));
 				CompileAction.ProducedItems.Add(ObjectFile);
 				FileArguments += string.Format(" -o \"{0}\"", ObjectFile.AbsolutePath);
 

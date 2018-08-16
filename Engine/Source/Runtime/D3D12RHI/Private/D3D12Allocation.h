@@ -416,14 +416,14 @@ private:
 
 struct FD3D12FastAllocatorPage
 {
-	FD3D12FastAllocatorPage() :
-		NextFastAllocOffset(0)
-		, PageSize(0)
+	FD3D12FastAllocatorPage()
+		: PageSize(0)
+		, NextFastAllocOffset(0)
 		, FastAllocData(nullptr)
 		, FrameFence(0) {};
 
-	FD3D12FastAllocatorPage(uint32 Size) :
-		PageSize(Size)
+	FD3D12FastAllocatorPage(uint32 Size)
+		: PageSize(Size)
 		, NextFastAllocOffset(0)
 		, FastAllocData(nullptr)
 		, FrameFence(0) {};
@@ -493,11 +493,11 @@ class FD3D12AbstractRingBuffer
 {
 public:
 	FD3D12AbstractRingBuffer(uint64 BufferSize)
-		: Size(BufferSize)
+		: Fence(nullptr)
+		, Size(BufferSize)
 		, Head(BufferSize)
 		, Tail(0)
 		, LastFence(0)
-		, Fence(nullptr)
 	{}
 
 	static const uint64 FailedReturnValue = uint64(-1);

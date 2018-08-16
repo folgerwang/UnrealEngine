@@ -1085,7 +1085,7 @@ TArray<UWidget*> FWidgetBlueprintEditorUtils::PasteWidgetsInternal(TSharedRef<FW
 			// If the widget isn't a panel, we'll try it's parent to see if the pasted widget can be a sibling
 			if (!ParentWidget)
 			{
-				ParentWidget = Cast<UPanelWidget>(ParentWidgetRef.GetTemplate()->GetParent());
+				ParentWidget = ParentWidgetRef.GetTemplate()->GetParent();
 			}
 		}
 

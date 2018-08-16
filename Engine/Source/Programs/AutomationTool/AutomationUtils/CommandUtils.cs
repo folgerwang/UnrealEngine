@@ -114,9 +114,10 @@ namespace AutomationTool
 		/// <param name="Format">Format string</param>
 		/// <param name="Args">Parameters</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		[Obsolete("CommandUtils.LogInformation() has been deprecated. Use CommandUtils.LogInformation() instead.", false)]
 		public static void Log(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Console, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Console, Format, Args);
 		}
 
 		/// <summary>
@@ -124,9 +125,31 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="Message">Text</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		[Obsolete("CommandUtils.LogInformation() has been deprecated. Use CommandUtils.LogInformation() instead.", false)]
 		public static void Log(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Console, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Console, Message);
+		}
+
+		/// <summary>
+		/// Writes formatted text to log (with LogEventType.Console).
+		/// </summary>
+		/// <param name="Format">Format string</param>
+		/// <param name="Args">Parameters</param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void LogInformation(string Format, params object[] Args)
+		{
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Console, Format, Args);
+		}
+
+		/// <summary>
+		/// Writes formatted text to log (with LogEventType.Console).
+		/// </summary>
+		/// <param name="Message">Text</param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void LogInformation(string Message)
+		{
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Console, Message);
 		}
 
 		/// <summary>
@@ -137,7 +160,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogError(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Error, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Error, Format, Args);
 		}
 
 		/// <summary>
@@ -147,7 +170,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogError(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Error, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Error, Message);
 		}
 
 		/// <summary>
@@ -158,7 +181,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogWarning(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Warning, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Warning, Format, Args);
 		}
 
 		/// <summary>
@@ -168,7 +191,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogWarning(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Warning, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Warning, Message);
 		}
 
 		/// <summary>
@@ -179,7 +202,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogVerbose(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Verbose, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Verbose, Format, Args);
 		}
 
 		/// <summary>
@@ -189,7 +212,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogVerbose(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Verbose, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Verbose, Message);
 		}
 
 		/// <summary>
@@ -200,7 +223,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogVeryVerbose(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.VeryVerbose, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.VeryVerbose, Format, Args);
 		}
 
 		/// <summary>
@@ -210,7 +233,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogVeryVerbose(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.VeryVerbose, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.VeryVerbose, Message);
 		}
 
 		/// <summary>
@@ -221,7 +244,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogLog(string Format, params object[] Args)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Log, Format, Args);
+			Tools.DotNETCommon.Log.WriteLine(1, Tools.DotNETCommon.LogEventType.Log, Format, Args);
 		}
 
 		/// <summary>
@@ -231,7 +254,7 @@ namespace AutomationTool
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
 		public static void LogLog(string Message)
 		{
-			UnrealBuildTool.Log.WriteLine(1, UnrealBuildTool.LogEventType.Log, Message);
+			Tools.DotNETCommon.Log.WriteLine(1, LogEventType.Log, Message);
 		}
 
 		/// <summary>
@@ -241,9 +264,9 @@ namespace AutomationTool
 		/// <param name="Format">Format string</param>
 		/// <param name="Args">Arguments</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void LogWithVerbosity(UnrealBuildTool.LogEventType Verbosity, string Format, params object[] Args)
+		public static void LogWithVerbosity(Tools.DotNETCommon.LogEventType Verbosity, string Format, params object[] Args)
 		{
-            UnrealBuildTool.Log.WriteLine(1, Verbosity, Format, Args);
+            Tools.DotNETCommon.Log.WriteLine(1, Verbosity, Format, Args);
 		}
 
 		/// <summary>
@@ -252,9 +275,9 @@ namespace AutomationTool
 		/// <param name="Verbosity">Verbosity</param>
 		/// <param name="Message">Text</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void LogWithVerbosity(UnrealBuildTool.LogEventType Verbosity, string Message)
+		public static void LogWithVerbosity(Tools.DotNETCommon.LogEventType Verbosity, string Message)
 		{
-            UnrealBuildTool.Log.WriteLine(1, Verbosity, Message);
+            Tools.DotNETCommon.Log.WriteLine(1, Verbosity, Message);
 		}
 
 		/// <summary>
@@ -263,9 +286,9 @@ namespace AutomationTool
 		/// <param name="Verbosity">Verbosity</param>
 		/// <param name="Ex">Exception</param>
 		[MethodImplAttribute(MethodImplOptions.NoInlining)]
-		public static void LogWithVerbosity(UnrealBuildTool.LogEventType Verbosity, Exception Ex)
+		public static void LogWithVerbosity(Tools.DotNETCommon.LogEventType Verbosity, Exception Ex)
 		{
-            UnrealBuildTool.Log.WriteLine(1, Verbosity, LogUtils.FormatException(Ex));
+            Tools.DotNETCommon.Log.WriteLine(1, Verbosity, LogUtils.FormatException(Ex));
 		}
 
 		#endregion
@@ -276,7 +299,7 @@ namespace AutomationTool
 		{
 			if(bShowProgress)
 			{
-				Log("[@progress push {0}/{1} skipline]", Numerator, Denominator);
+				LogInformation("[@progress push {0}/{1} skipline]", Numerator, Denominator);
 			}
 		}
 
@@ -284,7 +307,7 @@ namespace AutomationTool
 		{
 			if(bShowProgress)
 			{
-				Log("[@progress pop skipline]");
+				LogInformation("[@progress pop skipline]");
 			}
 		}
 
@@ -292,7 +315,7 @@ namespace AutomationTool
 		{
 			if(bShowProgress)
 			{
-				Log("[@progress increment {0}/{1} skipline]", Numerator, Denominator);
+				LogInformation("[@progress increment {0}/{1} skipline]", Numerator, Denominator);
 			}
 		}
 
@@ -300,7 +323,7 @@ namespace AutomationTool
 		{
 			if(bShowProgress)
 			{
-				Log("[@progress '{0}' skipline]", String.Format(Format, Args));
+				LogInformation("[@progress '{0}' skipline]", String.Format(Format, Args));
 			}
 		}
 
@@ -308,7 +331,7 @@ namespace AutomationTool
 		{
 			if(bShowProgress)
 			{
-				Log("[@progress {0}/{1} '{2}' skipline]", Numerator, Denominator, String.Format(Format, Args));
+				LogInformation("[@progress {0}/{1} '{2}' skipline]", Numerator, Denominator, String.Format(Format, Args));
 			}
 		}
 
@@ -1580,7 +1603,7 @@ namespace AutomationTool
 		{
 			if(!bQuiet)
 			{
-				Log("Copying {0} file(s) using max {1} thread(s)", Source.Count, MaxThreads);
+				LogInformation("Copying {0} file(s) using max {1} thread(s)", Source.Count, MaxThreads);
 			}
 
             if (Source.Count != Dest.Count)
@@ -1621,7 +1644,7 @@ namespace AutomationTool
 		public static List<string> ThreadedCopyFiles(string SourceDir, string TargetDir, FileFilter Filter, bool bIgnoreSymlinks, int MaxThreads = 64)
 		{
 			// Filter all the relative paths
-			Log("Applying filter to {0}...", SourceDir);
+			LogInformation("Applying filter to {0}...", SourceDir);
 			DirectoryReference SourceDirRef = new DirectoryReference(SourceDir);
 			var RelativePaths = Filter.ApplyToDirectory(SourceDirRef, bIgnoreSymlinks).Select(x => x.MakeRelativeTo(SourceDirRef)).ToList();
 			return ThreadedCopyFiles(SourceDir, TargetDir, RelativePaths);
@@ -1859,11 +1882,7 @@ namespace AutomationTool
 		/// <returns></returns>
 		public static string MakePathSafeToUseWithCommandLine(string InPath)
 		{
-			if (InPath.Contains(' ') && InPath[0] != '\"')
-			{
-				InPath = "\"" + InPath + "\"";
-			}
-			return InPath;
+			return UnrealBuildTool.Utils.MakePathSafeToUseWithCommandLine(InPath);
 		}
 
 		#endregion
@@ -1981,13 +2000,13 @@ namespace AutomationTool
             try
             {
                 DirectoryInfo DirInfo = new DirectoryInfo(ParentDir);
-				Log("Looking for directories to delete in {0}", ParentDir);
+				LogInformation("Looking for directories to delete in {0}", ParentDir);
                 foreach (DirectoryInfo ThisDirInfo in DirInfo.EnumerateDirectories(SearchPattern))
                 {
 					double AgeDays = (DateTime.UtcNow - ThisDirInfo.CreationTimeUtc).TotalDays;
 					if (AgeDays > MaximumDaysToKeepTempStorage)
                     {
-                        Log("Deleting formal build directory {0}, because it is {1} days old (maximum {2}).", ThisDirInfo.FullName, (int)AgeDays, MaximumDaysToKeepTempStorage);
+                        LogInformation("Deleting formal build directory {0}, because it is {1} days old (maximum {2}).", ThisDirInfo.FullName, (int)AgeDays, MaximumDaysToKeepTempStorage);
                         DeleteDirectory_NoExceptions(true, ThisDirInfo.FullName);
                     }
                     else
@@ -2127,7 +2146,7 @@ namespace AutomationTool
 
 				foreach (string LogLine in Lines)
 				{
-					CommandUtils.Log(LogLine);
+					CommandUtils.LogInformation(LogLine);
 
 					// Split each line into two by whitespace
 					string[] SplitLine = LogLine.Split(new char[] { ' ', '\t' }, 2, StringSplitOptions.RemoveEmptyEntries);
@@ -2135,7 +2154,7 @@ namespace AutomationTool
 					{
 						// Second part of line should be a path
 						string FilePath = SplitLine[1].Trim();
-						CommandUtils.Log(FilePath);
+						CommandUtils.LogInformation(FilePath);
 						if (File.Exists(FilePath) && !OutputFileNames.Contains(FilePath) && FilePath != ZipFileName)
 						{
 							if (CommandUtils.IsProbablyAMacOrIOSExe(FilePath))
@@ -2794,7 +2813,7 @@ namespace AutomationTool
 		{
 			if (!Command.ParseParam("NoSign"))
 			{
-				CommandUtils.Log("Signing up to {0} files...", Files.Count());
+				CommandUtils.LogInformation("Signing up to {0} files...", Files.Count());
 				UnrealBuildTool.UnrealTargetPlatform TargetPlatform = UnrealBuildTool.BuildHostPlatform.Current.Platform;
 				if (TargetPlatform == UnrealBuildTool.UnrealTargetPlatform.Mac)
 				{

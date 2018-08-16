@@ -293,8 +293,7 @@ namespace UnrealBuildTool
 					{
 						Dependencies.Add(IncludedFile.Location);
 					}
-					FileReference PCHName = SourceFile.PrecompiledHeaderIncludeFilename;
-					FlatCPPIncludeDependencyCache.SetDependenciesForFile(SourceFile.Location, PCHName, Dependencies);
+					FlatCPPIncludeDependencyCache.SetDependenciesForFile(SourceFile.Location, Dependencies);
 				}
 			}
 
@@ -421,57 +420,6 @@ namespace UnrealBuildTool
 			return DirectlyIncludedFiles;
 		}
 
-		public FileItem CachePCHUsageForCPPFile(FileItem CPPFile, CppIncludePaths IncludePaths, CppPlatform Platform)
-		{
-			// @todo ubtmake: We don't really need to scan every file looking for PCH headers, just need one.  The rest is just for error checking.
-			// @todo ubtmake: We don't need all of the direct includes either.  We just need the first, unless we want to check for errors.
-			List<DependencyInclude> DirectIncludeFilenames = GetDirectIncludeDependencies(CPPFile, bOnlyCachedDependencies: false);
-			if (UnrealBuildTool.bPrintDebugInfo)
-			{
-				Log.TraceVerbose("Found direct includes for {0}: {1}", Path.GetFileName(CPPFile.AbsolutePath), string.Join(", ", DirectIncludeFilenames.Select(F => F.IncludeName)));
-			}
-
-			if (DirectIncludeFilenames.Count == 0)
-			{
-				return null;
-			}
-
-			DependencyInclude FirstInclude = DirectIncludeFilenames[0];
-
-			// Resolve the PCH header to an absolute path.
-			// Check NullOrEmpty here because if the file could not be resolved we need to throw an exception
-			if (FirstInclude.IncludeResolvedNameIfSuccessful != null &&
-				// ignore any preexisting resolve cache if we are not configured to use it.
-				bUseIncludeDependencyResolveCache &&
-				// if we are testing the resolve cache, we force UBT to resolve every time to look for conflicts
-				!bTestIncludeDependencyResolveCache)
-			{
-				CPPFile.PrecompiledHeaderIncludeFilename = FirstInclude.IncludeResolvedNameIfSuccessful;
-				return FileItem.GetItemByFileReference(CPPFile.PrecompiledHeaderIncludeFilename);
-			}
-
-			// search the include paths to resolve the file.
-			string FirstIncludeName = FirstInclude.IncludeName;
-			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(Platform);
-			// convert back from relative to host path if needed
-			if (!BuildPlatform.UseAbsolutePathsInUnityFiles())
-			{
-				FirstIncludeName = RemoteExports.UnconvertPath(FirstIncludeName);
-			}
-
-			FileItem PrecompiledHeaderIncludeFile = CPPHeaders.FindIncludedFile(CPPFile.Location, FirstIncludeName, IncludePaths);
-			if (PrecompiledHeaderIncludeFile == null)
-			{
-				FirstIncludeName = RemoteExports.UnconvertPath(FirstInclude.IncludeName);
-				throw new BuildException("The first include statement in source file '{0}' is trying to include the file '{1}' as the precompiled header, but that file could not be located in any of the module's include search paths.", CPPFile.AbsolutePath, FirstIncludeName);
-			}
-
-			IncludeDependencyCache.CacheResolvedIncludeFullPath(CPPFile, 0, PrecompiledHeaderIncludeFile.Location, bUseIncludeDependencyResolveCache, bTestIncludeDependencyResolveCache);
-			CPPFile.PrecompiledHeaderIncludeFilename = PrecompiledHeaderIncludeFile.Location;
-
-			return PrecompiledHeaderIncludeFile;
-		}
-
 		public static double TotalTimeSpentGettingIncludes = 0.0;
 		public static int TotalIncludesRequested = 0;
 		public static double DirectIncludeCacheMissesTotalTime = 0.0;
@@ -542,7 +490,7 @@ namespace UnrealBuildTool
 			DateTime TimerStartTime = DateTime.UtcNow;
 			++CPPHeaders.TotalDirectIncludeCacheMisses;
 
-			Result = GetUncachedDirectIncludeDependencies(CPPFile, ProjectFile);
+			Result = GetUncachedDirectIncludeDependencies(CPPFile.Location, ProjectFile);
 
 			// Populate cache with results.
 			IncludeDependencyCache.SetDependencyInfo(CPPFile, Result);
@@ -552,12 +500,12 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public static List<DependencyInclude> GetUncachedDirectIncludeDependencies(FileItem CPPFile, FileReference ProjectFile)
+		public static List<DependencyInclude> GetUncachedDirectIncludeDependencies(FileReference SourceFile, FileReference ProjectFile)
 		{
 			List<DependencyInclude> Result = new List<DependencyInclude>();
 
 			// Get the adjusted filename
-			string FileToRead = CPPFile.AbsolutePath;
+			string FileToRead = SourceFile.FullName;
 
 			// Read lines from the C++ file.
 			string FileContents = GetFileContents(FileToRead);
@@ -588,30 +536,30 @@ namespace UnrealBuildTool
 						EndIndex = FileContents.Length;
 					}
 
-					Result.AddRange(CollectHeaders(ProjectFile, CPPFile, FileToRead, FileContents, InstalledFolder, StartIndex, EndIndex));
+					Result.AddRange(CollectHeaders(ProjectFile, SourceFile, FileToRead, FileContents, InstalledFolder, StartIndex, EndIndex));
 
 					StartIndex = EndIndex + 1;
 				}
 			}
 			else
 			{
-				Result = CollectHeaders(ProjectFile, CPPFile, FileToRead, FileContents, InstalledFolder, 0, FileContents.Length);
+				Result = CollectHeaders(ProjectFile, SourceFile, FileToRead, FileContents, InstalledFolder, 0, FileContents.Length);
 			}
 
 			return Result;
 		}
 
 		/// <summary>
-		/// Collects all header files included in a CPPFile
+		/// Collects all header files included in a source file
 		/// </summary>
 		/// <param name="ProjectFile"></param>
-		/// <param name="CPPFile"></param>
+		/// <param name="SourceFile"></param>
 		/// <param name="FileToRead"></param>
 		/// <param name="FileContents"></param>
 		/// <param name="InstalledFolder"></param>
 		/// <param name="StartIndex"></param>
 		/// <param name="EndIndex"></param>
-		private static List<DependencyInclude> CollectHeaders(FileReference ProjectFile, FileItem CPPFile, string FileToRead, string FileContents, string InstalledFolder, int StartIndex, int EndIndex)
+		private static List<DependencyInclude> CollectHeaders(FileReference ProjectFile, FileReference SourceFile, string FileToRead, string FileContents, string InstalledFolder, int StartIndex, int EndIndex)
 		{
 			List<DependencyInclude> Result = new List<DependencyInclude>();
 
@@ -638,8 +586,7 @@ namespace UnrealBuildTool
 			}
 
 			// also look for #import in objective C files
-			string Ext = Path.GetExtension(CPPFile.AbsolutePath).ToUpperInvariant();
-			if (Ext == ".MM" || Ext == ".M")
+			if (SourceFile.HasExtension(".MM") || SourceFile.HasExtension(".M"))
 			{
 				M = MMHeaderRegex.Match(FileContents, StartIndex, EndIndex - StartIndex);
 				Captures = M.Groups["HeaderFile"].Captures;

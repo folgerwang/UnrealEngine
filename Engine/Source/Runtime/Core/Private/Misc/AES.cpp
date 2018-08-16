@@ -3,7 +3,6 @@
 #include "Misc/AES.h"
 #include "Misc/AssertionMacros.h"
 #include "Misc/CString.h"
-#include "HAL/UnrealMemory.h"
 #include "Misc/CoreDelegates.h"
 
 // This is using the reference implementation of rijndael encryption algorithm

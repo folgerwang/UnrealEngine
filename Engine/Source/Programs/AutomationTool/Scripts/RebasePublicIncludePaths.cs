@@ -106,10 +106,10 @@ namespace AutomationTool
 			}
 
 			// List of folders to exclude from updates
-			FileSystemName[] ExcludeFoldersFromUpdate =
+			string[] ExcludeFoldersFromUpdate =
 			{
-				new FileSystemName("Intermediate"),
-				new FileSystemName("ThirdParty")
+				"Intermediate",
+				"ThirdParty"
 			};
 			
 			// Enumerate all the files to update
@@ -160,7 +160,7 @@ namespace AutomationTool
 			// Output them all to disk
 			if(bWrite && ModifiedFiles.Count > 0)
 			{
-				Log("Updating {0} files...", ModifiedFiles.Count);
+				LogInformation("Updating {0} files...", ModifiedFiles.Count);
 
 				List<FileReference> FilesToCheckOut = new List<FileReference>();
 				foreach(FileReference ModifiedFile in ModifiedFiles.Keys)
@@ -178,7 +178,7 @@ namespace AutomationTool
 						throw new AutomationException("{0} files have been modified, but are read only. Run with -P4 to enable Perforce checkout.\n{1}", FilesToCheckOut.Count, String.Join("\n", FilesToCheckOut.Select(x => "  " + x)));
 					}
 
-					Log("Checking out files from Perforce");
+					LogInformation("Checking out files from Perforce");
 
 					int ChangeNumber = P4.CreateChange(Description: "Updating source files");
 					P4.Edit(ChangeNumber, FilesToCheckOut.Select(x => x.FullName).ToList(), false);
@@ -186,7 +186,7 @@ namespace AutomationTool
 
 				foreach(KeyValuePair<FileReference, string[]> FileToWrite in ModifiedFiles)
 				{
-					Log("Writing {0}", FileToWrite.Key);
+					LogInformation("Writing {0}", FileToWrite.Key);
 					FileReference.WriteAllLines(FileToWrite.Key, FileToWrite.Value);
 				}
 			}

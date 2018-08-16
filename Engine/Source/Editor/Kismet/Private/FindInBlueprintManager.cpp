@@ -1514,20 +1514,47 @@ void FFindInBlueprintSearchManager::ExtractUnloadedFiBData(const FAssetData& InA
 	const FString ImplementedInterfaces = InAssetData.GetTagValueRef<FString>(FBlueprintTags::ImplementedInterfaces);
 	if(!ImplementedInterfaces.IsEmpty())
 	{
-		FString FullInterface;
-		FString RemainingString;
-		FString InterfaceName;
-		FString CurrentString = ImplementedInterfaces;
-		while(CurrentString.Split(TEXT(","), &FullInterface, &RemainingString))
+		// ImplementedInterfaces is an array of structs (FBPInterfaceDescription). When exported to an AR tag value, each entry will be formatted as:
+		//
+		//	Entry := (Interface=Type'Package.Class') OR
+		//  Entry := (Interface=Type'Package.Class',Graphs=(Type'Package.Blueprint:Graph1',Type'Package.Blueprint:Graph2',...Type'Package.Blueprint:GraphN'))
+		//
+		// The full tag value (array of exported struct values) will then be formatted as follows:
+		//
+		//  Value := (Entry1,Entry2,...EntryN)
+		//
+		// Here we parse out the 'Interface' values, and add only the 'Name' part of the full interface path substrings into the new search data as keywords.
+
+		auto FindSubStringPosLambda = [&ImplementedInterfaces](const FString& InSubString, int32 StartPosition) -> int32
 		{
-			if(FullInterface.Split(TEXT("."), &CurrentString, &InterfaceName, ESearchCase::CaseSensitive, ESearchDir::FromEnd))
+			return ImplementedInterfaces.Find(InSubString, ESearchCase::CaseSensitive, ESearchDir::FromStart, StartPosition);
+		};
+
+		static const FString InterfaceFieldName = GET_MEMBER_NAME_STRING_CHECKED(FBPInterfaceDescription, Interface);
+
+		int32 CurPos = FindSubStringPosLambda(InterfaceFieldName, 0);
+		while (CurPos != INDEX_NONE)
+		{
+			CurPos = FindSubStringPosLambda(TEXT("="), CurPos);
+			if (CurPos != INDEX_NONE)
 			{
-				if(!CurrentString.StartsWith(TEXT("Graphs=(")))
+				CurPos = FindSubStringPosLambda(TEXT("."), CurPos);
+				if (CurPos != INDEX_NONE)
 				{
-					NewSearchData.Interfaces.Add(InterfaceName);
+					const int32 StartPos = CurPos + 1;
+					CurPos = FindSubStringPosLambda(TEXT("\'"), StartPos);
+					if (CurPos != INDEX_NONE)
+					{
+						const FString InterfaceName = ImplementedInterfaces.Mid(StartPos, CurPos - StartPos);
+						if (!InterfaceName.IsEmpty())
+						{
+							NewSearchData.Interfaces.Add(InterfaceName.TrimQuotes());
+						}
+
+						CurPos = FindSubStringPosLambda(InterfaceFieldName, CurPos + 1);
+					}
 				}
 			}
-			CurrentString = RemainingString;
 		}
 	}
 

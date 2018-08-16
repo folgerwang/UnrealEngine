@@ -163,9 +163,8 @@ bool IsRemoteBuildingConfigured(const FShaderCompilerEnvironment* InEnvironment)
 					if (GRemoteBuildServerSSHKey.Len() == 0)
 					{
 						// RemoteToolChain.cs in UBT looks in a few more places but the code in FIOSTargetSettingsCustomization::OnGenerateSSHKey() only puts the key in this location so just going with that to keep things simple
-						TCHAR Path[4096];
-						FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
-						GRemoteBuildServerSSHKey = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), Path, *GRemoteBuildServerHost, *GRemoteBuildServerUser);
+						FString Path = FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"));
+						GRemoteBuildServerSSHKey = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), *Path, *GRemoteBuildServerHost, *GRemoteBuildServerUser);
 					}
 				}
 			}
@@ -204,9 +203,8 @@ bool IsRemoteBuildingConfigured(const FShaderCompilerEnvironment* InEnvironment)
 		if (!FPaths::DirectoryExists(DeltaCopyPath))
 		{
 			// if no UE4 bundled version of DeltaCopy, try and use the default install location
-			TCHAR ProgramPath[4096];
-			FPlatformMisc::GetEnvironmentVariable(TEXT("PROGRAMFILES(X86)"), ProgramPath, ARRAY_COUNT(ProgramPath));
-			DeltaCopyPath = FPaths::Combine(ProgramPath, TEXT("DeltaCopy"));
+			FString ProgramPath = FPlatformMisc::GetEnvironmentVariable(TEXT("PROGRAMFILES(X86)"));
+			DeltaCopyPath = FPaths::Combine(*ProgramPath, TEXT("DeltaCopy"));
 		}
 
 		if (!FPaths::DirectoryExists(DeltaCopyPath))

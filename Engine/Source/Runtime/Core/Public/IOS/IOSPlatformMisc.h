@@ -21,6 +21,11 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 	static void PlatformInit();
     static void PlatformHandleSplashScreen(bool ShowSplashScreen = false);
 
+	FORCEINLINE static int32 GetMaxPathLength()
+	{
+		return IOS_MAX_PATH;
+	}
+
 	static bool AllowThreadHeartBeat()
 	{
 		return false;

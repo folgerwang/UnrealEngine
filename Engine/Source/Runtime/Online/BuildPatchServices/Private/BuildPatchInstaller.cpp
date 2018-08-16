@@ -941,13 +941,13 @@ namespace BuildPatchServices
 		{
 			const FString InstallConstructionFile = Configuration.InstallDirectory / FileToConstruct;
 			const FString StagedConstructionFile = InstallStagingDir / FileToConstruct;
-			if (InstallConstructionFile.Len() >= PLATFORM_MAX_FILEPATH_LENGTH)
+			if (InstallConstructionFile.Len() >= FPlatformMisc::GetMaxPathLength())
 			{
 				UE_LOG(LogBuildPatchServices, Error, TEXT("Could not create new file due to exceeding maximum path length %s"), *InstallConstructionFile);
 				InstallerError->SetError(EBuildPatchInstallError::PathLengthExceeded, PathLengthErrorCodes::InstallDirectory);
 				return false;
 			}
-			if (StagedConstructionFile.Len() >= PLATFORM_MAX_FILEPATH_LENGTH)
+			if (StagedConstructionFile.Len() >= FPlatformMisc::GetMaxPathLength())
 			{
 				UE_LOG(LogBuildPatchServices, Error, TEXT("Could not create new file due to exceeding maximum path length %s"), *StagedConstructionFile);
 				InstallerError->SetError(EBuildPatchInstallError::PathLengthExceeded, PathLengthErrorCodes::StagingDirectory);

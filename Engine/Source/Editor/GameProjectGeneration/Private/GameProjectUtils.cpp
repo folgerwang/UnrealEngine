@@ -79,10 +79,9 @@
 #define LOCTEXT_NAMESPACE "GameProjectUtils"
 
 #define MAX_PROJECT_PATH_BUFFER_SPACE 130 // Leave a reasonable buffer of additional characters to account for files created in the content directory during or after project generation
-#define MAX_PROJECT_NAME_LENGTH 20 // Enforce a reasonable project name length so the path is not too long for PLATFORM_MAX_FILEPATH_LENGTH
-static_assert(PLATFORM_MAX_FILEPATH_LENGTH - MAX_PROJECT_PATH_BUFFER_SPACE > 0, "File system path shorter than project creation buffer space.");
+#define MAX_PROJECT_NAME_LENGTH 20 // Enforce a reasonable project name length so the path is not too long for FPlatformMisc::GetMaxPathLength()
 
-#define MAX_CLASS_NAME_LENGTH 32 // Enforce a reasonable class name length so the path is not too long for PLATFORM_MAX_FILEPATH_LENGTH
+#define MAX_CLASS_NAME_LENGTH 32 // Enforce a reasonable class name length so the path is not too long for FPlatformMisc::GetMaxPathLength()
 
 TWeakPtr<SNotificationItem> GameProjectUtils::UpdateGameProjectNotification = NULL;
 TWeakPtr<SNotificationItem> GameProjectUtils::WarningProjectNameNotification = NULL;
@@ -499,7 +498,7 @@ bool GameProjectUtils::IsValidProjectFileForCreation(const FString& ProjectFile,
 		return false;
 	}
 
-	const int32 MaxProjectPathLength = PLATFORM_MAX_FILEPATH_LENGTH - MAX_PROJECT_PATH_BUFFER_SPACE;
+	const int32 MaxProjectPathLength = FPlatformMisc::GetMaxPathLength() - MAX_PROJECT_PATH_BUFFER_SPACE;
 	if ( FPaths::GetBaseFilename(ProjectFile, false).Len() > MaxProjectPathLength )
 	{
 		FFormatNamedArguments Args;
@@ -589,7 +588,7 @@ bool GameProjectUtils::OpenProject(const FString& ProjectFile, FText& OutFailRea
 		return false;
 	}
 
-	const int32 MaxProjectPathLength = PLATFORM_MAX_FILEPATH_LENGTH - MAX_PROJECT_PATH_BUFFER_SPACE;
+	const int32 MaxProjectPathLength = FPlatformMisc::GetMaxPathLength() - MAX_PROJECT_PATH_BUFFER_SPACE;
 	if ( FPaths::GetBaseFilename(ProjectFile, false).Len() > MaxProjectPathLength )
 	{
 		FFormatNamedArguments Args;

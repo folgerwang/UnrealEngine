@@ -235,7 +235,7 @@ namespace AutomationTool
 		/// <param name="Parameters">Command line parameters (without -run=)</param>
 		public static void RunCommandlet(FileReference ProjectName, string UE4Exe, string Commandlet, string Parameters = null)
 		{
-			Log("Running UE4Editor {0} for project {1}", Commandlet, ProjectName);
+			LogInformation("Running UE4Editor {0} for project {1}", Commandlet, ProjectName);
 
             var CWD = Path.GetDirectoryName(UE4Exe);
 
@@ -252,7 +252,7 @@ namespace AutomationTool
 			DateTime StartTime = DateTime.UtcNow;
 
 			string LocalLogFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.EngineSavedFolder, Commandlet));
-			Log("Commandlet log file is {0}", LocalLogFile);
+			LogInformation("Commandlet log file is {0}", LocalLogFile);
 			string Args = String.Format(
 				"{0} -run={1} {2} -abslog={3} -stdout -CrashForUAT -unattended -NoLogTimes {5}{4}",
 				(ProjectName == null) ? "" : CommandUtils.MakePathSafeToUseWithCommandLine(ProjectName.FullName),
@@ -278,7 +278,7 @@ namespace AutomationTool
 				// If we exited normally, still check without waiting in case SCW or some other child process crashed.
 				if(RunResult.ExitCode > 128)
 				{
-					CommandUtils.Log("Pausing before checking for crash logs...");
+					CommandUtils.LogInformation("Pausing before checking for crash logs...");
 					Thread.Sleep(10 * 1000);
 				}
 				
@@ -317,13 +317,13 @@ namespace AutomationTool
 					// snmpd seems to often crash (suspect due to it being starved of CPU cycles during cooks)
 					if(!CrashFileInfo.Name.StartsWith("snmpd_"))
 					{
-						CommandUtils.Log("Found crash log - {0}", CrashFileInfo.FullName);
+						CommandUtils.LogInformation("Found crash log - {0}", CrashFileInfo.FullName);
 						try
 						{
 							string[] Lines = File.ReadAllLines(CrashFileInfo.FullName);
 							foreach(string Line in Lines)
 							{
-								CommandUtils.Log("Crash: {0}", Line);
+								CommandUtils.LogInformation("Crash: {0}", Line);
 							}
 						}
 						catch(Exception Ex)

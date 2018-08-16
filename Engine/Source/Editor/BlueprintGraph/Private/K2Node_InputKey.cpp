@@ -3,6 +3,7 @@
 #include "K2Node_InputKey.h"
 #include "GraphEditorSettings.h"
 #include "EdGraphSchema_K2.h"
+#include "EdGraphSchema_K2_Actions.h"
 #include "K2Node_AssignmentStatement.h"
 #include "K2Node_TemporaryVariable.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -419,6 +420,13 @@ FBlueprintNodeSignature UK2Node_InputKey::GetSignature() const
 	NodeSignature.AddKeyValue(InputKey.ToString());
 
 	return NodeSignature;
+}
+
+TSharedPtr<FEdGraphSchemaAction> UK2Node_InputKey::GetEventNodeAction(const FText& ActionCategory)
+{
+	TSharedPtr<FEdGraphSchemaAction_K2InputAction> EventNodeAction = MakeShareable(new FEdGraphSchemaAction_K2InputAction(ActionCategory, GetNodeTitle(ENodeTitleType::EditableTitle), GetTooltipText(), 0));
+	EventNodeAction->NodeTemplate = this;
+	return EventNodeAction;
 }
 
 #undef LOCTEXT_NAMESPACE

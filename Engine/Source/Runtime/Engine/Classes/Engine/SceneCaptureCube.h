@@ -22,29 +22,32 @@ private:
 	UPROPERTY(Category = DecalActor, VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess = "true"))
 	class USceneCaptureComponentCube* CaptureComponentCube;
 
+#if WITH_EDITORONLY_DATA
 	/** To allow drawing the camera frustum in the editor. */
 	UPROPERTY()
 	class UDrawFrustumComponent* DrawFrustum;
+#endif
 
 public:
 
+#if WITH_EDITOR
 	//~ Begin AActor Interface
 	virtual void PostActorCreated() override;
-#if WITH_EDITOR
 	virtual void PostEditMove(bool bFinished) override;
-#endif
 	//~ End AActor Interface.
 
 	/** Used to synchronize the DrawFrustumComponent with the SceneCaptureComponentCube settings. */
 	void UpdateDrawFrustum();
+
+	/** Returns DrawFrustum subobject **/
+	class UDrawFrustumComponent* GetDrawFrustum() const { return DrawFrustum; }
+#endif
 
 	UFUNCTION(BlueprintCallable, Category = "Rendering")
 	void OnInterpToggle(bool bEnable);
 
 	/** Returns CaptureComponentCube subobject **/
 	class USceneCaptureComponentCube* GetCaptureComponentCube() const { return CaptureComponentCube; }
-	/** Returns DrawFrustum subobject **/
-	class UDrawFrustumComponent* GetDrawFrustum() const { return DrawFrustum; }
 };
 
 

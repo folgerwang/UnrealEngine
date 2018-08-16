@@ -58,9 +58,9 @@ public partial class Project : CommandUtils
 			return;
 		}
 
-		Log("********** ARCHIVE COMMAND STARTED **********");
+		LogInformation("********** ARCHIVE COMMAND STARTED **********");
 
-		Log("Archiving to {0}", Params.ArchiveDirectoryParam);
+		LogInformation("Archiving to {0}", Params.ArchiveDirectoryParam);
 
 		if (!Params.NoClient)
 		{
@@ -84,7 +84,7 @@ public partial class Project : CommandUtils
 				SC.StageTargetPlatform.ProcessArchivedProject(Params, SC);
 			}
 		}
-		Log("********** ARCHIVE COMMAND COMPLETED **********");
+		LogInformation("********** ARCHIVE COMMAND COMPLETED **********");
     }
 
 	#endregion

@@ -183,10 +183,19 @@ UGameViewportClient::UGameViewportClient(const FObjectInitializer& ObjectInitial
 	SplitscreenInfo[ESplitScreenType::ThreePlayer_FavorBottom].PlayerData.Add(FPerPlayerSplitscreenData(0.5f, 0.5f, 0.5f, 0.0f));
 	SplitscreenInfo[ESplitScreenType::ThreePlayer_FavorBottom].PlayerData.Add(FPerPlayerSplitscreenData(1.0f, 0.5f, 0.0f, 0.5f));
 
-	SplitscreenInfo[ESplitScreenType::FourPlayer].PlayerData.Add(FPerPlayerSplitscreenData(0.5f, 0.5f, 0.0f, 0.0f));
-	SplitscreenInfo[ESplitScreenType::FourPlayer].PlayerData.Add(FPerPlayerSplitscreenData(0.5f, 0.5f, 0.5f, 0.0f));
-	SplitscreenInfo[ESplitScreenType::FourPlayer].PlayerData.Add(FPerPlayerSplitscreenData(0.5f, 0.5f, 0.0f, 0.5f));
-	SplitscreenInfo[ESplitScreenType::FourPlayer].PlayerData.Add(FPerPlayerSplitscreenData(0.5f, 0.5f, 0.5f, 0.5f));
+	SplitscreenInfo[ESplitScreenType::ThreePlayer_Vertical].PlayerData.Add(FPerPlayerSplitscreenData(0.333f, 1.0f, 0.0f, 0.0f));
+	SplitscreenInfo[ESplitScreenType::ThreePlayer_Vertical].PlayerData.Add(FPerPlayerSplitscreenData(0.333f, 1.0f, 0.333f, 0.0f));
+	SplitscreenInfo[ESplitScreenType::ThreePlayer_Vertical].PlayerData.Add(FPerPlayerSplitscreenData(0.333f, 1.0f, 0.666f, 0.0f));
+
+	SplitscreenInfo[ESplitScreenType::FourPlayer_Grid].PlayerData.Add(FPerPlayerSplitscreenData(0.5f, 0.5f, 0.0f, 0.0f));
+	SplitscreenInfo[ESplitScreenType::FourPlayer_Grid].PlayerData.Add(FPerPlayerSplitscreenData(0.5f, 0.5f, 0.5f, 0.0f));
+	SplitscreenInfo[ESplitScreenType::FourPlayer_Grid].PlayerData.Add(FPerPlayerSplitscreenData(0.5f, 0.5f, 0.0f, 0.5f));
+	SplitscreenInfo[ESplitScreenType::FourPlayer_Grid].PlayerData.Add(FPerPlayerSplitscreenData(0.5f, 0.5f, 0.5f, 0.5f));
+
+	SplitscreenInfo[ESplitScreenType::FourPlayer_Vertical].PlayerData.Add(FPerPlayerSplitscreenData(0.25f, 1.0f, 0.0f, 0.0f));
+	SplitscreenInfo[ESplitScreenType::FourPlayer_Vertical].PlayerData.Add(FPerPlayerSplitscreenData(0.25f, 1.0f, 0.25f, 0.0f));
+	SplitscreenInfo[ESplitScreenType::FourPlayer_Vertical].PlayerData.Add(FPerPlayerSplitscreenData(0.25f, 1.0f, 0.5f, 0.0f));
+	SplitscreenInfo[ESplitScreenType::FourPlayer_Vertical].PlayerData.Add(FPerPlayerSplitscreenData(0.25f, 1.0f, 0.75f, 0.0f));
 
 	MaxSplitscreenPlayers = 4;
 	bSuppressTransitionMessage = true;
@@ -1949,6 +1958,10 @@ void UGameViewportClient::UpdateActiveSplitscreenType()
 				SplitType = ESplitScreenType::ThreePlayer_FavorBottom;
 				break;
 
+			case EThreePlayerSplitScreenType::Vertical:
+				SplitType = ESplitScreenType::ThreePlayer_Vertical;
+				break;
+
 			default:
 				check(0);
 			}
@@ -1956,7 +1969,19 @@ void UGameViewportClient::UpdateActiveSplitscreenType()
 
 		default:
 			ensure(NumPlayers == 4);
-			SplitType = ESplitScreenType::FourPlayer;
+			switch (Settings->FourPlayerSplitscreenLayout)
+			{
+			case EFourPlayerSplitScreenType::Grid:
+				SplitType = ESplitScreenType::FourPlayer_Grid;
+				break;
+
+			case EFourPlayerSplitScreenType::Vertical:
+				SplitType = ESplitScreenType::FourPlayer_Vertical;
+				break;
+
+			default:
+				check(0);
+			}
 			break;
 		}
 	}
@@ -2019,15 +2044,17 @@ bool UGameViewportClient::HasTopSafeZone( int32 LocalPlayerIndex )
 	{
 	case ESplitScreenType::None:
 	case ESplitScreenType::TwoPlayer_Vertical:
+	case ESplitScreenType::ThreePlayer_Vertical:
+	case ESplitScreenType::FourPlayer_Vertical:
 		return true;
 
 	case ESplitScreenType::TwoPlayer_Horizontal:
 	case ESplitScreenType::ThreePlayer_FavorTop:
-		return (LocalPlayerIndex == 0) ? true : false;
+		return (LocalPlayerIndex == 0);
 
 	case ESplitScreenType::ThreePlayer_FavorBottom:
-	case ESplitScreenType::FourPlayer:
-		return (LocalPlayerIndex < 2) ? true : false;
+	case ESplitScreenType::FourPlayer_Grid:
+		return (LocalPlayerIndex < 2);
 	}
 
 	return false;
@@ -2039,15 +2066,17 @@ bool UGameViewportClient::HasBottomSafeZone( int32 LocalPlayerIndex )
 	{
 	case ESplitScreenType::None:
 	case ESplitScreenType::TwoPlayer_Vertical:
+	case ESplitScreenType::ThreePlayer_Vertical:
+	case ESplitScreenType::FourPlayer_Vertical:
 		return true;
 
 	case ESplitScreenType::TwoPlayer_Horizontal:
 	case ESplitScreenType::ThreePlayer_FavorTop:
-		return (LocalPlayerIndex == 0) ? false : true;
+		return (LocalPlayerIndex > 0);
 
 	case ESplitScreenType::ThreePlayer_FavorBottom:
-	case ESplitScreenType::FourPlayer:
-		return (LocalPlayerIndex > 1) ? true : false;
+	case ESplitScreenType::FourPlayer_Grid:
+		return (LocalPlayerIndex > 1);
 	}
 
 	return false;
@@ -2062,14 +2091,16 @@ bool UGameViewportClient::HasLeftSafeZone( int32 LocalPlayerIndex )
 		return true;
 
 	case ESplitScreenType::TwoPlayer_Vertical:
-		return (LocalPlayerIndex == 0) ? true : false;
+	case ESplitScreenType::ThreePlayer_Vertical:
+	case ESplitScreenType::FourPlayer_Vertical:
+		return (LocalPlayerIndex == 0);
 
 	case ESplitScreenType::ThreePlayer_FavorTop:
 		return (LocalPlayerIndex < 2) ? true : false;
 
 	case ESplitScreenType::ThreePlayer_FavorBottom:
-	case ESplitScreenType::FourPlayer:
-		return (LocalPlayerIndex == 0 || LocalPlayerIndex == 2) ? true : false;
+	case ESplitScreenType::FourPlayer_Grid:
+		return (LocalPlayerIndex == 0 || LocalPlayerIndex == 2);
 	}
 
 	return false;
@@ -2085,13 +2116,19 @@ bool UGameViewportClient::HasRightSafeZone( int32 LocalPlayerIndex )
 
 	case ESplitScreenType::TwoPlayer_Vertical:
 	case ESplitScreenType::ThreePlayer_FavorBottom:
-		return (LocalPlayerIndex > 0) ? true : false;
+		return (LocalPlayerIndex > 0);
 
 	case ESplitScreenType::ThreePlayer_FavorTop:
-		return (LocalPlayerIndex == 1) ? false : true;
+		return (LocalPlayerIndex != 1);
 
-	case ESplitScreenType::FourPlayer:
-		return (LocalPlayerIndex == 0 || LocalPlayerIndex == 2) ? false : true;
+	case ESplitScreenType::ThreePlayer_Vertical:
+		return (LocalPlayerIndex == 2);
+
+	case ESplitScreenType::FourPlayer_Vertical:
+		return (LocalPlayerIndex == 3);
+
+	case ESplitScreenType::FourPlayer_Grid:
+		return (LocalPlayerIndex == 1 || LocalPlayerIndex == 3);
 	}
 
 	return false;
@@ -2136,10 +2173,17 @@ void UGameViewportClient::GetPixelSizeOfScreen( float& Width, float& Height, UCa
 		}
 		Height = Canvas->ClipY * 2;
 		return;
-	case ESplitScreenType::FourPlayer:
+	case ESplitScreenType::ThreePlayer_Vertical:
+		Width = Canvas->ClipX * 3;
+		Height = Canvas->ClipY;
+		return;
+	case ESplitScreenType::FourPlayer_Grid:
 		Width = Canvas->ClipX * 2;
 		Height = Canvas->ClipY * 2;
 		return;
+	case ESplitScreenType::FourPlayer_Vertical:
+		Width = Canvas->ClipX * 4;
+		Height = Canvas->ClipY;
 	}
 }
 

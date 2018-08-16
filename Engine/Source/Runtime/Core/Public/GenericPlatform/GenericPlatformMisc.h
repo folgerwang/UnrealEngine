@@ -287,11 +287,19 @@ struct CORE_API FGenericPlatformMisc
 	 * @param Result The string to copy the value of the variable into
 	 * @param ResultLength The size of the Result string
 	 */
+	DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength)
 	{
 		*Result = 0;
 	}
 
+	/**
+	 * Retrieve a environment variable from the system
+	 *
+	 * @param VariableName The name of the variable (ie "Path")
+	 * @return Value of the variable, or an empty string if not set.
+	 */
+	static FString GetEnvironmentVariable(const TCHAR* VariableName);
 
 	/**
 	 * Sets an environment variable to the local process's environment
@@ -300,6 +308,14 @@ struct CORE_API FGenericPlatformMisc
 	 * @param Value The string to set the variable to.	
 	 */
 	static void SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value);
+
+	/**
+	 * Returns the maximum length of a path
+	 */
+	FORCEINLINE static int32 GetMaxPathLength()
+	{
+		return 128;
+	}
 
 	/**
 	 * return the delimiter between paths in the PATH environment variable.

@@ -26,6 +26,7 @@ public class UnrealHeaderToolTarget : TargetRules
 
 		// Currently this app is not linking against the engine, so we'll compile out references from Core to the rest of the engine
 		bCompileAgainstEngine = false;
+		bCompileAgainstApplicationCore = false;
 
 		// Force execption handling across all modules.
 		bForceEnableExceptions = true;

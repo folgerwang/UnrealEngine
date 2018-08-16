@@ -45,7 +45,7 @@ namespace AutomationTool
 			DateTime RetainTime = DateTime.UtcNow - TimeSpan.FromDays(DaysValue);
 
 			// Enumerate all the build directories
-			CommandUtils.Log("Scanning {0}...", ReportDir);
+			CommandUtils.LogInformation("Scanning {0}...", ReportDir);
 			int NumFolders = 0;
 			List<DirectoryInfo> FoldersToDelete = new List<DirectoryInfo>();
 			foreach (DirectoryInfo BuildDirectory in new DirectoryInfo(ReportDir).EnumerateDirectories())
@@ -56,14 +56,14 @@ namespace AutomationTool
 				}
 				NumFolders++;
 			}
-			CommandUtils.Log("Found {0} builds; {1} to delete.", NumFolders, FoldersToDelete.Count);
+			CommandUtils.LogInformation("Found {0} builds; {1} to delete.", NumFolders, FoldersToDelete.Count);
 
 			// Delete them all
 			for (int Idx = 0; Idx < FoldersToDelete.Count; Idx++)
 			{
 				try
 				{
-					CommandUtils.Log("[{0}/{1}] Deleting {2}...", Idx + 1, FoldersToDelete.Count, FoldersToDelete[Idx].FullName);
+					CommandUtils.LogInformation("[{0}/{1}] Deleting {2}...", Idx + 1, FoldersToDelete.Count, FoldersToDelete[Idx].FullName);
 					FoldersToDelete[Idx].Delete(true);
 				}
 				catch (Exception Ex)

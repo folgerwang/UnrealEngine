@@ -707,6 +707,17 @@ public:
 	}
 
 	/**
+	 * Serializes the given date and time from or into the specified structured archive slot.
+	 *
+	 * @param Slot The structured archive slot to serialize from or into.
+	 * @param DateTime The date and time value to serialize.
+	 */
+	friend CORE_API void operator<<(FStructuredArchive::FSlot Slot, FDateTime& DateTime)
+	{
+		return Slot << DateTime.Ticks;
+	}
+
+	/**
 	 * Gets the hash for the specified date and time.
 	 *
 	 * @param DateTime The date and time to get the hash for.

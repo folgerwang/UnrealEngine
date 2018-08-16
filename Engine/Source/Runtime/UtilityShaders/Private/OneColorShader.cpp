@@ -38,7 +38,7 @@ void FOneColorPS::SetColors(FRHICommandList& RHICmdList, const FLinearColor* Col
 
 // #define avoids a lot of code duplication
 #define IMPLEMENT_ONECOLORVS(A,B) typedef TOneColorVS<A,B> TOneColorVS##A##B; \
-IMPLEMENT_SHADER_TYPE2(TOneColorVS##A##B, SF_Vertex);
+	IMPLEMENT_SHADER_TYPE2_WITH_TEMPLATE_PREFIX(template<> UTILITYSHADERS_API, TOneColorVS##A##B, SF_Vertex);
 
 IMPLEMENT_ONECOLORVS(false,false)
 IMPLEMENT_ONECOLORVS(false,true)

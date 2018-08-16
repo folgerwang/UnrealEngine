@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -360,7 +360,7 @@ namespace UnrealBuildTool
 			}
 			catch (Exception Ex)
 			{
-				throw new BuildException(Ex, "Failed to launch compiler to compile assembly from source files '{0}' (Exception: {1})", SourceFileNames.ToString(), Ex.Message);
+				throw new BuildException(Ex, "Failed to launch compiler to compile assembly from source files:\n  {0}\n(Exception: {1})", String.Join("\n  ", SourceFileNames), Ex.ToString());
 			}
 
 			// Display compilation warnings and errors
@@ -432,6 +432,10 @@ namespace UnrealBuildTool
 					Log.TraceInformation(String.Format("Compiled assembly file '{0}' appears to be for a newer CLR version or is otherwise invalid.  Unreal Build Tool will try to recompile this assembly now.  (Exception: {1})", OutputAssemblyPath, Ex.Message));
 					bNeedsCompilation = true;
 				}
+				catch (FileNotFoundException)
+			    {
+				    throw new BuildException("Precompiled rules assembly '{0}' does not exist.", OutputAssemblyPath);
+			    }
 				catch (Exception Ex)
 				{
 					throw new BuildException(Ex, "Error while loading previously-compiled assembly file '{0}'.  (Exception: {1})", OutputAssemblyPath, Ex.Message);

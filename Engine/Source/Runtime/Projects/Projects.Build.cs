@@ -1,5 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
+using System;
+using System.Collections.Generic;
+
 namespace UnrealBuildTool.Rules
 {
 	public class Projects : ModuleRules
@@ -20,6 +23,20 @@ namespace UnrealBuildTool.Rules
 					"Runtime/Projects/Private",
 				}
 			);
+
+			List<string> EnabledPluginStrings = new List<string>();
+			foreach(string EnablePlugin in Target.EnablePlugins)
+			{
+				EnabledPluginStrings.Add(String.Format("TEXT(\"{0}\")", EnablePlugin));
+			}
+			PrivateDefinitions.Add(String.Format("UBT_TARGET_ENABLED_PLUGINS={0}", String.Join(", ", EnabledPluginStrings)));
+
+			List<string> DisabledPluginStrings = new List<string>();
+			foreach(string DisablePlugin in Target.DisablePlugins)
+			{
+				DisabledPluginStrings.Add(String.Format("TEXT(\"{0}\")", DisablePlugin));
+			}
+			PrivateDefinitions.Add(String.Format("UBT_TARGET_DISABLED_PLUGINS={0}", String.Join(", ", DisabledPluginStrings)));
 
 			if (Target.bIncludePluginsForTargetPlatforms)
 			{

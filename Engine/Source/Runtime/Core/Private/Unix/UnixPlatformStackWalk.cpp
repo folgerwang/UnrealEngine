@@ -1028,7 +1028,7 @@ namespace
 				FCStringAnsi::Strcpy(out_SymbolInfo.FunctionName, info.dli_sname);
 			}
 
-			ANSICHAR ModuleSymbolPath[MAX_PATH + 1];
+			ANSICHAR ModuleSymbolPath[UNIX_MAX_PATH + 1];
 
 			// We cant assume if we are relative we have not chdir to a different working dir.
 			if (FPaths::IsRelative(info.dli_fname))

@@ -26,7 +26,7 @@ public:
 
 	/** Identical to GetAllSourceWidgets, but as an algorithm */
 	void ForEachSourceWidget(TFunctionRef<void(class UWidget*)> Fn);
-	void ForEachSourceWidget(TFunctionRef<void(const class UWidget*)> Fn) const;
+	void ForEachSourceWidget(TFunctionRef<void(class UWidget*)> Fn) const;
 
 private:
 	void ForEachSourceWidgetImpl(TFunctionRef<void(class UWidget*)> Fn) const;

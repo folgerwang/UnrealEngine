@@ -76,16 +76,21 @@ public:
 	}
 };
 
-
+//////////////////////////////////////////////////////////////////////////
+// WARNING: Following struct layout definition repeated in ScriptCore.cpp as
+// FPointerToUberGraphFrameCoreUObject to work around reflection generation issues:
 USTRUCT()
 struct FPointerToUberGraphFrame
 {
 	GENERATED_USTRUCT_BODY()
 
 public:
+	//////////////////////////////////////////////////////////////////////////
+	// WARNING: This struct layout definition repeated in ScriptCore.cpp as
+	// FPointerToUberGraphFrameCoreUObject to work around reflection generation issues:
 	uint8* RawPointer;
 
-	FPointerToUberGraphFrame() 
+	FPointerToUberGraphFrame()
 		: RawPointer(nullptr)
 	{}
 
@@ -94,7 +99,9 @@ public:
 		check(!RawPointer);
 	}
 };
-
+// WARNING: Preceding struct layout definition repeated in ScriptCore.cpp as
+// FPointerToUberGraphFrameCoreUObject to work around reflection generation issues!
+//////////////////////////////////////////////////////////////////////////
 
 template<>
 struct TStructOpsTypeTraits<FPointerToUberGraphFrame> : public TStructOpsTypeTraitsBase2<FPointerToUberGraphFrame>
@@ -618,9 +625,6 @@ public:
 	class UInheritableComponentHandler* InheritableComponentHandler;
 
 	UPROPERTY()
-	UStructProperty* UberGraphFramePointerProperty;
-
-	UPROPERTY()
 	UFunction* UberGraphFunction;
 
 #if WITH_EDITORONLY_DATA
@@ -662,9 +666,6 @@ public:
 	static void CreateComponentsForActor(const UClass* ThisClass, AActor* Actor);
 	static void CreateTimelineComponent(AActor* Actor, const UTimelineTemplate* TimelineTemplate);
 
-	/** Check for and handle manual application of default value overrides to instanced component subobjects that were inherited from a nativized parent class */
-	static void CheckAndApplyComponentTemplateOverrides(AActor* Actor);
-
 	// UObject interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
@@ -687,7 +688,6 @@ public:
 	virtual void SerializeDefaultObject(UObject* Object, FArchive& Ar) override;
 	virtual void PostLoadDefaultObject(UObject* Object) override;
 	virtual bool IsFunctionImplementedInBlueprint(FName InFunctionName) const override;
-	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
 	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false, bool bSkipSuperClass = false, UClass* OldClass = nullptr) const override;
 	virtual void DestroyPersistentUberGraphFrame(UObject* Obj, bool bSkipSuperClass = false) const override;
 	virtual void Link(FArchive& Ar, bool bRelinkExistingProperties) override;
@@ -733,6 +733,9 @@ protected:
 	* @param	DefaultDataPtr		source address (where to start copying the defaults data from)
 	*/
 	static void InitArrayPropertyFromCustomList(const UArrayProperty* ArrayProperty, const FCustomPropertyListNode* InPropertyList, uint8* DataPtr, const uint8* DefaultDataPtr);
+
+	/** Check for and handle manual application of default value overrides to component subobjects that were inherited from a nativized parent class */
+	static void CheckAndApplyComponentTemplateOverrides(UObject* InClassDefaultObject);
 
 public:
 

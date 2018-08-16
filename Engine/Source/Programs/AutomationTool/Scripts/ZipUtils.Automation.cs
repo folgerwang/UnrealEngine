@@ -20,7 +20,7 @@ public class ZipUtils : BuildCommand
 	public override ExitCode Execute()
 	{
 
-		Log("************************ STARTING ZIPUTILS ************************");
+		LogInformation("************************ STARTING ZIPUTILS ************************");
 
 		if (Params.Length < 2)
 		{
@@ -57,7 +57,7 @@ public class ZipUtils : BuildCommand
 		{
 			string OutputFolderPath = ExtractArgs[0];
 
-			Log("Running unzip : {0} OuputFolder:{1}", ZipFilePath.ToString(), OutputFolderPath);
+			LogInformation("Running unzip : {0} OuputFolder:{1}", ZipFilePath.ToString(), OutputFolderPath);
 
 			if (!System.IO.File.Exists(ZipFilePath))
 			{
@@ -74,10 +74,10 @@ public class ZipUtils : BuildCommand
 			}
 			else
 			{
-				Log("List of files extracted:");
+				LogInformation("List of files extracted:");
 				foreach (var file in ExtractedFiles)
 				{
-					Log("\t{0}", file);
+					LogInformation("\t{0}", file);
 				}
 			}
 		}
@@ -85,8 +85,8 @@ public class ZipUtils : BuildCommand
 		{
 
 			string ArchiveFolder = AddArgs[0];
-			Log("Compress level : {0}", CompressionLevel);
-			Log("Running zip : {0}", ArchiveFolder.ToString());
+			LogInformation("Compress level : {0}", CompressionLevel);
+			LogInformation("Running zip : {0}", ArchiveFolder.ToString());
 
 			FileAttributes attr = File.GetAttributes(ArchiveFolder);
 
@@ -99,7 +99,7 @@ public class ZipUtils : BuildCommand
 			InternalZipFiles(new FileReference(ZipFilePath), new DirectoryReference(ArchiveFolder), Filter, CompressionLevel);
 		}
 
-		Log("************************ ZIPUTIL WORK COMPLETED ************************");
+		LogInformation("************************ ZIPUTIL WORK COMPLETED ************************");
 
 		return ExitCode.Success;
 	}

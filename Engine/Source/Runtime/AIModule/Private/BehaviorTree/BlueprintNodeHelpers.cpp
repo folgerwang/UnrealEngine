@@ -247,12 +247,9 @@ namespace BlueprintNodeHelpers
 
 		if (OwningActor && !bFound)
 		{
-			TInlineComponentArray<UBehaviorTreeComponent*> Components;
-			OwningActor->GetComponents(Components);
-			for (int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ComponentIndex++)
+			for (UActorComponent* Component : OwningActor->GetComponents())
 			{
-				UBehaviorTreeComponent* BTComp = Components[ComponentIndex];
-				if (BTComp)
+				if (UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(Component))
 				{
 					const int32 InstanceIdx = BTComp->FindInstanceContainingNode(Node);
 					if (InstanceIdx != INDEX_NONE)

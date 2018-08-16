@@ -31,7 +31,7 @@ void UBaseWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(UWidget*)> Fn)
 	ForEachSourceWidgetImpl(Fn);
 }
 
-void UBaseWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(const UWidget*)> Fn) const
+void UBaseWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(UWidget*)> Fn) const
 {
 	ForEachSourceWidgetImpl(Fn);
 }

@@ -153,8 +153,11 @@ FD3D12Resource::FD3D12Resource(FD3D12Device* ParentDevice,
 	D3D12_RESOURCE_DESC const& InDesc,
 	FD3D12Heap* InHeap,
 	D3D12_HEAP_TYPE InHeapType)
-	: Resource(InResource)
+	: FD3D12DeviceChild(ParentDevice)
+	, FD3D12MultiNodeGPUObject(ParentDevice->GetGPUMask(), VisibleNodes)
+	, Resource(InResource)
 	, Heap(InHeap)
+	, ResidencyHandle()
 	, Desc(InDesc)
 	, PlaneCount(::GetPlaneCount(Desc.Format))
 	, SubresourceCount(0)
@@ -165,9 +168,6 @@ FD3D12Resource::FD3D12Resource(FD3D12Device* ParentDevice,
 	, HeapType(InHeapType)
 	, GPUVirtualAddress(0)
 	, ResourceBaseAddress(nullptr)
-	, ResidencyHandle()
-	, FD3D12DeviceChild(ParentDevice)
-	, FD3D12MultiNodeGPUObject(ParentDevice->GetGPUMask(), VisibleNodes)
 {
 #if UE_BUILD_DEBUG
 	FPlatformAtomics::InterlockedIncrement(&TotalResourceCount);
@@ -222,9 +222,9 @@ void FD3D12Resource::UpdateResidency(FD3D12CommandListHandle& CommandList)
 /////////////////////////////////////////////////////////////////////
 
 FD3D12Heap::FD3D12Heap(FD3D12Device* Parent, FRHIGPUMask VisibleNodes) :
-	ResidencyHandle(),
 	FD3D12DeviceChild(Parent),
-	FD3D12MultiNodeGPUObject(Parent->GetGPUMask(), VisibleNodes)
+	FD3D12MultiNodeGPUObject(Parent->GetGPUMask(), VisibleNodes),
+	ResidencyHandle()
 {
 }
 
@@ -404,15 +404,15 @@ HRESULT FD3D12Adapter::CreateBuffer(const D3D12_HEAP_PROPERTIES& HeapProps, uint
 /////////////////////////////////////////////////////////////////////
 
 FD3D12ResourceLocation::FD3D12ResourceLocation(FD3D12Device* Parent)
-	: Type(ResourceLocationType::eUndefined)
+	: FD3D12DeviceChild(Parent)
+	, Type(ResourceLocationType::eUndefined)
 	, UnderlyingResource(nullptr)
+	, ResidencyHandle(nullptr)
+	, Allocator(nullptr)
 	, MappedBaseAddress(nullptr)
 	, GPUVirtualAddress(0)
-	, ResidencyHandle(nullptr)
-	, Size(0)
 	, OffsetFromBaseOfResource(0)
-	, Allocator(nullptr)
-	, FD3D12DeviceChild(Parent)
+	, Size(0)
 	, bTransient(false)
 {
 	FMemory::Memzero(AllocatorData);
@@ -564,8 +564,8 @@ void FD3D12ResourceLocation::SetResource(FD3D12Resource* Value)
 /////////////////////////////////////////////////////////////////////
 
 FD3D12DynamicBuffer::FD3D12DynamicBuffer(FD3D12Device* InParent)
-	: ResourceLocation(InParent)
-	, FD3D12DeviceChild(InParent)
+	: FD3D12DeviceChild(InParent)
+	, ResourceLocation(InParent)
 {
 }
 

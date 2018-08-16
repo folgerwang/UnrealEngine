@@ -747,23 +747,25 @@ const bool ALODActor::HasValidSubActors() const
 	{
 		if (SubActor)
 		{
-			TInlineComponentArray<UStaticMeshComponent*> Components;
-			SubActor->GetComponents(/*out*/ Components);
-
 #if WITH_EDITOR
 			FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 			IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+#endif
 
-			for (UStaticMeshComponent* Component : Components)
+			for (UActorComponent* Comp : GetComponents())
 			{
-				if (!Component->bHiddenInGame && Component->ShouldGenerateAutoLOD(LODLevel - 1))
+				if (UStaticMeshComponent* Component = Cast<UStaticMeshComponent>(Comp))
 				{
+#if WITH_EDITOR
+					if (!Component->bHiddenInGame && Component->ShouldGenerateAutoLOD(LODLevel - 1))
+					{
+						++NumMeshes;
+					}
+#else
 					++NumMeshes;
+#endif
 				}
 			}
-#else
-			NumMeshes += Components.Num();
-#endif
 
 			if (NumMeshes > 0)
 			{

@@ -22,6 +22,7 @@ namespace UnrealBuildTool
 		public List<OnlyModule> OnlyModules;
 		public FileReference ForeignPlugin;
 		public string ForceReceiptFileName;
+		public string[] AdditionalArguments;
 
 		/// <summary>
 		/// Constructor
@@ -31,22 +32,26 @@ namespace UnrealBuildTool
 		/// <param name="Platform">Platform to build for</param>
 		/// <param name="Configuration">Configuration to build</param>
 		/// <param name="Architecture">Architecture to build for</param>
-		public TargetDescriptor(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture)
+		/// <param name="Arguments">Additional arguments for the target</param>
+		public TargetDescriptor(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, string[] Arguments)
 		{
 			this.ProjectFile = ProjectFile;
 			this.Name = TargetName;
 			this.Platform = Platform;
 			this.Configuration = Configuration;
 			this.Architecture = Architecture;
+			this.AdditionalArguments = Arguments;
 		}
 
 		/// <summary>
 		/// Parse a list of target descriptors from the command line
 		/// </summary>
 		/// <param name="Arguments">Command-line arguments</param>
+		/// <param name="bUsePrecompiled">Whether to use a precompiled engine distribution</param>
+		/// <param name="bSkipRulesCompile">Whether to skip compiling rules assemblies</param>
 		/// <param name="ProjectFile">The project file, if already set. May be updated if not.</param>
 		/// <returns>List of target descriptors</returns>
-		public static List<TargetDescriptor> ParseCommandLine(string[] Arguments, ref FileReference ProjectFile)
+		public static List<TargetDescriptor> ParseCommandLine(string[] Arguments, bool bUsePrecompiled, bool bSkipRulesCompile, ref FileReference ProjectFile)
 		{
 			UnrealTargetPlatform Platform = UnrealTargetPlatform.Unknown;
 			UnrealTargetConfiguration Configuration = UnrealTargetConfiguration.Unknown;
@@ -56,6 +61,7 @@ namespace UnrealBuildTool
 			List<OnlyModule> OnlyModules = new List<OnlyModule>();
 			FileReference ForeignPlugin = null;
 			string ForceReceiptFileName = null;
+			List<string> AdditionalArguments = new List<string>();
 
 			// Settings for creating/using static libraries for the engine
 			for (int ArgumentIndex = 0; ArgumentIndex < Arguments.Length; ArgumentIndex++)
@@ -140,6 +146,9 @@ namespace UnrealBuildTool
 								throw new BuildException("'-Plugin <Path>' syntax is no longer supported on the command line. Use '-Plugin=<Path>' instead.");
 							case "-RECEIPT":
 								throw new BuildException("'-Receipt <Path>' syntax is no longer supported on the command line. Use '-Receipt=<Path>' instead.");
+							default:
+								AdditionalArguments.Add(Arguments[ArgumentIndex]);
+								break;
 						}
 					}
 				}
@@ -168,7 +177,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					TargetNames.Add(RulesCompiler.CreateProjectRulesAssembly(ProjectFile).GetTargetNameByType(Type, Platform, Configuration, Architecture, ProjectFile, new ReadOnlyBuildVersion(BuildVersion.ReadDefault())));
+					TargetNames.Add(RulesCompiler.CreateProjectRulesAssembly(ProjectFile, bUsePrecompiled, bSkipRulesCompile).GetTargetNameByType(Type, Platform, Configuration, Architecture, ProjectFile, new ReadOnlyBuildVersion(BuildVersion.ReadDefault())));
 				}
 			}
 
@@ -182,7 +191,8 @@ namespace UnrealBuildTool
 					Log.TraceVerbose("Found project file for {0} - {1}", TargetName, ProjectFile);
 				}
 
-				TargetDescriptor Target = new TargetDescriptor(ProjectFile, TargetName, Platform, Configuration, Architecture);
+				// Create the target descriptor
+				TargetDescriptor Target = new TargetDescriptor(ProjectFile, TargetName, Platform, Configuration, Architecture, AdditionalArguments.ToArray());
 				Target.OnlyModules = OnlyModules;
 				Target.ForeignPlugin = ForeignPlugin;
 				Target.ForceReceiptFileName = ForceReceiptFileName;

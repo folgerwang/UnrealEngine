@@ -148,6 +148,12 @@
     <Compile Include="Configuration\UEBuildPlatformFactory.cs" />
     <Compile Include="Configuration\UEBuildPlatformSDK.cs" />
     <Compile Include="Configuration\UEBuildPlugin.cs" />
+    <Compile Include="Executors\Distcc.cs" />
+    <Compile Include="Executors\LocalExecutor.cs" />
+    <Compile Include="Executors\ParallelExecutor.cs" />
+    <Compile Include="Executors\SNDBS.cs" />
+    <Compile Include="Executors\XGE.cs" />
+    <Compile Include="Platform\IOS\MobileProvisionContents.cs" />
     <Compile Include="Platform\Lumin\UEDeployLumin.cs" />
     <Compile Include="ProjectFiles\CLion\CLionGenerator.cs" />
     <Compile Include="ProjectFiles\CMake\CMakefileGenerator.cs" />
@@ -166,17 +172,16 @@
     <Compile Include="ProjectFiles\VisualStudio\VCSolutionOptions.cs" />
     <Compile Include="ProjectFiles\Xcode\XcodeProject.cs" />
     <Compile Include="ProjectFiles\Xcode\XcodeProjectFileGenerator.cs" />
+    <Compile Include="System\Asn.cs" />
     <Compile Include="System\BuildVersion.cs" />
     <Compile Include="System\CppCompileEnvironment.cs" />
+    <Compile Include="System\CppIncludeParser.cs" />
     <Compile Include="System\DataDrivenPlatformInfo.cs" />
-    <Compile Include="System\ExceptionUtils.cs" />
-    <Compile Include="System\ParallelExecutor.cs" />
+    <Compile Include="System\EncryptionAndSigning.cs" />
     <Compile Include="System\ModuleManifest.cs" />
     <Compile Include="System\PluginReferenceDescriptor.cs" />
     <Compile Include="System\PrecompiledManifest.cs" />
-    <Compile Include="System\PrecompileMode.cs" />
     <Compile Include="System\RulesDocumentation.cs" />
-    <Compile Include="System\Log.cs" />
     <Compile Include="System\PrecompiledHeaderInstance.cs" />
     <Compile Include="System\PrecompiledHeaderTemplate.cs" />
     <Compile Include="Configuration\TargetInfo.cs" />
@@ -196,18 +201,14 @@
     <Compile Include="System\LocalizationDescriptor.cs" />
     <Compile Include="System\ObsoleteOverrideAttribute.cs" />
     <Compile Include="System\ProgressWriter.cs" />
-    <Compile Include="System\RemoteExecutor.cs" />
-    <Compile Include="System\RestrictedFolders.cs" />
     <Compile Include="System\RulesAssembly.cs" />
     <Compile Include="System\ScopedTimer.cs" />
     <Compile Include="System\SourceFileWorkingSet.cs" />
     <Compile Include="System\StartupTraceListener.cs" />
-    <Compile Include="System\StreamUtils.cs" />
     <Compile Include="System\SupportedConfigurationsAttribute.cs" />
     <Compile Include="System\SupportedPlatformsAttribute.cs" />
     <Compile Include="System\TargetReceipt.cs" />
     <Compile Include="System\UBTMakefile.cs" />
-    <Compile Include="System\UEConsoleTraceListener.cs" />
     <Compile Include="System\VersionNumber.cs" />
     <Compile Include="System\XmlConfig.cs" />
     <Compile Include="System\XmlConfigData.cs" />
@@ -247,10 +248,8 @@
     </When>
   </Choose>
   <ItemGroup>
-    <Compile Include="ToolChain\RemoteExports.cs" />
+    <Compile Include="ToolChain\RemoteMac.cs" />
     <Compile Include="UnrealBuildTool.cs" />
-    <Compile Include="Utilities\Crypto.cs" />
-    <Compile Include="Utilities\HashSetExtensions.cs" />
     <Compile Include="Platform\Windows\PVSToolChain.cs" />
     <Compile Include="Platform\Windows\WindowsDeploy.cs" />
     <Compile Include="Platform\Windows\WinResources.cs" />
@@ -305,11 +304,7 @@
     </When>
   </Choose>
   <Choose>
-    <When Condition="Exists('System\NotForLicensees\TelemetryProviderET.cs')">
-      <ItemGroup>
-        <Compile Include="System\NotForLicensees\TelemetryProviderET.cs" />
-      </ItemGroup>
-    </When>
+    <When Condition="Exists('System\NotForLicensees\TelemetryProviderET.cs')" />
   </Choose>
   <ItemGroup>
     <Compile Include="..\DotNETCommon\MetaData.cs">
@@ -327,11 +322,9 @@
     <Compile Include="Configuration\BuildConfiguration.cs" />
     <Compile Include="System\BuildHostPlatform.cs" />
     <Compile Include="System\FlatCPPIncludeDepencencyCache.cs" />
-    <Compile Include="System\Distcc.cs" />
     <Compile Include="System\ModuleDescriptor.cs" />
     <Compile Include="System\PluginDescriptor.cs" />
     <Compile Include="System\ProjectDescriptor.cs" />
-    <Compile Include="System\SNDBS.cs" />
     <Compile Include="System\DirectoryLookupCache.cs" />
     <Compile Include="System\CPPHeaders.cs" />
     <Compile Include="System\DependencyCache.cs" />
@@ -340,22 +333,14 @@
     <Compile Include="System\FileItem.cs" />
     <Compile Include="System\JunkDeleter.cs" />
     <Compile Include="System\LinkEnvironment.cs" />
-    <Compile Include="System\LocalExecutor.cs" />
     <Compile Include="System\Plugins.cs" />
-    <Compile Include="System\RPCUtilHelper.cs" />
     <Compile Include="System\RulesCompiler.cs" />
     <Compile Include="System\SourceFileSearch.cs" />
-    <Compile Include="System\Telemetry.cs" />
     <Compile Include="System\UEPlatformProjectGenerator.cs" />
     <Compile Include="System\Unity.cs" />
     <Compile Include="System\UProjectInfo.cs" />
     <Compile Include="System\Utils.cs" />
-    <Compile Include="ToolChain\RemoteToolChain.cs" />
     <Compile Include="ToolChain\UEToolChain.cs" />
-    <Compile Include="System\XGE.cs" />
-    <Compile Include="Utilities\GraphVisualization.cs">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="Platform\Windows\UEBuildWindows.cs" />
     <Compile Include="Platform\Windows\VCEnvironment.cs" />
     <Compile Include="Platform\Windows\VCToolChain.cs" />
@@ -412,7 +397,5 @@
       <Name>DotNETUtilities</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="ProjectFiles\VisualStudioMac\" />
-  </ItemGroup>
+  <ItemGroup />
 </Project>

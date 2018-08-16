@@ -16,7 +16,7 @@
  */
 class COREUOBJECT_API UMetaData : public UObject
 {
-	DECLARE_CLASS_INTRINSIC(UMetaData, UObject, 0, TEXT("/Script/CoreUObject"))
+	DECLARE_CLASS_INTRINSIC(UMetaData, UObject, CLASS_MatchedSerializers, TEXT("/Script/CoreUObject"))
 
 public:
 	/**
@@ -123,6 +123,7 @@ public:
 
 	// UObject interface
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FStructuredArchive::FRecord Record) override;
 	virtual bool NeedsLoadForEditorGame() const override;
 	virtual bool IsAsset() const override { return false; }
 	// End of UObject interface

@@ -47,13 +47,12 @@ UCineCameraComponent::UCineCameraComponent()
 
 	RecalcDerivedData();
 
+#if WITH_EDITORONLY_DATA
 	if (!IsRunningCommandlet())
 	{
-#if WITH_EDITORONLY_DATA
 		// overrides CameraComponent's camera mesh
 		static ConstructorHelpers::FObjectFinder<UStaticMesh> EditorCameraMesh(TEXT("/Engine/EditorMeshes/Camera/SM_CineCam.SM_CineCam"));
 		CameraMesh = EditorCameraMesh.Object;
-#endif
 	}
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> PlaneMesh(TEXT("/Engine/ArtTools/RenderToTexture/Meshes/S_1_Unit_Plane.S_1_Unit_Plane"));
@@ -61,6 +60,7 @@ UCineCameraComponent::UCineCameraComponent()
 
 	static ConstructorHelpers::FObjectFinder<UMaterial> PlaneMat(TEXT("/Engine/EngineDebugMaterials/M_SimpleTranslucent.M_SimpleTranslucent"));
 	FocusPlaneVisualizationMaterial = PlaneMat.Object;
+#endif
 }
 
 void UCineCameraComponent::PostInitProperties()
@@ -90,6 +90,7 @@ static const FColor DebugFocusPointOutlineColor = FColor::Black;
 
 void UCineCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
+#if WITH_EDITORONLY_DATA
 	// make sure drawing is set up
 	if (FocusSettings.bDrawDebugFocusPlane)
 	{
@@ -107,6 +108,7 @@ void UCineCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 			DestroyDebugFocusPlane();
 		}
 	}
+#endif
 
 #if ENABLE_DRAW_DEBUG
 	if (FocusSettings.TrackingFocusSettings.bDrawDebugTrackingFocusPoint)
@@ -364,6 +366,7 @@ FText UCineCameraComponent::GetFilmbackText() const
 }
 #endif
 
+#if WITH_EDITORONLY_DATA
 void UCineCameraComponent::UpdateDebugFocusPlane()
 {
 	if (FocusPlaneVisualizationMesh && DebugFocusPlaneComponent)
@@ -378,6 +381,7 @@ void UCineCameraComponent::UpdateDebugFocusPlane()
 		DebugFocusPlaneComponent->SetWorldLocation(FocusPoint);
 	}
 }
+#endif
 
 void UCineCameraComponent::UpdateCameraLens(float DeltaTime, FMinimalViewInfo& DesiredView)
 {
@@ -438,6 +442,7 @@ void UCineCameraComponent::NotifyCameraCut()
 	bResetInterpolation = true;
 }
 
+#if WITH_EDITORONLY_DATA
 void UCineCameraComponent::CreateDebugFocusPlane()
 {
 	if (AActor* const MyOwner = GetOwner())
@@ -446,7 +451,7 @@ void UCineCameraComponent::CreateDebugFocusPlane()
 		{
 			DebugFocusPlaneComponent = NewObject<UStaticMeshComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
 			DebugFocusPlaneComponent->SetupAttachment(this);
-			DebugFocusPlaneComponent->bIsEditorOnly = false;
+			DebugFocusPlaneComponent->SetIsVisualizationComponent(true);
 			DebugFocusPlaneComponent->SetStaticMesh(FocusPlaneVisualizationMesh);
 			DebugFocusPlaneComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			DebugFocusPlaneComponent->bHiddenInGame = false;
@@ -479,6 +484,7 @@ void UCineCameraComponent::DestroyDebugFocusPlane()
 		DebugFocusPlaneMID = nullptr;
 	}
 }
+#endif
 
 void UCineCameraComponent::OnRegister()
 {
