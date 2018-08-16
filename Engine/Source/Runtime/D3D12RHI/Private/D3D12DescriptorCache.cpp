@@ -54,21 +54,21 @@ void FD3D12DescriptorCache::HeapLoopedAround(D3D12_DESCRIPTOR_HEAP_TYPE Type)
 }
 
 FD3D12DescriptorCache::FD3D12DescriptorCache(FRHIGPUMask Node)
-	: LocalViewHeap(nullptr)
-	, SubAllocatedViewHeap(nullptr, Node, this)
-	, LocalSamplerHeap(nullptr, Node, this)
-	, SamplerMap(271) // Prime numbers for better hashing
-	, bUsingGlobalSamplerHeap(false)
+	: FD3D12DeviceChild(nullptr)
+	, FD3D12SingleNodeGPUObject(Node)
+	, pNullSRV(nullptr)
+	, pNullRTV(nullptr)
+	, pNullUAV(nullptr)
 	, pPreviousViewHeap(nullptr)
 	, pPreviousSamplerHeap(nullptr)
 	, CurrentViewHeap(nullptr)
 	, CurrentSamplerHeap(nullptr)
+	, LocalViewHeap(nullptr)
+	, LocalSamplerHeap(nullptr, Node, this)
+	, SubAllocatedViewHeap(nullptr, Node, this)
+	, SamplerMap(271) // Prime numbers for better hashing
+	, bUsingGlobalSamplerHeap(false)
 	, NumLocalViewDescriptors(0)
-	, pNullSRV(nullptr)
-	, pNullRTV(nullptr)
-	, pNullUAV(nullptr)
-	, FD3D12DeviceChild(nullptr)
-	, FD3D12SingleNodeGPUObject(Node)
 {
 	CmdContext = nullptr;
 }
@@ -427,7 +427,7 @@ void FD3D12DescriptorCache::SetStreamOutTargets(FD3D12Resource** Buffers, uint32
 		return; // No-op
 	}
 
-	D3D12_STREAM_OUTPUT_BUFFER_VIEW SOViews[D3D12_SO_BUFFER_SLOT_COUNT] = { 0 };
+	D3D12_STREAM_OUTPUT_BUFFER_VIEW SOViews[D3D12_SO_BUFFER_SLOT_COUNT] = { };
 
 	FD3D12CommandListHandle& CommandList = CmdContext->CommandListHandle;
 
@@ -927,15 +927,15 @@ void FD3D12GlobalOnlineHeap::Init(uint32 TotalSize, D3D12_DESCRIPTOR_HEAP_TYPE T
 	}
 }
 
-FD3D12OnlineHeap::FD3D12OnlineHeap(FD3D12Device* Device, FRHIGPUMask Node, bool CanLoopAround, FD3D12DescriptorCache* _Parent) :
-	DescriptorSize(0)
-	, Desc({})
+FD3D12OnlineHeap::FD3D12OnlineHeap(FD3D12Device* Device, FRHIGPUMask Node, bool CanLoopAround, FD3D12DescriptorCache* _Parent)
+	: FD3D12DeviceChild(Device)
+	, FD3D12SingleNodeGPUObject(Node)
+	, Parent(_Parent)
+	, DescriptorSize(0)
 	, NextSlotIndex(0)
 	, FirstUsedSlot(0)
-	, Parent(_Parent)
+	, Desc({})
 	, bCanLoopAround(CanLoopAround)
-	, FD3D12DeviceChild(Device)
-	, FD3D12SingleNodeGPUObject(Node)
 {};
 
 bool FD3D12OnlineHeap::CanReserveSlots(uint32 NumSlots)

@@ -3,6 +3,7 @@
 
 #include "Components/ShapeComponent.h"
 #include "AI/Navigation/NavAreaBase.h"
+#include "AI/NavigationSystemBase.h"
 #include "PhysicsEngine/BoxElem.h"
 #include "PhysicsEngine/SphereElem.h"
 #include "PhysicsEngine/SphylElem.h"
@@ -31,8 +32,7 @@ UShapeComponent::UShapeComponent(const FObjectInitializer& ObjectInitializer)
 	bHasCustomNavigableGeometry = EHasCustomNavigableGeometry::Yes;
 	bCanEverAffectNavigation = true;
 	bDynamicObstacle = false;
-	// mz@todo
-	//AreaClass = UNavArea_Obstacle::StaticClass();
+	AreaClass = FNavigationSystem::GetDefaultObstacleArea();
 
 	// Ignore streaming updates since GetUsedMaterials() is not implemented.
 	bIgnoreStreamingManagerUpdate = true;

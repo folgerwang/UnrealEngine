@@ -777,9 +777,9 @@ struct FXAudioDeviceProperties final : public IDeviceChangedListener
 
 	FXAudioDeviceProperties()
 		: XAudio2(nullptr)
-		, AudioClockVoice(nullptr)
 		, MasteringVoice(nullptr)
 		, XAudio2Dll(nullptr)
+		, AudioClockVoice(nullptr)
 		, NumActiveVoices(0)
 		, bDeviceChanged(false)
 		, bAllowNewVoices(true)

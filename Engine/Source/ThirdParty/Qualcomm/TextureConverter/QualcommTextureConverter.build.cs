@@ -38,6 +38,7 @@ public class QualcommTextureConverter : ModuleRules
 				LibraryExtension = ".so";
 				LibraryName = LibraryPath + "/lib" + LibraryName;
 
+				PrivateRuntimeLibraryPaths.Add("$(EngineDir)/Binaries/ThirdParty/Qualcomm/Linux");
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/Qualcomm/Linux/libTextureConverter.so");
 			}
 

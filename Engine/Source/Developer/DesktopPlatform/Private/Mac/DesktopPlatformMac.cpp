@@ -284,7 +284,7 @@ bool FDesktopPlatformMac::OpenDirectoryDialog(const void* ParentWindowHandle, co
 			if (Result == NSFileHandlingPanelOKButton)
 			{
 				NSURL *FolderURL = [[Panel URLs] objectAtIndex: 0];
-				TCHAR FolderPath[MAX_PATH];
+				TCHAR FolderPath[MAC_MAX_PATH];
 				FPlatformString::CFStringToTCHAR((CFStringRef)[FolderURL path], FolderPath);
 				OutFolderName = FolderPath;
 				FPaths::NormalizeFilename(OutFolderName);
@@ -333,7 +333,7 @@ bool FDesktopPlatformMac::OpenFontDialog(const void* ParentWindowHandle, FString
 			{
 				NSFont* Font = [Panel panelConvertFont: [NSFont userFontOfSize: 0]];
 
-				TCHAR FontName[MAX_PATH];
+				TCHAR FontName[MAC_MAX_PATH];
 				FPlatformString::CFStringToTCHAR((CFStringRef)[Font fontName], FontName);
 
 				OutFontName = FontName;
@@ -424,7 +424,7 @@ bool FDesktopPlatformMac::FileDialogShared(bool bSave, const void* ParentWindowH
 			{
 				if (bSave)
 				{
-					TCHAR FilePath[MAX_PATH];
+					TCHAR FilePath[MAC_MAX_PATH];
 					FPlatformString::CFStringToTCHAR((CFStringRef)[[Panel URL] path], FilePath);
 					new(OutFilenames) FString(FilePath);
 				}
@@ -433,7 +433,7 @@ bool FDesktopPlatformMac::FileDialogShared(bool bSave, const void* ParentWindowH
 					NSOpenPanel* OpenPanel = (NSOpenPanel*)Panel;
 					for (NSURL *FileURL in [OpenPanel URLs])
 					{
-						TCHAR FilePath[MAX_PATH];
+						TCHAR FilePath[MAC_MAX_PATH];
 						FPlatformString::CFStringToTCHAR((CFStringRef)[FileURL path], FilePath);
 						new(OutFilenames) FString(FilePath);
 					}

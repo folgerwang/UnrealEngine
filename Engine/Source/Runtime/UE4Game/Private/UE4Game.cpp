@@ -12,6 +12,5 @@ IMPLEMENT_MODULE(FDefaultModuleImpl, UE4Game);
 PER_MODULE_BOILERPLATE
 bool GIsGameAgnosticExe = true;
 TCHAR GInternalProjectName[64] = TEXT("");
-IMPLEMENT_DEBUGGAME()
 IMPLEMENT_FOREIGN_ENGINE_DIR()
 #endif

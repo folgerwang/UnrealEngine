@@ -164,6 +164,14 @@ FORCEINLINE float VectorGetComponent(VectorRegister Vec, uint32 ComponentIndex)
 #define VectorLoadFloat1( Ptr )			_mm_load1_ps( (float*)(Ptr) )
 
 /**
+ * Loads 2 floats from unaligned memory into X and Y and duplicates them in Z and W.
+ *
+ * @param Ptr	Unaligned memory pointer to the floats
+ * @return		VectorRegister(Ptr[0], Ptr[1], Ptr[0], Ptr[1])
+ */
+#define VectorLoadFloat2( Ptr )			_mm_castpd_ps(_mm_load1_pd((double*)(Ptr)))
+
+/**
  * Creates a vector out of three FLOATs and leaves W undefined.
  *
  * @param X		1st float component

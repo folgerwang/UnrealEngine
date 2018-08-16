@@ -93,31 +93,33 @@ void USoundCue::CacheAggregateValues()
 	}
 }
 
-void USoundCue::Serialize(FArchive& Ar)
+void USoundCue::Serialize(FStructuredArchive::FRecord Record)
 {
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
+
 	// Always force the duration to be updated when we are saving or cooking
-	if (Ar.IsSaving() || Ar.IsCooking())
+	if (UnderlyingArchive.IsSaving() || UnderlyingArchive.IsCooking())
 	{
 		Duration = (FirstNode ? FirstNode->GetDuration() : 0.f);
 		CacheAggregateValues();
 	}
 
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 
-	if (Ar.UE4Ver() >= VER_UE4_COOKED_ASSETS_IN_EDITOR_SUPPORT)
+	if (UnderlyingArchive.UE4Ver() >= VER_UE4_COOKED_ASSETS_IN_EDITOR_SUPPORT)
 	{
-		FStripDataFlags StripFlags(Ar);
+		FStripDataFlags StripFlags(Record.EnterField(FIELD_NAME_TEXT("SoundCueStripFlags")));
 #if WITH_EDITORONLY_DATA
 		if (!StripFlags.IsEditorDataStripped())
 		{
-			Ar << SoundCueGraph;
+			Record << NAMED_FIELD(SoundCueGraph);
 		}
 #endif
 	}
 #if WITH_EDITOR
 	else
 	{
-		Ar << SoundCueGraph;
+		Record << NAMED_FIELD(SoundCueGraph);
 	}
 #endif
 }

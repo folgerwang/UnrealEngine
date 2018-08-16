@@ -325,6 +325,22 @@ bool FString::EndsWith(const FString& InSuffix, ESearchCase::Type SearchCase ) c
 	}
 }
 
+bool FString::RemoveFromStart( const TCHAR* InPrefix, ESearchCase::Type SearchCase )
+{
+	if ( *InPrefix == 0 )
+	{
+		return false;
+	}
+
+	if ( StartsWith( InPrefix, SearchCase ) )
+	{
+		RemoveAt( 0, FCString::Strlen(InPrefix) );
+		return true;
+	}
+
+	return false;
+}
+
 bool FString::RemoveFromStart( const FString& InPrefix, ESearchCase::Type SearchCase )
 {
 	if ( InPrefix.IsEmpty() )
@@ -335,6 +351,23 @@ bool FString::RemoveFromStart( const FString& InPrefix, ESearchCase::Type Search
 	if ( StartsWith( InPrefix, SearchCase ) )
 	{
 		RemoveAt( 0, InPrefix.Len() );
+		return true;
+	}
+
+	return false;
+}
+
+bool FString::RemoveFromEnd( const TCHAR* InSuffix, ESearchCase::Type SearchCase )
+{
+	if ( *InSuffix == 0 )
+	{
+		return false;
+	}
+
+	if ( EndsWith( InSuffix, SearchCase ) )
+	{
+		int32 SuffixLen = FCString::Strlen(InSuffix);
+		RemoveAt( Len() - SuffixLen, SuffixLen );
 		return true;
 	}
 

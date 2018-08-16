@@ -145,15 +145,18 @@ FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* Sou
 
 					for (UEdGraphNode* Node : ChildGraph->Nodes)
 					{
-						if (NodeGuids.Contains(Node->NodeGuid))
+						if (Node)
 						{
-							bNodeGuidsRegenerated = true;
+							if (NodeGuids.Contains(Node->NodeGuid))
+							{
+								bNodeGuidsRegenerated = true;
 							
-							Node->CreateNewGuid(); // GUID is already being used, create a new one.
-						}
-						else
-						{
-							NodeGuids.Add(Node->NodeGuid);
+								Node->CreateNewGuid(); // GUID is already being used, create a new one.
+							}
+							else
+							{
+								NodeGuids.Add(Node->NodeGuid);
+							}
 						}
 					}
 				}
@@ -236,6 +239,11 @@ void FAnimBlueprintCompilerContext::CreateEvaluationHandlerStruct(UAnimGraphNode
 	// Shouldn't create a handler if there is nothing to work with
 	check(Record.ServicedProperties.Num() > 0);
 	check(Record.NodeVariableProperty != NULL);
+
+	if (Record.IsFastPath())
+	{
+		return;
+	}
 
 	// Use the node GUID for a stable name across compiles
 	FString FunctionName = FString::Printf(TEXT("%s_%s_%s_%s"), *Record.EvaluationHandlerProperty->GetName(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString());

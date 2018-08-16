@@ -36,7 +36,7 @@ public class SharedCookedBuild
 		List<string> CookedBuildPaths;
 		if (Hierarchy.GetArray("SharedCookedBuildSettings", "SharedCookedBuildPath", out CookedBuildPaths) == false)
 		{
-			CommandUtils.Log("Unable to copy shared cooked build: SharedCookedBuildPath not set in Engine.ini SharedCookedBuildSettings");
+			CommandUtils.LogInformation("Unable to copy shared cooked build: SharedCookedBuildPath not set in Engine.ini SharedCookedBuildSettings");
 			return false;
 		}
 
@@ -49,13 +49,13 @@ public class SharedCookedBuild
 			{
 				if (CurrentCL == "" && FinalCookedBuildPath.Contains("[CL]"))
 				{
-					CommandUtils.Log("Unable to copy shared cooked build: Unable to determine CL number from P4 or UGS, and is required by SharedCookedBuildPath");
+					CommandUtils.LogInformation("Unable to copy shared cooked build: Unable to determine CL number from P4 or UGS, and is required by SharedCookedBuildPath");
 					return false;
 				}
 
 				if (CurrentCL == "" && FinalCookedBuildPath.Contains("[BRANCHNAME]"))
 				{
-					CommandUtils.Log("Unable to copy shared cooked build: Unable to determine BRANCHNAME number from P4 or UGS, and is required by SharedCookedBuildPath");
+					CommandUtils.LogInformation("Unable to copy shared cooked build: Unable to determine BRANCHNAME number from P4 or UGS, and is required by SharedCookedBuildPath");
 					return false;
 				}
 
@@ -168,24 +168,24 @@ public class SharedCookedBuild
 			BuildCL = File.ReadAllText(SyncedBuildFile);
 		}
 
-		CommandUtils.Log("Attempting download of latest shared build from {0}", CookedBuildPath);
+		CommandUtils.LogInformation("Attempting download of latest shared build from {0}", CookedBuildPath);
 
 		string SavedBuildCL = string.Format( "{0} {1}", CookedBuildPath, bOnlyCopyAssetRegistry ? "RegistryOnly" : "" );
 
 		if (BuildCL == SavedBuildCL)
 		{
-			CommandUtils.Log("Already downloaded latest shared build at CL {0}", SavedBuildCL);
+			CommandUtils.LogInformation("Already downloaded latest shared build at CL {0}", SavedBuildCL);
 			return false;
 		}
 
 		if (Directory.Exists(CookedBuildPath) == false)
 		{
-			CommandUtils.Log("Unable to copy shared cooked build: Unable to find shared build at location {0} check SharedCookedBuildPath in Engine.ini SharedCookedBuildSettings is correct", CookedBuildPath);
+			CommandUtils.LogInformation("Unable to copy shared cooked build: Unable to find shared build at location {0} check SharedCookedBuildPath in Engine.ini SharedCookedBuildSettings is correct", CookedBuildPath);
 			return false;
 		}
 		
 		// delete all the stuff
-		CommandUtils.Log("Deleting previous shared build because it was out of date");
+		CommandUtils.LogInformation("Deleting previous shared build because it was out of date");
 		CommandUtils.DeleteDirectory(LocalPath);
 		Directory.CreateDirectory(LocalPath);
 

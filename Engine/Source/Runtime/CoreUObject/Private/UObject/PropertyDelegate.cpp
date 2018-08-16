@@ -6,6 +6,7 @@
 #include "UObject/UnrealType.h"
 #include "UObject/PropertyHelper.h"
 #include "UObject/LinkerPlaceholderFunction.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 /*-----------------------------------------------------------------------------
 	UDelegateProperty.
@@ -58,9 +59,9 @@ bool UDelegateProperty::Identical( const void* A, const void* B, uint32 PortFlag
 }
 
 
-void UDelegateProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UDelegateProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, void const* Defaults) const
 {
-	Ar << *GetPropertyValuePtr(Value);
+	Slot << *GetPropertyValuePtr(Value);
 }
 
 

@@ -2054,7 +2054,12 @@ UUserWidget* UUserWidget::CreateInstanceInternal(UObject* Outer, TSubclassOf<UUs
 #if !WITH_EDITOR && (UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
 	else
 	{
-		UE_LOG(LogUMG, Warning, TEXT("Widget Class %s - Using Slow CreateWidget path because this class could not be templated."), *UserWidgetClass->GetName());
+		// Nativized widget blueprint class types (UDynamicClass) do not currently support the fast path (see FWidgetBlueprintCompiler::CanAllowTemplate), so we bypass the runtime warning in that case.
+		const bool bIsDynamicClass = Cast<UDynamicClass>(UserWidgetClass) != nullptr;
+		if (!bIsDynamicClass)
+		{
+			UE_LOG(LogUMG, Warning, TEXT("Widget Class %s - Using Slow CreateWidget path because this class could not be templated."), *UserWidgetClass->GetName());
+		}
 	}
 #endif
 

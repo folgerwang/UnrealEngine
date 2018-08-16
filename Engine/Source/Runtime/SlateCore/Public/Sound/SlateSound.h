@@ -48,7 +48,7 @@ public:
 	/**
 	 * Used to upgrade a FName property to a FSlateSound property
 	 */
-	bool SerializeFromMismatchedTag( struct FPropertyTag const& Tag, FArchive& Ar );
+	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot);
 
 public:
 

@@ -522,7 +522,7 @@ void ARecastNavMesh::OnNavAreaChanged()
 
 int32 ARecastNavMesh::GetNewAreaID(const UClass* AreaClass) const
 {
-	if (AreaClass == UNavigationSystemV1::GetDefaultWalkableArea())
+	if (AreaClass == FNavigationSystem::GetDefaultWalkableArea())
 	{
 		return RECAST_DEFAULT_AREA;
 	}
@@ -1756,9 +1756,43 @@ void ARecastNavMesh::OnNavMeshGenerationFinished()
 uint32 ARecastNavMesh::LogMemUsed() const 
 {
 	const uint32 SuperMemUsed = Super::LogMemUsed();
+	const int32 headerSize = dtAlign4(sizeof(dtMeshHeader));
+
 	uint32 MemUsed = 0;
 
-	UE_LOG(LogNavigation, Display, TEXT("%s: ARecastNavMesh: %u\n    self: %d"), *GetName(), MemUsed, sizeof(ARecastNavMesh));	
+	if (RecastNavMeshImpl && RecastNavMeshImpl->DetourNavMesh)
+	{
+		const dtNavMesh* const ConstNavMesh = RecastNavMeshImpl->DetourNavMesh;
+
+		for (int TileIndex = 0; TileIndex < RecastNavMeshImpl->DetourNavMesh->getMaxTiles(); ++TileIndex)
+		{
+			const dtMeshTile* Tile = ConstNavMesh->getTile(TileIndex);
+			if (Tile && Tile->header)
+			{
+				dtMeshHeader* const H = (dtMeshHeader*)(Tile->header);
+				const int32 vertsSize = dtAlign4(sizeof(float) * 3 * H->vertCount);
+				const int32 polysSize = dtAlign4(sizeof(dtPoly) * H->polyCount);
+				const int32 linksSize = dtAlign4(sizeof(dtLink) * H->maxLinkCount);
+				const int32 detailMeshesSize = dtAlign4(sizeof(dtPolyDetail) * H->detailMeshCount);
+				const int32 detailVertsSize = dtAlign4(sizeof(float) * 3 * H->detailVertCount);
+				const int32 detailTrisSize = dtAlign4(sizeof(unsigned char) * 4 * H->detailTriCount);
+				const int32 bvTreeSize = dtAlign4(sizeof(dtBVNode) * H->bvNodeCount);
+				const int32 offMeshConsSize = dtAlign4(sizeof(dtOffMeshConnection) * H->offMeshConCount);
+				const int32 offMeshSegsSize = dtAlign4(sizeof(dtOffMeshSegmentConnection) * H->offMeshSegConCount);
+				const int32 clusterSize = dtAlign4(sizeof(dtCluster) * H->clusterCount);
+				const int32 polyClustersSize = dtAlign4(sizeof(unsigned short) * H->detailMeshCount);
+
+				const int32 TileDataSize = headerSize + vertsSize + polysSize + linksSize +
+					detailMeshesSize + detailVertsSize + detailTrisSize +
+					bvTreeSize + offMeshConsSize + offMeshSegsSize +
+					clusterSize + polyClustersSize;
+
+				MemUsed += TileDataSize;
+			}
+		}
+	}
+
+	UE_LOG(LogNavigation, Warning, TEXT("%s: ARecastNavMesh: %u\n    self: %d"), *GetName(), MemUsed, sizeof(ARecastNavMesh));	
 
 	return MemUsed + SuperMemUsed;
 }
@@ -2196,7 +2230,9 @@ void ARecastNavMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 				UpdatePolyRefBitsPreview();
 			}
 
-			if (!HasAnyFlags(RF_ClassDefaultObject) && UNavigationSystemV1::GetIsNavigationAutoUpdateEnabled())
+			if (!HasAnyFlags(RF_ClassDefaultObject) 
+				&& UNavigationSystemV1::GetIsNavigationAutoUpdateEnabled()
+				&& PropName != GET_MEMBER_NAME_CHECKED(ARecastNavMesh, MaxSimultaneousTileGenerationJobsCount))
 			{
 				RebuildAll();
 			}

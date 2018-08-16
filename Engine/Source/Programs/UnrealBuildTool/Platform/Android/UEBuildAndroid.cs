@@ -159,10 +159,6 @@ namespace UnrealBuildTool
 					return ".so";
 				case UEBuildBinaryType.StaticLibrary:
 					return ".a";
-				case UEBuildBinaryType.Object:
-					return ".o";
-				case UEBuildBinaryType.PrecompiledHeader:
-					return ".gch";
 			}
 			return base.GetBinaryExtension(InBinaryType);
 		}
@@ -218,11 +214,6 @@ namespace UnrealBuildTool
 		public override bool ShouldCompileMonolithicBinary(UnrealTargetPlatform InPlatform)
 		{
 			// This platform currently always compiles monolithic
-			return true;
-		}
-
-		public override bool ShouldNotBuildEditor(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
 			return true;
 		}
 

@@ -115,6 +115,7 @@ bool FPluginDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 	Object.TryGetStringField(TEXT("SupportURL"), SupportURL);
 	Object.TryGetStringField(TEXT("EngineVersion"), EngineVersion);
 	Object.TryGetStringArrayField(TEXT("SupportedTargetPlatforms"), SupportedTargetPlatforms);
+	Object.TryGetStringArrayField(TEXT("SupportedPrograms"), SupportedPrograms);
 
 	if (!FModuleDescriptor::ReadArray(Object, TEXT("Modules"), Modules, OutFailReason))
 	{
@@ -203,6 +204,10 @@ void FPluginDescriptor::Write(TJsonWriter<>& Writer) const
 	if(SupportedTargetPlatforms.Num() > 0)
 	{
 		Writer.WriteValue(TEXT("SupportedTargetPlatforms"), SupportedTargetPlatforms);
+	}
+	if (SupportedPrograms.Num() > 0)
+	{
+		Writer.WriteValue(TEXT("SupportedPrograms"), SupportedPrograms);
 	}
 
 	FModuleDescriptor::WriteArray(Writer, TEXT("Modules"), Modules);

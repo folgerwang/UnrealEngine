@@ -1,10 +1,11 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
@@ -181,7 +182,7 @@ namespace UnrealBuildTool
 			catch (Exception Ex)
 			{
 				// Ignore all exceptions
-				Log.TraceInformation("Unable to delete junk directory: \"{0}\". Error: {1}", DirectoryPath, Ex.Message);
+				Log.TraceInformation("Unable to delete junk directory: \"{0}\". Error: {1}", DirectoryPath, Ex.Message.TrimEnd());
 			}
 		}
 
@@ -199,7 +200,7 @@ namespace UnrealBuildTool
 			catch (Exception Ex)
 			{
 				// Ingore all exceptions
-				Log.TraceInformation("Unable to delete junk file: \"{0}\". Error: {1}", Filename, Ex.Message);
+				Log.TraceInformation("Unable to delete junk file: \"{0}\". Error: {1}", Filename, Ex.Message.TrimEnd());
 			}
 		}
 	}

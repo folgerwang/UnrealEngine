@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -18,7 +18,7 @@ class CheckCsprojDotNetVersion : BuildCommand
 		{
 			throw new AutomationException("-TargetVersion was not specified.");
 		}
-		CommandUtils.Log("Scanning for all csproj's...");
+		CommandUtils.LogInformation("Scanning for all csproj's...");
 		// Check for all csproj's in the engine dir
 		DirectoryReference EngineDir = CommandUtils.EngineDirectory;
 
@@ -29,8 +29,8 @@ class CheckCsprojDotNetVersion : BuildCommand
         Regex DotNetCoreRegex = new Regex("<TargetFramework>(netcoreapp2.0|netstandard2.0)<\\/TargetFramework>");
         foreach (FileReference CsProj in DirectoryReference.EnumerateFiles(EngineDir, "*.csproj", SearchOption.AllDirectories))
         {
-            if (CsProj.ContainsName(new FileSystemName("ThirdParty"), EngineDir) ||
-                (CsProj.ContainsName(new FileSystemName("UE4TemplateProject"), EngineDir) && CsProj.GetFileName().Equals("ProjectTemplate.csproj")) ||
+            if (CsProj.ContainsName("ThirdParty", EngineDir) ||
+                (CsProj.ContainsName("UE4TemplateProject", EngineDir) && CsProj.GetFileName().Equals("ProjectTemplate.csproj")) ||
                 CsProj.GetFileNameWithoutExtension().ToLower().Contains("_mono") ||
                 CsProj.GetFileNameWithoutExtension().ToLower().Contains("unrealvs"))
 
@@ -64,7 +64,7 @@ class CheckCsprojDotNetVersion : BuildCommand
                 Match = PossibleAppConfigRegex.Match(Contents);
 				if (!Match.Success)
 				{
-					CommandUtils.Log("No TargetFrameworkVersion or TargetFrameworkProfile found for project {0}, is it a mono project? If not, does it compile properly?", CsProj);
+					CommandUtils.LogInformation("No TargetFrameworkVersion or TargetFrameworkProfile found for project {0}, is it a mono project? If not, does it compile properly?", CsProj);
 					continue;
 				}
 
@@ -73,7 +73,7 @@ class CheckCsprojDotNetVersion : BuildCommand
 				string Profile = Match.Groups[1].Value;
 				if (!FileReference.Exists(AppConfigFile))
 				{
-					CommandUtils.Log("Found TargetFrameworkProfile but no associated app.config containing the version for project {0}.", CsProj);
+					CommandUtils.LogInformation("Found TargetFrameworkProfile but no associated app.config containing the version for project {0}.", CsProj);
 					continue;
 				}
 
@@ -82,7 +82,7 @@ class CheckCsprojDotNetVersion : BuildCommand
                 Match = AppConfigRegex.Match(Contents);
 				if (!Match.Success)
 				{
-					CommandUtils.Log("Couldn't find a supportedRuntime match for the version in the app.config for project {0}.", CsProj);
+					CommandUtils.LogInformation("Couldn't find a supportedRuntime match for the version in the app.config for project {0}.", CsProj);
 					continue;
 				}
 

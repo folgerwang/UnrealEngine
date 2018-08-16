@@ -30,7 +30,7 @@ namespace PlatformProcessLimits
 {
 	enum
 	{
-		MaxUserHomeDirLength = MAX_PATH + 1
+		MaxUserHomeDirLength = UNIX_MAX_PATH + 1
 	};
 };
 
@@ -119,7 +119,7 @@ namespace PlatformProcessLimits
 	enum
 	{
 		MaxComputerName	= 128,
-		MaxBaseDirLength= MAX_PATH + 1,
+		MaxBaseDirLength= UNIX_MAX_PATH + 1,
 		MaxArgvParameters = 256,
 		MaxUserName = LOGIN_NAME_MAX
 	};
@@ -214,15 +214,15 @@ const TCHAR* FUnixPlatformProcess::UserDir()
 	// On Unix (just like on Mac) this corresponds to $HOME/Documents.
 	// To accomodate localization requirement we use xdg-user-dir command,
 	// and fall back to $HOME/Documents if setting not found.
-	static TCHAR Result[MAX_PATH] = {0};
+	static TCHAR Result[UNIX_MAX_PATH] = {0};
 
 	if (!Result[0])
 	{
 		FILE* FilePtr = popen("xdg-user-dir DOCUMENTS", "r");
 		if (FilePtr)
 		{
-			char DocPath[MAX_PATH];
-			if (fgets(DocPath, MAX_PATH, FilePtr) != nullptr)
+			char DocPath[UNIX_MAX_PATH];
+			if (fgets(DocPath, UNIX_MAX_PATH, FilePtr) != nullptr)
 			{
 				size_t DocLen = strlen(DocPath) - 1;
 				if (DocLen > 0)
@@ -289,7 +289,7 @@ const TCHAR* FUnixPlatformProcess::ApplicationSettingsDir()
 {
 	// The ApplicationSettingsDir is where the engine stores settings and configuration
 	// data.  On linux this corresponds to $HOME/.config/Epic
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[UNIX_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		FCString::Strncpy(Result, FPlatformProcess::UserHomeDir(), ARRAY_COUNT(Result));
@@ -369,7 +369,7 @@ FString FUnixPlatformProcess::GenerateApplicationPath( const FString& AppName, E
 	FString PlatformName = FPlatformProcess::GetBinariesSubdirectory();
 	FString ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s"), *PlatformName, *AppName);
 	
-	if (BuildConfiguration != EBuildConfigurations::Development && BuildConfiguration != EBuildConfigurations::DebugGame)
+	if (BuildConfiguration != EBuildConfigurations::Development)
 	{
 		ExecutablePath += FString::Printf(TEXT("-%s-%s"), *PlatformName, EBuildConfigurations::ToString(BuildConfiguration));
 	}
@@ -1431,7 +1431,7 @@ void FUnixPlatformProcess::SetCurrentWorkingDirectoryToBaseDir()
 FString FUnixPlatformProcess::GetCurrentWorkingDirectory()
 {
 	// get the current directory
-	ANSICHAR CurrentDir[MAX_PATH] = { 0 };
+	ANSICHAR CurrentDir[UNIX_MAX_PATH] = { 0 };
 	(void)getcwd(CurrentDir, sizeof(CurrentDir));
 	return UTF8_TO_TCHAR(CurrentDir);
 }
@@ -1569,7 +1569,7 @@ void FUnixPlatformProcess::LaunchFileInDefaultExternalApplication( const TCHAR* 
 void FUnixPlatformProcess::ExploreFolder( const TCHAR* FilePath )
 {
 	struct stat st;
-	TCHAR TruncatedPath[MAX_PATH] = TEXT("");
+	TCHAR TruncatedPath[UNIX_MAX_PATH] = TEXT("");
 	FCString::Strcpy(TruncatedPath, FilePath);
 
 	if (stat(TCHAR_TO_UTF8(FilePath), &st) == 0)

@@ -18,6 +18,12 @@ struct CORE_API FMacPlatformMisc : public FApplePlatformMisc
 	static void PlatformInit();
 	static void PlatformTearDown();
 	static void SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value);
+
+	FORCEINLINE static int32 GetMaxPathLength()
+	{
+		return MAC_MAX_PATH;
+	}
+
 	static const TCHAR* GetPathVarDelimiter()
 	{
 		return TEXT(":");

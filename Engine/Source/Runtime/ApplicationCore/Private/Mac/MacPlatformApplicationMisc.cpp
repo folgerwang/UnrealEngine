@@ -8,7 +8,7 @@
 #include "Misc/App.h"
 #include "Modules/ModuleManager.h"
 #include "Mac/MacConsoleOutputDevice.h"
-#include "Mac/MacErrorOutputDevice.h"
+#include "Mac/MacApplicationErrorOutputDevice.h"
 #include "Mac/MacFeedbackContext.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/OutputDeviceRedirector.h"
@@ -16,6 +16,7 @@
 #include "HAL/FeedbackContextAnsi.h"
 #include "Mac/CocoaMenu.h"
 #include "Mac/CocoaThread.h"
+#include "Mac/MacPlatformOutputDevices.h"
 
 #include <dlfcn.h>
 #include <IOKit/IOKitLib.h>
@@ -337,7 +338,7 @@ class FOutputDeviceConsole* FMacPlatformApplicationMisc::CreateConsoleOutputDevi
 
 class FOutputDeviceError* FMacPlatformApplicationMisc::GetErrorOutputDevice()
 {
-	static FMacErrorOutputDevice Singleton;
+	static FMacApplicationErrorOutputDevice Singleton;
 	return &Singleton;
 }
 
@@ -347,8 +348,7 @@ class FFeedbackContext* FMacPlatformApplicationMisc::GetFeedbackContext()
 	static FMacFeedbackContext Singleton;
 	return &Singleton;
 #else
-	static FFeedbackContextAnsi Singleton;
-	return &Singleton;
+	return FMacPlatformOutputDevices::GetFeedbackContext();
 #endif
 }
 

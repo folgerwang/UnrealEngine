@@ -6,13 +6,13 @@
 #include "MovieSceneFrameMigration.h"
 
 
-bool FMovieSceneFloatChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)
+bool FMovieSceneFloatChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
 {
 	static const FName RichCurveName("RichCurve");
 	if (Tag.Type == NAME_StructProperty && Tag.StructName == RichCurveName)
 	{
 		FRichCurve RichCurve;
-		FRichCurve::StaticStruct()->SerializeItem(Ar, &RichCurve, nullptr);
+		FRichCurve::StaticStruct()->SerializeItem(Slot, &RichCurve, nullptr);
 
 		if (RichCurve.GetDefaultValue() != MAX_flt)
 		{

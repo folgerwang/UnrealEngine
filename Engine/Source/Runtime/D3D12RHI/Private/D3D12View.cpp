@@ -202,7 +202,7 @@ FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FStructu
 
 FShaderResourceViewRHIRef FD3D12DynamicRHI::RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBufferRHI, uint32 Stride, uint8 Format)
 {
-	struct FD3D12InitializeVertexBufferSRVRHICommand : public FRHICommand<FD3D12InitializeVertexBufferSRVRHICommand>
+	struct FD3D12InitializeVertexBufferSRVRHICommand final : public FRHICommand<FD3D12InitializeVertexBufferSRVRHICommand>
 	{
 		FD3D12VertexBuffer* VertexBuffer;
 		FD3D12ShaderResourceView* SRV;

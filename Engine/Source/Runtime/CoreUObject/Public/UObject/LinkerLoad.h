@@ -141,7 +141,8 @@ private:
 	TOptional<FStructuredArchive::FRecord> StructuredArchiveRootRecord;
 
 	/** A map of full object path name to package index. Used with text assets to resolve incoming string names to an export */
-	TMap<FName, FPackageIndex> ObjectNameToPackageIndex;
+	TMap<FName, FPackageIndex> ObjectNameToPackageImportIndex;
+	TMap<FName, FPackageIndex> ObjectNameToPackageExportIndex;
 
 protected:
 

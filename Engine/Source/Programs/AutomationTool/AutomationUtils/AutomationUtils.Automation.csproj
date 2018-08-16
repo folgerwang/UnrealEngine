@@ -83,7 +83,7 @@
     <Compile Include="StagedDirectoryReference.cs" />
     <Compile Include="StagedFileReference.cs" />
     <Compile Include="StagedFileSystemReference.cs" />
-    <Compile Include="ThreadPoolWorkQueue.cs" />
+    <Compile Include="StreamUtils.cs" />
     <Compile Include="UBTUtils.cs" />
     <Compile Include="UE4Build.cs" />
     <Compile Include="Utils.cs" />

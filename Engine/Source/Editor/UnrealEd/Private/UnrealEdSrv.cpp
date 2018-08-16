@@ -108,11 +108,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdSrv, Log, All);
 
 #define LOCTEXT_NAMESPACE "UnrealEdSrv"
 
-//@hack: this needs to be cleaned up!
-static TCHAR TempStr[MAX_EDCMD];
-static uint16 Word1;
-
-
 /**
  * Dumps a set of selected objects to debugf.
  */
@@ -281,8 +276,8 @@ UPackage* UUnrealEdEngine::GeneratePackageThumbnailsIfRequired( const TCHAR* Str
 	UPackage* Pkg = NULL;
 	if( FParse::Command( &Str, TEXT( "SavePackage" ) ) )
 	{
-		static TCHAR TempFname[MAX_EDCMD];
-		if( FParse::Value( Str, TEXT( "FILE=" ), TempFname, 256 ) && ParseObject<UPackage>( Str, TEXT( "Package=" ), Pkg, NULL ) )
+		FString TempFname;
+		if( FParse::Value( Str, TEXT( "FILE=" ), TempFname ) && ParseObject<UPackage>( Str, TEXT( "Package=" ), Pkg, NULL ) )
 		{
 			// Update any thumbnails for objects in this package that were modified or generate
 			// new thumbnails for objects that don't have any
@@ -1598,6 +1593,9 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 
 		if (bComponentsSelected)
 		{
+			// Same transaction language used in CopySelectedActorsToClipboard below
+			const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "Cut", "Cut"));
+
 			edactCopySelected(InWorld);
 			edactDeleteSelected(InWorld);
 		}
@@ -1649,16 +1647,18 @@ bool UUnrealEdEngine::Exec_Edit( UWorld* InWorld, const TCHAR* Str, FOutputDevic
 			// How should this paste be handled
 			EPasteTo PasteTo = PT_OriginalLocation;
 			FText TransDescription = NSLOCTEXT("UnrealEd", "Paste", "Paste");
-			if (FParse::Value(Str, TEXT("TO="), TempStr, 15))
+
+			FString TempStr;
+			if (FParse::Value(Str, TEXT("TO="), TempStr))
 			{
-				if (!FCString::Strcmp(TempStr, TEXT("HERE")))
+				if (!FCString::Strcmp(*TempStr, TEXT("HERE")))
 				{
 					PasteTo = PT_Here;
 					TransDescription = NSLOCTEXT("UnrealEd", "PasteHere", "Paste Here");
 				}
 				else
 				{
-					if (!FCString::Strcmp(TempStr, TEXT("ORIGIN")))
+					if (!FCString::Strcmp(*TempStr, TEXT("ORIGIN")))
 					{
 						PasteTo = PT_WorldOrigin;
 						TransDescription = NSLOCTEXT("UnrealEd", "PasteToWorldOrigin", "Paste To World Origin");
@@ -1820,14 +1820,11 @@ TArray<FPoly*> GetSelectedPolygons()
 		checkSlow( Actor->IsA(AActor::StaticClass()) );
 		FTransform ActorToWorld = Actor->ActorToWorld();
 		
-		TInlineComponentArray<UStaticMeshComponent*> StaticMeshComponents;
-		Actor->GetComponents(StaticMeshComponents);
-
-		for(int32 j=0; j<StaticMeshComponents.Num(); j++)
+		for (UActorComponent* Component : Actor->GetComponents())
 		{
 			// If its a static mesh component, with a static mesh
-			UStaticMeshComponent* SMComp = StaticMeshComponents[j];
-			if(SMComp->IsRegistered() && SMComp->GetStaticMesh())
+			UStaticMeshComponent* SMComp = Cast<UStaticMeshComponent>(Component);
+			if (SMComp && SMComp->IsRegistered() && SMComp->GetStaticMesh())
 			{
 				UStaticMesh* StaticMesh = SMComp->GetStaticMesh();
 				if ( StaticMesh )
@@ -2000,6 +1997,9 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 {
 	// Keep a pointer to the beginning of the string to use for message displaying purposes
 	const TCHAR* const FullStr = Str;
+
+	// Determine whether or not components are selected (used to properly label transaction names)
+	const bool bComponentsSelected = GetSelectedComponentCount() > 0;
 
 	if( FParse::Command(&Str,TEXT("ADD")) )
 	{
@@ -2563,7 +2563,7 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		// if not specially handled by the current editing mode,
 		if (!bHandled)
 		{
-			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "DeleteActors", "Delete Actors") );
+			const FScopedTransaction Transaction( bComponentsSelected ? NSLOCTEXT("UnrealEd", "DeleteComponents", "Delete Components") : NSLOCTEXT("UnrealEd", "DeleteActors", "Delete Actors") );
 			edactDeleteSelected( InWorld );
 		}
 		return true;
@@ -2746,7 +2746,7 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		if (!bHandled)
 		{
 			//@todo locked levels - if all actor levels are locked, cancel the transaction
-			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "DuplicateActors", "Duplicate Actors") );
+			const FScopedTransaction Transaction( bComponentsSelected ? NSLOCTEXT("UnrealEd", "DuplicateComponents", "Duplicate Components") : NSLOCTEXT("UnrealEd", "DuplicateActors", "Duplicate Actors") );
 
 			// duplicate selected
 			ABrush::SetSuppressBSPRegeneration(true);
@@ -2981,8 +2981,6 @@ bool UUnrealEdEngine::Exec_Mode( const TCHAR* Str, FOutputDevice& Ar )
 		{
 			GEdSelectionLock=!!DWord1;
 		}
-
-		Word1 = MAX_uint16;
 	}
 
 	if( FParse::Value(Str,TEXT("USESIZINGBOX="), DWord1) )
@@ -2993,7 +2991,6 @@ bool UUnrealEdEngine::Exec_Mode( const TCHAR* Str, FOutputDevice& Ar )
 			UseSizingBox=(UseSizingBox == 0) ? 1 : 0;
 		else
 			UseSizingBox=DWord1;
-		Word1=MAX_uint16;
 	}
 	
 	if(GCurrentLevelEditingViewportClient)

@@ -1219,15 +1219,15 @@ FReply FIOSTargetSettingsCustomization::OnInstallProvisionClicked()
 
 		// see if the provision is already installed
 		FString DestName = FPaths::GetBaseFilename(ProvisionPath);
-		TCHAR Path[4096];
+		FString Path;
 #if PLATFORM_MAC
-		FPlatformMisc::GetEnvironmentVariable(TEXT("HOME"), Path, ARRAY_COUNT(Path));
-		FString Destination = FString::Printf(TEXT("\"%s/Library/MobileDevice/Provisioning Profiles/%s.mobileprovision\""), Path, *DestName);
-		FString Destination2 = FString::Printf(TEXT("\"%s/Library/MobileDevice/Provisioning Profiles/%s.mobileprovision\""), Path, FApp::GetProjectName());
+		Path = FPlatformMisc::GetEnvironmentVariable(TEXT("HOME"));
+		FString Destination = FString::Printf(TEXT("\"%s/Library/MobileDevice/Provisioning Profiles/%s.mobileprovision\""), *Path, *DestName);
+		FString Destination2 = FString::Printf(TEXT("\"%s/Library/MobileDevice/Provisioning Profiles/%s.mobileprovision\""), *Path, FApp::GetProjectName());
 #else
-		FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA"), Path, ARRAY_COUNT(Path));
-		FString Destination = FString::Printf(TEXT("%s\\Apple Computer\\MobileDevice\\Provisioning Profiles\\%s.mobileprovision"), Path, *DestName);
-		FString Destination2 = FString::Printf(TEXT("%s\\Apple Computer\\MobileDevice\\Provisioning Profiles\\%s.mobileprovision"), Path, FApp::GetProjectName());
+		Path = FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA"));
+		FString Destination = FString::Printf(TEXT("%s\\Apple Computer\\MobileDevice\\Provisioning Profiles\\%s.mobileprovision"), *Path, *DestName);
+		FString Destination2 = FString::Printf(TEXT("%s\\Apple Computer\\MobileDevice\\Provisioning Profiles\\%s.mobileprovision"), *Path, FApp::GetProjectName());
 #endif
 		if (FPaths::FileExists(Destination) || FPaths::FileExists(Destination2))
 		{
@@ -1348,9 +1348,8 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 		RemoteServerPort = "22";
 	}
 
-	TCHAR Path[4096];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
-	FString Destination = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), Path, *RemoteServerAddress, *(Settings.RSyncUsername));
+	FString Path = FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"));
+	FString Destination = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), *Path, *RemoteServerAddress, *(Settings.RSyncUsername));
 	if (FPaths::FileExists(Destination))
 	{
 		FString MessagePrompt = FString::Printf(TEXT("An SSH Key already exists.  Do you want to replace this key?"));
@@ -1371,9 +1370,8 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 	if (!FPaths::DirectoryExists(DeltaCopyPath))
 	{
 		// if no UE4 bundled version of DeltaCopy, try and use the default install location
-		TCHAR ProgramPath[4096];
-		FPlatformMisc::GetEnvironmentVariable(TEXT("PROGRAMFILES(X86)"), ProgramPath, ARRAY_COUNT(ProgramPath));
-		DeltaCopyPath = FPaths::Combine(ProgramPath, TEXT("DeltaCopy"));
+		FString ProgramPath = FPlatformMisc::GetEnvironmentVariable(TEXT("PROGRAMFILES(X86)"));
+		DeltaCopyPath = FPaths::Combine(*ProgramPath, TEXT("DeltaCopy"));
 	}
 	
 	if (!FPaths::DirectoryExists(DeltaCopyPath))
@@ -1389,7 +1387,7 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 		*DeltaCopyPath,
 		*(Settings.RSyncUsername),
 		*RemoteServerAddress,
-		Path,
+		*Path,
 		*CygwinPath,
 		*EnginePath);
 

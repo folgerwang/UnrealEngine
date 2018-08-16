@@ -180,16 +180,12 @@ public:
 	 * @param Ar The archive to serialize from or into.
 	 * @param G The GUID to serialize.
 	 */
-	friend FArchive& operator<<(FArchive& Ar, FGuid& G)
-	{
-		FStructuredArchiveFromArchive(Ar).GetSlot() << G;
-		return Ar;
-	}
+	CORE_API friend FArchive& operator<<(FArchive& Ar, FGuid& G);
 
 	/**
 	 * Serializes a GUID from or into a structured archive slot.
 	 *
-	 * @param Ar The structured archive slot to serialize from or into.
+	 * @param Slot The structured archive slot to serialize from or into
 	 * @param G The GUID to serialize.
 	 */
 	CORE_API friend void operator<<(FStructuredArchive::FSlot Slot, FGuid& G);
@@ -211,6 +207,12 @@ public:
 	friend void LexFromString(FGuid& Result, const TCHAR* String)
 	{
 		FGuid::Parse(String, Result);
+	}
+
+	bool Serialize(FStructuredArchive::FSlot Slot)
+	{
+		Slot << *this;
+		return true;
 	}
 
 public:

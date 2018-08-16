@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -62,20 +62,6 @@ namespace UnrealBuildTool
 			this.Architecture = Architecture;
 			this.ProjectFile = ProjectFile;
 			this.Version = Version;
-		}
-
-		/// <summary>
-		/// Constructs a TargetInfo for passing to the ModuleRules constructor.
-		/// </summary>
-		/// <param name="Rules">The constructed target rules object. This is null when passed into a TargetRules constructor, but should be valid at all other times.</param>
-		public TargetInfo(ReadOnlyTargetRules Rules)
-		{
-			this.Name = Rules.Name;
-			this.Platform = Rules.Platform;
-			this.Configuration = Rules.Configuration;
-			this.Architecture = Rules.Architecture;
-			this.ProjectFile = Rules.ProjectFile;
-			this.Version = Rules.Version;
 		}
 	}
 }

@@ -41,23 +41,31 @@ bool USoftObjectProperty::Identical( const void* A, const void* B, uint32 PortFl
 	return ObjectA.GetUniqueID() == ObjectB.GetUniqueID();
 }
 
-void USoftObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void USoftObjectProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
 {
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
 	// We never serialize our reference while the garbage collector is harvesting references
 	// to objects, because we don't want soft object pointers to keep objects from being garbage collected
 	// Allow persistent archives so they can keep track of string references. (e.g. FArchiveSaveTagImports)
-	if( !Ar.IsObjectReferenceCollector() || Ar.IsModifyingWeakAndStrongReferences() || Ar.IsPersistent() )
+	if( !UnderlyingArchive.IsObjectReferenceCollector() || UnderlyingArchive.IsModifyingWeakAndStrongReferences() || UnderlyingArchive.IsPersistent() )
 	{
 		FSoftObjectPtr OldValue = *(FSoftObjectPtr*)Value;
-		Ar << *(FSoftObjectPtr*)Value;
+		Slot << *(FSoftObjectPtr*)Value;
 
-		if (Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences()) 
+		if (UnderlyingArchive.IsLoading() || UnderlyingArchive.IsModifyingWeakAndStrongReferences()) 
 		{
 			if (OldValue.GetUniqueID() != ((FSoftObjectPtr*)Value)->GetUniqueID())
 			{
 				CheckValidObject(Value);
 			}
 		}
+	}
+	else
+	{
+		// TODO: This isn't correct, but it keeps binary serialization happy. We should ALWAYS be serializing the pointer
+		// to the archive in this function, and allowing the underlying archive to ignore it if necessary
+		Slot.EnterStream();
 	}
 }
 
@@ -106,7 +114,7 @@ const TCHAR* USoftObjectProperty::ImportText_Internal( const TCHAR* InBuffer, vo
 	}
 }
 
-EConvertFromTypeResult USoftObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult USoftObjectProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	static FName NAME_AssetObjectProperty = "AssetObjectProperty";
 	static FName NAME_SoftObjectPath = "SoftObjectPath";
@@ -114,14 +122,16 @@ EConvertFromTypeResult USoftObjectProperty::ConvertFromType(const FPropertyTag& 
 	static FName NAME_StringAssetReference = "StringAssetReference";
 	static FName NAME_StringClassReference = "StringClassReference";
 
+	FArchive& Archive = Slot.GetUnderlyingArchive();
+
 	if (Tag.Type == NAME_AssetObjectProperty)
 	{
 		// Old name of soft object property, serialize normally
 		uint8* DestAddress = ContainerPtrToValuePtr<uint8>(Data, Tag.ArrayIndex);
 
-		Tag.SerializeTaggedProperty(Ar, this, DestAddress, nullptr);
+		Tag.SerializeTaggedProperty(Slot, this, DestAddress, nullptr);
 
-		if (Ar.IsCriticalError())
+		if (Archive.IsCriticalError())
 		{
 			return EConvertFromTypeResult::CannotConvert;
 		}
@@ -136,14 +146,14 @@ EConvertFromTypeResult USoftObjectProperty::ConvertFromType(const FPropertyTag& 
 		FSoftObjectPtr* PropertyValue = GetPropertyValuePtr_InContainer(Data, Tag.ArrayIndex);
 		check(PropertyValue);
 
-		return PropertyValue->GetUniqueID().SerializeFromMismatchedTag(Tag, Ar) ? EConvertFromTypeResult::Converted : EConvertFromTypeResult::UseSerializeItem;
+		return PropertyValue->GetUniqueID().SerializeFromMismatchedTag(Tag, Slot) ? EConvertFromTypeResult::Converted : EConvertFromTypeResult::UseSerializeItem;
 	}
 	else if (Tag.Type == NAME_StructProperty && (Tag.StructName == NAME_SoftObjectPath || Tag.StructName == NAME_SoftClassPath || Tag.StructName == NAME_StringAssetReference || Tag.StructName == NAME_StringClassReference))
 	{
 		// This property used to be a FSoftObjectPath but is now a TSoftObjectPtr<Foo>
 		FSoftObjectPath PreviousValue;
 		// explicitly call Serialize to ensure that the various delegates needed for cooking are fired
-		PreviousValue.Serialize(Ar);
+		PreviousValue.Serialize(Slot);
 
 		// now copy the value into the object's address space
 		FSoftObjectPtr PreviousValueSoftObjectPtr;

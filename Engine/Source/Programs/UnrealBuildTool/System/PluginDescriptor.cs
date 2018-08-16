@@ -120,6 +120,11 @@ namespace UnrealBuildTool
 		public UnrealTargetPlatform[] SupportedTargetPlatforms;
 
 		/// <summary>
+		/// List of programs supported by this plugin.
+		/// </summary>
+		public string[] SupportedPrograms;
+
+		/// <summary>
 		/// List of all modules associated with this plugin
 		/// </summary>
 		public ModuleDescriptor[] Modules;
@@ -230,6 +235,7 @@ namespace UnrealBuildTool
 			RawObject.TryGetStringField("SupportURL", out SupportURL);
 			RawObject.TryGetStringField("EngineVersion", out EngineVersion);
 			RawObject.TryGetEnumArrayField<UnrealTargetPlatform>("SupportedTargetPlatforms", out SupportedTargetPlatforms);
+			RawObject.TryGetStringArrayField("SupportedPrograms", out SupportedPrograms);
 
 			JsonObject[] ModulesArray;
 			if (RawObject.TryGetObjectArrayField("Modules", out ModulesArray))
@@ -340,6 +346,11 @@ namespace UnrealBuildTool
 			if(SupportedTargetPlatforms != null && SupportedTargetPlatforms.Length > 0)
 			{
 				Writer.WriteEnumArrayField<UnrealTargetPlatform>("SupportedTargetPlatforms", SupportedTargetPlatforms);
+			}
+
+			if (SupportedPrograms != null && SupportedPrograms.Length > 0)
+			{
+				Writer.WriteStringArrayField("SupportedPrograms", SupportedPrograms);
 			}
 
 			ModuleDescriptor.WriteArray(Writer, "Modules", Modules);

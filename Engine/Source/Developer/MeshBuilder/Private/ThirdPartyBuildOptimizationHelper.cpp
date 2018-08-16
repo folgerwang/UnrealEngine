@@ -5,6 +5,11 @@
 
 #include "NvTriStrip.h"
 #include "forsythtriangleorderoptimizer.h"
+
+#ifdef __clang__
+#define _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS 1
+#endif
+
 #include "nvtess.h"
 
 namespace BuildOptimizationThirdParty

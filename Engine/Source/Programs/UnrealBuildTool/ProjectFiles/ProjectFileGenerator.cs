@@ -428,7 +428,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		void DiscoverCSharpProgramProjects(MasterProjectFolder ProgramsFolder)
 		{
-			FileSystemName[] UnsupportedPlatformNames = Utils.MakeListOfUnsupportedPlatforms(SupportedPlatforms).Select(x => new FileSystemName(x)).ToArray();
+			string[] UnsupportedPlatformNames = Utils.MakeListOfUnsupportedPlatforms(SupportedPlatforms).ToArray();
 
 			List<FileReference> FoundProjects = new List<FileReference>();
 			DirectoryReference EngineProgramsSource = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "Programs");
@@ -1189,6 +1189,7 @@ namespace UnrealBuildTool
 						SubdirectoryNamesToExclude.Add("Receipts");
 						SubdirectoryNamesToExclude.Add("Scripts");
 						SubdirectoryNamesToExclude.Add("FileOpenOrder");
+						SubdirectoryNamesToExclude.Add("PipelineCaches");
 
 						ProjectFile GameProjectFile = GameFolderAndProjectFile.Value;
 						GameProjectFile.AddFilesToProject( SourceFileSearch.FindFiles( GameBuildDirectory, SubdirectoryNamesToExclude ), GameProjectDirectory );
@@ -1737,7 +1738,7 @@ namespace UnrealBuildTool
 						}
 						catch(Exception Ex)
 						{
-							Progress.LogMessage(LogEventType.Warning, "Exception while generating include data for {0}: {1}", CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions(), Ex.ToString());
+							Log.TraceWarning("Exception while generating include data for {0}: {1}", CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions(), Ex.ToString());
 						}
 
 						ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject = null;
@@ -2093,21 +2094,21 @@ namespace UnrealBuildTool
 					{
 						if(TargetFilePath.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory))
 						{
-							RulesAssembly = RulesCompiler.CreateEnterpriseRulesAssembly();
+							RulesAssembly = RulesCompiler.CreateEnterpriseRulesAssembly(false, false);
 						}
 						else
 						{
-							RulesAssembly = RulesCompiler.CreateEngineRulesAssembly();
+							RulesAssembly = RulesCompiler.CreateEngineRulesAssembly(false, false);
 						}
 					}
 					else
 					{
-						RulesAssembly = RulesCompiler.CreateProjectRulesAssembly(CheckProjectFile);
+						RulesAssembly = RulesCompiler.CreateProjectRulesAssembly(CheckProjectFile, false, false);
 					}
 
 					// Create target rules for all of the platforms and configuration combinations that we want to enable support for.
 					// Just use the current platform as we only need to recover the target type and both should be supported for all targets...
-					TargetRules TargetRulesObject = RulesAssembly.CreateTargetRules(TargetName, BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development, "", CheckProjectFile, Version);
+					TargetRules TargetRulesObject = RulesAssembly.CreateTargetRules(TargetName, BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development, "", CheckProjectFile, Version, null);
 
 					bool IsProgramTarget = false;
 
@@ -2249,7 +2250,7 @@ namespace UnrealBuildTool
 							ProjectFilePath = ProjectFilePath,
 							UnrealProjectFilePath = CheckProjectFile,
 							SupportedPlatforms = UEBuildTarget.GetSupportedPlatforms(TargetRulesObject).Where(x => UEBuildPlatform.GetBuildPlatform(x, true) != null).ToArray(),
-							CreateRulesDelegate = (Platform, Configuration) => RulesAssembly.CreateTargetRules(TargetName, Platform, Configuration, "", CheckProjectFile, Version)
+							CreateRulesDelegate = (Platform, Configuration) => RulesAssembly.CreateTargetRules(TargetName, Platform, Configuration, "", CheckProjectFile, Version, null)
                         };
 
 					if (TargetName == "ShaderCompileWorker")		// @todo projectfiles: Ideally, the target rules file should set this
@@ -2300,17 +2301,19 @@ namespace UnrealBuildTool
 		{
 			// Setup a project file entry for this module's project.  Remember, some projects may host multiple modules!
 			DirectoryReference ShadersDirectory = DirectoryReference.Combine( UnrealBuildTool.EngineDirectory, "Shaders" );
-
-			List<string> SubdirectoryNamesToExclude = new List<string>();
+			if(DirectoryReference.Exists(ShadersDirectory))
 			{
-                // Don't include binary shaders in the project file.
-                SubdirectoryNamesToExclude.Add( "Binaries" );
-				// We never want shader intermediate files in our project file
-				SubdirectoryNamesToExclude.Add( "PDBDump" );
-				SubdirectoryNamesToExclude.Add( "WorkingDirectory" );
-			}
+				List<string> SubdirectoryNamesToExclude = new List<string>();
+				{
+					// Don't include binary shaders in the project file.
+					SubdirectoryNamesToExclude.Add( "Binaries" );
+					// We never want shader intermediate files in our project file
+					SubdirectoryNamesToExclude.Add( "PDBDump" );
+					SubdirectoryNamesToExclude.Add( "WorkingDirectory" );
+				}
 
-			EngineProject.AddFilesToProject( SourceFileSearch.FindFiles( ShadersDirectory, SubdirectoryNamesToExclude ), UnrealBuildTool.EngineDirectory );
+				EngineProject.AddFilesToProject( SourceFileSearch.FindFiles( ShadersDirectory, SubdirectoryNamesToExclude ), UnrealBuildTool.EngineDirectory );
+			}
 		}
 
 

@@ -15,9 +15,9 @@ FComputeFenceRHIRef FD3D12DynamicRHI::RHICreateComputeFence(const FName& Name)
 }
 
 FD3D12FenceCore::FD3D12FenceCore(FD3D12Adapter* Parent, uint64 InitialValue)
-	: hFenceCompleteEvent(INVALID_HANDLE_VALUE)
+	: FD3D12AdapterChild(Parent)
 	, FenceValueAvailableAt(0)
-	, FD3D12AdapterChild(Parent)
+	, hFenceCompleteEvent(INVALID_HANDLE_VALUE)
 {
 	check(Parent);
 	hFenceCompleteEvent = CreateEvent(nullptr, false, false, nullptr);
@@ -203,8 +203,8 @@ uint64 FD3D12ManualFence::Signal(ED3D12CommandQueueType InQueueType, uint64 Fenc
 }
 
 FD3D12CommandAllocatorManager::FD3D12CommandAllocatorManager(FD3D12Device* InParent, const D3D12_COMMAND_LIST_TYPE& InType)
-	: Type(InType)
-	, FD3D12DeviceChild(InParent)
+	: FD3D12DeviceChild(InParent)
+	, Type(InType)
 {}
 
 
@@ -245,13 +245,13 @@ void FD3D12CommandAllocatorManager::ReleaseCommandAllocator(FD3D12CommandAllocat
 }
 
 FD3D12CommandListManager::FD3D12CommandListManager(FD3D12Device* InParent, D3D12_COMMAND_LIST_TYPE InCommandListType, ED3D12CommandQueueType InQueueType)
-	: CommandListType(InCommandListType)
-	, QueueType(InQueueType)
-	, ResourceBarrierCommandAllocator(nullptr)
-	, ResourceBarrierCommandAllocatorManager(InParent, D3D12_COMMAND_LIST_TYPE_DIRECT)
-	, CommandListFence(nullptr)
-	, FD3D12DeviceChild(InParent)
+	: FD3D12DeviceChild(InParent)
 	, FD3D12SingleNodeGPUObject(InParent->GetGPUMask())
+	, ResourceBarrierCommandAllocatorManager(InParent, D3D12_COMMAND_LIST_TYPE_DIRECT)
+	, ResourceBarrierCommandAllocator(nullptr)
+	, CommandListFence(nullptr)
+	, CommandListType(InCommandListType)
+	, QueueType(InQueueType)
 {
 }
 

@@ -575,7 +575,7 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 
 				if ( InProfile->ShouldAddPatchLevel() )
 				{
-					UATCommand += TEXT(" -newpatchlevel");
+					UATCommand += TEXT(" -addpatchlevel");
 				}
 			}
 

@@ -131,6 +131,11 @@ namespace UnrealBuildTool
 			public string Path;
 
 			/// <summary>
+			/// The initial location for this file. It will be copied to Path at build time, ready for staging.
+			/// </summary>
+			public string SourcePath;
+
+			/// <summary>
 			/// How to stage this file.
 			/// </summary>
 			public StagedFileType Type;
@@ -143,6 +148,19 @@ namespace UnrealBuildTool
 			public RuntimeDependency(string InPath, StagedFileType InType = StagedFileType.NonUFS)
 			{
 				Path = InPath;
+				Type = InType;
+			}
+
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="InPath">Path to the runtime dependency</param>
+			/// <param name="InSourcePath">Source path for the file in the working tree</param>
+			/// <param name="InType">How to stage the given path</param>
+			public RuntimeDependency(string InPath, string InSourcePath, StagedFileType InType = StagedFileType.NonUFS)
+			{
+				Path = InPath;
+				SourcePath = InSourcePath;
 				Type = InType;
 			}
 		}
@@ -182,6 +200,17 @@ namespace UnrealBuildTool
 			public void Add(string InPath, StagedFileType InType)
 			{
 				Inner.Add(new RuntimeDependency(InPath, InType));
+			}
+
+			/// <summary>
+			/// Add a runtime dependency to the list
+			/// </summary>
+			/// <param name="InPath">Path to the runtime dependency. May include wildcards.</param>
+			/// <param name="InSourcePath">Source path for the file to be added as a dependency. May include wildcards.</param>
+			/// <param name="InType">How to stage this file</param>
+			public void Add(string InPath, string InSourcePath, StagedFileType InType = StagedFileType.NonUFS)
+			{
+				Inner.Add(new RuntimeDependency(InPath, InSourcePath, InType));
 			}
 
 			/// <summary>
@@ -233,6 +262,30 @@ namespace UnrealBuildTool
 				Inner.Add(InReceiptProperty);
 			}
 		}
+
+		/// <summary>
+		/// Name of this module
+		/// </summary>
+		public string Name
+		{
+			get;
+			internal set;
+		}
+
+		/// <summary>
+		/// File containing this module
+		/// </summary>
+		internal FileReference File;
+
+		/// <summary>
+		/// Directory containing this module
+		/// </summary>
+		internal DirectoryReference Directory;
+
+		/// <summary>
+		/// Plugin containing this module
+		/// </summary>
+		internal PluginInfo Plugin;
 
 		/// <summary>
 		/// Rules for the target that this module belongs to
@@ -430,6 +483,16 @@ namespace UnrealBuildTool
 		public List<string> PublicLibraryPaths = new List<string>();
 
 		/// <summary>
+		/// List of search paths for libraries at runtime (eg. .so files)
+		/// </summary>
+		public List<string> PrivateRuntimeLibraryPaths = new List<string>();
+
+		/// <summary>
+		/// List of search paths for libraries at runtime (eg. .so files)
+		/// </summary>
+		public List<string> PublicRuntimeLibraryPaths = new List<string>();
+
+		/// <summary>
 		/// List of additional libraries (names of the .lib files including extension) - typically used for External (third party) modules
 		/// </summary>
 		public List<string> PublicAdditionalLibraries = new List<string>();
@@ -537,13 +600,31 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Property for the directory containing this plugin. Useful for adding paths to third party dependencies.
+		/// </summary>
+		public string PluginDirectory
+		{
+			get
+			{
+				if(Plugin == null)
+				{
+					throw new BuildException("Module '{0}' does not belong to a plugin; PluginDirectory property is invalid.", Name);
+				}
+				else
+				{
+					return Plugin.Directory.FullName;
+				}
+			}
+		}
+
+		/// <summary>
 		/// Property for the directory containing this module. Useful for adding paths to third party dependencies.
 		/// </summary>
 		public string ModuleDirectory
 		{
 			get
 			{
-				return Path.GetDirectoryName(RulesCompiler.GetFileNameFromType(GetType()));
+				return Directory.FullName;
 			}
 		}
 
@@ -567,7 +648,7 @@ namespace UnrealBuildTool
 		/// <param name="ModuleNames">The names of the modules to add</param>
 		public void AddEngineThirdPartyPrivateStaticDependencies(ReadOnlyTargetRules Target, params string[] ModuleNames)
 		{
-			if (!UnrealBuildTool.IsEngineInstalled() || Target.LinkType == TargetLinkType.Monolithic)
+			if (!bUsePrecompiled || Target.LinkType == TargetLinkType.Monolithic)
 			{
 				PrivateDependencyModuleNames.AddRange(ModuleNames);
 			}
@@ -583,7 +664,7 @@ namespace UnrealBuildTool
 		/// <param name="ModuleNames">The names of the modules to add</param>
 		public void AddEngineThirdPartyPrivateDynamicDependencies(ReadOnlyTargetRules Target, params string[] ModuleNames)
 		{
-			if (!UnrealBuildTool.IsEngineInstalled() || Target.LinkType == TargetLinkType.Monolithic)
+			if (!bUsePrecompiled || Target.LinkType == TargetLinkType.Monolithic)
 			{
 				PrivateIncludePathModuleNames.AddRange(ModuleNames);
 				DynamicallyLoadedModuleNames.AddRange(ModuleNames);
@@ -733,7 +814,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="RulesFile">Path to the module rules file</param>
 		/// <returns>True if the module can be precompiled, false otherwise</returns>
-		internal bool CanPrecompile(FileReference RulesFile)
+		internal bool IsValidForTarget(FileReference RulesFile)
 		{
 			if(Type == ModuleRules.ModuleType.CPlusPlus)
 			{

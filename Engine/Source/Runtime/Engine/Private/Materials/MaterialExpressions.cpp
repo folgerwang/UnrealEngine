@@ -582,16 +582,16 @@ void UMaterialExpression::CopyMaterialExpressions(const TArray<UMaterialExpressi
 #endif // WITH_EDITOR
 
 
-void UMaterialExpression::Serialize( FArchive& Ar )
+void UMaterialExpression::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 
 #if WITH_EDITORONLY_DATA
 	const TArray<FExpressionInput*> Inputs = GetInputs();
 	for (int32 InputIndex = 0; InputIndex < Inputs.Num(); ++InputIndex)
 	{
 		FExpressionInput* Input = Inputs[InputIndex];
-		DoMaterialAttributeReorder(Input, Ar.UE4Ver());
+		DoMaterialAttributeReorder(Input, Record.GetUnderlyingArchive().UE4Ver());
 	}
 #endif // WITH_EDITORONLY_DATA
 }
@@ -2934,11 +2934,12 @@ UMaterialExpressionClamp::UMaterialExpressionClamp(const FObjectInitializer& Obj
 #endif
 }
 
-void UMaterialExpressionClamp::Serialize(FArchive& Ar)
+void UMaterialExpressionClamp::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_RETROFIT_CLAMP_EXPRESSIONS_SWAP)
+	if (UnderlyingArchive.IsLoading() && UnderlyingArchive.UE4Ver() < VER_UE4_RETROFIT_CLAMP_EXPRESSIONS_SWAP)
 	{
 		if (ClampMode == CMODE_ClampMin)
 		{
@@ -4341,13 +4342,14 @@ UMaterialExpressionMakeMaterialAttributes::UMaterialExpressionMakeMaterialAttrib
 #endif
 }
 
-void UMaterialExpressionMakeMaterialAttributes::Serialize(FArchive& Ar)
+void UMaterialExpressionMakeMaterialAttributes::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	UnderlyingArchive.UsingCustomVersion(FRenderingObjectVersion::GUID);
 	
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
+	if (UnderlyingArchive.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
 	{
 		// Update the legacy masks else fail on vec3 to vec2 conversion
 		Refraction.SetMask(1, 1, 1, 0, 0);
@@ -4465,14 +4467,15 @@ UMaterialExpressionBreakMaterialAttributes::UMaterialExpressionBreakMaterialAttr
 #endif
 }
 
-void UMaterialExpressionBreakMaterialAttributes::Serialize(FArchive& Ar)
+void UMaterialExpressionBreakMaterialAttributes::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	UnderlyingArchive.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
 #if WITH_EDITOR
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
+	if (UnderlyingArchive.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
 	{
 		// Update the masks for legacy content
 		int32 OutputIndex = 0;
@@ -6909,10 +6912,12 @@ bool UMaterialExpressionFeatureLevelSwitch::IsResultMaterialAttributes(int32 Out
 }
 #endif // WITH_EDITOR
 
-void UMaterialExpressionFeatureLevelSwitch::Serialize(FArchive& Ar)
+void UMaterialExpressionFeatureLevelSwitch::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
-	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_RENAME_SM3_TO_ES3_1)
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
+
+	if (UnderlyingArchive.IsLoading() && UnderlyingArchive.UE4Ver() < VER_UE4_RENAME_SM3_TO_ES3_1)
 	{
 		// Copy the ES2 input to SM3 (since SM3 will now become ES3_1 and we don't want broken content)
 		Inputs[ERHIFeatureLevel::ES3_1] = Inputs[ERHIFeatureLevel::ES2];
@@ -9297,18 +9302,19 @@ uint32 UMaterialExpressionCustom::GetOutputType(int32 OutputIndex)
 }
 #endif // WITH_EDITOR
 
-void UMaterialExpressionCustom::Serialize(FArchive& Ar)
+void UMaterialExpressionCustom::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	UnderlyingArchive.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
 	// Make a copy of the current code before we change it
 	const FString PreFixUp = Code;
 
 	bool bDidUpdate = false;
 
-	if (Ar.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_UPDATE)
+	if (UnderlyingArchive.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_UPDATE)
 	{
 		// Look for WorldPosition rename
 		if (Code.ReplaceInline(TEXT("Parameters.WorldPosition"), TEXT("Parameters.AbsoluteWorldPosition"), ESearchCase::CaseSensitive) > 0)
@@ -9317,7 +9323,7 @@ void UMaterialExpressionCustom::Serialize(FArchive& Ar)
 		}
 	}
 	// Fix up uniform references that were moved from View to Frame as part of the instanced stereo implementation
-	else if (Ar.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_REFACTOR)
+	else if (UnderlyingArchive.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_REFACTOR)
 	{
 		// Uniform members that were moved from View to Frame
 		static const FString UniformMembers[] = {
@@ -9409,7 +9415,7 @@ void UMaterialExpressionCustom::Serialize(FArchive& Ar)
 		}
 	}
 
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::RemovedRenderTargetSize)
+	if (UnderlyingArchive.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::RemovedRenderTargetSize)
 	{
 		if (Code.ReplaceInline(TEXT("View.RenderTargetSize"), TEXT("View.BufferSizeAndInvSize.xy"), ESearchCase::CaseSensitive) > 0)
 		{
@@ -13947,11 +13953,11 @@ void UMaterialExpressionSpeedTree::GetCaption(TArray<FString>& OutCaptions) cons
 }
 #endif // WITH_EDITOR
 
-void UMaterialExpressionSpeedTree::Serialize(FArchive& Ar)
+void UMaterialExpressionSpeedTree::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 
-	if (Ar.UE4Ver() < VER_UE4_SPEEDTREE_WIND_V7)
+	if (Record.GetUnderlyingArchive().UE4Ver() < VER_UE4_SPEEDTREE_WIND_V7)
 	{
 		// update wind presets for speedtree v7
 		switch (WindType)

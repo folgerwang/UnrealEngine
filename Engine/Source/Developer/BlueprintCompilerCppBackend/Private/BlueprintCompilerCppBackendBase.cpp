@@ -1209,10 +1209,12 @@ FString FBlueprintCompilerCppBackendBase::GenerateWrapperForClass(UClass* Source
 		// PROPERTIES:
 		for (auto Property : TFieldRange<UProperty>(SourceClass, EFieldIteratorFlags::ExcludeSuper))
 		{
+#if USE_UBER_GRAPH_PERSISTENT_FRAME
 			if (BPGC && (Property == BPGC->UberGraphFramePointerProperty))
 			{
 				continue;
 			}
+#endif //USE_UBER_GRAPH_PERSISTENT_FRAME
 
 			if (Cast<UAnimBlueprintGeneratedClass>(BPGC))
 			{

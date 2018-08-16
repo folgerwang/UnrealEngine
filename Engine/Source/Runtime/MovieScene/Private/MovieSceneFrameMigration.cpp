@@ -31,7 +31,7 @@ TRange<FFrameNumber> FMovieSceneFrameRange::FromFloatRange(const TRange<float>& 
 	return NewRange;
 }
 
-bool FMovieSceneFrameRange::SerializeFromMismatchedTag(FPropertyTag const& Tag, FArchive& Ar)
+bool FMovieSceneFrameRange::SerializeFromMismatchedTag(FPropertyTag const& Tag, FStructuredArchive::FSlot Slot)
 {
 	static const FName NAME_FloatRange("FloatRange");
 	if (Tag.Type == NAME_StructProperty && Tag.StructName == NAME_FloatRange)
@@ -44,7 +44,7 @@ bool FMovieSceneFrameRange::SerializeFromMismatchedTag(FPropertyTag const& Tag, 
 #endif
 			;
 
-		FloatStruct->SerializeItem(Ar, &FloatRange, nullptr);
+		FloatStruct->SerializeItem(Slot, &FloatRange, nullptr);
 
 		Value = FromFloatRange(FloatRange);
 		return true;

@@ -128,6 +128,14 @@ FORCEINLINE VectorRegister VectorLoad( const void* Ptr )
 }
 
 /**
+ * Loads 2 floats from unaligned memory into X and Y and duplicates them in Z and W.
+ *
+ * @param Ptr	Unaligned memory pointer to the floats
+ * @return		VectorRegister(Ptr[0], Ptr[1], Ptr[0], Ptr[1])
+ */
+#define VectorLoadFloat2( Ptr )			MakeVectorRegister( ((const float*)(Ptr))[0], ((const float*)(Ptr))[1], ((const float*)(Ptr))[0], ((const float*)(Ptr))[1] )
+
+ /**
  * Loads 3 floats from unaligned memory and leaves W undefined.
  *
  * @param Ptr	Unaligned memory pointer to the 3 floats

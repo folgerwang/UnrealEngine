@@ -92,18 +92,18 @@ public:
 
 		for (AActor* Actor : SelectedActors)
 		{
-			TInlineComponentArray<UActorComponent*> ActorComponents;
-			Actor->GetComponents(ActorComponents);
-
-			for (UActorComponent* Component : ActorComponents)
+			for (UActorComponent* Component : Actor->GetComponents())
 			{
-				if (Component->IsA(UPaperSpriteComponent::StaticClass()))
+				if (Component)
 				{
-					bCanMergeSprites = true;
-				}
-				else if (Component->IsA(UPaperGroupedSpriteComponent::StaticClass()))
-				{
-					bCanSplitSprites = true;
+					if (Component->IsA(UPaperSpriteComponent::StaticClass()))
+					{
+						bCanMergeSprites = true;
+					}
+					else if (Component->IsA(UPaperGroupedSpriteComponent::StaticClass()))
+					{
+						bCanSplitSprites = true;
+					}
 				}
 			}
 

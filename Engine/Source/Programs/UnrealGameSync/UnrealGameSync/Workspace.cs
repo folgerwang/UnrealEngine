@@ -305,7 +305,13 @@ namespace UnrealGameSync
 					Log.WriteLine("Syncing to {0}...", PendingChangeNumber);
 
 					// Make sure we're logged in
-					if(!Perforce.IsLoggedIn(Log))
+					bool bLoggedIn;
+					if(!Perforce.GetLoggedInState(out bLoggedIn, Log))
+					{
+						StatusMessage = "Unable to get login status.";
+						return WorkspaceUpdateResult.FailedToSync;
+					}
+					if(!bLoggedIn)
 					{
 						StatusMessage = "User is not logged in.";
 						return WorkspaceUpdateResult.FailedToSyncLoginExpired;
@@ -368,11 +374,20 @@ namespace UnrealGameSync
 						// Remove all the files that are not included by the filter
 						foreach(PerforceFileRecord HaveFile in HaveFiles)
 						{
-							string FullPath = Path.GetFullPath(HaveFile.Path);
-							if(MatchFilter(FullPath, SyncPathsFilter) && !MatchFilter(FullPath, UserFilter))
+							try
 							{
-								Log.WriteLine("  {0}", HaveFile.DepotPath);
-								RemoveDepotPaths.Add(HaveFile.DepotPath);
+								string FullPath = Path.GetFullPath(HaveFile.Path);
+								if(MatchFilter(FullPath, SyncPathsFilter) && !MatchFilter(FullPath, UserFilter))
+								{
+									Log.WriteLine("  {0}", HaveFile.DepotPath);
+									RemoveDepotPaths.Add(HaveFile.DepotPath);
+								}
+							}
+							catch(PathTooLongException)
+							{
+								Log.WriteLine("The local path for {0} exceeds the maximum allowed by Windows. Re-sync your workspace to a directory with a shorter name, or delete the file from the server.", HaveFile.Path);
+								StatusMessage = "File exceeds maximum path length allowed by Windows.";
+								return WorkspaceUpdateResult.FailedToSync;
 							}
 						}
 
@@ -419,6 +434,23 @@ namespace UnrealGameSync
 						{
 							StatusMessage = String.Format("Couldn't enumerate changes matching {0}.", SyncPath);
 							return WorkspaceUpdateResult.FailedToSync;
+						}
+
+						foreach(PerforceFileRecord SyncRecord in SyncRecords)
+						{
+							try
+							{
+								if(!String.IsNullOrEmpty(SyncRecord.ClientPath))
+								{
+									Path.GetFullPath(SyncRecord.ClientPath);
+								}
+							}
+							catch(PathTooLongException)
+							{
+								Log.WriteLine("The local path for {0} exceeds the maximum allowed by Windows. Re-sync your workspace to a directory with a shorter name, or delete the file from the server.", SyncRecord.ClientPath);
+								StatusMessage = "File exceeds maximum path length allowed by Windows.";
+								return WorkspaceUpdateResult.FailedToSync;
+							}
 						}
 
 						if(UserFilter != null)
@@ -1149,19 +1181,27 @@ namespace UnrealGameSync
 			Log.WriteLine("p4>   {0} {1}", Record.Action, Record.ClientPath);
 		}
 
-		bool UpdateVersionFile(string LocalPath, Dictionary<string, string> VersionStrings, int ChangeNumber)
+		bool UpdateVersionFile(string ClientPath, Dictionary<string, string> VersionStrings, int ChangeNumber)
 		{
-			PerforceWhereRecord WhereRecord;
-			if(!Perforce.Where(LocalPath, out WhereRecord, Log))
+			List<PerforceFileRecord> Records;
+			if(!Perforce.Stat(ClientPath, out Records, Log))
 			{
-				Log.WriteLine("P4 where failed for {0}", LocalPath);
+				Log.WriteLine("Failed to query records for {0}", ClientPath);
 				return false;
 			}
+			if(Records.Count == 0)
+			{
+				Log.WriteLine("Ignoring {0}; not found on server.", ClientPath);
+				return true;
+			}
+
+			string LocalPath = Records[0].ClientPath; // Actually a filesystem path
+			string DepotPath = Records[0].DepotPath;
 
 			List<string> Lines;
-			if(!Perforce.Print(String.Format("{0}@{1}", WhereRecord.DepotPath, ChangeNumber), out Lines, Log))
+			if(!Perforce.Print(String.Format("{0}@{1}", DepotPath, ChangeNumber), out Lines, Log))
 			{
-				Log.WriteLine("Couldn't get default contents of {0}", WhereRecord.DepotPath);
+				Log.WriteLine("Couldn't get default contents of {0}", DepotPath);
 				return false;
 			}
 
@@ -1179,32 +1219,33 @@ namespace UnrealGameSync
 				Writer.WriteLine(NewLine);
 			}
 
-			return WriteVersionFile(WhereRecord, Writer.ToString());
+			return WriteVersionFile(LocalPath, DepotPath, Writer.ToString());
 		}
 
-		bool WriteVersionFile(PerforceWhereRecord WhereRecord, string NewText)
+		bool WriteVersionFile(string LocalPath, string DepotPath, string NewText)
 		{
 			try
 			{
-				if(File.Exists(WhereRecord.LocalPath) && File.ReadAllText(WhereRecord.LocalPath) == NewText)
+				if(File.Exists(LocalPath) && File.ReadAllText(LocalPath) == NewText)
 				{
-					Log.WriteLine("Ignored {0}; contents haven't changed", WhereRecord.LocalPath);
+					Log.WriteLine("Ignored {0}; contents haven't changed", LocalPath);
 				}
 				else
 				{
-					Utility.ForceDeleteFile(WhereRecord.LocalPath);
-					if(WhereRecord.DepotPath != null)
+					Directory.CreateDirectory(Path.GetDirectoryName(LocalPath));
+					Utility.ForceDeleteFile(LocalPath);
+					if(DepotPath != null)
 					{
-						Perforce.Sync(WhereRecord.DepotPath + "#0", Log);
+						Perforce.Sync(DepotPath + "#0", Log);
 					}
-					File.WriteAllText(WhereRecord.LocalPath, NewText);
-					Log.WriteLine("Written {0}", WhereRecord.LocalPath);
+					File.WriteAllText(LocalPath, NewText);
+					Log.WriteLine("Written {0}", LocalPath);
 				}
 				return true;
 			}
 			catch(Exception Ex)
 			{
-				Log.WriteException(Ex, "Failed to write to {0}.", WhereRecord.LocalPath);
+				Log.WriteException(Ex, "Failed to write to {0}.", LocalPath);
 				return false;
 			}
 		}

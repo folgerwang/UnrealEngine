@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
 #include "Misc/ScopeLock.h"
 #include "Stats/Stats.h"
 

@@ -6,6 +6,8 @@
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Misc/Optional.h"
+#include "Templates/UniquePtr.h"
+#include "Internationalization/Internationalization.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextLocalizationResource, Log, All);
 

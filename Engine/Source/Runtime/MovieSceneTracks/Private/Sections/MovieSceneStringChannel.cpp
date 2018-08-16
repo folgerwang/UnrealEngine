@@ -17,13 +17,13 @@ const FString* FMovieSceneStringChannel::Evaluate(FFrameTime InTime) const
 	return bHasDefaultValue ? &DefaultValue : nullptr;
 }
 
-bool FMovieSceneStringChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)
+bool FMovieSceneStringChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
 {
 	static const FName StringCurveName("StringCurve");
 	if (Tag.Type == NAME_StructProperty && Tag.StructName == StringCurveName)
 	{
 		FStringCurve StringCurve;
-		FStringCurve::StaticStruct()->SerializeItem(Ar, &StringCurve, nullptr);
+		FStringCurve::StaticStruct()->SerializeItem(Slot, &StringCurve, nullptr);
 
 		FString NewDefault = StringCurve.GetDefaultValue();
 		if (NewDefault.Len())

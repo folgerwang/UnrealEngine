@@ -60,18 +60,6 @@ namespace AutomationTool.Tasks
 		public string StagedFileType;
 
 		/// <summary>
-		/// Whether to tag the Precompiled Build Dependencies listed in receipts
-		/// </summary>
-		[TaskParameter(Optional = true)]
-		public bool PrecompiledBuildDependencies;
-
-		/// <summary>
-		/// Whether to tag the Precompiled Runtime Dependencies listed in receipts
-		/// </summary>
-		[TaskParameter(Optional = true)]
-		public bool PrecompiledRuntimeDependencies;
-
-		/// <summary>
 		/// Name of the tag to apply
 		/// </summary>
 		[TaskParameter(ValidationType = TaskParameterValidationType.TagList)]
@@ -198,40 +186,6 @@ namespace AutomationTool.Tasks
 						else
 						{
 							CommandUtils.LogWarning("File listed as RuntimeDependency in {0} does not exist ({1})", TargetFile.FullName, DependencyPath.FullName);
-						}
-					}
-				}
-
-				if (Parameters.PrecompiledBuildDependencies)
-				{
-					foreach(FileReference PrecompiledBuildDependency in Receipt.PrecompiledBuildDependencies)
-					{
-						// Only add files that exist as dependencies are assumed to always exist
-						FileReference DependencyPath = PrecompiledBuildDependency;
-						if (FileReference.Exists(DependencyPath))
-						{
-							Files.Add(DependencyPath);
-						}
-						else
-						{
-							CommandUtils.LogWarning("File listed as PrecompiledBuildDependency in {0} does not exist ({1})", TargetFile.FullName, DependencyPath.FullName);
-						}
-					}
-				}
-
-				if (Parameters.PrecompiledRuntimeDependencies)
-				{
-					foreach (FileReference PrecompiledRuntimeDependency in Receipt.PrecompiledRuntimeDependencies)
-					{
-						// Only add files that exist as dependencies are assumed to always exist
-						FileReference DependencyPath = PrecompiledRuntimeDependency;
-						if (FileReference.Exists(DependencyPath))
-						{
-							Files.Add(DependencyPath);
-						}
-						else
-						{
-							CommandUtils.LogWarning("File listed as PrecompiledRuntimeDependency in {0} does not exist ({1})", TargetFile.FullName, DependencyPath.FullName);
 						}
 					}
 				}

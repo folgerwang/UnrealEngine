@@ -107,6 +107,8 @@ int32 GetVisualStudioVersionForCompiler()
 	return 14; // Visual Studio 2015
 #elif _MSC_VER == 1800
 	return 12; // Visual Studio 2013
+#elif defined(__clang__)
+	return 0;
 #else
 	#error "FVisualStudioSourceCodeAccessor::RefreshAvailability - Unknown _MSC_VER! Please update this code for this version of MSVC."
 #endif //_MSVC_VER

@@ -1657,15 +1657,12 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeN
 	
 		if( bExportComponents )
 		{
-			TInlineComponentArray<USceneComponent*> SceneComponents;
-			Actor->GetComponents(SceneComponents);
-
 			TInlineComponentArray<USceneComponent*> ComponentsToExport;
-			for( int32 ComponentIndex = 0; ComponentIndex < SceneComponents.Num(); ++ComponentIndex )
+			for (UActorComponent* ActorComp : Actor->GetComponents())
 			{
-				USceneComponent* Component = SceneComponents[ComponentIndex];
+				USceneComponent* Component = Cast<USceneComponent>(ActorComp);
 	
-				if (Component == nullptr || (Component && Component->bHiddenInGame))
+				if (Component == nullptr || Component->bHiddenInGame)
 				{
 					//Skip hidden component like camera mesh or other editor helper
 					continue;

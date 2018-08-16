@@ -24,6 +24,16 @@ namespace UnrealBuildTool
 		Default,
 
 		/// <summary>
+		/// Use Clang for Windows, using the clang-cl driver.
+		/// </summary>
+		Clang,
+
+		/// <summary>
+		/// Use the Intel C++ compiler
+		/// </summary>
+		Intel,
+
+		/// <summary>
 		/// Visual Studio 2013 (Visual C++ 12.0)
 		/// </summary>
 		[Obsolete("UE4 does not support building Visual Studio 2013 targets from the 4.16 release onwards.")]
@@ -157,7 +167,7 @@ namespace UnrealBuildTool
 		/// Microsoft provides legacy_stdio_definitions library to enable building with VS2015 until they fix everything up.
 		public bool bNeedsLegacyStdioDefinitionsLib
 		{
-			get { return Compiler == WindowsCompiler.VisualStudio2015 || Compiler == WindowsCompiler.VisualStudio2017; }
+			get { return Compiler == WindowsCompiler.VisualStudio2015 || Compiler == WindowsCompiler.VisualStudio2017 || Compiler == WindowsCompiler.Clang; }
 		}
 
 		/// <summary>
@@ -175,6 +185,17 @@ namespace UnrealBuildTool
 		public int DefaultStackSizeCommit;
 
 		/// <summary>
+		/// Determines the amount of memory that the compiler allocates to construct precompiled headers (/Zm).
+		/// </summary>
+		[XmlConfigFile(Category = "WindowsPlatform")]
+		public int PCHMemoryAllocationFactor = 0;
+
+		/// <summary>
+		/// True if we allow using addresses larger than 2GB on 32 bit builds
+		/// </summary>
+		public bool bBuildLargeAddressAwareBinary = true;
+
+		/// <summary>
 		/// When using a Visual Studio compiler, returns the version name as a string
 		/// </summary>
 		/// <returns>The Visual Studio compiler version name (e.g. "2015")</returns>
@@ -182,8 +203,9 @@ namespace UnrealBuildTool
 		{
 			switch (Compiler)
 			{
+				case WindowsCompiler.Clang:
+				case WindowsCompiler.Intel:
 				case WindowsCompiler.VisualStudio2015:
-					return "2015";
 				case WindowsCompiler.VisualStudio2017:
 					return "2015"; // VS2017 is backwards compatible with VS2015 compiler
 
@@ -295,6 +317,16 @@ namespace UnrealBuildTool
 			get { return Inner.DefaultStackSizeCommit; }
 		}
 
+		public int PCHMemoryAllocationFactor
+		{
+			get { return Inner.PCHMemoryAllocationFactor; }
+		}
+
+		public bool bBuildLargeAddressAwareBinary
+		{
+			get { return Inner.bBuildLargeAddressAwareBinary; }
+		}
+
 		public string GetVisualStudioCompilerVersionName()
 		{
 			return Inner.GetVisualStudioCompilerVersionName();
@@ -326,7 +358,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Cache of Visual C++ installation directories
 		/// </summary>
-		private static Dictionary<WindowsCompiler, Dictionary<VersionNumber, DirectoryReference>> CachedVCToolChainDirs = new Dictionary<WindowsCompiler, Dictionary<VersionNumber, DirectoryReference>>();
+		private static Dictionary<WindowsCompiler, Dictionary<VersionNumber, DirectoryReference>> CachedToolChainDirs = new Dictionary<WindowsCompiler, Dictionary<VersionNumber, DirectoryReference>>();
 
 		/// <summary>
 		/// Cache of Windows SDK installation directories
@@ -339,34 +371,14 @@ namespace UnrealBuildTool
 		private static IReadOnlyDictionary<VersionNumber, DirectoryReference> CachedUniversalCrtDirs;
 
 		/// <summary>
-		/// True if we should use Clang/LLVM instead of MSVC to compile code on Windows platform
-		/// </summary>
-		public static readonly bool bCompileWithClang = false;
-
-		/// <summary>
-		/// When using Clang, enabling enables the MSVC-like "clang-cl" wrapper, otherwise we pass arguments to Clang directly
-		/// </summary>
-		public static readonly bool bUseVCCompilerArgs = true;
-
-		/// <summary>
 		/// True if we should use the Clang linker (LLD) when bCompileWithClang is enabled, otherwise we use the MSVC linker
 		/// </summary>
-		public static readonly bool bAllowClangLinker = bCompileWithClang && false;
-
-		/// <summary>
-		/// True if we should use the Intel Compiler instead of MSVC to compile code on Windows platform
-		/// </summary>
-		public static readonly bool bCompileWithICL = false;
+		public static readonly bool bAllowClangLinker = false;
 
 		/// <summary>
 		/// True if we should use the Intel linker (xilink) when bCompileWithICL is enabled, otherwise we use the MSVC linker
 		/// </summary>
-		public static readonly bool bAllowICLLinker = bCompileWithICL && true;
-
-		/// <summary>
-		/// True if we allow using addresses larger than 2GB on 32 bit builds
-		/// </summary>
-		public static readonly bool bBuildLargeAddressAwareBinary = true;
+		public static readonly bool bAllowICLLinker = true;
 
 		WindowsPlatformSDK SDK;
 
@@ -421,40 +433,38 @@ namespace UnrealBuildTool
 			}
 
 			// Override PCH settings
-			if (bCompileWithClang)
+			if (Target.WindowsPlatform.Compiler == WindowsCompiler.Clang)
 			{
 				// @todo clang: Shared PCHs don't work on clang yet because the PCH will have definitions assigned to different values
 				// than the consuming translation unit.  Unlike the warning in MSVC, this is a compile in Clang error which cannot be suppressed
 				Target.bUseSharedPCHs = false;
 
 				// @todo clang: PCH files aren't supported by "clang-cl" yet (no /Yc support, and "-x c++-header" cannot be specified)
-				if (WindowsPlatform.bUseVCCompilerArgs)
-				{
-					Target.bUsePCHFiles = false;
-				}
+				Target.bUsePCHFiles = false;
 			}
-			if (bCompileWithICL)
+			if (Target.WindowsPlatform.Compiler == WindowsCompiler.Intel)
 			{
 				Target.NumIncludedBytesPerUnityCPP = Math.Min(Target.NumIncludedBytesPerUnityCPP, 256 * 1024);
 
 				Target.bUseSharedPCHs = false;
 
-				if (WindowsPlatform.bUseVCCompilerArgs)
-				{
-					Target.bUsePCHFiles = false;
-				}
+				Target.bUsePCHFiles = false;
 			}
 
 			// E&C support.
-			if (Target.bSupportEditAndContinue && Target.Configuration == UnrealTargetConfiguration.Debug)
+			if (Target.bSupportEditAndContinue || Target.bAdaptiveUnityEnablesEditAndContinue)
 			{
 				Target.bUseIncrementalLinking = true;
 			}
-
-			// Incremental linking.
-			if (Target.bUseIncrementalLinking && !Target.bDisableDebugInfo)
+			if (Target.bAdaptiveUnityEnablesEditAndContinue && !Target.bAdaptiveUnityDisablesPCH && !Target.bAdaptiveUnityCreatesDedicatedPCH)
 			{
-				Target.bUsePDBFiles = true;
+				throw new BuildException("bAdaptiveUnityEnablesEditAndContinue requires bAdaptiveUnityDisablesPCH or bAdaptiveUnityCreatesDedicatedPCH");
+			}
+
+			// If we're using PDB files and PCHs, the generated code needs to be compiled with the same options as the PCH.
+			if ((Target.bUsePDBFiles || Target.bSupportEditAndContinue) && Target.bUsePCHFiles)
+			{
+				Target.bDisableDebugInfoForGeneratedCode = false;
 			}
 
 //			@Todo: Still getting reports of frequent OOM issues with this enabled as of 15.7.
@@ -606,6 +616,7 @@ namespace UnrealBuildTool
 				    else if(Compiler == WindowsCompiler.VisualStudio2017)
 				    {
 					    // Enumerate all the installed Visual Studio instances using the interop SDK. There may be several installed side by side on a single machine (preview, community, enterprise, etc...).
+						List<DirectoryReference> PreReleaseInstallDirs = new List<DirectoryReference>();
 					    try
 					    {
 						    SetupConfiguration Setup = new SetupConfiguration();
@@ -625,13 +636,22 @@ namespace UnrealBuildTool
 							    ISetupInstance2 Instance = (ISetupInstance2)Instances[0];
 							    if((Instance.GetState() & InstanceState.Local) == InstanceState.Local)
 							    {
-								    InstallDirs.Add(new DirectoryReference(Instance.GetInstallationPath()));
+									ISetupInstanceCatalog Catalog = (ISetupInstanceCatalog)Instance as ISetupInstanceCatalog;
+									if (Catalog != null && Catalog.IsPrerelease())
+									{
+										PreReleaseInstallDirs.Add(new DirectoryReference(Instance.GetInstallationPath()));
+									}
+									else
+									{
+										InstallDirs.Add(new DirectoryReference(Instance.GetInstallationPath()));
+									}
 							    }
 						    }
 					    }
 					    catch
 					    {
 					    }
+						InstallDirs.AddRange(PreReleaseInstallDirs);
 				    }
 				    else
 				    {
@@ -648,15 +668,63 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Compiler">Major version of the compiler to use</param>
 		/// <returns>Map of version number to directories</returns>
-		public static Dictionary<VersionNumber, DirectoryReference> FindVCToolChainDirs(WindowsCompiler Compiler)
+		public static Dictionary<VersionNumber, DirectoryReference> FindToolChainDirs(WindowsCompiler Compiler)
 		{
 			Dictionary<VersionNumber, DirectoryReference> ToolChainVersionToDir;
-			if(!CachedVCToolChainDirs.TryGetValue(Compiler, out ToolChainVersionToDir))
+			if(!CachedToolChainDirs.TryGetValue(Compiler, out ToolChainVersionToDir))
 			{
 				ToolChainVersionToDir = new Dictionary<VersionNumber, DirectoryReference>();
 			    if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32)
 			    {
-				    if(Compiler == WindowsCompiler.VisualStudio2015)
+					if(Compiler == WindowsCompiler.Clang)
+					{
+						// Check for a manual installation
+						DirectoryReference InstallDir = DirectoryReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.ProgramFiles), "LLVM");
+						if(IsValidToolChainDirClang(InstallDir))
+						{
+							FileReference CompilerFile = FileReference.Combine(InstallDir, "bin", "clang-cl.exe");
+							if(FileReference.Exists(CompilerFile))
+							{
+								FileVersionInfo VersionInfo = FileVersionInfo.GetVersionInfo(CompilerFile.FullName);
+								VersionNumber Version = new VersionNumber(VersionInfo.FileMajorPart, VersionInfo.FileMinorPart, VersionInfo.FileBuildPart);
+								ToolChainVersionToDir[Version] = InstallDir;
+							}
+						}
+
+						// Check for AutoSDK paths
+						DirectoryReference AutoSdkDir;
+						if(UEBuildPlatformSDK.TryGetHostPlatformAutoSDKDir(out AutoSdkDir))
+						{
+							DirectoryReference ClangBaseDir = DirectoryReference.Combine(AutoSdkDir, "Win64", "LLVM");
+							if(DirectoryReference.Exists(ClangBaseDir))
+							{
+								foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ClangBaseDir))
+								{
+									VersionNumber Version;
+									if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDirClang(ToolChainDir))
+									{
+										ToolChainVersionToDir[Version] = ToolChainDir;
+									}
+								}
+							}
+						}
+					}
+					else if(Compiler == WindowsCompiler.Intel)
+					{
+						// Just check for a manual installation
+						DirectoryReference InstallDir = DirectoryReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows");
+						if(DirectoryReference.Exists(InstallDir))
+						{
+							FileReference IclPath = FileReference.Combine(InstallDir, "bin", "intel64", "icl.exe");
+							if(FileReference.Exists(IclPath))
+							{
+								FileVersionInfo VersionInfo = FileVersionInfo.GetVersionInfo(IclPath.FullName);
+								VersionNumber Version = new VersionNumber(VersionInfo.FileMajorPart, VersionInfo.FileMinorPart, VersionInfo.FileBuildPart);
+								ToolChainVersionToDir[Version] = InstallDir;
+							}
+						}
+					}
+				    else if(Compiler == WindowsCompiler.VisualStudio2015)
 				    {
 					    // VS2015 just installs one toolchain; use that.
 					    List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);
@@ -681,40 +749,50 @@ namespace UnrealBuildTool
 							    foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
 							    {
 								    VersionNumber Version;
-								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir))
+								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
 								    {
 									    ToolChainVersionToDir[Version] = ToolChainDir;
 								    }
 							    }
 						    }
 					    }
-    
-					    // Enumerate all the AutoSDK toolchains
-					    DirectoryReference PlatformDir;
-					    if(UEBuildPlatformSDK.TryGetHostPlatformAutoSDKDir(out PlatformDir))
-					    {
-						    DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(PlatformDir, "Win64", "VS2017");
-						    if(DirectoryReference.Exists(ToolChainBaseDir))
-						    {
-							    foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
-							    {
-								    VersionNumber Version;
-								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir))
-								    {
-									    ToolChainVersionToDir[Version] = ToolChainDir;
-								    }
-							    }
-						    }
-					    }
-				    }
-				    else
+
+						// Enumerate all the AutoSDK toolchains
+						DirectoryReference PlatformDir;
+						if(UEBuildPlatformSDK.TryGetHostPlatformAutoSDKDir(out PlatformDir))
+						{
+							DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(PlatformDir, "Win64", "VS2017");
+							if(DirectoryReference.Exists(ToolChainBaseDir))
+							{
+								foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
+								{
+									VersionNumber Version;
+									if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir) && !ToolChainVersionToDir.ContainsKey(Version))
+									{
+										ToolChainVersionToDir[Version] = ToolChainDir;
+									}
+								}
+							}
+						}
+					}
+					else
 				    {
 					    throw new BuildException("Unsupported compiler version ({0})", Compiler);
 				    }
 				}
-				CachedVCToolChainDirs.Add(Compiler, ToolChainVersionToDir);
+				CachedToolChainDirs.Add(Compiler, ToolChainVersionToDir);
 			}
 			return ToolChainVersionToDir;
+		}
+
+		/// <summary>
+		/// Checks if the given directory contains a valid Clang toolchain
+		/// </summary>
+		/// <param name="ToolChainDir">Directory to check</param>
+		/// <returns>True if the given directory is valid</returns>
+		static bool IsValidToolChainDirClang(DirectoryReference ToolChainDir)
+		{
+			return FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "clang-cl.exe"));
 		}
 
 		/// <summary>
@@ -744,7 +822,7 @@ namespace UnrealBuildTool
 		/// <returns>True if the given compiler is installed</returns>
 		public static bool HasCompiler(WindowsCompiler Compiler)
 		{
-			return FindVCToolChainDirs(Compiler).Count > 0;
+			return FindToolChainDirs(Compiler).Count > 0;
 		}
 
 		/// <summary>
@@ -755,10 +833,10 @@ namespace UnrealBuildTool
 		/// <param name="OutToolChainVersion">Receives the chosen toolchain version</param>
 		/// <param name="OutToolChainDir">Receives the directory containing the toolchain</param>
 		/// <returns>True if the toolchain directory was found correctly</returns>
-		public static bool TryGetVCToolChainDir(WindowsCompiler Compiler, string CompilerVersion, out VersionNumber OutToolChainVersion, out DirectoryReference OutToolChainDir)
+		public static bool TryGetToolChainDir(WindowsCompiler Compiler, string CompilerVersion, out VersionNumber OutToolChainVersion, out DirectoryReference OutToolChainDir)
 		{
 			// Find all the installed toolchains
-			Dictionary<VersionNumber, DirectoryReference> ToolChainVersionToDir = FindVCToolChainDirs(Compiler);
+			Dictionary<VersionNumber, DirectoryReference> ToolChainVersionToDir = FindToolChainDirs(Compiler);
 
 			// Figure out the actual version number that we want
 			VersionNumber ToolChainVersion = null;
@@ -770,7 +848,7 @@ namespace UnrealBuildTool
 				}
 				else if(!VersionNumber.TryParse(CompilerVersion, out ToolChainVersion))
 				{
-					throw new BuildException("Unable to find Visual C++ toolchain; '{0}' is an invalid version", CompilerVersion);
+					throw new BuildException("Unable to find {0} toolchain; '{1}' is an invalid version", GetCompilerName(Compiler), CompilerVersion);
 				}
 			}
 			else
@@ -1191,10 +1269,6 @@ namespace UnrealBuildTool
 					return ".exe";
 				case UEBuildBinaryType.StaticLibrary:
 					return ".lib";
-				case UEBuildBinaryType.Object:
-					return ".obj";
-				case UEBuildBinaryType.PrecompiledHeader:
-					return ".pch";
 			}
 			return base.GetBinaryExtension(InBinaryType);
 		}
@@ -1214,17 +1288,6 @@ namespace UnrealBuildTool
 					return new string[] {".pdb"};
 			}
 			return new string [] {};
-		}
-
-		/// <summary>
-		/// Whether the editor should be built for this platform or not
-		/// </summary>
-		/// <param name="InPlatform"> The UnrealTargetPlatform being built</param>
-		/// <param name="InConfiguration">The UnrealTargetConfiguration being built</param>
-		/// <returns>bool   true if the editor should be built, false if not</returns>
-		public override bool ShouldNotBuildEditor(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
-			return false;
 		}
 
 		public override bool BuildRequiresCookedData(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
@@ -1362,7 +1425,7 @@ namespace UnrealBuildTool
 			}
 
 			// Add path to Intel math libraries when using ICL based on target platform
-			if (WindowsPlatform.bCompileWithICL)
+			if (Target.WindowsPlatform.Compiler == WindowsCompiler.Intel)
 			{
 				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "compiler", "lib", Target.Platform == UnrealTargetPlatform.Win32 ? "ia32" : "intel64");
 				if (!Directory.Exists(Result))

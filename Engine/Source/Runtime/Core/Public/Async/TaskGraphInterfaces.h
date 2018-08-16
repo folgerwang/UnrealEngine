@@ -1268,7 +1268,7 @@ class FFunctionGraphTask : public FCustomStatIDGraphTaskBase
 {
 public:
     /** Function to run **/
-    TFunction<void()> Function;
+    TUniqueFunction<void()> Function;
     /** Thread to run the function on **/
     const ENamedThreads::Type			DesiredThread;
     
@@ -1289,7 +1289,7 @@ public:
      *	@param StatId The stat id for this task.
      * @param InDesiredThread - Thread to run on
      **/
-    FFunctionGraphTask(TFunction<void()>&& InFunction, const TStatId StatId, ENamedThreads::Type InDesiredThread)
+    FFunctionGraphTask(TUniqueFunction<void()>&& InFunction, const TStatId StatId, ENamedThreads::Type InDesiredThread)
     : FCustomStatIDGraphTaskBase(StatId)
     , Function(MoveTemp(InFunction))
     , DesiredThread(InDesiredThread)
@@ -1304,7 +1304,7 @@ public:
      * @param InDesiredThread - Thread to run on
      * @return completion handle for the new task
      **/
-    static FGraphEventRef CreateAndDispatchWhenReady(TFunction<void()> InFunction, const TStatId InStatId, const FGraphEventArray* InPrerequisites = NULL, ENamedThreads::Type InDesiredThread = ENamedThreads::AnyThread)
+    static FGraphEventRef CreateAndDispatchWhenReady(TUniqueFunction<void()> InFunction, const TStatId InStatId, const FGraphEventArray* InPrerequisites = NULL, ENamedThreads::Type InDesiredThread = ENamedThreads::AnyThread)
     {
         return TGraphTask<FFunctionGraphTask>::CreateTask(InPrerequisites).ConstructAndDispatchWhenReady(MoveTemp(InFunction), InStatId, InDesiredThread);
     }
@@ -1316,7 +1316,7 @@ public:
      * @param InDesiredThread - Thread to run on
      * @return completion handle for the new task
      **/
-    static FGraphEventRef CreateAndDispatchWhenReady(TFunction<void()> InFunction, const TStatId&& InStatId, const FGraphEventRef& InPrerequisite, ENamedThreads::Type InDesiredThread = ENamedThreads::AnyThread)
+    static FGraphEventRef CreateAndDispatchWhenReady(TUniqueFunction<void()> InFunction, const TStatId&& InStatId, const FGraphEventRef& InPrerequisite, ENamedThreads::Type InDesiredThread = ENamedThreads::AnyThread)
     {
         FGraphEventArray Prerequisites;
         check(InPrerequisite.GetReference());

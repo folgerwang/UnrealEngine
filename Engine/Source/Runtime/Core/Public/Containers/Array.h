@@ -2650,7 +2650,7 @@ public:
 	template <class PREDICATE_CLASS>
 	void HeapPop(ElementType& OutItem, const PREDICATE_CLASS& Predicate, bool bAllowShrinking = true)
 	{
-		OutItem = (*this)[0];
+		OutItem = MoveTemp((*this)[0]);
 		RemoveAtSwap(0, 1, bAllowShrinking);
 
 		TDereferenceWrapper< ElementType, PREDICATE_CLASS> PredicateWrapper(Predicate);

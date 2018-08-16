@@ -8436,8 +8436,7 @@ void UEngine::EnableScreenSaver( bool bEnable )
 		return;
 	}
 
-	TCHAR EnvVariable[32];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("UE-DisallowScreenSaverInhibitor"), EnvVariable, ARRAY_COUNT(EnvVariable));
+	FString EnvVariable = FPlatformMisc::GetEnvironmentVariable(TEXT("UE-DisallowScreenSaverInhibitor"));
 	const bool bDisallowScreenSaverInhibitor = FString(EnvVariable).ToBool();
 
 	// By default we allow to use screen saver inhibitor, but in some cases user can override this setting.
@@ -9503,6 +9502,8 @@ float DrawMapWarnings(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanv
 */
 float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas* CanvasObject, float MessageX, float MessageY)
 {
+	static TFrameValue<bool> HasUpdatedScreenDebugMessages;
+
 	int32 YPos = MessageY;
 	const int32 MaxYPos = CanvasObject ? CanvasObject->SizeY : 700;
 	if (GEngine->PriorityScreenMessages.Num() > 0)
@@ -9519,10 +9520,13 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+			if (!HasUpdatedScreenDebugMessages.IsSet())
 			{
-				GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
+				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+				{
+					GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
+				}
 			}
 		}
 	}
@@ -9542,13 +9546,19 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+			if (!HasUpdatedScreenDebugMessages.IsSet())
 			{
-				MsgIt.RemoveCurrent();
+				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+				{
+					MsgIt.RemoveCurrent();
+				}
 			}
 		}
 	}
+
+	// Flag variable that the update has already been done this frame
+	HasUpdatedScreenDebugMessages = true;
 
 	return MessageY;
 }
@@ -11663,7 +11673,7 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 			if (!MakeSureMapNameIsValid(Context.PendingNetGame->URL.Map))
 			{
 				BrowseToDefaultMap(Context);
-				BroadcastTravelFailure(Context.World(), ETravelFailure::PackageMissing, Context.PendingNetGame->URL.RedirectURL);
+				BroadcastTravelFailure(Context.World(), ETravelFailure::PackageMissing, Context.PendingNetGame->URL.Map);
 			}
 			else
 			{
@@ -13486,12 +13496,9 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	AActor* NewActor = Cast<AActor>(NewObject);
 	if (NewActor != nullptr)
 	{
-		TInlineComponentArray<UActorComponent*> Components;
-		NewActor->GetComponents(Components);
-
-		for(int32 i=0; i<Components.Num(); i++)
+		for (UActorComponent* Component : NewActor->GetComponents())
 		{
-			ensure(!Components[i]->IsRegistered());
+			ensure(Component == nullptr || !Component->IsRegistered());
 		}
 	}
 

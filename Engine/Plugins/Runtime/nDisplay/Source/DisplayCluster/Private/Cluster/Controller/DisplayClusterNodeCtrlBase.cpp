@@ -5,8 +5,8 @@
 
 
 FDisplayClusterNodeCtrlBase::FDisplayClusterNodeCtrlBase(const FString& ctrlName, const FString& nodeName) :
-	ControllerName(ctrlName),
-	NodeName(nodeName)
+	NodeName(nodeName),
+	ControllerName(ctrlName)
 {
 }
 

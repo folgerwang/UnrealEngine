@@ -13,63 +13,67 @@ namespace UnrealGameSyncMetadataServer.Connectors
 	public static class SqlConnector
 	{
 		private static string ConnectionString = System.Configuration.ConfigurationManager.AppSettings["ConnectionString"];
-		public static long[] GetLastIds()
+		public static LatestData GetLastIds(string Project = null)
 		{
-			// Get Last IDs
+			// Get ids going back 25 builds for the project being asked for
+			// Do this by grouping by ChangeNumber to get unique entries, then take the 25th id
 			long LastEventId = 0;
 			long LastCommentId = 0;
-			long LastBuildID = 0;
+			long LastBuildId = 0;
+			string ProjectLikeString = "%" + (Project == null ? String.Empty : Project) + "%";
 			using (SQLiteConnection Connection = new SQLiteConnection(ConnectionString))
 			{
 				Connection.Open();
-				using (SQLiteCommand Command = new SQLiteCommand("SELECT MAX(ID) FROM [UserVotes];", Connection))
+				using (SQLiteCommand Command = new SQLiteCommand("SELECT Id FROM [UserVotes] WHERE Project LIKE @param1 GROUP BY Changelist ORDER BY Changelist DESC LIMIT 1 OFFSET 432;", Connection))
 				{
+					Command.Parameters.AddWithValue("@param1", ProjectLikeString);
 					using (SQLiteDataReader Reader = Command.ExecuteReader())
 					{
 						while (Reader.Read())
 						{
 							LastEventId = Reader.GetInt64(0);
-							LastEventId = Math.Max(LastEventId - 5000, 0);
 							break;
 						}
 					}
 				}
-				using (SQLiteCommand Command = new SQLiteCommand("SELECT MAX(ID) FROM [Comments];", Connection))
+				using (SQLiteCommand Command = new SQLiteCommand("SELECT Id FROM [Comments] WHERE Project LIKE @param1 GROUP BY ChangeNumber ORDER BY ChangeNumber DESC LIMIT 1 OFFSET 432;", Connection))
 				{
+					Command.Parameters.AddWithValue("@param1", ProjectLikeString);
 					using (SQLiteDataReader Reader = Command.ExecuteReader())
 					{
 						while (Reader.Read())
 						{
 							LastCommentId = Reader.GetInt32(0);
-							LastCommentId = Math.Max(LastCommentId - 5000, 0);
 							break;
 						}
 					}
 				}
-				using (SQLiteCommand Command = new SQLiteCommand("SELECT MAX(ID) FROM [CIS];", Connection))
+				using (SQLiteCommand Command = new SQLiteCommand("SELECT Id FROM [CIS] WHERE Project LIKE @param1 GROUP BY ChangeNumber ORDER BY ChangeNumber DESC LIMIT 1 OFFSET 432", Connection))
 				{
+					Command.Parameters.AddWithValue("@param1", ProjectLikeString);
 					using (SQLiteDataReader Reader = Command.ExecuteReader())
 					{
 						while (Reader.Read())
 						{
-							LastBuildID = Reader.GetInt32(0);
-							LastBuildID = Math.Max(LastBuildID - 5000, 0);
+							LastBuildId = Reader.GetInt32(0);
 							break;
 						}
 					}
 				}
 			}
-			return new long[] { LastEventId, LastCommentId, LastBuildID };
+			return new LatestData { LastBuildId = LastBuildId, LastCommmentId = LastCommentId, LastEventId = LastEventId };
 		}
 		public static List<EventData> GetUserVotes(string Project, long LastEventId)
 		{
 			List<EventData> ReturnedEvents = new List<EventData>();
+			string ProjectLikeString = "%" + (Project == null ? String.Empty : Project) + "%";
 			using (SQLiteConnection Connection = new SQLiteConnection(ConnectionString))
 			{
 				Connection.Open();
-				using (SQLiteCommand Command = new SQLiteCommand("SELECT Id, Changelist, UserName, Verdict, Project FROM [UserVotes] WHERE Id > @param1 ORDER BY Id", Connection))
+				using (SQLiteCommand Command = new SQLiteCommand("SELECT Id, Changelist, UserName, Verdict, Project FROM [UserVotes] WHERE Id > @param1 AND Project LIKE @param2 ORDER BY Id", Connection))
 				{
 					Command.Parameters.AddWithValue("@param1", LastEventId);
+					Command.Parameters.AddWithValue("@param2", ProjectLikeString);
 					using (SQLiteDataReader Reader = Command.ExecuteReader())
 					{
 						while (Reader.Read())
@@ -95,12 +99,14 @@ namespace UnrealGameSyncMetadataServer.Connectors
 		public static List<CommentData> GetComments(string Project, long LastCommentId)
 		{
 			List<CommentData> ReturnedComments = new List<CommentData>();
+			string ProjectLikeString = "%" + (Project == null ? String.Empty : Project) + "%";
 			using (SQLiteConnection Connection = new SQLiteConnection(ConnectionString))
 			{
 				Connection.Open();
-				using (SQLiteCommand Command = new SQLiteCommand("SELECT Id, ChangeNumber, UserName, Text, Project FROM [Comments] WHERE Id > @param1 ORDER BY Id", Connection))
+				using (SQLiteCommand Command = new SQLiteCommand("SELECT Id, ChangeNumber, UserName, Text, Project FROM [Comments] WHERE Id > @param1 AND Project LIKE @param2 ORDER BY Id", Connection))
 				{
 					Command.Parameters.AddWithValue("@param1", LastCommentId);
+					Command.Parameters.AddWithValue("@param2", ProjectLikeString);
 					using (SQLiteDataReader Reader = Command.ExecuteReader())
 					{
 						while (Reader.Read())
@@ -122,15 +128,17 @@ namespace UnrealGameSyncMetadataServer.Connectors
 			return ReturnedComments;
 		}
 
-		public static List<BuildData> GetCIS(string Project, long LastBuildId)
+		public static List<BuildData> GetBuilds(string Project, long LastBuildId)
 		{
 			List<BuildData> ReturnedBuilds = new List<BuildData>();
+			string ProjectLikeString = "%" + (Project == null ? String.Empty : Project) + "%";
 			using (SQLiteConnection Connection = new SQLiteConnection(ConnectionString))
 			{
 				Connection.Open();
-				using (SQLiteCommand Command = new SQLiteCommand("SELECT Id, ChangeNumber, BuildType, Result, Url, Project FROM [CIS] WHERE Id > @param1 ORDER BY Id", Connection))
+				using (SQLiteCommand Command = new SQLiteCommand("SELECT Id, ChangeNumber, BuildType, Result, Url, Project FROM [CIS] WHERE Id > @param1 AND Project LIKE @param2 ORDER BY Id", Connection))
 				{
 					Command.Parameters.AddWithValue("@param1", LastBuildId);
+					Command.Parameters.AddWithValue("@param2", ProjectLikeString);
 					using (SQLiteDataReader Reader = Command.ExecuteReader())
 					{
 						while (Reader.Read())
@@ -187,7 +195,7 @@ namespace UnrealGameSyncMetadataServer.Connectors
 		}
 
 
-		public static void PostCIS(BuildData Build)
+		public static void PostBuild(BuildData Build)
 		{
 			using (SQLiteConnection Connection = new SQLiteConnection(ConnectionString))
 			{
@@ -284,7 +292,7 @@ namespace UnrealGameSyncMetadataServer.Connectors
 		}
 		private static bool MatchesWildcard(string Wildcard, string Project)
 		{
-			return Wildcard.EndsWith("...") && Project.StartsWith(Wildcard.Substring(0, Wildcard.Length - 3), StringComparison.InvariantCultureIgnoreCase);
+			return Wildcard.EndsWith("...") && Project.StartsWith(Wildcard.Substring(0, Wildcard.Length - 4), StringComparison.InvariantCultureIgnoreCase);
 		}
 	}
 }

@@ -18,6 +18,7 @@
 #include "Templates/AreTypesEqual.h"
 #include "Templates/Decay.h"
 #include "Serialization/StructuredArchive.h"
+#include "ContainersFwd.h"
 
 /**
  * The base KeyFuncs type with some useful definitions for all KeyFuncs; meant to be derived from instead of used directly.
@@ -37,7 +38,7 @@ struct BaseKeyFuncs
 /**
  * A default implementation of the KeyFuncs used by TSet which uses the element as a key.
  */
-template<typename ElementType,bool bInAllowDuplicateKeys = false>
+template<typename ElementType,bool bInAllowDuplicateKeys /*= false*/>
 struct DefaultKeyFuncs : BaseKeyFuncs<ElementType,ElementType,bInAllowDuplicateKeys>
 {
 	typedef typename TCallTraits<ElementType>::ParamType KeyInitType;
@@ -65,14 +66,6 @@ struct DefaultKeyFuncs : BaseKeyFuncs<ElementType,ElementType,bInAllowDuplicateK
 		return GetTypeHash(Key);
 	}
 };
-
-// Forward declaration.
-template<
-	typename InElementType,
-	typename KeyFuncs = DefaultKeyFuncs<InElementType>,
-	typename Allocator = FDefaultSetAllocator
-	>
-class TSet;
 
 /** This is used to provide type specific behavior for a move which will destroy B. */
 /** Should be in UnrealTemplate but isn't for Clang build reasons - will move later */

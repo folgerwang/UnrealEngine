@@ -318,7 +318,7 @@ public class LuminPlatform : Platform
 				if (PluginExtras.FirstOrDefault(x => x == PluginPath) == null)
 				{
 					PluginExtras.Add(PluginPath);
-					Log("LuminPlugin: {0}", PluginPath);
+					LogInformation("LuminPlugin: {0}", PluginPath);
 				}
 			}
 		}
@@ -330,7 +330,7 @@ public class LuminPlatform : Platform
 		string[] BatchLines = null;
 		if (HostPlatform.Current.HostEditorPlatform == UnrealTargetPlatform.Win64)
 		{
-			Log("Writing bat for install");
+			LogInformation("Writing bat for install");
 			BatchLines = new string[] {
 				"@echo off",
 				"setlocal",
@@ -362,7 +362,7 @@ public class LuminPlatform : Platform
 		}
 		else
 		{
-			Log("Writing shell for install");
+			LogInformation("Writing shell for install");
 			BatchLines = new string[] {
 				"#!/bin/sh",
 				"MLSDK_ROOT=$MLSDK",
@@ -400,7 +400,7 @@ public class LuminPlatform : Platform
 		string[] BatchLines = null;
 		if (HostPlatform.Current.HostEditorPlatform == UnrealTargetPlatform.Win64)
 		{
-			Log("Writing bat for uninstall");
+			LogInformation("Writing bat for uninstall");
 			BatchLines = new string[] {
 				"@echo off",
 				"setlocal",
@@ -417,7 +417,7 @@ public class LuminPlatform : Platform
 		}
 		else
 		{
-			Log("Writing shell for uninstall");
+			LogInformation("Writing shell for uninstall");
 			BatchLines = new string[] {
 				"#!/bin/sh",
 				"MLSDK_ROOT=$MLSDK",
@@ -504,13 +504,13 @@ public class LuminPlatform : Platform
 				// if we don't need to deploy any NonUFS files, and the exe is up to date, then there's no need to waste time packaging!
 				if (Lines.Length > 0 && !string.IsNullOrWhiteSpace(Lines[0]))
 				{
-					Log("Need minimal package because {0} NonUFS files needed to be staged", Lines.Length);
+					LogInformation("Need minimal package because {0} NonUFS files needed to be staged", Lines.Length);
 					return false;
 				}
 			}
 			else
 			{
-				Log("Need minimal package because delta staging file {0} wasn't pulled from device", NonUFSManifestPath);
+				LogInformation("Need minimal package because delta staging file {0} wasn't pulled from device", NonUFSManifestPath);
 				return false;
 			}
 
@@ -523,17 +523,17 @@ public class LuminPlatform : Platform
 
 				if (ExeTimestamp > DeployedTimestamp)
 				{
-					Log("Need minimal package because exe timestamp {0:O} is newer than deployed timestamp {1:O}", ExeTimestamp, DeployedTimestamp);
+					LogInformation("Need minimal package because exe timestamp {0:O} is newer than deployed timestamp {1:O}", ExeTimestamp, DeployedTimestamp);
 					return false;
 				}
 				else
 				{
-					Log("Exe up to date: Exe is {0:O} / {1}, Deployed is {2:O}", ExeTimestamp, SC.StageExecutables[0], DeployedTimestamp);
+					LogInformation("Exe up to date: Exe is {0:O} / {1}, Deployed is {2:O}", ExeTimestamp, SC.StageExecutables[0], DeployedTimestamp);
 				}
 			}
 			else
 			{
-				Log("Need minimal package because exe timestamp file {0} wasn't pulled from device", ExeTimestampFileName);
+				LogInformation("Need minimal package because exe timestamp file {0} wasn't pulled from device", ExeTimestampFileName);
 				return false;
 			}
 
@@ -787,7 +787,7 @@ public class LuminPlatform : Platform
 			// @todo Lumin support iterative deploy! and packaging for iterative deploy
 			if (Params.IterativeDeploy)
 			{
-				Log("ITERATIVE DEPLOY..");
+				LogInformation("ITERATIVE DEPLOY..");
 				// always send UE4CommandLine.txt (it was written above after delta checks applied)
 				EntriesToDeploy.Add(IntermediateCmdLineFile);
 
@@ -807,7 +807,7 @@ public class LuminPlatform : Platform
 				}
 				else
 				{
-					Log("Unable to read delta file {0}", NonUFSManifestPath);
+					LogInformation("Unable to read delta file {0}", NonUFSManifestPath);
 				}
 
 				// Add UFS files if any to deploy
@@ -826,7 +826,7 @@ public class LuminPlatform : Platform
 				}
 				else
 				{
-					Log("Unable to read delta file {0}", UFSManifestPath);
+					LogInformation("Unable to read delta file {0}", UFSManifestPath);
 				}
 
 				//// For now, if too many files may be better to just push them all
@@ -898,7 +898,7 @@ public class LuminPlatform : Platform
 			}
 			else
 			{
-				Log("CLEAN DEPLOY..");
+				LogInformation("CLEAN DEPLOY..");
 
 				CleanInstall(Params, SC, DeviceName);
 			}
@@ -1058,7 +1058,7 @@ public class LuminPlatform : Platform
 			TimeSpan DeltaRunTime = DateTime.Now - StartTime;
 			if ((DeltaRunTime.TotalSeconds > TimeOutSeconds) && (TimeOutSeconds != 0))
 			{
-				Log("Device: " + DeviceName + " timed out while waiting for run to finish");
+				LogInformation("Device: " + DeviceName + " timed out while waiting for run to finish");
 				break;
 			}
 		}

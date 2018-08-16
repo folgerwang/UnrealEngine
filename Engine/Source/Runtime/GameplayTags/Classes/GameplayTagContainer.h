@@ -182,7 +182,7 @@ struct GAMEPLAYTAGS_API FGameplayTag
 	bool NetSerialize_Packed(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
 	/** Used to upgrade a Name property to a GameplayTag struct property */
-	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot);
 
 	/** Sets from a ImportText string, used in asset registry */
 	void FromExportString(const FString& ExportString);

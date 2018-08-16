@@ -34,6 +34,13 @@ public:
 	static FString GenerateValidVariableNameFromAsset(UObject* Asset, AActor* ComponentOwner);
 
 	/**
+	* Checks whether it is valid to copy the given component
+	* @param ComponentToCopy The component to check
+	* @return Whether the given component can be copied
+	*/
+	static bool CanCopyComponent(const UActorComponent* ComponentToCopy);
+
+	/**
 	 * Checks whether it is valid to copy the indicated components
 	 * @param ComponentsToCopy The list of components to check
 	 * @return Whether the indicated components can be copied

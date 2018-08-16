@@ -123,7 +123,7 @@ struct CORE_API FFileHelper
 
 	/**
 	* Checks to see if a filename is valid for saving.
-	* A filename must be under MAX_UNREAL_FILENAME_LENGTH to be saved
+	* A filename must be under FPlatformMisc::GetMaxPathLength() to be saved
 	*
 	* @param Filename	Filename, with or without path information, to check.
 	* @param OutError	If an error occurs, this is the reason why
