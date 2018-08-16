@@ -44,11 +44,27 @@ FText UAnimGraphNode_SubInstance::GetNodeTitle(ENodeTitleType::Type TitleType) c
 	}
 	if(TitleType == ENodeTitleType::ListView)
 	{
-		return FText::Format(LOCTEXT("TitleListFormat", "{NodeTitle} - Target Class: {TargetClass}"), Args);
+		if(Node.Tag != NAME_None)
+		{
+			Args.Add(TEXT("Tag"), FText::FromName(Node.Tag));
+			return FText::Format(LOCTEXT("TitleListFormatTagged", "{NodeTitle} - Target Class: {TargetClass} - Tag: {Tag}"), Args);
+		}
+		else
+		{
+			return FText::Format(LOCTEXT("TitleListFormat", "{NodeTitle} - Target Class: {TargetClass}"), Args);
+		}
 	}
 	else
 	{
-		return FText::Format(LOCTEXT("TitleFormat", "{NodeTitle}\nTarget Class: {TargetClass}"), Args);
+		if(Node.Tag != NAME_None)
+		{
+			Args.Add(TEXT("Tag"), FText::FromName(Node.Tag));
+			return FText::Format(LOCTEXT("TitleFormatTagged", "{NodeTitle}\nTarget Class: {TargetClass}\nTag: {Tag}"), Args);
+		}
+		else
+		{
+			return FText::Format(LOCTEXT("TitleFormat", "{NodeTitle}\nTarget Class: {TargetClass}"), Args);
+		}
 	}
 }
 
@@ -94,6 +110,28 @@ void UAnimGraphNode_SubInstance::ValidateAnimNodeDuringCompilation(USkeleton* Fo
 	if(HasInstanceLoop())
 	{
 		MessageLog.Error(TEXT("Detected loop in sub instance chain starting at @@ inside class @@"), this, AnimBP->GetAnimBlueprintGeneratedClass());
+	}
+
+	// Check for duplicate tags in this anim blueprint
+	for(UEdGraph* Graph : Graphs)
+	{
+		TArray<UAnimGraphNode_SubInstance*> SubInstanceNodes;
+		Graph->GetNodesOfClass(SubInstanceNodes);
+
+		for(UAnimGraphNode_SubInstance* SubInstanceNode : SubInstanceNodes)
+		{
+			if(SubInstanceNode == OriginalNode)
+			{
+				continue;
+			}
+
+			FAnimNode_SubInstance& InnerNode = SubInstanceNode->Node;
+
+			if(InnerNode.Tag != NAME_None && InnerNode.Tag == Node.Tag)
+			{
+				MessageLog.Error(*FText::Format(LOCTEXT("DuplicateTagErrorFormat", "Node @@ and node @@ both have the same tag '{0}'."), FText::FromName(Node.Tag)).ToString(), this, SubInstanceNode);
+			}
+		}
 	}
 
 	// Check we don't try to spawn our own blueprint

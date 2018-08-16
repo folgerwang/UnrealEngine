@@ -560,6 +560,9 @@ private:
 	/** Recording notification */
 	TWeakPtr<SWidget> WeakRecordingNotification;
 
+	/** Min LOD notification */
+	TWeakPtr<SWidget> WeakMinLODNotification;
+
 	/** Current LOD selection*/
 	int32 LODSelection;
 
@@ -584,4 +587,7 @@ private:
 
 	/** Adds a persistent notification to display post process graph state */
 	void AddPostProcessNotification();
+
+	/** Add a notification to tell the user a min LOD is being applied */
+	void AddMinLODNotification();
 };

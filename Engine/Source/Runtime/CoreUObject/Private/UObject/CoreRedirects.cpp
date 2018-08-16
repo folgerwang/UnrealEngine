@@ -1312,7 +1312,6 @@ static void RegisterNativeRedirects40(TArray<FCoreRedirect>& Redirects)
 	PROPERTY_REDIRECT("SceneComponent.RelativeTranslation", "SceneComponent.RelativeLocation");
 	PROPERTY_REDIRECT("SceneComponent.bAbsoluteTranslation", "SceneComponent.bAbsoluteLocation");
 	PROPERTY_REDIRECT("SkeletalMeshComponent.AnimationBlueprint", "SkeletalMeshComponent.AnimBlueprintGeneratedClass");
-	PROPERTY_REDIRECT("SkinnedMeshComponent.SkinnedMeshUpdateFlag", "SkinnedMeshComponent.MeshComponentUpdateFlag");
 	PROPERTY_REDIRECT("SlateBrush.TextureName", "SlateBrush.ResourceName");
 	PROPERTY_REDIRECT("SlateBrush.TextureObject", "SlateBrush.ResourceObject");
 	PROPERTY_REDIRECT("WorldSettings.DefaultGameType", "WorldSettings.DefaultGameMode");
@@ -1381,10 +1380,6 @@ static void RegisterNativeRedirects40(TArray<FCoreRedirect>& Redirects)
 	FCoreRedirect* EMaxConcurrentResolutionRule = ENUM_REDIRECT("EMaxConcurrentResolutionRule", "EMaxConcurrentResolutionRule");
 	EMaxConcurrentResolutionRule->ValueChanges.Add(TEXT("EMaxConcurrentResolutionRule::StopFarthest"), TEXT("EMaxConcurrentResolutionRule::StopFarthestThenPreventNew"));
 
-	FCoreRedirect* EMeshComponentUpdateFlag = ENUM_REDIRECT("EMeshComponentUpdateFlag", "EMeshComponentUpdateFlag");
-	EMeshComponentUpdateFlag->ValueChanges.Add(TEXT("SMU_AlwaysTickPose"), TEXT("EMeshComponentUpdateFlag::AlwaysTickPose"));
-	EMeshComponentUpdateFlag->ValueChanges.Add(TEXT("SMU_AlwaysTickPoseAndRefreshBones"), TEXT("EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones"));
-	EMeshComponentUpdateFlag->ValueChanges.Add(TEXT("SMU_OnlyTickPoseWhenRendered"), TEXT("EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered"));
 
 	FCoreRedirect* EParticleEventType = ENUM_REDIRECT("EParticleEventType", "EParticleEventType");
 	EParticleEventType->ValueChanges.Add(TEXT("EPET_Kismet"), TEXT("EPET_Blueprint"));
