@@ -255,11 +255,13 @@ void FNiagaraEmitterInstance::Init(int32 InEmitterIdx, FName InSystemInstanceNam
 	//Setup direct bindings for setting parameter values.
 	SpawnIntervalBinding.Init(SpawnExecContext.Parameters, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_SPAWN_INTERVAL));
 	InterpSpawnStartBinding.Init(SpawnExecContext.Parameters, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_INTERP_SPAWN_START_DT));
+	SpawnGroupBinding.Init(SpawnExecContext.Parameters, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_SPAWN_GROUP));
 
 	if (CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
 	{
 		SpawnIntervalBindingGPU.Init(GPUExecContext.CombinedParamStore, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_SPAWN_INTERVAL));
 		InterpSpawnStartBindingGPU.Init(GPUExecContext.CombinedParamStore, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_INTERP_SPAWN_START_DT));
+		SpawnGroupBindingGPU.Init(GPUExecContext.CombinedParamStore, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_SPAWN_GROUP));
 	}
 
 	FNiagaraVariable EmitterAgeParam = CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_AGE);
@@ -731,7 +733,7 @@ bool FNiagaraEmitterInstance::HandleCompletion(bool bForce)
 bool FNiagaraEmitterInstance::RequiredPersistentID()const
 {
 	//TODO: can we have this be enabled at runtime from outside the system?
-	return GetEmitterHandle().GetInstance()->RequiresPersistantIDs();
+	return GetEmitterHandle().GetInstance()->RequiresPersistantIDs() || ParticleDataSet->HasVariable(SYS_PARAM_PARTICLES_ID);
 }
 
 /** 
@@ -956,6 +958,7 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 			{
 				SpawnIntervalBindingGPU.SetValue(Info.IntervalDt);
 				InterpSpawnStartBindingGPU.SetValue(Info.InterpStartDt);
+				SpawnGroupBindingGPU.SetValue(Info.SpawnGroup);
 				bOnlySetOnce = true;
 			}
 			else if (Info.Count > 0)
@@ -1145,6 +1148,7 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 		{
 			SpawnIntervalBinding.SetValue(Info.IntervalDt);
 			InterpSpawnStartBinding.SetValue(Info.InterpStartDt);
+			SpawnGroupBinding.SetValue(Info.SpawnGroup);
 
 			SpawnParticles(Info.Count, TEXT("Regular Spawn"));
 		};
@@ -1161,6 +1165,7 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 				//Event spawns are instantaneous at the middle of the frame?
 				SpawnIntervalBinding.SetValue(0.0f);
 				InterpSpawnStartBinding.SetValue(DeltaSeconds * 0.5f);
+				SpawnGroupBinding.SetValue(0);
 
 				SpawnParticles(EventNumToSpawn, TEXT("Event Spawn"));
 			}

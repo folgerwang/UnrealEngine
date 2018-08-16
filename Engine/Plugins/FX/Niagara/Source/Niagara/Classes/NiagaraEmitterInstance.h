@@ -137,9 +137,12 @@ private:
 
 	FNiagaraParameterDirectBinding<float> SpawnIntervalBinding;
 	FNiagaraParameterDirectBinding<float> InterpSpawnStartBinding;
+	FNiagaraParameterDirectBinding<int32> SpawnGroupBinding;
 
 	FNiagaraParameterDirectBinding<float> SpawnIntervalBindingGPU;
 	FNiagaraParameterDirectBinding<float> InterpSpawnStartBindingGPU;
+	FNiagaraParameterDirectBinding<int32> SpawnGroupBindingGPU;
+
 	FNiagaraParameterDirectBinding<float> EmitterAgeBindingGPU;
 
 	FNiagaraParameterDirectBinding<float> SpawnEmitterAgeBinding;
