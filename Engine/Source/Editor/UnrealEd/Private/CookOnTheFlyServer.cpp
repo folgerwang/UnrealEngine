@@ -26,6 +26,7 @@
 #include "UObject/Package.h"
 #include "UObject/MetaData.h"
 #include "UObject/ConstructorHelpers.h"
+#include "UObject/UObjectArray.h"
 #include "Misc/PackageName.h"
 #include "Misc/RedirectCollector.h"
 #include "Engine/Level.h"
@@ -520,7 +521,64 @@ void LogCookerMessage( const FString& MessageText, EMessageSeverity::Type Severi
 	MessageLog.Notify(FText(), EMessageSeverity::Warning, false);
 }
 
+struct UCookOnTheFlyServer::FImpl : public FUObjectArray::FUObjectCreateListener, public FUObjectArray::FUObjectDeleteListener
+{
+	// This is the set of packages which have already had PostLoadFixup called 
+	TSet<UPackage*> PostLoadFixupPackages;
 
+	// This is a complete list of currently loaded UPackages
+	TArray<UPackage*> LoadedPackages;
+
+	// This list contains the UPackages loaded since last call to GetNewPackages
+	TArray<UPackage*> NewPackages;
+
+	FImpl()
+	{
+		for (TObjectIterator<UPackage> It; It; ++It)
+		{
+			LoadedPackages.Add(*It);
+		}
+
+		NewPackages = LoadedPackages;
+
+		GUObjectArray.AddUObjectDeleteListener(this);
+		GUObjectArray.AddUObjectCreateListener(this);
+	}
+
+	~FImpl()
+	{
+		GUObjectArray.RemoveUObjectDeleteListener(this);
+		GUObjectArray.RemoveUObjectCreateListener(this);
+	}
+
+	TArray<UPackage*> GetNewPackages()
+	{
+		return MoveTemp(NewPackages);
+	}
+
+	virtual void NotifyUObjectCreated(const class UObjectBase *Object, int32 Index) override
+	{
+		if (Object->GetClass()->IsChildOf(UPackage::StaticClass()))
+		{
+			auto Package = const_cast<UPackage*>(static_cast<const UPackage*>(Object));
+
+			LoadedPackages.Add(Package);
+			NewPackages.Add(Package);
+		}
+	}
+
+	virtual void NotifyUObjectDeleted(const class UObjectBase *Object, int32 Index) override
+	{
+		if (Object->GetClass()->IsChildOf(UPackage::StaticClass()))
+		{
+			auto Package = const_cast<UPackage*>(static_cast<const UPackage*>(Object));
+
+			LoadedPackages.Remove(Package);
+			NewPackages.Remove(Package);
+			PostLoadFixupPackages.Remove(Package);
+		}
+	}
+};
 
 /* FIlename caching functions
  *****************************************************************************/
@@ -659,6 +717,7 @@ UCookOnTheFlyServer::UCookOnTheFlyServer(const FObjectInitializer& ObjectInitial
 	bIsSavingPackage(false),
 	AssetRegistry(nullptr)
 {
+	Impl = new FImpl;
 }
 
 UCookOnTheFlyServer::~UCookOnTheFlyServer()
@@ -666,11 +725,12 @@ UCookOnTheFlyServer::~UCookOnTheFlyServer()
 	FCoreDelegates::OnFConfigCreated.RemoveAll(this);
 	FCoreDelegates::OnFConfigDeleted.RemoveAll(this);
 
-	if ( CookByTheBookOptions )
-	{		
-		delete CookByTheBookOptions;
-		CookByTheBookOptions = NULL;
-	}
+
+	delete CookByTheBookOptions;
+	CookByTheBookOptions = nullptr;
+
+	delete Impl;
+	Impl = nullptr;
 }
 
 // this tick only happens in the editor cook commandlet directly calls tick on the side
@@ -1364,8 +1424,6 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 		check( ToBuild.IsValid() );
 		const TArray<FName>& TargetPlatformNames = ToBuild.GetPlatformNames();
 
-		TArray<UPackage*> PackagesToSave;
-
 #if OUTPUT_TIMING
 		//FScopeTimer PackageManualTimer( ToBuild.GetFilename().ToString(), false );
 #endif
@@ -1407,6 +1465,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 			bShouldCook = false;
 		}
 
+		TArray<UPackage*> PackagesToSave;
 
 		if ( bShouldCook ) // if we should cook the package then cook it otherwise add it to the list of already cooked packages below
 		{
@@ -1437,7 +1496,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 		}
 
 		
-		if ( PackagesToSave.Num() == 0 )
+		if (PackagesToSave.Num() == 0)
 		{
 			// if we are iterative cooking the package might already be cooked
 			// so just add the package to the cooked packages list
@@ -1530,7 +1589,8 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 			}
 		}
 
-		int32 FirstUnsolicitedPackage = PackagesToSave.Num();
+		const int32 FirstUnsolicitedPackage = PackagesToSave.Num();
+		check(FirstUnsolicitedPackage <= 1);
 
 		UE_LOG(LogCook, Verbose, TEXT("Finding unsolicited packages for package %s"), *ToBuild.GetFilename().ToString());
 		GetAllUnsolicitedPackages(PackagesToSave, AllTargetPlatformNames);
@@ -1840,24 +1900,28 @@ void UCookOnTheFlyServer::OpportunisticSaveInMemoryPackages()
 
 void UCookOnTheFlyServer::GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames)
 {
-	// generate a list of other packages which were loaded with this one
-	if (!IsCookByTheBookMode() || (CookByTheBookOptions->bDisableUnsolicitedPackages == false))
+	if (IsCookByTheBookMode() && CookByTheBookOptions->bDisableUnsolicitedPackages)
+		return;
+
+	// Ensure sublevels are loaded by iterating all recently loaded packages and invoking
+	// PostLoadPackageFixup
+
 	{
+		SCOPE_TIMER(PostLoadPackageFixup);
+
+		TArray<UPackage*> NewPackages = Impl->GetNewPackages();
+
+		for (UPackage* Package : NewPackages)
 		{
-			SCOPE_TIMER(PostLoadPackageFixup);
-			for (TObjectIterator<UPackage> It; It; ++It)
-			{
-				const FName StandardPackageName = GetCachedStandardPackageFileFName(*It);
-				if (CookedPackages.Exists(StandardPackageName, TargetPlatformNames))
-				{
-					continue;
-				}
-				PostLoadPackageFixup(*It);
-			}
+			PostLoadPackageFixup(Package);
 		}
-		SCOPE_TIMER(UnsolicitedMarkup);
-		GetUnsolicitedPackages(PackagesToSave, TargetPlatformNames);
 	}
+
+	// Enumerate any loaded packages which are not already in the PackagesToSave list
+	// and are not already cooked.
+
+	SCOPE_TIMER(UnsolicitedMarkup);
+	GetUnsolicitedPackages(PackagesToSave, TargetPlatformNames);
 }
 
 bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, FCookerTimer& Timer, 
@@ -2208,44 +2272,60 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 
 void UCookOnTheFlyServer::PostLoadPackageFixup(UPackage* Package)
 {
-	if (Package->ContainsMap())
+	if (Package->ContainsMap() == false)
 	{
-		// load sublevels
-		UWorld* World = UWorld::FindWorldInPackage(Package);
-		check(World);
+		return;
+	}
 
-		World->PersistentLevel->HandleLegacyMapBuildData();
+	// Ensure we only process the package once
 
-		if (IsCookByTheBookMode())
+	if (Impl->PostLoadFixupPackages.Find(Package) != nullptr)
+	{
+		return;
+	}
+
+	Impl->PostLoadFixupPackages.Add(Package);
+
+	// Perform special processing for UWorld
+
+	UWorld* World = UWorld::FindWorldInPackage(Package);
+	check(World);
+
+	World->PersistentLevel->HandleLegacyMapBuildData();
+
+	if (IsCookByTheBookMode() == false)
+	{
+		return;
+	}
+
+	GIsCookerLoadingPackage = true;
+	if (World->GetStreamingLevels().Num())
+	{
+		TSet<FName> NeverCookPackageNames;
+		NeverCookPackageList.GetValues(NeverCookPackageNames);
+
+		UE_LOG(LogCook, Display, TEXT("Loading secondary levels for package '%s'"), *World->GetName());
+
+		World->LoadSecondaryLevels(true, &NeverCookPackageNames);
+	}
+	GIsCookerLoadingPackage = false;
+
+	TArray<FString> NewPackagesToCook;
+
+	// Collect world composition tile packages to cook
+	if (World->WorldComposition)
+	{
+		World->WorldComposition->CollectTilesToCook(NewPackagesToCook);
+	}
+
+	for (const FString& PackageName : NewPackagesToCook)
+	{
+		FName StandardPackageFName = GetCachedStandardPackageFileFName(FName(*PackageName));
+
+		if (StandardPackageFName != NAME_None)
 		{
-			GIsCookerLoadingPackage = true;
-			// TArray<FString> PreviouslyCookedPackages;
-			if (World->GetStreamingLevels().Num())
-			{
-				TSet<FName> NeverCookPackageNames;
-				NeverCookPackageList.GetValues(NeverCookPackageNames);
-				//World->LoadSecondaryLevels(true, &PreviouslyCookedPackages);
-				World->LoadSecondaryLevels(true, &NeverCookPackageNames);
-			}
-			GIsCookerLoadingPackage = false;
-			TArray<FString> NewPackagesToCook;
-
-			// Collect world composition tile packages to cook
-			if (World->WorldComposition)
-			{
-				World->WorldComposition->CollectTilesToCook(NewPackagesToCook);
-			}
-
-			for (const FString& PackageName : NewPackagesToCook)
-			{
-				FName StandardPackageFName = GetCachedStandardPackageFileFName(FName(*PackageName));
-				if (StandardPackageFName != NAME_None)
-				{
-					RequestPackage(StandardPackageFName, false);
-				}
-			}
+			RequestPackage(StandardPackageFName, false);
 		}
-
 	}
 }
 
@@ -2391,58 +2471,44 @@ bool UCookOnTheFlyServer::HasExceededMaxMemory() const
 
 void UCookOnTheFlyServer::GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames) const
 {
+	// TODO: make PackagesToSave a TSet instead? Would save this back-and-forth
+
 	TSet<UPackage*> PackagesToSaveSet;
+	PackagesToSaveSet.Reserve(PackagesToSave.Num());
 	for (UPackage* Package : PackagesToSave)
 	{
 		PackagesToSaveSet.Add(Package);
 	}
-	PackagesToSave.Empty();
-			
-	TArray<UObject*> ObjectsInOuter;
-	{
-		SCOPE_TIMER(GetObjectsWithOuter);
-		GetObjectsWithOuter(NULL, ObjectsInOuter, false);
-	}
 
-	TArray<FName> PackageNames;
-	PackageNames.Empty(ObjectsInOuter.Num());
 	{
 		SCOPE_TIMER(GeneratePackageNames);
-		for (int32 Index = 0; Index < ObjectsInOuter.Num(); Index++)
+		for (UPackage* Package : Impl->LoadedPackages)
 		{
-			UPackage* Package = Cast<UPackage>(ObjectsInOuter[Index]);
+			ensure(Package != nullptr);
 
-			if (Package)
-			{
-				FName StandardPackageFName = GetCachedStandardPackageFileFName(Package);
-				if (StandardPackageFName == NAME_None)
-					continue;
+			if (PackagesToSaveSet.Find(Package))
+				continue;
 
-				// package is already cooked don't care about processing it again here
-				/*if ( CookRequests.Exists( StandardPackageFName, AllTargetPlatformNames) )
-					continue;*/
+			FName StandardPackageFName = GetCachedStandardPackageFileFName(Package);
+			if (StandardPackageFName == NAME_None)
+				continue;	// if we have name none that means we are in core packages or something...
 
-				if (CookedPackages.Exists(StandardPackageFName, TargetPlatformNames))
-					continue;
+			if (CookedPackages.Exists(StandardPackageFName, TargetPlatformNames))
+				continue;
 				
-				if (StandardPackageFName != NAME_None) // if we have name none that means we are in core packages or something...
-				{
-					// check if the package has already been saved
-					bool bAlreadyInSet = false;
-					PackagesToSaveSet.Add(Package, &bAlreadyInSet);
-					if ( bAlreadyInSet == false )
-					{
-						UE_LOG(LogCook, Verbose, TEXT("Found unsolicited package to cook %s"), *Package->GetName());
-					}
-					continue;
-				}
-			}
+			PackagesToSaveSet.Add(Package);
+
+			UE_LOG(LogCook, Verbose, TEXT("Found unsolicited package to cook %s"), *Package->GetName());
 		}
 	}
-	
-	for (UPackage* Package : PackagesToSaveSet )
+
+	const int PackageCount = PackagesToSaveSet.Num();
+	PackagesToSave.SetNumUninitialized(PackageCount);
+
+	int i = 0;
+	for (UPackage* Package : PackagesToSaveSet)
 	{
-		PackagesToSave.Add(Package);
+		PackagesToSave[i++] = Package;
 	}
 }
 
@@ -5072,6 +5138,7 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 		// Gather initial unsolicited package list, this is needed in iterative mode because it may skip cooking all explicit packages and never hit this code
 		TArray<UPackage*> UnsolicitedPackages;
 		UE_LOG(LogCook, Verbose, TEXT("Finding initial unsolicited packages"));
+
 		GetUnsolicitedPackages(UnsolicitedPackages, CookByTheBookOptions->TargetPlatformNames);
 
 		for (UPackage* UnsolicitedPackage : UnsolicitedPackages)

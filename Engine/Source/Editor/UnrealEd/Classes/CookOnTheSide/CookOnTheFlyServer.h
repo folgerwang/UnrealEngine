@@ -1706,6 +1706,10 @@ private:
 
 	uint32		StatLoadedPackageCount = 0;
 	uint32		StatSavedPackageCount = 0;
+
+	struct FImpl;
+
+	FImpl*		Impl;
 };
 
 FORCEINLINE uint32 GetTypeHash(const UCookOnTheFlyServer::FFilePlatformRequest &Key)
