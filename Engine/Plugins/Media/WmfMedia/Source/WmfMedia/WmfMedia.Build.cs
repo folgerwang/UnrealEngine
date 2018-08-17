@@ -6,7 +6,9 @@ namespace UnrealBuildTool.Rules
 	{
 		public WmfMedia(ReadOnlyTargetRules Target) : base(Target)
 		{
-			DynamicallyLoadedModuleNames.AddRange(
+            bEnableExceptions = true;
+
+            DynamicallyLoadedModuleNames.AddRange(
 				new string[] {
 					"Media",
 				});

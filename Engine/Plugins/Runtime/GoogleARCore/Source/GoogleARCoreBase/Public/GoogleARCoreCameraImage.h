@@ -61,7 +61,7 @@ private:
 	const AImage *NdkImage = nullptr;
 #endif
 
-	friend class FGoogleARCoreSession;
+	friend class FGoogleARCoreFrame;
 };
 
 

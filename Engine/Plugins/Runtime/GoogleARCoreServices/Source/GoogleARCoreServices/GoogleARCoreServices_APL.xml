@@ -5,7 +5,7 @@
   <init>
     <log text="GoogleARServices APL init"/>
     <setBoolFromProperty result="bGradle" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="bEnableGradle" default="false"/>
-    <setStringFromProperty result="APIKey" ini="Engine" section="/Script/GoogleARCoreServices.GoogleARCoreServicesEditorSettings" property="APIKey" default=""/>
+    <setStringFromProperty result="APIKey" ini="Engine" section="/Script/GoogleARCoreServices.GoogleARCoreServicesEditorSettings" property="AndroidAPIKey" default=""/>
 	</init>
 
   <!-- optional updates applied to AndroidManifest.xml -->

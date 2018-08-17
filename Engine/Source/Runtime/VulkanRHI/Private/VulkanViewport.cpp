@@ -590,11 +590,11 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 	//Transition back buffer to presentable and submit that command
 	check(CmdBuffer->IsOutsideRenderPass());
 
-	if (DelayAcquireBackBuffer() && RenderingBackBuffer)
+	if (FVulkanPlatform::SupportsStandardSwapchain())
 	{
-		SCOPE_CYCLE_COUNTER(STAT_VulkanAcquireBackBuffer);
-		if (FVulkanPlatform::SupportsStandardSwapchain())
+		if (DelayAcquireBackBuffer() && RenderingBackBuffer)
 		{
+			SCOPE_CYCLE_COUNTER(STAT_VulkanAcquireBackBuffer);
 			if (!DoCheckedSwapChainJob(DoAcquireImageIndex))
 			{
 				UE_LOG(LogVulkanRHI, Fatal, TEXT("Swapchain acquire image index failed!"));
@@ -604,16 +604,16 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 			CopyImageToBackBuffer(CmdBuffer, true, RenderingBackBuffer->Surface.Image, BackBufferImages[AcquiredImageIndex], SizeX, SizeY);
 			Context->RHIPopEvent();
 		}
-	}
-	else
-	{
-		check(AcquiredImageIndex != -1);
+		else
+		{
+			check(AcquiredImageIndex != -1);
 
-		check(RHIBackBuffer == nullptr || RHIBackBuffer->Surface.Image == BackBufferImages[AcquiredImageIndex]);
+			check(RHIBackBuffer == nullptr || RHIBackBuffer->Surface.Image == BackBufferImages[AcquiredImageIndex]);
 
-		VkImageLayout& Layout = Context->GetTransitionAndLayoutManager().FindOrAddLayoutRW(BackBufferImages[AcquiredImageIndex], VK_IMAGE_LAYOUT_UNDEFINED);
-		VulkanRHI::ImagePipelineBarrier(CmdBuffer->GetHandle(), BackBufferImages[AcquiredImageIndex], VulkanRHI::GetImageLayoutFromVulkanLayout(Layout), EImageLayoutBarrier::Present, VulkanRHI::SetupImageSubresourceRange());
-		Layout = VK_IMAGE_LAYOUT_UNDEFINED;
+			VkImageLayout& Layout = Context->GetTransitionAndLayoutManager().FindOrAddLayoutRW(BackBufferImages[AcquiredImageIndex], VK_IMAGE_LAYOUT_UNDEFINED);
+			VulkanRHI::ImagePipelineBarrier(CmdBuffer->GetHandle(), BackBufferImages[AcquiredImageIndex], VulkanRHI::GetImageLayoutFromVulkanLayout(Layout), EImageLayoutBarrier::Present, VulkanRHI::SetupImageSubresourceRange());
+			Layout = VK_IMAGE_LAYOUT_UNDEFINED;
+		}
 	}
 
 	CmdBuffer->End();

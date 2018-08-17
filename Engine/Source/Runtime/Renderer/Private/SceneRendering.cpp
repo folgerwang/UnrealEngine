@@ -129,6 +129,12 @@ static TAutoConsoleVariable<int32> CVarMonoscopicFarFieldMode(
 	TEXT(", 4 mono far field only"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarRoundRobinOcclusion(
+	TEXT("vr.RoundRobinOcclusion"),
+	0,
+	TEXT("0 to disable round-robin occlusion queries for stereo rendering (default), 1 to enable."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
 static TAutoConsoleVariable<int32> CVarUsePreExposure(
 	TEXT("r.UsePreExposure"),
 	0,
@@ -1922,8 +1928,6 @@ void FSceneRenderer::PrepareViewRectsForRendering()
 
 	check(ViewScreenPercentageConfigs.Num() == Views.Num());
 
-	TArray<FIntPoint> OutputViewSizes;
-
 	// Checks that view rects are correctly initialized.
 	for (int32 i = 0; i < Views.Num(); i++)
 	{
@@ -1944,7 +1948,7 @@ void FSceneRenderer::PrepareViewRectsForRendering()
 		// Compute final resolution fraction.
 		float ResolutionFraction = PrimaryResolutionFraction * ViewFamily.SecondaryViewFraction;
 
-		FIntPoint ViewSize = ApplyResolutionFraction(ViewFamily, View.UnscaledViewRect.Size(), ResolutionFraction); 
+		FIntPoint ViewSize = ApplyResolutionFraction(ViewFamily, View.UnscaledViewRect.Size(), ResolutionFraction);
 		FIntPoint ViewRectMin = QuantizeViewRectMin(FIntPoint(
 			FMath::CeilToInt(View.UnscaledViewRect.Min.X * ResolutionFraction),
 			FMath::CeilToInt(View.UnscaledViewRect.Min.Y * ResolutionFraction)));
@@ -1984,13 +1988,6 @@ void FSceneRenderer::PrepareViewRectsForRendering()
 
 		check(View.ViewRect.Area() != 0);
 		check(View.VerifyMembersChecks());
-
-		OutputViewSizes.Add(ViewSize);
-
-		if (GEngine && GEngine->StereoRenderingDevice.IsValid())
-		{
-			GEngine->StereoRenderingDevice->SetFinalViewRect(View.StereoPass, View.ViewRect);
-		}
 	}
 
 	// Shifts all view rects layout to the top left corner of the buffers, since post processing will just output the final
@@ -2046,6 +2043,16 @@ void FSceneRenderer::PrepareViewRectsForRendering()
 	#endif
 
 	ComputeFamilySize();
+
+	// Notify StereoRenderingDevice about new ViewRects
+	if (GEngine->StereoRenderingDevice.IsValid())
+	{
+		for (int32 i = 0; i < Views.Num(); i++)
+		{
+			FViewInfo& View = Views[i];
+			GEngine->StereoRenderingDevice->SetFinalViewRect(View.StereoPass, View.ViewRect);
+		}
+	}
 }
 
 void FSceneRenderer::ComputeFamilySize()

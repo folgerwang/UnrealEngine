@@ -537,6 +537,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired = true))
 		uint32 bMonoscopicFarField : 1;
 
+	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
+		ConsoleVariable = "vr.RoundRobinOcclusion", DisplayName = "Round Robin Occlusion Queries",
+		ToolTip = "Enable round-robin scheduling of occlusion queries for VR.",
+		ConfigRestartRequired = false))
+	uint32 bRoundRobinOcclusion : 1;
+
 	UPROPERTY(config, EditAnywhere, Category = Experimental, meta = (
 		ConsoleVariable = "vr.ODSCapture", DisplayName = "Omni-directional Stereo Capture",
 		ToolTip = "Enable Omni-directional Stereo Capture.",

@@ -40,7 +40,11 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Tracked Geometry")
 	EARTrackingState GetTrackingState() const;
-	
+	void SetTrackingState(EARTrackingState NewState);
+
+	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Tracked Geometry")
+	bool IsTracked() const;
+
 	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Tracked Geometry")
 	FName GetDebugName() const;
 	
@@ -143,6 +147,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	UARCandidateImage* GetDetectedImage() const { return DetectedImage; };
 
+	DEPRECATED(4.21, "This property is now deprecated, please use GetTrackingState() and check for EARTrackingState::Tracking or IsTracked() instead.")
 	/** Whether the image is currently being tracked by the AR system */
 	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
 	bool bIsTracked;
@@ -280,6 +285,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
 	FVector LookAtTarget;
 
+	DEPRECATED(4.21, "This property is now deprecated, please use GetTrackingState() and check for EARTrackingState::Tracking or IsTracked() instead.")
 	/** Whether the face is currently being tracked by the AR system */
 	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
 	bool bIsTracked;

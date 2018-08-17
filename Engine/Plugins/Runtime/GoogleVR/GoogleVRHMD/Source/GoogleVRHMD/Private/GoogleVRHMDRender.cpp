@@ -418,7 +418,8 @@ FGoogleVRHMDTexture2DSet* FGoogleVRHMDTexture2DSet::CreateTexture2DSet(
 }
 
 FGoogleVRHMDCustomPresent::FGoogleVRHMDCustomPresent(FGoogleVRHMD* InHMD)
-	: CurrentFrame(nullptr)
+	: FXRRenderBridge()
+	, CurrentFrame(nullptr)
 	, HMD(InHMD)
 	, SwapChain(nullptr)
 	, CurrentFrameViewportList(nullptr)
