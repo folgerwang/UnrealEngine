@@ -852,9 +852,9 @@ bool UEditorStaticMeshLibrary::AddUVChannel(UStaticMesh* StaticMesh, int32 LODIn
 		return false;
 	}
 
-	if (StaticMesh->GetNumUVChannels(LODIndex) >= MAX_MESH_TEXTURE_COORDS)
+	if (StaticMesh->GetNumUVChannels(LODIndex) >= MAX_MESH_TEXTURE_COORDS_MD)
 	{
-		UE_LOG(LogEditorScripting, Error, TEXT("AddUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS);
+		UE_LOG(LogEditorScripting, Error, TEXT("AddUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS_MD);
 		return false;
 	}
 
@@ -889,9 +889,9 @@ bool UEditorStaticMeshLibrary::InsertUVChannel(UStaticMesh* StaticMesh, int32 LO
 		return false;
 	}
 
-	if (NumUVChannels >= MAX_MESH_TEXTURE_COORDS)
+	if (NumUVChannels >= MAX_MESH_TEXTURE_COORDS_MD)
 	{
-		UE_LOG(LogEditorScripting, Error, TEXT("InsertUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS);
+		UE_LOG(LogEditorScripting, Error, TEXT("InsertUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS_MD);
 		return false;
 	}
 
