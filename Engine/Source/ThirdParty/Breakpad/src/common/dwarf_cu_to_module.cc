@@ -200,8 +200,11 @@ struct DwarfCUToModule::CUContext {
     dwarf2reader::SectionMap::const_iterator map_entry
       = section_map.find(".debug_ranges");
 
-    if (map_entry != section_map.end())
-    {
+    if (map_entry == section_map.end()) {
+      map_entry = section_map.find("__debug_ranges");
+    }
+
+    if (map_entry != section_map.end()) {
       range_section_start = map_entry->second.first;
     }
   }
@@ -541,7 +544,7 @@ void DwarfCUToModule::InlineFuncHandler::Finish() {
   if (low_pc_ < high_pc_) {
     inlined_subroutines_->push_back({low_pc_, high_pc_, call_file_, call_line_});
   }
-  else {
+  else if (cu_context_->range_section_start) {
     uintptr_t range_low_pc  = 0x0;
     uintptr_t range_high_pc = 0x0;
     uint32 count = 0;
