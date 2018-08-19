@@ -629,7 +629,7 @@ void FAsyncAudioDecompressWorker::DoWork()
 		{
 			FScopeCycleCounterUObject WaveObject( Wave );
 
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMIN
 			// Handle resampling
 			if (QualityInfo.SampleRate > 48000)
 			{

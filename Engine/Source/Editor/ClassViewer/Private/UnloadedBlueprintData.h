@@ -26,6 +26,8 @@ public:
 
 	virtual const UClass* GetClassWithin() const override;
 
+	virtual const UClass* GetNativeParent() const override;
+
 	/** Retrieves the Class Viewer node this data is associated with. */
 	const TWeakPtr<FClassViewerNode>& GetClassViewerNode() const;
 

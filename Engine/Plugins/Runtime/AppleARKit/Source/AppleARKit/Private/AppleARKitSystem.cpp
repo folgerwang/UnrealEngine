@@ -1482,7 +1482,11 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 			NewAnchorDebugName = FString::Printf(TEXT("FACE-%02d"), LastTrackedGeometry_DebugId++);
 			UARFaceGeometry* NewGeo = NewObject<UARFaceGeometry>();
 			NewGeo->UpdateFaceGeometry(SharedThis(this), GameThreadFrameNumber, UpdateTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices, AnchorData->LeftEyeTransform, AnchorData->RightEyeTransform, AnchorData->LookAtTarget);
+			NewGeo->SetTrackingState(EARTrackingState::Tracking);
+			// @todo JoeG -- remove in 4.22
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			NewGeo->bIsTracked = true;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			NewGeometry = NewGeo;
 			break;
 		}
@@ -1583,7 +1587,11 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 				if (UARFaceGeometry* FaceGeo = Cast<UARFaceGeometry>(FoundGeometry))
 				{
 					FaceGeo->UpdateFaceGeometry(SharedThis(this), GameThreadFrameNumber, UpdateTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices, AnchorData->LeftEyeTransform, AnchorData->RightEyeTransform, AnchorData->LookAtTarget);
+					FaceGeo->SetTrackingState(AnchorData->bIsTracked ? EARTrackingState::Tracking : EARTrackingState::NotTracking);
+					// @todo JoeG -- remove this in 4.22
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 					FaceGeo->bIsTracked = AnchorData->bIsTracked;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 					for (UARPin* Pin : PinsToUpdate)
 					{
 						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;
@@ -1600,7 +1608,11 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 					ensure(CandidateImage != nullptr);
 
 					ImageAnchor->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, UpdateTimestamp, AnchorData->Transform, GetAlignmentTransform(), *CandidateImage);
+					ImageAnchor->SetTrackingState(AnchorData->bIsTracked ? EARTrackingState::Tracking : EARTrackingState::NotTracking);
+					// @todo JoeG -- remove this in 4.22
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 					ImageAnchor->bIsTracked = AnchorData->bIsTracked;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 					for (UARPin* Pin : PinsToUpdate)
 					{
 						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;

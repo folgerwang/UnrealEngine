@@ -112,7 +112,7 @@ public class Launch : ModuleRules
 					"NetworkFile",
 					"StreamingFile",
 					"CookedIterativeFile",
-					"AutomationWorker",
+					"AutomationWorker"
 			});
 		}
 
@@ -141,6 +141,13 @@ public class Launch : ModuleRules
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface"
 			});
+
+			if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+			{
+				PrivateDependencyModuleNames.AddRange(new string[] {
+					"FunctionalTesting"
+				});
+			}
 		}
 
 		if (Target.Configuration != UnrealTargetConfiguration.Shipping)

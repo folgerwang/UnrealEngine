@@ -14,7 +14,7 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"GoogleVRController/Private",
-					"GoogleVRController/Private/ArmModel",
+					"GoogleVRController/Private/ArmModel"
 					// ... add other private include paths required here ...
 //					GoogleVRSDKDir + "include",
 //					GoogleVRSDKDir + "include/vr/gvr/capi/include",

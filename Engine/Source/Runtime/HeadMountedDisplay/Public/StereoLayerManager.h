@@ -14,6 +14,8 @@
 	The template argument should be a type for storing layer data. It should have a constructor matching the following:
 		LayerType(const FLayerDesc& InLayerDesc);
 	... and implement the following function overloads:
+		void SetLayerId(uint32 InId),
+		uint32 GetLayerId() const,
 		bool GetLayerDescMember(LayerType& Layer, FLayerDesc& OutLayerDesc),
 		void SetLayerDescMember(LayerType& Layer, const FLayerDesc& Desc), and
 		void MarkLayerTextureForUpdate(LayerType& Layer)
@@ -100,6 +102,7 @@ public:
 		uint32 LayerId = NextLayerId++;
 		check(LayerId > 0);
 		LayerType& NewLayer = StereoLayers.Emplace(LayerId, InLayerDesc);
+		NewLayer.SetLayerId(LayerId);
 		UpdateLayer(NewLayer, LayerId, InLayerDesc.Texture != nullptr);
 		bStereoLayersDirty = true;
 		return LayerId;
@@ -129,6 +132,7 @@ public:
 
 		LayerType& Layer = StereoLayers[LayerId];
 		SetLayerDescMember(Layer, InLayerDesc);
+		Layer.SetLayerId(LayerId);
 		UpdateLayer(Layer, LayerId, InLayerDesc.Texture != nullptr);
 		bStereoLayersDirty = true;
 	}

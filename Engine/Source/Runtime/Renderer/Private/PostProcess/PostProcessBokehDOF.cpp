@@ -510,10 +510,13 @@ void FRCPassPostProcessBokehDOFSetup::Process(FRenderingCompositePassContext& Co
 		// Set the view family's render target/viewport.
 		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
 	
-		// can be optimized (don't clear areas we overwrite, don't clear when full screen),
-		// needed when a camera (matinee) has black borders or with multiple viewports
-		// focal distance depth is stored in the alpha channel to avoid DOF artifacts
-		DrawClearQuad(Context.RHICmdList, true, FLinearColor(0, 0, 0, View.FinalPostProcessSettings.DepthOfFieldFocalDistance), false, 0, false, 0, DestSize, DestRect);
+		if (View.StereoPass == eSSP_FULL)
+		{
+			// can be optimized (don't clear areas we overwrite, don't clear when full screen),
+			// needed when a camera (matinee) has black borders or with multiple viewports
+			// focal distance depth is stored in the alpha channel to avoid DOF artifacts
+			DrawClearQuad(Context.RHICmdList, true, FLinearColor(0, 0, 0, View.FinalPostProcessSettings.DepthOfFieldFocalDistance), false, 0, false, 0, DestSize, DestRect);
+		}
 
 		Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
 

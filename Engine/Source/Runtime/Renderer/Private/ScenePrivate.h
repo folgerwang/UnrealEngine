@@ -105,6 +105,38 @@ public:
 	/** whether or not this primitive was grouped the last time it was queried */
 	bool bGroupedQuery[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
 
+private:
+	/**
+	 *	Whether or not we need to linearly search the history for a past entry. Scanning may be necessary if for every frame there
+	 *	is a hole in PendingOcclusionQueryFrames in the same spot (ex. if for every frame PendingOcclusionQueryFrames[1] is null).
+	 *	This could lead to overdraw for the frames that attempt to read these holes by getting back nothing every time.
+	 *	This can occur when round robin occlusion queries are turned on while NumBufferedFrames is even.
+	 */
+	bool bNeedsScanOnRead;
+
+	/**
+	 *	Scan for the oldest non-stale (<= LagTolerance frames old) in the occlusion history by examining their corresponding frame numbers.
+	 *	Conditions where this is needed to get a query for read-back are described for bNeedsScanOnRead.
+	 *	Returns -1 if no such query exists in the occlusion history.
+	 */
+	FORCEINLINE int32 ScanOldestNonStaleQueryIndex(uint32 FrameNumber, int32 NumBufferedFrames, int32 LagTolerance) const
+	{
+		uint32 OldestFrame = UINT32_MAX;
+		int32 OldestQueryIndex = -1;
+		for (int Index = 0; Index < NumBufferedFrames; ++Index)
+		{
+			const uint32 ThisFrameNumber = PendingOcclusionQueryFrames[Index];
+			const int32 LaggedFrames = FrameNumber - ThisFrameNumber;
+			if (PendingOcclusionQuery[Index].IsValid() && LaggedFrames <= LagTolerance && ThisFrameNumber < OldestFrame)
+			{
+				OldestFrame = ThisFrameNumber;
+				OldestQueryIndex = Index;
+			}
+		}
+		return OldestQueryIndex;
+	}
+
+public:
 	/** Initialization constructor. */
 	FORCEINLINE FPrimitiveOcclusionHistory(FPrimitiveComponentId InPrimitiveId, int32 SubQuery)
 		: PrimitiveId(InPrimitiveId)
@@ -118,6 +150,7 @@ public:
 		, BecameEligibleForQueryCooldown(0)
 		, WasOccludedLastFrame(false)
 		, OcclusionStateWasDefiniteLastFrame(false)
+		, bNeedsScanOnRead(false)
 	{
 		for (int32 Index = 0; Index < FOcclusionQueryHelpers::MaxBufferedOcclusionFrames; Index++)
 		{
@@ -137,6 +170,7 @@ public:
 		, BecameEligibleForQueryCooldown(0)
 		, WasOccludedLastFrame(false)
 		, OcclusionStateWasDefiniteLastFrame(false)
+		, bNeedsScanOnRead(false)
 	{
 		for (int32 Index = 0; Index < FOcclusionQueryHelpers::MaxBufferedOcclusionFrames; Index++)
 		{
@@ -165,32 +199,46 @@ public:
 	FORCEINLINE void ReleaseQuery(TOcclusionQueryPool& Pool, uint32 FrameNumber, int32 NumBufferedFrames)
 	{
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
-		if (PendingOcclusionQuery[QueryIndex].GetReference())
+		if (PendingOcclusionQuery[QueryIndex].IsValid())
 		{
 			Pool.ReleaseQuery(PendingOcclusionQuery[QueryIndex]);
 		}
 	}
 
-	FORCEINLINE FRenderQueryRHIParamRef GetPastQuery(uint32 FrameNumber, int32 NumBufferedFrames, bool& bOutGrouped)
+	FORCEINLINE FRenderQueryRHIParamRef GetQueryForEviction(uint32 FrameNumber, int32 NumBufferedFrames) const
 	{
-		// Get the oldest occlusion query
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
-		bOutGrouped = false;
-		if (PendingOcclusionQuery[QueryIndex].GetReference() && PendingOcclusionQueryFrames[QueryIndex] == FrameNumber - uint32(NumBufferedFrames))
+		if (PendingOcclusionQuery[QueryIndex].IsValid())
 		{
-			bOutGrouped = bGroupedQuery[QueryIndex];
 			return PendingOcclusionQuery[QueryIndex].GetReference();
 		}
 		return nullptr;
 	}
 
-	FORCEINLINE void SetCurrentQuery(uint32 FrameNumber, FRenderQueryRHIParamRef NewQuery, int32 NumBufferedFrames, bool bGrouped)
+
+	FORCEINLINE FRenderQueryRHIParamRef GetQueryForReading(uint32 FrameNumber, int32 NumBufferedFrames, int32 LagTolerance, bool& bOutGrouped) const
+	{
+		const int32 OldestQueryIndex = bNeedsScanOnRead ? ScanOldestNonStaleQueryIndex(FrameNumber, NumBufferedFrames, LagTolerance)
+														: FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
+		const int32 LaggedFrames = FrameNumber - PendingOcclusionQueryFrames[OldestQueryIndex];
+		if (OldestQueryIndex == -1 || !PendingOcclusionQuery[OldestQueryIndex].IsValid() || LaggedFrames > LagTolerance)
+		{
+			bOutGrouped = false;
+			return nullptr;
+		}
+		bOutGrouped = bGroupedQuery[OldestQueryIndex];
+		return PendingOcclusionQuery[OldestQueryIndex];
+	}
+
+	FORCEINLINE void SetCurrentQuery(uint32 FrameNumber, FRenderQueryRHIParamRef NewQuery, int32 NumBufferedFrames, bool bGrouped, bool bNeedsScan)
 	{
 		// Get the current occlusion query
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryIssueIndex(FrameNumber, NumBufferedFrames);
 		PendingOcclusionQuery[QueryIndex] = NewQuery;
 		PendingOcclusionQueryFrames[QueryIndex] = FrameNumber;
 		bGroupedQuery[QueryIndex] = bGrouped;
+
+		bNeedsScanOnRead = bNeedsScan;
 	}
 
 	FORCEINLINE uint32 LastQuerySubmitFrame() const
@@ -750,6 +798,9 @@ private:
 	// whether this view is a stereo counterpart to a primary view
 	bool bIsStereoView;
 
+	// The whether or not round-robin occlusion querying is enabled for this view
+	bool bRoundRobinOcclusionEnabled;
+
 public:
 
 	// Previous frame's view info to use.
@@ -994,6 +1045,16 @@ public:
 	 * @param MinQueryTime - The pending occlusion queries older than this will be discarded.
 	 */
 	void TrimOcclusionHistory(float CurrentTime, float MinHistoryTime, float MinQueryTime, int32 FrameNumber);
+
+	inline void UpdateRoundRobin(const bool bUseRoundRobin)
+	{
+		bRoundRobinOcclusionEnabled = bUseRoundRobin;
+	}
+
+	inline bool IsRoundRobinEnabled() const
+	{
+		return bRoundRobinOcclusionEnabled;
+	}
 
 	/**
 	 * Checks whether a shadow is occluded this frame.

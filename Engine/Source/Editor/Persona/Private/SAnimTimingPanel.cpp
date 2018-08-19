@@ -18,6 +18,10 @@
 #include "Preferences/PersonaOptions.h"
 #include "Widgets/Layout/SExpandableArea.h"
 #include "STimingTrack.h"
+#include "ISkeletonEditorModule.h"
+#include "Modules/ModuleManager.h"
+#include "IEditableSkeleton.h"
+#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "AnimTimingPanel"
 
@@ -188,7 +192,7 @@ void SAnimTimingTrackNode::Construct(const FArguments& InArgs)
 		);
 }
 
-void SAnimTimingPanel::Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnAnimNotifiesChanged, FSimpleMulticastDelegate& OnSectionsChanged)
+void SAnimTimingPanel::Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnSectionsChanged)
 {
 	SAnimTrackPanel::Construct(SAnimTrackPanel::FArguments()
 		.WidgetWidth(InArgs._WidgetWidth)
@@ -223,7 +227,10 @@ void SAnimTimingPanel::Construct(const FArguments& InArgs, FSimpleMulticastDeleg
 	Update();
 
 	// Register to some delegates to update the interface
-	OnAnimNotifiesChanged.Add(FSimpleDelegate::CreateSP(this, &SAnimTimingPanel::RefreshTrackNodes));
+	ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+	TSharedPtr<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(AnimSequence->GetSkeleton());
+	EditableSkeleton->RegisterOnNotifiesChanged(FSimpleDelegate::CreateSP(this, &SAnimTimingPanel::RefreshTrackNodes));
+
 	OnSectionsChanged.Add(FSimpleDelegate::CreateSP(this, &SAnimTimingPanel::RefreshTrackNodes));
 
 	// Clear display flags

@@ -29,6 +29,7 @@
 #include "UObject/Package.h"
 #include "EngineAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "Kismet/GameplayStatics.h"
 
 ///////////////////////////////////////////
 // Begin GoogleVR Api Console Variables //
@@ -405,6 +406,7 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 			"Gogle VR specific extension.\n"
 			"Enable or Disable Sustained Performance Mode").ToString(),
 		FConsoleCommandWithWorldArgsAndOutputDeviceDelegate::CreateRaw(this, &FGoogleVRHMD::EnableSustainedPerformanceModeHandler))
+	, CVarSink(FConsoleCommandDelegate::CreateRaw(this, &FGoogleVRHMD::CVarSinkHandler))
 #endif
 	, TrackingOrigin(EHMDTrackingOrigin::Eye)
 	, bIs6DoFSupported(false)
@@ -506,7 +508,6 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 			OverlayView = [[GVROverlayView alloc] initWithFrame:[IOSAppDelegate GetDelegate].IOSView.bounds];
 			OverlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 			OverlayView.delegate = OverlayViewDelegate;
-			[[IOSAppDelegate GetDelegate].IOSView addSubview:OverlayView];
 		});
 #endif // GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS
 
@@ -543,6 +544,8 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 
 		// Register LoadMap Delegate
 		FCoreUObjectDelegates::PreLoadMap.AddRaw(this, &FGoogleVRHMD::OnPreLoadMap);
+
+		FCoreDelegates::VRControllerRecentered.AddRaw(this, &FGoogleVRHMD::OnControllerRecentered);
 	}
 	else
 	{
@@ -756,6 +759,7 @@ FIntPoint FGoogleVRHMD::GetGVRMaxRenderTargetSize() const
 {
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	gvr_sizei MaxSize = gvr_get_maximum_effective_render_target_size(GVRAPI);
+	UE_LOG(LogHMD, Log, TEXT("GVR Recommended RenderTargetSize: %d x %d"), MaxSize.width, MaxSize.height);
 	return FIntPoint{ static_cast<int>(MaxSize.width), static_cast<int>(MaxSize.height) };
 #else
 	return FIntPoint{ 0, 0 };
@@ -1447,6 +1451,20 @@ bool FGoogleVRHMD::EnableStereo(bool stereo)
 	AndroidThunkCpp_UiLayer_SetEnabled(stereo);
 #endif
 
+#if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+		if (stereo)
+		{
+			[[IOSAppDelegate GetDelegate].IOSView addSubview : OverlayView];
+		}
+		else
+		{
+			[OverlayView removeFromSuperview];
+		}
+	});
+#endif
+
 	bStereoEnabled = stereo;
 	GEngine->bForceDisableFrameRateSmoothing = bStereoEnabled;
 	return bStereoEnabled;
@@ -1796,10 +1814,15 @@ bool FGoogleVRHMD::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	else if (FParse::Command(&Cmd, TEXT("GVRRENDERSIZE")))
 	{
 		int Width, Height;
+		float ScaleFactor;
 		FIntPoint ActualSize;
 		if (FParse::Value(Cmd, TEXT("W="), Width) && FParse::Value(Cmd, TEXT("H="), Height))
 		{
 			AliasedCommand = FString::Printf(TEXT("vr.googlevr.RenderTargetSize %d %d"), Width, Height);
+		}
+		else if (FParse::Value(Cmd, TEXT("S="), ScaleFactor))
+		{
+			AliasedCommand = FString::Printf(TEXT("r.ScreenPercentage %.0f"), ScaleFactor*100.f);
 		}
 		else if (FParse::Command(&Cmd, TEXT("RESET")))
 		{
@@ -1995,6 +2018,20 @@ void FGoogleVRHMD::EnableSustainedPerformanceModeHandler(const TArray<FString>& 
 	{
 		const bool Enabled = FCString::ToBool(*Args[0]);
 		SetSPMEnable(Enabled);
+	}
+}
+
+void FGoogleVRHMD::CVarSinkHandler()
+{
+	static const auto ScreenPercentageCVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.ScreenPercentage"));
+	static float PreviousValue = ScreenPercentageCVar->GetValueOnAnyThread();
+
+	float CurrentValue = ScreenPercentageCVar->GetValueOnAnyThread();
+	if (CurrentValue != PreviousValue)
+	{
+		FIntPoint ActualSize;
+		SetGVRHMDRenderTargetSize(CurrentValue / 100.f, ActualSize);
+		PreviousValue = CurrentValue;
 	}
 }
 #endif
@@ -2198,6 +2235,12 @@ bool FGoogleVRHMD::OnStartGameFrame( FWorldContext& WorldContext )
 	// Update ViewportList from GVR API
 	UpdateGVRViewportList();
 
+	if (bRecenterControllerOnly)
+	{
+		// Update Correction for Recenter Controller Only
+		TrackYawCorrection(WorldContext);
+	}
+
 	RefreshTrackingToWorldTransform(WorldContext);
 
 	// Enable scene present after OnStartGameFrame get called.
@@ -2305,6 +2348,11 @@ bool FGoogleVRHMD::GetRecenterTransform(FQuat& RecenterOrientation, FVector& Rec
 }
 
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
+gvr::ViewerType FGoogleVRHMD::GetViewerType() const
+{
+	return static_cast<gvr::ViewerType>(gvr_get_viewer_type(GVRAPI));
+}
+
 bool FGoogleVRHMD::TryReadProperty(int32_t PropertyKey, gvr_value* ValueOut)
 {
 	const gvr_properties* props = gvr_get_current_properties(GVRAPI);
@@ -2332,4 +2380,61 @@ EHMDTrackingOrigin::Type FGoogleVRHMD::GetTrackingOrigin()
 bool FGoogleVRHMD::Is6DOFSupported() const
 {
 	return bIs6DoFSupported;
+}
+
+void FGoogleVRHMD::SetRecenterControllerOnly(bool bIsRecenterControllerOnly)
+{
+	if (bRecenterControllerOnly && !bIsRecenterControllerOnly)
+	{
+		ResetOrientationAndPosition(0.0f);
+	}
+	bRecenterControllerOnly = bIsRecenterControllerOnly;
+	yawCorrection = 0.0f;
+	bShouldApplyYawCorrection = false;
+}
+
+void FGoogleVRHMD::OnControllerRecentered()
+{
+	if (!bRecenterControllerOnly)
+	{
+		return;
+	}
+
+	bShouldApplyYawCorrection = true;
+}
+
+void FGoogleVRHMD::TrackYawCorrection(FWorldContext& WorldContext)
+{
+	if (!bRecenterControllerOnly)
+	{
+		return;
+	}
+
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(WorldContext.World(), 0);
+	if (PlayerController)
+	{
+		// We don't track yaw changes when the Recenter event is going to be fired
+		// Both Gamepad_Special_Left and Gamepad_Special_Right are mapped to the Home Button
+		float stateLeft = PlayerController->GetInputAnalogKeyState(FKey("Gamepad_Special_Left"));
+		float stateRight = PlayerController->GetInputAnalogKeyState(FKey("Gamepad_Special_Right"));
+		if (stateLeft != 1.0f && stateRight != 1.0f)
+		{
+			// If we want to keep tracking yaw then we get the new yaw
+			FQuat headRotation;
+			FVector headPosition;
+			if (GetCurrentPose(0, headRotation, headPosition))
+			{
+				FVector euler = headRotation.Euler();
+				yawCorrection = euler.Z;
+			}
+		}
+	}
+
+	// If we should apply the yaw correction, we do and reset flags
+	if (bShouldApplyYawCorrection)
+	{
+		ResetOrientationAndPosition(yawCorrection);
+		bShouldApplyYawCorrection = false;
+		yawCorrection = 0.0f;
+	}
 }
