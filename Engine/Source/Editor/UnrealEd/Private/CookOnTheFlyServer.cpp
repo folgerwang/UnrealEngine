@@ -1611,35 +1611,8 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 			}
 		}
 
-		bool bFinishedSave = SaveCookedPackages( PackagesToSave, AllTargetPlatformNames, TargetPlatforms, Timer, FirstUnsolicitedPackage, CookedPackageCount, Result );
+		SaveCookedPackages( PackagesToSave, AllTargetPlatformNames, TargetPlatforms, Timer, FirstUnsolicitedPackage, CookedPackageCount, Result );
 
-
-		// TODO: Daniel: this is reference code needs to be reimplemented on the callee side.
-		//  cooker can't depend on callee being able to garbage collect
-		// collect garbage
-		if ( CookByTheBookOptions && CookByTheBookOptions->bLeakTest && bFinishedSave )
-		{
-			check( CurrentCookMode == ECookMode::CookByTheBook);
-			UE_LOG(LogCook, Display, TEXT("Full GC..."));
-
-			CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
-			for (FObjectIterator It; It; ++It)
-			{
-				if (!CookByTheBookOptions->LastGCItems.Contains(FWeakObjectPtr(*It)))
-				{
-					UE_LOG(LogCook, Warning, TEXT("\tLeaked %s"), *(It->GetFullName()));
-					CookByTheBookOptions->LastGCItems.Add(FWeakObjectPtr(*It));
-				}
-			}
-		}
-
-		
-		// if we are cook on the fly (even in editor) and we have cook requests, try process them straight away
-		/*if ( IsCookOnTheFlyMode() && CookRequests.HasItems() )
-		{
-			continue;
-		}*/
-		
 		if ( Timer.IsTimeUp() )
 		{
 			break;
@@ -1924,22 +1897,22 @@ void UCookOnTheFlyServer::GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesT
 	GetUnsolicitedPackages(PackagesToSave, TargetPlatformNames);
 }
 
-bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, FCookerTimer& Timer, 
+void UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, FCookerTimer& Timer, 
 	int32 FirstUnsolicitedPackage, uint32& CookedPackageCount , uint32& Result)
 {
 	check(IsInGameThread());
 
+	if (PackagesToSave.Num() == 0)
+		return;
+
 	bool bIsAllDataCached = true;
 
 	const TArray<FName>& AllTargetPlatformNames = TargetPlatformNames;
-	
+	const int32 OriginalPackagesToSaveCount = PackagesToSave.Num();
 
-	bool bFinishedSave = true;
-
-	if (PackagesToSave.Num())
 	{
-		const int32 OriginalPackagesToSaveCount = PackagesToSave.Num();
 		SCOPE_TIMER(SavingPackages);
+
 		for (int32 I = 0; I < PackagesToSave.Num(); ++I)
 		{
 			UPackage* Package = PackagesToSave[I];
@@ -1960,6 +1933,10 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 				continue;
 			}
 
+			// TODO: optimize this to avoid creating the full array first only to remove entries (multiple dynamic allocations)
+			//
+			// Could rewrite using FTargetPlatformSet
+			
 			TArray<FName> SaveTargetPlatformNames = AllTargetPlatformNames;
 			TArray<FName> CookedTargetPlatforms;
 			if (CookedPackages.GetCookedPlatforms(PackageFName, CookedTargetPlatforms))
@@ -1978,17 +1955,16 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 				continue;
 			}
 
-
 			// if we are processing unsolicited packages we can optionally not save these right now
 			// the unsolicited packages which we missed now will be picked up on next run
 			// we want to do this in cook on the fly also, if there is a new network package request instead of saving unsolicited packages we can process the requested package
 
 			bool bShouldFinishTick = false;
 
-			if (Timer.IsTimeUp() && IsCookByTheBookMode() )
+			if (Timer.IsTimeUp() && IsCookByTheBookMode())
 			{
-				bShouldFinishTick = true;
 				// our timeslice is up
+				bShouldFinishTick = true;
 			}
 
 			// if we are cook the fly then save the package which was requested as fast as we can because the client is waiting on it
@@ -2040,7 +2016,7 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 
 			MakePackageFullyLoaded(Package);
 
-			if ( IsCookOnTheFlyMode() )
+			if (IsCookOnTheFlyMode())
 			{
 				// never want to requeue packages
 				HasCheckedAllPackagesAreCached = true;
@@ -2080,15 +2056,13 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 				for (int32 RemainingIndex = I; RemainingIndex < NumPackagesToRequeue; ++RemainingIndex)
 				{
 					FName StandardFilename = GetCachedStandardPackageFileFName(PackagesToSave[RemainingIndex]);
-							CookRequests.EnqueueUnique(FFilePlatformRequest(StandardFilename, SaveTargetPlatformNames));
+					CookRequests.EnqueueUnique(FFilePlatformRequest(StandardFilename, SaveTargetPlatformNames));
 				}
 				Result |= COSR_WaitingOnCache;
-
+			
 				// break out of the loop
-				bFinishedSave = false;
-				break;
+				return;
 			}
-
 
 			// don't precache other packages if our package isn't ready but we are going to save it.   This will fill up the worker threads with extra shaders which we may need to flush on 
 			if ((!IsCookOnTheFlyMode()) &&
@@ -2266,7 +2240,6 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 			}
 		}
 	}
-	return true;
 }
 
 
@@ -5656,7 +5629,6 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 		}
 	}
 
-	CookByTheBookOptions->LastGCItems.Empty();
 	const float TotalCookTime = (float)(FPlatformTime::Seconds() - CookByTheBookOptions->CookStartTime);
 	UE_LOG(LogCook, Display, TEXT("Cook by the book total time in tick %fs total time %f"), CookByTheBookOptions->CookTime, TotalCookTime);
 
@@ -6052,18 +6024,6 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 		}
 		CodeGenData.ManifestIdentifier = -1;
 		IBlueprintNativeCodeGenModule::InitializeModule(CodeGenData);
-	}
-
-	CookByTheBookOptions->bLeakTest = (CookOptions & ECookByTheBookOptions::LeakTest) != ECookByTheBookOptions::None; // this won't work from the editor this needs to be standalone
-	check(!CookByTheBookOptions->bLeakTest || CurrentCookMode == ECookMode::CookByTheBook);
-
-	CookByTheBookOptions->LastGCItems.Empty();
-	if (CookByTheBookOptions->bLeakTest)
-	{
-		for (FObjectIterator It; It; ++It)
-		{
-			CookByTheBookOptions->LastGCItems.Add(FWeakObjectPtr(*It));
-		}
 	}
 
 	{

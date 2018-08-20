@@ -54,7 +54,6 @@ enum class ECookByTheBookOptions
 	CookAll	=							0x00000001, // cook all maps and content in the content directory
 	MapsOnly =							0x00000002, // cook only maps
 	NoDevContent =						0x00000004, // don't include dev content
-	LeakTest =							0x00000008, // test for uobject leaks after each level load
 	ForceDisableCompressed =			0x00000010, // force compression to be disabled even if the cooker was initialized with it enabled
 	ForceEnableCompressed =				0x00000020, // force compression to be on even if the cooker was initialized with it disabled
 	ForceDisableSaveGlobalShaders =		0x00000040, // force global shaders to not be saved (used if cooking multiple times for the same platform and we know we are up todate)
@@ -790,14 +789,14 @@ private:
 	ECookMode::Type CurrentCookMode;
 	/** Directory to output to instead of the default should be empty in the case of DLC cooking */ 
 	FString OutputDirectoryOverride;
+
 	//////////////////////////////////////////////////////////////////////////
 	// Cook by the book options
-public:
-private:
+
 	struct FCookByTheBookOptions
 	{
 	public:
-		FCookByTheBookOptions() : bLeakTest(false),
+		FCookByTheBookOptions() : 
 			bGenerateStreamingInstallManifests(false),
 			bGenerateDependenciesForMaps(false),
 			bRunning(false),
@@ -808,8 +807,6 @@ private:
 			bFullLoadAndSave(false)
 		{ }
 
-		/** Should we test for UObject leaks */
-		bool bLeakTest;
 		/** Should we generate streaming install manifests (only valid option in cook by the book) */
 		bool bGenerateStreamingInstallManifests;
 		/** Should we generate a seperate manifest for map dependencies */
@@ -822,8 +819,6 @@ private:
 		FString DlcName;
 		/** Create a release from this manifest and store it in the releases directory for this cgame */
 		FString CreateReleaseVersion;
-		/** Leak test: last gc items (only valid when running from commandlet requires gc between each cooked package) */
-		TSet<FWeakObjectPtr> LastGCItems;
 		/** Dependency graph of maps as root objects. */
 		TMap<FName, TMap< FName, TSet <FName> > > MapDependencyGraphs; 
 		/** If a cook is cancelled next cook will need to resume cooking */ 
@@ -1421,7 +1416,7 @@ private:
 	 * @param Result (in+out) used to modify the result of the operation and add any relevant flags
 	 * @return returns true if we saved all the packages false if we bailed early for any reason
 	 */
-	bool SaveCookedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, struct FCookerTimer& Timer, int32 FirstUnsolicitedPackage, uint32& CookedPackageCount, uint32& Result);
+	void SaveCookedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, struct FCookerTimer& Timer, int32 FirstUnsolicitedPackage, uint32& CookedPackageCount, uint32& Result);
 
 	/**
 	 * Returns all packages which are found in memory which aren't cooked
