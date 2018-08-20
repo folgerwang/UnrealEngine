@@ -7,7 +7,7 @@
 
 void FOculusToolCommands::RegisterCommands()
 {
-	UI_COMMAND(OpenPluginWindow, "Oculus Tool", "Show Oculus Tool Window", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(OpenPluginWindow, "Oculus Tool", "Show Oculus Tool Window", EUserInterfaceActionType::Button, FInputChord());
 }
 
 void FOculusToolCommands::ShowOculusTool()
