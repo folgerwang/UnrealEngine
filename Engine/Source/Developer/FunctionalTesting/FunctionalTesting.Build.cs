@@ -44,5 +44,11 @@ public class FunctionalTesting : ModuleRules
                 }
             );
         }
-    }
+
+		//make sure this is compiled for binary builds
+		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+		{
+			PrecompileForTargets = PrecompileTargetsType.Any;
+		}
+	}
 }

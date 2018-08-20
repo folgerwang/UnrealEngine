@@ -13,8 +13,10 @@
 void FAndroidApplicationMisc::LoadPreInitModules()
 {
 	FModuleManager::Get().LoadModule(TEXT("OpenGLDrv"));
+#if USE_ANDROID_AUDIO
 	FModuleManager::Get().LoadModule(TEXT("AndroidAudio"));
 	FModuleManager::Get().LoadModule(TEXT("AudioMixerAndroid"));
+#endif
 }
 
 class FOutputDeviceError* FAndroidApplicationMisc::GetErrorOutputDevice()

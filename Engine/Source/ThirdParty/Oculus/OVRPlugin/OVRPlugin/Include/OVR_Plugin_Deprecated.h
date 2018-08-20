@@ -239,6 +239,8 @@ OVRP_EXPORT ovrpBool ovrp_SetOverlayQuad3(
 
 OVRP_EXPORT ovrpResult ovrp_EnqueueSetupLayer(ovrpLayerDesc* desc, int* layerId);
 
+OVRP_EXPORT ovrpResult ovrp_EnqueueSetupLayer2(ovrpLayerDesc* desc, int compositionDepth, int* layerId);
+
 OVRP_EXPORT ovrpResult ovrp_EnqueueDestroyLayer(int* layerId);
 
 OVRP_EXPORT ovrpResult ovrp_GetLayerTexturePtr(int layerId, int stage, ovrpEye eyeId, void** texturePtr);
@@ -344,6 +346,11 @@ OVRP_EXPORT ovrpResult ovrp_SetOctilinearInfo(ovrpOctilinearLayout OctilinearLay
 /// Gets the current pose, acceleration, and velocity of the given node on the given update cadence.
 OVRP_EXPORT ovrpResult ovrp_GetNodePoseState2(ovrpStep step, ovrpNode nodeId, ovrpPoseStatef* nodePoseState);
 
+// Called by Unity render thread after finished each eye rendering
+OVRP_EXPORT ovrpResult ovrp_EndEye2(ovrpEye eye, int frameIndex);
+
+// Update depth projection info, this is a replacement of ovrp_SetDepthCompositingInfo for more generic purpose
+OVRP_EXPORT ovrpResult ovrp_SetDepthProjInfo(float zNear, float zFar, ovrpBool isReverseZ);
 #ifdef __cplusplus
 }
 #endif

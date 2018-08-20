@@ -600,6 +600,7 @@ struct FVisForPrimParams
 		, NumToProcess(InNumToProcess)
 		, bSubmitQueries(bInSubmitQueries)
 		, bHZBOcclusion(bInHZBOcclusion)		
+		, bNeedsScanOnRead(false)
 		, InsertPrimitiveOcclusionHistory(OutOcclusionHistory)
 		, QueriesToRelease(OutQueriesToRelease)
 		, HZBBoundsToAdd(OutHZBBounds)
@@ -645,6 +646,9 @@ struct FVisForPrimParams
 	bool bSubmitQueries;
 	bool bHZBOcclusion;	
 
+	// Whether the entries written into the history need to be read using a scan search (see FPrimitiveOcclusionHistory::bNeedsScanOnRead)
+	bool bNeedsScanOnRead;
+
 	//occlusion history to insert into.  In parallel these will be all merged back into the view's history on the main thread.
 	//use TChunkedArray so pointers to the new FPrimitiveOcclusionHistory's won't change if the array grows.	
 	TArray<FPrimitiveOcclusionHistory>*		InsertPrimitiveOcclusionHistory;
@@ -675,12 +679,31 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 	FSceneViewState* ViewState = (FSceneViewState*)View.State;
 	const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(Scene->GetFeatureLevel());
-	const bool bClearQueries = !View.Family->EngineShowFlags.HitProxies;
+	bool bClearQueries = !View.Family->EngineShowFlags.HitProxies;
 	const float CurrentRealTime = View.Family->CurrentRealTime;
 	uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter;
 	FRenderQueryPool& OcclusionQueryPool = ViewState->OcclusionQueryPool;
 	FHZBOcclusionTester& HZBOcclusionTests = ViewState->HZBOcclusionTests;
-	
+
+	int32 ReadBackLagTolerance = NumBufferedFrames;
+
+	const bool bIsStereoView = View.StereoPass == eSSP_LEFT_EYE || View.StereoPass == eSSP_RIGHT_EYE;
+	const bool bUseRoundRobinOcclusion = bIsStereoView && !View.bIsSceneCapture && View.ViewState->IsRoundRobinEnabled();
+	if (bUseRoundRobinOcclusion)
+	{
+		// We don't allow clearing of a history entry if we do not also submit an occlusion query to replace the deleted one
+		// as we want to keep the history as full as possible
+		bClearQueries &= bSubmitQueries;
+
+		// However, if this frame happens to be the first frame, then we clear anyway since in the first frame we should not be
+		// reading past queries
+		bClearQueries |= View.bIgnoreExistingQueries;
+
+		// Round-robin occlusion culling involves reading frames that could be twice as stale as without round-robin
+		ReadBackLagTolerance = NumBufferedFrames * 2;
+	}
+	// Round robin occlusion culling can make holes in the occlusion history which would require scanning the history when reading
+	Params.bNeedsScanOnRead = bUseRoundRobinOcclusion;
 
 	TSet<FPrimitiveOcclusionHistory, FPrimitiveOcclusionHistoryKeyFuncs>& ViewPrimitiveOcclusionHistory = ViewState->PrimitiveOcclusionHistorySet;
 	TArray<FPrimitiveOcclusionHistory>* InsertPrimitiveOcclusionHistory = Params.InsertPrimitiveOcclusionHistory;
@@ -821,7 +844,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 						// Read the occlusion query results.
 						uint64 NumSamples = 0;
 						bool bGrouped = false;
-						FRenderQueryRHIParamRef PastQuery = PrimitiveOcclusionHistory->GetPastQuery(OcclusionFrameCounter, NumBufferedFrames, bGrouped);
+						FRenderQueryRHIParamRef PastQuery = PrimitiveOcclusionHistory->GetQueryForReading(OcclusionFrameCounter, NumBufferedFrames, ReadBackLagTolerance, bGrouped);
 						if (PastQuery)
 						{
 							//int32 RefCount = PastQuery.GetReference()->GetRefCount();
@@ -903,9 +926,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 					}
 					else
 					{
-						bool bGrouped = false;
-						FRenderQueryRHIParamRef Query = PrimitiveOcclusionHistory->GetPastQuery(OcclusionFrameCounter, NumBufferedFrames, bGrouped);
-						if (Query)
+						if (PrimitiveOcclusionHistory->GetQueryForEviction(OcclusionFrameCounter, NumBufferedFrames))
 						{
 							QueriesToRelease->Add(PrimitiveOcclusionHistory);							
 						}
@@ -1032,7 +1053,8 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 											View.GroupedOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent) :
 											View.IndividualOcclusionQueries.BatchPrimitive(BoundOrigin, BoundExtent),
 											NumBufferedFrames,
-											bGroupedQuery
+											bGroupedQuery,
+											Params.bNeedsScanOnRead
 										);
 									}
 								}
@@ -1321,7 +1343,8 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 						View.GroupedOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent) :
 						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
 						NumBufferedFrames,
-						RunQueriesIter->bGroupedQuery
+						RunQueriesIter->bGroupedQuery,
+						Params[i].bNeedsScanOnRead
 						);
 				}
 			}
@@ -1405,7 +1428,8 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 					PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
 						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
 						NumBufferedFrames,
-						false
+						false,
+						Params.bNeedsScanOnRead
 					);
 				}
 			}
@@ -1432,7 +1456,8 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 					PrimitiveOcclusionHistory->SetCurrentQuery(OcclusionFrameCounter,
 						View.IndividualOcclusionQueries.BatchPrimitive(RunQueriesIter->BoundsOrigin, RunQueriesIter->BoundsExtent),
 						NumBufferedFrames,
-						false
+						false,
+						Params.bNeedsScanOnRead
 					);
 				}
 			}
@@ -1523,8 +1548,21 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 				check(!ViewState->HZBOcclusionTests.IsValidFrame(ViewState->OcclusionFrameCounter));
 				ViewState->HZBOcclusionTests.MapResults(RHICmdList);
 			}
-			
-			NumOccludedPrimitives += FetchVisibilityForPrimitives(Scene, View, bSubmitQueries, bHZBOcclusion);			
+ 
+			// Perform round-robin occlusion queries
+			if (View.ViewState->IsRoundRobinEnabled() &&
+				!View.bIsSceneCapture && // We only round-robin on the main renderer (not scene captures)
+				!View.bIgnoreExistingQueries && // We do not alternate occlusion queries when we want to refresh the occlusion history
+				(View.StereoPass == eSSP_LEFT_EYE || View.StereoPass == eSSP_RIGHT_EYE)) // Only relevant to stereo views
+			{
+				// For even frames, prevent left eye from occlusion querying
+				// For odd frames, prevent right eye from occlusion querying
+				const bool FrameParity = ((View.ViewState->PrevFrameNumber & 0x01) == 1);
+				bSubmitQueries &= (FrameParity && View.StereoPass == eSSP_LEFT_EYE) ||
+								  (!FrameParity && View.StereoPass == eSSP_RIGHT_EYE);
+			}
+
+			NumOccludedPrimitives += FetchVisibilityForPrimitives(Scene, View, bSubmitQueries, bHZBOcclusion);
 
 			if( bHZBOcclusion )
 			{
@@ -2694,6 +2732,16 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 				View.bIgnoreExistingQueries = true;
 				View.bDisableDistanceBasedFadeTransitions = true;
 			}
+
+			// Turn on/off round-robin occlusion querying in the ViewState
+			static const auto CVarRROCC = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.RoundRobinOcclusion"));
+			const bool bEnableRoundRobin = CVarRROCC ? (CVarRROCC->GetValueOnAnyThread() != false) : false;
+			if (bEnableRoundRobin != ViewState->IsRoundRobinEnabled())
+			{
+				ViewState->UpdateRoundRobin(bEnableRoundRobin);
+				View.bIgnoreExistingQueries = true;
+			}
+
 			ViewState->PrevViewMatrixForOcclusionQuery = View.ViewMatrices.GetViewMatrix();
 			ViewState->PrevViewOriginForOcclusionQuery = View.ViewMatrices.GetViewOrigin();
 				

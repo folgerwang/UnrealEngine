@@ -72,6 +72,9 @@ private:
 	/** Applies force feedback settings to the controller */
 	void UpdateForceFeedback( const FOculusTouchControllerPair& ControllerPair, const EControllerHand Hand );
 
+	bool OnControllerButtonPressed( const FOculusButtonState& ButtonState, int32 ControllerId, bool IsRepeat );
+	bool OnControllerButtonReleased( const FOculusButtonState& ButtonState, int32 ControllerId, bool IsRepeat );
+
 private:
 
 	void* OVRPluginHandle;

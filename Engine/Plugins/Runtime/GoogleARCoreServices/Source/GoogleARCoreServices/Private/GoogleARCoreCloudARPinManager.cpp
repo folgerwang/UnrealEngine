@@ -2,6 +2,7 @@
 
 #include "GoogleARCoreCloudARPinManager.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/EngineVersion.h"
 #if PLATFORM_ANDROID
 #include "arcore_c_api.h"
 #elif PLATFORM_IOS
@@ -178,10 +179,18 @@ public:
 			if (SessionHandle == nullptr)
 			{
 				FString APIKey = "";
-				bool bFoundAPIKey = GConfig->GetString(TEXT("/Script/GoogleARCoreServices.GoogleARCoreServicesEditorSettings"), TEXT("APIKey"), APIKey, GEngineIni);
+				bool bFoundAPIKey = GConfig->GetString(TEXT("/Script/GoogleARCoreServices.GoogleARCoreServicesEditorSettings"), TEXT("IOSAPIKey"), APIKey, GEngineIni);
 				
 				// We only create the ARCore iOS session once since ARKit plugin only create the ARKit session once.
 				ArStatus Status = ArSession_create(TCHAR_TO_ANSI(*APIKey), nullptr, &SessionHandle);
+
+				static bool ARCoreAnalyticsReported = false;
+				if (Status == AR_SUCCESS && !ARCoreAnalyticsReported)
+				{
+					ArSession_reportEngineType(SessionHandle, "Unreal Engine", TCHAR_TO_ANSI(*FEngineVersion::Current().ToString()));
+					ARCoreAnalyticsReported = true;
+				}
+
 				switch (Status)
 				{
 				case AR_SUCCESS:
@@ -302,7 +311,7 @@ UCloudARPin* FGoogleARCoreCloudARPinManager::CreateAndHostCloudARPin(UARPin* Pin
 	return nullptr;
 }
 
-UCloudARPin* FGoogleARCoreCloudARPinManager::ResolveAncCreateCloudARPin(FString CloudID, EARPinCloudTaskResult& OutTaskResult)
+UCloudARPin* FGoogleARCoreCloudARPinManager::ResolveAndCreateCloudARPin(FString CloudID, EARPinCloudTaskResult& OutTaskResult)
 {
 #if ARCORE_SERVICE_SUPPORTED_PLATFORM
 	ArSession* SessionHandle = GetSessionHandle();
@@ -338,7 +347,13 @@ UCloudARPin* FGoogleARCoreCloudARPinManager::ResolveAncCreateCloudARPin(FString 
 void FGoogleARCoreCloudARPinManager::RemoveCloudARPin(UCloudARPin* PinToRemove)
 {
 #if ARCORE_SERVICE_SUPPORTED_PLATFORM
-	ArAnchor* AnchorHandle = *HandleToCloudPinMap.FindKey(PinToRemove);
+	auto Key = HandleToCloudPinMap.FindKey(PinToRemove);
+	if (Key == nullptr)
+	{
+		return;
+	}
+	ArAnchor* AnchorHandle = *Key;
+
 	if (AnchorHandle != nullptr)
 	{
 		ArAnchor_detach(GetSessionHandle(), AnchorHandle);
