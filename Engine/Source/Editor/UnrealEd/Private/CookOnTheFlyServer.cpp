@@ -964,7 +964,12 @@ struct UCookOnTheFlyServer::FImpl : public FUObjectArray::FUObjectCreateListener
 	{
 		for (TObjectIterator<UPackage> It; It; ++It)
 		{
-			LoadedPackages.Add(*It);
+			UPackage* Package = *It;
+
+			if (Package->GetOuter() == nullptr)
+			{
+				LoadedPackages.Add(Package);
+			}
 		}
 
 		NewPackages = LoadedPackages;
@@ -990,8 +995,11 @@ struct UCookOnTheFlyServer::FImpl : public FUObjectArray::FUObjectCreateListener
 		{
 			auto Package = const_cast<UPackage*>(static_cast<const UPackage*>(Object));
 
-			LoadedPackages.Add(Package);
-			NewPackages.Add(Package);
+			if (Package->GetOuter() == nullptr)
+			{
+				LoadedPackages.Add(Package);
+				NewPackages.Add(Package);
+			}
 		}
 	}
 
