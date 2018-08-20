@@ -55,6 +55,8 @@ FExternalProfiler* FActiveExternalProfilerBase::GetActiveProfiler()
 
 		for (FExternalProfiler* CurProfiler : AvailbleProfilers)
 		{
+			check(CurProfiler != nullptr);
+
 #if 0
 			// Logging disabled here as it can cause a stack overflow whilst flushing logs during EnginePreInit
 			UE_LOG(LogExternalProfiler, Log, TEXT("Found external profiler: %s"), CurProfiler->GetProfilerName());
