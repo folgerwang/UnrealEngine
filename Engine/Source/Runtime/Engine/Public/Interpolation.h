@@ -417,7 +417,7 @@ namespace MatineeKeyReduction
 			int32 SegmentCount = SegmentQueue.Num();
 			for ( int32 I = 0; I < SegmentCount; ++I )
 			{
-				FIntPoint& Segment = SegmentQueue(I);
+				FIntPoint& Segment = SegmentQueue[I];
 				if ( Segment.X >= InsertionIndex ) ++Segment.X;
 				if ( Segment.Y >= InsertionIndex ) ++Segment.Y;
 			}
