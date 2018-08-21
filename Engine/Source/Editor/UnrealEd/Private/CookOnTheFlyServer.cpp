@@ -5,7 +5,7 @@
 =============================================================================*/
 
 #include "CookOnTheSide/CookOnTheFlyServer.h"
-#include "Cooker/PackagenameCache.h"
+#include "Cooker/PackageNameCache.h"
 
 #include "HAL/PlatformFilemanager.h"
 #include "HAL/FileManager.h"
