@@ -1665,9 +1665,10 @@ namespace UnrealBuildTool
 								// if the build succeeded, write the receipts and do any needed syncing
 								if (bSuccess)
 								{
+									bool bNoManifestChanges = Arguments.Any(x => x.Equals("-NoManifestChanges", StringComparison.OrdinalIgnoreCase));
 									foreach (UEBuildTarget Target in Targets)
 									{
-										Target.WriteReceipts();
+										Target.WriteReceipts(bNoManifestChanges);
 										UEBuildPlatform.GetBuildPlatform(Target.Platform).PostBuildSync(Target);
 									}
 									if (ActionsToExecute.Count == 0 && BuildConfiguration.bSkipLinkingWhenNothingToCompile)
@@ -2262,7 +2263,7 @@ namespace UnrealBuildTool
 			foreach (UEBuildTarget Target in Targets)
 			{
 				Target.PatchModuleManifestsForHotReloadAssembling(OnlyModulesLocal);
-				Target.WriteReceipts();
+				Target.WriteReceipts(false);
 			}
 		}
 	}

@@ -1662,7 +1662,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Writes out the version manifest
 		/// </summary>
-		public void WriteReceipts()
+		public void WriteReceipts(bool bNoManifestChanges)
 		{
 			if (Receipt != null)
 			{
@@ -1707,17 +1707,35 @@ namespace UnrealBuildTool
 				{
 					if(!IsFileInstalled(FileNameToVersionManifest.Key))
 					{
-						// Write the manifest out to a string buffer, then only write it to disk if it's changed.
-						string OutputText;
-						using (StringWriter Writer = new StringWriter())
+						if(!FileReference.Exists(FileNameToVersionManifest.Key))
 						{
-							FileNameToVersionManifest.Value.Write(Writer);
-							OutputText = Writer.ToString();
-						}
-						if(!FileReference.Exists(FileNameToVersionManifest.Key) || File.ReadAllText(FileNameToVersionManifest.Key.FullName) != OutputText)
-						{
+							// If the file doesn't already exist, just write it out
 							Directory.CreateDirectory(Path.GetDirectoryName(FileNameToVersionManifest.Key.FullName));
 							FileNameToVersionManifest.Value.Write(FileNameToVersionManifest.Key.FullName);
+						}
+						else
+						{
+							// Otherwise write it to a buffer first
+							string OutputText;
+							using (StringWriter Writer = new StringWriter())
+							{
+								FileNameToVersionManifest.Value.Write(Writer);
+								OutputText = Writer.ToString();
+							}
+
+							// And only write it to disk if it's been modified
+							string CurrentText = FileReference.ReadAllText(FileNameToVersionManifest.Key);
+							if(CurrentText != OutputText)
+							{
+								if(bNoManifestChanges)
+								{
+									Log.TraceError("Build modifies {0}. This is not permitted. Before:\n    {1}\nAfter:\n    {2}", FileNameToVersionManifest.Key, CurrentText.Replace("\n", "\n    "), OutputText.Replace("\n", "\n    "));
+								}
+								else
+								{
+									FileReference.WriteAllText(FileNameToVersionManifest.Key, OutputText);
+								}
+							}
 						}
 					}
 				}
