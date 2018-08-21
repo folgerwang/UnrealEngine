@@ -73,6 +73,9 @@ public:
 	/** Called when 'OK' button is pressed */
 	FReply OnImport();
 
+	/** Do we have all of the data we need to import this asset? */
+	bool CanImport() const;
+
 	/** Called when 'Cancel' button is pressed */
 	FReply OnCancel();
 
@@ -84,7 +87,7 @@ public:
 
 private:
 	/** Whether we should go ahead with import */
-	bool										bImport;
+	uint8										bImport : 1;
 
 	/** Window that owns us */
 	TWeakPtr< SWindow >							WidgetWindow;
