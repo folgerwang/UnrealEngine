@@ -98,6 +98,8 @@ private:
 	int32 MaterialParamOffset2;
 	int32 MaterialParamOffset3;
 	int32 TransformOffset;
+	int32 NormalizedAgeOffset;
+	int32 MaterialRandomOffset;
 	int32 CustomSortingOffset;
 	int32 LastSyncedId;
 };

@@ -74,6 +74,8 @@ private:
 	int32 TwistDataOffset;
 	int32 FacingDataOffset;
 	int32 ColorDataOffset;
+	int32 NormalizedAgeDataOffset;
+	int32 MaterialRandomDataOffset;
 	int32 LastSyncedId;
 	int32 MaterialParamOffset;
 	int32 MaterialParamOffset1;

@@ -237,7 +237,8 @@ private:
 	int32 MaterialParamOffset3;
 	int32 CameraOffsetOffset;
 	int32 UVScaleOffset;
-	int32 ParticleRandomOffset;
+	int32 NormalizedAgeOffset;
+	int32 MaterialRandomOffset;
 	int32 CustomSortingOffset;
 
 	int32 LastSyncId;

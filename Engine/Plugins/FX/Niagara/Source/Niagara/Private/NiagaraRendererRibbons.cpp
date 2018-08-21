@@ -55,9 +55,13 @@ public:
 NiagaraRendererRibbons::NiagaraRendererRibbons(ERHIFeatureLevel::Type FeatureLevel, UNiagaraRendererProperties *InProps) :
 	NiagaraRenderer()
 	, PositionDataOffset(INDEX_NONE)
+	, VelocityDataOffset(INDEX_NONE)
 	, WidthDataOffset(INDEX_NONE)
 	, TwistDataOffset(INDEX_NONE)
+	, FacingDataOffset(INDEX_NONE)
 	, ColorDataOffset(INDEX_NONE)
+	, NormalizedAgeDataOffset(INDEX_NONE)
+	, MaterialRandomDataOffset(INDEX_NONE)
 	, LastSyncedId(INDEX_NONE)
 {
 	VertexFactory = new FNiagaraRibbonVertexFactory(NVFT_Ribbon, FeatureLevel);
@@ -168,6 +172,8 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 				PerViewUniformParameters.WidthDataOffset = WidthDataOffset;
 				PerViewUniformParameters.TwistDataOffset = TwistDataOffset;
 				PerViewUniformParameters.FacingDataOffset = FacingDataOffset;
+				PerViewUniformParameters.NormalizedAgeDataOffset = NormalizedAgeDataOffset;
+				PerViewUniformParameters.MaterialRandomDataOffset = MaterialRandomDataOffset;
 				PerViewUniformParameters.MaterialParamDataOffset = MaterialParamOffset;
 				PerViewUniformParameters.MaterialParam1DataOffset = MaterialParamOffset1;
 				PerViewUniformParameters.MaterialParam2DataOffset = MaterialParamOffset2;
@@ -411,6 +417,8 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 		Data.GetVariableComponentOffsets(Properties->RibbonWidthBinding.DataSetVariable, WidthDataOffset, IntDummy);
 		Data.GetVariableComponentOffsets(Properties->RibbonTwistBinding.DataSetVariable, TwistDataOffset, IntDummy);
 		Data.GetVariableComponentOffsets(Properties->RibbonFacingBinding.DataSetVariable, FacingDataOffset, IntDummy);
+		Data.GetVariableComponentOffsets(Properties->NormalizedAgeBinding.DataSetVariable, NormalizedAgeDataOffset, IntDummy);
+		Data.GetVariableComponentOffsets(Properties->MaterialRandomBinding.DataSetVariable, MaterialRandomDataOffset, IntDummy);
 
 		Data.GetVariableComponentOffsets(Properties->DynamicMaterialBinding.DataSetVariable, MaterialParamOffset, IntDummy);
 		Data.GetVariableComponentOffsets(Properties->DynamicMaterial1Binding.DataSetVariable, MaterialParamOffset1, IntDummy);

@@ -45,6 +45,8 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FNiagaraRibbonUniformParameters, NIAGARAVERTEXFACTOR
 	UNIFORM_MEMBER(int, TwistDataOffset)
 	UNIFORM_MEMBER(int, ColorDataOffset)
 	UNIFORM_MEMBER(int, FacingDataOffset)
+	UNIFORM_MEMBER(int, NormalizedAgeDataOffset)
+	UNIFORM_MEMBER(int, MaterialRandomDataOffset)
 	UNIFORM_MEMBER(int, MaterialParamDataOffset)
 	UNIFORM_MEMBER(int, MaterialParam1DataOffset)
 	UNIFORM_MEMBER(int, MaterialParam2DataOffset)
