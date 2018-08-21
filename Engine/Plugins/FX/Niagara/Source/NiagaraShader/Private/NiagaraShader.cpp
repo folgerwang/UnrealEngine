@@ -735,7 +735,6 @@ void FNiagaraShaderMap::Compile(
 			Script->RemoveOutstandingCompileId(CompilingId);
 			// Assign a unique identifier so that shaders from this shader map can be associated with it after a deferred compile
 			CompilingId = NextCompilingId;
-			UE_LOG(LogShaders, Log, TEXT("CompilingId = %p %d"), Script, CompilingId);
 			Script->AddCompileId(CompilingId);
 
 			check(NextCompilingId < UINT_MAX);
@@ -785,6 +784,12 @@ void FNiagaraShaderMap::Compile(
 						SharedShaderJobs.Add(ShaderType, Job);
 					}
 					NumShaders++;
+				}
+				else if (ShaderType)
+				{
+					UE_LOG(LogWindows, Display, TEXT("Skipping compilation of %s as it isn't supported on this target type."), *Script->SourceName);
+					Script->RemoveOutstandingCompileId(CompilingId);
+					Script->NotifyCompilationFinished();
 				}
 			}
   
