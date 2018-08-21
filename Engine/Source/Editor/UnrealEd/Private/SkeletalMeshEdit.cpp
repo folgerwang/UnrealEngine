@@ -257,6 +257,7 @@ bool UEditorEngine::ReimportFbxAnimation( USkeleton* Skeleton, UAnimSequence* An
 					// for now it's not importing morph - in the future, this should be optional or saved with asset
 					if (FbxImporter->ValidateAnimStack(SortedLinks, FBXMeshNodeArray, CurAnimStack, ResampleRate, bImportMorphTracks, AnimTimeSpan))
 					{
+						AnimSequence->ImportResampleFramerate = ResampleRate;
 						FbxImporter->ImportAnimation(Skeleton, AnimSequence, Filename, SortedLinks, FBXMeshNodeArray, CurAnimStack, ResampleRate, AnimTimeSpan);
 					}
 				}
@@ -620,6 +621,8 @@ UAnimSequence * UnFbx::FFbxImporter::ImportAnimations(USkeleton* Skeleton, UObje
 		UFbxAnimSequenceImportData* ImportData = UFbxAnimSequenceImportData::GetImportDataForAnimSequence(DestSeq, TemplateImportData);
 		ImportData->Update(UFactory::GetCurrentFilename(), &Md5Hash);
 		ImportData->SourceAnimationName = SourceAnimationName;
+		DestSeq->ImportFileFramerate = GetOriginalFbxFramerate();
+		DestSeq->ImportResampleFramerate = ResampleRate;
 
 		ImportAnimation(Skeleton, DestSeq, Name, SortedLinks, NodeArray, CurAnimStack, ResampleRate, AnimTimeSpan);
 

@@ -1066,7 +1066,12 @@ bool FFbxImporter::ImportFile(FString Filename, bool bPreventMaterialNameClash /
 		Result = false;
 		CurPhase = NOTSTARTED;
 	}
-	
+
+	const FbxGlobalSettings& GlobalSettings = Scene->GetGlobalSettings();
+	FbxTime::EMode TimeMode = GlobalSettings.GetTimeMode();
+	//Set the original framerate from the current fbx file
+	OriginalFbxFramerate = FbxTime::GetFrameRate(TimeMode);
+
 	return Result;
 }
 

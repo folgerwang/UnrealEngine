@@ -1653,6 +1653,8 @@ public:
 	void ClearTokenizedErrorMessages();
 	void FlushToTokenizedErrorMessage(enum EMessageSeverity::Type Severity);
 
+	float GetOriginalFbxFramerate() { return OriginalFbxFramerate; }
+
 private:
 	friend class FFbxLoggerSetter;
 
@@ -1665,6 +1667,8 @@ private:
 
 	//Cache to create unique name for mesh. This is use to fix name clash
 	TArray<FString> MeshNamesCache;
+
+	float OriginalFbxFramerate;
 
 private:
 

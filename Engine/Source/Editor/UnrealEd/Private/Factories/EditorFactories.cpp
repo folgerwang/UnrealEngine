@@ -5861,6 +5861,7 @@ EReimportResult::Type UReimportFbxAnimSequenceFactory::Reimport( UObject* Obj )
 
 		// update the data in case the file source has changed
 		ImportData->Update(UFactory::CurrentFilename);
+		AnimSequence->ImportFileFramerate = Importer->GetOriginalFbxFramerate();
 
 		// Try to find the outer package so we can dirty it up
 		if (AnimSequence->GetOuter())
