@@ -4,14 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Misc/EnumClassFlags.h"
-#include "Stats/Stats.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Object.h"
 #include "UObject/WeakObjectPtr.h"
 #include "UObject/Package.h"
-#include "Misc/ScopeLock.h"
-#include "HAL/PlatformProcess.h"
 #include "TickableEditorObject.h"
 #include "IPlatformFileSandboxWrapper.h"
 #include "INetworkFileSystemModule.h"
@@ -23,6 +20,8 @@ class ITargetPlatform;
 struct FPropertyChangedEvent;
 class IPlugin;
 class IAssetRegistry;
+
+struct FPackageNameCache;
 
 enum class ECookInitializationFlags
 {
@@ -94,10 +93,6 @@ enum class ECookTickFlags : uint8
 };
 ENUM_CLASS_FLAGS(ECookTickFlags);
 
-// hudson is the name of my favorite dwagon
-
-DECLARE_STATS_GROUP(TEXT("Cooking"), STATGROUP_Cooking, STATCAT_Advanced);
-
 UCLASS()
 class UNREALED_API UCookOnTheFlyServer : public UObject, public FTickableEditorObject, public FExec
 {
@@ -105,35 +100,6 @@ class UNREALED_API UCookOnTheFlyServer : public UObject, public FTickableEditorO
 
 	UCookOnTheFlyServer(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-private:
-	struct FCachedPackageFilename
-	{
-	public:
-		FCachedPackageFilename(FString &&InPackageFilename, FString &&InStandardFilename, FName InStandardFileFName ) :
-			PackageFilename( MoveTemp( InPackageFilename )),
-			StandardFilename(MoveTemp(InStandardFilename)),
-			StandardFileFName( InStandardFileFName )
-		{
-		}
-
-		FCachedPackageFilename( const FCachedPackageFilename &In )
-		{
-			PackageFilename = In.PackageFilename;
-			StandardFilename = In.StandardFilename;
-			StandardFileFName = In.StandardFileFName;
-		}
-
-		FCachedPackageFilename( FCachedPackageFilename &&In )
-		{
-			PackageFilename = MoveTemp(In.PackageFilename);
-			StandardFilename = MoveTemp(In.StandardFilename);
-			StandardFileFName = In.StandardFileFName;
-		}
-
-		FString PackageFilename; // this is also full path
-		FString StandardFilename;
-		FName StandardFileFName;
-	};
 private:
 	/** Current cook mode the cook on the fly server is running in */
 	ECookMode::Type CurrentCookMode = ECookMode::CookOnTheFly;
@@ -230,29 +196,11 @@ private:
 
 	FReentryData& GetReentryData(const UPackage* Package) const;
 
-	FString GetCachedPackageFilename( const FName& PackageName ) const;
-	FString GetCachedStandardPackageFilename( const FName& PackageName ) const;
-	FName GetCachedStandardPackageFileFName( const FName& PackageName ) const;
-	FString GetCachedPackageFilename( const UPackage* Package ) const;
-	FString GetCachedStandardPackageFilename( const UPackage* Package ) const;
-	FName GetCachedStandardPackageFileFName( const UPackage* Package ) const;
-	const FString& GetCachedSandboxFilename( const UPackage* Package, TUniquePtr<class FSandboxPlatformFile>& SandboxFile ) const;
-	const FName* GetCachedPackageFilenameToPackageFName(const FName& StandardPackageFilename) const;
-	const FCachedPackageFilename& Cache(const FName& PackageName) const;
-	void ClearPackageFilenameCache() const;
-	bool ClearPackageFilenameCacheForPackage( const UPackage* Package ) const;
-	bool ClearPackageFilenameCacheForPackage( const FName& PackageName ) const;
-
 	FString ConvertCookedPathToUncookedPath(const FString& CookedPackageName) const;
 
-	// get dependencies for this package 
+	/** Get dependencies for package */
 	const TArray<FName>& GetFullPackageDependencies(const FName& PackageName) const;
 	mutable TMap<FName, TArray<FName>> CachedFullPackageDependencies;
-
-	// declared mutable as it's used to cache package filename strings and I don't want to declare all functions using it as non const
-	// used by GetCached * Filename functions
-	mutable TMap<FName, FCachedPackageFilename> PackageFilenameCache; // filename cache (only process the string operations once)
-	mutable TMap<FName, FName> PackageFilenameToPackageFNameCache;
 
 	/** Cached copy of asset registry */
 	IAssetRegistry* AssetRegistry = nullptr;
@@ -384,18 +332,6 @@ public:
 	* Cook on the fly can't run at the same time as cook by the book
 	*/
 	void StartCookByTheBook( const FCookByTheBookStartupOptions& CookByTheBookStartupOptions );
-
-	/**
-	* ValidateCookByTheBookSettings
-	* look at the cookByTheBookOptions and ensure there isn't any conflicting settings
-	*/
-	void ValidateCookByTheBookSettings() const;
-
-	/**
-	* ValidateCookOnTheFlySettings
-	* look at the initialization flags and other cooker settings make sure the programmer that thought of checking them are ok
-	*/
-	void ValidateCookOnTheFlySettings() const;
 
 	/**
 	* Queue a cook by the book cancel (you might want to do this instead of calling cancel directly so that you don't have to be in the game thread when canceling
@@ -978,6 +914,11 @@ private:
 	uint32		StatSavedPackageCount = 0;
 
 	struct FImpl;
+	FImpl*				Impl;
 
-	FImpl*		Impl;
+	FPackageNameCache*	PackageNameCache;
+
+	// temporary -- should eliminate the need for this. Only required right now because FullLoadAndSave 
+	// accesses maps directly
+	friend FPackageNameCache;
 };
