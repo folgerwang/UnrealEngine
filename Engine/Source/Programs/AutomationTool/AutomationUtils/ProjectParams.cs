@@ -2147,7 +2147,10 @@ namespace AutomationTool
 			// Compile a server if it was asked for (-server) or we're cooking and require a server
 			if (ServerCookedTargetsList == null)
 			{
-				if (DedicatedServer || Cook || CookOnTheFly)
+				/* Simplified from previous version which makes less sense.
+				   TODO: tease out the actual dependencies between -cook and -server options, fix properly
+				if (DedicatedServer && (Cook || CookOnTheFly || DedicatedServer)) */
+				if (DedicatedServer)
 				{
 					if (String.IsNullOrEmpty(ServerTarget))
 					{
