@@ -18,7 +18,7 @@ class IDetailCustomization;
 class IDetailNodeTree;
 class FComplexPropertyNode;
 class FDetailTreeNode;
-
+class IPropertyGenerationUtilities;
 
 struct FPropertyNodeMap
 {
@@ -107,10 +107,13 @@ public:
 	virtual TSharedPtr<class FAssetThumbnailPool> GetThumbnailPool() const;
 	virtual bool HasClassDefaultObject() const { return bViewingClassDefaultObject; }
 	virtual const TArray<TWeakObjectPtr<UObject>>& GetSelectedObjects() const { return SelectedObjects;  }
+
+	const FCustomPropertyTypeLayoutMap& GetInstancedPropertyTypeLayoutMap() const;
+	void UpdateDetailRows();
+
 private:
 	void PreSetObject(int32 NumNewObjects, bool bHasStructRoots);
 	void PostSetObject();
-	void UpdateDetailRows();
 	void UpdatePropertyMaps();
 	void UpdateSinglePropertyMap(TSharedPtr<FComplexPropertyNode> InRootPropertyNode, FDetailLayoutData& LayoutData);
 	bool ValidatePropertyNodes(const FRootPropertyNodeList& PropertyNodeList);
@@ -143,5 +146,8 @@ private:
 	TSharedPtr<FAssetThumbnailPool> ThumbnailPool;
 	/** Utility class for accessing commonly used helper methods from customizations */
 	TSharedRef<IPropertyUtilities> PropertyUtilities;
+	/** Utility class for accessing internal helper methods */
+	TSharedRef<IPropertyGenerationUtilities> PropertyGenerationUtilities;
+
 	bool bViewingClassDefaultObject;
 };
