@@ -625,7 +625,8 @@ void FNiagaraStackGraphUtilities::RemoveNodesForStackFunctionInputOverridePin(UE
 					DynamicInputNodeOverrideNode->GetInputPins(InputPins);
 					for (UEdGraphPin* InputPin : InputPins)
 					{
-						if (InputPin->PinName.ToString().StartsWith(DynamicInputNode->GetFunctionName()))
+						FNiagaraParameterHandle InputHandle(InputPin->PinName);
+						if (InputHandle.GetNamespace().ToString() == DynamicInputNode->GetFunctionName())
 						{
 							RemoveNodesForStackFunctionInputOverridePin(*InputPin, OutRemovedDataObjects);
 							DynamicInputNodeOverrideNode->RemovePin(InputPin);
