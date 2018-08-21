@@ -4695,7 +4695,7 @@ bool SSCSEditor::ShouldAddInstancedActorComponent(UActorComponent* ActorComp, US
 {
 	// Exclude nested DSOs attached to BP-constructed instances, which are not mutable.
 	return (ActorComp != nullptr
-		&& (ActorComp->CreationMethod == EComponentCreationMethod::Instance || !ActorComp->IsEditorOnly())
+		&& (!ActorComp->IsVisualizationComponent())
 		&& (ActorComp->CreationMethod != EComponentCreationMethod::UserConstructionScript || !GetDefault<UBlueprintEditorSettings>()->bHideConstructionScriptComponentsInDetailsView)
 		&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)));
 }

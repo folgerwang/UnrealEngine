@@ -134,9 +134,12 @@ UObject* FLevelSequenceActorSpawner::SpawnObject(FMovieSceneSpawnable& Spawnable
 		// Explicitly set RF_Transactional on spawned actors so we can undo/redo properties on them. We don't add this as a spawn flag since we don't want to transact spawn/destroy events.
 		SpawnedActor->SetFlags(RF_Transactional);
 
-		for (UActorComponent* Component : TInlineComponentArray<UActorComponent*>(SpawnedActor))
+		for (UActorComponent* Component : SpawnedActor->GetComponents())
 		{
-			Component->SetFlags(RF_Transactional);
+			if (Component)
+			{
+				Component->SetFlags(RF_Transactional);
+			}
 		}
 	}
 
@@ -162,9 +165,12 @@ void FLevelSequenceActorSpawner::DestroySpawnedObject(UObject& Object)
 	{
 		// Explicitly remove RF_Transactional on spawned actors since we don't want to trasact spawn/destroy events
 		Actor->ClearFlags(RF_Transactional);
-		for (UActorComponent* Component : TInlineComponentArray<UActorComponent*>(Actor))
+		for (UActorComponent* Component : Actor->GetComponents())
 		{
-			Component->ClearFlags(RF_Transactional);
+			if (Component)
+			{
+				Component->ClearFlags(RF_Transactional);
+			}
 		}
 	}
 #endif

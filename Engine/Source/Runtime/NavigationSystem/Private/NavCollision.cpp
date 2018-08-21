@@ -270,7 +270,7 @@ void UNavCollision::GetNavigationModifier(FCompositeNavModifier& Modifier, const
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_NavCollision_GetNavigationModifier);
 
-	const TSubclassOf<UNavArea> UseAreaClass = AreaClass ? AreaClass : UNavigationSystemV1::GetDefaultObstacleArea();
+	const TSubclassOf<UNavArea> UseAreaClass = AreaClass ? AreaClass : (const TSubclassOf<UNavArea>)(FNavigationSystem::GetDefaultObstacleArea());
 
 	// rebuild collision data if needed
 	if (!bHasConvexGeometry)

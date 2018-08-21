@@ -38,11 +38,7 @@ struct FGameplayAbilitySpecHandle
 	}
 
 	/** Sets this to a valid handle */
-	void GenerateNewHandle()
-	{
-		static int32 GHandle = 1;
-		Handle = GHandle++;
-	}
+	void GenerateNewHandle();
 
 	bool operator==(const FGameplayAbilitySpecHandle& Other) const
 	{

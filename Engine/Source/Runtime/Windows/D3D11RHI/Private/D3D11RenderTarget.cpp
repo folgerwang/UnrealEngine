@@ -300,7 +300,9 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 				}
 				else
 				{
-					if(ResolveParams.Rect.IsValid())
+					if(ResolveParams.Rect.IsValid() 
+						&& !SourceTextureRHI->IsMultisampled()
+						&& !DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite))
 					{
 						D3D11_BOX SrcBox;
 
@@ -311,7 +313,8 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 						SrcBox.bottom = ResolveParams.Rect.Y2;
 						SrcBox.back = 1;
 
-						Direct3DDeviceIMContext->CopySubresourceRegion(DestTexture2D->GetResource(), ResolveParams.DestArrayIndex, ResolveParams.DestRect.X1, ResolveParams.DestRect.Y1, 0, SourceTexture2D->GetResource(), ResolveParams.SourceArrayIndex, &SrcBox);
+						const FResolveRect& DestRect = ResolveParams.DestRect.IsValid() ? ResolveParams.DestRect : ResolveParams.Rect;
+						Direct3DDeviceIMContext->CopySubresourceRegion(DestTexture2D->GetResource(), ResolveParams.DestArrayIndex, DestRect.X1, DestRect.Y1, 0, SourceTexture2D->GetResource(), ResolveParams.SourceArrayIndex, &SrcBox);
 					}
 					else
 					{

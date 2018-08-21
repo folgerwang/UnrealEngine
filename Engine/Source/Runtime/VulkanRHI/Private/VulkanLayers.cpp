@@ -33,15 +33,36 @@ TAutoConsoleVariable<int32> GValidationCvar(
 		#define RENDERDOC_LAYER_NAME	"VK_LAYER_RENDERDOC_Capture"
 	#endif
 
+#define VULKAN_ENABLE_STANDARD_VALIDATION 1
+
 static const ANSICHAR* GValidationLayersInstance[] =
 {
+#if VULKAN_ENABLE_STANDARD_VALIDATION
 	"VK_LAYER_LUNARG_standard_validation",
+#else
+	"VK_LAYER_GOOGLE_threading",
+	"VK_LAYER_LUNARG_parameter_validation",
+	"VK_LAYER_LUNARG_object_tracker",
+	"VK_LAYER_LUNARG_core_validation",
+	"VK_LAYER_GOOGLE_unique_objects",
+#endif
 	nullptr
 };
 
 static const ANSICHAR* GValidationLayersDevice[] =
 {
+#if VULKAN_ENABLE_STANDARD_VALIDATION
 	"VK_LAYER_LUNARG_standard_validation",
+#else
+	"VK_LAYER_GOOGLE_threading",
+	"VK_LAYER_LUNARG_parameter_validation",
+	"VK_LAYER_LUNARG_object_tracker",
+	"VK_LAYER_LUNARG_image",
+	"VK_LAYER_LUNARG_core_validation",
+	"VK_LAYER_LUNARG_swapchain",
+	"VK_LAYER_GOOGLE_unique_objects",
+	"VK_LAYER_LUNARG_core_validation",
+#endif
 	nullptr
 };
 #endif // VULKAN_HAS_DEBUGGING_ENABLED
@@ -378,7 +399,7 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 	}
 	//else if (!bOutDebugUtils)
 #endif
-	if (!bVkTrace && GValidationCvar.GetValueOnAnyThread() == 0)
+	if (!bVkTrace && GValidationCvar.GetValueOnAnyThread() > 0)
 	{
 		if (FindLayerExtensionInList(GlobalLayerExtensions, VK_EXT_DEBUG_REPORT_EXTENSION_NAME))
 		{
@@ -587,7 +608,7 @@ void FVulkanDevice::GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDev
 	}
 
 #if VULKAN_ENABLE_DRAW_MARKERS
-	if (!bOutDebugMarkers && 
+	if (!bOutDebugMarkers &&
 		((GValidationCvar.GetValueOnAnyThread() == 0 && ListContains(AvailableExtensions, VK_EXT_DEBUG_MARKER_EXTENSION_NAME)) || FVulkanPlatform::ForceEnableDebugMarkers()))
 	{
 		// HACK: Lumin Nvidia driver unofficially supports this extension, but will return false if we try to load it explicitly.

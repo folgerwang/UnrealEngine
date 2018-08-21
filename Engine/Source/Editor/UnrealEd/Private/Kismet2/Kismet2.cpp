@@ -503,12 +503,21 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 
 	// Create initial UClass
 	IKismetCompilerInterface& Compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
-	
-	FCompilerResultsLog Results;
-	const bool bReplaceExistingInstances = false;
-	NewBP->Status = BS_Dirty;
-	FKismetCompilerOptions CompileOptions;
-	Compiler.CompileBlueprint(NewBP, CompileOptions, Results);
+
+	if (GBlueprintUseCompilationManager)
+	{
+		FBlueprintCompilationManager::CompileSynchronously(
+			FBPCompileRequest(NewBP, EBlueprintCompileOptions::SkipGarbageCollection, nullptr)
+		);
+	}
+	else
+	{
+		FCompilerResultsLog Results;
+		const bool bReplaceExistingInstances = false;
+		NewBP->Status = BS_Dirty;
+		FKismetCompilerOptions CompileOptions;
+		Compiler.CompileBlueprint(NewBP, CompileOptions, Results);
+	}
 
 	// Mark the BP as being regenerated, so it will not be confused as needing to be loaded and regenerated when a referenced BP loads.
 	NewBP->bHasBeenRegenerated = true;
@@ -963,23 +972,32 @@ bool FKismetEditorUtilities::GenerateBlueprintSkeleton(UBlueprint* BlueprintObj,
 
 	if( BlueprintObj->SkeletonGeneratedClass == NULL || bForceRegeneration )
 	{
-		UPackage* Package = BlueprintObj->GetOutermost();
-		bool bIsPackageDirty = Package ? Package->IsDirty() : false;
-					
-		IKismetCompilerInterface& Compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
-
-		TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
-		FCompilerResultsLog Results;
-
-		FKismetCompilerOptions CompileOptions;
-		CompileOptions.CompileType = EKismetCompileType::SkeletonOnly;
-		Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results);
-		bRegeneratedSkeleton = true;
-
-		// Restore the package dirty flag here
-		if( Package != NULL )
+		if (GBlueprintUseCompilationManager)
 		{
-			Package->SetDirtyFlag(bIsPackageDirty);
+			FBlueprintCompilationManager::CompileSynchronously(
+				FBPCompileRequest(BlueprintObj, EBlueprintCompileOptions::RegenerateSkeletonOnly, nullptr)
+			);
+		}
+		else
+		{
+			UPackage* Package = BlueprintObj->GetOutermost();
+			bool bIsPackageDirty = Package ? Package->IsDirty() : false;
+
+			IKismetCompilerInterface& Compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
+
+			TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
+			FCompilerResultsLog Results;
+
+			FKismetCompilerOptions CompileOptions;
+			CompileOptions.CompileType = EKismetCompileType::SkeletonOnly;
+			Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results);
+			bRegeneratedSkeleton = true;
+
+			// Restore the package dirty flag here
+			if (Package != NULL)
+			{
+				Package->SetDirtyFlag(bIsPackageDirty);
+			}
 		}
 	}
 	return bRegeneratedSkeleton;
@@ -1226,9 +1244,11 @@ void FKismetEditorUtilities::ConformBlueprintFlagsAndComponents(UBlueprint* Blue
 	if( UClass* GenClass = BlueprintObj->GeneratedClass )
 	{
 		GenClass->ClassFlags |= (ParentClass->ClassFlags & CLASS_ScriptInherit);
-		UObject* GenCDO = GenClass->GetDefaultObject();
-		ConformComponentsUtils::ConformRemovedNativeComponents(GenCDO);
-		GenCDO->InstanceSubobjectTemplates();
+		if (UObject* GenCDO = GenClass->ClassDefaultObject)
+		{
+			ConformComponentsUtils::ConformRemovedNativeComponents(GenCDO);
+			GenCDO->InstanceSubobjectTemplates();
+		}
 	}
 
 	UInheritableComponentHandler* InheritableComponentHandler = BlueprintObj->GetInheritableComponentHandler(false);
@@ -1287,14 +1307,13 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprintFromActor(const FString& Path
 	return NewBlueprint;
 }
 
-void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, const TArray<UActorComponent*>& Components, bool bHarvesting, USCS_Node* OptionalNewRootNode, bool bKeepMobility /*= false*/)
+void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, TArray<UActorComponent*> Components, bool bHarvesting, USCS_Node* OptionalNewRootNode, bool bKeepMobility /*= false*/)
 {
 	USimpleConstructionScript* SCS = Blueprint->SimpleConstructionScript;
 
 	TArray<UBlueprint*> ParentBPStack;
 	UBlueprint::GetBlueprintHierarchyFromClass(Blueprint->GeneratedClass, ParentBPStack);
 
-	TMap<USceneComponent*, USCS_Node*> SceneComponentsToAdd;
 	TMap<USceneComponent*, USCS_Node*> InstanceComponentToNodeMap;
 
 	auto AddChildToSCSRootNodeLambda = [SCS, OptionalNewRootNode](USCS_Node* InSCSNode)
@@ -1350,125 +1369,150 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 		}
 	};
 
-	AActor* Actor = nullptr;
-
-	for (UActorComponent* ActorComponent : Components)
+	// Clear out nulls and components we won't be able to create, can swap since we're about to sort anyways
+	Components.RemoveAllSwap([](const UActorComponent* ActorComponent)
 	{
-		if (ActorComponent)
+		return (ActorComponent == nullptr || !ActorComponent->GetClass()->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent));
+	});
+
+	// Sort scene components to the start of the array and those that are children after their parents
+	Components.Sort([](const UActorComponent& A, const UActorComponent& B)
+	{
+		const USceneComponent* SceneA = Cast<const USceneComponent>(&A);
+		const USceneComponent* SceneB = Cast<const USceneComponent>(&B);
+
+		if (SceneA)
 		{
-			if (Actor)
+			if (SceneB)
 			{
-				check(Actor == ActorComponent->GetOwner());
+				return SceneB->IsAttachedTo(SceneA);
 			}
-			else
-			{
-				Actor = ActorComponent->GetOwner();
-				check(Actor);
-			}
-
-			if (!ActorComponent->GetClass()->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent))
-			{
-				continue;
-			}
-
-			USCS_Node* SCSNode = FAddComponentsToBlueprintImpl::MakeComponentCopy(ActorComponent, SCS, InstanceComponentToNodeMap, bKeepMobility);
-
-			USceneComponent* SceneComponent = Cast<USceneComponent>(ActorComponent);
-			// The easy part is non-scene component or the Root simply add it
-			if (SceneComponent == nullptr)
-			{
-				SCS->AddNode(SCSNode);
-			}
-			else
-			{
-				if (ActorComponent == Actor->GetRootComponent())
-				{
-					if (OptionalNewRootNode != nullptr)
-					{
-						OptionalNewRootNode->AddChildNode(SCSNode);
-					}
-					else
-					{
-						SCS->AddNode(SCSNode);
-					}
-				}
-				// If we're not attached to a blueprint component, add ourself to the root node or the SCS root component:
-				else if (SceneComponent->GetAttachParent() == nullptr)
-				{
-					AddChildToSCSRootNodeLambda(SCSNode);
-				}
-				// If we're attached to a blueprint component look it up as the variable name is the component name
-				else if (SceneComponent->GetAttachParent()->IsCreatedByConstructionScript())
-				{
-					USCS_Node* ParentSCSNode = nullptr;
-					if (USCS_Node** ParentSCSNodePtr = InstanceComponentToNodeMap.Find(SceneComponent->GetAttachParent()))
-					{
-						ParentSCSNode = *ParentSCSNodePtr;
-					}
-					else if (Components.Contains(SceneComponent->GetAttachParent()))
-					{
-						// since you cannot rely on the order of the supplied  
-						// Components array, we might be looking for a parent 
-						// that hasn't been added yet
-						ParentSCSNode = FAddComponentsToBlueprintImpl::MakeComponentCopy(SceneComponent->GetAttachParent(), SCS, InstanceComponentToNodeMap, bKeepMobility);
-					}
-					else
-					{
-						for (UBlueprint* ParentBlueprint : ParentBPStack)
-						{
-							ParentSCSNode = ParentBlueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->GetAttachParent()->GetFName());
-							if (ParentSCSNode)
-							{
-								break;
-							}
-						}
-					}
-					check(ParentSCSNode);
-
-					if (ParentSCSNode->GetSCS() != SCS)
-					{
-						SCS->AddNode(SCSNode);
-						SCSNode->SetParent(ParentSCSNode);
-					}
-					else
-					{
-						ParentSCSNode->AddChildNode(SCSNode);
-					}
-				}
-				else if ((SceneComponent->GetAttachParent()->CreationMethod == EComponentCreationMethod::Native) && !bHarvesting)
-				{
-					// If we're attached to a component that will be native in the new blueprint
-					SCS->AddNode(SCSNode);
-					SCSNode->SetParent(SceneComponent->GetAttachParent());
-				}
-				else
-				{
-					// Otherwise check if we've already created the parents' new SCS node and attach to that or cache it off to do next pass
-					USCS_Node** ParentSCSNode = InstanceComponentToNodeMap.Find(SceneComponent->GetAttachParent());
-					if (ParentSCSNode)
-					{
-						(*ParentSCSNode)->AddChildNode(SCSNode);
-					}
-					else
-					{
-						SceneComponentsToAdd.Add(SceneComponent, SCSNode);
-					}
-				}
-			}
+			return true;
 		}
-	}
+		return (SceneB == nullptr);
+	});
 
-	// Hook up the remaining components nodes that the parent's node was missing when it was processed
-	for (auto ComponentIt = SceneComponentsToAdd.CreateConstIterator(); ComponentIt; ++ComponentIt)
+	for (int32 CompIndex = 0; CompIndex < Components.Num(); ++CompIndex)
 	{
-		// The AttachParent may or may not be BP-spawnable; if it's not, then we won't have created the parent node, so just add it as a child of the root node in that case.
-		if (USCS_Node** ParentSCSNode = InstanceComponentToNodeMap.Find(ComponentIt.Key()->GetAttachParent()))
+		UActorComponent* ActorComponent = Components[CompIndex];
+		AActor* Actor = ActorComponent->GetOwner();
+		check(Actor);
+
+		USCS_Node* SCSNode = FAddComponentsToBlueprintImpl::MakeComponentCopy(ActorComponent, SCS, InstanceComponentToNodeMap, bKeepMobility);
+
+		USceneComponent* SceneComponent = Cast<USceneComponent>(ActorComponent);
+		// The easy part is non-scene component or the Root simply add it
+		if (SceneComponent == nullptr)
 		{
-			(*ParentSCSNode)->AddChildNode(ComponentIt.Value());
+			SCS->AddNode(SCSNode);
 		}
 		else
 		{
-			AddChildToSCSRootNodeLambda(ComponentIt.Value());
+			// Since there is no guarantee that the attach parent is in the component set, but there could still be attachment hierarchy
+			// which is best to maintain, seek out the closest attached parent in the component set
+			USceneComponent* FirstAttachParent = nullptr;
+			if (SceneComponent->GetAttachParent())
+			{
+				const int32 FirstAttachParentIndex = Components.FindLastByPredicate([SceneComponent](const UActorComponent* Other)
+				{
+					return (SceneComponent->IsAttachedTo(CastChecked<const USceneComponent>(Other)));
+				}, CompIndex);
+
+				if (FirstAttachParentIndex != INDEX_NONE)
+				{
+					FirstAttachParent = CastChecked<USceneComponent>(Components[FirstAttachParentIndex]);
+
+					// If the parent we're going to be attached to isn't the original attach parent, then adjust the
+					// relative transform so that the end result will be consistent with current relationship
+					if (FirstAttachParent != SceneComponent->GetAttachParent())
+					{
+						USceneComponent* SceneComponentTemplate = CastChecked<USceneComponent>(SCSNode->ComponentTemplate);
+
+						const FTransform ComponentToWorld = SceneComponent->GetComponentTransform();
+						const FTransform RelativeTransform = ComponentToWorld.GetRelativeTransform(FirstAttachParent->GetComponentTransform());
+						if (!SceneComponent->bAbsoluteLocation)
+						{
+							SceneComponentTemplate->RelativeLocation = RelativeTransform.GetLocation();
+						}
+						if (!SceneComponent->bAbsoluteRotation)
+						{
+							SceneComponentTemplate->RelativeRotation = RelativeTransform.GetRotation().Rotator();
+						}
+						if (!SceneComponent->bAbsoluteScale)
+						{
+							SceneComponentTemplate->RelativeScale3D = RelativeTransform.GetScale3D();
+						}
+					}
+				}
+			}
+
+			if (SceneComponent == Actor->GetRootComponent() && (SceneComponent->GetAttachParent() == nullptr || FirstAttachParent == nullptr))
+			{
+				if (OptionalNewRootNode != nullptr)
+				{
+					OptionalNewRootNode->AddChildNode(SCSNode);
+				}
+				else
+				{
+					SCS->AddNode(SCSNode);
+				}
+			}
+			// If we're not attached to a blueprint component, add ourself to the root node or the SCS root component:
+			else if (SceneComponent->GetAttachParent() == nullptr)
+			{
+					AddChildToSCSRootNodeLambda(SCSNode);
+			}
+			// If we're attached to a blueprint component look it up as the variable name is the component name
+			else if (SceneComponent->GetAttachParent()->IsCreatedByConstructionScript())
+			{
+				USCS_Node* ParentSCSNode = nullptr;
+				if (FirstAttachParent)
+				{
+					ParentSCSNode = InstanceComponentToNodeMap.FindChecked(FirstAttachParent);
+				}
+				else
+				{
+					for (UBlueprint* ParentBlueprint : ParentBPStack)
+					{
+						ParentSCSNode = ParentBlueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->GetAttachParent()->GetFName());
+						if (ParentSCSNode)
+						{
+							break;
+						}
+					}
+				}
+				check(ParentSCSNode);
+
+				if (ParentSCSNode->GetSCS() != SCS)
+				{
+					SCS->AddNode(SCSNode);
+					SCSNode->SetParent(ParentSCSNode);
+				}
+				else
+				{
+					ParentSCSNode->AddChildNode(SCSNode);
+				}
+			}
+			else if ((SceneComponent->GetAttachParent()->CreationMethod == EComponentCreationMethod::Native) && !bHarvesting)
+			{
+				// If we're attached to a component that will be native in the new blueprint
+				SCS->AddNode(SCSNode);
+				SCSNode->SetParent(SceneComponent->GetAttachParent());
+			}
+			else
+			{
+				// Otherwise we will already have created the parents' new SCS node, so attach to that
+				if (USCS_Node** ParentSCSNode = InstanceComponentToNodeMap.Find(FirstAttachParent))
+				{
+					(*ParentSCSNode)->AddChildNode(SCSNode);
+				}
+				else
+				{
+					// Unsure what this case is really for when harvesting, but to be consistent with previous behavior still do this
+					ensure(bHarvesting);
+					AddChildToSCSRootNodeLambda(SCSNode);
+				}
+			}
 		}
 	}
 }
@@ -1593,68 +1637,97 @@ public:
 			SCS = Blueprint->SimpleConstructionScript;
 
 			// Create a common root if necessary
+			TArray<AActor*> RootActors = SelectedActors;
+
+			int32 ConsideringActorIndex = 0;
+			while (ConsideringActorIndex < RootActors.Num())
+			{
+				AActor* ConsideringActor = RootActors[ConsideringActorIndex];
+				bool bIsRoot = true;
+				for (int32 CheckIndex = RootActors.Num()-1; CheckIndex > ConsideringActorIndex; --CheckIndex)
+				{
+					AActor* ActorToCheck = RootActors[CheckIndex];
+					if (ActorToCheck->IsAttachedTo(ConsideringActor))
+					{
+						RootActors.RemoveAtSwap(CheckIndex);
+					}
+					else if (ConsideringActor->IsAttachedTo(ActorToCheck))
+					{
+						bIsRoot = false;
+						break;
+					}
+				}
+
+				if (bIsRoot)
+				{
+					++ConsideringActorIndex;
+				}
+				else
+				{
+					RootActors.RemoveAtSwap(ConsideringActorIndex);
+				}
+			}		
+
+			// If there is not one unique root actor then create a new scene component to serve as the shared root node
 			USCS_Node* RootNodeOverride = nullptr;
-			if ((SelectedActors.Num() == 1) && (SelectedActors[0]->GetRootComponent() != nullptr))
+			if (RootActors.Num() != 1)
 			{
-				// We have a single actor that has a scene component, so no need to create a common root
-			}
-			else
-			{
-				// Add a new scene component to serve as the shared root node
 				RootNodeOverride = SCS->CreateNode(USceneComponent::StaticClass(), TEXT("SharedRoot"));
 				SCS->AddNode(RootNodeOverride);
 			}
 
 			// Harvest the components from each actor and clone them into the SCS
+			TArray<UActorComponent*> AllSelectedComponents;
 			for (const AActor* Actor : SelectedActors)
 			{
-				TArray<UActorComponent*> Components;
-				Actor->GetComponents(Components);
-
-				// Exclude any components created by other components
-				for (int32 Index = Components.Num() - 1; Index >= 0; --Index)
+				for (UActorComponent* ComponentToConsider : Actor->GetComponents())
 				{
-					UActorComponent* ComponentToConsider = Components[Index];
-					if (ComponentToConsider->IsEditorOnly())
+					if (ComponentToConsider && !ComponentToConsider->IsVisualizationComponent())
 					{
-						Components.RemoveAt(Index, 1, /*bAllowShrinking=*/ false);
+						AllSelectedComponents.Add(ComponentToConsider);
 					}
 				}
-
-				FKismetEditorUtilities::AddComponentsToBlueprint(Blueprint, Components, /*bHarvesting=*/ true, RootNodeOverride);
 			}
+			FKismetEditorUtilities::AddComponentsToBlueprint(Blueprint, MoveTemp(AllSelectedComponents), /*bHarvesting=*/ true, RootNodeOverride);
 
-			// Compute the average origin for all the actors, so it can be backed out when saving them in the blueprint
 			FTransform NewActorTransform = FTransform::Identity;
+			if (RootActors.Num() == 1)
 			{
-				// Find average location of all selected actors
-				FVector AverageLocation = FVector::ZeroVector;
-				for (const AActor* Actor : SelectedActors)
-				{
-					if (USceneComponent* RootComponent = Actor->GetRootComponent())
-					{
-						AverageLocation += Actor->GetActorLocation();
-					}
-				}
-				AverageLocation /= (float)SelectedActors.Num();
-
-				// Spawn the new BP at that location
-				NewActorTransform.SetTranslation(AverageLocation);
+				NewActorTransform = RootActors[0]->GetTransform();
 			}
-
-			// Reposition all of the children of the root node to recenter them around the new pivot
-			for (USCS_Node* TopLevelNode : SCS->GetRootNodes())
+			else if (RootActors.Num() > 1)
 			{
-				if (USceneComponent* TestRoot = Cast<USceneComponent>(TopLevelNode->ComponentTemplate))
+				// Compute the average origin for all the actors, so it can be backed out when saving them in the blueprint
 				{
-					for (USCS_Node* ChildNode : TopLevelNode->GetChildNodes())
+					// Find average location of all selected actors
+					FVector AverageLocation = FVector::ZeroVector;
+					for (const AActor* Actor : RootActors)
 					{
-						if (USceneComponent* ChildComponent = Cast<USceneComponent>(ChildNode->ComponentTemplate))
+						if (USceneComponent* RootComponent = Actor->GetRootComponent())
 						{
-							const FTransform OldChildToWorld(ChildComponent->RelativeRotation, ChildComponent->RelativeLocation);
-							const FTransform NewRelativeTransform = OldChildToWorld.GetRelativeTransform(NewActorTransform);
-							ChildComponent->RelativeLocation = NewRelativeTransform.GetLocation();
-							ChildComponent->RelativeRotation = NewRelativeTransform.GetRotation().Rotator();
+							AverageLocation += Actor->GetActorLocation();
+						}
+					}
+					AverageLocation /= (float)RootActors.Num();
+
+					// Spawn the new BP at that location
+					NewActorTransform.SetTranslation(AverageLocation);
+				}
+
+				// Reposition all of the children of the root node to recenter them around the new pivot
+				for (USCS_Node* TopLevelNode : SCS->GetRootNodes())
+				{
+					if (USceneComponent* TestRoot = Cast<USceneComponent>(TopLevelNode->ComponentTemplate))
+					{
+						for (USCS_Node* ChildNode : TopLevelNode->GetChildNodes())
+						{
+							if (USceneComponent* ChildComponent = Cast<USceneComponent>(ChildNode->ComponentTemplate))
+							{
+								const FTransform OldChildToWorld(ChildComponent->RelativeRotation, ChildComponent->RelativeLocation);
+								const FTransform NewRelativeTransform = OldChildToWorld.GetRelativeTransform(NewActorTransform);
+								ChildComponent->RelativeLocation = NewRelativeTransform.GetLocation();
+								ChildComponent->RelativeRotation = NewRelativeTransform.GetRotation().Rotator();
+							}
 						}
 					}
 				}

@@ -57,7 +57,7 @@ private:
 private:
 	// Source texture to extract from
 	UTexture2D* SourceTexture;
-
+	bool bDirtyExtractedSprites;
 
 	class UPaperExtractSpritesSettings* ExtractSpriteSettings;
 	class UPaperExtractSpriteGridSettings* ExtractSpriteGridSettings;

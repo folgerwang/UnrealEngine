@@ -11,7 +11,8 @@ bool ULuminRuntimeSettings::CanEditChange(const UProperty* InProperty) const
 {
 	const bool ParentVal = Super::CanEditChange(InProperty);
 
-	if ((InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(ULuminRuntimeSettings, bBuildWithNvTegraGfxDebugger)))
+	if ((InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(ULuminRuntimeSettings, bBuildWithNvTegraGfxDebugger)) ||
+		(InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(ULuminRuntimeSettings, bUseMobileRendering)))
 	{
 		return !FApp::IsEngineInstalled();
 	}

@@ -514,6 +514,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = RootMotion)
 	bool bForceRootLock;
 
+	/** If this is on, it will use a normalized scale value for the root motion extracted: FVector(1.0, 1.0, 1.0) **/
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable, Category = RootMotion, meta = (DisplayName = "Use Normalized Root Motion Scale"))
+	bool bUseNormalizedRootMotionScale;
+
 	/** Have we copied root motion settings from an owning montage */
 	UPROPERTY()
 	bool bRootMotionSettingsCopiedFromMontage;
@@ -605,6 +609,9 @@ public:
 	}
 #endif
 	//~ End UAnimSequenceBase Interface
+
+	// Returns the framerate of the animation
+	float GetFrameRate() const { return (float)(FMath::Max(NumFrames - 1, 1)) / (SequenceLength > 0.f ? SequenceLength : 1.f); }
 
 	// Extract Root Motion transform from the animation
 	FTransform ExtractRootMotion(float StartTime, float DeltaTime, bool bAllowLooping) const;

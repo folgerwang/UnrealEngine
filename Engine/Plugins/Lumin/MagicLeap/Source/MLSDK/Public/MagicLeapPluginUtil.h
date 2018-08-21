@@ -28,9 +28,24 @@ public:
 		// We search various places for the ML API DLLs to support loading alternate
 		// implementations. For example to use VDZI on PC platforms.
 		// Public MLSDK path.
+		FString MLSDK;
 
 		// Give preference to the config setting.
 		FString MLSDKPath;
+		FString MLSDKEnvironmentVariableName = TEXT("MLSDK");
+		FString OriginalMLSDKEnvironmentVariableName = TEXT("MLSDKOriginal");
+
+		//save off the value of MLSDK, if it hasn't been saved before
+		MLSDK = FPlatformMisc::GetEnvironmentVariable(*OriginalMLSDKEnvironmentVariableName);
+		MLSDK.TrimToNullTerminator();
+		if (MLSDK.IsEmpty())
+		{
+			//only once, read the starting value
+			MLSDK = FPlatformMisc::GetEnvironmentVariable(*MLSDKEnvironmentVariableName);
+			FPlatformMisc::SetEnvironmentVar(*OriginalMLSDKEnvironmentVariableName, *MLSDK);
+		}
+
+
 		GConfig->GetString(TEXT("/Script/LuminPlatformEditor.MagicLeapSDKSettings"), TEXT("MLSDKPath"), MLSDKPath, GEngineIni);
 		MLSDKPath.TrimToNullTerminator();
 		if (MLSDKPath.Len() > 0)
@@ -51,11 +66,12 @@ public:
 
 			if (MLSDKPath.Len() > 0 && FPaths::DirectoryExists(MLSDKPath))
 			{
-				FPlatformMisc::SetEnvironmentVar(TEXT("MLSDK"), *MLSDKPath);
+				MLSDK = MLSDKPath;
 			}
 		}
 
-		FString MLSDK = FPlatformMisc::GetEnvironmentVariable(TEXT("MLSDK"));
+		MLSDK.TrimToNullTerminator();
+		FPlatformMisc::SetEnvironmentVar(*MLSDKEnvironmentVariableName, *MLSDK);
 
 		if (CheckForVDZILibraries)
 		{
@@ -105,7 +121,18 @@ public:
 #if PLATFORM_WINDOWS
 		// Need to adjust PATH with additional MLSDK load path to allow the delay-loaded DLLs
 		// to work in the plugin.
-		FString PathVar = FPlatformMisc::GetEnvironmentVariable(TEXT("PATH"));
+
+		//if we've previously saved the original path off, just use that saved original version
+		FString PathVar = FPlatformMisc::GetEnvironmentVariable(TEXT("PATHOriginal"));
+		PathVar.TrimToNullTerminator();
+		if (PathVar.IsEmpty())
+		{
+			//save off the path before we add to it
+			PathVar = FPlatformMisc::GetEnvironmentVariable(TEXT("PATH"));
+			PathVar.TrimToNullTerminator();
+			FPlatformMisc::SetEnvironmentVar(TEXT("PATHOriginal"), *PathVar);
+		}
+
 		for (const FString& path : DllSearchPaths)
 		{
 			PathVar.Append(FPlatformMisc::GetPathVarDelimiter());

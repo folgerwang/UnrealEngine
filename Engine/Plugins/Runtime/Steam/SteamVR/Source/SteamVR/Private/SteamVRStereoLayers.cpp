@@ -334,6 +334,49 @@ void FSteamVRHMD::UpdateStereoLayers_RenderThread()
 	}
 }
 
+void FSteamVRHMD::GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture)
+{
+	Texture = LeftTexture = nullptr;
+	FSteamVRLayer* LayerFound = nullptr;
+
+	if (IsInRenderingThread())
+	{
+		ForEachLayer([&](uint32 /* unused */, FSteamVRLayer& Layer)
+		{
+			if (Layer.GetLayerId() == LayerId)
+			{
+				LayerFound = &Layer;
+			}
+		});
+	}
+	else
+	{
+		// Only supporting the use of this function on RenderingThread.
+		check(false);
+		return;
+	}
+
+	if (LayerFound && LayerFound->LayerDesc.Texture)
+	{
+		switch (LayerFound->LayerDesc.ShapeType)
+		{
+		case IStereoLayers::CubemapLayer:
+			Texture = LayerFound->LayerDesc.Texture->GetTextureCube();
+			LeftTexture = LayerFound->LayerDesc.LeftTexture ? LayerFound->LayerDesc.LeftTexture->GetTextureCube() : nullptr;
+			break;
+
+		case IStereoLayers::CylinderLayer:
+		case IStereoLayers::QuadLayer:
+			Texture = LayerFound->LayerDesc.Texture->GetTexture2D();
+			LeftTexture = LayerFound->LayerDesc.LeftTexture ? LayerFound->LayerDesc.LeftTexture->GetTexture2D() : nullptr;
+			break;
+
+		default:
+			break;
+		}
+	}
+}
+
 //=============================================================================
 IStereoLayers* FSteamVRHMD::GetStereoLayers ()
 {

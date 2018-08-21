@@ -130,6 +130,7 @@ UAnimSequence::UAnimSequence(const FObjectInitializer& ObjectInitializer)
 	, Interpolation(EAnimInterpolationType::Linear)
 	, bEnableRootMotion(false)
 	, RootMotionRootLock(ERootMotionRootLock::RefPose)
+	, bUseNormalizedRootMotionScale(true)
 	, bRootMotionSettingsCopiedFromMontage(false)
 	, bUseRawDataOnly(!FPlatformProperties::RequiresCookedData())
 {
@@ -161,7 +162,7 @@ void UAnimSequence::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) con
 
 	OutTags.Add(FAssetRegistryTag(TEXT("Compression Ratio"), FString::Printf(TEXT("%.03f"), (float)GetApproxCompressedSize() / (float)GetUncompressedRawSize()), FAssetRegistryTag::TT_Numerical));
 	OutTags.Add(FAssetRegistryTag(TEXT("Compressed Size (KB)"), FString::Printf(TEXT("%.02f"), (float)GetApproxCompressedSize() / 1024.0f), FAssetRegistryTag::TT_Numerical));
-
+	OutTags.Add(FAssetRegistryTag(TEXT("FrameRate"), FString::Printf(TEXT("%.2f"), GetFrameRate()), FAssetRegistryTag::TT_Numerical));
 	Super::GetAssetRegistryTags(OutTags);
 }
 
@@ -536,6 +537,11 @@ void UAnimSequence::PostLoad()
 
 #if WITH_EDITOR
 		VerifyCurveNames<FTransformCurve>(*CurrentSkeleton, USkeleton::AnimTrackCurveMappingName, RawCurveData.TransformCurves);
+
+		for (const FAnimSyncMarker& SyncMarker : AuthoredSyncMarkers)
+		{
+			CurrentSkeleton->RegisterMarkerName(SyncMarker.MarkerName);
+		}
 #endif
 	}
 
@@ -1003,9 +1009,21 @@ FTransform UAnimSequence::ExtractRootMotionFromRange(float StartTrackPosition, f
 	FTransform StartTransform = ExtractRootTrackTransform(StartTrackPosition, NULL);
 	FTransform EndTransform = ExtractRootTrackTransform(EndTrackPosition, NULL);
 
-	//Clear scale as it will muck up GetRelativeTransform
-	StartTransform.SetScale3D(FVector(1.f));
-	EndTransform.SetScale3D(FVector(1.f));
+	// Use old calculation if needed.
+	if (bUseNormalizedRootMotionScale)
+	{
+		//Clear scale as it will muck up GetRelativeTransform
+		StartTransform.SetScale3D(FVector(1.f));
+		EndTransform.SetScale3D(FVector(1.f));
+	}
+	else
+	{
+		if (IsValidAdditive())
+		{
+			StartTransform.SetScale3D(StartTransform.GetScale3D() + DefaultScale);
+			EndTransform.SetScale3D(EndTransform.GetScale3D() + DefaultScale);
+		}
+	}
 
 	// Transform to Component Space Rotation (inverse root transform from first frame)
 	const FTransform RootToComponentRot = FTransform(InitialTransform.GetRotation().Inverse());

@@ -313,3 +313,46 @@ void FDefaultStereoLayers::SetupViewFamily(FSceneViewFamily& InViewFamily)
 	HmdTransform = FTransform(HmdOrientation, HmdPosition);
 }
 
+void FDefaultStereoLayers::GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture)
+{
+	Texture = LeftTexture = nullptr;
+	FLayerDesc* LayerFound = nullptr;
+
+	if (IsInRenderingThread())
+	{
+		for (int32 LayerIndex = 0; LayerIndex < RenderThreadLayers.Num(); LayerIndex++)
+		{
+			if (RenderThreadLayers[LayerIndex].GetLayerId() == LayerId)
+			{
+				LayerFound = &RenderThreadLayers[LayerIndex];
+			}
+		}
+	}
+
+	else
+	{
+		// Only supporting the use of this function on RenderingThread.
+		check(false);
+		return;
+	}
+
+	if (LayerFound && LayerFound->Texture)
+	{
+		switch (LayerFound->ShapeType)
+		{
+		case IStereoLayers::CubemapLayer:
+			Texture = LayerFound->Texture->GetTextureCube();
+			LeftTexture = LayerFound->LeftTexture ? LayerFound->LeftTexture->GetTextureCube() : nullptr;			
+			break;
+
+		case IStereoLayers::CylinderLayer:
+		case IStereoLayers::QuadLayer:
+			Texture = LayerFound->Texture->GetTexture2D();
+			LeftTexture = LayerFound->LeftTexture ? LayerFound->LeftTexture->GetTexture2D() : nullptr;
+			break;
+
+		default:
+			break;
+		}
+	}
+}

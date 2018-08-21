@@ -4,6 +4,7 @@
 #include "UnrealEngine.h"
 #include "Engine/Engine.h"
 #include "LatentActions.h"
+#include "Misc/AssertionMacros.h"
 #include "ARBlueprintLibrary.h"
 
 #include "GoogleARCoreAndroidHelper.h"
@@ -41,7 +42,7 @@ namespace
 				OutRequestResult = EGoogleARCoreInstallRequestResult::UserDeclinedInstallation;
 				break;
 			default:
-				ensureMsgf(false, TEXT("Unexpected ARCore API Status: %d"), (int)RequestStatus);
+				ensureMsgf(false, TEXT("Unexpected ARCore API Status: %d"), static_cast<int>(RequestStatus));
 				break;
 		}
 		return OutRequestResult;
@@ -185,6 +186,20 @@ EGoogleARCoreInstallRequestResult UGoogleARCoreSessionFunctionLibrary::GetARCore
 	return ToAPKInstallStatus(RequestStatus);
 }
 
+UGoogleARCoreEventManager* UGoogleARCoreSessionFunctionLibrary::GetARCoreEventManager()
+{
+	auto ARSystem = FGoogleARCoreDevice::GetInstance()->GetARSystem();
+	if (ARSystem.IsValid())
+	{
+		return static_cast<FGoogleARCoreXRTrackingSystem*>(ARSystem.Get())->GetEventManager();
+	}
+	else
+	{
+		return nullptr;
+	}
+	
+}
+
 struct FARCoreStartSessionAction : public FPendingLatentAction
 {
 public:
@@ -224,6 +239,16 @@ void UGoogleARCoreSessionFunctionLibrary::StartARCoreSession(UObject* WorldConte
 			LatentManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, NewAction);
 		}
 	}
+}
+
+bool UGoogleARCoreSessionFunctionLibrary::SetARCoreCameraConfig(FGoogleARCoreCameraConfig TargetCameraConfig)
+{
+	return FGoogleARCoreDevice::GetInstance()->SetARCameraConfig(TargetCameraConfig);
+}
+
+bool UGoogleARCoreSessionFunctionLibrary::GetARCoreCameraConfig(FGoogleARCoreCameraConfig& OutCurrentCameraConfig)
+{
+	return FGoogleARCoreDevice::GetInstance()->GetARCameraConfig(OutCurrentCameraConfig);
 }
 
 /************************************************************************/
@@ -306,6 +331,18 @@ bool UGoogleARCoreFrameFunctionLibrary::ARCoreLineTrace(UObject* WorldContextObj
 	return OutHitResults.Num() > 0;
 }
 
+bool UGoogleARCoreFrameFunctionLibrary::ARCoreLineTraceRay(UObject* WorldContextObject, const FVector& Start, const FVector& End, TSet<EGoogleARCoreLineTraceChannel> TraceChannels, TArray<FARTraceResult>& OutHitResults)
+{
+	EGoogleARCoreLineTraceChannel TraceChannelValue = EGoogleARCoreLineTraceChannel::None;
+	for (EGoogleARCoreLineTraceChannel Channel : TraceChannels)
+	{
+		TraceChannelValue = TraceChannelValue | Channel;
+	}
+
+	FGoogleARCoreDevice::GetInstance()->ARLineTrace(Start, End, TraceChannelValue, OutHitResults);
+	return OutHitResults.Num() > 0;
+}
+
 void UGoogleARCoreFrameFunctionLibrary::GetUpdatedARPins(TArray<UARPin*>& OutAnchorList)
 {
 	FGoogleARCoreDevice::GetInstance()->GetUpdatedARPins(OutAnchorList);
@@ -358,3 +395,14 @@ EGoogleARCoreFunctionStatus UGoogleARCoreFrameFunctionLibrary::AcquireCameraImag
 {
 	return FGoogleARCoreDevice::GetInstance()->AcquireCameraImage(OutLatestCameraImage);
 }
+
+EGoogleARCoreFunctionStatus UGoogleARCoreFrameFunctionLibrary::GetCameraImageIntrinsics(UGoogleARCoreCameraIntrinsics *&OutCameraIntrinsics)
+{
+	return FGoogleARCoreDevice::GetInstance()->GetCameraImageIntrinsics(OutCameraIntrinsics);
+}
+
+EGoogleARCoreFunctionStatus UGoogleARCoreFrameFunctionLibrary::GetCameraTextureIntrinsics(UGoogleARCoreCameraIntrinsics *&OutCameraIntrinsics)
+{
+	return FGoogleARCoreDevice::GetInstance()->GetCameraTextureIntrinsics(OutCameraIntrinsics);
+}
+
