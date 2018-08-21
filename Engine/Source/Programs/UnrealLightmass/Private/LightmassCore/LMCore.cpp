@@ -19,8 +19,6 @@ namespace Lightmass
 
 FLightmassLog::FLightmassLog()
 {
-	Filename[0] = 0;
-
 	// Create a Guid for this run.
 	FGuid Guid = FGuid::NewGuid();
 

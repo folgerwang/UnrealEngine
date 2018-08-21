@@ -157,6 +157,7 @@ namespace UnrealBuildTool
 		{
 			CompileEnvironment.Definitions.Add("PLATFORM_LUMIN=1");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_JNI=0");
+			CompileEnvironment.Definitions.Add("USE_ANDROID_AUDIO=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_FILE=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_INPUT=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_LAUNCH=0");

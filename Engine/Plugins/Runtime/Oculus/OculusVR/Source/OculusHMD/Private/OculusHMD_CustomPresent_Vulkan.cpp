@@ -31,7 +31,6 @@ public:
 	virtual void* GetOvrpDevice() const override;
 	virtual void* GetOvrpCommandQueue() const override;
 	virtual int GetSystemRecommendedMSAALevel() const override;
-	virtual int GetEyeLayerFlags() const override;
 	virtual FTextureRHIRef CreateTexture_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, ovrpTextureHandle InTexture, uint32 InTexCreateFlags) override;
 	virtual void AliasTextureResources_RHIThread(FTextureRHIParamRef DestTexture, FTextureRHIParamRef SrcTexture) override;
 };
@@ -106,14 +105,6 @@ int FVulkanCustomPresent::GetSystemRecommendedMSAALevel() const
 	return 1;
 }
 
-int FVulkanCustomPresent::GetEyeLayerFlags() const
-{
-#if PLATFORM_ANDROID
-	return ovrpLayerFlag_TextureOriginAtBottomLeft;
-#else
-	return 0;
-#endif
-}
 
 FTextureRHIRef FVulkanCustomPresent::CreateTexture_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, ovrpTextureHandle InTexture, uint32 InTexCreateFlags)
 {

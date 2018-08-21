@@ -45,6 +45,12 @@ public:
 	 */
 	struct FLayerDesc
 	{
+		void SetLayerId(uint32 InId) { Id = InId; }
+		uint32 GetLayerId() const { return Id; }
+
+		const static uint32	INVALID_LAYER_ID = UINT_MAX;
+		// The layer's ID
+		uint32				Id			= INVALID_LAYER_ID;
 		// View space transform
 		FTransform			Transform	 = FTransform::Identity;
 		// Size of rendered quad
@@ -175,7 +181,7 @@ public:
 		// Default debug layer desc
 		IStereoLayers::FLayerDesc StereoLayerDesc;
 		StereoLayerDesc.Transform = FTransform(FVector(100.f, 0, 0));
-		StereoLayerDesc.QuadSize = FVector2D(200.f, 200.f);
+		StereoLayerDesc.QuadSize = FVector2D(120.f, 120.f);
 		StereoLayerDesc.PositionType = IStereoLayers::ELayerType::FaceLocked;
 		StereoLayerDesc.ShapeType = IStereoLayers::ELayerShape::QuadLayer;
 		StereoLayerDesc.Texture = Texture;

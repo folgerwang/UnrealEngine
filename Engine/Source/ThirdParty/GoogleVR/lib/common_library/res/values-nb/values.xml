@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding='utf-8' standalone='no'?>
+<resources>
+<!-- blaze-out/k8-opt/genfiles/vr/gvr/platform/common/android/res/values-nb/strings.xml -->
+<eat-comment/>
+<string name="back_button_content_description">tilbake</string>
+<string name="cancel_button">Avbryt</string>
+<string name="dialog_button_got_it">GREIT</string>
+<string name="dialog_button_open_help_center">ÅPNE BRUKERSTØTTEN</string>
+<string name="dialog_message_incompatible_phone">Du må ha en Daydream-kompatibel telefon. Gå til brukerstøtten for Daydream for mer informasjon.</string>
+<string name="dialog_message_no_cardboard">Skaff deg Cardboard-appen for å konfigurere brillene dine.</string>
+<string name="dialog_title">Konfigurer</string>
+<string name="dialog_title_incompatible_phone">Inkompatibel telefon</string>
+<string name="dialog_title_vr_core_not_enabled">Konfigurering kreves</string>
+<string name="dialog_title_vr_core_not_installed">Installasjon kreves</string>
+<string name="dialog_title_warning">Advarsel</string>
+<string name="dialog_vr_core_not_enabled">Det er ikke sikkert at denne appen fungerer som den skal hvis du ikke slår på Google VR-tjenester. Slå dem på i telefoninnstillingene før du fortsetter.</string>
+<string name="dialog_vr_core_not_installed">Det er ikke sikkert at denne appen fungerer som den skal uten Google VR-tjenester. Installer Google VR-tjenester fra Play Butikk før du fortsetter.</string>
+<string name="go_to_playstore_button">Gå til Play Butikk</string>
+<string name="go_to_vr_listeners_settings_button">Gå til Innstillinger</string>
+<string name="no_browser_text">Finner ingen nettleser som kan åpne nettstedet</string>
+<string name="place_your_phone_into_cardboard">Sett inn telefonen i Cardboard-brillene</string>
+<string name="place_your_viewer_into_viewer_format">Sett inn telefonen i %s-brillene</string>
+<string name="settings_button_content_description">innstillinger</string>
+<string name="setup_button">Konfigurer</string>
+<string name="switch_viewer_action">Bytt</string>
+<string name="switch_viewer_prompt">Bruker du andre briller?</string>
+</resources>

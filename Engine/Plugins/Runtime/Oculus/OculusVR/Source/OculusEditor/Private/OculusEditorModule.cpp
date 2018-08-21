@@ -1,64 +1,138 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-
 #include "OculusEditorModule.h"
-#include "OculusHMDRuntimeSettings.h"
-#include "Modules/ModuleManager.h"
-#include "UObject/WeakObjectPtr.h"
-#include "UObject/Class.h"
+#include "OculusToolStyle.h"
+#include "OculusToolCommands.h"
+#include "OculusToolWidget.h"
 #include "OculusAssetDirectory.h"
-
-// Settings
+#include "OculusHMDRuntimeSettings.h"
+#include "LevelEditor.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ISettingsModule.h"
 
 #define LOCTEXT_NAMESPACE "OculusEditor"
 
-//////////////////////////////////////////////////////////////////////////
-// FOculusEditor
 
-class FOculusEditor : public IOculusEditorModule
+const FName FOculusEditorModule::OculusPerfTabName = FName("OculusPerfCheck");
+
+void FOculusEditorModule::StartupModule()
 {
-public:
-	virtual void StartupModule() override
-	{				
-		RegisterSettings();
-		FOculusAssetDirectory::LoadForCook();
-	}
+	RegisterSettings();
+	FOculusAssetDirectory::LoadForCook();
 
-	virtual void ShutdownModule() override
+	if(!IsRunningCommandlet())
 	{
-		FOculusAssetDirectory::ReleaseAll();
+		FOculusToolStyle::Initialize();
+		FOculusToolStyle::ReloadTextures();
 
-		if (UObjectInitialized())
+		FOculusToolCommands::Register();
+
+		PluginCommands = MakeShareable(new FUICommandList);
+
+		PluginCommands->MapAction(
+			FOculusToolCommands::Get().OpenPluginWindow,
+			FExecuteAction::CreateRaw(this, &FOculusEditorModule::PluginButtonClicked),
+			FCanExecuteAction());
+
+		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 		{
-			UnregisterSettings();  
-		}		
+			TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
+			MenuExtender->AddMenuExtension("Miscellaneous", EExtensionHook::After, PluginCommands, FMenuExtensionDelegate::CreateRaw(this, &FOculusEditorModule::AddMenuExtension));
+			LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
+		}
+
+		// If we want a toolbar icon we can uncomment this. Leaving it nice and low key right now.
+		/*
+		{
+			TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
+			ToolbarExtender->AddToolBarExtension("Settings", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FOculusEditorModule::AddToolbarExtension));
+			LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
+		}*/
+
+
+		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(OculusPerfTabName, FOnSpawnTab::CreateRaw(this, &FOculusEditorModule::OnSpawnPluginTab))
+			.SetDisplayName(LOCTEXT("FOculusEditorTabTitle", "Oculus Performance Check"))
+			.SetMenuType(ETabSpawnerMenuType::Hidden);
+	 }
+}
+
+void FOculusEditorModule::ShutdownModule()
+{
+	if(!IsRunningCommandlet())
+	{
+		FOculusToolStyle::Shutdown();
+		FOculusToolCommands::Unregister();
+		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(OculusPerfTabName);
 	}
-private:
+
+	FOculusAssetDirectory::ReleaseAll();
+	if (UObjectInitialized())
+	{
+		UnregisterSettings();  
+	}		
+}
+
+TSharedRef<SDockTab> FOculusEditorModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
+{
+	auto myTab = SNew(SDockTab)
+		.TabRole(ETabRole::NomadTab)
+		[
+			SNew(SOculusToolWidget)
+		];
+
+
+	return myTab;
+}
+
+void FOculusEditorModule::RegisterSettings()
+{
+	if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
+	{
+		SettingsModule->RegisterSettings("Project", "Plugins", "OculusVR",
+			LOCTEXT("RuntimeSettingsName", "OculusVR"),
+			LOCTEXT("RuntimeSettingsDescription", "Configure the OculusVR plugin"),
+			GetMutableDefault<UOculusHMDRuntimeSettings>()
+		);
+		SettingsModule->RegisterSettings("Project", "Plugins", "OculusVR",
+			LOCTEXT("RuntimeSettingsName", "OculusVR"),
+			LOCTEXT("RuntimeSettingsDescription", "Configure the OculusVR plugin"),
+			GetMutableDefault<UOculusHMDRuntimeSettings>()
+		);
+	}
+}
+
+void FOculusEditorModule::UnregisterSettings()
+{
+	if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
+	{
+		SettingsModule->UnregisterSettings("Project", "Plugins", "OculusVR");
+	}
+}
+
+
+void FOculusEditorModule::PluginButtonClicked()
+{
+	FGlobalTabmanager::Get()->InvokeTab(OculusPerfTabName);
+}
+
+void FOculusEditorModule::AddMenuExtension(FMenuBuilder& Builder)
+{
+	Builder.AddMenuEntry(FOculusToolCommands::Get().OpenPluginWindow);
+}
+
+void FOculusEditorModule::AddToolbarExtension(FToolBarBuilder& Builder)
+{
+	Builder.AddToolBarButton(FOculusToolCommands::Get().OpenPluginWindow);
+}
+
+#undef LOCTEXT_NAMESPACE
 	
-	void RegisterSettings()
-	{
-		if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
-		{
-			SettingsModule->RegisterSettings("Project", "Plugins", "OculusVR",
-				LOCTEXT("RuntimeSettingsName", "OculusVR"),
-				LOCTEXT("RuntimeSettingsDescription", "Configure the OculusVR plugin"),
-				GetMutableDefault<UOculusHMDRuntimeSettings>()
-			);
-		}
-	}
-
-	void UnregisterSettings()
-	{
-		if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
-		{
-			SettingsModule->UnregisterSettings("Project", "Plugins", "OculusVR");
-		}
-	}
-};
-
 //////////////////////////////////////////////////////////////////////////
 
-IMPLEMENT_MODULE(FOculusEditor, OculusEditor);
+IMPLEMENT_MODULE(FOculusEditorModule, OculusEditor);
 
 //////////////////////////////////////////////////////////////////////////
 

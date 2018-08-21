@@ -18,15 +18,17 @@ class UTexture2D;
 UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
 enum class EARTrackingState : uint8
 {
-	/** Currently not tracking. */
+	/** Unknown tracking state */
+	Unknown,
+	
+	/** Currently tracking. */
 	Tracking,
 	
 	/** Currently not tracking, but may resume tracking later. */
 	NotTracking,
 	
 	/** Stopped tracking forever. */
-	StoppedTracking,
-	
+	StoppedTracking
 };
 
 
@@ -201,11 +203,11 @@ private:
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	float Width;
 
-	/** The physical height in centimeters of the object that this candidate image represents */
+	/** The physical height in centimeters of the object that this candidate image represents. Ignored in ARCore */
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	float Height;
 
-	/** The orientation to treat the candidate image as */
+	/** The orientation to treat the candidate image as. Ignored in ARCore */
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	EARCandidateImageOrientation Orientation;
 };

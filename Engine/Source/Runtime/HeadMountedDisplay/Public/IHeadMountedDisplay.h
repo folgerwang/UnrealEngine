@@ -115,6 +115,9 @@ public:
 	virtual void BeginRendering_GameThread() {}
 
 
+	// Are we outputting so a Spectator Screen now.
+	virtual bool IsSpectatorScreenActive() const { return false; }
+
 	/**
 	* Return a pointer to the SpectatorScreenController for the HMD if supported, else null.
 	* The controller is owned by the HMD, and will be destroyed when the HMD is destroyed.

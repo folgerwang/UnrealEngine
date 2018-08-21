@@ -138,6 +138,8 @@ FSceneViewState::FSceneViewState()
 
 	bIsStereoView = false;
 
+	bRoundRobinOcclusionEnabled = false;
+
 	HeightfieldLightingAtlas = NULL;
 
 	for (int32 CascadeIndex = 0; CascadeIndex < ARRAY_COUNT(TranslucencyLightingCacheAllocations); CascadeIndex++)

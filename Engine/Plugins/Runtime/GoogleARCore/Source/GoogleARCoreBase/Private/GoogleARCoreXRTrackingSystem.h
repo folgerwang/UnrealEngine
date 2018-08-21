@@ -41,6 +41,8 @@ public:
 	void* GetARSessionRawPointer() override;
 	void* GetGameThreadARFrameRawPointer() override;
 
+	UGoogleARCoreEventManager* GetEventManager();
+
 protected:
 	// IARSystemSupport
 	virtual void OnARSystemInitialized() override;
@@ -88,6 +90,7 @@ private:
 	TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> ViewExtension;
 
 	UARBasicLightEstimate* LightEstimate;
+	UGoogleARCoreEventManager* EventManager;
 };
 
 DEFINE_LOG_CATEGORY_STATIC(LogGoogleARCoreTrackingSystem, Log, All);

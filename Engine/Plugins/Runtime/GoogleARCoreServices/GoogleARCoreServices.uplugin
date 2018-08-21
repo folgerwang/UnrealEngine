@@ -1,8 +1,8 @@
 {
     "FileVersion" : 3,
 
-    "Version" : 5,
-    "VersionName" : "1.2",
+    "Version" : 8,
+    "VersionName" : "1.4.0",
     "FriendlyName" : "Google ARCore Services",
     "Description" : "Provide functionality in Google cross-platform ARCore services.",
     "Category" : "Augmented Reality",

@@ -59,6 +59,8 @@ struct FSteamVRLayer
 	{}
 
 	// Required by TStereoLayerManager:
+	void SetLayerId(uint32 InId) { LayerDesc.SetLayerId(InId); }
+	uint32 GetLayerId() const { return LayerDesc.GetLayerId(); }
 	friend bool GetLayerDescMember(const FSteamVRLayer& Layer, FLayerDesc& OutLayerDesc);
 	friend void SetLayerDescMember(FSteamVRLayer& Layer, const FLayerDesc& InLayerDesc);
 	friend void MarkLayerTextureForUpdate(FSteamVRLayer& Layer);
@@ -225,6 +227,7 @@ public:
 	// IStereoLayers interface
 	// Create/Set/Get/Destroy inherited from TStereoLayerManager
 	virtual void UpdateSplashScreen() override;
+	virtual void GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture) override;
 
 	/** IHeadMountedDisplayVulkanExtensions */
 	virtual bool GetVulkanInstanceExtensionsRequired( TArray<const ANSICHAR*>& Out ) override;
@@ -235,7 +238,7 @@ private:
 	void CreateSpectatorScreenController();
 public:
 	virtual FIntRect GetFullFlatEyeRect_RenderThread(FTexture2DRHIRef EyeTexture) const override;
-	virtual void CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SrcTexture, FIntRect SrcRect, FTexture2DRHIParamRef DstTexture, FIntRect DstRect, bool bClearBlack) const override;
+	virtual void CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SrcTexture, FIntRect SrcRect, FTexture2DRHIParamRef DstTexture, FIntRect DstRect, bool bClearBlack, bool bNoAlpha) const override;
 
 	class BridgeBaseImpl : public FXRRenderBridge
 	{

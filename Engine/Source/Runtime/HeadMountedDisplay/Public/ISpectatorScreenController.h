@@ -54,4 +54,6 @@ public:
 	* @param	bClearBlack: if true the render target will be drawn black before either rect is drawn.
 	*/
 	virtual void SetSpectatorScreenModeTexturePlusEyeLayout(const FSpectatorScreenModeTexturePlusEyeLayout& Layout) = 0;
+
+	virtual void QueueDebugCanvasLayerID(int32 LayerID) = 0;
 };

@@ -44,11 +44,8 @@ EARTrackingQuality FARSystemBase::GetTrackingQuality() const
 
 void FARSystemBase::StartARSession(UARSessionConfig* InSessionConfig)
 {
-    if (GetARSessionStatus().Status != EARSessionStatus::Running)
-    {
 		ARSettings = InSessionConfig;
-        OnStartARSession(InSessionConfig);
-    }
+		OnStartARSession(InSessionConfig);
 }
 
 void FARSystemBase::PauseARSession()

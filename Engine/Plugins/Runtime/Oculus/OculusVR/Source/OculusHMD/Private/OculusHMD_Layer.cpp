@@ -54,7 +54,7 @@ FLayer::FLayer(uint32 InId, const IStereoLayers::FLayerDesc& InDesc) :
 	Id(InId),
 	OvrpLayerId(0),
 	bUpdateTexture(false),
-	bInvertY(true),
+	bInvertY(false),
 	bHasDepth(false),
 	PokeAHoleComponentPtr(nullptr), 
 	PokeAHoleActor(nullptr)
@@ -338,11 +338,7 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 	}
 	else
 	{
-		if (Desc.UVRect.Min.Y == 1.0f)
-		{
-			bInvertY = false;
-			Desc.UVRect.Min.Y = 0.0f;
-		}
+		bInvertY = ( CustomPresent->GetLayerFlags() & ovrpLayerFlag_TextureOriginAtBottomLeft ) != 0;
 
 		uint32 SizeX = 0, SizeY = 0;
 
@@ -397,7 +393,7 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 		uint32 NumMips = 0;
 #endif
 		uint32 NumSamples = 1;
-		int LayerFlags = 0;
+		int LayerFlags = CustomPresent->GetLayerFlags();
 
 		if(!(Desc.Flags & IStereoLayers::LAYER_FLAG_TEX_CONTINUOUS_UPDATE))
 			LayerFlags |= ovrpLayerFlag_Static;
@@ -661,8 +657,8 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 			break;
 
 		case IStereoLayers::FaceLocked:
-			BaseOrientation = Settings->BaseOrientation;
-			BaseLocation = Settings->BaseOffset * LocationScaleInv;
+			BaseOrientation = FQuat::Identity;
+			BaseLocation = FVector::ZeroVector;
 			break;
 		}
 
@@ -691,10 +687,12 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 		OvrpLayerSubmit.EyeFov.DepthNear = Frame->NearClippingPlane / 100.f; //physical scale is 100UU/meter
 		OvrpLayerSubmit.LayerSubmitFlags = ovrpLayerSubmitFlag_ReverseZ;
 
-		if (Frame->Flags.bPixelDensityAdaptive)
+		if (Settings->Flags.bPixelDensityAdaptive)
 		{
-			OvrpLayerSubmit.ViewportRect[0] = ToOvrpRecti(Frame->FinalViewRect[0]);
-			OvrpLayerSubmit.ViewportRect[1] = ToOvrpRecti(Frame->FinalViewRect[1]);
+			for (int eye = 0; eye < ovrpEye_Count; eye++)
+			{
+				OvrpLayerSubmit.ViewportRect[eye] = ToOvrpRecti(Settings->EyeRenderViewport[eye]);
+			}
 		}
 
 #if PLATFORM_ANDROID
