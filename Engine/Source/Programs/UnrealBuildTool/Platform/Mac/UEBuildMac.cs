@@ -42,14 +42,6 @@ namespace UnrealBuildTool
 		[CommandLine("-EnableUBSan")]
 		[XmlConfigFile(Category = "BuildConfiguration", Name = "bEnableUndefinedBehaviorSanitizer")]
 		public bool bEnableUndefinedBehaviorSanitizer = false;
-
-		/// <summary>
-		/// Constructor
-		/// </summary>
-		public MacTargetRules()
-		{
-			XmlConfig.ApplyTo(this);
-		}
 	}
 
 	/// <summary>
