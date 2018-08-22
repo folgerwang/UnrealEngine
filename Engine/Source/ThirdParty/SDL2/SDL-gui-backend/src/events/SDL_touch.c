@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -352,6 +352,9 @@ SDL_DelTouch(SDL_TouchID id)
 
     SDL_num_touch--;
     SDL_touchDevices[index] = SDL_touchDevices[SDL_num_touch];
+
+    /* Delete this touch device for gestures */
+    SDL_GestureDelTouch(id);
 }
 
 void
@@ -366,6 +369,7 @@ SDL_TouchQuit(void)
 
     SDL_free(SDL_touchDevices);
     SDL_touchDevices = NULL;
+    SDL_GestureQuit();
 }
 
 /* vi: set ts=4 sw=4 expandtab: */
