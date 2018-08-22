@@ -2116,9 +2116,10 @@ namespace UnrealBuildTool
 			}
 
 			// Build the target's binaries.
+			DirectoryReference ExeDir = OutputPaths[0].Directory;
 			foreach (UEBuildBinary Binary in Binaries)
 			{
-				OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ActionGraph));
+				OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ExeDir, ActionGraph));
 			}
 
 			// Prepare all the runtime dependencies, copying them from their source folders if necessary
@@ -2126,7 +2127,7 @@ namespace UnrealBuildTool
 			List<RuntimeDependency> RuntimeDependencies = new List<RuntimeDependency>();
 			foreach(UEBuildBinary Binary in Binaries)
 			{
-				OutputItems.AddRange(Binary.PrepareRuntimeDependencies(RuntimeDependencies, RuntimeDependencySourceFiles, ActionGraph));
+				OutputItems.AddRange(Binary.PrepareRuntimeDependencies(RuntimeDependencies, RuntimeDependencySourceFiles, ExeDir, ActionGraph));
 			}
 
 			// If we're just precompiling a plugin, only include output items which are under that directory
