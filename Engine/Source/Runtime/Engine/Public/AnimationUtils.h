@@ -167,10 +167,7 @@ public:
 	 * @param	bFirstRecompressUsingCurrentOrDefault	If true, then the animation will be first recompressed with it's current compressor if non-NULL, or with the global default compressor (specified in the engine ini)
 	 * @param	bForceBelowThreshold					If true and the existing compression error is greater than MasterTolerance, then any compression technique (even one that increases the size) with a lower error will be used until it falls below the threshold
 	 * @param	bRaiseMaxErrorToExisting				If true and the existing compression error is greater than MasterTolerance, then MasterTolerance will be effectively raised to the existing error level
-	 * @param	bTryFixedBitwiseCompression				If true, the uniform bitwise techniques will be tried
-	 * @param	bTryPerTrackBitwiseCompression			If true, the per-track compressor techniques will be tried
-	 * @param	bTryLinearKeyRemovalCompression			If true, the linear key removal techniques will be tried
-	 * @param	bTryIntervalKeyRemoval					If true, the resampling techniques will be tried
+	 * @param	bTryExhaustiveSearch					If true, then an exhaustive search is used otherwise only a short list of the best methods is tried
 	 *
 	 * @return	None.
 	 */
@@ -181,10 +178,11 @@ public:
 		bool bFirstRecompressUsingCurrentOrDefault,
 		bool bForceBelowThreshold,
 		bool bRaiseMaxErrorToExisting,
-		bool bTryFixedBitwiseCompression,
-		bool bTryPerTrackBitwiseCompression,
-		bool bTryLinearKeyRemovalCompression,
-		bool bTryIntervalKeyRemoval);
+		bool bTryExhaustiveSearch,
+		bool bEnableSegmenting,
+		int32 IdealNumFramesPerSegment,
+		int32 MaxNumFramesPerSegment,
+		const TArray<FBoneData>& BoneData);
 
 	/**
 	 * Tests for a missing or invalid mesh on the animation sequence, warning if one or more were found

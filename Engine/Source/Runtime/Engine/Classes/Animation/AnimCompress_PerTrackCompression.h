@@ -153,6 +153,19 @@ protected:
 		const TArray<FRotationTrack>& RotationData,
 		const TArray<FScaleTrack>& ScaleData,
 		const bool bFinalPass) override;
+
+	virtual void CompressUsingUnderlyingCompressor(
+		UAnimSequence& AnimSeq,
+		const TArray<FBoneData>& BoneData,
+		TArray<FAnimSegmentContext>& RawSegments,
+		const bool bFinalPass) override;
+
+	/**
+	 * Performs the per track compression optimization for a single segment.
+	 * This can be called from multiple threads concurrently.
+	 */
+	void OptimizeSegmentTracks(struct FOptimizeSegmentTracksContext& Context) const;
+
 	virtual void FilterBeforeMainKeyRemoval(
 		UAnimSequence* AnimSeq, 
 		const TArray<FBoneData>& BoneData, 
@@ -160,6 +173,30 @@ protected:
 		TArray<FRotationTrack>& RotationData,
 		TArray<FScaleTrack>& ScaleData) override;
 	//~ End UAnimCompress_RemoveLinearKeys Interface
+
+	/**
+	* Structure to hold the track format information that we calculate is most optimal.
+	*/
+	struct FPerTrackFormat
+	{
+		AnimationCompressionFormat RotationFormat;
+		AnimationCompressionFormat TranslationFormat;
+		AnimationCompressionFormat ScaleFormat;
+
+		bool bHasRotationTimeMarkers;
+		bool bHasTranslationTimeMarkers;
+		bool bHasScaleTimeMarkers;
+
+		FTrackKeyFlags RotationKeyFlags;
+		FTrackKeyFlags TranslationKeyFlags;
+		FTrackKeyFlags ScaleKeyFlags;
+	};
+
+	static void PackTranslationKey(TArray<uint8>& ByteStream, AnimationCompressionFormat Format, const FVector& Key, const float* Mins, const float* Ranges, const struct FPerTrackFormat& TrackFormat);
+	static void PackRotationKey(TArray<uint8>& ByteStream, AnimationCompressionFormat Format, const FQuat& Key, const float* Mins, const float* Ranges, const struct FPerTrackFormat& TrackFormat);
+	static void PackScaleKey(TArray<uint8>& ByteStream, AnimationCompressionFormat Format, const FVector& Key, const float* Mins, const float* Ranges, const struct FPerTrackFormat& TrackFormat);
+
+	friend struct FAsyncOptimizeSegmentTracksTaskGroupContext;
 #endif // WITH_EDITOR
 };
 

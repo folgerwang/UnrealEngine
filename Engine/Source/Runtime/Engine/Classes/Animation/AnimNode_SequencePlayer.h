@@ -6,9 +6,10 @@
 #include "UObject/ObjectMacros.h"
 #include "Animation/AnimNode_AssetPlayerBase.h"
 #include "Animation/InputScaleBias.h"
+#include "Animation/AnimSequenceDecompressionContext.h"
+#include "Animation/AnimSequenceBase.h"
 #include "AnimNode_SequencePlayer.generated.h"
 
-#pragma once
 
 // Sequence player node
 USTRUCT(BlueprintInternalUseOnly)
@@ -54,9 +55,10 @@ public:
 	}
 
 	// FAnimNode_AssetPlayerBase interface
-	virtual float GetCurrentAssetTime();
-	virtual float GetCurrentAssetTimePlayRateAdjusted();
-	virtual float GetCurrentAssetLength();
+	virtual float GetCurrentAssetTime() override;
+	virtual float GetCurrentAssetTimePlayRateAdjusted() override;
+	virtual float GetCurrentAssetLength() override;
+	virtual UAnimationAsset* GetAnimAsset() override { return Sequence; }
 	// End of FAnimNode_AssetPlayerBase interface
 
 	// FAnimNode_Base interface
@@ -67,8 +69,6 @@ public:
 	virtual void OverrideAsset(UAnimationAsset* NewAsset) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
 	// End of FAnimNode_Base interface
-
-	UAnimationAsset* GetAnimAsset() { return Sequence; }
 
 	float GetTimeFromEnd(float CurrentNodeTime);
 };
