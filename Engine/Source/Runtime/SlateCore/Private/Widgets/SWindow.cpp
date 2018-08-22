@@ -1885,6 +1885,7 @@ SWindow::SWindow()
 	, bIsModalWindow( false )
 	, bIsMirrorWindow( false )
 	, bShouldPreserveAspectRatio( false )
+	, bManualManageDPI( false )
 	, WindowActivationPolicy( EWindowActivationPolicy::Always )
 	, InitialDesiredScreenPosition( FVector2D::ZeroVector )
 	, InitialDesiredSize( FVector2D::ZeroVector )
@@ -1902,7 +1903,6 @@ SWindow::SWindow()
 	, ExpectedMaxHeight( INDEX_NONE )
 	, TitleBar()
 	, bIsDrawingEnabled( true )
-	, bManualManageDPI( false )
 {
 }
 
