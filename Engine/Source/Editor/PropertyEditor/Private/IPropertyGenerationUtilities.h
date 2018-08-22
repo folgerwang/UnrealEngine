@@ -6,6 +6,8 @@
 class IPropertyGenerationUtilities
 {
 public:
+	virtual ~IPropertyGenerationUtilities() { }
+
 	/** Gets the instance type customization map for the details implementation providing this utilities object. */
 	virtual const FCustomPropertyTypeLayoutMap& GetInstancedPropertyTypeLayoutMap() const = 0;
 
