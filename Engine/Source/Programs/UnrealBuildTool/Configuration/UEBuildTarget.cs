@@ -1418,8 +1418,16 @@ namespace UnrealBuildTool
 				}
 			}
 
-			// Find all the build products and modules from this binary
+			// Create the receipt
 			Receipt = new TargetReceipt(TargetName, Platform, Configuration, Version);
+
+			// Set the launch executable if there is one
+			if(!Rules.bShouldCompileAsDLL)
+			{
+				Receipt.Launch = OutputPaths[0];
+			}
+
+			// Find all the build products and modules from this binary
 			foreach (KeyValuePair<FileReference, BuildProductType> BuildProductPair in BuildProducts)
 			{
 				if(BuildProductPair.Value != BuildProductType.BuildResource)
