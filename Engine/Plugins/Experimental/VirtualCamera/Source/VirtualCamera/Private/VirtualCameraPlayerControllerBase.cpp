@@ -118,6 +118,14 @@ void AVirtualCameraPlayerControllerBase::Tick(float DeltaSeconds)
 		if (LevelSequencePlaybackController->GetSequence())
 		{
 			LevelSequencePlaybackController->Update(DeltaSeconds);
+
+			// ToDo: Temp fix for hotfix purposes. Remove this in favor of OnObjectSpawned call in LevelSequencerPlaybackController when possible
+			// Camera actors spawn with lock to hmd set to true by default, and can be spawned unpredictably by Sequencer. Unlock them here to prevent unwanted movement.
+			ACameraActor* CameraActor = Cast<ACameraActor>(GetViewTarget());
+			if (CameraActor && CameraActor->GetCameraComponent())
+			{
+				CameraActor->GetCameraComponent()->bLockToHmd = false;
+			}
 		}
 	}
 }

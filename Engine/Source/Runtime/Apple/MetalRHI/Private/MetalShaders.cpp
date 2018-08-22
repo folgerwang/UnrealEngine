@@ -124,7 +124,7 @@ NSString* DecodeMetalSourceCode(uint32 CodeSize, TArray<uint8> const& Compressed
 	return GlslCodeNSString;
 }
 
-static mtlpp::LanguageVersion ValidateVersion(uint8 Version)
+mtlpp::LanguageVersion ValidateVersion(uint8 Version)
 {
 	static uint32 MetalMacOSVersions[][3] = {
 		{10,11,6},

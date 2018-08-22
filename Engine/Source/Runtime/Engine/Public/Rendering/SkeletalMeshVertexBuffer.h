@@ -24,7 +24,7 @@ struct TGPUSkinVertexBase
 	FORCEINLINE FVector GetTangentY() const
 	{
 		FVector  TanX = TangentX.ToFVector();
-		FVector4 TanZ = TangentZ.ToFVector();
+		FVector4 TanZ = TangentZ.ToFVector4();
 
 		return (FVector(TanZ) ^ TanX) * TanZ.W;
 	}

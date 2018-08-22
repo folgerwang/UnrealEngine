@@ -23,7 +23,7 @@ struct TStaticMeshVertexTangentDatum
 
 	FORCEINLINE FVector4 GetTangentZ() const
 	{
-		return TangentZ.ToFVector();
+		return TangentZ.ToFVector4();
 	}
 
 	FORCEINLINE FVector GetTangentY() const

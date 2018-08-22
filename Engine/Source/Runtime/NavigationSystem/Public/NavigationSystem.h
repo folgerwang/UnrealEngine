@@ -111,7 +111,7 @@ public:
 	ANavigationData* AbstractNavData;
 
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Navigation)
+	UPROPERTY(config, EditAnywhere, BlueprintReadOnly, Category = Navigation)
 	TSubclassOf<UCrowdManagerBase> CrowdManagerClass;
 
 	/** Should navigation system spawn default Navigation Data when there's none and there are navigation bounds present? */

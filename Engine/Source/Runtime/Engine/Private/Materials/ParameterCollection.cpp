@@ -606,7 +606,7 @@ bool UMaterialParameterCollectionInstance::GetVectorParameterValue(FName Paramet
 void UMaterialParameterCollectionInstance::UpdateRenderState()
 {
 	// Don't need material parameters on the server
-	if (World && World->GetNetMode() == NM_DedicatedServer)
+	if (!World || World->GetNetMode() == NM_DedicatedServer)
 	{
 		return;
 	}
@@ -622,7 +622,7 @@ void UMaterialParameterCollectionInstance::UpdateRenderState()
 
 void UMaterialParameterCollectionInstance::DeferredUpdateRenderState()
 {
-	if (bNeedsRenderStateUpdate)
+	if (bNeedsRenderStateUpdate && World)
 	{
 		// Propagate the new values to the rendering thread
 		TArray<FVector4> ParameterData;

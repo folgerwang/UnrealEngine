@@ -172,6 +172,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
     {
         MaxShaderVersion = DefaultMaxShaderVersion;
     }
+    ValidateVersion(MaxShaderVersion);
 	
 #if METAL_STATISTICS
 	if (FParse::Param(FCommandLine::Get(),TEXT("metalstats")))

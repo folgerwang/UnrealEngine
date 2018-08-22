@@ -229,7 +229,7 @@ void FMediaBundleEditorToolkit::ExtendToolBar()
 					),
 					NAME_None,
 					LOCTEXT("MaterialEditor", "Open Material Editor"),
-					LOCTEXT("Material_ToolTip", "Open Material Editor for thie Media Bundle material."),
+					LOCTEXT("Material_ToolTip", "Open Material Editor for this Media Bundle material."),
 					FSlateIcon(FMediaBundleEditorStyle::GetStyleSetName(), "MaterialEditor")
 					);
 			}

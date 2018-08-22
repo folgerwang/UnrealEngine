@@ -41,6 +41,18 @@ void NiagaraEmitterInstanceBatcher::Queue(FNiagaraComputeExecutionContext *InCon
 			});
 }
 
+void NiagaraEmitterInstanceBatcher::Remove(FNiagaraComputeExecutionContext *InContext)
+{
+	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(RemoveNiagaraDispatch,
+		TArray<FNiagaraComputeExecutionContext*>*, Queue, &SimulationQueue[0],
+		FNiagaraComputeExecutionContext*, ExecContext, InContext,
+		{
+			for (int32 i = 0; i < SIMULATION_QUEUE_COUNT; i++)
+			{
+				Queue[i].Remove(ExecContext);
+			}
+		});
+}
 
 void NiagaraEmitterInstanceBatcher::ExecuteAll(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer)
 {

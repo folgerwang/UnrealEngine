@@ -393,7 +393,20 @@ void FSkeletalMeshMerge::CopyVertexFromSource(VertexDataType& DestVert, const FS
 {
 	DestVert.Position = SrcLODData.StaticVertexBuffers.PositionVertexBuffer.VertexPosition(SourceVertIdx);
 	DestVert.TangentX = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentX(SourceVertIdx);
-	DestVert.TangentZ = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(SourceVertIdx);
+	
+	// @HACK:
+	// Inlining usage of VertexTangentZ here so we don't change the interface for a hotfix.
+	// This should go away when 4.21 is officially released
+	const auto & StaticMeshBuffer = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer;
+	if (StaticMeshBuffer.GetUseHighPrecisionTangentBasis())
+	{
+		DestVert.TangentZ = StaticMeshBuffer.VertexTangentZ_Typed<EStaticMeshVertexTangentBasisType::HighPrecision>(SourceVertIdx);
+	}
+	else
+	{
+		DestVert.TangentZ = StaticMeshBuffer.VertexTangentZ_Typed<EStaticMeshVertexTangentBasisType::Default>(SourceVertIdx);
+	}
+	// END HACK
 
 	// Copy all UVs that are available
 	uint32 LODNumTexCoords = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords();

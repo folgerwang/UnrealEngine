@@ -67,7 +67,29 @@ namespace UnrealBuildTool.Rules
 				}
 			}
 
+			if (Target.bBuildEditor)
+			{
+				string ExecName = "";
+				if (Target.Platform == UnrealTargetPlatform.Win64)
+				{
+					ExecName = "Windows/arcoreimg.exe";
+				}
+				else if (Target.Platform == UnrealTargetPlatform.Linux)
+				{
+					ExecName = "Linux/arcoreimg";
+				}
+				else if (Target.Platform == UnrealTargetPlatform.Mac)
+				{
+					ExecName = "Mac/ptdbtool_macos_lipobin";
+				}
+				
+				if (ExecName.Length > 0)
+				{
+					RuntimeDependencies.Add("$(EngineDir)/Plugins/Runtime/GoogleARCore/Binaries/ThirdParty/Google/ARCoreImg/" + ExecName);
+				}
+			}
+			
 			bFasterWithoutUnity = false;
-		}
-	}
+        }
+    }
 }

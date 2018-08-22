@@ -386,6 +386,13 @@ namespace UnrealBuildTool
 			ProjectFile.AddIntelliSensePreprocessorDefinitions(ModuleCompileEnvironment.Definitions);
 			ProjectFile.AddInteliiSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.SystemIncludePaths, true);
 			ProjectFile.AddInteliiSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.UserIncludePaths, false);
+
+			// This directory may not exist for this module (or ever exist, if it doesn't contain any generated headers), but we want the project files
+			// to search it so we can pick up generated code definitions after UHT is run for the first time.
+			if(GeneratedCodeDirectory != null)
+			{
+				ProjectFile.AddInteliiSenseIncludePaths(new HashSet<DirectoryReference>{ GeneratedCodeDirectory }, false);
+			}
 		}
 
 		/// <summary>

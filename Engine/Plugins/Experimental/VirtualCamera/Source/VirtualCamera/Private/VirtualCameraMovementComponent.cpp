@@ -133,14 +133,36 @@ void UVirtualCameraMovementComponent::OnMoveForward(const float InValue)
 {
 	FVector InputVector = UpdatedComponent->GetForwardVector();
 	InputVector = GetOwner()->GetActorRotation().UnrotateVector(InputVector);
-	AddInputVector(InputVector * InValue);
+	InputVector *= InValue;
+
+	if (InputVector.IsZero())
+	{
+		return;
+	}
+
+	InputVector *= AxisSettings[EVirtualCameraAxis::LocationX].MovementScale;
+	ApplyLocationLocks(InputVector);
+
+	TargetLocation += InputVector;
 }
 
 void UVirtualCameraMovementComponent::OnMoveRight(const float InValue)
 {
 	FVector InputVector = UpdatedComponent->GetRightVector();
 	InputVector = GetOwner()->GetActorRotation().UnrotateVector(InputVector);
-	AddInputVector(InputVector * InValue);
+	
+	InputVector *= InValue;
+
+	if (InputVector.IsZero())
+	{
+		return;
+	}
+
+	// To preseve direction when moving diagonally use same scaling as forward movement
+	InputVector *= AxisSettings[EVirtualCameraAxis::LocationY].MovementScale;
+	ApplyLocationLocks(InputVector);
+	
+	TargetLocation += InputVector;
 }
 
 void UVirtualCameraMovementComponent::OnMoveUp(const float InValue)
@@ -154,7 +176,17 @@ void UVirtualCameraMovementComponent::OnMoveUp(const float InValue)
 	{
 		FVector InputVector = UpdatedComponent->GetUpVector();
 		InputVector = GetOwner()->GetActorRotation().UnrotateVector(InputVector);
-		AddInputVector(InputVector * InValue);
+		InputVector *= InValue;
+
+		if (InputVector.IsZero())
+		{
+			return;
+		}
+
+		InputVector *= AxisSettings[EVirtualCameraAxis::LocationZ].MovementScale;
+		ApplyLocationLocks(InputVector);
+
+		TargetLocation += InputVector;
 	}
 }
 
