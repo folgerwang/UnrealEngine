@@ -54,6 +54,8 @@ public:
 	TSharedPtr< FUICommandInfo > VisitForums;
 	TSharedPtr< FUICommandInfo > VisitAskAQuestionPage;
 	TSharedPtr< FUICommandInfo > VisitSearchForAnswersPage;
+	TSharedPtr< FUICommandInfo > ReportABug;
+	TSharedPtr< FUICommandInfo > OpenIssueTracker;
 	TSharedPtr< FUICommandInfo > VisitSupportWebSite;
 	TSharedPtr< FUICommandInfo > VisitEpicGamesDotCom;
 	TSharedPtr< FUICommandInfo > AboutUnrealEd;
@@ -130,6 +132,12 @@ public:
 
 	/** Checks if a slate window is already open */
 	static bool OpenSlateApp_IsChecked( FName AppName );
+
+	/** Visits the report a bug page */
+	static void ReportABug();
+
+	/** Opens the issue tracker page */
+	static void OpenIssueTracker();
 
 	/** Visits the "ask a question" page on UDN */
 	static void VisitAskAQuestionPage();
