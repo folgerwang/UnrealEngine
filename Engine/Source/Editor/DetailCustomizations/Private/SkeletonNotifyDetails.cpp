@@ -13,6 +13,12 @@
 #include "IDetailPropertyRow.h"
 #include "DetailCategoryBuilder.h"
 #include "IDetailsView.h"
+#include "Widgets/Input/SButton.h"
+#include "Misc/ScopedSlowTask.h"
+#include "IEditableSkeleton.h"
+#include "Animation/AnimSequenceBase.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SScrollBox.h"
 
 #define LOCTEXT_NAMESPACE "SkeletonNotifyDetails"
 
@@ -45,6 +51,8 @@ void FSkeletonNotifyDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 
 	if(EdObj)
 	{
+		NotifyObject = EdObj;
+
 		Category.AddCustomRow(LOCTEXT("AnimationsLabel","Animations"))
 		.NameContent()
 		[
@@ -55,9 +63,33 @@ void FSkeletonNotifyDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 		]
 		.ValueContent()
 		[
-			SNew(SListView<TSharedPtr<FString>>)
-			.ListItemsSource(&EdObj->AnimationNames)
-			.OnGenerateRow(this, &FSkeletonNotifyDetails::MakeAnimationRow)
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.Visibility_Lambda([this](){ return AnimationNames.Num() > 0 ? EVisibility::Collapsed : EVisibility::Visible; })
+				.Text(LOCTEXT("ScanForAnimations", "Scan"))
+				.ToolTipText(LOCTEXT("ScanForAnimationsTooltip", "Scan for animations that reference this notify"))
+				.OnClicked(this, &FSkeletonNotifyDetails::CollectSequencesUsingNotify)
+			]
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.MaxDesiredHeight(300.0f)
+				.MaxDesiredWidth(200.0f)
+				[
+					SNew(SScrollBox)
+					+SScrollBox::Slot()
+					[
+						SAssignNew(ListView, SListView<TSharedPtr<FString>>)
+						.Visibility_Lambda([this](){ return AnimationNames.Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed; })
+						.ListItemsSource(&AnimationNames)
+						.OnGenerateRow(this, &FSkeletonNotifyDetails::MakeAnimationRow)
+					]
+				]
+			]
 		];
 	}
 }
@@ -66,8 +98,59 @@ TSharedRef< ITableRow > FSkeletonNotifyDetails::MakeAnimationRow( TSharedPtr<FSt
 {
 	return SNew(STableRow<TSharedPtr<FString>>, OwnerTable)
 	[
-		SNew(STextBlock).Text(FText::FromString(*Item.Get()))
+		SNew(STextBlock)
+		.ToolTipText(FText::FromString(*Item.Get()))
+		.Text(FText::FromString(*Item.Get()))
 	];
+}
+
+FReply FSkeletonNotifyDetails::CollectSequencesUsingNotify()
+{
+	if(NotifyObject.IsValid() && NotifyObject->EditableSkeleton.IsValid())
+	{
+		FScopedSlowTask SlowTask(1.0f, FText::Format(LOCTEXT("ScanningAnimationMessage", "Looking for animations that reference notify '{0}'."), FText::FromName(NotifyObject->Name)));
+		SlowTask.MakeDialog(true);
+
+		AnimationNames.Empty();
+
+		TArray<FAssetData> CompatibleAnimSequences;
+		NotifyObject->EditableSkeleton.Pin()->GetCompatibleAnimSequences(CompatibleAnimSequences);
+		SlowTask.TotalAmountOfWork = CompatibleAnimSequences.Num();
+
+		for( int32 AssetIndex = 0; AssetIndex < CompatibleAnimSequences.Num(); ++AssetIndex )
+		{
+			SlowTask.EnterProgressFrame(1.0f);
+
+			if(SlowTask.ShouldCancel())
+			{
+				break;
+			}
+
+			const FAssetData& PossibleAnimSequence = CompatibleAnimSequences[AssetIndex];
+			if(UObject* AnimSeqAsset = PossibleAnimSequence.GetAsset())
+			{
+				UAnimSequenceBase* Sequence = CastChecked<UAnimSequenceBase>(AnimSeqAsset);
+				for (int32 NotifyIndex = 0; NotifyIndex < Sequence->Notifies.Num(); ++NotifyIndex)
+				{
+					FAnimNotifyEvent& NotifyEvent = Sequence->Notifies[NotifyIndex];
+					if (NotifyEvent.NotifyName == NotifyObject->Name)
+					{
+						AnimationNames.Add(MakeShareable(new FString(PossibleAnimSequence.AssetName.ToString())));
+						break;
+					}
+				}
+			}
+		}
+
+		if(SlowTask.ShouldCancel())
+		{
+			AnimationNames.Empty();
+		}
+
+		ListView->RequestListRefresh();
+	}
+
+	return FReply::Handled();
 }
 
 #undef LOCTEXT_NAMESPACE

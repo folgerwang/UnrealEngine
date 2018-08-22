@@ -12,7 +12,11 @@ class GOOGLEARCORESERVICES_API UGoogleARCoreServicesEditorSettings : public UObj
 	GENERATED_BODY()
 
 public:
-	/** The API key for GoogleARCoreServices. */
+	/** The API key for GoogleARCoreServices on Android platform. */
 	UPROPERTY(EditAnywhere, config, Category = "ARCore Services Plugin Settings", meta = (ShowOnlyInnerProperties))
-	FString APIKey;
+	FString AndroidAPIKey;
+
+	/** The API key for GoogleARCoreServices on iOS platform. */
+	UPROPERTY(EditAnywhere, config, Category = "ARCore Services Plugin Settings", meta = (ShowOnlyInnerProperties))
+	FString IOSAPIKey;
 };

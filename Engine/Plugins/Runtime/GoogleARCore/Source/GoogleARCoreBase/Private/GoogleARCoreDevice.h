@@ -35,6 +35,10 @@ public:
 	// Start ARSession with custom session config.
 	void StartARCoreSessionRequest(UARSessionConfig* SessionConfig);
 
+	bool SetARCameraConfig(FGoogleARCoreCameraConfig CameraConfig);
+
+	bool GetARCameraConfig(FGoogleARCoreCameraConfig& OutCurrentCameraConfig);
+
 	bool GetStartSessionRequestFinished();
 
 	void PauseARCoreSession();
@@ -61,6 +65,7 @@ public:
 
 	// Hit test
 	void ARLineTrace(const FVector2D& ScreenPosition, EGoogleARCoreLineTraceChannel TraceChannels, TArray<FARTraceResult>& OutHitResults);
+	void ARLineTrace(const FVector& Start, const FVector& End, EGoogleARCoreLineTraceChannel TraceChannels, TArray<FARTraceResult>& OutHitResults);
 
 	// Anchor, Planes
 	EGoogleARCoreFunctionStatus CreateARPin(const FTransform& PinToWorldTransform, UARTrackedGeometry* TrackedGeometry, USceneComponent* ComponentToPin, const FName DebugName, UARPin*& OutARAnchorObject);
@@ -72,7 +77,7 @@ public:
 	template< class T >
 	void GetUpdatedTrackables(TArray<T*>& OutARCoreTrackableList)
 	{
-		if (!bIsARCoreSessionRunning)
+		if (!IsARSessionInitialized())
 		{
 			return;
 		}
@@ -82,12 +87,16 @@ public:
 	template< class T >
 	void GetAllTrackables(TArray<T*>& OutARCoreTrackableList)
 	{
-		if (!bIsARCoreSessionRunning)
+		if (!ARCoreSession.IsValid())
 		{
 			return;
 		}
 		ARCoreSession->GetAllTrackables<T>(OutARCoreTrackableList);
 	}
+
+	// Camera Intrinsics
+	EGoogleARCoreFunctionStatus GetCameraImageIntrinsics(UGoogleARCoreCameraIntrinsics *&OutCameraIntrinsics);
+	EGoogleARCoreFunctionStatus GetCameraTextureIntrinsics(UGoogleARCoreCameraIntrinsics *&OutCameraIntrinsics);
 
 	void RunOnGameThread(TFunction<void()> Func)
 	{
@@ -112,6 +121,11 @@ public:
 	void* GetGameThreadARFrameRawPointer();
 
 private:
+	bool IsARSessionInitialized() const
+	{
+		return ARCoreSession.IsValid() && ARCoreSession->GetLatestFrame() != nullptr;
+	}
+
 	// Android lifecycle events.
 	void OnApplicationCreated();
 	void OnApplicationDestroyed();
@@ -156,6 +170,7 @@ private:
 
 	EARSessionStatus CurrentSessionStatus;
 
+	FGoogleARCoreCameraConfig SessionCameraConfig;
 	FGoogleARCoreDeviceCameraBlitter CameraBlitter;
 
 	TQueue<TFunction<void()>> RunOnGameThreadQueue;

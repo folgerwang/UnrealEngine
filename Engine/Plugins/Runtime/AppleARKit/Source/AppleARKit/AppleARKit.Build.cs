@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using System.IO;
 
 public class AppleARKit : ModuleRules
 {
@@ -54,6 +55,9 @@ public class AppleARKit : ModuleRules
     		PrivateDependencyModuleNames.Add("IOSRuntimeSettings");
 
 			PublicFrameworks.Add( "ARKit" );
+
+            string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);
+            AdditionalPropertiesForReceipt.Add("IOSPlugin", Path.Combine(PluginPath, "AppleARKit_IOS_UPL.xml"));
 		}
 	}
 }

@@ -161,7 +161,7 @@ USkeletalMeshComponent::USkeletalMeshComponent(const FObjectInitializer& ObjectI
 	bWantsInitializeComponent = true;
 	GlobalAnimRateScale = 1.0f;
 	bNoSkeletonUpdate = false;
-	MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+	VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 	KinematicBonesUpdateType = EKinematicBonesUpdateToPhysics::SkipSimulatingBones;
 	PhysicsTransformUpdateMode = EPhysicsTransformUpdateMode::SimulationUpatesComponentTransform;
 	SetGenerateOverlapEvents(false);
@@ -516,7 +516,7 @@ void USkeletalMeshComponent::OnRegister()
 	// so we need to force initialize them before we begin to tick.
 	InitAnim(true);
 
-	if (bRenderStatic || (MeshComponentUpdateFlag == EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !FApp::CanEverRender()))
+	if (bRenderStatic || (VisibilityBasedAnimTickOption == EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered && !FApp::CanEverRender()))
 	{
 		SetComponentTickEnabled(false);
 	}
@@ -981,7 +981,7 @@ bool USkeletalMeshComponent::ShouldOnlyTickMontages(const float DeltaTime) const
 {
 	// Ignore DeltaSeconds == 0.f, as that is used when we want to force an update followed by RefreshBoneTransforms.
 	// RefreshBoneTransforms will need an updated graph.
-	return (MeshComponentUpdateFlag == EMeshComponentUpdateFlag::OnlyTickMontagesWhenNotRendered)
+	return (VisibilityBasedAnimTickOption == EVisibilityBasedAnimTickOption::OnlyTickMontagesWhenNotRendered)
 		&& !bRecentlyRendered 
 		&& (DeltaTime > 0.f);
 }
@@ -1108,7 +1108,7 @@ bool USkeletalMeshComponent::ShouldTickPose() const
 	const bool bShouldTickBasedOnAutonomousCheck = bIsAutonomousTickPose || (!bOnlyAllowAutonomousTickPose && !bAlreadyTickedThisFrame);
 	// When playing networked Root Motion Montages, we want these to play on dedicated servers and remote clients for networking and position correction purposes.
 	// So we force pose updates in that case to keep root motion and position in sync.
-	const bool bShouldTickBasedOnVisibility = ((MeshComponentUpdateFlag < EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered) || bRecentlyRendered || IsPlayingNetworkedRootMotionMontage());
+	const bool bShouldTickBasedOnVisibility = ((VisibilityBasedAnimTickOption < EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered) || bRecentlyRendered || IsPlayingNetworkedRootMotionMontage());
 
 	return (bShouldTickBasedOnVisibility && bShouldTickBasedOnAutonomousCheck && IsRegistered() && (AnimScriptInstance || PostProcessAnimInstance) && !bPauseAnims && GetWorld()->AreActorsInitialized() && !bNoSkeletonUpdate);
 }
@@ -1958,10 +1958,10 @@ void USkeletalMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* 
 
 	const bool bDoPAE = !!CVarUseParallelAnimationEvaluation.GetValueOnGameThread() && FApp::ShouldUseThreadingForPerformance();
 
-const bool bMainInstanceValidForParallelWork = AnimScriptInstance == nullptr || AnimScriptInstance->CanRunParallelWork();
-const bool bPostInstanceValidForParallelWork = PostProcessAnimInstance == nullptr || PostProcessAnimInstance->CanRunParallelWork();
-const bool bHasValidInstanceForParallelWork = HasValidAnimationInstance() && bMainInstanceValidForParallelWork && bPostInstanceValidForParallelWork;
-const bool bDoParallelEvaluation = bHasValidInstanceForParallelWork && bDoPAE && bShouldDoEvaluation && TickFunction && (TickFunction->GetActualTickGroup() == TickFunction->TickGroup) && TickFunction->IsCompletionHandleValid();
+	const bool bMainInstanceValidForParallelWork = AnimScriptInstance == nullptr || AnimScriptInstance->CanRunParallelWork();
+	const bool bPostInstanceValidForParallelWork = PostProcessAnimInstance == nullptr || PostProcessAnimInstance->CanRunParallelWork();
+	const bool bHasValidInstanceForParallelWork = HasValidAnimationInstance() && bMainInstanceValidForParallelWork && bPostInstanceValidForParallelWork;
+	const bool bDoParallelEvaluation = bHasValidInstanceForParallelWork && bDoPAE && bShouldDoEvaluation && TickFunction && (TickFunction->GetActualTickGroup() == TickFunction->TickGroup) && TickFunction->IsCompletionHandleValid();
 	const bool bBlockOnTask = !bDoParallelEvaluation;  // If we aren't trying to do parallel evaluation then we
 															// will need to wait on an existing task.
 
@@ -2008,44 +2008,44 @@ const bool bDoParallelEvaluation = bHasValidInstanceForParallelWork && bDoPAE &&
 
 	if (bShouldDoEvaluation)
 	{
-	// If we need to eval the graph, and we're not going to update it.
-	// make sure it's been ticked at least once!
-	{
-		bool bShouldTickAnimation = false;		
-		if (AnimScriptInstance && !AnimScriptInstance->NeedsUpdate())
+		// If we need to eval the graph, and we're not going to update it.
+		// make sure it's been ticked at least once!
 		{
-			bShouldTickAnimation = bShouldTickAnimation || !AnimScriptInstance->GetUpdateCounter().HasEverBeenUpdated();
-			for (const UAnimInstance* SubInstance : SubInstances)
+			bool bShouldTickAnimation = false;		
+			if (AnimScriptInstance && !AnimScriptInstance->NeedsUpdate())
 			{
-				bShouldTickAnimation = bShouldTickAnimation || (SubInstance && !SubInstance->GetUpdateCounter().HasEverBeenUpdated());
+				bShouldTickAnimation = bShouldTickAnimation || !AnimScriptInstance->GetUpdateCounter().HasEverBeenUpdated();
+				for (const UAnimInstance* SubInstance : SubInstances)
+				{
+					bShouldTickAnimation = bShouldTickAnimation || (SubInstance && !SubInstance->GetUpdateCounter().HasEverBeenUpdated());
+				}
+			}
+
+			bShouldTickAnimation = bShouldTickAnimation || (ShouldPostUpdatePostProcessInstance() && !PostProcessAnimInstance->GetUpdateCounter().HasEverBeenUpdated());
+
+			if (bShouldTickAnimation)
+			{
+				// We bypass TickPose() and call TickAnimation directly, so URO doesn't intercept us.
+				TickAnimation(0.f, false);
 			}
 		}
 
-		bShouldTickAnimation = bShouldTickAnimation || (ShouldPostUpdatePostProcessInstance() && !PostProcessAnimInstance->GetUpdateCounter().HasEverBeenUpdated());
-
-		if (bShouldTickAnimation)
-		{
-			// We bypass TickPose() and call TickAnimation directly, so URO doesn't intercept us.
-			TickAnimation(0.f, false);
-		}
-	}
-
 		// If we're going to evaluate animation, call PreEvaluateAnimation()
 		{
-	if(AnimScriptInstance)
-	{
-		AnimScriptInstance->PreEvaluateAnimation();
+			if(AnimScriptInstance)
+			{
+				AnimScriptInstance->PreEvaluateAnimation();
 
-		for(UAnimInstance* SubInstance : SubInstances)
-		{
-			SubInstance->PreEvaluateAnimation();
-		}
-	}
+				for(UAnimInstance* SubInstance : SubInstances)
+				{
+					SubInstance->PreEvaluateAnimation();
+				}
+			}
 
-	if(ShouldEvaluatePostProcessInstance())
-	{
-		PostProcessAnimInstance->PreEvaluateAnimation();
-	}
+			if(ShouldEvaluatePostProcessInstance())
+			{
+				PostProcessAnimInstance->PreEvaluateAnimation();
+			}
 		}
 	}
 
@@ -2593,6 +2593,19 @@ UAnimInstance* USkeletalMeshComponent::GetAnimInstance() const
 UAnimInstance* USkeletalMeshComponent::GetPostProcessInstance() const
 {
 	return PostProcessAnimInstance;
+}
+
+UAnimInstance* USkeletalMeshComponent::GetSubInstanceByName(FName InName) const
+{
+	for(UAnimInstance* SubInstance : SubInstances)
+	{
+		if(SubInstance->GetFName() == InName)
+		{
+			return SubInstance;
+		}
+	}
+
+	return nullptr;
 }
 
 bool USkeletalMeshComponent::HasValidAnimationInstance() const
@@ -3435,7 +3448,25 @@ void USkeletalMeshComponent::FinalizeBoneTransform()
 
 void USkeletalMeshComponent::GetCurrentRefToLocalMatrices(TArray<FMatrix>& OutRefToLocals, int32 InLodIdx)
 {
-	UpdateRefToLocalMatrices(OutRefToLocals, this, SkeletalMesh->GetResourceForRendering(), InLodIdx, nullptr);
+	if(SkeletalMesh)
+	{
+		FSkeletalMeshRenderData* RenderData = SkeletalMesh->GetResourceForRendering();
+		if (ensureMsgf(RenderData->LODRenderData.IsValidIndex(InLodIdx),
+			TEXT("GetCurrentRefToLocalMatrices (SkelMesh :%s) input LODIndex (%d) doesn't match with render data size (%d)."),
+			*SkeletalMesh->GetPathName(), InLodIdx, RenderData->LODRenderData.Num()))
+		{
+			UpdateRefToLocalMatrices(OutRefToLocals, this, RenderData, InLodIdx, nullptr);
+		}
+		else
+		{
+			const FReferenceSkeleton& RefSkeleton = SkeletalMesh->RefSkeleton;
+			OutRefToLocals.AddUninitialized(RefSkeleton.GetNum());
+			for (int32 Index = 0; Index < OutRefToLocals.Num(); ++Index)
+			{
+				OutRefToLocals[Index] = FMatrix::Identity;
+			}
+		}
+	}
 }
 
 bool USkeletalMeshComponent::ShouldUpdatePostProcessInstance() const

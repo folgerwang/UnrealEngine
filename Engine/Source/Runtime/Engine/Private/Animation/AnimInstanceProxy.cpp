@@ -1188,7 +1188,7 @@ void FAnimInstanceProxy::SlotEvaluatePose(const FName& SlotNodeName, const FComp
 	{
 		// If MontageEvaluationData is not valid anymore, pass-through AnimSlot.
 		// This can happen if InitAnim pushes a RefreshBoneTransforms when not rendered,
-		// with EMeshComponentUpdateFlag::OnlyTickMontagesWhenNotRendered set.
+		// with EVisibilityBasedAnimTickOption::OnlyTickMontagesWhenNotRendered set.
 		if (!EvalState.Montage.IsValid())
 		{
 			BlendedPose = SourcePose;

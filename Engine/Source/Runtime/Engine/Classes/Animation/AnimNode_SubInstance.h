@@ -28,8 +28,13 @@ public:
 	UPROPERTY()
 	FPoseLink InPose;
 
+	/** The class spawned for this sub-instance */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
 	TSubclassOf<UAnimInstance> InstanceClass;
+
+	/** Optional tag used to identify this sub-instance */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	FName Tag;
 
 	/** This is the actual instance allocated at runtime that will run */
 	UPROPERTY(transient)

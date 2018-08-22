@@ -128,9 +128,6 @@ public:
 	 */
 	virtual void InitCanvasFromView(class FSceneView* InView, class UCanvas* Canvas) = 0;
 
-	// Are we outputting so a Spectator Screen now.
-	virtual bool IsSpectatorScreenActive() const { return false; }
-
 	// Renders texture into a backbuffer. Could be empty if no rendertarget texture is used, or if direct-rendering 
 	// through RHI bridge is implemented. 
 	virtual void RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture, FVector2D WindowSize) const {}

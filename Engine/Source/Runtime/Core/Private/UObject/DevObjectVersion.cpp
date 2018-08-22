@@ -17,6 +17,7 @@
 #include "UObject/VRObjectVersion.h"
 #include "UObject/GeometryObjectVersion.h"
 #include "UObject/AnimPhysObjectVersion.h"
+#include "UObject/AnimObjectVersion.h"
 #include "UObject/FortniteMainBranchObjectVersion.h"
 #include "UObject/ReflectionCaptureObjectVersion.h"
 #include "UObject/LoadTimesObjectVersion.h"
@@ -125,6 +126,11 @@ FDevVersionRegistration GRegisterGeometryObjectVersion(FGeometryObjectVersion::G
 const FGuid FAnimPhysObjectVersion::GUID(0x29E575DD, 0xE0A34627, 0x9D10D276, 0x232CDCEA);
 // Register AnimPhys custom version with Core
 FDevVersionRegistration GRegisterAnimPhysObjectVersion(FAnimPhysObjectVersion::GUID, FAnimPhysObjectVersion::LatestVersion, TEXT("Dev-AnimPhys"));
+
+// Unique Anim Object version id
+const FGuid FAnimObjectVersion::GUID(0xAF43A65D, 0x7FD34947, 0x98733E8E, 0xD9C1BB05);
+// Register AnimPhys custom version with Core
+FDevVersionRegistration GRegisterAnimObjectVersion(FAnimObjectVersion::GUID, FAnimObjectVersion::LatestVersion, TEXT("Dev-Anim"));
 
 // Unique ReflectionCapture Object version id
 const FGuid FReflectionCaptureObjectVersion::GUID(0x6B266CEC, 0x1EC74B8F, 0xA30BE4D9, 0x0942FC07);

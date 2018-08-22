@@ -62,6 +62,12 @@ public:
 	static EGoogleARCoreInstallRequestResult GetARCoreAPKInstallResult();
 
 	/**
+	 * Get the UGoogleARCoreEventManager to bind BP events or c++ delegate in GoogleARCore plugins.
+	 */
+	UFUNCTION(BlueprintPure, Category = "GoogleARCore|Session", meta = (Keywords = "googlear arcore event manager"))
+	static UGoogleARCoreEventManager* GetARCoreEventManager();
+
+	/**
 	 * Starts a new ARCore tracking session GoogleARCore specific configuration.
 	 * If the session already started and the config isn't the same, it will stop the previous session and start a new session with the new config.
 	 * Note that this is a latent action, you can query the session start result by querying GetARCoreSessionStatus() after the latent action finished.
@@ -70,6 +76,25 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|Session", meta = (Latent, LatentInfo = "LatentInfo", WorldContext = "WorldContextObject", Keywords = "googlear arcore session start config"))
 	static void StartARCoreSession(UObject* WorldContextObject, struct FLatentActionInfo LatentInfo, UGoogleARCoreSessionConfig* Configuration);
+
+	/**
+	 * Configure the ARCoreSession with the desired camera configuration. The TargetCameraConfig must be 
+	 * from a list returned by UGoogleARCoreEventManager::OnCameraConfig delegate.
+	 *
+	 * This function should be called when UGoogleARCoreEventManager::OnCameraConfig delegate got triggered.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|Session", meta = (Keywords = "googlear arcore camera config"))
+	static bool SetARCoreCameraConfig(FGoogleARCoreCameraConfig TargetCameraConfig);
+
+	/** 
+	 * Get the FGoogleARCoreCameraConfig that the current ARCore session is using. 
+	 * 
+	 * @param OutCurrentCameraConfig   The FGoogleARCoreCameraConfig that the current ARCore session is using.
+	 * @return  True if there is a valid ARCore session and the current camera config is returned.
+	 *          False if ARCore session hasn't been started or it is already stopped.
+	 */
+	UFUNCTION(BlueprintPure, Category = "GoogleARCore|Session", meta = (Keywords = "googlear arcore camera config"))
+	static bool GetARCoreCameraConfig(FGoogleARCoreCameraConfig& OutCurrentCameraConfig);
 
 	//-----------------PassthroughCamera---------------------
 	/**
@@ -119,7 +144,6 @@ public:
 
 	/** Template function to get all trackables from a given type. */
 	template< class T > static void GetAllTrackable(TArray<T*>& OutTrackableList);
-
 };
 
 /** A function library that provides static/Blueprint functions associated with most recent GoogleARCore tracking frame.*/
@@ -162,6 +186,20 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|LineTrace", meta = (WorldContext = "WorldContextObject", Keywords = "googlear arcore raycast hit"))
 	static bool ARCoreLineTrace(UObject* WorldContextObject, const FVector2D& ScreenPosition, TSet<EGoogleARCoreLineTraceChannel> TraceChannels, TArray<FARTraceResult>& OutHitResults);
+
+	/**
+	* Traces a ray along the given line. Intersections with detected scene geometry are returned, 
+	* sorted by distance from the start of the line; the nearest intersection is returned first.
+	*
+	* @param WorldContextObject	The world context.
+	* @param Start		The start of line segment.
+	* @param End		The end of line segment.
+	* @param ARObjectType			A set of EGoogleARCoreLineTraceChannel indicate which type of line trace it should perform.
+	* @param OutHitResults			The list of hit results sorted by distance.
+	* @return						True if there is a hit detected.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|LineTrace", meta = (WorldContext = "WorldContextObject", Keywords = "googlear arcore raycast hit"))
+	static bool ARCoreLineTraceRay(UObject* WorldContextObject, const FVector& Start, const FVector& End, TSet<EGoogleARCoreLineTraceChannel> TraceChannels, TArray<FARTraceResult>& OutHitResults);
 
 	/**
 	 * Gets a list of UARPin objects that were changed in this frame.
@@ -238,4 +276,21 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|PassthroughCamera", meta = (Keywords = "googlear arcore passthroughcamera"))
 	static EGoogleARCoreFunctionStatus AcquireCameraImage(UGoogleARCoreCameraImage *&OutLatestCameraImage);
+
+	/**
+	 * Get the camera intrinsics for the camera image (CPU image).
+	 *
+	 * @param OutCameraIntrinsics  The output intrinsics object.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|CameraIntrinsics", meta = (Keywords = "googlear arcore camera"))
+	static EGoogleARCoreFunctionStatus GetCameraImageIntrinsics(UGoogleARCoreCameraIntrinsics *&OutCameraIntrinsics);
+
+	/**
+	 * Get the camera intrinsics for the camera texture (GPU image).
+	 *
+	 * @param OutCameraIntrinsics  The output intrinsics object.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|CameraIntrinsics", meta = (Keywords = "googlear arcore camera"))
+	static EGoogleARCoreFunctionStatus GetCameraTextureIntrinsics(UGoogleARCoreCameraIntrinsics *&OutCameraIntrinsics);
+
 };

@@ -1,4 +1,6 @@
-﻿#if PLATFORM_WINDOWS
+﻿#include "RtAudio.h"
+
+#if PLATFORM_WINDOWS
 /************************************************************************/
 /*! \class RtAudio
     \brief Realtime audio i/o C++ classes.
@@ -41,7 +43,6 @@
 
 // RtAudio: Version 5.0.0
 
-#include "RtAudio.h"
 #include "AudioCapture.h"
 THIRD_PARTY_INCLUDES_START
 #include <iostream>

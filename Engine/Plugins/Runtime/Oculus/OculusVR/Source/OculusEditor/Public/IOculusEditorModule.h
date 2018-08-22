@@ -5,6 +5,9 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleInterface.h"
 
+class FToolBarBuilder;
+class FMenuBuilder;
+
 #define OCULUS_EDITOR_MODULE_NAME "OculusEditor"
 
 //////////////////////////////////////////////////////////////////////////
@@ -12,6 +15,5 @@
 
 class IOculusEditorModule : public IModuleInterface
 {
-public:	
 };
 

@@ -28,12 +28,13 @@ public:
 	UGoogleARCoreAugmentedImageDatabase *AugmentedImageDatabase;
 
 public:
-	static UGoogleARCoreSessionConfig* CreateARCoreSessionConfig(bool bHorizontalPlaneDetection, bool bVerticalPlaneDetection, EARLightEstimationMode InLightEstimationMode, EARFrameSyncMode InFrameSyncMode, bool bInEnableAutomaticCameraOverlay, bool bInEnableAutomaticCameraTracking)
+	static UGoogleARCoreSessionConfig* CreateARCoreSessionConfig(bool bHorizontalPlaneDetection, bool bVerticalPlaneDetection, EARLightEstimationMode InLightEstimationMode, EARFrameSyncMode InFrameSyncMode, bool bInEnableAutoFocus, bool bInEnableAutomaticCameraOverlay, bool bInEnableAutomaticCameraTracking)
 	{
 		UGoogleARCoreSessionConfig* NewARCoreConfig = NewObject<UGoogleARCoreSessionConfig>();
 		NewARCoreConfig->bHorizontalPlaneDetection = bHorizontalPlaneDetection;
 		NewARCoreConfig->bVerticalPlaneDetection = bVerticalPlaneDetection;
 		NewARCoreConfig->LightEstimationMode = InLightEstimationMode;
+		NewARCoreConfig->bEnableAutoFocus = bInEnableAutoFocus;
 		NewARCoreConfig->FrameSyncMode = InFrameSyncMode;
 		NewARCoreConfig->bEnableAutomaticCameraOverlay = bInEnableAutomaticCameraOverlay;
 		NewARCoreConfig->bEnableAutomaticCameraTracking = bInEnableAutomaticCameraTracking;
