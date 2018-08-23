@@ -2,6 +2,7 @@
 
 #include "Animation/BlendSpaceUtilities.h"
 #include "Animation/BlendSpaceBase.h"
+#include "Animation/AnimSequence.h"
 
 int32 FSyncPattern::IndexOf(FName Name, int32 StartIndex /*= 0*/) const
 {

@@ -22,6 +22,8 @@ void UAnimCompress_LeastDestructive::DoReduction(UAnimSequence* AnimSeq, const T
 	UAnimCompress* BitwiseCompressor = NewObject<UAnimCompress_BitwiseCompressOnly>();
 	BitwiseCompressor->RotationCompressionFormat = ACF_Float96NoW;
 	BitwiseCompressor->TranslationCompressionFormat = ACF_None;
-	BitwiseCompressor->Reduce(AnimSeq, false);
+	BitwiseCompressor->Reduce(AnimSeq, false, BoneData);
+
+	AnimSeq->CompressionScheme = BitwiseCompressor;
 }
 #endif // WITH_EDITOR

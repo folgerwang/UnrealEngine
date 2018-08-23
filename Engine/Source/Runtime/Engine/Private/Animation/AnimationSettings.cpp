@@ -16,10 +16,8 @@ UAnimationSettings::UAnimationSettings(const FObjectInitializer& ObjectInitializ
 	, bForceBelowThreshold(false)
 	, bFirstRecompressUsingCurrentOrDefault(true)
 	, bRaiseMaxErrorToExisting(false)
-	, bTryFixedBitwiseCompression(true)
-	, bTryPerTrackBitwiseCompression(true)
-	, bTryLinearKeyRemovalCompression(true)
-	, bTryIntervalKeyRemoval(true)
+	, bTryExhaustiveSearch(false)
+	, bEnableSegmenting(true)
 	, bEnablePerformanceLog(false)
 	, bTickAnimationOnSkeletalMeshInit(true)
 {

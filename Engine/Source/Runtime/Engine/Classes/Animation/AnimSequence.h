@@ -17,13 +17,11 @@
 #include "Animation/AnimSequenceBase.h"
 #include "AnimSequence.generated.h"
 
-struct FAnimCompressContext;
-struct FCompactPose;
-
 typedef TArray<FTransform> FTransformArrayA2;
 
 class USkeletalMesh;
 struct FAnimCompressContext;
+struct FAnimSequenceDecompressionContext;
 struct FCompactPose;
 
 /**
@@ -347,6 +345,49 @@ private:
 
 FArchive& operator<<(FArchive& Ar, FCompressedOffsetData& D);
 
+/**
+ * Represents a segment of the anim sequence that is compressed.
+ */
+USTRUCT()
+struct ENGINE_API FCompressedSegment
+{
+	GENERATED_USTRUCT_BODY()
+
+	// Frame where the segment begins in the anim sequence
+	int32 StartFrame;
+
+	// Num of frames contained in the segment
+	int32 NumFrames;
+
+	// Segment data offset in CompressedByteStream
+	int32 ByteStreamOffset;
+
+	/** The compression format that was used to compress translation tracks. */
+	TEnumAsByte<enum AnimationCompressionFormat> TranslationCompressionFormat;
+
+	/** The compression format that was used to compress rotation tracks. */
+	TEnumAsByte<enum AnimationCompressionFormat> RotationCompressionFormat;
+
+	/** The compression format that was used to compress rotation tracks. */
+	TEnumAsByte<enum AnimationCompressionFormat> ScaleCompressionFormat;
+
+	FCompressedSegment()
+		: StartFrame(0)
+		, NumFrames(0)
+		, ByteStreamOffset(0)
+		, TranslationCompressionFormat(ACF_None)
+		, RotationCompressionFormat(ACF_None)
+		, ScaleCompressionFormat(ACF_None)
+	{
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FCompressedSegment &Segment)
+	{
+		return Ar << Segment.StartFrame << Segment.NumFrames << Segment.ByteStreamOffset
+			<< Segment.TranslationCompressionFormat << Segment.RotationCompressionFormat << Segment.ScaleCompressionFormat;
+	}
+};
+
 UCLASS(config=Engine, hidecategories=(UObject, Length), BlueprintType)
 class ENGINE_API UAnimSequence : public UAnimSequenceBase
 {
@@ -445,15 +486,14 @@ public:
 
 	/**
 	 * ByteStream for compressed animation data.
-	 * All keys are currently stored at evenly-spaced intervals (ie no explicit key times).
-	 *
-	 * For a translation track of n keys, data is packed as n uncompressed float[3]:
-	 *
-	 * For a rotation track of n>1 keys, the first 24 bytes are reserved for compression info
-	 * (eg Fixed32 stores float Mins[3]; float Ranges[3]), followed by n elements of the compressed type.
-	 * For a rotation track of n=1 keys, the single key is packed as an FQuatFloat96NoW.
+	 * The memory layout is dependent on the algorithm used to compress the anim sequence.
 	 */
 	TArray<uint8> CompressedByteStream;
+
+	/**
+	 * Array of segment descriptors for this compressed anim sequence.
+	 */
+	TArray<FCompressedSegment> CompressedSegments;
 
 	TEnumAsByte<enum AnimationKeyFormat> KeyEncodingFormat;
 
@@ -711,6 +751,16 @@ public:
 	 * @param	bUseRawData		If true, use raw animation data instead of compressed data.
 	 */
 	void GetBoneTransform(FTransform& OutAtom, int32 TrackIndex, float Time, bool bUseRawData) const;
+
+	/**
+	 * Get Bone Transform of the Time given, relative to Parent for the Track Given
+	 *
+	 * @param	OutAtom			[out] Output bone transform.
+	 * @param	TrackIndex		Index of track to interpolate.
+	 * @param	DecompContext	Decompression context to use.
+	 * @param	bUseRawData		If true, use raw animation data instead of compressed data.
+	 */
+	void GetBoneTransform(FTransform& OutAtom, int32 TrackIndex, FAnimSequenceDecompressionContext& DecompContext, bool bUseRawData) const;
 
 	/**
 	 * Extract Bone Transform of the Time given, from InRawAnimationData

@@ -9,3 +9,5 @@ DO_ANIMSTAT_PROCESSING(BlendPosesInGraph);
 DO_ANIMSTAT_PROCESSING(EvaluateAnimStateMachine);
 DO_ANIMSTAT_PROCESSING(FillComponentSpaceTransforms);
 DO_ANIMSTAT_PROCESSING(ProxyUpdateAnimation);
+DO_ANIMSTAT_PROCESSING(PoseBlendNodeEvaluate);
+DO_ANIMSTAT_PROCESSING(PoseAssetGetAnimationPose);

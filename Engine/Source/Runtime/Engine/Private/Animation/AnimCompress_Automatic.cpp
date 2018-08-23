@@ -10,13 +10,10 @@ UAnimCompress_Automatic::UAnimCompress_Automatic(const FObjectInitializer& Objec
 	Description = TEXT("Automatic");
 	UAnimationSettings* AnimationSettings = UAnimationSettings::Get();
 	MaxEndEffectorError = AnimationSettings->AlternativeCompressionThreshold;
-	bTryFixedBitwiseCompression = AnimationSettings->bTryFixedBitwiseCompression;
-	bTryPerTrackBitwiseCompression = AnimationSettings->bTryPerTrackBitwiseCompression;
-	bTryLinearKeyRemovalCompression = AnimationSettings->bTryLinearKeyRemovalCompression;
-	bTryIntervalKeyRemoval = AnimationSettings->bTryIntervalKeyRemoval;
 	bRunCurrentDefaultCompressor = AnimationSettings->bFirstRecompressUsingCurrentOrDefault;
 	bAutoReplaceIfExistingErrorTooGreat = AnimationSettings->bForceBelowThreshold;
 	bRaiseMaxErrorToExisting = AnimationSettings->bRaiseMaxErrorToExisting;
+	bTryExhaustiveSearch = AnimationSettings->bTryExhaustiveSearch;
 }
 
 #if WITH_EDITOR
@@ -31,11 +28,11 @@ void UAnimCompress_Automatic::DoReduction(UAnimSequence* AnimSeq, const TArray<F
 		bRunCurrentDefaultCompressor,
 		bAutoReplaceIfExistingErrorTooGreat,
 		bRaiseMaxErrorToExisting,
-		bTryFixedBitwiseCompression,
-		bTryPerTrackBitwiseCompression,
-		bTryLinearKeyRemovalCompression,
-		bTryIntervalKeyRemoval);
-	AnimSeq->CompressionScheme = static_cast<UAnimCompress*>( StaticDuplicateObject( AnimSeq->CompressionScheme, AnimSeq) );
+		bTryExhaustiveSearch,
+		bEnableSegmenting,
+		IdealNumFramesPerSegment,
+		MaxNumFramesPerSegment,
+		BoneData);
 #endif // WITH_EDITORONLY_DATA
 }
 
@@ -45,13 +42,10 @@ void UAnimCompress_Automatic::PopulateDDCKey(FArchive& Ar)
 
 	Ar << MaxEndEffectorError;
 
-	uint8 Flags =	MakeBitForFlag(bTryFixedBitwiseCompression, 0) +
-					MakeBitForFlag(bTryPerTrackBitwiseCompression, 1) +
-					MakeBitForFlag(bTryLinearKeyRemovalCompression, 2) +
-					MakeBitForFlag(bTryIntervalKeyRemoval, 3) +
-					MakeBitForFlag(bRunCurrentDefaultCompressor, 4) +
-					MakeBitForFlag(bAutoReplaceIfExistingErrorTooGreat, 5) +
-					MakeBitForFlag(bRaiseMaxErrorToExisting, 6);
+	uint8 Flags =	MakeBitForFlag(bRunCurrentDefaultCompressor, 0) +
+					MakeBitForFlag(bAutoReplaceIfExistingErrorTooGreat, 1) +
+					MakeBitForFlag(bRaiseMaxErrorToExisting, 2) +
+					MakeBitForFlag(bTryExhaustiveSearch, 3);
 	Ar << Flags;
 }
 

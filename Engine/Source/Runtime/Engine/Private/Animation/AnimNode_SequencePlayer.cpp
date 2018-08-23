@@ -2,6 +2,7 @@
 
 #include "Animation/AnimNode_SequencePlayer.h"
 #include "Animation/AnimInstanceProxy.h"
+#include "AnimEncoding.h"
 
 #define LOCTEXT_NAMESPACE "AnimNode_SequencePlayer"
 
@@ -64,11 +65,6 @@ void FAnimNode_SequencePlayer::UpdateAssetPlayer(const FAnimationUpdateContext& 
 
 void FAnimNode_SequencePlayer::Evaluate_AnyThread(FPoseContext& Output)
 {
-	auto BoolToYesNo = [](const bool& bBool) -> const TCHAR*
-	{
-		return bBool ? TEXT("Yes") : TEXT("No");
-	};
-
 	if ((Sequence != nullptr) && (Output.AnimInstanceProxy->IsSkeletonCompatible(Sequence->GetSkeleton())))
 	{
 		const bool bExpectedAdditive = Output.ExpectsAdditivePose();

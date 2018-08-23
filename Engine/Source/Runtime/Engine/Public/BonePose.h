@@ -7,9 +7,10 @@
 #include "BoneIndices.h"
 #include "Animation/AnimTypes.h"
 #include "CustomBoneIndexArray.h"
-#include "AnimEncoding.h"
 #include "Animation/AnimStats.h"
 #include "Misc/Base64.h"
+#include "Animation/Skeleton.h"
+#include "BoneContainer.h"
 
 struct FBoneTransform
 {
@@ -316,28 +317,6 @@ public:
 	const FTransform& GetRefPose(const BoneIndexType& BoneIndex) const
 	{
 		return GetBoneContainer().GetRefPoseTransform(BoneIndex);
-	}
-
-	// Populates this pose from the supplied animation and track data
-	void PopulateFromAnimation(
-		const UAnimSequence& Seq,
-		const BoneTrackArray& RotationTracks,
-		const BoneTrackArray& TranslationTracks,
-		const BoneTrackArray& ScaleTracks,
-		float Time)
-	{
-		// @todo fixme 
-		FTransformArray LocalBones;
-		LocalBones = this->Bones;
-
-		AnimationFormat_GetAnimationPose(
-			LocalBones, //@TODO:@ANIMATION: Nasty hack
-			RotationTracks,
-			TranslationTracks,
-			ScaleTracks,
-			Seq,
-			Time);
-		this->Bones = LocalBones;
 	}
 
 protected:
