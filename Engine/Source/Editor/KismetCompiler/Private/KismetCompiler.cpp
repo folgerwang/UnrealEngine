@@ -1436,7 +1436,17 @@ void FKismetCompilerContext::PruneIsolatedNodes(const TArray<UEdGraphNode*>& Roo
 				{
 					// Track nodes that are directly connected to the outputs of the node we are pruning so 
 					// that we can warn if one or more of those neighboring nodes are not also orphaned:
-					Node->ForEachNodeDirectlyConnectedToOutputs([&PrunedExecNodeNeighbors, Node](UEdGraphNode* NeighborNode) { PrunedExecNodeNeighbors.FindOrAdd(Node).Add(NeighborNode); });
+					Node->ForEachNodeDirectlyConnectedIf(
+						// Consider connections on output pins other than the exec pin:
+						[](const UEdGraphPin* Pin) {
+							if(Pin->Direction == EGPD_Output && Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec) 
+							{ 
+								return true; 
+							}
+							return false;
+						},
+						[&PrunedExecNodeNeighbors, Node](UEdGraphNode* NeighborNode) { PrunedExecNodeNeighbors.FindOrAdd(Node).Add(NeighborNode); }
+					);
 					Node->BreakAllNodeLinks();
 				}
 				GraphNodes.RemoveAtSwap(NodeIndex);

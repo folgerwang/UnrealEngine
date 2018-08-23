@@ -788,52 +788,59 @@ void UEdGraphNode::ForEachNodeDirectlyConnected(TFunctionRef<void(UEdGraphNode*)
 		Func(Neighbor);
 	}
 }
-void UEdGraphNode::ForEachNodeDirectlyConnectedToInputs(TFunctionRef<void(UEdGraphNode*)> Func)
+
+void UEdGraphNode::ForEachNodeDirectlyConnectedIf(TFunctionRef<bool(const UEdGraphPin* Pin)> Filter, TFunctionRef<void(UEdGraphNode*)> Func)
 {
-	TSet<UEdGraphNode*> DirectNeighbors;
+	TSet<UEdGraphNode*> NeighborsAcceptedForConsideration;
 	for( UEdGraphPin* Pin : Pins )
 	{
-		if(Pin->Direction == EGPD_Input && Pin->LinkedTo.Num() > 0)
+		if(Pin->LinkedTo.Num() > 0 && Filter(Pin))
 		{
 			for(UEdGraphPin* Connection : Pin->LinkedTo)
 			{
 				// avoid including the current node in the case of a self connection:
 				if(Connection->GetOwningNode() != this)
 				{
-					DirectNeighbors.Add(Connection->GetOwningNode());
+					NeighborsAcceptedForConsideration.Add(Connection->GetOwningNode());
 				}
 			}
 		}
 	}
 
-	for(UEdGraphNode* Neighbor : DirectNeighbors)
+	for(UEdGraphNode* Neighbor : NeighborsAcceptedForConsideration)
 	{
 		Func(Neighbor);
 	}
 }
 
+void UEdGraphNode::ForEachNodeDirectlyConnectedToInputs(TFunctionRef<void(UEdGraphNode*)> Func)
+{
+	ForEachNodeDirectlyConnectedIf(
+		[](const UEdGraphPin* Pin)
+		{ 
+			if(Pin->Direction == EGPD_Input)
+			{
+				return true;
+			}
+			return false;
+		},
+		Func
+	);
+}
+
 void UEdGraphNode::ForEachNodeDirectlyConnectedToOutputs(TFunctionRef<void(UEdGraphNode*)> Func)
 {
-	TSet<UEdGraphNode*> DirectNeighbors;
-	for( UEdGraphPin* Pin : Pins )
-	{
-		if(Pin->Direction == EGPD_Output && Pin->LinkedTo.Num() > 0)
-		{
-			for(UEdGraphPin* Connection : Pin->LinkedTo)
+	ForEachNodeDirectlyConnectedIf(
+		[](const UEdGraphPin* Pin)
+		{ 
+			if(Pin->Direction == EGPD_Output)
 			{
-				// avoid including the current node in the case of a self connection:
-				if(Connection->GetOwningNode() != this)
-				{
-					DirectNeighbors.Add(Connection->GetOwningNode());
-				}
+				return true;
 			}
-		}
-	}
-
-	for(UEdGraphNode* Neighbor : DirectNeighbors)
-	{
-		Func(Neighbor);
-	}
+			return false;
+		},
+		Func
+	);
 }
 
 #endif	//#if WITH_EDITOR
