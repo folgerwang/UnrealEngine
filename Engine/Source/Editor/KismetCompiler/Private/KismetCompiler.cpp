@@ -1399,7 +1399,7 @@ void FKismetCompilerContext::PruneIsolatedNodes(const TArray<UEdGraphNode*>& Roo
 	}
 
 	const UEdGraphSchema* const K2Schema = UEdGraphSchema_K2::StaticClass()->GetDefaultObject<UEdGraphSchema_K2>();
-
+	TMap<UEdGraphNode*, TArray<UEdGraphNode*>> PrunedExecNodeNeighbors;
 	for (int32 NodeIndex = 0; NodeIndex < GraphNodes.Num(); ++NodeIndex)
 	{
 		UEdGraphNode* Node = GraphNodes[NodeIndex];
@@ -1434,6 +1434,9 @@ void FKismetCompilerContext::PruneIsolatedNodes(const TArray<UEdGraphNode*>& Roo
 			{
 				if (Node)
 				{
+					// Track nodes that are directly connected to the outputs of the node we are pruning so 
+					// that we can warn if one or more of those neighboring nodes are not also orphaned:
+					Node->ForEachNodeDirectlyConnectedToOutputs([&PrunedExecNodeNeighbors, Node](UEdGraphNode* NeighborNode) { PrunedExecNodeNeighbors.FindOrAdd(Node).Add(NeighborNode); });
 					Node->BreakAllNodeLinks();
 				}
 				GraphNodes.RemoveAtSwap(NodeIndex);
@@ -1474,6 +1477,24 @@ void FKismetCompilerContext::PruneIsolatedNodes(const TArray<UEdGraphNode*>& Roo
 					--NodeIndex;
 				}
 			}
+		}
+	}
+
+	for(const TPair<UEdGraphNode*, TArray<UEdGraphNode*>>& PrunedExecNodeWithNeighbors : PrunedExecNodeNeighbors)
+	{
+		bool bNeighborsNotPruned = false;
+		for(UEdGraphNode* Neighbor : PrunedExecNodeWithNeighbors.Value)
+		{
+			if(GraphNodes.Contains(Neighbor))
+			{
+				bNeighborsNotPruned = true;
+			}
+		}
+
+		if(bNeighborsNotPruned)
+		{
+			// Warn the user if they are attempting to read an output value from a pruned exec node:
+			MessageLog.Warning(*LOCTEXT("PrunedExecNodeAttemptedUse", "@@ was pruned because its Exec pin is not connected, the connected value is not available and will instead be read as default").ToString(), PrunedExecNodeWithNeighbors.Key);
 		}
 	}
 }

@@ -788,6 +788,15 @@ public:
 	/** Sets a flag if the comment bubble needs to be made visible immediately */
 	void SetMakeCommentBubbleVisible(bool MakeVisible);
 
+	/** Execute a provided function once for each node that is directly connected to this node, will not include the node itself */
+	void ForEachNodeDirectlyConnected(TFunctionRef<void(UEdGraphNode*)> Func);
+
+	/** Execute a provided function once for each node that is directly connected to this node's input pins, will not include the node itself */
+	void ForEachNodeDirectlyConnectedToInputs(TFunctionRef<void(UEdGraphNode*)> Func);
+
+	/** Execute a provided function once for each node that is directly connected to this node's output pins, will not include the node itself */
+	void ForEachNodeDirectlyConnectedToOutputs(TFunctionRef<void(UEdGraphNode*)> Func);
+	
 protected:
 	/**
 	 * Finds the difference in properties of node instance
