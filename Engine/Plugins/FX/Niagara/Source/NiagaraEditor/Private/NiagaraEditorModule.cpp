@@ -12,6 +12,7 @@
 #include "SequencerChannelInterface.h"
 #include "SequencerSettings.h"
 #include "AssetRegistryModule.h"
+#include "ThumbnailRendering/ThumbnailManager.h"
 
 #include "AssetTypeActions/AssetTypeActions_NiagaraSystem.h"
 #include "AssetTypeActions/AssetTypeActions_NiagaraEmitter.h"
@@ -88,6 +89,7 @@
 #include "Customizations/NiagaraEventScriptPropertiesCustomization.h"
 #include "HAL/IConsoleManager.h"
 #include "NiagaraHlslTranslator.h"
+#include "NiagaraThumbnailRenderer.h"
 
 
 IMPLEMENT_MODULE( FNiagaraEditorModule, NiagaraEditor );
@@ -475,6 +477,9 @@ void FNiagaraEditorModule::StartupModule()
 		TEXT("fx.DumpRapidIterationParametersForAsset"),
 		TEXT("Dumps the values of the rapid iteration parameters for the specified asset by path."),
 		FConsoleCommandWithArgsDelegate::CreateStatic(&DumpRapidIterationParamersForAsset));
+
+	UThumbnailManager::Get().RegisterCustomRenderer(UNiagaraEmitter::StaticClass(), UNiagaraEmitterThumbnailRenderer::StaticClass());
+	UThumbnailManager::Get().RegisterCustomRenderer(UNiagaraSystem::StaticClass(), UNiagaraSystemThumbnailRenderer::StaticClass());
 }
 
 
@@ -552,6 +557,12 @@ void FNiagaraEditorModule::ShutdownModule()
 	if (DumpRapidIterationParametersForAsset != nullptr)
 	{
 		IConsoleManager::Get().UnregisterConsoleObject(DumpRapidIterationParametersForAsset);
+	}
+
+	if (UObjectInitialized())
+	{
+		UThumbnailManager::Get().UnregisterCustomRenderer(UNiagaraEmitter::StaticClass());
+		UThumbnailManager::Get().UnregisterCustomRenderer(UNiagaraSystem::StaticClass());
 	}
 }
 
