@@ -1645,9 +1645,16 @@ namespace UnrealBuildTool
 								HashSet<FileReference> OutputFiles = new HashSet<FileReference>(ActionsToExecute.SelectMany(x => x.ProducedItems.Select(y => y.Location)));
 								foreach (UEBuildTarget Target in Targets)
 								{
-									if (!Target.TryRecycleVersionManifests(OutputFiles, bNoManifestChanges) && !bNoManifestChanges)
+									if (!Target.TryRecycleVersionManifests(OutputFiles, bNoManifestChanges))
 									{
-										Target.InvalidateVersionManifests();
+										if(bNoManifestChanges)
+										{
+											throw new BuildException("Stopping build due to manifest changes.");
+										}
+										else
+										{
+											Target.InvalidateVersionManifests();
+										}
 									}
 								}
 

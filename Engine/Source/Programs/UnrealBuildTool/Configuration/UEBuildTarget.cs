@@ -1590,7 +1590,7 @@ namespace UnrealBuildTool
 						{
 							if(bNoManifestChanges)
 							{
-								Log.TraceError("Unable to recycle manifests - modifying {0} invalidates {1}.", ExistingFile, ExistingPair.Key);
+								Log.TraceError("Previous build product would be overwritten: {0}.", ExistingFile);
 							}
 							else
 							{
