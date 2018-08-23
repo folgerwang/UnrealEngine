@@ -18,16 +18,11 @@ fi
 
 mkdir $TEMP_DIR
 cd $TEMP_DIR
-#cd ../../
-CXXFLAGS="-g3 -O3 -fPIC -std=c++11 -I$UE_THIRD_PARTY_DIR/Linux/LibCxx/include -I$UE_THIRD_PARTY_DIR/Linux/LibCxx/include/c++/v1"
+CXXFLAGS="-g3 -O3 -fPIC -nostdlib -std=c++11 -I$UE_THIRD_PARTY_DIR/Linux/LibCxx/include -I$UE_THIRD_PARTY_DIR/Linux/LibCxx/include/c++/v1"
 LDFLAGS="-nodefaultlibs -L$UE_THIRD_PARTY_DIR/Linux/LibCxx/lib/Linux/x86_64-unknown-linux-gnu/"
 LIBS="$UE_THIRD_PARTY_DIR/Linux/LibCxx/lib/Linux/x86_64-unknown-linux-gnu/libc++.a $UE_THIRD_PARTY_DIR/Linux/LibCxx/lib/Linux/x86_64-unknown-linux-gnu/libc++abi.a -lm -lc -lgcc_s -lgcc -lpthread"
-#./configure --prefix=$TEMP_DIR --disable-processor
-#make install
-
-#-DCMAKE_MODULE_LINKER_FLAGS="-nodefaultlibs -L$UE_THIRD_PARTY_DIR/Linux/LibCxx/lib/Linux/x86_64-unknown-linux-gnu/"
-cmake $BASE_DIR/src -DCMAKE_INSTALL_PREFIX="$TEMP_DIR" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS="$CXXFLAGS" -DNVTT_SHARED=1 -DCMAKE_CXX_STANDARD_LIBRARIES="$LIBS"
+cmake $BASE_DIR/src -DCMAKE_INSTALL_PREFIX="$TEMP_DIR" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_MODULE_LINKER_FLAGS="$LIBS" -DCMAKE_EXE_LINKER_FLAGS="$LIBS" -DCMAKE_SHARED_LINKER_FLAGS="$LIBS" -DCMAKE_CXX_FLAGS="$CXXFLAGS" -DNVTT_SHARED=1 -DCMAKE_CXX_STANDARD_LIBRARIES="$LIBS"
 make install
 
-echo "=========== Copy dump_syms Binary ============"
+echo "=========== Copy nvTextureTools DSOs ============"
 cp -v $TEMP_DIR/lib/*.so "$FINAL_DIR"
