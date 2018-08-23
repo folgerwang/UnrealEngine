@@ -1760,6 +1760,7 @@ void FKismetCompilerContext::PrecompileFunction(FKismetFunctionContext& Context,
 			ensure(!NewClass->UberGraphFunction);
 			NewClass->UberGraphFunction = Context.Function;
 			NewClass->UberGraphFunction->FunctionFlags |= FUNC_UbergraphFunction;
+			NewClass->UberGraphFunction->FunctionFlags |= FUNC_Final;
 		}
 
 		// Register nets from function entry/exit nodes first, even for skeleton compiles (as they form the signature)
