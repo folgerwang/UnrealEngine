@@ -1541,8 +1541,9 @@ namespace UnrealBuildTool
 		/// additional engine modules to be built, so we don't prohibit files being added or removed.
 		/// </summary>
 		/// <param name="OutputFiles">List of files being modified by this build</param>
+		/// <param name="bNoManifestChanges">Whether manifest changes are allowed. If a manifest has to be changed, an error will be output.</param>
 		/// <returns>True if the existing version manifests will remain valid during this build, false if they are invalidated</returns>
-		public bool TryRecycleVersionManifests(HashSet<FileReference> OutputFiles)
+		public bool TryRecycleVersionManifests(HashSet<FileReference> OutputFiles, bool bNoManifestChanges)
 		{
 			// Make sure we've got a list of version manifests to check against
 			if(FileReferenceToModuleManifestPairs == null)
@@ -1587,7 +1588,14 @@ namespace UnrealBuildTool
 					{
 						if(OutputFiles.Contains(ExistingFile))
 						{
-							Log.TraceLog("Unable to recycle manifests - modifying {0} invalidates {1}. Using build id {2}.", ExistingFile, ExistingPair.Key, Receipt.Version.BuildId);
+							if(bNoManifestChanges)
+							{
+								Log.TraceError("Unable to recycle manifests - modifying {0} invalidates {1}.", ExistingFile, ExistingPair.Key);
+							}
+							else
+							{
+								Log.TraceLog("Unable to recycle manifests - modifying {0} invalidates {1}. Using build id {2}.", ExistingFile, ExistingPair.Key, Receipt.Version.BuildId);
+							}
 							return false;
 						}
 					}

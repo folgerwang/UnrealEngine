@@ -1638,11 +1638,14 @@ namespace UnrealBuildTool
 									CppIncludeThread = new CppIncludeBackgroundThread(TargetToOutdatedPrerequisitesMap, TargetToHeaders);
 								}
 
+								// Check if we're allowed to modify manifests
+								bool bNoManifestChanges = Arguments.Any(x => x.Equals("-NoManifestChanges", StringComparison.OrdinalIgnoreCase));
+
 								// If we're not touching any shared files (ie. anything under Engine), allow the build ids to be recycled between applications.
 								HashSet<FileReference> OutputFiles = new HashSet<FileReference>(ActionsToExecute.SelectMany(x => x.ProducedItems.Select(y => y.Location)));
 								foreach (UEBuildTarget Target in Targets)
 								{
-									if (!Target.TryRecycleVersionManifests(OutputFiles))
+									if (!Target.TryRecycleVersionManifests(OutputFiles, bNoManifestChanges) && !bNoManifestChanges)
 									{
 										Target.InvalidateVersionManifests();
 									}
@@ -1665,7 +1668,6 @@ namespace UnrealBuildTool
 								// if the build succeeded, write the receipts and do any needed syncing
 								if (bSuccess)
 								{
-									bool bNoManifestChanges = Arguments.Any(x => x.Equals("-NoManifestChanges", StringComparison.OrdinalIgnoreCase));
 									foreach (UEBuildTarget Target in Targets)
 									{
 										Target.WriteReceipts(bNoManifestChanges);
