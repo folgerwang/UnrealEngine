@@ -368,6 +368,48 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 			}
 		}
 	}
+
+	//Information category
+	IDetailCategoryBuilder& InformationCategory = DetailBuilder.EditCategory("FbxFileInformation", FText::GetEmpty());
+	CategoryDefaultProperties.Empty();
+	InformationCategory.GetDefaultProperties(CategoryDefaultProperties);
+	for (TSharedRef<IPropertyHandle> Handle : CategoryDefaultProperties)
+	{
+		FString MetaData = Handle->GetMetaData(TEXT("ImportType"));
+		DetailBuilder.HideProperty(Handle);
+		if (IsImportTypeMetaDataValid(ImportType, MetaData))
+		{
+			FDetailWidgetRow& WidgetRow = DetailBuilder.AddCustomRowToCategory(Handle, Handle->GetPropertyDisplayName());
+			FText PropertyValue;
+			Handle->GetValueAsDisplayText(PropertyValue);
+			WidgetRow.NameContent()
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SBox)
+				.HAlign(HAlign_Left)
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+					.Margin(FMargin(2.0f, 2.0f))
+					.Text(Handle->GetPropertyDisplayName())
+					.ToolTipText(Handle->GetToolTipText())
+				]
+			];
+			WidgetRow.ValueContent()
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SBox)
+				.HAlign(HAlign_Left)
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+					.Margin(FMargin(2.0f, 2.0f))
+					.Text(PropertyValue)
+					.ToolTipText(PropertyValue)
+				]
+			];
+		}
+	}
 }
 
 void FFbxImportUIDetails::AddSubCategory(IDetailLayoutBuilder& DetailBuilder, FName MainCategoryName, TMap<FString, TArray<TSharedPtr<IPropertyHandle>>>& SubCategoriesProperties, TMap<FString, bool >& SubCategoriesAdvanced, TMap<FString, FText >& SubCategoriesTooltip)

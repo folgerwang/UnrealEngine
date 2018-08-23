@@ -483,7 +483,7 @@ private:
 	static FbxAMatrix JointPostConversionMatrix;
 };
 
-FBXImportOptions* GetImportOptions( class FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& OutImportAll, bool bIsObjFormat, bool bForceImportType = false, EFBXImportType ImportType = FBXIT_StaticMesh, UObject* ReimportObject = nullptr);
+FBXImportOptions* GetImportOptions( class FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& OutImportAll, bool bIsObjFormat, const FString& InFilename, bool bForceImportType = false, EFBXImportType ImportType = FBXIT_StaticMesh, UObject* ReimportObject = nullptr);
 UNREALED_API void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOutImportOptions);
 
 struct FImportedMaterialData
@@ -606,6 +606,11 @@ public:
 	 * @return bool
 	 */
 	bool OpenFile(FString Filename);
+
+	/*
+	Make sure the file header is read
+	*/
+	bool ReadHeaderFromFile(const FString& Filename, bool bPreventMaterialNameClash = false);
 	
 	/**
 	 * Import Fbx file.
@@ -813,7 +818,7 @@ public:
 	/**
 	 * Get Animation Time Span - duration of the animation
 	 */
-	FbxTimeSpan GetAnimationTimeSpan(FbxNode* RootNode, FbxAnimStack* AnimStack, int32 ResampleRate);
+	FbxTimeSpan GetAnimationTimeSpan(FbxNode* RootNode, FbxAnimStack* AnimStack);
 
 	/**
 	 * Import one animation from CurAnimStack
@@ -1174,6 +1179,11 @@ public:
 
 	FbxGeometryConverter* GetGeometryConverter() { return GeometryConverter; }
 
+	FString GetFbxFileVersion() { return FbxFileVersion; }
+	FString GetFileCreator() { return FbxFileCreator; }
+	FString GetFileUnitSystem() { return FString(UTF8_TO_TCHAR(FileUnitSystem.GetScaleFactorAsString(false).Buffer())); }
+	FString GetFileAxisDirection();
+
 protected:
 	enum IMPORTPHASE
 	{
@@ -1199,6 +1209,7 @@ protected:
 	FString FileBasePath;
 	TWeakObjectPtr<UObject> Parent;
 	FString FbxFileVersion;
+	FString FbxFileCreator;
 
 	//Original File Info
 	FbxAxisSystem FileAxisSystem;
