@@ -27,16 +27,15 @@ public:
 	 * Specifies the default socket protocol family to use when creating a socket
 	 * without explicitly passing in the protocol type on creation.
 	 *
+	 * This function is mostly here for backwards compatibility. For best practice, moving to
+	 * the new CreateSocket that takes a protocol is advised.
+	 *
 	 * All sockets created using the base class's CreateSocket will use this function
 	 * to determine domain.
 	 */
 	virtual ESocketProtocolFamily GetDefaultSocketProtocolFamily() const
 	{
-#if PLATFORM_HAS_BSD_IPV6_SOCKETS
-		return ESocketProtocolFamily::IPv6;
-#else
 		return ESocketProtocolFamily::IPv4;
-#endif
 	}
 
 	// ISocketSubsystem interface

@@ -174,45 +174,102 @@ public:
 
 	/**
 	 * Sets the address structure to be bindable to any IP address.
-	 * IPv6 will take precedence.
+	 * Uses the value returned from GetDefaultSocketProtocolFamily to determine default
+	 * addresses to be used.
 	 *
 	 * To skip assumptions, you can call the designated version explicitly below.
 	 */
 	virtual void SetAnyAddress() override;
 
+	/**
+	 * Sets the address structure to be bindable to any IP address
+	 * for the protocol family specified.
+	 *
+	 * @param ForProtocol the protocol to set the address for
+	 */
+	virtual void SetAnyAddress(ESocketProtocolFamily ForProtocol)
+	{
+		if (ForProtocol == ESocketProtocolFamily::IPv4)
+		{
+			SetAnyIPv4Address();
+		}
+		else
+		{
+			SetAnyIPv6Address();
+		}
+	}
+
 	/** Explicit set to any IPv4 address */
-	void SetAnyIPv4Address();
+	virtual void SetAnyIPv4Address();
 
 	/** Explicit set to any IPv6 address */
-	void SetAnyIPv6Address();
+	virtual void SetAnyIPv6Address();
 
 	/**
 	 * Sets the address structure to be bound to the multicast ip address.
-	 * IPv6 will take precedence.
+	 * Uses the value returned from GetDefaultSocketProtocolFamily to determine default
+	 * addresses to be used.
 	 *
 	 * To skip assumptions, you can call the designated version explicitly below.
 	 */
 	virtual void SetBroadcastAddress() override;
 
+	/**
+	 * Sets the address structure to be bound to the multicast ip address
+	 * for the protocol family specified.
+	 *
+	 * @param ForProtocol the protocol to set the address for
+	 */
+	virtual void SetBroadcastAddress(ESocketProtocolFamily ForProtocol)
+	{
+		if (ForProtocol == ESocketProtocolFamily::IPv4)
+		{
+			SetIPv4BroadcastAddress();
+		}
+		else
+		{
+			SetIPv6BroadcastAddress();
+		}
+	}
+
 	/** Explicit set to multicast IPv4 address */
-	void SetIPv4BroadcastAddress();
+	virtual void SetIPv4BroadcastAddress();
 
 	/** Explicit set to multicast IPv6 address */
-	void SetIPv6BroadcastAddress();
+	virtual void SetIPv6BroadcastAddress();
 
 	/**
 	 * Sets the address structure to be bound to the loopback ip address.
-	 * IPv6 will take precedence.
+	 * Uses the value returned from GetDefaultSocketProtocolFamily to determine default
+	 * addresses to be used.
 	 *
 	 * To skip assumptions, you can call the designated version explicitly below.
 	 */
 	virtual void SetLoopbackAddress() override;
 
+	/**
+	 * Sets the address structure to be bound to the loopback ip address
+	 * for the protocol family specified.
+	 *
+	 * @param ForProtocol the protocol to set the address for
+	 */
+	virtual void SetLoopbackAddress(ESocketProtocolFamily ForProtocol)
+	{
+		if (ForProtocol == ESocketProtocolFamily::IPv4)
+		{
+			SetIPv4LoopbackAddress();
+		}
+		else
+		{
+			SetIPv6LoopbackAddress();
+		}
+	}
+
 	/** Explicit set to loopback IPv4 address */
-	void SetIPv4LoopbackAddress();
+	virtual void SetIPv4LoopbackAddress();
 
 	/** Explicit set to loopback IPv6 address */
-	void SetIPv6LoopbackAddress();
+	virtual void SetIPv6LoopbackAddress();
 
 	/**
 	 * Converts this internet ip address to string form. String will be enclosed in square braces.

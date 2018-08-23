@@ -291,47 +291,55 @@ int32 FInternetAddrBSD::GetPort() const
 
 void FInternetAddrBSD::SetAnyAddress()
 {
-#if PLATFORM_HAS_BSD_IPV6_SOCKETS
-	SetAnyIPv6Address();
-#else
-	SetAnyIPv4Address();
-#endif
+	FSocketSubsystemBSD* SocketSubsystem = static_cast<FSocketSubsystemBSD*>(ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM));
+	if (SocketSubsystem)
+	{
+		SetAnyAddress(SocketSubsystem->GetDefaultSocketProtocolFamily());
+	}
+	else
+	{
+		UE_LOG(LogSockets, Warning, TEXT("Could not determine the default protocol to use in SetAnyAddress!"));
+	}
 }
 
 void FInternetAddrBSD::SetAnyIPv4Address()
 {
+	Clear();
 	((sockaddr_in*)&Addr)->sin_addr.s_addr = htonl(INADDR_ANY);
 	Addr.ss_family = AF_INET;
-	SetPort(0);
 }
 
 void FInternetAddrBSD::SetAnyIPv6Address()
 {
+	Clear();
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 	SetIp(in6addr_any);
 #endif
-	ResetScopeId();
-	SetPort(0);
 }
 
 void FInternetAddrBSD::SetBroadcastAddress()
 {
-#if PLATFORM_HAS_BSD_IPV6_SOCKETS
-	SetIPv6BroadcastAddress();
-#else
-	SetIPv4BroadcastAddress();
-#endif
+	FSocketSubsystemBSD* SocketSubsystem = static_cast<FSocketSubsystemBSD*>(ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM));
+	if (SocketSubsystem)
+	{
+		SetBroadcastAddress(SocketSubsystem->GetDefaultSocketProtocolFamily());
+	}
+	else
+	{
+		UE_LOG(LogSockets, Warning, TEXT("Could not determine the default protocol to use in SetBroadcastAddress!"));
+	}
 }
 
 void FInternetAddrBSD::SetIPv4BroadcastAddress()
 {
+	Clear();
 	((sockaddr_in*)&Addr)->sin_addr.s_addr = htonl(INADDR_BROADCAST);
 	Addr.ss_family = AF_INET;
-	SetPort(0);
 }
 
 void FInternetAddrBSD::SetIPv6BroadcastAddress()
 {
+	Clear();
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 	// broadcast means something different in IPv6, but this is a rough equivalent
 #ifndef in6addr_allnodesonlink
@@ -343,32 +351,34 @@ void FInternetAddrBSD::SetIPv6BroadcastAddress()
 #endif // in6addr_allnodesonlink
 	SetIp(in6addr_allnodesonlink);
 #endif
-	SetPort(0);
 }
 
 void FInternetAddrBSD::SetLoopbackAddress()
 {
-#if PLATFORM_HAS_BSD_IPV6_SOCKETS
-	SetIPv6LoopbackAddress();
-#else
-	SetIPv4LoopbackAddress();
-#endif
+	FSocketSubsystemBSD* SocketSubsystem = static_cast<FSocketSubsystemBSD*>(ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM));
+	if (SocketSubsystem)
+	{
+		SetLoopbackAddress(SocketSubsystem->GetDefaultSocketProtocolFamily());
+	}
+	else
+	{
+		UE_LOG(LogSockets, Warning, TEXT("Could not determine the default protocol to use in SetLoopbackAddress!"));
+	}
 }
 
 void FInternetAddrBSD::SetIPv4LoopbackAddress()
 {
+	Clear();
 	((sockaddr_in*)&Addr)->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	Addr.ss_family = AF_INET;
-	SetPort(0);
 }
 
 void FInternetAddrBSD::SetIPv6LoopbackAddress()
 {
+	Clear();
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 	SetIp(in6addr_loopback);
 #endif
-	ResetScopeId();
-	SetPort(0);
 }
 
 FString FInternetAddrBSD::ToString(bool bAppendPort) const

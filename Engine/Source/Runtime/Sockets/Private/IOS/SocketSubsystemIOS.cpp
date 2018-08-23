@@ -77,6 +77,25 @@ bool FSocketSubsystemIOS::HasNetworkDevice()
 	return true;
 }
 
+ESocketErrors FSocketSubsystemIOS::CreateAddressFromIP(const ANSICHAR* IPAddress, FInternetAddr& OutAddr)
+{
+	return GetHostByName(IPAddress, OutAddr);
+}
+
+ESocketErrors FSocketSubsystemIOS::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
+{
+	FAddressInfoResult GAIResult = GetAddressInfo(ANSI_TO_TCHAR(HostName), nullptr,
+		EAddressInfoFlags::AllResultsWithMapping | EAddressInfoFlags::OnlyUsableAddresses, ESocketProtocolFamily::IPv6);
+
+	if (GAIResult.Results.Num() > 0)
+	{
+		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
+		return SE_NO_ERROR;
+	}
+
+	return SE_HOST_NOT_FOUND;
+}
+
 FSocket* FSocketSubsystemIOS::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP)
 {
 	FSocketBSD* NewSocket = (FSocketBSD*)FSocketSubsystemBSD::CreateSocket(SocketType, SocketDescription, ProtocolType, bForceUDP);
@@ -122,12 +141,14 @@ TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& O
 					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasWifiSet = true;
 					bWasIPv6Set = true;
+					UE_LOG(LogSockets, Verbose, TEXT("Set IP to WIFI %s"), *HostAddr->ToString(false));
 				}
 				else if (!bWasWifiSet && strcmp(Travel->ifa_name, "pdp_ip0") == 0)
 				{
 					HostAddr->SetIp(*AddrData);
 					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasCellSet = true;
+					UE_LOG(LogSockets, Verbose, TEXT("Set IP to CELL %s"), *HostAddr->ToString(false));
 				}
 			}
 			else if (!bWasIPv6Set && Travel->ifa_addr->sa_family == AF_INET)
@@ -137,12 +158,14 @@ TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& O
 					HostAddr->SetIp(*AddrData);
 					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasWifiSet = true;
+					UE_LOG(LogSockets, Verbose, TEXT("Set IP to WIFI IPv4 %s"), *HostAddr->ToString(false));
 				}
 				else if (!bWasWifiSet && strcmp(Travel->ifa_name, "pdp_ip0") == 0)
 				{
 					HostAddr->SetIp(*AddrData);
 					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasCellSet = true;
+					UE_LOG(LogSockets, Verbose, TEXT("Set IP to CELL IPv4 %s"), *HostAddr->ToString(false));
 				}
 			}
 		}

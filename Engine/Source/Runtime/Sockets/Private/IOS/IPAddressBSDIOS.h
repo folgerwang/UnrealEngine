@@ -14,14 +14,23 @@ class FInternetAddrBSDIOS : public FInternetAddrBSD
 public:
 
 	/** Sets the address to broadcast */
-	virtual void SetBroadcastAddress() override
+	virtual void SetIPv6BroadcastAddress() override
 	{
-		UE_LOG(LogSockets, Verbose, TEXT("SetBroadcastAddress() FInternetAddrBSDIOS"));
-		SetIp(INADDR_BROADCAST);
+		FSocketSubsystemBSD* SocketSubsystem = static_cast<FSocketSubsystemBSD*>(ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM));
+		if (SocketSubsystem)
+		{
+			// Do a query to get the scope id of the address.
+			if (SocketSubsystem->CreateAddressFromIP("ff02::01", *this) != SE_NO_ERROR)
+			{
+				UE_LOG(LogSockets, Warning, TEXT("Could not resolve the broadcast address for iOS, this address will just be blank"));
+			}
+		}
+		else
+		{
+			UE_LOG(LogSockets, Warning, TEXT("Could not get the socketsubsystem for querying the scope id of the broadcast address"));
+		}
 		SetPort(0);
 	}
-
-	// TODO: Determine if we need to override the others.
 };
 
 #endif
