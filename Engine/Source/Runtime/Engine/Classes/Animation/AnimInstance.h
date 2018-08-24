@@ -30,6 +30,9 @@ struct FAnimNode_AssetPlayerBase;
 struct FAnimNode_StateMachine;
 struct FAnimNode_SubInput;
 struct FBakedAnimationStateMachine;
+struct FBoneContainer;
+
+typedef TArray<FTransform> FTransformArrayA2;
 
 UENUM()
 enum class EAnimCurveType : uint8 

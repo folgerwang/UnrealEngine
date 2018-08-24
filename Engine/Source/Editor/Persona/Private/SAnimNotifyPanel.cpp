@@ -40,6 +40,9 @@
 #include "IEditableSkeleton.h"
 #include "ISkeletonEditorModule.h"
 #include "Widgets/Input/SNumericEntryBox.h"
+#include "ClassViewerFilter.h"
+#include "ClassViewerModule.h"
+#include "SSkeletonAnimNotifies.h"
 
 // Track Panel drawing
 const float NotificationTrackHeight = 20.0f;
@@ -756,7 +759,7 @@ public:
 	static TSubclassOf<UObject> GetBlueprintClassFromPath(FString BlueprintPath);
 
 	// Get the default Notify Name for a given blueprint notify asset
-	FString MakeBlueprintNotifyName(FAssetData& NotifyAssetData);
+	FString MakeBlueprintNotifyName(const FString& InNotifyClassName);
 
 	// Need to make sure tool tips are cleared during node clear up so slate system won't
 	// call into invalid notify.
@@ -767,8 +770,11 @@ protected:
 	void CreateCommands();
 
 	// Build up a "New Notify..." menu
+	template<typename NotifyTypeClass>
+	void MakeNewNotifyPicker(FMenuBuilder& MenuBuilder, bool bIsReplaceWithMenu = false);
 	void FillNewNotifyMenu(FMenuBuilder& MenuBuilderbool, bool bIsReplaceWithMenu = false);
 	void FillNewNotifyStateMenu(FMenuBuilder& MenuBuilder, bool bIsReplaceWithMenu  = false);
+	void FillNewSyncMarkerMenu(FMenuBuilder& MenuBuilder);
 
 	// New notify functions
 	void CreateNewBlueprintNotifyAtCursor(FString NewNotifyName, FString BlueprintPath);
@@ -862,9 +868,6 @@ private:
 		FString BlueprintPath;
 		UClass* BaseClass;
 	};
-
-	// Format notify asset data into the information needed for menu display
-	void GetNotifyMenuData(TArray<FAssetData>& NotifyAssetData, TArray<BlueprintNotifyMenuInfo>& OutNotifyMenuData);
 
 	// Store the tracks geometry for later use
 	void UpdateCachedGeometry(const FGeometry& InGeometry);
@@ -2324,228 +2327,178 @@ FCursorReply SAnimNotifyTrack::OnCursorQuery(const FGeometry& MyGeometry, const 
 	return FCursorReply::Unhandled();
 }
 
-// Fill "new notify state" menu, or "replace with notify state menu"
-void SAnimNotifyTrack::FillNewNotifyStateMenu(FMenuBuilder& MenuBuilder, bool bIsReplaceWithMenu /* = false */)
+template<typename NotifyTypeClass>
+void SAnimNotifyTrack::MakeNewNotifyPicker(FMenuBuilder& MenuBuilder, bool bIsReplaceWithMenu /* = false */)
 {
-	// Run the native query first to update the allowed classes for blueprints.
-	TArray<UClass*> NotifyStateClasses;
-	OnGetNotifyStateNativeClasses.ExecuteIfBound(NotifyStateClasses);
+	FText TypeName = NotifyTypeClass::StaticClass() == UAnimNotify::StaticClass() ? LOCTEXT("AnimNotifyName", "anim notify") : LOCTEXT("AnimNotifyStateName", "anim notify state");
+	FText SectionHeaderFormat = bIsReplaceWithMenu ? LOCTEXT("ReplaceWithAnExistingAnimNotify", "Replace with an existing {0}") : LOCTEXT("AddsAnExistingAnimNotify", "Add an existing {0}");
 
-	// Collect blueprint notify data
-	TArray<FAssetData> NotifyAssetData;
-	TArray<BlueprintNotifyMenuInfo> NotifyMenuData;
-	OnGetNotifyStateBlueprintData.ExecuteIfBound(NotifyAssetData);
-	GetNotifyMenuData(NotifyAssetData, NotifyMenuData);
-
-	for(BlueprintNotifyMenuInfo& NotifyData : NotifyMenuData)
+	class FNotifyStateClassFilter : public IClassViewerFilter
 	{
-		const FText LabelText = FText::FromString(NotifyData.NotifyName);
+	public:
+		FNotifyStateClassFilter(UAnimSequenceBase* InSequence)
+			: Sequence(InSequence)
+		{}
 
-		FUIAction UIAction;
-		FText Description = FText::GetEmpty();
-		if (!bIsReplaceWithMenu)
+		bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
 		{
-			Description = LOCTEXT("AddsAnExistingAnimNotify", "Add an existing notify");
-			UIAction.ExecuteAction.BindRaw(
-				this, &SAnimNotifyTrack::CreateNewBlueprintNotifyAtCursor,
-				NotifyData.NotifyName,
-				NotifyData.BlueprintPath);
-			UIAction.CanExecuteAction.BindRaw(
-				this, &SAnimNotifyTrack::IsValidToPlace,
-				NotifyData.BaseClass);
-		}
-		else
-		{
-			Description = LOCTEXT("ReplaceWithAnExistingAnimNotify", "Replace with an existing notify");
-			UIAction.ExecuteAction.BindRaw(
-				this, &SAnimNotifyTrack::ReplaceSelectedWithBlueprintNotify,
-				NotifyData.NotifyName,
-				NotifyData.BlueprintPath);
-			UIAction.CanExecuteAction.BindRaw(
-				this, &SAnimNotifyTrack::IsValidToPlace,
-				NotifyData.BaseClass);
+			const bool bChildOfObjectClass = InClass->IsChildOf(NotifyTypeClass::StaticClass());
+			const bool bMatchesFlags = !InClass->HasAnyClassFlags(CLASS_Hidden | CLASS_HideDropDown | CLASS_Deprecated | CLASS_Abstract);
+			return bChildOfObjectClass && bMatchesFlags && CastChecked<NotifyTypeClass>(InClass->ClassDefaultObject)->CanBePlaced(Sequence);
 		}
 
-		MenuBuilder.AddMenuEntry(LabelText, Description, FSlateIcon(), UIAction);
-	}
-
-	MenuBuilder.BeginSection("NativeNotifyStates", LOCTEXT("NewStateNotifyMenu_Native", "Native Notify States"));
-	{
-		for(UClass* Class : NotifyStateClasses)
+		virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InUnloadedClassData, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
 		{
-			if (Class->HasAllClassFlags(CLASS_Abstract))
+			const bool bChildOfObjectClass = InUnloadedClassData->IsChildOf(NotifyTypeClass::StaticClass());
+			const bool bMatchesFlags = !InUnloadedClassData->HasAnyClassFlags(CLASS_Hidden | CLASS_HideDropDown | CLASS_Deprecated | CLASS_Abstract);
+			bool bValidToPlace = false;
+			if(bChildOfObjectClass)
 			{
-				continue; // skip abstract classes
+				if (const UClass* NativeBaseClass = InUnloadedClassData->GetNativeParent())
+				{
+					bValidToPlace = CastChecked<NotifyTypeClass>(NativeBaseClass->ClassDefaultObject)->CanBePlaced(Sequence);
+				}
 			}
 
-			const FText Description = LOCTEXT("NewNotifyStateSubMenu_NativeToolTip", "Add an existing native notify state");
-			const FText LabelText = Class->GetDisplayNameText();
-			const FString Label = LabelText.ToString();
-
-			FUIAction UIAction;
-			if (!bIsReplaceWithMenu)
-			{
-				UIAction.ExecuteAction.BindRaw(
-					this, &SAnimNotifyTrack::CreateNewNotifyAtCursor,
-					Label,
-					Class);
-				UIAction.CanExecuteAction.BindRaw(
-					this, &SAnimNotifyTrack::IsValidToPlace,
-					Class);
-			}
-			else
-			{
-				UIAction.ExecuteAction.BindRaw(
-					this, &SAnimNotifyTrack::ReplaceSelectedWithNotify,
-					Label,
-					Class);
-				UIAction.CanExecuteAction.BindRaw(
-					this, &SAnimNotifyTrack::IsValidToPlace,
-					Class);
-			}
-
-			MenuBuilder.AddMenuEntry(LabelText, Description, FSlateIcon(), UIAction);
+			return bChildOfObjectClass && bMatchesFlags && bValidToPlace;
 		}
-	}
-	MenuBuilder.EndSection();
+
+		/** Sequence referenced by outer panel */
+		UAnimSequenceBase* Sequence;
+	};
+
+	FClassViewerInitializationOptions InitOptions;
+	InitOptions.Mode = EClassViewerMode::ClassPicker;
+	InitOptions.bShowObjectRootClass = false;
+	InitOptions.bShowUnloadedBlueprints = true;
+	InitOptions.bShowNoneOption = false;
+	InitOptions.bEnableClassDynamicLoading = true;
+	InitOptions.bExpandRootNodes = true;
+	InitOptions.bShowDisplayNames = true;
+	InitOptions.ClassFilter = MakeShared<FNotifyStateClassFilter>(Sequence);
+
+	FClassViewerModule& ClassViewerModule = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer");
+	MenuBuilder.AddWidget(
+		SNew(SBox)
+		.MinDesiredWidth(300.0f)
+		.MaxDesiredHeight(400.0f)
+		[
+			ClassViewerModule.CreateClassViewer(InitOptions,
+				FOnClassPicked::CreateLambda([this, bIsReplaceWithMenu](UClass* InClass)
+				{
+					FSlateApplication::Get().DismissAllMenus();
+					if(bIsReplaceWithMenu)
+					{
+						ReplaceSelectedWithNotify(MakeBlueprintNotifyName(InClass->GetName()), InClass);
+					}
+					else
+					{
+						CreateNewNotifyAtCursor(MakeBlueprintNotifyName(InClass->GetName()), InClass);
+					}
+				}
+			))
+		],
+		FText(), true, false);
 }
 
-// Fill "new notify" menu, or "replace with notify menu"
+void SAnimNotifyTrack::FillNewNotifyStateMenu(FMenuBuilder& MenuBuilder, bool bIsReplaceWithMenu /* = false */)
+{
+	MakeNewNotifyPicker<UAnimNotifyState>(MenuBuilder, bIsReplaceWithMenu);
+}
+
 void SAnimNotifyTrack::FillNewNotifyMenu(FMenuBuilder& MenuBuilder, bool bIsReplaceWithMenu /* = false */)
 {
-	TArray<UClass*> NativeNotifyClasses;
-	OnGetNotifyNativeClasses.ExecuteIfBound(NativeNotifyClasses);
-
-	TArray<FAssetData> NotifyAssetData;
-	TArray<BlueprintNotifyMenuInfo> NotifyMenuData;
-	OnGetNotifyBlueprintData.ExecuteIfBound(NotifyAssetData);
-	GetNotifyMenuData(NotifyAssetData, NotifyMenuData);
-
-	for(BlueprintNotifyMenuInfo& NotifyData : NotifyMenuData)
+	// now add custom anim notifiers
+	USkeleton* SeqSkeleton = Sequence->GetSkeleton();
+	if (SeqSkeleton)
 	{
-		const FText LabelText = FText::FromString( NotifyData.NotifyName );
-
-		FUIAction UIAction;
-		FText Description = FText::GetEmpty();
-		if (!bIsReplaceWithMenu)
+		MenuBuilder.BeginSection("AnimNotifySkeletonSubMenu", LOCTEXT("NewNotifySubMenu_Skeleton", "Skeleton Notifies"));
 		{
-			Description = LOCTEXT("NewNotifySubMenu_ToolTip", "Add an existing notify");
-			UIAction.ExecuteAction.BindRaw(
-				this, &SAnimNotifyTrack::CreateNewBlueprintNotifyAtCursor,
-				NotifyData.NotifyName,
-				NotifyData.BlueprintPath);
-			UIAction.CanExecuteAction.BindRaw(
-				this, &SAnimNotifyTrack::IsValidToPlace,
-				NotifyData.BaseClass);
-		}
-		else
-		{
-			Description = LOCTEXT("ReplaceWithNotifySubMenu_ToolTip", "Replace with an existing notify");
-			UIAction.ExecuteAction.BindRaw(
-				this, &SAnimNotifyTrack::ReplaceSelectedWithBlueprintNotify,
-				NotifyData.NotifyName,
-				NotifyData.BlueprintPath);
-			UIAction.CanExecuteAction.BindRaw(
-				this, &SAnimNotifyTrack::IsValidToPlace,
-				NotifyData.BaseClass);
-		}
-		
-		MenuBuilder.AddMenuEntry(LabelText, Description, FSlateIcon(), UIAction);
-	}
-
-	MenuBuilder.BeginSection("NativeNotifies", LOCTEXT("NewNotifyMenu_Native", "Native Notifies"));
-	{
-		for(UClass* Class : NativeNotifyClasses)
-		{
-			if (Class->HasAllClassFlags(CLASS_Abstract))
-			{
-				continue; // skip abstract classes
-			}
-
-			const FText LabelText = Class->GetDisplayNameText();
-			const FString Label = LabelText.ToString();
-
-			FUIAction UIAction;
-			FText Description = FText::GetEmpty();
 			if (!bIsReplaceWithMenu)
 			{
-				Description = LOCTEXT("NewNotifySubMenu_NativeToolTip", "Add an existing native notify");
-				UIAction.ExecuteAction.BindRaw(
-					this, &SAnimNotifyTrack::CreateNewNotifyAtCursor,
-					Label,
-					Class);
-				UIAction.CanExecuteAction.BindRaw(
-					this, &SAnimNotifyTrack::IsValidToPlace,
-					Class);
-			}
-			else
-			{
-				Description = LOCTEXT("ReplaceWithNotifySubMenu_NativeToolTip", "Replace with an existing native notify");
-				UIAction.ExecuteAction.BindRaw(
-					this, &SAnimNotifyTrack::ReplaceSelectedWithNotify,
-					Label,
-					Class);
-				UIAction.CanExecuteAction.BindRaw(
-					this, &SAnimNotifyTrack::IsValidToPlace,
-					Class);
-			}
-
-			MenuBuilder.AddMenuEntry(LabelText, Description, FSlateIcon(), UIAction);
-		}
-	}
-	MenuBuilder.EndSection();
-
-	MenuBuilder.BeginSection("AnimNotifyCustom", LOCTEXT("NewNotifySubMenu_Custom", "Custom"));
-	{
-		// now add custom anim notifiers
-		USkeleton* SeqSkeleton = Sequence->GetSkeleton();
-		if (SeqSkeleton)
-		{
-			for (int32 I = 0; I<SeqSkeleton->AnimationNotifies.Num(); ++I)
-			{
-				FName NotifyName = SeqSkeleton->AnimationNotifies[I];
-				FString Label = NotifyName.ToString();
-
-				FText Description = FText::GetEmpty();
-				if (!bIsReplaceWithMenu)
-				{
-					Description = LOCTEXT("NewNotifySubMenu_ToolTip", "Add an existing notify");
-				}
-				else
-				{
-					Description = LOCTEXT("ReplaceWithNotifySubMenu_ToolTip", "Replace with an existing notify");
-				}
-
 				FUIAction UIAction;
-				if (!bIsReplaceWithMenu)
-				{
-					UIAction.ExecuteAction.BindRaw(
-						this, &SAnimNotifyTrack::CreateNewNotifyAtCursor,
-						Label,
-						(UClass*)nullptr);
-				}
-				else
-				{
-					UIAction.ExecuteAction.BindRaw(
-						this, &SAnimNotifyTrack::ReplaceSelectedWithNotify,
-						Label,
-						(UClass*)nullptr);
-				}
-
-				MenuBuilder.AddMenuEntry( FText::FromString( Label ), Description, FSlateIcon(), UIAction);
+				UIAction.ExecuteAction.BindSP(
+					this, &SAnimNotifyTrack::OnNewNotifyClicked);
+				MenuBuilder.AddMenuEntry(LOCTEXT("NewNotify", "New Notify..."), LOCTEXT("NewNotifyToolTip", "Create a new animation notify on the skeleton"), FSlateIcon(), UIAction);
 			}
-		}
-	}
-	MenuBuilder.EndSection();
 
-	if (!bIsReplaceWithMenu)
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("NewNotifySubMenu_Skeleton", "Skeleton Notifies"),
+				LOCTEXT("NewNotifySubMenu_Skeleton_Tooltip", "Choose from custom notifies on the skeleton"),
+				FNewMenuDelegate::CreateLambda([this, SeqSkeleton, bIsReplaceWithMenu](FMenuBuilder& InSubMenuBuilder)
+				{
+					ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+					TSharedRef<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(SeqSkeleton);
+
+					InSubMenuBuilder.AddWidget(
+						SNew(SBox)
+						.MinDesiredWidth(300.0f)
+						.MaxDesiredHeight(400.0f)
+						[
+							SNew(SSkeletonAnimNotifies, EditableSkeleton)
+							.IsPicker(true)
+							.OnItemSelected_Lambda([this, bIsReplaceWithMenu](const FName& InNotifyName)
+							{
+								FSlateApplication::Get().DismissAllMenus();
+
+								if (!bIsReplaceWithMenu)
+								{
+									CreateNewNotifyAtCursor(InNotifyName.ToString(), nullptr);
+								}
+								else
+								{
+									ReplaceSelectedWithNotify(InNotifyName.ToString(), nullptr);
+								}
+							})
+						],
+						FText(), true, false
+					);
+				}));
+		}
+		MenuBuilder.EndSection();
+	}
+
+	// Add a notify picker
+	MakeNewNotifyPicker<UAnimNotify>(MenuBuilder, bIsReplaceWithMenu);
+}
+
+void SAnimNotifyTrack::FillNewSyncMarkerMenu(FMenuBuilder& MenuBuilder)
+{
+	USkeleton* SeqSkeleton = Sequence->GetSkeleton();
+	if (SeqSkeleton)
 	{
-		MenuBuilder.BeginSection("AnimNotifyCreateNew");
+		MenuBuilder.BeginSection("AnimSyncMarkerSubMenu", LOCTEXT("NewSyncMarkerSubMenu_Skeleton", "Sync Markers"));
 		{
 			FUIAction UIAction;
-			UIAction.ExecuteAction.BindRaw(
-				this, &SAnimNotifyTrack::OnNewNotifyClicked);
-			MenuBuilder.AddMenuEntry(LOCTEXT("NewNotify", "New Notify"), LOCTEXT("NewNotifyToolTip", "Create a new animation notify"), FSlateIcon(), UIAction);
+			UIAction.ExecuteAction.BindSP(
+				this, &SAnimNotifyTrack::OnNewSyncMarkerClicked);
+			MenuBuilder.AddMenuEntry(LOCTEXT("NewSyncMarker", "New Sync Marker..."), LOCTEXT("NewSyncMarkerToolTip", "Create a new animation sync marker"), FSlateIcon(), UIAction);
+
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("NewSyncMarkerSubMenu_Existing", "Existing Sync Markers"),
+				LOCTEXT("NewSyncMarkerSubMenu_Existing_Tooltip", "Choose from existing sync marker names on the skeleton"),
+				FNewMenuDelegate::CreateLambda([this, SeqSkeleton](FMenuBuilder& InSubMenuBuilder)
+			{
+				ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+				TSharedRef<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(SeqSkeleton);
+
+				InSubMenuBuilder.AddWidget(
+					SNew(SBox)
+					.MinDesiredWidth(300.0f)
+					.MaxDesiredHeight(400.0f)
+					[
+						SNew(SSkeletonAnimNotifies, EditableSkeleton)
+						.IsSyncMarker(true)
+						.OnItemSelected_Lambda([this](const FName& InNotifyName)
+						{
+							FSlateApplication::Get().DismissAllMenus();
+
+							CreateNewSyncMarkerAtCursor(InNotifyName.ToString(), nullptr);
+						})
+					],
+					FText(), true, false
+					);
+			}));
 		}
 		MenuBuilder.EndSection();
 	}
@@ -3021,11 +2974,10 @@ TSharedPtr<SWidget> SAnimNotifyTrack::SummonContextMenu(const FGeometry& MyGeome
 
 			if (Sequence->IsA(UAnimSequence::StaticClass()))
 			{
-				MenuBuilder.AddMenuEntry(
-					LOCTEXT("NewSyncMarker", "Add Sync Marker"),
-					LOCTEXT("NewSyncMarkerToolTip", "Create a new animation sync marker"),
-					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateSP(this, &SAnimNotifyTrack::OnNewSyncMarkerClicked)));
+				MenuBuilder.AddSubMenu(
+					NSLOCTEXT("NewSyncMarkerSubMenu", "NewSyncMarkerSubMenuAddNotifyState", "Add Sync Marker..."),
+					NSLOCTEXT("NewSyncMarkerSubMenu", "NewSyncMarkerSubMenuAddNotifyStateToolTip", "Create a new animation sync marker"),
+					FNewMenuDelegate::CreateRaw(this, &SAnimNotifyTrack::FillNewSyncMarkerMenu));
 			}
 
 			MenuBuilder.AddMenuEntry(
@@ -3284,8 +3236,13 @@ void SAnimNotifyTrack::AddNewSyncMarker(const FText& NewNotifyName, ETextCommit:
 	if ((CommitInfo == ETextCommit::OnEnter) && SeqSkeleton)
 	{
 		const FScopedTransaction Transaction(LOCTEXT("AddNewSyncMarker", "Add New Sync Marker"));
-		//FName NewName = FName(*NewNotifyName.ToString());
-		//SeqSkeleton->AddNewAnimationNotify(NewName);
+
+		FName NewName = FName(*NewNotifyName.ToString());
+
+		ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+		TSharedRef<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(SeqSkeleton);
+
+		EditableSkeleton->AddSyncMarker(NewName);
 
 		FBlueprintActionDatabase::Get().RefreshAssetActions(SeqSkeleton);
 
@@ -3755,9 +3712,9 @@ void SAnimNotifyTrack::RefreshMarqueeSelectedNodes(FSlateRect& Rect, FNotifyMarq
 	}
 }
 
-FString SAnimNotifyTrack::MakeBlueprintNotifyName(FAssetData& NotifyAssetData)
+FString SAnimNotifyTrack::MakeBlueprintNotifyName(const FString& InNotifyClassName)
 {
-	FString DefaultNotifyName = NotifyAssetData.AssetName.ToString();
+	FString DefaultNotifyName = InNotifyClassName;
 	DefaultNotifyName = DefaultNotifyName.Replace(TEXT("AnimNotify_"), TEXT(""), ESearchCase::CaseSensitive);
 	DefaultNotifyName = DefaultNotifyName.Replace(TEXT("AnimNotifyState_"), TEXT(""), ESearchCase::CaseSensitive);
 
@@ -3772,32 +3729,6 @@ void SAnimNotifyTrack::ClearNodeTooltips()
 	{
 		Node->SetToolTipText(EmptyTooltip);
 	}
-}
-
-void SAnimNotifyTrack::GetNotifyMenuData(TArray<FAssetData>& NotifyAssetData, TArray<BlueprintNotifyMenuInfo>& OutNotifyMenuData)
-{
-	for(FAssetData& NotifyData : NotifyAssetData)
-	{
-		OutNotifyMenuData.AddZeroed();
-		BlueprintNotifyMenuInfo& MenuInfo = OutNotifyMenuData.Last();
-
-		MenuInfo.BlueprintPath = NotifyData.ObjectPath.ToString();
-		MenuInfo.NotifyName = MakeBlueprintNotifyName(NotifyData);
-		// this functionality is only available in native class
-		// so we don't have to call BP function but just call native on the check of validity
-		FString NativeParentClassName;
-		if (NotifyData.GetTagValue(FBlueprintTags::NativeParentClassPath, NativeParentClassName))
-		{
-			UObject* Outer = nullptr;
-			ResolveName(Outer, NativeParentClassName, false, false);
-			MenuInfo.BaseClass = FindObject<UClass>(ANY_PACKAGE, *NativeParentClassName);
-		}
-	}
-
-	OutNotifyMenuData.Sort([](const BlueprintNotifyMenuInfo& A, const BlueprintNotifyMenuInfo& B)
-	{
-		return A.NotifyName < B.NotifyName;
-	});
 }
 
 const EVisibility SAnimNotifyTrack::GetTimingNodeVisibility(TSharedPtr<SAnimNotifyNode> NotifyNode)
@@ -3942,7 +3873,7 @@ void FAnimNotifyPanelCommands::RegisterCommands()
 //////////////////////////////////////////////////////////////////////////
 // SAnimNotifyPanel
 
-void SAnimNotifyPanel::Construct(const FArguments& InArgs, FSimpleMulticastDelegate& OnPostUndo)
+void SAnimNotifyPanel::Construct(const FArguments& InArgs, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton)
 {
 	SAnimTrackPanel::Construct( SAnimTrackPanel::FArguments()
 		.WidgetWidth(InArgs._WidgetWidth)
@@ -3954,7 +3885,6 @@ void SAnimNotifyPanel::Construct(const FArguments& InArgs, FSimpleMulticastDeleg
 
 	Sequence = InArgs._Sequence;
 	MarkerBars = InArgs._MarkerBars;
-	OnAnimNotifiesChanged = InArgs._OnAnimNotifiesChanged;
 	OnInvokeTab = InArgs._OnInvokeTab;
 
 	FAnimNotifyPanelCommands::Register();
@@ -3966,7 +3896,12 @@ void SAnimNotifyPanel::Construct(const FArguments& InArgs, FSimpleMulticastDeleg
 	Sequence->InitializeNotifyTrack();
 	Sequence->RegisterOnNotifyChanged(UAnimSequenceBase::FOnNotifyChanged::CreateSP( this, &SAnimNotifyPanel::RefreshNotifyTracks )  );
 
-	OnPostUndo.Add(FSimpleDelegate::CreateSP( this, &SAnimNotifyPanel::PostUndo ) );
+	InEditableSkeleton->RegisterOnNotifiesChanged(FSimpleDelegate::CreateSP(this, &SAnimNotifyPanel::RefreshNotifyTracks));
+
+	if(GEditor)
+	{
+		GEditor->RegisterForUndo(this);
+	}
 
 	CurrentPosition = InArgs._CurrentPosition;
 	OnSelectionChanged = InArgs._OnSelectionChanged;
@@ -4038,6 +3973,11 @@ SAnimNotifyPanel::~SAnimNotifyPanel()
 	Sequence->UnregisterOnNotifyChanged(this);
 
 	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedHandleDelegateHandle);
+
+	if(GEditor)
+	{
+		GEditor->UnregisterForUndo(this);
+	}
 }
 
 FName SAnimNotifyPanel::GetNewTrackName() const
@@ -4165,8 +4105,6 @@ void SAnimNotifyPanel::Update()
 	{
 		Sequence->RefreshCacheData();
 	}
-
-	OnAnimNotifiesChanged.ExecuteIfBound();
 }
 
 void SAnimNotifyPanel::RefreshNotifyTracks()
@@ -4289,7 +4227,15 @@ FReply SAnimNotifyPanel::OnNotifyNodeDragStarted(TArray<TSharedPtr<SAnimNotifyNo
 	return FReply::Handled().BeginDragDrop(FNotifyDragDropOp::New(Nodes, NodeDragDecorator, NotifyAnimTracks, Sequence, ScreenCursorPos, OverlayOrigin, OverlayExtents, CurrentDragXPosition, PanRequestDelegate, MarkerBars, UpdateDelegate));
 }
 
-void SAnimNotifyPanel::PostUndo()
+void SAnimNotifyPanel::PostUndo( bool bSuccess )
+{
+	if(Sequence != NULL)
+	{
+		Sequence->RefreshCacheData();
+	}
+}
+
+void SAnimNotifyPanel::PostRedo( bool bSuccess )
 {
 	if(Sequence != NULL)
 	{
@@ -4388,9 +4334,6 @@ void SAnimNotifyPanel::DeselectAllNotifies()
 	{
 		Track->DeselectAllNotifyNodes(false);
 	}
-
-	// Broadcast the change so the editor can update
-	OnAnimNotifiesChanged.ExecuteIfBound();
 
 	OnTrackSelectionChanged();
 }
@@ -4664,9 +4607,6 @@ void SAnimNotifyPanel::OnPropertyChanged(UObject* ChangedObject, FPropertyChange
 				RefreshNotifyTracks();
 			}
 		}
-
-		// Broadcast the change so the editor can update
-		OnAnimNotifiesChanged.ExecuteIfBound();
 	}
 }
 
@@ -4921,9 +4861,6 @@ void SAnimNotifyPanel::OnNotifyObjectChanged(UObject* EditorBaseObj, bool bRebui
 		{
 			NotifyAnimTracks[WidgetTrackIdx]->Update();
 		}
-
-		// Broadcast the change so the editor can update
-		OnAnimNotifiesChanged.ExecuteIfBound();
 	}
 }
 

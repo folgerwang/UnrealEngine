@@ -34,6 +34,8 @@ void FAnimNode_PoseBlendNode::UpdateAssetPlayer(const FAnimationUpdateContext& C
 
 void FAnimNode_PoseBlendNode::Evaluate_AnyThread(FPoseContext& Output)
 {
+	ANIM_MT_SCOPE_CYCLE_COUNTER(PoseBlendNodeEvaluate, !IsInGameThread());
+
 	FPoseContext SourceData(Output);
 	SourcePose.Evaluate(SourceData);
 

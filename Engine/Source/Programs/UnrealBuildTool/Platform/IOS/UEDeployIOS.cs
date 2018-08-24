@@ -274,12 +274,6 @@ namespace UnrealBuildTool
 				}
 			}
 			ConfigHierarchy GameIni = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, DirRef, UnrealTargetPlatform.IOS);
-			bool bSupportAR = false;
-			GameIni.GetBool("/Script/EngineSettings.GeneralProjectSettings", "bSupportAR", out bSupportAR);
-			if (bSupportAR)
-			{
-				RequiredCaps += "\t\t<string>arkit</string>\n";
-			}
 
 			Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bSupportsOpenGLES2", out bSupported);
 			RequiredCaps += bSupported ? "\t\t<string>opengles-2</string>\n" : "";
@@ -645,13 +639,6 @@ namespace UnrealBuildTool
 						Text.AppendLine("\t" + Line);
 					}
 				}
-			}
-
-			// add the camera usage key
-			if (bSupportAR)
-			{
-				Text.AppendLine("\t<key>NSCameraUsageDescription</key>");
-				Text.AppendLine("\t\t<string>The camera is used for augmenting reality.</string>");
 			}
 
 			// Add remote-notifications as background mode

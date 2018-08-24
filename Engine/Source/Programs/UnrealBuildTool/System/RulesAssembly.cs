@@ -374,7 +374,7 @@ namespace UnrealBuildTool
 				ModuleFileToPluginInfo.TryGetValue(RulesObject.File, out RulesObject.Plugin);
 				RulesObject.bTreatAsEngineModule = bContainsEngineModules;
 				RulesObject.bUseBackwardsCompatibleDefaults = bUseBackwardsCompatibleDefaults && Target.bUseBackwardsCompatibleDefaults;
-				RulesObject.bPrecompile = RulesObject.bTreatAsEngineModule && Target.bPrecompile;
+				RulesObject.bPrecompile = (RulesObject.bTreatAsEngineModule || ModuleName.Equals("UE4Game", StringComparison.OrdinalIgnoreCase)) && Target.bPrecompile;
 				RulesObject.bUsePrecompiled = bReadOnly;
 
 				// Call the constructor

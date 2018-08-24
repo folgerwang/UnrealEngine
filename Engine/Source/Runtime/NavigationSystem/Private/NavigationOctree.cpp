@@ -175,7 +175,7 @@ void FNavigationOctree::UpdateNode(const FOctreeElementId& Id, const FBox& NewBo
 
 void FNavigationOctree::RemoveNode(const FOctreeElementId& Id)
 {
-	FNavigationOctreeElement& Element = GetElementById(Id);
+	const FNavigationOctreeElement& Element = GetElementById(Id);
 	const int32 ElementMemory = Element.GetAllocatedSize();
 	NodesMemory -= ElementMemory;
 	DEC_MEMORY_STAT_BY(STAT_Navigation_CollisionTreeMemory, ElementMemory);
@@ -205,6 +205,10 @@ void FNavigationOctreeSemantics::SetElementId(const FNavigationOctreeElement& El
 {
 	UWorld* World = NULL;
 	UObject* ElementOwner = Element.GetOwner();
+	if (ElementOwner == nullptr)
+	{
+		return;
+	}
 
 	if (AActor* Actor = Cast<AActor>(ElementOwner))
 	{
@@ -222,6 +226,6 @@ void FNavigationOctreeSemantics::SetElementId(const FNavigationOctreeElement& El
 	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
 	if (NavSys)
 	{
-		NavSys->SetObjectsNavOctreeId(ElementOwner, Id);
+		NavSys->SetObjectsNavOctreeId(*ElementOwner, Id);
 	}
 }

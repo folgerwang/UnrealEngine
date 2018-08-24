@@ -76,6 +76,11 @@ public:
 		OutFormats.Add(FName(TEXT("FullHDR")));
 	}
 
+	virtual FPlatformAudioCookOverrides* GetAudioCompressionSettings() const override
+	{
+		return nullptr;
+	}
+	
 	// True if the project requires encoded HDR reflection captures
 	bool bRequiresEncodedHDRReflectionCaptures;
 #endif //WITH_ENGINE

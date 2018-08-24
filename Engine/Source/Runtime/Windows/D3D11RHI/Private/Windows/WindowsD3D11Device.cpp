@@ -1062,6 +1062,10 @@ void FD3D11DynamicRHI::InitD3DDevice()
 			UE_LOG(LogD3D11RHI, Log, TEXT("InitD3DDevice: -D3DDebug = %s"), bWithD3DDebug ? TEXT("on") : TEXT("off"));
 		}
 
+		// @MIXEDREALITY_CHANGE : BEGIN - Add BGRA flag for Windows Mixed Reality HMD's
+		DeviceFlags |= D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+		// @MIXEDREALITY_CHANGE : END
+
 		GTexturePoolSize = 0;
 
 		TRefCountPtr<IDXGIAdapter> EnumAdapter;

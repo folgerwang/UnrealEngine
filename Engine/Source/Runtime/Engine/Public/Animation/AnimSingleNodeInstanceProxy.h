@@ -8,6 +8,7 @@
 #include "Animation/AnimationAsset.h"
 #include "Animation/AnimInstanceProxy.h"
 #include "Animation/AnimNodeBase.h"
+#include "Animation/AnimSequenceDecompressionContext.h"
 #include "AnimSingleNodeInstanceProxy.generated.h"
 
 struct FAnimSingleNodeInstanceProxy;
@@ -74,6 +75,8 @@ public:
 		bCanProcessAdditiveAnimations = false;
 #endif
 	}
+
+	virtual ~FAnimSingleNodeInstanceProxy();
 
 	virtual void Initialize(UAnimInstance* InAnimInstance) override;
 	virtual bool Evaluate(FPoseContext& Output) override;

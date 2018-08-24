@@ -4473,7 +4473,7 @@ void FRecastNavMeshGenerator::GrabDebugSnapshot(struct FVisualLogEntry* Snapshot
 						const uint8 AreaId = NavData->GetAreaID(AreaMods[i].GetAreaClass());
 						const UClass* AreaClass = NavData->GetAreaClass(AreaId);
 						const UNavArea* DefArea = AreaClass ? ((UClass*)AreaClass)->GetDefaultObject<UNavArea>() : NULL;
-						const FColor PolygonColor = AreaClass != UNavigationSystemV1::GetDefaultWalkableArea() ? (DefArea ? DefArea->DrawColor : NavData->GetConfig().Color) : FColorList::Cyan;
+						const FColor PolygonColor = AreaClass != FNavigationSystem::GetDefaultWalkableArea() ? (DefArea ? DefArea->DrawColor : NavData->GetConfig().Color) : FColorList::Cyan;
 
 						if (AreaMods[i].GetShapeType() == ENavigationShapeType::Box)
 						{

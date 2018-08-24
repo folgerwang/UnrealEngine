@@ -463,13 +463,10 @@ void FStreamingManagerTexture::BoostTextures( AActor* Actor, float BoostFactor )
 		TArray<UTexture*> Textures;
 		Textures.Empty( 32 );
 
-		TInlineComponentArray<UPrimitiveComponent*> Components;
-		Actor->GetComponents(Components);
-
-		for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
+		for (UActorComponent* Component : Actor->GetComponents())
 		{
-			UPrimitiveComponent* Primitive = Components[ComponentIndex];
-			if ( Primitive->IsRegistered() )
+			UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component);
+			if (Primitive && Primitive->IsRegistered())
 			{
 				Textures.Reset();
 				Primitive->GetUsedTextures( Textures, EMaterialQualityLevel::Num );
@@ -623,7 +620,7 @@ void FStreamingManagerTexture::NotifyActorDestroyed( AActor* Actor )
 		{
 			LevelManager.RemoveActorReferences(Actor);
 			for (UPrimitiveComponent* Component : Components)
-			{
+				{
 				LevelManager.RemoveComponentReferences(Component, RemovedTextures);
 			}
 		}

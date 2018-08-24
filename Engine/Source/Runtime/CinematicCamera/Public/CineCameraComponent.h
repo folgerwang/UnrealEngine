@@ -277,8 +277,10 @@ public:
 	/** Returns a list of available lens presets. */
 	static TArray<FNamedLensPreset> const& GetLensPresets();
 
+#if WITH_EDITOR
 	/** Update the debug focus plane position and orientation. */
 	void UpdateDebugFocusPlane();
+#endif
 
 protected:
 
@@ -302,6 +304,7 @@ protected:
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 #endif
 
+#if WITH_EDITORONLY_DATA
 	/** Mesh used for debug focus plane visualization */
 	UPROPERTY(transient)
 	UStaticMesh* FocusPlaneVisualizationMesh;
@@ -318,7 +321,6 @@ protected:
 	UPROPERTY(transient)
 	UMaterialInstanceDynamic* DebugFocusPlaneMID;
 
-#if WITH_EDITORONLY_DATA
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void ResetProxyMeshTransform() override;
 #endif
@@ -357,6 +359,8 @@ private:
 	float GetDesiredFocusDistance(const FVector& InLocation) const;
 	float GetWorldToMetersScale() const;
 
+#if WITH_EDITORONLY_DATA
 	void CreateDebugFocusPlane();
 	void DestroyDebugFocusPlane();
+#endif
 };

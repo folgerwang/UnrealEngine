@@ -90,7 +90,7 @@ enum class EGoogleARCoreFunctionStatus : uint8
 	NotTracking,
 	/** Function failed due to the requested resource is exhausted. */
 	ResourceExhausted,
-	/** Function failed due to the requested resource isn't available yet. */
+	/** Function failed due to ARCore session hasn't started or the requested resource isn't available yet. */
 	NotAvailable,
 	/** Function failed due to the function augment has invalid type. */
 	InvalidType,
@@ -161,6 +161,86 @@ enum class EGoogleARCoreLineTraceChannel : uint8
 	AugmentedImage = 32,
 };
 ENUM_CLASS_FLAGS(EGoogleARCoreLineTraceChannel);
+
+USTRUCT(BlueprintType)
+struct GOOGLEARCOREBASE_API FGoogleARCoreCameraConfig
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "GoogleARCore|CameraConfig")
+	FIntPoint CameraImageResolution;
+	UPROPERTY(BlueprintReadOnly, Category = "GoogleARCore|CameraConfig")
+	FIntPoint CameraTextureResolution;
+
+	bool operator==(const FGoogleARCoreCameraConfig& OtherConfig) const
+	{
+		return CameraImageResolution == OtherConfig.CameraImageResolution && CameraTextureResolution == OtherConfig.CameraTextureResolution;
+	}
+};
+
+class GOOGLEARCOREBASE_API FGoogleARCoreDelegates
+{
+public:
+	DECLARE_MULTICAST_DELEGATE_OneParam(FGoogleARCoreOnConfigCameraDelegate, const TArray<FGoogleARCoreCameraConfig>&);
+
+	/**
+	 * A delegate can be bind through c++. Will be called before ARSession started and returns
+	 * a list of supported ARCore camera config. 
+	 * Bind this delegate if you want to choose a specific camera config in your app. Call 
+	 * UGoogleARCoreSessionFunctionLibrary::ConfigARCoreCamera after the delegate is triggered.
+	 */
+	static FGoogleARCoreOnConfigCameraDelegate OnCameraConfig;
+};
+
+UCLASS(BlueprintType, Category = "AR AugmentedReality")
+class GOOGLEARCOREBASE_API UGoogleARCoreEventManager : public UObject
+{
+	GENERATED_BODY()
+public:
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGoogleARCoreOnConfigCameraDynamicDelegate, const TArray<FGoogleARCoreCameraConfig>&, SupportedCameraConfig);
+
+	UGoogleARCoreEventManager()
+	{
+		RegisterDelegates();
+	}
+
+	~UGoogleARCoreEventManager()
+	{
+		UnregisterDelegates();
+	}
+
+	/**
+	 * A dynamic delegate can be assigned through blueprint. Will be called before ARSession started and returns
+	 * an array of supported ARCore camera config.
+	 *
+	 * The array will always return 3 camera configs. The GPU texture resolutions
+	 * are the same in all three configs. Currently, most devices provide GPU
+	 * texture resolution of 1920 x 1080, but devices might provide higher or lower
+	 * resolution textures, depending on device capabilities. The CPU image
+	 * resolutions returned are VGA, 720p, and a resolution matching the GPU
+	 * texture.
+	 *
+	 * Bind this delegate if you want to choose a specific camera config in your app. Call 
+	 * UGoogleARCoreSessionFunctionLibrary::ConfigARCoreCamera after the delegate is triggered.
+	 */
+	UPROPERTY(BlueprintAssignable)
+	FGoogleARCoreOnConfigCameraDynamicDelegate OnConfigCamera;
+
+private:
+	void RegisterDelegates()
+	{
+		FGoogleARCoreDelegates::OnCameraConfig.AddUObject(this, &UGoogleARCoreEventManager::OnConfigCamera_Handler);
+	}
+	void UnregisterDelegates()
+	{
+		FGoogleARCoreDelegates::OnCameraConfig.RemoveAll(this);
+	}
+
+	void OnConfigCamera_Handler(const TArray<FGoogleARCoreCameraConfig>& SupportedCameraConfig)
+	{
+		OnConfigCamera.Broadcast(SupportedCameraConfig);
+	}
+};
 
 class FGoogleARCoreSession;
 /**

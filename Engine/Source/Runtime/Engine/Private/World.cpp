@@ -1465,7 +1465,7 @@ void UWorld::DestroyWorld( bool bInformEngineOfWorld, UWorld* NewWorld )
 {
 	// Clean up existing world and remove it from root set so it can be garbage collected.
 	bIsLevelStreamingFrozen = false;
-	bShouldForceUnloadStreamingLevels = true;
+	SetShouldForceUnloadStreamingLevels(true);
 	FlushLevelStreaming();
 	CleanupWorld(true, true, NewWorld);
 
@@ -3803,11 +3803,11 @@ void UWorld::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* Ne
 	}
 #endif //WITH_EDITOR
 
-	for (int32 LevelIndex=0; LevelIndex < GetNumLevels(); ++LevelIndex)
+	for (ULevelStreaming* StreamingLevel : GetStreamingLevels())
 	{
-		UWorld* World = CastChecked<UWorld>(GetLevel(LevelIndex)->GetOuter());
-		if (World != this)
+		if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 		{
+			UWorld* World = CastChecked<UWorld>(Level->GetOuter());
 			World->CleanupWorld(bSessionEnded, bCleanupResources, NewWorld);
 		}
 	}
@@ -4318,9 +4318,21 @@ void UWorld::WelcomePlayer(UNetConnection* Connection)
 {
 	check(CurrentLevel);
 	Connection->SendPackageMap();
-	
-	FString LevelName = CurrentLevel->GetOutermost()->GetName();
-	Connection->SetClientWorldPackageName(CurrentLevel->GetOutermost()->GetFName());
+
+	FString LevelName;
+
+	const FSeamlessTravelHandler& SeamlessTravelHandler = GEngine->SeamlessTravelHandlerForWorld(this);
+	if (SeamlessTravelHandler.IsInTransition())
+	{
+		// Tell the client to go to the destination map
+		LevelName = SeamlessTravelHandler.GetDestinationMapName();
+		Connection->SetClientWorldPackageName(NAME_None);
+	}
+	else
+	{
+		LevelName = CurrentLevel->GetOutermost()->GetName();
+		Connection->SetClientWorldPackageName(CurrentLevel->GetOutermost()->GetFName());
+	}
 
 	FString GameName;
 	FString RedirectURL;

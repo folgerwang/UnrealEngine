@@ -12,6 +12,12 @@ UBTTask_RunBehaviorDynamic::UBTTask_RunBehaviorDynamic(const FObjectInitializer&
 
 EBTNodeResult::Type UBTTask_RunBehaviorDynamic::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
+	UE_CLOG(BehaviorAsset == nullptr, LogBehaviorTree, Warning, TEXT("BTTask_RunBehaviorDynamic node (\"%s\") executed with no BehaviorAsset")
+		, *GetNodeName());
+	UE_CLOG(BehaviorAsset != nullptr && BehaviorAsset->RootDecorators.Num() > 0, LogBehaviorTree
+		, Error, TEXT("BTTask_RunBehaviorDynamic node (\"%s\") executed with a BehaviorAsset (\"%s\") containing root level decorators. These decorators will be ignored by design.")
+		, *GetNodeName(), *BehaviorAsset->GetName());
+
 	const bool bPushed = BehaviorAsset != nullptr && OwnerComp.PushInstance(*BehaviorAsset);
 	if (bPushed && OwnerComp.InstanceStack.Num() > 0)
 	{

@@ -563,7 +563,6 @@
 #include "Animation/AnimSequence.h"
 #include "BonePose.h"
 #include "CustomBoneIndexArray.h"
-#include "AnimEncoding.h"
 #include "Animation/AnimStats.h"
 #include "GenericOctreePublic.h"
 #include "GameFramework/OnlineReplStructs.h"

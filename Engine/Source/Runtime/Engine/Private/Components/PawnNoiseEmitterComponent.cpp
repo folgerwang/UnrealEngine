@@ -23,7 +23,6 @@ void UPawnNoiseEmitterComponent::MakeNoise(AActor* NoiseMaker, float Loudness, c
 	static bool bMakeNoiseLockHack = false;
 	if (bMakeNoiseLockHack)
 	{
-		bMakeNoiseLockHack = false;
 		return;
 	}
 
@@ -78,6 +77,7 @@ void UPawnNoiseEmitterComponent::MakeNoise(AActor* NoiseMaker, float Loudness, c
 	{
 		bMakeNoiseLockHack = true;
 		NoiseMaker->MakeNoise(Loudness, PawnOwner, NoiseLocation);
+		bMakeNoiseLockHack = false;
 	}
 }
 

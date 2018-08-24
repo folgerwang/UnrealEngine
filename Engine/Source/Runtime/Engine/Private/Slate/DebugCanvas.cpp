@@ -9,6 +9,9 @@
 #include "Framework/Application/SlateApplication.h"
 #include "IStereoLayers.h"
 #include "StereoRendering.h"
+#include "IXRTrackingSystem.h"
+#include "ISpectatorScreenController.h"
+#include "IHeadMountedDisplay.h"
 
 /**
  * Simple representation of the backbuffer that the debug canvas renders to
@@ -100,12 +103,11 @@ FDebugCanvasDrawer::~FDebugCanvasDrawer()
 		RenderThreadCanvas = nullptr;
 	}
 
-	if (LayerID != INVALID_LAYER_ID && GEngine->StereoRenderingDevice && GEngine->StereoRenderingDevice->GetStereoLayers())
+	if (LayerID != INVALID_LAYER_ID && 
+		GEngine->StereoRenderingDevice.IsValid() && 
+		GEngine->StereoRenderingDevice->GetStereoLayers())
 	{
-		if (GEngine->StereoRenderingDevice.IsValid())
-		{
-			GEngine->StereoRenderingDevice->GetStereoLayers()->DestroyLayer(LayerID);
-		}
+		GEngine->StereoRenderingDevice->GetStereoLayers()->DestroyLayer(LayerID);
 		LayerID = INVALID_LAYER_ID;
 	}
 }
@@ -120,6 +122,7 @@ void FDebugCanvasDrawer::BeginRenderingCanvas( const FIntRect& CanvasRect )
 {
 	if( CanvasRect.Size().X > 0 && CanvasRect.Size().Y > 0 )
 	{
+		bCanvasRenderedLastFrame = true;
 		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER
 		(
 			BeginRenderingDebugCanvas,
@@ -194,12 +197,16 @@ void FDebugCanvasDrawer::InitDebugCanvas(FViewportClient* ViewportClient, UWorld
 				LayerID = INVALID_LAYER_ID;
 			}
 		}
+
+		bCanvasRenderedLastFrame = false;
 	}
 }
 
 void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, const void* InWindowBackBuffer)
 {
 	check( IsInRenderingThread() );
+
+	SCOPED_DRAW_EVENT(RHICmdList, DrawDebugCanvas);
 
 	QUICK_SCOPE_CYCLE_COUNTER(Stat_DrawDebugCanvas);
 	if( RenderThreadCanvas.IsValid() )
@@ -214,7 +221,9 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 
 			if (!LayerTexture)
 			{
-				const FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(RenderThreadCanvas->GetParentCanvasSize(), PF_B8G8R8A8, FClearValueBinding(), TexCreate_SRGB, TexCreate_RenderTargetable, false));
+				// Set TexCreate_NoFastClear because the fast CMASK clear was not working on ps4.
+				FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(RenderThreadCanvas->GetParentCanvasSize(), PF_B8G8R8A8, FClearValueBinding(), TexCreate_SRGB, TexCreate_RenderTargetable | TexCreate_NoFastClear, false));
+				Desc.DebugName = TEXT("DebugCanvasLayerTexture");
 				GetRendererModule().RenderTargetPoolFindFreeElement(RHICmdList, Desc, LayerTexture, TEXT("DebugCanvasLayerTexture"));
 				UE_LOG(LogProfilingDebugging, Log, TEXT("Allocated a %d x %d texture for HMD canvas layer"), RenderThreadCanvas->GetParentCanvasSize().X, RenderThreadCanvas->GetParentCanvasSize().Y);
 			}
@@ -225,6 +234,20 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 			if (StereoLayers)
 			{
 				StereoLayers->GetAllocatedTexture(LayerID, HMDSwapchain, HMDNull);
+
+				// If drawing to a layer tell the spectator screen controller to copy that layer to the spectator screen.
+				if (LayerID != INVALID_LAYER_ID && GEngine && GEngine->XRSystem)
+				{
+					IHeadMountedDisplay* HMD = GEngine->XRSystem->GetHMDDevice();
+					if (HMD)
+					{
+						ISpectatorScreenController* SpectatorScreenController = HMD->GetSpectatorScreenController();
+						if (SpectatorScreenController)
+						{
+							SpectatorScreenController->QueueDebugCanvasLayerID(LayerID);
+						}
+					}
+				}
 			}
 			RT = reinterpret_cast<FTexture2DRHIRef*>(HMDSwapchain == nullptr ? &LayerTexture->GetRenderTargetItem().ShaderResourceTexture : &HMDSwapchain);
 		}
@@ -242,7 +265,6 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 			RenderThreadCanvas->SetRenderTargetRect( RenderTarget->GetViewRect() );
 		}
 
-		bCanvasRenderedLastFrame = RenderThreadCanvas->HasBatchesToRender();
 		RenderThreadCanvas->Flush_RenderThread(RHICmdList, true);
 		RenderThreadCanvas->SetAllowSwitchVerticalAxis(bNeedToFlipVertical);
 		RenderTarget->ClearRenderTargetTexture();
