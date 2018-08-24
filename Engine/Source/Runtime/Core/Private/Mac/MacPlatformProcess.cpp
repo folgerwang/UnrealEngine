@@ -850,7 +850,7 @@ const TCHAR* FMacPlatformProcess::UserLogsDir()
 
 const TCHAR* FMacPlatformProcess::UserHomeDir()
 {
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;
