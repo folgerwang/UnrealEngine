@@ -220,4 +220,11 @@ public:
 	 * @return ClassWithin of the child most Native class in the hierarchy.
 	 */
 	virtual const UClass* GetClassWithin() const = 0;
+
+	/**
+	 * Attempts to get the child-most Native class in the hierarchy.
+	 *
+	 * @return The child-most Native class in the hierarchy.
+	 */
+	virtual const UClass* GetNativeParent() const = 0;
 };

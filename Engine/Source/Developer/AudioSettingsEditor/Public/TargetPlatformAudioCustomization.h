@@ -34,6 +34,10 @@ private:
 	TSharedPtr<FText> SelectedSpatialization;
 	TSharedPtr<FText> SelectedOcclusion;
 
+	TSharedPtr<FText> ManualSpatializationEntry;
+	TSharedPtr<FText> ManualReverbEntry;
+	TSharedPtr<FText> ManualOcclusionEntry;
+
 	TArray<TSharedPtr<FText>> SpatializationPlugins;
 	TArray<TSharedPtr<FText>> ReverbPlugins;
 	TArray<TSharedPtr<FText>> OcclusionPlugins;

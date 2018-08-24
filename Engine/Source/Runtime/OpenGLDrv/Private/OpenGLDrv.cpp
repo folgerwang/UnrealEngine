@@ -187,7 +187,7 @@ void FOpenGLGPUProfiler::EndFrame()
 	}
 	else
 	{
-		GGPUFrameTime = 0;
+		GGPUFrameTime = ExternalGPUTime;
 	}
 
 	// if we have a frame open, close it now.

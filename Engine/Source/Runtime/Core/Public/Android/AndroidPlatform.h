@@ -78,6 +78,9 @@ typedef FAndroidTypes FPlatformTypes;
 #ifndef USE_ANDROID_JNI
 	#define USE_ANDROID_JNI							1
 #endif
+#ifndef USE_ANDROID_AUDIO
+	#define USE_ANDROID_AUDIO						1
+#endif
 #ifndef USE_ANDROID_FILE
 	#define USE_ANDROID_FILE						1
 #endif

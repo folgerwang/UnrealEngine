@@ -562,7 +562,7 @@ void UBlendSpaceBase::GetAnimationPose(TArray<FBlendSampleData>& BlendSampleData
 				const float Time = FMath::Clamp<float>(BlendSampleDataCache[I].Time, 0.f, Sample.Animation->SequenceLength);
 
 				// first one always fills up the source one
-Sample.Animation->GetAnimationPose(Pose, ChildrenCurves[I], FAnimExtractContext(Time, true));
+				Sample.Animation->GetAnimationPose(Pose, ChildrenCurves[I], FAnimExtractContext(Time, true));
 			}
 			else
 			{
@@ -1283,3 +1283,8 @@ void UBlendSpaceBase::UpdateBlendSpacesUsingAnimSequence(UAnimSequenceBase* Sequ
 }
 
 #endif // WITH_EDITOR
+
+TArray<FName>* UBlendSpaceBase::GetUniqueMarkerNames()
+{
+	return (SampleIndexWithMarkers != INDEX_NONE && SampleData.Num() > 0) ? SampleData[SampleIndexWithMarkers].Animation->GetUniqueMarkerNames() : nullptr;
+}

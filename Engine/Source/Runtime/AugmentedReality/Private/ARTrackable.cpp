@@ -50,6 +50,16 @@ EARTrackingState UARTrackedGeometry::GetTrackingState() const
 	return TrackingState;
 }
 
+bool UARTrackedGeometry::IsTracked() const
+{
+	return TrackingState == EARTrackingState::Tracking;
+}
+
+void UARTrackedGeometry::SetTrackingState(EARTrackingState NewState)
+{
+	TrackingState = NewState;
+}
+
 FTransform UARTrackedGeometry::GetLocalToWorldTransform() const
 {
 	return GetLocalToTrackingTransform() * GetARSystem()->GetTrackingToWorldTransform();

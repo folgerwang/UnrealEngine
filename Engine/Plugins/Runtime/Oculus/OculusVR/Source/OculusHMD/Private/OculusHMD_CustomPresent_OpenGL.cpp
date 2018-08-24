@@ -25,14 +25,26 @@ public:
 	FOpenGLCustomPresent(FOculusHMD* InOculusHMD);
 
 	// Implementation of FCustomPresent, called by Plugin itself
+	virtual int GetLayerFlags() const override;
 	virtual FTextureRHIRef CreateTexture_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, ovrpTextureHandle InTexture, uint32 InTexCreateFlags) override;
 	virtual void AliasTextureResources_RHIThread(FTextureRHIParamRef DestTexture, FTextureRHIParamRef SrcTexture) override;
+	virtual void SubmitGPUFrameTime(float GPUFrameTime) override;
 };
 
 
 FOpenGLCustomPresent::FOpenGLCustomPresent(FOculusHMD* InOculusHMD) :
 	FCustomPresent(InOculusHMD, ovrpRenderAPI_OpenGL, PF_R8G8B8A8, true, false)
 {
+}
+
+
+int FOpenGLCustomPresent::GetLayerFlags() const
+{
+#if PLATFORM_ANDROID
+	return ovrpLayerFlag_TextureOriginAtBottomLeft;
+#else
+	return 0;
+#endif
 }
 
 
@@ -65,6 +77,12 @@ void FOpenGLCustomPresent::AliasTextureResources_RHIThread(FTextureRHIParamRef D
 
 	FOpenGLDynamicRHI* DynamicRHI = static_cast<FOpenGLDynamicRHI*>(GDynamicRHI);
 	DynamicRHI->RHIAliasTextureResources(DestTexture, SrcTexture);
+}
+
+void FOpenGLCustomPresent::SubmitGPUFrameTime(float GPUFrameTime)
+{
+	FOpenGLDynamicRHI* DynamicRHI = static_cast<FOpenGLDynamicRHI*>(GDynamicRHI);
+	DynamicRHI->GetGPUProfilingData().ExternalGPUTime = GPUFrameTime * 1000;
 }
 
 

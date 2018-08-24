@@ -343,6 +343,10 @@ bool UAnimationAsset::ReplaceSkeleton(USkeleton* NewSkeleton, bool bConvertSpace
 		}
 
 		RemapTracksToNewSkeleton(NewSkeleton, bConvertSpaces);
+		if (UAnimSequence* Seq = Cast<UAnimSequence>(this))
+		{
+			Seq->PostProcessSequence(false);
+		}
 
 		PostEditChange();
 		MarkPackageDirty();

@@ -254,6 +254,8 @@ struct FOpenGLGPUProfiler : public FGPUProfiler
 	int32 NestedFrameCount;
 	bool bIntialized;
 
+	uint32 ExternalGPUTime;
+
 	/** GPU hitch profile histories */
 	TIndirectArray<FOpenGLEventNodeFrame> GPUHitchEventNodeFrames;
 
@@ -264,6 +266,7 @@ struct FOpenGLGPUProfiler : public FGPUProfiler
 	,	OpenGLRHI(InOpenGLRHI)
 	,	NestedFrameCount(0)
 	,	bIntialized(false)
+	,	ExternalGPUTime(0)
 	{
 	}
 
@@ -987,6 +990,10 @@ public:
 
 	FBoundShaderStateRHIRef RHICreateBoundShaderState_OnThisThread(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader);
 	void RHIPerFrameRHIFlushComplete();
+
+	FOpenGLGPUProfiler& GetGPUProfilingData() {
+		return GPUProfilingData;
+	}
 	
 private:
 

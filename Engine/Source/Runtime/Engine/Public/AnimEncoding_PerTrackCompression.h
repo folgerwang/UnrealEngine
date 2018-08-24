@@ -42,15 +42,13 @@ public:
 	 * Extracts a single BoneAtom from an Animation Sequence.
 	 *
 	 * @param	OutAtom			The BoneAtom to fill with the extracted result.
-	 * @param	Seq				An Animation Sequence to extract the BoneAtom from.
+	 * @param	DecompContext	The decompression context to use.
 	 * @param	TrackIndex		The index of the track desired in the Animation Sequence.
-	 * @param	Time			The time (in seconds) to calculate the BoneAtom for.
 	 */
 	virtual void GetBoneAtom(
 		FTransform& OutAtom,
-		const UAnimSequence& Seq,
-		int32 TrackIndex,
-		float Time) override;
+		FAnimSequenceDecompressionContext& DecompContext,
+		int32 TrackIndex) override;
 
 #if USE_ANIMATION_CODEC_BATCH_SOLVER
 
@@ -59,45 +57,41 @@ public:
 	 *
 	 * @param	Atoms			The FTransform array to fill in.
 	 * @param	DesiredPairs	Array of requested bone information
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Time			Current time to solve for.
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
 	 */
-	virtual void GetPoseRotations(	
-		FTransformArray& Atoms, 
+	virtual void GetPoseRotations(
+		FTransformArray& Atoms,
 		const BoneTrackArray& DesiredPairs,
-		const UAnimSequence& Seq,
-		float Time) override;
+		FAnimSequenceDecompressionContext& DecompContext) override;
 
 	/**
 	 * Decompress all requested translation components from an Animation Sequence
 	 *
 	 * @param	Atoms			The FTransform array to fill in.
 	 * @param	DesiredPairs	Array of requested bone information
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Time			Current time to solve for.
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
 	 */
-	virtual void GetPoseTranslations(	
-		FTransformArray& Atoms, 
+	virtual void GetPoseTranslations(
+		FTransformArray& Atoms,
 		const BoneTrackArray& DesiredPairs,
-		const UAnimSequence& Seq,
-		float Time) override;
+		FAnimSequenceDecompressionContext& DecompContext) override;
 
 	/**
 	 * Decompress all requested Scale components from an Animation Sequence
 	 *
 	 * @param	Atoms			The FTransform array to fill in.
 	 * @param	DesiredPairs	Array of requested bone information
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Time			Current time to solve for.
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
 	 */
-	virtual void GetPoseScales(	
-		FTransformArray& Atoms, 
+	virtual void GetPoseScales(
+		FTransformArray& Atoms,
 		const BoneTrackArray& DesiredPairs,
-		const UAnimSequence& Seq,
-		float Time) override;
+		FAnimSequenceDecompressionContext& DecompContext) override;
+#endif
+
+#if USE_SEGMENTING_CONTEXT
+	virtual void CreateEncodingContext(FAnimSequenceDecompressionContext& DecompContext) override;
+	virtual void ReleaseEncodingContext(FAnimSequenceDecompressionContext& DecompContext) override;
 #endif
 
 protected:
@@ -123,54 +117,55 @@ protected:
 	 * Decompress the Rotation component of a BoneAtom
 	 *
 	 * @param	OutAtom			The FTransform to fill in.
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Stream			The compressed animation data.
-	 * @param	NumKeys			The number of keys present in Stream.
-	 * @param	Time			Current time to solve for.
-	 * @param	RelativePos		Current position within the animation to solve for in the range [0.0,1.0].
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
+	 * @param	TrackIndex		The index of the track desired in the Animation Sequence.
 	 */
-	static void GetBoneAtomRotation(	
+	static void GetBoneAtomRotation(
 		FTransform& OutAtom,
-		const UAnimSequence& Seq,
-		int32 Offset,
-		float Time,
-		float RelativePos);
+		FAnimSequenceDecompressionContext& DecompContext,
+		int32 TrackIndex);
 
 	/**
 	 * Decompress the Translation component of a BoneAtom
 	 *
 	 * @param	OutAtom			The FTransform to fill in.
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Stream			The compressed animation data.
-	 * @param	NumKeys			The number of keys present in Stream.
-	 * @param	Time			Current time to solve for.
-	 * @param	RelativePos		Current position within the animation to solve for in the range [0.0,1.0].
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
+	 * @param	TrackIndex		The index of the track desired in the Animation Sequence.
 	 */
-	static void GetBoneAtomTranslation(	
+	static void GetBoneAtomTranslation(
 		FTransform& OutAtom,
-		const UAnimSequence& Seq,
-		int32 Offset,
-		float Time,
-		float RelativePos);
+		FAnimSequenceDecompressionContext& DecompContext,
+		int32 TrackIndex);
 
 	/**
 	 * Decompress the Scale component of a BoneAtom
 	 *
 	 * @param	OutAtom			The FTransform to fill in.
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Stream			The compressed animation data.
-	 * @param	NumKeys			The number of keys present in Stream.
-	 * @param	Time			Current time to solve for.
-	 * @param	RelativePos		Current position within the animation to solve for in the range [0.0,1.0].
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
+	 * @param	TrackIndex		The index of the track desired in the Animation Sequence.
 	 */
-	static void GetBoneAtomScale(	
+	static void GetBoneAtomScale(
 		FTransform& OutAtom,
-		const UAnimSequence& Seq,
-		int32 Offset,
-		float Time,
-		float RelativePos);
+		FAnimSequenceDecompressionContext& DecompContext,
+		int32 TrackIndex);
 };
 
+/**
+ * Structure to wrap per track flags.
+ */
+struct FPerTrackFlags
+{
+	constexpr explicit FPerTrackFlags(uint8 InFlags) : Flags(InFlags) {}
+	FPerTrackFlags(bool bHasTimeMarkers, AnimationCompressionFormat Format, uint8 FormatFlags)
+		: Flags((bHasTimeMarkers ? 0x80 : 0) | (FormatFlags << 4) | (uint8)Format)
+	{
+		check((FormatFlags & ~0x7) == 0);
+		check(((uint8)Format & ~0xF) == 0);
+	}
+
+	constexpr bool IsUniform() const { return (Flags & 0x80) == 0; }
+	constexpr uint8 GetFormatFlags() const { return (Flags >> 4) & 0x7; }
+	constexpr uint8 GetFormat() const { return Flags & 0xF; }
+
+	uint8 Flags;
+};

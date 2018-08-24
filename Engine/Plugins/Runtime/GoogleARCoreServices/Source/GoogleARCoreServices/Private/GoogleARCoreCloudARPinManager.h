@@ -24,7 +24,7 @@ public:
 	virtual UCloudARPin* CreateAndHostCloudARPin(UARPin* PinToHost, EARPinCloudTaskResult& OutTaskResult);
 
 	// Start a background task to create a new CloudARPin and resolve it from the CloudID.
-	virtual UCloudARPin* ResolveAncCreateCloudARPin(FString CloudID, EARPinCloudTaskResult& OutTaskResult);
+	virtual UCloudARPin* ResolveAndCreateCloudARPin(FString CloudID, EARPinCloudTaskResult& OutTaskResult);
 
 	virtual void RemoveCloudARPin(UCloudARPin* PinToRemove);
 
