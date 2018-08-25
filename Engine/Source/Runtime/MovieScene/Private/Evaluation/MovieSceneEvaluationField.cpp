@@ -3,93 +3,10 @@
 #include "Evaluation/MovieSceneEvaluationField.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "Evaluation/MovieSceneSequenceTemplateStore.h"
-#include "Evaluation/MovieSceneEvaluationTree.h"
-#include "Compilation/MovieSceneCompiler.h"
 #include "MovieSceneCommonHelpers.h"
 #include "Algo/Sort.h"
 
 #include "MovieSceneSequence.h"
-
-TRange<int32> FMovieSceneEvaluationField::ConditionallyCompileRange(const TRange<FFrameNumber>& InRange, UMovieSceneSequence* InSequence, IMovieSceneSequenceTemplateStore& TemplateStore)
-{
-	check(InSequence);
-
-	// First off, attempt to find the evaluation group in the existing evaluation field data from the template
-	TRange<int32> OverlappingFieldEntries = OverlapRange(InRange);
-	int32 EvalFieldStartIndex = OverlappingFieldEntries.GetLowerBoundValue();
-	int32 EvalFieldEndIndex   = OverlappingFieldEntries.GetUpperBoundValue();
-
-	bool bIsDirty = OverlappingFieldEntries.IsEmpty();
-
-	const FMovieSceneSequenceHierarchy& RootHierarchy = TemplateStore.AccessTemplate(*InSequence).Hierarchy;
-
-	TArray<TRange<FFrameNumber>, TInlineAllocator<8>> RangesToInvalidate;
-	for (int32 Index = EvalFieldStartIndex; Index < EvalFieldEndIndex; ++Index)
-	{
-		const TRange<FFrameNumber>& ThisRange = Ranges[Index].Value;
-
-		// Check for gaps between the entries.
-		if (Index == EvalFieldStartIndex)
-		{
-			// If the first overlapping range starts after InRange's lower bound, there must be a gap before it
-			if (TRangeBound<FFrameNumber>::MinLower(ThisRange.GetLowerBound(), InRange.GetLowerBound()) != ThisRange.GetLowerBound())
-			{
-				bIsDirty = true;
-			}
-		}
-		if (Index == EvalFieldEndIndex - 1)
-		{
-			// If the last overlapping range ends before InRange's upper bound, there must be a gap after it
-			if (TRangeBound<FFrameNumber>::MaxUpper(ThisRange.GetUpperBound(), InRange.GetUpperBound()) != ThisRange.GetUpperBound())
-			{
-				bIsDirty = true;
-			}
-		}
-
-		// If adjacent ranges are not contiguous, we have a gap
-		if (Index > EvalFieldStartIndex && Ranges.IsValidIndex(Index-1) && !Ranges[Index-1].Value.Adjoins(ThisRange))
-		{
-			bIsDirty = true;
-		}
-
-		// Verify that this field entry is still valid (all its cached signatures are still the same)
-		TRange<FFrameNumber> InvalidatedSubSequenceRange = TRange<FFrameNumber>::Empty();
-		if (MetaData[Index].IsDirty(RootHierarchy, TemplateStore, &InvalidatedSubSequenceRange))
-		{
-			bIsDirty = true;
-
-			if (!InvalidatedSubSequenceRange.IsEmpty())
-			{
-				// Invalidate this evaluation field
-				RangesToInvalidate.Add(InvalidatedSubSequenceRange);
-			}
-		}
-	}
-
-	// Invalidate any areas in the evaluation field that are now out of date
-	for (const TRange<FFrameNumber>& Range : RangesToInvalidate)
-	{
-		Invalidate(Range);
-	}
-
-	if (bIsDirty)
-	{
-		// We need to compile an entry in the evaluation field
-		static bool bFullCompile = false;
- 		if (bFullCompile)
-		{
-			FMovieSceneCompiler::Compile(*InSequence, TemplateStore);
-		}
-		else
-		{
-			FMovieSceneCompiler::CompileRange(InRange, *InSequence, TemplateStore);
-		}
-
-		return OverlapRange(InRange);
-	}
-
-	return OverlappingFieldEntries;
-}
 
 int32 FMovieSceneEvaluationField::GetSegmentFromTime(FFrameNumber Time) const
 {
@@ -106,29 +23,29 @@ int32 FMovieSceneEvaluationField::GetSegmentFromTime(FFrameNumber Time) const
 	return INDEX_NONE;
 }
 
-TRange<int32> FMovieSceneEvaluationField::OverlapRange(const TRange<FFrameNumber>& Range) const
+TRange<int32> FMovieSceneEvaluationField::OverlapRange(TRange<FFrameNumber> Range) const
 {
-	if (Ranges.Num() == 0)
+	int32 StartIndex = 0, Num = 0;
+	for (int32 Index = 0; Index < Ranges.Num(); ++Index)
 	{
-		return TRange<int32>::Empty();
+		if (Ranges[Index].Value.Overlaps(Range))
+		{
+			if (Num == 0)
+			{
+				StartIndex = Index;
+			}
+			++Num;
+		}
+		else if (Num != 0)
+		{
+			break;
+		}
 	}
 
-	// Binary search the first lower bound that's greater than the input range's lower bound
-	int32 StartIndex = Algo::UpperBoundBy(Ranges, Range.GetLowerBound(), &FMovieSceneFrameRange::GetLowerBound, MovieSceneHelpers::SortLowerBounds);
-
-	// StartIndex is always <= Ranges.Num(). If the previous range overlaps the input range, include that
-	if (StartIndex > 0 && Ranges[StartIndex-1].Value.Overlaps(Range))
-	{
-		StartIndex = StartIndex - 1;
-	}
-
-	// Binary search the first lower bound that is greater than or equal to the input range's upper bound
-	int32 EndIndex = Range.GetUpperBound().IsOpen() ? Ranges.Num() : Algo::LowerBoundBy(Ranges, TRangeBound<FFrameNumber>::FlipInclusion(Range.GetUpperBound()), &FMovieSceneFrameRange::GetLowerBound, MovieSceneHelpers::SortLowerBounds);
-
-	return EndIndex - StartIndex > 0 ? TRange<int32>(StartIndex, EndIndex) : TRange<int32>::Empty();
+	return Num != 0 ? TRange<int32>(StartIndex, StartIndex + Num) : TRange<int32>::Empty();
 }
 
-void FMovieSceneEvaluationField::Invalidate(const TRange<FFrameNumber>& Range)
+void FMovieSceneEvaluationField::Invalidate(TRange<FFrameNumber> Range)
 {
 	TRange<int32> OverlappingRange = OverlapRange(Range);
 	if (!OverlappingRange.IsEmpty())
@@ -143,9 +60,32 @@ void FMovieSceneEvaluationField::Invalidate(const TRange<FFrameNumber>& Range)
 	}
 }
 
-int32 FMovieSceneEvaluationField::Insert(const TRange<FFrameNumber>& InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
+int32 FMovieSceneEvaluationField::Insert(FFrameNumber InsertTime, TRange<FFrameNumber> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
 {
-	const int32 InsertIndex = Algo::UpperBoundBy(Ranges, InRange.GetLowerBound(), &FMovieSceneFrameRange::GetLowerBound, MovieSceneHelpers::SortLowerBounds);
+	const int32 InsertIndex = Algo::UpperBoundBy(Ranges, TRangeBound<FFrameNumber>(InsertTime), &FMovieSceneFrameRange::GetLowerBound, MovieSceneHelpers::SortLowerBounds);
+
+	// Intersect the supplied range with the allowable space between adjacent existing ranges
+	TRange<FFrameNumber> InsertSpace(
+		Ranges.IsValidIndex(InsertIndex-1) ? TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex-1].GetUpperBound()) : TRangeBound<FFrameNumber>::Open(),
+		Ranges.IsValidIndex(InsertIndex  ) ? TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex  ].GetLowerBound()) : TRangeBound<FFrameNumber>::Open()
+		);
+
+	InRange = TRange<FFrameNumber>::Intersection(InRange, InsertSpace);
+
+	// @todo: Remove this code and enforce the check below outright when we have proper time representation
+	if (Ranges.IsValidIndex(InsertIndex  ) && Ranges[InsertIndex  ].Value.Overlaps(InRange))
+	{
+		InRange = TRange<FFrameNumber>(InRange.GetLowerBound(), TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex].Value.GetLowerBound()));
+	}
+	if (Ranges.IsValidIndex(InsertIndex-1) && Ranges[InsertIndex-1].Value.Overlaps(InRange))
+	{
+		InRange = TRange<FFrameNumber>(TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex-1].Value.GetUpperBound()), InRange.GetUpperBound());
+	}
+
+	if (!ensure(!InRange.IsEmpty()))
+	{
+		return INDEX_NONE;
+	}
 
 	const bool bOverlapping = 
 		(Ranges.IsValidIndex(InsertIndex  ) && Ranges[InsertIndex  ].Value.Overlaps(InRange)) ||
@@ -167,7 +107,7 @@ int32 FMovieSceneEvaluationField::Insert(const TRange<FFrameNumber>& InRange, FM
 	return InsertIndex;
 }
 
-void FMovieSceneEvaluationField::Add(const TRange<FFrameNumber>& InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
+void FMovieSceneEvaluationField::Add(TRange<FFrameNumber> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
 {
 	if (ensureAlwaysMsgf(!Ranges.Num() || !Ranges.Last().Value.Overlaps(InRange), TEXT("Attempting to add overlapping ranges to sequence evaluation field.")))
 	{

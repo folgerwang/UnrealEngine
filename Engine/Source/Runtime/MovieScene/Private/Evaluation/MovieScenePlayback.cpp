@@ -55,25 +55,6 @@ FMovieSceneEvaluationRange::FMovieSceneEvaluationRange(FFrameTime InCurrentTime,
 {
 }
 
-TRange<FFrameNumber> FMovieSceneEvaluationRange::GetTraversedFrameNumberRange() const
-{
-	TRange<FFrameNumber> FrameNumberRange;
-
-	if (!EvaluationRange.GetLowerBound().IsOpen())
-	{
-		FFrameNumber StartFrame = EvaluationRange.GetLowerBoundValue().FloorToFrame();
-		FrameNumberRange.SetLowerBound(TRangeBound<FFrameNumber>::Inclusive(StartFrame));
-	}
-
-	if (!EvaluationRange.GetUpperBound().IsOpen())
-	{
-		FFrameNumber EndFrame = EvaluationRange.GetUpperBoundValue().FloorToFrame() + 1;
-		FrameNumberRange.SetUpperBound(TRangeBound<FFrameNumber>::Exclusive(EndFrame));
-	}
-
-	return FrameNumberRange;
-}
-
 TRange<FFrameNumber> FMovieSceneEvaluationRange::TimeRangeToNumberRange(const TRange<FFrameTime>& InFrameTimeRange)
 {
 	TRange<FFrameNumber> FrameNumberRange;

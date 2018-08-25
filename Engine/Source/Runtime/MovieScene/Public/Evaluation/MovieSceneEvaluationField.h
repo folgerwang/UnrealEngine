@@ -220,16 +220,6 @@ struct FMovieSceneEvaluationField
 	GENERATED_BODY()
 
 	/**
-	 * Ensure that the evaluation field is up-to-date for the range encompassing at least the range specified, and return its entries
-	 *
-	 * @param OverlapRange	A range specifying the smallest set of times to ensure are compiled
-	 * @param InSequence	The sequence that this evaluation field relates to
-	 * @param TemplateStore	A template store that defines how to retrieve templates for the specified sequence
-	 * @return A range of indices for which GetRange() overlaps the specified OverlapRange, of the form [First, First+Num)
-	 */
-	MOVIESCENE_API TRange<int32> ConditionallyCompileRange(const TRange<FFrameNumber>& OverlapRange, UMovieSceneSequence* InSequence, IMovieSceneSequenceTemplateStore& TemplateStore);
-
-	/**
 	 * Efficiently find the entry that exists at the specified time, if any
 	 *
 	 * @param Time			The time at which to seach
@@ -241,9 +231,9 @@ struct FMovieSceneEvaluationField
 	 * Deduce the indices into Ranges and Groups that overlap with the specified time range
 	 *
 	 * @param Range			The range to overlap with our field
-	 * @return A range of indices for which GetRange() overlaps the specified Range, of the form [First, First+Num)
+	 * @return A range of indices into Ranges and Groups that overlap with the requested range
 	 */
-	MOVIESCENE_API TRange<int32> OverlapRange(const TRange<FFrameNumber>& Range) const;
+	MOVIESCENE_API TRange<int32> OverlapRange(TRange<FFrameNumber> Range) const;
 
 	/**
 	 * Invalidate a range in this field
@@ -251,17 +241,18 @@ struct FMovieSceneEvaluationField
 	 * @param Range			The range to overlap with our field
 	 * @return A range of indices into Ranges and Groups that overlap with the requested range
 	 */
-	MOVIESCENE_API void Invalidate(const TRange<FFrameNumber>& Range);
+	MOVIESCENE_API void Invalidate(TRange<FFrameNumber> Range);
 
 	/**
 	 * Insert a new range into this field
 	 *
+	 * @param InsertTime	The time at which to insert the range
 	 * @param InRange		The total range to insert to the field. Will potentially be intersected with preexisting adjacent ranges
 	 * @param InGroup		The group defining what should happen at this time
 	 * @param InMetaData	The meta-data defining efficient access to what happens in this frame
 	 * @return The index the entries were inserted at
 	 */
-	MOVIESCENE_API int32 Insert(const TRange<FFrameNumber>& InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData);
+	MOVIESCENE_API int32 Insert(FFrameNumber InsertTime, TRange<FFrameNumber> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData);
 
 	/**
 	 * Add the specified data to this field, assuming the specified range lies after any other entries
@@ -270,7 +261,7 @@ struct FMovieSceneEvaluationField
 	 * @param InGroup		The group defining what should happen at this time
 	 * @param InMetaData	The meta-data defining efficient access to what happens in this frame
 	 */
-	MOVIESCENE_API void Add(const TRange<FFrameNumber>& InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData);
+	MOVIESCENE_API void Add(TRange<FFrameNumber> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData);
 
 	/**
 	 * Access this field's signature
@@ -288,14 +279,6 @@ struct FMovieSceneEvaluationField
 	int32 Size() const
 	{
 		return Ranges.Num();
-	}
-
-	/**
-	 * Access this entire field's set of ranges
-	 */
-	TArrayView<const FMovieSceneFrameRange> GetRanges() const
-	{
-		return Ranges;
 	}
 
 	/**
