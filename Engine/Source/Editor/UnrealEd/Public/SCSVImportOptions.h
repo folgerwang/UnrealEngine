@@ -34,7 +34,7 @@ public:
 	SCSVImportOptions()
 		: bImport(false)
 		, SelectedImportType(ECSVImportType::ECSV_DataTable)
-		, SelectedStruct(NULL)
+		, SelectedStruct(nullptr)
 		{}
 
 	void Construct(const FArguments& InArgs);
