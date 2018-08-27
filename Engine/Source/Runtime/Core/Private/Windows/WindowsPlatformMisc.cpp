@@ -2602,8 +2602,8 @@ bool FWindowsPlatformMisc::QueryRegKey( const Windows::HKEY InKey, const TCHAR* 
 				char *Buffer = new char[Size];
 				if (RegQueryValueEx( Key, InValueName, NULL, NULL, (LPBYTE)Buffer, &Size ) == ERROR_SUCCESS)
 				{
-					OutData = FString( Size-1, (TCHAR*)Buffer );
-					OutData.TrimToNullTerminator();
+					const uint32 Length = (Size / sizeof(TCHAR)) - 1;
+					OutData = FString( Length, (TCHAR*)Buffer );
 					bSuccess = true;
 				}
 				delete [] Buffer;
