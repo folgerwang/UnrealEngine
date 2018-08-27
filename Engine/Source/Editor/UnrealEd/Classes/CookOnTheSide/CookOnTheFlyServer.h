@@ -22,6 +22,7 @@ class IPlugin;
 class IAssetRegistry;
 
 struct FPackageNameCache;
+struct FPackageTracker;
 
 enum class ECookInitializationFlags
 {
@@ -159,12 +160,6 @@ private:
 	int32 LastUpdateTick = 0;
 	int32 MaxPrecacheShaderJobs = 0;
 	void TickPrecacheObjectsForPlatforms(const float TimeSlice, const TArray<const ITargetPlatform*>& TargetPlatform);
-
-	// presave system
-	// call this to save packages which are in memory as cooked packages, useful when the editor is idle
-	// shouldn't consume additional resources
-	TArray<const ITargetPlatform*> PresaveTargetPlatforms;
-	void OpportunisticSaveInMemoryPackages();
 
 	//////////////////////////////////////////////////////////////////////////
 
@@ -348,7 +343,7 @@ public:
 	/**
 	* Get any packages which are in memory, these were probably required to be loaded because of the current package we are cooking, so we should probably cook them also
 	*/
-	void GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames) const;
+	TArray<UPackage*> GetUnsolicitedPackages(const TArray<FName>& TargetPlatformNames) const;
 
 	/**
 	* PostLoadPackageFixup
@@ -635,7 +630,7 @@ private:
 	 *  uses the timer to time slice, any packages not saved are requeued in the CookRequests list
 	 *  internal function should not be used externally Call Tick / RequestPackage to initiate
 	 * 
-	 * @param PackagesToSave packages requested save
+	 * @param PackageToSave main cooked package to save
 	 * @param TargetPlatformNames list of target platforms names that we want to save this package for
 	 * @param TargetPlatformsToCache list of target platforms that we want to cache uobjects for, might not be the same as the list of packages to save
 	 * @param Timer FCookerTimer struct which defines the timeslicing behavior 
@@ -643,17 +638,11 @@ private:
 	 * @param Result (in+out) used to modify the result of the operation and add any relevant flags
 	 * @return returns true if we saved all the packages false if we bailed early for any reason
 	 */
-	void SaveCookedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, struct FCookerTimer& Timer, int32 FirstUnsolicitedPackage, uint32& CookedPackageCount, uint32& Result);
+	void SaveCookedPackages(UPackage* PackageToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, struct FCookerTimer& Timer, uint32& CookedPackageCount, uint32& Result);
 
-	/**
-	 * Returns all packages which are found in memory which aren't cooked
-	 * @param PackagesToSave (in+out) filled with all packages in memory
-	 * @param TargetPlatformNames list of target platforms to find unsolicited packages for 
-	 * @param ContainsFullAssetGCClasses do these packages contain any of the assets which require a GC after cooking 
-	 *				(this is mostly historical for when objects like UWorld were global, almost nothing should require a GC to work correctly after being cooked anymore).
-	 */
-	void GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames);
-
+	/** Perform any special processing for freshly loaded packages 
+	  */
+	void ProcessUnsolicitedPackages();
 
 	/**
 	 * Loads a package and prepares it for cooking
@@ -913,9 +902,7 @@ private:
 	uint32		StatLoadedPackageCount = 0;
 	uint32		StatSavedPackageCount = 0;
 
-	struct FImpl;
-	FImpl*				Impl;
-
+	FPackageTracker*	PackageTracker;
 	FPackageNameCache*	PackageNameCache;
 
 	// temporary -- should eliminate the need for this. Only required right now because FullLoadAndSave 
