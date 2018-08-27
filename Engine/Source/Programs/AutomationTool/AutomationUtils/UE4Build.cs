@@ -300,35 +300,22 @@ namespace AutomationTool
 
 			PrepareUBT();
 
-			// let the platform determine when to use the manifest
-            bool UseManifest = Platform.GetPlatform(TargetPlatform).ShouldUseManifestForUBTBuilds(AddArgs);
-
-			BuildManifest Manifest = null;
-			if (UseManifest)
+			string UBTManifest = GetUBTManifest(UprojectPath, AddArgs);
+			CommandUtils.DeleteFile(UBTManifest);
+			using(TelemetryStopwatch PrepareManifestStopwatch = new TelemetryStopwatch("PrepareUBTManifest.{0}.{1}.{2}", TargetName, TargetPlatform.ToString(), Config))
 			{
-                string UBTManifest = GetUBTManifest(UprojectPath, AddArgs);
-
-				CommandUtils.DeleteFile(UBTManifest);
-				using(TelemetryStopwatch PrepareManifestStopwatch = new TelemetryStopwatch("PrepareUBTManifest.{0}.{1}.{2}", TargetName, TargetPlatform.ToString(), Config))
-				{
-					CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: TargetPlatform, Config: Config, AdditionalArgs: AddArgs + " -generatemanifest");
-				}
-                Manifest = PrepareManifest(UBTManifest, false);
+				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: TargetPlatform, Config: Config, AdditionalArgs: AddArgs + " -generatemanifest");
 			}
+			BuildManifest Manifest = PrepareManifest(UBTManifest, false);
 
 			using(TelemetryStopwatch CompileStopwatch = new TelemetryStopwatch("Compile.{0}.{1}.{2}", TargetName, TargetPlatform.ToString(), Config))
 			{
 				CommandUtils.RunUBT(CommandUtils.CmdEnv, UBTExecutable: UBTExecutable, Project: UprojectPath, Target: TargetName, Platform: TargetPlatform, Config: Config, AdditionalArgs: AddArgs);
 			}
 
-			if (UseManifest)
-			{
-                string UBTManifest = GetUBTManifest(UprojectPath, AddArgs);
+			AddBuildProductsFromManifest(UBTManifest);
+			CommandUtils.DeleteFile(UBTManifest);
 
-				AddBuildProductsFromManifest(UBTManifest);
-
-				CommandUtils.DeleteFile(UBTManifest);
-			}
 			return Manifest;
 		}
 
