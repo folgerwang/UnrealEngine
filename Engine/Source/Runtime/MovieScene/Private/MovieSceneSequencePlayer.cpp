@@ -88,19 +88,21 @@ void UMovieSceneSequencePlayer::PlayInternal()
 {
 	if (!IsPlaying() && Sequence && CanPlay())
 	{
-		// If at the end, rewind to the beginning to restart playback
-		if (bReversePlayback)
+		float PlayRate = bReversePlayback ? -PlaybackSettings.PlayRate : PlaybackSettings.PlayRate;
+
+		// If at the end and playing forwards, rewind to beginning
+		if (GetCurrentTime().Time == GetLastValidTime())
 		{
-			if (GetCurrentTime().Time == FFrameTime(StartTime))
-			{
-				JumpToFrame(GetLastValidTime());
-			}
-		}
-		else
-		{
-			if (GetCurrentTime().Time == GetLastValidTime())
+			if (PlayRate > 0.f)
 			{
 				JumpToFrame(FFrameTime(StartTime));
+			}
+		}
+		else if (GetCurrentTime().Time == FFrameTime(StartTime))
+		{
+			if (PlayRate < 0.f)
+			{
+				JumpToFrame(GetLastValidTime());
 			}
 		}
 
