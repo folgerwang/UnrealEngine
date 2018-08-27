@@ -1216,7 +1216,7 @@ struct FPackageTracker : public FUObjectArray::FUObjectCreateListener, public FU
 
 	virtual void NotifyUObjectCreated(const class UObjectBase *Object, int32 Index) override
 	{
-		if (Object->GetClass()->IsChildOf(UPackage::StaticClass()))
+		if (Object->GetClass() == UPackage::StaticClass())
 		{
 			auto Package = const_cast<UPackage*>(static_cast<const UPackage*>(Object));
 
@@ -1232,7 +1232,7 @@ struct FPackageTracker : public FUObjectArray::FUObjectCreateListener, public FU
 
 	virtual void NotifyUObjectDeleted(const class UObjectBase *Object, int32 Index) override
 	{
-		if (Object->GetClass()->IsChildOf(UPackage::StaticClass()))
+		if (Object->GetClass() == UPackage::StaticClass())
 		{
 			auto Package = const_cast<UPackage*>(static_cast<const UPackage*>(Object));
 
