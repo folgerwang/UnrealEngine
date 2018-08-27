@@ -492,13 +492,6 @@ void UNiagaraComponent::Activate(bool bReset /* = false */)
 		return;
 	}
 
-	if (IsSwitchPlatform(GMaxRHIShaderPlatform))
-	{
-		UE_LOG(LogNiagara, Warning, TEXT("Failed to activate Niagara component as Niagara is not yet supported on this platform: %s"), *LegacyShaderPlatformToShaderFormat(GMaxRHIShaderPlatform).ToString());
-		OnSystemComplete();
-		return;
-	}
-
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraComponentActivate);
 	if (Asset == nullptr)
 	{

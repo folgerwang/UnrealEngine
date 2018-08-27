@@ -249,6 +249,7 @@ void NiagaraEmitterInstanceBatcher::Run(const FNiagaraComputeExecutionContext *C
 
 	FNiagaraDataSet *DataSet = Context->MainDataSet;
 	const FNiagaraParameterStore& ParameterStore = Context->CombinedParamStore;
+	const FRHIUniformBufferLayout& CBufferLayout = Context->CBufferLayout;
 	const TArray<uint8, TAlignedHeapAllocator<16>> &Params = Context->ParamData_RT;
 	const FRWBuffer &WriteIndexBuffer = DataSet->GetCurDataSetIndices();
 	FRWBuffer &ReadIndexBuffer = DataSet->GetPrevDataSetIndices();
@@ -309,13 +310,11 @@ void NiagaraEmitterInstanceBatcher::Run(const FNiagaraComputeExecutionContext *C
 	}
 
 	// setup script parameters
-	FRHIUniformBufferLayout CBufferLayout(TEXT("Niagara Compute Sim CBuffer"));
-	CBufferLayout.ConstantBufferSize = Params.Num();
 	if (CBufferLayout.ConstantBufferSize)
 	{
 		check(CBufferLayout.Resources.Num() == 0);
 		const uint8* ParamData = Params.GetData();
-		FUniformBufferRHIRef CBuffer = RHICreateUniformBuffer(ParamData, CBufferLayout, EUniformBufferUsage::UniformBuffer_MultiFrame);
+		FUniformBufferRHIRef CBuffer = RHICreateUniformBuffer(ParamData, CBufferLayout, EUniformBufferUsage::UniformBuffer_SingleDraw);
 		RHICmdList.SetShaderUniformBuffer(Shader->GetComputeShader(), Shader->EmitterConstantBufferParam.GetBaseIndex(), CBuffer);
 	}
 
