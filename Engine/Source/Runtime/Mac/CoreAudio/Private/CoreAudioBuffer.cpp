@@ -232,6 +232,8 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreatePreviewBuffer( FCoreAudioDev
 	// Create new buffer.
 	Buffer = new FCoreAudioSoundBuffer( CoreAudioDevice, SoundFormat_PCMPreview );
 	
+	check(!Wave->RawPCMData || Wave->RawPCMDataSize);
+
 	// Take ownership the PCM data
 	Buffer->PCMData = Wave->RawPCMData;
 	Buffer->PCMDataSize = Wave->RawPCMDataSize;
@@ -259,6 +261,8 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateNativeBuffer( FCoreAudioDevi
 {
 	// Create new buffer.
 	FCoreAudioSoundBuffer* Buffer = new FCoreAudioSoundBuffer( CoreAudioDevice, SoundFormat_PCM );
+
+	check(!Wave->RawPCMData || Wave->RawPCMDataSize);
 
 	// Take ownership the PCM data
 	Buffer->PCMData = Wave->RawPCMData;

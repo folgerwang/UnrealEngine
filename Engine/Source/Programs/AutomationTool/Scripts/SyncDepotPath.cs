@@ -55,7 +55,7 @@ namespace AutomationTool
 			try
 			{
 				P4Connection Perforce = new P4Connection(P4Env.User, ClientName);
-				Perforce.Sync("//...");
+				Perforce.Sync("-f //...");
 			}
 			finally
 			{

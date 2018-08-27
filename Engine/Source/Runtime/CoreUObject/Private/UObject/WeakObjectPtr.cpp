@@ -99,22 +99,5 @@ UObject* FWeakObjectPtr::GetEvenIfUnreachable() const
 
 void FWeakObjectPtr::Serialize(FArchive& Ar)
 {
-	// NOTE: When changing this function, make sure to update the SavePackage.cpp version in the import and export tagger.
-
-	// We never serialize our reference while the garbage collector is harvesting references
-	// to objects, because we don't want weak object pointers to keep objects from being garbage
-	// collected.  That would defeat the whole purpose of a weak object pointer!
-	// However, when modifying both kinds of references we want to serialize and writeback the updated value.
-	if (!Ar.IsObjectReferenceCollector() || Ar.IsModifyingWeakAndStrongReferences())
-	{
-		UObject* Object = Get(true);
-
-		Ar << Object;
-
-		if (Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences())
-		{
-			*this = Object;
-		}
-	}
+	FArchiveUObject::SerializeWeakObjectPtr(Ar, *this);
 }
-

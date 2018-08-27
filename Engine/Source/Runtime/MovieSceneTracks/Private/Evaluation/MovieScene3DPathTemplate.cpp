@@ -146,15 +146,21 @@ struct F3DPathExecutionToken
 		UObject* ParentObject = Objects[0].Get();
 		AActor* Actor = Cast<AActor>(ParentObject);
 
-		TArray<USplineComponent*> SplineComponents;
-		Actor->GetComponents(SplineComponents);
+		USplineComponent* SplineComponent = nullptr;
 
-		if (!SplineComponents.Num())
+		for (UActorComponent* Component : Actor->GetComponents())
+		{
+			SplineComponent = Cast<USplineComponent>(Component);
+			if (SplineComponent)
+			{
+				break;
+			}
+		}
+
+		if (SplineComponent == nullptr)
 		{
 			return;
 		}
-
-		USplineComponent* SplineComponent = SplineComponents[0];
 
 		for (TWeakObjectPtr<> Object : Player.FindBoundObjects(Operand))
 		{

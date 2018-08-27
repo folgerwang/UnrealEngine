@@ -137,6 +137,18 @@ void UOculusFunctionLibrary::SetCPUAndGPULevels(int CPULevel, int GPULevel)
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
 }
 
+void UOculusFunctionLibrary::SetReorientHMDOnControllerRecenter(bool recenterMode)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr && OculusHMD->IsHMDActive())
+	{
+		ovrpBool ovrpBoolRecenter = recenterMode ? ovrpBool_True : ovrpBool_False;
+		ovrp_SetReorientHMDOnControllerRecenter(ovrpBoolRecenter);
+	}
+#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+}
+
 bool UOculusFunctionLibrary::GetUserProfile(FHmdUserProfile& Profile)
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
@@ -451,6 +463,22 @@ void UOculusFunctionLibrary::GetGPUUtilization(bool& IsGPUAvailable, float& GPUU
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
 }
 
+float UOculusFunctionLibrary::GetGPUFrameTime()
+{
+	float frameTime = 0;
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	const OculusHMD::FOculusHMD* const OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		if (OVRP_SUCCESS(ovrp_GetGPUFrameTime(&frameTime)))
+		{
+			return frameTime;
+		}
+	}
+#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	return 0.0f;
+}
+
 void UOculusFunctionLibrary::SetTiledMultiresLevel(ETiledMultiResLevel level)
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
@@ -540,6 +568,30 @@ void UOculusFunctionLibrary::SetDisplayFrequency(float RequestedFrequency)
 #endif
 }
 
+void UOculusFunctionLibrary::EnablePositionTracking(bool bPositionTracking)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrp_SetTrackingPositionEnabled2(bPositionTracking);
+	}
+#endif
+}
+
+
+void UOculusFunctionLibrary::EnableOrientationTracking(bool bOrientationTracking)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrp_SetTrackingOrientationEnabled2(bOrientationTracking);
+	}
+#endif
+}
+
+
 class IStereoLayers* UOculusFunctionLibrary::GetStereoLayers()
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
@@ -552,121 +604,180 @@ class IStereoLayers* UOculusFunctionLibrary::GetStereoLayers()
 	return nullptr;
 }
 
-DEFINE_FUNCTION(UOculusFunctionLibrary::execIsPowerLevelStateMinimum)
+/** Helper that converts EBoundaryType to ovrpBoundaryType */
+static ovrpBoundaryType ToOvrpBoundaryType(EBoundaryType Source)
 {
-	P_FINISH;
+	switch (Source)
+	{
+	case EBoundaryType::Boundary_PlayArea:
+		return ovrpBoundary_PlayArea;
 
-	FBlueprintExceptionInfo ExceptionInfo(
-		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("IsPowerLevelStateMinimum")))
-	);
-	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
-
-	P_NATIVE_BEGIN;
-	*(bool*)Z_Param__Result = false;
-	P_NATIVE_END;
+	case EBoundaryType::Boundary_Outer:
+	default:
+		return ovrpBoundary_Outer;
+	}
 }
 
-DEFINE_FUNCTION(UOculusFunctionLibrary::execIsPowerLevelStateThrottled)
+bool UOculusFunctionLibrary::IsGuardianDisplayed()
 {
-	P_FINISH;
-
-	FBlueprintExceptionInfo ExceptionInfo(
-		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("IsPowerLevelStateThrottled")))
-	);
-	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
-
-	P_NATIVE_BEGIN;
-	*(bool*)Z_Param__Result = false;
-	P_NATIVE_END;
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrpBool boundaryVisible;
+		return OVRP_SUCCESS(ovrp_GetBoundaryVisible2(&boundaryVisible)) && boundaryVisible;
+	}
+#endif
+	return false;
 }
 
-DEFINE_FUNCTION(UOculusFunctionLibrary::execAreHeadPhonesPluggedIn)
+TArray<FVector> UOculusFunctionLibrary::GetGuardianPoints(EBoundaryType BoundaryType)
 {
-	P_FINISH;
+	TArray<FVector> BoundaryPointList;
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrpBoundaryType obt = ToOvrpBoundaryType(BoundaryType);
+		int NumPoints = 0;
 
-	FBlueprintExceptionInfo ExceptionInfo(
-		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("AreHeadPhonesPluggedIn")))
-	);
-	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
+		if (OVRP_SUCCESS(ovrp_GetBoundaryGeometry3(obt, NULL, &NumPoints)))
+		{
+			//allocate points
+			const int BufferSize = NumPoints;
+			ovrpVector3f* BoundaryPoints = new ovrpVector3f[BufferSize];
 
-	P_NATIVE_BEGIN;
-	*(bool*)Z_Param__Result = false;
-	P_NATIVE_END;
+			if (OVRP_SUCCESS(ovrp_GetBoundaryGeometry3(obt, BoundaryPoints, &NumPoints)))
+			{
+				NumPoints = FMath::Min(BufferSize, NumPoints);
+				check(NumPoints <= BufferSize); // For static analyzer
+				BoundaryPointList.Reserve(NumPoints);
+
+				for (int i = 0; i < NumPoints; i++)
+				{
+					FVector point = OculusHMD->ScaleAndMovePointWithPlayer(BoundaryPoints[i]);
+					BoundaryPointList.Add(point);
+				}
+			}
+
+			delete[] BoundaryPoints;
+		}
+	}
+#endif
+	return BoundaryPointList;
 }
 
-DEFINE_FUNCTION(UOculusFunctionLibrary::execGetTemperatureInCelsius)
+FVector UOculusFunctionLibrary::GetGuardianDimensions(EBoundaryType BoundaryType)
 {
-	P_FINISH;
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrpBoundaryType obt = ToOvrpBoundaryType(BoundaryType);
+		ovrpVector3f Dimensions;
 
-	FBlueprintExceptionInfo ExceptionInfo(
-		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("GetTemperatureInCelsius")))
-	);
-	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
+		if (OVRP_FAILURE(ovrp_GetBoundaryDimensions2(obt, &Dimensions)))
+			return FVector::ZeroVector;
 
-	P_NATIVE_BEGIN;
-	*(float*)Z_Param__Result = 0.f;
-	P_NATIVE_END;
+		Dimensions.z *= -1.0;
+		return OculusHMD->ConvertVector_M2U(Dimensions);
+	}
+#endif
+	return FVector::ZeroVector;
 }
 
-DEFINE_FUNCTION(UOculusFunctionLibrary::execGetBatteryLevel)
+FTransform UOculusFunctionLibrary::GetPlayAreaTransform()
 {
-	P_FINISH;
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		int NumPoints = 4;
+		ovrpVector3f BoundaryPoints[4];
 
-	FBlueprintExceptionInfo ExceptionInfo(
-		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("GetBatteryLevel")))
-	);
-	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
+		if (OVRP_SUCCESS(ovrp_GetBoundaryGeometry3(ovrpBoundary_PlayArea, BoundaryPoints, &NumPoints)))
+		{	
+			FVector ConvertedPoints[4];
 
-	P_NATIVE_BEGIN;
-	*(float*)Z_Param__Result = 0.f;
-	P_NATIVE_END;
+			for (int i = 0; i < NumPoints; i++)
+			{
+				ConvertedPoints[i] = OculusHMD->ScaleAndMovePointWithPlayer(BoundaryPoints[i]);
+			}
+
+			float metersScale = OculusHMD->GetWorldToMetersScale();
+
+			FQuat Rotation(FVector::UpVector, FMath::Acos((ConvertedPoints[1] - ConvertedPoints[0]).GetSafeNormal() | FVector::RightVector));
+			FVector Position = (ConvertedPoints[0] + ConvertedPoints[1] + ConvertedPoints[2] + ConvertedPoints[3]) / 4;
+			FVector Scale(FVector::Distance(ConvertedPoints[3], ConvertedPoints[0]) / metersScale, FVector::Distance(ConvertedPoints[1], ConvertedPoints[0]) / metersScale, 1.0);
+
+			return FTransform(Rotation, Position, Scale);
+		}
+	}
+#endif
+	return FTransform();
 }
 
-DEFINE_FUNCTION(UOculusFunctionLibrary::execGetGearVRControllerHandedness)
+FGuardianTestResult UOculusFunctionLibrary::GetPointGuardianIntersection(const FVector Point, EBoundaryType BoundaryType)
 {
-	P_FINISH;
+	FGuardianTestResult InteractionInfo;
+	memset(&InteractionInfo, 0, sizeof(FGuardianTestResult));
 
-	FBlueprintExceptionInfo ExceptionInfo(
-		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("GetGearVRControllerHandedness")))
-	);
-	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrpVector3f OvrpPoint = OculusHMD->WorldLocationToOculusPoint(Point);
+		ovrpBoundaryType OvrpBoundaryType = ToOvrpBoundaryType(BoundaryType);
+		ovrpBoundaryTestResult InteractionResult;
 
-	P_NATIVE_BEGIN;
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	*(EGearVRControllerHandedness_DEPRECATED*)Z_Param__Result = EGearVRControllerHandedness_DEPRECATED::Unknown_DEPRECATED;
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	P_NATIVE_END;
+		if (OVRP_SUCCESS(ovrp_TestBoundaryPoint2(OvrpPoint, OvrpBoundaryType, &InteractionResult)))
+		{
+			InteractionInfo.IsTriggering = (InteractionResult.IsTriggering != 0);
+			InteractionInfo.ClosestDistance = OculusHMD->ConvertFloat_M2U(InteractionResult.ClosestDistance);
+			InteractionInfo.ClosestPoint = OculusHMD->ScaleAndMovePointWithPlayer(InteractionResult.ClosestPoint);
+			InteractionInfo.ClosestPointNormal = OculusHMD->ConvertVector_M2U(InteractionResult.ClosestPointNormal);
+			InteractionInfo.DeviceType = ETrackedDeviceType::None;
+		}
+	}
+#endif
+
+	return InteractionInfo;
 }
 
-DEFINE_FUNCTION(UOculusFunctionLibrary::execEnableArmModel)
+FGuardianTestResult UOculusFunctionLibrary::GetNodeGuardianIntersection(ETrackedDeviceType DeviceType, EBoundaryType BoundaryType)
 {
-	P_GET_UBOOL(Z_Param_bArmModelEnable);
-	P_FINISH;
+	FGuardianTestResult InteractionInfo;
+	memset(&InteractionInfo, 0, sizeof(FGuardianTestResult));
 
-	FBlueprintExceptionInfo ExceptionInfo(
-		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("EnableArmModel")))
-	);
-	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrpNode OvrpNode = OculusHMD::ToOvrpNode(DeviceType);
+		ovrpBoundaryType OvrpBoundaryType = ToOvrpBoundaryType(BoundaryType);
+		ovrpBoundaryTestResult TestResult;
+
+		if (OVRP_SUCCESS(ovrp_TestBoundaryNode2(OvrpNode, ovrpBoundary_PlayArea, &TestResult)) && TestResult.IsTriggering)
+		{
+			InteractionInfo.IsTriggering = true;
+			InteractionInfo.DeviceType = OculusHMD::ToETrackedDeviceType(OvrpNode);
+			InteractionInfo.ClosestDistance = OculusHMD->ConvertFloat_M2U(TestResult.ClosestDistance);
+			InteractionInfo.ClosestPoint = OculusHMD->ScaleAndMovePointWithPlayer(TestResult.ClosestPoint);
+			InteractionInfo.ClosestPointNormal = OculusHMD->ConvertVector_M2U(TestResult.ClosestPointNormal);
+		}
+	}
+#endif
+
+	return InteractionInfo;
 }
 
-DEFINE_FUNCTION(UOculusFunctionLibrary::execIsControllerActive)
+void UOculusFunctionLibrary::SetGuardianVisibility(bool GuardianVisible)
 {
-	P_FINISH;
-
-	FBlueprintExceptionInfo ExceptionInfo(
-		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("IsControllerActive")))
-	);
-	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
-
-	P_NATIVE_BEGIN;
-	*(bool*)Z_Param__Result = false;
-	P_NATIVE_END;
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrp_SetBoundaryVisible2(GuardianVisible);
+	}
+#endif
 }

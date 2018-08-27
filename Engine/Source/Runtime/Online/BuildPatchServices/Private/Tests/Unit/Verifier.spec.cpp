@@ -7,6 +7,7 @@
 #include "Tests/Mock/VerifierStat.mock.h"
 #include "Tests/Mock/Manifest.mock.h"
 #include "Tests/Fake/FileSystem.fake.h"
+#include "Tests/Fake/InstallerError.fake.h"
 #include "Installer/Verifier.h"
 #include "BuildPatchVerify.h"
 #include "BuildPatchHash.h"
@@ -18,6 +19,7 @@ BEGIN_DEFINE_SPEC(FVerifierSpec, "BuildPatchServices.Unit", EAutomationTestFlags
 TUniquePtr<BuildPatchServices::IVerifier> Verifier;
 // Mock.
 TUniquePtr<BuildPatchServices::FFakeFileSystem> FakeFileSystem;
+TUniquePtr<BuildPatchServices::FFakeInstallerError> FakeInstallerError;
 TUniquePtr<BuildPatchServices::FMockVerifierStat> MockVerificationStat;
 BuildPatchServices::FMockManifestPtr MockManifest;
 // Data.
@@ -57,6 +59,7 @@ void FVerifierSpec::Define()
 	BeforeEach([this]()
 	{
 		FakeFileSystem.Reset(new FFakeFileSystem());
+		FakeInstallerError.Reset(new FFakeInstallerError());
 		MockVerificationStat.Reset(new FMockVerifierStat());
 		MockManifest = MakeShareable(new FMockManifest());
 		MakeFileData();
@@ -180,6 +183,117 @@ void FVerifierSpec::Define()
 					TEST_EQUAL(LoadedFiles(), AllFiles);
 				});
 			});
+
+			Describe("when there are multiple types of file errors", [this]()
+			{
+				Describe("when we are using SHA verify mode", [this]()
+				{
+					Describe("when the first error is a corruption", [this]()
+					{
+						BeforeEach([this]()
+						{
+							CorruptSomeFiles();
+							const FString LastFile = VerifyDirectory / SomeFiles.Array().Last();
+							FakeFileSystem->DiskData.Remove(LastFile);
+							MakeUnit(EVerifyMode::ShaVerifyAllFiles);
+						});
+
+						It("will return HashCheckFailed.", [this]()
+						{
+							EVerifyResult VerifyResult = Verifier->Verify(OutDatedFiles);
+							TEST_EQUAL(VerifyResult, EVerifyResult::HashCheckFailed);
+						});
+					});
+
+					Describe("the first error is missing file", [this]()
+					{
+						BeforeEach([this]()
+						{
+							CorruptSomeFiles();
+							const FString FirstFile = VerifyDirectory / *SomeFiles.CreateIterator();
+							FakeFileSystem->DiskData.Remove(FirstFile);
+							MakeUnit(EVerifyMode::ShaVerifyAllFiles);
+						});
+
+						It("will return FileMissing.", [this]()
+						{
+							EVerifyResult VerifyResult = Verifier->Verify(OutDatedFiles);
+							TEST_EQUAL(VerifyResult, EVerifyResult::FileMissing);
+						});
+					});
+
+					Describe("the first error is a file failed to open", [this]()
+					{
+						BeforeEach([this]()
+						{
+							CorruptSomeFiles();
+							const FString FirstFile = VerifyDirectory / *SomeFiles.CreateIterator();
+							FakeFileSystem->DiskDataOpenFailure.Add(FirstFile);
+							MakeUnit(EVerifyMode::ShaVerifyAllFiles);
+						});
+
+						It("will return OpenFileFailed.", [this]()
+						{
+							EVerifyResult VerifyResult = Verifier->Verify(OutDatedFiles);
+							TEST_EQUAL(VerifyResult, EVerifyResult::OpenFileFailed);
+						});
+					});
+
+					Describe("the first error is file was the wrong size", [this]()
+					{
+						BeforeEach([this]()
+						{
+							ResizeSomeFiles();
+							const FString LastFile = VerifyDirectory / SomeFiles.Array().Last();
+							FakeFileSystem->DiskData.Remove(LastFile);
+							MakeUnit(EVerifyMode::ShaVerifyAllFiles);
+						});
+
+						It("will return FileSizeFailed.", [this]()
+						{
+							EVerifyResult VerifyResult = Verifier->Verify(OutDatedFiles);
+							TEST_EQUAL(VerifyResult, EVerifyResult::FileSizeFailed);
+						});
+					});
+				});
+
+				Describe("when we are using file size verify mode", [this]()
+				{
+					Describe("the first error is missing file", [this]()
+					{
+						BeforeEach([this]()
+						{
+							ResizeSomeFiles();
+							const FString FirstFile = VerifyDirectory / *SomeFiles.CreateIterator();
+							FakeFileSystem->DiskData.Remove(FirstFile);
+							MakeUnit(EVerifyMode::FileSizeCheckAllFiles);
+						});
+
+						It("will return FileMissing.", [this]()
+						{
+							EVerifyResult VerifyResult = Verifier->Verify(OutDatedFiles);
+							TEST_EQUAL(VerifyResult, EVerifyResult::FileMissing);
+						});
+					});
+
+					Describe("the first error is file was the wrong size", [this]()
+					{
+						BeforeEach([this]()
+						{
+							ResizeSomeFiles();
+							const FString LastFile = VerifyDirectory / SomeFiles.Array().Last();
+							FakeFileSystem->DiskData.Remove(LastFile);
+							MakeUnit(EVerifyMode::FileSizeCheckAllFiles);
+						});
+
+						It("will return FileSizeFailed.", [this]()
+						{
+							EVerifyResult VerifyResult = Verifier->Verify(OutDatedFiles);
+							TEST_EQUAL(VerifyResult, EVerifyResult::FileSizeFailed);
+						});
+					});
+				});
+			});
 		});
 
 		Describe("SetPaused", [this]()
@@ -195,7 +309,7 @@ void FVerifierSpec::Define()
 				It("should delay the verification process.", [this]()
 				{
 					const float PauseTime = 0.15f;
-					MockVerificationStat->OnFileCompletedFunc = [this, PauseTime](const FString&, bool)
+					MockVerificationStat->OnFileCompletedFunc = [this, PauseTime](const FString&, EVerifyResult)
 					{
 						if (!bHasPaused)
 						{
@@ -228,7 +342,7 @@ void FVerifierSpec::Define()
 				It("should delay the verification process.", [this]()
 				{
 					const float PauseTime = 0.15f;
-					MockVerificationStat->OnFileCompletedFunc = [this, PauseTime](const FString&, bool)
+					MockVerificationStat->OnFileCompletedFunc = [this, PauseTime](const FString&, EVerifyResult)
 					{
 						if (!bHasPaused)
 						{
@@ -263,12 +377,22 @@ void FVerifierSpec::Define()
 
 				It("should halt process and stop.", [this]()
 				{
-					MockVerificationStat->OnFileCompletedFunc = [this](const FString&, bool)
+					MockVerificationStat->OnFileCompletedFunc = [this](const FString&, EVerifyResult)
 					{
 						Verifier->Abort();
 					};
 					Verifier->Verify(OutDatedFiles);
 					TEST_TRUE(LoadedFiles().Num() < MockManifest->BuildFileList.Num());
+				});
+
+				It("should return aborted.", [this]()
+				{
+					MockVerificationStat->OnFileCompletedFunc = [this](const FString&, EVerifyResult)
+					{
+						Verifier->Abort();
+					};
+					EVerifyResult VerifyResult = Verifier->Verify(OutDatedFiles);
+					TEST_EQUAL(VerifyResult, EVerifyResult::Aborted);
 				});
 			});
 
@@ -282,12 +406,22 @@ void FVerifierSpec::Define()
 
 				It("should halt process and stop.", [this]()
 				{
-					MockVerificationStat->OnFileCompletedFunc = [this](const FString&, bool)
+					MockVerificationStat->OnFileCompletedFunc = [this](const FString&, EVerifyResult)
 					{
 						Verifier->Abort();
 					};
 					Verifier->Verify(OutDatedFiles);
 					TEST_TRUE(LoadedFiles().Num() < MockManifest->BuildFileList.Num());
+				});
+
+				It("should return aborted.", [this]()
+				{
+					MockVerificationStat->OnFileCompletedFunc = [this](const FString&, EVerifyResult)
+					{
+						Verifier->Abort();
+					};
+					EVerifyResult VerifyResult = Verifier->Verify(OutDatedFiles);
+					TEST_EQUAL(VerifyResult, EVerifyResult::Aborted);
 				});
 			});
 		});

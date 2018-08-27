@@ -12,7 +12,7 @@
 /** 
  * Flags describing the type and properties of this redirect
  */
-enum class ECoreRedirectFlags : int32
+enum class ECoreRedirectFlags : uint32
 {
 	None = 0,
 
@@ -24,11 +24,14 @@ enum class ECoreRedirectFlags : int32
 	Type_Function =			0x00000010, // UFunction
 	Type_Property =			0x00000020, // UProperty
 	Type_Package =			0x00000040, // UPackage
+	Type_AllMask =			0x0000FFFF, // Bit mask of all possible types
 
 	// Option flags, specify rules for this redirect
 	Option_InstanceOnly =	0x00010000, // Only redirect instances of this type, not the type itself
 	Option_Removed =		0x00020000, // This type was explicitly removed, new name isn't valid
 	Option_MatchSubstring = 0x00040000, // Does a slow substring match
+	Option_AllMask =		0xFFFF0000, // Bit mask of all possible options
+	Option_ExactMatchMask = Option_InstanceOnly | Option_Removed // These options must match exactly, substring is checked both ways
 };
 ENUM_CLASS_FLAGS(ECoreRedirectFlags);
 

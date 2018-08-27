@@ -1439,9 +1439,10 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 
 	// Dynamically load engine runtime modules
 	{
-		FModuleManager::Get().LoadModuleChecked(TEXT("StreamingPauseRendering"));
-		FModuleManager::Get().LoadModuleChecked(TEXT("MovieScene"));
-		FModuleManager::Get().LoadModuleChecked(TEXT("MovieSceneTracks"));
+		FModuleManager::Get().LoadModule("ImageWriteQueue");
+		FModuleManager::Get().LoadModuleChecked("StreamingPauseRendering");
+		FModuleManager::Get().LoadModuleChecked("MovieScene");
+		FModuleManager::Get().LoadModuleChecked("MovieSceneTracks");
 	}
 
 	// Finish asset manager loading
@@ -1978,16 +1979,16 @@ void UEngine::UpdateTimecode()
 	{
 		if (TimecodeProvider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized)
 		{
-			FApp::SetTimecode(TimecodeProvider->GetTimecode());
+			FApp::SetTimecodeAndFrameRate(TimecodeProvider->GetTimecode(), TimecodeProvider->GetFrameRate());
 		}
 		else
 		{
-			FApp::SetTimecode(FTimecode());
+			FApp::SetTimecodeAndFrameRate(FTimecode(), FFrameRate());
 		}
 	}
 	else
 	{
-		FApp::SetTimecode(UTimecodeProvider::GetSystemTimeTimecode(DefaultTimecodeFrameRate));
+		FApp::SetTimecodeAndFrameRate(UTimecodeProvider::GetSystemTimeTimecode(DefaultTimecodeFrameRate), DefaultTimecodeFrameRate);
 	}
 }
 
@@ -2104,12 +2105,12 @@ void InitializeTimecodeProvider(UEngine* InEngine, FSoftClassPath InTimecodeFram
 			UTimecodeProvider* NewTimecodeProvider = NewObject<UTimecodeProvider>(InEngine, TimecodeProviderClass);
 			if (!InEngine->SetTimecodeProvider(NewTimecodeProvider))
 			{
-				UE_LOG(LogEngine, Error, TEXT("Engine config TimecodeFrameRateClassName '%s' could not be initialized."), *InTimecodeFrameRateClassName.ToString());
+				UE_LOG(LogEngine, Error, TEXT("Engine config TimecodeProviderClassName '%s' could not be initialized."), *InTimecodeFrameRateClassName.ToString());
 			}
 		}
 		else
 		{
-			UE_LOG(LogEngine, Error, TEXT("Engine config value TimecodeFrameRateClassName '%s' is not a valid class name."), *InTimecodeFrameRateClassName.ToString());
+			UE_LOG(LogEngine, Error, TEXT("Engine config value TimecodeProviderClassName '%s' is not a valid class name."), *InTimecodeFrameRateClassName.ToString());
 		}
 	}
 }
@@ -2319,7 +2320,7 @@ void UEngine::InitializeObjectReferences()
 	}
 
 	InitializeCustomTimeStep(this, CustomTimeStepClassName);
-	InitializeTimecodeProvider(this, TimecodeFrameRateClassName);
+	InitializeTimecodeProvider(this, TimecodeProviderClassName);
 
 	if (GameSingleton == nullptr && GameSingletonClassName.ToString().Len() > 0)
 	{
@@ -2485,7 +2486,7 @@ bool UEngine::CanEditChange(const UProperty* InProperty) const
 
 	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UEngine, DefaultTimecodeFrameRate))
 	{
-		return !TimecodeFrameRateClassName.IsValid();
+		return !TimecodeProviderClassName.IsValid();
 	}
 
 	return true;
@@ -8435,8 +8436,7 @@ void UEngine::EnableScreenSaver( bool bEnable )
 		return;
 	}
 
-	TCHAR EnvVariable[32];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("UE-DisallowScreenSaverInhibitor"), EnvVariable, ARRAY_COUNT(EnvVariable));
+	FString EnvVariable = FPlatformMisc::GetEnvironmentVariable(TEXT("UE-DisallowScreenSaverInhibitor"));
 	const bool bDisallowScreenSaverInhibitor = FString(EnvVariable).ToBool();
 
 	// By default we allow to use screen saver inhibitor, but in some cases user can override this setting.
@@ -9502,6 +9502,8 @@ float DrawMapWarnings(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanv
 */
 float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas* CanvasObject, float MessageX, float MessageY)
 {
+	static TFrameValue<bool> HasUpdatedScreenDebugMessages;
+
 	int32 YPos = MessageY;
 	const int32 MaxYPos = CanvasObject ? CanvasObject->SizeY : 700;
 	if (GEngine->PriorityScreenMessages.Num() > 0)
@@ -9518,10 +9520,13 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+			if (!HasUpdatedScreenDebugMessages.IsSet())
 			{
-				GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
+				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+				{
+					GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
+				}
 			}
 		}
 	}
@@ -9541,13 +9546,19 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+			if (!HasUpdatedScreenDebugMessages.IsSet())
 			{
-				MsgIt.RemoveCurrent();
+				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+				{
+					MsgIt.RemoveCurrent();
+				}
 			}
 		}
 	}
+
+	// Flag variable that the update has already been done this frame
+	HasUpdatedScreenDebugMessages = true;
 
 	return MessageY;
 }
@@ -9576,14 +9587,13 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 		return;
 	}
 
-
 	float DPIScale = Canvas->GetDPIScale();
-
-	const FVector2D ScaledViewportSize = FVector2D(Viewport->GetSizeXY()) / DPIScale;
+	
+	FIntPoint TextureSize = Canvas->GetRenderTarget()->GetSizeXY();
 
 	//@todo joeg: Move this stuff to a function, make safe to use on consoles by
 	// respecting the various safe zones, and make it compile out.
-	const int32 FPSXOffset	= (GEngine->IsStereoscopic3D(Viewport)) ? ScaledViewportSize.X * 0.5f * 0.334f / DPIScale : (FPlatformProperties::SupportsWindowedMode() ? 110 : 250);
+	const int32 FPSXOffset	= (FPlatformProperties::SupportsWindowedMode() ? 110 : 250);
 	const int32 StatsXOffset = 100;// FPlatformProperties::SupportsWindowedMode() ? 4 : 100;
 
 	static const int32 MessageStartY = GIsEditor ? 35 : 100; // Account for safe frame
@@ -9594,7 +9604,7 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 #if !UE_BUILD_SHIPPING
 	if (!GIsHighResScreenshot && !GIsDumpingMovie && GAreScreenMessagesEnabled)
 	{
-		const int32 MessageX = (GEngine->IsStereoscopic3D(Viewport)) ? ScaledViewportSize.X * 0.5f * 0.3f : 40;
+		const int32 MessageX = 40;
 
 		FCanvasTextItem SmallTextItem(FVector2D(0, 0), FText::GetEmpty(), GEngine->GetSmallFont(), FLinearColor::White);
 		SmallTextItem.Scale = FontScale;
@@ -9614,7 +9624,7 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 			FText Text = LOCTEXT("VisLogRecordingActive", "VisLog recording active");
 			StringSize(GEngine->GetSmallFont(), XSize, YSize, *Text.ToString());
 
-			SmallTextItem.Position = FVector2D((int32)Viewport->GetSizeXY().X - XSize - 16, 36);
+			SmallTextItem.Position = FVector2D((int32)TextureSize.X - XSize - 16, 36);
 			SmallTextItem.Text = Text;
 			SmallTextItem.SetColor(FLinearColor::Red);
 			SmallTextItem.EnableShadow(FLinearColor::Black);
@@ -9725,8 +9735,8 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 #endif // UE_BUILD_SHIPPING 
 
 	{
-		int32 X = ((CanvasObject) ? CanvasObject->SizeX : Viewport->GetSizeXY().X) / Canvas->GetDPIScale() - FPSXOffset;
-		int32 Y = ((GEngine->IsStereoscopic3D(Viewport)) ? FMath::TruncToInt(Viewport->GetSizeXY().Y * 0.40f) : FMath::TruncToInt(Viewport->GetSizeXY().Y * 0.20f)) / Canvas->GetDPIScale();
+		int32 X = ((CanvasObject) ? CanvasObject->SizeX : TextureSize.X) / Canvas->GetDPIScale() - FPSXOffset;
+		int32 Y = FMath::TruncToInt(TextureSize.Y * 0.20f) / Canvas->GetDPIScale();
 
 		// give the viewport first shot at drawing stats
 		Y = Viewport->DrawStatsHUD(Canvas, X, Y);
@@ -9737,7 +9747,7 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 #if STATS
 		extern void RenderStats(FViewport* Viewport, class FCanvas* Canvas, int32 X, int32 Y, int32 SizeX);
 
-		int32 PixelSizeX = CanvasObject != nullptr ? CanvasObject->CachedDisplayWidth - CanvasObject->SafeZonePadX * 2 : Viewport->GetSizeXY().X;
+		int32 PixelSizeX = CanvasObject != nullptr ? CanvasObject->CachedDisplayWidth - CanvasObject->SafeZonePadX * 2 : TextureSize.X;
 
 		RenderStats( Viewport, Canvas, StatsXOffset, Y, FMath::FloorToInt(PixelSizeX / Canvas->GetDPIScale()));
 #endif
@@ -11663,7 +11673,7 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 			if (!MakeSureMapNameIsValid(Context.PendingNetGame->URL.Map))
 			{
 				BrowseToDefaultMap(Context);
-				BroadcastTravelFailure(Context.World(), ETravelFailure::PackageMissing, Context.PendingNetGame->URL.RedirectURL);
+				BroadcastTravelFailure(Context.World(), ETravelFailure::PackageMissing, Context.PendingNetGame->URL.Map);
 			}
 			else
 			{
@@ -13486,12 +13496,9 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	AActor* NewActor = Cast<AActor>(NewObject);
 	if (NewActor != nullptr)
 	{
-		TInlineComponentArray<UActorComponent*> Components;
-		NewActor->GetComponents(Components);
-
-		for(int32 i=0; i<Components.Num(); i++)
+		for (UActorComponent* Component : NewActor->GetComponents())
 		{
-			ensure(!Components[i]->IsRegistered());
+			ensure(Component == nullptr || !Component->IsRegistered());
 		}
 	}
 
@@ -14173,7 +14180,7 @@ int32 UEngine::RenderStatLevels(UWorld* World, FViewport* Viewport, FCanvas* Can
 		const FSubLevelStatus& LevelStatus = SubLevelsStatusList[LevelIdx];
 
 		// Wrap around at the bottom.
-		if (Y > Viewport->GetSizeXY().Y - 30)
+		if (Y > Canvas->GetRenderTarget()->GetSizeXY().Y - 30)
 		{
 			MaxY = FMath::Max(MaxY, Y);
 			Y = BaseY;

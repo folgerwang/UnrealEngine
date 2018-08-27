@@ -1,21 +1,15 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CameraCaptureComponent.h"
+#include "CameraCaptureRunnable.h"
+#include "MagicLeapHMD.h"
+#include "AppFramework.h"
+#include "AppEventHandler.h"
 #include "CoreMinimal.h"
-#include "HAL/Runnable.h"
-#include "HAL/RunnableThread.h"
-#include "HAL/ThreadSafeCounter64.h"
 #include "Engine/Texture2D.h"
 #include "Containers/Queue.h"
 #include "Containers/Array.h"
 #include "Lumin/LuminPlatformFile.h"
-#include "IImageWrapper.h"
-#include "IImageWrapperModule.h"
-#include "Modules/ModuleManager.h"
-#include "IMessageBus.h"
-#include "MessageEndpoint.h"
-#include "MessageEndpointBuilder.h"
-#include "AppEventHandler.h"
 #if PLATFORM_LUMIN
 #include "Lumin/LuminAffinity.h"
 #endif // PLATFORM_LUMIN
@@ -31,401 +25,110 @@ ML_INCLUDES_END
 
 DEFINE_LOG_CATEGORY(LogCameraCapture);
 
-enum CaptureMsgType
-{
-  Request,
-  Response,
-  Log
-};
-
-struct FCaptureMessage
-{
-  CaptureMsgType Type;
-#if WITH_MLSDK
-  MLCameraCaptureType CaptureType;
-#endif //WITH_MLSDK
-  FString Log;
-  FString FilePath;
-  bool Success;
-  UTexture2D* Texture;
-  float Duration;
-
-  FCaptureMessage()
-    : Type(CaptureMsgType::Request)
-#if WITH_MLSDK
-    , CaptureType(MLCameraCaptureType_Image)
-#endif //WITH_MLSDK
-    , Log("")
-    , Success(false)
-    , Texture(nullptr)
-    , Duration(0.0f)
-  {}
-};
-
-class FImageCaptureImpl : public FRunnable, public MagicLeap::IAppEventHandler
+class FCameraCaptureImpl : public MagicLeap::IAppEventHandler
 {
 public:
-  FImageCaptureImpl()
-    : Thread(nullptr)
-    , StopTaskCounter(0)
-    , Semaphore(nullptr)
-		, bCameraConnected(false)
-		, RetryConnectWaitTime(0.5f)
-#if WITH_MLSDK
-    , CameraOutput(nullptr)
-#endif //WITH_MLSDK
-    , ImgExtension(".jpeg")
-    , VidExtension(".mp4")
-  {
-    IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
-    ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::JPEG);	
-    Semaphore = FGenericPlatformProcess::GetSynchEventFromPool(false);
-#if PLATFORM_LUMIN
-    Thread = FRunnableThread::Create(this, TEXT("FCameraCaptureWorker"), 0, TPri_BelowNormal, FLuminAffinity::GetPoolThreadMask());
-#else
-    Thread = FRunnableThread::Create(this, TEXT("FCameraCaptureWorker"), 0, TPri_BelowNormal);
-#endif // PLATFORM_LUMIN
-  }
-
-  ~FImageCaptureImpl()
-  {
-    StopTaskCounter.Increment();
-
-	if (Semaphore)
+	FCameraCaptureImpl()
+	: bCapturing(false)
 	{
-    Semaphore->Trigger();
-    Thread->WaitForCompletion();
+#if PLATFORM_LUMIN
+		checkf(GEngine, TEXT("[FCameraCaptureImpl::FCameraCaptureImpl()] GEngine is null!"));
+		FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFramework();
+		checkf(AppFramework.IsInitialized(), TEXT("[FCameraCaptureImpl::FCameraCaptureImpl()] AppFramework not yet initialized!"));
+		CameraCaptureRunnable = AppFramework.GetCameraCaptureRunnable();
+#endif //PLATFORM_LUMIN
 	}
 
-    for (auto& CapturedTexture : CapturedTextures)
-    {
-      CapturedTexture->RemoveFromRoot();
-    }
-
-    if (Semaphore)
-    {
-      FGenericPlatformProcess::ReturnSynchEventToPool(Semaphore);
-      Semaphore = nullptr;
-    }
-
-    delete Thread;
-    Thread = nullptr;
-  }
-
-  virtual uint32 Run() override
-  {
-#if WITH_MLSDK
-	  while (StopTaskCounter.GetValue() == 0)
-	  {
-		  if (!bCameraConnected)
-		  {
-			  bCameraConnected = MLCameraConnect();
-			  if (bCameraConnected)
-			  {
-				  MLCameraDeviceStatusCallbacks deviceStatusCallbacks;
-				  FMemory::Memset(&deviceStatusCallbacks, 0, sizeof(MLCameraDeviceStatusCallbacks));
-				  deviceStatusCallbacks.on_preview_buffer_available = OnPreviewBufferAvailable;
-				  if (!MLCameraSetDeviceStatusCallbacks(&deviceStatusCallbacks, nullptr))
-				  {
-					  Log(TEXT("MLCameraSetDeviceStatusCallbacks failed!"));
-				  }
-			  }
-			  else
-			  {
-				  Log(FString::Printf(TEXT("Camera connection attempt failed!  Retrying in %.2f seconds"), RetryConnectWaitTime));
-				  IncomingMessages.Empty();
-				  FPlatformProcess::Sleep(RetryConnectWaitTime);
-			  }
-		  }
-		  else
-		  {
-			  if (IncomingMessages.Dequeue(CurrentMessage))
-			  {
-				  BeginCapture();
-			  }
-
-			  Semaphore->Wait();
-		  }
-	  }
-
-	  if (bCameraConnected)
-	  {
-		  if (!MLCameraDisconnect())
-		  {
-			  UE_LOG(LogCameraCapture, Error, TEXT("MLCameraDisconnect failed!"));
-		  }
-	  }
-
-#endif //WITH_MLSDK
-
-	  return 0;
-  }
-
-  void BeginCapture()
-  {
-#if WITH_MLSDK
-    MLHandle Handle = MLCameraPrepareCapture(CurrentMessage.CaptureType);
-
-    if (Handle == ML_INVALID_HANDLE)
-    {
-      Log(TEXT("MLCameraPrepareCapture failed!  Camera capture aborted!"));
-      EndCapture(false);
-      return;
-    }
-
-    switch (CurrentMessage.CaptureType)
-    {
-    case MLCameraCaptureType_Image:
-    {
-      Log(TEXT("Beginning capture image to file."));
-
-#if PLATFORM_LUMIN
-      IPlatformFile& PlatformFile = IPlatformFile::GetPlatformPhysical();
-      // This module is only for Lumin so this is fine for now.
-      FLuminPlatformFile* LuminPlatformFile = static_cast<FLuminPlatformFile*>(&PlatformFile);
-      UniqueFileName = LuminPlatformFile->ConvertToLuminPath(FPaths::CreateTempFilename(*FPaths::ProjectSavedDir(), TEXT("Img_"), *ImgExtension), true);
-#endif
-      if (!MLCameraCaptureImage(TCHAR_TO_UTF8(*UniqueFileName)))
-      {
-        Log(TEXT("MLCameraCaptureImage failed!  Camera capture aborted!"));
-        EndCapture(false);
-        return;
-      }
-
-      EndCapture(true);
-    }
-    break;
-
-    case MLCameraCaptureType_ImageRaw:
-    {
-      CameraOutput = nullptr;
-
-      Log(TEXT("Beginning capture image to texture."));
-
-      if (!MLCameraCaptureImageRaw())
-      {
-        Log(TEXT("MLCameraCaptureImageRaw failed!  Camera capture aborted!"));
-        EndCapture(false);
-        return;
-      }
-
-      if (!MLCameraGetImageStream(&CameraOutput))
-      {
-        Log(TEXT("MLCameraGetImageStream failed!  Camera capture aborted!"));
-        EndCapture(false);
-        return;
-      }
-
-      if (CameraOutput->plane_count == 0)
-      {
-        Log(TEXT("Invalid plane_count!  Camera capture aborted!"));
-        EndCapture(false);
-        return;
-      }
-
-      EndCapture(true);
-    }
-    break;
-
-    case MLCameraCaptureType_Video:
-    {
-      Log(TEXT("Beginning capture video to file."));
-
-#if PLATFORM_LUMIN
-      IPlatformFile& PlatformFile = IPlatformFile::GetPlatformPhysical();
-      // This module is only for Lumin so this is fine for now.
-      FLuminPlatformFile* LuminPlatformFile = static_cast<FLuminPlatformFile*>(&PlatformFile);
-      UniqueFileName = LuminPlatformFile->ConvertToLuminPath(FPaths::CreateTempFilename(*FPaths::ProjectSavedDir(), TEXT("Vid_"), *VidExtension), true);
-#endif
-      if (!MLCameraCaptureVideoStart(TCHAR_TO_UTF8(*UniqueFileName)))
-      {
-        Log(TEXT("MLCameraCaptureVideoStart failed!  Video capture aborted!"));
-        EndCapture(false);
-        return;
-      }
-
-      FPlatformProcess::Sleep(CurrentMessage.Duration);
-      EndCapture(true);
-    }
-    break;
-  }
-#endif //WITH_MLSDK
-  }
-
-  void EndCapture(bool InSuccess)
-  {
-#if WITH_MLSDK
-    CurrentMessage.Type = CaptureMsgType::Response;
-    CurrentMessage.Success = InSuccess;
-	CurrentMessage.FilePath = UniqueFileName;
-
-    if (!InSuccess)
-    {
-      uint32 DeviceStatus = 0;
-      if (MLCameraGetDeviceStatus(&DeviceStatus))
-      {
-        if ((MLCameraDeviceStatusFlag_Available & DeviceStatus) != 0)
-        {
-          Log(TEXT("Device status = MLCameraDeviceStatusFlag_Available"));
-        }
-        else if ((MLCameraDeviceStatusFlag_Opened & DeviceStatus) != 0)
-        {
-          Log(TEXT("Device status = MLCameraDeviceStatusFlag_Opened"));
-        }
-        else if ((MLCameraDeviceStatusFlag_Disconnected  & DeviceStatus) != 0)
-        {
-          Log(TEXT("Device status = MLCameraDeviceStatusFlag_Disconnected "));
-        }
-        else if ((MLCameraDeviceStatusFlag_Error & DeviceStatus) != 0)
-        {
-          Log(TEXT("Device status = MLCameraDeviceStatusFlag_Error"));
-          MLCameraError CameraError;
-          if (MLCameraGetErrorCode(&CameraError))
-          {
-            switch (CameraError)
-            {
-            case MLCameraError_None: Log(TEXT("Error = MLCameraError_None")); break;
-            case MLCameraError_Invalid: Log(TEXT("Error = MLCameraError_Invalid")); break;
-            case MLCameraError_Disabled: Log(TEXT("Error = MLCameraError_Disabled")); break;
-            case MLCameraError_DeviceFailed: Log(TEXT("Error = MLCameraError_DeviceFailed")); break;
-            case MLCameraError_ServiceFailed: Log(TEXT("Error = MLCameraError_ServiceFailed")); break;
-            case MLCameraError_CaptureFailed: Log(TEXT("Error = MLCameraError_CaptureFailed")); break;
-            case MLCameraError_Unknown: Log(TEXT("Error = MLCameraError_Unknown")); break;
-            }
-          }
-          else
-          {
-            Log(TEXT("MLCameraGetErrorCode failed!"));
-          }
-        }
-      }
-      else
-      {
-        Log(TEXT("MLCameraGetDeviceStatus failed!"));
-      }
-    }
-
-    switch (CurrentMessage.CaptureType)
-    {
-    case MLCameraCaptureType_Image:
-    {
-      if (InSuccess)
-      {
-        Log(FString::Printf(TEXT("Captured image to %s"), *UniqueFileName));
-      }
-    }
-    break;
-
-    case MLCameraCaptureType_ImageRaw:
-    {
-      if (InSuccess)
-      {
-        MLCameraPlaneInfo& ImageInfo = CameraOutput->planes[0];
-        //JMC: ImageInfo.width/height are incorrect, ImageInfo.data contains header info also as at MLSKD 0.9.0
-        // using IImageWrapperModule as workaround/potentially permanent solution
-        if (ImageWrapper.IsValid() && ImageWrapper->SetCompressed(ImageInfo.data, ImageInfo.size))
-        {
-          const TArray<uint8>* RawData = NULL;
-          if (ImageWrapper->GetRaw(ImageWrapper->GetFormat(), 8, RawData))
-          {
-            Log(FString::Printf(TEXT("ImageWrapper width=%d height=%d size=%d"), ImageWrapper->GetWidth(), ImageWrapper->GetHeight(), RawData->Num()));
-            UTexture2D* CaptureTexture = UTexture2D::CreateTransient(ImageWrapper->GetWidth(), ImageWrapper->GetHeight(), EPixelFormat::PF_B8G8R8A8);
-            CaptureTexture->AddToRoot();
-            CapturedTextures.Add(CaptureTexture);
-            FTexture2DMipMap& Mip = CaptureTexture->PlatformData->Mips[0];
-            void* Data = Mip.BulkData.Lock(LOCK_READ_WRITE);
-            FMemory::Memcpy(Data, RawData->GetData(), Mip.BulkData.GetBulkDataSize());
-            Mip.BulkData.Unlock();
-            CaptureTexture->UpdateResource();
-            CurrentMessage.Texture = CaptureTexture;
-          }
-        }
-      }     
-    }
-    break;
-
-    case MLCameraCaptureType_Video:
-    {
-      if (InSuccess)
-      {
-        MLCameraCaptureVideoStop();
-        Log(FString::Printf(TEXT("Captured video to %s"), *UniqueFileName));
-      }
-    }
-    break;
-    }
-
-	// clear any left over events from this capture session
-	IncomingMessages.Empty();
-	// signal the update thread to handle the capture result
-    OutgoingMessages.Enqueue(CurrentMessage);
-#endif //WITH_MLSDK
-  }
-
-  void Log(const FString& Info)
-  {
-    FCaptureMessage Msg;
-    Msg.Type = CaptureMsgType::Log;
-    Msg.Log = Info;
-    OutgoingMessages.Enqueue(Msg);
-  }
-
-  void ProcessCaptureMessage(const FCaptureMessage& InMsg)
-  {
-	  if (bCameraConnected)
-	  {
-		  IncomingMessages.Enqueue(InMsg);
-		  // wake up the worker to process the event
-		  Semaphore->Trigger();
-	  }
-	  else
-	  {
-		  Log(TEXT("Discarding capture task due to lack of camera connection."));
-	  }
-  }
-
-  /** Internal thread this instance is running on */
-  FRunnableThread* Thread;
-  FThreadSafeCounter StopTaskCounter;
-  TQueue<FCaptureMessage, EQueueMode::Spsc> IncomingMessages;
-  TQueue<FCaptureMessage, EQueueMode::Spsc> OutgoingMessages;
-  FEvent* Semaphore;
-  FCaptureMessage CurrentMessage;
-  bool bCameraConnected;
-  const float RetryConnectWaitTime;
-
-#if WITH_MLSDK
-  MLCameraDeviceStatusCallbacks DeviceStatusCallbacks;
-  MLCameraCaptureCallbacks CaptureCallbacks;
-  MLCameraOutput* CameraOutput;
-#endif //WITH_MLSDK
-
-  const FString ImgExtension;
-  const FString VidExtension;
-  FString UniqueFileName;
-  TArray<UTexture2D*> CapturedTextures;
-  TSharedPtr<IImageWrapper> ImageWrapper;
-#if WITH_MLSDK
-  static FThreadSafeCounter64 PreviewHandle;
-#endif //WITH_MLSDK
-
-private:
-#if WITH_MLSDK
-	static void OnPreviewBufferAvailable(MLHandle Output, void *Data)
+	virtual ~FCameraCaptureImpl()
 	{
-		(void)Data;
-		FImageCaptureImpl::PreviewHandle.Set(static_cast<int64>(Output));
+#if PLATFORM_LUMIN
+		// Calling this explicitly to make the chain of destruction more obvious,
+		// ie a potential call to FCameraCaptureRunnable's destructor right here.
+		// On the lumin platform this call will take place inside the destruction
+		// worker thread.
+		CameraCaptureRunnable.Reset();
+		// need this call to prevent the runnable form persisting with a ref count of 1 (due to Appframework's shared pointer instance).
+		if (GEngine && GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice())
+		{
+			static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFramework().RefreshCameraCaptureRunnableReferences();
+		}
+#endif //PLATFORM_LUMIN
 	}
-#endif //WITH_MLSDK
+
+	bool TryCaptureImageToFile()
+	{
+#if PLATFORM_LUMIN
+		if (!bCapturing)
+		{
+			bCapturing = true;
+			FCaptureMessage Msg;
+			Msg.Type = CaptureMsgType::Request;
+			Msg.CaptureType = MLCameraCaptureType_Image;
+			Msg.Requester = this;
+			CameraCaptureRunnable->ProcessCaptureMessage(Msg);
+			return true;
+		}
+#endif //PLATFORM_LUMIN
+		return false;
+	}
+
+	bool TryCaptureImageToTexture()
+	{
+#if PLATFORM_LUMIN
+		if (!bCapturing)
+		{
+			bCapturing = true;
+			FCaptureMessage Msg;
+			Msg.Type = CaptureMsgType::Request;
+			Msg.CaptureType = MLCameraCaptureType_ImageRaw;
+			Msg.Requester = this;
+			CameraCaptureRunnable->ProcessCaptureMessage(Msg);
+			return true;
+		}
+#endif //PLATFORM_LUMIN
+		return false;
+	}
+
+	bool TryCaptureVideoToFile(float InDuration)
+	{
+#if PLATFORM_LUMIN
+		if (!bCapturing)
+		{
+			bCapturing = true;
+			FCaptureMessage Msg;
+			Msg.Type = CaptureMsgType::Request;
+			Msg.CaptureType = MLCameraCaptureType_Video;
+			Msg.Duration = InDuration;
+			Msg.Requester = this;
+			CameraCaptureRunnable->ProcessCaptureMessage(Msg);
+			return true;
+		}
+#endif //PLATFORM_LUMIN
+		return false;
+	}
+
+	bool TryGetResult(FCaptureMessage& OutMsg)
+	{
+#if PLATFORM_LUMIN
+		if (bCapturing && CameraCaptureRunnable->OutgoingMessages.Peek(OutMsg))
+		{
+			if (OutMsg.Requester == this)
+			{
+				CameraCaptureRunnable->OutgoingMessages.Pop();
+				return true;
+			}
+		}
+#endif //PLATFORM_LUMIN
+		return false;
+	}
+
+public:
+	bool bCapturing;
+	TSharedPtr<FCameraCaptureRunnable, ESPMode::ThreadSafe> CameraCaptureRunnable;
 };
-
-#if WITH_MLSDK
-FThreadSafeCounter64 FImageCaptureImpl::PreviewHandle = ML_INVALID_HANDLE;
-#endif //WITH_MLSDK
 
 UCameraCaptureComponent::UCameraCaptureComponent()
     : Impl(nullptr)
-    , bCapturing(false)
 {
   PrimaryComponentTick.TickGroup = TG_PrePhysics;
   PrimaryComponentTick.bStartWithTickEnabled = true;
@@ -441,15 +144,15 @@ UCameraCaptureComponent::~UCameraCaptureComponent()
 		Impl = nullptr;
 	}
 #else
-  delete Impl;
-  Impl = nullptr;
+	delete Impl;
+	Impl = nullptr;
 #endif // PLATFORM_LUMIN	
 }
 
 void UCameraCaptureComponent::BeginPlay()
 {
   Super::BeginPlay();
-  Impl = new FImageCaptureImpl;
+  Impl = new FCameraCaptureImpl;
 }
 
 void UCameraCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
@@ -457,11 +160,9 @@ void UCameraCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 #if WITH_MLSDK
   Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-  if (!Impl->OutgoingMessages.IsEmpty())
+  FCaptureMessage Msg;
+  if (Impl->TryGetResult(Msg))
   {
-    FCaptureMessage Msg;
-    Impl->OutgoingMessages.Dequeue(Msg);
-
     if (Msg.Type == CaptureMsgType::Request)
     {
       Log("Unexpected CaptureMsgType::Request received from worker thread!");
@@ -514,7 +215,7 @@ void UCameraCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
       break;
       }
 
-      bCapturing = false;
+      Impl->bCapturing = false;
     }
   }
 #endif //WITH_MLSDK
@@ -557,15 +258,8 @@ UCameraCaptureComponent::FCameraCaptureVidToFileFailure& UCameraCaptureComponent
 
 bool UCameraCaptureComponent::CaptureImageToFileAsync()
 {
-  if (!bCapturing)
+  if (Impl->TryCaptureImageToFile())
   {
-    bCapturing = true;
-    FCaptureMessage Msg;
-    Msg.Type = CaptureMsgType::Request;
-#if WITH_MLSDK
-    Msg.CaptureType = MLCameraCaptureType_Image;
-#endif //WITH_MLSDK
-    Impl->ProcessCaptureMessage(Msg);
     return true;
   }
 
@@ -575,15 +269,8 @@ bool UCameraCaptureComponent::CaptureImageToFileAsync()
 
 bool UCameraCaptureComponent::CaptureImageToTextureAsync()
 {
-  if (!bCapturing)
+  if (Impl->TryCaptureImageToTexture())
   {
-    bCapturing = true;
-    FCaptureMessage Msg;
-    Msg.Type = CaptureMsgType::Request;
-#if WITH_MLSDK
-    Msg.CaptureType = MLCameraCaptureType_ImageRaw;
-#endif //WITH_MLSDK
-    Impl->ProcessCaptureMessage(Msg);
     return true;
   }
 
@@ -593,16 +280,8 @@ bool UCameraCaptureComponent::CaptureImageToTextureAsync()
 
 bool UCameraCaptureComponent::CaptureVideoToFileAsync(float InDuration)
 {
-  if (!bCapturing)
+  if (Impl->TryCaptureVideoToFile(InDuration))
   {
-    bCapturing = true;
-    FCaptureMessage Msg;
-    Msg.Type = CaptureMsgType::Request;
-#if WITH_MLSDK
-    Msg.CaptureType = MLCameraCaptureType_Video;
-#endif //WITH_MLSDK
-    Msg.Duration = InDuration;
-    Impl->ProcessCaptureMessage(Msg);
     return true;
   }
 
@@ -612,11 +291,11 @@ bool UCameraCaptureComponent::CaptureVideoToFileAsync(float InDuration)
 
 int64 UCameraCaptureComponent::GetPreviewHandle()
 {
-#if WITH_MLSDK
-	return FImageCaptureImpl::PreviewHandle.GetValue();
+#if PLATFORM_LUMIN
+	return FCameraCaptureRunnable::PreviewHandle.GetValue();
 #else
 	return -1;
-#endif //WITH_MLSDK
+#endif //PLATFORM_LUMIN
 }
 
 void UCameraCaptureComponent::Log(const FString& LogMessage)

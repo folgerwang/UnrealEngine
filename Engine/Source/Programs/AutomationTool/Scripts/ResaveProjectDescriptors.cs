@@ -51,7 +51,7 @@ namespace AutomationTool
 
 			foreach (FileReference ProjectFile in ProjectFiles)
 			{
-				Log("Reading {0}", ProjectFile);
+				LogInformation("Reading {0}", ProjectFile);
 				string InputText = File.ReadAllText(ProjectFile.FullName);
 
 				// Parse the descriptor
@@ -123,7 +123,7 @@ namespace AutomationTool
 						}
 						CommandUtils.SetFileAttributes(ProjectFile.FullName, ReadOnly: false);
 					}
-					Log("  Writing updated file.", ProjectFile);
+					LogInformation("  Writing updated file.", ProjectFile);
 					FileReference.WriteAllText(ProjectFile, OutputText);
 				}
 			}

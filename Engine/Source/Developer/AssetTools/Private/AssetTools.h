@@ -33,7 +33,7 @@ struct FAssetImportParams
 	/** Data used to determine rules for importing assets through the automated command line interface */
 	const UAutomatedAssetImportData* ImportData;
 	/** Script exposed rules and state for importing assets */
-	const UAssetImportTask* AssetImportTask;
+	UAssetImportTask* AssetImportTask;
 	/** Whether or not to sync the content browser to the assets after import */
 	bool bSyncToBrowser : 1;
 	/** Whether or not we are forcing existing assets to be overriden without asking */
@@ -98,6 +98,8 @@ public:
 	virtual void FixupReferencers(const TArray<UObjectRedirector*>& Objects) const override;
 	virtual FAssetPostRenameEvent& OnAssetPostRename() override { return AssetRenameManager->OnAssetPostRenameEvent(); }
 	virtual void ExpandDirectories(const TArray<FString>& Files, const FString& DestinationPath, TArray<TPair<FString, FString>>& FilesAndDestinations) const override;
+
+	virtual void OpenEditorForAssets(const TArray<UObject*>& Assets) const override;
 public:
 	/** Gets the asset tools singleton as a FAssetTools for asset tools module use */
 	static UAssetToolsImpl& Get();

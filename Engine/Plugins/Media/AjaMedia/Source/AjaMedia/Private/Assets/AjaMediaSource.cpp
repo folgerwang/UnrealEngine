@@ -6,8 +6,7 @@
 UAjaMediaSource::UAjaMediaSource()
 	: TimecodeFormat(EAjaMediaTimecodeFormat::None)
 	, bCaptureWithAutoCirculating(true)
-	, bCaptureAncillary1(false)
-	, bCaptureAncillary2(false)
+	, bCaptureAncillary(false)
 	, bCaptureAudio(false)
 	, bCaptureVideo(true)
 	, MaxNumAncillaryFrameBuffer(8)
@@ -29,13 +28,9 @@ bool UAjaMediaSource::GetMediaOption(const FName& Key, bool DefaultValue) const
 	{
 		return bCaptureWithAutoCirculating;
 	}
-	if (Key == AjaMediaOption::CaptureAncillary1)
+	if (Key == AjaMediaOption::CaptureAncillary)
 	{
-		return bCaptureAncillary1;
-	}
-	if (Key == AjaMediaOption::CaptureAncillary2)
-	{
-		return bCaptureAncillary2;
+		return bCaptureAncillary;
 	}
 	if (Key == AjaMediaOption::CaptureAudio)
 	{
@@ -108,8 +103,7 @@ bool UAjaMediaSource::HasMediaOption(const FName& Key) const
 		(Key == AjaMediaOption::FrameRateDenominator) ||
 		(Key == AjaMediaOption::TimecodeFormat) ||
 		(Key == AjaMediaOption::CaptureWithAutoCirculating) ||
-		(Key == AjaMediaOption::CaptureAncillary1) ||
-		(Key == AjaMediaOption::CaptureAncillary2) ||
+		(Key == AjaMediaOption::CaptureAncillary) ||
 		(Key == AjaMediaOption::CaptureAudio) ||
 		(Key == AjaMediaOption::CaptureVideo) ||
 		(Key == AjaMediaOption::MaxAncillaryFrameBuffer) ||
@@ -170,6 +164,51 @@ bool UAjaMediaSource::Validate() const
 		return false;
 	}
 
+	TUniquePtr<AJA::AJADeviceScanner> Scanner = MakeUnique<AJA::AJADeviceScanner>();
+	AJA::AJADeviceScanner::DeviceInfo DeviceInfo;
+	if (!Scanner->GetDeviceInfo(MediaPort.DeviceIndex, DeviceInfo))
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't exist on this machine."), *GetName(), *MediaPort.DeviceName);
+		return false;
+	}
+
+	if (!DeviceInfo.bIsSupported)
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that is not supported by the AJA SDK."), *GetName(), *MediaPort.DeviceName);
+		return false;
+	}
+
+	if (!DeviceInfo.bCanDoCapture)
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that can't capture."), *GetName(), *MediaPort.DeviceName);
+		return false;
+	}
+
+	if (bCaptureAncillary && !DeviceInfo.bCanDoCustomAnc)
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that can't capture Ancillary data."), *GetName(), *MediaPort.DeviceName);
+		return false;
+	}
+
+	if (bCaptureVideo)
+	{
+		if (ColorFormat == EAjaMediaSourceColorFormat::BGRA && !DeviceInfo.bSupportPixelFormat8bitARGB)
+		{
+			UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't support the 8bit ARGB pixel format."), *GetName(), *MediaPort.DeviceName);
+			return false;
+		}
+		if (ColorFormat == EAjaMediaSourceColorFormat::UYVY && !DeviceInfo.bSupportPixelFormat8bitYCBCR)
+		{
+			UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't support the 8bit YCbCr pixel format."), *GetName(), *MediaPort.DeviceName);
+			return false;
+		}
+		if (ColorFormat == EAjaMediaSourceColorFormat::BGR10 && !DeviceInfo.bSupportPixelFormat10bitRGB)
+		{
+			UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't support the 10bit ARGB pixel format."), *GetName(), *MediaPort.DeviceName);
+			return false;
+		}
+	}
+
 	return true;
 }
 
@@ -181,30 +220,11 @@ bool UAjaMediaSource::CanEditChange(const UProperty* InProperty) const
 		return false;
 	}
 
-	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UAjaMediaSource, MaxNumAncillaryFrameBuffer))
-	{
-		return bCaptureAncillary1 || bCaptureAncillary2;
-	}
 	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UAjaMediaSource, bEncodeTimecodeInTexel))
 	{
 		return TimecodeFormat != EAjaMediaTimecodeFormat::None && bCaptureVideo;
 	}	
 
 	return true;
-}
-
-void UAjaMediaSource::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(UAjaMediaSource, bCaptureWithAutoCirculating))
-	{
-		if (!bCaptureWithAutoCirculating)
-		{
-			bCaptureAncillary1 = false;
-			bCaptureAncillary2 = false;
-			bCaptureAudio = false;
-		}
-	}
-
-	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif //WITH_EDITOR

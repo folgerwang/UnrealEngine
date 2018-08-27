@@ -54,6 +54,21 @@ namespace AutomationTool
 		/// <param name="TrueParam">Name of a parameter that sets the value to 'true', for example: -clean</param>
 		/// <param name="FalseParam">Name of a parameter that sets the value to 'false', for example: -noclean</param>
 		/// <returns>Parameter value or default value if the paramater has not been specified</returns>
+		bool GetOptionalParamValueIfNotSpecified(BuildCommand Command, bool? SpecifiedValue, bool Default, string TrueParam, string FalseParam)
+		{
+			return GetOptionalParamValueIfNotSpecified(Command, SpecifiedValue, (bool?)Default, TrueParam, FalseParam).Value;
+		}
+
+		/// <summary>
+		/// Gets optional parameter from the command line if it hasn't been specified in the constructor. 
+		/// If the command line is not available or the command has not been specified in the command line, default value will be used.
+		/// </summary>
+		/// <param name="Command">Command to parse the command line for. Can be null.</param>
+		/// <param name="SpecifiedValue">Value specified in the constructor (or not)</param>
+		/// <param name="Default">Default value.</param>
+		/// <param name="TrueParam">Name of a parameter that sets the value to 'true', for example: -clean</param>
+		/// <param name="FalseParam">Name of a parameter that sets the value to 'false', for example: -noclean</param>
+		/// <returns>Parameter value or default value if the paramater has not been specified</returns>
 		bool? GetOptionalParamValueIfNotSpecified(BuildCommand Command, bool? SpecifiedValue, bool? Default, string TrueParam, string FalseParam)
 		{
 			if (SpecifiedValue.HasValue)
@@ -331,7 +346,6 @@ namespace AutomationTool
 			this.NumClients = InParams.NumClients;
             this.Compressed = InParams.Compressed;
 			this.AdditionalPakOptions = InParams.AdditionalPakOptions;
-            this.UseDebugParamForEditorExe = InParams.UseDebugParamForEditorExe;
 			this.Archive = InParams.Archive;
 			this.ArchiveDirectoryParam = InParams.ArchiveDirectoryParam;
 			this.ArchiveMetaData = InParams.ArchiveMetaData;
@@ -392,7 +406,6 @@ namespace AutomationTool
 			bool? Clean = null,
             bool? Compressed = null,
 			string AdditionalPakOptions = null,
-            bool? UseDebugParamForEditorExe = null,
             bool? IterativeCooking = null,
 			string IterateSharedCookedBuild = null,
 			bool? IterateSharedBuildUsePrecompiledExe = null,
@@ -550,7 +563,7 @@ namespace AutomationTool
             this.ServerTargetPlatforms = SetupTargetPlatforms(ref this.ServerDependentPlatformMap, Command, ServerTargetPlatforms, this.ClientTargetPlatforms, false, "ServerTargetPlatform", "ServerPlatform");
 
 			this.Build = GetParamValueIfNotSpecified(Command, Build, this.Build, "build");
-			this.SkipBuildClient = GetParamValueIfNotSpecified(Command, SkipBuildClient, this.SkipBuildEditor, "skipbuildclient");
+			this.SkipBuildClient = GetParamValueIfNotSpecified(Command, SkipBuildClient, this.SkipBuildClient, "skipbuildclient");
 			this.SkipBuildEditor = GetParamValueIfNotSpecified(Command, SkipBuildEditor, this.SkipBuildEditor, "skipbuildeditor");
 			this.Run = GetParamValueIfNotSpecified(Command, Run, this.Run, "run");
 			this.Cook = GetParamValueIfNotSpecified(Command, Cook, this.Cook, "cook");
@@ -621,7 +634,7 @@ namespace AutomationTool
                 this.Cook = false;
             }
             this.CookOnTheFlyStreaming = GetParamValueIfNotSpecified(Command, CookOnTheFlyStreaming, this.CookOnTheFlyStreaming, "cookontheflystreaming");
-            this.UnversionedCookedContent = GetParamValueIfNotSpecified(Command, UnversionedCookedContent, this.UnversionedCookedContent, "UnversionedCookedContent");
+            this.UnversionedCookedContent = GetOptionalParamValueIfNotSpecified(Command, UnversionedCookedContent, this.UnversionedCookedContent, "UnversionedCookedContent", "VersionCookedContent");
 			this.SkipCookingEditorContent = GetParamValueIfNotSpecified(Command, SkipCookingEditorContent, this.SkipCookingEditorContent, "SkipCookingEditorContent");
             if (NumCookersToSpawn.HasValue)
             {
@@ -633,7 +646,6 @@ namespace AutomationTool
             }
             this.Compressed = GetParamValueIfNotSpecified(Command, Compressed, this.Compressed, "compressed");
 			this.AdditionalPakOptions = ParseParamValueIfNotSpecified(Command, AdditionalPakOptions, "AdditionalPakOptions");
-            this.UseDebugParamForEditorExe = GetParamValueIfNotSpecified(Command, UseDebugParamForEditorExe, this.UseDebugParamForEditorExe, "UseDebugParamForEditorExe");
 			this.IterativeCooking = GetParamValueIfNotSpecified(Command, IterativeCooking, this.IterativeCooking, new string[] { "iterativecooking", "iterate" });
 			this.IterateSharedCookedBuild = GetParamValueIfNotSpecified(Command, false, false, "iteratesharedcookedbuild") ? "usesyncedbuild" : null;
 			this.IterateSharedCookedBuild = ParseParamValueIfNotSpecified(Command, IterateSharedCookedBuild, "IterateSharedCookedBuild", String.Empty);
@@ -661,7 +673,7 @@ namespace AutomationTool
 				this.Stage = true;
 			}
 			this.StageDirectoryParam = ParseParamValueIfNotSpecified(Command, StageDirectoryParam, "stagingdirectory", String.Empty, true);
-			this.bCodeSign = GetOptionalParamValueIfNotSpecified(Command, CodeSign, CommandUtils.IsBuildMachine, "CodeSign", "NoCodeSign").GetValueOrDefault();
+			this.bCodeSign = GetOptionalParamValueIfNotSpecified(Command, CodeSign, CommandUtils.IsBuildMachine, "CodeSign", "NoCodeSign");
 			this.bTreatNonShippingBinariesAsDebugFiles = GetParamValueIfNotSpecified(Command, TreatNonShippingBinariesAsDebugFiles, false, "TreatNonShippingBinariesAsDebugFiles");
 			this.bUseExtraFlavor = GetParamValueIfNotSpecified(Command, UseExtraFlavor, false, "UseExtraFlavor");
 			this.Manifests = GetParamValueIfNotSpecified(Command, Manifests, this.Manifests, "manifests");
@@ -1535,11 +1547,6 @@ namespace AutomationTool
 		public string AdditionalPakOptions;
 
         /// <summary>
-        /// put -debug on the editorexe commandline
-        /// </summary>
-        public bool UseDebugParamForEditorExe;
-
-        /// <summary>
         /// Cook: Do not include a version number in the cooked content
         /// </summary>
         public bool UnversionedCookedContent = true;
@@ -1956,14 +1963,28 @@ namespace AutomationTool
 
 			if (!bIsCodeBasedProject)
 			{
-				GameTarget = "UE4Game";
+				if(Client)
+				{
+					GameTarget = "UE4Client";
+				}
+				else
+				{
+					GameTarget = "UE4Game";
+				}
 				EditorTarget = "UE4Editor";
 				ServerTarget = "UE4Server";
 			}
 			else if (!CommandUtils.CmdEnv.HasCapabilityToCompile)
 			{
 				var ShortName = ProjectUtils.GetShortProjectName(RawProjectPath);
-				GameTarget = ShortName;
+				if(Client)
+				{
+					GameTarget = ShortName + "Client";
+				}
+				else
+				{
+					GameTarget = ShortName;
+				}
 				EditorTarget = ShortName + "Editor";
 				ServerTarget = ShortName + "Server";
 			}
@@ -2025,7 +2046,14 @@ namespace AutomationTool
 			else if (!this.Build)
 			{
 				var ShortName = ProjectUtils.GetShortProjectName(RawProjectPath);
-				GameTarget = ShortName;
+				if(Client)
+				{
+					GameTarget = ShortName + "Client";
+				}
+				else
+				{
+					GameTarget = ShortName;
+				}
 				EditorTarget = ShortName + "Editor";
 				ServerTarget = ShortName + "Server";
 			}
@@ -2607,7 +2635,6 @@ namespace AutomationTool
 				CommandUtils.LogLog("ClientTargetPlatform={0}", string.Join(",", ClientTargetPlatforms));
 				CommandUtils.LogLog("Compressed={0}", Compressed);
 				CommandUtils.LogLog("AdditionalPakOptions={0}", AdditionalPakOptions);
-				CommandUtils.LogLog("UseDebugParamForEditorExe={0}", UseDebugParamForEditorExe);
 				CommandUtils.LogLog("CookOnTheFly={0}", CookOnTheFly);
 				CommandUtils.LogLog("CookOnTheFlyStreaming={0}", CookOnTheFlyStreaming);
 				CommandUtils.LogLog("UnversionedCookedContent={0}", UnversionedCookedContent);

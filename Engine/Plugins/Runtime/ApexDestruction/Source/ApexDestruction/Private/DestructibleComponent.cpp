@@ -22,6 +22,13 @@
 #include "Physics/PhysicsFiltering.h"
 #include "ApexDestructionModule.h"
 #include "PhysicsEngine/PhysicsSettings.h"
+#include "Physics/PhysicsInterfaceCore.h"
+#include "Physics/PhysicsInterfaceUtils.h"
+#include "UObject/UObjectThreadContext.h"
+
+#if WITH_PHYSX
+#include "Physics/PhysicsGeometryPhysX.h"
+#endif
 
 UDestructibleComponent::UDestructibleComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -278,7 +285,7 @@ void UDestructibleComponent::OnCreatePhysicsState()
 	// Set up the shape desc template
 
 	// Get collision channel and response
-	PxFilterData PQueryFilterData, PSimFilterData;
+	FCollisionFilterData QueryFilterData, SimFilterData;
 	uint8 MoveChannel = GetCollisionObjectType();
 	FCollisionResponseContainer CollResponse;
 	if(IsCollisionEnabled())
@@ -304,28 +311,30 @@ void UDestructibleComponent::OnCreatePhysicsState()
 
 	// Passing AssetInstanceID = 0 so we'll have self-collision
 	AActor* Owner = GetOwner();
-	CreateShapeFilterData(MoveChannel, FMaskFilter(0), Owner->GetUniqueID(), CollResponse, GetUniqueID(), 0, PQueryFilterData, PSimFilterData, BodyInstance.bUseCCD, BodyInstance.bNotifyRigidBodyCollision || bEnableImpactDamage, false, bEnableContactModification);
+	CreateShapeFilterData(MoveChannel, FMaskFilter(0), Owner->GetUniqueID(), CollResponse, GetUniqueID(), 0, QueryFilterData, SimFilterData, BodyInstance.bUseCCD, BodyInstance.bNotifyRigidBodyCollision || bEnableImpactDamage, false, bEnableContactModification);
 
 	// Build filterData variations for complex and simple
-	PSimFilterData.word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
-	PQueryFilterData.word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
+	SimFilterData.Word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
+	QueryFilterData.Word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
 
 	// Set the filterData in the shape descriptor
-	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.simulationFilterData.word0", PSimFilterData.word0 ) );
-	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.simulationFilterData.word1", PSimFilterData.word1 ) );
-	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.simulationFilterData.word2", PSimFilterData.word2 ) );
-	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.simulationFilterData.word3", PSimFilterData.word3 ) );
-	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.queryFilterData.word0", PQueryFilterData.word0 ) );
-	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.queryFilterData.word1", PQueryFilterData.word1 ) );
-	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.queryFilterData.word2", PQueryFilterData.word2 ) );
-	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.queryFilterData.word3", PQueryFilterData.word3 ) );
+	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.simulationFilterData.word0", SimFilterData.Word0 ) );
+	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.simulationFilterData.word1", SimFilterData.Word1 ) );
+	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.simulationFilterData.word2", SimFilterData.Word2 ) );
+	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.simulationFilterData.word3", SimFilterData.Word3 ) );
+	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.queryFilterData.word0", QueryFilterData.Word0 ) );
+	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.queryFilterData.word1", QueryFilterData.Word1 ) );
+	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.queryFilterData.word2", QueryFilterData.Word2 ) );
+	verify( NvParameterized::setParamU32(*ActorParams,"p3ShapeDescTemplate.queryFilterData.word3", QueryFilterData.Word3 ) );
 
+#if !WITH_APEIRON && !WITH_IMMEDIATE_PHYSX
 	// Set the PhysX material in the shape descriptor
-	if(PxMaterial* PMaterial = PhysMat->GetPhysXMaterial())
+	const FPhysicsMaterialHandle_PhysX& MaterialHandle = PhysMat->GetPhysicsMaterial();
+	if(PxMaterial* PMaterial = MaterialHandle.Material)
 	{
 		verify(NvParameterized::setParamU64(*ActorParams, "p3ShapeDescTemplate.material", (physx::PxU64)PMaterial));
 	}
-
+#endif
 
 	// Set the rest off set to 0.0f since we do not inflate convexes anymore
 	verify( NvParameterized::setParamF32(*ActorParams,"p3ShapeDescTemplate.restOffset", 0.0f) );
@@ -371,10 +380,8 @@ void UDestructibleComponent::OnCreatePhysicsState()
 	// Destructibles are always dynamic or kinematic, and therefore only go into one of the scenes
 	const uint32 SceneType = BodyInstance.UseAsyncScene(PhysScene) ? PST_Async : PST_Sync;
 	apex::Scene* ApexScene = PhysScene->GetApexScene(SceneType);
-	PxScene* PScene = PhysScene->GetPhysXScene(SceneType);
+	PxScene* PScene = PhysScene->GetPxScene(SceneType);
 
-	BodyInstance.SceneIndexSync = SceneType == PST_Sync ? PhysScene->PhysXSceneIndex[PST_Sync] : 0;
-	BodyInstance.SceneIndexAsync = SceneType == PST_Async ? PhysScene->PhysXSceneIndex[PST_Async] : 0;
 	check(ApexScene);
 
 	ChunkInfos.Reset(ChunkCount);
@@ -432,13 +439,15 @@ void UDestructibleComponent::OnDestroyPhysicsState()
 	{
 		GPhysCommandHandler->DeferredRelease(ApexDestructibleActor);
 		ApexDestructibleActor = NULL;
-		
+	
+#if !WITH_APEIRON && !WITH_IMMEDIATE_PHYSX
 		//Destructible component uses the BodyInstance in PrimitiveComponent in a very dangerous way. It assigns PxRigidDynamic to it as it needs it.
 		//Destructible PxRigidDynamic actors can be deleted from under us as PhysX sees fit.
 		//Ideally we wouldn't ever have a dangling pointer, but in practice this is hard to avoid.
 		//In theory anyone using BodyInstance on a PrimitiveComponent should be using functions like GetBodyInstance - in which case we properly fix up the dangling pointer
-		BodyInstance.RigidActorSync = NULL;
-		BodyInstance.RigidActorAsync = NULL;
+		BodyInstance.ActorHandle.SyncActor = NULL;
+		BodyInstance.ActorHandle.AsyncActor = NULL;
+#endif
 	}
 #endif	// #if WITH_APEX
 	Super::OnDestroyPhysicsState();
@@ -754,7 +763,7 @@ bool UDestructibleComponent::ExecuteOnPhysicsReadOnly(TFunctionRef<void()> Func)
 		FPhysScene* PhysScene = GetWorld()->GetPhysicsScene();
 		// Destructibles are always dynamic or kinematic, and therefore only go into one of the scenes
 		const uint32 SceneType = BodyInstance.UseAsyncScene(PhysScene) ? PST_Async : PST_Sync;
-		PxScene* PScene = PhysScene->GetPhysXScene(SceneType);
+		PxScene* PScene = PhysScene->GetPxScene(SceneType);
 
 		SCOPED_SCENE_READ_LOCK(PScene);
 		Func();
@@ -774,7 +783,7 @@ bool UDestructibleComponent::ExecuteOnPhysicsReadWrite(TFunctionRef<void()> Func
 		FPhysScene* PhysScene = GetWorld()->GetPhysicsScene();
 		// Destructibles are always dynamic or kinematic, and therefore only go into one of the scenes
 		const uint32 SceneType = BodyInstance.UseAsyncScene(PhysScene) ? PST_Async : PST_Sync;
-		PxScene* PScene = PhysScene->GetPhysXScene(SceneType);
+		PxScene* PScene = PhysScene->GetPxScene(SceneType);
 
 		SCOPED_SCENE_WRITE_LOCK(PScene);
 		Func();
@@ -1335,26 +1344,37 @@ void UDestructibleComponent::SetupFakeBodyInstance( physx::PxRigidActor* NewRigi
 	//Ideally we wouldn't ever have a dangling pointer, but in practice this is hard to avoid.
 	//In theory anyone using BodyInstance on a PrimitiveComponent should be using functions like GetBodyInstance - in which case we properly fix up the dangling pointer
 
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+    check(PrevState == nullptr);
+#else
 	if (PrevState != NULL)
 	{
-		PrevState->ActorSync = BodyInstance.RigidActorSync;
-		PrevState->ActorAsync = BodyInstance.RigidActorAsync;
+		PrevState->ActorSync = BodyInstance.ActorHandle.SyncActor;
+		PrevState->ActorAsync = BodyInstance.ActorHandle.AsyncActor;
 		PrevState->InstanceIndex = BodyInstance.InstanceBodyIndex;
 	}
+#endif
 
 	const UWorld* World = GetWorld();
 	const FPhysScene* PhysScene = World ? World->GetPhysicsScene() : nullptr;
 
-	BodyInstance.RigidActorSync = BodyInstance.UseAsyncScene(PhysScene) ? NULL : NewRigidActor;
-	BodyInstance.RigidActorAsync = BodyInstance.UseAsyncScene(PhysScene) ? NewRigidActor : NULL;
-	BodyInstance.BodyAggregate = NULL;
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+    check(false);
+#else
+	BodyInstance.ActorHandle.SyncActor = BodyInstance.UseAsyncScene(PhysScene) ? NULL : NewRigidActor;
+	BodyInstance.ActorHandle.AsyncActor = BodyInstance.UseAsyncScene(PhysScene) ? NewRigidActor : NULL;
+#endif
 	BodyInstance.InstanceBodyIndex = InstanceIdx;
 }
 
 void UDestructibleComponent::ResetFakeBodyInstance( FFakeBodyInstanceState& PrevState )
 {
-	BodyInstance.RigidActorSync = PrevState.ActorSync;
-	BodyInstance.RigidActorAsync = PrevState.ActorAsync;
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+    check(false);
+#else
+	BodyInstance.ActorHandle.SyncActor = PrevState.ActorSync;
+	BodyInstance.ActorHandle.AsyncActor = PrevState.ActorAsync;
+#endif
 	BodyInstance.InstanceBodyIndex = PrevState.InstanceIndex;
 }
 
@@ -1494,6 +1514,37 @@ void UDestructibleComponent::SetCollisionEnabled(ECollisionEnabled::Type NewType
 #endif // WITH_APEX
 }
 
+void UDestructibleComponent::SetCollisionProfileName(FName InCollisionProfileName)
+{
+    FBodyInstance* LocalInstance = GetBodyInstance();
+    if (!LocalInstance)
+    {
+        return;
+    }
+
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+	if (ThreadContext.ConstructedObject == this)
+	{
+		// If we are in our constructor, defer setup until PostInitProperties as derived classes
+		// may call SetCollisionProfileName more than once.
+		LocalInstance->SetCollisionProfileNameDeferred(InCollisionProfileName);
+	}
+	else
+	{
+		ECollisionEnabled::Type OldCollisionEnabled = LocalInstance->GetCollisionEnabled();
+		LocalInstance->SetCollisionProfileName(InCollisionProfileName);
+
+		ECollisionEnabled::Type NewCollisionEnabled = LocalInstance->GetCollisionEnabled();
+
+		if (OldCollisionEnabled != NewCollisionEnabled)
+		{
+			EnsurePhysicsStateCreated();
+		}
+		OnComponentCollisionSettingsChanged();
+	}
+}
+
+
 #if WITH_PHYSX
 
 void UDestructibleComponent::SetCollisionResponseForActor(PxRigidDynamic* Actor, int32 ChunkIdx, const FCollisionResponseContainer* ResponseOverride /*= NULL*/)
@@ -1505,7 +1556,7 @@ void UDestructibleComponent::SetCollisionResponseForActor(PxRigidDynamic* Actor,
 	}
 
 	// Get collision channel and response
-	PxFilterData PQueryFilterData, PSimFilterData;
+	FCollisionFilterData QueryFilterData, SimFilterData;
 	uint8 MoveChannel = GetCollisionObjectType();
 	if(IsCollisionEnabled())
 	{
@@ -1517,10 +1568,10 @@ void UDestructibleComponent::SetCollisionResponseForActor(PxRigidDynamic* Actor,
 		physx::PxU32 SupportDepth = TheDestructibleMesh->ApexDestructibleAsset->getChunkDepth(ChunkIdx);
 
 		const bool bEnableImpactDamage = IsImpactDamageEnabled(TheDestructibleMesh, SupportDepth);
-		CreateShapeFilterData(MoveChannel, FMaskFilter(0), Owner->GetUniqueID(), UseResponse, GetUniqueID(), ChunkIdxToBoneIdx(ChunkIdx), PQueryFilterData, PSimFilterData, BodyInstance.bUseCCD, BodyInstance.bNotifyRigidBodyCollision || bEnableImpactDamage, false);
+		CreateShapeFilterData(MoveChannel, FMaskFilter(0), Owner->GetUniqueID(), UseResponse, GetUniqueID(), ChunkIdxToBoneIdx(ChunkIdx), QueryFilterData, SimFilterData, BodyInstance.bUseCCD, BodyInstance.bNotifyRigidBodyCollision || bEnableImpactDamage, false);
 		
-		PQueryFilterData.word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
-		PSimFilterData.word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
+		QueryFilterData.Word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
+		SimFilterData.Word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
 
 		SCOPED_SCENE_WRITE_LOCK(Actor->getScene());
 
@@ -1533,8 +1584,8 @@ void UDestructibleComponent::SetCollisionResponseForActor(PxRigidDynamic* Actor,
 		{
 			PxShape* Shape = Shapes[i];
 
-			Shape->setQueryFilterData(PQueryFilterData);
-			Shape->setSimulationFilterData(PSimFilterData);
+			Shape->setQueryFilterData(U2PFilterData(QueryFilterData));
+			Shape->setSimulationFilterData(U2PFilterData(SimFilterData));
 			Shape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true); 
 			Shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true); 
 			Shape->setFlag(PxShapeFlag::eVISUALIZATION, true);
@@ -1553,7 +1604,7 @@ void UDestructibleComponent::SetCollisionResponseForShape(PxShape* Shape, int32 
 #endif
 
 	// Get collision channel and response
-	PxFilterData PQueryFilterData, PSimFilterData;
+	FCollisionFilterData QueryFilterData, SimFilterData;
 	uint8 MoveChannel = GetCollisionObjectType();
 	if (IsCollisionEnabled())
 	{
@@ -1561,10 +1612,10 @@ void UDestructibleComponent::SetCollisionResponseForShape(PxShape* Shape, int32 
 		bool bLargeChunk = IsChunkLarge(Shape->getActor());
 		const FCollisionResponse& ColResponse = bLargeChunk ? LargeChunkCollisionResponse : SmallChunkCollisionResponse;
 		//TODO: we currently assume chunks will not have impact damage as it's very expensive. Should look into exposing this a bit more
-		CreateShapeFilterData(MoveChannel, FMaskFilter(0), (Owner ? Owner->GetUniqueID() : 0), ColResponse.GetResponseContainer(), GetUniqueID(), ChunkIdxToBoneIdx(ChunkIdx), PQueryFilterData, PSimFilterData, BodyInstance.bUseCCD, BodyInstance.bNotifyRigidBodyCollision, false);
+		CreateShapeFilterData(MoveChannel, FMaskFilter(0), (Owner ? Owner->GetUniqueID() : 0), ColResponse.GetResponseContainer(), GetUniqueID(), ChunkIdxToBoneIdx(ChunkIdx), QueryFilterData, SimFilterData, BodyInstance.bUseCCD, BodyInstance.bNotifyRigidBodyCollision, false);
 
-		PQueryFilterData.word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
-		PSimFilterData.word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
+		QueryFilterData.Word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
+		SimFilterData.Word3 |= EPDF_SimpleCollision | EPDF_ComplexCollision | EPDF_KinematicKinematicPairs;
 
 		SCOPED_SCENE_WRITE_LOCK(Shape->getActor()->getScene());
 
@@ -1573,8 +1624,8 @@ void UDestructibleComponent::SetCollisionResponseForShape(PxShape* Shape, int32 
 		const float MinBoundsExtent = Shape->getActor()->getWorldBounds().getExtents().minElement();
 		Shape->setContactOffset(FMath::Clamp(ContactOffsetFactor * MinBoundsExtent, MinContactOffset, MaxContactOffset));
 
-		Shape->setQueryFilterData(PQueryFilterData);
-		Shape->setSimulationFilterData(PSimFilterData);
+		Shape->setQueryFilterData(U2PFilterData(QueryFilterData));
+		Shape->setSimulationFilterData(U2PFilterData(SimFilterData));
 		Shape->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
 		Shape->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
 		Shape->setFlag(PxShapeFlag::eVISUALIZATION, true);
@@ -1623,10 +1674,15 @@ void UDestructibleComponent::SetMaterial(int32 ElementIndex, UMaterialInterface*
 			
 			if(SimpleMaterial)
 			{
-				PxMaterial* PhysxMat = SimpleMaterial->GetPhysXMaterial();
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX
+                check(false);
+#else
+				const FPhysicsMaterialHandle_PhysX& MaterialHandle = SimpleMaterial->GetPhysicsMaterial();
+				PxMaterial* PhysxMat = MaterialHandle.Material;
 
 				Template->setMaterials(&PhysxMat, 1);
 				ApexDestructibleActor->setPhysX3Template(Template);
+#endif
 			}
 		}
 		Template->release();

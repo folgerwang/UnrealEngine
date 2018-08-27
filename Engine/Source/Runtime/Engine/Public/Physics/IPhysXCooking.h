@@ -29,7 +29,10 @@ enum class EPhysXMeshCookFlags : uint8
 	FastCook = 0x2,
 
 	// Do not create remap table for this mesh
-	SuppressFaceRemapTable = 0x4
+	SuppressFaceRemapTable = 0x4,
+
+	// Turn off ActiveEdgePrecompute (This makes cooking faster, but will slow contact generation)
+	DisableActiveEdgePrecompute = 0x8,
 };
 ENUM_CLASS_FLAGS(EPhysXMeshCookFlags);
 

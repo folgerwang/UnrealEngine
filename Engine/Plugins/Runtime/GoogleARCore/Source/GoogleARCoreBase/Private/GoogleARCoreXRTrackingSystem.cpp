@@ -19,6 +19,7 @@ FGoogleARCoreXRTrackingSystem::FGoogleARCoreXRTrackingSystem()
 	, DeltaControlRotation(FRotator::ZeroRotator)
 	, DeltaControlOrientation(FQuat::Identity)
 	, LightEstimate(nullptr)
+	, EventManager(nullptr)
 {
 	UE_LOG(LogGoogleARCoreTrackingSystem, Log, TEXT("Creating GoogleARCore Tracking System."));
 	ARCoreDeviceInstance = FGoogleARCoreDevice::GetInstance();
@@ -83,6 +84,7 @@ bool FGoogleARCoreXRTrackingSystem::EnumerateTrackedDevices(TArray<int32>& OutDe
 bool FGoogleARCoreXRTrackingSystem::OnStartGameFrame(FWorldContext& WorldContext)
 {
 	FTransform CurrentPose;
+	bHasValidPose = false;
 	if (ARCoreDeviceInstance->GetIsARCoreSessionRunning())
 	{
 		if (ARCoreDeviceInstance->GetTrackingState() == EGoogleARCoreTrackingState::Tracking)
@@ -91,10 +93,6 @@ bool FGoogleARCoreXRTrackingSystem::OnStartGameFrame(FWorldContext& WorldContext
 			CurrentPose *= GetAlignmentTransform();
 			bHasValidPose = true;
 			CachedTrackingToWorld = ComputeTrackingToWorldTransform(WorldContext);
-		}
-		else
-		{
-			bHasValidPose = false;
 		}
 
 		if (bHasValidPose)
@@ -116,7 +114,6 @@ bool FGoogleARCoreXRTrackingSystem::OnStartGameFrame(FWorldContext& WorldContext
 		{
 			LightEstimate = nullptr;
 		}
-
 	}
 
 	return true;
@@ -169,6 +166,15 @@ void* FGoogleARCoreXRTrackingSystem::GetGameThreadARFrameRawPointer()
 #endif
 	ensureAlwaysMsgf(false, TEXT("FGoogleARCoreXRTrackingSystem::GetARSessionRawPointer is unimplemented on current platform."));
 	return nullptr;
+}
+
+UGoogleARCoreEventManager* FGoogleARCoreXRTrackingSystem::GetEventManager()
+{
+	if (EventManager == nullptr)
+	{
+		EventManager = NewObject<UGoogleARCoreEventManager>();
+	}
+	return EventManager;
 }
 
 void FGoogleARCoreXRTrackingSystem::OnARSystemInitialized()
@@ -296,6 +302,11 @@ void FGoogleARCoreXRTrackingSystem::AddReferencedObjects(FReferenceCollector& Co
 	if (LightEstimate != nullptr)
 	{
 		Collector.AddReferencedObject(LightEstimate);
+	}
+
+	if (EventManager != nullptr)
+	{
+		Collector.AddReferencedObject(EventManager);
 	}
 }
 

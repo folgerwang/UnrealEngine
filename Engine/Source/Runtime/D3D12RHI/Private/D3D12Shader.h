@@ -75,9 +75,9 @@ public:
 	FShaderCodePackedResourceCounts ResourceCounts;
 
 	FD3D12GeometryShader()
-		: bShaderNeedsStreamOutput(false)
-		, pStreamOutEntries(nullptr)
+		: pStreamOutEntries(nullptr)
 		, pStreamOutStrides(nullptr)
+		, bShaderNeedsStreamOutput(false)
 	{
 		FMemory::Memzero(&StreamOutput, sizeof(StreamOutput));
 	}

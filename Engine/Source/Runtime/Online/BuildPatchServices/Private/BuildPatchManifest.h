@@ -316,6 +316,7 @@ public:
 	virtual int64 GetBuildSize() const override;
 	virtual int64 GetBuildSize(const TSet<FString>& Tags) const override;
 	virtual TArray<FString> GetBuildFileList() const override;
+	virtual TArray<FString> GetBuildFileList(const TSet<FString>& Tags) const override;
 	virtual void GetFileTagList(TSet<FString>& Tags) const override;
 	virtual void GetRemovableFiles(const IBuildManifestRef& OldManifest, TArray< FString >& RemovableFiles) const override;
 	virtual void GetRemovableFiles(const TCHAR* InstallPath, TArray< FString >& RemovableFiles) const override;
@@ -434,12 +435,13 @@ public:
 	 * @param Tags					The tags for the required file groups.
 	 * @param TaggedFiles	OUT		Receives the tagged files.
 	 */
-	virtual void GetTaggedFileList(const TSet<FString>& Tags, TSet<FString>& TaggedFiles) const;
+	virtual void GetTaggedFileList(const TSet<FString>& Tags, TArray<FString>& TaggedFiles) const;
+	virtual void GetTaggedFileList(const TSet<FString>& Tags, TSet  <FString>& TaggedFiles) const;
 
 	/**
-	* Get the list of Guids for all files described by this manifest
-	* @param DataGuids		OUT		Receives the array of Guids.
-	*/
+	 * Get the list of Guids for all chunks referenced by this manifest
+	 * @param DataGuids		OUT		Receives the array of Guids.
+	 */
 	virtual void GetDataList(TArray<FGuid>& DataGuids) const;
 	virtual void GetDataList(TSet  <FGuid>& DataGuids) const;
 

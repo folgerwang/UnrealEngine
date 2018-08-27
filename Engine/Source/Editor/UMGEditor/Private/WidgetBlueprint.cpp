@@ -508,13 +508,14 @@ FDelegateRuntimeBinding FDelegateEditorBinding::ToRuntimeBinding(UWidgetBlueprin
 	return Binding;
 }
 
-bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar)
+bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FStructuredArchive::FSlot Slot)
 {
 	static FName AnimationDataName("AnimationData");
 	if(Tag.Type == NAME_StructProperty && Tag.Name == AnimationDataName)
 	{
-		Ar << MovieScene;
-		Ar << AnimationBindings;
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_FIELD(MovieScene);
+		Record << NAMED_FIELD(AnimationBindings);
 		return true;
 	}
 
@@ -786,7 +787,8 @@ void UWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(UWidget*)> Fn)
 
 void UWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(const UWidget*)> Fn) const
 {
-	ForEachSourceWidgetImpl(Fn);
+	// This cast is pretty terrible, but it'll probably work (!) and saves us repeaeting the Impl code.
+	ForEachSourceWidgetImpl(*(const TFunctionRef<void(UWidget*)>*)&Fn);
 }
 
 UPackage* UWidgetBlueprint::GetWidgetTemplatePackage() const

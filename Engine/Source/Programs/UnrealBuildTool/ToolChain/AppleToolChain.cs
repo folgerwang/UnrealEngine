@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -30,25 +30,13 @@ namespace UnrealBuildTool
 			{
 				Reason = "xcode-select";
 
-				if (Utils.IsRunningOnMono)
-				{
-					// on the Mac, run xcode-select directly
-					DeveloperDir = Utils.RunLocalProcessAndReturnStdOut("xcode-select", "--print-path");
+				// on the Mac, run xcode-select directly
+				DeveloperDir = Utils.RunLocalProcessAndReturnStdOut("xcode-select", "--print-path");
 
-					// make sure we get a full path
-					if (Directory.Exists(DeveloperDir) == false)
-					{
-						throw new BuildException("Selected Xcode ('{0}') doesn't exist, cannot continue.", DeveloperDir);
-					}
-				}
-				else
+				// make sure we get a full path
+				if (Directory.Exists(DeveloperDir) == false)
 				{
-					Hashtable Results = RPCUtilHelper.Command("/", "xcode-select", "--print-path", null);
-					if (Results != null)
-					{
-						DeveloperDir = (string)Results["CommandOutput"];
-						DeveloperDir = DeveloperDir.TrimEnd();
-					}
+					throw new BuildException("Selected Xcode ('{0}') doesn't exist, cannot continue.", DeveloperDir);
 				}
 
 				if (DeveloperDir.EndsWith("/") == false)
@@ -72,21 +60,8 @@ namespace UnrealBuildTool
 				PlatformSDKVersion = "";
 				try
 				{
-					string[] SubDirs = null;
-					if (Utils.IsRunningOnMono)
-					{
-						// on the Mac, we can just get the directory name
-						SubDirs = System.IO.Directory.GetDirectories(BaseSDKDir);
-					}
-					else
-					{
-						Hashtable Results = RPCUtilHelper.Command("/", "ls", BaseSDKDir, null);
-						if (Results != null)
-						{
-							string Result = (string)Results["CommandOutput"];
-							SubDirs = Result.Split("\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-						}
-					}
+					// on the Mac, we can just get the directory name
+					string[] SubDirs = System.IO.Directory.GetDirectories(BaseSDKDir);
 
 					// loop over the subdirs and parse out the version
 					int MaxSDKVersionMajor = 0;
@@ -150,24 +125,30 @@ namespace UnrealBuildTool
 
 			if (bVerbose && !ProjectFileGenerator.bGenerateProjectFiles)
 			{
-				if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-				{
-					Log.TraceInformation("Compiling with {0} SDK {1} on Mac {2}", OSPrefix, PlatformSDKVersion, RemoteToolChain.RemoteServerName);
-				}
-				else
-				{
-					Log.TraceInformation("Compiling with {0} SDK {1}", OSPrefix, PlatformSDKVersion);
-				}
+				Log.TraceInformation("Compiling with {0} SDK {1}", OSPrefix, PlatformSDKVersion);
 			}
 		}
 	}
 
-	abstract class AppleToolChain : RemoteToolChain
+	abstract class AppleToolChain : UEToolChain
 	{
-		public AppleToolChain(CppPlatform InCppPlatform, UnrealTargetPlatform InRemoteToolChainPlatform, FileReference InProjectFile)
-			: base(InCppPlatform, InRemoteToolChainPlatform, InProjectFile)
+		protected FileReference ProjectFile;
+
+		public AppleToolChain(CppPlatform InCppPlatform, FileReference InProjectFile)
+			: base(InCppPlatform)
 		{
+			ProjectFile = InProjectFile;
 		}
+
+		protected string GetMacDevSrcRoot()
+		{
+			return UnrealBuildTool.EngineSourceDirectory.FullName;
+		}
+
+        protected string GetMacDevEngineRoot()
+        {
+            return UnrealBuildTool.EngineDirectory.FullName;
+        }
 
 		protected void StripSymbolsWithXcode(FileReference SourceFile, FileReference TargetFile, string ToolchainDir)
 		{

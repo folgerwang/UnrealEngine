@@ -6,54 +6,47 @@
 #include "Templates/Casts.h"
 #include "Misc/FrameRate.h"
 
-bool FVideoCaptureProtocol::Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host)
+bool UVideoCaptureProtocol::SetupImpl()
 {
-	InitSettings = InSettings;
-	if (!FFrameGrabberProtocol::Initialize(InSettings, Host))
-	{
-		return false;
-	}
-
-	ConditionallyCreateWriter(Host);
-
-	return AVIWriters.Num() && AVIWriters.Last()->IsCapturing();
+#if PLATFORM_UNIX
+	UE_LOG(LogInit, Warning, TEXT("Writing movies is not currently supported on Linux"));
+#endif
+	return Super::SetupImpl();
 }
 
-void FVideoCaptureProtocol::ConditionallyCreateWriter(const ICaptureProtocolHost& Host)
+void UVideoCaptureProtocol::ConditionallyCreateWriter()
 {
 #if PLATFORM_MAC
 	static const TCHAR* Extension = TEXT(".mov");
 #elif PLATFORM_UNIX
 	static const TCHAR* Extension = TEXT(".unsupp");
-	UE_LOG(LogInit, Warning, TEXT("Writing movies is not currently supported on Linux"));
 	return;
 #else
 	static const TCHAR* Extension = TEXT(".avi");
 #endif
 
-	FString VideoFilename = Host.GenerateFilename(FFrameMetrics(), Extension);
+	FString VideoFilename = GenerateFilenameImpl(FFrameMetrics(), Extension);
 
 	if (AVIWriters.Num() && VideoFilename == AVIWriters.Last()->Options.OutputFilename)
 	{
 		return;
 	}
 
-	Host.EnsureFileWritable(VideoFilename);
+	EnsureFileWritableImpl(VideoFilename);
 
-	UVideoCaptureSettings* CaptureSettings = CastChecked<UVideoCaptureSettings>(InitSettings->ProtocolSettings);
 
 	FAVIWriterOptions Options;
 	Options.OutputFilename = MoveTemp(VideoFilename);
-	Options.CaptureFramerateNumerator = Host.GetCaptureFrameRate().Numerator;
-	Options.CaptureFramerateDenominator = Host.GetCaptureFrameRate().Denominator;
-	Options.CodecName = CaptureSettings->VideoCodec;
-	Options.bSynchronizeFrames = Host.GetCaptureStrategy().ShouldSynchronizeFrames();
+	Options.CaptureFramerateNumerator = CaptureHost->GetCaptureFrameRate().Numerator;
+	Options.CaptureFramerateDenominator = CaptureHost->GetCaptureFrameRate().Denominator;
+	Options.CodecName = VideoCodec;
+	Options.bSynchronizeFrames = CaptureHost->GetCaptureStrategy().ShouldSynchronizeFrames();
 	Options.Width = InitSettings->DesiredSize.X;
 	Options.Height = InitSettings->DesiredSize.Y;
 
-	if (CaptureSettings->bUseCompression)
+	if (bUseCompression)
 	{
-		Options.CompressionQuality = CaptureSettings->CompressionQuality / 100.f;
+		Options.CompressionQuality = CompressionQuality / 100.f;
 		
 		float QualityOverride = 100.f;
 		if (FParse::Value( FCommandLine::Get(), TEXT( "-MovieQuality=" ), QualityOverride ))
@@ -74,9 +67,9 @@ struct FVideoFrameData : IFramePayload
 	int32 WriterIndex;
 };
 
-FFramePayloadPtr FVideoCaptureProtocol::GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host)
+FFramePayloadPtr UVideoCaptureProtocol::GetFramePayload(const FFrameMetrics& FrameMetrics)
 {
-	ConditionallyCreateWriter(Host);
+	ConditionallyCreateWriter();
 
 	TSharedRef<FVideoFrameData, ESPMode::ThreadSafe> FrameData = MakeShareable(new FVideoFrameData);
 	FrameData->Metrics = FrameMetrics;
@@ -84,7 +77,7 @@ FFramePayloadPtr FVideoCaptureProtocol::GetFramePayload(const FFrameMetrics& Fra
 	return FrameData;
 }
 
-void FVideoCaptureProtocol::ProcessFrame(FCapturedFrameData Frame)
+void UVideoCaptureProtocol::ProcessFrame(FCapturedFrameData Frame)
 {
 	FVideoFrameData* Payload = Frame.GetPayload<FVideoFrameData>();
 
@@ -107,7 +100,7 @@ void FVideoCaptureProtocol::ProcessFrame(FCapturedFrameData Frame)
 	}
 }
 
-void FVideoCaptureProtocol::Finalize()
+void UVideoCaptureProtocol::FinalizeImpl()
 {
 	for (TUniquePtr<FAVIWriter>& Writer : AVIWriters)
 	{
@@ -119,10 +112,10 @@ void FVideoCaptureProtocol::Finalize()
 	
 	AVIWriters.Empty();
 
-	FFrameGrabberProtocol::Finalize();
+	Super::FinalizeImpl();
 }
 
-bool FVideoCaptureProtocol::CanWriteToFile(const TCHAR* InFilename, bool bOverwriteExisting) const
+bool UVideoCaptureProtocol::CanWriteToFileImpl(const TCHAR* InFilename, bool bOverwriteExisting) const
 {
 	// When recording video, if the filename changes (ie due to the shot changing), we create new AVI writers.
 	// If we're not overwriting existing filenames we need to check if we're already recording a video of that name,

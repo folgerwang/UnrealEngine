@@ -17,7 +17,8 @@ public class SequencerScripting : ModuleRules
 			new string[] {
 				"SequencerScripting/Private",
 				"SequencerScripting/Private/ExtensionLibraries",
-			}
+                "SequencerScripting/Private/KeysAndChannels",
+            }
 		);
 
 		PublicDependencyModuleNames.AddRange(

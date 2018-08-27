@@ -284,7 +284,7 @@ namespace UnrealGameSync
 		}
 	}
 
-	[DebuggerDisplay("{Path}")]
+	[DebuggerDisplay("{DepotPath}")]
 	class PerforceWhereRecord
 	{
 		public string LocalPath;
@@ -292,7 +292,7 @@ namespace UnrealGameSync
 		public string DepotPath;
 	}
 
-	class PerforceSyncOptions
+	public class PerforceSyncOptions
 	{
 		public int NumRetries;
 		public int NumThreads;
@@ -491,9 +491,31 @@ namespace UnrealGameSync
 			return new PerforceConnection(UserName, NewClientName, ServerAndPort);
 		}
 
-		public bool IsLoggedIn(TextWriter Log)
+		public bool GetLoggedInState(out bool bIsLoggedIn, TextWriter Log)
 		{
-			return RunCommand("login -s", CommandOptions.None, Log);
+			List<PerforceOutputLine> Lines = new List<PerforceOutputLine>();
+			bool bResult = RunCommand("login -s", null, Line => { Lines.Add(Line); return true; }, CommandOptions.None, Log);
+
+			foreach(PerforceOutputLine Line in Lines)
+			{
+				Log.WriteLine("p4>   {0}", Line.Text);
+			}
+
+			if(bResult)
+			{
+				bIsLoggedIn = true;
+				return true;
+			}
+			else if(Lines[0].Channel == PerforceOutputChannel.Error && Lines[0].Text.Contains("P4PASSWD"))
+			{
+				bIsLoggedIn = false;
+				return true;
+			}
+			else
+			{
+				bIsLoggedIn = false;
+				return false;
+			}
 		}
 
 		public LoginResult Login(string Password, out string ErrorMessage, TextWriter Log)
@@ -1055,7 +1077,7 @@ namespace UnrealGameSync
 
 		public bool Stat(string Filter, out List<PerforceFileRecord> FileRecords, TextWriter Log)
 		{
-			return RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.IgnoreFilesNotOnClientError, Log);
+			return RunCommand(String.Format("fstat \"{0}\"", Filter), out FileRecords, CommandOptions.IgnoreFilesNotOnClientError | CommandOptions.IgnoreNoSuchFilesError, Log);
 		}
 
 		public bool Sync(string Filter, TextWriter Log)
@@ -1241,7 +1263,15 @@ namespace UnrealGameSync
 		private bool RunCommand(string CommandLine, CommandOptions Options, TextWriter Log)
 		{
 			List<string> Lines;
-			return RunCommand(CommandLine, out Lines, Options, Log);
+			bool bResult = RunCommand(CommandLine, out Lines, Options, Log);
+			if(Lines != null)
+			{
+				foreach(string Line in Lines)
+				{
+					Log.WriteLine("p4>   {0}", Line);
+				}
+			}
+			return bResult;
 		}
 
 		private bool RunCommand(string CommandLine, out List<string> Lines, CommandOptions Options, TextWriter Log)
@@ -1258,6 +1288,10 @@ namespace UnrealGameSync
 			if(Utility.ExecuteProcess("p4.exe", null, FullCommandLine, null, out RawOutputLines) != 0 && !Options.HasFlag(CommandOptions.IgnoreExitCode))
 			{
 				Lines = null;
+				foreach(string RawOutputLine in RawOutputLines)
+				{
+					Log.WriteLine("p4>   {0}", RawOutputLine);
+				}
 				return false;
 			}
 
@@ -1271,11 +1305,25 @@ namespace UnrealGameSync
 				List<string> LocalLines = new List<string>();
 				foreach(string RawOutputLine in RawOutputLines)
 				{
-					bResult &= ParseCommandOutput(RawOutputLine, Line => { if(Line.Channel == Channel){ LocalLines.Add(Line.Text); return true; } else { Log.WriteLine(Line.Text); return Line.Channel != PerforceOutputChannel.Error; } }, Options);
+					bResult &= ParseCommandOutput(RawOutputLine, Line => FilterOutput(Line, Channel, LocalLines, Log), Options);
 				}
 				Lines = LocalLines;
 			}
 			return bResult;
+		}
+
+		private bool FilterOutput(PerforceOutputLine Line, PerforceOutputChannel FilterChannel, List<string> FilterLines, TextWriter Log)
+		{
+			if(Line.Channel == FilterChannel)
+			{
+				FilterLines.Add(Line.Text);
+				return true;
+			}
+			else
+			{
+				Log.WriteLine(Line.Text);
+				return Line.Channel != PerforceOutputChannel.Error;
+			}
 		}
 
 		private bool RunCommand(string CommandLine, string Input, HandleOutputDelegate HandleOutput, CommandOptions Options, TextWriter Log)

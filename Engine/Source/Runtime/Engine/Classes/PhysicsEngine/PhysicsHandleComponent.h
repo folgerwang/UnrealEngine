@@ -29,9 +29,6 @@ class ENGINE_API UPhysicsHandleComponent : public UActorComponent
 	/** Name of bone, if we are grabbing a skeletal component */
 	FName GrabbedBoneName;
 
-	/** Physics scene index of the body we are grabbing. */
-	int32 SceneIndex;
-
 	/** Are we currently constraining the rotation of the grabbed object. */
 	uint32 bRotationConstrained:1;
 

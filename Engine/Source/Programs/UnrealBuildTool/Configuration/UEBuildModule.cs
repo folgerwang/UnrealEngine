@@ -18,34 +18,38 @@ namespace UnrealBuildTool
 	abstract class UEBuildModule
 	{
 		/// <summary>
-		/// The name that uniquely identifies the module.
-		/// </summary>
-		public readonly string Name;
-
-		/// <summary>
-		/// The type of module being built. Used to switch between debug/development and precompiled/source configurations.
-		/// </summary>
-		public UHTModuleType Type;
-
-		/// <summary>
 		/// The rules for this module
 		/// </summary>
-		public ModuleRules Rules;
+		public readonly ModuleRules Rules;
+
+		/// <summary>
+		/// The name that uniquely identifies the module.
+		/// </summary>
+		public string Name
+		{
+			get { return Rules.Name; }
+		}
 
 		/// <summary>
 		/// Path to the module directory
 		/// </summary>
-		public readonly DirectoryReference ModuleDirectory;
+		public DirectoryReference ModuleDirectory
+		{
+			get { return Rules.Directory; }
+		}
+
+		/// <summary>
+		/// The name of the .Build.cs file this module was created from, if any
+		/// </summary>
+		public FileReference RulesFile
+		{
+			get { return Rules.File; }
+		}
 
 		/// <summary>
 		/// Is this module allowed to be redistributed.
 		/// </summary>
 		private readonly bool? IsRedistributableOverride;
-
-		/// <summary>
-		/// The name of the .Build.cs file this module was created from, if any
-		/// </summary>
-		public FileReference RulesFile;
 
 		/// <summary>
 		/// The binary the module will be linked into for the current target.  Only set after UEBuildBinary.BindModules is called.
@@ -148,11 +152,6 @@ namespace UnrealBuildTool
 		protected List<UEBuildModule> DynamicallyLoadedModules;
 
 		/// <summary>
-		/// Files which this module depends on at runtime.
-		/// </summary>
-		public List<RuntimeDependency> RuntimeDependencies;
-
-		/// <summary>
 		/// Set of all whitelisted restricted folder references
 		/// </summary>
 		private readonly HashSet<DirectoryReference> WhitelistRestrictedFolders;
@@ -160,45 +159,35 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor
 		/// </summary>
-		/// <param name="InName">Name of the module</param>
-		/// <param name="InType">Type of the module, for UHT</param>
-		/// <param name="InModuleDirectory">Base directory for the module</param>
-		/// <param name="InRules">Rules for this module</param>
-		/// <param name="InRulesFile">Path to the rules file</param>
-		/// <param name="InRuntimeDependencies">List of runtime dependencies</param>
-		public UEBuildModule(string InName, UHTModuleType InType, DirectoryReference InModuleDirectory, ModuleRules InRules, FileReference InRulesFile, List<RuntimeDependency> InRuntimeDependencies)
+		/// <param name="Rules">Rules for this module</param>
+		public UEBuildModule(ModuleRules Rules)
 		{
-			Name = InName;
-			Type = InType;
-			ModuleDirectory = InModuleDirectory;
-			Rules = InRules;
-			RulesFile = InRulesFile;
+			this.Rules = Rules;
 
 			ModuleApiDefine = Name.ToUpperInvariant() + "_API";
 
-			PublicDefinitions = HashSetFromOptionalEnumerableStringParameter(InRules.PublicDefinitions);
-			PublicIncludePaths = CreateDirectoryHashSet(InRules.PublicIncludePaths);
-			PublicSystemIncludePaths = CreateDirectoryHashSet(InRules.PublicSystemIncludePaths);
-			PublicLibraryPaths = CreateDirectoryHashSet(InRules.PublicLibraryPaths);
-			PublicAdditionalLibraries = HashSetFromOptionalEnumerableStringParameter(InRules.PublicAdditionalLibraries);
-			PublicFrameworks = HashSetFromOptionalEnumerableStringParameter(InRules.PublicFrameworks);
-			PublicWeakFrameworks = HashSetFromOptionalEnumerableStringParameter(InRules.PublicWeakFrameworks);
-			PublicAdditionalFrameworks = InRules.PublicAdditionalFrameworks == null ? new HashSet<UEBuildFramework>() : new HashSet<UEBuildFramework>(InRules.PublicAdditionalFrameworks);
-			PublicAdditionalShadowFiles = HashSetFromOptionalEnumerableStringParameter(InRules.PublicAdditionalShadowFiles);
-			PublicAdditionalBundleResources = InRules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(InRules.AdditionalBundleResources);
-			PublicDelayLoadDLLs = HashSetFromOptionalEnumerableStringParameter(InRules.PublicDelayLoadDLLs);
+			PublicDefinitions = HashSetFromOptionalEnumerableStringParameter(Rules.PublicDefinitions);
+			PublicIncludePaths = CreateDirectoryHashSet(Rules.PublicIncludePaths);
+			PublicSystemIncludePaths = CreateDirectoryHashSet(Rules.PublicSystemIncludePaths);
+			PublicLibraryPaths = CreateDirectoryHashSet(Rules.PublicLibraryPaths);
+			PublicAdditionalLibraries = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalLibraries);
+			PublicFrameworks = HashSetFromOptionalEnumerableStringParameter(Rules.PublicFrameworks);
+			PublicWeakFrameworks = HashSetFromOptionalEnumerableStringParameter(Rules.PublicWeakFrameworks);
+			PublicAdditionalFrameworks = Rules.PublicAdditionalFrameworks == null ? new HashSet<UEBuildFramework>() : new HashSet<UEBuildFramework>(Rules.PublicAdditionalFrameworks);
+			PublicAdditionalShadowFiles = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalShadowFiles);
+			PublicAdditionalBundleResources = Rules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(Rules.AdditionalBundleResources);
+			PublicDelayLoadDLLs = HashSetFromOptionalEnumerableStringParameter(Rules.PublicDelayLoadDLLs);
 			if(Rules.bUsePrecompiled)
 			{
 				PrivateIncludePaths = new HashSet<DirectoryReference>();
 			}
 			else
 			{
-				PrivateIncludePaths = CreateDirectoryHashSet(InRules.PrivateIncludePaths);
+				PrivateIncludePaths = CreateDirectoryHashSet(Rules.PrivateIncludePaths);
 			}
-			RuntimeDependencies = InRuntimeDependencies;
-			IsRedistributableOverride = InRules.IsRedistributableOverride;
+			IsRedistributableOverride = Rules.IsRedistributableOverride;
 
-			WhitelistRestrictedFolders = new HashSet<DirectoryReference>(InRules.WhitelistRestrictedFolders.Select(x => DirectoryReference.Combine(ModuleDirectory, x)));
+			WhitelistRestrictedFolders = new HashSet<DirectoryReference>(Rules.WhitelistRestrictedFolders.Select(x => DirectoryReference.Combine(ModuleDirectory, x)));
 		}
 
 		/// <summary>
@@ -250,13 +239,7 @@ namespace UnrealBuildTool
 			{
 				foreach(string InputString in InEnumerableStrings)
 				{
-					string ExpandedString = Utils.ExpandVariables(InputString);
-					if(ExpandedString.Contains("$("))
-					{
-						throw new BuildException("Unable to expand variable in '{0}'", InputString);
-					}
-
-					DirectoryReference Dir = new DirectoryReference(ExpandedString);
+					DirectoryReference Dir = new DirectoryReference(ExpandPathVariables(InputString, null));
 					if(DirectoryReference.Exists(Dir))
 					{
 						Directories.Add(Dir);
@@ -553,13 +536,99 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Expand path variables within the context of this module
+		/// </summary>
+		/// <param name="Path">Path to expand variables within</param>
+		/// <param name="Binary">The source binary containing the module. May be null.</param>
+		/// <returns>The path with variables expanded</returns>
+		public string ExpandPathVariables(string Path, UEBuildBinary Binary)
+		{
+			if(Path.StartsWith("$(", StringComparison.Ordinal))
+			{
+				int StartIdx = 2;
+				for(int EndIdx = StartIdx; EndIdx < Path.Length; EndIdx++)
+				{
+					if(Path[EndIdx] == ')')
+					{
+						if(MatchVariableName(Path, StartIdx, EndIdx, "EngineDir"))
+						{
+							Path = UnrealBuildTool.EngineDirectory + Path.Substring(EndIdx + 1);
+						}
+						else if(MatchVariableName(Path, StartIdx, EndIdx, "ProjectDir"))
+						{
+							if(Rules.Target.ProjectFile == null)
+							{
+								Path = UnrealBuildTool.EngineDirectory + Path.Substring(EndIdx + 1);
+							}
+							else
+							{
+								Path = Rules.Target.ProjectFile.Directory + Path.Substring(EndIdx + 1);
+							}
+						}
+						else if(MatchVariableName(Path, StartIdx, EndIdx, "ModuleDir"))
+						{
+							Path = Rules.ModuleDirectory + Path.Substring(EndIdx + 1);
+						}
+						else if(MatchVariableName(Path, StartIdx, EndIdx, "PluginDir"))
+						{
+							Path = Rules.PluginDirectory + Path.Substring(EndIdx + 1);
+						}
+						else if(Binary != null && MatchVariableName(Path, StartIdx, EndIdx, "OutputDir"))
+						{
+							Path = Binary.OutputFilePaths[0].Directory.FullName + Path.Substring(EndIdx + 1);
+						}
+						else
+						{
+							string Name = Path.Substring(StartIdx, EndIdx - StartIdx);
+							string Value = Environment.GetEnvironmentVariable(Name);
+							if(String.IsNullOrEmpty(Value))
+							{
+								throw new BuildException("Environment variable '{0}' is not defined (referenced by {1})", Name, Rules.File);
+							}
+							Path = Value + Path.Substring(EndIdx + 1);
+						}
+						break;
+					}
+				}
+			}
+			return Path;
+		}
+
+		/// <summary>
+		/// Match a variable name within a path
+		/// </summary>
+		/// <param name="Path">The path variable</param>
+		/// <param name="StartIdx">Start index of the substring to match</param>
+		/// <param name="EndIdx">End index of the substring to match</param>
+		/// <param name="Name">Variable name to compare against</param>
+		/// <returns>True if the variable name matches</returns>
+		private bool MatchVariableName(string Path, int StartIdx, int EndIdx, string Name)
+		{
+			return Name.Length == EndIdx - StartIdx && String.Compare(Path, StartIdx, Name, 0, EndIdx - StartIdx) == 0;
+		}
+
+		/// <summary>
+		/// Expand path variables within the context of this module
+		/// </summary>
+		/// <param name="Paths">Path to expand variables within</param>
+		/// <param name="Binary">The source binary containing the module. May be null.</param>
+		/// <returns>The path with variables expanded</returns>
+		private IEnumerable<string> ExpandPathVariables(IEnumerable<string> Paths, UEBuildBinary Binary)
+		{
+			foreach(string Path in Paths)
+			{
+				yield return ExpandPathVariables(Path, Binary);
+			}
+		}
+
+		/// <summary>
 		/// Sets up the environment for linking any module that includes the public interface of this module.
 		/// </summary>
 		protected virtual void SetupPublicLinkEnvironment(
 			UEBuildBinary SourceBinary,
 			List<DirectoryReference> LibraryPaths,
 			List<string> AdditionalLibraries,
-			List<FileReference> OutRuntimeDependencies,
+			List<string> RuntimeLibraryPaths,
 			List<string> Frameworks,
 			List<string> WeakFrameworks,
 			List<UEBuildFramework> AdditionalFrameworks,
@@ -599,8 +668,7 @@ namespace UnrealBuildTool
 						bool bIsInStaticLibrary = (DependencyModule.Binary != null && DependencyModule.Binary.Type == UEBuildBinaryType.StaticLibrary);
 						if (bIsExternalModule || bIsInStaticLibrary)
 						{
-							DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LibraryPaths, AdditionalLibraries, OutRuntimeDependencies, Frameworks, WeakFrameworks,
-
+							DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LibraryPaths, AdditionalLibraries, RuntimeLibraryPaths, Frameworks, WeakFrameworks,
 								AdditionalFrameworks, AdditionalShadowFiles, AdditionalBundleResources, DelayLoadDLLs, BinaryDependencies, VisitedModules);
 						}
 					}
@@ -609,6 +677,7 @@ namespace UnrealBuildTool
 				// Add this module's public include library paths and additional libraries.
 				LibraryPaths.AddRange(PublicLibraryPaths);
 				AdditionalLibraries.AddRange(PublicAdditionalLibraries);
+				RuntimeLibraryPaths.AddRange(ExpandPathVariables(Rules.PublicRuntimeLibraryPaths, SourceBinary));
 				Frameworks.AddRange(PublicFrameworks);
 				WeakFrameworks.AddRange(PublicWeakFrameworks);
 				AdditionalBundleResources.AddRange(PublicAdditionalBundleResources);
@@ -620,11 +689,6 @@ namespace UnrealBuildTool
 				AdditionalFrameworks.AddRange(PublicAdditionalFrameworks);
 				AdditionalShadowFiles.AddRange(PublicAdditionalShadowFiles);
 				DelayLoadDLLs.AddRange(PublicDelayLoadDLLs);
-
-				foreach(RuntimeDependency RuntimeDependency in RuntimeDependencies)
-				{
-					OutRuntimeDependencies.Add(RuntimeDependency.Path);
-				}
 			}
 		}
 
@@ -638,8 +702,11 @@ namespace UnrealBuildTool
 			HashSet<UEBuildModule> VisitedModules
 			)
 		{
+			// Add the private rpaths
+			LinkEnvironment.RuntimeLibraryPaths.AddRange(ExpandPathVariables(Rules.PrivateRuntimeLibraryPaths, SourceBinary));
+
 			// Allow the module's public dependencies to add library paths and additional libraries to the link environment.
-			SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeDependencies, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
+			SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeLibraryPaths, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
 				LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules);
 
 			// Also allow the module's public and private dependencies to modify the link environment.
@@ -649,7 +716,7 @@ namespace UnrealBuildTool
 
 			foreach (UEBuildModule DependencyModule in AllDependencyModules)
 			{
-				DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeDependencies, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
+				DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeLibraryPaths, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
 					LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules);
 			}
 		}
@@ -767,7 +834,6 @@ namespace UnrealBuildTool
 		public virtual void ExportJson(JsonWriter Writer)
 		{
 			Writer.WriteValue("Name", Name);
-			Writer.WriteValue("Type", Type.ToString());
 			Writer.WriteValue("Directory", ModuleDirectory.FullName);
 			Writer.WriteValue("Rules", RulesFile.FullName);
 			Writer.WriteValue("PCHUsage", Rules.PCHUsage.ToString());
@@ -802,16 +868,6 @@ namespace UnrealBuildTool
 			foreach(string ModuleName in Rules.CircularlyReferencedDependentModules)
 			{
 				Writer.WriteValue(ModuleName);
-			}
-			Writer.WriteArrayEnd();
-
-			Writer.WriteArrayStart("RuntimeDependencies");
-			foreach(RuntimeDependency RuntimeDependency in RuntimeDependencies)
-			{
-				Writer.WriteObjectStart();
-				Writer.WriteValue("Path", RuntimeDependency.Path.FullName);
-				Writer.WriteValue("Type", RuntimeDependency.Type.ToString());
-				Writer.WriteObjectEnd();
 			}
 			Writer.WriteArrayEnd();
 		}

@@ -1054,7 +1054,7 @@ namespace ClassViewer
 			// Handle fully loading packages before creating new objects.
 			TArray<UPackage*> TopLevelPackages;
 			TopLevelPackages.Add( Package->GetOutermost() );
-			if( !PackageTools::HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "CreateANewObject", "Create a new object") ) )
+			if( !UPackageTools::HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "CreateANewObject", "Create a new object") ) )
 			{
 				// Can't load package
 				return;

@@ -3,3 +3,4 @@
 #include "BuildPatchServicesSingleton.h"
 
 FName FBuildPatchServices::ModuleName = TEXT("BuildPatchServices");
+BuildPatchServices::FBuildPatchServicesInitSettings FBuildPatchServices::InitSettings;

@@ -78,15 +78,6 @@ struct FHmdUserProfile
 		PlayerHeight(0.f), EyeHeight(0.f), IPD(0.f), NeckToEyeDistance(FVector2D::ZeroVector) {}
 };
 
-/** DEPRECATED in 4.17 : All functions using this enum have been deprecated and it will be removed with them. If you are still needing this, then please create your own replacement.*/
-UENUM(BlueprintType)
-enum class EGearVRControllerHandedness_DEPRECATED : uint8
-{
-	RightHanded_DEPRECATED,
-	LeftHanded_DEPRECATED,
-	Unknown_DEPRECATED
-};
-
 UENUM(BlueprintType)
 enum class ETiledMultiResLevel : uint8
 {
@@ -94,6 +85,45 @@ enum class ETiledMultiResLevel : uint8
 	ETiledMultiResLevel_LMSLow,
 	ETiledMultiResLevel_LMSMedium,
 	ETiledMultiResLevel_LMSHigh
+};
+
+/* Guardian boundary types*/
+UENUM(BlueprintType)
+enum class EBoundaryType : uint8
+{
+	Boundary_Outer	UMETA(DisplayName = "Outer Boundary"),
+	Boundary_PlayArea	UMETA(DisplayName = "Play Area"),
+};
+
+/*
+* Information about relationships between a triggered boundary (EBoundaryType::Boundary_Outer or
+* EBoundaryType::Boundary_PlayArea) and a device or point in the world.
+* All dimensions, points, and vectors are returned in Unreal world coordinate space.
+*/
+USTRUCT(BlueprintType)
+struct FGuardianTestResult
+{
+	GENERATED_BODY()
+
+	/** Is there a triggering interaction between the device/point and specified boundary? */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Boundary Test Result")
+	bool IsTriggering;
+
+	/** Device type triggering boundary (ETrackedDeviceType::None if BoundaryTestResult corresponds to a point rather than a device) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Boundary Test Result")
+	ETrackedDeviceType DeviceType;
+
+	/** Distance of device/point to surface of boundary specified by BoundaryType */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Boundary Test Result")
+	float ClosestDistance;
+
+	/** Closest point on surface corresponding to specified boundary */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Boundary Test Result")
+	FVector ClosestPoint;
+
+	/** Normal of closest point */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Boundary Test Result")
+	FVector ClosestPointNormal;
 };
 
 UCLASS()
@@ -111,7 +141,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 * @param bUsePositionForPlayerCamera	(in) Should be set to 'true' if the position is going to be used to update position of the camera manually.
 	 * @param PositionScale		(in) The 3D scale that will be applied to position.
 	 */
-	UFUNCTION(BlueprintPure, Category="Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category="OculusLibrary")
 	static void GetPose(FRotator& DeviceRotation, FVector& DevicePosition, FVector& NeckPosition, bool bUseOrienationForPlayerCamera = false, bool bUsePositionForPlayerCamera = false, const FVector PositionScale = FVector::ZeroVector);
 
 	/**
@@ -123,20 +153,29 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	* @param LinearVelocity			(out) Velocity in meters per second.
 	* @param TimeInSeconds			(out) Time when the reported IMU reading took place, in seconds.
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static void GetRawSensorData(FVector& AngularAcceleration, FVector& LinearAcceleration, FVector& AngularVelocity, FVector& LinearVelocity, float& TimeInSeconds, ETrackedDeviceType DeviceType = ETrackedDeviceType::HMD);
 
 	/**
 	* Returns if the device is currently tracked by the runtime or not.
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static bool IsDeviceTracked(ETrackedDeviceType DeviceType);
 
 	/**
 	* Returns if the device is currently tracked by the runtime or not.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void SetCPUAndGPULevels(int CPULevel, int GPULevel);
+
+	/**
+	* Sets the HMD recenter behavior to a mode that specifies HMD recentering behavior when a
+	* controller recenter is performed. If the recenterMode specified is 1, the HMD will recenter
+	* on controller recenter; if it's 0, only the controller will recenter. Returns false if not
+	* supported.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	static void SetReorientHMDOnControllerRecenter(bool recenterMode);
 
 	/**
 	* Returns current user profile.
@@ -144,7 +183,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	* @param Profile		(out) Structure to hold current user profile.
 	* @return (boolean)	True, if user profile was acquired.
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static bool GetUserProfile(FHmdUserProfile& Profile);
 
 	/**
@@ -159,7 +198,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	* @param BaseOffsetInMeters (in) the vector to be set as base offset, in meters.
 	* @param Options			(in) specifies either position, orientation or both should be set.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void SetBaseRotationAndBaseOffsetInMeters(FRotator Rotation, FVector BaseOffsetInMeters, EOrientPositionSelector::Type Options);
 
 	/**
@@ -172,7 +211,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	* @param OutRotation			(out) Rotator object with base rotation
 	* @param OutBaseOffsetInMeters	(out) base position offset, vector, in meters.
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static void GetBaseRotationAndBaseOffsetInMeters(FRotator& OutRotation, FVector& OutBaseOffsetInMeters);
 
 	/**
@@ -180,7 +219,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 *
 	 * @param PosScale3D	(in) the scale to apply to the HMD position.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "This feature is no longer supported."))
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "This feature is no longer supported."))
 	static void SetPositionScale3D(FVector PosScale3D) { }
 
 	/**
@@ -194,7 +233,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 * @param PosOffset			(in) the vector to be added to HMD position.
 	 * @param Options			(in) specifies either position, orientation or both should be set.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "A hack, proper camera positioning should be used"))
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "A hack, proper camera positioning should be used"))
 	static void SetBaseRotationAndPositionOffset(FRotator BaseRot, FVector PosOffset, EOrientPositionSelector::Type Options);
 
 	/**
@@ -203,7 +242,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 * @param OutRot			(out) Rotator object with base rotation
 	 * @param OutPosOffset		(out) the vector with previously set position offset.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "A hack, proper camera positioning should be used"))
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "A hack, proper camera positioning should be used"))
 	static void GetBaseRotationAndPositionOffset(FRotator& OutRot, FVector& OutPosOffset);
 
 	/**
@@ -216,19 +255,19 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 * @param DeltaRotation		(in) Incremental rotation, that is added each 2nd frame to the quad transform. The quad is rotated around the center of the quad.
 	 * @param bClearBeforeAdd	(in) If true, clears splashes before adding a new one.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void AddLoadingSplashScreen(class UTexture2D* Texture, FVector TranslationInMeters, FRotator Rotation, FVector2D SizeInMeters = FVector2D(1.0f, 1.0f), FRotator DeltaRotation = FRotator::ZeroRotator, bool bClearBeforeAdd = false);
 
 	/**
 	 * Removes all the splash screens.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void ClearLoadingSplashScreens();
 
 	/**
 	 * Shows loading splash screen.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void ShowLoadingSplashScreen();
 
 	/**
@@ -236,7 +275,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 *
 	 * @param	bClear	(in) Clear all splash screens after hide.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void HideLoadingSplashScreen(bool bClear = false);
 
 	/**
@@ -244,31 +283,31 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 *
 	 * @param	bAutoShowEnabled	(in)	True, if automatic showing of splash screens is enabled when map is being loaded.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void EnableAutoLoadingSplashScreen(bool bAutoShowEnabled);
 
 	/**
 	 * Returns true, if the splash screen is automatically shown when LoadMap is called.
 	 */
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static bool IsAutoLoadingSplashScreenEnabled();
 
 	/**
 	 * Sets a texture for loading icon mode and shows it. This call will clear all the splashes.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void ShowLoadingIcon(class UTexture2D* Texture);
 
 	/**
 	 * Clears the loading icon. This call will clear all the splashes.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void HideLoadingIcon();
 
 	/**
 	 * Returns true, if the splash screen is in loading icon mode.
 	 */
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static bool IsLoadingIconEnabled();
 
 	/**
@@ -280,7 +319,7 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 * @param RotationAxes		(in) A vector that specifies the axis of the splash screen rotation (if RotationDelta is specified).
 	 * @param RotationDeltaInDeg (in) Rotation delta, in degrees, that is added each 2nd frame to the quad transform. The quad is rotated around the vector "RotationAxes".
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "use AddLoadingSplashScreen / ClearLoadingSplashScreens"))
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "use AddLoadingSplashScreen / ClearLoadingSplashScreens"))
 	static void SetLoadingSplashParams(FString TexturePath, FVector DistanceInMeters, FVector2D SizeInMeters, FVector RotationAxis, float RotationDeltaInDeg);
 
 	/**
@@ -292,122 +331,153 @@ class OCULUSHMD_API UOculusFunctionLibrary : public UBlueprintFunctionLibrary
 	 * @param RotationAxes		(out) A vector that specifies the axis of the splash screen rotation (if RotationDelta is specified).
 	 * @param RotationDeltaInDeg (out) Rotation delta, in degrees, that is added each 2nd frame to the quad transform. The quad is rotated around the vector "RotationAxes".
 	 */
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "use AddLoadingSplashScreen / ClearLoadingSplashScreens"))
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary", meta = (DeprecatedFunction, DeprecationMessage = "use AddLoadingSplashScreen / ClearLoadingSplashScreens"))
 	static void GetLoadingSplashParams(FString& TexturePath, FVector& DistanceInMeters, FVector2D& SizeInMeters, FVector& RotationAxis, float& RotationDeltaInDeg);
 
 	/**
 	* Returns true, if the app has input focus.
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static bool HasInputFocus();
 
 	/**
 	* Returns true, if the system overlay is present.
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static bool HasSystemOverlayPresent();
 
 	/**
 	* Returns the GPU utilization availability and value
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static void GetGPUUtilization(bool& IsGPUAvailable, float& GPUUtilization);
+
+	/**
+	* Returns the GPU frame time on supported mobile platforms (Go for now)
+	*/
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
+	static float GetGPUFrameTime();
 
 	/**
 	* Returns the current multiresolution level
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static ETiledMultiResLevel GetTiledMultiresLevel();
 
 	/**
 	* Set the requested multiresolution level for the next frame
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void SetTiledMultiresLevel(ETiledMultiResLevel level);
 
 	/**
 	* Returns the current device's name
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static FString GetDeviceName();
 
 	/**
 	* Returns the current available frequencies
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static TArray<float> GetAvailableDisplayFrequencies();
 
 	/**
 	* Returns the current display frequency
 	*/
-	UFUNCTION(BlueprintPure, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary")
 	static float GetCurrentDisplayFrequency();
 
 	/**
 	* Sets the requested display frequency
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Input|OculusLibrary")
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
 	static void SetDisplayFrequency(float RequestedFrequency);
+
+	/**
+	* Enables/disables positional tracking on devices that support it.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	static void EnablePositionTracking(bool bPositionTracking);
+
+	/**
+	* Enables/disables orientation tracking on devices that support it.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary")
+	static void EnableOrientationTracking(bool bOrientationTracking);
 
 	/**
 	 * Returns IStereoLayers interface to work with overlays.
 	 */
 	static class IStereoLayers* GetStereoLayers();
 
+	/* GUARDIAN API */
+	/**
+	* Returns true if the Guardian Outer Boundary is being displayed
+	*/
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary|Guardian")
+	static bool IsGuardianDisplayed();
+
+	/**
+	* Returns the list of points in UE world space of the requested Boundary Type 
+	* @param BoundaryType			(in) An enum representing the boundary type requested, either Outer Boundary (exact guardian bounds) or PlayArea (rectangle inside the Outer Boundary)
+	*/
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary|Guardian")
+	static TArray<FVector> GetGuardianPoints(EBoundaryType BoundaryType);
+
+	/**
+	* Returns the dimensions in UE world space of the requested Boundary Type
+	* @param BoundaryType			(in) An enum representing the boundary type requested, either Outer Boundary (exact guardian bounds) or PlayArea (rectangle inside the Outer Boundary)
+	*/
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary|Guardian")
+	static FVector GetGuardianDimensions(EBoundaryType BoundaryType);
+
+	/**
+	* Returns the transform of the play area rectangle, defining its position, rotation and scale to apply to a unit cube to match it with the play area.
+	*/
+	UFUNCTION(BlueprintPure, Category = "OculusLibrary|Guardian")
+	static FTransform GetPlayAreaTransform();
+
+	/**
+	* Get the intersection result between a UE4 coordinate and a guardian boundary
+	* @param Point					(in) Point in UE space to test against guardian boundaries
+	* @param BoundaryType			(in) An enum representing the boundary type requested, either Outer Boundary (exact guardian bounds) or PlayArea (rectangle inside the Outer Boundary)
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary|Guardian")
+	static FGuardianTestResult GetPointGuardianIntersection(const FVector Point, EBoundaryType BoundaryType);
+
+	/**
+	* Get the intersection result between a tracked device (HMD or controllers) and a guardian boundary
+	* @param DeviceType             (in) Tracked Device type to test against guardian boundaries
+	* @param BoundaryType			(in) An enum representing the boundary type requested, either Outer Boundary (exact guardian bounds) or PlayArea (rectangle inside the Outer Boundary)
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary|Guardian")
+	static FGuardianTestResult GetNodeGuardianIntersection(ETrackedDeviceType DeviceType, EBoundaryType BoundaryType);
+
+	/**
+	* Forces the runtime to render guardian at all times or not
+	* @param GuardianVisible			(in) True will display guardian, False will hide it
+	*/
+	UFUNCTION(BlueprintCallable, Category = "OculusLibrary|Guardian")
+	static void SetGuardianVisibility(bool GuardianVisible);
+
+	/** When player triggers the Guardian boundary */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOculusGuardianTriggeredEvent, FGuardianTestResult);
+
+	/** When player returns within outer bounds */
+	DECLARE_MULTICAST_DELEGATE(FOculusGuardianReturnedEvent);
+
+	/**
+	* For outer boundary only. Devs can bind delegates via something like: BoundaryComponent->OnOuterBoundaryTriggered.AddDynamic(this, &UCameraActor::PauseGameForBoundarySystem) where
+	* PauseGameForBoundarySystem() takes a TArray<FBoundaryTestResult> parameter.
+	*/
+	//UPROPERTY(BlueprintAssignable, Category = "Input|OculusLibrary|Guardian")
+	//static FOculusGuardianTriggeredEvent OnGuardianTriggered;
+
+	/** For outer boundary only. Devs can bind delegates via something like: BoundaryComponent->OnOuterBoundaryReturned.AddDynamic(this, &UCameraActor::ResumeGameForBoundarySystem) */
+	//UPROPERTY(BlueprintAssignable, Category = "OculusLibrary|Guardian")
+	//FOculusGuardianReturnedEvent OnGuardianReturned;
+
 protected:
 	static class OculusHMD::FOculusHMD* GetOculusHMD();
-
-private:
-	//
-	// DEPRECATED functions from the old GearVR module
-
-	/** Set Gear VR CPU and GPU Levels */
-	DEPRECATED(4.17, "The Oculus API no longer supports this function. Therefore it has been deprecated, and is no longer available.")
-	UFUNCTION(BlueprintCallable, CustomThunk, Category = "GearVR", meta=(DeprecatedFunction, DeprecationMessage="The Oculus API no longer supports this Gear VR function."))
-	static bool IsPowerLevelStateMinimum();
-	DECLARE_FUNCTION(execIsPowerLevelStateMinimum);
-
-	/** Set Gear VR CPU and GPU Levels */
-	DEPRECATED(4.17, "The Oculus API no longer supports this function. Therefore it has been deprecated, and is no longer available.")
-	UFUNCTION(BlueprintCallable, CustomThunk, Category = "GearVR", meta=(DeprecatedFunction, DeprecationMessage="The Oculus API no longer supports this Gear VR function."))
-	static bool IsPowerLevelStateThrottled();
-	DECLARE_FUNCTION(execIsPowerLevelStateThrottled);
-
-	/** Set Gear VR CPU and GPU Levels */
-	DEPRECATED(4.17, "The Oculus API no longer supports this function. Therefore it has been deprecated, and is no longer available.")
-	UFUNCTION(BlueprintCallable, CustomThunk, Category = "GearVR", meta=(DeprecatedFunction, DeprecationMessage="The Oculus API no longer supports this Gear VR function."))
-	static bool AreHeadPhonesPluggedIn();
-	DECLARE_FUNCTION(execAreHeadPhonesPluggedIn);
-
-	/** Set Gear VR CPU and GPU Levels */
-	DEPRECATED(4.17, "The Oculus API no longer supports this function. Therefore it has been deprecated, and is no longer available.")
-	UFUNCTION(BlueprintCallable, CustomThunk, Category = "GearVR", meta=(DeprecatedFunction, DeprecationMessage="The Oculus API no longer supports this Gear VR function."))
-	static float GetTemperatureInCelsius();
-	DECLARE_FUNCTION(execGetTemperatureInCelsius);
-
-	/** Set Gear VR CPU and GPU Levels */
-	DEPRECATED(4.17, "The Oculus API no longer supports this function. Therefore it has been deprecated, and is no longer available.")
-	UFUNCTION(BlueprintCallable, CustomThunk, Category = "GearVR", meta=(DeprecatedFunction, DeprecationMessage="The Oculus API no longer supports this Gear VR function."))
-	static float GetBatteryLevel();
-	DECLARE_FUNCTION(execGetBatteryLevel);
-
-	/** Set Gear VR CPU and GPU Levels */
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	DEPRECATED(4.17, "The Oculus API no longer supports this function. Therefore it has been deprecated, and is no longer available.")
-	UFUNCTION(BlueprintCallable, CustomThunk, Category = "GearVRController", meta=(DeprecatedFunction, DeprecationMessage="The Oculus API no longer supports this Gear VR function."))
-	static EGearVRControllerHandedness_DEPRECATED GetGearVRControllerHandedness();
-	DECLARE_FUNCTION(execGetGearVRControllerHandedness);
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
-	/** Set Gear VR CPU and GPU Levels */
-	DEPRECATED(4.17, "The Oculus API no longer supports this function. Therefore it has been deprecated, and is no longer available.")
-	UFUNCTION(BlueprintCallable, CustomThunk, Category = "GearVRController", meta=(DeprecatedFunction, DeprecationMessage="The Oculus API no longer supports this Gear VR function."))
-	static void EnableArmModel(bool bArmModelEnable);
-	DECLARE_FUNCTION(execEnableArmModel);
-
-	/** Is controller active */
-	DEPRECATED(4.17, "The Oculus API no longer supports this function. Therefore it has been deprecated, and is no longer available.")
-	UFUNCTION(BlueprintCallable, CustomThunk, Category = "GearVRController", meta=(DeprecatedFunction, DeprecationMessage="The Oculus API no longer supports this Gear VR function."))
-	static bool IsControllerActive();
-	DECLARE_FUNCTION(execIsControllerActive);
 };

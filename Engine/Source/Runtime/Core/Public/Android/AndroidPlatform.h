@@ -26,7 +26,7 @@ struct FAndroidTypes : public FGenericPlatformTypes
 
 typedef FAndroidTypes FPlatformTypes;
 
-#define MAX_PATH						PATH_MAX
+#define ANDROID_MAX_PATH						PATH_MAX
 
 // Base defines, must define these for the platform, there are no defaults
 #define PLATFORM_DESKTOP				0
@@ -39,7 +39,7 @@ typedef FAndroidTypes FPlatformTypes;
 #define PLATFORM_USE_LS_SPEC_FOR_WIDECHAR			1
 #define PLATFORM_HAS_BSD_TIME						1
 #define PLATFORM_USE_PTHREADS						1
-#define PLATFORM_MAX_FILEPATH_LENGTH				MAX_PATH
+#define PLATFORM_MAX_FILEPATH_LENGTH_DEPRECATED		ANDROID_MAX_PATH
 #define PLATFORM_SUPPORTS_TEXTURE_STREAMING			1
 #define PLATFORM_REQUIRES_FILESERVER				1
 #define PLATFORM_TCHAR_IS_CHAR16					1
@@ -77,6 +77,9 @@ typedef FAndroidTypes FPlatformTypes;
 // some android platform overrides that sub-platforms can disable
 #ifndef USE_ANDROID_JNI
 	#define USE_ANDROID_JNI							1
+#endif
+#ifndef USE_ANDROID_AUDIO
+	#define USE_ANDROID_AUDIO						1
 #endif
 #ifndef USE_ANDROID_FILE
 	#define USE_ANDROID_FILE						1

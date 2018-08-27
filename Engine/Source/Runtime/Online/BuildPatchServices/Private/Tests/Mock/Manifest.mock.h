@@ -80,7 +80,16 @@ namespace BuildPatchServices
 
 		virtual TArray<FString> GetBuildFileList() const override
 		{
-			return BuildFileList;
+			TArray<FString> Filenames;
+			GetFileList(Filenames);
+			return Filenames;
+		}
+
+		virtual TArray<FString> GetBuildFileList(const TSet<FString>& Tags) const override
+		{
+			TArray<FString> Filenames;
+			GetTaggedFileList(Tags, Filenames);
+			return Filenames;
 		}
 
 		virtual void GetFileTagList(TSet<FString>& Tags) const override
@@ -224,6 +233,11 @@ namespace BuildPatchServices
 		virtual void GetTaggedFileList(const TSet<FString>& Tags, TSet<FString>& TaggedFiles) const override
 		{
 			TaggedFiles = TaggedFileList;
+		}
+
+		virtual void GetTaggedFileList(const TSet<FString>& Tags, TArray<FString>& TaggedFiles) const override
+		{
+			TaggedFiles = TaggedFileList.Array();
 		}
 
 		virtual void GetDataList(TArray<FGuid>& DataGuids) const override

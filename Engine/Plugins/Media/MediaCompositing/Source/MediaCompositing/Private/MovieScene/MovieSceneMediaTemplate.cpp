@@ -37,7 +37,7 @@ struct FMediaSectionPreRollExecutionToken
 		FMovieSceneMediaData& SectionData = PersistentData.GetSectionData<FMovieSceneMediaData>();
 		UMediaPlayer* MediaPlayer = SectionData.GetMediaPlayer();
 
-		if (!ensure(MediaPlayer != nullptr))
+		if (MediaPlayer == nullptr || MediaSource == nullptr)
 		{
 			return;
 		}
@@ -71,7 +71,7 @@ struct FMediaSectionExecutionToken
 		FMovieSceneMediaData& SectionData = PersistentData.GetSectionData<FMovieSceneMediaData>();
 		UMediaPlayer* MediaPlayer = SectionData.GetMediaPlayer();
 
-		if (!ensure(MediaPlayer != nullptr))
+		if (MediaPlayer == nullptr || MediaSource == nullptr)
 		{
 			return;
 		}
@@ -146,9 +146,13 @@ private:
 
 FMovieSceneMediaSectionTemplate::FMovieSceneMediaSectionTemplate(const UMovieSceneMediaSection& InSection, const UMovieSceneMediaTrack& InTrack)
 {
-	Params.MediaSoundComponent = InSection.MediaSoundComponent;
 	Params.MediaSource = InSection.GetMediaSource();
-	Params.MediaTexture = InSection.MediaTexture;
+	Params.MediaSoundComponent = InSection.MediaSoundComponent;
+	Params.bLooping = InSection.bLooping;
+
+	// If using an external media player link it here so we don't automatically create it later.
+	Params.MediaPlayer = InSection.bUseExternalMediaPlayer ? InSection.ExternalMediaPlayer : nullptr;
+	Params.MediaTexture = InSection.bUseExternalMediaPlayer ? nullptr : InSection.MediaTexture;
 
 	if (InSection.HasStartFrame())
 	{
@@ -223,7 +227,7 @@ void FMovieSceneMediaSectionTemplate::Initialize(const FMovieSceneEvaluationOper
 
 	UMediaPlayer* MediaPlayer = SectionData->GetMediaPlayer();
 
-	if (!ensure(MediaPlayer != nullptr))
+	if (MediaPlayer == nullptr)
 	{
 		return;
 	}
@@ -269,12 +273,14 @@ void FMovieSceneMediaSectionTemplate::Initialize(const FMovieSceneEvaluationOper
 			Params.MediaTexture->SetMediaPlayer(nullptr);
 		}
 	}
+
+	MediaPlayer->SetLooping(Params.bLooping);
 }
 
 
 void FMovieSceneMediaSectionTemplate::Setup(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) const
 {
-	PersistentData.AddSectionData<FMovieSceneMediaData>().Setup();
+	PersistentData.AddSectionData<FMovieSceneMediaData>().Setup(Params.MediaPlayer);
 }
 
 
@@ -295,7 +301,7 @@ void FMovieSceneMediaSectionTemplate::TearDown(FPersistentEvaluationData& Persis
 
 	UMediaPlayer* MediaPlayer = SectionData->GetMediaPlayer();
 
-	if (!ensure(MediaPlayer != nullptr))
+	if (MediaPlayer == nullptr)
 	{
 		return;
 	}

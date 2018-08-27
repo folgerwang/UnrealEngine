@@ -46,76 +46,70 @@ namespace
 			int32 Height = Tex->Source.GetSizeY();
 
 			png_structp PngPtr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-			if (PngPtr != nullptr)
+			if (PngPtr)
 			{
 				png_infop PngInfoPtr = png_create_info_struct(PngPtr);
 
-				if (PngInfoPtr != nullptr)
+				// We're using C file IO here just because of libPNG interop.
+				FILE *OutputFile = fopen(TCHAR_TO_ANSI(*Filename), "wb+");
+
+				if (setjmp(png_jmpbuf(PngPtr)))
 				{
-					// We're using C file IO here just because of libPNG interop.
-					FILE *OutputFile = fopen(TCHAR_TO_ANSI(*Filename), "wb+");
-
-					if (setjmp(png_jmpbuf(PngPtr)))
-					{
-						UE_LOG(
-							LogGoogleARCoreAPI, Error,
-							TEXT("Error writing PNG for texture %s."),
-							*Tex->GetName());
-						Ret = false;
-					}
-					else
-					{
-						png_init_io(PngPtr, OutputFile);
-						png_set_IHDR(
-							PngPtr, PngInfoPtr, Width, Height,
-							8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
-							PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-						png_write_info(PngPtr, PngInfoPtr);
-
-						uint8_t *Row = new uint8_t[Width * 3];
-
-						for (int32 y = 0; y < Height; y++)
-						{
-							for (int32 x = 0; x < Width; x++)
-							{
-								for (int32 c = 0; c < 3; c++)
-								{
-									int32 RealChannel = c;
-									if (Tex->Source.GetFormat() == TSF_BGRA8)
-									{
-										if (RealChannel == 0) {
-											RealChannel = 2;
-										}
-										else if (RealChannel == 2) {
-											RealChannel = 0;
-										}
-									}
-									Row[x * 3 + c] = MipData[(y * Width + x) * 4 + RealChannel];
-								}
-							}
-							png_write_row(PngPtr, Row);
-						}
-
-						png_write_end(PngPtr, NULL);
-
-						delete[] Row;
-					}
-
-					if (OutputFile)
-					{
-						fclose(OutputFile);
-					}
-
-					if (PngInfoPtr)
-					{
-						png_free_data(PngPtr, PngInfoPtr, PNG_FREE_ALL, -1);
-					}
-
-					if (PngPtr)
-					{
-						png_destroy_write_struct(&PngPtr, nullptr);
-					}
+					UE_LOG(
+						LogGoogleARCoreAPI, Error,
+						TEXT("Error writing PNG for texture %s."),
+						*Tex->GetName());
+					Ret = false;
 				}
+				else
+				{
+					png_init_io(PngPtr, OutputFile);
+					png_set_IHDR(
+						PngPtr, PngInfoPtr, Width, Height,
+						8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+						PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+					png_write_info(PngPtr, PngInfoPtr);
+
+					uint8_t *Row = new uint8_t[Width * 3];
+
+					for (int32 y = 0; y < Height; y++)
+					{
+						for (int32 x = 0; x < Width; x++)
+						{
+							for (int32 c = 0; c < 3; c++)
+							{
+								int32 RealChannel = c;
+								if (Tex->Source.GetFormat() == TSF_BGRA8)
+								{
+									if (RealChannel == 0) {
+										RealChannel = 2;
+									}
+									else if (RealChannel == 2) {
+										RealChannel = 0;
+									}
+								}
+								Row[x * 3 + c] = MipData[(y * Width + x) * 4 + RealChannel];
+							}
+						}
+						png_write_row(PngPtr, Row);
+					}
+
+					png_write_end(PngPtr, NULL);
+
+					delete[] Row;
+				}
+
+				if (OutputFile)
+				{
+					fclose(OutputFile);
+				}
+
+				if (PngInfoPtr)
+				{
+					png_free_data(PngPtr, PngInfoPtr, PNG_FREE_ALL, -1);
+				}
+
+				png_destroy_write_struct(&PngPtr, nullptr);
 			}
 		}
 		else
@@ -159,7 +153,10 @@ void UGoogleARCoreAugmentedImageDatabase::Serialize(FArchive& Ar)
 					*FPaths::EnginePluginsDir(),
 					TEXT("Runtime"),
 					TEXT("GoogleARCore"),
-					TEXT("Tools"),
+					TEXT("Binaries"),
+					TEXT("ThirdParty"),
+					TEXT("Google"),
+					TEXT("ARCoreImg"),
 					*UGameplayStatics::GetPlatformName(),
 #if PLATFORM_LINUX
 					TEXT("arcoreimg")
@@ -201,8 +198,15 @@ void UGoogleARCoreAugmentedImageDatabase::Serialize(FArchive& Ar)
 							Tex,
 							PNGFilename))
 					{
+						// "|" is used as a delimeter in the image
+						// list, and there doesn't seem to be any way
+						// to escape them, so they will be replaced
+						// with underscores.
+						FString TmpName =
+							Entries[i].Name.ToString().Replace(TEXT("|"), TEXT("_"));
+
 						ImageListFileContents +=
-							Tex->GetName() +
+							TmpName +
 							FString("|") +
 							PNGFilename;
 
@@ -238,8 +242,8 @@ void UGoogleARCoreAugmentedImageDatabase::Serialize(FArchive& Ar)
 
 			FPlatformProcess::ExecProcess(
 				*PathToDbTool,
-				*(FString("build-db --input_image_list_path=") + PathToImageList +
-				  FString(" --output_db_path=") + PathToImageDb),
+				*(FString("build-db --input_image_list_path=\"")+ PathToImageList +
+				  FString("\" --output_db_path=\"") + PathToImageDb + "\""),
 				&OutReturnCode,
 				&OutStdout,
 				&OutStderr);
@@ -249,14 +253,14 @@ void UGoogleARCoreAugmentedImageDatabase::Serialize(FArchive& Ar)
 				Ar.SetError();
 				Ar.ArIsError = 1;
 				Ar.ArIsCriticalError = 1;
-				UE_LOG(LogGoogleARCoreAPI, Error, TEXT("Failed to build augmented image database."));
+				UE_LOG(LogGoogleARCoreAPI, Error, TEXT("Failed to build augmented image database: %s"), *OutStderr);
 			}
 			else
 			{
 				FFileHelper::LoadFileToArray(SerializedDatabase, *PathToImageDb, 0);
 				UE_LOG(LogGoogleARCoreAPI, Log,
-					   TEXT("Augmented image database created. Size: %d bytes."),
-					   SerializedDatabase.Num());
+					   TEXT("Augmented image database created. Size: %d bytes. Tool output: %s"),
+					   SerializedDatabase.Num(), *OutStdout);
 			}
 
 			for (int32 i = 0; i < CleanupList.Num(); i++)

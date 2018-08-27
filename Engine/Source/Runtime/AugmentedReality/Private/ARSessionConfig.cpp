@@ -14,7 +14,8 @@ UARSessionConfig::UARSessionConfig()
 , FrameSyncMode(EARFrameSyncMode::SyncTickWithoutCameraImage)
 , bEnableAutomaticCameraOverlay(true)
 , bEnableAutomaticCameraTracking(true)
-//@joeg -- Added image tracking support
+, bResetCameraTracking(true)
+, bResetTrackedObjects(true)
 , MaxNumSimultaneousImagesTracked(1)
 {
 }
@@ -61,25 +62,46 @@ bool UARSessionConfig::ShouldEnableAutoFocus() const
 	return bEnableAutoFocus;
 }
 
+void UARSessionConfig::SetEnableAutoFocus(bool bNewValue)
+{
+	bEnableAutoFocus = bNewValue;
+}
+
+bool UARSessionConfig::ShouldResetCameraTracking() const
+{
+	return bResetCameraTracking;
+}
+
+void UARSessionConfig::SetResetCameraTracking(bool bNewValue)
+{
+	bResetCameraTracking = bNewValue;
+}
+
+bool UARSessionConfig::ShouldResetTrackedObjects() const
+{
+	return bResetTrackedObjects;
+}
+
+void UARSessionConfig::SetResetTrackedObjects(bool bNewValue)
+{
+	bResetTrackedObjects = bNewValue;
+}
+
 const TArray<UARCandidateImage*>& UARSessionConfig::GetCandidateImageList() const
 {
 	return CandidateImages;
 }
 
-//@joeg -- Added image tracking support
 int32 UARSessionConfig::GetMaxNumSimultaneousImagesTracked() const
 {
     return MaxNumSimultaneousImagesTracked;
 }
 
-//@joeg -- Added environmental texture probe support
-/** @see EnvironmentCaptureProbeType */
 EAREnvironmentCaptureProbeType UARSessionConfig::GetEnvironmentCaptureProbeType() const
 {
 	return EnvironmentCaptureProbeType;
 }
 
-//@joeg -- Load/Save world support
 const TArray<uint8>& UARSessionConfig::GetWorldMapData() const
 {
 	return WorldMapData;
@@ -89,12 +111,15 @@ void UARSessionConfig::SetWorldMapData(TArray<uint8> InWorldMapData)
 {
 	WorldMapData = MoveTemp(InWorldMapData);
 }
-//@joeg -- end load/save
 
-//@joeg -- Object detection
 const TArray<UARCandidateObject*>& UARSessionConfig::GetCandidateObjectList() const
 {
 	return CandidateObjects;
+}
+
+void UARSessionConfig::SetCandidateObjectList(const TArray<UARCandidateObject*>& InCandidateObjects)
+{
+	CandidateObjects = InCandidateObjects;
 }
 
 void UARSessionConfig::AddCandidateObject(UARCandidateObject* CandidateObject)
@@ -104,7 +129,36 @@ void UARSessionConfig::AddCandidateObject(UARCandidateObject* CandidateObject)
 		CandidateObjects.Add(CandidateObject);
 	}
 }
-//@joeg -- end object detection
+
+FARVideoFormat UARSessionConfig::GetDesiredVideoFormat() const
+{
+	return DesiredVideoFormat;
+}
+
+void UARSessionConfig::SetDesiredVideoFormat(FARVideoFormat NewFormat)
+{
+	DesiredVideoFormat = NewFormat;
+}
+
+EARFaceTrackingDirection UARSessionConfig::GetFaceTrackingDirection() const
+{
+	return FaceTrackingDirection;
+}
+
+void UARSessionConfig::SetFaceTrackingDirection(EARFaceTrackingDirection InDirection)
+{
+	FaceTrackingDirection = InDirection;
+}
+
+EARFaceTrackingUpdate UARSessionConfig::GetFaceTrackingUpdate() const
+{
+	return FaceTrackingUpdate;
+}
+
+void UARSessionConfig::SetFaceTrackingUpdate(EARFaceTrackingUpdate InUpdate)
+{
+	FaceTrackingUpdate = InUpdate;
+}
 
 void UARSessionConfig::Serialize(FArchive& Ar)
 {

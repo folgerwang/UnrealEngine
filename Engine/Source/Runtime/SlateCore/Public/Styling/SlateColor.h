@@ -177,7 +177,7 @@ public:
 	}
 
 	/** Used to upgrade an FColor or FLinearColor property to an FSlateColor property */
-	bool SerializeFromMismatchedTag( const struct FPropertyTag& Tag, FArchive& Ar );
+	bool SerializeFromMismatchedTag(const struct FPropertyTag& Tag, FStructuredArchive::FSlot Slot);
 
 protected:
 	

@@ -1006,7 +1006,8 @@ public:
 
 	void SetGameView(bool bGameViewEnable);
 
-	/** 
+	virtual void SetVREditView(bool bGameViewEnable);
+	/**
 	 * Returns true if this viewport is excluding non-game elements from its display
 	 */
 	virtual bool IsInGameView() const override { return bInGameViewMode; }
@@ -1601,6 +1602,9 @@ private:
 
 	/** If true, we are in Game View mode*/
 	bool bInGameViewMode;
+
+	/** If true, we are in VR Edit View mode*/
+	bool bInVREditViewMode;
 
 	/** If true, the viewport widget should be invalidated on the next tick (needed to ensure thread safety) */
 	bool bShouldInvalidateViewportWidget;

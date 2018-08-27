@@ -92,11 +92,11 @@ void UMaterialExpressionLandscapeLayerSwitch::GetCaption(TArray<FString>& OutCap
 }
 #endif // WITH_EDITOR
 
-void UMaterialExpressionLandscapeLayerSwitch::Serialize(FArchive& Ar)
+void UMaterialExpressionLandscapeLayerSwitch::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 
-	if (Ar.UE4Ver() < VER_UE4_FIX_TERRAIN_LAYER_SWITCH_ORDER)
+	if (Record.GetUnderlyingArchive().UE4Ver() < VER_UE4_FIX_TERRAIN_LAYER_SWITCH_ORDER)
 	{
 		Swap(LayerUsed, LayerNotUsed);
 	}

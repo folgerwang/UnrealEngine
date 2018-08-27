@@ -149,6 +149,11 @@ public:
 	ENGINE_API static UTexture2D* ImportFileAsTexture2D(const FString& Filename);
 
 	/**
+	 * Imports a texture a buffer and creates Texture2D from it
+	 */
+	ENGINE_API static UTexture2D* ImportBufferAsTexture2D(const TArray<uint8>& Buffer);
+	
+	/**
 	* Exports a UTextureRenderTargetCube as an HDR image on the disk.
 	*
 	* @param TexRT		The render target cube to export

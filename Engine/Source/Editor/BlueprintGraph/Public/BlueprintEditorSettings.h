@@ -106,6 +106,10 @@ public:
 	UPROPERTY(config)
 	bool bShowBookmarksForCurrentDocumentOnlyInTab;
 
+	/** Blueprint graph editor "Quick Jump" command bindings */
+	UPROPERTY(config)
+	TMap<int32, FEditedDocumentInfo> GraphEditorQuickJumps;
+
 // Compiler Settings
 public:
 	/** Determines when to save Blueprints post-compile */

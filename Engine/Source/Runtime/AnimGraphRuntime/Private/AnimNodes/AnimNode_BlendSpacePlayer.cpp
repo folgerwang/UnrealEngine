@@ -2,6 +2,7 @@
 
 #include "AnimNodes/AnimNode_BlendSpacePlayer.h"
 #include "Animation/BlendSpaceBase.h"
+#include "Animation/AnimSequence.h"
 #include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////

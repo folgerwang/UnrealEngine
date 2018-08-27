@@ -111,6 +111,9 @@ namespace Audio
 		virtual void StartRecording(USoundSubmix* InSubmix, float ExpectedRecordingDuration) override;
 		virtual Audio::AlignedFloatBuffer& StopRecording(USoundSubmix* InSubmix, float& OutNumChannels, float& OutSampleRate) override;
 
+		virtual void PauseRecording(USoundSubmix* InSubmix);
+		virtual void ResumeRecording(USoundSubmix* InSubmix);
+
 		// Submix buffer listener callbacks
 		virtual void RegisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix = nullptr) override;
 		virtual void UnregisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix = nullptr) override;

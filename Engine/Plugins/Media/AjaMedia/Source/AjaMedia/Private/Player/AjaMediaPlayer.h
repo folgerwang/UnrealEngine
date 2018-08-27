@@ -131,7 +131,6 @@ private:
 
 	/** Which field need to be capture. */
 	bool bUseAncillary;
-	bool bUseAncillaryField2;
 	bool bUseAudio;
 	bool bUseVideo;
 	bool bVerifyFrameDropCount;

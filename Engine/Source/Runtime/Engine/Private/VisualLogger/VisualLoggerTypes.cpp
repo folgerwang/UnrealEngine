@@ -182,6 +182,19 @@ void FVisualLogEntry::AddElement(const FVector& Start, const FVector& End, const
 	ElementsToDraw.Add(Element);
 }
 
+void FVisualLogEntry::AddArrow(const FVector& Start, const FVector& End, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color, const FString& Description)
+{
+	FVisualLogShapeElement Element(EVisualLoggerShapeElement::Arrow);
+	Element.Category = CategoryName;
+	Element.SetColor(Color);
+	Element.Description = Description;
+	Element.Points.Reserve(2);
+	Element.Points.Add(Start);
+	Element.Points.Add(End);
+	Element.Verbosity = Verbosity;
+	ElementsToDraw.Add(Element);
+}
+
 void FVisualLogEntry::AddElement(const FBox& Box, const FMatrix& Matrix, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color, const FString& Description, uint16 Thickness)
 {
 	FVisualLogShapeElement Element(Description, Color, Thickness, CategoryName);
@@ -192,6 +205,20 @@ void FVisualLogEntry::AddElement(const FBox& Box, const FMatrix& Matrix, const F
 	Element.Verbosity = Verbosity;
 	Element.TransformationMatrix = Matrix;
 	ElementsToDraw.Add(Element);
+}
+
+void FVisualLogEntry::AddBoxes(const TArray<FBox>& Boxes, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color)
+{
+	FVisualLogShapeElement& Element = ElementsToDraw[ElementsToDraw.Add(FVisualLogShapeElement(EVisualLoggerShapeElement::Box))];
+	Element.Category = CategoryName;
+	Element.Verbosity = Verbosity;
+	Element.Points.Reserve(2 * Boxes.Num());
+	for (const FBox& Box : Boxes)
+	{
+		Element.Points.Add(Box.Min);
+		Element.Points.Add(Box.Max);
+	}
+	Element.Verbosity = Verbosity;
 }
 
 void FVisualLogEntry::AddElement(const FVector& Orgin, const FVector& Direction, float Length, float AngleWidth, float AngleHeight, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color, const FString& Description, uint16 Thickness)

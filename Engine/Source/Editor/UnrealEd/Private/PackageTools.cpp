@@ -48,18 +48,22 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogPackageTools, Log, All);
 
-namespace PackageTools
+/** State passed to RestoreStandaloneOnReachableObjects. */
+UPackage* UPackageTools::PackageBeingUnloaded = nullptr;
+TMap<UObject*, UObject*> UPackageTools::ObjectsThatHadFlagsCleared;
+FDelegateHandle UPackageTools::ReachabilityCallbackHandle;
+
+UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
-	/** State passed to RestoreStandaloneOnReachableObjects. */
-	static UPackage* PackageBeingUnloaded = nullptr;
-	static TMap<UObject*,UObject*> ObjectsThatHadFlagsCleared;
-	static FDelegateHandle ReachabilityCallbackHandle;
+
+}
 
 	/**
 	 * Called during GC, after reachability analysis is performed but before garbage is purged.
 	 * Restores RF_Standalone to objects in the package-to-be-unloaded that are still reachable.
 	 */
-	void RestoreStandaloneOnReachableObjects()
+	void UPackageTools::RestoreStandaloneOnReachableObjects()
 	{
 		check(GIsEditor);
 
@@ -79,7 +83,7 @@ namespace PackageTools
 	 * @param	OutGroupPackages			The map that receives the filtered list of group packages.
 	 * @param	OutPackageList				The array that will contain the list of filtered packages.
 	 */
-	void GetFilteredPackageList(TSet<UPackage*>& OutFilteredPackageMap)
+	void UPackageTools::GetFilteredPackageList(TSet<UPackage*>& OutFilteredPackageMap)
 	{
 		// The UObject list is iterated rather than the UPackage list because we need to be sure we are only adding
 		// group packages that contain things the generic browser cares about.  The packages are derived by walking
@@ -113,7 +117,7 @@ namespace PackageTools
 	 * @param	OutObjects			[out] Receives the list of objects
 	 * @param	bMustBeBrowsable	If specified, does a check to see if object is browsable. Defaults to true.
 	 */
-	void GetObjectsInPackages( const TArray<UPackage*>* InPackages, TArray<UObject*>& OutObjects )
+	void UPackageTools::GetObjectsInPackages( const TArray<UPackage*>* InPackages, TArray<UObject*>& OutObjects )
 	{
 		if (InPackages)
 		{
@@ -142,7 +146,7 @@ namespace PackageTools
 		}
 	}
 
-	bool HandleFullyLoadingPackages( const TArray<UPackage*>& TopLevelPackages, const FText& OperationText )
+	bool UPackageTools::HandleFullyLoadingPackages( const TArray<UPackage*>& TopLevelPackages, const FText& OperationText )
 	{
 		bool bSuccessfullyCompleted = true;
 
@@ -192,7 +196,7 @@ namespace PackageTools
 	 *
 	 * @return	The loaded package (or NULL if something went wrong.)
 	 */
-	UPackage* LoadPackage( FString InFilename )
+	UPackage* UPackageTools::LoadPackage( FString InFilename )
 	{
 		// Detach all components while loading a package.
 		// This is necessary for the cases where the load replaces existing objects which may be referenced by the attached components.
@@ -228,7 +232,7 @@ namespace PackageTools
 	}
 
 
-	bool UnloadPackages( const TArray<UPackage*>& TopLevelPackages )
+	bool UPackageTools::UnloadPackages( const TArray<UPackage*>& TopLevelPackages )
 	{
 		FText ErrorMessage;
 		bool bResult = UnloadPackages(TopLevelPackages, ErrorMessage);
@@ -241,7 +245,7 @@ namespace PackageTools
 	}
 
 
-	bool UnloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage )
+	bool UPackageTools::UnloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage )
 	{
 		bool bResult = false;
 
@@ -454,7 +458,7 @@ namespace PackageTools
 	}
 
 
-	bool ReloadPackages( const TArray<UPackage*>& TopLevelPackages )
+	bool UPackageTools::ReloadPackages( const TArray<UPackage*>& TopLevelPackages )
 	{
 		FText ErrorMessage;
 		const bool bResult = ReloadPackages(TopLevelPackages, ErrorMessage, /*bInteractive*/true);
@@ -468,7 +472,7 @@ namespace PackageTools
 	}
 
 
-	bool ReloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage, const bool bInteractive )
+	bool UPackageTools::ReloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage, const bool bInteractive )
 	{
 		bool bResult = false;
 
@@ -763,7 +767,7 @@ namespace PackageTools
 	 *
 	 * @return	the path that the user chose for the export.
 	 */
-	FString DoBulkExport(const TArray<UPackage*>& TopLevelPackages, FString LastExportPath, const TSet<UClass*>* FilteredClasses /* = NULL */, bool bUseProvidedExportPath/* = false*/ )
+	FString UPackageTools::DoBulkExport(const TArray<UPackage*>& TopLevelPackages, FString LastExportPath, const TSet<UClass*>* FilteredClasses /* = NULL */, bool bUseProvidedExportPath/* = false*/ )
 	{
 		// Disallow export if any packages are cooked.
 		if (HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "BulkExportE", "Bulk Export...") ) )
@@ -812,7 +816,7 @@ namespace PackageTools
 		return LastExportPath;
 	}
 
-	void CheckOutRootPackages( const TArray<UPackage*>& Packages )
+	void UPackageTools::CheckOutRootPackages( const TArray<UPackage*>& Packages )
 	{
 		if (ISourceControlModule::Get().IsEnabled())
 		{
@@ -855,7 +859,7 @@ namespace PackageTools
 	 * @param	PackagePath	Path of the package to check, relative or absolute
 	 * @return	true if PackagePath points to an external location
 	 */
-	bool IsPackagePathExternal( const FString& PackagePath )
+	bool UPackageTools::IsPackagePathExternal( const FString& PackagePath )
 	{
 		bool bIsExternal = true;
 		TArray< FString > Paths;
@@ -887,7 +891,7 @@ namespace PackageTools
 	 * @param	Package	The package to check
 	 * @return	true if the package points to an external filename
 	 */
-	bool IsPackageExternal(const UPackage& Package)
+	bool UPackageTools::IsPackageExternal(const UPackage& Package)
 	{
 		FString FileString;
 		FPackageName::DoesPackageExist(Package.GetName(), NULL, &FileString);
@@ -903,7 +907,7 @@ namespace PackageTools
 	 * @param	OutObjectsWithExternalRefs		List of objects gathered from within the given ULevel that have external references
 	 * @return	true if PackageToCheck has references to an externally loaded package
 	 */
-	bool CheckForReferencesToExternalPackages(const TArray<UPackage*>* PackagesToCheck, TArray<UPackage*>* OutPackagesWithExternalRefs, ULevel* LevelToCheck/*=NULL*/, TArray<UObject*>* OutObjectsWithExternalRefs/*=NULL*/ )
+	bool UPackageTools::CheckForReferencesToExternalPackages(const TArray<UPackage*>* PackagesToCheck, TArray<UPackage*>* OutPackagesWithExternalRefs, ULevel* LevelToCheck/*=NULL*/, TArray<UObject*>* OutObjectsWithExternalRefs/*=NULL*/ )
 	{
 		bool bHasExternalPackageRefs = false;
 
@@ -979,7 +983,7 @@ namespace PackageTools
 		return bHasExternalPackageRefs;
 	}
 
-	bool SavePackagesForObjects(const TArray<UObject*>& ObjectsToSave)
+	bool UPackageTools::SavePackagesForObjects(const TArray<UObject*>& ObjectsToSave)
 	{
 		// Retrieve all dirty packages for the objects 
 		TArray<UPackage*> PackagesToSave;
@@ -993,7 +997,7 @@ namespace PackageTools
 
 		TArray< UPackage* > PackagesWithExternalRefs;
 		FString PackageNames;
-		if (PackageTools::CheckForReferencesToExternalPackages(&PackagesToSave, &PackagesWithExternalRefs))
+		if (UPackageTools::CheckForReferencesToExternalPackages(&PackagesToSave, &PackagesWithExternalRefs))
 		{
 			for (int32 PkgIdx = 0; PkgIdx < PackagesWithExternalRefs.Num(); ++PkgIdx)
 			{
@@ -1017,7 +1021,7 @@ namespace PackageTools
 		return (PackagesToSave.Num() > 0) && Return == FEditorFileUtils::EPromptReturnCode::PR_Success;
 	}
 
-	bool IsSingleAssetPackage(const FString& PackageName)
+	bool UPackageTools::IsSingleAssetPackage(const FString& PackageName)
 	{
 		FString PackageFileName;
 		if ( FPackageName::DoesPackageExist(PackageName, NULL, &PackageFileName) )
@@ -1030,7 +1034,7 @@ namespace PackageTools
 		return true;
 	}
 
-	FString SanitizePackageName (const FString& InPackageName)
+	FString UPackageTools::SanitizePackageName (const FString& InPackageName)
 	{
 		FString SanitizedName;
 		FString InvalidChars = INVALID_LONGPACKAGE_CHARACTERS;
@@ -1056,7 +1060,6 @@ namespace PackageTools
 
 		return SanitizedName;
 	}
-}
 
 #undef LOCTEXT_NAMESPACE
 

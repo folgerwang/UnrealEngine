@@ -68,11 +68,11 @@ namespace UnrealBuildTool.Rules
 				PublicLibraryPaths.Add(LuaLibDirectory);
 				PublicAdditionalLibraries.Add(LuaLibPath);
 
-				Log.TraceVerbose("LUA Integration enabled: {0}", IncludePath);
+//				Log.TraceVerbose("LUA Integration enabled: {0}", IncludePath);
 			}
 			else
 			{
-				Log.TraceVerbose("LUA Integration NOT enabled");
+//				Log.TraceVerbose("LUA Integration NOT enabled");
 				PublicDefinitions.Add("WITH_LUA=0");
 			}
 		}

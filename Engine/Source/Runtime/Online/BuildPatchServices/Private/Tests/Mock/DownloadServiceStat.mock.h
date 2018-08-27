@@ -11,15 +11,29 @@ namespace BuildPatchServices
 		: public IDownloadServiceStat
 	{
 	public:
+		typedef TTuple<double, int32, FString> FDownloadStarted;
+		typedef TTuple<double, int32, int32> FDownloadProgress;
 		typedef TTuple<double, FDownloadRecord> FDownloadComplete;
 
 	public:
-		virtual void OnDownloadComplete(FDownloadRecord DownloadRecord) override
+		virtual void OnDownloadStarted(int32 RequestId, const FString& Uri) override
+		{
+			RxDownloadStarted.Emplace(FStatsCollector::GetSeconds(), RequestId, Uri);
+		}
+
+		virtual void OnDownloadProgress(int32 RequestId, int32 BytesReceived) override
+		{
+			RxDownloadProgress.Emplace(FStatsCollector::GetSeconds(), RequestId, BytesReceived);
+		}
+
+		virtual void OnDownloadComplete(const FDownloadRecord& DownloadRecord) override
 		{
 			RxDownloadComplete.Emplace(FStatsCollector::GetSeconds(), DownloadRecord);
 		}
 
 	public:
+		TArray<FDownloadStarted> RxDownloadStarted;
+		TArray<FDownloadProgress> RxDownloadProgress;
 		TArray<FDownloadComplete> RxDownloadComplete;
 	};
 }

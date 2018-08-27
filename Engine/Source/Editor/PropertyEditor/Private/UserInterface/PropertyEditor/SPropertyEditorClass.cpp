@@ -109,6 +109,7 @@ void SPropertyEditorClass::Construct(const FArguments& InArgs, const TSharedPtr<
 		bAllowNone = !(Property->PropertyFlags & CPF_NoClear);
 		bShowViewOptions = Property->GetOwnerProperty()->HasMetaData(TEXT("HideViewOptions")) ? false : true;
 		bShowTree = Property->GetOwnerProperty()->HasMetaData(TEXT("ShowTreeView"));
+		bShowDisplayNames = Property->GetOwnerProperty()->HasMetaData(TEXT("ShowDisplayNames"));
 	}
 	else
 	{
@@ -124,6 +125,7 @@ void SPropertyEditorClass::Construct(const FArguments& InArgs, const TSharedPtr<
 		bAllowOnlyPlaceable = false;
 		bShowViewOptions = InArgs._ShowViewOptions;
 		bShowTree = InArgs._ShowTree;
+		bShowDisplayNames = InArgs._ShowDisplayNames;
 
 		SelectedClass = InArgs._SelectedClass;
 		OnSetClass = InArgs._OnSetClass;
@@ -149,7 +151,7 @@ void SPropertyEditorClass::Construct(const FArguments& InArgs, const TSharedPtr<
 }
 
 /** Util to give better names for BP generated classes */
-static FString GetClassDisplayName(const UObject* Object)
+static FString GetClassDisplayName(const UObject* Object, bool bShowDisplayNames)
 {
 	const UClass* Class = Cast<UClass>(Object);
 	if (Class != NULL)
@@ -158,6 +160,10 @@ static FString GetClassDisplayName(const UObject* Object)
 		if(BP != NULL)
 		{
 			return BP->GetName();
+		}
+		if (bShowDisplayNames && Class->HasMetaData(TEXT("DisplayName")))
+		{
+			return Class->GetMetaData(TEXT("DisplayName"));
 		}
 	}
 	return (Object) ? Object->GetName() : "None";
@@ -178,13 +184,13 @@ FText SPropertyEditorClass::GetDisplayValueAsString() const
 
 			if(Result == FPropertyAccess::Success && ObjectValue != NULL)
 			{
-				return FText::FromString(GetClassDisplayName(ObjectValue));
+				return FText::FromString(GetClassDisplayName(ObjectValue, bShowDisplayNames));
 			}
 
 			return FText::FromString(FPaths::GetBaseFilename(PropertyEditor->GetValueAsString()));
 		}
 
-		return FText::FromString(GetClassDisplayName(SelectedClass.Get()));
+		return FText::FromString(GetClassDisplayName(SelectedClass.Get(), bShowDisplayNames));
 	}
 	else
 	{
@@ -211,6 +217,7 @@ TSharedRef<SWidget> SPropertyEditorClass::GenerateClassPicker()
 	ClassFilter->bAllowAbstract = bAllowAbstract;
 	Options.bIsBlueprintBaseOnly = bIsBlueprintBaseOnly;
 	Options.bIsPlaceableOnly = bAllowOnlyPlaceable;
+	Options.bShowDisplayNames = bShowDisplayNames;
 	Options.DisplayMode = bShowTree ? EClassViewerDisplayMode::TreeView : EClassViewerDisplayMode::ListView;
 	Options.bAllowViewOptions = bShowViewOptions;
 
@@ -250,7 +257,7 @@ void SPropertyEditorClass::SendToObjects(const FString& NewValue)
 		const TSharedRef<IPropertyHandle> PropertyHandle = PropertyEditor->GetPropertyHandle();
 		PropertyHandle->SetValueFromFormattedString(NewValue);
 	}
-	else
+	else if (!NewValue.IsEmpty() && NewValue != TEXT("None"))
 	{
 		UClass* NewClass = FindObject<UClass>(ANY_PACKAGE, *NewValue);
 		if(!NewClass)
@@ -258,6 +265,10 @@ void SPropertyEditorClass::SendToObjects(const FString& NewValue)
 			NewClass = LoadObject<UClass>(nullptr, *NewValue);
 		}
 		OnSetClass.Execute(NewClass);
+	}
+	else
+	{
+		OnSetClass.Execute(nullptr);
 	}
 }
 

@@ -28,7 +28,6 @@ void SSpriteList::RebuildWidget(UTexture2D* NewTextureFilter)
 	//Config.Filter.bRecursiveClasses = true;
 	Config.Filter.ClassNames.Add(UPaperSprite::StaticClass()->GetFName());
 
-	Config.ThumbnailScale = 0.0f;
 	Config.InitialAssetViewType = EAssetViewType::Tile;
 	Config.SyncToAssetsDelegates.Add(&SyncToAssetsDelegate);
 

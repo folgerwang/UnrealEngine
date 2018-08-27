@@ -74,16 +74,20 @@ namespace UnrealBuildTool
 
 		public override bool HasSpecificDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectPath)
 		{
-			string[] BoolKeys = new string[]
+			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectPath, UnrealTargetPlatform.Lumin);
+			bool bUseVulkan = true;
+			Ini.GetBool("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "bUseVulkan", out bUseVulkan);
+
+			List<string> ConfigBoolKeys = new List<string>();
+			ConfigBoolKeys.Add("bBuildWithNvTegraGfxDebugger");
+			if (!bUseVulkan)
 			{
-				"bBuildWithNvTegraGfxDebugger",
-				// @todo Lumin: Once we switch to Vulkan only, this will no longer be needed, since Vulkan can do both without needing to recompile
-				"bUseMobileRendering",
-			};
+				ConfigBoolKeys.Add("bUseMobileRendering");
+			}
 
 			// look up Android specific settings
 			// @todo Lumin: When we subclass platform ini's, this would be Platform!!
-			if (!DoProjectSettingsMatchDefault(UnrealTargetPlatform.Lumin, ProjectPath, "/Script/LuminRuntimeSettings.LuminRuntimeSettings", BoolKeys, null, null))
+			if (!DoProjectSettingsMatchDefault(UnrealTargetPlatform.Lumin, ProjectPath, "/Script/LuminRuntimeSettings.LuminRuntimeSettings", ConfigBoolKeys.ToArray(), null, null))
 			{
 				return false;
 			}
@@ -153,6 +157,7 @@ namespace UnrealBuildTool
 		{
 			CompileEnvironment.Definitions.Add("PLATFORM_LUMIN=1");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_JNI=0");
+			CompileEnvironment.Definitions.Add("USE_ANDROID_AUDIO=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_FILE=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_INPUT=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_LAUNCH=0");
@@ -160,7 +165,7 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("USE_ANDROID_OPENGL=0");
 			CompileEnvironment.Definitions.Add("WITH_OGGVORBIS=1");
 
-			DirectoryReference MLSDKDir = DirectoryReference.MakeFromNormalizedFullPath("$(MLSDK)");
+			DirectoryReference MLSDKDir = new DirectoryReference("$(MLSDK)", DirectoryReference.Sanitize.None);
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include"));
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include/aarch64-linux-android"));
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "include"));
@@ -270,7 +275,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// This is the SDK version we support
 		/// </summary>
-		static string ExpectedSDKVersion = "0.12";   // now unified for all the architectures
+		static string ExpectedSDKVersion = "0.16";   // now unified for all the architectures
 
 		public override string GetSDKTargetPlatformName()
 		{
@@ -280,6 +285,10 @@ namespace UnrealBuildTool
 		protected override string GetRequiredSDKString()
 		{
 			return ExpectedSDKVersion;
+		}
+		protected override String GetRequiredScriptVersionString()
+		{
+			return "Lumin_15";
 		}
 
 		private string FindVersionNumber(string StringToFind, string[] AllLines)

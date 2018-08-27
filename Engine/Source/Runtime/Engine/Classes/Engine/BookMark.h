@@ -2,17 +2,23 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
-#include "UObject/Object.h"
+#include "Engine/BookmarkBase.h"
 #include "BookMark.generated.h"
 
+
+USTRUCT()
+struct FBookmarkJumpToSettings : public FBookmarkBaseJumpToSettings
+{
+	GENERATED_BODY()
+
+	bool bShouldRestorLevelVisibility = true;
+};
 
 /**
  * A camera position the current level.
  */
 UCLASS(hidecategories=Object, MinimalAPI)
-class UBookMark : public UObject
+class UBookMark : public UBookmarkBase
 {
 	GENERATED_UCLASS_BODY()
 

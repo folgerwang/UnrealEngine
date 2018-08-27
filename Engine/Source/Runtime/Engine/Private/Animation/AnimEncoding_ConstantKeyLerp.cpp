@@ -234,3 +234,60 @@ void AEFConstantKeyLerpShared::ByteSwapScaleOut(
 		}
 	}
 }
+
+#if USE_SEGMENTING_CONTEXT
+void AEFConstantKeyLerpShared::CreateEncodingContext(FAnimSequenceDecompressionContext& DecompContext)
+{
+	checkSlow(DecompContext.EncodingContext == nullptr);
+	DecompContext.EncodingContext = new FAEConstantKeyLerpContext(DecompContext);
+}
+
+void AEFConstantKeyLerpShared::ReleaseEncodingContext(FAnimSequenceDecompressionContext& DecompContext)
+{
+	checkSlow(DecompContext.EncodingContext != nullptr);
+	delete DecompContext.EncodingContext;
+	DecompContext.EncodingContext = nullptr;
+}
+
+FAEConstantKeyLerpContext::FAEConstantKeyLerpContext(const FAnimSequenceDecompressionContext& DecompContext)
+	: KeyFrameSize(-1)
+{
+}
+
+void FAEConstantKeyLerpContext::Seek(const FAnimSequenceDecompressionContext& DecompContext, float SampleAtTime)
+{
+	if (KeyFrameSize < 0)
+	{
+		// First update, cache some stuff
+		UniformKeyOffsets.Empty(DecompContext.NumTracks * DecompContext.NumStreamsPerTrack);
+		UniformKeyOffsets.AddUninitialized(DecompContext.NumTracks * DecompContext.NumStreamsPerTrack);
+
+		const int32 PackedTranslationSize0 = CompressedTranslationStrides[DecompContext.Segment0->TranslationCompressionFormat] * CompressedTranslationNum[DecompContext.Segment0->TranslationCompressionFormat];
+		const int32 PackedRotationSize0 = CompressedRotationStrides[DecompContext.Segment0->RotationCompressionFormat] * CompressedRotationNum[DecompContext.Segment0->RotationCompressionFormat];
+		const int32 PackedScaleSize0 = DecompContext.bHasScale ? (CompressedScaleStrides[DecompContext.Segment0->ScaleCompressionFormat] * CompressedScaleNum[DecompContext.Segment0->ScaleCompressionFormat]) : 0;
+
+		int32 KeyOffset = 0;
+		for (int32 TrackIndex = 0; TrackIndex < DecompContext.NumTracks; ++TrackIndex)
+		{
+			const FTrivialTrackFlags TrackFlags(DecompContext.TrackFlags[TrackIndex]);
+
+			UniformKeyOffsets[DecompContext.GetTranslationValueOffset(TrackIndex)] = KeyOffset;
+			KeyOffset += TrackFlags.IsTranslationTrivial() ? 0 : PackedTranslationSize0;
+
+			UniformKeyOffsets[DecompContext.GetRotationValueOffset(TrackIndex)] = KeyOffset;
+			KeyOffset += TrackFlags.IsRotationTrivial() ? 0 : PackedRotationSize0;
+
+			if (DecompContext.bHasScale)
+			{
+				UniformKeyOffsets[DecompContext.GetScaleValueOffset(TrackIndex)] = KeyOffset;
+				KeyOffset += TrackFlags.IsScaleTrivial() ? 0 : PackedScaleSize0;
+			}
+		}
+
+		KeyFrameSize = KeyOffset;
+	}
+
+	FrameKeysOffset[0] = DecompContext.Segment0->ByteStreamOffset + DecompContext.RangeDataSize0 + (KeyFrameSize * DecompContext.SegmentKeyIndex0);
+	FrameKeysOffset[1] = DecompContext.Segment1->ByteStreamOffset + DecompContext.RangeDataSize0 + (KeyFrameSize * DecompContext.SegmentKeyIndex1);
+}
+#endif

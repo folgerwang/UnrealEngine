@@ -15,14 +15,15 @@ namespace UnrealBuildTool
 	/// </summary>
 	class FlatCPPIncludeDependencyInfo
 	{
-		/// The PCH header this file is dependent on.
-		public FileReference PCHName;
-
+		/// <summary>
 		/// List of files this file includes, excluding headers that were included from a PCH.
+		/// </summary>
 		public List<FileReference> Includes;
 
+		/// <summary>
 		/// Transient cached list of FileItems for all of the includes for a specific files.  This just saves a bunch of string
 		/// hash lookups as we locate FileItems for files that we've already requested dependencies for
+		/// </summary>
 		public List<FileItem> IncludeFileItems;
 	}
 
@@ -35,7 +36,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The version number for binary serialization
 		/// </summary>
-		const int FileVersion = 2;
+		const int FileVersion = 3;
 
 		/// <summary>
 		/// The file signature for binary serialization
@@ -193,7 +194,6 @@ namespace UnrealBuildTool
 				Writer.Write(Pair.Key);
 
 				FlatCPPIncludeDependencyInfo Info = Pair.Value;
-				Writer.Write(Info.PCHName, FileToUniqueId);
 
 				Writer.Write(Info.Includes.Count);
 				foreach (FileReference Include in Info.Includes)
@@ -224,9 +224,6 @@ namespace UnrealBuildTool
 
 				FlatCPPIncludeDependencyInfo Info = new FlatCPPIncludeDependencyInfo();
 
-				// Read the PCH name
-				Info.PCHName = Reader.ReadFileReference(UniqueFiles);
-
 				// Read the includes 
 				int NumIncludes = Reader.ReadInt32();
 				Info.Includes = new List<FileReference>(NumIncludes);
@@ -247,12 +244,10 @@ namespace UnrealBuildTool
 		/// Sets the new dependencies for the specified file
 		/// </summary>
 		/// <param name="AbsoluteFilePath">File to set</param>
-		/// <param name="PCHName">The PCH for this file</param>
 		/// <param name="Dependencies">List of source dependencies</param>
-		public void SetDependenciesForFile(FileReference AbsoluteFilePath, FileReference PCHName, List<FileReference> Dependencies)
+		public void SetDependenciesForFile(FileReference AbsoluteFilePath, List<FileReference> Dependencies)
 		{
 			FlatCPPIncludeDependencyInfo DependencyInfo = new FlatCPPIncludeDependencyInfo();
-			DependencyInfo.PCHName = PCHName;	// @todo ubtmake: Not actually used yet.  The idea is to use this to reduce the number of indirect includes we need to store in the cache.
 			DependencyInfo.Includes = Dependencies;
 			DependencyInfo.IncludeFileItems = null;
 

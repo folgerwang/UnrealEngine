@@ -112,6 +112,16 @@ OVRP_EXPORT ovrpResult ovrp_SetupDistortionWindow3(int flags);
 /// Destroys the dedicated VR window.
 OVRP_EXPORT ovrpResult ovrp_DestroyDistortionWindow2();
 
+//Returns handedness as specified in the mobile device
+OVRP_EXPORT ovrpResult ovrp_GetDominantHand(ovrpHandedness* dominantHand);
+
+//Returns the recenter mode (i.e. what the HMD does when the controller recenters).
+// If true, the HMD recenters on controller recenter, and if false, the HMD does nothing on controller recenter.
+OVRP_EXPORT ovrpResult ovrp_GetReorientHMDOnControllerRecenter(ovrpBool* recenter);
+
+//Sets the recenter mode on mobile, and returns unsupported on PC.
+OVRP_EXPORT ovrpResult ovrp_SetReorientHMDOnControllerRecenter(ovrpBool recenter);
+
 /// Creates a layer.
 /// The desc remains constant for the lifetime of the layer.
 OVRP_EXPORT ovrpResult ovrp_SetupLayer(void* device, OVRP_CONSTREF(ovrpLayerDesc) desc, int* layerId);
@@ -488,10 +498,6 @@ OVRP_EXPORT ovrpResult ovrp_GetSystemRecommendedMSAALevel2(int* systemRecommende
 /// Inhibits system UX behavior.
 OVRP_EXPORT ovrpResult ovrp_SetInhibitSystemUX2(ovrpBool inhibitSystemUX);
 
-#ifdef SUPPORTS_DEBUG_DUMP
-OVRP_EXPORT ovrpResult ovrp_SetDebugDumpEnabled2(ovrpBool debugDumpEnabled);
-#endif
-
 /// Return true if the device supports tiled multires
 OVRP_EXPORT ovrpResult ovrp_GetTiledMultiResSupported(ovrpBool* foveationSupported);
 
@@ -513,6 +519,17 @@ OVRP_EXPORT ovrpResult ovrp_SetThreadPerformance(int threadId, ovrpThreadPerf pe
 
 /// This is specifically for Unity to fix Core Affinity wrong assignment.
 OVRP_EXPORT ovrpResult ovrp_AutoThreadScheduling(unsigned int bigCoreMaskFromEngine, unsigned int* threadIds, ovrpThreadPerf* threadPerfFlags, int threadCount);
+
+
+
+
+
+OVRP_EXPORT ovrpResult ovrp_GetGPUFrameTime(float* gpuTime);
+
+/// This is to request vertices and indices for the triangle mesh
+OVRP_EXPORT ovrpResult ovrp_GetViewportStencil(ovrpEye eyeId, ovrpViewportStencilType type, ovrpVector2f *vertices, int *vertexCount, ovrpUInt16 *indices, int *indexCount);
+
+OVRP_EXPORT ovrpResult ovrp_SendEvent(const char* eventName, const char* param);
 
 #ifdef __cplusplus
 }

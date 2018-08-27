@@ -27,6 +27,13 @@ FAppleHttpRequest::FAppleHttpRequest()
 
 	// Disable cache to mimic WinInet behavior
 	Request.cachePolicy = NSURLRequestReloadIgnoringLocalCacheData;
+
+	// Add default headers
+	const TMap<FString, FString>& DefaultHeaders = FHttpModule::Get().GetDefaultHeaders();
+	for (TMap<FString, FString>::TConstIterator It(DefaultHeaders); It; ++It)
+	{
+		SetHeader(It.Key(), It.Value());
+	}
 }
 
 
@@ -301,6 +308,10 @@ void FAppleHttpRequest::FinishedRequest()
 		UE_LOG(LogHttp, Verbose, TEXT("Request failed"));
 		FString URL([[Request URL] absoluteString]);
 		CompletionStatus = EHttpRequestStatus::Failed;
+		if (Response.IsValid() && [Response->ResponseWrapper bIsHostConnectionFailure])
+		{
+			CompletionStatus = EHttpRequestStatus::Failed_ConnectionError;
+		}
 
 		Response = nullptr;
 		OnProcessRequestComplete().ExecuteIfBound(SharedThis(this), nullptr, false);
@@ -392,6 +403,7 @@ float FAppleHttpRequest::GetElapsedTime() const
 @synthesize Response;
 @synthesize bIsReady;
 @synthesize bHadError;
+@synthesize bIsHostConnectionFailure;
 @synthesize BytesWritten;
 
 
@@ -400,6 +412,8 @@ float FAppleHttpRequest::GetElapsedTime() const
 	UE_LOG(LogHttp, Verbose, TEXT("-(FHttpResponseAppleWrapper*) init"));
 	self = [super init];
 	bIsReady = false;
+	bHadError = false;
+	bIsHostConnectionFailure = false;
 	
 	return self;
 }
@@ -443,6 +457,14 @@ float FAppleHttpRequest::GetElapsedTime() const
 		*FString([error localizedDescription]),
 		*FString([[error userInfo] objectForKey:NSURLErrorFailingURLStringErrorKey]),
 		self);
+	// Determine if the specific error was failing to connect to the host.
+	switch ([error code])
+	{
+		case NSURLErrorCannotFindHost:
+		case NSURLErrorCannotConnectToHost:
+		case NSURLErrorDNSLookupFailed:
+			self.bIsHostConnectionFailure = YES;
+	}
 	// Log more details if verbose logging is enabled and this is an SSL error
 	if (UE_LOG_ACTIVE(LogHttp, Verbose))
 	{

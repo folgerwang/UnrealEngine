@@ -31,6 +31,7 @@ public:
 
 	SLATE_BEGIN_ARGS( SLayersViewRow ){}
 		SLATE_ATTRIBUTE( FText, HighlightText )
+		SLATE_EVENT(FOnDragDetected, OnDragDetected)
 	SLATE_END_ARGS()
 
 	/**

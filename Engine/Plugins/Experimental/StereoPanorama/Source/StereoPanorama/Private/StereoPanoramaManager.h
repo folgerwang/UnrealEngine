@@ -10,7 +10,8 @@ class FStereoPanoramaManager
 public:
 
 	FStereoPanoramaManager()
-		: PanoramicScreenshotCommand(
+		: SceneCapturer(nullptr)
+		, PanoramicScreenshotCommand(
 			TEXT("SP.PanoramicScreenshot"),
 			*NSLOCTEXT("StereoPanorama", "CommandText_ScreenShot", "Takes a panoramic screenshot").ToString(),
 			FConsoleCommandWithArgsDelegate::CreateRaw(this, &FStereoPanoramaManager::PanoramicScreenshot))
@@ -26,7 +27,6 @@ public:
             TEXT("SP.TogglePause"),
 			*NSLOCTEXT("StereoPanorama", "CommandText_PauseGame", "Toggles Pausing/Unpausing of the game through StereoPanorama Plugin").ToString(),
 			FConsoleCommandWithArgsDelegate::CreateRaw(this, &FStereoPanoramaManager::PanoramicTogglePause))
-		, SceneCapturer(nullptr)
 	{ }
 
 public:

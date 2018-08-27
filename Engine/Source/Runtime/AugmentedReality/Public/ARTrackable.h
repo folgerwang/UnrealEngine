@@ -40,7 +40,11 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Tracked Geometry")
 	EARTrackingState GetTrackingState() const;
-	
+	void SetTrackingState(EARTrackingState NewState);
+
+	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Tracked Geometry")
+	bool IsTracked() const;
+
 	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Tracked Geometry")
 	FName GetDebugName() const;
 	
@@ -143,6 +147,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	UARCandidateImage* GetDetectedImage() const { return DetectedImage; };
 
+	DEPRECATED(4.21, "This property is now deprecated, please use GetTrackingState() and check for EARTrackingState::Tracking or IsTracked() instead.")
 	/** Whether the image is currently being tracked by the AR system */
 	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
 	bool bIsTracked;
@@ -223,13 +228,11 @@ enum class EARFaceBlendShape : uint8
 	// Nose blend shapes
 	NoseSneerLeft,
 	NoseSneerRight,
-//@joeg -- Tongue blend shape support
 	TongueOut,
 	// Treat the head rotation as curves for LiveLink support
 	HeadYaw,
 	HeadPitch,
 	HeadRoll,
-//@joeg -- Eye tracking support
 	// Treat eye rotation as curves for LiveLink support
 	LeftEyeYaw,
 	LeftEyePitch,
@@ -240,7 +243,6 @@ enum class EARFaceBlendShape : uint8
 	MAX
 };
 
-//@joeg -- Eye tracking support
 UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
 enum class EAREye : uint8
 {
@@ -283,6 +285,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
 	FVector LookAtTarget;
 
+	DEPRECATED(4.21, "This property is now deprecated, please use GetTrackingState() and check for EARTrackingState::Tracking or IsTracked() instead.")
 	/** Whether the face is currently being tracked by the AR system */
 	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
 	bool bIsTracked;
@@ -297,14 +300,12 @@ private:
 	// @todo JoeG - route the uvs in
 	TArray<FVector2D> UVs;
 
-//@joeg -- Eye tracking support
 	/** The transform for the left eye */
 	FTransform LeftEyeTransform;
 	/** The transform for the right eye */
 	FTransform RightEyeTransform;
 };
 
-//@joeg -- Added environmental texture probe support
 /** A tracked environment texture probe that gives you a cube map for reflections */
 UCLASS(BlueprintType)
 class AUGMENTEDREALITY_API UAREnvironmentCaptureProbe :
@@ -336,7 +337,6 @@ protected:
 	UAREnvironmentCaptureProbeTexture* EnvironmentCaptureTexture;
 };
 
-//@joeg -- Added for object detection
 UCLASS(BlueprintType)
 class AUGMENTEDREALITY_API UARTrackedObject : public UARTrackedGeometry
 {

@@ -56,9 +56,9 @@ namespace EditorScriptingUtils
 			}
 		}
 
-		if (Path.Len() > MAX_UNREAL_FILENAME_LENGTH)
+		if (Path.Len() > FPlatformMisc::GetMaxPathLength())
 		{
-			OutFailureReason = FString::Printf(TEXT("Can't convert the path %s because it is too long; this may interfere with cooking for consoles. Unreal filenames should be no longer than %d characters."), *Path, MAX_UNREAL_FILENAME_LENGTH);
+			OutFailureReason = FString::Printf(TEXT("Can't convert the path %s because it is too long; this may interfere with cooking for consoles. Unreal filenames should be no longer than %d characters."), *Path, FPlatformMisc::GetMaxPathLength());
 			return false;
 		}
 		return true;

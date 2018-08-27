@@ -66,13 +66,13 @@ public:
 
     /// Return the PrimSpec that contains all the builtin metadata and
     /// properties for the given \a primType.  Return null if there is no such
-    /// prim defintion.
+    /// prim definition.
     USD_API
     static SdfPrimSpecHandle GetPrimDefinition(const TfToken &primType);
 
     /// Return the PrimSpec that contains all the bulitin metadata and
     /// properties for the given \a primType.  Return null if there is no such
-    /// prim defintion.
+    /// prim definition.
     USD_API
     static SdfPrimSpecHandle GetPrimDefinition(const TfType &primType);
 
@@ -157,6 +157,33 @@ public:
         return false;
     }
 
+    /// Returns list of fields that cannot have fallback values
+    /// specified in schemas. 
+    /// 
+    /// Fields are generally in this list because their fallback values
+    /// aren't used. For instance, fallback values for composition arcs
+    /// aren't used during composition, so allowing them to be set in
+    /// schemas would be misleading.
+    USD_API
+    static std::vector<TfToken> GetDisallowedFields();
+
+    /// Returns true if the prim type \p primType inherits from \ref UsdTyped. 
+    USD_API
+    static bool IsTyped(const TfType& primType);
+
+    /// Returns true if the prim type \p primType is instantiable
+    /// in scene description.
+    USD_API
+    static bool IsConcrete(const TfType& primType);
+
+    /// Returns true if \p apiSchemaType is an applied API schema type.
+    USD_API
+    bool IsAppliedAPISchema(const TfType& apiSchemaType);
+
+    /// Returns true if \p apiSchemaType is a multiple-apply API schema type.
+    USD_API
+    bool IsMultipleApplyAPISchema(const TfType& apiSchemaType);
+
 private:
     friend class TfSingleton<UsdSchemaRegistry>;
 
@@ -172,6 +199,7 @@ private:
     // Helper for looking up the prim definition path for a given primType.
     const SdfPath& _GetSchemaPrimPath(const TfType &primType) const;
 
+    USD_API
     const SdfAbstractDataSpecId *_GetSpecId(const TfToken &primType,
                                             const TfToken &propName) const;
 
@@ -207,6 +235,9 @@ private:
         const SdfAbstractDataSpecId *,
         _TokenPairHash> _PrimTypePropNameToSpecIdMap;
     _PrimTypePropNameToSpecIdMap _primTypePropNameToSpecIdMap;
+
+    TfToken::HashSet _appliedAPISchemaNames;
+    TfToken::HashSet _multipleApplyAPISchemaNames;
 };
 
 USD_API_TEMPLATE_CLASS(TfSingleton<UsdSchemaRegistry>);

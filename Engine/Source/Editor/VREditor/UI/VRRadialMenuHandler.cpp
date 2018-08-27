@@ -485,7 +485,7 @@ void UVRRadialMenuHandler::GizmoMenuGenerator(FMenuBuilder& MenuBuilder, TShared
 
 void UVRRadialMenuHandler::UIMenuGenerator(FMenuBuilder& MenuBuilder, TSharedPtr<FUICommandList> CommandList, UVREditorMode* VRMode, float& RadiusOverride)
 {
-	MenuBuilder.BeginSection("UI");
+	MenuBuilder.BeginSection("Windows");
 
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("ActorDetails", "Details"),

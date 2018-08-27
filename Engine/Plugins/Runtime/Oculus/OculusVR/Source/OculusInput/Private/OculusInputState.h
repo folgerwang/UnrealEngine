@@ -167,6 +167,9 @@ struct FOculusButtonState
 	/** The Unreal button this maps to.  Different depending on whether this is the Left or Right hand controller */
 	FName Key;
 
+	/** The Unreal button this maps to.  Different depending on whether this is the Left or Right hand controller */
+	FName EmulatedKey;
+
 	/** Whether we're pressed or not.  While pressed, we will generate repeat presses on a timer */
 	bool bIsPressed;
 
@@ -177,6 +180,7 @@ struct FOculusButtonState
 	/** Default constructor that just sets sensible defaults */
 	FOculusButtonState()
 		: Key( NAME_None ),
+		  EmulatedKey( NAME_None ),
 		  bIsPressed( false ),
 		  NextRepeatTime( 0.0 )
 	{
@@ -322,14 +326,14 @@ struct FOculusRemoteControllerState
 		Buttons[(int32)EOculusRemoteControllerButton::Home].Key = FOculusKeyNames::OculusRemote_Home;
 	}
 
-	void ReinitButtonsForGamepadCompat()
+	void MapKeysToGamepad()
 	{
-		Buttons[(int32)EOculusRemoteControllerButton::DPad_Up].Key = FGamepadKeyNames::DPadUp;
-		Buttons[(int32)EOculusRemoteControllerButton::DPad_Down].Key = FGamepadKeyNames::DPadDown;
-		Buttons[(int32)EOculusRemoteControllerButton::DPad_Left].Key = FGamepadKeyNames::DPadLeft;
-		Buttons[(int32)EOculusRemoteControllerButton::DPad_Right].Key = FGamepadKeyNames::DPadRight;
-		Buttons[(int32)EOculusRemoteControllerButton::Enter].Key = FGamepadKeyNames::SpecialRight;
-		Buttons[(int32)EOculusRemoteControllerButton::Back].Key = FGamepadKeyNames::SpecialLeft;
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Up].EmulatedKey = FGamepadKeyNames::DPadUp;
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Down].EmulatedKey = FGamepadKeyNames::DPadDown;
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Left].EmulatedKey = FGamepadKeyNames::DPadLeft;
+		Buttons[(int32)EOculusRemoteControllerButton::DPad_Right].EmulatedKey = FGamepadKeyNames::DPadRight;
+		Buttons[(int32)EOculusRemoteControllerButton::Enter].EmulatedKey = FGamepadKeyNames::SpecialRight;
+		Buttons[(int32)EOculusRemoteControllerButton::Back].EmulatedKey = FGamepadKeyNames::SpecialLeft;
 	}
 };
 

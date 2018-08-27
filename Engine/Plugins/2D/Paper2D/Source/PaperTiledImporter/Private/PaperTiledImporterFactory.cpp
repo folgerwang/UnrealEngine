@@ -373,7 +373,7 @@ UObject* UPaperTiledImporterFactory::CreateNewAsset(UClass* AssetClass, const FS
 	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 
 	// Create a unique package name and asset name for the frame
-	const FString TentativePackagePath = PackageTools::SanitizePackageName(TargetPath + TEXT("/") + DesiredName);
+	const FString TentativePackagePath = UPackageTools::SanitizePackageName(TargetPath + TEXT("/") + DesiredName);
 	FString DefaultSuffix;
 	FString AssetName;
 	FString PackageName;

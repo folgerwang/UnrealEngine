@@ -36,6 +36,8 @@ namespace LevelViewportConfigurationNames
 class LEVELEDITOR_API FLevelViewportCommands : public TCommands<FLevelViewportCommands>
 {
 public:
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	FLevelViewportCommands() 
 		: TCommands<FLevelViewportCommands>
 		(
@@ -43,9 +45,17 @@ public:
 			NSLOCTEXT("Contexts", "LevelViewports", "Level Viewports"), // Localized context name for displaying
 			TEXT("EditorViewport"), // Parent context name.  
 			FEditorStyle::GetStyleSetName() // Icon Style Set
-		)
+		),
+		ClearAllBookMarks(nullptr)
 	{
 	}
+
+	FLevelViewportCommands(const FLevelViewportCommands&) = default;
+	FLevelViewportCommands(FLevelViewportCommands&&) = default;
+	FLevelViewportCommands& operator=(const FLevelViewportCommands&) = default;
+	FLevelViewportCommands& operator=(FLevelViewportCommands&&) = default;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
 	virtual ~FLevelViewportCommands();
 
 	/** Get the singleton instance of this set of commands. */
@@ -139,7 +149,12 @@ public:
 	TArray< TSharedPtr< FUICommandInfo > > JumpToBookmarkCommands;
 	TArray< TSharedPtr< FUICommandInfo > > SetBookmarkCommands;
 	TArray< TSharedPtr< FUICommandInfo > > ClearBookmarkCommands;
+	TSharedPtr< FUICommandInfo > CompactBookmarks;
+
+	DEPRECATED(4.21, "Please use the version of the member with corrected spelling (ClearAllBookmarks).")
 	TSharedPtr< FUICommandInfo > ClearAllBookMarks;
+
+	TSharedPtr< FUICommandInfo > ClearAllBookmarks;
 
 	/** Actor pilot commands */
 	TSharedPtr< FUICommandInfo > EjectActorPilot;
@@ -188,4 +203,18 @@ private:
 	void HandleNewStatGroup(const TArray<FStatNameAndInfo>& NameAndInfos);
 	void HandleNewStat(const FName& InStatName, const FName& InStatCategory, const FText& InStatDescription);
 	int32 FindStatIndex(const TArray< FShowMenuCommand >* ShowStatCommands, const FString& InCommandName) const;
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	// Dummy function that's never used.
+	// Used to hide deprecation warnings due to auto generated methods.
+	void Dummy()
+	{
+		FLevelViewportCommands Commands;
+		FLevelViewportCommands CommandsCopy(Commands);
+		FLevelViewportCommands CommandsCopy2(MoveTemp(Commands));
+		Commands = CommandsCopy2;
+		CommandsCopy = MoveTemp(Commands);
+		check(false);
+	}
 };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS

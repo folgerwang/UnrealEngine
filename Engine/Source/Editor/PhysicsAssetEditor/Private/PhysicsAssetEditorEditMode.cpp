@@ -604,12 +604,14 @@ bool FPhysicsAssetEditorEditMode::GetCustomDrawingCoordinateSystem(FMatrix& InMa
 	if (SharedData->GetSelectedBody())
 	{
 		int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->SkeletalBodySetups[SharedData->GetSelectedBody()->Index]->BoneName);
+		if(BoneIndex != INDEX_NONE)
+		{
+			FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
+			BoneTM.RemoveScaling();
 
-		FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
-		BoneTM.RemoveScaling();
-
-		InMatrix = SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SharedData->GetSelectedBody()->Index, SharedData->GetSelectedBody()->PrimitiveType, SharedData->GetSelectedBody()->PrimitiveIndex, 1.f).ToMatrixNoScale().RemoveTranslation();
-		return true;
+			InMatrix = SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SharedData->GetSelectedBody()->Index, SharedData->GetSelectedBody()->PrimitiveType, SharedData->GetSelectedBody()->PrimitiveIndex, 1.f).ToMatrixNoScale().RemoveTranslation();
+			return true;
+		}
 	}
 	else if (SharedData->GetSelectedConstraint())
 	{
@@ -631,12 +633,14 @@ FVector FPhysicsAssetEditorEditMode::GetWidgetLocation() const
 	if (SharedData->GetSelectedBody())
 	{
 		int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->SkeletalBodySetups[SharedData->GetSelectedBody()->Index]->BoneName);
+		if(BoneIndex != INDEX_NONE)
+		{
+			FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
+			const float Scale = BoneTM.GetScale3D().GetAbsMax();
+			BoneTM.RemoveScaling();
 
-		FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
-		const float Scale = BoneTM.GetScale3D().GetAbsMax();
-		BoneTM.RemoveScaling();
-
-		return SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SharedData->GetSelectedBody()->Index, SharedData->GetSelectedBody()->PrimitiveType, SharedData->GetSelectedBody()->PrimitiveIndex, Scale).GetTranslation();
+			return SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SharedData->GetSelectedBody()->Index, SharedData->GetSelectedBody()->PrimitiveType, SharedData->GetSelectedBody()->PrimitiveIndex, Scale).GetTranslation();
+		}
 	}
 	else if (SharedData->GetSelectedConstraint())
 	{

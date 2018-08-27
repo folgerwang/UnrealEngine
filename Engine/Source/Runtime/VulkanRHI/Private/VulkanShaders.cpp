@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanShaders.cpp: Vulkan shader RHI implementation.
@@ -292,7 +292,7 @@ uint32 FVulkanDescriptorSetWriter::SetupDescriptorWrites(const FNEWVulkanShaderD
 	return DynamicOffsetIndex;
 }
 
-void FVulkanDescriptorSetsLayoutInfo::AddBindingsForStage(VkShaderStageFlagBits StageFlags, DescriptorSet::EStage DescSet, const FVulkanCodeHeader& CodeHeader)
+void FVulkanDescriptorSetsLayoutInfo::AddBindingsForStage(VkShaderStageFlagBits StageFlags, DescriptorSet::EStage DescSet, const FVulkanCodeHeader& CodeHeader, const FImmutableSamplerState* const ImmutableSamplerState)
 {
 	//#todo-rco: Mobile assumption!
 	int32 DescriptorSetIndex = (int32)DescSet;
@@ -301,14 +301,26 @@ void FVulkanDescriptorSetsLayoutInfo::AddBindingsForStage(VkShaderStageFlagBits 
 	FMemory::Memzero(Binding);
 	Binding.descriptorCount = 1;
 	Binding.stageFlags = StageFlags;
+
+	uint32 ImmutableSamplerIndex = 0;
+
 	for (int32 Index = 0; Index < CodeHeader.NEWDescriptorInfo.DescriptorTypes.Num(); ++Index)
 	{
 		Binding.binding = Index;
 		Binding.descriptorType = CodeHeader.NEWDescriptorInfo.DescriptorTypes[Index];
+
+		if (Binding.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER &&
+			ImmutableSamplerState != nullptr &&
+			ImmutableSamplerState->ImmutableSamplers[ImmutableSamplerIndex] != nullptr)
+		{
+			// TODO: This really will only work for a single combined sampler that's external. We need the actual binding index to support arbitrary materials
+			const FVulkanSamplerState* const Sampler = ResourceCast(ImmutableSamplerState->ImmutableSamplers[ImmutableSamplerIndex++]);
+			Binding.pImmutableSamplers = &Sampler->Sampler;
+		}
+
 		AddDescriptor(DescriptorSetIndex, Binding, Index);
 	}
 }
-
 
 #if !VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 FOLDVulkanDescriptorSetRingBuffer::FDescriptorSetsPair::~FDescriptorSetsPair()

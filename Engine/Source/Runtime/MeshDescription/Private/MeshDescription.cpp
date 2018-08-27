@@ -1151,20 +1151,11 @@ void FMeshDescription::GetAllCharts( TArray<TArray<FPolygonID>>& OutCharts )
 
 void FMeshDescription::ReversePolygonFacing(const FPolygonID PolygonID)
 {
-	FMeshPolygon& Polygon = GetPolygon(PolygonID);
-
 	//Build a reverse perimeter
-	TArray<FVertexInstanceID> ReverseVertexInstanceIDs;
-	int32 PerimeterReverseIndex = Polygon.PerimeterContour.VertexInstanceIDs.Num() - 1;
-	for(const FVertexInstanceID& VertexInstanceID : Polygon.PerimeterContour.VertexInstanceIDs)
+	FMeshPolygon& Polygon = GetPolygon(PolygonID);
+	for (int32 i = 0; i < Polygon.PerimeterContour.VertexInstanceIDs.Num() / 2; ++i)
 	{
-		ReverseVertexInstanceIDs[PerimeterReverseIndex] = VertexInstanceID;
-		PerimeterReverseIndex--;
-	}
-	//Assign the reverse perimeter
-	for (int32 VertexInstanceIndex = 0; VertexInstanceIndex < ReverseVertexInstanceIDs.Num(); ++VertexInstanceIndex)
-	{
-		Polygon.PerimeterContour.VertexInstanceIDs[VertexInstanceIndex] = ReverseVertexInstanceIDs[VertexInstanceIndex];
+		Polygon.PerimeterContour.VertexInstanceIDs.Swap(i, Polygon.PerimeterContour.VertexInstanceIDs.Num() - i - 1);
 	}
 	
 	//Triangulate the polygon since we reverse the indices

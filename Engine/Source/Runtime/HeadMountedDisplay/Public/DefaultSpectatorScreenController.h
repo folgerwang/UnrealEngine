@@ -25,6 +25,7 @@ public:
 	virtual void SetSpectatorScreenTexture(UTexture* InTexture) override;
 	virtual UTexture* GetSpectatorScreenTexture() const override;
 	virtual void SetSpectatorScreenModeTexturePlusEyeLayout(const FSpectatorScreenModeTexturePlusEyeLayout& Layout) override;
+	virtual void QueueDebugCanvasLayerID(int32 LayerID) override;
 
 	FSpectatorScreenRenderDelegate* GetSpectatorScreenRenderDelegate_RenderThread();
 
@@ -32,7 +33,7 @@ public:
 	// Implementation methods called by HMD
 	virtual void BeginRenderViewFamily();
 	virtual void UpdateSpectatorScreenMode_RenderThread();
-	virtual void RenderSpectatorScreen_RenderThread(FRHICommandListImmediate& RHICmdList, FRHITexture2D* BackBuffer, FTexture2DRHIRef RenderTarget, FVector2D WindowSize) const;
+	virtual void RenderSpectatorScreen_RenderThread(FRHICommandListImmediate& RHICmdList, FRHITexture2D* BackBuffer, FTexture2DRHIRef RenderTarget, FVector2D WindowSize);
 
 protected:
 	friend struct FRHISetSpectatorScreenTexture;
@@ -63,6 +64,7 @@ protected:
 	FTexture2DRHIRef SpectatorScreenTexture_RenderThread;
 	FSpectatorScreenModeTexturePlusEyeLayout SpectatorScreenModeTexturePlusEyeLayout_RenderThread;
 	FSpectatorScreenRenderDelegate SpectatorScreenDelegate_RenderThread;
+	TArray<int32> DebugCanvasLayerIDs;
 
 	class HEADMOUNTEDDISPLAY_API Helpers
 	{

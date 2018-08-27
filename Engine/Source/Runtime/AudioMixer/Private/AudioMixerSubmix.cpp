@@ -39,7 +39,7 @@ namespace Audio
 			TearDownAmbisonicsDecoder();
 		}
 
-		if (bIsRecording && OwningSubmixObject)
+		if (OwningSubmixObject && bIsRecording)
 		{
 			FString InterruptedFileName = TEXT("InterruptedRecording.wav");
 			UE_LOG(LogAudioMixer, Warning, TEXT("Recording of Submix %s was interrupted. Saving interrupted recording as %s."), *(OwningSubmixObject->GetName()), *InterruptedFileName);
@@ -709,6 +709,27 @@ namespace Audio
 		OutNumChannels = NumChannels;
 		OutSampleRate = GetSampleRate();
 		return RecordingData;
+	}
+
+	void FMixerSubmix::PauseRecordingOutput()
+	{
+		if (!RecordingData.Num())
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("Cannot pause recording output as no recording is in progress."));
+			return;
+		}
+		
+		bIsRecording = false;
+	}
+
+	void FMixerSubmix::ResumeRecordingOutput()
+	{
+		if (!RecordingData.Num())
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("Cannot resume recording output as no recording is in progress."));
+			return;
+		}
+		bIsRecording = true;
 	}
 
 	void FMixerSubmix::RegisterBufferListener(ISubmixBufferListener* BufferListener)

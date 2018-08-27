@@ -314,7 +314,7 @@ bool FDeletePackageLatentCommand::Update()
 	{
 		TArray<UPackage*> Packages;
 		Packages.Add(Package);
-		if(PackageTools::UnloadPackages(Packages))
+		if(UPackageTools::UnloadPackages(Packages))
 		{
 			FString PackageFileName = SourceControlHelpers::PackageFilename(Parameter);
 			if(!FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*PackageFileName))
@@ -538,7 +538,7 @@ bool FEditTextureLatentCommand::Update()
 		}
 		TArray<UPackage*> Packages;
 		Packages.Add(Package);
-		PackageTools::UnloadPackages(Packages);
+		UPackageTools::UnloadPackages(Packages);
 	}
 	else
 	{

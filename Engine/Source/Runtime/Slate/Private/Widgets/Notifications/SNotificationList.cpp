@@ -533,7 +533,7 @@ public:
 		Hyperlink = InHyperlink;
 
 		// Only replace the text if specified
-		if ( InHyperlinkText.IsBound() )
+		if ( InHyperlinkText.IsBound() || InHyperlinkText.IsSet() )
 		{
 			HyperlinkText = InHyperlinkText;
 		}

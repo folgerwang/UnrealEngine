@@ -52,4 +52,9 @@ public:
 	/** Paths to objects created or updated after import */
 	UPROPERTY(BlueprintReadWrite, Category = "Asset Import Task")
 	TArray<FString> ImportedObjectPaths;
+
+	/** Imported object */
+	UPROPERTY(BlueprintReadWrite, Category = "Asset Import Task")
+	UObject* Result;
 };
+

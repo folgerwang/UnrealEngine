@@ -19,7 +19,7 @@ public partial class Project : CommandUtils
 			return;
 		}
 
-		Log("********** DEPLOY COMMAND STARTED **********");
+		LogInformation("********** DEPLOY COMMAND STARTED **********");
 		
 		if (!Params.NoClient)
 		{
@@ -34,8 +34,8 @@ public partial class Project : CommandUtils
 					ClientCmdLine += "-SourceDir=\"" + CombinePaths(Params.BaseStageDirectory, SC.StageTargetPlatform.PlatformType.ToString()) + "\" ";
 					string ClientApp = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/Win64/UnrealFrontend.exe");
 
-					Log("Deploying via UFE:");
-					Log("\tClientCmdLine: " + ClientCmdLine + "");
+					LogInformation("Deploying via UFE:");
+					LogInformation("\tClientCmdLine: " + ClientCmdLine + "");
 
 					//@todo UAT: Consolidate running of external applications like UFE (See 'RunProjectCommand' for other instances)
 					PushDir(Path.GetDirectoryName(ClientApp));
@@ -68,7 +68,7 @@ public partial class Project : CommandUtils
 			}
 		}
 
-		Log("********** DEPLOY COMMAND COMPLETED **********");
+		LogInformation("********** DEPLOY COMMAND COMPLETED **********");
 	}
 
 	#endregion

@@ -103,6 +103,15 @@ protected:
 
 	bool bMediaPrepared;
 
+	/** Frame UV scale and offsets */
+	float UScale = 1.0f;
+	float VScale = 1.0f;
+	float UOffset = 0.0f;
+	float VOffset = 0.0f;
+
+	/** Frame transformation matrix used to determine UV offset and scaling */
+	float FrameTransformationMatrix[16] = {};
+
 	/** Current player state. */
 	EMediaState CurrentState;
 
@@ -142,9 +151,12 @@ protected:
 
 	bool bWasMediaPlayingBeforeAppPause;
 
+	bool bPlaybackCompleted;
+
 private:
 	virtual bool SetRateOne();
 	virtual bool GetMediaPlayerState(uint16 FlagToPoll) const;
+	virtual void RegisterExternalTexture(const FGuid& InGuid, FTextureRHIRef& InTextureRHI, FSamplerStateRHIRef& InSamplerStateRHI);
 	virtual bool RenderThreadIsBufferAvailable(MLHandle MediaPlayerHandle);
 	virtual bool RenderThreadGetNativeBuffer(const MLHandle MediaPlayerHandle, MLHandle& NativeBuffer);
 	virtual bool RenderThreadReleaseNativeBuffer(const MLHandle MediaPlayerHandle, MLHandle NativeBuffer);

@@ -30,6 +30,6 @@ public class ApexDestruction : ModuleRules
             );
         }
         
-        SetupModulePhysXAPEXSupport(Target);
+        SetupModulePhysicsSupport(Target);
 	}
 }

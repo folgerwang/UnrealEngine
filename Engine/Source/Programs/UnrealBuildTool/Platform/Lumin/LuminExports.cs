@@ -47,8 +47,9 @@ namespace UnrealBuildTool
 		/// <param name="bForDistribution"></param>
 		/// <param name="CookFlavor"></param>
 		/// <param name="bIsDataDeploy"></param>
+		/// <param name="MpkName"></param>
 		/// <returns></returns>
-		bool PrepForUATPackageOrDeploy(FileReference ProjectFile, string ProjectName, DirectoryReference ProjectDirectory, string ExecutablePath, string EngineDirectory, bool bForDistribution, string CookFlavor, bool bIsDataDeploy);
+		bool PrepForUATPackageOrDeploy(FileReference ProjectFile, string ProjectName, DirectoryReference ProjectDirectory, string ExecutablePath, string EngineDirectory, bool bForDistribution, string CookFlavor, bool bIsDataDeploy, string MpkName);
 
 		/// <summary>
 		/// 

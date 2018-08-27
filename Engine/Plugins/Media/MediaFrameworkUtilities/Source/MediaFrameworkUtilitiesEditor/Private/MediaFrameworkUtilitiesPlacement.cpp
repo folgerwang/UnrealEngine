@@ -222,3 +222,5 @@ void FMediaFrameworkUtilitiesPlacement::UnregisterPlacement()
 	IPlacementModeModule& PlacementModeModule = IPlacementModeModule::Get();
 	PlacementModeModule.UnregisterPlacementCategory(TEXT("PMMedia"));
 }
+
+#undef LOCTEXT_NAMESPACE

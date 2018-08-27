@@ -1251,7 +1251,7 @@ namespace UnrealBuildTool
 
 			string BasePCHName = "";
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(UEBuildPlatform.CPPTargetPlatformToUnrealTargetPlatform(CompileEnvironment.Platform));
-			string PCHExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+			string PCHExtension = ".gch";
 			if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 			{
 				BasePCHName = RemoveArchName(CompileEnvironment.PrecompiledHeaderFile.AbsolutePath).Replace(PCHExtension, "");
@@ -1341,7 +1341,7 @@ namespace UnrealBuildTool
 							FileArguments += GetCompileArguments_C(bDisableOptimizations);
 
 							// remove shadow variable warnings for externally included files
-							if (!SourceFile.AbsolutePath.Replace("\\", "/").StartsWith(Path.GetFullPath(UnrealBuildTool.RootDirectory.CanonicalName)))
+							if (!SourceFile.Location.IsUnderDirectory(UnrealBuildTool.RootDirectory))
 							{
 								bDisableShadowWarning = true;
 							}
@@ -1386,11 +1386,14 @@ namespace UnrealBuildTool
 								CompileAction.PrerequisiteItems.Add(ArchPrecompiledHeaderFile);
 							}
 
-							string ObjectFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.Object);
-
+							string ObjectFileExtension;
 							if(CompileEnvironment.AdditionalArguments != null && CompileEnvironment.AdditionalArguments.Contains("-emit-llvm"))
 							{
 								ObjectFileExtension = ".bc";
+							}
+							else
+							{
+								ObjectFileExtension = ".o";
 							}
 
 							// Add the object file to the produced item list.
@@ -1439,8 +1442,17 @@ namespace UnrealBuildTool
 						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 						if(bExecuteCompilerThroughShell)
 						{
-							CompileAction.CommandPath = "cmd.exe";
-							CompileAction.CommandArguments = String.Format("/c \"{0} {1}\"", ClangPath, ResponseArgument);
+							if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+							{
+								CompileAction.CommandPath = "cmd.exe";
+								CompileAction.CommandArguments = String.Format("/c \"{0} {1}\"", ClangPath, ResponseArgument);
+							}
+							else
+							{
+								CompileAction.CommandPath = "/bin/sh";
+								CompileAction.CommandArguments = String.Format("-c \"{0} {1}\"", ClangPath, ResponseArgument);
+								CompileAction.CommandDescription = "Compile";
+							}
 						}
 						else
 						{
@@ -1662,8 +1674,17 @@ namespace UnrealBuildTool
 
 					if(bExecuteCompilerThroughShell)
 					{
-						LinkAction.CommandArguments = String.Format("/c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
-						LinkAction.CommandPath = "cmd.exe";
+						if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+						{
+							LinkAction.CommandArguments = String.Format("/c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
+							LinkAction.CommandPath = "cmd.exe";
+						}
+						else
+						{
+							LinkAction.CommandArguments = String.Format("-c \"{0} {1}\"", LinkAction.CommandPath, LinkAction.CommandArguments);
+							LinkAction.CommandPath = "/bin/sh";
+							LinkAction.CommandDescription = "Link";
+						}
 					}
 
 					// Windows can run into an issue with too long of a commandline when clang tries to call ld to link.
@@ -1825,8 +1846,8 @@ namespace UnrealBuildTool
 			}
 
 			ProcessStartInfo StartInfo = new ProcessStartInfo();
-			StartInfo.FileName = GetStripPath(SourceFile);
-			StartInfo.Arguments = "--strip-debug " + TargetFile.FullName;
+			StartInfo.FileName = GetStripPath(SourceFile).Trim('"');
+			StartInfo.Arguments = " --strip-debug \"" + TargetFile.FullName + "\"";
 			StartInfo.UseShellExecute = false;
 			StartInfo.CreateNoWindow = true;
 			Utils.RunLocalProcessAndLogOutput(StartInfo);

@@ -1,10 +1,11 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
@@ -19,25 +20,31 @@ namespace UnrealBuildTool
 		public static bool bWriteMarkup = false;
 
 		/// <summary>
-		/// Whether to write messages to the console
+		/// The name to include with the status message
 		/// </summary>
-		bool bWriteToConsole;
 		string Message;
-		int NumCharsToBackspaceOver;
+
+		/// <summary>
+		/// The inner scope object
+		/// </summary>
+		LogStatusScope Status;
+
+		/// <summary>
+		/// The current progress message
+		/// </summary>
 		string CurrentProgressString;
 
 		/// <summary>
 		/// Constructor
 		/// </summary>
 		/// <param name="InMessage">The message to display before the progress percentage</param>
-		/// <param name="bInWriteToConsole">Whether to write progress message to the console</param>
-		public ProgressWriter(string InMessage, bool bInWriteToConsole)
+		/// <param name="bInUpdateStatus">Whether to write messages to the console</param>
+		public ProgressWriter(string InMessage, bool bInUpdateStatus)
 		{
 			Message = InMessage;
-			bWriteToConsole = bInWriteToConsole;
-			if (!bWriteMarkup && bWriteToConsole)
+			if(bInUpdateStatus)
 			{
-				Console.Write(Message + " ");
+				Status = new LogStatusScope(InMessage);
 			}
 			Write(0, 100);
 		}
@@ -47,25 +54,10 @@ namespace UnrealBuildTool
 		/// </summary>
 		public void Dispose()
 		{
-			if (!bWriteMarkup && bWriteToConsole)
+			if(Status != null)
 			{
-				Console.WriteLine();
-			}
-		}
-
-		/// <summary>
-		/// Write a message to the log, clearing the current progress percentage first
-		/// </summary>
-		public void LogMessage(LogEventType Verbosity, string Format, params object[] Args)
-		{
-			if(bWriteToConsole)
-			{
-				Console.Write(new string('\b', Message.Length + 1 + NumCharsToBackspaceOver) + new string(' ', Message.Length + 1 + NumCharsToBackspaceOver) + new string('\b', Message.Length + 1 + NumCharsToBackspaceOver));
-			}
-			Log.WriteLine(Verbosity, Format, Args);
-			if(bWriteToConsole)
-			{
-				Console.Write("{0} {1}", Message, CurrentProgressString);
+				Status.Dispose();
+				Status = null;
 			}
 		}
 
@@ -85,17 +77,9 @@ namespace UnrealBuildTool
 				{
 					Log.WriteLine(LogEventType.Console, "@progress '{0}' {1}", Message, ProgressString);
 				}
-				else if (bWriteToConsole)
+				if(Status != null)
 				{
-					// Backspace over previous progress value
-					while (NumCharsToBackspaceOver-- > 0)
-					{
-						Console.Write("\b");
-					}
-
-					// Display updated progress string and keep track of how long it was
-					NumCharsToBackspaceOver = ProgressString.Length;
-					Console.Write(ProgressString);
+					Status.SetProgress(ProgressString);
 				}
 			}
 		}

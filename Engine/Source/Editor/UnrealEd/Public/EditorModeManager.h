@@ -280,10 +280,25 @@ public:
 	bool GetShowFriendlyVariableNames() const;
 
 	/**
+	 * Gets the maximum number of bookmarks.
+	 *
+	 * @param InViewportClient	Level editor viewport client used to reference the world which owns the bookmarks.
+	 */
+	const uint32 GetMaxNumberOfBookmarks(FEditorViewportClient* InViewportClient) const;
+
+	/**
+	 * Compacts the available bookmarks into mapped spaces.
+	 * Does nothing if all valid bookmarks are already mapped.
+	 *
+	 * @param InViewportClient	Level editor viewport client used to reference the world which owns the bookmarks.
+	 */
+	void CompactBookmarks(FEditorViewportClient* InViewportClient) const;
+
+	/**
 	 * Sets a bookmark in the levelinfo file, allocating it if necessary.
 	 * 
 	 * @param InIndex			Index of the bookmark to set.
-	 * @param InViewportClient	Level editor viewport client used to get pointer the world that the bookmark is for.
+	 * @param InViewportClient	Level editor viewport client used to reference the world which owns the bookmark.
 	 */
 	void SetBookmark( uint32 InIndex, FEditorViewportClient* InViewportClient );
 
@@ -291,31 +306,41 @@ public:
 	 * Checks to see if a bookmark exists at a given index
 	 * 
 	 * @param InIndex			Index of the bookmark to set.
-	 * @param InViewportClient	Level editor viewport client used to get pointer the world to check for the bookmark in.
+	 * @param InViewportClient	Level editor viewport client used to reference the world which owns the bookmark.
 	 */
 	bool CheckBookmark( uint32 InIndex, FEditorViewportClient* InViewportClient );
 
 	/**
-	 * Retrieves a bookmark from the list.
+	 * Activates a bookmark from the list.
 	 * 
 	 * @param InIndex			Index of the bookmark to set.
 	 * @param					Set to true to restore the visibility of any streaming levels.
-	 * @param InViewportClient	Level editor viewport client used to get pointer the world that the bookmark is relevant to.
+	 * @param InViewportClient	Level editor viewport client used to reference the world which owns the bookmark.
 	 */
+	DEPRECATED(4.21, "Please use the version of JumpToBookmark that accepts a Shared Pointer to FBookmarkBaseJumpToSettings.")
 	void JumpToBookmark( uint32 InIndex, bool bShouldRestoreLevelVisibility, FEditorViewportClient* InViewportClient );
+
+	/**
+	 * Activates a bookmark from the list.
+	 * 
+	 * @param InIndex			Index of the bookmark to set.
+	 * @param InSettings		Settings to used when jumpting to the bookmark.
+	 * @param InViewportClient	Level editor viewport client used to reference the world which owns the bookmark.
+	 */
+	void JumpToBookmark( uint32 InIndex, TSharedPtr<struct FBookmarkBaseJumpToSettings> InSettings, FEditorViewportClient* InViewportClient );
 
 	/**
 	 * Clears a bookmark from the list.
 	 * 
 	 * @param InIndex			Index of the bookmark to clear.
-	 * @param InViewportClient	Level editor viewport client used to get pointer the world that the bookmark is relevant to.
+	 * @param InViewportClient	Level editor viewport client used to reference the world which owns the bookmark.
 	 */
 	void ClearBookmark( uint32 InIndex, FEditorViewportClient* InViewportClient );
 
 	/**
 	 * Clears all book marks
 	 * 
-	 * @param InViewportClient	Level editor viewport client used to get pointer the world to clear the bookmarks from.
+	 * @param InViewportClient	Level editor viewport client used to reference the world which owns the bookmarks.
 	 */
 	void ClearAllBookmarks( FEditorViewportClient* InViewportClient );
 

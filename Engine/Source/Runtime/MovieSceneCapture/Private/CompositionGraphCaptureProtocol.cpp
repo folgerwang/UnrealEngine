@@ -18,7 +18,7 @@ struct FFrameCaptureViewExtension : public FSceneViewExtensionBase
 	FFrameCaptureViewExtension( const FAutoRegister& AutoRegister, const TArray<FString>& InRenderPasses, bool bInCaptureFramesInHDR, int32 InHDRCompressionQuality, int32 InCaptureGamut, UMaterialInterface* InPostProcessingMaterial, bool bInDisableScreenPercentage)
 		: FSceneViewExtensionBase(AutoRegister)
 		, RenderPasses(InRenderPasses)
-		, bNeedsCapture(true)
+		, bNeedsCapture(false)
 		, bCaptureFramesInHDR(bInCaptureFramesInHDR)
 		, HDRCompressionQuality(InHDRCompressionQuality)
 		, CaptureGamut(InCaptureGamut)
@@ -31,6 +31,16 @@ struct FFrameCaptureViewExtension : public FSceneViewExtensionBase
 		CVarDumpGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.ColorGamut"));
 		CVarDumpDevice = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.OutputDevice"));
 
+		if (CaptureGamut == HCGM_Linear)
+		{
+			CVarDumpGamut->Set(1);
+			CVarDumpDevice->Set(7);
+		}
+		else
+		{
+			CVarDumpGamut->Set(CaptureGamut);
+		}
+
 		RestoreDumpHDR = CVarDumpFramesAsHDR->GetInt();
 		RestoreHDRCompressionQuality = CVarHDRCompressionQuality->GetInt();
 		RestoreDumpGamut = CVarDumpGamut->GetInt();
@@ -42,6 +52,9 @@ struct FFrameCaptureViewExtension : public FSceneViewExtensionBase
 	virtual ~FFrameCaptureViewExtension()
 	{
 		Disable();
+
+		CVarDumpGamut->Set(RestoreDumpGamut);
+		CVarDumpDevice->Set(RestoreDumpDevice);
 	}
 
 	bool IsEnabled() const
@@ -55,16 +68,9 @@ struct FFrameCaptureViewExtension : public FSceneViewExtensionBase
 
 		bNeedsCapture = true;
 
+		CVarDumpFrames->Set(1);
 		CVarDumpFramesAsHDR->Set(bCaptureFramesInHDR);
 		CVarHDRCompressionQuality->Set(HDRCompressionQuality);
-		CVarDumpGamut->Set(CaptureGamut);
-		CVarDumpFrames->Set(1);
-
-		if (CaptureGamut == HCGM_Linear)
-		{
-			CVarDumpGamut->Set(1);
-			CVarDumpDevice->Set(7);
-		}
 	}
 
 	void Disable(bool bFinalize = false)
@@ -79,8 +85,6 @@ struct FFrameCaptureViewExtension : public FSceneViewExtensionBase
 			}
 			CVarDumpFramesAsHDR->Set(RestoreDumpHDR);
 			CVarHDRCompressionQuality->Set(RestoreHDRCompressionQuality);
-			CVarDumpGamut->Set(RestoreDumpGamut);			
-			CVarDumpDevice->Set(RestoreDumpDevice);
 			CVarDumpFrames->Set(0);
 		}
 	}
@@ -165,18 +169,38 @@ private:
 	int32 RestoreDumpDevice;
 };
 
-void UCompositionGraphCaptureSettings::OnReleaseConfig(FMovieSceneCaptureSettings& InSettings)
+bool UCompositionGraphCaptureProtocol::SetupImpl()
+{
+	SceneViewport = InitSettings->SceneViewport;
+
+	FString OverrideRenderPasses;
+	if (FParse::Value(FCommandLine::Get(), TEXT("-CustomRenderPasses="), OverrideRenderPasses))
+	{
+		OverrideRenderPasses.ParseIntoArray(IncludeRenderPasses.Value, TEXT(","), true);
+	}
+
+	int32 OverrideCaptureGamut = (int32)CaptureGamut;
+	FParse::Value(FCommandLine::Get(), TEXT("-CaptureGamut="), OverrideCaptureGamut);
+	FParse::Value(FCommandLine::Get(), TEXT( "-HDRCompressionQuality=" ), HDRCompressionQuality);
+	FParse::Bool(FCommandLine::Get(), TEXT("-CaptureFramesInHDR="), bCaptureFramesInHDR);
+	FParse::Bool(FCommandLine::Get(), TEXT("-DisableScreenPercentage="), bDisableScreenPercentage);
+
+	PostProcessingMaterialPtr = Cast<UMaterialInterface>(PostProcessingMaterial.TryLoad());
+	ViewExtension = FSceneViewExtensions::NewExtension<FFrameCaptureViewExtension>(IncludeRenderPasses.Value, bCaptureFramesInHDR, HDRCompressionQuality, OverrideCaptureGamut, PostProcessingMaterialPtr, bDisableScreenPercentage);
+
+	return true;
+}
+
+void UCompositionGraphCaptureProtocol::OnReleaseConfigImpl(FMovieSceneCaptureSettings& InSettings)
 {
 	// Remove {material} if it exists
 	InSettings.OutputFormat = InSettings.OutputFormat.Replace(TEXT("{material}"), TEXT(""));
 
 	// Remove .{frame} if it exists
 	InSettings.OutputFormat = InSettings.OutputFormat.Replace(TEXT(".{frame}"), TEXT(""));
-
-	Super::OnReleaseConfig(InSettings);
 }
 
-void UCompositionGraphCaptureSettings::OnLoadConfig(FMovieSceneCaptureSettings& InSettings)
+void UCompositionGraphCaptureProtocol::OnLoadConfigImpl(FMovieSceneCaptureSettings& InSettings)
 {
 	// Add .{frame} if it doesn't already exist
 	FString OutputFormat = InSettings.OutputFormat;
@@ -203,84 +227,27 @@ void UCompositionGraphCaptureSettings::OnLoadConfig(FMovieSceneCaptureSettings& 
 
 		InSettings.OutputFormat = OutputFormat;
 	}
-
-	Super::OnLoadConfig(InSettings);
 }
 
-bool FCompositionGraphCaptureProtocol::Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host)
-{
-	SceneViewport = InSettings.SceneViewport;
-
-	bool bCaptureFramesInHDR = false;
-	int32 HDRCompressionQuality = 0;
-	int32 CaptureGamut = HCGM_Rec709;
-	bool bDisableScreenPercentage = true;
-
-	UMaterialInterface* PostProcessingMaterial = nullptr;
-	UCompositionGraphCaptureSettings* ProtocolSettings = CastChecked<UCompositionGraphCaptureSettings>(InSettings.ProtocolSettings);
-	if (ProtocolSettings)
-	{
-		RenderPasses = ProtocolSettings->IncludeRenderPasses.Value;
-		bCaptureFramesInHDR = ProtocolSettings->bCaptureFramesInHDR;
-		HDRCompressionQuality = ProtocolSettings->HDRCompressionQuality;
-		CaptureGamut = ProtocolSettings->CaptureGamut;
-		PostProcessingMaterial = Cast<UMaterialInterface>(ProtocolSettings->PostProcessingMaterial.TryLoad());
-		bDisableScreenPercentage = ProtocolSettings->bDisableScreenPercentage;
-
-		FString OverrideRenderPasses;
-		if (FParse::Value(FCommandLine::Get(), TEXT("-CustomRenderPasses="), OverrideRenderPasses))
-		{
-			OverrideRenderPasses.ParseIntoArray(RenderPasses, TEXT(","), true);
-		}
-
-		bool bOverrideCaptureFramesInHDR;
-		if (FParse::Bool(FCommandLine::Get(), TEXT("-CaptureFramesInHDR="), bOverrideCaptureFramesInHDR))
-		{
-			bCaptureFramesInHDR = bOverrideCaptureFramesInHDR;
-		}
-
-		int32 OverrideHDRCompressionQuality;
-		if( FParse::Value( FCommandLine::Get(), TEXT( "-HDRCompressionQuality=" ), OverrideHDRCompressionQuality ) )
-		{
-			HDRCompressionQuality = OverrideHDRCompressionQuality;
-		}
-
-		int32 OverrideCaptureGamut;
-		if (FParse::Value(FCommandLine::Get(), TEXT("-CaptureGamut="), OverrideCaptureGamut))
-		{
-			CaptureGamut = OverrideCaptureGamut;
-		}
-
-		bool bOverrideDisableScreenPercentage;
-		if (FParse::Bool(FCommandLine::Get(), TEXT("-DisableScreenPercentage="), bOverrideDisableScreenPercentage))
-		{
-			bDisableScreenPercentage = bOverrideDisableScreenPercentage;
-		}
-	}
-
-	ViewExtension = FSceneViewExtensions::NewExtension<FFrameCaptureViewExtension>(RenderPasses, bCaptureFramesInHDR, HDRCompressionQuality, CaptureGamut, PostProcessingMaterial, bDisableScreenPercentage);
-
-	return true;
-}
-
-void FCompositionGraphCaptureProtocol::Finalize()
+void UCompositionGraphCaptureProtocol::FinalizeImpl()
 {
 	ViewExtension->Disable(true);
 }
 
-void FCompositionGraphCaptureProtocol::CaptureFrame(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host)
+void UCompositionGraphCaptureProtocol::CaptureFrameImpl(const FFrameMetrics& FrameMetrics)
 {
-	ViewExtension->Enable(Host.GenerateFilename(FrameMetrics, TEXT("")));
+	ViewExtension->Enable(GenerateFilenameImpl(FrameMetrics, TEXT("")));
 }
 
-bool FCompositionGraphCaptureProtocol::HasFinishedProcessing() const
+bool UCompositionGraphCaptureProtocol::HasFinishedProcessingImpl() const
 {
 	return !ViewExtension->IsEnabled();
 }
 
-void FCompositionGraphCaptureProtocol::Tick()
+void UCompositionGraphCaptureProtocol::TickImpl()
 {
-	if (!ViewExtension->IsEnabled())
+	// If the extension is not enabled, ensure all the CVars have been reset on tick
+	if (ViewExtension.IsValid() && !ViewExtension->IsEnabled())
 	{
 		ViewExtension->Disable();
 	}

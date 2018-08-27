@@ -512,7 +512,7 @@ namespace PackageRestore
 			}
 		}
 
-		PackageTools::UnloadPackages(PackagesToUnload);
+		UPackageTools::UnloadPackages(PackagesToUnload);
 	}
 
 	void ReloadPackagesAfterRestore(const FPackageRestoreItems& ContentPackagesToReload, const FPackageRestoreItemPtr& WorldPackageToReload)
@@ -521,7 +521,7 @@ namespace PackageRestore
 		for(auto It = ContentPackagesToReload.CreateConstIterator(); It; ++It)
 		{
 			const FPackageRestoreItemPtr& RestoreItem = *It;
-			PackageTools::LoadPackage(*RestoreItem->GetPackageName());
+			UPackageTools::LoadPackage(*RestoreItem->GetPackageName());
 		}
 
 		// Also reload the current world if we caused it to be unloaded

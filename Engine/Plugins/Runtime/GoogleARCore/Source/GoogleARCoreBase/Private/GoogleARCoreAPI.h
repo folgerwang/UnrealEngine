@@ -8,6 +8,7 @@
 #include "GoogleARCoreSessionConfig.h"
 #include "GoogleARCoreCameraImageBlitter.h"
 #include "GoogleARCoreAugmentedImage.h"
+#include "GoogleARCoreCameraIntrinsics.h"
 #include "ARSessionConfig.h"
 
 #if PLATFORM_ANDROID
@@ -17,8 +18,6 @@
 #include "GoogleARCoreAPI.generated.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGoogleARCoreAPI, Log, All);
-
-#define NDK_IMAGE_VERSION_INTEGER 24
 
 enum class EGoogleARCoreAPIStatus : int
 {
@@ -79,6 +78,9 @@ enum class EGoogleARCoreAPIStatus : int
 	/// The android camera has been reallocated to a higher priority app or is
 	/// otherwise unavailable.
 	AR_ERROR_CAMERA_NOT_AVAILABLE = -13,
+
+	/// The data passed in for this operation was not in a valid format.
+	AR_ERROR_DATA_INVALID_FORMAT = -18,
 
 	/// The ARCore APK is not installed on this device.
 	AR_UNAVAILABLE_ARCORE_NOT_INSTALLED = -100,
@@ -181,6 +183,9 @@ public:
 	// Lifecycle
 	bool IsConfigSupported(const UARSessionConfig& Config);
 	EGoogleARCoreAPIStatus ConfigSession(const UARSessionConfig& Config);
+	TArray<FGoogleARCoreCameraConfig> GetSupportedCameraConfig();
+	EGoogleARCoreAPIStatus SetCameraConfig(FGoogleARCoreCameraConfig CameraConfig);
+	void GetARCameraConfig(FGoogleARCoreCameraConfig& OutCurrentCameraConfig);
 	EGoogleARCoreAPIStatus Resume();
 	EGoogleARCoreAPIStatus Pause();
 	EGoogleARCoreAPIStatus Update(float WorldToMeterScale);
@@ -196,7 +201,6 @@ public:
 
 	void GetAllAnchors(TArray<UARPin*>& OutAnchors) const;
 	template< class T > void GetAllTrackables(TArray<T*>& OutARCoreTrackableList);
-	EGoogleARCoreAPIStatus AcquireCameraImage(UGoogleARCoreCameraImage *&OutCameraImage);
 
 	void* GetLatestFrameRawPointer();
 
@@ -238,6 +242,7 @@ public:
 	template< class T > void GetUpdatedTrackables(TArray<T*>& OutARCoreTrackableList) const;
 
 	void ARLineTrace(const FVector2D& ScreenPosition, EGoogleARCoreLineTraceChannel RequestedTraceChannels, TArray<FARTraceResult>& OutHitResults) const;
+	void ARLineTrace(const FVector& Start, const FVector& End, EGoogleARCoreLineTraceChannel RequestedTraceChannels, TArray<FARTraceResult>& OutHitResults) const;
 
 	bool IsDisplayRotationChanged() const;
 	FMatrix GetProjectionMatrix() const;
@@ -246,6 +251,12 @@ public:
 	FGoogleARCoreLightEstimate GetLightEstimate() const;
 	EGoogleARCoreAPIStatus GetPointCloud(UGoogleARCorePointCloud*& OutLatestPointCloud) const;
 	EGoogleARCoreAPIStatus AcquirePointCloud(UGoogleARCorePointCloud*& OutLatestPointCloud) const;
+	EGoogleARCoreAPIStatus AcquireCameraImage(UGoogleARCoreCameraImage *&OutCameraImage) const;
+	EGoogleARCoreAPIStatus GetCameraImageIntrinsics(
+		UGoogleARCoreCameraIntrinsics *&OutCameraIntrinsics) const;
+	EGoogleARCoreAPIStatus GetCameraTextureIntrinsics(
+		UGoogleARCoreCameraIntrinsics *&OutCameraIntrinsics) const;
+
 #if PLATFORM_ANDROID
 	EGoogleARCoreAPIStatus GetCameraMetadata(const ACameraMetadata*& OutCameraMetadata) const;
 	ArFrame* GetHandle() { return FrameHandle; };
@@ -268,6 +279,9 @@ private:
 	ArCamera* CameraHandle = nullptr;
 	ArPose* SketchPoseHandle = nullptr;
 	ArImageMetadata* LatestImageMetadata = nullptr;
+
+	void FilterLineTraceResults(ArHitResultList* HitResultList, EGoogleARCoreLineTraceChannel RequestedTraceChannels, 
+		TArray<FARTraceResult>& OutHitResults, float MaxDistance = TNumericLimits<float>::Max()) const;
 #endif
 };
 
@@ -408,7 +422,6 @@ T* UGoogleARCoreUObjectManager::GetTrackableFromHandle(ArTrackable* TrackableHan
 
 		// Update the tracked geometry data using the native resource
 		TrackableResource->UpdateGeometryData();
-		ensure(TrackableResource->GetTrackingState() != EARTrackingState::StoppedTracking);
 
 		TrackableHandleMap.Add(TrackableHandle, TWeakObjectPtr<UARTrackedGeometry>(NewTrackableObject));
 	}

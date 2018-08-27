@@ -1,13 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/InstallChunkSource.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Serialization/MemoryReader.h"
+#include "Containers/Queue.h"
 #include "Installer/ChunkReferenceTracker.h"
 #include "Installer/ChunkStore.h"
 #include "Installer/InstallerError.h"
 #include "Common/FileSystem.h"
+#include "Common/StatsCollector.h"
 #include "BuildPatchHash.h"
-#include "HAL/ThreadSafeBool.h"
-#include "Serialization/MemoryReader.h"
+#include "Algo/Transform.h"
+#include "Misc/Paths.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogInstallChunkSource, Warning, All);
 DEFINE_LOG_CATEGORY(LogInstallChunkSource);
@@ -28,11 +32,13 @@ namespace BuildPatchServices
 		// IChunkSource interface begin.
 		virtual IChunkDataAccess* Get(const FGuid& DataId) override;
 		virtual TSet<FGuid> AddRuntimeRequirements(TSet<FGuid> NewRequirements) override;
+		virtual bool AddRepeatRequirement(const FGuid& RepeatRequirement) override;
 		virtual void SetUnavailableChunksCallback(TFunction<void(TSet<FGuid>)> Callback) override;
 		// IChunkSource interface end.
 
 		// IInstallChunkSource interface begin.
 		virtual const TSet<FGuid>& GetAvailableChunks() const override;
+		virtual void HarvestRemainingChunksFromFile(const FString& BuildFile) override;
 		// IInstallChunkSource interface end.
 
 	private:
@@ -56,12 +62,16 @@ namespace BuildPatchServices
 		// Handling of chunks we lose access to.
 		TFunction<void(TSet<FGuid>)> UnavailableChunksCallback;
 		TSet<FGuid> UnavailableChunks;
+		// Keep a separate copy of failed chunks internally.
+		TSet<FGuid> FailedChunks;
 		// Storage of enumerated chunks.
 		TSet<FGuid> AvailableInBuilds;
 		TArray<TPair<FString, FBuildPatchAppManifestRef>> InstallationSources;
 		TSet<FGuid> PlacedInStore;
 		// Track additional requests.
 		TSet<FGuid> RuntimeRequests;
+		// Communication and storage of incoming repeat requirements.
+		TQueue<FGuid, EQueueMode::Mpsc> RepeatRequirementMessages;
 	};
 
 	FInstallChunkSource::FInstallChunkSource(FInstallSourceConfig InConfiguration, IFileSystem* InFileSystem, IChunkStore* InChunkStore, IChunkReferenceTracker* InChunkReferenceTracker, IInstallerError* InInstallerError, IInstallChunkSourceStat* InInstallChunkSourceStat, const TMap<FString, FBuildPatchAppManifestRef>& InInstallationSources, const FBuildPatchAppManifestRef& InstallManifest)
@@ -111,6 +121,12 @@ namespace BuildPatchServices
 			// If available, load next batch into store.
 			if (AvailableInBuilds.Contains(DataId))
 			{
+				// 'Forget' any repeat requirements.
+				FGuid RepeatRequirement;
+				while (RepeatRequirementMessages.Dequeue(RepeatRequirement))
+				{
+					PlacedInStore.Remove(RepeatRequirement);
+				}
 				// Select the next X chunks that are locally available.
 				TFunction<bool(const FGuid&)> SelectPredicate = [this](const FGuid& ChunkId)
 				{
@@ -123,11 +139,13 @@ namespace BuildPatchServices
 				// Remove already loaded chunks.
 				TFunction<bool(const FGuid&)> RemovePredicate = [this](const FGuid& ChunkId)
 				{
-					return PlacedInStore.Contains(ChunkId);
+					return PlacedInStore.Contains(ChunkId) || FailedChunks.Contains(ChunkId);
 				};
 				BatchLoadChunks.RemoveAll(RemovePredicate);
 				// Ensure requested chunk is in the array.
 				BatchLoadChunks.AddUnique(DataId);
+				// Call to stat.
+				InstallChunkSourceStat->OnBatchStarted(BatchLoadChunks);
 				// Load this batch
 				for (int32 ChunkIdx = 0; ChunkIdx < BatchLoadChunks.Num() && !bShouldAbort; ++ChunkIdx)
 				{
@@ -148,8 +166,21 @@ namespace BuildPatchServices
 
 	TSet<FGuid> FInstallChunkSource::AddRuntimeRequirements(TSet<FGuid> NewRequirements)
 	{
-		RuntimeRequests.Append(NewRequirements.Intersect(AvailableInBuilds));
-		return NewRequirements.Difference(AvailableInBuilds);
+		TSet<FGuid> Unhandled = NewRequirements.Difference(AvailableInBuilds);
+		TSet<FGuid> Accepted = NewRequirements.Intersect(AvailableInBuilds);
+		RuntimeRequests.Append(Accepted);
+		InstallChunkSourceStat->OnAcceptedNewRequirements(Accepted);
+		return Unhandled;
+	}
+
+	bool FInstallChunkSource::AddRepeatRequirement(const FGuid& RepeatRequirement)
+	{
+		if (AvailableInBuilds.Contains(RepeatRequirement))
+		{
+			RepeatRequirementMessages.Enqueue(RepeatRequirement);
+			return true;
+		}
+		return false;
 	}
 
 	void FInstallChunkSource::SetUnavailableChunksCallback(TFunction<void(TSet<FGuid>)> Callback)
@@ -160,6 +191,44 @@ namespace BuildPatchServices
 	const TSet<FGuid>& FInstallChunkSource::GetAvailableChunks() const
 	{
 		return AvailableInBuilds;
+	}
+
+	void FInstallChunkSource::HarvestRemainingChunksFromFile(const FString& FilePath)
+	{
+		const FFileManifest* FileManifest = nullptr;
+		for (const TPair<FString, FBuildPatchAppManifestRef>& Pair : InstallationSources)
+		{
+			if (FilePath.StartsWith(Pair.Key))
+			{
+				FString BuildRelativeFilePath = FilePath;
+				FPaths::MakePathRelativeTo(BuildRelativeFilePath, *(Pair.Key / TEXT("")));
+				FileManifest = Pair.Value->GetFileManifest(BuildRelativeFilePath);
+				break;
+			}
+		}
+		if (FileManifest != nullptr)
+		{
+			// Collect all chunks in this file.
+			TSet<FGuid> FileManifestChunks;
+			Algo::Transform(FileManifest->FileChunkParts, FileManifestChunks, &FChunkPart::Guid);
+			// Select all chunks still required from this file.
+			TFunction<bool(const FGuid&)> SelectPredicate = [this, &FileManifestChunks](const FGuid& ChunkId)
+			{
+				return !PlacedInStore.Contains(ChunkId) && (FileManifestChunks.Contains(ChunkId) && (!Configuration.ChunkIgnoreSet.Contains(ChunkId) || RuntimeRequests.Contains(ChunkId)));
+			};
+			TArray<FGuid> BatchLoadChunks = ChunkReferenceTracker->GetNextReferences(TNumericLimits<int32>::Max(), SelectPredicate);
+			if (BatchLoadChunks.Num() > 0)
+			{
+				// Call to stat.
+				InstallChunkSourceStat->OnBatchStarted(BatchLoadChunks);
+				// Load the batch.
+				for (int32 ChunkIdx = 0; ChunkIdx < BatchLoadChunks.Num() && !bShouldAbort; ++ChunkIdx)
+				{
+					const FGuid& BatchLoadChunk = BatchLoadChunks[ChunkIdx];
+					LoadFromBuild(BatchLoadChunk);
+				}
+			}
+		}
 	}
 
 	void FInstallChunkSource::FindChunkLocation(const FGuid& DataId, const FString** FoundInstallDirectory, const FBuildPatchAppManifest** FoundInstallManifest) const
@@ -191,6 +260,8 @@ namespace BuildPatchServices
 		}
 
 		// Attempt construction of the chunk from the parts.
+		ISpeedRecorder::FRecord LoadRecord;
+		LoadRecord.Size = 0;
 		InstallChunkSourceStat->OnLoadStarted(DataId);
 		TUniquePtr<FArchive> FileArchive;
 		FString FileOpened;
@@ -208,6 +279,7 @@ namespace BuildPatchServices
 		{
 			HashType |= EChunkHashFlags::RollingPoly64;
 		}
+		LoadRecord.CyclesStart = FStatsCollector::GetCycles();
 		IInstallChunkSourceStat::ELoadResult LoadResult = HashType == EChunkHashFlags::None ? IInstallChunkSourceStat::ELoadResult::MissingHashInfo : IInstallChunkSourceStat::ELoadResult::Success;
 		if (LoadResult == IInstallChunkSourceStat::ELoadResult::Success)
 		{
@@ -253,6 +325,7 @@ namespace BuildPatchServices
 						{
 							FileArchive->Seek(FileChunkPart.FileOffset);
 							FileArchive->Serialize(TempChunkConstruction + FileChunkPart.ChunkPart.Offset, FileChunkPart.ChunkPart.Size);
+							LoadRecord.Size += FileChunkPart.ChunkPart.Size;
 						}
 					}
 					// Wait while paused
@@ -282,9 +355,6 @@ namespace BuildPatchServices
 				// Save the chunk to the store if all went well.
 				if (LoadResult == IInstallChunkSourceStat::ELoadResult::Success)
 				{
-					// It was added asynchronously!!
-					check(PlacedInStore.Contains(DataId) == false);
-
 					// Create the ChunkFile data structure
 					IChunkDataAccess* NewChunkFile = FChunkDataAccessFactory::Create(BuildPatchServices::ChunkDataSize);
 
@@ -321,7 +391,8 @@ namespace BuildPatchServices
 				}
 			}
 		}
-		InstallChunkSourceStat->OnLoadComplete(DataId, LoadResult);
+		LoadRecord.CyclesEnd = FStatsCollector::GetCycles();
+		InstallChunkSourceStat->OnLoadComplete(DataId, LoadResult, LoadRecord);
 		if (LoadResult == IInstallChunkSourceStat::ELoadResult::Success)
 		{
 			return true;
@@ -329,6 +400,7 @@ namespace BuildPatchServices
 		else
 		{
 			UnavailableChunks.Add(DataId);
+			FailedChunks.Add(DataId);
 			return false;
 		}
 	}
@@ -348,5 +420,28 @@ namespace BuildPatchServices
 		check(InstallerError != nullptr);
 		check(InstallChunkSourceStat != nullptr);
 		return new FInstallChunkSource(MoveTemp(Configuration), FileSystem, ChunkStore, ChunkReferenceTracker, InstallerError, InstallChunkSourceStat, InstallationSources, InstallManifest);
+	}
+
+	const TCHAR* ToString(const IInstallChunkSourceStat::ELoadResult& LoadResult)
+	{
+		switch(LoadResult)
+		{
+			case IInstallChunkSourceStat::ELoadResult::Success:
+				return TEXT("Success");
+			case IInstallChunkSourceStat::ELoadResult::MissingHashInfo:
+				return TEXT("MissingHashInfo");
+			case IInstallChunkSourceStat::ELoadResult::MissingPartInfo:
+				return TEXT("MissingPartInfo");
+			case IInstallChunkSourceStat::ELoadResult::OpenFileFail:
+				return TEXT("OpenFileFail");
+			case IInstallChunkSourceStat::ELoadResult::IncorrectFileSize:
+				return TEXT("IncorrectFileSize");
+			case IInstallChunkSourceStat::ELoadResult::HashCheckFailed:
+				return TEXT("HashCheckFailed");
+			case IInstallChunkSourceStat::ELoadResult::Aborted:
+				return TEXT("Aborted");
+			default:
+				return TEXT("Unknown");
+		}
 	}
 }

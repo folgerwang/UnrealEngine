@@ -121,7 +121,7 @@ enum EFunctionFlags : uint32
 	FUNC_NetResponse		= 0x00001000,   // Function response from a net service
 	FUNC_Static				= 0x00002000,   // Static function.
 	FUNC_NetMulticast		= 0x00004000,	// Function is networked multicast Server -> All Clients
-	// FUNC_				= 0x00008000,   // unused.
+	FUNC_UbergraphFunction	= 0x00008000,   // Function is used as the merge 'ubergraph' for a blueprint, only assigned when using the persistent 'ubergraph' frame
 	FUNC_MulticastDelegate	= 0x00010000,	// Function is a multi-cast delegate signature (also requires FUNC_Delegate to be set!)
 	FUNC_Public				= 0x00020000,	// Function is accessible in all classes (if overridden, parameters must remain unchanged).
 	FUNC_Private			= 0x00040000,	// Function is accessible only in the class it is defined in (cannot be overridden, but function name may be reused in subclasses.  IOW: if overridden, parameters don't need to match, and Super.Func() cannot be accessed since it's private.)
@@ -496,35 +496,17 @@ private:
 
 		struct FPausableScopeTimer
 		{
-			FPausableScopeTimer() 
-			{ 
-				FPausableScopeTimer*& ActiveTimer = FThreadedTimerManager::Get().ActiveTimer;
-
-				double CurrentTime = FPlatformTime::Seconds();
-				if (ActiveTimer)
-				{
-					ActiveTimer->Pause(CurrentTime);
-				}
-
-				PreviouslyActiveTimer = ActiveTimer;
-				StartTime = CurrentTime;
-				TotalTime = 0.0;
-
-				ActiveTimer = this;
-			}
-
-			~FPausableScopeTimer()
+			FPausableScopeTimer()
+				: PreviouslyActiveTimer(nullptr)
+				, TotalTime(0.0)
+				, StartTime(0.0)
 			{
-				if (PreviouslyActiveTimer)
-				{
-					PreviouslyActiveTimer->Resume();
-				}
-				FThreadedTimerManager::Get().ActiveTimer = PreviouslyActiveTimer;
 			}
 
+			void Start();
 			void Pause(double CurrentTime) { TotalTime += CurrentTime - StartTime; }
 			void Resume() { StartTime = FPlatformTime::Seconds();  }
-			double Stop() { return TotalTime + (FPlatformTime::Seconds() - StartTime); }
+			double Stop();
 
 		private:
 			FPausableScopeTimer* PreviouslyActiveTimer;
@@ -534,40 +516,17 @@ private:
 
 		struct FScopedVMTimer
 		{
-			FScopedVMTimer()
-				: Timer()
-				, VMParent(nullptr)
-			{
-				FScopedVMTimer*& ActiveVMTimer = FThreadedTimerManager::Get().ActiveVMScope;
-				VMParent = ActiveVMTimer;
+			COREUOBJECT_API FScopedVMTimer();
+			COREUOBJECT_API ~FScopedVMTimer();
 
-				ActiveVMTimer = this;
-			}
-
-			~FScopedVMTimer()
-			{
-				INC_FLOAT_STAT_BY(STAT_ScriptVmTime_Total, Timer.Stop() * 1000.0);
-				FThreadedTimerManager::Get().ActiveVMScope = VMParent;
-			}
 			FPausableScopeTimer Timer;
 			FScopedVMTimer* VMParent;
 		};
 
 		struct FScopedNativeTimer
 		{
-			FScopedNativeTimer()
-				: Timer()
-			{}
-
-			~FScopedNativeTimer()
-			{
-				// only track native time when in a VM scope, RPC time
-				// can be tracked by the online system or whatever is making RPCs:
-				if (FThreadedTimerManager::Get().ActiveVMScope)
-				{
-					INC_FLOAT_STAT_BY(STAT_ScriptNativeTime_Total, Timer.Stop()* 1000.0);
-				}
-			}
+			COREUOBJECT_API FScopedNativeTimer();
+			COREUOBJECT_API ~FScopedNativeTimer();
 
 			FPausableScopeTimer Timer;
 		};
@@ -593,3 +552,13 @@ COREUOBJECT_API FString ToValidCPPIdentifierChars(TCHAR Char);
 */
 COREUOBJECT_API FString UnicodeToCPPIdentifier(const FString& InName, bool bDeprecated, const TCHAR* Prefix);
 
+/**
+	@param ForFn Function to search for a corresponding uber graph frame
+	@param Obj owning the uber graph frame, Obj must be an instance based on ForFn->GetOuterUClass()
+	@return A pointer to the start of the objects persistent uber graph
+		frame if ForFn is an ubergraph function, else nullptr. The uber graph
+		frame is a struct that has a matching layout to a blueprint's UberGraphFunction's
+		parameters. The Uber Graph frame is an optimization because it avoids a large
+		allocation and corresponding initialization when calling the UberGraphFunction
+*/
+COREUOBJECT_API uint8* GetPersistentUberGraphFrame(const UFunction* ForFn, UObject* Obj);

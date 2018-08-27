@@ -41,64 +41,14 @@ IMPLEMENT_MODULE(FMagicLeapSecureStoragePlugin, MagicLeapSecureStorage);
 
 //////////////////////////////////////////////////////////////////////////
 
-template<class T>
-bool UMagicLeapSecureStorage::PutSecureBlob(const FString& Key, const T* DataToStore)
-{
-#if WITH_MLSDK
-	return MLSecureStoragePutBlob(TCHAR_TO_ANSI(*Key), reinterpret_cast<const uint8*>(DataToStore), sizeof(T));
-#else
-	return false;
-#endif //WITH_MLSDK
-}
-
 template<>
 bool UMagicLeapSecureStorage::PutSecureBlob<FString>(const FString& Key, const FString* DataToStore)
 {
 #if WITH_MLSDK
-	return MLSecureStoragePutBlob(TCHAR_TO_ANSI(*Key), reinterpret_cast<const uint8*>(TCHAR_TO_ANSI(*(*DataToStore))), DataToStore->Len() + 1);
+	return MLSecureStoragePutBlob(TCHAR_TO_ANSI(*Key), reinterpret_cast<const uint8*>(TCHAR_TO_ANSI(*(*DataToStore))), DataToStore->Len() + 1) == MLResult_Ok;
 #else
 	return false;
 #endif
-}
-
-template<class T>
-bool UMagicLeapSecureStorage::GetSecureBlob(const FString& Key, T& DataToRetrieve)
-{
-	uint8* blob = nullptr;
-	size_t blobLength = 0;
-
-	bool bResult = false;
-
-#if WITH_MLSDK
-	bResult = MLSecureStorageGetBlob(TCHAR_TO_ANSI(*Key), &blob, &blobLength);
-	if (bResult)
-	{
-		if (blob == nullptr)
-		{
-			UE_LOG(LogSecureStorage, Error, TEXT("Error retrieving secure blob with key %s. Blob was null."), *Key);
-			bResult = false;
-		}
-		else if (blobLength != sizeof(T))
-		{
-			UE_LOG(LogSecureStorage, Error, TEXT("Size of blob data %s does not match the size of requested data type. Requested size = %d vs Actual size = %d"), *Key, sizeof(T), blobLength);
-			bResult = false;
-			// Replace with library function call when it comes online.
-			free(blob);
-		}
-		else
-		{
-			DataToRetrieve = *reinterpret_cast<T*>(blob);
-			// Replace with library function call when it comes online.
-			free(blob);
-		}
-	}
-	else
-	{
-		UE_LOG(LogSecureStorage, Error, TEXT("Error retrieving secure blob with key %s"), *Key);
-	}
-#endif //WITH_MLSDK
-
-	return bResult;
 }
 
 template<>
@@ -109,7 +59,7 @@ bool UMagicLeapSecureStorage::GetSecureBlob<FString>(const FString& Key, FString
 
 	bool bResult = false;
 #if WITH_MLSDK
-	bResult = MLSecureStorageGetBlob(TCHAR_TO_ANSI(*Key), &blob, &blobLength);
+	bResult = MLSecureStorageGetBlob(TCHAR_TO_ANSI(*Key), &blob, &blobLength) == MLResult_Ok;
 #endif //WITH_MLSDK
 	if (bResult)
 	{
@@ -122,7 +72,9 @@ bool UMagicLeapSecureStorage::GetSecureBlob<FString>(const FString& Key, FString
 		{
 			DataToRetrieve = FString(ANSI_TO_TCHAR(reinterpret_cast<ANSICHAR*>(blob)));
 			// Replace with library function call when it comes online.
-			free(blob);
+#if WITH_MLSDK
+			MLSecureStorageFreeBlobBuffer(blob);
+#endif //WITH_MLSDK
 		}
 	}
 	else
@@ -216,8 +168,55 @@ bool UMagicLeapSecureStorage::GetSecureTransform(const FString& Key, FTransform&
 bool UMagicLeapSecureStorage::DeleteSecureData(const FString& Key)
 {
 #if WITH_MLSDK
-	return MLSecureStorageDeleteBlob(TCHAR_TO_ANSI(*Key));
+	return MLSecureStorageDeleteBlob(TCHAR_TO_ANSI(*Key)) == MLResult_Ok;
 #else
 	return false;
+#endif //WITH_MLSDK
+}
+
+bool UMagicLeapSecureStorage::PutSecureBlobImpl(const FString& Key, const void* DataToStore, size_t DataTypeSize)
+{
+#if WITH_MLSDK
+	return MLSecureStoragePutBlob(TCHAR_TO_ANSI(*Key), reinterpret_cast<const uint8*>(DataToStore), DataTypeSize) == MLResult_Ok;
+#else
+	return false;
+#endif //WITH_MLSDK
+}
+
+uint8* UMagicLeapSecureStorage::GetSecureBlobImpl(const FString& Key, size_t DataTypeSize)
+{
+	uint8* blob = nullptr;
+	size_t blobLength = 0;
+
+#if WITH_MLSDK
+	MLResult result = MLSecureStorageGetBlob(TCHAR_TO_ANSI(*Key), &blob, &blobLength);
+	if (MLResult_Ok == result)
+	{
+		if (blob == nullptr)
+		{
+			UE_LOG(LogSecureStorage, Error, TEXT("Error retrieving secure blob with key %s. Blob was null."), *Key);
+			result = MLSecureStorageResult_IOFailure;
+		}
+		else if (blobLength != DataTypeSize)
+		{
+			UE_LOG(LogSecureStorage, Error, TEXT("Size of blob data %s does not match the size of requested data type. Requested size = %d vs Actual size = %d"), *Key, DataTypeSize, blobLength);
+			result = MLResult_UnspecifiedFailure;
+			MLSecureStorageFreeBlobBuffer(blob);
+		}
+	}
+	else if (result != MLSecureStorageResult_BlobNotFound)
+	{
+		UE_LOG(LogSecureStorage, Error, TEXT("Error retrieving secure blob with key %s. Error Code = %d"), *Key, static_cast<int32>(result));
+	}
+	return (MLResult_Ok == result) ? blob : nullptr;
+#else
+	return nullptr;
+#endif //WITH_MLSDK
+}
+
+void UMagicLeapSecureStorage::FreeBlobBufferImpl(uint8* Buffer)
+{
+#if WITH_MLSDK
+	MLSecureStorageFreeBlobBuffer(Buffer);
 #endif //WITH_MLSDK
 }

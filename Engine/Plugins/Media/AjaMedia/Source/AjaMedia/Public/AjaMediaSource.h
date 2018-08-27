@@ -15,8 +15,9 @@
 UENUM()
 enum class EAjaMediaSourceColorFormat : uint8
 {
-	BGRA UMETA(DisplayName="RGBA 8"),
-	UYVY UMETA(DisplayName="YUV 4:2:2"),
+	BGRA UMETA(DisplayName = "8bit RGBA"),
+	BGR10 UMETA(DisplayName = "10bit RGB"),
+	UYVY UMETA(DisplayName = "8bit YUV 4:2:2"),
 };
 
 /**
@@ -66,7 +67,7 @@ public:
 public:
 	/**
 	 * The capture of the Audio, Ancillary and/or video will be perform at the same time.
-	 * This may decrease transfer performance but each the data will be sync in relation with each other.
+	 * This may decrease transfer performance but the data will be sync in relation with each other.
 	 */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Capture")
 	bool bCaptureWithAutoCirculating;
@@ -75,21 +76,14 @@ public:
 	 * Capture Ancillary from the AJA source.
 	 * It will decrease performance
 	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Capture", meta=(EditCondition="bCaptureWithAutoCirculating"))
-	bool bCaptureAncillary1;
-
-	/**
-	 * Capture Ancillary from the AJA source.
-	 * It will decrease performance
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Capture", meta=(EditCondition="bCaptureWithAutoCirculating"))
-	bool bCaptureAncillary2;
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Capture")
+	bool bCaptureAncillary;
 
 	/**
 	 * Capture Audio from the AJA source.
 	 * It will decrease performance
 	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Capture", meta=(EditCondition="bCaptureWithAutoCirculating"))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Capture")
 	bool bCaptureAudio;
 
 	/**
@@ -101,7 +95,7 @@ public:
 
 public:
 	/** Maximum number of ancillary data frames to buffer. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, AdvancedDisplay, Category="Ancillary", meta=(EditCondition="IN_CPP", ClampMin="1", ClampMax="32"))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, AdvancedDisplay, Category="Ancillary", meta=(EditCondition="bCaptureAncillary", ClampMin="1", ClampMax="32"))
 	int32 MaxNumAncillaryFrameBuffer;
 
 public:
@@ -163,7 +157,6 @@ public:
 	//~ UObject interface
 #if WITH_EDITOR
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif //WITH_EDITOR
 	//~ End UObject interface
 };

@@ -58,7 +58,7 @@
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
-#define MAX_CLASS_NAME_LENGTH 32 // Enforce a reasonable class name length so the path is not too long for PLATFORM_MAX_FILEPATH_LENGTH
+#define MAX_CLASS_NAME_LENGTH 32 // Enforce a reasonable class name length so the path is not too long for FPlatformMisc::GetMaxPathLength()
 
 
 namespace ContentBrowserUtils
@@ -683,7 +683,7 @@ bool ContentBrowserUtils::SavePackages(const TArray<UPackage*>& Packages)
 {
 	TArray< UPackage* > PackagesWithExternalRefs;
 	FString PackageNames;
-	if( PackageTools::CheckForReferencesToExternalPackages( &Packages, &PackagesWithExternalRefs ) )
+	if( UPackageTools::CheckForReferencesToExternalPackages( &Packages, &PackagesWithExternalRefs ) )
 	{
 		for(int32 PkgIdx = 0; PkgIdx < PackagesWithExternalRefs.Num(); ++PkgIdx)
 		{
@@ -744,7 +744,7 @@ TArray<UPackage*> ContentBrowserUtils::LoadPackages(const TArray<FString>& Packa
 		else
 		{
 			// The package is unloaded. Try to load the package from disk.
-			Package = PackageTools::LoadPackage(PackageName);
+			Package = UPackageTools::LoadPackage(PackageName);
 		}
 
 		// If the package was loaded, add it to the loaded packages list.
@@ -1290,10 +1290,10 @@ bool ContentBrowserUtils::IsValidFolderName(const FString& FolderName, FText& Re
 		return false;
 	}
 
-	if ( FolderName.Len() > MAX_UNREAL_FILENAME_LENGTH )
+	if ( FolderName.Len() > FPlatformMisc::GetMaxPathLength() )
 	{
 		Reason = FText::Format( LOCTEXT("InvalidFolderName_TooLongForCooking", "Filename '{0}' is too long; this may interfere with cooking for consoles. Unreal filenames should be no longer than {1} characters." ),
-			FText::FromString(FolderName), FText::AsNumber(MAX_UNREAL_FILENAME_LENGTH) );
+			FText::FromString(FolderName), FText::AsNumber(FPlatformMisc::GetMaxPathLength()) );
 		return false;
 	}
 
@@ -1689,7 +1689,7 @@ FText ContentBrowserUtils::GetExploreFolderText()
 }
 
 static const auto CVarMaxFullPathLength = 
-	IConsoleManager::Get().RegisterConsoleVariable( TEXT("MaxAssetFullPath"), PLATFORM_MAX_FILEPATH_LENGTH, TEXT("Maximum full path name of an asset.") )->AsVariableInt();
+	IConsoleManager::Get().RegisterConsoleVariable( TEXT("MaxAssetFullPath"), FPlatformMisc::GetMaxPathLength(), TEXT("Maximum full path name of an asset.") )->AsVariableInt();
 
 bool ContentBrowserUtils::IsValidObjectPathForCreate(const FString& ObjectPath, FText& OutErrorMessage, bool bAllowExistingAsset)
 {
@@ -1728,12 +1728,12 @@ bool ContentBrowserUtils::IsValidObjectPathForCreate(const FString& ObjectPath, 
 	// Make sure we are not creating an path that is too long for the OS
 	const FString RelativePathFilename = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());	// full relative path with name + extension
 	const FString FullPath = FPaths::ConvertRelativePathToFull(RelativePathFilename);	// path to file on disk
-	if ( ObjectPath.Len() > (PLATFORM_MAX_FILEPATH_LENGTH - MAX_CLASS_NAME_LENGTH) || FullPath.Len() > CVarMaxFullPathLength->GetValueOnGameThread() )
+	if ( ObjectPath.Len() > (FPlatformMisc::GetMaxPathLength() - MAX_CLASS_NAME_LENGTH) || FullPath.Len() > CVarMaxFullPathLength->GetValueOnGameThread() )
 	{
 		// The full path for the asset is too long
 		OutErrorMessage = FText::Format( LOCTEXT("AssetPathTooLong", 
 			"The full path for the asset is too deep, the maximum is '{0}'. \nPlease choose a shorter name for the asset or create it in a shallower folder structure."), 
-			FText::AsNumber(PLATFORM_MAX_FILEPATH_LENGTH) );
+			FText::AsNumber(FPlatformMisc::GetMaxPathLength()) );
 		// Return false to indicate that the user should enter a new name
 		return false;
 	}
@@ -1772,12 +1772,12 @@ bool ContentBrowserUtils::IsValidFolderPathForCreate(const FString& InFolderPath
 	}
 
 	// Make sure we are not creating a folder path that is too long
-	if (NewFolderPath.Len() > PLATFORM_MAX_FILEPATH_LENGTH - MAX_CLASS_NAME_LENGTH)
+	if (NewFolderPath.Len() > FPlatformMisc::GetMaxPathLength() - MAX_CLASS_NAME_LENGTH)
 	{
 		// The full path for the folder is too long
 		OutErrorMessage = FText::Format(LOCTEXT("RenameFolderPathTooLong",
 			"The full path for the folder is too deep, the maximum is '{0}'. Please choose a shorter name for the folder or create it in a shallower folder structure."),
-			FText::AsNumber(PLATFORM_MAX_FILEPATH_LENGTH));
+			FText::AsNumber(FPlatformMisc::GetMaxPathLength()));
 		// Return false to indicate that the user should enter a new name for the folder
 		return false;
 	}
@@ -2063,10 +2063,10 @@ void ContentBrowserUtils::SyncPackagesFromSourceControl(const TArray<FString>& P
 		});
 
 		// Hot-reload the new packages...
-		PackageTools::ReloadPackages(LoadedPackages);
+		UPackageTools::ReloadPackages(LoadedPackages);
 
 		// Unload any deleted packages...
-		PackageTools::UnloadPackages(PackagesToUnload);
+		UPackageTools::UnloadPackages(PackagesToUnload);
 
 		// Re-cache the SCC state...
 		SCCProvider.Execute(ISourceControlOperation::Create<FUpdateStatus>(), PackageFilenames, EConcurrency::Asynchronous);
@@ -2183,10 +2183,10 @@ void ContentBrowserUtils::SyncPathsFromSourceControl(const TArray<FString>& Cont
 		}
 
 		// Hot-reload the new packages...
-		PackageTools::ReloadPackages(LoadedPackages);
+		UPackageTools::ReloadPackages(LoadedPackages);
 
 		// Unload any deleted packages...
-		PackageTools::UnloadPackages(PackagesToUnload);
+		UPackageTools::UnloadPackages(PackagesToUnload);
 
 		// Re-cache the SCC state...
 		SCCProvider.Execute(ISourceControlOperation::Create<FUpdateStatus>(), PathsOnDisk, EConcurrency::Asynchronous);

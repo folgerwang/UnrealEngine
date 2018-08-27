@@ -73,7 +73,7 @@ UCloudARPin* FGoogleARCoreServicesManager::ResolveAncCreateCloudARPin(FString Cl
 		return nullptr;
 	}
 
-	UCloudARPin* NewCloudARPin = CloudARPinManager->ResolveAncCreateCloudARPin(CloudId, OutTaskResult);
+	UCloudARPin* NewCloudARPin = CloudARPinManager->ResolveAndCreateCloudARPin(CloudId, OutTaskResult);
 
 	return NewCloudARPin;
 }

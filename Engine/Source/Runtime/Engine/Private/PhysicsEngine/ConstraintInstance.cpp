@@ -1,13 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsEngine/ConstraintInstance.h"
+#include "Physics/PhysicsInterfaceCore.h"
 #include "UObject/FrameworkObjectVersion.h"
 #include "UObject/AnimPhysObjectVersion.h"
 #include "HAL/IConsoleManager.h"
 #include "Components/PrimitiveComponent.h"
 #include "PhysicsPublic.h"
-#include "PhysXPublic.h"
-#include "PhysicsEngine/PhysXSupport.h"
+#include "Physics/PhysicsInterfaceTypes.h"
 
 #include "Logging/TokenizedMessage.h"
 #include "Logging/MessageLog.h"
@@ -17,6 +17,8 @@
 #if WITH_EDITOR
 #include "UObject/UnrealType.h"
 #endif
+
+using namespace PhysicsInterfaceTypes;
 
 #define LOCTEXT_NAMESPACE "ConstraintInstance"
 
@@ -56,15 +58,6 @@ FVector RevolutionsToRads(const FVector Revolutions)
 {
 	return Revolutions * 2.f * PI;
 }
-
-#if WITH_PHYSX
-
-physx::PxD6Joint* FConstraintInstance::GetUnbrokenJoint_AssumesLocked() const
-{
-	return (ConstraintData && !(ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN)) ? ConstraintData : nullptr;
-}
-
-#endif // WITH_PHYSX
 
 #if WITH_EDITOR
 void FConstraintProfileProperties::SyncChangedConstraintProperties(FPropertyChangedChainEvent& PropertyChangedEvent)
@@ -127,42 +120,6 @@ void FConstraintProfileProperties::SyncChangedConstraintProperties(FPropertyChan
 }
 #endif
 
-#if WITH_PHYSX
-
-bool FConstraintInstance::ExecuteOnUnbrokenJointReadOnly(TFunctionRef<void(const physx::PxD6Joint*)> Func) const
-{
-	if(ConstraintData)
-	{
-		SCOPED_SCENE_READ_LOCK(ConstraintData->getScene());
-
-		if(!(ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN))
-		{
-			Func(ConstraintData);
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool FConstraintInstance::ExecuteOnUnbrokenJointReadWrite(TFunctionRef<void(physx::PxD6Joint*)> Func) const
-{
-	if (ConstraintData)
-	{
-		SCOPED_SCENE_WRITE_LOCK(ConstraintData->getScene());
-
-		if (!(ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN))
-		{
-			Func(ConstraintData);
-			return true;
-		}
-	}
-
-	return false;
-}
-#endif //WITH_PHYSX
-
-
 FConstraintProfileProperties::FConstraintProfileProperties()
 	: ProjectionLinearTolerance(5.f)
 	, ProjectionAngularTolerance(180.f)
@@ -178,62 +135,49 @@ FConstraintProfileProperties::FConstraintProfileProperties()
 
 void FConstraintInstance::UpdateLinearLimit()
 {
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.LinearLimit.UpdatePhysXLinearLimit_AssumesLocked(Joint, AverageMass, bScaleLinearLimits ? LastKnownScale : 1.f);
+		ProfileInstance.LinearLimit.UpdateLinearLimit_AssumesLocked(InUnbrokenConstraint, AverageMass, bScaleLinearLimits ? LastKnownScale : 1.0f);
 	});
-#endif
 }
 
 void FConstraintInstance::UpdateAngularLimit()
 {
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&](PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.ConeLimit.UpdatePhysXConeLimit_AssumesLocked(Joint, AverageMass);
-		ProfileInstance.TwistLimit.UpdatePhysXTwistLimit_AssumesLocked(Joint, AverageMass);
+		ProfileInstance.ConeLimit.UpdateConeLimit_AssumesLocked(InUnbrokenConstraint, AverageMass);
+		ProfileInstance.TwistLimit.UpdateTwistLimit_AssumesLocked(InUnbrokenConstraint, AverageMass);
 	});
-#endif
 }
 
 void FConstraintInstance::UpdateBreakable()
 {
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&](PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.UpdatePhysXBreakable_AssumesLocked(Joint);
+		ProfileInstance.UpdateBreakable_AssumesLocked(InUnbrokenConstraint);
 	});
-#endif
 }
 
-#if WITH_PHYSX
-void FConstraintProfileProperties::UpdatePhysXBreakable_AssumesLocked(PxD6Joint* Joint) const
+void FConstraintProfileProperties::UpdateBreakable_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef) const
 {
-	const float LinearBreakForce = bLinearBreakable ? LinearBreakThreshold : PX_MAX_REAL;
-	const float AngularBreakForce = bAngularBreakable ? AngularBreakThreshold : PX_MAX_REAL;
+	const float LinearBreakForce = bLinearBreakable ? LinearBreakThreshold : MAX_FLT;
+	const float AngularBreakForce = bAngularBreakable ? AngularBreakThreshold : MAX_FLT;
 
-	Joint->setBreakForce(LinearBreakForce, AngularBreakForce);
+	FPhysicsInterface::SetBreakForces_AssumesLocked(InConstraintRef, LinearBreakForce, AngularBreakForce);
 }
-#endif
 
 void FConstraintInstance::UpdateDriveTarget()
 {
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.UpdatePhysXDriveTarget_AssumesLocked(Joint);
+		FPhysicsInterface::UpdateDriveTarget_AssumesLocked(InUnbrokenConstraint, ProfileInstance.LinearDrive, ProfileInstance.AngularDrive);
 	});
-#endif
 }
 
 /** Constructor **/
 FConstraintInstance::FConstraintInstance()
 	: ConstraintIndex(0)
-#if WITH_PHYSX
-	, ConstraintData(NULL)
-#endif	//WITH_PHYSX
-	, SceneIndex(0)
+	, PhysScene(nullptr)
 	, bScaleLinearLimits(true)
 	, AverageMass(0.f)
 #if WITH_PHYSX
@@ -311,111 +255,50 @@ FConstraintInstance::FConstraintInstance()
 void FConstraintInstance::SetDisableCollision(bool InDisableCollision)
 {
 	ProfileInstance.bDisableCollision = InDisableCollision;
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
-	{
-		PxConstraintFlags Flags = Joint->getConstraintFlags();
-		if (InDisableCollision)
-		{
-			Flags &= ~PxConstraintFlag::eCOLLISION_ENABLED;
-		}
-		else
-		{
-			Flags |= PxConstraintFlag::eCOLLISION_ENABLED;
-		}
 
-		Joint->setConstraintFlags(Flags);
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
+	{
+		FPhysicsInterface::SetCollisionEnabled(InUnbrokenConstraint, !InDisableCollision);
 	});
-#endif
 }
 
-#if WITH_PHYSX
-float ComputeAverageMass_AssumesLocked(const PxRigidActor* PActor1, const PxRigidActor* PActor2)
+float ComputeAverageMass_AssumesLocked(const FPhysicsActorHandle& InActor1, const FPhysicsActorHandle& InActor2)
 {
 	float AverageMass = 0;
+
+	float TotalMass = 0;
+	int NumDynamic = 0;
+
+	if (InActor1.IsValid() && FPhysicsInterface::IsRigidBody(InActor1))
 	{
-		float TotalMass = 0;
-		int NumDynamic = 0;
+		TotalMass += FPhysicsInterface::GetMass_AssumesLocked(InActor1);
+		++NumDynamic;
+	}
 
-		if (PActor1 && PActor1->is<PxRigidBody>())
-		{
-			TotalMass += PActor1->is<PxRigidBody>()->getMass();
-			++NumDynamic;
-		}
+	if(InActor2.IsValid() && FPhysicsInterface::IsRigidBody(InActor2))
+	{
+		TotalMass += FPhysicsInterface::GetMass_AssumesLocked(InActor2);
+		++NumDynamic;
+	}
 
-		if (PActor2 && PActor2->is<PxRigidBody>())
-		{
-			TotalMass += PActor2->is<PxRigidBody>()->getMass();
-			++NumDynamic;
-		}
+	check(NumDynamic);
 
-		check(NumDynamic);
+	if(NumDynamic > 0) // Some builds not taking the assumption from the check above and warn of zero divide
+	{
 		AverageMass = TotalMass / NumDynamic; //-V609
 	}
 
 	return AverageMass;
 }
 
-/** Finds the common scene and appropriate actors for the passed in body instances. Makes sure to do this without requiring a scene lock*/
-bool GetPScene_LockFree(const FBodyInstance* Body1, const FBodyInstance* Body2, UObject* DebugOwner,PxScene*& OutScene)
+bool GetActorRefs(FBodyInstance* Body1, FBodyInstance* Body2, FPhysicsActorHandle& OutActorRef1, FPhysicsActorHandle& OutActorRef2, UObject* DebugOwner)
 {
-	const int32 SceneIndex1 = Body1 ? Body1->GetSceneIndex() : -1;
-	const int32 SceneIndex2 = Body2 ? Body2->GetSceneIndex() : -1;
-	OutScene = nullptr;
-
-	//ensure we constrain components from the same scene
-	if(SceneIndex1 >= 0 && SceneIndex2 >= 0 && SceneIndex1 != SceneIndex2)
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		UPrimitiveComponent* PrimComp1 = Body1 ? Body1->OwnerComponent.Get() : nullptr;
-		UPrimitiveComponent* PrimComp2 = Body2 ? Body2->OwnerComponent.Get() : nullptr;
-
-		FMessageLog("PIE").Warning()
-			->AddToken(FTextToken::Create(LOCTEXT("JointBetweenScenesStart", "Constraint")))
-			->AddToken(FTextToken::Create(FText::Format(LOCTEXT("JointBetweenScenesOwner", "'{0}'"), FText::FromString(GetPathNameSafe(DebugOwner)))))
-			->AddToken(FTextToken::Create(LOCTEXT("JointBetweenScenesMid", "attempting to create a joint between two actors in different scenes (")))
-			->AddToken(FTextToken::Create(FText::Format(LOCTEXT("JointBetweenScenesArgs", "'{0}' and '{1}'"), FText::FromString(GetPathNameSafe(PrimComp1)), FText::FromString(GetPathNameSafe(PrimComp2)))))
-			->AddToken(FTextToken::Create(LOCTEXT("JointBetweenScenesEnd", ").  No joint created.")));
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		return false;
-	}
-	else if(SceneIndex1 >= 0 || SceneIndex2 >= 0)
-	{
-		OutScene = GetPhysXSceneFromIndex(SceneIndex1 >= 0 ? SceneIndex1 : SceneIndex2);
-	}
-
-	return true;	//we are simply using a nullscene which is valid in some cases
-}
-
-bool CanActorSimulate(const FBodyInstance* BI, const PxRigidActor* PActor, UObject* DebugOwner)
-{
-	if (PActor && (PActor->getActorFlags() & PxActorFlag::eDISABLE_SIMULATION))
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		const UPrimitiveComponent* PrimComp = BI->OwnerComponent.Get();
-		FMessageLog("PIE").Warning()
-			->AddToken(FTextToken::Create(LOCTEXT("InvalidBodyStart", "Attempting to create a joint")))
-			->AddToken(FTextToken::Create(FText::Format(LOCTEXT("InvalidBodyOwner", "'{0}'"), FText::FromString(GetPathNameSafe(DebugOwner)))))
-			->AddToken(FTextToken::Create(LOCTEXT("InvalidBodyMid", "to body")))
-			->AddToken(FTextToken::Create(FText::Format(LOCTEXT("InvalidBodyComponent", "'{0}'"), FText::FromString(GetPathNameSafe(PrimComp)))))
-			->AddToken(FTextToken::Create(LOCTEXT("InvalidBodyEnd", "which is not eligible for simulation. Is it marked QueryOnly?")));
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-
-		return false;
-	}
-
-	return true;
-}
-
-/*various logical checks to find the correct physx actor. Returns true if found valid actors that can be constrained*/
-bool GetPActors_AssumesLocked(const FBodyInstance* Body1, const FBodyInstance* Body2, PxRigidActor** PActor1Out, PxRigidActor** PActor2Out, UObject* DebugOwner)
-{
-	PxRigidActor* PActor1 = Body1 ? Body1->GetPxRigidActor_AssumesLocked() : NULL;
-	PxRigidActor* PActor2 = Body2 ? Body2->GetPxRigidActor_AssumesLocked() : NULL;
+	FPhysicsActorHandle ActorRef1 = Body1 ? Body1->ActorHandle : FPhysicsActorHandle();
+	FPhysicsActorHandle ActorRef2 = Body2 ? Body2->ActorHandle : FPhysicsActorHandle();
 
 	// Do not create joint unless you have two actors
 	// Do not create joint unless one of the actors is dynamic
-	if ((!PActor1 || !PActor1->is<PxRigidBody>()) && (!PActor2 || !PActor2->is<PxRigidBody>()))
+	if((!ActorRef1.IsValid() || !FPhysicsInterface::IsRigidBody(ActorRef1)) && (!ActorRef2.IsValid() || !FPhysicsInterface::IsRigidBody(ActorRef2)))
 	{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		FMessageLog("PIE").Warning()
@@ -426,10 +309,10 @@ bool GetPActors_AssumesLocked(const FBodyInstance* Body1, const FBodyInstance* B
 		return false;
 	}
 
-	if(PActor1 == PActor2)
+	if(ActorRef1.IsValid() && ActorRef2.IsValid() && ActorRef1.Equals(ActorRef2))
 	{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		const UPrimitiveComponent* PrimComp = Body1->OwnerComponent.Get();
+		const UPrimitiveComponent* PrimComp = Body1 ? Body1->OwnerComponent.Get() : nullptr;
 		FMessageLog("PIE").Warning()
 			->AddToken(FTextToken::Create(LOCTEXT("SameBodyWarningStart", "Constraint in")))
 			->AddToken(FTextToken::Create(FText::Format(LOCTEXT("SameBodyWarningOwner", "'{0}'"), FText::FromString(GetPathNameSafe(DebugOwner)))))
@@ -439,40 +322,35 @@ bool GetPActors_AssumesLocked(const FBodyInstance* Body1, const FBodyInstance* B
 		return false;
 	}
 
-	if(!CanActorSimulate(Body1, PActor1, DebugOwner) || !CanActorSimulate(Body2, PActor2, DebugOwner))
+	// Ensure that actors are either invalid (ie 'world') or valid to simulate.
+	bool bActor1ValidToSim = false;
+	bool bActor2ValidToSim = false;
+	FPhysicsCommand::ExecuteRead(ActorRef1, ActorRef2, [&](const FPhysicsActorHandle& ActorA, const FPhysicsActorHandle& ActorB)
 	{
+		bActor1ValidToSim = !ActorRef1.IsValid() || FPhysicsInterface::CanSimulate_AssumesLocked(ActorRef1);
+		bActor2ValidToSim = !ActorRef2.IsValid() || FPhysicsInterface::CanSimulate_AssumesLocked(ActorRef2);
+	});
+
+	if(!bActor1ValidToSim || !bActor2ValidToSim)
+	{
+		OutActorRef1 = FPhysicsActorHandle();
+		OutActorRef2 = FPhysicsActorHandle();
+
 		return false;
 	}
-	
-	// Need to worry about the case where one is static and one is dynamic, and make sure the static scene is used which matches the dynamic scene
-	if (PActor1 != NULL && PActor2 != NULL)
-	{
-		if (PActor1->is<PxRigidStatic>() && PActor2->is<PxRigidBody>())
-		{
-			const uint32 SceneType = Body2->RigidActorSync != NULL ? PST_Sync : PST_Async;
-			PActor1 = Body1->GetPxRigidActorFromScene_AssumesLocked(SceneType);
-		}
-		else
-		if (PActor2->is<PxRigidStatic>() && PActor1->is<PxRigidBody>())
-		{
-			const uint32 SceneType = Body1->RigidActorSync != NULL ? PST_Sync : PST_Async;
-			PActor2 = Body2->GetPxRigidActorFromScene_AssumesLocked(SceneType);
-		}
-	}
 
-	*PActor1Out = PActor1;
-	*PActor2Out = PActor2;
+	OutActorRef1 = ActorRef1;
+	OutActorRef2 = ActorRef2;
+
 	return true;
 }
 
-bool FConstraintInstance::CreatePxJoint_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene)
+bool FConstraintInstance::CreateJoint_AssumesLocked(const FPhysicsActorHandle& InActorRef1, const FPhysicsActorHandle& InActorRef2)
 {
 	LLM_SCOPE(ELLMTag::PhysX);
 
-	ConstraintData = nullptr;
-
 	FTransform Local1 = GetRefFrame(EConstraintFrame::Frame1);
-	if(PActor1)
+	if(InActorRef1.IsValid())
 	{
 		Local1.ScaleTranslation(FVector(LastKnownScale));
 	}
@@ -480,151 +358,87 @@ bool FConstraintInstance::CreatePxJoint_AssumesLocked(physx::PxRigidActor* PActo
 	checkf(Local1.IsValid() && !Local1.ContainsNaN(), TEXT("%s"), *Local1.ToString());
 
 	FTransform Local2 = GetRefFrame(EConstraintFrame::Frame2);
-	if(PActor2)
+	if(InActorRef2.IsValid())
 	{
 		Local2.ScaleTranslation(FVector(LastKnownScale));
 	}
 	
 	checkf(Local2.IsValid() && !Local2.ContainsNaN(), TEXT("%s"), *Local2.ToString());
 
-	SCOPED_SCENE_WRITE_LOCK(PScene);
+	ConstraintHandle = FPhysicsInterface::CreateConstraint(InActorRef1, InActorRef2, Local1, Local2);
 
-	// Because PhysX keeps limits/axes locked in the first body reference frame, whereas Unreal keeps them in the second body reference frame, we have to flip the bodies here.
-	PxD6Joint* PD6Joint = PxD6JointCreate(*GPhysXSDK, PActor2, U2PTransform(Local2), PActor1, U2PTransform(Local1));
-
-	if (PD6Joint == nullptr)
+	if(!ConstraintHandle.IsValid())
 	{
-		UE_LOG(LogPhysics, Log, TEXT("URB_ConstraintInstance::InitConstraint - Invalid 6DOF joint (%s)"), *JointName.ToString());
+		UE_LOG(LogPhysics, Log, TEXT("FConstraintInstance::CreatePxJoint_AssumesLocked - Invalid 6DOF joint (%s)"), *JointName.ToString());
 		return false;
 	}
 
-	///////// POINTERS
-	PD6Joint->userData = &PhysxUserData;
+	FPhysicsInterface::SetConstraintUserData(ConstraintHandle, &PhysxUserData);
 
-	if(PScene)
-	{
-		// Remember reference to scene index.
-		FPhysScene* RBScene = FPhysxUserData::Get<FPhysScene>(PScene->userData);
-		if (RBScene->GetPhysXScene(PST_Sync) == PScene)
-		{
-			SceneIndex = RBScene->PhysXSceneIndex[PST_Sync];
-		}
-		else
-			if (RBScene->GetPhysXScene(PST_Async) == PScene)
-			{
-				SceneIndex = RBScene->PhysXSceneIndex[PST_Async];
-			}
-			else
-			{
-				UE_LOG(LogPhysics, Log, TEXT("URB_ConstraintInstance::InitConstraint: PxScene has inconsistent FPhysScene userData.  No joint created."));
-				return false;
-			}
-	}
-	
-
-	ConstraintData = PD6Joint;
 	return true;
 }
 
-void FConstraintProfileProperties::UpdatePhysXConstraintFlags_AssumesLocked(PxD6Joint* Joint) const
+void FConstraintProfileProperties::UpdateConstraintFlags_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef) const
 {
-	PxConstraintFlags Flags = PxConstraintFlags();
-
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	Flags |= PxConstraintFlag::eVISUALIZATION;
+	FPhysicsInterface::SetCanVisualize(InConstraintRef, true);
 #endif
 
-	if (!bDisableCollision)
-	{
-		Flags |= PxConstraintFlag::eCOLLISION_ENABLED;
-	}
-
-	if (bEnableProjection)
-	{
-		Flags |= PxConstraintFlag::ePROJECTION;
-
-		Joint->setProjectionLinearTolerance(ProjectionLinearTolerance);
-		Joint->setProjectionAngularTolerance(FMath::DegreesToRadians(ProjectionAngularTolerance));
-	}
-
-	if(bParentDominates)
-	{
-		Joint->setInvMassScale0(0.0f);
-		Joint->setInvMassScale1(1.0f);
-
-		Joint->setInvInertiaScale0(0.0f);
-		Joint->setInvInertiaScale1(1.0f);
-	}
-
-	Joint->setConstraintFlags(Flags);
+	FPhysicsInterface::SetCollisionEnabled(InConstraintRef, bDisableCollision);
+	FPhysicsInterface::SetProjectionEnabled_AssumesLocked(InConstraintRef, bEnableProjection, ProjectionLinearTolerance, ProjectionAngularTolerance);
+	FPhysicsInterface::SetParentDominates_AssumesLocked(InConstraintRef, bParentDominates);
 }
 
 
-void FConstraintInstance::UpdateAverageMass_AssumesLocked(const PxRigidActor* PActor1, const PxRigidActor* PActor2)
+void FConstraintInstance::UpdateAverageMass_AssumesLocked(const FPhysicsActorHandle& InActorRef1, const FPhysicsActorHandle& InActorRef2)
 {
-	AverageMass = ComputeAverageMass_AssumesLocked(PActor1, PActor2);
+	AverageMass = ComputeAverageMass_AssumesLocked(InActorRef1, InActorRef2);
 }
 
-void EnsureSleepingActorsStaySleeping_AssumesLocked(PxRigidActor* PActor1, PxRigidActor* PActor2)
+void EnsureSleepingActorsStaySleeping_AssumesLocked(const FPhysicsActorHandle& InActorRef1, const FPhysicsActorHandle& InActorRef2)
 {
-	PxRigidDynamic* RigidDynamic1 = PActor1 ? PActor1->is<PxRigidDynamic>() : nullptr;
-	PxRigidDynamic* RigidDynamic2 = PActor2 ? PActor2->is<PxRigidDynamic>() : nullptr;
-
-	// record if actors are asleep before creating joint, so we can sleep them afterwards if so (creating joint wakes them)
-	const bool bActor1Asleep = (RigidDynamic1 == nullptr) || (RigidDynamic1->getScene() != nullptr && RigidDynamic1->isSleeping());
-	const bool bActor2Asleep = (RigidDynamic2 == nullptr) || (RigidDynamic2->getScene() != nullptr && RigidDynamic2->isSleeping());
+	const bool bActor1Asleep = FPhysicsInterface::IsSleeping(InActorRef1);
+	const bool bActor2Asleep = FPhysicsInterface::IsSleeping(InActorRef2);
 
 	// creation of joints wakes up rigid bodies, so we put them to sleep again if both were initially asleep
 	if (bActor1Asleep && bActor2Asleep)
 	{
-		if (PActor1 && !IsRigidBodyKinematic_AssumesLocked(RigidDynamic1))
+		if(InActorRef1.IsValid() && !FPhysicsInterface::IsKinematic_AssumesLocked(InActorRef1))
 		{
-			if(RigidDynamic1)
-			{
-				RigidDynamic1->putToSleep();
-			}
+			FPhysicsInterface::PutToSleep_AssumesLocked(InActorRef1);
 		}
 
-		if (PActor2 && !IsRigidBodyKinematic_AssumesLocked(RigidDynamic2))
+		if(InActorRef2.IsValid() && !FPhysicsInterface::IsKinematic_AssumesLocked(InActorRef2))
 		{
-			if(RigidDynamic2)
-			{
-				RigidDynamic2->putToSleep();
-			}
-			
+			FPhysicsInterface::PutToSleep_AssumesLocked(InActorRef2);
 		}
 	}
 }
-
-#endif
 
 /** 
  *	Create physics engine constraint.
  */
 void FConstraintInstance::InitConstraint(FBodyInstance* Body1, FBodyInstance* Body2, float InScale, UObject* DebugOwner, FOnConstraintBroken InConstraintBrokenDelegate)
 {
-#if WITH_PHYSX
-	PxRigidActor* PActor1 = nullptr;
-	PxRigidActor* PActor2 = nullptr;
-	PxScene* PScene;
-	bool bValidScene = GetPScene_LockFree(Body1, Body2, DebugOwner, PScene);
-	SCOPED_SCENE_WRITE_LOCK(PScene);
+	FPhysicsActorHandle Actor1;
+	FPhysicsActorHandle Actor2;
+
 	{
-		const bool bValidConstraintSetup = bValidScene && GetPActors_AssumesLocked(Body1, Body2, &PActor1, &PActor2, DebugOwner);
-		if (!bValidConstraintSetup)
+		const bool bValidActors = GetActorRefs(Body1, Body2, Actor1, Actor2, DebugOwner);
+		if (!bValidActors)
 		{
 			return;
 		}
 
-		InitConstraintPhysX_AssumesLocked(PActor1, PActor2, PScene, InScale, InConstraintBrokenDelegate);
+		FPhysicsCommand::ExecuteWrite(Actor1, Actor2, [&](const FPhysicsActorHandle& ActorA, const FPhysicsActorHandle& ActorB)
+		{
+			InitConstraint_AssumesLocked(ActorA, ActorB, InScale, InConstraintBrokenDelegate);
+		});
 	}
-	
-#endif // WITH_PHYSX
 
 }
 
-#if WITH_PHYSX
-void FConstraintInstance::InitConstraintPhysX_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene, float InScale, FOnConstraintBroken InConstraintBrokenDelegate)
+void FConstraintInstance::InitConstraint_AssumesLocked(const FPhysicsActorHandle& ActorRef1, const FPhysicsActorHandle& ActorRef2, float InScale, FOnConstraintBroken InConstraintBrokenDelegate)
 {
 	OnConstraintBrokenDelegate = InConstraintBrokenDelegate;
 	LastKnownScale = InScale;
@@ -632,108 +446,83 @@ void FConstraintInstance::InitConstraintPhysX_AssumesLocked(physx::PxRigidActor*
 	PhysxUserData = FPhysxUserData(this);
 
 	// if there's already a constraint, get rid of it first
-	if (ConstraintData)
+	if (ConstraintHandle.IsValid())
 	{
 		TermConstraint();
 	}
 
-	if (!CreatePxJoint_AssumesLocked(PActor1, PActor2, PScene))
+	if (!CreateJoint_AssumesLocked(ActorRef1, ActorRef2))
 	{
 		return;
 	}
 	
 	// update mass
-	UpdateAverageMass_AssumesLocked(PActor1, PActor2);
+	UpdateAverageMass_AssumesLocked(ActorRef1, ActorRef2);
 
-	ProfileInstance.UpdatePhysX_AssumesLocked(ConstraintData, AverageMass, bScaleLinearLimits ? LastKnownScale : 1.f);
-
-	if(PScene)
-	{
-		EnsureSleepingActorsStaySleeping_AssumesLocked(PActor1, PActor2);
-	}
+	ProfileInstance.Update_AssumesLocked(ConstraintHandle, AverageMass, bScaleLinearLimits ? LastKnownScale : 1.f);
+	EnsureSleepingActorsStaySleeping_AssumesLocked(ActorRef1, ActorRef2);
 }
-#endif
 
-#if WITH_PHYSX
-void FConstraintProfileProperties::UpdatePhysX_AssumesLocked(PxD6Joint* Joint, float AverageMass, float UseScale) const
+void FConstraintProfileProperties::Update_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef, float AverageMass, float UseScale) const
 {
 	// flags and projection settings
-	UpdatePhysXConstraintFlags_AssumesLocked(Joint);
+	UpdateConstraintFlags_AssumesLocked(InConstraintRef);
 
 	//limits
-	LinearLimit.UpdatePhysXLinearLimit_AssumesLocked(Joint, AverageMass, UseScale);
-	ConeLimit.UpdatePhysXConeLimit_AssumesLocked(Joint, AverageMass);
-	TwistLimit.UpdatePhysXTwistLimit_AssumesLocked(Joint, AverageMass);
+	LinearLimit.UpdateLinearLimit_AssumesLocked(InConstraintRef, AverageMass, UseScale);
+	ConeLimit.UpdateConeLimit_AssumesLocked(InConstraintRef, AverageMass);
+	TwistLimit.UpdateTwistLimit_AssumesLocked(InConstraintRef, AverageMass);
 
-	//breakable
-	UpdatePhysXBreakable_AssumesLocked(Joint);
+	UpdateBreakable_AssumesLocked(InConstraintRef);
 
-	//motors
-	LinearDrive.UpdatePhysXLinearDrive_AssumesLocked(Joint);
-	AngularDrive.UpdatePhysXAngularDrive_AssumesLocked(Joint);
-	UpdatePhysXDriveTarget_AssumesLocked(Joint);
+	// Motors
+	FPhysicsInterface::UpdateLinearDrive_AssumesLocked(InConstraintRef, LinearDrive);
+	FPhysicsInterface::UpdateAngularDrive_AssumesLocked(InConstraintRef, AngularDrive);
 
+	// Target
+	FPhysicsInterface::UpdateDriveTarget_AssumesLocked(InConstraintRef, LinearDrive, AngularDrive);
 }
-#endif
-
-#if WITH_PHYSX
-void FConstraintProfileProperties::UpdatePhysXDriveTarget_AssumesLocked(PxD6Joint* Joint) const
-{
-	const FQuat OrientationTargetQuat(AngularDrive.OrientationTarget);
-
-	Joint->setDrivePosition(PxTransform(U2PVector(LinearDrive.PositionTarget), U2PQuat(OrientationTargetQuat)));
-	Joint->setDriveVelocity(U2PVector(LinearDrive.VelocityTarget), U2PVector(RevolutionsToRads(AngularDrive.AngularVelocityTarget)));
-
-}
-#endif
 
 void FConstraintInstance::TermConstraint()
 {
-#if WITH_PHYSX
-	if (!ConstraintData)
+	if (!ConstraintHandle.IsValid())
 	{
 		return;
 	}
 
-	// use correct scene
-	PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
-	{
-		SCOPED_SCENE_WRITE_LOCK(PScene);
-		ConstraintData->release();
-	}
+	FPhysicsConstraintHandle PhysConstraint = GetPhysicsConstraintRef();
 
-	ConstraintData = nullptr;
-#endif
+	FPhysicsCommand::ExecuteWrite(PhysConstraint, [&](const FPhysicsConstraintHandle& Constraint)
+	{
+		FPhysicsInterface::ReleaseConstraint(ConstraintHandle);
+	});
 }
 
 bool FConstraintInstance::IsTerminated() const
 {
-#if WITH_PHYSX
-	return (ConstraintData == nullptr);
-#else 
-	return true;
-#endif //WITH_PHYSX
+	return !ConstraintHandle.IsValid();
 }
 
 bool FConstraintInstance::IsValidConstraintInstance() const
 {
-#if WITH_PHYSX
-	return ConstraintData != nullptr;
-#else
-	return false;
-#endif // WITH_PHYSX
+	return ConstraintHandle.IsValid();
 }
 
 void FConstraintInstance::CopyProfilePropertiesFrom(const FConstraintProfileProperties& FromProperties)
 {
 	ProfileInstance = FromProperties;
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&](PxD6Joint* Joint)
+
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.UpdatePhysX_AssumesLocked(Joint, AverageMass, bScaleLinearLimits ? LastKnownScale : 1.f);
+		ProfileInstance.Update_AssumesLocked(ConstraintHandle, AverageMass, bScaleLinearLimits ? LastKnownScale : 1.0f);
 	});
-#endif
 }
+
+const FPhysicsConstraintHandle& FConstraintInstance::GetPhysicsConstraintRef() const
+{
+	return ConstraintHandle;
+}
+
 
 void FConstraintInstance::CopyConstraintGeometryFrom(const FConstraintInstance* FromInstance)
 {
@@ -748,11 +537,9 @@ void FConstraintInstance::CopyConstraintGeometryFrom(const FConstraintInstance* 
 
 void FConstraintInstance::CopyConstraintParamsFrom(const FConstraintInstance* FromInstance)
 {
-#if WITH_PHYSX
-	check(!FromInstance->ConstraintData);
-	check(!ConstraintData);
-#endif
-	check(FromInstance->SceneIndex == 0);
+	check(FromInstance->IsTerminated());
+	check(IsTerminated());
+	check(FromInstance->PhysScene == nullptr);
 
 	*this = *FromInstance;
 }
@@ -779,19 +566,8 @@ FTransform FConstraintInstance::GetRefFrame(EConstraintFrame::Type Frame) const
 	return Result;
 }
 
-#if WITH_PHYSX
-FORCEINLINE physx::PxJointActorIndex::Enum U2PConstraintFrame(EConstraintFrame::Type Frame)
-{
-	// Swap frame order, since Unreal reverses physx order
-	return (Frame == EConstraintFrame::Frame1) ? physx::PxJointActorIndex::eACTOR1 : physx::PxJointActorIndex::eACTOR0;
-}
-#endif
-
-
 void FConstraintInstance::SetRefFrame(EConstraintFrame::Type Frame, const FTransform& RefFrame)
 {
-#if WITH_PHYSX
-	PxJointActorIndex::Enum PxFrame = U2PConstraintFrame(Frame);
 	if(Frame == EConstraintFrame::Frame1)
 	{
 		Pos1 = RefFrame.GetTranslation();
@@ -805,20 +581,14 @@ void FConstraintInstance::SetRefFrame(EConstraintFrame::Type Frame, const FTrans
 		SecAxis2 = RefFrame.GetUnitAxis( EAxis::Y );
 	}
 
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		PxTransform PxRefFrame = U2PTransform(RefFrame);
-		Joint->setLocalPose(PxFrame, PxRefFrame);
+		FPhysicsInterface::SetLocalPose(InUnbrokenConstraint, RefFrame, Frame);
 	});
-#endif // WITH_PHYSX
-
 }
 
 void FConstraintInstance::SetRefPosition(EConstraintFrame::Type Frame, const FVector& RefPosition)
 {
-#if WITH_PHYSX
-	PxJointActorIndex::Enum PxFrame = U2PConstraintFrame(Frame);
-
 	if (Frame == EConstraintFrame::Frame1)
 	{
 		Pos1 = RefPosition;
@@ -828,19 +598,16 @@ void FConstraintInstance::SetRefPosition(EConstraintFrame::Type Frame, const FVe
 		Pos2 = RefPosition;
 	}
 
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		PxTransform PxRefFrame = ConstraintData->getLocalPose(PxFrame);
-		PxRefFrame.p = U2PVector(RefPosition);
-		Joint->setLocalPose(PxFrame, PxRefFrame);
+		FTransform LocalPose = FPhysicsInterface::GetLocalPose(InUnbrokenConstraint, Frame);
+		LocalPose.SetLocation(RefPosition);
+		FPhysicsInterface::SetLocalPose(InUnbrokenConstraint, LocalPose, Frame);
 	});
-#endif // WITH_PHYSX
 }
 
 void FConstraintInstance::SetRefOrientation(EConstraintFrame::Type Frame, const FVector& PriAxis, const FVector& SecAxis)
 {
-#if WITH_PHYSX
-	PxJointActorIndex::Enum PxFrame = U2PConstraintFrame(Frame);
 	FVector RefPos;
 		
 	if (Frame == EConstraintFrame::Frame1)
@@ -856,152 +623,93 @@ void FConstraintInstance::SetRefOrientation(EConstraintFrame::Type Frame, const 
 		SecAxis2 = SecAxis;
 	}
 
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
 		FTransform URefTransform = FTransform(PriAxis, SecAxis, PriAxis ^ SecAxis, RefPos);
-		PxTransform PxRefFrame = U2PTransform(URefTransform);
-		Joint->setLocalPose(PxFrame, PxRefFrame);
+		FPhysicsInterface::SetLocalPose(InUnbrokenConstraint, URefTransform, Frame);
 	});
-#endif // WITH_PHYSX
 }
 
 /** Get the position of this constraint in world space. */
 FVector FConstraintInstance::GetConstraintLocation()
 {
-#if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)	ConstraintData;
-	if (!Joint)
-	{
-		return FVector::ZeroVector;
-	}
-
-	PxRigidActor* JointActor0, *JointActor1;
-	Joint->getActors(JointActor0, JointActor1);
-
-	PxVec3 JointPos(0);
-
-	// get the first anchor point in global frame
-	if(JointActor0)
-	{
-		JointPos = JointActor0->getGlobalPose().transform(Joint->getLocalPose(PxJointActorIndex::eACTOR0).p);
-	}
-
-	// get the second archor point in global frame
-	if(JointActor1)
-	{
-		JointPos += JointActor1->getGlobalPose().transform(Joint->getLocalPose(PxJointActorIndex::eACTOR1).p);
-	}
-
-	JointPos *= 0.5f;
-	
-	return P2UVector(JointPos);
-
-#else
-	return FVector::ZeroVector;
-#endif
+	return FPhysicsInterface::GetLocation(ConstraintHandle);
 }
 
 void FConstraintInstance::GetConstraintForce(FVector& OutLinearForce, FVector& OutAngularForce)
 {
 	OutLinearForce = FVector::ZeroVector;
 	OutAngularForce = FVector::ZeroVector;
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadOnly([&] (const PxD6Joint* Joint)
-	{
-		PxVec3 PxOutLinearForce;
-		PxVec3 PxOutAngularForce;
-		Joint->getConstraint()->getForce(PxOutLinearForce, PxOutAngularForce);
-
-		OutLinearForce = P2UVector(PxOutLinearForce);
-		OutAngularForce = P2UVector(PxOutAngularForce);
-	});
-#endif
+	FPhysicsInterface::GetForce(ConstraintHandle, OutLinearForce, OutAngularForce);
 }
 
 bool FConstraintInstance::IsBroken()
 {
-#if WITH_PHYSX
-	if (ConstraintData)
-	{
-		SCOPED_SCENE_READ_LOCK(ConstraintData->getScene());
-
-		if (ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN)
-		{
-			return true;
-		}
-	}
-#endif
-	return false;
+	return FPhysicsInterface::IsBroken(ConstraintHandle);
 }
 
 /** Function for turning linear position drive on and off. */
 void FConstraintInstance::SetLinearPositionDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive)
 {
 	ProfileInstance.LinearDrive.SetLinearPositionDrive(bEnableXDrive, bEnableYDrive, bEnableZDrive);
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([this](PxD6Joint* Joint)
+
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [this](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.LinearDrive.UpdatePhysXLinearDrive_AssumesLocked(Joint);
+		FPhysicsInterface::UpdateLinearDrive_AssumesLocked(InUnbrokenConstraint, ProfileInstance.LinearDrive);
 	});
-#endif
 }
 
 /** Function for turning linear velocity drive on and off. */
 void FConstraintInstance::SetLinearVelocityDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive)
 {
 	ProfileInstance.LinearDrive.SetLinearVelocityDrive(bEnableXDrive, bEnableYDrive, bEnableZDrive);
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([this](PxD6Joint* Joint)
+
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [this](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.LinearDrive.UpdatePhysXLinearDrive_AssumesLocked(Joint);
+		FPhysicsInterface::UpdateLinearDrive_AssumesLocked(InUnbrokenConstraint, ProfileInstance.LinearDrive);
 	});
-#endif
 }
 
 void FConstraintInstance::SetOrientationDriveTwistAndSwing(bool InEnableTwistDrive, bool InEnableSwingDrive)
 {
 	ProfileInstance.AngularDrive.SetOrientationDriveTwistAndSwing(InEnableTwistDrive, InEnableSwingDrive);
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([this](PxD6Joint* Joint)
+
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [this](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.AngularDrive.UpdatePhysXAngularDrive_AssumesLocked(Joint);
+		FPhysicsInterface::UpdateAngularDrive_AssumesLocked(InUnbrokenConstraint, ProfileInstance.AngularDrive);
 	});
-#endif
 }
 
 void FConstraintInstance::SetOrientationDriveSLERP(bool InEnableSLERP)
 {
 	ProfileInstance.AngularDrive.SetOrientationDriveSLERP(InEnableSLERP);
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([this](PxD6Joint* Joint)
+
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [this](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.AngularDrive.UpdatePhysXAngularDrive_AssumesLocked(Joint);
+		FPhysicsInterface::UpdateAngularDrive_AssumesLocked(InUnbrokenConstraint, ProfileInstance.AngularDrive);
 	});
-#endif
 }
 
 /** Set which twist and swing angular velocity drives are enabled. Only applicable when Twist And Swing drive mode is used */
 void FConstraintInstance::SetAngularVelocityDriveTwistAndSwing(bool bInEnableTwistDrive, bool bInEnableSwingDrive)
 {
 	ProfileInstance.AngularDrive.SetAngularVelocityDriveTwistAndSwing(bInEnableTwistDrive, bInEnableSwingDrive);
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([this](PxD6Joint* Joint)
+
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [this](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.AngularDrive.UpdatePhysXAngularDrive_AssumesLocked(Joint);
+		FPhysicsInterface::UpdateAngularDrive_AssumesLocked(InUnbrokenConstraint, ProfileInstance.AngularDrive);
 	});
-#endif
 }
 
 /** Set whether the SLERP angular velocity drive is enabled. Only applicable when SLERP drive mode is used */
 void FConstraintInstance::SetAngularVelocityDriveSLERP(bool bInEnableSLERP)
 {
 	ProfileInstance.AngularDrive.SetAngularVelocityDriveSLERP(bInEnableSLERP);
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([this](PxD6Joint* Joint)
+
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [this](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.AngularDrive.UpdatePhysXAngularDrive_AssumesLocked(Joint);
+		FPhysicsInterface::UpdateAngularDrive_AssumesLocked(InUnbrokenConstraint, ProfileInstance.AngularDrive);
 	});
-#endif
 }
 
 /** Set the angular drive mode */
@@ -1009,12 +717,10 @@ void FConstraintInstance::SetAngularDriveMode(EAngularDriveMode::Type DriveMode)
 {
 	ProfileInstance.AngularDrive.SetAngularDriveMode(DriveMode);
 
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&](PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [this](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.AngularDrive.UpdatePhysXAngularDrive_AssumesLocked(Joint);
+		FPhysicsInterface::UpdateAngularDrive_AssumesLocked(InUnbrokenConstraint, ProfileInstance.AngularDrive);
 	});
-#endif
 }
 
 /** Function for setting linear position target. */
@@ -1027,14 +733,7 @@ void FConstraintInstance::SetLinearPositionTarget(const FVector& InPosTarget)
 	}
 
 	ProfileInstance.LinearDrive.PositionTarget = InPosTarget;
-
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([InPosTarget](PxD6Joint* Joint)
-	{
-		PxVec3 Pos = U2PVector(InPosTarget);
-		Joint->setDrivePosition(PxTransform(Pos, Joint->getDrivePosition().q));
-	});
-#endif
+	FPhysicsInterface::SetDrivePosition(ConstraintHandle, InPosTarget);
 }
 
 /** Function for setting linear velocity target. */
@@ -1047,17 +746,7 @@ void FConstraintInstance::SetLinearVelocityTarget(const FVector& InVelTarget)
 	}
 
 	ProfileInstance.LinearDrive.VelocityTarget = InVelTarget;
-
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([InVelTarget](PxD6Joint* Joint)
-	{
-		PxVec3 CurrentLinearVel, CurrentAngVel;
-		Joint->getDriveVelocity(CurrentLinearVel, CurrentAngVel);
-
-		PxVec3 NewLinearVel = U2PVector(InVelTarget);
-		Joint->setDriveVelocity(NewLinearVel, CurrentAngVel);
-	});
-#endif
+	FPhysicsInterface::SetDriveLinearVelocity(ConstraintHandle, InVelTarget);
 }
 
 /** Function for setting linear motor parameters. */
@@ -1065,12 +754,10 @@ void FConstraintInstance::SetLinearDriveParams(float InSpring, float InDamping, 
 {
 	ProfileInstance.LinearDrive.SetDriveParams(InSpring, InDamping, InForceLimit);
 
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([this] (PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [this](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.LinearDrive.UpdatePhysXLinearDrive_AssumesLocked(Joint);
+		FPhysicsInterface::UpdateLinearDrive_AssumesLocked(InUnbrokenConstraint, ProfileInstance.LinearDrive);
 	});
-#endif
 }
 
 /** Function for setting target angular position. */
@@ -1085,53 +772,22 @@ void FConstraintInstance::SetAngularOrientationTarget(const FQuat& InOrientation
 	}
 
 	ProfileInstance.AngularDrive.OrientationTarget = OrientationTargetRot;
-
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([InOrientationTarget](PxD6Joint* Joint)
-	{
-		PxQuat Quat = U2PQuat(InOrientationTarget);
-		Joint->setDrivePosition(PxTransform(Joint->getDrivePosition().p, Quat));
-	});
-#endif
+	FPhysicsInterface::SetDriveOrientation(ConstraintHandle, InOrientationTarget);
 }
 
 float FConstraintInstance::GetCurrentSwing1() const
 {
-	float Swing1 = 0.f;
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadOnly([&Swing1](const PxD6Joint* Joint)
-	{
-		Swing1 = Joint->getSwingZAngle();
-	});
-#endif
-
-	return Swing1;
+	return FPhysicsInterface::GetCurrentSwing1(ConstraintHandle);
 }
 
 float FConstraintInstance::GetCurrentSwing2() const
 {
-	float Swing2 = 0.f;
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadOnly([&Swing2](const PxD6Joint* Joint)
-	{
-		Swing2 = Joint->getSwingYAngle();
-	});
-#endif
-
-	return Swing2;
+	return FPhysicsInterface::GetCurrentSwing2(ConstraintHandle);
 }
 
 float FConstraintInstance::GetCurrentTwist() const
 {
-	float Twist = 0.f;
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadOnly([&Twist](const PxD6Joint* Joint)
-	{
-		Twist = Joint->getTwist();
-	});
-#endif
-
-	return Twist;
+	return FPhysicsInterface::GetCurrentTwist(ConstraintHandle);
 }
 
 
@@ -1145,17 +801,7 @@ void FConstraintInstance::SetAngularVelocityTarget(const FVector& InVelTarget)
 	}
 
 	ProfileInstance.AngularDrive.AngularVelocityTarget = InVelTarget;
-
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([InVelTarget](PxD6Joint* Joint)
-	{
-		PxVec3 CurrentLinearVel, CurrentAngVel;
-		Joint->getDriveVelocity(CurrentLinearVel, CurrentAngVel);
-
-		PxVec3 AngVel = U2PVector(RevolutionsToRads(InVelTarget));
-		Joint->setDriveVelocity(CurrentLinearVel, AngVel);
-	});
-#endif
+	FPhysicsInterface::SetDriveAngularVelocity(ConstraintHandle, RevolutionsToRads(InVelTarget));
 }
 
 /** Function for setting angular motor parameters. */
@@ -1163,67 +809,62 @@ void FConstraintInstance::SetAngularDriveParams(float InSpring, float InDamping,
 {
 	ProfileInstance.AngularDrive.SetDriveParams(InSpring, InDamping, InForceLimit);
 
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		ProfileInstance.AngularDrive.UpdatePhysXAngularDrive_AssumesLocked(Joint);
+		FPhysicsInterface::UpdateAngularDrive_AssumesLocked(InUnbrokenConstraint, ProfileInstance.AngularDrive);
 	});
-#endif
 }
-
 
 /** Scale Angular Limit Constraints (as defined in RB_ConstraintSetup) */
 void FConstraintInstance::SetAngularDOFLimitScale(float InSwing1LimitScale, float InSwing2LimitScale, float InTwistLimitScale)
 {
-#if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
 		if ( ProfileInstance.ConeLimit.Swing1Motion == ACM_Limited || ProfileInstance.ConeLimit.Swing2Motion == ACM_Limited )
 		{
 			// PhysX swing directions are different from Unreal's - so change here.
 			if (ProfileInstance.ConeLimit.Swing1Motion == ACM_Limited)
 			{
-				Joint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eLIMITED);
+				FPhysicsInterface::SetAngularMotionLimitType_AssumesLocked(InUnbrokenConstraint, ELimitAxis::Swing2, ACM_Limited);
 			}
 
 			if (ProfileInstance.ConeLimit.Swing2Motion == ACM_Limited)
 			{
-				Joint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eLIMITED);
+				FPhysicsInterface::SetAngularMotionLimitType_AssumesLocked(InUnbrokenConstraint, ELimitAxis::Swing1, ACM_Limited);
 			}
 		
 			//The limit values need to be clamped so it will be valid in PhysX
-			PxReal ZLimitAngle = FMath::ClampAngle(ProfileInstance.ConeLimit.Swing1LimitDegrees * InSwing1LimitScale, KINDA_SMALL_NUMBER, 179.9999f) * (PI/180.0f);
-			PxReal YLimitAngle = FMath::ClampAngle(ProfileInstance.ConeLimit.Swing2LimitDegrees * InSwing2LimitScale, KINDA_SMALL_NUMBER, 179.9999f) * (PI/180.0f);
-			PxReal LimitContactDistance =  FMath::DegreesToRadians(FMath::Max(1.f, ProfileInstance.ConeLimit.ContactDistance * FMath::Min(InSwing1LimitScale, InSwing2LimitScale)));
+			float ZLimitAngle = FMath::ClampAngle(ProfileInstance.ConeLimit.Swing1LimitDegrees * InSwing1LimitScale, KINDA_SMALL_NUMBER, 179.9999f) * (PI/180.0f);
+			float YLimitAngle = FMath::ClampAngle(ProfileInstance.ConeLimit.Swing2LimitDegrees * InSwing2LimitScale, KINDA_SMALL_NUMBER, 179.9999f) * (PI/180.0f);
+			float LimitContactDistance =  FMath::DegreesToRadians(FMath::Max(1.f, ProfileInstance.ConeLimit.ContactDistance * FMath::Min(InSwing1LimitScale, InSwing2LimitScale)));
 
-			Joint->setSwingLimit(PxJointLimitCone(YLimitAngle, ZLimitAngle, LimitContactDistance));
+			FPhysicsInterface::SetSwingLimit(ConstraintHandle, YLimitAngle, ZLimitAngle, LimitContactDistance);
 		}
 
 		if ( ProfileInstance.ConeLimit.Swing1Motion  == ACM_Locked )
 		{
-			Joint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eLOCKED);
+			FPhysicsInterface::SetAngularMotionLimitType_AssumesLocked(InUnbrokenConstraint, ELimitAxis::Swing2, ACM_Locked);
 		}
 
 		if ( ProfileInstance.ConeLimit.Swing2Motion  == ACM_Locked )
 		{
-			Joint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eLOCKED);
+			FPhysicsInterface::SetAngularMotionLimitType_AssumesLocked(InUnbrokenConstraint, ELimitAxis::Swing1, ACM_Locked);
 		}
 
 		if ( ProfileInstance.TwistLimit.TwistMotion == ACM_Limited )
 		{
-			Joint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eLIMITED);
-			const float TwistLimitRad	= ProfileInstance.TwistLimit.TwistLimitDegrees * InTwistLimitScale * (PI/180.0f);
-			PxReal LimitContactDistance =  FMath::DegreesToRadians(FMath::Max(1.f, ProfileInstance.ConeLimit.ContactDistance * InTwistLimitScale));
+			FPhysicsInterface::SetAngularMotionLimitType_AssumesLocked(InUnbrokenConstraint, ELimitAxis::Twist, ACM_Limited);
 
-			Joint->setTwistLimit(PxJointAngularLimitPair(-TwistLimitRad, TwistLimitRad, LimitContactDistance)); 
+			const float TwistLimitRad	= ProfileInstance.TwistLimit.TwistLimitDegrees * InTwistLimitScale * (PI/180.0f);
+			float LimitContactDistance = FMath::DegreesToRadians(FMath::Max(1.f, ProfileInstance.ConeLimit.ContactDistance * InTwistLimitScale));
+
+			FPhysicsInterface::SetTwistLimit(ConstraintHandle, -TwistLimitRad, TwistLimitRad, LimitContactDistance);
 		}
 		else if ( ProfileInstance.TwistLimit.TwistMotion == ACM_Locked )
 		{
-			Joint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eLOCKED);
+			FPhysicsInterface::SetAngularMotionLimitType_AssumesLocked(InUnbrokenConstraint, ELimitAxis::Twist, ACM_Locked);
 		}
-		
 	});
-#endif
 }
 
 /** Allows you to dynamically change the size of the linear limit 'sphere'. */
@@ -1231,10 +872,9 @@ void FConstraintInstance::SetLinearLimitSize(float NewLimitSize)
 {
 	//TODO: Is this supposed to be scaling the linear limit? The code just sets it directly.
 #if WITH_PHYSX
-	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+	FPhysicsInterface::ExecuteOnUnbrokenConstraintReadWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& InUnbrokenConstraint)
 	{
-		PxReal LimitContactDistance = 1.f * (PI / 180.0f);
-		Joint->setLinearLimit(PxJointLinearLimit(GPhysXSDK->getTolerancesScale(), NewLimitSize, LimitContactDistance * GPhysXSDK->getTolerancesScale().length)); // LOC_MOD33 need to scale the contactDistance if not using its default value
+		FPhysicsInterface::SetLinearLimit(ConstraintHandle, NewLimitSize);
 	});
 #endif
 }
@@ -1398,46 +1038,42 @@ FConstraintInstance * FConstraintInstance::Alloc()
 
 void FConstraintInstance::EnableProjection()
 {
-#if WITH_PHYSX
 	ProfileInstance.bEnableProjection = true;
-	SCOPED_SCENE_WRITE_LOCK(ConstraintData->getScene());
-	ConstraintData->setProjectionLinearTolerance(ProfileInstance.ProjectionLinearTolerance);
-	ConstraintData->setProjectionAngularTolerance(ProfileInstance.ProjectionAngularTolerance);
-	ConstraintData->setConstraintFlag(PxConstraintFlag::ePROJECTION, true);
-#endif // WITH_PHYSX
+	
+	FPhysicsCommand::ExecuteWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& Constraint)
+	{
+		FPhysicsInterface::SetProjectionEnabled_AssumesLocked(Constraint, true, ProfileInstance.ProjectionLinearTolerance, ProfileInstance.ProjectionAngularTolerance);
+	});
 }
 
 void FConstraintInstance::DisableProjection()
 {
-#if WITH_PHYSX
 	ProfileInstance.bEnableProjection = false;
-	SCOPED_SCENE_WRITE_LOCK(ConstraintData->getScene());
-	ConstraintData->setConstraintFlag(PxConstraintFlag::ePROJECTION, false);
-#endif // WITH_PHYSX
+	
+	FPhysicsCommand::ExecuteWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& Constraint)
+	{
+		FPhysicsInterface::SetProjectionEnabled_AssumesLocked(Constraint, false);
+	});
 }
 
 void FConstraintInstance::EnableParentDominates()
 {
-#if WITH_PHYSX
 	ProfileInstance.bParentDominates = true;
-	SCOPED_SCENE_WRITE_LOCK(ConstraintData->getScene());
-	ConstraintData->setInvMassScale0(0.0f);
-	ConstraintData->setInvMassScale1(1.0f);
-	ConstraintData->setInvInertiaScale0(0.0f);
-	ConstraintData->setInvInertiaScale1(1.0f);
-#endif // WITH_PHYSX
+	
+	FPhysicsCommand::ExecuteWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& Constraint)
+	{
+		FPhysicsInterface::SetParentDominates_AssumesLocked(Constraint, true);
+	});
 }
 
 void FConstraintInstance::DisableParentDominates()
 {
-#if WITH_PHYSX
 	ProfileInstance.bParentDominates = false;
-	SCOPED_SCENE_WRITE_LOCK(ConstraintData->getScene());
-	ConstraintData->setInvMassScale0(1.0f);
-	ConstraintData->setInvMassScale1(1.0f);
-	ConstraintData->setInvInertiaScale0(1.0f);
-	ConstraintData->setInvInertiaScale1(1.0f);
-#endif // WITH_PHYSX
+	
+	FPhysicsCommand::ExecuteWrite(ConstraintHandle, [&](const FPhysicsConstraintHandle& Constraint)
+	{
+		FPhysicsInterface::SetParentDominates_AssumesLocked(Constraint, false);
+	});
 }
 
 

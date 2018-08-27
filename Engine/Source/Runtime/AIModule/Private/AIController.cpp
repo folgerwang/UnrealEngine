@@ -22,16 +22,8 @@
 #include "BehaviorTree/BehaviorTree.h"
 #include "GameplayTasksComponent.h"
 #include "Tasks/GameplayTask_ClaimResource.h"
+#include "NetworkingDistanceConstants.h"
 
-// mz@todo these need to be removed, legacy code
-#define CLOSEPROXIMITY					500.f
-#define NEARSIGHTTHRESHOLD				2000.f
-#define MEDSIGHTTHRESHOLD				3162.f
-#define FARSIGHTTHRESHOLD				8000.f
-#define CLOSEPROXIMITYSQUARED			(CLOSEPROXIMITY*CLOSEPROXIMITY)
-#define NEARSIGHTTHRESHOLDSQUARED		(NEARSIGHTTHRESHOLD*NEARSIGHTTHRESHOLD)
-#define MEDSIGHTTHRESHOLDSQUARED		(MEDSIGHTTHRESHOLD*MEDSIGHTTHRESHOLD)
-#define FARSIGHTTHRESHOLDSQUARED		(FARSIGHTTHRESHOLD*FARSIGHTTHRESHOLD)
 
 //----------------------------------------------------------------------//
 // AAIController
@@ -75,11 +67,12 @@ void AAIController::PostInitializeComponents()
 	}
 
 #if ENABLE_VISUAL_LOG
-	TInlineComponentArray<UActorComponent*> ComponentSet;
-	GetComponents(ComponentSet);
-	for (auto Component : ComponentSet)
+	for (UActorComponent* Component : GetComponents())
 	{
-		REDIRECT_OBJECT_TO_VLOG(Component, this);
+		if (Component)
+		{
+			REDIRECT_OBJECT_TO_VLOG(Component, this);
+		}
 	}
 #endif // ENABLE_VISUAL_LOG
 }
@@ -1067,6 +1060,17 @@ void AAIController::OnGameplayTaskResourcesClaimed(FGameplayResourceSet NewlyCla
 			BrainComponent->ClearResourceLock(EAIRequestPriority::Logic);
 		}
 	}
+}
+
+void AAIController::SetPathFollowingComponent(UPathFollowingComponent* NewPFComponent)
+{ 
+	PathFollowingComponent = NewPFComponent; 
+#if ENABLE_VISUAL_LOG
+	if (NewPFComponent)
+	{
+		REDIRECT_OBJECT_TO_VLOG(NewPFComponent, this);
+	}
+#endif // ENABLE_VISUAL_LOG
 }
 
 //----------------------------------------------------------------------//

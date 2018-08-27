@@ -39,7 +39,7 @@ class FD3D12DynamicRHI;
 
 /// @cond DOXYGEN_WARNINGS
 
-void* FD3D12ThreadLocalObject<FD3D12FastConstantAllocator>::ThisThreadObject = nullptr;
+template<> __declspec(thread) void* FD3D12ThreadLocalObject<FD3D12FastConstantAllocator>::ThisThreadObject = nullptr;
 
 /// @endcond
 

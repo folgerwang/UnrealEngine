@@ -29,7 +29,6 @@
 
 #include "pxr/pxr.h"
 #include "pxr/base/tf/tf.h"
-#include "pxr/base/tf/timeStamp.h"
 #include "pxr/base/tf/api.h"
 #include "pxr/base/arch/hash.h"
 
@@ -60,9 +59,8 @@ class TfWeakPtrFacade;
 ///   \li TfRefPtr
 ///   \li TfWeakPtr
 ///   \li TfEnum
-///   \li TfTimeStamp
 ///   \li const void*
-///   \li int
+///   \li size_t
 ///
 /// The \c TfHash class can be used to implement a
 /// \c TfHashMap with \c string keys as follows:
@@ -81,9 +79,8 @@ class TfWeakPtrFacade;
 ///     TfHashMap<TfRefPtr<S>, T, TfHash> m1;
 ///     TfHashMap<TfWeakPtr<S>, T, TfHash> m2;
 ///     TfHashMap<TfEnum, T, TfHash> m3;
-///     TfHashMap<TfTimeStamp, T, TfHash> m4;
 ///     TfHashMap<const void*, T, TfHash> m5;
-///     TfHashMap<int, T, TfHash> m6;
+///     TfHashMap<size_t, T, TfHash> m6;
 /// \endcode
 ///
 class TfHash {
@@ -125,10 +122,6 @@ public:
 
     TF_API size_t operator()(const TfType& t) const;
 
-    size_t operator()(TfTimeStamp stamp) const {
-        return _Mix(size_t(stamp.Get()));
-    }
-
     // We refuse to hash const char*.  You're almost certainly trying to
     // hash the pointed-to string and this will not do that (it will hash
     // the pointer itself).  If you really want to hash the pointer then
@@ -141,7 +134,7 @@ public:
         return _Mix((size_t) ptr);
     }
 
-    size_t operator()(int i) const {
+    size_t operator()(size_t i) const {
         return _Mix(i);
     }
 

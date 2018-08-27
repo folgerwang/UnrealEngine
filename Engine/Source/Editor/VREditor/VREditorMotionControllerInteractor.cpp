@@ -1432,9 +1432,15 @@ void UVREditorMotionControllerInteractor::UpdateRadialMenuInput( const float Del
 				}
 			}
 		}
-		// If we are not currently touching the Vive touchpad, reset the highlighted button
+		// If we are not currently touching the Vive touchpad, reset the highlighted button and pause sequencer playback if scrubbing
 		else if (HMDDeviceType == SteamVRDeviceType && !bIsTouchingTrackpad)
 		{
+			if (bIsScrubbingSequence)
+			{
+				const float NewPlayRate = 0.0f;
+				FVREditorActionCallbacks::PlaySequenceAtRate(VRMode, NewPlayRate);
+			}
+
 			if (UISystem.IsShowingRadialMenu(this))
 			{
 				const FVector2D ReturnToCenter = FVector2D::ZeroVector;

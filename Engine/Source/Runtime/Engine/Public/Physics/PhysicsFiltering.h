@@ -6,6 +6,7 @@
 #include "EngineDefines.h"
 #include "PhysicsPublic.h"
 #include "PhysXIncludes.h"
+#include "Physics/PhysicsInterfaceTypes.h"
 
 /** 
  * Set of flags stored in the PhysX FilterData
@@ -89,8 +90,7 @@ private:
 	uint32 Word3;
 };
 
-/** Utility for creating a PhysX PxFilterData for filtering query (trace) and sim (physics) from the Unreal filtering info. */
-#if WITH_PHYSX
+/** Utility for creating a FCollisionFilterData for filtering query (trace) and sim (physics) from the Unreal filtering info. */
 inline void CreateShapeFilterData(
 	const uint8 MyChannel,
 	const FMaskFilter MaskFilter,
@@ -98,8 +98,8 @@ inline void CreateShapeFilterData(
 	const FCollisionResponseContainer& ResponseToChannels,
 	uint32 ComponentID,
 	uint16 BodyIndex,
-	PxFilterData& OutQueryData,
-	PxFilterData& OutSimData,
+	FCollisionFilterData& OutQueryData,
+	FCollisionFilterData& OutSimData,
 	bool bEnableCCD,
 	bool bEnableContactNotify,
 	bool bStaticShape,
@@ -111,12 +111,11 @@ inline void CreateShapeFilterData(
 	Builder.ConditionalSetFlags(EPDF_StaticShape, bStaticShape);
 	Builder.ConditionalSetFlags(EPDF_ModifyContacts, bModifyContacts);
 
-	OutQueryData.setToDefault();
-	OutSimData.setToDefault();
-	Builder.GetQueryData(ActorID, OutQueryData.word0, OutQueryData.word1, OutQueryData.word2, OutQueryData.word3);
-	Builder.GetSimData(BodyIndex, ComponentID, OutSimData.word0, OutSimData.word1, OutSimData.word2, OutSimData.word3);
+	OutQueryData = FCollisionFilterData();
+	OutSimData = FCollisionFilterData();
+	Builder.GetQueryData(ActorID, OutQueryData.Word0, OutQueryData.Word1, OutQueryData.Word2, OutQueryData.Word3);
+	Builder.GetSimData(BodyIndex, ComponentID, OutSimData.Word0, OutSimData.Word1, OutSimData.Word2, OutSimData.Word3);
 }
-#endif //WITH_PHYSX
 
 inline ECollisionChannel GetCollisionChannel(uint32 Word3)
 {

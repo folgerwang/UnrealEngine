@@ -23,7 +23,15 @@
 		{
 			"Name" : "MediaCompositingEditor",
 			"Type" : "Editor",
-			"LoadingPhase" : "Default"
+			"LoadingPhase" : "PostEngineInit"
+		}
+	],
+	"Plugins": 
+	[
+		{
+			"Name": "ImgMedia",
+			"WhitelistTargets": "Editor",
+			"Enabled": true
 		}
 	]
 }

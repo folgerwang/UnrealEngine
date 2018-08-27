@@ -24,6 +24,12 @@
 #include "Algo/Transform.h"
 #include "UObject/MobileObjectVersion.h"
 #include "EngineStats.h"
+#include "Interfaces/ITargetPlatform.h"
+#if WITH_EDITOR
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+#endif // WITH_EDITOR
+
 
 #include "Interfaces/ITargetPlatform.h"
 #if WITH_EDITOR
@@ -1250,24 +1256,6 @@ void UInstancedStaticMeshComponent::OnCreatePhysicsState()
 
 void UInstancedStaticMeshComponent::OnDestroyPhysicsState()
 {
-	int32 PSceneIndex = INDEX_NONE;
-	for(const FBodyInstance* BI : InstanceBodies)
-	{
-		if(BI)
-		{
-			if(BI->SceneIndexSync)
-			{
-				PSceneIndex = BI->SceneIndexSync;
-				break;
-			}
-			else if(BI->SceneIndexAsync)
-			{
-				PSceneIndex = BI->SceneIndexAsync;
-				break;
-			}
-		}
-	}
-
 	USceneComponent::OnDestroyPhysicsState();
 
 	// Release all physics representations

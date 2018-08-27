@@ -21,7 +21,7 @@ public partial class Project : CommandUtils
 			return;
 		}
 
-		Log("********** GETFILE COMMAND STARTED **********");
+		LogInformation("********** GETFILE COMMAND STARTED **********");
 
 		var FileName = Path.GetFileName(Params.GetFile);
 		var LocalFile = CombinePaths(CmdEnv.EngineSavedFolder, FileName);
@@ -34,7 +34,7 @@ public partial class Project : CommandUtils
 
 		SC[0].StageTargetPlatform.GetTargetFile(Params.GetFile, LocalFile, Params);
 
-		Log("********** GETFILE COMMAND COMPLETED **********");
+		LogInformation("********** GETFILE COMMAND COMPLETED **********");
 	}
 
 	#endregion

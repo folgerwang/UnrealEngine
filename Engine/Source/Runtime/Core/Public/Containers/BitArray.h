@@ -333,37 +333,36 @@ public:
 	}
 
 	/**
-	 * Adds bits to the array with the given value.
+	 * Adds a bit to the array with the given value.
+	 * @return The index of the added bit.
+	 */
+	int32 Add(const bool Value)
+	{
+		const int32 Index = NumBits;
+
+		Reserve(Index + 1);
+		++NumBits;
+		(*this)[Index] = Value;
+
+		return Index;
+	}
+
+	/**
+	 * Adds multiple bits to the array with the given value.
 	 * @return The index of the first added bit.
 	 */
-	int32 Add(const bool Value, const int32 Count = 1)
+	int32 Add(const bool Value, int32 NumToAdd)
 	{
-		check(Count >= 0);
-
 		const int32 Index = NumBits;
-		const bool bReallocate = (NumBits + Count) > MaxBits;
 
-		NumBits += Count;
-
-		if(bReallocate)
+		if (NumToAdd > 0)
 		{
-			// Allocate memory for the new bits.
-			const uint32 MaxDWORDs = AllocatorInstance.CalculateSlackGrow(
-				FMath::DivideAndRoundUp(NumBits, NumBitsPerDWORD),
-				FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD),
-				sizeof(uint32)
-				);
-			MaxBits = MaxDWORDs * NumBitsPerDWORD;
-			Realloc(NumBits - Count);
-		}
-
-		if (Count == 1)
-		{
-			(*this)[Index] = Value;
-		}
-		else
-		{
-			SetRange(Index, Count, Value);
+			Reserve(Index + NumToAdd);
+			NumBits += NumToAdd;
+			for (int32 It = Index, End = It + NumToAdd; It != End; ++It)
+			{
+				(*this)[It] = Value;
+			}
 		}
 
 		return Index;
@@ -383,6 +382,25 @@ public:
 		{
 			MaxBits = ExpectedNumBits;
 			Realloc(0);
+		}
+	}
+
+	/**
+	 * Reserves memory such that the array can contain at least Number bits.
+	 *
+	 * @Number  The number of bits to reserve space for.
+	 */
+	void Reserve(int32 Number)
+	{
+		if (Number > MaxBits)
+		{
+			const uint32 MaxDWORDs = AllocatorInstance.CalculateSlackGrow(
+				FMath::DivideAndRoundUp(Number,  NumBitsPerDWORD),
+				FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD),
+				sizeof(uint32)
+				);
+			MaxBits = MaxDWORDs * NumBitsPerDWORD;
+			Realloc(NumBits);
 		}
 	}
 

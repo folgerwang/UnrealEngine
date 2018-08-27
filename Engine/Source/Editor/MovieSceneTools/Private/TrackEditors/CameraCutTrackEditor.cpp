@@ -298,6 +298,11 @@ FKeyPropertyResult FCameraCutTrackEditor::AddKeyInternal( FFrameNumber KeyTime, 
 UMovieSceneCameraCutTrack* FCameraCutTrackEditor::FindOrCreateCameraCutTrack()
 {
 	UMovieScene* FocusedMovieScene = GetFocusedMovieScene();
+	if (FocusedMovieScene->IsReadOnly())
+	{
+		return nullptr;
+	}
+
 	UMovieSceneTrack* CameraCutTrack = FocusedMovieScene->GetCameraCutTrack();
 
 	if (CameraCutTrack == nullptr)
@@ -327,11 +332,14 @@ void FCameraCutTrackEditor::HandleAddCameraCutTrackMenuEntryExecute()
 {
 	UMovieSceneCameraCutTrack* CameraCutTrack = FindOrCreateCameraCutTrack();
 
-	if (GetSequencer().IsValid())
+	if (CameraCutTrack)
 	{
-		GetSequencer()->OnAddTrack(CameraCutTrack);
+		if (GetSequencer().IsValid())
+		{
+			GetSequencer()->OnAddTrack(CameraCutTrack);
+		}
+		GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
 	}
-	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 bool FCameraCutTrackEditor::IsCameraPickable(const AActor* const PickableActor)

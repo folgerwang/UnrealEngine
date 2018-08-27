@@ -71,6 +71,10 @@ class UEditorPerProjectUserSettings : public UObject
 	UPROPERTY(EditAnywhere, config, Category=HotReload)
 	uint32 bShowCompilerLogOnCompileError : 1;
 
+	/** If enabled, the fbx parser will keep the fbx namespaces, otherwise the namespace will be append to fbx node. */
+	UPROPERTY(EditAnywhere, config, Category = Import)
+	uint32 bKeepFbxNamespace : 1;
+
 	/** If enabled, the fbx option dialog will show when user re-import a fbx */
 	UPROPERTY(EditAnywhere, config, Category = Import)
 	uint32 bShowImportDialogAtReimport : 1;

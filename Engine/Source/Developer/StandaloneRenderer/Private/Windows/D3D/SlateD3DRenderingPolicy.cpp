@@ -43,6 +43,9 @@ FSlateD3D11RenderingPolicy::~FSlateD3D11RenderingPolicy()
 
 void FSlateD3D11RenderingPolicy::InitResources()
 {
+	VertexShader = nullptr;
+	PixelShader = nullptr;
+
 	D3D11_SAMPLER_DESC SamplerDesc;
 	FMemory::Memzero( &SamplerDesc, sizeof(D3D11_SAMPLER_DESC) );
 	SamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
@@ -170,12 +173,27 @@ void FSlateD3D11RenderingPolicy::ReleaseResources()
 	VertexBuffer.DestroyBuffer();
 	IndexBuffer.DestroyBuffer();
 
-	delete VertexShader;
-	delete PixelShader;
+	if (VertexShader != nullptr)
+	{
+		delete VertexShader;
+		VertexShader = nullptr;
+	}
+
+	if (PixelShader != nullptr)
+	{
+		delete PixelShader;
+		PixelShader = nullptr;
+	}
 }
 
 void FSlateD3D11RenderingPolicy::UpdateVertexAndIndexBuffers( FSlateBatchData& InBatchData )
 {	
+	if (!VertexBuffer.GetResource().IsValid() ||
+		!IndexBuffer.GetResource().IsValid())
+	{
+		return;
+	}
+
 	if( InBatchData.GetRenderBatches().Num() > 0 )
 	{
 		if( InBatchData.GetNumBatchedVertices() > 0 )
@@ -230,6 +248,12 @@ void FSlateD3D11RenderingPolicy::UpdateVertexAndIndexBuffers( FSlateBatchData& I
 
 void FSlateD3D11RenderingPolicy::DrawElements( const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches )
 {
+	if (!VertexBuffer.GetResource().IsValid() ||
+		!IndexBuffer.GetResource().IsValid())
+	{
+		return;
+	}
+
 	VertexShader->BindShader();
 
 	ID3D11Buffer* Buffer = VertexBuffer.GetResource();

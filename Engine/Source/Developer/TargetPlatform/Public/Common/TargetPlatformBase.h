@@ -93,9 +93,18 @@ public:
 		// do nothing in the base class
 	}
 
+	virtual void RefreshSettings() override
+	{
+	}
+
 	virtual int32 GetCompressionBitWindow() const override
 	{
 		return DEFAULT_ZLIB_BIT_WINDOW;
+	}
+
+	virtual int32 GetPlatformOrdinal() const override
+	{
+		return PlatformOrdinal;
 	}
 
 protected:
@@ -104,10 +113,13 @@ protected:
 		: PlatformInfo(InPlatformInfo)
 	{
 		check(PlatformInfo);
+
+		PlatformOrdinal = AssignPlatformOrdinal(*this);
 	}
 
 	/** Information about this platform */
 	const PlatformInfo::FPlatformInfo *PlatformInfo;
+	int32 PlatformOrdinal;
 };
 
 

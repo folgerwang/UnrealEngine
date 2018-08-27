@@ -15,6 +15,10 @@ namespace BuildPatchServices
 		{
 		}
 
+		virtual void SendMessage(FInstallationFileAction Message) override
+		{
+		}
+
 		virtual void PumpMessages(const TArray<FMessageHandler*>& Handlers) override
 		{
 		}

@@ -14,7 +14,8 @@ namespace BuildPatchServices
 	public:
 		typedef TTuple<double, FString, int64> FOnFileStarted;
 		typedef TTuple<double, FString, int64> FOnFileProgress;
-		typedef TTuple<double, FString, bool> FOnFileCompleted;
+		typedef TTuple<double, FString, EVerifyResult> FOnFileCompleted;
+		typedef TTuple<double, ISpeedRecorder::FRecord> FOnFileRead;
 		typedef TTuple<double, int64> FOnProcessedDataUpdated;
 		typedef TTuple<double, int64> FOnTotalRequiredUpdated;
 
@@ -33,13 +34,18 @@ namespace BuildPatchServices
 			RxOnFileProgress.Emplace(FStatsCollector::GetSeconds(), Filename, TotalBytes);
 		}
 
-		virtual void OnFileCompleted(const FString& Filename, bool bSuccess) override
+		virtual void OnFileCompleted(const FString& Filename, EVerifyResult VerifyResult) override
 		{
 			if (OnFileCompletedFunc)
 			{
-				OnFileCompletedFunc(Filename, bSuccess);
+				OnFileCompletedFunc(Filename, VerifyResult);
 			}
-			RxOnFileCompleted.Emplace(FStatsCollector::GetSeconds(), Filename, bSuccess);
+			RxOnFileCompleted.Emplace(FStatsCollector::GetSeconds(), Filename, VerifyResult);
+		}
+
+		virtual void OnFileRead(const ISpeedRecorder::FRecord& Record) override
+		{
+			RxOnFileRead.Emplace(FStatsCollector::GetSeconds(), Record);
 		}
 
 		virtual void OnProcessedDataUpdated(int64 TotalBytes) override
@@ -56,10 +62,11 @@ namespace BuildPatchServices
 		TArray<FOnFileStarted> RxOnFileStarted;
 		TArray<FOnFileProgress> RxOnFileProgress;
 		TArray<FOnFileCompleted> RxOnFileCompleted;
+		TArray<FOnFileRead> RxOnFileRead;
 		TArray<FOnProcessedDataUpdated> RxOnProcessedDataUpdated;
 		TArray<FOnTotalRequiredUpdated> RxOnTotalRequiredUpdated;
 		TFunction<void(const FString&, int64)> OnFileProgressFunc;
-		TFunction<void(const FString&, bool)> OnFileCompletedFunc;
+		TFunction<void(const FString&, EVerifyResult)> OnFileCompletedFunc;
 	};
 }
 

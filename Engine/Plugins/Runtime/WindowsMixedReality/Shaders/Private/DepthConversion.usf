@@ -1,0 +1,21 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+
+#include "/Engine/Private/Common.ush"
+
+float FarPlaneDistance;
+Texture2D InDepthTexture;
+SamplerState InTextureSampler;
+
+void MainPixelShader(
+	in float2 uv : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{
+	// Max 24-bit int.
+	float MaxZ = 16777215.0f;
+
+	float depth = Texture2DSample(InDepthTexture, InTextureSampler, uv);
+	float percent = depth / MaxZ;
+
+	OutColor = 1 - percent * FarPlaneDistance;
+}

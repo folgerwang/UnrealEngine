@@ -101,7 +101,7 @@ namespace BuildGraph.Tasks
 				{
 					if (FileReference.Exists(File.Key))
 					{
-						CommandUtils.Log("Not copying existing file {0}", File.Key);
+						CommandUtils.LogInformation("Not copying existing file {0}", File.Key);
 						return false;
 					}
 					return true;
@@ -111,7 +111,7 @@ namespace BuildGraph.Tasks
 			// Check we got some files
 			if(TargetFileToSourceFile.Count == 0)
 			{
-				CommandUtils.Log("No files found matching '{0}'", SourcePattern);
+				CommandUtils.LogInformation("No files found matching '{0}'", SourcePattern);
 				return;
 			}
 
@@ -156,7 +156,7 @@ namespace BuildGraph.Tasks
 
 			// Copy them all
 			KeyValuePair<FileReference, FileReference>[] FilePairs = TargetFileToSourceFile.ToArray();
-			CommandUtils.Log("Copying {0} file{1} from {2} to {3}...", FilePairs.Length, (FilePairs.Length == 1)? "" : "s", SourcePattern.BaseDirectory, TargetPattern.BaseDirectory);
+			CommandUtils.LogInformation("Copying {0} file{1} from {2} to {3}...", FilePairs.Length, (FilePairs.Length == 1)? "" : "s", SourcePattern.BaseDirectory, TargetPattern.BaseDirectory);
 			CommandUtils.ThreadedCopyFiles(FilePairs.Select(x => x.Value.FullName).ToList(), FilePairs.Select(x => x.Key.FullName).ToList(), bQuiet: true);
 
 			// Update the list of build products

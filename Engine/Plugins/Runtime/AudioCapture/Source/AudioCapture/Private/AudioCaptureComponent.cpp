@@ -76,17 +76,19 @@ void UAudioCaptureComponent::OnBeginGenerate()
 {
 	if (!bIsStreamOpen)
 	{
-		CaptureSynth.OpenDefaultStream();
+		bIsStreamOpen = CaptureSynth.OpenDefaultStream();
 	}
 
-	CaptureSynth.StartCapturing();
-	check(CaptureSynth.IsCapturing());
+	if (bIsStreamOpen)
+	{
+		CaptureSynth.StartCapturing();
+		check(CaptureSynth.IsCapturing());
 
-	// Don't allow this component to be destroyed until the stream is closed again
-	bIsReadyForForFinishDestroy = false;
-
-	FramesSinceStarting = 0;
-	ReadSampleIndex = 0;
+		// Don't allow this component to be destroyed until the stream is closed again
+		bIsReadyForForFinishDestroy = false;
+		FramesSinceStarting = 0;
+		ReadSampleIndex = 0;
+	}
 
 }
 
@@ -96,6 +98,7 @@ void UAudioCaptureComponent::OnEndGenerate()
 	{
 		check(CaptureSynth.IsStreamOpen());
 		CaptureSynth.StopCapturing();
+		bIsStreamOpen = false;
 
 		bIsReadyForForFinishDestroy = true;
 	}

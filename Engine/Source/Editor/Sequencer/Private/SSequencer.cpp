@@ -25,6 +25,7 @@
 #include "Widgets/Input/SComboButton.h"
 #include "Widgets/Layout/SSplitter.h"
 #include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "EditorStyleSet.h"
 #include "Engine/Selection.h"
 #include "LevelEditorViewport.h"
@@ -293,6 +294,26 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 								.ButtonStyle(FEditorStyle::Get(), "FlatButton")
 								.DelimiterImage(FEditorStyle::GetBrush("Sequencer.BreadcrumbIcon"))
 								.TextStyle(FEditorStyle::Get(), "Sequencer.BreadcrumbText")
+							]
+
+							+SHorizontalBox::Slot()
+							.HAlign(HAlign_Right)
+							.VAlign(VAlign_Center)
+							.AutoWidth()
+							.Padding(2, 0, 0, 0)
+							[
+								SNew(SCheckBox)
+								.IsFocusable(false)		
+								.IsChecked_Lambda([this] { return GetIsSequenceReadOnly() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; } )
+								.OnCheckStateChanged(this, &SSequencer::OnSetSequenceReadOnly)
+								.ToolTipText_Lambda([this] { return GetIsSequenceReadOnly() ? LOCTEXT("UnlockSequence", "Unlock the animation so that it is editable") : LOCTEXT("LockSequence", "Lock the animation so that it is not editable"); } )
+								.ForegroundColor(FLinearColor::White)
+								.CheckedImage(FEditorStyle::GetBrush("Sequencer.LockSequence"))
+								.CheckedHoveredImage(FEditorStyle::GetBrush("Sequencer.LockSequence"))
+								.CheckedPressedImage(FEditorStyle::GetBrush("Sequencer.LockSequence"))
+								.UncheckedImage(FEditorStyle::GetBrush("Sequencer.UnlockSequence"))
+								.UncheckedHoveredImage(FEditorStyle::GetBrush("Sequencer.UnlockSequence"))
+								.UncheckedPressedImage(FEditorStyle::GetBrush("Sequencer.UnlockSequence"))
 							]
 						]
 					]
@@ -688,11 +709,6 @@ void SSequencer::HandleOutlinerNodeSelectionChanged()
 
 TSharedRef<SWidget> SSequencer::MakeAddButton()
 {
-	if (SequencerPtr.Pin()->IsReadOnly())
-	{
-		return SNullWidget::NullWidget;
-	}
-
 	return SNew(SComboButton)
 	.OnGetMenuContent(this, &SSequencer::MakeAddMenu)
 	.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
@@ -710,6 +726,7 @@ TSharedRef<SWidget> SSequencer::MakeAddButton()
 			.TextStyle(FEditorStyle::Get(), "NormalText.Important")
 			.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
 			.Text(FEditorFontGlyphs::Plus)
+			.IsEnabled_Lambda([=]() { return !SequencerPtr.Pin()->IsReadOnly(); })
 		]
 
 		+ SHorizontalBox::Slot()
@@ -719,6 +736,7 @@ TSharedRef<SWidget> SSequencer::MakeAddButton()
 			SNew(STextBlock)
 			.TextStyle(FEditorStyle::Get(), "NormalText.Important")
 			.Text(LOCTEXT("Track", "Track"))
+			.IsEnabled_Lambda([=]() { return !SequencerPtr.Pin()->IsReadOnly(); })
 		]
 
 		+ SHorizontalBox::Slot()
@@ -730,6 +748,7 @@ TSharedRef<SWidget> SSequencer::MakeAddButton()
 			.TextStyle(FEditorStyle::Get(), "NormalText.Important")
 			.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
 			.Text(FEditorFontGlyphs::Caret_Down)
+			.IsEnabled_Lambda([=]() { return !SequencerPtr.Pin()->IsReadOnly(); })
 		]
 	];
 }
@@ -744,8 +763,6 @@ TSharedRef<SWidget> SSequencer::MakeToolBar()
 	}
 
 	FToolBarBuilder ToolBarBuilder( SequencerPtr.Pin()->GetCommandBindings(), FMultiBoxCustomization::None, Extender, Orient_Horizontal, true);
-
-	const bool bIsReadOnly = SequencerPtr.Pin()->IsReadOnly();
 
 	ToolBarBuilder.BeginSection("Base Commands");
 	{
@@ -785,150 +802,146 @@ TSharedRef<SWidget> SSequencer::MakeToolBar()
 			FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.GeneralOptions")
 		);
 
-		if (!bIsReadOnly)
+		ToolBarBuilder.AddComboButton(
+			FUIAction(),
+			FOnGetContent::CreateSP(this, &SSequencer::MakePlaybackMenu),
+			LOCTEXT("PlaybackOptions", "Playback Options"),
+			LOCTEXT("PlaybackOptionsToolTip", "Playback Options"),
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.PlaybackOptions")
+		);
+
+		ToolBarBuilder.AddComboButton(
+			FUIAction(),
+			FOnGetContent::CreateSP(this, &SSequencer::MakeSelectEditMenu),
+			LOCTEXT("SelectEditOptions", "Select/Edit Options"),
+			LOCTEXT("SelectEditOptionsToolTip", "Select/Edit Options"),
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.SelectEditOptions")
+		);
+
+		ToolBarBuilder.AddSeparator();
+
+		if( SequencerPtr.Pin()->IsLevelEditorSequencer() )
 		{
-			ToolBarBuilder.AddComboButton(
-				FUIAction(),
-				FOnGetContent::CreateSP(this, &SSequencer::MakePlaybackMenu),
-				LOCTEXT("PlaybackOptions", "Playback Options"),
-				LOCTEXT("PlaybackOptionsToolTip", "Playback Options"),
-				FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.PlaybackOptions")
-			);
+			TAttribute<FSlateIcon> KeyGroupModeIcon;
+			KeyGroupModeIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda([&] {
+				switch (SequencerPtr.Pin()->GetKeyGroupMode())
+				{
+				case EKeyGroupMode::KeyAll:
+					return FSequencerCommands::Get().SetKeyAll->GetIcon();
+				case EKeyGroupMode::KeyGroup:
+					return FSequencerCommands::Get().SetKeyGroup->GetIcon();
+				default: // EKeyGroupMode::KeyChanged
+					return FSequencerCommands::Get().SetKeyChanged->GetIcon();
+				}
+			}));
+
+			TAttribute<FText> KeyGroupModeToolTip;
+			KeyGroupModeToolTip.Bind(TAttribute<FText>::FGetter::CreateLambda([&] {
+				switch (SequencerPtr.Pin()->GetKeyGroupMode())
+				{
+				case EKeyGroupMode::KeyAll:
+					return FSequencerCommands::Get().SetKeyAll->GetDescription();
+				case EKeyGroupMode::KeyGroup:
+					return FSequencerCommands::Get().SetKeyGroup->GetDescription();
+				default: // EKeyGroupMode::KeyChanged
+					return FSequencerCommands::Get().SetKeyChanged->GetDescription();
+				}
+			}));
 
 			ToolBarBuilder.AddComboButton(
 				FUIAction(),
-				FOnGetContent::CreateSP(this, &SSequencer::MakeSelectEditMenu),
-				LOCTEXT("SelectEditOptions", "Select/Edit Options"),
-				LOCTEXT("SelectEditOptionsToolTip", "Select/Edit Options"),
-				FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.SelectEditOptions")
-			);
+				FOnGetContent::CreateSP(this, &SSequencer::MakeKeyGroupMenu),
+				LOCTEXT("KeyGroup", "Key All"),
+				KeyGroupModeToolTip,
+				KeyGroupModeIcon);
+		}
 
-			ToolBarBuilder.AddSeparator();
+		if (IVREditorModule::Get().IsVREditorModeActive() || (SequencerPtr.Pin()->IsLevelEditorSequencer() && ExactCast<ULevelSequence>(SequencerPtr.Pin()->GetFocusedMovieSceneSequence()) == nullptr))
+		{
+			TAttribute<FSlateIcon> AutoChangeModeIcon;
+			AutoChangeModeIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda( [&] {
+				switch ( SequencerPtr.Pin()->GetAutoChangeMode() )
+				{
+				case EAutoChangeMode::AutoKey:
+					return FSequencerCommands::Get().SetAutoKey->GetIcon();
+				case EAutoChangeMode::AutoTrack:
+					return FSequencerCommands::Get().SetAutoTrack->GetIcon();
+				case EAutoChangeMode::All:
+					return FSequencerCommands::Get().SetAutoChangeAll->GetIcon();
+				default: // EAutoChangeMode::None
+					return FSequencerCommands::Get().SetAutoChangeNone->GetIcon();
+				}
+			} ) );
 
-			if( SequencerPtr.Pin()->IsLevelEditorSequencer() )
-			{
-				TAttribute<FSlateIcon> KeyGroupModeIcon;
-				KeyGroupModeIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda([&] {
-					switch (SequencerPtr.Pin()->GetKeyGroupMode())
-					{
-					case EKeyGroupMode::KeyAll:
-						return FSequencerCommands::Get().SetKeyAll->GetIcon();
-					case EKeyGroupMode::KeyGroup:
-						return FSequencerCommands::Get().SetKeyGroup->GetIcon();
-					default: // EKeyGroupMode::KeyChanged
-						return FSequencerCommands::Get().SetKeyChanged->GetIcon();
-					}
-				}));
-
-				TAttribute<FText> KeyGroupModeToolTip;
-				KeyGroupModeToolTip.Bind(TAttribute<FText>::FGetter::CreateLambda([&] {
-					switch (SequencerPtr.Pin()->GetKeyGroupMode())
-					{
-					case EKeyGroupMode::KeyAll:
-						return FSequencerCommands::Get().SetKeyAll->GetDescription();
-					case EKeyGroupMode::KeyGroup:
-						return FSequencerCommands::Get().SetKeyGroup->GetDescription();
-					default: // EKeyGroupMode::KeyChanged
-						return FSequencerCommands::Get().SetKeyChanged->GetDescription();
-					}
-				}));
-
-				ToolBarBuilder.AddComboButton(
-					FUIAction(),
-					FOnGetContent::CreateSP(this, &SSequencer::MakeKeyGroupMenu),
-					LOCTEXT("KeyGroup", "Key All"),
-					KeyGroupModeToolTip,
-					KeyGroupModeIcon);
-
-			}
-
-			if (IVREditorModule::Get().IsVREditorModeActive() || (SequencerPtr.Pin()->IsLevelEditorSequencer() && ExactCast<ULevelSequence>(SequencerPtr.Pin()->GetFocusedMovieSceneSequence()) == nullptr))
-			{
-				TAttribute<FSlateIcon> AutoChangeModeIcon;
-				AutoChangeModeIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda( [&] {
-					switch ( SequencerPtr.Pin()->GetAutoChangeMode() )
-					{
-					case EAutoChangeMode::AutoKey:
-						return FSequencerCommands::Get().SetAutoKey->GetIcon();
-					case EAutoChangeMode::AutoTrack:
-						return FSequencerCommands::Get().SetAutoTrack->GetIcon();
-					case EAutoChangeMode::All:
-						return FSequencerCommands::Get().SetAutoChangeAll->GetIcon();
-					default: // EAutoChangeMode::None
-						return FSequencerCommands::Get().SetAutoChangeNone->GetIcon();
-					}
-				} ) );
-
-				TAttribute<FText> AutoChangeModeToolTip;
-				AutoChangeModeToolTip.Bind( TAttribute<FText>::FGetter::CreateLambda( [&] {
-					switch ( SequencerPtr.Pin()->GetAutoChangeMode() )
-					{
-					case EAutoChangeMode::AutoKey:
-						return FSequencerCommands::Get().SetAutoKey->GetDescription();
-					case EAutoChangeMode::AutoTrack:
-						return FSequencerCommands::Get().SetAutoTrack->GetDescription();
-					case EAutoChangeMode::All:
-						return FSequencerCommands::Get().SetAutoChangeAll->GetDescription();
-					default: // EAutoChangeMode::None
-						return FSequencerCommands::Get().SetAutoChangeNone->GetDescription();
-					}
-				} ) );
+			TAttribute<FText> AutoChangeModeToolTip;
+			AutoChangeModeToolTip.Bind( TAttribute<FText>::FGetter::CreateLambda( [&] {
+				switch ( SequencerPtr.Pin()->GetAutoChangeMode() )
+				{
+				case EAutoChangeMode::AutoKey:
+					return FSequencerCommands::Get().SetAutoKey->GetDescription();
+				case EAutoChangeMode::AutoTrack:
+					return FSequencerCommands::Get().SetAutoTrack->GetDescription();
+				case EAutoChangeMode::All:
+					return FSequencerCommands::Get().SetAutoChangeAll->GetDescription();
+				default: // EAutoChangeMode::None
+					return FSequencerCommands::Get().SetAutoChangeNone->GetDescription();
+				}
+			} ) );
 			
-				ToolBarBuilder.AddComboButton(
-					FUIAction(),
-					FOnGetContent::CreateSP(this, &SSequencer::MakeAutoChangeMenu),
-					LOCTEXT("AutoChangeMode", "Auto-Change Mode"),
-					AutoChangeModeToolTip,
-					AutoChangeModeIcon);
-			}
-			else
-			{
-				TAttribute<FSlateIcon> AutoKeyIcon;
-				AutoKeyIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda([&]{
-					static FSlateIcon AutoKeyEnabledIcon(FEditorStyle::GetStyleSetName(), "Sequencer.SetAutoKey");
-					static FSlateIcon AutoKeyDisabledIcon(FEditorStyle::GetStyleSetName(), "Sequencer.SetAutoChangeNone");
+			ToolBarBuilder.AddComboButton(
+				FUIAction(),
+				FOnGetContent::CreateSP(this, &SSequencer::MakeAutoChangeMenu),
+				LOCTEXT("AutoChangeMode", "Auto-Change Mode"),
+				AutoChangeModeToolTip,
+				AutoChangeModeIcon);
+		}
+		else
+		{
+			TAttribute<FSlateIcon> AutoKeyIcon;
+			AutoKeyIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda([&]{
+				static FSlateIcon AutoKeyEnabledIcon(FEditorStyle::GetStyleSetName(), "Sequencer.SetAutoKey");
+				static FSlateIcon AutoKeyDisabledIcon(FEditorStyle::GetStyleSetName(), "Sequencer.SetAutoChangeNone");
 
-					return SequencerPtr.Pin()->GetAutoChangeMode() == EAutoChangeMode::None ? AutoKeyDisabledIcon : AutoKeyEnabledIcon;
-				}));
+				return SequencerPtr.Pin()->GetAutoChangeMode() == EAutoChangeMode::None ? AutoKeyDisabledIcon : AutoKeyEnabledIcon;
+			}));
 
-				ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleAutoKeyEnabled, NAME_None, TAttribute<FText>(), TAttribute<FText>(), AutoKeyIcon );
-			}
+			ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleAutoKeyEnabled, NAME_None, TAttribute<FText>(), TAttribute<FText>(), AutoKeyIcon );
+		}
 
-			if( SequencerPtr.Pin()->IsLevelEditorSequencer() )
-			{
-				TAttribute<FSlateIcon> AllowEditsModeIcon;
-				AllowEditsModeIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda( [&] {
-					switch ( SequencerPtr.Pin()->GetAllowEditsMode() )
-					{
-					case EAllowEditsMode::AllEdits:
-						return FSequencerCommands::Get().AllowAllEdits->GetIcon();
-					case EAllowEditsMode::AllowSequencerEditsOnly:
-						return FSequencerCommands::Get().AllowSequencerEditsOnly->GetIcon();
-					default: // EAllowEditsMode::AllowLevelEditsOnly
-						return FSequencerCommands::Get().AllowLevelEditsOnly->GetIcon();
-					}
-				} ) );
+		if( SequencerPtr.Pin()->IsLevelEditorSequencer() )
+		{
+			TAttribute<FSlateIcon> AllowEditsModeIcon;
+			AllowEditsModeIcon.Bind(TAttribute<FSlateIcon>::FGetter::CreateLambda( [&] {
+				switch ( SequencerPtr.Pin()->GetAllowEditsMode() )
+				{
+				case EAllowEditsMode::AllEdits:
+					return FSequencerCommands::Get().AllowAllEdits->GetIcon();
+				case EAllowEditsMode::AllowSequencerEditsOnly:
+					return FSequencerCommands::Get().AllowSequencerEditsOnly->GetIcon();
+				default: // EAllowEditsMode::AllowLevelEditsOnly
+					return FSequencerCommands::Get().AllowLevelEditsOnly->GetIcon();
+				}
+			} ) );
 
-				TAttribute<FText> AllowEditsModeToolTip;
-				AllowEditsModeToolTip.Bind( TAttribute<FText>::FGetter::CreateLambda( [&] {
-					switch ( SequencerPtr.Pin()->GetAllowEditsMode() )
-					{
-					case EAllowEditsMode::AllEdits:
-						return FSequencerCommands::Get().AllowAllEdits->GetDescription();
-					case EAllowEditsMode::AllowSequencerEditsOnly:
-						return FSequencerCommands::Get().AllowSequencerEditsOnly->GetDescription();
-					default: // EAllowEditsMode::AllowLevelEditsOnly
-						return FSequencerCommands::Get().AllowLevelEditsOnly->GetDescription();
-					}
-				} ) );
+			TAttribute<FText> AllowEditsModeToolTip;
+			AllowEditsModeToolTip.Bind( TAttribute<FText>::FGetter::CreateLambda( [&] {
+				switch ( SequencerPtr.Pin()->GetAllowEditsMode() )
+				{
+				case EAllowEditsMode::AllEdits:
+					return FSequencerCommands::Get().AllowAllEdits->GetDescription();
+				case EAllowEditsMode::AllowSequencerEditsOnly:
+					return FSequencerCommands::Get().AllowSequencerEditsOnly->GetDescription();
+				default: // EAllowEditsMode::AllowLevelEditsOnly
+					return FSequencerCommands::Get().AllowLevelEditsOnly->GetDescription();
+				}
+			} ) );
 
-				ToolBarBuilder.AddComboButton(
-					FUIAction(),
-					FOnGetContent::CreateSP(this, &SSequencer::MakeAllowEditsMenu),
-					LOCTEXT("AllowMode", "Allow Edits"),
-					AllowEditsModeToolTip,
-					AllowEditsModeIcon);
-			}
+			ToolBarBuilder.AddComboButton(
+				FUIAction(),
+				FOnGetContent::CreateSP(this, &SSequencer::MakeAllowEditsMenu),
+				LOCTEXT("AllowMode", "Allow Edits"),
+				AllowEditsModeToolTip,
+				AllowEditsModeIcon);
 		}
 	}
 	ToolBarBuilder.EndSection();
@@ -952,15 +965,11 @@ TSharedRef<SWidget> SSequencer::MakeToolBar()
 	}
 	ToolBarBuilder.EndSection();
 
-	if (!bIsReadOnly)
+	ToolBarBuilder.BeginSection("Curve Editor");
 	{
-		// Curve editor doesn't have any notion of read-only at the moment
-		ToolBarBuilder.BeginSection("Curve Editor");
-		{
-			ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleShowCurveEditor );
-		}
-		ToolBarBuilder.EndSection();
+		ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleShowCurveEditor );
 	}
+	ToolBarBuilder.EndSection();
 
 	return ToolBarBuilder.MakeWidget();
 }
@@ -1273,7 +1282,7 @@ TSharedRef<SWidget> SSequencer::MakeSelectEditMenu()
 	if (SequencerPtr.Pin()->IsLevelEditorSequencer())
 	{
 		MenuBuilder.AddMenuEntry(FSequencerCommands::Get().BakeTransform);
-		MenuBuilder.AddMenuEntry(FSequencerCommands::Get().SyncToSourceTimecode);
+		MenuBuilder.AddMenuEntry(FSequencerCommands::Get().SyncSectionsUsingSourceTimecode);
 	}
 
 	// selection range options
@@ -2414,6 +2423,28 @@ double SSequencer::GetSpinboxDelta() const
 {
 	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 	return Sequencer->GetDisplayRateDeltaFrameCount();
+}
+
+bool SSequencer::GetIsSequenceReadOnly() const
+{
+	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
+	return Sequencer->GetFocusedMovieSceneSequence() ? Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->IsReadOnly() : false;
+}
+
+void SSequencer::OnSetSequenceReadOnly(ECheckBoxState CheckBoxState)
+{
+	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
+	
+	if (Sequencer->GetFocusedMovieSceneSequence())
+	{
+		UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
+		const FScopedTransaction Transaction(CheckBoxState == ECheckBoxState::Checked ? LOCTEXT("LockMovieScene", "Lock Movie Scene") : LOCTEXT("UnlockMovieScene", "Unlock Movie Scene") );
+
+		MovieScene->Modify();
+		MovieScene->SetReadOnly(CheckBoxState == ECheckBoxState::Checked);
+
+		Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::Unknown);
+	}
 }
 
 void SSequencer::SetPlayTimeClampedByWorkingRange(double Frame)

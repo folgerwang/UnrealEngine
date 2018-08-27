@@ -493,6 +493,11 @@ void FVulkanGPUProfiler::DumpCrashMarkers(void* BufferData)
 #include "VulkanRHIBridge.h"
 namespace VulkanRHIBridge
 {
+	uint64 GetInstance(FVulkanDynamicRHI* RHI)
+	{
+		return (uint64)RHI->GetInstance();
+	}
+
 	FVulkanDevice* GetDevice(FVulkanDynamicRHI* RHI)
 	{
 		return RHI->GetDevice();
@@ -613,6 +618,7 @@ namespace VulkanRHI
 DEFINE_STAT(STAT_VulkanDrawCallTime);
 DEFINE_STAT(STAT_VulkanDispatchCallTime);
 DEFINE_STAT(STAT_VulkanDrawCallPrepareTime);
+DEFINE_STAT(STAT_VulkanCustomPresentTime);
 DEFINE_STAT(STAT_VulkanDispatchCallPrepareTime);
 DEFINE_STAT(STAT_VulkanGetOrCreatePipeline);
 DEFINE_STAT(STAT_VulkanGetDescriptorSet);

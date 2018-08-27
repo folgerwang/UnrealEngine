@@ -18,11 +18,12 @@
 
 void SControlRigGraphNode::Construct( const FArguments& InArgs )
 {
+	check(InArgs._GraphNodeObj);
 	this->GraphNode = InArgs._GraphNodeObj;
 
 	this->SetCursor( EMouseCursor::CardinalCross );
 
-	UControlRigGraphNode* ControlRigGraphNode = CastChecked<UControlRigGraphNode>(InArgs._GraphNodeObj);
+ 	UControlRigGraphNode* ControlRigGraphNode = InArgs._GraphNodeObj;
 
 	// Re-cache variable info here (unit structure could have changed since last reconstruction, e.g. array add/remove)
 	ControlRigGraphNode->CacheVariableInfo();

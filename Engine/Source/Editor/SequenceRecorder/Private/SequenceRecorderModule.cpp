@@ -152,7 +152,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 			LevelEditorModule.OnCaptureSingleFrameAnimSequence().BindStatic(&FSequenceRecorderModule::HandleCaptureSingleFrameAnimSequence);
 
 			// register standalone UI
-			LevelEditorTabManagerChangedHandle = LevelEditorModule.OnTabManagerChanged().AddLambda([]()
+			auto RegisterTabSpawner = []()
 			{
 				FLevelEditorModule& LocalLevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
 				LocalLevelEditorModule.GetLevelEditorTabManager()->RegisterTabSpawner(SequenceRecorderTabName, FOnSpawnTab::CreateStatic(&FSequenceRecorderModule::SpawnSequenceRecorderTab))
@@ -160,7 +160,16 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 				.SetDisplayName(LOCTEXT("SequenceRecorderTabTitle", "Sequence Recorder"))
 				.SetTooltipText(LOCTEXT("SequenceRecorderTooltipText", "Open the Sequence Recorder tab."))
 				.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "SequenceRecorder.TabIcon"));
-			});
+			};
+			FLevelEditorModule* LocalLevelEditorModule = FModuleManager::GetModulePtr<FLevelEditorModule>(TEXT("LevelEditor"));
+			if (LocalLevelEditorModule && LocalLevelEditorModule->GetLevelEditorTabManager())
+			{
+				RegisterTabSpawner();
+			}
+			else
+			{
+				LevelEditorTabManagerChangedHandle = LevelEditorModule.OnTabManagerChanged().AddLambda(RegisterTabSpawner);
+			}
 
 			// register for debug drawing
 			DrawDebugDelegateHandle = UDebugDrawService::Register(TEXT("Decals"), FDebugDrawDelegate::CreateStatic(&FSequenceRecorderModule::DrawDebug));
@@ -170,6 +179,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 			PropertyModule.RegisterCustomClassLayout(UActorRecording::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FActorRecordingDetailsCustomization::MakeInstance));
 			PropertyModule.RegisterCustomClassLayout(USequenceRecorderSettings::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FSequenceRecorderDetailsCustomization::MakeInstance));
 			PropertyModule.RegisterCustomPropertyTypeLayout(FPropertiesToRecordForClass::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FPropertiesToRecordForClassDetailsCustomization::MakeInstance));
+			PropertyModule.RegisterCustomPropertyTypeLayout(FPropertiesToRecordForActorClass::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FPropertiesToRecordForActorClassDetailsCustomization::MakeInstance));
 		}
 #endif
 	}
@@ -648,6 +658,16 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 		return nullptr;
 	}
 
+	virtual USequenceRecordingBase* QueueObjectToRecord(UObject* ObjectToRecord) override
+	{
+		if (ObjectToRecord && !FSequenceRecorder::Get().FindRecording(ObjectToRecord))
+		{
+			return FSequenceRecorder::Get().AddNewQueuedRecording(ObjectToRecord);
+		}
+
+		return nullptr;
+	}	
+
 	virtual uint32 GetTakeNumberForActor(AActor* InActor) const override
 	{
 		// If not using a group, take numbers aren't in use, return 0
@@ -725,6 +745,35 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 		return FSequenceRecorder::Get().GetRecordingGroupNames();
 	}
 
+
+	/** Add an extension to the SequenceRecorder */
+	virtual void AddSequenceRecorderExtender(TSharedPtr<ISequenceRecorderExtender> SequenceRecorderExternder) override
+	{
+		FSequenceRecorder::Get().GetSequenceRecorderExtenders().Add(SequenceRecorderExternder);
+
+		// Rebuild the UI
+		TSharedPtr<SDockTab> SequenceRecorderTabPtr = SequenceRecorderTab.Pin();
+		if (SequenceRecorderTabPtr.IsValid())
+		{
+			SequenceRecorderTabPtr->SetContent(SNew(SSequenceRecorder));
+		}
+	}
+
+	/** Remove an extension from the SequenceRecorder */
+	virtual void RemoveSequenceRecorderExtender(TSharedPtr<ISequenceRecorderExtender> SequenceRecorderExternder) override
+	{
+		FSequenceRecorder::Get().GetSequenceRecorderExtenders().Remove(SequenceRecorderExternder);
+		if (!GIsRequestingExit)
+		{
+			// Rebuild the UI
+			TSharedPtr<SDockTab> SequenceRecorderTabPtr = SequenceRecorderTab.Pin();
+			if (SequenceRecorderTabPtr.IsValid())
+			{
+				SequenceRecorderTabPtr->SetContent(SNew(SSequenceRecorder));
+			}
+		}
+	}
+
 #if WITH_EDITOR
 	static UAnimSequence* HandleCaptureSingleFrameAnimSequence(USkeletalMeshComponent* Component)
 	{
@@ -774,14 +823,17 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 
 	static TSharedRef<SDockTab> SpawnSequenceRecorderTab(const FSpawnTabArgs& SpawnTabArgs)
 	{
-		const TSharedRef<SDockTab> MajorTab =
-			SNew(SDockTab)
+		TSharedPtr<SDockTab> MajorTab;
+		SAssignNew(MajorTab, SDockTab)
 			.Icon(FEditorStyle::Get().GetBrush("SequenceRecorder.TabIcon"))
 			.TabRole(ETabRole::NomadTab);
 
 		MajorTab->SetContent(SNew(SSequenceRecorder));
 
-		return MajorTab;
+		FSequenceRecorderModule& SequenceRecorder = FModuleManager::GetModuleChecked<FSequenceRecorderModule>("SequenceRecorder");
+		SequenceRecorder.SequenceRecorderTab = MajorTab;
+
+		return MajorTab.ToSharedRef();
 	}
 
 	static void DrawDebug(UCanvas* InCanvas, APlayerController* InPlayerController)
@@ -802,6 +854,8 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 	TFunction<TUniquePtr<ISequenceAudioRecorder>()> AudioFactory;
 
 	FDelegateHandle AudioFactoryHandle;
+
+	TWeakPtr<SDockTab> SequenceRecorderTab;
 };
 
 IMPLEMENT_MODULE( FSequenceRecorderModule, SequenceRecorder )

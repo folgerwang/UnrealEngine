@@ -29,11 +29,19 @@ namespace ESplitScreenType
 		ThreePlayer_FavorTop,
 		// 3 Player split with 1 player on bottom and 2 on top
 		ThreePlayer_FavorBottom,
-		// 4 Player split
-		FourPlayer,
+		//3 Player vertical split
+		ThreePlayer_Vertical,
+		// 4 Player grid split
+		FourPlayer_Grid,
+		// 4 Player vertical split
+		FourPlayer_Vertical,
 
 		SplitTypeCount
 	};
+
+	// Deprecated old FourPlayer grid enum value
+	DEPRECATED(4.21, "FourPlayer is now FourPlayer_Grid")
+	const Type FourPlayer = FourPlayer_Grid;
 }
 
 /** Structure to store splitscreen data. */

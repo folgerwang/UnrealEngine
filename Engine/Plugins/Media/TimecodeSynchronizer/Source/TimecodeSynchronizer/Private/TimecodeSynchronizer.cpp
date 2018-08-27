@@ -136,7 +136,7 @@ FTimecode UTimecodeSynchronizer::GetTimecode() const
 
 FFrameRate UTimecodeSynchronizer::GetFrameRate() const
 {
-	return bUseCustomTimeStep && CustomTimeStep ? CustomTimeStep->FixedFrameRate : FixedFrameRate;
+	return bUseCustomTimeStep && CustomTimeStep ? CustomTimeStep->GetFixedFrameRate() : FixedFrameRate;
 }
 
 ETimecodeProviderSynchronizationState UTimecodeSynchronizer::GetSynchronizationState() const

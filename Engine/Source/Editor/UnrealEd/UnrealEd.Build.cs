@@ -114,6 +114,7 @@ public class UnrealEd : ModuleRules
 				"LauncherPlatform",
 				"EditorStyle",
 				"EngineSettings",
+				"ImageWriteQueue",
 				"InputCore",
 				"InputBindingEditor",
 				"LauncherServices",
@@ -161,6 +162,7 @@ public class UnrealEd : ModuleRules
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface",
 				"PIEPreviewDeviceProfileSelector",
+				"PakFileUtilities",
 				"TimeManagement",
 			}
 		);
@@ -224,6 +226,7 @@ public class UnrealEd : ModuleRules
 				"AnimationModifiers",
 				"ClothPainter",
 				"Media",
+				"TimeManagementEditor",
 			}
 		);
 
@@ -297,7 +300,7 @@ public class UnrealEd : ModuleRules
 			"FreeType2"
 		);
 
-		SetupModulePhysXAPEXSupport(Target);
+		SetupModulePhysicsSupport(Target);
 
 		if (Target.bCompileRecast)
 		{

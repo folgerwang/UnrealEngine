@@ -25,7 +25,7 @@
 #include "Matinee/InterpGroupInst.h"
 #include "Net/OnlineEngineInterface.h"
 #include "SceneManagement.h"
-#include "PhysicsPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "HAL/PlatformApplicationMisc.h"
 
@@ -1147,14 +1147,13 @@ bool ULocalPlayer::HandleListMoveBodyCommand( const TCHAR* Cmd, FOutputDevice& A
 
 bool ULocalPlayer::HandleListAwakeBodiesCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
-	ListAwakeRigidBodies(true, GetWorld());
+	GetWorld()->GetPhysicsScene()->ListAwakeRigidBodies(true);
 	return true;
 }
 
-
 bool ULocalPlayer::HandleListSimBodiesCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
-	ListAwakeRigidBodies(false, GetWorld());
+	GetWorld()->GetPhysicsScene()->ListAwakeRigidBodies(false);
 	return true;
 }
 
@@ -1238,16 +1237,14 @@ bool ULocalPlayer::HandleListPawnComponentsCommand( const TCHAR* Cmd, FOutputDev
 		APawn *Pawn = *It;
 		UE_LOG(LogPlayerManagement, Log, TEXT("Components for pawn: %s (collision component: %s)"),*Pawn->GetName(),*Pawn->GetRootComponent()->GetName());
 
-		TInlineComponentArray<UActorComponent*> Components;
-		Pawn->GetComponents(Components);
-
-		for (int32 CompIdx = 0; CompIdx < Components.Num(); CompIdx++)
+		int32 CompIdx = 0;
+		for (UActorComponent* Comp : Pawn->GetComponents())
 		{
-			UActorComponent *Comp = Components[CompIdx];
-			if (Comp->IsRegistered())
+			if (Comp && Comp->IsRegistered())
 			{
 				UE_LOG(LogPlayerManagement, Log, TEXT("  %d: %s"),CompIdx,*Comp->GetName());
 			}
+			++CompIdx;
 		}
 	}
 	return true;

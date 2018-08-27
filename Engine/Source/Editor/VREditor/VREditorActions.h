@@ -181,8 +181,17 @@ public:
 	/** Toggles looping the sequence */
 	static void ToggleLooping(UVREditorMode* InVRMode);
 
-	/** Whether or not the current sequence is looping */
-	static ECheckBoxState IsLoopingChecked(UVREditorMode* InVRMode);
+	/** The type of looping for the current sequence*/
+	static FText GetSequencerLoopingText();
+
+	/** Updates the sequencer toggling display */
+	static void UpdateSequencerLoopingText(UVREditorMode * InVRMode);
+
+	/** Sets the current sequence's selection range start to the current time */
+	static void SetSelectionRangeStart(UVREditorMode* InVRMode);
+
+	/** Sets the current sequence's selection range end to the current time */
+	static void SetSelectionRangeEnd(UVREditorMode* InVRMode);
 
 	static void ToggleSequencerScrubbing(UVREditorMode* InVRMode, UVREditorMotionControllerInteractor* InController);
 
@@ -225,5 +234,7 @@ public:
 	static FText GizmoModeText;
 
 	static FText SelectingCandidateActorsText;
+
+	static FText SequencerLoopText;
 
 };

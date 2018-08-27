@@ -73,5 +73,9 @@ public class ApplicationCore : ModuleRules
 			PublicIncludePaths.AddRange(new string[] {"Runtime/ApplicationCore/Public/IOS"});
 		}
 
+		if (!Target.bCompileAgainstApplicationCore)
+        {
+			throw new System.Exception("ApplicationCore cannot be used when Target.bCompileAgainstApplicationCore = false.");
+        }
 	}
 }

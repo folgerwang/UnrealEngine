@@ -599,10 +599,10 @@ void FStringTableRedirects::RedirectTableIdAndKey(FName& InOutTableId, FString& 
 }
 
 
-void FStringTableReferenceCollection::CollectAssetReferences(const FName InTableId, FArchive& InAr)
+void FStringTableReferenceCollection::CollectAssetReferences(const FName InTableId, FStructuredArchive::FRecord Record)
 {
-	if (InAr.IsObjectReferenceCollector())
+	if (Record.GetUnderlyingArchive().IsObjectReferenceCollector())
 	{
-		IStringTableEngineBridge::CollectStringTableAssetReferences(InTableId, InAr);
+		IStringTableEngineBridge::CollectStringTableAssetReferences(InTableId, Record.EnterField(FIELD_NAME_TEXT("AssetReferences")));
 	}
 }

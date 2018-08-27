@@ -7,8 +7,6 @@
 #include "AI/NavDataGenerator.h"
 #include "NavigationSystem.h"
 #include "Engine/Engine.h"
-// mz@todo why was this needed?
-//#include "AITypes.h"
 #include "NavAreas/NavArea.h"
 #include "AI/Navigation/NavAreaBase.h"
 #include "VisualLogger/VisualLogger.h"

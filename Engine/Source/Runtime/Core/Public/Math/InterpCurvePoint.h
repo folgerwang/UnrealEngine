@@ -328,7 +328,7 @@ inline void ComputeCurveTangent( float PrevTime, const FTwoVectors& PrevPoint,
 }
 
 /**
- * Calculate bounds of float inervals
+ * Calculate bounds of float intervals
  *
  * @param Start interp curve point at Start
  * @param End interp curve point at End

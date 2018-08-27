@@ -264,6 +264,8 @@ protected:
 		return true;
 	}
 
+	virtual FAndroidTargetDevicePtr CreateTargetDevice(const ITargetPlatform& InTargetPlatform, const FString& InSerialNumber, const FString& InAndroidVariant) const;
+
 	// query for rene3ring mode support
 	bool SupportsES2() const;
 	bool SupportsES31() const;

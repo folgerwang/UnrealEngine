@@ -22,7 +22,7 @@
 
 namespace SteamAudio
 {
-	std::atomic<bool> GIsBaking = false;
+	std::atomic<bool> GIsBaking(false);
 
 	static TSharedPtr<FTickableNotification> GBakeTickable = MakeShareable(new FTickableNotification());
 	static int32 GCurrentProbeVolume = 0;

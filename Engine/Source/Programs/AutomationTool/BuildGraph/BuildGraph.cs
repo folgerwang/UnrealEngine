@@ -125,8 +125,8 @@ namespace AutomationTool
 			DefaultProperties["RootDir"] = CommandUtils.RootDirectory.FullName;
 			DefaultProperties["IsBuildMachine"] = IsBuildMachine ? "true" : "false";
 			DefaultProperties["HostPlatform"] = HostPlatform.Current.HostEditorPlatform.ToString();
-			DefaultProperties["RestrictedFolderNames"] = String.Join(";", FileFilter.RestrictedFolderNames.Select(x => x.DisplayName));
-			DefaultProperties["RestrictedFolderFilter"] = String.Join(";", FileFilter.RestrictedFolderNames.Select(x => String.Format(".../{0}/...", x.DisplayName)));
+			DefaultProperties["RestrictedFolderNames"] = String.Join(";", RestrictedFolders.Names);
+			DefaultProperties["RestrictedFolderFilter"] = String.Join(";", RestrictedFolders.Names.Select(x => String.Format(".../{0}/...", x)));
 
 			// Attempt to read existing Build Version information
 			BuildVersion Version;
@@ -176,7 +176,7 @@ namespace AutomationTool
 			if(SchemaFileName != null)
 			{
 				FileReference FullSchemaFileName = new FileReference(SchemaFileName);
-				Log("Writing schema to {0}...", FullSchemaFileName.FullName);
+				LogInformation("Writing schema to {0}...", FullSchemaFileName.FullName);
 				Schema.Export(FullSchemaFileName);
 				if(ScriptFileName == null)
 				{
@@ -244,12 +244,12 @@ namespace AutomationTool
 				// List out all the required tokens
 				if(SingleNodeName == null)
 				{
-					CommandUtils.Log("Required tokens:");
+					CommandUtils.LogInformation("Required tokens:");
 					foreach(Node Node in TargetNodes)
 					{
 						foreach(FileReference RequiredToken in Node.RequiredTokens)
 						{
-							CommandUtils.Log("  '{0}' requires {1}", Node, RequiredToken);
+							CommandUtils.LogInformation("  '{0}' requires {1}", Node, RequiredToken);
 						}
 					}
 				}
@@ -281,12 +281,12 @@ namespace AutomationTool
 						HashSet<Node> SkipNodes = new HashSet<Node>();
 						foreach(IGrouping<string, FileReference> MissingTokensForBuild in MissingTokens.GroupBy(x => x.Value, x => x.Key))
 						{
-							Log("Skipping the following nodes due to {0}:", MissingTokensForBuild.Key);
+							LogInformation("Skipping the following nodes due to {0}:", MissingTokensForBuild.Key);
 							foreach(FileReference MissingToken in MissingTokensForBuild)
 							{
 								foreach(Node SkipNode in TargetNodes.Where(x => x.RequiredTokens.Contains(MissingToken) && SkipNodes.Add(x)))
 								{
-									Log("    {0}", SkipNode);
+									LogInformation("    {0}", SkipNode);
 								}
 							}
 						}
@@ -295,14 +295,14 @@ namespace AutomationTool
 						if(SkipNodes.Count > 0)
 						{
 							TargetNodes.ExceptWith(SkipNodes);
-							Log("Remaining target nodes:");
+							LogInformation("Remaining target nodes:");
 							foreach(Node TargetNode in TargetNodes)
 							{
-								Log("    {0}", TargetNode);
+								LogInformation("    {0}", TargetNode);
 							}
 							if(TargetNodes.Count == 0)
 							{
-								Log("    None.");
+								LogInformation("    None.");
 							}
 						}
 					}
@@ -358,7 +358,7 @@ namespace AutomationTool
 			if (PreprocessedFileName != null)
 			{
 				FileReference PreprocessedFileLocation = new FileReference(PreprocessedFileName);
-				Log("Writing {0}...", PreprocessedFileLocation);
+				LogInformation("Writing {0}...", PreprocessedFileLocation);
 				Graph.Write(PreprocessedFileLocation, (SchemaFileName != null)? new FileReference(SchemaFileName) : null);
 				return ExitCode.Success;
 			}
@@ -394,7 +394,7 @@ namespace AutomationTool
 				{
 					if(Diagnostic.EventType == LogEventType.Console)
 					{
-						CommandUtils.Log(Diagnostic.Message);
+						CommandUtils.LogInformation(Diagnostic.Message);
 					}
 					else if(Diagnostic.EventType == LogEventType.Warning)
 					{
@@ -622,15 +622,15 @@ namespace AutomationTool
 			int NodeIdx = 0;
 			foreach(Node NodeToExecute in NodesToExecute)
 			{
-				Log("****** [{0}/{1}] {2}", ++NodeIdx, NodesToExecute.Length, NodeToExecute.Name);
+				LogInformation("****** [{0}/{1}] {2}", ++NodeIdx, NodesToExecute.Length, NodeToExecute.Name);
 				if(!Storage.IsComplete(NodeToExecute.Name))
 				{
-					Log("");
+					LogInformation("");
 					if(!BuildNode(Job, Graph, NodeToExecute, Storage, false))
 					{
 						return false;
 					} 
-					Log("");
+					LogInformation("");
 				}
 			}
 			return true;
@@ -695,7 +695,7 @@ namespace AutomationTool
 			if(bWithBanner)
 			{
 				Console.WriteLine();
-				CommandUtils.Log("========== Starting: {0} ==========", Node.Name);
+				CommandUtils.LogInformation("========== Starting: {0} ==========", Node.Name);
 			}
 			if(!Node.Build(Job, TagNameToFileSet))
 			{
@@ -703,7 +703,7 @@ namespace AutomationTool
 			}
 			if(bWithBanner)
 			{
-				CommandUtils.Log("========== Finished: {0} ==========", Node.Name);
+				CommandUtils.LogInformation("========== Finished: {0} ==========", Node.Name);
 				Console.WriteLine();
 			}
 
@@ -859,7 +859,7 @@ namespace AutomationTool
 			}
 
 			// Write the output file
-			Log("Writing {0}...", OutputFile);
+			LogInformation("Writing {0}...", OutputFile);
 			using (StreamWriter Writer = new StreamWriter(OutputFile.FullName))
 			{
 				Writer.WriteLine("<html>");

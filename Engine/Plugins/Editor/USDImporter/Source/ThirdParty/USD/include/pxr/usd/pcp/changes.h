@@ -73,7 +73,10 @@ public:
     /// as part of determining the changes to this layer stack.
     /// However, we do not immediately apply those changes to the
     /// layer stack; we store them here and commit them in Apply().
-    SdfRelocatesMap newRelocatesTargetToSource, newRelocatesSourceToTarget;
+    SdfRelocatesMap newRelocatesTargetToSource;
+    SdfRelocatesMap newRelocatesSourceToTarget;
+    SdfRelocatesMap newIncrementalRelocatesSourceToTarget;
+    SdfRelocatesMap newIncrementalRelocatesTargetToSource;
     SdfPathVector newRelocatesPrimPaths;
 
     /// Paths that are affected by the above relocation changes.
@@ -379,15 +382,16 @@ private:
     // that include the sublayer.
     void _DidChangeSublayerAndLayerStacks(PcpCache* cache,
                                           const PcpLayerStackPtrVector& stacks,
+                                          const std::string& sublayerPath,
                                           const SdfLayerHandle& sublayer,
                                           _SublayerChangeType sublayerChange,
                                           std::string* debugSummary);
 
     // Propagates changes to \p sublayer specified by \p sublayerChange to 
     // the dependents of that sublayer.
-    // Returns true if the sublayer being changed is valid, false otherwise.
-    bool _DidChangeSublayer(PcpCache* cache,
+    void _DidChangeSublayer(PcpCache* cache,
                             const PcpLayerStackPtrVector& layerStacks,
+                            const std::string& sublayerPath,
                             const SdfLayerHandle& sublayer,
                             _SublayerChangeType sublayerChange,
                             std::string* debugSummary,

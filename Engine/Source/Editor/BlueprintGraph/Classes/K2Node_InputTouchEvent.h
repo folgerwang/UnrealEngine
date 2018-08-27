@@ -20,13 +20,13 @@ class UK2Node_InputTouchEvent : public UK2Node_Event
 	TEnumAsByte<EInputEvent> InputKeyEvent;
 
 	UPROPERTY()
-	uint32 bConsumeInput:1;
+	uint8 bConsumeInput:1;
 
 	UPROPERTY()
-	uint32 bExecuteWhenPaused:1;
+	uint8 bExecuteWhenPaused:1;
 
 	UPROPERTY()
-	uint32 bOverrideParentBinding:1;
+	uint8 bOverrideParentBinding:1;
 
 	//~ Begin UK2Node Interface
 	virtual UClass* GetDynamicBindingClass() const override;

@@ -12,11 +12,14 @@
 #define VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS	0
 #define VULKAN_USE_DESCRIPTOR_POOL_MANAGER			0
 #define VULKAN_USE_IMAGE_ACQUIRE_FENCES				0
+#define VULKAN_SUPPORTS_COLOR_CONVERSIONS			1
 
 
 #define ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(EnumMacro)
 
-#define ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(EnumMacro)
+#define ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(EnumMacro) \
+	EnumMacro(PFN_vkCreateSamplerYcbcrConversionKHR, vkCreateSamplerYcbcrConversionKHR) \
+	EnumMacro(PFN_vkDestroySamplerYcbcrConversionKHR, vkDestroySamplerYcbcrConversionKHR)
 
 #include "../VulkanLoader.h"
 
@@ -51,9 +54,12 @@ public:
 
 	static bool HasUnifiedMemory() { return true; }
 
+	static void EnablePhysicalDeviceFeatureExtensions(VkDeviceCreateInfo& DeviceInfo);
+
 protected:
 	static void* VulkanLib;
 	static bool bAttemptedLoad;
+	static VkPhysicalDeviceSamplerYcbcrConversionFeatures SamplerConversion;
 };
 
 typedef FVulkanLuminPlatform FVulkanPlatform;

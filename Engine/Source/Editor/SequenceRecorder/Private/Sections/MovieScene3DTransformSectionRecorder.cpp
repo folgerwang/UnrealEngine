@@ -98,6 +98,11 @@ void FMovieScene3DTransformSectionRecorder::CreateSection(UObject* InObjectToRec
 
 void FMovieScene3DTransformSectionRecorder::FinalizeSection(float CurrentTime)
 {
+	if (!MovieSceneSection.IsValid())
+	{
+		return;
+	}
+
 	bool bWasRecording = bRecording;
 	bRecording = false;
 
@@ -338,6 +343,11 @@ void FMovieScene3DTransformSectionRecorder::FinalizeSection(float CurrentTime)
 
 void FMovieScene3DTransformSectionRecorder::Record(float CurrentTime)
 {
+	if (!MovieSceneSection.IsValid())
+	{
+		return;
+	}
+
 	if(ObjectToRecord.IsValid())
 	{
 		if(USceneComponent* SceneComponent = Cast<USceneComponent>(ObjectToRecord.Get()))

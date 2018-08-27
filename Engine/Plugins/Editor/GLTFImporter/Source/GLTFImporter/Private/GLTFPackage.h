@@ -25,7 +25,7 @@ UPackage* GetAssetPackageAndName(UObject* Parent, const FString& PreferredName, 
 	AssetName = ObjectTools::SanitizeObjectName(AssetName);
 
 	// set where to place the static mesh
-	const FString BasePackageName = PackageTools::SanitizePackageName(FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) / AssetName);
+	const FString BasePackageName = UPackageTools::SanitizePackageName(FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) / AssetName);
 
 	const FString ObjectPath = BasePackageName + TEXT('.') + AssetName;
 	T* ExistingAsset = LoadObject<T>(nullptr, *ObjectPath, nullptr, LOAD_Quiet | LOAD_NoWarn);
@@ -38,7 +38,7 @@ UPackage* GetAssetPackageAndName(UObject* Parent, const FString& PreferredName, 
 	}
 	else
 	{
-		const FString Suffix(0, nullptr); // empty
+		const FString Suffix; // empty
 
 		static FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
 		FString FinalPackageName;

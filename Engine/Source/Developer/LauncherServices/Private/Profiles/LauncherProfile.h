@@ -1092,7 +1092,6 @@ public:
 		Writer.WriteValue("nocompile", !IsBuildingUAT());
 		Writer.WriteValue("nocompileeditor", FApp::IsEngineInstalled());
 		Writer.WriteValue("ue4exe", GetEditorExe());
-		Writer.WriteValue("usedebugparamforeditorexe", FApp::IsRunningDebug());
 		Writer.WriteValue("utf8output", true);
 
 		// client configurations
@@ -1400,7 +1399,6 @@ public:
 		"skipcookingeditorcontent", "true/false"
 		"numcookerstospawn", "8"
 		"compressed", "true/false"
-		"usedebugparamforeditorexe", "true/false"
 		"iterativecooking", "true/false"
 		"skipcookonthefly", "true/false"
 		"cookall", "true/false"
@@ -2476,6 +2474,7 @@ protected:
 		}
 
 		ValidatePlatformSDKs();
+		ValidateDeviceStatus();
 	}
 	
 	void ValidatePlatformSDKs(void)
@@ -2539,7 +2538,33 @@ protected:
 			}
 		}
 	}
-	
+
+	void ValidateDeviceStatus(void)
+	{
+		ValidationErrors.Remove(ELauncherProfileValidationErrors::LaunchDeviceIsUnauthorized);
+
+		if (DeployedDeviceGroup.IsValid())
+		{
+			const TArray<FString>& Devices = DeployedDeviceGroup->GetDeviceIDs();
+			for (auto DeviceId : Devices)
+			{
+				ITargetDeviceServicesModule* TargetDeviceServicesModule = static_cast<ITargetDeviceServicesModule*>(FModuleManager::Get().LoadModule(TEXT("TargetDeviceServices")));
+				if (TargetDeviceServicesModule)
+				{
+					TSharedPtr<ITargetDeviceProxy> DeviceProxy = TargetDeviceServicesModule->GetDeviceProxyManager()->FindProxyDeviceForTargetDevice(DeviceId);
+					if (DeviceProxy.IsValid())
+					{
+						if (!DeviceProxy->IsAuthorized())
+						{
+							ValidationErrors.Add(ELauncherProfileValidationErrors::LaunchDeviceIsUnauthorized);
+							return;
+						}
+					}
+				}
+			}
+		}
+	}
+
 	void OnLauncherDeviceGroupDeviceAdded(const ILauncherDeviceGroupRef& DeviceGroup, const FString& DeviceId)
 	{
 		if( DeviceGroup == DeployedDeviceGroup )

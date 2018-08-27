@@ -29,11 +29,6 @@
 #include "pxr/usd/pcp/cache.h"
 #include "pxr/base/tf/hashset.h"
 
-#include <boost/noncopyable.hpp>
-#include <boost/optional.hpp>
-#include <boost/scoped_ptr.hpp>
-#include <boost/shared_ptr.hpp>
-
 #include <string>
 #include <vector>
 
@@ -59,11 +54,12 @@ struct PcpNamespaceEdits {
     /// Types of namespace edits that a given layer stack site could need
     /// to perform to respond to a namespace edit.
     enum EditType {
-        EditPath,      ///< Must namespace edit spec
-        EditInherit,   ///< Must fixup inherits
-        EditReference, ///< Must fixup references
-        EditPayload,   ///< Must fixup payload
-        EditRelocate,  ///< Must fixup relocates
+        EditPath,        ///< Must namespace edit spec
+        EditInherit,     ///< Must fixup inherits
+        EditSpecializes, ///< Must fixup specializes
+        EditReference,   ///< Must fixup references
+        EditPayload,     ///< Must fixup payload
+        EditRelocate,    ///< Must fixup relocates
     };
 
     void Swap(PcpNamespaceEdits& rhs)

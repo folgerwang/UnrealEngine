@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Templates/Atomic.h"
 #include "Interfaces/IHttpRequest.h"
 #include "HttpRequestAdapter.h"
 
@@ -177,6 +178,7 @@ namespace FHttpRetrySystem
          */
         HTTP_API bool Update(uint32* FileCount = NULL, uint32* FailingCount = NULL, uint32* FailedCount = NULL, uint32* CompletedCount = NULL);
 		HTTP_API void SetRandomFailureRate(float Value) { RandomFailureRate = FRandomFailureRateSetting::Create(Value); }
+		HTTP_API void SetDefaultRetryLimit(uint32 Value) { RetryLimitCountDefault = FRetryLimitCountSetting::Create(Value); }
 
     protected:
 		friend class FRequest;

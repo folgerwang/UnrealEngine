@@ -78,5 +78,11 @@ namespace BuildPatchServices
 		 * @param ChunkCount        The number of chunks now contained in the store.
 		 */
 		virtual void OnStoreUseUpdated(int32 ChunkCount) = 0;
+
+		/**
+		 * Called whenever the total size allotted for the store is updated.
+		 * @param Size              The total number of chunks that can be stored.
+		 */
+		virtual void OnStoreSizeUpdated(int32 Size) = 0;
 	};
 }

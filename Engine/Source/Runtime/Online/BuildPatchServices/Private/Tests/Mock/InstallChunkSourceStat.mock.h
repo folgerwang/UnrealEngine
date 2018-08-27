@@ -12,33 +12,49 @@ namespace BuildPatchServices
 		: public IInstallChunkSourceStat
 	{
 	public:
+		typedef TTuple<double, TArray<FGuid>> FBatchStarted;
 		typedef TTuple<double, FGuid> FLoadStarted;
-		typedef TTuple<double, FGuid, ELoadResult> FLoadComplete;
+		typedef TTuple<double, FGuid, ELoadResult, ISpeedRecorder::FRecord> FLoadComplete;
 
 	public:
+		virtual void OnBatchStarted(const TArray<FGuid>& ChunkIds) override
+		{
+			if (OnBatchStartedFunc != nullptr)
+			{
+				OnBatchStartedFunc(ChunkIds);
+			}
+			RxBatchStarted.Emplace(FStatsCollector::GetSeconds(), ChunkIds);
+		}
+
 		virtual void OnLoadStarted(const FGuid& ChunkId) override
 		{
-			if (OnLoadStartedFunc)
+			if (OnLoadStartedFunc != nullptr)
 			{
 				OnLoadStartedFunc(ChunkId);
 			}
 			RxLoadStarted.Emplace(FStatsCollector::GetSeconds(), ChunkId);
 		}
 
-		virtual void OnLoadComplete(const FGuid& ChunkId, ELoadResult Result) override
+		virtual void OnLoadComplete(const FGuid& ChunkId, const ELoadResult& Result, const ISpeedRecorder::FRecord& Record) override
 		{
-			if (OnLoadCompleteFunc)
+			if (OnLoadCompleteFunc != nullptr)
 			{
-				OnLoadCompleteFunc(ChunkId, Result);
+				OnLoadCompleteFunc(ChunkId, Result, Record);
 			}
-			RxLoadComplete.Emplace(FStatsCollector::GetSeconds(), ChunkId, Result);
+			RxLoadComplete.Emplace(FStatsCollector::GetSeconds(), ChunkId, Result, Record);
+		}
+
+		virtual void OnAcceptedNewRequirements(const TSet<FGuid>& ChunkIds) override
+		{
 		}
 
 	public:
+		TArray<FBatchStarted> RxBatchStarted;
 		TArray<FLoadStarted> RxLoadStarted;
 		TArray<FLoadComplete> RxLoadComplete;
+		TFunction<void(const TArray<FGuid>&)> OnBatchStartedFunc;
 		TFunction<void(const FGuid&)> OnLoadStartedFunc;
-		TFunction<void(const FGuid&, ELoadResult)> OnLoadCompleteFunc;
+		TFunction<void(const FGuid&, const ELoadResult&, const ISpeedRecorder::FRecord&)> OnLoadCompleteFunc;
 	};
 }
 
