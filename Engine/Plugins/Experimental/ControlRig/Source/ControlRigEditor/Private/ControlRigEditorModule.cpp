@@ -58,6 +58,7 @@
 #include "ControlRigEditorEditMode.h"
 #include "ControlRigDetails.h"
 #include "Units/RigUnitEditor_TwoBoneIKFK.h"
+#include "Animation/AnimSequence.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigEditorModule"
 

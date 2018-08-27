@@ -6,12 +6,17 @@
 #include "Animation/BlendSpaceBase.h"
 #include "Animation/PoseAsset.h"
 #include "Animation/AnimSingleNodeInstance.h"
+#include "AnimEncoding.h"
+
+FAnimSingleNodeInstanceProxy::~FAnimSingleNodeInstanceProxy()
+{
+}
 
 void FAnimSingleNodeInstanceProxy::Initialize(UAnimInstance* InAnimInstance)
 {
 	FAnimInstanceProxy::Initialize(InAnimInstance);
 
-	CurrentAsset = NULL;
+	CurrentAsset = nullptr;
 #if WITH_EDITORONLY_DATA
 	PreviewPoseCurrentTime = 0.0f;
 #endif

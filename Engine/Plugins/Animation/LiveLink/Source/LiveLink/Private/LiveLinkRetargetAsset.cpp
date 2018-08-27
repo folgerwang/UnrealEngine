@@ -6,6 +6,7 @@
 #include "LiveLinkTypes.h"
 #include "BonePose.h"
 #include "Animation/AnimTypes.h"
+#include "Animation/AnimCurveTypes.h"
 
 ULiveLinkRetargetAsset::ULiveLinkRetargetAsset(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

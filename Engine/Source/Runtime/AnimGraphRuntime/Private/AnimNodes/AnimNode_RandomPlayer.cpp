@@ -3,6 +3,7 @@
 #include "AnimNodes/AnimNode_RandomPlayer.h"
 #include "AnimationRuntime.h"
 #include "Animation/AnimInstanceProxy.h"
+#include "Animation/AnimSequence.h"
 
 FAnimNode_RandomPlayer::FAnimNode_RandomPlayer()
 : bShuffleMode(false)
