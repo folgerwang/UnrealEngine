@@ -77,8 +77,8 @@
 			// SyncFilterSyntax
 			// 
 			this.AcceptButton = this.button1;
-			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.CancelButton = this.button1;
 			this.ClientSize = new System.Drawing.Size(731, 190);
 			this.Controls.Add(this.button1);
