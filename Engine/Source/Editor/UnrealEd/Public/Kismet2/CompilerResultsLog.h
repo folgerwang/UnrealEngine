@@ -117,6 +117,9 @@ protected:
 	// Map to track intermediate tunnel nodes back to the intermediate expansion tunnel instance.
 	TMap<TWeakObjectPtr<const UEdGraphNode>, TWeakObjectPtr<const UEdGraphNode>> IntermediateTunnelNodeToTunnelInstanceMap;
 
+	// Map to track intermediate nodes back to the source macro instance nodes
+	TMap< TWeakObjectPtr<const UEdGraphNode>, TWeakObjectPtr<UEdGraphNode> > FullMacroBacktrackMap;
+
 public:
 	FCompilerResultsLog(bool bIsCompatibleWithEvents = true);
 	virtual ~FCompilerResultsLog();
@@ -182,8 +185,8 @@ public:
 	TSharedRef<FTokenizedMessage> StorePotentialError(const UEdGraphNode* Source, const TCHAR* Format, Args... args)
 	{
 		TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create(EMessageSeverity::Error);
-		UEdGraphNode* SourceNode = nullptr;
-		Tokenize(Format, *Line, SourceNode, args...);
+		TArray<UEdGraphNode*> SourceNodes;
+		Tokenize(Format, *Line, SourceNodes, args...);
 		PotentialMessages.FindOrAdd(Source).Add(Line);
 		return Line;
 	}
@@ -196,8 +199,8 @@ public:
 	TSharedRef<FTokenizedMessage> StorePotentialWarning(const UEdGraphNode* Source, const TCHAR* Format, Args... args)
 	{
 		TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create(EMessageSeverity::Warning);
-		UEdGraphNode* SourceNode = nullptr;
-		Tokenize(Format, *Line, SourceNode, args...);
+		TArray<UEdGraphNode*> SourceNodes;
+		Tokenize(Format, *Line, SourceNodes, args...);
 		PotentialMessages.FindOrAdd(Source).Add(Line);
 		return Line;
 	}
@@ -210,8 +213,8 @@ public:
 	TSharedRef<FTokenizedMessage> StorePotentialNote(const UEdGraphNode* Source, const TCHAR* Format, Args... args)
 	{
 		TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create(EMessageSeverity::Info);
-		UEdGraphNode* SourceNode = nullptr;
-		Tokenize(Format, *Line, SourceNode, args...);
+		TArray<UEdGraphNode*> SourceNodes;
+		Tokenize(Format, *Line, SourceNodes, args...);
 		PotentialMessages.FindOrAdd(Source).Add(Line);
 		return Line;
 	}
@@ -219,33 +222,7 @@ public:
 	/**
 	 * Commit all stored potential messages for a given node. Returns true if any messages were written.
 	 */
-	bool CommitPotentialMessages(UEdGraphNode* Source)
-	{
-		TArray<TSharedRef<FTokenizedMessage>> FoundMessages;
-		if (PotentialMessages.RemoveAndCopyValue(Source, FoundMessages))
-		{
-			for (const TSharedRef<FTokenizedMessage>& Message : FoundMessages)
-			{
-				switch (Message->GetSeverity())
-				{
-				case EMessageSeverity::Error:
-					++NumErrors;
-					break;
-
-				case EMessageSeverity::Warning:
-					++NumWarnings;
-					break;
-
-				default:
-					break;
-				}
-
-				InternalLogMessage(Message, Source);
-			}
-			return true;
-		}
-		return false;
-	}
+	bool CommitPotentialMessages(UEdGraphNode* Source);
 
 	/** Update the source backtrack map to note that NewObject was most closely generated/caused by the SourceObject */
 	void NotifyIntermediateObjectCreation(UObject* NewObject, UObject* SourceObject);
@@ -254,9 +231,13 @@ public:
 	/** Update the expansion map to note that Node was expanded from OuterTunnelInstance, both the node and tunnel instance should be intermediate nodes */
 	void NotifyIntermediateTunnelNode(const UEdGraphNode* Node, const UEdGraphNode* OuterTunnelInstance);
 
+	/** Update the map that tracks nodes created by macro instance nodes */
+	void NotifyIntermediateMacroNode(UEdGraphNode* SourceNode, const UEdGraphNode* IntermediateNode);
+
 	/** Returns the true source object for the passed in object */
 	UObject* FindSourceObject(UObject* PossiblyDuplicatedObject);
 	UObject const* FindSourceObject(UObject const* PossiblyDuplicatedObject) const;
+	UObject* FindSourceMacroInstance(const UEdGraphNode* IntermediateNode) const;
 
 	/** Returns the intermediate tunnel instance that generated the node */
 	const UEdGraphNode* GetIntermediateTunnelInstance(const UEdGraphNode* IntermediateNode) const;
@@ -301,21 +282,22 @@ protected:
 	/** Helper method to add a child event to the given parent event scope */
 	void AddChildEvent(TSharedPtr<FCompilerEvent>& ParentEventScope, TSharedRef<FCompilerEvent>& ChildEventScope);
 
-	void InternalLogMessage(const TSharedRef<FTokenizedMessage>& Message, UEdGraphNode* SourceNode );
+	void InternalLogMessage(const TSharedRef<FTokenizedMessage>& Message, const TArray<UEdGraphNode*>& SourceNodes );
 
-	void Tokenize(const TCHAR* Text, FTokenizedMessage &OutMessage, UEdGraphNode*& OutSourceNode)
+	void Tokenize(const TCHAR* Text, FTokenizedMessage &OutMessage, TArray<UEdGraphNode*>& OutSourceNode)
 	{
 		OutMessage.AddToken(FTextToken::Create(FText::FromString(Text)));
 	}
 
 	template<typename T, typename... Args>
-	void Tokenize(const TCHAR* Format, FTokenizedMessage &OutMessage, UEdGraphNode*& OutSourceNode, T First, Args... Rest)
+	void Tokenize(const TCHAR* Format, FTokenizedMessage &OutMessage, TArray<UEdGraphNode*>& OutSourceNode, T First, Args... Rest)
 	{
 		// read to next "@@":
 		if (const TCHAR* DelimiterStr = FCString::Strstr(Format, TEXT("@@")))
 		{
 			OutMessage.AddToken(FTextToken::Create(FText::FromString(FString(DelimiterStr - Format, Format))));
-			OutMessage.AddToken(FEdGraphToken::Create(First, this, OutSourceNode));
+			FEdGraphToken::Create(First, this, OutMessage, OutSourceNode);
+
 			const TCHAR* NextChunk = DelimiterStr + FCString::Strlen(TEXT("@@"));
 			if (*NextChunk)
 			{
@@ -334,13 +316,13 @@ protected:
 		// Convention for SourceNode established by the original version of the compiler results log
 		// was to annotate the error on the first node we can find. I am preserving that behavior
 		// for this type safe, variadic version:
-		UEdGraphNode* SourceNode = nullptr;
-		Tokenize(Format, *Message, SourceNode, args...);
-		InternalLogMessage(Message, SourceNode);
+		TArray<UEdGraphNode*> SourceNodes;
+		Tokenize(Format, *Message, SourceNodes, args...);
+		InternalLogMessage(Message, SourceNodes);
 	}
 
-	/** */
-	void AnnotateNode(class UEdGraphNode* Node, TSharedRef<FTokenizedMessage> LogLine);
+	/** Links the UEdGraphNode with the LogLine: */
+	void AnnotateNode(const TArray<UEdGraphNode*>& Nodes, TSharedRef<FTokenizedMessage> LogLine);
 
 	/** Internal method to append the final compiler results summary to the MessageLog */
 	void InternalLogSummary();
@@ -361,6 +343,9 @@ private:
 
 	/** Callback function for binding the global compiler dump to open the static compiler log */
 	static void GetGlobalModuleCompilerDump(const FString& LogDump, ECompilationResult::Type CompilationResult, bool bShowLog);
+	
+	/** Searches a token list for referenced UEdGraphNodes, used to update the nodes when a log is committed */
+	static void GetNodesFromTokens(const TArray<TSharedRef<IMessageToken> >& MessageTokens, TArray<UEdGraphNode*>& OutOwnerNodes);
 
 	/** The log's name, for easy re-use */
 	static const FName Name;
