@@ -4403,6 +4403,16 @@ void UNetDriver::CleanupWorldForSeamlessTravel()
 
 					ReplicationChangeListMap.Remove(Level->LevelScriptActor);
 				}
+
+				// This is currently necessary because the actor iterator used in the seamless travel handler 
+				// skips over AWorldSettings actors for an unknown reason.
+				if (Level->GetWorldSettings())
+				{
+					if (ServerConnection != nullptr)
+					{
+						NotifyActorLevelUnloaded(Level->GetWorldSettings());
+					}
+				}
 			}
 		}
 	}
