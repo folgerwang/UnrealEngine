@@ -2698,6 +2698,14 @@ void FHeaderParser::FixupDelegateProperties( FClasses& AllClasses, UStruct* Stru
 							for (TFieldIterator<UProperty> PropIt(SourceDelegateFunction); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
 							{
 								UProperty* FuncParam = *PropIt;
+
+								if (!IsPropertySupportedByBlueprint(FuncParam, false))
+								{
+									FString ExtendedCPPType;
+									FString CPPType = FuncParam->GetCPPType(&ExtendedCPPType);
+									UE_LOG_ERROR_UHT(TEXT("Type '%s%s' is not supported by blueprint. %s.%s"), *CPPType, *ExtendedCPPType, *SourceDelegateFunction->GetName(), *FuncParam->GetName());
+								}
+
 								if(FuncParam->HasAllPropertyFlags(CPF_OutParm) && !FuncParam->HasAllPropertyFlags(CPF_ConstParm)  )
 								{
 									const bool bClassGeneratedFromBP = FClass::IsDynamic(Struct);
