@@ -50,14 +50,8 @@ public:
 	static const FString SamplerName;
 	static const FString DimensionsBaseName;
 protected:
-#if WITH_EDITOR
-	bool CopyTextureToCPUBackup(UTexture* SourceTexture, TArray<uint8>& TargetBuffer);
-	void CopyTextureData(const uint8* Source, uint8* Dest, uint32 SizeX, uint32 SizeY, uint32 BytesPerPixel, uint32 SourceStride, uint32 DestStride);
-
-#endif
 	virtual bool CopyToInternal(UNiagaraDataInterface* Destination) const override;
 
-	TArray<uint8> CPUTextureData;
 
 	static const FName SampleTexture2DName;
 	static const FName SampleVolumeTextureName;
