@@ -416,7 +416,7 @@ static void SortActorsHierarchy(TArray<AActor*>& Actors)
 /**
  * Exports the basic scene information to the FBX document.
  */
-void FFbxExporter::ExportLevelMesh( ULevel* InLevel, bool bSelectedOnly, INodeNameAdapter& NodeNameAdapter )
+void FFbxExporter::ExportLevelMesh( ULevel* InLevel, bool bSelectedOnly, INodeNameAdapter& NodeNameAdapter, bool bSaveAnimSeq)
 {
 	if (InLevel == NULL)
 	{
@@ -476,7 +476,7 @@ void FFbxExporter::ExportLevelMesh( ULevel* InLevel, bool bSelectedOnly, INodeNa
 		if (bIsBlueprintClass)
 		{
 			// Export blueprint actors and all their components.
-			ExportActor(Actor, true, NodeNameAdapter);
+			ExportActor(Actor, true, NodeNameAdapter, bSaveAnimSeq);
 		}
 		else if (Actor->IsA(ALight::StaticClass()))
 		{
@@ -497,7 +497,7 @@ void FFbxExporter::ExportLevelMesh( ULevel* InLevel, bool bSelectedOnly, INodeNa
 		}
 		else if (Actor->IsA(AEmitter::StaticClass()))
 		{
-			ExportActor( Actor, false, NodeNameAdapter ); // Just export the placement of the particle emitter.
+			ExportActor( Actor, false, NodeNameAdapter, bSaveAnimSeq ); // Just export the placement of the particle emitter.
 		}
 		else if(Actor->IsA(ACameraActor::StaticClass()))
 		{
@@ -506,7 +506,7 @@ void FFbxExporter::ExportLevelMesh( ULevel* InLevel, bool bSelectedOnly, INodeNa
 		else
 		{
 			// Export any other type of actors and all their components.
-			ExportActor(Actor, true, NodeNameAdapter);
+			ExportActor(Actor, true, NodeNameAdapter, bSaveAnimSeq);
 		}
 	}
 }
@@ -1580,7 +1580,7 @@ bool FFbxExporter::ExportLevelSequence( UMovieScene* MovieScene, const TArray<FG
  * Exports a scene node with the placement indicated by a given actor.
  * This scene node will always have two transformations: one translation vector and one Euler rotation.
  */
-FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeNameAdapter& NodeNameAdapter )
+FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeNameAdapter& NodeNameAdapter, bool bSaveAnimSeq )
 {
 	// Verify that this actor isn't already exported, create a structure for it
 	// and buffer it.
@@ -1770,7 +1770,7 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeN
 				}
 				else if (SkelMeshComp && SkelMeshComp->SkeletalMesh)
 				{
-					ExportSkeletalMeshComponent(SkelMeshComp, *SkelMeshComp->GetName(), ExportNode);
+					ExportSkeletalMeshComponent(SkelMeshComp, *SkelMeshComp->GetName(), ExportNode, bSaveAnimSeq);
 				}
 				else if (Component->IsA(UCameraComponent::StaticClass()))
 				{
@@ -1786,7 +1786,7 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeN
 				}
 				else if (ChildActorComp && ChildActorComp->GetChildActor())
 				{
-					FbxNode* ChildActorNode = ExportActor(ChildActorComp->GetChildActor(), true, NodeNameAdapter);
+					FbxNode* ChildActorNode = ExportActor(ChildActorComp->GetChildActor(), true, NodeNameAdapter, bSaveAnimSeq);
 					FbxActors.Add(ChildActorComp->GetChildActor(), ChildActorNode);
 				}
 			}
