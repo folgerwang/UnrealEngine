@@ -23,6 +23,8 @@ order:7
 [/OBJECT]
 [/VAR]
 
+
+%Steps%
 [OBJECT:ToggleButtonContent]
     [PARAMLITERAL:category]
     OS
@@ -50,7 +52,6 @@ order:7
     %macos%
     [/PARAM]
 [/OBJECT]
-
 
 
 [VAR:windows]
@@ -210,3 +211,5 @@ When completed, locate the app on your iOS device and open it up. Once opened, y
 [/VAR]
 
 
+
+%Steps%

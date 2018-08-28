@@ -76,7 +76,7 @@ Version: 4.9
 ### 업데이트하기
 
 **액터 컴포넌트** 에는 그 `TickComponent()` 함수를 통한 매 프레임 업데이트 기능이 있습니다. 이를 통해 컴포넌트가 유형 고유의 프레임별 계산을 할 수 있습니다. 
-예를 들어 **SkeletalMeshComponent** 는 애니메이션과 스켈레탈 콘트롤러를 업데이트하는 데 `TickComponent()` 를 사용하는 반면, **ParticleSystemComponent** 는 시스템의 이미터를 업데이트하고 처리할 파티클 이벤트 
+예를 들어 **SkeletalMeshComponent** 는 애니메이션과 스켈레탈 컨트롤러를 업데이트하는 데 `TickComponent()` 를 사용하는 반면, **ParticleSystemComponent** 는 시스템의 이미터를 업데이트하고 처리할 파티클 이벤트 
 검사에 사용합니다.
 
 컴포넌트가 업데이트되도록 하려면 등록시켜 주고 틱 되도록 (`bComponentNeverTicks=false`) 설정한 다음 틱 함수를 셋업해 줘야 합니다. 
@@ -115,7 +115,7 @@ Version: 4.9
 
 기본적으로 `RelativeLocation`, `RelativeRotation`, `RelativeScale3D` 는 그 `AttachParent` 를 기준으로 합니다. `bAbsoluteLocation`, `bAbsoluteRotation`, `bAbsoluteScale` 프로퍼티를 사용하면 이 값의 기준을 월드로 강제시킬 수 있습니다. 이 옵션 중 하나를 _True_ 로 설정하면 해당 프로퍼티는 월드를 기준으로 합니다.
 
-부모를 기준으로 한 트랜스폼 값을 사용할 때도, 아래 표시된 메소드를 통해 절대 월드 값을 사용하여 트랜슬레이션과 로테이션을 설정하는 것도 여전히 가능한 일입니다:
+부모를 기준으로 한 트랜스폼 값을 사용할 때도, 아래 표시된 메서드를 통해 절대 월드 값을 사용하여 트랜슬레이션과 로테이션을 설정하는 것도 여전히 가능한 일입니다:
 
 
 | 함수 | 설명 |

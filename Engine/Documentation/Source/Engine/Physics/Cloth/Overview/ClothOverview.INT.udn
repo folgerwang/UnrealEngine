@@ -354,43 +354,11 @@ If you were to repaint your LOD0 mesh but don't want to have to re-paint all you
 	
 1. Select **Rebuild Asset Parameter Masks** to automate the process and carry the new painted cloth values over to your other LODs.
 
-	[REGION:imagetable]
-	| --- | --- |
-	| [INCLUDE:#lod0] | [INCLUDE:#lod1] |
-	[/REGION]
 
 	You will now have the newly painted values for LOD0 passed down to any lower LOD meshes like the comparison you can see here with LOD1 before and after.
 
-<!----
 
-[EXCERPT:lod0]
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![LOD0 Before](Tonemapper_On.png)
-	[/PARAM]
-	[PARAM:after]
-	![LOD0 After](Tonemapper_Off.png)
-	[/PARAM]
-[/OBJECT]
-[/EXCERPT:lod0]
-
-----  SAVE FOR 4.18 Release Update -
 [/COMMENT]
-
-
-[EXCERPT:lod1]
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![LOD1 Before](Tonemapper_On.png)
-	[/PARAM]
-	[PARAM:after]
-	![LOD1 After](Tonemapper_Off.png)
-	[/PARAM]
-[/OBJECT]
-[/EXCERPT:lod1]
-
---->
-
 
 ## APEX (Legacy) Assets
 

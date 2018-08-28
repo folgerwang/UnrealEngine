@@ -6,7 +6,7 @@ crumbs:
 version:4.15
 parent:Engine/Rendering/LightingAndShadows
 order:
-related: Engine/Rendering/LightingAndShadows/DistanceFields/HowTo/DFHT_4
+related: Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_4
 type:landing
 tags: Lighting
 topic-image:CapsuleShadows_Topic.png

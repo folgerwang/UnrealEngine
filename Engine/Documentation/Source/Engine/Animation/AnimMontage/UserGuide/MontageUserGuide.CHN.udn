@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:3717037
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine\Animation\AnimMontage
-Title: Using Animation Montages
-Description:Describes how Animation Montages can be played back at runtime.
+Title: 使用动画蒙太奇
+Description:描述如何在运行时播放动画蒙太奇。
 Type: Reference
 SkillLevel: Intermediate
 Version: 4.16
@@ -10,8 +10,8 @@ Parent: Engine\Animation\AnimMontage
 Order: 1
 Tags: Animation
 Tags: Animation Montage
-Tags: Animation Assets
-topic-image:UserGuideTopic.png
+topic-image:PlayMontage.png
+social-image:PlayMontage.png
 Related: Engine/Content/Types/SkeletalMeshes
 Related: Engine/Animation/Sequences
 Related: Engine/Animation/Persona/Modes/Animation
@@ -20,45 +20,42 @@ Related: Engine/Animation/AnimBlueprints
 
 [TOC(start:2 end:2)]
 
-After [creating a Montage](Engine\Animation\AnimMontage\Creation) and [editing the Montage](Engine\Animation\AnimMontage\Editor), you will probably want to play your Montage at runtime. 
-You can have your Montage automatically start playing by assigning it to a **Skeletal Mesh** or, for more flexibility, you may want to set up some **Blueprint Script** or C++ code that will call your Montage or Sections within your Montage to start playing based on gameplay conditions. 
+在[创建蒙太奇](Engine\Animation\AnimMontage\Creation)和[编辑蒙太奇](Engine\Animation\AnimMontage\Editor)之后，可能需要在运行时播放蒙太奇。 
+可以通过将蒙太奇指定给 **骨架网格体（Skeletal Mesh）** 自动播放蒙太奇；或者为了提高灵活度，可能需要设置 **蓝图脚本（Blueprint Script）** 或C++代码，根据游戏运行条件调用蒙太奇或蒙太奇中的片段以开始播放。 
 
+## 使用动画在骨架网格体上播放
 
-## Using Anim to Play on a Skeletal Mesh
-
-In the **Details** panel for a **Skeletal Mesh**, you can set the **Animation Mode** to **Use Animation Asset** and the **Anim to Play** to your desired **Animation Montage**. 
+在 **骨架网格体（Skeletal Mesh）** 的 **细节（Details）** 面板，可以将 **动画模式（Animation Mode）** 设置为 **使用动画资源（Use Animation Asset）**，将 **要播放的动画（Anim to Play）** 设置为要播放的 **动画蒙太奇（Animation Montage）**。 
 
 ![](SkeletalMeshMontage.png)
 
-At run time, the Skeletal Mesh will playback your selected Animation Montage automatically. 
+在运行时，骨架网格体将自动播放选中的动画蒙太奇。 
 
+## 使用蓝图的播放蒙太奇节点
 
-## Using Blueprint's Play Montage Node
-
-You can call the **Play Montage** node within Blueprint (below we tell a Skeletal Mesh called **Mesh** to play a Montage when the character is clicked on with the Left Mouse Button). 
+你可以调用蓝图中的 **播放蒙太奇（Play Montage）** 节点（下面我们让骨架网格体在鼠标左键单击角色时调用 **网格体** 来播放蒙太奇）。 
 
 ![](BlueprintMontage.png)
 
-The Play Montage node enables you to not only select what Montage to play but you can also set the **Play Rate**, **Starting Position** and **Starting Section** as inputs. 
+通过“播放蒙太奇”节点不仅可以选择播放哪个蒙太奇，还可将 **播放速率（Play Rate）**、**起始位置（Starting Position）** 和 **起始片段（Starting Section）** 设置为输入。 
 
-On the output side, there are several callback events that you can use to trigger other script based on the state of the Montage: 
+至于输出方面，可以使用几个回调事件根据蒙太奇的状态触发其他脚本： 
 
-* **On Completed** - called when the Montage finishes playing and it fully blended out. 
-* **On Blend Out** - called when the Montage is starting to Blend Out, either because it's stopping automatically or manually. 
-* **On Interrupted** - called if the Montage is starting to Blend Out, but because it's been interrupted by another Montage playing. 
-* **On Notify Begin** and **On Notify End** - are callbacks when using either **Play Montage Notify** or **Play Montage Notify Window** [Anim Notifies](Engine/Animation/Sequences/Notifies) in the Montage asset. 
-	* These Anim Notifies can forward an additional **Notify Name** to differentiate between multiple callbacks from the same Montage. 
+* **On Completed** - 当蒙太奇播放完并彻底混出时调用。
+* **On Blend Out** - 当蒙太奇使用[混出触发时间](https://docs.unrealengine.com/latest/INT/Engine/Animation/AnimMontage/#montageproperties)混出或蒙太奇结束时调用。
+* **On Interrupted** - 当蒙太奇由于其他蒙太奇的打断而混出时调用。
+* **On Notify Begin** 和 **On Notify End** - 当在蒙太奇资源中使用 **Play Montage Notify** 或 **Play Montage Notify Window** [Anim Notifies](Engine/Animation/Sequences/Notifies)时回调。 
+	* 这些动画通知可以携带额外的**通知名称（Notify Name）** 以区分来自同一蒙太奇的不同回调。 
 
-In order for the Montage to play, the Skeletal Mesh will need to have it's **Animation Mode** set to **Use Animation Blueprint** and the **Anim Class** pointed to an Animation Blueprint. 
+要播放蒙太奇，骨架网格体的 **动画模式（Animation Mode）** 需要设为 **使用动画蓝图（Use Animation Blueprint）** 并让 **动画类（Anim Class）** 指向动画蓝图。 
 
 ![](SetupAnimMode.png)
 
-Inside your Animation Blueprint, on the **AnimGraph** you can use the **Slot** node and define which Slot from the Montage you want to play. 
+在动画蓝图的 **动画图表（AnimGraph）** 中，可以使用 **插槽（Slot）** 定义要播放蒙太奇中的哪个插槽。 
 
 ![](AnimGraphMontage.png)
 
-
 [REGION:note]
-See [](Engine/Animation/AnimHowTo/AdditiveAnimations) for another example of how a Montage can be used inside of your Animation Blueprints. 
+请参阅[](Engine/Animation/AnimHowTo/AdditiveAnimations)了解如何在动画蓝图中使用蒙太奇的其他示例。 
 [/REGION]
 

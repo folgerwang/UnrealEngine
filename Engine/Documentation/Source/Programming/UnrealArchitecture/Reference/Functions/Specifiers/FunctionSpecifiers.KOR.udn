@@ -23,7 +23,7 @@ tags:Specifiers
 | `BlueprintGetter` | 이 함수는 블루프린트 노출 프로퍼티에 대한 접근자로 사용됩니다. 이 지정자는 `BlueprintPure` 와 `BlueprintCallable` 을 내포합니다. |
 | `BlueprintImplementableEvent` | 이 함수는 **블루프린트** 또는 **레벨 블루프린트** 그래프에서 구현할 수 있습니다. |
 | `BlueprintInternalUseOnly` | 이 함수는 최종 사용자에게 노출시키지 말아야 함을 나타냅니다. |
-| `BlueprintNativeEvent` | 이 함수는 **블루프린트** 로 덮어쓰도록 디자인되었지만, 기본 내장 구현이 있기도 합니다. 메인 함수 이름 끝에 `_Implementation` 를 붙인 함수를 추가로 선언한 뒤 코드를 작성하면 됩니다. 자동생성 코드는 블루프린트 오버라이드를 찾지 못하면 "_Implementation" 메소드를 호출합니다. |
+| `BlueprintNativeEvent` | 이 함수는 **블루프린트** 로 덮어쓰도록 디자인되었지만, 기본 내장 구현이 있기도 합니다. 메인 함수 이름 끝에 `_Implementation` 를 붙인 함수를 추가로 선언한 뒤 코드를 작성하면 됩니다. 자동생성 코드는 블루프린트 오버라이드를 찾지 못하면 "_Implementation" 메서드를 호출합니다. |
 | `BlueprintPure` | 이 함수는 어떤 식으로든 소유 오브젝트에 영향을 주지 않으며, **블루프린트** 또는 **레벨 블루프린트** 그래프에서 실행할 수 있습니다. |
 | `BlueprintSetter` | 이 함수는 블루프린트 노출 프로퍼티의 뮤테이터로 사용됩니다. 이 지정자는 `BlueprintCallable` 을 내포합니다. |
 | `CallInEditor` | 이 함수는 디테일 패널의 버튼을 통해 선택된 인스턴스 상의 에디터에서 호출할 수 있습니다. |
@@ -36,7 +36,7 @@ tags:Specifiers
 | `SealedEvent` | 이 함수는 서브클래스에서 덮어쓸 수 없습니다. `SealedEvent` 키워드는 이벤트에만 사용할 수 있습니다. 이벤트가 아닌 함수의 경우, `static` 또는 `final` 로 선언하면 봉인할 수 있습니다. |
 | `ServiceRequest` | 이 함수는 RPC (Remote Procedure Call) 서비스 요청입니다. |
 | `ServiceResponse` | 이 함수는 RPC 서비스 반응입니다. |
-| `Server` | 이 함수는 서버에서만 실행됩니다. 메인 함수 이름 뒤에 `_Implementation` 를 붙인 함수를 추가로 선언하고, 기거서 코드를 작성합니다. 자동생성 코드는 필요할 때 "_Implementation" 메소드를 호출합니다. |
+| `Server` | 이 함수는 서버에서만 실행됩니다. 메인 함수 이름 뒤에 `_Implementation` 를 붙인 함수를 추가로 선언하고, 기거서 코드를 작성합니다. 자동생성 코드는 필요할 때 "_Implementation" 메서드를 호출합니다. |
 | `Unreliable` | 이 함수는 네트워크로 리플리케이트되지만 대역폭 제한이나 네트워크 오류로 인해 실패할 수 있습니다. `Client` 또는 `Server` 와 함께 사용했을 때만 유효합니다. |
 | `WithValidation` | 메인 함수 이름 뒤에 `_Validation` 를 붙인 함수를 추가로 선언합니다. 이 함수는 같은 파라미터를 받으며, 메인 함수 호출 진행 여부를 나타내는 `bool` 을 반환합니다. |
 

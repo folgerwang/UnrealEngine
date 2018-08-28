@@ -1,211 +1,86 @@
-﻿INTSourceChangelist:0
-Availability:Docs
-Crumbs:
-Title:Using RayTraced Distance Field Soft Shadows
-Description:How to set up and use RayTraced Distance Field Soft Shadows.
-Related:Engine/Rendering/LightingandShadows/DistanceFieldAmbientOcclusion
-Related:Engine/Rendering/LightingandShadows/RayTracedDistanceFieldShadowing
-SkillLevel: Intermediate
-Type:how to
-Parent: Engine/Rendering/LightingAndShadows/DistanceFields/HowTo
-Order:
-Tags: Lighting
-Version: 4.15
+﻿INTSourceChangelist:3801260
+Availability: Public
+Crumbs: %ROOT%
+Title: 使用光线追踪距离场阴影
+Description: 如何在虚幻引擎4中设置并使用光线追踪距离场阴影。
+Type: how-to
+SkillLevel:Beginner
+Version:4.18
+Parent:Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields
+Related:Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference
+Order:1
+Tags:Lighting
+Topic-image:DistanceField_Topic.png
+Social-image:CSMAndDF.png.png
 
 
 [REGION:fullwidth raw]
 ![](RTDFBanner.png)
 [/REGION]
 
-[TOC(start:2 end:2)] 
+开发游戏时，您可能发现有时动态照明是用于关卡的最佳选择，例如，可视距离很大的关卡或者具有大型开放世界场景的关卡。在这类情况下，预计算照明可能效率很低或对于目标系统的资源要求过高。**光线追踪距离场阴影（Ray Traced Distance Field Shadows）** 也称为 **距离场阴影（Distance Field Shadow）**，与配合[定向光源](Engine/Rendering/LightingAndShadows/LightTypes/Directional)使用的传统 **级联阴影贴图（Cascaded Shadow Map）**（CSM）相比，它使您能够在更远的距离投射阴影。
+
+在本指南中，您将学习如何为定向光源、点光源和聚光源等不同的[光源类型](Engine/Rendering/LightingAndShadows/LightTypes)启用距离场阴影。
 
 
-
-When you're developing your game(s), you may find that there are situations where you can only efficiently use dynamic lighting for your scenes, like in a large open world where precomputed lighting just 
-wouldn't make a whole lot of sense. **Ray Traced Distance Field Soft Shadows**, also referred to simply as **Distance Field Shadows**, enables you to have shadowing at farther distances than traditional 
-Cascaded Shadow Maps (CSM) with a Directional Light would. For open world games or even just long view distances, Distance Field Shadows can efficiently shadow beyond the CSM distance. This method was 
-used extensively in the Open World Demo "A Boy and His Kite", which you can download from the Epic Games Launcher via the Learn tab. 
-
-In this guide, we'll take a look at how to enable Distance Field Shadows for your light types and then explore the various settings that you can use with them.
-
-
-## Steps
+## 步骤
 
 [REGION:note]
-This feature requires that **Generate Mesh Distance Fields** be enabled in your **Project Settings** in the **Rendering** section.
+该功能要求您在 **项目设置（Project Settings）** 的 **渲染（Rendering）** 部分中启用 **生成网格体距离场（Generate Mesh Distance Fields）**。请在此处查看如何[启用网格体距离场（Mesh Distance Field）](Engine/Rendering/LightingAndShadows/MeshDistanceFields#EnablingDistanceFields) （如果尚未启用）。
 [/REGION]
 
-1. Start by navigating to the **Modes** window, then in the **Lights** section, select and drag a **Directional**, **Spot**, or **Point** Light into the main viewport. 
+1. 首先，导航至 **模式（Modes）** 窗口，在 **光源（Lights）** 部分中，选中 **定向（Directional）**、**聚（Spot）** 或 **点（Point）** 光源并将其拖动到主要视口中。 
 
-	![](ModesPanelLights.png)(w:400)
+	![](AddLightType.png)(w:900)
 	
 	[REGION:note]
-	For the purpose of enabling Distance Field Shadows on any Light Actor, the process is the same. The additional sections of this guide will cover specific properties for these light types.
+  在任意光源组件上启用距离场阴影的过程与此相同。本指南的其他部分将介绍这些光源类型的特定属性。
 	[/REGION]
 
-1. With the Light Actor selected, navigate over to its **Details** panel and set its **Mobility** to **Movable**. 
-	
-	![](TransformMobility.png)(w:450)
+2. 选择好光源之后，导航至其 **细节（Details）** 面板并将它的“可移动性（Mobility）”设置为 **可移动（Movable）** 或 **静止（Stationary）**。 
+  ​
+  ![](TransformMobility.png)(w:450)
 
-1. Now, scroll down in the **Details** panel and under the **Distance Field Shadows** section, toggle the option for **RayTraced Distance Field Shadows**.
+3. 在 **细节（Details）** 面板的 **距离场阴影（Distance Field Shadow）** 下面，将 **光线追踪距离场阴影（Ray Traced Distance Field Shadows）** 设置为启用。
 
 	[Region:imagetable]
-	|![](DirectionalLightDFSettings.png)(w:450)|![](PointSpotLightSettingsDF.png)(w:450)|
-	|---|---|
-	| Directional Light | Spot/Point Light |
+        | ![](DirectionalLightDFSettings.png)(w:450) | ![](PointSpotLightSettingsDF.png)(w:450) |
+        | ---------------------------------------- | ---------------------------------------- |
+        | 定向光源                                     | 聚/点光源                                    |
 	[/Region]
 	
 	[REGION:note]
-	If this option if grayed out, make sure that the light is set to **Movable** or that you've first enabled the option for **Generate Mesh Distance Fields** in your Project's Settings.
-	[/REGION]
-	
-1. 	Now, Distance Field Shadows will be enabled for your lights that have this setting toggled on. Try dragging in a few Static Meshes from the Content Browser to see Distance Field Shadows working in your game.
-
-	[REGION:tip]
-	When using a Directional Light, it can be helpful to set the **Dynamic Shadow Distance Moveable Light** slider to **0**. This will disable Cascaded Shadow Maps (CSM) so that you will only see the
-	Distance Field Shadow of a mesh. This is also useful for testing in your scene and diagnosing any potential Distance Field issues in addition to using the visualization mode for Mesh Distance Fields that you can
-	enable in the main viewport by going to **Show** > **Visualize** > **Mesh Distance Fields**.
+	如果该选项显示为灰色，确保先在“项目设置（Project Settings）”中启用 **生成网格体距离场（Generate Mesh Distance Fields）** 选项，然后确保光源的“可移动性（Mobility）”设置为 **可移动（Movable）** 或 **静止（Stationary）**。
 	[/REGION]
 
-	
-## Light Source Settings
+## 最终结果
 
-When you decide on the type of light you want to use, whether it's a **Directional**, **Spot**, or **Point** Light, you will have different options that are avaialble. Below you'll find these settings that you can adjust
-and how to you use them for your Distance Field Shadows.
+在将光源设置为“可移动（Movable）”或“静止（Stationary）”并将 **光线追踪距离场阴影（Ray Traced Distance Field Shadowing）** 切换为启用后，在关卡中光源将自动使用它们。对于定向光源，将为超出级联阴影贴图（Cascaded Shadow Map）**动态阴影距离（Dynamic Shadow Distance）** 值的任意距离启用“距离场阴影（Distance Field Shadowing）”。 
 
-### Directional Light
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![仅级联阴影贴图（Cascaded Shadow Maps）](CSMOnly.png)(w:1100)
+	[/PARAM]
+	[PARAM:after]
+	![级联阴影贴图（Cascaded Shadow Maps） | 和 | 距离场阴影（Distance Field Shadows）](CSMAndDF.png)(w:1100)
+	[/PARAM]
+[/OBJECT]
 
-Here you'll find the various settings that are available for your **Directional** Lights that have Distance Field Shadows enabled.
+在《堡垒之夜（Fortnite）》的这一测试关卡中，级联阴影贴图（CSM）**动态阴影距离（Dynamic Shadow Distance）** 是距离摄像机4500 cm（厘米），在启用“距离场阴影（Distance Field Shadowing）”之后，它们可以处理超出CSM阴影距离的任何阴影。 
+当仅使用CSM阴影处理方法时，远距离对象(例如法院大楼圆形石柱)会发生漏光，因为它位于阴影距离之外。远距离对象也将无法正确投射阴影。
 
-![Distance Field Shadow Settings](DirectionalLightSettings.png)
-
-[REGION:simpletable]
-| Property | Description |
-|----------|-------------|
-| [REGION:tablesection]Light[/REGION] ||
-| Light Source Angle | This is the light source's angle in degrees and is used to support soft area shadows for dynamic shadowing methods using Distance Fields or Capsule Shadows. | 
-| [REGION:tablesection]Distance Field Shadows[/REGION] ||
-| DistanceField Shadow Distance | This is the farthest distance that will have Distance Field Shadowing. Distance Field Shadows will also cover the distance between this value and the **Dynamic Shadow Distance Movable Light** for CSM shadows. | 
-| RayTraced DistanceField Shadows | This will toggle Distance Field Shadows on for the light source. | 
-| Distance Field Trace Distance  | This sets a distance in world units for how far shadows can cast. When using larger values you will increase the shadowing cost for the scene. |
-| Ray Start Offset Depth Scale | Controls how large of an offset ray traced shadows have from the receiving surface as the camera gets further away. This can be useful to hide self-shadowing artifacts from low-resolution distance fields on huge static meshes. | 
+[REGION:tip]
+使用定向光源时，将级联阴影贴图**动态阴影距离可移动光源（Dynamic Shadow Distance Moveable Light）** 滑块设置为 **0** 非常有用，因为它使仅从网格体距离场产生阴影成为可能。
+除了使用可视化视图模式以外，这也是一种测试场景和判断潜在的距离场质量问题的有用方式。 
 [/REGION]
 
-#### Cascaded Shadow Maps VS Distance Field Shadows
+## 其他光源设置
 
-In this example, we'll look at the difference between Cascaded Shadow Maps and Distance Field Shadows on a Directional Light. CSM shadows provide higher quality shadows but don't work well for large view distances, whereas 
-Distance Fields can shadow over much farther distances more efficiently. It's a good idea to use both methods with your Directional Light and find a distance trade off for CSM shadowing for objects close to the camera and 
-then using Distance Field Shadows for objects beyond the CSM distance.
+请参阅[距离场参考](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference) 来了解[距离场阴影（Distance Field Shadowing）](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion)设置（特定于[定向光源](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#directionallight)和[点/聚光源](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#point/spotlight)）。 
+这些设置使您能够对场景进行艺术控制，例如控制阴影的柔和度和阴影能够投射到的最远距离。也可进行一些特定于定向光源的全局调整，以去除场景中由距离摄像机较远的LOD（细节层次）网格体引起的自身阴影瑕疵。
 
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Cascaded Shadow Maps](Directional_CSM.png)(w:600)
-	[/PARAM]
-	[PARAM:after]
-	![Distance Field Shadows](Directional_DF.png)(w:600)
-	[/PARAM]
-[/OBJECT]
-
-#### Light Source Angle
-
-The **Light Source Angle** of a Directional Light will soften or sharpen the shadows based on the rotational angle of the light and the value entered. This setting only works with Distance Fields and Capsule Shadows and will not 
-work with traditional dynamic shadowing where the shadow cannot easily be blurred. 
-
-In this example, the Light Source Angle is set to 0, where you'll see that the shadows are really sharp and crisp, while the default value of 1 is used you get soft shadows that spread out the farther
-they extend along the receiving surface. 
-
-
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Light Source Angle: 0](DF_LSA0.png)(w:600)
-	[/PARAM]
-	[PARAM:after]
-	![Light Source Angle: 1](DF_LSA1.png)(w:600)
-	[/PARAM]
-[/OBJECT]
-
-
-#### Distance Field Trace Distance
-
-The  **Distance Field Trace Distance** controls how far a ray trace for shadowing can extend for any shadow caster. If you lower the value for the trace distance you lower the cost of shadow casting for the scene, 
-because shadows will not draw beyond that point from their source. However, this trace distance does not affect the shadow distance from the camera's view, which is controlled by **Distance Field Shadow Distance**.
-
-In this example, the tree is casting a shadow along the ground using it's Mesh Distance Field. When using a lower trace distance of 1500 units, vs the default value of 10000, you can see that the trees shadow doesn't 
-capture the top details of the tree any longer since it's more than 1500 units from the receiving surface. 
-
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Distance Field Trace Distance: 10000](RayStart1.png)(w:600)
-	[/PARAM]
-	[PARAM:after]
-	![Distance Field Trace Distance: 1500](RayStart2.png)(w:600)
-	[/PARAM]
-[/OBJECT]
-
-### Point/Spot Lights
- 
- Here you'll find the various settings that are available for your **Spot** and **Point** Lights that have Distance Field Shadows enabled.
- 
-![](PointSpotLightSettings.png)
- 
-[REGION:simpletable]
-| Property | Description |
-|----------|-------------| 
-| [REGION:tablesection]Light[/REGION] ||
-| Source Radius | This is used as the size of the light source sphere. When you use larger values you get a larger penumbra, but it will cost more performance. |
-| [REGION:tablesection]Distance Field Shadows[/REGION] ||
-| RayTraced DistanceField Shadows | Whether to use ray traced distance field area shadows. | 
-| Ray Start Offset Depth Scale | Controls how large of an offset ray traced shadows have from the receiving surface as the camera gets further away. This can be useful to hide self-shadowing artifacts from low-resolution distance fields on huge static meshes. | 
-[/REGION]
-
-#### Traditional Shadow Maps VS Distance Field Shadows
-
-In this example, the default shadows from a Point Light are very sharp versus Distance Field Shadows, which can use the **Source Radius** of the light to control how soft the shadows are. 
-
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Default Shadow Map](PointLight_CSM.png)(w:600)
-	[/PARAM]
-	[PARAM:after]
-	![Distance Field Shadow](PointLight_DF.png)(w:600)
-	[/PARAM]
-[/OBJECT]
-
-### Source Radius
-
-The **Source Radius**, similar to the Light Source Angle in a Directional Light, is used to soften the area shadows by adjusting the size of the light source itself. 
-
-In this example, the sharpness and softness of the shadow is controlled by adjusting the **Source Radius**, where lower values will make the shadows sharper and a larger radius will soften the shadows the farther they stretch out
-from the shadow caster. 
-
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Source Radius: 0.1](DF_LightSource1.png)(w:600)
-	[/PARAM]
-	[PARAM:after]
-	![Source Radius: 20](DF_LightSource2.png)(w:600)
-	[/PARAM]
-[/OBJECT]
-
-### Ray Start Offset Depth Scale
-
-In some cases, low resolution Distance Fields or more complex geometry will produce self-shadowing artifacts. This can sometimes be offset by adjusting the **Distance Field Resolution** of your mesh, but you may not want to pay 
-the higher cost of the generated volume texture that would be required. Instead, you can use the **Ray Start Offset Depth Scale** to control where the ray starts for shadows from the receiving surface as the camera moves further away. 
-
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Ray Start Offset Depth Scale: 0](DF_Depth0.png)(w:600)
-	[/PARAM]
-	[PARAM:after]
-	![Ray Start Offset Depth Scale: 0.01](DF_Depth1.png)(w:600)
-	[/PARAM]
-[/OBJECT]
-
-
-## End Result
-
-Now that you've enabled Distance Fields Shadows for your different light types in your level and seen how to adjust the various settings for them, you should be able to apply these concepts to your own levels and games
-using Distance Fields. 
 
 
 

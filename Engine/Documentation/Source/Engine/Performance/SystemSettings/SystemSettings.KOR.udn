@@ -35,7 +35,7 @@ $ **DynamicDecals**: (bool) 동적 데칼을 허용할지 여부를 설정합니
 $ **UnbatchedDecals**: (bool) 정적 드로우 목록에 배치되어 있지 않지만 동적 뷰 관련성이 있는 데칼을 허용할지 여부를 설정합니다. 
 $ **DecalCullDistanceScale**: (float) 디스턴스 컬링 데칼의 요소를 스케일 조절합니다.
 $ **DynamicLights**: (bool) 동적 빛을 허용할지 여부를 설정합니다.
-$ **CompositeDynamicLights**: (bool) 동적 빛을 라이트 인바이언먼트에 조합시킬 여부를 설정합니다.
+$ **CompositeDynamicLights**: (bool) 동적 빛을 라이트 인바이런먼트에 조합시킬 여부를 설정합니다.
 $ **HighQualityLightmaps**: (bool) 머티리얼의 노멀과 스페큘러를 사용하는 디렉셔널 라이트맵을 허용할지 여부를 설정합니다. 
 $ **MotionBlur**: (bool) 모션 블러를 허용할지 여부를 설정합니다.
 $ **MotionBlurPause**: (bool) 모션 블러가 잠시 중단되는 것을 허용할지 여부를 설정합니다.

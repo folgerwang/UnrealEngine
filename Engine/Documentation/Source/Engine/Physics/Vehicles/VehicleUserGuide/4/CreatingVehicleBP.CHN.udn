@@ -1,88 +1,82 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3400712
 Availability: Public
-crumbs:
-Title: 3 - Creating a Vehicle Blueprint
-Description: In this step, we'll create the Vehicle Blueprint where we create and setup a functional vehicle.
-Type: Multi-step
+crumbs:%ROOT%
+Title: 4 - 创建载具蓝图
+Description: 在此步骤中，我们将创建可以载具蓝图以创建和设置一个功能完整的载具。
+Type:how-to
 SkillLevel: Advanced
 Version: 4.15
 Parent: Engine/Physics/Vehicles/VehicleUserGuide 
 checkpoint:vehicleuserguideHT
-Order:3
+Order:4
 Tags: Vehicles
-
 
 [Nav]
 
-By now, you've created a few different assets (TireConfig Data Assets, Wheel Blueprints, and an Animation Blueprint) that we need to bring together to create a fully functional vehicle in Unreal Engine 4.
-In this step, we'll create the Vehicle Blueprint and use those previous assets we created and setup! 
+到目前为止，你已经创建了一些不同的资源（TireConfig数据资源、轮子蓝图和动画蓝图），你需要把它们合并起来以在虚幻引擎4（UE4）中创建一个功能完整的载具。
+在这一步中，你将使用之前创建和设置的那些资源来创建载具蓝图。
 
+## 创建并编辑载具蓝图
 
-## Creating and Editing the Vehicle Blueprint
-
-1. In the **Content Browser** click the **Add New** button, then select **Blueprint Class** from the menu. 
-1. In the **Pick Parent Class** window, under **All Classes** search for "wheel" and then select **WheeledVehicle**.
-1. In your **Content Browser** the new Blueprint asset will be created. Make sure to give it a recognizable name so you can easily locate it later. 
+1. 在 **内容浏览器（Content Browser）** 中，单击 **新建（Add New）** 按钮，然后从菜单中选择 **蓝图类（Blueprint Class）**。 
+1. 在 **选择父类（Pick Parent Class）** 窗口中，在 **所有类（All Classes）** 下面，搜索“wheel”，然后选择 **WheeledVehicle**。
+1. 在 **内容浏览器（Content Browser）** 中，新的蓝图资源将会创建。请确保为它起一个易于识别的名称，方便以后查找。 
 
 	[REGION:raw]
 	![](newVehicle.png)(convert:false)
 	[/REGION]
 
-1. From the Content Browser, select and open your newly created Vehicle Blueprint. 
+1. 从“内容浏览器（Content Browser）”中，选中并打开新建的载具蓝图。 
 
 	![](MyVehicleBP.png)(w:775)
 
-1. Click on the **Skeletal Mesh Component** named **Mesh** from the **Components Window**. Then in its **Details** panel, set the **Skeletal Mesh** selection box to your vehicle's own Skeletal Mesh asset.
+1. 单击 **“组件（Components）”窗口** 中名称为 **网格体（Mesh）** 的 **骨架网格体组件**。然后，在其 **细节（Details）** 面板中，将 **骨架网格体（Skeletal Mesh）** 选择框设置为载具自己的骨架网格体资源。
 
 	![](ComponentsWindow.png)
 
-1. Set the **Anim Blueprint Generated Class** to your vehicle's Animation Blueprint that we created in the Step 2 of this guide. 
+1. 将 **动画蓝图生成类（Anim Blueprint Generated Class）** 设置为在本指南的步骤2中创建好的载具的动画蓝图。 
 
 	[REGION:raw]
 	![](AnimBPandSkelMesh.png)
 	[/REGION]
 
-1. Go back to the **Components** window and select the **Add Component** button and select a **Camera Component**
+1. 返回到 **组件（Components）** 窗口，选择 **添加组件（Add Component）** 按钮，然后选择 **“摄像机（Camera）”组件**。
 
 	[REGION:raw]
 	![](addCamera.png)
 	[/REGION]
 
-1. Use the Viewport in the Blueprint Editor to position the Camera where you would like it to be relative to your vehicle. In the image below, it is positioned behind, slightly raised, and tilted down towards the vehicle.
+1. 使用“蓝图编辑器（Blueprint Editor）”中的视口将摄像机放置在你需要的相对于载具的位置。在下图中，摄像机被放置在载具后面稍微靠上的位置，朝着载具向下倾斜。
 
 	![](cameraPlacement.png)
 
-1. With the **Camera** component still selected, in the **Details** panel under **Camera Settings** disable the option for **Use Pawn Control Rotation**. This will lock the camera to its view direction rather than that of the Player
-Controller. 
+1. **摄像机（Camera）** 组件仍处于被选中的状态（在 **细节（Details）** 面板中 **摄像机设置（Camera Settings）** 下面），请禁用 **使用 Pawn 控制旋转（Use Pawn Control Rotation）** 的选项。该操作会将摄像机锁定到其视向（而非玩家控制器的视向）。 
 
 	![](cameraControllerOff.png)
 
-1. Next, select the **Vehicle Movement Component** in the Components window. 
+1. 然后在“组件（Components）”窗口中，选择 **“载具移动（Vehicle Movement）”组件**。 
 
 	![](ComponentsWindow2.png)
 
-	In the **Details** panel under the **Vehicle Setup** section, expand the arrow next to **Wheel Setups** and for each wheel (0-3) set the following:
+	在 **细节（Details）** 面板的 **载具设置（Vehicle Setup）** 部分下，展开紧挨 **轮子设置（Wheel Setups）** 的箭头，为每个轮子（0-3）设置以下属性：
 
-	* Set the **Wheel Class** to the Wheel Blueprint(s) you created.
-	* Set the **Bone Name** to the name of the joint that should be controlled by the wheel.
+	* 将 **轮子类（Wheel Class）** 设置为你已创建的轮子蓝图。
+	* 将 **骨骼名称（Bone Name）** 设置为应该由轮子控制的连接点的名称。
 
 		[REGION:raw]
 		![](wheelsSetup.png)
 		[/REGION]
 
-		_The **Bone Name** in the above image is specific to this skeletal mesh. If you're using the Vehicle from Vehicle Game, you can use these specific Bone Names._
+		_上图中的 **骨骼名称（Bone Name）** 特定于该骨架网格体。如果使用的是载具类游戏（Vehicle Game）中的载具，你可以使用这些骨骼名称。_
 
-	The order you assign wheels has no bearing on if it is a front or a rear wheel, only the **Bone Name** and **Wheel Class** have any effect. For organizational purposes, it's best to do them in 
-	keep the wheels (front and rear) together.
+	指定轮子的顺序对它是前轮还是后轮没有影响，只有 **骨骼名称（Bone Name）** 和 **轮子类（Wheel Class）** 具有这种影响。为便于组织，最好将轮子（前轮和后轮）放在一起。
 
 	[REGION:note]
-	If you need more than 4 wheels, you can click the "**+**" icon next to the **Wheel Setups** property to add more.
+	如果需要的轮子数量大于4，可以单击**轮子设置（Wheel Setups）** 属性旁边的“**+**”图标位于来添加更多轮子。
 	[/REGION]
 
+## 最终结果
 
-## End Result
-
-At this point, assuming your vehicle is not substantially larger than a minivan, the default values will be a good starting point for you to move on to the next step in this guide where we'll setup the
-inputs and controls to properly test out the vehicle. 
+目前，如果载具并不比小型货车大很多，可以使用默认值并继续执行本指南中的下一步，你将在该步骤中设置输入和功能按钮以正确地测试载具。 
 
 [Nav]

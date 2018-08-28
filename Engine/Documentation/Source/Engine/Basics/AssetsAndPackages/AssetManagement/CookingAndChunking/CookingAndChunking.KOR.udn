@@ -16,7 +16,7 @@ Related: Engine/Basics/AssetsAndPackages/AssetManagement
 
 [TOC (start:2 end:3)]
 
-에디터 이외 플랫폼에서 릴리즈 또는 테스트용으로 게임을 쿠킹할 때, **Chunking** (청킹)을 사용하여 데이터를 다수의 .pak 파일로 분할한 뒤 독립적으로 디플로이할 수 있습니다. 청킹 기능은 애셋 매니저에 통합되어, **Primary Asset Labels** (프라이머리 애셋 라벨) 또는 **Rules Overrides** (룰 오버라이드)로 셋업할 수 있습니다. 청킹의 가장 좋은 예는 ShooterGame 샘플 프로젝트에서 찾을 수 있습니다. ShooterGame 은 세 개의 청크를 만듭니다. 청크 1 은 "Sanctuary" 맵, 청크 2 는 "Highrise" 맵, 청크 0 은 그 외 모든 데이터가 들어갑니다. [ShooterGame](Resources/SampleGames/ShooterGame) 의 경우, 프라이머리 애셋 라벨을 선택했는데, 여기서는 두 메소드 다 살펴보도록 하겠습니다.
+에디터 이외 플랫폼에서 릴리즈 또는 테스트용으로 게임을 쿠킹할 때, **Chunking** (청킹)을 사용하여 데이터를 다수의 .pak 파일로 분할한 뒤 독립적으로 디플로이할 수 있습니다. 청킹 기능은 애셋 매니저에 통합되어, **Primary Asset Labels** (프라이머리 애셋 라벨) 또는 **Rules Overrides** (룰 오버라이드)로 셋업할 수 있습니다. 청킹의 가장 좋은 예는 ShooterGame 샘플 프로젝트에서 찾을 수 있습니다. ShooterGame 은 세 개의 청크를 만듭니다. 청크 1 은 "Sanctuary" 맵, 청크 2 는 "Highrise" 맵, 청크 0 은 그 외 모든 데이터가 들어갑니다. [ShooterGame](Resources/SampleGames/ShooterGame) 의 경우, 프라이머리 애셋 라벨을 선택했는데, 여기서는 두 메서드 다 살펴보도록 하겠습니다.
 
 ## 프라이머리 애셋 규칙
 

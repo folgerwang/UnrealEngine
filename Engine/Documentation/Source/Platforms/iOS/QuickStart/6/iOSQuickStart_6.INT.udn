@@ -23,7 +23,7 @@ order:6
 [/OBJECT]
 [/VAR]
 
-
+%Steps%
 
 %Globals:OSSelect%
 
@@ -76,3 +76,4 @@ With the needed files now created and downloaded, in the next part we will take 
 
 
 
+%Steps%

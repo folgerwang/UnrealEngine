@@ -53,7 +53,7 @@ order:4
 	
 	![](maxWalk.png)
 
-1. **클래스 디폴트** 버튼을 클릭한 다음 **Pawn** 카테고리의 **AI Controller Class** 프로퍼티에 새로운 AI 콘트롤러 (`Follower_AI_CON`) 를 할당합니다.
+1. **클래스 디폴트** 버튼을 클릭한 다음 **Pawn** 카테고리의 **AI Controller Class** 프로퍼티에 새로운 AI 컨트롤러 (`Follower_AI_CON`) 를 할당합니다.
 
 	![](AI_con.png)
 

@@ -54,7 +54,7 @@ Template:PDF.html
 [INCLUDE:Programming\Development\CompilingProjects#Main(offset:1)]
 
 
-## 언리얼 엔진 디렉토리 구조
+## 언리얼 엔진 디렉터리 구조
 
 [INCLUDE:Engine/Basics/DirectoryStructure#Main(offset:1)]
 

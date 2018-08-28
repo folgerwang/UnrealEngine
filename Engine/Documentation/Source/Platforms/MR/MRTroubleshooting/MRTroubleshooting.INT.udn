@@ -1,0 +1,57 @@
+Availability: Public
+Crumbs: %ROOT%, Platforms, Platforms/MR
+Title: Troubleshooting Mixed Reality Capture
+Description: Product documentation including reference and guides for Unreal Engine 4
+Version: 4.20
+Parent: Platforms/MR
+Order: 5
+Tags: Reference
+Tags: MR
+Tags: landingpage
+Tags: Early Access
+topic-image:MR_CaptureFlicker.png
+reference-image:MR_CaptureFlicker.gif
+
+
+This page provides troubleshooting information for Mixed Reality Capture (MRC).
+
+## Flickering During Captures
+
+Depending on the resolution of the MR capture target (the default is 1080p), your app may be constrained by its render target pool size. By default, render targets are set to reallocate as needed, which can lead to ping-ponging and flickering as the MR capture targets fight with the stereo render targets. (shown in the video below)
+
+If you see this kind of behavior, you can change the render target resize rule to ‘Grow’ (in your engine.ini file, set *r.SceneRenderTargetResizeMethod=2*). Making this change should resolve the issue.
+
+[REGION:asyncgif]
+![](MR_CaptureFlicker.gif)(w:640)
+[/REGION]
+  
+
+## Capture Not Displaying on Spectator Screen
+
+The MRC framework uses the [Virtual Reality Spectator Screen](Platforms/VR/VRSpectatorScreen) to display the composited scene. This means the Mixed Reality capture will only be displayed when running in Virtual Reality. If your project also uses the spectator screen, then you need to conditionally guard where you use them. There are MRC methods to help with this:
+
+**Get Mixed Reality Capture Texture**  
+Returns the Capture Texture, or a nullptr if there isn't one.
+
+![](MR_BP_GetMixedRealityCaptureTexture.png "MR_BP_GetMixedRealityCaptureTexture.png")
+
+**Is Mixed Reality Capture Broadcasting**  
+Returns true, if the system is sending the capture texture to the spectator screen.  
+
+![](MR_BP_IsMixedRealityCaptureBroadcasting.png "MR_BP_IsMixedRealityCaptureBroadcasting.png")
+
+**Set Mixed Reality Capture Broadcasting**  
+Toggles whether the capture system is sending the capture texture to the spectator screen or not.  
+
+![](MR_BP_SetMixedRealityCaptureBroadcasting.png "MR_BP_SetMixedRealityCaptureBroadcasting.png")
+
+**An Example of Using the MRC Methods**  
+![](MR_MCR_SpecialConsiderations.png "MR_MCR_SpecialConsiderations.png")
+
+## Controller/Trigger Not Responding During Calibration
+
+If your controller input does not appear to respond during calibration, below are several possible causes.
+
+*   **The headset sensor in not covered.** If theheadset’s sensor is not covered, the controllers may not be active.
+*   **The application window needs to have focus.** If theMRCalibration window is not the current active window, the controller actions may not be captured by the calibration program. 
+*   **The Oculus system may not be configured to run from Unknown Sources.** As a part of Early Access, the calibration program is still in active development and has not been reviewed by Oculus.  ![](MR_OculusUnknownSourcesSetting.png "MR_OculusUnknownSourcesSetting.png")

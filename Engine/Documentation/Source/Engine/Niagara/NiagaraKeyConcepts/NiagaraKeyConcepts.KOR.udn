@@ -1,81 +1,75 @@
-﻿INTSourceChangelist:0
-Availability:Docs
-Crumbs: %ROOT%
-Title: Niagara Key Concepts
-Description:Critical concepts for working with particles in Unreal and the Niagara, particle editor.
-Type: Overview
-SkillLevel:Beginner
-Version: 4.17
-Parent:Engine/Niagara 
+INTSourceChangelist:4300185
+Availability: Public
+Crumbs: 
+Title: 나이아가라 핵심 개념
+Description: 언리얼에서 파티클 작업을 할 때, 그리고 파티클 에디터인 나이아가라 관련 핵심 개념입니다.
+Type:overview
+Version: 4.20
+Parent:Engine/Niagara
 Order: 2
-Tags:Getting Started
+Tags: Getting Started
+Tags: Early Access
 topic-image:Engine\Niagara\NiagaraSocial.png
 
 [TOC(start:2 end:2)]
 
-The Niagara Editor gives the user the ability to create a wide range of visual effects that can meet any Unreal Engine 4 (UE4) projects needs and do so in real-time. From effects for the player to effects for the environment, Niagara is flexible and powerful enough to handle whatever visual effects your project requires. In the following document, we will take a high-level look at how Niagara is different from Cascade and also how all the various pieces that make up the Niagara Editor work together. 
+나이아가라 에디터에는 언리얼 엔진 4 (UE4) 프로젝트에 필요한 여러가지 다양한 비주얼 이펙트를 실시간으로 만들 수 있는 기능이 제공됩니다. 플레이어용 이펙트에서 환경 이펙트까지, 나이아가라는 프로젝트에 필요한 비주얼 이펙트면 무엇이든 처리할 수 있을 만큼 유연하고 강력합니다. 다음 문서에서는, 나이아가라가 캐스케이드와 어떻게 다른지 그리고 나이아가라 에디터의 여러가지 다양한 부분이 어떻게 어우러지는지 일반적인 관점에서 살펴볼 것입니다.
 
-## A Modular Approach to Particle Effects
+## 파티클 이펙트에 대한 모듈식 접근법
 
-The primary overreaching concept of Cascade was to incorporate modularity into the creation of effects whenever possible. This was achieved by supplying a default set of modules when any new effect was created and then allowing effect artist to add additional modules or entirely new emitters based on what the effect needed to achieve. While this system works remarkably well for some years, it had a few minor issues that made things like sharing effect data between effects or updating many effects at once a time-consuming task that was prone to error. 
+캐스케이드에서 그대로 이어가고자 했던 핵심 개념 중 하나는, 이펙트 제작의 많은 부분에 모듈식 접근법을 사용하는 것이었습니다. 이펙트를 새로 만들 때 모듈의 기본 세트를 제공한 뒤 이펙트 아티스트가 모듈을 추가할 수 있도록 하거나, 필요에 따라 완전 새로운 이펙트를 만들 수 있도록 하는 방식으로 이루어졌습니다. 이 시스템은 몇 년간 효과가 뛰어났지만, 이펙트 사이 데이터를 공유한다던가 한 번에 다수의 이펙트를 업데이트하는 작업이 오류에 취약하다던가 하는 사소한 문제가 몇 가지 있었습니다.
 
 [REGION:lightbox]
 [![](NKC_00.png)(w:764)](NKC_00.png)
 [/REGION]
-
 [REGION:caption]
-This image shows that a **Cascade Particle System** is made up of a collection of emitters.
+이미터 집합으로 이루어진 **캐스케이드 파티클 시스템** 을 나타내는 그림입니다.
 [/REGION]
 
-To address these issues, Niagara has fully embraced this idea of modularity by decoupling the individual emitters that make up a particle system. Instead of having the particle system contain each emitter, **Niagara Systems** are comprised of many individual **Niagara Emitters**. Each of these Niagara Emitters contains a single effect that is controlled using the various modules that you are familiar with like **Lifetime**, **Location** and **Size** to adjust how the particles behave and look. However because these Niagara Emitters are independent actors that are saved in the Content Browser, that means they can be updated and shared with any Niagara System that you want to create allowing you to make massive changes to your emitters without having to spend a lot of time doing so.
+그 문제 해결을 위해, 나이아가라는 개별 이미터를 분리시켜 파티클 시스템으로 조합하는 모듈성 개념을 완벽 수용했습니다. 파티클 시스템에 각 이미터를 넣는 대신, **나이아가라 시스템** 은 개별 **나이아가라 이미터** 여러 개로 구성합니다. 이 나이아가라 이미터 각각에는 **Lifetime** (수명), **Location** (위치), **Size** (크기)처럼 익숙한 여러가지 모듈로 파티클 작동방식과 모양을 제어하는 이펙트가 하나씩 들어있습니다. 하지만 이 나이아가라 이미터는 콘텐츠 브라우저에 저장되는 독립 액터이므로, 어떤 나이아가라 시스템을 만들 때도 업데이트 및 공유할 수 있어 시간을 많이 들이지 않고도 이미터에 대한 대규모 변경 작업이 가능합니다.
 
 [REGION:lightbox]
 [![](NKC_01.png)(w:764)](NKC_01.png)
 [/REGION]
-
 [REGION:caption]
-This image shows that a **Niagara System** is made up of a collection of **Niagara Emitters**.
+**나이아가라 이미터** 집합으로 이루어진 **나이아가라 시스템** 을 보여주는 그림입니다. 
 [/REGION]
 
-## Niagara Emitter
+## 나이아가라 이미터
 
-When you create or open up a Niagara Emitter, it will come with some default modules that can be found in the **Selected Emitter** tab. Inside this tab, you will see the following five options that can be expanded and edited. Each of the following section will affect how the emitter spawns and behave's over its lifetime.
+나이아가라 이미터를 만들거나 열 때, **선택된 이미터** 탭에서 기본 모듈을 확인할 수 있습니다. 이 탭 안에서, 확장 및 편집할 수 있는 옵션은 다섯가지입니다. 다음 섹션 각각은 이미터 스폰 방식과 수명에 걸친 작동방식에 영향을 줍니다.
 
 [REGION:lightbox]
 [![](NKC_02.png)(w:620)](NKC_02.png)
 [/REGION]
 
-* **Emitter Spawn**
-    * The Emitter Spawn section is run when the emitter starts up. This is similar to a Construction Script for Blueprints in that it does one-time setup that can be used in later scripts. It cannot reference individual particles, but it can be used to set emitter variables, run emitter modules, and set up variables that will be used in the particle scripts.
-* **Emitter Update**
-    * The Emitter Update section is run every frame that the Emitter is active. Users will determine how many particles to spawn, compute constant values for use in particle update scripts, and do other per-frame "tick" logic for the emitter here. It is important to have the Emitter Lifecycle module in this section to ensure that all of the lifecycle logic is executed for each emitter, allowing the system to properly shut down.
-* **Particle Spawn**
-    * The Particle Spawn section is run once every time a particle is born. Users will use this section to set initial state for the particle. If the Emitter is not set to use Interpolated Spawn, the output from this section will define the state of the particle for the first frame it is rendered. If Interpolated Spawning does occur, the particles will be evenly spread out in the time range from the previous frame if not an instantaneous burst and the update script will be run for each particle for the fractional amount of the frame since it was created. This allows users to achieve smooth trails and can also be used to allow the particle update script to define the state of the particle for the first frame that it is rendered. If you need randomness to differentiate each particle, it is best to choose your random values in the spawn script and store that value for use in each subsequent update "tick."
-* **Particle Update**
-    * The Particle Update section controls how an individual particle will behave over its life. Changes to physical simulation attributes, rendering attributes, etc. can all be done within this section. If the user wishes to broadcast data to other emitters, modules that emit events can occur in this section.  It is important to have the Update Age module in this section to ensure that each particle continues to age and eventually die once it has passed its lifetime.
-* **Add Event Handler**
-    * The Add Event Handler section determines how this emitter will respond to incoming events from collision or other emitters. 
+*   **이미터 스폰**
+    *   이미터 스폰 섹션은 이미터가 시작되면 실행됩니다. 한 번 구성해 두면 나중에 스크립트에서 사용할 수 있다는 점에서 블루프린트의 컨스트럭션 스크립트와 비슷합니다. 개별 파티클 레퍼런싱을 할 수는 없지만, 이미터 변수를 설정하고, 이미터 모듈을 실행하고, 파티클 스크립트에 사용할 변수를 구성하는 데 사용할 수 있습니다.
+*   **이미터 업데이트**
+    *   이미터 업데이트 섹션은 이미터가 활성화된 모든 프레임마다 실행됩니다. 사용자는 스폰시킬 파티클 개수를 결정하고, 파티클 업데이트 스크립트에서 사용할 상수 값을 계산하고, 기타 이미터에 대한 프레임 별 "틱" 로직을 수행할 수 있습니다. 이 섹션에 Emitter Lifecycle (이미터 수명주기) 모듈을 두고 각 이미터에 대해 모든 수명주기 로직이 실행되도록 해야 시스템의 정상 셧다운이 가능합니다.
+*   **파티클 스폰**
+    *   파티클 스폰 섹션은 파티클이 태어날 때마다 한 번씩 실행됩니다. 사용자는 이 섹션에서 파티클의 초기 상태를 설정합니다. 이미터가 Interpolated Spawn (보간 스폰)을 사용하도록 설정되지 않은 경우, 파티클이 렌더링되는 첫 프레임에 대해 그 상태를 이 섹션의 출력이 결정합니다. 보간 스폰이 발생하면, 파티클은 순간 파열이 아닌 경우 이전 프레임서부터 시간 범위에 고르게 분산되며, 생성 이후 프레임 일정 부분동안 각 파티클에 대해 업데이트 스크립트를 실행합니다. 이로써 사용자는 부드러운 흔적을 만들 수 있고, 파티클 업데이트 스크립트가 파티클이 렌더링되는 첫 프레임동안 그 상태를 정의할 수 있도록 해주기도 합니다. 각 파티클을 난수화시켜 다르게 할 필요가 있는 경우, 스폰 스크립트에서 난수 값을 선택하고 그 값을 저장하여 잇따른 업데이트 틱마다 사용하는 것이 좋습니다.
+*   **파티클 업데이트**
+    *   파티클 업데이트 섹션은 개별 파티클의 수명에 걸친 작동방식을 제어합니다. 여기서 물리 시뮬레이션 특성, 렌더링 특성 등에 대한 변경 작업을 모두 할 수 있습니다. 사용자가 데이터를 다른 이미터에 전파하고자 하는 경우, 여기서 이벤트를 내뿜는 모듈을 발생시킬 수 있습니다.   중요한 점은 이 섹션에 Update Age (나이 업데이트) 모듈이 있어야 각 파티클이 계속해서 나이를 먹다 수명이 다하면 죽게됩니다.
+*   **이벤트 핸들러 추가**
+    *   이벤트 핸들러 추가 섹션은 콜리전이나 다른 이미터에서 들어오는 이벤트에 이 이미터가 반응하는 방식을 정의합니다.
 
-## Niagara System 
+## 나이아가라 시스템
 
-To use a Niagara Emitter in your project, it will first need to be placed into a **Niagara System**. A Niagara System is a used to display the individual Niagara Emitters that have been created to make an effect. This also makes it very easy to mix and match different Niagara emitters together to create entirely new effects using only the existing emitters.
+프로젝트에서 나이아가라 이미터를 사용하려면, 먼저 **나이아가라 시스템** 안에 배치해야 합니다. 나이아가라 시스템은 이펙트를 만들기 위해 생성된 개별 나이아가라 이미터를 표시하는 데 사용합니다. 다양한 나이아가라 이미터를 한 데 섞어 맞추는 방식으로 기존 이미터만 사용하여 완전 새로운 이펙트를 만드는 작업도 매우 쉬워집니다. 
 
 [REGION:lightbox]
 [![](NKC_08.png)(w:620)](NKC_08.png)
 [/REGION]
 
- To add a Niagara Emitter to a Niagara System, you will need to drag your Niagara Emitter from the Content Browser onto the **Track** section of the **Timeline**. 
+나이아가라 시스템에 나이아가라 이미터를 추가하려면, 콘텐츠 브라우저에서 나이아가라 이미터를 끌어 **타임라인** 의 **트랙** 섹션 위에 놓으면 됩니다.
 
 [REGION:lightbox]
 [![](NKC_07.png)(w:600)](NKC_07.png)
 [/REGION]
 
-You can adjust the properties of Niagara Emitters that are placed in the Timeline by selecting one and then go to the **Selected Emitter** panel and adjust the needed property.
+타임라인에 배치된 나이아가라 이미터의 프로퍼티는 이미터를 선택한 뒤 **선택된 이미터** 패널에서 필요한 프로퍼티를 조절하면 됩니다. 
 
 [REGION:lightbox]
 [![](NKC_09.png)(w:250)](NKC_09.png)
 [/REGION]
-
-
-
-

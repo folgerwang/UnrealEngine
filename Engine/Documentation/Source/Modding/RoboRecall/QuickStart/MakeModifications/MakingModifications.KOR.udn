@@ -20,7 +20,7 @@ checkpoint:mod_qs
 
 [EXCERPT:NewPistol]
 
-1. [콘텐츠 브라우저](Engine/Content/Browser) 에 우클릭하고 **새 폴더** 를 선택하여 모드의 콘텐츠 디렉토리에 새 폴더를 만듭니다. 폴더 이름은 **Materials** 라 합니다.
+1. [콘텐츠 브라우저](Engine/Content/Browser) 에 우클릭하고 **새 폴더** 를 선택하여 모드의 콘텐츠 디렉터리에 새 폴더를 만듭니다. 폴더 이름은 **Materials** 라 합니다.
 
 	![](new_folder.png)
 
@@ -36,7 +36,7 @@ checkpoint:mod_qs
 
 	![](mat_base.png)
 
-1. 표현식의 검정색 프리뷰를 더블클릭하여 [색 선택기](Engine/UI/ColorPicker) 를 엽니다. R, G, B 값을 0.02 로 설정하여 표면에 약간 색을 줍니다.
+1. 표현식의 검정색 프리뷰를 더블클릭하여 [색 선택 툴](Engine/UI/ColorPicker) 를 엽니다. R, G, B 값을 0.02 로 설정하여 표면에 약간 색을 줍니다.
 
 	![](mat_base_color.png)
 

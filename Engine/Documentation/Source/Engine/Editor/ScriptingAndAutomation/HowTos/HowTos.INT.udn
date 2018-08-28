@@ -1,0 +1,16 @@
+Availability: Public
+Crumbs: 
+Title: Editor Scripting How-Tos
+Description: Provides a list of example pages that show how to use Blueprints and Python to script and automate content production tasks in the Unreal Editor.
+Version: 4.20
+Parent: Engine/Editor/ScriptingAndAutomation
+Order: 0
+Tags: scripting
+Tags: editor
+
+
+The pages in this section show you how to use Blueprints and Python to automate some common content production tasks in the Unreal Editor. You can copy these examples directly, or use them as models for your own scripts.
+
+## Intermediate
+
+[DIR(output:"fancy" type:"how-to" skill:"Intermediate" parent:"Engine/Editor/ScriptingAndAutomation/HowTos" org:"hierarchy")]

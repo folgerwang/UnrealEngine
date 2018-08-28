@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3354806
+INTSourceChangelist:3354806
 Availability:Public
 Title:Vector Operation 표현식
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
@@ -84,7 +84,7 @@ Transform (트랜스폼, 변환) 표현식은 한 좌표계의 3채널 벡터값
 | ---- | ---- |
 | [REGION:tablesection]프로퍼티[/REGION] ||
 | **Transform Source Type** | 벡터를 변환해 올 소스 좌표계를 나타냅니다. World, Local, Tangent 중 하나입니다. |
-| **Transform Type** | 벡터를 변환할 타겟 좌표계를 나타냅니다. World, View, Local, Tangent 중 하나입니다. |
+| **Transform Type** | 벡터를 변환할 타깃 좌표계를 나타냅니다. World, View, Local, Tangent 중 하나입니다. |
 
 
 Transform 표현식은 UV 미러링을 지원하므로, 이를테면 캐릭터 오른쪽 편에만 영향을 끼치는 하이라이트같은 작업이 가능합니다.

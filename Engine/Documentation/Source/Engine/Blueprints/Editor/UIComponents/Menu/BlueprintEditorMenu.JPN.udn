@@ -35,7 +35,7 @@ tags:Blueprints
 
 ###表示
 
-[INCLUDE:ViewMenu]
+[INCLUDE:#ViewMenu]
 
 ### デバッグ
 

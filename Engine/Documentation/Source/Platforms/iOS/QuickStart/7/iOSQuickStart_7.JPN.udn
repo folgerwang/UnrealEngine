@@ -24,6 +24,7 @@ order:7
 [/OBJECT]
 [/VAR]
 
+%Steps%
 [OBJECT:ToggleButtonContent]
     [PARAMLITERAL:category]
     OS
@@ -51,7 +52,6 @@ order:7
     %macos%
     [/PARAM]
 [/OBJECT]
-
 
 
 [VAR:windows]
@@ -211,3 +211,4 @@ order:7
 [/VAR]
 
 
+%Steps%

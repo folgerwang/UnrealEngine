@@ -1,12 +1,12 @@
 ﻿INTSourceChangelist:3782314
 Availability:Public
-Title:트레일 콘트롤러
+Title:트레일 컨트롤러
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
 Description:본 체인에 영향을 끼치는데 사용되는 Trail Controller 노드 사용법입니다.
 version: 4.12
 topic-image:TrailController.png
 
-**Trail Controller** (트레일 콘트롤러)는 계층구조 내 본 시리즈에 영향을 끼치는 데 사용됩니다.
+**Trail Controller** (트레일 컨트롤러)는 계층구조 내 본 시리즈에 영향을 끼치는 데 사용됩니다.
 
 ![](TrailController.png)
 
@@ -31,7 +31,7 @@ topic-image:TrailController.png
 | --- | ----------- |
 | [REGION:tablesection]**입력 핀**[/REGION] ||
 | **Component Pose** | 컴포넌트 포즈 - 받는 포즈입니다. |
-| **Alpha** | 알파 - 콘트롤의 현재 세기입니다. |
+| **Alpha** | 알파 - 컨트롤의 현재 세기입니다. |
 
 **Trail Controller** 노드는 4.11 에 도입된 **LOD Threshold** 시스템의 영향을 받기도 합니다. **디테일** 패널의 **Trail Controller** 노드에서 그 세팅을 찾아볼 수 있습니다.
 

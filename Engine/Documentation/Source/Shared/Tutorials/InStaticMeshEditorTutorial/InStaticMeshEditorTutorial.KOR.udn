@@ -32,7 +32,7 @@ Description:
 * Alt + 우클릭 드래그 또는 마우스 휠 굴리기는 줌 레벨 조절입니다.
 * F 는 열린 스태틱 메시에 포커스를 맞춥니다.
 
-[자세한 정보와 또다른 조작법에 대해서는 뷰포트 콘트롤 페이지를 참고하세요.](DOCLINK:Engine/UI/LevelEditor/Viewports/ViewportControls)
+[자세한 정보와 또다른 조작법에 대해서는 뷰포트 컨트롤 페이지를 참고하세요.](DOCLINK:Engine/UI/LevelEditor/Viewports/ViewportControls)
 
 [/EXCERPT:Stage1.05]
 

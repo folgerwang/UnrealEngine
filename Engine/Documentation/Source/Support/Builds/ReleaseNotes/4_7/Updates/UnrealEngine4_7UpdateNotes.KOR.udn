@@ -28,7 +28,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.7.1-release](h
 
 * UE-7497 그래프를 활성화시켜도 비주얼 로거에 표시되지 않음
 
-* UE-9745 색 선택기가 작동하지 않음
+* UE-9745 색 선택 툴이 작동하지 않음
 
 * UE-10016 Merge Blueprints 기능을 사용하면 에디터 크래시
 
@@ -66,7 +66,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.7.1-release](h
 
 * UE-10510 인스턴스에 여러가지 변경이 있을 때 블루프린트에 인스턴스 변경사항을 적용하면 크래시
 
-* UE-10524 소스 콘트롤을 켠 상태에서 프로젝트를 생성하면 아이콘 추가에 실패했다고 보고
+* UE-10524 소스 컨트롤을 켠 상태에서 프로젝트를 생성하면 아이콘 추가에 실패했다고 보고
 
 * UE-10529 TappyChicken: HTML5: Firefox: 전체화면 버튼이 화면 중심에서 벗어나 표시 (오른쪽에 커다란 검정 테두리)
 

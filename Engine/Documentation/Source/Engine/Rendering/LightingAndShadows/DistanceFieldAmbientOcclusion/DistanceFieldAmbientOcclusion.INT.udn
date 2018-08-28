@@ -191,7 +191,7 @@ By default, non-directional AO is applied to specular. You can use **r.AOSpecula
 
 ### Foliage 
 
-For Actors painted with the [Foliage Tool](Engine/Rendering/LightingAndShadows/MeshDistanceFields#folaigetoolsettings), you must first enable the option **Affect Distance Field Lighting** in tool settings.
+For Actors painted with the [Foliage Tool](Engine/Rendering/LightingAndShadows/MeshDistanceFields#foliagetoolsettings), you must first enable the option **Affect Distance Field Lighting** in tool settings.
 
 ![](Engine/Rendering/LightingAndShadows/MeshDistanceFields/FoliageToolSettings.png)
 

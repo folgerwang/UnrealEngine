@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3801260
 Availability: Public
 Crumbs: %ROOT%
-Title: Physics Asset Editor - Constraints Graph
-Description: User guide for the Constraints Graph inside the Physics Asset Editor. 
+Title: 物理资源编辑器 - 约束图
+Description: 物理资源编辑器内的约束图用户指南。 
 Type: Reference
 Version:4.18
 Parent:Engine/Physics/PhAT/PhysicsAssetEditor
@@ -13,96 +13,89 @@ Order:
 Tags:Physics
 Tags:Animation
 
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
-
 [TOC(start:2 end:3)]
 
 
 ![](Graph.png)
 
-The **Constraints Graph** shows the linkages for constraints between the selected bodies in the Physics Asset. Within it, you can perform the following actions:
+**约束图** 显示物理资源中所选形体间的约束的连接。在其中，你可以执行以下操作：
 
-* Select and view bodies and constraints in the skeletal hierarchy.
-* Create and edit bodies and constraints using the [right-click context menus](Engine/Physics/PhAT/SkeletonTree#selectioncontextmenus).
-* Create constraint links using pin-dragging selection.
-* Assign / Unassign profiles for Physical Animation and Constraints.
+* 选择并查看骨骼层级中的形体和约束。
+* 使用[右击上下文菜单](Engine/Physics/PhAT/SkeletonTree#selectioncontextmenus)创建和编辑形体和约束。
+* 使用引脚拖动选项创建约束连接。
+* 为物理动画和约束指定/取消指定配置文件。
 
 
-## Skeletal Hierarchy Selection Displayed in the Graph
+## 约束图中显示的骨骼层级选项
 
-When bodies or constraints are selected in the [Skeleton Tree](Engine/Physics/PhAT/SkeletonTree), the graph will display the currently selected ones and their connections. 
+当在[骨架树](Engine/Physics/PhAT/SkeletonTree)中选中形体或约束时，约束图中会显示当前选中的形体或约束及其连接。 
 
 ![](GraphWithSkelSelection.png)
 [REGION:caption]
-The body "spine_03" is selected in the Skeleton Tree, and the Graph displays the constraints and the bodies they connect to.
+在骨架树中选中了形体“spine_03”，约束图中显示了它们连接到的约束和形体。
 [/REGION]
 
-### Bodies
+### 形体
 
-When a [Body](Engine/Physics/PhysicsBodies) is selected, the Graph will display the following information: 
+选中[形体](Engine/Physics/PhysicsBodies)时，约束图中会显示以下信息： 
 
-* Bone Name
-* Number of Primitive Shapes used 
+* 骨骼名称
+* 使用的基本形状的数量 
 
 ![](BodyInfo.png)
 
-In this example, the Bone Name is **hand_l** and there is a single primitive shape.
+在本示例中，骨骼名称是 **hand_l**，只有一个基本形状。
 
 [REGION:note]
-You can double-click any Body node on the far right to move through the hierarchy list to that body and its constraints.
+你可以双击最右端的任何形体节点，从而在层级列表中移动到该形体及其约束。
 [/REGION]
 
-#### Graph Pin-Dragging Connections
+#### 约束图引脚拖动连接
 
-The node-based display in the graph enables you to drag from the output pin of the main Body (far left, **hand_l**) and use the selection menu to select a body to create a constraint. The same
-workflow can be achieved through the right-click context menus in the [Skeleton Tree](Engine/Physics/PhAT/SkeletonTree#selectioncontextmenus) as well.
+约束图中基于节点的显示方法使你能够从主形体（最左端 **hand_l**）的输出引脚拖出引线并使用选择菜单来选择形体以创建约束。也可以通过[骨架树](Engine/Physics/PhAT/SkeletonTree#selectioncontextmenus)中的右击上下文菜单来实现相同的工作流。
 
 [REGION:imagetable]
 | ![](PinDragging01.png)(h:500) | ![](PinDragging02.png)(h:500) |
 | --- | --- |
-| Pull off the Body output pin and select a Body from the list. | The resulting Constraint. |
+| 从形体输出引脚拖出引线并从列表中选择一个形体。| 产生的约束。|
 [/REGION]
 
 [REGION:note]
-If the Graph does not update after creating or deleting a constraint, click away and then back to see the update.
+如果在创建或删除约束后约束图没有更新，请单击其他地方，然后再回到原处以查看更新。
 [/REGION]
 
-### Constraints
+### 约束
 
-When a [Constraint](Engine/Physics/Constraints/ConstraintsReference) is selected, the Graph will display the following information:
+选中[约束](Engine/Physics/Constraints/ConstraintsReference)时，约束图中会显示以下信息：
 
-* Bone Names that are linked
+* 连接的骨骼名称
 
 ![](ConstraintInfo.png)
 
-Here, the Bone named **lowerarm_l** is constrained to **hand_l**.
+在本示例中，名称为 **lowerarm_l** 的骨骼约束到了 **hand_l**。
 
-## Profile Assignment
+## 配置文件指定
 
-In the Graph, you'll be able to see the [Profiles](Engine/Physics/PhAT/ToolsAndProfiles#currentprofileassignment) that the selected bodies and constraints are assigned to. 
+在约束图中，你将能够查看为选中的形体和约束指定的[配置文件](Engine/Physics/PhAT/ToolsAndProfiles#currentprofileassignment)。 
 
-There are two types of profiles that can be created and assigned: **Physical Animation** which bodies can be assigned to and Constraint ones which constraints can be assigned to. Profiles contain a set of default values for properties of bodies and constraints. When the **Current Profile** is set in the **Profiles** tab, the nodes in the Graph will indicate their assignment status of a profile for the displayed bodies and constraints.
+可以创建和指定两种类型的配置文件：可指定给形体的 **物理动画** 配置文件和可指定给约束的约束配置文件。配置文件包含一系列形体和约束属性的默认值。如果在 **配置文件（Profiles）** 选项卡中设置了 **当前配置文件（Current Profile）**，约束图中的节点会指示显示的形体和约束的配置文件指定状态。
 
-There are two states that a node can be in indicated by its color: 
+节点可处于两种状态中（通过其颜色指示）： 
 
-* Is **assigned** to a profile.
-* Is **not assigned** to a profile or none is selected
+* **指定了** 配置文件
+* **未指定** 配置文件或未选择
 
 
-When the **Current Profile** is assigned to the selected body or constraint, or if none is selected, the node's fill color (green for bodies and beige for constraints) is used. When the selected body or constraint is not assigned to the Current Profile, the node will be shaded. 
+如果将 **当前配置文件（Current Profile）** 指定给选中的形体或约束，或未选择配置文件，会使用节点填充颜色（形体为绿色，约束为米黄色）。如果所选形体或约束未指定到当前配置文件（Current Profile）未指定，节点将会变暗。 
 
 ![](ProfileAssignment.png)
 
-Here, the bodies for **lowerarm_l** and **middle_01_l** have been assigned the profile **MyPhysicalAnimation_Profile**, and the remaining body nodes have not been assigned this particular profile, as
-indicated by their shaded color. 
+在本示例中，为形体 **lowerarm_l** 和 **middle_01_l** 指定了配置文件 **MyPhysicalAnimation_Profile**，但没有为其余的形体节点指定该特定配置文件，从其颜色为深色可以看出来。 
 
 ![](ProfileAssignmentNone.png)
 
-For the constraints, since the Current Profile is set to **None**, the fill color remains unshaded until any selected constraints are assigned a selected profile.
+对于约束，由于其“当前配置文件（Current Profile）”设置为 **None**，在任何选中的约束指定所选配置文件前，填充颜色不会变暗。
 
 [REGION:note]
-For additional information about using Profiles and assigning them to bodies and constraints, see the [Tools and Profiles](Engine/Physics/PhAT/ToolsAndProfiles#currentprofileassignment) page.
+有关使用配置文件和将它们指定给形体和约束的更多信息，请参阅[工具（Tools）和配置文件（Profiles）](Engine/Physics/PhAT/ToolsAndProfiles#currentprofileassignment)页面。
 [/REGION]

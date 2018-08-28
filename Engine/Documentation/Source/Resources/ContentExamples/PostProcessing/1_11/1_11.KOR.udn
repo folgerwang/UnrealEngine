@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4312754
 Availability: Public
 Title:1.11 - 뎁스 오브 필드
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/PostProcessing
@@ -19,9 +19,9 @@ topic-image:Resources/ContentExamples/PostProcessing/PP_11.png
 
 ## 가우시안
 
-[INCLUDE:Engine/Rendering\PostProcessEffects\DepthOfField#DepthOfField_Gaussian]
+Gaussian (가우시안) DoF 는 표준 가우시안 블러를 사용하여 씬을 흐리게 만듭니다. 가우시안 메서드는 빠르므로 퍼포먼스가 중요한 게임에서 사용하기에 적당합니다.
 
 ## 보케
 
-[INCLUDE:Engine/Rendering\PostProcessEffects\DepthOfField#DepthOfField_Bokeh]
+[INCLUDE:Engine/Rendering\PostProcessEffects\DepthOfField\Cinematic#DepthOfField_Bokeh]
 

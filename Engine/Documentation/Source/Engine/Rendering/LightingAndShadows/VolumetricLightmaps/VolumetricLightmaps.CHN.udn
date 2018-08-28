@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3801260
 Availability: Public
 Crumbs: %ROOT%
-Title: Volumetric Lightmaps
-Description: Volumetric lighting samples used for global illumination of dynamic objects and unbuilt scene preview.
+Title: 体积光照贴图
+Description: 用于动态对象及预览未构建场景的全局光照的体积光照样本。
 Type: Overview
 SkillLevel:Intermediate
 Version:4.18
@@ -14,74 +14,73 @@ Topic-image:VLM_Topic.png
 Social-image:LitMoveableCharacterVLM.png
 
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:100 convert:false)[/VAR]
-
-
 [TOC(start:2 end:2)]
 
 [REGION:note]
-Volumetric Lightmaps replace the [Indirect Lighting Cache](Engine/Rendering/LightingAndShadows/IndirectLightingCache) and Volume Lighting Samples going forward. 
+今后体积光照贴图会取代[间接光照缓存](Engine/Rendering/LightingAndShadows/IndirectLightingCache)和体积光照样本。 
 
-The Indirect Lighting Cache can be re-enabled by opening the **World Settings** > **Lightmass Settings** and setting the **Volume Lighting Method** to **VLM Spare Volume Lighting Samples**.
+要重新启用间接光照缓存，可以打开 **世界场景设置（World Settings）** > **Lightmass设置（Lightmass Settings）**，将 **体积光照方法（Volume Lighting Method）** 设置为 **VLM稀疏体积光照样本（VLM Sparse Volume Lighting Samples）**。
 [/REGION]
 
 
 
 
-Lightmass generates lightmaps for indirect lighting on static objects. However, dynamic objects like characters need a method of receiving indirect lighting as well. This is done by 
-storing precomputed lighting in all points in space called **Volumetric Lightmap** at built-time to calculate the indirect lighting for dynamic objects at runtime. 
+Lightmass会生成[表面光照贴图](Engine/Content/Types/StaticMeshes/LightmapUnwrapping)，用于静态Object上的间接光照。但是，动态的Object（例如角色）也需要一种接受间接光照的方法。这种方法就是在构建时将所有点的预计算光照存储在名为 **体积光照贴图** 的空间中，然后在运行时用于动态Object的间接光照的插值。
 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Indirect Lighting Cache | (Old Method)](LitMoveableCharacterILC.png)(w:1100)
+	![间接光照缓存 |（老方法）](LitMoveableCharacterILC.png)(w:1100)
 	[/PARAM]
 	[PARAM:after]
-	![Volumetric Lightmap | (New Method)](LitMoveableCharacterVLM.png)(w:1100)
+	![体积光照贴图 |（新方法）](LitMoveableCharacterVLM.png)(w:1100)
 	[/PARAM]
 [/OBJECT]
 [REGION:caption]  [/REGION]
 [REGION:caption]
-Dynamic objects rendered with Volumetric Lightmaps render much more accurately than with the Indirect Lighting Cache.
+使用体积光照贴图渲染动态Object要比使用间接光照缓存渲染准确得多。
 [/REGION]
 
 
 
 
-## How It Works
+## 工作方式
 
-From a high-level point of view, the Volumetric Lightmaps system works in the following manner:
+概括起来，体积光照贴图是按下列方式工作的：
 
-* Lightmass places lighting samples throughout the level and computes indirect lighting for them during the lighting build. 
-* When it comes time to render a dynamic object, the Volumetric Lightmap is interpolated to each pixel being shaded, providing precomputed indirect lighting.
-* If no lighting was available (the object is new or moved too much), the Volumetric Lightmap interpolates lighting to each pixel no matter what.
+* Lightmass将光照样本放置在关卡中的各个位置，并在光照构建期间为它们计算间接光照。 
+* 当需要渲染动态Object时，就将体积光照贴图内插到着色的每个像素，提供预计算的间接光照。
+* 如果没有构建的光照可用（也就是说Object是新的或者移动过多），就从 **静态** Object的体积光照贴图将光照内插到每个像素，直至光照重构完成为止。 
 
-When a Lightmass Importance Volume is placed, the Volumetric Lightmap cover it entirely with 4x4x4 bricks of lighting samples. These bricks are placed with higher-density near static 
-geometry where indirect lighting is changing the most. This data structure allows efficient interpolation of indirect lighting to any point in space on the GPU. 
 
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Volume Lighting Samples | (Old Method)](ILC_Placement.png)(w:850)
-	[/PARAM]
-	[PARAM:after]
-	![Volumetric Lightmap | (New Method) ](VLM_Placement.png)(w:850)
-	[/PARAM]
-[/OBJECT]
+当放置Lightmass重要体积时，体积光照贴图会构建由4x4x4个单元格组成的砖块（光照样本）。运行Lightmass时，会将这些单元格放置在整个Lightmass重要体积上，然后在场景中的静态几何体周围使用更多单元格，以获得更好的间接光照结果。
 
-Each of these points is a lighting samples, which uses a 3rd Order Spherical Harmonic to store the incoming lighting in all directions. 
+![](CubeVLM1.png)(w:500)
+
+每个这样的点（或球体）都是一个体积光照贴图光照样本，它使用三阶球谐函数存储所有方向传来的光照。 
 
 ![](VolumeLightmap.png)(w:375)
 
-Use the view mode for **Volumetric Lightmap** to visualize the lighting samples in the level viewport by clicking **Show** > **Visualize** > **Volumetric Lightmap**.
+在Object附近，任何处于某个砖块中的静态几何体都将在间接光照变化最大的地方使用更多单元格。通过数据结构能够将间接光照内插到GPU上的任何空间点。 
+
+[REGION:raw] ![](VLMDensity.png)(w:1200) [/REGION]
+[REGION:caption]
+（从左到右）一个Lightmass重要体积，在该体积中放置了一个静态网格体。静态几何体周围的单元格密度较高；砖块的一个面的表示示例，显示了4x4x4个单元格的布置；同样的单元格表示示例，光照构建期间存在静态几何体时密度较高。
+[/REGION]
+
+### 启用体积光照贴图可视化
+
+单击 **显示（Show）** > **可视化（Visualize）** > **体积光照贴图（Volumetric Lightmap）**，使用 **体积光照贴图** 的视图模式在关卡视口中将光照样本可视化。
 
 [REGION:imagetable]
 | [INCLUDE:#enableviewmode] | [INCLUDE:#visualize] |
-| --- | --- |
-| Enable Volumetric Lightmap view mode | Visualizing Volumetric Lightmap lighting samples |
+| ------------------------- | -------------------- |
+| 启用体积光照贴图视图模式              | 可视化体积光照贴图光照样本        |
+| _单击查看大图。_                 | _单击查看大图。_            |
 [/REGION]
 
-When visualizing the Volumetric Lightmap, you can see the density that is present around geometry compared to areas that are only within the Lightmass Importance Volume but do not have any geometry near them.
+如果在光照构建之后将体积光照贴图可视化，你可以根据受影响的Lightmass重要 
+体积中的单元格数量看出聚集在静态几何体周围的光照样本的密度。距离静态几何体较远的光照样本密度较低，因为它们附近没有几何体。
 
 
 [COMMENT:none]
@@ -91,7 +90,6 @@ When visualizing the Volumetric Lightmap, you can see the density that is presen
 [REGION:lightbox]
 [![](ViewModeVLM.png)(h:500)](ViewModeVLM.png)
 [/REGION]
-[REGION:caption] Click image for full size. [/REGION]
 [/EXCERPT:enableviewmode]
 
 
@@ -99,65 +97,116 @@ When visualizing the Volumetric Lightmap, you can see the density that is presen
 [REGION:lightbox]
 [![](Visualize.png)(h:500)](Visualize.png)
 [/REGION]
-[REGION:caption] Click image for full size. [/REGION]
 [/EXCERPT:visualize]
 
 -
 [/COMMENT]
 
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![体积光照样本 |（老方法）](ILC_Placement.png)(w:850)
+	[/PARAM]
+	[PARAM:after]
+	![体积光照贴图 |（新方法） ](VLM_Placement.png)(w:850)
+	[/PARAM]
+[/OBJECT]
+
+[间接光照缓存](Engine/Rendering/LightingAndShadows/IndirectLightingCache)仅将光照样本放置在静态几何体表面上方。体积光照贴图将样本高密度地放置在静态几何体周围，在间接光照变化最大的地方呈现更多细节。
 
 
 
-### Previewing Unbuilt Lighting
+[COMMENT:none]
+----
 
-The Volumetric Lightmaps also allows previewing of objects with unbuilt lighting. When you move a Static Mesh that had lighting previously built for it, it will automatically switch to 
-the Volumetric Lightmaps until the next lighting build. 
+当放置Lightmass重要体积时，体积光照贴图会用4x4x4的光照样本砖块将它完全覆盖。这些砖块在静态几何体附近间接光照变化最大的地方以较高的密度放置。通过数据结构能够高效地将间接光照内插到GPU上的任何空间点。 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Indirect Lighting Cache | (Old Method)](UnbuildILC.png)(w:850)
+	![体积光照样本 |（老方法）](ILC_Placement.png)(w:850)
 	[/PARAM]
 	[PARAM:after]
-	![Volumetric Lightmap | (New Method)](UnbuiltVLM.png)(w:850)
+	![体积光照贴图 |（新方法） ](VLM_Placement.png)(w:850)
+	[/PARAM]
+[/OBJECT]
+
+每个这样的点都是一个光照样本，它使用三阶球谐函数存储所有方向传来的光照。 
+
+![](VolumeLightmap.png)(w:375)
+
+单击 **显示（Show）** > **可视化（Visualize）** > **体积光照贴图（Volumetric Lightmap）**，使用 **体积光照贴图** 的视图模式在关卡视口中将光照样本可视化。
+
+[REGION:imagetable]
+| [INCLUDE:#enableviewmode] | [INCLUDE:#visualize] |
+| ------------------------- | -------------------- |
+| 启用体积光照贴图视图模式              | 可视化体积光照贴图光照样本        |
+[/REGION]
+
+如果将体积光照贴图可视化，你就能看到几何体周围区域与仅仅处在Lightmass重要体积中但附近没有几何体的区域相比的密度差异。
+
+
+
+
+
+
+
+
+--
+[/COMMENT]
+
+
+
+
+
+
+
+
+
+
+### 预览未构建的光照
+
+体积光照贴图允许预览有未构建的光照的Object。如果移动一个先前为其构建过光照的静态网格体，它会自动切换为体积光照贴图，直至下一次光照构建为止。 
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![间接光照缓存 |（老方法）](UnbuildILC.png)(w:850)
+	[/PARAM]
+	[PARAM:after]
+	![体积光照贴图 |（新方法）](UnbuiltVLM.png)(w:850)
 	[/PARAM]
 [/OBJECT]
 [REGION:caption]
- 
+
 [/REGION]
 [REGION:caption]
-The column in the center has been copied and is now lit by the Volumetric Lightmap until lighting is built again.
+已经复制了中央的柱子，现在通过体积光照贴图对其照明，直到再次构建光照为止。
 [/REGION]
 
 
-### Precomputed Lighting on Movable Objects
+### 可移动Object上的预计算光照
 
-Unlike the [Indirect Lighting Cache](Engine/Rendering/LightingAndShadows/IndirectLightingCache) where interpolation between a lighting sample happens once for the whole component, the Volumetric Lightmap
-is more reliable by interpolating to each pixel instead. This leads to a reliable distribution of detail that results in fewer cases of light leaking. 
-
+与整个组件只发生一次光照样本的插值的[间接光照缓存](Engine/Rendering/LightingAndShadows/IndirectLightingCache)不同，体积光照贴图允许内插至每个像素，从而可以呈现更多细节。这样可以实现可靠的细节分布，从而减少漏光现象。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Indirect Lighting Cache  | (Old Method)](MovableCharacterILC.png)(w:600)
+	![间接光照缓存 |（老方法）](MovableCharacterILC.png)(w:600)
 	[/PARAM]
 	[PARAM:after]
-	![Volumetric Lightmap  | (New Method)](MovableCharacterVLM.png)(w:600)
+	![体积光照贴图 |（新方法）](MovableCharacterVLM.png)(w:600)
 	[/PARAM]
 [/OBJECT]
 
-For character, the added detail of Volumetric Lightmaps blends the character better with the environment.
-
-
+增加的体积光照贴图细节使角色更好地与环境融合。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Indirect Lighting Cache | (Old Method)](MovableObjectILC.png)(w:600)
+	![间接光照缓存 |（老方法）](MovableObjectILC.png)(w:600)
 	[/PARAM]
 	[PARAM:after]
-	![Volumetric Lightmap | (New Method)](MovableObjectVLM.png)(w:600)
+	![体积光照贴图 |（新方法）](MovableObjectVLM.png)(w:600)
 	[/PARAM]
 [/OBJECT]
 
-For movable objects that are embedded in any static geometry, it now provides a better match for the static object lighting compared to the Indirect Lighting Cache. 
+对于嵌入在任何静态几何体中的可移动Object，它提供了比间接光照缓存更好的静态Object光照匹配。 
 
 
 
@@ -166,123 +215,117 @@ For movable objects that are embedded in any static geometry, it now provides a 
 - [INCLUDE:Engine/Rendering/LightingAndShadows/VolumetricLightmaps#Volumetricfog] --
 [/COMMENT]
 
-### Precomputed Lighting on Volumetric Fog
+### 体积雾上的预计算光照
 
 [EXCERPT:volumetricfog]
 
-Volumetric Lightmaps support static lighting application for Volumetric fog by having each fog voxel interpolate precomputed lighting to its position in space. 
+体积光照贴图使每个雾体素都有预计算光照内插到其在空间中的位置，从而支持了体积雾的静态光照应用。 
 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Spot Light with | No Indirect Light Bounce](SpotLightNoBounce.png)(w:1100)
+	![点光源 | 无间接光线反射](SpotLightNoBounce.png)(w:1100)
 	[/PARAM]
 	[PARAM:after]
-	![Spot Light with | Indirect Light Bounce](SpotLightIndirectBounce.png)(w:1100)
+	![点光源 | 有间接光线反射](SpotLightIndirectBounce.png)(w:1100)
 	[/PARAM]
 [/OBJECT]
 
-Stationary Lights have their indirect lighting stored in lightmaps, which now affects fog. 
+静止光源的间接光照存储在光照贴图中，现在会影响雾。 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Sky Light with Emissive Color](SkylightEmissiveFogColor.png)(w:1100)
+	![带自发光颜色的天空光照](SkylightEmissiveFogColor.png)(w:1100)
 	[/PARAM]
 	[PARAM:after]
-	![Sky Light Volumetric Lightmap](SkylightVLM.png)(w:1100)
+	![天空光照体积光照贴图](SkylightVLM.png)(w:1100)
 	[/PARAM]
 [/OBJECT]
 
-Skylights are shadowed properly, preventing indoor areas from becoming over-fogged.
+天空光照现在也可以正确地投射阴影，防止室内区域变成大雾效果。
 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Indirect Lighting Cache: | Static and Emissive for Static Lighting | (Old Method) ](ILCStaticLighting.png)(w:1100)
+	![间接光照缓存：| 静态光照的静态和自发光 |（老方法） ](ILCStaticLighting.png)(w:1100)
 	[/PARAM]
 	[PARAM:after]
-	![Volumetric Lightmap: | Static and Emissive for Static Lighting | (New Method) ](VLMStaticLighting.png)(w:1100)
+	![体积光照贴图：| 静态光照的静态和自发光 |（新方法） ](VLMStaticLighting.png)(w:1100)
 	[/PARAM]
 [/OBJECT]
 
-Static and Emissive for Static lights affect fog without costing anything since they're all merged into the Volumetric Lightmap. 
+静态光照的静态和自发光对雾的影响没有任何开销，因为它们全部都合并到体积光照贴图中了。 
 
 [/EXCERPT:volumetricfog]
 
 
-## Settings
+## 设置
 
-The Volumetric Lightmap settings can be accessed from the **World Settings** located under the **Lightmass Settings**.
+可以在 **世界场景设置（World Settings）** 的 **Lightmass设置（Lightmass Settings）** 下访问体积光照贴图设置。
 
 ![](VLMSettings.png)
 
 [REGION:raw]
-| Setting | %spacer% | Description |
-| --------| -------- | ----------- |
-| **Volumetric Lighting Method** || Technique used for providing precomputed lighting at all positions inside the Lightmass Importance Volume.  [INCLUDE:#vlmethod] |
-| **Volumetric Lightmap Detail Cell Size** || Size of a Volumetric Lightmap voxel at the highest density (used around geometry), in world space units. This setting has a large impact on build times and memory and should be used with caution. |
-| **Volumetric Lightmap Maximum Brick Memory Mb** || The maximum amount of memory to spend on Volumetric Lightmap Brick data. High-density bricks will be discarded until this limit is met with bricks furthest from geometry discarded first. Trimming memory too heavily will result in inconsistent resolution and it would be better to increase **Volumetric Lightmap Detail Cell Size** instead. |
+| 设置                                       | 说明                                       |
+| ---------------------------------------- | ---------------------------------------- |
+| **体积光照方法（Volumetric Lighting Method）**   | 用于在Lightmass重要体积内的所有位置提供预计算光照的技术。[INCLUDE:#vlmethod] |
+| **体积光照贴图细节单元格大小（Volumetric Lightmap Detail Cell Size）** | 最高密度（在几何体周围使用）下的体积光照贴图体素的大小，按世界场景空间单位计。这个设置对于构建时间和内存有很大影响，应该谨慎使用。 |
+| **体积光照贴图最大砖块内存量（Volumetric Lightmap Maximum Brick Memory Mb）** | 要为体积光照贴图砖块数据花费的最大内存量。系统会丢弃高密度砖块，直至达到这一限制为止。先丢弃距离几何体最远的砖块。对内存裁减过多会导致分辨率不一致，因此最好用增大 **体积光照贴图细节单元格大小（Volumetric Lightmap Detail Cell Size）** 来代替。 |
 [/REGION]
 
 [COMMENT:none]
 --
 [INCLUDE:#vlmethod]
 [EXCERPT:VLMethod]
-| --- | --- | --- |
-| **VLM Volumetric Lightmap** || Lighting samples are computed in an advanced grid which covers the entire Lightmass Importance Volume. Higher-density grids are used near geometry. The Volumetric Lightmap is interpolated efficiently on the GPU per-pixel allowing accurate indirect lighting for dynamic objects and volumetric fog. Positions outside of the Importance Volume reuse the border texels of the Volumetric Lightmap (clamp addressing). On mobile, interpolation is done on the CPU at the center of each object's bounds.  |
-| **VLM Sparse Volume Lighting Samples** || Volume lighting samples are placed on top of static surfaces at medium-density and everywhere else in the Lightmass Importance Volume at low-density. Positions outside of the Importance Volume will have no indirect lighting. This method requires CPU interpolation, so the Indirect Lighting Cache is used to interpolate results for each dynamic object, adding Rendering Thread overhead. Volumetric Fog cannot be affected by precomputed lighting with this method. |
-| | %spacer2% | |
+| --- | --- |
+| **VLM体积光照贴图（VLM Volumetric Lightmap）** | 在覆盖整个Lightmass重要体积的高级网格中计算光照样本。在几何体附近使用较高密度的网格。通过在GPU上逐像素进行高效的体积光照贴图插值，为动态Object和体积雾实现准确的间接光照。重要体积以外的位置复用体积光照贴图的边界纹素（限制寻址）。在移动平台上，在CPU上对每个Object的边界中心执行插值。 |
+| **VLM稀疏体积光照样本（VLM Sparse Volume Lighting Samples）** | 体积光照样本按中等密度放置在静态表面上，在Lightmass重要体积中的其他所有位置则按低密度放置。重要体积以外的位置则没有间接光照。这种方法要求CPU插值，因此使用间接光照缓存为每个动态Object内插结果，会增加渲染线程开销。如果使用此方法，预计算光照无法影响体积雾。 |
+
 [/EXCERPT:VLMethod]
 
 -
 [/COMMENT]
 
 
-## Performance
+## 性能
 
-The following considerations should be taken into account when considering performance and memory usage with Volumetric Ligthmaps.
+在考虑体积光照贴图的性能和内存使用时，应该考虑下列因素。
 
-* Volumetric Lightmaps on a third person character cost .02ms of GPU time on the PlayStation 4. All Indirect Lighting Cache Rendering Thread cost is removed.  
-* In Epic's Paragon map Monolith, memory usage increased from 5Mb with the Indirect Lighting Cache to 30Mb with Volumetric Lightmaps at default **Detail Cell Size** settings. Memory usage can be seen under the
-**Stat Memory** command in the Editor with **Volumetric Lightmap Memory**
+* 第三人称视角角色上的体积光照贴图在PlayStation 4上会耗用0.02毫秒的GPU 时间。所有间接光照缓存渲染线程成本均已剔除。  
+* 在Epic的《虚幻争霸》的巨岩殿地图上，使用间接光照缓存时的内存使用量是5Mb，而按默认 **细节单元格大小（Detail Cell Size）** 设置使用体积光照贴图时的内存使用量会增大到30Mb。内存使用量可以
+  在编辑器中 **统计内存（Stat Memory）** 命令下通过 **体积光照贴图内存（Volumetric Lightmap Memory）** 看到
 
-	[REGION:lightbox]
-	[![](StatMemory.png)(w:700)](StatMemory.png)
-	[/REGION]
-	[REGION:caption] Click image for full size. [/REGION]
+  [REGION:lightbox]
+  [![](StatMemory.png)(w:700)](StatMemory.png)
+  [/REGION]
+  [REGION:caption]单击查看大图。[/REGION]
 
 
-### Volumetric Lightmap versus Indirect Lighting Cache
+### 体积光照贴图与间接光照缓存对比
 
-Below are the details of the comparisons between the Indirect Lighting Cache and Volumetric Lightmaps. 
+下面是间接光照缓存与体积光照贴图的详细对比： 
 
 [REGION:simpletable]
-| --- | --- |
-| **Volumetric Lightmaps** | **Precomputed Light Volumes/Indirect Lighting Cache** |
-| [INCLUDE:#vlm] | [INCLUDE:#ilc] |
+| **预计算光照体积/间接光照缓存**     | **体积光照贴图**                 |
+| ---------------------- | -------------------------- |
+| 在CPU上进行开销巨大的插值         | 在GPU上进行高效插值                |
+| 逐个Object插值，在实例化组件上也不例外 | 逐像素插值                      |
+| 无法影响体积雾                | 对体积雾有效                     |
+| 仅在静态表面上高密度放置，导致低密度样本漏光 | 以高密度放置在所有静态表面周围            |
+| Lightmass重要体积以外为黑色样本   | 拉伸边界体素以覆盖Lightmass重要体积外部区域 |
+| 支持关卡流送                 | 当前不支持关卡流送                  |
 [/REGION]
 
 
-[COMMENT:none]
-- 
-[INCLUDE:#ilc]
-[EXCERPT:ILC]
-* Costly interpolation on the CPU
-* Per-object interpolation, even on instanced components
-* Cannot affect Volumetric Fog
-* Placed with high-density only on top of static surfaces resulting in leaking from low-density samples
-* Black samples outsides of the Lightmass Importance Volume
-* Supports level streaming
-[/EXCERPT:ILC]
 
-[EXCERPT:VLM]
-* Efficient interpolation on the GPU
-* Per-pixel interpolation
-* Works with Volumetric Fog
-* Placed with high-density all around static surfaces
-* Border voxels are stretched to cover area outside of the Lightmass Importance Volume
-* Does not currently support level streaming
-[/EXCERPT:VLM]
+## 附加提示
 
--
-[/COMMENT]
+* 如果你在大型关卡中降低 **体积光照贴图细节单元格大小（Volumetric Lightmap Detail Cell Size）** 来获得更高的精度，则还需要增大 **体积光照贴图最大砖块内存量（Volumetric Lightmap Maximum Brick Memory Mb）**。否则，细节单元格将会被剔除，导致动态Object间接光照精度下降。
+
+
+## 故障诊断 
+
+* 为了增加样本数量已经降低了 **细节单元格大小（Detail Cell Size）**，但是在静态几何体附近的样本密度低于所请求的密度。
+  * 如果 **砖块最大内存（Maximum Brick Memory）** 过低，或者区域中的所有光照都几乎相等，细节砖块可能被剔除。
+* 光线透过墙壁漏到角色身上，但没有漏到附近的静态网格体上。
+  * 当前解决漏光的唯一办法是降低 **细节单元格大小（Detail Cell Size）**（允许使用更多内存）或增加墙壁厚度。

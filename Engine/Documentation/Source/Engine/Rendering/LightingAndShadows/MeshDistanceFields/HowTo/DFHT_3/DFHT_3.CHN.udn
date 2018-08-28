@@ -1,92 +1,112 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title: Using Particle Collision Mode for Distance Fields
-Description: A how to guide to enable your Particle Systems to use Distance Fields for scene collision.
-Related: Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing
-Related: Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion
+﻿INTSourceChangelist:3716175
+Availability: Public
+Crumbs: %ROOT%
+Title: 使用距离场的粒子碰撞模式
+Description: 如何启用粒子系统，将距离场用于场景碰撞。
+Type: how-to
 SkillLevel:Intermediate
-Version: 4.15
-reference-image:SceneDepthCollision.gif
-reference-image:DistanceFieldCollision.gif
-Parent: Engine/Rendering/LightingAndShadows/DistanceFields/HowTo
-type: how to
-Order:
-Tags: Lighting
+Version:4.18
+Parent:Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference
+Related:Engine/Rendering/ParticleSystems
+Order:1
+Tags:Lighting
+Topic-image:DFParticleCollision_Topic.png
+Social-image:ParticleDF_Topic.png
 
 
 [REGION:fullwidth raw]
 ![](DFParticleBanner.png)
 [/REGION]
 
-Particle collision in your games can be limited when relying on Scene Depth, which can only use what is in the camera view. At some angles, collision isn't very accurate for particles that have longer lifetimes or that are
-used over a large area. You can now use the **Collision Mode** for **Distance Field**, which enables your visual effects (VFX) to use whole scene collision using your Static Mesh's Distance Field representation. This collision
-mode offers more reliable collision than Scene Depth, however, the [Global Distance Field](https://docs.unrealengine.com/latest/INT/Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion/#technicaldetails) is lower 
-resolution, so you may find that particles pass through thin objects and sharp corners are rounded. Also, collision with Distance Fields is very efficient in that it costs about the same as using Scene Depth. 
 
-In this guide, we'll look at how we can enable the **Collision Mode** in a Particle System to use **Distance Fields** over Scene Depth.
+依赖场景深度时，在游戏中的粒子碰撞会受到限制，仅可以将摄像机视图中可用的粒子用于碰撞。对于寿命较长的粒子或在大面积区域中使用的粒子，在某些角度，场景深度不是特别精确。如果在项目中使用[网格体距离场（Mesh Distance Field）](Engine/Rendering/LightingAndShadows/MeshDistanceFields)，粒子的 **碰撞模式** 就可以使用整个场景进行碰撞，而非场景深度。
 
-## Steps
+**距离场** 碰撞模式提供的碰撞相较于 **场景深度** 更加可靠。但是，由于 [全局距离场（Global Distance Field）](Engine/Rendering/LightingAndShadows/MeshDistanceFields#GlobalDistanceField)用于表示整个场景的较低分辨率，您可能会发现使用距离场碰撞模式时粒子会穿过较薄的对象或者尖角会变圆。作为分辨率降低的回报，距离场碰撞可以高效运行。其性能成本与场景深度碰撞差不多，但是却不受摄像机视图限制。距离场碰撞模式是一个Shader Model 5（SM5）功能。在不支持SM5的硬件上，粒子碰撞会自动退回到使用场景深度碰撞。
+
+在本指南中，您将学习如何为粒子系统中的距离场启用碰撞模式。
+
+## 步骤
 
 [REGION:note]
-This feature requires that **Generate Mesh Distance Fields** be enabled in your **Project Settings** in the **Rendering** section.
+该功能要求您在 **项目设置（Project Settings）** 的 **渲染（Rendering）** 部分中启用 **生成网格体距离场（Generate Mesh Distance Fields）**。请在此处查看如何[启用网格体距离场（Mesh Distance Field）](Engine/Rendering/LightingAndShadows/MeshDistanceFields#EnablingDistanceFields) （如果尚未启用）。
 [/REGION]
 
-1. In your **Content Browser**, locate and open any **Particle System** or create a new one if you do not have one readily available. 
-	
-	![](ContentBrowser.png)(w:350)
-	
-	[REGION:note]
-	For the purpose of this example, the **P_GPU_Particles_Collision2** asset from [Content Examples](Resources/ContentExamples) will be used for this demonstration.
-	[/REGION]
+1. 在 **内容浏览器（Content Browser）** 中，找到并打开任意 **粒子系统（Particle System）**，如果不存在立即可用的粒子系统则新建一个。 
+  ​
+  ![](ContentBrowser.png)(w:350)
 
-1. Once **Cascade** (the Particle System Editor) opens, right-click in the empty space and from the module list, select **Type Data** > **New GPU Sprites**.
-	
-	[REGION:raw]
-	![](AddGPUModule.png)(w:700)	
-	[/REGION]
-1. Now, right-click, again, in the empty space and from the module list, select **Collision** > **Collision(Scene Depth)**. 
+  [REGION:tip]
+  粒子 **P_GPU_particles_collision2** 资源（位于[内容示例](Resources/ContentExamples)中）是只需要少量设置即可以使用的良好示例，可将其作为起点。
+  [/REGION]	
 
-	[REGION:raw]
-	![](AddCollisionModule.png)(w:700)
-	[/REGION]
-	
-1. With the **Collision** module selected, navigate over to the **Details** panel and use the dropdown next to **Collision Mode** to use **Distance Field**.
+2. 双击已选择的粒子系统以打开[级联粒子编辑器（Cascade Particle Editor）](Engine/Rendering/ParticleSystems)。
+  ​
+  ![](Cascade.png)(w:900)
 
-	![](DetailsPanelCollisionMode.png)(w:450)
-	
-	[REGION:note]
-	Distance Field particle collision is a Shader Model 5 (SM5) feature, on hardware that doesn't support SM5, the particles will fall back to use Scene Depth Collision instead. 
-	[/REGION]
+  ​
+3. 级联粒子编辑器（Cascade Particle Editor）打开后，在空白的地方右键单击，然后从模块列表中选择 **类型数据（Type Data）** > **新建GPU Sprite（New GPU Sprites）**。
+  ​
+  [REGION:raw]
+  ![](AddGPUmodule.png)(w:700)
+  [/REGION]
 
-## End Result
+4. 再次在空白的地方右键单击，然后从模块列表中选择 **碰撞（Collision）** > **碰撞（场景深度））（Collision(Scene Depth)）**。 
 
-Now that you've seen how to enable your Particle System(s) to use the Collision Mode for Distance Fields, your particles will be able to collide with the entire scene without relying on Scene Depth. This affords
-you the flexibility in the types of effects and lifetimes of those effects that you create, whether they cover a large area or are a localized one.
+  [REGION:raw]
+  ![](AddCollisionModule.png)(w:700)
+  [/REGION]
+
+5. 选择 **碰撞（场景深度）（Collision (Scene Depth)）** 模块。导航至 **细节（Details）** 面板，然后从 **碰撞模式（Collision Mode）** 旁边的下拉菜单中选择 **距离场（Distance Field）**。
+  ​
+  ![](DetailsPanelCollisionMode.png)(w:350)
+  ​
 
 
-[REGION:imagetable]
-| [INCLUDE:#SceneDepth] | [INCLUDE:#DistanceField] |
-| --- | --- |
-| Scene Depth Collision | Distance Field Collision|
-[/REGION]
+## 最终结果
 
-In these examples, we'll take a look at how **Scene Depth** collision can have varying results depending on your camera view compared to **Distance Field** that doesn't rely on the camera view. This is especially noticeable
-when moving under an enclosed area, like the tree in this example, where the parts out of view no longer provide collision for the area particle. 
+现在你已经学习了如何让粒子系统为距离场使用碰撞模式，粒子将能够与整个场景碰撞，而不必依赖于场景深度。 
+这提供了视觉效果类型和所创建效果的寿命方面的灵活性，无论这些效果覆盖较大区域还是位于较小的区域中。
 
 
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	r_G5AX1uUZ8
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	75
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	73.5
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
 
-[COMMENT:none]
--
-[EXCERPT:SceneDepth]
-[REGION:asyncgif]
-![](SceneDepthCollision.gif)(w:600)
-[/REGION]
-[/EXCERPT:SceneDepth]
+在本示例中，粒子碰撞使用的是 **距离场（Distance Fields）** 碰撞。这些粒子始终会被具有生成的距离场的任何表面阻挡，无论其在摄像机视图中是否可见。随着摄像机移动到树下，树顶表面的粒子碰撞（在摄像机视图范围之外）仍将会影响这些粒子。 
 
-[EXCERPT:DistanceField]
-[REGION:asyncgif]
-![](DistanceFieldCollision.gif)(w:600)
-[/REGION]
-[/EXCERPT:DistanceField]
--
-[/COMMENT]
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	v3-BijTrwSQ
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	75
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	73.5
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+当 **场景深度（Scene Depth）** 碰撞用于粒子碰撞时，由于使用场景深度缓冲，粒子仅会被摄像机视图中可见的内容阻挡。因此，当摄像机移动到树下时，树顶表面的粒子碰撞（在摄像机视图范围之外）就不会继续影响这些粒子，从而使它们在摄像机前掉落在地上，即使它们本该被阻挡。
+

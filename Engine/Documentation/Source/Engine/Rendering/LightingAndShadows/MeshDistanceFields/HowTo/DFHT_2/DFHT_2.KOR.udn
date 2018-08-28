@@ -23,8 +23,8 @@ Social-image:DFAO_Header.png
 
 게임에서 동적인 **앰비언트 오클루전** (AO) 효과를 내기 위해 대부분 스크린 스페이스 기법에 의존하거나, 오브젝트가 월드 바닥에 있는 느낌을 내기 위해 프리컴퓨티드 라이팅을 활용할 수도 있습니다. 
 이러한 기법은 매우 유용하지만, 저마다의 한계점이 있습니다. [스크린 스페이스 앰비언트 오클루전](Engine/Rendering/LightingAndShadows/AmbientOcclusion) (SSAO)은 씬 뎁스만 사용할 수 있어 
-보이는 스크린 스페이스 안에서만 작동합니다. 프리컴퓨티드 메소드는 월드의 스태틱 오브젝트에만 작동합니다. 즉 실시간 업데이트가 불가능하다는 뜻입니다.
-[디스턴스 필드 앰비언트 오클루전](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) (DFAO)은 무버블 스태틱 메시에 [메시 디스턴스 필드](Engine/Rendering/LightingAndShadows/MeshDistanceFields) 를 사용하는 풀 다이내믹 AO 메소드입니다. 
+보이는 스크린 스페이스 안에서만 작동합니다. 프리컴퓨티드 메서드는 월드의 스태틱 오브젝트에만 작동합니다. 즉 실시간 업데이트가 불가능하다는 뜻입니다.
+[디스턴스 필드 앰비언트 오클루전](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) (DFAO)은 무버블 스태틱 메시에 [메시 디스턴스 필드](Engine/Rendering/LightingAndShadows/MeshDistanceFields) 를 사용하는 풀 다이내믹 AO 메서드입니다. 
 월드의 다이내믹 라이트에만 사용하도록 제한되어있지 않으며, 프리컴퓨티드 라이팅에도 쉽게 사용할 수 있습니다.
 
 여기서는 무버블 스카이 라이트 액터에 DFAO 를 켜는 방법을 살펴본 뒤, 사용할 수 있는 다양한 세팅에 대해 알아보겠습니다.

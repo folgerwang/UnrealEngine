@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3403466
+﻿INTSourceChangelist:4220945
 Availability:Public
 Title:照片级角色
 Crumbs:%ROOT%, Resources
@@ -6,13 +6,14 @@ Description:照片级角色半身像展示的总览。
 Related:Engine/Rendering/Materials
 Related:Engine/Rendering/Materials/PhysicallyBased
 Related:Engine/Rendering/Materials/LayeredMaterials
+Related: Resources/Showcases/DigitalHumans
 Version:4.15
 topic-image:PhotorealHead.png
 social-image:PhotorealHead.png
 
 
 [TOC(start:2 end:3)]
-
+[REGION:note]照片级逼真角色示例现已开放下载。您可以通过 **Epic Games启动程序** 的 **学习** 标签页下载 **数字人类** 示例项目。[/REGION]
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
 	K-VyoqRB5_g

@@ -64,7 +64,7 @@ USB 코드가 정말 중요한데, 개발 PC 와 스마트폰 사이의 데이�
     
     ![](Platforms\GearVR\GVR_OSIG_File_Location.png)
 
-* 프로젝트의 Engine/Build/Android/Java 가 아닌 **Build/Android/assets** 디렉토리에 OSIG 파일을 넣어도 됩니다. 
+* 프로젝트의 Engine/Build/Android/Java 가 아닌 **Build/Android/assets** 디렉터리에 OSIG 파일을 넣어도 됩니다. 
 
     [region:note]
     이런 식으로 OSIG 파일을 추가하면 그 파일은 추가된 프로젝트에만 사용될 뿐, 다른 기어 VR 프로젝트에는 사용되지 않는다는 점 유념해 주세요.

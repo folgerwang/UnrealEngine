@@ -1,0 +1,28 @@
+INTSourceChangelist:4320499
+Availability: Public
+Crumbs: %ROOT%, Platforms, Platforms/MR
+Title: 지원 비디오 디바이스
+Description: 언리얼 엔진 4 의 혼합 현실 캡처 기능에 대한 가이드와 레퍼런스입니다.
+Version: 4.20
+Parent: Platforms/MR
+Order: 4
+Tags: Reference
+Tags: MR
+Tags: landingpage
+Tags: Early Access
+topic-image:MR_Camera.jpg
+
+Mixed Reality Capture (MRC, 혼합 현실 캡처) 프레임워크에 몇 가지 비디오 캡처 디바이스를 테스트했습니다. 다른 비디오 캡처 디바이스는 작동하지 않는다는 뜻은 아닙니다.  여기 에픽게임즈에서 테스트한 디바이스 목록은 다음과 같습니다.
+
+**웹캠**
+
+* [Logitech C920](https://www.logitech.com/en-us/product/hd-pro-webcam-c920)
+* [Logitech C930e](https://www.logitech.com/en-us/product/c930e-webcam)
+
+**USB 캡처 동글**
+
+* [Magewell USB Capture HDMI Gen 2](http://www.magewell.com/usb-capture-hdmi)
+
+¹ 테스트하지 않기는 했지만, Magewell USB 캡처 제품도 (4K 용) [Plus model](http://www.magewell.com/usb-capture-hdmi-4k-plus) 및 그 (방송 하드웨어용) [SDI 캡처 동글](http://www.magewell.com/usb-capture-sdi-4k-plus) 같은 것은 MRC 와 바로 호환될 확률이 높습니다.
+
+고급 사용자는 Media Framework 플러그인을 작성하여 자체 비디오 캡처 디바이스를 지원하도록 할 수 있습니다.
