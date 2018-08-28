@@ -2312,10 +2312,6 @@ void RichCurveInterpolationToFbxInterpolation(ERichCurveInterpMode InInterpolati
 		{
 			OutTangentMode = FbxAnimCurveDef::eTangentBreak;
 		}
-		else if (InTangentMode == RCTM_Auto)
-		{
-			OutTangentMode = FbxAnimCurveDef::eTangentAuto;
-		}
 		
 		switch (InTangentWeightMode)
 		{
