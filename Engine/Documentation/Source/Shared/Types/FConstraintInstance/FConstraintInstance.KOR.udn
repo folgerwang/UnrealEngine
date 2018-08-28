@@ -304,7 +304,7 @@ Engine/Physics/Constraints/ConstraintsReference#sharedproperties
 
 [EXCERPT:LinearPositionTarget]
 
-선형 위치 타겟 - Linear Position Drive 가 이르고자 하는 위치로, 피직스 컨스트레인트 액터 또는 피직스 컨스트레인트 컴포넌트를 기준으로 합니다.
+선형 위치 타깃 - Linear Position Drive 가 이르고자 하는 위치로, 피직스 컨스트레인트 액터 또는 피직스 컨스트레인트 컴포넌트를 기준으로 합니다.
 
 [/EXCERPT:LinearPositionTarget]
 
@@ -319,7 +319,7 @@ Engine/Physics/Constraints/ConstraintsReference#sharedproperties
 
 [EXCERPT:LinearVelocityTarget]
 
-선형 속도 타겟 - Linear Velocity Drive 에 대한 속도 타겟을 설정합니다.
+선형 속도 타깃 - Linear Velocity Drive 에 대한 속도 타깃을 설정합니다.
 [VAR:ToolTipFullLink]
 Engine/Physics/Constraints/ConstraintsReference#sharedproperties
 [/VAR]
@@ -366,13 +366,13 @@ Engine/Physics/PhAT/Properties#physicsconstraintproperties
 
 [EXCERPT:AngularOrientationTarget]
 
-각형 방향 타겟 - 각형 방향 드라이브에서 원하는 방향입니다.
+각형 방향 타깃 - 각형 방향 드라이브에서 원하는 방향입니다.
 
 [/EXCERPT:AngularOrientationTarget]
 
 [EXCERPT:bAngularVelocityDrive]
 
-각형 속도 드라이브 - 타겟 속도를 향한 각형 드라이브를 켭니다.
+각형 속도 드라이브 - 타깃 속도를 향한 각형 드라이브를 켭니다.
 [VAR:ToolTipFullLink]
 Engine/Physics/PhAT/Properties#physicsconstraintproperties
 [/VAR]

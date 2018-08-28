@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3741452
 Availability: Docs
 Crumbs: %ROOT%, 
-Title:Create a particle light
-Description:Describes how you can create light with in your particle system.
+Title:创建粒子光照
+Description:描述如何在粒子系统中创建光照。
 Type: how-to
 SkillLevel:Beginner
 Version: 4.17
@@ -11,59 +11,59 @@ order:5
 tags:Niagara
 topic-image:
 
-Giving particles the ability to illuminate the world around them can add an extra layer of realism to any of your projects visual effects. In the following How - To we will take a look at setting up a Niagara emitter so that particles and lights are spawned at the same time.
+让粒子能够照亮周围场景，可以为任何项目视觉效果额外增加一层真实感。在以下操作指南中，我们将介绍如何设置Niagara发射器，以便同时产生粒子和照明。
 
 ![](PL_Hero_Image.png)
 
-## Steps
+## 步骤
 
-1. First, we will need to create a **Niagara Emitter** by right-clicking in the **Content Browser** and from the displayed menu go to **FX** and then click **Niagara Emitter**. 
+1. 首先，我们需要在 **内容浏览器（Content Browser）** 中单击右键，从显示的菜单中，转至 **FX**，然后单击 **Niagara 发射器（Niagara Emitter）**，以创建 **Niagara 发射器（Niagara Emitter）**。 
 
     ![](Engine\Niagara\HowTo\SpriteEffect\SE_01.png)
 
-1. Name the newly created Niagara Emitter, **FX_Light** and then double click on it to open it up.
+2. 将新创建的Niagara发射器命名为 **FX_Light**，然后双击以将其打开。
 
     ![](PL_01.png)
 
-1. Next in the **Render** section of the FX_Light Niagara Emitter, press the **Plus** sign icon and from the displayed list, select the **Niagara Light Renderer Properties** option.
+3. 接下来，在FX_Light Niagara发射器的 **渲染（Render）** 部分中，按 **加号（Plus）** 图标，并从显示的列表中，选择 **Niagara照明渲染器属性（Niagara Light Renderer Properties）** 选项。
 
     ![](PL_02.png)
 
-1. In the Niagara Light Renderer Properties, set the **Radius Scale** and **Color Add** to a value of **10**.
+4. 在“Niagara照明渲染器属性”（Niagara Light Renderer Properties）中，将 **半径比例（Radius Scale）** 和 **颜色增加（Color Add）** 设置为值 **10**。
 
     ![](PL_03.png)
 
-1. Then press the **Compile**, **Apply** and **Save** buttons to apply and save the changes and then close the **FX_Mesh** emitter.
+5. 然后，按 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮，以应用和保存更改，而后关闭 **FX_Mesh** 发射器。
 
     ![](Engine\Niagara\HowTo\MeshEffect\ME_09.png)
 
-1. Now over in the **Content Browser**, right - click and from the displayed list, go to **FX** and then select the **Niagara System** option, giving it a name of **ParticleLight**.
+6. 现在移到 **内容浏览器（Content Browser）**，单击右键并从显示的列表中，转至 **FX**，然后选择 **Niagara系统（Niagara System）** 选项，将其命名为 **ParticleLight**。
 
     ![](Engine\Niagara\HowTo\SpriteEffect\SE_16.png)
 
-1. Double - click on the Particle Light Niagara System to open it up and then drag the **FX_Light** Niagara Emitter to the **Timeline** of the Particle Light Niagara System.
+7. 双击ParticleLight Niagara系统以将其打开，然后将 **FX_Light** Niagara发射器拖到 ParticleLight Niagara 系统的 **时间轴（Timeline）**。
 
     [REGION:lightbox]
     [![](PL_04.png)(w:317)](PL_04.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Press the **Compile** and **Save** buttons and then close the Particle Light Niagara System down and then over in the Content Browser, drag the Mesh Niagara System into the level viewport.
+8. 按 **编译（Compile）** 和 **保存（Save）** 按钮，然后关闭 ParticleLight Niagara 系统，移至“内容浏览器”（Content Browser），将 Mesh Niagara 系统拖到关卡视口。
 
     [REGION:lightbox]
     [![](PL_05.png)(w:779)](PL_05.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-## End Result
+## 最终结果
 
-When completed you will now have a VFX that will cast light into the world when the particles are spawned.
+完成后，您将拥有一个在产生粒子时向场景投射光线的VFX。
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]

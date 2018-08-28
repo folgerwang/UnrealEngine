@@ -21,17 +21,17 @@ checkpoint:HFP
 참고로 다음 내용은 어떤 UE4 프로젝트 유형에 국한된 것이 아닙니다. UE4 버전 4.13 이상을 사용하는 어떤 프로젝트에서도 따라할 수 있는 내용입니다.
 [/region]
 
-* **렌더 타겟**
+* **렌더 타깃**
 * **머티리얼**
 * **블루프린트** (Actor 기반)
 
-### 렌더 타겟 생성 & 구성
+### 렌더 타깃 생성 & 구성
 
-1. **콘텐츠 브라우저** 안에 우클릭하여 표시되는 메뉴에서 **고급 애셋 생성** > **머티리얼 & 텍스처** > **렌더 타겟** 옵션을 선택합니다.
+1. **콘텐츠 브라우저** 안에 우클릭하여 표시되는 메뉴에서 **고급 애셋 생성** > **머티리얼 & 텍스처** > **렌더 타깃** 옵션을 선택합니다.
 
 	![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_RT_Creation_00.png)
 
-1. 새로 생성된 렌더 타겟 이름을 `RT_Height_Filed_Painter` 라 한 뒤 **모두 저장** 버튼을 눌러 저장합니다.
+1. 새로 생성된 렌더 타깃 이름을 `RT_Height_Filed_Painter` 라 한 뒤 **모두 저장** 버튼을 눌러 저장합니다.
 
 	![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_RT_Creation_01.png)
 

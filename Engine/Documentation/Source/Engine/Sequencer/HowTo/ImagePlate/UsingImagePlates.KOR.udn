@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3692843
 Availability: Docs
-Title:Using Image Plate Actors & Image Plate Tracks
+Title:이미지 플레이트 액터 & 이미지 플레이트 트랙 사용법
 Crumbs: %ROOT%
-Description:In this example, we use the Image Plate Actor and Image Plate Track in Sequencer to place a 3D character in a 2D video environment. 
+Description:이 예제에서, 시퀀서의 Image Plate Track 및 Image Plate Actor 를 사용하여 2D 비디오 환경에 3D 캐릭터를 배치합니다. 
 Version: 4.17
 SkillLevel: Advanced
 parent:Engine/Sequencer/HowTo
@@ -16,124 +16,124 @@ tags:Composure
 type:how-to
 
 [REGION:warning]
-This feature is currently in the experimental stages of development and some aspects of the feature may not work as expected. 
+이 기능은 현재 실험단계에 있으며 일부 기능은 예상대로 작동하지 않을 수 있습니다. 
 [/REGION]
 
-During the development of your own projects, you may want to use an image sequence as a backdrop for your 3D characters.
-Maybe you want to have a menu with a 3D character in front of a 2D background containing moving images, or you want to superimpose a 3D character over a 2D background giving the illusion that the character is in that environment.
+프로젝트를 개발할 때, 이미지 시퀀스를 3D 캐릭터의 배경으로 사용하고 싶을 수가 있습니다. 
+움직이는 이미지가 있는 2D 배경 앞에 3D 캐릭터가 있는 메뉴를 만든다거나, 2D 배경 위에 3D 캐릭터를 수퍼 임포즈하여 캐릭터가 그 환경 안에 있는 것 같은 느낌을 내고 싶을 수도 있습니다. 
 
-Using the **Image Plate** Actor enables the display of frame-accurate image sequences in fullscreen when it is attached to a Camera. 
-When using the accompanying **Image Plate Track** in Sequencer, it enables you to playback those images within the context of your cinematic
-You can also use the [Composure Editor](https://docs.unrealengine.com/latest/INT/Engine/Composure/) to fine-tune and improve the quality of the final render. 
+**Image Plate** (이미지 플레이트) 액터를 사용하면 카메라에 붙일 때 프레임 단위로 정확한 이미지 시퀀스 디스플레이가 전체화면으로 표시됩니다. 
+시퀀서의 **Image Plate Track** (이미지 플레이트 트랙)을 사용하면, 시네마틱 컨텍스트 내에서 그 이미지를 재생할 수 있습니다. 
+또한 [컴포셔 에디터](https://docs.unrealengine.com/latest/INT/Engine/Composure/) 로 미세 조정하고 최종 렌더의 퀄리티를 향상시킬 수 있습니다. 
 
-In this example, we focus on setting up an Image Plate Actor and Image Plate Track in Sequencer to playback an image Sequence with a 3D character in the foreground. 
+이 예제에서는 3D 캐릭터가 있는 이미지 시퀀스를 포그라운드 재생하기 위해 시퀀서에서 이미지 플레이트 액터 및 이미지 플레이트 트랙을 구성하는 데 중점을 둡니다. 
 
 ![](EndResultImage.png)
 
 [REGION:note]
-For this how-to guide, we are using the **Blueprint Third Person Template** project with **Starter Content** included. 
+여기서는 **블루프린트 삼인칭 템플릿** 프로젝트에 **시작용 콘텐츠** 를 포함시켜 사용하고 있습니다. 
 [/REGION]
 
-## Steps
+## 단계
 
-1.	Download and extract the [Example Image Sequence](https://epicgames.box.com/s/l2xuneahxy1cfq3yn3jd4hysr83lkr8d) assets to your computer or generate your own Image Sequence assets outside the **Editor**.
+1.	[예제 이미지 시퀀스](https://epicgames.box.com/s/l2xuneahxy1cfq3yn3jd4hysr83lkr8d) 애셋을 컴퓨터에 다운로드하고 압축을 풀거나, **에디터** 외부에서 별도의 이미지 시퀀스 애셋을 생성합니다. 
 
-1.	Inside your project, select the **Edit** option from the Menu Toolbar and select **Plugins**. 
+1.	프로젝트 안에서, 메뉴 툴바의 **편집** > **플러그인** 옵션을 선택합니다. 
 
 	![](ImagePlate_01.png)
 
-	In order to access and work with the Image Plate Actor and Image Plate Track, we must first enable the associated plugin.
+이미지 플레이트 액터와 이미지 플레이트 트랙에 접근 및 작업하려면, 먼저 관련 플러그인을 활성화해야 합니다. 
 
-1.	In the **Plugins** menu, search for and select the **Image Plate** then click the **Enabled** check box and accept the confirmation, then use the **Restart Now** button to restart the **Editor**.
+1.	**플러그인** 메뉴에서, **Image Plate** (이미지 플레이트)를 검색하여 선택하고 **Enabled** (활성화) 체크박스를 클릭한 뒤 확인을 눌러 수락한 다음 **지금 재시작** 버튼으로 **에디터** 를 재시작합니다. 
 
 	![](ImagePlate_02.png)
 
-1.	Once the **Editor** has restarted, in the **Content Browser** of your project, create a **Cinematics** folder. Inside that folder, create a new Level Sequence called **Master**. 
+1.	**에디터** 가 재시작되면, 프로젝트의 **콘텐츠 브라우저** 에서 **Cinematics** 폴더를 생성합니다. 이 폴더 안에 **Master** 라는 새로운 레벨 시퀀스를 만듭니다. 
 
 	![](ImagePlate_03.png)
 
-1.	From the **Modes** panel, search for and drag an **Image Plate** Actor into the **Level Viewport**.
+1.	**모드** 패널에서 **Image Plate** (이미지 플레이트) 액터를 검색하여 **레벨 뷰포트** 에 끌어 놓습니다. 
 
 	![](ImagePlate_04.png)
 
-1.	From the **Modes** panel, drag a **Cine Camera Actor** into the Level, then in the **World Outliner**, drag-and-drop the **Image Plate** onto the **Cine Camera Actor** to attach it. 
+1.	**모드** 패널에서 **시네 카메라 액터** 를 끌어 레벨에 놓고, **월드 아웃라이너** 에서 **Image Plate** 를 끌어 **Cine Camera Actor** 에 놓아 붙입니다. 
 
 	![](ImagePlate_05.png)
 
-	This will enable us to scale the Image Plate Actor while keeping it attached to the Cine Camera Actor. 
+이렇게 하면 시네 카메라 액터에 붙어있는 상태로 이미지 플레이트 액터의 스케일을 조절할 수 있습니다. 
 
-1.	Select the **Image Plate** in the **World Outliner**, then, in the Level, use the translation widget to move the Image Plate away from the Camera to increase its size.
+1.	**월드 아웃라이너** 에서 **Image Plate** 를 선택한 뒤, 레벨에서 이동 위젯을 사용하여 이미지 플레이트를 카메라에서 멀리 옮기고 크기를 키웁니다. 
 
 	![](ImagePlate_07.png)
 
-	This will enable us to add content that will fit within the Cine Camera's view frustum (you can increase or decrease the size of the Image Plate based on your own content). 
+그러면 카메라의 뷰 프러스텀 안에 맞는 콘텐츠를 추가할 수 있습니다 (콘텐츠 크기에 따라 이미지 플레이트의 크기를 늘이거나 줄이면 됩니다). 
 
-1.	In the **Content Browser**, drag your **Master** Level Sequence into the **Level Viewport** and check the **Auto Play** option in the **Details** panel.
+1.	**콘텐츠 브라우저** 에서 **마스터** 레벨 시퀀스를 끌어 **레벨 뷰포트** 에 놓고 **디테일** 패널의 **Auto Play** (자동 재생) 옵션을 체크합니다. 
 
 	![](ImagePlate_08.png)
 
-	If we play our game, this will enable us to automatically playback our Level Sequence.
+게임을 하면 레벨 시퀀스가 자동 재생됩니다. 
 
-1.	Open your **Master** Level Sequence and add the **Cine Camera** and **Image Plate** Actors from the Level, then add a **Camera Cuts** Track and assign it to the Cine Camera Actor.
+1.	**마스터** 레벨 시퀀스를 열고 레벨에서 **시네 카메라** 및 **이미지 플레이트** 액터를 추가한 뒤, **카메라 컷** 트랙을 추가하여 시네 카메라 액터에 할당합니다. 
 
 	![](ImagePlate_09.png)
 
-1.	In the **Content Browser**, right-click on the **Cinematics** folder and choose **Show in Explorer**. 
+1.	**콘텐츠 브라우저** 에서 **Cinematics** 폴더에 우클릭하고 **탐색기에서 표시** 를 선택합니다. 
 
 	![](ShowInExplorer.png)
 
-1.	Inside the **Cinematics** folder on your PC, create a folder called **footage**. Inside it, add your Image Sequence Assets (from Step 1).
+1.	PC 의 **Cinematics** 폴더 안에 **footage** 라는 폴더를 만듭니다. 그 안에, (1 단계의) 이미지 시퀀스 애셋을 추가합니다. 
 
 	![](ImagePlate_10.png)
 
-	You may see an import message prompt when returning to the Editor. You can choose **Don't Import**.
+에디터로 돌아가면 임포트 메시지 확인 창이 표시될 수 있습니다. **Don't Import** (임포트 안함)을 선택하면 됩니다. 
 
 	![](ImagePlate_10b.png)
 
-1.	Save all of your content, then close and re-open your project to refresh the project's folder structure and assets. 
+1.	모든 콘텐츠를 저장 한 다음 프로젝트를 닫았다가 다시 열면 프로젝트의 폴더 구조와 애셋을 새로고칩니다. 
 
-1.	Inside your project's **Cinematics** folder, select **Add New**. Then, under **Media**, select **Image Plate File Sequence** and call it **MyImagePlate**. 
+1.	프로젝트의 **Cinematics** 폴더 안에서 **신규 추가** 를 선택합니다. 그런 다음 **미디어** 아래 **이미지 플레이트 파일 시퀀스** 를 선택하고 **MyImagePlate** 라 합니다. 
 
 	![](ImagePlate_11.png)
 
-1.	Open the **MyImagePlate** Asset and point the **Sequence Path** to your **footage** folder, change the **File Wildcard** to **.png** and update the **Framerate** to **30**.
+1.	**MyImagePlate** 애셋을 열고 **Sequence Path** (시퀀스 경로)를 **footage** 폴더로 지정하고, **File Wildcard** (파일 와일드카드)를 **.png** 로, **Framerate** (프레임 속도)를 **30** 으로 변경합니다. 
 
 	![](ImagePlate_12.png)
 
-	[REGION:note]In our example we are using .PNG files however if you are using a different [supported file format](Engine/Content/Types/Textures/Importing), please use your files wildcard extension.[/REGION]
+[REGION:note]예제에서는 .PNG 파일을 사용하고 있지만, 다르더라도 [지원되는 파일 포맷](Engine/Content/Types/Textures/Importing) 이기만 하면 파일 와일드카드 확장자를 사용해주면 됩니다.[/REGION]
 
-1.	Inside your **Master** Level Sequence, on the **ImagePlate** Track, click the **+Track** button and select **Image Plate**. 
+1.	**마스터** 레벨 시퀀스 안의 **ImagePlate** (이미지 플레이트) 트랙에서, **+트랙** 버튼을 누르고 **Image Plate** (이미지 플레이트)를 선택합니다. 
 
 	![](ImagePlate_14.png)
 
-1.	Click the **+Image Sequence** on the **Render Texture** Track and select your **MyImagePlate** Image Plate File Sequence Asset.
+1.	**Render Texture** (렌더 텍스처) 트랙의 **+이미지 시퀀스** 버튼을 클릭하고 **MyImagePlate** 이미지 플레이트 파일 시퀀스 애셋을 선택합니다.
 
 	![](ImagePlate_15.png)
 
-	You will now see your Image Sequence appear on the Image Plate in the Level as well as within Sequencer.
-	
+이제 레벨과 시퀀서 안의 이미지 플레이트에 이미지 시퀀스가 보일 것입니다.
+
 	![](ImagePlate_16.png)
-	
-1.	In the **Content/Mannequin/Animations** folder, drag the **ThirdPersonWalk** animation into the Level and place it within the Camera's viewpoint, facing away from the Camera.
+
+1.	**Content/Mannequin/Animations** 폴더에서, **ThirdPersonWalk** 애니메이션을 끌어 레벨에 놓고 위치는 카메라 시야 내, 방향은 카메라 반대쪽으로 잡습니다. 
 
 	![](ImagePlate_17.png)
 
-	For the Cine Camera Actor, you may need to adjust the focus settings which you can do by clicking the eye-dropper icon and then selecting the Image Plate Actor in the level. 
+시네 카메라 액터의 경우, 초점 세팅을 조절해야 할 수 있습니다. 스포이드 아이콘을 클릭한 뒤 레벨의 이미지 플레이트 액터를 선택하면 됩니다. 
 
 	![](ImagePlate_20.png)
 
-1.	From the **Sequencer Toolbar**, click the **Render Movie** button to render out the sequence. 
+1.	**시퀀서 툴바** 에서 **Render Movie** (무비 렌더) 버튼을 클릭하여 시퀀스를 렌더링 출력합니다. 
 
 	![](ImagePlate_18.png)
 
-1.	Choose an **Output Directory** then click the **Capture Movie** to render out the movie. 
+1.	**Output Directory** (출력 디렉터리)를 선택한 뒤 **Capture Movie** (무비 캡처)를 클릭하면 무비가 렌더링 출력됩니다. 
 
 	![](ImagePlate_19.png)	
 
 	
-## End Result
+## 최종 결과
 
-You will now have a 3D character that appears to be walking in the 2D background image sequence. 
+이제 2D 배경 이미지 시퀀스를 걸어다니는 것처럼 보이는 3D 캐릭터가 있을 것입니다. 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -153,10 +153,10 @@ You will now have a 3D character that appears to be walking in the 2D background
 	[/PARAMLITERAL]
 [/OBJECT]
 
-This example focuses on setting up the Image Plate Actor and using the Image Plate Track and getting image sequences to play back using the Image Plate File Sequence asset. If you would like to learn more about lighting techniques or more advanced compositing features, on the **Learn** tab of the Epic Games Launcher, the **Composure Compositing Framework** project offers a more advanced use case of Image Plates and uses the Compositing Framework to provide a more stylized version of this guide.
+이 예제는 이미지 플레이트 액터를 구성법, 이미지 플레이트 트랙 사용법, 이미지 플레이트 파일 시퀀스 애셋으로 이미지 시퀀스 재생법에 초점을 맞춥니다. 라이팅 기법이나 고급 합성 기능에 대해 자세히 알아보려면, 에픽게임즈 런처의 **학습** 탭에 있는 **컴포셔 합성 프레임워크** 프로젝트를 통해 이미지 플레이트 고급 활용 방법과 합성 프레임워크를 사용하여 여기 안내한 내용의 강화된 스타일라이즈드 버전을 만드는 방법을 확인할 수 있습니다. 
 
 ![](ComposureFramework.png)
 
 [REGION:note]
-If you would like to learn more about compositing and more advanced compositing techniques, please see the [Composure Editor](https://docs.unrealengine.com/latest/INT/Engine/Composure/) documentation.
+합성 및 고급 합성 기법 관련 자세한 내용은 [컴포셔 에디터](https://docs.unrealengine.com/latest/INT/Engine/Composure/) 문서를 참고하세요.
 [/REGION]

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3927257
+INTSourceChangelist:4300533
 Availability:Public
 Title: 언리얼 스튜디오
 Description:차량, 항공, 건축, 소비자 가전, 복합 데이터 시각화 어플리케이션에 사용되는 언리얼 엔진입니다.
@@ -14,7 +14,11 @@ topic-icon:%ROOT%/enterprise_icon.png
 ![](Enterprise_Hero.png)
 
 언리얼 엔진과 그 실시간 상호작용 및 렌더링 능력은 차량, 항공, 건축, 소비자 가전, 복합 데이터 시각화와 같은 폭넓은 분야의 다양한 엔터프라이즈 어플리케이션에 적합합니다.
- 
+
+[REGION:note]
+빠른 시작을 돕기 위한 PDF 문서 형태의 일부 콘텐츠에 얼리 액세스를 제공해 드렸습니다. 업데이트와 발전된 기능이 있으면 알려드리겠습니다.
+[/REGION]
+
 ## 시작하기
 
 [DIR(output:"topic" org:"hierarchy" parent:"Enterprise" tags:"Getting Started" end:"1")]

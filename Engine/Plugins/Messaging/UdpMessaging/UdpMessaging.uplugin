@@ -14,7 +14,7 @@
 	"CanContainContent" : false,
 	"IsBetaVersion" : false,
 	"Installed" : false,
-	"SupportedPrograms" : [ "UnrealFrontend" ],
+	"SupportedPrograms" : [ "UnrealFrontend", "UnrealLightmass" ],
 	"Modules" :
 	[
 		{
@@ -25,7 +25,7 @@
 			[
 				"HTML5"
 			],
-			"WhitelistPrograms" : [ "UnrealFrontend" ]
+			"WhitelistPrograms" : [ "UnrealFrontend", "UnrealLightmass" ]
 		}
 	]
 }

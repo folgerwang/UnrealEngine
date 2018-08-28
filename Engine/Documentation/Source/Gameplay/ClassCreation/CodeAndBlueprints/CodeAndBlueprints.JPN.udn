@@ -195,7 +195,7 @@ OnOverlap event が実行されます。LightSwitchBoth ソース ファイル�
 **OnOverlap** event ノードは、**Set Light Color** ノードと接続されています。イベントが実行されると、常に PointLight コンポーネントのライト色をランダムな色にするように設定されています。これは、PointLight コンポーネントの可視性を切り替える、
 ソースファイルの `OnOverlap_Implementation` 関数をオーバーライドします。
 
-イベントおよびグラフでの作業に関する詳しい情報は、[](Engine/Blueprints\UserGuide\Events)、[](Engine/Blueprints\UserGuide\EventGraph)、および [グラフ パネル](Engine/Blueprints\Editor\Modes\GraphPanel) のドキュメントをご覧ください。
+イベントおよびグラフでの作業に関する詳しい情報は、[](Engine/Blueprints\UserGuide\Events)、[](Engine/Blueprints\UserGuide\EventGraph)、および [グラフ パネル](Engine/Blueprints/Editor/UIBreakdowns/ClassBPUI) のドキュメントをご覧ください。
 
 ![](Both_EventGraph_2.png)
 

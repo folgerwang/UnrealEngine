@@ -10,7 +10,7 @@ Related: Engine/Blueprints/UserGuide/Timelines/KeysAndCurves
 version: 4.15
 type:overview
 tags:Gameplay
-topic-image: force_feedback_topic
+topic-image: force_feedback_topic.png
 
 [toc(start:1 end:2)]
 

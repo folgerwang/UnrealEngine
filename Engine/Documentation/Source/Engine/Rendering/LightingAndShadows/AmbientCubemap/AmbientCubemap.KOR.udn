@@ -2,7 +2,7 @@
 Availability:Public
 Title:앰비언트 큐브맵
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
-Description:씬 라이팅에 적용하여 고품질 라이팅 인바이언먼트를 만드는 큐브맵 텍스처를 말합니다.
+Description:씬 라이팅에 적용하여 고품질 라이팅 인바이런먼트를 만드는 큐브맵 텍스처를 말합니다.
 Version: 4.9
 topic-image:cubemap2.png
 

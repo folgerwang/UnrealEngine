@@ -24,6 +24,7 @@ order:1
 
 
 
+%Steps%
 
 
 %Globals:OSSelect%
@@ -99,3 +100,5 @@ When completed you will now have xCode installed and be able to deploy UE4 proje
 
 
 
+
+%Steps%

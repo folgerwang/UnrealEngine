@@ -1,0 +1,92 @@
+INTSourceChangelist:4320159
+Availability: Public
+Crumbs: %ROOT%, Platforms, Platforms/MR
+Title: 혼합 현실 퀵 스타트
+Description: 혼합 현실 퀵 스타트 문서입니다.  
+Version: 4.20
+Parent: Platforms/MR 
+Order: 2
+Tags: GettingStarted
+Tags: MR
+Tags: landingpage
+Tags: Early Access
+reference-image:AdjustingAlignmentStep.gif
+reference-image:MR_ApplyingCalibData.gif
+reference-image:Platforms/MR/MROverview/MR_RoboRecall.gif
+
+
+
+![](MR_RoboRecall.png "MR_RoboRecall.png")
+
+이 튜토리얼에서는 Mixed Reality Capture (MRC, 혼합 현실 캡처) 시스템 설정과 보정을 해보겠습니다.
+
+## 1. 그린 스크린과 카메라 설정
+
+캡처를 하기에 앞서 올바른 장비가 필요합니다. 필요 장비에 대한 개요와 설정 방법에 대한 몇 가지 팁을 알려드립니다.  
+
+![](MR_GreenScreenSetup.png "MR_GreenScreenSetup.png")
+
+1.  **비디오 카메라**  
+    UE4 는 매우 한정된 비디오 캡처 디바이스만 지원합니다. 현재 지원하는 디바이스 목록은 [지원 비디오 디바이스](Platforms/MR/MRSupportedVideoDevices) 문서를 참고하세요. 목록에 있는 디바이스를 PC 에 스트리밍 용으로 연결합니다.
+2.  **크로마 배경**  
+    크로마 키 작업에는 보통 그린 스크린을 사용합니다. 그린 스크린을 설치할 때는, 특히 피사체 뒷 부분이 팽팽하고 주름이 가급적 없도록 해줍니다. 라이팅을 설정하는 경우, 피사체 바로 뒤로 그림자를 드리우지 않도록 하는 것이 좋습니다. 부드럽고 무난한 색이 좋습니다. 배경에 걸친 초록색 음영 부분이 많을 수록, 크로마 키 작업이 더 어려워집니다. 피사체가 배경에서 가급적 멀리 떨어져 있으면 도움이 됩니다. 피사체의 발을 촬영할 계획이라면, 바닥도 그린 스크린을 고려해보세요.
+3.  **카메라 마운트**  
+    초기 설정(보정)의 경우, 카메라는 고정이어야 합니다. 웹캠을 사용하는 경우 간단히 책상/모니터에 붙이면 됩니다. 또다른 옵션은 카메라를 삼각대에 장착하는 것입니다.
+4.  **멀티 마운트 + 트래커 (옵션)**  
+    촬영 도중 카메라를 움직일 계획이라면, HTC Vive Tracker 와 같은 트래킹 디바이스를 카메라에 붙이는 것이 좋습니다. 또는 [멀티 마운트](https://www.bhphotovideo.com/c/product/1062513-REG/desmond_d3d_1_stereo_camera_bracket.html) 로 카메라와 트래커를 연결하여 한 곳에 단단히 고정시킬 수 있습니다.
+
+## 2. 물리적 및 가상 카메라 보정
+
+물리적 공간과 장비를 설정했으면, 보정을 시작할 차례입니다. 실행시간에, 게임은 가상 공간을 기준으로 카메라가 어디 있는지 알아야 합니다. 각 설정마다 구성이 다르므로 보정 프로세스를 거쳐야 합니다. 보정 단순화를 위해, 독립형 보정 툴(MRCalibration.exe)을 만들었습니다. [여기서](http://epic.gm/mrccal) 다운로드할 수 있습니다. 
+
+[REGION:tip]
+보정 프로세스는 복잡해서 자세한 툴 사용법을 다루는 [혼합 현실 캡처 보정 툴 사용법](Platforms/MR/MRHowToCaptureCalibrationTool) 문서를 별도로 만들었습니다.
+[/REGION]
+
+[REGION:asyncgif]
+![image alt text](AdjustingAlignmentStep.gif)(w:653)
+[/REGION]
+
+보정 프로세스가 완료되면, 보정 툴이 보정 세팅 파일을 생성합니다 (MrcCalibration.sav). 이 파일은 보정 툴의 /Saved/SaveGames/ 폴더에서 찾을 수 있습니다. 혼합 현실 캡처를 시작하면 게임이 이 세팅을 사용합니다.  물리적 설정이 그대로인 한, 보정 프로세스는 다시 실행할 필요가 없습니다. 여러 게임에서 동일한 보정 세팅 파일을 사용할 수 있습니다.  
+
+[REGION:tip]
+카메라 렌즈를 조절할 수 있는 경우, 보정을 마친 뒤 줌 조절을 하지 않도록 주의하세요. 줌을 조절하면 물리적 카메라의 시야(FOV)만 변하고 가상 카메라는 그대로입니다. 가상 카메라는 보정 도중 사용된 FOV 를 사용합니다. 보정 이후 카메라의 줌을 조절한 경우, 보정 프로세스를 반복해야 합니다.
+[/REGION]
+
+3. 게임 프로젝트에 보정 파일 추가
+
+마지막으로 MRC Calibration Tool (MRC 보정 툴)을 사용하여 MrcCalibration.sav 파일을 만드는 법을 알아보겠습니다. MrcCalibration.sav 파일이 생겼으면, 게임의 /Saved/SaveGames/ 폴더에 복사합니다.게임에 아직 SaveGames 디렉터리가 없으면, 수동 생성해야 합니다.  
+
+게임에 혼합 현실 캡처 프레임워크를 활성화한 경우, 시작 시 보정 세팅 파일이 있는지 확인합니다.  
+
+## 4. 혼합 현실 캡처 프레임워크 플러그인 활성화
+
+혼합 현실 캡처 (MRC) 프레임워크를 프로젝트에 통합하는 것은 간단히 혼합 현실 캡처 프레임워크 플러그인을 활성화하면 됩니다. MRC 플러그인을 활성화하고 보정 세팅 파일을 제 자리에 두면, 게임은 MRC 모드로 시작하여 합성한 씬을 관람자 창에 표시합니다.  
+기본적으로 MRC 방송은 [VR 관람자 화면](Platforms/VR/VRSpectatorScreen) 을 사용하여 합성한 씬을 표시합니다. 게임이 VR 모드가 아닌 경우 혼합 현실 캡처는 표시하지 않습니다. MRC 플러그인이 캡처하는 중이면, 표시하지 않습니다.
+[REGION:tip]
+혼합 현실 캡처는 MRC 플러그인만 활성화했으면 에디터(VR PIE)와 패키지 버전 프로젝트 모두 지원합니다.
+[/REGION]
+
+[REGION:asyncgif]
+![image alt text](MR_ApplyingCalibData.gif)(w:653)
+[/REGION]
+
+#### MRC 모드로 시작
+
+MRC 플러그인이 시작되면 게임의 /Saved/SaveGames/ 폴더에서 보정 세팅 파일(MrcCalibration.sav)을 확인합니다. MRC 플러그인이 보정 세팅 파일을 찾지 못한 경우, MRC 모드로 시작하지 않습니다. 아래는 게임을 MRC 모드로 시작할지 말지를 결정하는 방법을 나타내는 다이어그램입니다.
+
+![](image3.png)(w:800 convert:false)
+
+## 5. 혼합 현실 캡처 녹화
+
+MRC 프레임워크는 캡처한 비디오를 녹화하지 않습니다. MRC 프레임워크는 씬을 합성하고 디스플레이 창에 출력하는 역할만 합니다. [OBS](https://obsproject.com/) 또는 [Nvidia ShadowPlay](https://www.nvidia.com/en-us/geforce/geforce-experience/shadowplay/) 같은 타사 소프트웨어를 사용해야 캡처를 녹화할 수 있습니다.
+
+[REGION:asyncgif]
+![image alt text](Platforms/MR/MROverview/MR_RoboRecall.gif)(w:653)
+[/REGION]
+
+## 6. 직접 해보기!
+
+혼합 현실 캡처 생성의 가장 힘든 부분은 적절한 보정입니다. 한 번 완료해 두면
+
+(설정이 바뀌지 않은 경우), 보정 파일을 계속 재사용할 수 있습니다. 파일을 복사하고 실행하기만 하면 됩니다!

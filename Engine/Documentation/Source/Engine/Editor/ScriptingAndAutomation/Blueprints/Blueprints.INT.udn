@@ -1,0 +1,72 @@
+Availability: Public
+Crumbs: 
+Title: Scripting the Editor using Blueprints
+Description: Describes how to use Blueprints in the Editor to automate content production tasks.
+Type: 
+Version: 4.20
+Parent: Engine/Editor/ScriptingAndAutomation
+Order: 
+Tags: Blueprints, scripting, editor
+
+
+Blueprints are not only useful for creating runtime gameplay in your Project, they can also be a very effective tool for interacting with your Project content within the Unreal Editor. You can run your Blueprint graphs on demand in the Editor — these are sometimes referred to as Blutilities, short for Blueprint Utilities — to work with Assets, lay out content in your Levels, and even control the Editor UI itself.
+
+This page describes some of the basics involved in using Blueprints to script and automate the Unreal Editor.
+
+## Running Blueprints in the Editor
+
+Any time you use a Custom Event node in the Event Graph of a Blueprint class, you can set the **Graph > Call in Editor** option in the **Details** panel:
+
+![Call in Editor](bp-call-in-editor.png "Call in Editor")
+
+If you place an Actor with a Custom Event like this into a Level, and you select it in the Viewport or in the **World Outliner**, the **Details** panel will show a button for each Call in Editor event you set up. You'll find them in the **Default** section, where Blueprint classes also expose variables. Click this button to trigger execution of the Event Graph from your Custom Event node.
+
+![Custom event in the Details panel](bp-call-from-level.png "Custom event in the Details panel")
+
+This works for any Blueprint class that you can place into a Level. You can use it to test your runtime gameplay, as well as to build Editor-only content management tools.
+
+[REGION:note]
+If your Custom Event has any inputs, it will not be shown in the **Details** panel.
+[/REGION]
+
+## Using Editor-Only Features
+
+Most operations that involve modifying Asset files or working with the Unreal Editor UI can't work in your game at runtime. Therefore, you can only access Editor-only features — that is, any functions that are defined in a module whose type is set to `Editor` — from Blueprint classes that are also Editor-only.
+
+For example, if you use a Blueprint class that derives from a parent class that can be used at runtime — such as the base **Actor** class — you'll see a limited set of functions listed under the **Editor Scripting** category in your Blueprint Editor. However, if you use a class that derives from an Editor-only parent class — such as **PlacedEditorUtilityBase** — you'll see a much larger and more comprehensive set of functions that you can use:
+
+![Editor Scripting Blueprint nodes](bp-editor-scripting-nodes.png "Editor Scripting Blueprint nodes")
+
+[REGION:tip]
+If you've installed the Editor Scripting Utilities plugin, this is where you'll find the functions it exposes for working with Static Meshes and other kinds of Assets. See [Scripting and Automating the Editor](https://docs.unrealengine.com/en-us/Editor/Scripting-and-Automating-the-Editor).
+[/REGION]
+
+## Blutility Classes and the Blutility Shelf
+
+[REGION:note]
+Blutility classes and the Blutility shelf are currently experimental. As with all experimental features, we recommend using caution before relying on it in production. It may change in future versions of the Unreal Engine.
+[/REGION]
+
+When you're writing Blueprints to automate the Unreal Editor and work with Assets, the graphs you create may not have any dependency on being in a particular Level. When this is the case, you may not want to always have to drop an instance of your Blueprint class into a Level simply in order to invoke its Call in Editor events.
+
+For these situations, the Unreal Editor offers an experimental system for creating and managing Editor-only Blueprint utility classes that you can invoke directly from the Asset Browser or from a custom panel.
+
+To get started:
+
+1.  Open the Editor Preferences window, and find the **General > Experimental** category. Under **Tools**, check the option for **Editor Utility Blueprints (Blutility)**.  
+    ![Enable Editor Utility Blueprints](bp-experimental-blutility.png "Enable Editor Utility Blueprints")
+2.  Create a new Blutility class. In the Content Browser, right-click the folder where you want to create your new utility class, and choose **Blueprints > Blutility** from the contextual menu.  
+    ![Create new Blutility](bp-blutility-menu.png "Create new Blutility")
+3.  Choose the `GlobalEditorUtilityBase` as your parent class, and click **Select**.  
+    ![GlobalEditorUtilityBase parent class](bp-global-editor-utility-base.png "GlobalEditorUtilityBase parent class")  
+    
+4.  To edit the Blueprint graph for your new class, right-click it and choose **Edit Blueprint** from the contextual menu.
+5.  In the Event Graph, create a new Custom Event and enable its **Call in Editor** setting, as shown in the section above. Save and compile your Blueprint.
+6.  When you double-click your Blueprint class in the Content Browser, you'll open a new window that lists all of its Call in Editor events.  
+    ![Blutility events](bp-open-blutility.png "Blutility events")
+
+[REGION:tip]
+You can also access all of the Blutility classes you've created from the **Blutility Shelf** panel, which you can open by choosing **Window > Blutility Shelf** from the main menu.
+
+![Blutility Shelf](bp-blutility-shelf.png "Blutility Shelf")
+[/REGION]

@@ -31,9 +31,6 @@ struct FCinematicViewportClient : FLevelEditorViewportClient
 	FCinematicViewportClient();
 
 	void SetViewportWidget(const TSharedPtr<SEditorViewport>& InViewportWidget) { EditorViewportWidget = InViewportWidget; }
-
-	/** FLevelEditorViewportClient Interface*/
-	virtual bool CanAttachTransportControls() const override { return false; }
 };
 
 

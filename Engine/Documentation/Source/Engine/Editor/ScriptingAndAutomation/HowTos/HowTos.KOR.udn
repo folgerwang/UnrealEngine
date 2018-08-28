@@ -1,0 +1,17 @@
+﻿INTSourceChangelist:4284256
+Availability: Public
+Crumbs: 
+Title: 에디터 스크립트 작성법
+Description: 언리얼 에디터에서 콘텐츠 제작 작업을 스크립트로 작성하여 자동화하기 위해 블루프린트와 Python 을 사용하는 방법을 보여주는 예제 페이지 목록입니다.
+Version: 4.20
+Parent: Engine/Editor/ScriptingAndAutomation
+Order: 0
+Tags: scripting
+Tags: editor
+
+
+언리얼 에디터에서 블루프린트와 Python 을 사용하여 콘텐츠 제작 작업 일부를 자동화하는 방법을 알려드리는 글입니다. 이 예제는 바로 복사해서 쓰거나, 토대로 하여 직접 스크립트를 작성해도 됩니다.
+
+## 중급
+
+[DIR(output:"fancy" type:"how-to" skill:"Intermediate" parent:"Engine/Editor/ScriptingAndAutomation/HowTos" org:"hierarchy")]

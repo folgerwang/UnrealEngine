@@ -96,7 +96,7 @@ VPN 연결에 지원되는 유일한 클라이언트는 [Cisco](http://www.cisco
 
 	![vpn_webpage_activex.jpg](vpn_webpage_activex.jpg)(w:500 h:373)
 
-1. ActiveX 콘트롤이 설치되면 마법사를 통해 프로세스가 진행됩니다. 설치 완료에 자바가 사용되므로 마찬가지로 설치해야 합니다.
+1. ActiveX 컨트롤이 설치되면 마법사를 통해 프로세스가 진행됩니다. 설치 완료에 자바가 사용되므로 마찬가지로 설치해야 합니다.
 
 	![vpn_webpage_setup.jpg](vpn_webpage_setup.jpg)(w:500 h:373)
 

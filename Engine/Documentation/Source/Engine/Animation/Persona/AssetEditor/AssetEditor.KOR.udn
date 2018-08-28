@@ -30,7 +30,7 @@ topic-image:asseteditorsmall.png
 애니메이션 시퀀스에 대한 **애셋 에디터** 안에서, 다음과 같은 작업이 가능합니다:
 
 * [](Engine/Animation/Sequences/Notifies) 생성: 애니메이션 내 정의된 지점에서 발동되는 이벤트와 같은 것입니다.
-* [](Engine/Animation/Sequences/Curves) 생성: 애니메이션 재생 도중 모프 타겟 또는 머티리얼 파라미터 값을 변경할 수 있습니다.
+* [](Engine/Animation/Sequences/Curves) 생성: 애니메이션 재생 도중 모프 타깃 또는 머티리얼 파라미터 값을 변경할 수 있습니다.
 * [애니메이션 레이어](Engine/Animation/AnimHowTo/LayerEditing) 생성: 어떤 애니메이션 시퀀스든 애디티브 레이어 트랙의 일부로 변경할 수 있습니다.
 
 [블렌드 스페이스](Engine/Animation/Blendspaces) 를 열 때, **애셋 에디터** 바뀌면서 블렌드 스페이스 작동 방식을 변경할 수 있습니다.

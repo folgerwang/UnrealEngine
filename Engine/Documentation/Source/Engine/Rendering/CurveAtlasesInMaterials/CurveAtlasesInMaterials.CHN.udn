@@ -1,0 +1,144 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: 
+Title: Curve Atlases in Materials
+Description: Curve Atlases store a combination of Curve assets that enables you to access Curve Linear Color data through your Materials.
+Version: 4.20
+Parent: Engine/Rendering/Materials
+Order: 6
+
+
+![](MaterialGradientCurvesBanner.png "MaterialGradientCurvesBanner.png")
+
+Curve Atlases store a combination of [Curve](Engine/UI/CurveEditor) assets that enables you to access Curve Linear Color data through your Materials. The Curve Atlas stores any number of Curves in a texture that can be used with [Materials](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials). When creating [Material Instances](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials/MaterialInstances) and changing [Material Instance Dynamics](https://docs.unrealengine.com/en-us/Engine/Rendering/Materials/MaterialInstances#materialinstancedynamic) (MIDs) through Blueprint, you are able to set a curve as an override, enabling you to quickly iterate and change RGBA curve values without changing your base Material.
+
+## Curve Linear Color Asset
+
+A **Curve Linear Color** asset is used to store the interpolated RGBA points that are evaluated over a given range producing a color gradient that can be used with Materials.  
+![](CurveGradient.png)
+
+[REGION:caption]
+Example of a Curve Gradient created with a Curve Linear Color asset
+[/REGION]
+
+Use the **Content Browser** to create your Curve asset by selecting **Add New > Miscellaneous > Curve**.  
+
+[REGION:lightbox]
+[![](Create_Curve.png)(w:350)](Create_Curve.png)
+[/REGION]
+[REGION:caption]
+Click image for full size.
+[/REGION]
+
+Then select **CurveLinearColor** from the **Pick Curve Class** window.  
+![](PickCurveClassWindow.png)
+
+A new Curve Linear Color asset is added to the Content Browser displaying a preview of its current gradient. When you open the Curve Asset Editor, you can add, adjust, and subtract keys to the individual RGBA curves in the graph.  
+![](MyCurveAsset.png)
+
+When you open the Curve in its Asset Editor, you’ll be able to set the individual RGBA curves, adjust color values for the Curve, and preview the Curve Gradient Result.  
+
+[REGION:lightbox]
+[![](CurveAssetEditor.png)](CurveAssetEditor.png)
+[/REGION]
+[REGION:caption]
+Click image for full size.
+[/REGION]
+
+[REGION:caption]
+1.  The **Curve Graph** is where you adjust, add, and subtract any keys for the individual RGBA curves.
+2.  The **Color** panel is where you adjust color values that affect all keys.
+3.  The **Curve Gradient Result** shows you the resulting gradient.
+
+[REGION:note]
+You can add keys to your Curve by holding SHIFT and clicking on individual curve to add a single key. If you click in the empty graph, a new key will be added to all curves at the point where you clicked.
+[/REGION]
+[/REGION]
+
+## Curve Atlas Asset
+
+A **Curve Atlas** asset is used to store and access multiple Curve assets enabling management of gradient lookup tables (LUT). The Curve Atlas Asset Editor is similar to the Texture Editor, enabling you to make adjustments for Brightness, Vibrance, Hue, and more.  
+![](CurveAtlas.png)(w:200 h:200)
+
+[REGION:caption]
+Example of the Curve Atlas LUT
+[/REGION]
+
+The curves assigned to the Curve Atlas as **Gradient Curves** make up the atlas. The Material Graph uses the texture created to perform the lookup for Materials applied to Actors.
+
+Use the **Content Browser** to create your Curve Atlas asset by selecting **Add New > Miscellaneous > Curve Atlas**.  
+
+[REGION:lightbox]
+[![](Create_CurveAtlas.png)(w:350)](Create_CurveAtlas.png)
+[/REGION]
+[REGION:caption]
+Click image for full size.
+[/REGION]
+
+When you open the Curve Atlas in its Asset Editor, you’ll be able to set the number of curves it can store, assign your curves, and adjust color values for all assigned curves - similar to the functionality of the Texture Editor.  
+
+[REGION:lightbox]
+[![](CurveAtlasAssetEditor_1.png)](CurveAtlasAssetEditor_1.png)
+[/REGION]
+[REGION:caption]
+Click image for full size.
+[/REGION]
+
+1.  The main viewport displays the **Curve Atlas** LUT that displays all assigned **Gradient Curves** for the **Texture Size** that is applied.
+2.  The **Curves** panel is where you sets the **Texture Size** for the number of **Gradient Curves** you need. The default is 256.
+3.  The **Adjustments** panel makes texture adjustments to all **Gradient Curves** assigned to the Curve Atlas.
+
+[REGION:note]
+For maximum texture efficiency, it’s best to use a **power of 2** value (such as 32, 64, 128). The texture sizes here are for demonstration purposes to include the entirety of the Editor Interface.
+[/REGION]
+[REGION:warning]
+The **Texture Size** used can have an impact on the fidelity of your gradients, so it’s best not to use a small atlas size for a complex curve. However, you can save texture size by using a small atlas for a set of simple curves.
+[/REGION]
+
+To add a new Gradient Curve to the Curve Atlas, click the **Plus** (**+**) icon to add array elements, and the **Trash Can** icon to remove elements.  
+![](CurveAtlasAssetEditor_AddRemove.png)
+
+## Using Curve Atlas with Materials
+
+After creating your Curves and applying them to a Curve Atlas, you can create a Material that references the Curve Atlas and a Curve assigned to the atlas.
+
+To sample the curve from an atlas, create a new Material and in the graph, right-click and add a **Curve Atlas Row Parameter** node.  
+![](CurveAtlasRowParameter.png)
+
+[REGION:note]
+This node is similar to a Scalar Parameter in that it enables you to work with [Material Instance Dynamics](Engine/Rendering/Materials/MaterialInstances#materialinstancedynamic) (MIDs) that can then be used through Blueprint for the V-axis of the atlas UVs, but the node will do the sampling for you and return a Vector 3, along with R, G, B, and A, masks.
+[/REGION]
+
+When you select the node, in the **Details** panel, you can assign the **Atlas** and a default **Curve** from that atlas to use with this Material.  
+![](MatDetails_AtlasAndCurveAssignment.png)
+
+The Curve Atlas bakes down when it is compiled, which means there is currently no runtime support for changing what is in the atlas or the curve data that is stored in the atlas at runtime. However, you can store a large amount of data in a single Curve Atlas, and use Blueprint to override the curve being sampled from a Material Instance.
+
+As an example, here is a “Rock” Material that is using multiple Curves assigned to a Curve Atlas.  
+
+[REGION:lightbox]
+[![](RockMaterialSetup_2.png)](RockMaterialSetup_2.png)
+[/REGION]
+[REGION:caption]
+Click image for full size.
+[/REGION]
+
+Then when you create any **Material Instances**, you can change the Scalar Parameter to select the **Curve** asset referenced by your **Curve Atlas** that is applied to your mesh.
+
+[REGION:imagetable]
+The examples here show a Material Instance applied and the Curve that is being referenced from the Curve Atlas.
+| ![](Curve_Base.png)(w:250) | ![](Curve_1.png)(w:250) | ![](Curve_2.png)(w:250) | ![](Curve_3.png)(w:250) |
+| --- | --- | --- | --- |
+| Base | Curve 1 | Curve 2 | Curve 3 |
+[/REGION]
+
+### Accessing Curve Atlases through Blueprint
+
+In Blueprint, you can set the scalar parameter value on a Dynamic Material Instance using the **Get Curve Position** node. Get Curve Position takes the Curve Atlas as an input, passes the scalar value to the **Set Scalar Parameter Value**, and returns a Boolean indicating whether the curve was found in the atlas.  
+
+[REGION:lightbox]
+[![](BlueprintCurve.png)](BlueprintCurve.png)
+[/REGION]
+[REGION:caption]
+Click image for full size.
+[/REGION]

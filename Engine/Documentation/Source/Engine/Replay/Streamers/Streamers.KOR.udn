@@ -59,4 +59,4 @@ HTTP Streamer (HTTP 스트리머)는 리플레이 데이터를 랜이나 인터�
 
 ### HTTP 스트리머 사용법 세부사항
 
-HTTP 스트리머는 [](Engine/Replay/Streamers/HTTPRESTAPI) 를 통해 커스텀 작성 리플레이 서버와 통신을 합니다. GET 및 POST 메소드를 사용하여 바이너리 또는 JSON 포맷 스트링으로 데이터를 전송하는 것입니다. 별도의 리플레이 서버를 구성하기 위해서는, 먼저 URL 을 구성해야 합니다. 프로젝트의  DefaultEngine.Ini 파일에는 리플레이 서버의 URL 이 들어있는데, 있는 위치는 [HttpNetworkReplayStreaming] 섹션 아래 ServerURL 변수입니다. ServerURL 은 http://replay.yourgame.com/ 와 같은 포맷입니다. 마지막 / 는 중요하지 않은데, HTTP 스트리머는 그것이 URL 포맷을 변경할 것으로 가정하지 않을 것이기 때문입니다.
+HTTP 스트리머는 [](Engine/Replay/Streamers/HTTPRESTAPI) 를 통해 커스텀 작성 리플레이 서버와 통신을 합니다. GET 및 POST 메서드를 사용하여 바이너리 또는 JSON 포맷 스트링으로 데이터를 전송하는 것입니다. 별도의 리플레이 서버를 구성하기 위해서는, 먼저 URL 을 구성해야 합니다. 프로젝트의  DefaultEngine.Ini 파일에는 리플레이 서버의 URL 이 들어있는데, 있는 위치는 [HttpNetworkReplayStreaming] 섹션 아래 ServerURL 변수입니다. ServerURL 은 http://replay.yourgame.com/ 와 같은 포맷입니다. 마지막 / 는 중요하지 않은데, HTTP 스트리머는 그것이 URL 포맷을 변경할 것으로 가정하지 않을 것이기 때문입니다.

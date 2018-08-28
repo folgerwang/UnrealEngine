@@ -24,7 +24,7 @@ SteamVR 개발 키트 각각에는 Valve 가 제공한 [상세 안내서](http:/
 이 문서를 읽지 않으신 경우, 계속 진행하기 전 먼저 읽어보시기 바랍니다. 왜냐면 다음 정보는 Valve 의 문서에 포함된 정보에는 적합하지 않기 때문입니다.
 [/region]
 
-1. Vive 머리 장착 디스플레이(HMD), 스팀 콘트롤러, 브레이크아웃 박스, 라이트하우스 베이스 스테이션 모두 포장을 풀고 전원이 들어온 상태에서 연결되어 Valve 의 [안내](http://media.steampowered.com/apps/steamvr/vr_setup.pdf) 대로 구성되었는지 확인합니다.
+1. Vive 머리 장착 디스플레이(HMD), 스팀 컨트롤러, 브레이크아웃 박스, 라이트하우스 베이스 스테이션 모두 포장을 풀고 전원이 들어온 상태에서 연결되어 Valve 의 [안내](http://media.steampowered.com/apps/steamvr/vr_setup.pdf) 대로 구성되었는지 확인합니다.
 
 1. 개발 PC 에 [Steam Client](http://store.steampowered.com/about/) 가 설치되지 않은 경우, 다운로드하여 설치합니다.
 

@@ -1,79 +1,77 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3469520
 Availability: Public
-crumbs:
-Title: 2 - Creating a Vehicle Animation Blueprint
-Description: In this step we will create the Animation Blueprint that controls our vehicles animations.
-Type: Multi-step
+crumbs:%ROOT%
+Title: 3 - 创建载具动画蓝图
+Description: 在此步骤中，我们将创建控制载具动画的动画蓝图。
+Type:how-to
 SkillLevel: Advanced
 Version: 4.15
 Parent: Engine/Physics/Vehicles/VehicleUserGuide 
 checkpoint:vehicleuserguideHT
-Order:2
+Order:3
 Tags: Vehicles
-
-
 
 [Nav]
 
-[TOC(start:2 end:2)]
+现在，你已创建好了TireConfig数据资源和轮子蓝图，你稍后将在载具蓝图中用到它们。在这一步中，你需要继续完善内容，创建满足所有载具轮子动画需求的动画蓝图。
 
-At this point, you've created the TireConfig Data Asset and your Wheel Blueprint(s) that we'll use later with the Vehicle Blueprint. In this step, we'll continue to ready our content by 
-creating an Animation Blueprint that drives all of our animation needs for the wheels on the vehicle!
+## 动画蓝图
 
-## Animation Blueprints
+动画蓝图用于控制载具骨架网格体的动画，使其具有特定于载具，如旋转的轮子、悬挂系统、手刹和方向盘的动画。为大幅减少为这些类型的物体创建动画的工作量，你可以使用 **Wheel Handler** 节点来驱动这些类型的动画。
 
-The Animation Blueprint will be used to specifically control the animation of our Vehicle Skeletal Mesh so that it has animations specific to a vehicle, like spinning tires, suspension,
-handbrakes, and steering. To offload a lot of the work in creating animations for these types of things you can use the **Wheel Handler** node to easily drive these types of animations.
+### Wheel Handler节点
 
-### Wheel Handler Node
-
-Where the Animation Blueprint is used to get and control our animations for the vehicle, more specifically, the **Wheel Handler** node makes controlling all these animations for the vehicle
-fairly easy with little to no additional setup! It just grabs the necessary information from the wheels (How fast is it spinning? Is it affected by the Handbrake? What are the suspension 
-settings for this wheel?) and translates that to animation on the bone the wheel is associated with.
+更准确地说，在使用动画蓝图来获取和控制载具动画的情况下，**Wheel Handler** 节点可以大大简化所有载具动画的控制，而仅需少量甚至无需额外设置。它从轮子获取必要的信息（它的旋转速度为多少？它受不受手刹影响？该轮子的悬挂系统设置为何？）并在与轮子关联的骨骼上将查询结果转换为动画。
 
 ![](wheelHandler02.png)
 
+## 创建动画蓝图
 
-## Creating the Animation Blueprint
+1. 在 **内容浏览器（Content Browser）** 中，单击 **新建（Add New）** 按钮，然后将光标悬停在 **动画（Animation）** 上并从菜单列表中选择 **动画蓝图（Animation Blueprint）**。 
 
-1. In the **Content Browser** click the **Add New** button, then hover over **Animation** and then select **Animation Blueprint** from the menu list. 
-1. In the **Create Animation Blueprint** window, locate and select **your** Skeleton from the list that is for your vehicle. Then click **OK**.
+1. 在 **创建动画蓝图（Create Animation Blueprint）** 窗口中，从载具列表中找到并选择 **你的** 骨架。然后单击 **确定（OK）**。
 
 	[REGION:tip]
-	Alternatively, you can create an Animation Blueprint directly from your Skeletal Mesh by selecting it in the Content Browser and from the context menu select **Create** > **Anim Blueprint**.
+	或者，可以直接从骨架网格体创建动画蓝图，方法是在 **内容浏览器（Content Browser）** 中选中它，然后可以选择 **创建（Create）** > **动画蓝图（Anim Blueprint）**。
 	[/REGION]
-
+	
 	[REGION:raw]
 	![](newAnimBP.png)(convert:false)
 	[/REGION]
 
-1. Now that you've got an Animation Blueprint to work from, you can open it from the Content Browser and in the **Anim Graph** you'll want to start by bringing up the 
-context menu and then search for the **Mesh Space Ref Pose** node and select it from the list to create it. 
+1. 现在可以编辑动画蓝图，通过在 **内容浏览器（Content Browser）** 中选中并双击来将它打开。从主工具栏中选择 **类设置（Class Settings）**，然后在 **细节（Details）** 面板中，将 **父类（Parent Class）** 设置为 **VehicleAnimInstance**。
+​	
+	[REGION:raw]
+	![](AnimBPParentClass.png)(w:725)
+	[/REGION]
+	
+	[REGION:warning]
+	如果 **父类（Parent Class）** 设置不正确，你将无法在稍后使用本指南要求使用的节点。
+	[/REGION]
+
+1. 在 **动画图（Anim Graph）** 中，首先需要右键单击以打开上下文菜单，然后搜索 **Mesh Space Ref Pose** 节点。从列表中选择它以进行创建。
 
 	[REGION:raw]
 	![](meshSpace.png)
 	[/REGION]
 
-1. Next, right-click in the **Anim Graph** again to bring up the context menu and then search for the **Wheel Handler** node and select it from the list to create it. 
+1. 然后，在 **动画图（Anim Graph）** 中右键单击以打开上下文菜单，然后搜索 **Wheel Handler** 并从列表中选择它以进行创建。 
 
 	[REGION:raw]
 	![](wheelHandler01.png)
 	[/REGION]
 
-1. Now connect the nodes so that your Anim Graph looks like this one.
+1. 然后，按以下 **动画图（Anim Graph）** 所示连接节点。
 
-![](animBPanimGraph.png)
+	![](animBPanimGraph.png)
 
-1. **Optional** If you have additional struts or other suspension needs, like the Buggy from Vehicle Game, you will need to additional nodes in your Animation Graph to handle the joints that
-affect those polygons. In the Buggy from Vehicle Game the extra joints are used to control the axle connections to the wheels. These are driven by a simple **Look At** node, which given the 
-wheel joints will be driven by the Wheel Handler node and the Look At nodes will make sure the suspension stays attached to the wheels. 
+1. 如有额外的支柱或其他悬挂系统需求（例如，载具类游戏中的越野车），需在“动画图（Animation Graph）”中添加额外的节点，处理影响这些多边形的连接点。在载具类游戏中的越野车中，额外的连接点用于控制车轴到轮子的连接。它们由简单的 **Look At** 节点驱动，当与轮子连接点相连时，会受 **Wheel Handler** 节点驱动，**Look At** 节点确保悬挂系统和轮子连在一起。 
 
-![](fullVehGameAnimBP.png)(w:850)
+	![](fullVehGameAnimBP.png)(w:850)
 
+## 最终结果
 
-## End Result
-
-That's it for setting up the Animation Blueprint! The **Component to Local** conversion node will be created automatically and the Animation Blueprint will now drive the wheels of the vehicle.
-Continue on to the next step to learn how to create your Vehicle Blueprint that brings all the previous steps together!
+动画蓝图设置好了！**组件到局部（Component to Local）** 的转化节点将会自动创建，动画蓝图将驱动载具的轮子。
+请继续学习下一步以了解如何创建将所有前面的步骤集合起来的载具蓝图。
 
 [Nav]

@@ -1,129 +1,129 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3810467
 Availability: Docs
 Crumbs: %ROOT%, 
-Title:Create a Sprite Based Effect with Niagara
-Description:Describes how you can create a sprite-based visual effect using Niagara.
+Title:使用Niagara创建基于Sprite的效果
+Description:描述如何使用Niagara创建基于Sprite的视觉效果。
 Type: how-to
 SkillLevel:Beginner
-Version: 4.17
+Version:4.17
 parent:Engine/Niagara/HowTo
 order:1
 tags:Niagara
 topic-image:
 
-One of the most used visual effects techniques is to render Texture and Materials to a 2D camera facing plans, called sprites. In the following How - To we will take a look at how to set up a Niagara Emitter to work with these sprites so that when the effect is placed in a level, it will work and be displayed correctly. 
+最常用的一种视觉效果方法是将纹理和材质渲染为面向镜头的2D平面图，称为Sprite。在以下操作指南中，我们将介绍如何设置Niagara发射器以与Sprite配合工作，以便在关卡中放入效果后，它能够正常工作和显示。 
 
 ![](HeroImage_00.png)
 
-## Steps
+## 步骤
 
 [region:note]
-This How-To will make use of the **M_smoke_subUV** Material that can be found with the **Starter Content**. If you have not done so already, make sure that this Material or the Starter Content has been added to your project.
+本操作指南利用 **初学者内容** 中包含的 **M_smoke_subUV** 材质。如果您尚未将该材质或初学者内容添加到您的项目，请确保进行添加。
 [/region]
 
 
-1. First, we will need to create a **Niagara Emitter** by right-clicking in the **Content Browser** and from the displayed menu go to **FX** and then click on the **Niagara Emitter**. 
+1. 首先，我们需要在 **内容浏览器（Content Browser）** 中单击右键，从显示的菜单中，转至 **FX**，然后单击 **Niagara发射器（Niagara Emitter）**，以创建 **Niagara 发射器（Niagara Emitter）**。 
 
     ![](SE_01.png)
 
-1. Name the newly created Niagara Emitter, **FX_Smoke** and then double click on it to open it up.
+2. 将新创建的 Niagara发射器命名为 **FX_Smoke**，然后双击以将其打开。
 
     ![](SE_02.png)
 
-1. With the Niagara Editor now open, go to the **Selected Emitter** panel and look for the **Emitter Spawn** section.
+3. 打开Niagara编辑器后，转至 **所选发射器（Selected Emitter）** 面板，查找 **发射器产生（Emitter Spawn）** 部分。
 
     [REGION:lightbox]
     [![](SE_03.png)(w:834)](SE_03.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    单击查看大图。
     [/REGION]
 
-1. Expand the **Render** section of the **Emitter Spawn** and set the following properties with the following options.
+4. 展开 **发射器产生（Emitter Spawn）** 的 **渲染（Render）** 部分，并为以下属性设置以下选项。
 
     ![](SE_04.png)
 
-    |Property Name| Value|
-    |------|-----|
-    |Material|M_smoke_subUV|
-    |Sub Image Size| x: 8, y: 8|
-    |Sub UV Blending Enabled| Checked|
+    | 属性名称                             | 值             |
+    | -------------------------------- | ------------- |
+    | 材质（Material）                     | M_smoke_subUV |
+    | 子图像大小（Sub Image Size）            | x：8，y：8       |
+    | 启用子UV混合（Sub UV Blending Enabled） | 选中            |
 
-1. Now under **Emitter Update** in the **Spawn Rate** section, change the **Spawn Rate*** to a value of **50**.
+5. 然后在 **发射器更新（Emitter Update）** 的 **产生率（Spawn Rate）** 部分中，将 **产生率（Spawn Rate）*** 设置为值 **50**。
 
     ![](SE_05.png)
 
-1. Next, under **Particle Spawn** section go to the **Add Velocity** section and set the **Minimum** and **Maximum** to the following.
+6. 接下来，在 **粒子产生（Particle Spawn）** 部分中，转至 **添加速度（Add Velocity）** 部分，将 **最小值（Minimum）** 和 **最大值（Maximum）** 设置为以下值：
 
     ![](SE_06.png)
 
-    |Property Name| Value|
-    |------|-----|
-    |Minimum|0,0,50|
-    |Maximum|0,0,200|
+    | 属性名称         | 值       |
+    | ------------ | ------- |
+    | 最小值（Minimum） | 0,0,50  |
+    | 最大值（Maximum） | 0,0,200 |
 
-1. Over in the **Sphere Location** set the **Sphere Radius** to **64** and then make sure that **Surface Only** has been enabled.
+7. 在 **球体位置（Sphere Location）** 中，将 **球体半径（Sphere Radius）** 设置为 **64**，然后确保启用 **仅表面（Surface Only）**。
 
     ![](SE_07.png)
 
     [region:note]
-    If you do not see the Surface Only option, press the small white triangle to expand more options.
+    如果您看不到“仅表面”（Surface Only）选项，请按白色小三角以展开更多选项。
     [/region]
 
-1. Next, in the **Set Particles.Lifetime** section, click on the small white triangle next to **Lifetime** and from the drop-down list select the **Set Local Value** option and then input **5** as the lifetime.
+8. 接下来，在 **设置Particles.Lifetime（Set Particles.Lifetime）** 部分中,单击 **寿命（Lifetime）** 旁边的白色小三角，然后从下拉列表中选择 **设置局部值（Set Local Value）** 选项，并输入 **5** 作为寿命。
 
     ![](SE_08.png)
 
-1. In the **Set Particles. Sprite Size** set the **Minimum** value to **200** and set the **Maximum** value to **700**.
+9. 在 **设置Particles.SpriteSize（Set Particles.SpriteSize）** 中，将 **最小值（Minimum）** 设置为 **200**，将 **最大值（Maximum）** 设置为 **700**。
 
     ![](SE_09.png)
 
-1. Now in the **Particle Update** section, go to **Acceleration Force** and set the **Z** value to **300**.
+10. 在 **粒子更新（Particle Update）** 部分中，转至 **加速力（Acceleration Force）** 并将 **Z** 值设置为 **300**。
 
     ![](SE_10.png)
 
-1. Go to the bottom of the Particle Update section and press the **Plus** sign icon to add a new module to the list. From the displayed list select the **Set Particles.SubImageIndex** option.
+11. 转至“粒子更新”（Particle Update）部分的底部，按 **加号（Plus）** 图标，并向列表添加一个新模块。从显示的列表中，选择 **设置Particles.SubImageIndex（Set Particles.SubImageIndex）** 选项。
 
-    ![](SE_11.png)
+     ![](SE_11.png)
 
-1. In the Set Particles.SubImageIndex section, press the white triangle next to the **SubImagIndex** option and from the displayed list, select the **Float From Curve** option.
+12. 在“设置Particles.SubImageIndex”（Set Particles.SubImageIndex）中，按 **SubImagIndex** 选项旁边的白色小三角，然后从显示的列表中，选择 **来自曲线的浮点（Float From Curve）** 选项。
 
-    ![](SE_12.png)
+     ![](SE_12.png)
 
-1. In the **Curve** input window, select the first key and make sure that its **Time** and **Value** are both set to 0. Then select 2nd key and make sure that it's Time is set to **1** and the Value is set to **64**. 
+13. 在 **曲线（Curve）** 输入窗口中，选择第1个键，确保其 **时间（Time）** 和 **值（Value）** 都设置为0。然后选择第2个键，确保其时间（Time）设置为 **1**，值（Value）设置为 **64**。 
 
-    ![](SE_13.png)
+     ![](SE_13.png)
 
-1. Next, at the bottom of the Set Particles.SubImageIndex section, press the small grey triangle next to **CurveIndex** and from the dropdown list select **Normalized Age** option.
+14. 接下来，在“设置Particles.SubImageIndex”（Set Particles.SubImageIndex）部分底部，按 **曲线索引（CurveIndex）** 旁边的灰色小三角，并从下拉列表中选择 **（规范化年龄（Normalized Age）** 选项。
 
-    ![](SE_14.png)
+     ![](SE_14.png)
 
-1. Then press the **Compile**, ** to Apply** and **Save** buttons to apply and save the changes and then close the **FX_Smoke** emitter.
+15. 然后，按 **编译（Compile）**、**应用（Apply）** 和 **保存（Save）** 按钮，以应用和保存更改，而后关闭 **FX_Smoke** 发射器。
 
-    ![](SE_15.png)
+     ![](SE_15.png)
 
-1. Now over in the Content Browser, right - click and from the displayed list, go to **FX**  and then select the **Niagara System** option, giving it a name of **Smoke**.
+16. 现在移到“内容浏览器”（Content Browser），单击右键并从显示的列表中，转至 **FX**，然后选择 **Niagara系统（Niagara System）** 选项，将其命名为 **Smoke**。
 
-    ![](SE_16.png)
+     ![](SE_16.png)
 
-1. Double - click on the Smoke Niagara System to open it up and when open, drag the **FX_Smoke** from the Content Browser to the **Timeline**.
+17. 双击 Smoke Niagara 系统将其打开，打开后，将 **FX_Smoke** 从“内容浏览器”（Content Browser）拖到 **时间轴（Timeline）**。
 
-    ![](SE_17.png)
+     ![](SE_17.png)
 
-1. Press the **Compile** and **Save** buttons and then close the Smoke Niagara System down. Then, over in the Content Browser, drag the Smoke Niagara System into the level viewport.
+18. 按 **编译（Compile）** 和 **保存（Save）** 按钮，然后关闭 Smoke Niagara 系统。然后，在“内容浏览器”（Content Browser）中，将Smoke Niagara系统拖到关卡视口。
 
-    [REGION:lightbox]
-    [![](SE_18.png)(w:834)](SE_18.png)
-    [/REGION]
+     [REGION:lightbox]
+     [![](SE_18.png)(w:834)](SE_18.png)
+     [/REGION]
 
-    [REGION:caption]
-    Click for full image.
-    [/REGION]
+     [REGION:caption]
+     单击查看大图。
+     [/REGION]
 
-## End Result
+## 最终结果
 
-When completed you will now have a Niagara System that will play your Niagara Emitter when the Niagara System is placed in a level like in the following video.
+完成后，您现在拥有一个Niagara系统，将该Niagara系统放到关卡中时，将播放您的Niagara发射器，如以下视频所示。
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]

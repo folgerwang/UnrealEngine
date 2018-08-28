@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3124629
+﻿INTSourceChangelist:3244012
 Availability:Public
 Title:Sequence Recorder
 Crumbs: %ROOT%, Engine
@@ -9,6 +9,7 @@ order:1
 Version:4.13
 Related:Engine\Sequencer\Overview
 Related:Engine/Sequencer/HowTo
+tags:Sequencer
 
 **Sequence Recorder** 可用于录制游戏进程中的 Actor，或对关卡序列中的骨架动画、变形、时间和音轨进行关卡编辑。 
 随后可在 **Sequencer Editor** 中编辑关卡序列，以便基于录制创建过场动画。 

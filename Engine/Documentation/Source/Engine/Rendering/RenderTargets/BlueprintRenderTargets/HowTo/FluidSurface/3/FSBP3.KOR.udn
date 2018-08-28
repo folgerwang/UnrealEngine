@@ -15,7 +15,7 @@ checkpoint:FSB
 [NAV]
 
 
-필수 머티리얼과 렌더 타겟 생성 및 구성이 완료되었으니, 블루프린트를 새로 만들어 플루이드 서피스(유체 표면) 액터로 작업하기 위한 환경설정을 해 줄 차례입니다.
+필수 머티리얼과 렌더 타깃 생성 및 구성이 완료되었으니, 블루프린트를 새로 만들어 플루이드 서피스(유체 표면) 액터로 작업하기 위한 환경설정을 해 줄 차례입니다.
 
 ## 블루프린트 생성 & 변수 구성
 1. 콘텐츠 브라우저의 우클릭 메뉴에서 **기본 애셋 생성** 부분의 **블루프린트 클래스** 옵션을 선택합니다.
@@ -52,20 +52,20 @@ checkpoint:FSB
 블루프린트를 컴파일하고 저장해야 사용할 수 있다는 점, 잊지 마세요.
 [/region]
 
-* **GetHeightRT** 함수는 렌더 타겟의 높이를 구해 나중에 다시 사용할 수 있도록 저장합니다. 이 함수 생성을 시작하기에 앞서, 함수의 입력과 출력이 다음과 같은 정보로 구성되었는지 확인하시기 바랍니다.
+* **GetHeightRT** 함수는 렌더 타깃의 높이를 구해 나중에 다시 사용할 수 있도록 저장합니다. 이 함수 생성을 시작하기에 앞서, 함수의 입력과 출력이 다음과 같은 정보로 구성되었는지 확인하시기 바랍니다.
 	* **입력**:
 		* 이름: Index 
 		* 유형:Integer
 	* **출력**:
 		* 이름: Heigh RT 
-		* 유형:텍스처 렌더 타겟 2D
+		* 유형:텍스처 렌더 타깃 2D
 
 		[REGION:fullwidth]
 		[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#HeightFunction]
 		[/REGION]
 
 		[region:note]
-		세 가지 렌더 타겟 각각을 Return 노드의 **Height RT** 입력에 추가해 줘야 한다는 점 잊지 마세요.
+		세 가지 렌더 타깃 각각을 Return 노드의 **Height RT** 입력에 추가해 줘야 한다는 점 잊지 마세요.
 		[/region]
 
 * **GetLastHeight** 함수는 유체 표면의 마지막 알려진 위치를 나중에 사용할 수 있도록 저장합니다. 이 함수 제작을 시작하기 전, 함수의 입력과 출력이 다음과 같은 정보로 구성되어 있는지 확인하세요.
@@ -108,14 +108,14 @@ checkpoint:FSB
 블루프린트를 컴파일하고 저장해야 사용할 수 있다는 점 잊지 마세요.
 [/region]
 
-* **Clear all render targets of data** 는 블루프린트를 처음 실행시켰을 때 부작용이 나타나지 않도록 하기 위해 기존의 데이터 렌더 타겟 전부를 지우는 블루프린트 부분입니다.
+* **Clear all render targets of data** 는 블루프린트를 처음 실행시켰을 때 부작용이 나타나지 않도록 하기 위해 기존의 데이터 렌더 타깃 전부를 지우는 블루프린트 부분입니다.
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#ClearRT]
 	[/REGION]
 
 	[region:note]
-	Return 노드의 **Height RT** 입력에 세 가지 렌더 타겟 각각을 추가해야 한다는 점 잊지 마세요.
+	Return 노드의 **Height RT** 입력에 세 가지 렌더 타깃 각각을 추가해야 한다는 점 잊지 마세요.
 	[/region]
 
 * **Check to see if Left Mouse Button is held down** 은 사용자가 왼쪽 마우스 버튼을 눌렀는지 확인하는 블루프린트 부분입니다. 사용자가 왼쪽 마우스 버튼을 누르고 있으면, **MouseDown** 이 true 로 설정되고, 그렇지 않으면 false 로 설정됩니다.
@@ -154,7 +154,7 @@ checkpoint:FSB
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#FixedFrameRate]
 	[/REGION]
 
-* **Cycle Active heightfield** 는 유체 표면을 쏘거나 건드렸을 때 유체 표면에 다양한 렌더 타겟을 순환시켜 보다 역동적인 반응을 내도록 만드는 블루프린트 부분입니다.
+* **Cycle Active heightfield** 는 유체 표면을 쏘거나 건드렸을 때 유체 표면에 다양한 렌더 타깃을 순환시켜 보다 역동적인 반응을 내도록 만드는 블루프린트 부분입니다.
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#CycleActiveHeightfield]

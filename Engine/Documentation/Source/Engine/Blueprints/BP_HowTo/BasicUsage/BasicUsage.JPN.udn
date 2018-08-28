@@ -117,14 +117,6 @@ tags:Blueprints
 * Components モードのウィンドウとオプションについては、 [](Engine/Blueprints/Editor/Modes/Components) をご覧ください。 
 * Components モードでの **コンポーネント** の操作については [](Engine/Blueprints/UserGuide/Components) もご覧ください。  
 
-### Graph モード
-
-![](GraphTab.png)(w:740)
-
-**グラフ モード** はブループリントの中心と考えられます。ブループリントのロジックを定義するビジュアル ネットワークでブループリントのノードを追加し、接続することでブループリントに命を吹き込む場所がグラフ モードです。上の例では、 **Character ブループリント** があり、グラフ内でキャラクタの動きに影響を与えるロジックがレイアウトされています。 
-
-* Graph モードのウィンドウとオプションについては、 [](Engine/Blueprints/Editor/Modes/GraphPanel) をご覧ください。 
-* Graph モードで **[Graph] ウィンドウ** 内での作業に関しては、[](Engine\Blueprints\BP_HowTo\NavigatingGraphs) もご覧ください。  
 
 ### Defaults モード
 

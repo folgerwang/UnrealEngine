@@ -2,12 +2,12 @@
 Availability:Public
 Title:액터 스폰하기
 Crumbs:%ROOT%, Programming, Programming/UnrealArchitecture
-Description:게임플레이 코드에서 Actor 의 새 인스턴스, AActor 를 생성하는 메소드에 대해 설명합니다.
+Description:게임플레이 코드에서 Actor 의 새 인스턴스, AActor 를 생성하는 메서드에 대해 설명합니다.
 Version: 4.9
 
 [TOC (start:2 end:3)]
 
-## SpawnActor 메소드
+## SpawnActor 메서드
 
 **Actor** 의 새 인스턴스를 생성하는 과정을 **스폰** (spawn)이라 합니다. **Actor** 의 스폰은 `UWorld::SpawnActor()` 함수를 이용합니다. 
 이 함수는 지정된 클래스의 새 인스턴스를 생성한 다음 새로 생성된 **Actor** 로의 포인터를 반환합니다. `UWorld::SpawnActor()` 는 클래스 계층구조 내 **Actor** 클래스를 상속하는 클래스 인스턴스를 생성할 때만 사용해야 

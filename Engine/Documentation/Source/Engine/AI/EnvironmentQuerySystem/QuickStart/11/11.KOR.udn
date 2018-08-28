@@ -2,7 +2,7 @@
 Availability:Public
 Title: 11. FindPlayer EQS 생성
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem, Engine/AI/EnvironmentQuerySystem/QuickStart
-Description: 레벨에 플레이어의 TopDownCharacter 모든 인스턴스를 찾는 인바이언먼트 쿼리를 만듭니다.
+Description: 레벨에 플레이어의 TopDownCharacter 모든 인스턴스를 찾는 인바이런먼트 쿼리를 만듭니다.
 version: 4.9
 
 [VAR:Steps]
@@ -23,7 +23,7 @@ version: 4.9
 
 
 
-앞의 두 **인바이언먼트 쿼리** 보다 간단한데, AI 주변 1500 유닛 내 TopDownCharacter 전체 목록을 반환한 뒤, AI 가 그 캐릭터를 볼 수 있는지 검사하는 정도이기 때문입니다. 볼 수 있다면, 비헤이비어 트리에서 쓸 ActorToFleeFrom 을 구합니다.
+앞의 두 **인바이런먼트 쿼리** 보다 간단한데, AI 주변 1500 유닛 내 TopDownCharacter 전체 목록을 반환한 뒤, AI 가 그 캐릭터를 볼 수 있는지 검사하는 정도이기 때문입니다. 볼 수 있다면, 비헤이비어 트리에서 쓸 ActorToFleeFrom 을 구합니다.
 
 이 프로세스 처리 방법은 여러가지 있으며, 각기 장단점이 있습니다. EQS 를 사용하면 나중에 도망칠 _최선의_ 적(TopDownCharacter) 선택을 위한 추가 테스트를 추가할 수 있습니다.
 
@@ -35,15 +35,15 @@ version: 4.9
 
 ## 단계
 
-1. 먼저 **콘텐츠 브라우저** 에서 `FindPlayer` **인바이언먼트 쿼리** 애셋을 더블클릭합니다.
+1. 먼저 **콘텐츠 브라우저** 에서 `FindPlayer` **인바이런먼트 쿼리** 애셋을 더블클릭합니다.
 
 	![](findPlayerAsset.png)
 
-	그러면 다음과 같은 **인바이언먼트 쿼리 에디터** 가 열립니다.:
+	그러면 다음과 같은 **인바이런먼트 쿼리 에디터** 가 열립니다.:
 
 	![](startingEQ.png)
 
-	인바이언먼트 쿼리 에디터는 비헤이비어 트리 에디터와 거의 똑같이 작동합니다.
+	인바이런먼트 쿼리 에디터는 비헤이비어 트리 에디터와 거의 똑같이 작동합니다.
 
 1. **그래프 업데이트** 영역에 우클릭, 맥락 메뉴에서 **ActorsOfClass** 를 선택합니다:
 
@@ -53,11 +53,11 @@ version: 4.9
 
 	![](cga_made.png)
 
-1. 인바이언먼트 쿼리 에디터에서 노드를 연결하려면, 그냥 루트 노드 하단을 끌어 **ActorsOfClass** 노드 상단에 놓으면 됩니다. 비헤이비어 트리 에디터에서와 똑같은 방식이지요.
+1. 인바이런먼트 쿼리 에디터에서 노드를 연결하려면, 그냥 루트 노드 하단을 끌어 **ActorsOfClass** 노드 상단에 놓으면 됩니다. 비헤이비어 트리 에디터에서와 똑같은 방식이지요.
 
 	![](connected.png)
 
-	인바이언먼트 쿼리 당 제너레이터는 딱 하나만 가능합니다.
+	인바이런먼트 쿼리 당 제너레이터는 딱 하나만 가능합니다.
 
 1. 다음, **ActorsOfClass** 노드를 선택한 뒤 **Search Radius** 와 **Searched Actor Class** 프로퍼티를 다음과 같이 변경합니다:
 

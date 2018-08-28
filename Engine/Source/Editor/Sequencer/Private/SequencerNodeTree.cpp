@@ -278,7 +278,7 @@ TSharedRef<FSequencerTrackNode> FSequencerNodeTree::MakeSubTracksAndSectionInter
 		FSequencerSectionLayoutBuilder Builder(CurrentTrackNode);
 		Section->GenerateSectionLayout(Builder);
 
-		if (Builder.HasAnyLayout() && bHasMultipleRows && CurrentTrackNode == ParentNode)
+		if (bHasMultipleRows && CurrentTrackNode == ParentNode)
 		{
 			// Create a new parent node
 			ParentNode = MakeShared<FSequencerTrackNode>(*Track, *Editor, CurrentTrackNode->CanDrag(), nullptr, *this);

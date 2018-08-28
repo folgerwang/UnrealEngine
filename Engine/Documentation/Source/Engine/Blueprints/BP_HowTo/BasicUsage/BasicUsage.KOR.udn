@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4305416
 Availability: Public
 Title:블루프린트 기본 사용 안내서
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -116,15 +116,7 @@ tags:Blueprints
 
 * 이 모드의 창과 옵션에 대한 상세 정보: [](Engine/Blueprints/Editor/Modes/Components)
 * 이 모드의 **컴포넌트** 작업 방법: [](Engine/Blueprints/UserGuide/Components)
-
-### 그래프 모드
-
-![](GraphTab.png)(w:740)
-
-**그래프 모드** 는 블루프린트의 정수라고 할 수 있습니다. 노드를 추가하고 서로 연결해서 블루프린트의 로직을 정의하는 비주얼 블루프린트 노드 망을 배치하는 곳이 이 곳입니다. 위 그림을 예로 들면, **캐릭터 블루프린트** 가 있고 그 그래프에는, 캐릭터의 이동을 관장하는 로직이 들어있습니다.
-
-* 이 모드의 창과 옵션에 대한 상세 정보: [](Engine/Blueprints/Editor/Modes/GraphPanel)
-* 이 모드의 **그래프 창** 내 작업 방법: [](Engine\Blueprints\BP_HowTo\NavigatingGraphs)
+ 
 
 ### 디폴트 모드
 

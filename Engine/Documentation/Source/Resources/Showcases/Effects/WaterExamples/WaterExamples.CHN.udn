@@ -74,8 +74,3 @@ Related: Engine/Rendering/ParticleSystems/Optimization
 
 在以上屏幕截图中，请注意许多瀑布的水流粒子在近图像顶部位置处为亮白色。 刚看起来，这似乎是一种自然的现象，因为在粒子位置附近存在光溢出的白色高亮。 但是，这实际上仅仅是通过将粒子在其生命周期内的该位置处设置为 _更高的不透明度_ 才实现的，这样也会使用更多的关卡光照。
 
-
-
-
-[INCLUDE:Resources\Showcases\Effects#ParticleTopics]
-

@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:3782314
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation
-Title: Pose Driver
-Description:Describes how to use the Pose Driver to drive Pose Asset or Curve values based on a bone's movement.
+Title: 动作驱动器
+Description:描述如何使用动作驱动器基于骨骼运动驱动动作资源或曲线值。
 Type: Reference
 Version: 4.16
 Parent: Engine/Animation/AnimPose
@@ -19,17 +19,17 @@ Tags:Animation Blending
 Tags:Pose Assets
 
 [REGION:warning]
-The Pose Driver node inside the AnimGraph in Animation Blueprints is currently experimental and some features may not work as expected.
+动画蓝图的AnimGraph中的Pose Driver节点目前处于试验阶段，某些功能可能无法按预期运行。
 [/REGION]
 
 [TOC (start:2 end:2)]
 
-In addition to using the [](Engine\Animation\AnimPose\PoseBlenderNode) to playback **Pose Assets** through [Animation Blueprints](Engine/Animation/AnimBlueprints), 
-you can also drive Pose Assets directly at runtime with the **Pose Driver** node available within the [AnimGraph])Engine/Animation/AnimBlueprints/AnimGraph) of an Animation Blueprint. 
-The Pose Driver node enables a bone to drive other aspects of animation, based on a set of 'example poses' or lets you drive a curve value based on a bone's movement. 
-One use for this node would be to create a pose space deformer to drive corrective blend shapes based on a bone's orientation or translation. 
+除了使用[](Engine\Animation\AnimPose\PoseBlenderNode)通过[动画蓝图](Engine/Animation/AnimBlueprints)播放 **动作资源（Pose Assets）**， 
+你还可以使用动画蓝图的[AnimGraph](Engine/Animation/AnimBlueprints/AnimGraph)中的 **Pose Driver** 节点在运行时直接驱动动作资源。 
+Pose Driver节点允许骨骼基于一套“范例动作”驱动动画的不同部分，或者基于骨骼的运动驱动曲线值。 
+此节点的一个用途是创建动作空间变形工具，基于骨骼的朝向或平移驱动修正混合形状。 
 
-In the clip below, clavicle bone poses are being used to move the shoulder relative to the arm bone's movement. 
+在以下视频中，锁骨动作用于根据臂骨的运动移动肩部。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -49,120 +49,120 @@ In the clip below, clavicle bone poses are being used to move the shoulder relat
 	[/PARAMLITERAL]
 [/OBJECT]
 
-We add the Pose Driver node and assign a Pose Asset containing our poses that we want to control. 
-We then set the **Source Bone** to our **clav** bone so that based on the **Drive Source** (which is set to **Rotate**), 
-we can update our **Pose Targets** that drive the pose being used.
-As the animation plays and the clav bone rotates, in the **Pose Targets** section each pose displays a bar to indicate the amount of influence it has to the final pose. 
+我们添加Pose Driver节点并指定了包含要控制的动作的动作资源。 
+然后，将 **源骨骼（Source Bone）** 设置为 **锁骨（clav）** 骨骼，以根据 **驱动源（Drive Source）** （设置为 **旋转（Rotate）**）， 
+更新驱动正在使用的动作的 **动作目标（Pose Targets）**。
+当动画播放并且锁骨骨骼旋转时，在 **动作目标（Pose Targets）** 部分，会为每个动作显示一个条形，以指示对最终动作的效果。 
 [REGION:note]
-The Pose Driver node uses **RBF (Radial Basis Function)** which interpolates driven values based on the orientation of a target bone.
+Pose Driver节点使用 **RBF（径向基函数）**，该RBF根据目标骨骼的朝向插入驱动值。
 [/REGION]
 
-## Adding a Pose Driver
+## 添加Pose Driver
 
-To add a Pose Driver node to your **Animation Blueprint**: 
+要将Pose Driver节点添加到 **动画蓝图**，请执行以下步骤： 
 
-1. On the **AnimGraph**, right-click in the graph and search for the **Pose Driver** node. 
+1. 在 **AnimGraph** 中，右键单击图表并搜索 **Pose Driver** 节点。 
 
 	![](ContextPoseDriverNode.png)
 
-1. Once the node has been added, supply the incoming **Source Pose** and the wire the **Out Pose** to the **Final Animation Pose** or other nodes for blending. 
+1. 添加节点后，指定要接收的 **Source Pose**，并将 **Out Pose** 连接到 **Final Animation Pose** 或其他节点以进行混合。 
 
 	![](CompletePoseDriver.png)
 
-1. Use the **Details** panel to define what bones should be evaluated and Pose Asset poses or Curves should be driven. 
+1. 在 **细节（Details）** 面板中，定义要评估的骨骼并驱动Pose Asset动作或曲线。 
 
 	![](BlankDetails.png)
 
 	
-## Pose Targets
+## 动作目标
 
-Pose Targets are where you specify the Poses from a Pose Asset or Curves you want to drive with the Pose Driver node. 
+在动作目标（Pose Target）中，使用Pose Driver节点指定Pose Asset或曲线中要驱动的动作。 
 
-With a Pose Asset assigned, you can click the **Tools** button and select **Copy All from PoseAsset** to add each of the poses to the Pose Target window. 
+分配Pose Asset后，单击 **工具（Tools）** 按钮并选择 **从PoseAsset中全部复制（Copy All from PoseAsset）**，将每个动作添加到动作目标窗口。 
 
 ![](CopyPoses.png)
 
-Once they have been added, the window will update with the corresponding poses. 
+添加后，将使用相应的动作更新窗口。 
 
 ![](PoseTargetsOptions.png)
 
 [REGION:tip]
-You can select each pose by clicking on it in the **Pose Target** window or by clicking on the target line in the viewport. 
+要选择每个动作，请在 **动作目标（Pose Target）** 窗口中单击它，或单击视口中的目标线。 
 [/REGION]
 
-### Curve based Pose Targets
+### 基于曲线的动作目标
 
-Pose Targets can also be driven by [](Engine/Animation/Sequences/Curves) (Morph Targets and Material Curves) instead of using a Pose Asset. 
+动作目标也可以由[](Engine/Animation/Sequences/Curves)（变形目标和材质曲线）而不是动作资源来驱动。 
 
-To use curve data instead of a Pose Asset: 
+要使用曲线数据而不是动作资源，请按照以下步骤操作： 
 
-1.	In the **Details** panel of a **Pose Driver** node, under the **Pose Driver** section, change the **Drive Output** to **Drive Curves**. 
+1. 	在 **Pose Driver** 节点的 **细节（Details）** 面板的 **Pose Driver** 部分下，将 **Drive Output** 更改为 **Drive Curves**。 
 
 	![](DriveOutputSetting.png)
 
-1.	**Compile** the **Animation Blueprint**. 
+1. 	**编译** **动画蓝图**。 
 
 	![](CompileButton.png)
 
-1.	Click the **Add Target** button to add the number of curves you want to drive.
+1. 	单击 **添加目标（Add Target）** 按钮添加要驱动的曲线数。
 
 	![](AddTarget.png)
 
-1.	For each curve, under the **Drive** option select your desired curve and check the **Curve** checkbox, then define its value in the graph. 
+1. 	在每条曲线的 **驱动（Drive）** 选项中，选择所需的曲线，选中 **曲线（Curve）** 复选框并在图表中定义其值。 
 
 	![](CurveSetupComplete.png)
 
 
-## Pose Driver Properties
+## Pose Driver属性
 
-The **Pose Driver** properties section of the **Details** panel enables you to define the **Source Bones** to use for driving parameters in the **Pose Targets**. 
-You can specify multiple Source Bones or **Only Drive Selected Bones**, define an **Eval Space Bone** to use when reading the Source Bone Transform, set **RBF Parameters** used by the RBF Solver, as well as set the **Drive Source** and **Drive Output**. 
+在 **细节（Details）** 面板中的 **Pose Driver** 属性部分，可以定义将用于驱动 **动作目标（Pose Target）** 中参数的 **源骨骼（Source Bones）**。 
+你可以指定多个源骨骼或指定 **仅驱动选定骨骼（Only Drive Selected Bones）**，定义在读取源骨骼变换时使用的 **Eval Space Bone** 并设置RBF解算器使用的 **RBF Parameters** 以及 **Drive Source** 和 **Drive Output**。 
 
-Below are the properties within the Pose Driver section: 
+以下是Pose Driver部分中的属性： 
 
-| Option | Description |
+| 选项 | 说明 |
 | --- |--- |
-| **Source Bones** | Bone to use for driving parameters based on its orientation. | 
-| **Only Drive Selected Bones** |  If we should filter bones to be driven using the **Only Drive Bones** array. | 
-| **Only Drive Bones** | Only the bones specified in the array will be modified by the Pose Driver node. | 
-| **Eval Space Bone** | Optional other bone space to use when reading Source Bone transform. If not specified, the local space of Source Bone (for example, relative to the parent bone) is used.| 
+| **源骨骼（Source Bones）** | 基于此骨骼的朝向驱动参数。| 
+| **仅驱动选定骨骼（Only Drive Selected Bones）** |  是否应该使用 **仅驱动骨骼（Only Drive Bones）** 阵列过滤要驱动的骨骼。| 
+| **仅驱动骨骼（Only Drive Bones）** | Pose Driver节点仅修改阵列中指定的骨骼。| 
+| **Eval空间骨骼（Eval Space Bone）** | 读取源骨骼变换时使用的另一个可选骨骼空间。如果未指定，将使用源骨骼的局部空间（例如，相对于父骨骼）。| 
 | **RBFParams** | [INCLUDE:Engine\Animation\AnimPose\PoseDriverNode#rbftable] | 
-| **Drive Source** | Which part of the transform is read: **Rotation** or **Translation**. | 
-| **Drive Output** | Whether we should drive poses or curves. | 
+| **驱动源（Drive Source）** | 应该读取转换的哪个部分：**朝向（Rotation）** 或 **平移（Translation）**。| 
+| **驱动输出（Drive Output）** | 是否驱动动作或曲线。| 
 
 [COMMENT:none]
 
 [EXCERPT:rbftable]
-| Option | Description |
+| 选项 | 说明 |
 | ----------- |------|
-| **Radius** | Default radius for each target, scaled by per-Target Scale Factor. | 
-| **Function** | Defines the type of [Blend Mode](Engine/Animation/NonLinearBlends) to use. | 
-| **Distance Method** | Sets the measurement of distance to: **Swing Angle**, **Quaternion** or **Euclidean**. | 
-| **Twist Axis** | Axis to use when **Distance Method** is set to **Swing Angle**. | 
-| **Weight Threshold** | Weight below which we shouldn't bother returning a contribution from a target. | 
+| **半径（Radius）** | 按目标缩放因子缩放的每个目标的默认半径。| 
+| **函数（Function）** | 定义要使用的[混合模式](Engine/Animation/NonLinearBlends)的类型。| 
+| **距离方法（Distance Method）** | 将距离测量设置为：**摇摆角度（Swing Angle）**、**四元数（Quaternion）** 或 **欧氏距离（Euclidean）**。| 
+| **扭曲轴（Twist Axis）** | **Distance Method** 设置为 **Swing Angle** 时使用的轴。| 
+| **权重阈值（Weight Threshold）** | 如果重量小于此阈值，则不返回目标的贡献。| 
 [/EXCERPT:rbftable]
 
 [/COMMENT]
 
 
-## Settings and Relevancy
+## 设置和相关性
 
-The **Settings** section of the **Details** panel enables you to define the **Pose Asset** to evaluate and define if [](Engine/Animation/SyncGroups) are used. 
-The **Relevancy** section provides a way for you to determine if relevant animation nodes should ignore the node. 
+在 **细节（Details）** 面板的 **设置（Settings）** 部分，可以定义要评估的 **动作资源（Pose Asset）** 以及是否使用[](Engine/Animation/SyncGroups)。 
+在 **相关性（Relevancy）** 部分中，可以确定相关动画节点是否忽略此节点。 
 
-| Option | Description |
+| 选项 | 说明 |
 | --- |--- |
-| **Pose Source** | The **Pose Asset** used as the source of pose data. | 
-| **Sync Group Name** | The name of the Synch Group to reference. | 
-| **Sync Group Role** | The type of membership in the group. | 
-| **Ignore for Relevancy Test** | If true, "Relevant anim" nodes that look for the highest weighted animation in a state will ignore this node.  | 
+| **动作源（Pose Source）** | 用作动作数据源的 **动作资源（Pose Asset）**。| 
+| **同步组名称（Sync Group Name）** | 要引用的同步组的名称。| 
+| **同步组角色（Sync Group Role）** | 组内的成员资格类型。| 
+| **忽略相关性测试（Ignore for Relevancy Test）** | 如果为true，则查找状态中最高权重动画的相关动画节点将忽略此节点。| 
 
 
-## Additional Examples and Resources
+## 其他示例和资源
 
-Below are some additional examples of the Pose Driver node and settings. 
+以下是一些Pose Driver节点和设置的其他示例。 
 
-Below, the clavicle, lower, and upper arm bones are driving corrective blend shapes deforming the area around the shoulder as it rotates through curves. 
+下面是锁骨、下臂和上臂的视图，它们驱动校准的混合形状，当肩部通过曲线旋转时，该混合形状使周围区域变形。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -182,7 +182,7 @@ Below, the clavicle, lower, and upper arm bones are driving corrective blend sha
 	[/PARAMLITERAL]
 [/OBJECT]
 
-Another example of setting up and using the Pose Driver node can be found in the following Live Stream: 
+有关配置和使用Pose Driver节点的其他示例，请观看以下直播。 
 
 
 [OBJECT:EmbeddedVideo]

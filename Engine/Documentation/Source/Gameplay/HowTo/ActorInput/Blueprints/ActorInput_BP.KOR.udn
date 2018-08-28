@@ -38,7 +38,7 @@ SkillLevel: Intermediate
 	
 **Enable Input** 노드는 **Target** (보통은 Self, 액터 그 자체)는 물론 **Player Controller** (입력을 제공해 줄 플레이어) 가 지정되어야 합니다. 이러한 셋업으로, 이제 (키 또는 마우스 버튼 눌림과 같은) **Input Event** 노드를 검색 추가한 다음 해당 키가 눌리면 액터에 영향을 끼치는 동작을 할 수 있습니다.
 	
-위 예제에서 **Event Begin Play** 노드는 게임이 시작되면 (레벨에 액터가 존재한다 가정하고), **Player Controller** 에 대한 **Enable Input** 이 지정됩니다. 기본 플레이어 콘트롤러는 싱글 플레이어 게임에는 **Player Index 0** 을 사용하고, 멀티플레이어 게임의 경우 **Player Index** 값을 통해 어느 플레이어인지 지정할 수 있습니다.
+위 예제에서 **Event Begin Play** 노드는 게임이 시작되면 (레벨에 액터가 존재한다 가정하고), **Player Controller** 에 대한 **Enable Input** 이 지정됩니다. 기본 플레이어 컨트롤러는 싱글 플레이어 게임에는 **Player Index 0** 을 사용하고, 멀티플레이어 게임의 경우 **Player Index** 값을 통해 어느 플레이어인지 지정할 수 있습니다.
 
 
 ## 액터 입력 비활성화

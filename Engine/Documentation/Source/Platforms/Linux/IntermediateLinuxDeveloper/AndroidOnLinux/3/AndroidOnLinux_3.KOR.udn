@@ -22,7 +22,7 @@ UE4 에서 새로운 모바일 프로젝트를 만들 준비가 되었습니다.
 1.	**언리얼 프로젝트 브라우저** 를 열고 다음과 같은 옵션으로 새 블루프린트 프로젝트를 생성합니다.
 
 	* **Third Person** (삼인칭) 템플릿을 선택합니다.
-	* Target Hardware (타겟 하드웨어)를 **Mobile / Tablet** (모바일 / 태블릿)으로 선택합니다.
+	* Target Hardware (타깃 하드웨어)를 **Mobile / Tablet** (모바일 / 태블릿)으로 선택합니다.
 	* Graphics Level (그래픽 레벨)을 **Scalable 3D or 2D** (스케일가능 3D 또는 2D)로 설정합니다.
 	* **No Starter Content** (시작용 콘텐츠 없음)을 선택합니다.
 

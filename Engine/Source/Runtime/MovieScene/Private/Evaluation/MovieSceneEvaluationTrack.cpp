@@ -522,19 +522,20 @@ void FMovieSceneEvaluationTrack::EvaluateSwept(FMovieSceneSegmentIdentifier Segm
 
 	GatherSweptSegments(Context.GetFrameNumberRange(), SortedIndex, Segments.GetSorted(), ImplToAccumulatedRange);
 
-	for (auto& Pair : ImplToAccumulatedRange)
+	ExecutionTokens.SetContext(Context);
+	for (const TTuple<int32, TRange<FFrameNumber>>& Pair : ImplToAccumulatedRange)
 	{
 		const int32 SectionIndex = Pair.Key;
-		TRange<FFrameTime> ClampRange = FMovieSceneEvaluationRange::NumberRangeToTimeRange(Pair.Value);
-		const FMovieSceneEvalTemplate& Template = GetChildTemplate(SectionIndex);
+		const TRange<FFrameNumber>&    SweptRange = Pair.Value;
+		const FMovieSceneEvalTemplate& Template   = GetChildTemplate(SectionIndex);
 
 		PersistentData.DeriveSectionKey(SectionIndex);
 		ExecutionTokens.SetCurrentScope(FMovieSceneEvaluationScope(PersistentData.GetSectionKey(), Template.GetCompletionMode()));
-		ExecutionTokens.SetContext(Context);
-		
+
 		Template.EvaluateSwept(
 			Operand,
-			Context.Clamp(ClampRange),
+			Context,
+			SweptRange,
 			PersistentData,
 			ExecutionTokens);
 	}

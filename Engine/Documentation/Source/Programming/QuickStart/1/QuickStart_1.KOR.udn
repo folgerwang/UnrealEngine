@@ -24,7 +24,7 @@ type:multi-step
 	[/PARAMLITERAL]
 	[PARAM:content]
 	[REGION:note]
-	이 튜토리얼 시작 전 데스크탑용 **Visual Studio 2015** (가급적 Community 또는 Professional 에디션) 설치가 되어있어야 합니다. 구성 방법 안내는 [](Programming/Development/VisualStudioSetup) 문서를 참고하세요.
+	이 튜토리얼 시작 전 데스크톱용 **Visual Studio 2015** (가급적 Community 또는 Professional 에디션) 설치가 되어있어야 합니다. 구성 방법 안내는 [](Programming/Development/VisualStudioSetup) 문서를 참고하세요.
 	[/REGION]
 	[/PARAM]
 [/OBJECT]

@@ -72,14 +72,14 @@ Description:
 
 [EXCERPT:Mesh3.5]
 [VAR:StageTitle]
-애니메이션 리타게팅
+애니메이션 리타기팅
 [/VAR]
 
-애니메이션 리타게팅이란 같은 스켈레톤 애셋을 공유하면서 비율이 크게 다른 캐릭터간에 애니메이션을 재사용할 수 있도록 해 주는 기능입니다. 리타게팅을 통해서, 모양이 다른 캐릭터의 애니메이션을 사용할 때 애니메이션을 적용받는 스켈레톤의 비율이 훼손되거나 불필요한 변형이 일어나지 않도록 할 수 있습니다.
+애니메이션 리타기팅이란 같은 스켈레톤 애셋을 공유하면서 비율이 크게 다른 캐릭터간에 애니메이션을 재사용할 수 있도록 해 주는 기능입니다. 리타기팅을 통해서, 모양이 다른 캐릭터의 애니메이션을 사용할 때 애니메이션을 적용받는 스켈레톤의 비율이 훼손되거나 불필요한 변형이 일어나지 않도록 할 수 있습니다.
 
 ![](RetargetingHeader.png)
 
-[자세한 정보는 애니메이션 리타게팅 문서를 참고해 주세요.](DOCLINK:Engine/Animation/AnimationRetargeting)
+[자세한 정보는 애니메이션 리타기팅 문서를 참고해 주세요.](DOCLINK:Engine/Animation/AnimationRetargeting)
  
 [/EXCERPT:Mesh3.5]
 
@@ -88,16 +88,16 @@ Description:
 
 [EXCERPT:Mesh4]
 [VAR:StageTitle]
-모프 타겟
+모프 타깃
 [/VAR]
 
-모프 타겟 프리뷰어는 스켈레탈 메시에 적용되는 모프 타겟 (사용하는 3D 애니메이션 프로그램에 따라 "모프" 또는 "블렌드 셰이프"라 불리는 것)을 미리볼 수 있습니다. 각 모프 타겟은 기존의 스켈레탈 메시 지오메트리에 더하기식으로 블렌딩됩니다. 이를 통해 다수의 모프 타겟을 합쳐, 얼굴 표정과 같은 곳에 이상적인 복잡한 버텍스 구동형 애니메이션 제작이 가능합니다.
+모프 타깃 프리뷰어는 스켈레탈 메시에 적용되는 모프 타깃 (사용하는 3D 애니메이션 프로그램에 따라 "모프" 또는 "블렌드 셰이프"라 불리는 것)을 미리볼 수 있습니다. 각 모프 타깃은 기존의 스켈레탈 메시 지오메트리에 더하기식으로 블렌딩됩니다. 이를 통해 다수의 모프 타깃을 합쳐, 얼굴 표정과 같은 곳에 이상적인 복잡한 버텍스 구동형 애니메이션 제작이 가능합니다.
 
-[모프 타겟 생성 관련 정보는 FBX 문서를 참고하시기 바랍니다.](DOCLINK:Engine/Content/FBX/MorphTargets)
+[모프 타깃 생성 관련 정보는 FBX 문서를 참고하시기 바랍니다.](DOCLINK:Engine/Content/FBX/MorphTargets)
 
 ![](FortressChar_Smile90.png)
 
-[자세한 정보는 모프 타겟 프리뷰어 문서를 참고하시기 바랍니다.](DOCLINK:Engine/Animation/Persona/MorphTargetPreviewer)
+[자세한 정보는 모프 타깃 프리뷰어 문서를 참고하시기 바랍니다.](DOCLINK:Engine/Animation/Persona/MorphTargetPreviewer)
 
 
 [/EXCERPT:Mesh4]
@@ -115,9 +115,9 @@ Description:
 [페르소나](DOCLINK:Engine/Animation/Persona)
 [페르소나: 스켈레톤 트리](DOCLINK:Engine/Animation/Persona/SkeletonTree)
 [페르소나: 애셋 브라우저](DOCLINK:Engine/Animation/Persona/AssetBrowser)
-[페르소나: 모프 타겟 프리뷰어](DOCLINK:Engine/Animation/Persona/MorphTargetPreviewer)
+[페르소나: 모프 타깃 프리뷰어](DOCLINK:Engine/Animation/Persona/MorphTargetPreviewer)
 [페르소나: 소켓](DOCLINK:Engine/Content/Types/SkeletalMeshes/Sockets)
-[FBX: 모프 타겟](DOCLINK:Engine/Content/FBX/MorphTargets)
+[FBX: 모프 타깃](DOCLINK:Engine/Content/FBX/MorphTargets)
 
 ![](Stage1.png)
 

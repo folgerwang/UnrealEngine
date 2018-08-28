@@ -88,8 +88,25 @@ void UMovieSceneSequencePlayer::PlayInternal()
 {
 	if (!IsPlaying() && Sequence && CanPlay())
 	{
-		// Start playing
+		float PlayRate = bReversePlayback ? -PlaybackSettings.PlayRate : PlaybackSettings.PlayRate;
 
+		// If at the end and playing forwards, rewind to beginning
+		if (GetCurrentTime().Time == GetLastValidTime())
+		{
+			if (PlayRate > 0.f)
+			{
+				JumpToFrame(FFrameTime(StartTime));
+			}
+		}
+		else if (GetCurrentTime().Time == FFrameTime(StartTime))
+		{
+			if (PlayRate < 0.f)
+			{
+				JumpToFrame(GetLastValidTime());
+			}
+		}
+
+		// Start playing
 		// @todo Sequencer playback: Should we recreate the instance every time?
 		// We must not recreate the instance since it holds stateful information (such as which objects it has spawned). Recreating the instance would break any 
 		// @todo: Is this still the case now that eval state is stored (correctly) in the player?
@@ -203,7 +220,7 @@ void UMovieSceneSequencePlayer::Scrub()
 
 void UMovieSceneSequencePlayer::Stop()
 {
-	if (IsPlaying() || IsPaused())
+	if (IsPlaying() || IsPaused() || RootTemplateInstance.IsValid())
 	{
 		if (bIsEvaluating)
 		{
@@ -427,6 +444,8 @@ void UMovieSceneSequencePlayer::Initialize(UMovieSceneSequence* InSequence, cons
 	Sequence = InSequence;
 	PlaybackSettings = InSettings;
 
+	FFrameTime StartTimeWithOffset = StartTime;
+
 	EUpdateClockSource ClockToUse = EUpdateClockSource::Tick;
 
 	UMovieScene* MovieScene = Sequence->GetMovieScene();
@@ -463,7 +482,7 @@ void UMovieSceneSequencePlayer::Initialize(UMovieSceneSequence* InSequence, cons
 			? FFrameTime(FMath::Rand() % GetFrameDuration())
 			: FMath::Clamp<FFrameTime>(SpecifiedStartOffset, 0, GetFrameDuration()-1);
 
-		PlayPosition.Reset(StartTime + StartingTimeOffset);
+		StartTimeWithOffset = StartTime + StartingTimeOffset;
 
 		ClockToUse = MovieScene->GetClockSource();
 	}
@@ -478,11 +497,14 @@ void UMovieSceneSequencePlayer::Initialize(UMovieSceneSequence* InSequence, cons
 		}
 	}
 
-	PlaybackSettings.TimeController->Reset(GetCurrentTime());
 	RootTemplateInstance.Initialize(*Sequence, *this);
 
 	// Ensure everything is set up, ready for playback
 	Stop();
+
+	// Set up playback position (with offset) after Stop(), which will reset the starting time to StartTime
+	PlayPosition.Reset(StartTimeWithOffset);
+	PlaybackSettings.TimeController->Reset(GetCurrentTime());
 }
 
 void UMovieSceneSequencePlayer::Update(const float DeltaSeconds)
@@ -702,6 +724,24 @@ TArray<UObject*> UMovieSceneSequencePlayer::GetBoundObjects(FMovieSceneObjectBin
 		}
 	}
 	return Objects;
+}
+
+TArray<FMovieSceneObjectBindingID> UMovieSceneSequencePlayer::GetObjectBindings(UObject* InObject)
+{
+	TArray<FMovieSceneObjectBindingID> ObjectBindings;
+
+	for (FMovieSceneSequenceIDRef SequenceID : GetEvaluationTemplate().GetThisFrameMetaData().ActiveSequences)
+	{
+		FGuid ObjectGuid = FindObjectId(*InObject, SequenceID);
+		if (ObjectGuid.IsValid())
+		{
+			FMovieSceneObjectBindingID ObjectBinding(ObjectGuid, SequenceID);
+
+			ObjectBindings.Add(ObjectBinding);
+		}
+	}
+
+	return ObjectBindings;
 }
 
 void UMovieSceneSequencePlayer::BeginDestroy()

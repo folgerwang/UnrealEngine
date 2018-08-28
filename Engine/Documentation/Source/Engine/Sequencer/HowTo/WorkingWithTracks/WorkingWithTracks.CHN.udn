@@ -1,0 +1,176 @@
+﻿INTSourceChangelist:4221079
+Availability: Public
+Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
+title: Working with Tracks in Sequencer
+description:
+type: how-to
+SkillLevel: intermediate
+Version: 4.20
+Parent: Engine/Sequencer/HowTo
+Order: 2
+Tags: Sequencer
+Tags: how-to
+
+# 使用Sequencer中的轨迹
+
+每当创建关卡序列时，无论想要创建哪种类型的动画，都将在“轨迹”（Tracks）窗口中添加和使用轨迹。Sequencer提供了多种功能，您可以用来帮助组织和显示这些轨迹及其中的内容。 
+
+在本操作说明文档中，我们将介绍Sequencer中的轨迹系统的多种不同功能以及如何使用这些功能。
+
+## 步骤
+
+[REGION:note]在本指南中，我们将使用 **蓝图第三人称** 模板并启用 **初学者内容**。[/REGION]
+
+1. 在项目的 **Content/Mannequin/Character/Mesh** 文件夹中，将 **SK_Mannequin** 拖到关卡中。 
+
+  ![image alt text](image_0.png)(w:624 h:250 convert:false)
+
+2. 从“主工具栏”（Main Toolbar）中，依次单击 **“动画”（Cinematics）** 按钮和 **“添加关卡序列”（Add Level Sequence）**，然后为其指定名称和保存位置。 
+
+  ![image alt text](image_1.png)(w:420 h:162 convert:false)
+
+3. 从 **“世界大纲视图”（World Outliner）** 窗口中，将 **“SK_Mannequin** Actor”（SK_Mannequin Actor）拖到 **“轨迹”（Tracks）** 窗口以将其添加到Sequencer。 
+
+  ![image alt text](image_2.png)(w:624 h:353 convert:false)
+
+  这是将Actor添加到Sequencer的备选方法。除了单击 **“+ 轨迹”（+Track）** 按钮之外，还可以从 **“世界大纲视图”（World Outliner）** 或 **“内容浏览器”（Content Browser）** 中拖动项。 
+
+4. 在 **Content/StarterContent/Audio** 文件夹中，将任意 **声波** 资源拖到Sequencer。 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		RlCorqp9wdg
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+  在将资源拖到Sequencer时，将高亮显示放下的位置，以告知您应将其放在哪个位置，添加后将短暂地闪烁黄色以告知您新添加的分段。您也可以将任意分段拖放到时间轴中的任意行上，或者将时间轴标记移到所需位置，然后放下资源以在这个位置创建分段（如以上视频所示）。 
+
+5. 从 **“+ 轨迹”（+Track）** 菜单添加 **“文件夹”（Folder）**，使用 **F2** 将其重命名，然后将轨迹拖放到其中，或者在 **“轨迹列表”（Tracks List）** 窗口中重新排序。 
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		LieJ347Qa9U
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+  您可以在 **“文件夹”（Folders）** 中将多个轨迹划分到一组，以帮助组织“轨迹”（Tracks）窗口的布局。添加到序列的轨迹、Actor和文件夹会在创建后高亮显示。如果当前已经选中某个文件夹，则新项会放置到该文件夹中。如果当前选中了另一个轨迹，则将作为该项的同级项放置新项。 
+
+  轨迹、Actor和文件夹也可以在Sequencer（以及UMG动画）中重新排序，您可以从 **“常规选项”（General Options）** 菜单中对它们进行排序（按类型，然后按字母顺序）。 
+
+6. 对于 **SK_Mannequin** 轨迹，向 **动画（Animation）** 轨迹添加动画，然后在选中该动画的情况下拉动轨迹时间轴。 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		TXZnzMkgFvM
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+  当您在Sequencer中拉动动画时间轴时，将显示您所选分段的源动画帧数。您可以使用该信息来查看作为混合起点的动画起点位置，或者混合动画的结束位置。 
+
+7. 循环播放动画，然后右键单击并从上下文菜单的 **“编辑”（Edit）** 下选择 **“自动调节大小”（Auto Size）**。 
+
+  ![image alt text](image_3.png)(w:624 h:350 convert:false)
+
+  您可以使用“自动调节大小”（Auto Size）功能，根据源时长快速地调节分段大小（例如，如上文所示，根据骨架网格体动画的边界调整该动画的大小）。 
+
+8. 如下所示，为角色添加一些运动，然后删除信道或通过上下文菜单将其禁用来遮盖 **Z** 轴。 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		0pg9DgIrpGo
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+  您还可以在UMG动画中执行信道遮盖（在下面的示例中，我们遮盖了动画的平移和缩放）。 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		jrTfOw0GhLo
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+9. 将时间轴标记移到不存在变换键的任意位置，然后右键单击任意变换键，并选择 **“重设键位”（Rekey）** 以将其移到标记位置。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		nGglzSUID9I
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+
+  上下文菜单中的“重设键位”（Rekey）对于快速调整关键帧并指定到当前时间非常有用。在以上示例中，我们用变换轨迹移动了角色，但在运动停止期间，动画仍在继续。我们使用“重设键位”（Rekey）将变换值移到了与动画长度相符的序列结尾位置。 
+
+## 最终结果
+
+在本指南中，您已学习了使用Sequencer轨迹的多种不同方法，包括如何使用“文件夹”（Folders）组织这些轨迹，调节分段大小，如何重设关键帧的键位，如何遮盖信道以及向序列添加轨迹时的其他提示。虽然您可能不会立即用到所有这些提示，但了解这些内容总是有益的，并可以根据情况在您现有的Sequencer工作流程中加以运用。 

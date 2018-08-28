@@ -67,7 +67,7 @@ tags:Sequencer
 | **Sequence Length** | 시퀀스 길이 - 녹화할 시퀀스 최대 길이입니다 (0 으로 설정하면 Stop 호출 전까지 계속됩니다). |
 | **Recording Delay** | 녹화 지연시간 - 녹화 시작 전 지연시간입니다. |
 | **Sequence Name** | 시퀀스 이름 - 녹화를 저장할 시퀀스 이름입니다. 이 이름은 이 녹화로 인해 자동 생성되는 다른 애셋에도 사용됩니다. |
-| **Sequence Recording Base Path** | 시퀀스 녹화 기본 경로 - 프로젝트 내 녹화를 저장할 위치입니다. 서브 애셋은 지정된 기본 경로 내 서브 디렉토리에 생성됩니다. |
+| **Sequence Recording Base Path** | 시퀀스 녹화 기본 경로 - 프로젝트 내 녹화를 저장할 위치입니다. 서브 애셋은 지정된 기본 경로 내 서브 디렉터리에 생성됩니다. |
 | **Record Nearby Spawned Actors** | 근처 스폰된 액터 녹화 - 근처에 스폰된 액터를 이 녹화의 일부로 녹화시킬지 여부입니다. |
 | **Nearby Actor Recording Proximity** | 근처 액터 녹화 거리 - 현재 녹화하는 액터에서 이 거리 내 새로 생성되는 액터를 녹화합니다. |
 | **Record World Settings Actor** | 월드 세팅 액터 녹화 - 시퀀스에 월드 세팅 액터 녹화 여부입니다 (여기에 월드 SFX 를 붙이는 경우도 있습니다). |
@@ -75,7 +75,7 @@ tags:Sequencer
 | **Level Sequence Actors to Trigger** | 발동시킬 레벨 시퀀스 액터 - 녹화 시작시 재생 발동시킬 시퀀스 액터입니다 (예로, 시퀀스를 동기화시켜 녹화할 때 사용할 수 있습니다). |
 | **Default Animation Settings** | 기본 애니메이션 세팅 - 애니메이션 녹화에 적용할 기본 세팅입니다. 확장하면 월드 스페이스 녹화, 루트 애니메이션 제거, 녹화 완료시 애셋 자동 저장, 샘플링 속도 및 길이 등의 설정을 위한 옵션이 나옵니다. |
 | **Classes and Properties to Record** | 녹화할 클래스 및 프로퍼티 - 지정된 클래스에 대해 녹화할 프로퍼티입니다. 여기 지정된 컴포넌트 클래스가 녹화됩니다. 이 클래스 중 하나가 들어있지 않은 액터는 무시됩니다. 확장하면 클래스 및 관련 프로퍼티를 정의할 수 있습니다. |
-| **Animation Sub Directory** | 애니메이션 서브 디렉토리 - 애니메이션을 저장할 서브 디렉토리 이름입니다. 빈칸으로 놔두면 시퀀스 기본 경로와 같은 디렉토리에 저장됩니다. |
+| **Animation Sub Directory** | 애니메이션 서브 디렉터리 - 애니메이션을 저장할 서브 디렉터리 이름입니다. 빈칸으로 놔두면 시퀀스 기본 경로와 같은 디렉터리에 저장됩니다. |
 | **Record Sequencer Spawned Actors** | 시퀀서 스폰된 액터 녹화 - 시퀀서 자체적으로 스폰시킨 액터의 녹화 여부입니다 (결과를 예측할 수 없어 보통 끄는 옵션입니다). |
 | **Per Actor Settings** | 액터별 세팅 - 지정된 클래스의 액터에 적용할 세팅입니다. 각 클래스마다 포제서블 (레벨 소유) 또는 스포너블 (시퀀스 소유) 녹화 여부를 정의할 수 있습니다. |
 
@@ -91,8 +91,8 @@ tags:Sequencer
 
 | 옵션 | 설명 |
 | ---- | ----------- |
-| **Specify Target Animation** | 타겟 애니메이션 지정 - 타겟 애니메이션을 지정할 것인지, 자동 생성할 것인지 입니다. |
-| **Target Animation** | 타겟 애니메이션 - **Specify Target Animation** 을 켜면 같이 켜지며, 녹화하고자 하는 애니메이션을 지정하는 데 사용됩니다. |
+| **Specify Target Animation** | 타깃 애니메이션 지정 - 타깃 애니메이션을 지정할 것인지, 자동 생성할 것인지 입니다. |
+| **Target Animation** | 타깃 애니메이션 - **Specify Target Animation** 을 켜면 같이 켜지며, 녹화하고자 하는 애니메이션을 지정하는 데 사용됩니다. |
 | **Animation Settings** | 애니메이션 세팅 - **시퀀스 녹화** 아래 **Default Animation Settings** 을 참고하세요. **Actor to Record** (녹화할 액터)에 적용됩니다.  |
 | **Record to Possessable** | 포제서블에 녹화 - (레벨 소유) 포제서블 또는 (시퀀스 소유) 스포너블 액터의 녹화 여부입니다. 글로벌 세팅으로 기본 적용됩니다. |
 

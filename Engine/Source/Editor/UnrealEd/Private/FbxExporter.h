@@ -110,7 +110,7 @@ public:
 	/**
 	 * Exports the basic scene information to the FBX document.
 	 */
-	virtual void ExportLevelMesh( ULevel* InLevel, bool bSelectedOnly, INodeNameAdapter& NodeNameAdapter );
+	virtual void ExportLevelMesh( ULevel* InLevel, bool bSelectedOnly, INodeNameAdapter& NodeNameAdapter , bool bSaveAnimSeq = true);
 
 	/**
 	 * Exports the given Matinee sequence information into a FBX document.
@@ -215,7 +215,7 @@ public:
 	 * Exports the basic information about an actor and buffers it.
 	 * This function creates one FBX node for the actor with its placement.
 	 */
-	FbxNode* ExportActor(AActor* Actor, bool bExportComponents, INodeNameAdapter& NodeNameAdapter);
+	FbxNode* ExportActor(AActor* Actor, bool bExportComponents, INodeNameAdapter& NodeNameAdapter, bool bSaveAnimSeq = true);
 
 private:
 	FFbxExporter();
@@ -374,7 +374,7 @@ private:
 	FbxNode* ExportSkeletalMeshToFbx(const USkeletalMesh* SkelMesh, const UAnimSequence* AnimSeq, const TCHAR* MeshName, FbxNode* ActorRootNode);
 
 	/** Export SkeletalMeshComponent */
-	void ExportSkeletalMeshComponent(USkeletalMeshComponent* SkelMeshComp, const TCHAR* MeshName, FbxNode* ActorRootNode);
+	void ExportSkeletalMeshComponent(USkeletalMeshComponent* SkelMeshComp, const TCHAR* MeshName, FbxNode* ActorRootNode, bool bSaveAnimSeq = true);
 
 	/**
 	 * Add the given animation sequence as rotation and translation tracks to the given list of bone nodes

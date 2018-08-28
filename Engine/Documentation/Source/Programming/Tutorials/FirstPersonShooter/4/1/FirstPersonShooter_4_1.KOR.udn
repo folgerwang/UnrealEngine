@@ -68,7 +68,7 @@ Version: 4.15
 
 	![](AddNewAnimBP.png)
 
-1.	부모 클래스로 **AnimInstance** 를 선택하고, 타겟 스켈레톤으로 **/Game/HeroFPP_Skeleton** 을 선택합니다.
+1.	부모 클래스로 **AnimInstance** 를 선택하고, 타깃 스켈레톤으로 **/Game/HeroFPP_Skeleton** 을 선택합니다.
 
 	![](CreateAnimBP.png)
 

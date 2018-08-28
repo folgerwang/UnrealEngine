@@ -238,16 +238,16 @@ order:6
 
 [/REGION]
 
-## 그룹 콘트롤 노드
+## 그룹 컨트롤 노드
 
-**Group Control** (그룹 콘트롤) 노드는 정의된 그룹에 이미 재생중인 사운드와 청취자가 얼마나 가까이 있는지에 따라 재생할 사운드 웨이브를 선택합니다.
+**Group Control** (그룹 컨트롤) 노드는 정의된 그룹에 이미 재생중인 사운드와 청취자가 얼마나 가까이 있는지에 따라 재생할 사운드 웨이브를 선택합니다.
 
 
 ![Group Control Node](SoundCueEditor_GroupControl.png)
 
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
-| [REGION:tablesection]사운드 노드 그룹 콘트롤[/REGION] ||
+| [REGION:tablesection]사운드 노드 그룹 컨트롤[/REGION] ||
 | **Group Sizes** | 그룹 크기 - 그룹 내 사운드 웨이브 노드의 번호로, 0 부터 시작합니다 (첫 번째 사운드 웨이브 노드는 "0" 입니다). |
 
 [COMMENT:none]
