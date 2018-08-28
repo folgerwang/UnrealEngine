@@ -218,6 +218,9 @@ private:
 
 		ensure(SubsystemNameToHash.Num() == (HashId - 1));
 		ensure(HashToSubsystemName.Num() == (HashId - 1));
+
+		// FUniqueNetIdRepl uses 5 bits to transmit the HashId and 31 is used for OnlineSubsystems not included in this list
+		ensure(HashId < 31);
 	}
 
 	/** If false it will not try to do online PIE at all */
