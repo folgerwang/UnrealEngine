@@ -75,7 +75,3 @@ The Particle System also uses a Lit Translucency Material that is utilizing a Pa
 
 In the screenshot above, notice that many of the falling particles are bright white near the top of the image. At first, this appears to be a natural phenomenon due to the blooming white highlights near the particles. However, this is only possible because the particles are literally being told to be _more opaque_ at that point in their lives, thus using more of the level's lighting.
 
-
-
-
-[INCLUDE:Resources\Showcases\Effects#ParticleTopics]

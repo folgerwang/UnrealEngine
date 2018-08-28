@@ -2,7 +2,7 @@
 Availability: Public
 Title:에임 오프셋 만들기
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/AnimHowTo
-Description:에임 오프셋을 사용하여, 캐릭터가 마우스 또는 콘트롤러 방향으로 무기를 조준하도록 합니다.
+Description:에임 오프셋을 사용하여, 캐릭터가 마우스 또는 컨트롤러 방향으로 무기를 조준하도록 합니다.
 version: 4.14
 skilllevel: Advanced
 type:how-to

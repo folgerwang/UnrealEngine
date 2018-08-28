@@ -55,7 +55,7 @@ topic-image:Engine/Blueprints/UserGuide/graph_topic.png
 
 ## グラフで作業する
 
-コンストラクション スクリプト、イベントグラフ、関数、またはマクロのいずれの種類でも、グラフはすべて [](Engine/Blueprints/Editor) の [グラフ](Engine/Blueprints/Editor/Modes/GraphPanel) モードで編集します。すべてのグラフには、
+コンストラクション スクリプト、イベントグラフ、関数、またはマクロのいずれの種類でも、グラフはすべて [](Engine/Blueprints/Editor) の [グラフ](Engine/Blueprints/Editor/UIBreakdowns/ClassBPUI) モードで編集します。すべてのグラフには、
 ワイヤーによって接続されるノードのネットワークが含まれています。
 
 

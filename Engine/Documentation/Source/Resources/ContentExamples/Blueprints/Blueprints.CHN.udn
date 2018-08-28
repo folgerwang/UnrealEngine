@@ -232,7 +232,7 @@ Version:4.9
 [COMMENT:none]
 
 [EXCERPT:BlueprintsCEInstructions]
-可在内容范例中 [打开蓝图](Engine/Blueprints/UserGuide/Types/ClassBlueprint/Opening)，确定创建每个蓝图需要进行的 [默认](Engine/Blueprints/Editor\Modes\Defaults)、[组件](Engine/Blueprints/UserGuide\Components) 和 [图表](Engine/Blueprints/Editor\Modes\GraphPanel) 设置。
+可在内容范例中 [打开蓝图](Engine/Blueprints/UserGuide/Types/ClassBlueprint/Opening)，确定创建每个蓝图需要进行的 [默认](Engine/Blueprints/Editor\Modes\Defaults)、[组件](Engine/Blueprints/UserGuide\Components) 和 [图表]() 设置。
 [/EXCERPT:BlueprintsCEInstructions]
 
 

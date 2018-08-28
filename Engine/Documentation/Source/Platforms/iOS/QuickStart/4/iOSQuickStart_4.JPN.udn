@@ -25,6 +25,7 @@ order:4
 [/VAR]
 
 
+%Steps%
 
 [REGION:note]
 ご利用のデバイスは Apple Developer アカウントに既に関連付けられていますか？[この手順はスキップできます。](Platforms/iOS/QuickStart/5)
@@ -89,3 +90,5 @@ order:4
 [/COMMENT]
 
 
+
+%Steps%

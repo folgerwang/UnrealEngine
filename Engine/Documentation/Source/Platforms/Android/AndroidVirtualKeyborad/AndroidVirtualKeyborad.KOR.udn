@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3810467
 Availability: Docs
 Crumbs: %ROOT%
-Title: Android Virtual Keyboard
-Description:Going over setting up the Android Virtual Keyboard for use in UE4.
+Title: Android 가상 키보드
+Description:UE4 에서 Android 가상 키보드를 사용할 수 있도록 구성하는 법을 다룹니다.
 Type:how-to
 SkillLevel:Beginner
 Version:4.17
@@ -12,109 +12,109 @@ Tags:Android
 
 [TOC(start:1 end:2)]
 
-All Unreal Engine 4 (UE4) Android-based projects offer support for using either the standard pop up dialog input box or the operating system's virtual keyboard. In the following document, we will take a look at how to set up and call either virtual keyboard in your UE4 projects.
+모든 언리얼 엔진 4 (UE4) Android 기반 프로젝트는 표준 팝업 입력 대화창 또는 운영 체제의 가상 키보드를 지원합니다. 이 문서에서는 UE4 프로젝트에서 어느 쪽이든 가상 키보드를 설정하고 호출하는 방법을 살펴 보겠습니다.
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![New Keyboard Input](AVK_New.png)
+    ![새로운 키보드 입력](AVK_New.png)
     [/PARAM]
     [PARAM:after]
-    ![Old Keyboard Input](AVK_Old.png)
+    ![이전 키보드 입력](AVK_Old.png)
     [/PARAM]
 [/OBJECT]
 
 
-## Steps
+## 단계
 
-To enable the Virtual Keyboard in your project, you will need to do the following:
+프로젝트에서 가상 키보드를 활성화하는 방법은 다음과 같습니다:
 
-1. From the **Main Menu** go to **Edit** and then click on the **Project Settings** option.
+1. **메인 메뉴** 에서 **편집** > **프로젝스 세팅** 옵션을 클릭합니다.
 
     ![](AVK_01.png)
 
-1. In the Project Settings menu go to **Platforms** > **Android** and under the **APKPackaging** section look for and click on the check mark box next to the **Enable improved virtual keyboard [Experimental]** option to enable it.
+1. 프로젝트 세팅 메뉴의 **플랫폼** > **Android** 에서 **APKPackaging** 섹션 아래 **Enable improved virtual keyboard [Experimental]** (향상된 가상 키보드 활성화 [실험단계] 옵션 옆 박스를 클릭해서 체크하여 활성화합니다.
 
     [REGION:lightbox]
     [![](AVK_02.png)(w:546)](AVK_02.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. Right-click in the  **Content Browser** and then go to **User Interface** and click on the **Widget Blueprint** option, giving this new Blueprint a name of **Input Text**.
+1. **콘텐츠 브라우저** 에 우클릭하고 **유저 인터페이스** > **위젯 블루프린트** 옵션에서 새 블루프린트 이름을 **Input Text** 라 합니다.
 
     ![](AVK_03.png)
 
-1. Double - click on the Input Text UMG widget to open it up and from the **Palette** drag a **TextBox** into the UMG graph.
+1. Input Text UMG 위젯에 더블클릭하여 열고 **팔레트** 에서 **TextBox** 를 끌어 UMG 그래프에 놓습니다.
 
     [REGION:lightbox]
     [![](AVK_04.png)(w:546)](AVK_04.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. Position the **TextBox** so that it is in the middle of the Canvas panel and then press the **Compile** and **Save** buttons.
+1. **TextBox** 가 Canvas 패널 가운데 오도록 위치를 잡고 **컴파일**, **저장** 버튼을 누릅니다.
 
     [REGION:lightbox]
     [![](AVK_05.png)(w:546)](AVK_05.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
     [Region:note]
-    Keep in mind that your application is responsible for ensuring input elements are visible and not obscured behind the virtual keyboard. You can use the supplied **OnVirtualKeyboardShown** and **OnVirtualKeyboardHidden** event handlers to make sure that UI elements do not obscure the virtual keyboard.
+    참고로 입력 요소가 보이고 가상 키보드 뒤에 가려져 있지 않은지 확인하는 것은 앱이 담당합니다. 제공된 **OnVirtualKeyboardShown**, **OnVirtualKeyboardHidden** 이벤트 핸들러를 사용하여 UI 요소가 가상 키보드를 가리지 않는지 확인할 수 있습니다.
     [/region]
 
-1. Open up the **Level Blueprint** and add the following nodes to the Event Graph.
+1. **레벨 블루프린트** 를 열고 이벤트 그래프에 노드를 다음과 같이 추가합니다.
 
     [REGION:lightbox]
     [![](AVK_06.png)(w:546)](AVK_06.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
     * **Event Begin Play**
     * **Create Widget**
     * **Add to Viewport** 
 
-1. Connect the **Event Begin Play** node to the **Create Widget** node and then connect the **Create Widget** node to the **Add Viewport** node. When completed your **Level Blueprint** should look like the following image.
+1. **Event Begin Play** 노드를 **Create Widget** 노드에 연결하고 **Create Widget** 노드를 **Add Viewport** 노드에 연결합니다. 완성된 **레벨 블루프린트** 는 다음 이미지와 같습니다.
 
     [REGION:lightbox]
     [![](AVK_07.png)(w:546)](AVK_07.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. Next, in the Create Widget Blueprint node, in the **Class** input, add the **InputText** Widget Blueprint that was created earlier.
+1. 다음, Create Widget 블루프린트 노드에서 **Class** 입력에 아까 만든 **InputText** 위젯 블루프린트를 추가합니다.
 
     ![](AVK_08.png)
 
-1. Save the level, giving it a name of **AndroidVirtualKeyboard** then open up your Project Settings and go to **Maps & Modes** and in the **Default Maps** input the **AndroidVirtualKeyboard** map into the **Editor Startup Map** and the **Game Default Map**.
+1. 레벨을 저장하고 이름을 **AndroidVirtualKeyboard** 라 한 뒤 프로젝트 세팅을 열어 **맵 & 모드** 아래 **Default Maps** (기본 맵) 부분 **Editor Startup Map** 과 **Game Default Map** 에 **AndroidVirtualKeyboard** 를 입력합니다.
 
     [REGION:lightbox]
     [![](AVK_09.png)(w:546)](AVK_09.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. Now from the Main Menu, click on the small white triangle next to **Launch** and from the displayed list, select the Android device you want to deploy your UE4 project too.
+1. 이제 메인 메뉴에서, **실행** 버튼 옆 작은 흰색 삼각형을 클릭하면 표시되는 메뉴에서, UE4 프로젝트를 디플로이하려는 Android 디바이스를 선택합니다.
 
     ![](AVK_10.png)
 
-## End Result 
+## 최종 결과 
 
-Once your project launches on your Android device, press on the text input box and when you do, you should now be able to input the text you want using the Android system keyboard like in the following video.
+Android 디바이스에 프로젝트가 실행되면, 텍스트 입력 칸을 누릅니다. 다음 비디오처럼 Android 시스템 키보드를 사용하여 텍스트를 입력할 수 있습니다.
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]
@@ -135,14 +135,13 @@ Once your project launches on your Android device, press on the text input box a
 [/OBJECT]
 
 
-You can also disable the virtual keyboard using the **Android.NewKeyboard** console variable followed by one of the following numbers. Doing this is particularly useful when the user is using a language requiring a different IME (Input Method Editor).
+**Android.NewKeyboard** 콘솔 변수 뒤의 숫자 값에 따라 가상 키보드를 비활성화할 수도 있습니다. 사용자가 다른 IME (Input Method Editor)가 필요한 언어를 사용할 때 특히 좋습니다.
 
-|Command Name|Input |Description |
+|명령 이름|입력 |설명 |
 |---------------------|----------|------------|
-|**Android.NewKeyboard**| 0| Uses the check mark box setting that was set in the UE4 editor.|
-|**Android.NewKeyboard**| 1| Forces the new keyboard to be used.|
-|**Android.NewKeyboard**| 2| Forces the dialog to be used.|
-
+|**Android.NewKeyboard**| 0| UE4 에디터에 설정한 체크 박스 세팅을 사용합니다.|
+|**Android.NewKeyboard**| 1| 새 키보드를 강제 사용합니다.|
+|**Android.NewKeyboard**| 2| 대화창을 강제 사용합니다.|
 
 
 

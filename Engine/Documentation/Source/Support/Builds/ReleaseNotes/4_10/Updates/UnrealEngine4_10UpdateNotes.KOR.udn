@@ -88,7 +88,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.10.1-release](
 
 *  UE-22866	[4.10 P2] 에디터의 드롭다운 메뉴와 툴팁에 UI 가 중앙에서 벗어나 있음
 
-*  UE-23064	타겟 빌드 폴더가 리패키징 시 클리어 되지 않음
+*  UE-23064	타깃 빌드 폴더가 리패키징 시 클리어 되지 않음
 
 *  UE-23132	매크로의 와일드카드 배열로 오류 메시지 표시 유발
 

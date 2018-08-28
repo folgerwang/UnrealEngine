@@ -2,7 +2,7 @@
 Availability: Public
 Title:4 - 마무리
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
-Description:마지막 단계에서는 캐릭터 블루프린트를 업데이트하여 콘트롤러 로테이션 처리 방식 변경이나 테스트 전 사소한 문제를 몇 가지 해결해 봅니다.
+Description:마지막 단계에서는 캐릭터 블루프린트를 업데이트하여 컨트롤러 로테이션 처리 방식 변경이나 테스트 전 사소한 문제를 몇 가지 해결해 봅니다.
 version: 4.14
 skilllevel: Advanced
 parent:Engine/Animation/AnimHowTo/AimOffset
@@ -14,7 +14,7 @@ tags:Aim Offset
 
 [NAV]
 
-마지막 단계에서는 캐릭터 블루프린트를 업데이트하여 콘트롤러 로테이션 처리 방식 변경이나 테스트 전 사소한 문제를 몇 가지 해결해 봅니다.
+마지막 단계에서는 캐릭터 블루프린트를 업데이트하여 컨트롤러 로테이션 처리 방식 변경이나 테스트 전 사소한 문제를 몇 가지 해결해 봅니다.
 
 ## 단계
 
@@ -24,7 +24,7 @@ tags:Aim Offset
 
 	![](step4_04.png)
 
-	그러면 캐릭터가 콘트롤러의 yaw 위치로 자동 회전하지 않게 됩니다.
+	그러면 캐릭터가 컨트롤러의 yaw 위치로 자동 회전하지 않게 됩니다.
 
 1.	**컴포넌트** 창의 **CapsuleComponent** 를 클릭한 뒤, **디테일** 에서 **Hidden in Game** 옵션을 체크합니다.
 

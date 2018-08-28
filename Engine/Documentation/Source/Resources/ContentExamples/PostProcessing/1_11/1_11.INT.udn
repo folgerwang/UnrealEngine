@@ -18,9 +18,9 @@ topic-image:Resources/ContentExamples/PostProcessing/PP_11.png
 
 ## Guassian
 
-[INCLUDE:Engine/Rendering\PostProcessEffects\DepthOfField#DepthOfField_Gaussian]
+Gaussian DoF blurs the scene using a standard Guassian blur. The Guassian method is fast and generally well-suited for use in-game, where performance is critical.
 
 ## Bokeh
 
-[INCLUDE:Engine/Rendering\PostProcessEffects\DepthOfField#DepthOfField_Bokeh]
+[INCLUDE:Engine/Rendering\PostProcessEffects\DepthOfField\Cinematic#DepthOfField_Bokeh]
 

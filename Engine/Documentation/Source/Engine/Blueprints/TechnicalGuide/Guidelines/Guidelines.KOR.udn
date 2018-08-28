@@ -98,7 +98,7 @@ StrategyGame 양쪽 다 픽업은 이런 식으로 만들었습니다.
 		UFUNCTION(BlueprintCallable, Category="Utilities|FlowControl", meta=(Latent, WorldContext="WorldContextObject", LatentInfo="LatentInfo", Duration="0.2"))
 		static void	Delay(UObject* WorldContextObject, float Duration, struct FLatentActionInfo LatentInfo );
 
-* 가급적 함수는 공유 라이브러리에 넣도록 하세요. 여러 클래스에서 사용하기가 쉬워지며, '타겟' 핀을 피할 수 있습니다.
+* 가급적 함수는 공유 라이브러리에 넣도록 하세요. 여러 클래스에서 사용하기가 쉬워지며, '타깃' 핀을 피할 수 있습니다.
 
 		class DOCUMENTATIONCODE_API UTestBlueprintFunctionLibrary : public UBlueprintFunctionLibrary
 

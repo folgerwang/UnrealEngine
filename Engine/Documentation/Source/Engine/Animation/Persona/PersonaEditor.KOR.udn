@@ -133,7 +133,7 @@ mac
 
 * [소켓](Engine/Content\Types\SkeletalMeshes\Sockets) 을 만들어 스켈레탈 메시에 아이템 부착
 * 각 [소켓](Engine/Content\Types\SkeletalMeshes\Sockets) 에 대한 상대 위치 및 회전 편집
-* 애니메이션 리타게팅 관계 설정
+* 애니메이션 리타기팅 관계 설정
 
 [/EXCERPT:SkeletonOverview]
 
@@ -143,7 +143,7 @@ mac
 * 스켈레탈 메시상의 머티리얼 셋업
 * 클로딩 엘리먼트 추가
 * 스켈레탈 메시에 대한 LOD 셋업
-* 모프 타겟 테스팅
+* 모프 타깃 테스팅
 [/EXCERPT:MeshOverview]
 
 [EXCERPT:AnimationOverview]
@@ -151,7 +151,7 @@ mac
 		
 * 애니메이션 애셋 미리보기 (애니메이션 시퀀스, 블렌드 스페이스, 애니메이션 몽타주 등)
 * 애셋 수정 (블렌드 스페이스, 애니메이션 몽타주)
-* 머티리얼 또는 모프 타겟 변화용 커브 추가 및 편집
+* 머티리얼 또는 모프 타깃 변화용 커브 추가 및 편집
 * 애니메이션 노티파이 생성 및 편집
 [/EXCERPT:AnimationOverview]
 
@@ -169,9 +169,9 @@ mac
 |사용가능한 인터페이스 컴포넌트 |																					|
 |-----------------------------------------------------------------------|-----------------------------------------------------------------------------------|
 | **기본적으로 표시** | **창 메뉴에서** |
-| 1. [메뉴 바](Engine/Animation/Persona\MenuBar)			| [모프 타겟 프리뷰어](Engine/Animation/Persona\MorphTargetPreviewer)|
+| 1. [메뉴 바](Engine/Animation/Persona\MenuBar)			| [모프 타깃 프리뷰어](Engine/Animation/Persona\MorphTargetPreviewer)|
 | 2. [툴바](Engine/Animation/Persona\Toolbar)				| [애니메이션 노티파이](Engine/Animation/Persona\AnimationNotifies)		|
-| 3. [스켈레톤 트리](Engine/Animation/Persona\SkeletonTree)	| [리타겟 소스 매니저](Engine/Animation/Persona\BasePoseManager)			|
+| 3. [스켈레톤 트리](Engine/Animation/Persona\SkeletonTree)	| [리타깃 소스 매니저](Engine/Animation/Persona\BasePoseManager)			|
 | 4. [뷰포트](Engine/Animation/Persona\Viewport)			|																					|
 | 5. [디테일](Engine/UI/LevelEditor/Details)					|																					|
 | 6. [애셋 브라우저](Engine/Animation/Persona\AssetBrowser)	|																					|
@@ -185,13 +185,13 @@ mac
 |사용가능한 인터페이스 성분											|																					|
 |-----------------------------------------------------------------------|-----------------------------------------------------------------------------------|
 | **기본적으로 표시** | **창 메뉴에서** |
-| 1. [메뉴 바](Engine/Animation/Persona\MenuBar)			| [리타겟 소스 매니저](Engine/Animation/Persona\BasePoseManager)			|
+| 1. [메뉴 바](Engine/Animation/Persona\MenuBar)			| [리타깃 소스 매니저](Engine/Animation/Persona\BasePoseManager)			|
 | 2. [툴바](Engine/Animation/Persona\Toolbar)				| [애니메이션 노티파이](Engine/Animation/Persona\AnimationNotifies)		|
 | 3. [스켈레톤 트리](Engine/Animation/Persona\SkeletonTree)	|																					|
 | 4. [메시 디테일](Engine/Animation/Persona\MeshDetails)	|																					|
 | 5. [뷰포트](Engine/Animation/Persona\Viewport)			|																					|
 | 6. [애셋 브라우저](Engine/Animation/Persona\AssetBrowser) & [디테일](Engine/UI/LevelEditor/Details)|									|
-| 7. [모프 타겟 프리뷰어](Engine/Animation/Persona\MorphTargetPreviewer)	|																	|
+| 7. [모프 타깃 프리뷰어](Engine/Animation/Persona\MorphTargetPreviewer)	|																	|
 [/REGION]
 [/EXCERPT:MeshUI]
 
@@ -202,9 +202,9 @@ mac
 |사용가능한 인터페이스 성분													|																					|
 |-------------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
 | **기본적으로 표시** | **창 메뉴에서** |
-| 1. [메뉴 바](Engine/Animation/Persona\MenuBar)					| [리타겟 소스 매니저](Engine/Animation/Persona\BasePoseManager)			|
+| 1. [메뉴 바](Engine/Animation/Persona\MenuBar)					| [리타깃 소스 매니저](Engine/Animation/Persona\BasePoseManager)			|
 | 2. [툴바](Engine/Animation/Persona\Toolbar)						| [애니메이션 노티파이](Engine/Animation/Persona\AnimationNotifies)		|
-| 3. [스켈레톤 트리](Engine/Animation/Persona\SkeletonTree)			| [모프 타겟 프리뷰어](Engine/Animation/Persona\MorphTargetPreviewer)|
+| 3. [스켈레톤 트리](Engine/Animation/Persona\SkeletonTree)			| [모프 타깃 프리뷰어](Engine/Animation/Persona\MorphTargetPreviewer)|
 | 4. [애님 애셋 디테일](Engine/Animation/Persona\AnimAssetDetails)	|																					|
 | 5. [뷰포트](Engine/Animation/Persona\Viewport)					|																					|
 | 6. [애셋 에디터](Engine/Animation/Persona\AssetEditor)			|																					|

@@ -1,76 +1,68 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3400712
 Availability: Public
-crumbs:
-Title: 5 - Setting up a New Game Mode
-Description: In this step, we'll setup a new Game Mode to spawn our Vehicle!
-Type: Multi-step
+crumbs:%ROOT%
+Title: 6 - 设置新游戏模式
+Description: 在此步骤中，您将设置新模式以生成我们的载具。
+Type:how-to
 SkillLevel: Advanced
 Version: 4.15
 Parent: Engine/Physics/Vehicles/VehicleUserGuide 
 checkpoint:vehicleuserguideHT
-Order:5
+Order:6
 Tags: Vehicles
-
 
 [Nav]
 
-In the previous step we finished setting up our Vehicle Blueprint and assigned all the controls we need to make it work properly. In this last step, we'll finish by setting up a new Game Mode that
-is uses our Vehicle Blueprint as the Default Pawn for the game. 
+在上一步中，你已设置载具蓝图并指定了其正常运行所需的所有功能按钮。在最后一步中，你将设置一个新的游戏模式，使用自己的载具蓝图作为游戏的默认Pawn。 
 
 [REGION:note]
-If you did not use a blank project template when starting this guide you may find that you already have a Game Mode assigned that conflicts with the one we're creating in this step. Use the steps below
-to create a new Game Mode so that you can spawn in the vehicle you've created throughout this guide.
+如果在本指南伊始没有使用空白项目模板，你可能会发现已经有一个指定的游戏模式，而该模式与此步中创建的模式冲突。此时可使用以下步骤创建新的游戏模式，以在本指南创建的载具中进行生成。
 [/REGION]
 
-## Creating a New Game Mode
+## 创建新的游戏模式
 
-1. In the **Content Browser** click the **Add New** button and select **Blueprint Class** from the menu list.
-1. In the **Pick Parent Class** window, select **Game Mode Base** and then click the **Select** button to create the Game Mode Blueprint.
+1. 在 **内容浏览器（Content Browser）** 中，单击 **新增（Add New）** 按钮，然后从菜单列表中选择 **蓝图类（Blueprint Class）**。
+1. 在 **选择父类（Pick Parent Class）** 窗口中，选择 **游戏模式基础规则（Game Mode Base）**，然后单击 **选择（Select）** 按钮创建游戏模式蓝图。
 	
 	[REGION:raw]
 	![](newGameMode.png)
 	[/REGION]
 
-1. In the **Content Browser**, double-click to open the new Game Mode Blueprint so that you can edit it. In the **Details** under **Classes** next to **Default Pawn Class**, use the drop-down selection to choose
-**Your Vehicle Blueprint** that you created in Step 3.
+1. 在 **内容浏览器（Content Browser）** 中，双击打开新的游戏模式蓝图，以对其进行编辑。在 **细节（Details）** 中 **类（Classes）** 下的 **默认Pawn类（Default Pawn Class）** 旁，使用下拉菜单选项来选择 **你的载具蓝图（Your Vehicle Blueprint）**（在第3步中创建的）。
 
 	[REGION:raw]
 	![](defaultPawnClass.png)
 	[/REGION]
 
-	Aftering doing this you can click **Save** and then **Close** this window.
+	完成此操作后，可单击 **保存（Save）**，然后 **关闭（Close）** 此窗口。
 
-1. In the Main Viewport window in the **World Settings** tab under the **Game Mode** section set **GameMode Override** to **Your Game Mode Blueprint**.
+1. 在“主视口（Main Viewport）”窗口中 **场景设置（World Settings）** 选项卡的 **游戏模式（Game Mode）** 部分，将 **GameMode Override** 设置为 **你的游戏模式蓝图（Your Game Mode Blueprint）**。
 
 	[REGION:raw]
 	![](setGameMode.png)
 	[/REGION]
 
-
-
-## End Result
+## 最终结果
 
 [REGION:raw]
 ![](Play.png)
 [/REGION]
 
-Congratulations! Now, when you Play in Editor (PIE) you should automatically spawn in with your very own vehicle that you created! You've learned everything you need to create your own working
-vehicles in UE4. As you worked your way through this guide, you learned:
+恭喜！现在，当你在编辑器（PIE）中运行游戏时，应该可以在创建的载具中进行自动生成。你已经学习了在UE4中创建工作载具的所有知识。阅读本指南可以学习：
 
-&#x2713; How to configure a TireConfig Data Asset.  
-&#x2713; How to configure a Wheel Blueprint for your Font and Rear wheels.  
-&#x2713; How to setup an Animation Blueprint specifically for a Vehicle.  
-&#x2713; How to configure your Vehicle Blueprint with your Skeletal Mesh, Animation Blueprint, and Wheel Blueprint(s).  
-&#x2713; How to configure your Axis Mappings and Bindings to control your Vehicle.  
-&#x2713; How to create and assign a new Game Mode to spawn your vehicle.  
+&#x2713; 如何配置TireConfig数据资源。  
+&#x2713; 如何为前后轮配置轮子蓝图。  
+&#x2713; 如何为载具设置专用动画蓝图。  
+&#x2713; 如何使用骨架网格体、动画蓝图和轮子蓝图配置载具蓝图。  
+&#x2713; 如何配置轴映射和绑定以操控载具。  
+&#x2713; 如何创建和指定新的游戏模式以生成载具。  
 
-## Getting Started with Vehicle in Unreal Engine
+## 虚幻引擎中的载具入门
 
-For additional resources with Vehicles you can take a look at the following pages: 
+有关载具的更多资源，可以查看以下页面： 
 
-* [Vehicle Content Creation](Engine/Physics/Vehicles/VehcileContentCreation)
-* [Vehicle Center of Mass](Engine\Physics\Vehicles\VehicleCenterOfMass)
-* [How to Build a Double Wishbone Suspension Vehicle](Engine/Physics/Vehicles/DoubleWishboneVehicle)
-* [Simple Wheeled Vehicle Movement Component](Engine\Physics\Vehicles\SimpleWheeledVehicleMovementComponent)
+* [载具内容创建](Engine/Physics/Vehicles/VehcileContentCreation)
+* [如何构建双叉臂悬挂载具](Engine/Physics/Vehicles/DoubleWishboneVehicle)
+* [载具质量重心](Engine\Physics\Vehicles\VehicleCenterOfMass)
 
 [Nav]

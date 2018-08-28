@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title:2. Animation and Character Blueprint Setup
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:2.动画与角色蓝图设置
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:In this step we set up our Character and Animation Blueprints to determine how we blend from gameplay to our Slot animation in Sequencer.
+Description:在此步骤中，我们将设置角色和动画蓝图，以决定如何将玩法混合到Sequencer的插槽动画。
 Version: 4.17
 SkillLevel: Advanced
-parent:Engine/Sequencer/HowTo
+parent:Engine/Sequencer/HowTo/GameplayAnimBlending
 order:2
 checkpoint: editorqs
 tags:Sequencer
@@ -36,58 +36,58 @@ type:how-to
 
 [nav]
 
-In this step we will set up our Animation Blueprint so that we can take our gameplay pose and blend to a Slot animation defined by our Level Sequence. 
+在这一步中，我们将设置动画蓝图，以制作游戏动作并混合到关卡序列定义的插槽动画。 
 
-1.	In the **Content Browser**, locate and open the **UE4ASP_HeroTPP_AnimBlueprint** then double-click on the **AnimGraph** in the **My Blueprint** window. 
+1.   在 **内容浏览器** 中找到并打开 **UE4ASP_HeroTPP_AnimBlueprint**，然后双击 **我的蓝图（My Blueprint）** 窗口中的 **动画图表（AnimGraph）**。 
 
-	![](GameBlend_04.png)
+  ![](GameBlend_04.png)
 
-1.	In the **AnimGraph** off the existing **Locomotion** State  Machine, create a **New Save Cached Pose** and call it **lococache**. 
+  1. 在 **动画图表（AnimGraph）** 中关闭已有的 **运动（Locomotion）** 状态机，创建 **New Save Cached Pose** 并将其命名为 **运动缓存（lococache）**。 
 
-	![](GameBlend_05.png)
+  ![](GameBlend_05.png)
 
-1.	Use the **Lococache** twice and connect one to the **A** pin of a **Blend** node which feeds the **Final Animation Pose**. 
-	
-	![](GameBlend_06.png)
+  1. 使用两次 **运动缓存（lococache）**，将其中一个连接到 **混合（Blend）** 节点的 **A** 引脚，它会向 **最终动画动作（Final Animation Pose）** 馈送数据。 
 
-1.	Off the other **Lococache**, use a **Slot** node and connect it to the **B** pin of the **Blend**, then right-click on **Alpha** and **Promote to Variable** and call it **Blend Interp**. 
+  ![](GameBlend_06.png)
 
-	![](GameBlend_07.png)
+  1. 对于另一个 **运动缓存（lococache）**，使用 **插槽（Slot）** 节点并将其连接到 **混合（Blend）** 节点的 **B** 引脚，然后右键单击 **Alpha** 和 **提升为变量（Promote to Variable）**，并将其命名为 **混合插值（Blend Interp）**。 
 
-1.	In the **Content Browser** open the **Ue4ASP_Character** Blueprint and replace the **Crouching** section with the graph below. 
+  ![](GameBlend_07.png)
 
-	![](GameBlend_08.png)
+  1. 在 **内容浏览器** 中打开 **Ue4ASP_Character** 蓝图，然后将 **下蹲（Crouching）** 片段替换为下图。 
 
-	Above we are replacing the **InputAction Crouch** node with the **C** keyboard event and a **Flip Flop** node to toggle our crouching states. 
-	
-	[REGION:note]
-	This Blueprint was originally created for another project which included an input binding for crouch which our template project does not have. By replacing the InputAction Crouch with a standard C keyboard event, we will eliminate the Blueprint warning messages as well as enable us to press the C key to toggle between crouching and non-crouching states. 
-	[/REGION]
+  ![](GameBlend_08.png)
 
-1.	Create a new **Float** variable called **DefaultSlotInterp** and set **Instance Editable** and **Expose to Cinematics** to **True**. 
+  上面我们将 **输入动作下蹲（InputAction Crouch）** 节点替换为 **C** 键盘事件和 **Flip Flop** 节点，以切换下蹲状态。 
 
-	![](GameBlend_09.png)
+  [REGION:note]
+  这个蓝图最初是为其他项目而创建的，其中包括我们的模板项目所没有的下蹲输入数据绑定。通过将“输入动作下蹲”替换为标准C键盘事件，我们可以避免出现蓝图警告消息，并能够按C键在下蹲和非下蹲状态之间切换。 
+  [/REGION]
 
-	We will use this variable inside Sequencer to blend and pass the value over to the Animation Blueprint variable **Blend Interp** which handles the actual blend. 
+  1. 创建新的 **浮点（Float）** 变量，将其命名为 **DefaultSlotInterp**，并将 **实例可编辑（Instance Editable）** 和 **公开给过场动画（Expose to Cinematics）** 设置为 **True**。 
 
-1.	Create a new function called **SetDefaultSlotInterp** and add an **Input** called **Interp** of the **Float** type in the **Details** panel. 
+  ![](GameBlend_09.png)
 
-	![](GameBlend_10.png)
+  我们将在Sequencer中使用这个变量来进行混合，并将值传递给处理实际混合的动画蓝图变量 **混合插值（Blend Interp）**。 
 
-	By creating a function called **Set (Property Value Name)** we have created a **Proxy** function that will be called by Sequencer whenever the associated property value changes.
-	This function is only called when the propery value changes and is more efficent than using **Event Tick** or a **Custom Event** and **Timeline** to reflect changes in the **DefaultSlotInterp** property value. 
-	
-1.	From the **Components** window, drag in the **Mesh** and use **Get Anim Instance** and **Cast to UE4ASP_HeroTPP_AnimBlueprint**. 
+  1. 创建名为 **SetDefaultSlotInterp** 的新函数，然后在 **细节（Details）** 面板上添加 **输入（Input）**，将其命名为 **浮点（Float）** 类型的 **插值（Interp）**。 
 
-	![](GameBlend_11.png)
+  ![](GameBlend_10.png)
 
-1.	Off **As UE4ASP Hero TPP Anim Blueprint**, use **Set Blend Interp** and pass in the **Interp** value to the **Blend Interp** in. 
+  通过创建名为 **Set (Property Value Name)** 的函数，我们创建了一个 **代理（Proxy）** 函数，只要关联的属性值发生变化，它就会被Sequencer调用。
+  这个函数只在属性值更改时被调用，与使用 **事件Tick** 或 **自定义事件** 和 **时间轴** 相比，能更高效地反映 **DefaultSlotInterp** 属性值的更改。 
 
-	![](GameBlend_12.png)
+  1. 在 **组件（Components）** 窗口中，拖入 **网格体**，并使用 **获取动画实例（Get Anim Instance）** 和 **投射到UE4ASP_HeroTPP_AnimBlueprint**。 
 
-	Whenever our **DefaultSlotInterp** value is changed through Sequencer, the **SetDefaultSlotInterp** proxy function is called and the float value is passed through to the Animation Blueprint's **Blend Interp** value which affects the blending of our poses. 
+  ![](GameBlend_11.png)
 
-In the next step we will add the **Default Slot Interp** property to our Level Sequence so that we can control the interp blend in our Animation Blueprint. 
-We'll also add a Trigger Box to the level so that we can activite our Level Sequence and play it when the player enters the Trigger Box volume. 
-	
+  1. 关闭 **As UE4ASP Hero TPP Anim Blueprint**，使用 **设置混合插值（Set Blend Interp）**，并将 **插值（Interp）** 的数值传递到 **混合插值（Blend Interp）**。 
+
+  ![](GameBlend_12.png)
+
+  每当通过Sequencer更改 **默认插槽插值（DefaultSlotInterp）** 的数值时，将调用 **SetDefaultSlotInterp** 代理函数，并将浮点值传递给动画蓝图的 **混合插值（Blend Interp）** 数值，进而影响动作的混合效果。 
+
+在下步中，我们将 **默认插槽插值（Default Slot Interp）** 属性添加到关卡序列，以便控制动画蓝图中的 **混合插值（Blend Interp）**。 
+我们还会在关卡中添加一个触发框，这样可以激活关卡序列，并在玩家进入触发框体积时播放它。 
+​	
 [nav]

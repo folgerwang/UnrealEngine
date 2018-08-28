@@ -1,0 +1,286 @@
+﻿INTSourceChangelist:4284256
+Availability: Public
+Crumbs: 
+Title: 在蓝图和Python中使用静态网格体设置碰撞
+Description: 描述如何在虚幻编辑器中使用蓝图或Python为静态网格体设置碰撞属性。
+Version: 4.20
+type:how-to
+SkillLevel:Intermediate
+Parent: Engine/Editor/ScriptingAndAutomation/HowTos
+Order: 2
+Tags: Blueprints
+Tags: Physics
+Tags: Collision
+Tags: how-to
+Tags: Python 
+Tags: scripting
+Tags: editor
+
+
+为了使静态网格体与关卡中的物理交互，例如，要让它击中其他对象，或者要使用高性能碰撞测试在运行时检测它的存在，需要为静态网格体设置 **碰撞网格体**。它表示静态网格体对象在物理模拟中的边界。尽管可以使用静态网格体的可见几何体，但是这通常过于详细了。即使要提供逼真的效果，物理交互通常也不需要具有如此高的准确性，因此可以通过尽量简化碰撞网格体来提升物理系统的性能。
+
+可以在静态网格体编辑器中自动为静态网格体创建简单的碰撞表示：
+
+[REGION:lightbox]
+[![](set_collisions_menu.png "set_collisions_menu.png")](set_collisions_menu.png) 
+[/REGION]
+[REGION:caption]
+单击查看大图。
+[/REGION]
+
+
+
+有关详细信息，请参阅[设置与静态网格体模型的碰撞](Engine/Content/Types/StaticMeshes/HowTo/SettingCollision)。
+
+在某些情况下，可能需要以编程方式创建这些碰撞网格体表示，而非在静态网格体编辑器中手动创建。例如，需要在同一个项目中设置大量静态网格体对象时，将其逐一打开可能并不现实。你可能希望在用于导入和管理内容的较大自动化流程中一步完成这些碰撞设置。
+
+以下部分将展示如何使用蓝图和Python在虚幻编辑器中自动将上述不同类型的碰撞网格体应用给静态网格体资源。
+
+[REGION:note]
+如果还未安装Editor Scripting Utilities插件，需要进行安装。有关细节，请参阅[编辑器脚本编写和自动化](Engine/Editor/ScriptingAndAutomation)。
+[/REGION]
+
+%Globals:BlueprintOrPythonSelectVar%
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	blueprintimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	可在 **编辑器脚本（Editor Scripting） > 静态网格体（Static Mesh）** 类别下找到需要管理静态网格体碰撞的节点。
+
+	[REGION:note]
+	要使用这些节点，蓝图类必须派生自Editor-only类，例如 **PlacedEditorUtilityBase** 类。有关细节，请参阅[使用蓝图脚本化编辑器](Engine/Editor/ScriptingAndAutomation)。
+	[/REGION]
+
+	设置碰撞会修改静态网格体资源。如果要保留所做的更改，接下来还需使用 **保存资源（Save Asset）** 或 **保存已加载的资源（Save Loaded Asset）** 等节点。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	可在`unreal.EditorStaticMeshLibrary`类中找到管理静态网格体碰撞所需的大部分函数。
+
+	设置LOD会修改静态网格体资源。如果要保留所做的更改，接下来还需要使用`unreal.EditorAssetLibrary.save_asset()`或`unreal.EditorAssetLibrary.save_loaded_asset()`等函数。
+
+	[/PARAM]
+[/OBJECT]
+
+
+
+## 添加简单碰撞形态
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	blueprintimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	要为静态网格体添加简单碰撞形态，请使用 **添加简单碰撞（Add Simple Collisions）** 节点。使用 **形态类型（Shape Type）** 输入来控制要添加的碰撞形态的种类。这些选项与静态网格体编辑器的 **碰撞（Collision）** 菜单中提供的选项匹配。
+
+	![](set_collisions_simple_bp.png "set_collisions_simple_bp.png")
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	要为静态网格体添加简单碰撞形态，请使用`unreal.EditorStaticMeshLibrary.add_simple_collisions()`函数。传递它：
+
+	*   要修改的`unreal.StaticMesh`对象。
+	*   表示要创建的碰撞Primitive的类型的`unreal.ScriptingCollisionShapeType`列举中的项。这些选项与静态网格体编辑器的 **碰撞（Collision）** 菜单中提供的选项匹配。
+
+	例如：
+
+		import unreal
+		asset_path = "/Game/ArchVis/Mesh"
+		def add_box_collision (static_mesh):
+			# 可以改为使用.SPHERE、.CAPSULE、.NDOP10_X、.NDOP10_Y、.NDOP10_Z、.NDOP18、.NDOP26
+			shape_type = unreal.ScriptingCollisionShapeType.BOX
+			unreal.EditorStaticMeshLibrary.add_simple_collisions(static_mesh, shape_type)
+			unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+		# 获取路径中所有资源的列表。
+		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)
+		# 将它们全部装入内存。
+		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]
+		# 过滤该列表，使之只包含静态网格体。
+		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)
+		# 在列表中的每个静态网格体上运行上面的函数。
+		map(add_box_collision, static_mesh_assets)
+	[/PARAM]
+[/OBJECT]
+
+请注意，该操作会为静态网格体的现有的任何其他简单碰撞形态添加新的碰撞形态（如有）。如果要先删除现有的碰撞形态，请参阅下面的 *删除所有简单碰撞*。
+
+![](set_collisions_simple_result.png "set_collisions_simple_result.png")
+
+## 自动生成凸面碰撞
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	blueprintimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	要从静态网格体的可见几何体为其自动生成凸面碰撞形态，请使用 **设置凸面分解碰撞（Set Convex Decomposition Collisions）** 节点。
+
+	![](set_collisions_complex_bp.png "set_collisions_complex_bp.png")
+
+	该节点中的输入与在静态网格体编辑器用户界面选择 **碰撞（Collisions） > 自动凸面碰撞（Auto Convex Collisions）** 时要求你提供的选项完全匹配。它们控制生成的碰撞网格体的复杂度和保真度。一般情况下，值越大，生成的碰撞网格体越接近于静态网格体的可见几何体，但是运行时模拟它的成本也越高。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	要从静态网格体的可见几何体为其自动生成凸面碰撞形态，请使用`unreal.EditorStaticMeshLibrary.set_convex_decomposition_collisions()`函数。传递它：
+
+	*   要修改的`unreal.StaticMesh`对象。
+	*   三个定义最大凸包数、每个凸包的最大顶点数和凸包精度的整数。这些参数与在静态网格体编辑器用户界面选择 **碰撞（Collisions） > 自动凸面碰撞（Auto Convex Collisions）** 时要求你提供的选项完全匹配。它们控制生成的碰撞网格体的复杂度和保真度。一般情况下，值越大，生成的碰撞网格体越接近于静态网格体的可见几何体，但是运行时模拟它的成本也越高。
+
+	例如：
+
+		import unreal
+		asset_path = "/Game/ArchVis/Mesh"
+		def set_convex_collision (static_mesh):
+			unreal.EditorStaticMeshLibrary.set_convex_decomposition_collisions(static_mesh, 4, 12, 460000)
+			unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+		# 获取路径中所有资源的列表。
+		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)# 将它们全部装入内存。
+		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]# 过滤该列表，使之只包含静态网格体。
+		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)# 在列表中的每个静态网格体上运行上面的函数。
+		map(set_convex_collision, static_mesh_assets)
+	[/PARAM]
+[/OBJECT]
+
+在新的网格体生成前，会自动从静态网格体删除所有现有的碰撞网格体。
+
+请注意，相较于使用简单碰撞Primitive，该方法生成的效果比较不容易预测且比较不规则。最好在不规则的网格体上使用，或在可以可视化方式调整生成设置以确保生成的结果足够简单并且非常适合于静态网格体的可见几何体时使用。
+
+![](set_collisions_convex_result.png "set_collisions_convex_result.png")
+
+## 删除所有简单碰撞
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	blueprintimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	可使用 **删除碰撞（Remove Collisions）** 节点清除所有指定给静态网格体的碰撞网格体。
+
+	![](set_collisions_remove_bp.png "set_collisions_remove_bp.png")
+
+	删除后，任何“简单”物理碰撞测试都无法发现该网格体，但是考虑静态网格体的可见几何体的“详细”测试仍能够发现它。另请参阅[简单和复杂碰撞](Engine/Physics/SimpleVsComplex)。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	可使用`unreal.EditorStaticMeshLibrary.remove_collisions()`函数清除所有指定给静态网格体的碰撞网格体。
+
+	例如：
+
+		import unreal
+		asset_path = "/Game/ArchVis/Mesh"
+		def remove_collisions (static_mesh):
+			unreal.EditorStaticMeshLibrary.remove_collisions(static_mesh)
+			unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+		# 获取路径中所有资源的列表。
+		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)# 将它们全部装入内存。
+		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]# 过滤该列表，使之只包含静态网格体。
+		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)# 在列表中的每个静态网格体上运行上面的函数。
+		map(remove_collision, static_mesh_assets)
+
+	删除后，任何“简单”物理碰撞测试都无法发现该网格体，但是考虑静态网格体的可见几何体的“详细”测试仍能够发现它。另请参阅[简单和复杂碰撞](Engine/Physics/SimpleVsComplex)。
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	BlueprintOrCPPSelect
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	pythonimplementation
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	## 将LOD用于碰撞
+
+	如果已为静态网格体设置了细节层次（Levels of Detail）（LOD），可使用其中一个细节较少的LOD作为碰撞网格体。
+
+	调用`set_editor_property()`函数（在`unreal.StaticMesh`对象上），以将`lod_for_collision`属性设置为要使用的LOD索引。例如：
+
+		import unreal
+		asset_path = "/Game/ArchVis/Mesh"
+		def use_lod_for_collisions (static_mesh):
+			static_mesh.set_editor_property("lod_for_collision", 3)
+			unreal.EditorAssetLibrary.save_loaded_asset(static_mesh)
+		# 获取路径中所有资源的列表。
+		all_assets = unreal.EditorAssetLibrary.list_assets(asset_path)
+		# 将它们全部装入内存。
+		all_assets_loaded = [unreal.EditorAssetLibrary.load_asset(a) for a in all_assets]
+		# 过滤该列表，使之只包含静态网格体。
+		static_mesh_assets = unreal.EditorFilterLibrary.by_class(all_assets_loaded, unreal.StaticMesh)
+		# 在列表中的每个静态网格体上运行上面的函数。
+		map(use_lod_for_collision, static_mesh_assets)
+
+	另请参阅[如何设置LOD碰撞](Engine/Content/Types/StaticMeshes/HowTo/LODCollision)。
+
+	[/PARAM]
+[/OBJECT]
+[REGION:note]
+尚不可以通过蓝图或Python设置自定义碰撞网格体。要导入自定义网格体并在物理模拟中将它用作静态网格体的碰撞网格体，必须执行以下任一操作：
+
+*   使用静态网格体编辑器用户界面从受支持的文件格式导入碰撞网格体。
+*   导入可见静态网格体时将碰撞网格体一起导入，并使用特殊的命名规范来表明它表示的是你要用于碰撞测试的几何体。有关细节，请参阅[FBX静态网格体流程](Engine/Content/FBX/StaticMeshes#collision)<!--, or [Datasmith概述](Studio/Unreal-Datasmith/Datasmith)-->。
+[/REGION]

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
 Title:Parameter 표현식
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
@@ -136,7 +136,7 @@ StaticComponentMaskParameter 표현식은 보통의 컴포넌트 마스크와 �
 
 ## VectorParameter
 
-VectorParameter 표현식은 [Constant4Vector](Engine/Rendering/Materials/ExpressionReference/Constant#Constant4Vector) 와 같지만, 머티리얼의 인스턴스 안에서나 코드를 통해 변경할 수 있는 파라미터라는 점이 다릅니다. VectorParameter 의 장점 중 하나는 색 선택기를 사용해서 값을 설정할 수 있다는 점입니다.
+VectorParameter 표현식은 [Constant4Vector](Engine/Rendering/Materials/ExpressionReference/Constant#Constant4Vector) 와 같지만, 머티리얼의 인스턴스 안에서나 코드를 통해 변경할 수 있는 파라미터라는 점이 다릅니다. VectorParameter 의 장점 중 하나는 색 선택 툴을 사용해서 값을 설정할 수 있다는 점입니다.
 
 | 항목 | 설명 |
 | ---- | ---- |

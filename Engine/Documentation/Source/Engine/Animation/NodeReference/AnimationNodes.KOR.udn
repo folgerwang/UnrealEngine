@@ -9,7 +9,7 @@ topic-image:AnimationgNodeReference_topic.png
 [EXCERPT:Intro]
 _AnimationBlueprint_ (애니메이션 블루프린트)는 여러가지 노드를 활용하여 그래프 안의 입력 포즈에 블렌딩, 
 본 직접 조작 등과 같은 작업을 합니다. 엔진에 제공된 애니메이션 노드의 유형은 
-몇 가지로 구분되는데, 이벤트, 블렌드, 스켈레탈 콘트롤러, 
+몇 가지로 구분되는데, 이벤트, 블렌드, 스켈레탈 컨트롤러, 
 스페이스 노드, 변환 노드 등입니다.
 [/EXCERPT:Intro]
 
@@ -74,4 +74,4 @@ X 와 Y 좌표 핀은 블렌드스페이스의 **Speed** 프로퍼티를 구성�
 
 ![](PoseWatchA.png) ![](PoseWatchB.png)
 
-색 선택기 창에서 **Remove Pose Watch** (포즈 감시 제거) 또는 애니메이션 노드에서 **Toggle Pose Watch** (포즈 감시 토글)을 다시 선택해도 됩니다.
+색 선택 툴 창에서 **Remove Pose Watch** (포즈 감시 제거) 또는 애니메이션 노드에서 **Toggle Pose Watch** (포즈 감시 토글)을 다시 선택해도 됩니다.

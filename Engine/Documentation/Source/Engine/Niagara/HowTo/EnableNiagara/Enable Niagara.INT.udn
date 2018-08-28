@@ -20,7 +20,7 @@ Before you can begin to create visual effects using Niagara you will need to ena
 
 	![](HT_EnableNP_00.png)
 
-1. In the Plugins menu, locate the **FX** section and then under Niagara, click on the **Enabled** checkmark box.
+1. In the Plugins menu, locate the **FX** section and then under Niagara, and **Niagara Extras**, click to check the box for **Enabled.**
 
 	![](HT_EnableNP_02.png)
 

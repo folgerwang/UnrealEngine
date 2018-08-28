@@ -99,14 +99,14 @@ HUD 블루프린트에서, **Current Objective** 가 NULL 이 아니면:
 
 
 
-## 플레이어 콘트롤러
+## 플레이어 컨트롤러
 
 ![](BP_HUD_pressM.png)
 
 **BP_PlayerController_HUD** 블루프린트는 이 예제의 기본 PlayerController 클래스이며, **GameInfo_HUD** GameMode 블루프린트에서도 설정되어 있습니다. **BP_HUD_Example** 블루프린트에서 **Press "M" for Menu** 스트링이 설정되어 있기는 하지만,
 **M** 키가 눌린 데 대한 초기 반응은 사실상 PlayerController 블루프린트에서 설정됩니다.
 
-**M** 키를 누르면 HUD 블루프린트를 타겟으로 하여 **Toggle Menu** 인터페이스 메시지가 실행됩니다. 그러면 PlayerController 는:
+**M** 키를 누르면 HUD 블루프린트를 타깃으로 하여 **Toggle Menu** 인터페이스 메시지가 실행됩니다. 그러면 PlayerController 는:
 
 * **Show Mouse Cursor** 를 True 로 설정합니다.
 * **Enable Click Events** 를 True 로 설정합니다.

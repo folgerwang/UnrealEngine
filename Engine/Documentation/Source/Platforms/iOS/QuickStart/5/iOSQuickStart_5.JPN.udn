@@ -24,7 +24,7 @@ order:5
 [/OBJECT]
 [/VAR]
 
-
+%Steps%
 
 %Globals:OSSelect%
 ## ステップ
@@ -96,3 +96,4 @@ order:5
 [/COMMENT]
 
 
+%Steps%

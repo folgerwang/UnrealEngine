@@ -197,17 +197,17 @@ Landsape Gizmos(景观小工具)仅是在编辑器中使用的工具，类似于
 
 ## Gizmo列表
 
-![gizmolist.jpg](gizmolist.jpg)(w:267 h:60)
+![gizmolist.jpg]()(w:267 h:60)
 
 Gizmo List (Gizmo列表)显示了一系列已保存的Gizmo，以便稍后可以轻松地重用它们。
 
-![gizmolist_populated.jpg](gizmolist_populated.jpg)(w:266 h:98)
+![gizmolist_populated.jpg]()(w:266 h:98)
 
 | **操作 **| **描述** |
 | --- | --- |
-| ![gizmolist_pin.jpg](gizmolist_pin.jpg)|保存Gizmo的当前位置、尺寸和旋转度到列表中。|
-| ![gizmolist_remove.jpg](gizmolist_remove.jpg)| 删除列表中当前选中的Gizmo 。|
-| ![gizmolist_goto.jpg](gizmolist_goto.jpg)| 设置gizmo的位置、尺寸和旋转度为列表中当前选中的gizmo的位置、尺寸和旋转度。|
+| ![gizmolist_pin.jpg]()|保存Gizmo的当前位置、尺寸和旋转度到列表中。|
+| ![gizmolist_remove.jpg]()| 删除列表中当前选中的Gizmo 。|
+| ![gizmolist_goto.jpg]()| 设置gizmo的位置、尺寸和旋转度为列表中当前选中的gizmo的位置、尺寸和旋转度。|
 
 
 [/COMMENT]

@@ -207,17 +207,17 @@ IdzHGD7iWdg
 
 ##ギズモのリスト
 
-![gizmolist.jpg](gizmolist.jpg)(w:267 h:60)
+![gizmolist.jpg]()(w:267 h:60)
 
 Gizmo List によって、保存されているギズモが表示されるため、後に簡単に再利用できます。
 
-![gizmolist_populated.jpg](gizmolist_populated.jpg)(w:266 h:98)
+![gizmolist_populated.jpg]()(w:266 h:98)
 
 | **制御** | **説明** |
 | --- | --- |
-| ![gizmolist_pin.jpg](gizmolist_pin.jpg)| ギズモの現在の位置、サイズ、回転を、リストに保存します。 |
-| ![gizmolist_remove.jpg](gizmolist_remove.jpg)| リストで現在選択されているギズモを削除します。 |
-| ![gizmolist_goto.jpg](gizmolist_pin.jpg)| ギズモの位置、サイズ、回転を、リストで現在選択されているギズモのものにセットします。 |
+| ![gizmolist_pin.jpg]()| ギズモの現在の位置、サイズ、回転を、リストに保存します。 |
+| ![gizmolist_remove.jpg]()| リストで現在選択されているギズモを削除します。 |
+| ![gizmolist_goto.jpg]()| ギズモの位置、サイズ、回転を、リストで現在選択されているギズモのものにセットします。 |
 
 
 [/COMMENT]

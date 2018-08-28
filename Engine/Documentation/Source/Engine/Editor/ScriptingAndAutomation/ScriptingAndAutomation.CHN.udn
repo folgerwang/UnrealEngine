@@ -1,0 +1,35 @@
+﻿INTSourceChangelist:4284468
+Availability: Public
+Crumbs: 
+Title: 编辑器的脚本与自动化
+Description: 介绍使用蓝图及Python对虚幻编辑器进行程序化控制。
+type: landing
+Version: 4.20
+Parent: Engine/Editor
+Order: 1
+Tags: Blueprints, Python, scripting
+
+
+在虚幻编辑器用户界面中，可以使用各种各样的可视化工具来设置项目，设计和构建关卡，创建游戏性交互等等。但有些时候，当你确定了需要编辑器执行的操作后，可能想要通过编程方式，以可重复使用的脚本调用它的工具和命令。
+
+这有助于：
+
+*   减少或消除再三重复执行相同系列的任务的需求，
+*   自动化或随机化在关卡中放置、布局和设置Actor的过程，
+*   创建你自己的资源导入和管理流程，
+*   与其他第三方应用程序和流程脚本互操作，
+*   扩展编辑器，增加为满足项目或内容需求专门定制的额外工具甚至UI。
+
+本部分的页面向你展示如何在开发项目时使用[蓝图](Engine/Editor/ScriptingAndAutomation/Blueprints)和[Python](Engine/Editor/ScriptingAndAutomation/Python)运行这些种类的编辑器内脚本。
+
+## 安装编辑器脚本实用程序（Editor Scripting Utilities）插件
+
+无论你计划使用蓝图、Python还是其他语言来进行编辑器自动化，几乎肯定需要安装 **编辑器脚本实用程序（Editor Scripting Utilities）** 插件。该插件简化了许多需要在编辑器中执行的最常见的操作，也可以处理一些不常见的极端情况，使你无需了解编辑器工作原理的所有内部细节就可以执行一些从概念上来说很简单的任务。
+
+要安装该插件：
+
+1. 在主菜单中，选择 **编辑器（Editor） > 插件（Plugins）** 来打开 **插件（Plugins）** 窗口。
+2. 在 **脚本（Scripting）** 类别下，找到 **编辑器脚本实用程序（Editor Scripting Utilities）** 条目并选中其 **启用（Enabled）** 框。  
+    ![Enable the Editor Scripting Utilities plugin](install-editor-scripting.png "Enable the Editor Scripting Utilities plugin")
+3. 如果希望使用 Python，也可以在该窗口中选中Python插件的 **启用（Enabled）** 框。有关更多信息，请参阅[使用Python脚本化编辑器](Engine/Editor/ScriptingAndAutomation/Python)。
+4. 重启编辑器并重新加载项目。

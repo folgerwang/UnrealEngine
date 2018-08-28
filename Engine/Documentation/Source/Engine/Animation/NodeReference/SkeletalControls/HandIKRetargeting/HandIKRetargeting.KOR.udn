@@ -1,19 +1,19 @@
 ﻿INTSourceChangelist:3782314
 Availability:Public
-Title:손 IK 리타게팅
+Title:손 IK 리타기팅
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference, Engine/Animation/NodeReference/SkeletalControls
-Description:IK 본의 리타게팅 처리에 사용되는 Hand IK Retargeting 콘트롤에 대한 설명입니다.
+Description:IK 본의 리타기팅 처리에 사용되는 Hand IK Retargeting 컨트롤에 대한 설명입니다.
 version: 4.12
 topic-image:handIKretargeting.png
 
 
 
-**Hand IK Retargeting** 콘트롤은 IK 본 체인 리타게팅 처리에 사용되는 솔버입니다. 이 솔버는 **Hand FKWeight** 값에 따라 IK 본 체인이 (한 쪽 손에 맞도록) FK 손 본에 맞추어 움직여 줍니다. 
+**Hand IK Retargeting** 컨트롤은 IK 본 체인 리타기팅 처리에 사용되는 솔버입니다. 이 솔버는 **Hand FKWeight** 값에 따라 IK 본 체인이 (한 쪽 손에 맞도록) FK 손 본에 맞추어 움직여 줍니다. 
 예를 들어 0 이면 왼쪽 손에, 1 이면 오른쪽 손에, 0.5 면 양쪽 동일한 가중치로 맞게 됩니다.
 
 ![](handIKretargeting.png)
 
-아래에서, **Hand IK Retargeting** 및 [](Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK\) 콘트롤을 사용하여 캐릭터가 무기를 잡는 방식에 영향을 끼치고 있습니다.
+아래에서, **Hand IK Retargeting** 및 [](Engine\Animation\NodeReference\SkeletalControls\TwoBoneIK\) 컨트롤을 사용하여 캐릭터가 무기를 잡는 방식에 영향을 끼치고 있습니다.
 
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:width]
@@ -37,7 +37,7 @@ Two Bone IK 노드는 양 손 위치를 구동시키는 반면, (**Hand Favoring
 
 | 프로퍼티  | 설명 |
 | -------- | ----------- |
-| [REGION:tablesection]**Hand IKRetargeting** 손 IK 리타게팅[/REGION] ||
+| [REGION:tablesection]**Hand IKRetargeting** 손 IK 리타기팅[/REGION] ||
 | **Right Hand FK** | 오른손 FK - Right Hand FK 본입니다. |
 | **Left Hand FK** | 왼손 FK - Left Hand FK 본입니다. |
 | **Right Hand IK** | 오른손 IK - Right Hand IK 본입니다. |
@@ -49,7 +49,7 @@ Two Bone IK 노드는 양 손 위치를 구동시키는 반면, (**Hand Favoring
 | [REGION:tablesection]**입력 핀**[/REGION] ||
 | **Hand FKWeight** | 손 FK 가중치 - 어느 손을 주로 할지 입니다. 0.5 는 양쪽에 동일한 가충치, 1 은 오른손, 0 은 왼손입니다. |
 | **Component Pose** | 컴포넌트 포즈 - 받는 포즈입니다. |
-| **Alpha** | 알파 - 콘트롤의 현재 세기입니다. |
+| **Alpha** | 알파 - 컨트롤의 현재 세기입니다. |
 
 **Hand IK Retargeting** 노드는 4.11 에 도입된 **LOD Threshold** (LOD 한계치) 시스템에도 영향을 받습니다. 이 세팅은 **Hand IK Retargeting** 노드의 **디테일 패널** 에서 찾을 수 있습니다.
 

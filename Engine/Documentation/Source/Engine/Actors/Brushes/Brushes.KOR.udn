@@ -186,7 +186,7 @@ topic-image:Brushes_topic.png
 |구체 빌더 세팅||
 |---|---|
 |**Radius**|반경 - 구체의 반경을 설정합니다.|
-|**Sphere Extrapolation**|구체 보외 - 구체의 곡면을 만드는 데 사용할 면의 갯수를 조절합니다. 테셀레이션 메소드로 인해 한계는 5 입니다. |
+|**Sphere Extrapolation**|구체 보외 - 구체의 곡면을 만드는 데 사용할 면의 갯수를 조절합니다. 테셀레이션 메서드로 인해 한계는 5 입니다. |
 [/REGION]
 [/EXCERPT:SphereBuilder]
 

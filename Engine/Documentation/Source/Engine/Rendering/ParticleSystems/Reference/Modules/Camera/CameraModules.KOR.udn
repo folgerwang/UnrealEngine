@@ -33,7 +33,7 @@ Camera Offset 모듈을 통해 스프라이트 파티클의 위치를 카메라�
 
 [EXCERPT:UpdateMethod]
 [REGION:simpletable]
-|**메소드**|**설명**|
+|**메서드**|**설명**|
 | --- | --- |
 |_EPCOUM_DirectSet_|Camera Offset 값을 직접 사용하여 오프셋을 설정, 기존 오프셋 값을 덮어씁니다. |
 |_EPCOUM_Additive_|기존 오프셋에다 이 모듈로부터의 카메라 오프셋 값을 더합니다. |

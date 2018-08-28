@@ -54,7 +54,7 @@ Installed Builds 는 [](Programming/Development/BuildGraph) 스크립트 시스�
 
 		BuildGraph -target="Make Installed Build [PLATFORM]" -script=Engine/Build/InstalledEngineBuild.xml -clean
 
-1.	언리얼 엔진 디렉토리의 `LocalBuilds/Engine/` 폴더로 이동하여 생성된 Installed Build 를 확인합니다. 퍼블리싱 디렉토리를 다른 곳으로 지정했다면, 그 곳으로 이동합니다.
+1.	언리얼 엔진 디렉터리의 `LocalBuilds/Engine/` 폴더로 이동하여 생성된 Installed Build 를 확인합니다. 퍼블리싱 디렉터리를 다른 곳으로 지정했다면, 그 곳으로 이동합니다.
 
 ## Installed Build 스크립트 옵션
 

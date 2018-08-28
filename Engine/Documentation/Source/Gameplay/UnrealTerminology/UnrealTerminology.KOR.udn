@@ -5,8 +5,8 @@ Crumbs: %ROOT%, Gameplay
 Description:언리얼 엔진의 프로젝트, 레벨, 클래스, 액터에 대한 소개입니다.
 version: 4.9
 
-프로젝트의 모든 것은 프로젝트 디렉토리에 들어있습니다. 프로젝트는 원하는 갯수만큼 만들 수 있지만, 각각은 그 자체로 완결성을 띱니다. 
-언리얼 엔진의 **프로젝트 브라우저** 를 사용하여 [새 프로젝트를 생성](Engine/Basics/Projects/Browser#새프로젝트만들기) 하면 [디렉토리 구조](Engine\Basics\DirectoryStructure) 나 
+프로젝트의 모든 것은 프로젝트 디렉터리에 들어있습니다. 프로젝트는 원하는 갯수만큼 만들 수 있지만, 각각은 그 자체로 완결성을 띱니다. 
+언리얼 엔진의 **프로젝트 브라우저** 를 사용하여 [새 프로젝트를 생성](Engine/Basics/Projects/Browser#새프로젝트만들기) 하면 [디렉터리 구조](Engine\Basics\DirectoryStructure) 나 
 [언리얼 에디터에서 열어볼](Engine/Basics/Projects/Browser#프로젝트열기) 수 있는 언리얼 프로젝트 파일 (`[ProjectName].uproject`) 등의 필수 프로젝트 프레임워크가 구성됩니다.
 
 프로젝트에는 애셋이 들어있으며, Content 폴더에 `.uasset` 파일로 저장됩니다. 애셋에는 머티리얼, 스태틱 / 스켈레탈 메시, 블루프린트, 사운드 큐, 텍스처 등이 포함되며, 

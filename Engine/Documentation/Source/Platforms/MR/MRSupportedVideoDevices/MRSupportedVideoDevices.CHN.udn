@@ -1,0 +1,28 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs: %ROOT%, Platforms, Platforms/MR
+Title: Supported Video Devices
+Description: Product documentation including reference and guides for Unreal Engine 4
+Version: 4.20
+Parent: Platforms/MR
+Order: 4
+Tags: Reference
+Tags: MR
+Tags: landingpage
+Tags: Early Access
+topic-image:MR_Camera.jpg
+
+We have tested a limited number of video capture devices with the Mixed Reality Capture Framework (MRC). This is not to say that other video capture devices won’t work, but below is a list of the devices that we’ve tested here at Epic Games.
+
+**Webcams**
+
+* [Logitech C920](https://www.logitech.com/en-us/product/hd-pro-webcam-c920)
+* [Logitech C930e](https://www.logitech.com/en-us/product/c930e-webcam)
+
+**USB Capture Dongles**
+
+* [Magewell USB Capture HDMI Gen 2](http://www.magewell.com/usb-capture-hdmi)¹
+
+¹ While untested, it is likely that other Magewell USB capture products are just as compatible with MRC, such as their [Plus model](http://www.magewell.com/usb-capture-hdmi-4k-plus) (for 4K), and their [SDI capture dongles](http://www.magewell.com/usb-capture-sdi-4k-plus) (for broadcast hardware).
+
+It is possible for advanced users to write a Media Framework plugin to support their own video capture device.

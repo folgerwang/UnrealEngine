@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3801260
+INTSourceChangelist:4308942
 Availability: Public
 Crumbs: %ROOT%
 Title: 컬러 그레이딩에 룩업 테이블(LUT) 사용
@@ -10,8 +10,7 @@ Parent:Engine/Rendering/PostProcessEffects
 Related:Engine/Rendering/PostProcessEffects/ColorGrading
 Order:1000
 Tags:Post Process
-Topic-image:ColorGrading_Topic.png
-Social-image:ColorGrading_Overview.png
+
 
 
 ![](Engine/Rendering/PostProcessEffects/ColorGrading/ColorGrading_Overview.png)

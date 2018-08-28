@@ -22,7 +22,7 @@ Social-Image:SkyLight_1.png
 
 
 
-The Sky Light captures the distant parts of your level and applies that to the scene as a light. That means the sky’s appearance and its lighting/reflections will match, even if your sky is 
+The Sky Light captures the distant parts of your level and applies that to the scene as a light. That means the skyï¿½s appearance and its lighting/reflections will match, even if your sky is 
 coming from atmosphere, or layered clouds on top of a skybox, or distant mountains. You can also manually specify a cubemap to use. 
 
 ## Scene Capture
@@ -33,7 +33,7 @@ The Sky Light will only capture the scene under certain circumstances:
 * For **Stationary** or **Movable Sky Lights**, updates happen once on load and only updates further when **Recapture Sky** is called. This can be done via the **Details** panel or via Blueprint call in-game.
 
 [REGION:note]
-If you change the texture that the skybox is using, it will not automatically know to update. You’ll be required to use one of the methods above for it to update.
+If you change the texture that the skybox is using, it will not automatically know to update. Youï¿½ll be required to use one of the methods above for it to update.
 [/REGION]
 
 A Sky Light should be used instead of the Ambient Cubemap to represent the sky's light because Sky Lights support local shadowing, which prevents indoor areas from getting lit by the sky.
@@ -172,15 +172,12 @@ For additional information visit the [Bent Normal Map](Engine/Rendering/Lighting
 [/REGION]
 
 
-
-
-
-
 ### Multi-Bounce
 
 Multiple bounces of indirect light from Sky Lights is supported by adjusting the **Num Sky Lighting Bounces** setting in **World Settings** > **Lightmass**. 
 
 ![](LightmassSettings.png)
+
 [REGION:caption] Setting for the number of sky light bounces to use. [/REGION]
 
 [OBJECT:ComparisonSlider]
@@ -201,7 +198,6 @@ Each added bounce increases non-distributed build times, so use with care when n
 [/REGION]
 
 [COMMENT:none]
--
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
 	![Number of Bounces: 1](SkyLight_6.png)(w:1000)
@@ -210,7 +206,6 @@ Each added bounce increases non-distributed build times, so use with care when n
 	![Number of Bounces: 10](SkyLight_5.png)(w:1000)
 	[/PARAM]
 [/OBJECT]
--
 [/COMMENT]
 
 ## Properties
@@ -280,43 +275,7 @@ These features would be useful with Sky Lights but are not yet implemented:
 	
 	![](RecaptureSkyLightBP.png)(w:700)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 [COMMENT:none]
--
-
 
 [REGION:fullwidth raw]
 ![](Skylight_Header.png)
@@ -345,11 +304,11 @@ Pictured below are example images from a scene which utilizes a Sky Light.
 	![Sky Light](Skylight.png)(w:800)
 	[/PARAM]
 	[PARAM:after]
-	![No Sky Light](NoSkylight.png)(w:800)
+	![No Sky Light](NoSkyLight.png)(w:800)
 	[/PARAM]
 [/OBJECT]
 
-<!--
+
 [REGION:lightbox]
 
 [![](skyLightEx_01.png)(w:884)](skyLightEx_01.png) [![](skyLightEx_02.png)(w:884)](skyLightEx_02.png)
@@ -451,5 +410,3 @@ The properties of a Sky Light are broken up into 2 categories: Light and Sky Lig
 | **Sky Distance Threshold** | Distance from the Sky Light at which any geometry should be treated as part of the sky (also used by Reflection Captures). |
 | **Lower Hemisphere is Black** | Whether all lighting from the lower hemisphere should be set to zero.  This is useful to prevent leaking from the lower hemisphere. |
 | **Recapture Scene** | When the Sky Light Actor is set to `SLS_CapturedScene`, this will recapture the image the Sky Light is using to light the scene. |
-
----->

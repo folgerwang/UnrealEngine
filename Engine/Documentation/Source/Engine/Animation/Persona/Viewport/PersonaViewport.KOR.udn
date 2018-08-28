@@ -129,13 +129,13 @@ tags:animation
 | **Poke Blend Time** | 찌르기 블렌드 시간 - 찔렀을 때 피직스에서 애니메이션으로 블렌딩하는 데 걸리는 시간입니다. |
 | [REGION:tablesection] Simulation 시뮬레이션 [/REGION] ||
 | **Grav Scale** | 중력 스케일 - 시뮬레이션 중 사용할 중력에 대한 스케일 인수입니다. |
-| **Max FPS** | 최대 FPS - 피직스 애셋 에디터에서 시뮬레이션의 최대 초당 프레임 수(FPS) 입니다. 게임과 똑같은 FPS 를 타겟으로 할 때 좋습니다. 값이 -1 이면 최대 FPS 설정을 끕니다. |
+| **Max FPS** | 최대 FPS - 피직스 애셋 에디터에서 시뮬레이션의 최대 초당 프레임 수(FPS) 입니다. 게임과 똑같은 FPS 를 타깃으로 할 때 좋습니다. 값이 -1 이면 최대 FPS 설정을 끕니다. |
 | [REGION:tablesection] Mouse Spring 마우스 스프링 [/REGION] ||
 | **Handle Linear Damping** | 선형 제동 처리 - 마우스 스프링 포스에 대한 선형 제동입니다. |
 | **Handle Linear Stiffness** | 선형 강성 처리 - 마우스 스프링 포스에 대한 선형 강성입니다. |
 | **Handle Angular Damping** | 각형 제동 처리 - 마우스 스프링 포스에 대한 각형 제동입니다. |
 | **Handle Angular Stiffness** | 각형 강성 처리 - 마우스 스프링 포스에 대한 각형 강성입니다. |
-| **Interpolation Speed** | 보간 속도 - 마우스 스프링 포스에 대한 피직스 타겟 트랜스폼 보간이 일어나는 속도입니다. |
+| **Interpolation Speed** | 보간 속도 - 마우스 스프링 포스에 대한 피직스 타깃 트랜스폼 보간이 일어나는 속도입니다. |
 | [REGION:tablesection] Poking 찌르기 [/REGION] ||
 | **Poke Strength** | 찌르기 세기 - 좌클릭으로 찌를 때 가할 힘의 세기입니다. |
 
@@ -175,17 +175,17 @@ tags:animation
 | ------ | ----------- |
 | **Root Motion** | 루트 모션 - 애니메이션의 루트 모션을 기반으로 프리뷰를 움직입니다. |
 | **Uncompressed Animation** | 미압축 애니메이션 - 미압축 애니메이션 데이터로 스켈레톤을 표시합니다. |
-| **NonRetargeted Animation** | 리타게팅되지않은 애니메이션 - 리타게팅되지 않은 애니메이션 데이터로 스켈레톤을 표시합니다. |
+| **NonRetargeted Animation** | 리타기팅되지않은 애니메이션 - 리타기팅되지 않은 애니메이션 데이터로 스켈레톤을 표시합니다. |
 | **Additive Base** | 애디티브 베이스 - 스켈레톤을 애디티브 베이스 포즈로 표시합니다. |
 | **Source Animation** | 소스 애니메이션 - 미압축 애니메이션 데이터로 스켈레톤을 표시합니다. |
-| **Baked Animation** | 구은 애니메이션 - 리타게팅되지 않은 애니메이션 데이터로 스켈레톤을 표시합니다. |
+| **Baked Animation** | 구은 애니메이션 - 리타기팅되지 않은 애니메이션 데이터로 스켈레톤을 표시합니다. |
 [/EXCERPT:Animation]
 
 [EXCERPT:Bones]
 | ------ | ----------- |
 | **Sockets** | 소켓 - 소켓 히트포인트를 표시합니다. |
 | **Bone Names** | 본 이름 - 뷰포트에 스켈레톤의 본 이름을 표시합니다. |
-| **Bone Drawing** | 본 그리기 - 프리뷰 메시에 본 가중치(Weighting) 또는 모프 타겟 버텍스를 표시하는 데 사용됩니다. |
+| **Bone Drawing** | 본 그리기 - 프리뷰 메시에 본 가중치(Weighting) 또는 모프 타깃 버텍스를 표시하는 데 사용됩니다. |
 [/EXCERPT:Bones]
 
 [EXCERPT:Clothing]
@@ -224,11 +224,11 @@ tags:animation
 
 [EXCERPT:mesh]
 | ------ | ----------- |
-| **Retarget Base Pose** | 리타겟 베이스 포즈 - 프리뷰 메시에 리타게팅된 베이스 포즈를 표시합니다. |
+| **Retarget Base Pose** | 리타깃 베이스 포즈 - 프리뷰 메시에 리타기팅된 베이스 포즈를 표시합니다. |
 | **Bound** | 바운드 - 프리뷰 메시의 경계 볼륨을 표시합니다. |
 | **In-Game Bound** | 게임내 바운드 - 프리뷰 메시에 게임내 경계 사용 여부를 설정합니다. |
 | **Mesh** | 메시 - 프리뷰 메시를 표시합니다. |
-| **MorphTargets** | 모프 타겟 - 프리뷰 메시에 적용된 모프 타겟 표시 여부를 설정합니다. |
+| **MorphTargets** | 모프 타깃 - 프리뷰 메시에 적용된 모프 타깃 표시 여부를 설정합니다. |
 | **Vertex Colors** | 버텍스 컬러 - 프리뷰 메시에 칠해진 버텍스 컬러 표시 여부입니다. |
 | **Mesh Info** | 메시 정보 - 뷰포트에 메시 정보를 표시할 방법입니다. |
 | **Mesh Overlay Drawing** | 메시 오버레이 그리기 - 뷰포트에 있을 때 메시 표시 방법입니다. |
@@ -262,21 +262,21 @@ tags:animation
 
 [COMMENT:none]
  No longer contained in the viewport, leaving for now if it is included on another page. 
-## 타임라인 및 콘트롤 바
+## 타임라인 및 컨트롤 바
 
 [EXCERPT:PreviewControls]
-타임라인 및 콘트롤 바는 다음과 같은 콘트롤이 가능합니다:
+타임라인 및 컨트롤 바는 다음과 같은 컨트롤이 가능합니다:
 
-| 콘트롤 | 설명 |
+| 컨트롤 | 설명 |
 | ------ | ---- |
-| ![콘트롤 바 - 타임라인](CE_button_timeline.png) | 타임라인 입니다. 여기에는 _애님 시퀀스_ 또는 _애니메이션 몽타주_ 의 프레임이 표시되며, 스크러빙(scrubbing, 문지르기)도 가능합니다. 현재 위치는 빨강 막대로 표시되며, 그 바를 **드래그** 하면 스크러빙됩니다. |
-| ![콘트롤 바 - 처음으로 넘어가기](CE_button_beginning.png) | 애니메이션 시퀀스나 애니메이션 몽타주의 첫 프레임으로 넘어갑니다. |
-| ![콘트롤 바 - 프레임 뒤로](CE_button_step_back.png) | 애니메이션 시퀀스나 애니메이션 몽타주의 지난 프레임으로 이동합니다. |
-| ![콘트롤 바 - 역재생](CE_button_play_back.png) ![콘트롤 바 - 일시정지](CE_button_pause.png) | 애니메이션 시퀀스나 Blendspace 를 역방향으로 재생 시작합니다. 재생중일 땐 일시정지 버튼이 표시됩니다. |
-| ![콘트롤 바 - 정재생](CE_button_play_forward.png) ![콘트롤 바 - 일시정지](CE_button_pause.png) | 애니메이션 시퀀스나 애니메이션 몽타주의 재생을 시작합니다. 재생중일 땐 일시정지 버튼이 표시됩니다. |
-| ![콘트롤 바 - 프레임 앞으로](CE_button_step_forward.png) | 애니메이션 시퀀스나 애니메이션 몽타주의 다음 프레임으로 이동합니다. |
-| ![콘트롤 바 - 마지막으로 넘어가기](CE_button_end.png) | 애니메이션 시퀀스나 애니메이션 몽타주의 마지막 프레임으로 넘어갑니다. |
-| ![콘트롤 바 - 루핑 켜기](CE_button_loop.png) ![콘트롤 바 - 루핑 끄기](CE_button_loop_enabled.png) | 한 번 재생과 반복 재생 사이를 토글합니다. 루핑이 켜지면 버튼은 빨갛게 변합니다. |
+| ![컨트롤 바 - 타임라인](CE_button_timeline.png) | 타임라인 입니다. 여기에는 _애님 시퀀스_ 또는 _애니메이션 몽타주_ 의 프레임이 표시되며, 스크러빙(scrubbing, 문지르기)도 가능합니다. 현재 위치는 빨강 막대로 표시되며, 그 바를 **드래그** 하면 스크러빙됩니다. |
+| ![컨트롤 바 - 처음으로 넘어가기](CE_button_beginning.png) | 애니메이션 시퀀스나 애니메이션 몽타주의 첫 프레임으로 넘어갑니다. |
+| ![컨트롤 바 - 프레임 뒤로](CE_button_step_back.png) | 애니메이션 시퀀스나 애니메이션 몽타주의 지난 프레임으로 이동합니다. |
+| ![컨트롤 바 - 역재생](CE_button_play_back.png) ![컨트롤 바 - 일시정지](CE_button_pause.png) | 애니메이션 시퀀스나 Blendspace 를 역방향으로 재생 시작합니다. 재생중일 땐 일시정지 버튼이 표시됩니다. |
+| ![컨트롤 바 - 정재생](CE_button_play_forward.png) ![컨트롤 바 - 일시정지](CE_button_pause.png) | 애니메이션 시퀀스나 애니메이션 몽타주의 재생을 시작합니다. 재생중일 땐 일시정지 버튼이 표시됩니다. |
+| ![컨트롤 바 - 프레임 앞으로](CE_button_step_forward.png) | 애니메이션 시퀀스나 애니메이션 몽타주의 다음 프레임으로 이동합니다. |
+| ![컨트롤 바 - 마지막으로 넘어가기](CE_button_end.png) | 애니메이션 시퀀스나 애니메이션 몽타주의 마지막 프레임으로 넘어갑니다. |
+| ![컨트롤 바 - 루핑 켜기](CE_button_loop.png) ![컨트롤 바 - 루핑 끄기](CE_button_loop_enabled.png) | 한 번 재생과 반복 재생 사이를 토글합니다. 루핑이 켜지면 버튼은 빨갛게 변합니다. |
 
 [REGION:note]
 _블렌드 스페이스_ 또는 _에임 오프셋_ 을 열면, **Preview** 옵션이 켜진 경우 애니메이션이 자동 재생됩니다. 일시정지하거나, _애니메이션 몽타주_ 또는 _애니메이션 시퀀스_ 의 루핑 옵션을 끄고서 _블렌드 스페이스_ 또는 _에임 오프셋_ 을 열면, 애니메이션은 자동 재생되지 않습니다. _블렌드 스페이스_ 또는 _에임 오프셋_ 을 열 때 애니메이션이 자동 시작되도록 하려면 재생/루핑 설정을 해 줘야 합니다. 

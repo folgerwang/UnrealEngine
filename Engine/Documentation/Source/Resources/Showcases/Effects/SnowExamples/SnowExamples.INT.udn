@@ -85,6 +85,3 @@ The key difference is that in the _Blizzard_ effect, the mist particles were **u
 
 Instead, this Snow Flare particle system is used as a localized version of the Blizzard effect, and is only placed where the mist particles _need_ to respond to lighting. This is far more efficient than having all the mist particles react to lighting at all times.
 
-
-
-[INCLUDE:Resources\Showcases\Effects#ParticleTopics]

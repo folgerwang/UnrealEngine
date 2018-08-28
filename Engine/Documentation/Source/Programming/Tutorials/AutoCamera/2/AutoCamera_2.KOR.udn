@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3967023
 Availability: Public
 Title:2. C++ 에서 카메라 뷰 제어
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/AutoCamera
@@ -52,7 +52,7 @@ version: 4.9
 		{
 			TimeToNextCameraChange += TimeBetweenCameraChanges;
 		
-			// 로컬 플레이어의 콘트롤을 처리하는 액터를 찾습니다.
+			// 로컬 플레이어의 컨트롤을 처리하는 액터를 찾습니다.
 			APlayerController* OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
 			if (OurPlayerController)
 			{

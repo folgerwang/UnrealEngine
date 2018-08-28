@@ -198,7 +198,7 @@ Tags:Physics
 [REGION:raw]
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
-| **Is Local Simulation** | 로컬 시뮬레이션인지 - 구동 타겟 기준이 월드 스페이스인지 로컬 스페이스인지 입니다. |
+| **Is Local Simulation** | 로컬 시뮬레이션인지 - 구동 타깃 기준이 월드 스페이스인지 로컬 스페이스인지 입니다. |
 | **Orientation Strength** | 오리엔테이션 세기 - 오리엔테이션 오차 보정에 사용되는 세기입니다. |
 | **Angular Velocity Strength** | 각 속도 세기 - 각 속도 오차 보정에 사용되는 세기입니다. |
 | **Position Strength** | 위치 세기 - 선 위치 오차 보정에 사용되는 세기입니다. 로컬 시뮬레이션이 아닌 경우에만 사용됩니다. |

@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3579346
+﻿INTSourceChangelist:4057278
 Availability:Public
-TItle:Ansel 블루프린트 노드 참고서
+TItle:NVIDIA Ansel 블루프린트 노드 참고서
 Description:NVIDIA Ansel Photography 플러그인에서 사용할 수 있는 환경설정 변수에 대한 참고서입니다.
 Crumbs:
 Parent:Engine/Plugins/Ansel
@@ -11,7 +11,8 @@ tags:Ansel
 version:4.14
 topic-image:BlueprintAPI_Topic.png
 
-Ansel Photography 플러그인 환경설정을 통해, 캡처에서는 잘 작동하지 않는 이펙트를 꺼서 최종 사용자의 경험을 향상시킬 수도 있고, 카메라의 이동을 제한시켜 경험을 조절할 수도 있습니다. 여러가지 블루프린트 이벤트와 함수를 통해 플레이어 경험 커스터마이징을 위한 로직 구현이 가능합니다.
+Ansel 로 최종 사용자 경험을 커스터마이징할 수 있습니다.
+예를 들어, 포토그라피 도중 특정 이펙트를 비활성화시킨다든가, 게임 독자적인 방식으로 카메라 이동을 제한시킬 수 있습니다. 여러가지 블루프린트 이벤트와 함수를 사용하여 플레이어의 경험 커스터마이징을 위한 로직을 구현할 수 있습니다.
 
 ## 이벤트
 
@@ -104,7 +105,7 @@ Photography 모드를 나갈 때 발동되는 이벤트입니다 (`r.Photography
 
 ### On Photography Multi Part Capture End
 
-멀티파트 포토그라프 캡처 종료시 발동되는 이벤트로, 자유롭게 떠다니는 수동 포토그라프 카메라 콘트롤이 사용자에게 돌아가려는 시점에 발생됩니다. OnPhotographyMultiPartCaptureStart 에서 껐던 것을 다시 켤 수 있는 곳입니다.
+멀티파트 포토그라프 캡처 종료시 발동되는 이벤트로, 자유롭게 떠다니는 수동 포토그라프 카메라 컨트롤이 사용자에게 돌아가려는 시점에 발생됩니다. OnPhotographyMultiPartCaptureStart 에서 껐던 것을 다시 켤 수 있는 곳입니다.
 
 [REGION:graph]
     [OBJECT:BlueprintNode]
@@ -145,17 +146,44 @@ Photography 모드를 나갈 때 발동되는 이벤트입니다 (`r.Photography
 
 ### Photography Camera Modify
 
-자유 카메라 포토그라피 도중 PlayerCameraManager 서브클래스가 카메라를 제한 또는 다른 식으로 변경할 수 있도록 해줍니다. 예를 들어 블루프린트에서 카메라 원점에서의 거리를 제한하거나, 카메라가 벽을 통과하지 못하도록 하는 경우입니다.
-이 함수는 카메라의 원래, 예전, 제안 위치를 주며, 그 결과로 변경된 카메라 위치를 받습니다.
+PlayerCameraManager 서브클래스가 자유 카메라 포토그라피 도중 카메라 제약을 주거나 다른 식으로 변경할 수 있도록 합니다. 기본적으로, 카메라는 시작 위치에서 유한 거리에 남아있도록 제약을 주며, 충돌가능 벽을 통과할 수는 없습니다. 이러한 작동방식을 대체 또는 강화시킬 수 있습니다.
+
+이 함수는 원래, 이전, 제안 카메라 위치를 주고, 그 결과 카메라 변경된 위치를 받습니다.
+
+**Constrain Camera By Distance**, **Constrain Camera By Geometry** 블루프린트 유틸리티에서 바로 사용할 수 있는 컨스트레인트 함수를 참고할 수 있습니다.
 
 [REGION:raw]
 ![](PhotoCameraModify.png)
 [/REGION]
 
-#### 예제
+## 유틸리티 액션
 
-아래는 포토그라피 카메라를 원점에서 200 언리얼 유닛 범위까지 제한시키는 **Photography Camera Modify** 구현 예제입니다:
+### Start Session
+사용자가 Alt-F2 를 누를 때까지 기다리지 않고 포토그라피 세션을 즉시 시작합니다. 포토그라피 모드를 다른 단축키나 컨트롤러 버튼에 지정할 때 좋습니다.
+### Stop Session
+진행 중인 포토그라피 세션을 즉시 중지합니다.
+### Is Photography Available
+포토그라피 시스템을 사용할 수 있는지를 반환합니다. **r.Photography.Available** 콘솔 변수도 참고하세요.
+### Is Photography Allowed
+현재 앱이 포토그라피를 허용 중인지를 반환합니다. **r.Photography.Allowed** 콘솔 변수도 확인하세요.
+### Set Is Photography Allowed
+현재 앱이 포토그라피를 허용 중인지를 반환합니다. **r.Photography.Allowed** 콘솔 변수도 확인하세요.
+### Set Settle Frames
+멀티 파트 샷에서 캡처 간격 프레임 수를 설정합니다. **r.Photography.SettleFrames** 콘솔 변수도 확인하세요.
+### Set Camera Movement Speed
+포토그라피 카메라의 보통 이동 속도를 설정합니다. **r.Photography.TranslationSpeed** 콘솔 변수도 확인하세요.
+### Set Camera Constraint Camera Size
+콜리전용 포토그라피 카메라 크기를 설정합니다. PlayerCameraManager 의 PhotographyCameraModify 함수 기본 구현이 사용 중일 경우 또는 **Constrain Camera By Geometry** 유틸리티를 바로 사용했을 경우에만 관련이 있습니다. **r.Photography.Constrain.CameraSize** 콘솔 변수도 확인하세요.
+### Set Camera Constraint Distance
+카메라가 초기 위치에서 이동할 수 있는 최대 거리를 설정합니다. PlayerCameraManager 의 Photography Camera Modify 함수 기본 구현이 사용된 경우에만 연관성이 있습니다. **r.Photography.Constrain.MaxCameraDistance** 콘솔 변수도 확인하세요.
+### Set Auto Postprocess
+포토그라피 시스템이 언리얼의 포스트프로세싱 이펙트 최적화를 자동 시도할지 여부를 설정합니다. **r.Photography.AutoPostprocess** 콘솔 변수도 확인하세요.
+### Set Auto Pause
+포토그라피 시스템이 세션 도중 게임을 자동으로 일시정지시킬지 여부를 설정합니다. **r.Photography.AutoPause** 콘솔 변수도 확인하세요.
+### Set UIControl Visibility
+플레이어가 포토그라피 도중 뎁스 오브 필드나 색수차 효과 등 표준 UE 비주얼 이펙트를 조정할 수 있도록 하는 포토그라피 UI 의 컨트롤을 숨길 수 있도록 합니다. 주: 이 컨트롤은 SetAutoPostprocess 를 켰을 때만 나타납니다. 연관된 이펙트를 사용하지 않았거나 이펙트의 커스텀 버전을 사용 중이거나 할 때는 어플리케이션에 일부 적용되지 않을 수 있습니다.
+### Constrain Camera By Distance
+카메라 시작 지점에서 거리를 제약시키는 유틸리티입니다. 커스텀 **Photography Camera Modify** 함수 구현 시 유용할 수 있습니다.
+### Constrain Camera By Geometry
+충돌가능 지오메트리에 대해 카메라를 제약시키는 유틸리티입니다. 커스텀 **Photography Camera Modify** 함수 구현 시 유용할 수 있습니다.
 
-[REGION:lightbox]
-[![](camera_constraint.png)(w:480)](camera_constraint.png)
-[/REGION]

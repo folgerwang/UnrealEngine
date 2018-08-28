@@ -24,7 +24,7 @@ order:1
 [/VAR]
 
 
-
+%Steps%
 
 
 %Globals:OSSelect%
@@ -100,3 +100,5 @@ iOS プロジェクトを Mac OS 上のデバイスにパッケージ化およ�
 
 
 
+
+%Steps%
