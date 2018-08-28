@@ -21,6 +21,7 @@ UMovieSceneTrack::UMovieSceneTrack(const FObjectInitializer& InInitializer)
 #if WITH_EDITORONLY_DATA
 	TrackTint = FColor(127, 127, 127, 0);
 	SortingOrder = -1;
+	bSupportsDefaultSections = true;
 #endif
 }
 

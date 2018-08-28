@@ -94,6 +94,14 @@ public:
 	virtual FReply OnSectionDoubleClicked( const FGeometry& SectionGeometry, const FPointerEvent& MouseEvent, const FGuid& ObjectBinding) { return FReply::Unhandled(); }
 
 	/**
+	 * Called when a key on this section is double clicked
+	 *
+	 * @param KeyHandle			The key that was clicked
+	 * @return A reply in response to double clicking the key
+	 */
+	virtual FReply OnKeyDoubleClicked( FKeyHandle KeyHandle ) { return FReply::Unhandled(); }
+
+	/**
 	 * @return The display name of the section in the section view
 	 */
 	virtual FText GetSectionTitle() const { return FText(); }

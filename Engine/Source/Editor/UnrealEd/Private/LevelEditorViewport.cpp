@@ -2153,7 +2153,7 @@ void FLevelEditorViewportClient::Tick(float DeltaTime)
 void FLevelEditorViewportClient::UpdateViewForLockedActor(float DeltaTime)
 {
 	// We can't be locked to a matinee actor if this viewport doesn't allow matinee control
-	if ( !bAllowCinematicPreview && ActorLockedByMatinee.IsValid() )
+	if ( !bAllowCinematicControl && ActorLockedByMatinee.IsValid() )
 	{
 		ActorLockedByMatinee = nullptr;
 	}
@@ -4450,7 +4450,7 @@ void FLevelEditorViewportClient::CopyLayoutFromViewport( const FLevelEditorViewp
 	ViewportType = InViewport.ViewportType;
 	SetOrthoZoom( InViewport.GetOrthoZoom() );
 	ActorLockedToCamera = InViewport.ActorLockedToCamera;
-	bAllowCinematicPreview = InViewport.bAllowCinematicPreview;
+	bAllowCinematicControl = InViewport.bAllowCinematicControl;
 }
 
 

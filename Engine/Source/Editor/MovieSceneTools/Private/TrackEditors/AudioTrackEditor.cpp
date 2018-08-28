@@ -331,7 +331,7 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 	// @todo Sequencer This fixes looping drawing by pretending we are only dealing with a SoundWave
 	TRange<double> AudioTrueRange = TRange<double>(
 		SectionStartTime - AudioSection->GetStartOffset(),
-		SectionStartTime - AudioSection->GetStartOffset() + DeriveUnloopedDuration(AudioSection) * PitchMultiplierValue);
+		SectionStartTime - AudioSection->GetStartOffset() + DeriveUnloopedDuration(AudioSection) * (1.0f / PitchMultiplierValue));
 
 	float TrueRangeSize = AudioTrueRange.Size<float>();
 	float DrawRangeSize = DrawRange.Size<float>();
@@ -1012,6 +1012,11 @@ FKeyPropertyResult FAudioTrackEditor::AddNewMasterSound( FFrameNumber KeyTime, U
 	if (TrackResult.bWasCreated)
 	{
 		AudioTrack->SetDisplayName(LOCTEXT("AudioTrackName", "Audio"));
+
+		if (GetSequencer().IsValid())
+		{
+			GetSequencer()->OnAddTrack(AudioTrack);
+		}
 	}
 
 	KeyPropertyResult.bTrackModified = true;

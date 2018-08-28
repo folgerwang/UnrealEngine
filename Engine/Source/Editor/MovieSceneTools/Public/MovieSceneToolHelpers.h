@@ -203,7 +203,7 @@ public:
 	 * @param InterpMode The rich curve interpolation to convert
 	 * @return The converted matinee interpolation
 	 */
-	static EInterpCurveMode RichCurveInterpolationToMatineeInterpolation( ERichCurveInterpMode InterpMode );
+	static EInterpCurveMode RichCurveInterpolationToMatineeInterpolation( ERichCurveInterpMode InterpMode, ERichCurveTangentMode TangentMode);
 
 	/*
 	 * Copy key data to move axis

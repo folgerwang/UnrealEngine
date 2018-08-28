@@ -216,7 +216,6 @@ void FLevelEditorSequencerIntegration::Initialize()
 
 	AddLevelViewportMenuExtender();
 	ActivateDetailHandler();
-	AttachTransportControlsToViewports();
 	ActivateSequencerEditorMode();
 	BindLevelEditorCommands();
 	AttachOutlinerColumn();
@@ -573,6 +572,7 @@ void FLevelEditorSequencerIntegration::OnPreBeginPIE(bool bIsSimulating)
 		{
 			if (Options.bRequiresLevelEvents)
 			{
+				In.GetEvaluationTemplate().ResetDirectorInstances();
 				In.RestorePreAnimatedState();
 				In.State.ClearObjectCaches(In);
 
@@ -594,6 +594,7 @@ void FLevelEditorSequencerIntegration::OnEndPlayMap()
 			if (Options.bRequiresLevelEvents)
 			{
 				// Update and clear any stale bindings 
+				In.GetEvaluationTemplate().ResetDirectorInstances();
 				In.State.ClearObjectCaches(In);
 				In.ForceEvaluate();
 			}
@@ -849,277 +850,6 @@ private:
 	FCurveSequence FadeInSequence;
 };
 
-class SViewportTransportControls : public SCompoundWidget
-{
-public:
-	SLATE_BEGIN_ARGS(SViewportTransportControls){}
-	SLATE_END_ARGS()
-
-	void Construct(const FArguments& InArgs, TSharedPtr<ILevelViewport> Viewport)
-	{
-		check(Viewport.IsValid());
-
-		WeakViewport = Viewport;
-
-		SetVisibility(EVisibility::SelfHitTestInvisible);
-
-		ChildSlot
-		[
-			SNew(SHorizontalBox)
-
-			+SHorizontalBox::Slot()
-			.FillWidth(1)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Bottom)
-			.Padding(4.f)
-			[
-				SNew(SFader)
-				.Content()
-				[
-					SNew(SBorder)
-					.Padding(4.f)
-					.Cursor( EMouseCursor::Default )
-					.BorderImage( FEditorStyle::GetBrush( "ToolPanel.GroupBorder" ) )
-					.Visibility(this, &SViewportTransportControls::GetVisibility)
-					.Content()
-					[
-						SNew(SHorizontalBox)
-
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						.HAlign(HAlign_Center)
-						.VAlign(VAlign_Center)
-						.Padding(FMargin(0,0,4.f,0))
-						[
-							SNew(SComboButton)
-							.Visibility(this, &SViewportTransportControls::GetComboVisibility)
-							.OnGetMenuContent(this, &SViewportTransportControls::GetBoundSequencerMenu)
-							.ButtonContent()
-							[
-								SNew(STextBlock)
-								.Text(this, &SViewportTransportControls::GetBoundSequencerName)
-							]
-						]
-
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						.HAlign(HAlign_Center)
-						.VAlign(VAlign_Center)
-						[
-							SAssignNew(ControlContent, SBox)
-						]
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						.HAlign(HAlign_Center)
-						.VAlign(VAlign_Top)
-						[
-							SNew(SButton)
-							.ButtonStyle(&FEditorStyle::Get().GetWidgetStyle< FButtonStyle >("Sequencer.Transport.CloseButton"))
-							.ToolTipText(LOCTEXT("CloseTransportControlsToolTip", "Hide the transport controls. You can re-enable transport controls from the viewport menu."))
-							.OnClicked(this, &SViewportTransportControls::Close)
-						]
-					]
-				]
-			]
-		];
-	}
-
-	TSharedPtr<FSequencer> GetSequencer() const
-	{
-		return WeakSequencer.Pin();
-	}
-
-	void AssignSequencer(TSharedRef<FSequencer> InSequencer)
-	{
-		WeakSequencer = InSequencer;
-		bool bExtendedControls = false;
-		ControlContent->SetContent(InSequencer->MakeTransportControls(bExtendedControls));
-	}
-
-	EVisibility GetComboVisibility() const
-	{
-		int32 NumSequencers = 0;
-		FLevelEditorSequencerIntegration::Get().IterateAllSequencers(
-			[&NumSequencers](FSequencer& In, const FLevelEditorSequencerIntegrationOptions& Options)
-			{
-				if (UMovieSceneSequence* RootSequence = In.GetRootMovieSceneSequence())
-				{
-					++NumSequencers;
-				}
-			}
-		);
-
-		return NumSequencers == 1 ? EVisibility::Collapsed : EVisibility::Visible;
-	}
-
-	FText GetBoundSequencerName() const
-	{
-		TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
-		if (Sequencer.IsValid() && Sequencer->GetRootMovieSceneSequence())
-		{
-			return Sequencer->GetRootMovieSceneSequence()->GetDisplayName();
-		}
-
-		return LOCTEXT("SelectSequencer", "Choose Sequence...");
-	}
-
-	TSharedRef<SWidget> GetBoundSequencerMenu()
-	{
-		FMenuBuilder MenuBuilder(true, nullptr);
-
-		for (const FLevelEditorSequencerIntegration::FSequencerAndOptions& SequencerAndOptions : FLevelEditorSequencerIntegration::Get().BoundSequencers)
-		{
-			TSharedPtr<FSequencer> PinnedSequencer = SequencerAndOptions.Sequencer.Pin();
-			if (PinnedSequencer.IsValid())
-			{
-				UMovieSceneSequence* RootSequence = PinnedSequencer->GetRootMovieSceneSequence();
-
-				// Be careful not to hold a strong reference in the lamdba below
-				TWeakPtr<FSequencer> ThisWeakSequencer = SequencerAndOptions.Sequencer;
-
-				MenuBuilder.AddMenuEntry(
-					RootSequence->GetDisplayName(),
-					FText(),
-					FSlateIconFinder::FindIconForClass(RootSequence->GetClass(), "MovieSceneSequence"),
-					FUIAction(
-						FExecuteAction::CreateLambda(
-							[this, ThisWeakSequencer]
-							{
-								TSharedPtr<FSequencer> LocalPinnedSequence = ThisWeakSequencer.Pin();
-								if (LocalPinnedSequence.IsValid())
-								{
-									AssignSequencer(LocalPinnedSequence.ToSharedRef());
-								}
-							}
-						)
-					));
-			}
-		}
-
-		return MenuBuilder.MakeWidget();
-	}
-
-	FReply Close()
-	{
-		TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
-		if (Sequencer.IsValid())
-		{
-			Sequencer->GetSequencerSettings()->SetShowViewportTransportControls(!Sequencer->GetSequencerSettings()->GetShowViewportTransportControls());
-		}
-		return FReply::Handled();
-	}
-
-	EVisibility GetVisibility() const
-	{
-		TSharedPtr<ILevelViewport> Viewport = WeakViewport.Pin();
-		TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
-		FLevelEditorViewportClient* ViewportClient = Viewport.IsValid() ? &Viewport->GetLevelViewportClient() : nullptr;
-
-		return (
-				Sequencer.IsValid() &&
-				ViewportClient &&
-				Sequencer->GetSequencerSettings()->GetShowViewportTransportControls() &&
-				ViewportClient->ViewportType == LVT_Perspective &&
-				ViewportClient->AllowsCinematicPreview()
-			) ? EVisibility::Visible : EVisibility::Collapsed;
-	}
-
-	virtual bool SupportsKeyboardFocus() const override
-	{
-		// Transport controls in the viewport need to have something that is focusable to prevent mouse input dropping through to the viewport.
-		// We don't want the buttons themselves to be focusable, so we just add them to a parent box that is.
-		return true;
-	}
-
-private:
-
-	TSharedPtr<SBox> ControlContent;
-	TWeakPtr<ILevelViewport> WeakViewport;
-	TWeakPtr<FSequencer> WeakSequencer;
-};
-
-void FLevelEditorSequencerIntegration::AttachTransportControlsToViewports()
-{
-	FLevelEditorModule* Module = FModuleManager::Get().LoadModulePtr<FLevelEditorModule>("LevelEditor");
-	
-	if (Module == nullptr)
-	{
-		return;
-	}
-
-	// register level editor viewport menu extenders
-	{
-		FLevelEditorModule::FLevelEditorMenuExtender ViewMenuExtender = FLevelEditorModule::FLevelEditorMenuExtender::CreateRaw(this, &FLevelEditorSequencerIntegration::OnExtendLevelEditorViewMenu);
-		Module->GetAllLevelViewportOptionsMenuExtenders().Add(ViewMenuExtender);
-
-		FDelegateHandle Handle = Module->GetAllLevelViewportOptionsMenuExtenders().Last().GetHandle();
-		AcquiredResources.Add(
-			[Handle]{
-				FLevelEditorModule* LevelEditorModule = FModuleManager::Get().GetModulePtr<FLevelEditorModule>("LevelEditor");
-				if (LevelEditorModule)
-				{
-					LevelEditorModule->GetAllLevelViewportOptionsMenuExtenders().RemoveAll([Handle](const FLevelEditorModule::FLevelEditorMenuExtender& In){ return In.GetHandle() == Handle; });
-				}
-			}
-		);
-	}
-
-	TSharedPtr<ILevelEditor> LevelEditor = Module->GetFirstLevelEditor();
-
-	for (TSharedPtr<ILevelViewport> LevelViewport : LevelEditor->GetViewports())
-	{
-		if (LevelViewport->GetLevelViewportClient().CanAttachTransportControls())
-		{
-			TSharedRef<SViewportTransportControls> TransportControl = SNew(SViewportTransportControls, LevelViewport);
-			LevelViewport->AddOverlayWidget(TransportControl);
-			TransportControls.Add(FTransportControl{ LevelViewport, TransportControl });
-		}
-	}
-
-	AcquiredResources.Add([=]{ this->DetachTransportControlsFromViewports(); });
-}
-
-void FLevelEditorSequencerIntegration::SetViewportTransportControlsVisibility(bool bVisible)
-{
-	IterateAllSequencers(
-		[=](FSequencer& In, const FLevelEditorSequencerIntegrationOptions& Options)
-		{
-			In.GetSequencerSettings()->SetShowViewportTransportControls(bVisible);
-		}
-	);
-}
-
-bool FLevelEditorSequencerIntegration::GetViewportTransportControlsVisibility() const
-{
-	bool bVisible = false;
-
-	IterateAllSequencers(
-		[&](FSequencer& In, const FLevelEditorSequencerIntegrationOptions& Options)
-		{
-			if (In.GetSequencerSettings()->GetShowViewportTransportControls())
-			{
-				bVisible = true;
-			}
-		}
-	);
-
-	return bVisible;
-}
-
-void FLevelEditorSequencerIntegration::DetachTransportControlsFromViewports()
-{
-	for (const FTransportControl& Control : TransportControls)
-	{
-		TSharedPtr<ILevelViewport> Viewport = Control.Viewport.Pin();
-		if (Viewport.IsValid())
-		{
-			Viewport->RemoveOverlayWidget(Control.Widget.ToSharedRef());
-		}
-	}
-	TransportControls.Reset();
-}
-
-
 TSharedRef< ISceneOutlinerColumn > FLevelEditorSequencerIntegration::CreateSequencerInfoColumn( ISceneOutliner& SceneOutliner ) const
 {
 	//@todo only supports the first bound sequencer
@@ -1192,7 +922,7 @@ void FLevelEditorSequencerIntegration::ActivateRealtimeViewports()
 		if (LevelVC)
 		{
 			// If there is a director group, set the perspective viewports to realtime automatically.
-			if (LevelVC->IsPerspective() && LevelVC->AllowsCinematicPreview())
+			if (LevelVC->IsPerspective() && LevelVC->AllowsCinematicControl())
 			{				
 				// Ensure Realtime is turned on and store the original setting so we can restore it later.
 				LevelVC->SetRealtime(true, true);
@@ -1212,7 +942,7 @@ void FLevelEditorSequencerIntegration::RestoreRealtimeViewports()
 		if (LevelVC)
 		{
 			// Turn off realtime when exiting.
-			if( LevelVC->IsPerspective() && LevelVC->AllowsCinematicPreview() )
+			if( LevelVC->IsPerspective() && LevelVC->AllowsCinematicControl() )
 			{				
 				// Specify true so RestoreRealtime will allow us to disable Realtime if it was original disabled
 				LevelVC->RestoreRealtime(true);
@@ -1223,71 +953,14 @@ void FLevelEditorSequencerIntegration::RestoreRealtimeViewports()
 
 TSharedRef<FExtender> FLevelEditorSequencerIntegration::OnExtendLevelEditorViewMenu(const TSharedRef<FUICommandList> CommandList)
 {
+	// This would be where you added an extension to the Level Editor dropdown menus if needed.
 	TSharedRef<FExtender> Extender(new FExtender());
-
-	Extender->AddMenuExtension(
-		"LevelViewportViewportOptions2",
-		EExtensionHook::First,
-		NULL,
-		FMenuExtensionDelegate::CreateRaw(this, &FLevelEditorSequencerIntegration::CreateTransportToggleMenuEntry));
-
 	return Extender;
 }
 
-void FLevelEditorSequencerIntegration::CreateTransportToggleMenuEntry(FMenuBuilder& MenuBuilder)
-{
-	MenuBuilder.AddMenuEntry(
-		LOCTEXT("ShowTransportControls", "Show Transport Controls"),
-		LOCTEXT("ShowTransportControlsToolTip", "Show or hide the Sequencer transport controls when a sequence is active."),
-		FSlateIcon(),
-		FUIAction(
-			FExecuteAction::CreateLambda([this](){ SetViewportTransportControlsVisibility(!GetViewportTransportControlsVisibility()); }),
-			FCanExecuteAction(), 
-			FGetActionCheckState::CreateLambda([this](){ return GetViewportTransportControlsVisibility() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })),
-		NAME_None,
-		EUserInterfaceActionType::ToggleButton);
-}
-
 void FLevelEditorSequencerIntegration::OnTabContentChanged()
-{	
-	for (const FTransportControl& Control : TransportControls)
-	{
-		TSharedPtr<ILevelViewport> Viewport = Control.Viewport.Pin();
-		if (Viewport.IsValid())
-		{
-			Viewport->RemoveOverlayWidget(Control.Widget.ToSharedRef());
-		}
-	}
-	TransportControls.Reset();
+{
 
-	FLevelEditorModule* Module = FModuleManager::Get().LoadModulePtr<FLevelEditorModule>("LevelEditor");
-	
-	if (Module == nullptr)
-	{
-		return;
-	}
-
-	TSharedPtr<ILevelEditor> LevelEditor = Module->GetFirstLevelEditor();
-
-	for (TSharedPtr<ILevelViewport> LevelViewport : LevelEditor->GetViewports())
-	{
-		if (LevelViewport->GetLevelViewportClient().CanAttachTransportControls())
-		{
-			TSharedRef<SViewportTransportControls> TransportControl = SNew(SViewportTransportControls, LevelViewport);
-			LevelViewport->AddOverlayWidget(TransportControl);
-
-			auto IsValidSequencer = [](const FSequencerAndOptions& In){ return In.Sequencer.IsValid(); };
-			if (FSequencerAndOptions* FirstValidSequencer = BoundSequencers.FindByPredicate(IsValidSequencer))
-			{
-				TSharedPtr<FSequencer> SequencerPtr = FirstValidSequencer->Sequencer.Pin();
-				check(SequencerPtr.IsValid());
-				
-				TransportControl->AssignSequencer(SequencerPtr.ToSharedRef());
-			}
-
-			TransportControls.Add(FTransportControl{ LevelViewport, TransportControl });
-		}
-	}
 }
 
 void FLevelEditorSequencerIntegration::AddSequencer(TSharedRef<ISequencer> InSequencer, const FLevelEditorSequencerIntegrationOptions& Options)
@@ -1345,15 +1018,6 @@ void FLevelEditorSequencerIntegration::AddSequencer(TSharedRef<ISequencer> InSeq
 		SequencerEdMode->AddSequencer(DerivedSequencerPtr);
 	}
 
-	// Set up any transport controls
-	for (const FTransportControl& Control : TransportControls)
-	{
-		if (!Control.Widget->GetSequencer().IsValid())
-		{
-			Control.Widget->AssignSequencer(DerivedSequencerPtr);
-		}
-	}
-
 	ActivateRealtimeViewports();
 }
 
@@ -1385,21 +1049,7 @@ void FLevelEditorSequencerIntegration::RemoveSequencer(TSharedRef<ISequencer> In
 	KeyFrameHandler->Remove(InSequencer);
 
 	auto IsValidSequencer = [](const FSequencerAndOptions& In){ return In.Sequencer.IsValid(); };
-	if (FSequencerAndOptions* FirstValidSequencer = BoundSequencers.FindByPredicate(IsValidSequencer))
-	{
-		TSharedPtr<FSequencer> SequencerPtr = FirstValidSequencer->Sequencer.Pin();
-		check(SequencerPtr.IsValid());
-
-		// Assign any transport controls
-		for (const FTransportControl& Control : TransportControls)
-		{
-			if (!Control.Widget->GetSequencer().IsValid())
-			{
-				Control.Widget->AssignSequencer(SequencerPtr.ToSharedRef());
-			}
-		}
-	}
-	else
+	if (!BoundSequencers.FindByPredicate(IsValidSequencer))
 	{
 		AcquiredResources.Release();
 	}

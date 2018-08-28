@@ -417,6 +417,13 @@ FLinearColor FSequencerObjectBindingNode::GetDisplayNameColor() const
 		}
 	}
 
+	// Spawnables don't have valid object bindings when their track hasn't spawned them yet,
+	// so we override the default behavior of red with a gray so that users don't think there is something wrong.
+	if (GetBindingType() == EObjectBindingType::Spawnable)
+	{
+		return FLinearColor::Gray;
+	}
+
 	return FLinearColor::Red;
 }
 
@@ -485,7 +492,21 @@ void FSequencerObjectBindingNode::SetDisplayName(const FText& NewDisplayName)
 
 	if (MovieScene != nullptr)
 	{
+		// Modify the movie scene so that it gets marked dirty and renames are saved consistently.
+		MovieScene->Modify();
 		MovieScene->SetObjectDisplayName(ObjectBinding, NewDisplayName);
+
+		FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(GetObjectBinding());
+		if (Spawnable)
+		{
+			Spawnable->SetName(NewDisplayName.ToString());
+		}
+
+		FMovieScenePossessable* Possessable = MovieScene->FindPossessable(GetObjectBinding());
+		if (Possessable)
+		{
+			Possessable->SetName(NewDisplayName.ToString());
+		}
 	}
 }
 
@@ -978,7 +999,7 @@ void FSequencerObjectBindingNode::HandlePropertyMenuItemExecute(FPropertyPath Pr
 		}
 	}
 
-	FKeyPropertyParams KeyPropertyParams(KeyableBoundObjects, PropertyPath, ESequencerKeyMode::ManualKeyForced);
+	FKeyPropertyParams KeyPropertyParams(KeyableBoundObjects, PropertyPath, ESequencerKeyMode::ManualKey);
 
 	Sequencer.KeyProperty(KeyPropertyParams);
 }

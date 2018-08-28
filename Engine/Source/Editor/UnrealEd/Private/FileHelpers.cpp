@@ -726,11 +726,6 @@ static bool SaveWorld(UWorld* World,
 			SaveErrors.Flush();
 		}
 
-		if ( bAddedAssetPathRedirection )
-		{
-			GRedirectCollector.RemoveAssetPathRedirection( *OldPath.GetAssetPathString() );
-		}
-
 		// @todo Autosaving should save build data as well
 		if (bSuccess && !bAutosaving)
 		{

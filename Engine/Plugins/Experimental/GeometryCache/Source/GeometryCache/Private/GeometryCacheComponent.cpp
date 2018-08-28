@@ -152,6 +152,8 @@ void UGeometryCacheComponent::TickAtThisTime(const float Time, bool bInIsRunning
 {
 	if (bManualTick && GeometryCache && bRunning)
 	{
+		ElapsedTime = Time;
+
 		// Game thread update:
 		// This mainly just updates the matrix and bounding boxes. All render state (meshes) is done on the render thread
 		bool bUpdatedBoundsOrMatrix = false;

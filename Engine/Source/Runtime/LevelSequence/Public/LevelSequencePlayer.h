@@ -142,13 +142,15 @@ public:
 	DEPRECATED(4.15, "Please use GetSequence instead.")
 	ULevelSequence* GetLevelSequence() const { return Cast<ULevelSequence>(Sequence); }
 
+	// IMovieScenePlayer interface
+	virtual UObject* GetPlaybackContext() const override;
+	virtual TArray<UObject*> GetEventContexts() const override;
+
 protected:
 
 	// IMovieScenePlayer interface
 	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject, bool bJumpCut) override;
 	virtual void NotifyBindingUpdate(const FGuid& InGuid, FMovieSceneSequenceIDRef InSequenceID, TArrayView<TWeakObjectPtr<>> Objects) override;
-	virtual UObject* GetPlaybackContext() const override;
-	virtual TArray<UObject*> GetEventContexts() const override;
 
 	//~ UMovieSceneSequencePlayer interface
 	virtual bool CanPlay() const override;

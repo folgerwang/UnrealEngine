@@ -60,7 +60,7 @@ public:
 	/**
 	 * Exports the basic scene information to a file.
 	 */
-	virtual void ExportLevelMesh( ULevel* Level, bool bSelectedOnly, INodeNameAdapter& NodeNameAdapter ) = 0;
+	virtual void ExportLevelMesh( ULevel* Level, bool bSelectedOnly, INodeNameAdapter& NodeNameAdapter, bool bSaveAnimSeq = true) = 0;
 
 	/**
 	 * Exports the light-specific information for a light actor.

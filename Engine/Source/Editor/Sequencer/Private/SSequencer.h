@@ -109,6 +109,9 @@ public:
 		/** The selection range */
 		SLATE_ATTRIBUTE( TRange<FFrameNumber>, SelectionRange)
 
+		/** The Marked Frames */
+		SLATE_ATTRIBUTE( TSet<FFrameNumber>, MarkedFrames )
+
 		/** The current sub sequence range */
 		SLATE_ATTRIBUTE( TOptional<TRange<FFrameNumber>>, SubSequenceRange)
 
@@ -144,6 +147,12 @@ public:
 
 		/** Called when the user changes the view range */
 		SLATE_EVENT( FOnViewRangeChanged, OnViewRangeChanged )
+
+		/** Called when the user changes on the set of marked frames */
+		SLATE_EVENT( FOnMarkedFrameChanged, OnMarkedFrameChanged )
+
+		/** Called when all marked frames should be cleared */
+		SLATE_EVENT( FSimpleDelegate, OnClearAllMarkedFrames)
 
 		/** Called when the user changes the clamp range */
 		SLATE_EVENT( FOnTimeRangeChanged, OnClampRangeChanged )

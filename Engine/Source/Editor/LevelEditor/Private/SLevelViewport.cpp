@@ -432,7 +432,7 @@ void SLevelViewport::ConstructLevelEditorViewportClient( const FArguments& InArg
 	{
 		LevelViewportClient->SetViewLocation( EditorViewportDefs::DefaultPerspectiveViewLocation );
 		LevelViewportClient->SetViewRotation( EditorViewportDefs::DefaultPerspectiveViewRotation );
-		LevelViewportClient->SetAllowCinematicPreview(true);
+		LevelViewportClient->SetAllowCinematicControl(true);
 	}
 	LevelViewportClient->SetRealtime(ViewportInstanceSettings.bIsRealtime);
 	LevelViewportClient->SetShowStats(ViewportInstanceSettings.bShowOnScreenStats);
@@ -2155,15 +2155,15 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 void SLevelViewport::OnToggleAllowCinematicPreview()
 {
 	// Reset the FOV of Viewport for cases where we have been previewing the matinee with a changing FOV
-	LevelViewportClient->ViewFOV = LevelViewportClient->AllowsCinematicPreview() ? LevelViewportClient->ViewFOV : LevelViewportClient->FOVAngle;
+	LevelViewportClient->ViewFOV = LevelViewportClient->AllowsCinematicControl() ? LevelViewportClient->ViewFOV : LevelViewportClient->FOVAngle;
 
-	LevelViewportClient->SetAllowCinematicPreview( !LevelViewportClient->AllowsCinematicPreview() );
+	LevelViewportClient->SetAllowCinematicControl( !LevelViewportClient->AllowsCinematicControl() );
 	LevelViewportClient->Invalidate( false );
 }
 
 bool SLevelViewport::AllowsCinematicPreview() const
 {
-	return LevelViewportClient->AllowsCinematicPreview();
+	return LevelViewportClient->AllowsCinematicControl();
 }
 
 void SLevelViewport::OnIncrementPositionGridSize()
@@ -3131,7 +3131,7 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 				ActorPreviewLevelViewportClient->bDisableInput = true;
 
 				// Never allow Matinee to possess these views
-				ActorPreviewLevelViewportClient->SetAllowCinematicPreview( false );
+				ActorPreviewLevelViewportClient->SetAllowCinematicControl( false );
 
 				// Our preview viewport is always visible if our owning SLevelViewport is visible, so we hook up
 				// to the same IsVisible method
