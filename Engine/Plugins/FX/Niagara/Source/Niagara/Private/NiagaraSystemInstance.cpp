@@ -46,6 +46,7 @@ FNiagaraSystemInstance::FNiagaraSystemInstance(UNiagaraComponent* InComponent)
 	, bForceSolo(false)
 	, bPendingSpawn(false)
 	, bHasTickingEmitters(true)
+	, bPaused(false)
 	, RequestedExecutionState(ENiagaraExecutionState::Complete)
 	, ActualExecutionState(ENiagaraExecutionState::Complete)
 {
@@ -274,7 +275,6 @@ void FNiagaraSystemInstance::Activate(EResetMode InResetMode)
 
 void FNiagaraSystemInstance::Deactivate(bool bImmediate)
 {
-
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemDeactivate);
 	if (IsComplete())
 	{
@@ -335,6 +335,27 @@ void FNiagaraSystemInstance::Complete()
 	}
 }
 
+void FNiagaraSystemInstance::SetPaused(bool bInPaused)
+{
+	if (bInPaused == bPaused)
+	{
+		return;
+	}
+	
+	FNiagaraSystemSimulation* SystemSim = GetSystemSimulation().Get();
+	check(SystemSim);
+	if (bInPaused)
+	{
+		SystemSim->PauseInstance(this);
+	}
+	else
+	{
+		SystemSim->UnpauseInstance(this);
+	}
+
+	bPaused = bInPaused;
+}
+
 void FNiagaraSystemInstance::Reset(FNiagaraSystemInstance::EResetMode Mode, bool bBindParams)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemReset);
@@ -351,6 +372,8 @@ void FNiagaraSystemInstance::Reset(FNiagaraSystemInstance::EResetMode Mode, bool
 	}
 
 	Component->LastRenderTime = Component->GetWorld()->GetTimeSeconds();
+
+	SetPaused(false);
 
 	if (SystemSim)
 	{

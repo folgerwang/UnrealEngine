@@ -128,6 +128,9 @@ public:
 	void RemoveInstance(FNiagaraSystemInstance* Instance);
 	void AddInstance(FNiagaraSystemInstance* Instance);
 
+	void PauseInstance(FNiagaraSystemInstance* Instance);
+	void UnpauseInstance(FNiagaraSystemInstance* Instance);
+
 	FORCEINLINE UNiagaraSystem* GetSystem()const { return WeakSystem.Get(); }
 
 	UNiagaraParameterCollectionInstance* GetParameterCollectionInstance(UNiagaraParameterCollection* Collection);
@@ -196,6 +199,10 @@ protected:
 	TArray<FNiagaraSystemInstance*> SystemInstances;
 	/** System instances that are pending to be spawned. */
 	TArray<FNiagaraSystemInstance*> PendingSystemInstances;
+
+	/** System instances that are paused. */
+	TArray<FNiagaraSystemInstance*> PausedSystemInstances;
+	FNiagaraDataSet PausedInstanceData;
 
 	TArray<TArray<FNiagaraDataSetAccessor<FNiagaraSpawnInfo>>> EmitterSpawnInfoAccessors;
 

@@ -467,6 +467,23 @@ void UNiagaraComponent::AdvanceSimulationByTime(float SimulateTime, float TickDe
 	}
 }
 
+void UNiagaraComponent::SetPaused(bool bInPaused)
+{
+	if (SystemInstance.IsValid())
+	{
+		SystemInstance->SetPaused(bInPaused);
+	}
+}
+
+bool UNiagaraComponent::IsPaused()const
+{
+	if (SystemInstance.IsValid())
+	{
+		return SystemInstance->IsPaused();
+	}
+	return false;
+}
+
 bool UNiagaraComponent::InitializeSystem()
 {
 	if (SystemInstance.IsValid() == false)

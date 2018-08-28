@@ -266,6 +266,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Niagara)
 	void AdvanceSimulationByTime(float SimulateTime, float TickDeltaSeconds);
 
+	UFUNCTION(BlueprintCallable, Category = Niagara)
+	void SetPaused(bool bInPaused);
+
+	UFUNCTION(BlueprintCallable, Category = Niagara)
+	bool IsPaused()const;
+
 	//~ Begin UObject Interface.
 	virtual void PostLoad();
 #if WITH_EDITOR
