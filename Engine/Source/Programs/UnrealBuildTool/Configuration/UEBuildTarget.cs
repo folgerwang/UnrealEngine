@@ -2139,11 +2139,15 @@ namespace UnrealBuildTool
 			}
 
 			// Prepare all the runtime dependencies, copying them from their source folders if necessary
-			List<FileReference> RuntimeDependencySourceFiles = new List<FileReference>();
 			List<RuntimeDependency> RuntimeDependencies = new List<RuntimeDependency>();
+			Dictionary<FileReference, FileReference> RuntimeDependencyTargetFileToSourceFile = new Dictionary<FileReference, FileReference>();
 			foreach(UEBuildBinary Binary in Binaries)
 			{
-				OutputItems.AddRange(Binary.PrepareRuntimeDependencies(RuntimeDependencies, RuntimeDependencySourceFiles, ExeDir, ActionGraph));
+				Binary.PrepareRuntimeDependencies(RuntimeDependencies, RuntimeDependencyTargetFileToSourceFile, ExeDir);
+			}
+			foreach(KeyValuePair<FileReference, FileReference> Pair in RuntimeDependencyTargetFileToSourceFile)
+			{
+				OutputItems.Add(CreateCopyAction(Pair.Value, Pair.Key, ActionGraph));
 			}
 
 			// If we're just precompiling a plugin, only include output items which are under that directory
@@ -2163,6 +2167,7 @@ namespace UnrealBuildTool
 				Binary.GetBuildProducts(Rules, TargetToolChain, BinaryBuildProducts, GlobalLinkEnvironment.bCreateDebugInfo);
 				BuildProducts.AddRange(BinaryBuildProducts);
 			}
+			BuildProducts.AddRange(RuntimeDependencyTargetFileToSourceFile.Select(x => new KeyValuePair<FileReference, BuildProductType>(x.Key, BuildProductType.RequiredResource)));
 
 			// Create a receipt for the target
 			if (!ProjectFileGenerator.bGenerateProjectFiles)
@@ -2185,7 +2190,7 @@ namespace UnrealBuildTool
 			// Build a list of all the externally files
 			foreach(FileReference DependencyListFileName in Rules.DependencyListFileNames)
 			{
-				WriteDependencyList(DependencyListFileName, RuntimeDependencySourceFiles);
+				WriteDependencyList(DependencyListFileName, RuntimeDependencyTargetFileToSourceFile.Values);
 			}
 
 			// If we're only generating the manifest, return now
@@ -2201,6 +2206,40 @@ namespace UnrealBuildTool
 			// Clean any stale modules which exist in multiple output directories. This can lead to the wrong DLL being loaded on Windows.
 			CleanStaleModules();
 			return ECompilationResult.Succeeded;
+		}
+
+		/// <summary>
+		/// Creates an action which copies a file from one location to another
+		/// </summary>
+		/// <param name="SourceFile">The source file location</param>
+		/// <param name="TargetFile">The target file location</param>
+		/// <param name="ActionGraph">The action graph</param>
+		/// <returns>File item for the output file</returns>
+		static FileItem CreateCopyAction(FileReference SourceFile, FileReference TargetFile, ActionGraph ActionGraph)
+		{
+			FileItem SourceFileItem = FileItem.GetItemByFileReference(SourceFile);
+			FileItem TargetFileItem = FileItem.GetItemByFileReference(TargetFile);
+
+			Action CopyAction = ActionGraph.Add(ActionType.BuildProject);
+			CopyAction.CommandDescription = "Copy";
+			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+			{
+				CopyAction.CommandPath = "cmd.exe";
+				CopyAction.CommandArguments = String.Format("/C \"copy /Y \"{0}\" \"{1}\" 1>nul\"", SourceFile, TargetFile);
+			}
+			else
+			{
+				CopyAction.CommandPath = "/bin/sh";
+				CopyAction.CommandArguments = String.Format("cp -f {0} {1}", Utils.EscapeShellArgument(SourceFile.FullName), Utils.EscapeShellArgument(TargetFile.FullName));
+			}
+			CopyAction.WorkingDirectory = Environment.CurrentDirectory;
+			CopyAction.PrerequisiteItems.Add(SourceFileItem);
+			CopyAction.ProducedItems.Add(TargetFileItem);
+			CopyAction.DeleteItems.Add(TargetFileItem);
+			CopyAction.StatusDescription = TargetFileItem.Location.GetFileName();
+			CopyAction.bCanExecuteRemotely = false;
+
+			return TargetFileItem;
 		}
 
 		/// <summary>
