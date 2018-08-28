@@ -533,7 +533,6 @@ int32 UCookCommandlet::Main(const FString& CmdLineParams)
 
 	bCookOnTheFly = Switches.Contains(TEXT("COOKONTHEFLY"));   // Prototype cook-on-the-fly server
 	bCookAll = Switches.Contains(TEXT("COOKALL"));   // Cook everything
-	bLeakTest = Switches.Contains(TEXT("LEAKTEST"));   // Test for UObject leaks
 	bUnversioned = Switches.Contains(TEXT("UNVERSIONED"));   // Save all cooked packages without versions. These are then assumed to be current version on load. This is dangerous but results in smaller patch sizes.
 	bGenerateStreamingInstallManifests = Switches.Contains(TEXT("MANIFESTS"));   // Generate manifests for building streaming install packages
 	bIterativeCooking = Switches.Contains(TEXT("ITERATE"));
@@ -806,7 +805,6 @@ bool UCookCommandlet::CookByTheBook( const TArray<ITargetPlatform*>& Platforms, 
 	// start cook by the book 
 	ECookByTheBookOptions CookOptions = ECookByTheBookOptions::None;
 
-	CookOptions |= bLeakTest ? ECookByTheBookOptions::LeakTest : ECookByTheBookOptions::None; 
 	CookOptions |= bCookAll ? ECookByTheBookOptions::CookAll : ECookByTheBookOptions::None;
 	CookOptions |= Switches.Contains(TEXT("MAPSONLY")) ? ECookByTheBookOptions::MapsOnly : ECookByTheBookOptions::None;
 	CookOptions |= Switches.Contains(TEXT("NODEV")) ? ECookByTheBookOptions::NoDevContent : ECookByTheBookOptions::None;
