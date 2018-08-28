@@ -5,19 +5,24 @@
 =============================================================================*/
 
 #include "CookOnTheSide/CookOnTheFlyServer.h"
+#include "Cooker/PackageNameCache.h"
+
 #include "HAL/PlatformFilemanager.h"
 #include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
+#include "Stats/Stats.h"
 #include "Stats/StatsMisc.h"
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/PlatformProcess.h"
 #include "Misc/LocalTimestampDirectoryVisitor.h"
 #include "Serialization/CustomVersion.h"
 #include "Misc/App.h"
 #include "Misc/CoreDelegates.h"
+#include "Misc/ScopeLock.h"
 #include "Modules/ModuleManager.h"
 #include "Serialization/ArchiveUObject.h"
 #include "UObject/GarbageCollection.h"
@@ -26,6 +31,7 @@
 #include "UObject/Package.h"
 #include "UObject/MetaData.h"
 #include "UObject/ConstructorHelpers.h"
+#include "UObject/UObjectArray.h"
 #include "Misc/PackageName.h"
 #include "Misc/RedirectCollector.h"
 #include "Engine/Level.h"
@@ -119,6 +125,7 @@ static FAutoConsoleVariableRef CVarCookDisplayMode(
 	TEXT("  3: Both\n"),
 	ECVF_Default);
 
+DECLARE_STATS_GROUP(TEXT("Cooking"), STATGROUP_Cooking, STATCAT_Advanced);
 
 #if OUTPUT_TIMING
 #include <Containers/AllocatorFixedSizeFreeList.h>
@@ -400,7 +407,7 @@ DECLARE_CYCLE_STAT(TEXT("Tick cooking"), STAT_TickCooker, STATGROUP_Cooking);
 struct FRecompileRequest
 {
 	struct FShaderRecompileData RecompileData;
-	volatile bool bComplete;
+	volatile bool bComplete = false;
 };
 
 
@@ -520,145 +527,893 @@ void LogCookerMessage( const FString& MessageText, EMessageSeverity::Type Severi
 	MessageLog.Notify(FText(), EMessageSeverity::Warning, false);
 }
 
+//////////////////////////////////////////////////////////////////////////
 
-
-/* FIlename caching functions
- *****************************************************************************/
-
-FString UCookOnTheFlyServer::GetCachedPackageFilename( const FName& PackageName ) const 
+/** cooked file requests which includes platform which file is requested for */
+struct FFilePlatformRequest
 {
-	return Cache( PackageName ).PackageFilename;
-}
+protected:
+	FName			Filename;
+	TArray<FName>	PlatformNames;
 
-FString UCookOnTheFlyServer::GetCachedStandardPackageFilename( const FName& PackageName ) const 
-{
-	return Cache( PackageName ).StandardFilename;
-}
+public:
+	// yes we have some friends
+	friend uint32 GetTypeHash(const FFilePlatformRequest& Key);
 
-FName UCookOnTheFlyServer::GetCachedStandardPackageFileFName( const FName& PackageName ) const 
-{
-	return Cache( PackageName ).StandardFileFName;
-}
+	FFilePlatformRequest() = default;
 
-
-FString UCookOnTheFlyServer::GetCachedPackageFilename( const UPackage* Package ) const 
-{
-	// check( Package->GetName() == Package->GetFName().ToString() );
-	return Cache( Package->GetFName() ).PackageFilename;
-}
-
-FString UCookOnTheFlyServer::GetCachedStandardPackageFilename( const UPackage* Package ) const 
-{
-	// check( Package->GetName() == Package->GetFName().ToString() );
-	return Cache( Package->GetFName() ).StandardFilename;
-}
-
-FName UCookOnTheFlyServer::GetCachedStandardPackageFileFName( const UPackage* Package ) const 
-{
-	// check( Package->GetName() == Package->GetFName().ToString() );
-	return Cache( Package->GetFName() ).StandardFileFName;
-}
-
-
-bool UCookOnTheFlyServer::ClearPackageFilenameCacheForPackage( const FName& PackageName ) const
-{
-	check(IsInGameThread());
-	return PackageFilenameCache.Remove( PackageName ) >= 1;
-}
-
-bool UCookOnTheFlyServer::ClearPackageFilenameCacheForPackage( const UPackage* Package ) const
-{
-	check(IsInGameThread());
-	return PackageFilenameCache.Remove( Package->GetFName() ) >= 1;
-}
-
-const FString& UCookOnTheFlyServer::GetCachedSandboxFilename( const UPackage* Package, TUniquePtr<class FSandboxPlatformFile>& InSandboxFile ) const 
-{
-	check(IsInGameThread());
-
-	FName PackageFName = Package->GetFName();
-	static TMap<FName, FString> CachedSandboxFilenames;
-	FString* CachedSandboxFilename = CachedSandboxFilenames.Find(PackageFName);
-	if ( CachedSandboxFilename )
-		return *CachedSandboxFilename;
-
-	const FString& PackageFilename = GetCachedPackageFilename(Package);
-	FString SandboxFilename = ConvertToFullSandboxPath(*PackageFilename, true );
-
-	return CachedSandboxFilenames.Add( PackageFName, MoveTemp(SandboxFilename) );
-}
-
-const UCookOnTheFlyServer::FCachedPackageFilename& UCookOnTheFlyServer::Cache(const FName& PackageName) const 
-{
-	check( IsInGameThread() );
-
-	FCachedPackageFilename *Cached = PackageFilenameCache.Find( PackageName );
-	if ( Cached != NULL )
+	FFilePlatformRequest(const FName& InFileName, const FName& InPlatformName) : Filename(InFileName)
 	{
-		return *Cached;
+		PlatformNames.Add(InPlatformName);
 	}
-	// cache all the things, like it's your birthday!
 
-	FString Filename;
-	FString PackageFilename;
-	FString StandardFilename;
-	FName StandardFileFName = NAME_None;
-	if (FPackageName::DoesPackageExist(PackageName.ToString(), NULL, &Filename, false))
+	FFilePlatformRequest(const FName& InFilename, const TArray<FName>& InPlatformName) : Filename(InFilename)
 	{
-		StandardFilename = PackageFilename = FPaths::ConvertRelativePathToFull(Filename);
-
-
-		FPaths::MakeStandardFilename(StandardFilename);
-		StandardFileFName = FName(*StandardFilename);
+		PlatformNames = InPlatformName;
 	}
-	PackageFilenameToPackageFNameCache.Add(StandardFileFName, PackageName);
-	return PackageFilenameCache.Emplace( PackageName, FCachedPackageFilename(MoveTemp(PackageFilename),MoveTemp(StandardFilename), StandardFileFName) );
-}
 
+	FFilePlatformRequest(const FName& InFilename, TArray<FName>&& InPlatformName) : Filename(InFilename), PlatformNames(MoveTemp(InPlatformName)) { }
+	FFilePlatformRequest(const FFilePlatformRequest& InFilePlatformRequest) : Filename(InFilePlatformRequest.Filename), PlatformNames(InFilePlatformRequest.PlatformNames) { }
+	FFilePlatformRequest(FFilePlatformRequest&& InFilePlatformRequest) : Filename(MoveTemp(InFilePlatformRequest.Filename)), PlatformNames(MoveTemp(InFilePlatformRequest.PlatformNames)) { }
 
-const FName* UCookOnTheFlyServer::GetCachedPackageFilenameToPackageFName(const FName& StandardPackageFilename) const
-{
-	check(IsInGameThread());
-	const FName* Result = PackageFilenameToPackageFNameCache.Find(StandardPackageFilename);
-	if ( Result )
+	void SetFilename(const FString& InFilename)
 	{
+		Filename = FName(*InFilename);
+	}
+
+	const FName& GetFilename() const
+	{
+		return Filename;
+	}
+
+	const TArray<FName>& GetPlatformNames() const
+	{
+		return PlatformNames;
+	}
+
+	void RemovePlatform(const FName& Platform)
+	{
+		PlatformNames.Remove(Platform);
+	}
+
+	void AddPlatform(const FName& Platform)
+	{
+		check(Platform != NAME_None);
+		PlatformNames.Add(Platform);
+	}
+
+	bool HasPlatform(const FName& Platform) const
+	{
+		return PlatformNames.Find(Platform) != INDEX_NONE;
+	}
+
+	bool IsValid()  const
+	{
+		return Filename != NAME_None;
+	}
+
+	void Clear()
+	{
+		Filename = TEXT("");
+		PlatformNames.Empty();
+	}
+
+	FFilePlatformRequest& operator=(FFilePlatformRequest&& InFileRequest)
+	{
+		Filename = MoveTemp(InFileRequest.Filename);
+		PlatformNames = MoveTemp(InFileRequest.PlatformNames);
+		return *this;
+	}
+
+	bool operator==(const FFilePlatformRequest& InFileRequest) const
+	{
+		if (InFileRequest.Filename == Filename)
+		{
+			if (InFileRequest.PlatformNames == PlatformNames)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	FString ToString() const
+	{
+		FString Result = FString::Printf(TEXT("%s;"), *Filename.ToString());
+
+		for (const FName& Platform : PlatformNames)
+		{
+			Result += FString::Printf(TEXT("%s,"), *Platform.ToString());
+		}
 		return Result;
 	}
+};
 
-	FName PackageName = StandardPackageFilename;
-	FString PotentialLongPackageName = StandardPackageFilename.ToString();
-	if (FPackageName::IsValidLongPackageName(PotentialLongPackageName) == false)
+uint32 GetTypeHash(const FFilePlatformRequest& Key)
+{
+	uint32 Hash = GetTypeHash(Key.Filename);
+
+	for (const FName& PlatformName : Key.PlatformNames)
 	{
-		PotentialLongPackageName = FPackageName::FilenameToLongPackageName(PotentialLongPackageName);
-		PackageName = FName(*PotentialLongPackageName);
+		Hash += Hash << 2 ^ GetTypeHash(PlatformName);
 	}
 
-	Cache(PackageName);
-
-	return PackageFilenameToPackageFNameCache.Find(StandardPackageFilename);
+	return Hash;
 }
 
-void UCookOnTheFlyServer::ClearPackageFilenameCache() const 
+struct FFilePlatformCookedPackage
 {
-	check(IsInGameThread());
-	PackageFilenameCache.Empty();
-	PackageFilenameToPackageFNameCache.Empty();
+public:
+	FFilePlatformCookedPackage(const FFilePlatformRequest& InFilePlatformRequest, const TArray<bool>& bInSuccededSavePackage)
+	: Filename(InFilePlatformRequest.GetFilename())
+	, PlatformNames(InFilePlatformRequest.GetPlatformNames())
+	, bSucceededSavePackage(bInSuccededSavePackage)
+	{ 
+		check(PlatformNames.Num() == bSucceededSavePackage.Num()); 
+	}
+
+	FFilePlatformCookedPackage(const FName& InFilename, const TArray<FName>& InPlatformName) 
+	: Filename(InFilename)
+	, PlatformNames(InPlatformName)
+	{
+		// only use this constructor to short hand when packages fail
+		for (int32 I = 0; I < InPlatformName.Num(); ++I)
+		{
+			bSucceededSavePackage.Add(false);
+		}
+
+		check(PlatformNames.Num() == bSucceededSavePackage.Num());
+	}
+
+	FFilePlatformCookedPackage(const FName& InFilename, const TArray<FName>& InPlatformName, const TArray<bool>& bInSuccededSavePackage)
+	: Filename(InFilename)
+	, PlatformNames(InPlatformName)
+	, bSucceededSavePackage(bInSuccededSavePackage) 
+	{ 
+		check(PlatformNames.Num() == bSucceededSavePackage.Num()); 
+	}
+
+	FFilePlatformCookedPackage(const FName& InFilename, TArray<FName>&& InPlatformName, TArray<bool>&& bInSuccededSavePackage)
+	: Filename(InFilename)
+	, PlatformNames(MoveTemp(InPlatformName))
+	, bSucceededSavePackage(MoveTemp(bInSuccededSavePackage))
+	{ 
+		check(PlatformNames.Num() == bSucceededSavePackage.Num());
+	}
+
+	FFilePlatformCookedPackage(const FFilePlatformCookedPackage& InFilePlatformRequest) = default;
+	FFilePlatformCookedPackage(FFilePlatformCookedPackage&& InFilePlatformRequest) = default;
+
+	bool IsValid() const
+	{
+		return Filename != NAME_None;
+	}
+
+	const FName& GetFilename() const
+	{
+		return Filename;
+	}
+
+	const TArray<FName>& GetPlatformNames() const
+	{
+		return PlatformNames;
+	}
+
+	bool HasPlatform(const FName& Platform) const
+	{
+		return PlatformNames.Find(Platform) != INDEX_NONE;
+	}
+
+	const void AddPlatform(const FName& Platform, bool bSucceeded)
+	{
+		check(PlatformNames.Num() == bSucceededSavePackage.Num());
+		check(Platform != NAME_None);
+		PlatformNames.Add(Platform);
+		bSucceededSavePackage.Add(bSucceeded);
+		check(PlatformNames.Num() == bSucceededSavePackage.Num());
+	}
+
+	void RemovePlatform(const FName& Platform)
+	{
+		check(PlatformNames.Num() == bSucceededSavePackage.Num());
+		const int32 Index = PlatformNames.IndexOfByKey(Platform);
+
+		if (Index != -1)
+		{
+			PlatformNames.RemoveAt(Index);
+			bSucceededSavePackage.RemoveAt(Index);
+		}
+
+		check(PlatformNames.Num() == bSucceededSavePackage.Num());
+	}
+
+	const bool HasSucceededSavePackage(const FName& PlatformName) const
+	{
+		const int32 Index = PlatformNames.IndexOfByKey(PlatformName);
+
+		if ((Index != -1) && (Index < bSucceededSavePackage.Num()))
+		{
+			return bSucceededSavePackage[Index];
+		}
+		return false;
+	}
+
+private:
+	FName			Filename;
+	TArray<FName>	PlatformNames;
+	TArray<bool>	bSucceededSavePackage; // one bool for each platform
+};
+
+struct CookedPackageSet
+{
+	friend struct FPackageTracker;
+
+private:
+	mutable FCriticalSection				SynchronizationObject;
+	TMap<FName, FFilePlatformCookedPackage> FilesProcessed;
+
+public:
+	int32 Num()
+	{
+		return FilesProcessed.Num();
+	}
+
+	void Add(const FFilePlatformCookedPackage& InRequest)
+	{
+		check(InRequest.IsValid());
+
+		FScopeLock ScopeLock(&SynchronizationObject);
+
+		// see if it's already in the requests list
+		FFilePlatformCookedPackage* ExistingRequest = FilesProcessed.Find(InRequest.GetFilename());
+
+		if (ExistingRequest)
+		{
+			check(ExistingRequest->GetFilename() == InRequest.GetFilename());
+
+			for (const FName& Platform : InRequest.GetPlatformNames())
+			{
+				const bool bSucceeded = InRequest.HasSucceededSavePackage(Platform);
+				ExistingRequest->AddPlatform(Platform, bSucceeded);
+			}
+		}
+		else
+		{
+			FilesProcessed.Add(InRequest.GetFilename(), InRequest);
+		}
+	}
+
+	bool Exists(const FFilePlatformRequest& Request) const
+	{
+		return Exists(Request.GetFilename(), Request.GetPlatformNames(), /* bIncludeFailed */ true);
+	}
+
+	bool Exists(const FName& Filename, const TArray<FName>& PlatformNames, bool bIncludeFailed = true) const
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+
+		const FFilePlatformCookedPackage* OurRequest = FilesProcessed.Find(Filename);
+
+		if (!OurRequest)
+		{
+			return false;
+		}
+
+		if (bIncludeFailed == false)
+		{
+			bool allFailed = true;
+
+			for (const FName& PlatformName : PlatformNames)
+			{
+				if (OurRequest->HasSucceededSavePackage(PlatformName))
+				{
+					allFailed = false;
+					break;
+				}
+			}
+
+			if (allFailed)
+			{
+				return false;
+			}
+		}
+
+		// make sure all the platforms are completed
+		for (const FName& Platform : PlatformNames)
+		{
+			if (!OurRequest->GetPlatformNames().Contains(Platform))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	void RemoveAllFilesForPlatform(const FName& PlatformName)
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+
+		for (auto& Request : FilesProcessed)
+		{
+			Request.Value.RemovePlatform(PlatformName);
+		}
+	}
+
+	bool GetCookedPlatforms(const FName& Filename, TArray<FName>& OutPlatformList) const
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+
+		if (const FFilePlatformCookedPackage* Request = FilesProcessed.Find(Filename))
+		{
+			OutPlatformList = Request->GetPlatformNames();
+			return true;
+		}
+
+		return false;
+	}
+
+	int RemoveFile(const FName& Filename)
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+
+		return FilesProcessed.Remove(Filename);
+	}
+
+	void GetCookedFilesForPlatform(const FName& PlatformName, TArray<FName>& CookedFiles, bool bGetFailedCookedPackages, bool bGetSuccessfulCookedPackages)
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		for (const auto& CookedFile : FilesProcessed)
+		{
+			if (CookedFile.Value.HasPlatform(PlatformName))
+			{
+				const bool bHasSucceededSavePackage = CookedFile.Value.HasSucceededSavePackage(PlatformName);
+
+				if (	(bHasSucceededSavePackage && bGetSuccessfulCookedPackages)
+					|| ((bHasSucceededSavePackage == false) && bGetFailedCookedPackages))
+				{
+					CookedFiles.Add(CookedFile.Value.GetFilename());
+				}
+			}
+		}
+	}
+
+	void Empty(int32 ExpectedNumElements = 0)
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		FilesProcessed.Empty(ExpectedNumElements);
+	}
+};
+
+struct CookRequestQueue
+{
+	template <class PREDICATE_CLASS>
+	void Sort(const PREDICATE_CLASS& Predicate)
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		Queue.Sort(Predicate);
+	}
+
+	const TArray<FName>& GetQueue() const 
+	{ 
+		return Queue;
+	}
+
+	void EnqueueUnique(const FFilePlatformRequest& Request, bool ForceEnqueFront = false)
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		TArray<FName>* Platforms = PlatformList.Find(Request.GetFilename());
+		if (Platforms == NULL)
+		{
+			PlatformList.Add(Request.GetFilename(), Request.GetPlatformNames());
+			Queue.Add(Request.GetFilename());
+		}
+		else
+		{
+			// add the requested platforms to the platform list
+			for (const FName& Platform : Request.GetPlatformNames())
+			{
+				Platforms->AddUnique(Platform);
+			}
+		}
+
+		if (ForceEnqueFront)
+		{
+			int32 Index = Queue.Find(Request.GetFilename());
+			check(Index != INDEX_NONE);
+			if (Index != 0)
+			{
+				Queue.Swap(0, Index);
+			}
+		}
+	}
+
+	bool Dequeue(FFilePlatformRequest& OutResult)
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		if (Queue.Num())
+		{
+			FName Filename = Queue[0];
+			Queue.RemoveAt(0);
+			TArray<FName> Platforms = PlatformList.FindChecked(Filename);
+			PlatformList.Remove(Filename);
+
+			OutResult = FFilePlatformRequest(MoveTemp(Filename), MoveTemp(Platforms));
+			return true;
+		}
+		return false;
+	}
+
+	void DequeueAllRequests(TArray<FFilePlatformRequest>& RequestArray)
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		if (Queue.Num())
+		{
+			for (const auto& Request : PlatformList)
+			{
+				RequestArray.Add(FFilePlatformRequest(Request.Key, Request.Value));
+			}
+			PlatformList.Empty();
+			Queue.Empty();
+		}
+	}
+
+	bool Exists(const FName& Filename, const TArray<FName>& PlatformNames) const
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		const TArray<FName>* Platforms = PlatformList.Find(Filename);
+		if (Platforms == NULL)
+			return false;
+
+		for (const FName& PlatformName : PlatformNames)
+		{
+			if (!Platforms->Contains(PlatformName))
+				return false;
+		}
+		return true;
+	}
+
+	bool Exists(const FName& Filename)
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		const TArray<FName>* Platforms = PlatformList.Find(Filename);
+		if (Platforms == NULL)
+			return false;
+		return true;
+	}
+
+	bool HasItems() const
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		return Queue.Num() > 0;
+	}
+
+	int Num() const
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		return Queue.Num();
+	}
+
+	void Empty()
+	{
+		FScopeLock ScopeLock(&SynchronizationObject);
+		Queue.Empty();
+		PlatformList.Empty();
+	}
+
+private:
+	TArray<FName>				Queue;
+	TMap<FName, TArray<FName>>	PlatformList;
+	mutable FCriticalSection	SynchronizationObject;
+};
+
+struct FThreadSafeUnsolicitedPackagesList
+{
+	void AddCookedPackage(const FFilePlatformRequest& PlatformRequest)
+	{
+		FScopeLock S(&SyncObject);
+		CookedPackages.Add(PlatformRequest);
+	}
+
+	void GetPackagesForPlatformAndRemove(const FName& Platform, TArray<FName> PackageNames)
+	{
+		FScopeLock _(&SyncObject);
+
+		for (int I = CookedPackages.Num() - 1; I >= 0; --I)
+		{
+			FFilePlatformRequest &Request = CookedPackages[I];
+
+			if (Request.GetPlatformNames().Contains(Platform))
+			{
+				// remove the platform
+				Request.RemovePlatform(Platform);
+
+				if (Request.GetPlatformNames().Num() == 0)
+				{
+					CookedPackages.RemoveAt(I);
+				}
+			}
+		}
+	}
+
+	void Empty()
+	{
+		FScopeLock _(&SyncObject);
+		CookedPackages.Empty();
+	}
+
+private:
+	FCriticalSection				SyncObject;
+	TArray<FFilePlatformRequest>	CookedPackages;
+};
+
+template<typename Type, typename SynchronizationObjectType, typename ScopeLockType>
+struct FUnsynchronizedQueue
+{
+private:
+	mutable SynchronizationObjectType	SynchronizationObject; // made this mutable so this class can have const functions and still be thread safe
+	TArray<Type>		Items;
+public:
+	void Enqueue(const Type& Item)
+	{
+		ScopeLockType ScopeLock(&SynchronizationObject);
+		Items.Add(Item);
+	}
+	void EnqueueUnique(const Type& Item)
+	{
+		ScopeLockType ScopeLock(&SynchronizationObject);
+		Items.AddUnique(Item);
+	}
+	bool Dequeue(Type* Result)
+	{
+		ScopeLockType ScopeLock(&SynchronizationObject);
+		if (Items.Num())
+		{
+			*Result = Items[0];
+			Items.RemoveAt(0);
+			return true;
+		}
+		return false;
+	}
+	void DequeueAll(TArray<Type>& Results)
+	{
+		ScopeLockType ScopeLock(&SynchronizationObject);
+		Results += Items;
+		Items.Empty();
+	}
+
+	bool HasItems() const
+	{
+		ScopeLockType ScopeLock(&SynchronizationObject);
+		return Items.Num() > 0;
+	}
+
+	void Remove(const Type& Item)
+	{
+		ScopeLockType ScopeLock(&SynchronizationObject);
+		Items.Remove(Item);
+	}
+
+	void CopyItems(TArray<Type> &InItems) const
+	{
+		ScopeLockType ScopeLock(&SynchronizationObject);
+		InItems = Items;
+	}
+
+	int Num() const
+	{
+		ScopeLockType ScopeLock(&SynchronizationObject);
+		return Items.Num();
+	}
+
+	void Empty()
+	{
+		ScopeLockType ScopeLock(&SynchronizationObject);
+		Items.Empty();
+	}
+};
+
+
+struct FDummyCriticalSection
+{
+public:
+	FORCEINLINE void Lock() { }
+	FORCEINLINE void Unlock() { }
+};
+
+struct FDummyScopeLock
+{
+public:
+	FDummyScopeLock(FDummyCriticalSection *) { }
+};
+
+template<typename Type>
+struct FThreadSafeQueue : public FUnsynchronizedQueue<Type, FCriticalSection, FScopeLock>
+{
+	/**
+	* Don't add any functions here, this is just a overqualified typedef
+	* Add functions / functionality to the FUnsynchronizedQueue
+	*/
+};
+
+/** Simple thread safe proxy for TSet<FName> */
+template <typename T>
+class FThreadSafeSet
+{
+	TSet<T> InnerSet;
+	FCriticalSection SetCritical;
+public:
+	void Add(T InValue)
+	{
+		FScopeLock SetLock(&SetCritical);
+		InnerSet.Add(InValue);
+	}
+	bool AddUnique(T InValue)
+	{
+		FScopeLock SetLock(&SetCritical);
+		if (!InnerSet.Contains(InValue))
+		{
+			InnerSet.Add(InValue);
+			return true;
+		}
+		return false;
+	}
+	bool Contains(T InValue)
+	{
+		FScopeLock SetLock(&SetCritical);
+		return InnerSet.Contains(InValue);
+	}
+	void Remove(T InValue)
+	{
+		FScopeLock SetLock(&SetCritical);
+		InnerSet.Remove(InValue);
+	}
+	void Empty()
+	{
+		FScopeLock SetLock(&SetCritical);
+		InnerSet.Empty();
+	}
+
+	void GetValues(TSet<T>& OutSet)
+	{
+		FScopeLock SetLock(&SetCritical);
+		OutSet.Append(InnerSet);
+	}
+};
+
+struct FPackageTracker : public FUObjectArray::FUObjectCreateListener, public FUObjectArray::FUObjectDeleteListener
+{
+	FPackageTracker(FPackageNameCache* InPackageNameCache)
+	:	PackageNameCache(InPackageNameCache)
+	{
+		for (TObjectIterator<UPackage> It; It; ++It)
+		{
+			UPackage* Package = *It;
+
+			if (Package->GetOuter() == nullptr)
+			{
+				LoadedPackages.Add(Package);
+				FilterLoadedPackage(Package);
+			}
+		}
+
+		NewPackages = LoadedPackages;
+
+		GUObjectArray.AddUObjectDeleteListener(this);
+		GUObjectArray.AddUObjectCreateListener(this);
+	}
+
+	~FPackageTracker()
+	{
+		GUObjectArray.RemoveUObjectDeleteListener(this);
+		GUObjectArray.RemoveUObjectCreateListener(this);
+	}
+
+	TArray<UPackage*> GetNewPackages()
+	{
+		return MoveTemp(NewPackages);
+	}
+
+	virtual void NotifyUObjectCreated(const class UObjectBase *Object, int32 Index) override
+	{
+		if (Object->GetClass() == UPackage::StaticClass())
+		{
+			auto Package = const_cast<UPackage*>(static_cast<const UPackage*>(Object));
+
+			if (Package->GetOuter() == nullptr)
+			{
+				LoadedPackages.Add(Package);
+				NewPackages.Add(Package);
+
+				FilterLoadedPackage(Package);
+			}
+		}
+	}
+
+	virtual void NotifyUObjectDeleted(const class UObjectBase *Object, int32 Index) override
+	{
+		if (Object->GetClass() == UPackage::StaticClass())
+		{
+			auto Package = const_cast<UPackage*>(static_cast<const UPackage*>(Object));
+
+			LoadedPackages.Remove(Package);
+			NewPackages.Remove(Package);
+			PostLoadFixupPackages.Remove(Package);
+			PackagesPendingSave.Remove(Package);
+		}
+	}
+
+	// This is the set of packages which have already had PostLoadFixup called 
+	TSet<UPackage*>			PostLoadFixupPackages;
+
+	// This is a complete list of currently loaded UPackages
+	TArray<UPackage*>		LoadedPackages;
+
+	// This list contains the UPackages loaded since last call to GetNewPackages
+	TArray<UPackage*>		NewPackages;
+
+	// Set of files which have been cooked 
+	// when needing to recook a file the entry will need to be removed from here
+	CookedPackageSet		CookedPackages;
+
+	// List of requested files
+	CookRequestQueue		CookRequests;
+
+	FThreadSafeUnsolicitedPackagesList			UnsolicitedCookedPackages;
+	FThreadSafeQueue<struct FRecompileRequest*> RecompileRequests;
+
+	FThreadSafeSet<FName>						NeverCookPackageList;
+	FThreadSafeSet<FName>						UncookedEditorOnlyPackages; // set of packages that have been rejected due to being referenced by editor-only properties
+
+	// Currently targeted platforms
+	TArray<FName>			AllTargetPlatformNames;
+
+	void					AddTargetPlatform(const FName& TargetPlatform);
+
+private:
+	FPackageNameCache*		PackageNameCache;
+
+	// Set of packages pending save.
+
+	typedef TSet<UPackage*> PendingPackageSet;
+	PendingPackageSet		PackagesPendingSave;
+
+	void					FilterLoadedPackage(UPackage* Package);
+
+	bool					bPackagesPendingSaveDirty = true;
+
+	void					DirtyPackagesPendingSave()		{ bPackagesPendingSaveDirty = true; }
+	void					UpdatePackagesPendingSave();
+
+public:
+	const PendingPackageSet&	GetPackagesPendingSave()			{ UpdatePackagesPendingSave(); return PackagesPendingSave; }
+	void						PackageSaved(UPackage* Package);
+	
+	void						DirtyPackage(const FName& CookedPackageName, UPackage* Package);
+
+	void						OnPackageCooked(const FFilePlatformCookedPackage& CookedPackage, UPackage* Package);
+};
+
+void FPackageTracker::DirtyPackage(const FName& CookedPackageName, UPackage* Package)
+{
+	if (CookedPackages.RemoveFile(CookedPackageName))
+	{
+		PackagesPendingSave.Add(Package);
+	}
 }
 
+void FPackageTracker::OnPackageCooked(const FFilePlatformCookedPackage& CookedPackage, UPackage* Package)
+{
+	CookedPackages.Add(CookedPackage);
+
+	if (Package)
+	{
+		PackageSaved(Package);
+	}
+}
+
+void FPackageTracker::AddTargetPlatform(const FName& TargetPlatform)
+{
+	if (AllTargetPlatformNames.Find(TargetPlatform) == INDEX_NONE)
+	{
+		AllTargetPlatformNames.Add(TargetPlatform);
+
+		DirtyPackagesPendingSave();
+	}
+}
+
+void FPackageTracker::PackageSaved(UPackage* Package)
+{
+	check(Package != nullptr);
+	PackagesPendingSave.Remove(Package);
+}
+
+void FPackageTracker::FilterLoadedPackage(UPackage* Package)
+{
+	check(Package != nullptr);
+
+	const FName StandardPackageFName = PackageNameCache->GetCachedStandardPackageFileFName(Package);
+
+	if (StandardPackageFName == NAME_None)
+		return;	// if we have name none that means we are in core packages or something...
+
+	if (CookedPackages.Exists(StandardPackageFName, AllTargetPlatformNames))
+		return;
+
+	PackagesPendingSave.Add(Package);
+}
+
+void FPackageTracker::UpdatePackagesPendingSave()
+{
+	if (bPackagesPendingSaveDirty == false)
+		return;
+
+	PackagesPendingSave.Empty(PackagesPendingSave.Num());
+
+	for (UPackage* Package : LoadedPackages)
+	{
+		FilterLoadedPackage(Package);
+	}
+
+	bPackagesPendingSaveDirty = false;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Cook by the book options
+
+struct UCookOnTheFlyServer::FCookByTheBookOptions
+{
+public:
+	/** Should we generate streaming install manifests (only valid option in cook by the book) */
+	bool							bGenerateStreamingInstallManifests = false;
+
+	/** Should we generate a seperate manifest for map dependencies */
+	bool							bGenerateDependenciesForMaps = false;
+
+	/** Is cook by the book currently running */
+	bool							bRunning = false;
+
+	/** Cancel has been queued will be processed next tick */
+	bool							bCancel = false;
+
+	/** DlcName setup if we are cooking dlc will be used as the directory to save cooked files to */
+	FString							DlcName;
+
+	/** Create a release from this manifest and store it in the releases directory for this cgame */
+	FString							CreateReleaseVersion;
+
+	/** Dependency graph of maps as root objects. */
+	TMap<FName,TMap<FName,TSet<FName>>> MapDependencyGraphs;
+
+	/** If a cook is cancelled next cook will need to resume cooking */
+	TArray<FFilePlatformRequest>		PreviousCookRequests;
+
+	/** If we are based on a release version of the game this is the set of packages which were cooked in that release. Map from platform name to list of uncooked package filenames */
+	TMap<FName, TArray<FName>>			BasedOnReleaseCookedPackages;
+
+	/** Timing information about cook by the book */
+	double							CookTime = 0.0;
+	double							CookStartTime = 0.0;
+
+	/** error when detecting engine content being used in this cook */
+	bool							bErrorOnEngineContentUse = false;
+	bool							bDisableUnsolicitedPackages = false;
+	bool							bFullLoadAndSave = false;
+	TArray<FName>					TargetPlatformNames;
+	TArray<FName>					StartupPackages;
+
+	/** Mapping from source packages to their localized variants (based on the culture list in FCookByTheBookStartupOptions) */
+	TMap<FName, TArray<FName>>		SourceToLocalizedPackageVariants;
+};
 
 /* UCookOnTheFlyServer functions
  *****************************************************************************/
 
 UCookOnTheFlyServer::UCookOnTheFlyServer(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer),
-	CurrentCookMode(ECookMode::CookOnTheFly),
-	CookByTheBookOptions(nullptr),
-	CookFlags(ECookInitializationFlags::None),
-	bIsInitializingSandbox(false),
-	bIgnoreMarkupPackageAlreadyLoaded(false),
-	bIsSavingPackage(false),
-	AssetRegistry(nullptr)
+	: Super(ObjectInitializer)
 {
+	PackageNameCache = new FPackageNameCache;
+	PackageTracker	 = new FPackageTracker(PackageNameCache);
 }
 
 UCookOnTheFlyServer::~UCookOnTheFlyServer()
@@ -666,11 +1421,14 @@ UCookOnTheFlyServer::~UCookOnTheFlyServer()
 	FCoreDelegates::OnFConfigCreated.RemoveAll(this);
 	FCoreDelegates::OnFConfigDeleted.RemoveAll(this);
 
-	if ( CookByTheBookOptions )
-	{		
-		delete CookByTheBookOptions;
-		CookByTheBookOptions = NULL;
-	}
+	delete CookByTheBookOptions;
+	CookByTheBookOptions = nullptr;
+
+	delete PackageTracker;
+	PackageTracker = nullptr;
+
+	delete PackageNameCache;
+	PackageNameCache = nullptr;
 }
 
 // this tick only happens in the editor cook commandlet directly calls tick on the side
@@ -699,17 +1457,6 @@ void UCookOnTheFlyServer::Tick(float DeltaTime)
 			TickPrecacheObjectsForPlatforms(0.001, CacheTargetPlatforms);
 		}
 	}
-
-	/*
-	// this is still being worked on
-	if ( IsCookOnTheFlyMode() )
-	{
-		if ( !CookRequests.HasItems() )
-		{
-			OpportunisticSaveInMemoryPackages();
-		}
-	}
-	*/
 
 	uint32 CookedPackagesCount = 0;
 	const static float CookOnTheSideTimeSlice = 0.1f; // seconds
@@ -785,7 +1532,6 @@ bool UCookOnTheFlyServer::StartNetworkFileServer( const bool BindAnyPort )
 #if PROFILE_NETWORK
 	NetworkRequestEvent = FPlatformProcess::GetSynchEventFromPool();
 #endif
-	ValidateCookOnTheFlySettings();
 
 	GenerateAssetRegistry();
 
@@ -1163,7 +1909,7 @@ bool UCookOnTheFlyServer::ContainsRedirector(const FName& PackageName, TMap<FNam
 					// we can;t call GetCachedStandardPackageFileFName with None
 					if (RedirectedPath != NAME_None)
 					{
-						FName StandardPackageName = GetCachedStandardPackageFileFName(FName(*FPackageName::ObjectPathToPackageName(RedirectedPathString)));
+						FName StandardPackageName = PackageNameCache->GetCachedStandardPackageFileFName(FName(*FPackageName::ObjectPathToPackageName(RedirectedPathString)));
 						if (StandardPackageName != NAME_None)
 						{
 							bDestinationValid = true;
@@ -1208,6 +1954,29 @@ bool UCookOnTheFlyServer::IsCookOnTheFlyMode() const
 	return CurrentCookMode == ECookMode::CookOnTheFly || CurrentCookMode == ECookMode::CookOnTheFlyFromTheEditor; 
 }
 
+bool UCookOnTheFlyServer::IsCreatingReleaseVersion()
+{
+	if (CookByTheBookOptions)
+	{
+		return !CookByTheBookOptions->CreateReleaseVersion.IsEmpty();
+	}
+
+	return false;
+}
+
+bool UCookOnTheFlyServer::IsCookingDLC() const
+{
+	// can only cook DLC in cook by the book
+	// we are cooking DLC when the DLC name is setup
+	
+	if (CookByTheBookOptions)
+	{
+		return !CookByTheBookOptions->DlcName.IsEmpty();
+	}
+
+	return false;
+}
+
 FString UCookOnTheFlyServer::GetBaseDirectoryForDLC() const
 {
 	TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(CookByTheBookOptions->DlcName);
@@ -1228,10 +1997,15 @@ FString UCookOnTheFlyServer::GetContentDirecctoryForDLC() const
 
 COREUOBJECT_API extern bool GOutputCookingWarnings;
 
+bool UCookOnTheFlyServer::HasCookRequests() const 
+{ 
+	return PackageTracker->CookRequests.HasItems(); 
+}
+
 bool UCookOnTheFlyServer::RequestPackage(const FName& StandardPackageFName, const TArray<FName>& TargetPlatforms, const bool bForceFrontOfQueue)
 {
 	FFilePlatformRequest FileRequest(StandardPackageFName, TargetPlatforms);
-	CookRequests.EnqueueUnique(FileRequest, bForceFrontOfQueue);
+	PackageTracker->CookRequests.EnqueueUnique(FileRequest, bForceFrontOfQueue);
 	return true;
 }
 
@@ -1241,7 +2015,7 @@ bool UCookOnTheFlyServer::RequestPackage(const FName& StandardPackageFName, cons
 	check(IsCookByTheBookMode());
 	// need target platforms if we are not in cook by the book mode
 	FFilePlatformRequest FileRequest(StandardPackageFName, CookByTheBookOptions->TargetPlatformNames);
-	CookRequests.EnqueueUnique(FileRequest, bForceFrontOfQueue);
+	PackageTracker->CookRequests.EnqueueUnique(FileRequest, bForceFrontOfQueue);
 	return true;
 }
 
@@ -1299,10 +2073,10 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 	
 	while (!GIsRequestingExit || CurrentCookMode == ECookMode::CookByTheBook)
 	{
-		if (CookRequests.Num() > 0)
+		if (HasCookRequests())
 		{
 			UE_CLOG(!(TickFlags & ECookTickFlags::HideProgressDisplay) && (GCookProgressDisplay & (int32)ECookProgressDisplayMode::RemainingPackages), 
-			LogCook, Display, TEXT("Cooked packages %d Packages Remain %d Total %d"), CookedPackages.Num(), CookRequests.Num(), CookedPackages.Num() + CookRequests.Num());
+			LogCook, Display, TEXT("Cooked packages %d Packages Remain %d Total %d"), PackageTracker->CookedPackages.Num(), PackageTracker->CookRequests.Num(), PackageTracker->CookedPackages.Num() + PackageTracker->CookRequests.Num());
 		}
 
 		// if we just cooked a map then don't process anything the rest of this tick
@@ -1322,10 +2096,9 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 
 		FFilePlatformRequest ToBuild;
 		
-		//bool bIsUnsolicitedRequest = false;
-		if ( CookRequests.HasItems() )
+		if (HasCookRequests())
 		{
-			CookRequests.Dequeue( &ToBuild );
+			PackageTracker->CookRequests.Dequeue(/* out */ ToBuild);
 		}
 		else
 		{
@@ -1348,7 +2121,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 			GUnrealEd->GetPackageAutoSaver().ForceMinimumTimeTillAutoSave(SecondsWarningTillAutosave);
 		}
 
-		if (CookedPackages.Exists(ToBuild))
+		if (PackageTracker->CookedPackages.Exists(ToBuild))
 		{
 #if DEBUG_COOKONTHEFLY
 			UE_LOG(LogCook, Display, TEXT("Package for platform already cooked %s, discarding request"), *ToBuild.GetFilename().ToString());
@@ -1363,8 +2136,6 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 
 		check( ToBuild.IsValid() );
 		const TArray<FName>& TargetPlatformNames = ToBuild.GetPlatformNames();
-
-		TArray<UPackage*> PackagesToSave;
 
 #if OUTPUT_TIMING
 		//FScopeTimer PackageManualTimer( ToBuild.GetFilename().ToString(), false );
@@ -1385,15 +2156,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 
 		const FString BuildFilename = ToBuild.GetFilename().ToString();
 
-		// if we have no target platforms then we want to cook because this will cook for all target platforms in that case
-		bool bShouldCook = TargetPlatformNames.Num() > 0 ? false : ShouldCook( BuildFilename, NAME_None );
-		{
-			SCOPE_TIMER(ShouldCook);
-			for ( int Index = 0; Index < TargetPlatformNames.Num(); ++Index )
-			{
-				bShouldCook |= ShouldCook( ToBuild.GetFilename().ToString(), TargetPlatformNames[Index] );
-			}
-		}
+		bool bShouldCook = true;
 		
 		if( CookByTheBookOptions && CookByTheBookOptions->bErrorOnEngineContentUse )
 		{
@@ -1407,7 +2170,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 		}
 
 		check(IsInGameThread());
-		if (NeverCookPackageList.Contains(ToBuild.GetFilename()))
+		if (PackageTracker->NeverCookPackageList.Contains(ToBuild.GetFilename()))
 		{
 #if DEBUG_COOKONTHEFLY
 			UE_LOG(LogCook, Display, TEXT("Package %s requested but is in the never cook package list, discarding request"), *ToBuild.GetFilename().ToString());
@@ -1415,6 +2178,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 			bShouldCook = false;
 		}
 
+		UPackage* PackageForCooking = nullptr;
 
 		if ( bShouldCook ) // if we should cook the package then cook it otherwise add it to the list of already cooked packages below
 		{
@@ -1423,7 +2187,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 			if ( Package )
 			{
 				FString Name = Package->GetPathName();
-				FString PackageFilename(GetCachedStandardPackageFilename(Package));
+				FString PackageFilename(PackageNameCache->GetCachedStandardPackageFilename(Package));
 				if (PackageFilename != BuildFilename)
 				{
 					// we have saved something which we didn't mean to load 
@@ -1432,11 +2196,12 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 					//	and then also save our new request as processed so we don't do it again
 					UE_LOG(LogCook, Verbose, TEXT("Request for %s received going to save %s"), *BuildFilename, *PackageFilename);
 
-					CookedPackages.Add(FFilePlatformCookedPackage(ToBuild.GetFilename(), TargetPlatformNames));
+					PackageTracker->OnPackageCooked(FFilePlatformCookedPackage(ToBuild.GetFilename(), TargetPlatformNames), Package);
 
 					ToBuild.SetFilename(PackageFilename);
 				}
-				PackagesToSave.AddUnique(Package);
+
+				PackageForCooking = Package;
 			}
 			else
 			{
@@ -1445,7 +2210,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 		}
 
 		
-		if ( PackagesToSave.Num() == 0 )
+		if (PackageForCooking == nullptr)
 		{
 			// if we are iterative cooking the package might already be cooked
 			// so just add the package to the cooked packages list
@@ -1470,7 +2235,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 				}
 			}
 #endif
-			CookedPackages.Add( FFilePlatformCookedPackage( ToBuild.GetFilename(), TargetPlatformNames) );
+			PackageTracker->OnPackageCooked(FFilePlatformCookedPackage(ToBuild.GetFilename(), TargetPlatformNames), nullptr);
 			continue;
 		}
 
@@ -1487,15 +2252,16 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 		GShaderCompilingManager->ProcessAsyncResults(true, false);
 
 
-		if ( PackagesToSave.Num() )
+		if (PackageForCooking)
 		{
 			SCOPE_TIMER(CallBeginCacheForCookedPlatformData);
 			// cache the resources for this package for each platform
 			
-			bIsAllDataCached &= BeginPackageCacheForCookedPlatformData(PackagesToSave[0], TargetPlatforms, Timer);
+			bIsAllDataCached &= BeginPackageCacheForCookedPlatformData(PackageForCooking, TargetPlatforms, Timer);
+
 			if( bIsAllDataCached )
 			{
-				bIsAllDataCached &= FinishPackageCacheForCookedPlatformData(PackagesToSave[0], TargetPlatforms, Timer);
+				bIsAllDataCached &= FinishPackageCacheForCookedPlatformData(PackageForCooking, TargetPlatforms, Timer);
 			}
 		}
 
@@ -1538,56 +2304,30 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 			}
 		}
 
-		int32 FirstUnsolicitedPackage = PackagesToSave.Num();
-
-		UE_LOG(LogCook, Verbose, TEXT("Finding unsolicited packages for package %s"), *ToBuild.GetFilename().ToString());
-		GetAllUnsolicitedPackages(PackagesToSave, AllTargetPlatformNames);
+		ProcessUnsolicitedPackages();
 		
 		// in cook by the book bail out early because shaders and compiled for the primary package we are trying to save. 
 		// note in this case we also put the package at the end of the queue that queue might be reordered if we do partial gc
 		if ((bIsAllDataCached == false) && IsCookByTheBookMode() && !IsRealtimeMode())
 		{
+			/////
+			// TODO-Stefan: need to understand this logic better
+			/////
+
 			// don't load anymore stuff unless we have space and we don't already have enough stuff to save
 			if ((!(Result & COSR_RequiresGC)) &&
 				(HasExceededMaxMemory() == false) &&
-				((Timer.NumPackagesSaved + PackagesToSave.Num()) < Timer.MaxNumPackagesToSave)) // if we don't need to GC and also we have memory then load some more packages ;)
+				((Timer.NumPackagesSaved + PackageTracker->GetPackagesPendingSave().Num()) < Timer.MaxNumPackagesToSave)) // if we don't need to GC and also we have memory then load some more packages ;)
 			{
 				GShaderCompilingManager->ProcessAsyncResults(true, false); // we can afford to do work here because we are essentually requing this package for processing later
 				Timer.SavedPackage();  // this is a special case to prevent infinite loop, if we only have one package we might fall through this and could loop forever.  
-				CookRequests.EnqueueUnique(ToBuild, false);
+				PackageTracker->CookRequests.EnqueueUnique(ToBuild, false);
 				continue;
 			}
 		}
 
-		bool bFinishedSave = SaveCookedPackages( PackagesToSave, AllTargetPlatformNames, TargetPlatforms, Timer, FirstUnsolicitedPackage, CookedPackageCount, Result );
+		SaveCookedPackages(PackageForCooking, AllTargetPlatformNames, TargetPlatforms, Timer, /* out */ CookedPackageCount, /* out */ Result);
 
-
-		// TODO: Daniel: this is reference code needs to be reimplemented on the callee side.
-		//  cooker can't depend on callee being able to garbage collect
-		// collect garbage
-		if ( CookByTheBookOptions && CookByTheBookOptions->bLeakTest && bFinishedSave )
-		{
-			check( CurrentCookMode == ECookMode::CookByTheBook);
-			UE_LOG(LogCook, Display, TEXT("Full GC..."));
-
-			CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
-			for (FObjectIterator It; It; ++It)
-			{
-				if (!CookByTheBookOptions->LastGCItems.Contains(FWeakObjectPtr(*It)))
-				{
-					UE_LOG(LogCook, Warning, TEXT("\tLeaked %s"), *(It->GetFullName()));
-					CookByTheBookOptions->LastGCItems.Add(FWeakObjectPtr(*It));
-				}
-			}
-		}
-
-		
-		// if we are cook on the fly (even in editor) and we have cook requests, try process them straight away
-		/*if ( IsCookOnTheFlyMode() && CookRequests.HasItems() )
-		{
-			continue;
-		}*/
-		
 		if ( Timer.IsTimeUp() )
 		{
 			break;
@@ -1613,7 +2353,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 	}
 
 	if (IsCookByTheBookRunning() &&
-		(CookRequests.HasItems() == false))
+		(HasCookRequests() == false))
 	{
 		check(IsCookByTheBookMode());
 
@@ -1825,67 +2565,81 @@ UPackage* UCookOnTheFlyServer::LoadPackageForCooking(const FString& BuildFilenam
 }
 
 
-void UCookOnTheFlyServer::OpportunisticSaveInMemoryPackages()
+void UCookOnTheFlyServer::ProcessUnsolicitedPackages()
 {
-	const float TimeSlice = 0.01f;
-	FCookerTimer Timer(TimeSlice, IsRealtimeMode());
-	TArray<UPackage*> PackagesToSave;
+	if (IsCookByTheBookMode() && CookByTheBookOptions->bDisableUnsolicitedPackages)
+		return;
 
-	TArray<FName> TargetPlatformNames;
-	for (const auto& TargetPlatform : PresaveTargetPlatforms)
+	// Ensure sublevels are loaded by iterating all recently loaded packages and invoking
+	// PostLoadPackageFixup
+
 	{
-		TargetPlatformNames.Add(FName(*TargetPlatform->PlatformName()));
-	}
+		SCOPE_TIMER(PostLoadPackageFixup);
 
+		TArray<UPackage*> NewPackages = PackageTracker->GetNewPackages();
 
-	GetAllUnsolicitedPackages(PackagesToSave, TargetPlatformNames);
-
-	
-	uint32 CookedPackageCount = 0;
-	uint32 Result = 0;
-	SaveCookedPackages( PackagesToSave, TargetPlatformNames, PresaveTargetPlatforms, Timer, 0, CookedPackageCount, Result);
-}
-
-void UCookOnTheFlyServer::GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames)
-{
-	// generate a list of other packages which were loaded with this one
-	if (!IsCookByTheBookMode() || (CookByTheBookOptions->bDisableUnsolicitedPackages == false))
-	{
+		for (UPackage* Package : NewPackages)
 		{
-			SCOPE_TIMER(PostLoadPackageFixup);
-			for (TObjectIterator<UPackage> It; It; ++It)
-			{
-				const FName StandardPackageName = GetCachedStandardPackageFileFName(*It);
-				if (CookedPackages.Exists(StandardPackageName, TargetPlatformNames))
-				{
-					continue;
-				}
-				PostLoadPackageFixup(*It);
-			}
+			PostLoadPackageFixup(Package);
 		}
-		SCOPE_TIMER(UnsolicitedMarkup);
-		GetUnsolicitedPackages(PackagesToSave, TargetPlatformNames);
 	}
 }
 
-bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, FCookerTimer& Timer, 
-	int32 FirstUnsolicitedPackage, uint32& CookedPackageCount , uint32& Result)
+void UCookOnTheFlyServer::SaveCookedPackages(
+	UPackage*								PackageToSave, 
+	const TArray<FName>&					TargetPlatformNames, 
+	const TArray<const ITargetPlatform*>&	TargetPlatformsToCache, 
+	FCookerTimer&							Timer,
+	uint32&									CookedPackageCount,
+	uint32&									Result)
 {
+	check(IsInGameThread());
+
 	bool bIsAllDataCached = true;
 
 	const TArray<FName>& AllTargetPlatformNames = TargetPlatformNames;
-	
 
-	bool bFinishedSave = true;
+	// To make transitioning from the old way of managing unsolicited assets
+	// easier, we construct a temporary array here with the PackageToSave as 
+	// the first entry. It would be nice if we could restructure this so we
+	// could avoid the temporary allocation and memory copying, but I'm 
+	// leaving it like this for now to avoid having change too many things
+	// at once
 
-	if (PackagesToSave.Num())
+	auto PendingSet = PackageTracker->GetPackagesPendingSave();
+	PendingSet.Remove(PackageToSave);
+	TArray<UPackage*> PackagesToSave = PendingSet.Array();
+
+	int32 FirstUnsolicitedPackage = 0;
+
+	if (PackageToSave)
 	{
-		int32 OriginalPackagesToSaveCount = PackagesToSave.Num();
+		if (PackagesToSave.Num())
+		{
+			UPackage* First = PackagesToSave[0];
+			PackagesToSave.Add(First);
+			PackagesToSave[0] = PackageToSave;
+		}
+		else
+		{
+			PackagesToSave.Add(PackageToSave);
+		}
+
+		FirstUnsolicitedPackage = 1;
+	}
+
+	// Loop over array and save as many packages as we can during our
+	// time slice
+
+	const int32 OriginalPackagesToSaveCount = PackagesToSave.Num();
+
+	{
 		SCOPE_TIMER(SavingPackages);
+
 		for (int32 I = 0; I < PackagesToSave.Num(); ++I)
 		{
 			UPackage* Package = PackagesToSave[I];
-			if (Package->IsLoadedByEditorPropertiesOnly() && UncookedEditorOnlyPackages.Contains(Package->GetFName()))
+			if (Package->IsLoadedByEditorPropertiesOnly() && PackageTracker->UncookedEditorOnlyPackages.Contains(Package->GetFName()))
 			{
 				// We already attempted to cook this package and it's still not referenced by any non editor-only properties.
 				continue;
@@ -1893,21 +2647,22 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 
 			// This package is valid, so make sure it wasn't previously marked as being an uncooked editor only package or it would get removed from the
 			// asset registry at the end of the cook
-			UncookedEditorOnlyPackages.Remove(Package->GetFName());
+			PackageTracker->UncookedEditorOnlyPackages.Remove(Package->GetFName());
 
-			const FName StandardPackageFilename = GetCachedStandardPackageFileFName(Package);
-			check(IsInGameThread());
-			if (NeverCookPackageList.Contains(StandardPackageFilename))
+			const FName PackageFName = PackageNameCache->GetCachedStandardPackageFileFName(Package);
+			if (PackageTracker->NeverCookPackageList.Contains(PackageFName))
 			{
 				// refuse to save this package, it's clearly one of the undesirables
 				continue;
 			}
 
-
-			FName PackageFName = GetCachedStandardPackageFileFName(Package);
+			// TODO: optimize this to avoid creating the full array first only to remove entries (multiple dynamic allocations)
+			//
+			// Could rewrite using FTargetPlatformSet
+			
 			TArray<FName> SaveTargetPlatformNames = AllTargetPlatformNames;
 			TArray<FName> CookedTargetPlatforms;
-			if (CookedPackages.GetCookedPlatforms(PackageFName, CookedTargetPlatforms))
+			if (PackageTracker->CookedPackages.GetCookedPlatforms(PackageFName, CookedTargetPlatforms))
 			{
 				for (const FName& CookedPlatform : CookedTargetPlatforms)
 				{
@@ -1918,11 +2673,10 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 			// we somehow already cooked this package not sure how that can happen because the PackagesToSave list should have already filtered this
 			if (SaveTargetPlatformNames.Num() == 0)
 			{
-				UE_LOG(LogCook, Warning, TEXT("Allready saved this package not sure how this got here!"));
+				UE_LOG(LogCook, Warning, TEXT("Already saved this package not sure how this got here!"));
 				// already saved this package
 				continue;
 			}
-
 
 			// if we are processing unsolicited packages we can optionally not save these right now
 			// the unsolicited packages which we missed now will be picked up on next run
@@ -1932,21 +2686,21 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 
 			if (Timer.IsTimeUp() && IsCookByTheBookMode() )
 			{
-				bShouldFinishTick = true;
 				// our timeslice is up
+				bShouldFinishTick = true;
 			}
 
 			// if we are cook the fly then save the package which was requested as fast as we can because the client is waiting on it
 
-			bool ProcessingUnsolicitedPackages = (I >= FirstUnsolicitedPackage);
+			const bool bProcessingUnsolicitedPackages = (I >= 1);
 			bool bForceSavePackage = false;
 
 			if (IsCookOnTheFlyMode())
 			{
-				if (ProcessingUnsolicitedPackages)
+				if (bProcessingUnsolicitedPackages)
 				{
 					SCOPE_TIMER(WaitingForCachedCookedPlatformData);
-					if (CookRequests.HasItems())
+					if (HasCookRequests())
 					{
 						bShouldFinishTick = true;
 					}
@@ -1985,7 +2739,7 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 
 			MakePackageFullyLoaded(Package);
 
-			if ( IsCookOnTheFlyMode() )
+			if (IsCookOnTheFlyMode())
 			{
 				// never want to requeue packages
 				HasCheckedAllPackagesAreCached = true;
@@ -2024,16 +2778,14 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 				
 				for (int32 RemainingIndex = I; RemainingIndex < NumPackagesToRequeue; ++RemainingIndex)
 				{
-					FName StandardFilename = GetCachedStandardPackageFileFName(PackagesToSave[RemainingIndex]);
-							CookRequests.EnqueueUnique(FFilePlatformRequest(StandardFilename, SaveTargetPlatformNames));
+					FName StandardFilename = PackageNameCache->GetCachedStandardPackageFileFName(PackagesToSave[RemainingIndex]);
+					PackageTracker->CookRequests.EnqueueUnique(FFilePlatformRequest(StandardFilename, SaveTargetPlatformNames));
 				}
 				Result |= COSR_WaitingOnCache;
 
 				// break out of the loop
-				bFinishedSave = false;
-				break;
+				return;
 			}
-
 
 			// don't precache other packages if our package isn't ready but we are going to save it.   This will fill up the worker threads with extra shaders which we may need to flush on 
 			if ((!IsCookOnTheFlyMode()) &&
@@ -2101,7 +2853,7 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 				{
 					SaveCookedPackage(Package, SaveFlags, SaveTargetPlatformNames, SavePackageResults);
 				}
-				catch (std::exception& e)
+				catch (std::exception&)
 				{
 					FString TargetPlatforms;
 					for ( const FName& PlatformFName : SaveTargetPlatformNames )
@@ -2109,7 +2861,7 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 						TargetPlatforms += FString::Printf( TEXT("%s, "), *PlatformFName.ToString());
 					}
 					UE_LOG(LogCook, Warning, TEXT("Tried to save package %s for target platforms %s but threw an exception"), *Package->GetPathName(), *TargetPlatforms);
-					throw e;
+					throw;
 				}
 				
 				GOutputCookingWarnings = false;
@@ -2164,8 +2916,8 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 				}
 			}
 
-				//@todo ResetLoaders outside of this (ie when Package is NULL) causes problems w/ default materials
-			FName StandardFilename = GetCachedStandardPackageFileFName(Package);
+			//@todo ResetLoaders outside of this (ie when Package is NULL) causes problems w/ default materials
+			FName StandardFilename = PackageNameCache->GetCachedStandardPackageFileFName(Package);
 
 			// We always want to mark package as processed unless it wasn't saved because it was referenced by editor-only data
 			// in which case we may still need to save it later when new content loads it through non editor-only references
@@ -2184,13 +2936,15 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 				}
 				if (!bWasReferencedOnlyByEditorOnlyData)
 				{
-					CookedPackages.Add(FileRequest);
+					PackageTracker->OnPackageCooked(FileRequest, Package);
+
 					if ((CurrentCookMode == ECookMode::CookOnTheFly) && (I >= FirstUnsolicitedPackage))
 					{
 						// this is an unsolicited package
 						if (FPaths::FileExists(FileRequest.GetFilename().ToString()) == true)
 						{
-							UnsolicitedCookedPackages.AddCookedPackage(FileRequest);
+							PackageTracker->UnsolicitedCookedPackages.AddCookedPackage(FFilePlatformRequest(FileRequest.GetFilename(), FileRequest.GetPlatformNames()));
+
 #if DEBUG_COOKONTHEFLY
 							UE_LOG(LogCook, Display, TEXT("UnsolicitedCookedPackages: %s"), *FileRequest.GetFilename().ToString());
 #endif
@@ -2199,7 +2953,7 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 				}
 				else
 				{
-					UncookedEditorOnlyPackages.AddUnique(Package->GetFName());
+					PackageTracker->UncookedEditorOnlyPackages.AddUnique(Package->GetFName());
 				}
 			}
 			else
@@ -2211,50 +2965,65 @@ bool UCookOnTheFlyServer::SaveCookedPackages(TArray<UPackage*>& PackagesToSave, 
 			}
 		}
 	}
-	return true;
 }
 
 
 void UCookOnTheFlyServer::PostLoadPackageFixup(UPackage* Package)
 {
-	if (Package->ContainsMap())
+	if (Package->ContainsMap() == false)
 	{
-		// load sublevels
-		UWorld* World = UWorld::FindWorldInPackage(Package);
-		check(World);
+		return;
+	}
 
-		World->PersistentLevel->HandleLegacyMapBuildData();
+	// Ensure we only process the package once
 
-		if (IsCookByTheBookMode())
+	if (PackageTracker->PostLoadFixupPackages.Find(Package) != nullptr)
+	{
+		return;
+	}
+
+	PackageTracker->PostLoadFixupPackages.Add(Package);
+
+	// Perform special processing for UWorld
+
+	UWorld* World = UWorld::FindWorldInPackage(Package);
+	check(World);
+
+	World->PersistentLevel->HandleLegacyMapBuildData();
+
+	if (IsCookByTheBookMode() == false)
+	{
+		return;
+	}
+
+	GIsCookerLoadingPackage = true;
+	if (World->GetStreamingLevels().Num())
+	{
+		TSet<FName> NeverCookPackageNames;
+		PackageTracker->NeverCookPackageList.GetValues(NeverCookPackageNames);
+
+		UE_LOG(LogCook, Display, TEXT("Loading secondary levels for package '%s'"), *World->GetName());
+
+		World->LoadSecondaryLevels(true, &NeverCookPackageNames);
+	}
+	GIsCookerLoadingPackage = false;
+
+	TArray<FString> NewPackagesToCook;
+
+	// Collect world composition tile packages to cook
+	if (World->WorldComposition)
+	{
+		World->WorldComposition->CollectTilesToCook(NewPackagesToCook);
+	}
+
+	for (const FString& PackageName : NewPackagesToCook)
+	{
+		FName StandardPackageFName = PackageNameCache->GetCachedStandardPackageFileFName(FName(*PackageName));
+
+		if (StandardPackageFName != NAME_None)
 		{
-			GIsCookerLoadingPackage = true;
-			// TArray<FString> PreviouslyCookedPackages;
-			if (World->GetStreamingLevels().Num())
-			{
-				TSet<FName> NeverCookPackageNames;
-				NeverCookPackageList.GetValues(NeverCookPackageNames);
-				//World->LoadSecondaryLevels(true, &PreviouslyCookedPackages);
-				World->LoadSecondaryLevels(true, &NeverCookPackageNames);
-			}
-			GIsCookerLoadingPackage = false;
-			TArray<FString> NewPackagesToCook;
-
-			// Collect world composition tile packages to cook
-			if (World->WorldComposition)
-			{
-				World->WorldComposition->CollectTilesToCook(NewPackagesToCook);
-			}
-
-			for (const FString& PackageName : NewPackagesToCook)
-			{
-				FName StandardPackageFName = GetCachedStandardPackageFileFName(FName(*PackageName));
-				if (StandardPackageFName != NAME_None)
-				{
-					RequestPackage(StandardPackageFName, false);
-				}
-			}
+			RequestPackage(StandardPackageFName, false);
 		}
-
 	}
 }
 
@@ -2398,61 +3167,30 @@ bool UCookOnTheFlyServer::HasExceededMaxMemory() const
 	return false;
 }
 
-void UCookOnTheFlyServer::GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames) const
+TArray<UPackage*> UCookOnTheFlyServer::GetUnsolicitedPackages(const TArray<FName>& TargetPlatformNames) const
 {
-	TSet<UPackage*> PackagesToSaveSet;
-	for (UPackage* Package : PackagesToSave)
+	SCOPE_TIMER(GeneratePackageNames);
+
+	TArray<UPackage*> PackagesToSave;
+
+	for (UPackage* Package : PackageTracker->LoadedPackages)
 	{
-		PackagesToSaveSet.Add(Package);
-	}
-	PackagesToSave.Empty();
-			
-	TArray<UObject*> ObjectsInOuter;
-	{
-		SCOPE_TIMER(GetObjectsWithOuter);
-		GetObjectsWithOuter(NULL, ObjectsInOuter, false);
-	}
+		check(Package != nullptr);
 
-	TArray<FName> PackageNames;
-	PackageNames.Empty(ObjectsInOuter.Num());
-	{
-		SCOPE_TIMER(GeneratePackageNames);
-		for (int32 Index = 0; Index < ObjectsInOuter.Num(); Index++)
-		{
-			UPackage* Package = Cast<UPackage>(ObjectsInOuter[Index]);
+		const FName StandardPackageFName = PackageNameCache->GetCachedStandardPackageFileFName(Package);
 
-			if (Package)
-			{
-				FName StandardPackageFName = GetCachedStandardPackageFileFName(Package);
-				if (StandardPackageFName == NAME_None)
-					continue;
+		if (StandardPackageFName == NAME_None)
+			continue;	// if we have name none that means we are in core packages or something...
 
-				// package is already cooked don't care about processing it again here
-				/*if ( CookRequests.Exists( StandardPackageFName, AllTargetPlatformNames) )
-					continue;*/
-
-				if (CookedPackages.Exists(StandardPackageFName, TargetPlatformNames))
-					continue;
+		if (PackageTracker->CookedPackages.Exists(StandardPackageFName, TargetPlatformNames))
+			continue;
 				
-				if (StandardPackageFName != NAME_None) // if we have name none that means we are in core packages or something...
-				{
-					// check if the package has already been saved
-					bool bAlreadyInSet = false;
-					PackagesToSaveSet.Add(Package, &bAlreadyInSet);
-					if ( bAlreadyInSet == false )
-					{
-						UE_LOG(LogCook, Verbose, TEXT("Found unsolicited package to cook %s"), *Package->GetName());
-					}
-					continue;
-				}
-			}
-		}
-	}
-	
-	for (UPackage* Package : PackagesToSaveSet )
-	{
 		PackagesToSave.Add(Package);
+
+		UE_LOG(LogCook, Verbose, TEXT("Found unsolicited package to cook '%s'"), *Package->GetName());
 	}
+
+	return PackagesToSave;
 }
 
 void UCookOnTheFlyServer::OnObjectModified( UObject *ObjectMoving )
@@ -2538,11 +3276,12 @@ void UCookOnTheFlyServer::MarkPackageDirtyForCooker( UPackage *Package )
 		// force that package to be recooked
 		const FString Name = Package->GetPathName();
 
-		FName PackageFFileName = GetCachedStandardPackageFileFName(Package);
+		FName PackageFFileName = PackageNameCache->GetCachedStandardPackageFileFName(Package);
 
 		if ( PackageFFileName == NAME_None )
 		{
-			ClearPackageFilenameCacheForPackage( Package );
+			PackageNameCache->ClearPackageFilenameCacheForPackage(Package);
+
 			return;
 		}
 
@@ -2554,13 +3293,13 @@ void UCookOnTheFlyServer::MarkPackageDirtyForCooker( UPackage *Package )
 			{
 				TArray<FName> CookedPlatforms;
 				// if we have already cooked this package and we have made changes then recook ;)
-				if ( CookedPackages.GetCookedPlatforms(PackageFFileName, CookedPlatforms) )
+				if (PackageTracker->CookedPackages.GetCookedPlatforms(PackageFFileName, CookedPlatforms) )
 				{
 					if (IsCookByTheBookRunning())
 					{
 						// if this package was previously cooked and we are doing a cook by the book 
 						// we need to recook this package before finishing cook by the book
-						CookRequests.EnqueueUnique(FFilePlatformRequest(PackageFFileName, CookedPlatforms));
+						PackageTracker->CookRequests.EnqueueUnique(FFilePlatformRequest(PackageFFileName, CookedPlatforms));
 					}
 					else
 					{
@@ -2588,7 +3327,8 @@ void UCookOnTheFlyServer::MarkPackageDirtyForCooker( UPackage *Package )
 				check( true);
 			}
 		}
-		CookedPackages.RemoveFile( PackageFFileName );
+
+		PackageTracker->DirtyPackage(PackageFFileName, Package);
 	}
 }
 
@@ -2615,11 +3355,6 @@ uint32 UCookOnTheFlyServer::GetPackagesPerPartialGC() const
 	return MaxNumPackagesBeforePartialGC;
 }
 
-
-int32 UCookOnTheFlyServer::GetMaxConcurrentShaderJobs() const
-{
-	return MaxConcurrentShaderJobs;
-}
 
 double UCookOnTheFlyServer::GetIdleTimeToGC() const
 {
@@ -2725,9 +3460,9 @@ void UCookOnTheFlyServer::MarkGCPackagesToKeepForCooker()
 	// then see if the package is needed by any of the packages which are required to be saved
 
 	TMap<FName, int32> PackageDependenciesCount;
-	for (const FName& QueuedPackage : CookRequests.GetQueue())
+	for (const FName& QueuedPackage : PackageTracker->CookRequests.GetQueue())
 	{
-		const FName* PackageName = GetCachedPackageFilenameToPackageFName(QueuedPackage);
+		const FName* PackageName = PackageNameCache->GetCachedPackageFilenameToPackageFName(QueuedPackage);
 		if ( !PackageName )
 		{
 			PackageDependenciesCount.Add(QueuedPackage, 0);
@@ -2745,7 +3480,7 @@ void UCookOnTheFlyServer::MarkGCPackagesToKeepForCooker()
 		UPackage* Package = (UPackage*)(*It);
 		if ( KeepPackages.Contains(Package->GetFName()) )
 		{
-			LoadedPackages.Add( GetCachedStandardPackageFileFName(Package->GetFName()) );
+			LoadedPackages.Add(PackageNameCache->GetCachedStandardPackageFileFName(Package->GetFName()) );
 			const FReentryData& ReentryData = GetReentryData(Package);
 			Package->SetFlags(RF_KeepForCooker);
 			for (UObject* Obj : ReentryData.CachedObjectsInOuter)
@@ -2755,10 +3490,11 @@ void UCookOnTheFlyServer::MarkGCPackagesToKeepForCooker()
 		}
 	}
 
-	// sort the cook requests by the packages which are loaded first
+	// Sort the cook requests by the packages which are loaded first
 	// then sort by the number of dependencies which are referenced by the package
-	// we want to process the packages with the highest dependencies so that they can be evicted from memory and are likely to be able to be released on next gc pass
-	CookRequests.Sort([=, &PackageDependenciesCount,&LoadedPackages](const FName& A, const FName& B)
+	// we want to process the packages with the highest dependencies so that they can
+	// be evicted from memory and are likely to be able to be released on next GC pass
+	PackageTracker->CookRequests.Sort([&PackageDependenciesCount,&LoadedPackages](const FName& A, const FName& B)
 		{
 			int32 ADependencies = PackageDependenciesCount.FindChecked(A);
 			int32 BDependencies = PackageDependenciesCount.FindChecked(B);
@@ -2782,7 +3518,7 @@ void UCookOnTheFlyServer::TickRecompileShaderRequests()
 	// try to pull off a request
 	FRecompileRequest* Request = NULL;
 
-	RecompileRequests.Dequeue(&Request);
+	PackageTracker->RecompileRequests.Dequeue(&Request);
 
 	// process it
 	if (Request)
@@ -2795,16 +3531,15 @@ void UCookOnTheFlyServer::TickRecompileShaderRequests()
 	}
 }
 
+bool UCookOnTheFlyServer::HasRecompileShaderRequests() const 
+{ 
+	return PackageTracker->RecompileRequests.HasItems();
+}
 
 void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags, TArray<FSavePackageResultStruct>& SavePackageResults)
 {
 	TArray<FName> TargetPlatformNames; 
 	return SaveCookedPackage( Package, SaveFlags, TargetPlatformNames, SavePackageResults);
-}
-
-bool UCookOnTheFlyServer::ShouldCook(const FString& InFileName, const FName &InPlatformName)
-{
-	return true;
 }
 
 bool UCookOnTheFlyServer::ShouldConsiderCompressedPackageFileLengthRequirements() const
@@ -3013,7 +3748,7 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 	bIsSavingPackage = true;
 
 	const FString PackagePathName = Package->GetPathName();
-	FString Filename(GetCachedPackageFilename(Package));
+	FString Filename(PackageNameCache->GetCachedPackageFilename(Package));
 
 	// Also request any localized variants of this package
 	if (IsCookByTheBookMode() && !CookByTheBookOptions->bDisableUnsolicitedPackages && !FPackageName::IsLocalizedPackage(PackagePathName))
@@ -3023,7 +3758,7 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 		{
 			for (const FName LocalizedPackageName : *LocalizedVariants)
 			{
-				const FName LocalizedPackageFile = GetCachedStandardPackageFileFName(LocalizedPackageName);
+				const FName LocalizedPackageFile = PackageNameCache->GetCachedStandardPackageFileFName(LocalizedPackageName);
 				RequestPackage(LocalizedPackageFile, false);
 			}
 		}
@@ -3048,7 +3783,7 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 		}
 
 		// Verify package actually exists
-		FName StandardPackageName = GetCachedStandardPackageFileFName(SoftObjectPackage);
+		FName StandardPackageName = PackageNameCache->GetCachedStandardPackageFileFName(SoftObjectPackage);
 
 		if (StandardPackageName != NAME_None && IsCookByTheBookMode() && !CookByTheBookOptions->bDisableUnsolicitedPackages)
 		{
@@ -3275,20 +4010,6 @@ void UCookOnTheFlyServer::Initialize( ECookMode::Type DesiredCookMode, ECookInit
 	MaxConcurrentShaderJobs = FPlatformMisc::NumberOfCores() * 4; // number of cores -1 is a good default allows the editor to still be responsive to other shader requests and allows cooker to take advantage of multiple processors while the editor is running
 	GConfig->GetInt(TEXT("CookSettings"), TEXT("MaxConcurrentShaderJobs"), MaxConcurrentShaderJobs, GEditorIni);
 
-	ITargetPlatformManagerModule& TPM = GetTargetPlatformManagerRef();
-	TArray<FString> PresaveTargetPlatformNames;
-	if ( GConfig->GetArray(TEXT("CookSettings"), TEXT("PresaveTargetPlatforms"), PresaveTargetPlatformNames, GEditorIni ) )
-	{
-		for ( const auto& PresaveTargetPlatformName : PresaveTargetPlatformNames )
-		{
-			ITargetPlatform* TargetPlatform = TPM.FindTargetPlatform(PresaveTargetPlatformName);
-			if (TargetPlatform)
-			{
-				PresaveTargetPlatforms.Add(TargetPlatform);
-			}
-		}
-	}
-
 	PackagesPerGC = 500;
 	int32 ConfigPackagesPerGC = 0;
 	if (GConfig->GetInt( TEXT("CookSettings"), TEXT("PackagesPerGC"), ConfigPackagesPerGC, GEditorIni ))
@@ -3441,7 +4162,7 @@ bool UCookOnTheFlyServer::Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputD
 		StartupOptions.TargetPlatforms.Add(TargetPlatform);
 		for (const FName& StandardPackageName : PackageNames)
 		{
-			FName PackageFileFName = GetCachedStandardPackageFileFName(StandardPackageName);
+			FName PackageFileFName = PackageNameCache->GetCachedStandardPackageFileFName(StandardPackageName);
 			StartupOptions.CookMaps.Add(StandardPackageName.ToString());
 		}
 		StartupOptions.CookOptions = ECookByTheBookOptions::NoAlwaysCookMaps | ECookByTheBookOptions::NoDefaultMaps | ECookByTheBookOptions::NoGameAlwaysCookPackages | ECookByTheBookOptions::NoInputPackages | ECookByTheBookOptions::NoSlatePackages | ECookByTheBookOptions::DisableUnsolicitedPackages | ECookByTheBookOptions::ForceDisableSaveGlobalShaders;
@@ -4383,7 +5104,7 @@ void UCookOnTheFlyServer::PopulateCookedPackagesFromDisk(const TArray<ITargetPla
 		{
 			const FName CookedFile = CookedPaths.Value;
 			const FName UncookedFilename = CookedPaths.Key;
-			const FName* FoundPackageName = GetCachedPackageFilenameToPackageFName(UncookedFilename);
+			const FName* FoundPackageName = PackageNameCache->GetCachedPackageFilenameToPackageFName(UncookedFilename);
 			bool bShouldKeep = true;
 			const FName SourcePackageName = FoundPackageName ? *FoundPackageName : NAME_None;
 			if ( !FoundPackageName )
@@ -4432,7 +5153,7 @@ void UCookOnTheFlyServer::PopulateCookedPackagesFromDisk(const TArray<ITargetPla
 
 				if (IdenticalCookedPackages.Contains(SourcePackageName))
 				{
-					CookedPackages.Add(FFilePlatformCookedPackage(UncookedFilename, MoveTemp(PlatformNames), MoveTemp(Succeeded)));
+					PackageTracker->CookedPackages.Add(FFilePlatformCookedPackage(UncookedFilename, MoveTemp(PlatformNames), MoveTemp(Succeeded)));
 					++NumPackagesKept;
 				}
 			}
@@ -4441,7 +5162,7 @@ void UCookOnTheFlyServer::PopulateCookedPackagesFromDisk(const TArray<ITargetPla
 				if (SourcePackageName != NAME_None && IsCookByTheBookMode()) // cook on the fly will requeue this package when it wants it 
 				{
 					// Force cook the modified file
-					CookRequests.EnqueueUnique(FFilePlatformRequest(UncookedFilename, PlatformNames));
+					PackageTracker->CookRequests.EnqueueUnique(FFilePlatformRequest(UncookedFilename, PlatformNames));
 				}
 				if (CookedFile != NAME_DummyCookedFilename)
 				{
@@ -4463,14 +5184,14 @@ void UCookOnTheFlyServer::PopulateCookedPackagesFromDisk(const TArray<ITargetPla
 		// Register identical uncooked packages from previous run
 		for (FName UncookedPackage : IdenticalUncookedPackages)
 		{
-			const FName UncookedFilename = GetCachedStandardPackageFileFName(UncookedPackage);
+			const FName UncookedFilename = PackageNameCache->GetCachedStandardPackageFileFName(UncookedPackage);
 
 			TArray<FName> PlatformNames;
 			PlatformNames.Add(PlatformFName);
 
-			ensure(CookedPackages.Exists(UncookedFilename, PlatformNames, false) == false);
+			ensure(PackageTracker->CookedPackages.Exists(UncookedFilename, PlatformNames, false) == false);
 
-			CookedPackages.Add(FFilePlatformCookedPackage(UncookedFilename, MoveTemp(PlatformNames)));
+			PackageTracker->CookedPackages.Add(FFilePlatformCookedPackage(UncookedFilename, MoveTemp(PlatformNames)));
 			++NumMarkedFailedSaveKept;
 		}
 
@@ -4573,7 +5294,7 @@ void UCookOnTheFlyServer::CleanSandbox(const bool bIterative)
 			}
 
 			// This is fast in asset registry iterate, so just reconstruct
-			CookedPackages.Empty();
+			PackageTracker->CookedPackages.Empty();
 			PopulateCookedPackagesFromDisk(Platforms);
 		}
 	}
@@ -4840,11 +5561,11 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 
 			for (FName NeverCookPackage : PackagesToNeverCook)
 			{
-				const FName StandardPackageFilename = GetCachedStandardPackageFileFName(NeverCookPackage);
+				const FName StandardPackageFilename = PackageNameCache->GetCachedStandardPackageFileFName(NeverCookPackage);
 
 				if (StandardPackageFilename != NAME_None)
 				{
-					NeverCookPackageList.Add(StandardPackageFilename);
+					PackageTracker->NeverCookPackageList.Add(StandardPackageFilename);
 				}
 			}
 		}
@@ -5084,9 +5805,9 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 	if (CookByTheBookOptions && !(FilesToCookFlags & ECookByTheBookOptions::DisableUnsolicitedPackages))
 	{
 		// Gather initial unsolicited package list, this is needed in iterative mode because it may skip cooking all explicit packages and never hit this code
-		TArray<UPackage*> UnsolicitedPackages;
 		UE_LOG(LogCook, Verbose, TEXT("Finding initial unsolicited packages"));
-		GetUnsolicitedPackages(UnsolicitedPackages, CookByTheBookOptions->TargetPlatformNames);
+
+		TArray<UPackage*> UnsolicitedPackages = GetUnsolicitedPackages(CookByTheBookOptions->TargetPlatformNames);
 
 		for (UPackage* UnsolicitedPackage : UnsolicitedPackages)
 		{
@@ -5495,10 +6216,10 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 				const FName& PlatformName = Pair.Key;
 				FAssetRegistryGenerator& Generator = *Pair.Value;
 
-				CookedPackages.GetCookedFilesForPlatform(PlatformName, CookedPackagesFilenames, false, true);
+				PackageTracker->CookedPackages.GetCookedFilesForPlatform(PlatformName, CookedPackagesFilenames, false, /* include successful */ true);
 
 				// ignore any packages which failed to cook
-				CookedPackages.GetCookedFilesForPlatform(PlatformName, IgnorePackageFilenames, true, false);
+				PackageTracker->CookedPackages.GetCookedFilesForPlatform(PlatformName, IgnorePackageFilenames, /* include failed */ true, false);
 
 				bool bForceNoFilterAssetsFromAssetRegistry = false;
 
@@ -5523,20 +6244,20 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 				TSet<FName> CookedPackageNames;
 				for (FName PackageFilename : CookedPackagesFilenames)
 				{
-					const FName *FoundLongPackageFName = GetCachedPackageFilenameToPackageFName(PackageFilename);
+					const FName *FoundLongPackageFName = PackageNameCache->GetCachedPackageFilenameToPackageFName(PackageFilename);
 					CookedPackageNames.Add(*FoundLongPackageFName);
 				}
 
 				TSet<FName> IgnorePackageNames;
 				for (FName PackageFilename : IgnorePackageFilenames)
 				{
-					const FName *FoundLongPackageFName = GetCachedPackageFilenameToPackageFName(PackageFilename);
+					const FName *FoundLongPackageFName = PackageNameCache->GetCachedPackageFilenameToPackageFName(PackageFilename);
 					IgnorePackageNames.Add(*FoundLongPackageFName);
 				}
 
 				// ignore packages that weren't cooked because they were only referenced by editor-only properties
 				TSet<FName> UncookedEditorOnlyPackageNames;
-				UncookedEditorOnlyPackages.GetValues(UncookedEditorOnlyPackageNames);
+				PackageTracker->UncookedEditorOnlyPackages.GetValues(UncookedEditorOnlyPackageNames);
 				for (FName UncookedEditorOnlyPackage : UncookedEditorOnlyPackageNames)
 				{
 					IgnorePackageNames.Add(UncookedEditorOnlyPackage);
@@ -5603,7 +6324,6 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 		}
 	}
 
-	CookByTheBookOptions->LastGCItems.Empty();
 	const float TotalCookTime = (float)(FPlatformTime::Seconds() - CookByTheBookOptions->CookStartTime);
 	UE_LOG(LogCook, Display, TEXT("Cook by the book total time in tick %fs total time %f"), CookByTheBookOptions->CookTime, TotalCookTime);
 
@@ -5625,7 +6345,7 @@ void UCookOnTheFlyServer::BuildMapDependencyGraph(const FName& PlatformName)
 	auto& MapDependencyGraph = CookByTheBookOptions->MapDependencyGraphs.FindChecked(PlatformName);
 
 	TArray<FName> PlatformCookedPackages;
-	CookedPackages.GetCookedFilesForPlatform(PlatformName, PlatformCookedPackages);
+	PackageTracker->CookedPackages.GetCookedFilesForPlatform(PlatformName, PlatformCookedPackages, /* include failed */ true, /* include successful */ true);
 
 	// assign chunks for all the map packages
 	for (const FName& CookedPackage : PlatformCookedPackages)
@@ -5691,7 +6411,7 @@ void UCookOnTheFlyServer::CancelCookByTheBook()
 		check( IsInGameThread() );
 
 		// save the cook requests 
-		CookRequests.DequeueAllRequests(CookByTheBookOptions->PreviousCookRequests);
+		PackageTracker->CookRequests.DequeueAllRequests(CookByTheBookOptions->PreviousCookRequests);
 		CookByTheBookOptions->bRunning = false;
 
 		SandboxFile = nullptr;
@@ -5708,10 +6428,10 @@ void UCookOnTheFlyServer::StopAndClearCookedData()
 		CookByTheBookOptions->PreviousCookRequests.Empty();
 	}
 
-	RecompileRequests.Empty();
-	CookRequests.Empty();
-	UnsolicitedCookedPackages.Empty();
-	CookedPackages.Empty(); // set of files which have been cooked when needing to recook a file the entry will need to be removed from here
+	PackageTracker->RecompileRequests.Empty();
+	PackageTracker->CookRequests.Empty();
+	PackageTracker->UnsolicitedCookedPackages.Empty();
+	PackageTracker->CookedPackages.Empty(); // set of files which have been cooked when needing to recook a file the entry will need to be removed from here
 }
 
 void UCookOnTheFlyServer::ClearAllCookedData()
@@ -5720,19 +6440,20 @@ void UCookOnTheFlyServer::ClearAllCookedData()
 	// that means it's also conceivable that we will recook the same package which currently has an outstanding async write request
 	UPackage::WaitForAsyncFileWrites();
 
-	UnsolicitedCookedPackages.Empty();
-	CookedPackages.Empty(); // set of files which have been cooked when needing to recook a file the entry will need to be removed from here
+	PackageTracker->UnsolicitedCookedPackages.Empty();
+	PackageTracker->CookedPackages.Empty(); // set of files which have been cooked when needing to recook a file the entry will need to be removed from here
 }
 
-void UCookOnTheFlyServer::ClearPlatformCookedData( const FName& PlatformName )
+void UCookOnTheFlyServer::ClearPlatformCookedData(const FName& PlatformName)
 {
 	// if we are going to clear the cooked packages it is conceivable that we will recook the packages which we just cooked 
 	// that means it's also conceivable that we will recook the same package which currently has an outstanding async write request
 	UPackage::WaitForAsyncFileWrites();
 
-	CookedPackages.RemoveAllFilesForPlatform( PlatformName );
+	PackageTracker->CookedPackages.RemoveAllFilesForPlatform(PlatformName);
+
 	TArray<FName> PackageNames;
-	UnsolicitedCookedPackages.GetPackagesForPlatformAndRemove(PlatformName, PackageNames);
+	PackageTracker->UnsolicitedCookedPackages.GetPackagesForPlatformAndRemove(PlatformName, PackageNames);
 }
 
 void UCookOnTheFlyServer::ClearCachedCookedPlatformDataForPlatform( const FName& PlatformName )
@@ -5820,16 +6541,8 @@ void UCookOnTheFlyServer::InitializeTargetPlatforms()
 void UCookOnTheFlyServer::TermSandbox()
 {
 	ClearAllCookedData();
-	ClearPackageFilenameCache();
+	PackageNameCache->ClearPackageFilenameCache();
 	SandboxFile = nullptr;
-}
-
-void UCookOnTheFlyServer::ValidateCookOnTheFlySettings() const
-{
-}
-
-void UCookOnTheFlyServer::ValidateCookByTheBookSettings() const
-{
 }
 
 void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions& CookByTheBookStartupOptions )
@@ -5903,7 +6616,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 
 	const UProjectPackagingSettings* const PackagingSettings = GetDefault<UProjectPackagingSettings>();
 
-	NeverCookPackageList.Empty();
+	PackageTracker->NeverCookPackageList.Empty();
 	{
 		const FString AbsoluteGameContentDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir());
 
@@ -5931,7 +6644,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 			struct FNeverCookDirectoryWalker : public IPlatformFile::FDirectoryVisitor
 			{
 			private:
-				FThreadSafeSet<FName> &NeverCookPackageList;
+				FThreadSafeSet<FName>& NeverCookPackageList;
 			public:
 				FNeverCookDirectoryWalker(FThreadSafeSet<FName> &InNeverCookPackageList) : NeverCookPackageList(InNeverCookPackageList) { }
 
@@ -5949,7 +6662,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 					return true;
 				}
 
-			} NeverCookDirectoryWalker(NeverCookPackageList);
+			} NeverCookDirectoryWalker(PackageTracker->NeverCookPackageList);
 
 			IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
@@ -5966,8 +6679,6 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 		CookByTheBookOptions->TargetPlatformNames.Add(PlatformName); // build list of all target platform names
 	}
 	const TArray<FName>& TargetPlatformNames = CookByTheBookOptions->TargetPlatformNames;
-
-	ValidateCookByTheBookSettings();
 
 	if ( CookByTheBookOptions->DlcName != DLCName )
 	{
@@ -5999,18 +6710,6 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 		}
 		CodeGenData.ManifestIdentifier = -1;
 		IBlueprintNativeCodeGenModule::InitializeModule(CodeGenData);
-	}
-
-	CookByTheBookOptions->bLeakTest = (CookOptions & ECookByTheBookOptions::LeakTest) != ECookByTheBookOptions::None; // this won't work from the editor this needs to be standalone
-	check(!CookByTheBookOptions->bLeakTest || CurrentCookMode == ECookMode::CookByTheBook);
-
-	CookByTheBookOptions->LastGCItems.Empty();
-	if (CookByTheBookOptions->bLeakTest)
-	{
-		for (FObjectIterator It; It; ++It)
-		{
-			CookByTheBookOptions->LastGCItems.Add(FWeakObjectPtr(*It));
-		}
 	}
 
 	{
@@ -6073,7 +6772,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 				Succeeded.Add(true);
 				for (const FName& PackageFilename : PackageList)
 				{
-					CookedPackages.Add( FFilePlatformCookedPackage( PackageFilename, PlatformNames, Succeeded) );
+					PackageTracker->CookedPackages.Add( FFilePlatformCookedPackage( PackageFilename, PlatformNames, Succeeded) );
 				}
 			}
 			CookByTheBookOptions->BasedOnReleaseCookedPackages.Add(PlatformName, MoveTemp(PackageList));
@@ -6156,11 +6855,11 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 		if ( FileFName == NAME_None )
 			continue;
 
-		const FName PackageFileFName = GetCachedStandardPackageFileFName(FileFName);
+		const FName PackageFileFName = PackageNameCache->GetCachedStandardPackageFileFName(FileFName);
 		
 		if (PackageFileFName != NAME_None)
 		{
-			CookRequests.EnqueueUnique( FFilePlatformRequest( PackageFileFName, TargetPlatformNames ) );
+			PackageTracker->CookRequests.EnqueueUnique( FFilePlatformRequest( PackageFileFName, TargetPlatformNames ) );
 		}
 		else if (!FLinkerLoad::IsKnownMissingPackage(FileFName))
 		{
@@ -6193,7 +6892,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 
 				for ( const FName& PackageFilename : PackageFiles )
 				{
-					CookRequests.EnqueueUnique( FFilePlatformRequest( PackageFilename, PlatformArray) );
+					PackageTracker->CookRequests.EnqueueUnique( FFilePlatformRequest( PackageFilename, PlatformArray) );
 				}
 
 			}
@@ -6207,7 +6906,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 	// if too many packages are being recooked after resume then we may need to figure out a different way to do this
 	for ( const FFilePlatformRequest& PreviousRequest : CookByTheBookOptions->PreviousCookRequests )
 	{
-		CookRequests.EnqueueUnique( PreviousRequest );
+		PackageTracker->CookRequests.EnqueueUnique( PreviousRequest );
 	}
 	CookByTheBookOptions->PreviousCookRequests.Empty();
 
@@ -6248,14 +6947,14 @@ void UCookOnTheFlyServer::MaybeMarkPackageAsAlreadyLoaded(UPackage *Package)
 		return;
 	}
 
-	FName StandardName = GetCachedStandardPackageFileFName(Package);
+	FName StandardName = PackageNameCache->GetCachedStandardPackageFileFName(Package);
 
 	// UE_LOG(LogCook, Display, TEXT("Loading package %s"), *StandardName.ToString());
 
 	bool bShouldMarkAsAlreadyProcessed = false;
 
 	TArray<FName> CookedPlatforms;
-	if (CookedPackages.GetCookedPlatforms(StandardName, CookedPlatforms))
+	if (PackageTracker->CookedPackages.GetCookedPlatforms(StandardName, CookedPlatforms))
 	{
 		bShouldMarkAsAlreadyProcessed = true;
 		for (const FName& TargetPlatform : CookByTheBookOptions->TargetPlatformNames)
@@ -6287,7 +6986,7 @@ void UCookOnTheFlyServer::MaybeMarkPackageAsAlreadyLoaded(UPackage *Package)
 	}
 
 	check(IsInGameThread());
-	if (NeverCookPackageList.Contains(StandardName))
+	if (PackageTracker->NeverCookPackageList.Contains(StandardName))
 	{
 		bShouldMarkAsAlreadyProcessed = true;
 		UE_LOG(LogCook, Verbose, TEXT("Marking %s as reloading for cooker because it was requested as never cook package."), *StandardName.ToString());
@@ -6323,7 +7022,7 @@ bool UCookOnTheFlyServer::HandleNetworkFileServerNewConnection(const FString& Ve
 void UCookOnTheFlyServer::GetCookOnTheFlyUnsolicitedFiles(const FName& PlatformName, TArray<FString>& UnsolicitedFiles, const FString& Filename)
 {
 	TArray<FName> UnsolicitedFilenames;
-	UnsolicitedCookedPackages.GetPackagesForPlatformAndRemove(PlatformName, UnsolicitedFilenames);
+	PackageTracker->UnsolicitedCookedPackages.GetPackagesForPlatformAndRemove(PlatformName, UnsolicitedFilenames);
 
 	for (const FName& UnsolicitedFile : UnsolicitedFilenames)
 	{
@@ -6379,7 +7078,7 @@ void UCookOnTheFlyServer::HandleNetworkFileServerFileRequest( const FString& Fil
 	
 	UE_LOG(LogCook, Display, TEXT("Requesting file from cooker %s"), *StandardFileName);
 
-	CookRequests.EnqueueUnique(FileRequest, true);
+	PackageTracker->CookRequests.EnqueueUnique(FileRequest, true);
 
 
 #if PROFILE_NETWORK
@@ -6387,7 +7086,7 @@ void UCookOnTheFlyServer::HandleNetworkFileServerFileRequest( const FString& Fil
 	while (NetworkRequestEvent->Wait(1) == false)
 	{
 		// for some reason we missed the stat
-		if (CookedPackages.Exists(FileRequest))
+		if (PackageTracker->CookedPackages.Exists(FileRequest))
 		{
 			double DeltaTimeTillRequestForfilled = FPlatformTime::Seconds() - StartTime;
 			TimeTillRequestForfilled += DeltaTimeTillRequestForfilled;
@@ -6404,9 +7103,9 @@ void UCookOnTheFlyServer::HandleNetworkFileServerFileRequest( const FString& Fil
 	StartTime = FPlatformTime::Seconds();
 #endif
 
-	while (!CookedPackages.Exists(FileRequest))
+	while (!PackageTracker->CookedPackages.Exists(FileRequest))
 	{
-		FPlatformProcess::Sleep(0.0001f);
+		FPlatformProcess::Sleep(0.001f);
 	}
 
 #if PROFILE_NETWORK
@@ -6441,7 +7140,7 @@ void UCookOnTheFlyServer::HandleNetworkGetPrecookedList(const FString& PlatformN
 	FName PlatformFName = FName(*PlatformName);
 
 	TArray<FName> CookedPlatformFiles;
-	CookedPackages.GetCookedFilesForPlatform(PlatformFName, CookedPlatformFiles);
+	PackageTracker->CookedPackages.GetCookedFilesForPlatform(PlatformFName, CookedPlatformFiles, /* include failed */ true, /* include successful */ true);
 
 
 	for ( const FName& CookedFile : CookedPlatformFiles)
@@ -6473,7 +7172,7 @@ void UCookOnTheFlyServer::HandleNetworkFileServerRecompileShaders(const FShaderR
 		Request->bComplete = false;
 
 		// push the request for the game thread to process
-		RecompileRequests.Enqueue(Request);
+		PackageTracker->RecompileRequests.Enqueue(Request);
 
 		// wait for it to complete (the game thread will pull it out of the TArray, but I will delete it)
 		while (!Request->bComplete)
@@ -6517,7 +7216,7 @@ bool UCookOnTheFlyServer::GetAllPackageFilenamesFromAssetRegistry( const FString
 		for (const TPair<FName, const FAssetData*>& RegistryData : RegistryDataMap)
 		{
 			const FAssetData* NewAssetData = RegistryData.Value;
-			FName CachedPackageFileFName = GetCachedStandardPackageFileFName(NewAssetData->ObjectPath);
+			FName CachedPackageFileFName = PackageNameCache->GetCachedStandardPackageFileFName(NewAssetData->ObjectPath);
 			if (CachedPackageFileFName != NAME_None)
 			{
 				OutPackageFilenames.Add(CachedPackageFileFName);
@@ -6556,14 +7255,14 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 	{
 		UE_LOG(LogCook, Display, TEXT("Loading requested packages..."));
 		SCOPE_TIMER(FullLoadAndSave_RequestedLoads);
-		while (CookRequests.HasItems())
+		while (HasCookRequests())
 		{
 			FFilePlatformRequest ToBuild;
-			CookRequests.Dequeue(&ToBuild);
+			PackageTracker->CookRequests.Dequeue(/* out */ ToBuild);
 			check(ToBuild.IsValid());
 
 			const FName BuildFilenameFName = ToBuild.GetFilename();
-			if (!NeverCookPackageList.Contains(BuildFilenameFName))
+			if (!PackageTracker->NeverCookPackageList.Contains(BuildFilenameFName))
 			{
 				const FString BuildFilename = BuildFilenameFName.ToString();
 				GIsCookerLoadingPackage = true;
@@ -6627,8 +7326,8 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 				}
 
 				FName PackageName = Package->GetFName();
-				FName StandardPackageName = GetCachedStandardPackageFileFName(PackageName);
-				if (NeverCookPackageList.Contains(StandardPackageName))
+				FName StandardPackageName = PackageNameCache->GetCachedStandardPackageFileFName(PackageName);
+				if (PackageTracker->NeverCookPackageList.Contains(StandardPackageName))
 				{
 					// refuse to save this package
 					continue;
@@ -6770,8 +7469,8 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 			GIsCookerLoadingPackage = true;
 			for (const FString& ToLoad : PackagesToLoad)
 			{
-				FName BuildFilenameFName = GetCachedStandardPackageFileFName(FName(*ToLoad));
-				if (!NeverCookPackageList.Contains(BuildFilenameFName))
+				FName BuildFilenameFName = PackageNameCache->GetCachedStandardPackageFileFName(FName(*ToLoad));
+				if (!PackageTracker->NeverCookPackageList.Contains(BuildFilenameFName))
 				{
 					LoadPackage(nullptr, *ToLoad, LOAD_None);
 					if (GShaderCompilingManager)
@@ -6878,7 +7577,7 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 			}
 
 			FName PackageName = Package->GetFName();
-			FCachedPackageFilename* CachedPackageFilename = PackageFilenameCache.Find(PackageName);
+			FCachedPackageFilename* CachedPackageFilename = PackageNameCache->PackageFilenameCache.Find(PackageName);
 			check(CachedPackageFilename);
 	
 			if (CachedPackageFilename->PackageFilename.Len())
@@ -6960,11 +7659,11 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 				check(CachedPackageFilename->StandardFileFName != NAME_None);
 
 				FFilePlatformCookedPackage FileRequest(CachedPackageFilename->StandardFileFName, CookByTheBookOptions->TargetPlatformNames, SavePackageSuccessPerPlatform);
-				CookedPackages.Add(FileRequest);
+				PackageTracker->CookedPackages.Add(FileRequest);
 
 				if (SavePackageSuccessPerPlatform.Contains(false))
 				{
-					UncookedEditorOnlyPackages.Add(PackageName);
+					PackageTracker->UncookedEditorOnlyPackages.Add(PackageName);
 				}
 
 				Package->SetPackageFlagsTo(OriginalPackageFlags);
@@ -7002,4 +7701,3 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 }
 
 #undef LOCTEXT_NAMESPACE
-
