@@ -65,7 +65,7 @@ Ntf5chUK4jM
 | **Renew Source** | 소스 새로 - _True_ 면 소스 파티클이 사라질 때 새로 선택됩니다. _False_ 면 파티클은 더이상 다른 것에 끌리지 않습니다. |
 | **Inherit Source Vel** | 소스 속도 상속 - _True_ 면 소스가 사라질 때의 속도를 파티클이 상속합니다. |
 |[REGION:tablesection]Location[/REGION]||
-| **SelectionMethod** | 선택 방법 - 이미터로부터의 어트랙터 타겟 파티클을 선택할 때 사용할 방법입니다. 다음 중 하나입니다:[INCLUDE:#SelectionMethod]|
+| **SelectionMethod** | 선택 방법 - 이미터로부터의 어트랙터 타깃 파티클을 선택할 때 사용할 방법입니다. 다음 중 하나입니다:[INCLUDE:#SelectionMethod]|
 
 [COMMENT:none]
 ----Attractor Particle Includes--------------

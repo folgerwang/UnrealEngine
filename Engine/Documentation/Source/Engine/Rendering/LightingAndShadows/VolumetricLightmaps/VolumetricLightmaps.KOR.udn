@@ -19,7 +19,7 @@ Social-image:LitMoveableCharacterVLM.png
 [REGION:note]
 Volumetric Lightmap (볼류메트릭 라이트맵)은 앞으로 [Indirect Lighting Cache](Engine/Rendering/LightingAndShadows/IndirectLightingCache) (간접광 캐시)와 Volume Lighting Sample (볼륨 라이팅 샘플)을 대체합니다.
 
-간접광 캐시는 **월드 세팅** > **Lightmass Settings** (라이트매스 세팅)에서 **Volume Lighting Method** (볼륨 라이팅 메소드)를 **VLM Sparse Volume Lighting Samples** 로 설정하는 것으로 다시 켤 수 있습니다.
+간접광 캐시는 **월드 세팅** > **Lightmass Settings** (라이트매스 세팅)에서 **Volume Lighting Method** (볼륨 라이팅 메서드)를 **VLM Sparse Volume Lighting Samples** 로 설정하는 것으로 다시 켤 수 있습니다.
 [/REGION]
 
 
@@ -271,7 +271,7 @@ Lightmass Importance Volume (라이트매스 임포턴스 볼륨)을 배치하�
 [REGION:raw]
 | 세팅 | 설명 |
 | --------| ----------- |
-| **Volumetric Lighting Method** | 볼류메트릭 라이팅 메소드 - 라이트매스 임포턴스 볼륨 내 모든 위치에 프리컴퓨티드 라이팅을 제공하는 데 사용되는 기법입니다.  [INCLUDE:#vlmethod] |
+| **Volumetric Lighting Method** | 볼류메트릭 라이팅 메서드 - 라이트매스 임포턴스 볼륨 내 모든 위치에 프리컴퓨티드 라이팅을 제공하는 데 사용되는 기법입니다.  [INCLUDE:#vlmethod] |
 | **Volumetric Lightmap Detail Cell Size** | 볼류메트릭 라이트맵 디테일 셀 크기 - (지오메트리 주변에 사용되는) 최고 밀도 볼류메트릭 라이트맵 복셀의 월드 스페이스 유닛 단위 크기입니다. 이 세팅은 빌드 시간과 메모리에 큰 영향을 주므로, 사용에 주의를 기울여야 합니다. |
 | **Volumetric Lightmap Maximum Brick Memory Mb** | 볼류메트릭 라이트맵 최대 브릭 메모리 Mb - 볼류메트릭 라이트맵 브릭 데이터에 사용할 최대 메모리 양입니다. 이 한계치를 만족할 때까지 지오메트리에서 가장 멀리 있는 브릭을 시작으로 고밀도 브릭을 버립니다. 메모리를 너무 심하게 줄이면(trim) 해상도가 일정치 않아지므로, 그 대신 **Volumetric Lightmap Detail Cell Size** 를 높이는 것이 좋습니다. |
 [/REGION]
@@ -282,7 +282,7 @@ Lightmass Importance Volume (라이트매스 임포턴스 볼륨)을 배치하�
 [EXCERPT:VLMethod]
 | --- | --- |
 | **VLM Volumetric Lightmap** | 볼류메트릭 라이트맵 - 라이팅 샘플은 전체 라이트매스 임포턴스 볼륨을 커버하는 고급 그리드로 계산합니다. 볼류메트릭 라이트맵은 GPU 픽셀 단위 효율적으로 계산되어 다이내믹 오브젝트와 볼류메트릭 포그에 정확한 간접광을 낼 수 있습니다. 임포턴스 볼륨 밖 위치에서는 (주소를 클램핑시킨) 볼류메트릭 라이트맵 경계 텍셀을 재사용합니다. 모바일에서의 보간은, 각 오브젝트 경계 중심에서 CPU 를 통해 합니다. |
-| **VLM Sparse Volume Lighting Samples** | 성긴 볼륨 라이팅 샘플 - 볼류메트릭 라이팅 샘플 배치를 스태틱 표면 위에는 중간 밀도로, 그 외 라이트매스 임포턴스 볼륨에는 낮은 밀도로 합니다. 임포턴스 볼륨 밖 위치에는 간접광이 없습니다. 이 메소드는 CPU 보간이 필요합니다. 즉 간접광 캐시를 사용하여 각 다이내믹 오브젝트에 대한 결과를 보간하므로, 렌더링 스레드 부하가 추가로 걸립니다. 볼류메트릭 포그는 이 메소드로는 프리컴퓨티드 라이팅에 영향받지 않습니다. |
+| **VLM Sparse Volume Lighting Samples** | 성긴 볼륨 라이팅 샘플 - 볼류메트릭 라이팅 샘플 배치를 스태틱 표면 위에는 중간 밀도로, 그 외 라이트매스 임포턴스 볼륨에는 낮은 밀도로 합니다. 임포턴스 볼륨 밖 위치에는 간접광이 없습니다. 이 메서드는 CPU 보간이 필요합니다. 즉 간접광 캐시를 사용하여 각 다이내믹 오브젝트에 대한 결과를 보간하므로, 렌더링 스레드 부하가 추가로 걸립니다. 볼류메트릭 포그는 이 메서드로는 프리컴퓨티드 라이팅에 영향받지 않습니다. |
 
 [/EXCERPT:VLMethod]
 

@@ -281,43 +281,7 @@ Sky Light コンポーネントのプロパティは、ライトとスカイラ�
 
 	![](RecaptureSkyLightBP.png)(w:700)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 [COMMENT:none]
--
-
 
 [REGION:fullwidth raw]
 ![](Skylight_Header.png)
@@ -350,7 +314,7 @@ Sky Light (スカイライト) の **可動性** は **Static (静的)** ある�
 	[/PARAM]
 [/OBJECT]
 
-<!--
+
 [REGION:lightbox]
 
 [![](skyLightEx_01.png)(w:884)](skyLightEx_01.png) [![](skyLightEx_02.png)(w:884)](skyLightEx_02.png)
@@ -452,5 +416,3 @@ Sky Light  のプロパティは、Light と Sky Light の 2 つに大きく分�
 | **Sky Distance Threshold** | そこからはどのジオメトリも空の一部として見なされるスカイライトからの距離です (反射キャプチャ でも使用されます)。 |
 | **Lower Hemisphere is Black** | 下半球から放たれる全てのライトをゼロに設定するかどうかを決めます。下半球からの光の漏れを防ぐのに便利なプロパティです。 |
 | **Recapture Scene** | Sky Light アクタが `SLS_CapturedScene`に設定されると、シーンを照らすためにスカイサイトが使用している画像を再キャプチャします。|
-
----->

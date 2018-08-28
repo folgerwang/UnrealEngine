@@ -73,20 +73,6 @@ The **CameraVector** expression outputs a three-channel vector value representin
 [REGION:warning]
 This expression has been deprecated in Unreal Engine 4 as lighting calculations are now deferred.
 [/REGION:warning]
-[COMMENT:none]
-
-The LightVector expression is a three-channel vector value representing the direction of the light with respect to the surface.
-
-**Example Usage:** LightVector can be used to calculate custom lighting algorithms, such as a simple Lambert lighting model.
-
-![LightVectorExample.jpg](LightVectorExample.jpg)
-
-[REGION:note]
-	The LightVector expression is not valid while evaluating the Emissive output, and can only be used in LightFunction or DeferredDecal materials.
-[/REGION]
-
-[/COMMENT]
-
 
 ## Object Bounds
 

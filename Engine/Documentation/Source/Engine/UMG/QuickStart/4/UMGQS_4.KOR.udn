@@ -49,7 +49,7 @@ tags:UMG UI Designer
 
 	![](PlayButton.png)
 
-	**Level Name** 은 로드하고자 하는 레벨 이름(여기서는 First Person Example 맵)을 나타내는 곳입니다. **Remove from Parent** 노드는 뷰포트에서 _타겟_ 위젯 블루프린트를 제거합니다. 타겟은 셀프로 설정되어 있습니다 (레벨 로드 이후 뷰에서 제거하려는 메인 메뉴 위젯 블루프린트입니다).
+	**Level Name** 은 로드하고자 하는 레벨 이름(여기서는 First Person Example 맵)을 나타내는 곳입니다. **Remove from Parent** 노드는 뷰포트에서 _타깃_ 위젯 블루프린트를 제거합니다. 타깃은 셀프로 설정되어 있습니다 (레벨 로드 이후 뷰에서 제거하려는 메인 메뉴 위젯 블루프린트입니다).
 
 1.	**Ctrl** 키를 누르고 **MainMenu** 와 **OptionsMenu** 변수를 끌어 놓습니다.
 
@@ -57,7 +57,7 @@ tags:UMG UI Designer
 
 1.  또하나 끌어놓고 **Set Visibility** 노드를 추가합니다. **Invisibility** 를 Visible 로 설정합니다.
 
-1.  타겟을 **OptionsMenu** 변수에 붙입니다.
+1.  타깃을 **OptionsMenu** 변수에 붙입니다.
 
 	![](OptionsButton.png)(w:820)
 

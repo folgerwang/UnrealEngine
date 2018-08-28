@@ -51,7 +51,7 @@ Animation Starter Pack 은 에픽 런처의 **마켓플레이스** 탭에서 무
 	![](Animations4.png)
 
 	[REGION:note]
-	여기서 이름을 UpperBody 라 하기는 했지만, 아직 그 부분을 직접 타게팅한 것은 아니며, 그저 타게팅할 부분을 알기 위해 이름을 할당한 것입니다.
+	여기서 이름을 UpperBody 라 하기는 했지만, 아직 그 부분을 직접 타기팅한 것은 아니며, 그저 타기팅할 부분을 알기 위해 이름을 할당한 것입니다.
 	[/REGION]
 
 1.	**Montage Group** 섹션 안의 드롭다운을 클릭한 다음 **DefaultGroup.UpperBody** 로 변경하고 창을 닫습니다.

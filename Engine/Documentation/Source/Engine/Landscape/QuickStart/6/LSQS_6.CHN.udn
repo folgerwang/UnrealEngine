@@ -31,7 +31,6 @@ version:4.9
 [COMMENT:none]
 在选择地形尺寸前需要考虑的因素较多，如目标平台和性能影响。为简便操作，以下是推荐地形组件数量和尺寸列表，助您选择最佳的地形尺寸。
 
-[INCLUDE:Engine/Landscape/Creation#RecommendedLSS]
 [/COMMENT]
 
 * 使用 **Paint 工具** 时，在需要消除的地形上直接进行绘制比使用 **Shift** + **鼠标左键** 进行消除更加简单。

@@ -34,7 +34,7 @@ SkillLevel:Beginner
 		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	에디터의 바이너리 경로가 위치한 디렉토리로 이동한 뒤, **UE4Editor** 를 선택하고 **Open** (열기) 버튼을 클릭합니다.
+1.	에디터의 바이너리 경로가 위치한 디렉터리로 이동한 뒤, **UE4Editor** 를 선택하고 **Open** (열기) 버튼을 클릭합니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step12.png)(w:720)](SetupIDE_Step12.png)
@@ -44,7 +44,7 @@ SkillLevel:Beginner
 		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	이제, **Working directory:** (작업 디렉토리) 끝에 위치한 **Browse** (탐색) 버튼을 클릭합니다.
+1.	이제, **Working directory:** (작업 디렉터리) 끝에 위치한 **Browse** (탐색) 버튼을 클릭합니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step13.png)(w:720)](SetupIDE_Step13.png)
@@ -54,7 +54,7 @@ SkillLevel:Beginner
 		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	에디터의 바이너리 경로가 위치한 디렉토리로 이동하여, `[UE4ROOT]\Engine\Binaries\Linux` 를 선택하고 **Choose** (선택) 버튼을 누릅니다.
+1.	에디터의 바이너리 경로가 위치한 디렉터리로 이동하여, `[UE4ROOT]\Engine\Binaries\Linux` 를 선택하고 **Choose** (선택) 버튼을 누릅니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step14.png)(w:720)](SetupIDE_Step14.png)

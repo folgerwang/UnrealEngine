@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4309189
 Availability: Public
 Title:Stylized Rendering 랜드스케이프
 Crumbs:%ROOT%, Resources, Resources/Showcases/Stylized
@@ -69,7 +69,7 @@ Version: 4.9
 [COMMENT:none]
 [EXCERPT:SlopeDiagram]
 [REGION:raw]
-![](LandSlopeDiagram.png)
+![]()
 [/REGION]
 [/EXCERPT:SlopeDiagram]
 [/COMMENT]

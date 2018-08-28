@@ -115,13 +115,6 @@ Tags:Class Blueprints
 * 如需了解此模式中窗口和选项的详细内容，请查阅 [](Engine/Blueprints/Editor/Modes/Components)。 
 * 如需了解在此模式中使用 **组件** 的详细内容，请查阅 [](Engine/Blueprints/UserGuide/Components)。  
 
-### 图表模式
-
-![](GraphTab.png)(w:740)
-
-**图表模式** 是蓝图的核心。在此处添加蓝图节点并将其连接起来，形成一个视觉网络形态。这个网络形态定义了蓝图的逻辑，蓝图便就此诞生。在上图实例中存在一个 **Character Blueprint**。在图表中，控制角色移动的逻辑已布局完毕。 
-
-* 如需了解此模式中窗口和选项的详细内容，请查阅 [](Engine/Blueprints/Editor/Modes/GraphPanel)。 
 
 ### 默认模式
 

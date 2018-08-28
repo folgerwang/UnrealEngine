@@ -54,7 +54,7 @@ It is also extremely important to setup your level's Materials to work well with
 used in flat areas as this will help them better show off reflections.
 
 [REGION:imagetable]
-| ![Curvy and Sharp](1CurvyAndSharp.png)(w:290) | ![Flat and Rough](1FlatAndRough.png)(w:290) | ![Flat and Sharp](1FlatAndSharp.png)(w:290)|
+| ![Curvy and Sharp](1CurvyAndSharp.png) | ![Flat and Rough](1FlatAndRough.png) | ![Flat and Sharp](1FlatAndSharp.png)|
 | ------ | ------ | ------ |
 | Smooth surface but curvy geometry: Good quality reflections | Rough surface but flat geometry: Good quality reflections |Smooth surface AND flat geometry: Evident that reflections do not match up
 [/REGION]
@@ -418,16 +418,19 @@ You can blend between multiple different cubemap reflections by providing the Re
 
 	[OBJECT:EmbeddedVideo]
 		[PARAMLITERAL:width]
-		640
+		50
 		[/PARAMLITERAL]
 		[PARAMLITERAL:height]
-		360
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
 		[/PARAMLITERAL]
 		[PARAMLITERAL:videoid]
 		QYbSsYP2Nkk
 		[/PARAMLITERAL]
 	[/OBJECT]
-
+	
 ### Visualizing
 
 The Reflection Override viewmode has been added to make it easier to see how well the reflections are set up. 

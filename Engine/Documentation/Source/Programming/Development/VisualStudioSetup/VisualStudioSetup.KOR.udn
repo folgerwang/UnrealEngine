@@ -197,6 +197,6 @@ UE4 비주얼라이저 설치는 두 단계로 이루어집니다.
     * [UserProfile]/My Documents/Visual Studio 2013/Visualizers/UE4.natvis
 
 [REGION:warning]
-Visual Studio 인스톨 디렉토리에 파일을 복사하기 위해서는 관리자 권한이 필요할 수 있습니다.
+Visual Studio 인스톨 디렉터리에 파일을 복사하기 위해서는 관리자 권한이 필요할 수 있습니다.
 [/REGION]
 

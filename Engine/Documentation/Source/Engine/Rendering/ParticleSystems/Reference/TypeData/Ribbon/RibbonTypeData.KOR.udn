@@ -35,7 +35,7 @@ topic-image:RibbonSmoke.png
 | [REGION:tablesection]Spawn (스폰)[/REGION] ||
 | **Tangent Spawning Scalar** | 탄젠트 스폰 스칼라 - 스폰용 탄젠트 스칼라입니다. 탄젠트 A와 B 사이의 각도가 [0.0f .. 1.0f] 범위로 매핑됩니다. 그리고서 여기에다 _Tangent Spawning Scalar_ (탄젠트 스폰 스칼라) 값을 곱해 스폰시킬 파티클 수를 구합니다. |
 | [REGION:tablesection]Rendering (렌더링)[/REGION] ||
-| **Render Geometry** | 지오메트리 렌더 - _True_ 면 트레일 지오메트리가 렌더링됩니다. 다른 메소드으로는 트레일을 켤 수가 없이기 보통 켜 놓습니다. |
+| **Render Geometry** | 지오메트리 렌더 - _True_ 면 트레일 지오메트리가 렌더링됩니다. 다른 메서드으로는 트레일을 켤 수가 없이기 보통 켜 놓습니다. |
 | **Render Spawn Points** | 스폰 지점 렌더 - _True_ 면 트레일 상의 각 스폰된 파티클 지점 위치에 별이 렌더링됩니다. 캐스케이드에서 벌레잡이용으로 사용됩니다. |
 | **Render Tangents** | 탄젠트 렌더 - _True_ 면 트레일 상의 각 스폰된 파티클 지점에 있는 탄젠트는 선을 사용하여 렌더링됩니다. 케스케이드에서 벌레잡이용으로 사용됩니다. |
 | **Render Tessellation** | 테셀레이션 렌더 - _True_ 면 각 스폰된 파티클 사이의 테셀레이션 경로가 렌더링됩니다. 캐스케이드에서 벌레잡이용으로 사용됩니다. |

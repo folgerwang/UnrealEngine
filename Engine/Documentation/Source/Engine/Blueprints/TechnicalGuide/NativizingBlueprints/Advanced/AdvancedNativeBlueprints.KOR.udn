@@ -98,7 +98,7 @@ Commented out per SME; however, it's being preserved for future review.
 
 		<UE4>\Engine\Binaries\DotNET\UnrealBuildTool.exe" <프로젝트 이름> Win64 Debug -Project=<프로젝트 경로>\<프로젝트 이름>.uproject  <프로젝트 경로>\<프로젝트 이름>.uproject  -PLUGIN "<프로젝트 경로>\Intermediate\<플랫폼>\NativizedAssets\NativizedAssets.uplugin" -remoteini="<프로젝트 경로>" -noxge -NoHotReloadFromIDE -ignorejunk
 
-2. Visual Studio 프로젝트 (debug 환경설정) 의 작업 디렉토리를 `<패키징된 폴더>\<플랫폼>\<프로젝트 이름>\Binaries\Win64\` 로 변경합니다.
+2. Visual Studio 프로젝트 (debug 환경설정) 의 작업 디렉터리를 `<패키징된 폴더>\<플랫폼>\<프로젝트 이름>\Binaries\Win64\` 로 변경합니다.
 
 3. Visual Studio 에서 디버그를 실행하되, Visual Studio 에서 프로젝트를 리컴파일하지는 마십시오.
 

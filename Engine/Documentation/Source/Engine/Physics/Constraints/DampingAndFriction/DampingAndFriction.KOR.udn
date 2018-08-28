@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4307277
 Availability: Public
 Title:피직스 제동
 Crumbs: %ROOT%, Engine, Engine/Physics
@@ -70,7 +70,7 @@ _두 Angular Swing Motions (각형 스윙 모션) 이 제동 값을 공유하고
 조인트 안에 '마찰'을 흉내내기 위해서는 RB_ConstraintInstance 의 조인트 드라이브 프로퍼티를 사용하면 됩니다 (이 프로퍼티는 PhAT 에서 조인트를 선택한 다음 
 'I' 키나 툴바의 'i' 아이콘을 누르면 열어볼 수 있습니다). 먼저 bTwistVelocityDrive 나 bSwingVelocityDrive (트위스트나 스윙) 중 적합한 것을 하나 켜고, 
 원하는 각속도를 0 으로 설정한 다음 AngularDriveForceLimit (각 추진력 한계)를 수정하여 조인트의 마찰력을 조절합니다. 자세한 정보는 
-[피직스 컨스트레인트 참고서](Engine/Physics/PhysX/Constraints) 페이지를 참고하시기 바랍니다.
+[피직스 컨스트레인트 참고서](Engine/Physics/Constraints) 페이지를 참고하시기 바랍니다.
 
 여기서 핵심은, 조인트로 연결된 두 오브젝트 사이에 제동력이 적용된다는 점입니다. 두 오브젝트를 조인트로 연결한 다음 허공에 던진다고 상상해 보십시오. 
 실제로는 서로에게 상대적인 속도를 수정하고 싶었다 해도, 여기에 피지컬 머티리얼 제동을 사용하면 한 쌍의 오브젝트가 공기를 통해 이동하는 속도를 늦출 뿐입니다. 

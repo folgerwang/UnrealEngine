@@ -44,7 +44,7 @@ topic-image:postprocessing_compact.png
 | **[1.11 Depth Of Field](Resources\ContentExamples\PostProcessing\1_11)** | 뎁스 오브 필드 - 씬의 초점 앞이나 뒷부분을 거리에 따라 블러(뿌옇게 번져보이는) 이펙트를 적용합니다. |
 | **[1.12 Motion Blur](Resources\ContentExamples\PostProcessing\1_12)** | 모션 블러 - 오브젝트의 동작에 따라 모션 블러를 생성합니다. |
 | **[1.13 Screen Percentage](Resources\ContentExamples\PostProcessing\1_13)** | 화면 백분율 - 씬을 저해상도로 렌더링한 다음 스케일을 적용해 올립니다. **Screen Percentage** 값은 씬의 전체 해상도의 백분율을 나타냅니다. |
-| **[1.14 AA Method](Resources\ContentExamples\PostProcessing\1_14)** | AA 메소드 - 화면에 각져 보이는 에지(변, 가장자리)를 부드럽게 만들어 이미지 퀄리티를 향상시켜주는 안티앨리어싱 (AA) 기법에 대한 데모입니다. |
+| **[1.14 AA Method](Resources\ContentExamples\PostProcessing\1_14)** | AA 메서드 - 화면에 각져 보이는 에지(변, 가장자리)를 부드럽게 만들어 이미지 퀄리티를 향상시켜주는 안티에일리어싱 (AA) 기법에 대한 데모입니다. |
 | **[1.15 Blendables](Resources\ContentExamples\PostProcessing\1_15)** | 블렌더블 - 간단히 말해 화면에 적용가능한 오버레이 화면입니다 (화면 순간이동 또는 컬러링용). |
 | **[1.16 Priorities](Resources\ContentExamples\PostProcessing\1_16)** | 우선권 - **Post Process Volume** 이 겹치는 경우 어느 것을 우선시할 것인지 제어할 수 있습니다. |
 | **[1.17 Blend Radius and Weight](Resources\ContentExamples\PostProcessing\1_17)** | 블렌드 반경 및 가중치 - 거리에 따라 한 **Post Process Volume** 에서 다른 볼륨으로 전환되는 변화에 사용됩니다 (오브젝트와의 거리에 따른 씬의 색조나 컬러 블렌딩). |

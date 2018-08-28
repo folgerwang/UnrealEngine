@@ -1,0 +1,510 @@
+INTSourceChangelist:4276998
+Availability: Public
+Crumbs:
+Title: nDisplay 멀티 디스플레이 렌더링
+Description: nDisplay 시스템을 사용하여 언리얼 엔진 프로젝트를 여러 디스플레이에서 동시에 렌더링하는 방법을 설명합니다.
+Version: 4.20
+Parent: Engine/Rendering
+Order: 0
+Tags: Rendering 
+Tags: Graphics 
+Tags: Experimental 
+Tags: Landing 
+Tags: Page
+
+
+![](ndisplay_banner.png)
+
+인터랙티브 콘텐츠를 꼭 단일 화면, 또는 VR 헤드셋처럼 화면이 둘인 단일 장치에 표시한다는 법은 없습니다. 갈수록 많은 수의 시각화 시스템이 실시간 콘텐츠를 여러 대의 디스플레이에 동시 렌더링하여 시청자의 게임 환경 몰입도를 높이는 것을 목표로 하고 있습니다. 이러한 시스템은 [Powerwall](https://en.wikipedia.org/wiki/Powerwall) 디스플레이처럼 여러 개의 화면을 붙인 것일 수도 있고, [Cave](https://en.wikipedia.org/wiki/Cave_automatic_virtual_environment) 가상 환경처럼 여러 대의 프로젝터로 돔, 벽 타일, 굽은 화면과 같은 물리 표면에 3D 환경을 만든 것일 수도 있습니다.
+
+언리얼 엔진에서는 이러한 상황을 **nDisplay** 라는 시스템을 통해 지원합니다. 이 시스템은 여러 디스플레이에 3D 콘텐츠를 동시 렌더링할 때 가장 중요한 몇 가지 문제를 해결합니다.
+
+* 네트워크의 여러 컴퓨터에 프로젝트의 여러 인스턴스를 디플로이하고 실행하여, 각각 하나 이상의 디스플레이 장치에 렌더링하도록 하는 프로세스가 쉬워집니다.
+* 각 화면의 뷰 프러스텀을 실시간 계산하는 데 드는 모든 계산을 관리합니다. 디스플레이 하드웨어의 공간 배치도 고려합니다.
+* 여러 화면에 나타나고 있는 콘텐츠를 **정확히** 동기화시켜, 엔진의 모든 인스턴스에 예상한 그대로의 콘텐츠가 나오도록 합니다.
+* 수동형 및 능동형 스테레오스코픽 렌더링을 제공합니다.
+* VR 트래킹 시스템의 입력으로 구동하여, 디스플레이의 시점이 현실에서의 시점 이동을 정확히 따르도록 할 수 있습니다.
+* 화면의 개수나 방향과 상관 없이 모두 지원할 수 있을 만큼 유연하며, 모든 프로젝트에서 쉽게 재사용할 수 있습니다.
+
+## nDisplay 시스템 개요
+
+모든 nDisplay 설정은 **마스터** 컴퓨터가 하나이며, 추가 컴퓨터는 몇 개든 괜찮습니다.  
+
+* 네트워크의 컴퓨터마다 프로젝트를 패키지로 만든 실행 파일 인스턴스를 하나 이상 실행합니다. 각 언리얼 엔진 인스턴스는 같은 3D 씬의 한 부분을 단일 화면이나 디스플레이에 렌더링하는 것을 담당합니다.
+* 마스터 노드는 VRPN 디바이스에서 입력을 받아 그 입력을 연결된 모든 컴퓨터에 리플리케이트하는 것도 담당합니다.
+
+![nDisplay 네트워크 개요](image5.png "nDisplay 네트워크 개요")
+
+이를 가능하게 하기 위해 nDisplay 는 일반 언리얼 시스템 아키텍처에 몇 가지 컴포넌트를 추가합니다.
+
+* **nDisplayLauncher** 라는 네트워크 프로비저닝 및 관리 앱이 있습니다. 네트워크의 한 컴퓨터에서 이 앱을 실행하면 네트워크의 모든 컴퓨터에 프로젝트를 자동 디플로이하고 실행할 수 있습니다. 
+* **nDisplayListener** 라는 별도의 리스너 앱이 있으며, 각 컴퓨터에서 실행됩니다. 이 앱은 nDisplayLauncher 에서 오는 요청을 기다리다가(리스닝) 로컬 컴퓨터에서 그 요청을 처리합니다.
+* 공유 구성 파일에는 nDisplay 가 올바른 컴퓨터에서 올바른 수의 인스턴스를 실행, 각 게임의 3D 월드를 올바른 시점에서 렌더링하여 모든 디스플레이 화면 또는 프로젝터에 끊어진 부분이 없는 것처럼 보이게 만드는 데 필요한 모든 세팅이 들어있습니다.  아래 [nDisplay 구성 파일에 대하여](#ndisplay구성파일에대하여) 부분을 참고하세요.
+
+## 시작하기
+
+여기서는 nDisplay 를 처음 시작하는 방법을 설명합니다. 시작하기 전에:
+
+* 화면, 프로젝트와 같은 물리적 장비 설정이 완료되어 정상 작동하는지 확인합니다.
+* 마스터 컴퓨터에서 사용하려는 Windows 계정에 nDisplay 네트워크에서 사용할 **모든** 컴퓨터에 대한 관리 권한이 있는지 확인하세요.
+* nDisplay 네트워크에서 사용하려는 모든 컴퓨터가 41000, 41001, 41002 포트를 통해 TCP/IP 통신을 수신할 수 있는지 확인하세요. (다른 포트를 사용하는 방법은 아래 [통신 포트 변경](#통신포트변경) 부분을 참고하세요.) 
+
+### 1 단계. nDisplay 프로젝트 설정
+
+nDisplay 를 사용하는 프로젝트를 만드는 가장 쉬운 방법은, nDisplay 템플릿 프로젝트를 통해 만드는 것입니다.
+
+![템플릿에서 nDisplay 프로젝트 생성](ndisplay-create-from-template.png "템플릿에서 nDisplay 프로젝트 생성")
+
+그러면 자동으로 nDisplay 플러그인이 활성화되고 샘플 구성 파일이 프로젝트에 추가되며 기본 설정으로 이미 구성된 기본 레벨이 제공됩니다.
+
+기존 프로젝트에 nDisplay 를 사용하려는 경우, 수동으로 같은 구성을 해줄 수 있습니다. 아래 [기존 프로젝트에 nDisplay 추가](#기존프로젝트에ndisplay추가) 부분을 참고하세요.
+
+### 2 단계. 구성 파일 설정
+
+네트워크에서 사용하려는 다른 컴퓨터, 렌더링할 화면 또는 프로젝터의 크기와 해상도, 레벨의 3D 공간에서 해당 화면 사이 공간적 관계 등 의 정보를 nDisplay 에 알려야 합니다. 그러기 위해서는 이 모든 정보를 일련의 세팅으로 표현하는 구성 파일을 만들어야 합니다.
+
+이 구성 파일을 만드는 부분이 nDisplay 설정에서 가장 까다로운 부분일 수 있으니, 주의해서 접근해야 합니다. 자세한 내용은, 아래 [nDisplay 구성 파일에 대하여](#ndisplay구성파일에대하여) 부분을 참고하세요.
+
+일반적으로 구성 파일 설정이 끝나면, 네트워크의 토폴로지가 변경될 때만 구성 파일을 수정하면됩니다. 예를 들면 렌더링할 컴퓨터를 변경해야 하는 경우라던가, 현실에서 실제 화면과 디스플레이 배열을 변경한 경우입니다.
+
+프로젝트의 콘텐츠 폴더 안에 구성 파일을 저장합니다. 다음 단계에 사용할 것입니다.  
+
+### 3 단계. 패키지 및 디플로이
+
+프로젝트의 콘텐츠를 변경할 때마다 게임 패키지를 만들고 구성 파일에서 식별한 모든 컴퓨터에 디플로이해야 합니다.
+
+1. 언리얼 에디터에서, 게임을 Windows 용으로 쿠킹 및 패키징합니다. 자세한 내용은 [빌드 작업: 쿠킹, 패키징, 디플로이, 실행](Engine/Deployment/BuildOperations) 문서를 참고하세요.  
+   나중에 앱을 슬레이브 컴퓨터에 디플로이할 때, nDisplay 는 각 대상 컴퓨터의 같은 위치로 복사합니다. 따라서 모든 컴퓨터에 있는 위치에 프로젝트 패키지를 만드는 것이 좋습니다.
+1. 언리얼 엔진 설치 폴더 아래 Engine\\Binaries\\DotNET\\nDisplayListener.exe 앱을 찾습니다. 이 앱을 게임 패키지를 만든 .exe 파일이 들어있는 폴더로 복사합니다.
+1. nDisplay 구성 파일을 같은 폴더로 복사합니다.  
+   프로젝트의 .exe 파일, nDisplayListener.exe 앱, 구성 파일이 한 폴더에 모여있을 것입니다.
+1. 언리얼 엔진 설치 폴더 아래 Engine\\Binaries\\DotNET\\nDisplayLauncher.exe 앱을 실행합니다.
+   [REGION:lightbox]
+   [![nDisplay 런처에서 디플로이](ndisplay_launcher_config-1.png "nDisplay 런처에서 디플로이")](ndisplay_launcher_config-1.png) *이미지를 클릭하면 원본을 확인합니다.*
+   [/REGION]
+1. 프로젝트 .exe 파일을 **Applications** (앱) 리스트에 추가합니다.  
+   **앱** 리스트 아래 **추가** 를 클릭한 뒤, 프로젝트의 패키지를 만든 .exe 파일을 선택합니다.
+1. 구성 파일을 지정합니다.  
+   **Config Files** (구성 파일) 컨트롤 오른쪽 **Add** (추가) 버튼을 클릭한 뒤, 구성 파일을 찾아 선택합니다.
+1. **Deploy application** (앱 디플로이)를 클릭합니다.  
+   nDisplay 는 프로젝트의 실행파일이 들어있는 폴더 전체 내용을 구성 파일에서 식별한 다른 컴퓨터 각각의 동일 위치로 복사합니다.
+    
+
+### 4 단계. 모든 노드 실행
+
+구성 파일에서 식별한 모든 컴퓨터에 프로젝트를 성공적으로 디플로이한 이후, **nDisplayLauncher** 앱을 사용하여 모든 컴퓨터에서 프로젝트를 동시에 시작할 수 있습니다.
+
+1. **nDisplayLauncher** 앱을 아직 실행하지 않은 경우, 시작한 뒤 전 부분의 설명대로 Application 및 Config File 을 설정합니다.  
+   [REGION:lightbox]
+   [![nDisplay 런처로 실행](ndisplay_launcher_launch.png "nDisplay 런처로 실행")](ndisplay_launcher_launch.png) *클릭하면 이미지 원본을 확인합니다.*
+   [/REGION]
+1. **Start listeners** (리스너 시작)을 클릭합니다. 그러면 nDisplay 구성 파일에서 식별한 각 컴퓨터에서 nDisplayListener 앱이 실행됩니다.
+1. 모든 컴퓨터에서 모든 리스터가 시작되었다고 nDisplay 확인창이 뜨면, **Run** (실행)을 클릭하여 모든 인스턴스를 실행합니다.
+
+완료 후:
+
+1. **Kill** (킬)을 클릭하면 모든 컴퓨터에서 모든 언리얼 엔진 인스턴스를 자동 종료합니다. 또는 마스터 컴퓨터에서 실행 중인 언리얼 엔진 인스턴스를 종료하면 됩니다.
+1. **Stop listeners** (리스너 중지)를 클릭하면 모든 컴퓨터에서 nDisplayListener 앱을 종료합니다. 
+
+## nDisplay 구성 파일에 대하여
+
+[REGION:tip]
+nDisplay 구성 파일을 이해하고 직접 만들어보기 가장 좋은 방법은, nDisplay 플러그인에 제공된 예제 구성으로 시작하는 것입니다. nDisplay 템플릿에서 프로젝트를 만든 경우, Content/ConfigExamples 폴더에서 찾을 수 있습니다. 아니라면 언리얼 엔진 설치 폴더 아래 Templates/TP_nDisplayBP/Content/ConfigExamples 에서 찾을 수 있습니다.
+[/REGION]
+
+nDisplay 구성 파일의 구조는 시각화 렌더링에 사용되는 여러 컴포넌트 유형에 직접 묶여 있습니다.
+
+* 구성하는 각기 다른 컴포넌트 유형마다 파일에 고유의 줄이 있으며, 할당하는 문자열 ID 로 식별합니다. 한 구성 섹션이 다른 섹션을 참조해야 할 때 이 문자열 ID 를 사용합니다.
+* 이 파일에 구성하는 컴포넌트 다수에는 가상 3D 공간의 위치가 (종종 회전도) 정의되어 있습니다. 각 오브젝트의 위치와 회전은 그 오브젝트의 부모에 상대적입니다. 기본적으로 모든 오브젝트의 부모는 VR 공간 원점으로, VR 공간의 시작으로 간주되는 3D 세계 공간의 임의의 점입니다. 3D 공간에서 scene_nodes 라는 구체적인 이름의 트랜스폼을 구성할 수도 있는데, 하나 이상의 컴포넌트에 대한 부모 역할을 할 수 있습니다. 화면, 카메라, 다른 컴포넌트의 공간 레이아웃을 단순화하는 데 도움이 됩니다.
+* 모든 파라미터는 별도로 명시하지 않는 한 미터 및 각도 단위로 값을 나타냅니다.
+
+### 카메라 구성
+
+nDisplay 는 한 번에 단일 시점에서 씬을 렌더링합니다. 잠재적 시점 각각은 **camera** 구성 줄로 정의합니다.  
+
+실행시간에 그 시점 사이를 전환할 수 있습니다. 각 시점은 트래킹 디바이스로도 구동할 수 있습니다.
+
+#### 예제 구성
+
+[camera] id=camera_static loc="X=0.Y=0,Z=1.7" tracker_id=VRPNTracking tracker_ch=0
+
+#### 파라미터
+
+| 파라미터 | 설명 |
+| --- | --- |
+| **id** | 이 카메라 구성의 고유 이름입니다. |
+| **loc** | 이 카메라의 VR 공간 위치로, 그 부모 기준입니다. |
+| **tracker_id** | 시간에 따른 카메라의 위치를 구동하고자 하는 VR 디바이스를 정의하는 **input** 구성 이름입니다. 옵션입니다. 이 파라미터를 생략하면, 카메라의 위치가 VR 공간에서 고정됩니다. |
+| **tracker_ch** | **tracker_id** 를 입력하면, 이 파라미터는 nDisplay 가 데이터를 읽어오는 디바이스 채널을 지정합니다. |
+| **parent** | 이 오브젝트의 부모로 사용하려는 **scene_node** 구성 이름입니다. 이 파라미터는 옵션입니다. 부모를 지정하면, loc 파라미터에 설정한 값은 그 부모 위치 기준입니다. 부모를 생략하면 loc 파라미터에 설정한 값은 VR 루트 기준입니다. |
+
+### 화면 구성
+
+여러가지 출력 디스플레이 각각은 현재 카메라 위치에서 씬을 렌더링하며, 3D VR 공간 위치와 크기로 지정한 사각형으로 정의한 프러스텀을 사용합니다. 이 사각형 각각은 **screen** 구성으로 정의합니다. 보통 이 프로젝션 화면은 렌더링에 사용하는 물리적 화면과 같은 크기의 VR 공간을 차지합니다.  
+
+화면의 피벗 포인트는 항상 정가운데 지점입니다.
+
+#### 예제 구성
+
+부모 바로 앞에 있는 3 미터 x 3 미터 화면에 대한 정의입니다. 화면의 피벗 포인트가 크기 파라미터에 정의된 사각형 중심에 있기 때문에, Z 축에 1.5 미터 오프셋을 더해 화면 높이의 절반만큼 위로 올립니다.
+
+[screen] id=screen_front loc="X=1.5.Y=0,Z=1.5" rot="P=0,Y=0,R=0" size="X=3,Y=3" parent=screens
+
+보는 사람 왼쪽의 화면을 정의하기 위해, 위치를 왼쪽으로 (Y 축 음수값) 이동하고 로컬 Y 축으로 (요) 회전합니다. 
+
+[screen] id=screen_left loc="X=0,y=-1.5,Z=1.5" rot="P=0,Y=-90,R=0" size="X=3,Y=3" parent=screens
+
+#### 파라미터
+
+| **파라미터** | **설명** |
+| --- | --- |
+| **id** | 이 화면 구성의 고유 이름입니다. |
+| **loc** | VR 공간에서 이 화면의 중심 위치로, 그 부모 기준입니다. |
+| **rot** | 화면이 향하는 방향의 각도 단위 피치(P), 요(Y), 롤(R) 값입니다. |
+| **size** | 화면 사각형의 로컬 X 및 Y 축 미터 단위 총 크기입니다. |
+| **parent** | 이 오브젝트의 부모로 사용하려는 **scene_node** 구성 이름입니다. 이 파라미터는 옵션입니다. 부모를 지정하면, loc 과 rot 파라미터에 설정한 값은 그 부모 위치 기준입니다. 부모를 생략하면, loc 과 rot 파라미터에 설정한 값은 VR 루트 기준입니다. |
+
+
+### 클러스터 노드 구성
+
+위에 정의한 프로젝션 화면 각각은 보통 언리얼 엔진 앱의 각기 다른 인스턴스가 렌더링합니다. 이 인스턴스 각각에 대해 **cluster_node** 구성을 정의해야 합니다. 각 클러스터 노드는 렌더링해야 하는 프로젝션 화면 구성을 참조합니다. 
+
+cluster_node 구성은 앱 인스턴스를 실행하는 컴퓨터의 호스트 이름 또는 IP 주소를 정의하기도 합니다. 각 cluster_node 구성에 대해 각기 다른 물리적 컴퓨터를 설정해도 되고, 같은 호스트에 실행되는 cluster_node 구성이 여러개여도 됩니다.
+
+#### 예제 구성
+
+이 예제는 (네트워크당 하나의) 마스터 노드 구성입니다.
+
+[cluster_node] id=node_front addr=192.168.0.1 screen=screen_front viewport=vp_front sound=true port_cs=41001 port_ss=41002 master=true
+
+이 예제는 마스터가 아닌 클러스터 노드입니다.
+
+[cluster_node] id=node_left addr=192.168.0.2 screen=screen_left viewport=vp sound=false
+
+#### 파라미터
+
+| **파라미터** | **설명** |
+| --- | --- |
+| **id** | 이 클러스터 노드 구성의 고유한 이름입니다. |
+| **addr** | 이 언리얼 엔진 인스턴스를 실행할 컴퓨터의 IP 주소입니다. IPv4 주소여야 합니다. IPv6 는 지원하지 않습니다. |
+| **screen** | 이 언리얼 인스턴스가 렌더링을 담당할 프로젝션 화면을 정의하는 **screen** 구성 이름입니다. |
+| **viewport** | 이 언리얼 엔진 인스턴스가 실행하는 앱 창 안에서 렌더링되는 프레임의 위치를 정의하는 **viewport** 구성 이름입니다. |
+| **sound** | 이 언리얼 엔진 인스턴스의 사운드 재생 여부입니다. 옵션이며, 기본값은 `false` 입니다. |
+| **Winx WinY** | 데스크톱의 앱 창 좌상단 구석 위치를 화면 공간 픽셀 단위로 지정합니다. |
+| **ResX ResY**	| 앱 창의 크기를 화면 공간 픽셀 단위로 지정합니다. 이 클러스터 노드에 사용하는 viewport 정의가 이 창 크기를 넘지 않아야 합니다. |
+| **port_cs port_ss** | port_ss	클러스터 동기화 포트입니다. 마스터 노드가 클러스터의 다른 노드와 통신할 때 사용합니다. 옵션으로, 기본값은 `14001`, `14002` 입니다. |
+| **master** | 이 언리얼 엔진 인스턴스가 클러스터의 마스터 노드인지 여부입니다. 하나의 cluster_node 섹션만 이 파라미터를 true 설정할 수 있습니다. 옵션으로, 기본값은 `false` 입니다. |
+
+### 뷰포트 구성
+
+위에 설명한 **cluster_node** 구성 각각은 **viewport** (뷰포트) 구성을 가리키며, 렌더링된 프레임이 매핑되는 게임 창 사각 영역을 정의합니다. 
+
+일반적으로 해상도가 다른 디스플레이 장치마다 각기 다른 뷰포트 구성이 필요합니다. 예를 들어 모든 디스플레이 화면이 동일한 경우, 뷰포트 구성은 하나만 있어도 모든 클러스터 노드 구성에서 참조할 수 있습니다.
+
+보통 뷰포트는 앱 창 좌상단 구석에서 시작하며, 너비와 높이를 설정하여 부모 창을 채웁니다. 하지만 부모 앱 창 안에서 뷰포트에 오프셋을 줘야 하는 경우가 있습니다. 두 개의 프로젝터가 부분적으로 겹치는 경우를 예로 들 수 있습니다.  
+
+#### 예제 구성
+
+[viewport] id=vp_left X=0 Y=0 width=1920 height=1080
+
+#### 파라미터
+
+| **파라미터** | **설명** |
+| --- | --- |
+| **id** | 	이 뷰포트 구성의 고유명입니다. |
+| **X Y** | 메인 앱 창 화면 공간 내 뷰포트 좌상단 구석의 픽셀 단위 좌표입니다. |
+| **width height** | 렌더링한 프레임의 픽셀 단위 너비와 높이입니다. 이 뷰포트를 사용하는 **cluster_node** 구성의 크기 파라미터로 설정한 게임 창 크기보다 커서는 안됩니다. |
+
+### 씬 노드 구성
+
+구성 파일에서는 씬 노드의 계층구조를 정의할 수 있으며, 그 각각은 3D 공간의 트랜스폼을 나타냅니다. 카메라나 프로젝션 화면처럼 구성 파일에 설정한 것 중 3D 공간의 위치와 회전이 필요한 것은 무엇이든 이 scene_node 구성 중 하나를 부모로 사용할 수 있습니다. 그러면 시각화 시스템의 다른 모든 컴포넌트 사이 공간적 관계를 정의하는 데 도움이 됩니다.
+
+카메라처럼, 씬 노드 역시 VR 트래킹 디바이스로 구동할 수 있습니다.
+
+#### 예제 구성
+
+다음 줄은 두 노드의 계층구조를 정의하며, 자손 노드에 부모 앞 2 미터의 오프셋이 있습니다.
+
+[scene_node] id=vr_space_root loc="X=0.Y=0,Z=0" rot="P=0,Y=0,R=0"
+[scene_node] id=walls_front_group loc="X=2.Y=0,Z=0" rot="P=0,Y=0,R=0" parent= vr_space_root
+
+다음 줄은 VR 트래킹 디바이스로 구동하도록 구성한 씬 노드를 표시합니다.
+
+[scene_node] id=cave_wand loc="X=0, Y=0,Z=1" tracker_id=CaveTracking tracker_ch=1
+
+#### 파라미터
+
+| **파라미터** | **설명** |
+| --- | --- |
+| **id** | 이 씬 노드 구성의 고유명입니다. |
+| **loc** | 이 씬 노드의 VR 공간 위치로, 부모 기준입니다. |
+| **rot** | 씬 노드가 향하는 방향의 각도 단위 피치(P), 요(Y), 롤(R) 값입니다. |
+| **parent** | 이 씬 노드의 부모로 사용하려는 **scene_node** 구성 이름입니다. 이 파라미터는 옵션입니다. 부모를 지정하면, **loc** 과 **rot** 파라미터에 설정한 값은 그 부모 위치 기준입니다. 부모를 생략하면, **loc** 과 **rot** 파라미터에 설정한 값은 VR 루트 기준입니다. |
+| **tracker_id** | 시간에 따른 씬 노드의 위치를 구동하고자 하는 VR 디바이스를 정의하는 **input** 구성 이름입니다. 옵션입니다. 이 파라미터를 생략하면, 씬 노드의 위치와 회전은 VR 공간에서 고정됩니다. |
+| **tracker_ch** | **tracker_id** 를 입력하면, 이 파라미터는 nDisplay 가 데이터를 읽어오는 디바이스 채널을 지정합니다. |
+
+### 입력 구성
+
+각 **camera** 및 각 **scene_node** 는 VR 트래킹 디바이스를 통해 선택적으로 구동할 수 있습니다. 그러기 위해서는, 각 VR 디바이스의 **input** 섹션을 정의하고, **camera** 또는 **scene_node** 구성에서 참조합니다.
+
+#### 예제 구성
+
+[input] id=CaveTracking type=tracker addr=Tracker0@192.168.0.1 loc="X=-1.5,Y=0,Z=3.4" rot="P-0,Y=0,R=0" front=X right=Y up=-Z
+
+#### 파라미터
+
+| 파라미터 | 설명 |
+| --- | --- |
+| **id** | 이 씬 노드 구성의 고유명입니다. |
+| **type** | [INCLUDE:#Excerpt_2] |
+| **addr** | [INCLUDE:#Excerpt_3] |
+| **remap** | [INCLUDE:#Excerpt_4] |
+
+[COMMENT:none]
+
+[EXCERPT:Excerpt_2]
+이 VRPN 입력 디바이스의 유형은 다음과 같습니다.
+* `tracker` 는 트래킹 디바이스입니다.
+* `analog` 는 축 데이터를 생성하는 디바이스입니다.
+* `button` 은 부울 버튼 데이터를 생성하는 디바이스입니다.
+[/EXCERPT]
+
+[EXCERPT:Excerpt_3]
+이 VRPN 입력 디바이스 유형입니다.	이 특정 디바이스를 처리하는 VRPN 서버 주소입니다. 값은 다음 형식에 맞아야 합니다.
+`DEVICENAME@SERVER_ADDRESS`
+`여기서:`
+* `DEVICENAME` 은 이 디바이스의 VRPN 이름입니다.
+* `SERVER_ADDRESS` 는 VRPN 서버의 IPv4 주소입니다.
+[/EXCERPT]
+
+[EXCERPT:Excerpt_4]
+이 파라미터는 트래킹 디바이스의 입력을 언리얼의 다른 채널에서 읽을 수 있도록 채널 번호를 리매핑합니다. 예를 들어, 어떤 컨트롤러는 머리 트래킹에 0 채널, 컨트롤러에 1 채널을 사용할 수도, 다른 컨트롤러는 머리에 1 채널, 컨트롤러에 5 채널을 사용할 수도 있습니다. 이 두 디바이스 사이 전환은 구성과 런타임 코드가 일치하도록 변경해야 할 수 있습니다. 이 경우 다른 변경을 하지 않으려면, 이 파라미터를 사용하여 채널을 리매핑하면 됩니다.
+예를 들어:
+`remap[0:1, 5:2]`
+이 값은 트래킹 디바이스의 1 채널에서 받은 데이터를 언리얼에서 0 채널로 보내며, 트래킹 디바이스의 2 채널에서 받은 데이터를 언리얼의 5 채널로 보냅니다.
+[/EXCERPT]
+
+[/COMMENT]
+
+`type=tracker` 인 장치는 다음과 같은 파라미터를 받을 수도 있습니다.
+
+| **파라미터** | **설명** |
+| --- | --- |
+| **loc rot** | 다른 구성 섹션과 비슷하게, **loc** 과 **rot** 파라미터는 이 입력 장치의 로컬 공간에서 위치와 회전 오프셋을 지정합니다. 하지만 입력 장치의 경우, 일반적으로 이러한 오프셋으로 디바이스의 VR 공간 루트 위치가 씬 노드 계층의 예상 위치에 맞도록 조정합니다. |
+| **front right up** | [INCLUDE:#Excerpt_5] |
+
+
+[COMMENT:none]
+[EXCERPT:Excerpt_5]
+이 파라미터는 언리얼의 트래커 로컬 축 (앞, 오른, 위) 각각을 트래커의 좌표계 해당 축에 일치시킵니다. 언리얼은 오른손잡이 Z 가 위인 좌표계를 사용합니다. 트래커가 다른 좌표계를 사용하는 경우, 이 파라미터를 사용하여 트래커의 좌표계를 언리얼에 매핑하면 됩니다.
+예를 들어 다음 선은 트래커의 Y 축을 언리얼의 앞(X) 축에, 트래커의 X 축을 언리얼의 오른(Y) 축에, 트래커의 Z 축을 언리얼의 위(Z) 축에 매핑합니다.
+`front=Y right=X up=-Z`
+[/EXCERPT]
+[/COMMENT]
+
+### 일반 구성
+
+**general** 구성줄에는 nDisplay 클러스터의 전반적인 작동을 제어하는 파라미터가 들어있습니다.
+
+#### 예제 구성
+
+[general] swap_sync_policy=1
+
+#### 파라미터
+
+| **파라미터** | **설명** |
+| --- | --- |
+| **swap_sync_policy** | [INCLUDE:#Excerpt_6] |
+
+[COMMENT:none]
+[EXCERPT:Excerpt_6]
+네트워크를 통한 출력 동기화 방식을 결정합니다.
+* 0: 동기화가 없습니다.
+* 1: 소프트웨어 스왑 동기화입니다.
+* 2: NV 스왑 잠금입니다 (OpenGL 렌더링하는 NVIDIA 카드 전용입니다).
+[/EXCERPT]
+[/COMMENT]
+
+### 스테레오 구성
+
+**stereo** 구성줄은 스테레오스코픽 렌더링을 위한 옵션 글로벌 파라미터를 설정합니다.
+
+#### 예제 구성
+
+\[stereo\] eye\_swap=True eye\_dist=0.064
+
+#### 파라미터
+
+| **파라미터** | **설명** |
+| --- | --- |
+| ** eye_swap ** | 왼쪽 눈과 오른쪽 눈에 대해 생성된 이미지를 서로 바꿀지 여부입니다. 옵션입니다. 기본값은 false 입니다. |
+| ** eye_dist ** | 왼쪽 눈과 오른쪽 눈에 대해 생성된 이미지의 오프셋으로 사용할 눈 사이 거리 (미터)입니다. |
+
+### 구조
+
+위에 설명한 여러 구성 유형 사이 참조는 다음 구조를 암시합니다. 빨강 화살표는 필수적 참조이고, 초록 화살표는 선택적 참조입니다.
+
+![구성 참조 구조](ndisplay-configuration-references.png "구성 참조 구조")
+
+### 예제 구성
+
+구체적인 예제로 wall_flat_3x2.cfg 샘플 파일을 엽니다. 이 파일은 6 개의 프로젝션 화면을 정의하며, 각각은 별도의 물리적 컴퓨터로 렌더링합니다.
+
+여러 개의 scene_node 도 정의하는데, 모여서 다음과 같은 계층구조를 만듭니다.
+
+![nDisplay 예제 씬 계층](ndisplay-scene-hierarchy.png "nDisplay 예제 씬 계층")
+
+이 계층의 상대 위치와 회전은 VR 공간에서 카메라와 1 미터 거리에 6 개의 프로젝션 화면이 나란히 오도록 레이아웃을 정합니다. 
+
+[REGION:lightbox]
+[![nDisplay 예제 레이아웃](ndisplay-example-layout.png)](ndisplay-example-layout.png)
+[/REGION]
+
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+참고로 위 구성은 인접한 프로젝션 화면 사이에 씬을 렌더링하는 모니터의 테두리 부분을 고려한 작은 공간이 있음을 암시합니다.
+
+## 블루프린트 API
+
+블루프린트 API를 사용하여 게임의 런타임 로직에서 nDisplay 시스템의 동작을 제어 할 수 있습니다.
+
+이 API 에 노출된 클러스터 관리, 입력, 렌더링용 함수를 접하는 방법은 다음과 같습니다.
+
+1.  블루프린트에 **Display Cluster > Get Plugin API** 노드를 새로 만듭니다.
+2.  **Out API** 핀을 끌어 놓고, **Display Cluster** 카테고리 아래를 살펴봅니다.  
+    ![nDisplay Get Plugin API](ndisplay-get-plugin-api.png "nDisplay Get Plugin API")
+
+## 액터 리플리케이션
+
+nDisplay 시스템의 모든 입력은 마스터 노드만 처리합니다. 리플리케이션이 없으면, 마스터 노드만 씬의 변화를 볼 수 있습니다. 따라서 마스터 노드는 변경 사항을 nDisplay 네트워크의 다른 모든 부분에 리플리케이트할 수 있어야 합니다.
+
+그러기 위해, nDisplay 는 액터에 붙일 수 있는 두 가지 유형의 컴포넌트를 제공합니다.
+
+*   **DisplayClusterSceneComponentSyncParent** 컴포넌트는 부모 컴포넌트의 3D 트랜스폼 변화를 트래킹한 뒤, 네트워크의 다른 클러스터 노드에 푸시합니다.  
+    nDisplay 시스템이 사용하는 기본 DisplayClusterPawn 은 이 컴포넌트를 사용합니다.  
+    
+*   **DisplayClusterSceneComponentSyncParent** 컴포넌트는 자손 컴포넌트의 3D 트랜스폼 변화를 트래킹한 뒤, 네트워크의 다른 클러스터 노드에 푸시합니다.
+
+예를 들어 아래 표시된 액터에서, **DisplayClusterSceneComponentSyncParent_DefaultSceneRoot** 컴포넌트는 액터가 레벨을 이동함에 따라 부모 액터의 3D 트랜스폼 변화를 트래킹하여 리플리케이트합니다. **DisplayClusterSceneComponentSyncThis** 컴포넌트는 씬 그래프 루트를 기준으로 움직이면서 자손 큐브 컴포넌트의 움직임을 트래킹하고 동기화합니다.
+
+![DisplayClusterSceneComponentSyncParent ](ndisplay-actor-replication.png "DisplayClusterSceneComponentSyncParent ")
+
+씬에 게임플레이 도중 영향을 받을 수 있는 다른 액터가 있는 경우, 위의 두 컴포넌트 중 하나를 사용해서 변화를 모든 노드에 리플리케이트해야 합니다. 그 방법은 다음과 같습니다.
+
+1.  레벨 뷰포트 또는 **월드 아웃라이너** 패널에서 리플리케이트하려는 액터를 선택합니다.
+2.  **디테일** 패널에서 **\+ 컴포넌트 추가** 를 클릭합니다. **DisplayClusterSceneComponentSyncParent** 또는  **DisplayClusterSceneComponentSyncThis** 를 검색한 뒤 목록에서 선택합니다.  
+    ![nDisplay 동기화 컴포넌트 추가](ndisplay-actor-replication-selection.png "nDisplay 동기화 컴포넌트 추가")
+
+[REGION:note]
+이 컴포넌트는 전체 리플리케이션을 하지 않습니다. 부모 액터의 또는 자손 컴포넌트의 트랜스폼만 클러스터로 전송합니다.
+[/REGION]
+
+## VRPN 입력 사용
+
+nDisplay 에 [VRPN](https://en.wikipedia.org/wiki/VRPN) 입력 장치를 사용하는 방법은 다음과 같습니다.
+
+1. 네트워크에 VRPN 서버를 설치합니다.  
+   nDisplay 이 버전은 VRPN **버전 33** 이 필요합니다.
+1. 서버의 실행파일 옆에서 찾을 수 있는 vrpn.cfg 파일에서, 입력 장치를 활성화하고 이름을 짓습니다.
+1. nDisplay 구성 파일에서, VRPN 입력 장치 설정을 위한 항목을 추가하고, 좌표계를 조절한 뒤, 카메라에 붙입니다.
+
+다음 예는 ART DTrack 트래킹 시스템을 설정하는 한 가지 방법을 보여줍니다.
+
+* VRPN 서버 exe 옆의 Vrpn.cfg 에 다음 줄을 추가합니다.
+vrpn_Tracker_DTrack DTrack  5000	
+  그러면 VRPN 이 5000 포트에서 DTrack 입력을 받아 DTrack 이라는 이름의 VRPN 장치에 매핑합니다. (DTrack 이 5000 포트의 데이터를 트래킹하도록 구성했는지 확인하세요.)
+* nDisplay 구성 파일에 다음 줄을 추가합니다.
+[input] id=CaveTracking type=tracker addr=DTrack@127.0.0.1 loc="X=1.32,Y=0,Z=0.93735" rot="P=0,Y=0,R=0" front=Z right=-X up=Y
+[camera] id=camera_dynamic loc="X=0,Y=0,Z=0" tracker_id=CaveTracking tracker_ch=0
+  첫 줄은 CaveTracking 라는 이름으로 nDisplay 입력 장치를 생성합니다. VRPN 주소 DTrack@127.0.0.1 에서 데이터를 가져 옵니다. 트래킹 시스템과 오프셋에 맞게 좌표계를 조정해야 합니다. 두 번째 줄은 nDisplay 더러 CaveTracking 입력의 0 채널에서 카메라 위치를 가져 오도록 지시합니다.
+
+게임플레이 코드에서 VRPN 장치의 상태를 관리하고, 버튼 눌림과 같은 입력 에빈트를 감지하는 방법은 다음과 같습니다.
+
+* C++ 에서 `IDisplayClusterInputManager` 클래스를 사용합니다.
+* 블루프린트에서 **DisplayCluster > Input** 아래 노드를 사용합니다. 노드에 설정한 ID 가 구성 파일에 설정한 ID 와 일치하는지 확인하세요. 예:  
+  ![](ndisplay_vrpn_api.png "ndisplay_vrpn_api.png")
+
+## 통신 포트 변경
+
+nDisplay 시스템은 호스트 사이 통신에 세 개의 TCP/IP 포트(14000, 14001, 14002)를 사용합니다. 모든 컴퓨터에 위 호스트를 열어 놓아야 합니다.
+
+포트 번호를 직접 변경할 수 있는 곳은 다음과 같습니다.
+
+* **런타임 동기화 포트** 입니다. 마스터 노드는 두 개의 포트를 사용하여 클러스터의 다른 노드와 데이터를 동기화합니다. 이 두 개의 포트를 설정하려면, 구성 파일에서 마스터 노드를 정의하는 **cluster_node** 줄에 **port_cs** 및 **port_ss** 구성 파라미터를 포함시킵니다. 예:
+[cluster_node] id=node_front addr=192.168.0.1 screen=screen_front viewport=vp_front port_cs=42001 port_ss=42002 master=true
+
+* **nDisplay 런처 및 nDisplay 리스너 포트** 입니다. nDisplay 런처와 nDisplay 리스너 둘 다 같은 통신 포트를 사용하도록 구성해야 합니다. 이 앱을 실행할 때 명령줄에 지정할 수 있습니다.  
+  nDisplay 런처를 실행할 때, `listener_port` 인수를 사용합니다. 예:
+nDisplayLauncher.exe listener_port=15003
+
+  추가로, 각 호스트에서 nDisplayListener 앱에 `port` 인수를 붙여 직접 실행해야 합니다. 예:
+nDisplayListener.exe port=15003
+
+## 기존 프로젝트에 nDisplay 추가
+
+기존 프로젝트가 nDisplay 를 사용하도록 설정하는 방법은 다음과 같습니다.
+
+1.  nDisplay 플러그인을 활성화합니다.  
+    언리얼 에디터에서 **편집 > 플러그인** 메뉴를 선택합니다. nDisplay 를 검색하고 **Enabled** (활성화) 박스를 체크합니다.  
+	[REGION:lightbox]
+    [![nDisplay 플러그인 활성화](ndisplay-enable-plugin.png "nDisplay 플러그인 활성화")](ndisplay-enable-plugin.png)  
+	*클릭하면 이미지 원본을 확인합니다.*
+    [/REGION]
+2.  프로젝트에 nDisplay 를 활성화합니다.  
+    메인 메뉴의 **편집 > 프로젝트 세팅** 을 선택하고 **플러그인 > nDisplay** 섹션을 찾습니다. **Enabled** (활성화) 박스를 체크합니다.  
+    [REGION:lightbox]
+    [![nDisplay 프로젝트 세팅](ndisplay-project-settings.png "nDisplay 프로젝트 세팅")](ndisplay-project-settings.png)  
+	*클릭하면 이미지 원본을 확인합니다.*
+    [/REGION]
+3.  아직 **프로젝트 세팅** 창에서 **프로젝트 > Description** (설명) 섹션의 **Settings > Use Borderless Window** (세팅 > 테두리 없는 창 사용) 박스를 체크합니다.  
+    [REGION:lightbox]
+    [![테두리 없는 창 사용](ndisplay-project-settings-borderless.png "테두리 없는 창 사용")](ndisplay-project-settings-borderless.png)  
+	*클릭하면 이미지 원본을 확인합니다.*
+    [/REGION]
+4.  언리얼 에디터를 재시작하고, 프로젝트를 다시 연 뒤, 프로젝트의 기본 레벨을 엽니다.
+5.  **월드 세팅** 패널에서 **Game Mode > GameMode Override** (게임 모드 > 게임 모드 오버라이드) 세팅을 **DisplayClusterGameModeDefault** 으로 설정합니다.  
+    [REGION:lightbox]
+    [![nDisplay 월드 세팅](ndisplay-world-settings.png "nDisplay 월드 세팅")](ndisplay-world-settings.png)  
+	*클릭하면 이미지 원본을 확인합니다.*
+    [/REGION]    
+6.  레벨에 **DisplayClusterSettings** 액터를 새로 추가합니다.  
+    **모드** 패널의 **모든 클래스** 목록에서 이 액터를 찾을 수 있습니다.
+7.  위 [시작하기](#시작하기) 섹션 아래 나머지 설정 안내를 따릅니다.
+
+## nDisplay 런처 UI 레퍼런스
+
+여기서는 nDisplay 런처의 유저 인터페이스에서 사용할 수 있는 세팅과 옵션을 전부 설명합니다.
+
+[REGION:lightbox]
+[![nDisplay 런처 UI](ndisplay-launcher-ui.png)](ndisplay-launcher-ui.png) 
+[/REGION]
+
+| **컨트롤** | **설명** |
+| --- | --- |
+| **Render API** | 렌더 API - 다음 번 **실행** 을 클릭했을 때 사용할 렌더링 API 를 지정합니다. |
+| **Render mode** | 렌더 모드 - [INCLUDE:#excerpt_9] |
+| **Use All Available Cores** | 사용가능한 모든 코어 사용 - 각 언리얼 인스턴스가 호스트에서 사용할 수 있는 프로세서를 전부 강제 사용하도록 합니다. 이 옵션을 선택하면, nDisplay 런처는 각 인스턴스 실행에 사용하는 명령줄에 USEALLAVAILABLECORES 옵션을 추가합니다. |
+| **No Texture Streaming** | 텍스처 스트리밍 없음 - 각 언리얼 인스턴스에 대한 텍스처 스트리밍을 비활성화합니다. 최고 퀄리티 텍스처는 항상 로드합니다. 이 옵션을 선택하면, nDisplay 런처는 각 인스턴스 실행에 사용하는 명령줄에 NOTEXTURESTREAMING 옵션을 추가합니다. |
+| **Custom command line arguments** | 커스텀 명령줄 인수 - 여기 입력한 인수는 nDisplay 런처가 각 언리얼 인스턴스 실행에 사용하는 명령줄에 추가 전달합니다. 자세한 내용은 [명령줄 인수]("Programming/Basics/CommandLineArguments") 레퍼런스를 참고하세요. |
+| **Applications** | 앱 - nDisplay 런처로 실행할 수 있는 모든 언리얼 앱 패키지를 나열합니다. **추가** 및 **삭제** 버튼으로 목록을 편집합니다. 자세한 내용은 위의 [3 단계. 패키지 및 디플로이]("Engine/Rendering/nDisplay#3단계패키지및디플로이") 부분을 참고하세요. |
+| **Config Files** | 구성 파일 - nDisplay 런처용으로 설정한 모든 구성 파일을 나열합니다. **추가** 및 **삭제** 버튼으로 목록을 편집합니다. 자세한 내용은 위의 [3 단계. 패키지 및 디플로이]("Engine/Rendering/nDisplay#3단계패키지및디플로이") 부분을 참고하세요. |
+| **Run** | 실행 - **Config Files** 목록에서 선택한 파일에 구성된 모든 호스트에서, **Applications** 목록에 선택한 앱을 실행합니다. |
+| **Kill** | 킬 - nDisplay 런처가 실행한 모든 언리얼 엔진 인스턴스를 종료합니다. |
+| **Start listeners** | 리스너 시작 - **Config Files** 목록에서 선택한 파일에 구성된 각 호스트에서 nDisplay 리스너 앱 인스턴스를 실행합니다.  |
+| **Stop listeners** | 리스너 중지 - 이 nDisplay 런처가 실행한 nDisplay 리스너 앱의 모든 인스턴스를 종료합니다. |
+| **Deploy application** | 앱 디플로이 - **Applications** 목록에서 선택한 앱을 **Config Files** 목록에서 선택한 파일에 구성된 각 호스트로 복사합니다. |
+| **Copy** | 복사 - 왼쪽 로그 창에 나열된 모든 메시지를 클립 보드로 복사합니다. |
+| **Clean** | 지우기 - 왼쪽 로그 창의 모든 메시지를 지웁니다. |
+[COMMENT:none]
+[EXCERPT:Excerpt_9]
+nDisplay 가 생성하는 출력 유형을 지정합니다.
+* Monoscopic: 모노스코픽 - 스테레오 렌더링 없음
+* Frame sequential: 프레임 순차 - 액티브 쿼드 버퍼 스테레오
+* Side-by-side: 나란히 - 패시브 수평 배열 스테레오
+* Top-bottom: 위아래 - 패시브 수직 배열 스테레오
+
+모노스코픽은 별도의 하드웨어 기능이 필요하지 않지만 프레임 순차는 필요합니다. 디스플레이 장치, GPU, 드라이버 세팅이 선택한 렌더 모드에 호환되는지 확인하세요.
+[/EXCERPT]
+[/COMMENT]

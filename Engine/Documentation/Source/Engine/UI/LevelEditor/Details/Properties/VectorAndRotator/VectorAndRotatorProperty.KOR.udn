@@ -1,6 +1,6 @@
 ﻿INTSourceChangelist:3108692
 Availability:Public
-Title: 벡터 / 로테이터 콘트롤
+Title: 벡터 / 로테이터 컨트롤
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Details
 Description:여러 개의 Float 값이 들어있는 Vector 또는 Rotator 프로퍼티 입니다.
 Version: 4.9

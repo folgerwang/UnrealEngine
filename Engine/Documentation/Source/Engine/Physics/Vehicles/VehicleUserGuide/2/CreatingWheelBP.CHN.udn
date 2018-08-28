@@ -1,104 +1,108 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3400712
 Availability: Public
-crumbs:
-Title: 1 - Create a TireConfig Data Asset and Wheel Blueprint
-Description: In this part of the guide, we'll create the TireConfig Data Assets that we can use with our Wheel Blueprints for the Vehicle.
-Type: Multi-step
+crumbs:%ROOT%
+Title: 2 - 创建一个TireConfig数据资源和轮子蓝图
+Description: 在此步骤中，我们将创建可以用于载具的轮子蓝图的TireConfig数据资源。 
+Type:how-to
 SkillLevel: Advanced
 Version: 4.15
 Parent: Engine/Physics/Vehicles/VehicleUserGuide 
 checkpoint:vehicleuserguideHT
-Order:1
+Order:2
 Tags: Vehicles
+
+
 
 [Nav]
 
-[TOC(start:2 end:2)]
+这是创建我们自己的载具的第一步，我们将创建两个部分——TireConfig数据资源和轮子蓝图类，它们共同组成载具的轮子。我们首先创建TireConfig数据资源，然后创建包含轮子属性（其中包括将TireConfig数据指定到哪个位置）的轮子蓝图。
 
-In this first step to creating our own vehicle, we have two parts that go together to make up the wheels for our vehicle; the TireConfig Data Asset and the Wheel Blueprint class. We'll start by first
-creating the TireConfig Data Asset and then move on to create the Wheel Blueprint that houses a bunch of properties for our wheels and where the TireConfig data is assigned to.
+按照下面的步骤进行操作以着手创建TireConfig数据并将其和轮子蓝图一起使用。
 
+## Tire Config数据资源
 
-Follow along with the steps below to get started creating your TireConfig data and then using that with a Wheel Blueprint.
-
-## Tire Config Data Asset
-
-The **TireConfig Data Asset** is used to control **Friction Scale**. This value not only affects the raw friction of the wheel but also scales the values for how difficult (or easy) it is for the
-wheel to slide while in a hard turn. There is also the additional option of **Tire Friction Scales** which enables you to specify a specific Friction Scale to different Physical Material types. 
+**TireConfig 数据资源（TireConfig Data Asset）** 用于控制 **摩擦程度（Friction Scale）**。该值不仅会影响轮子的原始摩擦，也会按比例决定急转弯时轮子滑动时的困难（或容易）程度值。另外还有 **轮子摩擦程度（Tire Friction Scales）** 选项，它使你能够为不同的物理材质类型指定特定的摩擦程度。 
 
 ![](tires02.png)
 
-### Create your TireConfig Data Asset
+### 创建TireConfig数据资源
 
-1. In the **Content Browser** click the **Add New** Button, then hover over **Miscellaneous** and then select **Data Asset** from the Context Menu. 
-1. In the **Pick Data Asset Class** window, select **TireConfg** to create this type of Data Asset. 
-1. In your **Content Browser** the new asset will be created. Make sure to give it a recognizable name so you can easily locate it later.
+1. 在 **内容浏览器（Content Browser）** 中，单击 **新建（Add New）** 按钮，然后将光标悬停在 **其他（Miscellaneous）** 上并从上下文菜单中选择 **数据资源（Data Asset）**。 
+2. 在 **选择数据资源类（Pick Data Asset Class）** 窗口中，选择 **TireConfg** 以创建该类型的数据资源。 
+3. 该新资源将会在 **内容浏览器（Content Browser）** 中被创建。请确保为它起一个易于识别的名称，方便以后查找。
 
 [REGION:raw]
 ![](newDataAsset.png)(convert:false)
 [/REGION]
 
 [REGION:warning]
-In the Pick Data Asset Class window, you may notice that there is also a **TireType** Data Asset class. This is a deprecated function and is only used when upgrading older projects to 4.15 or a later version.
-You should not have any reason to use this data asset type if using Unreal Engine 4.15 or later.
+在“选择数据资源类（Pick Data Asset Class）”窗口中，你可能留意到还有一个 **TireType** 数据资源类。这是一个已弃用的功能，只有在将旧项目升级到虚幻引擎版本4.15（或更高版本）时才会用到。
+如果使用虚幻引擎版本4.15（或更高版本），不会用到该数据资源类型。
 [/REGION]
 
+## 轮子蓝图 
 
-## Wheel Blueprints 
-
-In most cases, you will have at least two wheel types; a wheel that is affected by steering and one that is not. Also, this may be the case for having differently sized wheels for the front or the back, in
-which case you have full control over setting the differing radii, mass, width, handbrake effect, suspension, and many other properties to give your vehicle the handling you desire.
+在大多数情况下，需要具有至少两种轮子类型，受方向盘影响的轮子和不受方向盘影响的轮子。另外，如果前轮或后轮的大小不同，也可以设置两种类型，在这种情况下，你可以完全控制不同半径、质量、宽度、手刹效果、悬挂系统和很多其他属性的设置，以赋予载具你想要的操作手感。
 
 [REGION:lightbox]
 [![](WheelBlueprintDetailsPanel.png)(h:400)](WheelBlueprintDetailsPanel.png)
 [/REGION]
 [REGION:caption]
-_Click the image for full size view._
+_单击图片可查看大图。_
 [/REGION]
 
-### Create your Wheel Blueprint
+### 创建轮子蓝图
 
-1. In the **Content Browser** click the **Add New** button, then select **Blueprint Class** from the menu. 
-1. In the **Pick Parent Class** window, under **All Classes** search for "wheel" and then select **VehicleWheel**.
-1. In your **Content Browser** the new Blueprint asset will be created. Make sure to give it a recognizable name so you can easily locate it later. 
-1. **Optional** - Repeat these steps again so that you have a **front** and **rear** wheel type.
+1. 在 **内容浏览器（Content Browser）** 中，单击 **新建（Add New）** 按钮，然后从菜单中选择 **蓝图类（Blueprint Class）**。 
+2. 在 **选择父类（Pick Parent Class）** 窗口中，在 **所有类（All Classes）** 下面，搜索“wheel”，然后选择 **VehicleWheel**。
+3. 该新资源将会在 **内容浏览器（Content Browser）** 中被创建。请确保为它起一个易于识别的名称，方便以后查找。 
+4. **可选** - 再次重复这些步骤，以设置 **前轮** 和 **后轮** 轮子类型。
 
 [REGION:raw]
 ![](newWheels.png)(convert:false)
 [/REGION]
 
-### Editing the Wheel Blueprint
+### 编辑轮子蓝图
 
-Now that you've got your Wheel Blueprint(s), open them in the Blueprint Editor, and you'll see all the available options to edito your wheels!
+现在你已创建好了自己的轮子蓝图，在“蓝图编辑器（Blueprint Editor）”中打开它们并使用其中可用的选项来编辑轮子。
 
-There are five properties that we need to initially change for each wheel, as the rest of them will change how the vehicle performs and should be tweaked later as you start to test out your vehicle in your
-own game. 
+我们需要一开始就为每个轮子更改这些属性的其中五个，因为除它们以外的其他属性会在你开始在自己的游戏中测试载具时更改载具的运行方式（因而应该在稍后再调整）。 
 
-* **Shape Radius**
-* **Shape Width**
-* **Affected by Handbrake (usually restricted to the rear wheels)**
-* **Steer Angle (usually only the front wheels)**
+* **形状半径（Shape Radius）**
+* **形状宽度（Shape Width）**
+* **受手刹影响（Affected by Handbrake）（通常仅限于后轮）**
+* **转向角（Steer Angle）（通常仅限于前轮）**
 
 ![](wheelProps.png)
 
 [REGION:note]
-The properties here are set to match the Buggy from Vehicle Game. If you're using your own Skeletal Mesh you may need to use different values for the **Shape Radius** and **Shape Width**.
+上图中的属性设置为与载具类游戏（Vehicle Game）中的越野车保持一致。如果使用自己的骨架网格体，可能需要为 **形状半径（Shape Radius）** 和 **形状宽度（Shape Width）** 使用不同的值。
 [/REGION]
 
-Now, under the **Tire** section, you can assign the Tire Config Data Asset that you initially created using the **Tire Config** selection box. 
+现在，在 **轮子（Tire）** 部分下面，你可以使用 **Tire Config** 选择框来指定一开始创建的Tire Config数据资源。 
 
 [REGION:raw]
 ![](TireConfig.png)
 [/REGION]
 
-## End Result
+## 最终结果
 
-At this point, you've set up your Tire Config Data Asset that is used to control how much the tires slide on any surface and setup the Wheel Blueprint that can be used to specify all the different 
-properties of your wheel. In the next step, we'll continue creating the assets we need that make up our vehicle by creating the Animation Blueprint that handles all the necessary animation information
-for our vehicle, like spinning tires, steering, suspension, etc. 
+现在，你已设置好了用于控制轮子在任何表面的滑动程度的Tire Config数据资源和可用于指定轮子的所有不同属性的轮子蓝图。在下一步中，你将继续创建构成载具的所需资源，创建处理载具的所有必要信息（例如，旋转的轮子、方向盘、悬挂系统等）的动画蓝图。 
 
 
 [Nav]
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

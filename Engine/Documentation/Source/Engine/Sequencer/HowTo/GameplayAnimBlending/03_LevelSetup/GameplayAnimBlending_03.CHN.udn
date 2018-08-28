@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title:3. Using Cinematic Exposed Variables
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:3.使用动画公开变量
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:In this step we add our cinematic exposed variable to our Sequence and set up a method for triggering the Sequence playback. 
+Description:在此步骤中，我们要将动画公开变量添加到序列，并设置一个触发序列回放的方法。I 
 Version: 4.17
 SkillLevel: Advanced
-parent:Engine/Sequencer/HowTo
+parent:Engine/Sequencer/HowTo/GameplayAnimBlending
 order:3
 checkpoint: editorqs
 tags:Sequencer
@@ -36,23 +36,23 @@ type:how-to
 
 [nav]
 
-Here we add the float variable **Default Slot Interp** which is feeding the interp in our Animation Blueprint, determining when we blend from a gameplay pose to our Slot animation. 
-We also add a Trigger Box to the level that we will use in the next step to allow the player to trigger the playback of our Level Sequence when they enter its volume. 
+在这步，我们添加浮点变量 **默认插槽插值（Default Slot Interp）**，该变量将成为动画蓝图中插值的组成部分，决定着我们何时从游戏动作混合到插槽动画。 
+我们还在关卡中添加了触发框，这个触发框会在下一步用到，它允许玩家在进入触发器体积时触发关卡序列的播放。 
 
-1.	Inside your Level Sequence for the **Ue4ASP_Character**, click the **Track** button and assign the new **Default Slot Interp** property. 
+1.   在 **Ue4ASP_Character** 的关卡序列中，单击 **轨迹（Track）** 按钮，并指定新的 **默认插槽插值（Default Slot Interp）** 属性。 
 
-	![](GameBlend_13.png)
+  ![](GameBlend_13.png)
 
-1.	Scub the timeline ahead to frame **25** (or whichever frame you prefer) and add a key for **Default Slot Interp** with a value of **1.0**. 
+  1. 将时间轴前移到第 **25** 帧（或想要的任何帧），并为 **默认插槽插值（Default Slot Interp）** 添加值为 **1.0** 的关键帧。 
 
-	![](GameBlend_14.png)
+  ![](GameBlend_14.png)
 
-1.	From the **Modes** panel in the main level editor, drag a **Triggerbox** into the level and resize and place where desired. 
+  1. 从主关卡编辑器的 **模式（Modes）** 面板中，将 **触发框（Triggerbox）** 拖动到关卡，然后根据需要调整大小和位置。 
 
-	![](GameBlend_15.png)
+  ![](GameBlend_15.png)
 
-	You can optionally set **Actor Hidden In Game** to false if you want to be able to see the trigger volume during playback. 
+  如果想在播放期间看到触发器体积，可以选择将 **游戏中隐藏的Actor（Actor Hidden In Game）** 设置为false。 
 
-In the next and final step of this guide, we set up the Level Blueprint to playback our Level Sequence when we enter the Trigger Box's volume. 
+在本指南的下一步也是最后一步中，我们将关卡蓝图设置为当进入触发框体积时播放关卡序列。 
 
 [nav]

@@ -101,15 +101,15 @@ Version: 4.9
 
 ## 씬 캡처 2D 컴포넌트
 
-**SceneCapture2DComponent** 는 한 면에서 씬의 "스냅샷"을 캡처하여 렌더 타겟에 물려주는 데 사용됩니다. 캡처할 때 **필드 오브 뷰** (FOV) 제어는 물론 (다른 세팅도 많지만) **렌더 타겟** 텍스처 지정을 위한 세팅도 있습니다. 이에 대한 예제라면 (아래 보이는) 거울이나 모니터에 보이는 보안 카메라 화면을 만드는 경우입니다 ([](Resources/Showcases/BlueprintExamples/SecurityCameraAndAlarm) 참고).
+**SceneCapture2DComponent** 는 한 면에서 씬의 "스냅샷"을 캡처하여 렌더 타깃에 물려주는 데 사용됩니다. 캡처할 때 **필드 오브 뷰** (FOV) 제어는 물론 (다른 세팅도 많지만) **렌더 타깃** 텍스처 지정을 위한 세팅도 있습니다. 이에 대한 예제라면 (아래 보이는) 거울이나 모니터에 보이는 보안 카메라 화면을 만드는 경우입니다 ([](Resources/Showcases/BlueprintExamples/SecurityCameraAndAlarm) 참고).
 
 ![](2dRender.png)(w:440)
 
-위에서는 **SceneCapture2DComponent** 로 **블루프린트** 를 만든 다음 **렌더 타겟** 텍스처를 할당하고, 그것을 레벨의 지오메트리 조각에 적용한 **머티리얼** 로 사용합니다. 자세한 정보는 [](Resources/ContentExamples/Reflections/1_7) 문서를 참고하세요. 
+위에서는 **SceneCapture2DComponent** 로 **블루프린트** 를 만든 다음 **렌더 타깃** 텍스처를 할당하고, 그것을 레벨의 지오메트리 조각에 적용한 **머티리얼** 로 사용합니다. 자세한 정보는 [](Resources/ContentExamples/Reflections/1_7) 문서를 참고하세요. 
 
 ## 씬 캡처 큐브 컴포넌트
 
-**SceneCaptureCubeComponent** 는 6 개의 면에서 씬 "스냅샷" 을 캡처한 다음 렌더 타겟에 물려주는데 사용됩니다.
+**SceneCaptureCubeComponent** 는 6 개의 면에서 씬 "스냅샷" 을 캡처한 다음 렌더 타깃에 물려주는데 사용됩니다.
 
 ![](Resources/ContentExamples/Reflections/1_6/Reflections_1_6_Header.png)(w:640)
 

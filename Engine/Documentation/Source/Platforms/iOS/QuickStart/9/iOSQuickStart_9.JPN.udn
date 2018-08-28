@@ -23,7 +23,7 @@ order:9
 [/OBJECT]
 [/VAR]
 
-
+%Steps%
 
 
 互換性およびパフォーマンスに関する詳細です。
@@ -41,4 +41,4 @@ order:9
 [](Platforms\Mobile\Previewer) を使用すれば、デバイスにデプロイせずにモバイルゲームのプレビューも可能になります。
 
 
-
+%Steps%

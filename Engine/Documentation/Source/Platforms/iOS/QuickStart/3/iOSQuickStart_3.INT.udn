@@ -25,6 +25,7 @@ order:3
 [/VAR]
 
 
+%Steps%
 
 [REGION:note]
 If you have previously developed iOS applications on a Mac but want to use Unreal Engine on a Windows PC to develop your iOS game, 
@@ -157,3 +158,5 @@ When completed you will now have the needed certificates to allow your UE4 proje
 [/COMMENT]
 
 
+
+%Steps%

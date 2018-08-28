@@ -109,7 +109,7 @@ SkillLevel: Advanced
 
 		[REGION:note]
 		*	셋업 셸 스크립트가 엔진의 바이너리 콘텐츠를 다운로드하고 사전 요구사항을 설치해 줍니다. 엔진 바이너리는 현재 디스크 공간을 3-4 기가 차지하므로 다운로드하는 데 시간이 조금 걸릴 수 있습니다. 그 이후의 체크아웃은 일반적으로 다운로드 시간이 덜 걸립니다.
-		*	이 단계 실행 후 **\*\*SUCCESS\*\*** 메시지가 보이지 않는다면, **BuildThirdParty.log** 에서 자세한 정보를 확인하세요. BuildThirdParty.log 는 `[UE4Root]/Engine/Build/BatchFiles/Linux` 디렉토리에 있습니다.
+		*	이 단계 실행 후 **\*\*SUCCESS\*\*** 메시지가 보이지 않는다면, **BuildThirdParty.log** 에서 자세한 정보를 확인하세요. BuildThirdParty.log 는 `[UE4Root]/Engine/Build/BatchFiles/Linux` 디렉터리에 있습니다.
 		[/REGION]
 	[/PARAM]
 [/OBJECT]

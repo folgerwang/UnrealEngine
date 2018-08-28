@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4300247
 Availability: Public
 Crumbs: %ROOT%
 Title: Vector 표현식
@@ -12,7 +12,7 @@ reference-image:PS_LocalPositionMaterial.gif
 reference-image:PS_DefaultMaterial.gif
 Order:
 Tags:Materials
-topic-image:VectorExpression_Topic.png
+
 
 
 
@@ -54,7 +54,7 @@ CameraWorldPosition 는 월드 스페이스에서의 카메라 위치를 나타�
 
 CameraVector 는 표면에 대한 카메라의 방향, 다른 말로 픽셀에서 카메라로의 방향을 나타내는 3채널 벡터값을 출력하는 표현식입니다.
 
-**사용 예:** CameraVector 는 ComponentMask 에 연결한 뒤 CameraVector 의 X, Y 채널을 텍스처 좌표로 사용하는 식으로 인바이언먼트 맵을 속이는 데 사용됩니다.
+**사용 예:** CameraVector 는 ComponentMask 에 연결한 뒤 CameraVector 의 X, Y 채널을 텍스처 좌표로 사용하는 식으로 인바이런먼트 맵을 속이는 데 사용됩니다.
 
 [REGION:fullwidth]
 ![CameraVectorWSExample.png](CameraVectorWSExample.png)
@@ -74,20 +74,6 @@ CameraVector 는 표면에 대한 카메라의 방향, 다른 말로 픽셀에�
 [REGION:warning]
 **언리얼 엔진 4 에서 라이팅 계산이 디퍼드 방식으로 바뀌어서 이 표현식은 폐기상태가 되었습니다.**
 [/REGION:warning]
-[COMMENT:none]
-
-LightVector 는 표면에 대한 빛의 방향을 나타내는 3채널 벡터 값 표현식입니다.
-
-**사용 예:** LightVector 는 단순한 램버트(Lambert) 라이팅 모델같은 커스텀 라이팅 알고리즘 계산에 사용 가능합니다.
-
-![LightVectorExample.jpg](LightVectorExample.jpg)
-
-[REGION:note]
-LightVector 표현식은 Emissive 출력 계산시에는 사용할 수 없으며, LightFunction 이나 DeferredDecal 머티리얼에서만 사용할 수 있습니다.
-[/REGION]
-
-[/COMMENT]
-
 
 ## Object Bounds
 
@@ -214,7 +200,7 @@ _클릭하면 이미지 원본을 확인합니다._
 
 ReflectionVectorWS 는 [CameraVectorWS](#CameraVectorWS) 와 내면은 비슷하나, 표면 노멀에 반사된 카메라 방향을 나타내는 3채널 벡터값을 출력한다는 차이점이 있습니다.
 
-**사용 예:** ReflectionVector 는 인바이언먼트 맵에 흔히 사용되며, 리플렉션 벡터의 x/y 컴포넌트는 큐브맵 텍스처로 들어가는 UV 로 사용됩니다.
+**사용 예:** ReflectionVector 는 인바이런먼트 맵에 흔히 사용되며, 리플렉션 벡터의 x/y 컴포넌트는 큐브맵 텍스처로 들어가는 UV 로 사용됩니다.
 
 [REGION:fullwidth]
 ![ReflectionVectorWSExample.png](ReflectionVectorWSExample.png)

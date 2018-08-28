@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3735117
 Availability: Public
 Crumbs: %ROOT%
-Title: Using Profiles for Bodies and Constraints
-Description: How to use profiles for bodies and constraints in the Physics Asset Editor.
+Title: 为形体和约束使用配置文件
+Description: 如何在物理资源编辑器中为形体和约束使用配置文件。
 Type: how-to
 SkillLevel:Beginner
 Version:4.18
@@ -20,96 +20,107 @@ Social-image:
 [TOC(start:2 end:2)]
 
 
-The [Physics Asset Editor](Engine/Physics/PhAT/PhysicsAssetEditor) enables you to create your own [Profiles](Engine/Physics/PhAT/ToolsAndProfiles) that can be used to assign Physical Animation settings to [Bodies](Engine/Physics/PhysicsBodies)
-and Constraint settings to [Constraints](Engine/Physics/Constraints/ConstraintsReference). 
+你可以使用[物理资源编辑器](Engine/Physics/PhAT/PhysicsAssetEditor)创建自己的[配置文件](Engine/Physics/PhAT/ToolsAndProfiles)，通过该配置文件将物理动画设置指定给[形体](Engine/Physics/PhysicsBodies)，将约束设置指定给[约束](Engine/Physics/Constraints/ConstraintsReference)。 
 
 ![](Engine\Physics\PhAT\ToolsAndProfiles\Profiles.png)
 
-Use the sections below to learn how to create, delete, create and unassign your own profiles:
+阅读以下部分了解如何创建、删除、创建和取消指定配置文件：
 
 
-## Create and Assign a Profile
+## 创建和指定配置文件
 
-To **create and assign** a profile, follow these steps:
+要 **创建和指定** 配置文件，请按照下列步骤操作：
 
-1. Select a **body** or **constraint** from the Skeleton Tree. 
+1. 在骨架树中，选择 **形体（body）** 或 **约束（constraint）**。 
 	
 	[REGION:lightbox]
 	[![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_01.png)(w:300)](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_01.png)
 	[/REGION]
-	[REGION:caption] Click image for full size. [/REGION]
+	[REGION:caption] 单击图片可查看大图。[/REGION]
 
-1. In the **Profiles** tab, click the **New** button next to the type of profile you want to create; **Physical Animation** or **Constraint**. Then under the **Current Profile** in the text box, 
-give your profile a name to reference it later.
+1. 在 **配置文件（Profiles）** 选项卡中，单击要创建的配置文件类型旁的 **新建（New）** 按键；配置文件类型有 **物理动画（Physical Animation）** 和 **约束（Constraint）**。然后在 **当前配置文件（Current Profile）** 下的文本框中，为配置文件命名，以便稍后引用。
 	
 	[REGION:lightbox]
 	[![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_02.png)(w:500)](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_02.png)
 	[/REGION]
-	[REGION:caption] Click image for full size. [/REGION]
+	[REGION:caption] 单击图片可查看大图。[/REGION]
 
 	[REGION:note]
-	When profiles are created, they are initialized "empty" meaning they use default settings.
+	创建配置文件时，它们的初值设定为”empty”，表示使用默认设置。
 	[/REGION]
 
-1. Use the **Graph** or **Skeleton Tree** to select the bodies or constraints you want to assign to a profile.
+1. 使用 **图表（Graph）** 或 **骨架树（Skeleton Tree）** 选择要指定给配置文件的形体或约束。
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03.png)
-	[REGION:caption] The Graph for the selected body. [/REGION]
+	[REGION:caption] 所选形体的图表。[/REGION]
 
-	Then in the **Profiles** tab, set the **Current Profile** to the one you want to use and click **Assign**. The selected nodes will change from shaded to their fill color.
+	然后在 **配置文件（Profiles）** 选项卡中，将 **当前配置文件（Current Profile）** 设置为要使用的配置文件，并单击 **指定（Assign）**。所选节点将从阴影变为填充色。
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03a.png)
 
-	The selected nodes will change to use their fill color indicating they are assigned this profile, while the other Body node (shaded) is not.
+	所选节点将变为使用填充色，这些节点已经指定给该配置文件，而其他显示为（阴影）的形体节点则没有。
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03b.png)
 
-1. In the **Details** panel for the selected body, the currently assigned profile will be indicated, and you can adjust the properties for the type of profile you're creating.
+1. 在所选形体的 **细节（Details）** 面板中，将显示当前指定的配置文件，你可以调整要创建的配置文件类型的属性。
 	
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_04.png)
 	[REGION:caption]
-	A Physical Animation profile is assigned to this selected Body.
+	物理动画配置文件已经指定给该所选形体。
 	[/REGION]
 
 
-## Unassigning a Profile
+## 取消指定配置文件
 
-To **Unassign** a body or constraint from a profile, follow these steps:
+要对形体或约束 **取消指定（Unassign）** 配置文件，请按照下列步骤操作：
 
-1. Select a **body** or **constraint** from the Skeleton Tree that you want to edit.
+1. 从要编辑的“骨架树”中选择 **形体（body）** 或 **约束（constraint）**。
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_01.png)
 
-1. In the **Profiles** tab, set the **Current Profile** to the one you want to edit. Use the **arrow** drop-down to select the assigned profile, if needed.  
+1. 在 **配置文件（Profiles）** 选项卡中，将 **当前配置文件（Current Profile）** 设置为要编辑的配置文件。如果需要，使用 **箭头** 下拉列表选择指定的配置文件。  
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/Unassign_02.png)
 
-	In the **Graph**, the nodes assigned to the selected profile will have their fill color and not be shaded.
+	在 **图表（Graph）** 中，指定给所选配置文件的节点将显示为填充色，而不再是阴影。
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03b.png)
 
-1. With the nodes selected that you want to disassociate from a profile, click the **Unassign** button in the **Profiles** tab.
+1. 选择了要取消与配置文件关联的节点后，单击 **配置文件（Profiles）** 选项卡中的 **取消指定（Unassign）** 按钮。
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/Unassign_03.png)
 
-	After doing so, the selected nodes will become shaded for the currently selected profile since none in the graph are using it.
+	执行此操作后，所选节点将对当前所选配置文件变为阴影，因为图表中没有任何节点正在使用该配置文件。
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03.png)
 
-## Deleting a Profile
+## 删除配置文件
 
-To **Delete** a profile, follow these steps:
+要 **删除** 配置文件，请按照下列步骤操作：
 
-1. In the **Profiles** tab, use the **arrow** drop-down to select the **Current Profile** to the one you want to remove.
+1. 在 **配置文件（Profiles）** 选项卡中，使用 **箭头** 下拉列表将 **当前配置文件（Current Profile）** 选为要删除的配置文件。
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/DeleteProfiles_01.png)
 	[REGION:caption]
-	The bottom part of the drop-down lists all created profiles.
+	下拉列表的底部列出了所有已创建的配置文件。
 	[/REGION]
 
-1. Click the **Delete** button to remove it from the list of available profiles.
+1. 单击 **删除（Delete）** 按钮将其从可用配置文件列表中删除。
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/DeleteProfile_02.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
