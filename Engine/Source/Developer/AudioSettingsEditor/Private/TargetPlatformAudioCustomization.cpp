@@ -24,8 +24,14 @@ IMPLEMENT_MODULE(FDefaultModuleImpl, AudioSettingsEditor)
 
 #define LOCTEXT_NAMESPACE "PlatformAudio"
 
+// This string is used for the item on the combo box that, when selected, defers to the custom string entry.
+static const TCHAR* ManualEntryItem = TEXT("Other");
+
 FAudioPluginWidgetManager::FAudioPluginWidgetManager()
 {
+	ManualReverbEntry = TSharedPtr<FText>(new FText(FText::FromString(TEXT("Built-in Reverb"))));
+	ManualSpatializationEntry = TSharedPtr<FText>(new FText(FText::FromString(TEXT("Built-in Spatialization"))));
+	ManualOcclusionEntry = TSharedPtr<FText>(new FText(FText::FromString(TEXT("Built-in Occlusion"))));
 }
 
 FAudioPluginWidgetManager::~FAudioPluginWidgetManager()
@@ -121,6 +127,79 @@ TSharedRef<SWidget> FAudioPluginWidgetManager::MakeAudioPluginSelectorWidget(con
 	}
 #endif // #if WITH_ENGINE
 
+	// This pointer is used to store whatever custom string was input by the user or retrieved from the config file.
+	ValidPluginNames->Add(TSharedPtr<FText>(new FText(FText::FromString(ManualEntryItem))));
+
+	// Text box component:
+	TSharedRef<SEditableTextBox> EditableTextBox = SNew(SEditableTextBox)
+		.Text_Lambda([this, AudioPluginType]() { return OnGetPluginText(AudioPluginType); })
+		.OnTextCommitted_Raw(this, &FAudioPluginWidgetManager::OnPluginTextCommitted, AudioPluginType, PropertyHandle)
+		.SelectAllTextWhenFocused(true)
+		.RevertTextOnEscape(true);
+
+	// Combo box component:
+	TSharedRef<SWidget> ComboBox = SNew(SListView<TSharedPtr<FText>>)
+		.ListItemsSource(ValidPluginNames)
+		.ScrollbarVisibility(EVisibility::Collapsed)
+		.OnGenerateRow_Lambda([](TSharedPtr<FText> InItem, const TSharedRef< class STableViewBase >& Owner)
+		{
+			return SNew(STableRow<TSharedPtr<FText>>, Owner)
+				   .Padding(FMargin(16, 4, 16, 4))
+				   [
+					   SNew(STextBlock).Text(*InItem)
+				   ];
+		})
+		.OnSelectionChanged_Lambda([this, AudioPluginType, PropertyHandle](TSharedPtr<FText> InText, ESelectInfo::Type)
+		{
+			const bool bSelectedManualEntry = (InText->ToString() == FString(ManualEntryItem));
+
+			switch (AudioPluginType)
+			{
+				case EAudioPlugin::SPATIALIZATION:
+					if (bSelectedManualEntry)
+					{
+						SelectedSpatialization = ManualSpatializationEntry;
+					}
+					else
+					{
+						SelectedSpatialization = InText;
+					}
+					
+					OnPluginSelected(bSelectedManualEntry ? ManualSpatializationEntry->ToString() : InText->ToString(), PropertyHandle);
+					break;
+
+				case EAudioPlugin::REVERB:
+					if (bSelectedManualEntry)
+					{
+						SelectedReverb = ManualReverbEntry;
+					}
+					else
+					{
+						SelectedReverb = InText;
+					}
+					
+					OnPluginSelected(bSelectedManualEntry ? ManualReverbEntry->ToString() : InText->ToString(), PropertyHandle);
+					break;
+
+				case EAudioPlugin::OCCLUSION:
+					if (bSelectedManualEntry)
+					{
+						SelectedOcclusion = ManualOcclusionEntry;
+					}
+					else
+					{
+						SelectedOcclusion = InText;
+					}
+					
+					OnPluginSelected((bSelectedManualEntry ? ManualOcclusionEntry->ToString() : InText->ToString()), PropertyHandle);
+					break;
+
+				default:
+					break;
+			}
+		});
+
+
 	//Generate widget:
 	const TSharedRef<SWidget> NewWidget = SNew(SComboButton)
 		.ContentPadding(FMargin(0, 0, 5, 0))
@@ -131,49 +210,12 @@ TSharedRef<SWidget> FAudioPluginWidgetManager::MakeAudioPluginSelectorWidget(con
 			.BorderImage(FEditorStyle::GetBrush("NoBorder"))
 			.Padding(FMargin(0, 0, 5, 0))
 			[
-				SNew(SEditableTextBox)
-				.Text_Lambda([this, AudioPluginType]() { return OnGetPluginText(AudioPluginType); })
-				.OnTextCommitted_Raw(this, &FAudioPluginWidgetManager::OnPluginTextCommitted, AudioPluginType, PropertyHandle)
-				.SelectAllTextWhenFocused(true)
-				.RevertTextOnEscape(true)
+				EditableTextBox
 			]
 		]
 		.MenuContent()
 		[
-			SNew(SListView<TSharedPtr<FText>>)
-			.ListItemsSource(ValidPluginNames)
-			.ScrollbarVisibility(EVisibility::Collapsed)
-			.OnGenerateRow_Lambda([](TSharedPtr<FText> InItem, const TSharedRef< class STableViewBase >& Owner)
-			{
-				return
-					SNew(STableRow<TSharedPtr<FText>>, Owner)
-					.Padding(FMargin(16, 4, 16, 4))
-					[
-						SNew(STextBlock).Text(*InItem)
-					];
-			})
-			.OnSelectionChanged_Lambda([this, AudioPluginType, PropertyHandle](TSharedPtr<FText> InText, ESelectInfo::Type)
-			{
-				switch (AudioPluginType)
-				{
-					case EAudioPlugin::SPATIALIZATION:
-						SelectedSpatialization = InText;
-						break;
-
-					case EAudioPlugin::REVERB:
-						SelectedReverb = InText;
-						break;
-					
-					case EAudioPlugin::OCCLUSION:
-						SelectedOcclusion = InText;
-						break;
-					
-					default:
-						break;
-				}
-
-				OnPluginSelected(InText->ToString(), PropertyHandle);
-			})
+			ComboBox
 		];
 
 	return NewWidget;
@@ -239,15 +281,18 @@ void FAudioPluginWidgetManager::OnPluginTextCommitted(const FText& InText, EText
 	switch (AudioPluginType)
 	{
 		case EAudioPlugin::SPATIALIZATION:
-			*SelectedSpatialization = InText;
+			*ManualSpatializationEntry = InText;
+			SelectedSpatialization = ManualSpatializationEntry;
 			break;
 
 		case EAudioPlugin::REVERB:
-			*SelectedReverb = InText;
+			*ManualReverbEntry = InText;
+			SelectedReverb = ManualReverbEntry;
 			break;
 
 		case EAudioPlugin::OCCLUSION:
-			*SelectedOcclusion = InText;
+			*ManualOcclusionEntry = InText;
+			SelectedOcclusion = ManualOcclusionEntry;
 			break;
 
 		default:

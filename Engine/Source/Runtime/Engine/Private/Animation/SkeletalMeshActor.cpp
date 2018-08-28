@@ -3,6 +3,7 @@
 #include "Animation/SkeletalMeshActor.h"
 #include "Net/UnrealNetwork.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimSequence.h"
 #include "Animation/AnimMontage.h"
 #include "Misc/UObjectToken.h"
 #include "Misc/MapErrors.h"
