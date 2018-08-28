@@ -966,6 +966,7 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 			TEXT("KismetCompiler"),
 			TEXT("Kismet"),
 			TEXT("Persona"),
+			TEXT("AnimationBlueprintEditor"),
 			TEXT("LevelEditor"),
 			TEXT("MainFrame"),
 			TEXT("PropertyEditor"),
