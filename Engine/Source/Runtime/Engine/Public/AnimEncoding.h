@@ -10,6 +10,8 @@
 #include "Misc/MemStack.h"
 #include "Animation/AnimTypes.h"
 #include "Animation/AnimSequence.h"
+#include "Animation/AnimSequenceDecompressionContext.h"
+#include "AnimationCompression.h"
 
 // switches to toggle subsets of the new animation codec system
 #define USE_ANIMATION_CODEC_BATCH_SOLVER 1
@@ -60,17 +62,128 @@ typedef TArray<BoneTrackPair> BoneTrackArray;
 typedef TArray< FTransform, TMemStackAllocator<> > FTransformArray;
 
 /**
+ * Structure to wrap trivial track flags for easier and safer handling.
+ */
+struct FTrivialTrackFlags
+{
+	constexpr explicit FTrivialTrackFlags(uint8 InFlags) : Flags(InFlags) {}
+
+	constexpr bool IsTranslationTrivial() const { return (Flags & 0x4) != 0; }
+	constexpr bool IsRotationTrivial() const { return (Flags & 0x2) != 0; }
+	constexpr bool IsScaleTrivial() const { return (Flags & 0x1) != 0; }
+
+	uint8 Flags;
+};
+
+/**
+ * Structure that represents a sorted key header.
+ *
+ * Our time delta can be positive or negative. To make packing easier, we offset it in order to always make it positive
+ * A small header has 5 bits to store the time delta. 5 bits == 0x1F == 31 == [0 .. 31]
+ * A large header has 5 + 8 = 13 bits to store the time delta. 13 bits == 0x1FFF == 8191 == [0 .. 8191]
+ * A small header has an offset of 16. e.g.:
+ *     -5 + 16 = 11
+ *     15 + 16 = 31
+ *    -16 + 16 = 0
+ * A small header this has a signed range of [-16 .. 15] and maps to [0 .. 31]
+ * A large header has an offset of 4096. The signed range is [-4096 .. 4095] and maps to [0 ... 8191]
+ */
+struct FSortedKeyHeader
+{
+	static constexpr uint8 KeyTypeMask = 0x3;
+	static constexpr uint8 KeyTypeShift = 5;
+	static constexpr uint8 KeyTimeDeltaMask = (1 << 5) - 1;
+	static constexpr uint8 KeyTimeDeltaShift = 8;
+	static constexpr uint8 KeyHeaderSizeMask = 0x80;
+
+	static constexpr uint32 LargestSmallHeaderTimeDelta = (1 << 5) - 1;
+	static constexpr uint32 LargestLargeHeaderTimeDelta = (1 << 13) - 1;
+	static constexpr int32 SmallHeaderTimeDeltaOffset = (LargestSmallHeaderTimeDelta + 1) / 2;
+	static constexpr int32 LargeHeaderTimeDeltaOffset = (LargestLargeHeaderTimeDelta + 1) / 2;
+
+	FSortedKeyHeader()
+	{
+		TrackIndex = 0xFFFF;
+		PackedData[0] = 0;
+		PackedData[1] = 0;
+	}
+
+	explicit FSortedKeyHeader(const uint8* InData)
+	{
+		TrackIndex = AnimationCompressionUtils::UnalignedRead<uint16>(InData);
+		PackedData[0] = InData[sizeof(uint16) + 0];
+		PackedData[1] = IsLargeHeader() ? InData[sizeof(uint16) + 1] : 0;
+	}
+
+	FSortedKeyHeader(uint16 InTrackIndex, uint8 KeyType, int32 TimeDelta)
+	{
+		TrackIndex = InTrackIndex;
+		if (TimeDelta + SmallHeaderTimeDeltaOffset >= 0 && TimeDelta + SmallHeaderTimeDeltaOffset <= LargestSmallHeaderTimeDelta)
+		{
+			// Small header
+			const int32 OffsetTimeDelta = TimeDelta + SmallHeaderTimeDeltaOffset;
+			PackedData[0] = 0x00 | (static_cast<uint8>(KeyType) << 5) | static_cast<uint8>(OffsetTimeDelta);
+			PackedData[1] = 0;
+		}
+		else
+		{
+			// Large header
+			// Pack each byte separately to avoid issues with little endian
+			const int32 OffsetTimeDelta = TimeDelta + LargeHeaderTimeDeltaOffset;
+			check(OffsetTimeDelta >= 0 && OffsetTimeDelta <= LargestLargeHeaderTimeDelta);
+			PackedData[0] = 0x80 | (static_cast<uint16>(KeyType) << 5) | static_cast<uint16>(OffsetTimeDelta >> 8);
+			PackedData[1] = OffsetTimeDelta & 0xFF;
+		}
+	}
+
+	constexpr bool IsEndOfStream() const { return TrackIndex == 0xFFFF; }
+	constexpr bool IsLargeHeader() const { return (PackedData[0] & KeyHeaderSizeMask) != 0; }
+	constexpr uint8 GetKeyType() const { return (PackedData[0] >> KeyTypeShift) & KeyTypeMask; }
+
+	int32 GetTimeDelta() const
+	{
+		int32 TimeDelta = static_cast<uint32>(PackedData[0] & KeyTimeDeltaMask);
+		if (IsLargeHeader())
+		{
+			TimeDelta = static_cast<int32>((static_cast<uint32>(TimeDelta) << KeyTimeDeltaShift) | PackedData[1]);
+			TimeDelta -= LargeHeaderTimeDeltaOffset;
+		}
+		else
+		{
+			TimeDelta -= SmallHeaderTimeDeltaOffset;
+		}
+		return TimeDelta;
+	}
+
+	constexpr uint8 GetSize() const { return sizeof(uint16) + (IsLargeHeader() ? sizeof(uint16) : sizeof(uint8)); }
+
+	uint16 TrackIndex;
+	uint8 PackedData[2];
+};
+
+/**
+* Small header in the anim sequence compressed stream.
+*/
+struct FAnimSequenceCompressionHeader
+{
+	uint32 NumTracks;
+	uint32 NumFrames;
+	uint32 SequenceCRC;
+	uint8 bHasScale;
+	uint8 bIsSorted;						// For variable interpolation
+};
+
+
+/**
  * Extracts a single BoneAtom from an Animation Sequence.
  *
  * @param	OutAtom			The BoneAtom to fill with the extracted result.
- * @param	Seq				An Animation Sequence to extract the BoneAtom from.
+ * @param	DecompContext	The decompression context to use.
  * @param	TrackIndex		The index of the track desired in the Animation Sequence.
- * @param	Time			The time (in seconds) to calculate the BoneAtom for.
  */
 void AnimationFormat_GetBoneAtom(	FTransform& OutAtom,
-									const UAnimSequence& Seq,
-									int32 TrackIndex,
-									float Time);
+									FAnimSequenceDecompressionContext& DecompContext,
+									int32 TrackIndex);
 
 #if USE_ANIMATION_CODEC_BATCH_SOLVER
 
@@ -78,18 +191,17 @@ void AnimationFormat_GetBoneAtom(	FTransform& OutAtom,
  * Extracts an array of BoneAtoms from an Animation Sequence representing an entire pose of the skeleton.
  *
  * @param	Atoms				The BoneAtoms to fill with the extracted result.
- * @param	RotationTracks		A BoneTrackArray element for each bone requesting rotation data. 
- * @param	TranslationTracks	A BoneTrackArray element for each bone requesting translation data. 
- * @param	Seq					An Animation Sequence to extract the BoneAtom from.
- * @param	Time				The time (in seconds) to calculate the BoneAtom for.
+ * @param	RotationTracks		A BoneTrackArray element for each bone requesting rotation data.
+ * @param	TranslationTracks	A BoneTrackArray element for each bone requesting translation data.
+ * @param	ScaleTracks			A BoneTrackArray element for each bone requesting scale data.
+ * @param	DecompContext		The decompression context to use.
  */
-void AnimationFormat_GetAnimationPose(	
-	FTransformArray& Atoms, 
+void AnimationFormat_GetAnimationPose(
+	FTransformArray& Atoms,
 	const BoneTrackArray& RotationTracks,
 	const BoneTrackArray& TranslationTracks,
 	const BoneTrackArray& ScaleTracks,
-	const UAnimSequence& Seq,
-	float Time);
+	FAnimSequenceDecompressionContext& DecompContext);
 
 #endif
 
@@ -185,15 +297,18 @@ public:
 	 * Extracts a single BoneAtom from an Animation Sequence.
 	 *
 	 * @param	OutAtom			The BoneAtom to fill with the extracted result.
-	 * @param	Seq				An Animation Sequence to extract the BoneAtom from.
+	 * @param	DecompContext	The decompression context to use.
 	 * @param	TrackIndex		The index of the track desired in the Animation Sequence.
-	 * @param	Time			The time (in seconds) to calculate the BoneAtom for.
 	 */
 	virtual void GetBoneAtom(
 		FTransform& OutAtom,
-		const UAnimSequence& Seq,
-		int32 TrackIndex,
-		float Time) PURE_VIRTUAL(AnimEncoding::GetBoneAtom,);
+		FAnimSequenceDecompressionContext& DecompContext,
+		int32 TrackIndex) PURE_VIRTUAL(AnimEncoding::GetBoneAtom,);
+
+#if USE_SEGMENTING_CONTEXT
+	virtual void CreateEncodingContext(FAnimSequenceDecompressionContext& DecompContext) {}
+	virtual void ReleaseEncodingContext(FAnimSequenceDecompressionContext& DecompContext) {}
+#endif
 
 #if USE_ANIMATION_CODEC_BATCH_SOLVER
 
@@ -202,46 +317,48 @@ public:
 	 *
 	 * @param	Atoms			The FTransform array to fill in.
 	 * @param	DesiredPairs	Array of requested bone information
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Time			Current time to solve for.
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
 	 */
-	virtual void GetPoseRotations(	
-		FTransformArray& Atoms, 
+	virtual void GetPoseRotations(
+		FTransformArray& Atoms,
 		const BoneTrackArray& DesiredPairs,
-		const UAnimSequence& Seq,
-		float Time) PURE_VIRTUAL(AnimEncoding::GetPoseRotations,);
+		FAnimSequenceDecompressionContext& DecompContext) PURE_VIRTUAL(AnimEncoding::GetPoseRotations,);
 
 	/**
 	 * Decompress all requested translation components from an Animation Sequence
 	 *
 	 * @param	Atoms			The FTransform array to fill in.
 	 * @param	DesiredPairs	Array of requested bone information
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Time			Current time to solve for.
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
 	 */
-	virtual void GetPoseTranslations(	
-		FTransformArray& Atoms, 
+	virtual void GetPoseTranslations(
+		FTransformArray& Atoms,
 		const BoneTrackArray& DesiredPairs,
-		const UAnimSequence& Seq,
-		float Time) PURE_VIRTUAL(AnimEncoding::GetPoseTranslations,);
+		FAnimSequenceDecompressionContext& DecompContext) PURE_VIRTUAL(AnimEncoding::GetPoseTranslations,);
 
 	/**
 	 * Decompress all requested translation components from an Animation Sequence
 	 *
 	 * @param	Atoms			The FTransform array to fill in.
 	 * @param	DesiredPairs	Array of requested bone information
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Time			Current time to solve for.
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
 	 */
-	virtual void GetPoseScales(	
-		FTransformArray& Atoms, 
+	virtual void GetPoseScales(
+		FTransformArray& Atoms,
 		const BoneTrackArray& DesiredPairs,
-		const UAnimSequence& Seq,
-		float Time) PURE_VIRTUAL(AnimEncoding::GetPoseScales,);
+		FAnimSequenceDecompressionContext& DecompContext) PURE_VIRTUAL(AnimEncoding::GetPoseScales,);
 #endif
+
+	static FORCEINLINE float TimeToIndex(
+		const FAnimSequenceDecompressionContext& DecompContext,
+		const uint8* TimeMarkers,
+		uint32 NumKeys,
+		uint32 NumFrames,
+		uint8 TimeMarkerSize,
+		float SegmentRelativePos,
+		int32& FrameIndex0Out,
+		int32& FrameIndex1Out);
+
 protected:
 
 	/**
@@ -279,6 +396,8 @@ protected:
 		int32 NumKeys,
 		int32 &PosIndex0Out,
 		int32 &PosIndex1Out);
+
+	friend FAnimSequenceDecompressionContext;	// For the TimeToIndex functions
 };
 
 
@@ -294,72 +413,49 @@ public:
 	 * Extracts a single BoneAtom from an Animation Sequence.
 	 *
 	 * @param	OutAtom			The BoneAtom to fill with the extracted result.
-	 * @param	Seq				An Animation Sequence to extract the BoneAtom from.
+	 * @param	DecompContext	The decompression context to use.
 	 * @param	TrackIndex		The index of the track desired in the Animation Sequence.
-	 * @param	Time			The time (in seconds) to calculate the BoneAtom for.
 	 */
 	virtual void GetBoneAtom(
 		FTransform& OutAtom,
-		const UAnimSequence& Seq,
-		int32 TrackIndex,
-		float Time) override;
+		FAnimSequenceDecompressionContext& DecompContext,
+		int32 TrackIndex) override;
 
 	/**
 	 * Decompress the Rotation component of a BoneAtom
 	 *
 	 * @param	OutAtom			The FTransform to fill in.
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Stream			The compressed animation data.
-	 * @param	NumKeys			The number of keys present in Stream.
-	 * @param	Time			Current time to solve for.
-	 * @param	RelativePos		Current position within the animation to solve for in the range [0.0,1.0].
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
+	 * @param	TrackIndex		The index of the track desired in the Animation Sequence.
 	 */
-	virtual void GetBoneAtomRotation(	
+	virtual void GetBoneAtomRotation(
 		FTransform& OutAtom,
-		const UAnimSequence& Seq,
-		const uint8* RESTRICT Stream,
-		int32 NumKeys,
-		float Time,
-		float RelativePos) PURE_VIRTUAL(AnimEncoding::GetBoneAtomRotation,);
+		const FAnimSequenceDecompressionContext& DecompContext,
+		int32 TrackIndex) PURE_VIRTUAL(AnimEncoding::GetBoneAtomRotation,);
 
 	/**
 	 * Decompress the Translation component of a BoneAtom
 	 *
 	 * @param	OutAtom			The FTransform to fill in.
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Stream			The compressed animation data.
-	 * @param	NumKeys			The number of keys present in Stream.
-	 * @param	Time			Current time to solve for.
-	 * @param	RelativePos		Current position within the animation to solve for in the range [0.0,1.0].
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
+	 * @param	TrackIndex		The index of the track desired in the Animation Sequence.
 	 */
-	virtual void GetBoneAtomTranslation(	
+	virtual void GetBoneAtomTranslation(
 		FTransform& OutAtom,
-		const UAnimSequence& Seq,
-		const uint8* RESTRICT Stream,
-		int32 NumKeys,
-		float Time,
-		float RelativePos) PURE_VIRTUAL(AnimEncoding::GetBoneAtomTranslation,);
+		const FAnimSequenceDecompressionContext& DecompContext,
+		int32 TrackIndex) PURE_VIRTUAL(AnimEncoding::GetBoneAtomTranslation,);
 
 	/**
 	 * Decompress the Scale component of a BoneAtom
 	 *
 	 * @param	OutAtom			The FTransform to fill in.
-	 * @param	Seq				The animation sequence to use.
-	 * @param	Stream			The compressed animation data.
-	 * @param	NumKeys			The number of keys present in Stream.
-	 * @param	Time			Current time to solve for.
-	 * @param	RelativePos		Current position within the animation to solve for in the range [0.0,1.0].
-	 * @return					None. 
+	 * @param	DecompContext	The decompression context to use.
+	 * @param	TrackIndex		The index of the track desired in the Animation Sequence.
 	 */
-	virtual void GetBoneAtomScale(	
+	virtual void GetBoneAtomScale(
 		FTransform& OutAtom,
-		const UAnimSequence& Seq,
-		const uint8* RESTRICT Stream,
-		int32 NumKeys,
-		float Time,
-		float RelativePos) PURE_VIRTUAL(AnimEncoding::GetBoneAtomScale,);
+		const FAnimSequenceDecompressionContext& DecompContext,
+		int32 TrackIndex) PURE_VIRTUAL(AnimEncoding::GetBoneAtomScale,);
 
 	/**
 	 * Handles Byte-swapping incoming animation data from a MemoryReader
@@ -476,10 +572,6 @@ public:
 		uint8*& Stream,
 		int32 NumKeys) PURE_VIRTUAL(AnimEncoding::ByteSwapScaleOut,);
 };
-
-
-
-
 
 
 /**
@@ -686,3 +778,74 @@ FORCEINLINE float AnimEncoding::TimeToIndex(
 	
 	return Alpha;
 }
+
+float AnimEncoding::TimeToIndex(
+	const FAnimSequenceDecompressionContext& DecompContext,
+	const uint8* TimeMarkers,
+	uint32 NumKeys,
+	uint32 NumFrames,
+	uint8 TimeMarkerSize,
+	float SegmentRelativePos,
+	int32& FrameIndex0Out,
+	int32& FrameIndex1Out)
+{
+	float Alpha = 0.0f;
+
+	checkSlow(NumKeys != 0);
+
+	const int32 LastKey = NumKeys - 1;
+
+	if (NumKeys < 2 || DecompContext.RelativePos <= 0.f)
+	{
+		// return the first key
+		FrameIndex0Out = 0;
+		FrameIndex1Out = 0;
+		Alpha = 0.0f;
+	}
+	else if (DecompContext.RelativePos >= 1.0f)
+	{
+		// return the ending key
+		FrameIndex0Out = LastKey;
+		FrameIndex1Out = LastKey;
+		Alpha = 0.0f;
+	}
+	else
+	{
+		// find the proper key range to return
+		const int32 LastFrame = NumFrames - 1;
+		const float KeyPos = SegmentRelativePos * (float)LastKey;
+		const float FramePos = SegmentRelativePos * (float)LastFrame;
+		const int32 FramePosFloor = FMath::Clamp(FMath::TruncToInt(FramePos), 0, LastFrame);
+		const int32 KeyEstimate = FMath::Clamp(FMath::TruncToInt(KeyPos), 0, LastKey);
+
+		int32 LowFrame = 0;
+		int32 HighFrame = 0;
+
+		// find the pair of keys which surround our target frame index
+		if (TimeMarkerSize == sizeof(uint16))
+		{
+			const uint16* Frames = reinterpret_cast<const uint16*>(TimeMarkers);
+			FrameIndex0Out = FindLowKeyIndex<uint16>(Frames, NumKeys, FramePosFloor, KeyEstimate);
+			LowFrame = Frames[FrameIndex0Out];
+
+			FrameIndex1Out = FMath::Min(FrameIndex0Out + 1, LastKey);
+			HighFrame = Frames[FrameIndex1Out];
+		}
+		else
+		{
+			FrameIndex0Out = FindLowKeyIndex<uint8>(TimeMarkers, NumKeys, FramePosFloor, KeyEstimate);
+			LowFrame = TimeMarkers[FrameIndex0Out];
+
+			FrameIndex1Out = FMath::Min(FrameIndex0Out + 1, LastKey);
+			HighFrame = TimeMarkers[FrameIndex1Out];
+		}
+
+		// compute the blend parameters for the keys we have found
+		const int32 Delta = FMath::Max(HighFrame - LowFrame, 1);
+		const float Remainder = FramePos - (float)LowFrame;
+		Alpha = DecompContext.AnimSeq->Interpolation == EAnimInterpolationType::Step ? 0.f : (Remainder / (float)Delta);
+	}
+
+	return Alpha;
+}
+

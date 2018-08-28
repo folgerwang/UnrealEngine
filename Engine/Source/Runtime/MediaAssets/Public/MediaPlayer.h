@@ -1076,6 +1076,7 @@ protected:
 	FRotator ViewRotation;
 
 private:
+	virtual bool CanBeInCluster() const override { return false; }
 
 	/** Callback for when a media event occurred in the player. */
 	void HandlePlayerMediaEvent(EMediaEvent Event);

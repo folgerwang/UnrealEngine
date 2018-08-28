@@ -503,7 +503,6 @@
 #include "AI/NavigationSystemBase.h"
 #include "Sound/SoundConcurrency.h"
 #include "ClothSimData.h"
-#include "AnimEncoding.h"
 #include "DynamicMeshBuilder.h"
 #include "EngineStats.h"
 #include "Components/SkeletalMeshComponent.h"

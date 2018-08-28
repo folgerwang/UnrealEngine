@@ -59,6 +59,7 @@
 
 #include "Engine/SkeletalMeshLODSettings.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimSequence.h"
 #include "IPersonaToolkit.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "IPersonaPreviewScene.h"

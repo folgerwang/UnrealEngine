@@ -27,22 +27,6 @@ class UAnimCompress_Automatic : public UAnimCompress
 	UPROPERTY(EditAnywhere, Category=AnimationCompressionAlgorithm_Automatic)
 	float MaxEndEffectorError;
 
-	/** If true, the uniform bitwise techniques will be tried */
-	UPROPERTY(EditAnywhere, Category=AnimationCompressionAlgorithm_Automatic)
-	uint32 bTryFixedBitwiseCompression:1;
-
-	/** If true, the per-track compressor techniques will be tried */
-	UPROPERTY(EditAnywhere, Category=AnimationCompressionAlgorithm_Automatic)
-	uint32 bTryPerTrackBitwiseCompression:1;
-
-	/** If true, the linear key removal techniques will be tried */
-	UPROPERTY(EditAnywhere, Category=AnimationCompressionAlgorithm_Automatic)
-	uint32 bTryLinearKeyRemovalCompression:1;
-
-	/** If true, the resampling techniques will be tried */
-	UPROPERTY(EditAnywhere, Category=AnimationCompressionAlgorithm_Automatic)
-	uint32 bTryIntervalKeyRemoval:1;
-
 	/** If true, then the animation will be first recompressed with it's current compressor if non-NULL, or with the global default compressor (specified in the engine ini)
 	* Also known as "First Recompress Using Current Or Default"
 	*/
@@ -58,6 +42,10 @@ class UAnimCompress_Automatic : public UAnimCompress
 	/** If true and the existing compression error is greater than Max End Effector Error, then Max End Effector Error will be effectively raised to the existing error level */
 	UPROPERTY(EditAnywhere, Category=AnimationCompressionAlgorithm_Automatic)
 	uint32 bRaiseMaxErrorToExisting:1;
+
+	/** If true, then an exhaustive search is used otherwise only a short list of the best methods is tried */
+	UPROPERTY(EditAnywhere, Category=AnimationCompressionAlgorithm_Automatic)
+	uint32 bTryExhaustiveSearch:1;
 
 
 protected:

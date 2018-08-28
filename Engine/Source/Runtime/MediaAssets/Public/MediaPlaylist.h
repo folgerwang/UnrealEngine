@@ -148,4 +148,6 @@ protected:
 	/** List of media sources to play. */
 	UPROPERTY(EditAnywhere, Category=Playlist)
 	TArray<UMediaSource*> Items;
+
+	virtual bool CanBeInCluster() const override { return false; }
 };

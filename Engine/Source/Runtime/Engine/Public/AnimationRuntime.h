@@ -12,6 +12,7 @@
 #include "Animation/AnimTypes.h"
 #include "Animation/AnimationAsset.h"
 #include "Animation/AnimCurveTypes.h"
+#include "Animation/AnimSequenceBase.h"
 #include "Components/SkinnedMeshComponent.h"
 #include "BonePose.h"
 #include "Containers/ArrayView.h"
@@ -344,7 +345,7 @@ public:
 	 *
 	 * return ETypeAdvanceAnim type
 	 */
-	static enum ETypeAdvanceAnim AdvanceTime(const bool& bAllowLooping, const float& MoveDelta, float& InOutTime, const float& EndTime);
+	static ETypeAdvanceAnim AdvanceTime(const bool& bAllowLooping, const float& MoveDelta, float& InOutTime, const float& EndTime);
 
 	static void TickBlendWeight(float DeltaTime, float DesiredWeight, float& Weight, float& BlendTime);
 	/** 
