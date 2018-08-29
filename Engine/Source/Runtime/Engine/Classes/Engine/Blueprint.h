@@ -706,9 +706,6 @@ public:
 	/** Find the object in the TemplateObjects array with the supplied name */
 	UActorComponent* FindTemplateByName(const FName& TemplateName) const;
 
-	/** Rename the component template in the TemplateObjects array with the supplied name */
-	bool RenameComponentTemplate(const FName& OldTemplateName, const FName& NewTemplateName);
-
 	/** Find a timeline by name */
 	class UTimelineTemplate* FindTimelineTemplateByVariableName(const FName& TimelineName);	
 

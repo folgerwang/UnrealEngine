@@ -318,8 +318,15 @@ class DumpSymbols::DumperLineToModule:
   }
 
   void ReadProgram(const uint8_t *program, uint64 length,
-                   Module *module, vector<Module::Line> *lines) {
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+                   Module* module, vector<Module::Line>* lines) {
     DwarfLineToModule handler(module, compilation_dir_, lines);
+#else
+                   Module* module, ::vector<Module::Line>* lines, std::map<uint64, DwarfCUToModule::InlineEntry>* inline_entires) {
+    DwarfLineToModule handler(module, compilation_dir_, lines, inline_entires);
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
     dwarf2reader::LineInfo parser(program, length, byte_reader_, &handler);
     parser.Start();
   }

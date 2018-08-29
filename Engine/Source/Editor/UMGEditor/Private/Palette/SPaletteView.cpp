@@ -487,6 +487,41 @@ void SPaletteView::BuildClassWidgetList()
 
 	// Locate all widget BP assets (include unloaded)
 	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	TArray<FAssetData> AllBPsAssetData;
+	AssetRegistryModule.Get().GetAssetsByClass(UBlueprint::StaticClass()->GetFName(), AllBPsAssetData, true);
+
+	for (FAssetData& BPAssetData : AllBPsAssetData)
+	{
+		// Blueprints get the class type actions for their parent native class - this avoids us having to load the blueprint
+		UClass* ParentClass = nullptr;
+		FString ParentClassName;
+		if (!BPAssetData.GetTagValue(FBlueprintTags::NativeParentClassPath, ParentClassName))
+		{
+			BPAssetData.GetTagValue(FBlueprintTags::ParentClassPath, ParentClassName);
+		}
+		if (!ParentClassName.IsEmpty())
+		{
+			UObject* Outer = nullptr;
+			ResolveName(Outer, ParentClassName, false, false);
+			ParentClass = FindObject<UClass>(ANY_PACKAGE, *ParentClassName);
+			// UUserWidgets have their own loading section, and we don't want to process any blueprints that don't have UWidget parents
+			if (!ParentClass->IsChildOf(UWidget::StaticClass()) || ParentClass->IsChildOf(UUserWidget::StaticClass()))
+			{
+				continue;
+			}
+		}
+
+		if (!FilterAssetData(BPAssetData))
+		{
+			// If this object isn't currently loaded, add it to the palette view
+			if (BPAssetData.ToSoftObjectPath().ResolveObject() == nullptr)
+			{
+				auto Template = MakeShareable(new FWidgetTemplateClass(BPAssetData, nullptr));
+				AddWidgetTemplate(Template);
+			}
+		}
+	}
+
 	TArray<FAssetData> AllWidgetBPsAssetData;
 	AssetRegistryModule.Get().GetAssetsByClass(UWidgetBlueprint::StaticClass()->GetFName(), AllWidgetBPsAssetData, true);
 
@@ -499,51 +534,58 @@ void SPaletteView::BuildClassWidgetList()
 			continue;
 		}
 
-		// Excludes engine content if user sets it to false
-		if (!GetDefault<UContentBrowserSettings>()->GetDisplayEngineFolder() || !GetDefault<UUMGEditorProjectSettings>()->bShowWidgetsFromEngineContent)
+		if (!FilterAssetData(WidgetBPAssetData))
 		{
-			if (WidgetBPAssetData.PackagePath.ToString().Find(TEXT("/Engine")) == 0)
+			// Excludes this widget if it is on the hide list
+			bool bIsOnList = false;
+			for (FSoftClassPath Widget : WidgetClassesToHide)
+			{
+				if (Widget.ToString().Find(WidgetBPAssetData.ObjectPath.ToString()) == 0)
+				{
+					bIsOnList = true;
+					break;
+				}
+			}
+			if (bIsOnList)
 			{
 				continue;
 			}
-		}
 
-		// Excludes developer content if user sets it to false
-		if (!GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder() || !GetDefault<UUMGEditorProjectSettings>()->bShowWidgetsFromDeveloperContent)
-		{
-			if (WidgetBPAssetData.PackagePath.ToString().Find(TEXT("/Game/Developers")) == 0)
+			// If the blueprint generated class was found earlier, pass it to the template
+			TSubclassOf<UUserWidget> WidgetBPClass = nullptr;
+			auto LoadedWidgetBPClass = LoadedWidgetBlueprintClassesByName.Find(WidgetBPAssetData.AssetName);
+			if (LoadedWidgetBPClass)
 			{
-				continue;
+				WidgetBPClass = *LoadedWidgetBPClass;
 			}
-		}
 
-		// Excludes this widget if it is on the hide list
-		bool bIsOnList = false;
-		for (FSoftClassPath Widget : WidgetClassesToHide)
-		{
-			if (Widget.ToString().Find(WidgetBPAssetData.ObjectPath.ToString()) == 0)
-			{
-				bIsOnList = true;
-				break;
-			}
-		}
-		if (bIsOnList)
-		{
-			continue;
-		}
+			auto Template = MakeShareable(new FWidgetTemplateBlueprintClass(WidgetBPAssetData, WidgetBPClass));
 
-		// If the blueprint generated class was found earlier, pass it to the template
-		TSubclassOf<UUserWidget> WidgetBPClass = nullptr;
-		auto LoadedWidgetBPClass = LoadedWidgetBlueprintClassesByName.Find(WidgetBPAssetData.AssetName);
-		if (LoadedWidgetBPClass)
-		{
-			WidgetBPClass = *LoadedWidgetBPClass;
+			AddWidgetTemplate(Template);
 		}
-
-		auto Template = MakeShareable(new FWidgetTemplateBlueprintClass(WidgetBPAssetData, WidgetBPClass));
-
-		AddWidgetTemplate(Template);
 	}
+}
+
+bool SPaletteView::FilterAssetData(FAssetData &InAssetData)
+{
+	// Excludes engine content if user sets it to false
+	if (!GetDefault<UContentBrowserSettings>()->GetDisplayEngineFolder() || !GetDefault<UUMGEditorProjectSettings>()->bShowWidgetsFromEngineContent)
+	{
+		if (InAssetData.PackagePath.ToString().Find(TEXT("/Engine")) == 0)
+		{
+			return true;
+		}
+	}
+
+	// Excludes developer content if user sets it to false
+	if (!GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder() || !GetDefault<UUMGEditorProjectSettings>()->bShowWidgetsFromDeveloperContent)
+	{
+		if (InAssetData.PackagePath.ToString().Find(TEXT("/Game/Developers")) == 0)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void SPaletteView::BuildSpecialWidgetList()

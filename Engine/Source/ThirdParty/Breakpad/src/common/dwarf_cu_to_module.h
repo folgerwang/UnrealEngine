@@ -51,6 +51,12 @@
 #include "common/scoped_ptr.h"
 #include "common/using_std_string.h"
 
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+#include "common/unordered.h"
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
 namespace google_breakpad {
 
 using dwarf2reader::DwarfAttribute;
@@ -123,6 +129,18 @@ class DwarfCUToModule: public dwarf2reader::RootDIEHandler {
     scoped_ptr<FilePrivate> file_private_;
   };
 
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+  struct InlineEntry
+  {
+    uint64 low_pc;
+    uint64 high_pc;
+    uint64 call_file;
+    uint64 call_line;
+  };
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
   // An abstract base class for handlers that handle DWARF line data
   // for DwarfCUToModule. DwarfCUToModule could certainly just use
   // dwarf2reader::LineInfo itself directly, but decoupling things
@@ -143,7 +161,13 @@ class DwarfCUToModule: public dwarf2reader::RootDIEHandler {
     // PROGRAM, and an overestimate of its size. Add no zero-length
     // lines to LINES.
     virtual void ReadProgram(const uint8_t *program, uint64 length,
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
                              Module *module, vector<Module::Line> *lines) = 0;
+#else
+                             Module *module, vector<Module::Line> *lines, map<uint64, InlineEntry> *inline_entires) = 0;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
   };
 
   // The interface DwarfCUToModule uses to report warnings. The member
@@ -268,6 +292,12 @@ class DwarfCUToModule: public dwarf2reader::RootDIEHandler {
   class GenericDIEHandler;
   class FuncHandler;
   class NamedScopeHandler;
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+  class InlineFuncHandler;
+  class SubprogramChildHandler;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
   // A map from section offsets to specifications.
   typedef map<uint64, Specification> SpecificationByOffset;

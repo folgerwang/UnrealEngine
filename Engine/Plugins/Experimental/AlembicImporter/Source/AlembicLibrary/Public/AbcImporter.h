@@ -27,11 +27,11 @@ class UAbcImportSettings;
 class FSkeletalMeshImportData;
 class UAbcAssetImportData;
 
+struct FMeshDescription;
 struct FAbcImportData;
 struct FGeometryCacheMeshData;
 struct FAbcMeshSample;
 struct FAbcCompressionSettings;
-struct FRawMesh;
 
 enum EAbcImportError : uint32
 {
@@ -169,20 +169,20 @@ private:
 	void GeometryCacheDataForMeshSample(FGeometryCacheMeshData &OutMeshData, const FAbcMeshSample* MeshSample, const uint32 MaterialOffset);
 
 	/**
-	* Creates a Static mesh from the given raw mesh
-	*	
+	* Creates a Static mesh from the given mesh description
+	*
 	* @param InParent - ParentObject for the static mesh
 	* @param Name - Name for the static mesh
 	* @param Flags - Object flags
 	* @param NumMaterials - Number of materials to add
 	* @param FaceSetNames - Face set names used for retrieving the materials
-	* @param RawMesh - The RawMesh from which the static mesh should be constructed
+	* @param MeshDescription - The MeshDescription from which the static mesh should be constructed
 	* @return UStaticMesh*
 	*/
-	UStaticMesh* CreateStaticMeshFromRawMesh(UObject* InParent, const FString& Name, EObjectFlags Flags, const uint32 NumMaterials, const TArray<FString>& FaceSetNames, FRawMesh& RawMesh);
+	UStaticMesh* CreateStaticMeshFromSample(UObject* InParent, const FString& Name, EObjectFlags Flags, const uint32 NumMaterials, const TArray<FString>& FaceSetNames, const FAbcMeshSample* Sample);
 
-	/** Generates and populate a FRawMesh instance from the given sample*/
-	void GenerateRawMeshFromSample(const FAbcMeshSample* Sample, FRawMesh& RawMesh);
+	/** Generates and populate a FMeshDescription instance from the given sample*/
+	void GenerateMeshDescriptionFromSample(const FAbcMeshSample* Sample, FMeshDescription* MeshDescription, UStaticMesh* StaticMesh);
 	
 	/** Retrieves a material according to the given name and resaves it into the parent package*/
 	UMaterialInterface* RetrieveMaterial(const FString& MaterialName, UObject* InParent, EObjectFlags Flags );

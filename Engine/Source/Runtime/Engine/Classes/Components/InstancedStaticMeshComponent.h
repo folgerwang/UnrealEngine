@@ -37,6 +37,7 @@ struct FInstanceUpdateCmdBuffer
 		Update,
 		Hide,
 		EditorData,
+		LightmapData,
 	};
 	
 	struct FInstanceUpdateCommand
@@ -47,6 +48,9 @@ struct FInstanceUpdateCmdBuffer
 		
 		FColor HitProxyColor;
 		bool bSelected;
+
+		FVector2D LightmapUVBias;
+		FVector2D ShadowmapUVBias;
 	};
 	
 	FInstanceUpdateCmdBuffer();
@@ -56,6 +60,8 @@ struct FInstanceUpdateCmdBuffer
 	void AddInstance(const FMatrix& InTransform);
 	void UpdateInstance(int32 RenderIndex, const FMatrix& InTransform);
 	void SetEditorData(int32 RenderIndex, const FColor& Color, bool bSelected);
+	void SetLightMapData(int32 RenderIndex, const FVector2D& LightmapUVBias);
+	void SetShadowMapData(int32 RenderIndex, const FVector2D& ShadowmapUVBias);
 	void ResetInlineCommands();
 	int32 NumInlineCommands() const { return Cmds.Num(); }
 

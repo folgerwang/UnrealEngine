@@ -106,6 +106,8 @@ public:
 
 	float GetThumbSizeFraction() const;
 
+	void SetIsAlwaysVisible(bool InIsAlwaysVisible);
+
 protected:
 
 	static const int32 TOP_SLOT_INDEX = 0;
@@ -117,5 +119,6 @@ protected:
 	float OffsetFraction;
 	float ThumbSizeFraction;
 	float MinThumbSize;
+	bool bIsAlwaysVisible = false;
 	EOrientation Orientation;
 };

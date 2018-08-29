@@ -16,6 +16,7 @@ namespace UnrealBuildTool.Rules
                     "CoreUObject",
                     "RenderCore",
                     "MeshDescription",
+                    "MeshUtilitiesCommon",
                     "RawMesh",
                     "RHI"
                 }

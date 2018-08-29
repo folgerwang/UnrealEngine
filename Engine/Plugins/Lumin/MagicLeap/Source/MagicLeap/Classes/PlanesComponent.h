@@ -125,7 +125,7 @@ public:
 	  @param ResultDelegate Delegate which will be called when the planes result is ready.
 	  @returns True if the planes query was successfully placed, false otherwise.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Planes|MagicLeap")
+	UFUNCTION(BlueprintCallable, Category = "MagicLeap|Planes")
 	bool RequestPlanes(int32 UserData, const FPlaneResultDelegate& ResultDelegate);
 
 	/** Polls for and handles the results of the plane queries. */

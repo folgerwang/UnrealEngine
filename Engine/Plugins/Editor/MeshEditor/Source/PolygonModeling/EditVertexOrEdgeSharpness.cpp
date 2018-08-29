@@ -113,7 +113,7 @@ void UEditVertexCornerSharpnessCommand::ApplyDuringDrag( IMeshEditorModeEditingC
 			static TArray<float> NewSharpnessValues;
 			NewSharpnessValues.Reset();
 
-			const TVertexAttributeArray<float>& VertexSharpnesses = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributes<float>( MeshAttribute::Vertex::CornerSharpness );
+			const TVertexAttributesRef<float> VertexSharpnesses = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributesRef<float>( MeshAttribute::Vertex::CornerSharpness );
 
 			for( const FMeshElement& VertexElement : VertexElements )
 			{
@@ -164,7 +164,7 @@ void UEditEdgeCreaseSharpnessCommand::ApplyDuringDrag( IMeshEditorModeEditingCon
 			UEditableMesh* EditableMesh = MeshAndSelectedEdges.Key;
 			const TArray<FMeshElement>& EdgeElements = MeshAndSelectedEdges.Value;
 
-			const TEdgeAttributeArray<float>& EdgeSharpnesses = EditableMesh->GetMeshDescription()->EdgeAttributes().GetAttributes<float>( MeshAttribute::Edge::CreaseSharpness );
+			const TEdgeAttributesRef<float> EdgeSharpnesses = EditableMesh->GetMeshDescription()->EdgeAttributes().GetAttributesRef<float>( MeshAttribute::Edge::CreaseSharpness );
 
 			static TArray<FEdgeID> EdgeIDs;
 			EdgeIDs.Reset();

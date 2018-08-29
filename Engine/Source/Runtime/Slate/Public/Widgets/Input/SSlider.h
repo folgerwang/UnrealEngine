@@ -26,6 +26,8 @@ public:
 
 	SLATE_BEGIN_ARGS(SSlider)
 		: _IndentHandle(true)
+		, _MouseUsesStep(false)
+		, _RequiresControllerLock(true)
 		, _Locked(false)
 		, _Orientation(EOrientation::Orient_Horizontal)
 		, _SliderBarColor(FLinearColor::White)
@@ -41,6 +43,12 @@ public:
 
 		/** Whether the slidable area should be indented to fit the handle. */
 		SLATE_ATTRIBUTE( bool, IndentHandle )
+
+		/** Sets new value if mouse position is greater/less than half the step size. */
+		SLATE_ARGUMENT( bool, MouseUsesStep )
+
+		/** Sets whether we have to lock input to change the slider value. */
+		SLATE_ARGUMENT( bool, RequiresControllerLock )
 
 		/** Whether the handle is interactive or fixed. */
 		SLATE_ATTRIBUTE( bool, Locked )
@@ -117,6 +125,12 @@ public:
 	/** See the StepSize attribute */
 	void SetStepSize(const TAttribute<float>& InStepSize);
 
+	/** See the MouseUsesStep attribute */
+	void SetMouseUsesStep(bool MouseUsesStep);
+
+	/** See the RequiresControllerLock attribute */
+	void SetRequiresControllerLock(bool RequiresControllerLock);
+
 public:
 
 	// SWidget overrides
@@ -154,6 +168,9 @@ protected:
 	 */
 	float PositionToValue( const FGeometry& MyGeometry, const FVector2D& AbsolutePosition );
 
+	const FSlateBrush* GetBarImage() const;
+	const FSlateBrush* GetThumbImage() const;
+
 protected:
 
 	// Holds the style passed to the widget upon construction.
@@ -183,6 +200,12 @@ protected:
 	// Holds a flag indicating whether a controller/keyboard is manipulating the slider's value. 
 	// When true, navigation away from the widget is prevented until a new value has been accepted or canceled. 
 	bool bControllerInputCaptured;
+
+	/** Sets new value if mouse position is greater/less than half the step size. */
+	bool bMouseUsesStep;
+
+	/** Sets whether we have to lock input to change the slider value. */
+	bool bRequiresControllerLock;
 
 	/** When true, this slider will be keyboard focusable. Defaults to false. */
 	bool bIsFocusable;

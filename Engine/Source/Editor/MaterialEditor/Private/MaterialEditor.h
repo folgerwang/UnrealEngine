@@ -381,6 +381,9 @@ public:
 	/** call this to notify the editor that the edited material changed from outside */
 	virtual void NotifyExternalMaterialChange() override;
 
+	/** Called to bring focus to the details panel */
+	void FocusDetailsPanel();
+
 public:
 	/** Set to true when modifications have been made to the material */
 	bool bMaterialDirty;
@@ -778,4 +781,7 @@ private:
 
 	/** Object used as material statistics manager */
 	TSharedPtr<class FMaterialStats> MaterialStatsManager;
+
+	/** Tab that holds the details panel */
+	TSharedPtr<SDockTab> SpawnedDetailsTab;
 };

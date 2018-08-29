@@ -29,7 +29,7 @@ class ENGINE_API ALevelScriptActor : public AActor
 	// --- Utility Functions ----------------------------
 	
 	/** Tries to find an event named "EventName" on all other levels, and calls it */
-	UFUNCTION(BlueprintCallable, meta=(BlueprintProtected = "true"), Category="Misc")
+	UFUNCTION(BlueprintCallable, meta=(BlueprintProtected = "true"), Category="Miscellaneous")
 	virtual bool RemoteEvent(FName EventName);
 
 	/**

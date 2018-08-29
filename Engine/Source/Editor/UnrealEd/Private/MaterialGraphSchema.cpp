@@ -950,4 +950,35 @@ bool UMaterialGraphSchema::SafeDeleteNodeFromGraph(UEdGraph* Graph, UEdGraphNode
 	return true;
 }
 
+void UMaterialGraphSchema::GetAssetsGraphHoverMessage(const TArray<FAssetData>& Assets, const UEdGraph* HoverGraph, FString& OutTooltipText, bool& OutOkIcon) const
+{
+	OutOkIcon = false;
+
+	for (int32 AssetIdx = 0; AssetIdx < Assets.Num(); ++AssetIdx)
+	{
+		UObject* Asset = Assets[AssetIdx].GetAsset();
+		UClass* MaterialExpressionClass = Cast<UClass>(Asset);
+		UMaterialFunctionInterface* Func = Cast<UMaterialFunctionInterface>(Asset);
+		UTexture* Tex = Cast<UTexture>(Asset);
+		UMaterialParameterCollection* ParameterCollection = Cast<UMaterialParameterCollection>(Asset);
+
+		if (MaterialExpressionClass && MaterialExpressionClass->IsChildOf(UMaterialExpression::StaticClass()))
+		{
+			OutOkIcon = true;
+		}
+		else if (Func)
+		{
+			OutOkIcon = true;
+		}
+		else if (Tex)
+		{
+			OutOkIcon = true;
+		}
+		else if (ParameterCollection)
+		{
+			OutOkIcon = true;
+		}
+	}
+}
+
 #undef LOCTEXT_NAMESPACE

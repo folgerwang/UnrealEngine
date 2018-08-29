@@ -1056,13 +1056,23 @@ TSharedRef<ITableRow> FBlueprintVarActionDetails::OnGenerateWidgetForPropertyLis
 		];
 }
 
-bool FBlueprintVarActionDetails::IsASCSVariable(UProperty* VariableProperty) const
+bool FBlueprintVarActionDetails::IsAUserVariable(UProperty* VariableProperty) const
 {
 	UObjectProperty* VariableObjProp = VariableProperty ? Cast<UObjectProperty>(VariableProperty) : NULL;
 
-	if (VariableObjProp != NULL && VariableObjProp->PropertyClass != NULL && VariableObjProp->PropertyClass->IsChildOf(UActorComponent::StaticClass()))
+	if (VariableObjProp != NULL && VariableObjProp->PropertyClass != NULL)
 	{
-		return !FBlueprintEditorUtils::IsVariableCreatedByBlueprint(GetBlueprintObj(), VariableObjProp);
+		return FBlueprintEditorUtils::IsVariableCreatedByBlueprint(GetBlueprintObj(), VariableObjProp);
+	}
+	return true;
+}
+
+bool FBlueprintVarActionDetails::IsASCSVariable(UProperty* VariableProperty) const
+{
+	UObjectProperty* VariableObjProp = VariableProperty ? Cast<UObjectProperty>(VariableProperty) : NULL;
+	if (VariableObjProp != NULL && VariableObjProp->PropertyClass != NULL)
+	{
+		return (!IsAUserVariable(VariableProperty) && VariableObjProp->PropertyClass->IsChildOf(UActorComponent::StaticClass()));
 	}
 	return false;
 }
@@ -1610,7 +1620,7 @@ EVisibility FBlueprintVarActionDetails::ShowEditableCheckboxVisibilty() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty && GetPropertyOwnerBlueprint())
 	{
-		if (IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty))
+		if (IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -1644,7 +1654,7 @@ EVisibility FBlueprintVarActionDetails::ShowReadOnlyCheckboxVisibilty() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty && GetPropertyOwnerBlueprint())
 	{
-		if (IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty))
+		if (IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -1760,7 +1770,7 @@ EVisibility FBlueprintVarActionDetails::ExposeOnSpawnVisibility() const
 		FEdGraphPinType VariablePinType;
 		K2Schema->ConvertPropertyToPinType(VariableProperty, VariablePinType);
 
-		const bool bShowPrivacySetting = IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty);
+		const bool bShowPrivacySetting = IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty);
 		if (bShowPrivacySetting && (K2Schema->FindSetVariableByNameFunction(VariablePinType) != NULL))
 		{
 			return EVisibility::Visible;
@@ -1801,7 +1811,7 @@ EVisibility FBlueprintVarActionDetails::ExposePrivateVisibility() const
 	UProperty* Property = CachedVariableProperty.Get();
 	if (Property && GetPropertyOwnerBlueprint())
 	{
-		if (IsABlueprintVariable(Property) && !IsASCSVariable(Property))
+		if (IsABlueprintVariable(Property) && IsAUserVariable(Property))
 		{
 			return EVisibility::Visible;
 		}
@@ -2007,7 +2017,7 @@ EVisibility FBlueprintVarActionDetails::ExposeConfigVisibility() const
 	UProperty* Property = CachedVariableProperty.Get();
 	if (Property)
 	{
-		if (IsABlueprintVariable(Property) && !IsASCSVariable(Property))
+		if (IsABlueprintVariable(Property) && IsAUserVariable(Property))
 		{
 			return EVisibility::Visible;
 		}
@@ -2339,7 +2349,7 @@ EVisibility FBlueprintVarActionDetails::ReplicationVisibility() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if(VariableProperty)
 	{
-		if (!IsASCSVariable(VariableProperty) && IsABlueprintVariable(VariableProperty))
+		if (IsAUserVariable(VariableProperty) && IsABlueprintVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -2379,7 +2389,7 @@ EVisibility FBlueprintVarActionDetails::GetTransientVisibility() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty)
 	{
-		if (IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty))
+		if (IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -2412,7 +2422,7 @@ EVisibility FBlueprintVarActionDetails::GetSaveGameVisibility() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty)
 	{
-		if (IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty))
+		if (IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -2445,7 +2455,7 @@ EVisibility FBlueprintVarActionDetails::GetAdvancedDisplayVisibility() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty)
 	{
-		if (IsABlueprintVariable(VariableProperty))
+		if (IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -2512,7 +2522,7 @@ EVisibility FBlueprintVarActionDetails::IsTooltipEditVisible() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty)
 	{
-		if ((IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty)) || IsALocalVariable(VariableProperty))
+		if ((IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty)) || IsALocalVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}

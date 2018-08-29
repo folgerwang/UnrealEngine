@@ -38,17 +38,6 @@ namespace ETangentOptions
 	};
 };
 
-enum class ELightmapUVVersion : int32
-{
-	BitByBit = 0,
-	Segments = 1,
-	SmallChartPacking = 2,
-	ScaleChartsOrderingFix = 3,
-	ChartJoiningLFix = 4,
-	Allocator2DFlipFix = 5,
-	Latest = Allocator2DFlipFix
-};
-
 /**
 *	Contains the vertices that are most dominated by that bone. Vertices are in Bone space.
 *	Not used at runtime, but useful for fitting physics assets etc.
@@ -60,44 +49,7 @@ struct FBoneVertInfo
 	TArray<FVector>	Normals;
 };
 
-/**
-* Container to hold overlapping corners. For a vertex, lists all the overlapping vertices
-*/
-struct FOverlappingCorners
-{
-	FOverlappingCorners() : bFinishedAdding(false)
-	{
-	}
-
-	/* Resets, pre-allocates memory, marks all indices as not overlapping in preperation for calls to Add() */
-	void Init(int32 NumIndices);
-
-	/* Add overlapping indices pair */
-	void Add(int32 Key, int32 Value);
-
-	/* Sorts arrays, converts sets to arrays for sorting and to allow simple iterating code, prevents additional adding */
-	void FinishAdding();
-
-	/* Estimate memory allocated */
-	uint32 GetAllocatedSize(void) const;
-
-	/** 
-	* @return array of sorted overlapping indices including input 'Key', empty array for indices that have no overlaps.
-	*/
-	const TArray<int32>& FindIfOverlapping(int32 Key) const
-	{
-		check(bFinishedAdding);
-		int32 ContainerIndex = IndexBelongsTo[Key];
-		return (ContainerIndex != INDEX_NONE) ? Arrays[ContainerIndex] : EmptyArray;
-	}
-
-private:
-	TArray<int32> IndexBelongsTo;
-	TArray< TArray<int32> > Arrays;
-	TArray< TSet<int32> > Sets;
-	TArray<int32> EmptyArray;
-	bool bFinishedAdding;
-};
+struct FOverlappingCorners;
 
 class IMeshUtilities : public IModuleInterface
 {

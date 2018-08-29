@@ -529,7 +529,7 @@ public:
 	LANDSCAPE_API class UMaterialInstance* GetMaterialInstance(int32 InIndex, bool InDynamic = true) const;
 
 	/** Gets the landscape material instance dynamic for this component */
-	UFUNCTION(BlueprintCallable, Category = "Landscape Runtime | Material")
+	UFUNCTION(BlueprintCallable, Category = "Landscape|Runtime|Material")
 	class UMaterialInstanceDynamic* GetMaterialInstanceDynamic(int32 InIndex) const;
 
 	/** Get the landscape actor associated with this component. */

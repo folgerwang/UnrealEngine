@@ -42,6 +42,9 @@ public:
 	/** If the VR Editor is currently available */
 	bool IsVREditorAvailable() const;
 
+	/** If the VR Editor button active */
+	bool IsVREditorButtonActive() const;
+
 	/** Gets the current VR Editor mode that was enabled */
 	UVREditorMode* GetCurrentVREditorMode();
 

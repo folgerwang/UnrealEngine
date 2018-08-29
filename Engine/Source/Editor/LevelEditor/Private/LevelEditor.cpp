@@ -609,7 +609,7 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	ActionList.MapAction( 
 		Commands.ToggleVR, 
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ToggleVR ), 
-		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ToggleVR_CanExecute ),
+		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ToggleVR_IsButtonActive ),
 		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::ToggleVR_IsChecked ) );
 
 	ActionList.MapAction(Commands.ImportScene,

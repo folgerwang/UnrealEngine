@@ -460,6 +460,11 @@ const float FAbcFile::GetImportLength() const
 	return ImportLength;
 }
 
+const int32 FAbcFile::GetFramerate() const
+{
+	return FramesPerSecond;
+}
+
 const FBoxSphereBounds& FAbcFile::GetArchiveBounds() const
 {
 	return ArchiveBounds;
