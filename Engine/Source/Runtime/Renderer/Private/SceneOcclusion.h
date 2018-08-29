@@ -28,18 +28,31 @@ public:
 
 	FOcclusionQueryVS() {}
 
-	void SetParametersWithBoundingSphere(FRHICommandList& RHICmdList, const FSceneView& View, const FSphere& BoundingSphere)
+	TUniformBufferRef<FViewUniformShaderParameters> GetViewUniformBuffer(FRHICommandList& RHICmdList, const FViewInfo& View)
 	{
-		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, GetVertexShader(), View.ViewUniformBuffer);
+		// TODO: Temporary hotfix for vertical axis not being flipped in the vertex shader
+		if (RHINeedsToSwitchVerticalAxis(View.Family->GetShaderPlatform()) && !IsMobileHDR())
+		{
+			FViewUniformShaderParameters FlippedParameters = *View.CachedViewUniformShaderParameters;
+			FlippedParameters.TranslatedWorldToClip.Mirror(EAxis::Y, EAxis::None);
+			FlippedViewUniformBuffer = TUniformBufferRef<FViewUniformShaderParameters>::CreateUniformBufferImmediate(FlippedParameters, UniformBuffer_SingleFrame);
+			return FlippedViewUniformBuffer;
+		}
+		return View.ViewUniformBuffer;
+	}
+
+	void SetParametersWithBoundingSphere(FRHICommandList& RHICmdList, const FViewInfo& View, const FSphere& BoundingSphere)
+	{
+		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, GetVertexShader(), GetViewUniformBuffer(RHICmdList, View));
 
 		FVector4 StencilingSpherePosAndScale;
 		StencilingGeometry::GStencilSphereVertexBuffer.CalcTransform(StencilingSpherePosAndScale, BoundingSphere, View.ViewMatrices.GetPreViewTranslation());
 		StencilingGeometryParameters.Set(RHICmdList, this, StencilingSpherePosAndScale);
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View)
+	void SetParameters(FRHICommandList& RHICmdList, const FViewInfo& View)
 	{
-		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, GetVertexShader(),View.ViewUniformBuffer);
+		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, GetVertexShader(), GetViewUniformBuffer(RHICmdList, View));
 
 		// Don't transform if rendering frustum
 		StencilingGeometryParameters.Set(RHICmdList, this, FVector4(0,0,0,1));
@@ -56,5 +69,6 @@ public:
 
 private:
 	FStencilingGeometryShaderParameters StencilingGeometryParameters;
+	TUniformBufferRef<FViewUniformShaderParameters> FlippedViewUniformBuffer;
 };
 
