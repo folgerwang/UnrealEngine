@@ -148,7 +148,7 @@ public:
 	{
 		++NumErrors;
 		TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create(EMessageSeverity::Error);
-		InternalLogMessage(Format, Line, args...);
+		InternalLogMessage(NAME_None, Format, Line, args...);
 		return Line;
 	}
 
@@ -161,8 +161,26 @@ public:
 	{
 		++NumWarnings;
 		TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create(EMessageSeverity::Warning);
-		InternalLogMessage(Format, Line, args...);
+		InternalLogMessage(NAME_None, Format, Line, args...);
 		return Line;
+	}
+
+	/**
+	 * Write a warning in to the compiler log.
+	 * Note: @@ will be replaced by node or pin links for nodes/pins passed via varargs 
+	 */
+	template<typename... Args>
+	void Warning(FName ID, const TCHAR* Format, Args... args)
+	{
+		if(!IsMessageEnabled(ID))
+		{
+			return;
+		}
+
+		++NumWarnings;
+		TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create(EMessageSeverity::Warning);
+		InternalLogMessage(ID, Format, Line, args...);
+		return;
 	}
 
 	/**
@@ -173,7 +191,7 @@ public:
 	TSharedRef<FTokenizedMessage> Note(const TCHAR* Format, Args... args)
 	{
 		TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create(EMessageSeverity::Info);
-		InternalLogMessage(Format, Line, args...);
+		InternalLogMessage(NAME_None, Format, Line, args...);
 		return Line;
 	}
 
@@ -282,7 +300,7 @@ protected:
 	/** Helper method to add a child event to the given parent event scope */
 	void AddChildEvent(TSharedPtr<FCompilerEvent>& ParentEventScope, TSharedRef<FCompilerEvent>& ChildEventScope);
 
-	void InternalLogMessage(const TSharedRef<FTokenizedMessage>& Message, const TArray<UEdGraphNode*>& SourceNodes );
+	void InternalLogMessage(FName MessageID, const TSharedRef<FTokenizedMessage>& Message, const TArray<UEdGraphNode*>& SourceNodes );
 
 	void Tokenize(const TCHAR* Text, FTokenizedMessage &OutMessage, TArray<UEdGraphNode*>& OutSourceNode)
 	{
@@ -311,14 +329,14 @@ protected:
 	}
 
 	template<typename... Args>
-	void InternalLogMessage(const TCHAR* Format, const TSharedRef<FTokenizedMessage>& Message, Args... args)
+	void InternalLogMessage(FName MessageID, const TCHAR* Format, const TSharedRef<FTokenizedMessage>& Message, Args... args)
 	{
 		// Convention for SourceNode established by the original version of the compiler results log
 		// was to annotate the error on the first node we can find. I am preserving that behavior
 		// for this type safe, variadic version:
 		TArray<UEdGraphNode*> SourceNodes;
 		Tokenize(Format, *Message, SourceNodes, args...);
-		InternalLogMessage(Message, SourceNodes);
+		InternalLogMessage(MessageID, Message, SourceNodes);
 	}
 
 	/** Links the UEdGraphNode with the LogLine: */
@@ -330,6 +348,8 @@ protected:
 	/** Internal helper method to recursively append event details into the MessageLog */
 	void InternalLogEvent(const FCompilerEvent& InEvent, int32 InDepth = 0);
 
+	/** Returns true if the user has requested this compiler message be suppressed */
+	bool IsMessageEnabled(FName ID);
 private:
 
 	/** Map of stored potential messages indexed by a node. Can be committed to the results log by calling CommitPotentialMessages for that node. */

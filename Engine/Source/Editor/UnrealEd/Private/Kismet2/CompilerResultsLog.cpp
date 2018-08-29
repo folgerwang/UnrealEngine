@@ -13,6 +13,7 @@
 #include "EngineLogs.h"
 #include "Engine/Blueprint.h"
 #include "IMessageLogListing.h"
+#include "Settings/EditorProjectSettings.h"
 
 #if WITH_EDITOR
 
@@ -192,6 +193,33 @@ void FCompilerResultsLog::InternalLogEvent(const FCompilerEvent& InEvent, int32 
 	}
 }
 
+bool FCompilerResultsLog::IsMessageEnabled(FName ID)
+{
+	if(ID == NAME_None)
+	{
+		return true;
+	}
+
+	const UBlueprintEditorProjectSettings* EditorProjectSettings = GetDefault<UBlueprintEditorProjectSettings>();
+	if(IsRunningCommandlet())
+	{
+		if(	EditorProjectSettings->DisabledCompilerMessagesHeadless.Contains(ID) ||
+			EditorProjectSettings->DisabledCompilerMessages.Contains(ID))
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if( EditorProjectSettings->DisabledCompilerMessages.Contains(ID) )
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 void FCompilerResultsLog::InternalLogSummary()
 {
 	if(CurrentEventScope.IsValid())
@@ -262,7 +290,7 @@ bool FCompilerResultsLog::CommitPotentialMessages(UEdGraphNode* Source)
 			GetNodesFromTokens(Message->GetMessageTokens(), Nodes);
 
 			Nodes.Add(Source);
-			InternalLogMessage(Message, Nodes);
+			InternalLogMessage(Message->GetIdentifier(), Message, Nodes);
 		}
 		return true;
 	}
@@ -405,11 +433,12 @@ const UEdGraphPin* FCompilerResultsLog::FindSourcePin(const UEdGraphPin* Possibl
 	return SourceBacktrackMap.FindSourcePin(PossiblyDuplicatedPin);
 }
 
-void FCompilerResultsLog::InternalLogMessage(const TSharedRef<FTokenizedMessage>& Message, const TArray<UEdGraphNode*>& SourceNodes)
+void FCompilerResultsLog::InternalLogMessage(FName MessageID, const TSharedRef<FTokenizedMessage>& Message, const TArray<UEdGraphNode*>& SourceNodes)
 {
 	const EMessageSeverity::Type Severity = Message->GetSeverity();
 	Messages.Add(Message);
 	AnnotateNode(SourceNodes, Message);
+	Message->SetIdentifier(MessageID);
 
 	if (!bSilentMode && (!bLogInfoOnly || (Severity == EMessageSeverity::Info)))
 	{
