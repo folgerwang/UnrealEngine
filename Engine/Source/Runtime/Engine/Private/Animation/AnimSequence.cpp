@@ -4910,7 +4910,7 @@ void UAnimSequence::AdvanceMarkerPhaseAsLeader(bool bLooping, float MoveDelta, c
 {
 	check(MoveDelta != 0.f);
 	const bool bPlayingForwards = MoveDelta > 0.f;
-	float CurrentMoveDelta = MoveDelta * RateScale;
+	float CurrentMoveDelta = MoveDelta;
 
 	bool bOffsetInitialized = false;
 	float MarkerTimeOffset = 0.f;
