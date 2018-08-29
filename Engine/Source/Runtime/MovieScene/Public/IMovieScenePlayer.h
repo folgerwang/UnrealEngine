@@ -60,6 +60,11 @@ public:
 	virtual FMovieSceneRootEvaluationTemplateInstance& GetEvaluationTemplate() = 0;
 
 	/**
+	 * Cast this player instance as a UObject if possible
+	 */
+	virtual UObject* AsUObject() { return nullptr; }
+
+	/**
 	 * Whether this player can update the camera cut
 	 */
 	virtual bool CanUpdateCameraCut() const { return true; }

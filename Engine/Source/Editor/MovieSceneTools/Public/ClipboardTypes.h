@@ -8,6 +8,7 @@
 #if WITH_EDITOR
 
 #include "Channels/MovieSceneFloatChannel.h"
+#include "Channels/MovieSceneEvent.h"
 #include "Sections/MovieSceneEventSection.h"
 #include "Sections/MovieSceneActorReferenceSection.h"
 #include "MovieSceneClipboard.h"
@@ -57,6 +58,10 @@ namespace MovieSceneClipboard
 	template<> inline FName GetKeyTypeName<FEventPayload>()
 	{
 		return "EventPayload";
+	}
+	template<> inline FName GetKeyTypeName<FMovieSceneEvent>()
+	{
+		return "MovieSceneEvent";
 	}
 }
 

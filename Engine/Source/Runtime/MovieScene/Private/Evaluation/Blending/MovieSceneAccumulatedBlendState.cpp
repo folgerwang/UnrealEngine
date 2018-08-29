@@ -5,6 +5,11 @@
 
 void FMovieSceneAccumulatedBlendState::Consolidate(TMap<UObject*, TMap<FMovieSceneBlendingActuatorID, FActuatorTokenStackPtr>>& InOutBlendState, FMovieSceneEvaluationOperand InOperand, IMovieScenePlayer& Player)
 {
+	if (TokensToBlend.Num() == 0)
+	{
+		return;
+	}
+
 	if (InOperand.ObjectBindingID.IsValid())
 	{
 		for (TWeakObjectPtr<> WeakObj : Player.FindBoundObjects(InOperand))

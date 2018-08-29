@@ -314,8 +314,8 @@ Below are the properties for Physics Constraints separated by major category.
 
 [INCLUDE:#presetTable]
 
-* 关于应用 **物理约束Actor** 的更多信息, 请参见: [**%Engine/Physics\Constraints\ConstraintsUserGuide:title%**](Engine/Physics\Constraints\ConstraintsUserGuide)
-<!--
+* 关于应用 **物理约束Actor** 的更多信息, 请参见: [Engine/Physics\Constraints\ConstraintsUserGuide]()
+
 [EXCERPT:presetTable]
 | 关节预制 | 描述|
 | --- | ---- |
@@ -350,9 +350,9 @@ Below are the properties for Physics Constraints separated by major category.
 | **约束骨骼2** | %doxygen:FConstraintInstance::ConstraintBone2% |
 | **禁用碰撞** | %doxygen:FConstraintInstance::bDisableCollision% |
 
-* 关于 **物理资源工具** (**PhAT**)的进一步参考指南, 请参照: [**%Engine/Physics\PhAT\Reference:title%**](Engine/Physics\PhAT\Reference)
+* 关于 **物理资源工具** (**PhAT**)的进一步参考指南, 请参照: [Engine/Physics\PhAT\Reference]()
 
-* 关于在 **物理资源工具** (**PhAT**)中使用 **物理约束** 的更多信息, 请参照: [**%Engine/Physics\PhAT\UserGuide:title%**](Engine/Physics\PhAT\UserGuide)
+* 关于在 **物理资源工具** (**PhAT**)中使用 **物理约束** 的更多信息, 请参照: [Engine/Physics\PhAT\UserGuide]()
 
 * 关于应用 **物理资源工具** (**PhAT**)的信息，请参照: [**%Engine/Physics\PhAT:title%**](Engine/Physics\PhAT)
 
@@ -505,7 +505,8 @@ _从左到右: 摇动1 限制为45度，摇动2设置为45度，扭动限制为1
 [![](PhysCon_SimFlat.png)(w:453)](PhysCon_SimFlat.png) [![](PhysCon_SimAngled.png)(w:453)](PhysCon_SimAngled.png)
 [/REGION]
 
-当使用角限制时，则假设扭动轴(正X轴)将沿着指向蓝色受约束Actor(受约束的Actor 2)的方向对齐。[COMMENT:none]
+当使用角限制时，则假设扭动轴(正X轴)将沿着指向蓝色受约束Actor(受约束的Actor 2)的方向对齐。
+[COMMENT:none]
 -这非常重要，因为 -
 [/COMMENT] 
 
@@ -518,8 +519,6 @@ _从左到右: 摇动1 限制为45度，摇动2设置为45度，扭动限制为1
 ![](PhysCon_AngularCone_2.png)(h:300 convert:false) ![](PhysCon_Arc.png)(h:300 convert:false)
 
 [COMMENT:none]
-
-
 ### 球窝型
 球窝关节是一种简单的关节，它的所有线性部分被锁定且所有角度部分都是自由的。
 
@@ -541,7 +540,6 @@ Prismatic（棱柱）关节3个线性自由度中有2个被锁定，且其所有
 
 
 [/COMMENT]
--->
 
 
 

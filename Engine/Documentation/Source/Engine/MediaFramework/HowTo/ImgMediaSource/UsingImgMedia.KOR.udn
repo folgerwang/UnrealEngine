@@ -55,7 +55,7 @@ Related: Engine\MediaFramework\MediaEditorReference
 
 	![](IMGSequence_03b.png)
 
-	프로젝트에 이미지를 임포트하기 보다는, 프로젝트 디렉토리 내 위치에 대한 레퍼런스만 필요합니다.
+	프로젝트에 이미지를 임포트하기 보다는, 프로젝트 디렉터리 내 위치에 대한 레퍼런스만 필요합니다.
 
 1.	**Content/Movies** 폴더에 우클릭하고 **Media** (미디어) 아래 **Img Media Source** (이미지 미디어 소스)를 선택한 뒤 **MyImageSequence** 라 합니다. 
 
@@ -73,7 +73,7 @@ Related: Engine\MediaFramework\MediaEditorReference
 	저해상도 이미지 파일로 작업하면 메모리 요구량이 줄어들어 원본 해상도 파일로 작업을 할 때보다 효율적인 작업이 가능합니다.
 
 	[REGION:warning]
-	Proxy Override 경로는 원본 해상도 이미지와 같은 디렉토리 구조 내 동일한 이름의 폴더를 가리켜야 찾을 수 있습니다.
+	Proxy Override 경로는 원본 해상도 이미지와 같은 디렉터리 구조 내 동일한 이름의 폴더를 가리켜야 찾을 수 있습니다.
 	[/REGION]
 
 1.	**Content/Movies** 폴더에 우클릭하고 **Media** (미디어) 아래 **Media Player** (미디어 플레이어)를 선택합니다. 

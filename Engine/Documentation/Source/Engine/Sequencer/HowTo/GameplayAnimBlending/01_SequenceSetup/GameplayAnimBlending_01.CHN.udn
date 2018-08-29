@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title:1. Sequence Setup
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:1.序列设置
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:In this step we create our Level Sequence and add the animation in Sequencer we want to blend to. 
+Description:在此步骤中，我们要创建关卡序列，并在Sequencer中添加想要混合的动画。
 Version: 4.17
 SkillLevel: Advanced
-parent:Engine/Sequencer/HowTo
+parent:Engine/Sequencer/HowTo/GameplayAnimBlending
 order:1
 checkpoint: editorqs
 tags:Sequencer
@@ -36,43 +36,43 @@ type:how-to
 
 [nav]
 
-In this step we set up our Level Sequence and add our playable character and animation we want to blend to. 
+在这一步中，我们将设置关卡序列，并添加想要混合的可操作角色和动作。 
 
 [REGION:note]
-For this how-to guide, we are using the **Blueprint Third Person Template** with **Animation Starter Pack** available for free from the Epic Marketplace. 
+此指南使用 **蓝图第三人称模板（Blueprint Third Person Template）** 与 **动画初学者包（Animation Starter Pack）**，这个资源包可从Epic虚幻商城免费下载。 
 
 ![](AnimStarterPack.png)
 
 [/REGION]
 
-1.	Inside your project, delete the **ThirdPersonCharacter** from the level and add the **Ue4ASP_Character**, setting **Auto Possess Player** to **Player 0**. 
+1.   在项目中，删除关卡中的 **ThirdPersonCharacter** 并添加 **Ue4ASP_Character**，将 **自动占据玩家（Auto Possess Player）** 设置为 **Player 0**。 
 
-	![](GameBlend_01.png)
+  ![](GameBlend_01.png)
 
-	Optionally, you can disable the capsule component from being displayed by selecting the capsule component then checking the **Hidden in Game** option. 
+  你可以选择禁止显示胶囊体组件，只需选择胶囊体组件然后勾选 **在游戏中隐藏（Hidden in Game）** 选项即可实现。 
 
-	![](GameBlend_01b.png)
+  ![](GameBlend_01b.png)
 
-1.	From the main toolbar, click the **Cinematics** button then select **Add Level Sequence** and save it with any name. 
+  1. 在主工具栏中，单击 **过场动画（Cinematics）** 按钮，然后选择 **添加关卡序列（Add Level Sequence）** 并用任意名称保存。 
 
-	![](GameBlend_02.png)
+  ![](GameBlend_02.png)
 
-1.	In your Level Sequence, add the **Ue4ASP_Character** and an **Animation Track** with **Death_3** assigned as the animation. 
+  1. 在关卡序列中，添加 **Ue4ASP_Character** 和 **动画轨迹（Animation Track）**，其中 **Death_3** 指定为动画。 
 
-	![](GameBlend_03.png)
+  ![](GameBlend_03.png)
 
-1.	Right-click on the animation in the keyframe window then under properties, change **When Finished** to **Keep State**. 
+  1. 右键单击关键帧窗口中的动画，然后在属性下将 **完成时（When Finished）** 更改为 **保持状态（Keep State）**。 
 
-	![](GameBlend_03b.png)
+  ![](GameBlend_03b.png)
 
-	This will enable us to preserve the animation state when the Level Sequence is over. Also, take note of the **Slot Name** property highlighted below. 
+  这样我们可以在关卡序列结束时保持动画动作状态。另外，请注意下面突出显示的 **插槽名称（Slot Name）** 属性。 
 
-	![](GameBlend_03c.png)
+  ![](GameBlend_03c.png)
 
-	When an Animation Blueprint is controlling a Skeletal Mesh, Sequencer plays back animations on slots within that Blueprint and is controllable through the **Slot Name** property. 
-	An Animation Blueprint can then Blend between a slot Animation and whatever game logic driven animation your character may happen to be in. 
+  当动画蓝图控制着骨架网格体时，Sequencer会在该蓝图中的插槽上播放动画，并且可通过 **插槽名称（Slot Name）** 属性进行控制。 
+  然后，动画蓝图可以在插槽动画和角色可能进入的任何游戏逻辑驱动的动画之间进行混合。 
 
-In the next step, we set up our Animation Blueprint and Character Blueprint so that we can blend from our gameplay animation into our death animation we created in this step. 
+在下一步中，我们将设置动画蓝图和角色蓝图，以便从游戏动画混合到此步骤中创建的死亡动画。 
 
 [nav]
 

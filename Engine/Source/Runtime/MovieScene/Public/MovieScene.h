@@ -102,6 +102,10 @@ struct FMovieSceneEditorData
 	UPROPERTY()
 	double WorkEnd;
 
+	/** The set of user-marked frames for display convenience */
+	UPROPERTY()
+	TSet<FFrameNumber> MarkedFrames;
+
 	UPROPERTY()
 	FFloatRange WorkingRange_DEPRECATED;
 	UPROPERTY()

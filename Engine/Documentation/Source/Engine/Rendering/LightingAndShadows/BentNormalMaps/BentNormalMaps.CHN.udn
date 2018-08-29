@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3678273
 Availability:Public
 Crumbs:%ROOT%
-Title:Bent Normal Maps
-Description: An overview of using Bent normal maps in UE4. 
+Title:环境法线贴图
+Description: 在虚幻引擎中使用环境法线贴图的综述。 
 Type:Overview
 Version:4.17
 Parent:Engine/Rendering/LightingAndShadows
@@ -19,75 +19,77 @@ SkillLevel:Advanced
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Non Bent Normal](No_BentNormal_00.png)(w:1100)
+    ![非环境法线](No_BentNormal_00.png)(w:1100)
     [/PARAM]
     [PARAM:after]
-    ![Bent Normal](BentNormal_00.png)
+    ![环境法线](BentNormal_00.png)
     [/PARAM]
 [/OBJECT]
 
-Using Bent normals within your Unreal Engine 4 (UE4) Materials can help improve how Materials react to lighting and shading. In the following document, you will find all the information you need to start using Bent normals in your UE4 projects.
+在材质中使用环境法线有助于改善它们对照明和着色的反应。在本文档中，您将了解到开始在虚幻引擎项目中使用环境法线所需的所有信息。
 
-## Benefits to Using Bent Normals
-Below you will find some of the benefits to using Bent normals in your UE4 projects.
+## 使用环境法线的好处
+以下是使用环境法线的好处：
 
-* One of the biggest impacts Bent normals tends to have is to reduce the amount of light leaking that happens after a light build. 
-* Bent normals can be used with Ambient occlusion (AO) to improve Diffuse indirect lighting by making the Diffuse indirect light closer match Global illumination (GI) by using theBent normals for indirect lighting instead of the Normals.
-* Careful care has also be taken to make sure that any detail Normals do not disappear when using Bent normals.
+* 环境法线的最大影响之一是有助于减少照明构建之后发生的漏光。
+* 环境法线也可与环境光遮蔽（AO）结合使用，以改善漫射间接照明。原理是使漫射间接照明更接近于全局光照（GI），具体方法是将环境法线代替法线用于间接照明。
 
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
-    ![Diffuse indirect lighting using AO](BentNormalAoLighting.png)
+    ![使用AO漫射间接照明](BentNormalAoLighting.png)
     [/PARAM]
     [PARAM:after]
-    ![Diffuse indirect lighting using Bent normal ](BentNormalLighting.png)
+    ![使用环境法线漫射间接照明](BentNormalLighting.png)
     [/PARAM]
 [/OBJECT]
 
-## Bent Normal Creation
+## 环境法线创建
 
-To get the highest quality Bent normal map and to match UE4's assumptions on how Bent normal maps should be calculated make sure adhere to the following information when creating your Bent normal maps.
+为了获得最高质量的环境法线贴图，并且符合虚幻引擎与环境法线贴图计算方式有关的假设，请确保在创建环境法线贴图时遵循以下说明：
 
-* When creating the Bent normal map, make sure to use **Cosine Distribution**. 
+* 创建环境法线贴图时使用 **余弦分布**。
 
-* You can use [Substance Designer 6](https://www.allegorithmic.com/blog/substance-designer-6-unleashed-now-scan-processing-and-new-nodes) to generate the Bent normal map just like a Normal or AO map is generated.
+* 与生成标准法线贴图或AO贴图的方式相似，可以使用[Substance Designer 6](https://www.allegorithmic.com/blog/substance-designer-6-unleashed-now-scan-processing-and-new-nodes)来生成环境法线贴图。
 
-* When generating your Bent normal make sure your character is in a T-Pose.
+* 生成环境法线时，请确保将角色置于T姿势。
 
-* The Bent normal and the AO should use the same **distance** setup.
+* 环境法线和AO应使用相同的 **距离** 设置。
 
-* The Bent normal should be in the same space as your Normal map. Consolute the following chart for more information:
-    |World Space Type| Normal Map Type | Bent Normal Type|
-    |-----------------|----------------------------|---------------------------|
-    |World|World | World|
-    |Tangent|Tangent|Tangent|
+* 环境法线应与法线贴图位于相同的空间中。请参阅以下图表获取更多信息：
+    | 场景空间类型 | 法线贴图类型 | 环境法线类型 |
+    | ------ | ------ | ------ |
+    | 场景     | 场景     | 场景     |
+    | 切线     | 切线     | 切线     |
 
-## Using Bent Normals in UE4
+## 在虚幻引擎中使用环境法线
 
-Using Bent normal maps inside UE4 Material is very similar to setting up and using Normal maps.  All you need to do is add the **Bent Normal** custom output node to the Material graph and then connect your Bent normal map to the input like in the following image. Also, make sure that there is an AO map input into the **Ambient Occlusion** input.
+在材质中使用环境法线贴图的流程与设置和使用法线贴图的过程非常相似。只需向材质图中添加 **环境法线（Bent Normal）** 自定义输出节点然后将环境法线贴图连接到输入，如下图所示。此外，请确保有AO贴图输入到 **环境光遮蔽（Ambient Occlusion）** 输入中。
 
 [REGION:lightbox]
 [![](BentNormalMaterialSetup.png)(w:349)](BentNormalMaterialSetup.png)
 [/REGION]
 
 [REGION:caption]
-Click for full image.
+单击查看大图。
 [/REGION]
 
-## Reflection Occlusion
+## 反射遮蔽
 
-Bent normal maps are also used in a powerful but less traditional way, and that is for Reflection occlusion / Specular occlusion.  When using an Ambient occlusion (AO) map, you are trying to, occlude Diffuse indirect light. Reflection occlusion is a similar concept, but you are trying to occlude the Specular indirect lighting. Reflection occlusion works by intersecting the Specular lobe with the visible cone or a cone representing the unoccluded part of the hemisphere described by the Bent normal as the cone axis and the AO amount as the cone angle. This results in significantly reduced Specular light leaking especially when Screen Space Reflections (SSR) data is not available.
+也可通过不那么传统的强大方式将环境法线贴图用于反射遮蔽/高光度遮蔽。环境光遮蔽（AO）贴图遮挡漫射间接照明，反射遮蔽的概念与它相似，但是应用于高光度间接照明。反射遮蔽的工作原理是让高光叶片和可见锥体相交，可见锥体就是作为圆锥轴的环境法线和作为圆锥角的AO量所形成的半球体未被遮挡部分的圆锥体。这样可以显著减少高光度漏光，尤其是屏幕空间反射（SSR）数据不可用的时候。
 
-Finally added support for a multi-bounce approximation for occlusion had been added. This means that instead of AO or Reflection occlusion shadowing the first bounce, we can use an approximation of what many bounces will produce.  Becuase of this multi-bounce approximation bright Materials will become less dark, and colored Materials will be made more saturated. 
+也支持用于计算遮蔽的多次反射近似值。这意味着我们可以使用多次反射产生的近似值来取代仅为第一次反射投射阴影的AO或反射遮蔽。借助多次反射近似值，较亮的材质不会变得过暗，有色材质的饱和度将会更高。 
 
 [OBJECT:ComparisonSlider]
     [PARAM:before]
     ![AO](ReflectionBNAO.png)
     [/PARAM]
     [PARAM:after]
-    ![Bent Normal](ReflectionBN.png)
+    ![环境法线](ReflectionBN.png)
     [/PARAM]
 [/OBJECT]
+
+
+
 
 

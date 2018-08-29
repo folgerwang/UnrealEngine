@@ -11,7 +11,7 @@ skilllevel:Beginner
 topic-image:Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor/ColorpickerCropped.png
 
 [EXCERPT:Intro]
-메시 페인트 툴은 한 쌍의 색을 가지고 작업을 합니다. 사용자는 _칠할 색_ 과 _지울 색_ 을 선택한 다음 언제고 맞바꿀 수 있습니다. 색 선택은 표준 [색 선택기 창](Engine/UI/ColorPicker) 을 통해 이루어집니다.
+메시 페인트 툴은 한 쌍의 색을 가지고 작업을 합니다. 사용자는 _칠할 색_ 과 _지울 색_ 을 선택한 다음 언제고 맞바꿀 수 있습니다. 색 선택은 표준 [색 선택 툴 창](Engine/UI/ColorPicker) 을 통해 이루어집니다.
 [/EXCERPT:Intro]
 
 
@@ -22,6 +22,6 @@ topic-image:Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor/ColorpickerCro
 메시 페인트 모드 패널에 있을 때, 맞바꾸기 ![](button_swap.png) 버튼을 누르면 칠할 색과 지울 색을 맞바꿀 수 있습니다. 이는 한 쌍의 색을 서로 빠르게 전환한다든가 실수한 붓질을 빠르게 덮을 수 있는 편리한 기능입니다.
 
 [REGION:tip]
-	참고로 색 선택기에는 빠른 색 선택은 물론, 색 견본 저장 및 테마 설정을 위한 보조 수단이 있습니다. 자세한 것은 [](Engine/UI/ColorPicker) 페이지를 참고해 주시기 바랍니다.
+	참고로 색 선택 툴에는 빠른 색 선택은 물론, 색 견본 저장 및 테마 설정을 위한 보조 수단이 있습니다. 자세한 것은 [](Engine/UI/ColorPicker) 페이지를 참고해 주시기 바랍니다.
 [/REGION]
 

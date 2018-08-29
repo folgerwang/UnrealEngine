@@ -37,7 +37,7 @@ Order: 3
 
 	![](Keypad15.png)
 
-	Draw at Desired Size 옵션으로 간편하게 렌더 타겟을 위젯 블루프린트 내 원하는 크기에 자동으로 맞출 수 있습니다.
+	Draw at Desired Size 옵션으로 간편하게 렌더 타깃을 위젯 블루프린트 내 원하는 크기에 자동으로 맞출 수 있습니다.
 
 1.	**Keypad** 블루프린트를 열고 **Widget** 컴포넌트를 추가, 클래스는 **KeypadWB** 로, **Draw at Desired Size** 를 설정합니다.. 
 

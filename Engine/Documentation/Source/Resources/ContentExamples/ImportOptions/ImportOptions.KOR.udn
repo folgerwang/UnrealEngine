@@ -27,7 +27,7 @@ topic-image:FBXImport_Compact.png
 
 ![](Import_DialogBox.png)
 
-임포트하려는 애셋의 유형에 따라 머티리얼과 텍스처도 같이 임포트, LOD 옵션, 애니메이션 및 모프 타겟 옵션 등과 같은 
+임포트하려는 애셋의 유형에 따라 머티리얼과 텍스처도 같이 임포트, LOD 옵션, 애니메이션 및 모프 타깃 옵션 등과 같은 
 추가적인 옵션이 뜹니다.
 
 [region:note]
@@ -49,7 +49,7 @@ topic-image:FBXImport_Compact.png
 | **[1.4 Skeletal Mesh](Resources\ContentExamples\ImportOptions\1_4)** | 스켈레탈 메시 - 본이 세 개인 간단한 **스켈레탈 메시** 를 임포트하여 메시 애셋과 **스켈레톤** 애셋을 생성합니다. |
 | **[1.5 Animation](Resources\ContentExamples\ImportOptions\1_5)** | 애니메이션 - **애니메이션** 을 임포트하여 해당 애니메이션에 일치하는 **스켈레톤** 애셋을 할당하는 프로세스입니다. |
 | **[1.6 Drag and drop animation](Resources\ContentExamples\ImportOptions\1_6)** | 드래그 앤 드롭 애니메이션 - **애니메이션 시퀀스** 를 레벨 내 일치하는 **스켈레톤** 애셋에 끌어놓아 애셋에 적용시키고 재생하도록 만드는 방법에 대한 데모입니다. |
-| **[1.7 Morph Target](Resources\ContentExamples\ImportOptions\1_7)** | 모프 타겟 - **모프 타겟** 및 간단한 애니메이션과 함께 임포트된 메시로, 큐브 메시에서 원형 메시로 모핑됩니다. |
+| **[1.7 Morph Target](Resources\ContentExamples\ImportOptions\1_7)** | 모프 타깃 - **모프 타깃** 및 간단한 애니메이션과 함께 임포트된 메시로, 큐브 메시에서 원형 메시로 모핑됩니다. |
 
 
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3242329
+INTSourceChangelist:3242329
 Availability:Public
 Title:Constant 표현식
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
@@ -205,7 +205,7 @@ VertexColor 표현식은 스프라이트 파티클 이미터에 영향을 끼치
 (#ViewProperty)
 ## View Property
 
-ViewProperty 표현식은 필드 오브 뷰나 렌더 타겟 사이즈같은 뷰 종속 상수 프로퍼티를 출력합니다. 접근할 뷰 프로퍼티에 대한 환경설정이 가능하며, 출력 유형은 환경설정된 접근 프로퍼티에 따라 달라집니다.
+ViewProperty 표현식은 필드 오브 뷰나 렌더 타깃 사이즈같은 뷰 종속 상수 프로퍼티를 출력합니다. 접근할 뷰 프로퍼티에 대한 환경설정이 가능하며, 출력 유형은 환경설정된 접근 프로퍼티에 따라 달라집니다.
 
 [REGION:fullwidth]
 ![ViewPropertyExample.png](ViewPropertyExample.png)
@@ -234,7 +234,7 @@ ViewProperty 표현식은 필드 오브 뷰나 렌더 타겟 사이즈같은 뷰
 
 위 스크린샷은 AO 마스크를 사용하여 먼지 레이어를 배경 구석에 자동으로 블렌딩해 줍니다.
 AO 마스크를 사용하려면, **월드 세팅 -> 라이트매스 세팅** 아래 **Use Ambient Occlusion** 과 **Generate Ambient Occlusion Material Mask** 옵션을 둘 다 켜준 뒤 라이팅을 빌드해야 합니다.
-**Max Occlusion Distance** 같은 다른 AO 콘트롤은 AO 모습 트윅 작업에 좋습니다.
+**Max Occlusion Distance** 같은 다른 AO 컨트롤은 AO 모습 트윅 작업에 좋습니다.
 또 한 가지 **Direct** / **Indirect Occlusion Fraction** 둘 다 **0** 으로 설정하여, 이 AO 가 실제 레벨 라이팅에 영향을 끼치지 않도록 해 주십시오.
 
 ![](PrecompitedAOSettings_00.png)

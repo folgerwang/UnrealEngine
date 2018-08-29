@@ -31,7 +31,7 @@ Order:2
 현지화 파이프라인은 텍스트 수집, 저장, 번역 관리, 엔진에 사용되는 바이너리 포맷으로의 컴파일 처리를 하는 [다양한 커맨드렛](Gameplay/Localization/Commandlets) 으로 구성되어 있습니다. 
 마스터 커맨드렛이 실행 단계를 나타내는 환경설정 파일을 통해 다른 커맨드렛을 실행합니다.
 
-전형적으로 프로젝트에는 번역할 텍스트가 전부 포함된 타겟 하나만 있으면 됩니다. 그러면 하나의 환경설정으로 현지화 자동화의 반복처리 실행을 위한 단계와 세팅을 전부 지정할 수 있습니다.
+전형적으로 프로젝트에는 번역할 텍스트가 전부 포함된 타깃 하나만 있으면 됩니다. 그러면 하나의 환경설정으로 현지화 자동화의 반복처리 실행을 위한 단계와 세팅을 전부 지정할 수 있습니다.
 그 자동화는 텍스트 수집, manifest 와 archive 생성, 새로운 번역 임포트, 새로운 소스 익스포트, 어플리케이션에서 사용할 컴파일된 바이너리 형태의 
 현지화 리소스 생성 등입니다.
 
@@ -102,8 +102,8 @@ Config/Localization/Game.ini
 	CommandletClass=GenerateTextLocalizationResource
 
 
-### 디렉토리 구조 예제
-"MyProject" 라는 프로젝트에 "Game 과 "DLC" 두 개의 타겟을 사용한 디렉토리 구조 예제입니다.
+### 디렉터리 구조 예제
+"MyProject" 라는 프로젝트에 "Game 과 "DLC" 두 개의 타깃을 사용한 디렉터리 구조 예제입니다.
 * MyProject
 	* Config
 		* Localization
@@ -124,8 +124,8 @@ Config/DefaultGame.ini Excerpt
 	+LocalizationPaths=%GAMEDIR%Content/Localization/DLC
 
 
-### 디렉토리 구조 예제
-"MyProject" 라는 프로젝트에 "Game" 과 "DLC" 라는 두 개의 타겟이 영어 ("en") 와 브라질 포르투갈어 ("pt-BR") 두 개의 언어로 현지화된 디렉토리 구조 예제입니다.
+### 디렉터리 구조 예제
+"MyProject" 라는 프로젝트에 "Game" 과 "DLC" 라는 두 개의 타깃이 영어 ("en") 와 브라질 포르투갈어 ("pt-BR") 두 개의 언어로 현지화된 디렉터리 구조 예제입니다.
 
 * MyProject
 	* Content

@@ -1,8 +1,347 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4091886
 Availability: NoPublish
-Title: Build Configuration Properties Page
+Title: 构建配置属性页面
 Crumbs:
-Description: This is a procedurally generated markdown page.
-version: 4.15
-parent:Programming/UnrealBuildSystem/Configuration
+Description: Build Configuration Properties Page
+Version: 4.20
+
+### XboxOnePlatform
+
+$ Compiler : 要在Windows平台上使用的编译器工具链版本。值“default”将在UBT启动时更改为特定版本。
+
+### BuildConfiguration
+
+$ bGeneratedSYMFile : 是否生成您想要构建的dSYM文件列表架构
+
+$ bEnableAddressSanitizerBuild Configuration Properties Page : 启用地址清理器（ASan）
+
+$ bEnableThreadSanitizer : 启用线程清理器（TSan）
+
+$ bEnableUndefinedBehaviorSanitizer : 启用未定义的行为清理器（UBSan）
+
+$ bWriteSolutionOptionFile : 是否为sln编写解决方案选项（suo）文件
+
+$ bAddFastPDBToProjects : 默认情况下，是否添加-FastPDB选项来构建命令行
+
+$ bUsePerFileIntellisense : 是否为每个文件生成智能感应数据
+
+$ bEditorDependsOnShaderCompileWorker : 在为编辑器生成项目文件时，是否包含对ShaderCompileWorker的依赖性。
+
+$ ProcessorCountMultiplier : 本地执行的处理器计数乘数。可以低于1以保留CPU用于其他任务。在使用本地执行程序（而非XGE）时，在每个CPU核心上运行单一操作。请注意，在许多情况下，您可以设置为更大的值以稍微提高构建速度，但编译期间的计算机响应能力可能会大幅下降。
+
+$ MaxProcessorCount : 本地执行的最大处理器计数。
+
+$ bStopCompilationAfterErrors : 启用后，将在发生编译错误后停止目标编译。
+
+$ bDebugBuildsActuallyUseDebugCRT : 为调试构建启用调试C++运行时（CRT）。默认情况下，我们总是使用发布运行时，因为调试版本在调试虚幻引擎项目时作用不大，而对调试CRT库的链接使我们在使用调试CRT时还必须编译第三方库依赖性（通常执行速度更慢）。通常，请求一份单独的第三方静态库的调试版本并不方便，因此您只能调试自己程序的代码。
+
+$ bUseInlining : 为所有模块启用内嵌。
+
+$ bUseXGEController : XGE控制器工作程序和模块是否应包含在引擎构建中。这些是使用XGE拦截接口的分布式着色器编译所必需的内容。
+
+$ bUseUnityBuild : 是否将C++代码整合为更大文件以提高编译速度。
+
+$ bForceUnityBuild : 是否强制将C++源文件组合为更大文件以提高编译速度。
+
+$ bUseAdaptiveUnityBuild : 使用启发法来确定当前正在迭代的文件并从统一blob中排除这些文件，从而提高增量编译速度。当前实现使用只读标志来区分工作集，并假设如果正在修改文件，则文件状态为可由源代码控制系统写入。Perforce确实如此，Git则不然。
+
+$ bAdaptiveUnityDisablesOptimizations : 针对自适应非统一工作集中的文件，禁用优化。
+
+$ bAdaptiveUnityDisablesPCH : 针对自适应非统一工作集中的文件，禁用强制包含PCH。
+
+$ MinGameModuleSourceFilesForUnityBuild : 在针对游戏模块激活统一构建前，该模块中可以包含的源文件数量。该属性让小型游戏模块中的单一文件能够更快速地进行迭代式编译，但代价是整个重新构建时间会延长。该设置可以用模块Build.cs文件中的bFasterWithoutUnity选项覆盖。
+
+$ bShadowVariableErrors : 在支持的平台上，强制将阴影变量警告视为错误。
+
+$ bUndefinedIdentifierErrors : 强制将条件表达式中使用未定义标识视为错误。
+
+$ bUseFastMonoCalls : 新的单块图形驱动程序拥有可选的“快速调用”，可以取代多种D3d函数
+
+$ bUseFastSemanticsRenderContexts : 新的Xbox驱动程序支持“快速语义”环境类型。对于即时环境和延迟环境为启用状态。如果您看到Xbox RHI中出现渲染问题和/或崩溃，请尝试将其禁用。
+
+$ NumIncludedBytesPerUnityCPP : 要包含在一个统一的C++文件中的大概C++代码字节数。
+
+$ bStressTestUnity : 是否通过将一个统一文件中的所有C++文件包含在一个项目中来对C++统一构建健壮性进行压力测试。
+
+$ bDisableDebugInfo : 是否全局禁用调试信息生成；请参阅DebugInfoHeuristics.cs以了解每种配置和每个平台的选项。
+
+$ bDisableDebugInfoForGeneratedCode : 是否针对生成的文件禁用调试信息生成。这样会改善包含大量生成粘合代码的模块的链接时间。
+
+$ bOmitPCDebugInfoInDevelopment : 是否在PC上禁用开发构建中的调试信息（以便提高开发者迭代速度，因为禁用调试信息后链接速度极快）。
+
+$ bUsePDBFiles : 是否应将PDB文件用于Visual C++构建。
+
+$ bUsePCHFiles : 是否应使用PCH文件。
+
+$ MinFilesUsingPrecompiledHeader : 使用预编译头的文件数量至少应达到该属性指定的数量后才会创建和使用预编译头。
+
+$ bForcePrecompiledHeaderForGameModules : 启用后，即使游戏模块中只有少量源文件，也会为该模块生成预编译头。这样会极大改善对项目中的少量文件进行迭代式更改的编译时间，但代价是小型游戏项目的整个重新构建时间会延长。该设置可以通过在模块的Build.cs文件中设置MinFilesUsingPrecompiledHeaderOverride进行覆盖。
+
+$ bUseIncrementalLinking : 是否使用增量链接。如果是进行小幅更改，增量链接可以产生更快的迭代速度。目前默认情况下为禁用状态，因为它在某些计算机上容易引起错误（PDB相关编译错误）。
+
+$ bAllowLTCG : 是否允许使用链接时间代码生成（LTCG）。
+
+$ bPGOProfile : 是否在该构建中启用Profile Guided Optimization（PGO）指令。
+
+$ bPGOOptimize : 是否通过Profile Guided Optimization（PGO）优化该构建。
+
+$ bAllowASLRInShipping : 如果受支持，是否允许使用ASLR（地址空间布局随机化）。仅适用于发行构建。
+
+$ bSupportEditAndContinue : 是否支持编辑和继续。仅适用于32位编译模式下的Microsoft编译器。
+
+$ bOmitFramePointers : 是否省略帧指针。在某些情况下禁用十分有用，例如PC上的内存分析。
+
+$ bStripSymbolsOnIOS : 是否删除iOS符号（bGeneratedSYMFile隐含）。
+
+$ bUseMallocProfiler : 如果为true，则在构建中启用内存分析（定义USE_MALLOC_PROFILER=1并强制bOmitFramePointers=false）。
+
+$ bUseSharedPCHs : 启用“共享PCH”，此功能尝试在UBT检测到包含某些PCH头文件的模块之间共享这些PCH文件，从而极大提高编译速度。
+
+$ bUseShippingPhysXLibraries : 如果开发和发布构建应使用PhysX/APEX的发布配置，则为true。
+
+$ bUseCheckedPhysXLibraries : 如果开发和发布构建应使用PhysX/APEX的已检查配置，则为true。如果bUseShippingPhysXLibraries为true，则忽略该属性。
+
+$ bCheckLicenseViolations : 告知UBT检查当前正在构建的模块是否违反了EULA。
+
+$ bBreakBuildOnLicenseViolation : 告知UBT如果当前正在构建的模块违反了EULA，则中断构建。
+
+$ bUseFastPDBLinking : 使用/DEBUG构建时是否使用:FASTLINK选项在Windows上创建本地PDB。速度虽快，但目前似乎不能顺利地找到调试程序中的符号。
+
+$ bCreateMapFile : 作为构建的一部分输出映射文件。
+
+$ bCheckSystemHeadersForModification : 在确定过时操作时，是否应检查系统路径中的头有无修改。
+
+$ bFlushBuildDirOnRemoteMac : 在构建前，是否清理远程Mac上的Builds目录。
+
+$ bPrintToolChainTimingInfo : 是否从编译器和链接器写入详细的时间信息。
+
+$ bIgnoreOutdatedImportLibraries : 在构建目标时，是否忽略过时的导入库文件。将该属性设置为true可以改善迭代时间。默认情况下，如果更改的只是相关.lib，则我们不会重新链接目标，因为有可能导入库实际上并没有改变，除非该目标的相关头文件也发生了更改，在此情况下，则会自动重新构建目标。
+
+$ bUseActionHistory : 在请求时是否为编译操作生成命令行依赖性
+
+$ bPrintDebugInfo : 是否应将调试信息写入控制台
+
+$ LogFileName : 指定要用于记录的文件
+
+$ bPrintPerformanceInfo : 输出有关include依赖性和其他位的性能诊断信息
+
+$ bLogDetailedActionStats : 是否记录详细的操作统计信息。这样会强制进行本地执行。
+
+$ bAllowXGE : 是否可以使用XGE。
+
+$ bAllowSNDBS : 是否可以使用SN-DBS。
+
+$ bShouldDeleteAllOutdatedProducedItems : 是否删除过时的已生成项。
+
+$ JsonExportFile : 是否应导出包含详细目标信息的JSON文件。
+
+$ bUseIncludeDependencyResolveCache : 依赖性缓存是否包含预解析的include位置，这样UBT便无需为了检查时间戳记而重新解析每个include位置。从技术角度而言，这并不是完全正确的，因为依赖性缓存是全局的，而每个模块都有一组不同的include路径，可能导致头以不同方式解析文件。实际情况并非如此，如果没有要执行的操作，则可以大幅提高UBT速度。
+
+$ bTestIncludeDependencyResolveCache : 用于测试依赖性解析缓存。这样会每一次都进行解析，并检查之前是否有过任何解析尝试来验证解析缓存是否存在冲突。
+
+$ bUseUBTMakefiles : 通过缓存目标数据来支持非常快速的迭代构建。开启该属性会导致Unreal Build Tool在首次构建目标时对目标发出“UBT Makefiles”。后续构建会加载这些Makefile并开始执行过时性检查，从而非常快速地构建调用。需要注意的是，如果在项目中添加或删除了源文件，则UBT将需要收集相关信息，以便成功完成构建。目前，您必须在添加/删除源文件后运行项目文件生成器，以告知UBT重新收集该信息。 
+    * 可以导致“UBT Makefile”失效的事件 : 
+        * 添加/删除.cpp文件
+        * 添加/删除包含UObject的.h文件
+        * 向之前不包含UObject类型的文件添加新的UObject类型
+        * 更改全局构建设置（该文件中的大部分设置都是全局设置。）
+        * 更改了会影响Unreal Header Tool工作的代码 
+    * 您可以通过传递“-gather”参数来强制重新生成“UBT Makefile”，或者直接重新生成项目文件 
+    * 这样还会启用快速include文件依赖性扫描和缓存系统，从而使Unreal Build Tool能够非常快地检测过时依赖性。启用时，就不必生成深入的C++ include图形，而是在可能发现已经过时的依赖构建结果后，扫描和缓存间接include文件。在下次构建时，我们将加载这些缓存的间接include文件并检查是否过时。
+
+$ bAllowDistcc : 是否可以使用DMUCS/Distcc。Distcc需要进行一些设置——因此默认情况下为禁用状态，这样就不会中断本地或远程构建
+
+$ bAllowParallelExecutor : 是否允许在Windows上使用并行执行程序。
+
+$ bIgnoreJunk : 是否跳过检查由垃圾清单识别的文件。
+
+$ bAllowDistccLocalFallback : 启用时，允许DMUCS/Distcc在远程编译失败时回退到本地编译。默认为true，因为预处理和编译阶段的相互独立可能会引入非致命错误。
+
+$ bVerboseDistccOutput : 当设为true时，启用详细distcc输出以辅助调试。
+
+$ DistccExecutablesPath : 指向Distcc和DMUCS可执行文件的路径。
+
+$ DMUCSCoordinator : DMUCS协调程序的主机名或IP地址。
+
+$ DMUCSDistProp : 要为编译主机请求的DMUCS专有属性值。
+
+$ bXGENoWatchdogThread : 是否使用no_watchdog_thread选项来防止VS2015工具链停止。
+
+$ bShowXGEMonitor : 是否显示XGE构建监视器。
+
+$ bStopXGECompilationAfterErrors : 启用后，XGE将在发生编译错误后停止目标编译。建议使用，因为可以节省计算资源以用于其他任务。
+
+### CLionGenerator
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### CMakefileGenerator
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### CodeLiteGenerator
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### EddieProjectFileGenerator
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### KDevelopGenerator
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### MakefileGenerator
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### ProjectFileGenerator
+
+$ Format : 要生成的项目文件格式的默认列表
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### QMakefileGenerator
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### VSCodeProjectFileGenerator
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### VCProjectFileGenerator
+
+$ Version : 要为其生成项目文件的Visual Studio的版本。
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### XcodeProjectFileGenerator
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### SourceFileWorkingSet
+
+$ Provider : 设置用于确定工作集的提供者
+
+$ RepositoryPath : 设置用于元库的路径。如果是相对目录，则解释为相对于UE根目录（即Engine文件夹上层的文件夹）。
+
+$ GitPath : 设置用于Git可执行文件的路径。默认为“git”（假设其在PATH中）。
+
+### VCMacProjectFileGenerator
+
+$ Version : 要为其生成项目文件的Visual Studio的版本。
+
+$ bIncludeDocumentation : 如果应在生成的项目中包含文档，则为true
+
+$ MasterProjectName : 主项目文件的名称（例如，Visual Studio或Mac上Xcode项目文件的解决方案文件的基本文件名）
+
+$ bMasterProjectNameFromFolder : 如果为true，则根据其所在的文件夹名称设置主项目文件名称
+
+### IOSToolChain
+
+$ IOSSDKVersion : 构建时作为目标的iOS SDK的版本
+
+$ BuildIOSVersion : 构建时允许的iOS版本
+
+$ bUseDangerouslyFastMode : 如果设置该属性，则无需执行任何编译后步骤，除非要将可执行文件移到Mac上的正确位置
+
+### HTML5Platform
+
+$ HTML5Architecture : 构建所针对的架构。
+
+### UEBuildConfiguration
+
+$ bForceHeaderGeneration : 如果为true，则强制重新生成头。旨在用于构建机器
+
+$ bDoNotBuildUHT : 如果为true，则不构建UHT，并假设已经构建了UHT
+
+$ bFailIfGeneratedCodeChanges : 如果为true，则在任何已生成的头文件过期时失败。
+
+$ bAllowHotReloadFromIDE : 如果允许从IDE进行热重载，则为true
+
+$ bForceDebugUnrealHeaderTool : 如果为true，则将构建并运行UnrealHeaderTool的调试版本，而非开发版本。
+
+### SNDBS
+
+$ ProcessorCountMultiplier : 本地执行的处理器计数乘数。可以低于1以保留CPU用于其他任务。
+
+$ MaxProcessorCount : 本地执行的最大处理器计数。
+
+### RemoteToolChain
+
+$ RemoteServerName : 这两个变量将从XmlConfigLoader.Init()中的XML配置文件加载
+
+$ bUseRPCUtil : 是否使用RPCUtility连接到UnrealRemoteTool
+
+$ RSyncExe : 指向rsync实用程序的rsync可执行文件和参数的路径
+
+$ SSHExe : 指向rsync实用程序的rsync可执行文件和参数的路径
+
+$ SSHPrivateKeyOverridePath : 如果设置了该私钥，则使用该私钥，而不是在常见位置（Documents/Unreal Engine/UnrealBuildTool/SSHKeys、Engine/Build/SSHKeys）查找RemoteToolChainPrivate.key
+
+$ RsyncAuthentication : 用于Rsync的身份认证（针对-e rsync标志）
+
+$ SSHAuthentication : 用于SSH的身份认证（可能类似于RsyncAuthentication）
+
+$ RSyncUsername : 远程机器上用于连接RSync的用户名
+
+### WindowsPlatform
+
+$ Compiler : 要在Windows平台上使用的编译器工具链版本。值“default”将在UBT启动时更改为特定版本。
+
+$ CompilerVersion : 要使用的特定工具链版本。这可能是具体的版本号（例如，“14.13.26128”），也可能是字符串“Latest”以选择最新的可用版本。默认情况下，我们使用WindowsPlatform.DefaultToolChainVersion指示的工具链版本（如果可用），或者最新版本。
+
+$ WindowsSdkVersion : 要使用的特定Windows SDK版本。这可能是具体的版本号（例如，“8.1”、“10.0”或“10.0.10150.0”），也可能是字符串“Latest”以选择最新的可用版本。默认情况下，我们使用WindowsPlatform.DefaultWindowsSdkVersion指示的Windows SDK版本（如果可用），或者最新版本。
+
+$ StaticAnalyzer : 要使用的静态分析程序
+
+$ bStrictConformanceMode : 在VS2017+中启用严格的标准一致性模式（/permissive-）。
+
+### WindowsTargetRules
+
+$ ObjSrcMapFile : 我们是否应导出包含“.obj->源文件”映射的文件。
 

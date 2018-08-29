@@ -23,6 +23,8 @@
 
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformProcess.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
 #include "Misc/App.h"
@@ -878,6 +880,21 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 		if (CurrentCapture.IsValid())
 		{
 			return LOCTEXT("AlreadyCapturing", "There is already a movie scene capture process open. Please close it and try again.");
+		}
+
+		FString OutputDirectory = CaptureObject->Settings.OutputDirectory.Path;
+		FPaths::NormalizeFilename(OutputDirectory);
+
+		if (!IFileManager::Get().DirectoryExists(*OutputDirectory))
+		{
+			if (!IFileManager::Get().MakeDirectory(*OutputDirectory))
+			{
+				return FText::Format(LOCTEXT( "InvalidDirectory", "Invalid output directory: {0}"), FText::FromString(OutputDirectory) );
+			}
+		}
+		else if (IFileManager::Get().IsReadOnly(*OutputDirectory))
+		{
+			return FText::Format(LOCTEXT( "ReadOnlyDirectory", "Read only output directory: {0}"), FText::FromString(OutputDirectory) );
 		}
 
 		// Prompt the user to save their changes so that they'll be in the movie, since we're not saving temporary copies of the level.

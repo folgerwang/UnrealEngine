@@ -211,11 +211,11 @@ Certificate 설치시, 마법사의 기본 옵션으로 대부분의 경우 통�
 ### 맥 시스템 셋업
 
 * 앱 스토어에서 최신 Xcode 를 설치합니다.
-* Terminal 어플리케이션을 사용하여 필요한 디렉토리 구조를 만듭니다.
-    * 쓰기가 가능한 디렉토리를 몇 개 만듭니다:
+* Terminal 어플리케이션을 사용하여 필요한 디렉터리 구조를 만듭니다.
+    * 쓰기가 가능한 디렉터리를 몇 개 만듭니다:
         * sudo mkdir /UE4
         * sudo chmod 777 /UE4
-    * 홈 디렉토리에도 만든 다음 링크를 걸 수도 있습니다:
+    * 홈 디렉터리에도 만든 다음 링크를 걸 수도 있습니다:
         * ln -s ~/UE4 /UE4
 * UnrealRemoteTool (URT) 를 설치하고 실행합니다.
     * 프로그램을 맥에 받아옵니다. A 또는 B 입니다:
@@ -226,7 +226,7 @@ Certificate 설치시, 마법사의 기본 옵션으로 대부분의 경우 통�
             * p4v 에서 맥으로 직접 동기화
     * Terminal 에서 UnrealRemoteTool 을 실행시킵니다 (디버거에 잡히지 않는 희귀한 버그가 URT 에 있어서, 루프로 실행시키고 있습니다).
         * for (( ;; )) ; do ./UnrealRemoteTool; done
-    * 참고로 Mountain Lion 에서는, Terminal 이 작업 디렉토리와 명령 히스토리를 기억하므로, 리부팅한 경우 위 화살표를 누르면 기억된 명령이 나타날 것입니다.
+    * 참고로 Mountain Lion 에서는, Terminal 이 작업 디렉터리와 명령 히스토리를 기억하므로, 리부팅한 경우 위 화살표를 누르면 기억된 명령이 나타날 것입니다.
 
 ### 윈도우에서 컴파일하기
 위의 윈도우 및 맥 시스템 셋업 단계를 마치고 나면, 컴파일은 UnrealBuildTool 이 활용되니 간단해 질 것입니다:
@@ -240,18 +240,18 @@ Certificate 설치시, 마법사의 기본 옵션으로 대부분의 경우 통�
     * 그러면 UnrealRemoteTool 이 실행중인 맥에 접속, 거기에 파일을 복사한 다음 맥에서 원격 컴파일 명령을 실행합니다.
 	* 마지막에는 약간의 Signing 작업도 수행하니, 제대로 작동하는지 확인하세요. 작동하지 않는다면 맥에 설치된 Provision 파일과 Certificate 를 다시 한 번 확인하시기 바랍니다.
 * 쿠커를 시작합니다.
-    * (cmd.exe 의) UE4/Engine/Binaries/Win64 디렉토리에서 이렇게 (QAGame 을 자신의 게임 이름으로 바꾸고) 실행합니다:
+    * (cmd.exe 의) UE4/Engine/Binaries/Win64 디렉터리에서 이렇게 (QAGame 을 자신의 게임 이름으로 바꾸고) 실행합니다:
 	    * ue4editor-cmd QAGame -run=cook -targetplatform=ios -cookonthefly
 	* 그러면 IOS 디바이스가 쿠킹된 파일을 받기 위해 통신하는 네트워크 상의 쿠킹 서버가 시작됩니다.
 
-맥 드라이브의 /UE4/Builds 디렉토리를 살펴보면 자신의 PC 컴퓨터 이름으로 된 디렉토리를 발견할 수 있습니다. 그 디렉토리 구조는 자신의 PC 디렉토리 구조와 똑같이 미리렁된 구조입니다. 컴파일이 완료되면 실행파일은 게임의 Binaries (또는 게임 없이 UE4 프로젝트를 컴파일한 경우 Engine/Binaries) 디렉토리에 생기게 됩니다.
+맥 드라이브의 /UE4/Builds 디렉터리를 살펴보면 자신의 PC 컴퓨터 이름으로 된 디렉터리를 발견할 수 있습니다. 그 디렉터리 구조는 자신의 PC 디렉터리 구조와 똑같이 미리렁된 구조입니다. 컴파일이 완료되면 실행파일은 게임의 Binaries (또는 게임 없이 UE4 프로젝트를 컴파일한 경우 Engine/Binaries) 디렉터리에 생기게 됩니다.
 
 ### Xcode 로 실행/디버깅하기
 
 이제 디바이스에서 실행하기 위해 맥으로 갑니다:
 
 * /UE4/Builds/.../UE4/Engine/Binaries/IOS 에서 UE4_FromPC.xcodeproj 를 엽니다.
-* 게임의 타겟을 (QAGame_RunIOS 같은 것을) 선택합니다.
+* 게임의 타깃을 (QAGame_RunIOS 같은 것을) 선택합니다.
 * 실행 세팅을 편집합니다.
     * Option-Command-R 키를 칩니다.
 	* Arguments 아래, 필요한 명령줄 인수와 함께 다음 줄을 붙여줍니다:
@@ -271,9 +271,9 @@ Certificate 설치시, 마법사의 기본 옵션으로 대부분의 경우 통�
 * QAGame - Mac 을 선택합니다.
 * 스키마에서 (Option-Command-R) Development 를 선택한 다음 Done 을 클릭합니다. Command-B 키로 맥 실행파일을 빌드합니다.
 * Terminal 에서 iOS 쿠커를 실행합니다.
-    * Terminal.app 을 실행한 다음 UE4/Engine/Binaries/Mac 디렉토리로 cd 하고서 (QAGame 은 자신의 게임 이름으로 바꾸고) 이렇게 실행합니다:
+    * Terminal.app 을 실행한 다음 UE4/Engine/Binaries/Mac 디렉터리로 cd 하고서 (QAGame 은 자신의 게임 이름으로 바꾸고) 이렇게 실행합니다:
 	    * open UE4Editor.app --args QAGame -run=cook -targetplatform=ios -cookonthefly
-* **[GameName] - IOS (Run)** 타겟을 선택한 다음 실행시킬 디바이스를 선택합니다.
+* **[GameName] - IOS (Run)** 타깃을 선택한 다음 실행시킬 디바이스를 선택합니다.
 * 스키마에서 (Option-Command-R), Info 에 Development 를 선택한 다음 Arguments 로 갑니다.
     * 게임에 필요한 명령줄 옵션과 아울러 다음 부분도 추가해 줍니다:
 	    * -filehostip=xx.xx.xx.xx

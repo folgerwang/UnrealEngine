@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability:Docs
-Title: Command Line Arguments for Rendering Movies
+﻿INTSourceChangelist:3804170
+Availability:Public
+Title: 渲染影片的命令行参数
 Crumbs: %ROOT%, Engine
-Description:Outlines the Sequencer Command Line Arguments that can be used for Rendering Movies
+Description:概述可以用于渲染影片的Sequencer命令行参数
 Navigation:topic
 parent:Engine\Sequencer\Workflow
 order:1
@@ -16,123 +16,123 @@ tags:Sequencer
 
 [TOC(start:2 end:2)]
 
-This page outlines the various [Command Line Arguments](Programming/Basics/CommandLineArguments) and [Console Variables](Programming/Development/Tools/ConsoleManager) you can use to determine what settings are used when rendering out your Sequences. 
+本页概述了可用来确定渲染序列时使用的设置的各种[命令行参数](Programming/Basics/CommandLineArguments)和[控制台变量](Programming/Development/Tools/ConsoleManager)。 
 
 
 [REGION:note]
-If you have not launched Unreal Engine 4 (UE4) Editor from a command line, see the [](GettingStarted/RunningUnrealEngine) page for more information. 
+如果您尚未从命令行启动虚幻引擎4（UE4）编辑器，请参阅[](GettingStarted/RunningUnrealEngine)页面以了解更多信息。 
 [/REGION]
 
 [REGION:tip]
-Please see the [](Engine\Sequencer\HowTo\RenderMovies) page if you would like to learn about rendering out movies within Unreal Engine 4 (UE4). 
+如果希望了解有关在虚幻引擎4（UE4）中渲染过场动画的信息，请参阅[](Engine\Sequencer\HowTo\RenderMovies)页面。 
 [/REGION]
 
-## Required Commands
+## 所需命令
 
-These commands are required to render out an image sequence correctly. Include these anytime you are rendering from a command line: 
+要正确渲染图像序列，需要使用这些命令。从命令行进行渲染时请始终包含这些命令： 
 
-| Argument | Description |
-| ---- | ----------- |
-| -MovieSceneCaptureType="/Script/MovieSceneCapture.AutomatedLevelSequenceCapture" | Used to define many of the command line arguments listed on this page.  |
-| -LevelSequence="/Game/PathToSequence/SequenceName" | Tells the editor which sequence to play. |
-| -NoLoadingScreen | The game instance of the editor will fail to render properly without this. |
+| 参数                                       | 说明                        |
+| ---------------------------------------- | ------------------------- |
+| -MovieSceneCaptureType="/Script/MovieSceneCapture.AutomatedLevelSequenceCapture" | 用于定义本页中列出的许多命令行参数。        |
+| -LevelSequence="/Game/PathToSequence/SequenceName" | 指示编辑器播放哪个序列。              |
+| -NoLoadingScreen                         | 如果不使用该命令，编辑器的游戏实例将无法正确渲染。 |
 
-## Control Commands
+## 控制命令
 
-These are some of the recommended command line arguments to give you full control over image quality, rendering parameters, and file naming/type. 
+这些是我们推荐的一些命令行参数，它们允许您全面控制图像质量、渲染参数和文件命名/类型。 
 
-The **Usage** column includes recommendations on when to use the cmd argument:
+**用法** 列包含了有关何时使用该命令行参数的建议：
 
-| Argument | Description | Notes | Usage |
-| ---- | ----------- |----------- |----------- |
-| -ResX=#### | Set horizontal resolution for game window | Eg: -ResX=1920 | Lower res for previews, Higher for final |
-| -ResY=#### | Set vertical resolution for game window | Eg: -ResY=1080 | Lower res for previews, Higher for final |
-| -ForceRes | Forces the window to the specified resolution, even when larger than the screen resolution | | |
-| -VSync | Activate the VSYNC via command line | High Perf cost, but doesn't hurt us since we aren't rendering in real-time | Final Renders |
-| -NoVSync | Deactivate the VSYNC via command line | See Above | Preview Renders |
-| -MovieFrameRate=30 | Sets the frame rate of the output | Overrides the default of 30fps | Depends on the needs of your cinematic (i.e. rhythmic movement suffers when using a low FPS, could be unwanted even in Previews) |
-| -NoTextureStreaming | Disables texture streaming | Will take longer to render, but worth it for final renders. | Final Renders |
-| -MovieFolder="PATH" | Destination folder for rendered images | Defaults to Project/Saved/Screenshots | Recommended when batch rendering. Otherwise all image files dump into the same folder. |
-| -MovieFormat=ASD | Media format. JPG, BMP, PNG, or Video | Defaults to PNG | |
-| -MovieQuality=## | Sets the compression quality | Expressed in a percentage, defaults to 75| |
-| -MovieName="Example.{frame}" | Sets the naming format for the output files | [INCLUDE:Engine\Sequencer\Workflow\RenderingCmdLine#wildcard] | Definitely recommended for batch rendering. Gives the files a unique name corresponding to the map name, render pass, etc. |
-| -MovieCinematicMode=Yes/No | Enables Cinematic Mode | Hides Player Character and disables Player Character Movement. Also disables HUD. | Usually a good idea to enable this all the time |
-| -MovieWarmUpFrames=## | Number of frames to run the scene before playing the sequence. This will not play out in real-time | Default of 0 frames. This will also run the frames before the beginning of your sequence's play range. | Useful when you have Particle Systems or physics that need to simulate before you begin recording. |
-| -MovieDelayBeforeWarmUp=#  | Number of seconds before the Warmup Begins. Runs in real-time |  | If you need to do anything with your pawn before the sequence starts. |
-| -MovieStartFrame=###  | Overrides the start frame of your sequence | Defaults to the in and out markers in Sequencer | |
-| -MovieEndFrame=###  | Overrides the end frame of your sequence | Defaults to the in and out markers in Sequencer | |
-| -NoScreenMessages  | Hides on-screen messages like "Rebuild Lighting" or "Pring String" outputs | | |
+| 参数                           | 说明                              | 注释                                       | 用法                                       |
+| ---------------------------- | ------------------------------- | ---------------------------------------- | ---------------------------------------- |
+| -ResX=####                   | 为游戏窗口设置水平分辨率。                   | 例如：-ResX=1920                            | 为预览使用较低的分辨率，为最终显示使用较高的分辨率。               |
+| -ResY=####                   | 为游戏窗口设置垂直分辨率。                   | 例如：-ResY=1080                            | 为预览使用较低的分辨率，为最终显示使用较高的分辨率。               |
+| -ForceRes                    | 强制窗口使用指定的分辨率，即使该分辨率高于屏幕分辨率也不例外。 |                                          |                                          |
+| -VSync                       | 通过命令行激活VSYNC。                   | 性能成本很高，但是这对我们没有影响，因为不是实时渲染。              | 最终渲染。                                    |
+| -NoVSync                     | 通过命令行取消激活VSYNC。                 | 请参阅-VSync行中的“注释”条目（位于该单元格上方）。            | 预览渲染。                                    |
+| -MovieFrameRate=30           | 设置输出帧率。                         | 会覆盖默认值（30fps）。                           | 取决于过场动画的需求（例如：使用较低帧率时律动会受影响。）()（即使对于预览，这种情况也相当糟糕）。 |
+| -NoTextureStreaming          | 禁用纹理流送。                         | 渲染用时较长，但是对于最终渲染来说相当值得。                   | 最终渲染。                                    |
+| -MovieFolder="PATH"          | 已渲染的图像的目标文件夹。                   | 默认情况下是Defaults to Project/Saved/Screenshots。 | 推荐在批量渲染时使用。否则所有图像文件会转储到相同的文件夹中。          |
+| -MovieFormat=ASD             | 媒体格式。JPG、BMP、PNG或视频。            | 默认情况下是PNG。                               |                                          |
+| -MovieQuality=##             | 设置压缩质量。                         | 以百分比表示，默认情况下是75。                         |                                          |
+| -MovieName="Example.{frame}" | 设置输出文件的命名格式。                    | [INCLUDE:Engine\Sequencer\Workflow\RenderingCmdLine#wildcard] | 绝对推荐在批量渲染时使用。为文件起一个对应于地图名称、渲染通道等的独特名称。   |
+| -MovieCinematicMode=Yes/No   | 启用过场动画模式。                       | 隐藏玩家角色并禁用玩家角色移动。也禁用HUD。                  | 通常情况下应始终启用该参数。                           |
+| -MovieWarmUpFrames=##        | 播放序列前要运行场景的帧数。这不会实时播放。          | 默认情况下是0帧。这也会运行位于序列的播放范围开始位置之前的帧。         | 当拥有需要在开始录制前进行模拟的粒子系统或物理效果时，该参数非常有用。      |
+| -MovieDelayBeforeWarmUp=#    | 距离预热开始的秒数。实时运行。                 |                                          | 如果需要在序列开始之前对Pawn做点什么，可以使用该参数。            |
+| -MovieStartFrame=###         | 会覆盖序列的起始帧。                      | 默认值为Sequencer的开始和结束标记。                   |                                          |
+| -MovieEndFrame=###           | 会覆盖序列的结束帧。                      | 默认值为Sequencer的开始和结束标记。                   |                                          |
+| -NoScreenMessages            | 隐藏“重构照明”、“输出字符串”输出等屏幕消息。        |                                          |                                          |
 
 [COMMENT:none]
 
 [EXCERPT:Wildcard]
 [REGION:simpletable]
-| Wildcard | Description |
-| ----- | ------ |
-| {fps} | The captured framerate. |
-| {frame}| The current frame number (only relevant for image sequences) |
-| {width}| The width of the captured frames |
-| {height}| The height of the captured frames |
-| {world}| The name of the current world |
-| {quality}| The image compression quality setting |
-| {material}| The material/render pass|
+| 通配符        | 说明              |
+| ---------- | --------------- |
+| {fps}      | 捕捉的帧率。          |
+| {frame}    | 当前帧号（只与图像序列相关）。 |
+| {width}    | 捕捉的帧的宽度。        |
+| {height}   | 捕捉的帧的高度。        |
+| {world}    | 当前世界场景的名称。      |
+| {quality}  | 图像压缩质量设置。       |
+| {material} | 材质/渲染通道。        |
 [/REGION] 
 [/EXCERPT:Wildcard]
 
 [/COMMENT]
 
 
-## Custom Render Passes
+## 自定义渲染通道
 
-Using these commands requires `-MovieFormat=CustomRenderPasses` and `{material}` in the `-MovieName`.
+要使用这些命令，需要有`-MovieFormat=CustomRenderPasses`和`{material}`在`-MovieName`中。
 
-| Argument | Description | Notes |
-| ---- | ----------- |----------- |
-| -CustomRenderPasses="RenderPassName" | Sets the custom render Pass | Options are (exclude parenthesis): <br> AmbientOcclusion, BaseColor, CustomDepth, CustomDepthWorldUnits, CustomStencil, FinalImage, MaterialAO (Ambient Occlusion), Metallic, Opacity, PostTonemapHDRColor, Roughness, SceneColor, SceneDepth, SceneDepthWorldUnits, SeparateTranslucencyA (Alpha), SeparateTranslucencyRGB, ShadingModel, Specular, SubsurfaceColor, WorldNormal |
-| -CaptureFramesInHDR | Renders with HDR in the .exr format | |
-| -HDRCompressionQuality=## | Compression Quality for HDR Frames (0 for no compression, 1 for default compression which can be slow). Dependent on -CaptureFramesInHDR | |
-| -CaptureGamut="HCGM_Name" | The color gamut to use when storing HDR captured data. Dependent on -CaptureFramesInHDR | (See Capture Gamut Descriptions below) HCGM_Rec709, HCGM_P3DCI, HCGM_Rec2020, HCGM_ACES, HCGM_ACEScg, HCGM_MAX |
-| -PostProcessingMaterial="MaterialPath" | Custom Post Processing Material to use for rendering | Format looks like: "Material'/Engine/BufferVisualization/SceneDepth.SceneDepth'" <br> An easy way to get that path is to right-click the Material in the Content Browser and select Copy Reference. |
+| 参数                                     | 说明                                       | 注释                                       |
+| -------------------------------------- | ---------------------------------------- | ---------------------------------------- |
+| -CustomRenderPasses="RenderPassName"   | 设置自定义渲染通道。                               | 选项有（不含括号)：AmbientOcclusion、BaseColor、CustomDepth、CustomDepthWorldUnits、CustomStencil、FinalImage、MaterialAO（环境光遮蔽）、Metallic、Opacity、PostTonemapHDRColor、Roughness、SceneColor、SceneDepth、SceneDepthWorldUnits、SeparateTranslucencyA（Alpha）、SeparateTranslucencyRGB、ShadingModel、Specular、SubsurfaceColor、WorldNormal。 |
+| -CaptureFramesInHDR                    | 采用HDR以.exr格式渲染。                          |                                          |
+| -HDRCompressionQuality=##              | HDR帧的压缩质量，0代表不压缩，1代表默认压缩（可能会很慢）。这取决于-CaptureFramesInHDR。 |                                          |
+| -CaptureGamut="HCGM_Name"              | 存储HDR捕捉的数据时使用的颜色色域。这取决于-CaptureFramesInHDR。 | （请参阅下面的捕捉色域说明部分） HCGM_Rec709、HCGM_P3DCI、HCGM_Rec2020、HCGM_ACES、HCGM_ACEScg、HCGM_MAX。 |
+| -PostProcessingMaterial="MaterialPath" | 用于渲染的自定义材质后期处理。                          | 格式类似于："Material'/Engine/BufferVisualization/SceneDepth.SceneDepth'" 获取该路径的简便方法是在内容浏览器（Content Browser）中右键单击材质（Material）并选择复制引用（Copy Reference）。 |
 
-* Capture Gamut Descriptions
-	* HCGM_Rec709 - Rec. 709 / sRGB
-	* HCGM_P3DCI - P3 D65
-	* HCGM_Rec2020 - Rec. 2020
-	* HCGM_ACES - ACES
-	* HCGM_ACEScg - ACEScg
+* 捕捉色域说明
+  * HCGM_Rec709 - Rec.709 / sRGB
+  * HCGM_P3DCI - P3 D65
+  * HCGM_Rec2020 - Rec.2020
+  * HCGM_ACES - ACES
+  * HCGM_ACEScg - ACEScg
 
 
-## Console Variables
+## 控制台变量
 
-The following console variables can be useful for determining the quality of your renders and can be added your `DefaultEngine.ini` in your **Game/Config** folder of your project. 
+以下控制台变量对于确定渲染质量非常有用，可添加到`DefaultEngine.ini`（位于项目的 **Game/Config** 文件夹中）中。 
 
 [REGION:note]
-The values used below are the recommended values for highest quality. 
+以下使用的值是为实现最高质量的推荐值。 
 [/REGION]
 
-| Variable | Description |
-| ---- | ----------- |
-| r.ForceLOD=0 | Forces all LODs to 0. -1 is off. |
-| r.MotionBlurQuality=4 | Defines the motion blur method (adjust for quality or performance): 0 is off, 1 is low, 2 is medium, 3 is high (default), 4 is very high |
-| r.MotionBlurSeparable=1 | Adds a second motion blur pass that smooths noise for a higher quality blur. 0 is off, 1 is on |
-| r.DepthOfFieldQuality=4 | Allows adjusting of the depth of field quality. Currently only fully affects BokehDOF. GaussianDOF is either 0 for off, otherwise on. <br> [INCLUDE:Engine\Sequencer\Workflow\RenderingCmdLine#dofquality] |
-| r.HLOD=0 | Single argument: 0 or 1 to Disable/Enable HLOD System <br> Multiple arguments: force X where X is the HLOD level that should be forced into view |
-| r.SSR.Quality=4| Whether to use screen space reflections and at what quality setting. Limits the setting in the post process settings which has a different scale. Costs performance, adds more visual realism but the technique has limits. <br> [INCLUDE:Engine\Sequencer\Workflow\RenderingCmdLine#ssrquality]  |
-| r.ViewDistanceScale=30 | Controls the view distance scale. A primitive's MaxDrawDistance is scaled by this value. Higher values will increase view distance but at a performance cost. |
-| r.MipMapLODBias=-1 | Apply additional mip map bias for all 2D textures, range of -15.0 to 15.0 |
-| r.Shadow.MaxResolution=4096 | Max square dimensions (in texels) allowed for rendering shadow depths. Range 4 to hardware limit. Higher = better quality shadows but at a performance cost. |
+| 变量                          | 说明                                       |
+| --------------------------- | ---------------------------------------- |
+| r.ForceLOD=0                | 将所有LOD强制设为0，而-1会将其关闭。                    |
+| r.MotionBlurQuality=4       | 定义动态模糊方法（调整可提高质量或性能）：0是关闭，1是低，2是中，3是高（默认），4是非常高。 |
+| r.MotionBlurSeparable=1     | 添加第二个可平滑噪点以提高模糊质量的动态模糊通道。0是关闭，1是开启。      |
+| r.DepthOfFieldQuality=4     | 允许调整景深质量。当前仅充分影响BokehDOF。GaussianDOF的选项为0（表示关闭）或者开启。[INCLUDE:Engine\Sequencer\Workflow\RenderingCmdLine#dofquality] |
+| r.HLOD=0                    | 单参数：0/1代表禁用/启用HLOD系统。多参数：强制X，其中X是应强制添加到视野中的HLOD级别。 |
+| r.SSR.Quality=4             | 是否使用屏幕空间反射以及在质量设置为何时使用。在具有不同比例的后期处理设置中限制该设置。会造成性能损失，提高视觉效果真实度，但是该方法也有限制。[INCLUDE:Engine\Sequencer\Workflow\RenderingCmdLine#ssrquality] |
+| r.ViewDistanceScale=30      | 控制可视距离比例。Primitive的MaxDrawDistance按照该值进行缩放。较高的值可以增加可视距离，但是会造成性能损失。 |
+| r.MipMapLODBias=-1          | 为所有2D纹理应用额外的Mip贴图偏差，范围为-15.0到15.0。       |
+| r.Shadow.MaxResolution=4096 | 对于渲染阴影深度允许的最大正方形有效维度（以纹素为单位）。范围4为硬件限制。值越大阴影质量越高，但是会造成性能损失。 |
 
 [COMMENT:none]
 
 [EXCERPT:DofQuality]
 [REGION:simpletable]
-| Value | Description |
-| ----- | ------ |
-| 0 | Off |
-| 1 | Low |
-| 2 | High Quality (default, adaptive, can be 4x slower) |
-| 3 | Very High Quality, intended for non realtime cutscenes, CircleDOF only (slow) |
-| 4 | Extremely High Quality, intended for non realtime cutscenes, CircleDOF only (very slow) |
+| 值    | 说明                              |
+| ---- | ------------------------------- |
+| 0    | 关闭                              |
+| 1    | 低                               |
+| 2    | 高质量（默认、自适应、可以慢至原来的1/4）          |
+| 3    | 特高质量，旨在用于非实时过场动画，仅CircleDOF（慢）  |
+| 4    | 极高质量，旨在用于非实时过场动画，仅CircleDOF（极慢） |
 [/REGION] 
 [/EXCERPT:DofQuality]
 
@@ -142,37 +142,37 @@ The values used below are the recommended values for highest quality.
 
 [EXCERPT:ssrquality]
 [REGION:simpletable]
-| Value | Description |
-| ----- | ------ |
-| 0 | Off (default) |
-| 1 | Low (no glossy) |
-| 2 | Medium (no glossy) |
-| 3 | High (glossy/using roughness, few samples) |
-| 4 | Very High (likely too slow for real-time) |
+| 值    | 说明                |
+| ---- | ----------------- |
+| 0    | 关闭（默认）            |
+| 1    | 低（无光泽）            |
+| 2    | 中（无光泽）            |
+| 3    | 高（有光泽/使用粗糙度，少量样本） |
+| 4    | 特高（对于实时来说可能过慢）    |
 [/REGION] 
 [/EXCERPT:ssrquality]
 
 [/COMMENT]
 
-## Examples
+## 示例
 
-In this section, we provide a few sample command line arguments for different situations. 
-In the examples provided, we consider the following the specifics related to our project. 
+在本部分中，我们提供了一些适用于不同情况的样本命令行参数。 
+在所提供的示例中，我们考虑了以下与我们的项目相关的细节。 
 
-* Build Location = C:\Program Files (x86)\Epic Games\4.##\Engine\Binaries\Win64\UE4Editor.exe
-* Project Location = D:\Unreal Projects\SequencerTestBed\SequencerTestBed.uproject
-* Map Name = TestRender_Map.umap
-* Sequence Name = Test_Render_SQ
+* 构建位置 = C:\Program Files (x86)\Epic Games\4.##\Engine\Binaries\Win64\UE4Editor.exe
+* 项目位置 = D:\Unreal Projects\SequencerTestBed\SequencerTestBed.uproject
+* 地图名称 = TestRender_Map.umap
+* 序列名称 = Test_Render_SQ
 
-### Preview Render
-Here is an example for a 16:9 preview render at 30fps with a resolution of 1280x720 in the .jpg file format. 
+### 预览渲染
+以下是一个16:9预览渲染示例，帧率为30fps，分辨率为1280x720，格式为.jpg文件。 
 
 	"C:\Program Files (x86)\Epic Games\4.##\Engine\Binaries\Win64\UE4Editor.exe" "D:\Unreal Projects\SequencerTestBed\SequencerTestBed.uproject" /Game/TestRender/TestRender_Map -game -MovieSceneCaptureType="/Script/MovieSceneCapture.AutomatedLevelSequenceCapture" -LevelSequence="/Game/Test_Render/Test_Render_SQ" -MovieFrameRate=30 -noloadingscreen -resx=1280 -resy=720 -MovieFormat=JPG -MovieQuality=75
 
 
-### Final Renders
-In this example, we use the following for our final, full quality renders aiming for 16:9 at 30fps, 3840x2160 resolution, in the .bmp file format. 
-	
+### 最终渲染
+在该示例中，我们使用了如下参数来进行最终全品质渲染，目标为16:9、帧率30fps、3840x2160分辨率、.bmp文件格式。 
+​	
 	"C:\Program Files (x86)\Epic Games\4.##\Engine\Binaries\Win64\UE4Editor.exe" "D:\Unreal Projects\SequencerTestBed\SequencerTestBed.uproject" /Game/TestRender/TestRender_Map -game -MovieSceneCaptureType="/Script/MovieSceneCapture.AutomatedLevelSequenceCapture" -LevelSequence="/Game/Test_Render/Test_Render_SQ" -MovieFrameRate=30 -noloadingscreen -resx=3840 -resy=2160 -forceres -MovieFormat=BMP -MovieQuality=100 -notexturestreaming -MovieCinematicMode=yes -MovieWarmUpFrames=60
 
 

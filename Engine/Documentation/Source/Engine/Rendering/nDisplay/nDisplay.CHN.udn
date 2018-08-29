@@ -1,0 +1,510 @@
+﻿INTSourceChangelist:0
+Availability: Public
+Crumbs:
+Title: Rendering to Multiple Displays with nDisplay
+Description: Describes how to use the nDisplay system to render your Unreal Engine Project simultaneously on multiple displays.
+Version: 4.20
+Parent: Engine/Rendering
+Order: 0
+Tags: Rendering 
+Tags: Graphics 
+Tags: Experimental 
+Tags: Landing 
+Tags: Page
+
+
+![](ndisplay_banner.png)
+
+Interactive content isn't limited to being displayed on a single screen, or even a single dual-screen device like a VR headset. An increasing number of visualization systems aim to immerse the viewer more effectively in the game environment by rendering real-time content through multiple simultaneous displays. These systems may be made up of multiple adjacent physical screens, such as a [Powerwall](https://en.wikipedia.org/wiki/Powerwall) display; or they may use multiple projectors to project the 3D environment onto physical surfaces like domes, tilted walls, or curved screens, such as in a [Cave](https://en.wikipedia.org/wiki/Cave_automatic_virtual_environment) virtual environment.
+
+The Unreal Engine supports these usage scenarios through a system called **nDisplay**. This system addresses some of the most important challenges in rendering 3D content simultaneously to multiple displays:
+
+* It eases the process of deploying and launching multiple instances of your Project across different computers in the network, each rendering to one or more display devices.
+* It manages all the calculations involved in computing the viewing frustum for each screen in real time, based on the spatial layout of your display hardware.
+* It ensures that the content being shown on the various screens remains *exactly* in sync, with deterministic content across all instances of the Engine.
+* It offers passive and active stereoscopic rendering.
+* It can be driven by input from VR tracking systems, so that the viewpoint in the displays accurately follows the point of view of a moving viewer in real life.
+* It is flexible enough to support any number of screens in any relative orientation, and can be easily reused across any number of Projects.
+
+## nDisplay System Overview
+
+Every nDisplay setup has a single *master* computer, and any number of additional computers.  
+
+* Each computer in the network runs one or more instances of your Project's packaged executable file. Each of those Unreal Engine instances is responsible for rendering a single segment of the same 3D scene to a single screen or display.
+* The master node is also responsible for accepting input from a VRPN device, and replicating that input to all other connected computers.
+
+![nDisplay network overview](image5.png "nDisplay network overview")
+
+To make this possible, nDisplay adds several components to the usual Unreal system architecture:
+
+* A network provisioning and management application, called **nDisplayLauncher**. You run this application on a single computer in your network to automatically deploy and launch your Project on all the computers in your network. 
+* A separate listener application, called **nDisplayListener**, that runs on each computer. This application listens for incoming requests from the nDisplayLauncher, and processes those requests on the local computer.
+* A shared configuration file that contains all the settings nDisplay needs to start up the right number of instances on the right computers, each rendering the right point of view on the game's 3D world to produce the illusion of a seamless rendering across all display screens or projectors. See [About the nDisplay Configuration File](#aboutthendisplayconfigurationfile) below.
+
+## Getting Started
+
+This section describes how to get up and running with nDisplay for the first time. Before you begin:
+
+* Make sure you have your physical equipment — screens, projectors, etc. — set up and working correctly.
+* Make sure that the Windows account you intend to use on the master computer has administrative rights on *all* computers you intend to use in the nDisplay network.
+* Make sure that all computers you want to use in the nDisplay network can receive TCP/IP communications over ports 41000, 41001, and 41002. (You can use different ports instead; see [Changing Communication Ports](#changingcommunicationports) below.) 
+
+### Step 1. Set up Your Project for nDisplay
+
+The easiest way to get a Project set up to use nDisplay is to create it from the nDisplay Template Project:
+
+![Create an nDisplay Project from the Template](ndisplay-create-from-template.png "Create an nDisplay Project from the Template")
+
+This automatically enables the nDisplay plugin, adds some sample configuration files to your Project, and provides a default Level that is already configured with default settings.
+
+If you have an existing Project that you want to use with nDisplay, you can do the same configuration by hand. See [Add nDisplay to an Existing Project](#addingndisplaytoanexistingproject) below.
+
+### Step 2. Set up the Configuration File
+
+You need to tell nDisplay about the different computers you want to use in your network, the size and resolution of the screens or projectors those computers will render to, the spatial relationships between those screens in the 3D space of your Level, and more. To do this, you create a configuration file that expresses all of this information in a series of settings.
+
+Creating this configuration file is likely to be the trickiest part of your nDisplay setup, so you should approach it with care. For details, see [About the nDisplay Configuration File](#aboutthendisplayconfigurationfile) below.
+
+Typically, once your configuration file is set up, you only have to modify it when the topology of your network changes: for example, when you need to change the computers you are rendering to, or if you change the physical arrangement of your screens and displays in the real world.
+
+Save your configuration file inside your Project's Content folder. You'll use it in the next step.  
+
+### Step 3. Package and Deploy
+
+Every time you change the content in your Project, you'll need to package your game and deploy it to all of the computers that you've identified in your configuration file.
+
+1. In the Unreal Editor, cook and package your game for Windows. For details, see [Build Operations: Cook, Package, Deploy & Run](https://docs.unrealengine.com/en-us/Engine/Deployment/BuildOperations).  
+   Later, when you deploy the application to the slave computers, nDisplay will copy it to the same location on each of the target computers. So it's a good idea to package your project now to a location that exists on all machines.
+1. Find the*Engine\\Binaries\\DotNET\\nDisplayListener.exe *application under your Unreal Engine installation folder. Copy this application to the folder that contains the *.exe* file you've packaged for your game.
+1. Copy your nDisplay configuration file to the same folder.  
+   You should have your packaged Project *.exe* file, the *nDisplayListener.exe *application, and your configuration file all side-by-side in the same folder.
+1. Run the *Engine\\Binaries\\DotNET\\nDisplayLauncher.exe *application under your Unreal Engine installation folder.
+   [REGION:lightbox]
+   [![Deploy in the nDisplay Launcher](ndisplay_launcher_config-1.png "Deploy in the nDisplay Launcher")](ndisplay_launcher_config-1.png) *Click for full image.*
+   [/REGION]
+1. Add your packaged Project *.exe* file to the Applications list.  
+   Click **Add** under the **Applications** list, then browse to and select the *.exe* file you packaged for your Project.
+1. Specify your configuration file.  
+   Click **Add** to the right of the **Config Files** control, then browse to and select your configuration file.
+1. Click **Deploy application**.  
+   nDisplay copies the entire contents of the folder that contains your Project's executable file to the same location on each other computer that you've identified in your configuration file.
+    
+
+### Step 4. Launch all Nodes
+
+Once you have your Project deployed successfully to all the computers you've identified in your configuration file, you can use the **nDisplayLauncher** application to start the Project on all computers simultaneously.
+
+1. If you don't already have the **nDisplayLauncher** application running, start it and set the Application and Config File as instructed in the previous section.  
+   [REGION:lightbox]
+   [![Run with the nDisplay Launcher](ndisplay_launcher_launch.png "Run with the nDisplay Launcher")](ndisplay_launcher_launch.png) *Click for full image.*
+   [/REGION]
+1. Click **Start listeners**. This runs the nDisplayListener application on each computer you've identified in your nDisplay configuration file.
+1. When nDisplay confirms that all listeners have been started on all computers, click **Run** to launch all instances.
+
+When you're done:
+
+1. Click **Kill** to automatically shut down all instances of the Unreal Engine on all computers, or simply shut down the instance of Unreal Engine that is running on the master computer.
+1. Click **Stop listeners** to shut down the nDisplayListener application on all computers. 
+
+## About the nDisplay Configuration File
+
+[REGION:tip]
+The best way to get started understanding the nDisplay configuration file, and creating your own, is to start from the example configurations provided by the nDisplay plugin. If you've created your Project from the nDisplay template, you'll find these files in your Project folder, under *Content/ConfigExamples*. If not, you can find these files in the Unreal Engine installation folder, under *Templates/TP_nDisplayBP/Content/ConfigExamples*.
+[/REGION]
+
+The structure of the nDisplay configuration file is directly tied to the different types of components it uses to render the visualization.
+
+* Each different type of component that you configure has its own line in the file, and is identified by a string ID that you assign. You use these string IDs when one configuration section needs to refer to another.
+* Many of the components that you configure in this file have defined positions (and often rotations) in virtual 3D space. Each object's position and rotation is relative to that object's *parent*. By default, the parent of all objects is the VR space origin: an arbitrary point in 3D world space where VR space is considered to start. You can also configure specific named transforms in 3D space, called scene_nodes, which can act as parents for one or more components. This can help simplify the spatial layout of your screens, cameras and other components.
+* All parameters expect values in meters and degrees, unless otherwise indicated.
+
+### Camera Configurations
+
+nDisplay renders the scene from a single viewpoint at a time. Each of these potential viewpoints is defined by a **camera **configuration line.  
+
+You can switch between these viewpoints at runtime. Each viewpoint can also be driven by a tracking device.
+
+#### Example configuration:
+
+	[camera] id=camera_static loc="X=0.Y=0,Z=1.7" tracker_id=VRPNTracking tracker_ch=0
+
+#### Parameters:
+
+| Parameter | Description |
+| --- | --- |
+| **id** | A unique name for this camera configuration. |
+| **loc** | The location of this camera in VR space, relative to its parent. |
+| **tracker_id** | The name of the **input** configuration that defines the VR device you want to drive the position of the camera over time. Optional. If you omit this parameter, the camera's position will be static in VR space. |
+| **tracker_ch** | When you provide a **tracker_id**, this parameter specifies the channel of that device that nDisplay will read tracking data from. |
+| **parent** | The name of a **scene_node** configuration that you want to act as the parent for this object. This parameter is optional. If you specify a parent, the values you set in the loc parameter will be relative to the position of that parent. If you omit the parent, the values you set in the loc parameter will be relative to the VR root. |
+
+### Screen Configurations
+
+Each different output display renders the scene from the current camera's position, using a frustum that is defined by a rectangle of with a defined size and placement in the 3D VR space. Each of these rectangles is defined by a **screen **configuration. Usually, each of these projection screens has the same dimensions in VR space as the physical screen that you'll use to render it.  
+
+The pivot point of a screen is always in its exact midpoint.
+
+#### Example configuration:
+
+This definition describes a screen that is 3 meters by 3 meters screen, directly in front of its parent. Because the pivot point of the screen is at the center of the rectangle defined by the size parameter, we add a 1.5 meter offset on the Z axis to move the screen upward by half its height.
+
+	[screen] id=screen_front loc="X=1.5.Y=0,Z=1.5" rot="P=0,Y=0,R=0" size="X=3,Y=3" parent=screens
+
+To define a screen on the left side of the viewer, we move it to the left (negative values on the Y axis), and rotate it around its local Y axis (yaw), 
+
+	[screen] id=screen_left loc="X=0,y=-1.5,Z=1.5" rot="P=0,Y=-90,R=0" size="X=3,Y=3" parent=screens
+
+#### Parameters:
+
+| **Parameter** | **Description** |
+| --- | --- |
+| **id** | A unique name for this screen configuration. |
+| **loc** | The location of the center of this screen in VR space, relative to its parent. |
+| **rot** | The pitch (P), yaw (Y) and roll (R) angles of the screen's facing direction, in degrees. |
+| **size** | The total size of the screen rectangle along its local X and Y axes, in meters. |
+| **parent** | The name of a **scene_node configuration** that you want to act as the parent for this object. This parameter is optional. If you specify a parent, the values you set in the loc and rot parameters will be relative to the position of that parent. If you omit the parent, the values you set in the loc and rot parameters will be relative to the VR root. |
+
+
+### Cluster Node Configurations
+
+Each of the projection screens defined above is typically rendered by a different instance of your Unreal Engine application. For each of these instances, you need to define a **cluster_node **configuration. Each cluster node refers to the projection screen configuration that it should render. 
+
+The cluster_node configuration also defines the hostname or IP address of the computer that will run that application instance. You may set up a different physical computer for each cluster_node configuration, or you may have multiple cluster_node configurations that run on the same host.
+
+#### Example configuration:
+
+This example configures a master node (one per network):
+
+	[cluster_node] id=node_front addr=192.168.0.1 screen=screen_front viewport=vp_front sound=true port_cs=41001 port_ss=41002 master=true
+
+This example shows a non-master cluster node:
+
+	[cluster_node] id=node_left addr=192.168.0.2 screen=screen_left viewport=vp sound=false
+
+#### Parameters:
+
+| **Parameter** | **Description** |
+| --- | --- |
+| **id** | A unique name for this cluster node configuration. |
+| **addr** | The IP address of the computer that will run this instance of Unreal Engine. This must be an IPv4 address. IPv6 is not supported. |
+| **screen** | The name of the **screen** configuration that defines the projection screen that this instance of Unreal should be in charge of rendering. |
+| **viewport** | The name of the **viewport** configuration that defines the position of the rendered frame within the application window run by this instance of Unreal Engine. |
+| **sound** | Determines whether this instance of Unreal Engine plays sound. Optional; default value is `false`. |
+| **Winx WinY** | Specifies the position of the top left corner of the application window on the desktop, in pixels of screen space. |
+| **ResX ResY**	| Specifies the size of the application window in pixels of screen space. Make sure that the viewport definition you use for this cluster node does not exceed the size of this window. |
+| **port_cs port_ss** | port_ss	Cluster synchronization ports that the master node uses to communicate with other nodes in the cluster. Optional; default values are `14001` and `14002`. |
+| **master** | Determines whether this instance of Unreal Engine is the master node of the cluster. Only one cluster_node section can have this parameter set to true. Optional; default value is `false`. |
+
+### Viewport Configurations
+
+Each **cluster_node** configuration described above refers to a **viewport **configuration, which defines the rectangular area of the game window where the rendered frame is mapped. 
+
+You'll typically need a different viewport configuration for each display device that you have with a different set of resolution settings. For example, if all your display screens are identical, you only need one viewport configuration, which you can refer to from all of your cluster node configurations.
+
+Usually, a viewport starts at the upper left corner of the application window, and its width and height are set so that they fill the parent window. However, in some cases you may need to offset the viewport within its parent application window. For example, you might want to do this if you need to set up two projectors that partially overlap.  
+
+#### Example configuration:
+
+	[viewport] id=vp_left X=0 Y=0 width=1920 height=1080
+
+#### Parameters:
+
+| **Parameter** | **Description** |
+| --- | --- |
+| **id** | 	A unique name for this viewport configuration. |
+| **X Y** | The coordinates of the top left corner of the viewport, in pixels, within the screen space of the main application window. |
+| **width height** | The width and height of the rendered frame, in pixels. This should not be larger than the size of the game window that is set by the size parameter of any **cluster_node** configuration using this viewport. |
+
+### Scene Node Configurations
+
+In your configuration file, you can define a hierarchy of scene nodes, each of which represents a transform in 3D space. Anything that you set up in the configuration file that requires a position and rotation in 3D space, such as a camera or a projection screen, can use one of these *scene_node *configurations as its parent. This can help you to define the spatial relationships between all of the different components of the visualization system.
+
+Like cameras, scene nodes can also be driven by VR tracking devices.
+
+#### Example configuration:
+
+The following lines define a hierarchy of two nodes, where the child node has an offset of 2 meters in front of its parent.
+
+	[scene_node] id=vr_space_root loc="X=0.Y=0,Z=0" rot="P=0,Y=0,R=0"
+	[scene_node] id=walls_front_group loc="X=2.Y=0,Z=0" rot="P=0,Y=0,R=0" parent= vr_space_root
+
+The following line shows a scene node that is configured to be driven by a VR tracking device:
+
+	[scene_node] id=cave_wand loc="X=0, Y=0,Z=1" tracker_id=CaveTracking tracker_ch=1
+
+#### Parameters:
+
+| **Parameter** | **Description** |
+| --- | --- |
+| **id** | A unique name for this scene node configuration. |
+| **loc** | The location of this scene node in VR space, relative to its parent. |
+| **rot** | The pitch (P), yaw (Y) and roll (R) angles of the scene node's facing direction, in degrees. |
+| **parent** | The name of another **scene_node** configuration that you want to act as the parent for this scene node. This parameter is optional. If you specify a parent, the values you set in the **loc** and **rot** parameters will be relative to the position of that parent. If you omit the parent, the values you set in the **loc** and **rot** parameters will be relative to the VR root. |
+| **tracker_id** | The name of the **input** configuration that defines the VR device you want to drive the position of the scene node over time. Optional. If you omit this parameter, the scene node's position and rotation will be static in VR space with respect to its parent. |
+| **tracker_ch** | When you provide a **tracker_id**, this parameter specifies the channel of that device that nDisplay will read tracking data from. |
+
+### Input Configurations
+
+Each **camera** and each **scene_node** may optionally be driven by a VR tracking device. To do this, you define an **input** section for each VR device, and refer to it in the **camera** or **scene_node** configuration.
+
+#### Example configuration:
+
+	[input] id=CaveTracking type=tracker addr=Tracker0@192.168.0.1 loc="X=-1.5,Y=0,Z=3.4" rot="P-0,Y=0,R=0" front=X right=Y up=-Z
+
+#### Parameters:
+
+| Parameter | Description |
+| --- | --- |
+| **id** | A unique name for this input device configuration. |
+| **type** | [INCLUDE:#Excerpt_2] |
+| **addr** | [INCLUDE:#Excerpt_3] |
+| **remap** | [INCLUDE:#Excerpt_4] |
+
+[COMMENT:none]
+
+[EXCERPT:Excerpt_2]
+The type of this VRPN input device:
+* `tracker` for a tracking device.
+* `analog` for a device that produces axis data.
+* `button` for a device that produces Boolean button data.
+[/EXCERPT]
+
+[EXCERPT:Excerpt_3]
+The type of this VRPN input device:	The address of the VRPN server that handles this particular device. The value must match the following format:
+`DEVICENAME@SERVER_ADDRESS`
+`where:`
+* `DEVICENAME` is the VRPN name for this device.
+* `SERVER_ADDRESS` is the IPv4 address of the VRPN server.
+[/EXCERPT]
+
+[EXCERPT:Excerpt_4]
+This parameter remaps channel numbers from the tracking device so that their input can be read from different channels in Unreal. For example, some controllers use channel 0 for head tracking and channel 1 for the controller; others use channel 1 for the head and channel 5 for the controller. Switching between these two devices might require you to change your configuration and your runtime code to match. To avoid having to make any other changes in this case, you can use this parameter to remap the channels.
+For example, the value:
+`remap[0:1, 5:2]`
+forwards the data from channel 1 in the tracking device to channel 0 in Unreal, and forwards the data from channel 2 in the tracking device to channel 5 in Unreal.
+[/EXCERPT]
+
+[/COMMENT]
+
+Devices where `type=tracker` also accept the following additional parameters:
+
+| **Parameter** | **Description** |
+| --- | --- |
+| **loc rot** | Similar to other configuration sections, the **loc** and **rot** parameters specify position and rotation offsets in local space for this input device. However, for an input device, you typically use these offsets to adjust the root position of a tracking device in VR space to match the location you expect it to be in your scene node hierarchy. |
+| **front right up** | [INCLUDE:#Excerpt_5] |
+
+
+[COMMENT:none]
+[EXCERPT:Excerpt_5]
+These parameters match each local axis of the tracker in Unreal (front, right, and up) with the corresponding axis in the tracker's coordinate system. Unreal uses a right-handed, Z-up coordinate system. If your tracker uses a different coordinate system, you can use these parameters to map the tracker's coordinate system to Unreal's.
+For example, the following line maps the Y axis of the tracker to the front (X) axis in Unreal; the X axis of the tracker to the right (Y) axis in Unreal, and the negative Z axis of the tracker to the up (Z) axis in Unreal:
+`front=Y right=X up=-Z`
+[/EXCERPT]
+[/COMMENT]
+
+### General Configuration
+
+The **general** configuration line contains parameters that control the overall operation of the nDisplay cluster.
+
+#### Example configuration:
+
+	[general] swap_sync_policy=1
+
+#### Parameters:
+
+| **Parameter** | **Description** |
+| --- | --- |
+| **swap_sync_policy** | [INCLUDE:#Excerpt_6] |
+
+[COMMENT:none]
+[EXCERPT:Excerpt_6]
+Determines how output is synchronized over the network.
+* 0: no synchronization.
+* 1: Software swap synchronization
+* 2: NV swap lock (only for NVIDIA cards rendering with OpenGL)
+[/EXCERPT]
+[/COMMENT]
+
+### Stereo Configuration
+
+The **stereo** configuration line sets optional global parameters for stereoscopic rendering.
+
+#### Example configuration:
+
+\[stereo\] eye\_swap=True eye\_dist=0.064
+
+#### Parameters:
+
+| **Parameter** | **Description** |
+| --- | --- |
+| **eye_swap** | Determines whether or not the images generated for the left and right eye are swapped. Optional. Default value is false. |
+| **eye_dist** | The inter-ocular distance to use for offsetting the images generated for the left and right eyes, in meters. |
+
+### Structure
+
+The references between the different configuration types outlined above imply the following structure, where red arrows are mandatory references and green arrows are optional references:
+
+![Configuration reference structure](ndisplay-configuration-references.png "Configuration reference structure")
+
+### Example
+
+To take a specific example, open the *wall_flat_3x2.cfg* sample file. This file defines six projection screens, each of which is to be rendered by a separate physical computer.
+
+It also defines several scene_nodes, which taken together create the following hierarchy:
+
+![nDisplay example scene hierarchy](ndisplay-scene-hierarchy.png "nDisplay example scene hierarchy")
+
+The relative positions and rotations of the nodes in this hierarchy lay out the arrangement of the camera and the six screens in VR space so that the six projection screens are side-by-side, at a distance of 1 meter from the camera. 
+
+[REGION:lightbox]
+[![nDisplay example layout](ndisplay-example-layout.png)](ndisplay-example-layout.png)
+[/REGION]
+
+[REGION:caption]
+Click image for full size.
+[/REGION]
+
+Note that the configuration implies a small space in between each adjacent pair of projection screens, to account for the edges of the monitors rendering the scene.
+
+## Blueprint API
+
+You can control the behavior of the nDisplay system in your game's runtime logic using its Blueprint API.
+
+To get to the functions exposed in this API for managing clusters, input and rendering:
+
+1.  Create a new **Display Cluster > Get Plugin API** node in your Blueprint.
+2.  Drag from the **Out API** pin, and look under the **Display Cluster** category:  
+    ![nDisplay Get Plugin API](ndisplay-get-plugin-api.png "nDisplay Get Plugin API")
+
+## Actor Replication
+
+All inputs to the nDisplay system are handled only by the master node. Without any replication, only the master node would see changes in the scene. Therefore, the master node needs to be able to replicate changes to all other parts of the nDisplay network.
+
+To accomplish this, nDisplay offers two different kinds of Components that you can attach to your Actors:
+
+*   The **DisplayClusterSceneComponentSyncParent** Component tracks changes in the 3D transforms of its parent Component, and pushes those changes to the other cluster nodes in the network.  
+    The default DisplayClusterPawn used by the nDisplay system uses this Component.  
+    
+*   The **DisplayClusterSceneComponentSyncParent **Component tracks changes to the 3D transforms of its child components, and pushes those changes to the other cluster nodes in the network.
+
+For example, in the Actor shown below, the **DisplayClusterSceneComponentSyncParent_DefaultSceneRoot** Component tracks and replicates changes to the 3D transforms of its parent Actor as the Actor moves around the Level. The **DisplayClusterSceneComponentSyncThis** Component tracks and synchronizes movements of its child Cube component as it moves relative to the scene graph root.
+
+![DisplayClusterSceneComponentSyncParent ](ndisplay-actor-replication.png "DisplayClusterSceneComponentSyncParent ")
+
+If you have other Actors in your scene that can be affected during gameplay, you must use one of these two Components to replicate those changes to all nodes. To do this:
+
+1.  Select the Actor you need to replicate in the Level viewport or the **World Outliner** panel.
+2.  In the **Details** panel, click **\+ Add Component**. Search for either **DisplayClusterSceneComponentSyncParent** or **DisplayClusterSceneComponentSyncThis**, and select it from the list.  
+    ![Add an nDisplay sync Component](ndisplay-actor-replication-selection.png "Add an nDisplay sync Component")
+
+[REGION:note]
+These components do not carry out a full replication. Only the transforms of the parent Actor or of child Components are sent to the cluster.
+[/REGION]
+
+## Using VRPN Inputs
+
+To use a [VRPN](https://en.wikipedia.org/wiki/VRPN) input device with nDisplay:
+
+1. Install a VRPN server on your network.  
+   This version of nDisplay requires VRPN **version 33**.
+1. In the server’s *vrpn.cfg* file, which you'll find located next to the server's executable file, enable your input device and give itone a name.
+1. In your nDisplay configuration file, add an entry to set up your VRPN input device, adjust its coordinate system, and attach it to a camera.
+
+The following example shows one way to set up the ART DTrack tracking system:
+
+* In Vrpn.cfg, located next to the vrpn server exe, add the following line:
+		vrpn_Tracker_DTrack DTrack  5000	
+  This makes VRPN receive the DTrack inputs from port 5000, and maps them to the VRPN device named DTrack. (Make sure DTrack is configured to output its tracking data on port 5000.)
+* In the nDisplay config file, add the following lines:
+		[input] id=CaveTracking type=tracker addr=DTrack@127.0.0.1 loc="X=1.32,Y=0,Z=0.93735" rot="P=0,Y=0,R=0" front=Z right=-X up=Y
+		[camera] id=camera_dynamic loc="X=0,Y=0,Z=0" tracker_id=CaveTracking tracker_ch=0
+  The first line creates an nDisplay input device named CaveTracking, which fetches data from VRPN address DTrack@127.0.01. You have to adapt your coordinate system here to fit with your tracking system and offset. The second line tells nDisplay to fetch camera positions from the CaveTracking input on channel 0.
+
+To manage the state of your VRPN devices from your gameplay code, and to detect input events such as button presses:
+
+* In C++, use the `IDisplayClusterInputManager` class.
+* In Blueprints, use the nodes under **DisplayCluster > Input**. Make sure that the ID you set in the nodes matches the ID value you have set in your configuration file. For example:  
+  ![](ndisplay_vrpn_api.png "ndisplay_vrpn_api.png")
+
+## Changing Communication Ports
+
+The nDisplay system communicates between hosts over three TCP/IP ports: 14000, 14001, and 14002. You need to make sure you have these hosts open on all computers.
+
+If you want to change the port numbers yourself, you can do so in the following places.
+
+* **Runtime synchronization ports**. The master node uses two ports to synchronize data with the other nodes in the cluster. To set these two ports, include the **port_cs** and **port_ss** configuration parameters in your configuration file, on the **cluster_node **line that defines your master node. For example:
+		[cluster_node] id=node_front addr=192.168.0.1 screen=screen_front viewport=vp_front port_cs=42001 port_ss=42002 master=true
+
+* **nDisplay Launcher and nDisplay listener ports**. The nDisplay Launcher and nDisplay Listener both need to be configured to use the same communication port. You can specify this on the command line when you start up these applications.  
+  When you start the nDisplay Launcher, use the `listener_port` argument. For example:
+	nDisplayLauncher.exe listener_port=15003
+
+  In addition, you'll have to start the nDisplayListener application on each host yourself, with the `port` argument. For example:
+	nDisplayListener.exe port=15003
+
+## Adding nDisplay to an Existing Project
+
+To set up an existing Project to use nDisplay:
+
+1.  Enable the nDisplay plugin.  
+    In the Unreal Editor, choose **Edit > Plugins** from the main menu. Search for "nDisplay", and check the **Enabled **checkbox.  
+	[REGION:lightbox]
+    [![Enable the nDisplay Plugin](ndisplay-enable-plugin.png "Enable the nDisplay Plugin")](ndisplay-enable-plugin.png)  
+	*Click for full image.*
+    [/REGION]
+2.  Enable nDisplay for your Project.  
+    Choose **Edit > Project Settings** from the main menu, and find the **Plugins > nDisplay** section. Check the **Enabled** checkbox.  
+    [REGION:lightbox]
+    [![nDisplay Project Settings](ndisplay-project-settings.png "nDisplay Project Settings")](ndisplay-project-settings.png)  
+	*Click for full image.*
+    [/REGION]
+3.  Still in the **Project Settings** window, go to the **Project > Description** section, and check the **Settings > Use Borderless Window** checkbox.  
+    [REGION:lightbox]
+    [![Use Borderless Window](ndisplay-project-settings-borderless.png "Use Borderless Window")](ndisplay-project-settings-borderless.png)  
+	*Click for full image.*
+    [/REGION]
+4.  Restart the Unreal Editor, reopen your Project, and open your Project's default Level.
+5.  In the **World Settings** panel, set the **Game Mode > GameMode Override** setting to **DisplayClusterGameModeDefault**.  
+    [REGION:lightbox]
+    [![nDisplay World Settings](ndisplay-world-settings.png "nDisplay World Settings")](ndisplay-world-settings.png)  
+	*Click for full image.*
+    [/REGION]    
+6.  Add a new **DisplayClusterSettings** Actor to your Level.  
+    You can find this Actor in the **Modes** panel, on the **All Classes** list.
+7.  Continue on with the rest of the setup instructions under [Getting Started](#gettingstarted) above.
+
+## nDisplay Launcher UI Reference
+
+This section describes all of the settings and options available in the user interface of the nDisplay Launcher.
+
+[REGION:lightbox]
+[![nDisplay Launcher UI](ndisplay-launcher-ui.png)](ndisplay-launcher-ui.png) 
+[/REGION]
+
+| **Control** | **Description** |
+| --- | --- |
+| **Render API** | Specifies the rendering API to use the next time you click Run. |
+| **Render mode** | [INCLUDE:#excerpt_9] |
+| **Use All Available Cores** | Forces each Unreal instance to use all available processors on its host. When this option is selected, the nDisplay Launcher adds the USEALLAVAILABLECORES option to the command line it uses to launch each instance. |
+| **No Texture Streaming** | Disables texture streaming for each Unreal instance. Highest quality textures are always loaded. When this option is selected, the nDisplay Launcher adds the NOTEXTURESTREAMING option to the command line it uses to launch each instance. |
+| **Custom command line arguments** | If you want the nDisplay Launcher to pass any additional arguments on the command line it uses to launch each Unreal instance, include them here. For details, see the [Command-Line Arguments]("Programming/Basics/CommandLineArguments") reference. |
+| **Applications** | Lists all packaged Unreal applications that you can run with the nDisplay Launcher. Use the Add and Delete buttons to edit the list. For more, see [Step 3. Package and Deploy]("Engine/Rendering/nDisplay#step3packageanddeploy") above. |
+| **Config Files** | Lists all configuration files that you've set up for the nDisplay Launcher. Use the Add and Delete buttons to edit the list. For more, see [Step 3. Package and Deploy]("Engine/Rendering/nDisplay#step3packageanddeploy") above. |
+| **Run** | Launches the application that you've selected in the **Applications** list on all hosts that are configured in the file that you've selected in the **Config Files** list. |
+| **Kill** | Shuts down all instances of the Unreal Engine that the nDisplay Launcher started up. |
+| **Start listeners** | Starts an instance of the nDisplay Listener application on each host configured in the file that you've selected in the **Config Files** list.  |
+| **Stop listeners** | Shuts down all instances of the nDisplay Listener application that this nDisplay Launcher started up. |
+| **Deploy application** | Copies the application that you've selected in the **Applications** list to each host configured in the file that you've selected in the **Config Files** list. |
+| **Copy** | Copies to the clipboard all messages listed in the log window to the left. |
+| **Clean** | Clears all messages from the log window to the left. |
+[COMMENT:none]
+[EXCERPT:Excerpt_9]
+Specifies the type of output nDisplay produces:
+* Monoscopic: no stereo rendering
+* Frame sequential: active quad buffer stereo
+* Side-by-side: passive horizontally aligned stereo
+* Top-bottom: passive vertically aligned stereo
+
+Monoscopic does not require any specific hardware features, but frame sequential does. Make sure your display device, GPU and diver settings are compatible with the render mode you choose.
+[/EXCERPT]
+[/COMMENT]

@@ -18,15 +18,15 @@ Parent:Programming/UnrealArchitecture/Reference
 
 ## 모듈 생성
 
-게임플레이 모듈에는 반드시, 최소한 하나의 헤더 (`.h`) 파일, C++ (`.cpp`) 파일, 빌드 (`*.Build.cs`) 파일이 들어있어야 합니다. 헤더 파일은 모듈 디렉토리의 `Public` 폴더, 즉 `[게임명]\Source\[모듈명]\Public` 디렉토리에 있어야 합니다. 이 파일에는 모듈의 자동 생성 헤더를 포함해서, 모듈에 들어있는 클래스를 컴파일하는 데 필요한 헤더 파일이 포함됩니다.
+게임플레이 모듈에는 반드시, 최소한 하나의 헤더 (`.h`) 파일, C++ (`.cpp`) 파일, 빌드 (`*.Build.cs`) 파일이 들어있어야 합니다. 헤더 파일은 모듈 디렉터리의 `Public` 폴더, 즉 `[게임명]\Source\[모듈명]\Public` 디렉터리에 있어야 합니다. 이 파일에는 모듈의 자동 생성 헤더를 포함해서, 모듈에 들어있는 클래스를 컴파일하는 데 필요한 헤더 파일이 포함됩니다.
 
 	#include "Engine.h"
 	#include "EnginePrivate.h"
 	#include "<ModuleName>Classes.h"
 
-C++ 파일은 모듈 디렉토리의 `Private` 폴더, 즉 `[게임명]\Source\[모듈명]\Private` 디렉토리에 들어가며, 모듈을 등록하고 구현합니다.
+C++ 파일은 모듈 디렉터리의 `Private` 폴더, 즉 `[게임명]\Source\[모듈명]\Private` 디렉터리에 들어가며, 모듈을 등록하고 구현합니다.
 
-[REGION:note]게임 내 최소 모듈 하나는 `IMPLEMENT_PRIMARY_GAME_MODULE` 를 사용해서 등록해야 합니다. 그 이후의 모듈은 대안으로 `IMPLEMENT_GAME_MODULE` 메소드를 사용할 수 있습니다. 하나의 게임 프로젝트에서 게임플레이 모듈을 여럿 사용하는 법에 대한 것은 [다중 게임플레이 모듈](#다중게임플레이모듈) 부분을 참고하시기 바랍니다.[/REGION]
+[REGION:note]게임 내 최소 모듈 하나는 `IMPLEMENT_PRIMARY_GAME_MODULE` 를 사용해서 등록해야 합니다. 그 이후의 모듈은 대안으로 `IMPLEMENT_GAME_MODULE` 메서드를 사용할 수 있습니다. 하나의 게임 프로젝트에서 게임플레이 모듈을 여럿 사용하는 법에 대한 것은 [다중 게임플레이 모듈](#다중게임플레이모듈) 부분을 참고하시기 바랍니다.[/REGION]
 
 	// 게임의 헤더 파일 포함
 	#include "<ModuleName>.h"
@@ -34,7 +34,7 @@ C++ 파일은 모듈 디렉토리의 `Private` 폴더, 즉 `[게임명]\Source\[
 	// 모듈을 Primary 로 지정
 	IMPLEMENT_PRIMARY_GAME_MODULE( <ModuleName>, "<GameName>" );
 
-빌드 파일은 게임플레이 모듈의 루트 디렉토리, 즉 `[게임명]\Source\[모듈명]` 에 들어가며, UnrealBuildTool 이 모듈을 컴파일하는 데 사용되는 약간의 정보를 정의합니다.
+빌드 파일은 게임플레이 모듈의 루트 디렉터리, 즉 `[게임명]\Source\[모듈명]` 에 들어가며, UnrealBuildTool 이 모듈을 컴파일하는 데 사용되는 약간의 정보를 정의합니다.
 
 	using UnrealBuildTool;
 

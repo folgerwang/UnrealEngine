@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3967023
 Availability: Public
 Title:5. 2차 메뉴 제작
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/UMG
@@ -203,4 +203,5 @@ version:4.14
 		Super::BeginPlay();
 		SetInputMode(FInputModeGameAndUI());
 	}
+
 

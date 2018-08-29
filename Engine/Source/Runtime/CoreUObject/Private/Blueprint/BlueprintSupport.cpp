@@ -43,6 +43,7 @@ const FName FBlueprintTags::FindInBlueprintsData(TEXT("FiBData"));
 const FName FBlueprintTags::NumReplicatedProperties(TEXT("NumReplicatedProperties"));
 const FName FBlueprintTags::NumNativeComponents(TEXT("NativeComponents"));
 const FName FBlueprintTags::NumBlueprintComponents(TEXT("BlueprintComponents"));
+const FName FBlueprintTags::BlueprintPathWithinPackage(TEXT("BlueprintPath"));
 
 /**
  * Defined in BlueprintSupport.cpp

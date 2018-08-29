@@ -720,7 +720,7 @@ void SFindInBlueprints::ConditionallyAddCacheBar()
 	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
 
 	// Do not add a second cache bar and do not add it when there are no uncached Blueprints
-	if(FindInBlueprintManager.GetNumberUncachedBlueprints() > 0 || FindInBlueprintManager.GetFailedToCacheCount() > 0)
+	if(FindInBlueprintManager.GetNumberUncachedAssets() > 0 || FindInBlueprintManager.GetFailedToCacheCount() > 0)
 	{
 		if(MainVerticalBox.IsValid() && !CacheBarSlot.IsValid())
 		{
@@ -788,7 +788,7 @@ void SFindInBlueprints::ConditionallyAddCacheBar()
 							.AutoWidth()
 							[
 								SNew(STextBlock)
-								.Text(this, &SFindInBlueprints::GetUncachedBlueprintWarningText)
+								.Text(this, &SFindInBlueprints::GetUncachedAssetWarningText)
 								.ColorAndOpacity( FCoreStyle::Get().GetColor("ErrorReporting.ForegroundColor") )
 							]
 
@@ -1270,7 +1270,7 @@ FReply SFindInBlueprints::OnCacheAllBlueprints(FSimpleDelegate InOnFinished/* = 
 	{
 		// Request from the SearchManager a delegate to use for ticking the cache system.
 		FWidgetActiveTimerDelegate WidgetActiveTimer;
-		FFindInBlueprintSearchManager::Get().CacheAllUncachedBlueprints(SharedThis(this), WidgetActiveTimer, InOnFinished, InMinimiumVersionRequirement);
+		FFindInBlueprintSearchManager::Get().CacheAllUncachedAssets(SharedThis(this), WidgetActiveTimer, InOnFinished, InMinimiumVersionRequirement);
 		RegisterActiveTimer(0.f, WidgetActiveTimer);
 	}
 
@@ -1310,7 +1310,7 @@ EVisibility SFindInBlueprints::GetCacheAllButtonVisibility() const
 EVisibility SFindInBlueprints::GetCachingBarVisibility() const
 {
 	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
-	return (FindInBlueprintManager.GetNumberUncachedBlueprints() > 0 || FindInBlueprintManager.GetFailedToCacheCount())? EVisibility::Visible : EVisibility::Collapsed;
+	return (FindInBlueprintManager.GetNumberUncachedAssets() > 0 || FindInBlueprintManager.GetFailedToCacheCount())? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility SFindInBlueprints::GetCachingBlueprintNameVisiblity() const
@@ -1340,7 +1340,7 @@ FSlateColor SFindInBlueprints::GetCachingBarColor() const
 	return ReturnColor;
 }
 
-FText SFindInBlueprints::GetUncachedBlueprintWarningText() const
+FText SFindInBlueprints::GetUncachedAssetWarningText() const
 {
 	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
 
@@ -1348,7 +1348,7 @@ FText SFindInBlueprints::GetUncachedBlueprintWarningText() const
 
 	// The number of unindexed Blueprints is the total of those that failed to cache and those that haven't been attempted yet.
 	FFormatNamedArguments Args;
-	Args.Add(TEXT("Count"), FindInBlueprintManager.GetNumberUncachedBlueprints() + OutOfDateWithLastSearchBPCount);
+	Args.Add(TEXT("Count"), FindInBlueprintManager.GetNumberUncachedAssets() + OutOfDateWithLastSearchBPCount);
 
 	FText ReturnDisplayText;
 	if(IsCacheInProgress())
@@ -1359,17 +1359,17 @@ FText SFindInBlueprints::GetUncachedBlueprintWarningText() const
 	}
 	else
 	{
-		Args.Add(TEXT("UnindexedCount"), FindInBlueprintManager.GetNumberUncachedBlueprints());
+		Args.Add(TEXT("UnindexedCount"), FindInBlueprintManager.GetNumberUncachedAssets());
 		Args.Add(TEXT("OutOfDateCount"), OutOfDateWithLastSearchBPCount);
 
-		ReturnDisplayText = FText::Format(LOCTEXT("UncachedBlueprints", "Search incomplete. {Count} ({UnindexedCount} Unindexed/{OutOfDateCount} Out-of-Date) Blueprints need to be indexed!"), Args);
+		ReturnDisplayText = FText::Format(LOCTEXT("UncachedAssets", "Search incomplete. {Count} ({UnindexedCount} Unindexed/{OutOfDateCount} Out-of-Date) Blueprints need to be indexed!"), Args);
 
 		if (FailedToCacheCount > 0)
 		{
 			FFormatNamedArguments ArgsWithCacheFails;
 			Args.Add(TEXT("BaseMessage"), ReturnDisplayText);
 			Args.Add(TEXT("CacheFails"), FailedToCacheCount);
-			ReturnDisplayText = FText::Format(LOCTEXT("UncachedBlueprintsWithCacheFails", "{BaseMessage} {CacheFails} Blueprints failed to cache."), Args);
+			ReturnDisplayText = FText::Format(LOCTEXT("UncachedAssetsWithCacheFails", "{BaseMessage} {CacheFails} Blueprints failed to cache."), Args);
 		}
 	}
 

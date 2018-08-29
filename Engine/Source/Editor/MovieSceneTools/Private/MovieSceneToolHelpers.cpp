@@ -910,31 +910,40 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 				const int32 ChannelIndex = 0;
 				const int32 CompositeIndex = 0;
-				FInterpCurveFloat CurveHandle;
+				FRichCurve Source;
 				const bool bNegative = false;
-				CurveAPI.GetCurveData(NodeName, AnimatedPropertyName, ChannelIndex, CompositeIndex, CurveHandle, bNegative);
+				CurveAPI.GetCurveData(NodeName, AnimatedPropertyName, ChannelIndex, CompositeIndex, Source, bNegative);
 
 				FMovieSceneFloatChannel* Channel = FloatSection->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(0);
 				TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = Channel->GetData();
 
-				double DecimalRate = FrameRate.AsDecimal();
 				ChannelData.Reset();
-				for (int32 KeyIndex = 0; KeyIndex < CurveHandle.Points.Num(); ++KeyIndex)
+				double DecimalRate = FrameRate.AsDecimal();
+
+				for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
 				{
-					float ArriveTangent = CurveHandle.Points[KeyIndex].ArriveTangent;
-					if (KeyIndex > 0)
+					FRichCurveKey &Key = Source.GetKey(SourceIt.Key());
+					float ArriveTangent = Key.ArriveTangent;
+					FKeyHandle PrevKeyHandle = Source.GetPreviousKey(SourceIt.Key());
+					if (Source.IsKeyHandleValid(PrevKeyHandle))
 					{
-						ArriveTangent = ArriveTangent / ((CurveHandle.Points[KeyIndex].InVal - CurveHandle.Points[KeyIndex - 1].InVal) * DecimalRate);
+						FRichCurveKey &PrevKey = Source.GetKey(PrevKeyHandle);
+						ArriveTangent = ArriveTangent / ((Key.Time - PrevKey.Time) * DecimalRate);
+
 					}
-					
-					float LeaveTangent = CurveHandle.Points[KeyIndex].LeaveTangent;
-					if (KeyIndex < CurveHandle.Points.Num() - 1)
+					float LeaveTangent = Key.LeaveTangent;
+					FKeyHandle NextKeyHandle = Source.GetNextKey(SourceIt.Key());
+					if (Source.IsKeyHandleValid(NextKeyHandle))
 					{
-						LeaveTangent = LeaveTangent / ((CurveHandle.Points[KeyIndex+1].InVal - CurveHandle.Points[KeyIndex].InVal) * DecimalRate);
+						FRichCurveKey &NextKey = Source.GetKey(NextKeyHandle);
+						LeaveTangent = LeaveTangent / ((NextKey.Time - Key.Time) * DecimalRate);
 					}
 
-					FFrameNumber KeyTime = (CurveHandle.Points[KeyIndex].InVal * FrameRate).RoundToFrame();
-					FMatineeImportTools::SetOrAddKey(ChannelData, KeyTime, CurveHandle.Points[KeyIndex].OutVal, ArriveTangent, LeaveTangent, CurveHandle.Points[KeyIndex].InterpMode);
+					FFrameNumber KeyTime = (Key.Time * FrameRate).RoundToFrame();
+					FMatineeImportTools::SetOrAddKey(ChannelData, KeyTime, Key.Value, ArriveTangent, LeaveTangent,
+						MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation(Key.InterpMode, Key.TangentMode), Key.TangentWeightMode,
+						Key.ArriveTangentWeight, Key.LeaveTangentWeight);
+
 				}
 
 				if (ImportFBXSettings->bReduceKeys)
@@ -953,23 +962,29 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 	return false;
 }
 
-void ImportTransformChannel(const FInterpCurveFloat& Source, FMovieSceneFloatChannel* Dest, FFrameRate DestFrameRate, bool bNegateTangents)
+void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* Dest, FFrameRate DestFrameRate, bool bNegateTangents)
 {
 	TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = Dest->GetData();
 	ChannelData.Reset();
 	double DecimalRate = DestFrameRate.AsDecimal();
-	for (int32 KeyIndex = 0; KeyIndex < Source.Points.Num(); ++KeyIndex)
+
+	for (auto SourceIt = Source.GetKeyHandleIterator(); SourceIt; ++SourceIt)
 	{
-		float ArriveTangent = Source.Points[KeyIndex].ArriveTangent;
-		if (KeyIndex > 0)
+		const FRichCurveKey Key = Source.GetKey(SourceIt.Key());
+		float ArriveTangent = Key.ArriveTangent;
+		FKeyHandle PrevKeyHandle = Source.GetPreviousKey(SourceIt.Key());
+		if (Source.IsKeyHandleValid(PrevKeyHandle))
 		{
-			ArriveTangent = ArriveTangent / ((Source.Points[KeyIndex].InVal - Source.Points[KeyIndex-1].InVal) * DecimalRate);
+			const FRichCurveKey PrevKey = Source.GetKey(PrevKeyHandle);
+			ArriveTangent = ArriveTangent / ((Key.Time - PrevKey.Time) * DecimalRate);
+
 		}
-		
-		float LeaveTangent = Source.Points[KeyIndex].LeaveTangent;
-		if (KeyIndex < Source.Points.Num() - 1)
+		float LeaveTangent = Key.LeaveTangent;
+		FKeyHandle NextKeyHandle = Source.GetNextKey(SourceIt.Key());
+		if (Source.IsKeyHandleValid(NextKeyHandle))
 		{
-			LeaveTangent = LeaveTangent / ((Source.Points[KeyIndex+1].InVal - Source.Points[KeyIndex].InVal) * DecimalRate);
+			const FRichCurveKey NextKey = Source.GetKey(NextKeyHandle);
+			LeaveTangent = LeaveTangent / ((NextKey.Time - Key.Time) * DecimalRate);
 		}
 
 		if (bNegateTangents)
@@ -978,9 +993,14 @@ void ImportTransformChannel(const FInterpCurveFloat& Source, FMovieSceneFloatCha
 			LeaveTangent = -LeaveTangent;
 		}
 
-		FFrameNumber KeyTime = (Source.Points[KeyIndex].InVal * DestFrameRate).RoundToFrame();
-		FMatineeImportTools::SetOrAddKey(ChannelData, KeyTime, Source.Points[KeyIndex].OutVal, ArriveTangent, LeaveTangent, Source.Points[KeyIndex].InterpMode);
+		FFrameNumber KeyTime = (Key.Time * DestFrameRate).RoundToFrame();
+		FMatineeImportTools::SetOrAddKey(ChannelData, KeyTime, Key.Value, ArriveTangent, LeaveTangent,
+			MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation(Key.InterpMode, Key.TangentMode), Key.TangentWeightMode,
+			Key.ArriveTangentWeight, Key.LeaveTangentWeight);
+
 	}
+
+
 	const UMovieSceneUserImportFBXSettings* ImportFBXSettings = GetDefault<UMovieSceneUserImportFBXSettings>();
 	if (ImportFBXSettings->bReduceKeys)
 	{
@@ -997,13 +1017,13 @@ bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurves
 	const UMovieSceneUserImportFBXSettings* ImportFBXSettings = GetDefault<UMovieSceneUserImportFBXSettings>();
 
 	// Look for transforms explicitly
-	FInterpCurveFloat Translation[3];
-	FInterpCurveFloat EulerRotation[3];
-	FInterpCurveFloat Scale[3];
+	FRichCurve Translation[3];
+	FRichCurve EulerRotation[3];
+	FRichCurve Scale[3];
 	FTransform DefaultTransform;
 	CurveAPI.GetConvertedTransformCurveData(NodeName, Translation[0], Translation[1], Translation[2], EulerRotation[0], EulerRotation[1], EulerRotation[2], Scale[0], Scale[1], Scale[2], DefaultTransform);
 
-	UMovieScene3DTransformTrack* TransformTrack = InMovieScene->FindTrack<UMovieScene3DTransformTrack>(ObjectBinding); 
+ 	UMovieScene3DTransformTrack* TransformTrack = InMovieScene->FindTrack<UMovieScene3DTransformTrack>(ObjectBinding); 
 	if (!TransformTrack)
 	{
 		InMovieScene->Modify();
@@ -1200,6 +1220,8 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 		TArray<FbxCamera*> AllCameras;
 		GetCameras(FbxImporter->Scene->GetRootNode(), AllCameras);
 
+		UWorld* World = GCurrentLevelEditingViewportClient ? GCurrentLevelEditingViewportClient->GetWorld() : nullptr;
+
 		// Find unmatched cameras
 		TArray<FbxCamera*> UnmatchedCameras;
 		for (auto Camera : AllCameras)
@@ -1210,10 +1232,26 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 			for (auto InObjectBinding : InObjectBindingMap)
 			{		
 				FString ObjectName = InObjectBinding.Value;
-				if ( !FCString::Strcmp(*ObjectName,UTF8_TO_TCHAR(Camera->GetName())))
+				if (!FCString::Strcmp(*ObjectName, UTF8_TO_TCHAR(Camera->GetName())))
 				{
-					bMatched = true;
-					break;
+					// Look for a valid bound object, otherwise need to create a new camera and assign this binding to it
+					bool bFoundBoundObject = false;
+					TArrayView<TWeakObjectPtr<>> BoundObjects = InSequencer.FindBoundObjects(InObjectBinding.Key, InSequencer.GetFocusedTemplateID());
+					for (auto BoundObject : BoundObjects)
+					{
+						if (BoundObject.IsValid())
+						{
+							bFoundBoundObject = true;
+							break;
+						}
+					}
+
+					if (!bFoundBoundObject)
+					{
+						FNotificationInfo Info(FText::Format(NSLOCTEXT("MovieSceneTools", "NoBoundObjectsError", "Existing binding has no objects. Creating a new camera and binding for {0}"), FText::FromString(ObjectName)));
+						Info.ExpireDuration = 5.0f;
+						FSlateNotificationManager::Get().AddNotification(Info)->SetCompletionState(SNotificationItem::CS_Fail);
+					}
 				}
 			}
 
@@ -1223,9 +1261,6 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 			}
 		}
 
-		// Add any unmatched cameras
-		UWorld* World = GCurrentLevelEditingViewportClient ? GCurrentLevelEditingViewportClient->GetWorld() : nullptr;
-
 		// If there are new cameras, clear the object binding map so that we're only assigning values to the newly created cameras
 		if (UnmatchedCameras.Num() != 0)
 		{
@@ -1233,12 +1268,12 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 			bMatchByNameOnly = true;
 		}
 
+		// Add any unmatched cameras
 		for (auto UnmatchedCamera : UnmatchedCameras)
 		{
 			FString CameraName = FString(ANSI_TO_TCHAR(UnmatchedCamera->GetName()));
 
 			FActorSpawnParameters SpawnParams;
-			SpawnParams.Name = *CameraName;
 			ACineCameraActor* NewCamera = World->SpawnActor<ACineCameraActor>(SpawnParams);
 			NewCamera->SetActorLabel(*CameraName);
 
@@ -1274,14 +1309,20 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 		{
 			if (bMatchByNameOnly)
 			{
-				UE_LOG(LogMovieScene, Error, TEXT("Fbx Import: Failed to find any matching camera for (%s)."), *ObjectName);
+				FNotificationInfo Info(FText::Format(NSLOCTEXT("MovieSceneTools", "NoMatchingCameraError", "Failed to find any matching camera for {0}"), FText::FromString(ObjectName)));
+				Info.ExpireDuration = 5.0f;
+				FSlateNotificationManager::Get().AddNotification(Info)->SetCompletionState(SNotificationItem::CS_Fail);
+
 				continue;
 			}
 
 			CameraNode = FindCamera(FbxImporter->Scene->GetRootNode());
 			if (CameraNode)
 			{
-				UE_LOG(LogMovieScene, Warning, TEXT("Fbx Import: Failed to find exact matching camera for (%s). Using first camera from fbx (%s)"), *ObjectName, UTF8_TO_TCHAR(CameraNode->GetName()));
+				FString CameraName = FString(ANSI_TO_TCHAR(CameraNode->GetName()));
+				FNotificationInfo Info(FText::Format(NSLOCTEXT("MovieSceneTools", "NoMatchingCameraWarning", "Failed to find any matching camera for {0}. Importing onto first camera from fbx {1}"), FText::FromString(ObjectName), FText::FromString(CameraName)));
+				Info.ExpireDuration = 5.0f;
+				FSlateNotificationManager::Get().AddNotification(Info)->SetCompletionState(SNotificationItem::CS_Fail);
 			}
 		}
 
@@ -1619,14 +1660,22 @@ bool MovieSceneToolHelpers::ImportFBX(UMovieScene* InMovieScene, ISequencer& InS
 }
 
 
-EInterpCurveMode MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation( ERichCurveInterpMode InterpMode )
+EInterpCurveMode MovieSceneToolHelpers::RichCurveInterpolationToMatineeInterpolation( ERichCurveInterpMode InterpMode, ERichCurveTangentMode TangentMode)
 {
 	switch ( InterpMode )
 	{
 	case ERichCurveInterpMode::RCIM_Constant:
 		return CIM_Constant;
 	case ERichCurveInterpMode::RCIM_Cubic:
-		return CIM_CurveAuto;
+		if (TangentMode == RCTM_Auto)
+		{
+			return CIM_CurveAuto;
+		}
+		else if (TangentMode == RCTM_Break)
+		{
+			return CIM_CurveBreak;
+		}
+		return CIM_CurveUser;  
 	case ERichCurveInterpMode::RCIM_Linear:
 		return CIM_Linear;
 	default:
@@ -1654,7 +1703,7 @@ void MovieSceneToolHelpers::CopyKeyDataToMoveAxis(const TMovieSceneChannelData<F
 		FInterpCurvePoint<float>& Point = MoveAxis->FloatTrack.Points[PointIndex];
 		Point.ArriveTangent = Value.Tangent.ArriveTangent;
 		Point.LeaveTangent = Value.Tangent.LeaveTangent;
-		Point.InterpMode = RichCurveInterpolationToMatineeInterpolation(Value.InterpMode);
+		Point.InterpMode = RichCurveInterpolationToMatineeInterpolation(Value.InterpMode, Value.TangentMode);
 	}
 }
 

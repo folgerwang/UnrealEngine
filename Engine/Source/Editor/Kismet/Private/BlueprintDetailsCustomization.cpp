@@ -5250,12 +5250,6 @@ FText FBlueprintGlobalOptionsDetails::GetDeprecatedTooltip() const
 	return LOCTEXT("DisabledDeprecateBlueprintTooltip", "This Blueprint is deprecated because of a parent, it is not possible to remove deprecation from it!");
 }
 
-/** Shared tooltip text for both the label and the value field */
-static FText GetNativizeLabelTooltip()
-{
-	return LOCTEXT("NativizeTooltip", "When exclusive nativization is enabled, then this asset will be nativized. NOTE: All super classes must be also nativized.");
-}
-
 void FBlueprintGlobalOptionsDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
 {
 	const UBlueprint* Blueprint = GetBlueprintObj();
@@ -5357,9 +5351,8 @@ void FBlueprintGlobalOptionsDetails::CustomizeDetails(IDetailLayoutBuilder& Deta
 			.NameContent()
 			[
 				SNew(STextBlock)
-					.Text(LOCTEXT("NativizeLabel", "Nativize"))
-					.ToolTipText_Static(&GetNativizeLabelTooltip)
-					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("NativizeLabel", "Nativize"))
+				.Font(IDetailLayoutBuilder::GetDetailFont())
 			]
 			.ValueContent()
 			[
@@ -5377,7 +5370,7 @@ bool FBlueprintGlobalOptionsDetails::IsNativizeEnabled() const
 	bool bIsEnabled = false;
 	if (UBlueprint* Blueprint = GetBlueprintObj())
 	{
-		bIsEnabled = (Blueprint->BlueprintType != BPTYPE_MacroLibrary) && (Blueprint->BlueprintType != BPTYPE_LevelScript) && (!FBlueprintEditorUtils::ShouldNativizeImplicitly(Blueprint));
+		bIsEnabled = Blueprint->SupportsNativization() && !FBlueprintEditorUtils::ShouldNativizeImplicitly(Blueprint);
 	}
 	return bIsEnabled;
 }
@@ -5415,22 +5408,28 @@ ECheckBoxState FBlueprintGlobalOptionsDetails::GetNativizeState() const
 
 FText FBlueprintGlobalOptionsDetails::GetNativizeTooltip() const
 {
-	if (!IsNativizeEnabled())
+	UBlueprint* Blueprint = GetBlueprintObj();
+
+	if (Blueprint)
 	{
-		if (FBlueprintEditorUtils::ShouldNativizeImplicitly(GetBlueprintObj()))
+		if (FBlueprintEditorUtils::ShouldNativizeImplicitly(Blueprint))
 		{
 			return LOCTEXT("NativizeImplicitlyTooltip", "This Blueprint must be nativized because it overrides one or more BlueprintCallable functions inherited from a parent Blueprint class that has also been flagged for nativization.");
 		}
-		else
+
+		FText Reason;
+		if (!Blueprint->SupportsNativization(&Reason))
 		{
-			return LOCTEXT("NativizeDisabledTooltip", "Macro libraries and level Blueprints cannot be nativized.");
+			return Reason.IsEmpty() ? LOCTEXT("NativizeDisabledTooltip", "This blueprint does not support nativization.") : Reason;
+		}
+
+		if (Blueprint->NativizationFlag == EBlueprintNativizationFlag::Dependency)
+		{
+			return LOCTEXT("NativizeAsDependencyTooltip", "This Blueprint has been flagged to nativize as a dependency needed by another Blueprint. This will be applied once that Blueprint is saved.");
 		}
 	}
-	else if (GetNativizeState() == ECheckBoxState::Undetermined)
-	{
-		return LOCTEXT("NativizeAsDependencyTooltip", "This Blueprint has been flagged to nativize as a dependency needed by another Blueprint. This will be applied once that Blueprint is saved.");
-	}
-	return GetNativizeLabelTooltip();
+
+	return LOCTEXT("NativizeTooltip", "When exclusive nativization is enabled, then this asset will be nativized. NOTE: All super classes must be also nativized.");
 }
 
 void FBlueprintGlobalOptionsDetails::OnNativizeToggled(ECheckBoxState NewState) const

@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3808342
+﻿INTSourceChangelist:4241091
 Availability: NoPublish
 Title: 빌드 환경설정 프로퍼티 페이지
 Crumbs:
 Description: 자동 생성되는 마크다운 페이지입니다.
-Version: 4.19
+Version: 4.21
 
 ### XboxOnePlatform
 
@@ -19,11 +19,19 @@ $ bEnableThreadSanitizer : 스레드 새니타이저(TSan)를 활성화시킵니
 
 $ bEnableUndefinedBehaviorSanitizer : 미정의 작동방식 새니타이저(UBSan)를 활성화시킵니다.
 
+$ bWriteSolutionOptionFile : sln 에 대한 솔루션 옵션(suo) 파일 작성 여부입니다.
+
 $ bAddFastPDBToProjects : 빌드 명령줄에 기본적으로 -FastPDB 옵션 추가 여부입니다.
 
 $ bUsePerFileIntellisense : 파일 별 인텔리센스 데이터 생성 여부입니다.
 
 $ bEditorDependsOnShaderCompileWorker : 에디터용 프로젝트 파일을 생성할 때 ShaderCompileWorker 에 종속성 포함 여부입니다.
+
+$ ProcessorCountMultiplier : 로컬 실행을 위한 프로세서 수 배수입니다. 1 미만이면 CPU 를 다른 태스크에 예약합니다. (XGE 가 아닌) 로컬 익스큐터를 사용할 때, 각 CPU 코어에서 단일 액션을 실행합니다. 참고로 이를 보다 큰 값으로 설정하면 많은 경우 빌드 시간이 약간 빨라집니다만, 컴파일 도중 컴퓨터의 반응 속도가 훨씬 느려질 것입니다.
+
+$ MaxProcessorCount : 로컬 실행을 위한 최대 프로세서 수입니다.
+
+$ bStopCompilationAfterErrors : 활성화 시, 컴파일 오류가 발생하면 타깃 컴파일을 중지합니다.
 
 $ bDebugBuildsActuallyUseDebugCRT : 디버그 빌드에 C++ 런타임 (CRT) 디버깅을 켭니다. 기본적으로는 항상 릴리즈 런타임을 사용하는데, Debug C++ Runtime 은 언리얼 엔진 프로젝트 디버깅에는 그리 유용하지 않고, Debug CRT 라이브러리에 대한 링크는 강제로 써드 파티 라이브러리 종속성도 Debug CRT 를 사용하여 컴파일하게 되기 (그래서 퍼포먼스가 느려지기) 때문입니다. 종종 프로그램 코드 디버깅만을 위해 써드 파티 스태틱 라이브러리의 디버그 버전 사본이 별도로 필요하다는 것이 불편할 수 있습니다.
 
@@ -35,7 +43,7 @@ $ bUseUnityBuild : 빠른 컴파일을 위해 C++ 코드를 커다란 파일로 
 
 $ bForceUnityBuild : 빠른 컴파일을 위해 C++ 소스 파일을 커다란 파일로 강제 합칠지 여부입니다.
 
-$ bUseAdaptiveUnityBuild : 휴리스틱 기법으로 현재 어느 파일을 대상으로 반복처리 중인지 알아낸 뒤 유니티 블롭에서 제외시켜, 점증적 컴파일 시간이 빨라집니다. 현재 구현은 파일이 변경되면 소스 콘트롤 시스템이 쓰기가능으로 만든다 가정하고, 읽기 전용 플래그를 사용하여 작업 세트를 구분합니다. Perforce 에는 맞지만, Git 에서는 아닙니다.
+$ bUseAdaptiveUnityBuild : 휴리스틱 기법으로 현재 어느 파일을 대상으로 반복처리 중인지 알아낸 뒤 유니티 블롭에서 제외시켜, 점증적 컴파일 시간이 빨라집니다. 현재 구현은 파일이 변경되면 소스 컨트롤 시스템이 쓰기가능으로 만든다 가정하고, 읽기 전용 플래그를 사용하여 작업 세트를 구분합니다. Perforce 에는 맞지만, Git 에서는 아닙니다.
 
 $ bAdaptiveUnityDisablesOptimizations : 적응형 논-유니티 작업 세트에 있는 파일에 대한 최적화를 끕니다.
 
@@ -103,19 +111,17 @@ $ bCreateMapFile : 빌드의 일부로 맵 파일을 출력합니다.
 
 $ bCheckSystemHeadersForModification : 구버전 동작 결정 시 시스템 경로의 헤더에 대해 변경 검사를 할지 여부입니다.
 
-$ bFlushBuildDirOnRemoteMac : 빌드 전 원격 맥의 Builds 디렉토리 청소 여부입니다.
+$ bFlushBuildDirOnRemoteMac : 빌드 전 원격 맥의 Builds 디렉터리 청소 여부입니다.
 
 $ bPrintToolChainTimingInfo : 컴파일러와 링커에서의 자세한 타이밍 정보 작성 여부입니다.
 
-$ PCHOutputDirectory : 미리 컴파일된 헤더 파일을 넣을 디렉토리입니다. 속도가 더 빠른 드라이브에서 경로를 사용할 수 있도록 해주는 실험단계 세팅입니다. 설정되지 않은 경우 기본값은 표준 출력 디렉토리입니다.
-
-$ bIgnoreOutdatedImportLibraries : 타겟 빌드 시 구버전 라이브러리 파일 임포트 무시 여부입니다. true 설정하면 반복처리 시간이 빨라집니다. 기본적으로 종속 .lib 만 변경된 경우 타겟 리링크는 신경쓰지 않는데, 이 타겟의 종속 헤더 파일 역시 변경되지 않은 한 임포트 라이브러리가 실제로 달라지지 않았을 것이기 때문입니다. 종속 헤더 파일이 변경되었다면, 타겟은 자동 리빌드될 것입니다.
+$ bIgnoreOutdatedImportLibraries : 타깃 빌드 시 구버전 라이브러리 파일 임포트 무시 여부입니다. true 설정하면 반복처리 시간이 빨라집니다. 기본적으로 종속 .lib 만 변경된 경우 타깃 리링크는 신경쓰지 않는데, 이 타깃의 종속 헤더 파일 역시 변경되지 않은 한 임포트 라이브러리가 실제로 달라지지 않았을 것이기 때문입니다. 종속 헤더 파일이 변경되었다면, 타깃은 자동 리빌드될 것입니다.
 
 $ bUseActionHistory : 요청 시 컴파일 액션에 대한 명령줄 종속성 생성 여부입니다.
 
 $ bPrintDebugInfo : 디버그 정보를 콘솔에 작성할지 여부입니다.
 
-$ LogFilename : 파일에 로그를 작성할 수 있도록 합니다.
+$ LogFileName : 로그에 사용할 파일을 지정합니다.
 
 $ bPrintPerformanceInfo : 종속성 및 다른 부분 포함 관련 퍼포먼스 진단을 출력합니다.
 
@@ -127,15 +133,13 @@ $ bAllowSNDBS : SN-DBS 사용 여부입니다.
 
 $ bShouldDeleteAllOutdatedProducedItems : 구버전 생성 항목 삭제 여부입니다.
 
-$ LogLevel : 표시하고자 하는 로깅 레벨입니다.
-
-$ JsonExportFile : 상세 타겟 정보가 들어있는 JSON 파일 익스포트 여부입니다.
+$ JsonExportFile : 상세 타깃 정보가 들어있는 JSON 파일 익스포트 여부입니다.
 
 $ bUseIncludeDependencyResolveCache : 종속성 캐시에 미리 리졸브된 인클루드 위치를 포함시켜, UBT 가 타임스탬프 검사만을 위해 각 인클루드 위치를 다시 리졸브할 필요가 없도록 합니다. 기술적으로 완벽히 맞지는 않은데, 종속성 캐시는 글로벌이고 각 모듈은 다양한 인클루드 경로 세트를 가질 수 있어 헤더가 파일을 다르게 리졸브하게 될 수 있기 때문입니다. 실제로 그렇지는 않지만, 해야 하는 작업이 없으면 UBT 속도가 크게 향상됩니다.
 
 $ bTestIncludeDependencyResolveCache : 종속성 리졸브 캐시 테스트에 사용됩니다. 매번 리졸브하여 기존 리졸브 시도와 비교하는 것으로 리졸브 캐시에 충돌이 없는지 검증합니다.
 
-$ bUseUBTMakefiles : 타겟 데이터를 캐시하는 매우 빠른 반복처리형 빌드 지원 기능을 켭니다. 이 기능을 켜면 UBT 가 처음 빌드하는 타겟에 대해 'UBT Makefiles' 를 내보냅니다. 이후의 빌드는 이 Makefiles 를 로드하고 구버전 검사를 시작한 뒤 매우 빨리 빌드 호출(invocation)을 합니다. 현재 소스 파일 추가/제거 이후 프로젝트 파일 생성기를 실행시켜 UBT 에게 이 정보를 다시 수집하라고 해야 합니다.
+$ bUseUBTMakefiles : 타깃 데이터를 캐시하는 매우 빠른 반복처리형 빌드 지원 기능을 켭니다. 이 기능을 켜면 UBT 가 처음 빌드하는 타깃에 대해 'UBT Makefiles' 를 내보냅니다. 이후의 빌드는 이 Makefiles 를 로드하고 구버전 검사를 시작한 뒤 매우 빨리 빌드 호출(invocation)을 합니다. 현재 소스 파일 추가/제거 이후 프로젝트 파일 생성기를 실행시켜 UBT 에게 이 정보를 다시 수집하라고 해야 합니다.
     * UBT Makefile 을 무효화시킬 수 있는 경우는:
         * .cpp 파일 추가/제거
         * UObject 가 있는 .h 파일 추가/제거
@@ -146,6 +150,8 @@ $ bUseUBTMakefiles : 타겟 데이터를 캐시하는 매우 빠른 반복처리
     * 빠른 인클루드 파일 종속성 스캐닝 및 캐시 시스템도 활성화되어 언리얼 빌드 툴이 구버전 종속성을 매우 빠르게 감지해낼 수 있습니다. 활성화되면, 깊은 C++ 인클루드 그래프는 재생성할 필요가 없는 대신, 종속 빌드 제품이 이미 구버전인 것으로 판명난 이후 그에 대한 간접 인클루드 캐시 및 스캔만 합니다. 다음 빌드 도중, 그 캐시된 간접 인클루드를 로드하여 구버전 검사를 합니다.
 
 $ bAllowDistcc : DMUCS/Distcc 사용 여부입니다. Distcc 는 셋업이 조금 필요한데, 로컬 또는 원격 빌드가 깨지지 않도록 기본으로 끕니다.
+
+$ bAllowParallelExecutor : 윈도우에 병렬 실행기 사용 허용 여부입니다.
 
 $ bIgnoreJunk : junk manifest 로 식별되는 파일 검사 생략 여부입니다.
 
@@ -159,51 +165,125 @@ $ DMUCSCoordinator : DMUCS 코디네이터 호스트 이름 또는 IP 주소입�
 
 $ DMUCSDistProp : 컴파일 호스트에 대한 요청을 하기 위한 DMUCS 구분 프로퍼티 값입니다.
 
-$ ProcessorCountMultiplier : 로컬 실행을 위한 프로세서 수 배수입니다. 1 미만이면 CPU 를 다른 태스크에 예약합니다. (XGE 가 아닌) 로컬 익스큐터를 사용할 때, 각 CPU 코어에서 단일 액션을 실행합니다. 참고로 이를 보다 큰 값으로 설정하면 많은 경우 빌드 시간이 약간 빨라집니다만, 컴파일 도중 컴퓨터의 반응 속도가 훨씬 느려질 것입니다.
-
-$ MaxProcessorCount : 로컬 실행을 위한 최대 프로세서 수입니다.
-
 $ bXGENoWatchdogThread : no_watchdog_thread 옵션을 사용하여 VS2015 툴체인 멈춤 현상을 방지할지 여부입니다.
 
 $ bShowXGEMonitor : XGE 빌드 모니터 표시 여부입니다.
 
-$ bStopXGECompilationAfterErrors : 켜면 XGE 는 컴파일 오류가 발생한 이후 타겟 컴파일을 중지합니다. 추천하는 옵션인데, 다른 데 쓰이는 컴퓨팅 리소스가 절약되기 때문입니다.
+$ bStopXGECompilationAfterErrors : 켜면 XGE 는 컴파일 오류가 발생한 이후 타깃 컴파일을 중지합니다. 추천하는 옵션인데, 다른 데 쓰이는 컴퓨팅 리소스가 절약되기 때문입니다.
+
+### CLionGenerator
+
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
 
 ### CMakefileGenerator
 
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
+
 ### CodeLiteGenerator
+
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
 
 ### EddieProjectFileGenerator
 
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
+
 ### KDevelopGenerator
 
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
+
 ### MakefileGenerator
+
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
 
 ### ProjectFileGenerator
 
 $ Format : 생성할 기본 프로젝트 파일 포맷 목록입니다.
 
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
+
 ### QMakefileGenerator
 
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
+
 ### VSCodeProjectFileGenerator
+
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
 
 ### VCProjectFileGenerator
 
 $ Version : 프로젝트 파일 생성을 위한 Visual Studio 버전입니다.
 
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
+
 ### XcodeProjectFileGenerator
+
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
 
 ### SourceFileWorkingSet
 
 $ Provider : 워킹 세트 결정에 사용할 프로바이더를 설정합니다.
 
-$ RepositoryPath : 리포지터리에 사용할 경로를 설정합니다. 상대 경로인 경우 UE 루트(Engine 상위) 디렉토리를 기준으로 해석합니다.
+$ RepositoryPath : 리포지터리에 사용할 경로를 설정합니다. 상대 경로인 경우 UE 루트(Engine 상위) 디렉터리를 기준으로 해석합니다.
 
 $ GitPath : Git 실행파일에 사용할 경로를 설정합니다. 기본값은 "git" 입니다 (PATH 에 있다 가정).
 
+### VCMacProjectFileGenerator
+
+$ Version : 프로젝트 파일 생성 대상 Visual Studio 버전입니다.
+
+$ bIncludeDocumentation : 생성된 프로젝트에 문서를 포함시켜야 하면 true 입니다.
+
+$ MasterProjectName : 마스터 프로젝트 파일 (예: Visual Studio 의 솔루션 파일, Mac 에서는 Xcode 프로젝트 파일) 이름입니다.
+
+$ bMasterProjectNameFromFolder : true 면, 들어있는 폴더의 이름에 따라 마스터 프로젝트 이름을 설정합니다.
+
 ### IOSToolChain
 
-$ IOSSDKVersion : 빌드 시간에 타겟으로 삼을 iOS SDK 버전입니다.
+$ IOSSDKVersion : 빌드 시간에 타깃으로 삼을 iOS SDK 버전입니다.
 
 $ BuildIOSVersion : 빌드 시간에 허용할 iOS 버전입니다.
 
@@ -252,6 +332,10 @@ $ RSyncUsername : RSync 로 접속하기 위한 원격 머신의 사용자명입
 ### WindowsPlatform
 
 $ Compiler : 윈도우 플랫폼에서 사용할 컴파일러 툴체인 버전입니다. UBT 시작 시 "default" 값이 특정 버전으로 바뀝니다.
+
+$ CompilerVersion : 사용할 툴체인 버전입니다. 구체적인 버전 번호(예: "14.13.26128") 또는 "Latest" 스트링이면 사용할 수 있는 최신 버전을 선택합니다. 기본적으로, WindowsPlatform.DefaultToolChainVersion 을 사용할 수 있는 경우 명시된 툴체인 버전을, 아니면 최신 버전을 사용합니다.
+
+$ WindowsSdkVersion : 사용할 Windows SDK 버전입니다. 구체적인 버전 번호(예: "8.1", "10.0", "10.0.10150.0") 또는 "Latest" 스트링이면 사용할 수 있는 최신 버전을 선택합니다. 기본적으로, WindowsPlatform.DefaultWindowsSdkVersion 을 사용할 수 있는 경우 명시된 Windows SDK 버전을, 아니면 최신 버전을 사용합니다.
 
 $ StaticAnalyzer : 사용할 정적 분석기입니다.
 

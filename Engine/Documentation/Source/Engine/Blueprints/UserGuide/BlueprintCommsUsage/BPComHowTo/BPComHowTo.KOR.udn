@@ -2,12 +2,12 @@
 Availability:Docs
 Title:블루프린트 통신 비법
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide, Engine/Blueprints/UserGuide/BlueprintCommsUsage
-Description:블루프린트 통신의 사양한 메소드 셋업 및 사용법 예제입니다.
+Description:블루프린트 통신의 사양한 메서드 셋업 및 사용법 예제입니다.
 tags:Blueprints
 
 [TOC(start:2 end:4)]
 
-여기서는 다양한 **블루프린트 통신** 메소드 셋업 방법을 단계별로 배워보도록 하겠습니다.
+여기서는 다양한 **블루프린트 통신** 메서드 셋업 방법을 단계별로 배워보도록 하겠습니다.
 
 **블루프린트 통신** 각 유형을 언제 사용하는지에 대한 예제는, [](Engine\Blueprints\UserGuide\BlueprintCommsUsage) 문서를 참고하세요.
 
@@ -56,13 +56,13 @@ tags:Blueprints
 
 	![](2_8.png)
 
-	**Target Blueprint** 는 **변수 유형** 에 지정된 타겟으로만 (여기서는 **Blueprint_Effect_Sparks**) 설정할 수 있습니다.
+	**Target Blueprint** 는 **변수 유형** 에 지정된 타깃으로만 (여기서는 **Blueprint_Effect_Sparks**) 설정할 수 있습니다.
 
 1. **Shape_Cube** 블루프린트에서 **Ctrl** 키를 누른 채 변수를 초록에 끌어 놓습니다.
 
 	![](2_9.png)
 
-	1. 그러면 Get 노드가 추가되어, **타겟 블루프린트** 의 이벤트, 변수, 함수 등에 접근 가능합니다.
+	1. 그러면 Get 노드가 추가되어, **타깃 블루프린트** 의 이벤트, 변수, 함수 등에 접근 가능합니다.
 	1. 출력 핀을 끌어 놓아 맥락 메뉴를 띄웁니다.
 	
 	여기서 **Target Blueprint** 에서 스파크 이펙트와 스파크 오디오 컴포넌트를 검색하여 접근하고자 합니다.
@@ -102,13 +102,13 @@ tags:Blueprints
 
  **블루프린트 형변환** 을 사용하여, 다음과 같은 작업을 해 줍니다:
 
-1. **Default Pawn Class** 에 할당된 **캐릭터 블루프린트** (플레이 가능 캐릭터)가 접근하고자 하는 **타겟 블루프린트** 입니다.
+1. **Default Pawn Class** 에 할당된 **캐릭터 블루프린트** (플레이 가능 캐릭터)가 접근하고자 하는 **타깃 블루프린트** 입니다.
 
 	![](3_0b.png)
 
 	**Default Pawn Class** 는 **편집** - **프로젝트 세팅** 의 **맵 & 모드** 섹션에서 확인할 수 있습니다.
 
-1. 이제 우리 타겟이 **MyCharacter** 블루프린트임을 알았으니, 플레이어가 **Is on Fire** (불이 붙었는지) 나타내는 **불리언** 변수를 만듭니다.
+1. 이제 우리 타깃이 **MyCharacter** 블루프린트임을 알았으니, 플레이어가 **Is on Fire** (불이 붙었는지) 나타내는 **불리언** 변수를 만듭니다.
 
 	![](3_0c.png)
 
@@ -152,7 +152,7 @@ tags:Blueprints
 | 블루프린트 | 설명 |
 | -- | -- |
 | **Character** (1) | **Get Player Character** 노드가 사용되어 **MyCharacter** 라는 캐릭터 블루프린트로 형변환하고 있습니다. |
-| **PlayerController** (2) | **Get Player Controller** 노드가 사용되어 **MyController** 라는 플레이어 콘트롤러 블루프린트로 형변환하고 있습니다. |
+| **PlayerController** (2) | **Get Player Controller** 노드가 사용되어 **MyController** 라는 플레이어 컨트롤러 블루프린트로 형변환하고 있습니다. |
 | **Game Mode** (3) | **Get Game Mode** 노드가 사용되어 **MyGame** 이라는 게임 모드 블루프린트로 형변환하고 있습니다. |
 | **Pawn** (4) | **Get Controlled Pawn** 과 **Get Player Controller** 노드가 사용되어 **MyPawn** 이라는 폰 블루프린트로 형변환하고 있습니다. |
 | **HUD** (5) | **Get HUD** 와 **Get Player Controller** 노드가 사용되어 **MyHUD** 라는 HUD 블루프린트로 형변환하고 있습니다.  |
@@ -163,7 +163,7 @@ tags:Blueprints
 
 [/EXCERPT:OtherCasting]
 
-#### 타겟 블루프린트 형변환
+#### 타깃 블루프린트 형변환
 
 [EXCERPT:TargetCasting]
 
@@ -218,9 +218,9 @@ tags:Blueprints
 
 1. Spawn Actor 노드의 **Return Value** 을 끌어 놓은 다음 **Assign On Destroyed** 노드를 추가합니다.
 
-1. **OnDestroyed_Event** 를 끌어놓고 **Destroy Actor** 노드를 추가하여 타겟은 **SM_Bush** 로 합니다.
+1. **OnDestroyed_Event** 를 끌어놓고 **Destroy Actor** 노드를 추가하여 타깃은 **SM_Bush** 로 합니다.
 
-1. **Bind Event to OnDestroyed** 를 끌어놓고 **Delay** (3 초) 를 추가한 다음 **Destroy Actor** 를 추가한 뒤 타겟은 Spawn Actor 노드의 **Return Value** 로 합니다.
+1. **Bind Event to OnDestroyed** 를 끌어놓고 **Delay** (3 초) 를 추가한 다음 **Destroy Actor** 를 추가한 뒤 타깃은 Spawn Actor 노드의 **Return Value** 로 합니다.
 
 	![](Event9.png)(w:840)
 
@@ -279,7 +279,7 @@ tags:Blueprints
 
 	**Targets** 를 **MagicCube** 노드에 연결하고, **Get Player Character** 노드를 **Add** 노드에 연결합니다.
 
-1. 레벨에서 큐브를 선택하고, **디테일** 패널에서 타겟 아래 + 부호를 클릭한 다음 레벨에 있는 화염, 라이트, 스파크를 추가합니다.
+1. 레벨에서 큐브를 선택하고, **디테일** 패널에서 타깃 아래 + 부호를 클릭한 다음 레벨에 있는 화염, 라이트, 스파크를 추가합니다.
 
 	![](Interface8.png)
 

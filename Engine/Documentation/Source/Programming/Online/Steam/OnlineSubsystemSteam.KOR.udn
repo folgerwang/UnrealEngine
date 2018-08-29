@@ -44,7 +44,7 @@ Steam Subsystem 은 [Valve Steamworks](https://partner.steamgames.com/?goto=%2Fh
 [REGION:note]
 프로젝트의 Steamworks SDK 를 업데이트하면, 프로젝트의 Steamworks 경로에서 `[Current Version]` 부분도 업데이트해 줘야 합니다:  
 `/YourUnrealEnginePath/Engine/Source/ThirdParty/Steamworks/`**Steam[Current Version]**`/sdk`  
-프로젝트 디렉토리에 위치한 `Steamworks.build.cs` 파일 역시 업데이트해 줘야 할 것입니다.
+프로젝트 디렉터리에 위치한 `Steamworks.build.cs` 파일 역시 업데이트해 줘야 할 것입니다.
 ![](SteamworksCSFile.png)  
 이 예제에서 `[Current Version]` 포맷은 `v139` 입니다.
 [/REGION]
@@ -64,7 +64,7 @@ Steam Subsystem 은 [Valve Steamworks](https://partner.steamgames.com/?goto=%2Fh
 ## Steamworks SDK 셋업
 
 미리 컴파일된 엔진 버전에 대해 Steam 을 사용하기 위해서는, Valve 의 SDK 에서 동적으로 링크된 라이브러리(*.dll) 파일 몇 개를 올바른 폴더에 복사해 주기만 하면 됩니다.
-소스에 대해 엔진을 리컴파일하려는 경우, SDK 역시 제 위치에 있어야 합니다. 이제, SDK 의 `/redistributable_bin/` 디렉토리에서 관련된 재배포 파일을 다음 위치로 복사하면 됩니다:
+소스에 대해 엔진을 리컴파일하려는 경우, SDK 역시 제 위치에 있어야 합니다. 이제, SDK 의 `/redistributable_bin/` 디렉터리에서 관련된 재배포 파일을 다음 위치로 복사하면 됩니다:
 %Globals:osselect_linux%
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
@@ -78,7 +78,7 @@ Steam Subsystem 은 [Valve Steamworks](https://partner.steamgames.com/?goto=%2Fh
 	[/PARAMLITERAL]
 	[PARAM:content]
 		[REGION:note]
-			64 비트 라이브러리 중 몇몇은 Steam 클라이언트 디렉토리에서 찾을 수 있습니다 (이 글 작성 시점에서 Valve 는 SDK 에 모든 라이브러리르 포함하지 않은 상태입니다).
+			64 비트 라이브러리 중 몇몇은 Steam 클라이언트 디렉터리에서 찾을 수 있습니다 (이 글 작성 시점에서 Valve 는 SDK 에 모든 라이브러리르 포함하지 않은 상태입니다).
 		[/REGION]
 		`/YourUnrealEnginePath/Engine/Binaries/ThirdParty/Steamworks/Steam[Current Version]/Win64`
 		* steam_api64.dll
@@ -130,7 +130,7 @@ Steam Subsystem 은 [Valve Steamworks](https://partner.steamgames.com/?goto=%2Fh
 
 Steam Online Subsystem 을 사용하는 모든 게임은 유효한 어플리케이션 ID 가 있어야 하는데, 어플리케이션의 Steam App ID 를 알지 못하면 Steamworks API 초기화가 되지 않기 떄문입니다.
 Steam 초기화 전, UE4 는 `steam_appid.txt` 를 생성합니다 (엔진 정상적인 종료 도중 UE4 는 이 파일을 삭제합니다).
-한 가지 중요한 점은 `steam_appid.txt` 가 실행파일과 같은 디렉토리에 있어야 합니다. Steam 에서는 현재 작업 디렉토리에서 그 텍스트 파일을 찾기 때문입니다.
+한 가지 중요한 점은 `steam_appid.txt` 가 실행파일과 같은 디렉터리에 있어야 합니다. Steam 에서는 현재 작업 디렉터리에서 그 텍스트 파일을 찾기 때문입니다.
 추가적으로, 이 파일을 Steam 이미지에 포함시켜서는 안됩니다.
 
 `steam_appid.txt` 파일을 열면, **SteamDevAppId** 항목이 보이는데, 이 칸을 통해 어플리케이션 ID 를 Steam 에 알립니다.

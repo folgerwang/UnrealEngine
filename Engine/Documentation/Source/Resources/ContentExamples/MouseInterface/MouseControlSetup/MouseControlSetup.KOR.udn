@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3108692
 Availability: Public
-Title:마우스 콘트롤 셋업
+Title:마우스 컨트롤 셋업
 Crumbs:%ROOT%, Resources,  Resources/ContentExamples/MouseInterface
-Description:게임의 마우스 콘트롤 셋업 방법입니다.
+Description:게임의 마우스 컨트롤 셋업 방법입니다.
 Version: 4.9
 
 [TOC(start:2 end:2)]
@@ -18,12 +18,12 @@ Version: 4.9
 
 
 
-## 마우스 콘트롤용 커스텀 PlayerController 만들기
+## 마우스 컨트롤용 커스텀 PlayerController 만들기
 
 기본적으로 PlayerController 클래스에는 마우스 인터페이스가 켜져있지 않습니다. 모든 게임이 마우스 커서를 주요 상호작용 수단으로 사용하지는 않기 때문인데요. 마우스 커서의 사용이 가능해지는 커스텀 PlayerController 블루프린트 클래스 생성법을 단계별로 알아보면 다음과 같습니다.
 
 [REGION:note]
-	이 안내는 마우스 콘트롤 활성화를 위한 기본적인 단계에 지나지 않는다는 점에 유의하세요. 대부분의 경우 만들고자 하는 게임 유형에 따라 PlayerController 나 GameMode 를 커스터마이징해 주는 작업이 필요할 것입니다.
+	이 안내는 마우스 컨트롤 활성화를 위한 기본적인 단계에 지나지 않는다는 점에 유의하세요. 대부분의 경우 만들고자 하는 게임 유형에 따라 PlayerController 나 GameMode 를 커스터마이징해 주는 작업이 필요할 것입니다.
 [/REGION]
 
 1. _콘텐츠 브라우저_ 에서 (편의를 위해 Developer 폴더 사용) 우클릭한 다음 맥락 메뉴에서 **블루프린트 클래스** 를 선택합니다.

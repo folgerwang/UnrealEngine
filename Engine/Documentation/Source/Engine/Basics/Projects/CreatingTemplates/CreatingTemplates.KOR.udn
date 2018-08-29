@@ -9,7 +9,7 @@ version: 4.9
 기존 프로젝트를 템플릿으로 변환하려면:
 
 
-1.	프로젝트 폴더를 적합한 Templates 디렉토리로 이동시켜 줍니다:
+1.	프로젝트 폴더를 적합한 Templates 디렉터리로 이동시켜 줍니다:
 |엔진 버전 | 경로 | 
 |---------------|------|
 | 런처 | C:\Program Files\Unreal Engine\[Version]\Templates |

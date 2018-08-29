@@ -69,7 +69,7 @@ tags:Rendering
 1. FooPlugin 폴더에서 **Shaders** 라는 폴더를 새로 만들고, 그 폴더 안에 **Private** 이라는 폴더를 새로 만듭니다.
 
     [region:note]
-    **"/Plugin/Foo/?** 가 Engine/Shaders 디렉토리가 아닌 플러그인 **Foo Shaders/** 디렉토리에 매핑될 것입니다.
+    **"/Plugin/Foo/?** 가 Engine/Shaders 디렉터리가 아닌 플러그인 **Foo Shaders/** 디렉터리에 매핑될 것입니다.
     [/region]
 
 1. 새로 생성된 Private 폴더에서 새 파일을 만들어 **MyShader.usf** 라 합니다.
@@ -118,15 +118,15 @@ UE4 에서 사용할 셰이더를 새로 개발할 때는 알아둬야 할 셰�
 
 * **언리얼 셰이더 포맷 (.USF)**
     * 프라이빗 데이터 전용입니다.
-        * 프라이빗 디렉토리에 하위 호환성이 보장되지 않습니다.
+        * 프라이빗 디렉터리에 하위 호환성이 보장되지 않습니다.
     * 셰이더 엔트리 포인트가 있어야 합니다.
 
 
 ## 셰이더 파일 전처리 및 가상 파일 경로
 
-USF 셰이더 파일은 HLSL 언어에 기반한 것으로, 멀티 플랫폼 셰이더 코드가 들어있는 언리얼 엔진 셰이더 파일 포맷입니다. 멀티 플랫폼 지원을 위해, 엔진의 셰이더 컴파일러에는 (FXC, GLSL 크로스 컴파일용 HLSLCC 등의) 플랫폼 전용 셰이더 컴파일러 앞에 별도의 플랫폼 독립적 소스 파일 전처리 패스가 추가되어 있습니다. 그 결과 모든 #define 과 #if 를 이 처음 전처리 단계에서 분석(resolve)합니다. 물론, 각 플랫폼에는 (VULKAN_PROFILE 과 같은) 내장 #define 이 있어 셰이더 전처리 타겟 플랫폼을 알 수 있습니다.
+USF 셰이더 파일은 HLSL 언어에 기반한 것으로, 멀티 플랫폼 셰이더 코드가 들어있는 언리얼 엔진 셰이더 파일 포맷입니다. 멀티 플랫폼 지원을 위해, 엔진의 셰이더 컴파일러에는 (FXC, GLSL 크로스 컴파일용 HLSLCC 등의) 플랫폼 전용 셰이더 컴파일러 앞에 별도의 플랫폼 독립적 소스 파일 전처리 패스가 추가되어 있습니다. 그 결과 모든 #define 과 #if 를 이 처음 전처리 단계에서 분석(resolve)합니다. 물론, 각 플랫폼에는 (VULKAN_PROFILE 과 같은) 내장 #define 이 있어 셰이더 전처리 타깃 플랫폼을 알 수 있습니다.
 
-C/C++ 파일과 동일하게, #include "HelloWorld.usf" 로 usf 파일을 포함시킬 수 있는데, 그러면 #include 를 작성한 USF 파일과 같은 디렉토리에 저장된 HelloWorld.usf 파일을 포함시킵니다. 같은 파일을 여러 번 포함시키는 것을 피하기 위해서는, 파일 상단에 #pragma once 전처리 지시자를 사용하면 됩니다. 예:
+C/C++ 파일과 동일하게, #include "HelloWorld.usf" 로 usf 파일을 포함시킬 수 있는데, 그러면 #include 를 작성한 USF 파일과 같은 디렉터리에 저장된 HelloWorld.usf 파일을 포함시킵니다. 같은 파일을 여러 번 포함시키는 것을 피하기 위해서는, 파일 상단에 #pragma once 전처리 지시자를 사용하면 됩니다. 예:
 
 * FooCommon.usf 
         // File shared across all Plugin's shaders
@@ -153,9 +153,9 @@ C/C++ 파일과 동일하게, #include "HelloWorld.usf" 로 usf 파일을 포함
         // ...
 이와 같은 작업을 플러그인이나 프로젝트 모듈의 셰이더에서 하여 USF 파일을 포함시킬 수 있는데, 방법은 다음 둘 중 하나입니다:
 
-* 엔진에서 #include `/Engine/<FilePath>` 를 사용하며, `<FilePath>` 는 `//Engine/Shaders/` 디렉토리 기준 경로입니다.
+* 엔진에서 #include `/Engine/<FilePath>` 를 사용하며, `<FilePath>` 는 `//Engine/Shaders/` 디렉터리 기준 경로입니다.
 
-* 또는 다른 플러그인에서 #include `/Plugin/<PluginName>/<PluginFilePath>` 를 사용하며, `<PluginName>` 은 **활성화된** 플러그인 이름, `<PluginFilePath>` 는 플러그인의 `Shaders/` 디렉토리 기준 파일 경로입니다. .uplugin 의 올바른 플러그인에 대한 종속성을 추가하는 것은 개발자 책임입니다.
+* 또는 다른 플러그인에서 #include `/Plugin/<PluginName>/<PluginFilePath>` 를 사용하며, `<PluginName>` 은 **활성화된** 플러그인 이름, `<PluginFilePath>` 는 플러그인의 `Shaders/` 디렉터리 기준 파일 경로입니다. .uplugin 의 올바른 플러그인에 대한 종속성을 추가하는 것은 개발자 책임입니다.
 
 
 ## 첫 글로벌 셰이더
@@ -272,7 +272,7 @@ C/C++ 파일과 동일하게, #include "HelloWorld.usf" 로 usf 파일을 포함
 
 셰이더를 컴파일하여 UE4 에디터에 나타나도록 하는 과정에서 문제가 생긴 경우, 다음과 같은 방법을 시도해 보세요:
 
-* **Can't compile:** `/Plugin/<MyPluginName>/<MyFile>` **not found.** 오류가 나는 경우, 플러그인 모듈의 LoadingPhase 가 PostConfigInit 로 설정되었는지, 플러그인 Shaders/ 디렉토리 이름에 오타는 없는지 확인하세요.
+* **Can't compile:** `/Plugin/<MyPluginName>/<MyFile>` **not found.** 오류가 나는 경우, 플러그인 모듈의 LoadingPhase 가 PostConfigInit 로 설정되었는지, 플러그인 Shaders/ 디렉터리 이름에 오타는 없는지 확인하세요.
 
 * **Can't #include** `"/Plugin/<ParentPluginName>/<MyFile>":` 오류가 나는 경우, 부모 플러그인이 활성화되었는지, 그리고 플러그인 종속성도 확인하세요. .uplugin 또는 .uproject 에 플러그인 종속성이 없다는 뜻이기 때문입니다.
 

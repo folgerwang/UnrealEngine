@@ -67,7 +67,7 @@ _这两个 Angular Swing Motions（角性摇动）共享Damping（阻尼） 值,
 ## 关节驱动
 为了在一个关节中模拟'摩擦力'，您可以使用RB_ConstraintInstance(RB_约束实例)中的关节驱动属性(您可以通过选择关节 
 并押下'I'键或者工具条中的'I'按钮来在PhAT中获得这些属性。）  首先您想打开适当的bTwistVelocityDrive 或 bSwingVelocityDrive驱动，设置角速度 
-为零并且修改AngularDriveForceLimit来控制关节上的摩擦力的大小。您可以在[物理约束参考指南](Engine/Physics/PhysX/Constraints) 
+为零并且修改AngularDriveForceLimit来控制关节上的摩擦力的大小。您可以在[物理约束参考指南](Engine/Physics/Constraints) 
 页面获得更多的信息。
 
 这里的关键问题是阻尼是应用于两个相连接的物体间的。假设两个物体被连接到一起，然后被扔到了空中。如果您在这里使用了PhysicalMaterial(物理材质)阻尼， 

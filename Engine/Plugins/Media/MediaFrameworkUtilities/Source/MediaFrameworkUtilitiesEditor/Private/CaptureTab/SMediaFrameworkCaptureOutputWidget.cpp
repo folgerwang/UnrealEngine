@@ -305,7 +305,7 @@ void SMediaFrameworkCaptureCameraViewportWidget::Construct(const FArguments& InA
 		LevelViewportClient->ViewportType = LVT_Perspective;
 		LevelViewportClient->bDrawAxes = false;
 		LevelViewportClient->bDisableInput = true;
-		LevelViewportClient->SetAllowCinematicPreview(false);
+		LevelViewportClient->SetAllowCinematicControl(false);
 		LevelViewportClient->VisibilityDelegate.BindLambda([] {return true; });
 		LevelViewportClient->AutoSetPIE();
 	}

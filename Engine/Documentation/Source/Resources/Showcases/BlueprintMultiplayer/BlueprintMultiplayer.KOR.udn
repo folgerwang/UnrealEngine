@@ -92,9 +92,9 @@ topic-image:MultiplayerShootout_Featured-476x246-c51d69c862538ea6fb72a13f7a0034e
 
 준비 상태로 클릭하면 (서버 또는 클라이언트), 화면 좌상단에 텍스트가 표시되어 플레이어가 준비되었음을 알립니다.
 
-준비 완료 후 아래 콘트롤을 사용하여 게임을 플레이할 수 있습니다.
+준비 완료 후 아래 컨트롤을 사용하여 게임을 플레이할 수 있습니다.
 
-| 콘트롤 | 설명 |
+| 컨트롤 | 설명 |
 |---|---|
 | **오른쪽 마우스 버튼** | 무기를 겨눕니다 (누르고 있으면 겨누는 상태가 유지됩니다). |
 | **마우스** | 마우스를 움직이면 무기 조준이 가능한 **조준 모드** 로 들어갑니다. |
@@ -130,7 +130,7 @@ topic-image:MultiplayerShootout_Featured-476x246-c51d69c862538ea6fb72a13f7a0034e
 |---|---|
 | **MyGameInstance** | (인스턴스 블루프린트) - 메인 메뉴 및 하위 화면과 게임플레이를 오가는 모든 전환 상태는 물론 오류 이벤트를 처리합니다. |
 | **MyGameMode** | (게임 모드 블루프린트) - 모든 디폴트 클래스(Pawn, HUD, PlayerController, ...)를 담습니다. 또한 플레이어 리스폰 및 플레이어가 게임플레이 세션에 처음 참가했을 때 벌어지는 일도 처리합니다. |
-| **MyPlayerController** | (플레이어콘트롤러 블루프린트) 게임내 UI 를 구성하고 플레이어가 게임내 일시정지 메뉴를 열 수 있도록 합니다.|
+| **MyPlayerController** | (플레이어컨트롤러 블루프린트) 게임내 UI 를 구성하고 플레이어가 게임내 일시정지 메뉴를 열 수 있도록 합니다.|
 | **MyPlayerState** | (플레이어스테이트 블루프린트) 각 플레이어의 점수를 처리합니다. |
 | **ProjectileBP** | (액터 블루프린트) 플레이어끼리 서로 발사할 수 있는 프로젝타일이 대미지를 입힐 것인가 입니다. |
 | **State** | (Enum) 게임이 처해있을 수 있는 모든 상태 목록입니다. |
@@ -372,7 +372,7 @@ Loading Screen 이 표시된 이후, 스크립트는 **HostGameEvent** 와 **Cre
 
 ![](Gameplay1.png)
 
-**Event Post Login** 이 발동되면, 먼저 **Switch Has Authority** (1) 라는 엔진 매크로를 실행, 현재 실행중인 스크립트가 네트워크 오쏘리티(서버)에서 실행되었는지 아니면 원격 머신(클라이언트)에서 실행되었는지 검사합니다. 이 프로세스는 게임을 호스팅하든 참가하든 서버에서 일어나기 때문에, **Remote** 핀은 아무데도 가지 않지만, **Authority** 핀은 계속해서 Post Login 스크립트를 이어갑니다.
+**Event Post Login** 이 발동되면, 먼저 **Switch Has Authority** (1) 라는 엔진 매크로를 실행, 현재 실행중인 스크립트가 네트워크 오소리티(서버)에서 실행되었는지 아니면 원격 머신(클라이언트)에서 실행되었는지 검사합니다. 이 프로세스는 게임을 호스팅하든 참가하든 서버에서 일어나기 때문에, **Remote** 핀은 아무데도 가지 않지만, **Authority** 핀은 계속해서 Post Login 스크립트를 이어갑니다.
 
 [REGION:note]
 **Switch Has Authority** 에 대한 또다른 예제는, [](Resources/ContentExamples/Networking/1_2) 페이지를 참고하세요.
@@ -392,7 +392,7 @@ Loading Screen 이 표시된 이후, 스크립트는 **HostGameEvent** 와 **Cre
 
 ![](Gameplay4.png)
 
-이 함수는 **Branch** (1) 로 시작하여 타겟으로 삼은 콘트롤러가 로컬 플레이어 타겟인지 검사한 다음, 그렇다면 **Create Widget** (2) 을 사용하여 **HUD** 위젯 블루프린트를 생성합니다. 그 후 **HUD** 위젯을 **HUD Widget** (3) 으로 승격시키고 **Add to Viewport** (4) 노드로 위젯을 플레이어의 뷰포트에 추가시킵니다. (5) 에서 또다른 **Create Widget** 노드를 사용하여 **InGame Menu** 위젯 블루프린트를 생성하고 **InGameMenuWidget** 변수로 승격(6)시켜, 플레이어가 메뉴를 띄우기 위한 버튼을 누르면 In Game Menu 를 표시하기 위해 호출할 수 있습니다.
+이 함수는 **Branch** (1) 로 시작하여 타깃으로 삼은 컨트롤러가 로컬 플레이어 타깃인지 검사한 다음, 그렇다면 **Create Widget** (2) 을 사용하여 **HUD** 위젯 블루프린트를 생성합니다. 그 후 **HUD** 위젯을 **HUD Widget** (3) 으로 승격시키고 **Add to Viewport** (4) 노드로 위젯을 플레이어의 뷰포트에 추가시킵니다. (5) 에서 또다른 **Create Widget** 노드를 사용하여 **InGame Menu** 위젯 블루프린트를 생성하고 **InGameMenuWidget** 변수로 승격(6)시켜, 플레이어가 메뉴를 띄우기 위한 버튼을 누르면 In Game Menu 를 표시하기 위해 호출할 수 있습니다.
 
 [REGION:note]
 이 시점에서, "login" 프로세스가 완료되어 캐릭터 자체의 셋업이 **Character Animation Blueprint** 를 통해 일어납니다. 각각의 캐릭터 이동 상태를 정의하고 애니메이션을 설정하였으나, 그 부분은 여기서 다루지 않겠습니다. **애니메이션 블루프린트** 관련 상세 내용은 [](Engine/Animation/AnimBlueprints) 문서를 참고하세요.

@@ -553,9 +553,6 @@ public:
 	 */
 	static UObject* GetOrCreateMaterialFromTexture( UTexture* UnrealTexture );
 
-	/** Whether transport controls can be attached */
-	virtual bool CanAttachTransportControls() const { return true; }
-
 protected:
 	/**
 	* Sets the state of creating a preview actor in the viewport.

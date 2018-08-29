@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:3717037
+Availability: Public
 Crumbs: %ROOT%
-Title: Animation Modifiers
-Description:Animation Modifiers enable users to define a sequence of actions for a given animation sequence or skeleton.
+Title: 动画修改器
+Description:动画修改器可以让用户为特定动画序列或骨架定义一个动作序列。
 Type: Overview
 SkillLevel: Advanced
 Version: 4.17
@@ -11,134 +11,161 @@ Order: 1
 Tags: Animation Notifies
 Tags: Skeleton
 Tags: Animation Asset Editor
-topic-image:Engine/Physics/physics_topic.png
-
-[REGION:warning]
-This feature is currently experimental and is in development, therefore some features may not work as expected. 
-[/REGION]
 
 [TOC (start:2 end:2)]
 
-**Animation Modifiers (Anim Modifier)** are a type of native or [](Engine/Blueprints/UserGuide/Types/ClassBlueprint) that enable users to apply a sequence of actions to an [Animation Sequence](Engine/Animation/Sequences) or [Skeleton](Engine/Animation/Skeleton) asset.
-This includes but is not limited to things like creating automatic foot sync markers by pin-pointing on which frames(s) the right or left foot is placed on the ground and adding **Animation Sync Markers** to frames where a foot bone is at its lowest point (touching the floor). 
+[REGION:warning]
+本功能目前为试验性功能，仍在开发阶段，因此某些功能可能无法正常工作。 
+[/REGION]
 
-Accessing and applying Anim Modifiers is performed in either the **Animation Editor** or **Skeleton Editor** under the **Animation Data** tab. 
-When applying an Anim Modifier to a Skeleton, the modifier is applied to all Animation Sequences that are based on the Skeleton. 
-When applying the modifier to an Animation Sequence, it is only applied to the sequence itself and no other sequences. 
+**动画修改器（Anim Modifier）** 是一种原生或[](Engine/Blueprints/UserGuide/Types/ClassBlueprint)，让用户可以对[动画序列](Engine/Animation/Sequences)或[骨架](Engine/Animation/Skeleton)资源应用一系列动作。
+例如，精确定位左脚或右脚踩到地面时的帧来创建自动脚部同步标记（等诸如此类的各种应用）。通过使用该信息，可以将 **动画同步标记** 添加到脚部骨骼处于最低点（或接触地面）时的帧。 
 
-## Creating an Anim Modifier
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	YC_UJuO9AI8
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
 
-To get started, you will need to create an Anim Modifier Blueprint class: 
+[REGION:caption]
+在以上视频中，使用动画修改器生成自动脚部同步标记。 
+[/REGION]
 
-1. In your project's **Content Browser**, click the **Add New** button and select **Blueprint Class**.
+
+要访问和应用动画修改器，可以前往 **动画编辑器** 或 **骨架编辑器** 下的 **动画数据** 选项卡。 
+将动画修改器应用于骨架时，它会应用于基于该骨架的所有动画序列。 
+将修改器应用于动画序列时，它仅应用于序列本身，而不会应用于其他序列。 
+
+## 创建动画修改器
+
+首先，您需要创建动画修改器蓝图类： 
+
+1. 在项目的 **内容浏览器** 中，单击 **新增（Add New）** 按钮并选择 **蓝图类（Blueprint Class）**。
 
 	![](Create_01.png)
 
-1. In the **Pick Parent Class** window, expand **All Classes** and search for and select **Animation Modifier**, click **Select** then give it a name.
+1. 在 **选择父类（Pick Parent Class）** 窗口中，展开 **所有类（All Classes）**，搜索并选择 **动画修改器（Animation Modifier）**，然后单击 **选择（Select）**，为其指定名称。
 
 	![](Create_02.png)
 
-1. Double-click the new Animation Modifier Blueprint to open it up in the Blueprint Editor. 
+1. 双击这个新的动画修改器蓝图，以在蓝图编辑器中将其打开。 
 
 	![](Create_03.png)
 
-With your Anim Modifier created, you can now use Blueprint Script and functions contained with the **Animation Blueprint Library** to access and manipulate animation data. 
+创建动画修改器后，您现在可以使用蓝图脚本和 **动画蓝图库** 包含的功能来访问和处理动画数据。 
 
-### Animation Blueprint Library
+### 动画蓝图库
 
-Right-click in the graph of the Anim Modifier Blueprint to see the context menu and list of functions available, particularly under the Animation Blueprint Library. 
+在动画修改器蓝图的图形中单击右键，可以看到上下文菜单和可用功能列表，这些功能主要来自于动画蓝图库。 
 
 ![](AnimBPLibrary.png)
 
 [REGION:caption]
-In the image above, functions related to **Marker Syncing** are expanded which enable you to synchronize animations using marker data. 
+在上图中，展开了与 **标记同步（Marker Syncing）** 有关的功能，使您可以使用标记数据同步动画。 
 [/REGION]
 
-Before working with the various functions available for accessing data, you will want to implement the **OnApply** and **OnRevert** events. 
-The OnApply Event enables the user to change, add or remove data from the animation while the OnRevert enables the user to remove previously applied user changes (or return the sequence to its original state). 
-Each event returns the Animation Sequence in which to feed the Animation Blueprint Library operations. 
+在使用可用来访问数据的各项功能之前，您需要先实现 **OnApply** 和 **OnRevert** 事件。 
+OnApply事件让用户可以在动画中更改、添加或删除数据，而OnRevert让用户可以删除之前应用的用户更改（或将序列恢复为原始状态）。 
+每个事件都会返回相应的动画序列来为动画蓝图库操作提供输入信息。 
 
 ![](EventNodes.png)
 
 [REGION:caption]
-In the image above, when the Anim Modifier is applied, a new Notify track is created with the defined name while reverting the Anim Modifier, the track is removed. 
-[/REGION]
-
-### Exposing Properties
-
-Inside your Anim Modifier Blueprint, you will want to expose parameters using **Instance Editable** that you can manipulate within the **Animation Tab** in the Animation Tools
-
-![](InstanceEditable.png)
-
-[REGION:caption]
-In the image above, we use a structure variable containing information that we can set for the name of a bone as well as provide an offset. 
-[/REGION]
-
-Inside our Animation Sequence when we implement our Anim Modifier and apply it, we can see our exposed parameters. 
-
-![](AnimDataVariables.png)
-
-[REGION:caption]
-In the image above, we enter the names of the bones that we want to include in our Anim Modifier in which to gather animation data (such as Bone Transform) from. 
+在上图中，应用动画修改器时，将以定义的名称创建新通知（Notify）轨道，而还原动画修改器时，会删除该轨道。 
 [/REGION]
 
 
-## Implementing an Anim Modifier
+## 实现动画修改器
 
-Implementing an Anim Modifier can be done inside a **Skeleton** asset (to add to the Anim Modifier to all animations associated with the Skeleton) or in a single Animation Sequence. 
+实现动画修改器可以在 **骨架** 资源内执行（目的是将动画修改器添加到与该骨架关联的所有动画），也可以在单个动画序列中执行。 
 
-1. Inside the **Skeleton Editor** or **Animation Editor**, go to **Window** menu option and select **Animation Data Modifiers**. 
+1. 在 **骨架编辑器** 或 **动画编辑器** 中，转至 **窗口（Window）** 菜单选项，并选择 **动画数据修改器（Animation Data Modifiers）**。 
 
 	![](Implement_01.png)
 
-1. In the **Animation Data Modifiers** tab, select **Add Modifier** and select your desired **Anim Modifier Blueprint**. 
+1. 在 **动画数据修改器（Animation Data Modifiers）** 选项卡中，选择 **添加修改器（Add Modifier）** 并选择所需 **动画修改器蓝图（Anim Modifier Blueprint）**。 
 
 	![](Implement_02.png)
 
-1. Right-click on your Anim Modifier Blueprint then click **Apply Modifier** to apply the Anim Modifier and any changes (or **Revert Modifier** to remove changes). 
+1. 右键单击动画修改器蓝图，然后单击 **应用修改器（Apply Modifier）** 以应用动画修改器以及任何更改（或单击 **还原修改器（Revert Modifier）** 以删除更改）。 
 
 	![](Implement_03.png)
 
-	Your Anim Modifier will be listed as **Out of Date** until you apply it. 
+	在应用动画修改器之前，它将列示为 **过时（Out of Date）**。 
 
-Any properties that you have set as **Instance Editable** will be available to edit in the **Animation Data Modifiers** tab. 
+	以下是应用于以骨架图标指示的骨架资源的动画修改器示例。 
+
+	![](SkeletonModifier.png)
+
+您设置为 **实例可编辑（Instance Editable）** 的任何属性都可以在 **动画数据修改器（Animation Data Modifiers）** 选项卡中编辑。 
 
 ![](Implement_04.png)
 
 [REGION:caption]
-In the image above, we define properties that can be used to drive automatic foot syncing. 
+在上图中，我们定义了可以用来驱动自动脚部同步的属性。 
+[/REGION]
+
+### 公开属性
+
+在您的动画修改器蓝图内部，您想要使用 **实例可编辑（Instance Editable）** 来公开可以在动画工具的 **动画（Animation）** 选项卡中操作的参数
+
+![](InstanceEditable.png)
+
+[REGION:caption]
+在上图中，我们使用一个结构变量，其中包含我们可以为骨骼名称设置并提供偏移值的信息。 
+[/REGION]
+
+在动画序列内部，当我们实现并应用动画修改器时，会看到公开的参数。 
+
+![](AnimDataVariables.png)
+
+[REGION:caption]
+在上图中，我们输入了想要包含在动画修改器中的骨骼名称，这个动画修改器将提供动画数据（如骨骼转换）。 
 [/REGION]
 
 
-## Animation Blueprint Library Reference
+## 动画蓝图库参考
 
-While there are several different nodes available within the Animation Blueprint Library, this section lists some of the more commonly used types within Anim Modifiers.
+虽然动画蓝图库中有若干不同的节点，但本节仅列出动画修改器中较为常用的部分类型。
 
-### Add/Remove Notify and Curve Tracks
+### 添加/删除通知（Notify）和曲线（Curve）轨迹
 
 ![](NotifiesAndCurves.png)
 
-These nodes enable you to dynamically add Notify or Curve Tracks to the specified Animation Sequence. 
-Once Notify or Curve Tracks have been added, you can add various types of keys or events to those tracks. 
-For example, you may want to **Add Float Curve Keys** to a Curve Track, **Add Animation Notify Events** or **Add Animation Sync Markers** to a Notify Track. 
+这些节点让您可以动态地向指定动画序列添加通知（Notify）或曲线（Curve）轨迹。 
+添加通知（Notify）或曲线（Curve）轨迹后，您可以将多种类型的键或事件添加到这些轨迹。 
+例如，您可能想要向曲线（Curve）轨迹 **添加浮动曲线键（Add Float Curve Keys）**，向通知（Notify）轨迹 **添加动画通知事件（Add Animation Notify Events）** 或 **添加动画同步标记（Add Animation Sync Markers）**。 
 
 ![](AddMarkers.png)
 
-### Get Bone Pose
+### 获取骨骼姿势
 
 ![](GetPose.png)
 
-To get Bone Transform data you can use the **Get Bone Pose for Frame** or **Get Bone Pose for Time** nodes which will return the Bone Transform for the provided Animation Sequence with the specified Bone Name. 
-Alternatively, you can use the **Get Bone Poses for Frame** or **Get Bone Poses for Time** to collect Bone Transforms for a specified array of Bone Names. 
+要获取骨骼转换数据，您可以使用 **获取适用于帧的骨骼姿势（Get Bone Pose for Frame）** 或 **获取适用于时间的骨骼姿势（Get Bone Pose for Time）** 节点，这两类节点将针对所提供动画序列和指定的骨骼名称返回骨骼转换。 
+或者，您可以使用 **获取适用于帧的骨骼姿势（Get Bone Pose for Frame）** 或 **获取适用于时间的骨骼姿势（Get Bone Pose for Time）** 来收集指定骨骼名称数组的骨骼转换。 
 
 [REGION:note]
-When getting Bone Transforms the transform data will be in local space. If you need it to be in component space, you will need to manually convert the transforms. 
+在获取骨骼转换时，转换数据将保存在本地空间。如果您需要存放在组件空间，将需要手动对转换数据进行变换。 
 [/REGION]
 
-### Helper Nodes
+### 辅助（Helper）节点
 
 ![](HelperNodes.png)
 
-The Animation Blueprint Library nodes include several helper nodes including nodes for converting frame and time information (**Get Time at Frame** or **Get Frame at Time**). 
-Another node that is useful for getting information is the **Find Bone Path to Root** which will take an Animation Sequence and a Bone Name (typically the Root Bone) and output a list of Bone Names in a chain. 
+动画蓝图库节点包含若干辅助节点，其中包括用于转换帧和时间信息的节点（**获取帧的时间（Get Time at Frame）** 或 **获取时间的帧（Get Frame at Time）**）。 
+另一个用于获取信息的节点是 **查找通向根的骨骼路径（Find Bone Path to Root）**，该节点将接受动画序列和骨骼名称（通常是根骨骼）为输入信息，然后以链的形式输出一列骨骼名称。 
+
 

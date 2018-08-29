@@ -51,7 +51,7 @@ VR Mirror (VR 미러)는 VR 사용자 이외에게 VR 사용자가 보는 화면
 |**vr.oculus.Debug.NCP**|현재 니어 클리핑 플레인을 표시 또는 덮어씁니다. |
 |**vr.oculus.Debug.Reset**|다양한 스테레오 렌더링 파라미터를 원래 세팅으로 리셋시킵니다. |
 |**vr.oculus.Debug.Show**|다양한 스테레오 렌더링 파라미터의 현재 값을 표시합니다. |
-|**vr.oculus.PixelDensity**|픽셀 밀도는 렌더 타겟 텍스처 크기를 추천 텍스처 크기 단위로 설정합니다. 이 수치는 기본 해상도보다 약간 클 수 있기에, PixelDensity 값을 1.0 으로 설정해도 r.ScreenPercentage 를 100 으로 설정한 것과 같지는 않습니다. |
+|**vr.oculus.PixelDensity**|픽셀 밀도는 렌더 타깃 텍스처 크기를 추천 텍스처 크기 단위로 설정합니다. 이 수치는 기본 해상도보다 약간 클 수 있기에, PixelDensity 값을 1.0 으로 설정해도 r.ScreenPercentage 를 100 으로 설정한 것과 같지는 않습니다. |
 |**vr.oculus.PixelDensity.adaptive**|적응형 픽셀 밀도를 켜고 끕니다. |
 |**vr.oculus.PixelDensity.max**|적응형 픽셀 밀도를 켰을 때 최대 픽셀 밀도입니다. |
 |**vr.oculus.PixelDensity.min**|적응형 픽셀 밀도를 켰을 때 최소 픽셀 밀도입니다. |

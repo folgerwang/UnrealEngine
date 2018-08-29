@@ -48,7 +48,7 @@ ACES Viewing Transform 은 뷰 파이프라인에서 다음과 같은 방식으�
 * **Look Modification Transform (LMT)** - 프로세스 이 부분은 창의적 "외형" (컬러 그레이딩 및 보정)을 적용시킨 ACES 컬러 인코딩된 이미지를 받은 뒤, ACES 로 렌더링된 이미지를 출력합니다. 여기에는 Reference Rendering Transform (RRT) 와 Output Device Transform (ODT) 가 조합됩니다.
 * **Reference Rendering Transform (RRT)** - 그리고서 이 부분은 씬 참조 컬러 값을 받아 디스플레이 참조 값으로 변환합니다. 이 과정에서 렌더링된 이미지가 특정 디스플레이에만 의존하도록 하는 대신, 
 아직 생성되지 않은 디스플레이를 포함해서 출력 대상 디스플레이에 맞도록 더 큰 색 공간과 다이내믹 레인지를 갖도록 합니다.
-* **Output Device Transform (ODT)** - 마지막으로 이 단계에서는 RRT 의 HDR 데이터 출력을 받은 뒤 다양한 디바이스와 거기서 디스플레이 가능한 컬러 스페이스에 일치시킵니다. 이 때문에, 각 타겟은 
+* **Output Device Transform (ODT)** - 마지막으로 이 단계에서는 RRT 의 HDR 데이터 출력을 받은 뒤 다양한 디바이스와 거기서 디스플레이 가능한 컬러 스페이스에 일치시킵니다. 이 때문에, 각 타깃은 
 일치시킬 별도의 ODT 가 필요합니다 (예: Rec709, Rec2020, DCI-P3, 등).
 
 [REGION:note]

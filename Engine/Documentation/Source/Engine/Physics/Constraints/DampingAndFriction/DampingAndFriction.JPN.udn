@@ -68,7 +68,7 @@ _2 つの Angular Swing Motions は、Damping (減衰) 値を共有し、Angular
 ## Joint Drive
 ジョイント内で「摩擦」をシミュレーションするには、RB_ConstraintInstance でジョイント ドライブ プロパティを使用します 
  (RB_ConstraintInstance プロパティは、ジョイントを選択し、'I' キーを押すか、ツールバーの'i' のアイコンを押すことで、PhAT でこのプロパティを利用できます)。最初に、適切な bTwistVelocityDrive または bSwingVelocityDrive ドライブをオンにして、必要な角速度をゼロに設定し、 
-AngularDriveForceLimit を変更してジョイントにどの程度の摩擦があるかを制御します。詳しい情報は [物理コンストレイントのリファレンス](Engine/Physics/PhysX/Constraints) 
+AngularDriveForceLimit を変更してジョイントにどの程度の摩擦があるかを制御します。詳しい情報は [物理コンストレイントのリファレンス](Engine/Physics/Constraints) 
  ページをご覧ください。 
 
 重要なことは、2 つの結合されたオブジェクトの間に減衰が適用されるということです。2 つのオブジェクトが結合されているが、空間に投げ出されている様子を想像してみてください。この場合に PhysicalMaterial 減衰を使用すると、 

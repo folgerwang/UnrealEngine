@@ -34,7 +34,7 @@ UE4 에서 사용할 수 있는 여러가지 빌드 구성 각각의 차이점�
 		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	**디렉토리 열기** 메뉴가 뜨면, **새 폴더** 버튼으로 `Android_Builds` 라는 폴더를 새로 만듭니다.
+1.	**디렉터리 열기** 메뉴가 뜨면, **새 폴더** 버튼으로 `Android_Builds` 라는 폴더를 새로 만듭니다.
 
 	[REGION:lightbox]
 		[![](LinuxAndroid_Step32.png)(w:720)](LinuxAndroid_Step32.png)

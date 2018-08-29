@@ -69,6 +69,6 @@ Version: 4.9
 **Find Look at Rotation** 노드는 시작 위치와 끝 위치가 주어졌을 때 로테이션 값을 생성합니다. 결과 로테이션 값을 시작 위치에 있는 컴포넌트에 적용하여 끝 위치를 향하도록 합니다. 이 _블루프린트_ 에서 시작 위치는 스포트라이트의 위치이고, 끝 위치는 플레이어 폰의 위치입니다. 로테이터 값을 분해하여 나온 **Pitch** 와 **Yaw** 값은 각각 스포트 라이트와 힌지 _스태틱 메시 컴포넌트_ 에 적용해 줍니다.  
 
 (두 로테이션 값 보간용) **RInterp** 와 같은 보간 노드는 매 프레임 실행되는 노드, 즉 타임라인 상의 **Update** 핀이나 **ReceiveTick** 이벤트 등에 연결된 것에 값을 물려주도록 고안되어 있습니다. 본질적으로는 지정된 **Interp Speed** (보간 속도)에 따라 **Current Value** (현재 값)에서 **Target Value** (목표 값)으로 부드럽게 블렌딩해 들어가는 것입니다. 그러한 노드의 작동을 위해서는, **Delta Time** (경과 시간) 값을 제공해 줘야 합니다.  
-이 블루프린트에서 **Delta seconds** (경과된 초) 변수는 **Event Tick** 출력에서 설정됩니다. 여기서 **RInterp** 노드는 **Set World Rotation** 노드에 연결하여 **Spotlight mesh** 와 **Hinge mesh** 컴포넌트를 부드럽게 회전시켜 주고 있고, **Interp Speed** 를 낮게 설정하여 스포트 라이트가 타겟에 살짝 뒤쳐지도록 하고 있습니다.
+이 블루프린트에서 **Delta seconds** (경과된 초) 변수는 **Event Tick** 출력에서 설정됩니다. 여기서 **RInterp** 노드는 **Set World Rotation** 노드에 연결하여 **Spotlight mesh** 와 **Hinge mesh** 컴포넌트를 부드럽게 회전시켜 주고 있고, **Interp Speed** 를 낮게 설정하여 스포트 라이트가 타깃에 살짝 뒤쳐지도록 하고 있습니다.
 
 [/REGION]
