@@ -19,7 +19,7 @@ topic-icon:%ROOT%/platform_icon.png
 
 [DIR(end:"2" output:"topic" type:"landing" parent:"Platforms" tags:"VR" tags:"Platform" org:"hierarchy")]
 
-## 데스크탑
+## 데스크톱
 
 [DIR(end:"2" output:"topic" type:"landing" parent:"Platforms" tags:"Desktop" org:"hierarchy")]
 

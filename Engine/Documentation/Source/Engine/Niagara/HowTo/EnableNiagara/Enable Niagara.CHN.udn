@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3710462
 Availability: Docs
 Crumbs: %ROOT%, 
-Title:Enable the Niagara Plugin
-Description:Describes how you can enable the Niagara.
+Title:启用Niagara插件
+Description:描述如何启动Niagara。
 Type: how-to
 SkillLevel:Beginner
 Version: 4.17
@@ -11,26 +11,26 @@ order:1
 tags:Niagara
 topic-image:
 
-Before you can begin to create visual effects using Niagara you will need to enable it via the **Plugins** menu. In the following How - to we go over what needs to be done in your UE4 project so that you can use Niagara.
+首先必须通过 **插件（Plugins）** 菜单启用Niagara，然后才能开始使用Niagara创建视觉效果。在以下操作指南中，我们将说明需要在UE4中完成的所有操作，以便您能够使用Niagara。
 
 ![](HT_EnableNP_01.png)
 
-## Steps
+## 步骤
 
-1. First we need to open the Plugins menu by going to **Edit** > **Plugins**.
+1. 首先，我们需要转至 **编辑（Edit）** >**插件（Plugins）** 来打开插件（Plugins）。
 
-	![](HT_EnableNP_00.png)
+  ![](HT_EnableNP_00.png)
 
-1. In the Plugins menu, locate the **FX** section and then under Niagara, click on the **Enabled** checkmark box.
+1. 在插件（Plugins）菜单中，找到 **FX** 部分，然后在Niagara下面，单击 **启用（Enabled）** 复选框。
 
-	![](HT_EnableNP_02.png)
+  ![](HT_EnableNP_02.png)
 
-1. Now press the **Restart Now** button to restart the Unreal Engine 4 (UE4) Editor with the Niagara plugin enabled.
+1. 现在按 **立即重启（Restart Now）** 按钮来重新启动已经启用Niagara插件的虚幻引擎4（UE4）编辑器。
 
-	![](HT_EnableNP_04.png)
+  ![](HT_EnableNP_04.png)
 
-## End Result
+## 最终结果
 
-Once the UE4 Editor has re-started, when you right - click in the **Content Browser** you will have a new **FX** section that will have all of the various items you can use with Niagara.
+UE4编辑器重新启动后，右键单击 **内容浏览器（Content Browser）** 中时，会看到一个新的 **FX** 部分，其中包含您可以通过Niagara使用的各种项。
 
 ![](HT_EnableNP_03.png)

@@ -53,7 +53,3 @@ Related: Engine/Rendering/ParticleSystems/Optimization
 
 这种特效创建了对魔法火花在球形表面附近移动的模拟，还加上了火焰特效。 此火焰在本质上和以上所述的火炬的火焰相同。 火花由受本地矢量场驱动的GPU平面粒子系统所组成。 矢量场以漩涡方式移动粒子。 随后我们对矢量场使用旋转速率模块，从而创建出在多轴上平稳旋转的漩涡。 随着粒子在这个旋转的矢量场上的移动，它们以您在特效中所见到的漩涡方式被推动。
 
-
-
-
-[INCLUDE:Resources\Showcases\Effects#ParticleTopics]

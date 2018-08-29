@@ -1,14 +1,14 @@
 ﻿INTSourceChangelist:3801260
 Availability:Public
-Title: 인바이언먼트 쿼리 시스템 노드 참고서
+Title: 인바이런먼트 쿼리 시스템 노드 참고서
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem
-Description:인바이언먼트 쿼리 시스템 에디터에서 사용할 수 있는 여러가지 노드에 대한 분석 및 설명입니다.
+Description:인바이런먼트 쿼리 시스템 에디터에서 사용할 수 있는 여러가지 노드에 대한 분석 및 설명입니다.
 version: 4.9
 
 
 [toc]
 
-인바이언먼트 쿼리 에디터에서 사용할 수 있는 노드와 테스트에 대한 간략 참고서입니다.
+인바이런먼트 쿼리 에디터에서 사용할 수 있는 노드와 테스트에 대한 간략 참고서입니다.
 
 ## 제너레이터
 
@@ -265,7 +265,7 @@ version: 4.9
 
 ## Contexts
 
-**Context**, 컨텍스트는 실제 노드는 아니지만 인바이언먼트 쿼리 작업방식에 중요한 부분을 차지하므로 여기에 참고삼아 나열합니다.
+**Context**, 컨텍스트는 실제 노드는 아니지만 인바이런먼트 쿼리 작업방식에 중요한 부분을 차지하므로 여기에 참고삼아 나열합니다.
 
 ### EnvQueryContext_Item
 
@@ -273,7 +273,7 @@ version: 4.9
 
 ### EnvQueryContext_Querier
 
-**Querier**, 질의자는 현재 이 인바이언먼트 쿼리에서 호출된 비헤이비어 트리를 실행하는 AI 콘트롤러에 의해 소유된 Pawn 입니다.
+**Querier**, 질의자는 현재 이 인바이런먼트 쿼리에서 호출된 비헤이비어 트리를 실행하는 AI 컨트롤러에 의해 소유된 Pawn 입니다.
 
 
 

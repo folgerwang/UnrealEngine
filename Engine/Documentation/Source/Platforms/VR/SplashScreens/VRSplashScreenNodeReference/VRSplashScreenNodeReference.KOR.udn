@@ -55,7 +55,7 @@ Tags: VR
 
 ## Oculus Specific Splash Screens
 
-Oculus 전용 스플래시 화면 노드 각각이 하는 일에 대한 분석은 다음과 같습니다. Oculus HMD 를 타겟으로 삼은 경우 다음 노드만 사용해야 한다는 점 유념해 주시기 바랍니다.
+Oculus 전용 스플래시 화면 노드 각각이 하는 일에 대한 분석은 다음과 같습니다. Oculus HMD 를 타깃으로 삼은 경우 다음 노드만 사용해야 한다는 점 유념해 주시기 바랍니다.
 
 ### Add Loading Splash Screen
 

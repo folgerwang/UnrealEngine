@@ -8,6 +8,7 @@
 #include "MovieScene.h"
 #include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
+#include "Algo/Accumulate.h"
 
 
 DECLARE_CYCLE_STAT(TEXT("Event Track Token Execute"), MovieSceneEval_EventTrack_TokenExecute, STATGROUP_MovieSceneEval);
@@ -159,15 +160,193 @@ struct FEventTrackExecutionToken
 	TArray<FMovieSceneObjectBindingID, TInlineAllocator<2>> EventReceivers;
 };
 
-FMovieSceneEventSectionTemplate::FMovieSceneEventSectionTemplate(const UMovieSceneEventSection& Section, const UMovieSceneEventTrack& Track)
-	: EventData(Section.GetEventData())
-	, EventReceivers(Track.EventReceivers)
+struct FEventTriggerExecutionToken
+	: IMovieSceneExecutionToken
+{
+	FEventTriggerExecutionToken(TArray<FName> InEvents, const TArray<FMovieSceneObjectBindingID>& InEventReceivers)
+		: Events(MoveTemp(InEvents)), EventReceivers(InEventReceivers)
+	{}
+
+	/** Execute this token, operating on all objects referenced by 'Operand' */
+	virtual void Execute(const FMovieSceneContext& Context, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
+	{
+		MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_EventTrack_TokenExecute)
+
+		UObject* DirectorInstance = Player.GetEvaluationTemplate().GetOrCreateDirectorInstance(Operand.SequenceID, Player);
+		if (!DirectorInstance)
+		{
+#if !NO_LOGGING
+			UE_LOG(LogMovieScene, Warning, TEXT("Failed to trigger the following events because no director instance was available: %s."), *GenerateEventListString());
+#endif			
+			return;
+		}
+
+		// Resolve event contexts to trigger the event on
+		TArray<UObject*> EventContexts;
+
+		// If the event track resides within an object binding, add those to the event contexts
+		if (Operand.ObjectBindingID.IsValid())
+		{
+			for (TWeakObjectPtr<> WeakEventContext : Player.FindBoundObjects(Operand))
+			{
+				if (UObject* EventContext = WeakEventContext.Get())
+				{
+					EventContexts.Add(EventContext);
+				}
+			}
+		}
+		// If we have specified event receivers
+		else if (EventReceivers.Num())
+		{
+			EventContexts.Reserve(EventReceivers.Num());
+			for (FMovieSceneObjectBindingID ID : EventReceivers)
+			{
+				// Ensure that this ID is resolvable from the root, based on the current local sequence ID
+				ID = ID.ResolveLocalToRoot(Operand.SequenceID, Player.GetEvaluationTemplate().GetHierarchy());
+
+				// Lookup the object(s) specified by ID in the player
+				for (TWeakObjectPtr<> WeakEventContext : Player.FindBoundObjects(ID.GetGuid(), ID.GetSequenceID()))
+				{
+					if (UObject* EventContext = WeakEventContext.Get())
+					{
+						EventContexts.Add(EventContext);
+					}
+				}
+			}
+		}
+		// If we haven't specified event receivers, use the default set defined on the player
+		else
+		{
+			EventContexts = Player.GetEventContexts();
+		}
+
+#if WITH_EDITOR
+		const static FName NAME_CallInEditor(TEXT("CallInEditor"));
+
+		UWorld* World = DirectorInstance->GetWorld();
+		bool bIsGameWorld = World && World->IsGameWorld();
+#endif // WITH_EDITOR
+
+		for (FName EventName : Events)
+		{
+			if (EventName == NAME_None)
+			{
+				continue;
+			}
+
+			UFunction* Function = DirectorInstance->FindFunction(EventName);
+			// Event must have only a single object parameter, and the director instance must be an implementation of the function's class
+			if (!Function)
+			{
+				UE_LOG(LogMovieScene, Warning, TEXT("Failed to trigger the event '%s' because the function does not exist on director instance '%s'."), *EventName.ToString(), *DirectorInstance->GetName());
+				continue;
+			}
+#if WITH_EDITOR
+			else if (!bIsGameWorld && !Function->HasMetaData(NAME_CallInEditor))
+			{
+				UE_LOG(LogMovieScene, Log, TEXT("Refusing to trigger event '%s' in editor world when 'Call in Editor' is false."), *EventName.ToString());
+				continue;
+			}
+#endif // WITH_EDITOR
+
+			if (Function->NumParms == 0)
+			{
+				UE_LOG(LogMovieScene, VeryVerbose, TEXT("Triggering event '%s'."), *EventName.ToString());
+				DirectorInstance->ProcessEvent(Function, nullptr);
+			}
+			else if (Function->NumParms == 1 && Function->PropertyLink && (Function->PropertyLink->GetPropertyFlags() & CPF_ReferenceParm) == 0)
+			{
+				for (UObject* EventContextObject : EventContexts)
+				{
+					TriggerEvent(DirectorInstance, Function, EventContextObject);
+				}
+			}
+			else
+			{
+				UE_LOG(LogMovieScene, Warning, TEXT("Failed to trigger event '%s' because its signature is not compatible. Function signatures must have either 0 or 1 (non-ref) parameters."), *EventName.ToString());
+			}
+		}
+	}
+
+	void TriggerEvent(UObject* DirectorInstance, UFunction* Function, UObject* ObjectParamValue)
+	{
+		// We know by now that the parameter type is compatible because it wouldn't be added to the array if not
+		if (UObjectProperty* ObjectParameter = Cast<UObjectProperty>(Function->PropertyLink))
+		{
+			if (!ObjectParameter->PropertyClass || ObjectParamValue->IsA(ObjectParameter->PropertyClass))
+			{
+				DirectorInstance->ProcessEvent(Function, &ObjectParamValue);
+				return;
+			}
+
+
+			UE_LOG(LogMovieScene, VeryVerbose, TEXT("Failed to trigger event '%s' with object '%s' because it is not the correct type. Function expects a '%s' but target object is a '%s'."),
+				*Function->GetName(),
+				*ObjectParamValue->GetName(),
+				*ObjectParameter->PropertyClass->GetName(),
+				*ObjectParamValue->GetClass()->GetName()
+				);
+
+			return;
+		}
+
+		if (UInterfaceProperty* InterfaceParameter = Cast<UInterfaceProperty>(Function->PropertyLink))
+		{
+			if (ObjectParamValue->GetClass()->ImplementsInterface(InterfaceParameter->InterfaceClass))
+			{
+				DirectorInstance->ProcessEvent(Function, &ObjectParamValue);
+				return;
+			}
+
+
+			UE_LOG(LogMovieScene, VeryVerbose, TEXT("Failed to trigger event '%s' with object '%s' because it does not implement the necessary interface. Function expects a '%s'."),
+				*Function->GetName(),
+				*ObjectParamValue->GetName(),
+				*InterfaceParameter->InterfaceClass->GetName()
+				);
+
+			return;
+		}
+
+
+		UE_LOG(LogMovieScene, Warning, TEXT("Failed to trigger event '%s' because its signature is not compatible. Function expects a '%s' parameter, but only object and interface parameters are supported."),
+			*Function->GetName(),
+			*Function->PropertyLink->GetClass()->GetName()
+			);
+	}
+
+#if !NO_LOGGING
+	FString GenerateEventListString() const
+	{
+		return Algo::Accumulate(Events, FString(), [](FString&& InString, FName Event){
+			if (InString.Len() > 0)
+			{
+				InString += TEXT(", ");
+			}
+			return InString + Event.ToString();
+		});
+	}
+#endif
+
+	TArray<FName> Events;
+	TArray<FMovieSceneObjectBindingID, TInlineAllocator<2>> EventReceivers;
+};
+
+
+FMovieSceneEventTemplateBase::FMovieSceneEventTemplateBase(const UMovieSceneEventTrack& Track)
+	: EventReceivers(Track.EventReceivers)
 	, bFireEventsWhenForwards(Track.bFireEventsWhenForwards)
 	, bFireEventsWhenBackwards(Track.bFireEventsWhenBackwards)
 {
 }
 
-void FMovieSceneEventSectionTemplate::EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
+FMovieSceneEventSectionTemplate::FMovieSceneEventSectionTemplate(const UMovieSceneEventSection& Section, const UMovieSceneEventTrack& Track)
+	: FMovieSceneEventTemplateBase(Track)
+	, EventData(Section.GetEventData())
+{
+}
+
+void FMovieSceneEventSectionTemplate::EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const TRange<FFrameNumber>& SweptRange, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
 	// Don't allow events to fire when playback is in a stopped state. This can occur when stopping 
 	// playback and returning the current position to the start of playback. It's not desireable to have 
@@ -186,8 +365,6 @@ void FMovieSceneEventSectionTemplate::EvaluateSwept(const FMovieSceneEvaluationO
 	}
 
 	TArray<FMovieSceneEventData> Events;
-
-	TRange<FFrameNumber>            SweptRange = Context.GetFrameNumberRange();
 
 	TArrayView<const FFrameNumber>  KeyTimes   = EventData.GetKeyTimes();
 	TArrayView<const FEventPayload> KeyValues  = EventData.GetKeyValues();
@@ -224,5 +401,105 @@ void FMovieSceneEventSectionTemplate::EvaluateSwept(const FMovieSceneEvaluationO
 	if (Events.Num())
 	{
 		ExecutionTokens.Add(FEventTrackExecutionToken(MoveTemp(Events), EventReceivers));
+	}
+}
+
+
+
+FMovieSceneEventTriggerTemplate::FMovieSceneEventTriggerTemplate(const UMovieSceneEventTriggerSection& Section, const UMovieSceneEventTrack& Track)
+	: FMovieSceneEventTemplateBase(Track)
+{
+	TMovieSceneChannelData<const FMovieSceneEvent> EventData = Section.EventChannel.GetData();
+	TArrayView<const FFrameNumber>     Times  = EventData.GetTimes();
+	TArrayView<const FMovieSceneEvent> Events = EventData.GetValues();
+
+	EventTimes.Reserve(Times.Num());
+	EventFunctions.Reserve(Times.Num());
+
+	for (int32 Index = 0; Index < Times.Num(); ++Index)
+	{
+		EventTimes.Add(Times[Index]);
+		EventFunctions.Add(Events[Index].FunctionName);
+	}
+}
+
+void FMovieSceneEventTriggerTemplate::EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const TRange<FFrameNumber>& SweptRange, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
+{
+	// Don't allow events to fire when playback is in a stopped state. This can occur when stopping 
+	// playback and returning the current position to the start of playback. It's not desireable to have 
+	// all the events from the last playback position to the start of playback be fired.
+	if (Context.GetStatus() == EMovieScenePlayerStatus::Stopped || Context.IsSilent())
+	{
+		return;
+	}
+
+	const bool bBackwards = Context.GetDirection() == EPlayDirection::Backwards;
+
+	if ((!bBackwards && !bFireEventsWhenForwards) ||
+		(bBackwards && !bFireEventsWhenBackwards))
+	{
+		return;
+	}
+
+	TArray<FName> Events;
+
+	const int32 First = bBackwards ? EventTimes.Num() - 1 : 0;
+	const int32 Last = bBackwards ? 0 : EventTimes.Num() - 1;
+	const int32 Inc = bBackwards ? -1 : 1;
+
+	const float PositionInSeconds = Context.GetTime() * Context.GetRootToSequenceTransform().Inverse() / Context.GetFrameRate();
+
+	if (bBackwards)
+	{
+		// Trigger events backwards
+		for (int32 KeyIndex = EventTimes.Num() - 1; KeyIndex >= 0; --KeyIndex)
+		{
+			FFrameNumber Time = EventTimes[KeyIndex];
+			if (SweptRange.Contains(Time))
+			{
+				Events.Add(EventFunctions[KeyIndex]);
+			}
+		}
+	}
+	// Trigger events forwards
+	else for (int32 KeyIndex = 0; KeyIndex < EventTimes.Num(); ++KeyIndex)
+	{
+		FFrameNumber Time = EventTimes[KeyIndex];
+		if (SweptRange.Contains(Time))
+		{
+			Events.Add(EventFunctions[KeyIndex]);
+		}
+	}
+
+
+	if (Events.Num())
+	{
+		ExecutionTokens.Add(FEventTriggerExecutionToken(MoveTemp(Events), EventReceivers));
+	}
+}
+
+
+
+FMovieSceneEventRepeaterTemplate::FMovieSceneEventRepeaterTemplate(const UMovieSceneEventRepeaterSection& Section, const UMovieSceneEventTrack& Track)
+	: FMovieSceneEventTemplateBase(Track)
+	, EventToTrigger(Section.Event.FunctionName)
+{
+}
+
+void FMovieSceneEventRepeaterTemplate::EvaluateSwept(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const TRange<FFrameNumber>& SweptRange, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
+{
+	// Don't allow events to fire when playback is in a stopped state. This can occur when stopping 
+	// playback and returning the current position to the start of playback. It's not desireable to have 
+	// all the events from the last playback position to the start of playback be fired.
+	if (!SweptRange.Contains(Context.GetTime().FrameNumber) || Context.GetStatus() == EMovieScenePlayerStatus::Stopped || Context.IsSilent())
+	{
+		return;
+	}
+
+	const bool bBackwards = Context.GetDirection() == EPlayDirection::Backwards;
+	if ((!bBackwards && bFireEventsWhenForwards) || (bBackwards && bFireEventsWhenBackwards))
+	{
+		TArray<FName> Events = { EventToTrigger };
+		ExecutionTokens.Add(FEventTriggerExecutionToken(MoveTemp(Events), EventReceivers));
 	}
 }

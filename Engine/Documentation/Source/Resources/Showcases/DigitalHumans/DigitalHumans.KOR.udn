@@ -1,0 +1,878 @@
+INTSourceChangelist:4292827
+Availability: Public
+Crumbs: 
+Title: 디지털 휴먼
+Description: 고퀄리티 캐릭터 셰이더 기법, 액터의 데이터 스캔, 향상된 지오메트리 워크플로를 통해 사실적인 캐릭터를 만드는 방법입니다.
+Version: 4.20
+Parent: Resources/Showcases
+Order: 1
+Tags: showcases
+
+[TOC(start:2 end:3)]
+
+![](DigitalHumans.png "DigitalHumans.png")
+
+[REGION:caption]
+Siren, Andy Serkis, Osiris Black© 이미지 및 캐릭터 제공: [3Lateral](http://www.3lateral.com)
+[/REGION]
+
+이전에 에픽게임즈의 파라곤에 사용한 것과 같은 캐릭터 접근법을 [포토리얼리스틱 캐릭터](Resources/Showcases/PhotorealisticCharacter) 예제와 함께 선보인 적이 있습니다. 그 이후 고퀄리티 캐릭터 셰이더 기법, 액터 데이터 스캔 사용, 지오메트리 워크플로 개선, 궁극적으로 언리얼 엔진 4(UE4)의 렌더링 기능 향상을 통해 보다 사실적인 캐릭터를 디자인하는 방법을 탐구하고 향상시켜 왔습니다.   
+
+캐릭터 탐구의 일환으로 매우 현실적이고 사실적인 캐릭터를 제작하기 위한 워크플로를 이끌고 렌더링을 개선하여 다수의 디지털 휴먼(과 하나의 논휴먼)을 개발했습니다. 여기서는 워크플로 프로세스와 새로 구현한 기능에 대한 일반적인 수준의 개요를 설명합니다.
+[REGION:tip]
+참고로 여기 있는 기능과 기법은 고사양 기기에만 한정되지 않습니다. 좋은 퀄리티와 FPS 를 낼 수 있는 여러 실시간 게임과 프로젝트에도 적용할 수 있습니다.
+[/REGION]
+[REGION:note]
+이 개선 사항 중 일부를 직접 살펴보려면 에픽게임즈 런처의 학습 탭에서 Digital Humans (디지털 휴먼) 프로젝트를 다운로드하면 됩니다. 이 프로젝트에는 파라곤의 포토리얼리스틱 캐릭터 원본과 함께 SIGGRAPH 2017 에서 처음 선보인 Mike Seymour 디지털 휴먼도 들어있습니다.
+[/REGION]
+
+## 디지털 휴먼 연기
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	6MIkoLBWRv0
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    9owTAISsvwk
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    78
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    mkkWCmljMSA
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    78
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
+
+## 개선된 캐릭터 렌더링 기능
+
+디지털 휴먼 캐릭터 개발 과정에서 에픽이 개발 또는 개선한 기능은 다음과 같습니다. 
+
+*   새로운 스페큘러 모델.
+*   Backscatter (후방산란)을 사용한 Light Transmission (빛 투과).
+*   Subsurface Profiles (서브서피스 프로파일)에 향상된 컨택트 섀도.
+*   포스트 프로세스 머티리얼을 통해 Screen Space Indirect Bound (화면 공간 간접 반사) 근사치를 구하는 Short Distance Dynamic Irradiance (단거리 동적 복사).
+*   홍채에 별도의 노멀 맵을 사용하여 눈에 디테일 추가.
+
+아래 각 섹션마다 피부, 헤어, 눈을 위한 섹션을 별도로 두고 새로 개발한 기능 또는 개선사항을 자세히 설명합니다.   
+
+### 스킨 셰이딩
+
+캐릭터의 피부는 UE4 의 [서브서피스 프로파일 셰이딩 모델](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile) 을 사용합니다. 
+
+![](SkinShading_ProfileView.jpg "SkinShading_ProfileView.jpg")
+
+참고로 이 프로젝트에서는 [Material Function](Engine/Rendering/Materials/Functions) (머티리얼 함수)를 사용하여 피부 머티리얼 기본을 설정합니다. 이 방법을 사용하는 이유가 몇 가지 있습니다. 머티리얼을 재사용할 수 있으며, 마스크를 사용하여 머티리얼 변화에 따른 애니메이션 블렌딩이 가능합니다. 머티리얼 함수를 사용하면 하나의 머티리얼을 변경했을 때 그 함수를 사용하는 모든 머티리얼에 자동 적용할 수 있으므로 개발 방식을 표준화할 수 있습니다.
+
+[REGION:note]
+**/Content/Characters/Mike/Functions** 에서 Mike Seymour 흉상에 쓰인 머티리얼 함수를 몇 가지 살펴볼 수 있습니다.
+[/REGION]
+
+#### 스킨 셰이딩 기법
+
+현실성과 높은 사실성을 유지하기 위해 디지털 휴먼은 모두 피사체, 이 예제에서는 Mike Seymour 의 얼굴 스캔으로 제작한 4K 텍스처 해상도를 사용합니다. 디지털 스캔을 뜬 후 에픽의 아티스트가 텍스처를 클린업, 조정, 생성합니다.
+
+캐릭터의 스킨 설정은 다양한 텍스처와 함께 마스크를 사용하여 원하는 모양을 낼 수 있습니다. 여기 보이는 텍스처는 디지털 휴먼의 모습을 구현하는 데 사용한 핵심 텍스처로, 디퓨즈 (알베도), 러프니스, 스페큘러, 스캐터, 노멀 맵입니다.
+
+| **텍스처** | **이름** | **설명** |
+| --- | --- | --- |
+| ![](Head_Diffuse.png "Head_Diffuse.png") | **Diffuse** | 머티리얼의 베이스 컬러를 제공하는 디퓨즈 맵입니다. 4K 텍스처 해상도에서는 피부 표면 바로 아래 작은 모세 혈관이 보입니다. 주름의 어두운 부분은 노멀 맵이 제공하는 텍스처를 강조합니다. (T_head_diffuse_neutral) |
+| ![](Head_Roughness.png "Head_Roughness.png") | **Roughness** | [INCLUDE:#excerpt_5] |
+| ![](Head_Specular.png "Head_Specular.png") | **Specular** | 스페큘러 맵은 피부 표면 전체에서 볼 수 있는 스페큘러 하이라이트의 양을 조절합니다. 참고로 스페큘러 기본값은 0.5 입니다. 이 맵은 피부가 약간 팽팽해질 수 있는 영역은 스페큘러를 증폭시키고, 모공 중심이나 주름 속처럼 반사가 없었으면 하는 영역은 스페큘러를 약화시킵니다. (Mike_T_specular_neutral) |
+| ![](Head_Scatter.png "Head_Scatter.png") | **Scatter** | [INCLUDE:#excerpt_8] |
+| ![](Head_Normal.png "Head_Normal.png") | **Normal** | [INCLUDE:#excerpt_10] |
+
+[COMMENT:none]
+[EXCERPT:excerpt_10]
+노멀 맵은 픽셀 노멀을 교란시켜 표면에 촉각 텍스처를 살리는 식으로 작동합니다. 디지털 휴먼의 경우 머티리얼 설정에서 다수의 노멀 맵을 블렌딩하고 합쳐 피부의 중간-작은 크기 디테일을 잡아낸 부분이 있습니다.  
+노멀 맵 사용법과 얼굴의 여러 애니메이션 포즈에 다양한 노멀 맵을 블렌딩한 방법 관련 자세한 내용은 아래 [노멀 맵](#노멀맵) 부분을 참고하세요. (head_normal_map_001)
+[/EXCERPT]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_8]
+스캐터 맵은 피부 표면을 통해 산란되는 빛의 양을 제어합니다. 볼처럼 어두운 영역은 산란이 거의 보이지 않는 반면, 코나 눈이나 귀처럼 밝은 영역은 산란이 더욱 많이 보입니다. 귀, 눈, 코, 입술처럼 산란이 가장 많이 보이도록 하려는 영역은 단순한 마스크임을 알 수 있습니다. 다른 영역은 더 어둡지만 현실의 피부처럼 산란이 보일 만큼은 밝습니다.
+산란의 색은 피부 머티리얼에 할당된 [서브서피스 프로파일](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile)[](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile) 애셋이 관리합니다. (T_head_sss_ao_mask)
+[/EXCERPT]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_5]
+러프니스 맵은 아티스트가 페인트하지 않습니다. 대신 UE4 의 프로세스를 사용하여 노멀을 러프니스로 변환합니다. (Toksvig_MikeMesoNormal)  
+이 프로세스 관련 자세한 정보와 애니메이션 적용 디지털 휴먼에 어떤 도움이 되는지는 아래 [러프니스 맵](#러프니스맵) 부분을 참고하세요.
+[/EXCERPT]
+[/COMMENT]
+
+#### 듀얼 로브 스페큘러
+
+**Dual Lobe Specularity** (듀얼 로브 스페큘러) 기능은 두 개의 별도 스페큘러 로브(돌출부)에 대한 러프니스 값을 합쳐 최종 결과를 냅니다. 이렇게 합치면 피부에 멋진 서브 픽셀 디테일을 살려 자연스러운 모양을 냅니다.  
+
+[REGION:lightbox]
+[![](DoubleBeckman_1-1.png)](DoubleBeckman_1-1.png)
+[/REGION]
+
+부드러운 로브
+
+[REGION:lightbox]
+[![](DoubleBeckman_2-1.png)](DoubleBeckman_2-1.png)
+[/REGION]
+
+빡빡한 로브
+
+[REGION:lightbox]
+[![](DoubleBeckman_Combined-1.png)](DoubleBeckman_Combined-1.png)
+[/REGION]
+
+합친 로브
+
+[REGION:note]
+하나의 라이트에 검정 베이스 컬러를 연결하고 합친 로브를 확인한 모습입니다.
+[/REGION][서브서피스 프로파일](Engine/Rendering/Materials/LightingModels/SubSurfaceProfile) 애셋의 **Dual Specular** 섹션 아래에서 각 스페큘러 로브의 러프니스 값과 혼합할 양을 조정할 수 있습니다.
+
+![](DualLobe_SSS_Settings.png "DualLobe_SSS_Settings.png")
+
+#### 후방 산란을 이용한 빛 투과 (전방 산란)
+
+빛은 이제 표면을 통한 **Transmission** (투과)를 지원합니다. 백라이트 이펙트라 backscatter (후방 산란)이라고도 합니다. 하지만 사실상 빛이 뷰 쪽으로 흩어지고 있기 때문에 "전방 산란"입니다. 지수형 감쇠로 섀도 맵에서 깊이 값을 샘플링하는 단일 산란 방식을 사용합니다. 그런 다음 Henyey Greenstein 페이즈 함수에 그 함수의 IOR (Index of Refraction, 굴절 지수)를 사용하여 산란에 약간의 모양을 더합니다.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![빛 투과 비활성화](Backscatter_disabled.png) 
+	[/PARAM]
+	[PARAM:after]
+	![빛 투과 활성화](Backscatter_enabled.png) 
+	[/PARAM]
+[/OBJECT]
+
+서브서피스 스캐터링 프로파일을 설정하고 머티리얼에 할당했으면, 라이트에 **Transmission** (투과) 옵션을 활성화하여 백라이트 이펙트를 켭니다. **Light** (라이트) 섹션에서 **고급** 옵션을 펼친 뒤 **Transmission** (투과)를 활성화하면 됩니다.
+
+![](Transmission_EnableOnLight.png "Transmission_EnableOnLight.png")
+
+머티리얼에서 마스크를 사용하여 산란에 허용할 투과량을 제어할 수 있습니다. 오파시티 또는 러프니스 영역에 마스크를 사용하여 막을 때와 비슷합니다. 그런 다음 서브서피스 스캐터링 프로파일에서 다음 프로퍼티로 투과를 제어하면 됩니다.
+
+![](Transmission_SSS_Settings.png "Transmission_SSS_Settings.png")
+
+#### 바운더리 컬러 블리드
+
+입과 눈 주변 영역은 이빨과 눈알에 산란을 사용하는데, **Boundary Bleed Color** (바운더리 블리드 컬러)라는 새 프로퍼티를 사용합니다. 하나의 서브서피스 머티리얼을 다른 머티리얼로 블렌딩하는 방식을 정의합니다.
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![바운더리 블리드 컬러 없음](BoundaryBleedColor_Disabled.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![바운더리 블리드 컬러 있음](BoundaryBleedColor_Enabled.png) 
+    [/PARAM]
+[/OBJECT]
+
+서브서피스 스캐터링은 다른 서브서피스 머티리얼이 있는 영역에 후광 형태의 부작용을 자주 유발하는 화면 공간 이펙트로, 위 예에서 입술의 밝은 영역이 이빨 주변 영역으로 블렌딩되는 것과 비슷합니다.
+
+![](BoundaryBleedColor_SSS_Settings-1.png "BoundaryBleedColor_SSS_Settings-1.png")  
+
+#### 단거리 동적 복사
+
+디지털 휴먼 캐릭터의 또 다른 개선점은 코와 눈 소켓 주변 구석에 있던 어두운 (검정 회색) 부분의 양을 줄이는 것이었습니다. 모양을 보다 자연스럽게 하기 위해, 화면 공간 간접 반사 근사치를 구하는 기법을 사용했습니다. 단거리 동적 글로벌 일루미네이션에 포스트 프로세스 머티리얼을 사용하여, 볼에서 코를 거쳐 눈 구석으로 반사되는 간접광을 캡처하여 라이팅과 사실성을 향상시켰습니다. 
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![화면 공간 복사 없음](SPI_Disabled.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![화면 공간 복사 있음](SPI_Enabled.png) 
+    [/PARAM]
+[/OBJECT]
+
+Screen Space Irradiance (화면 공간 복사)를 포스트 프로세스 머티리얼로 설정하여 영향을 주는 모든 것에 사용할 수 있도록 했습니다 (아래 예 참고). 디지털 휴먼 프로젝트의 **Content\Shared\UtilityMaterials** 에 있는 **ScreenSpaceRealIrr** 머티리얼을 살펴보면 됩니다.
+
+![](SPI_Example.png "SPI_Example.png")
+
+[REGION:caption]
+이미시브 머티리얼에서 단거리 동적 글로벌 일루미네이션을 내는 화면 공간 복사 포스트 프로세스 머티리얼.
+[/REGION]
+
+### 헤어 셰이딩
+
+헤어 셰이딩은 UE4 의 **Hair** (헤어) 셰이딩 모델 방식으로 처리합니다. 이 셰이더는 [Eugene d'Eon, Steve Marschner, Johannes Hanika](http://www.eugenedeon.com/project/importance-sampling-for-physically-based-hair-fiber-models) 의 연구를 바탕으로 한 물리 기반 셰이딩 모델로, 현재 [Weta Digital](http://www.eugenedeon.com/project/importance-sampling-for-physically-based-hair-fiber-models/) 이 사용합니다. 이 셰이더는 헤어 표면에서 비등방성 스페큘러를 포함한 빛의 리플렉션, 표면을 통과하는 빛의 굴절, 여러 가닥을 통과하는 빛의 산란 근사치를 구합니다. 
+
+UE4 헤어 셰이더를 사용하려면, 머티리얼의 **Shading Model** (셰이딩 모델) 프로퍼티를 **Hair** (헤어)로 설정하세요.
+
+![](HairSM.png "HairSM.png")
+
+#### 헤어와 스페큘러
+
+현실에서 헤어는 스페큘러 하이라이트가 여럿인 경향이 있습니다. 하나는 빛의 색을 나타내고, 다른 것은 헤어 색과 빛의 색의 혼합을 나타냅니다. 이 문서에서는 이 부분을 1차 및 2차 스페큘러 하이라이트라 부르겠습니다. 헤어 셰이더는 매우 사실적인 결과로 같은 효과를 비슷하게 냅니다.
+
+![](Hair_Specularity.png "Hair_Specularity.png")
+
+1.  밝은 갈색 헤어는 2차 스페큘러 하이라이트를 나타냅니다.
+2.  연한 헤어는 1차 스페큘러 하이라이트를 나타냅니다. 
+
+UE4 헤어 셰이더에 사용된 근사치 알고리듬은 현실에서 이루어지는 방식과 비슷한 효과를 냅니다. 헤어 표면에 빛이 닿으면 그냥 튕겨 나오지 않습니다. 헤어는 반투명이라 빛의 일부가 통과하여 내부를 튕겨 다니기도 하다가 빠져나올 수 있습니다. 헤어 셰이더는 빛이 이동하면서 헤어와 상호작용하는 경로를 세 가지 근사치로 구하는데, 아래 다이어그램과 같습니다.
+
+[EXCERPT:DH_Hair_ImageSequenceSlider]
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	DH_Hair_ImageSequence
+	[/PARAMLITERAL]
+    [PARAM:caption]
+    헤어 셰이더가 빛과의 상호작용을 모방하는 방법을 보여주는 헤어 한 가닥 단면도. 빛의 세 가지 경로를 보여줍니다. 프로세스 각 부분에 대한 설명은 아래 표를 참고하세요.	[/PARAM]
+    [PARAM:image_list]
+    ![](HairDiagram_1.png)
+    ![](HairDiagram_2.png)
+    ![](HairDiagram_3.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:DH_Hair_ImageSequenceSlider]
+
+  
+| **번호** | **설명** |
+| --- | --- |
+| **0** | 헤어 모낭의 성장 (뿌리에서 끝) 방향입니다. |
+| **1** | 반사만 있는 경로로, 빛이 헤어 표면을 튕겨 나갑니다. 1차 스페큘러 하이라이트를 이룹니다. |
+| **2** | 투과-투과 경로로, 빛이 헤어 모낭속으로 통과한 뒤 반대편으로 빠져나갑니다. 헤어 볼륨 내 빛의 산란을 나타냅니다. |
+| **3** | 투과-반사-투과 경로로, 빛이 헤어 모낭에 들어와 표면 경계 내부에 반사되다가 빠져나갑니다. 2차 스페큘러 하이라이트를 이룹니다. |
+
+다이어그램에 표시된 것처럼 헤어 가닥은 완벽한 원기둥 또는 튜브 모양이 아닙니다. 사실 원뿔을 계속해서 쌓은 모양에 가깝습니다. 즉 헤어 표면을 튕겨나오는 빛은 완벽히 매끄러운 면을 튕겨나올 때와는 다르게 산란됩니다. 게다가 각 가닥은 일반적으로 각기 다른 방향을 향하므로, 스페큘러 하이라이트는 통일되기 보다는 헤어가 가리키는 방향에 따라 독립적으로 배치됩니다. 이는 보통 **anisotropic specularity** (비등방성 스페큘러)라 하며, UE4 헤어 셰이더도 지원합니다.
+
+### 눈 셰이딩
+
+![](EyeShading_MikeExample.png "EyeShading_MikeExample.png")
+
+눈은 보통 “영혼의 창”이라고도 합니다. 사람이 보기에 캐릭터가 실제 사람같다 인식하는데 눈만큼 큰 영향을 주는 부분은 없습니다. UE4 의 눈 셰이더는 눈 표면의 사실적인 렌더링을 위해 디자인되어, 눈 자체의 생물학적 부분 각각에 대한 미적인 제어가 가능합니다.
+
+[REGION:warning]
+UE4 의 눈 셰이더는 고도로 기술적이며 셰이더 코드, 머티리얼, 지오메트리 모양, 그 지오메트리의 UV 레이아웃 사이 **종속성** 이 **매우 강하게** 개발되어 있습니다. 이 셰이더를 사용해서 눈을 처음부터 새로 만드는 것은 셰이더 개발 관련 경험이 풍부하지 않은 이상 권장하지 **않습니다**. 그래서 인간형 눈을 만들 때는, 이 예제에서 눈 지오메트리를 추출하고 눈 머티리얼을 **그대로** 사용하여 필수 텍스처만 용도에 맞게 대체해 줄 것을 강력 추천합니다.
+[/REGION]
+[REGION:tip]
+포토리얼리스틱 캐릭터 프로젝트 안에 PhotorealEyeGeo 라는 이름의 스태틱 메시가 있습니다. 프로젝트에서 이 메시를 FBX 로 익스포트하고 프로젝트에서 사용하는 DCC 앱에서 사용하면 됩니다.
+[/REGION]
+
+![](Eye_ShaderModel.png "Eye_ShaderModel.png")
+
+#### 눈 생물학
+
+눈의 기능을 완전히 이해하려면, 눈 생물학에 대해 조금 아는 것이 가장 좋습니다. 여기 보이는 각 부분은 눈 설정에 나타나 있으며, 모두 예제 캐릭터의 (MI\_EyeRefractive\_Bust) 눈에 적용된 머티리얼 인스턴스에 노출된 파라미터를 사용하여 어느 정도 수정할 수 있습니다.  
+  
+간단히 살펴보면 이렇습니다.  
+  
+![](EyeDiagram.png "EyeDiagram.png")
+
+| **번호** | **이름** | **설명** |
+| --- | --- | --- |
+| **1** | Sclera | 공막 - "눈 흰자위" 로도 알려져 있습니다. 눈의 이 부분은 일반적으로 매우 습윤하며 약간의 촉각 텍스처가 있습니다. |
+| **2** | Limbus | 각막윤 - 홍채와 공막 사이에 나타나는 고리 모양의 혼탁물입니다. 이 부분이 보다 도드라지는 눈이 있으며, 가장자리에서 보면 희미해지는 경향이 있습니다. |
+| **3** | Iris | 홍채 - 눈동자 주변에 고리 모양으로 색을 띠는 부분입니다. 누군가의 눈이 "녹색" 이라면, 보통 그 홍채가 대개 녹색이기 때문입니다. 실제 눈에서, 홍채는 수축 팽창하는 근육같은 섬유 고리로, 동공에 받는 빛을 조절하는 역할을 합니다. 또 실제 홍채는 원반 또는 원뿔 모양에 가까우며, 눈의 나머지 부분까지 차오르지는 않습니다. |
+| **4** | Pupil | 동공 - 눈 중심부의 어두운 부분입니다. 이 구멍을 통과한 빛이 망막의 간상체와 추상체에 맺히게 됩니다. |
+| **5** | Cornea | 각막 - 홍채 표면을 덮고 있는 투명하고, 유체로 가득찬 돔 형태의 기관입니다. |
+
+#### 눈 내부 굴절 - 예전과 지금
+
+눈알은 유체로 가득차 있기에, 빛이 통과할 때면 굴절하게 마련입니다. 실제로 눈을 여러 각도에서 보면 확인할 수 있습니다. 홍채와 동공은 각막을 통해 보이기에 굴절되어 왜곡돼 보입니다. 게임과 영화에서 보통 이를 해결하는 방법은, 공막과 홍채, 동공을 포함하는 표면 하나, 그 위에 각막과 눈의 전체적인 습윤 부분을 나타내는 표면을 또 하나, 즉 눈 표면을 두 개의 표면으로 만드는 것입니다. 그렇게 하면 아래 놓인 표면이 마치 습윤층을 통해 보는 것과 같은 굴절 표현이 가능했습니다. 에픽의 소년과 연 테크 데모에서 소년의 눈을 표현하는 데 사용된 방식입니다. 아래 다이어그램은 그 두 표면을 나타냅니다.
+
+![](KiteBoyEyes.png "KiteBoyEyes.png")
+
+눈 셰이딩 모델을 사용하면, 하나의 표면으로 보다 현실적인 효과를 낼 수 있습니다. 빛이 각막을 통과할 때의 굴절은 이제 전적으로 셰이더 내에서 처리되어, 지오메트리를 추가할 필요가 없어졌습니다. M_EyeRefractive 머티리얼 인스턴스를 열고 **Refraction On/Off** (굴절 켜기/끄기) 프로퍼티를 조절하면서 직접 실험해 볼 수 있습니다.
+
+#### 눈 셰이더 파라미터
+
+눈 셰이더가 복잡한 것도 있고, 있는 그대로 사용하시라 추천드린 것도 있고 해서, 머티리얼에 내장된 아트 관련 파라미터에 대한 분석을 추가하고자 합니다. MI\_EyeRefractiveMike\_R 머티리얼 인스턴스 안에서 조정할 수 있는 눈 셰이더 파라미터는 다음과 같습니다. 가능하면 파라미터 값 추천 범위도 넣도록 하겠습니다.
+
+![](EyeShaderProperties.png "EyeShaderProperties.png")
+
+| **이름** | **설명** ||
+| --- | --- | --- |
+| **Static Switch Parameter Values** | 스태틱 스위치 파라미터 값 ||
+| **UseEyeBulge** | 눈 돌출 사용 - 이 프로퍼티는 각막을 물리적으로 모델링한 돌출 부분을 사용하는 눈알 지오메트리 사용 여부에 따라 셰이더의 굴절 프로퍼티를 조절하기 위한 용도입니다. ||
+| **Vector Parameter Values** | 벡터 파라미터 값 ||
+| **Eye Corner Darkness Color** | 눈 구석 어두운 색 - 눈 구석 어두운 부분에 컬러 값을 설정하며, **Shadow Hardness** 및 **Shadow Radius** 의 스칼라 변수로 제어합니다. ||
+| **Scalar Parameter Values** | 스칼라 파라미터 값 ||
+| **Depth Scale** | 뎁스 스케일 - 각막 아래 홍채의 굴절 깊이를 조절합니다. ||
+| **Flatten Normal** | 노멀 평탄화 - 눈, 특히 공막 부분에서의 노멀 맵을 얼마만큼 평탄화시킬지를 조절하는 값입니다. ||
+| **Index of Refraction (IoR)** | 굴절 지수 - 각막 아래 유체의 굴절 지수입니다. 굴절이 얼마만큼 일어나는지 제어합니다. ||
+| **Iris Concavity Power** | 홍채 오목 세기 - Iris Concavity Scale (홍채 오목 스케일)과 함께 빛이 각막을 통과하면서 홍채 표면에서 계산되는 빛 초선 양과 모양을 조절합니다. 이는 보통 실제 라이팅된 씬에서만 보이며, 머티리얼 인스턴스 에디터 안에서는 시각화시켜 보기 어려울 수 있습니다. ||
+| **Iris Concavity Scale** | 홍채 오목 스케일 - Iris Concavity Power (홍채 오목 세기)와 함께 빛이 각막을 통과하면서 홍채 표면에서 계산되는 빛 초선의 양과 모양을 조절합니다. 이는 보통 실제 라이팅된 씬에서만 보이며, 머티리얼 인스턴스 에디터 안에서는 시각화시켜 보기 어려울 수 있습니다. ||
+| **Iris UV Radius** | 홍채 UV 반경 - 눈알의 전체적인 홍채 크기를 조절합니다. ||
+| **Iris Brightness** | 홍채 밝기 - 홍채의 밝기를 조절합니다. ||
+| **IrisDispScaleUV** | 홍채 표시 스케일 UV - 홍채 노멀 맵을 사용할 때 홍채의 디스플레이스먼트에 대한 스케일입니다. ||
+| **Iris Roughness** | 홍채 러프니스 - 홍채 바로 위의 표면인 각막의 광택을 구동시키는 값입니다. ||
+| **Limbus Dark Scale** | 각막윤부 암도 스케일 - 각막윤부의 어두운 고리부분 크기를 조절합니다. ||
+| **Limbus Power** | 각막윤부 세기 - 각막윤부의 전반적인 어두운 부분을 제어합니다. 덮어쓴 값이 전반적인 각막 부분을 어둡게 만듭니다. ||
+| **Limbus UV Width Color** | 각막윤부 UV 너비 색상 - 각막윤부의 샘플 크기, 또는 눈 표면의 얼마만큼을 각막윤부에 보이도록 할당할 것인지를 조절합니다. 꽤나 미묘한 세팅이라 주의를 기울여 조절해야 합니다. ||
+| **Limbus UV Width Shading** | 각막윤부 UV 너비 셰이딩 - 빛이 각막윤부의 셰이딩에 영향을 끼치는 양을 조절합니다. 매우 미묘한 세팅으로, 주의를 기울여 조절해야 합니다. ||
+| **Normal UV Scale** | 노멀 UV 스케일 - 눈 표면에 걸쳐 사용되는 노멀 맵 텍스처 스케일을 조절합니다. ||
+| **Pupil Scale** | 동공 스케일 - 동공의 크기를 조절합니다. 눈을 팽창시키는 데 사용되는 세팅입니다. ||
+| **Refraction On/Off** | 굴절 켬/끔 - 셰이더 굴절 버전과 굴절 없는 버전을 블렌딩합니다. ||
+| **Scale By Center** | 중심에서 스케일 - 전체 홍채/동공 영역 중심에서부터의 스케일을 조절합니다. ||
+| **Sclera Brightness** | 공박 밝기 - 공막, 다른 말로 눈의 흰자위 밝기를 조절합니다. ||
+| **Sclera Roughness** | 공막 러프니스 - 공막의 머티리얼 러프니스 값을 제어합니다. ||
+| **Shadow Hardness** | 그림자 선명도 - 공막 내부와 외부가 만나는 지점의 선명도를 조절합니다. Shadow Radius (그림자 반경)과 함께 공막 표면에 걸친 셰이딩을 구동시키는 데 사용되며, 눈꺼풀이 눈알 표면에 걸쳐 드리워지는 피하 산란 그림자 효과 근사치를 구합니다. ||
+| **Shadow Radius** | 그림자 반경 - 공막 내부 색과 외부 색이 섞이는 부분의 크기를 조절합니다. Shadow Hardness (그림자 선명도)와 함께 사용됩니다. ||
+| **Specularity Iris** | 스페큘러 홍채 - 각막(홍채와 동공)에 걸친 스페큘러 레벨을 조절합니다. ||
+| **Specularity Sclera** | 스페큘러 공막 - 공막에 걸친 스페큘러 레벨을 조절합니다. ||
+| **Texture Parameter Values** | 텍스처 파라미터 값 ||
+| **Iris Color** | 홍채 색 - 아래 [눈 텍스처](#눈텍스처) 부분을 참고하세요. ||
+| **Iris Normal Map** | 홍채 노멀 맵 - 아래 [눈 텍스처](#눈텍스처) 부분을 참고하세요. ||
+| **Sclera Color** | 공막 색 - 아래 [눈 텍스처](#눈텍스처) 부분을 참고하세요. ||
+
+#### 눈 홍채 노멀
+
+이제 눈에 **Iris Normal** (홍채 노멀)을 통해 눈에 디테일과 빛의 방향성을 더할 수 있는 Dual Normal (듀얼 노멀)이 지원됩니다.
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![홍채 노멀 비활성화](Iris_DualNormal_Disabled.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![홍채 노멀 활성화](Iris_DualNormal_Enabled.png) 
+    [/PARAM]
+[/OBJECT]
+
+[REGION:note]
+이 그림의 눈에는 머티리얼 사이 일루미네이션과 빛샘 현상을 부드럽게 만들기 위해 바운더리 블리드 컬러 개선도 사용했습니다.
+[/REGION]
+
+홍채 노멀 활성화는 `DefaultEngine.ini` 에 다음 콘솔 변수를 추가하면 됩니다.  
+
+r.IrisNormal=1
+
+홍채의 노멀은 머티리얼의 **Clear Coat Bottom Normal** 노드로 물려줍니다. 
+
+[REGION:lightbox]
+[![](IrisNormal_ClearCoatBottomNormal.png "IrisNormal_ClearCoatBottomNormal.png")](IrisNormal_ClearCoatBottomNormal.png)
+[/REGION]
+[REGION:caption]
+이미지를 클릭하면 원본을 확인합니다.
+[/REGION]
+
+#### 눈 텍스처
+
+눈에 쓸 텍스처 다수는 홍채 맵을 제외하고 위에 만든 UV 레이아웃을 기반으로 합니다. 주요 편집가능 텍스처는 다음과 같습니다.
+
+| **텍스처** | **이름** | **설명** |
+| --- | --- | --- |
+| ![](ScleraMap.png "ScleraMap.png") | **Sclera Map** | [INCLUDE:#excerpt_52] |
+| ![](MidPlaneDisplacementMap.png "MidPlaneDisplacementMap.png") | **Mid Plane Displacement Map** | [INCLUDE:#excerpt_54] |
+| ![](IrisNormalMap.png "IrisNormalMap.png") | **Normal Map** | [INCLUDE:#excerpt_56] |
+| ![](TangentMap.png "TangentMap.png") | **Tangent Map** | [INCLUDE:#excerpt_58] |
+| ![](IrisMap.png "IrisMap.png") | **Iris Map** | [INCLUDE:#excerpt_60] |
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_60]
+홍채 텍스처는 UV 레이아웃이 일치하지 않는다는 점에서 독특합니다. 대신, 텍스처가 해상도 전체를 채웁니다. 전체적인 홍채 크기를 제어하는 데는 UV 와 알파 마스크가 쓰이며, 동공 크기도 마찬가지입니다. 별도의 홍채 맵을 만드는 경우, 동공 크기는 제공된 텍스처 비율에 적당히 가깝게 유지하세요.
+
+(eye\_iris\_clr)
+[/EXCERPT]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_58]
+표면이 흐르는 방향을 탄젠트 스페이스로 제어하는 데 사용됩니다. 예제 캐릭터 눈 구성의 경우, 각막과 공막이 만나는 부분에서의 방향 변화를 강조시키는 데 사용되었습니다.
+
+(T\_Eye\_N)
+[/EXCERPT]
+[/COMMENT]
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_56]
+모든 셰이더의 노멀 맵과 똑같은 작업을 하며, 촉각 텍스처에 베리에이션을 줍니다. 예제 캐릭터 눈 구성의 경우, 눈 표면에 자그마한 올록 볼록 모양을 만드는 데 사용됩니다.
+
+(iris08\_leftEye\_nml)
+[/EXCERPT]
+[/COMMENT]
+
+[COMMENT:none]
+
+[EXCERPT:excerpt_54]
+눈 중앙으로 뚫고 들어가는 면을 고정시키기 위해 사용되는 맵으로, 홍채 깊이에 오프셋을 주기 위한 기저로 사용됩니다.
+
+(T_EyeMidPlaneDisplacement)
+[/EXCERPT]
+[/COMMENT]
+
+[COMMENT:none]
+[EXCERPT:excerpt_52]
+눈 흰자위 색과 아울러 눈 가장자리에 있는 모세혈관과 조직의 색도 조절합니다. 캐릭터의 눈을 충혈시키려는 경우, 이 텍스처를 변경하면 됩니다.
+
+(Sclera\_Tweak\_R)
+[/EXCERPT]
+[/COMMENT]
+
+[REGION:warning]
+참고로 탄젠트 맵 출력은 노멀 맵 입력에 바로 물려주지 않습니다. 그보다는 마스터 머티리얼에서 볼 수 있듯이 별도로 만들어야 하는 Tangent Output 노드에 연결합니다.
+[/REGION]
+
+![](TangentOutput.png "TangentOutput.png")
+
+#### 눈 소프트 앰비언트 섀도잉
+
+눈에 자연스럽고 사실적인 느낌을 내는 소프트 앰비언트 섀도잉 방식은 두 가지 있습니다. 현실에서 눈이 눈꺼풀이나 눈물샘과 같은 다른 조직과 접할 때마다 매우 부드러운 그림자를 볼 수 있습니다. 이는 눈 자체가 반투명한데 빛이 관통하면서 벌어지는 현상입니다. 이 효과의 시뮬레이션을 위해 눈꺼풀 아래 얇은 지오메트리 조각을 사용하거나, 아니면 반투명 머티리얼에 컨택트 섀도를 활성화할 수 있습니다. 개발하는 캐릭터와 그 모양에 따라 한 방법이 다른 방법보다 나아 보일 수 있습니다.  
+
+참고로 이 방법 둘 다 바운더리 블리드 컬러를 사용해서 (입과 마찬가지로) 눈 주변 영역을 부드럽게 하여 서브서피스 스캐터링 스크린 스페이스 제약에서 오는 후광 부작용을 줄입니다.
+
+##### 눈 앰비언트 오클루전
+
+눈에 사실적인 그림자를 시뮬레이션하는 한 가지 방법은, 눈을 덮는 얇은 지오메트리를 넣는 것입니다. 오클루전 근사치를 제공하여, 눈 전체에 풍부한 현실감을 내줍니다.
+
+이 시트에 적용된 머티리얼 이름은 MI\_Eye\_Occlusion_Mike 이며, 예제 캐릭터 모델의 머티리얼 엘리먼트 17 슬롯에서 찾을 수 있습니다.  
+
+[REGION:note]
+참고로 Mike 흉상에는 이 방법을 사용하지 않았습니다. 대신 반투명 머티리얼에 컨택트 섀도우를 개발하여 사용했는데, 이 캐릭터에 더 좋다 느꼈습니다. 컨택트 섀도우 활성화는 머티리얼 인스턴스의 **Shadow Amount** (그림자 양) 변수에 값을 적용하면 됩니다.
+[/REGION]
+
+![](AOSheetMaya.png "AOSheetMaya.png")
+
+[REGION:caption]
+앰비언트 섀도잉에 사용된 눈 지오메트리입니다.
+[/REGION]
+[REGION:note]
+캐릭터 눈에 쓸 콘텐츠를 별도 제작하는 경우, 아마 이러한 지오메트리 조각을 직접 만들어 줘야 할 것입니다. 그런 경우 열린 눈꺼풀 영역에 맞게 만들어야 하며, 그 UV 가 3D 모델링 앱의 0 에서 1 사이 UV 스페이스에 깔끔히 채워져야 한다는 점 참고하시기 바랍니다.
+[/REGION]
+
+##### 반투명 머티리얼의 컨택트 섀도
+
+반투명 머티리얼은 **Contact Shadow** (컨택트 섀도)를 활성화할 수 있습니다. 라이트의 컨택트 섀도와 비슷한 함수 기능을 사용하지만, 라이트의 컨택트 섀도 파라미터와 연결되어 있지는 않습니다. 지오메트리에 추가로 또는 그 대신 사용하여 눈이 사실적으로 제 위치에 있다는 느낌을 내주는 스크린 스페이스 이펙트입니다. 
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![반투명 컨택트 섀도: 비활성화](ContactShadows_Disabled.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![반투명 컨택트 섀도: 활성화](ContactShadows_Enabled.png) 
+    [/PARAM]
+[/OBJECT]
+
+머티리얼의 **디테일** 패널에서 메인 머티리얼 노드의 **Translucency** (반투명) 탭 아래에서 컨택트 섀도를 활성화할 수 있습니다.  
+
+![](EnableContactShadows-2.png "EnableContactShadows-2.png")
+
+## 머티리얼 기법
+
+디지털 휴먼의 모습을 만드는 과정에서 배웠던 몇 가지 핵심 사항입니다. 
+
+### 노멀 맵
+
+캐릭터에 사실적인 피부를 만드는 데 사용한 노멀 맵은 두 종류인데, Meso (메조, 다른 말로 중간 크기) 노멀과 Micro (마이크로) 노멀입니다.
+
+#### 메조 노멀
+
+메조 노멀은 눈, 입술, 이마 주변 주요 주름처럼 중간 크기 디테일의 피부를 나타냅니다. 다수의 메조 노멀을 사용하고 다양한 애니메이션 포즈로 애니메이션을 적용했습니다.  
+  
+
+![](Normals_Mike.png "Normals_Mike.png")
+
+이 포즈는 여러 가지 다른 노멀 맵으로 나뉘어 있습니다 (아래 참고). 이 노멀 맵은 애니메이션으로 구동하는데, 피사체가 애니메이션을 연기 또는 실행하면 올바른 노멀을 발동시켜 다양한 포즈를 블렌딩할 수 있도록 하기 위해서입니다. 프로세스에서 사실적인 결과를 내는 데 도움이 됩니다. 
+
+![](MesoAnimatedNormalWithPoses.jpg "MesoAnimatedNormalWithPoses.jpg")
+
+![](MesoNormlAnimatedwithPoses_Character.gif "MesoNormlAnimatedwithPoses_Character.gif")
+
+[REGION:caption]
+포즈와 마스크드 노멀 맵은 Andy Serkis 의 표정 연기 캡처로 구동하고 있습니다.
+[/REGION]
+
+#### 마이크로 노멀
+
+Micro Normal (마이크로 노멀)은 모공이나 작은 상처와 같은 피부의 작은 디테일을 나타냅니다. 이 디테일을 추출하는 방법은 두 가지입니다. 피사체의 스캔 데이터, 또는 스페큘러 맵입니다.
+
+![](MicroNormals.jpg "MicroNormals.jpg")
+
+### 러프니스 맵
+
+러프니스 맵은 노멀 맵에서 생성하는데, "Normal to Roughness" (노멀에서 러프니스로)라는 기법을 사용합니다. 텍스처 에디터 안에서 Composite Texture (컴포짓 텍스처) 안에 아무 텍스처나 적용하고 러프니스의 바탕이 되도록 텍스처 모드를 설정합니다.
+
+![](NormalToRoughness_2.png "NormalToRoughness_2.png")
+
+![](NormalToRoughness_CompositeTextureSlot.png "NormalToRoughness_CompositeTextureSlot.png")
+
+이 예제에서 노멀을 Toksvig_mesoNormal 라는 메소 노멀 텍스처에 적용하여 러프니스를 수동 페인트하는 대신 초록 채널에서 러프니스 텍스처를 생성했습니다. 이 방법과 애니메이션 적용 노멀을 사용하여 애니메이션 적용 대상 마이크로 및 메조 노멀에 대한 모든 러프니스 맵의 기저를 얻습니다. 애니메이션 적용 노멀은 여러 애니메이션 포즈에서 피부가 늘어나고 줄어드는 동안 러프니스 양을 전환하는 데도 도움이 되어, 캐릭터에 사실성과 신뢰성을 더해줍니다.
+
+#### 프레넬 에지 러프니스
+
+러프니스 맵의 에지를 부드럽게 하기 위해, 에지에 프레넬을 사용하여 얼굴의 복숭아 솜털을 대략적으로 표현합니다.  
+  
+에지 러프니스 제어 방법에 대한 예제로 머티리얼 인스턴스를 통해 제어할 수 있는 Scalar Parameter 를 사용했습니다.  
+
+![](FresnelEdgeRoughnessMaterial.jpg "FresnelEdgeRoughnessMaterial.jpg")
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![에지 러프니스: 0.25 (기본)](RoughnessEdge_0_25.png.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![에지 러프니스: 0](RoughnessEdge_0.png) 
+    [/PARAM]
+[/OBJECT]
+
+#### 러프니스에 대한 리전 마스크
+
+카메라로 캡처할 수 없는 피부의 러프니스 베리에이션을 위해 이 나노 베리에이션을 위한 페인트 마스크 구역을 만들었습니다. 거기에는 캡처 정보를 연구하고 미적인 부분에서 러프니스를 레퍼런스에 일치시키는 작업이 포함됩니다.
+
+### IOR 상수 기반 스킨 스페큘러
+
+피부의 스페큘러는 피부의 IOR(index of refraction, 굴절 지수)에 따른 상수 값을 사용합니다. 그 이유는 페인트한 스페큘러가 물리적으로 정확하지 않기 때문입니다.
+
+#### 캐비티 맵
+
+피부 디스플레이스먼트 하나마다 레이트레이스를 할 수 없으므로, 피사체의 디스플레이스먼트 맵에서 맵을 생성하고 결과를 분해하여 스페큘러를 제외합니다. 프레넬 에지에 이펙트를 감소시키는 스페큘러 오클루전처럼 작동합니다.
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![스페큘러: 0.4 (기본)](CavityMap_0_4.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![스페큘러: 0](CavityMap_0.png) 
+    [/PARAM]
+[/OBJECT]
+
+#### 두피 및 헤어 오클루전
+
+캐비티 맵을 사용하는 것 외에도 헤어를 스페큘러 맵에 구워 넣어야 했는데, 디지털 휴먼 캐릭터가 헤어 표현에 카드 대신 스플라인을 사용하기 때문입니다. 헤어 스플라인 렌더링은 상당량의 지오메트리에 배우 비싸므로, UE4 의 헤어는 그리 두껍게 하지 않아 빛이 약간 통과할 수 있도록 합니다. 오클루전 마스크를 사용하면 빛샘 현당 일부( 또는 가급적 전부)를 방지합니다.
+
+![](ScalpAndHairOcclusion_Mike.png "ScalpAndHairOcclusion_Mike.png")
+
+오클루전은 스페큘러 맵에 구워넣는데, (비용 상의 이유로) 가능한 모든 오클루전 포인트에 레이트레이싱을 할 수 없기 때문입니다. (아래) 비교 예제는 오클루전 양의 매우 미묘한 차이를 보여줍니다. 모델 및 헤어 설정 방식에 따라, 빛샘 현상이 다소 차이나는 것을 볼 수 있습니다.
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![두피 오클루전 마스크 있음](ScalpOcclusion_WithMask.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![두피 오클루전 마스크 없음](ScalpOcclusion_WithoutMask.png) 
+    [/PARAM]
+[/OBJECT]
+
+### 헤어
+
+만든 디지털 휴먼 대다수에 폴리 스트립을 사용하여 헤어를 직접 페인트할 수도 절차적 생성할 수도 있습니다. 이 방법은 UV 를 특정 방시으로 배치하므로, 아티스트는 Maya 에서처럼 두피의 헤어를 필요에 따라 페인트할 수 있습니다. 헤어당 노이즈 베리에이션도 추가하여 헤어 가닥마다의 길이와 그에 따른 러프니스와 컬러에도 변화를 줄 수 있도록 했습니다.   
+  
+헤어는 완벽한 원기둥이 아니므로, 길이에 따른 탄젠트를 변화시켜 헤어에 약간의 "굴곡"을 주고 싶었습니다.  
+
+![](Hair_Scraggle.png "Hair_Scraggle.png")
+
+[REGION:caption]
+UE4 에서 본 “굴곡” 헤어 최종 결과입니다.
+[/REGION]
+
+#### 헤어 솜털
+
+피부에 보이는 짧은 헤어 솜털 시뮬레이션을 위해, 솜털 모양이 정말 미묘해야 합니다.
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![헤어 솜털 없음](HairFuzz_UsingHairShader_noHair.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![헤어 솜털 있음](HairFuzz_UsingTranslucentShader_Enabled.png) 
+    [/PARAM]
+[/OBJECT]
+
+이펙트를 만들기 위해 Translucent (반투명) 셰이더 모델에 이미시브 머티리얼을 사용했습니다. Hair (헤어) 셰이딩 모델을 사용하지 않은 이유는, 헤어 셰이딩 모델의 스페큘러는 일치하기가 너무 어려워 대부분의 경우 전반적으로 너무 밝거나 어둡다는 뜻입니다. 반투명 이미시브 셰이더를 사용하여, 베이스 컬러로 시작해서 끝부분을 어둡고 밝게 하는 베리에이션을 추가한 뒤, 서피스 노멀을 샘플링하여 미묘한 프레넬 에지를 추가합니다.
+
+#### 픽셀 뎁스 오프셋 사용
+
+**Pixel Depth Offset** (픽셀 뎁스 오프셋, PDO) 는 헤어 셰이딩 모델에만 있는 프로퍼티는 아닙니다. 헤어에는 PDO 로 헤어라인 에지를 블렌딩하여 너무 거칠어보이지 않도록 했습니다. PDO 는 픽셀이 카메라에서 멀어지며 오목해 보이게 만들어, 표면에 인공적인 깊이감을 냅니다. 헤어는 단순한 지오메트리 시트로 이루어져 있으므로, PDO 를 사용하면 헤어 모양 전체에 트라이앵글 깊이감을 줄 수 있습니다. (아래처럼) 헤어 지오메트리 면이 두피와 만다는 교차점을 분해시켜 주기도 합니다.
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![픽셀 뎁스 오프셋: 비활성화](PDO_off.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![픽셀 뎁스 오프셋: 활성화](PDO_On.png) 
+    [/PARAM]
+[/OBJECT]
+
+## 데이터 수집 및 캐릭터 모델링 접근법
+
+캐릭터에 올바른 모양과 느낌을 내는 또 다른 중요한 부분은 피사체 캡처 방식인데, 고퀄리티 결과물 캡처를 위해 [3Lateral](http://www.3lateral.com/) 과 협력했습니다. 이 캡처 기법과 프로세스는 현대 영화의 연기 캡처에 사용되는 것과 비슷합니다.
+
+결과물을 내기 위해 조합한 방식은 다음과 같습니다.
+
+*   디테일한 얼굴 스캔
+*   이빨 모형
+*   멀티 카메라 설정으로 연기 캡처
+*   액터 유사성을 밀접하게 캡처하는 센서
+
+스캔 데이터는 3D 피사체의 실측 기반으로 가장 가까운 것입니다. 모델링 측면에서 이루어지는 조정 또는 클린업 패스는 그것이 "어때야 하는지"에 대한 해석이 되고 그 지점부터 애니메이션과 머티리얼 비교에 영향을 줄 것입니다. 이 스캔 데이터를 볼 때 아티스트의 업무 중 하나는 스캔 데이터의 무결성을 유지하는 것입니다. 여기에는 입 안이나 윗 눈꺼풀 주변이나 귀 처럼 시스템이 정확한 디테일을 캡처하지 못하는 영역을 보완 또는 심지어 교정하는 작업이 포함됩니다. 보통 신체 해부학에 대한 깊은 이해와 함께 훌륭한 미적 감각이 필요하지만, 대부분의 경우 여기서는 피사체를 정확히 재현하는 데 레퍼런스 캡처가 제일 중요합니다.  
+
+![](AndyRetopologized-1.png "AndyRetopologized-1.png")
+
+[REGION:caption]
+(왼쪽부터 차례로) 원시 스캔 데이터, 스캔 디테일을 투영한 새 토폴로지, 가운데 토폴로지 위에 디스플레이스먼트 추가
+[/REGION]
+
+  
+이 예제에서 원본 스캔 데이터를 취하고, 토폴로지를 다시 만들고, 클린업하여 피사체, 여기서는 Andy Serkis 를 정확히 반영한 방법을 볼 수 있습니다.
+
+### 얼굴 캡처
+
+액터의 연기를 캡처하는 프로세스를 통해, 50 가지 [FACS](https://en.wikipedia.org/wiki/Facial_Action_Coding_System) (Facial Animation Coding System, 페이셜 애니메이션 코딩 시스템) 포즈를 구해 각 포즈마다 얼굴의 다양한 근육군을 고립시켰습니다. 이 정보 덕에 디퓨즈, 노멀, 스페큘러, 앰비언트 오클루전, 반투명과 같은 다양한 텍스처에 물리적으로 정확한 데이터를 만들 수 있었습니다.
+
+### 마이크로지오메트리
+
+모공이나 작은 흠같은 얼굴의 세부적인 디테일은 액터가 연기한 모든 포즈에서 캡처했습니다. 이 디테일은 이 [마이크로 노멀](#마이크로노멀) 맵을 사용하여 애니메이션 포즈를 블렌딩하는 기저입니다. 이를 통해 연기 도중 얼굴과 주름의 변화 방식에 정확한 디테일을 제공할 수 있습니다.
+
+### 디스플레이스먼트 맵
+
+여러 라이팅 방향에서의 노멀을 캡처하는 스캔 프로세스 도중 3차 노멀 정보로부터 디스플레이스먼트 맵을 생성합니다. 맵이 생기면, ZBrush 또는 Mudbox 같은 조각 앱에 적용할 수 있습니다. 스캔 정확도는 캡처의 매크로 디테일( 또는 실측 기반)을 형성합니다. 하지만 그 3차 디테일의 강도는 임의적이라 피사체 기준 샷을 눈으로 보고 일치시켜야 합니다.
+
+### 다양한 텍스처 맵
+
+디지털 휴먼 캐릭터에 사용하도록 생성된 텍스처 맵은 아티스트가 만든 것과 원본 스캔 데이터에서 생성한 것을 조합한 것입니다. 아래는 다양한 텍스처 유형을 캡처한 방식 관련 자세한 내용입니다.
+
+*   **Albedo (Diffuse)** 알베도 (디퓨즈)
+    *   헤어를 두피에 투사하여 스캔 시간 도중 캡처한 것입니다. 필요한 경우 아티스트가 텍스처 영역을 클린업 합니다.
+        ![](Texture_Albedo_HeadHairSkin.png "Texture_Albedo_HeadHairSkin.png")
+*   **Normals** 노멀
+    *   두 가지 맵으로 이루어집니다. 하이 폴리 모델에서 구운 베이스 맵과, 피부의 디테일한 미세 구조를 캡처하는 마이크로 노멀입니다.   
+        ![](Comparison_MesoMicroNormals-1.png "Comparison_MesoMicroNormals-1.png")
+    *   너무 가파른 코끝 주변이나 눈물샘 및 눈꺼풀 안쪽의 눈 주변처럼 너무 많이 깨지는 일부 영역에는 마이크로 디테일 제거를 위해 마스크도 만듭니다.
+
+이러한 특정 맵 외에도 캐릭터의 모양을 제어하기 위해 페인트한 구역 마스크도 조금 사용했습니다. 헤어의 경우 두피 및 캐비티 앰비언트 오클루전 맵을 사용했으며, 서브서피스 스캐터링을 더욱 잘 제어하기 위해 몇 가지 두께 마스크를 사용하여 빛 투과를 제어했습니다.
+
+### 입과 눈 설정
+
+입과 눈의 경우, 눈과 입 주변에 약간의 추가 지오메트리를 사용하여 머티리얼 블렌딩이나 컨택트 섀도를 개선했다는 점을 제외하고는 포토리얼리스틱 캐릭터를 설정했을 때와 비슷한 방식을 사용했습니다.
+
+디지털 휴먼 캐릭터에 사용한 지오메트리 설정 예입니다.  
+
+![EyeTeethMeshGeoSetup.png](EyeTeethMeshGeoSetup-resize471x504.png "EyeTeethMeshGeoSetup.png")
+
+1.  눈물 반월판 (눈물샘)
+1.  처진 살 블렌드 메시
+1.  눈꺼풀 오클루전 및 블러 메시
+1.  눈알
+1.  잇몸
+1.  치아/잇몸 블러 메시
+1.  치아
+1.  타액 기포
+1.  혀 
+
+이 지오메트리와 지원 지오메트리의 조합이 캐릭터에 사실성을 더합니다.
+
+#### 눈 제작 기법
+
+디지털 휴먼 캐릭터를 개발하는 동안, 모델과 머티리얼에 몇 가지 기법을 사용하여 캐릭터의 눈 충실도를 향상시켰습니다. 위에서 경고했듯 눈 설정 많은 부분이 머티리얼 설정과 캡처한 레퍼런스 머티리얼에 상호 종속되어 있습니다. 최소한 여기 눈 설정을 그대로 사용하여 시작할 것을 강력 추천합니다. 현실적은 결과를 얻기 위해 한 작업의 개요는 다음과 같습니다.
+
+[REGION:tip]
+눈을 직접 만들 때는, 이 프로젝트에 제공된 실제 눈 지오메트리와 머티리얼을 사용해서 시작할 것을 강력 추천합니다. 여기 있는 정보 대부분은 이 특정 눈 지오메트리와 머티리얼을 기반으로 합니다. 프로젝트에서 **PhotorealEyeGeo** 메시를 FBX 익스포트하고 직접 만들 캐릭터와 프로젝트에서 사용할 모델링 앱에 임포트하면 됩니다.
+[/REGION]
+
+##### 모양과 UV 레이아웃
+
+실제의 인간 눈과 매우 흡사하게, 눈 메시는 완전히 구체로 모델링되어있지 않습니다. 그보다는 각막을 나타내기 위해 앞으로 약간 돌출된 돔 형태로, 눈이 거의 계란 모양입니다.  
+
+![EyeGeometry.png](EyeGeometry-resize344x308.png "EyeGeometry.png")
+
+[REGION:caption]
+이 이미지에서 눈 지오메트리의 측면도를 볼 수 있습니다. 앞부분에 각막의 돌출된 부분을 볼 수 있습니다.
+[/REGION]눈의 UV 레이아웃 역시 매우 중요한데, 바로 여기서 각 눈 텍스처 부분이 만들어지기 때문입니다. 다행히 눈 셰이딩 모델과 궁합이 잘 맞는 UV 레이아웃은 상대적으로 간단합니다. 눈의 전방 축을 따라 평면 투영한 것입니다. 뒷면 포함 여부는 어차피 눈 뒤에 가려지므로 그다지 중요하지 않습니다.
+
+![EyeUVs.png](EyeUVs-resize345x347.png "EyeUVs.png")
+
+[REGION:caption]
+UV 레이아웃 중심이 0-1 공간에 있고 투영은 바로 눈의 각막을 향하고 있습니다.
+[/REGION]
+
+##### 눈 추가 사항
+
+사용된 눈 지오메트리와 머티리얼 기법 관련 자세한 내용은 아래와 같습니다.
+
+###### 눈알 지오메트리
+
+각막에 들어간 눈 지오메트리 돌출부 외에도, 비강쪽 눈 근처에도 돌출부를 넣었는데, 피사체의 눈에 대해 입수한 디테일 눈 스캔 데이터를 기반으로 한 것입니다.
+
+###### 처진 살 블렌드 지오메트리
+
+이 지오메트리는 머리 지오메트리에서 눈알 지오메트리로의 전환을 부드럽게 만드는 데 쓰입니다. 
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![처진 살 블렌드 지오메트리: 비활성화](Eye_CarcuncleBlend_Disabled.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![처진 살 블렌드 지오메트리](Eye_CarcuncleBlend_Enabled.png) 
+    [/PARAM]
+[/OBJECT]
+
+###### 눈물 유체 지오메트리
+
+눈과 아래 눈꺼풀 아래 고이는 습기를 나타냅니다. 
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![눈물 유체 지오메트리: 비활성화](Eye_LacrimalFluid_Disabled.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![눈물 유체 지오메트리: 활성화](Eye_LacrimalFluid_Enabled.png) 
+    [/PARAM]
+[/OBJECT]
+
+###### 오클루전 및 블러 지오메트리
+
+눈이 머리에 더욱 잘 맞도록 하는 데 쓰입니다. 
+
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![오클루전 및 블러 지오메트리: 비활성화](Eye_OcclusionBlend_Disabled.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![오클루전 및 블러 지오메트리: 활성화](Eye_OcclusionBlend_Enabled.png) 
+    [/PARAM]
+[/OBJECT]
+
+#### 입 제작 기법
+
+입 주변 영역에는 눈에 사용한 것과 비슷한 기법을 사용했습니다. 잇몸과 치아의 경우 치아와 잇몸 주변에 블러 메시를 사용하여 자연스럽게 섞이도록 했습니다. 타액 기포를 추가하여 캐릭터에 사실감을 더했습니다.  
+
+Mike Seymour 머리 이 부분은 스태틱 메시라서 바로 보이지 않습니다. 또한 잇몸 블러 메시나 타액 기포처럼 최신 디지털 휴먼에는 있는 몇 가지 지오메트리가 없습니다. 눈과 머리 사이 블렌딩을 위해 눈 블러 메시를 설정한 방식을 보면 직접 설정할 때 참고가 될 것입니다.
+
+### 헤어 제작 기법
+
+디지털 휴먼의 헤어를 제작할 때는 사실적이고 믿음직한 디지털 휴먼 모양을 내기 위해 카드와 스플라인 모두 사용하는 등의 기법을 조합했습니다. 캐릭터의 모든 헤어를 만들 때는 Mike Seymour 에서처럼 XGen for Maya 를 사용하여 캐릭터의 헤어를 대화식으로 정리하거나, Siren 에서처럼 Guide Curve (가이드 커브)를 사용하여 헤어 위치를 잡았습니다. 그 후 Arnold for Maya 를 사용하여 나중에 UE4 머티리얼에서 사용할 헤어에 필요한 텍스처를 렌더링 출력했습니다.
+
+(아래 이미지에서 보듯) Siren 예제에서는 헤어 카드와 그 카드 위에 헤어 스플라인을 레이어로 사용하여 머리 모양을 만들었습니다. 이를 통해 헤어 길이로 인한 지오메트리를 줄이고, 두 기법으로 가장 잘 작동하는 것을 사용할 수 있었습니다. 즉 헤어 두께로 인한 스플라인 빛샘 현상을 줄이고, 헤어를 실시간 렌더링하는 데 드는 비용을 줄이는 것입니다.
+
+![](Hair_Siren_ComboSplinesAndCards.png "Hair_Siren_ComboSplinesAndCards.png")
+
+[REGION:caption]
+사이렌의 헤어 레이어 중 (왼쪽부터 순서대로) 헤어 카드, 헤어 스플라인, 짧은 헤어 스플라인을 추가한 것입니다.
+[/REGION]
+
+#### 헤어 스플라인
+
+헤어 스플라인을 얇은 폴리 스트립( 또는 빌보드)로 변환했습니다. XGen 으로 이 작업을 하면, 빌보드가 카메라를 향하도록 만듭니다. XGen 으로 익스포트하기 전, UE4 에서 잘 작동하도록 하기 위해 이 기능을 비활성화합니다.
+
+![](Hair_Siren.jpg "Hair_Siren.jpg")
+
+[REGION:caption]
+헤어 카드 위의 스플라인 헤어 레이어.
+[/REGION]
+
+헤어를 폴리 스트립으로 변환했기에 세 개의 UV 세트를 사용합니다. 하나는 헤어 뿌리와 끝과 색 제어, 다른 하나는 구역 마스크, 마지막 하나는 헤어 앰비언트 오클루전을 구운 것을 저장합니다.
+
+![](Hair_Model_UVStrips.png "Hair_Model_UVStrips.png")
+
+*   **UV 1**
+    타일링 옵션을 끄면 XGen 이 자동 생성합니다. 각 UV 셸은 모든 헤어 가닥에 겹치므로, 이 옵션을 사용하여 헤어 뿌리/끝부분 너비와 색을 글로벌 제어합니다.
+*   **UV 2**
+    *   수동 페인트한 마스크와 같은 것의 구역의 제어, 또는 컬러 베리에이션을 위한 노이즈 추가같은 작업을 여기서 할 수 있습니다.
+    *   UV 맵은 두피를 모방한 몇 가지 트릭을 사용하여 생성했습니다.
+        *   손질한 XGen 프리미티브는 기본 UV 세팅을 사용하여 지오메트리로 변환했습니다.
+        *   XGen 손질을 다시 선택하고 XGen 모디파이어를 추가하여 헤어를 (수염과 같이) 매우 짧게 줄였습니다. XGen 은 버텍스 컬러와 길이에 따라 토폴로지 순서를 바꾸지 않으므로, 블렌드 셰이프는 나중에 바꿀 수 있습니다. 짧은 헤어는 다시 한 번 기본 스트링을 사용하여 폴리 스트립으로 변환합니다.
+        *   그런 다음 줄인 헤어를 기반으로 2차 UV 를 만들고 두피 지오메트리와 월드 스페이스 UV 를 전송합니다.
+        *   마지막으로 겹치는 헤어 UV 와 두피 유형 레이아웃 블렌드를 만들어 하나의 헤어 메시와 두 개의 UV 세트를 얻습니다. 하나는 글로벌, 다른 하나는 세밀한 느낌을 냅니다.
+*   **UV 3**
+    *   모든 폴리 스트립을 펼쳐 하나의 텍스처로 배치하는 식으로 구운 헤어 앰비언트 오클루전에 쓰입니다. 여기서 유일한 주의사항은 AO 를 제대로 표시하려면 영향받은 픽셀을 캡처할 만큼 맵이 충분히 커야 합니다.
+
+#### 헤어 카드
+
+캐릭터의 헤어 카드를 생성하여 올바른 모양을 만들기 위해, 헤어에 XGen 을 사용하고 Arnold 를 사용하여 다양한 텍스처를 렌더링 출력했습니다.
+
+![](Hair_CardsOnSlant.png "Hair_CardsOnSlant.png")
+
+[REGION:caption]
+텍스처 시트에 렌더링한 헤어 예제입니다.
+[/REGION]
+
+[REGION:tip]
+두개골의 경사를 모방하고 헤어에 인형같은 느낌을 없애기 위해, 헤어 표면에 경사면을 사용해서 모두 길이가 같지 않도록 텍스처 뿌리를 끊었습니다. 이 헤어의 다양한 뿌리는 (위의) 가운데 예제에서 확인할 수 있습니다.
+[/REGION]
+
+Arnold 를 사용해서 렌더링 출력한 디퓨즈 텍스처는 가닥 베리에이션이 거의 없이 밋밋하고, 앰비언트 오클루전 텍스처는 스페큘러 오클루전 에 쓰였으며, 헤어에서 두피로의 블렌딩에는 뿌리/끝부분 그레이디언트가 쓰였습니다. 헤어의 스페큘러는 UE4 머티리얼 자체 헤어 셰이딩 모델을 사용하여 처리했습니다.
+
+헤어 카드는 손수 배치하여 원하는 결과를 내는 것을 선호했습니다. 절차적 방식이나 인스턴싱을 사용하면 보통 클린업 시간이 더 오래 걸렸습니다.
+
+## 추가 정보
+
+디지털 휴먼 캐릭터를 만든 방법 관련 추가 정보는 아래 SIGGRAPH 및 GDC 의 여러 강연 비디오를 참고하세요.
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    otmxoK4lCNw
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    78
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    _OuCrbwEJW4
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    78
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
+
+## 기여 협력사
+
+![](logo-alt.png "logo-alt.png")
+
+[3Lateral](http://www.3lateral.com/) 은 여기 에픽게임즈 팀과 긴밀히 협력하여 디지털 휴먼 데모와 "소년과 연" 오픈 월드 데모에 쓰인 디테일한 스캔 데이터, 애니메이션 적용 맵, 리깅 등을 제공했습니다.
+
+*   [Andy Serkis and Osiris Black©](http://www.3lateral.com/projects/Digital-Andy-Serkis-and-Osiris-Black) 에는 3D 스캔, 캐릭터, 콘셉트, 크리처, 페이스, 필름, 게임, 모션을 제공했습니다. 
+*   [Siren](http://www.3lateral.com/projects/siren) 에는 3D 스캔, 페이스, 모션 캡처를 제공했습니다. 
+*   [The Kid](http://www.3lateral.com/projects/unreal-engine-demo-the-kid) 에는 콘셉트, 모션을 제공했습니다.

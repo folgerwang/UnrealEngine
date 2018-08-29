@@ -1,94 +1,102 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title:Using Distance Field Indirect Shadows
-Description: How to setup and use Distance Field Indirect Shadows. 
-Related: Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing
-Related: Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion
-Parent: Engine/Rendering/LightingAndShadows/DistanceFields/HowTo
-Order:
-type: how to
+﻿INTSourceChangelist:3716175
+Availability: Public
+Crumbs: %ROOT%
+Title: 使用距离场间接阴影
+Description: 如何设置和使用距离场间接阴影。
+Type: how-to
 SkillLevel:Intermediate
-Version: 4.15
-reference-image:DFIndirect.gif
-Tags: Lighting
+Version:4.18
+Parent:Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields
+Related:Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion
+Related:Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference
+Related:Engine/Rendering/LightingAndShadows/VolumetricLightmaps
+Related:Engine/Rendering/LightingAndShadows/IndirectLightingCache
+Order:2
+Tags:Lighting
+Topic-image:DFIS_topic.png
+Social-image:DFISBanner1.png
+
+
 
 [REGION:fullwidth raw]
 ![](DFISBanner.png)
 [/REGION]
 
+如果游戏针对间接光照区域使用预计算照明，混合可移动对象可能会非常具有挑战性，因为它们不会拥有柔和区域阴影。有时需要模拟这种类型的效果，以使用复杂材质设置乃至贴花将动态对象与场景的其他部分混合起来。**距离场间接阴影（Distance Field Indirect Shadows）**（DFIS）使你能够为用于间接光照区域中的区域阴影的单个静态网格体生成[网格体距离场](Engine/Rendering/LightingAndShadows/MeshDistanceFields)。
+在这些区域中，传统的阴影贴图方法表现不佳。
 
+距离场间接阴影（Distance Field Indirect Shadowing）的工作原理与用于骨架网格体的[胶囊体阴影](Engine/Rendering/LightingAndShadows/CapsuleShadows/Overview)的相似，都是使用在照明构建过程中生成的预计算照明样本。这些照明样本使用[体积光照贴图](Engine/Rendering/LightingAndShadows/VolumetricLightmaps)来确定间接照明的方向性和强度。
 
-When your games rely on precomputed lighting with nice indirectly lit areas, it can be a challenge to have nice soft shadowing for your dynamic objects that isn't faked by using a decal or some complex
-material setup. To solve this problem, **Distance Field Indirect Shadows** (DFIS) enables your dynamic Static Meshes to have soft area shadows in these indirectly lit areas where traditional shadow mapping 
-techniques wouldn't work. Distance Field Indirect Shadows, similarly how Capsule Shadows for Skeletal Meshes, samples the [indirect lighting cache](Engine/Rendering/LightingAndShadows/IndirectLightingCache/)
-to get the directionality and intensity of the indirect lighting and then uses the Mesh Distance Field to cast a soft area shadow.
+在本指南中，你将学习如何为单个网格体启用距离场，然后将这类网格体在关卡中用于使用静态间接照明照亮的区域，从而得到类似于该视频中的效果：
 
-In this guide, we'll take a look at how to enable Distance Fields for meshes that can then be used in your levels for dynamic indirect shadowing.
-
-## Steps
-
-[REGION:note]
-Unlike other Distance Field features, like those for [Ray Traced Distance Field Shadows](Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing) and [Ambient Occlusion](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion),
-this feature can be enabled per-mesh, which is detailed in the steps below.
-[/REGION]
-
-1. In the **Content Browser**, start by selecting any **Static Mesh** asset and double-clicking to open the Static Mesh Editor. 
-
-	![](ContentBrowser.png)(w:350)
-	
-	[REGION:note]
-	For the purpose of this example, the Static Mesh **SM_Statue** from Sun Temple project (available on the Epic Games Launcher) will be used for the remainder of this demonstration.
-	[/REGION]
-1. In the Static Mesh Editor, navigate to the **Details** panel and in the **Static Mesh Settings** section, toggle the option for **Generate Mesh Distance Fields**. After enabling this, you can **Save** & **Close** the Editor window.
-
-	[REGION:raw]
-	![](EnableDistanceField.png)(w:1050)
-	[/REGION]
-1. Now, go back to the **Content Browser**, where you selected the asset, and drag it into the Level Viewport. 
-
-	![](DragToWorld.png)(w:450)
-1. With the Actor selected in your level, go to the **Details** panel and set the **Mobility** to **Movable**. 
-
-	![](TransformMobility.png)(w:450)
-	
-	Then, under the **Lighting** section, toggle the option for **Distance Field Indirect Shadow**.
-	
-	![](EnableDFIS.png)(w:450)
-	
-1.	Once you've toggled the **Distance Field Indirect Shadows** option, you're Static Mesh Actor will cast a soft area shadow when in precomputed indirectly lit areas. With your own Static Mesh, you should see similar results as the example below.
-	
-	[REGION:note]
-	If you're not seeing a soft shadow or drastically differing results, first make sure that you've already built lighting for the level and that you're testing in an area that gets a good amount of bounce light. In very brightly lit
-	areas or areas in directly lit by the light source, the indirect shadows will practically non-existent. 
-	[/REGION]
-	
-	![](DFISMinVisibility_1.png)(w:450)		
-
-	
-### Distance Field Indirect Shadow Min Visibility
-
-![](DFISMinVisibilitySetting.png)(w:450)
-
-The setting for **Distance Field Indirect Shadow Min Visibility** controls how dark the movable Actor's indirect shadow can be. This setting enables artists to have control over how dark the 
-shadows can be in indirectly lit areas. When you use a higher value the indirect shadow will lighten enabling them to blend with any of the precomputed shadows more easily.
-
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Min Visibility: 0.1 ](DFISMinVisibility_1.png)(w:550)
-	[/PARAM]
-	[PARAM:after]
-	![Min Visibility: 0.6 ](DFISMinVisibility_2.png)(w:550)
-	[/PARAM]
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	4Kd-w531mVg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	60
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	95
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
 [/OBJECT]
 
-	
-	
-## End Result
 
-Now that you've seen how to use Distance Field Indirect Shadows, you should be able to enable your own Static Meshes to use dynamic indirect shadowing in your levels and individual actors, along with being able to 
-adjust the shadows to blend nicely with your surrounding baked lighting in indirectly lit areas. 
+## 步骤
 
-[REGION:asyncgif]
-![](DFIndirect.gif)(w:600)
-[/Region]
+[REGION:note]
+与其他[网格体距离场（Mesh Distance Field）](Engine/Rendering/LightingAndShadows/MeshDistanceFields)功能不同，DFIS不要求为整个项目启用 **生成网格体距离场（Generate Mesh Distance Fields）**。它可以在网格体级别启用，如以下步骤所述。
+[/REGION]
+
+
+1. 在 **内容浏览器（Content Browser）** 中，首先选择任意 **静态网格体（Static Mesh）** 资源，然后双击以打开“静态网格体编辑器（Static Mesh Editor）”。 
+
+  ![](ContentBrowser.png)(w:350)
+
+  [REGION:note]
+  在该示例中，静态网格体（Static Mesh）**SM_Statue**（来自Sun Temple项目）(位于Epic Games启动程序中)将会被用于演示。
+  [/REGION]
+2. 在“静态网格体编辑器（Static Mesh Editor）”中，导航至 **细节（Details）** 面板。在 **静态网格体设置（Static Mesh Settings）** 部分中，将 **生成网格体距离场（Generate Mesh Distance Fields）** 设置为启用。启用它后，可以 **保存** 并 **关闭**“静态网格体编辑器（Static Mesh Editor）”。
+
+  [REGION:raw]
+  ![](EnableDistanceField.png)(w:1050)
+  [/REGION]
+3. 从 **内容浏览器（Content Browser）** 中，选择 **SM_Statue** 网格体并将它拖动到关卡视口中，在其中，你会留意到该静态网格体没有阴影。
+
+  ![](DragToWorld.png)(w:550)
+
+4. 在关卡中选中该Actor之后，转至 **细节（Details）** 面板并将其 **可移动性（Mobility）** 设置为 **可移动（Movable）**。 
+
+  ![](TransformMobility.png)(w:550)
+
+5. 然后，在 **照明（Lighting）** 选项卡下面，启用 **距离场间接阴影（Distance Field Indirect Shadow）**。
+  ​
+  ![](EnableDFIS.png)(w:550)
+
+6. 如果场景尚未进行照明构建，使用主工具栏并单击 **构建** 按钮来为场景构建照明。
+  ​
+  ![](BuildLightingButton.png)
+
+## 最终结果
+
+在有很多反射光照的间接光照区域中，应该可以看到可移动静态网格体能在间接光照区域中投射柔和阴影，而之前并没有阴影投射。 
+
+![](DFISMinVisibility_1.png)(w:550)
+
+请记住，在采用直接光照的区域或采用通明光照的区域，间接阴影基本上不存在。 
+
+
+## 其他设置
+
+使用[距离场参考](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#ActorComponents)来了解特定于静态网格体Actor的距离场间接阴影（Distance Field Indirect Shadows）设置。
+
+
 

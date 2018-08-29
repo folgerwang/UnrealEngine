@@ -42,7 +42,7 @@ void TMovieSceneKeyStructCustomization<ChannelType>::Extend(IDetailLayoutBuilder
 
 	if (KeyStruct.IsValid())
 	{
-		DetailBuilder.EditCategory("Key").AddAllExternalStructureProperties(KeyStruct.ToSharedRef());
+		DetailBuilder.EditCategory("Key").AddExternalStructure(KeyStruct.ToSharedRef());
 	}
 }
 

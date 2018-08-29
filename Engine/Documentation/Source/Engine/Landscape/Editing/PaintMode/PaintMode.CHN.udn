@@ -99,11 +99,11 @@ Flatten 工具直接将所选图层的权重设为 **Tool Strength** 滑条的�
 | **Flatten Mode** | 决定工具将增加或减少（或两者皆执行）对所选图层权重的应用。|
 
 [COMMENT:none]
---
+
 | **Use Slope Flatten** | 勾选后将沿地形现有的斜坡进行扁平。|
 | **Pick Value Per Apply** | 勾选后，将固定选择新数值进行扁平，而非只使用首个点击点。|
 | **Flatten Target** | 设置进行扁平的目标值。|
---
+
 [/COMMENT]
 
 
@@ -190,7 +190,7 @@ Flatten 工具直接将所选图层的权重设为 **Tool Strength** 滑条的�
 | 选项 | 描述 |
 | ------ | ----------- |
 | **Phys Material** | 指定到主导图层地形区域的 [物理材质](Engine/Physics/PhysicalMaterials)（如有）。|
-| **Hardness** | [侵蚀](Engine/Landscape/Editing/SculptMode/#Erosion) 工具使用的数值。|
+| **Hardness** | [侵蚀](Engine/Landscape/Editing/SculptMode/Erosion) 工具使用的数值。|
 
 ### 孤立图层
 

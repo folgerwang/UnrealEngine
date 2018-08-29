@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4308165
 Availability: Public
 title:머티리얼 표현식 참고서
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
@@ -181,18 +181,4 @@ tags:Materials
 [/EXCERPT:Categories]
 
 
-[COMMENT:none]
 
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/Materials/Functions/Reference/ComplexMotion:title%](ComplexMotion.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/Materials/Functions/Reference/ComplexMotion:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/Materials/Functions/Reference/ComplexMotion]
-	[/PARAM]
-[/OBJECT]
-
-[/COMMENT]

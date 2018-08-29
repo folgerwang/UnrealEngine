@@ -47,6 +47,7 @@ private:
 	 */
 	TSharedRef<IPropertyTypeCustomization> CreateBindingIDCustomization();
 	TSharedRef<IPropertyTypeCustomization> CreateFrameNumberCustomization();
+	TSharedRef<IPropertyTypeCustomization> CreateEventCustomization();
 
 	/**
 	 * Called when a property has been changed on the UI

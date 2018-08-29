@@ -180,18 +180,4 @@ Below is breakdown of the various **Material Functions** included within Unreal 
 [/EXCERPT:Categories]
 
 
-[COMMENT:none]
 
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/Materials/Functions/Reference/ComplexMotion:title%](ComplexMotion.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/Materials/Functions/Reference/ComplexMotion:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/Materials/Functions/Reference/ComplexMotion]
-	[/PARAM]
-[/OBJECT]
-
-[/COMMENT]

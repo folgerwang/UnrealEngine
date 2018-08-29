@@ -295,7 +295,7 @@ void InitViewOptionsArray()
 }
 
 FEditorViewportClient::FEditorViewportClient(FEditorModeTools* InModeTools, FPreviewScene* InPreviewScene, const TWeakPtr<SEditorViewport>& InEditorViewportWidget)
-	: bAllowCinematicPreview(false)
+	: bAllowCinematicControl(false)
 	, CameraSpeedSetting(4)
 	, CameraSpeedScalar(1.0f)
 	, ImmersiveDelegate()
@@ -3533,7 +3533,7 @@ void FEditorViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 
 	ViewFamily.EngineShowFlags = EngineShowFlags;
 
-	if( ModeTools->GetActiveMode( FBuiltinEditorModes::EM_InterpEdit ) == 0 || !AllowsCinematicPreview() )
+	if( ModeTools->GetActiveMode( FBuiltinEditorModes::EM_InterpEdit ) == 0 || !AllowsCinematicControl() )
 	{
 		if( !EngineShowFlags.Game )
 		{

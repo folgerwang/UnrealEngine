@@ -46,7 +46,7 @@ topic-image:Engine/Physics/physics_topic.png
 
 	![](Engine\Physics\PhAT\HowTo\ApplyConstraintProfile\compile.png)
 
-1. **Bone Name** 기본값을 원하는 타겟 **본** 으로 변경합니다. 이 경우 `spine_01` 입니다.
+1. **Bone Name** 기본값을 원하는 타깃 **본** 으로 변경합니다. 이 경우 `spine_01` 입니다.
 
 	![](Engine\Physics\PhAT\HowTo\ApplyConstraintProfile\boneName.png)
 
@@ -56,13 +56,13 @@ topic-image:Engine/Physics/physics_topic.png
 	![](Engine\Physics\PhAT\HowTo\ApplyConstraintProfile\eventBP.png)
 
 1. **Set Skeletal Mesh Component** 노드를 추가하고 **Event Beging Play** 에 연결합니다.
-	* Target (타겟)은 위에서 추가한 **Physical Animation Component** 입니다.
+	* Target (타깃)은 위에서 추가한 **Physical Animation Component** 입니다.
 	* **In Skeletal Mesh Component** (입력 스켈레탈 메시 컴포넌트)는 블루프린트 내 또는 위에서 추가한 **스켈레탈 메시 컴포넌트** 입니다.
 
 	![](createSetSkel.png)
 
 1. **Apply Physcial Animation Profile Below** 노드를 추가하고 **Set Skeletal Mesh Component** 노드에 연결합니다.
-	* **Target** (타겟)은 **Physical Animation Component** 입니다.
+	* **Target** (타깃)은 **Physical Animation Component** 입니다.
 	* **Body Name** (바디 이름)은 **Bone Name** 변수를 입력으로 받습니다. 피직스 애셋 안에서, 피직스 바디 이름은 그 본을 땁니다.
 	* **Profile Name** (프로파일 이름)은 **스켈레탈 메시** 에 적용하고자 하는 **피지컬 애니메이션 프로파일** 이름입니다.
 	* 상체만 애니메이션이 적용되도록 하기 위해 `spine_01' 을 원하는 본으로 사용하고 있으므로, **Include Self** (자신 포함)을 체크해야 합니다.
@@ -71,10 +71,10 @@ topic-image:Engine/Physics/physics_topic.png
 	![](applyPhysAnim.png)
 
 1. Set All Bodies Below Simulate Physics 노드는 **Apply Physcial Animation Profile Below** 노드에 연결했습니다. 그래프 완성입니다.
-	* **Target** (타겟)은 **스켈레탈 메시 컴포넌트** 입니다.
+	* **Target** (타깃)은 **스켈레탈 메시 컴포넌트** 입니다.
 	* **In Bone Name** (입력 본 이름)은 **Bone Name** 변수를 입력으로 받습니다.
 	* **New Simulate** (새 시뮬레이션)은 **True** 로 설정합니다.
-	* 여기서도, `spine_01` 을 타겟 본으로 사용하고 있으므로, **Include Self** (자신 포함) 옵션을 체크해야 합니다.
+	* 여기서도, `spine_01` 을 타깃 본으로 사용하고 있으므로, **Include Self** (자신 포함) 옵션을 체크해야 합니다.
 
 	[OBJECT:Snippet]
 		[PARAMLITERAL:id]

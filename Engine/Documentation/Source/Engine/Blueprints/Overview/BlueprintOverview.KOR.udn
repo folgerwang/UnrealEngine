@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4305436
 Availability:Public
 Title: 블루프린트 개요
 Crumbs: %ROOT%, Engine, Engine/Blueprints
@@ -113,7 +113,6 @@ _블루프린트_ 의 함수성 정의는 여러가지 요소를 사용하여 �
 
 블루프린트의 모드는 창에 어떤 것이 보이는지를 결정합니다. 레벨 블루프린트에는 그래프 모드 하나 뿐이지만, 블루프린트 클래스에는 세 가지 모드가 있습니다:
 
-* **[그래프 모드](Engine/Blueprints\Editor\Modes\GraphPanel)** - 레벨의 게임플레이 함수성을 만들기 위한 스크립트 노드를 추가하고 연결하는 곳입니다.
 * **[디폴트 모드](Engine/Blueprints\Editor\Modes\Defaults)** - 블루프린트에 대한 디폴트를 설정하는 곳입니다.
 * **[컴포넌트 모드](Engine/Blueprints\Editor\Modes\Components)** - 블루프린트를 이루는 컴포넌트를 추가, 제거, 변경하는 곳입니다.
 

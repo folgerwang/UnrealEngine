@@ -347,6 +347,8 @@ void FLevelSequenceEditorSpawnRegister::HandleConvertPossessableToSpawnable(UObj
 		if (World)
 		{
 			World->EditorDestroyActor(OldActor, true);
+
+			GEditor->BroadcastLevelActorListChanged();
 		}
 	}
 }

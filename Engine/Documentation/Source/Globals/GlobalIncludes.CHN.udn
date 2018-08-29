@@ -17,7 +17,7 @@ Description:
 [VAR:OSSelect]
 [REGION:section]
 	[REGION:titlesection]
-	选择操作系统
+	Choose Your Operating System
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
@@ -52,7 +52,7 @@ Description:
 [VAR:OSSelect_Linux]
 [REGION:section]
 	[REGION:titlesection]
-	选择操作系统
+	Choose Your Operating System
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
@@ -101,7 +101,7 @@ Description:
 [VAR:DCCSelect]
 [REGION:section]
 	[REGION:titlesection]
-	选择 3D 软件
+	Choose Your 3D Art Tool
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
@@ -137,7 +137,7 @@ Description:
 [VAR:BinarySourceSelectVar]
 [REGION:section]
 	[REGION:titlesection]
-	选择安装方式
+	Choose your installation method:
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
@@ -173,7 +173,7 @@ Description:
 [VAR:BlueprintOrCPPSelectVar]
 [REGION:section]
 	[REGION:titlesection]
-	选择实现方式
+	Choose your implementation method:
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
@@ -205,14 +205,49 @@ Description:
 [/REGION]
 [/VAR]
 
-[VAR:MobileSelect]
+[VAR:BlueprintOrPythonSelectVar]
 [REGION:section]
 	[REGION:titlesection]
-	选择移动平台
+	Choose your implementation method:
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]
-		Plat
+		BlueprintOrCPPSelect
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		blueprintimplementation
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		active_button
+		[/PARAMLITERAL]
+		[PARAM:label]
+		Blueprints
+		[/PARAM]
+	[/OBJECT]
+	[OBJECT:ToggleButton]
+		[PARAMLITERAL:category]
+		BlueprintOrCPPSelect
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		pythonimplementation
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:label]
+		Python
+		[/PARAM]
+	[/OBJECT]
+[/REGION]
+[/VAR]
+
+[VAR:MobileSelect]
+[REGION:section]
+	[REGION:titlesection]
+	Choose Your mobile platform
+	[/REGION]
+	[OBJECT:ToggleButton]
+		[PARAMLITERAL:category]
+		Platform
 		[/PARAMLITERAL]
 		[PARAMLITERAL:id]
 		android
@@ -235,6 +270,102 @@ Description:
 		[/PARAMLITERAL]
 		[PARAM:label]
 		iOS
+		[/PARAM]
+	[/OBJECT]
+[/REGION]
+[/VAR]
+
+[VAR:VRSelect]
+[REGION:section]
+	[REGION:titlesection]
+	Choose Your VR platform
+	[/REGION]
+	[OBJECT:ToggleButton]
+		[PARAMLITERAL:category]
+		VRPlatform
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		googlevr
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		active_button
+		[/PARAMLITERAL]
+		[PARAM:label]
+		Google VR
+		[/PARAM]
+	[/OBJECT]
+	[OBJECT:ToggleButton]
+		[PARAMLITERAL:category]
+		VRPlatform
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		oculus
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:label]
+		Oculus Rift
+		[/PARAM]
+	[/OBJECT]
+	[OBJECT:ToggleButton]
+		[PARAMLITERAL:category]
+		VRPlatform
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		gearvr
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:label]
+		Samsung Gear VR
+		[/PARAM]
+	[/OBJECT]
+	[OBJECT:ToggleButton]
+		[PARAMLITERAL:category]
+		VRPlatform
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		steamvr
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:label]
+		Steam VR
+		[/PARAM]
+	[/OBJECT]
+[/REGION]
+[/VAR]
+
+[VAR:MethodSelect]
+[REGION:section]
+	[REGION:titlesection]
+	Choose Implementation Method
+	[/REGION]
+	[OBJECT:ToggleButton]
+		[PARAMLITERAL:category]
+		Method
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		method01
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		active_button
+		[/PARAMLITERAL]
+		[PARAM:label]
+		Method 1
+		[/PARAM]
+	[/OBJECT]
+	[OBJECT:ToggleButton]
+		[PARAMLITERAL:category]
+		Method
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		method02
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:label]
+		Method 2
 		[/PARAM]
 	[/OBJECT]
 [/REGION]

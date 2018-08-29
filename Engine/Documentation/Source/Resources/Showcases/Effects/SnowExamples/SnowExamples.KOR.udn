@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3599948
+INTSourceChangelist:4309172
 Availability: Public
 Title:눈 예제
 Crumbs:%ROOT%, Resources, Resources/Showcases/Effects
@@ -85,7 +85,3 @@ Version: 4.9
 _눈보라_ 이펙트와의 차이점 중 핵심적인 것은, **unlit** 파티클이라는 점입니다. 즉 레벨에 있는 라이팅 색을 흡수할 수 없으며, 색을 내는 데 _Emissive_ 채널을 사용한다는 뜻이지요. _눈발_ 이펙트의 경우, 안개 파티클은 머티리얼에서 _Lit Translucency_ 를 사용, 즉 라이트의 색을 받을 수 있습니다. 이렇게 나뉜 이유는, Lit Translucency 는 셰이더의 인스트럭션 추가 비용이 있기 때문입니다. 즉 모든 눈발 파티클이 사용한다면, 씬에서는 가끔씩 색을 바꾸는 것만으로도 많은 연산이 필요하기에, 비효율적일 뿐만 아니라 퍼포먼스 영향도 꽤나 있을 것입니다.
 
 그 대신 눈발 파티클 시스템에서는 눈보라 이펙트의 국소 버전으로 사용되어, 안개 파티클이 라이팅에 반응해야 하는 곳에만 놓습니다. 모든 파티클이 라이팅에 항상 반응하도록 하는 것보다 훨씬 효율적입니다.
-
-
-
-[INCLUDE:Resources\Showcases\Effects#ParticleTopics]

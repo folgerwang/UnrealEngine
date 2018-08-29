@@ -1,11 +1,11 @@
 ﻿INTSourceChangelist:1665997
 Availability:Public
-Title:카메라 콘트롤
+Title:카메라 컨트롤
 Crumbs: %ROOT%, Shared/Tutorials
 Description: 기본적인 카메라 조작법에 대한 소개입니다.
 
 [EXCERPT:ViewportMove]
-## 카메라 콘트롤
+## 카메라 컨트롤
 
 ![](ViewportLMB.png)
 
@@ -18,7 +18,7 @@ Description: 기본적인 카메라 조작법에 대한 소개입니다.
 
 
 [EXCERPT:ViewportPanTilt]
-## 카메라 콘트롤
+## 카메라 컨트롤
 
 ![](ViewportRMB.png)
 
@@ -31,7 +31,7 @@ Description: 기본적인 카메라 조작법에 대한 소개입니다.
 
 
 [EXCERPT:ViewportSlide]
-## 카메라 콘트롤
+## 카메라 컨트롤
 
 ![](ViewportLMBRMB.png)
 
@@ -44,7 +44,7 @@ Description: 기본적인 카메라 조작법에 대한 소개입니다.
 
 
 [EXCERPT:ViewportZoom]
-## 카메라 콘트롤
+## 카메라 컨트롤
 
 ![](ViewportScroll.png)
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4307073
 Availability: Public
 Title:6. 랜드스케이프 팁과 정보
 Crumbs:%ROOT%, GettingStarted, Engine/Landscape/QuickStart
@@ -31,7 +31,6 @@ version: 4.9
 [COMMENT:none]
 Before choosing the size of your Landscape there are many things that you need to consider first like target platform and performance impact. To make things a little easier for you, here is a chart of recommended Landscape component counts and sizes that might help in choosing the best size for your Landscape. 
 
-[INCLUDE:Engine/Landscape/Creation#RecommendedLSS]
 [/COMMENT]
 
 * **페인트 툴** 사용시에는 지우고자 하는 것에 **Shift** + **좌클릭** 으로 지우는 것이 더욱 쉬울 것입니다.

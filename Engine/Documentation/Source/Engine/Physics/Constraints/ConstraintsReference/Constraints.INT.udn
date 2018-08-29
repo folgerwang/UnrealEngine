@@ -229,31 +229,31 @@ Whether this angular motor uses SLERP (Spherical Linear Interpolation) or decomp
 
 | Property | Description |
 | -------- | ----------- |
-|[REGION:tablesection]Constraint[/REGION]||
-| **Component Name 1** |  |
-| **Component Name 2** |   |
-| **Joint Name** |  |
-| **Constraint Bone 1** |  |
-| **Constraint Bone 2** |  |
-| **Disable Collision** |  |
+| [REGION:tablesection] Constraint [/REGION] ||
+| **Component Name 1** ||
+| **Component Name 2** ||
+| **Joint Name** ||
+| **Constraint Bone 1** ||
+| **Constraint Bone 2** ||
+| **Disable Collision** ||
 
-* For information on using **Physics Constraints** as a Blueprint Component, see: [**%Engine/Physics\Constraints\ConstraintsBlueprints:title%**](Engine/Physics\Constraints\ConstraintsBlueprints)
+* For information on using **Physics Constraints** as a Blueprint Component, see: [Engine/Physics\Constraints\ConstraintsBlueprints](Engine/Physics\Constraints\ConstraintsBlueprints)
 
 ### Physics Asset Tool Constraint
 
 | Property | Description |
 | -------- | ----------- |
-|[REGION:tablesection]Constraint[/REGION]|
+|[REGION:tablesection]Constraint[/REGION]||
 | **Joint Name** |  |
 | **Constraint Bone 1** |  |
 | **Constraint Bone 2** |  |
 | **Disable Collision** |  |
 
-* For further reference on the **Physics Asset Tool** (**PhAT**), see: [**%Engine/Physics\PhAT\Reference:title%**](Engine/Physics\PhAT\Reference)
+* For further reference on the **Physics Asset Tool** (**PhAT**), see: [Engine/Physics\PhAT\Reference]()
 
-* For information on using **Physics Constraints** in the **Physics Asset Tool** (**PhAT**), see: [**%Engine/Physics\PhAT\UserGuide:title%**](Engine/Physics\PhAT\UserGuide)
+* For information on using **Physics Constraints** in the **Physics Asset Tool** (**PhAT**), see: [Engine/Physics\PhAT\UserGuide]()
 
-* For information on using the **Physics Asset Tool** (**PhAT**), see: [**%Engine/Physics\PhAT:title%**](Engine/Physics\PhAT)
+* For information on using the **Physics Asset Tool** (**PhAT**), see: [**%Engine/Physics\PhAT:title%**]()
 
 ### Shared Properties
 

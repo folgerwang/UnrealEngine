@@ -112,15 +112,3 @@ Description:粒子光源是视觉特效美工人员的武器库中的另一个�
 
 立方体捕获物和平面捕获物都将会显示可渲染的粒子，就像它们显示任何可渲染的对象(静态对象或动态对象)一样，但是它们的反射效果可能会和光源高光分离。
 
-
-
-
-[COMMENT:none]
-
-## Related
-
-[INCLUDE:Engine/Rendering/LightingAndShadows/LightProperties#LightRef005]
-
-[INCLUDE:Engine/Rendering/LightingAndShadows/LightProperties#LightRef007]
-
-[/COMMENT]

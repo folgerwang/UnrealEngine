@@ -4,14 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Misc/EnumClassFlags.h"
-#include "Stats/Stats.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Object.h"
 #include "UObject/WeakObjectPtr.h"
 #include "UObject/Package.h"
-#include "Misc/ScopeLock.h"
-#include "HAL/PlatformProcess.h"
 #include "TickableEditorObject.h"
 #include "IPlatformFileSandboxWrapper.h"
 #include "INetworkFileSystemModule.h"
@@ -24,6 +21,9 @@ struct FPropertyChangedEvent;
 class IPlugin;
 class IAssetRegistry;
 
+struct FPackageNameCache;
+struct FPackageTracker;
+
 enum class ECookInitializationFlags
 {
 	None =										0x00000000, // No flags
@@ -33,6 +33,7 @@ enum class ECookInitializationFlags
 	Unversioned =								0x00000008, // save the cooked packages without a version number
 	AutoTick =									0x00000010, // enable ticking (only works in the editor)
 	AsyncSave =									0x00000020, // save packages async
+	// unused =									0x00000040,
 	IncludeServerMaps =							0x00000080, // should we include the server maps when cooking
 	UseSerializationForPackageDependencies =	0x00000100, // should we use the serialization code path for generating package dependencies (old method will be deprecated)
 	BuildDDCInBackground =						0x00000200, // build ddc content in background while the editor is running (only valid for modes which are in editor IsCookingInEditor())
@@ -54,7 +55,6 @@ enum class ECookByTheBookOptions
 	CookAll	=							0x00000001, // cook all maps and content in the content directory
 	MapsOnly =							0x00000002, // cook only maps
 	NoDevContent =						0x00000004, // don't include dev content
-	LeakTest =							0x00000008, // test for uobject leaks after each level load
 	ForceDisableCompressed =			0x00000010, // force compression to be disabled even if the cooker was initialized with it enabled
 	ForceEnableCompressed =				0x00000020, // force compression to be on even if the cooker was initialized with it disabled
 	ForceDisableSaveGlobalShaders =		0x00000040, // force global shaders to not be saved (used if cooking multiple times for the same platform and we know we are up todate)
@@ -94,759 +94,26 @@ enum class ECookTickFlags : uint8
 };
 ENUM_CLASS_FLAGS(ECookTickFlags);
 
-// hudson is the name of my favorite dwagon
-
-DECLARE_STATS_GROUP(TEXT("Cooking"), STATGROUP_Cooking, STATCAT_Advanced);
-
 UCLASS()
 class UNREALED_API UCookOnTheFlyServer : public UObject, public FTickableEditorObject, public FExec
 {
 	GENERATED_BODY()
 
-		UCookOnTheFlyServer(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	UCookOnTheFlyServer(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-private:
-
-	/** Array which has been made thread safe :) */
-	template<typename Type, typename SynchronizationObjectType, typename ScopeLockType>
-	struct FUnsynchronizedQueue
-	{
-	private:
-		mutable SynchronizationObjectType	SynchronizationObject; // made this mutable so this class can have const functions and still be thread safe
-		TArray<Type>		Items;
-	public:
-		void Enqueue(const Type& Item)
-		{
-			ScopeLockType ScopeLock(&SynchronizationObject);
-			Items.Add(Item);
-		}
-		void EnqueueUnique( const Type& Item )
-		{
-			ScopeLockType ScopeLock(&SynchronizationObject);
-			Items.AddUnique(Item);
-		}
-		bool Dequeue(Type* Result)
-		{
-			ScopeLockType ScopeLock(&SynchronizationObject);
-			if (Items.Num())
-			{
-				*Result = Items[0];
-				Items.RemoveAt(0);
-				return true;
-			}
-			return false;
-		}
-		void DequeueAll(TArray<Type>& Results)
-		{
-			ScopeLockType ScopeLock(&SynchronizationObject);
-			Results += Items;
-			Items.Empty();
-		}
-
-		bool HasItems() const
-		{
-			ScopeLockType ScopeLock( &SynchronizationObject );
-			return Items.Num() > 0;
-		}
-
-		void Remove( const Type& Item ) 
-		{
-			ScopeLockType ScopeLock( &SynchronizationObject );
-			Items.Remove( Item );
-		}
-
-		void CopyItems( TArray<Type> &InItems ) const
-		{
-			ScopeLockType ScopeLock( &SynchronizationObject );
-			InItems = Items;
-		}
-
-		int Num() const 
-		{
-			ScopeLockType ScopeLock( &SynchronizationObject );
-			return Items.Num();
-		}
-
-		void Empty()
-		{
-			ScopeLockType ScopeLock( &SynchronizationObject );
-			Items.Empty();
-		}
-	};
-
-
-
-	struct FDummyCriticalSection
-	{
-	public:
-		FORCEINLINE void Lock() { }
-		FORCEINLINE void Unlock() { }
-	};
-
-	struct FDummyScopeLock
-	{
-	public:
-		FDummyScopeLock( FDummyCriticalSection * ) { }
-	};
-
-public:
-
-
-	template<typename Type>
-	struct FThreadSafeQueue : public FUnsynchronizedQueue<Type, FCriticalSection, FScopeLock>
-	{
-		/**
-		* Don't add any functions here, this is just a overqualified typedef
-		* Add functions / functionality to the FUnsynchronizedQueue
-		*/
-	};
-
-	template<typename Type>
-	struct FQueue : public FUnsynchronizedQueue<Type, FDummyCriticalSection, FDummyScopeLock>
-	{
-		/**
-		* Don't add any functions here, this is just a overqualified typedef
-		* Add functions / functionality to the FUnsynchronizedQueue
-		*/
-	};
-
-public:
-	/** cooked file requests which includes platform which file is requested for */
-	struct FFilePlatformRequest
-	{
-	protected:
-		FName Filename;
-		TArray<FName> PlatformNames;
-	public:
-
-		// yes we have some friends
-		friend uint32 GetTypeHash(const UCookOnTheFlyServer::FFilePlatformRequest& Key);
-
-		FFilePlatformRequest() { }
-
-
-		FFilePlatformRequest( const FName& InFileName, const FName& InPlatformName ) : Filename( InFileName )
-		{ PlatformNames.Add( InPlatformName ); }
-
-		FFilePlatformRequest( const FName& InFilename, const TArray<FName>& InPlatformName ) : Filename( InFilename )
-		{ PlatformNames = InPlatformName; }
-
-		FFilePlatformRequest( const FName& InFilename, TArray<FName>&& InPlatformName ) : Filename( InFilename ), PlatformNames(MoveTemp(InPlatformName)) { }
-		FFilePlatformRequest( const FFilePlatformRequest& InFilePlatformRequest ) : Filename( InFilePlatformRequest.Filename ), PlatformNames( InFilePlatformRequest.PlatformNames ) { }
-		FFilePlatformRequest( FFilePlatformRequest&& InFilePlatformRequest ) : Filename( MoveTemp(InFilePlatformRequest.Filename) ), PlatformNames( MoveTemp(InFilePlatformRequest.PlatformNames) ) { }
-
-		void SetFilename( const FString &InFilename ) 
-		{
-			Filename = FName(*InFilename);
-		}
-
-		const FName &GetFilename() const
-		{
-			return Filename;
-		}
-
-		const TArray<FName>& GetPlatformNames() const
-		{
-			return PlatformNames;
-		}
-
-		void RemovePlatform( const FName &Platform )
-		{
-			PlatformNames.Remove(Platform);
-		}
-
-		void AddPlatform( const FName &Platform )
-		{
-			check( Platform != NAME_None );
-			PlatformNames.Add(Platform );
-		}
-
-		bool HasPlatform( const FName &Platform ) const
-		{
-			return PlatformNames.Find(Platform) != INDEX_NONE;
-		}
-
-		bool IsValid()  const
-		{
-			return Filename != NAME_None;
-		}
-
-		void Clear()
-		{
-			Filename = TEXT("");
-			PlatformNames.Empty();
-		}
-
-		FFilePlatformRequest &operator=( FFilePlatformRequest &&InFileRequest )
-		{
-			Filename = MoveTemp( InFileRequest.Filename );
-			PlatformNames = MoveTemp( InFileRequest.PlatformNames );
-			return *this;
-		}
-
-		bool operator ==( const FFilePlatformRequest &InFileRequest ) const
-		{
-			if ( InFileRequest.Filename == Filename )
-			{
-				if ( InFileRequest.PlatformNames == PlatformNames )
-				{
-					return true;
-				}
-			}
-			return false;
-		}
-
-		FORCEINLINE FString ToString() const
-		{
-			FString Result = FString::Printf(TEXT("%s;"), *Filename.ToString());
-
-			for ( const FName& Platform : PlatformNames )
-			{
-				Result += FString::Printf(TEXT("%s,"), *Platform.ToString() );
-			}
-			return Result;
-		}
-
-	};
-
-
-private:
-
-	struct FFilePlatformCookedPackage : public FFilePlatformRequest
-	{
-	private:
-		TArray<bool> bSucceededSavePackage; // one bool for each platform
-	public:
-		FFilePlatformCookedPackage(const FFilePlatformRequest& InFilePlatformRequest, const TArray<bool>& bInSuccededSavePackage) : FFilePlatformRequest(InFilePlatformRequest.GetFilename(), InFilePlatformRequest.GetPlatformNames()), bSucceededSavePackage(bInSuccededSavePackage) { check(PlatformNames.Num() == bSucceededSavePackage.Num()); }
-		FFilePlatformCookedPackage(const FName& InFilename, const TArray<FName>& InPlatformName) : FFilePlatformRequest(InFilename, InPlatformName)
-		{ 
-			// only use this constructor to short hand when packages fail
-			for ( int32 I = 0; I < InPlatformName.Num(); ++I )
-			{
-				bSucceededSavePackage.Add(false);
-			}
-			check(PlatformNames.Num() == bSucceededSavePackage.Num());
-		}
-		FFilePlatformCookedPackage(const FName& InFilename, const TArray<FName>& InPlatformName, const TArray<bool>& bInSuccededSavePackage) : FFilePlatformRequest(InFilename, InPlatformName), bSucceededSavePackage(bInSuccededSavePackage) { check(PlatformNames.Num() == bSucceededSavePackage.Num()); }
-		FFilePlatformCookedPackage(const FName& InFilename, TArray<FName>&& InPlatformName, TArray<bool>&& bInSuccededSavePackage) : FFilePlatformRequest(InFilename, MoveTemp(InPlatformName)), bSucceededSavePackage(MoveTemp(bInSuccededSavePackage)) { check(PlatformNames.Num() == bSucceededSavePackage.Num()); }
-		FFilePlatformCookedPackage(const FFilePlatformCookedPackage& InFilePlatformRequest) : FFilePlatformRequest(InFilePlatformRequest.Filename, InFilePlatformRequest.PlatformNames), bSucceededSavePackage(InFilePlatformRequest.bSucceededSavePackage) { check(PlatformNames.Num() == bSucceededSavePackage.Num());  }
-		FFilePlatformCookedPackage(FFilePlatformCookedPackage&& InFilePlatformRequest) : FFilePlatformRequest(MoveTemp(InFilePlatformRequest.Filename), MoveTemp(InFilePlatformRequest.PlatformNames)), bSucceededSavePackage(InFilePlatformRequest.bSucceededSavePackage) { check(PlatformNames.Num() == bSucceededSavePackage.Num()); }
-
-		inline const void AddPlatform( const FName& Platform, bool bSucceeded )
-		{
-			check(PlatformNames.Num() == bSucceededSavePackage.Num());
-			check(Platform != NAME_None);
-			PlatformNames.Add(Platform);
-			bSucceededSavePackage.Add(bSucceeded);
-			check( PlatformNames.Num() == bSucceededSavePackage.Num() );
-		}
-
-		inline void RemovePlatform(const FName &Platform)
-		{
-			check(PlatformNames.Num() == bSucceededSavePackage.Num());
-			int32 Index = PlatformNames.IndexOfByKey(Platform);
-			if (Index != -1)
-			{
-				PlatformNames.RemoveAt(Index);
-				bSucceededSavePackage.RemoveAt(Index);
-			}
-			check(PlatformNames.Num() == bSucceededSavePackage.Num());
-		}
-
-		inline const bool HasSucceededSavePackage(const FName& PlatformName) const 
-		{ 
-			int32 Index = PlatformNames.IndexOfByKey(PlatformName);
-			if ( (Index != -1) && (Index < bSucceededSavePackage.Num()) )
-			{
-				return bSucceededSavePackage[Index]; 
-			}
-			return false;
-		}
-	};
-
-	/** Helper list of all files which have been cooked */
-	struct FThreadSafeFilenameSet
-	{
-	private:
-		mutable FCriticalSection	SynchronizationObject;
-		TMap<FName, FFilePlatformCookedPackage> FilesProcessed;
-
-		void Lock()
-		{
-			SynchronizationObject.Lock();
-		}
-		void Unlock()
-		{
-			SynchronizationObject.Unlock();
-		}
-
-	public:
-		int32 Num()
-		{ 
-			return FilesProcessed.Num();
-		}
-
-		void Add(const FFilePlatformCookedPackage& Request)
-		{
-			FScopeLock ScopeLock(&SynchronizationObject);
-			check(Request.IsValid());
-
-			// see if it's already in the requests list
-			FFilePlatformCookedPackage *ExistingRequest = FilesProcessed.Find(Request.GetFilename() );
-
-			if ( ExistingRequest )
-			{
-				check( ExistingRequest->GetFilename() == Request.GetFilename() );
-				for ( const FName& Platform : Request.GetPlatformNames() )
-				{
-					const bool bSucceeded = Request.HasSucceededSavePackage(Platform);
-					ExistingRequest->AddPlatform(Platform, bSucceeded);
-				}
-			}
-			else
-				FilesProcessed.Add(Request.GetFilename(), Request);
-		}
-		bool Exists(const FFilePlatformRequest & Request) const
-		{
-			FScopeLock ScopeLock(&SynchronizationObject);
-
-			const FFilePlatformCookedPackage* OurRequest = FilesProcessed.Find(Request.GetFilename());
-
-			if (!OurRequest)
-			{
-				return false;
-			}
-
-			// make sure all the platforms are completed
-			for ( const FName& Platform : Request.GetPlatformNames() )
-			{
-				if ( !OurRequest->GetPlatformNames().Contains( Platform ) )
-				{
-					return false;
-				}
-			}
-
-			return true;
-			// return FilesProcessed.Contains(Filename);
-		}
-		// two versions of this function so I don't have to create temporary FFIleplatformRequest in some cases to call the exists function
-		bool Exists( const FName& Filename, const TArray<FName>& PlatformNames ) const
-		{
-			FScopeLock ScopeLock(&SynchronizationObject);
-
-			const FFilePlatformRequest* OurRequest = FilesProcessed.Find( Filename );
-
-			if (!OurRequest)
-			{
-				return false;
-			}
-
-			// make sure all the platforms are completed
-			for ( const FName& Platform : PlatformNames )
-			{
-				if ( !OurRequest->GetPlatformNames().Contains( Platform ) )
-				{
-					return false;
-				}
-			}
-
-			return true;
-		}
-
-		// do we want failed packages or not
-		bool Exists( const FName& Filename, const TArray<FName>& PlatformNames, bool bIncludeFailed ) const
-		{
-			FScopeLock ScopeLock(&SynchronizationObject);
-
-			const FFilePlatformCookedPackage* OurRequest = FilesProcessed.Find(Filename);
-
-			if (!OurRequest)
-			{
-				return false;
-			}
-
-			if (bIncludeFailed == false)
-			{
-				bool allFailed = true;
-				for ( const auto& PlatformName : PlatformNames )
-				{
-					if (OurRequest->HasSucceededSavePackage(PlatformName))
-					{
-						allFailed = false;
-						break;
-					}
-				}
-				if ( allFailed )
-				{
-					return false;
-				}
-			}
-
-			// make sure all the platforms are completed
-			for (const FName& Platform : PlatformNames)
-			{
-				if (!OurRequest->GetPlatformNames().Contains(Platform))
-				{
-					return false;
-				}
-			}
-			return true;
-		}
-
-		void RemoveAllFilesForPlatform( const FName& PlatformName )
-		{
-			FScopeLock ScopeLock(&SynchronizationObject);
-
-			for ( auto& Request : FilesProcessed )
-			{	
-				Request.Value.RemovePlatform( PlatformName );
-			}
-		}
-
-		bool GetCookedPlatforms( const FName& Filename, TArray<FName>& PlatformList ) const
-		{
-			FScopeLock ScopeLock( &SynchronizationObject );
-			const FFilePlatformCookedPackage* Request = FilesProcessed.Find(Filename);
-			if ( Request )
-			{
-				PlatformList = Request->GetPlatformNames();
-				return true;
-			}
-			return false;
-		}
-		int RemoveFile( const FName& Filename )
-		{
-			FScopeLock ScopeLock( &SynchronizationObject );
-			return FilesProcessed.Remove( Filename );
-		}
-
-		bool RemoveFileForPlatform( const FName& Filename, const FName& PlatformName )
-		{
-			FScopeLock ScopeLock( &SynchronizationObject );
-			FFilePlatformCookedPackage* ProcessedFile = FilesProcessed.Find(Filename);
-			if( ProcessedFile )
-			{
-				ProcessedFile->RemovePlatform(PlatformName);
-				return true; 
-			}
-			return false;
-		}
-
-		void GetCookedFilesForPlatform(const FName& PlatformName, TArray<FName>& CookedFiles, bool bGetFailedCookedPackages = true, bool bGetSuccessfulCookedPackages = true)
-		{
-			FScopeLock ScopeLock(&SynchronizationObject);
-			for (const auto& CookedFile : FilesProcessed)
-			{
-				if (CookedFile.Value.HasPlatform(PlatformName))
-				{
-					bool bHasSucceededSavePackage = CookedFile.Value.HasSucceededSavePackage(PlatformName);
-					if ((bHasSucceededSavePackage && bGetSuccessfulCookedPackages) ||
-						((bHasSucceededSavePackage == false) && bGetFailedCookedPackages) )
-						CookedFiles.Add(CookedFile.Value.GetFilename());
-				}
-			}
-		}
-		void Empty(int32 ExpectedNumElements = 0)
-		{
-			FScopeLock ScopeLock( &SynchronizationObject );
-			FilesProcessed.Empty(ExpectedNumElements);
-		}
-	};
-
-
-	struct FFilenameQueue
-	{
-	private:
-		TArray<FName>			Queue;
-		TMap<FName, TArray<FName>> PlatformList;
-		mutable FCriticalSection SynchronizationObject;
-	public:
-
-		template <class PREDICATE_CLASS>
-		void Sort(const PREDICATE_CLASS& Predicate)
-		{
-			FScopeLock ScopeLock(&SynchronizationObject);
-			Queue.Sort(Predicate);
-		}
-
-		const TArray<FName>& GetQueue() const { return Queue;  }
-		void EnqueueUnique(const FFilePlatformRequest& Request, bool ForceEnqueFront = false)
-		{
-			FScopeLock ScopeLock( &SynchronizationObject );
-			TArray<FName>* Platforms = PlatformList.Find(Request.GetFilename());
-			if ( Platforms == NULL )
-			{
-				PlatformList.Add(Request.GetFilename(), Request.GetPlatformNames());
-				Queue.Add(Request.GetFilename());
-			}
-			else
-			{
-				// add the requested platforms to the platform list
-				for ( const FName& Platform : Request.GetPlatformNames() )
-				{
-					Platforms->AddUnique(Platform);
-				}
-			}
-
-			if ( ForceEnqueFront )
-			{
-				int32 Index = Queue.Find(Request.GetFilename());
-				check( Index != INDEX_NONE );
-				if ( Index != 0 )
-				{
-					Queue.Swap(0, Index);
-				}
-			}
-		}
-
-		bool Dequeue(FFilePlatformRequest* Result)
-		{
-			FScopeLock ScopeLock( &SynchronizationObject );
-			if (Queue.Num())
-			{
-				FName Filename = Queue[0];
-				Queue.RemoveAt(0);
-				TArray<FName> Platforms = PlatformList.FindChecked(Filename);
-				PlatformList.Remove(Filename);
-				*Result = FFilePlatformRequest(MoveTemp(Filename), MoveTemp(Platforms));
-				return true;
-			}
-			return false;
-		}
-
-		void DequeueAllRequests( TArray<FFilePlatformRequest>& RequestArray )
-		{
-			FScopeLock ScopeLock( &SynchronizationObject );
-			if ( Queue.Num() )
-			{
-				for ( const auto& Request : PlatformList )
-				{
-					RequestArray.Add( FFilePlatformRequest( Request.Key, Request.Value ) );
-				}
-				PlatformList.Empty();
-				Queue.Empty();
-			}
-		}
-
-		bool Exists( const FName& Filename, const TArray<FName>& PlatformNames ) const 
-		{
-			FScopeLock ScopeLock(&SynchronizationObject);
-			const TArray<FName>* Platforms = PlatformList.Find( Filename );
-			if ( Platforms == NULL )
-				return false;
-
-			for ( const FName& PlatformName : PlatformNames )
-			{
-				if ( !Platforms->Contains( PlatformName ) )
-					return false;
-			}
-			return true;
-		}
-
-		bool Exists(const FName& Filename)
-		{
-			FScopeLock ScopeLock(&SynchronizationObject);
-			const TArray<FName>* Platforms = PlatformList.Find(Filename);
-			if (Platforms == NULL)
-				return false;
-			return true;
-		}
-
-		bool HasItems() const
-		{
-			FScopeLock ScopeLock( &SynchronizationObject );
-			return Queue.Num() > 0;
-		}
-
-		int Num() const 
-		{
-			FScopeLock ScopeLock( &SynchronizationObject );
-			return Queue.Num();
-		}
-
-
-		void Empty()  
-		{
-			FScopeLock ScopeLock( &SynchronizationObject );
-			Queue.Empty();
-			PlatformList.Empty();
-		}
-	};
-
-	struct FThreadSafeUnsolicitedPackagesList
-	{
-	private:
-		FCriticalSection SyncObject;
-		TArray<FFilePlatformRequest> CookedPackages;
-	public:
-		void AddCookedPackage( const FFilePlatformRequest& PlatformRequest )
-		{
-			FScopeLock S( &SyncObject );
-			CookedPackages.Add( PlatformRequest );
-		}
-		void GetPackagesForPlatformAndRemove( const FName& Platform, TArray<FName> PackageNames )
-		{
-			FScopeLock S( &SyncObject );
-
-			for ( int I = CookedPackages.Num()-1; I >= 0; --I )
-			{
-				FFilePlatformRequest &Request = CookedPackages[I];
-
-				if ( Request.GetPlatformNames().Contains( Platform ) )
-				{
-					// remove the platform
-					Request.RemovePlatform( Platform );
-
-					if ( Request.GetPlatformNames().Num() == 0 )
-					{
-						CookedPackages.RemoveAt(I);
-					}
-				}
-			}
-		}
-		void Empty()
-		{
-			FScopeLock S( &SyncObject );
-			CookedPackages.Empty();
-		}
-	};
-
-
-	struct FCachedPackageFilename
-	{
-	public:
-		FCachedPackageFilename(FString &&InPackageFilename, FString &&InStandardFilename, FName InStandardFileFName ) :
-			PackageFilename( MoveTemp( InPackageFilename )),
-			StandardFilename(MoveTemp(InStandardFilename)),
-			StandardFileFName( InStandardFileFName )
-		{
-		}
-
-		FCachedPackageFilename( const FCachedPackageFilename &In )
-		{
-			PackageFilename = In.PackageFilename;
-			StandardFilename = In.StandardFilename;
-			StandardFileFName = In.StandardFileFName;
-		}
-
-		FCachedPackageFilename( FCachedPackageFilename &&In )
-		{
-			PackageFilename = MoveTemp(In.PackageFilename);
-			StandardFilename = MoveTemp(In.StandardFilename);
-			StandardFileFName = In.StandardFileFName;
-		}
-
-		FString PackageFilename; // this is also full path
-		FString StandardFilename;
-		FName StandardFileFName;
-	};
-
-	/** Simple thread safe proxy for TSet<FName> */
-	template <typename T>
-	class FThreadSafeSet
-	{
-		TSet<T> InnerSet;
-		FCriticalSection SetCritical;
-	public:
-		void Add(T InValue)
-		{
-			FScopeLock SetLock(&SetCritical);
-			InnerSet.Add(InValue);
-		}
-		bool AddUnique(T InValue)
-		{
-			FScopeLock SetLock(&SetCritical);
-			if (!InnerSet.Contains(InValue))
-			{
-				InnerSet.Add(InValue);
-				return true;
-			}
-			return false;
-		}
-		bool Contains(T InValue)
-		{
-			FScopeLock SetLock(&SetCritical);
-			return InnerSet.Contains(InValue);
-		}
-		void Remove(T InValue)
-		{
-			FScopeLock SetLock(&SetCritical);
-			InnerSet.Remove(InValue);
-		}
-		void Empty()
-		{
-			FScopeLock SetLock(&SetCritical);
-			InnerSet.Empty();
-		}
-
-		void GetValues(TSet<T>& OutSet)
-		{
-			FScopeLock SetLock(&SetCritical);
-			OutSet.Append(InnerSet);
-		}
-	};
 private:
 	/** Current cook mode the cook on the fly server is running in */
-	ECookMode::Type CurrentCookMode;
+	ECookMode::Type CurrentCookMode = ECookMode::CookOnTheFly;
 	/** Directory to output to instead of the default should be empty in the case of DLC cooking */ 
 	FString OutputDirectoryOverride;
-	//////////////////////////////////////////////////////////////////////////
-	// Cook by the book options
-public:
-private:
-	struct FCookByTheBookOptions
-	{
-	public:
-		FCookByTheBookOptions() : bLeakTest(false),
-			bGenerateStreamingInstallManifests(false),
-			bGenerateDependenciesForMaps(false),
-			bRunning(false),
-			CookTime( 0.0 ),
-			CookStartTime( 0.0 ), 
-			bErrorOnEngineContentUse(false),
-			bDisableUnsolicitedPackages(false),
-			bFullLoadAndSave(false)
-		{ }
 
-		/** Should we test for UObject leaks */
-		bool bLeakTest;
-		/** Should we generate streaming install manifests (only valid option in cook by the book) */
-		bool bGenerateStreamingInstallManifests;
-		/** Should we generate a seperate manifest for map dependencies */
-		bool bGenerateDependenciesForMaps;
-		/** Is cook by the book currently running */
-		bool bRunning;
-		/** Cancel has been queued will be processed next tick */
-		bool bCancel;
-		/** DlcName setup if we are cooking dlc will be used as the directory to save cooked files to */
-		FString DlcName;
-		/** Create a release from this manifest and store it in the releases directory for this cgame */
-		FString CreateReleaseVersion;
-		/** Leak test: last gc items (only valid when running from commandlet requires gc between each cooked package) */
-		TSet<FWeakObjectPtr> LastGCItems;
-		/** Dependency graph of maps as root objects. */
-		TMap<FName, TMap< FName, TSet <FName> > > MapDependencyGraphs; 
-		/** If a cook is cancelled next cook will need to resume cooking */ 
-		TArray<FFilePlatformRequest> PreviousCookRequests; 
-		/** If we are based on a release version of the game this is the set of packages which were cooked in that release. Map from platform name to list of uncooked package filenames */
-		TMap<FName,TArray<FName> > BasedOnReleaseCookedPackages;
-		/** Timing information about cook by the book */
-		double CookTime;
-		double CookStartTime;
-		/** error when detecting engine content being used in this cook */
-		bool bErrorOnEngineContentUse;
-		bool bDisableUnsolicitedPackages;
-		bool bFullLoadAndSave;
-		TArray<FName> TargetPlatformNames;
-		TArray<FName> StartupPackages;
-		/** Mapping from source packages to their localized variants (based on the culture list in FCookByTheBookStartupOptions) */
-		TMap<FName, TArray<FName>> SourceToLocalizedPackageVariants;
-	};
-	FCookByTheBookOptions* CookByTheBookOptions;
+	struct FCookByTheBookOptions;
 
+	FCookByTheBookOptions* CookByTheBookOptions = nullptr;
 
 	//////////////////////////////////////////////////////////////////////////
 	// Cook on the fly options
+
 	/** Cook on the fly server uses the NetworkFileServer */
 	TArray<class INetworkFileServer*> NetworkFileServers;
 	FOnFileModifiedDelegate FileModifiedDelegate;
@@ -868,11 +135,12 @@ private:
 	int32 MaxNumPackagesBeforePartialGC;
 	/** Max number of concurrent shader jobs reducing this too low will increase cook time */
 	int32 MaxConcurrentShaderJobs;
-	ECookInitializationFlags CookFlags;
+
+	ECookInitializationFlags CookFlags = ECookInitializationFlags::None;
 	TUniquePtr<class FSandboxPlatformFile> SandboxFile;
-	bool bIsInitializingSandbox; // stop recursion into callbacks when we are initializing sandbox
-	mutable bool bIgnoreMarkupPackageAlreadyLoaded; // avoid marking up packages as already loaded (want to put this around some functionality as we want to load packages fully some times)
-	bool bIsSavingPackage; // used to stop recursive mark package dirty functions
+	bool bIsInitializingSandbox = false; // stop recursion into callbacks when we are initializing sandbox
+	mutable bool bIgnoreMarkupPackageAlreadyLoaded = false; // avoid marking up packages as already loaded (want to put this around some functionality as we want to load packages fully some times)
+	bool bIsSavingPackage = false; // used to stop recursive mark package dirty functions
 
 
 	TMap<FName, int32> MaxAsyncCacheForType; // max number of objects of a specific type which are allowed to async cache at once
@@ -883,18 +151,15 @@ private:
 
 	//////////////////////////////////////////////////////////////////////////
 	// precaching system
-	// this system precaches materials and textures before we have considered the object as requiring save so as to utilize the system when it's idle
+	//
+	// this system precaches materials and textures before we have considered the object 
+	// as requiring save so as to utilize the system when it's idle
+	
 	TArray<FWeakObjectPtr> CachedMaterialsToCacheArray;
 	TArray<FWeakObjectPtr> CachedTexturesToCacheArray;
-	int32 LastUpdateTick;
-	int32 MaxPrecacheShaderJobs;
+	int32 LastUpdateTick = 0;
+	int32 MaxPrecacheShaderJobs = 0;
 	void TickPrecacheObjectsForPlatforms(const float TimeSlice, const TArray<const ITargetPlatform*>& TargetPlatform);
-
-	// presave system
-	// call this to save packages which are in memory as cooked packages, useful when the editor is idle
-	// shouldn't consume additional resources
-	TArray<const ITargetPlatform*> PresaveTargetPlatforms;
-	void OpportunisticSaveInMemoryPackages();
 
 	//////////////////////////////////////////////////////////////////////////
 
@@ -926,40 +191,14 @@ private:
 
 	FReentryData& GetReentryData(const UPackage* Package) const;
 
-	FThreadSafeQueue<struct FRecompileRequest*> RecompileRequests;
-	FFilenameQueue CookRequests; // list of requested files
-	FThreadSafeUnsolicitedPackagesList UnsolicitedCookedPackages;
-	FThreadSafeFilenameSet CookedPackages; // set of files which have been cooked when needing to recook a file the entry will need to be removed from here
-	FThreadSafeSet<FName> NeverCookPackageList;
-	FThreadSafeSet<FName> UncookedEditorOnlyPackages; // set of packages that have been rejected due to being referenced by editor-only properties
-
-
-	FString GetCachedPackageFilename( const FName& PackageName ) const;
-	FString GetCachedStandardPackageFilename( const FName& PackageName ) const;
-	FName GetCachedStandardPackageFileFName( const FName& PackageName ) const;
-	FString GetCachedPackageFilename( const UPackage* Package ) const;
-	FString GetCachedStandardPackageFilename( const UPackage* Package ) const;
-	FName GetCachedStandardPackageFileFName( const UPackage* Package ) const;
-	const FString& GetCachedSandboxFilename( const UPackage* Package, TUniquePtr<class FSandboxPlatformFile>& SandboxFile ) const;
-	const FName* GetCachedPackageFilenameToPackageFName(const FName& StandardPackageFilename) const;
-	const FCachedPackageFilename& Cache(const FName& PackageName) const;
-	void ClearPackageFilenameCache() const;
-	bool ClearPackageFilenameCacheForPackage( const UPackage* Package ) const;
-	bool ClearPackageFilenameCacheForPackage( const FName& PackageName ) const;
-
 	FString ConvertCookedPathToUncookedPath(const FString& CookedPackageName) const;
 
-	// get dependencies for this package 
+	/** Get dependencies for package */
 	const TArray<FName>& GetFullPackageDependencies(const FName& PackageName) const;
 	mutable TMap<FName, TArray<FName>> CachedFullPackageDependencies;
 
-	// declared mutable as it's used to cache package filename strings and I don't want to declare all functions using it as non const
-	// used by GetCached * Filename functions
-	mutable TMap<FName, FCachedPackageFilename> PackageFilenameCache; // filename cache (only process the string operations once)
-	mutable TMap<FName, FName> PackageFilenameToPackageFNameCache;
-
 	/** Cached copy of asset registry */
-	IAssetRegistry* AssetRegistry;
+	IAssetRegistry* AssetRegistry = nullptr;
 
 	/** Map of platform name to asset registry generators, which hold the state of asset registry data for a platform */
 	TMap<FName, FAssetRegistryGenerator*> RegistryGenerators;
@@ -977,7 +216,7 @@ private:
 	// tmap of the Config name, Section name, Key name, to the value
 	typedef TMap<FName, TMap<FName, TMap<FName, TArray<FString>>>> FIniSettingContainer;
 
-	mutable bool IniSettingRecurse;
+	mutable bool IniSettingRecurse = false;
 	mutable FIniSettingContainer AccessedIniStrings;
 	TArray<const FConfigFile*> OpenConfigFiles;
 	TArray<FString> ConfigSettingBlacklist;
@@ -1074,20 +313,13 @@ public:
 		TArray<FString> CookCultures; 
 		TArray<FString> IniMapSections;
 		TArray<FString> CookPackages; // list of packages we should cook, used to specify specific packages to cook
-		ECookByTheBookOptions CookOptions;
+		ECookByTheBookOptions CookOptions = ECookByTheBookOptions::None;
 		FString DLCName;
 		FString CreateReleaseVersion;
 		FString BasedOnReleaseVersion;
-		bool bGenerateStreamingInstallManifests; 
-		bool bGenerateDependenciesForMaps; 
-		bool bErrorOnEngineContentUse; // this is a flag for dlc, will cause the cooker to error if the dlc references engine content
-		FCookByTheBookStartupOptions() :
-			CookOptions(ECookByTheBookOptions::None),
-			DLCName(FString()),
-			bGenerateStreamingInstallManifests(false),
-			bGenerateDependenciesForMaps(false),
-			bErrorOnEngineContentUse(false)
-		{ }
+		bool bGenerateStreamingInstallManifests = false;
+		bool bGenerateDependenciesForMaps = false;
+		bool bErrorOnEngineContentUse = false; // this is a flag for dlc, will cause the cooker to error if the dlc references engine content
 	};
 
 	/**
@@ -1095,18 +327,6 @@ public:
 	* Cook on the fly can't run at the same time as cook by the book
 	*/
 	void StartCookByTheBook( const FCookByTheBookStartupOptions& CookByTheBookStartupOptions );
-
-	/**
-	* ValidateCookByTheBookSettings
-	* look at the cookByTheBookOptions and ensure there isn't any conflicting settings
-	*/
-	void ValidateCookByTheBookSettings() const;
-
-	/**
-	* ValidateCookOnTheFlySettings
-	* look at the initialization flags and other cooker settings make sure the programmer that thought of checking them are ok
-	*/
-	void ValidateCookOnTheFlySettings() const;
 
 	/**
 	* Queue a cook by the book cancel (you might want to do this instead of calling cancel directly so that you don't have to be in the game thread when canceling
@@ -1123,7 +343,7 @@ public:
 	/**
 	* Get any packages which are in memory, these were probably required to be loaded because of the current package we are cooking, so we should probably cook them also
 	*/
-	void GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames) const;
+	TArray<UPackage*> GetUnsolicitedPackages(const TArray<FName>& TargetPlatformNames) const;
 
 	/**
 	* PostLoadPackageFixup
@@ -1182,9 +402,9 @@ public:
 	*/
 	void TickRecompileShaderRequests();
 
-	bool HasCookRequests() const { return CookRequests.HasItems(); }
+	bool HasRecompileShaderRequests() const;
 
-	bool HasRecompileShaderRequests() const { return RecompileRequests.HasItems(); }
+	bool HasCookRequests() const;
 
 	uint32 NumConnections() const;
 
@@ -1224,9 +444,6 @@ public:
 
 	/** Returns the configured number of packages to process before partial GC */
 	uint32 GetPackagesPerPartialGC() const;
-
-	/** Returns the target max concurrent shader jobs */
-	int32 GetMaxConcurrentShaderJobs() const;
 
 	/** Returns the configured amount of idle time before forcing a GC */
 	double GetIdleTimeToGC() const;
@@ -1409,20 +626,11 @@ private:
 	// general functions
 
 	/**
-	* Determines if a package should be cooked
-	* 
-	* @param InFileName		package file name
-	* @param InPlatformName	desired platform to cook for
-	* @return If the package should be cooked
-	*/
-	bool ShouldCook(const FString& InFileName, const FName& InPlatformName);
-
-	/**
 	 * Tries to save all the UPackages in the PackagesToSave list
 	 *  uses the timer to time slice, any packages not saved are requeued in the CookRequests list
 	 *  internal function should not be used externally Call Tick / RequestPackage to initiate
 	 * 
-	 * @param PackagesToSave packages requested save
+	 * @param PackageToSave main cooked package to save
 	 * @param TargetPlatformNames list of target platforms names that we want to save this package for
 	 * @param TargetPlatformsToCache list of target platforms that we want to cache uobjects for, might not be the same as the list of packages to save
 	 * @param Timer FCookerTimer struct which defines the timeslicing behavior 
@@ -1430,17 +638,11 @@ private:
 	 * @param Result (in+out) used to modify the result of the operation and add any relevant flags
 	 * @return returns true if we saved all the packages false if we bailed early for any reason
 	 */
-	bool SaveCookedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, struct FCookerTimer& Timer, int32 FirstUnsolicitedPackage, uint32& CookedPackageCount, uint32& Result);
+	void SaveCookedPackages(UPackage* PackageToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, struct FCookerTimer& Timer, uint32& CookedPackageCount, uint32& Result);
 
-	/**
-	 * Returns all packages which are found in memory which aren't cooked
-	 * @param PackagesToSave (in+out) filled with all packages in memory
-	 * @param TargetPlatformNames list of target platforms to find unsolicited packages for 
-	 * @param ContainsFullAssetGCClasses do these packages contain any of the assets which require a GC after cooking 
-	 *				(this is mostly historical for when objects like UWorld were global, almost nothing should require a GC to work correctly after being cooked anymore).
-	 */
-	void GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames);
-
+	/** Perform any special processing for freshly loaded packages 
+	  */
+	void ProcessUnsolicitedPackages();
 
 	/**
 	 * Loads a package and prepares it for cooking
@@ -1578,16 +780,7 @@ private:
 	*/
 	FString GetSandboxDirectory( const FString& PlatformName ) const;
 
-	inline bool IsCookingDLC() const
-	{
-		// can only cook dlc in cook by the book
-		// we are cooking dlc when the dlc name is setup
-		if ( CookByTheBookOptions )
-		{
-			return  !CookByTheBookOptions->DlcName.IsEmpty();
-		}
-		return false;
-	}
+	bool IsCookingDLC() const;
 
 	/**
 	* GetBaseDirectoryForDLC
@@ -1598,14 +791,7 @@ private:
 
 	FString GetContentDirecctoryForDLC() const;
 
-	inline bool IsCreatingReleaseVersion()
-	{
-		if ( CookByTheBookOptions )
-		{
-			return !CookByTheBookOptions->CreateReleaseVersion.IsEmpty();
-		}
-		return false;
-	}
+	bool IsCreatingReleaseVersion();
 
 	/**
 	* Loads the cooked ini version settings maps into the Ini settings cache
@@ -1715,14 +901,11 @@ private:
 
 	uint32		StatLoadedPackageCount = 0;
 	uint32		StatSavedPackageCount = 0;
-};
 
-FORCEINLINE uint32 GetTypeHash(const UCookOnTheFlyServer::FFilePlatformRequest &Key)
-{
-	uint32 Hash = GetTypeHash( Key.Filename );
-	for ( const FName& PlatformName : Key.PlatformNames )
-	{
-		Hash += Hash << 2 ^ GetTypeHash( PlatformName );
-	}
-	return Hash;
-}
+	FPackageTracker*	PackageTracker;
+	FPackageNameCache*	PackageNameCache;
+
+	// temporary -- should eliminate the need for this. Only required right now because FullLoadAndSave 
+	// accesses maps directly
+	friend FPackageNameCache;
+};

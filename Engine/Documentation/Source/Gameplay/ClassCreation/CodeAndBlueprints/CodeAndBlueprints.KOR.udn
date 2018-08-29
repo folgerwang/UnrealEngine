@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3238697
+INTSourceChangelist:4309042
 Availability:Public
 Title:C++ 와 블루프린트
 Crumbs: %ROOT%, Gameplay, Gameplay/ClassCreation
@@ -195,7 +195,7 @@ LightSwitchBoth 부모 클래스의 컴포넌트와 변수는 기본적으로 �
 **OnOverlap** 이벤트 노드는 **Set Light Color** 노드에 연결됩니다. 이벤트가 실행될 때마다 PointLightComponent 의 라이트 색이 임의 설정되도록 합니다. 이는 
 소스 파일 내 PointLightComponent 의 표시여부를 토글하는 `OnOverlap_Implementation` 함수를 덮어씁니다.
 
-이벤트와 그래프 작업 관련 상세 정보는 [](Engine/Blueprints\UserGuide\Events), [](Engine/Blueprints\UserGuide\EventGraph), [그래프 패널](Engine/Blueprints\Editor\Modes\GraphPanel) 문서를 참고해 주시기 바랍니다.
+이벤트와 그래프 작업 관련 상세 정보는 [](Engine/Blueprints\UserGuide\Events), [](Engine/Blueprints\UserGuide\EventGraph), [](Engine/Blueprints/Editor/UIBreakdowns/ClassBPUI) 문서를 참고해 주시기 바랍니다.
 
 ![](Both_EventGraph_2.png)
 

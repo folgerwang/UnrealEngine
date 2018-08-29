@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3717042
 Availability:Public
-Title: 2. 인바이언먼트 쿼리 시스템
+Title: 2. 인바이런먼트 쿼리 시스템
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem, Engine/AI/EnvironmentQuerySystem/QuickStart
-Description: 현재 실험단계인 인바이언먼트 쿼리 시스템을 켭니다.
+Description: 현재 실험단계인 인바이런먼트 쿼리 시스템을 켭니다.
 version: 4.9
 parent:Engine/AI/EnvironmentQuerySystem/QuickStart
 type:quick start
@@ -11,11 +11,11 @@ order:2
 
 [NAV]
 
-**Environment Query System** (인바이언먼트 쿼리 시스템)은 **Experimental** (실험단계 기능)입니다. 언제든 급격하게 바뀔 수 있다는 뜻으로, 직접 사용하도록 선택해 줘야 합니다.
+**Environment Query System** (인바이런먼트 쿼리 시스템)은 **Experimental** (실험단계 기능)입니다. 언제든 급격하게 바뀔 수 있다는 뜻으로, 직접 사용하도록 선택해 줘야 합니다.
 
 ## Steps
 
-* [REGION:raw] 4.7 이후 인바이언먼트 쿼리 시스템은 **편집 메뉴** > **에디터 개인설정** > **실험단계** 에서 AI 카테고리 아래 **Environment Querying System** 을 켜주면 됩니다. [/REGION]
+* [REGION:raw] 4.7 이후 인바이런먼트 쿼리 시스템은 **편집 메뉴** > **에디터 개인설정** > **실험단계** 에서 AI 카테고리 아래 **Environment Querying System** 을 켜주면 됩니다. [/REGION]
 
 ![](enableEQS.png)
 

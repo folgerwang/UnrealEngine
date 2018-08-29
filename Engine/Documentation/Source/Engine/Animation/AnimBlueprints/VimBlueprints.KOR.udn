@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:3782314
 Availability:Public
 Title: 애니메이션 블루프린트
 Crumbs: %ROOT%, Engine, Engine/Animation
@@ -99,7 +99,7 @@ topic-image:Engine/Animation/Overview/AnimationBlueprintTopic.png
 
 애니메이션 블루프린트는 [](Engine/Animation/Persona/MeshDetails) 패널을 통해 **포스트 프로세스 애님 블루프린트** 로 스켈레탈 메시에 직접 할당할 수 있습니다. 
 이렇게 하면 애니메이션 블루프린트가 스켈레탈 메시 컴포넌트의 메인 애님 인스턴스로 할당된 이후 항상 실행되는 애니메이션 블루프린트를 스켈레탈 메시에 할당할 수 있습니다.
-스켈레탈 메시에 포스트 프로세스 애님 블루프린트를 할당하면, 로직을 다른 애니메이션 블루프린트로 복사할 필요 없이 애님 다이내믹스, 스켈레탈 콘트롤, 기타 애님 블루프린트 로직을 만들 수 있습니다.
+스켈레탈 메시에 포스트 프로세스 애님 블루프린트를 할당하면, 로직을 다른 애니메이션 블루프린트로 복사할 필요 없이 애님 다이내믹스, 스켈레탈 컨트롤, 기타 애님 블루프린트 로직을 만들 수 있습니다.
 
 ![](ExamplePostProcess.png)
 

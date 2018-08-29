@@ -21,6 +21,7 @@ Availability:Public
 [/VAR]
 
 
+%Steps%
 
 [REGION:note]
 您是否已经有了信息提供和签名证书？ [您可以跳过这个部分。](Platforms/iOS/QuickStart/4)
@@ -137,3 +138,5 @@ Availability:Public
 [/COMMENT]
 
 
+
+%Steps%

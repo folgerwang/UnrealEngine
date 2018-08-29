@@ -124,14 +124,14 @@ Animation Notification (애님 노티파이 혹은 그냥 노티파이)를 통�
 
 [EXCERPT:Mesh3.5]
 [VAR:StageTitle]
-애니메이션 리타게팅
+애니메이션 리타기팅
 [/VAR]
 
-애니메이션 리타게팅이란 같은 스켈레톤 애셋을 공유하면서 비율이 크게 다른 캐릭터간에 애니메이션을 재사용할 수 있도록 해 주는 기능입니다. 리타게팅을 통해서, 모양이 다른 캐릭터의 애니메이션을 사용할 때 애니메이션을 적용받는 스켈레톤의 비율이 훼손되거나 불필요한 변형이 일어나지 않도록 할 수 있습니다.
+애니메이션 리타기팅이란 같은 스켈레톤 애셋을 공유하면서 비율이 크게 다른 캐릭터간에 애니메이션을 재사용할 수 있도록 해 주는 기능입니다. 리타기팅을 통해서, 모양이 다른 캐릭터의 애니메이션을 사용할 때 애니메이션을 적용받는 스켈레톤의 비율이 훼손되거나 불필요한 변형이 일어나지 않도록 할 수 있습니다.
 
 ![](RetargetingHeader.png)
 
-[자세한 정보는 애니메이션 리타게팅 문서를 참고하세요.](DOCLINK:Engine/Animation/AnimationRetargeting)
+[자세한 정보는 애니메이션 리타기팅 문서를 참고하세요.](DOCLINK:Engine/Animation/AnimationRetargeting)
  
 [/EXCERPT:Mesh3.5]
 
@@ -149,7 +149,7 @@ Conclusion
 [블렌드 스페이스](DOCLINK:Engine/Animation/Blendspaces)
 [애님 몽타주](DOCLINK:Engine/Animation/AnimMontage)
 [애니메이션 블루프린트](DOCLINK:Engine/Animation/AnimBlueprints)
-[애니메이션 리타게팅](DOCLINK:Engine/Animation/AnimationRetargeting)
+[애니메이션 리타기팅](DOCLINK:Engine/Animation/AnimationRetargeting)
 [소켓](DOCLINK:Engine/Content/Types/SkeletalMeshes/Sockets)
 
 ![](Stage1.png)

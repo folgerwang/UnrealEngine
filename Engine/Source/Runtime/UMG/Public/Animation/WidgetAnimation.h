@@ -67,6 +67,7 @@ public:
 	virtual UObject* GetParentObject(UObject* Object) const override;
 	virtual void UnbindPossessableObjects(const FGuid& ObjectId) override;
 	virtual void LocateBoundObjects(const FGuid& ObjectId, UObject* Context, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const override;
+	virtual UObject* CreateDirectorInstance(IMovieScenePlayer& Player) override;
 	// ~UMovieSceneAnimation overrides
 
 	//~ Begin UObject Interface. 

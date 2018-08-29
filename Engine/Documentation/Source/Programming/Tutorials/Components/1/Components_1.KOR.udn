@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3967023
 Availability: Public
 Title:1. 컴포넌트 만들고 붙이기
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/Components
@@ -85,7 +85,7 @@ version:4.9
 			Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 
 1. 컴포넌트를 만들어 붙였으니, 이 **폰** 을 기본 플레이어가 조종하도록 설정해 줘야 합니다. 다음과 같은 코드면 됩니다:
-			// 기본 플레이어 콘트롤 획득
+			// 기본 플레이어 컨트롤 획득
 			AutoPossessPlayer = EAutoReceiveInput::Player0;
 
 

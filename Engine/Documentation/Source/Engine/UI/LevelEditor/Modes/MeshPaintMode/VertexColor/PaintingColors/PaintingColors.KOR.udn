@@ -17,8 +17,8 @@ Version: 4.9
 | ![](button_fill.png)| **채널** 설정을 그대로 따라, **칠할 색** 을 사용하여 메시나 인스턴스를 채웁(fill)니다. |
 | ![](button_copyAsset.png)| 선택된 인스턴스의 버텍스 컬러를 소스 메시 애셋으로 복사합니다. |
 | ![](button_Import.png)| 선택된 인스턴스의 버텍스 컬러를 채우는 데 사용할 .tga 이미지 파일을 임포트합니다. |
-| ![](button_paintColor.png)| 칠할 때 (**Ctrl + 좌클릭 + 드래그**) 적용할 색입니다. 견본에서 현재 색을 미리볼 수 있습니다. 색 설정은 툴에 내장된 [색 선택기](Engine/UI/ColorPicker) 로 가능합니다. |
-| ![](button_EraseColor.png)| 재울 때 (**Ctrl + Shift + 좌클릭 + 드래그**) 사용할 _지울 색_ 입니다. 견본에서 현재 색을 미리볼 수 있습니다. 색 설정은 툴에 내장된 [색 선택기](Engine/UI/ColorPicker) 로 가능합니다. |
+| ![](button_paintColor.png)| 칠할 때 (**Ctrl + 좌클릭 + 드래그**) 적용할 색입니다. 견본에서 현재 색을 미리볼 수 있습니다. 색 설정은 툴에 내장된 [색 선택 툴](Engine/UI/ColorPicker) 로 가능합니다. |
+| ![](button_EraseColor.png)| 재울 때 (**Ctrl + Shift + 좌클릭 + 드래그**) 사용할 _지울 색_ 입니다. 견본에서 현재 색을 미리볼 수 있습니다. 색 설정은 툴에 내장된 [색 선택 툴](Engine/UI/ColorPicker) 로 가능합니다. |
 | ![](button_swap.png)| **칠할 색** 과 **지울 색** 을 맞바꿉니다. |
 | ![](button_Channels.png)| 페인트 브러시에 영향받을 컬러/알파 채널을 설정하는 체크 박스입니다. |
 |![](button_FindInCB.png)| 선택된 메시의 위치를 콘텐츠 브라우저에 나타냅니다. |
