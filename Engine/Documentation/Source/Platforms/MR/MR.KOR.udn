@@ -1,0 +1,26 @@
+INTSourceChangelist:4320148
+Availability: Public
+Crumbs: %ROOT%, Platforms
+Title: 혼합 현실 개발
+Description: 혼합 현실 개발 문서입니다.
+Platform: Mixed Reality
+Version: 4.20
+Parent: Platforms
+Order: 0
+Tags: MR
+Tags: Early Access
+Tags: Landing Page
+
+
+Mixed Reality Capture (MRC, 혼합 현실 캡처) 프레임워크는 실제 플레이어를 가상 플레이 공간에 합성하는 작업을 쉽게 해줍니다.
+
+## 시작하기
+
+%Platforms/MR/MROverview:topic%
+%Platforms/MR/MRQuickStart:topic%
+%Platforms/MR/MRHowToCaptureCalibrationTool:topic%
+
+## 레퍼런스
+
+%Platforms/MR/MRSupportedVideoDevices:topic%
+%Platforms/MR/MRTroubleshooting:topic%

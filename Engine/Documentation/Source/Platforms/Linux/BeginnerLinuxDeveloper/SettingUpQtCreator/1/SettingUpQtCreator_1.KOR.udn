@@ -46,7 +46,7 @@ UE4 를 실행하는 방법을 보여드리도록 하겠습니다. 이 문서가
 		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	UE4 를 빌드한 디렉토리로 이동하여, UE4 Qt Project (**UE4.pro**) 파일을 선택한 뒤 **Open** (열기)버튼을 누릅니다.
+1.	UE4 를 빌드한 디렉터리로 이동하여, UE4 Qt Project (**UE4.pro**) 파일을 선택한 뒤 **Open** (열기)버튼을 누릅니다.
 
 	[REGION:lightbox]
 		[![](SetupIDE_Step3.png)(w:720)](SetupIDE_Step3.png)
@@ -107,7 +107,7 @@ UE4 를 실행하는 방법을 보여드리도록 하겠습니다. 이 문서가
 	[/REGION]
 
 	[REGION:note]
-	섀도우 빌드란 Qt Creator 의 qmake 유틸리티로 별도의 빌드 디렉토리에 프로젝트를 빌드할 수 있도록 해줍니다. UE4 는 [](Programming/UnrealBuildSystem) 활용을 통해 커스텀 Make 파일과 
+	섀도우 빌드란 Qt Creator 의 qmake 유틸리티로 별도의 빌드 디렉터리에 프로젝트를 빌드할 수 있도록 해줍니다. UE4 는 [](Programming/UnrealBuildSystem) 활용을 통해 커스텀 Make 파일과 
 	함께 배포되므로, Qt Creator 의 qmake 유틸리티를 사용할 필요가 없습니다.
 	[/REGION]
 

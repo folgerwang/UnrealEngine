@@ -51,9 +51,9 @@ Alex Silkin (alexSilkin), alwei, Allegorithmic, Artem V. Navrotskiy (bozaro), Ce
 
 * 이 기능을 사용하려면, 액터에 새 "위젯 컴포넌트" 를 추가한 다음 거기에 위젯 애셋을 할당해 주면 됩니다. 이 기능은 아직 실험단계 기능으로 간주되고 있지만, 곧 여러가지 개선 작업 및 기능 추가가 있을 예정입니다.
 
-* UI 는 화면 밖 타겟에 렌더링한 다음, 액터에 붙은 3D 쿼드에 매핑됩니다. 입력도 지원되므로, 마우스 커서가 표시되는 게임의 경우 사용자는 버튼 클릭과 같은 동작이 가능할 것입니다.
+* UI 는 화면 밖 타깃에 렌더링한 다음, 액터에 붙은 3D 쿼드에 매핑됩니다. 입력도 지원되므로, 마우스 커서가 표시되는 게임의 경우 사용자는 버튼 클릭과 같은 동작이 가능할 것입니다.
 
-* 위젯 컴포넌트의 디테일 뷰에서 3D 위젯의 렌더링 세팅에 대한 환경설정이 가능합니다. UI 렌더링 대상이 되는 렌더 타겟 크기를 조절하는 "Draw Size" 설정도 잊지 마세요.
+* 위젯 컴포넌트의 디테일 뷰에서 3D 위젯의 렌더링 세팅에 대한 환경설정이 가능합니다. UI 렌더링 대상이 되는 렌더 타깃 크기를 조절하는 "Draw Size" 설정도 잊지 마세요.
 
 ![](3DumgUI02.png)
 
@@ -207,7 +207,7 @@ Alex Silkin (alexSilkin), alwei, Allegorithmic, Artem V. Navrotskiy (bozaro), Ce
 * 옵션은 다음과 같습니다:
 	* **No Root Motion Extraction** 루트 모션 추출 없음 - 루트 모션이 (루트 본에 적용된 채) 그대로 남아있습니다.
 	* **Ignore Root Motion** 루트 모션 무시 - 루트 모션이 추출(되고 루트 본에서 제거)되지만, 캐릭터에 적용되지는 않습니다.
-	* **Root Motion from Everything** 모두에서 루트 모션 - 루트 모션 처리를 위한 새로운 메소드입니다 (아래 자세히 설명합니다).
+	* **Root Motion from Everything** 모두에서 루트 모션 - 루트 모션 처리를 위한 새로운 메서드입니다 (아래 자세히 설명합니다).
 	* **Root Motion from Montages Only** 몽타주에서만 루트 모션 - 원래 루트 모션 방식(이자 모든 신규 블루프린트의 기본)입니다.
 
 애셋의 루트 모션 셋업입니다:
@@ -284,12 +284,12 @@ Alex Silkin (alexSilkin), alwei, Allegorithmic, Artem V. Navrotskiy (bozaro), Ce
 * TSubobjectPtr 을 제거하고 있습니다. 이상하고 혼동을 유발했었습니다. 이제 서브 오브젝트에 그냥 보통 포인터를 사용하세요!
 * 소스 파일에 구조체와 Enum 만 있는 경우, 더이상 '더미' UObject 를 합성할 필요가 없습니다.
 
-#### UI: 게임 콘트롤러 지원
+#### UI: 게임 컨트롤러 지원
 이제 조이스틱을 사용해서 UI 요소 사이를 이동 가능합니다!
 
 * 기본적으로 화살표키, 방향 패드 또는 왼쪽 조이스틱으로 이동 가능합니다. 여전히 Tab 또는 Shift+Tab 도 사용할 수 있습니다. 슬레이트와 언리얼 모션 그래픽 양쪽에서 작동합니다.
 
-* '키보드 포커스' 와 '콘트롤러 포커스' 개념을 '유저 포커스' 개념으로 통합시켰습니다. 유저 포커스를 바꾸면 해당 유저에 대한 모든 콘트롤러와 키보드에 영향을 끼칩니다.
+* '키보드 포커스' 와 '컨트롤러 포커스' 개념을 '유저 포커스' 개념으로 통합시켰습니다. 유저 포커스를 바꾸면 해당 유저에 대한 모든 컨트롤러와 키보드에 영향을 끼칩니다.
 
 
 #### UI: 컴포짓 폰트
@@ -335,7 +335,7 @@ Alex Silkin (alexSilkin), alwei, Allegorithmic, Artem V. Navrotskiy (bozaro), Ce
 	* **스킨 렌더링 (서브서피스 머티리얼)**
 ![](SkinRendering_SubsurfaceMaterials.png)
 * 신규! [현지화](https://docs.unrealengine.com/latest/INT/Gameplay/Localization/index.html)
-* 신규! 소스 콘트롤
+* 신규! 소스 컨트롤
 * 신규! 게임내 분석
 * [블루프린트 비법](https://docs.unrealengine.com/latest/INT/Engine/Blueprints/BP_HowTo/index.html) 추가
 	* [노드 배치](https://docs.unrealengine.com/latest/INT/Engine/Blueprints/BP_HowTo/PlacingNodes/index.html)

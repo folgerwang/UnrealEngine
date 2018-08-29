@@ -55,7 +55,7 @@ For more information about this section, see [%Engine/Blueprints/UserGuide/Macro
 
 ## Working with Graphs
 
-Whether your Graph is a Construction Script, EventGraph, Function, or Macro, you will edit it in the [Graph](Engine/Blueprints/Editor/Modes/GraphPanel) mode of the [](Engine/Blueprints/Editor). Fundamentally,
+Whether your Graph is a Construction Script, EventGraph, Function, or Macro, you will edit it in the [Graph](Engine/Blueprints/Editor/UIBreakdowns/ClassBPUI) mode of the [](Engine/Blueprints/Editor). Fundamentally,
 all Graphs contain networks of Nodes connected by Wires.
 
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4307127
 Availability:Public
 Crumbs:
 Title:클로딩 툴
@@ -355,43 +355,11 @@ LOD0 메시를 다시 칠하지만 모든 LOD 메시까지 다시 칠하고 싶�
 	
 1. **Rebuild Asset Parameter Masks** (애셋 파라미터 마스크 리빌드)를 선택하여 프로세스를 자동화시키고 새로 칠한 클로스 값을 다른 LOD 로 옮깁니다.
 
-	[REGION:imagetable]
-	| --- | --- |
-	| [INCLUDE:#lod0] | [INCLUDE:#lod1] |
-	[/REGION]
 
 	이제 LOD0 에 새로 칠한 값이 하위 LOD 메시에 전달됩니다. 아래는 LOD1 의 전후 비교입니다.
 
-<!----
 
-[EXCERPT:lod0]
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![LOD0 Before](Tonemapper_On.png)
-	[/PARAM]
-	[PARAM:after]
-	![LOD0 After](Tonemapper_Off.png)
-	[/PARAM]
-[/OBJECT]
-[/EXCERPT:lod0]
-
-----  SAVE FOR 4.18 Release Update -
 [/COMMENT]
-
-
-[EXCERPT:lod1]
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![LOD1 Before](Tonemapper_On.png)
-	[/PARAM]
-	[PARAM:after]
-	![LOD1 After](Tonemapper_Off.png)
-	[/PARAM]
-[/OBJECT]
-[/EXCERPT:lod1]
-
---->
-
 
 ## APEX (구) 애셋
 

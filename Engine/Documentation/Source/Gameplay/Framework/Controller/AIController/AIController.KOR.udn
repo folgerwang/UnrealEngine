@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3108692
 Availability:Public
-Title:AI 콘트롤러
+Title:AI 컨트롤러
 Crumbs:%ROOT%, Gameplay, Gameplay/Framework, Gameplay/Framework/Controller
-Description:AIController, AI 콘트롤러는 사람 플레이어의 입력 없이 주변 월드를 관찰하고 의사를 결정한 뒤 알맞게 반응합니다.
+Description:AIController, AI 컨트롤러는 사람 플레이어의 입력 없이 주변 월드를 관찰하고 의사를 결정한 뒤 알맞게 반응합니다.
 Related: Gameplay\Framework\Controller\PlayerController
 Related: Gameplay\Framework\Controller
 Related: Gameplay\Framework\Pawn

@@ -46,21 +46,21 @@ Tags:Cloth
 [EXCERPT:createclothsection]
 ![](CreateClothSection.png)(w:350)
 | --- | --- |
-| [REGION:tablesection] Basic 기본 [/REGION] ||
+| [REGION:tablesection] Basic [/REGION] ||
 | **Asset Name** | 애셋 이름 - 클로스 섹션 애셋에 입력된 이름입니다. |
 | **Remove from Mesh** | 메시에서 제거 - (메시 자체로 구동시키는 경우) 이 섹션을 남겨둘지 여부입니다. 이 옵션을 켜는 것은 하이 폴리 메시를 로우 폴리 메시로 구동시키는 것입니다. |
-| [REGION:tablesection] Collision 콜리전 [/REGION] ||
+| [REGION:tablesection] Collision [/REGION] ||
 | **Physics Asset** | 피직스 애셋 - 콜리전을 추출해 낼 피직스 애셋입니다. 이 옵션은 구체 및 캡슐(Sphyll)을 익스포트하지만, 최대 32 볼록 면( 또는 5 박스)까지 지원합니다. |
 [/EXCERPT:createclothsection]
 
 [EXCERPT:createclothsectionLOD]
 ![](CreateClothLODSection.png)(w:350)
 | --- | --- |
-| [REGION:tablesection] Target 타겟 [/REGION] ||
-| **Target Asset** | 타겟 애셋 - LOD 임포트 시 대상으로 삼을 타겟 애셋입니다. |
+| [REGION:tablesection] Target [/REGION] ||
+| **Target Asset** | 타깃 애셋 - LOD 임포트 시 대상으로 삼을 타깃 애셋입니다. |
 | **LOD Index** | [INCLUDE:#lodindex] |
 | **Remap Parameters** | 리맵 파라미터 - 리임포트 시, 이 옵션은 예전 LOD 파라미터를 새로운 LOD 메시에 매핑시킵니다. 새 LOD 를 추가하는 경우, 선행 LOD 에서 파라미터를 매핑시킵니다. |
-| [REGION:tablesection] Basic 기본 [/REGION] ||
+| [REGION:tablesection] Basic [/REGION] ||
 | **Remove from Mesh** | 메시에서 제거 - (메시를 그 자체로 구동시키는 경우) 이 섹션을 남겨둘지 여부입니다. 이 옵션을 켜면 하이 폴리 메시를 로우 폴리 메시로 구동시키는 것입니다. |
 
 [/EXCERPT:createclothsectionLOD]
@@ -98,14 +98,14 @@ Tags:Cloth
 
 ### 마스크
 
-**Masks** (마스크) 창에는 칠한 클로스 값에 대해 생성된 파라미터 세트가 표시됩니다. 여기에는 클로딩 애셋과 함께 사용할 타겟 값을 할당할 수 있습니다.
+**Masks** (마스크) 창에는 칠한 클로스 값에 대해 생성된 파라미터 세트가 표시됩니다. 여기에는 클로딩 애셋과 함께 사용할 타깃 값을 할당할 수 있습니다.
 
 ![](Masks.png)
 
 [REGION:raw]
 | 프로퍼티 | 설명 |
 | --- | --- |
-| **Name** | 이름 - 이 파라미터 세트에 대한 타겟 세팅과 함께 마스크에 주어진 이름입니다. [INCLUDE:#masksettings]  |
+| **Name** | 이름 - 이 파라미터 세트에 대한 타깃 세팅과 함께 마스크에 주어진 이름입니다. [INCLUDE:#masksettings]  |
 | **Add Mask** | 마스크 추가 - 마스크 파라미터 사용가능 리스트에 새 마스크를 추가합니다. |
 [/REGION]
 
@@ -117,12 +117,12 @@ Tags:Cloth
 [EXCERPT:masksettings]
 | --- | --- |
 | [REGION:tablesection] 우클릭 메뉴 세팅 [/REGION] ||
-| [REGION:tablesection] Set Target 타겟 설정 [/REGION] ||
-| **None** | 없음 - 이 파라미터 세트에는 타겟이 설정되지 않았습니다. |
+| [REGION:tablesection] Set Target [/REGION] ||
+| **None** | 없음 - 이 파라미터 세트에는 타깃이 설정되지 않았습니다. |
 | **Max Distance** | 최대 거리 - 클로딩 시뮬레이션 파티클이 애니메이션 이후 위치에서 이동할 수 있는 최대 거리입니다. |
 | **Backstop Distance** | 백스탑 거리 - 클로스 시뮬레이션 파티클 이동을 제한하기 위해 사용되는 Max Distance 에서부터의 거리 오프셋입니다. |
 | **Backstop Radius** | 백스탑 반경 - 클로스 시뮬레이션 파티클은 이 반경과 Max Distance 와의 교차 영역 안으로 들어가지 못합니다. |
-| [REGION:tablesection] Actions 액션 [/REGION] ||
+| [REGION:tablesection] Actions [/REGION] ||
 | **Move Up** | 위로 이동 - 마스크를 리스트에서 한 슬롯 위로 옮깁니다. |
 | **Move Down** | 아래로 이동 - 마스크를 리스트에서 한 슬롯 아래로 옮깁니다. |
 | **Delete** | 삭제 - 마스크를 리스트에서 삭제합니다. |
@@ -141,7 +141,7 @@ Tags:Cloth
 | 프로퍼티 | 설명 |
 | --- | --- |
 | **Physics Asset** | 피직스 애셋 - 시뮬레이션을 만들 때 콜리전을 추출할 피직스 애셋입니다. |
-| **Wind Method** | 바람 메소드 - 바람 처리 방식입니다. Accurate 는 항력과 양력을 사용하여 클로스가 다르게 반응하도록 만들며, Legacy 는 (APEX 와 비슷하게) 항력과 양력 없이 모든 클로딩에 비슷한 힘을 가합니다. [INCLUDE:#windmethod] |
+| **Wind Method** | 바람 메서드 - 바람 처리 방식입니다. Accurate 는 항력과 양력을 사용하여 클로스가 다르게 반응하도록 만들며, Legacy 는 (APEX 와 비슷하게) 항력과 양력 없이 모든 클로딩에 비슷한 힘을 가합니다. [INCLUDE:#windmethod] |
 | **Vertical Constraint Config** | 세로 컨스트레인트 환경설정 - 세로 컨스트레인트에 대한 컨스트레인트 데이터입니다. [INCLUDE:#constraintgconfig] |
 | **Horizontal Constraint Config** | 가로 컨스트레인트 환경설정 - 가로 컨스트레인트에 대한 컨스트레인트 데이터입니다. [INCLUDE:#constraintgconfig] |
 | **Bend Constraint Config** | 벤드 컨스트레인트 환경설정 - 벤드 컨스트레인트에 대한 컨스트레인트 데이터입니다. [INCLUDE:#constraintgconfig] |
@@ -228,16 +228,16 @@ Tags:Cloth
 [REGION:raw]
 | 프로퍼티 | 설명 |
 | --- | --- |
-| [REGION:tablesection] View 뷰 [/REGION] ||
+| [REGION:tablesection] View [/REGION] ||
 | **View Min** | 뷰 최소 - 플로트/1D 값을 칠할 때, 칠한 값에 대해 0 또는 검정 점으로 간주됩니다. |
 | **View Max** | 뷰 최대 - 플로트/1D 값을 칠할 때, 칠한 값에 대해 1 또는 하양 점으로 간주됩니다. |
-| [REGION:tablesection] Advanced Rollout 고급 옵션 [/REGION] ||
+| [REGION:tablesection] Advanced Rollout [/REGION] ||
 | **Flip Normal** | 노멀 반전 - 메시 프리뷰의 노멀을 반전시킬지 입니다. |
 | **Cull Backface** | 뒷면 컬링 - 메시 프리뷰를 렌더링할 때 뒷면 트라이앵글을 컬링할지 입니다. |
 | **Opacity** | 불투명도 - 메시 프리뷰의 불투명도 값으로, 메시를 통과해 볼 수 있도록 합니다. |
-| [REGION:tablesection] Tool Settings 툴 세팅 [/REGION] ||
+| [REGION:tablesection] Tool Settings [/REGION] ||
 | **Paint Value** | 페인트 값 - 메시에서 이 파라미터에 대해 칠할 값입니다. |
-| [REGION:tablesection] Brush 브러시 [/REGION] ||
+| [REGION:tablesection] Brush [/REGION] ||
 | **Radius** | 반경 - 칠할 때 사용할 브러시 반경입니다. |
 | **Strength** | 세기 - 브러시 세기입니다 (0.0 - 1.0). |
 | **Falloff** | 감쇠 - 적용할 감쇠 양입니다 (0.0 - 1.0). |
@@ -254,18 +254,18 @@ Tags:Cloth
 [REGION:raw]
 | 프로퍼티 | 설명 |
 | --- | --- |
-| [REGION:tablesection] View 뷰 [/REGION] ||
+| [REGION:tablesection] View [/REGION] ||
 | **View Min** | 뷰 최소 - 플로트/1D 값을 칠할 때, 칠한 값의 0 또는 검정 점으로 간주됩니다. |
 | **View Max** | 뷰 최대 - 플로트/1D 값을 칠할 때, 칠한 값의 1 또는 하양 점으로 간주됩니다. |
-| [REGION:tablesection] Advanced Rollout 고급 옵션 [/REGION] ||
+| [REGION:tablesection] Advanced Rollout [/REGION] ||
 | **Flip Normal** | 노멀 반전 - 메시 프리뷰의 노멀을 반전시킬지 입니다. |
 | **Cull Backface** | 뒷면 컬링 - 메시 프리뷰를 렌더링할 때 뒷면 트라이앵글을 컬링할지 입니다. |
 | **Opacity** | 불투명도 - 메시 프리뷰의 불투명도 값으로, 메시를 통과해 볼 수 있도록 합니다. |
-| [REGION:tablesection] Tool Settings 툴 세팅 [/REGION] ||
+| [REGION:tablesection] Tool Settings [/REGION] ||
 | **Gradient Start Value** | 그레디언트 시작 값 - 시작 지점의 그레디언트 값입니다. |
 | **Gradient End Value** | 그레디언트 끝 값 - 끝 지점의 그레디언트 값입니다. |
 | **Use Regular Brush** | 일반 브러시 사용 - 점이 아닌 브러시를 사용하여 선택 지점을 칠합니다. |
-| [REGION:tablesection] Brush 브러시 [/REGION] ||
+| [REGION:tablesection] Brush [/REGION] ||
 | **Radius** | 반경 - 칠할 때 사용할 브러시 반경입니다. |
 | **Strength** | 세기 - 브러시 세기입니다 (0.0 - 1.0). |
 | **Falloff** | 감쇠 - 적용할 감쇠 양입니다 (0.0 - 1.0). |
@@ -283,16 +283,16 @@ Tags:Cloth
 [REGION:raw]
 | 프로퍼티 | 설명 |
 | --- | --- |
-| [REGION:tablesection] View 뷰 [/REGION] |
+| [REGION:tablesection] View [/REGION] ||
 | **View Min** | 뷰 최소 - 플로트/1D 값을 칠할 때, 칠한 값의 0 또는 검정 점으로 간주됩니다. |
 | **View Max** | 뷰 최대 - 플로트/1D 값을 칠할 때, 칠한 값의 1 또는 하양 점으로 간주됩니다. |
 | [REGION:tablesection] Advanced Rollout 고급 옵션 [/REGION] ||
 | **Flip Normal** | 노멀 반전 - 메시 프리뷰의 노멀을 반전시킬지 입니다. |
 | **Cull Backface** | 뒷면 컬링 - 메시 프리뷰를 렌더링할 때 뒷면 트라이앵글을 컬링할지 입니다. |
 | **Opacity** | 불투명도 - 메시 프리뷰의 불투명도 값으로, 메시를 통과해 볼 수 있도록 합니다. |
-| [REGION:tablesection] Tool Settings 툴 세팅 [/REGION] ||
+| [REGION:tablesection] Tool Settings [/REGION] ||
 | **Strength** | 세기 - 칠할 때 스무딩 (블러) 이펙트의 세기입니다. |
-| [REGION:tablesection] Brush 브러시 [/REGION] ||
+| [REGION:tablesection] Brush [/REGION] ||
 | **Radius** | 반경 - 칠할 때 사용할 브러시 반경입니다. |
 | **Strength** | 세기 - 브러시 세기입니다 (0.0 - 1.0). |
 | **Falloff** | 감쇠 - 적용할 감쇠 양입니다 (0.0 - 1.0). |
@@ -310,17 +310,17 @@ Tags:Cloth
 [REGION:raw]
 | 프로퍼티 | 설명 |
 | --- | --- |
-| [REGION:tablesection] View 뷰 [/REGION] ||
+| [REGION:tablesection] View [/REGION] ||
 | **View Min** | 뷰 최소 - 플로트/1D 값을 칠할 때, 칠한 값의 0 또는 검정 점으로 간주됩니다. |
 | **View Max** | 뷰 최대 - 플로트/1D 값을 칠할 때, 칠한 값의 1 또는 하양 점으로 간주됩니다. |
-| [REGION:tablesection] Advanced Rollout 고급 옵션 [/REGION] ||
+| [REGION:tablesection] Advanced Rollout [/REGION] ||
 | **Flip Normal** | 노멀 반전 - 메시 프리뷰의 노멀을 반전시킬지 입니다. |
 | **Cull Backface** | 뒷면 컬링 - 메시 프리뷰를 렌더링할 때 뒷면 트라이앵글을 컬링할지 입니다. |
 | **Opacity** | 불투명도 - 메시 프리뷰의 불투명도 값으로, 메시를 통과해 볼 수 있도록 합니다. |
-| [REGION:tablesection] Tool Settings 툴 세팅 [/REGION] ||
+| [REGION:tablesection] Tool Settings [/REGION] ||
 | **Threshold** | 한계치 - 샘플링한 버텍스 값이 원래 버텍스와 이 범위 안에 드는 한 채우기 작업을 계속합니다. |
 | **Fill Value** | 채우기 값 - 모든 선택 버텍스에 채울 값입니다. |
-| [REGION:tablesection] Brush 브러시 [/REGION] ||
+| [REGION:tablesection] Brush [/REGION] ||
 | **Radius** | 반경 - 칠할 때 사용할 브러시 반경입니다. |
 | **Strength** | 세기 - 브러시 세기입니다 (0.0 - 1.0). |
 | **Falloff** | 감쇠 - 적용할 감쇠 양입니다 (0.0 - 1.0). |

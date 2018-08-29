@@ -203,22 +203,19 @@ Heightmap data can be imported from and exported to the Gizmo through the **Gizm
 
 
 [COMMENT:none]
-
 ## Gizmo List
 
-![gizmolist.jpg](gizmolist.jpg)(w:267)
+![gizmolist.jpg]()(w:267)
 
 The Gizmo List displays a list of saved Gizmos so that they can easily be reused at a later time.
 
-![gizmolist_populated.jpg](gizmolist_populated.jpg)(w:266)
+![gizmolist_populated.jpg]()(w:266)
 
 | **Control** | **Description** |
 | --- | --- |
-| ![gizmolist_pin.jpg](gizmolist_pin.jpg)| Saves the Gizmo's current position, size, and rotation to the list. |
-| ![gizmolist_remove.jpg](gizmolist_remove.jpg)| Removes the Gizmo currently selected in the list. |
-| ![gizmolist_goto.jpg](gizmolist_goto.jpg)| Sets the Gizmo's position, size, and rotation to that of the currently selected Gizmo in the list. |
-
-
+| ![gizmolist_pin.jpg]()| Saves the Gizmo's current position, size, and rotation to the list. |
+| ![gizmolist_remove.jpg]()| Removes the Gizmo currently selected in the list. |
+| ![gizmolist_goto.jpg]()| Sets the Gizmo's position, size, and rotation to that of the currently selected Gizmo in the list. |
 [/COMMENT]
 
 [INCLUDE:Engine/Landscape#landscape002]

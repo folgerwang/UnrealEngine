@@ -24,6 +24,7 @@ order:4
 [/VAR]
 
 
+%Steps%
 
 [REGION:note]
 Already have your Device associated with your Apple Developer Account? [You can skip this section.](Platforms/iOS/QuickStart/5)
@@ -88,3 +89,5 @@ When completed you will now be able to launch your UE4 project on any device tha
 [/COMMENT]
 
 
+
+%Steps%

@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3782314
 Availability: Public
-Title: 2.4 - 마우스 카메라 콘트롤 구현
+Title: 2.4 - 마우스 카메라 컨트롤 구현
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/2
-Description: 일인칭 슈팅 캐릭터에 대한 마우스 카메라 콘트롤 구현법을 배워봅니다.
+Description: 일인칭 슈팅 캐릭터에 대한 마우스 카메라 컨트롤 구현법을 배워봅니다.
 SkillLevel: Beginner
 Version: 4.15
 
@@ -92,7 +92,7 @@ Version: 4.15
 			PlayerInputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
 		}
 
-## 마우스 카메라 콘트롤 테스트
+## 마우스 카메라 컨트롤 테스트
 
 1.	Visual Studio 에서 `FPSCharacter` 구현 파일을 저장합니다.
 

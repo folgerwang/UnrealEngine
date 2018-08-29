@@ -194,7 +194,7 @@ executes whenever the C++ function `OnOverlap` would be called. In the LightSwit
 The **OnOverlap** event node is connected to a **Set Light Color** node. Whenever the event executes, it will cause the light color of the PointLightComponent to be set to a random color. This overrides
 the `OnOverlap_Implementation` function in the source file, which toggles the visibility of the PointLightComponent.
 
-For more on events and working with graphs, see the [](Engine/Blueprints\UserGuide\Events), [](Engine/Blueprints\UserGuide\EventGraph), and [Graph Panel](Engine/Blueprints\Editor\Modes\GraphPanel) documentation.
+For more on events and working with graphs, see the [](Engine/Blueprints\UserGuide\Events), [](Engine/Blueprints\UserGuide\EventGraph), and [Blueprint Class UI](Engine/Blueprints/Editor/UIBreakdowns/ClassBPUI) documentation.
 
 ![](Both_EventGraph_2.png)
 

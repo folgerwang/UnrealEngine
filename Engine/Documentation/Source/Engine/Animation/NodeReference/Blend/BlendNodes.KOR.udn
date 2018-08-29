@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:4105127
 Availability:Public
 Title:Blend 노드
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/NodeReference
@@ -115,7 +115,7 @@ Blend Pose 입력을 추가하려면, 노드에 우클릭한 다음 맥락 메�
 
 **Slot** (슬롯) 노드는 주어진 애니메이션 슬롯의 결과 애니메이션을 재생합니다.
 
-[INCLUDE:Engine/Animation/AnimMontage#slots]
+
 
 애니메이션 몽타주 시스템과 함께 슬롯을 사용하는 법 관련 상세 정보는 [](Engine/Animation\AnimMontage) 문서를 참고해 주시기 바랍니다.
 

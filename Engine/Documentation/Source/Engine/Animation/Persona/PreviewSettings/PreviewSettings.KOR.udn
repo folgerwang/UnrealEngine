@@ -34,13 +34,13 @@ Related: Engine/Rendering/LightingAndShadows
 
 ## 애니메이션
 
-이 섹션은 프리뷰 메시에 애니메이션을 적용하는 메소드를 정의하는 데 사용됩니다.
+이 섹션은 프리뷰 메시에 애니메이션을 적용하는 메서드를 정의하는 데 사용됩니다.
 
 ![](Animation.png)
 
 | 옵션 | 설명 |
 |-------|------|
-| **Animation Mode** | 애니메이션 모드 - 프리뷰 애니메이션 메소드입니다 (**Default** 기본, **Reference Pose** 레퍼런스 포즈, **Use Specific Animation** 특정 애니메이션 사용). |
+| **Animation Mode** | 애니메이션 모드 - 프리뷰 애니메이션 메서드입니다 (**Default** 기본, **Reference Pose** 레퍼런스 포즈, **Use Specific Animation** 특정 애니메이션 사용). |
 | **Animation** | 애니메이션 - 사용할 프리뷰 애니메이션입니다. |
 
 ## 메시
@@ -87,7 +87,7 @@ Related: Engine/Rendering/LightingAndShadows
 | **Rotate Sky and Directional Lighting** | 스카이 및 디렉셔널 라이트 회전 - 스카이 및 디렉셔널 라이트의 회전을 토글합니다. **K** 를 누르고 드래그하면 스카이 수동 회전이, **L** 을 누르고 드래그하면 디렉셔널 라이트 회전이 가능합니다. |
 | **Show Environment** | 배경 표시 - 배경 구체 표시를 토글합니다. |
 | **Show Floor** | 바닥 표시 - 바닥 메시 표시를 토글합니다. |
-| **Environment Cube Map** | 배경 큐브 맵 - 스카이 라이트와 리플렉션에 사용되는 인바이언먼트 큐브 맵을 설정합니다. |
+| **Environment Cube Map** | 배경 큐브 맵 - 스카이 라이트와 리플렉션에 사용되는 인바이런먼트 큐브 맵을 설정합니다. |
 | **Post Processing Enabled** | 포스트 프로세싱 활성화 - 포스트 프로세싱이 씬에 영향을 주도록 할지 여부입니다. |
 | **Lighting Rig Rotation** | 라이팅 릭 회전 - 스카이 현재 회전 값 각도 단위입니다 (0 - 360). |
 | **Rotation Speed** | 회전 속도 - 회전 토글 시 스카이 회전 속도입니다. |

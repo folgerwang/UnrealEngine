@@ -143,7 +143,7 @@ yvwZUtmW12I
 
 [EXCERPT:SelectionBrackets]
 [REGION:imagetable]
-| ![](selection_brackets.png)(w:355) |![](selection_highlight.png)(w:355) |
+| ![](Shared/Types/ULevelEditorViewportSettings/selection_brackets.png)(w:355) |![](Shared/Types/ULevelEditorViewportSettings/selection_highlight.png)(w:355) |
 | :--------------------------------: | :-------------------------------: |
 | **有効** | **無効** |
 [/REGION]
@@ -151,7 +151,7 @@ yvwZUtmW12I
 
 [EXCERPT:SelectionOutline]
 [REGION:imagetable]
-| ![](selection_outline.png)(w:355) |![](selection_highlight.png)(w:355) |
+| ![](Shared/Types/ULevelEditorViewportSettings/selection_outline.png)(w:355) |![](Shared/Types/ULevelEditorViewportSettings/selection_highlight.png)(w:355) |
 | :--------------------------------: | :-------------------------------: |
 | **有効** | **無効** |
 [/REGION]
@@ -159,7 +159,7 @@ yvwZUtmW12I
 
 [EXCERPT:SelectionHighlight]
 [REGION:imagetable]
-| ![](selection_highlight.png)(w:355) |![](selection_highlight_full.png)(w:355) |
+| ![](Shared/Types/ULevelEditorViewportSettings/selection_highlight.png)(w:355) |![](Shared/Types/ULevelEditorViewportSettings/selection_highlight_full.png)(w:355) |
 | :--------------------------------: | :-------------------------------: |
 | **0.2** | **1.0** |
 [/REGION]

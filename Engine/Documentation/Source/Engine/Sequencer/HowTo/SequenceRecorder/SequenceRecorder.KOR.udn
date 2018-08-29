@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3683933
+﻿INTSourceChangelist:4221223
 Availability: Public
 Title:시퀀서로 녹화
 Crumbs:
@@ -13,103 +13,241 @@ Related: Engine/Sequencer/ReferenceEditor
 tags:Sequencer
 type:how-to
 
-**Sequence Recorder** (시퀀서 레코더)는 레벨 편집이나 게임플레이 도중 특정 액터를 캡처하여 새로운 **레벨 시퀀스** 로 저장한 뒤 **시퀀서** 안에서 편집할 수 있습니다.
-씬의 콘텐츠를 빠르게 캡처하는데 좋은데, 플레이가능 캐릭터를 잡아 게임플레이 도중 시퀀서 레코더로 녹화하면서 어떤 동작을 하게 한 뒤, 그 데이터를 시퀀서로 넘긴 뒤 그것을 중심으로 시네마틱 작업을 하는 것이 가능합니다.
+# 시퀀스 레코더
 
-이 예제에서는 **시퀀스 레코더** 를 사용하여 플레이가능 캐릭터의 이동을 녹화한 뒤 편집해 보겠습니다.
+**Sequence Recorder** (시퀀스 레코더)는 게임플레이나 레벨 편집 도중 액터 정보를 레벨 시퀀스 내 오디오 트랙, 이벤트, 트랜스폼, 스켈레탈 애니메이션에 녹화해 넣을 수 있습니다. 그리고 **시퀀서 에디터** 안에서 레벨 시퀀스를 편집하여 녹화에 따라 시네마틱을 생성할 수 있습니다. 
 
-## 단계
+## 시퀀스 레코더 열기
 
-[REGION:note]
-여기서는 **블루프린트 삼인칭 템플릿** 프로젝트에 **시작용 콘텐츠** 포함한 것을 사용합니다.
-[/REGION]
+메인 **메뉴 바** 에서 **창** > **시퀀스 레코더** 를 열 수 있습니다. 
 
-1.	**메뉴 바** 의 **창** 아래 **시퀀스 레코더** 를 선택합니다. 
+![image alt text](image_0.png)(w:270 h:300 convert:false)
 
-	![](RecorderStep1.png)
+**시퀀스 레코더** 를 선택하면, **시퀀스 레코더** 창이 열립니다: 
 
-	시퀀스 레코더 창이 자동으로 열립니다. **Sequence Recording** (시퀀스 녹화) 아래 있는 옵션으로 새 레벨 시퀀스 애셋을 어떻게 (그리고 어디에) 저장할지 결정할 수 있습니다. 스폰되는 (파티클 이펙트, 기타 캐릭터 등) 액터를 녹화하도록 할 수도 있고, 작명 규칙과 저장 위치를 설정할 수도 있으며, 녹화 기간이나 녹화 시작 전 지연시간 등의 설정 변경도 가능합니다.
-	
-1.	메인 에디터 툴바에서, **플레이** 버튼을 클릭하여 에디터에서 플레이 세션을 시작합니다.
+![image alt text](image_1.png)(w:586 h:709 convert:false)
 
-1.	**Shift+F1** 키를 눌러 게임 안에서 마우스 콘트롤을 획득합니다.
+## 녹화할 액터 트래킹
 
-1.	**시퀀스 레코더** 창에서 **추가** 버튼을 클릭합니다.
-	
-	![](SequenceRecorderAdd.png)
+시퀀스 레코더 상단에는 녹화를 제어하는 버튼이 있습니다. 녹화, 추가, 플레이어 추가, 제거, 모두 제거 입니다.
 
-1.	새 녹화를 클릭하고 (**없음** 으로 나올 것입니다), **Actor to Record** (녹화할 액터) 부분의 드롭다운을 클릭하고 **ThirdPersonCharacter** 를 선택합니다. 
+![image alt text](image_2.png)(w:322 h:64 convert:false)
 
-	![](ActorToRecord.png)
 
-	여기서 녹화 대상 액터를 지정하면 녹화 프로세스가 시작되며, UI 가 위와 같이 변경됩니다.
+| 버튼 | 설명 |
+| --- | --- |
+| 녹화 | 녹화를 시작합니다 (모든 녹화에 영향을 줍니다). |
+| 추가 | 선택된 액터에 대해 새 녹화를 추가합니다. 선택된 것이 없으면, 비어있는 녹화를 추가합니다. |
+| 플레이어 추가 | 현재 플레이어에 대해 새 녹화를 추가합니다. |
+| 제거 | 선택된 녹화를 제거합니다. |
+| 모두 제거 | 모든 녹화를 제거합니다. |
 
-1.	선택적으로, 오디오 녹화를 선택하고 녹화된 클립과 함께 오디오 게인 레벨을 설정할 수 있습니다.
 
-	![](RecordAudio.png)
 
-	오디오 녹화에는 부착 마이크가 필요하며, 시퀀스가 녹화를 시작하면 녹화가 시작됩니다.
+**추가** 버튼을 클릭하면, **녹화** 옵션과 **제거** 옵션 둘 다 사용할 수 있게됩니다. 액터 트래킹 창에 **Actor Recording** (액터 녹화) 칸이 추가되고, 트래킹할 액터는 **없음** 으로 (아래와 같이) 표시됩니다. 
 
-1.	**녹화** 버튼을 클릭합니다. 4 초 후 (시퀀스 녹화 섹션 아래 **Record Delay** (녹화 지연시간) 옵션), 녹화 프로세스가 시작됩니다.
+![image alt text](image_3.png)(w:516 h:222 convert:false)
 
-	![](RecordStart.png)
+액터 녹화를 선택하면 시퀀서 레코더에 해당 녹화 관련 추가 옵션이 채워집니다. 
 
-	[REGION:note]
-	**녹화** 버튼을 클릭하면, 목록에 트래킹하도록 설정된 모든 액터 역시도 녹화됩니다.
-	[/REGION]
+![image alt text](image_4.png)(w:524 h:709 convert:false)
 
-1.	**WASD** 와 **스페이스바** 키를 사용하여 캐릭터를 움직이고 점프하면서, 다 됐으면 **ESC** 키를 누릅니다.
+옵션을 선택한 채 녹화 도중 트래킹할 액터와 그 애니메이션 세팅을 같이 정의할 수 있습니다. 트래킹 창에 다수의 액터 트래킹 칸을 추가하고, 각각 **Actor to Record** (녹화할 액터)를 다른 액터로 설정할 수 있습니다. 
 
-	[OBJECT:EmbeddedVideo]
+[REGION:note]시퀀서 레코더로 액터를 녹화하는 방법 단계별 안내는 [시퀀서로 녹화](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/SequenceRecorder) 문서를 참고하세요.[/REGION]
+
+## 시퀀스 레코더 옵션
+
+**시퀀스 레코더** 를 열면, 여러가지 프로퍼티를 조절하여 **시퀀스 레코더** 가 액터를 기록하는 방식을 지정할 수 있습니다. **시퀀스 레코더** 를 처음 열면, 기본 **Sequence Recording** (시퀀스 녹화) 옵션만 제공됩니다. 녹화할 액터를 트랙에 추가하면, 액터 단위로 **Actor Recording** (액터 녹화)와 **Animation Recording** (애니메이션 녹화) 섹션 둘 다 활성화됩니다. 
+
+### 레코딩 그룹
+
+**시퀀스 레코더** 는 이제 퍼시스턴트 레벨에 저장되는 프로파일 시스템을 지원합니다. **레코딩 프로파일** 은 녹화하고자 하는 액터와 그 세팅 뿐만 아니라, 녹화 데이터를 저장할 출력 경로도 저장할 수 있습니다. 또한 **시퀀스 레코더** 는 이제 선택된 액터 각각에 대한 다중 테이크 녹화도 지원합니다. 
+
+**시퀀스 레코더** 의 **Recording Group** (레코딩 그룹) 섹션에서 사용할 수 있는 옵션은 다음과 같습니다:
+
+![image alt text](image_5.png)(w:502 h:257 convert:false)
+
+
+| 옵션 | 설명 |
+| --- | --- |
+| Sequence Name | 시퀀스 이름 - 녹화할 시퀀스 기본 이름입니다. 이 녹화로 만드는 애셋을 자동 생성할 때도 사용됩니다. |
+| Sequence Recording Base Path | 시퀀스 레코딩 기본 경로 - 이 녹화에 대한 기본 경로입니다. 서브 애셋은 서브 디렉터리에 지정된 대로 생성됩니다. |
+| Specify Target Level Sequence | 타깃 레벨 시퀀스 지정 - 타깃 레벨 시퀀스를 지정할지 자동 생성할지 여부입니다. |
+| Target Level Sequence | 타깃 레벨 시퀀스 - 이 레벨 시퀀스 안에 녹화합니다. |
+| Duplicate Target Level | 타깃 레벨 복제 - 타깃 레벨 시퀀스를 복제하고 그 안에 녹화할지 여부입니다. |
+|  |  |
+
+
+
+아래 비디오는 **시퀀스 레코더** 로 **레코딩 그룹** 을 구성하는 예제 데모입니다. 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	QGO_jCrjTEI
+	[/PARAMLITERAL]
 	[PARAMLITERAL:width]
-	640
+	78
 	[/PARAMLITERAL]
 	[PARAMLITERAL:height]
-	360
+	56.25
 	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### 시퀀스 레코딩
+
+시퀀스를 어떻게 녹화할지 그리고 어떤 액터를 녹화할지 정의할 수 있는 옵션입니다: 
+
+![image alt text](image_6.png)(w:540 h:452 convert:false)
+
+
+| 옵션 | 설명 |
+| --- | --- |
+| Create Level Sequence | 레벨 시퀀스 생성 - 녹화할 때 레벨 시퀀스를 생성할지 말지 입니다. 액터와 애니메이션은 활성화된 경우 이 시퀀스 안에 삽입됩니다. |
+| Immersive Mode | 몰입 모드 - 녹화할 때 뷰포트를 최대화할지 입니다. |
+| Sequence Length | 시퀀스 길이 - 녹화할 시퀀스 최대 길이를 정의합니다 (0 으로 설정하면 Esc 또는 중지 버튼을 눌러 Stop 이 호출될 때까지 녹화가 계속됩니다). |
+| Recording Delay | 레코딩 딜레이 - 녹화 시작 전 딜레이입니다. |
+| Animation Sub Directory | 애니메이션 서브 디렉터리 - 애니메이션이 있는 서브 디렉터리 이름입니다. 빈 칸으로 놔두면 시퀀스 기본 경로과 같은 디렉터리를 사용합니다. |
+| Record Nearby Spawned Actors | 근처 스폰된 액터 녹화 - 이 녹화의 일부로 근처 스폰된 액터를 녹화할지 여부입니다. |
+| Nearby Actor Recording Proximity | 근처 액터 녹화 근접성 - 현재 녹화되는 액터에 이만큼 근접한 액터를 새로 스폰된 액터로 녹화합니다. |
+| Record World Settings Actor | 월드 세팅 액터 녹화 - 시퀀스의 월드 세팅 액터를 녹화할지 여부입니다 (게임에서 이 옵션을 사용하여 월드 사운드 이펙트를 어태치합니다). |
+| Reduce Keys | 키 감소 - 녹화된 트랙에서 허용치 내의 키프레임 제거 여부입니다. |
+| Auto Save Asset | 애셋 자동 저장 - 녹화가 완료되면 애셋을 자동 저장할지 여부입니다. 기본값은 false 입니다. |
+| Actor Filter | 액터 필터 - 스폰된 액터가 이 필터에 맞으면 녹화합니다. 확장가능 옵션에서 녹화할 액터 클래스를 지정할 수 있습니다. |
+| Level Sequence Actors to Trigger | 발동시킬 레벨 시퀀스 액터 - 녹화가 시작되면 재생을 발동시킬 시퀀스 액터입니다 (예로, 시퀀스 녹화 동기화에 사용할 수 있습니다). |
+| Default Animation Settings | 기본 애니메이션 세팅 - 애니메이션 녹화에 적용할 기본 세팅입니다. 펼치면 월드 스페이스에서 녹화, 루트 애니메이션 제거, 녹화 완료 시 애셋 자동 저장 여부, 샘플링 속도 및 길이 조절 옵션이 나옵니다. |
+| 녹화할 클래스와 프로퍼티 | 지정된 클래스에 대해 녹화할 프로퍼티입니다. 여기 지정되는 컴포넌트 클래스가 녹화됩니다. 이 클래스 중 하나라도 들어있지 않은 액터는 무시됩니다. 펼치면 클래스 및 연관된 프로퍼티를 정의합니다. |
+| Record Sequencer Spawned Actors | 시퀀서 스폰된 액터 녹화 - 시퀀서 자체적으로 스폰한 액터를 녹화할지 여부입니다 (예상치 못한 결과가 날 수 있어서 보통 비활성화됩니다). |
+| Per Actor Settings | 액터 별 세팅 - 지정된 클래스의 액터에 적용할 세팅입니다. 각 클래스에 대해 (레벨에 소유된) 포제서블 또는 (시퀀스에 소유된) 스포너블 녹화 여부를 정의할 수 있습니다. |
+
+
+
+### 액터 레코딩
+
+이 섹션에서는 녹화되는 액터에 대한 세팅을 정의할 수 있습니다: 
+
+![image alt text](image_7.png)(w:536 h:308 convert:false)
+
+
+| 옵션 | 설명 |
+| --- | --- |
+| Record Visibility | 비저빌리티 녹화 - 액터 가시성 녹화 여부입니다. |
+| Record Transforms | 트랜스폼 녹화 - 액터 트랜스폼 녹화 여부입니다. 시퀀스 이후 액터가 특정 위치에 오도록 하려는 경우 유용할 수 있습니다. 기본적으로 애니메이션에 의존하여 트랜스폼을 제공하지만, Record in World Space (월드 스페이스에서 녹화) 애니메이션 세팅으로 변경할 수 있습니다. |
+| Active | 활성 - 이 액터의 활성 여부로, 녹화 버튼을 누르면 활성 액터가 녹화됩니다. |
+| Create Level Sequence | 레벨 시퀀스 생성 - 이 액터 녹화에 레벨 시퀀스를 생성할지 여부입니다. |
+| Target Level Sequence | 타깃 레벨 시퀀스 - 이 레벨 시퀀스 안에 녹화합니다. |
+| Target Name | 타깃 이름 - 옵션으로, 이 이름의 타깃에 녹화합니다. 지정하지 않으면, 액터 라벨을 사용합니다. |
+| Take Number | 테이크 번호 - 새 녹화에 대한 테이크 번호를 지정합니다. |
+| Record to Possessable | 포제서블에 녹화 - (레벨에 소유된) 포제서블, 아니면 (시퀀스에 소유된) 스포너블 액터 어디에 녹화할지 입니다. 기본값은 글로벌 세팅입니다. |
+| Actor to Record | 녹화할 액터 - 녹화하고자 하는 액터를 정의할 때 사용되는 옵션입니다. |
+
+
+
+### 애니메이션 레코딩
+
+이 세팅은 애니메이션 녹화 방식을 정의하는 데 사용할 수 있습니다: 
+
+![image alt text](image_8.png)(w:536 h:165 convert:false)
+
+
+| 옵션 | 설명 |
+| --- | --- |
+| Specify Target Animation | 타깃 애니메이션 지정 - 타깃 애니메이션을 지정할지 자동 생성할지 여부입니다. |
+| Target Animation | 타깃 애니메이션 - Specify Target Animation 옵션 사용 시 활성화되며 녹화하고자 하는 애니메이션을 지정할 때 사용합니다. |
+| Animation Settings | 애니메이션 세팅 - 기본 애니메이션 세팅 아래 시퀀스 녹화 옵션을 확인하세요. 녹화할 액터에 적용됩니다. |
+
+
+
+## 팁과 트릭
+
+**시퀀스 레코더** 작업 시 사용할 수 있는 워크플로우 팁과 트릭을 몇 가지 다룹니다. 
+
+### 연속 녹화
+
+**시퀀스 레코더** 창에서 **Sequence Length** (시퀀스 길이)를 **0** 으로 설정하면 연속 녹화가 됩니다.
+
+![image alt text](image_9.png)(w:530 h:778 convert:false)
+
+[REGION:tip]0 으로 설정하면, **Esc** 키를 눌러 녹화를 수동 중지할 때까지 녹화가 멈추지 않습니다.[/REGION]
+
+### 우클릭 녹화
+
+활성 **레벨 시퀀스** 를 열어 둔 상태로 **시퀀스 레코더** 안에서 **추가** 버튼을 클릭하기 보다는, 레벨의 액터에 우클릭하고 컨텍스트 메뉴에서 (또는 **Alt + R** 키를 눌러) 액터 녹화를 시작할 수 있습니다. 그러면 액터가 **시퀀스 레코더** 의 **액터 트래킹** 창에 추가되고 설정된 **Recording Delay** 가 만료되면 녹화를 자동 시작합니다. 
+
+![image alt text](image_10.png)(w:602 h:508 convert:false)
+
+[REGION:note]참고로 이렇게 하면 **시퀀서 레코더** 로 에디터 녹화가 시작될 뿐, [게임플레이 녹화](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/SequenceRecorder) 가 시작되는 것은 아닙니다.[/REGION]
+
+### 서브씬 게임플레이 녹화
+
+**시퀀스 레코더** 를 사용하여 게임플레이를 녹화하면 (기본으로) 콘텐츠를 녹화할 새 레벨 시퀀스를 자동으로 생성합니다. 기존의 레벨 시퀀스에 녹화된 콘텐츠를 추가하고자 하는 경우, [서브씬 트랙](https://docs.unrealengine.com/en-US/Engine/Sequencer/HowTo/TracksSub) 을 사용하여 현재 플레이어 폰을 녹화하면 됩니다. 
+
+[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
-	9mZI75qBsx8
+	Wab8bB69TIo
 	[/PARAMLITERAL]
-	[/OBJECT] 
-
-1.	**콘텐츠 브라우저** 안에 새 폴더가 생성되며, 그 안에 녹화된 시퀀스 관련 애셋이 들어있습니다.
-
- 
-
-## 최종 결과
-
-**RecordedSequence** 애셋을 열어 일반 레벨 시퀀스처럼 편집을 시작하면 됩니다. 아래는 녹화된 시퀀스로, 여기에 카메라와 [카메라 컷](Engine/Sequencer/HowTo/TracksCameraCut) 트랙을 추가하여 앵글이든 음악이든 이펙트든 원하는 대로 추가할 수 있습니다. 이 시퀀스를 가지고 [샷 트랙](Engine/Sequencer/HowTo/TracksShot) 의 일부분으로 다른 시퀀스에 삽입할 수도 있습니다.
-
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-1nFX_bpWfy0
-[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
 [/OBJECT]
 
-게임플레이 녹화 뿐만 아니라 Actor to Record (녹화할 액터)를 할당하는 것으로 레벨 편집 도중의 작업을 녹화할 수도 있습니다.
+위에서 서브씬 트랙으로 새 레벨 시퀀스를 생성한 뒤, 게임플레이 도중 **Shift + F1** 키를 눌러 마우스 컨트롤을 획득하고 현재 플레이어 폰을 기반으로 초벌 녹화 시퀀스(Recorded Sequenced)를 추가합니다. 그리고 게임을 플레이하는 도중 뷰포트의 **녹화** 버튼을 눌러 녹화를 시작하고 **Esc** 키를 눌러 녹화를 마칩니다. 
 
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-fMzumqLk7IQ
-[/PARAMLITERAL]
-[/OBJECT]
+[REGION:note]이런 식의 녹화는 **시퀀서 레코더** 창을 통해 **녹화할 액터** 를 수동 추가한 뒤 **시퀀서 레코더** 안에서 녹화를 시작하는 것과 같습니다. 한 가지 유념할 점은 이 서브씬 녹화 방식을 사용하면 **시퀀스 레코더** 에 정의된 세팅이 사용된다는 점입니다.[/REGION]
 
-레벨에 큐브를 배치한 뒤 시퀀서 레코더에게 큐브를 녹화하라 했습니다.
-그런 다음 큐브를 움직이면 시퀀스 레코더가 입력된 이동을 새로이 생성된 레벨 시퀀스 속 키프레임으로 캡처합니다.
-레벨 시퀀스를 재생하면, 새로운 큐브 액터가 레벨 시퀀스에 스포너블로 생성되는데, 그때문에 시퀀스가 활성화되면 두 번째 큐브가 나타나는 것입니다.
+### 클래스 프로퍼티 녹화
 
-[REGION:note]
-레벨 편집 녹화시에는 키프레임 설정이 가능한 프로퍼티만 캡처하여 녹화할 수 있습니다.
-[/REGION]
+시퀀스 녹화 도중 액터의 특정 프로퍼티 값 변화를 기록하려면, **Classes and Properties to Record** (녹화할 클래스와 프로퍼티) 세팅을 사용하여 녹화를 트래킹할 클래스와 연관된 프로퍼티를 지정해 주면 됩니다. 
+
+아래에서 **CineCameraComponent** 클래스를 선택하고 **...** 버튼을 클릭하면 (오른쪽의) **Choose Properties to Be Recorded** (녹화할 프로퍼티 선택) 메뉴에서 강조된 체크박스 각각을 활성화시켜 프로퍼티를 트래킹 및 녹화할 수 있습니다. 
+
+![image alt text](image_11.png)(w:624 h:380 convert:false)
+
+그 프로퍼티가 녹화 도중 변경되기라도 하면, 녹화 도중 변경사항을 반영하여 자동 키프레임 설정합니다. 트래킹 중인 액터에 정의된 클래스가 하나도 없으면 그냥 무시합니다. 
+
+**시퀀스 레코더** 가 녹화용으로 기본 트래킹하는 클래스는 다음과 같습니다:
+
+* [SkeletalMeshComponent](https://docs.unrealengine.com/en-us/Engine/Components/SkeletalMesh) 스켈레탈 메시 컴포넌트
+
+* [StaticMeshComponent](https://docs.unrealengine.com/en-us/Engine/Components/StaticMesh) 스태틱 메시 컴포넌트
+
+* [ParticleSystemComponent](https://docs.unrealengine.com/en-us/Engine/Components/Rendering#particlesystemcomponent) 파티클 시스템 컴포넌트
+
+* [LightComponent](https://docs.unrealengine.com/en-us/Engine/Components/Lights) 라이트 컴포넌트
+
+* [CameraComponent](https://docs.unrealengine.com/en-us/Engine/Components/Camera) 카메라 컴포넌트
+
+* [CineCameraComponent](https://docs.unrealengine.com/en-us/Engine/Sequencer/HowTo/CineCameraActors) 시네 카메라 컴포넌트
+
+녹화 도중 이 클래스와 그 안의 프로퍼티를 트래킹해서 사용할 수도 있고, 그냥 삭제한 뒤 별도의 클래스를 사용해도 됩니다. 
+
+### 포제서블에 녹화
+
+기본으로 트래킹 대상 태그를 붙인 액터 녹화를 시작하도록 선택하면, 자동으로 해당 액터의 **Spawnable** (스포너블) 버전이 생성되어 녹화에 추가됩니다. 스포너블 버전은 레벨 시퀀스가 열린 동안에만 존재하지만, 스포너블을 새로 만들기 보다는 레벨의 액터에 바로 쓰도록(write) 하고픈 경우가 있습니다. 그럴 때는 시퀀스 레코더의 **Actor Recording** (액터 녹화) 섹션 아래 **Record to Possessable** (포제서블에 녹화) 옵션을 체크하면 됩니다. 
+
+![image alt text](image_12.png)(w:508 h:309 convert:false)
+
+이 옵션을 체크하면 더 이상 스포너블을 생성하지 않고 포제서블 액터를 사용하여 녹화를 적용시킵니다. 
+
+[REGION:note]보다 자세한 정보는 [시퀀서 개요](https://docs.unrealengine.com/latest/INT/Engine/Sequencer/Overview/index.html) 문서의 포제서블 vs. 스포너블 섹션을 참고하세요.[/REGION]
+
+### 몰입 모드
+
+게임플레이를 녹화할 때, 더 큰 뷰포트에서 게임을 플레이하며 녹화하고 싶을 수 있습니다. **시퀀스 레코더** 창 안의 **Immersive Mode** (몰입 모드) 옵션은 녹화 중일 때 뷰포트를 자동으로 최대화시켜 줍니다. 녹화를 중지하면, 뷰포트가 원래 크기로 돌아갑니다. 
+
+![image alt text](image_13.png)(w:508 h:381 convert:false)

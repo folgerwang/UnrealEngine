@@ -79,7 +79,7 @@ Version: 4.9
 
 
 
-컨스트럭션 스크립트는 일종의 흐름제어 노드인 Branch 노드를 사용합니다. 자세한 정보는 [플로우 콘트롤 문서](Engine/Blueprints\UserGuide\FlowControl), 또는 이 레벨의 [예제 1.7](Resources\ContentExamples\Blueprints\1_7) 을 살펴보시기 바랍니다.
+컨스트럭션 스크립트는 일종의 흐름제어 노드인 Branch 노드를 사용합니다. 자세한 정보는 [플로우 컨트롤 문서](Engine/Blueprints\UserGuide\FlowControl), 또는 이 레벨의 [예제 1.7](Resources\ContentExamples\Blueprints\1_7) 을 살펴보시기 바랍니다.
 
 [REGION:fullwidth]
 ![](ComponentAddition.png)

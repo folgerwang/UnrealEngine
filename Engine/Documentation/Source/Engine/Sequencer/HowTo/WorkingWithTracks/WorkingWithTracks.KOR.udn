@@ -1,0 +1,176 @@
+﻿INTSourceChangelist:4221079
+Availability: Public
+Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
+title: 시퀀서에서 트랙 작업
+description:
+type: how-to
+SkillLevel: intermediate
+Version: 4.20
+Parent: Engine/Sequencer/HowTo
+Order: 2
+Tags: Sequencer
+Tags: how-to
+
+# 시퀀서에서 트랙 작업
+
+레벨 시퀀스를 만들 때마다 생성하려는 시네마틱 유형에 관계없이 트랙 창 안에 트랙을 추가하고 작업하게 됩니다. 시퀀서는 트랙과 트랙을 구성하고 시각화하는 데 사용할 수 있는 몇 가지 기능을 제공합니다. 
+
+여기서는 시퀀서 내 트랙 시스템의 여러 가지 기능과 이러한 기능을 사용하는 방법을 살펴 봅니다. 
+
+## 단계
+
+[REGION:note]여기서는 **블루프린트 삼인칭 템플릿** 에 **시작용 콘텐츠** 를 포함시켜 사용하고 있습니다.[/REGION]
+
+1.  프로젝트의 **Content/Mannequin/Character/Mesh** 폴더 안에 있는 **SK_Mannequin** 을 끌어 레벨에 놓습니다. 
+
+	![image alt text](image_0.png)(w:624 h:250 convert:false)
+
+1.  메인 툴바에서 **시네마틱** 버튼 > **레벨 시퀀스 추가** 를 선택한 뒤 이름과 저장 위치를 지정합니다. 
+
+	![image alt text](image_1.png)(w:420 h:162 convert:false)
+
+1.  **월드 아웃라이너** 창에서 **SK_Mannequin** 액터를 끌어 **트랙** 창에 놓아 시퀀서에 추가합니다. 
+
+	![image alt text](image_2.png)(w:624 h:353 convert:false)
+
+시퀀서에 액터를 추가하는 다른 방법입니다. **+ 트랙** 버튼을 클릭하는 것에 더해, **월드 아웃라이너** 또는 심지어 **콘텐츠 브라우저** 에서도 항목을 끌어 놓을 수 있습니다. 
+
+1.  **Content/StarterContent/Audio** 폴더 내 아무 **사운드 웨이브** 애셋을 끌어 시퀀서에 놓습니다. 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		RlCorqp9wdg
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+애셋을 시퀀서에 끌어 놓을 때 그 위치가 강조 표시되어 어디에 배치될지 알 수 있으며, 추가할 때 잠깐 노랗게 반짝이면서 새로 추가된 섹션이 표시됩니다. 아무 섹션이나 끌어 타임라인 내 아무 행에 놓거나 타임라인 마커를 원하는 위치로 옮긴 뒤 애셋을 끌어 놓으면 해당 지점에 섹션이 생깁니다 (위 비디오에서 확인할 수 있습니다). 
+
+1.  **+ 트랙** 메뉴에서 **폴더** 를 추가하고 **F2** 키로 이름을 변경한 뒤, 그 위에 트랙을 끌어 놓거나 **트랙 리스트** 창에서 순서를 변경합니다. 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		LieJ347Qa9U
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+**폴더** 내 여러 트랙을 그룹으로 묶으면 트랙 창 정리에 도움이 됩니다. 시퀀스에 추가되는 트랙, 액터, 폴더는 생성 후 강조 표시됩니다. 폴더가 이미 선택되어 있는 경우 새 항목이 폴더 안에 배치됩니다. 다른 트랙이 현재 선택되어 있으면 새 항목이 해당 항목의 동기로 배치됩니다. 
+
+트랙, 액터, 폴더는 (UMG 애니메이션과 마찬가지로) 시퀀서에서 순서를 변경할 수도 있으며, **일반 옵션** 메뉴에서 (유형 그리고 알파벳 순으로) 정렬할 수 있습니다. 
+
+1.  **SK_Mannequin** 트랙의 경우, **애니메이션** 트랙에 아무 애니메이션이나 추가한 뒤, 그 애니메이션을 선택한 채 트랙을 문질러 이동합니다. 
+	
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		TXZnzMkgFvM
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+시퀀서에서 애니메이션을 문질러 이동하면 선택한 섹션에 대해 소스 애니메이션의 프레임 번호가 표시됩니다. 여기서 블렌딩 중인 애니메이션의 시작 또는 블렌딩된 애니메이션이 끝나는 곳을 확인할 수 있습니다. 
+
+1.  아무 애니메이션이나 루프(반복) 설정한 뒤 우클릭 컨텍스트 메뉴에서 **편집** 아래 **Auto Size** (자동 크기)를 선택합니다. 
+
+	![image alt text](image_3.png)(w:624 h:350 convert:false)
+
+자동 크기 기능을 사용하면 (위에서 스켈레탈 메시 애니메이션 크기를 애니메이션 범위에 맞춘 것처럼) 섹션의 크기를 소스 기간에 맞춰 빠르게 조절할 수 있습니다. 
+
+1.  아래 그림처럼 캐릭터에 동작을 추가한 다음, 컨텍스트 메뉴에서 비활성화시키거나 채널을 삭제하거나 **Z** 축을 마스크로 걸러냅니다. 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		0pg9DgIrpGo
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+UMG 애니메이션에서도 채널 마스크를 적용할 수 있습니다 (아래에서는 애니메이션의 이동 및 스케일 값을 마스크로 걸러냅니다). 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		jrTfOw0GhLo
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+1. 타임라인 마커를 트랜스폼 키가 존재하지 않는 위치 아무 데나 옮긴 뒤 트랜스폼 키에 우클릭하고 **Rekey** (다시 키 설정)을 선택하여 마커 위치로 옮깁니다. 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		nGglzSUID9I
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	컨텍스트 메뉴의 Rekey (다시 키 설정) 기능은 키프레임을 조절하여 현재 시간에 할당하는 작업을 빠르게 하는 데 좋습니다. 위 예제에서는, 트랜스폼 트랙으로 캐릭터를 움직이지만 동작이 멈춘 동안에도 애니메이션이 계속됩니다. Rekey (다시 키 설정) 기능으로 트랜스폼 값을 애니메이션 길이와 일치하는 시퀀스 끝으로 이동합니다. 
+
+## 최종 결과
+
+지금까지 시퀀서에서 트랙 작업을 하는 여러가지 방법 중 몇 가지와, 폴더로 그 트랙을 정리하는 법, 섹션 크기를 조절하는 법, 키프레임 키를 다시 설정하는 법, 채널에 마스크를 적용하는 법, 시퀀스에 트랙을 추가할 때의 팁을 살펴봤습니다. 이 모든 팁을 바로 사용하지는 못하더라도, 상황에 따라 기존 시퀀서 워크플로우에 사용될 수도 있으니 알아두면 좋습니다.

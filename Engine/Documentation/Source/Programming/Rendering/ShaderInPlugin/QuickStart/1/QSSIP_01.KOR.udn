@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3810467
+﻿INTSourceChangelist:3967023
 Availability:Public 
 Crumbs: %ROOT%
 Title: 플러그인에 새로운 글로벌 셰이더 생성 - 코드 구성
@@ -17,7 +17,7 @@ Checkpoint:shaderqs
 
 언리얼 엔진 4 (UE4) 용 신규 플러그인 제작을 시작하기에 앞서, 먼저 Visual Studio 가 설치되었는지 확인해야 합니다. Visual Studio 는 이 퀵 스타트에 필수인데, 플러그인 코드를 컴파일해야 실행할 수 있기 때문입니다. 그 방법이 확실치 않은 경우, [](Programming/Development/VisualStudioSetup/) 문서를 참고하세요.
 
-1. 먼저, 새로운 C++ **Basic Code** (기본 코드) 프로젝스를 만들고 **데스크탑 세팅** 은 **최대 퀄리티** 로, **시작용 콘텐츠** 는 포함시키지 않습니다.
+1. 먼저, 새로운 C++ **Basic Code** (기본 코드) 프로젝스를 만들고 **데스크톱 세팅** 은 **최대 퀄리티** 로, **시작용 콘텐츠** 는 포함시키지 않습니다.
 
     [REGION:lightbox]
     [![](HT_ShadersInPlugins_00.png)(w:555)](HT_ShadersInPlugins_00.png)
@@ -946,6 +946,6 @@ Checkpoint:shaderqs
 
 ## 최종 결과
 
-축하합니다, 렌즈 디스토션 UE4 플러그인을 새로 만들어 컴파일하는 데 성공하셨습니다. 다음 단계에서는 블루프린트에서 이 새로운 글로벌 셰이더를 불러오는 법과 렌더 타겟을 왜곡시키는 법을 살펴보겠습니다.
+축하합니다, 렌즈 디스토션 UE4 플러그인을 새로 만들어 컴파일하는 데 성공하셨습니다. 다음 단계에서는 블루프린트에서 이 새로운 글로벌 셰이더를 불러오는 법과 렌더 타깃을 왜곡시키는 법을 살펴보겠습니다.
 
 [Nav]

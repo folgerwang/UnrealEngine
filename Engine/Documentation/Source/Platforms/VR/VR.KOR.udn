@@ -13,7 +13,7 @@ order:2
 topic-icon:%ROOT%/platform_icon.png
 topic-image:VirtualRealityDevelopment_topic.png
 
-## 데스크탑 플랫폼
+## 데스크톱 플랫폼
 
 [DIR(end:"1" output:"topic" type:"landing" tags:"platform" tags:"Desktop VR" parent:"Platforms/VR")]
 

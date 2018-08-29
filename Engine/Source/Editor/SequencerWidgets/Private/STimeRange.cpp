@@ -81,7 +81,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 	{
 		PlaybackRangeStart = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::PlayStartTime)
-		.ToolTipText(LOCTEXT("PlayStartTimeTooltip", "In Time"))
+		.ToolTipText(LOCTEXT("PlayStartTimeTooltip", "Playback Range Start Time"))
 		.OnValueCommitted(this, &STimeRange::OnPlayStartTimeCommitted)
 		.OnValueChanged(this, &STimeRange::OnPlayStartTimeChanged)
 		.MinValue(TOptional<double>())
@@ -95,7 +95,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 
 		PlaybackRangeEnd = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::PlayEndTime)
-		.ToolTipText(LOCTEXT("PlayEndTimeTooltip", "Out Time"))
+		.ToolTipText(LOCTEXT("PlayEndTimeTooltip", "Playback Range Stop Time"))
 		.OnValueCommitted( this, &STimeRange::OnPlayEndTimeCommitted )
 		.OnValueChanged( this, &STimeRange::OnPlayEndTimeChanged )
 		.MinValue(TOptional<double>())

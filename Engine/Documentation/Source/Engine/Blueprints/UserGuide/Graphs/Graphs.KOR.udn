@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4305576
 Availability:Public
 Title:그래프
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
@@ -56,7 +56,7 @@ _블루프린트 클래스_ 에 대해 **컴포넌트** 리스트가 셋업된 �
 
 ## 그래프 작업하기
 
-그래프가 컨스트럭션 스크립트인지, 이벤트그래프인지, 함수인지, 매크로인지에 따라 [에디터](Engine/Blueprints/Editor) 의 [그래프](Engine/Blueprints/Editor/Modes/GraphPanel) 모드에서 편집하게 됩니다. 기본적으로
+그래프가 컨스트럭션 스크립트인지, 이벤트그래프인지, 함수인지, 매크로인지에 따라 [에디터](Engine/Blueprints/Editor) 의 [그래프](Engine/Blueprints/Editor/UIBreakdowns/ClassBPUI) 모드에서 편집하게 됩니다. 기본적으로
 모든 그룹_에는 와이어로 연결된 노드 망이 들어 있습니다.
 
 

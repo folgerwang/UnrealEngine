@@ -21,11 +21,11 @@ Checkpoint:shaderqs
 
     ![](HT_ShadersInPlugins_11.png)(w:600)
 
-1. 새로운 **렌더 타겟** 을 만들어 **RT_00** 라 하고 머티리얼을 만들어 **MAT_RT** 라 합니다.
+1. 새로운 **렌더 타깃** 을 만들어 **RT_00** 라 하고 머티리얼을 만들어 **MAT_RT** 라 합니다.
 
     ![](HT_ShadersInPlugins_12.png)(w:600)
 
-1. MAT_RT 머티리얼을 열고 머티리얼 그래프에 RT_00 렌더 타겟을 추가한 뒤, 그 출력을 메인 머티리얼 노드의 베이스 컬러 입력에 연결, **적용** 후 **저장** 합니다.
+1. MAT_RT 머티리얼을 열고 머티리얼 그래프에 RT_00 렌더 타깃을 추가한 뒤, 그 출력을 메인 머티리얼 노드의 베이스 컬러 입력에 연결, **적용** 후 **저장** 합니다.
 
     [REGION:lightbox]
     [![](HT_ShadersInPlugins_13.png)(w:600)](HT_ShadersInPlugins_13.png)
@@ -54,7 +54,7 @@ Checkpoint:shaderqs
 
     ![](HT_ShadersInPlugins_14.png)(w:600)
 
-1. Draw UVDisplacement to Render Target 이 제공된 렌더 타겟을 어떻게 워프하는지 쉽게 선보이기 위해, 그 **K1** 과 **K2** 입력에 연결된 값이 버튼을 누르면 증가 또는 감소되도록 블루프린트를 구성해 주겠습니다. 이벤트 그래프의 노드를 다음과 같이 구성합니다:
+1. Draw UVDisplacement to Render Target 이 제공된 렌더 타깃을 어떻게 워프하는지 쉽게 선보이기 위해, 그 **K1** 과 **K2** 입력에 연결된 값이 버튼을 누르면 증가 또는 감소되도록 블루프린트를 구성해 주겠습니다. 이벤트 그래프의 노드를 다음과 같이 구성합니다:
     
     [Include:#DrawDIS]
 
@@ -62,7 +62,7 @@ Checkpoint:shaderqs
     이 블루프린트 코드를 복사하여 바로 붙여넣을 수 있습니다.
     [/REGION]
     [region:note]
-    렌더 타겟을 **Output Render Target** 에 입력하지 않으면 아무것도 보이지 않는다는 점 잊지 마세요.
+    렌더 타깃을 **Output Render Target** 에 입력하지 않으면 아무것도 보이지 않는다는 점 잊지 마세요.
     [/region]
 
 1. 이제 필수 블루프린트 로직이 구성되었으니, 블루프린트를 **컴파일** 및 **저장** 한 뒤 **콘텐츠 브라우저** 에서 블루프린트를 끌어 **레벨** 에 놓습니다. 완료되면, 블루프린트를 선택하고 **Input** 아래 **Auto Receive Input** (입력 자동 받기)를 **Disabled** 에서 **Player 0** 로 변경합니다.
@@ -85,7 +85,7 @@ Checkpoint:shaderqs
     클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. 구성이 완료되었으면, **플레이** 버튼을 누른 뒤 **W** 키와 **S** 키를 눌러 Draw UVDisplacement to Render Target 노드에 입력된 렌더 타겟을 워프합니다. 다음 비디오와 같습니다.
+1. 구성이 완료되었으면, **플레이** 버튼을 누른 뒤 **W** 키와 **S** 키를 눌러 Draw UVDisplacement to Render Target 노드에 입력된 렌더 타깃을 워프합니다. 다음 비디오와 같습니다.
 
 	[OBJECT:EmbeddedVideo]
 		[PARAMLITERAL:videoid]
@@ -107,7 +107,7 @@ Checkpoint:shaderqs
 
 ## 최종 결과
 
-이 시점에서 블루프린트를 통해 렌더 타겟 안의 콘텐츠를 왜곡시켜 온갖 재미난 모양을 만들 수 있습니다. 이제 새로운 플러그인을 만들거나 기존의 것을 편집하여 재미난 이미지와 이펙트를 직접 만들어 보세요.
+이 시점에서 블루프린트를 통해 렌더 타깃 안의 콘텐츠를 왜곡시켜 온갖 재미난 모양을 만들 수 있습니다. 이제 새로운 플러그인을 만들거나 기존의 것을 편집하여 재미난 이미지와 이펙트를 직접 만들어 보세요.
 
 [NAV]
 

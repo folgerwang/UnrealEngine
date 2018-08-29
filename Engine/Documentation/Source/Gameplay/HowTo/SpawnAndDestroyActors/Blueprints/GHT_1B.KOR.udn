@@ -76,7 +76,7 @@ Related: Engine/Blueprints
 	**F** 를 두 번째 누르면, **Flip Flop** 의 **B** 핀이 호출되어 **Destroy Actor** 노드를 실행합니다.
 	Destroy Actor 에는 **Target** 입력 핀이 있어, 노드에게 무엇을 소멸시킬지 알려줍니다.
 	기본적으로 **Self** 설정되어 있으며 이 경우 널 포인터, 즉 레벨 블루프린트 자체는 소멸시킬 수 없으니 무엇을 소멸시킬지 명확하지 않다는 뜻입니다.
-	이 Destroy Actor 노드가 캐릭터 블루프린트 안에 있고 타겟을 Self 로 한다면, 캐릭터가 소멸될 것입니다.
+	이 Destroy Actor 노드가 캐릭터 블루프린트 안에 있고 타깃을 Self 로 한다면, 캐릭터가 소멸될 것입니다.
 
 	이 경우 Destroy Actor 노드에게 무엇을 소멸시킬지 알려줘야 합니다 (우리 Blueprint Fire 이펙트입니다).
 	그러기 위해 스폰했던 Blueprint Fire 이펙트로의 레퍼런스를 만들어야 합니다.
@@ -95,7 +95,7 @@ Related: Engine/Blueprints
 
 	![](SpawnDestroy_11.png)
 
-	이제 Destroy Actor 노드더러 우리 변수 레퍼런스가 앞서 만든 Blueprint Fire 이펙트를 타겟으로 삼으라 하는 것입니다.
+	이제 Destroy Actor 노드더러 우리 변수 레퍼런스가 앞서 만든 Blueprint Fire 이펙트를 타깃으로 삼으라 하는 것입니다.
 
 1.	그래프에 우클릭하고 **Get Player Character** 노드를 검색 추가합니다.
 

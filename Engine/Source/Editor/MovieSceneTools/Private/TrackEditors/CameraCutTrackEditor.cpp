@@ -490,7 +490,7 @@ void FCameraCutTrackEditor::OnLockCameraClicked(ECheckBoxState CheckBoxState)
 		for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); ++i)
 		{		
 			FLevelEditorViewportClient* LevelVC = GEditor->LevelViewportClients[i];
-			if (LevelVC && LevelVC->IsPerspective() && LevelVC->AllowsCinematicPreview() && LevelVC->GetViewMode() != VMI_Unknown)
+			if (LevelVC && LevelVC->IsPerspective() && LevelVC->AllowsCinematicControl() && LevelVC->GetViewMode() != VMI_Unknown)
 			{
 				LevelVC->SetActorLock(nullptr);
 				LevelVC->bLockedCameraView = false;

@@ -160,6 +160,6 @@ Controller Class
 **Content Browser** (콘텐츠 브라우저)는 언리얼 에디터 안에서 콘텐츠 애셋을 만들고, 임포트하고, 정리하고, 확인하고, 변경할 때 주로 사용되는 영역입니다. 여기서는 콘텐츠 폴더를 관리할 수도 있고, 애셋 이름변경, 이동, 복사, 레퍼런스 확인 등의 기타 유용한 기능이 제공되기도 합니다. **콘텐츠 브라우저** 는 게임 내 모든 애셋에 대한 검색 및 상호작용이 가능합니다.
 [/EXCERPT:Glossary_Content_Browser]
 [EXCERPT:Glossary_Controller_Class]
-**Controller** (콘트롤러)는 Pawn (폰) 또는 Character (캐릭터)처럼 폰에서 파생된 클래스를 빙의(possess)하여 그 동작을 제어할 수 있는, 눈에 보이지는 않는 액터입니다. PlayerController (플레이어 콘트롤러)는 사람이 조종하는 폰에 사용되는 반면, AIController (AI 콘트롤러)는 조종하는 폰에 대한 인공지능을 구현하는 데 사용됩니다. 콘트롤러는 **Possess** 함수로 폰의 제어권을 획득하며, **Unpossess** 함수로 해제합니다.
+**Controller** (컨트롤러)는 Pawn (폰) 또는 Character (캐릭터)처럼 폰에서 파생된 클래스를 빙의(possess)하여 그 동작을 제어할 수 있는, 눈에 보이지는 않는 액터입니다. PlayerController (플레이어 컨트롤러)는 사람이 조종하는 폰에 사용되는 반면, AIController (AI 컨트롤러)는 조종하는 폰에 대한 인공지능을 구현하는 데 사용됩니다. 컨트롤러는 **Possess** 함수로 폰의 제어권을 획득하며, **Unpossess** 함수로 해제합니다.
 [/EXCERPT:Glossary_Controller_Class]
 [/COMMENT]

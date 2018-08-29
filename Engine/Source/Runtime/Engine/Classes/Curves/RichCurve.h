@@ -20,7 +20,7 @@ enum ERichCurveInterpMode
 	/** Cubic interpolation. See TangentMode for different cubic interpolation options. */
 	RCIM_Cubic UMETA(DisplayName="Cubic"),
 	/** No interpolation. */
-	RCIM_None UMETA(DisplayName="None")
+	RCIM_None UMETA(Hidden)
 };
 
 
@@ -35,7 +35,7 @@ enum ERichCurveTangentMode
 	/** User specifies the tangent as two separate broken tangents on each side of the key which can allow a sharp change in evaluation before or after. */
 	RCTM_Break UMETA(DisplayName="Break"),
 	/** No tangents. */
-	RCTM_None UMETA(DisplayName="None")
+	RCTM_None UMETA(Hidden)
 };
 
 

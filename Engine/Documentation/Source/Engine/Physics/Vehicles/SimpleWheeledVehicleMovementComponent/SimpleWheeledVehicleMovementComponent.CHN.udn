@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability:Docs
-Title:Simple Wheeled Vehicle Movement Component
+﻿INTSourceChangelist:3469385
+Availability:Public
+Title:简单轮式载具移动组件
 Crumbs:
-Description:The Unreal Engine 4 Blueprint Vehicles User Guide for SimpleWheeledVehicleMovement Component.
+Description:简单轮式载具移动组件的虚幻引擎4蓝图载具使用指南。
 Parent: Engine/Vehicles/
 type:how-to
 prereq: Engine/Physics/Vehicles/VehicleUserGuide
@@ -10,86 +10,81 @@ Version: 4.15
 SkillLevel: Advanced
 tags: vehicles
 
-The **SimpleWheeledVehicleMovement** component provides wheel suspension and tire friction without the complexities of engine or drivetrain simulation. Instead, it
-lets you easily apply torque to individual tires for components inheriting from Wheeled Vehicle Movement component, which can give you vehicle-like movement
-to arbitrary components without having to rely on the Wheeled Vehicle Actor class. 
+**SimpleWheeledVehicleMovement** 组件无需复杂的引擎和传动模拟即可实现车轮悬挂和轮胎摩擦。利用此组件可轻松地针对继承自轮式载具运动组件的组件为单个轮胎施加扭矩，这些继承的组件可以让任意组件实现载具式运动，无需依赖于轮式载具Actor类。 
 
-In order to setup and use SimpleWheeledVehicleMovement component, you will first need to complete the following steps outlined in the [Vehicle User Guide](Engine/Physics/Vehicles/VehicleUserGuide).
-Use these steps to make sure your vehicle is setup properly before proceeding: 
+要设置和使用SimpleWheeledVehicleMovement组件，首先需要完成以下[载具用户指南](Engine/Physics/Vehicles/VehicleUserGuide)中概述的步骤。
+在继续制作之前，请使用以下步骤确保载具设置正确： 
 
-* [Creating the Wheel Blueprints](https://docs.unrealengine.com/latest/INT/Engine/Physics/Vehicles/VehicleUserGuide/#creatingthewheelblueprints)
-* [Creating the TireType Data Asset](https://docs.unrealengine.com/latest/INT/Engine/Physics/Vehicles/VehicleUserGuide/#creatingthetiretypedataasset)
-* [Creating the Animation Blueprint](https://docs.unrealengine.com/latest/INT/Engine/Physics/Vehicles/VehicleUserGuide/#creatingtheanimationblueprint)
-* [Editing the Animation Blueprint](https://docs.unrealengine.com/latest/INT/Engine/Physics/Vehicles/VehicleUserGuide/#editingtheanimationblueprint)
+* [创建轮子蓝图](https://docs.unrealengine.com/latest/INT/Engine/Physics/Vehicles/VehicleUserGuide/#creatingthewheelblueprints)
+* [创建TireType数据资源](https://docs.unrealengine.com/latest/INT/Engine/Physics/Vehicles/VehicleUserGuide/#creatingthetiretypedataasset)
+* [创建动画蓝图](https://docs.unrealengine.com/latest/INT/Engine/Physics/Vehicles/VehicleUserGuide/#creatingtheanimationblueprint)
+* [编辑动画蓝图](https://docs.unrealengine.com/latest/INT/Engine/Physics/Vehicles/VehicleUserGuide/#editingtheanimationblueprint)
 
-### Creating a Simple Wheeled Vehicle Blueprints
+### 创建简单轮式载具蓝图
 
-To create a new Simple Wheeled Vehicle Blueprint, in the **Content Browser** click the **Add New** button, navigate to and click on **Blueprint Class**, and finally, select **Pawn** from the options in the Pick Parent Class window.
+要创建新的简单轮式载具蓝图，在 **内容浏览器** 中单击 **新增（Add New）** 按钮，导航至 **蓝图类（Blueprint Class）** 并单击，最后从“选择父类（Pick Parent）”窗口的选项中选择 **Pawn**。
 
 [REGION:raw]
 ![](SimpleWheel_CreatePawnBP.png)(w:850)
 [/REGION]
 
 
-### Editing the Simple Wheeled Vehicle Blueprint
+### 编辑简单轮式载具蓝图
 
-Now that we've created a Simple Wheeled Vehicle Blueprint, we can start to set up our simple vehicle movement. So, if your vehicle mesh is ready and you have already setup your wheels, then you will be able to 
-apply vehicle-like properties to arbitrary objects that do not require the drive-train or simulation of a normal vehicle.
+现在，我们已经创建了简单轮式载具蓝图，可以开始设置简单载具运动了。如果已经准备好载具网格体并设置了轮子，那么就可以将载具属性应用到任意的对象，无需普通载具使用的传动或模拟。
 
-Double-click your **SimpleWheeledVehicle Blueprint** from your Content Browser to bring up the Blueprint Editor. 
+从内容浏览器中双击 **SimpleWheeledVehicle Blueprint** 以显示蓝图编辑器。 
 
-1. In the **Components** window, use the **Add Component** button and add a **Skeletal Mesh** component. 
+1. 在 **组件（Components）** 窗口，使用 **添加组件（Add Component）** 按钮来添加 **骨架网格体（Skeletal Mesh）** 组件。 
 
 	[REGION:raw]
 	![](SimpleVehicle_AddSkelComp.png)(w:850)
 	[/REGION]
 	
-	Then click and drag the **Skeletal Mesh** component onto the **DefaultSceneRoot** component. This will make it the root for this Blueprint.
+	然后单击并将 **骨架网格体（Skeletal Mesh）** 组件拖动到 **DefaultSceneRoot** 组件。这会让它成为该蓝图的根。
 	
 	[REGION:raw]
 	![](SimpleVehicle_SkelSceneRoot.png)(w:650)
 	[/REGION]
 	
-1. With your Skeletal Mesh component selected, set the **Anim Class** to your vehicle's Animation Blueprint and then assign your Skeletal Mesh.
+1. 选择骨架网格体组件后，将 **动画类（Anim Class）** 设置为载具的动画蓝图，然后指定骨架网格体。
 	
 	[REGION:raw]
 	![](SimpleVehicle_AssignAnimBP.png)(w:850)
 	[/REGION]
 	
-1. Return to the **Components** window and add **SimpleWheeledVehicleMovement** component. 
+1. 返回 **组件（Components）** 窗口并添加 **SimpleWheeledVehicleMovement** 组件。 
 	
 	[REGION:raw]
 	![](SimpleVehicle_AddSWComp.png)(w:850)
 	[/REGION]
 	
-1. With the SimpleWheeledVehicleMovement component selected, in the **Vehicle Setup** section click the down arrow to expand **Wheel Setups** and then click the **+** to add your wheels.
+1. 选择SimpleWheeledVehicleMovement组件后，在 **载具设置（Vehicle Setup）** 部分单击向下的箭头展开 **轮子设置（Wheel Setups）**，然后单击 **+** 添加轮子。
 
-1. For each wheel (0-3):
+1. 对于每个轮子（0-3）：
 	
-	* Set the **Wheel Class** to one of the wheel Blueprints you created.
-	* Set the **Bone Name** to the name of the joint that should be controlled by the wheel.
+	* 将 **轮子类（Wheel Class）** 设置为已创建的轮子蓝图之一。
+	* 将 **骨骼名称（Bone Name）** 设置为应由轮子控制的关节的名称。
 	
 	[REGION:raw]	
 	![](wheelsSetup.png)
 	[/REGION]
 	[REGION:caption]
-	The Bone Name in the above image is specific to this Skeletal Mesh.
+	上图中的骨骼名称特定于此骨架网格体。
 	[/REGION]
 
-	The order you assigned the wheels has no bearing on if it is a front or rear wheel, only the Bone Name and Wheel Class have any effect. 
+	如果轮子是前轮或后轮，轮子的指定顺序没有任何影响，只有骨骼名称和轮子类有影响。 
 	
 	[REGION:tip]
-	If you need more than 4 wheels, you can click the "**+**" icon next to the **Wheel Setups** property to add more.
+	如果需要的轮子数量大于4，可以单击**轮子设置（Wheel Setups）** 属性旁边的“**+**”图标位于来添加更多轮子。
 	[/REGION]
 
-At this point, assuming your vehicle is not substantially larger than a minivan, the default values will be a good starting point to start testing.
+此时，假定你的载具不比小货车大多少，可以使用默认值做为起始点开始测试。
 
 
-### Applying Torque to Wheels
+### 对轮胎施加扭矩
 
-In order for your simple vehicle to move, you'll need to apply torque to the individual tires that you want to move. You can do this by pulling off your 
-SimpleWheeledVehicleMovement component and using **Set Drive Torque**. Use the **Drive Torque** value to set how much torque and the **Wheel Index** to
-assign a wheel that will have the torque applied to. The Wheel Index corresponds to the index number in the Wheel Setups section of the SimpleWheeledVehicleMovement's Details Panel.
+为了让简单载具可以移动，需要对要移动的单个轮胎施加扭矩。你可以调出SimpleWheeledVehicleMovement组件，使用 **设置驱动扭矩（Set Drive Torque）** 来施加扭矩。使用 **驱动扭矩（Drive Torque）** 值来设置指定给轮子施加的扭矩和 **轮子指数（Wheel Index）** 的大小。轮子指数对应SimpleWheeledVehicleMovement的细节（Details）面板中“轮子设置（Wheel Setups）”部分的指数。
 
 
 ![](SimpleVehicle_SetDriveTorque.png)(w:650)

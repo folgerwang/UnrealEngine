@@ -29,7 +29,7 @@ Social-image:SessionFrontend.png
 * **Session Frontend** - 외부 디바이스에서 자동화를 실행시키기 위한 자동화 워커로써 로컬 에디터를 엽니다.
 	* **창** > **개발자 툴** > **세션 프론트엔드** 로 이동합니다.
 * **Unreal Frontend** - 세션 프론트엔드, 디바이스 매니저, 프로젝트 런처가 포함된 프론트엔드의 독립형 버전을 엽니다.
-	* **[UE4 루트 디렉토리]** > **Engine** > **Binaries** > **Win64** > **UnrealFrontend.exe** 로 이동합니다.
+	* **[UE4 루트 디렉터리]** > **Engine** > **Binaries** > **Win64** > **UnrealFrontend.exe** 로 이동합니다.
 
 
 ## 플러그인 활성화
@@ -92,7 +92,7 @@ Social-image:SessionFrontend.png
 | ![](FindWorkers.png) | **Find Workers** | 워커 찾기 - 테스트에 사용할 수 있는 로컬 워커를 찾습니다. |
 | ![](Errors.png) | **Errors** | 오류 - 테스트 완료 시도 중 오류가 난 테스트가 있으면 표시해 주는 Test (테스트) 창 필터를 토글합니다. |
 | ![](Warnings.png) | **Warnings** | 경고 - 테스트 완료 시도 중 경고가 난 테스트가 있으면 표시해 주는 Test (테스트) 창 필터를 토글합니다. |
-| ![](DevContent.png) | **Dev Content** | 개발 콘텐츠 - 켜면, 자동화 테스트에 개발자 디렉토리가 포함됩니다. |
+| ![](DevContent.png) | **Dev Content** | 개발 콘텐츠 - 켜면, 자동화 테스트에 개발자 디렉터리가 포함됩니다. |
 | ![](DeviceGroups.png) | **Device Groups** | 디바이스 그룹 - 몇 가지 옵션에 따라 테스트 그룹을 만들 수 있습니다. 예를 들면 머신 이름, 플랫폼, 운영 체제 버전 등입니다. |
 | ![](Presets.png) | **Preset** | 프리세트 - 선택된 테스트와 세팅으로 자동화 테스트용 프리세트를 직접 추가하여 나중에 다시 사용할 수 있도록 합니다. |
 [/REGION]

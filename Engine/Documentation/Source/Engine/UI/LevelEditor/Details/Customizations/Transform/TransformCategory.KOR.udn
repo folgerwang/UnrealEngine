@@ -2,7 +2,7 @@
 Availability:Public
 Title: 트랜스폼 카테고리
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Details
-Description:액터의 위치, 회전, 스케일 수정을 위해 특화된 콘트롤입니다.
+Description:액터의 위치, 회전, 스케일 수정을 위해 특화된 컨트롤입니다.
 Version: 4.9
 
 [EXCERPT:Transform]

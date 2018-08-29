@@ -2,7 +2,7 @@
 Availability:Public
 Title: 스켈레탈 메시 애니메이션 시스템
 Crumbs: %ROOT%, Engine
-Description:키프레임 애니메이션 데이터와 모프 타겟을 기반으로 스켈레탈 메시를 변형시키는 시스템입니다.
+Description:키프레임 애니메이션 데이터와 모프 타깃을 기반으로 스켈레탈 메시를 변형시키는 시스템입니다.
 Navigation:topic
 parent:Engine
 order:3

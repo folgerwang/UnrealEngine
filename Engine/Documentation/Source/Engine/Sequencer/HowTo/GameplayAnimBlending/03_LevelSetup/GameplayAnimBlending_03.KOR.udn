@@ -2,7 +2,7 @@
 Availability: Public
 Title:3. 시네마틱 노출 변수 사용
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:이번 단계에서는 시네마틱 노출 변수를 시퀀스에 추가하고 시퀀스 재생 발동을 위한 메소드를 구성합니다.
+Description:이번 단계에서는 시네마틱 노출 변수를 시퀀스에 추가하고 시퀀스 재생 발동을 위한 메서드를 구성합니다.
 Version: 4.17
 SkillLevel: Advanced
 parent:Engine/Sequencer/HowTo/GameplayAnimBlending

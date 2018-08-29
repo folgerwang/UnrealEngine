@@ -37,21 +37,22 @@ The **Editor Preferences** window can be opened from the **Edit** menu.
 | Option | Description |
 | ------ | ----------- |
 | **Highlight Objects Under Mouse Cursor** | If enabled, objects will be highlighted using a transparent overlay in viewports while hovering over them with the mouse cursor. 
+
 [REGION:none]
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-420
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-200
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-yvwZUtmW12I
-[/PARAMLITERAL]
-[/OBJECT]
+	[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	420
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	200
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	yvwZUtmW12I
+	[/PARAMLITERAL]
+	[/OBJECT]
 [/REGION] 
 
-|
+[COMMENT:none]
 | **Highlight Selected Objects with Brackets** | [INCLUDE:Shared/Types/ULevelEditorViewportSettings#bhighlightwithbrackets] |
 | **Use Selection Outline** | [INCLUDE:Shared/Types/ULevelEditorViewportSettings#buseselectionoutline] |
 | **Selection Highlight Intensity** | [INCLUDE:Shared/Types/ULevelEditorViewportSettings#selectionhighlightintensity] |
@@ -59,7 +60,7 @@ yvwZUtmW12I
 | **Use Absolute Translation** | If enabled, translation transformations are treated as absolute. When disabled, translations are considered relative to the prior location. |
 | **Preview Selected Cameras** | If enabled, selecting a camera Actor will display a live _picture in picture_ preview from the camera's perspective within the current editor viewport.  This can be used to easily tweak camera positioning, post-processing and other settings without having to possess the camera itself. [REGION:warning]This feature may reduce application performance when enabled.[/REGION] |
 | **Background Drop Distance** | The distance in Unreal Units from the camera to place Actors which are dropped on nothing in the viewport. |
-
+[/COMMENT]
 ### Editor Look and Feel
 
 | Option | Description |
@@ -142,7 +143,7 @@ yvwZUtmW12I
 
 [EXCERPT:SelectionBrackets]
 [REGION:imagetable]
-| ![](selection_brackets.png)(w:355) |![](selection_highlight.png)(w:355) |
+| ![](Shared/Types/ULevelEditorViewportSettings/selection_brackets.png)(w:355) |![](Shared/Types/ULevelEditorViewportSettings/selection_highlight.png)(w:355) |
 | :--------------------------------: | :-------------------------------: |
 | **Enabled** | **Disabled** |
 [/REGION]
@@ -150,7 +151,7 @@ yvwZUtmW12I
 
 [EXCERPT:SelectionOutline]
 [REGION:imagetable]
-| ![](selection_outline.png)(w:355) |![](selection_highlight.png)(w:355) |
+| ![](Shared/Types/ULevelEditorViewportSettings/selection_outline.png)(w:355) |![](Shared/Types/ULevelEditorViewportSettings/selection_highlight.png)(w:355) |
 | :--------------------------------: | :-------------------------------: |
 | **Enabled** | **Disabled** |
 [/REGION]
@@ -158,7 +159,7 @@ yvwZUtmW12I
 
 [EXCERPT:SelectionHighlight]
 [REGION:imagetable]
-| ![](selection_highlight.png)(w:355) |![](selection_highlight_full.png)(w:355) |
+| ![](Shared/Types/ULevelEditorViewportSettings/selection_highlight.png)(w:355) |![](Shared/Types/ULevelEditorViewportSettings/selection_highlight_full.png)(w:355) |
 | :--------------------------------: | :-------------------------------: |
 | **0.2** | **1.0** |
 [/REGION]

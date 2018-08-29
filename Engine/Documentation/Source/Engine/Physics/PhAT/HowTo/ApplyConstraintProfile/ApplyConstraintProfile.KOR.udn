@@ -46,7 +46,7 @@ topic-image:Engine/Physics/physics_topic.png
 
 	![](compile.png)
 
-1. **Bone Name** 기본값을 원하는 타겟 **본** 으로 변경합니다. 이 경우 `spine_01` 입니다.
+1. **Bone Name** 기본값을 원하는 타깃 **본** 으로 변경합니다. 이 경우 `spine_01` 입니다.
 
 	![](boneName.png)
 
@@ -64,17 +64,17 @@ topic-image:Engine/Physics/physics_topic.png
 	![](createSetAll.png)
 
 1. **Set Constraint Profile for All** 노드를 추가합니다.
-	* **Target** (타겟)은 **스켈레탈 메시 컴포넌트** 입니다.
+	* **Target** (타깃)은 **스켈레탈 메시 컴포넌트** 입니다.
 	* **Profile Name** (프로파일 이름)은 **피직스 애셋 툴** 에서 생성한 (또는 생성할) **컨스트레인트 프로파일** 이름입니다.
 	* (옵션) **Default if Not Found** (없는 경우 기본값) 프로파일에 본이 존재하지 않는 경우, 현재 세팅을 유지합니다.
 
 	![](constraintProfNodeSettings.png)
 
 1. **Apply Physcial Animation Profile Below** 노드에 연결된 Set All Bodies Below Simulate Physics 노드입니다.
-	* **Target** (타겟)은 **스켈레탈 메시 컴포넌트** 입니다.
+	* **Target** (타깃)은 **스켈레탈 메시 컴포넌트** 입니다.
 	* **In Bone Name** (입력 본 이름)은 **Bone Name** 변수를 입력으로 받습니다.
 	* **New Simulate** (새로운 시뮬레이션)은 **True** 로 설정합니다.
-	* 여기도 `spine_01` 을 타겟 본으로 사용하고 있으므로, **Include Self** (자신 포함) 옵션을 체크해야 합니다.
+	* 여기도 `spine_01` 을 타깃 본으로 사용하고 있으므로, **Include Self** (자신 포함) 옵션을 체크해야 합니다.
 1. 최종 그래프:
 
 	[OBJECT:Snippet]

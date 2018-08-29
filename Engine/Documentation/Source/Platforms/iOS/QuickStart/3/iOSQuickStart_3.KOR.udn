@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4300533
 Title:3. iOS Provisioning - Signing Certifcate 생성
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
 Description:iOS 개발 Signing Certificate 준비 작업입니다.
@@ -12,7 +12,7 @@ order:3
 [VAR:Steps]
 [OBJECT:Navigation]
     [PARAM:previous]
-        [예전 단계](Platforms/iOS/QuickStart/2 "%Platforms/iOS/QuickStart/2:title%")
+        [이전 단계](Platforms/iOS/QuickStart/2 "%Platforms/iOS/QuickStart/2:title%")
     [/PARAM]
     [PARAM:current]
     [/PARAM]
@@ -26,6 +26,7 @@ order:3
 [/VAR]
 
 
+%Steps%
 
 [REGION:note]
 기존에 맥에서 iOS 어플리케이션을 개발했었으나 윈도우 PC 에서 언리얼 엔진을 사용하여 iOS 게임을 개발하려는 경우,
@@ -73,7 +74,7 @@ order:3
 ## 단계
 iOS 디바이스에 UE4 프로젝트를 디플로이하고 사용하려면 Apple 에서 특수한 Certificate 가 필요합니다. 윈도우에서 iOS 개발용 Signing Certificate 생성 작업은 애플 개발자 사이트와 언리얼 엔진과 같이 제공되는 언리얼 iOS 환경설정 마법사(iPhonePackager) 조합으로 이루어지는데, 그 방법을 알아보겠습니다.
 
-1. 먼저, `Engine\Binaries\DotNET\IOS\` 디렉토리로 이동하여 `iPhonePackager.exe` 를 실행합니다.
+1. 먼저, `Engine\Binaries\DotNET\IOS\` 디렉터리로 이동하여 `iPhonePackager.exe` 를 실행합니다.
 
 1. Provisioning 은 프로젝트 전용이므로 iPhonePackager.exe 를 열면, 먼저 프로젝트의 .uproject 파일 위치를 묻습니다. 프로젝트 .uproject 파일 위치를 지정했으면, **열기** 버튼을 눌러 엽니다.
 
@@ -158,3 +159,5 @@ iOS 디바이스에 UE4 프로젝트를 디플로이하여 사용하기 위해�
 [/COMMENT]
 
 
+
+%Steps%
