@@ -56,7 +56,7 @@
 // newer than a 4.11.* version, regardless of the changelist that it was built with)
 #define ENGINE_MAJOR_VERSION	4
 #define ENGINE_MINOR_VERSION	20
-#define ENGINE_PATCH_VERSION	2
+#define ENGINE_PATCH_VERSION	3
 
 // Macros for encoding strings
 #define VERSION_TEXT(x) TEXT(x)
