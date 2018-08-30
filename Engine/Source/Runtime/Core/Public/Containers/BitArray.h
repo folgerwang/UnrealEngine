@@ -258,21 +258,8 @@ public:
 		const uint32* Data0 = GetData();
 		const uint32* Data1 = Other.GetData();
 
-		//sort by num bits active
-		int32 Count0 = 0, Count1 = 0;
+		//lexicographically compare
 		for (uint32 i = 0; i < NumWords; i++)
-		{
-			Count0 += FPlatformMath::CountBits(Data0[i]);
-			Count1 += FPlatformMath::CountBits(Data1[i]);
-		}
-
-		if (Count0 != Count1)
-		{
-			return Count0 < Count1;
-		}
-
-		//sort by big-num value
-		for (uint32 i = NumWords; i != ~0u; i--)
 		{
 			if (Data0[i] != Data1[i])
 			{
