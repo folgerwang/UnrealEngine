@@ -5301,7 +5301,8 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	{
 		ImportUI = NewObject<UFbxImportUI>(this, NAME_None, RF_Public);
 	}
-	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended();
+	//Prevent any UI for automation, unattended and commandlet
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet();
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
 
 	if (ImportData == nullptr)
@@ -5590,7 +5591,8 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	}
 
 	bool bSuccess = false;
-	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended();
+	//Prevent any UI for automation, unattended and commandlet
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended() || IsRunningCommandlet();
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
 
 	if (ImportData == nullptr)
