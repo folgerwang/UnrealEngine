@@ -17,7 +17,8 @@
 class SEditableText;
 class STextBlock;
 
-class SLATE_API SEditableLabel
+
+class DEPRECATED(4.21, "SEditableLabel is deprecated, please use SInlineEditableTextBlock instead") SLATE_API SEditableLabel
 	: public SCompoundWidget
 {
 public:

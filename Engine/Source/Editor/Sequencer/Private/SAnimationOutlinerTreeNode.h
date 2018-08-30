@@ -10,7 +10,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 
-class SEditableLabel;
+class SInlineEditableTextBlock;
 class SSequencerTreeViewRow;
 struct FSlateBrush;
 struct FTableRowStyle;
@@ -97,10 +97,10 @@ private:
 	FText GetDisplayName() const;
 
 	/** Callback for checking whether the node label can be edited. */
-	bool HandleNodeLabelCanEdit() const;
+	bool IsNodeLabelReadOnly() const;
 
 	/** Callback for when the node label text has changed. */
-	void HandleNodeLabelTextChanged(const FText& NewLabel);
+	void HandleNodeLabelTextCommitted(const FText& NewLabel, ETextCommit::Type CommitType);
 
 	/** Get all descendant nodes from the given root node. */
 	void GetAllDescendantNodes(TSharedPtr<FSequencerDisplayNode> RootNode, TArray<TSharedRef<FSequencerDisplayNode> >& AllNodes);
@@ -114,7 +114,7 @@ private:
 	TSharedPtr<FSequencerDisplayNode> DisplayNode;
 
 	/** Holds the editable text label widget. */
-	TSharedPtr<SEditableLabel> EditableLabel;
+	TSharedPtr<SInlineEditableTextBlock> EditableLabel;
 
 	/** True if this node is a top level node, at the root of the tree, false otherwise */
 	bool bIsOuterTopLevelNode;

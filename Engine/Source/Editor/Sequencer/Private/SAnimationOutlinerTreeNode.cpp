@@ -16,10 +16,10 @@
 #include "DisplayNodes/SequencerTrackNode.h"
 #include "SSequencer.h"
 #include "ScopedTransaction.h"
-#include "Widgets/Input/SEditableLabel.h"
 #include "SSequencerTreeView.h"
 #include "Widgets/Colors/SColorPicker.h"
 #include "SequencerSectionPainter.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 #define LOCTEXT_NAMESPACE "AnimationOutliner"
 
@@ -123,11 +123,11 @@ void SAnimationOutlinerTreeNode::Construct( const FArguments& InArgs, TSharedRef
 
 	FSlateFontInfo NodeFont = FEditorStyle::GetFontStyle("Sequencer.AnimationOutliner.RegularFont");
 
-	EditableLabel = SNew(SEditableLabel)
-		.CanEdit(this, &SAnimationOutlinerTreeNode::HandleNodeLabelCanEdit)
+	EditableLabel = SNew(SInlineEditableTextBlock)
+		.IsReadOnly(this, &SAnimationOutlinerTreeNode::IsNodeLabelReadOnly)
 		.Font(NodeFont)
 		.ColorAndOpacity(this, &SAnimationOutlinerTreeNode::GetDisplayNameColor)
-		.OnTextChanged(this, &SAnimationOutlinerTreeNode::HandleNodeLabelTextChanged)
+		.OnTextCommitted(this, &SAnimationOutlinerTreeNode::HandleNodeLabelTextCommitted)
 		.Text(this, &SAnimationOutlinerTreeNode::GetDisplayName)
 		.ToolTipText(this, &SAnimationOutlinerTreeNode::GetDisplayNameToolTipText)
 		.Clipping(EWidgetClipping::ClipToBounds);
@@ -268,7 +268,7 @@ void SAnimationOutlinerTreeNode::Construct( const FArguments& InArgs, TSharedRef
 
 void SAnimationOutlinerTreeNode::EnterRenameMode()
 {
-	EditableLabel->EnterTextMode();
+	EditableLabel->EnterEditingMode();
 }
 
 
@@ -438,13 +438,13 @@ FText SAnimationOutlinerTreeNode::GetDisplayName() const
 }
 
 
-bool SAnimationOutlinerTreeNode::HandleNodeLabelCanEdit() const
+bool SAnimationOutlinerTreeNode::IsNodeLabelReadOnly() const
 {
-	return !DisplayNode->GetSequencer().IsReadOnly() && DisplayNode->CanRenameNode();
+	return DisplayNode->GetSequencer().IsReadOnly() || !DisplayNode->CanRenameNode();
 }
 
 
-void SAnimationOutlinerTreeNode::HandleNodeLabelTextChanged(const FText& NewLabel)
+void SAnimationOutlinerTreeNode::HandleNodeLabelTextCommitted(const FText& NewLabel, ETextCommit::Type CommitType)
 {
 	DisplayNode->SetDisplayName(NewLabel);
 }

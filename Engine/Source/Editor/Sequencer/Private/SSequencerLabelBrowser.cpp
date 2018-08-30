@@ -287,7 +287,7 @@ bool SSequencerLabelBrowser::HandleRenameLabelMenuEntryCanExecute() const
 
 		if (ListRow.IsValid())
 		{
-			return ListRow->CanEnterRenameMode();
+			return !ListRow->IsReadOnly();
 		}
 	}
 	return false;
