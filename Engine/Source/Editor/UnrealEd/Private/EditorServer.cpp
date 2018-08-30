@@ -2505,6 +2505,14 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 					if ( ExistingPackage )
 					{
 						WorldPackage = ExistingPackage;
+
+						if (!ExistingPackage->IsFullyLoaded())
+						{
+							const FName WorldPackageFName = FName(*LongTempFname);
+							UWorld::WorldTypePreLoadMap.FindOrAdd(WorldPackageFName) = EWorldType::Editor;
+							ExistingPackage->FullyLoad();
+							UWorld::WorldTypePreLoadMap.Remove(WorldPackageFName);
+						}
 					}
 					else
 					{

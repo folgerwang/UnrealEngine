@@ -20,7 +20,8 @@ void UPanelSlot::ReleaseSlateResources(bool bReleaseChildren)
 {
 	Super::ReleaseSlateResources(bReleaseChildren);
 
-	if ( Content )
+	// ReleaseSlateResources for Content unless the content is a UUserWidget as they are responsible for releasing their own content.
+	if (Content && !Content->IsA<UUserWidget>())
 	{
 		Content->ReleaseSlateResources(bReleaseChildren);
 	}

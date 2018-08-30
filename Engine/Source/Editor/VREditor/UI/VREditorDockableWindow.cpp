@@ -34,10 +34,11 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 	CloseButtonHoverAlpha(0.0f),
 	DockSelectDistance(0.0f)
 {
-	if (HasAnyFlags(RF_ClassDefaultObject))
-	{
-		return;
-	}
+}
+
+void AVREditorDockableWindow::PostActorCreated()
+{
+	Super::PostActorCreated();
 
 	const UVREditorAssetContainer& AssetContainer = UVREditorMode::LoadAssetContainer();
 
@@ -54,7 +55,7 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 	{
 		UStaticMesh* DockingMesh = AssetContainer.DockingButtonMesh;
 
-		DockButtonMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>( TEXT( "DockMesh" ) );
+		DockButtonMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT( "DockMesh" ) );
 		DockButtonMeshComponent->SetStaticMesh(DockingMesh);
 		DockButtonMeshComponent->SetMobility( EComponentMobility::Movable );
 		DockButtonMeshComponent->SetupAttachment( RootComponent );
@@ -74,11 +75,8 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 
 		UStaticMesh* SelectionMesh = AssetContainer.WindowSelectionBarMesh;
 
-		SelectionBarMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SelectionBarMesh"));
-		SelectionBarMeshComponent->SetStaticMesh(SelectionMesh);
-		SelectionBarMeshComponent->SetMobility(EComponentMobility::Movable);
-		SelectionBarMeshComponent->SetupAttachment(RootComponent);
-
+		SelectionBarMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT("SelectionBarMesh"));
+		SelectionBarMeshComponent->RegisterComponent();
 		SelectionBarMeshComponent->SetGenerateOverlapEvents(false);
 		SelectionBarMeshComponent->SetCanEverAffectNavigation(false);
 		SelectionBarMeshComponent->bCastDynamicShadow = false;
@@ -98,35 +96,37 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 	{
 		UStaticMesh* CloseButtonMesh = AssetContainer.WindowCloseButtonMesh;
 
-		CloseButtonMeshComponent= CreateDefaultSubobject<UStaticMeshComponent>( TEXT( "CloseButtonMesh" ) );
-		CloseButtonMeshComponent->SetStaticMesh( CloseButtonMesh );
-		CloseButtonMeshComponent->SetMobility( EComponentMobility::Movable );
-		CloseButtonMeshComponent->SetupAttachment( RootComponent );
-
+		CloseButtonMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT("CloseButtonMesh"));
+		CloseButtonMeshComponent->SetStaticMesh(CloseButtonMesh);
+		CloseButtonMeshComponent->SetMobility(EComponentMobility::Movable);
+		CloseButtonMeshComponent->SetupAttachment(RootComponent);
+		CloseButtonMeshComponent->RegisterComponent();
 		CloseButtonMeshComponent->SetGenerateOverlapEvents(false);
-		CloseButtonMeshComponent->SetCanEverAffectNavigation( false );
+		CloseButtonMeshComponent->SetCanEverAffectNavigation(false);
 		CloseButtonMeshComponent->bCastDynamicShadow = false;
 		CloseButtonMeshComponent->bCastStaticShadow = false;
 		CloseButtonMeshComponent->bAffectDistanceFieldLighting = false;
 		CloseButtonMeshComponent->SetRelativeRotation(RelativeRotation);
 
-		CloseButtonMID = UMaterialInstanceDynamic::Create( HoverMaterial, GetTransientPackage() );
-		check( CloseButtonMID != nullptr );
-		CloseButtonMeshComponent->SetMaterial( 0, CloseButtonMID );
-		CloseButtonTranslucentMID = UMaterialInstanceDynamic::Create( TranslucentHoverMaterial, GetTransientPackage() );
-		check( CloseButtonTranslucentMID != nullptr );
-		CloseButtonMeshComponent->SetMaterial( 1, CloseButtonTranslucentMID );
+		CloseButtonMID = UMaterialInstanceDynamic::Create(HoverMaterial, GetTransientPackage());
+		check(CloseButtonMID != nullptr);
+		CloseButtonMeshComponent->SetMaterial(0, CloseButtonMID);
+		CloseButtonTranslucentMID = UMaterialInstanceDynamic::Create(TranslucentHoverMaterial, GetTransientPackage());
+		check(CloseButtonTranslucentMID != nullptr);
+		CloseButtonMeshComponent->SetMaterial(1, CloseButtonTranslucentMID);
 	}
 
 	// The selection bar and close button will not be initially visible.  They'll appear when the user aims
 	// their laser toward the UI
-	SelectionBarMeshComponent->SetVisibility( false );
-	CloseButtonMeshComponent->SetVisibility( false );
+	SelectionBarMeshComponent->SetVisibility(false);
+	CloseButtonMeshComponent->SetVisibility(false);
 
 	// Create the drag operation
-	DragOperationComponent = CreateDefaultSubobject<UViewportDragOperationComponent>( TEXT( "DragOperation" ) );
-	DragOperationComponent->SetDragOperationClass( UDockableWindowDragOperation::StaticClass() );
+	DragOperationComponent = NewObject<UViewportDragOperationComponent>(this, TEXT("DragOperation"));
+	DragOperationComponent->SetDragOperationClass(UDockableWindowDragOperation::StaticClass());
 }
+
+
 
 void AVREditorDockableWindow::SetupWidgetComponent()
 {

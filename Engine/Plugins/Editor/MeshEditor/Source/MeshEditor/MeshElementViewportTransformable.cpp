@@ -35,12 +35,12 @@ FBox FMeshElementViewportTransformable::BuildBoundingBox( const FTransform& Boun
 		const FTransform& ComponentToWorld = MeshElement.Component.Get()->GetComponentToWorld();
 		const FTransform ComponentToBoundingBox = ComponentToWorld * WorldToBoundingBox;
 
-		UEditableMesh* EditableMesh = MeshEditorMode.FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
+		const UEditableMesh* EditableMesh = MeshEditorMode.FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
 		if( EditableMesh != nullptr )
 		{
 			if( MeshElement.IsElementIDValid( EditableMesh ) )
 			{
-				const TVertexAttributeArray<FVector>& VertexPositions = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+				TVertexAttributesConstRef<FVector> VertexPositions = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 				BoundingBox.Init();
 
 				FTransform ElementTransform = FTransform::Identity;

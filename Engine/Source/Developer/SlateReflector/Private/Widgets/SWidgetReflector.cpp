@@ -1230,12 +1230,12 @@ int32 SWidgetReflector::VisualizeCursorAndKeys(FSlateWindowElementList& OutDrawE
 		static const float ClickFadeTime = 0.5f;
 		static const float PingScaleAmount = 3.0f;
 		static const FName CursorPingBrush("DemoRecording.CursorPing");
-		const TSharedPtr<SWindow> WindowBeingDrawn = OutDrawElements.GetWindow();
+		const SWindow* WindowBeingDrawn = OutDrawElements.GetPaintWindow();
 
 		// Normalized animation value for the cursor ping between 0 and 1.
 		const float AnimAmount = (FSlateApplication::Get().GetCurrentTime() - LastMouseClickTime) / ClickFadeTime;
 
-		if (WindowBeingDrawn.IsValid() && AnimAmount <= 1.0f)
+		if (WindowBeingDrawn && AnimAmount <= 1.0f)
 		{
 			const FVector2D CursorPosDesktopSpace = CursorPingPosition;
 			const FVector2D CursorSize = FSlateApplication::Get().GetCursorSize();

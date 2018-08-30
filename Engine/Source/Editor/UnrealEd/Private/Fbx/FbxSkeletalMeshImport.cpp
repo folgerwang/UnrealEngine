@@ -41,6 +41,7 @@
 
 #include "ApexClothingUtils.h"
 #include "MeshUtilities.h"
+#include "OverlappingCorners.h"
 
 #include "IMessageLogListing.h"
 #include "MessageLogModule.h"
@@ -4105,6 +4106,7 @@ void UnFbx::FFbxImporter::ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMesh
 		GWarn->StatusUpdate( NumCompleted, NumTasks, FText::Format( LOCTEXT("ImportingMorphTargetStatus", "Importing Morph Target: {NumCompleted} of {NumTasks}"), Args ) );
 	}
 
+	bool bNeedToInvalidateRegisteredMorph = false;
 	// Create morph streams for each morph target we are importing.
 	// This has to happen on a single thread since the skeletal meshes' bulk data is locked and cant be accessed by multiple threads simultaneously
 	for (int32 Index = 0; Index < MorphTargets.Num(); Index++)
@@ -4120,11 +4122,16 @@ void UnFbx::FFbxImporter::ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMesh
 		// register does mark package as dirty
 		if (MorphTarget->HasValidData())
 		{
-			BaseSkelMesh->RegisterMorphTarget(MorphTarget);
+			bNeedToInvalidateRegisteredMorph |= BaseSkelMesh->RegisterMorphTarget(MorphTarget, false);
 		}
 
 		delete Results[Index];
 		Results[Index] = nullptr;
+	}
+
+	if (bNeedToInvalidateRegisteredMorph)
+	{
+		BaseSkelMesh->InitMorphTargetsAndRebuildRenderData();
 	}
 
 	GWarn->EndSlowTask();

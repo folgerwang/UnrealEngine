@@ -284,7 +284,14 @@ void FMainMenu::FillWindowMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FEx
 
 void FMainMenu::FillHelpMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FExtender > Extender )
 {
-	MenuBuilder.BeginSection("HelpOnline", NSLOCTEXT("MainHelpMenu", "Online", "Online"));
+	MenuBuilder.BeginSection("BugReporting", NSLOCTEXT("MainHelpMenu", "BugsReporting", "Bugs"));
+	{
+		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().ReportABug);
+		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().OpenIssueTracker);
+	}
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection("HelpOnline", NSLOCTEXT("MainHelpMenu", "Online", "Help Online"));
 	{
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitSupportWebSite);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitForums);

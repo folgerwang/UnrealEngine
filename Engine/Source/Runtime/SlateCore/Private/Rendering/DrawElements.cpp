@@ -30,7 +30,8 @@ static bool IsResourceObjectValid(UObject*& InObject)
 }
 
 FSlateWindowElementList::FSlateWindowElementList(TSharedPtr<SWindow> InPaintWindow)
-	: PaintWindow(InPaintWindow)
+	: WeakPaintWindow(InPaintWindow)
+	, RawPaintWindow(InPaintWindow.Get())
 	, RenderTargetWindow(nullptr)
 	, bNeedsDeferredResolve(false)
 	, ResolveToDeferredIndex()

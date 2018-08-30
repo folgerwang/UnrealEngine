@@ -289,9 +289,7 @@ void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 	Pointer = PointerWeGotFromMMap;
 	if (Pointer == MAP_FAILED)
 	{
-		const int ErrNo = errno;
-		UE_LOG(LogHAL, Fatal, TEXT("mmap(len=%llu, size as passed %llu) failed with errno = %d (%s)"), (uint64)(ActualSizeMapped + DescriptorSize), (uint64)Size,
-			ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+		FPlatformMemory::OnOutOfMemory(ActualSizeMapped, ExpectedAlignment);
 		// unreachable
 		return nullptr;
 	}
@@ -311,9 +309,7 @@ void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 			// unmap the part before
 			if (munmap(Pointer, SizeToNextAlignedPointer) != 0)
 			{
-				const int ErrNo = errno;
-				UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Pointer, (uint64)(SizeToNextAlignedPointer),
-					ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+				FPlatformMemory::OnOutOfMemory(SizeToNextAlignedPointer, ExpectedAlignment);
 				// unreachable
 				return nullptr;
 			}
@@ -341,9 +337,7 @@ void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 		{
 			if (munmap(TailPtr, TailSize) != 0)
 			{
-				const int ErrNo = errno;
-				UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), TailPtr, (uint64)TailSize,
-					ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+				FPlatformMemory::OnOutOfMemory(TailSize, ExpectedAlignment);
 				// unreachable
 				return nullptr;
 			}
@@ -423,18 +417,16 @@ void FGenericPlatformMemory::BinnedFreeToOS( void* Ptr, SIZE_T Size )
 
 		if (UNLIKELY(munmap(PointerToUnmap, SizeToUnmap) != 0))
 		{
-			const int ErrNo = errno;
-			UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu, size as passed %llu) failed with errno = %d (%s)"), PointerToUnmap, (uint64)SizeToUnmap, (uint64)Size,
-				ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+			FPlatformMemory::OnOutOfMemory(SizeToUnmap, 0);
+			// unreachable
 		}
 	}
 	else
 	{
 		if (UNLIKELY(munmap(Ptr, SizeInWholePages) != 0))
 		{
-			const int ErrNo = errno;
-			UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu, size as passed %llu) failed with errno = %d (%s)"), Ptr, (uint64)SizeInWholePages, (uint64)Size,
-				ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+			FPlatformMemory::OnOutOfMemory(SizeInWholePages, 0);
+			// unreachable
 		}
 	}
 #endif // UE4_PLATFORM_USES_MMAP_FOR_BINNED_OS_ALLOCS

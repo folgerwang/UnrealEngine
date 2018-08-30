@@ -16,6 +16,7 @@
 #include "ProfilingDebugging/CookStats.h"
 #include "AudioResampler.h"
 #include "AudioCompressionSettingsUtils.h"
+#include "Sound/SoundSourceBus.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAudioDerivedData, Log, All);
 
@@ -840,6 +841,12 @@ static void CookSimpleWave(USoundWave* SoundWave, FName FormatName, const IAudio
 	bool bWasLocked = false;
 
 	int32 WaveSampleRate = 0;
+
+	// Don't need to cook source buses
+	if (USoundSourceBus* SourceBus = Cast<USoundSourceBus>(SoundWave))
+	{
+		return;
+	}
 
 	// check if there is any raw sound data
 	if( SoundWave->RawData.GetBulkDataSize() > 0 )

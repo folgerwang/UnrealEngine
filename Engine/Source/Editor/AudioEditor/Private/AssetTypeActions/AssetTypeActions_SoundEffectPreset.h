@@ -19,7 +19,7 @@ class FAssetTypeActions_SoundEffectSubmixPreset : public FAssetTypeActions_Base
 public:
 	// IAssetTypeActions Implementation
 	virtual FText GetName() const override { return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_SoundSubmixPreset", "Submix Effect preset"); }
-	virtual FColor GetTypeColor() const override { return FColor(175, 255, 0); }
+	virtual FColor GetTypeColor() const override { return FColor(99, 63, 56); }
 	virtual UClass* GetSupportedClass() const override { return USoundEffectSubmixPreset::StaticClass(); }
 	virtual uint32 GetCategories() override { return EAssetTypeCategories::Sounds; }
 };
@@ -29,7 +29,7 @@ class FAssetTypeActions_SoundEffectSourcePreset : public FAssetTypeActions_Base
 public:
 	// IAssetTypeActions Implementation
 	virtual FText GetName() const override { return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_SoundSourcePreset", "Source Effect Preset"); }
-	virtual FColor GetTypeColor() const override { return FColor(175, 255, 0); }
+	virtual FColor GetTypeColor() const override { return FColor(72, 185, 187); }
 	virtual UClass* GetSupportedClass() const override { return USoundEffectSourcePreset::StaticClass(); }
 	virtual uint32 GetCategories() override { return EAssetTypeCategories::Sounds; }
 };
@@ -39,7 +39,7 @@ class FAssetTypeActions_SoundEffectSourcePresetChain : public FAssetTypeActions_
 public:
 	// IAssetTypeActions Implementation
 	virtual FText GetName() const override { return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_SoundSourcePresetChain", "Source Effect Preset Chain"); }
-	virtual FColor GetTypeColor() const override { return FColor(175, 200, 100); }
+	virtual FColor GetTypeColor() const override { return FColor(51, 107, 142); }
 	virtual UClass* GetSupportedClass() const override { return USoundEffectSourcePresetChain::StaticClass(); }
 	virtual uint32 GetCategories() override { return EAssetTypeCategories::Sounds; }
 };

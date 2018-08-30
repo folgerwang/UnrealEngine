@@ -29,7 +29,7 @@ bool FMeshEditorUtilities::AssignMaterialToPolygons( UMaterialInterface* Selecte
 
 		if ( SelectedMaterial != nullptr )
 		{
-			const TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialAssetNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialAssetName );
+			TPolygonGroupAttributesConstRef<FName> PolygonGroupMaterialAssetNames = MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>( MeshAttribute::PolygonGroup::MaterialAssetName );
 
 			for( const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs() )
 			{
@@ -57,7 +57,7 @@ bool FMeshEditorUtilities::AssignMaterialToPolygons( UMaterialInterface* Selecte
 			// and adding a unique suffix if there are other polygon groups with the same material slot name.
 			auto MakeUniqueSlotName = [ MeshDescription ]( FName Name ) -> FName
 			{
-				const TPolygonGroupAttributeArray<FName>& MaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialAssetName );
+				TPolygonGroupAttributesConstRef<FName> MaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>( MeshAttribute::PolygonGroup::MaterialAssetName );
 				for( const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs() )
 				{
 					const FName ExistingName = MaterialSlotNames[ PolygonGroupID ];

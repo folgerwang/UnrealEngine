@@ -37,7 +37,7 @@ public:
 	FSlateWindowElementList& AddWindowElementList(TSharedRef<SWindow> ForWindow);
 
 	/** Removes any window from the draw buffer that's not in this list or whose window has become invalid. */
-	void RemoveUnusedWindowElement(const TArray<TSharedRef<SWindow>>& AllWindows);
+	void RemoveUnusedWindowElement(const TArray<SWindow*>& AllWindows);
 
 	/**
 	 * Gets all window element lists in this buffer.

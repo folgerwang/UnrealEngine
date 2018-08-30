@@ -141,6 +141,11 @@ UAnimSequence::UAnimSequence(const FObjectInitializer& ObjectInitializer)
 {
 	RateScale = 1.0;
 	CompressedRawDataSize = 0.f;
+
+#if WITH_EDITORONLY_DATA
+	ImportFileFramerate = 0.0f;
+	ImportResampleFramerate = 0;
+#endif
 }
 
 void UAnimSequence::PostInitProperties()

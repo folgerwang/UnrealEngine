@@ -220,6 +220,7 @@ namespace Audio
 
 			SourceInfo.SourceBuffer.Reset(NumOutputFrames * 8);
 			SourceInfo.PreDistanceAttenuationBuffer.Reset(NumOutputFrames * 8);
+			SourceInfo.SourceEffectScratchBuffer.Reset(NumOutputFrames * 8);
 			SourceInfo.AudioPluginOutputData.AudioBuffer.Reset(NumOutputFrames * 2);
 		}
 
@@ -349,7 +350,11 @@ namespace Audio
 		// Remove the mixer source from its submix sends
 		for (FMixerSourceSubmixSend& SubmixSendItem : SourceInfo.SubmixSends)
 		{
-			SubmixSendItem.Submix->RemoveSourceVoice(MixerSources[SourceId]);
+			FMixerSubmixPtr SubmixPtr = SubmixSendItem.Submix.Pin();
+			if (SubmixPtr.IsValid())
+			{
+				SubmixPtr->RemoveSourceVoice(MixerSources[SourceId]);
+			}
 		}
 		SourceInfo.SubmixSends.Reset();
 
@@ -401,6 +406,7 @@ namespace Audio
 		SourceInfo.CurrentAudioChunkNumFrames = 0;
 		SourceInfo.SourceBuffer.Reset();
 		SourceInfo.PreDistanceAttenuationBuffer.Reset();
+		SourceInfo.SourceEffectScratchBuffer.Reset();
 		SourceInfo.AudioPluginOutputData.AudioBuffer.Reset();
 		SourceInfo.CurrentFrameValues.Reset();
 		SourceInfo.NextFrameValues.Reset();
@@ -611,16 +617,6 @@ namespace Audio
 				InitData.NumSourceChannels = InitParams.NumInputChannels;
 				InitData.AudioClock = MixerDevice->GetAudioTime();
 
-				if (InitParams.NumInputFrames != INDEX_NONE)
-				{
-					InitData.SourceDuration = (float)InitParams.NumInputFrames / MixerDevice->SampleRate;
-				}
-				else
-				{
-					// Procedural sound waves have no known duration
-					InitData.SourceDuration = (float)INDEX_NONE;
-				}
-
 				SourceInfo.SourceEffectChainId = InitParams.SourceEffectChainId;
 				BuildSourceEffectChain(SourceId, InitData, InitParams.SourceEffectChain);
 
@@ -707,14 +703,19 @@ namespace Audio
 			for (int32 i = 0; i < InitParams.SubmixSends.Num(); ++i)
 			{
 				const FMixerSourceSubmixSend& MixerSubmixSend = InitParams.SubmixSends[i];
-				SourceInfo.SubmixSends.Add(MixerSubmixSend);
-				MixerSubmixSend.Submix->AddOrSetSourceVoice(InitParams.SourceVoice, MixerSubmixSend.SendLevel);
 
-				// Prepare output buffers and speaker map entries for every submix channel type
-				const ESubmixChannelFormat SubmixChannelType = MixerSubmixSend.Submix->GetSubmixChannels();
+				FMixerSubmixPtr SubmixPtr = MixerSubmixSend.Submix.Pin();
+				if (SubmixPtr.IsValid())
+				{
+					SourceInfo.SubmixSends.Add(MixerSubmixSend);
+					SubmixPtr->AddOrSetSourceVoice(InitParams.SourceVoice, MixerSubmixSend.SendLevel);
 
-				// Flag that we're going to be using this channel info entry
-				SourceInfo.SubmixChannelInfo[(int32)SubmixChannelType].bUsed = true;
+					// Prepare output buffers and speaker map entries for every submix channel type
+					const ESubmixChannelFormat SubmixChannelType = SubmixPtr->GetSubmixChannels();
+
+					// Flag that we're going to be using this channel info entry
+					SourceInfo.SubmixChannelInfo[(int32)SubmixChannelType].bUsed = true;
+				}
 			}
 
 #if AUDIO_MIXER_ENABLE_DEBUG_MODE
@@ -1035,27 +1036,35 @@ namespace Audio
 		{
 			FSourceInfo& SourceInfo = SourceInfos[SourceId];
 
-			bool bIsNew = true;
-			for (FMixerSourceSubmixSend& SubmixSend : SourceInfo.SubmixSends)
+			FMixerSubmixPtr InSubmixPtr = InSubmixSend.Submix.Pin();
+			if (InSubmixPtr.IsValid())
 			{
-				if (SubmixSend.Submix->GetId() == InSubmixSend.Submix->GetId())
+				bool bIsNew = true;
+				for (FMixerSourceSubmixSend& SubmixSend : SourceInfo.SubmixSends)
 				{
-					SubmixSend.SendLevel = InSubmixSend.SendLevel;
-					bIsNew = false;
-					break;
+					FMixerSubmixPtr SubmixPtr = SubmixSend.Submix.Pin();
+					if (SubmixPtr.IsValid())
+					{
+						if (SubmixPtr->GetId() == InSubmixPtr->GetId())
+						{
+							SubmixSend.SendLevel = InSubmixSend.SendLevel;
+							bIsNew = false;
+							break;
+						}
+					}
 				}
+
+				if (bIsNew)
+				{
+					SourceInfo.SubmixSends.Add(InSubmixSend);
+
+					// Flag that we're now using this submix channel info
+					ESubmixChannelFormat ChannelType = InSubmixPtr->GetSubmixChannels();
+					SourceInfo.SubmixChannelInfo[(int32)ChannelType].bUsed = true;
+				}
+
+				InSubmixPtr->AddOrSetSourceVoice(MixerSources[SourceId], InSubmixSend.SendLevel);
 			}
-
-			if (bIsNew)
-			{
-				SourceInfo.SubmixSends.Add(InSubmixSend);
-
-				// Flag that we're now using this submix channel info
-				ESubmixChannelFormat ChannelType = InSubmixSend.Submix->GetSubmixChannels();
-				SourceInfo.SubmixChannelInfo[(int32)ChannelType].bUsed = true;
-			}
-
-			InSubmixSend.Submix->AddOrSetSourceVoice(MixerSources[SourceId], InSubmixSend.SendLevel);
 		});
 	}
 
@@ -1233,6 +1242,9 @@ namespace Audio
 			// Initialize both the pre-distance attenuation buffer and the source buffer
 			SourceInfo.PreDistanceAttenuationBuffer.Reset();
 			SourceInfo.PreDistanceAttenuationBuffer.AddZeroed(NumSamples);
+
+			SourceInfo.SourceEffectScratchBuffer.Reset();
+			SourceInfo.SourceEffectScratchBuffer.AddZeroed(NumSamples);
 
 			SourceInfo.SourceBuffer.Reset();
 			SourceInfo.SourceBuffer.AddZeroed(NumSamples);
@@ -1542,7 +1554,9 @@ namespace Audio
 			if (SourceInfo.BusSends[(int32)EBusSendType::PreEffect].Num() > 0)
 			{
 				SourceInfo.PreEffectBuffer.Reset();
-				SourceInfo.PreEffectBuffer.Append(SourceInfo.PreDistanceAttenuationBuffer);
+				SourceInfo.PreEffectBuffer.Reserve(SourceInfo.PreDistanceAttenuationBuffer.Num());
+
+				FMemory::Memcpy(SourceInfo.PreEffectBuffer.GetData(), SourceInfo.PreDistanceAttenuationBuffer.GetData(), sizeof(float)*SourceInfo.PreDistanceAttenuationBuffer.Num());
 			}
 
 			float* PreDistanceAttenBufferPtr = SourceInfo.PreDistanceAttenuationBuffer.GetData();
@@ -1583,46 +1597,32 @@ namespace Audio
 			// Now process the effect chain if it exists
 			if (!DisableSourceEffectsCvar && SourceInfo.SourceEffects.Num() > 0)
 			{
+				// Prepare this source's effect chain input data
 				SourceInfo.SourceEffectInputData.CurrentVolume = SourceInfo.VolumeSourceDestination;
-
-				SourceInfo.SourceEffectOutputData.AudioFrame.Reset();
-				SourceInfo.SourceEffectOutputData.AudioFrame.AddZeroed(SourceInfo.NumInputChannels);
-
-				SourceInfo.SourceEffectInputData.AudioFrame.Reset();
-				SourceInfo.SourceEffectInputData.AudioFrame.AddZeroed(SourceInfo.NumInputChannels);
-
-				float* SourceEffectInputDataFramePtr = SourceInfo.SourceEffectInputData.AudioFrame.GetData();
-				float* SourceEffectOutputDataFramePtr = SourceInfo.SourceEffectOutputData.AudioFrame.GetData();
-
-				// Process the effect chain for this buffer per frame
-				for (int32 Sample = 0; Sample < NumSamples; Sample += SourceInfo.NumInputChannels)
+				SourceInfo.SourceEffectInputData.CurrentPitch = SourceInfo.PitchSourceParam.GetValue();
+				SourceInfo.SourceEffectInputData.AudioClock = MixerDevice->GetAudioClock();
+				if (SourceInfo.NumInputFrames > 0)
 				{
-					// Get the buffer input sample
-					for (int32 Chan = 0; Chan < SourceInfo.NumInputChannels; ++Chan)
+					SourceInfo.SourceEffectInputData.CurrentPlayFraction = (float)SourceInfo.NumFramesPlayed / SourceInfo.NumInputFrames;
+				}
+				SourceInfo.SourceEffectInputData.SpatParams = SourceInfo.SpatParams;
+
+				// Get a ptr to pre-distance attenuation buffer ptr
+				float* OutputSourceEffectBufferPtr = SourceInfo.SourceEffectScratchBuffer.GetData();
+
+				SourceInfo.SourceEffectInputData.InputSourceEffectBufferPtr = SourceInfo.PreDistanceAttenuationBuffer.GetData();
+				SourceInfo.SourceEffectInputData.NumSamples = NumSamples;
+
+				// Loop through the effect chain passing in buffers
+				for (FSoundEffectSource* SoundEffectSource : SourceInfo.SourceEffects)
+				{
+					if (SoundEffectSource->IsActive())
 					{
-						SourceEffectInputDataFramePtr[Chan] = PreDistanceAttenBufferPtr[Sample + Chan];
-					}
+						SoundEffectSource->Update();
+						SoundEffectSource->ProcessAudio(SourceInfo.SourceEffectInputData, OutputSourceEffectBufferPtr);
 
-					for (int32 SourceEffectIndex = 0; SourceEffectIndex < SourceInfo.SourceEffects.Num(); ++SourceEffectIndex)
-					{
-						if (SourceInfo.SourceEffects[SourceEffectIndex]->IsActive())
-						{
-							SourceInfo.SourceEffects[SourceEffectIndex]->Update();
-
-							SourceInfo.SourceEffects[SourceEffectIndex]->ProcessAudio(SourceInfo.SourceEffectInputData, SourceInfo.SourceEffectOutputData);
-
-							// Copy the output of the effect into the input so the next effect will get the outputs audio
-							for (int32 Chan = 0; Chan < SourceInfo.NumInputChannels; ++Chan)
-							{
-								SourceEffectInputDataFramePtr[Chan] = SourceEffectOutputDataFramePtr[Chan];
-							}
-						}
-					}
-
-					// Copy audio frame back to the buffer
-					for (int32 Chan = 0; Chan < SourceInfo.NumInputChannels; ++Chan)
-					{
-						PreDistanceAttenBufferPtr[Sample + Chan] = SourceEffectInputDataFramePtr[Chan];
+						// Copy output to input
+						FMemory::Memcpy(SourceInfo.SourceEffectInputData.InputSourceEffectBufferPtr, OutputSourceEffectBufferPtr, sizeof(float)*NumSamples);
 					}
 				}
 			}
@@ -1695,7 +1695,7 @@ namespace Audio
 							SourceInfo.bIsBypassingHPF = false;
 						}
 
-						SourceInfo.HighPassFilter.ProcessAudio(&PostDistanceAttenBufferPtr[SampleIndex], &PostDistanceAttenBufferPtr[SampleIndex]);
+						SourceInfo.HighPassFilter.ProcessAudioFrame(&PostDistanceAttenBufferPtr[SampleIndex], &PostDistanceAttenBufferPtr[SampleIndex]);
 					}
 					else
 					{
@@ -1996,16 +1996,6 @@ namespace Audio
 					if (bReset)
 					{
 						InitData.NumSourceChannels = SourceInfo.NumInputChannels;
-
-						if (SourceInfo.NumInputFrames != INDEX_NONE)
-						{
-							InitData.SourceDuration = (float)SourceInfo.NumInputFrames / InitData.SampleRate;
-						}
-						else
-						{
-							// Procedural sound waves have no known duration
-							InitData.SourceDuration = (float)INDEX_NONE;
-						}
 
 						// First reset the source effect chain
 						ResetSourceEffectChain(SourceId);

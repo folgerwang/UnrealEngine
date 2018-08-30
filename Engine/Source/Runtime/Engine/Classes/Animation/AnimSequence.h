@@ -399,6 +399,16 @@ class ENGINE_API UAnimSequence : public UAnimSequenceBase
 	UPROPERTY(AssetRegistrySearchable, meta=(DisplayName = "Number of Keys"))
 	int32 NumFrames;
 
+#if WITH_EDITORONLY_DATA
+	/** The DCC framerate of the imported file. UI information only, unit are Hz */
+	UPROPERTY(AssetRegistrySearchable, meta = (DisplayName = "Import File Framerate"))
+	float ImportFileFramerate;
+
+	/** The resample framerate that was computed during import. UI information only, unit are Hz */
+	UPROPERTY(AssetRegistrySearchable, meta = (DisplayName = "Import Resample Framerate"))
+	int32 ImportResampleFramerate;
+#endif
+
 protected:
 	/**
 	 * In the future, maybe keeping RawAnimSequenceTrack + TrackMap as one would be good idea to avoid inconsistent array size

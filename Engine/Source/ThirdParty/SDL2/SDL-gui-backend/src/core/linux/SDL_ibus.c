@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -287,7 +287,7 @@ IBus_GetDBusAddressFilename(void)
 
 static SDL_bool IBus_CheckConnection(SDL_DBusContext *dbus);
 
-static void
+static void SDLCALL
 IBus_SetCapabilities(void *data, const char *name, const char *old_val,
                                                    const char *internal_editing)
 {
@@ -299,7 +299,7 @@ IBus_SetCapabilities(void *data, const char *name, const char *old_val,
             caps |= IBUS_CAP_PREEDIT_TEXT;
         }
 
-        SDL_DBus_CallVoidMethod(IBUS_SERVICE, input_ctx_path, IBUS_INPUT_INTERFACE, "SetCapabilities",
+        SDL_DBus_CallVoidMethodOnConnection(ibus_conn, IBUS_SERVICE, input_ctx_path, IBUS_INPUT_INTERFACE, "SetCapabilities",
                                 DBUS_TYPE_UINT32, &caps, DBUS_TYPE_INVALID);
     }
 }
@@ -336,11 +336,12 @@ IBus_SetupConnection(SDL_DBusContext *dbus, const char* addr)
             DBUS_TYPE_OBJECT_PATH, &path, DBUS_TYPE_INVALID)) {
         SDL_free(input_ctx_path);
         input_ctx_path = SDL_strdup(path);
-        SDL_AddHintCallback(SDL_HINT_IME_INTERNAL_EDITING, &IBus_SetCapabilities, NULL);
+        SDL_AddHintCallback(SDL_HINT_IME_INTERNAL_EDITING, IBus_SetCapabilities, NULL);
         
         dbus->bus_add_match(ibus_conn, "type='signal',interface='org.freedesktop.IBus.InputContext'", NULL);
         dbus->connection_try_register_object_path(ibus_conn, input_ctx_path, &ibus_vtable, dbus, NULL);
         dbus->connection_flush(ibus_conn);
+        result = SDL_TRUE;
     }
 
     SDL_IBus_SetFocus(SDL_GetKeyboardFocus() != NULL);
@@ -468,7 +469,7 @@ SDL_IBus_Quit(void)
         inotify_wd = -1;
     }
     
-    SDL_DelHintCallback(SDL_HINT_IME_INTERNAL_EDITING, &IBus_SetCapabilities, NULL);
+    SDL_DelHintCallback(SDL_HINT_IME_INTERNAL_EDITING, IBus_SetCapabilities, NULL);
     
     SDL_memset(&ibus_cursor_rect, 0, sizeof(ibus_cursor_rect));
 }
@@ -479,7 +480,7 @@ IBus_SimpleMessage(const char *method)
     SDL_DBusContext *dbus = SDL_DBus_GetContext();
     
     if (IBus_CheckConnection(dbus)) {
-        SDL_DBus_CallVoidMethodOnConnection(ibus_conn, IBUS_SERVICE, input_ctx_path, IBUS_INPUT_INTERFACE, method);
+        SDL_DBus_CallVoidMethodOnConnection(ibus_conn, IBUS_SERVICE, input_ctx_path, IBUS_INPUT_INTERFACE, method, DBUS_TYPE_INVALID);
     }
 }
 

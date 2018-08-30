@@ -208,12 +208,13 @@ int32 SWebBrowserView::OnPaint(const FPaintArgs& Args, const FGeometry& Allotted
 	// Cache a reference to our parent window, if we didn't already reference it.
 	if (!SlateParentWindowPtr.IsValid())
 	{
-		TSharedPtr<SWindow> ParentWindow = OutDrawElements.GetWindow();
+		SWindow* ParentWindow = OutDrawElements.GetPaintWindow();
 
-		SlateParentWindowPtr = ParentWindow;
+		TSharedRef<SWindow> SlateParentWindowRef = StaticCastSharedRef<SWindow>(ParentWindow->AsShared());
+		SlateParentWindowPtr = SlateParentWindowRef;
 		if (BrowserWindow.IsValid())
 		{
-			BrowserWindow->SetParentWindow(ParentWindow);
+			BrowserWindow->SetParentWindow(SlateParentWindowRef);
 		}
 	}
 

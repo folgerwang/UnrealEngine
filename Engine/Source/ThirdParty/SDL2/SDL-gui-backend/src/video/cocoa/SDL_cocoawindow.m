@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -40,6 +40,7 @@
 #include "SDL_cocoamouse.h"
 #include "SDL_cocoamousetap.h"
 #include "SDL_cocoaopengl.h"
+#include "SDL_cocoaopengles.h"
 #include "SDL_assert.h"
 
 /* #define DEBUG_COCOAWINDOW */
@@ -65,9 +66,30 @@
 - (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender;
 - (BOOL)performDragOperation:(id <NSDraggingInfo>)sender;
 - (BOOL)wantsPeriodicDraggingUpdates;
+- (BOOL)validateMenuItem:(NSMenuItem *)menuItem;
+
+- (SDL_Window*)findSDLWindow;
 @end
 
 @implementation SDLWindow
+
+- (BOOL)validateMenuItem:(NSMenuItem *)menuItem
+{
+    /* Only allow using the macOS native fullscreen toggle menubar item if the
+     * window is resizable and not in a SDL fullscreen mode.
+     */
+    if ([menuItem action] == @selector(toggleFullScreen:)) {
+        SDL_Window *window = [self findSDLWindow];
+        if (window == NULL) {
+            return NO;
+        } else if ((window->flags & (SDL_WINDOW_FULLSCREEN|SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0) {
+            return NO;
+        } else if ((window->flags & SDL_WINDOW_RESIZABLE) == 0) {
+            return NO;
+        }
+    }
+    return [super validateMenuItem:menuItem];
+}
 
 - (BOOL)canBecomeKeyWindow
 {
@@ -117,11 +139,10 @@
 - (BOOL)performDragOperation:(id <NSDraggingInfo>)sender
 { @autoreleasepool
 {
-    SDL_VideoDevice *_this = SDL_GetVideoDevice();
     NSPasteboard *pasteboard = [sender draggingPasteboard];
     NSArray *types = [NSArray arrayWithObject:NSFilenamesPboardType];
     NSString *desiredType = [pasteboard availableTypeFromArray:types];
-    SDL_Window *sdlwindow = nil;
+    SDL_Window *sdlwindow = [self findSDLWindow];
 
     if (desiredType == nil) {
         return NO;  /* can't accept anything that's being dropped here. */
@@ -158,16 +179,6 @@
             }
         }
 
-        /* !!! FIXME: is there a better way to do this? */
-        if (_this) {
-            for (sdlwindow = _this->windows; sdlwindow; sdlwindow = sdlwindow->next) {
-                NSWindow *nswindow = ((SDL_WindowData *) sdlwindow->driverdata)->nswindow;
-                if (nswindow == self) {
-                    break;
-                }
-            }
-        }
-
         if (!SDL_SendDropFile(sdlwindow, [[fileURL path] UTF8String])) {
             return NO;
         }
@@ -180,6 +191,24 @@
 - (BOOL)wantsPeriodicDraggingUpdates
 {
     return NO;
+}
+
+- (SDL_Window*)findSDLWindow
+{
+    SDL_Window *sdlwindow = NULL;
+    SDL_VideoDevice *_this = SDL_GetVideoDevice();
+
+    /* !!! FIXME: is there a better way to do this? */
+    if (_this) {
+        for (sdlwindow = _this->windows; sdlwindow; sdlwindow = sdlwindow->next) {
+            NSWindow *nswindow = ((SDL_WindowData *) sdlwindow->driverdata)->nswindow;
+            if (nswindow == self) {
+                break;
+            }
+        }
+    }
+
+    return sdlwindow;
 }
 
 @end
@@ -492,6 +521,11 @@ SetWindowStyle(SDL_Window * window, NSUInteger style)
     NSRect rect = [nswindow contentRectForFrameRect:[nswindow frame]];
     ConvertNSRect([nswindow screen], fullscreen, &rect);
 
+    if (inFullscreenTransition) {
+        /* We'll take care of this at the end of the transition */
+        return;
+    }
+
     if (s_moveHack) {
         SDL_bool blockMove = ((SDL_GetTicks() - s_moveHack) < 500);
 
@@ -691,6 +725,7 @@ SetWindowStyle(SDL_Window * window, NSUInteger style)
          */
         window->w = 0;
         window->h = 0;
+        [self windowDidMove:aNotification];
         [self windowDidResize:aNotification];
     }
 }
@@ -699,13 +734,13 @@ SetWindowStyle(SDL_Window * window, NSUInteger style)
 {
     SDL_Window *window = _data->window;
 
+    isFullscreenSpace = NO;
+    inFullscreenTransition = YES;
+
     /* As of OS X 10.11, the window seems to need to be resizable when exiting
        a Space, in order for it to resize back to its windowed-mode size.
      */
     SetWindowStyle(window, GetWindowStyle(window) | NSWindowStyleMaskResizable);
-
-    isFullscreenSpace = NO;
-    inFullscreenTransition = YES;
 }
 
 - (void)windowDidFailToExitFullScreen:(NSNotification *)aNotification
@@ -752,11 +787,36 @@ SetWindowStyle(SDL_Window * window, NSUInteger style)
         [NSMenu setMenuBarVisible:YES];
 
         pendingWindowOperation = PENDING_OPERATION_NONE;
+
+#if 0
+/* This fixed bug 3719, which is that changing window size while fullscreen
+   doesn't take effect when leaving fullscreen, but introduces bug 3809,
+   which is that a maximized window doesn't go back to normal size when
+   restored, so this code is disabled until we can properly handle the
+   beginning and end of maximize and restore.
+ */
+        /* Restore windowed size and position in case it changed while fullscreen */
+        {
+            NSRect rect;
+            rect.origin.x = window->windowed.x;
+            rect.origin.y = window->windowed.y;
+            rect.size.width = window->windowed.w;
+            rect.size.height = window->windowed.h;
+            ConvertNSRect([nswindow screen], NO, &rect);
+
+            s_moveHack = 0;
+            [nswindow setContentSize:rect.size];
+            [nswindow setFrameOrigin:rect.origin];
+            s_moveHack = SDL_GetTicks();
+        }
+#endif /* 0 */
+
         /* Force the size change event in case it was delivered earlier
            while the window was still animating into place.
          */
         window->w = 0;
         window->h = 0;
+        [self windowDidMove:aNotification];
         [self windowDidResize:aNotification];
 
         /* FIXME: Why does the window get hidden? */
@@ -1093,6 +1153,11 @@ SetWindowStyle(SDL_Window * window, NSUInteger style)
 
 - (void)drawRect:(NSRect)dirtyRect
 {
+    /* Force the graphics context to clear to black so we don't get a flash of
+       white until the app is ready to draw. In practice on modern macOS, this
+       only gets called for window creation and other extraordinary events. */
+    [[NSColor blackColor] setFill];
+    NSRectFill(dirtyRect);
     SDL_SendWindowEvent(_sdlWindow, SDL_WINDOWEVENT_EXPOSED, 0, 0);
 }
 
@@ -1257,7 +1322,6 @@ Cocoa_CreateWindow(_THIS, SDL_Window * window)
     @catch (NSException *e) {
         return SDL_SetError("%s", [[e reason] UTF8String]);
     }
-    [nswindow setBackgroundColor:[NSColor blackColor]];
 
     if (videodata->allow_spaces) {
         SDL_assert(floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6);
@@ -1279,17 +1343,40 @@ Cocoa_CreateWindow(_THIS, SDL_Window * window)
             [contentView setWantsBestResolutionOpenGLSurface:YES];
         }
     }
-
+#if SDL_VIDEO_OPENGL_ES2
+#if SDL_VIDEO_OPENGL_EGL
+    if ((window->flags & SDL_WINDOW_OPENGL) &&
+        _this->gl_config.profile_mask == SDL_GL_CONTEXT_PROFILE_ES) {
+        [contentView setWantsLayer:TRUE];
+    }
+#endif /* SDL_VIDEO_OPENGL_EGL */
+#endif /* SDL_VIDEO_OPENGL_ES2 */
     [nswindow setContentView:contentView];
     [contentView release];
-
-    /* Allow files and folders to be dragged onto the window by users */
-    [nswindow registerForDraggedTypes:[NSArray arrayWithObject:(NSString *)kUTTypeFileURL]];
 
     if (SetupWindowData(_this, window, nswindow, SDL_TRUE) < 0) {
         [nswindow release];
         return -1;
     }
+
+    if (!(window->flags & SDL_WINDOW_OPENGL)) {
+        return 0;
+    }
+    
+    /* The rest of this macro mess is for OpenGL or OpenGL ES windows */
+#if SDL_VIDEO_OPENGL_ES2
+    if (_this->gl_config.profile_mask == SDL_GL_CONTEXT_PROFILE_ES) {
+#if SDL_VIDEO_OPENGL_EGL
+        if (Cocoa_GLES_SetupWindow(_this, window) < 0) {
+            Cocoa_DestroyWindow(_this, window);
+            return -1;
+        }
+        return 0;
+#else
+        return SDL_SetError("Could not create GLES window surface (EGL support not configured)");
+#endif /* SDL_VIDEO_OPENGL_EGL */
+    }
+#endif /* SDL_VIDEO_OPENGL_ES2 */
     return 0;
 }}
 
@@ -1772,6 +1859,17 @@ int
 Cocoa_SetWindowHitTest(SDL_Window * window, SDL_bool enabled)
 {
     return 0;  /* just succeed, the real work is done elsewhere. */
+}
+
+void
+Cocoa_AcceptDragAndDrop(SDL_Window * window, SDL_bool accept)
+{
+    SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
+    if (accept) {
+        [data->nswindow registerForDraggedTypes:[NSArray arrayWithObject:(NSString *)kUTTypeFileURL]];
+    } else {
+        [data->nswindow unregisterDraggedTypes];
+    }
 }
 
 int

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -371,9 +371,14 @@ SW_UpdateClipRect(SDL_Renderer * renderer)
     SDL_Surface *surface = data->surface;
     if (surface) {
         if (renderer->clipping_enabled) {
-            SDL_SetClipRect(surface, &renderer->clip_rect);
+            SDL_Rect clip_rect;
+            clip_rect = renderer->clip_rect;
+            clip_rect.x += renderer->viewport.x;
+            clip_rect.y += renderer->viewport.y;
+            SDL_IntersectRect(&renderer->viewport, &clip_rect, &clip_rect);
+            SDL_SetClipRect(surface, &clip_rect);
         } else {
-            SDL_SetClipRect(surface, NULL);
+            SDL_SetClipRect(surface, &renderer->viewport);
         }
     }
     return 0;
@@ -583,18 +588,6 @@ SW_RenderCopy(SDL_Renderer * renderer, SDL_Texture * texture,
 }
 
 static int
-GetScaleQuality(void)
-{
-    const char *hint = SDL_GetHint(SDL_HINT_RENDER_SCALE_QUALITY);
-
-    if (!hint || *hint == '0' || SDL_strcasecmp(hint, "nearest") == 0) {
-        return 0;
-    } else {
-        return 1;
-    }
-}
-
-static int
 SW_RenderCopyEx(SDL_Renderer * renderer, SDL_Texture * texture,
                 const SDL_Rect * srcrect, const SDL_FRect * dstrect,
                 const double angle, const SDL_FPoint * center, const SDL_RendererFlip flip)
@@ -712,7 +705,7 @@ SW_RenderCopyEx(SDL_Renderer * renderer, SDL_Texture * texture,
 
     if (!retval) {
         SDLgfx_rotozoomSurfaceSizeTrig(tmp_rect.w, tmp_rect.h, angle, &dstwidth, &dstheight, &cangle, &sangle);
-        src_rotated = SDLgfx_rotateSurface(src_clone, angle, dstwidth/2, dstheight/2, GetScaleQuality(), flip & SDL_FLIP_HORIZONTAL, flip & SDL_FLIP_VERTICAL, dstwidth, dstheight, cangle, sangle);
+        src_rotated = SDLgfx_rotateSurface(src_clone, angle, dstwidth/2, dstheight/2, (texture->scaleMode == SDL_ScaleModeNearest) ? 0 : 1, flip & SDL_FLIP_HORIZONTAL, flip & SDL_FLIP_VERTICAL, dstwidth, dstheight, cangle, sangle);
         if (src_rotated == NULL) {
             retval = -1;
         }
@@ -833,19 +826,14 @@ SW_RenderReadPixels(SDL_Renderer * renderer, const SDL_Rect * rect,
     SDL_Surface *surface = SW_ActivateRenderer(renderer);
     Uint32 src_format;
     void *src_pixels;
-    SDL_Rect final_rect;
 
     if (!surface) {
         return -1;
     }
 
-    if (renderer->viewport.x || renderer->viewport.y) {
-        final_rect.x = renderer->viewport.x + rect->x;
-        final_rect.y = renderer->viewport.y + rect->y;
-        final_rect.w = rect->w;
-        final_rect.h = rect->h;
-        rect = &final_rect;
-    }
+    /* NOTE: The rect is already adjusted according to the viewport by
+     * SDL_RenderReadPixels.
+     */
 
     if (rect->x < 0 || rect->x+rect->w > surface->w ||
         rect->y < 0 || rect->y+rect->h > surface->h) {

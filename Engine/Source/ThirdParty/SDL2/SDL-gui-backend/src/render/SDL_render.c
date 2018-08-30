@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -33,17 +33,44 @@
 #define SDL_WINDOWRENDERDATA    "_SDL_WindowRenderData"
 
 #define CHECK_RENDERER_MAGIC(renderer, retval) \
+    SDL_assert(renderer && renderer->magic == &renderer_magic); \
     if (!renderer || renderer->magic != &renderer_magic) { \
         SDL_SetError("Invalid renderer"); \
         return retval; \
     }
 
 #define CHECK_TEXTURE_MAGIC(texture, retval) \
+    SDL_assert(texture && texture->magic == &texture_magic); \
     if (!texture || texture->magic != &texture_magic) { \
         SDL_SetError("Invalid texture"); \
         return retval; \
     }
 
+/* Predefined blend modes */
+#define SDL_COMPOSE_BLENDMODE(srcColorFactor, dstColorFactor, colorOperation, \
+                              srcAlphaFactor, dstAlphaFactor, alphaOperation) \
+    (SDL_BlendMode)(((Uint32)colorOperation << 0) | \
+                    ((Uint32)srcColorFactor << 4) | \
+                    ((Uint32)dstColorFactor << 8) | \
+                    ((Uint32)alphaOperation << 16) | \
+                    ((Uint32)srcAlphaFactor << 20) | \
+                    ((Uint32)dstAlphaFactor << 24))
+
+#define SDL_BLENDMODE_NONE_FULL \
+    SDL_COMPOSE_BLENDMODE(SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD, \
+                          SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD)
+
+#define SDL_BLENDMODE_BLEND_FULL \
+    SDL_COMPOSE_BLENDMODE(SDL_BLENDFACTOR_SRC_ALPHA, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD, \
+                          SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD)
+
+#define SDL_BLENDMODE_ADD_FULL \
+    SDL_COMPOSE_BLENDMODE(SDL_BLENDFACTOR_SRC_ALPHA, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD, \
+                          SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD)
+
+#define SDL_BLENDMODE_MOD_FULL \
+    SDL_COMPOSE_BLENDMODE(SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_SRC_COLOR, SDL_BLENDOPERATION_ADD, \
+                          SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD)
 
 #if !SDL_RENDER_DISABLED
 static const SDL_RenderDriver *render_drivers[] = {
@@ -64,6 +91,9 @@ static const SDL_RenderDriver *render_drivers[] = {
 #endif
 #if SDL_VIDEO_RENDER_DIRECTFB
     &DirectFB_RenderDriver,
+#endif
+#if SDL_VIDEO_RENDER_METAL
+    &METAL_RenderDriver,
 #endif
 #if SDL_VIDEO_RENDER_PSP
     &PSP_RenderDriver,
@@ -102,7 +132,17 @@ SDL_GetRenderDriverInfo(int index, SDL_RendererInfo * info)
 #endif
 }
 
-static int
+static void GetWindowViewportValues(SDL_Renderer *renderer, int *logical_w, int *logical_h, SDL_Rect *viewport, SDL_FPoint *scale)
+{
+    SDL_LockMutex(renderer->target_mutex);
+    *logical_w = renderer->target ? renderer->logical_w_backup : renderer->logical_w;
+    *logical_h = renderer->target ? renderer->logical_h_backup : renderer->logical_h;
+    *viewport = renderer->target ? renderer->viewport_backup : renderer->viewport;
+    *scale = renderer->target ? renderer->scale_backup : renderer->scale;
+    SDL_UnlockMutex(renderer->target_mutex);
+}
+
+static int SDLCALL
 SDL_RendererEventWatch(void *userdata, SDL_Event *event)
 {
     SDL_Renderer *renderer = (SDL_Renderer *)userdata;
@@ -167,32 +207,76 @@ SDL_RendererEventWatch(void *userdata, SDL_Event *event)
         }
     } else if (event->type == SDL_MOUSEMOTION) {
         SDL_Window *window = SDL_GetWindowFromID(event->motion.windowID);
-        if (renderer->logical_w && window == renderer->window) {
-            event->motion.x -= (renderer->viewport.x * renderer->dpi_scale.x);
-            event->motion.y -= (renderer->viewport.y * renderer->dpi_scale.y);
-            event->motion.x = (int)(event->motion.x / (renderer->scale.x * renderer->dpi_scale.x));
-            event->motion.y = (int)(event->motion.y / (renderer->scale.y * renderer->dpi_scale.y));
-            if (event->motion.xrel > 0) {
-                event->motion.xrel = SDL_max(1, (int)(event->motion.xrel / (renderer->scale.x * renderer->dpi_scale.x)));
-            } else if (event->motion.xrel < 0) {
-                event->motion.xrel = SDL_min(-1, (int)(event->motion.xrel / (renderer->scale.x * renderer->dpi_scale.x)));
-            }
-            if (event->motion.yrel > 0) {
-                event->motion.yrel = SDL_max(1, (int)(event->motion.yrel / (renderer->scale.y * renderer->dpi_scale.y)));
-            } else if (event->motion.yrel < 0) {
-                event->motion.yrel = SDL_min(-1, (int)(event->motion.yrel / (renderer->scale.y * renderer->dpi_scale.y)));
+        if (window == renderer->window) {
+            int logical_w, logical_h;
+            SDL_Rect viewport;
+            SDL_FPoint scale;
+            GetWindowViewportValues(renderer, &logical_w, &logical_h, &viewport, &scale);
+            if (logical_w) {
+                event->motion.x -= (int)(viewport.x * renderer->dpi_scale.x);
+                event->motion.y -= (int)(viewport.y * renderer->dpi_scale.y);
+                event->motion.x = (int)(event->motion.x / (scale.x * renderer->dpi_scale.x));
+                event->motion.y = (int)(event->motion.y / (scale.y * renderer->dpi_scale.y));
+                if (event->motion.xrel > 0) {
+                    event->motion.xrel = SDL_max(1, (int)(event->motion.xrel / (scale.x * renderer->dpi_scale.x)));
+                } else if (event->motion.xrel < 0) {
+                    event->motion.xrel = SDL_min(-1, (int)(event->motion.xrel / (scale.x * renderer->dpi_scale.x)));
+                }
+                if (event->motion.yrel > 0) {
+                    event->motion.yrel = SDL_max(1, (int)(event->motion.yrel / (scale.y * renderer->dpi_scale.y)));
+                } else if (event->motion.yrel < 0) {
+                    event->motion.yrel = SDL_min(-1, (int)(event->motion.yrel / (scale.y * renderer->dpi_scale.y)));
+                }
             }
         }
     } else if (event->type == SDL_MOUSEBUTTONDOWN ||
                event->type == SDL_MOUSEBUTTONUP) {
         SDL_Window *window = SDL_GetWindowFromID(event->button.windowID);
-        if (renderer->logical_w && window == renderer->window) {
-            event->motion.x -= (renderer->viewport.x * renderer->dpi_scale.x);
-            event->motion.y -= (renderer->viewport.y * renderer->dpi_scale.y);
-            event->motion.x = (int)(event->motion.x / (renderer->scale.x * renderer->dpi_scale.x));
-            event->motion.y = (int)(event->motion.y / (renderer->scale.y * renderer->dpi_scale.y));
+        if (window == renderer->window) {
+            int logical_w, logical_h;
+            SDL_Rect viewport;
+            SDL_FPoint scale;
+            GetWindowViewportValues(renderer, &logical_w, &logical_h, &viewport, &scale);
+            if (logical_w) {
+                event->button.x -= (int)(viewport.x * renderer->dpi_scale.x);
+                event->button.y -= (int)(viewport.y * renderer->dpi_scale.y);
+                event->button.x = (int)(event->button.x / (scale.x * renderer->dpi_scale.x));
+                event->button.y = (int)(event->button.y / (scale.y * renderer->dpi_scale.y));
+            }
+        }
+    } else if (event->type == SDL_FINGERDOWN ||
+               event->type == SDL_FINGERUP ||
+               event->type == SDL_FINGERMOTION) {
+        int logical_w, logical_h;
+        SDL_Rect viewport;
+        SDL_FPoint scale;
+        GetWindowViewportValues(renderer, &logical_w, &logical_h, &viewport, &scale);
+        if (logical_w) {
+            int w = 1;
+            int h = 1;
+            SDL_GetRendererOutputSize(renderer, &w, &h);
+
+            event->tfinger.x *= (w - 1);
+            event->tfinger.y *= (h - 1);
+
+            event->tfinger.x -= (viewport.x * renderer->dpi_scale.x);
+            event->tfinger.y -= (viewport.y * renderer->dpi_scale.y);
+            event->tfinger.x = (event->tfinger.x / (scale.x * renderer->dpi_scale.x));
+            event->tfinger.y = (event->tfinger.y / (scale.y * renderer->dpi_scale.y));
+
+            if (logical_w > 1) {
+                event->tfinger.x = event->tfinger.x / (logical_w - 1);
+            } else {
+                event->tfinger.x = 0.5f;
+            }
+            if (logical_h > 1) {
+                event->tfinger.y = event->tfinger.y / (logical_h - 1);
+            } else {
+                event->tfinger.y = 0.5f;
+            }
         }
     }
+
     return 0;
 }
 
@@ -287,6 +371,7 @@ SDL_CreateRenderer(SDL_Window * window, int index, Uint32 flags)
     if (renderer) {
         renderer->magic = &renderer_magic;
         renderer->window = window;
+        renderer->target_mutex = SDL_CreateMutex();
         renderer->scale.x = 1.0f;
         renderer->scale.y = 1.0f;
         renderer->dpi_scale.x = 1.0f;
@@ -334,6 +419,7 @@ SDL_CreateSoftwareRenderer(SDL_Surface * surface)
 
     if (renderer) {
         renderer->magic = &renderer_magic;
+        renderer->target_mutex = SDL_CreateMutex();
         renderer->scale.x = 1.0f;
         renderer->scale.y = 1.0f;
 
@@ -380,6 +466,23 @@ SDL_GetRendererOutputSize(SDL_Renderer * renderer, int *w, int *h)
 }
 
 static SDL_bool
+IsSupportedBlendMode(SDL_Renderer * renderer, SDL_BlendMode blendMode)
+{
+    switch (blendMode)
+    {
+    /* These are required to be supported by all renderers */
+    case SDL_BLENDMODE_NONE:
+    case SDL_BLENDMODE_BLEND:
+    case SDL_BLENDMODE_ADD:
+    case SDL_BLENDMODE_MOD:
+        return SDL_TRUE;
+
+    default:
+        return renderer->SupportsBlendMode && renderer->SupportsBlendMode(renderer, blendMode);
+    }
+}
+
+static SDL_bool
 IsSupportedFormat(SDL_Renderer * renderer, Uint32 format)
 {
     Uint32 i;
@@ -416,6 +519,21 @@ GetClosestSupportedFormat(SDL_Renderer * renderer, Uint32 format)
         }
     }
     return renderer->info.texture_formats[0];
+}
+
+SDL_ScaleMode SDL_GetScaleMode(void)
+{
+    const char *hint = SDL_GetHint(SDL_HINT_RENDER_SCALE_QUALITY);
+
+    if (!hint || SDL_strcasecmp(hint, "nearest") == 0) {
+        return SDL_ScaleModeNearest;
+    } else if (SDL_strcasecmp(hint, "linear") == 0) {
+        return SDL_ScaleModeLinear;
+    } else if (SDL_strcasecmp(hint, "best") == 0) {
+        return SDL_ScaleModeBest;
+    } else {
+        return (SDL_ScaleMode)SDL_atoi(hint);
+    }
 }
 
 SDL_Texture *
@@ -459,6 +577,7 @@ SDL_CreateTexture(SDL_Renderer * renderer, Uint32 format, int access, int w, int
     texture->g = 255;
     texture->b = 255;
     texture->a = 255;
+    texture->scaleMode = SDL_GetScaleMode();
     texture->renderer = renderer;
     texture->next = renderer->textures;
     if (renderer->textures) {
@@ -706,6 +825,9 @@ SDL_SetTextureBlendMode(SDL_Texture * texture, SDL_BlendMode blendMode)
     CHECK_TEXTURE_MAGIC(texture, -1);
 
     renderer = texture->renderer;
+    if (!IsSupportedBlendMode(renderer, blendMode)) {
+        return SDL_Unsupported();
+    }
     texture->blendMode = blendMode;
     if (texture->native) {
         return SDL_SetTextureBlendMode(texture->native, blendMode);
@@ -1109,6 +1231,8 @@ SDL_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture)
         }
     }
 
+    SDL_LockMutex(renderer->target_mutex);
+
     if (texture && !renderer->target) {
         /* Make a backup of the viewport */
         renderer->viewport_backup = renderer->viewport;
@@ -1121,6 +1245,7 @@ SDL_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture)
     renderer->target = texture;
 
     if (renderer->SetRenderTarget(renderer, texture) < 0) {
+        SDL_UnlockMutex(renderer->target_mutex);
         return -1;
     }
 
@@ -1143,6 +1268,9 @@ SDL_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture)
         renderer->logical_w = renderer->logical_w_backup;
         renderer->logical_h = renderer->logical_h_backup;
     }
+
+    SDL_UnlockMutex(renderer->target_mutex);
+
     if (renderer->UpdateViewport(renderer) < 0) {
         return -1;
     }
@@ -1170,7 +1298,7 @@ UpdateLogicalSize(SDL_Renderer *renderer)
     SDL_Rect viewport;
     /* 0 is for letterbox, 1 is for overscan */
     int scale_policy = 0;
-    const char *hint = SDL_GetHint(SDL_HINT_RENDER_LOGICAL_SIZE_MODE);
+    const char *hint;
 
     if (!renderer->logical_w || !renderer->logical_h) {
         return 0;
@@ -1179,23 +1307,24 @@ UpdateLogicalSize(SDL_Renderer *renderer)
         return -1;
     }
 
-    if (!hint) {
-        scale_policy = 0;
-    } else if ( *hint == '1' || SDL_strcasecmp(hint, "overscan") == 0)  {
-        /* Unfortunately, Direct3D 9 does't support negative viewport numbers
-        which the main overscan implementation relies on.
-        D3D11 does support negative values and uses a different id string
-        so overscan will work for D3D11.
+    hint = SDL_GetHint(SDL_HINT_RENDER_LOGICAL_SIZE_MODE);
+    if (hint && (*hint == '1' || SDL_strcasecmp(hint, "overscan") == 0))  {
+#if SDL_VIDEO_RENDER_D3D
+        SDL_bool overscan_supported = SDL_TRUE;
+        /* Unfortunately, Direct3D 9 doesn't support negative viewport numbers
+           which the overscan implementation relies on.
         */
-        if(SDL_strcasecmp("direct3d", SDL_GetCurrentVideoDriver())) {
-            scale_policy = 0;
-        } else {
+        if (SDL_strcasecmp(SDL_GetCurrentVideoDriver(), "direct3d") == 0) {
+            overscan_supported = SDL_FALSE;
+        }
+        if (overscan_supported) {
             scale_policy = 1;
         }
-    } else {
-        scale_policy = 0;
+#else
+        scale_policy = 1;
+#endif
     }
-    
+
     want_aspect = (float)renderer->logical_w / renderer->logical_h;
     real_aspect = (float)w / h;
 
@@ -1452,6 +1581,9 @@ SDL_SetRenderDrawBlendMode(SDL_Renderer * renderer, SDL_BlendMode blendMode)
 {
     CHECK_RENDERER_MAGIC(renderer, -1);
 
+    if (!IsSupportedBlendMode(renderer, blendMode)) {
+        return SDL_Unsupported();
+    }
     renderer->blendMode = blendMode;
     return 0;
 }
@@ -2008,6 +2140,10 @@ SDL_DestroyRenderer(SDL_Renderer * renderer)
     /* It's no longer magical... */
     renderer->magic = NULL;
 
+    /* Free the target mutex */
+    SDL_DestroyMutex(renderer->target_mutex);
+    renderer->target_mutex = NULL;
+
     /* Free the renderer instance */
     renderer->DestroyRenderer(renderer);
 }
@@ -2040,6 +2176,117 @@ int SDL_GL_UnbindTexture(SDL_Texture *texture)
     }
 
     return SDL_Unsupported();
+}
+
+void *
+SDL_RenderGetMetalLayer(SDL_Renderer * renderer)
+{
+    CHECK_RENDERER_MAGIC(renderer, NULL);
+
+    if (renderer->GetMetalLayer) {
+        return renderer->GetMetalLayer(renderer);
+    }
+    return NULL;
+}
+
+void *
+SDL_RenderGetMetalCommandEncoder(SDL_Renderer * renderer)
+{
+    CHECK_RENDERER_MAGIC(renderer, NULL);
+
+    if (renderer->GetMetalCommandEncoder) {
+        return renderer->GetMetalCommandEncoder(renderer);
+    }
+    return NULL;
+}
+
+static SDL_BlendMode
+SDL_GetShortBlendMode(SDL_BlendMode blendMode)
+{
+    if (blendMode == SDL_BLENDMODE_NONE_FULL) {
+        return SDL_BLENDMODE_NONE;
+    }
+    if (blendMode == SDL_BLENDMODE_BLEND_FULL) {
+        return SDL_BLENDMODE_BLEND;
+    }
+    if (blendMode == SDL_BLENDMODE_ADD_FULL) {
+        return SDL_BLENDMODE_ADD;
+    }
+    if (blendMode == SDL_BLENDMODE_MOD_FULL) {
+        return SDL_BLENDMODE_MOD;
+    }
+    return blendMode;
+}
+
+static SDL_BlendMode
+SDL_GetLongBlendMode(SDL_BlendMode blendMode)
+{
+    if (blendMode == SDL_BLENDMODE_NONE) {
+        return SDL_BLENDMODE_NONE_FULL;
+    }
+    if (blendMode == SDL_BLENDMODE_BLEND) {
+        return SDL_BLENDMODE_BLEND_FULL;
+    }
+    if (blendMode == SDL_BLENDMODE_ADD) {
+        return SDL_BLENDMODE_ADD_FULL;
+    }
+    if (blendMode == SDL_BLENDMODE_MOD) {
+        return SDL_BLENDMODE_MOD_FULL;
+    }
+    return blendMode;
+}
+
+SDL_BlendMode
+SDL_ComposeCustomBlendMode(SDL_BlendFactor srcColorFactor, SDL_BlendFactor dstColorFactor,
+                           SDL_BlendOperation colorOperation,
+                           SDL_BlendFactor srcAlphaFactor, SDL_BlendFactor dstAlphaFactor,
+                           SDL_BlendOperation alphaOperation)
+{
+    SDL_BlendMode blendMode = SDL_COMPOSE_BLENDMODE(srcColorFactor, dstColorFactor, colorOperation,
+                                                    srcAlphaFactor, dstAlphaFactor, alphaOperation);
+    return SDL_GetShortBlendMode(blendMode);
+}
+
+SDL_BlendFactor
+SDL_GetBlendModeSrcColorFactor(SDL_BlendMode blendMode)
+{
+    blendMode = SDL_GetLongBlendMode(blendMode);
+    return (SDL_BlendFactor)(((Uint32)blendMode >> 4) & 0xF);
+}
+
+SDL_BlendFactor
+SDL_GetBlendModeDstColorFactor(SDL_BlendMode blendMode)
+{
+    blendMode = SDL_GetLongBlendMode(blendMode);
+    return (SDL_BlendFactor)(((Uint32)blendMode >> 8) & 0xF);
+}
+
+SDL_BlendOperation
+SDL_GetBlendModeColorOperation(SDL_BlendMode blendMode)
+{
+    blendMode = SDL_GetLongBlendMode(blendMode);
+    return (SDL_BlendOperation)(((Uint32)blendMode >> 0) & 0xF);
+}
+
+SDL_BlendFactor
+SDL_GetBlendModeSrcAlphaFactor(SDL_BlendMode blendMode)
+{
+    blendMode = SDL_GetLongBlendMode(blendMode);
+    return (SDL_BlendFactor)(((Uint32)blendMode >> 20) & 0xF);
+}
+
+SDL_BlendFactor
+SDL_GetBlendModeDstAlphaFactor(SDL_BlendMode blendMode)
+{
+    blendMode = SDL_GetLongBlendMode(blendMode);
+    return (SDL_BlendFactor)(((Uint32)blendMode >> 24) & 0xF);
+}
+
+SDL_BlendOperation
+SDL_GetBlendModeAlphaOperation(SDL_BlendMode blendMode)
+{
+    blendMode = SDL_GetLongBlendMode(blendMode);
+    return (SDL_BlendOperation)(((Uint32)blendMode >> 16) & 0xF);
 }
 
 /* vi: set ts=4 sw=4 expandtab: */

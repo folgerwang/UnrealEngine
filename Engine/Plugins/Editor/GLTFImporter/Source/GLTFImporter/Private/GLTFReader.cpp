@@ -224,6 +224,49 @@ static FVector4 GetVec4(const FJsonObject& Object, const char* Name, const FVect
 	return DefaultValue;
 }
 
+static FQuat GetQuat(const FJsonObject& Object, const char* Name, const FQuat& DefaultValue = FQuat(0,0,0,1))
+{
+	if (Object.HasTypedField<EJson::Array>(Name))
+	{
+		const TArray<TSharedPtr<FJsonValue>>& Array = Object.GetArrayField(Name);
+		if (Array.Num() == 4)
+		{
+			float X = Array[0]->AsNumber();
+			float Y = Array[1]->AsNumber();
+			float Z = Array[2]->AsNumber();
+			float W = Array[3]->AsNumber();
+			return FQuat(X, Y, Z, W);
+		}
+	}
+
+	return DefaultValue;
+}
+
+static FMatrix GetMat4(const FJsonObject& Object, const char* Name, const FMatrix& DefaultValue = FMatrix::Identity)
+{
+	if (Object.HasTypedField<EJson::Array>(Name))
+	{
+		const TArray<TSharedPtr<FJsonValue>>& Array = Object.GetArrayField(Name);
+		if (Array.Num() == 16)
+		{
+			FMatrix Matrix;
+			for (int32 Row = 0; Row < 4; ++Row)
+			{
+				for (int32 Col = 0; Col < 4; ++Col)
+				{
+					// glTF stores matrix elements in column major order
+					// Unreal's FMatrix is row major
+					Matrix.M[Row][Col] = Array[Col * 4 + Row]->AsNumber();
+				}
+			}
+
+			return Matrix;
+		}
+	}
+
+	return DefaultValue;
+}
+
 // --- Base64 utility function --------------------------
 
 static bool DecodeDataURI(const FString& URI, FString& OutMimeType, TArray<uint8>& OutData)
@@ -377,8 +420,10 @@ void FGLTFReader::SetupPrimitive(const FJsonObject& Object, FMesh& Mesh)
 	const FAccessor& TexCoord0 = AccessorAtIndex(A, GetIndex(Attributes, "TEXCOORD_0"));
 	const FAccessor& TexCoord1 = AccessorAtIndex(A, GetIndex(Attributes, "TEXCOORD_1"));
 	const FAccessor& Color0 = AccessorAtIndex(A, GetIndex(Attributes, "COLOR_0"));
+	const FAccessor& Joints0 = AccessorAtIndex(A, GetIndex(Attributes, "JOINTS_0"));
+	const FAccessor& Weights0 = AccessorAtIndex(A, GetIndex(Attributes, "WEIGHTS_0"));
 
-	Mesh.Primitives.Emplace(Mode, MaterialIndex, Indices, Position, Normal, Tangent, TexCoord0, TexCoord1, Color0);
+	Mesh.Primitives.Emplace(Mode, MaterialIndex, Indices, Position, Normal, Tangent, TexCoord0, TexCoord1, Color0, Joints0, Weights0);
 	if (!Mesh.Primitives.Last().Validate())
 	{
 		Warn.Log("Invalid primitive :(");
@@ -400,6 +445,54 @@ void FGLTFReader::SetupMesh(const FJsonObject& Object)
 		const FJsonObject& PrimObject = *Value->AsObject();
 		SetupPrimitive(PrimObject, Mesh);
 	}
+}
+
+void FGLTFReader::SetupNode(const FJsonObject& Object)
+{
+	FNode& Node = Asset.Nodes.Emplace_GetRef();
+
+	Node.Name = GetString(Object, "name");
+
+	if (Object.HasField("matrix"))
+	{
+		Node.Transform.SetFromMatrix(GetMat4(Object, "matrix"));
+	}
+	else
+	{
+		Node.Transform.SetTranslation(GetVec3(Object, "translation"));
+		Node.Transform.SetRotation(GetQuat(Object, "rotation"));
+		Node.Transform.SetScale3D(GetVec3(Object, "scale", FVector::OneVector));
+	}
+
+	const TArray<TSharedPtr<FJsonValue>>& ChildArray = Object.GetArrayField("children");
+	Node.Children.Reserve(ChildArray.Num());
+	for (TSharedPtr<FJsonValue> Value : ChildArray)
+	{
+		const int32 ChildIndex = Value->AsNumber();
+		Node.Children.Add(ChildIndex);
+	}
+
+	Node.MeshIndex = GetIndex(Object, "mesh");
+	Node.Skindex = GetIndex(Object, "skin");
+}
+
+void FGLTFReader::SetupSkin(const FJsonObject& Object)
+{
+	const FAccessor& InverseBindMatrices = AccessorAtIndex(Asset.Accessors, GetIndex(Object, "inverseBindMatrices"));
+
+	FSkinfo& Skin = Asset.Skins.Emplace_GetRef(InverseBindMatrices);
+
+	Skin.Name = GetString(Object, "name");
+
+	const TArray<TSharedPtr<FJsonValue>>& JointArray = Object.GetArrayField("joints");
+	Skin.Joints.Reserve(JointArray.Num());
+	for (TSharedPtr<FJsonValue> Value : JointArray)
+	{
+		const int32 JointIndex = Value->AsNumber();
+		Skin.Joints.Add(JointIndex);
+	}
+
+	Skin.Skeleton = GetIndex(Object, "skeleton");
 }
 
 void FGLTFReader::SetupImage(const FJsonObject& Object)
@@ -586,12 +679,16 @@ FGLTFReader::FGLTFReader(FAsset& OutAsset, const FJsonObject& Root, const FStrin
 	AccessorCount = ArraySize(Root, "accessors");
 	MeshCount = ArraySize(Root, "meshes");
 
+	NodeCount = ArraySize(Root, "nodes");
+	SkinCount = ArraySize(Root, "skins");
+
 	ImageCount = ArraySize(Root, "images");
 	SamplerCount = ArraySize(Root, "samplers");
 	TextureCount = ArraySize(Root, "textures");
 	MaterialCount = ArraySize(Root, "materials");
 
 	Asset.Reset(BufferCount, BufferViewCount, AccessorCount, MeshCount,
+	            NodeCount, SkinCount,
 	            ImageCount, SamplerCount, TextureCount, MaterialCount);
 
 	if (BufferCount > 0)
@@ -627,6 +724,24 @@ FGLTFReader::FGLTFReader(FAsset& OutAsset, const FJsonObject& Root, const FStrin
 		{
 			const FJsonObject& Object = *Value->AsObject();
 			SetupMesh(Object);
+		}
+	}
+
+	if (NodeCount > 0)
+	{
+		for (TSharedPtr<FJsonValue> Value : Root.GetArrayField("nodes"))
+		{
+			const FJsonObject& Object = *Value->AsObject();
+			SetupNode(Object);
+		}
+	}
+
+	if (SkinCount > 0)
+	{
+		for (TSharedPtr<FJsonValue> Value : Root.GetArrayField("skins"))
+		{
+			const FJsonObject& Object = *Value->AsObject();
+			SetupSkin(Object);
 		}
 	}
 

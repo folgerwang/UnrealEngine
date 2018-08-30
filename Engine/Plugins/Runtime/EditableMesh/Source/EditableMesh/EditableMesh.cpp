@@ -91,16 +91,15 @@ template <> struct TIsAttributeTypeLerpable<int> { static const bool Value = tru
 
 
 template <typename T, typename ElementIDType>
-static typename TEnableIf<TIsAttributeTypeLerpable<T>::Value>::Type InterpAttributeOfType( FMeshElementAttributeList& AttributeList, const FName AttributeName, const TAttributeIndicesArray<T, ElementIDType>& AttributeIndicesArray, const ElementIDType ID0, const ElementIDType ID1, const float Alpha )
+static typename TEnableIf<TIsAttributeTypeLerpable<T>::Value>::Type InterpAttributeOfType( FMeshElementAttributeList& AttributeList, const FName AttributeName, TMeshAttributesConstRef<ElementIDType, T> AttributeArrayRef, const ElementIDType ID0, const ElementIDType ID1, const float Alpha )
 {
-	for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
+	for( int32 Index = 0; Index < AttributeArrayRef.GetNumIndices(); ++Index )
 	{
-		const TMeshAttributeArray<T, ElementIDType>& Array = AttributeIndicesArray.GetArrayForIndex( Index );
-		const T& Value0 = Array[ ID0 ];
-		const T& Value1 = Array[ ID1 ];
+		const T& Value0 = AttributeArrayRef.Get( ID0, Index );
+		const T& Value1 = AttributeArrayRef.Get( ID1, Index );
 
 		AttributeList.Attributes.Emplace( AttributeName, Index, 
-			FMeshElementAttributeValue( EnumHasAllFlags( AttributeIndicesArray.GetFlags(), EMeshAttributeFlags::Lerpable ) ?
+			FMeshElementAttributeValue( EnumHasAllFlags( AttributeArrayRef.GetFlags(), EMeshAttributeFlags::Lerpable ) ?
 				FMath::Lerp( Value0, Value1, Alpha ) :
 				( Alpha <= 0.5f ) ? Value0 : Value1 )
 			);
@@ -108,14 +107,13 @@ static typename TEnableIf<TIsAttributeTypeLerpable<T>::Value>::Type InterpAttrib
 }
 
 template <typename T, typename ElementIDType>
-static typename TEnableIf<!TIsAttributeTypeLerpable<T>::Value>::Type InterpAttributeOfType( FMeshElementAttributeList& AttributeList, const FName AttributeName, const TAttributeIndicesArray<T, ElementIDType>& AttributeIndicesArray, const ElementIDType ID0, const ElementIDType ID1, const float Alpha )
+static typename TEnableIf<!TIsAttributeTypeLerpable<T>::Value>::Type InterpAttributeOfType( FMeshElementAttributeList& AttributeList, const FName AttributeName, TMeshAttributesConstRef<ElementIDType, T> AttributeArrayRef, const ElementIDType ID0, const ElementIDType ID1, const float Alpha )
 {
 	// Non-Lerpable attribute type: just choose whichever value alpha is closest to
-	for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
+	for( int32 Index = 0; Index < AttributeArrayRef.GetNumIndices(); ++Index )
 	{
-		const TMeshAttributeArray<T, ElementIDType>& Array = AttributeIndicesArray.GetArrayForIndex( Index );
-		const T& Value0 = Array[ ID0 ];
-		const T& Value1 = Array[ ID1 ];
+		const T& Value0 = AttributeArrayRef.Get( ID0, Index );
+		const T& Value1 = AttributeArrayRef.Get( ID1, Index );
 
 		AttributeList.Attributes.Emplace( AttributeName, Index, FMeshElementAttributeValue( ( Alpha <= 0.5f ) ? Value0 : Value1 ) );
 	}
@@ -129,10 +127,10 @@ static typename TEnableIf<!TIsAttributeTypeLerpable<T>::Value>::Type InterpAttri
 template <typename ElementIDType>
 static void InterpAllAttributes( FMeshElementAttributeList& AttributeList, const TAttributesSet<ElementIDType>& AttributesSet, const ElementIDType ID0, const ElementIDType ID1, const float Alpha )
 {
-	AttributesSet.ForEachAttributeIndicesArray(
-		[ &AttributeList, ID0, ID1, Alpha ]( const FName AttributeName, const auto& AttributeIndicesArray )
+	AttributesSet.ForEach(
+		[ &AttributeList, ID0, ID1, Alpha ]( const FName AttributeName, auto AttributeArrayRef )
 		{
-			InterpAttributeOfType( AttributeList, AttributeName, AttributeIndicesArray, ID0, ID1, Alpha );
+			InterpAttributeOfType( AttributeList, AttributeName, AttributeArrayRef, ID0, ID1, Alpha );
 		}
 	);
 }
@@ -145,12 +143,12 @@ static void InterpAllAttributes( FMeshElementAttributeList& AttributeList, const
 template <typename ElementIDType, typename Predicate>
 static void InterpAttributesByPredicate( FMeshElementAttributeList& AttributeList, const TAttributesSet<ElementIDType>& AttributesSet, const ElementIDType ID0, const ElementIDType ID1, const float Alpha, const Predicate& Pred )
 {
-	AttributesSet.ForEachAttributeIndicesArray(
-		[ &AttributeList, ID0, ID1, Alpha, &Pred ]( const FName AttributeName, const auto& AttributeIndicesArray )
+	AttributesSet.ForEach(
+		[ &AttributeList, ID0, ID1, Alpha, &Pred ]( const FName AttributeName, auto AttributeArrayRef )
 		{
-			if( Pred( AttributeName, AttributeIndicesArray ) )
+			if( Pred( AttributeName, AttributeArrayRef ) )
 			{
-				InterpAttributeOfType( AttributeList, AttributeName, AttributeIndicesArray, ID0, ID1, Alpha );
+				InterpAttributeOfType( AttributeList, AttributeName, AttributeArrayRef, ID0, ID1, Alpha );
 			}
 		}
 	);
@@ -158,17 +156,16 @@ static void InterpAttributesByPredicate( FMeshElementAttributeList& AttributeLis
 
 
 template <typename T, typename ElementIDType>
-static typename TEnableIf<TIsAttributeTypeLerpable<T>::Value>::Type InterpAttributeOfType( FMeshElementAttributeList& AttributeList, const FName AttributeName, const TAttributeIndicesArray<T, ElementIDType>& AttributeIndicesArray, const ElementIDType ID0, const ElementIDType ID1, const ElementIDType ID2, const FVector Weights )
+static typename TEnableIf<TIsAttributeTypeLerpable<T>::Value>::Type InterpAttributeOfType( FMeshElementAttributeList& AttributeList, const FName AttributeName, TMeshAttributesConstRef<ElementIDType, T> AttributeArrayRef, const ElementIDType ID0, const ElementIDType ID1, const ElementIDType ID2, const FVector Weights )
 {
-	if( EnumHasAllFlags( AttributeIndicesArray.GetFlags(), EMeshAttributeFlags::Lerpable ) )
+	if( EnumHasAllFlags( AttributeArrayRef.GetFlags(), EMeshAttributeFlags::Lerpable ) )
 	{
 		// Get result by interpolating between the three values according to the barycentric weight
-		for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
+		for( int32 Index = 0; Index < AttributeArrayRef.GetNumIndices(); ++Index )
 		{
-			const TMeshAttributeArray<T, ElementIDType>& Array = AttributeIndicesArray.GetArrayForIndex( Index );
-			const T& Value0 = Array[ ID0 ];
-			const T& Value1 = Array[ ID1 ];
-			const T& Value2 = Array[ ID2 ];
+			const T& Value0 = AttributeArrayRef.Get( ID0, Index );
+			const T& Value1 = AttributeArrayRef.Get( ID1, Index );
+			const T& Value2 = AttributeArrayRef.Get( ID2, Index );
 
 			AttributeList.Attributes.Emplace( AttributeName, Index, FMeshElementAttributeValue( Value0 * Weights.X + Value1 * Weights.Y + Value2 * Weights.Z ) );
 		}
@@ -178,24 +175,22 @@ static typename TEnableIf<TIsAttributeTypeLerpable<T>::Value>::Type InterpAttrib
 		// Non-Lerpable attribute type: just choose whichever value the barycentric weight is closest to
 		const ElementIDType ClosestID = ( Weights.X > Weights.Y ) ? ( ( Weights.X > Weights.Z ) ? ID0 : ID2 ) : ( ( Weights.Y > Weights.Z ) ? ID1 : ID2 );
 
-		for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
+		for( int32 Index = 0; Index < AttributeArrayRef.GetNumIndices(); ++Index )
 		{
-			const TMeshAttributeArray<T, ElementIDType>& Array = AttributeIndicesArray.GetArrayForIndex( Index );
-			AttributeList.Attributes.Emplace( AttributeName, Index, FMeshElementAttributeValue( Array[ ClosestID ] ) );
+			AttributeList.Attributes.Emplace( AttributeName, Index, FMeshElementAttributeValue( AttributeArrayRef.Get( ClosestID, Index ) ) );
 		}
 	}
 }
 
 template <typename T, typename ElementIDType>
-static typename TEnableIf<!TIsAttributeTypeLerpable<T>::Value>::Type InterpAttributeOfType( FMeshElementAttributeList& AttributeList, const FName AttributeName, const TAttributeIndicesArray<T, ElementIDType>& AttributeIndicesArray, const ElementIDType ID0, const ElementIDType ID1, const ElementIDType ID2, const FVector Weights )
+static typename TEnableIf<!TIsAttributeTypeLerpable<T>::Value>::Type InterpAttributeOfType( FMeshElementAttributeList& AttributeList, const FName AttributeName, TMeshAttributesConstRef<ElementIDType, T> AttributeArrayRef, const ElementIDType ID0, const ElementIDType ID1, const ElementIDType ID2, const FVector Weights )
 {
 	// Non-Lerpable attribute type: just choose whichever value the barycentric weight is closest to
 	const ElementIDType ClosestID = ( Weights.X > Weights.Y ) ? ( ( Weights.X > Weights.Z ) ? ID0 : ID2 ) : ( ( Weights.Y > Weights.Z ) ? ID1 : ID2 );
 
-	for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
+	for( int32 Index = 0; Index < AttributeArrayRef.GetNumIndices(); ++Index )
 	{
-		const TMeshAttributeArray<T, ElementIDType>& Array = AttributeIndicesArray.GetArrayForIndex( Index );
-		AttributeList.Attributes.Emplace( AttributeName, Index, FMeshElementAttributeValue( Array[ ClosestID ] ) );
+		AttributeList.Attributes.Emplace( AttributeName, Index, FMeshElementAttributeValue( AttributeArrayRef.Get( ClosestID, Index ) ) );
 	}
 }
 
@@ -207,10 +202,10 @@ static typename TEnableIf<!TIsAttributeTypeLerpable<T>::Value>::Type InterpAttri
 template <typename ElementIDType>
 static void InterpAllAttributes( FMeshElementAttributeList& AttributeList, const TAttributesSet<ElementIDType>& AttributesSet, const ElementIDType ID0, const ElementIDType ID1, const ElementIDType ID2, const FVector Weights )
 {
-	AttributesSet.ForEachAttributeIndicesArray(
-		[ &AttributeList, ID0, ID1, ID2, Weights ]( const FName AttributeName, const auto& AttributeIndicesArray )
+	AttributesSet.ForEach(
+		[ &AttributeList, ID0, ID1, ID2, Weights ]( const FName AttributeName, auto AttributeArrayRef )
 		{
-			InterpAttributeOfType( AttributeList, AttributeName, AttributeIndicesArray, ID0, ID1, ID2, Weights );
+			InterpAttributeOfType( AttributeList, AttributeName, AttributeArrayRef, ID0, ID1, ID2, Weights );
 		}
 	);
 }
@@ -223,12 +218,12 @@ static void InterpAllAttributes( FMeshElementAttributeList& AttributeList, const
 template <typename ElementIDType, typename Predicate>
 static void InterpAttributesByPredicate( FMeshElementAttributeList& AttributeList, const TAttributesSet<ElementIDType>& AttributesSet, const ElementIDType ID0, const ElementIDType ID1, const ElementIDType ID2, const FVector Weights, const Predicate& Pred )
 {
-	AttributesSet.ForEachAttributeIndicesArray(
-		[ &AttributeList, ID0, ID1, ID2, Weights, &Pred ]( const FName AttributeName, const auto& AttributeIndicesArray )
+	AttributesSet.ForEach(
+		[ &AttributeList, ID0, ID1, ID2, Weights, &Pred ]( const FName AttributeName, auto AttributeArrayRef )
 		{
-			if( Pred( AttributeName, AttributeIndicesArray ) )
+			if( Pred( AttributeName, AttributeArrayRef ) )
 			{
-				InterpAttributeOfType( AttributeList, AttributeName, AttributeIndicesArray, ID0, ID1, ID2, Weights );
+				InterpAttributeOfType( AttributeList, AttributeName, AttributeArrayRef, ID0, ID1, ID2, Weights );
 			}
 		}
 	);
@@ -248,15 +243,14 @@ template <typename ElementIDType, typename Predicate>
 static bool CompareAttributesByPredicate( const TAttributesSet<ElementIDType>& AttributesSet, const ElementIDType ID0, const ElementIDType ID1, const Predicate& Pred )
 {
 	bool bResult = true;
-	AttributesSet.ForEachAttributeIndicesArray(
-		[ ID0, ID1, &Pred, &bResult ]( const FName AttributeName, const auto& AttributeIndicesArray )
+	AttributesSet.ForEach(
+		[ ID0, ID1, &Pred, &bResult ]( const FName AttributeName, auto AttributeArrayRef )
 		{
-			if( Pred( AttributeName, AttributeIndicesArray ) )
+			if( Pred( AttributeName, AttributeArrayRef ) )
 			{
-				for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
+				for( int32 Index = 0; Index < AttributeArrayRef.GetNumIndices(); ++Index )
 				{
-					auto& Array = AttributeIndicesArray.GetArrayForIndex( Index );
-					if( !AreAttributeValuesNearlyEqual( Array[ ID0 ], Array[ ID1 ] ) )
+					if( !AreAttributeValuesNearlyEqual( AttributeArrayRef.Get( ID0, Index ), AttributeArrayRef.Get( ID1, Index ) ) )
 					{
 						bResult = false;
 						return;
@@ -274,13 +268,12 @@ static bool CompareAttributesByPredicate( const TAttributesSet<ElementIDType>& A
 template <typename ElementIDType>
 static void BackupAllAttributes( FMeshElementAttributeList& AttributeList, const TAttributesSet<ElementIDType>& AttributesSet, const ElementIDType ElementID )
 {
-	AttributesSet.ForEachAttributeIndicesArray(
-		[ &AttributeList, ElementID ]( const FName AttributeName, const auto& AttributeIndicesArray )
+	AttributesSet.ForEach(
+		[ &AttributeList, ElementID ]( const FName AttributeName, auto AttributeArrayRef )
 		{
-			for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
+			for( int32 Index = 0; Index < AttributeArrayRef.GetNumIndices(); ++Index )
 			{
-				const auto& Value = AttributeIndicesArray.GetArrayForIndex( Index )[ ElementID ];
-
+				const auto& Value = AttributeArrayRef.Get( ElementID, Index );
 				AttributeList.Attributes.Emplace( AttributeName, Index, FMeshElementAttributeValue( Value ) );
 			}
 		}
@@ -292,15 +285,14 @@ static void BackupAllAttributes( FMeshElementAttributeList& AttributeList, const
 template <typename ElementIDType, typename Predicate>
 static void BackupAttributesByPredicate( FMeshElementAttributeList& AttributeList, const TAttributesSet<ElementIDType>& AttributesSet, const ElementIDType ElementID, const Predicate& Pred )
 {
-	AttributesSet.ForEachAttributeIndicesArray(
-		[ &AttributeList, ElementID, &Pred ]( const FName AttributeName, const auto& AttributeIndicesArray )
+	AttributesSet.ForEach(
+		[ &AttributeList, ElementID, &Pred ]( const FName AttributeName, auto AttributeArrayRef )
 		{
-			if( Pred( AttributeName, AttributeIndicesArray ) )
+			if( Pred( AttributeName, AttributeArrayRef ) )
 			{
-				for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
+				for( int32 Index = 0; Index < AttributeArrayRef.GetNumIndices(); ++Index )
 				{
-					const auto& Value = AttributeIndicesArray.GetArrayForIndex( Index )[ ElementID ];
-
+					const auto& Value = AttributeArrayRef.Get( ElementID, Index );
 					AttributeList.Attributes.Emplace( AttributeName, Index, FMeshElementAttributeValue( Value ) );
 				}
 			}
@@ -316,8 +308,7 @@ static void ApplyAttribute( TAttributesSet<ElementIDType>& AttributesSet, const 
 	AttributeData.AttributeValue.Visit(
 		[ &AttributesSet, &AttributeData, ElementID ]( const auto& Value )
 		{
-			using AttributeType = typename TDecay<decltype( Value )>::Type;
-			AttributesSet.template SetAttribute<AttributeType>( ElementID, AttributeData.AttributeName, AttributeData.AttributeIndex, Value );
+			AttributesSet.SetAttribute( ElementID, AttributeData.AttributeName, AttributeData.AttributeIndex, Value );
 		}
 	);
 }
@@ -375,6 +366,8 @@ void UEditableMesh::Serialize( FArchive& Ar )
 
 	Ar << OwnedMeshDescription;
 
+	//Ar << MeshDescription;
+
 	// If the array was serialized containing any editor-only transient adapters, they will appear here as null, so remove them.
 	if( Ar.IsLoading() )
 	{
@@ -402,16 +395,13 @@ void UEditableMesh::SetMeshDescription( FMeshDescription* InMeshDescription )
 }
 
 
-template <typename ElementIDType>
-static void InvertRemapTable( TSparseArray<ElementIDType>& InvertedRemapTable, const TSparseArray<ElementIDType>& RemapTable )
+static void InvertRemapTable( TSparseArray<int32>& InvertedRemapTable, const TSparseArray<int32>& RemapTable )
 {
-	static_assert( TIsDerivedFrom<ElementIDType, FElementID>::IsDerived, "Remap array type must be derived from FElementID" );
-
 	InvertedRemapTable.Empty( RemapTable.Num() );
 
-	for( typename TSparseArray<ElementIDType>::TConstIterator It( RemapTable ); It; ++It )
+	for( typename TSparseArray<int32>::TConstIterator It( RemapTable ); It; ++It )
 	{
-		InvertedRemapTable.Insert( It->GetValue(), ElementIDType( It.GetIndex() ) );
+		InvertedRemapTable.Insert( *It, It.GetIndex() );
 	}
 }
 
@@ -1397,7 +1387,7 @@ void UEditableMesh::MergeVertexInstances()
 					GetMeshDescription()->VertexInstanceAttributes(),
 					VertexInstanceIDA,
 					VertexInstanceIDB,
-					[]( const FName AttributeName, const auto& AttributeIndicesArray ) { return EnumHasAllFlags( AttributeIndicesArray.GetFlags(), EMeshAttributeFlags::Mergeable ); }
+					[]( const FName AttributeName, const auto AttributeArrayRef ) { return EnumHasAllFlags( AttributeArrayRef.GetFlags(), EMeshAttributeFlags::Mergeable ); }
 				  ) )
 				{
 					// Change occurrences of VertexInstanceB for VertexInstanceA in VertexInstanceB's connected polygons.
@@ -1741,7 +1731,7 @@ FBox UEditableMesh::ComputeBoundingBox() const
 	FBox BoundingBox;
 	BoundingBox.Init();
 
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	TVertexAttributesConstRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	for( const FVertexID VertexID : GetMeshDescription()->Vertices().GetElementIDs() )
 	{
@@ -1762,7 +1752,7 @@ FBoxSphereBounds UEditableMesh::ComputeBoundingBoxAndSphere() const
 	// Calculate the bounding sphere, using the center of the bounding box as the origin.
 	BoundingBoxAndSphere.SphereRadius = 0.0f;
 
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	TVertexAttributesConstRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	for( const FVertexID VertexID : GetMeshDescription()->Vertices().GetElementIDs() )
 	{
@@ -1780,7 +1770,7 @@ FVector UEditableMesh::ComputePolygonCenter( const FPolygonID PolygonID ) const
 	static TArray<FVertexID> PerimeterVertexIDs;
 	GetPolygonPerimeterVertices( PolygonID, /* Out */ PerimeterVertexIDs );
 
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	TVertexAttributesConstRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	for( const FVertexID VertexID : PerimeterVertexIDs )
 	{
@@ -1807,7 +1797,7 @@ FPlane UEditableMesh::ComputePolygonPlane( const FPolygonID PolygonID ) const
 	static TArray<FVertexID> PerimeterVertexIDs;
 	GetPolygonPerimeterVertices( PolygonID, /* Out */ PerimeterVertexIDs );
 
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	TVertexAttributesConstRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	// Use 'Newell's Method' to compute a robust 'best fit' plane from the vertices of this polygon
 	for( int32 VertexNumberI = PerimeterVertexIDs.Num() - 1, VertexNumberJ = 0; VertexNumberJ < PerimeterVertexIDs.Num(); VertexNumberI = VertexNumberJ, VertexNumberJ++ )
@@ -1868,7 +1858,7 @@ void UEditableMesh::RefreshOpenSubdiv()
 					OsdCornerVertexIndices.Reset();
 					OsdCornerWeights.Reset();
 
-					const TVertexAttributeArray<float>& VertexCornerSharpnesses = GetMeshDescription()->VertexAttributes().GetAttributes<float>( MeshAttribute::Vertex::CornerSharpness );
+					const TVertexAttributesRef<float> VertexCornerSharpnesses = GetMeshDescription()->VertexAttributes().GetAttributesRef<float>( MeshAttribute::Vertex::CornerSharpness );
 
 					for( const FVertexID VertexID : GetMeshDescription()->Vertices().GetElementIDs() )
 					{
@@ -1887,7 +1877,7 @@ void UEditableMesh::RefreshOpenSubdiv()
 					OsdCreaseVertexIndexPairs.Reset();
 					OsdCreaseWeights.Reset();
 
-					const TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = GetMeshDescription()->EdgeAttributes().GetAttributes<float>( MeshAttribute::Edge::CreaseSharpness );
+					const TEdgeAttributesRef<float> EdgeCreaseSharpnesses = GetMeshDescription()->EdgeAttributes().GetAttributesRef<float>( MeshAttribute::Edge::CreaseSharpness );
 
 					for( const FEdgeID EdgeID : GetMeshDescription()->Edges().GetElementIDs() )
 					{
@@ -2083,7 +2073,7 @@ void UEditableMesh::GenerateOpenSubdivLimitSurfaceData()
 
 				// @todo mesheditor perf: note that now we expose vertex positions as an array of FVector, so this is just copying from one array to another.
 				// This needs to be refactored to not require this.
-				const TVertexAttributeArray<FVector>& SrcVertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+				const TVertexAttributesRef<FVector> SrcVertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 				for( int32 VertexNumber = 0; VertexNumber < VertexArraySize; ++VertexNumber )
 				{
@@ -2107,8 +2097,8 @@ void UEditableMesh::GenerateOpenSubdivLimitSurfaceData()
 				FVarVertexDatas.Reset();
 				FVarVertexDatas.Reserve( OsdFVarIndicesPerFace.Num() );
 
-				const TAttributeIndicesArray<FVector2D, FVertexInstanceID>& VertexUVs = GetMeshDescription()->VertexInstanceAttributes().GetAttributesSet<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate );
-				const TVertexInstanceAttributeArray<FVector4>& VertexColors = GetMeshDescription()->VertexInstanceAttributes().GetAttributes<FVector4>( MeshAttribute::VertexInstance::Color );
+				const TVertexInstanceAttributesRef<FVector2D> VertexUVs = GetMeshDescription()->VertexInstanceAttributes().GetAttributesRef<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate );
+				const TVertexInstanceAttributesRef<FVector4> VertexColors = GetMeshDescription()->VertexInstanceAttributes().GetAttributesRef<FVector4>( MeshAttribute::VertexInstance::Color );
 
 				int32 NumPolygonsSoFar = 0;
 				for( const FPolygonGroupID PolygonGroupID : GetMeshDescription()->PolygonGroups().GetElementIDs() )
@@ -2123,8 +2113,8 @@ void UEditableMesh::GenerateOpenSubdivLimitSurfaceData()
 						for( const FVertexInstanceID VertexInstanceID : GetMeshDescription()->GetPolygonPerimeterVertexInstances( PolygonID ) )
 						{
 							FOsdFVarVertexData& FVarVertexData = *new( FVarVertexDatas ) FOsdFVarVertexData();
-							FVarVertexData.TextureCoordinates[ 0 ] = TextureCoordinateCount > 0 ? VertexUVs.GetArrayForIndex( 0 )[ VertexInstanceID ] : FVector2D::ZeroVector;
-							FVarVertexData.TextureCoordinates[ 1 ] = TextureCoordinateCount > 1 ? VertexUVs.GetArrayForIndex( 1 )[ VertexInstanceID ] : FVector2D::ZeroVector;
+							FVarVertexData.TextureCoordinates[ 0 ] = TextureCoordinateCount > 0 ? VertexUVs.Get( VertexInstanceID, 0 ) : FVector2D::ZeroVector;
+							FVarVertexData.TextureCoordinates[ 1 ] = TextureCoordinateCount > 1 ? VertexUVs.Get( VertexInstanceID, 1 ) : FVector2D::ZeroVector;
 							FVarVertexData.VertexColor = FLinearColor( VertexColors[ VertexInstanceID ] );
 						}
 					}
@@ -2547,7 +2537,7 @@ void UEditableMesh::ComputePolygonTriangulation( const FPolygonID PolygonID, TAr
 	static TArray<FVector> VertexPositions;
 
 	{
-		const TVertexAttributeArray<FVector>& MeshVertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+		TVertexAttributesConstRef<FVector> MeshVertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 		PrevVertexNumbers.SetNumUninitialized( PolygonVertexCount, false );
 		NextVertexNumbers.SetNumUninitialized( PolygonVertexCount, false );
 		VertexPositions.SetNumUninitialized( PolygonVertexCount, false );
@@ -2663,7 +2653,7 @@ bool UEditableMesh::ComputeBarycentricWeightForPointOnPolygon( const FPolygonID 
 	const FMeshPolygon& Polygon = GetMeshDescription()->GetPolygon( PolygonID );
 	const int32 TriangleCount = Polygon.Triangles.Num();
 
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	TVertexAttributesConstRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	// Figure out which triangle the incoming point is within
 	for( const FMeshTriangle& Triangle : Polygon.Triangles )
@@ -2727,7 +2717,7 @@ void UEditableMesh::MoveVertices( const TArray<FVertexToMove>& VerticesToMove )
 	static TArray<FAttributesForVertex> VertexAttributesToSet;
 	VertexAttributesToSet.Reset();
 
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	const TVertexAttributesRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	for( const FVertexToMove& VertexToMove : VerticesToMove )
 	{
@@ -3142,7 +3132,7 @@ void UEditableMesh::FindPolygonLoop( const FEdgeID EdgeID, TArray<FEdgeID>& OutE
 	bool bCurrentEdgeIsInOppositeDirection = false;
 	bool bCurrentEdgeIsInOppositeDirectionFromStartEdge = false;
 
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	TVertexAttributesConstRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	for( ; ; )
 	{
@@ -4890,7 +4880,7 @@ void UEditableMesh::GetConnectedSoftEdges( const FVertexID VertexID, TArray<FEdg
 {
 	OutConnectedSoftEdges.Reset();
 
-	const TEdgeAttributeArray<bool>& EdgeHardnesses = GetMeshDescription()->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
+	TEdgeAttributesConstRef<bool> EdgeHardnesses = GetMeshDescription()->EdgeAttributes().GetAttributesRef<bool>( MeshAttribute::Edge::IsHard );
 	for( const FEdgeID ConnectedEdgeID : GetMeshDescription()->GetVertex( VertexID ).ConnectedEdgeIDs )
 	{
 		if( !EdgeHardnesses[ ConnectedEdgeID ] )
@@ -5314,7 +5304,7 @@ void UEditableMesh::ExtrudePolygons( const TArray<FPolygonID>& PolygonIDs, const
 	AttributesForVertices.Reset();
 
 	// Get vertex position attribute array
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	const TVertexAttributesRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	// First, let's figure out which of the polygons we were asked to extrude share edges or vertices.  We'll keep those
 	// edges intact!
@@ -5620,7 +5610,7 @@ void UEditableMesh::ExtrudePolygons( const TArray<FPolygonID>& PolygonIDs, const
 			// All of the border edges of the new polygon will be hard.  If it was a shared edge, then we'll just preserve whatever was
 			// originally going on with the internal edge.
 			{
-				const TEdgeAttributeArray<bool>& EdgeHardnesses = GetMeshDescription()->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
+				const TEdgeAttributesRef<bool> EdgeHardnesses = GetMeshDescription()->EdgeAttributes().GetAttributesRef<bool>( MeshAttribute::Edge::IsHard );
 
 				const int32 NewPerimeterEdgeCount = this->GetPolygonPerimeterEdgeCount( ExtrudedFrontPolygonID );
 				check( NewPerimeterEdgeCount == GetPolygonPerimeterEdgeCount( PolygonID ) );	// New polygon should always have the same number of edges (in the same order) as the original!
@@ -5849,7 +5839,7 @@ void UEditableMesh::ExtendVertices( const TArray<FVertexID>& VertexIDs, const bo
 		static TArray<FPolygonToCreate> PolygonsToCreate;
 		PolygonsToCreate.Reset();
 
-		const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+		const TVertexAttributesRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 		for( int32 VertexNumber = 0; VertexNumber < VertexIDs.Num(); ++VertexNumber )
 		{
@@ -6030,7 +6020,7 @@ void UEditableMesh::BevelOrInsetPolygons( const TArray<FPolygonID>& PolygonIDs, 
 	static TArray<FAttributesForVertex> AttributesForVertices;
 	AttributesForVertices.Reset();
 
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	const TVertexAttributesRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	for( const FPolygonID PolygonID : PolygonIDs )
 	{
@@ -6310,7 +6300,7 @@ float UEditableMesh::GetPolygonCornerAngleForVertex( const FPolygonID PolygonID,
 		const FVertexID ThisVertexID = GetMeshDescription()->GetVertexInstanceVertex( Contour.VertexInstanceIDs[ ContourIndex ] );
 		const FVertexID NextVertexID = GetMeshDescription()->GetVertexInstanceVertex( Contour.VertexInstanceIDs[ NextIndex ] );
 
-		const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+		TVertexAttributesConstRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 		const FVector PrevVertexPosition = VertexPositions[ PrevVertexID ];
 		const FVector ThisVertexPosition = VertexPositions[ ThisVertexID ];
@@ -6356,15 +6346,15 @@ float UEditableMesh::GetPolygonCornerAngleForVertex( const FPolygonID PolygonID,
 
 void UEditableMesh::GeneratePolygonTangentsAndNormals( const TArray<FPolygonID>& PolygonIDs )
 {
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	const TVertexAttributesRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	// @todo mesheditor: currently hardcoded to calculate the tangent basis from UV0.
-	const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = GetMeshDescription()->VertexInstanceAttributes().GetAttributes<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate, 0 );
+	const TVertexInstanceAttributesRef<FVector2D> VertexUVs = GetMeshDescription()->VertexInstanceAttributes().GetAttributesRef<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate );
 
-	TPolygonAttributeArray<FVector>& PolygonNormals = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Normal );
-	TPolygonAttributeArray<FVector>& PolygonTangents = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Tangent );
-	TPolygonAttributeArray<FVector>& PolygonBinormals = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Binormal );
-	TPolygonAttributeArray<FVector>& PolygonCenters = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Center );
+	TPolygonAttributesRef<FVector> PolygonNormals = GetMeshDescription()->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Normal );
+	TPolygonAttributesRef<FVector> PolygonTangents = GetMeshDescription()->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Tangent );
+	TPolygonAttributesRef<FVector> PolygonBinormals = GetMeshDescription()->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Binormal );
+	TPolygonAttributesRef<FVector> PolygonCenters = GetMeshDescription()->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Center );
 
 	for( const FPolygonID PolygonID : PolygonIDs )
 	{
@@ -6391,8 +6381,8 @@ void UEditableMesh::GeneratePolygonTangentsAndNormals( const TArray<FPolygonID>&
 			const FVector DPosition1 = VertexPositions[ VertexID1 ] - VertexPositions[ VertexID0 ];
 			const FVector DPosition2 = VertexPositions[ VertexID2 ] - VertexPositions[ VertexID0 ];
 
-			const FVector2D DUV1 = VertexUVs[ Triangle.VertexInstanceID1 ] - VertexUVs[ Triangle.VertexInstanceID0 ];
-			const FVector2D DUV2 = VertexUVs[ Triangle.VertexInstanceID2 ] - VertexUVs[ Triangle.VertexInstanceID0 ];
+			const FVector2D DUV1 = VertexUVs.Get( Triangle.VertexInstanceID1, 0 ) - VertexUVs.Get( Triangle.VertexInstanceID0, 0 );
+			const FVector2D DUV2 = VertexUVs.Get( Triangle.VertexInstanceID2, 0 ) - VertexUVs.Get( Triangle.VertexInstanceID0, 0 );
 
 			// We have a left-handed coordinate system, but a counter-clockwise winding order
 			// Hence normal calculation has to take the triangle vectors cross product in reverse.
@@ -6416,9 +6406,9 @@ void UEditableMesh::GeneratePolygonTangentsAndNormals( const TArray<FPolygonID>&
 
 void UEditableMesh::GenerateTangentsAndNormals()
 {
-	const TPolygonAttributeArray<FVector>& PolygonNormals = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Normal );
-	const TPolygonAttributeArray<FVector>& PolygonTangents = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Tangent );
-	const TPolygonAttributeArray<FVector>& PolygonBinormals = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Binormal );
+	const TPolygonAttributesRef<FVector> PolygonNormals = GetMeshDescription()->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Normal );
+	const TPolygonAttributesRef<FVector> PolygonTangents = GetMeshDescription()->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Tangent );
+	const TPolygonAttributesRef<FVector> PolygonBinormals = GetMeshDescription()->PolygonAttributes().GetAttributesRef<FVector>( MeshAttribute::Polygon::Binormal );
 
 	GeneratePolygonTangentsAndNormals( PolygonsPendingNewTangentBasis.Array() );
 
@@ -7336,7 +7326,7 @@ void UEditableMesh::WeldVertices( const TArray<FVertexID>& VertexIDsToWeld, FVer
 		return;
 	}
 
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	const TVertexAttributesRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	// Create new welded vertex
 	static TArray<FVertexID> NewVertices;
@@ -7489,7 +7479,7 @@ void UEditableMesh::TessellatePolygons( const TArray<FPolygonID>& PolygonIDs, co
 
 	OutNewPolygonIDs.Reset();
 
-	const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	const TVertexAttributesRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 	//
 	// Simple tessellation algorithm:
@@ -7923,8 +7913,8 @@ void UEditableMesh::QuadrangulatePolygonGroup( const FPolygonGroupID PolygonGrou
 	{
 		float BestScore = TNumericLimits<float>::Max();
 
-		const TEdgeAttributeArray<bool>& EdgeHardnesses = GetMeshDescription()->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
-		const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+		const TEdgeAttributesRef<bool> EdgeHardnesses = GetMeshDescription()->EdgeAttributes().GetAttributesRef<bool>( MeshAttribute::Edge::IsHard );
+		const TVertexAttributesRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 		for( const FPolygonID PolygonID : PolygonIDs )
 		{
@@ -8312,7 +8302,7 @@ void UEditableMesh::UpdateOrRebuildOctree()
 
 			// Now, add new polygons to the octree
 			{
-				const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+				const TVertexAttributesRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 				for( const FPolygonID PolygonID : NewOctreePolygonIDs )
 				{
 					checkSlow( IsValidPolygon( PolygonID ) );
@@ -8381,7 +8371,7 @@ void UEditableMesh::RebuildOctree()
 		// @todo mesheditor spatial: We'll currently only ever find vertices and edges that are connected to polygons.  Our spatial
 		// database only tracks polygons.  Do we need to support hover/selection of "loose" vertices and edges also?
 
-		const TVertexAttributeArray<FVector>& VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+		const TVertexAttributesRef<FVector> VertexPositions = GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 		for( const FPolygonID PolygonID : GetMeshDescription()->Polygons().GetElementIDs() )
 		{
 			FBox BoundingBox;

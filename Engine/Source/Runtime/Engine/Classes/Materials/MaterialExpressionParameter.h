@@ -33,12 +33,13 @@ class UMaterialExpressionParameter : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionParameter)
 	int32 SortPriority;
 #endif
+	static FName ParameterDefaultName;
+
 
 #if WITH_EDITOR
 
 	//~ Begin UMaterialExpression Interface
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
-
 	virtual bool CanRenameNode() const override { return true; }
 	virtual FString GetEditableName() const override;
 	virtual void SetEditableName(const FString& NewName) override;
@@ -46,7 +47,7 @@ class UMaterialExpressionParameter : public UMaterialExpression
 	virtual bool HasAParameterName() const override { return true; }
 	virtual FName GetParameterName() const override { return ParameterName; }
 	virtual void SetParameterName(const FName& Name) override { ParameterName = Name; }
-
+	virtual void ValidateParameterName() override;
 #endif
 	//~ End UMaterialExpression Interface
 
@@ -63,7 +64,5 @@ class UMaterialExpressionParameter : public UMaterialExpression
 	 * Get list of parameter names for static parameter sets
 	 */
 	void GetAllParameterInfo(TArray<FMaterialParameterInfo> &OutParameterInfo, TArray<FGuid> &OutParameterIds, const FMaterialParameterInfo& InBaseParameterInfo) const;
+
 };
-
-
-

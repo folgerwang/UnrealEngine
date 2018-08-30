@@ -756,9 +756,16 @@ TSharedRef<class IStructureDetailsView> FPropertyEditorModule::CreateStructureDe
 					// Not an "asset" property, but it may still be a property using an asset class type (such as a raw pointer)
 					if( ObjectProperty->PropertyClass )
 					{
-						// We can use the asset tools module to see whether this type has asset actions (which likely means it's an asset class type)
-						FAssetToolsModule& AssetToolsModule = FAssetToolsModule::GetModule();
-						return AssetToolsModule.Get().GetAssetTypeActionsForClass(ObjectProperty->PropertyClass).IsValid();
+						if (ObjectProperty->HasMetaData(TEXT("AllowedClasses")))
+						{
+							return true;
+						}
+						else
+						{
+							// We can use the asset tools module to see whether this type has asset actions (which likely means it's an asset class type)
+							FAssetToolsModule& AssetToolsModule = FAssetToolsModule::GetModule();
+							return AssetToolsModule.Get().GetAssetTypeActionsForClass(ObjectProperty->PropertyClass).IsValid();
+						}
 					}
 				}
 

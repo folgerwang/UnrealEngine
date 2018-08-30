@@ -273,8 +273,10 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 			{
 				WidgetProperty->SetPropertyFlags(CPF_BlueprintVisible);
 
+				const FString& CategoryName = Widget->GetCategoryName();
+				
 				// Only include Category metadata for variables (i.e. a visible/editable property); otherwise, UHT will raise a warning if this Blueprint is nativized.
-				WidgetProperty->SetMetaData(TEXT("Category"), *WidgetBP->GetName());
+				WidgetProperty->SetMetaData(TEXT("Category"), *(CategoryName.IsEmpty() ? WidgetBP->GetName() : CategoryName));
 			}
 
 			WidgetProperty->SetPropertyFlags(CPF_Instanced);
@@ -285,19 +287,33 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 	}
 
 	// Add movie scenes variables here
-	for(UWidgetAnimation* Animation : WidgetBP->Animations)
+	for (UWidgetAnimation* Animation : WidgetBP->Animations)
 	{
+		UObjectPropertyBase* ExistingProperty = Cast<UObjectPropertyBase>(ParentClass->FindPropertyByName(Animation->GetFName()));
+		if (ExistingProperty &&
+			FWidgetBlueprintEditorUtils::IsBindWidgetAnimProperty(ExistingProperty) &&
+			ExistingProperty->PropertyClass->IsChildOf(UWidgetAnimation::StaticClass()))
+		{
+			WidgetAnimToMemberVariableMap.Add(Animation, ExistingProperty);
+			continue;
+		}
+
 		FEdGraphPinType WidgetPinType(UEdGraphSchema_K2::PC_Object, NAME_None, Animation->GetClass(), EPinContainerType::None, true, FEdGraphTerminalType());
 		UProperty* AnimationProperty = CreateVariable(Animation->GetFName(), WidgetPinType);
 
 		if ( AnimationProperty != nullptr )
 		{
+			const FString DisplayName = Animation->GetDisplayName().ToString();
+			AnimationProperty->SetMetaData(TEXT("DisplayName"), *DisplayName);
+
 			AnimationProperty->SetMetaData(TEXT("Category"), TEXT("Animations"));
 
 			AnimationProperty->SetPropertyFlags(CPF_Instanced);
 			AnimationProperty->SetPropertyFlags(CPF_BlueprintVisible);
 			AnimationProperty->SetPropertyFlags(CPF_BlueprintReadOnly);
 			AnimationProperty->SetPropertyFlags(CPF_RepSkip);
+
+			WidgetAnimToMemberVariableMap.Add(Animation, AnimationProperty);
 		}
 	}
 }
@@ -444,6 +460,7 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 {
 	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
 	UWidgetBlueprintGeneratedClass* BPGClass = CastChecked<UWidgetBlueprintGeneratedClass>(Class);
+	UClass* ParentClass = WidgetBP->ParentClass;
 
 	// Don't do a bunch of extra work on the skeleton generated class
 	if ( WidgetBP->SkeletonGeneratedClass != Class )
@@ -512,7 +529,6 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 		}
 
 		// Check that all BindWidget properties are present and of the appropriate type
-		UClass* ParentClass = WidgetBP->ParentClass;
 		for (TUObjectPropertyBase<UWidget*>* WidgetProperty : TFieldRange<TUObjectPropertyBase<UWidget*>>(ParentClass))
 		{
 			bool bIsOptional = false;
@@ -552,6 +568,35 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 				}
 			}
 		}
+
+		// Check that all BindWidgetAnim properties are present
+		for (TUObjectPropertyBase<UWidgetAnimation*>* WidgetAnimProperty : TFieldRange<TUObjectPropertyBase<UWidgetAnimation*>>(ParentClass))
+		{
+			bool bIsOptional = false;
+
+			if (FWidgetBlueprintEditorUtils::IsBindWidgetAnimProperty(WidgetAnimProperty, bIsOptional))
+			{
+				const FText OptionalBindingAvailableNote = LOCTEXT("OptionalWidgetAnimNotBound", "An optional widget animation binding @@ is available.");
+				const FText RequiredWidgetAnimNotBoundError = LOCTEXT("RequiredWidgetAnimNotBound", "A required widget animation binding @@ was not found.");
+
+				UWidgetAnimation* const* WidgetAnim = WidgetAnimToMemberVariableMap.FindKey(WidgetAnimProperty);
+				if (!WidgetAnim)
+				{
+					if (bIsOptional)
+					{
+						MessageLog.Note(*OptionalBindingAvailableNote.ToString(), WidgetAnimProperty);
+					}
+					else if (Blueprint->bIsNewlyCreated)
+					{
+						MessageLog.Warning(*RequiredWidgetAnimNotBoundError.ToString(), WidgetAnimProperty);
+					}
+					else
+					{
+						MessageLog.Error(*RequiredWidgetAnimNotBoundError.ToString(), WidgetAnimProperty);
+					}
+				}
+			}
+		}
 	}
 
 	Super::FinishCompilingClass(Class);
@@ -562,6 +607,7 @@ void FWidgetBlueprintCompiler::PostCompile()
 	Super::PostCompile();
 
 	WidgetToMemberVariableMap.Empty();
+	WidgetAnimToMemberVariableMap.Empty();
 
 	UWidgetBlueprintGeneratedClass* WidgetClass = NewWidgetBlueprintClass;
 

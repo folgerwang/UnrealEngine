@@ -19,12 +19,6 @@ UObject* USoundSourceBusFactory::FactoryCreateNew(UClass* InClass, UObject* InPa
 {
 	USoundSourceBus* SoundSourceBus = NewObject<USoundSourceBus>(InParent, InName, Flags);
 
-	FAudioDeviceManager* AudioDeviceManager = GEngine ? GEngine->GetAudioDeviceManager() : nullptr;
-	if (AudioDeviceManager)
-	{
-		AudioDeviceManager->InitSoundSubmixes();
-	}
-
 	return SoundSourceBus;
 }
 

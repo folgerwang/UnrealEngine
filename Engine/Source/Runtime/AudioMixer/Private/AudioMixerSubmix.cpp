@@ -21,6 +21,7 @@ namespace Audio
 		, NumSamples(0)
 		, SubmixAmbisonicsEncoderID(INDEX_NONE)
 		, SubmixAmbisonicsDecoderID(INDEX_NONE)
+		, EnvelopeNumChannels(0)
 		, bIsRecording(false)
 		, OwningSubmixObject(nullptr)
 	{
@@ -77,7 +78,7 @@ namespace Audio
 
 					FSubmixEffectInfo EffectInfo;
 					EffectInfo.PresetId = EffectPreset->GetUniqueID();
-					EffectInfo.EffectInstance = MakeShareable(SubmixEffect);
+					EffectInfo.EffectInstance = SubmixEffect;
 
 					// Add the effect to this submix's chain
 					EffectSubmixChain.Add(EffectInfo);
@@ -124,13 +125,13 @@ namespace Audio
 		}
 	}
 
-	void FMixerSubmix::SetParentSubmix(TSharedPtr<FMixerSubmix, ESPMode::ThreadSafe> Submix)
+	void FMixerSubmix::SetParentSubmix(TWeakPtr<FMixerSubmix, ESPMode::ThreadSafe> SubmixWeakPtr)
 	{
-		SubmixCommand([this, Submix]()
+		SubmixCommand([this, SubmixWeakPtr]()
 		{
 			AUDIO_MIXER_CHECK_AUDIO_PLAT_THREAD(MixerDevice);
 
-			ParentSubmix = Submix;
+			ParentSubmix = SubmixWeakPtr;
 
 			if (ChannelFormat == ESubmixChannelFormat::Ambisonics && AmbisonicsMixer.IsValid())
 			{
@@ -139,23 +140,27 @@ namespace Audio
 		});
 	}
 
-	void FMixerSubmix::AddChildSubmix(TSharedPtr<FMixerSubmix, ESPMode::ThreadSafe> Submix)
+	void FMixerSubmix::AddChildSubmix(TWeakPtr<FMixerSubmix, ESPMode::ThreadSafe> SubmixWeakPtr)
 	{
-		SubmixCommand([this, Submix]()
+		SubmixCommand([this, SubmixWeakPtr]()
 		{
 			AUDIO_MIXER_CHECK_AUDIO_PLAT_THREAD(MixerDevice);
 
 			FChildSubmixInfo NewChildSubmixInfo;
-			NewChildSubmixInfo.SubmixPtr = Submix;
+			NewChildSubmixInfo.SubmixPtr = SubmixWeakPtr;
 
 			//TODO: switch this conditionally when we are able to route submixes to ambisonics submix.
 			NewChildSubmixInfo.bNeedsAmbisonicsEncoding = false;
 
-			ChildSubmixes.Add(Submix->GetId(), NewChildSubmixInfo);
-			
-			if (ChannelFormat == ESubmixChannelFormat::Ambisonics && AmbisonicsMixer.IsValid())
+			TSharedPtr<Audio::FMixerSubmix, ESPMode::ThreadSafe> SubmixSharedPtr = SubmixWeakPtr.Pin();
+			if (SubmixSharedPtr.IsValid())
 			{
-				UpdateAmbisonicsEncoderForChildren();
+				ChildSubmixes.Add(SubmixSharedPtr->GetId(), NewChildSubmixInfo);
+
+				if (ChannelFormat == ESubmixChannelFormat::Ambisonics && AmbisonicsMixer.IsValid())
+				{
+					UpdateAmbisonicsEncoderForChildren();
+				}
 			}
 		});
 	}
@@ -165,7 +170,7 @@ namespace Audio
 		return ChannelFormat;
 	}
 
-	TSharedPtr<FMixerSubmix, ESPMode::ThreadSafe> FMixerSubmix::GetParentSubmix()
+	TWeakPtr<FMixerSubmix, ESPMode::ThreadSafe> FMixerSubmix::GetParentSubmix()
 	{
 		return ParentSubmix;
 	}
@@ -211,18 +216,28 @@ namespace Audio
 		AUDIO_MIXER_CHECK_AUDIO_PLAT_THREAD(MixerDevice);
 		
 		// If the source has a corresponding ambisonics encoder, close it out.
-		uint32 SourceEncoderID = MixerSourceVoices[InSourceVoice].AmbisonicsEncoderId;
+		uint32 SourceEncoderID = INDEX_NONE;
+		const FSubmixVoiceData* MixerSourceVoiceData = MixerSourceVoices.Find(InSourceVoice);
+		if (MixerSourceVoiceData)
+		{
+			SourceEncoderID = MixerSourceVoiceData->AmbisonicsEncoderId;
+		}
+		
 		if (SourceEncoderID != INDEX_NONE)
 		{
 			check(AmbisonicsMixer.IsValid());
 			AmbisonicsMixer->OnCloseEncodingStream(SourceEncoderID);
 		}
 
-		int32 NumRemoved = MixerSourceVoices.Remove(InSourceVoice);
-		AUDIO_MIXER_CHECK(NumRemoved == 1);
+		// If we did find a valid corresponding FSubmixVoiceData, remove it from the map.
+		if (MixerSourceVoiceData)
+		{
+			int32 NumRemoved = MixerSourceVoices.Remove(InSourceVoice);
+			AUDIO_MIXER_CHECK(NumRemoved == 1);
+		}
 	}
 
-	void FMixerSubmix::AddSoundEffectSubmix(uint32 SubmixPresetId, FSoundEffectSubmixPtr InSoundEffectSubmix)
+	void FMixerSubmix::AddSoundEffectSubmix(uint32 SubmixPresetId, FSoundEffectSubmix* InSoundEffectSubmix)
 	{
 		AUDIO_MIXER_CHECK_AUDIO_PLAT_THREAD(MixerDevice);
 
@@ -253,8 +268,12 @@ namespace Audio
 			// If the ID's match, delete and remove the effect instance but don't modify the effect submix chain array itself
 			if (EffectSubmixChain[i].PresetId == SubmixPresetId)
 			{
-				// Release the reference to the effect instance
-				EffectSubmixChain[i].EffectInstance = nullptr;
+				// Delete the reference to the effect instance
+				if (EffectSubmixChain[i].EffectInstance)
+				{
+					delete EffectSubmixChain[i].EffectInstance;
+					EffectSubmixChain[i].EffectInstance = nullptr;
+				}
 				EffectSubmixChain[i].PresetId = INDEX_NONE;
 				return;
 			}
@@ -264,6 +283,17 @@ namespace Audio
 
 	void FMixerSubmix::ClearSoundEffectSubmixes()
 	{
+		for (FSubmixEffectInfo& Info : EffectSubmixChain)
+		{
+			if (Info.EffectInstance)
+			{
+				Info.EffectInstance->UnregisterWithPreset();
+
+				delete Info.EffectInstance;
+				Info.EffectInstance = nullptr;
+			}
+		}
+
 		EffectSubmixChain.Reset();
 	}
 
@@ -391,10 +421,12 @@ namespace Audio
 		{
 			FChildSubmixInfo& ChildSubmix = Iter.Value;
 
+			TSharedPtr<Audio::FMixerSubmix, ESPMode::ThreadSafe> SubmixPtr = ChildSubmix.SubmixPtr.Pin();
+
 			//Check to see if this child is an ambisonics submix.
-			if (ChildSubmix.SubmixPtr.IsValid() && ChildSubmix.SubmixPtr->GetSubmixChannels() == ESubmixChannelFormat::Ambisonics)
+			if (SubmixPtr.IsValid() && SubmixPtr->GetSubmixChannels() == ESubmixChannelFormat::Ambisonics)
 			{
-				UAmbisonicsSubmixSettingsBase* ChildAmbisonicsSettings = ChildSubmix.SubmixPtr->AmbisonicsSettings;
+				UAmbisonicsSubmixSettingsBase* ChildAmbisonicsSettings = SubmixPtr->AmbisonicsSettings;
 
 				//Check if this child submix needs to be reencoded.
 				if (!ChildAmbisonicsSettings || AmbisonicsMixer->ShouldReencodeBetween(ChildAmbisonicsSettings, AmbisonicsSettings))
@@ -426,9 +458,13 @@ namespace Audio
 	{
 		UAmbisonicsSubmixSettingsBase* ParentAmbisonicsSettings = nullptr;
 
-		if (ParentSubmix.IsValid() && ParentSubmix->GetSubmixChannels() == ESubmixChannelFormat::Ambisonics)
+		TSharedPtr<FMixerSubmix, ESPMode::ThreadSafe> ParentSubmixSharedPtr = ParentSubmix.Pin();
+		if (ParentSubmixSharedPtr.IsValid())
 		{
-			ParentAmbisonicsSettings = ParentSubmix->AmbisonicsSettings;
+			if (ParentSubmixSharedPtr->GetSubmixChannels() == ESubmixChannelFormat::Ambisonics)
+			{
+				ParentAmbisonicsSettings = ParentSubmixSharedPtr->AmbisonicsSettings;
+			}
 		}
 
 		// If we need to reencode between here and the parent submix, set up the submix decoder.
@@ -445,9 +481,10 @@ namespace Audio
 	void FMixerSubmix::SetUpAmbisonicsPositionalData()
 	{
 		// If there is a parent and we are not passing it this submix's ambisonics audio, retrieve that submix's channel format.
-		if (ParentSubmix.IsValid())
+		TSharedPtr<Audio::FMixerSubmix, ESPMode::ThreadSafe> ParentSubmixSharedPtr = ParentSubmix.Pin();
+		if (ParentSubmixSharedPtr.IsValid())
 		{
-			const ESubmixChannelFormat ParentSubmixFormat = ParentSubmix->GetSubmixChannels();
+			const ESubmixChannelFormat ParentSubmixFormat = ParentSubmixSharedPtr->GetSubmixChannels();
 
 			const int32 NumParentChannels = MixerDevice->GetNumChannelsForSubmixFormat(ParentSubmixFormat);
 			CachedPositionalData.OutputNumChannels = NumParentChannels;
@@ -523,27 +560,27 @@ namespace Audio
 			SCOPE_CYCLE_COUNTER(STAT_AudioMixerSubmixChildren);
 
 			// First loop this submix's child submixes mixing in their output into this submix's dry/wet buffers.
-			for (auto ChildSubmixEntry : ChildSubmixes)
+			for (auto& ChildSubmixEntry : ChildSubmixes)
 			{
-				TSharedPtr<Audio::FMixerSubmix, ESPMode::ThreadSafe> ChildSubmix = ChildSubmixEntry.Value.SubmixPtr;
-
-				AUDIO_MIXER_CHECK(ChildSubmix.IsValid());
-				
-				ScratchBuffer.Reset(NumSamples);
-				ScratchBuffer.AddZeroed(NumSamples);
-
-				ChildSubmix->ProcessAudio(ChannelFormat, ScratchBuffer);
-
-				float* ScratchBufferPtr = ScratchBuffer.GetData();
-
-				if (ChildSubmixEntry.Value.bNeedsAmbisonicsEncoding)
+				TSharedPtr<Audio::FMixerSubmix, ESPMode::ThreadSafe> ChildSubmix = ChildSubmixEntry.Value.SubmixPtr.Pin();
+				if (ChildSubmix.IsValid())
 				{
-					// Encode into ambisonics. TODO: Implement.
-					EncodeAndMixInChildSubmix(ChildSubmixEntry.Value);
-				}
-				else
-				{
-					Audio::MixInBufferFast(ScratchBufferPtr, BufferPtr, NumSamples);
+					ScratchBuffer.Reset(NumSamples);
+					ScratchBuffer.AddZeroed(NumSamples);
+
+					ChildSubmix->ProcessAudio(ChannelFormat, ScratchBuffer);
+
+					float* ScratchBufferPtr = ScratchBuffer.GetData();
+
+					if (ChildSubmixEntry.Value.bNeedsAmbisonicsEncoding)
+					{
+						// Encode into ambisonics. TODO: Implement.
+						EncodeAndMixInChildSubmix(ChildSubmixEntry.Value);
+					}
+					else
+					{
+						Audio::MixInBufferFast(ScratchBufferPtr, BufferPtr, NumSamples);
+					}
 				}
 			}
 		}
@@ -583,7 +620,7 @@ namespace Audio
 
 			for (FSubmixEffectInfo& SubmixEffectInfo : EffectSubmixChain)
 			{
-				FSoundEffectSubmixPtr SubmixEffect = SubmixEffectInfo.EffectInstance;
+				FSoundEffectSubmix* SubmixEffect = SubmixEffectInfo.EffectInstance;
 
 				// Reset the output scratch buffer
 				ScratchBuffer.Reset(NumSamples);
@@ -635,6 +672,39 @@ namespace Audio
 			FMemory::Memcpy((void*)OutAudioBuffer.GetData(), (void*)InputBuffer.GetData(), sizeof(float)*NumSamples);
 		}
 
+		// Perform any envelope following if we're told to do so
+		if (bIsEnvelopeFollowing)
+		{
+			const int32 OutBufferSamples = OutAudioBuffer.Num();
+			const float* OutAudioBufferPtr = OutAudioBuffer.GetData();
+
+			float TempEnvelopeValues[AUDIO_MIXER_MAX_OUTPUT_CHANNELS];
+			FMemory::Memset(TempEnvelopeValues, sizeof(float)*AUDIO_MIXER_MAX_OUTPUT_CHANNELS);
+
+			// Perform envelope following per channel
+			for (int32 ChannelIndex = 0; ChannelIndex < NumChannels; ++ChannelIndex)
+			{
+				// Get the envelope follower for the channel
+				FEnvelopeFollower& EnvFollower = EnvelopeFollowers[ChannelIndex];
+
+				// Track the last sample
+				for (int32 SampleIndex = ChannelIndex; SampleIndex < OutBufferSamples; SampleIndex += NumChannels)
+				{
+					const float SampleValue = OutAudioBufferPtr[SampleIndex];
+					EnvFollower.ProcessAudio(SampleValue);
+				}
+
+				// Store the last value
+				TempEnvelopeValues[ChannelIndex] = EnvFollower.GetCurrentValue();
+			}
+
+			FScopeLock EnvelopeScopeLock(&EnvelopeCriticalSection);
+
+			EnvelopeNumChannels = NumChannels;
+			FMemory::Memcpy(EnvelopeValues, TempEnvelopeValues, sizeof(float)*AUDIO_MIXER_MAX_OUTPUT_CHANNELS);
+		}
+
+
 		// Now loop through any buffer listeners and feed the listeners the result of this audio callback
 		{
 			double AudioClock = MixerDevice->GetAudioTime();
@@ -642,6 +712,7 @@ namespace Audio
 			FScopeLock Lock(&BufferListenerCriticalSection);
 			for (ISubmixBufferListener* BufferListener : BufferListeners)
 			{
+				check(BufferListener);
 				BufferListener->OnNewSubmixBuffer(OwningSubmixObject, OutAudioBuffer.GetData(), OutAudioBuffer.Num(), NumChannels, SampleRate, AudioClock);
 			}
 		}
@@ -662,7 +733,7 @@ namespace Audio
 		return EffectSubmixChain.Num();
 	}
 
-	FSoundEffectSubmixPtr FMixerSubmix::GetSubmixEffect(const int32 InIndex)
+	FSoundEffectSubmix* FMixerSubmix::GetSubmixEffect(const int32 InIndex)
 	{
 		if (InIndex < EffectSubmixChain.Num())
 		{
@@ -735,13 +806,64 @@ namespace Audio
 	void FMixerSubmix::RegisterBufferListener(ISubmixBufferListener* BufferListener)
 	{
 		FScopeLock Lock(&BufferListenerCriticalSection);
+		check(BufferListener);
 		BufferListeners.AddUnique(BufferListener);
 	}
 
 	void FMixerSubmix::UnregisterBufferListener(ISubmixBufferListener* BufferListener)
 	{
 		FScopeLock Lock(&BufferListenerCriticalSection);
+		check(BufferListener);
 		BufferListeners.Remove(BufferListener);
+	}
+	void FMixerSubmix::StartEnvelopeFollowing(int32 AttackTime, int32 ReleaseTime)
+	{
+		if (!bIsEnvelopeFollowing)
+		{
+			// Zero out any previous envelope values which may have been in the array before starting up
+			for (int32 ChannelIndex = 0; ChannelIndex < AUDIO_MIXER_MAX_OUTPUT_CHANNELS; ++ChannelIndex)
+			{
+				EnvelopeValues[ChannelIndex] = 0.0f;
+				EnvelopeFollowers[ChannelIndex].Init(GetSampleRate(), AttackTime, ReleaseTime);
+			}
+
+			bIsEnvelopeFollowing = true;
+		}
+	}
+
+	void FMixerSubmix::StopEnvelopeFollowing()
+	{
+		bIsEnvelopeFollowing = false;
+	}
+
+	void FMixerSubmix::AddEnvelopeFollowerDelegate(const FOnSubmixEnvelopeBP& OnSubmixEnvelopeBP)
+	{
+		OnSubmixEnvelope.AddUnique(OnSubmixEnvelopeBP);
+	}
+
+	void FMixerSubmix::BroadcastEnvelope()
+	{
+
+		if (bIsEnvelopeFollowing)
+		{
+			// Get the envelope data
+			TArray<float> EnvelopeData;
+
+			{
+				// Make the copy of the envelope values using a critical section
+				FScopeLock EnvelopeScopeLock(&EnvelopeCriticalSection);
+
+				EnvelopeData.AddUninitialized(EnvelopeNumChannels);
+				FMemory::Memcpy(EnvelopeData.GetData(), EnvelopeValues, sizeof(float)*EnvelopeNumChannels);
+			}
+
+			// Broadcast to any bound delegates
+			if (OnSubmixEnvelope.IsBound())
+			{
+				OnSubmixEnvelope.Broadcast(EnvelopeData);
+			}
+
+		}
 	}
 
 }

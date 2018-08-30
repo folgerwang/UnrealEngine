@@ -117,7 +117,7 @@ namespace FbxAnimUtils
 				{
 					FbxImporter->MergeAllLayerAnimation(AnimStack, FbxTime::GetFrameRate(FbxImporter->Scene->GetGlobalSettings().GetTimeMode()));
 
-					FbxTimeSpan AnimTimeSpan = FbxImporter->GetAnimationTimeSpan(FbxImporter->Scene->GetRootNode(), AnimStack, DEFAULT_SAMPLERATE);
+					FbxTimeSpan AnimTimeSpan = FbxImporter->GetAnimationTimeSpan(FbxImporter->Scene->GetRootNode(), AnimStack);
 
 					// Grab the start time, as we might have a preroll
 					OutPreRoll = FMath::Abs((float)AnimTimeSpan.GetStart().GetSecondDouble());

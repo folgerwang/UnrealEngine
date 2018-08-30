@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -19,15 +19,14 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef _SDL_kmsdrmdyn_h
-#define _SDL_kmsdrmdyn_h
+#ifndef SDL_kmsdrmdyn_h_
+#define SDL_kmsdrmdyn_h_
 
 #include "../../SDL_internal.h"
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <gbm.h>
-#include <EGL/egl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,6 +48,6 @@ void SDL_KMSDRM_UnloadSymbols(void);
 }
 #endif
 
-#endif /* !defined _SDL_kmsdrmdyn_h */
+#endif /* SDL_kmsdrmdyn_h_ */
 
 /* vi: set ts=4 sw=4 expandtab: */

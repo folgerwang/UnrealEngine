@@ -3227,7 +3227,7 @@ void SDesignerView::HandleOnCommonResolutionSelected(FPlayScreenResolution InRes
 
 	ScaleFactor = 1.0f;
 	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
-	UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PreviewOverrideName, false);
+	const UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PreviewOverrideName, false);
 	if (DeviceProfile)
 	{
 		PlayInSettings->RescaleForMobilePreview(DeviceProfile, PreviewWidth, PreviewHeight, ScaleFactor);
@@ -3547,6 +3547,17 @@ FReply SDesignerView::HandleSwapAspectRatioClicked()
 	int32 OldPreviewHeight = PreviewHeight;
 	PreviewHeight = PreviewWidth;
 	PreviewWidth = OldPreviewHeight;
+
+	ScaleFactor = 1.0f;
+	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
+	const UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PreviewOverrideName, false);
+
+	// Rescale the swapped sizes if we are on Android
+	if (DeviceProfile && DeviceProfile->DeviceType == TEXT("Android"))
+	{
+		PlayInSettings->RescaleForMobilePreview(DeviceProfile, PreviewWidth, PreviewHeight, ScaleFactor);
+	}
+
 	bPreviewIsPortrait = (PreviewHeight > PreviewWidth);
 	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewWidth"), PreviewWidth, GEditorPerProjectIni);
 	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewHeight"), PreviewHeight, GEditorPerProjectIni);

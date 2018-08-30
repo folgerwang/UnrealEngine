@@ -49,7 +49,8 @@ int wmain(int argc, wchar_t **argv) {
   }
 
   PDBSourceLineWriter writer;
-  bool cfi = true;
+  // Disable CFI
+  bool cfi = false;
   bool handle_inter_cu_refs = true;
   if (!writer.Open(wstring(argv[1]), PDBSourceLineWriter::ANY_FILE)) {
     std::vector<string> debug_dirs;

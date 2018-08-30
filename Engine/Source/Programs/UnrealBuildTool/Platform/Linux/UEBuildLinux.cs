@@ -156,8 +156,8 @@ namespace UnrealBuildTool
 			// check if OS update invalidated our build
 			Target.bCheckSystemHeadersForModification = (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux);
 
-			// At the moment ICU has not been compiled for AArch64 and i686. Also, localization isn't needed on servers by default, and ICU is pretty heavy
-			if (Target.Architecture.StartsWith("aarch64") || Target.Architecture.StartsWith("i686") || Target.Type == TargetType.Server)
+			// At the moment ICU has not been compiled for AArch64 and i686.
+			if (Target.Architecture.StartsWith("aarch64") || Target.Architecture.StartsWith("i686"))
 			{
 				Target.bCompileICU = false;
 			}
@@ -182,9 +182,10 @@ namespace UnrealBuildTool
 
 		public override bool CanUseXGE()
 		{
-			// XGE crashes with very high probability when v8_clang-3.9.0-centos cross-toolchain is used on Windows. Please make sure this is resolved before re-enabling it.
 			// [RCL] 2018-05-02: disabling XGE even during a native build because the support is not ready and you can have mysterious build failures when ib_console is installed.
-			return false;//BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux;
+			// [RCL] 2018-07-10: enabling XGE for Windows to see if the crash from 2016 still persists. Please disable if you see spurious build errors that don't repro without XGE
+			// [bschaefer] 2018-08-24: disabling XGE due to a bug where XGE seems to be lower casing folders names that are headers ie. misc/Header.h vs Misc/Header.h
+			return false;//BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64;
 		}
 
 		public override bool CanUseParallelExecutor()

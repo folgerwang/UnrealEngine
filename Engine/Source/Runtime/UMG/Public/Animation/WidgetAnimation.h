@@ -30,6 +30,18 @@ public:
 	 * @return Placeholder animation.
 	 */
 	static UMG_API UWidgetAnimation* GetNullAnimation();
+
+	/** @return The friendly name of the animation */
+	UMG_API const FString& GetDisplayLabel() const
+	{
+		return DisplayLabel;
+	}
+
+	/** Sets the friendly name of the animation to display in the editor */
+	UMG_API void SetDisplayLabel(const FString& InDisplayLabel);
+
+	/** Returns the DisplayLabel if set, otherwise the object name */
+	UMG_API virtual FText GetDisplayName() const override;
 #endif
 
 	/**
@@ -100,4 +112,8 @@ private:
 	/** Whether to finish evaluation on stop. This legacy value is to preserve existing asset behavior to NOT finish on stop since content was created with this bug. If this is removed, evaluation should always finish on stop. */
 	UPROPERTY()
 	bool bLegacyFinishOnStop;
+
+	/** The friendly name for this animation displayed in the designer. */
+	UPROPERTY()
+	FString DisplayLabel;
 };
