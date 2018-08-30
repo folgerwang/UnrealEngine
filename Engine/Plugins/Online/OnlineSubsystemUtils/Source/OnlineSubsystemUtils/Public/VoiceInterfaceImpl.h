@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
 #include "Interfaces/VoiceInterface.h"
 #include "Net/VoiceDataCommon.h"
@@ -13,8 +14,8 @@
  * The generic implementation of the voice interface 
  */
 
-class ONLINESUBSYSTEMUTILS_API FOnlineVoiceImpl : public IOnlineVoice
-{
+class ONLINESUBSYSTEMUTILS_API FOnlineVoiceImpl : public IOnlineVoice {
+protected:
 	/** Reference to the main online subsystem */
 	class IOnlineSubsystem* OnlineSubsystem;
 	/** Reference to the sessions interface */
@@ -34,9 +35,10 @@ class ONLINESUBSYSTEMUTILS_API FOnlineVoiceImpl : public IOnlineVoice
 	/** State of all possible remote talkers */
 	TArray<FRemoteTalker> RemoteTalkers;
 	/** Remote players locally muted explicitly */
-	TArray<FUniqueNetIdString> SystemMuteList;
+
+	TArray<FUniqueNetIdWrapper> SystemMuteList;
 	/** All remote players locally muted (super set of SystemMuteList) */
-	TArray<FUniqueNetIdString> MuteList;
+	TArray<FUniqueNetIdWrapper> MuteList;
 
 	/** Time to wait for new data before triggering "not talking" */
 	float VoiceNotificationDelta;
@@ -51,7 +53,7 @@ class ONLINESUBSYSTEMUTILS_API FOnlineVoiceImpl : public IOnlineVoice
 	 *
 	 * @return pointer to the remote talker or NULL if not found
 	 */
-	struct FRemoteTalker* FindRemoteTalker(const FUniqueNetId& UniqueId);
+	virtual struct FRemoteTalker* FindRemoteTalker(const FUniqueNetId& UniqueId);
 
 	/**
 	 * Is a given id presently muted (either by system mute or game server)
@@ -60,7 +62,7 @@ class ONLINESUBSYSTEMUTILS_API FOnlineVoiceImpl : public IOnlineVoice
 	 *
 	 * @return true if the net id is muted at all, false otherwise
 	 */
-	bool IsLocallyMuted(const FUniqueNetId& UniqueId) const;
+	virtual bool IsLocallyMuted(const FUniqueNetId& UniqueId) const;
 
 	/**
 	 * Does a given id exist in the system wide mute list
@@ -69,7 +71,7 @@ class ONLINESUBSYSTEMUTILS_API FOnlineVoiceImpl : public IOnlineVoice
 	 *
 	 * @return true if the net id is on the system wide mute list, false otherwise
 	 */
-	bool IsSystemWideMuted(const FUniqueNetId& UniqueId) const;
+	virtual bool IsSystemWideMuted(const FUniqueNetId& UniqueId) const;
 
 PACKAGE_SCOPE:
 
@@ -85,29 +87,31 @@ PACKAGE_SCOPE:
 
 	// IOnlineVoice
 	virtual bool Init() override;
-	void ProcessMuteChangeNotification() override;
+	virtual void ProcessMuteChangeNotification() override;
+
+	virtual IVoiceEnginePtr CreateVoiceEngine() override;
 
 	/**
 	 * Cleanup voice interface
 	 */
-	void Shutdown();
+	virtual void Shutdown();
 
 	/**
 	 * Processes any talking delegates that need to be fired off
 	 *
 	 * @param DeltaTime the amount of time that has elapsed since the last tick
 	 */
-	void ProcessTalkingDelegates(float DeltaTime);
+	virtual void ProcessTalkingDelegates(float DeltaTime);
 
 	/**
 	 * Reads any data that is currently queued
 	 */
-	void ProcessLocalVoicePackets();
+	virtual void ProcessLocalVoicePackets();
 
 	/**
 	 * Submits network packets to audio system for playback
 	 */
-	void ProcessRemoteVoicePackets();
+	virtual void ProcessRemoteVoicePackets();
 
 	/**
 	 * Figures out which remote talkers need to be muted for a given local talker
@@ -115,7 +119,7 @@ PACKAGE_SCOPE:
 	 * @param TalkerIndex the talker that needs the mute list checked for
 	 * @param PlayerController the player controller associated with this talker
 	 */
-	void UpdateMuteListForLocalTalker(int32 TalkerIndex, class APlayerController* PlayerController);
+	virtual void UpdateMuteListForLocalTalker(int32 TalkerIndex, class APlayerController* PlayerController);
 
 public:
 

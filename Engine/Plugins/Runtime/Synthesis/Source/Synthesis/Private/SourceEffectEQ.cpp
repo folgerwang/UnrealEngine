@@ -6,14 +6,16 @@
 
 FSourceEffectEQ::FSourceEffectEQ()
 	: SampleRate(0)
+	, NumChannels(0)
 {
 	FMemory::Memzero((void*)InAudioFrame, sizeof(float)*2);
 	FMemory::Memzero((void*)OutAudioFrame, sizeof(float)*2);
 }
 
-void FSourceEffectEQ::Init(const FSoundEffectSourceInitData& InSampleRate)
+void FSourceEffectEQ::Init(const FSoundEffectSourceInitData& InitData)
 {
-	SampleRate = InSampleRate.SampleRate;
+	SampleRate = InitData.SampleRate;
+	NumChannels = InitData.NumSourceChannels;
 }
 
 void FSourceEffectEQ::OnPresetChanged() 
@@ -32,7 +34,7 @@ void FSourceEffectEQ::OnPresetChanged()
 		// Now initialize the new filters
 		for (; i < Filters.Num(); ++i)
 		{
-			Filters[i].Init(SampleRate, 2, Audio::EBiquadFilter::ParametricEQ);
+			Filters[i].Init(SampleRate, NumChannels, Audio::EBiquadFilter::ParametricEQ);
 		}
 	}
 	else
@@ -54,58 +56,24 @@ void FSourceEffectEQ::OnPresetChanged()
 		Filters[i].SetEnabled(EQBandSetting.bEnabled);
 		Filters[i].SetParams(Audio::EBiquadFilter::ParametricEQ, FMath::Max(20.0f, EQBandSetting.Frequency), EQBandSetting.Bandwidth, EQBandSetting.GainDb);
 	}
-
 }
 
-void FSourceEffectEQ::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectEQ::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	const int32 NumChannels = InData.AudioFrame.Num();
+	float* InAudioBufferData = InData.InputSourceEffectBufferPtr;
+
 	if (Filters.Num() == 0)
 	{
-		for (int32 Channel = 0; Channel < NumChannels; ++Channel)
-		{
-			OutData.AudioFrame[Channel] = InData.AudioFrame[Channel];
-		}
+		FMemory::Memcpy(OutAudioBufferData, InAudioBufferData, sizeof(float)*InData.NumSamples);
+		return;
 	}
 
-	if (NumChannels == 2)
+	for (int32 FilterIndex = 0; FilterIndex < Filters.Num(); ++FilterIndex)
 	{
-		for (int32 Channel = 0; Channel < 2; ++Channel)
-		{
-			InAudioFrame[Channel] = InData.AudioFrame[Channel];
-		}
-
-		for (int32 i = 0; i < Filters.Num(); ++i)
-		{
-			Filters[i].ProcessAudioFrame(InAudioFrame, OutData.AudioFrame.GetData());
-
-			for (int32 Channel = 0; Channel < 2; ++Channel)
-			{
-				InAudioFrame[Channel] = OutData.AudioFrame[Channel];
-			}
-		}
-	}
-	else
-	{
-		InAudioFrame[0] = 0.5f * InData.AudioFrame[0];
-		InAudioFrame[1] = InAudioFrame[0];
-		OutAudioFrame[0] = 0.0f;
-		OutAudioFrame[1] = 0.0f;
-
-		for (int32 i = 0; i < Filters.Num(); ++i)
-		{
-			Filters[i].ProcessAudioFrame(InAudioFrame, OutAudioFrame);
-
-			for (int32 Channel = 0; Channel < 2; ++Channel)
-			{
-				InAudioFrame[Channel] = OutAudioFrame[Channel];
-			}
-		}
-
-		OutData.AudioFrame[0] = OutAudioFrame[0];
+		Filters[FilterIndex].ProcessAudio(InAudioBufferData, InData.NumSamples, InAudioBufferData);
 	}
 
-
+	FMemory::Memcpy(OutAudioBufferData, InAudioBufferData, sizeof(float)*InData.NumSamples);
 }
 
 void USourceEffectEQPreset::SetSettings(const FSourceEffectEQSettings& InSettings)

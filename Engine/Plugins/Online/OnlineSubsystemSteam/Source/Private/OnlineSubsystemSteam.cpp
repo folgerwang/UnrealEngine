@@ -29,6 +29,7 @@
 #include "OnlineExternalUIInterfaceSteam.h"
 #include "OnlineAchievementsInterfaceSteam.h"
 #include "OnlineAuthInterfaceSteam.h"
+#include "VoiceInterfaceSteam.h"
 
 
 #if !UE_BUILD_SHIPPING
@@ -234,6 +235,16 @@ IOnlineLeaderboardsPtr FOnlineSubsystemSteam::GetLeaderboardsInterface() const
 
 IOnlineVoicePtr FOnlineSubsystemSteam::GetVoiceInterface() const
 {
+	if (VoiceInterface.IsValid() && !bVoiceInterfaceInitialized)
+	{
+		if (!VoiceInterface->Init())
+		{
+			VoiceInterface = nullptr;
+		}
+
+		bVoiceInterfaceInitialized = true;
+	}
+
 	return VoiceInterface;
 }
 
@@ -341,7 +352,7 @@ bool FOnlineSubsystemSteam::Tick(float DeltaTime)
 		SessionInterface->Tick(DeltaTime);
 	}
 
-	if (VoiceInterface.IsValid())
+	if (VoiceInterface.IsValid() && bVoiceInterfaceInitialized)
 	{
 		VoiceInterface->Tick(DeltaTime);
 	}
@@ -403,10 +414,6 @@ bool FOnlineSubsystemSteam::Init()
 			SharedCloudInterface = MakeShareable(new FOnlineSharedCloudSteam(this));
 			LeaderboardsInterface = MakeShareable(new FOnlineLeaderboardsSteam(this));
 			VoiceInterface = MakeShareable(new FOnlineVoiceSteam(this));
-			if (!VoiceInterface->Init())
-			{
-				VoiceInterface = nullptr;
-			}
 			ExternalUIInterface = MakeShareable(new FOnlineExternalUISteam(this));
 			AchievementsInterface = MakeShareable(new FOnlineAchievementsSteam(this));
 
@@ -450,7 +457,11 @@ bool FOnlineSubsystemSteam::Shutdown()
 		delete OnlineAsyncTaskThreadRunnable;
 		OnlineAsyncTaskThreadRunnable = nullptr;
 	}
-	
+
+	if (VoiceInterface.IsValid() && bVoiceInterfaceInitialized) {
+		VoiceInterface->Shutdown();
+	}
+
 #define DESTRUCT_INTERFACE(Interface) \
 	if (Interface.IsValid()) \
 	{ \

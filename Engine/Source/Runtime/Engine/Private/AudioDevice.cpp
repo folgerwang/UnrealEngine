@@ -4898,12 +4898,24 @@ void FAudioDevice::RegisterSoundClass(USoundClass* InSoundClass)
 	}
 }
 
-void FAudioDevice::UnregisterSoundClass(USoundClass* SoundClass)
+void FAudioDevice::UnregisterSoundClass(USoundClass* InSoundClass)
 {
-	check(IsInAudioThread());
-	if (SoundClass)
+	if (InSoundClass)
 	{
-		SoundClasses.Remove(SoundClass);
+		if (!IsInAudioThread())
+		{
+			DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.UnregisterSoundClass"), STAT_AudioUnregisterSoundClass, STATGROUP_AudioThreadCommands);
+
+			FAudioDevice* AudioDevice = this;
+			FAudioThread::RunCommandOnAudioThread([AudioDevice, InSoundClass]()
+			{
+				AudioDevice->UnregisterSoundClass(InSoundClass);
+			}, GET_STATID(STAT_AudioUnregisterSoundClass));
+
+			return;
+		}
+
+		SoundClasses.Remove(InSoundClass);
 	}
 }
 

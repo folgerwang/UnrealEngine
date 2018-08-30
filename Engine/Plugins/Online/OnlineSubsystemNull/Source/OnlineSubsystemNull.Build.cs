@@ -10,14 +10,19 @@ public class OnlineSubsystemNull : ModuleRules
 		PrivateDefinitions.Add("ONLINESUBSYSTEMNULL_PACKAGE=1");
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PrivateDependencyModuleNames.AddRange(
+        PublicDependencyModuleNames.AddRange(
+            new string[] {
+                "OnlineSubsystemUtils"
+            }
+            );
+
+        PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core", 
 				"CoreUObject", 
 				"Engine", 
 				"Sockets", 
 				"OnlineSubsystem", 
-				"OnlineSubsystemUtils",
 				"Json"
 			}
 			);

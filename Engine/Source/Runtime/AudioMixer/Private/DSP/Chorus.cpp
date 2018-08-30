@@ -11,6 +11,8 @@ namespace Audio
 		, Spread(0.0f)
 		, MaxFrequencySpread(10.0f)
 		, WetLevel(0.5f)
+		, DryLevel(0.5f)
+		, NumChannels(0)
 	{
 		FMemory::Memzero(Feedback, sizeof(float)*EChorusDelays::NumDelayTypes);
 	}
@@ -19,8 +21,10 @@ namespace Audio
 	{
 	}
 
-	void FChorus::Init(const float InSampleRate, const float InBufferLengthSec, const int32 InControlSamplePeriod)
+	void FChorus::Init(const float InSampleRate, const int32 InNumChannels, const float InBufferLengthSec, const int32 InControlSamplePeriod)
 	{
+		NumChannels = InNumChannels;
+
 		for (int32 i = 0; i < EChorusDelays::NumDelayTypes; ++i)
 		{
 			Delays[i].Init(InSampleRate, InBufferLengthSec);
@@ -55,6 +59,11 @@ namespace Audio
 		WetLevel = InWetLevel;
 	}
 
+	void FChorus::SetDryLevel(const float InDryLevel)
+	{
+		DryLevel = InDryLevel;
+	}
+
 	void FChorus::SetSpread(const float InSpread)
 	{
 		Spread = FMath::Clamp(InSpread, 0.0f, 1.0f);
@@ -66,7 +75,7 @@ namespace Audio
 		LFOs[EChorusDelays::Right].Update();
 	}
 
-	void FChorus::ProcessAudio(const float InLeft, const float InRight, float& OutLeft, float& OutRight)
+	void FChorus::ProcessAudioFrame(const float* InFrame, float* OutFrame)
 	{
 		float LFONormalPhaseOut = 0.0f;
 		float LFOQuadPhaseOut = 0.0f;
@@ -102,9 +111,18 @@ namespace Audio
 
 		float DelayInputs[EChorusDelays::NumDelayTypes];
 
-		DelayInputs[EChorusDelays::Left] = InLeft;
-		DelayInputs[EChorusDelays::Center] = 0.5f * InLeft + 0.5f * InRight;
-		DelayInputs[EChorusDelays::Right] = InRight;
+		if (NumChannels == 2)
+		{
+			DelayInputs[EChorusDelays::Left] = InFrame[0];
+			DelayInputs[EChorusDelays::Center] = 0.5f * InFrame[0] + 0.5f * InFrame[1];
+			DelayInputs[EChorusDelays::Right] = InFrame[1];
+		}
+		else
+		{
+			DelayInputs[EChorusDelays::Left] = InFrame[0];
+			DelayInputs[EChorusDelays::Center] = InFrame[0];
+			DelayInputs[EChorusDelays::Right] = InFrame[0];
+		}
 
 		float DelayOutputs[EChorusDelays::NumDelayTypes];
 
@@ -115,9 +133,25 @@ namespace Audio
 			Delays[i].WriteDelayAndInc(DelayInputs[i] + DelayOutputs[i] * Feedback[i]);
 		}
 
-		const float DryLevel = (1.0f - WetLevel);
-
-		OutLeft = InLeft * DryLevel + WetLevel * (DelayOutputs[EChorusDelays::Left] + 0.5f * DelayOutputs[EChorusDelays::Center]);
-		OutRight = InRight * DryLevel + WetLevel * (DelayOutputs[EChorusDelays::Right] + 0.5f * DelayOutputs[EChorusDelays::Center]);
+		if (NumChannels == 2)
+		{
+			OutFrame[0] = InFrame[0] * DryLevel + WetLevel * (DelayOutputs[EChorusDelays::Left] + 0.5f * DelayOutputs[EChorusDelays::Center]);
+			OutFrame[1] = InFrame[1] * DryLevel + WetLevel * (DelayOutputs[EChorusDelays::Right] + 0.5f * DelayOutputs[EChorusDelays::Center]);
+		}
+		else
+		{
+			OutFrame[0] = InFrame[0] * DryLevel + WetLevel * (DelayOutputs[EChorusDelays::Left] + 0.5f * DelayOutputs[EChorusDelays::Center]);
+			OutFrame[0] += InFrame[0] * DryLevel + WetLevel * (DelayOutputs[EChorusDelays::Right] + 0.5f * DelayOutputs[EChorusDelays::Center]);
+			OutFrame[0] *= 0.5f;
+		}
 	}
+
+	void FChorus::ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer)
+	{
+		for (int32 SampleIndex = 0; SampleIndex < InNumSamples; SampleIndex += NumChannels)
+		{
+			ProcessAudioFrame(&InBuffer[SampleIndex], &OutBuffer[SampleIndex]);
+		}
+	}
+
 }

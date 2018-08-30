@@ -45,7 +45,10 @@ void USoundEffectPreset::AddEffectInstance(FSoundEffectBase* InSource)
 
 void USoundEffectPreset::RemoveEffectInstance(FSoundEffectBase* InSource)
 {
-	Instances.Remove(InSource);
+	if (Instances.Contains(InSource))
+	{
+		Instances.Remove(InSource);
+	}
 }
 
 #if WITH_EDITORONLY_DATA

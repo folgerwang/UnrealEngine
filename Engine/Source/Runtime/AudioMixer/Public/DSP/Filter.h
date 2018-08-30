@@ -39,7 +39,10 @@ namespace Audio
 		void Reset();
 
 		// Processes a single frame of audio
-		void ProcessAudioFrame(const float* InAudio, float* OutAudio);
+		void ProcessAudioFrame(const float* InFrame, float* OutFrame);
+
+		// Process a buffer of audio
+		void ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer);
 
 		// Sets all filter parameters with one function
 		void SetParams(const EBiquadFilter::Type InFilterType, const float InCutoffFrequency, const float InBandwidth, const float InGainDB);
@@ -148,7 +151,10 @@ namespace Audio
 		virtual void Update();
 
 		// Processes a single frame of audio. Number of channels MUST be what was used during filter initialization.
-		virtual void ProcessAudio(const float* InSamples, float* OutSamples) = 0;
+		virtual void ProcessAudioFrame(const float* InFrame, float* OutFrame) {}
+
+		// Process an audio buffer.
+		virtual void ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer) = 0;
 
 		// Filter patch destinations
 		FPatchDestination GetModDestCutoffFrequency() const { return ModCutoffFrequencyDest; }
@@ -220,7 +226,8 @@ namespace Audio
 		virtual void Init(const float InSampleRate, const int32 InNumChannels, const int32 InVoiceId = 0, FModulationMatrix* InModMatrix = nullptr) override;
 		virtual void Reset() override;
 		virtual void Update() override;
-		virtual void ProcessAudio(const float* InSamples, float* OutSamples) override;
+		virtual void ProcessAudioFrame(const float* InFrame, float* OutFrame) override;
+		virtual void ProcessAudio(const float* InSamples, const int32 InNumSamples, float* OutSamples) override;
 
 		void SetCoefficient(const float InCoefficient) { A0 = InCoefficient; }
 		float GetCoefficient() const { return A0; }
@@ -242,7 +249,7 @@ namespace Audio
 		virtual void SetBandStopControl(const float InBandStop) override;
 		virtual void Reset() override;
 		virtual void Update() override;
-		virtual void ProcessAudio(const float* InSamples, float* OutSamples) override;
+		virtual void ProcessAudio(const float* InSamples, const int32 InNumSamples, float* OutSamples) override;
 
 	protected:
 		float InputScale;
@@ -275,7 +282,7 @@ namespace Audio
 		virtual void Update() override;
 		virtual void SetQ(const float InQ) override;
 		virtual void SetPassBandGainCompensation(const float InPassBandGainCompensation) override;
-		virtual void ProcessAudio(const float* InSamples, float* OutSamples) override;
+		virtual void ProcessAudio(const float* InSamples, const int32 InNumSamples, float* OutSamples) override;
 
 	protected:
 
