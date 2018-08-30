@@ -3345,6 +3345,15 @@ bool UEdGraphSchema_K2::GetPropertyCategoryInfo(const UProperty* TestProperty, F
 	{
 		OutCategory = PC_Struct;
 		OutSubCategoryObject = StructProperty->Struct;
+		// Match IsTypeCompatibleWithProperty and erase REINST_ structs here:
+		if(UUserDefinedStruct* UDS = Cast<UUserDefinedStruct>(StructProperty->Struct))
+		{
+			UUserDefinedStruct* RealStruct = UDS->PrimaryStruct.Get();
+			if(RealStruct)
+			{
+				OutSubCategoryObject = RealStruct;
+			}
+		}
 	}
 	else if (TestProperty->IsA<UFloatProperty>())
 	{
