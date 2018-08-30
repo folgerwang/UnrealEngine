@@ -90,6 +90,7 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 		|| DynamicDataSprites->RTParticleData.GetNumInstancesAllocated() == 0
 		|| DynamicDataSprites->RTParticleData.GetNumInstances() == 0
 		|| nullptr == Properties
+		|| !GSupportsResourceView // Current shader requires SRV to draw properly in all cases.
 		)
 	{
 		return;

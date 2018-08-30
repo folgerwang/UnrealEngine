@@ -94,6 +94,7 @@ void NiagaraRendererRibbons::GetDynamicMeshElements(const TArray<const FSceneVie
 	if (!DynamicDataRibbon 
 		|| DynamicDataRibbon->IndexData.Num() == 0
 		|| nullptr == Properties
+		|| !GSupportsResourceView // Current shader requires SRV to draw properly in all cases.
 		)
 	{
 		return;

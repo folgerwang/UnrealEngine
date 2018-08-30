@@ -123,7 +123,9 @@ void NiagaraRendererMeshes::GetDynamicMeshElements(const TArray<const FSceneView
 	if (!DynamicDataMesh 
 		|| DynamicDataMesh->RTParticleData.GetNumInstancesAllocated() == 0
 		|| DynamicDataMesh->RTParticleData.GetNumInstances() == 0
-		|| nullptr == Properties)
+		|| nullptr == Properties
+		|| !GSupportsResourceView  // Current shader requires SRV to draw properly in all cases.
+		)
 	{
 		return;
 	}
