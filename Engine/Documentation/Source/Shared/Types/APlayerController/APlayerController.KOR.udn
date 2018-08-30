@@ -2,7 +2,7 @@
 Availability:NoPublish
 Title:APlayerController
 Crumbs:
-Description:플레이어 콘트롤러 클래스에 대한 개요입니다.
+Description:플레이어 컨트롤러 클래스에 대한 개요입니다.
 
 [EXCERPT:APlayerController]
 
@@ -15,5 +15,5 @@ Gameplay/Framework/Controller/PlayerController
 
 
 [EXCERPT:PlayerCameraManagerClass]
-이 프로퍼티는 플레이어 콘트롤러 생성시 어떤 종류의 카메라 매니저 클래스를 스폰시킬지를 제어합니다.
+이 프로퍼티는 플레이어 컨트롤러 생성시 어떤 종류의 카메라 매니저 클래스를 스폰시킬지를 제어합니다.
 [/EXCERPT:PlayerCameraManagerClass]

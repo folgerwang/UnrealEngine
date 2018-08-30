@@ -1,22 +1,22 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3804170
 Availability: Docs
-Title:Volumes Overview
+Title:体积概述
 Crumbs:%ROOT%, Engine, Engine/Actors, Engine/Actors/Volumes
-Description:Physics Volume reference details
+Description:物理体积参考细节
 version:4.16
 type:reference
 
 
-### Physics Volume
+### 物理体积
 
-There are some properties that are designated for this volume which can be adjusted from the **Details** panel, pictured below.
+有一些针对该体积设置的属性，你可以从 **细节（Details）** 面板中调整这些属性，如下图所示。
 
 ![](PhysicsVolumeDetails.png)
 
-|Property| Description |
+|属性| 描述 |
 | ------- | ------------ |
-| **Terminal Velocity** | Determines the Terminal Velocity of Pawns using CharacterMovement when falling. |
-| **Priority** | Determines which PhysicsVolume takes precedence if they overlap.  |
-| **Fluid Friction** | Determines the amount of friction applied by the volume as Pawns using CharacterMovement move through it. <br> The higher this value, the harder it will feel to move through the volume. |
-| **Water Volume** | Determines if the volume contains a fluid, like water. |
-| **Physics on Contact** | Determines if the Actor is affected by the volume by touching it (by Default, an Actor must be inside the volume for it to affect them). |
+| **末速度（Terminal Velocity）** | 决定了应用CharacterMovement的Pawn下落时的速度。|
+| **优先级（Priority）** | 决定当PhysicsVolume重叠时哪个体积占主导地位。|
+| **流体摩擦（Fluid Friction）** | 决定了应用CharacterMovement的Pawn在穿过体积移动时，该体积所应用的摩擦力大小。<br> 该值越高，就感觉越难穿过体积。|
+| **水体积（Water Volume）** | 决定体积是否包流体，比如水。|
+| **接触时的物理影响（Physics on Contact）** | 决定了Actor接触体积时是否会受到该体积的影响（默认情况下，Actor必须在体积内部才会受到影响）。|

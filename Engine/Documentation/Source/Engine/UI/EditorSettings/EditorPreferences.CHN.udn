@@ -164,7 +164,7 @@ Description:关于配置控件、视口、源码控制等通用编辑器行为�
 
 [EXCERPT:SelectionBrackets]
 [REGION:imagetable]
-| ![](selection_brackets.png)(w:355) |![](selection_highlight.png)(w:355) |
+| ![](Shared/Types/ULevelEditorViewportSettings/selection_brackets.png)(w:355) |![](Shared/Types/ULevelEditorViewportSettings/selection_highlight.png)(w:355) |
 | :--------------------------------: | :-------------------------------: |
 | **启用** | **禁用** |
 [/REGION]
@@ -172,7 +172,7 @@ Description:关于配置控件、视口、源码控制等通用编辑器行为�
 
 [EXCERPT:SelectionOutline]
 [REGION:imagetable]
-| ![](selection_outline.png)(w:355) |![](selection_highlight.png)(w:355) |
+| ![](Shared/Types/ULevelEditorViewportSettings/selection_outline.png)(w:355) |![](Shared/Types/ULevelEditorViewportSettings/selection_highlight.png)(w:355) |
 | :--------------------------------: | :-------------------------------: |
 | **启用** | **禁用** |
 [/REGION]
@@ -180,7 +180,7 @@ Description:关于配置控件、视口、源码控制等通用编辑器行为�
 
 [EXCERPT:SelectionHighlight]
 [REGION:imagetable]
-| ![](selection_highlight.png)(w:355) |![](selection_highlight_full.png)(w:355) |
+| ![](Shared/Types/ULevelEditorViewportSettings/selection_highlight.png)(w:355) |![](Shared/Types/ULevelEditorViewportSettings/selection_highlight_full.png)(w:355) |
 | :--------------------------------: | :-------------------------------: |
 | **0.2** | **1.0** |
 [/REGION]

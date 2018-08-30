@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4300533
 Title:6. iOS Provisioning - Provisioning 생성 및 임포트
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
 Description:provisioning 프로파일 생성 및 언리얼 엔진에 임포트합니다.
@@ -11,7 +11,7 @@ order:6
 [VAR:Steps]
 [OBJECT:Navigation]
     [PARAM:previous]
-        [예전 단계](Platforms/iOS/QuickStart/5 "%Platforms/iOS/QuickStart/5:title%")
+        [이전 단계](Platforms/iOS/QuickStart/5 "%Platforms/iOS/QuickStart/5:title%")
     [/PARAM]
     [PARAM:current]
     [/PARAM]
@@ -24,7 +24,7 @@ order:6
 [/OBJECT]
 [/VAR]
 
-
+%Steps%
 
 %Globals:OSSelect%
 
@@ -77,3 +77,4 @@ App Store 에 게임을 제출하는 데 사용되는 배포 provisioning profil
 
 
 
+%Steps%

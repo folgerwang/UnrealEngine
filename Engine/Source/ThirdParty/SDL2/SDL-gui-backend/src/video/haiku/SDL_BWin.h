@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -19,8 +19,8 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef _SDL_BWin_h
-#define _SDL_BWin_h
+#ifndef SDL_BWin_h_
+#define SDL_BWin_h_
 
 #ifdef __cplusplus
 extern "C" {
@@ -88,7 +88,7 @@ class SDL_BWin:public BDirectWindow
         _clips = NULL;
 
 #ifdef DRAWTHREAD
-        _draw_thread_id = spawn_thread(BE_DrawThread, "drawing_thread",
+        _draw_thread_id = spawn_thread(HAIKU_DrawThread, "drawing_thread",
                             B_NORMAL_PRIORITY, (void*) this);
         resume_thread(_draw_thread_id);
 #endif
@@ -674,6 +674,6 @@ private:
  *                         through a draw cycle.  Occurs when the previous
  *                         buffer provided by DirectConnected() is invalidated.
  */
-#endif
+#endif /* SDL_BWin_h_ */
 
 /* vi: set ts=4 sw=4 expandtab: */

@@ -56,6 +56,8 @@ public:
 
 	const FTransform& GetComponentTransform() const { return ComponentTransform; }
 
+	FAnimationRecordingSettings AnimationSettings;
+
 private:
 	/** Object to record from */
 	TLazyObjectPtr<UObject> ObjectToRecord;
@@ -73,8 +75,6 @@ private:
 
 	/** Local transform of the component we are recording */
 	FTransform ComponentTransform;
-
-	FAnimationRecordingSettings AnimationSettings;
 
 	FString AnimAssetPath;
 

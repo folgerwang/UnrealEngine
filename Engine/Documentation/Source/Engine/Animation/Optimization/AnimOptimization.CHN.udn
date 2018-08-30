@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:3782314
+Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation
-Title: Animation Optimization
-Description: Describes methods to achieve more performant Animation Blueprints through optimization techniques.
+Title: 动画优化
+Description: 描述通过优化技巧获得性能更佳的动画蓝图。
 Type: Overview
 SkillLevel: Advanced
 Version: 4.16
@@ -11,51 +11,51 @@ Order: 1
 Tags: Animation
 Tags: Optimization
 Tags: Animation Blueprint
-topic-image:Engine/Physics/physics_topic.png
+topic-image:OptimizationTopic.png
 Related: Engine/Performance
 
 [TOC (start:2 end:2)]
 
-As you construct your [](Engine/Animation/AnimBlueprints), there are some practices you should keep in mind to ensure the animation in your project runs as smoothly as possible. 
-Some of these are enabled by default while others will require that you consider the approach you take in setting up your Animation Blueprints. 
-There are some efforts you can take make from the C++ side of things that will also grant you some control over how/when animations are updated, improving performance.
+在构造[](Engine/Animation/AnimBlueprints)时，您应牢记一些有效的做法，确保项目动画尽可能流畅运行。 
+在默认情况下，一些做法是受到系统支持的，而其他做法则要求您考虑动画蓝图的搭建方法。 
+其他工作可以通过C++执行，这样您也能够控制动画的更新方式和时间，从而提高性能。 
 
 
-## Multi Threaded Animation Update
+## 多线程动画更新
 
-This allows more animation work to run in worker threads and is enabled by default which you can find in your **Project Settings**: 
+此功能允许在工作线程中运行更多动画工作，默认为启用状态，您可以在[项目设置](https://docs.unrealengine.com/latest/INT/Engine/UI/ProjectSettings/)中找到该选项： 
 
-* Inside the **Project Settings** under **General Settings** and **Anim Blueprints**, make sure **Allow Multi Threaded Animation Update** is enabled.
+* 在 **项目设置（Project Settings）** 中的 **常规设置（General Settings）> 动画蓝图（Anim Blueprints）** 下面，确保启用 **允许多线程动画更新（Allow Multi Threaded Animation Update）**。
 
 	![](ProjectSettings.png)
 
-This controls whether by default we allow Animation Blueprint Graph updates to be performed on non-game threads. 
-This also enables some extra checks in the Animation Blueprint compiler that will warn when unsafe operations are being attempted.
-Inside your **Animation Blueprints**, you will also want to make sure that it is set to **Use Multi Threaded Animation Update**.  
+该选项控制默认情况下，是否允许在非游戏线程上执行动画蓝图图形更新。 
+还允许在动画蓝图编译器中进行一些额外检查，并在尝试执行不安全的操作时发出警告。
+在 **动画蓝图（Animation Blueprints）** 中，也需要确保设置为 **使用多线程动画更新（Use Multi Threaded Animation Update）**。  
 
-* Inside your Animation Blueprint under the **Class Settings**, make sure that **Use Multi Threaded Animation Update** is enabled. 
+* 在动画蓝图（Animation Blueprints）中的 **类设置（Class Settings）** 下面，确保启用 **使用多线程动画更新（Use Multi Threaded Animation Update）**。 
 
 	![](AnimBPMultiThreadOption.png)
 
-The main driver behind this was to control data access more tightly across threads. To this end, much anim-graph-accessed data has been moved from `UAnimInstance` to a new struct called `FAnimInstanceProxy`. 
-This proxy structure is where the meat of the data on `UAnimInstance` is found. 
+其主要原因是为了更严密地控制各个线程中的数据访问。为此，大部分动画图形访问的数据已经从[`UAnimInstance`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/UAnimInstance/index.html)移至一个新的结构，名为[`FAnimInstanceProxy`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/FAnimInstanceProxy/index.html)。 
+该代理结构存放有关`UAnimInstance`的大量数据。 
 
-In general, the `UAnimInstance` should not be accessed or mutated from within AnimGraph nodes (Update/Evaluate calls) as these can be run on other threads. 
-There are locking wrappers (`GetProxyOnAnyThread` and `GetProxyOnGameThread`) that prevent access to the `FAnimInstanceProxy` while tasks are in-flight.
-The idea is that in the worst case, tasks wait for completion before data is allowed to be read from or written to in the proxy. 
+一般而言，不能从动画图形节点（Update/Evaluate calls）访问或修改`UAnimInstance`，因为它们可以在其他线程上运行。 
+有一些锁定封装器（[`GetProxyOnAnyThread`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/UAnimInstance/GetProxyOnAnyThread/index.html)和[`GetProxyOnGameThread`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/UAnimInstance/GetProxyOnGameThread/index.html)）可以在任务运行期间阻止访问`FAnimInstanceProxy`。
+主要想法是在最差的情况下，任务等待完成，然后才允许从代理读取或写入数据。 
 
-From the Anim Graph point of view, only the `FAnimInstanceProxy` can be accessed from animation nodes, not the `UAnimInstance`. 
-Data must be exchanged with the proxy for each tick (either through buffering, copying or some other strategy) in `FAnimInstanceProxy::PreUpdate` or `FAnimInstaceProxy::PreEvaluateAnimation`. 
-Any data that then needs to be accessed by external objects should then be exchanged/copied from the proxy in `FAnimInstanceProxy::PoseUpdate`.
+从动画图形的角度而言，从动画节点只能访问`FAnimInstanceProxy`，而不能访问`UAnimInstance`。 
+对于[`FAnimInstanceProxy::PreUpdate`](https://docs.unrealengine.com/latest/INT/API/Editor/AnimGraph/FAnimPreviewInstanceProxy/PreUpdate/index.html)或[`FAnimInstaceProxy::PreEvaluateAnimation`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/FAnimInstanceProxy/PreEvaluateAnimation/index.html)中的每次更新，必须与代理交换数据（通过缓冲、复制或其他策略）。 
+接下来需要被外部对象访问的任何数据应该从[`FAnimInstanceProxy::PostUpdate`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Animation/FAnimInstanceProxy/PostUpdate/index.html)中的代理进行交换/复制。
 
 [REGION:tip]
-This is in conflict with the general use case of `UAnimInstance` where member variables can be accessed from other classes while tasks are in-flight. 
-As a recommendation, try to not directly access the Anim Instance at all from other classes. Instead, the Anim Instance should pull data from elsewhere. 
+这与`UAnimInstance`的一般用法冲突，在一般用法中，可以在任务运行期间从其他类访问成员变量。 
+建议最好不要从其他类直接访问动画实例。动画实例应从其他位置拉取数据。 
 [/REGION]
 
-### Example Custom Native AnimInstance 
+### 自定义原生动画实例示例 
 
-In the code block below is an example of how one would build a custom native AnimInstance class using the new `FAnimInstanceProxy`, granting access to its innards and avoiding copies of shared data between the proxy and the instance: 
+以下代码块示例展示的是如何使用新的`FAnimInstanceProxy`来构建自定义原生动画实例类，授予对内部工作线程的访问权，并避免在代理和该实例之间复制共享数据。 
 
 	USTRUCT()
 
@@ -67,7 +67,7 @@ In the code block below is an example of how one would build a custom native Ani
 
 		FExampleAnimInstanceProxy()
 
-		: FAnimInstanceProxy()
+		:FAnimInstanceProxy()
 
 		{}
 
@@ -135,137 +135,137 @@ In the code block below is an example of how one would build a custom native Ani
 
 	};
 
-## Animation Fast Path
+(#animationfastpath)
+## 动画快速路径
 
-**Animation Fast Path** provides a way to optimize variable access inside the **AnimGraph** update. 
-This enables the engine to copy parameters internally rather than executing Blueprint code (which involves making calls into the Blueprint Virtual Machine). 
-The compiler can currently optimize the following constructs: member variables negated boolean member variables and members of a nested structure.
+**动画快速路径** 提供了一种在 **动画图形** 更新中优化变量访问的方法。 
+这使引擎能够在内部复制参数，而不是执行蓝图代码（包括调用蓝图虚拟机）。 
+编译器当前可以优化以下构造函数：成员变量、否定布尔成员变量和嵌套结构成员。
 
-The Animation Fast Path option is enabled by default inside the **Project Settings**: 
+在默认情况下，**项目设置（Project Settings）** 中会启用动画快速路径选项： 
 
-* Inside the **Project Settings** under **General Settings** and **Anim Blueprints**, make sure **Optimize Anim Blueprint Member Variable Access** is enabled.
+* 在 **项目设置（Project Settings）** 中的 **常规设置（General Settings）** 和 **动画蓝图（Anim Blueprints）** 下面，确保启用 **优化动画蓝图成员变量访问（Optimize Anim Blueprint Member Variable Access）**。
 
 	![](FastPathEnabled.png)
 
-To make use of Animation Fath Path, inside the AnimGraph of your Animation Blueprints, ensure that no Blueprint logic is being executed. 
-In the image below, we are reading several float values which are being used to drive multiple Blend Space assets and a Blend resulting in our Final Animation Pose.
-Each node denoted with the lightning icon in the upper right corner are utilizing Fast Path as no logic is being executed. 
+要使用动画快速路径，在动画蓝图的动画图形内部，确保未在执行蓝图逻辑。 
+在下图中，我们将读取若干浮点值，以用于驱动多个混合空间资源和产生最终动画姿势的一个混合节点。
+右上角带有闪电图标的每个节点都在使用快速路径，因为当前未在执行逻辑。 
 
 ![](FastPathExample_1.png)
 
-If we were to change this network to include any form of calculation such as the example depicted below, the associated node would no longer be using Fast Path. 
+如果我们将此网络更改为包含任意形式的计算，如以下示例所示，则关联节点将不再使用快速路径。 
 
 ![](FastPathExample_2.png)
 
-Above, since we are now executing Blueprint logic to generate the values feeding the **TEST_Blend2D** node, it is no longer using Fast Path (and the lighting icon will be removed).
+在上图中，由于我们现在正在执行蓝图逻辑以生成供应给 **TEST_Blend2D** 节点的值，因此不再使用快速路径（因此也将删除闪电图标）。
 
-### Fast Path Methods
+### 快速路径方法
 
-In order for your Animation Blueprints to use Fast Path, ensure that they either: 
+为使动画蓝图能够使用快速路径，请确保它们： 
 
-**Access Member Variables Directly**
+**直接访问成员变量**
 
-Below we are using Fast Path by directly accessing and reading the value of our boolean variable to determine our pose. 
+在下图中，我们直接访问和读取布尔变量的值来确定姿势以使用快速路径。 
 
 ![](AccessDirectly.png)
 
-In the next example, we are not using Fast Path as we are performing logic to determine if the boolean variable is equal to true. 
+在以下示例中，我们没有使用快速路径，因为我们正在执行逻辑来确定布尔变量是否等于true。 
 
 ![](AccessDirectlyBPLogic.png)
 
-**Access Negated Boolean Member Variables**
+**访问否定布尔成员变量**
 
-Below we are using Fast Path by reading the value of the negated boolean to determine our pose. 
+在下图中，我们读取否定布尔变量的值来确定姿势以使用快速路径。 
 
 ![](AccessNegatedBooleans.png)
 
-In the next example, we are not using Fast Path as we are performing logic to determine if the boolean variable is not equal to true. 
+在以下示例中，我们没有使用快速路径，因为我们正在执行逻辑来确定布尔变量是否不等于true。 
 
 ![](AccessNegatedBooleansBPLogic.png)
 
-**Access Members of a Nested Struct**
+**访问嵌套结构的成员**
 
-Below we break our rotator variable to directly access our Pitch and Yaw variables to feed our Aim Offset. 
+在下图中，我们将旋转体变量分解，直接访问Pitch和Yaw变量以提供动画偏移值。 
 
 ![](AccessMembersOfStruct.png)
 
-**Access Members Using "Break Struct" Nodes**
+**使用“分解结构”节点访问成员**
 
-Below we use a Break Struct node to break our rotator variable into XYZ values to feed our Aim Offset. 
+在下图中，我们使用“分解结构”节点将旋转体变量拆分为XYZ值以提供动画偏移值。 
 
 ![](AccessByBreakStruct.png)
 
 [REGION:note]
-Some **Break Struct** nodes like **Break Transform** will not currently use Fast Path as they perform conversions internally rather than simply copying data. 
+某些 **分解结构** 节点（如 **分解变换**）目前不使用快速路径，因为它们在内部执行转换，而不仅仅是复制数据。 
 [/REGION]
 
 
 
-### Warn About Blueprint Usage
+### 提醒蓝图用法
 
 
-To ensure that your Animation Blueprints are using Fast Path, you can enable the **Warn About Blueprint Usage** option which will cause the compiler to emit warnings to the Compiler Results log whenever a call into the Blueprint Virtual Machine is made from the AnimGraph. 
+为确保动画蓝图使用快速路径，您可以启用 **提醒蓝图用法（Warn About Blueprint Usage）** 选项，这样每当从动画图形向蓝图虚拟机发出调用时，编译器就会向编译器结果日志中发送警告。 
 
-* To enable **Warn About Blueprint Usage**, enable the option inside the **Class Settings** of your **Animation Blueprint** under **Optimization**. 
+* 要启用 **提醒蓝图用法（Warn About Blueprint Usage）**，请在 **动画蓝图（Animation Blueprint）** 的 **类设置（Class Settings）** 中的 **优化（Optimization）** 中启用该选项。 
 
 	![](WarningOption.png)
 
-	When the compiler identifies any nodes that are not using Fast Path, they will be displayed in the **Compiler Results** log. 
+	当编译器识别到未在使用快速路径的任何节点时，**编译器结果** 日志中会显示这些节点。 
 
 	![](ExampleWarningShown.png)
 
-	Above, since we are executing Blueprint logic in our AnimGraph and have the warning option enabled, we get a warning message in the compiler results and can click on it to take us to the offending node. 
-	This can help track down optimizations that need to be made and will enable you to identify the node(s) that may be the source of the problem. 
+	在上图中，由于我们在动画图形中执行蓝图逻辑，并启用了警告选项，因此在编译器结果中看到警告消息，单击该消息会转至有问题的节点。 
+	这样可以帮助找到需要进行的优化设置，并使您能够识别可能导致出现该问题的节点。 
 
 [COMMENT:none]
 
-## Update Rate Optimization (URO)
+## 更新速度优化（URO）
 
-WB Note - Omitting this for now as it's slated for improvements in 4.18
+WB注释——暂时忽略该功能，计划作为4.18改进功能发布
 
 
 [/COMMENT]
 
 
-## General Tips
+## 总体提示
 
-As you start to consider the performance of your animation usage, here are some guidelines that you may want to follow when performing optimizations.
+在您开始考虑动画使用的性能时，以下是您在执行优化时需要考虑的一些准则。
 
 [REGION:note]
-Based on your project, more invasive changes may be needed however this is generally a good place to start. 
+根据项目的大小和范围，可能需要进行一些更大胆的更改，但总的来说这是一个不错的入手点。 
 [/REGION]
 
-* **Make sure that the conditions for Parallel Updates are met**
-	 * In `UAnimInstance::NeedsImmediateUpdate` you can see all the conditions that must be met to avoid the update phase of animation running on the game thread. 
-	If root motion is required for character movement, the parallel update cannot be performed as character movement is not multi threaded. 
-* **Avoid calls into the Blueprint Virtual Machine**
-	* Consider [](Engine/Blueprints/TechnicalGuide/NativizingBlueprints) into C++ code. 
-	* Keep your **Event Graph** in your Animation Blueprints empty. Use a custom `UAnimInstance` and `FAnimInstanceProxy` derived class and do all of your work in the proxy during `FAnimInstanceProxy::Update` or `FAnimInstanceProxy::Evaluate` as these are executed on worker threads. 
-	* Ensure that the nodes within your **Anim Graph** of your Animation Blueprint are structured in a way that they are using [Fast Path](#animationfastpath). 
-	* Ensure that **Optimize Anim Blueprint Member Variable Access** is enabled in the **Project Settings** as this controls whether Animation Blueprint nodes that access member variables of their class directly should use the optimized path that avoids a thunk to the Blueprint VM.
-	* Generally the most costly part of an AnimGraph's execution, avoiding calls to the virtual machine is the key to getting maximum performance out of Animation Blueprints. 
-* **Use Update Rate Optimizations (URO)**
-	* This will prevent your animations from ticking too often. Control over how this is applied is up to your game, but we recommend moving toward ~15Hz and under Update Rates at appropriate distances for many characters, as well as disabling interpolation. 
-	* To enable, set your Skeletal Mesh Component to **Enable Update Rate Optimizations** and refer to `AnimUpdateRateTick()`. 
-		* Optionally, you can also enable **Display Debug Update Rate Optimizations** to enable onscreen debugging of URO being applied. 
-* **Enable Component Use Fixed Skel Bounds**
-	* In your Skeletal Mesh Component, enable the **Component Use Skel Bounds** option. 
-	* This will skip using a physics asset and will instead always use the fixed bounds defined in the Skeletal Mesh. 
-	* This will also skip recalculating bounding volumes for culling for every frame, increasing performance. 
+* **确保符合并行更新的条件**
+	 * 在`UAnimInstance::NeedsImmediateUpdate`中，您会看到为避免在游戏线程上运行动画更新阶段而必须满足的所有条件。 
+	如果角色运动需要根运动，那么无法执行并行更新，因为角色运动并非多线程任务。 
+* **避免调用蓝图虚拟机**
+	* 考虑[](Engine/Blueprints/TechnicalGuide/NativizingBlueprints)为C++代码。 
+	* 让动画蓝图中的 **事件图形** 保持为空。在`FAnimInstanceProxy::Update`或`FAnimInstanceProxy::Evaluate`期间，使用自定义`UAnimInstance`和`FAnimInstanceProxy`派生的类来完成所有工作，因为这些任务在工作线程上执行。 
+	* 在构造动画蓝图 **动画图形** 中的节点时，确保它们使用[快速路径](#animationfastpath)。 
+	* 确保启用 **项目设置（Project Settings）** 中的 **优化动画蓝图成员变量访问（Optimize Anim Blueprint Member Variable Access）**，因为该选项控制直接访问其类的成员变量的动画蓝图节点是否应使用优化路径，从而避免转换到蓝图虚拟机。
+	* 一般来说，动画图形执行开销最大的部分是调用虚拟机，因此避免此类调用是实现最大动画蓝图性能的关键。 
+* **使用更新速度优化（URO）**
+	* 这样可防止动画更新过于频繁。如何控制该设置的应用取决于您的游戏，但我们建议在适当距离内，对多数角色采用不超过15Hz的更新速度，同时禁用内插。 
+	* 要启用该选项，将骨架网格体组件设置为 **启用更新速度优化（Enable Update Rate Optimizations）** 并引用`AnimUpdateRateTick()`。 
+		* 您也可以选择启用 **显示调试更新速度优化（Display Debug Update Rate Optimizations）**，以在应用URO期间，在屏幕上显示调试过程。 
+* **允许组件使用固定骨架边界**
+	* 在您的骨架网格体组件中，启用 **组件使用骨架边界（Component Use Skel Bounds）** 选项。 
+	* 这将跳过使用物理资源，改为使用骨架网格体中定义的固定边界。 
+	* 还将跳过重新计算为每一帧选择的包围体，从而提高性能。 
 
-### Other Considerations
+### 其他注意事项
 
-When [profiling](Engine/Performance) your project, you may see that `FParallelAnimationCompletionTask` is being run for Skeletal Meshes on the main thread after worker threads are done. 
-This will be the bulk of the main thread work that you will see in your profile once the conditions for parallel updates are satisfied and usually consist of a few things, depending on your setup: 
+在[分析](Engine/Performance)项目时，您可能会看到工作线程完成后，在主线程上为骨架网格体运行`FParallelAnimationCompletionTask`。 
+当并行更新条件得到满足时，您会在分析中看到与此有关的大量主线程工作，根据您的设置，并行更新条件通常包括以下几点： 
 
-* Moving your components around, updating physics objects for bones for example. 
-	* Try avoiding updating physics for things that don't actually need it as this will be key to reducing this. 
-* Firing off Animation Notifies.
-	* These should be non-Blueprint, again to avoid calls to the Blueprint VM for efficiency. 
-	* These also need to be performed on the game thread as they can affect the animated object's lifetime. 
-* Interpolation of animation if URO is enabled. 
-	* Future engine versions may allow this to be done on the worker thread in certain circumstances. 
-* Blending of curves if Material or Morph Target curves are in use. 
-	* This could also be moved onto the worker thread, although this will result in minor gains. 
+* 四处移动组件，（例如）更新骨骼的物理对象。 
+	* 尝试避免更新实际不太需要的对象的物理数据，因为这是减少此类工作的关键所在。 
+* 触发动画通知。
+	* 这些应该是非蓝图工作，同样是为了避免调用蓝图虚拟机，提高效率。 
+	* 这些工作也需要在游戏线程上执行，因为它们会影响动画对象的寿命。 
+* 启用URO时的动画内插。 
+* 使用材质或目标变形曲线时的曲线混合。 
+
 
 	

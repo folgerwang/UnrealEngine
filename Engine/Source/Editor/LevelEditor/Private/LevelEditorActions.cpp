@@ -2115,6 +2115,11 @@ bool FLevelEditorActionCallbacks::ToggleVR_CanExecute()
 	return VREditorModule.IsVREditorAvailable();
 }
 
+bool FLevelEditorActionCallbacks::ToggleVR_IsButtonActive()
+{
+	IVREditorModule& VREditorModule = IVREditorModule::Get();
+	return VREditorModule.IsVREditorButtonActive();
+}
 
 bool FLevelEditorActionCallbacks::ToggleVR_IsChecked()
 {

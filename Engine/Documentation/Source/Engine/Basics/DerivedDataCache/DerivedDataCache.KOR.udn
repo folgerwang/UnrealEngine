@@ -2,7 +2,7 @@
 Availability:Public
 Title:파생 데이터 캐시
 Crumbs:%ROOT%
-Description: Derived Data Cache 및 UE4 와 그 타겟 플랫폼에서 사용되는 포맷의 애셋 저장에 대한 개요입니다.
+Description: Derived Data Cache 및 UE4 와 그 타깃 플랫폼에서 사용되는 포맷의 애셋 저장에 대한 개요입니다.
 version: 4.17
 Parent:Engine
 skilllevel: Advanced
@@ -10,7 +10,7 @@ type:overview
 order:24
 tags:Programming
 
-**Derived Data Cache** (DDC, 파생 데이터 캐시)는 여러 버전의 애셋을 언리얼 엔진과 그 타겟 플랫폼에서 사용되는 포맷으로 저장하는 기능입니다. 아티스트가 만들어서 에디터로 임포트하여 .uasset 파일로 저장되는 소스 포맷과는 다르지요. DDC 에 저장된 콘텐츠는 .uasset 파일에 저장된 데이터를 사용하여 언제든지 재생성할 수 있다는 의미에서 _일회성_ 이라 볼 수 있습니다. 이렇게 _파생된_ 포맷을 외부에 저장함으로써 소스 애셋 파일을 수정할 필요 없이 엔진이 사용하는 포맷을 쉽게 추가 또는 변경할 수 있습니다.
+**Derived Data Cache** (DDC, 파생 데이터 캐시)는 여러 버전의 애셋을 언리얼 엔진과 그 타깃 플랫폼에서 사용되는 포맷으로 저장하는 기능입니다. 아티스트가 만들어서 에디터로 임포트하여 .uasset 파일로 저장되는 소스 포맷과는 다르지요. DDC 에 저장된 콘텐츠는 .uasset 파일에 저장된 데이터를 사용하여 언제든지 재생성할 수 있다는 의미에서 _일회성_ 이라 볼 수 있습니다. 이렇게 _파생된_ 포맷을 외부에 저장함으로써 소스 애셋 파일을 수정할 필요 없이 엔진이 사용하는 포맷을 쉽게 추가 또는 변경할 수 있습니다.
 
 
 
@@ -178,11 +178,11 @@ windows
 
 **DDC 패키징을 위해서는:**
  
-1. UE4/Engine/Binaries/Win64 디렉토리에서 UE4Editor.exe 에 다음과 같은 인수를 붙여 실행합니다:
+1. UE4/Engine/Binaries/Win64 디렉터리에서 UE4Editor.exe 에 다음과 같은 인수를 붙여 실행합니다:
 
         UE4Editor.exe ProjectName -run=DerivedDataCache -fill -DDC=CreatePak
  
-1. UE4\[GameName]\DerivedDataCache 디렉토리에 DDC.ddp 파일이 생깁니다.
+1. UE4\[GameName]\DerivedDataCache 디렉터리에 DDC.ddp 파일이 생깁니다.
 
 1. 이 .ddp 파일은 엔진에서 자동으로 찾아 사용합니다.
 [/PARAM]
@@ -203,11 +203,11 @@ mac
 
 **DDC 패키징을 위해서는:**
  
-1. cd /PathToUE4/Engine/Binaries/Mac 디렉토리에서 UE4Editor.app 에 다음과 같은 인수를 붙여 실행합니다:
+1. cd /PathToUE4/Engine/Binaries/Mac 디렉터리에서 UE4Editor.app 에 다음과 같은 인수를 붙여 실행합니다:
 
        `open -a UE4Editor.app --args -run=DerivedDataCache -fill -DDC=CreatePak`
  
-1. UE4\ProjectName\DerivedDataCache 디렉토리에 DDC.ddp 파일이 생깁니다.
+1. UE4\ProjectName\DerivedDataCache 디렉터리에 DDC.ddp 파일이 생깁니다.
 
 1. 이 .ddp 파일은 엔진에서 자동으로 찾아 사용합니다.
 [/PARAM]

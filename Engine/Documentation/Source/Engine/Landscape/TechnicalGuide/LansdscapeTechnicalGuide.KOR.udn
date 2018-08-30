@@ -105,11 +105,11 @@ topic-image:Engine/Landscape/Materials/LS_Technical.png
 
 **Layer Debug** 모드는 특정 레이어의 웨이트를 뷰포트에서 랜드스케이프에 시각화시켜주는 모드입니다. 뷰포트의 뷰 메뉴 **랜드스케이프 비주얼라이저** 아래에서 **레이어 디버그** 모드를 켤 수 있습니다. 뷰포트의 랜드스케이프 관련된 뷰 모드에 대한 정보는, [](Engine/UI/LevelEditor/Viewports/ViewModes/) 문서를 참고하세요.
 
-**레이어 디버그** 모드가 켜지면, 리스트에 타겟 레이어와 함께 개별 컬러 채널을 선택할 수 있는 동글 버튼이 표시됩니다.
+**레이어 디버그** 모드가 켜지면, 리스트에 타깃 레이어와 함께 개별 컬러 채널을 선택할 수 있는 동글 버튼이 표시됩니다.
 
 ![Landscape_Target_Debug.png](Landscape_Target_Debug.png)(convert:false)
 
-채널을 선택하면 선택된 타겟 레이어의 채널이 커버하는 영역이 표시되는 셰이더가 랜드스케이프에 적용됩니다.
+채널을 선택하면 선택된 타깃 레이어의 채널이 커버하는 영역이 표시되는 셰이더가 랜드스케이프에 적용됩니다.
 
 ![Landscape_Target_Debug_Demo.png](Landscape_Target_Debug_Demo.png)
 

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -23,8 +23,8 @@
   Contributed by Brandon Schaefer, <brandon.schaefer@canonical.com>
 */
 
-#ifndef _SDL_miropengl_h
-#define _SDL_miropengl_h
+#ifndef SDL_miropengl_h_
+#define SDL_miropengl_h_
 
 #include "SDL_mirwindow.h"
 
@@ -48,10 +48,6 @@ MIR_GL_CreateContext(_THIS, SDL_Window* window);
 extern int
 MIR_GL_LoadLibrary(_THIS, const char* path);
 
-extern void
-MIR_GL_UnloadLibrary(_THIS);
-
-#endif /* _SDL_miropengl_h */
+#endif /* SDL_miropengl_h_ */
 
 /* vi: set ts=4 sw=4 expandtab: */
-

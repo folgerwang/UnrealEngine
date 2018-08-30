@@ -21,7 +21,7 @@ Oculus Rift, 오큘러스 리프트는 Head Mounted Display (HMD), 머리에 장
 
 Oculus Rift HMD 디바이스에서 UE4 프로젝트를 실행시킬 때 충족시켜야 하는 프레임 속도는 아래와 같습니다.
 
-| HMD 디바이스 | 타겟 프레임 속도 |
+| HMD 디바이스 | 타깃 프레임 속도 |
 | --- | --- |
 | **Rift Retail** | 90 FPS|
 | **DK2** | 75 FPS|

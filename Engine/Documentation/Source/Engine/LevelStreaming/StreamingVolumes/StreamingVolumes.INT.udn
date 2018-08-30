@@ -14,8 +14,6 @@ tags:Level Streaming
 
 You can adjust how a Level Streaming Volume handles level streaming by adjusting the properties from the **Details** panel, pictured below. 
 
-![](levelstreamingvolume.png)
-
 For more on Level Streaming Volumes, see [](Engine/LevelStreaming/StreamingVolumes).
 
 |Property| Description |

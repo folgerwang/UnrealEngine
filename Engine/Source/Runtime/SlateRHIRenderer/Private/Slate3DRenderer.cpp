@@ -78,16 +78,16 @@ void FSlate3DRenderer::DrawWindow_GameThread(FSlateDrawBuffer& DrawBuffer)
 
 	const TArray<TSharedRef<FSlateWindowElementList>>& WindowElementLists = DrawBuffer.GetWindowElementLists();
 
-	for ( int32 WindowIndex = 0; WindowIndex < WindowElementLists.Num(); WindowIndex++ )
+	for (int32 WindowIndex = 0; WindowIndex < WindowElementLists.Num(); WindowIndex++)
 	{
 		FSlateWindowElementList& ElementList = *WindowElementLists[WindowIndex];
 
-		TSharedPtr<SWindow> Window = ElementList.GetWindow();
+		SWindow* Window = ElementList.GetPaintWindow();
 
-		if ( Window.IsValid() )
+		if (Window)
 		{
 			const FVector2D WindowSize = Window->GetSizeInScreen();
-			if ( WindowSize.X > 0 && WindowSize.Y > 0 )
+			if (WindowSize.X > 0 && WindowSize.Y > 0)
 			{
 				// Add all elements for this window to the element batcher
 				ElementBatcher->AddElements(ElementList);

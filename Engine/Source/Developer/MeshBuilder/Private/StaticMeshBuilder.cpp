@@ -27,7 +27,7 @@ void BuildVertexBuffer(
 	, TArray<int32>& OutWedgeMap
 	, TArray<TArray<uint32> >& OutPerSectionIndices
 	, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices
-	, const TMultiMap<int32, int32>& OverlappingCorners
+	, const FOverlappingCorners& OverlappingCorners
 	, float VertexComparisonThreshold
 	, TArray<int32>& RemapVerts);
 void BuildAllBufferOptimizations(struct FStaticMeshLODResources& StaticMeshLOD, const struct FMeshBuildSettings& LODBuildSettings, TArray< uint32 >& IndexBuffer, bool bNeeds32BitIndices, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices);
@@ -128,7 +128,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		{
 			const int32 BaseLodIndex = 0;
 			float OverlappingThreshold = LODBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
-			TMultiMap<int32, int32> OverlappingCorners;
+			FOverlappingCorners OverlappingCorners;
 			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, MeshDescriptions[BaseLodIndex], OverlappingThreshold);
 
 			//Create a reduced mesh from the base LOD
@@ -146,7 +146,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 			}
 			
 
-			const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescriptions[LodIndex].PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+			const TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = MeshDescriptions[LodIndex].PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 			// Recompute adjacency information. Since we change the vertices when we reduce
 			MeshDescriptionHelper.FindOverlappingCorners(MeshDescriptions[LodIndex], OverlappingThreshold);
 			
@@ -308,7 +308,7 @@ void BuildVertexBuffer(
 	, TArray<int32>& OutWedgeMap
 	, TArray<TArray<uint32> >& OutPerSectionIndices
 	, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices
-	, const TMultiMap<int32, int32>& OverlappingCorners
+	, const FOverlappingCorners& OverlappingCorners
 	, float VertexComparisonThreshold
 	, TArray<int32>& RemapVerts)
 {
@@ -330,18 +330,16 @@ void BuildVertexBuffer(
 	{
 		RemapIndex = INDEX_NONE;
 	}
-	TArray<int32> DupVerts;
 
-	const uint32 NumTextureCoord = MeshDescription.VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TPolygonGroupAttributesConstRef<FName> PolygonGroupImportedMaterialSlotNames = MeshDescription.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
+	TVertexInstanceAttributesConstRef<FVector> VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>( MeshAttribute::VertexInstance::Normal );
+	TVertexInstanceAttributesConstRef<FVector> VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>( MeshAttribute::VertexInstance::Tangent );
+	TVertexInstanceAttributesConstRef<float> VertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributesRef<float>( MeshAttribute::VertexInstance::BinormalSign );
+	TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector4>( MeshAttribute::VertexInstance::Color );
+	TVertexInstanceAttributesConstRef<FVector2D> VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate );
 
-	const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription.PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
-	const TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Normal );
-	const TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Tangent );
-	const TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributes<float>( MeshAttribute::VertexInstance::BinormalSign );
-	const TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector4>( MeshAttribute::VertexInstance::Color );
-	const TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate );
+	const uint32 NumTextureCoord = VertexInstanceUVs.GetNumIndices();
 
 	TMap<FPolygonGroupID, int32> PolygonGroupToSectionIndex;
 	
@@ -425,7 +423,7 @@ void BuildVertexBuffer(
 				{
 					if(UVIndex < NumTextureCoord)
 					{
-						StaticMeshVertex.UVs[UVIndex] = VertexInstanceUVs.GetArrayForIndex(UVIndex)[VertexInstanceID];
+						StaticMeshVertex.UVs[UVIndex] = VertexInstanceUVs.Get(VertexInstanceID, UVIndex);
 					}
 					else
 					{
@@ -435,9 +433,8 @@ void BuildVertexBuffer(
 					
 
 				//Never add duplicated vertex instance
-				DupVerts.Reset();
-				OverlappingCorners.MultiFind(VertexInstanceValue, DupVerts);
-				DupVerts.Sort();
+				const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(VertexInstanceValue);
+
 				int32 Index = INDEX_NONE;
 				for (int32 k = 0; k < DupVerts.Num(); k++)
 				{

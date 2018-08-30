@@ -13,6 +13,7 @@ public class QuadricMeshReduction : ModuleRules
 		PrivateDependencyModuleNames.Add("RenderCore");
 		PrivateDependencyModuleNames.Add("RawMesh");
         PrivateDependencyModuleNames.Add("MeshDescription");
+        PrivateDependencyModuleNames.Add("MeshUtilitiesCommon");
 
         PrivateIncludePathModuleNames.AddRange(
         new string[] {

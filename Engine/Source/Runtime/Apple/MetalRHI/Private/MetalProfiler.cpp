@@ -1221,6 +1221,7 @@ IMetalStatistics* FMetalProfiler::GetStatistics()
 void FMetalProfiler::DestroyProfiler()
 {
 	delete Self;
+	Self = nullptr;
 }
 
 void FMetalProfiler::BeginCapture(int InNumFramesToCapture)

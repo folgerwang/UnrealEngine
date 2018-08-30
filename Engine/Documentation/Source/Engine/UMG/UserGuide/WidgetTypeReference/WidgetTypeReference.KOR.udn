@@ -73,7 +73,7 @@ Topic-image:Engine/UMG/UserGuide/WidgetTypeRefTopic.png
 | 옵션 | 설명 |
 | -------- | ----------- |
 | [Invalidation Box](Engine\UMG\UserGuide\WidgetTypeReference\Invalidation) | [INCLUDE:Engine\UMG\UserGuide\WidgetTypeReference\Invalidation#desc]|
-| **Retainer Box** | 리테이너 박스 - 렌더 타겟에 자손 위젯을 먼저 렌더링한 후 나중에 그 렌더 타겟을 화면에 렌더링합니다. 이를 통해 UI 가 메인 게임 렌더 빈도보다 실제로 적게 렌더할 수 있도록 빈도와 단계(phase) 모두 제어할 수 있습니다. 위젯을 그린 후 머티리얼을 렌더 타겟에 적용시켜 단순 포스트 프로세스를 적용하는 부가 효과도 있습니다. |
+| **Retainer Box** | 리테이너 박스 - 렌더 타깃에 자손 위젯을 먼저 렌더링한 후 나중에 그 렌더 타깃을 화면에 렌더링합니다. 이를 통해 UI 가 메인 게임 렌더 빈도보다 실제로 적게 렌더할 수 있도록 빈도와 단계(phase) 모두 제어할 수 있습니다. 위젯을 그린 후 머티리얼을 렌더 타깃에 적용시켜 단순 포스트 프로세스를 적용하는 부가 효과도 있습니다. |
 
 ## 패널
 
@@ -133,7 +133,7 @@ Topic-image:Engine/UMG/UserGuide/WidgetTypeRefTopic.png
 | 옵션 | 설명 |
 | -------- | ----------- |
 | **Input Key Selector** | 입력 키 선택기 - 단일 키 또는 다른 키와 같이 누른 키 선택을 하는 위젯입니다. |
-| **Window Title Bar Area** | 창 제목 줄 영역 - 사용자가 데스크탑 플랫폼에서 창을 끌 수 있도록 해주는 UI 영역을 정의하는 패널입니다. |
+| **Window Title Bar Area** | 창 제목 줄 영역 - 사용자가 데스크톱 플랫폼에서 창을 끌 수 있도록 해주는 UI 영역을 정의하는 패널입니다. |
 
 
 ## 사용자 생성

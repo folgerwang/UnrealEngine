@@ -1919,7 +1919,8 @@ void UCanvas::K2_DrawMaterial(UMaterialInterface* RenderMaterial, FVector2D Scre
 	}
 }
 
-void UCanvas::K2_DrawText(UFont* RenderFont, const FString& RenderText, FVector2D ScreenPosition, FLinearColor RenderColor, float Kerning, FLinearColor ShadowColor, FVector2D ShadowOffset, bool bCentreX, bool bCentreY, bool bOutlined, FLinearColor OutlineColor)
+
+void UCanvas::K2_DrawText(UFont* RenderFont, const FString& RenderText, FVector2D ScreenPosition, FVector2D Scale, FLinearColor RenderColor, float Kerning, FLinearColor ShadowColor, FVector2D ShadowOffset, bool bCentreX, bool bCentreY, bool bOutlined, FLinearColor OutlineColor)
 {
 	if (!RenderText.IsEmpty() && Canvas)
 	{
@@ -1929,6 +1930,7 @@ void UCanvas::K2_DrawText(UFont* RenderFont, const FString& RenderText, FVector2
 		TextItem.ShadowOffset = ShadowOffset;
 		TextItem.bCentreX = bCentreX;
 		TextItem.bCentreY = bCentreY;
+		TextItem.Scale = Scale;
 		TextItem.bOutlined = bOutlined;
 		TextItem.OutlineColor = OutlineColor;
 		DrawItem(TextItem);

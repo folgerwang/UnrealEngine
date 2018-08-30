@@ -21,6 +21,7 @@ Availability:Public
 [/VAR]
 
 
+%Steps%
 
 %Globals:OSSelect%
 
@@ -91,3 +92,5 @@ Availability:Public
 [/COMMENT]
 
 
+
+%Steps%

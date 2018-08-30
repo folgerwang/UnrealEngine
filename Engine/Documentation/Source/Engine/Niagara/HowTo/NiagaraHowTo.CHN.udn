@@ -1,16 +1,28 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3721928
+
 Availability:Docs
-Title: Niagara - How To's
+
+Title: Niagara - 使用指南
+
 Crumbs: %ROOT%, Engine, Engine\Niagara
-Description: A How-To Guide for creating visual effects with the Niagara Editor. 
+
+Description:使用Niagara创作视觉效果的相关指南。 
+
 Version: 4.17
+
 tags: Niagara
 
-The **Niagara - How To...** pages provide step-by-step examples on how to work with the **Niagara** Editor in various capacities inside Unreal Engine 4. 
-Whether you would like to learn how to create simple ambient effects for the environment, or setup up complex particle interactions, these pages will guide you each step of the way. Reference links are also included to provide more detailed documentation of the systems and content being outlined in each guide.  Refer to the table below for more information and click each link to view its contents. 
 
 
-## Beginner
+**Niagara——操作指南** 页面提供关于在虚幻引擎4中如何使用 **Niagara** 编辑器的各项功能的逐步示例。 
+无论您是想要学习如何为环境创建简单的环境效果，还是想要创建复杂的粒子互动，这些页面都将会指导您完成每个步骤。页面中还包含参考链接，提供了更详细的系统文档和每份指南中概述的内容。请参阅下表了解更多信息，单击每个链接来查看其内容。 
+
+
+
+
+## 初级
+
+
 
 [REGION:wrapper transparent]
 [](FANCY:Engine\Niagara\HowTo\SpriteEffect "%Engine\Niagara\HowTo\SpriteEffect:description%")

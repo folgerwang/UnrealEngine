@@ -231,7 +231,7 @@ Loop 섹션의 관계를 제거하면 더이상 반복되지 않습니다.
 ## 부가 옵션
 
 **엘리먼트 타이밍** 영역은 정보성 목적에 사용되는 곳으로 [](Engine\Animation\AnimMontage\Overview) 문서에서 자세히 다루고 있지만, 요약하자면 섹션, 노티파이, 기타 이벤트의 순차 재생 순서를 한 눈에 파악할 수 있도록 해줍니다.
-[애니메이션 노티파이](Engine/Animation/Sequences/Notifies) 로는 애니메이션의 특정 지점에 이벤트가 발생하도록 구성할 수 있으며, [](Engine/Animation/Sequences/Curves) 로는 애니메이션 재생 도중 머티리얼 파라미터 또는 모프 타겟 값을 변경할 수 있습니다.
+[애니메이션 노티파이](Engine/Animation/Sequences/Notifies) 로는 애니메이션의 특정 지점에 이벤트가 발생하도록 구성할 수 있으며, [](Engine/Animation/Sequences/Curves) 로는 애니메이션 재생 도중 머티리얼 파라미터 또는 모프 타깃 값을 변경할 수 있습니다.
 
 몽타주 에디터 하단에 있는 [타임라인](Engine/Animation/Sequences/Editor) 으로 몽타주 재생, 몽타주 한 단계씩 진행 또는 역행, 미리보기 반복 재생 또는 뷰포트에서 본 조작을 녹화하여 새로운 애니메이션 오브젝트를 만들 수도 있습니다.
 
@@ -244,7 +244,7 @@ Loop 섹션의 관계를 제거하면 더이상 반복되지 않습니다.
 |몽타주 프로퍼티||
 |---|---|
 |[REGION:tablesection]Animation 애니메이션[/REGION]||
-|**Preview Pose Asset**| 프리뷰 포즈 애셋 - 모프 타겟 또는 커브 미리보기에 사용할 수 있는 [포즈 애셋](Engine/Animation/AnimPose) 을 가리킵니다. |
+|**Preview Pose Asset**| 프리뷰 포즈 애셋 - 모프 타깃 또는 커브 미리보기에 사용할 수 있는 [포즈 애셋](Engine/Animation/AnimPose) 을 가리킵니다. |
 |**Rate Scale**|속도 스케일 - 몽타주의 재생 속도에 대한 배수입니다. 기본값은 1.0 입니다. |
 |**Skeleton**|스켈레톤 - 이 몽타주에 관련된 스켈레톤이 들어있습니다. 에디터에서는 바꿀 수 없습니다. |
 |**Parent Asset**|부모 애셋 - 쿠킹 도중, 이 데이터를 사용하여 Normal 애셋에 구워냅니다. 에디터에서 변경할 수 없습니다. |
@@ -260,7 +260,7 @@ Loop 섹션의 관계를 제거하면 더이상 반복되지 않습니다.
 |[REGION:tablesection]Additive Settings 애디티브 세팅[/REGION]||
 |**Preview Base Pose**|프리뷰 베이스 포즈 - 애디티브 블렌드 스페이스에 사용할 베이스 프리뷰 포즈를 설정합니다. |
 |[REGION:tablesection]Meta Data 메타 데이터[/REGION]||
-|**Meta Data**| 메타 데이터 - 애셋과 함께 저장할 수 있는 메타 데이터입니다. MetaData 는 Anim MetaData 클래스에서 파생된 Blueprintable 클래스입니다. 이를 통해 애니메이션 애셋 (애님 시퀀스, 애님 몽타주, 애님 컴포짓, 블렌드 스페이스 모두 지원) 에 커스텀 메타 데이터를 추가시킬 수 있습니다. 애니메이션 애셋에 있는 데이터 쿼리는 C++ 에서 `GetMetaData()` 메소드를 호출하거나, 애님 몽타주에서 `GetSectionMetaData()` 를 사용하면 됩니다. |
+|**Meta Data**| 메타 데이터 - 애셋과 함께 저장할 수 있는 메타 데이터입니다. MetaData 는 Anim MetaData 클래스에서 파생된 Blueprintable 클래스입니다. 이를 통해 애니메이션 애셋 (애님 시퀀스, 애님 몽타주, 애님 컴포짓, 블렌드 스페이스 모두 지원) 에 커스텀 메타 데이터를 추가시킬 수 있습니다. 애니메이션 애셋에 있는 데이터 쿼리는 C++ 에서 `GetMetaData()` 메서드를 호출하거나, 애님 몽타주에서 `GetSectionMetaData()` 를 사용하면 됩니다. |
 |[REGION:tablesection]Thumbnail 썸네일[/REGION]||
 |**Orbit Pitch**| 공전 피치 - 애셋 주변을 공전하는 카메라의 피치(상하) 값입니다. |
 |**Orbit Yaw**| 공전 요 - 애셋 주변을 공전하는 카메라의 요(좌우) 값입니다. |

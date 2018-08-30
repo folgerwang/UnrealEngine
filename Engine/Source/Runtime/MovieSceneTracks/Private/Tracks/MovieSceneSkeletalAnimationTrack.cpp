@@ -21,6 +21,7 @@ UMovieSceneSkeletalAnimationTrack::UMovieSceneSkeletalAnimationTrack(const FObje
 {
 #if WITH_EDITORONLY_DATA
 	TrackTint = FColor(124, 15, 124, 65);
+	bSupportsDefaultSections = false;
 #endif
 
 	SupportedBlendTypes.Add(EMovieSceneBlendType::Absolute);

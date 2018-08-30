@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -798,6 +798,7 @@ SDL_iconv(SDL_iconv_t cd,
             if (ch > 0x10FFFF) {
                 ch = UNKNOWN_UNICODE;
             }
+            /* fallthrough */
         case ENCODING_UCS4BE:
             if (ch > 0x7FFFFFFF) {
                 ch = UNKNOWN_UNICODE;
@@ -819,6 +820,7 @@ SDL_iconv(SDL_iconv_t cd,
             if (ch > 0x10FFFF) {
                 ch = UNKNOWN_UNICODE;
             }
+            /* fallthrough */
         case ENCODING_UCS4LE:
             if (ch > 0x7FFFFFFF) {
                 ch = UNKNOWN_UNICODE;

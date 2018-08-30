@@ -406,7 +406,7 @@ public:
 	static FString ConvertFTextToHexString(FText InValue);
 
 	/** Returns the number of uncached Blueprints */
-	int32 GetNumberUncachedBlueprints() const;
+	int32 GetNumberUncachedAssets() const;
 
 	/**
 	 * Starts caching all uncached Blueprints at a rate of 1 per tick
@@ -416,7 +416,7 @@ public:
 	 * @param InOnFinished					Callback when caching is finished
 	 * @param InMinimiumVersionRequirement	Minimum version requirement for caching, any Blueprints below this version will be re-indexed
 	 */
-	void CacheAllUncachedBlueprints(TWeakPtr< class SFindInBlueprints > InSourceWidget, FWidgetActiveTimerDelegate& InOutActiveTimerDelegate, FSimpleDelegate InOnFinished = FSimpleDelegate(), EFiBVersion InMinimiumVersionRequirement = EFiBVersion::FIB_VER_LATEST);
+	void CacheAllUncachedAssets(TWeakPtr< class SFindInBlueprints > InSourceWidget, FWidgetActiveTimerDelegate& InOutActiveTimerDelegate, FSimpleDelegate InOnFinished = FSimpleDelegate(), EFiBVersion InMinimiumVersionRequirement = EFiBVersion::FIB_VER_LATEST);
 	
 	/**
 	 * Starts the actual caching process
@@ -424,7 +424,7 @@ public:
 	 * @param bInSourceControlActive		TRUE if source control is active
 	 * @param bInCheckoutAndSave			TRUE if the system should checkout and save all assets that need to be reindexed
 	 */
-	void OnCacheAllUncachedBlueprints(bool bInSourceControlActive, bool bInCheckoutAndSave);
+	void OnCacheAllUncachedAssets(bool bInSourceControlActive, bool bInCheckoutAndSave);
 
 	/** Stops the caching process where it currently is at, the rest can be continued later */
 	void CancelCacheAll(SFindInBlueprints* InFindInBlueprintWidget);
@@ -571,8 +571,8 @@ protected:
 	/** FindInBlueprints widget that started the cache process */
 	TWeakPtr<SFindInBlueprints> SourceCachingWidget;
 
-	/** Blueprint paths that have not been cached for searching due to lack of data, this means that they are either older Blueprints, or the DDC cannot find the data */
-	TSet<FName> UncachedBlueprints;
+	/** Asset paths that have not been cached for searching due to lack of FiB data, this means that they are either older Blueprints, or the DDC cannot find the data */
+	TSet<FName> UncachedAssets;
 
 	/** List of paths for Blueprints that failed to cache */
 	TSet<FName> FailedToCachePaths;

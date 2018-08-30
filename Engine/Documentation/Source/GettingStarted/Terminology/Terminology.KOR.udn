@@ -51,7 +51,7 @@ topic-image:terminology_topic.png
 [INCLUDE:Shared/Glossary/P#glossary_playercontroller]
 
 [EXCERPT:playercontroller]
-**PlayerController** 플레이어 콘트롤러
+**PlayerController** 플레이어 컨트롤러
 
 [INCLUDE:Shared/Glossary/P#glossary_playercontroller]
 
@@ -61,7 +61,7 @@ topic-image:terminology_topic.png
 
 
 [EXCERPT:aicontroller]
-**AIController** AI 콘트롤러
+**AIController** AI 컨트롤러
 
 [INCLUDE:Shared/Glossary/A#glossary_aicontroller]
 
@@ -112,7 +112,7 @@ topic-image:terminology_topic.png
 [/EXCERPT:pawn]
 
 [EXCERPT:controller]
-**Controllers** 콘트롤러
+**Controllers** 컨트롤러
 [INCLUDE:Shared/Glossary/C#glossary_controller_class] 
 상세 정보: [](Gameplay/Framework/Controller), [](Gameplay/Framework/Controller/PlayerController), [](Gameplay/Framework/Controller/AIController)
 [/EXCERPT:controller]

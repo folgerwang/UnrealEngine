@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4305504
 Availability:Public
 Title:이벤트 그래프
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
@@ -10,7 +10,7 @@ tags:Blueprints
 topic-image:Engine/Blueprints/UserGuide/EventGraph/eventgraph_topic.png
 
 
-![Graph Panel](Engine/Blueprints/Editor/Modes/GraphPanel/k2_graphview.png)
+![Graph Panel](k2_graphview.png)
 
 [EXCERPT:Intro]
 

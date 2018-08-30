@@ -15,7 +15,7 @@ const FSlateBrush* FClassIconFinder::FindIconForActors(const TArray< TWeakObject
 
 	for( int32 ActorIdx = 0; ActorIdx < InActors.Num(); ++ActorIdx )
 	{
-		TWeakObjectPtr<AActor> Actor = InActors[ActorIdx];
+		TWeakObjectPtr<const AActor> Actor = InActors[ActorIdx];
 		UClass* ObjClass = Actor->GetClass();
 		check(ObjClass);
 
@@ -44,26 +44,19 @@ const FSlateBrush* FClassIconFinder::FindIconForActors(const TArray< TWeakObject
 	return CommonIcon.GetOptionalIcon();
 }
 
-FSlateIcon FClassIconFinder::FindSlateIconForActor( const TWeakObjectPtr<AActor>& InActor )
+FSlateIcon FClassIconFinder::FindSlateIconForActor( const TWeakObjectPtr<const AActor>& InActor )
 {
 	// Actor specific overrides to normal per-class icons
 	const AActor* Actor = InActor.Get();
 
 	if ( Actor )
 	{
-		const ABrush* Brush = Cast< ABrush >( Actor );
-		if ( Brush )
+		FName IconName = Actor->GetCustomIconName();
+		if (IconName != NAME_None)
 		{
-			if (Brush_Add == Brush->BrushType)
-			{
-				return FSlateIconFinder::FindIcon("ClassIcon.BrushAdditive");
-			}
-			else if (Brush_Subtract == Brush->BrushType)
-			{
-				return FSlateIconFinder::FindIcon("ClassIcon.BrushSubtractive");
-			}
+			return FSlateIconFinder::FindIcon(IconName);
 		}
-
+	
 		// Actor didn't specify an icon - fallback on the class icon
 		return FSlateIconFinder::FindIconForClass(Actor->GetClass());
 	}
@@ -74,7 +67,7 @@ FSlateIcon FClassIconFinder::FindSlateIconForActor( const TWeakObjectPtr<AActor>
 	}
 }
 
-const FSlateBrush* FClassIconFinder::FindIconForActor( const TWeakObjectPtr<AActor>& InActor )
+const FSlateBrush* FClassIconFinder::FindIconForActor( const TWeakObjectPtr<const AActor>& InActor )
 {
 	return FindSlateIconForActor(InActor).GetOptionalIcon();
 }

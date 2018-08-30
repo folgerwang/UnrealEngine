@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -24,7 +24,6 @@
 
 #include "SDL.h"
 #include "SDL_events.h"
-#include "SDL_syswm.h"
 #include "SDL_thread.h"
 #include "SDL_events_c.h"
 #include "../timer/SDL_timer_c.h"
@@ -32,23 +31,25 @@
 #include "../joystick/SDL_joystick_c.h"
 #endif
 #include "../video/SDL_sysvideo.h"
+#include "SDL_syswm.h"
 
 /*#define SDL_DEBUG_EVENTS 1*/
 
 /* An arbitrary limit so we don't have unbounded growth */
 #define SDL_MAX_QUEUED_EVENTS   65535
 
-/* Public data -- the event filter */
-SDL_EventFilter SDL_EventOK = NULL;
-void *SDL_EventOKParam;
-
 typedef struct SDL_EventWatcher {
     SDL_EventFilter callback;
     void *userdata;
-    struct SDL_EventWatcher *next;
+    SDL_bool removed;
 } SDL_EventWatcher;
 
+static SDL_mutex *SDL_event_watchers_lock;
+static SDL_EventWatcher SDL_EventOK;
 static SDL_EventWatcher *SDL_event_watchers = NULL;
+static int SDL_event_watchers_count = 0;
+static SDL_bool SDL_event_watchers_dispatching = SDL_FALSE;
+static SDL_bool SDL_event_watchers_removed = SDL_FALSE;
 
 typedef struct {
     Uint32 bits[8];
@@ -367,12 +368,16 @@ SDL_StopEventLoop(void)
         SDL_disabled_events[i] = NULL;
     }
 
-    while (SDL_event_watchers) {
-        SDL_EventWatcher *tmp = SDL_event_watchers;
-        SDL_event_watchers = tmp->next;
-        SDL_free(tmp);
+    if (SDL_event_watchers_lock) {
+        SDL_DestroyMutex(SDL_event_watchers_lock);
+        SDL_event_watchers_lock = NULL;
     }
-    SDL_EventOK = NULL;
+    if (SDL_event_watchers) {
+        SDL_free(SDL_event_watchers);
+        SDL_event_watchers = NULL;
+        SDL_event_watchers_count = 0;
+    }
+    SDL_zero(SDL_EventOK);
 
     if (SDL_EventQ.lock) {
         SDL_UnlockMutex(SDL_EventQ.lock);
@@ -395,9 +400,16 @@ SDL_StartEventLoop(void)
 #if !SDL_THREADS_DISABLED
     if (!SDL_EventQ.lock) {
         SDL_EventQ.lock = SDL_CreateMutex();
+        if (SDL_EventQ.lock == NULL) {
+            return -1;
+        }
     }
-    if (SDL_EventQ.lock == NULL) {
-        return -1;
+
+    if (!SDL_event_watchers_lock) {
+        SDL_event_watchers_lock = SDL_CreateMutex();
+        if (SDL_event_watchers_lock == NULL) {
+            return -1;
+        }
     }
 #endif /* !SDL_THREADS_DISABLED */
 
@@ -405,6 +417,8 @@ SDL_StartEventLoop(void)
     SDL_EventState(SDL_TEXTINPUT, SDL_DISABLE);
     SDL_EventState(SDL_TEXTEDITING, SDL_DISABLE);
     SDL_EventState(SDL_SYSWMEVENT, SDL_DISABLE);
+    SDL_EventState(SDL_DROPFILE, SDL_DISABLE);
+    SDL_EventState(SDL_DROPTEXT, SDL_DISABLE);
 
     SDL_AtomicSet(&SDL_EventQ.active, 1);
 
@@ -592,6 +606,10 @@ SDL_FlushEvent(Uint32 type)
 void
 SDL_FlushEvents(Uint32 minType, Uint32 maxType)
 {
+    /* !!! FIXME: we need to manually SDL_free() the strings in TEXTINPUT and
+       drag'n'drop events if we're flushing them without passing them to the
+       app, but I don't know if this is the right place to do that. */
+
     /* Don't look after we've quit */
     if (!SDL_AtomicGet(&SDL_EventQ.active)) {
         return;
@@ -606,7 +624,7 @@ SDL_FlushEvents(Uint32 minType, Uint32 maxType)
 #endif
 
     /* Lock the event queue */
-    if (SDL_EventQ.lock && SDL_LockMutex(SDL_EventQ.lock) == 0) {
+    if (!SDL_EventQ.lock || SDL_LockMutex(SDL_EventQ.lock) == 0) {
         SDL_EventEntry *entry, *next;
         Uint32 type;
         for (entry = SDL_EventQ.head; entry; entry = next) {
@@ -616,7 +634,9 @@ SDL_FlushEvents(Uint32 minType, Uint32 maxType)
                 SDL_CutEvent(entry);
             }
         }
-        SDL_UnlockMutex(SDL_EventQ.lock);
+        if (SDL_EventQ.lock) {
+            SDL_UnlockMutex(SDL_EventQ.lock);
+        }
     }
 }
 
@@ -688,16 +708,46 @@ SDL_WaitEventTimeout(SDL_Event * event, int timeout)
 int
 SDL_PushEvent(SDL_Event * event)
 {
-    SDL_EventWatcher *curr;
-
     event->common.timestamp = SDL_GetTicks();
 
-    if (SDL_EventOK && !SDL_EventOK(SDL_EventOKParam, event)) {
-        return 0;
-    }
+    if (SDL_EventOK.callback || SDL_event_watchers_count > 0) {
+        if (!SDL_event_watchers_lock || SDL_LockMutex(SDL_event_watchers_lock) == 0) {
+            if (SDL_EventOK.callback && !SDL_EventOK.callback(SDL_EventOK.userdata, event)) {
+                if (SDL_event_watchers_lock) {
+                    SDL_UnlockMutex(SDL_event_watchers_lock);
+                }
+                return 0;
+            }
 
-    for (curr = SDL_event_watchers; curr; curr = curr->next) {
-        curr->callback(curr->userdata, event);
+            if (SDL_event_watchers_count > 0) {
+                /* Make sure we only dispatch the current watcher list */
+                int i, event_watchers_count = SDL_event_watchers_count;
+
+                SDL_event_watchers_dispatching = SDL_TRUE;
+                for (i = 0; i < event_watchers_count; ++i) {
+                    if (!SDL_event_watchers[i].removed) {
+                        SDL_event_watchers[i].callback(SDL_event_watchers[i].userdata, event);
+                    }
+                }
+                SDL_event_watchers_dispatching = SDL_FALSE;
+
+                if (SDL_event_watchers_removed) {
+                    for (i = SDL_event_watchers_count; i--; ) {
+                        if (SDL_event_watchers[i].removed) {
+                            --SDL_event_watchers_count;
+                            if (i < SDL_event_watchers_count) {
+                                SDL_memmove(&SDL_event_watchers[i], &SDL_event_watchers[i+1], (SDL_event_watchers_count - i) * sizeof(SDL_event_watchers[i]));
+                            }
+                        }
+                    }
+                    SDL_event_watchers_removed = SDL_FALSE;
+                }
+            }
+
+            if (SDL_event_watchers_lock) {
+                SDL_UnlockMutex(SDL_event_watchers_lock);
+            }
+        }
     }
 
     if (SDL_PeepEvents(event, 1, SDL_ADDEVENT, 0, 0) <= 0) {
@@ -712,69 +762,89 @@ SDL_PushEvent(SDL_Event * event)
 void
 SDL_SetEventFilter(SDL_EventFilter filter, void *userdata)
 {
-    /* Set filter and discard pending events */
-    SDL_EventOK = NULL;
-    SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
-    SDL_EventOKParam = userdata;
-    SDL_EventOK = filter;
+    if (!SDL_event_watchers_lock || SDL_LockMutex(SDL_event_watchers_lock) == 0) {
+        /* Set filter and discard pending events */
+        SDL_EventOK.callback = filter;
+        SDL_EventOK.userdata = userdata;
+        SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+
+        if (SDL_event_watchers_lock) {
+            SDL_UnlockMutex(SDL_event_watchers_lock);
+        }
+    }
 }
 
 SDL_bool
 SDL_GetEventFilter(SDL_EventFilter * filter, void **userdata)
 {
+    SDL_EventWatcher event_ok;
+
+    if (!SDL_event_watchers_lock || SDL_LockMutex(SDL_event_watchers_lock) == 0) {
+        event_ok = SDL_EventOK;
+
+        if (SDL_event_watchers_lock) {
+            SDL_UnlockMutex(SDL_event_watchers_lock);
+        }
+    } else {
+        SDL_zero(event_ok);
+    }
+
     if (filter) {
-        *filter = SDL_EventOK;
+        *filter = event_ok.callback;
     }
     if (userdata) {
-        *userdata = SDL_EventOKParam;
+        *userdata = event_ok.userdata;
     }
-    return SDL_EventOK ? SDL_TRUE : SDL_FALSE;
+    return event_ok.callback ? SDL_TRUE : SDL_FALSE;
 }
 
-/* FIXME: This is not thread-safe yet */
 void
 SDL_AddEventWatch(SDL_EventFilter filter, void *userdata)
 {
-    SDL_EventWatcher *watcher, *tail;
+    if (!SDL_event_watchers_lock || SDL_LockMutex(SDL_event_watchers_lock) == 0) {
+        SDL_EventWatcher *event_watchers;
 
-    watcher = (SDL_EventWatcher *)SDL_malloc(sizeof(*watcher));
-    if (!watcher) {
-        /* Uh oh... */
-        return;
-    }
+        event_watchers = SDL_realloc(SDL_event_watchers, (SDL_event_watchers_count + 1) * sizeof(*event_watchers));
+        if (event_watchers) {
+            SDL_EventWatcher *watcher;
 
-    /* create the watcher */
-    watcher->callback = filter;
-    watcher->userdata = userdata;
-    watcher->next = NULL;
-
-    /* add the watcher to the end of the list */
-    if (SDL_event_watchers) {
-        for (tail = SDL_event_watchers; tail->next; tail = tail->next) {
-            continue;
+            SDL_event_watchers = event_watchers;
+            watcher = &SDL_event_watchers[SDL_event_watchers_count];
+            watcher->callback = filter;
+            watcher->userdata = userdata;
+            watcher->removed = SDL_FALSE;
+            ++SDL_event_watchers_count;
         }
-        tail->next = watcher;
-    } else {
-        SDL_event_watchers = watcher;
+
+        if (SDL_event_watchers_lock) {
+            SDL_UnlockMutex(SDL_event_watchers_lock);
+        }
     }
 }
 
-/* FIXME: This is not thread-safe yet */
 void
 SDL_DelEventWatch(SDL_EventFilter filter, void *userdata)
 {
-    SDL_EventWatcher *prev = NULL;
-    SDL_EventWatcher *curr;
+    if (!SDL_event_watchers_lock || SDL_LockMutex(SDL_event_watchers_lock) == 0) {
+        int i;
 
-    for (curr = SDL_event_watchers; curr; prev = curr, curr = curr->next) {
-        if (curr->callback == filter && curr->userdata == userdata) {
-            if (prev) {
-                prev->next = curr->next;
-            } else {
-                SDL_event_watchers = curr->next;
+        for (i = 0; i < SDL_event_watchers_count; ++i) {
+            if (SDL_event_watchers[i].callback == filter && SDL_event_watchers[i].userdata == userdata) {
+                if (SDL_event_watchers_dispatching) {
+                    SDL_event_watchers[i].removed = SDL_TRUE;
+                    SDL_event_watchers_removed = SDL_TRUE;
+                } else {
+                    --SDL_event_watchers_count;
+                    if (i < SDL_event_watchers_count) {
+                        SDL_memmove(&SDL_event_watchers[i], &SDL_event_watchers[i+1], (SDL_event_watchers_count - i) * sizeof(SDL_event_watchers[i]));
+                    }
+                }
+                break;
             }
-            SDL_free(curr);
-            break;
+        }
+
+        if (SDL_event_watchers_lock) {
+            SDL_UnlockMutex(SDL_event_watchers_lock);
         }
     }
 }
@@ -782,7 +852,7 @@ SDL_DelEventWatch(SDL_EventFilter filter, void *userdata)
 void
 SDL_FilterEvents(SDL_EventFilter filter, void *userdata)
 {
-    if (SDL_EventQ.lock && SDL_LockMutex(SDL_EventQ.lock) == 0) {
+    if (!SDL_EventQ.lock || SDL_LockMutex(SDL_EventQ.lock) == 0) {
         SDL_EventEntry *entry, *next;
         for (entry = SDL_EventQ.head; entry; entry = next) {
             next = entry->next;
@@ -790,13 +860,17 @@ SDL_FilterEvents(SDL_EventFilter filter, void *userdata)
                 SDL_CutEvent(entry);
             }
         }
-        SDL_UnlockMutex(SDL_EventQ.lock);
+        if (SDL_EventQ.lock) {
+            SDL_UnlockMutex(SDL_EventQ.lock);
+        }
     }
 }
 
 Uint8
 SDL_EventState(Uint32 type, int state)
 {
+    const SDL_bool isdnd = ((state == SDL_DISABLE) || (state == SDL_ENABLE)) &&
+                           ((type == SDL_DROPFILE) || (type == SDL_DROPTEXT));
     Uint8 current_state;
     Uint8 hi = ((type >> 8) & 0xff);
     Uint8 lo = (type & 0xff);
@@ -830,6 +904,12 @@ SDL_EventState(Uint32 type, int state)
             /* Querying state... */
             break;
         }
+    }
+
+    /* turn off drag'n'drop support if we've disabled the events.
+       This might change some UI details at the OS level. */
+    if (isdnd) {
+        SDL_ToggleDragAndDropSupport();
     }
 
     return current_state;

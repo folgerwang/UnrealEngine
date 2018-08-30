@@ -34,7 +34,7 @@ Medium Detail Spawn Rate Scale 은 배수로, 0-1 범위면 적절한 값을 설
 
 **에디터에서 플레이** 또는 게임에서 분할화면 모드로 전환하는 콘솔 명령은 **`debugCreatePlayer1`** 입니다.
 
-콘트롤러가 하나밖에 없다면 **`ssswapControllers`** 명령으로 플레이어 사이를 오갑니다.
+컨트롤러가 하나밖에 없다면 **`ssswapControllers`** 명령으로 플레이어 사이를 오갑니다.
 
 주어진 영역에 대한 드로 콜을 보는 명령은 **`DumpParticleFrameRenderingStats`** 입니다. 이 명령은 액션이 일어난 곳의 스크린샷과 스프레드시트를 덤프합니다. 이 스크린샷은 데이터가 덤프된 이후 찍힌 것이니 추정치일 뿐이며, 시각적인 참고자료에 가깝습니다.
 

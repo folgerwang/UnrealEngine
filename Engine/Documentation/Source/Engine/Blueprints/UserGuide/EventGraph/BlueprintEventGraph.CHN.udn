@@ -47,7 +47,7 @@ Tags:Graphs
 
 
 
-![事件面板](Engine/Blueprints/Editor/Modes/GraphPanel/k2_graphview.png)
+![事件面板](k2_graphview.png)
 
 [EXCERPT:Intro]
 
@@ -63,10 +63,6 @@ _关卡蓝图_ 中的 **EventGraph（事件图表）** 包含一个节点图表�
  _Flow Control（流程控制）_ 节点及 _变量_ 来执行期望的动作。
 
 ## 应用图表
-
-[INCLUDE:Engine/Blueprints/Editor/Modes/GraphPanel#Intro]
-
-请参照 [](Engine/Blueprints/Editor/Modes/GraphPanel) 获得关于在蓝图中应用 **EventGraph（事件图表）** 和其他图表的详细指南。
 
 [REGION:note]
 For information about using Matinee to control specific types of Blueprint components and properties, and to create events, see [](Engine/Matinee\UserGuide\BlueprintComponents).

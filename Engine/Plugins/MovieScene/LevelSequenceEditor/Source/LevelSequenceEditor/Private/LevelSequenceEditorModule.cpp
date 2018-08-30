@@ -35,6 +35,9 @@
 #include "ILevelSequenceModule.h"
 #include "Misc/LevelSequenceEditorActorSpawner.h"
 #include "SequencerSettings.h"
+#include "Misc/MovieSceneSequenceEditor_LevelSequence.h"
+#include "KismetCompilerModule.h"
+#include "BlueprintAssetHandler.h"
 
 #define LOCTEXT_NAMESPACE "LevelSequenceEditor"
 
@@ -46,7 +49,7 @@ TSharedPtr<FLevelSequenceEditorStyle> FLevelSequenceEditorStyle::Singleton;
  * Implements the LevelSequenceEditor module.
  */
 class FLevelSequenceEditorModule
-	: public ILevelSequenceEditorModule, public FGCObject
+	: public ILevelSequenceEditorModule, public IBlueprintCompiler, public FGCObject
 {
 public:
 
@@ -68,6 +71,26 @@ public:
 		RegisterLevelEditorExtensions();
 		RegisterPlacementModeExtensions();
 		RegisterSettings();
+		RegisterSequenceEditor();
+
+		IKismetCompilerInterface& KismetCompilerModule = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>("KismetCompiler");
+		KismetCompilerModule.GetCompilers().Add(this);
+
+		class FLevelSequenceAssetBlueprintHandler : public IBlueprintAssetHandler
+		{
+			virtual UBlueprint* RetrieveBlueprint(UObject* InObject) const override
+			{
+				return Cast<UBlueprint>(CastChecked<ULevelSequence>(InObject)->DirectorBlueprint);
+			}
+
+			virtual bool AssetContainsBlueprint(const FAssetData& InAssetData) const
+			{
+				// Only have a blueprint if it contains the BlueprintPathWithinPackage tag
+				return InAssetData.TagsAndValues.Find(FBlueprintTags::BlueprintPathWithinPackage) != nullptr;
+			}
+		};
+
+		FBlueprintAssetHandler::Get().RegisterHandler<FLevelSequenceAssetBlueprintHandler>(ULevelSequence::StaticClass()->GetFName());
 	}
 	
 	virtual void ShutdownModule() override
@@ -79,6 +102,13 @@ public:
 		UnregisterLevelEditorExtensions();
 		UnregisterPlacementModeExtensions();
 		UnregisterSettings();
+		UnregisterSequenceEditor();
+
+		IKismetCompilerInterface* KismetCompilerModulePtr = FModuleManager::GetModulePtr<IKismetCompilerInterface>("KismetCompiler");
+		if (KismetCompilerModulePtr)
+		{
+			KismetCompilerModulePtr->GetCompilers().Remove(this);
+		}
 	}
 
 protected:
@@ -189,6 +219,12 @@ protected:
 		}
 	}
 
+	void RegisterSequenceEditor()
+	{
+		ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
+		SequenceEditorHandle = SequencerModule.RegisterSequenceEditor(ULevelSequence::StaticClass(), MakeUnique<FMovieSceneSequenceEditor_LevelSequence>());
+	}
+
 protected:
 
 	/** Unregisters sequencer editor object bindings */
@@ -270,6 +306,32 @@ protected:
 			SettingsModule->UnregisterSettings("Project", "Plugins", "LevelSequencer");
 
 			SettingsModule->UnregisterSettings("Editor", "ContentEditors", "LevelSequenceEditor");
+		}
+	}
+
+	void UnregisterSequenceEditor()
+	{
+		ISequencerModule* SequencerModule = FModuleManager::GetModulePtr<ISequencerModule>("Sequencer");
+		if (SequencerModule)
+		{
+			SequencerModule->UnregisterSequenceEditor(SequenceEditorHandle);
+		}
+	}
+
+protected:
+
+	virtual bool CanCompile(const UBlueprint* Blueprint) override
+	{
+		return Blueprint && Blueprint->IsA<ULevelSequenceDirectorBlueprint>();
+	}
+
+	virtual void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded) override
+	{
+		if (ULevelSequenceDirectorBlueprint* LevelSequenceDirectorBP = CastChecked<ULevelSequenceDirectorBlueprint>(Blueprint) )
+		{
+			FLevelSequenceDirectorBlueprintCompiler Compiler(LevelSequenceDirectorBP, Results, CompileOptions, ObjLoaded);
+			Compiler.Compile();
+			check(Compiler.NewClass);
 		}
 	}
 
@@ -366,6 +428,8 @@ private:
 	FDelegateHandle EditorActorSpawnerDelegateHandle;
 
 	USequencerSettings* Settings;
+
+	FDelegateHandle SequenceEditorHandle;
 };
 
 

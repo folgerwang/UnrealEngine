@@ -107,7 +107,7 @@ void FSequencerEdMode::DrawHUD(FEditorViewportClient* ViewportClient,FViewport* 
 {
 	FEdMode::DrawHUD(ViewportClient,Viewport,View,Canvas);
 
-	if( ViewportClient->AllowsCinematicPreview() )
+	if( ViewportClient->AllowsCinematicControl() )
 	{
 		// Get the size of the viewport
 		const int32 SizeX = Viewport->GetSizeXY().X;
@@ -142,6 +142,8 @@ void FSequencerEdMode::OnKeySelected(FViewport* Viewport, HMovieSceneKeyProxy* K
 
 	for (TWeakPtr<FSequencer> WeakSequencer : Sequencers)
 	{
+		bool bChangedSelection = false;
+
 		TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
 		if (Sequencer.IsValid())
 		{
@@ -150,6 +152,12 @@ void FSequencerEdMode::OnKeySelected(FViewport* Viewport, HMovieSceneKeyProxy* K
 			FSequencerSelection& Selection = Sequencer->GetSelection();
 			if (!bAddToSelection && !bToggleSelection)
 			{
+				if (!bChangedSelection)
+				{
+					Sequencer->GetSelection().SuspendBroadcast();
+					bChangedSelection = true;
+				}
+
 				Sequencer->GetSelection().EmptySelectedKeys();
 			}
 
@@ -174,6 +182,12 @@ void FSequencerEdMode::OnKeySelected(FViewport* Viewport, HMovieSceneKeyProxy* K
 							TSharedPtr<IKeyArea> KeyArea = KeyAreaNode->GetKeyArea(Section);
 							if (KeyArea.IsValid() && KeyArea->GetName() == KeyData.ChannelName)
 							{
+								if (!bChangedSelection)
+								{
+									Sequencer->GetSelection().SuspendBroadcast();
+									bChangedSelection = true;
+								}
+
 								Sequencer->SelectKey(Section, KeyArea, KeyData.KeyHandle.GetValue(), bToggleSelection);
 								goto next_key;
 							}
@@ -182,6 +196,12 @@ void FSequencerEdMode::OnKeySelected(FViewport* Viewport, HMovieSceneKeyProxy* K
 				}
 next_key:
 				continue;
+			}
+			if (bChangedSelection)
+			{
+				Sequencer->GetSelection().ResumeBroadcast();
+				Sequencer->GetSelection().GetOnKeySelectionChanged().Broadcast();
+				Sequencer->GetSelection().GetOnOutlinerNodeSelectionChangedObjectGuids().Broadcast();
 			}
 		}
 	}
@@ -309,7 +329,7 @@ bool FSequencerEdMode::GetParentTM(FTransform& CurrentRefTM, const TSharedPtr<FS
 			}
 		}
 	}
-
+	
 	return false;
 }
 
@@ -354,7 +374,6 @@ FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer
 FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer, const UObject* InObject, FFrameTime KeyTime)
 {
 	FTransform RefTM = FTransform::Identity;
-
 	const AActor* Actor = Cast<AActor>(InObject);
 	if (Actor != nullptr)
 	{
@@ -477,14 +496,14 @@ void FSequencerEdMode::GetLocationAtTime(FMovieSceneEvaluationTrack* Track, UObj
 }
 
 void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequencer, FPrimitiveDrawInterface* PDI,
-	UMovieScene3DTransformTrack* TransformTrack, const TArray<TWeakObjectPtr<UObject>>& BoundObjects, const bool bIsSelected)
+											UMovieScene3DTransformTrack* TransformTrack, const TArray<TWeakObjectPtr<UObject>>& BoundObjects, const bool bIsSelected)
 {
 	bool bHitTesting = true;
-	if (PDI != nullptr)
+	if( PDI != nullptr )
 	{
 		bHitTesting = PDI->IsHitTesting();
 	}
-
+	
 	ASequencerMeshTrail* TrailActor = nullptr;
 	// Get the Trail Actor associated with this track if we are drawing mesh trails
 	if (bDrawMeshTrails)
@@ -501,24 +520,24 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 
 	bool bShowTrajectory = TransformTrack->GetAllSections().ContainsByPredicate(
 		[bIsSelected](UMovieSceneSection* Section)
-	{
-		UMovieScene3DTransformSection* TransformSection = Cast<UMovieScene3DTransformSection>(Section);
-		if (TransformSection)
 		{
-			switch (TransformSection->GetShow3DTrajectory())
+			UMovieScene3DTransformSection* TransformSection = Cast<UMovieScene3DTransformSection>(Section);
+			if (TransformSection)
 			{
-			case EShow3DTrajectory::EST_Always:				return true;
-			case EShow3DTrajectory::EST_Never:				return false;
-			case EShow3DTrajectory::EST_OnlyWhenSelected:	return bIsSelected;
+				switch (TransformSection->GetShow3DTrajectory())
+				{
+				case EShow3DTrajectory::EST_Always:				return true;
+				case EShow3DTrajectory::EST_Never:				return false;
+				case EShow3DTrajectory::EST_OnlyWhenSelected:	return bIsSelected;
+				}
 			}
+			return false;
 		}
-		return false;
-	}
 	);
-
+	
 	FFrameRate TickResolution = Sequencer->GetFocusedTickResolution();
 	FMovieSceneEvaluationTemplate* Template = Sequencer->GetEvaluationTemplate().FindTemplate(Sequencer->GetFocusedTemplateID());
-	if (!bShowTrajectory || !Template || !TransformTrack->GetAllSections().ContainsByPredicate([](UMovieSceneSection* In) { return In->IsActive(); }))
+	if (!bShowTrajectory || !Template || !TransformTrack->GetAllSections().ContainsByPredicate([](UMovieSceneSection* In){ return In->IsActive(); }))
 	{
 		return;
 	}
@@ -539,7 +558,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 			GetParents(Parents, BoundObject);
 
 			FVector OldKeyPos(0);
-			FFrameTime OldKeyTime = 0;
+ 			FFrameTime OldKeyTime = 0;
 			int KeyTimeIndex = 0;
 			FTransform OldPosRefTM;;
 			FVector OldPos_G;
@@ -553,7 +572,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 				FVector WorldPosition;
 				FTrajectoryKey TrajectoryKey;
 
-				FKeyPositionRotation(const FTrajectoryKey &InTrajKey, const FVector &InPos, const FRotator &InRot, const FVector &InWorldPos) :
+				FKeyPositionRotation(const FTrajectoryKey &InTrajKey, const FVector &InPos, const FRotator &InRot, const FVector &InWorldPos) : 
 					 Position(InPos), Rotation(InRot), WorldPosition(InWorldPos), TrajectoryKey(InTrajKey) {}
 			};
 			TArray<FKeyPositionRotation> KeyPosRots;
@@ -563,31 +582,31 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 				FFrameTime NewKeyTime = NewTrajectoryKey.Time;
 
 				FVector NewKeyPos(0);
-				FRotator NewKeyRot(0, 0, 0);
+				FRotator NewKeyRot(0,0,0);
 
 				GetLocationAtTime(EvalTrack, BoundObject, NewKeyTime, NewKeyPos, NewKeyRot, Sequencer);
 				FTransform NewPosRefTM = GetRefFrame(Sequencer, Parents, NewKeyTime);
 				FVector NewKeyPos_G = NewPosRefTM.TransformPosition(NewKeyPos);
-				FKeyPositionRotation KeyPosRot(NewTrajectoryKey, NewKeyPos, NewKeyRot, NewKeyPos_G);
+				FKeyPositionRotation KeyPosRot(NewTrajectoryKey,NewKeyPos, NewKeyRot, NewKeyPos_G);
 				KeyPosRots.Push(KeyPosRot);
 				// If not the first keypoint, draw a line to the last keypoint.
-				if (KeyTimeIndex > 0)
+				if(KeyTimeIndex > 0)
 				{
 					int32 NumSteps = FMath::CeilToInt((TickResolution.AsSeconds(NewKeyTime) - TickResolution.AsSeconds(OldKeyTime)) / SequencerEdMode_Draw3D::DrawTrackTimeRes);
 					// Limit the number of steps to prevent a rendering performance hit
-					NumSteps = FMath::Min(100, NumSteps);
-					FFrameTime DrawSubstep = NumSteps == 0 ? 0 : (NewKeyTime - OldKeyTime)*(1.f / NumSteps);
+					NumSteps = FMath::Min( 100, NumSteps );
+					FFrameTime DrawSubstep = NumSteps == 0 ? 0 : (NewKeyTime - OldKeyTime)*(1.f/NumSteps);
 					// Find position on first keyframe.
 					FFrameTime OldTime = OldKeyTime;
 					FVector OldPos(0);
-					FRotator OldRot(0, 0, 0);
+					FRotator OldRot(0,0,0);
 					GetLocationAtTime(EvalTrack, BoundObject, OldKeyTime, OldPos, OldRot, Sequencer);
 
 					const bool bIsConstantKey = NewTrajectoryKey.Is(ERichCurveInterpMode::RCIM_Constant);
 					// For constant interpolation - don't draw ticks - just draw dotted line.
 					if (bIsConstantKey)
 					{
-						if (PDI != nullptr)
+						if(PDI != nullptr)
 						{
 							DrawDashedLine(PDI, OldPos_G, NewKeyPos_G, TrackColor, 20, SDPG_Foreground);
 						}
@@ -595,12 +614,12 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 					else
 					{
 						// Then draw a line for each substep.
-						for (int32 j = 1; j<NumSteps + 1; j++)
+						for (int32 j=1; j<NumSteps+1; j++)
 						{
 							FFrameTime NewTime = OldKeyTime + DrawSubstep*j;
 
 							FVector NewPos(0);
-							FRotator NewRot(0, 0, 0);
+							FRotator NewRot(0,0,0);
 							GetLocationAtTime(EvalTrack, BoundObject, NewTime, NewPos, NewRot, Sequencer);
 
 							FTransform RefTM = GetRefFrame(Sequencer, Parents, NewTime);
@@ -637,9 +656,9 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 
 			// Draw keypoints on top of curve
 			FColor KeyColor = TrackColor.ToFColor(true);
-			for (const FKeyPositionRotation& KeyPosRot : KeyPosRots)
+			for (const FKeyPositionRotation& KeyPosRot: KeyPosRots)
 			{
-				if (bHitTesting && PDI)
+				if (bHitTesting && PDI) 
 				{
 					PDI->SetHitProxy(new HMovieSceneKeyProxy(TransformTrack, KeyPosRot.TrajectoryKey));
 				}
@@ -666,7 +685,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 					}
 				}
 
-				if (bHitTesting && PDI)
+				if (bHitTesting && PDI) 
 				{
 					PDI->SetHitProxy(nullptr);
 				}
@@ -691,7 +710,7 @@ void FSequencerEdMode::DrawTracks3D(FPrimitiveDrawInterface* PDI)
 		// Map between object binding nodes and selection
 		TMap<TSharedRef<FSequencerDisplayNode>, bool > ObjectBindingNodesSelectionMap;
 
-		for (auto ObjectBinding : Sequencer->GetNodeTree()->GetObjectBindingMap())
+		for (auto ObjectBinding : Sequencer->GetNodeTree()->GetObjectBindingMap() )
 		{
 			if (!ObjectBinding.Value.IsValid())
 			{
@@ -730,8 +749,8 @@ void FSequencerEdMode::DrawTracks3D(FPrimitiveDrawInterface* PDI)
 							});
 							if (TrailPtr == nullptr)
 							{
-								UViewportWorldInteraction* WorldInteraction = Cast<UViewportWorldInteraction>(GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(GetWorld())->FindExtension(UViewportWorldInteraction::StaticClass()));
-								if (WorldInteraction != nullptr)
+								UViewportWorldInteraction* WorldInteraction = Cast<UViewportWorldInteraction>( GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions( GetWorld() )->FindExtension( UViewportWorldInteraction::StaticClass() ) );
+								if( WorldInteraction != nullptr )
 								{
 									ASequencerMeshTrail* TrailActor = WorldInteraction->SpawnTransientSceneActor<ASequencerMeshTrail>(TEXT("SequencerMeshTrail"), true);
 									FMeshTrailData MeshTrail = FMeshTrailData(TransformTrack, TrailActor);
@@ -747,7 +766,6 @@ void FSequencerEdMode::DrawTracks3D(FPrimitiveDrawInterface* PDI)
 		}
 	}
 }
-
 
 FSequencerEdModeTool::FSequencerEdModeTool(FSequencerEdMode* InSequencerEdMode) :
 	SequencerEdMode(InSequencerEdMode)

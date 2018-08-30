@@ -50,7 +50,6 @@ class ANIMGRAPHRUNTIME_API UAnimCustomInstance : public UAnimInstance
 				InstanceClassType* SequencerInstance = NewObject<InstanceClassType>(InSkeletalMeshComponent, InstanceClassType::StaticClass());
 				InSkeletalMeshComponent->AnimScriptInstance = SequencerInstance;
 				InSkeletalMeshComponent->AnimScriptInstance->InitializeAnimation();
-				SequencerInstance->bNeedsUpdate = true;
 				return SequencerInstance;
 			}
 			else

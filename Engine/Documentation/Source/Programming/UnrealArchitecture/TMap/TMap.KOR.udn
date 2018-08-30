@@ -97,7 +97,7 @@ Append 함수를 사용하여 다른 맵에서 모든 엘리먼트를 삽입시�
 	// 	{ Key: 9, Value: "Melon"     }
 	// ]
 
-여기서, 결과 맵은 Add/Emplace 를 사용하여 개별 추가시킨 것에 해당하므로, 소스 맵에서의 중복 키는 타겟의 것들을 대체합니다.
+여기서, 결과 맵은 Add/Emplace 를 사용하여 개별 추가시킨 것에 해당하므로, 소스 맵에서의 중복 키는 타깃의 것들을 대체합니다.
 
 
 TMap 에 `UPROPERTY()` 매크로와 편집가능 키워드 (`EditAnywhere`, `EditDefaultsOnly`, `EditInstanceOnly`) 중 하나를 마킹하면, [언리얼 에디터에서 엘리먼트를 추가 및 편집](Engine/UI/LevelEditor/Details/Properties/Map) 가능합니다.

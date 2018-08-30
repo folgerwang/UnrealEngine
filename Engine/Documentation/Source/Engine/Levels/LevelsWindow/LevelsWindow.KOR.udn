@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4305335
 Availability: Public
 Title:다수의 레벨 관리
 Description:레벨 창으로 퍼시스턴트 레벨과 서브 레벨을 관리하는 법입니다.
@@ -15,31 +15,31 @@ topic-icon:%ROOT%/levels_icon.png
 레벨은 **레벨** 창을 통해 관리합니다. **레벨** 창은 **창** 메뉴를 통해 열 수 있습니다.
 
 [OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-windows
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-![](w:500)(LevelsMenu_Windows.png)
-[/PARAM]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](LevelsMenu_Windows.png)(w:500)
+	[/PARAM]
 [/OBJECT]
 
 [OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-mac
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-![](w:500)(LevelsMenu_Mac.png)
-[/PARAM]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](LevelsMenu_Mac.png)(w:500)
+	[/PARAM]
 [/OBJECT]
 
 항상 하나의 **Persistent Level** (지속 레벨, 퍼시스턴트 레벨)이 있으며, 항상 로드되거나 레벨 스트리밍 볼륨, 블루프린트, C++ 코드를 통해 스트림 인 가능한 서브 레벨 하나 이상으로 구성됩니다.
@@ -53,7 +53,7 @@ mac
 
 ![](RightClickPersistent.png)
 
-아무 서브레벨에 우클릭하면 비슷한 옵션이 나열되며, 서브레벨 제거나 스트리밍 메소드 변경을 위한 추가 항목이 포함되어 있습니다.
+아무 서브레벨에 우클릭하면 비슷한 옵션이 나열되며, 서브레벨 제거나 스트리밍 메서드 변경을 위한 추가 항목이 포함되어 있습니다.
 
 ![](RightClickStreaming.png)
 
@@ -75,31 +75,31 @@ mac
 1. **레벨 열기** 대화창에서 추가할 레벨을 선택한 뒤, **열기** 를 클릭합니다.
 	
 	[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	![](AddExisting_Windows.png)(w:700)
-	[/PARAM]
+		[PARAMLITERAL:category]
+		OS
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		windows
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:content]
+		![](AddExisting_Windows.png)(w:700)
+		[/PARAM]
 	[/OBJECT]
 
 	[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	![](AddExisting_Mac.png)(w:700)
-	[/PARAM]
+		[PARAMLITERAL:category]
+		OS
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		mac
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:content]
+		![](AddExisting_Mac.png)(w:700)
+		[/PARAM]
 	[/OBJECT]
 
 ### 공백 서브레벨 생성
@@ -111,31 +111,31 @@ mac
 1. 레벨의 저장 위치와 이름을 선택한 뒤, **저장** 을 클릭합니다.
 
 	[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	![](SaveAs_Windows.png)(w:700)
-	[/PARAM]
+		[PARAMLITERAL:category]
+		OS
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		windows
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:content]
+		![](SaveAs_Windows.png)(w:700)
+		[/PARAM]
 	[/OBJECT]
 
 	[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	![](SaveAs_Mac.png)(w:700)
-	[/PARAM]
+		[PARAMLITERAL:category]
+		OS
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		mac
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:content]
+		![](SaveAs_Mac.png)(w:700)
+		[/PARAM]
 	[/OBJECT]
 
 	새로운 레벨이 현재 퍼시스턴트 레벨의 서브레벨로 추가되며, 뷰포트에 현재 작업 레벨로도 설정됩니다.
@@ -154,31 +154,31 @@ mac
 1. 레벨의 저장 위치와 이름을 선택한 뒤, **저장** 을 클릭합니다.
 
 	[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	![](SaveAs_Windows.png)(w:700)
-	[/PARAM]
+		[PARAMLITERAL:category]
+		OS
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		windows
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:content]
+		![](SaveAs_Windows.png)(w:700)
+		[/PARAM]
 	[/OBJECT]
 
 	[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	![](SaveAs_Mac.png)(w:700)
-	[/PARAM]
+		[PARAMLITERAL:category]
+		OS
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		mac
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:content]
+		![](SaveAs_Mac.png)(w:700)
+		[/PARAM]
 	[/OBJECT]
 
 	선택된 액터 전부 원본 레벨에서 제거되어 새로운 레벨에 추가되며, 해당 레벨은 현재 퍼시스턴트 레벨의 서브레벨로 추가됨과 동시에 뷰포트 현재 작업 레벨로 설정됩니다.
@@ -211,61 +211,62 @@ mac
 퍼시스턴트 레벨에 대해 추가적인 세부 정보가 보이지 않으나, 드롭다운 메뉴를 통해 다른 레벨로 변경할 수 있습니다.
 
 [OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-windows
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-![](LevelDetailsPersistent_Windows.png)(w:700)
-[/PARAM]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](LevelDetailsPersistent_Windows.png)(w:700)
+	[/PARAM]
 [/OBJECT]
 
 [OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-mac
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-![](LevelDetailsPersistent_Mac.png)(w:700)
-[/PARAM]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](LevelDetailsPersistent_Mac.png)(w:700)
+	[/PARAM]
 [/OBJECT]
 
-서브레벨의 경우, 레벨의 오프셋 **위치** 및 **회전** 과 아울러 사용할 **스트리밍 볼륨** 을 설정하고 **레벨 컬러** 디버깅을 할 수 있습니다. [언로드 재요청 최소 간격](Engine/LevelStreaming/StreamingVolumes) 처럼 퍼포먼스 향상을 위한 고급 세팅 역시 여기서 접근 가능합니다.
+서브레벨의 경우, 레벨의 오프셋 **위치** 및 **회전** 과 아울러 사용할 **스트리밍 볼륨** 을 설정하고 **레벨 컬러** 디버깅을 할 수 있습니다. 
+[언로드 재요청 최소 간격](Engine/LevelStreaming/StreamingVolumes) 처럼 퍼포먼스 향상을 위한 고급 세팅 역시 여기서 접근 가능합니다.
 
 [OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-windows
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-![](LevelDetailsStreaming_Windows.png)(w:700)
-[/PARAM]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](LevelDetailsStreaming_Windows.png)(w:700)
+	[/PARAM]
 [/OBJECT]
 
 [OBJECT:ToggleButtonContent]
-[PARAMLITERAL:category]
-OS
-[/PARAMLITERAL]
-[PARAMLITERAL:id]
-mac
-[/PARAMLITERAL]
-[PARAMLITERAL:active]
-[/PARAMLITERAL]
-[PARAM:content]
-![](LevelDetailsStreaming_Mac.png)(w:700)
-[/PARAM]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	![](LevelDetailsStreaming_Mac.png)(w:700)
+	[/PARAM]
 [/OBJECT]
 
 ## 서브레벨 시각화

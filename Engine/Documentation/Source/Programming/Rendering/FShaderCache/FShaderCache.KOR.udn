@@ -41,7 +41,7 @@ FShaderCache 기능을 켜고 끄는 데 사용할 수 있는 콘솔 명령이 �
 개발 머신에서 `r.UseShaderCaching` 와 `r.UseShaderDrawLog` 를 켬으로써 캐시가 채워질 것입니다.
 그 후 사용자/플레이어는 `r.UseShaderCaching` 와 `r.UseShaderPredraw` 를 켜서 캐시를 소모합니다.
 그리기 로깅은 (`r.UseShaderDrawLog`) 고정 부하가 눈에 띄게 추가되므로, 가급적 발매 제품에는 켜지 마시기 바랍니다.
-바이너리 셰이더 캐시는 플레이 도중, 또는 (현재 맥 타겟 전용인) Engine.ini 의 /Script/MacTargetPlatform.MacTargetSettings 세팅 그룹 내 CachedShaderFormats 배열에 캐시에 저장할 셰이더 플랫폼을 저장하는 것으로 쿠킹 도중에 누적시킬 수도 있습니다.
+바이너리 셰이더 캐시는 플레이 도중, 또는 (현재 맥 타깃 전용인) Engine.ini 의 /Script/MacTargetPlatform.MacTargetSettings 세팅 그룹 내 CachedShaderFormats 배열에 캐시에 저장할 셰이더 플랫폼을 저장하는 것으로 쿠킹 도중에 누적시킬 수도 있습니다.
 OpenGL 의 경우 바이너리 캐시에는 셰이더 파이프라인 관련해서 (GL_ARB_separate_shader_objects 가용성에 따라) GL 프로그램 파이프라인 또는 완전 링크된 GL 프로그램을 생성하기에 충분한 데이터가 들어있으나, 다른 RHI 에서의 파이프라인 생성을 위한 데이터는 충분치 않습니다.
 이로써 게임을 먼저 한번 플레이하지 않아도 OpenGL 에서의 버벅임을 줄이는데 도움이 됩니다. 물론 최대한의 효과를 위해서는 먼저 플레이하는 방법이 여전히 좋기는 합니다.
 캐시는 셰이더 해시를 통해 이루어지므로, 콘텐츠가 거의 끝났을 때 최종 최적화 도구로만 사용하는 것이 좋습니다.

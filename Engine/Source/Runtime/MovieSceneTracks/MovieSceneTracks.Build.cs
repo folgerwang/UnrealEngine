@@ -30,5 +30,14 @@ public class MovieSceneTracks : ModuleRules
                 "AnimGraphRuntime"
 			}
 		);
+
+		if (Target.bBuildWithEditorOnlyData)
+		{
+			PublicDependencyModuleNames.AddRange(
+				new string[] {
+					"BlueprintGraph"
+				}
+			);
+		}
 	}
 }

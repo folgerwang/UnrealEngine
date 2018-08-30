@@ -274,7 +274,7 @@ FOnClicked 은 위젯이 사용자에게 클릭되었음을 알리고자 할 때
 
 Quit Game 함수는 그저 콘솔 명령 "quit" 를 사용하여 메뉴를 닫은 뒤 게임을 종료합니다.
 
-이 함수 둘 다 플레이어 콘트롤러로의 레퍼런스를 사용하여 함수를 호출하는데, 그렇다는 것은 MainMenu.cpp 를 변경하여 PlayerController 에 대한 WeakObjectPtr 를 유지해야 했다는 것인데, 그것은 다음과 같은 생성자를 통해 설정했습니다:
+이 함수 둘 다 플레이어 컨트롤러로의 레퍼런스를 사용하여 함수를 호출하는데, 그렇다는 것은 MainMenu.cpp 를 변경하여 PlayerController 에 대한 WeakObjectPtr 를 유지해야 했다는 것인데, 그것은 다음과 같은 생성자를 통해 설정했습니다:
 
 	MainMenu::MainMenu(TWeakObjectPtr<class APlayerController> InController)
 	:	MyPlayerController(InController)

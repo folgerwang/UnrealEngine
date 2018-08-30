@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3400712
 Availability: Public
 crumbs:%ROOT%
-Title: 1 - Required Project Setup
-Description: Creating a new project with the specifications we need.
+Title: 1 - 必须的项目设置
+Description: 创建一个我们所需规格的新项目。
 Type:how-to
 SkillLevel: Advanced
 Version: 4.15
@@ -16,18 +16,17 @@ Tags: Vehicles
 
 [Nav]
 
-For this guide, we'll use a Blank Template project, however, tread with caution if you use an existing project or one of the other template projects because in later steps of this 
-guide you may run into conflicts with some parts that are already setup or setup differently than intended by this guide.
+在本指南中，我们将使用空白模板项目，但是如果你使用现成的项目或其他模板项目，请务必小心，因为在本指南的后续步骤中，你可能会因某些部分已经设置或设置得与本指南中预期的不一致而遇到冲突。
 
-## Steps
+## 步骤
 
-1. Open **Unreal Engine** from the Launcher. The [Project Browser](Engine/Basics/Projects/Browser) will appear.
+1. 从启动程序打开 **虚幻引擎（Unreal Engine）**。将显示[项目浏览器](Engine/Basics/Projects/Browser)。
 
-1. Click on the **New Project** tab and then under the **Blueprint** tab, select **Blank** so that you have a clean starting point. You won't need Starter Content, so you can make sure that is set to **No Starter Content**. We'll need a to enter a project name, so we'll use "QuickStart". We can now click **Create Project** and get started.
+1. 单击 **新建项目（New Project）** 选项卡，然后在 **蓝图（Blueprint）** 选项卡下选择 **空白（Blank）**，这样就会有一个空白的起始点。由于不需要初学者内容包，确保将其设置为 **无初学者内容包（No Starter Content）**。然后需要输入项目名称，我们使用的是”QuickStart”。现在可以单击 **创建项目（Create Project）** 并开始制作了。
 
 	[![](CreateProject.png)](CreateProject.png)
 
-The **Unreal Editor** will now open our new project. 
+**虚幻编辑器（Unreal Editor）** 现在将打开新的项目。 
 
 [REGION:raw]
 ![](BlankProject.png)(w:800)

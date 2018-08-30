@@ -8,6 +8,7 @@
 #include "Modules/ModuleInterface.h"
 #include "AnimatedPropertyKey.h"
 #include "ISequencerChannelInterface.h"
+#include "MovieSceneSequenceEditor.h"
 
 class IKeyArea;
 class FExtender;
@@ -239,6 +240,55 @@ public:
 
 public:
 
+	/**
+	 * Register a sequence editor for the specified type of sequence. Sequence editors provide editor-only functionality for particular sequence types.
+	 */
+	FDelegateHandle RegisterSequenceEditor(UClass* SequenceClass, TUniquePtr<FMovieSceneSequenceEditor>&& InSequenceEditor)
+	{
+		check(SequenceClass);
+
+		FDelegateHandle NewHandle(FDelegateHandle::GenerateNewHandle);
+
+		SequenceEditors.Add(FSequenceEditorEntry{ NewHandle, SequenceClass, MoveTemp(InSequenceEditor) });
+
+		return NewHandle;
+	}
+
+	/**
+	 * Unregister a sequence editor for the specified type of sequence.
+	 */
+	void UnregisterSequenceEditor(FDelegateHandle Handle)
+	{
+		SequenceEditors.RemoveAll([Handle](const FSequenceEditorEntry& In){ return In.Handle == Handle; });
+	}
+
+	/**
+	 * Find a sequence editor for the specified sequence class
+	 */
+	FMovieSceneSequenceEditor* FindSequenceEditor(UClass* SequenceClass) const
+	{
+		check(SequenceClass);
+
+		UClass* MostRelevantClass = nullptr;
+		FMovieSceneSequenceEditor* SequenceEditor = nullptr;
+
+		for (const FSequenceEditorEntry& Entry : SequenceEditors)
+		{
+			if (SequenceClass->IsChildOf(Entry.ApplicableClass))
+			{
+				if (!MostRelevantClass || Entry.ApplicableClass->IsChildOf(MostRelevantClass))
+				{
+					MostRelevantClass = Entry.ApplicableClass;
+					SequenceEditor = Entry.Editor.Get();
+				}
+			}
+		}
+
+		return SequenceEditor;
+	}
+
+public:
+
 	/** 
 	 * Helper template for registering property track editors
 	 *
@@ -270,6 +320,16 @@ private:
 
 	/** Map of sequencer interfaces for movie scene channel types, keyed on channel UStruct name */
 	TMap<FName, TUniquePtr<ISequencerChannelInterface>> ChannelToEditorInterfaceMap;
+
+	struct FSequenceEditorEntry
+	{
+		FDelegateHandle Handle;
+		UClass* ApplicableClass;
+		TUniquePtr<FMovieSceneSequenceEditor> Editor;
+	};
+
+	/** Array of sequence editor entries */
+	TArray<FSequenceEditorEntry> SequenceEditors;
 };
 
 

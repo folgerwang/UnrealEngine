@@ -412,6 +412,11 @@ bool FDesktopPlatformMac::FileDialogShared(bool bSave, const void* ParentWindowH
 				}
 			}
 
+			if ([AllowedFileTypes count] == 1)
+			{
+				[AllowedFileTypes addObject:@""];
+			}
+			
 			[AccessoryView AddAllowedFileTypes:AllowedFileTypes];
 
 			bool bOkPressed = false;

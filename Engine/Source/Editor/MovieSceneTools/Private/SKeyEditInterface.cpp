@@ -12,6 +12,7 @@
 #include "PropertyEditorModule.h"
 #include "FrameNumberDetailsCustomization.h"
 #include "MovieSceneSectionDetailsCustomization.h"
+#include "MovieSceneEventCustomization.h"
 #include "Misc/FrameNumber.h"
 #include "Modules/ModuleManager.h"
 #include "IDetailCustomization.h"
@@ -77,6 +78,7 @@ void SKeyEditInterface::Initialize()
 
 	// register details customizations for this instance
 	StructureDetailsView->GetDetailsView()->RegisterInstancedCustomPropertyTypeLayout("MovieSceneObjectBindingID", FOnGetPropertyTypeCustomizationInstance::CreateSP(this, &SKeyEditInterface::CreateBindingIDCustomization));
+	StructureDetailsView->GetDetailsView()->RegisterInstancedCustomPropertyTypeLayout("MovieSceneEvent", FOnGetPropertyTypeCustomizationInstance::CreateSP(this, &SKeyEditInterface::CreateEventCustomization));
 	StructureDetailsView->GetDetailsView()->RegisterInstancedCustomPropertyTypeLayout("FrameNumber", FOnGetPropertyTypeCustomizationInstance::CreateSP(this, &SKeyEditInterface::CreateFrameNumberCustomization));
 
 	StructureDetailsView->SetStructureData(NewEditData.KeyStruct);
@@ -99,6 +101,11 @@ TSharedRef<IPropertyTypeCustomization> SKeyEditInterface::CreateFrameNumberCusto
 {
 	TSharedPtr<ISequencer> SequencerPtr = WeakSequencer.Pin();
 	return MakeShared<FFrameNumberDetailsCustomization>(SequencerPtr->GetNumericTypeInterface());
+}
+
+TSharedRef<IPropertyTypeCustomization> SKeyEditInterface::CreateEventCustomization()
+{
+	return FMovieSceneEventCustomization::MakeInstance(WeakSection.Get());
 }
 
 void SKeyEditInterface::OnFinishedChangingProperties(const FPropertyChangedEvent& ChangeEvent, TSharedPtr<FStructOnScope> KeyStruct)

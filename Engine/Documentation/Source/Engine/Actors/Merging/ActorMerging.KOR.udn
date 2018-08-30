@@ -91,7 +91,7 @@ Merge Actors (액터 병합) 툴은 다수의 스태틱 메시를 하나의 새�
 |**LOD Selection Type**| LOD 선택 유형 - 병합된 오브젝트에 추가시킬 LOD 를 선택할 수 있습니다. [INCLUDE:#lodselectiontype]  |
 |[REGION:tablesection]Advanced Options (고급 옵션)[/REGION]||
 |**Generate Lightmap UVs**|라이트맵 UV 생성 - 기존 UV 아일랜드를 사용하여 병합된 메시에 대한 라이트맵 UV 레이아웃을 새로 생성합니다. 이 새로운 레이아웃은 Target Light Map UVChannel 에 놓입니다.|
-|**Target Light Map Resolution**|타겟 라이트 맵 해상도 - 새로운 라이트맵 UV 의 해상도를 지정합니다. 레이아웃 내 각 아일랜드 사이에 계산되는 거리를 제어합니다. 해상도가 높으면 각 아일랜드 사잉가 더욱 조밀해집니다. |
+|**Target Light Map Resolution**|타깃 라이트 맵 해상도 - 새로운 라이트맵 UV 의 해상도를 지정합니다. 레이아웃 내 각 아일랜드 사이에 계산되는 거리를 제어합니다. 해상도가 높으면 각 아일랜드 사잉가 더욱 조밀해집니다. |
 [/REGION]
 
 [COMMENT:none]

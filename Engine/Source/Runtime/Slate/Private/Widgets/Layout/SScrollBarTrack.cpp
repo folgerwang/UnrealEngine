@@ -129,7 +129,7 @@ bool SScrollBarTrack::IsNeeded() const
 {
 	// We use a small epsilon here to avoid the scroll bar showing up when all of the content is already in view, due to
 	// floating point precision when the scroll bar state is set
-	return ThumbSizeFraction < (1.0f - KINDA_SMALL_NUMBER);
+	return ThumbSizeFraction < (1.0f - KINDA_SMALL_NUMBER) || bIsAlwaysVisible;
 }
 
 float SScrollBarTrack::DistanceFromTop() const
@@ -150,4 +150,9 @@ float SScrollBarTrack::GetMinThumbSize() const
 float SScrollBarTrack::GetThumbSizeFraction() const
 {
 	return ThumbSizeFraction;
+}
+
+void SScrollBarTrack::SetIsAlwaysVisible(bool InIsAlwaysVisible)
+{
+	bIsAlwaysVisible = InIsAlwaysVisible;
 }

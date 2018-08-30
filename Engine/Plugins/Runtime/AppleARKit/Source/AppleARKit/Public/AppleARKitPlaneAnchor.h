@@ -24,16 +24,16 @@ public:
 	/**
 	 * The center of the plane in the anchor’s coordinate space.
 	 */
-	UFUNCTION( BlueprintPure, Category = "AppleARKitPlaneAnchor" )
+	UFUNCTION( BlueprintPure, Category = "AppleARKit|PlaneAnchor" )
 	FVector GetCenter() const;
 
 	/**
 	 * The extent of the plane in the anchor’s coordinate space.
 	 */
-	UFUNCTION( BlueprintPure, Category = "AppleARKitPlaneAnchor")
+	UFUNCTION( BlueprintPure, Category = "AppleARKit|PlaneAnchor")
 	FVector GetExtent() const;
 
-	UFUNCTION( BlueprintPure, Category = "AppleARKitPlaneAnchor")
+	UFUNCTION( BlueprintPure, Category = "AppleARKit|PlaneAnchor")
 	FTransform GetTransformToCenter() const;
 
 #if SUPPORTS_ARKIT_1_0

@@ -25,6 +25,7 @@ public:
 
 	/** Default constructor which sets up safe defaults */
 	AVREditorRadialFloatingUI();
+	virtual void PostActorCreated() override;
 
 	/** Creates a FVREditorFloatingUI using a Slate widget, and sets up safe defaults */
 	void SetSlateWidget( class UVREditorUISystem& InitOwner, const TSharedRef<SWidget>& InitSlateWidget, const FIntPoint InitResolution, const float InitScale, const EDockedTo InitDockedTo );

@@ -11,7 +11,7 @@ topic-image:Engine/Performance/ReducingPackageSize/package_topic.png
 
 [TOC(start:2 end:3)]
 
-어떤 플랫폼을 타겟으로 삼든 상관없이 패키징된 게임 크기를 줄이는 것은 상당히 어려운 일입니다.
+어떤 플랫폼을 타깃으로 삼든 상관없이 패키징된 게임 크기를 줄이는 것은 상당히 어려운 일입니다.
 다음 가이드에서는 UE4 에디터에 제공된 툴만 사용해서 최종 패키지 크기를 최소로 줄이는 법을 다뤄 보겠습니다.
 
 [EXCERPT:main]
@@ -320,7 +320,7 @@ APK 패키지 크기 줄이기에 가장 쉽고 빠른 방법은 UE4 더러 패�
     클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. 고급 패키징 옵션 아래 부분으로 내려가면 **Cook everything in the project content directory(ignore list of maps below)** (프로젝트 콘텐츠 디렉토리 내 전부 쿠킹 (아래 맵 목록 무시)) 옵션이 있습니다. 여기 보이는 옵션으로 프로젝트와 함께 어떤 콘텐츠와 맵을 패키지에 포함시킬지 지정할 수 있습니다.
+1. 고급 패키징 옵션 아래 부분으로 내려가면 **Cook everything in the project content directory(ignore list of maps below)** (프로젝트 콘텐츠 디렉터리 내 전부 쿠킹 (아래 맵 목록 무시)) 옵션이 있습니다. 여기 보이는 옵션으로 프로젝트와 함께 어떤 콘텐츠와 맵을 패키지에 포함시킬지 지정할 수 있습니다.
 
     [REGION:lightbox]
     [![](Advanced_Packing_Options.png)(w:518)](Advanced_Packing_Options.png)
@@ -362,15 +362,15 @@ APK 패키지 크기 줄이기에 가장 쉽고 빠른 방법은 UE4 더러 패�
 
 | 프로퍼티 이름 | 설명 |
 |--------------|------------|
-|Cook everything in the project content directory(ignore list of maps below.|프로젝트 콘텐츠 디렉토리 내 전부 쿠킹 (아래 맵 목록 무시) - 프로젝트 콘텐츠 디렉토리의 모든 것을 쿠킹합니다. |
+|Cook everything in the project content directory(ignore list of maps below.|프로젝트 콘텐츠 디렉터리 내 전부 쿠킹 (아래 맵 목록 무시) - 프로젝트 콘텐츠 디렉터리의 모든 것을 쿠킹합니다. |
 |Cook only maps(this only affects cook all).|맵만 쿠킹 (모두 쿠킹에만 영향) - 맵만 쿠킹합니다 (cookall 플래그에만 영향을 끼칩니다). |
 |Create compressed cooked packages.|압축 쿠킹 패키지 생성 - 압축된 쿠킹 패키지를 생성합니다 (디플로이 크기가 줄어듭니다).|
 |Do not include editor content in this package may cause game to crash / error if you are using this content| 이 패키지에는 에디터 콘텐츠를 포함시키지 않습니다. 이 콘텐츠를 사용하는 경우 게임 크래시 / 오류가 날 수 있습니다 - 에디터 전용 콘텐츠는 쿠킹에서 제외시킵니다. |
 |List of maps to include in a packaged build|패키지 빌드에 포함시킬 맵 목록 - 명령줄에 다른 맵 목록을 지정하지 않은 경우 포함시킬 맵 목록입니다. |
-|Additional Asset Directories to Cook|쿠킹할 부가 애셋 디렉토리 - 프로젝트의 다른 것에 레퍼런싱되어 있지 않더라도 항상 쿠킹해야 하는 .uasset 파일이 들어있는 디렉토리입니다. 주: 프로젝트 Content 디렉토리 기준 상대 경로입니다. |
-|Directories to never cook|절대 쿠킹하지 않을 디렉토리 - 절대 쿠킹하지 않을 디렉토리입니다. |
-|Additional Non-Asset Directories to Package.|패키징할 부가 비애셋 디렉토리 - .pak 파일에 항상 추가시킬 파일이 들어있는 디렉토리입니다 (.pak 파일이 아닌 경우 개별 파일로 복사합니다). UFS (언리얼 파일 시스템) 파일 IO API 를 통해 수동 로드할 부가 파일을 스테이징하는 데 사용됩니다. 주: 이 경로는 프로젝트 Content 디렉토리 기준 상대 경로입니다. |
-|Additional Non-Asset Directories to Copy.|복사할 부가 비애셋 디렉토리 - .pak 파일의 일부가 될 것은 아니지만 프로젝트 패키지에 항상 복사할 파일이 들어있는 디렉토리입니다. UFS (언리얼 파일 시스템) 파일 IO API 를 사용하여 수동 로드할 부가 파일을 스테이징하는 데 사용됩니다 (예: 별도의 내부 파일 IO 로 작동되는 서드파티 라이브러리). 주: 이 경로는 프로젝트의 Content 디렉토리 기준 상대 경로입니다. |
+|Additional Asset Directories to Cook|쿠킹할 부가 애셋 디렉터리 - 프로젝트의 다른 것에 레퍼런싱되어 있지 않더라도 항상 쿠킹해야 하는 .uasset 파일이 들어있는 디렉터리입니다. 주: 프로젝트 Content 디렉터리 기준 상대 경로입니다. |
+|Directories to never cook|절대 쿠킹하지 않을 디렉터리 - 절대 쿠킹하지 않을 디렉터리입니다. |
+|Additional Non-Asset Directories to Package.|패키징할 부가 비애셋 디렉터리 - .pak 파일에 항상 추가시킬 파일이 들어있는 디렉터리입니다 (.pak 파일이 아닌 경우 개별 파일로 복사합니다). UFS (언리얼 파일 시스템) 파일 IO API 를 통해 수동 로드할 부가 파일을 스테이징하는 데 사용됩니다. 주: 이 경로는 프로젝트 Content 디렉터리 기준 상대 경로입니다. |
+|Additional Non-Asset Directories to Copy.|복사할 부가 비애셋 디렉터리 - .pak 파일의 일부가 될 것은 아니지만 프로젝트 패키지에 항상 복사할 파일이 들어있는 디렉터리입니다. UFS (언리얼 파일 시스템) 파일 IO API 를 사용하여 수동 로드할 부가 파일을 스테이징하는 데 사용됩니다 (예: 별도의 내부 파일 IO 로 작동되는 서드파티 라이브러리). 주: 이 경로는 프로젝트의 Content 디렉터리 기준 상대 경로입니다. |
 
 
 ## 쿠킹되는 콘텐츠 확인
@@ -583,7 +583,7 @@ UE4 안에서 플러그인을 비활성화시키는 방법은 다음과 같습�
 
 ## 패키지 블랙 리스트
 
-이제 프로젝트의 **Build/Platform/(타겟 플랫폼 폴더)** 디렉토리에 텍스트 파일을 넣어서 쿠커에게 프로젝트 패키징시 파일 경로 부분 또는 전체를 제외시킬 수 있습니다.
+이제 프로젝트의 **Build/Platform/(타깃 플랫폼 폴더)** 디렉터리에 텍스트 파일을 넣어서 쿠커에게 프로젝트 패키징시 파일 경로 부분 또는 전체를 제외시킬 수 있습니다.
 프로젝트는 Debug, Development, Test, Shipping 빌드별로 다중 블랙 리스트 파일을 가질 수 있어, 프로젝트에 원하는 데이터의 추가 또는 제거 구성이 가능합니다.
 안드로이드용 하나, 플랫폼용으로 다른 하나 등, 프로젝트가 지원하는 각 플랫폼에 대해 각기 다른 블랙 리스트를 만드는 것도 가능합니다.
 안드로이드용 태피 치킨에서 블랙 리스트 파일이 어때 보이는지에 대한 예제는 이와 같습니다.

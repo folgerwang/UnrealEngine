@@ -112,7 +112,6 @@ and more.
 
 A Blueprint's _mode_ determines what is visible in its window. Although Level Blueprints contain only one mode, the Graph mode, Blueprint Classes contain three different modes:
 
-* **[Graph Mode](Engine/Blueprints\Editor\Modes\GraphPanel)** - Where you add and connect scripting nodes to create gameplay functionality for your level.
 * **[Default Mode](Engine/Blueprints\Editor\Modes\Defaults)** - Where you set the defaults for the Blueprint.
 * **[Components Mode](Engine/Blueprints\Editor\Modes\Components)** - Where you add, remove, and modify the components that make up your Blueprint.
 

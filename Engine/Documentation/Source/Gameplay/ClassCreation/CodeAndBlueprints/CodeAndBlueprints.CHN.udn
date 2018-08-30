@@ -126,7 +126,7 @@ LightSwitchBoth.cpp
 
 ![](Both_ComponentList.png)
 
-**Blueprint Editor（蓝图编辑器）** 的 [图表模式](Engine/Blueprints\Editor\Modes\GraphPanel)是蓝图编辑的核心。在 **Graph Mode（图表）** 模式中，您可以在[](Engine/Blueprints\Editor/UIComponents\MyBlueprint)选卡中添加新[变量](Engine/Blueprints\UserGuide\Variables)、 
+**Blueprint Editor（蓝图编辑器）** 的 [图表模式](Engine/Blueprints/Editor/UIBreakdowns/ClassBPUI)是蓝图编辑的核心。在 **Graph Mode（图表）** 模式中，您可以在[](Engine/Blueprints\Editor/UIComponents\MyBlueprint)选卡中添加新[变量](Engine/Blueprints\UserGuide\Variables)、 
 [函数](Engine/Blueprints\UserGuide\Functions)及[宏](Engine/Blueprints\UserGuide\Macros)。您也可以访问该类蓝图中包含的 
 所有 [图表](Engine/Blueprints\UserGuide\Graphs)。在这些图表中，各种[节点](Engine/Blueprints\UserGuide\Nodes)连接到一起，来创建由类属性、游戏事件、甚至Actor的周边环境
 驱动的设计及游戏功能。
@@ -166,7 +166,7 @@ LightSwitchBoth.cpp
 **OnOverlap** 事件节点连接到了 **Set Light Color** 节点上。任何时候当执行该事件时，它都将会把PointLightComponent的光源颜色设置为一个随机颜色。这覆盖了
 源码文件中用于切换的PointLightComponent可见性的 `OnOverlap_Implementation` 函数。
 
-关于事件及处理图表的更多信息，请参照[](Engine/Blueprints\UserGuide\Events)、 [](Engine/Blueprints\UserGuide\EventGraph)和[事件模式](Engine/Blueprints\Editor\Modes\GraphPanel) 文档。
+关于事件及处理图表的更多信息，请参照[](Engine/Blueprints\UserGuide\Events)、 [](Engine/Blueprints\UserGuide\EventGraph)和[事件模式](Engine/Blueprints/Editor/UIBreakdowns/ClassBPUI) 文档。
 
 ![](Both_EventGraph.png)
 

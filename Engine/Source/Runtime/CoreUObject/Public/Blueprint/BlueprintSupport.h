@@ -40,6 +40,8 @@ struct COREUOBJECT_API FBlueprintTags
 	static const FName NumNativeComponents;
 	/** Number of blueprint components */
 	static const FName NumBlueprintComponents;
+	/** The subpath of a blueprint contained within the asset. Used to determine whether, and where a blueprint exists in a package. */
+	static const FName BlueprintPathWithinPackage;
 };
 
 struct FBlueprintWarningDeclaration

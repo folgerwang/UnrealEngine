@@ -83,7 +83,7 @@ topic-image:Gameplay/Framework/gamemode_lander.png
 
 ### 게임 모드 설정
 
-레벨의 GameMode 설정을 위한 메소드는 여러가지 있습니다. 여기서는 우선권이 가장 낮은 것에서부터 높은 것으로 나열해 보겠습니다:
+레벨의 GameMode 설정을 위한 메서드는 여러가지 있습니다. 여기서는 우선권이 가장 낮은 것에서부터 높은 것으로 나열해 보겠습니다:
 
 * `DefaultEngine.ini` 파일의 `/Script/EngineSettings.GameMapsSettings` 섹션에 `GlobalDefaultGameMode` 항목으로 설정해 주면 프로젝트의 모든 맵에 대한 기본 게임 모드를 설정합니다.
 
@@ -99,7 +99,7 @@ topic-image:Gameplay/Framework/gamemode_lander.png
 
 		UE4Editor.exe /Game/Maps/MyMap?game=MyGameMode -game
 
-* 마지막으로 `DefaultEngine.ini` 파일의 `/Script/Engine.WorldSettings/` 섹션에 맵 접두사(와 URL 메소드에 대한 앨리어스)를 설정할 수 있습니다. 이 접두사는 접두사가 붙은 모든 맵에 대한 기본 게임 모드를 설정합니다.
+* 마지막으로 `DefaultEngine.ini` 파일의 `/Script/Engine.WorldSettings/` 섹션에 맵 접두사(와 URL 메서드에 대한 앨리어스)를 설정할 수 있습니다. 이 접두사는 접두사가 붙은 모든 맵에 대한 기본 게임 모드를 설정합니다.
 
 		[/Script/EngineSettings.GameMapsSettings]
 		+GameModeMapPrefixes=(Name="DM",GameMode="/Script/UnrealTournament.UTDMGameMode")

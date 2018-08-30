@@ -172,6 +172,7 @@ struct FMaterialMergeData
 		, MaterialIndex(InMaterialIndex)
 		, TexcoordBounds(InTexcoordBounds)
 		, TexCoords(InTexCoords)
+		, LightMapIndex(1)
 		, EmissiveScale(0.0f)
 	{
 		ProxyCache = new FExportMaterialProxyCache();

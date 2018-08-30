@@ -151,7 +151,6 @@ type:reference
 
 蓝图的 _模式_ 决定其窗口中的内容。关卡蓝图只包含一个模式（图表模式），而蓝图类包含三种不同模式：
 
-* **[图表模式](Engine/Blueprints\Editor\Modes\GraphPanel)** - 可在此添加并连接脚本节点，为关卡创建游戏性功能。
 * **[默认模式](Engine/Blueprints\Editor\Modes\Defaults)** - 可在此设置蓝图默认项。
 * **[组件模式](Engine/Blueprints\Editor\Modes\Components)** - 可在此对组成蓝图的组件进行添加、移除和编辑。
 

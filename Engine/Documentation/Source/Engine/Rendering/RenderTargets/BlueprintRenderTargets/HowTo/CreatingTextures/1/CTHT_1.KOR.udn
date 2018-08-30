@@ -1,7 +1,7 @@
 ﻿INTSourceChangelist:3259022
 availability:Public
 title:1. 프로젝트 구성
-description:블루프린트와 렌더 타겟을 사용하여 텍스처를 만들기 위한 프로젝트 구성 방법입니다.
+description:블루프린트와 렌더 타깃을 사용하여 텍스처를 만들기 위한 프로젝트 구성 방법입니다.
 crumbs:%ROOT%, Engine, Engine\Rendering\RenderTargets
 version:4.13
 type:multi-step

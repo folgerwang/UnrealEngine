@@ -88,13 +88,3 @@ nyGqpilZe08
 | **Light Exponent** | **Use Inverse Squared Falloff** を無効にすると、ライトのフォールオフを制御します。数値が大きくなるとライトがライトの半径に近づくにつれてフォールオフが緩やかになり、数値が小さくなるとライトの半径付近でライトが突然落ちます。 |
 
 
-
-[COMMENT:none]
-
-## 関連
-
-[INCLUDE:Engine/Rendering/LightingAndShadows/LightProperties#LightRef005]
-
-[INCLUDE:Engine/Rendering/LightingAndShadows/LightProperties#LightRef007]
-
-[/COMMENT]

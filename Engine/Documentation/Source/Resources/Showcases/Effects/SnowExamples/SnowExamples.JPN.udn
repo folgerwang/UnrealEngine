@@ -86,6 +86,3 @@ Snow Flare エフェクトはブリザード パーティクル システムを�
 
 Snow Flare パーティクル システムは Blizzard エフェクトのローカライズ バージョンに使用し、ミスト パーティクルがライトに反応する箇所のみに配置します。この手法は全てのミストパーティクルが常にライティングに反応するよりもずっと効率的です。
 
-
-
-[INCLUDE:Resources\Showcases\Effects#ParticleTopics]

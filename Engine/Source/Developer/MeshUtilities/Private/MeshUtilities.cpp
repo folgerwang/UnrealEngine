@@ -88,6 +88,8 @@
 #include "DetailCategoryBuilder.h"
 #include "IDetailPropertyRow.h"
 #include "DetailWidgetRow.h"
+#include "OverlappingCorners.h"
+#include "MeshUtilitiesCommon.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -826,29 +828,6 @@ void FMeshUtilities::BuildSkeletalModelFromChunks(FSkeletalMeshLODModel& LODMode
 Common functionality.
 ------------------------------------------------------------------------------*/
 
-/** Helper struct for building acceleration structures. */
-struct FIndexAndZ
-{
-	float Z;
-	int32 Index;
-
-	/** Default constructor. */
-	FIndexAndZ() {}
-
-	/** Initialization constructor. */
-	FIndexAndZ(int32 InIndex, FVector V)
-	{
-		Z = 0.30f * V.X + 0.33f * V.Y + 0.37f * V.Z;
-		Index = InIndex;
-	}
-};
-
-/** Sorting function for vertex Z/index pairs. */
-struct FCompareIndexAndZ
-{
-	FORCEINLINE bool operator()(FIndexAndZ const& A, FIndexAndZ const& B) const { return A.Z < B.Z; }
-};
-
 static int32 ComputeNumTexCoords(FRawMesh const& RawMesh, int32 MaxSupportedTexCoords)
 {
 	int32 NumWedges = RawMesh.WedgeIndices.Num();
@@ -862,20 +841,6 @@ static int32 ComputeNumTexCoords(FRawMesh const& RawMesh, int32 MaxSupportedTexC
 		NumTexCoords++;
 	}
 	return FMath::Min(NumTexCoords, MaxSupportedTexCoords);
-}
-
-/**
-* Returns true if the specified points are about equal
-*/
-inline bool PointsEqual(const FVector& V1, const FVector& V2, float ComparisonThreshold)
-{
-	if (FMath::Abs(V1.X - V2.X) > ComparisonThreshold
-		|| FMath::Abs(V1.Y - V2.Y) > ComparisonThreshold
-		|| FMath::Abs(V1.Z - V2.Z) > ComparisonThreshold)
-	{
-		return false;
-	}
-	return true;
 }
 
 static inline FVector GetPositionForWedge(FRawMesh const& Mesh, int32 WedgeIndex)
@@ -1197,114 +1162,12 @@ static void ComputeTriangleTangents(
 	check(TriangleTangentZ.Num() == NumTriangles);*/
 }
 
-void FOverlappingCorners::Init(int32 NumIndices)
-{
-	Arrays.Reset();
-	Sets.Reset();
-	bFinishedAdding = false;
-
-	IndexBelongsTo.Reset(NumIndices);
-	IndexBelongsTo.AddUninitialized(NumIndices);
-	FMemory::Memset(IndexBelongsTo.GetData(), 0xFF, NumIndices * sizeof(int32));
-}
-
-void FOverlappingCorners::Add(int32 Key, int32 Value)
-{
-	check(Key != Value);
-	check(bFinishedAdding == false);
-
-	int32 ContainerIndex = IndexBelongsTo[Key];
-	if (ContainerIndex == INDEX_NONE)
-	{
-		ContainerIndex = Arrays.Num();
-		TArray<int32>& Container = Arrays.AddDefaulted_GetRef();
-		Container.Reserve(6);
-		Container.Add(Key);
-		Container.Add(Value);
-		IndexBelongsTo[Key] = ContainerIndex;
-		IndexBelongsTo[Value] = ContainerIndex;
-	}
-	else
-	{
-		IndexBelongsTo[Value] = ContainerIndex;
-
-		TArray<int32>& ArrayContainer = Arrays[ContainerIndex];
-		if (ArrayContainer.Num() == 1)
-		{
-			// Container is a set
-			Sets[ArrayContainer.Last()].Add(Value);
-		}
-		else
-		{
-			// Container is an array
-			ArrayContainer.AddUnique(Value);
-
-			// Change container into set when one vertex is shared by large number of triangles
-			if (ArrayContainer.Num() > 12)
-			{
-				int32 SetIndex = Sets.Num();
-				TSet<int32>& Set = Sets.AddDefaulted_GetRef();
-				Set.Append(ArrayContainer);
-
-				// Having one element means we are using a set
-				// An array will never have just 1 element normally because we add them as pairs
-				ArrayContainer.Reset(1);
-				ArrayContainer.Add(SetIndex);
-			}
-		}
-	}
-}
-
-void FOverlappingCorners::FinishAdding()
-{
-	check(bFinishedAdding == false);
-
-	for (TArray<int32>& Array : Arrays)
-	{
-		// Turn sets back into arrays for easier iteration code
-		// Also reduces peak memory later in the import process
-		if (Array.Num() == 1)
-		{
-			TSet<int32>& Set = Sets[Array.Last()];
-			Array.Reset(Set.Num());
-			for (int32 i : Set)
-			{
-				Array.Add(i);
-			}
-		}
-
-		// Sort arrays now to avoid sort multiple times
-		Array.Sort();
-	}
-
-	Sets.Empty();
-
-	bFinishedAdding = true;
-}
-
-uint32 FOverlappingCorners::GetAllocatedSize(void) const
-{
-	uint32 BaseMemoryAllocated = IndexBelongsTo.GetAllocatedSize() + Arrays.GetAllocatedSize() + Sets.GetAllocatedSize();
-
-	uint32 ArraysMemory = 0;
-	for (const TArray<int32>& ArrayIt : Arrays)
-	{
-		ArraysMemory += ArrayIt.GetAllocatedSize();
-	}
-
-	uint32 SetsMemory = 0;
-	for (const TSet<int32>& SetsIt : Sets)
-	{
-		SetsMemory += SetsIt.GetAllocatedSize();
-	}
-
-	return BaseMemoryAllocated + ArraysMemory + SetsMemory;
-}
-
 /**
 * Create a table that maps the corner of each face to its overlapping corners.
 * @param OutOverlappingCorners - Maps a corner index to the indices of all overlapping corners.
-* @param RawMesh - The mesh for which to compute overlapping corners.
+* @param InVertices - Triangle vertex positions for the mesh for which to compute overlapping corners.
+* @param InIndices - Triangle indices for the mesh for which to compute overlapping corners.
+* @param ComparisonThreshold - Positions are considered equal if all absolute differences between their X, Y and Z coordinates are less or equal to this value.
 */
 void FMeshUtilities::FindOverlappingCorners(
 	FOverlappingCorners& OutOverlappingCorners,
@@ -1312,47 +1175,14 @@ void FMeshUtilities::FindOverlappingCorners(
 	const TArray<uint32>& InIndices,
 	float ComparisonThreshold) const
 {
-	const int32 NumWedges = InIndices.Num();
-
-	// Create a list of vertex Z/index pairs
-	TArray<FIndexAndZ> VertIndexAndZ;
-	VertIndexAndZ.Reserve(NumWedges);
-	for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; WedgeIndex++)
-	{
-		new(VertIndexAndZ)FIndexAndZ(WedgeIndex, InVertices[InIndices[WedgeIndex]]);
-	}
-
-	// Sort the vertices by z value
-	VertIndexAndZ.Sort(FCompareIndexAndZ());
-
-	OutOverlappingCorners.Init(NumWedges);
-
-	// Search for duplicates, quickly!
-	for (int32 i = 0; i < VertIndexAndZ.Num(); i++)
-	{
-		// only need to search forward, since we add pairs both ways
-		for (int32 j = i + 1; j < VertIndexAndZ.Num(); j++)
-		{
-			if (FMath::Abs(VertIndexAndZ[j].Z - VertIndexAndZ[i].Z) > ComparisonThreshold)
-				break; // can't be any more dups
-
-			const FVector& PositionA = InVertices[InIndices[VertIndexAndZ[i].Index]];
-			const FVector& PositionB = InVertices[InIndices[VertIndexAndZ[j].Index]];
-
-			if (PointsEqual(PositionA, PositionB, ComparisonThreshold))
-			{
-				OutOverlappingCorners.Add(VertIndexAndZ[i].Index, VertIndexAndZ[j].Index);
-			}
-		}
-	}
-
-	OutOverlappingCorners.FinishAdding();
+	OutOverlappingCorners = FOverlappingCorners(InVertices, InIndices, ComparisonThreshold);
 }
 
 /**
 * Create a table that maps the corner of each face to its overlapping corners.
 * @param OutOverlappingCorners - Maps a corner index to the indices of all overlapping corners.
 * @param RawMesh - The mesh for which to compute overlapping corners.
+* @param ComparisonThreshold - Positions are considered equal if all absolute differences between their X, Y and Z coordinates are less or equal to this value.
 */
 void FMeshUtilities::FindOverlappingCorners(
 	FOverlappingCorners& OutOverlappingCorners,
@@ -1360,7 +1190,7 @@ void FMeshUtilities::FindOverlappingCorners(
 	float ComparisonThreshold
 	) const
 {
-	FindOverlappingCorners(OutOverlappingCorners, RawMesh.VertexPositions, RawMesh.WedgeIndices, ComparisonThreshold);
+	OutOverlappingCorners = FOverlappingCorners(RawMesh.VertexPositions, RawMesh.WedgeIndices, ComparisonThreshold);
 }
 
 /**
@@ -2553,6 +2383,29 @@ void FMeshUtilities::CacheOptimizeVertexAndIndexBuffer(
 	}
 }
 
+struct FLayoutUVRawMeshView final : FLayoutUV::IMeshView
+{
+	FRawMesh& RawMesh;
+	const uint32 SrcChannel;
+	const uint32 DstChannel;
+	const bool bNormalsValid;
+
+	FLayoutUVRawMeshView(FRawMesh& InRawMesh, uint32 InSrcChannel, uint32 InDstChannel) 
+		: RawMesh(InRawMesh)
+		, SrcChannel(InSrcChannel)
+		, DstChannel(InDstChannel)
+		, bNormalsValid(InRawMesh.WedgeTangentZ.Num() == InRawMesh.WedgeTexCoords[InSrcChannel].Num())
+	{}
+
+	uint32     GetNumIndices() const override { return RawMesh.WedgeIndices.Num(); }
+	FVector    GetPosition(uint32 Index) const override { return RawMesh.GetWedgePosition(Index); }
+	FVector    GetNormal(uint32 Index) const override { return bNormalsValid ? RawMesh.WedgeTangentZ[Index] : FVector::ZeroVector; }
+	FVector2D  GetInputTexcoord(uint32 Index) const override { return RawMesh.WedgeTexCoords[SrcChannel][Index]; }
+
+	void      InitOutputTexcoords(uint32 Num) override { RawMesh.WedgeTexCoords[DstChannel].SetNumUninitialized( Num ); }
+	void      SetOutputTexcoord(uint32 Index, const FVector2D& Value) override { RawMesh.WedgeTexCoords[DstChannel][Index] = Value; }
+};
+
 class FStaticMeshUtilityBuilder
 {
 public:
@@ -2643,7 +2496,8 @@ public:
 						SrcModel.BuildSettings.SrcLightmapIndex = 0;
 					}
 
-					FLayoutUV Packer(&RawMesh, SrcModel.BuildSettings.SrcLightmapIndex, SrcModel.BuildSettings.DstLightmapIndex, SrcModel.BuildSettings.MinLightmapResolution);
+					FLayoutUVRawMeshView RawMeshView(RawMesh, SrcModel.BuildSettings.SrcLightmapIndex, SrcModel.BuildSettings.DstLightmapIndex);
+					FLayoutUV Packer(RawMeshView, SrcModel.BuildSettings.MinLightmapResolution);
 					Packer.SetVersion(LightmapUVVersion);
 
 					Packer.FindCharts(OverlappingCorners);
@@ -5526,7 +5380,8 @@ bool FMeshUtilities::GenerateUniqueUVsForSkeletalMesh(const FSkeletalMeshLODMode
 	OverlappingCorners.FinishAdding();
 
 	// Generate new UVs
-	FLayoutUV Packer(&TempMesh, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
+	FLayoutUVRawMeshView TempMeshView(TempMesh, 0, 1);
+	FLayoutUV Packer(TempMeshView, FMath::Clamp(TextureResolution / 4, 32, 512));
 	Packer.FindCharts(OverlappingCorners);
 
 	bool bPackSuccess = Packer.FindBestPacking();
@@ -6026,7 +5881,8 @@ bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int
 	FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities").FindOverlappingCorners(OverlappingCorners, TempMesh.VertexPositions, TempMesh.WedgeIndices, THRESH_POINTS_ARE_SAME);
 
 	// Generate new UVs
-	FLayoutUV Packer(&TempMesh, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
+	FLayoutUVRawMeshView TempMeshView(TempMesh, 0, 1);
+	FLayoutUV Packer(TempMeshView, FMath::Clamp(TextureResolution / 4, 32, 512));
 	Packer.FindCharts(OverlappingCorners);
 
 	bool bPackSuccess = Packer.FindBestPacking();

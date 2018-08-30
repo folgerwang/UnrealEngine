@@ -320,9 +320,6 @@ You can use the same Material for your Landscape Material and your Landscape Hol
 	[/PARAMLITERAL]
 	[/OBJECT]
 
-[REGION:note]
-For information about using the painting tools to create a Landscape hole, see [Using Opacity Masking to Create a Hole](Engine\Landscape\Editing\SculptMode\#UsingOpacityMaskingtoCreateaHole).
-[/REGION]
 
 
 ## Assigning Materials to Landscapes
@@ -350,9 +347,6 @@ You can assign a different Material to act as the **Landscape Hole Material**, w
 	![](Landscape_HoleSettings.png)
 
 
-[REGION:note]
-For information about using Landscape Hole Materials, see [Using Opacity Masking to Create a Hole](Engine\Landscape\Editing\SculptMode\#UsingOpacityMaskingtoCreateaHole).
-[/REGION]
 
 [COMMENT:none]
 

@@ -22,7 +22,7 @@ Checkpoint:SteamVRQS
 Steam VR 퀵 스타트는 Vive HMD 헤드셋이 있는 PC 와 Steam VR 개발 셋업 방법을 안내해 드립니다.
 
 ## 목표
-* Steam VR Development 타겟으로 하는 UE4 프로젝트를 새로 만듭니다.
+* Steam VR Development 타깃으로 하는 UE4 프로젝트를 새로 만듭니다.
 * 프로젝트에서 Steam VR 을 사용할 수 있도록 필수 프로젝트 세팅을 설정합니다.
 
 ## 단계

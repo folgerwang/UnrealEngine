@@ -13,17 +13,8 @@
 #define LOCTEXT_NAMESPACE "UMGEditor"
 
 FWidgetTemplateBlueprintClass::FWidgetTemplateBlueprintClass(const FAssetData& InWidgetAssetData, TSubclassOf<UUserWidget> InUserWidgetClass)
-	: FWidgetTemplateClass(), WidgetAssetData(InWidgetAssetData)
+	: FWidgetTemplateClass(InWidgetAssetData, InUserWidgetClass)
 {
-	if (InUserWidgetClass)
-	{
-		WidgetClass = *InUserWidgetClass;
-		Name = WidgetClass->GetDisplayNameText();
-	}
-	else
-	{
-		Name = FText::FromString(FName::NameToDisplayString(WidgetAssetData.AssetName.ToString(), false));
-	}
 }
 
 FWidgetTemplateBlueprintClass::~FWidgetTemplateBlueprintClass()

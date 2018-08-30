@@ -66,7 +66,7 @@ topic-image:components_topic.png
 
 | 인터페이스 메타 태그 | 효과 |
 | --- | --- |
-| `CannotImplementInterfaceInBlueprint` | 이 인터페이스는 **블루프린트** 에서 구현할 수 없습니다 (예를 들면 노출되지 않은 C++ 멤버 메소드만 있는 경우입니다). [`BlueprintImplementableEvent` 또는 `BlueprintNativeEvent`](Programming/UnrealArchitecture/Reference/Functions/Specifiers) 가 아닌 함수를 정의하는 인터페이스는, 반드시 `CannotImplementInterfaceInBlueprint` 로 선언해야 합니다. |
+| `CannotImplementInterfaceInBlueprint` | 이 인터페이스는 **블루프린트** 에서 구현할 수 없습니다 (예를 들면 노출되지 않은 C++ 멤버 메서드만 있는 경우입니다). [`BlueprintImplementableEvent` 또는 `BlueprintNativeEvent`](Programming/UnrealArchitecture/Reference/Functions/Specifiers) 가 아닌 함수를 정의하는 인터페이스는, 반드시 `CannotImplementInterfaceInBlueprint` 로 선언해야 합니다. |
 
 [/EXCERPT:InterfaceMetadata]
 
@@ -145,7 +145,7 @@ topic-image:components_topic.png
 | `ClampMin="N"` | 플로트 및 인티저 프로퍼티에 사용됩니다. 프로퍼티에 입력할 수 있는 최소값 N 을 지정합니다. |
 | `ClampMax="N"` | 플로트 및 인티저 프로퍼티에 사용됩니다. 프로퍼티에 입력할 수 있는 최대값 N 을 지정합니다. |
 | `ConfigHierarchyEditable` | 이 프로퍼티는 환경설정 (`.ini`) 파일에 시리얼라이즈되며, 환경설정 계층구조 내 어디든 설정할 수 있습니다. |
-| `ContentDir` | `FDirectoryPath` 프로퍼티에 사용됩니다. Content 폴더 내 슬레이트 스타일 디렉토리 선택기를 사용하여 경로를 선택할 것임을 나타냅니다. |
+| `ContentDir` | `FDirectoryPath` 프로퍼티에 사용됩니다. Content 폴더 내 슬레이트 스타일 디렉터리 선택기를 사용하여 경로를 선택할 것임을 나타냅니다. |
 | `DisplayName="Property Name"` | 코드 생성 이름 대신 이 프로퍼티에 표시할 이름입니다. |
 | `DisplayThumbnail="true"` | 프로퍼티가 애셋 유형이며 선택된 애셋의 썸네일을 표시해야함을 나타냅니다. |
 | `EditCondition="BooleanPropertyName"` | 이 프로퍼티 편집 비활성화 여부를 나타내는 데 사용되는 불리언 프로퍼티 이름입니다. 프로퍼티 이름 앞에 "!" 를 붙이면 테스트가 반대로 됩니다. |

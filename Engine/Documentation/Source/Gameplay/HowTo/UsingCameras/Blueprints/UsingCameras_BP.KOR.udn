@@ -73,9 +73,9 @@ type:how-to
 
 	![](camera_bp9.png)
 
-	여기서 **Event Begin Play** 시 (게임이 시작되면), **Set View Target with Blend** (시야)를 **Player Controller** Index 0 (기본 플레이어)에 대한 **CameraActor** (새로운 뷰 타겟)으로 설정합니다.
+	여기서 **Event Begin Play** 시 (게임이 시작되면), **Set View Target with Blend** (시야)를 **Player Controller** Index 0 (기본 플레이어)에 대한 **CameraActor** (새로운 뷰 타깃)으로 설정합니다.
 	
-	**Set View Target with Blend** 노드의 다른 옵션을 통해 시간에 따른 블렌딩, 사용할 블렌딩 유형 지정, 블렌드 제어에 사용되는 지수 설정 등이 가능하며, 블렌드용 나가는 뷰 타겟 고정도 가능합니다 (이 모든 옵션은 기본 상태로 놔두겠습니다).
+	**Set View Target with Blend** 노드의 다른 옵션을 통해 시간에 따른 블렌딩, 사용할 블렌딩 유형 지정, 블렌드 제어에 사용되는 지수 설정 등이 가능하며, 블렌드용 나가는 뷰 타깃 고정도 가능합니다 (이 모든 옵션은 기본 상태로 놔두겠습니다).
 
 1.	**컴파일** 버튼을 눌러 마무리하고 블루프린트 창을 닫습니다.
 

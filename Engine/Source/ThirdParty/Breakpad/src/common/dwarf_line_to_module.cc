@@ -122,6 +122,22 @@ void DwarfLineToModule::AddLine(uint64 address, uint64 length,
     omitted_line_end_ = 0;
   }
 
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+  // Look for our inline entries and see if we have a more
+  // accurate call site from the inline information
+  if (inline_entries_) {
+    auto it = inline_entries_->upper_bound(address);
+    if (it != inline_entries_->end()) {
+      if (address >= it->second.low_pc && address < it->first) {
+        file_num = it->second.call_file;
+        line_num = it->second.call_line;
+      }
+    }
+  }
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
   // Find the source file being referred to.
   Module::File *file = files_[file_num];
   if (!file) {

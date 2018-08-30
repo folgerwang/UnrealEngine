@@ -1,13 +1,13 @@
 ﻿INTSourceChangelist:3782314
 Availability:Public
-Title: 기본 콘트롤
+Title: 기본 컨트롤
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Details
 Description:숫자칸, 회전판, 문자칸, 체크박스, 동글버튼, 콤보박스와 같은 단순 프로퍼티 유형입니다.
 Version: 4.9
 
-**언리얼 에디터** 에는 수치 값, 문자 등을 편집하는 데 친숙한 단순 콘트롤 유형이 다수 있습니다.
+**언리얼 에디터** 에는 수치 값, 문자 등을 편집하는 데 친숙한 단순 컨트롤 유형이 다수 있습니다.
 
-| 콘트롤 | 설명 |
+| 컨트롤 | 설명 |
 | ------- | ----------- |
 .[**문자칸** | `FString`, `FName` 같은 문자 프로퍼티에 사용됩니다. [INCLUDE:#TypeString] |
 | **숫자칸** | `Integer`, `Float` 같은 수치 프로퍼티 편집에 사용할 수 있습니다. [INCLUDE:#TypeNumericBox] |

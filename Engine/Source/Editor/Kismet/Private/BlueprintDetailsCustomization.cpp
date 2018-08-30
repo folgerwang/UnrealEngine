@@ -1056,13 +1056,23 @@ TSharedRef<ITableRow> FBlueprintVarActionDetails::OnGenerateWidgetForPropertyLis
 		];
 }
 
-bool FBlueprintVarActionDetails::IsASCSVariable(UProperty* VariableProperty) const
+bool FBlueprintVarActionDetails::IsAUserVariable(UProperty* VariableProperty) const
 {
 	UObjectProperty* VariableObjProp = VariableProperty ? Cast<UObjectProperty>(VariableProperty) : NULL;
 
-	if (VariableObjProp != NULL && VariableObjProp->PropertyClass != NULL && VariableObjProp->PropertyClass->IsChildOf(UActorComponent::StaticClass()))
+	if (VariableObjProp != NULL && VariableObjProp->PropertyClass != NULL)
 	{
-		return !FBlueprintEditorUtils::IsVariableCreatedByBlueprint(GetBlueprintObj(), VariableObjProp);
+		return FBlueprintEditorUtils::IsVariableCreatedByBlueprint(GetBlueprintObj(), VariableObjProp);
+	}
+	return true;
+}
+
+bool FBlueprintVarActionDetails::IsASCSVariable(UProperty* VariableProperty) const
+{
+	UObjectProperty* VariableObjProp = VariableProperty ? Cast<UObjectProperty>(VariableProperty) : NULL;
+	if (VariableObjProp != NULL && VariableObjProp->PropertyClass != NULL)
+	{
+		return (!IsAUserVariable(VariableProperty) && VariableObjProp->PropertyClass->IsChildOf(UActorComponent::StaticClass()));
 	}
 	return false;
 }
@@ -1610,7 +1620,7 @@ EVisibility FBlueprintVarActionDetails::ShowEditableCheckboxVisibilty() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty && GetPropertyOwnerBlueprint())
 	{
-		if (IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty))
+		if (IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -1644,7 +1654,7 @@ EVisibility FBlueprintVarActionDetails::ShowReadOnlyCheckboxVisibilty() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty && GetPropertyOwnerBlueprint())
 	{
-		if (IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty))
+		if (IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -1760,7 +1770,7 @@ EVisibility FBlueprintVarActionDetails::ExposeOnSpawnVisibility() const
 		FEdGraphPinType VariablePinType;
 		K2Schema->ConvertPropertyToPinType(VariableProperty, VariablePinType);
 
-		const bool bShowPrivacySetting = IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty);
+		const bool bShowPrivacySetting = IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty);
 		if (bShowPrivacySetting && (K2Schema->FindSetVariableByNameFunction(VariablePinType) != NULL))
 		{
 			return EVisibility::Visible;
@@ -1801,7 +1811,7 @@ EVisibility FBlueprintVarActionDetails::ExposePrivateVisibility() const
 	UProperty* Property = CachedVariableProperty.Get();
 	if (Property && GetPropertyOwnerBlueprint())
 	{
-		if (IsABlueprintVariable(Property) && !IsASCSVariable(Property))
+		if (IsABlueprintVariable(Property) && IsAUserVariable(Property))
 		{
 			return EVisibility::Visible;
 		}
@@ -2007,7 +2017,7 @@ EVisibility FBlueprintVarActionDetails::ExposeConfigVisibility() const
 	UProperty* Property = CachedVariableProperty.Get();
 	if (Property)
 	{
-		if (IsABlueprintVariable(Property) && !IsASCSVariable(Property))
+		if (IsABlueprintVariable(Property) && IsAUserVariable(Property))
 		{
 			return EVisibility::Visible;
 		}
@@ -2339,7 +2349,7 @@ EVisibility FBlueprintVarActionDetails::ReplicationVisibility() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if(VariableProperty)
 	{
-		if (!IsASCSVariable(VariableProperty) && IsABlueprintVariable(VariableProperty))
+		if (IsAUserVariable(VariableProperty) && IsABlueprintVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -2379,7 +2389,7 @@ EVisibility FBlueprintVarActionDetails::GetTransientVisibility() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty)
 	{
-		if (IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty))
+		if (IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -2412,7 +2422,7 @@ EVisibility FBlueprintVarActionDetails::GetSaveGameVisibility() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty)
 	{
-		if (IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty))
+		if (IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -2445,7 +2455,7 @@ EVisibility FBlueprintVarActionDetails::GetAdvancedDisplayVisibility() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty)
 	{
-		if (IsABlueprintVariable(VariableProperty))
+		if (IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -2512,7 +2522,7 @@ EVisibility FBlueprintVarActionDetails::IsTooltipEditVisible() const
 	UProperty* VariableProperty = CachedVariableProperty.Get();
 	if (VariableProperty)
 	{
-		if ((IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty)) || IsALocalVariable(VariableProperty))
+		if ((IsABlueprintVariable(VariableProperty) && IsAUserVariable(VariableProperty)) || IsALocalVariable(VariableProperty))
 		{
 			return EVisibility::Visible;
 		}
@@ -5250,12 +5260,6 @@ FText FBlueprintGlobalOptionsDetails::GetDeprecatedTooltip() const
 	return LOCTEXT("DisabledDeprecateBlueprintTooltip", "This Blueprint is deprecated because of a parent, it is not possible to remove deprecation from it!");
 }
 
-/** Shared tooltip text for both the label and the value field */
-static FText GetNativizeLabelTooltip()
-{
-	return LOCTEXT("NativizeTooltip", "When exclusive nativization is enabled, then this asset will be nativized. NOTE: All super classes must be also nativized.");
-}
-
 void FBlueprintGlobalOptionsDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
 {
 	const UBlueprint* Blueprint = GetBlueprintObj();
@@ -5357,9 +5361,8 @@ void FBlueprintGlobalOptionsDetails::CustomizeDetails(IDetailLayoutBuilder& Deta
 			.NameContent()
 			[
 				SNew(STextBlock)
-					.Text(LOCTEXT("NativizeLabel", "Nativize"))
-					.ToolTipText_Static(&GetNativizeLabelTooltip)
-					.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("NativizeLabel", "Nativize"))
+				.Font(IDetailLayoutBuilder::GetDetailFont())
 			]
 			.ValueContent()
 			[
@@ -5377,7 +5380,7 @@ bool FBlueprintGlobalOptionsDetails::IsNativizeEnabled() const
 	bool bIsEnabled = false;
 	if (UBlueprint* Blueprint = GetBlueprintObj())
 	{
-		bIsEnabled = (Blueprint->BlueprintType != BPTYPE_MacroLibrary) && (Blueprint->BlueprintType != BPTYPE_LevelScript) && (!FBlueprintEditorUtils::ShouldNativizeImplicitly(Blueprint));
+		bIsEnabled = Blueprint->SupportsNativization() && !FBlueprintEditorUtils::ShouldNativizeImplicitly(Blueprint);
 	}
 	return bIsEnabled;
 }
@@ -5415,22 +5418,28 @@ ECheckBoxState FBlueprintGlobalOptionsDetails::GetNativizeState() const
 
 FText FBlueprintGlobalOptionsDetails::GetNativizeTooltip() const
 {
-	if (!IsNativizeEnabled())
+	UBlueprint* Blueprint = GetBlueprintObj();
+
+	if (Blueprint)
 	{
-		if (FBlueprintEditorUtils::ShouldNativizeImplicitly(GetBlueprintObj()))
+		if (FBlueprintEditorUtils::ShouldNativizeImplicitly(Blueprint))
 		{
 			return LOCTEXT("NativizeImplicitlyTooltip", "This Blueprint must be nativized because it overrides one or more BlueprintCallable functions inherited from a parent Blueprint class that has also been flagged for nativization.");
 		}
-		else
+
+		FText Reason;
+		if (!Blueprint->SupportsNativization(&Reason))
 		{
-			return LOCTEXT("NativizeDisabledTooltip", "Macro libraries and level Blueprints cannot be nativized.");
+			return Reason.IsEmpty() ? LOCTEXT("NativizeDisabledTooltip", "This blueprint does not support nativization.") : Reason;
+		}
+
+		if (Blueprint->NativizationFlag == EBlueprintNativizationFlag::Dependency)
+		{
+			return LOCTEXT("NativizeAsDependencyTooltip", "This Blueprint has been flagged to nativize as a dependency needed by another Blueprint. This will be applied once that Blueprint is saved.");
 		}
 	}
-	else if (GetNativizeState() == ECheckBoxState::Undetermined)
-	{
-		return LOCTEXT("NativizeAsDependencyTooltip", "This Blueprint has been flagged to nativize as a dependency needed by another Blueprint. This will be applied once that Blueprint is saved.");
-	}
-	return GetNativizeLabelTooltip();
+
+	return LOCTEXT("NativizeTooltip", "When exclusive nativization is enabled, then this asset will be nativized. NOTE: All super classes must be also nativized.");
 }
 
 void FBlueprintGlobalOptionsDetails::OnNativizeToggled(ECheckBoxState NewState) const

@@ -31,6 +31,7 @@ public:
 	// IVREditorModule overrides
 	virtual bool IsVREditorEnabled() const override;
 	virtual bool IsVREditorAvailable() const override;
+	virtual bool IsVREditorButtonActive() const override;
 	virtual void EnableVREditor( const bool bEnable, const bool bForceWithoutHMD ) override;
 	virtual bool IsVREditorModeActive() override;
 	virtual UVREditorMode* GetVRMode() override;
@@ -83,8 +84,12 @@ bool FVREditorModule::IsVREditorEnabled() const
 bool FVREditorModule::IsVREditorAvailable() const
 {
 	return ModeManager.IsVREditorAvailable();
-}	
+}
 
+bool FVREditorModule::IsVREditorButtonActive() const
+{
+	return ModeManager.IsVREditorButtonActive();
+}
 
 void FVREditorModule::EnableVREditor( const bool bEnable, const bool bForceWithoutHMD )
 {

@@ -1,8 +1,8 @@
 ﻿INTSourceChangelist:3782314
 Availability: Public
 Crumbs: %ROOT%
-Title:스켈레탈 콘트롤
-Description:타겟 스켈레톤의 본을 직접 조작하거나 솔버를 적용시킬 수 있는 애니메이션 노드입니다.
+Title:스켈레탈 컨트롤
+Description:타깃 스켈레톤의 본을 직접 조작하거나 솔버를 적용시킬 수 있는 애니메이션 노드입니다.
 Type: Landing
 Version: 4.16
 Parent: Engine/Animation/NodeReference
@@ -17,20 +17,20 @@ topic-image:SkeletalControlTopicCompact.png
 [/REGION]
 
 [EXCERPT:Intro]
-**SkeletalControl** (스켈레탈 콘트롤) (또는 SkelControl (스켈 콘트롤))을 통해 [스켈레톤](Engine/Animation/Skeleton) 에 있는 본을 직접 제어할 수 있습니다. [애니메이션 블루프린트](Engine/Animation/AnimBlueprints) 안에서 사용되며, 개별 본 제어, IK 체인 생성 등의 작업에 쓰입니다.내재된 스켈레톤에 대한 직접 제어할 수 있다는 것은, 절차적이고 동적으로 구동되는 애니메이션을 만들 수 있다는 것입니다. 하나의 본에 대한 Transform(트랜스폼) 작업이 다른 본을 움직일 수도 있고, 캐릭터에 걷기 애니메이션을 재생할 때 땅에 발을 일치시킬 수도 있습니다. 
+**SkeletalControl** (스켈레탈 컨트롤) (또는 SkelControl (스켈 컨트롤))을 통해 [스켈레톤](Engine/Animation/Skeleton) 에 있는 본을 직접 제어할 수 있습니다. [애니메이션 블루프린트](Engine/Animation/AnimBlueprints) 안에서 사용되며, 개별 본 제어, IK 체인 생성 등의 작업에 쓰입니다.내재된 스켈레톤에 대한 직접 제어할 수 있다는 것은, 절차적이고 동적으로 구동되는 애니메이션을 만들 수 있다는 것입니다. 하나의 본에 대한 Transform(트랜스폼) 작업이 다른 본을 움직일 수도 있고, 캐릭터에 걷기 애니메이션을 재생할 때 땅에 발을 일치시킬 수도 있습니다. 
 [애니메이션 시퀀스](Engine/Animation/Sequences) 에 의해 적용된 본 트랜스폼을 조정하거나 완전 덮어쓰는 데 있어 어떠한 종류의 변경도 가능합니다.
 [/EXCERPT:Intro]
 
 
 ## 공통 핀 및 프로퍼티
 
-가능한 프로퍼티는 대부분 노드 자체에 기반하고 있지만, 모든 _스켈레탈 콘트롤_ 에 공통인 핀과 프로퍼티가 몇 가지 있습니다. 그에 대한 설명은 다음과 같습니다.
+가능한 프로퍼티는 대부분 노드 자체에 기반하고 있지만, 모든 _스켈레탈 컨트롤_ 에 공통인 핀과 프로퍼티가 몇 가지 있습니다. 그에 대한 설명은 다음과 같습니다.
 
 | 핀 | 설명 |
 | --- | ----------- |
 | [REGION:tablesection]**입력 핀**[/REGION] ||
 | Component Pose | 컴포넌트 포즈 - 변환시킬 인풋 포즈입니다. |
-| Alpha | 알파 - _스켈레탈 콘트롤_ 로 적용할 `트랜스폼` 비중 결정을 위한 알파 값으로 사용할 **[0.0, 1.0]** 범위의 `float` (실수) 값입니다. 값이 **0.0** 이면 인풋 포즈에 최대 비중을, **1.0** 이면 콘트롤이 계산한 `트랜스폼` 에 최대 비중을 둡니다. |
+| Alpha | 알파 - _스켈레탈 컨트롤_ 로 적용할 `트랜스폼` 비중 결정을 위한 알파 값으로 사용할 **[0.0, 1.0]** 범위의 `float` (실수) 값입니다. 값이 **0.0** 이면 인풋 포즈에 최대 비중을, **1.0** 이면 컨트롤이 계산한 `트랜스폼` 에 최대 비중을 둡니다. |
 | [REGION:tablesection]**출력 핀**[/REGION] ||
 | Pose (공백) | 포즈 - `트랜스폼` 적용 이후 최종 포즈입니다. |
 
@@ -51,9 +51,9 @@ topic-image:SkeletalControlTopicCompact.png
 스페이스 변환 노드 관련 상세 정보는 [](Engine/Animation/NodeReference/SpaceConversion) 문서를 참고하세요.
 [/REGION]
 
-## 스켈레탈 콘트롤 노드
+## 스켈레탈 컨트롤 노드
 
-아래는 애님 그래프 내 스켈레탈 콘트롤 노드 각각에 대한 추가 정보가 들어있는 링크입니다.
+아래는 애님 그래프 내 스켈레탈 컨트롤 노드 각각에 대한 추가 정보가 들어있는 링크입니다.
 
 [DIR(output:"topiccompact" parent:"Engine/Animation/NodeReference/SkeletalControls" org:"hierarchy" end:"1")]
 

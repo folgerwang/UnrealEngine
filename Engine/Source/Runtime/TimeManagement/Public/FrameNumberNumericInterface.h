@@ -92,20 +92,16 @@ private:
 			return FString::Printf(TEXT("%.2f s"), TimeInSeconds);
 		}
 		case EFrameNumberDisplayFormats::NonDropFrameTimecode:
-		{
-			FFrameTime InternalFrameNumber = FFrameTime::FromDecimal(Value);
-			FFrameNumber PlayRateFrameNumber = FFrameRate::TransformTime(InternalFrameNumber, SourceFrameRate, DestinationFrameRate).FloorToFrame();
-
-			FTimecode AsNonDropTimecode = FTimecode::FromFrameNumber(PlayRateFrameNumber, DestinationFrameRate, false);
-			return FString::Printf(TEXT("[%s]"), *AsNonDropTimecode.ToString(false));
-		}
 		case EFrameNumberDisplayFormats::DropFrameTimecode:
 		{
 			FFrameTime InternalFrameNumber = FFrameTime::FromDecimal(Value);
-			FFrameNumber PlayRateFrameNumber = FFrameRate::TransformTime(InternalFrameNumber, SourceFrameRate, DestinationFrameRate).FloorToFrame();
+			FFrameTime DisplayTime = FFrameRate::TransformTime(InternalFrameNumber, SourceFrameRate, DestinationFrameRate);
+			FString SubframeIndicator = FMath::IsNearlyZero(DisplayTime.GetSubFrame()) ? TEXT("") : TEXT("*");
 
-			FTimecode AsDropTimecode = FTimecode::FromFrameNumber(PlayRateFrameNumber, DestinationFrameRate, true);
-			return FString::Printf(TEXT("[%s]"), *AsDropTimecode.ToString(false));
+			bool bIsDropTimecode = Format == EFrameNumberDisplayFormats::DropFrameTimecode;
+
+			FTimecode AsNonDropTimecode = FTimecode::FromFrameNumber(DisplayTime.FloorToFrame(), DestinationFrameRate, bIsDropTimecode);
+			return FString::Printf(TEXT("[%s%s]"), *AsNonDropTimecode.ToString(false), *SubframeIndicator);
 		}
 		default:
 			return FString(TEXT("Unsupported Format"));
@@ -123,7 +119,7 @@ private:
 		// also check to see if they explicitly specified that format, or if the evaluator just happens to be able to parse that.
 
 		// All of these will convert into the frame resolution from the user's input before returning.
-		FFrameNumberTimeEvaluator Eval;
+ 		FFrameNumberTimeEvaluator Eval;
 		bool bWasTimecodeText;
 		TValueOrError<FFrameTime, FExpressionError> TimecodeResult = Eval.EvaluateTimecode(*InString, SourceFrameRate, DestinationFrameRate, /*Out*/bWasTimecodeText);
 		bool bWasFrameText;

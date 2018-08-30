@@ -812,33 +812,6 @@ FKeyHandle AddKeyToChannel(FMovieSceneFloatChannel* Channel, FFrameNumber InFram
 	{
 		FMovieSceneFloatValue& Value = ChannelData.GetValues()[ExistingIndex]; //-V758
 		Value.Value = InValue;
-		switch (Interpolation)
-		{
-		case EMovieSceneKeyInterpolation::User:
-			Value.InterpMode = RCIM_Cubic;
-			Value.TangentMode = RCTM_User;
-			break;
-
-		case EMovieSceneKeyInterpolation::Break:
-			Value.InterpMode = RCIM_Cubic;
-			Value.TangentMode = RCTM_Break;
-			break;
-
-		case EMovieSceneKeyInterpolation::Linear:
-			Value.InterpMode = RCIM_Linear;
-			Value.TangentMode = RCTM_Auto;
-			break;
-
-		case EMovieSceneKeyInterpolation::Constant:
-			Value.InterpMode = RCIM_Constant;
-			Value.TangentMode = RCTM_Auto;
-			break;
-
-		default:
-			Value.InterpMode = RCIM_Cubic;
-			Value.TangentMode = RCTM_Auto;
-			break;
-		}
 	}
 	else switch (Interpolation)
 	{

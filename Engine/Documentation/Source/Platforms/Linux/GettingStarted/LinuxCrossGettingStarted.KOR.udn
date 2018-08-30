@@ -2,7 +2,7 @@
 Availability:Public
 Title: 리눅스용 크로스 컴파일
 Crumbs:%ROOT%
-Description:윈도우에서 리눅스 플랫폼을 타겟으로 하는 크로스 컴파일 툴체인 셋업 방법을 알아봅니다.
+Description:윈도우에서 리눅스 플랫폼을 타깃으로 하는 크로스 컴파일 툴체인 셋업 방법을 알아봅니다.
 Version: 4.15
 SkillLevel: Advanced
 type:overview
@@ -21,10 +21,10 @@ prereq:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow
 
 ![](LinuxXC_Banner.png)(w:1200)
 
-최근 크로스 컴파일 툴체인 개선사항으로 언리얼 엔진 4 (UE4) 개발자가 윈도우 개발 환경에서 다양한 플랫폼을 타겟으로 작업하는 것이 가능해 졌습니다.
-여기서는 크로스 컴파일 툴체인으로 타겟을 삼을 수 있는 플랫폼은 어떤 것들이 있는지, 툴체인 다운로드 링크를 제공해 드리고, 
+최근 크로스 컴파일 툴체인 개선사항으로 언리얼 엔진 4 (UE4) 개발자가 윈도우 개발 환경에서 다양한 플랫폼을 타깃으로 작업하는 것이 가능해 졌습니다.
+여기서는 크로스 컴파일 툴체인으로 타깃을 삼을 수 있는 플랫폼은 어떤 것들이 있는지, 툴체인 다운로드 링크를 제공해 드리고, 
 최종적으로 UE4 프로젝트를 리눅스 용으로 크로스 컴파일하기 위한 셋업 방법을 보여드립니다. 언리얼 엔진 4.15 버전으로 프로젝트를 개발중인 경우, 
-타겟 플랫폼을 전환하는 방법도 배워보실 수 있습니다.
+타깃 플랫폼을 전환하는 방법도 배워보실 수 있습니다.
 
 [REGION:note]
 언리얼 엔진 4.13 (이하) 버전으로 개발중인 경우, [](Platforms/Linux/AdvancedLinuxDeveloper/LinuxCrossCompileLegacy) 문서를 참고하세요.
@@ -34,9 +34,9 @@ prereq:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow
 
 ## 툴체인 셋업
 
-윈도우 (호스트) 컴퓨터에서 앞서 언급한 플랫폼을 타겟으로 하기 위한 툴체인 셋업을 하려면, 툴체인을 다운로드한 후 리눅스 및 
+윈도우 (호스트) 컴퓨터에서 앞서 언급한 플랫폼을 타깃으로 하기 위한 툴체인 셋업을 하려면, 툴체인을 다운로드한 후 리눅스 및 
 ARM 기반 환경에 맞춰 어플리케이션을 패키징하기 위한 시스템 환경 변수를 설정해야 합니다. 리눅스 플랫폼 용으로 UE4 프로젝트를 처음 패키징하는 경우, 
-Visual Studio for Linux 에서 엔진을 빌드하기도 해야 합니다. 다음 단계를 통해, 현재 지원되는 플랫폼을 타겟으로 하기 위한 
+Visual Studio for Linux 에서 엔진을 빌드하기도 해야 합니다. 다음 단계를 통해, 현재 지원되는 플랫폼을 타깃으로 하기 위한 
 호스트 환경 셋업이 완료될 것입니다.
 
 [REGION:note]
@@ -237,13 +237,13 @@ Visual Studio for Linux 에서 엔진을 빌드하기도 해야 합니다. 다�
 	[/REGION]
 	[/REGION]
 
-## 특정 플랫폼 타겟
+## 특정 플랫폼 타깃
 
 [REGION:note]
-4.14 는 x86_64 플랫폼만 타겟으로 삼을 수 있기에, 이 부분은 4.15 로 작업중인 개발자를 위한 것입니다.
+4.14 는 x86_64 플랫폼만 타깃으로 삼을 수 있기에, 이 부분은 4.15 로 작업중인 개발자를 위한 것입니다.
 [/REGION]
 
-프로젝트가 특정 플랫폼을 타겟으로 삼을 수 있도록 하려면, 프로젝트의 [기본 엔진 구성 파일](Programming/Basics/ConfigurationFiles) 을 편집해야 합니다. 그 방법은 
+프로젝트가 특정 플랫폼을 타깃으로 삼을 수 있도록 하려면, 프로젝트의 [기본 엔진 구성 파일](Programming/Basics/ConfigurationFiles) 을 편집해야 합니다. 그 방법은 
 해당 파일 위치로 (`[Project Directory]\Config`) 이동하여 `DefaultEngine.ini` 파일을 연 뒤 다음 줄을 추가합니다:
 
 	[/Script/LinuxTargetPlatform.LinuxTargetSettings]

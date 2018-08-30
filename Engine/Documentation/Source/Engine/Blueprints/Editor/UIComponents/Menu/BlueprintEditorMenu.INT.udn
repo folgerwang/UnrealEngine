@@ -34,7 +34,7 @@ The **Menu** is displayed at the top of the Blueprint Editor by default.
 
 ### View
 
-[INCLUDE:ViewMenu]
+[INCLUDE:#ViewMenu]
 
 ### Debug
 

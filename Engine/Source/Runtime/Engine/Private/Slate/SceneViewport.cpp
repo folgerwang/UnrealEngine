@@ -26,8 +26,8 @@ extern EWindowMode::Type GetWindowModeType(EWindowMode::Type WindowMode);
 FSceneViewport::FSceneViewport( FViewportClient* InViewportClient, TSharedPtr<SViewport> InViewportWidget )
 	: FViewport( InViewportClient )
 	, CurrentReplyState( FReply::Unhandled() )
-	, CachedMousePos(-1, -1)
-	, PreCaptureMousePos(-1, -1)
+	, CachedCursorPos(-1, -1)
+	, PreCaptureCursorPos(-1, -1)
 	, SoftwareCursorPosition( 0, 0 )
 	, bIsSoftwareCursorVisible( false )	
 	, DebugCanvasDrawer( new FDebugCanvasDrawer )
@@ -130,7 +130,7 @@ void FSceneViewport::ShowCursor( bool bVisible )
 		else
 		{
 			// Restore the old mouse position when we show the cursor.
-			CurrentReplyState.SetMousePos( PreCaptureMousePos );
+			CurrentReplyState.SetMousePos( PreCaptureCursorPos );
 		}
 
 		SetPreCaptureMousePosFromSlateCursor();
@@ -172,23 +172,23 @@ void FSceneViewport::Destroy()
 
 int32 FSceneViewport::GetMouseX() const
 {
-	return CachedMousePos.X;
+	return CachedCursorPos.X;
 }
 
 int32 FSceneViewport::GetMouseY() const
 {
-	return CachedMousePos.Y;
+	return CachedCursorPos.Y;
 }
 
 void FSceneViewport::GetMousePos( FIntPoint& MousePosition, const bool bLocalPosition )
 {
 	if (bLocalPosition)
 	{
-		MousePosition = CachedMousePos;
+		MousePosition = CachedCursorPos;
 	}
 	else
 	{
-		const FVector2D AbsoluteMousePos = CachedGeometry.LocalToAbsolute(FVector2D(CachedMousePos.X / CachedGeometry.Scale, CachedMousePos.Y / CachedGeometry.Scale));
+		const FVector2D AbsoluteMousePos = CachedGeometry.LocalToAbsolute(FVector2D(CachedCursorPos.X / CachedGeometry.Scale, CachedCursorPos.Y / CachedGeometry.Scale));
 		MousePosition.X = AbsoluteMousePos.X;
 		MousePosition.Y = AbsoluteMousePos.Y;
 	}
@@ -198,7 +198,7 @@ void FSceneViewport::SetMouse( int32 X, int32 Y )
 {
 	FVector2D AbsolutePos = CachedGeometry.LocalToAbsolute(FVector2D(X, Y));
 	FSlateApplication::Get().SetCursorPos( AbsolutePos );
-	CachedMousePos = FIntPoint(X, Y);
+	CachedCursorPos = FIntPoint(X, Y);
 }
 
 void FSceneViewport::ProcessInput( float DeltaTime )
@@ -206,13 +206,13 @@ void FSceneViewport::ProcessInput( float DeltaTime )
 	// Required 
 }
 
-void FSceneViewport::UpdateCachedMousePos( const FGeometry& InGeometry, const FPointerEvent& InMouseEvent )
+void FSceneViewport::UpdateCachedCursorPos( const FGeometry& InGeometry, const FPointerEvent& InMouseEvent )
 {
 	FVector2D LocalPixelMousePos = InGeometry.AbsoluteToLocal(InMouseEvent.GetScreenSpacePosition());
 	LocalPixelMousePos.X *= CachedGeometry.Scale;
 	LocalPixelMousePos.Y *= CachedGeometry.Scale;
 
-	CachedMousePos = LocalPixelMousePos.IntPoint();
+	CachedCursorPos = LocalPixelMousePos.IntPoint();
 }
 
 void FSceneViewport::UpdateCachedGeometry( const FGeometry& InGeometry )
@@ -470,8 +470,9 @@ FReply FSceneViewport::OnMouseButtonDown( const FGeometry& InGeometry, const FPo
 
 	KeyStateMap.Add(InMouseEvent.GetEffectingButton(), true);
 	UpdateModifierKeys(InMouseEvent);
-	UpdateCachedMousePos(InGeometry, InMouseEvent);
+
 	UpdateCachedGeometry(InGeometry);
+	UpdateCachedCursorPos(InGeometry, InMouseEvent);
 
 	// Switch to the viewport clients world before processing input
 	FScopedConditionalWorldSwitcher WorldSwitcher(ViewportClient);
@@ -580,8 +581,10 @@ FReply FSceneViewport::OnMouseButtonUp( const FGeometry& InGeometry, const FPoin
 
 	KeyStateMap.Add( InMouseEvent.GetEffectingButton(), false );
 	UpdateModifierKeys( InMouseEvent );
-	UpdateCachedMousePos( InGeometry, InMouseEvent );
+
 	UpdateCachedGeometry(InGeometry);
+	UpdateCachedCursorPos( InGeometry, InMouseEvent );
+	
 
 	// Switch to the viewport clients world before processing input
 	FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
@@ -630,7 +633,7 @@ FReply FSceneViewport::OnMouseButtonUp( const FGeometry& InGeometry, const FPoin
 
 void FSceneViewport::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	UpdateCachedMousePos( MyGeometry, MouseEvent );
+	UpdateCachedCursorPos( MyGeometry, MouseEvent );
 	ViewportClient->MouseEnter( this, GetMouseX(), GetMouseY() );
 }
 
@@ -642,7 +645,7 @@ void FSceneViewport::OnMouseLeave( const FPointerEvent& MouseEvent )
 	
 		if (IsCurrentlyGameViewport())
 		{
-			CachedMousePos = FIntPoint(-1, -1);
+			CachedCursorPos = FIntPoint(-1, -1);
 		}
 	}
 }
@@ -652,8 +655,8 @@ FReply FSceneViewport::OnMouseMove( const FGeometry& InGeometry, const FPointerE
 	// Start a new reply state
 	CurrentReplyState = FReply::Handled();
 
-	UpdateCachedMousePos(InGeometry, InMouseEvent);
 	UpdateCachedGeometry(InGeometry);
+	UpdateCachedCursorPos(InGeometry, InMouseEvent);
 
 	const bool bViewportHasCapture = ViewportWidget.IsValid() && ViewportWidget.Pin()->HasMouseCapture();
 	if ( ViewportClient && GetSizeXY() != FIntPoint::ZeroValue )
@@ -698,8 +701,8 @@ FReply FSceneViewport::OnMouseWheel( const FGeometry& InGeometry, const FPointer
 	// Start a new reply state
 	CurrentReplyState = FReply::Handled();
 
-	UpdateCachedMousePos( InGeometry, InMouseEvent );
 	UpdateCachedGeometry(InGeometry);
+	UpdateCachedCursorPos( InGeometry, InMouseEvent );
 
 	if( ViewportClient  && GetSizeXY() != FIntPoint::ZeroValue  )
 	{
@@ -728,8 +731,9 @@ FReply FSceneViewport::OnMouseButtonDoubleClick( const FGeometry& InGeometry, co
 	//	WM_*BUTTONDBLCLK	(Needs to set the KeyStates[*] to true)
 	//	WM_*BUTTONUP
 	KeyStateMap.Add( InMouseEvent.GetEffectingButton(), true );
-	UpdateCachedMousePos( InGeometry, InMouseEvent );
+
 	UpdateCachedGeometry(InGeometry);
+	UpdateCachedCursorPos(InGeometry, InMouseEvent);
 
 	if( ViewportClient && GetSizeXY() != FIntPoint::ZeroValue  )
 	{
@@ -750,15 +754,15 @@ FReply FSceneViewport::OnTouchStarted( const FGeometry& MyGeometry, const FPoint
 	CurrentReplyState = FReply::Handled().PreventThrottling(); 
 	++NumTouches;
 
-	UpdateCachedMousePos(MyGeometry, TouchEvent);
 	UpdateCachedGeometry(MyGeometry);
+	UpdateCachedCursorPos(MyGeometry, TouchEvent);
 	
 	if( ViewportClient )
 	{
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
+		const FVector2D TouchPosition = CachedCursorPos;
 
 		if(ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Began, TouchPosition, TouchEvent.GetTouchForce(), FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
 		{
@@ -780,19 +784,18 @@ FReply FSceneViewport::OnTouchStarted( const FGeometry& MyGeometry, const FPoint
 FReply FSceneViewport::OnTouchMoved( const FGeometry& MyGeometry, const FPointerEvent& TouchEvent )
 {
 	// Start a new reply state
-	CurrentReplyState = FReply::Handled(); 
+	CurrentReplyState = FReply::Handled();
 
-	UpdateCachedMousePos(MyGeometry, TouchEvent);
 	UpdateCachedGeometry(MyGeometry);
+	UpdateCachedCursorPos(MyGeometry, TouchEvent);
 
 	if( ViewportClient )
 	{
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
 
-		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Moved, TouchPosition, TouchEvent.GetTouchForce(), FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
+		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Moved, CachedCursorPos, TouchEvent.GetTouchForce(), FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
@@ -804,26 +807,25 @@ FReply FSceneViewport::OnTouchMoved( const FGeometry& MyGeometry, const FPointer
 FReply FSceneViewport::OnTouchEnded( const FGeometry& MyGeometry, const FPointerEvent& TouchEvent )
 {
 	// Start a new reply state
-	CurrentReplyState = FReply::Handled(); 
+	CurrentReplyState = FReply::Handled();
 
+	UpdateCachedGeometry(MyGeometry);
 	if (--NumTouches > 0)
 	{
-		UpdateCachedMousePos(MyGeometry, TouchEvent);
+		UpdateCachedCursorPos(MyGeometry, TouchEvent);
 	}
 	else
 	{
-		CachedMousePos = FIntPoint(-1, -1);
+		CachedCursorPos = FIntPoint(-1, -1);
 	}
-	UpdateCachedGeometry(MyGeometry);
+
 
 	if( ViewportClient )
 	{
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
-
-		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Ended, TouchPosition, 0.0f, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
+		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Ended, CachedCursorPos, 0.0f, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
@@ -842,8 +844,8 @@ FReply FSceneViewport::OnTouchGesture( const FGeometry& MyGeometry, const FPoint
 	// Start a new reply state
 	CurrentReplyState = FReply::Handled();
 
-	UpdateCachedMousePos( MyGeometry, GestureEvent );
-	UpdateCachedGeometry( MyGeometry );
+	UpdateCachedGeometry(MyGeometry);
+	UpdateCachedCursorPos( MyGeometry, GestureEvent );
 
 	if( ViewportClient )
 	{
@@ -1911,5 +1913,5 @@ void FSceneViewport::ReleaseDynamicRHI()
 
 void FSceneViewport::SetPreCaptureMousePosFromSlateCursor()
 {
-	PreCaptureMousePos = FSlateApplication::Get().GetCursorPos().IntPoint();
+	PreCaptureCursorPos = FSlateApplication::Get().GetCursorPos().IntPoint();
 }
