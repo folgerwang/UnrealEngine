@@ -184,6 +184,7 @@ public:
 	SLATE_EVENT( FRefreshOffsetsRequest, OnRequestRefreshOffsets )
 	SLATE_EVENT( FOnGetTimingNodeVisibility, OnGetTimingNodeVisibility )
 	SLATE_EVENT( FOnInvokeTab, OnInvokeTab )
+	SLATE_EVENT( FSimpleDelegate, OnNotifiesChanged )
 
 	SLATE_END_ARGS()
 
@@ -340,4 +341,7 @@ private:
 
 	/** Delegate used to invoke a tab */
 	FOnInvokeTab OnInvokeTab;
+
+	/** Delegate used to inform others that notifies have changed (for timing) */
+	FSimpleDelegate OnNotifiesChanged;
 };
