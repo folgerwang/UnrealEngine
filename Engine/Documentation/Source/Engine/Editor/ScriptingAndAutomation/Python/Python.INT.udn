@@ -1,0 +1,315 @@
+Availability: Public
+Crumbs: 
+Title: Scripting the Editor using Python
+Description: Describes how to use Python in the Unreal Editor to script content production tasks.
+Type: 
+Version: 4.20
+Parent: Engine/Editor/ScriptingAndAutomation
+Order: 4
+Tags: Unreal Studio
+Tags: Datasmith
+Tags: overview
+Tags: landing
+Tags: Python
+Tags: Experimental
+Tags: scripting
+Tags: editor
+Tags: Landing Page
+
+
+This page describes how to get started using Python in the Unreal Editor.
+
+## Why Python?
+
+In recent years, Python has become the de facto language for production pipelines and interoperability between 3D applications, particularly in the media and entertainment industry. This is partially due to the wide range of applications that support it. As the complexity of production pipelines continues to soar, and the number of applications involved continues to grow, having a common scripting language makes it easier to create and maintain large-scale asset management systems.
+
+Even without these outside considerations, or the need to work with other applications, Python is a great choice if you're looking to automate your workflows within the Unreal Editor. It's relatively easy for those new to programming to get started, it offers the ability to create complex and full-featured user interfaces through modules like PySide, and there are many other useful free modules available to the community to make your life easier.
+
+You can use Python in the Unreal Editor to do things like:
+
+*   Construct larger-scale asset management pipelines or workflows that tie the Unreal Editor to other 3D applications that you use in your organization.
+*   Automate time-consuming Asset management tasks in the Unreal Editor, like generating LODs for Static Meshes.
+*   Procedurally lay out content in a Level.
+*   Control the Unreal Editor from UIs that you create yourself in Python.
+
+## Set Up Your Project to Use Python
+
+Python support in the Unreal Editor is provided by the Python Editor Script Plugin. Before you can run Python scripts in the Editor, you'll need to enable this plugin for your current Project.
+
+[REGION:note]
+Currently, you must enable the plugin separately for each Project.
+[/REGION]
+
+To enable the plugin:
+
+1.  Open your Project, and choose **Edit > Plugins** from the main menu.
+2.  In the **Plugins** window, go to the **Scripting** section.  
+    Find the **Python Editor Script Plugin** in the right-hand panel, and check its **Enabled** box.  
+    ![Enable the Python Editor Script Plugin](install-python-plugin.png "Enable the Python Editor Script Plugin")  
+    You'll also want to enable the **Editor Scripting Utilities** plugin, which offers simplified APIs for many common Editor tasks. For details, see [Scripting and Automating the Editor](https://docs.unrealengine.com/en-us/Editor/Scripting-and-Automating-the-Editor).
+3.  Restart the Editor.
+
+### Python 2.7
+
+The Python Editor Script Plugin contains an embedded version of Python 2.7.
+
+This means that you don't have to install Python separately on your computer.
+
+[REGION:tip]
+Unreal uses Python 2.7 by default because it is an important part of the current [VFX Reference Platform](https://www.vfxplatform.com/). When the reference platform switches to version 3.x, we intend to follow.  
+In the meantime, if you need to use a different version of Python (including a 3.x version), you can set the `UE_PYTHON_DIR` environment variable to point to the installation you want to embed, then rebuild the Unreal Engine from source.
+[/REGION]
+
+## Ways to Run Python Code in Unreal Editor
+
+There are several different ways that you can run Python scripts in the Unreal Editor, each designed for a slightly different usage scenario. You can choose whichever fits your needs.
+
+[REGION:note]
+Unlike Blueprints, the Python environment is only available **in the Unreal Editor**, not when your Project is running in the Unreal Engine in any mode, including Play In Editor, Standalone Game, cooked executable, etc. That means that you can use Python freely for scripting and automating the Editor or building asset production pipelines, but you cannot currently use it as a gameplay scripting language.
+[/REGION]
+
+### The Python Console in the Output Log
+
+You can switch the Unreal Editor's console input bar to accept Python code instead of Unreal console commands.
+
+![The Python console](python-console-input.png "The Python console")
+
+You can do this in the **Output Log** panel, as shown above, or when you bring up the console input bar by pressing the `~` key.  
+
+When the console is in Python mode:
+
+*   You can enter lines of Python code into this console and have the Editor execute each one immediately, exactly as if you were using an interactive Python console in a command window. This is the only way to execute Python code line-by-line; all other approaches listed below run a script file that you specify.
+*   You can run multiple lines of code at a time by using **Shift+Enter** to separate each line, or by pasting in a multi-line block that you copy from a text editor.
+*   You can execute Python script files by simply typing the file name into the console. If your Python script requires additional command-line arguments, include them after the name of your script.
+
+[REGION:tip]
+Output from the built-in Python `print` function is also redirected to the **Output Log** panel.
+[/REGION]
+
+### The py Console Command
+
+In the normal console, you can use the `py` command to run the rest of the line as Python code, exactly as if you had typed it into the Python console described above.
+
+For example, this command runs the specified script file:
+
+![The py console command](python-py-command.png "The py console command")
+
+[REGION:note]
+We don't recommend running this command in the value of the `ExecCmd` command-line parameter when you start the Editor. This can cause your script to run before the Editor environment is ready — for example, before the startup Level is fully loaded. See the sections below for better options.
+[/REGION]
+
+### The File Menu
+
+The **File** menu in the main window of the Unreal Editor offers new options that you can use to run Python script files.
+
+*   Use **Execute Python Script** if you want to browse to a new script file on your computer that you haven't run before.
+*   Use the **Recent Python scripts** list to re-run any script that you ran previously. The file is read from disk again, so you changed the script in the meantime, your new version is run.
+
+![Execute Python from the File menu](python-file-menu-options.png "Execute Python from the File menu")
+
+### The Command Line
+
+If you start the Unreal Editor from the command line or from a script, you can specify a Python script file in the command line arguments. If your Python script requires additional command-line arguments, include them after the name of your script.
+
+There are two different ways to run a Python script from the command line. In both approaches, the Editor shuts down immediately after running your Python script.
+
+**Option 1: Full Editor**
+
+In this approach, the full Unreal Editor launches, opens your specified Project, loads the default startup level, then runs your Python script once everything is loaded and ready. This approach is good if you need your script to interact with content in your Project or in a Level that can take some time to load.
+
+Add the `ExecutePythonScript` argument to the command line, and set its value to the Python script you want to run. For example:
+
+    > UE4Editor-Cmd.exe MyProject.uproject -ExecutePythonScript="c:\my_script.py"
+
+[REGION:note]
+The approach above requires that you enable the Editor Scripting Utilities plugin for your Project.
+[/REGION]
+
+**Option 2: Commandlet**
+
+In this approach, the Editor starts up with a minimal environment, without UI or rendering. This approach is very fast to execute, but it can be trickier to load Levels and other kinds of Assets that your script needs to interact with.
+
+Add the following arguments to the command line: `-run=pythonscript -script=<script_file>`
+
+For example:
+
+    > UE4Editor-Cmd.exe -run=pythonscript -script="c:\\my_script.py"
+
+### The init_unreal.py File
+
+If the Editor detects a script file called `init_unreal.py` in any of the paths it is configured to use (see "Python Paths in the Unreal Editor" below), it automatically runs that script immediately.
+
+This is a good approach for situations where you are working on a Project or a Plugin and you know that everyone working with that content needs to run the same initialization code every time the Editor starts up. You could put your initialization code inside a script with this name, and put it into the **Content/Python** folder within that Project or Plugin.
+
+### Startup Scripts
+
+In your Project Settings, you can specify any number of Python scripts that you want to run every time you open that Project. The Editor runs these scripts after the default startup Level is fully loaded.
+
+Select **Edit > Project Settings...**. Under the **Plugins** list, select **Python**. Then, add your scripts to the **Startup scripts** setting:
+
+![Python startup scripts](python-startup-scripts.png "Python startup scripts")
+
+Restart the Unreal Editor when done. The next time the Editor loads your Project, it should run your new startup scripts.
+
+## Python Paths in the Unreal Editor
+
+When you use a relative path to run a Python script using the methods above, or to import another script module using the `import` command in one of your scripts, the script that you run or import can be in any path that is listed in the `sys.path` variable of the Python environment.
+
+The Unreal Editor automatically adds several paths to this `sys.path` list:
+
+*   The **Content/Python** sub-folder under your Project's folder.
+*   The **Content/Python** sub-folder in the main Unreal Engine installation.
+*   The **Content/Python** sub-folder under each enabled Plugin's folder.
+*   The **Documents/UnrealEngine/Python** folder inside your user directory. For example, on Windows 10, this is equivalent to `C:/Users/Username/Documents/UnrealEngine/Python`
+
+You can also add your own paths to this list using any of the following approaches:
+
+*   In your Project Settings. Select **Edit > Project Settings...**. Under the **Plugins** list, select **Python**. Then, add the paths to the **Additional Paths** setting. Restart the Unreal Editor when done.  
+    ![Additional Python paths](python-additional-paths.png "Additional Python paths")
+*   Add the paths to the value of the `PYTHONPATH` environment variable, then restart the Unreal Editor.
+*   Add the paths directly to the `sys.path` list within a Python script, or in the Python console.
+
+## About the Unreal Editor Python API
+
+The Python Editor Script Plugin exposes a wide range of classes and functions that you can use to interact with the Unreal Editor, the Assets in your Project, and the content in your Levels. This API is all contained in the `unreal` module. To access it, import this module at the beginning of any Python script you run in the Editor's Python environment:
+
+
+    import unreal
+
+
+The `unreal` module exposes nearly everything that is exposed from C++ to Blueprints in your Editor environment. It's not pre-generated; it automatically reflects whatever is available in Blueprints in your Editor. As you enable new plugins in the Unreal Editor, anything those plugins expose to Blueprints also becomes available in Python as well. The same goes for any C++ code that you write in your Project and expose to Blueprints.
+
+The Python API makes every effort to expose native Unreal APIs in a way that is as friendly as possible to Python developers. For example:
+
+*   Simple data types are transparently converted back and forth between Python and native types whenever necessary.  
+    When you pass in a Python list, set or dict, it is automatically converted to an  Unreal array, set, or map. When you retrieve a list, set, or dict returned by an API function, you are actually getting an instance of an Unreal class, but its API is fully consistent with the base Python list, set, or dict type.
+*   Python classes maintain the same inheritance hierarchy as the native types they represent. That means, for example, that you can use the built-in Python functions `isinstance()` and `type()` to test whether an object derives from or matches a given class.
+*   The API tries to strike a good balance between the naming conventions used in Unreal for C++ and Blueprints on one hand, and Python naming conventions on the other hand. Classes and objects in the Python API have the same names as they do in Blueprints. This is typically the same as their native types, omitting the prefix (e.g. `U` or `T`). Function and property names are automatically exposed as lower-case `snake_case`. So, for example, you typically call functions like `unreal.StaticMeshActor.get_actor_transform()`. Enumeration value names are automatically exposed as upper-case `SNAKE_CASE`.
+*   All exposed functions can accept either ordered parameters, or named parameters in any order. For example, the following two function calls are exactly equivalent:
+    
+    ~~~
+    unreal.EditorLevelLibrary.join_static_mesh_actors(list_of_actors, my_options)
+    unreal.EditorLevelLibrary.join_static_mesh_actors(join_options=my_options, actors_to_join=list_of_actors)
+    ~~~
+    
+
+### API Reference
+
+For details on all of the classes and functions exposed by the Unreal Python API, see the API Reference here:
+
+[**Unreal Editor Python API Reference**](https://api.unrealengine.com/INT/PythonAPI/)
+
+[REGION:note]
+The API Reference is not an exhaustive list of everything that may be exposed to Python by plugins. If you've installed additional plugins that aren't included in the API Reference, and you need to see the way their scripting features are exposed to Python, you can generate your own local version of the API Reference that contains docs for the plugins you need. For instructions, see the readme file under *Engine\Plugins\Experimental\PythonScriptPlugin\SphinxDocs* in your Unreal Engine installation folder.
+[/REGION]
+
+## Best Practices for Using the Python API
+
+This section covers a few things that it's important to keep in mind when you use the Python API.  
+
+### Working with Assets
+
+If you need to work with Assets in your Project, always use functions from the Unreal Python API to do it. Never use file management modules built in to Python to work directly with your Asset files on disk. For example, if you need to move an Asset to a different folder, do not use Python functions like `os.rename` or `shutil.move`. Unreal Projects and Assets contain internal content references that you can break if you do not respect this rule.
+
+Instead, we recommend using the `unreal.EditorAssetLibrary` API that is provided by the Editor Scripting Utilities plugin, or the `unreal.AssetTools` class built in to the Unreal Python API.
+
+### Changing Editor Properties
+
+You can use Python to get access to Objects in your Project and set up many configuration properties on those Objects programmatically. For example, your Python script could access Static Mesh Actors in the current Level, and set properties like whether the Actors can be damaged, or whether they should be hidden in the game. Or, you could retrieve their Static Mesh Components and set up properties on those Components, like their Lightmass settings, or even the Static Mesh Asset that they are linked to.
+
+These properties may be exposed to Python in two different ways:
+
+*   Items with the BlueprintReadOnly or BlueprintReadWrite flag are exposed as simple properties on the object.  
+    You can read and modify these properties like you access any Python object property.
+*   Items with the ViewAnywhere or EditAnywhere flag are exposed as "editor properties".  
+    You can read and write these values using a special pair of functions exposed by every object: `set_editor_property()` and `get_editor_property()`.
+
+In the API Reference for each class, you'll find a list of **Editor Properties** immediately following the class description. These are all the values that you can set and get using these `set_editor_property()` and `get_editor_property()` functions. Whenever you need to set or get a configuration property on an object, check this list first  to see if the property you want is listed there.
+
+*   When you need to read a value that is exposed both as an object property and as an editor property, the result of accessing the property directly is usually the same as by calling the `get_editor_property()` function. However, the `get_editor_property()` function often has access to properties that aren't exposed directly on the Python object.
+*   When you need to set a value that is exposed both as an object property and as an editor property, you should in most cases use the `set_editor_property()` function to set the value rather than set the value directly on the object. When you adjust properties in the UI, the Editor often performs additional operations behind the scenes: pre- and post-edit changes. These operations typically respond to the choices you make in some way, and keep the Editor UI in sync with the state of the object in the game world. If you modify these properties directly on the Python object, this Editor code won't be run automatically. On the other hand, when you call `set_editor_property()` to set the state of a property, you do trigger this pre- and post-edit code, exactly as if you changed the setting in the **Details** panel of the Editor UI.
+
+For example, Media Player objects have a **Play on Open** setting:  
+
+![Details](Details.png "Details")
+
+This is exposed in the `unreal.MediaPlayer` class in the `play_on_open` class member:
+
+    import unreal
+    obj = unreal.MediaPlayer()
+    # Modifying a property directly can have different results
+    # than changing settings in the Editor UI.
+    # Generally you'll want to avoid setting these values directly, like this:
+    obj.play_on_open = True
+    # This way of accessing the property will have exactly the same
+    # result as changing the setting in the Editor UI:
+    obj.set_editor_property("play_on_open", True)
+    # Both ways of reading the value are equivalent.
+    # When a class exposes a property in both ways, you can use either:
+    play_value = obj.play_on_open
+    play_value = obj.get_editor_property("play_on_open")
+
+### Use Unreal Types Whenever Possible
+
+Whenever you need utilities that are available in the Unreal Python API, like classes for math operations or manipulating 3D coordinates, we recommend using the Unreal utilities rather than using your own implementations. The Unreal versions are optimized for best performance in the Engine environment.
+
+For example, when you need to manipulate coordinates in 3D space, use the `unreal.Vector` class:
+
+    import unreal
+    v1 = unreal.Vector()
+    v1.x = 10
+    v2 = unreal.Vector(10, 20, 30)
+    v3 = (v1 + v2) * 2
+    print v3
+
+### Logging and Feedback
+
+The `unreal` object exposes functions that you can use in your code to send log, warning, and error messages through the same messaging system used by all Engine and Editor subsystems. We recommend using this standardized logging framework anytime your script needs to send a message to the user.
+
+*   Use `unreal.log()` for information messages. For your convenience, the Python `print()` function has also been implemented to pass through `unreal.log()` internally.
+*   Use `unreal.log_warning()` to alert users of potential problems.
+*   Use `unreal.log_error()` for severe problems that prevent your script from running as expected.
+
+Your messages appear in the **Output Log** panel, along with the messages sent by other subsystems:
+
+![Python log messages](python-log-feedback.png "Python log messages")
+
+### Supporting Undo and Redo
+
+Your scripts can take full advantage of the Undo / Redo system built in to the Unreal Editor.
+
+Each *transaction* that you define can contain any number of Python operations. Using these transactions, you can bundle large operations, or operations on many different objects, together into a single entry in the Undo / Redo history. Typically, if your script intends to perform a certain change on multiple objects, you don't want a separate entry in the Undo / Redo history for each change; you want one entry that will undo all changes to all objects.
+
+To define a transaction, use the `unreal.ScopedEditorTransaction` scope. For example, if you run this code:
+
+    import unreal
+    obj = unreal.MediaPlayer()
+    with unreal.ScopedEditorTransaction("My Transaction Test") as trans:
+        obj.set_editor_property(“play_on_open”, True)
+        obj.set_editor_property(“vertical_field_of_view”, 60)
+
+Your Editor's **Undo History** panel now lists that transaction by name:
+
+![Undo History](undoHistory.png "Undo History")
+
+As a general rule, your scoped transactions can contain any operations that are also undoable in the Editor UI. However, not every Editor operation is undoable. For example, you can't undo importing a model in the Editor UI, so trying to import a model inside an `unreal.ScopedEditorTransaction` will not work as you may be expecting.
+
+### Progress Dialogs for Slow Operations
+
+If your scripts need to work on many Assets or Actors in the same operation, they may take some time to complete. However, while the Unreal Editor is running a Python script, its UI becomes blocked to other user interactions. To give the user information about the progress of a large task, and avoid the Editor appearing to freeze or hang, you can use the `unreal.ScopedSlowTask` scope.
+
+For example:
+
+    import unreal
+    total_frames = 100
+    text_label = "Working!"
+    with unreal.ScopedSlowTask(total_frames, text_label) as slow_task:
+        slow_task.make_dialog(True)               # Makes the dialog visible, if it isn't already
+        for i in range(total_frames):
+            if slow_task.should_cancel():         # True if the user has pressed Cancel in the UI
+                break
+            slow_task.enter_progress_frame(1)     # Advance progress by one frame.
+                                                # You can also update the dialog text in this call, if you want.
+            ...                                   # Now do work for the current frame here!
+
+![Progress bar for a Scoped Slow Task](python-scoped-slow-task.png "Progress bar for a Scoped Slow Task")

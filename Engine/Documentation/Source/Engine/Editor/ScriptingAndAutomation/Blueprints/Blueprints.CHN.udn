@@ -1,0 +1,73 @@
+﻿INTSourceChangelist:4284468
+Availability: Public
+Crumbs: 
+Title: 使用蓝图在编辑器中进行脚本处理
+Description: 描述如何使用蓝图在编辑器中自动执行内容生成任务。
+Type: 
+Version: 4.20
+Parent: Engine/Editor/ScriptingAndAutomation
+Order: 
+Tags: Blueprints, scripting, editor
+
+
+蓝图不仅可用于创建项目中的运行时设置，还是在虚幻编辑器中与项目内容进行交互的非常有效的工具。可以在编辑器中按需运行蓝图图表（它们有时被称为Blutility，即蓝图实用程序（Blueprint Utility）的简称）来处理资源，将内容放置在关卡中，甚至控制编辑器UI。
+
+本页面介绍使用蓝图来脚本化和自动化虚幻编辑器的部分基本内容。
+
+## 在编辑器中运行蓝图
+
+无论何时在蓝图类的事件图表中使用自定义事件节点时，都可以在 **细节（Details）** 面板中设置 **图表（Graph）> 在编辑器中调用（Call in Editor）** 选项：
+
+![Call in Editor](bp-call-in-editor.png "Call in Editor")
+
+如果将具有类似于此的自定义事件的Actor放置到关卡中，并在视口中或在 **世界大纲视图（World Outliner）** 中选中它，**细节（Details）** 面板将为你设置的每个Call in Editor事件显示一个按钮。可以在**默认（Default）**部分中找到它们，其中，蓝图类也会公开变量。单击此按钮可触发事件图表从自定义事件节点开始执行。
+
+![Custom event in the Details panel](bp-call-from-level.png "Custom event in the Details panel")
+
+该方法仅对可以放置到关卡中的蓝图类有效。可以使用它来测试运行时Gameplay，以及构建Editor-only内容管理工具。
+
+[REGION:note]
+如果自定义事件具有输入，它将不会在 **细节（Details）** 面板中显示。
+[/REGION]
+
+## 使用Editor-Only功能
+
+涉及到修改资源文件或使用虚幻编辑器UI的大部分操作都无法在运行时在游戏中正常工作。因此，仅可以从也是Editor-only的蓝图类访问Editor-only功能，即在类型设置为`编辑器（Editor）`的模块中定义的任何函数。
+
+例如，如果使用派生自可以在运行时使用的父类的蓝图类，例如 **Actor** 基类，将在虚幻编辑器的 **编辑器脚本（Editor Scripting）** 类别下看到数量有限的函数列出。但是，如果使用派生自Editor-only父类的类，例如 **PlacedEditorUtilityBase**，将看到数量更多、范围更广的函数可供使用：
+
+![Editor Scripting Blueprint nodes](bp-editor-scripting-nodes.png "Editor Scripting Blueprint nodes")
+
+[REGION:tip]
+如果已安装了编辑器脚本实用程序（Editor Scripting Utilities）插件，也将在此处发现它公开的可处理静态网格体和其他种类的资源的函数。请参阅[脚本化和自动化编辑器](https://docs.unrealengine.com/en-us/Editor/Scripting-and-Automating-the-Editor)。
+[/REGION]
+
+## Blutility类和Blutility Shelf
+
+[REGION:note]
+Blutility类和Blutility shelf目前尚处在试验阶段。和所有试验性功能一样，我们建议你谨慎使用它们，直至它们成为产品中的稳定功能。因为在虚幻引擎的未来版本中它们可能会变更。
+[/REGION]
+
+当写入蓝图以自动化虚幻编辑器和处理资源时，你创建的图表可能并不存在必须位于特定关卡的依赖关系。在这种情况下，如果只想调用其Call in Editor事件，可能不一定要将蓝图类的实例放置到关卡中。
+
+针对这样的情况，虚幻编辑器提供了一个试验性系统，可用于创建和管理可以直接从资源浏览器或从自定义的面板中调用的Editor-only蓝图实用程序类。
+
+要开始使用：
+
+1. 打开“编辑器首选项（Editor Preferences）”窗口，然后找到 **通用（General） > 试验性（Experimental）** 类别。在 **工具（Tools）** 下面，选中 **Editor Utility Blueprints (Blutility)**。  
+    ![Enable Editor Utility Blueprints](bp-experimental-blutility.png "Enable Editor Utility Blueprints")
+2. 新建Blutility类。在内容浏览器中，右键单击要创建新实用程序类的文件夹，然后从上下文菜单中选择 **蓝图（Blueprints） > Blutility**。  
+    ![Create new Blutility](bp-blutility-menu.png "Create new Blutility")
+3. 选择`GlobalEditorUtilityBase`作为父类，然后单击 **选择（Select）**。  
+    ![GlobalEditorUtilityBase parent class](bp-global-editor-utility-base.png "GlobalEditorUtilityBase parent class")  
+    
+4. 要为新类编辑蓝图图表，右键单击它并从上下文菜单中选择 **编辑蓝图（Edit Blueprint）**。
+5. 在事件图表中，新建自定义事件并启用其 **Call in Editor** 设置，如前面的部分中所示。保存并编译蓝图。
+6. 在内容浏览器中双击该蓝图类时，将打开列出其所有Call in Editor事件的新窗口。  
+    ![Blutility events](bp-open-blutility.png "Blutility events")
+
+[REGION:tip]
+也可以从 **Blutility Shelf** 面板中访问你创建的所有Blutility类，打开该面板的方法是从主菜单中选择 **窗口（Window） > Blutility Shelf**。
+
+![Blutility Shelf](bp-blutility-shelf.png "Blutility Shelf")
+[/REGION]
