@@ -1091,8 +1091,10 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 					{
 						if (GroupLodIndex >= MAX_STATIC_MESH_LODS)
 						{
-							AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reach the maximum LOD number({0}) for a staticmesh."), FText::AsNumber(MAX_STATIC_MESH_LODS))), FFbxErrors::Generic_Mesh_TooManyLODs);
-							continue;
+							AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(
+								LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reached the maximum number of LODs for a Static Mesh({0}) - discarding {1} LOD meshes."), FText::AsNumber(MAX_STATIC_MESH_LODS), FText::AsNumber(LODGroup->GetChildCount() - MAX_STATIC_MESH_LODS))
+							), FFbxErrors::Generic_Mesh_TooManyLODs);
+							break;
 						}
 						TArray<FbxNode*> AllNodeInLod;
 						FindAllLODGroupNode(AllNodeInLod, LODGroup, GroupLodIndex);

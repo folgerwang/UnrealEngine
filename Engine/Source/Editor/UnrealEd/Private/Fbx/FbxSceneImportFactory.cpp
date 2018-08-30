@@ -2173,8 +2173,10 @@ UObject* UFbxSceneImportFactory::RecursiveImportNode(void* VoidFbxImporter, void
 				{
 					if (LODIndex >= MAX_STATIC_MESH_LODS)
 					{
-						FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reach the maximum LOD number({0}) for a staticmesh."), FText::AsNumber(MAX_STATIC_MESH_LODS))), FFbxErrors::Generic_Mesh_TooManyLODs);
-						continue;
+						FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(
+							LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reached the maximum number of LODs for a Static Mesh({0}) - discarding {1} LOD meshes."), FText::AsNumber(MAX_STATIC_MESH_LODS), FText::AsNumber(Node->GetChildCount() - MAX_STATIC_MESH_LODS))
+						), FFbxErrors::Generic_Mesh_TooManyLODs);
+						break;
 					}
 					AllNodeInLod.Empty();
 					FFbxImporter->FindAllLODGroupNode(AllNodeInLod, Node, LODIndex);
