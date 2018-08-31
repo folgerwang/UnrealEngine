@@ -241,9 +241,13 @@ namespace Audio
 			// Loop through all submix sends to figure out what speaker maps this source is using
 			for (FMixerSourceSubmixSend& Send : InitParams.SubmixSends)
 			{
-				ESubmixChannelFormat SubmixChannelType = Send.Submix->GetSubmixChannels();
-				ChannelMaps[(int32)SubmixChannelType].bUsed = true;
-				ChannelMaps[(int32)SubmixChannelType].ChannelMap.Reset();
+				FMixerSubmixPtr SubmixPtr = Send.Submix.Pin();
+				if (SubmixPtr.IsValid())
+				{
+					ESubmixChannelFormat SubmixChannelType = SubmixPtr->GetSubmixChannels();
+					ChannelMaps[(int32)SubmixChannelType].bUsed = true;
+					ChannelMaps[(int32)SubmixChannelType].ChannelMap.Reset();
+				}
 			}
 
 			// Check to see if this sound has been flagged to be in debug mode
@@ -600,6 +604,11 @@ namespace Audio
 
 	float FMixerSource::GetPlaybackPercent() const
 	{
+		if (InitializationState != EMixerSourceInitializationState::Initialized)
+		{
+			return 0.f;
+		}
+
 		if (MixerSourceVoice && NumTotalFrames > 0)
 		{
 			int64 NumFrames = MixerSourceVoice->GetNumFramesPlayed();
@@ -801,7 +810,7 @@ namespace Audio
 		{
 			if (SendInfo.SoundSubmix != nullptr)
 			{
-				FMixerSubmixPtr SubmixInstance = MixerDevice->GetSubmixInstance(SendInfo.SoundSubmix);
+				FMixerSubmixWeakPtr SubmixInstance = MixerDevice->GetSubmixInstance(SendInfo.SoundSubmix);
 				MixerSourceVoice->SetSubmixSendInfo(SubmixInstance, SendInfo.SendLevel);
 
 				// Make sure we flag that we're using this submix sends since these can be dynamically added from BP

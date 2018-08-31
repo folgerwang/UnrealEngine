@@ -275,33 +275,6 @@ namespace UnrealBuildTool
 				Result += " -Wundef" + (CompileEnvironment.bUndefinedIdentifierWarningsAsErrors ? "" : " -Wno-error=undef");
 			}
 
-			Result += " -Wno-unused-variable";
-			Result += " -Wno-unused-value";
-			// this will hide the warnings about static functions in headers that aren't used in every single .cpp file
-			Result += " -Wno-unused-function";
-			// this hides the "enumeration value 'XXXXX' not handled in switch [-Wswitch]" warnings - we should maybe remove this at some point and add UE_LOG(, Fatal, ) to default cases
-			Result += " -Wno-switch";
-			// this hides the "warning : comparison of unsigned expression < 0 is always false" type warnings due to constant comparisons, which are possible with template arguments
-			Result += " -Wno-tautological-compare";
-			//This will prevent the issue of warnings for unused private variables.
-			Result += " -Wno-unused-private-field";
-			// needed to suppress warnings about using offsetof on non-POD types.
-			Result += " -Wno-invalid-offsetof";
-			// we use this feature to allow static FNames.
-			Result += " -Wno-gnu-string-literal-operator-template";
-
-			if (Settings.Value.IOSSDKVersionFloat >= 9.0)
-			{
-				Result += " -Wno-inconsistent-missing-override"; // too many missing overrides...
-				Result += " -Wno-unused-local-typedef"; // PhysX has some, hard to remove
-			}
-			
-			// fix for Xcode 8.3 enabling nonportable include checks, but p4 has some invalid cases in it
-			if (Settings.Value.IOSSDKVersionFloat >= 10.3)
-			{
-				Result += " -Wno-nonportable-include-path";
-			}
-
 			// fix for Xcode 8.3 enabling nonportable include checks, but p4 has some invalid cases in it
 			if (Settings.Value.IOSSDKVersionFloat >= 10.3)
 			{

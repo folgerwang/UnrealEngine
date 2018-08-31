@@ -8,13 +8,24 @@
 #include "UObject/UObjectIterator.h"
 #include "ActiveSound.h"
 
+USoundSourceBus::USoundSourceBus(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// This is a bus. This will result in the decompression type to be set as DTYPE_Bus. Audio won't be generated from this object but from instance data in audio mixer.
+	bIsBus = true;
+
+	Init();
+}
+
 void USoundSourceBus::PostLoad()
 {
 	Super::PostLoad();
 
-	// This is a bus. This will result in the decompression type to be set as DTYPE_Bus. Audio won't be generated from this object but from instance data in audio mixer.
-	bIsBus = true;
+	Init();
+}
 
+void USoundSourceBus::Init()
+{
 	// Allow users to manually set the source bus duration
 	Duration = GetDuration();
 
@@ -25,31 +36,23 @@ void USoundSourceBus::PostLoad()
 	// Note source buses can't ever be truly virtual as they are procedurally generated.
 	bVirtualizeWhenSilent = !bAutoDeactivateWhenSilent;
 
-	// Use the main/default audio device for storing and retrieving sound class properties
-	FAudioDeviceManager* AudioDeviceManager = (GEngine ? GEngine->GetAudioDeviceManager() : nullptr);
-
 	// Set the channels equal to the users channel count choice
 	switch (SourceBusChannels)
 	{
-		case ESourceBusChannels::Mono:
-			NumChannels = 1;
-			break;
+	case ESourceBusChannels::Mono:
+		NumChannels = 1;
+		break;
 
-		case ESourceBusChannels::Stereo:
-			NumChannels = 2;
-			break;
+	case ESourceBusChannels::Stereo:
+		NumChannels = 2;
+		break;
 	}
-}
-
-void USoundSourceBus::BeginDestroy()
-{
-	Super::BeginDestroy();
 }
 
 #if WITH_EDITOR
 void USoundSourceBus::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	// stub
+	Init();
 }
 #endif
 

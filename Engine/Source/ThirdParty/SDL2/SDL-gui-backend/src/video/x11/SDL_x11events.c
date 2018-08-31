@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -31,6 +31,7 @@
 #include "SDL_x11video.h"
 #include "SDL_x11touch.h"
 #include "SDL_x11xinput2.h"
+#include "../../core/unix/SDL_poll.h"
 #include "../../events/SDL_events_c.h"
 #include "../../events/SDL_mouse_c.h"
 #include "../../events/SDL_touch_c.h"
@@ -308,10 +309,10 @@ static char* X11_URIToLocal(char* uri) {
 }
 
 #if SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS
-static void X11_HandleGenericEvent(SDL_VideoData *videodata,XEvent event)
+static void X11_HandleGenericEvent(SDL_VideoData *videodata, XEvent *xev)
 {
     /* event is a union, so cookie == &event, but this is type safe. */
-    XGenericEventCookie *cookie = &event.xcookie;
+    XGenericEventCookie *cookie = &xev->xcookie;
     if (X11_XGetEventData(videodata->display, cookie)) {
         X11_HandleXinput2Event(videodata, cookie);
         X11_XFreeEventData(videodata->display, cookie);
@@ -668,7 +669,7 @@ X11_HandleClipboardEvent(_THIS, const XEvent *xevent)
         case SelectionNotify: {
 #ifdef DEBUG_XEVENTS
             printf("window CLIPBOARD: SelectionNotify (requestor = %ld, target = %ld)\n",
-                xevent.xselection.requestor, xevent.xselection.target);
+                xevent->xselection.requestor, xevent->xselection.target);
 #endif
             videodata->selection_waiting = SDL_FALSE;
         }
@@ -680,7 +681,7 @@ X11_HandleClipboardEvent(_THIS, const XEvent *xevent)
 
 #ifdef DEBUG_XEVENTS
             printf("window CLIPBOARD: SelectionClear (requestor = %ld, target = %ld)\n",
-                xevent.xselection.requestor, xevent.xselection.target);
+                xevent->xselection.requestor, xevent->xselection.target);
 #endif
 
             if (xevent->xselectionclear.selection == XA_PRIMARY ||
@@ -760,7 +761,7 @@ X11_DispatchEvent(_THIS)
 
 #if SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS
     if(xevent.type == GenericEvent) {
-        X11_HandleGenericEvent(videodata,xevent);
+        X11_HandleGenericEvent(videodata, &xevent);
         return;
     }
 #endif
@@ -1107,7 +1108,7 @@ X11_DispatchEvent(_THIS)
                 printf("Protocol version to use : %d\n", xdnd_version);
                 printf("More then 3 data types : %d\n", (int) use_list);
 #endif
- 
+
                 if (use_list) {
                     /* fetch conversion targets */
                     SDL_x11Prop p;
@@ -1121,7 +1122,7 @@ X11_DispatchEvent(_THIS)
                 }
             }
             else if (xevent.xclient.message_type == videodata->XdndPosition) {
-            
+
 #ifdef DEBUG_XEVENTS
                 Atom act= videodata->XdndActionCopy;
                 if(xdnd_version >= 2) {
@@ -1129,7 +1130,7 @@ X11_DispatchEvent(_THIS)
                 }
                 printf("Action requested by user is : %s\n", X11_XGetAtomName(display , act));
 #endif
-                
+
 
                 /* reply with status */
                 memset(&m, 0, sizeof(XClientMessageEvent));
@@ -1233,10 +1234,10 @@ X11_DispatchEvent(_THIS)
                         const SDL_Point point = { xevent.xmotion.x, xevent.xmotion.y };
                         InitiateWindowMove(_this, data, &point);
                         mouse->initiate_window_drag = SDL_FALSE;
-                    
+
                         /* In the case when the user double clicked the title bar but starts 
                         draging the window we have to reset it here. */
-                        data->initiate_maximize = SDL_FALSE; 
+                        data->initiate_maximize = SDL_FALSE;
                     }
                 } else {
                     mouse->initiate_window_drag = SDL_FALSE;
@@ -1253,7 +1254,7 @@ X11_DispatchEvent(_THIS)
             printf("window %p: ButtonPress (X11 button = %d)\n", data, xevent.xbutton.button);
 #endif
             if (X11_IsWheelEvent(display,&xevent,&xticks, &yticks)) {
-                SDL_SendMouseWheel(data->window, 0, xticks, yticks, SDL_MOUSEWHEEL_NORMAL);
+                SDL_SendMouseWheel(data->window, 0, (float) xticks, (float) yticks, SDL_MOUSEWHEEL_NORMAL);
             } else {
                 SDL_bool ignore_click = SDL_FALSE;
                 int button = xevent.xbutton.button;
@@ -1550,17 +1551,8 @@ X11_Pending(Display * display)
     }
 
     /* More drastic measures are required -- see if X is ready to talk */
-    {
-        static struct timeval zero_time;        /* static == 0 */
-        int x11_fd;
-        fd_set fdset;
-
-        x11_fd = ConnectionNumber(display);
-        FD_ZERO(&fdset);
-        FD_SET(x11_fd, &fdset);
-        if (select(x11_fd + 1, &fdset, NULL, NULL, &zero_time) == 1) {
-            return (X11_XPending(display));
-        }
+    if (SDL_IOReady(ConnectionNumber(display), SDL_FALSE, 0)) {
+        return (X11_XPending(display));
     }
 
     /* Oh well, nothing is ready .. */

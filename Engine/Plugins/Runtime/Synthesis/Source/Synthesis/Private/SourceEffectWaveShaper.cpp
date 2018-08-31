@@ -6,6 +6,7 @@ void FSourceEffectWaveShaper::Init(const FSoundEffectSourceInitData& InitData)
 {
 	bIsActive = true;
 	WaveShaper.Init(InitData.SampleRate);
+	NumChannels = InitData.NumSourceChannels;
 }
 
 void FSourceEffectWaveShaper::OnPresetChanged()
@@ -16,18 +17,14 @@ void FSourceEffectWaveShaper::OnPresetChanged()
 	WaveShaper.SetOutputGainDb(Settings.OutputGainDb);
 }
 
-void FSourceEffectWaveShaper::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectWaveShaper::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	if (InData.AudioFrame.Num() == 2)
+	for (int32 SampleIndex = 0; SampleIndex < InData.NumSamples; SampleIndex += NumChannels)
 	{
-		check(OutData.AudioFrame.Num() == 2);
-
-		WaveShaper.ProcessAudio(InData.AudioFrame[0], OutData.AudioFrame[0]);
-		WaveShaper.ProcessAudio(InData.AudioFrame[1], OutData.AudioFrame[1]);
-	}
-	else
-	{
-		WaveShaper.ProcessAudio(InData.AudioFrame[0], OutData.AudioFrame[0]);
+		for (int32 ChannelIndex = 0; ChannelIndex < NumChannels; ++ChannelIndex)
+		{
+			WaveShaper.ProcessAudio(InData.InputSourceEffectBufferPtr[SampleIndex + ChannelIndex], OutAudioBufferData[SampleIndex + ChannelIndex]);
+		}
 	}
 }
 

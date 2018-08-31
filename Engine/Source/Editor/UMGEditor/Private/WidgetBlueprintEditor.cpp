@@ -133,6 +133,11 @@ void FWidgetBlueprintEditor::InitWidgetBlueprintEditor(const EToolkitMode::Type 
 		FExecuteAction::CreateSP(this, &FWidgetBlueprintEditor::PasteWidgets),
 		FCanExecuteAction::CreateSP(this, &FWidgetBlueprintEditor::CanPasteWidgets)
 		);
+
+	DesignerCommandList->MapAction(FGenericCommands::Get().Duplicate,
+		FExecuteAction::CreateSP(this, &FWidgetBlueprintEditor::DuplicateSelectedWidgets),
+		FCanExecuteAction::CreateSP(this, &FWidgetBlueprintEditor::CanDuplicateSelectedWidgets)
+		);
 }
 
 void FWidgetBlueprintEditor::RegisterApplicationModes(const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode, bool bNewlyCreated/* = false*/)
@@ -424,6 +429,24 @@ void FWidgetBlueprintEditor::PasteWidgets()
 		PastedWidgetRefs.Add(GetReferenceFromPreview(Widget));
 	}
 	SelectWidgets(PastedWidgetRefs, false);
+}
+
+bool FWidgetBlueprintEditor::CanDuplicateSelectedWidgets()
+{
+	TSet<FWidgetReference> Widgets = GetSelectedWidgets();
+	if (Widgets.Num() == 1)
+	{
+		FWidgetReference Target = *Widgets.CreateIterator();
+		UPanelWidget* ParentWidget = Target.GetTemplate()->GetParent();
+		return ParentWidget && ParentWidget->CanAddMoreChildren();
+	}
+	return false;
+}
+
+void FWidgetBlueprintEditor::DuplicateSelectedWidgets()
+{
+	TSet<FWidgetReference> Widgets = GetSelectedWidgets();
+	FWidgetBlueprintEditorUtils::DuplicateWidgets(SharedThis(this), GetWidgetBlueprintObj(), Widgets);
 }
 
 void FWidgetBlueprintEditor::Tick(float DeltaTime)

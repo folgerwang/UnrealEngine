@@ -139,8 +139,8 @@ public:
 	bool bWrapWithInvalidationPanel;
 
 	/** Whether the text should automatically wrap */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Appearance)
-	bool bAutoWrapText;
+	UPROPERTY(meta = (DeprecatedProperty, DeprecationMessage = "bAutoWrapText is deprecated. Please use AutoWrapText instead."))
+	bool bAutoWrapText_DEPRECATED;
 
 	///** Called when this text is double clicked */
 	//SLATE_EVENT(FOnClicked, OnDoubleClicked)
@@ -180,6 +180,10 @@ public:
 #endif
 
 protected:
+	//~ Begin UObject Interface
+	virtual void PostLoad() override;
+	//~ End UObject Interface
+
 	//~ Begin UWidget Interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	virtual void OnBindingChanged(const FName& Property) override;

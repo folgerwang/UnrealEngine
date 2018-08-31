@@ -26,6 +26,7 @@ public class GeometryCache : ModuleRules
         {
             PublicIncludePathModuleNames.Add("GeometryCacheEd");
             DynamicallyLoadedModuleNames.Add("GeometryCacheEd");
+            PrivateDependencyModuleNames.Add("MeshUtilitiesCommon");
         }        
 	}
 }

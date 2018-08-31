@@ -63,9 +63,21 @@ void FAnimGraphNodeDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailB
 
 	// get first animgraph nodes
 	UAnimGraphNode_Base* AnimGraphNode = Cast<UAnimGraphNode_Base>(SelectedObjectsList[0].Get());
-	if (AnimGraphNode == NULL)
+	if (AnimGraphNode == nullptr)
 	{
 		return;
+	}
+
+	// make sure type matches with all the nodes. 
+	const UAnimGraphNode_Base* FirstNodeType = AnimGraphNode;
+	for (int32 Index = 1; Index < SelectedObjectsList.Num(); ++Index)
+	{
+		UAnimGraphNode_Base* CurrentNode = Cast<UAnimGraphNode_Base>(SelectedObjectsList[Index].Get());
+		if (!CurrentNode || CurrentNode->GetClass() != FirstNodeType->GetClass())
+		{
+			// if type mismatches, multi selection doesn't work, just return
+			return;
+		}
 	}
 
 	TargetSkeleton = AnimGraphNode->GetAnimBlueprint()->TargetSkeleton;
@@ -73,7 +85,7 @@ void FAnimGraphNodeDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailB
 
 	// Get the node property
 	const UStructProperty* NodeProperty = AnimGraphNode->GetFNodeProperty();
-	if (NodeProperty == NULL)
+	if (NodeProperty == nullptr)
 	{
 		return;
 	}

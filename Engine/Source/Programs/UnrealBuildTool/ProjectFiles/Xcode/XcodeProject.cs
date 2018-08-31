@@ -158,8 +158,10 @@ namespace UnrealBuildTool
 			{
 				foreach (string PlatformName in Enum.GetNames(typeof(UnrealTargetPlatform)))
 				{
-					string AltName = PlatformName == "Win32" || PlatformName == "Win64" ? "windows" : PlatformName.ToLower();
-					if ((SourceFile.Reference.FullName.ToLower().Contains("/" + PlatformName.ToLower() + "/") || SourceFile.Reference.FullName.ToLower().Contains("/" + AltName + "/"))
+					string PlatformNameLowerCase = PlatformName.ToLower();
+					string AltName = PlatformNameLowerCase == "win32" || PlatformNameLowerCase== "win64" ? "windows" : PlatformNameLowerCase;
+					string FullNameLowerCase = SourceFile.Reference.FullName.ToLower();
+					if ((FullNameLowerCase.Contains("/" + PlatformNameLowerCase + "/") || FullNameLowerCase.ToLower().Contains("/" + AltName + "/") || FullNameLowerCase.Contains("/engine/build/"))
 						&& PlatformName != "Mac" && PlatformName != "IOS" && PlatformName != "TVOS")
 					{
 						// Build phase is used for indexing only and indexing currently works only with files that can be compiled for Mac, so skip files for other platforms
@@ -492,7 +494,7 @@ namespace UnrealBuildTool
 			Content.Append("\t\t" + ProjectGuid + " /* Project object */ = {" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\tisa = PBXProject;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\tattributes = {" + ProjectFileGenerator.NewLine);
-			Content.Append("\t\t\t\tLastUpgradeCheck = 0900;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tLastUpgradeCheck = 0940;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t\tORGANIZATIONNAME = \"Epic Games, Inc.\";" + ProjectFileGenerator.NewLine);
             Content.Append("\t\t\t\tTargetAttributes = {" + ProjectFileGenerator.NewLine);
             Content.Append("\t\t\t\t\t" + TargetGuid + " = {" + ProjectFileGenerator.NewLine);
@@ -578,10 +580,11 @@ namespace UnrealBuildTool
 			Content.Append("\t\t\t\tGCC_PREPROCESSOR_DEFINITIONS = (" + ProjectFileGenerator.NewLine);
 			foreach (string Definition in IntelliSensePreprocessorDefinitions)
 			{
-				Content.Append("\t\t\t\t\t\"" + Definition.Replace("\"", "").Replace("\\", "") + "\"," + ProjectFileGenerator.NewLine);
+				Content.Append("\t\t\t\t\t\"" + Definition.Replace("\"", "").Replace("\\", "").Replace("()", "") + "\"," + ProjectFileGenerator.NewLine);
 			}
-			Content.Append("\t\t\t\t\t\"__INTELLISENSE__\"," + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\t\t__INTELLISENSE__," + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t\t\t\"MONOLITHIC_BUILD=1\"," + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\t\tSUPPRESS_MONOLITHIC_HEADER_WARNINGS," + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t\t);" + ProjectFileGenerator.NewLine);
 
 			Content.Append("\t\t\t\tHEADER_SEARCH_PATHS = (" + ProjectFileGenerator.NewLine);
@@ -600,13 +603,35 @@ namespace UnrealBuildTool
 			}
 			Content.Append("\t\t\t\t);" + ProjectFileGenerator.NewLine);
 
-			if (ConfigName == "Debug")
-			{
-				Content.Append("\t\t\t\tONLY_ACTIVE_ARCH = YES;" + ProjectFileGenerator.NewLine);
-				Content.Append("\t\t\t\tENABLE_TESTABILITY = YES;" + ProjectFileGenerator.NewLine);
-			}
+			Content.Append("\t\t\t\tONLY_ACTIVE_ARCH = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tENABLE_TESTABILITY = YES;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t\tALWAYS_SEARCH_USER_PATHS = NO;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t\tCLANG_CXX_LANGUAGE_STANDARD = \"c++14\";" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_BOOL_CONVERSION = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_COMMA = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_CONSTANT_CONVERSION = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_EMPTY_BODY = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_ENUM_CONVERSION = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_INFINITE_RECURSION = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_INT_CONVERSION = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_OBJC_LITERAL_CONVERSION = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_RANGE_LOOP_ANALYSIS = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_STRICT_PROTOTYPES = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_SUSPICIOUS_MOVE = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN_UNREACHABLE_CODE = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_WARN__DUPLICATE_METHOD_MATCH = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tENABLE_STRICT_OBJC_MSGSEND = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tGCC_NO_COMMON_BLOCKS = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tGCC_WARN_64_TO_32_BIT_CONVERSION = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tGCC_WARN_ABOUT_RETURN_TYPE = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tGCC_WARN_UNDECLARED_SELECTOR = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tGCC_WARN_UNINITIALIZED_AUTOS = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tGCC_WARN_UNUSED_FUNCTION = YES;" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tGCC_WARN_UNUSED_VARIABLE = YES;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t\tGCC_ENABLE_CPP_RTTI = NO;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t\tGCC_WARN_CHECK_SWITCH_STATEMENTS = NO;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t\tUSE_HEADERMAP = NO;" + ProjectFileGenerator.NewLine);
@@ -629,6 +654,7 @@ namespace UnrealBuildTool
 			Content.Append("\t\t" + ConfigGuid + " /* \"" + Config.DisplayName + "\" */ = {" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\tisa = XCBuildConfiguration;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\tbuildSettings = {" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_ENABLE_OBJC_WEAK = YES;" + ProjectFileGenerator.NewLine);
 
             string UE4Dir = ConvertPath(Path.GetFullPath(Directory.GetCurrentDirectory() + "../../.."));
 			string MacExecutableDir = ConvertPath(Config.MacExecutablePath.Directory.FullName);
@@ -658,6 +684,7 @@ namespace UnrealBuildTool
                 string TEAM_TVOS = "";
                 string IOS_CERT = "iPhone Developer";
                 string TVOS_CERT = "iPhone Developer";
+				string BundleIdentifier = "";
                 if (InstalledPlatformInfo.IsValidPlatform(UnrealTargetPlatform.IOS, EProjectType.Code))
                 {
 					IOSPlatform IOSPlatform = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS));
@@ -665,6 +692,7 @@ namespace UnrealBuildTool
 					IOSProvisioningData ProvisioningData = IOSPlatform.ReadProvisioningData(ProjectSettings);
 					IOSRunTimeVersion = ProjectSettings.RuntimeVersion;
 					IOSRunTimeDevices = ProjectSettings.RuntimeDevices;
+					BundleIdentifier = ProjectSettings.BundleIdentifier;
 					ValidArchs += " arm64 armv7 armv7s";
 					SupportedPlatforms += " iphoneos";
 					bAutomaticSigning = ProjectSettings.bAutomaticSigning;
@@ -683,6 +711,7 @@ namespace UnrealBuildTool
 					TVOSProvisioningData ProvisioningData = TVOSPlatform.ReadProvisioningData(ProjectSettings);
 					TVOSRunTimeVersion = ProjectSettings.RuntimeVersion;
 					TVOSRunTimeDevices = ProjectSettings.RuntimeDevices;
+					BundleIdentifier = ProjectSettings.BundleIdentifier;
 					if (ValidArchs == "x86_64")
 					{
 						ValidArchs += " arm64 armv7 armv7s";
@@ -702,6 +731,10 @@ namespace UnrealBuildTool
 				if (IOSRunTimeVersion != null)
 				{
 					Content.Append("\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = " + IOSRunTimeVersion + ";" + ProjectFileGenerator.NewLine);
+					if (!XcodeProjectFileGenerator.bGeneratingRunIOSProject && !XcodeProjectFileGenerator.bGeneratingRunTVOSProject)
+					{
+						Content.Append("\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = " + BundleIdentifier + ";" + ProjectFileGenerator.NewLine);
+					}
 					Content.Append("\t\t\t\t\"PRODUCT_NAME[sdk=iphoneos*]\" = \"" + Config.BuildTarget + "\";" + ProjectFileGenerator.NewLine); // @todo: change to Path.GetFileName(Config.IOSExecutablePath) when we stop using payload
 					Content.Append("\t\t\t\t\"TARGETED_DEVICE_FAMILY[sdk=iphoneos*]\" = \"" + IOSRunTimeDevices + "\";" + ProjectFileGenerator.NewLine);
                     Content.Append("\t\t\t\t\"SDKROOT[sdk=iphoneos]\" = iphoneos;" + ProjectFileGenerator.NewLine);
@@ -718,6 +751,10 @@ namespace UnrealBuildTool
                 if (TVOSRunTimeVersion != null)
 				{
 					Content.Append("\t\t\t\tTVOS_DEPLOYMENT_TARGET = " + TVOSRunTimeVersion + ";" + ProjectFileGenerator.NewLine);
+					if (!XcodeProjectFileGenerator.bGeneratingRunIOSProject && !XcodeProjectFileGenerator.bGeneratingRunTVOSProject)
+					{
+						Content.Append("\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = " + BundleIdentifier + ";" + ProjectFileGenerator.NewLine);
+					}
 					Content.Append("\t\t\t\t\"PRODUCT_NAME[sdk=appletvos*]\" = \"" + Config.BuildTarget + "\";" + ProjectFileGenerator.NewLine); // @todo: change to Path.GetFileName(Config.TVOSExecutablePath) when we stop using payload
 					Content.Append("\t\t\t\t\"TARGETED_DEVICE_FAMILY[sdk=appletvos*]\" = \"" + TVOSRunTimeDevices + "\";" + ProjectFileGenerator.NewLine);
                     Content.Append("\t\t\t\t\"SDKROOT[sdk=appletvos]\" = appletvos;" + ProjectFileGenerator.NewLine);
@@ -905,7 +942,7 @@ namespace UnrealBuildTool
                 Content.Append("\t\t\t\tSDKROOT = macosx;" + ProjectFileGenerator.NewLine);
             }
             Content.Append("\t\t\t\tGCC_PRECOMPILE_PREFIX_HEADER = YES;" + ProjectFileGenerator.NewLine);
-			Content.Append("\t\t\t\tGCC_PREFIX_HEADER = \"" + UE4Dir + "/Engine/Source/Editor/UnrealEd/Public/UnrealEd.h\";" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tGCC_PREFIX_HEADER = \"" + ProjectFilePath.ChangeExtension("h").FullName + "\";" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\t};" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\tname = \"" + Config.DisplayName + "\";" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t};" + ProjectFileGenerator.NewLine);
@@ -925,6 +962,7 @@ namespace UnrealBuildTool
 			Content.Append("\t\t" + ConfigGuid + " /* \"" + Config.DisplayName + "\" */ = {" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\tisa = XCBuildConfiguration;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\tbuildSettings = {" + ProjectFileGenerator.NewLine);
+			Content.Append("\t\t\t\tCLANG_ENABLE_OBJC_WEAK = YES;" + ProjectFileGenerator.NewLine);
 			if (bMacOnly)
 			{
 				Content.Append("\t\t\t\tVALID_ARCHS = \"x86_64\";" + ProjectFileGenerator.NewLine);
@@ -1421,7 +1459,7 @@ namespace UnrealBuildTool
 			ProjectFileContent.Append("\tarchiveVersion = 1;" + ProjectFileGenerator.NewLine);
 			ProjectFileContent.Append("\tclasses = {" + ProjectFileGenerator.NewLine);
 			ProjectFileContent.Append("\t};" + ProjectFileGenerator.NewLine);
-			ProjectFileContent.Append("\tobjectVersion = 46;" + ProjectFileGenerator.NewLine);
+			ProjectFileContent.Append("\tobjectVersion = 48;" + ProjectFileGenerator.NewLine);
 			ProjectFileContent.Append("\tobjects = {" + ProjectFileGenerator.NewLine + ProjectFileGenerator.NewLine);
 
 			AppendBuildFileSection(ProjectFileContent, PBXBuildFileSection);
@@ -1449,6 +1487,15 @@ namespace UnrealBuildTool
 			{
 				FileReference PBXProjFilePath = ProjectFilePath + "/project.pbxproj";
 				bSuccess = ProjectFileGenerator.WriteFileIfChanged(PBXProjFilePath.FullName, ProjectFileContent.ToString(), new UTF8Encoding());
+				if (bSuccess)
+				{
+					string UE4Dir = ConvertPath(Path.GetFullPath(Directory.GetCurrentDirectory() + "../../.."));
+					StringBuilder PCHFileContent = new StringBuilder();
+					PCHFileContent.Append("#ifdef __cplusplus" + ProjectFileGenerator.NewLine);
+					PCHFileContent.Append("#include \"" + UE4Dir + "/Engine/Source/Editor/UnrealEd/Public/UnrealEd.h\"" + ProjectFileGenerator.NewLine);
+					PCHFileContent.Append("#endif // __cplusplus" + ProjectFileGenerator.NewLine);
+					bSuccess = ProjectFileGenerator.WriteFileIfChanged(ProjectFilePath.ChangeExtension("h").FullName, PCHFileContent.ToString(), new UTF8Encoding());
+				}
 			}
 
 			if (bSuccess)

@@ -204,7 +204,7 @@ bool USelectPolygonsBySmoothingGroup::ModifySelection(TMap< UEditableMesh*, TArr
 
 		TSet< FPolygonID > CheckedPolygons;		// set of polygons that have already been checked
 
-		const TEdgeAttributeArray<bool>& EdgeHardnesses = EditableMesh->GetMeshDescription()->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
+		TEdgeAttributesConstRef<bool> EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
 		for (const FMeshElement& PolygonElement : Polygons)
 		{
 			FPolygonID PolygonID(PolygonElement.ElementAddress.ElementID);
@@ -232,8 +232,7 @@ bool USelectPolygonsBySmoothingGroup::ModifySelection(TMap< UEditableMesh*, TArr
 					{
 						if (!EdgeHardnesses[EdgeID])
 						{
-							const FMeshEdge& Edge = MeshDescription->GetEdge(EdgeID);
-							for (const FPolygonID& ConnectedPolygonID : Edge.ConnectedPolygons)
+							for (const FPolygonID ConnectedPolygonID : MeshDescription->GetEdgeConnectedPolygons(EdgeID))
 							{
 								if (!CheckedPolygons.Contains(ConnectedPolygonID))
 								{

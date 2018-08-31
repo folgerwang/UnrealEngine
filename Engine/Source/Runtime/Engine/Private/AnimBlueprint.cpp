@@ -202,6 +202,10 @@ USkeletalMesh* UAnimBlueprint::GetPreviewMesh(bool bFindIfNotSet/*=false*/)
 USkeletalMesh* UAnimBlueprint::GetPreviewMesh() const
 {
 #if WITH_EDITORONLY_DATA
+	if (!PreviewSkeletalMesh.IsValid())
+	{
+		PreviewSkeletalMesh.LoadSynchronous();
+	}
 	return PreviewSkeletalMesh.Get();
 #else
 	return nullptr;

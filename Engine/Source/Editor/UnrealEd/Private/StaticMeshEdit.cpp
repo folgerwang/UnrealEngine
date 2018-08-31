@@ -680,15 +680,15 @@ inline bool FVerticesEqual(FVector& V1,FVector& V2)
 
 void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescription, TArray<FStaticMaterial>& OutMaterials)
 {
-	TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-	TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
-	TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
-	TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
-	TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
-	TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
-	TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription.EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-	TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = MeshDescription.EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
-	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription.PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TVertexAttributesRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TEdgeAttributesRef<bool> EdgeHardnesses = MeshDescription.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributesRef<float> EdgeCreaseSharpnesses = MeshDescription.EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+	TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = MeshDescription.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 	
 	//Make sure we have one UVChannel
 	VertexInstanceUVs.SetNumIndices(1);
@@ -766,9 +766,9 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 					VertexPositions[VertexID[CornerIndex]] = Positions[CornerIndex];
 				}
 				VertexInstanceIDs[CornerIndex] = MeshDescription.CreateVertexInstance(VertexID[CornerIndex]);
-				VertexInstanceUVs.GetArrayForIndex(0)[VertexInstanceIDs[CornerIndex]] = FVector2D(
+				VertexInstanceUVs.Set(VertexInstanceIDs[CornerIndex], 0, FVector2D(
 					(Positions[CornerIndex] - TextureBase) | TextureX,
-					(Positions[CornerIndex] - TextureBase) | TextureY);
+					(Positions[CornerIndex] - TextureBase) | TextureY));
 			}
 
 			// Create a polygon with the 3 vertex instances
@@ -1698,11 +1698,6 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 						int32 OldSectionMatchIndex = OriginalSectionMaterialIndex != INDEX_NONE ? OriginalSectionMaterialIndex : OldSectionInfo.MaterialIndex;
 						if (RemapMaterial[NewSectionInfo.MaterialIndex] == OldSectionMatchIndex)
 						{
-							//Set the remap section
-							if (!bKeepOldSectionMaterialIndex)
-							{
-								OldSectionInfo.MaterialIndex = NewSectionInfo.MaterialIndex;
-							}
 							NewMesh->SectionInfoMap.Set(i, SectionIndex, OldSectionInfo);
 							bFoundOldMatch = true;
 							break;

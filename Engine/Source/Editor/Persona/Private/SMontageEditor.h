@@ -131,6 +131,9 @@ private:
 	/** Updates Notify trigger offsets to take into account current montage state */
 	void RefreshNotifyTriggerOffsets();
 
+	/** Handle notifies changing, so we rebuild timing */
+	void HandleNotifiesChanged();
+
 	/** One-off active timer to trigger a montage panel rebuild */
 	EActiveTimerReturnType TriggerRebuildMontagePanel(double InCurrentTime, float InDeltaTime);
 

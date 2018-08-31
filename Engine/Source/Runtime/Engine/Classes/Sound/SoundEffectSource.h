@@ -5,6 +5,7 @@
 #include "UObject/ObjectMacros.h"
 #include "Sound/SoundEffectPreset.h"
 #include "Sound/SoundEffectBase.h"
+#include "IAudioExtensionPlugin.h"
 
 #include "SoundEffectSource.generated.h"
 
@@ -59,7 +60,6 @@ struct FSoundEffectSourceInitData
 {
 	float SampleRate;
 	int32 NumSourceChannels;
-	float SourceDuration;
 	double AudioClock;
 
 	// The object id of the parent preset
@@ -68,7 +68,6 @@ struct FSoundEffectSourceInitData
 	FSoundEffectSourceInitData()
 	: SampleRate(0.0f)
 	, NumSourceChannels(0)
-	, SourceDuration(0.0f)
 	, AudioClock(0.0)
 	, ParentPresetUniqueId(INDEX_NONE)
 	{}
@@ -77,31 +76,23 @@ struct FSoundEffectSourceInitData
 /** Struct which has data to initialize the source effect. */
 struct FSoundEffectSourceInputData
 {
-	TArray<float> AudioFrame;
-	FVector SourcePosition;
-	FVector LeftChannelPosition;
-	FVector RightChannelPosition;
-	FVector ListenerPosition;
 	float CurrentVolume;
 	float CurrentPitch;
-	float CurrentPlayTime;
-	float Duration;
-	float Distance;
 	double AudioClock;
-	int32 CurrentLoopCount;
-	int32 MaxLoopCount;
-	uint8 bLooping : 1;
-	uint8 bIsSpatialized : 1;
+	float CurrentPlayFraction;
+	FSpatializationParams SpatParams;
+	float* InputSourceEffectBufferPtr;
+	int32 NumSamples;
 
 	FSoundEffectSourceInputData()
+		: CurrentVolume(0.0f)
+		, CurrentPitch(0.0f)
+		, AudioClock(0.0)
+		, SpatParams(FSpatializationParams())
+		, InputSourceEffectBufferPtr(nullptr)
+		, NumSamples(0)
 	{
-		FMemory::Memzero(this, sizeof(FSoundEffectSourceInputData));
 	}
-};
-
-struct FSoundEffectSourceOutputData
-{
-	TArray<float> AudioFrame;
 };
 
 class ENGINE_API FSoundEffectSource : public FSoundEffectBase
@@ -113,6 +104,6 @@ public:
 	virtual void Init(const FSoundEffectSourceInitData& InSampleRate) = 0;
 
 	/** Process the input block of audio. Called on audio thread. */
-	virtual void ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData) = 0;
+	virtual void ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData) = 0;
 };
 

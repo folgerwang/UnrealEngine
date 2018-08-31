@@ -16,6 +16,7 @@
 
 #if WITH_EDITOR
 #include "MeshUtilities.h"
+#include "MeshUtilitiesCommon.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/App.h"
 #endif // #if WITH_EDITOR

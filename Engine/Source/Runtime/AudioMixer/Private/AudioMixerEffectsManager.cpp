@@ -105,14 +105,15 @@ namespace Audio
 	{
 		FMixerDevice* MixerDevice = (FMixerDevice*)AudioDevice;
 
-		FMixerSubmixPtr MasterReverbSubmix = MixerDevice->GetMasterReverbSubmix();
+		FMixerSubmixWeakPtr MasterReverbSubmix = MixerDevice->GetMasterReverbSubmix();
+		FMixerSubmixPtr MasterReverbSubmixPtr = MasterReverbSubmix.Pin();
 		
-		if (MasterReverbSubmix.IsValid())
+		if (MasterReverbSubmixPtr.IsValid())
 		{
-			FSoundEffectSubmixPtr SoundEffectSubmix = MasterReverbSubmix->GetSubmixEffect(0);
-			if (SoundEffectSubmix.IsValid())
+			FSoundEffectSubmix* SoundEffectSubmix = MasterReverbSubmixPtr->GetSubmixEffect(0);
+			if (SoundEffectSubmix)
 			{
-				FSubmixEffectReverb* SoundEffectReverb = static_cast<FSubmixEffectReverb*>(SoundEffectSubmix.Get());
+				FSubmixEffectReverb* SoundEffectReverb = static_cast<FSubmixEffectReverb*>(SoundEffectSubmix);
 				SoundEffectReverb->SetEffectParameters(ReverbEffectParameters);
 				PrintReverbSettings(ReverbEffectParameters);
 			}
@@ -123,19 +124,19 @@ namespace Audio
 	{
 		FMixerDevice* MixerDevice = (FMixerDevice*)AudioDevice;
 
-		FMixerSubmixPtr MasterEQSubmix = MixerDevice->GetMasterEQSubmix();
+		FMixerSubmixWeakPtr MasterEQSubmix = MixerDevice->GetMasterEQSubmix();
+		FMixerSubmixPtr MasterEQSubmixPtr = MasterEQSubmix.Pin();
 
-		if (MasterEQSubmix.IsValid())
+		if (MasterEQSubmixPtr.IsValid())
 		{
-			FSoundEffectSubmixPtr SoundEffectSubmix = MasterEQSubmix->GetSubmixEffect(0);
-			if (SoundEffectSubmix.IsValid())
+			FSoundEffectSubmix* SoundEffectSubmix = MasterEQSubmixPtr->GetSubmixEffect(0);
+			if (SoundEffectSubmix)
 			{
-				FSubmixEffectSubmixEQ* SoundEffectEQ = static_cast<FSubmixEffectSubmixEQ*>(SoundEffectSubmix.Get());
+				FSubmixEffectSubmixEQ* SoundEffectEQ = static_cast<FSubmixEffectSubmixEQ*>(SoundEffectSubmix);
 				SoundEffectEQ->SetEffectParameters(InEQEffectParameters);
 				PrintEQSettings(InEQEffectParameters);
 			}
 		}
-
 	}
 
 	void FAudioMixerEffectsManager::SetRadioEffectParameters(const FAudioRadioEffect& ReverbEffectParameters)

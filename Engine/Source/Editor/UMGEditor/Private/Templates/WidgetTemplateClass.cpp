@@ -29,6 +29,20 @@ FWidgetTemplateClass::FWidgetTemplateClass(TSubclassOf<UWidget> InWidgetClass)
 	GEditor->OnObjectsReplaced().AddRaw(this, &FWidgetTemplateClass::OnObjectsReplaced);
 }
 
+FWidgetTemplateClass::FWidgetTemplateClass(const FAssetData& InWidgetAssetData, TSubclassOf<UWidget> InWidgetClass)
+	: WidgetAssetData(InWidgetAssetData)
+{
+	if (InWidgetClass)
+	{
+		WidgetClass = *InWidgetClass;
+		Name = WidgetClass->GetDisplayNameText();
+	}
+	else
+	{
+		Name = FText::FromString(FName::NameToDisplayString(WidgetAssetData.AssetName.ToString(), false));
+	}
+}
+
 FWidgetTemplateClass::~FWidgetTemplateClass()
 {
 	GEditor->OnObjectsReplaced().RemoveAll(this);
@@ -36,12 +50,28 @@ FWidgetTemplateClass::~FWidgetTemplateClass()
 
 FText FWidgetTemplateClass::GetCategory() const
 {
-	auto DefaultWidget = WidgetClass->GetDefaultObject<UWidget>();
-	return DefaultWidget->GetPaletteCategory();
+	if (WidgetClass.Get())
+	{
+		auto DefaultWidget = WidgetClass->GetDefaultObject<UWidget>();
+		return DefaultWidget->GetPaletteCategory();
+	}
+	else
+	{
+		auto DefaultWidget = UWidget::StaticClass()->GetDefaultObject<UWidget>();
+		return DefaultWidget->GetPaletteCategory();
+	}
 }
 
 UWidget* FWidgetTemplateClass::Create(UWidgetTree* Tree)
 {
+	// Load the blueprint asset if needed
+	if (!WidgetClass.Get())
+	{
+		FString AssetPath = WidgetAssetData.ObjectPath.ToString();
+		UBlueprint* LoadedBP = LoadObject<UBlueprint>(nullptr, *AssetPath);
+		WidgetClass = *LoadedBP->GeneratedClass;
+	}
+
 	return CreateNamed(Tree, NAME_None);
 }
 
@@ -51,12 +81,36 @@ const FSlateBrush* FWidgetTemplateClass::GetIcon() const
 	{
 		return FSlateIconFinder::FindIconBrushForClass(WidgetClass.Get());
 	}
+	else
+	{
+		return FSlateIconFinder::FindIconBrushForClass(UWidget::StaticClass());
+	}
 	return nullptr;
 }
 
 TSharedRef<IToolTip> FWidgetTemplateClass::GetToolTip() const
 {
-	return IDocumentation::Get()->CreateToolTip(WidgetClass->GetToolTipText(), nullptr, FString(TEXT("Shared/Types/")) + WidgetClass->GetName(), TEXT("Class"));
+	if (WidgetClass.IsValid())
+	{
+		return IDocumentation::Get()->CreateToolTip(WidgetClass->GetToolTipText(), nullptr, FString(TEXT("Shared/Types/")) + WidgetClass->GetName(), TEXT("Class"));
+	}
+	else
+	{
+		FText Description;
+
+		FString DescriptionStr = WidgetAssetData.GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UBlueprint, BlueprintDescription));
+		if (!DescriptionStr.IsEmpty())
+		{
+			DescriptionStr.ReplaceInline(TEXT("\\n"), TEXT("\n"));
+			Description = FText::FromString(MoveTemp(DescriptionStr));
+		}
+		else
+		{
+			Description = Name;
+		}
+
+		return IDocumentation::Get()->CreateToolTip(Description, nullptr, FString(TEXT("Shared/Types/")) + Name.ToString(), TEXT("Class"));
+	}
 }
 
 void FWidgetTemplateClass::OnObjectsReplaced(const TMap<UObject*, UObject*>& ReplacementMap)

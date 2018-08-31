@@ -18,6 +18,7 @@
 #include <dlfcn.h>
 #include <cxxabi.h>
 #include <stdio.h>
+#include <unistd.h>
 
 // FIXME Remove this define once we remove the old way symbolicate
 #define _ELFDEFINITIONS_H_
@@ -904,27 +905,27 @@ namespace
 	{
 	public:
 		explicit RecordReader(const char* Path)
-			: SymbolFile(fopen(Path, "r")),
+			: SymbolFileFD(open(Path, O_RDONLY)),
 			  StartOffset(sizeof(RecordsHeader))
 		{
-			if (SymbolFile)
+			if (SymbolFileFD)
 			{
-				fread(static_cast<void*>(&RecordCount), sizeof(RecordsHeader), 1, SymbolFile);
-				StartOffset = sizeof(RecordsHeader);
+				// TODO check for EINTR
+				read(SymbolFileFD, static_cast<void*>(&RecordCount), sizeof(RecordsHeader));
 			}
 		}
 
 		~RecordReader()
 		{
-			if (SymbolFile)
+			if (SymbolFileFD != -1)
 			{
-				fclose(SymbolFile);
+				close(SymbolFileFD);
 			}
 		}
 
 		bool IsValid() const
 		{
-			return SymbolFile != nullptr;
+			return SymbolFileFD != -1 && RecordCount > 0;
 		}
 
 		uint32_t GetRecordCount() const
@@ -934,6 +935,7 @@ namespace
 
 		Record GetRecord(int Index) const
 		{
+			// When we remove this check, make sure we handle possible out of bounds cases
 			if (Index > RecordCount || Index < 0)
 			{
 				return {};
@@ -941,8 +943,8 @@ namespace
 
 			Record Out;
 
-			fseek(SymbolFile, StartOffset + Index * sizeof(Record), SEEK_SET);
-			fread(static_cast<void*>(&Out), sizeof(Record), 1, SymbolFile);
+			lseek(SymbolFileFD, StartOffset + Index * sizeof(Record), SEEK_SET);
+			read(SymbolFileFD, static_cast<void*>(&Out), sizeof(Record));
 
 			return Out;
 		}
@@ -955,8 +957,8 @@ namespace
 				return;
 			}
 
-			fseek(SymbolFile, StartOffset + RecordCount * sizeof(Record) + Offset, SEEK_SET);
-			fread(Buffer, MaxSize, 1, SymbolFile);
+			lseek(SymbolFileFD, StartOffset + RecordCount * sizeof(Record) + Offset, SEEK_SET);
+			read(SymbolFileFD, Buffer, MaxSize);
 
 			// Read the max chunk we can read, then find the next '\n' and replace that with '\0'
 			for (int i = 0; i < MaxSize; i++)
@@ -973,7 +975,7 @@ namespace
 		}
 
 	private:
-		FILE* SymbolFile = nullptr;
+		int SymbolFileFD;
 
 		// For now can only be up to 4GB
 		uint32_t StartOffset = 0;
@@ -1027,7 +1029,7 @@ namespace
 				FCStringAnsi::Strcpy(out_SymbolInfo.FunctionName, info.dli_sname);
 			}
 
-			char ModuleSymbolPath[UNIX_MAX_PATH + 1];
+			ANSICHAR ModuleSymbolPath[UNIX_MAX_PATH + 1];
 
 			// We cant assume if we are relative we have not chdir to a different working dir.
 			if (FPaths::IsRelative(info.dli_fname))
@@ -1074,6 +1076,17 @@ namespace
 
 					if (AddressToFind >= Current.Address && AddressToFind < Current.Address + Size)
 					{
+						// Hack when we have a zero line number to attempt to use the previous record for a better guess.
+						// non-virtual thunks seem to cause a bunch of these but this will not fix those.
+						if (Current.LineNumber == 0)
+						{
+							Record Previous = Reader.GetRecord(Middle - 1);
+							if (Previous.LineNumber > 0 && Previous.LineNumber != static_cast<uint32_t>(-1))
+							{
+								Current.LineNumber = Previous.LineNumber;
+							}
+						}
+
 						Reader.ReadOffsetIntoMemory(out_SymbolInfo.Filename, sizeof(out_SymbolInfo.Filename), Current.FileRelativeOffset);
 						Reader.ReadOffsetIntoMemory(out_SymbolInfo.FunctionName, sizeof(out_SymbolInfo.FunctionName), Current.SymbolRelativeOffset);
 						out_SymbolInfo.LineNumber = Current.LineNumber;
@@ -1101,6 +1114,22 @@ namespace
 					{
 						End = Middle;
 					}
+				}
+			}
+			// We only care if we fail to find our own *.sym file
+			else if (!FCStringAnsi::Strcmp(SOName, TCHAR_TO_ANSI(FPlatformProcess::ExecutableName())))
+			{
+				static bool bReported = false;
+				if (!bReported)
+				{
+					// This will likely happen multiple times, so only write out once
+					bReported = true;
+
+					// Will not be part of UE_LOG as it would potentially allocate memory
+					const ANSICHAR* Message = "Failed to find symbol file, expected location:\n\"";
+					write(STDOUT_FILENO, Message, FCStringAnsi::Strlen(Message));
+					write(STDOUT_FILENO, ModuleSymbolPath, FCStringAnsi::Strlen(ModuleSymbolPath));
+					write(STDOUT_FILENO, "\"\n", 2);
 				}
 			}
 		}

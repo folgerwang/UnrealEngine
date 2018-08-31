@@ -33,10 +33,20 @@ struct SYNTHESIS_API FSourceEffectRingModulationSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float Depth;
 
+	// Gain for the dry signal (no ring mod)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+	float DryLevel;
+
+	// Gain for the wet signal (with ring mod)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+	float WetLevel;
+
 	FSourceEffectRingModulationSettings()
 		: ModulatorType(ERingModulatorTypeSourceEffect::Sine)
 		, Frequency(100.0f)
 		, Depth(0.5f)
+		, DryLevel(0.0f)
+		, WetLevel(1.0f)
 	{}
 };
 
@@ -44,13 +54,13 @@ class SYNTHESIS_API FSourceEffectRingModulation : public FSoundEffectSource
 {
 public:
 	// Called on an audio effect at initialization on main thread before audio processing begins.
-	virtual void Init(const FSoundEffectSourceInitData& InSampleRate) override;
+	virtual void Init(const FSoundEffectSourceInitData& InitData) override;
 	
 	// Called when an audio effect preset is changed
 	virtual void OnPresetChanged() override;
 
 	// Process the input block of audio. Called on audio thread.
-	virtual void ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData) override;
+	virtual void ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData) override;
 
 protected:
 	Audio::FRingModulation RingModulation;

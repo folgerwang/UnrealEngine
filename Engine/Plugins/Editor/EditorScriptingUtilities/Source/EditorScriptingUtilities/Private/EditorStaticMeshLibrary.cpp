@@ -26,12 +26,14 @@
 #include "Engine/MapBuildDataRegistry.h"
 #include "MeshMergeModule.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "RawMesh.h"
 #include "ScopedTransaction.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "UnrealEdGlobals.h"
 #include "UnrealEd/Private/GeomFitUtils.h"
 #include "UnrealEd/Private/ConvexDecompTool.h"
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
 
 #define LOCTEXT_NAMESPACE "EditorStaticMeshLibrary"
 
@@ -673,19 +675,23 @@ bool UEditorStaticMeshLibrary::HasVertexColors(UStaticMesh* StaticMesh)
 		return false;
 	}
 
-	for (FStaticMeshSourceModel& SourceModel : StaticMesh->SourceModels)
+	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
-		if (SourceModel.RawMeshBulkData && !SourceModel.RawMeshBulkData->IsEmpty())
+		const FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
+		if (!MeshDescription->VertexInstanceAttributes().HasAttribute(MeshAttribute::VertexInstance::Color))
 		{
-			FRawMesh RawMesh;
-			SourceModel.RawMeshBulkData->LoadRawMesh(RawMesh);
-			if (RawMesh.WedgeColors.Num() > 0)
+			continue;
+		}
+		TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+		for (const FVertexInstanceID VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+		{
+			FLinearColor VertexInstanceColor(VertexInstanceColors[VertexInstanceID]);
+			if (VertexInstanceColor != FLinearColor::White)
 			{
 				return true;
 			}
 		}
 	}
-
 	return false;
 }
 
@@ -731,10 +737,11 @@ bool UEditorStaticMeshLibrary::SetGenerateLightmapUVs(UStaticMesh* StaticMesh, b
 	}
 
 	bool AnySettingsToChange = false;
-	for (FStaticMeshSourceModel& SourceModel : StaticMesh->SourceModels)
+	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
+		FStaticMeshSourceModel& SourceModel = StaticMesh->SourceModels[LodIndex];
 		//Make sure LOD is not a reduction before considering its BuildSettings
-		if (SourceModel.RawMeshBulkData && !SourceModel.RawMeshBulkData->IsEmpty())
+		if (StaticMesh->GetOriginalMeshDescription(LodIndex) != nullptr)
 		{
 			AnySettingsToChange = (SourceModel.BuildSettings.bGenerateLightmapUVs != bGenerateLightmapUVs);
 
@@ -845,9 +852,9 @@ bool UEditorStaticMeshLibrary::AddUVChannel(UStaticMesh* StaticMesh, int32 LODIn
 		return false;
 	}
 
-	if (StaticMesh->GetNumUVChannels(LODIndex) >= MAX_MESH_TEXTURE_COORDS)
+	if (StaticMesh->GetNumUVChannels(LODIndex) >= MAX_MESH_TEXTURE_COORDS_MD)
 	{
-		UE_LOG(LogEditorScripting, Error, TEXT("AddUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS);
+		UE_LOG(LogEditorScripting, Error, TEXT("AddUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS_MD);
 		return false;
 	}
 
@@ -882,9 +889,9 @@ bool UEditorStaticMeshLibrary::InsertUVChannel(UStaticMesh* StaticMesh, int32 LO
 		return false;
 	}
 
-	if (NumUVChannels >= MAX_MESH_TEXTURE_COORDS)
+	if (NumUVChannels >= MAX_MESH_TEXTURE_COORDS_MD)
 	{
-		UE_LOG(LogEditorScripting, Error, TEXT("InsertUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS);
+		UE_LOG(LogEditorScripting, Error, TEXT("InsertUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS_MD);
 		return false;
 	}
 

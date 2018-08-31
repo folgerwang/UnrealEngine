@@ -6,6 +6,8 @@
 
 #include "Unix/UnixPlatformMemory.h"
 #include "Misc/AssertionMacros.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/FeedbackContext.h"
 #include "Math/NumericLimits.h"
 #include "Math/UnrealMathUtility.h"
 #include "Templates/UnrealTemplate.h"
@@ -17,6 +19,8 @@
 #include "HAL/MallocBinned2.h"
 #include "HAL/MallocReplayProxy.h"
 #include "HAL/MallocStomp.h"
+#include "HAL/PlatformMallocCrash.h"
+
 #if PLATFORM_FREEBSD
 	#include <kvm.h>
 #else
@@ -51,6 +55,7 @@ int32 CORE_API GMaxNumberFileMappingCache = 10000;
 #else
 int32 CORE_API GMaxNumberFileMappingCache = 100;
 #endif
+
 namespace
 {
 	// The max allowed to be set for the caching
@@ -880,6 +885,48 @@ bool FUnixPlatformMemory::UnmapNamedSharedMemoryRegion(FSharedMemoryRegion * Mem
 	return bAllSucceeded;
 }
 
+void FUnixPlatformMemory::OnOutOfMemory(uint64 Size, uint32 Alignment)
+{
+	// Update memory stats before we enter the crash handler.
+	OOMAllocationSize = Size;
+	OOMAllocationAlignment = Alignment;
+
+	// only call this code one time - if already OOM, abort
+	if (bIsOOM)
+	{
+		return;
+	}
+	bIsOOM = true;
+
+	FMalloc* Prev = GMalloc;
+	FPlatformMallocCrash::Get().SetAsGMalloc();
+
+	FPlatformMemoryStats PlatformMemoryStats = FPlatformMemory::GetStats();
+
+	UE_LOG(LogMemory, Warning, TEXT("MemoryStats:")\
+		TEXT("\n\tAvailablePhysical %llu")\
+		TEXT("\n\t AvailableVirtual %llu")\
+		TEXT("\n\t     UsedPhysical %llu")\
+		TEXT("\n\t PeakUsedPhysical %llu")\
+		TEXT("\n\t      UsedVirtual %llu")\
+		TEXT("\n\t  PeakUsedVirtual %llu"),
+		(uint64)PlatformMemoryStats.AvailablePhysical,
+		(uint64)PlatformMemoryStats.AvailableVirtual,
+		(uint64)PlatformMemoryStats.UsedPhysical,
+		(uint64)PlatformMemoryStats.PeakUsedPhysical,
+		(uint64)PlatformMemoryStats.UsedVirtual,
+		(uint64)PlatformMemoryStats.PeakUsedVirtual);
+	if (GWarn)
+	{
+		Prev->DumpAllocatorStats(*GWarn);
+	}
+
+	// let any registered handlers go
+	FCoreDelegates::GetMemoryTrimDelegate().Broadcast();
+
+	UE_LOG(LogMemory, Fatal, TEXT("Ran out of memory allocating %llu bytes with alignment %u"), Size, Alignment);
+	// unreachable
+}
 
 /**
 * LLM uses these low level functions (LLMAlloc and LLMFree) to allocate memory. It grabs

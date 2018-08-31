@@ -19,7 +19,7 @@ namespace Audio
 		~FFoldbackDistortion();
 
 		// Initialize the equalizer
-		void Init(const float InSampleRate);
+		void Init(const float InSampleRate, const int32 InNumChannels);
 
 		// Sets the foldback distortion threshold
 		void SetThresholdDb(const float InThresholdDb);
@@ -30,11 +30,14 @@ namespace Audio
 		// Sets the output gain
 		void SetOutputGainDb(const float InOutputGainDb);
 
+		// Processes a single audio sample
+		float ProcessAudioSample(const float InSample);
+
 		// Processes a mono stream
-		void ProcessAudio(const float InLeftSample, float& OutLeftSample);
+		void ProcessAudioFrame(const float* InFrame, float* OutFrame);
 
 		// Processes a stereo stream
-		void ProcessAudio(const float InLeftSample, const float InRightSample, float& OutLeftSample, float& OutRightSample);
+		void ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer);
 
 	private:
 		// Threshold to check before folding audio back on itself
@@ -51,6 +54,9 @@ namespace Audio
 
 		// A final gain scaler to apply to the output
 		float OutputGain;
+
+		// How many channels we expect the audio intput to be.
+		int32 NumChannels;
 	};
 
 }

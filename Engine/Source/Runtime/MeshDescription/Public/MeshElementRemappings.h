@@ -10,40 +10,40 @@
  */
 struct FElementIDRemappings
 {
-	TSparseArray<FVertexID> NewVertexIndexLookup;
-	TSparseArray<FVertexInstanceID> NewVertexInstanceIndexLookup;
-	TSparseArray<FEdgeID> NewEdgeIndexLookup;
-	TSparseArray<FPolygonID> NewPolygonIndexLookup;
-	TSparseArray<FPolygonGroupID> NewPolygonGroupIndexLookup;
+	TSparseArray<int32> NewVertexIndexLookup;
+	TSparseArray<int32> NewVertexInstanceIndexLookup;
+	TSparseArray<int32> NewEdgeIndexLookup;
+	TSparseArray<int32> NewPolygonIndexLookup;
+	TSparseArray<int32> NewPolygonGroupIndexLookup;
 
 	FVertexID GetRemappedVertexID( FVertexID VertexID ) const
 	{
 		checkSlow( NewVertexIndexLookup.IsAllocated( VertexID.GetValue() ) );
-		return NewVertexIndexLookup[ VertexID.GetValue() ];
+		return FVertexID( NewVertexIndexLookup[ VertexID.GetValue() ] );
 	}
 
 	FVertexInstanceID GetRemappedVertexInstanceID( FVertexInstanceID VertexInstanceID ) const
 	{
 		checkSlow( NewVertexInstanceIndexLookup.IsAllocated( VertexInstanceID.GetValue() ) );
-		return NewVertexInstanceIndexLookup[ VertexInstanceID.GetValue() ];
+		return FVertexInstanceID( NewVertexInstanceIndexLookup[ VertexInstanceID.GetValue() ] );
 	}
 
 	FEdgeID GetRemappedEdgeID( FEdgeID EdgeID ) const
 	{
 		checkSlow( NewEdgeIndexLookup.IsAllocated( EdgeID.GetValue() ) );
-		return NewEdgeIndexLookup[ EdgeID.GetValue() ];
+		return FEdgeID( NewEdgeIndexLookup[ EdgeID.GetValue() ] );
 	}
 
 	FPolygonID GetRemappedPolygonID( FPolygonID PolygonID ) const
 	{
 		checkSlow( NewPolygonIndexLookup.IsAllocated( PolygonID.GetValue() ) );
-		return NewPolygonIndexLookup[ PolygonID.GetValue() ];
+		return FPolygonID( NewPolygonIndexLookup[ PolygonID.GetValue() ] );
 	}
 
 	FPolygonGroupID GetRemappedPolygonGroupID( FPolygonGroupID PolygonGroupID ) const
 	{
-		check( NewPolygonGroupIndexLookup.IsAllocated( PolygonGroupID.GetValue() ) );
-		return NewPolygonGroupIndexLookup[ PolygonGroupID.GetValue() ];
+		checkSlow( NewPolygonGroupIndexLookup.IsAllocated( PolygonGroupID.GetValue() ) );
+		return FPolygonGroupID( NewPolygonGroupIndexLookup[ PolygonGroupID.GetValue() ] );
 	}
 };
 

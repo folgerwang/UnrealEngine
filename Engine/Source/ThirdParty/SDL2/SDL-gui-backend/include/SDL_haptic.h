@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -656,8 +656,8 @@ typedef struct SDL_HapticRamp
  * This struct is exclusively for the ::SDL_HAPTIC_LEFTRIGHT effect.
  *
  * The Left/Right effect is used to explicitly control the large and small
- * motors, commonly found in modern game controllers. One motor is high
- * frequency, the other is low frequency.
+ * motors, commonly found in modern game controllers. The small (right) motor
+ * is high frequency, and the large (left) motor is low frequency.
  *
  * \sa SDL_HAPTIC_LEFTRIGHT
  * \sa SDL_HapticEffect
@@ -668,7 +668,7 @@ typedef struct SDL_HapticLeftRight
     Uint16 type;            /**< ::SDL_HAPTIC_LEFTRIGHT */
 
     /* Replay */
-    Uint32 length;          /**< Duration of the effect. */
+    Uint32 length;          /**< Duration of the effect in milliseconds. */
 
     /* Rumble */
     Uint16 large_magnitude; /**< Control of the large controller motor. */

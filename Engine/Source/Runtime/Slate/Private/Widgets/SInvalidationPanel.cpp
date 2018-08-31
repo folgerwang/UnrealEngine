@@ -341,7 +341,8 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 				// Record a new maximum layer Id, throw in 10 so we have a bit of padding before we need to recache.
 				MaximumLayerIdCachedAt = LayerId + 10;
 
-				CachedWindowElements = FSlateApplication::Get().GetCachableElementList(OutDrawElements.GetWindow(), this);
+				SWindow* Window = OutDrawElements.GetPaintWindow();
+				CachedWindowElements = FSlateApplication::Get().GetCachableElementList(StaticCastSharedRef<SWindow>(Window->AsShared()), this);
 
 				// Reset the render data handle in case it was in use, and we're not overriding it this frame.
 				CachedRenderData.Reset();

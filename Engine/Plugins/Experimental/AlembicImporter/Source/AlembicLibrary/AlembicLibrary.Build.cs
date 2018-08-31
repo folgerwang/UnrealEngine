@@ -13,7 +13,6 @@ public class AlembicLibrary : ModuleRules
 				"Engine",
                 "InputCore",
                 "UnrealEd",
-                "RawMesh",
                 "GeometryCache",
                 "AlembicLib",
                 "MeshUtilities",
@@ -33,7 +32,9 @@ public class AlembicLibrary : ModuleRules
                 "Core",
                 "CoreUObject",
                 "Engine",
-                "UnrealEd"
+                "UnrealEd",
+                "MeshDescription",
+                "MeshDescriptionOperations",
             }
         );
 

@@ -72,6 +72,7 @@ public:
 	{
 		return (!bIsLocalPlayerMuted && LocalUserNum <= MAX_LOCAL_PLAYERS);
 	}
+
 	virtual bool IsRemotePlayerTalking(const FUniqueNetId& UniqueId) override;
 	virtual bool IsMuted(uint32 LocalUserNum, const FUniqueNetId& UniqueId) const override;
 	virtual bool MuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId& PlayerId, bool bIsSystemWide) override;
@@ -108,6 +109,11 @@ PACKAGE_SCOPE:
 	// IOnlineVoice
 	virtual bool Init() override;
 	void ProcessMuteChangeNotification() override {}
+
+	IVoiceEnginePtr CreateVoiceEngine() override
+	{
+		return IVoiceEnginePtr();
+	}
 
 	/**
 	* Submits network packets to audio system for playback

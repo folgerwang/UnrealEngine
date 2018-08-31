@@ -204,7 +204,7 @@ static void CalcBoundingBox(const FRawMesh& RawMesh, FVector& Center, FVector& E
 
 static void CalcBoundingBox(const FMeshDescription& MeshDescription, FVector& Center, FVector& Extents, FVector& LimitVec)
 {
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
 	FBox Box(ForceInit);
 	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
@@ -400,7 +400,7 @@ static void CalcBoundingSphere(const FMeshDescription& MeshDescription, FSphere&
 	FVector MinIx[3];
 	FVector MaxIx[3];
 
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
 	bool bFirstVertex = true;
 	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
@@ -515,7 +515,7 @@ static void CalcBoundingSphere2(const FMeshDescription& MeshDescription, FSphere
 	sphere.Center = Center;
 	sphere.W = 0.0f;
 
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
 	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
 	{
@@ -611,7 +611,7 @@ static void CalcBoundingSphyl(const FMeshDescription& MeshDescription, FSphere& 
 	float r = Extents.GetMax();
 	float r2 = FMath::Square(r);
 	
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
 	// Now check each point lies within this the radius. If not - expand it a bit.
 	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())

@@ -175,7 +175,9 @@ struct FEventTriggerExecutionToken
 		UObject* DirectorInstance = Player.GetEvaluationTemplate().GetOrCreateDirectorInstance(Operand.SequenceID, Player);
 		if (!DirectorInstance)
 		{
+#if !NO_LOGGING
 			UE_LOG(LogMovieScene, Warning, TEXT("Failed to trigger the following events because no director instance was available: %s."), *GenerateEventListString());
+#endif			
 			return;
 		}
 
