@@ -131,6 +131,16 @@
 
 DEFINE_LOG_CATEGORY(LogSequencer);
 
+static TAutoConsoleVariable<float> CVarAutoScrubSpeed(
+	TEXT("Sequencer.AutoScrubSpeed"),
+	6.0f,
+	TEXT("How fast to scrub forward/backward when auto-scrubbing"));
+
+static TAutoConsoleVariable<float> CVarAutoScrubCurveExponent(
+	TEXT("Sequencer.AutoScrubCurveExponent"),
+	2.0f,
+	TEXT("How much to ramp in and out the scrub speed when auto-scrubbing"));
+
 struct FSequencerTemplateStore : IMovieSceneSequenceTemplateStore
 {
 	void Reset()
@@ -598,6 +608,35 @@ void FSequencer::Tick(float InDeltaTime)
 	else
 	{
 		PlayPosition.Reset(GlobalTime.ConvertTo(PlayPosition.GetInputRate()));
+	}
+
+	if (AutoScrubTarget.IsSet())
+	{
+		const double ScrubSpeed = CVarAutoScrubSpeed->GetFloat();		// How fast to scrub at peak curve speed
+		const double AutoScrubExp = CVarAutoScrubCurveExponent->GetFloat();	// How long to ease in and out.  Bigger numbers allow for longer easing.
+
+		const double SecondsPerFrame = GetFocusedTickResolution().AsInterval() / ScrubSpeed;
+		const int32 TotalFrames = FMath::Abs(AutoScrubTarget.GetValue().DestinationTime.GetFrame().Value - AutoScrubTarget.GetValue().SourceTime.GetFrame().Value);
+		const double TargetSeconds = (double)TotalFrames * SecondsPerFrame;
+
+		double ElapsedSeconds = FPlatformTime::Seconds() - AutoScrubTarget.GetValue().StartTime;
+		float Alpha = ElapsedSeconds / TargetSeconds;
+		Alpha = FMath::Clamp(Alpha, 0.f, 1.f);
+		int32 NewFrameNumber = FMath::InterpEaseInOut(AutoScrubTarget.GetValue().SourceTime.GetFrame().Value, AutoScrubTarget.GetValue().DestinationTime.GetFrame().Value, Alpha, AutoScrubExp);
+
+		FAutoScrubTarget CachedTarget = AutoScrubTarget.GetValue();
+
+		SetPlaybackStatus(EMovieScenePlayerStatus::Scrubbing);
+		PlayPosition.SetTimeBase(GetRootTickResolution(), GetRootTickResolution(), EMovieSceneEvaluationType::WithSubFrames);
+		SetLocalTimeDirectly(FFrameNumber(NewFrameNumber));
+
+		AutoScrubTarget = CachedTarget;
+
+		if (FMath::IsNearlyEqual(Alpha, 1.f, KINDA_SMALL_NUMBER))
+		{
+			SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
+			AutoScrubTarget.Reset();
+		}
 	}
 
 	UpdateSubSequenceData();
@@ -2207,7 +2246,7 @@ void FSequencer::SetLocalTimeDirectly(FFrameTime NewTime)
 }
 
 
-void FSequencer::SetGlobalTime( FFrameTime NewTime )
+void FSequencer::SetGlobalTime(FFrameTime NewTime)
 {
 	NewTime = ConvertFrameTime(NewTime, GetRootTickResolution(), PlayPosition.GetInputRate());
 	if (PlayPosition.GetEvaluationType() == EMovieSceneEvaluationType::FrameLocked)
@@ -2221,6 +2260,12 @@ void FSequencer::SetGlobalTime( FFrameTime NewTime )
 	if (PlayPosition.GetCurrentPosition() != NewTime)
 	{
 		EvaluateInternal(PlayPosition.JumpTo(NewTime));
+	}
+
+	if (AutoScrubTarget.IsSet())
+	{
+		SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
+		AutoScrubTarget.Reset();
 	}
 }
 
@@ -2371,6 +2416,11 @@ TOptional<float> FSequencer::CalculateAutoscrollEncroachment(double NewTime, flo
 	return TOptional<float>();
 }
 
+
+void FSequencer::AutoScrubToTime(FFrameTime DestinationTime)
+{
+	AutoScrubTarget = FAutoScrubTarget(DestinationTime, GetLocalTime().Time, FPlatformTime::Seconds());
+}
 
 void FSequencer::SetPerspectiveViewportPossessionEnabled(bool bEnabled)
 {
@@ -3817,7 +3867,14 @@ void FSequencer::OnScrubPositionChanged( FFrameTime NewScrubPosition, bool bScru
 		NewScrubPosition = FMath::Clamp(NewScrubPosition, LowerBound, UpperBound);
 	}
 
-	SetLocalTimeDirectly( NewScrubPosition );
+	if (!bScrubbing && FSlateApplication::Get().GetModifierKeys().IsShiftDown())
+	{
+		AutoScrubToTime(NewScrubPosition);
+	}
+	else
+	{
+		SetLocalTimeDirectly(NewScrubPosition);
+	}
 }
 
 
@@ -7233,7 +7290,7 @@ void FSequencer::StepToNextMark()
 				{
 					if (TickFrame > CurrentTickFrameNumber)
 					{
-						SetLocalTime(TickFrame.Value);
+						AutoScrubToTime(TickFrame.Value);
 						break;
 					}
 				}
@@ -7264,7 +7321,7 @@ void FSequencer::StepToPreviousMark()
 				{
 					if (TickFrame < CurrentTickFrameNumber)
 					{
-						SetLocalTime(TickFrame.Value);
+						AutoScrubToTime(TickFrame.Value);
 						break;
 					}
 				}

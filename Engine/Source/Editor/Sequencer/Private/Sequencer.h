@@ -600,6 +600,9 @@ public:
 	 */
 	void UpdateAutoScroll(double NewTime);
 
+	/** Autoscrub to destination time */
+	void AutoScrubToTime(FFrameTime DestinationTime);
+
 public:
 
 	//~ FGCObject Interface
@@ -1028,6 +1031,19 @@ private:
 
 	/** The amount of autoscrub offset that is currently being applied */
 	TOptional<float> AutoscrubOffset;
+
+	struct FAutoScrubTarget
+	{
+		FAutoScrubTarget(FFrameTime InDestinationTime, FFrameTime InSourceTime, double InStartTime)
+			: DestinationTime(InDestinationTime)
+			, SourceTime(InSourceTime)
+			, StartTime(InStartTime) {}
+		FFrameTime DestinationTime;
+		FFrameTime SourceTime;
+		double StartTime;
+	};
+
+	TOptional<FAutoScrubTarget> AutoScrubTarget;
 
 	/** Zoom smoothing curves */
 	FCurveSequence ZoomAnimation;
