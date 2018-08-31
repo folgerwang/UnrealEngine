@@ -35,19 +35,19 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Processor count multiplier for local execution. Can be below 1 to reserve CPU for other tasks.
 		/// </summary>
-		[XmlConfigFile(Category = "BuildConfiguration")]
+		[XmlConfigFile]
 		double ProcessorCountMultiplier = 1.0;
 
 		/// <summary>
 		/// Maximum processor count for local execution. 
 		/// </summary>
-		[XmlConfigFile(Category = "BuildConfiguration")]
+		[XmlConfigFile]
 		int MaxProcessorCount = int.MaxValue;
 
 		/// <summary>
 		/// When enabled, will stop compiling targets after a compile error occurs.
 		/// </summary>
-		[XmlConfigFile(Category = "BuildConfiguration")]
+		[XmlConfigFile]
 		bool bStopCompilationAfterErrors = false;
 
 		/// <summary>

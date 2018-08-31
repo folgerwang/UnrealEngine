@@ -276,6 +276,11 @@ namespace UnrealBuildTool
 		public BuildVersion Version;
 
 		/// <summary>
+		/// The exectuable to launch for this target
+		/// </summary>
+		public FileReference Launch;
+
+		/// <summary>
 		/// The build products which are part of this target
 		/// </summary>
 		public List<BuildProduct> BuildProducts = new List<BuildProduct>();
@@ -318,6 +323,7 @@ namespace UnrealBuildTool
 		/// <param name="Other">Receipt to copy from</param>
 		public TargetReceipt(TargetReceipt Other)
 		{
+			Launch = Other.Launch;
 			foreach (BuildProduct OtherBuildProduct in Other.BuildProducts)
 			{
 				BuildProducts.Add(new BuildProduct(OtherBuildProduct));
@@ -475,6 +481,13 @@ namespace UnrealBuildTool
 			// Create the receipt
 			TargetReceipt Receipt = new TargetReceipt(TargetName, Platform, Configuration, Version);
 
+			// Read the launch executable
+			string Launch;
+			if(RawObject.TryGetStringField("Launch", out Launch))
+			{
+				Receipt.Launch = ExpandPathVariables(Launch, EngineDir, ProjectDir);
+			}
+
 			// Read the build products
 			JsonObject[] BuildProductObjects;
 			if (RawObject.TryGetObjectArrayField("BuildProducts", out BuildProductObjects))
@@ -590,6 +603,11 @@ namespace UnrealBuildTool
 				Writer.WriteObjectStart("Version");
 				Version.WriteProperties(Writer);
 				Writer.WriteObjectEnd();
+
+				if(Launch != null)
+				{
+					Writer.WriteValue("Launch", InsertPathVariables(Launch, EngineDir, ProjectDir));
+				}
 
 				Writer.WriteArrayStart("BuildProducts");
 				foreach (BuildProduct BuildProduct in BuildProducts)
