@@ -1491,6 +1491,7 @@ void USkinnedMeshComponent::RefreshSlaveComponents()
 			if (MeshComp.IsValid())
 			{
 				MeshComp->MarkRenderDynamicDataDirty();
+				MeshComp->MarkRenderTransformDirty();
 			}
 		}
 	}
