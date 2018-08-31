@@ -162,8 +162,3 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #ifndef ENABLE_WIN_ALLOC_TRACKING
 #define ENABLE_WIN_ALLOC_TRACKING 0
 #endif
-
-#ifndef USE_SECURE_CRT
-#define USE_SECURE_CRT 0
-#endif
-

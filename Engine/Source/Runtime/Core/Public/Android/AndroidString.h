@@ -480,7 +480,7 @@ struct FAndroidPlatformString : public FGenericPlatformString
 			}
 		}
 		NewFormat[NewIndex] = 0;
-#endif // USE_SECURE_CRT
+#endif // PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
 		int32 Result = vswprintf( Dest, Count, NewFormat, ArgPtr);
 		va_end( ArgPtr );
 		return Result;
