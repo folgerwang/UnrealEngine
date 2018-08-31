@@ -85,6 +85,7 @@ public:
 	virtual void OnUnregister() override;
 	virtual void DestroyComponent(bool bPromoteChildren = false) override;
 	UMaterialInterface* GetMaterial(int32 MaterialIndex) const override;
+	virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* Material) override;
 	int32 GetNumMaterials() const override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
@@ -286,6 +287,8 @@ protected:
 
 	/** @return the width of the widget component taking GeometryMode into account. */
 	float ComputeComponentWidth() const;
+
+	void UpdateMaterialInstance();
 
 protected:
 	/** The coordinate space in which to render the widget */

@@ -614,14 +614,32 @@ void UWidgetComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-FPrimitiveSceneProxy* UWidgetComponent::CreateSceneProxy()
+
+void UWidgetComponent::SetMaterial(int32 ElementIndex, UMaterialInterface* Material)
+{
+	Super::SetMaterial(ElementIndex, Material);
+
+	UpdateMaterialInstance();
+}
+
+void UWidgetComponent::UpdateMaterialInstance()
 {
 	// Always clear the material instance in case we're going from 3D to 2D.
-	if ( MaterialInstance )
+	MaterialInstance = nullptr;
+
+	if (Space == EWidgetSpace::Screen)
 	{
-		MaterialInstance = nullptr;
+		return;
 	}
 
+	UMaterialInterface* BaseMaterial = GetMaterial(0);
+	MaterialInstance = UMaterialInstanceDynamic::Create(BaseMaterial, this);
+
+	UpdateMaterialInstanceParameters();
+}
+
+FPrimitiveSceneProxy* UWidgetComponent::CreateSceneProxy()
+{
 	if (Space == EWidgetSpace::Screen)
 	{
 		return nullptr;
@@ -629,15 +647,6 @@ FPrimitiveSceneProxy* UWidgetComponent::CreateSceneProxy()
 
 	if (WidgetRenderer && CurrentSlateWidget.IsValid())
 	{
-		// Create a new MID for the current base material
-		{
-			UMaterialInterface* BaseMaterial = GetMaterial(0);
-
-			MaterialInstance = UMaterialInstanceDynamic::Create(BaseMaterial, this);
-
-			UpdateMaterialInstanceParameters();
-		}
-
 		RequestRedraw();
 		LastWidgetRenderTime = 0;
 
@@ -890,6 +899,23 @@ void UWidgetComponent::RegisterWindow()
 		{
 			FSlateApplication::Get().RegisterVirtualWindow(SlateWindow.ToSharedRef());
 		}
+
+#if SLATE_PARENT_POINTERS
+		if (Widget && !Widget->IsDesignTime())
+		{
+			if (UWorld* LocalWorld = GetWorld())
+			{
+				UGameInstance* GameInstance = LocalWorld->GetGameInstance();
+				check(GameInstance);
+
+				UGameViewportClient* GameViewportClient = GameInstance->GetGameViewportClient();
+				if (GameViewportClient)
+				{
+					SlateWindow->AssignParentWidget(GameViewportClient->GetGameViewportWidget());
+				}
+			}
+		}
+#endif
 	}
 }
 
@@ -1377,6 +1403,8 @@ void UWidgetComponent::UpdateWidget()
 			bool bNeededNewWindow = false;
 			if ( !SlateWindow.IsValid() )
 			{
+				UpdateMaterialInstance();
+
 				SlateWindow = SNew(SVirtualWindow).Size(DrawSize);
 				SlateWindow->SetIsFocusable(bWindowFocusable);
 				RegisterWindow();
