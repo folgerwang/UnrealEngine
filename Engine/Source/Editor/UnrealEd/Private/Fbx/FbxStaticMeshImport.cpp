@@ -2236,70 +2236,85 @@ void UnFbx::FFbxImporter::ImportStaticMeshLocalSockets(UStaticMesh* StaticMesh, 
 	check(MeshNodeArray.Num());
 	FbxNode *MeshRootNode = MeshNodeArray[0];
 	const FbxAMatrix &MeshTotalMatrix = ComputeTotalMatrix(MeshRootNode);
+	TArray<FbxSocketNode> AllSocketNodes;
 	for (FbxNode* RootNode : MeshNodeArray)
 	{
 		// Find all nodes that are sockets
 		TArray<FbxSocketNode> SocketNodes;
 		FindMeshSockets(RootNode, SocketNodes);
-
-		// Create a UStaticMeshSocket for each fbx socket
 		for (int32 SocketIndex = 0; SocketIndex < SocketNodes.Num(); ++SocketIndex)
 		{
-			FbxSocketNode& SocketNode = SocketNodes[SocketIndex];
-
-			UStaticMeshSocket* Socket = StaticMesh->FindSocket(SocketNode.SocketName);
-			if (!Socket)
+			bool bFoundNewSocket = true;
+			for (int32 AllSocketIndex = 0; AllSocketIndex < AllSocketNodes.Num(); ++AllSocketIndex)
 			{
-				// If the socket didn't exist create a new one now
-				Socket = NewObject<UStaticMeshSocket>(StaticMesh);
-				Socket->bSocketCreatedAtImport = true;
-				check(Socket);
-
-				Socket->SocketName = SocketNode.SocketName;
-				StaticMesh->Sockets.Add(Socket);
+				if (AllSocketNodes[AllSocketIndex].SocketName == SocketNodes[SocketIndex].SocketName)
+				{
+					bFoundNewSocket = false;
+					break;
+				}
 			}
-
-			if (Socket)
+			if (bFoundNewSocket)
 			{
-				const FbxAMatrix& SocketMatrix = Scene->GetAnimationEvaluator()->GetNodeLocalTransform(SocketNode.Node);
-				FbxAMatrix FinalSocketMatrix = MeshTotalMatrix * SocketMatrix;
-				FTransform SocketTransform;
-				SocketTransform.SetTranslation(Converter.ConvertPos(FinalSocketMatrix.GetT()));
-				SocketTransform.SetRotation(Converter.ConvertRotToQuat(FinalSocketMatrix.GetQ()));
-				SocketTransform.SetScale3D(Converter.ConvertScale(FinalSocketMatrix.GetS()));
-
-				Socket->RelativeLocation = SocketTransform.GetLocation();
-				Socket->RelativeRotation = SocketTransform.GetRotation().Rotator();
-				Socket->RelativeScale = SocketTransform.GetScale3D();
+				AllSocketNodes.Add(SocketNodes[SocketIndex]);
 			}
 		}
-		// Delete mesh sockets that were removed from the import data
-		if (StaticMesh->Sockets.Num() != SocketNodes.Num())
-		{
-			for (int32 MeshSocketIx = 0; MeshSocketIx < StaticMesh->Sockets.Num(); ++MeshSocketIx)
-			{
-				bool Found = false;
-				UStaticMeshSocket* MeshSocket = StaticMesh->Sockets[MeshSocketIx];
-				//Do not remove socket that was not generated at import
-				if (!MeshSocket->bSocketCreatedAtImport)
-				{
-					continue;
-				}
+	}
+		
+	// Create a UStaticMeshSocket for each fbx socket
+	for (int32 SocketIndex = 0; SocketIndex < AllSocketNodes.Num(); ++SocketIndex)
+	{
+		FbxSocketNode& SocketNode = AllSocketNodes[SocketIndex];
 
-				for (int32 FbxSocketIx = 0; FbxSocketIx < SocketNodes.Num(); FbxSocketIx++)
-				{
-					if (SocketNodes[FbxSocketIx].SocketName == MeshSocket->SocketName)
-					{
-						Found = true;
-						break;
-					}
-				}
-				if (!Found)
-				{
-					StaticMesh->Sockets.RemoveAt(MeshSocketIx);
-					MeshSocketIx--;
-				}
+		UStaticMeshSocket* Socket = StaticMesh->FindSocket(SocketNode.SocketName);
+		if (!Socket)
+		{
+			// If the socket didn't exist create a new one now
+			Socket = NewObject<UStaticMeshSocket>(StaticMesh);
+			Socket->bSocketCreatedAtImport = true;
+			check(Socket);
+
+			Socket->SocketName = SocketNode.SocketName;
+			StaticMesh->Sockets.Add(Socket);
+		}
+
+		if (Socket)
+		{
+			const FbxAMatrix& SocketMatrix = Scene->GetAnimationEvaluator()->GetNodeLocalTransform(SocketNode.Node);
+			//Remove the axis conversion for the socket since its attach to a mesh containing this conversion.
+			FbxAMatrix FinalSocketMatrix = (MeshTotalMatrix * SocketMatrix) * FFbxDataConverter::GetAxisConversionMatrixInv();
+			FTransform SocketTransform;
+			SocketTransform.SetTranslation(Converter.ConvertPos(FinalSocketMatrix.GetT()));
+			SocketTransform.SetRotation(Converter.ConvertRotToQuat(FinalSocketMatrix.GetQ()));
+			SocketTransform.SetScale3D(Converter.ConvertScale(FinalSocketMatrix.GetS()));
+
+			Socket->RelativeLocation = SocketTransform.GetLocation();
+			Socket->RelativeRotation = SocketTransform.GetRotation().Rotator();
+			Socket->RelativeScale = SocketTransform.GetScale3D();
+		}
+	}
+	// Delete mesh sockets that were removed from the import data
+	for (int32 MeshSocketIx = 0; MeshSocketIx < StaticMesh->Sockets.Num(); ++MeshSocketIx)
+	{
+		bool Found = false;
+		UStaticMeshSocket* MeshSocket = StaticMesh->Sockets[MeshSocketIx];
+		//Do not remove socket that was not generated at import
+		if (!MeshSocket->bSocketCreatedAtImport)
+		{
+			continue;
+		}
+
+		for (int32 FbxSocketIx = 0; FbxSocketIx < AllSocketNodes.Num(); FbxSocketIx++)
+		{
+			if (AllSocketNodes[FbxSocketIx].SocketName == MeshSocket->SocketName)
+			{
+				Found = true;
+				break;
 			}
+		}
+		if (!Found)
+		{
+			StaticMesh->Sockets.RemoveAt(MeshSocketIx);
+			MeshSocketIx--;
 		}
 	}
 }
@@ -2326,8 +2341,8 @@ void UnFbx::FFbxImporter::ImportStaticMeshGlobalSockets( UStaticMesh* StaticMesh
 
 			Socket->SocketName = SocketNode.SocketName;
 			StaticMesh->Sockets.Add(Socket);
-
-			const FbxAMatrix& SocketMatrix = Scene->GetAnimationEvaluator()->GetNodeGlobalTransform(SocketNode.Node);
+			//Remove the axis conversion for the socket since its attach to a mesh containing this conversion.
+			const FbxAMatrix& SocketMatrix = Scene->GetAnimationEvaluator()->GetNodeGlobalTransform(SocketNode.Node) * FFbxDataConverter::GetAxisConversionMatrixInv();
 			FTransform SocketTransform;
 			SocketTransform.SetTranslation(Converter.ConvertPos(SocketMatrix.GetT()));
 			SocketTransform.SetRotation(Converter.ConvertRotToQuat(SocketMatrix.GetQ()));
@@ -2340,32 +2355,28 @@ void UnFbx::FFbxImporter::ImportStaticMeshGlobalSockets( UStaticMesh* StaticMesh
 			Socket->bSocketCreatedAtImport = true;
 		}
 	}
-	// Delete mesh sockets that were removed from the import data
-	if (StaticMesh->Sockets.Num() != SocketNodes.Num())
+	for (int32 MeshSocketIx = 0; MeshSocketIx < StaticMesh->Sockets.Num(); ++MeshSocketIx)
 	{
-		for (int32 MeshSocketIx = 0; MeshSocketIx < StaticMesh->Sockets.Num(); ++MeshSocketIx)
+		bool Found = false;
+		UStaticMeshSocket* MeshSocket = StaticMesh->Sockets[MeshSocketIx];
+		//Do not remove socket that was not generated at import
+		if (!MeshSocket->bSocketCreatedAtImport)
 		{
-			bool Found = false;
-			UStaticMeshSocket* MeshSocket = StaticMesh->Sockets[MeshSocketIx];
-			//Do not remove socket that was not generated at import
-			if (!MeshSocket->bSocketCreatedAtImport)
-			{
-				continue;
-			}
+			continue;
+		}
 
-			for (int32 FbxSocketIx = 0; FbxSocketIx < SocketNodes.Num(); FbxSocketIx++)
+		for (int32 FbxSocketIx = 0; FbxSocketIx < SocketNodes.Num(); FbxSocketIx++)
+		{
+			if (SocketNodes[FbxSocketIx].SocketName == MeshSocket->SocketName)
 			{
-				if (SocketNodes[FbxSocketIx].SocketName == MeshSocket->SocketName)
-				{
-					Found = true;
-					break;
-				}
+				Found = true;
+				break;
 			}
-			if (!Found)
-			{
-				StaticMesh->Sockets.RemoveAt(MeshSocketIx);
-				MeshSocketIx--;
-			}
+		}
+		if (!Found)
+		{
+			StaticMesh->Sockets.RemoveAt(MeshSocketIx);
+			MeshSocketIx--;
 		}
 	}
 }

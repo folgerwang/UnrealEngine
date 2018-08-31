@@ -461,6 +461,10 @@ public:
 	static void SetJointPostConversionMatrix(FbxAMatrix ConversionMatrix) { JointPostConversionMatrix = ConversionMatrix; }
 	static const FbxAMatrix &GetJointPostConversionMatrix() { return JointPostConversionMatrix; }
 
+	static void SetAxisConversionMatrix(FbxAMatrix ConversionMatrix) { AxisConversionMatrix = ConversionMatrix; AxisConversionMatrixInv = ConversionMatrix.Inverse(); }
+	static const FbxAMatrix &GetAxisConversionMatrix() { return AxisConversionMatrix; }
+	static const FbxAMatrix &GetAxisConversionMatrixInv() { return AxisConversionMatrixInv; }
+
 	static FVector ConvertPos(FbxVector4 Vector);
 	static FVector ConvertDir(FbxVector4 Vector);
 	static FRotator ConvertEuler(FbxDouble3 Euler);
@@ -498,6 +502,8 @@ public:
 
 private:
 	static FbxAMatrix JointPostConversionMatrix;
+	static FbxAMatrix AxisConversionMatrix;
+	static FbxAMatrix AxisConversionMatrixInv;
 };
 
 FBXImportOptions* GetImportOptions( class FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& OutImportAll, bool bIsObjFormat, const FString& InFilename, bool bForceImportType = false, EFBXImportType ImportType = FBXIT_StaticMesh, UObject* ReimportObject = nullptr);

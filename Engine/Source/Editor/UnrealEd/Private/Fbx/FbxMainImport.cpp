@@ -1175,6 +1175,12 @@ void FFbxImporter::ConvertScene()
 	FileAxisSystem = Scene->GetGlobalSettings().GetAxisSystem();
 	FileUnitSystem = Scene->GetGlobalSettings().GetSystemUnit();
 
+	FbxAMatrix AxisConversionMatrix;
+	AxisConversionMatrix.SetIdentity();
+
+	FbxAMatrix JointOrientationMatrix;
+	JointOrientationMatrix.SetIdentity();
+
 	if (GetImportOptions()->bConvertScene)
 	{
 		// we use -Y as forward axis here when we import. This is odd considering our forward axis is technically +X
@@ -1195,19 +1201,30 @@ void FFbxImporter::ConvertScene()
 
 		FbxAxisSystem SourceSetup = Scene->GetGlobalSettings().GetAxisSystem();
 
+
 		if (SourceSetup != UnrealImportAxis)
 		{
 			FbxRootNodeUtility::RemoveAllFbxRoots(Scene);
 			UnrealImportAxis.ConvertScene(Scene);
-			FbxAMatrix JointOrientationMatrix;
-			JointOrientationMatrix.SetIdentity();
+			
+			FbxAMatrix SourceMatrix;
+			SourceSetup.GetMatrix(SourceMatrix);
+			FbxAMatrix UE4Matrix;
+			UnrealImportAxis.GetMatrix(UE4Matrix);
+			AxisConversionMatrix = SourceMatrix.Inverse() * UE4Matrix;
+			
+			
 			if (GetImportOptions()->bForceFrontXAxis)
 			{
 				JointOrientationMatrix.SetR(FbxVector4(-90.0, -90.0, 0.0));
 			}
-			FFbxDataConverter::SetJointPostConversionMatrix(JointOrientationMatrix);
 		}
 	}
+
+	FFbxDataConverter::SetJointPostConversionMatrix(JointOrientationMatrix);
+
+	FFbxDataConverter::SetAxisConversionMatrix(AxisConversionMatrix);
+
 	// Convert the scene's units to what is used in this program, if needed.
 	// The base unit used in both FBX and Unreal is centimeters.  So unless the units 
 	// are already in centimeters (ie: scalefactor 1.0) then it needs to be converted

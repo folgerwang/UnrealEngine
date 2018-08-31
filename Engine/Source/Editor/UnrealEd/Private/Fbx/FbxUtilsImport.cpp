@@ -7,6 +7,8 @@ using namespace UnFbx;
 
 
 FbxAMatrix FFbxDataConverter::JointPostConversionMatrix;
+FbxAMatrix FFbxDataConverter::AxisConversionMatrix;
+FbxAMatrix FFbxDataConverter::AxisConversionMatrixInv;
 
 FVector FFbxDataConverter::ConvertPos(FbxVector4 Vector)
 {
