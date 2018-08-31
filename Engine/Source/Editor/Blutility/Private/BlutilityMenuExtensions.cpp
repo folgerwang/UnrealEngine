@@ -66,6 +66,13 @@ class SFunctionParamDialog : public SCompoundWidget
 		FPropertyEditorModule& PropertyEditorModule = FModuleManager::Get().LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		TSharedRef<IStructureDetailsView> StructureDetailsView = PropertyEditorModule.CreateStructureDetailView(DetailsViewArgs, StructureViewArgs, InStructOnScope);
 
+		StructureDetailsView->GetDetailsView()->SetIsPropertyVisibleDelegate(FIsPropertyVisible::CreateLambda([](const FPropertyAndParent& InPropertyAndParent)
+		{
+			return InPropertyAndParent.Property.HasAnyPropertyFlags(CPF_Parm);
+		}));
+
+		StructureDetailsView->GetDetailsView()->ForceRefresh();
+
 		ChildSlot
 		[
 			SNew(SVerticalBox)
