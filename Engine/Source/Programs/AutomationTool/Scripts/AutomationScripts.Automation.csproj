@@ -69,6 +69,7 @@
     <Compile Include="BuildPluginCommand.Automation.cs" />
     <Compile Include="BuildProjectCommand.Automation.cs" />
     <Compile Include="BuildThirdPartyLibs.Automation.cs" />
+    <Compile Include="CheckBalancedMacros.cs" />
     <Compile Include="CheckCsprojDotNetVersion.cs" />
     <Compile Include="CheckForHacks.cs" />
     <Compile Include="CheckRestrictedFolders.cs" />
