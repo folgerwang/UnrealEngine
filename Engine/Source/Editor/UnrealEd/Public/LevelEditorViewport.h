@@ -173,7 +173,8 @@ public:
 	virtual void SetCameraSpeedSetting(int32 SpeedSetting) override;
 	virtual float GetCameraSpeedScalar() const override;
 	virtual void SetCameraSpeedScalar(float SpeedScalar) override;
-	virtual void ReceivedFocus(FViewport* Viewport) override;
+	virtual void ReceivedFocus(FViewport* InViewport) override;
+	virtual void LostFocus(FViewport* InViewport) override;
 	virtual void ProcessClick(FSceneView& View, HHitProxy* HitProxy, FKey Key, EInputEvent Event, uint32 HitX, uint32 HitY) override;
 	virtual UWorld* GetWorld() const override;
 	virtual void BeginCameraMovement(bool bHasMovement) override;

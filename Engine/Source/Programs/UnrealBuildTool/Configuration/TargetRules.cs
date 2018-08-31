@@ -1114,10 +1114,8 @@ namespace UnrealBuildTool
 			foreach(object ConfigurableObject in GetConfigurableObjects())
 			{
 				ConfigCache.ReadSettings(DirectoryReference.FromFile(ProjectFile), Platform, ConfigurableObject);
+				XmlConfig.ApplyTo(ConfigurableObject);
 			}
-
-			// Read settings from the XML config files
-			XmlConfig.ApplyTo(this);
 
 			// Allow the build platform to set defaults for this target
 			if(Platform != UnrealTargetPlatform.Unknown)

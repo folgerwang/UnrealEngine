@@ -6,7 +6,7 @@
 void FSourceEffectStereoDelay::Init(const FSoundEffectSourceInitData& InitData)
 {
 	bIsActive = true;
-	DelayStereo.Init(InitData.SampleRate);
+	DelayStereo.Init(InitData.SampleRate, InitData.NumSourceChannels);
 }
 
 void FSourceEffectStereoDelay::OnPresetChanged()
@@ -20,19 +20,9 @@ void FSourceEffectStereoDelay::OnPresetChanged()
 	DelayStereo.SetMode((Audio::EStereoDelayMode::Type)Settings.DelayMode);
 }
 
-void FSourceEffectStereoDelay::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectStereoDelay::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	if (InData.AudioFrame.Num() == 2)
-	{
-		DelayStereo.ProcessAudio(InData.AudioFrame[0], InData.AudioFrame[1], OutData.AudioFrame[0], OutData.AudioFrame[1]);
-	}
-	else
-	{
-		float OutLeft = 0.0f;
-		float OutRight = 0.0f;
-		DelayStereo.ProcessAudio(InData.AudioFrame[0], InData.AudioFrame[0], OutLeft, OutRight);
-		OutData.AudioFrame[0] = 0.5f * (OutLeft + OutRight);
-	}
+	DelayStereo.ProcessAudio(InData.InputSourceEffectBufferPtr, InData.NumSamples, OutAudioBufferData);
 }
 
 void USourceEffectStereoDelayPreset::SetSettings(const FSourceEffectStereoDelaySettings& InSettings)

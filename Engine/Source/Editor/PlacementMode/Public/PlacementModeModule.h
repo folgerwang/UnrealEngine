@@ -154,6 +154,8 @@ private:
 
 	TArray< TSharedPtr<FExtender> > ContentPaletteFiltersExtenders;
 	TArray< TSharedPtr<FExtender> > PaletteExtenders;
+
+	TMap<FString, FString> BasicShapeThumbnails;
 };
 
 IMPLEMENT_MODULE(FPlacementModeModule, PlacementMode);

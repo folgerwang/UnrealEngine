@@ -18,6 +18,7 @@
 #include "UObject/FrameworkObjectVersion.h"
 #include "UObject/FortniteMainBranchObjectVersion.h"
 #include "Engine/HLODProxy.h"
+#include "UObject/PropertyPortFlags.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -974,6 +975,13 @@ void ALODActor::OnCVarsChanged()
 
 void ALODActor::Serialize(FArchive& Ar)
 {
+#if WITH_EDITOR
+	if (Ar.GetPortFlags() & PPF_DuplicateForPIE && Ar.IsSaving())
+	{
+		Key = UHLODProxy::GenerateKeyForActor(this);
+	}
+#endif
+
 	Super::Serialize(Ar);
 #if WITH_EDITOR
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);

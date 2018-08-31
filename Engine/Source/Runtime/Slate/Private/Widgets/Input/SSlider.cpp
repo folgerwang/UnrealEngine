@@ -10,6 +10,8 @@ void SSlider::Construct( const SSlider::FArguments& InDeclaration )
 	Style = InDeclaration._Style;
 
 	IndentHandle = InDeclaration._IndentHandle;
+	bMouseUsesStep = InDeclaration._MouseUsesStep;
+	bRequiresControllerLock = InDeclaration._RequiresControllerLock;
 	LockedAttribute = InDeclaration._Locked;
 	Orientation = InDeclaration._Orientation;
 	StepSize = InDeclaration._StepSize;
@@ -39,7 +41,7 @@ int32 SSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 	FVector2D SliderEndPoint;
 
 	// calculate slider geometry as if it's a horizontal slider (we'll rotate it later if it's vertical)
-	const FVector2D HandleSize = Style->NormalThumbImage.ImageSize;
+	const FVector2D HandleSize = GetThumbImage()->ImageSize;
 	const FVector2D HalfHandleSize = 0.5f * HandleSize;
 	const float Indentation = IndentHandle.Get() ? HandleSize.X : 0.0f;
 
@@ -78,7 +80,7 @@ int32 SSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 		OutDrawElements,
 		LayerId,
 		SliderGeometry.ToPaintGeometry(BarTopLeft, BarSize),
-		LockedAttribute.Get() ? &Style->DisabledBarImage : &Style->NormalBarImage,
+		GetBarImage(),
 		DrawEffects,
 		SliderBarColor.Get().GetColor(InWidgetStyle) * InWidgetStyle.GetColorAndOpacityTint()
 		);
@@ -89,8 +91,8 @@ int32 SSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 	FSlateDrawElement::MakeBox( 
 		OutDrawElements,
 		LayerId,
-		SliderGeometry.ToPaintGeometry(HandleTopLeftPoint, Style->NormalThumbImage.ImageSize),
-		LockedAttribute.Get() ? &Style->DisabledThumbImage : &Style->NormalThumbImage,
+		SliderGeometry.ToPaintGeometry(HandleTopLeftPoint, GetThumbImage()->ImageSize),
+		GetThumbImage(),
 		DrawEffects,
 		SliderHandleColor.Get().GetColor(InWidgetStyle) * InWidgetStyle.GetColorAndOpacityTint()
 	);
@@ -107,7 +109,8 @@ FVector2D SSlider::ComputeDesiredSize( float ) const
 		return SSliderDesiredSize;
 	}
 
-	const float Thickness = FMath::Max(Style->BarThickness, Style->NormalThumbImage.ImageSize.Y);
+	const float Thickness = FMath::Max(Style->BarThickness, 
+		FMath::Max(Style->NormalThumbImage.ImageSize.Y, Style->HoveredThumbImage.ImageSize.Y));
 
 	if (Orientation == Orient_Vertical)
 	{
@@ -151,7 +154,8 @@ FReply SSlider::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEve
 		// The controller's bottom face button must be pressed once to begin manipulating the slider's value.
 		// Navigation away from the widget is prevented until the button has been pressed again or focus is lost.
 		// The value can be manipulated by using the game pad's directional arrows ( relative to slider orientation ).
-		if (KeyPressed == EKeys::Enter || KeyPressed == EKeys::SpaceBar || KeyPressed == EKeys::Virtual_Accept)
+		if ((KeyPressed == EKeys::Enter || KeyPressed == EKeys::SpaceBar || KeyPressed == EKeys::Virtual_Accept)
+			&& bRequiresControllerLock)
 		{
 			if (bControllerInputCaptured == false)
 			{
@@ -167,7 +171,7 @@ FReply SSlider::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEve
 			}
 		}
 
-		if (bControllerInputCaptured)
+		if (bControllerInputCaptured || !bRequiresControllerLock)
 		{
 			float NewValue = ValueAttribute.Get();
 			if (Orientation == EOrientation::Orient_Horizontal)
@@ -175,10 +179,12 @@ FReply SSlider::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEve
 				if (KeyPressed == EKeys::Left || KeyPressed == EKeys::Gamepad_DPad_Left || KeyPressed == EKeys::Gamepad_LeftStick_Left)
 				{
 					NewValue -= StepSize.Get();
+					Reply = FReply::Handled();
 				}
 				else if (KeyPressed == EKeys::Right || KeyPressed == EKeys::Gamepad_DPad_Right || KeyPressed == EKeys::Gamepad_LeftStick_Right)
 				{
 					NewValue += StepSize.Get();
+					Reply = FReply::Handled();
 				}
 			}
 			else
@@ -186,15 +192,20 @@ FReply SSlider::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEve
 				if (KeyPressed == EKeys::Down || KeyPressed == EKeys::Gamepad_DPad_Down || KeyPressed == EKeys::Gamepad_LeftStick_Down)
 				{
 					NewValue -= StepSize.Get();
+					Reply = FReply::Handled();
 				}
 				else if (KeyPressed == EKeys::Up || KeyPressed == EKeys::Gamepad_DPad_Up || KeyPressed == EKeys::Gamepad_LeftStick_Up)
 				{
 					NewValue += StepSize.Get();
+					Reply = FReply::Handled();
 				}
 			}
 
 			CommitValue(FMath::Clamp(NewValue, 0.0f, 1.0f));
-			Reply = FReply::Handled();
+			if (!Reply.IsEventHandled())
+			{
+				Reply = SLeafWidget::OnKeyDown(MyGeometry, InKeyEvent);
+			}
 		}
 		else
 		{
@@ -294,7 +305,7 @@ float SSlider::PositionToValue( const FGeometry& MyGeometry, const FVector2D& Ab
 	float RelativeValue;
 	float Denominator;
 	// Only need X as we rotate the thumb image when rendering vertically
-	const float Indentation = Style->NormalThumbImage.ImageSize.X * (IndentHandle.Get() ? 2.f : 1.f);
+	const float Indentation = GetThumbImage()->ImageSize.X * (IndentHandle.Get() ? 2.f : 1.f);
 	const float HalfIndentation = 0.5f * Indentation;
 
 	if (Orientation == Orient_Horizontal)
@@ -308,8 +319,55 @@ float SSlider::PositionToValue( const FGeometry& MyGeometry, const FVector2D& Ab
 		// Inverse the calculation as top is 0 and bottom is 1
 		RelativeValue = (Denominator != 0.f) ? ((MyGeometry.Size.Y - LocalPosition.Y) - HalfIndentation) / Denominator : 0.f;
 	}
-	
-	return FMath::Clamp(RelativeValue, 0.0f, 1.0f);
+
+	RelativeValue = FMath::Clamp(RelativeValue, 0.0f, 1.0f);
+	if (bMouseUsesStep)
+	{
+		float direction = ValueAttribute.Get() - RelativeValue;
+		if (direction > StepSize.Get() / 2.0f)
+		{
+			return FMath::Clamp(ValueAttribute.Get() - StepSize.Get(), 0.0f, 1.0f);
+		}
+		else if (direction < StepSize.Get() / -2.0f)
+		{
+			return FMath::Clamp(ValueAttribute.Get() + StepSize.Get(), 0.0f, 1.0f);
+		}
+		else
+		{
+			return ValueAttribute.Get();
+		}
+	}
+	return RelativeValue;
+}
+
+const FSlateBrush* SSlider::GetBarImage() const {
+	if (!IsEnabled() || LockedAttribute.Get())
+	{
+		return &Style->DisabledBarImage;
+	}
+	else if (IsHovered())
+	{
+		return &Style->HoveredBarImage;
+	}
+	else
+	{
+		return &Style->NormalBarImage;
+	}
+}
+
+const FSlateBrush* SSlider::GetThumbImage() const {
+	if (!IsEnabled() || LockedAttribute.Get())
+	{
+		return &Style->DisabledThumbImage;
+	}
+	else if (IsHovered())
+	{
+		return &Style->HoveredThumbImage;
+	}
+	else
+	{
+		return &Style->NormalThumbImage;
+	}
 }
 
 float SSlider::GetValue() const
@@ -356,3 +414,12 @@ void SSlider::SetStepSize(const TAttribute<float>& InStepSize)
 {
 	StepSize = InStepSize;
 }
+
+void SSlider::SetMouseUsesStep(bool MouseUsesStep) {
+	bMouseUsesStep = MouseUsesStep;
+}
+
+void SSlider::SetRequiresControllerLock(bool RequiresControllerLock) {
+	bRequiresControllerLock = RequiresControllerLock;
+}
+

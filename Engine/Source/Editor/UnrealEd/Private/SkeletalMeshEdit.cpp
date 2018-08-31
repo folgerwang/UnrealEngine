@@ -153,7 +153,7 @@ bool UEditorEngine::ReimportFbxAnimation( USkeleton* Skeleton, UAnimSequence* An
 		// @hack to make sure skeleton is set before opening the dialog
 		FbxImporter->ImportOptions->SkeletonForAnimation = Skeleton;
 
-		GetImportOptions(FbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, AnimSequence->GetPathName(), bImportOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_Animation, AnimSequence);
+		GetImportOptions(FbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, AnimSequence->GetPathName(), bImportOperationCanceled, bOutImportAll, bIsObjFormat, InFilename, bForceImportType, FBXIT_Animation, AnimSequence);
 
 		if (bImportOperationCanceled)
 		{
@@ -240,12 +240,24 @@ bool UEditorEngine::ReimportFbxAnimation( USkeleton* Skeleton, UAnimSequence* An
 					int32 ResampleRate = DEFAULT_SAMPLERATE;
 					if (FbxImporter->ImportOptions->bResample)
 					{
-						ResampleRate = FbxImporter->GetMaxSampleRate(SortedLinks, FBXMeshNodeArray);
+						if(FbxImporter->ImportOptions->ResampleRate > 0)
+						{
+							ResampleRate = FbxImporter->ImportOptions->ResampleRate;
+						}
+						else
+						{
+							int32 BestResampleRate = FbxImporter->GetMaxSampleRate(SortedLinks, FBXMeshNodeArray);
+							if(BestResampleRate > 0)
+							{
+								ResampleRate = BestResampleRate;
+							}
+						}
 					}
-					FbxTimeSpan AnimTimeSpan = FbxImporter->GetAnimationTimeSpan(SortedLinks[0], CurAnimStack, ResampleRate);
+					FbxTimeSpan AnimTimeSpan = FbxImporter->GetAnimationTimeSpan(SortedLinks[0], CurAnimStack);
 					// for now it's not importing morph - in the future, this should be optional or saved with asset
 					if (FbxImporter->ValidateAnimStack(SortedLinks, FBXMeshNodeArray, CurAnimStack, ResampleRate, bImportMorphTracks, AnimTimeSpan))
 					{
+						AnimSequence->ImportResampleFramerate = ResampleRate;
 						FbxImporter->ImportAnimation(Skeleton, AnimSequence, Filename, SortedLinks, FBXMeshNodeArray, CurAnimStack, ResampleRate, AnimTimeSpan);
 					}
 				}
@@ -342,10 +354,8 @@ bool UnFbx::FFbxImporter::IsValidAnimationData(TArray<FbxNode*>& SortedLinks, TA
 			UE_LOG(LogFbx, Log, TEXT("SortedLinks :(%d) %s"), BoneIndex, *BoneName );
 		}
 
-		//@note: the reason we give default sample rate is because we just want to make sure it has duration
-		// we don't want to accept input of [20, 20], but the sample rate should be recalculated after this verification
-		// and proper timeline will be calculated
-		FbxTimeSpan AnimTimeSpan = GetAnimationTimeSpan(SortedLinks[0], CurAnimStack, DEFAULT_SAMPLERATE);
+		//The animation timespan must use the original fbx framerate so the frame number match the DCC frame number
+		FbxTimeSpan AnimTimeSpan = GetAnimationTimeSpan(SortedLinks[0], CurAnimStack);
 		if (AnimTimeSpan.GetDuration() <= 0)
 		{
 			AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("FBXImport_ZeroLength", "Animation Stack {0} does not contain any valid key. Try different time options when import."), FText::FromString(UTF8_TO_TCHAR(CurAnimStack->GetName())))), FFbxErrors::Animation_ZeroLength);
@@ -448,13 +458,13 @@ void UnFbx::FFbxImporter::FillAndVerifyBoneNames(USkeleton* Skeleton, TArray<Fbx
 //
 //-------------------------------------------------------------------------
 
-FbxTimeSpan UnFbx::FFbxImporter::GetAnimationTimeSpan(FbxNode* RootNode, FbxAnimStack* AnimStack, int32 ResampleRate)
+FbxTimeSpan UnFbx::FFbxImporter::GetAnimationTimeSpan(FbxNode* RootNode, FbxAnimStack* AnimStack)
 {
 	FBXImportOptions* ImportOption = GetImportOptions();
 	FbxTimeSpan AnimTimeSpan(FBXSDK_TIME_INFINITE, FBXSDK_TIME_MINUS_INFINITE);
 	if (ImportOption)
 	{
-		bool bUseDefault = ImportOption->AnimationLengthImportType == FBXALIT_ExportedTime || ResampleRate == 0;
+		bool bUseDefault = ImportOption->AnimationLengthImportType == FBXALIT_ExportedTime || FMath::IsNearlyZero(OriginalFbxFramerate, KINDA_SMALL_NUMBER);
 		if  (bUseDefault)
 		{
 			AnimTimeSpan = AnimStack->GetLocalTimeSpan();
@@ -478,28 +488,28 @@ FbxTimeSpan UnFbx::FFbxImporter::GetAnimationTimeSpan(FbxNode* RootNode, FbxAnim
 			AnimTimeSpan.SetStart(StartTime);
 			AnimTimeSpan.SetStop(StopTime);
 
-			FbxTime EachFrame = FBXSDK_TIME_ONE_SECOND/ResampleRate;
+			FbxTime EachFrame = FBXSDK_TIME_ONE_SECOND/OriginalFbxFramerate;
 			int32 StartFrame = StartTime.Get()/EachFrame.Get();
 			int32 StopFrame = StopTime.Get()/EachFrame.Get();
 			if (StartFrame != StopFrame)
 			{
 				FbxTime Duration = AnimTimeSpan.GetDuration();
 
-				ImportOption->AnimationRange.X = FMath::Clamp<int32>(ImportOption->AnimationRange.X, StartFrame, StopFrame);
-				ImportOption->AnimationRange.Y = FMath::Clamp<int32>(ImportOption->AnimationRange.Y, StartFrame, StopFrame);
+				int32 AnimRangeX = FMath::Clamp<int32>(ImportOption->AnimationRange.X, StartFrame, StopFrame);
+				int32 AnimRangeY = FMath::Clamp<int32>(ImportOption->AnimationRange.Y, StartFrame, StopFrame);
 
 				FbxLongLong Interval = EachFrame.Get();
 
 				// now set new time
-				if (StartFrame != ImportOption->AnimationRange.X)
+				if (StartFrame != AnimRangeX)
 				{
-					FbxTime NewTime(ImportOption->AnimationRange.X*Interval);
+					FbxTime NewTime(AnimRangeX*Interval);
 					AnimTimeSpan.SetStart(NewTime);
 				}
 
-				if (StopFrame != ImportOption->AnimationRange.Y)
+				if (StopFrame != AnimRangeY)
 				{
-					FbxTime NewTime(ImportOption->AnimationRange.Y*Interval);
+					FbxTime NewTime(AnimRangeY*Interval);
 					AnimTimeSpan.SetStop(NewTime);
 				}
 			}
@@ -531,22 +541,28 @@ UAnimSequence * UnFbx::FFbxImporter::ImportAnimations(USkeleton* Skeleton, UObje
 	int32 ResampleRate = DEFAULT_SAMPLERATE;
 	if ( ImportOptions->bResample )
 	{
-		// For FBX data, "Frame Rate" is just the speed at which the animation is played back.  It can change
-		// arbitrarily, and the underlying data can stay the same.  What we really want here is the Sampling Rate,
-		// ie: the number of animation keys per second.  These are the individual animation curve keys
-		// on the FBX nodes of the skeleton.  So we loop through the nodes of the skeleton and find the maximum number 
-		// of keys that any node has, then divide this by the total length (in seconds) of the animation to find the 
-		// sampling rate of this set of data 
-
-		// we want the maximum resample rate, so that we don't lose any precision of fast anims,
-		// and don't mind creating lerped frames for slow anims
-		int32 MaxStackResampleRate = GetMaxSampleRate(SortedLinks, NodeArray);
-
-		if(MaxStackResampleRate != 0)
+		if (ImportOptions->ResampleRate > 0)
 		{
-			ResampleRate = MaxStackResampleRate;
+			ResampleRate = ImportOptions->ResampleRate;
 		}
+		else
+		{
+			// For FBX data, "Frame Rate" is just the speed at which the animation is played back.  It can change
+			// arbitrarily, and the underlying data can stay the same.  What we really want here is the Sampling Rate,
+			// ie: the number of animation keys per second.  These are the individual animation curve keys
+			// on the FBX nodes of the skeleton.  So we loop through the nodes of the skeleton and find the maximum number 
+			// of keys that any node has, then divide this by the total length (in seconds) of the animation to find the 
+			// sampling rate of this set of data 
 
+			// we want the maximum resample rate, so that we don't lose any precision of fast anims,
+			// and don't mind creating lerped frames for slow anims
+			int32 BestResampleRate = GetMaxSampleRate(SortedLinks, NodeArray);
+
+			if (BestResampleRate > 0)
+			{
+				ResampleRate = BestResampleRate;
+			}
+		}
 	}
 
 	int32 AnimStackCount = Scene->GetSrcObjectCount<FbxAnimStack>();
@@ -554,7 +570,7 @@ UAnimSequence * UnFbx::FFbxImporter::ImportAnimations(USkeleton* Skeleton, UObje
 	{
 		FbxAnimStack* CurAnimStack = Scene->GetSrcObject<FbxAnimStack>(AnimStackIndex);
 
-		FbxTimeSpan AnimTimeSpan = GetAnimationTimeSpan(SortedLinks[0], CurAnimStack, ResampleRate);
+		FbxTimeSpan AnimTimeSpan = GetAnimationTimeSpan(SortedLinks[0], CurAnimStack);
 		bool bValidAnimStack = ValidateAnimStack(SortedLinks, NodeArray, CurAnimStack, ResampleRate, ImportOptions->bImportMorph, AnimTimeSpan);
 		// no animation
 		if (!bValidAnimStack)
@@ -603,6 +619,8 @@ UAnimSequence * UnFbx::FFbxImporter::ImportAnimations(USkeleton* Skeleton, UObje
 		UFbxAnimSequenceImportData* ImportData = UFbxAnimSequenceImportData::GetImportDataForAnimSequence(DestSeq, TemplateImportData);
 		ImportData->Update(UFactory::GetCurrentFilename(), &Md5Hash);
 		ImportData->SourceAnimationName = SourceAnimationName;
+		DestSeq->ImportFileFramerate = GetOriginalFbxFramerate();
+		DestSeq->ImportResampleFramerate = ResampleRate;
 
 		ImportAnimation(Skeleton, DestSeq, Name, SortedLinks, NodeArray, CurAnimStack, ResampleRate, AnimTimeSpan);
 
@@ -712,10 +730,7 @@ int32 UnFbx::FFbxImporter::GetMaxSampleRate(TArray<FbxNode*>& SortedLinks, TArra
 	{
 		FbxAnimStack* CurAnimStack = Scene->GetSrcObject<FbxAnimStack>(AnimStackIndex);
 
-		// @note: here we iterate through all timeline to figure out sample rate, not just in range
-		// we have chicken/egg problem if we don't. We need samplerate to figure out time range for the (start, end)
-		// so when you get time range for the sample rate, we just walk through all range
-		FbxTimeSpan AnimStackTimeSpan = GetAnimationTimeSpan(SortedLinks[0], CurAnimStack, 0);
+		FbxTimeSpan AnimStackTimeSpan = GetAnimationTimeSpan(SortedLinks[0], CurAnimStack);
 
 		double AnimStackStart = AnimStackTimeSpan.GetStart().GetSecondDouble();
 		double AnimStackStop = AnimStackTimeSpan.GetStop().GetSecondDouble();
@@ -836,7 +851,7 @@ bool UnFbx::FFbxImporter::ValidateAnimStack(TArray<FbxNode*>& SortedLinks, TArra
 
 	bool bValidAnimStack = true;
 
-	AnimTimeSpan = GetAnimationTimeSpan(SortedLinks[0], CurAnimStack, ResampleRate);
+	AnimTimeSpan = GetAnimationTimeSpan(SortedLinks[0], CurAnimStack);
 	
 	// if no duration is found, return false
 	if (AnimTimeSpan.GetDuration() <= 0)

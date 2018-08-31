@@ -47,7 +47,7 @@ TSharedPtr<FFbxImporter> FFbxImporter::StaticPreviewInstance;
 
 
 
-FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& bOutImportAll, bool bIsObjFormat, bool bForceImportType, EFBXImportType ImportType, UObject* ReimportObject)
+FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& bOutImportAll, bool bIsObjFormat, const FString& InFilename, bool bForceImportType, EFBXImportType ImportType, UObject* ReimportObject)
 {
 	OutOperationCanceled = false;
 
@@ -102,6 +102,58 @@ FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImport
 
 		//This option must always be the same value has the skeletalmesh one.
 		ImportUI->AnimSequenceImportData->bImportMeshesInBoneHierarchy = ImportUI->SkeletalMeshImportData->bImportMeshesInBoneHierarchy;
+
+		//////////////////////////////////////////////////////////////////////////
+		// Set the information section data
+		
+		//Make sure the file is open to be able to read the header before showing the options
+		//If the file is already open it will simply return false.
+		FbxImporter->ReadHeaderFromFile(InFilename, true);
+
+		ImportUI->FileVersion = FbxImporter->GetFbxFileVersion();
+		ImportUI->FileCreator = FbxImporter->GetFileCreator();
+		// do analytics on getting Fbx data
+		FbxDocumentInfo* DocInfo = FbxImporter->Scene->GetSceneInfo();
+		if (DocInfo)
+		{
+			FString LastSavedVendor(UTF8_TO_TCHAR(DocInfo->LastSaved_ApplicationVendor.Get().Buffer()));
+			FString LastSavedAppName(UTF8_TO_TCHAR(DocInfo->LastSaved_ApplicationName.Get().Buffer()));
+			FString LastSavedAppVersion(UTF8_TO_TCHAR(DocInfo->LastSaved_ApplicationVersion.Get().Buffer()));
+
+			ImportUI->FileCreatorApplication = LastSavedVendor + TEXT(" ") + LastSavedAppName + TEXT(" ") + LastSavedAppVersion;
+		}
+		else
+		{
+			ImportUI->FileCreatorApplication = TEXT("");
+		}
+
+		ImportUI->FileUnits = FbxImporter->GetFileUnitSystem();
+
+		ImportUI->FileAxisDirection = FbxImporter->GetFileAxisDirection();
+
+		//Set the info original file frame rate
+		ImportUI->FileSampleRate = FString::Printf(TEXT("%.2f"), FbxImporter->GetOriginalFbxFramerate());
+
+		//Set the info start time and the end time
+		ImportUI->AnimStartFrame = TEXT("0");
+		ImportUI->AnimEndFrame = TEXT("0");
+		FbxTimeSpan AnimTimeSpan(FBXSDK_TIME_INFINITE, FBXSDK_TIME_MINUS_INFINITE);
+		int32 AnimStackCount = FbxImporter->Scene->GetSrcObjectCount<FbxAnimStack>();
+		for (int32 AnimStackIndex = 0; AnimStackIndex < AnimStackCount; AnimStackIndex++)
+		{
+			FbxAnimStack* CurAnimStack = FbxImporter->Scene->GetSrcObject<FbxAnimStack>(AnimStackIndex);
+			FbxTimeSpan AnimatedInterval(FBXSDK_TIME_INFINITE, FBXSDK_TIME_MINUS_INFINITE);
+			FbxImporter->Scene->GetRootNode()->GetAnimationInterval(AnimatedInterval, CurAnimStack);
+			// find the most range that covers by both method, that'll be used for clamping
+			AnimTimeSpan.SetStart(FMath::Min<FbxTime>(AnimTimeSpan.GetStart(), AnimatedInterval.GetStart()));
+			AnimTimeSpan.SetStop(FMath::Max<FbxTime>(AnimTimeSpan.GetStop(), AnimatedInterval.GetStop()));
+		}
+		if (AnimTimeSpan.GetStart() != FBXSDK_TIME_INFINITE)
+		{
+			FbxTime EachFrame = FBXSDK_TIME_ONE_SECOND / FbxImporter->GetOriginalFbxFramerate();
+			ImportUI->AnimStartFrame = FString::FromInt(AnimTimeSpan.GetStart().Get() / EachFrame.Get());
+			ImportUI->AnimEndFrame = FString::FromInt(AnimTimeSpan.GetStop().Get() / EachFrame.Get());
+		}
 
 		TSharedPtr<SWindow> ParentWindow;
 
@@ -341,6 +393,7 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	InOutImportOptions.AnimationName = ImportUI->OverrideAnimationName;
 	// only re-sample if they don't want to use default sample rate
 	InOutImportOptions.bResample = !ImportUI->AnimSequenceImportData->bUseDefaultSampleRate;
+	InOutImportOptions.ResampleRate = ImportUI->AnimSequenceImportData->CustomSampleRate;
 	InOutImportOptions.bPreserveLocalTransform = ImportUI->AnimSequenceImportData->bPreserveLocalTransform;
 	InOutImportOptions.bDeleteExistingMorphTargetCurves = ImportUI->AnimSequenceImportData->bDeleteExistingMorphTargetCurves;
 	InOutImportOptions.bRemoveRedundantKeys = ImportUI->AnimSequenceImportData->bRemoveRedundantKeys;
@@ -999,6 +1052,47 @@ void FFbxImporter::EnsureNodeNameAreValid()
 	}
 }
 
+FString FFbxImporter::GetFileAxisDirection()
+{
+	FString AxisDirection;
+	int32 Sign = 1;
+	switch (FileAxisSystem.GetUpVector(Sign))
+	{
+	case FbxAxisSystem::eXAxis:
+		{
+			AxisDirection += TEXT("X");
+		}
+		break;
+	case FbxAxisSystem::eYAxis:
+		{
+			AxisDirection += TEXT("Y");
+		}
+		break;
+	case FbxAxisSystem::eZAxis:
+		{
+			AxisDirection += TEXT("Z");
+		}
+		break;
+	}
+	//Negative sign mean down instead of up
+	AxisDirection += Sign == 1 ? TEXT("-UP") : TEXT("-DOWN");
+		
+	switch (FileAxisSystem.GetCoorSystem())
+	{
+	case FbxAxisSystem::eLeftHanded:
+		{
+			AxisDirection += TEXT(" (LH)");
+		}
+		break;
+	case FbxAxisSystem::eRightHanded:
+		{
+			AxisDirection += TEXT(" (RH)");
+		}
+		break;
+	}
+	return AxisDirection;
+}
+
 #ifdef IOS_REF
 #undef  IOS_REF
 #define IOS_REF (*(SdkManager->GetIOSettings()))
@@ -1049,7 +1143,8 @@ bool FFbxImporter::ImportFile(FString Filename, bool bPreventMaterialNameClash /
 	// Get the version number of the FBX file format.
 	Importer->GetFileVersion(FileMajor, FileMinor, FileRevision);
 	FbxFileVersion = FString::Printf(TEXT("%d.%d.%d"), FileMajor, FileMinor, FileRevision);
-
+	
+	FbxFileCreator = UTF8_TO_TCHAR(Importer->GetFileHeaderInfo()->mCreator.Buffer());
 	// output result
 	if(bStatus)
 	{
@@ -1065,7 +1160,12 @@ bool FFbxImporter::ImportFile(FString Filename, bool bPreventMaterialNameClash /
 		Result = false;
 		CurPhase = NOTSTARTED;
 	}
-	
+
+	const FbxGlobalSettings& GlobalSettings = Scene->GetGlobalSettings();
+	FbxTime::EMode TimeMode = GlobalSettings.GetTimeMode();
+	//Set the original framerate from the current fbx file
+	OriginalFbxFramerate = FbxTime::GetFrameRate(TimeMode);
+
 	return Result;
 }
 
@@ -1118,6 +1218,33 @@ void FFbxImporter::ConvertScene()
 
 	//Reset all the transform evaluation cache since we change some node transform
 	Scene->GetAnimationEvaluator()->Reset();
+}
+
+//-------------------------------------------------------------------------
+//
+//-------------------------------------------------------------------------
+bool FFbxImporter::ReadHeaderFromFile(const FString& Filename, bool bPreventMaterialNameClash /*= false*/)
+{
+	bool Result = true;
+
+
+	switch (CurPhase)
+	{
+	case NOTSTARTED:
+		if (!OpenFile(FString(Filename)))
+		{
+			Result = false;
+			break;
+		}
+	case FILEOPENED:
+		if (!ImportFile(FString(Filename), bPreventMaterialNameClash))
+		{
+			Result = false;
+			CurPhase = NOTSTARTED;
+			break;
+		}
+	}
+	return Result;
 }
 
 //-------------------------------------------------------------------------

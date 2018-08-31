@@ -19,7 +19,7 @@ namespace Audio
 		~FRingModulation();
 
 		// Initialize the equalizer
-		void Init(const float InSampleRate);
+		void Init(const float InSampleRate, const int32 InNumChannels);
 
 		// The type of modulation
 		void SetModulatorWaveType(const EOsc::Type InType);
@@ -30,13 +30,25 @@ namespace Audio
 		// Set the ring modulation depth
 		void SetModulationDepth(const float InModulationDepth);
 
+		// Set the dry level of the ring modulation
+		void SetDryLevel(const float InDryLevel) { DryLevel = InDryLevel; }
+
+		// Set the wet level of the ring modulation
+		void SetWetLevel(const float InWetLevel) { WetLevel = InWetLevel; }
+
 		// Processes the audio frame (audio frame must have channels equal to that used during initialization)
-		void ProcessAudio(const float InLeftSample, const float InRightSample, float& OutLeftSample, float& OutRightSample);
+		void ProcessAudioFrame(const float* InFrame, float* OutFrame);
+
+		// Process audio buffer
+		void ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer);
 
 	private:
 		Audio::FOsc Osc;
 		float ModulationFrequency;
 		float ModulationDepth;
+		float DryLevel;
+		float WetLevel;
+		int32 NumChannels;
 	};
 
 }

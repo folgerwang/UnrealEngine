@@ -82,7 +82,7 @@ namespace UnrealGameSync
 
 		public override Size Measure(Graphics Graphics, StatusElementResources Resources)
 		{
-			return Icon.Size;
+			return new Size((int)(Icon.Width * Graphics.DpiX / 96.0f), (int)(Icon.Height * Graphics.DpiY / 96.0f));
 		}
 
 		public override void Draw(Graphics Graphics, StatusElementResources Resources)
@@ -106,7 +106,7 @@ namespace UnrealGameSync
 
 		public override Size Measure(Graphics Graphics, StatusElementResources Resources)
 		{
-			return IconSize;
+			return new Size((int)(IconSize.Width * Graphics.DpiX / 96.0f), (int)(IconSize.Height * Graphics.DpiY / 96.0f));
 		}
 
 		public override void Draw(Graphics Graphics, StatusElementResources Resources)
@@ -543,7 +543,7 @@ namespace UnrealGameSync
 			int BodyHeight = Height;
 			if(Alert != null)
 			{
-				AlertDividerY = Height - Font.Height - 16;
+				AlertDividerY = Height - (int)(Font.Height * 2);
 				Alert.Layout(Graphics, Point.Empty, Resources);
 				Alert.Layout(Graphics, new Point((Width - Alert.Bounds.Width) / 2, (Height + AlertDividerY) / 2), Resources);
 				BodyHeight = AlertDividerY;
@@ -551,7 +551,7 @@ namespace UnrealGameSync
 
 			// Get the logo size
 			Image DrawProjectLogo = ProjectLogo ?? Properties.Resources.DefaultProjectLogo;
-			float LogoScale = Math.Min((float)BodyHeight - ((Caption != null)? Font.Height : 0) / DrawProjectLogo.Height, 1.0f);
+			float LogoScale = Math.Min((float)BodyHeight - ((Caption != null)? Font.Height : 0) / DrawProjectLogo.Height, Graphics.DpiY / 96.0f);
 			int LogoWidth = (int)(DrawProjectLogo.Width * LogoScale);
 			int LogoHeight = (int)(DrawProjectLogo.Height * LogoScale);
 

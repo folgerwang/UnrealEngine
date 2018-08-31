@@ -65,6 +65,13 @@ public:
 		return Ar;
 	}
 
+	/** Compacts elements and returns a remapping table */
+	void Compact( TSparseArray<int32>& OutIndexRemap );
+
+	/** Remaps elements according to the passed remapping table */
+	void Remap( const TSparseArray<int32>& IndexRemap );
+
+
 protected:
 
 	/** The actual container, represented by a sparse array */
@@ -77,7 +84,7 @@ protected:
  * This derived class imposes this type safety.
  */
 template <typename ElementType, typename ElementIDType>
-class TMeshElementArray : public TMeshElementArrayBase<ElementType>
+class TMeshElementArray final : public TMeshElementArrayBase<ElementType>
 {
 	static_assert( TIsDerivedFrom<ElementIDType, FElementID>::IsDerived, "ElementIDType must be derived from FElementID" );
 
@@ -172,12 +179,6 @@ public:
 		return Ar;
 	}
 
-	/** Compacts elements and returns a remapping table */
-	void Compact( TSparseArray<ElementIDType>& OutIndexRemap );
-
-	/** Remaps elements according to the passed remapping table */
-	void Remap( const TSparseArray<ElementIDType>& IndexRemap );
-
 	/**
 	 * This is a special type of iterator which returns successive IDs of valid elements, rather than
 	 * the elements themselves.
@@ -255,8 +256,8 @@ public:
 };
 
 
-template <typename ElementType, typename ElementIDType>
-void TMeshElementArray<ElementType, ElementIDType>::Compact( TSparseArray<ElementIDType>& OutIndexRemap )
+template <typename ElementType>
+void TMeshElementArrayBase<ElementType>::Compact( TSparseArray<int32>& OutIndexRemap )
 {
 	static TSparseArray<ElementType> NewContainer;
 	NewContainer.Empty( Container.Num() );
@@ -273,15 +274,15 @@ void TMeshElementArray<ElementType, ElementIDType>::Compact( TSparseArray<Elemen
 		NewContainer[ NewElementIndex ] = MoveTemp( *It );
 
 		// Provide an O(1) lookup from old index to new index, used when patching up vertex references afterwards
-		OutIndexRemap.Insert( OldElementIndex, ElementIDType( NewElementIndex ) );
+		OutIndexRemap.Insert( OldElementIndex, NewElementIndex );
 	}
 
 	Container = MoveTemp( NewContainer );
 }
 
 
-template <typename ElementType, typename ElementIDType>
-void TMeshElementArray<ElementType, ElementIDType>::Remap( const TSparseArray<ElementIDType>& IndexRemap )
+template <typename ElementType>
+void TMeshElementArrayBase<ElementType>::Remap( const TSparseArray<int32>& IndexRemap )
 {
 	static TSparseArray<ElementType> NewContainer;
 	NewContainer.Empty( IndexRemap.GetMaxIndex() );
@@ -292,7 +293,7 @@ void TMeshElementArray<ElementType, ElementIDType>::Remap( const TSparseArray<El
 		const int32 OldElementIndex = It.GetIndex();
 
 		check( IndexRemap.IsAllocated( OldElementIndex ) );
-		const int32 NewElementIndex = IndexRemap[ OldElementIndex ].GetValue();
+		const int32 NewElementIndex = IndexRemap[ OldElementIndex ];
 
 		// @todo mesheditor: implement TSparseArray::Insert( ElementType&& ) to save this obscure approach
 		NewContainer.Insert( NewElementIndex, ElementType() );

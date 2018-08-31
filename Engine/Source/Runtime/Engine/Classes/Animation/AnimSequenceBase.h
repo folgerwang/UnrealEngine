@@ -105,9 +105,10 @@ class ENGINE_API UAnimSequenceBase : public UAnimationAsset
 
 	virtual const FRawCurveTracks& GetCurveData() const { return RawCurveData; }
 
-#if WITH_EDITOR
 	/** Return Number of Frames **/
 	virtual int32 GetNumberOfFrames() const;
+
+#if WITH_EDITOR
 
 	/** Get the frame number for the provided time */
 	virtual int32 GetFrameAtTime(const float Time) const;

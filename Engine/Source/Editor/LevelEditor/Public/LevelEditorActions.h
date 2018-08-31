@@ -654,6 +654,7 @@ public:
 	/** Toggles VR mode */
 	static void ToggleVR();
 	static bool ToggleVR_CanExecute();
+	static bool ToggleVR_IsButtonActive();
 	static bool ToggleVR_IsChecked();
 
 	/** Opens delta transform */

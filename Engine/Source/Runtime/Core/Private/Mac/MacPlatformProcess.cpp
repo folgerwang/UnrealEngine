@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "Mac/MacPlatformProcess.h"
+#include "Mac/MacPlatform.h"
 #include "Apple/ApplePlatformRunnableThread.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
@@ -672,6 +673,9 @@ FString FMacPlatformProcess::GetApplicationName( uint32 ProcessId )
 
 bool FMacPlatformProcess::IsSandboxedApplication()
 {
+	// Temporarily disabled as it can take 15 seconds or more to execute this function in Fortnite on a low spec Macs.
+	return false;
+#if 0
 	SCOPED_AUTORELEASE_POOL;
 	
 	bool bIsSandboxedApplication = false;
@@ -699,6 +703,7 @@ bool FMacPlatformProcess::IsSandboxedApplication()
 	}
 	
 	return bIsSandboxedApplication;
+#endif
 }
 
 void FMacPlatformProcess::CleanFileCache()
@@ -839,6 +844,17 @@ const TCHAR* FMacPlatformProcess::UserLogsDir()
 		FPlatformString::CFStringToTCHAR((CFStringRef)UserLibraryDirectory, Result);
 		FCString::Strcat(Result, TEXT("/Logs/"));
 		FCString::Strcat(Result, UserLibrarySubDirectory());
+	}
+	return Result;
+}
+
+const TCHAR* FMacPlatformProcess::UserHomeDir()
+{
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
+	if (!Result[0])
+	{
+		SCOPED_AUTORELEASE_POOL;
+		FPlatformString::CFStringToTCHAR((CFStringRef)NSHomeDirectory(), Result);
 	}
 	return Result;
 }

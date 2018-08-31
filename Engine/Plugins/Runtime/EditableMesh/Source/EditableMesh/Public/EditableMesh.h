@@ -98,8 +98,10 @@ public:
 	/** Remaps mesh element arrays according to the provided remappings, in order to undo a compact operation */
 	void Uncompact( const FElementIDRemappings& Remappings );
 
-	FMeshDescription* GetMeshDescription() const { return MeshDescription; }
 	void SetMeshDescription( FMeshDescription* InMeshDescription );
+
+	const FMeshDescription* GetMeshDescription() const { return MeshDescription; }
+	FMeshDescription* GetMeshDescription() { return MeshDescription; }
 
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void InitializeAdapters();
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void RebuildRenderMesh();

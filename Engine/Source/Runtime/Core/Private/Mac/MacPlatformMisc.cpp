@@ -643,29 +643,10 @@ int32 FMacPlatformMisc::NumberOfCoresIncludingHyperthreads()
 
 void FMacPlatformMisc::NormalizePath(FString& InPath)
 {
-	SCOPED_AUTORELEASE_POOL;
-	if (InPath.Len() > 1)
+	// only expand if path starts with ~, e.g. ~/ should be expanded, /~ should not
+	if (InPath.StartsWith(TEXT("~"), ESearchCase::CaseSensitive))	// case sensitive is quicker, and our substring doesn't care
 	{
-#if WITH_EDITOR
-		const bool bAppendSlash = InPath[InPath.Len() - 1] == '/'; // NSString will remove the trailing slash, if present, so we need to restore it after conversion
-		InPath = [[InPath.GetNSString() stringByStandardizingPath] stringByResolvingSymlinksInPath];
-		if (bAppendSlash)
-		{
-			InPath += TEXT("/");
-		}
-#else
-		InPath.ReplaceInline(TEXT("\\"), TEXT("/"));
-		// This replacement addresses a "bug" where some callers
-		// pass in paths that are badly composed with multiple
-		// subdir separators.
-		InPath.ReplaceInline(TEXT("//"), TEXT("/"));
-		if (!InPath.IsEmpty() && InPath[InPath.Len() - 1] == TEXT('/'))
-		{
-			InPath.LeftChop(1);
-		}
-		// Remove redundant current-dir references.
-		InPath.ReplaceInline(TEXT("/./"), TEXT("/"));
-#endif
+		InPath = InPath.Replace(TEXT("~"), FPlatformProcess::UserHomeDir(), ESearchCase::CaseSensitive);
 	}
 }
 
@@ -1567,6 +1548,9 @@ void FMacPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrash
 
 	if (!FMacApplicationInfo::CrashReporter && !GCrashMalloc)
 	{
+		FPlatformProcess::UserHomeDir(); // This may be called from the crash handler, so we call it here to initialize it early.
+										 // This way the crash handler will use a cached string and we will limit allocations and avoid creating an autorelease pool.
+
 		// Configure the crash handler malloc zone to reserve some VM space for itself
 		GCrashMalloc = new FMacMallocCrashHandler( 128 * 1024 * 1024 );
 		

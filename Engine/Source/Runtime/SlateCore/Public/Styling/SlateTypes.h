@@ -896,6 +896,11 @@ struct SLATECORE_API FSliderStyle : public FSlateWidgetStyle
 	FSlateBrush NormalBarImage;
 	FSliderStyle& SetNormalBarImage(const FSlateBrush& InNormalBarImage){ NormalBarImage = InNormalBarImage; return *this; }
 
+	/** Image to use when the slider bar is in its hovered state */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
+	FSlateBrush HoveredBarImage;
+	FSliderStyle& SetHoveredBarImage(const FSlateBrush& InHoveredBarImage){ HoveredBarImage = InHoveredBarImage; return *this; }
+
 	/** Image to use when the slider bar is in its disabled state */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Appearance)
 	FSlateBrush DisabledBarImage;
@@ -905,6 +910,11 @@ struct SLATECORE_API FSliderStyle : public FSlateWidgetStyle
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
 	FSlateBrush NormalThumbImage;
 	FSliderStyle& SetNormalThumbImage( const FSlateBrush& InNormalThumbImage ){ NormalThumbImage = InNormalThumbImage; return *this; }
+
+	/** Image to use when the slider thumb is in its hovered state */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
+	FSlateBrush HoveredThumbImage;
+	FSliderStyle& SetHoveredThumbImage( const FSlateBrush& InHoveredThumbImage ){ HoveredThumbImage = InHoveredThumbImage; return *this; }
 
 	/** Image to use when the slider thumb is in its disabled state */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)

@@ -5,9 +5,7 @@
 #include "Blueprint/UserWidget.h"
 #include "MovieScene.h"
 
-#if WITH_EDITOR
-	#include "Engine/UserDefinedStruct.h"
-#endif // WITH_EDITOR
+#include "Engine/UserDefinedStruct.h"
 #include "EdGraph/EdGraph.h"
 #include "Blueprint/WidgetTree.h"
 #include "Animation/WidgetAnimation.h"
@@ -16,16 +14,11 @@
 
 #include "Kismet2/CompilerResultsLog.h"
 #include "Binding/PropertyBinding.h"
-#include "Blueprint/WidgetTree.h"
 #include "Blueprint/WidgetBlueprintGeneratedClass.h"
 #include "UObject/PropertyTag.h"
-#include "WidgetBlueprint.h"
 #include "WidgetBlueprintCompiler.h"
-#include "Binding/PropertyBinding.h"
-#include "Engine/UserDefinedStruct.h"
 #include "UObject/EditorObjectVersion.h"
 #include "WidgetGraphSchema.h"
-#include "WidgetBlueprintCompiler.h"
 #include "UMGEditorProjectSettings.h"
 
 #if WITH_EDITOR
@@ -526,11 +519,9 @@ bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag
 
 UWidgetBlueprint::UWidgetBlueprint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, TickFrequency(EWidgetTickFrequency::Auto)
 	, SupportDynamicCreation(EWidgetSupportsDynamicCreation::Default)
+	, TickFrequency(EWidgetTickFrequency::Auto)
 {
-	WidgetTree = CreateDefaultSubobject<UWidgetTree>(TEXT("WidgetTree"));
-	WidgetTree->SetFlags(RF_Transactional);
 }
 
 void UWidgetBlueprint::ReplaceDeprecatedNodes()
@@ -766,60 +757,9 @@ bool UWidgetBlueprint::IsWidgetFreeFromCircularReferences(UUserWidget* UserWidge
 	return true;
 }
 
-TArray<UWidget*> UWidgetBlueprint::GetAllSourceWidgets()
-{
-	TArray<UWidget*> Ret;
-	ForEachSourceWidgetImpl( [&Ret](UWidget* Inner) { Ret.Push(Inner); } );
-	return Ret;
-}
-
-TArray<const UWidget*> UWidgetBlueprint::GetAllSourceWidgets() const
-{
-	TArray<const UWidget*> Ret;
-	ForEachSourceWidgetImpl( [&Ret](UWidget* Inner) { Ret.Push(Inner); } );
-	return Ret;
-}
-
-void UWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(UWidget*)> Fn)
-{
-	ForEachSourceWidgetImpl(Fn);
-}
-
-void UWidgetBlueprint::ForEachSourceWidget(TFunctionRef<void(const UWidget*)> Fn) const
-{
-	// This cast is pretty terrible, but it'll probably work (!) and saves us repeaeting the Impl code.
-	ForEachSourceWidgetImpl(*(const TFunctionRef<void(UWidget*)>*)&Fn);
-}
-
 UPackage* UWidgetBlueprint::GetWidgetTemplatePackage() const
 {
 	return GetOutermost();
-}
-
-void UWidgetBlueprint::ForEachSourceWidgetImpl (TFunctionRef<void(UWidget*)> Fn) const
-{
-	// This exists in order to facilitate working with collections of UWidgets wo/ 
-	// relying on user implemented UWidget virtual functions. During blueprint compilation
-	// it is bad practice to call those virtual functions until the class is fully formed
-	// and reinstancing has finished. For instance, GetDefaultObject() calls in those user
-	// functions may create a CDO before the class has been linked, or even before
-	// all member variables have been generated:
-	UWidgetTree* WidgetTreeForCapture = WidgetTree;
-	ForEachObjectWithOuter(
-		WidgetTree, 
-		[Fn, WidgetTreeForCapture](UObject* Inner)
-		{
-			if(UWidget* AsWidget = Cast<UWidget>(Inner))
-			{
-				// Widgets owned by another UWidgetBlueprint aren't really 'source' widgets, E.g. widgets
-				// created by the user *in this blueprint*
-				if(AsWidget->GetTypedOuter<UWidgetTree>() == WidgetTreeForCapture)
-				{
-					Fn(AsWidget);
-				}
-			}
-		}
-	);
 }
 
 static bool HasLatentActions(UEdGraph* Graph)

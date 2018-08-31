@@ -124,6 +124,9 @@ private:
 
 	/** Search box widget */
 	TSharedPtr<SSearchBox> FilterBox;
+	FText FilterText;
+
+	void OnFilterTextChanged(const FText& SearchText);
 
 	/** Tree view widget */
 	TSharedPtr<STreeView<TSharedPtr<FRigTreeJoint>>> TreeView;
@@ -147,6 +150,8 @@ private:
 
 	void ImportHierarchy(const FAssetData& InAssetData);
 	void CreateImportMenu(FMenuBuilder& MenuBuilder);
+	void CreateRefreshMenu(FMenuBuilder& MenuBuilder);
+	void RefreshHierarchy(const FAssetData& InAssetData);
 
 	FName CreateUniqueName(const FName& InBaseName) const;
 

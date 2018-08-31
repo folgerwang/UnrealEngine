@@ -724,7 +724,8 @@ void FPropertyEditor::SyncToObjectsInNode( const TWeakPtr< FPropertyNode >& Weak
 		}
 		else if( IntProp )
 		{
-			PropertyClass = IntProp->InterfaceClass;
+			// Note: this should be IntProp->InterfaceClass but we're using UObject as the class  to work around InterfaceClass not working with FindObject
+			PropertyClass = UObject::StaticClass();
 		}
 
 		// Get a list of addresses for objects handled by the property window.

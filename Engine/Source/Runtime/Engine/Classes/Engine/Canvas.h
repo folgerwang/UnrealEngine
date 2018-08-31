@@ -530,7 +530,7 @@ public:
 	 * @param OutlineColor				Color to render the outline for the text.
 	 */	
 	UFUNCTION(BlueprintCallable, Category=Canvas, meta=(DisplayName="Draw Text", ScriptName="DrawText"))
-	void K2_DrawText(UFont* RenderFont, const FString& RenderText, FVector2D ScreenPosition, FLinearColor RenderColor=FLinearColor::White, float Kerning=0.0f, FLinearColor ShadowColor=FLinearColor::Black, FVector2D ShadowOffset=FVector2D::UnitVector, bool bCentreX=false, bool bCentreY=false, bool bOutlined=false, FLinearColor OutlineColor=FLinearColor::Black);
+	void K2_DrawText(UFont* RenderFont, const FString& RenderText, FVector2D ScreenPosition, FVector2D Scale=FVector2D(1.0f,1.0f), FLinearColor RenderColor=FLinearColor::White, float Kerning=0.0f, FLinearColor ShadowColor=FLinearColor::Black, FVector2D ShadowOffset=FVector2D::UnitVector, bool bCentreX=false, bool bCentreY=false, bool bOutlined=false, FLinearColor OutlineColor=FLinearColor::Black);
 	
 	/**
 	 * Draws a 3x3 grid border with tiled frame and tiled interior on the Canvas.

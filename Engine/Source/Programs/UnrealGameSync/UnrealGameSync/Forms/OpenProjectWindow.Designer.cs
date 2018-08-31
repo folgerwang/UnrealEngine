@@ -46,25 +46,31 @@ namespace UnrealGameSync
 			this.LocalFileTextBox = new System.Windows.Forms.TextBox();
 			this.LocalFileLabel = new System.Windows.Forms.Label();
 			this.LocalFileRadioBtn = new System.Windows.Forms.RadioButton();
+			this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+			this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
 			this.groupBox2.SuspendLayout();
 			this.groupBox1.SuspendLayout();
+			this.tableLayoutPanel1.SuspendLayout();
+			this.tableLayoutPanel2.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// WorkspaceNameLabel
 			// 
+			this.WorkspaceNameLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
 			this.WorkspaceNameLabel.AutoSize = true;
-			this.WorkspaceNameLabel.Location = new System.Drawing.Point(23, 36);
+			this.WorkspaceNameLabel.Location = new System.Drawing.Point(3, 8);
 			this.WorkspaceNameLabel.Name = "WorkspaceNameLabel";
-			this.WorkspaceNameLabel.Size = new System.Drawing.Size(42, 15);
+			this.WorkspaceNameLabel.Size = new System.Drawing.Size(74, 15);
 			this.WorkspaceNameLabel.TabIndex = 1;
 			this.WorkspaceNameLabel.Text = "Name:";
 			// 
 			// WorkspacePathLabel
 			// 
+			this.WorkspacePathLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
 			this.WorkspacePathLabel.AutoSize = true;
-			this.WorkspacePathLabel.Location = new System.Drawing.Point(23, 66);
+			this.WorkspacePathLabel.Location = new System.Drawing.Point(3, 41);
 			this.WorkspacePathLabel.Name = "WorkspacePathLabel";
-			this.WorkspacePathLabel.Size = new System.Drawing.Size(34, 15);
+			this.WorkspacePathLabel.Size = new System.Drawing.Size(74, 15);
 			this.WorkspacePathLabel.TabIndex = 5;
 			this.WorkspacePathLabel.Text = "Path:";
 			// 
@@ -72,13 +78,7 @@ namespace UnrealGameSync
 			// 
 			this.groupBox2.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-			this.groupBox2.Controls.Add(this.WorkspacePathBrowseBtn);
-			this.groupBox2.Controls.Add(this.WorkspacePathTextBox);
-			this.groupBox2.Controls.Add(this.WorkspacePathLabel);
-			this.groupBox2.Controls.Add(this.WorkspaceNameBrowseBtn);
-			this.groupBox2.Controls.Add(this.WorkspaceNameNewBtn);
-			this.groupBox2.Controls.Add(this.WorkspaceNameTextBox);
-			this.groupBox2.Controls.Add(this.WorkspaceNameLabel);
+			this.groupBox2.Controls.Add(this.tableLayoutPanel2);
 			this.groupBox2.Location = new System.Drawing.Point(22, 142);
 			this.groupBox2.Name = "groupBox2";
 			this.groupBox2.Size = new System.Drawing.Size(851, 110);
@@ -87,8 +87,8 @@ namespace UnrealGameSync
 			// 
 			// WorkspacePathBrowseBtn
 			// 
-			this.WorkspacePathBrowseBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.WorkspacePathBrowseBtn.Location = new System.Drawing.Point(736, 61);
+			this.WorkspacePathBrowseBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+			this.WorkspacePathBrowseBtn.Location = new System.Drawing.Point(715, 35);
 			this.WorkspacePathBrowseBtn.Name = "WorkspacePathBrowseBtn";
 			this.WorkspacePathBrowseBtn.Size = new System.Drawing.Size(94, 27);
 			this.WorkspacePathBrowseBtn.TabIndex = 7;
@@ -98,21 +98,21 @@ namespace UnrealGameSync
 			// 
 			// WorkspacePathTextBox
 			// 
-			this.WorkspacePathTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-			this.WorkspacePathTextBox.Location = new System.Drawing.Point(83, 63);
+			this.WorkspacePathTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+			this.tableLayoutPanel2.SetColumnSpan(this.WorkspacePathTextBox, 2);
+			this.WorkspacePathTextBox.Location = new System.Drawing.Point(83, 37);
 			this.WorkspacePathTextBox.Name = "WorkspacePathTextBox";
-			this.WorkspacePathTextBox.Size = new System.Drawing.Size(647, 23);
+			this.WorkspacePathTextBox.Size = new System.Drawing.Size(626, 23);
 			this.WorkspacePathTextBox.TabIndex = 6;
 			this.WorkspacePathTextBox.TextChanged += new System.EventHandler(this.WorkspacePathTextBox_TextChanged);
 			this.WorkspacePathTextBox.Enter += new System.EventHandler(this.WorkspacePathTextBox_Enter);
 			// 
 			// WorkspaceNameBrowseBtn
 			// 
-			this.WorkspaceNameBrowseBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.WorkspaceNameBrowseBtn.Location = new System.Drawing.Point(736, 30);
+			this.WorkspaceNameBrowseBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+			this.WorkspaceNameBrowseBtn.Location = new System.Drawing.Point(715, 3);
 			this.WorkspaceNameBrowseBtn.Name = "WorkspaceNameBrowseBtn";
-			this.WorkspaceNameBrowseBtn.Size = new System.Drawing.Size(94, 27);
+			this.WorkspaceNameBrowseBtn.Size = new System.Drawing.Size(94, 26);
 			this.WorkspaceNameBrowseBtn.TabIndex = 4;
 			this.WorkspaceNameBrowseBtn.Text = "Browse...";
 			this.WorkspaceNameBrowseBtn.UseVisualStyleBackColor = true;
@@ -120,10 +120,10 @@ namespace UnrealGameSync
 			// 
 			// WorkspaceNameNewBtn
 			// 
-			this.WorkspaceNameNewBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.WorkspaceNameNewBtn.Location = new System.Drawing.Point(641, 30);
+			this.WorkspaceNameNewBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+			this.WorkspaceNameNewBtn.Location = new System.Drawing.Point(620, 3);
 			this.WorkspaceNameNewBtn.Name = "WorkspaceNameNewBtn";
-			this.WorkspaceNameNewBtn.Size = new System.Drawing.Size(89, 27);
+			this.WorkspaceNameNewBtn.Size = new System.Drawing.Size(89, 26);
 			this.WorkspaceNameNewBtn.TabIndex = 3;
 			this.WorkspaceNameNewBtn.Text = "New...";
 			this.WorkspaceNameNewBtn.UseVisualStyleBackColor = true;
@@ -131,11 +131,10 @@ namespace UnrealGameSync
 			// 
 			// WorkspaceNameTextBox
 			// 
-			this.WorkspaceNameTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-			this.WorkspaceNameTextBox.Location = new System.Drawing.Point(83, 33);
+			this.WorkspaceNameTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+			this.WorkspaceNameTextBox.Location = new System.Drawing.Point(83, 4);
 			this.WorkspaceNameTextBox.Name = "WorkspaceNameTextBox";
-			this.WorkspaceNameTextBox.Size = new System.Drawing.Size(552, 23);
+			this.WorkspaceNameTextBox.Size = new System.Drawing.Size(531, 23);
 			this.WorkspaceNameTextBox.TabIndex = 2;
 			this.WorkspaceNameTextBox.TextChanged += new System.EventHandler(this.WorkspaceNameTextBox_TextChanged);
 			this.WorkspaceNameTextBox.Enter += new System.EventHandler(this.WorkspaceNameTextBox_Enter);
@@ -195,9 +194,7 @@ namespace UnrealGameSync
 			// 
 			// groupBox1
 			// 
-			this.groupBox1.Controls.Add(this.LocalFileBrowseBtn);
-			this.groupBox1.Controls.Add(this.LocalFileTextBox);
-			this.groupBox1.Controls.Add(this.LocalFileLabel);
+			this.groupBox1.Controls.Add(this.tableLayoutPanel1);
 			this.groupBox1.Location = new System.Drawing.Point(22, 52);
 			this.groupBox1.Name = "groupBox1";
 			this.groupBox1.Size = new System.Drawing.Size(851, 84);
@@ -206,8 +203,8 @@ namespace UnrealGameSync
 			// 
 			// LocalFileBrowseBtn
 			// 
-			this.LocalFileBrowseBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.LocalFileBrowseBtn.Location = new System.Drawing.Point(736, 33);
+			this.LocalFileBrowseBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+			this.LocalFileBrowseBtn.Location = new System.Drawing.Point(716, 4);
 			this.LocalFileBrowseBtn.Name = "LocalFileBrowseBtn";
 			this.LocalFileBrowseBtn.Size = new System.Drawing.Size(94, 27);
 			this.LocalFileBrowseBtn.TabIndex = 10;
@@ -217,19 +214,19 @@ namespace UnrealGameSync
 			// 
 			// LocalFileTextBox
 			// 
-			this.LocalFileTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-			this.LocalFileTextBox.Location = new System.Drawing.Point(84, 35);
+			this.LocalFileTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+			this.LocalFileTextBox.Location = new System.Drawing.Point(83, 6);
 			this.LocalFileTextBox.Name = "LocalFileTextBox";
-			this.LocalFileTextBox.Size = new System.Drawing.Size(646, 23);
+			this.LocalFileTextBox.Size = new System.Drawing.Size(627, 23);
 			this.LocalFileTextBox.TabIndex = 9;
 			this.LocalFileTextBox.TextChanged += new System.EventHandler(this.LocalFileTextBox_TextChanged);
 			this.LocalFileTextBox.Enter += new System.EventHandler(this.LocalFileTextBox_Enter);
 			// 
 			// LocalFileLabel
 			// 
+			this.LocalFileLabel.Anchor = System.Windows.Forms.AnchorStyles.Left;
 			this.LocalFileLabel.AutoSize = true;
-			this.LocalFileLabel.Location = new System.Drawing.Point(23, 38);
+			this.LocalFileLabel.Location = new System.Drawing.Point(3, 10);
 			this.LocalFileLabel.Name = "LocalFileLabel";
 			this.LocalFileLabel.Size = new System.Drawing.Size(28, 15);
 			this.LocalFileLabel.TabIndex = 8;
@@ -246,11 +243,49 @@ namespace UnrealGameSync
 			this.LocalFileRadioBtn.UseVisualStyleBackColor = true;
 			this.LocalFileRadioBtn.CheckedChanged += new System.EventHandler(this.LocalFileRadioBtn_CheckedChanged);
 			// 
+			// tableLayoutPanel1
+			// 
+			this.tableLayoutPanel1.ColumnCount = 3;
+			this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
+			this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+			this.tableLayoutPanel1.Controls.Add(this.LocalFileBrowseBtn, 2, 0);
+			this.tableLayoutPanel1.Controls.Add(this.LocalFileLabel, 0, 0);
+			this.tableLayoutPanel1.Controls.Add(this.LocalFileTextBox, 1, 0);
+			this.tableLayoutPanel1.Location = new System.Drawing.Point(17, 30);
+			this.tableLayoutPanel1.Name = "tableLayoutPanel1";
+			this.tableLayoutPanel1.RowCount = 1;
+			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.tableLayoutPanel1.Size = new System.Drawing.Size(813, 35);
+			this.tableLayoutPanel1.TabIndex = 9;
+			// 
+			// tableLayoutPanel2
+			// 
+			this.tableLayoutPanel2.ColumnCount = 4;
+			this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
+			this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+			this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+			this.tableLayoutPanel2.Controls.Add(this.WorkspaceNameLabel, 0, 0);
+			this.tableLayoutPanel2.Controls.Add(this.WorkspaceNameTextBox, 1, 0);
+			this.tableLayoutPanel2.Controls.Add(this.WorkspaceNameNewBtn, 2, 0);
+			this.tableLayoutPanel2.Controls.Add(this.WorkspaceNameBrowseBtn, 3, 0);
+			this.tableLayoutPanel2.Controls.Add(this.WorkspacePathLabel, 0, 1);
+			this.tableLayoutPanel2.Controls.Add(this.WorkspacePathTextBox, 1, 1);
+			this.tableLayoutPanel2.Controls.Add(this.WorkspacePathBrowseBtn, 3, 1);
+			this.tableLayoutPanel2.Location = new System.Drawing.Point(18, 26);
+			this.tableLayoutPanel2.Name = "tableLayoutPanel2";
+			this.tableLayoutPanel2.RowCount = 2;
+			this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+			this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+			this.tableLayoutPanel2.Size = new System.Drawing.Size(812, 65);
+			this.tableLayoutPanel2.TabIndex = 9;
+			// 
 			// OpenProjectWindow
 			// 
 			this.AcceptButton = this.OkBtn;
-			this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.CancelButton = this.CancelBtn;
 			this.ClientSize = new System.Drawing.Size(893, 305);
 			this.Controls.Add(this.LocalFileRadioBtn);
@@ -268,9 +303,11 @@ namespace UnrealGameSync
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Open Project";
 			this.groupBox2.ResumeLayout(false);
-			this.groupBox2.PerformLayout();
 			this.groupBox1.ResumeLayout(false);
-			this.groupBox1.PerformLayout();
+			this.tableLayoutPanel1.ResumeLayout(false);
+			this.tableLayoutPanel1.PerformLayout();
+			this.tableLayoutPanel2.ResumeLayout(false);
+			this.tableLayoutPanel2.PerformLayout();
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
@@ -295,5 +332,7 @@ namespace UnrealGameSync
 		private System.Windows.Forms.Label LocalFileLabel;
 		private System.Windows.Forms.Button WorkspaceNameBrowseBtn;
 		private System.Windows.Forms.Button WorkspaceNameNewBtn;
+		private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
+		private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
 	}
 }

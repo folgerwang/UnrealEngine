@@ -11,6 +11,7 @@ namespace Audio
 		, WetLevel(0.4f)
 		, Feedback(0.2f)
 		, LFOType(ELFO::Sine)
+		, NumChannels(0)
 		, bIsBiquadPhase(true)
 	{
 	}
@@ -20,8 +21,10 @@ namespace Audio
 
 	}
 
-	void FPhaser::Init(const float SampleRate)
+	void FPhaser::Init(const float SampleRate, const int32 InNumChannels)
 	{
+		check(NumChannels <= MaxNumChannels);
+		NumChannels = InNumChannels;
 
 		// Initialize all the APFs
 		for (int32 Channel = 0; Channel < NumChannels; ++Channel)
@@ -119,9 +122,8 @@ namespace Audio
 		}
 	}
 
-	void FPhaser::ProcessAudio(const float* InFrame, float* OutFrame)
+	void FPhaser::ProcessAudioFrame(const float* InFrame, float* OutFrame)
 	{
-
 		ControlSampleCount = ControlSampleCount & (ControlRate - 1);
 		if (ControlSampleCount == 0)
 		{
@@ -160,6 +162,14 @@ namespace Audio
 
 			// Mix in the wet level for the output
 			OutFrame[Channel] = WetLevel * OutSample + (1.0f - WetLevel) * InFrame[Channel];
+		}
+	}
+
+	void FPhaser::ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer)
+	{
+		for (int32 SampleIndex = 0; SampleIndex < InNumSamples; SampleIndex += NumChannels)
+		{
+			ProcessAudioFrame(&InBuffer[SampleIndex], &OutBuffer[SampleIndex]);
 		}
 	}
 

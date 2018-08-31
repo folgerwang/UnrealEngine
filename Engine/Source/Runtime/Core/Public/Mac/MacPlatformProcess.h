@@ -145,6 +145,7 @@ struct CORE_API FMacPlatformProcess : public FGenericPlatformProcess
 	// Mac specific
 	static const TCHAR* UserPreferencesDir();
 	static const TCHAR* UserLogsDir();
+	static const TCHAR* UserHomeDir();
 };
 
 typedef FMacPlatformProcess FPlatformProcess;

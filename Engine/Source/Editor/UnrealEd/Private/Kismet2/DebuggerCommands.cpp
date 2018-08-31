@@ -282,6 +282,10 @@ FPlayWorldCommands::FPlayWorldCommands()
 		{
 			PlayPlatformName = TEXT("MacNoEditor");
 		}
+		else if (RunningPlatformName == TEXT("Linux"))
+		{
+			PlayPlatformName = TEXT("LinuxNoEditor");
+		}
 
 		if (!PlayPlatformName.IsEmpty())
 		{

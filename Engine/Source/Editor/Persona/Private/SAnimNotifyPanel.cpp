@@ -3886,6 +3886,7 @@ void SAnimNotifyPanel::Construct(const FArguments& InArgs, const TSharedRef<clas
 	Sequence = InArgs._Sequence;
 	MarkerBars = InArgs._MarkerBars;
 	OnInvokeTab = InArgs._OnInvokeTab;
+	OnNotifiesChanged = InArgs._OnNotifiesChanged;
 
 	FAnimNotifyPanelCommands::Register();
 	BindCommands();
@@ -4105,6 +4106,10 @@ void SAnimNotifyPanel::Update()
 	{
 		Sequence->RefreshCacheData();
 	}
+
+	RefreshNotifyTracks();
+
+	OnNotifiesChanged.ExecuteIfBound();
 }
 
 void SAnimNotifyPanel::RefreshNotifyTracks()

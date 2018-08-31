@@ -1653,18 +1653,27 @@ public:
 	SLATECORE_API ~FSlateWindowElementList();
 
 	/** @return Get the window that we will be painting */
+	DEPRECATED(4.21, "FSlateWindowElementList::GetWindow is not thread safe but window element lists are accessed on multiple threads.  Please call GetPaintWindow instead")
 	FORCEINLINE TSharedPtr<SWindow> GetWindow() const
 	{
 		// check that we are in game thread or are in slate/movie loading thread
-		check(IsInGameThread() || IsInSlateThread())
-		return PaintWindow.Pin();
+		check(IsInGameThread() || IsInSlateThread());
+		return WeakPaintWindow.Pin();
 	}
 
-	/** @return Get the window that we will be rendering to */
+	/** @return Get the window that we will be painting */
+	FORCEINLINE SWindow* GetPaintWindow() const
+	{
+		check(IsInGameThread() || IsInSlateThread());
+		return WeakPaintWindow.IsValid() ? RawPaintWindow : nullptr;
+	}
+
+	/** @return Get the window that we will be rendering to.  Unless you are a slate renderer you probably want to use GetPaintWindow() */
 	FORCEINLINE SWindow* GetRenderWindow() const
 	{
+		check(IsInGameThread() || IsInSlateThread());
 		// Note: This assumes that the PaintWindow is safe to pin and is not accessed by another thread
-		return RenderTargetWindow != nullptr ? RenderTargetWindow : PaintWindow.Pin().Get();
+		return RenderTargetWindow != nullptr ? RenderTargetWindow : GetPaintWindow();
 	}
 
 	/** @return Get the draw elements that we want to render into this window */
@@ -1952,11 +1961,12 @@ private:
 	/** Resources to report to the garbage collector */
 	TArray<UObject*> ResourcesToReport;
 
-	/** 
-	 * Window which owns the widgets that are being painted but not necessarily rendered to
-	 * Widgets are always rendered to the RenderTargetWindow
-	 */
-	TWeakPtr<SWindow> PaintWindow;
+	/**
+	* Window which owns the widgets that are being painted but not necessarily rendered to
+	* Widgets are always rendered to the RenderTargetWindow
+	*/
+	TWeakPtr<SWindow> WeakPaintWindow;
+	SWindow* RawPaintWindow;
 
 	/**
 	 * The window to render to.  This may be different from the paint window if we are displaying the contents of a window (or virtual window) onto another window

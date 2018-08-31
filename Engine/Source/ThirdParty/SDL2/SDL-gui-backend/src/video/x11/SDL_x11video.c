@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,6 +26,7 @@
 
 #include "SDL_video.h"
 #include "SDL_mouse.h"
+#include "SDL_timer.h"
 #include "../SDL_sysvideo.h"
 #include "../SDL_pixels_c.h"
 
@@ -48,7 +49,6 @@
 #endif
 
 #include "SDL_x11vulkan.h"
-
 
 /* Initialization/Query functions */
 static int X11_VideoInit(_THIS);
@@ -117,6 +117,9 @@ static void
 X11_DeleteDevice(SDL_VideoDevice * device)
 {
     SDL_VideoData *data = (SDL_VideoData *) device->driverdata;
+    if (device->vulkan_config.loader_handle) {
+        device->Vulkan_UnloadLibrary(device);
+    }
     if (data->display) {
         X11_XCloseDisplay(data->display);
     }
@@ -205,8 +208,8 @@ X11_CreateDevice(int devindex)
        }
      */
     data->display = X11_XOpenDisplay(display);
-#if defined(__osf__) && defined(SDL_VIDEO_DRIVER_X11_DYNAMIC)
-    /* On Tru64 if linking without -lX11, it fails and you get following message.
+#ifdef SDL_VIDEO_DRIVER_X11_DYNAMIC
+    /* On some systems if linking without -lX11, it fails and you get following message.
      * Xlib: connection to ":0.0" refused by server
      * Xlib: XDM authorization key matches an existing client!
      *
@@ -244,8 +247,8 @@ X11_CreateDevice(int devindex)
     device->SuspendScreenSaver = X11_SuspendScreenSaver;
     device->PumpEvents = X11_PumpEvents;
 
-    device->CreateWindow = X11_CreateWindow;
-    device->CreateWindowFrom = X11_CreateWindowFrom;
+    device->CreateSDLWindow = X11_CreateWindow;
+    device->CreateSDLWindowFrom = X11_CreateWindowFrom;
     device->SetWindowTitle = X11_SetWindowTitle;
     device->SetWindowIcon = X11_SetWindowIcon;
     device->SetWindowPosition = X11_SetWindowPosition;
@@ -273,16 +276,22 @@ X11_CreateDevice(int devindex)
     device->DestroyWindowFramebuffer = X11_DestroyWindowFramebuffer;
     device->GetWindowWMInfo = X11_GetWindowWMInfo;
     device->SetWindowHitTest = X11_SetWindowHitTest;
+    device->AcceptDragAndDrop = X11_AcceptDragAndDrop;
+
 /* EG BEGIN */
 #ifdef SDL_WITH_EPIC_EXTENSIONS
     device->SetKeyboardGrab = X11_SetKeyboardGrab;
     device->ConfineCursor = X11_ConfineCursor;
-    device->VK_LoadLibrary = X11_VK_LoadLibrary;
-    device->VK_UnloadLibrary = X11_VK_UnloadLibrary;
-    device->VK_GetRequiredInstanceExtensions = X11_VK_GetRequiredInstanceExtensions;
-    device->VK_CreateSurface = X11_VK_CreateSurface;
+    //device->VK_LoadLibrary = X11_VK_LoadLibrary;
+    //device->VK_UnloadLibrary = X11_VK_UnloadLibrary;
+#if SDL_VIDEO_VULKAN
+    device->Vulkan_GetRequiredInstanceExtensions = X11_Vulkan_GetRequiredInstanceExtensions;
+#endif
+    //device->VK_CreateSurface = X11_VK_CreateSurface;
 #endif /* SDL_WITH_EPIC_EXTENSIONS */
 /* EG END */
+
+
     device->shape_driver.CreateShaper = X11_CreateShaper;
     device->shape_driver.SetWindowShape = X11_SetWindowShape;
     device->shape_driver.ResizeWindowShape = X11_ResizeWindowShape;
@@ -317,6 +326,13 @@ X11_CreateDevice(int devindex)
     device->SetTextInputRect = X11_SetTextInputRect;
 
     device->free = X11_DeleteDevice;
+
+#if SDL_VIDEO_VULKAN
+    device->Vulkan_LoadLibrary = X11_Vulkan_LoadLibrary;
+    device->Vulkan_UnloadLibrary = X11_Vulkan_UnloadLibrary;
+    device->Vulkan_GetInstanceExtensions = X11_Vulkan_GetInstanceExtensions;
+    device->Vulkan_CreateSurface = X11_Vulkan_CreateSurface;
+#endif
 
     return device;
 }
@@ -482,10 +498,6 @@ void
 X11_VideoQuit(_THIS)
 {
     SDL_VideoData *data = (SDL_VideoData *) _this->driverdata;
-
-    if (data->clipboard_window) {
-        X11_XDestroyWindow(data->display, data->clipboard_window);
-    }
 
     if (data->clipboard_window) {
         X11_XDestroyWindow(data->display, data->clipboard_window);

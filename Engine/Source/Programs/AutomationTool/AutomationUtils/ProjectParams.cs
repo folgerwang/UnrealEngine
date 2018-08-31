@@ -260,6 +260,8 @@ namespace AutomationTool
 			this.ServerCookedTargets = InParams.ServerCookedTargets;
 			this.EditorTargets = InParams.EditorTargets;
 			this.ProgramTargets = InParams.ProgramTargets;
+			this.SpecifiedClientTarget = InParams.SpecifiedClientTarget;
+			this.SpecifiedServerTarget = InParams.SpecifiedServerTarget;
 			this.ClientTargetPlatforms = InParams.ClientTargetPlatforms;
             this.ClientDependentPlatformMap = InParams.ClientDependentPlatformMap;
 			this.ServerTargetPlatforms = InParams.ServerTargetPlatforms;
@@ -479,6 +481,8 @@ namespace AutomationTool
 			string ArchiveDirectoryParam = null,
 			bool? ArchiveMetaData = null,
 			bool? CreateAppBundle = null,
+			string SpecifiedClientTarget = null,
+			string SpecifiedServerTarget = null,
 			ParamList<string> ProgramTargets = null,
 			bool? Distribution = null,
             bool? Prebuilt = null,
@@ -665,6 +669,8 @@ namespace AutomationTool
 				this.DedicatedServer = true;
 			}*/
 			this.NoClient = GetParamValueIfNotSpecified(Command, NoClient, this.NoClient, "noclient");
+			this.SpecifiedClientTarget = ParseParamValueIfNotSpecified(Command, SpecifiedClientTarget, "client", "", true);
+			this.SpecifiedServerTarget = ParseParamValueIfNotSpecified(Command, SpecifiedServerTarget, "server", "", true);
 			this.LogWindow = GetParamValueIfNotSpecified(Command, LogWindow, this.LogWindow, "logwindow");
 			this.Stage = GetParamValueIfNotSpecified(Command, Stage, this.Stage, "stage");
 			this.SkipStage = GetParamValueIfNotSpecified(Command, SkipStage, this.SkipStage, "skipstage");
@@ -1328,7 +1334,7 @@ namespace AutomationTool
 		public bool NoXGE { private set; get; }
 
 		/// <summary>
-		/// Build: List of maps to cook.
+		/// Build: List of editor build targets.
 		/// </summary>	
 		private ParamList<string> EditorTargetsList = null;
 		public ParamList<string> EditorTargets
@@ -1346,7 +1352,7 @@ namespace AutomationTool
 		}
 
 		/// <summary>
-		/// Build: List of maps to cook.
+		/// Build: List of program build targets.
 		/// </summary>	
 		private ParamList<string> ProgramTargetsList = null;
 		public ParamList<string> ProgramTargets
@@ -1408,6 +1414,16 @@ namespace AutomationTool
 				return ServerCookedTargetsList;
 			}
 		}
+
+		/// <summary>
+		/// Build: If more than one client target is found, build this one.
+		/// </summary>
+		private string SpecifiedClientTarget;
+
+		/// <summary>
+		/// Build: If more than one server target is found, build this one.
+		/// </summary>
+		private string SpecifiedServerTarget;
 
 		#endregion
 
@@ -1931,9 +1947,41 @@ namespace AutomationTool
 
 		#region Initialization
 
-		private Dictionary<TargetType, SingleTargetProperties> DetectedTargets;
+		private List<SingleTargetProperties> DetectedTargets;
 		private Dictionary<UnrealTargetPlatform, ConfigHierarchy> LoadedEngineConfigs;
 		private Dictionary<UnrealTargetPlatform, ConfigHierarchy> LoadedGameConfigs;
+
+		private List<String> TargetNamesOfType(TargetType DesiredType)
+		{
+			return DetectedTargets.FindAll(Target => Target.Rules.Type == DesiredType).ConvertAll(Target => Target.TargetName);
+		}
+
+		private String ChooseTarget(List<String> Targets, TargetType Type, string SpecifiedTargetName)
+		{
+			if (String.IsNullOrEmpty(SpecifiedTargetName))
+			{
+				switch (Targets.Count)
+				{
+					case 1:
+						return Targets.First();
+					case 0:
+						throw new AutomationException("{0} target not found!", Type);
+					default:
+						throw new AutomationException("More than one {0} target found. Specify which one to use with the -{1}= option.", Type, Type);
+				}
+			}
+			else
+			{
+				if (Targets.Contains(SpecifiedTargetName))
+				{
+					return SpecifiedTargetName;
+				}
+				else
+				{
+					throw new AutomationException("Could not find {0} target named {1}.", Type, SpecifiedTargetName);
+				}
+			}
+		}
 
 		private void AutodetectSettings(bool bReset)
 		{
@@ -1947,10 +1995,10 @@ namespace AutomationTool
 				ProjectExePaths = null;
 			}
 
-            List<UnrealTargetPlatform> ClientTargetPlatformTypes = ClientTargetPlatforms.ConvertAll(x => x.Type).Distinct().ToList();
-            var Properties = ProjectUtils.GetProjectProperties(RawProjectPath, ClientTargetPlatformTypes, ClientConfigsToBuild, RunAssetNativization);
+			List<UnrealTargetPlatform> ClientTargetPlatformTypes = ClientTargetPlatforms.ConvertAll(x => x.Type).Distinct().ToList();
+			var Properties = ProjectUtils.GetProjectProperties(RawProjectPath, ClientTargetPlatformTypes, ClientConfigsToBuild, RunAssetNativization);
 
-			bIsCodeBasedProject = Properties.bIsCodeBasedProject;			
+			bIsCodeBasedProject = Properties.bIsCodeBasedProject;
 			DetectedTargets = Properties.Targets;
 			LoadedEngineConfigs = Properties.EngineConfigs;
 			LoadedGameConfigs = Properties.GameConfigs;
@@ -1959,80 +2007,60 @@ namespace AutomationTool
 			var EditorTarget = String.Empty;
 			var ServerTarget = String.Empty;
 			var ProgramTarget = String.Empty;
+
 			var ProjectType = TargetType.Game;
 
 			if (!bIsCodeBasedProject)
 			{
-				if(Client)
-				{
-					GameTarget = "UE4Client";
-				}
-				else
-				{
-					GameTarget = "UE4Game";
-				}
+				GameTarget = Client ? "UE4Client" : "UE4Game";
 				EditorTarget = "UE4Editor";
 				ServerTarget = "UE4Server";
 			}
 			else if (!CommandUtils.CmdEnv.HasCapabilityToCompile)
 			{
 				var ShortName = ProjectUtils.GetShortProjectName(RawProjectPath);
-				if(Client)
-				{
-					GameTarget = ShortName + "Client";
-				}
-				else
-				{
-					GameTarget = ShortName;
-				}
+				GameTarget = Client ? (ShortName + "Client") : ShortName;
 				EditorTarget = ShortName + "Editor";
 				ServerTarget = ShortName + "Server";
 			}
 			else if (!CommandUtils.IsNullOrEmpty(Properties.Targets))
 			{
-				SingleTargetProperties TargetData;
+				List<String> AvailableGameTargets = TargetNamesOfType(TargetType.Game);
+				List<String> AvailableClientTargets = TargetNamesOfType(TargetType.Client);
+				List<String> AvailableServerTargets = TargetNamesOfType(TargetType.Server);
+				List<String> AvailableEditorTargets = TargetNamesOfType(TargetType.Editor);
 
-				var GameTargetType = TargetType.Game;
-				
-				if( Client )
+				// That should cover all detected targets; Program targets are handled separately.
+				System.Diagnostics.Debug.Assert(DetectedTargets.Count == (AvailableGameTargets.Count + AvailableClientTargets.Count + AvailableServerTargets.Count + AvailableEditorTargets.Count));
+
+				if (Client)
 				{
-					if( HasClientTargetDetected )
+					GameTarget = ChooseTarget(AvailableClientTargets, TargetType.Client, SpecifiedClientTarget);
+					ProjectType = TargetType.Client;
+				}
+				else if (AvailableGameTargets.Count > 0)
+				{
+					if (AvailableEditorTargets.Count > 1)
 					{
-						GameTargetType = TargetType.Client;
+						throw new AutomationException("There can be only one Game target per project.");
 					}
-					else
+
+					GameTarget = AvailableGameTargets.First();
+				}
+
+				if (AvailableEditorTargets.Count > 0)
+				{
+					if (AvailableEditorTargets.Count > 1)
 					{
-						throw new AutomationException( "Client target not found!" );
+						throw new AutomationException("There can be only one Editor target per project.");
 					}
+
+					EditorTarget = AvailableEditorTargets.First();
 				}
 
-				var ValidGameTargetTypes = new TargetType[]
+				if (AvailableServerTargets.Count > 0 && (DedicatedServer || Cook || CookOnTheFly)) // only if server is needed
 				{
-					GameTargetType,
-					TargetType.Program		
-				};
-
-				foreach (var ValidTarget in ValidGameTargetTypes)
-				{
-					if (DetectedTargets.TryGetValue(ValidTarget, out TargetData))
-					{
-						GameTarget = TargetData.TargetName;
-						ProjectType = ValidTarget;
-						break;
-					}
-				}
-
-				if (DetectedTargets.TryGetValue(TargetType.Editor, out TargetData))
-				{
-					EditorTarget = TargetData.TargetName;
-				}
-				if (DetectedTargets.TryGetValue(TargetType.Server, out TargetData))
-				{
-					ServerTarget = TargetData.TargetName;
-				}
-				if (DetectedTargets.TryGetValue(TargetType.Program, out TargetData))
-				{
-					ProgramTarget = TargetData.TargetName;
+					ServerTarget = ChooseTarget(AvailableServerTargets, TargetType.Server, SpecifiedServerTarget);
 				}
 			}
 			else if (!CommandUtils.IsNullOrEmpty(Properties.Programs))
@@ -2046,14 +2074,7 @@ namespace AutomationTool
 			else if (!this.Build)
 			{
 				var ShortName = ProjectUtils.GetShortProjectName(RawProjectPath);
-				if(Client)
-				{
-					GameTarget = ShortName + "Client";
-				}
-				else
-				{
-					GameTarget = ShortName;
-				}
+				GameTarget = Client ? (ShortName + "Client") : ShortName;
 				EditorTarget = ShortName + "Editor";
 				ServerTarget = ShortName + "Server";
 			}
@@ -2064,7 +2085,7 @@ namespace AutomationTool
 
 			IsProgramTarget = ProjectType == TargetType.Program;
 
-			if (String.IsNullOrEmpty(EditorTarget) && ProjectType != TargetType.Program && CommandUtils.IsNullOrEmpty(EditorTargetsList))
+			if (String.IsNullOrEmpty(EditorTarget) && !IsProgramTarget && CommandUtils.IsNullOrEmpty(EditorTargetsList))
 			{
 				if (Properties.bWasGenerated)
 				{
@@ -2075,6 +2096,7 @@ namespace AutomationTool
 					throw new AutomationException("Editor target not found!");
 				}
 			}
+
 			if (String.IsNullOrEmpty(GameTarget) && Run && !NoClient && (Cook || CookOnTheFly) && CommandUtils.IsNullOrEmpty(ClientCookedTargetsList))
 			{
 				throw new AutomationException("Game target not found. Game target is required with -cook or -cookonthefly");
@@ -2082,7 +2104,7 @@ namespace AutomationTool
 
 			if (EditorTargetsList == null)
 			{
-				if (!GlobalCommandLine.NoCompileEditor && (ProjectType != TargetType.Program) && !String.IsNullOrEmpty(EditorTarget))
+				if (!GlobalCommandLine.NoCompileEditor && !IsProgramTarget && !String.IsNullOrEmpty(EditorTarget))
 				{
 					EditorTargetsList = new ParamList<string>(EditorTarget);
 				}
@@ -2094,7 +2116,7 @@ namespace AutomationTool
 
 			if (ProgramTargetsList == null)
 			{
-				if (ProjectType == TargetType.Program)
+				if (IsProgramTarget)
 				{
 					ProgramTargetsList = new ParamList<string>(ProgramTarget);
 				}
@@ -2105,34 +2127,42 @@ namespace AutomationTool
 			}
 
 			// Compile a client if it was asked for (-client) or we're cooking and require a client
-            if (ClientCookedTargetsList == null && !NoClient && (Cook || CookOnTheFly || Prebuilt || Client))
+			if (ClientCookedTargetsList == null)
 			{
-                if (String.IsNullOrEmpty(GameTarget))
+				if (!NoClient && (Cook || CookOnTheFly || Prebuilt || Client))
 				{
-                    throw new AutomationException("Game target not found. Game target is required with -cook or -cookonthefly");
-                }
+					if (String.IsNullOrEmpty(GameTarget))
+					{
+						throw new AutomationException("Game target not found. Game target is required with -cook or -cookonthefly");
+					}
+
+					ClientCookedTargetsList = new ParamList<string>(GameTarget);
+				}
 				else
 				{
-                    ClientCookedTargetsList = new ParamList<string>(GameTarget);
-                }
-			}
-            else if (ClientCookedTargetsList == null)
-            {
-                ClientCookedTargetsList = new ParamList<string>();
-            }
-
-			// Compile a client if it was asked for (-server) or we're cooking and require a server
-			if (ServerCookedTargetsList == null && DedicatedServer && (Cook || CookOnTheFly || DedicatedServer))
-			{
-				if (String.IsNullOrEmpty(ServerTarget))
-				{
-                    throw new AutomationException("Server target not found. Server target is required with -server and -cook or -cookonthefly");
+					ClientCookedTargetsList = new ParamList<string>();
 				}
-				ServerCookedTargetsList = new ParamList<string>(ServerTarget);
 			}
-			else if (ServerCookedTargetsList == null)
+
+			// Compile a server if it was asked for (-server) or we're cooking and require a server
+			if (ServerCookedTargetsList == null)
 			{
-				ServerCookedTargetsList = new ParamList<string>();
+				/* Simplified from previous version which makes less sense.
+				   TODO: tease out the actual dependencies between -cook and -server options, fix properly
+				if (DedicatedServer && (Cook || CookOnTheFly || DedicatedServer)) */
+				if (DedicatedServer)
+				{
+					if (String.IsNullOrEmpty(ServerTarget))
+					{
+						throw new AutomationException("Server target not found. Server target is required with -server and -cook or -cookonthefly");
+					}
+
+					ServerCookedTargetsList = new ParamList<string>(ServerTarget);
+				}
+				else
+				{
+					ServerCookedTargetsList = new ParamList<string>();
+				}
 			}
 
 			if (ProjectPlatformBinariesPaths == null || ProjectExePaths == null)
@@ -2237,12 +2267,12 @@ namespace AutomationTool
 
 		public bool HasGameTargetDetected
 		{
-			get { return ProjectTargets.ContainsKey(TargetType.Game); }
+			get { return ProjectTargets.Exists(Target => Target.Rules.Type == TargetType.Game); }
 		}
 
 		public bool HasClientTargetDetected
 		{
-			get { return ProjectTargets.ContainsKey( TargetType.Client ); }
+			get { return ProjectTargets.Exists(Target => Target.Rules.Type == TargetType.Client); }
 		}
 
 		public bool HasDedicatedServerAndClient
@@ -2432,7 +2462,7 @@ namespace AutomationTool
 		/// <summary>
 		/// All auto-detected targets for this project
 		/// </summary>
-		public Dictionary<TargetType, SingleTargetProperties> ProjectTargets
+		public List<SingleTargetProperties> ProjectTargets
 		{
 			get
 			{
@@ -2629,7 +2659,14 @@ namespace AutomationTool
 				CommandUtils.LogLog("SkipBuildEditor={0}", SkipBuildEditor);
 				CommandUtils.LogLog("Cook={0}", Cook);
 				CommandUtils.LogLog("Clean={0}", Clean);
-				CommandUtils.LogLog("Client={0}", Client);
+				if (String.IsNullOrEmpty(SpecifiedClientTarget))
+				{
+					CommandUtils.LogLog("Client={0}", Client);
+				}
+				else
+				{
+					CommandUtils.LogLog("Client='{0}'", SpecifiedClientTarget);
+				}
 				CommandUtils.LogLog("ClientConfigsToBuild={0}", string.Join(",", ClientConfigsToBuild));
 				CommandUtils.LogLog("ClientCookedTargets={0}", ClientCookedTargets.ToString());
 				CommandUtils.LogLog("ClientTargetPlatform={0}", string.Join(",", ClientTargetPlatforms));
@@ -2652,7 +2689,14 @@ namespace AutomationTool
 				CommandUtils.LogLog("DLCPakPluginFile={0}", DLCPakPluginFile);
                 CommandUtils.LogLog("DiffCookedContentPath={0}", DiffCookedContentPath);
                 CommandUtils.LogLog("AdditionalCookerOptions={0}", AdditionalCookerOptions);
-				CommandUtils.LogLog("DedicatedServer={0}", DedicatedServer);
+				if (String.IsNullOrEmpty(SpecifiedServerTarget))
+				{
+					CommandUtils.LogLog("DedicatedServer={0}", DedicatedServer);
+				}
+				else
+				{
+					CommandUtils.LogLog("DedicatedServer='{0}'", SpecifiedServerTarget);
+				}
 				CommandUtils.LogLog("DirectoriesToCook={0}", DirectoriesToCook.ToString());
                 CommandUtils.LogLog("CulturesToCook={0}", CommandUtils.IsNullOrEmpty(CulturesToCook) ? "<Not Specified> (Use Defaults)" : CulturesToCook.ToString());
 				CommandUtils.LogLog("EditorTargets={0}", EditorTargets.ToString());

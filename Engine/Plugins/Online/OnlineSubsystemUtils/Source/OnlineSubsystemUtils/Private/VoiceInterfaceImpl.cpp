@@ -61,7 +61,7 @@ bool FOnlineVoiceImpl::Init()
 			const bool bVoiceEngineForceDisable = OnlineSubsystem->IsDedicated() || GIsBuildMachine;
 			if (!bVoiceEngineForceDisable)
 			{
-				VoiceEngine = MakeShareable(new FVoiceEngineImpl(OnlineSubsystem));
+				VoiceEngine = CreateVoiceEngine();
 				bSuccess = VoiceEngine->Init(MaxLocalTalkers, MaxRemoteTalkers);
 			}
 			else
@@ -117,7 +117,7 @@ void FOnlineVoiceImpl::ClearVoicePackets()
 	}
 }
 
-void FOnlineVoiceImpl::Tick(float DeltaTime) 
+void FOnlineVoiceImpl::Tick(float DeltaTime)
 {
 	if (!OnlineSubsystem->IsDedicated())
 	{
@@ -182,7 +182,7 @@ void FOnlineVoiceImpl::StopNetworkedVoice(uint8 LocalUserNum)
 	}
 }
 
-bool FOnlineVoiceImpl::RegisterLocalTalker(uint32 LocalUserNum) 
+bool FOnlineVoiceImpl::RegisterLocalTalker(uint32 LocalUserNum)
 {
 	uint32 Return = E_FAIL;
 	if (LocalUserNum >= 0 && LocalUserNum < (uint32)MaxLocalTalkers)
@@ -243,7 +243,7 @@ void FOnlineVoiceImpl::RegisterLocalTalkers()
 	}
 }
 
-bool FOnlineVoiceImpl::UnregisterLocalTalker(uint32 LocalUserNum) 
+bool FOnlineVoiceImpl::UnregisterLocalTalker(uint32 LocalUserNum)
 {
 	uint32 Return = S_OK;
 	if (LocalUserNum >= 0 && LocalUserNum < (uint32)MaxLocalTalkers)
@@ -296,7 +296,7 @@ void FOnlineVoiceImpl::UnregisterLocalTalkers()
 	}
 }
 
-bool FOnlineVoiceImpl::RegisterRemoteTalker(const FUniqueNetId& UniqueId) 
+bool FOnlineVoiceImpl::RegisterRemoteTalker(const FUniqueNetId& UniqueId)
 {
 	uint32 Return = E_FAIL;
 	if (OnlineSubsystem)
@@ -314,8 +314,8 @@ bool FOnlineVoiceImpl::RegisterRemoteTalker(const FUniqueNetId& UniqueId)
 				int32 AddIndex = RemoteTalkers.AddZeroed();
 				Talker = &RemoteTalkers[AddIndex];
 				// Copy the UniqueId
-				const FUniqueNetIdString& UniqueIdStr = (const FUniqueNetIdString&)UniqueId;
-				Talker->TalkerId = MakeShareable(new FUniqueNetIdString(UniqueIdStr));
+				Talker->TalkerId = UniqueId.AsShared();
+
 				// Register the remote talker locally
 				Return = VoiceEngine->RegisterRemoteTalker(UniqueId);
 				UE_LOG_ONLINE_VOICE(Log, TEXT("RegisterRemoteTalker(%s) returned 0x%08X"),
@@ -337,7 +337,7 @@ bool FOnlineVoiceImpl::RegisterRemoteTalker(const FUniqueNetId& UniqueId)
 	return Return == S_OK;
 }
 
-bool FOnlineVoiceImpl::UnregisterRemoteTalker(const FUniqueNetId& UniqueId) 
+bool FOnlineVoiceImpl::UnregisterRemoteTalker(const FUniqueNetId& UniqueId)
 {
 	uint32 Return = E_FAIL;
 	if (OnlineSubsystem)
@@ -418,17 +418,17 @@ FRemoteTalker* FOnlineVoiceImpl::FindRemoteTalker(const FUniqueNetId& UniqueId)
 	return NULL;
 }
 
-bool FOnlineVoiceImpl::IsHeadsetPresent(uint32 LocalUserNum) 
+bool FOnlineVoiceImpl::IsHeadsetPresent(uint32 LocalUserNum)
 {
 	return VoiceEngine.IsValid() && VoiceEngine->IsHeadsetPresent(LocalUserNum);
 }
 
-bool FOnlineVoiceImpl::IsLocalPlayerTalking(uint32 LocalUserNum) 
+bool FOnlineVoiceImpl::IsLocalPlayerTalking(uint32 LocalUserNum)
 {
 	return VoiceEngine.IsValid() && VoiceEngine->IsLocalPlayerTalking(LocalUserNum);
 }
 
-bool FOnlineVoiceImpl::IsRemotePlayerTalking(const FUniqueNetId& UniqueId) 
+bool FOnlineVoiceImpl::IsRemotePlayerTalking(const FUniqueNetId& UniqueId)
 {
 	return VoiceEngine.IsValid() && VoiceEngine->IsRemotePlayerTalking(UniqueId);
 }
@@ -445,13 +445,13 @@ bool FOnlineVoiceImpl::IsMuted(uint32 LocalUserNum, const FUniqueNetId& UniqueId
 
 bool FOnlineVoiceImpl::IsLocallyMuted(const FUniqueNetId& UniqueId) const
 {
-	int32 Index = MuteList.Find((const FUniqueNetIdString&)UniqueId);
+	int32 Index = MuteList.Find(FUniqueNetIdWrapper(UniqueId.AsShared()));
 	return Index != INDEX_NONE;
 }
 
 bool FOnlineVoiceImpl::IsSystemWideMuted(const FUniqueNetId& UniqueId) const
 {
-	int32 Index = SystemMuteList.Find((const FUniqueNetIdString&)UniqueId);
+	int32 Index = SystemMuteList.Find(FUniqueNetIdWrapper(UniqueId.AsShared()));
 	return Index != INDEX_NONE;
 }
 
@@ -463,7 +463,7 @@ bool FOnlineVoiceImpl::MuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId& 
 		if (bIsSystemWide)
 		{
 			// Add them to the system wide mute list
-			SystemMuteList.AddUnique((const FUniqueNetIdString&)PlayerId);
+			SystemMuteList.AddUnique(FUniqueNetIdWrapper(PlayerId.AsShared()));
 			// Should update MuteList after going up to the server and coming back down
 			ProcessMuteChangeNotification();
 		}
@@ -478,7 +478,7 @@ bool FOnlineVoiceImpl::MuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId& 
 				FRemoteTalker* Talker = FindRemoteTalker(PlayerId);
 				if (Talker != NULL)
 				{
-					MuteList.AddUnique((const FUniqueNetIdString&)PlayerId);
+					MuteList.AddUnique(FUniqueNetIdWrapper(PlayerId.AsShared()));
 					Return = S_OK;
 					UE_LOG_ONLINE_VOICE(Log, TEXT("Muting remote talker (%s)"), *PlayerId.ToDebugString());
 				}
@@ -505,7 +505,7 @@ bool FOnlineVoiceImpl::UnmuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId
 		if (bIsSystemWide)
 		{
 			// Remove them from the system wide mute list
-			SystemMuteList.RemoveSingleSwap((const FUniqueNetIdString&)PlayerId);
+			SystemMuteList.RemoveSingleSwap(FUniqueNetIdWrapper(PlayerId.AsShared()));
 			// Should update MuteList after going up to the server and coming back down
 			ProcessMuteChangeNotification();
 		}
@@ -525,7 +525,7 @@ bool FOnlineVoiceImpl::UnmuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId
 					if (!bIsSystemMuted)
 					{
 						// Remove them from the mute list
-						MuteList.RemoveSingleSwap((const FUniqueNetIdString&)PlayerId);
+						MuteList.RemoveSingleSwap(FUniqueNetIdWrapper(PlayerId.AsShared()));
 						UE_LOG_ONLINE_VOICE(Log, TEXT("Unmuting remote talker (%s)"), *PlayerId.ToDebugString());
 					}
 				}
@@ -572,6 +572,11 @@ void FOnlineVoiceImpl::ProcessMuteChangeNotification()
 	}
 }
 
+IVoiceEnginePtr FOnlineVoiceImpl::CreateVoiceEngine()
+{
+	return MakeShareable(new FVoiceEngineImpl(OnlineSubsystem));
+}
+
 void FOnlineVoiceImpl::UpdateMuteListForLocalTalker(int32 TalkerIndex, APlayerController* PlayerController)
 {
 	// For each registered remote talker
@@ -582,7 +587,7 @@ void FOnlineVoiceImpl::UpdateMuteListForLocalTalker(int32 TalkerIndex, APlayerCo
 		FUniqueNetIdRepl UniqueIdRepl(Talker.TalkerId);
 
 		// Is the remote talker on this local player's mute list?
-		if (SystemMuteList.Find((FUniqueNetIdString&)*Talker.TalkerId) == INDEX_NONE)
+		if (SystemMuteList.Find(FUniqueNetIdWrapper(Talker.TalkerId->AsShared())) == INDEX_NONE)
 		{
 			// Unmute on the server
 			PlayerController->ServerUnmutePlayer(UniqueIdRepl);
@@ -606,13 +611,11 @@ TSharedPtr<FVoicePacket> FOnlineVoiceImpl::SerializeRemotePacket(FArchive& Ar)
 	{
 		if (!OnlineSubsystem->IsDedicated())
 		{
-			FUniqueNetIdMatcher PlayerMatch(*NewPacket->GetSender());
-			if (MuteList.IndexOfByPredicate(PlayerMatch) == INDEX_NONE)
+			if (MuteList.Find(FUniqueNetIdWrapper( NewPacket->GetSender())) == INDEX_NONE)
 			{
 				VoiceData.RemotePackets.Add(NewPacket);
 			}
 		}
-
 		return NewPacket;
 	}
 
@@ -883,4 +886,3 @@ FString FOnlineVoiceImpl::GetVoiceDebugState() const
 
 	return Output;
 }
-

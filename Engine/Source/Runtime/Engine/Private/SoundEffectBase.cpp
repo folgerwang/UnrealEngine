@@ -51,7 +51,10 @@ void FSoundEffectBase::RegisterWithPreset(USoundEffectPreset* InParentPreset)
 
 void FSoundEffectBase::UnregisterWithPreset()
 {
-	ParentPreset->RemoveEffectInstance(this);
+	if (ParentPreset)
+	{
+		ParentPreset->RemoveEffectInstance(this);
+	}
 }
 
 bool FSoundEffectBase::IsParentPreset(USoundEffectPreset* InPreset) const

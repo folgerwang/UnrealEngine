@@ -25,14 +25,16 @@ namespace Audio
 		FChorus();
 		~FChorus();
 
-		void Init(const float InSampleRate, const float InDelayLengthSec = 2.0f, const int32 InControlSamplePeriod = 256);
+		void Init(const float InSampleRate, const int32 InNumChannels, const float InDelayLengthSec = 2.0f, const int32 InControlSamplePeriod = 256);
 
 		void SetDepth(const EChorusDelays::Type InType, const float InDepth);
 		void SetFrequency(const EChorusDelays::Type InType, const float InFrequency);
 		void SetFeedback(const EChorusDelays::Type InType, const float InFeedback);
 		void SetWetLevel(const float InWetLevel);
+		void SetDryLevel(const float InDryLevel);
 		void SetSpread(const float InSpread);
-		void ProcessAudio(const float InLeft, const float InRight, float& OutLeft, float& OutRight);
+		void ProcessAudioFrame(const float* InFrame, float* OutFrame);
+		void ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer);
 
 	protected:
 		FDelay Delays[EChorusDelays::NumDelayTypes];
@@ -46,6 +48,8 @@ namespace Audio
 		float Spread;
 		float MaxFrequencySpread;
 		float WetLevel;
+		float DryLevel;
+		int32 NumChannels;
 	};
 
 

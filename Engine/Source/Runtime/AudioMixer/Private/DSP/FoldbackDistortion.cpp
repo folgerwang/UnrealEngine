@@ -10,6 +10,7 @@ namespace Audio
 		, Threshold2(2.0f * Threshold)
 		, Threshold4(4.0f * Threshold)
 		, OutputGain(1.0f)
+		, NumChannels(0)
 	{
 	}
 
@@ -17,9 +18,9 @@ namespace Audio
 	{
 	}
 
-	void FFoldbackDistortion::Init(const float InSampleRate)
+	void FFoldbackDistortion::Init(const float InSampleRate, const int32 InNumChannels)
 	{
-		// nothing to do...
+		NumChannels = InNumChannels;
 	}
 
 	void FFoldbackDistortion::SetThresholdDb(const float InThresholdDb)
@@ -39,9 +40,10 @@ namespace Audio
 		OutputGain = Audio::ConvertToLinear(InOutputGainDb);
 	}
 
-	void FFoldbackDistortion::ProcessAudio(const float InSample, float& OutSample)
+	float FFoldbackDistortion::ProcessAudioSample(const float InSample)
 	{
-		float Sample = InputGain * InSample;
+		const float Sample = InputGain * InSample;
+		float OutSample = 0.0f;
 
 		if (Sample > Threshold || Sample < -Threshold)
 		{
@@ -52,13 +54,23 @@ namespace Audio
 			OutSample = Sample;
 		}
 
-		OutSample *= OutputGain;
+		return OutSample * OutputGain;
 	}
 
-	void FFoldbackDistortion::ProcessAudio(const float InLeftSample, const float InRightSample, float& OutLeftSample, float& OutRightSample)
+	void FFoldbackDistortion::ProcessAudioFrame(const float* InFrame, float* OutFrame)
 	{
-		ProcessAudio(InLeftSample, OutLeftSample);
-		ProcessAudio(InRightSample, OutRightSample);
+		for (int32 Channel = 0; Channel < NumChannels; ++Channel)
+		{
+			OutFrame[Channel] = ProcessAudioSample(InFrame[Channel]);
+		}
+	}
+
+	void FFoldbackDistortion::ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer)
+	{
+		for (int32 SampleIndex = 0; SampleIndex < InNumSamples; SampleIndex += NumChannels)
+		{
+			ProcessAudioFrame(&InBuffer[SampleIndex], &OutBuffer[SampleIndex]);
+		}
 	}
 
 }

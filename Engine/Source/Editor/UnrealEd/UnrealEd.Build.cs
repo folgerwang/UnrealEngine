@@ -124,6 +124,7 @@ public class UnrealEd : ModuleRules
 				"PropertyEditor",
 				"Projects",
 				"RawMesh",
+				"MeshUtilitiesCommon",
 				"RenderCore",
 				"RHI",
 				"ShaderCore",

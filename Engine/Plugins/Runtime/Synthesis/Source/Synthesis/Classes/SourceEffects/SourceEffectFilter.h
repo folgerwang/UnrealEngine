@@ -61,13 +61,13 @@ public:
 	FSourceEffectFilter();
 
 	// Called on an audio effect at initialization on main thread before audio processing begins.
-	virtual void Init(const FSoundEffectSourceInitData& InSampleRate) override;
+	virtual void Init(const FSoundEffectSourceInitData& InitData) override;
 	
 	// Called when an audio effect preset is changed
 	virtual void OnPresetChanged() override;
 
 	// Process the input block of audio. Called on audio thread.
-	virtual void ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData) override;
+	virtual void ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData) override;
 
 protected:
 	void UpdateFilter();
@@ -84,6 +84,7 @@ protected:
 
 	float AudioInput[2];
 	float AudioOutput[2];
+	int32 NumChannels;
 };
 
 UCLASS(ClassGroup = AudioSourceEffect, meta = (BlueprintSpawnableComponent))

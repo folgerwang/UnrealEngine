@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -102,8 +102,8 @@ PND_create()
     device->VideoQuit = PND_videoquit;
     device->GetDisplayModes = PND_getdisplaymodes;
     device->SetDisplayMode = PND_setdisplaymode;
-    device->CreateWindow = PND_createwindow;
-    device->CreateWindowFrom = PND_createwindowfrom;
+    device->CreateSDLWindow = PND_createwindow;
+    device->CreateSDLWindowFrom = PND_createwindowfrom;
     device->SetWindowTitle = PND_setwindowtitle;
     device->SetWindowIcon = PND_setwindowicon;
     device->SetWindowPosition = PND_setwindowposition;
