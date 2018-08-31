@@ -47,6 +47,9 @@ public:
 	/** Called if the bAutoComputeLodDistances changes */
 	void ImportAutoComputeLodDistancesChanged();
 
+	/** Called when the LODSettings changes */
+	void ValidateLodSettingsChanged(int32 MemberID);
+
 	/** Called if the bImportMaterials changes */
 	void ImportMaterialsChanged();
 

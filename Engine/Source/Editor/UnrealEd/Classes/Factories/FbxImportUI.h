@@ -100,11 +100,11 @@ public:
 	float LodDistance7;
 
 	/** Set the minimum LOD number. A value of 0 disable the option. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, AdvancedDisplay, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "-1"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, AdvancedDisplay, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "0"))
 	int32 MinimumLodNumber;
 
 	/** Set the number of LODs. A value of 0 disable the option. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, AdvancedDisplay, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "-1"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, AdvancedDisplay, Category = LodSettings, meta = (ImportType = "StaticMesh", UIMin = "0"))
 	int32 LodNumber;
 
 	/** True to import animations from the FBX File */
