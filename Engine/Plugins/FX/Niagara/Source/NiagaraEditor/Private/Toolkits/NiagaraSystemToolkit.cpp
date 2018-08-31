@@ -247,6 +247,7 @@ void FNiagaraSystemToolkit::InitializeWithEmitter(const EToolkitMode::Type Mode,
 	// We set this to the copy's change id here instead of the original emitter's change id because the copy's change id may have been
 	// updated from the original as part of post load and we use this id to detect if the editable emitter has been changed.
 	LastSyncedEmitterChangeId = EditableEmitter->GetChangeId();
+	bEmitterThumbnailUpdated = false;
 
 	FNiagaraSystemViewModelOptions SystemOptions;
 	SystemOptions.bCanModifyEmittersFromTimeline = false;
@@ -387,7 +388,8 @@ TSharedRef<SDockTab> FNiagaraSystemToolkit::SpawnTab_Viewport(const FSpawnTabArg
 {
 	check(Args.GetTabId().TabType == ViewportTabID);
 
-	Viewport = SNew(SNiagaraSystemViewport);
+	Viewport = SNew(SNiagaraSystemViewport)
+		.OnThumbnailCaptured(this, &FNiagaraSystemToolkit::OnThumbnailCaptured);
 
 	TSharedRef<SDockTab> SpawnedTab =
 		SNew(SDockTab)
@@ -674,9 +676,25 @@ void FNiagaraSystemToolkit::SetupCommands()
 
 void FNiagaraSystemToolkit::OnSaveThumbnailImage()
 {
-	if (Viewport.IsValid() && Viewport->GetViewportClient().IsValid())
+	if (Viewport.IsValid())
 	{
-		Viewport->CreateThumbnail();
+		Viewport->CreateThumbnail(SystemToolkitMode == ESystemToolkitMode::System ? (UObject*)System : Emitter);
+	}
+}
+
+void FNiagaraSystemToolkit::OnThumbnailCaptured(UTexture2D* Thumbnail)
+{
+	if (SystemToolkitMode == ESystemToolkitMode::System)
+	{
+		System->MarkPackageDirty();
+		System->ThumbnailImage = Thumbnail;
+	}
+	else if (SystemToolkitMode == ESystemToolkitMode::Emitter) 
+	{
+		TSharedPtr<FNiagaraEmitterViewModel> EditableEmitterViewModel = SystemViewModel->GetEmitterHandleViewModels()[0]->GetEmitterViewModel();
+		UNiagaraEmitter* EditableEmitter = EditableEmitterViewModel->GetEmitter();
+		EditableEmitter->ThumbnailImage = Thumbnail;
+		bEmitterThumbnailUpdated = true;
 	}
 }
 
@@ -951,50 +969,59 @@ void FNiagaraSystemToolkit::UpdateOriginalEmitter()
 {
 	checkf(SystemToolkitMode == ESystemToolkitMode::Emitter, TEXT("There is no original emitter to update in system mode."));
 
-	const FScopedBusyCursor BusyCursor;
-	const FText LocalizedScriptEditorApply = NSLOCTEXT("UnrealEd", "ToolTip_NiagaraEmitterEditorApply", "Apply changes to original emitter and its use in the world.");
-	GWarn->BeginSlowTask(LocalizedScriptEditorApply, true);
-	GWarn->StatusUpdate(1, 1, LocalizedScriptEditorApply);
-
-	if (Emitter->IsSelected())
-	{
-		GEditor->GetSelectedObjects()->Deselect(Emitter);
-	}
-
-	ResetLoaders(Emitter->GetOutermost()); // Make sure that we're not going to get invalid version number linkers into the package we are going into. 
-	Emitter->GetOutermost()->LinkerCustomVersion.Empty();
-
 	TSharedPtr<FNiagaraEmitterViewModel> EditableEmitterViewModel = SystemViewModel->GetEmitterHandleViewModels()[0]->GetEmitterViewModel();
 	UNiagaraEmitter* EditableEmitter = EditableEmitterViewModel->GetEmitter();
 
-	TArray<UNiagaraScript*> AllScripts;
-	EditableEmitter->GetScripts(AllScripts, true);
-	for (UNiagaraScript* Script : AllScripts)
+	if (EditableEmitter->GetChangeId() != LastSyncedEmitterChangeId)
 	{
-		checkSlow(Script->AreScriptAndSourceSynchronized());
+		const FScopedBusyCursor BusyCursor;
+		const FText LocalizedScriptEditorApply = NSLOCTEXT("UnrealEd", "ToolTip_NiagaraEmitterEditorApply", "Apply changes to original emitter and its use in the world.");
+		GWarn->BeginSlowTask(LocalizedScriptEditorApply, true);
+		GWarn->StatusUpdate(1, 1, LocalizedScriptEditorApply);
+
+		if (Emitter->IsSelected())
+		{
+			GEditor->GetSelectedObjects()->Deselect(Emitter);
+		}
+
+		ResetLoaders(Emitter->GetOutermost()); // Make sure that we're not going to get invalid version number linkers into the package we are going into. 
+		Emitter->GetOutermost()->LinkerCustomVersion.Empty();
+
+		TArray<UNiagaraScript*> AllScripts;
+		EditableEmitter->GetScripts(AllScripts, true);
+		for (UNiagaraScript* Script : AllScripts)
+		{
+			checkSlow(Script->AreScriptAndSourceSynchronized());
+		}
+		checkSlow(EditableEmitter->AreAllScriptAndSourcesSynchronized());
+
+		// overwrite the original script in place by constructing a new one with the same name
+		Emitter = (UNiagaraEmitter*)StaticDuplicateObject(EditableEmitter, Emitter->GetOuter(),
+			Emitter->GetFName(), RF_AllFlags, Emitter->GetClass());
+
+		// Record the last synced change id to detect future changes.
+		LastSyncedEmitterChangeId = EditableEmitter->GetChangeId();
+		bEmitterThumbnailUpdated = false;
+
+		checkSlow(UNiagaraEmitter::GetForceCompileOnLoad() || Emitter->GetChangeId() == EditableEmitter->GetChangeId());
+
+		// Restore RF_Standalone on the original emitter, as it had been removed from the preview emitter so that it could be GC'd.
+		Emitter->SetFlags(RF_Standalone);
+
+		TArray<UNiagaraEmitter*> AffectedEmitters;
+		AffectedEmitters.Add(Emitter);
+		UpdateExistingEmitters();
+
+		checkSlow(UNiagaraEmitter::GetForceCompileOnLoad() || Emitter->GetChangeId() == EditableEmitter->GetChangeId());
+
+		GWarn->EndSlowTask();
 	}
-	checkSlow(EditableEmitter->AreAllScriptAndSourcesSynchronized());
-
-	// overwrite the original script in place by constructing a new one with the same name
-	Emitter = (UNiagaraEmitter*)StaticDuplicateObject(EditableEmitter, Emitter->GetOuter(), Emitter->GetFName(),
-		RF_AllFlags,
-		Emitter->GetClass());
-
-	// Record the last synced change id to detect future changes.
-	LastSyncedEmitterChangeId = EditableEmitter->GetChangeId();
-
-	checkSlow (UNiagaraEmitter::GetForceCompileOnLoad() || Emitter->GetChangeId() == EditableEmitter->GetChangeId());
-
-	// Restore RF_Standalone on the original emitter, as it had been removed from the preview emitter so that it could be GC'd.
-	Emitter->SetFlags(RF_Standalone);
-
-	TArray<UNiagaraEmitter*> AffectedEmitters;
-	AffectedEmitters.Add(Emitter);
-	UpdateExistingEmitters();
-
-	checkSlow(UNiagaraEmitter::GetForceCompileOnLoad() || Emitter->GetChangeId() == EditableEmitter->GetChangeId());
-
-	GWarn->EndSlowTask();
+	else if(bEmitterThumbnailUpdated)
+	{
+		Emitter->MarkPackageDirty();
+		Emitter->ThumbnailImage = (UTexture2D*)StaticDuplicateObject(EditableEmitter->ThumbnailImage, Emitter);
+		bEmitterThumbnailUpdated = false;
+	}
 }
 
 void FNiagaraSystemToolkit::UpdateExistingEmitters()
@@ -1092,7 +1119,7 @@ bool FNiagaraSystemToolkit::OnRequestClose()
 	if (SystemToolkitMode == ESystemToolkitMode::Emitter)
 	{
 		TSharedPtr<FNiagaraEmitterViewModel> EmitterViewModel = SystemViewModel->GetEmitterHandleViewModels()[0]->GetEmitterViewModel();
-		if (bChangesDiscarded == false && EmitterViewModel->GetEmitter()->GetChangeId() != LastSyncedEmitterChangeId)
+		if (bChangesDiscarded == false && (EmitterViewModel->GetEmitter()->GetChangeId() != LastSyncedEmitterChangeId || bEmitterThumbnailUpdated))
 		{
 			// find out the user wants to do with this dirty NiagaraScript
 			EAppReturnType::Type YesNoCancelReply = FMessageDialog::Open(EAppMsgType::YesNoCancel,
@@ -1150,7 +1177,7 @@ bool FNiagaraSystemToolkit::OnApplyEnabled() const
 	if (Emitter != nullptr)
 	{
 		TSharedPtr<FNiagaraEmitterViewModel> EmitterViewModel = SystemViewModel->GetEmitterHandleViewModels()[0]->GetEmitterViewModel();
-		return EmitterViewModel->GetEmitter()->GetChangeId() != LastSyncedEmitterChangeId;
+		return EmitterViewModel->GetEmitter()->GetChangeId() != LastSyncedEmitterChangeId || bEmitterThumbnailUpdated;
 	}
 	return false;
 }

@@ -8,7 +8,11 @@
 #include "NiagaraVFParticleAccess.usf"
 
 // These are only enabled for SM5 due to limited interpolators elsewhere
-#define USE_PARTICLE_NODES (FEATURE_LEVEL >= FEATURE_LEVEL_SM5)
+#define USE_PARTICLE_POSITION (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && NEEDS_PARTICLE_POSITION)
+#define USE_PARTICLE_VELOCITY (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && NEEDS_PARTICLE_VELOCITY)
+#define USE_PARTICLE_TIME (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && NEEDS_PARTICLE_TIME)
+#define USE_PARTICLE_RANDOM (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && NEEDS_PARTICLE_RANDOM)
+#define USE_PARTICLE_TRANSFORM (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && NEEDS_PARTICLE_TRANSFORM)
 
 // Only support previous transform for deferred feature level
 //#define USE_PREVIOUS_TRANSFORM (FEATURE_LEVEL >= FEATURE_LEVEL_SM4)
@@ -26,7 +30,7 @@ uint MeshFacingMode;
 #define MESH_FACING_VELOCITY 1
 #define MESH_FACING_CAMERA_POSITION 2
 #define MESH_FACING_CAMERA_PLANE 3
-	
+
 /** Sorted index buffer for particles if we need to sort their draw order (translucency etc). */
 Buffer<int> SortedIndices;
 uint SortedIndicesOffset;
@@ -87,19 +91,28 @@ struct FVertexFactoryInterpolantsVSToPS
 #if NUM_DYNAMIC_PARAMETERS > 3
 	float4 DynamicParameter3 : COLOR5;
 #endif
-	
-#if USE_PARTICLE_NODES
+
+#if USE_PARTICLE_POSITION
 	/** Particle position in camera-centered translated world space */
 	float3 ParticleTranslatedWorldPosition	: PARTICLE_POSITION;
+#endif
 
+#if USE_PARTICLE_VELOCITY
 	/** The velocity of the particle, XYZ: direction, W: speed. */
 	float4 ParticleVelocity	: PARTICLE_VELOCITY;
-
-	/** Relative alive time of the particle */
-	float ParticleTime : PARTICLE_TIME;
-#if NEEDS_PARTICLE_TRANSFORM
-	float4 LocalToWorld[4] : PARTICLE_TRANSFORM;
 #endif
+
+#if USE_PARTICLE_TIME
+	/** Relative alive time of the particle */
+	float RelativeTime : PARTICLE_TIME;
+#endif
+
+#if USE_PARTICLE_RANDOM
+	float ParticleRandom : PARTICLE_RANDOM;
+#endif
+
+#if USE_PARTICLE_TRANSFORM
+	float4 LocalToWorld[4] : PARTICLE_TRANSFORM;
 #endif
 
 #if INSTANCED_STEREO
@@ -118,7 +131,7 @@ struct FVertexFactoryIntermediates
 	/** The texture coordinates for the vertex. */
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 	float2	TexCoords[NUM_MATERIAL_TEXCOORDS_VERTEX];
-#endif 
+#endif
 #if USE_PARTICLE_SUBUVS
 	float4 SubUVCoords;
 	float SubUVLerp;
@@ -146,9 +159,16 @@ struct FVertexFactoryIntermediates
 
 	/** Particle position in camera-centered translated world space. */
 	float3 ParticleTranslatedWorldPosition;
-	
+
+#if USE_PARTICLE_TIME
 	/** Relative time. */
 	float RelativeTime;
+#endif
+
+#if USE_PARTICLE_RANDOM
+	/** Particle Random value */
+	float ParticleRandom;
+#endif
 
 	float4x4 LocalToWorld;
 };
@@ -164,9 +184,9 @@ float4x4 GetParticlePrevTransform(FVertexFactoryInput Input)
 	uint TransformBaseIdx = GetLayerInstanceID(Input.InstanceId) * 3;
 
 	float4x4 PrevTransform4x4 = float4x4(
-		PrevTransformBuffer[TransformBaseIdx + 0], 
-		PrevTransformBuffer[TransformBaseIdx + 1], 
-		PrevTransformBuffer[TransformBaseIdx + 2], 
+		PrevTransformBuffer[TransformBaseIdx + 0],
+		PrevTransformBuffer[TransformBaseIdx + 1],
+		PrevTransformBuffer[TransformBaseIdx + 2],
 		float4(0, 0, 0, 1)
 		);
 
@@ -240,17 +260,30 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	Result.Particle.DynamicParameter3 = Interpolants.DynamicParameter3;
 #endif
 
-#if USE_PARTICLE_NODES
+#if USE_PARTICLE_POSITION
 	Result.Particle.TranslatedWorldPositionAndSize.xyz = Interpolants.ParticleTranslatedWorldPosition.xyz;
 	Result.Particle.TranslatedWorldPositionAndSize.w = 1;
+#endif
+
+#if USE_PARTICLE_VELOCITY
 	Result.Particle.Velocity = Interpolants.ParticleVelocity;
-	Result.Particle.RelativeTime = Interpolants.ParticleTime;
-#if NEEDS_PARTICLE_TRANSFORM
+#endif
+
+#if USE_PARTICLE_TIME
+	Result.Particle.RelativeTime = Interpolants.RelativeTime;
+#endif
+
+#if USE_PARTICLE_RANDOM
+	Result.Particle.Random = Interpolants.ParticleRandom;
+#else
+	Result.Particle.Random = 0.0f;
+#endif
+
+#if USE_PARTICLE_TRANSFORM
 	Result.Particle.LocalToWorld[0] = Interpolants.LocalToWorld[0];
 	Result.Particle.LocalToWorld[1] = Interpolants.LocalToWorld[1];
 	Result.Particle.LocalToWorld[2] = Interpolants.LocalToWorld[2];
 	Result.Particle.LocalToWorld[3] = Interpolants.LocalToWorld[3];
-#endif
 #endif
 
 	Result.Particle.MotionBlurFade = 1.0f;
@@ -273,10 +306,25 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.PreSkinnedPosition = Input.Position.xyz;
 	Result.PreSkinnedNormal = TangentBias(Input.TangentZ.xyz);
 
+#if USE_PARTICLE_POSITION
 	Result.Particle.TranslatedWorldPositionAndSize.xyz = Intermediates.ParticleTranslatedWorldPosition.xyz;
 	Result.Particle.TranslatedWorldPositionAndSize.w = 1;
+#endif
+
+#if USE_PARTICLE_VELOCITY
 	Result.Particle.Velocity = Intermediates.ParticleVelocity;
+#endif
+
+#if USE_PARTICLE_TIME
 	Result.Particle.RelativeTime = Intermediates.RelativeTime;
+#endif
+
+#if USE_PARTICLE_RANDOM
+	Result.Particle.Random = Intermediates.ParticleRandom;
+#else
+	Result.Particle.Random = 0.0f;
+#endif
+
 	Result.Particle.Color = Intermediates.ParticleColor;
 
 #if NUM_DYNAMIC_PARAMETERS > 0
@@ -294,6 +342,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 
 	float4x4 Transform = GetParticleTransform(Intermediates);
 	Result.InstanceLocalToWorld = Transform;
+
 #if NEEDS_PARTICLE_TRANSFORM
 	Result.Particle.LocalToWorld[0] = Transform[0];
 	Result.Particle.LocalToWorld[1] = Transform[1];
@@ -301,7 +350,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.Particle.LocalToWorld[3] = Transform[3];
 #endif
 
-	Result.TangentToWorld = mul(TangentToLocal, (float3x3)Transform ); 
+	Result.TangentToWorld = mul(TangentToLocal, (float3x3)Transform );
 
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 	for(int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS_VERTEX; CoordinateIndex++)
@@ -407,7 +456,7 @@ void AxisAngleToPitchYawRoll(float4 AxisAngle, out float Pitch, out float Yaw, o
 }
 
 
-float4 EulerToQuaternion(float Pitch, float Yaw, float Roll) 
+float4 EulerToQuaternion(float Pitch, float Yaw, float Roll)
 {
 	float DEG_TO_RAD = PI/(180.f);
 	float DIVIDE_BY_2 = DEG_TO_RAD/2.f;
@@ -437,7 +486,7 @@ float4x4 EulerToMat4x4(float Pitch, float Yaw, float Roll)
 FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput Input)
 {
 	FVertexFactoryIntermediates Intermediates = (FVertexFactoryIntermediates)0;
-	
+
 	if(SortedIndicesOffset != 0xFFFFFFFF)
 	{
 		Input.InstanceId = SortedIndices[SortedIndicesOffset + Input.InstanceId];
@@ -461,13 +510,14 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 		Intermediates.ParticleColor = GetVec4(NiagaraMeshVF.ColorDataOffset, Input.InstanceId);
 	}
 
+	float3 ParticleVelocity;
 	if (NiagaraMeshVF.VelocityDataOffset == -1)
 	{
-		Intermediates.ParticleVelocity = float4(0.0f, 0.0f, 0.0f, 1);
+		ParticleVelocity = float4(0.0f, 0.0f, 0.0f, 1);
 	}
 	else
 	{
-		Intermediates.ParticleVelocity = float4(GetVec3(NiagaraMeshVF.VelocityDataOffset, Input.InstanceId), 1);
+		ParticleVelocity = float4(GetVec3(NiagaraMeshVF.VelocityDataOffset, Input.InstanceId), 1);
 	}
 
 #if NUM_DYNAMIC_PARAMETERS > 0
@@ -483,6 +533,33 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	Intermediates.DynamicParameter3  = NiagaraMeshVF.MaterialParam3DataOffset != -1 ? GetVec4(NiagaraMeshVF.MaterialParam3DataOffset, Input.InstanceId) : float4(1,1,1,1);
 #endif
 
+#if USE_PARTICLE_TIME
+	if (NiagaraMeshVF.NormalizedAgeDataOffset == -1)
+	{
+		Intermediates.RelativeTime = 0;
+	}
+	else
+	{
+		Intermediates.RelativeTime = GetFloat(NiagaraMeshVF.NormalizedAgeDataOffset, Input.InstanceId);
+	}
+#endif
+
+#if USE_PARTICLE_RANDOM
+	if (NiagaraMeshVF.MaterialRandomDataOffset == -1)
+	{
+		Intermediates.ParticleRandom = 0;
+	}
+	else
+	{
+		Intermediates.ParticleRandom = GetFloat(NiagaraMeshVF.MaterialRandomDataOffset, Input.InstanceId);
+	}
+#endif
+
+#if USE_PARTICLE_VELOCITY
+	Intermediates.ParticleVelocity.xyz = normalize(ParticleVelocity);
+	Intermediates.ParticleVelocity.w = length(ParticleVelocity);
+#endif
+
 	float4 Transform1 = float4(1.0f, 0.0f, 0.0f, Intermediates.ParticlePosition.x);
 	float4 Transform2 = float4(0.0f, 1.0f, 0.0f, Intermediates.ParticlePosition.y);
 	float4 Transform3 = float4(0.0f, 0.0f, 1.0f, Intermediates.ParticlePosition.z);
@@ -490,11 +567,11 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	if(NiagaraMeshVF.TransformDataOffset != -1)
 	{
 		float4 Quat = GetVec4(NiagaraMeshVF.TransformDataOffset, Input.InstanceId);
-		
+
 		//Transform axis to handle local space.
 		//AxisAngle.xyz = mul(float4(AxisAngle.xyz, 0), NiagaraMeshVF.LocalToWorldInverseTransposed);
 
-		
+
 		float4x4 EulerToMat = QuatTo4x4(normalize(Quat));
 		Transform1.xyz = EulerToMat[0].xyz;
 		Transform2.xyz = EulerToMat[1].xyz;
@@ -507,20 +584,20 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 		ScaleMatrix[0][0] *= Scale.x;
 		ScaleMatrix[1][1] *= Scale.y;
 		ScaleMatrix[2][2] *= Scale.z;
-	}	
+	}
 	// Swizzle vertex color.
 	Intermediates.VertexColor = Input.VertexColor FCOLOR_COMPONENT_SWIZZLE;
 
 	// World position and localtoworld transform.
 	float4x4 LocalToWorldMat = float4x4(Transform1, Transform2, Transform3, float4(0.0f, 0.0f, 0.0f, 1.0f));
-	
+
 	Intermediates.ParticleTranslatedWorldPosition = Intermediates.ParticlePosition + ResolvedView.PreViewTranslation.xyz;
 
 	//LocalToWorldMat = mul(ScaleMatrix, LocalToWorldMat);
 
 	if (MeshFacingMode == MESH_FACING_VELOCITY)
 	{
-		float4 ToAlignmentQuat = FindQuatBetween(float3(1.0f, 0.0f, 0.0f), normalize(Intermediates.ParticleVelocity.xyz));
+		float4 ToAlignmentQuat = FindQuatBetween(float3(1.0f, 0.0f, 0.0f), normalize(ParticleVelocity.xyz));
 		float4x4 ToAlignmentMat = QuatTo4x4( normalize(ToAlignmentQuat) );
 		Intermediates.LocalToWorld =  mul(LocalToWorldMat, mul(ToAlignmentMat, ScaleMatrix));
 	}
@@ -542,7 +619,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	}
 	else
 	{
-		Intermediates.LocalToWorld =  mul(LocalToWorldMat, ScaleMatrix); 
+		Intermediates.LocalToWorld =  mul(LocalToWorldMat, ScaleMatrix);
 	}
 
 	//Handle local space. TODO: Optimize behind define.
@@ -550,8 +627,8 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	Intermediates.LocalToWorld = transpose(Intermediates.LocalToWorld);
 	Intermediates.LocalToWorld = mul(Intermediates.LocalToWorld, NiagaraMeshVF.LocalToWorld);
 	Intermediates.ParticlePosition = mul(Intermediates.ParticlePosition, NiagaraMeshVF.LocalToWorld);
-	Intermediates.ParticleVelocity.xyz = mul(float4(Intermediates.ParticleVelocity.xyz,0), NiagaraMeshVF.LocalToWorldInverseTransposed);
-	
+	//Intermediates.ParticleVelocity.xyz = mul(float4(Intermediates.ParticleVelocity.xyz,0), NiagaraMeshVF.LocalToWorldInverseTransposed);
+
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 	for(int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS_VERTEX; CoordinateIndex++)
 	{
@@ -563,7 +640,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 		Intermediates.SubUVCoords.xy = (float2( Input.SubUVParams.x, Input.SubUVParams.y ) + Input.TexCoords[0].xy) * MeshParticleVF.SubImageSize.xy;
 		Intermediates.SubUVCoords.zw = (float2( Input.SubUVParams.z, Input.SubUVParams.w ) + Input.TexCoords[0].xy) * MeshParticleVF.SubImageSize.xy;
 		//Intermediates.SubUVLerp = Input.SubUVLerpAndRelTime.x;
-#endif 
+#endif
 
 	//Intermediates.RelativeTime = Input.SubUVLerpAndRelTime.y;
 
@@ -579,18 +656,18 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 */
 float3x3 VertexFactoryGetTangentToLocal( FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates )
 {
-	float3x3 Result=0;	
+	float3x3 Result=0;
 	float3 TangentX = TangentBias(Input.TangentX);
 	float4 TangentZ = TangentBias(Input.TangentZ);
 
 	// pass-thru the tangent
 	Result[0] = TangentX;
 	// pass-thru the normal
-	Result[2] = TangentZ.xyz;	
+	Result[2] = TangentZ.xyz;
 
-	
+
 	// derive the binormal by getting the cross product of the normal and tangent
-	Result[1] = cross(Result[2], Result[0]) * TangentZ.w;	
+	Result[1] = cross(Result[2], Result[0]) * TangentZ.w;
 	// Recalculate TangentX off of the other two vectors
 	// This corrects quantization error since TangentX was passed in as a quantized vertex input
 	// The error shows up most in specular off of a mesh with a smoothed UV seam (normal is smooth, but tangents vary across the seam)
@@ -662,7 +739,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 					Interpolants.TexCoords[CoordinateIndex / 2].wz = CustomizedUVs[CoordinateIndex + 1];
 			}
 		}
-	#endif 
+	#endif
 #endif
 
 
@@ -694,13 +771,24 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
 
-#if USE_PARTICLE_NODES
+#if USE_PARTICLE_POSITION
 	Interpolants.ParticleTranslatedWorldPosition = Intermediates.ParticleTranslatedWorldPosition;
-	Interpolants.ParticleVelocity = Intermediates.ParticleVelocity;
-	Interpolants.ParticleTime = Intermediates.RelativeTime;
-#if NEEDS_PARTICLE_TRANSFORM
-	Interpolants.LocalToWorld = Intermediates.LocalToWorld;
 #endif
+
+#if USE_PARTICLE_VELOCITY
+	Interpolants.ParticleVelocity = Intermediates.ParticleVelocity;
+#endif
+
+#if USE_PARTICLE_TIME
+	Interpolants.RelativeTime = Intermediates.RelativeTime;
+#endif
+
+#if USE_PARTICLE_RANDOM
+	Interpolants.ParticleRandom = Intermediates.ParticleRandom;
+#endif
+
+#if USE_PARTICLE_TRANSFORM
+	Interpolants.LocalToWorld = Intermediates.LocalToWorld;
 #endif
 
 #if INSTANCED_STEREO
@@ -712,7 +800,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 
 // @return previous translated world position
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
-{	
+{
 	return CalcPrevWorldPosition(Input, Intermediates);
 }
 
@@ -773,10 +861,10 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 	FVertexFactoryInterpolantsVSToDS VertexFactoryInterpolate(FVertexFactoryInterpolantsVSToDS a, float aInterp, FVertexFactoryInterpolantsVSToDS b, float bInterp)
 	{
 		FVertexFactoryInterpolantsVSToDS O;
-	
+
 		// Do we really need to interpolate TangentToWorld2 here? It should be replaced by the
 		// interpolated normal from 'whatever' interpolation scheme we're using
-	
+
 		TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.TangentToWorld0.xyz);
 		TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.TangentToWorld2);
 #if INTERPOLATE_VERTEX_COLOR

@@ -126,4 +126,5 @@ private:
 	TSharedPtr<SSearchBox> SearchBox;
 	TSharedPtr<FActiveTimerHandle> SearchExpandTimer;
 	static const FText OccurencesFormat;
+	bool bNeedsJumpToNextOccurence;
 };

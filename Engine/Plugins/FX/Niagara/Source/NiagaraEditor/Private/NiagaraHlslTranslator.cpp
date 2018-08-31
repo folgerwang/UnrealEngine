@@ -710,8 +710,8 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 		TranslationStages[1].PassNamespace = TEXT("MapUpdate");
 		TranslationStages[0].ChunkModeIndex = ENiagaraCodeChunkMode::SpawnBody;
 		TranslationStages[1].ChunkModeIndex = ENiagaraCodeChunkMode::UpdateBody;
-		TranslationStages[0].OutputNode = SourceGraph->FindOutputNode(ENiagaraScriptUsage::ParticleSpawnScript, TranslationStages[0].UsageId);
-		TranslationStages[1].OutputNode = SourceGraph->FindOutputNode(TranslationStages[1].ScriptUsage, TranslationStages[1].UsageId);
+		TranslationStages[0].OutputNode = SourceGraph->FindEquivalentOutputNode(ENiagaraScriptUsage::ParticleSpawnScript, TranslationStages[0].UsageId);
+		TranslationStages[1].OutputNode = SourceGraph->FindEquivalentOutputNode(TranslationStages[1].ScriptUsage, TranslationStages[1].UsageId);
 		TranslationStages[1].bInterpolatePreviousParams = true;
 		ParamMapHistories.AddDefaulted(2);
 		ParamMapSetVariablesToChunks.AddDefaulted(2);
@@ -723,8 +723,8 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 		TranslationStages[1].PassNamespace = TEXT("MapUpdate");
 		TranslationStages[0].ChunkModeIndex = ENiagaraCodeChunkMode::SpawnBody;
 		TranslationStages[1].ChunkModeIndex = ENiagaraCodeChunkMode::UpdateBody;
-		TranslationStages[0].OutputNode = SourceGraph->FindOutputNode(ENiagaraScriptUsage::ParticleSpawnScript, TranslationStages[0].UsageId);
-		TranslationStages[1].OutputNode = SourceGraph->FindOutputNode(TranslationStages[1].ScriptUsage, TranslationStages[1].UsageId);
+		TranslationStages[0].OutputNode = SourceGraph->FindEquivalentOutputNode(ENiagaraScriptUsage::ParticleSpawnScript, TranslationStages[0].UsageId);
+		TranslationStages[1].OutputNode = SourceGraph->FindEquivalentOutputNode(TranslationStages[1].ScriptUsage, TranslationStages[1].UsageId);
 		TranslationStages[1].bInterpolatePreviousParams = bHasInterpolatedSpawn;
 		ParamMapHistories.AddDefaulted(2);
 		ParamMapSetVariablesToChunks.AddDefaulted(2);
@@ -732,7 +732,7 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 	default:
 		TranslationStages.Add(FHlslNiagaraTranslationStage(CompileOptions.TargetUsage, CompileOptions.TargetUsageId));
 		TranslationStages[0].PassNamespace = TEXT("Map");		
-		TranslationStages[0].OutputNode = SourceGraph->FindOutputNode(TranslationStages[0].ScriptUsage, TranslationStages[0].UsageId);
+		TranslationStages[0].OutputNode = SourceGraph->FindEquivalentOutputNode(TranslationStages[0].ScriptUsage, TranslationStages[0].UsageId);
 		TranslationStages[0].ChunkModeIndex = ENiagaraCodeChunkMode::Body;
 		ParamMapHistories.AddDefaulted(1);
 		ParamMapSetVariablesToChunks.AddDefaulted(1);
@@ -814,6 +814,9 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 					FoundHistory.AddVariable(Var, Var, nullptr);
 
 					Var = FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Interpolation.Emitter_InterpSpawnStartDt"));
+					FoundHistory.AddVariable(Var, Var, nullptr);
+
+					Var = FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Interpolation.Emitter_SpawnGroup"));
 					FoundHistory.AddVariable(Var, Var, nullptr);
 				}
 
@@ -940,6 +943,7 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 			ParameterMapRegisterExternalConstantNamespaceVariable(SYS_PARAM_EMITTER_SPAWNRATE, nullptr, 0, OutputIdx, nullptr);
 			ParameterMapRegisterExternalConstantNamespaceVariable(SYS_PARAM_EMITTER_SPAWN_INTERVAL, nullptr, 0, OutputIdx, nullptr);
 			ParameterMapRegisterExternalConstantNamespaceVariable(SYS_PARAM_EMITTER_INTERP_SPAWN_START_DT, nullptr, 0, OutputIdx, nullptr);
+			ParameterMapRegisterExternalConstantNamespaceVariable(SYS_PARAM_EMITTER_SPAWN_GROUP, nullptr, 0, OutputIdx, nullptr);
 		}
 
 		// Generate the Parameter Map HLSL definitions. We don't add to the final HLSL output here. We just build up the strings and tables
@@ -1360,6 +1364,7 @@ void FHlslNiagaraTranslator::DefineInterpolatedParametersFunction(FString &HlslO
 			HlslOutputString += TEXT("\tContext.") + PrevMap + TEXT(".Interpolation.SpawnInterp = SpawnInterp;\n");
 			HlslOutputString += TEXT("\tContext.") + PrevMap + TEXT(".Interpolation.Emitter_SpawnInterval = Emitter_SpawnInterval;\n");
 			HlslOutputString += TEXT("\tContext.") + PrevMap + TEXT(".Interpolation.Emitter_InterpSpawnStartDt = Emitter_InterpSpawnStartDt;\n");
+			HlslOutputString += TEXT("\tContext.") + PrevMap + TEXT(".Interpolation.Emitter_SpawnGroup = Emitter_SpawnGroup;\n");
 
 			for (int32 UniformIdx = 0; UniformIdx < ChunksByMode[(int32)ENiagaraCodeChunkMode::Uniform].Num(); ++UniformIdx)
 			{
@@ -1636,7 +1641,8 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 	{
 		OutHlslOutput += TEXT("\t") + MainPreSimulateChunks[i] + TEXT("\n");
 	}
-	
+
+	bool bGpuUsesAlive = false;
 	{
 		// call the read data set function
 		OutHlslOutput += TEXT("\tReadDataSets(Context);\n");
@@ -1644,14 +1650,43 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 		// branch between spawn and update
 		if (CompilationTarget == ENiagaraSimTarget::GPUComputeSim)
 		{
+			// Determine 
+			TArray<FName> DataSetNames;
+			for (const FNiagaraDataSetID& ReadId : ReadIds)
+			{
+				DataSetNames.AddUnique(ReadId.Name);
+			}
+			for (const FNiagaraDataSetID& WriteId : WriteIds)
+			{
+				DataSetNames.AddUnique(WriteId.Name);
+			}
+
+			for (int32 i = 0; i < ParamMapHistories.Num(); i++)
+			{
+				for (FName DataSetName : DataSetNames)
+				{
+					if (ParamMapHistories[i].FindVariable(*(DataSetName.ToString() + TEXT(".Alive")), FNiagaraTypeDefinition::GetBoolDef()) != INDEX_NONE)
+					{
+						bGpuUsesAlive = true;
+						break;
+					}
+				}
+				if (bGpuUsesAlive)
+				{
+					break;
+				}
+			}
+
 			OutHlslOutput += TEXT("\tint StartingPhase = Phase;\n");
 			OutHlslOutput += TEXT("\tGCurrentPhase = Phase;\n");
 
 			for (int32 StageIdx = 0; StageIdx < TranslationStages.Num(); StageIdx++)
 			{
 				OutHlslOutput += FString::Printf(TEXT("\tif(Phase==%d)\n\t{\n"), StageIdx);
-				
-				OutHlslOutput += FString::Printf(TEXT("\t\tif (StartingPhase == %d)\n\t\t{\n\t\t\tContext.%s.DataInstance.Alive=true;\n\t\t}\n"), StageIdx, *TranslationStages[StageIdx].PassNamespace);
+				if (bGpuUsesAlive)
+				{
+					OutHlslOutput += FString::Printf(TEXT("\t\tif (StartingPhase == %d)\n\t\t{\n\t\t\tContext.%s.DataInstance.Alive=true;\n\t\t}\n"), StageIdx, *TranslationStages[StageIdx].PassNamespace);
+				}
 
 				if (StageIdx == 0)
 				{
@@ -1666,12 +1701,18 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 				
 				if (StageIdx + 1 < TranslationStages.Num() && TranslationStages[StageIdx + 1].bCopyPreviousParams)
 				{
-					OutHlslOutput += FString::Printf(TEXT("\t\tContext.%s.DataInstance.Alive = Context.%s.DataInstance.Alive;\n"), *TranslationStages[StageIdx + 1].PassNamespace, *TranslationStages[StageIdx].PassNamespace);
 					OutHlslOutput += TEXT("\t\t//Begin Transfer of Attributes!\n");
 					if (ParamMapDefinedAttributesToNamespaceVars.Num() != 0)
 					{
-						FString CopyStr = TEXT("\t\tContext.") + TranslationStages[StageIdx + 1].PassNamespace + TEXT(".Particles = Context.") + TranslationStages[StageIdx].PassNamespace + TEXT(".Particles;\n");
-						OutHlslOutput += CopyStr;
+						FString CopyParticlesStr =
+							TEXT("\t\tContext.") + TranslationStages[StageIdx + 1].PassNamespace + TEXT(".Particles = Context.") + TranslationStages[StageIdx].PassNamespace + TEXT(".Particles;\n");
+						OutHlslOutput += CopyParticlesStr;
+
+						if (bGpuUsesAlive)
+						{
+							FString CopyDataInstanceStr = TEXT("\t\tContext.") + TranslationStages[StageIdx + 1].PassNamespace + TEXT(".DataInstance = Context.") + TranslationStages[StageIdx].PassNamespace + TEXT(".DataInstance;\n");
+							OutHlslOutput += CopyDataInstanceStr;
+						}
 					}
 					OutHlslOutput += TEXT("\t\t//End Transfer of Attributes!\n\n");
 				}
@@ -1681,11 +1722,6 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 				{
 					OutHlslOutput += FString::Printf(TEXT("\t\tPhase = %d;\n"), StageIdx + 1);
 					OutHlslOutput += FString::Printf(TEXT("\t\tGCurrentPhase = %d;\n"), StageIdx + 1);
-				}
-
-				else if (StageIdx + 1 < TranslationStages.Num())
-				{
-					OutHlslOutput += FString::Printf(TEXT("\t\tContext.%s.Particles = Context.%s.Particles;\n"), *TranslationStages[TranslationStages.Num() - 1].PassNamespace, *TranslationStages[StageIdx].PassNamespace);
 				}
 				
 				OutHlslOutput += TEXT("\t}\n");
@@ -1708,7 +1744,6 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 
 				if (StageIdx + 1 < TranslationStages.Num() && TranslationStages[StageIdx + 1].bCopyPreviousParams)
 				{
-					OutHlslOutput += FString::Printf(TEXT("\tContext.%s.DataInstance.Alive = Context.%s.DataInstance.Alive;\n"), *TranslationStages[StageIdx + 1].PassNamespace, *TranslationStages[StageIdx].PassNamespace);
 					OutHlslOutput += TEXT("\t//Begin Transfer of Attributes!\n");
 					if (ParamMapDefinedAttributesToNamespaceVars.Num() != 0)
 					{
@@ -1752,7 +1787,10 @@ void FHlslNiagaraTranslator::DefineMain(FString &OutHlslOutput,
 				DefineDataSetVariableReads(HlslOutput, ReadIds[VarArrayIdx], VarArrayIdx, *ArrayRef);
 			}
 
-			OutHlslOutput += TEXT("\tContext.Map.DataInstance.Alive = true;\n");
+			if (bGpuUsesAlive)
+			{
+				OutHlslOutput += TEXT("\tContext.Map.DataInstance.Alive = true;\n");
+			}
 
 			for (int32 VarArrayIdx = 0; VarArrayIdx < InstanceWriteVars.Num(); VarArrayIdx++)
 			{
@@ -2772,7 +2810,8 @@ bool FHlslNiagaraTranslator::ShouldInterpolateParameter(const FNiagaraVariable& 
 		Parameter == SYS_PARAM_ENGINE_EXEC_COUNT || 
 		Parameter == SYS_PARAM_EMITTER_SPAWNRATE ||
 		Parameter == SYS_PARAM_EMITTER_SPAWN_INTERVAL ||
-		Parameter == SYS_PARAM_EMITTER_INTERP_SPAWN_START_DT )
+		Parameter == SYS_PARAM_EMITTER_INTERP_SPAWN_START_DT ||
+		Parameter == SYS_PARAM_EMITTER_SPAWN_GROUP )
 	{
 		return false;
 	}
