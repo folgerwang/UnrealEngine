@@ -44,8 +44,8 @@ namespace Audio
 		void SetPeakMode(const EPeakMode::Type InEnvelopeFollowerModeType);
 		void SetProcessingMode(const EDynamicsProcessingMode::Type ProcessingMode);
 
-		void ProcessAudio(const float* InputFrame, int32 NumChannels, float* OutputFrame);
-
+		void ProcessAudioFrame(const float* InFrame, float* OutFrame);
+		void ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer);
 
 
 	protected:
@@ -89,6 +89,9 @@ namespace Audio
 
 		// Amount of output gain
 		float OutputGain;
+
+		// Number of channels to use for the dynamics processor
+		int32 NumChannels;
 
 		// Whether or not the stereo channels are linked
 		bool bIsChannelLinked;

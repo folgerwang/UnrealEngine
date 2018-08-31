@@ -1731,7 +1731,16 @@ void USkeletalMesh::DebugVerifySkeletalMeshLOD()
 	}
 }
 
-void USkeletalMesh::RegisterMorphTarget(UMorphTarget* MorphTarget)
+void USkeletalMesh::InitMorphTargetsAndRebuildRenderData()
+{
+	MarkPackageDirty();
+	// need to refresh the map
+	InitMorphTargets();
+	// invalidate render data
+	InvalidateRenderData();
+}
+
+bool USkeletalMesh::RegisterMorphTarget(UMorphTarget* MorphTarget, bool bInvalidateRenderData)
 {
 	if ( MorphTarget )
 	{
@@ -1765,25 +1774,20 @@ void USkeletalMesh::RegisterMorphTarget(UMorphTarget* MorphTarget)
 			bRegistered = true;
 		}
 
-		if (bRegistered)
+		if (bRegistered && bInvalidateRenderData)
 		{
-			MarkPackageDirty();
-			// need to refresh the map
-			InitMorphTargets();
-			// invalidate render data
-			InvalidateRenderData();
+			InitMorphTargetsAndRebuildRenderData();
 		}
+		return bRegistered;
 	}
+	return false;
 }
+
 
 void USkeletalMesh::UnregisterAllMorphTarget()
 {
 	MorphTargets.Empty();
-	MarkPackageDirty();
-	// need to refresh the map
-	InitMorphTargets();
-	// invalidate render data
-	InvalidateRenderData();
+	InitMorphTargetsAndRebuildRenderData();
 }
 
 void USkeletalMesh::UnregisterMorphTarget(UMorphTarget* MorphTarget)
@@ -1798,15 +1802,10 @@ void USkeletalMesh::UnregisterMorphTarget(UMorphTarget* MorphTarget)
 			{
 				MorphTargets.RemoveAt(I);
 				--I;
-				MarkPackageDirty();
-				// need to refresh the map
-				InitMorphTargets();
-				// invalidate render data
-				InvalidateRenderData();
+				InitMorphTargetsAndRebuildRenderData();
 				return;
 			}
 		}
-
 		UE_LOG( LogSkeletalMesh, Log, TEXT("UnregisterMorphTarget: %s not found."), *MorphTarget->GetName() );
 	}
 }

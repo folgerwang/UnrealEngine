@@ -2,33 +2,33 @@
 
 namespace UnrealBuildTool.Rules
 {
-	public class GeometryCacheTracks : ModuleRules
-	{
-		public GeometryCacheTracks(ReadOnlyTargetRules Target) : base(Target)
-		{
+    public class GeometryCacheTracks : ModuleRules
+    {
+        public GeometryCacheTracks(ReadOnlyTargetRules Target) : base(Target)
+        {
             PublicDependencyModuleNames.AddRange(
-				new string[]
-				{
-					"Core",
-					"CoreUObject",
-					"Engine",
-					"MovieScene",
-					"MovieSceneTracks",
+                new string[]
+                {
+                    "Core",
+                    "CoreUObject",
+                    "Engine",
+                    "MovieScene",
+                    "MovieSceneTracks",
                     "GeometryCache",
 
                 }
             );
 
-			PrivateDependencyModuleNames.AddRange(
-				new string[]
-				{
-					"Core",
-					"CoreUObject",
-					"Engine",
+            PrivateDependencyModuleNames.AddRange(
+                new string[]
+                {
+                    "Core",
+                    "CoreUObject",
+                    "Engine",
                     "AnimGraphRuntime",
                     "TimeManagement",
-				}
-			);
+                }
+            );
 
 
             PublicIncludePathModuleNames.Add("TargetPlatform");
@@ -39,5 +39,5 @@ namespace UnrealBuildTool.Rules
                 DynamicallyLoadedModuleNames.Add("GeometryCacheSequencer");
             }
         }
-	}
+    }
 }

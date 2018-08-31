@@ -50,7 +50,4 @@ public:
 	/** Returns true if the supplied class is supported by this template */
 	static bool Supports(UClass* InClass);
 
-protected:
-	/** The asset data for the widget blueprint */
-	FAssetData WidgetAssetData;
 };

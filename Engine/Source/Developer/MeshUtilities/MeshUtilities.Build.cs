@@ -38,6 +38,7 @@ public class MeshUtilities : ModuleRules
 				"EditorStyle",
                 "GraphColor",
                 "MeshBuilder",
+                "MeshUtilitiesCommon",
             }
 		);
 

@@ -739,7 +739,7 @@ bool FSequenceRecorder::StartRecordingInternal(UWorld* World)
 
 					FString NewSequenceName = SequenceRecorderUtils::MakeNewAssetName(PathToRecordTo, SequenceName);
 
-					CurrentSequence = CastChecked<ULevelSequence>(SequenceRecorderUtils::DuplicateAsset(PathToRecordTo, SequenceName, RecordingGroup.Get()->TargetLevelSequence));
+					LevelSequence = CastChecked<ULevelSequence>(SequenceRecorderUtils::DuplicateAsset(PathToRecordTo, SequenceName, RecordingGroup.Get()->TargetLevelSequence));
 					
 					RecordingGroup.Get()->TargetLevelSequence = LevelSequence;
 				}

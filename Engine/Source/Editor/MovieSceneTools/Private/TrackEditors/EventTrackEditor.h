@@ -48,6 +48,7 @@ public:
 	virtual bool SupportsSequence(UMovieSceneSequence* InSequence) const override;
 	virtual const FSlateBrush* GetIconBrush() const override;
 	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
+	virtual TSharedPtr<SWidget> BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track, const FBuildEditWidgetParams& Params) override;
 
 	//~ FPropertyTrackEditor interface
 	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
@@ -55,5 +56,7 @@ public:
 private:
 
 	/** Callback for executing the "Add Event Track" menu entry. */
-	void HandleAddEventTrackMenuEntryExecute();
+	void HandleAddEventTrackMenuEntryExecute(FGuid InObjectBindingID);
+
+	void CreateNewSection(UMovieSceneTrack* Track, int32 RowIndex, UClass* SectionType);
 };

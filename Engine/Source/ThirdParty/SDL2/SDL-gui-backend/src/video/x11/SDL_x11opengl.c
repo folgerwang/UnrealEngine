@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -111,6 +111,13 @@ typedef GLXContext(*PFNGLXCREATECONTEXTATTRIBSARBPROC) (Display * dpy,
 #define GLX_ARB_framebuffer_sRGB
 #ifndef GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB
 #define GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB                0x20B2
+#endif
+#endif
+
+#ifndef GLX_ARB_create_context_no_error
+#define GLX_ARB_create_context_no_error
+#ifndef GLX_CONTEXT_OPENGL_NO_ERROR_ARB
+#define GLX_CONTEXT_OPENGL_NO_ERROR_ARB                 0x31B3
 #endif
 #endif
 
@@ -324,8 +331,47 @@ X11_GL_InitExtensions(_THIS)
 {
     Display *display = ((SDL_VideoData *) _this->driverdata)->display;
     const int screen = DefaultScreen(display);
+    XVisualInfo *vinfo = NULL;
+    Window w = 0;
+    GLXContext prev_ctx = 0;
+    GLXDrawable prev_drawable = 0;
+    GLXContext context = 0;
     const char *(*glXQueryExtensionsStringFunc) (Display *, int);
     const char *extensions;
+
+    vinfo = X11_GL_GetVisual(_this, display, screen);
+    if (vinfo) {
+        GLXContext (*glXGetCurrentContextFunc) (void) =
+            (GLXContext(*)(void))
+                X11_GL_GetProcAddress(_this, "glXGetCurrentContext");
+
+        GLXDrawable (*glXGetCurrentDrawableFunc) (void) =
+            (GLXDrawable(*)(void))
+                X11_GL_GetProcAddress(_this, "glXGetCurrentDrawable");
+
+        if (glXGetCurrentContextFunc && glXGetCurrentDrawableFunc) {
+            XSetWindowAttributes xattr;
+            prev_ctx = glXGetCurrentContextFunc();
+            prev_drawable = glXGetCurrentDrawableFunc();
+
+            xattr.background_pixel = 0;
+            xattr.border_pixel = 0;
+            xattr.colormap =
+                X11_XCreateColormap(display, RootWindow(display, screen),
+                                    vinfo->visual, AllocNone);
+            w = X11_XCreateWindow(display, RootWindow(display, screen), 0, 0,
+                        32, 32, 0, vinfo->depth, InputOutput, vinfo->visual,
+                        (CWBackPixel | CWBorderPixel | CWColormap), &xattr);
+
+            context = _this->gl_data->glXCreateContext(display, vinfo,
+                                                        NULL, True);
+            if (context) {
+                _this->gl_data->glXMakeCurrent(display, w, context);
+            }
+        }
+
+        X11_XFree(vinfo);
+    }
 
     glXQueryExtensionsStringFunc =
         (const char *(*)(Display *, int)) X11_GL_GetProcAddress(_this,
@@ -384,16 +430,43 @@ X11_GL_InitExtensions(_THIS)
     
     /* Check for GLX_EXT_create_context_es2_profile */
     if (HasExtension("GLX_EXT_create_context_es2_profile", extensions)) {
-        SDL_GL_DeduceMaxSupportedESProfile(
-            &_this->gl_data->es_profile_max_supported_version.major,
-            &_this->gl_data->es_profile_max_supported_version.minor
-        );
+        /* this wants to call glGetString(), so it needs a context. */
+        /* !!! FIXME: it would be nice not to make a context here though! */
+        if (context) {
+            SDL_GL_DeduceMaxSupportedESProfile(
+                &_this->gl_data->es_profile_max_supported_version.major,
+                &_this->gl_data->es_profile_max_supported_version.minor
+            );
+        }
     }
 
     /* Check for GLX_ARB_context_flush_control */
     if (HasExtension("GLX_ARB_context_flush_control", extensions)) {
         _this->gl_data->HAS_GLX_ARB_context_flush_control = SDL_TRUE;
     }
+
+    /* Check for GLX_ARB_create_context_robustness */
+    if (HasExtension("GLX_ARB_create_context_robustness", extensions)) {
+        _this->gl_data->HAS_GLX_ARB_create_context_robustness = SDL_TRUE;
+    }
+
+    /* Check for GLX_ARB_create_context_no_error */
+    if (HasExtension("GLX_ARB_create_context_no_error", extensions)) {
+        _this->gl_data->HAS_GLX_ARB_create_context_no_error = SDL_TRUE;
+    }
+
+    if (context) {
+        _this->gl_data->glXMakeCurrent(display, None, NULL);
+        _this->gl_data->glXDestroyContext(display, context);
+        if (prev_ctx && prev_drawable) {
+            _this->gl_data->glXMakeCurrent(display, prev_drawable, prev_ctx);
+        }
+    }
+
+    if (w) {
+        X11_XDestroyWindow(display, w);
+    }
+    X11_PumpEvents(_this);
 }
 
 /* glXChooseVisual and glXChooseFBConfig have some small differences in
@@ -621,8 +694,8 @@ X11_GL_CreateContext(_THIS, SDL_Window * window)
             context =
                 _this->gl_data->glXCreateContext(display, vinfo, share_context, True);
         } else {
-            /* max 10 attributes plus terminator */
-            int attribs[11] = {
+            /* max 14 attributes plus terminator */
+            int attribs[15] = {
                 GLX_CONTEXT_MAJOR_VERSION_ARB,
                 _this->gl_config.major_version,
                 GLX_CONTEXT_MINOR_VERSION_ARB,
@@ -650,6 +723,21 @@ X11_GL_CreateContext(_THIS, SDL_Window * window)
                     _this->gl_config.release_behavior ? 
                     GLX_CONTEXT_RELEASE_BEHAVIOR_FLUSH_ARB : 
                     GLX_CONTEXT_RELEASE_BEHAVIOR_NONE_ARB;
+            }
+
+            /* only set if glx extension is available */
+            if( _this->gl_data->HAS_GLX_ARB_create_context_robustness ) {
+                attribs[iattr++] = GLX_CONTEXT_RESET_NOTIFICATION_STRATEGY_ARB;
+                attribs[iattr++] =
+                    _this->gl_config.reset_notification ?
+                    GLX_LOSE_CONTEXT_ON_RESET_ARB :
+                    GLX_NO_RESET_NOTIFICATION_ARB;
+            }
+
+            /* only set if glx extension is available */
+            if( _this->gl_data->HAS_GLX_ARB_create_context_no_error ) {
+                attribs[iattr++] = GLX_CONTEXT_OPENGL_NO_ERROR_ARB;
+                attribs[iattr++] = _this->gl_config.no_error;
             }
 
             attribs[iattr++] = 0;

@@ -96,7 +96,7 @@ OFFSCREEN_CreateDevice(int devindex)
     device->GL_GetProcAddress = OFFSCREEN_GL_GetProcAddress;
 
     /* "Window" */
-    device->CreateWindow = OFFSCREEN_CreateWindow;
+    device->CreateSDLWindow = OFFSCREEN_CreateWindow;
     device->DestroyWindow = OFFSCREEN_DestroyWindow;
 
 

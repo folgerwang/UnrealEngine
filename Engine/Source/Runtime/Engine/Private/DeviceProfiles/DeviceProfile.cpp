@@ -223,7 +223,7 @@ bool UDeviceProfile::ModifyCVarValue(const FString& ChangeCVarName, const FStrin
 	return false;
 }
 
-FString UDeviceProfile::GetCVarValue(const FString& CVarName)
+FString UDeviceProfile::GetCVarValue(const FString& CVarName) const
 {
 	auto Index = CVars.IndexOfByPredicate(
 		[&CVarName](const FString& CVar) {

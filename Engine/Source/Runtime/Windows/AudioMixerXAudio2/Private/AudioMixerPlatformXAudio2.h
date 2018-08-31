@@ -84,9 +84,13 @@ namespace Audio
 	private:
 
 		const TCHAR* GetErrorString(HRESULT Result);
+		bool AllowDeviceSwap();
 
 		typedef TArray<long> TChannelTypeMap;
 		
+		// Handle to XAudio2DLL
+		HMODULE XAudio2Dll;
+
 		// Bool indicating that the default audio device changed
 		// And that we need to restart the audio device.
 		FThreadSafeBool bDeviceChanged;
@@ -100,6 +104,8 @@ namespace Audio
 		FString OriginalAudioDeviceId;
 		FString NewAudioDeviceId;
 		FThreadSafeBool bMoveAudioStreamToNewAudioDevice;
+		double LastDeviceSwapTime;
+
 		uint32 bIsComInitialized : 1;
 		uint32 bIsInitialized : 1;
 		uint32 bIsDeviceOpen : 1;

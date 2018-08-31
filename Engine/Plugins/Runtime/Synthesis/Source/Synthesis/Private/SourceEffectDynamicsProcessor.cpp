@@ -65,9 +65,9 @@ void FSourceEffectDynamicsProcessor::OnPresetChanged()
 	DynamicsProcessor.SetAnalogMode(Settings.bAnalogMode);
 }
 
-void FSourceEffectDynamicsProcessor::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectDynamicsProcessor::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	DynamicsProcessor.ProcessAudio(InData.AudioFrame.GetData(), InData.AudioFrame.Num(), OutData.AudioFrame.GetData());
+	DynamicsProcessor.ProcessAudio(InData.InputSourceEffectBufferPtr, InData.NumSamples, OutAudioBufferData);
 }
 
 void USourceEffectDynamicsProcessorPreset::SetSettings(const FSourceEffectDynamicsProcessorSettings& InSettings)

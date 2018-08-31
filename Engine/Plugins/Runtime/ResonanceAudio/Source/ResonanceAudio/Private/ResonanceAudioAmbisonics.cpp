@@ -104,7 +104,7 @@ namespace ResonanceAudio
 		}
 		else
 		{
-			checkf(false, TEXT("Tried to close a stream we did not open."));
+			UE_LOG(LogResonanceAudio, Warning, TEXT("Tried to close a stream id (%d) we did not open."), StreamId);
 		}
 	}
 

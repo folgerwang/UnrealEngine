@@ -3,6 +3,7 @@
 #include "DragAndDrop/AssetDragDropOp.h"
 #include "Engine/Level.h"
 #include "ActorFactories/ActorFactory.h"
+#include "GameFramework/Actor.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/Layout/SBox.h"
 #include "AssetThumbnail.h"

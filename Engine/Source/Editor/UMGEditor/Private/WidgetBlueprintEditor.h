@@ -218,6 +218,9 @@ private:
 	bool CanCutSelectedWidgets();
 	void CutSelectedWidgets();
 
+	bool CanDuplicateSelectedWidgets();
+	void DuplicateSelectedWidgets();
+
 private:
 	/** Called whenever the blueprint is structurally changed. */
 	virtual void OnBlueprintChangedImpl(UBlueprint* InBlueprint, bool bIsJustBeingCompiled = false ) override;

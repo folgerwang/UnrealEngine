@@ -245,7 +245,7 @@ struct TPropertyActuator : TMovieSceneBlendingActuator<PropertyType>
 
 	virtual void Actuate(UObject* InObject, typename TCallTraits<PropertyType>::ParamType InFinalValue, const TBlendableTokenStack<PropertyType>& OriginalStack, const FMovieSceneContext& Context, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
 	{
-		ensureMsgf(InObject, TEXT("Attempting to evaluate a Property track with a null object."));
+		ensureMsgf(InObject, TEXT("Attempting to evaluate a Property track '%s' with a null object."), *PropertyData.PropertyBindings->GetPropertyName().ToString());
 
 		if (InObject)
 		{

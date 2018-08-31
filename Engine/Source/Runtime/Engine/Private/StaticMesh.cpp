@@ -46,6 +46,7 @@
 #include "Settings/EditorExperimentalSettings.h"
 #include "MeshBuilder.h"
 #include "MeshUtilities.h"
+#include "MeshUtilitiesCommon.h"
 #include "DerivedDataCacheInterface.h"
 #include "PlatformInfo.h"
 #include "ScopedTransaction.h"
@@ -2956,7 +2957,7 @@ void UStaticMesh::FixupMaterialSlotName()
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("A3E9E442F5784050BCAF878E4E80EE44")
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("ED22489A741846E9830C0AEFB207E591")
 
 static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
 {
@@ -3168,8 +3169,7 @@ int32 UStaticMesh::GetNumUVChannels(int32 LODIndex)
 	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
 	if (MeshDescription)
 	{
-		TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
-		NumUVChannels = VertexInstanceUVs.GetNumIndices();
+		NumUVChannels = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 	}
 #endif
 	return NumUVChannels;

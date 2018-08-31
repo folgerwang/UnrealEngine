@@ -17,7 +17,6 @@ class FSequencer;
 class FUICommandList;
 class ILevelViewport;
 class ISequencer;
-class SViewportTransportControls;
 class ULevel;
 struct FPropertyAndParent;
 
@@ -81,10 +80,6 @@ public:
 	void OnSequencerReceivedFocus(TSharedRef<ISequencer> InSequencer);
 
 	void RemoveSequencer(TSharedRef<ISequencer> InSequencer);
-
-	void SetViewportTransportControlsVisibility(bool bVisible);
-
-	bool GetViewportTransportControlsVisibility() const;
 
 private:
 
@@ -159,11 +154,6 @@ private:
 
 	void RecordSelectedActors();
 
-	EVisibility GetTransportControlVisibility(TSharedPtr<ILevelViewport> LevelViewport) const;
-	
-	/** Create a menu entry we can use to toggle the transport controls */
-	void CreateTransportToggleMenuEntry(FMenuBuilder& MenuBuilder);
-
 	bool IsPropertyReadOnly(const FPropertyAndParent& InPropertyAndParent);
 
 private:
@@ -171,8 +161,6 @@ private:
 	void ActivateSequencerEditorMode();
 	void AddLevelViewportMenuExtender();
 	void ActivateDetailHandler();
-	void AttachTransportControlsToViewports();
-	void DetachTransportControlsFromViewports();
 	void AttachOutlinerColumn();
 	void DetachOutlinerColumn();
 	void ActivateRealtimeViewports();
@@ -198,17 +186,6 @@ private:
 	FLevelEditorSequencerIntegration();
 
 private:
-
-	friend SViewportTransportControls;
-	
-	/** A map of all the transport controls to viewports that this sequencer has made */
-	struct FTransportControl
-	{
-		TWeakPtr<ILevelViewport> Viewport;
-		TSharedPtr<SViewportTransportControls> Widget;
-	};
-	TArray<FTransportControl> TransportControls;
-
 	FAcquiredResources AcquiredResources;
 
 	TSharedPtr<class FDetailKeyframeHandlerWrapper> KeyFrameHandler;

@@ -29,7 +29,7 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
 					"Engine",
 					"UnrealEd",
-					"RawMesh",
+					"MeshDescription",
 					"MeshUtilities",
                     "MessageLog",
 					"Json",

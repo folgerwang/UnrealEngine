@@ -27,7 +27,7 @@ void FMainFrameHandler::ShutDownEditor()
 	TSharedPtr<SWindow> RootWindow = RootWindowPtr.Pin();
 
 	// Save root window placement so we can restore it.
-	if (RootWindow.IsValid())
+	if (!GUsingNullRHI && RootWindow.IsValid())
 	{
 		FSlateRect WindowRect = RootWindow->GetNonMaximizedRectInScreen();
 

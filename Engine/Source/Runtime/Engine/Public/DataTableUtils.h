@@ -43,25 +43,25 @@ namespace DataTableUtils
 	 * Util to get a property as a string.
 	 * This always gets a string for the given property without adjusting the address.
 	 */
-	ENGINE_API FString GetPropertyValueAsStringDirect(const UProperty* InProp, uint8* InData, const EDataTableExportFlags InDTExportFlags);
+	ENGINE_API FString GetPropertyValueAsStringDirect(const UProperty* InProp, const uint8* InData, const EDataTableExportFlags InDTExportFlags);
 
 	/** 
 	 * Util to get a property as a string.
 	 * When the property is a static sized array, this will return a string containing each element in the array.
 	 */
-	ENGINE_API FString GetPropertyValueAsString(const UProperty* InProp, uint8* InData, const EDataTableExportFlags InDTExportFlags);
+	ENGINE_API FString GetPropertyValueAsString(const UProperty* InProp, const uint8* InData, const EDataTableExportFlags InDTExportFlags);
 
 	/** 
 	 * Util to get a property as text (this will use the display name of the value where available - use GetPropertyValueAsString if you need an internal identifier).
 	 * This always gets a string for the given property without adjusting the address.
 	 */
-	ENGINE_API FText GetPropertyValueAsTextDirect(const UProperty* InProp, uint8* InData);
+	ENGINE_API FText GetPropertyValueAsTextDirect(const UProperty* InProp, const uint8* InData);
 
 	/** 
 	 * Util to get a property as text (this will use the display name of the value where available - use GetPropertyValueAsString if you need an internal identifier).
 	 * When the property is a static sized array, this will return a string containing each element in the array. 
 	 */
-	ENGINE_API FText GetPropertyValueAsText(const UProperty* InProp, uint8* InData);
+	ENGINE_API FText GetPropertyValueAsText(const UProperty* InProp, const uint8* InData);
 
 	/**
 	 * Util to get all property names from a struct.

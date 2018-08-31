@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "Misc/Guid.h"
 #include "UObject/Class.h"
-#include "Engine/Blueprint.h"
+#include "BaseWidgetBlueprint.h"
 #include "Binding/DynamicPropertyPath.h"
 #include "Blueprint/WidgetBlueprintGeneratedClass.h"
 #include "Animation/WidgetAnimationBinding.h"
@@ -206,9 +206,44 @@ enum class EWidgetCompileTimeTickPrediction : uint8
  * The widget blueprint enables extending UUserWidget the user extensible UWidget.
  */
 UCLASS(BlueprintType)
-class UMGEDITOR_API UWidgetBlueprint : public UBlueprint
+class UMGEDITOR_API UWidgetBlueprint : public UBaseWidgetBlueprint
 {
 	GENERATED_UCLASS_BODY()
+
+public:
+
+#if WITH_EDITORONLY_DATA
+	
+	UPROPERTY()
+	TArray< FDelegateEditorBinding > Bindings;
+
+	UPROPERTY()
+	TArray<FWidgetAnimation_DEPRECATED> AnimationData_DEPRECATED;
+
+	UPROPERTY()
+	TArray<UWidgetAnimation*> Animations;
+
+	/**
+	 * Don't directly modify this property to change the palette category.  The actual value is stored 
+	 * in the CDO of the UUserWidget, but a copy is stored here so that it's available in the serialized 
+	 * Tag data in the asset header for access in the FAssetData.
+	 */
+	UPROPERTY(AssetRegistrySearchable, AssetRegistrySearchable)
+	FString PaletteCategory;
+
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=WidgetBlueprintOptions, AssetRegistrySearchable)
+	bool bForceSlowConstructionPath;
+
+private:
+	/**
+	 * Widgets by default all support calling CreateWidget for them, however for mobile games
+	 * you may want to disable this by default, or on a per widget basis as it can save several
+	 * MB on a large game from lots of widget templates being cooked ready to make dynamic
+	 * construction faster.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=WidgetBlueprintOptions, AssetRegistrySearchable)
+	EWidgetSupportsDynamicCreation SupportDynamicCreation;
+#endif
 
 public:
 
@@ -245,18 +280,6 @@ public:
 	/** Returns true if the supplied user widget will not create a circular reference when added to this blueprint */
 	bool IsWidgetFreeFromCircularReferences(UUserWidget* UserWidget) const;
 
-	/** 
-	 * Returns collection of widgets that represent the 'source' (user edited) widgets for this 
-	 * blueprint - avoids calling virtual functions on instances and is therefore safe to use 
-	 * throughout compilation.
-	 */
-	TArray<UWidget*> GetAllSourceWidgets();
-	TArray<const UWidget*> GetAllSourceWidgets() const;
-
-	/** Identical to GetAllSourceWidgets, but as an algorithm */
-	void ForEachSourceWidget(TFunctionRef<void(UWidget*)> Fn);
-	void ForEachSourceWidget(TFunctionRef<void(const UWidget*)> Fn) const;
-
 	bool WidgetSupportsDynamicCreation() const;
 
 	static bool ValidateGeneratedClass(const UClass* InClass);
@@ -266,79 +289,41 @@ public:
 	void UpdateTickabilityStats(bool& OutHasLatentActions, bool& OutHasAnimations, bool& OutClassRequiresNativeTick);
 
 private:
-	void ForEachSourceWidgetImpl(TFunctionRef<void(UWidget*)> Fn) const;
-
 #if WITH_EDITOR
 	virtual void LoadModulesRequiredForCompilation() override;
-#endif 
 
 public:
 
-#if WITH_EDITORONLY_DATA
-	/** A tree of the widget templates to be created */
-	UPROPERTY()
-	class UWidgetTree* WidgetTree;
-
-	UPROPERTY()
-	TArray<FDelegateEditorBinding> Bindings;
-
-	UPROPERTY()
-	TArray<FWidgetAnimation_DEPRECATED> AnimationData_DEPRECATED;
-
-	UPROPERTY()
-	TArray<UWidgetAnimation*> Animations;
-
 	/**
-	* Don't directly modify this property to change the palette category.  The actual value is stored
-	* in the CDO of the UUserWidget, but a copy is stored here so that it's available in the serialized
-	* Tag data in the asset header for access in the FAssetData.
+	* The total number of widgets this widget contains.  This is a good way to find the "largest" widgets.
 	*/
-	UPROPERTY(AssetRegistrySearchable)
-	FString PaletteCategory;
-
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = WidgetBlueprintOptions, AssetRegistrySearchable)
-	bool bForceSlowConstructionPath;
-
-	/**
-	 * The total number of widgets this widget contains.  This is a good way to find the "largest" widgets.
-	 */
 	UPROPERTY(AssetRegistrySearchable)
 	int32 InclusiveWidgets;
 
 private:
 	/**
-	 * The desired tick frequency set by the user on the UserWidget's CDO.
-	 */
+	* The desired tick frequency set by the user on the UserWidget's CDO.
+	*/
 	UPROPERTY(AssetRegistrySearchable)
 	EWidgetTickFrequency TickFrequency;
 
 	/**
-	 * The computed frequency that the widget will need to be ticked at.  You can find the reasons for
-	 * this decision by looking at TickPredictionReason.
-	 */
+	* The computed frequency that the widget will need to be ticked at.  You can find the reasons for
+	* this decision by looking at TickPredictionReason.
+	*/
 	UPROPERTY(AssetRegistrySearchable)
 	EWidgetCompileTimeTickPrediction TickPrediction;
 
 	/**
-	 * The reasons we may need to tick this widget.
-	 */
+	* The reasons we may need to tick this widget.
+	*/
 	UPROPERTY(AssetRegistrySearchable)
 	FString TickPredictionReason;
 
 	/**
-	 * Widgets by default all support calling CreateWidget for them, however for mobile games
-	 * you may want to disable this by default, or on a per widget basis as it can save several
-	 * MB on a large game from lots of widget templates being cooked ready to make dynamic
-	 * construction faster.
-	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = WidgetBlueprintOptions, AssetRegistrySearchable)
-	EWidgetSupportsDynamicCreation SupportDynamicCreation;
-
-	/**
-	 * The total number of property bindings.  Consider this as a performance warning.
-	 */
+	* The total number of property bindings.  Consider this as a performance warning.
+	*/
 	UPROPERTY(AssetRegistrySearchable)
 	int32 PropertyBindings;
-
-#endif
+#endif 
 };

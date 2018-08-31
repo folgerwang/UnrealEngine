@@ -706,9 +706,6 @@ public:
 	/** Find the object in the TemplateObjects array with the supplied name */
 	UActorComponent* FindTemplateByName(const FName& TemplateName) const;
 
-	/** Rename the component template in the TemplateObjects array with the supplied name */
-	bool RenameComponentTemplate(const FName& OldTemplateName, const FName& NewTemplateName);
-
 	/** Find a timeline by name */
 	class UTimelineTemplate* FindTimelineTemplateByVariableName(const FName& TimelineName);	
 
@@ -760,6 +757,11 @@ public:
 
 	/** Some Blueprints (and classes) can recompile while we are debugging a live session. This function controls whether this can occur. */
 	virtual bool CanRecompileWhilePlayingInEditor() const { return false; }
+
+	/**
+	 * Check whether this blueprint can be nativized or not
+	 */
+	virtual bool SupportsNativization(FText* OutReason = nullptr) const;
 
 private:
 

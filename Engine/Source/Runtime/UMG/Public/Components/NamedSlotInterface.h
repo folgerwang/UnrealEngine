@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Interface.h"
+#include "Widget.h"
 #include "NamedSlotInterface.generated.h"
 
 class UWidget;
@@ -38,4 +39,7 @@ public:
 
 	/**  */
 	void ReleaseNamedSlotSlateResources(bool bReleaseChildren);
+#if WITH_EDITOR
+	void SetNamedSlotDesignerFlags(EWidgetDesignFlags::Type NewFlags);
+#endif
 };

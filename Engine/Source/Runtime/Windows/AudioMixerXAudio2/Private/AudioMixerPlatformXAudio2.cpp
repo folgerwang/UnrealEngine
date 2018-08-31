@@ -60,6 +60,7 @@ namespace Audio
 		, OutputAudioStreamMasteringVoice(nullptr)
 		, OutputAudioStreamSourceVoice(nullptr)
 		, bMoveAudioStreamToNewAudioDevice(false)
+		, LastDeviceSwapTime(0.0)
 		, bIsComInitialized(false)
 		, bIsInitialized(false)
 		, bIsDeviceOpen(false)
@@ -113,6 +114,27 @@ namespace Audio
 		}
 	}
 
+	bool FMixerPlatformXAudio2::AllowDeviceSwap()
+	{
+		double CurrentTime = FPlatformTime::Seconds();
+
+		// If we're already in the process of swapping, we do not want to "double-trigger" a swap
+		if (bMoveAudioStreamToNewAudioDevice)
+		{
+			LastDeviceSwapTime = CurrentTime;
+			return false;
+		}
+
+		// Some devices spam device swap notifications, so we want to rate-limit them to prevent double/tripple triggering.
+		static const int32 MinSwapTimeMs = 10;
+		if (CurrentTime - LastDeviceSwapTime > (double)MinSwapTimeMs / 1000.0)
+		{
+			LastDeviceSwapTime = CurrentTime;
+			return true;
+		}
+		return false;
+	}
+
 	bool FMixerPlatformXAudio2::InitializeHardware()
 	{
 		if (bIsInitialized)
@@ -124,7 +146,23 @@ namespace Audio
 
 #if PLATFORM_WINDOWS
 		bIsComInitialized = FWindowsPlatformMisc::CoInitialize();
-#endif //#if PLATFORM_WINDOWS
+#if PLATFORM_64BITS
+		// Work around the fact the x64 version of XAudio2_7.dll does not properly ref count
+		// by forcing it to be always loaded
+
+		// Load the xaudio2 library and keep a handle so we can free it on teardown
+		// Note: windows internally ref-counts the library per call to load library so 
+		// when we call FreeLibrary, it will only free it once the refcount is zero
+		XAudio2Dll = LoadLibraryA("XAudio2_7.dll");
+
+		// returning null means we failed to load XAudio2, which means everything will fail
+		if (XAudio2Dll == nullptr)
+		{
+			UE_LOG(LogInit, Warning, TEXT("Failed to load XAudio2 dll"));
+			return false;
+		}
+#endif // #if PLATFORM_64BITS
+#endif // #if PLATFORM_WINDOWS
 
 		uint32 Flags = 0;
 
@@ -158,11 +196,24 @@ namespace Audio
 		SAFE_RELEASE(XAudio2System);
 
 #if PLATFORM_WINDOWS
+
+#if PLATFORM_64BITS
+		if (XAudio2Dll)
+		{
+			if (!FreeLibrary(XAudio2Dll))
+			{
+				UE_LOG(LogAudio, Warning, TEXT("Failed to free XAudio2 Dll"));
+			}
+		}
+#endif
+
 		if (bIsComInitialized)
 		{
 			FWindowsPlatformMisc::CoUninitialize();
 		}
 #endif
+
+
 
 		bIsInitialized = false;
 
@@ -214,16 +265,7 @@ namespace Audio
 		const WAVEFORMATEX& WaveFormatEx = DeviceDetails.OutputFormat.Format;
 		OutInfo.SampleRate = WaveFormatEx.nSamplesPerSec;
 
-		bool bIsMono = (WaveFormatEx.nChannels == 1);
-		// We are going to default to stereo for mono devices, then mix to mono on buffer submission (automatically done by xaudio2)
-		if (bIsMono == 1)
-		{
-			OutInfo.NumChannels = 2;
-		}
-		else
-		{
-			OutInfo.NumChannels = WaveFormatEx.nChannels;
-		}
+		OutInfo.NumChannels = FMath::Clamp((int32)WaveFormatEx.nChannels, 2, 8);
 
 		// XAudio2 automatically converts the audio format to output device us so we don't need to do any format conversions
 		OutInfo.Format = EAudioMixerStreamDataFormat::Float;
@@ -244,7 +286,7 @@ namespace Audio
 
 			check(EAudioMixerChannel::ChannelTypeCount == ChannelTypeMap.Num());
 			uint32 ChanCount = 0;
-			for (uint32 ChannelTypeIndex = 0;  ChannelTypeIndex < EAudioMixerChannel::ChannelTypeCount &&  ChanCount < WaveFormatEx.nChannels; ++ChannelTypeIndex)
+			for (uint32 ChannelTypeIndex = 0; ChannelTypeIndex < EAudioMixerChannel::ChannelTypeCount && ChanCount < (uint32)OutInfo.NumChannels; ++ChannelTypeIndex)
 			{
 				if (WaveFormatExtensible->dwChannelMask & ChannelTypeMap[ChannelTypeIndex])
 				{
@@ -253,14 +295,58 @@ namespace Audio
 				}
 			}
 
-			if (ChanCount != WaveFormatEx.nChannels)
+			// We didnt match channel masks for all channels, revert to a default ordering
+			if (ChanCount < (uint32)OutInfo.NumChannels)
 			{
-				UE_LOG(LogAudioMixer, Warning, TEXT("Did not find the channel type flags for audio device '%s'. Filling in with default channel type mappings"), *OutInfo.Name);
-				while ((int32)ChanCount < OutInfo.OutputChannelArray.Num())
+				UE_LOG(LogAudioMixer, Warning, TEXT("Did not find the channel type flags for audio device '%s'. Reverting to a default channel ordering."), *OutInfo.Name);
+
+				OutInfo.OutputChannelArray.Reset();
+
+				static EAudioMixerChannel::Type DefaultChannelOrdering[] = {
+					EAudioMixerChannel::FrontLeft,
+					EAudioMixerChannel::FrontRight,
+					EAudioMixerChannel::FrontCenter,
+					EAudioMixerChannel::LowFrequency,
+					EAudioMixerChannel::SideLeft,
+					EAudioMixerChannel::SideRight,
+					EAudioMixerChannel::BackLeft,
+					EAudioMixerChannel::BackRight,
+				};
+
+				EAudioMixerChannel::Type* ChannelOrdering = DefaultChannelOrdering;
+
+				// Override channel ordering for some special cases
+				if (OutInfo.NumChannels == 4)
 				{
-					// Fill in the channel array with speaker types as a guess. This may not be accurate.
-					OutInfo.OutputChannelArray.Add((EAudioMixerChannel::Type)ChanCount++);
+					static EAudioMixerChannel::Type DefaultChannelOrderingQuad[] = {
+						EAudioMixerChannel::FrontLeft,
+						EAudioMixerChannel::FrontRight,
+						EAudioMixerChannel::BackLeft,
+						EAudioMixerChannel::BackRight,
+					};
+
+					ChannelOrdering = DefaultChannelOrderingQuad;
 				}
+				else if (OutInfo.NumChannels == 6)
+				{
+					static EAudioMixerChannel::Type DefaultChannelOrdering51[] = {
+						EAudioMixerChannel::FrontLeft,
+						EAudioMixerChannel::FrontRight,
+						EAudioMixerChannel::FrontCenter,
+						EAudioMixerChannel::LowFrequency,
+						EAudioMixerChannel::BackLeft,
+						EAudioMixerChannel::BackRight,
+					};
+
+					ChannelOrdering = DefaultChannelOrdering51;
+				}
+
+				check(OutInfo.NumChannels <= 8);
+				for (int32 Index = 0; Index < OutInfo.NumChannels; ++Index)
+				{
+					OutInfo.OutputChannelArray.Add(ChannelOrdering[Index]);
+				}
+
 			}
 		}
 		else
@@ -277,7 +363,8 @@ namespace Audio
 		UE_LOG(LogAudioMixer, Display, TEXT("Name: %s"), *OutInfo.Name);
 		UE_LOG(LogAudioMixer, Display, TEXT("Is Default: %s"), OutInfo.bIsSystemDefault ? TEXT("Yes") : TEXT("No"));
 		UE_LOG(LogAudioMixer, Display, TEXT("Sample Rate: %d"), OutInfo.SampleRate);
-		UE_LOG(LogAudioMixer, Display, TEXT("Channel Count: %d (was Mono? %s)"), OutInfo.NumChannels, bIsMono ? TEXT("Yes") : TEXT("No"));
+		UE_LOG(LogAudioMixer, Display, TEXT("Channel Count Used: %d"), OutInfo.NumChannels);
+		UE_LOG(LogAudioMixer, Display, TEXT("Device Channel Count: %d"), WaveFormatEx.nChannels);
 		UE_LOG(LogAudioMixer, Display, TEXT("Channel Order:"));
 		for (int32 i = 0; i < OutInfo.NumChannels; ++i)
 		{

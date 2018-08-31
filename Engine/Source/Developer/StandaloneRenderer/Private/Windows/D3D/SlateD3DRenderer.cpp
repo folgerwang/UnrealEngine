@@ -530,11 +530,10 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 	for( int32 ListIndex = 0; ListIndex < WindowElementLists.Num(); ++ListIndex )
 	{
 		FSlateWindowElementList& ElementList = *WindowElementLists[ListIndex];
-		SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GRendererDrawElementList, ElementList.GetWindow()->GetCreatedInLocation());
 
-		if ( ElementList.GetWindow().IsValid() )
+		if ( ElementList.GetRenderWindow() )
 		{
-			TSharedRef<SWindow> WindowToDraw = ElementList.GetWindow().ToSharedRef();
+			SWindow* WindowToDraw = ElementList.GetRenderWindow();
 
 			// Add all elements for this window to the element batcher
 			ElementBatcher->AddElements( ElementList );
@@ -544,7 +543,7 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 
 			FVector2D WindowSize = WindowToDraw->GetSizeInScreen();
 
-			FSlateD3DViewport* Viewport = WindowToViewportMap.Find( &WindowToDraw.Get() );
+			FSlateD3DViewport* Viewport = WindowToViewportMap.Find( WindowToDraw );
 			check(Viewport);
 
 			FSlateBatchData& BatchData = ElementList.GetBatchData();
@@ -569,7 +568,6 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 			GD3DDeviceContext->OMSetRenderTargets( 1, &RTV, NULL );
 
 			{
-				SLATE_CYCLE_COUNTER_SCOPE(GRendererDrawElements);
 				RenderingPolicy->DrawElements(ViewMatrix * Viewport->ProjectionMatrix, BatchData.GetRenderBatches());
 			}
 

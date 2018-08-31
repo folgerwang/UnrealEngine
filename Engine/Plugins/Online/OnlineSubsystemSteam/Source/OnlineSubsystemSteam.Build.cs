@@ -29,6 +29,7 @@ public class OnlineSubsystemSteam : ModuleRules
 				"Engine", 
 				"Sockets", 
 				"Voice",
+                "AudioMixer",
 				"OnlineSubsystem",
 				"Json",
 				"PacketHandler"

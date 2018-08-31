@@ -7,6 +7,7 @@
 #include "Components/Widget.h"
 #include "Widgets/IToolTip.h"
 #include "WidgetTemplate.h"
+#include "AssetData.h"
 
 class UWidgetTree;
 
@@ -18,6 +19,8 @@ class FWidgetTemplateClass : public FWidgetTemplate
 public:
 	/** Constructor */
 	explicit FWidgetTemplateClass(TSubclassOf<UWidget> InWidgetClass);
+
+	explicit FWidgetTemplateClass(const FAssetData& InWidgetAssetData, TSubclassOf<UWidget> InWidgetClass);
 
 	/** Destructor */
 	virtual ~FWidgetTemplateClass();
@@ -50,4 +53,7 @@ protected:
 protected:
 	/** The widget class that will be created by this template */
 	TWeakObjectPtr<UClass> WidgetClass;
+
+	/** The asset data for the widget blueprint */
+	FAssetData WidgetAssetData;
 };

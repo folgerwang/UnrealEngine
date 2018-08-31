@@ -15,6 +15,7 @@ UFbxAnimSequenceImportData::UFbxAnimSequenceImportData(const FObjectInitializer&
 	FrameImportRange.Max = 0;
 
 	MaterialCurveSuffixes.Add(TEXT("_mat"));
+	CustomSampleRate = 0;
 }
 
 UFbxAnimSequenceImportData* UFbxAnimSequenceImportData::GetImportDataForAnimSequence(UAnimSequence* AnimSequence, UFbxAnimSequenceImportData* TemplateForCreation)

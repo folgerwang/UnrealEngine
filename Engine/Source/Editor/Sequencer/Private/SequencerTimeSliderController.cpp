@@ -275,6 +275,37 @@ void FSequencerTimeSliderController::DrawTicks( FSlateWindowElementList& OutDraw
 	}
 }
 
+int32 FSequencerTimeSliderController::DrawMarkedFrames( const FGeometry& AllottedGeometry, const FScrubRangeToScreen& RangeToScreen, FSlateWindowElementList& OutDrawElements, int32 LayerId, const ESlateDrawEffect& DrawEffects ) const
+{
+	TSet<FFrameNumber> MarkedFrames = TimeSliderArgs.MarkedFrames.Get();
+	if (MarkedFrames.Num() < 1)
+	{
+		return LayerId;
+	}
+
+	for (FFrameNumber TickFrame : MarkedFrames)
+	{
+		double Seconds = TickFrame / GetTickResolution();
+
+		const float  LinePos = RangeToScreen.InputToLocalX( Seconds );
+		TArray<FVector2D> LinePoints;
+		LinePoints.AddUninitialized(2);
+		LinePoints[0] = FVector2D( LinePos, 0.0f );
+		LinePoints[1] = FVector2D( LinePos, FMath::FloorToFloat( AllottedGeometry.Size.Y ) );
+
+		FSlateDrawElement::MakeLines(
+			OutDrawElements,
+			LayerId+1,
+			AllottedGeometry.ToPaintGeometry(),
+			LinePoints,
+			DrawEffects,
+			FLinearColor(0.f, 1.f, 1.f, 0.4f),
+			false
+			);
+	}
+
+	return LayerId + 1;
+}
 
 int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
@@ -356,6 +387,8 @@ int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, con
 			DrawEffects,
 			ScrubColor
 		);
+
+		LayerId = DrawMarkedFrames(AllottedGeometry, RangeToScreen, OutDrawElements, LayerId, DrawEffects);
 
 		{
 			// Draw the current time next to the scrub handle
@@ -1011,6 +1044,11 @@ int32 FSequencerTimeSliderController::OnPaintSectionView( const FGeometry& Allot
 		DrawTicks( OutDrawElements, LocalViewRange, RangeToScreen, DrawTickArgs );
 	}
 
+	if ( Args.bDisplayMarkedFrames )
+	{
+		LayerId = DrawMarkedFrames(AllottedGeometry, RangeToScreen, OutDrawElements, LayerId, DrawEffects);
+	}
+
 	if( Args.bDisplayScrubPosition )
 	{
 		FQualifiedFrameTime ScrubPosition = FQualifiedFrameTime(TimeSliderArgs.ScrubPosition.Get(), GetTickResolution());
@@ -1135,6 +1173,44 @@ TSharedRef<SWidget> FSequencerTimeSliderController::OpenSetPlaybackRangeMenu(FFr
 		);
 	}
 	MenuBuilder.EndSection(); // SequencerPlaybackRangeMenu
+
+	MenuBuilder.BeginSection("SequencerMarkMenu", FText::Format(LOCTEXT("MarkTextFormat", "Mark ({0}):"), CurrentTimeText));
+	{
+		FFrameNumber DisplayFrameNumber = GetDisplayRate().AsFrameNumber(FrameNumber / GetTickResolution());
+
+		const TSet<FFrameNumber>& MarkedFrames = TimeSliderArgs.MarkedFrames.Get();
+		bool HasMarkAtFrame = MarkedFrames.Contains(FrameNumber);
+		if (!HasMarkAtFrame)
+		{
+			MenuBuilder.AddMenuEntry( 
+				LOCTEXT("AddMark", "Add Mark"),
+				FText(),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda( [=]{ AddMarkAtFrame(FrameNumber); }))
+			);
+		}
+		else 
+		{
+			MenuBuilder.AddMenuEntry( 
+				LOCTEXT("ClearMark", "Clear Mark"),
+				FText(),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([=]{ ClearMarkAtFrame(FrameNumber); }))
+			);
+		}
+
+		MenuBuilder.AddMenuEntry( 
+			LOCTEXT("Clear All Marks", "Clear All Marks"),
+			FText(),
+			FSlateIcon(),
+
+			FUIAction(
+				FExecuteAction::CreateLambda([=]{ ClearAllMarks(); }),
+				FCanExecuteAction::CreateLambda([=]{ return (MarkedFrames.Num() > 0); })
+			)
+		);
+	}
+	MenuBuilder.EndSection(); // SequencerMarkMenu
 
 	return MenuBuilder.MakeWidget();
 }
@@ -1354,5 +1430,21 @@ void FSequencerTimeSliderController::SetSelectionRangeEnd(FFrameNumber NewEnd)
 		TimeSliderArgs.OnSelectionRangeChanged.ExecuteIfBound(TRange<FFrameNumber>(SelectionRange.GetLowerBound(), NewEnd));
 	}
 }
+
+void FSequencerTimeSliderController::AddMarkAtFrame(FFrameNumber FrameNumber)
+{
+	TimeSliderArgs.OnMarkedFrameChanged.ExecuteIfBound(FrameNumber, true);
+}
+
+void FSequencerTimeSliderController::ClearMarkAtFrame(FFrameNumber FrameNumber)
+{
+	TimeSliderArgs.OnMarkedFrameChanged.ExecuteIfBound(FrameNumber, false);
+}
+
+void FSequencerTimeSliderController::ClearAllMarks()
+{
+	TimeSliderArgs.OnClearAllMarkedFrames.ExecuteIfBound();
+}
+	
 
 #undef LOCTEXT_NAMESPACE

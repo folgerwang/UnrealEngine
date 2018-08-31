@@ -248,6 +248,7 @@ void FUnixPlatformMisc::RequestExit(bool Force)
 		// Still log something but use a signal-safe function
 		const ANSICHAR ExitMsg[] = "FUnixPlatformMisc::RequestExit\n";
 		write(STDOUT_FILENO, ExitMsg, sizeof(ExitMsg));
+
 		GDeferedExitLogging = 1;
 	}
 	else
@@ -289,6 +290,7 @@ void FUnixPlatformMisc::RequestExitWithStatus(bool Force, uint8 ReturnCode)
 		// Still log something but use a signal-safe function
 		const ANSICHAR ExitMsg[] = "FUnixPlatformMisc::RequestExitWithStatus\n";
 		write(STDOUT_FILENO, ExitMsg, sizeof(ExitMsg));
+
 		GDeferedExitLogging = 1;
 	}
 	else

@@ -23,34 +23,34 @@ struct FMeshDescriptionWrapper
 	struct FVertexAttributes
 	{
 		FVertexAttributes(FMeshDescription* MeshDescription) :
-			Positions(MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position)),
-			Normals(MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal)),
-			Tangents(MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent)),
-			BinormalSigns(MeshDescription->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign)),
-			Colors(MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color)),
-			UVs(MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate))
+			Positions(MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position)),
+			Normals(MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal)),
+			Tangents(MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent)),
+			BinormalSigns(MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign)),
+			Colors(MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color)),
+			UVs(MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate))
 		{
 		}
-		TVertexAttributeArray<FVector>& Positions;
-		TVertexInstanceAttributeArray<FVector>& Normals;
-		TVertexInstanceAttributeArray<FVector>& Tangents;
-		TVertexInstanceAttributeArray<float>& BinormalSigns;
-		TVertexInstanceAttributeArray<FVector4>& Colors;
-		TVertexInstanceAttributeIndicesArray<FVector2D>& UVs;
+		TVertexAttributesRef<FVector> Positions;
+		TVertexInstanceAttributesRef<FVector> Normals;
+		TVertexInstanceAttributesRef<FVector> Tangents;
+		TVertexInstanceAttributesRef<float> BinormalSigns;
+		TVertexInstanceAttributesRef<FVector4> Colors;
+		TVertexInstanceAttributesRef<FVector2D> UVs;
 	};
 
 	FMeshDescriptionWrapper(FMeshDescription* MeshDescription) :
 		Vertex(MeshDescription),
-		EdgeHardnesses(MeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard)),
-		EdgeCreaseSharpnesses(MeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness)),
-		PolygonGroupImportedMaterialSlotNames(MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName))
+		EdgeHardnesses(MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard)),
+		EdgeCreaseSharpnesses(MeshDescription->EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness)),
+		PolygonGroupImportedMaterialSlotNames(MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName))
 	{
 	}
 
 	FVertexAttributes Vertex;
-	TEdgeAttributeArray<bool>& EdgeHardnesses;
-	TEdgeAttributeArray<float>& EdgeCreaseSharpnesses;
-	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames;
+	TEdgeAttributesRef<bool> EdgeHardnesses;
+	TEdgeAttributesRef<float> EdgeCreaseSharpnesses;
+	TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames;
 };
 
 struct FUSDImportMaterialInfo
@@ -117,7 +117,6 @@ void FUSDStaticMeshImportState::ProcessStaticUSDGeometry(IUsdPrim* GeomPrim, int
 
 void FUSDStaticMeshImportState::AddVertexPositions(FMeshDescriptionWrapper& DestMeshWrapper, const FUsdGeomData& GeomData)
 {
-	TVertexAttributeArray<FVector>& VertexPositions = DestMeshWrapper.Vertex.Positions;
 	for (int32 LocalPointIndex = 0; LocalPointIndex < GeomData.Points.size(); ++LocalPointIndex)
 	{
 		const FUsdVectorData& Point = GeomData.Points[LocalPointIndex];
@@ -125,7 +124,7 @@ void FUSDStaticMeshImportState::AddVertexPositions(FMeshDescriptionWrapper& Dest
 		Pos = FinalTransform.TransformPosition(Pos);
 
 		FVertexID AddedVertexId = MeshDescription->CreateVertex();
-		VertexPositions[AddedVertexId] = Pos;
+		DestMeshWrapper.Vertex.Positions[AddedVertexId] = Pos;
 	}
 }
 
@@ -133,18 +132,7 @@ bool FUSDStaticMeshImportState::AddPolygons(FMeshDescriptionWrapper& DestMeshWra
 {
 	// When importing multiple mesh pieces to the same static mesh.  Ensure each mesh piece has the same number of Uv's
 	{
-		int32 ExistingUVCount = 0;
-		for (int32 UVChannelIndex = 0; UVChannelIndex < DestMeshWrapper.Vertex.UVs.GetNumIndices(); ++UVChannelIndex)
-		{
-			if (DestMeshWrapper.Vertex.UVs.GetArrayForIndex(UVChannelIndex).Num() > 0)
-			{
-				ExistingUVCount++;
-			}
-			else
-			{
-				break;
-			}
-		}
+		int32 ExistingUVCount = DestMeshWrapper.Vertex.UVs.GetNumIndices();
 		int32 NumUVs = FMath::Max(GeomData.NumUVs, ExistingUVCount);
 		NumUVs = FMath::Min<int32>(MAX_MESH_TEXTURE_COORDS, NumUVs);
 		// At least one UV set must exist.  
@@ -211,7 +199,7 @@ bool FUSDStaticMeshImportState::AddPolygons(FMeshDescriptionWrapper& DestMeshWra
 
 				// Flip V for Unreal uv's which match directx
 				FVector2D FinalUVVector(UV.X, 1.f - UV.Y);
-				DestMeshWrapper.Vertex.UVs.GetArrayForIndex(UVLayerIndex)[AddedVertexInstanceId] = FinalUVVector;
+				DestMeshWrapper.Vertex.UVs.Set(AddedVertexInstanceId, UVLayerIndex, FinalUVVector);
 			}
 		}
 

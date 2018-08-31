@@ -36,13 +36,15 @@ struct FPaintPlaybackRangeArgs
 struct FPaintSectionAreaViewArgs
 {
 	FPaintSectionAreaViewArgs()
-		: bDisplayTickLines(false), bDisplayScrubPosition(false)
+		: bDisplayTickLines(false), bDisplayScrubPosition(false), bDisplayMarkedFrames(false)
 	{}
 
 	/** Whether to display tick lines */
 	bool bDisplayTickLines;
 	/** Whether to display the scrub position */
 	bool bDisplayScrubPosition;
+	/** Whether to display the marked frames */
+	bool bDisplayMarkedFrames;
 	/** Optional Paint args for the playback range*/
 	TOptional<FPaintPlaybackRangeArgs> PlaybackRangeArgs;
 };
@@ -228,6 +230,13 @@ private:
 	 */
 	int32 DrawSubSequenceRange(const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FScrubRangeToScreen& RangeToScreen, const FPaintPlaybackRangeArgs& Args) const;
 
+	/**
+	 * Draw the marked frames. 
+	 *
+	 * @return the new layer ID
+	 */
+	int32 DrawMarkedFrames( const FGeometry& AllottedGeometry, const FScrubRangeToScreen& RangeToScreen, FSlateWindowElementList& OutDrawElements, int32 LayerId, const ESlateDrawEffect& DrawEffects ) const;
+
 private:
 
 	/**
@@ -251,6 +260,10 @@ private:
 	TSharedRef<SWidget> OpenSetPlaybackRangeMenu(FFrameNumber FrameNumber);
 	FFrameTime ComputeScrubTimeFromMouse(const FGeometry& Geometry, FVector2D ScreenSpacePosition, FScrubRangeToScreen RangeToScreen) const;
 	FFrameTime ComputeFrameTimeFromMouse(const FGeometry& Geometry, FVector2D ScreenSpacePosition, FScrubRangeToScreen RangeToScreen, bool CheckSnapping = true) const;
+
+	void AddMarkAtFrame(FFrameNumber FrameNumber);
+	void ClearMarkAtFrame(FFrameNumber FrameNumber);
+	void ClearAllMarks();
 
 private:
 

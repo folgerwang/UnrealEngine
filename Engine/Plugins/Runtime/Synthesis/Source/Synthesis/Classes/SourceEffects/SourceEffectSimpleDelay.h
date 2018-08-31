@@ -19,6 +19,14 @@ struct SYNTHESIS_API FSourceEffectSimpleDelaySettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "2.0", UIMin = "0.0", UIMax = "2.0"))
 	float DelayAmount;
 
+	// Gain stage on dry (non-delayed signal)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+	float DryAmount;
+
+	// Gain stage on wet (delayed) signal
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+	float WetAmount;
+
 	// Amount to feedback into the delay line (because why not)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float Feedback;
@@ -30,6 +38,8 @@ struct SYNTHESIS_API FSourceEffectSimpleDelaySettings
 	FSourceEffectSimpleDelaySettings()
 		: SpeedOfSound(343.0f)
 		, DelayAmount(0.0f)
+		, DryAmount(0.0f)
+		, WetAmount(1.0f)
 		, Feedback(0.0f)
 		, bDelayBasedOnDistance(true)
 	{}
@@ -39,18 +49,18 @@ class SYNTHESIS_API FSourceEffectSimpleDelay : public FSoundEffectSource
 {
 public:
 	// Called on an audio effect at initialization on main thread before audio processing begins.
-	virtual void Init(const FSoundEffectSourceInitData& InSampleRate) override;
+	virtual void Init(const FSoundEffectSourceInitData& InitData) override;
 	
 	// Called when an audio effect preset is changed
 	virtual void OnPresetChanged() override;
 
 	// Process the input block of audio. Called on audio thread.
-	virtual void ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData) override;
+	virtual void ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData) override;
 
 protected:
 	// 2 Delay lines, one for each channel
-	Audio::FDelay DelayLines[2];
-	float FeedbackSamples[2];
+	TArray<Audio::FDelay> Delays;
+	TArray<float> FeedbackSamples;
 	FSourceEffectSimpleDelaySettings SettingsCopy;
 };
 

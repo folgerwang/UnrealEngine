@@ -810,6 +810,29 @@ UClass* UBlueprint::GetBlueprintClass() const
 	return UBlueprintGeneratedClass::StaticClass();
 }
 
+bool UBlueprint::SupportsNativization(FText* OutReason) const
+{
+	// Previously commented out in FBlueprintNativeCodeGenModule::IsTargetedForReplacement - should 'const' blueprints be nativized??
+	//BPTYPE_Const,		// What is a "const" Blueprint?
+	if (BlueprintType == BPTYPE_MacroLibrary)
+	{
+		if (OutReason)
+		{
+			*OutReason = NSLOCTEXT("Blueprint", "MacroLibraryNativizationReason", "Macro Libraries cannot be nativized.");
+		}
+		return false;
+	}
+	else if (BlueprintType == BPTYPE_LevelScript)
+	{
+		if (OutReason)
+		{
+			*OutReason = NSLOCTEXT("Blueprint", "LevelScriptNativizationReason", "Level Blueprints cannot be nativized.");
+		}
+		return false;
+	}
+	return true;
+}
+
 void UBlueprint::SetObjectBeingDebugged(UObject* NewObject)
 {
 	// Unregister the old object
@@ -928,6 +951,8 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 		NativeParentClassName = TEXT("None");
 	}
 
+
+	OutTags.Add(FAssetRegistryTag(FBlueprintTags::BlueprintPathWithinPackage, GetPathName(GetOutermost()), FAssetRegistryTag::TT_Hidden));
 	OutTags.Add(FAssetRegistryTag(FBlueprintTags::GeneratedClassPath, GeneratedClassVal, FAssetRegistryTag::TT_Hidden));
 	OutTags.Add(FAssetRegistryTag(FBlueprintTags::NativeParentClassPath, NativeParentClassName, FAssetRegistryTag::TT_Alphabetical));
 

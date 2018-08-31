@@ -6,7 +6,7 @@ void FSourceEffectPhaser::Init(const FSoundEffectSourceInitData& InitData)
 {
 	bIsActive = true;
 
-	Phaser.Init(InitData.SampleRate);
+	Phaser.Init(InitData.SampleRate, InitData.NumSourceChannels);
 }
 
 void FSourceEffectPhaser::OnPresetChanged()
@@ -21,22 +21,9 @@ void FSourceEffectPhaser::OnPresetChanged()
 	Phaser.SetLFOType((Audio::ELFO::Type)Settings.LFOType);
 }
 
-void FSourceEffectPhaser::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectPhaser::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	if (InData.AudioFrame.Num() == 2)
-	{
-		Phaser.ProcessAudio(InData.AudioFrame.GetData(), OutData.AudioFrame.GetData());
-	}
-	else
-	{
-		float InFrame[2];
-		InFrame[0] = 0.5f * InData.AudioFrame[0];
-		InFrame[1] = InFrame[0];
-
-		float OutFrame[2];
-		Phaser.ProcessAudio(InFrame, OutFrame);
-		OutData.AudioFrame[0] = 0.5f * (OutFrame[0] + OutFrame[1]);
-	}
+	Phaser.ProcessAudio(InData.InputSourceEffectBufferPtr, InData.NumSamples, OutAudioBufferData);
 }
 
 void USourceEffectPhaserPreset::SetSettings(const FSourceEffectPhaserSettings& InSettings)

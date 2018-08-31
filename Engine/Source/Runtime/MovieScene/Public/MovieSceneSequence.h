@@ -157,6 +157,11 @@ public:
 	 */
 	virtual FGuid CreateSpawnable(UObject* ObjectToSpawn) { return FGuid(); }
 
+	/**
+	 * Called to retrieve or construct a director instance to be used for the specified player
+	 */
+	virtual UObject* CreateDirectorInstance(IMovieScenePlayer& Player) { return nullptr; }
+
 public:
 
 	MOVIESCENE_API virtual void PostLoad() override;

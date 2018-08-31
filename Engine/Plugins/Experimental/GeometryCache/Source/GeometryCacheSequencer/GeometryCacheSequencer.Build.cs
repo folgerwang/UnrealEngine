@@ -2,8 +2,8 @@
 
 namespace UnrealBuildTool.Rules
 {
-	public class GeometryCacheSequencer : ModuleRules
-	{
+    public class GeometryCacheSequencer : ModuleRules
+    {
         public GeometryCacheSequencer(ReadOnlyTargetRules Target) : base(Target)
         {
             PublicIncludePathModuleNames.AddRange(
@@ -17,21 +17,21 @@ namespace UnrealBuildTool.Rules
                     "AssetTools",
                     "Core",
                     "CoreUObject",
-					"EditorStyle",
-					"Engine",
-					"MovieScene",
-					"MovieSceneTools",
-					"MovieSceneTracks",
-					"RHI",
+                    "EditorStyle",
+                    "Engine",
+                    "MovieScene",
+                    "MovieSceneTools",
+                    "MovieSceneTracks",
+                    "RHI",
                     "Sequencer",
-					"Slate",
-					"SlateCore",
+                    "Slate",
+                    "SlateCore",
                     "TimeManagement",
-					"UnrealEd",
+                    "UnrealEd",
                     "GeometryCacheTracks",
                     "GeometryCache"
                 }
-			);
+            );
         }
-	}
+    }
 }

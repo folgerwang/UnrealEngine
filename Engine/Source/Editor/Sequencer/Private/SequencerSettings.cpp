@@ -37,11 +37,11 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bKeepCursorInPlayRangeWhileScrubbing = false;
 	bKeepCursorInPlayRange = true;
 	bKeepPlayRangeInSectionBounds = true;
+	bCompileDirectorOnEvaluate = true;
 	ZeroPadFrames = 0;
 	bShowCombinedKeyframes = true;
 	bInfiniteKeyAreas = false;
 	bShowChannelColors = false;
-	bShowViewportTransportControls = true;
 	bAllowPossessionOfPIEViewports = false;
 	bActivateRealtimeViewports = true;
 	bEvaluateSubSequencesInIsolation = false;
@@ -528,21 +528,6 @@ void USequencerSettings::SetShowChannelColors(bool InbShowChannelColors)
 	}
 }
 
-bool USequencerSettings::GetShowViewportTransportControls() const
-{
-	return bShowViewportTransportControls;
-}
-
-void USequencerSettings::SetShowViewportTransportControls(bool bVisible)
-{
-	if (bShowViewportTransportControls != bVisible)
-	{
-		bShowViewportTransportControls = bVisible;
-		SaveConfig();
-	}
-}
-
-
 bool USequencerSettings::ShouldAllowPossessionOfPIEViewports() const
 {
 	return bAllowPossessionOfPIEViewports;
@@ -639,6 +624,21 @@ void USequencerSettings::SetShouldShowPrePostRoll(bool bInVisualizePreAndPostRol
 	if (bInVisualizePreAndPostRoll != bVisualizePreAndPostRoll)
 	{
 		bVisualizePreAndPostRoll = bInVisualizePreAndPostRoll;
+		SaveConfig();
+	}
+}
+
+
+bool USequencerSettings::ShouldCompileDirectorOnEvaluate() const
+{
+	return bCompileDirectorOnEvaluate;
+}
+
+void USequencerSettings::SetCompileDirectorOnEvaluate(bool bInCompileDirectorOnEvaluate)
+{
+	if (bInCompileDirectorOnEvaluate != bCompileDirectorOnEvaluate)
+	{
+		bCompileDirectorOnEvaluate = bInCompileDirectorOnEvaluate;
 		SaveConfig();
 	}
 }

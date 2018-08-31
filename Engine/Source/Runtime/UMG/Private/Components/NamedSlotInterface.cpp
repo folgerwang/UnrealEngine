@@ -40,3 +40,18 @@ void INamedSlotInterface::ReleaseNamedSlotSlateResources(bool bReleaseChildren)
 		}
 	}
 }
+#if WITH_EDITOR
+void INamedSlotInterface::SetNamedSlotDesignerFlags(EWidgetDesignFlags::Type NewFlags)
+{
+	TArray<FName> SlotNames;
+	GetSlotNames(SlotNames);
+
+	for (const FName& SlotName : SlotNames)
+	{
+		if (UWidget* Content = GetContentForSlot(SlotName))
+		{
+			Content->SetDesignerFlags(NewFlags);
+		}
+	}
+}
+#endif

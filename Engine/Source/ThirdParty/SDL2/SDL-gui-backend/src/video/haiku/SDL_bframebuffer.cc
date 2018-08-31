@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -35,7 +35,9 @@
 extern "C" {
 #endif
 
-static int32 BE_UpdateOnce(SDL_Window *window);
+#ifndef DRAWTHREAD
+static int32 HAIKU_UpdateOnce(SDL_Window *window);
+#endif
 
 static SDL_INLINE SDL_BWin *_ToBeWin(SDL_Window *window) {
 	return ((SDL_BWin*)(window->driverdata));
@@ -45,7 +47,7 @@ static SDL_INLINE SDL_BApp *_GetBeApp() {
 	return ((SDL_BApp*)be_app);
 }
 
-int BE_CreateWindowFramebuffer(_THIS, SDL_Window * window,
+int HAIKU_CreateWindowFramebuffer(_THIS, SDL_Window * window,
                                        Uint32 * format,
                                        void ** pixels, int *pitch) {
 	SDL_BWin *bwin = _ToBeWin(window);
@@ -62,8 +64,8 @@ int BE_CreateWindowFramebuffer(_THIS, SDL_Window * window,
 	/* format */
 	display_mode bmode;
 	bscreen.GetMode(&bmode);
-	int32 bpp = BE_ColorSpaceToBitsPerPixel(bmode.space);
-	*format = BE_BPPToSDLPxFormat(bpp);
+	int32 bpp = HAIKU_ColorSpaceToBitsPerPixel(bmode.space);
+	*format = HAIKU_BPPToSDLPxFormat(bpp);
 
 	/* Create the new bitmap object */
 	BBitmap *bitmap = bwin->GetBitmap();
@@ -97,7 +99,7 @@ int BE_CreateWindowFramebuffer(_THIS, SDL_Window * window,
 
 
 
-int BE_UpdateWindowFramebuffer(_THIS, SDL_Window * window,
+int HAIKU_UpdateWindowFramebuffer(_THIS, SDL_Window * window,
                                       const SDL_Rect * rects, int numrects) {
 	if(!window)
 		return 0;
@@ -110,13 +112,13 @@ int BE_UpdateWindowFramebuffer(_THIS, SDL_Window * window,
 	bwin->UnlockBuffer();
 #else
 	bwin->SetBufferDirty(true);
-	BE_UpdateOnce(window);
+	HAIKU_UpdateOnce(window);
 #endif
 
 	return 0;
 }
 
-int32 BE_DrawThread(void *data) {
+int32 HAIKU_DrawThread(void *data) {
 	SDL_BWin *bwin = (SDL_BWin*)data;
 	
 	BScreen bscreen;
@@ -144,7 +146,6 @@ int32 BE_DrawThread(void *data) {
 			/* Blit each clipping rectangle */
 			bscreen.WaitForRetrace();
 			for(i = 0; i < numClips; ++i) {
-				clipping_rect rc = clips[i];
 				/* Get addresses of the start of each clipping rectangle */
 				int32 width = clips[i].right - clips[i].left + 1;
 				int32 height = clips[i].bottom - clips[i].top + 1;
@@ -180,7 +181,7 @@ escape:
 	return B_OK;
 }
 
-void BE_DestroyWindowFramebuffer(_THIS, SDL_Window * window) {
+void HAIKU_DestroyWindowFramebuffer(_THIS, SDL_Window * window) {
 	SDL_BWin *bwin = _ToBeWin(window);
 	
 	bwin->LockBuffer();
@@ -200,7 +201,8 @@ void BE_DestroyWindowFramebuffer(_THIS, SDL_Window * window) {
  * The specific issues have since become rare enough that they may have been
  * solved, but I doubt it- they were pretty sporadic before now.
  */
-static int32 BE_UpdateOnce(SDL_Window *window) {
+#ifndef DRAWTHREAD
+static int32 HAIKU_UpdateOnce(SDL_Window *window) {
 	SDL_BWin *bwin = _ToBeWin(window);
 	BScreen bscreen;
 	if(!bscreen.IsValid()) {
@@ -225,7 +227,6 @@ static int32 BE_UpdateOnce(SDL_Window *window) {
 		/* Blit each clipping rectangle */
 		bscreen.WaitForRetrace();
 		for(i = 0; i < numClips; ++i) {
-			clipping_rect rc = clips[i];
 			/* Get addresses of the start of each clipping rectangle */
 			int32 width = clips[i].right - clips[i].left + 1;
 			int32 height = clips[i].bottom - clips[i].top + 1;
@@ -247,6 +248,7 @@ static int32 BE_UpdateOnce(SDL_Window *window) {
 	}
 	return 0;
 }
+#endif
 
 #ifdef __cplusplus
 }

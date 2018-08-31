@@ -347,6 +347,13 @@ protected:
 
 		if (!PlayInSettings->DeviceToEmulate.IsEmpty())
 		{
+			const UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(PlayInSettings->DeviceToEmulate, false);
+			// Rescale the swapped sizes if we are on Android
+			if (DeviceProfile && DeviceProfile->DeviceType == TEXT("Android"))
+			{
+				float ScaleFactor = 1.0f;
+				PlayInSettings->RescaleForMobilePreview(DeviceProfile, NewWidth, NewHeight, ScaleFactor);
+			}
 			PlayInSettings->PIESafeZoneOverride = PlayInSettings->CalculateCustomUnsafeZones(PlayInSettings->CustomUnsafeZoneStarts, PlayInSettings->CustomUnsafeZoneDimensions, PlayInSettings->DeviceToEmulate, FVector2D(NewWidth, NewHeight));
 		}
 		else

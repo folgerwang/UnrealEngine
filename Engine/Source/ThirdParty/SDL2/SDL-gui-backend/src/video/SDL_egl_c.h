@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -41,6 +41,7 @@ typedef struct SDL_EGL_VideoData
     EGLDisplay egl_display;
     EGLConfig egl_config;
     int egl_swapinterval;
+    int egl_surfacetype;
     
     EGLDisplay(EGLAPIENTRY *eglGetDisplay) (NativeDisplayType display);
     EGLDisplay(EGLAPIENTRY *eglGetPlatformDisplay) (EGLenum platform,
@@ -67,6 +68,9 @@ typedef struct SDL_EGL_VideoData
     
     EGLBoolean(EGLAPIENTRY *eglDestroyContext) (EGLDisplay dpy, EGLContext ctx);
     
+    EGLSurface(EGLAPIENTRY *eglCreatePbufferSurface)(EGLDisplay dpy, EGLConfig config,
+                                                     EGLint const* attrib_list);
+
     EGLSurface(EGLAPIENTRY *eglCreateWindowSurface) (EGLDisplay dpy,
                                          EGLConfig config,
                                          NativeWindowType window,
@@ -96,9 +100,6 @@ typedef struct SDL_EGL_VideoData
 /* EG BEGIN */
 #ifdef SDL_WITH_EPIC_EXTENSIONS
     EGLenum(EGLAPIENTRY *eglQueryAPI)(void);
-    EGLSurface(EGLAPIENTRY *eglCreatePbufferSurface) (EGLDisplay dpy,
-                                            EGLConfig config,
-                                            EGLint const* attrib_list);
     EGLBoolean(EGLAPIENTRY *eglQueryDevicesEXT)(EGLint max_devices,
                                             EGLDeviceEXT* devices,
                                             EGLint* num_devices);
@@ -121,10 +122,10 @@ typedef struct SDL_EGL_Context
     EGLContext context;
     EGLenum api;
 } SDL_EGL_Context;
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-/* EG BEGIN */
 
 typedef SDL_EGL_Context* SDL_EGLContext;
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG BEGIN */
 
 /* OpenGLES functions */
 extern int SDL_EGL_GetAttribute(_THIS, SDL_GLattr attrib, int *value);

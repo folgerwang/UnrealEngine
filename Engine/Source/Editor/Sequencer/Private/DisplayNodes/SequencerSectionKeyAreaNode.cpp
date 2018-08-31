@@ -50,16 +50,34 @@ bool FSequencerSectionKeyAreaNode::CanRenameNode() const
 	return false;
 }
 
+TSharedRef<SWidget> FSequencerSectionKeyAreaNode::GetOrCreateKeyAreaEditorSwitcher()
+{
+	if (!KeyEditorSwitcher.IsValid())
+	{
+		KeyEditorSwitcher = SNew(SKeyAreaEditorSwitcher, SharedThis(this));
+	}
+	return KeyEditorSwitcher.ToSharedRef();
+}
 
 TSharedRef<SWidget> FSequencerSectionKeyAreaNode::GetCustomOutlinerContent()
 {
 	if (GetAllKeyAreas().Num() > 0)
 	{
-		if (!KeyEditorSwitcher.IsValid())
-		{
-			KeyEditorSwitcher = SNew(SKeyAreaEditorSwitcher, SharedThis(this));
-		}
-		return KeyEditorSwitcher.ToSharedRef();
+		return SNew(SHorizontalBox)
+
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Center)
+		[
+			GetOrCreateKeyAreaEditorSwitcher()
+		]
+
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SKeyNavigationButtons, SharedThis(this))
+		];
 	}
 
 	return FSequencerDisplayNode::GetCustomOutlinerContent();

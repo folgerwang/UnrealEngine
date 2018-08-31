@@ -11,6 +11,7 @@
 #include "LevelSequence.generated.h"
 
 class UMovieScene;
+class ULevelSequenceDirectorGeneratedClass;
 
 /**
  * Movie scene animation for Actors.
@@ -49,8 +50,26 @@ public:
 	virtual bool CanRebindPossessable(const FMovieScenePossessable& InPossessable) const override;
 	virtual UObject* MakeSpawnableTemplateFromInstance(UObject& InSourceObject, FName ObjectName) override;
 	virtual bool CanAnimateObject(UObject& InObject) const override;
-
+	virtual UObject* CreateDirectorInstance(IMovieScenePlayer& Player) override;
+#if WITH_EDITOR
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+#endif
 	virtual void PostLoad() override;
+
+#if WITH_EDITORONLY_DATA
+
+	/** A pointer to the director blueprint that generates this sequence's DirectorClass. */
+	UPROPERTY()
+	UObject* DirectorBlueprint;
+
+#endif
+
+	/**
+	 * The class that is used to spawn this level sequence's director instance.
+	 * Director instances are allocated on-demand one per sequence during evaluation and are used by event tracks for triggering events.
+	 */
+	UPROPERTY()
+	ULevelSequenceDirectorGeneratedClass* DirectorClass;
 
 protected:
 

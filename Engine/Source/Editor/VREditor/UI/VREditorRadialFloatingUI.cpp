@@ -33,25 +33,26 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 	FadeDelay( 0.0f ),
 	InitialScale( 1.0f )
 {
-	if (HasAnyFlags(RF_ClassDefaultObject))
-	{
-		return;
-	}
-
 	const bool bTransient = true;
-	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>( TEXT( "SceneComponent" ), bTransient );
-	check( SceneComponent != nullptr );
+	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"), bTransient);
+	check(SceneComponent != nullptr);
 	this->RootComponent = SceneComponent;
 
 	DefaultGlowAmount = 2.0f;
+}
+
+
+void AVREditorRadialFloatingUI::PostActorCreated()
+{
+	Super::PostActorCreated();
 
 	const UVREditorAssetContainer& AssetContainer = UVREditorMode::LoadAssetContainer();
 
 	{
-		WindowMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WindowMesh"));
+		WindowMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT("WindowMesh"));
 		WindowMeshComponent->SetMobility(EComponentMobility::Movable);
 		WindowMeshComponent->SetupAttachment(RootComponent);
-
+		WindowMeshComponent->RegisterComponent();
 		WindowMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		WindowMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 
@@ -73,10 +74,10 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 	}
 
 	{
-		ArrowMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ArrowMesh"));
+		ArrowMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT("ArrowMesh"));
 		ArrowMeshComponent->SetMobility(EComponentMobility::Movable);
 		ArrowMeshComponent->SetupAttachment(WindowMeshComponent);
-
+		ArrowMeshComponent->RegisterComponent();
 		ArrowMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		ArrowMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 
@@ -95,8 +96,9 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 	}
 
 	{
-		CentralWidgetComponent = CreateDefaultSubobject<UVREditorWidgetComponent>(TEXT("CentralWidget"));
+		CentralWidgetComponent = NewObject<UVREditorWidgetComponent>(this, TEXT("CentralWidget"));
 		CentralWidgetComponent->SetupAttachment(RootComponent);
+		CentralWidgetComponent->RegisterComponent();
 		CentralWidgetComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		CentralWidgetComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 		CentralWidgetComponent->SetGenerateOverlapEvents(false);
@@ -118,7 +120,6 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		CentralWidgetComponent->SetDrawSize(FVector2D(VREd::CentralWidgetX->GetFloat(), VREd::CentralWidgetY->GetFloat()));
 	}
 }
-
 
 void AVREditorRadialFloatingUI::SetupWidgetComponent(TSharedPtr<SWidget> SlateWidget)
 {
