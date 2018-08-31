@@ -632,8 +632,12 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 				// If we opened the channel, we shouldn't be receiving bOpen commands from the other side
 				checkf(!OpenedLocally, TEXT("Received channel open command for channel that was already opened locally. %s"), *Describe());
 
-				check( OpenPacketId.First == INDEX_NONE );	// This should be the first and only assignment of the packet range (we should only receive one bOpen bunch)
-				check( OpenPacketId.Last == INDEX_NONE );	// This should be the first and only assignment of the packet range (we should only receive one bOpen bunch)
+				if (!ensure( OpenPacketId.First == INDEX_NONE && OpenPacketId.Last == INDEX_NONE ))
+				{
+					UE_LOG( LogNetTraffic, Error, TEXT("Received channel open command for channel that was already opened locally. %s"), *Describe() );
+					Bunch.SetError();
+					return false;
+				}
 			}
 
 			// Remember the range.
@@ -2179,7 +2183,12 @@ void UActorChannel::ReceivedBunch( FInBunch & Bunch )
 				}
 
 				// This GUID better have been exported before we get here, which means it must be registered by now
-				check( Connection->Driver->GuidCache->IsGUIDRegistered( NetGUID ) );
+				if (!Connection->Driver->GuidCache->IsGUIDRegistered(NetGUID))
+				{
+					UE_LOG(LogNet, Warning, TEXT("UActorChannel::ReceivedBunch: Received a MustBeMappedGUID that is not registered. ChIndex: %i NetGUID: %s.  %s" ), ChIndex, *NetGUID.ToString(), *Describe());
+					Bunch.SetError();
+					return;
+				}
 
 				if ( !Connection->Driver->GuidCache->IsGUIDLoaded( NetGUID ) )
 				{
@@ -3243,9 +3252,9 @@ bool UActorChannel::ReadFieldHeaderAndPayload( UObject* Object, const FClassNetC
 
 	if ( Connection->InternalAck )
 	{
-		if ( !ensure( NetFieldExportGroup != nullptr ) )
+		if ( NetFieldExportGroup == nullptr )
 		{
-			UE_LOG( LogNet, Error, TEXT( "ReadFieldHeaderAndPayload: NetFieldExportGroup was null. Object: %s" ), *Object->GetFullName() );
+			UE_LOG( LogNet, Warning, TEXT( "ReadFieldHeaderAndPayload: NetFieldExportGroup was null. Object: %s" ), *Object->GetFullName() );
 			Bunch.SetError();
 			return false;
 		}
