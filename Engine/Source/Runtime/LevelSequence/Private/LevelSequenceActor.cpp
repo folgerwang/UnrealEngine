@@ -51,7 +51,7 @@ ALevelSequenceActor::ALevelSequenceActor(const FObjectInitializer& Init)
 	bOverrideInstanceData = false;
 
 	PrimaryActorTick.bCanEverTick = true;
-	bAutoPlay = false;
+	bAutoPlay_DEPRECATED = false;
 }
 
 void ALevelSequenceActor::PostInitializeComponents()
@@ -109,6 +109,13 @@ void ALevelSequenceActor::Tick(float DeltaSeconds)
 void ALevelSequenceActor::PostLoad()
 {
 	Super::PostLoad();
+
+	// If autoplay was previously enabled, initialize the playback settings to autoplay
+	if (bAutoPlay_DEPRECATED)
+	{
+		PlaybackSettings.bAutoPlay = bAutoPlay_DEPRECATED;
+		bAutoPlay_DEPRECATED = false;
+	}
 
 #if WITH_EDITORONLY_DATA
 	// Fix sprite component so that it's attached to the root component. In the past, the sprite component was the root component.
@@ -233,7 +240,7 @@ void ALevelSequenceActor::InitializePlayer()
 
 		RefreshBurnIn();
 
-		if (bAutoPlay)
+		if (PlaybackSettingsCopy.bAutoPlay)
 		{
 			SequencePlayer->Play();
 		}

@@ -35,7 +35,8 @@ USTRUCT(BlueprintType)
 struct FMovieSceneSequencePlaybackSettings
 {
 	FMovieSceneSequencePlaybackSettings()
-		: LoopCount(0)
+		: bAutoPlay(false)
+		, LoopCount(0)
 		, PlayRate(1.f)
 		, bRandomStartTime(false)
 		, StartTime(0.f)
@@ -50,6 +51,10 @@ struct FMovieSceneSequencePlaybackSettings
 	{ }
 
 	GENERATED_BODY()
+
+	/** Auto-play the sequence when created */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Playback")
+	bool bAutoPlay;
 
 	/** Number of times to loop playback. -1 for infinite, else the number of times to loop before stopping */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback", meta=(UIMin=1, DisplayName="Loop"))

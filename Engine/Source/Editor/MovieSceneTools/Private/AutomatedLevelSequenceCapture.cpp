@@ -208,6 +208,7 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 		Actor->PlaybackSettings.LoopCount = 0;
 		Actor->PlaybackSettings.TimeController = MakeShared<FMovieSceneTimeController_FrameStep>();
 		Actor->PlaybackSettings.bPauseAtEnd = true;
+		Actor->PlaybackSettings.bAutoPlay = false;
 
 		if (BurnInOptions)
 		{
@@ -231,7 +232,6 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 			}
 			Actor->InitializePlayer();
 		}
-		Actor->bAutoPlay = false;
 
 		if (InitializeShots())
 		{
