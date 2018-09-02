@@ -129,11 +129,6 @@ void F3DAttachTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder
 {
 	if (ObjectClass != nullptr && ObjectClass->IsChildOf(AActor::StaticClass()))
 	{
-		if (MovieSceneToolHelpers::HasHiddenMobility(ObjectClass))
-		{
-			return;
-		}
-
 		UMovieSceneSection* DummySection = nullptr;
 
 		MenuBuilder.AddSubMenu(
