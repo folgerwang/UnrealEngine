@@ -110,9 +110,17 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Bindings")
 	FNiagaraVariableAttributeBinding DynamicMaterial3Binding;
 
+	/** Which attribute should we use for material randoms when generating instanced meshes?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding MaterialRandomBinding;
+
 	/** Which attribute should we use custom sorting of particles in this emitter. */
 	UPROPERTY(EditAnywhere, Category = "Bindings")
 	FNiagaraVariableAttributeBinding CustomSortingBinding;
+
+	/** Which attribute should we use for Normalized Age? */
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding NormalizedAgeBinding;
 
 	UPROPERTY(Transient)
 	int32 SyncId;

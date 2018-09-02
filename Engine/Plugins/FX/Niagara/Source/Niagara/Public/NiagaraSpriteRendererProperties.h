@@ -178,6 +178,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Bindings")
 	FNiagaraVariableAttributeBinding CustomSortingBinding;
 
+	/** Which attribute should we use for Normalized Age? */
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding NormalizedAgeBinding;
+
 	UPROPERTY(Transient)
 	int32 SyncId;
 

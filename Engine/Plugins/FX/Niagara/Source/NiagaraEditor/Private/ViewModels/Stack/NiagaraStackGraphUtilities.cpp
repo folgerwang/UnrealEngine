@@ -625,7 +625,8 @@ void FNiagaraStackGraphUtilities::RemoveNodesForStackFunctionInputOverridePin(UE
 					DynamicInputNodeOverrideNode->GetInputPins(InputPins);
 					for (UEdGraphPin* InputPin : InputPins)
 					{
-						if (InputPin->PinName.ToString().StartsWith(DynamicInputNode->GetFunctionName()))
+						FNiagaraParameterHandle InputHandle(InputPin->PinName);
+						if (InputHandle.GetNamespace().ToString() == DynamicInputNode->GetFunctionName())
 						{
 							RemoveNodesForStackFunctionInputOverridePin(*InputPin, OutRemovedDataObjects);
 							DynamicInputNodeOverrideNode->RemovePin(InputPin);
@@ -1031,7 +1032,7 @@ void FNiagaraStackGraphUtilities::SetModuleIsEnabled(UNiagaraNodeFunctionCall& F
 
 bool FNiagaraStackGraphUtilities::ValidateGraphForOutput(UNiagaraGraph& NiagaraGraph, ENiagaraScriptUsage ScriptUsage, FGuid ScriptUsageId, FText& ErrorMessage)
 {
-	UNiagaraNodeOutput* OutputNode = NiagaraGraph.FindOutputNode(ScriptUsage, ScriptUsageId);
+	UNiagaraNodeOutput* OutputNode = NiagaraGraph.FindEquivalentOutputNode(ScriptUsage, ScriptUsageId);
 	if (OutputNode == nullptr)
 	{
 		ErrorMessage = LOCTEXT("ValidateNoOutputMessage", "Output node doesn't exist for script.");
