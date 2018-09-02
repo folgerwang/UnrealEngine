@@ -740,11 +740,6 @@ void F3DTransformTrackEditor::AddTransformKeysForObject( UObject* Object, EMovie
 	{
 		FTransformData CurrentTransform( SceneComponent );
 
-		if (MovieSceneToolHelpers::HasHiddenMobility(Object->GetClass()))
-		{
-			return;
-		}
-
 		if(Object->GetClass()->IsChildOf(AActor::StaticClass()))
 		{
 			AddTransformKeys( Actor, TOptional<FTransformData>(), CurrentTransform, ChannelToKey, KeyMode );
