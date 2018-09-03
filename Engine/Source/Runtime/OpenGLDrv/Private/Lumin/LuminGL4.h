@@ -362,7 +362,7 @@ typedef void (APIENTRYP PFNGLGETVERTEXATTRIBLUI64VNVPROC) (GLuint index, GLenum 
 	EnumMacro(PFNGLCLEARBUFFERDATAPROC, glClearBufferData)\
 	EnumMacro(PFNGLDISPATCHCOMPUTEINDIRECTPROC, glDispatchComputeIndirect) \
 	EnumMacro(PFNGLOBJECTLABELPROC, glObjectLabel)\
-	EnumMacro(PFNGLOBJECTLABELPROC, glObjectPtrLabel)\
+	EnumMacro(PFNGLOBJECTPTRLABELPROC, glObjectPtrLabel)\
 	EnumMacro(PFNGLPUSHDEBUGGROUPPROC, glPushDebugGroup)\
 	EnumMacro(PFNGLPOPDEBUGGROUPPROC, glPopDebugGroup)\
 	EnumMacro(PFNGLVERTEXBINDINGDIVISORPROC, glVertexBindingDivisor)\
