@@ -360,7 +360,7 @@ void FPIEPreviewDevice::ApplyRHIOverrides() const
 	if (PreviewPlatform != SP_NumPlatforms)
 	{
 		FName QualityPreviewShaderPlatform = LegacyShaderPlatformToShaderFormat(PreviewPlatform);
-		//UMaterialShaderQualitySettings::Get()->SetPreviewPlatform(QualityPreviewShaderPlatform);
+		UMaterialShaderQualitySettings::Get()->SetPreviewPlatform(QualityPreviewShaderPlatform);
 	}
 
 	if (RHIOverrideState != nullptr)
