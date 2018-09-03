@@ -24,7 +24,10 @@
 class FNiagaraSystemViewportClient : public FEditorViewportClient
 {
 public:
-	FNiagaraSystemViewportClient(FAdvancedPreviewScene& InPreviewScene, const TSharedRef<SNiagaraSystemViewport>& InNiagaraEditorViewport);
+	DECLARE_DELEGATE_OneParam(FOnScreenShotCaptured, UTexture2D*);
+
+public:
+	FNiagaraSystemViewportClient(FAdvancedPreviewScene& InPreviewScene, const TSharedRef<SNiagaraSystemViewport>& InNiagaraEditorViewport, FOnScreenShotCaptured InOnScreenShotCaptured);
 	
 	// FEditorViewportClient interface
 	virtual FLinearColor GetBackgroundColor() const override;
@@ -41,10 +44,14 @@ public:
 
 	TSharedPtr<SNiagaraSystemViewport> NiagaraViewport;
 	bool bCaptureScreenShot;
+	TWeakObjectPtr<UObject> ScreenShotOwner;
+
+	FOnScreenShotCaptured OnScreenShotCaptured;
 };
 
-FNiagaraSystemViewportClient::FNiagaraSystemViewportClient(FAdvancedPreviewScene& InPreviewScene, const TSharedRef<SNiagaraSystemViewport>& InNiagaraEditorViewport)
+FNiagaraSystemViewportClient::FNiagaraSystemViewportClient(FAdvancedPreviewScene& InPreviewScene, const TSharedRef<SNiagaraSystemViewport>& InNiagaraEditorViewport, FOnScreenShotCaptured InOnScreenShotCaptured)
 	: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InNiagaraEditorViewport))
+	, OnScreenShotCaptured(InOnScreenShotCaptured)
 {
 	NiagaraViewport = InNiagaraEditorViewport;
 
@@ -101,7 +108,7 @@ void FNiagaraSystemViewportClient::Draw(FViewport* InViewport,FCanvas* Canvas)
 
 	FEditorViewportClient::Draw(InViewport, Canvas);
 
-	if (bCaptureScreenShot && ParticleSystem != nullptr)
+	if (bCaptureScreenShot && ScreenShotOwner.IsValid() && OnScreenShotCaptured.IsBound())
 	{
 		
 		int32 SrcWidth = InViewport->GetSizeXY().X;
@@ -121,13 +128,14 @@ void FNiagaraSystemViewportClient::Draw(FViewport* InViewport,FCanvas* Canvas)
 			// Compress.
 			FCreateTexture2DParameters Params;
 			Params.bDeferCompression = true;
-			ParticleSystem->ThumbnailImage = FImageUtils::CreateTexture2D(ScaledWidth, ScaledHeight, ScaledBitmap, ParticleSystem, TEXT("ThumbnailTexture"), RF_NoFlags, Params);
+			
+			UTexture2D* ThumbnailImage = FImageUtils::CreateTexture2D(ScaledWidth, ScaledHeight, ScaledBitmap, ScreenShotOwner.Get(), TEXT("ThumbnailTexture"), RF_NoFlags, Params);
 
-			ParticleSystem->ThumbnailImageOutOfDate = false;
-			ParticleSystem->MarkPackageDirty();
+			OnScreenShotCaptured.Execute(ThumbnailImage);
 		}
 
 		bCaptureScreenShot = false;
+		ScreenShotOwner.Reset();
 	}
 }
 
@@ -182,6 +190,7 @@ void SNiagaraSystemViewport::Construct(const FArguments& InArgs)
 	PreviewComponent = nullptr;
 	AdvancedPreviewScene = MakeShareable(new FAdvancedPreviewScene(FPreviewScene::ConstructionValues()));
 	AdvancedPreviewScene->SetFloorVisibility(false);
+	OnThumbnailCaptured = InArgs._OnThumbnailCaptured;
 
 	SEditorViewport::Construct( SEditorViewport::FArguments() );
 }
@@ -194,11 +203,12 @@ SNiagaraSystemViewport::~SNiagaraSystemViewport()
 	}
 }
 
-void SNiagaraSystemViewport::CreateThumbnail()
+void SNiagaraSystemViewport::CreateThumbnail(UObject* InScreenShotOwner)
 {
 	if (SystemViewportClient.IsValid() && PreviewComponent != nullptr)
 	{
 		SystemViewportClient->bCaptureScreenShot = true;
+		SystemViewportClient->ScreenShotOwner = InScreenShotOwner;
 	}
 }
 
@@ -282,6 +292,11 @@ bool SNiagaraSystemViewport::IsVisible() const
 	return ViewportWidget.IsValid() && (!ParentTab.IsValid() || ParentTab.Pin()->IsForeground()) && SEditorViewport::IsVisible() ;
 }
 
+void SNiagaraSystemViewport::OnScreenShotCaptured(UTexture2D* ScreenShot)
+{
+	OnThumbnailCaptured.ExecuteIfBound(ScreenShot);
+}
+
 void SNiagaraSystemViewport::BindCommands()
 {
 	SEditorViewport::BindCommands();
@@ -348,7 +363,8 @@ bool SNiagaraSystemViewport::IsTogglePreviewBackgroundChecked() const
 
 TSharedRef<FEditorViewportClient> SNiagaraSystemViewport::MakeEditorViewportClient() 
 {
-	SystemViewportClient = MakeShareable( new FNiagaraSystemViewportClient(*AdvancedPreviewScene.Get(), SharedThis(this)) );
+	SystemViewportClient = MakeShareable( new FNiagaraSystemViewportClient(*AdvancedPreviewScene.Get(), SharedThis(this), 
+		FNiagaraSystemViewportClient::FOnScreenShotCaptured::CreateSP(this, &SNiagaraSystemViewport::OnScreenShotCaptured) ) );
 	
 	SystemViewportClient->SetViewLocation( FVector::ZeroVector );
 	SystemViewportClient->SetViewRotation( FRotator::ZeroRotator );

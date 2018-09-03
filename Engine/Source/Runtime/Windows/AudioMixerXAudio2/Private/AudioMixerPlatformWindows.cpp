@@ -18,6 +18,15 @@
 #include <mmdeviceapi.h>
 #include <functiondiscoverykeys_devpkey.h>
 
+static int32 GEnableDetailedWindowsDeviceLogging = 0;
+FAutoConsoleVariableRef CVarEnableDetailedWindowsDeviceLogging(
+	TEXT("au.EnableDetailedWindowsDeviceLogging"),
+	GEnableDetailedWindowsDeviceLogging,
+	TEXT("Enables detailed windows device logging.\n")
+	TEXT("0: Not Enabled, 1: Enabled"),
+	ECVF_Default);
+
+
 class FWindowsMMNotificationClient final : public IMMNotificationClient
 {
 public:
@@ -49,6 +58,11 @@ public:
 
 	HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow InFlow, ERole InRole, LPCWSTR pwstrDeviceId) override
 	{
+		if (GEnableDetailedWindowsDeviceLogging)
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("OnDefaultDeviceChanged: %d, %d, %s"), InFlow, InRole, pwstrDeviceId);
+		}
+
 		Audio::EAudioDeviceRole AudioDeviceRole;
 
 		if (InRole == eConsole)
@@ -93,6 +107,11 @@ public:
 
 	HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR pwstrDeviceId) override
 	{
+		if (GEnableDetailedWindowsDeviceLogging)
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("OnDeviceAdded: %s"), pwstrDeviceId);
+		}
+
 		for (Audio::IAudioMixerDeviceChangedLister* Listener : Listeners)
 		{
 			Listener->OnDeviceAdded(FString(pwstrDeviceId));
@@ -102,6 +121,11 @@ public:
 
 	HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR pwstrDeviceId) override
 	{
+		if (GEnableDetailedWindowsDeviceLogging)
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("OnDeviceRemoved: %s"), pwstrDeviceId);
+		}
+
 		for (Audio::IAudioMixerDeviceChangedLister* Listener : Listeners)
 		{
 			Listener->OnDeviceRemoved(FString(pwstrDeviceId));
@@ -111,11 +135,30 @@ public:
 
 	HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR pwstrDeviceId, DWORD dwNewState) override
 	{
+		if (GEnableDetailedWindowsDeviceLogging)
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("OnDeviceStateChanged: %s, %d"), pwstrDeviceId, dwNewState);
+		}
+
 		if (dwNewState == DEVICE_STATE_DISABLED || dwNewState == DEVICE_STATE_UNPLUGGED || dwNewState == DEVICE_STATE_NOTPRESENT)
 		{
 			for (Audio::IAudioMixerDeviceChangedLister* Listener : Listeners)
 			{
-				Listener->OnDeviceRemoved(FString(pwstrDeviceId));
+				switch (dwNewState)
+				{
+				case DEVICE_STATE_DISABLED:
+					Listener->OnDeviceStateChanged(FString(pwstrDeviceId), Audio::EAudioDeviceState::Disabled);
+					break;
+
+				case DEVICE_STATE_UNPLUGGED:
+					Listener->OnDeviceStateChanged(FString(pwstrDeviceId), Audio::EAudioDeviceState::Unplugged);
+					break;
+				case DEVICE_STATE_NOTPRESENT:
+					Listener->OnDeviceStateChanged(FString(pwstrDeviceId), Audio::EAudioDeviceState::NotPresent);
+					break;
+				default:
+					break;
+				}
 			}
 		}
 		return S_OK;
@@ -123,6 +166,11 @@ public:
 
 	HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY key)
 	{
+		if (GEnableDetailedWindowsDeviceLogging)
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("OnPropertyValueChanged: %s, %d"), pwstrDeviceId, key.pid);
+		}
+
 		FString ChangedId = FString(pwstrDeviceId);
 
 		// look for ids we care about!
@@ -204,13 +252,21 @@ namespace Audio
 
 	void FMixerPlatformXAudio2::OnDefaultRenderDeviceChanged(const EAudioDeviceRole InAudioDeviceRole, const FString& DeviceId)
 	{
+		if (!AllowDeviceSwap())
+		{
+			return;
+		}
+
 		if (AudioDeviceSwapCriticalSection.TryLock())
 		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("Changing default audio render device to new device: %s."), *DeviceId);
+
 			NewAudioDeviceId = "";
 			bMoveAudioStreamToNewAudioDevice = true;
 
 			AudioDeviceSwapCriticalSection.Unlock();
 		}
+
 	}
 
 	void FMixerPlatformXAudio2::OnDeviceAdded(const FString& DeviceId)
@@ -221,6 +277,8 @@ namespace Audio
 			// move our audio stream to this newly added device.
 			if (AudioStreamInfo.DeviceInfo.DeviceId != OriginalAudioDeviceId && DeviceId == OriginalAudioDeviceId)
 			{
+				UE_LOG(LogAudioMixer, Warning, TEXT("Original audio device re-added. Moving audio back to original audio device %s."), *OriginalAudioDeviceId);
+
 				NewAudioDeviceId = OriginalAudioDeviceId;
 				bMoveAudioStreamToNewAudioDevice = true;
 			}
@@ -236,6 +294,8 @@ namespace Audio
 			// If the device we're currently using was removed... then switch to the new default audio device.
 			if (AudioStreamInfo.DeviceInfo.DeviceId == DeviceId)
 			{
+				UE_LOG(LogAudioMixer, Warning, TEXT("Audio device removed, falling back to other windows default device."));
+
 				NewAudioDeviceId = "";
 				bMoveAudioStreamToNewAudioDevice = true;
 			}

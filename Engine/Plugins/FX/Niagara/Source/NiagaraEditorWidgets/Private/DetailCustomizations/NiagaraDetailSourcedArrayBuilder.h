@@ -24,7 +24,7 @@ public:
 
 private: 
 	void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder);
-	void OnArrayNumChildrenChanged();
+
 private:
 	TArray<TSharedPtr<FName>> OptionsSourceList;
 	/** List of component class names, filtered by the current search string */
@@ -32,5 +32,4 @@ private:
 	TSharedPtr<IPropertyHandleArray> ArrayProperty;
 	/** Subproperty of type FName that needs to be edited - in case of FName wrappers */
 	FName FNameSubproperty;
-	TArray<TSharedPtr<SNiagaraNamePropertySelector>> NameSelectors;
 };

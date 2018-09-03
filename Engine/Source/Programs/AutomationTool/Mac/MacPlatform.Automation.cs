@@ -412,13 +412,6 @@ public class MacPlatform : Platform
 
 	public override bool IsSupported { get { return true; } }
 
-	public override bool ShouldUseManifestForUBTBuilds(string AddArgs)
-	{
-		// don't use the manifest to set up build products if we are compiling Mac under Windows and we aren't going to copy anything back to the PC
-		bool bIsBuildingRemotely = UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac;
-		bool bUseManifest = !bIsBuildingRemotely || AddArgs.IndexOf("-CopyAppBundleBackToDevice", StringComparison.InvariantCultureIgnoreCase) > 0;
-		return bUseManifest;
-	}
 	public override List<string> GetDebugFileExtensions()
 	{
 		return new List<string> { ".dSYM" };

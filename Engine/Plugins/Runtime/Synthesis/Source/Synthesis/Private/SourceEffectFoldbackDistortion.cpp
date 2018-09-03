@@ -5,7 +5,7 @@
 void FSourceEffectFoldbackDistortion::Init(const FSoundEffectSourceInitData& InitData)
 {
 	bIsActive = true;
-	FoldbackDistortion.Init(InitData.SampleRate);
+	FoldbackDistortion.Init(InitData.SampleRate, InitData.NumSourceChannels);
 }
 
 void FSourceEffectFoldbackDistortion::OnPresetChanged()
@@ -17,16 +17,9 @@ void FSourceEffectFoldbackDistortion::OnPresetChanged()
 	FoldbackDistortion.SetOutputGainDb(Settings.OutputGainDb);
 }
 
-void FSourceEffectFoldbackDistortion::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectFoldbackDistortion::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	if (InData.AudioFrame.Num() == 2)
-	{
-		FoldbackDistortion.ProcessAudio(InData.AudioFrame[0], InData.AudioFrame[1], OutData.AudioFrame[0], OutData.AudioFrame[1]);
-	}
-	else
-	{
-		FoldbackDistortion.ProcessAudio(InData.AudioFrame[0], OutData.AudioFrame[0]);
-	}
+	FoldbackDistortion.ProcessAudio(InData.InputSourceEffectBufferPtr, InData.NumSamples, OutAudioBufferData);
 }
 
 void USourceEffectFoldbackDistortionPreset::SetSettings(const FSourceEffectFoldbackDistortionSettings& InSettings)

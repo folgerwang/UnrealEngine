@@ -1418,8 +1418,16 @@ namespace UnrealBuildTool
 				}
 			}
 
-			// Find all the build products and modules from this binary
+			// Create the receipt
 			Receipt = new TargetReceipt(TargetName, Platform, Configuration, Version);
+
+			// Set the launch executable if there is one
+			if(!Rules.bShouldCompileAsDLL)
+			{
+				Receipt.Launch = OutputPaths[0];
+			}
+
+			// Find all the build products and modules from this binary
 			foreach (KeyValuePair<FileReference, BuildProductType> BuildProductPair in BuildProducts)
 			{
 				if(BuildProductPair.Value != BuildProductType.BuildResource)
@@ -1533,8 +1541,9 @@ namespace UnrealBuildTool
 		/// additional engine modules to be built, so we don't prohibit files being added or removed.
 		/// </summary>
 		/// <param name="OutputFiles">List of files being modified by this build</param>
+		/// <param name="bNoManifestChanges">Whether manifest changes are allowed. If a manifest has to be changed, an error will be output.</param>
 		/// <returns>True if the existing version manifests will remain valid during this build, false if they are invalidated</returns>
-		public bool TryRecycleVersionManifests(HashSet<FileReference> OutputFiles)
+		public bool TryRecycleVersionManifests(HashSet<FileReference> OutputFiles, bool bNoManifestChanges)
 		{
 			// Make sure we've got a list of version manifests to check against
 			if(FileReferenceToModuleManifestPairs == null)
@@ -1579,7 +1588,14 @@ namespace UnrealBuildTool
 					{
 						if(OutputFiles.Contains(ExistingFile))
 						{
-							Log.TraceLog("Unable to recycle manifests - modifying {0} invalidates {1}. Using build id {2}.", ExistingFile, ExistingPair.Key, Receipt.Version.BuildId);
+							if(bNoManifestChanges)
+							{
+								Log.TraceError("Previous build product would be overwritten: {0}.", ExistingFile);
+							}
+							else
+							{
+								Log.TraceLog("Unable to recycle manifests - modifying {0} invalidates {1}. Using build id {2}.", ExistingFile, ExistingPair.Key, Receipt.Version.BuildId);
+							}
 							return false;
 						}
 					}
@@ -1662,7 +1678,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Writes out the version manifest
 		/// </summary>
-		public void WriteReceipts()
+		public void WriteReceipts(bool bNoManifestChanges)
 		{
 			if (Receipt != null)
 			{
@@ -1707,17 +1723,35 @@ namespace UnrealBuildTool
 				{
 					if(!IsFileInstalled(FileNameToVersionManifest.Key))
 					{
-						// Write the manifest out to a string buffer, then only write it to disk if it's changed.
-						string OutputText;
-						using (StringWriter Writer = new StringWriter())
+						if(!FileReference.Exists(FileNameToVersionManifest.Key))
 						{
-							FileNameToVersionManifest.Value.Write(Writer);
-							OutputText = Writer.ToString();
-						}
-						if(!FileReference.Exists(FileNameToVersionManifest.Key) || File.ReadAllText(FileNameToVersionManifest.Key.FullName) != OutputText)
-						{
+							// If the file doesn't already exist, just write it out
 							Directory.CreateDirectory(Path.GetDirectoryName(FileNameToVersionManifest.Key.FullName));
 							FileNameToVersionManifest.Value.Write(FileNameToVersionManifest.Key.FullName);
+						}
+						else
+						{
+							// Otherwise write it to a buffer first
+							string OutputText;
+							using (StringWriter Writer = new StringWriter())
+							{
+								FileNameToVersionManifest.Value.Write(Writer);
+								OutputText = Writer.ToString();
+							}
+
+							// And only write it to disk if it's been modified
+							string CurrentText = FileReference.ReadAllText(FileNameToVersionManifest.Key);
+							if(CurrentText != OutputText)
+							{
+								if(bNoManifestChanges)
+								{
+									Log.TraceError("Build modifies {0}. This is not permitted. Before:\n    {1}\nAfter:\n    {2}", FileNameToVersionManifest.Key, CurrentText.Replace("\n", "\n    "), OutputText.Replace("\n", "\n    "));
+								}
+								else
+								{
+									FileReference.WriteAllText(FileNameToVersionManifest.Key, OutputText);
+								}
+							}
 						}
 					}
 				}
@@ -2098,17 +2132,25 @@ namespace UnrealBuildTool
 			}
 
 			// Build the target's binaries.
+			DirectoryReference ExeDir = OutputPaths[0].Directory;
 			foreach (UEBuildBinary Binary in Binaries)
 			{
-				OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ActionGraph));
+				OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ExeDir, ActionGraph));
 			}
 
 			// Prepare all the runtime dependencies, copying them from their source folders if necessary
-			List<FileReference> RuntimeDependencySourceFiles = new List<FileReference>();
 			List<RuntimeDependency> RuntimeDependencies = new List<RuntimeDependency>();
+			Dictionary<FileReference, FileReference> RuntimeDependencyTargetFileToSourceFile = new Dictionary<FileReference, FileReference>();
 			foreach(UEBuildBinary Binary in Binaries)
 			{
-				OutputItems.AddRange(Binary.PrepareRuntimeDependencies(RuntimeDependencies, RuntimeDependencySourceFiles, ActionGraph));
+				Binary.PrepareRuntimeDependencies(RuntimeDependencies, RuntimeDependencyTargetFileToSourceFile, ExeDir);
+			}
+			foreach(KeyValuePair<FileReference, FileReference> Pair in RuntimeDependencyTargetFileToSourceFile)
+			{
+				if(!IsFileInstalled(Pair.Key))
+				{
+					OutputItems.Add(CreateCopyAction(Pair.Value, Pair.Key, ActionGraph));
+				}
 			}
 
 			// If we're just precompiling a plugin, only include output items which are under that directory
@@ -2128,6 +2170,7 @@ namespace UnrealBuildTool
 				Binary.GetBuildProducts(Rules, TargetToolChain, BinaryBuildProducts, GlobalLinkEnvironment.bCreateDebugInfo);
 				BuildProducts.AddRange(BinaryBuildProducts);
 			}
+			BuildProducts.AddRange(RuntimeDependencyTargetFileToSourceFile.Select(x => new KeyValuePair<FileReference, BuildProductType>(x.Key, BuildProductType.RequiredResource)));
 
 			// Create a receipt for the target
 			if (!ProjectFileGenerator.bGenerateProjectFiles)
@@ -2150,7 +2193,7 @@ namespace UnrealBuildTool
 			// Build a list of all the externally files
 			foreach(FileReference DependencyListFileName in Rules.DependencyListFileNames)
 			{
-				WriteDependencyList(DependencyListFileName, RuntimeDependencySourceFiles);
+				WriteDependencyList(DependencyListFileName, RuntimeDependencyTargetFileToSourceFile.Values);
 			}
 
 			// If we're only generating the manifest, return now
@@ -2166,6 +2209,40 @@ namespace UnrealBuildTool
 			// Clean any stale modules which exist in multiple output directories. This can lead to the wrong DLL being loaded on Windows.
 			CleanStaleModules();
 			return ECompilationResult.Succeeded;
+		}
+
+		/// <summary>
+		/// Creates an action which copies a file from one location to another
+		/// </summary>
+		/// <param name="SourceFile">The source file location</param>
+		/// <param name="TargetFile">The target file location</param>
+		/// <param name="ActionGraph">The action graph</param>
+		/// <returns>File item for the output file</returns>
+		static FileItem CreateCopyAction(FileReference SourceFile, FileReference TargetFile, ActionGraph ActionGraph)
+		{
+			FileItem SourceFileItem = FileItem.GetItemByFileReference(SourceFile);
+			FileItem TargetFileItem = FileItem.GetItemByFileReference(TargetFile);
+
+			Action CopyAction = ActionGraph.Add(ActionType.BuildProject);
+			CopyAction.CommandDescription = "Copy";
+			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+			{
+				CopyAction.CommandPath = "cmd.exe";
+				CopyAction.CommandArguments = String.Format("/C \"copy /Y \"{0}\" \"{1}\" 1>nul\"", SourceFile, TargetFile);
+			}
+			else
+			{
+				CopyAction.CommandPath = "/bin/sh";
+				CopyAction.CommandArguments = String.Format("cp -f {0} {1}", Utils.EscapeShellArgument(SourceFile.FullName), Utils.EscapeShellArgument(TargetFile.FullName));
+			}
+			CopyAction.WorkingDirectory = Environment.CurrentDirectory;
+			CopyAction.PrerequisiteItems.Add(SourceFileItem);
+			CopyAction.ProducedItems.Add(TargetFileItem);
+			CopyAction.DeleteItems.Add(TargetFileItem);
+			CopyAction.StatusDescription = TargetFileItem.Location.GetFileName();
+			CopyAction.bCanExecuteRemotely = false;
+
+			return TargetFileItem;
 		}
 
 		/// <summary>

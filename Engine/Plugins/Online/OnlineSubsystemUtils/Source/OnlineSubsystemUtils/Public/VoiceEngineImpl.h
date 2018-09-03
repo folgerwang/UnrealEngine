@@ -13,9 +13,12 @@
 #include "OnlineSubsystemBPCallHelper.h"
 #include "OnlineSubsystemUtilsPackage.h"
 #include "VoipListenerSynthComponent.h"
+#include "OnlineSubsystemUtilsPackage.h"
+
+#include "VoicePacketImpl.h"
+#include "UObject/CoreOnline.h"
 
 class IOnlineSubsystem;
-class FUniqueNetIdString;
 class IVoiceDecoder;
 class IVoiceEncoder;
 class IVoiceCapture;
@@ -117,7 +120,7 @@ class FVoiceEngineImpl : public IVoiceEngine, public FSelfRegisteringExec
 	friend class FVoiceSerializeHelper;
 
 	/** Mapping of UniqueIds to the incoming voice data and their audio component */
-	typedef TMap<FUniqueNetIdString, FRemoteTalkerDataImpl> FRemoteTalkerData;
+	typedef TMap<FUniqueNetIdWrapper, FRemoteTalkerDataImpl> FRemoteTalkerData;
 
 	/** Reference to the main online subsystem */
 	IOnlineSubsystem* OnlineSubsystem;
@@ -187,7 +190,7 @@ class FVoiceEngineImpl : public IVoiceEngine, public FSelfRegisteringExec
 	 * @param SamplesRequired number of samples needed for immediate playback
 	 * @param TalkerId id of the remote talker to allocate voice data for
 	 */
-	void GenerateVoiceData(USoundWaveProcedural* InProceduralWave, int32 SamplesRequired, FUniqueNetIdString TalkerId);
+	void GenerateVoiceData(USoundWaveProcedural* InProceduralWave, int32 SamplesRequired, const FUniqueNetId& TalkerId);
 
 PACKAGE_SCOPE:
 
@@ -271,7 +274,7 @@ public:
 
 	virtual bool IsRemotePlayerTalking(const FUniqueNetId& UniqueId) override
 	{
-		return RemoteTalkerBuffers.Find((const FUniqueNetIdString&)UniqueId) != nullptr;
+		return RemoteTalkerBuffers.Find(FUniqueNetIdWrapper(UniqueId.AsShared())) != nullptr;
 	}
 
 	virtual uint32 GetVoiceDataReadyFlags() const override;

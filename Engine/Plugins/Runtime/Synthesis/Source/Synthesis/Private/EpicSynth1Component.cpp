@@ -607,18 +607,9 @@ bool UModularSynthComponent::Init(int32& SampleRate)
 
 int32 UModularSynthComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
-	const int32 NumFrames = NumSamples / NumChannels;
-
-	float LeftSample = 0.0f;
-	float RightSample = 0.0f;
-	int32 SampleIndex = 0;
-
-	for (int32 Frame = 0; Frame < NumFrames; ++Frame)
+	for (int32 SampleIndex = 0; SampleIndex < NumSamples; SampleIndex += NumChannels)
 	{
-		EpicSynth1.Generate(LeftSample, RightSample);
-
-		OutAudio[SampleIndex++] = LeftSample;
-		OutAudio[SampleIndex++] = RightSample;
+		EpicSynth1.GenerateFrame(&OutAudio[SampleIndex]);
 	}
 	return NumSamples;
 }

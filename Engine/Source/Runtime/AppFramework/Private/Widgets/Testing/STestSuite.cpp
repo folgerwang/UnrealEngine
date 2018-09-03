@@ -1903,7 +1903,6 @@ public:
 	SLATE_BEGIN_ARGS( SRichTextTest ){}
 	SLATE_END_ARGS()
 
-	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	void Construct(const FArguments& InArgs)
 	{
 		WrapWidth = 600;
@@ -2273,7 +2272,6 @@ public:
 			]
 		];
 	}
-	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 	FSlateWidgetRun::FWidgetRunInfo OnCreateWidgetDecoratorWidget( const FTextRunInfo& RunInfo, const ISlateStyle* Style ) const
 	{
@@ -2493,7 +2491,6 @@ public:
 	 *
 	 * @param InArgs   Declaration from which to construct the widget
 	 */
-	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	void Construct(const FArguments& InArgs)
 	{
 		bIsPassword = true;
@@ -2627,7 +2624,6 @@ public:
 			]
 		];
 	}
-	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 	void FocusDefaultWidget()
 	{
@@ -2994,7 +2990,6 @@ public:
 	 *
 	 * @param InArgs   Declaration from which to construct the widget
 	 */
-	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	void Construct(const FArguments& InArgs)
 	{
 		// Define and add the "Roboto" font family
@@ -3370,7 +3365,6 @@ public:
 			]
 		];
 	}
-	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 protected:
 	
@@ -3901,7 +3895,6 @@ public:
 	SLATE_BEGIN_ARGS( SAnimTest ){}
 	SLATE_END_ARGS()
 
-	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	void Construct( const FArguments& InArgs )
 	{
 		this->ChildSlot
@@ -4060,7 +4053,6 @@ public:
 		// Set the default Animation duration.
 		AnimTime_OnChanged(0.15f);
 	}
-	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 	FReply PlayAnimation_OnClicked()
 	{
@@ -4130,7 +4122,6 @@ class SFxTest : public SCompoundWidget
 	{}
 	SLATE_END_ARGS()
 
-	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	void Construct( const FArguments& InArgs )
 	{
 		RenderScale = 1.0f;
@@ -4288,7 +4279,6 @@ class SFxTest : public SCompoundWidget
 			]
 		];
 	}
-	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 	bool GetFxWidgetIgnoreClipping() const { return FxWidgetIgnoreClippingState == ECheckBoxState::Checked; }
 	ECheckBoxState GetFxWidgetIgnoreClippingState() const { return FxWidgetIgnoreClippingState; }
@@ -5025,7 +5015,6 @@ public:
 	{}
 	SLATE_END_ARGS()
 
-	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	void Construct( const FArguments& InArgs )	
 	{
 		this->ChildSlot
@@ -5144,7 +5133,6 @@ public:
 			
 		];
 	}
-	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 };
 
 class SResponsiveGridPanelTestWidget : public SUserWidget
@@ -5689,7 +5677,6 @@ TSharedRef<SRenderTransformManipulatorWidget> SRenderTransformManipulatorWidget:
 
 static TSharedPtr<FTabManager> TestSuite1TabManager;
 
-BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 TSharedRef<SDockTab> SpawnTab(const FSpawnTabArgs& Args, FName TabIdentifier)
 {
 	if (TabIdentifier == FName(TEXT("AnimationTestTab")))
@@ -6015,7 +6002,6 @@ TSharedRef<SDockTab> SpawnResponsiveGrid(const FSpawnTabArgs& Args)
 
 	return ResponsiveGridTab;
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
 

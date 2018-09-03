@@ -29,6 +29,9 @@ namespace UnrealGameSync
 			Variables = InVariables;
 
 			InitializeComponent();
+
+			this.MaximumSize = new System.Drawing.Size(32768, Height);
+			this.MinimumSize = new System.Drawing.Size(Width, Height);
 		}
 
 		private void BuildTaskWindow_Load(object sender, EventArgs e)

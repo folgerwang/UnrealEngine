@@ -69,9 +69,9 @@ public:
 		FloatDataOffset.Bind(ParameterMap, TEXT("NiagaraFloatDataOffset"));
 		FloatDataStride.Bind(ParameterMap, TEXT("NiagaraFloatDataStride"));
 
-// 		NiagaraParticleDataInt.Bind(ParameterMap, TEXT("NiagaraParticleDataInt"));
-// 		FloatDataOffset.Bind(ParameterMap, TEXT("NiagaraInt32DataOffset"));
-// 		FloatDataStride.Bind(ParameterMap, TEXT("NiagaraInt3DataStride"));
+//  		NiagaraParticleDataInt.Bind(ParameterMap, TEXT("NiagaraParticleDataInt"));
+//  		Int32DataOffset.Bind(ParameterMap, TEXT("NiagaraInt32DataOffset"));
+//  		Int32DataStride.Bind(ParameterMap, TEXT("NiagaraInt3DataStride"));
 
 		ParticleAlignmentMode.Bind(ParameterMap, TEXT("ParticleAlignmentMode"));
 		ParticleFacingMode.Bind(ParameterMap, TEXT("ParticleFacingMode"));
@@ -91,9 +91,9 @@ public:
 		Ar << FloatDataOffset;
 		Ar << FloatDataStride;
 
-// 		Ar << NiagaraParticleDataInt;
-// 		Ar << Int32DataOffset;
-// 		Ar << Int32DataStride;
+//  		Ar << NiagaraParticleDataInt;
+//  		Ar << Int32DataOffset;
+//  		Ar << Int32DataStride;
 
 		Ar << SortedIndices;
 		Ar << SortedIndicesOffset;
@@ -116,7 +116,7 @@ public:
 		SetShaderValue(RHICmdList, VertexShaderRHI, FloatDataOffset, SpriteVF->GetFloatDataOffset());
 		SetShaderValue(RHICmdList, VertexShaderRHI, FloatDataStride, SpriteVF->GetFloatDataStride());
 
-		SetSRVParameter(RHICmdList, VertexShaderRHI, SortedIndices, SpriteVF->GetSortedIndicesSRV());
+		SetSRVParameter(RHICmdList, VertexShaderRHI, SortedIndices, SpriteVF->GetSortedIndicesSRV() ? SpriteVF->GetSortedIndicesSRV() : GFNiagaraNullSortedIndicesVertexBuffer.VertexBufferSRV);
 		SetShaderValue(RHICmdList, VertexShaderRHI, SortedIndicesOffset, SpriteVF->GetSortedIndicesOffset());
 	}
 
@@ -132,9 +132,9 @@ private:
 	FShaderParameter FloatDataOffset;
 	FShaderParameter FloatDataStride;
 
-// 	FShaderResourceParameter NiagaraParticleDataInt;
-// 	FShaderParameter Int32DataOffset;
-// 	FShaderParameter Int32DataStride;
+//  	FShaderResourceParameter NiagaraParticleDataInt;
+//  	FShaderParameter Int32DataOffset;
+//  	FShaderParameter Int32DataStride;
 	
 	FShaderResourceParameter SortedIndices;
 	FShaderParameter SortedIndicesOffset;
@@ -225,7 +225,7 @@ inline TGlobalResource<FNiagaraSpriteVertexDeclaration>& GetNiagaraSpriteVertexD
 
 bool FNiagaraSpriteVertexFactory::ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const class FShaderType* ShaderType)
 {
-	return (!IsSwitchPlatform(Platform) && Platform != SP_OPENGL_SM4 && (Material->IsUsedWithNiagaraSprites() || Material->IsSpecialEngineMaterial()));
+	return (Platform != SP_OPENGL_SM4 && (Material->IsUsedWithNiagaraSprites() || Material->IsSpecialEngineMaterial()));
 }
 
 /**
@@ -250,7 +250,7 @@ void FNiagaraSpriteVertexFactory::InitRHI()
 
 void FNiagaraSpriteVertexFactory::InitStreams()
 {
-    const bool bInstanced = GRHISupportsInstancing;
+	const bool bInstanced = GRHISupportsInstancing;
 
 	check(Streams.Num() == 0);
 	if(bInstanced) 

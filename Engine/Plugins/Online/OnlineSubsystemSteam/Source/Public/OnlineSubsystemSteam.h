@@ -79,7 +79,10 @@ protected:
 	FOnlineLeaderboardsSteamPtr LeaderboardsInterface;
 
 	/** Interface to the voice engine */
-	FOnlineVoiceSteamPtr VoiceInterface;
+	mutable IOnlineVoicePtr VoiceInterface;
+
+	/** Interface for voice communication */
+	mutable bool bVoiceInterfaceInitialized;
 
 	/** Interface to the external UI services */
 	FOnlineExternalUISteamPtr ExternalUIInterface;
@@ -117,6 +120,7 @@ PACKAGE_SCOPE:
 		UserCloudInterface(nullptr),
 		LeaderboardsInterface(nullptr),
 		VoiceInterface(nullptr),
+		bVoiceInterfaceInitialized(false),
 		ExternalUIInterface(nullptr),
 		PresenceInterface(nullptr),
 		AuthInterface(nullptr),
@@ -138,6 +142,7 @@ PACKAGE_SCOPE:
 		UserCloudInterface(nullptr),
 		LeaderboardsInterface(nullptr),
 		VoiceInterface(nullptr),
+		bVoiceInterfaceInitialized(false),
 		ExternalUIInterface(nullptr),
 		PresenceInterface(nullptr),
 		AuthInterface(nullptr),

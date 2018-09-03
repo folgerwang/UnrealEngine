@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -31,6 +31,16 @@ namespace UnrealGameSync
 			Variables = InVariables;
 
 			InitializeComponent();
+
+			using(Graphics Graphics = Graphics.FromHwnd(IntPtr.Zero))
+			{
+				float DpiScaleX = Graphics.DpiX / 96.0f;
+
+				NormalSyncColumn.Width = (int)(104 * DpiScaleX);
+				ScheduledSyncColumn.Width = (int)(104 * DpiScaleX);
+				ShowAsToolColumn.Width = (int)(104 * DpiScaleX);
+				DescriptionColumn.Width = BuildStepList.ClientSize.Width - NormalSyncColumn.Width - ScheduledSyncColumn.Width - ShowAsToolColumn.Width - 10;
+			}
 
 			BuildStepList.Font = SystemFonts.IconTitleFont;
 		}

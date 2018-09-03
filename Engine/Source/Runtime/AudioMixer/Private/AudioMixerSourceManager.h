@@ -49,6 +49,7 @@ namespace Audio
 	};
 
 	typedef TSharedPtr<FMixerSubmix, ESPMode::ThreadSafe> FMixerSubmixPtr;
+	typedef TWeakPtr<FMixerSubmix, ESPMode::ThreadSafe> FMixerSubmixWeakPtr;
 
 	class ISourceListener
 	{
@@ -70,7 +71,7 @@ namespace Audio
 	struct FMixerSourceSubmixSend
 	{
 		// The submix ptr
-		FMixerSubmixPtr Submix;
+		FMixerSubmixWeakPtr Submix;
 
 		// The amount of audio that is to be mixed into this submix
 		float SendLevel;
@@ -107,13 +108,13 @@ namespace Audio
 		UReverbPluginSourceSettingsBase* ReverbPluginSettings;
 		FName AudioComponentUserID;
 		uint64 AudioComponentID;
-		bool bPlayEffectChainTails;
-		bool bUseHRTFSpatialization;
-		bool bIsDebugMode;
-		bool bOutputToBusOnly;
-		bool bIsVorbis;
-		bool bIsAmbisonics;
-		bool bIsSeeking;
+		uint8 bPlayEffectChainTails : 1;
+		uint8 bUseHRTFSpatialization : 1;
+		uint8 bIsDebugMode : 1;
+		uint8 bOutputToBusOnly : 1;
+		uint8 bIsVorbis : 1;
+		uint8 bIsAmbisonics : 1;
+		uint8 bIsSeeking : 1;
 
 		FMixerSourceVoiceInitParams()
 			: MixerSourceBuffer(nullptr)
@@ -376,6 +377,7 @@ namespace Audio
 			Audio::AlignedFloatBuffer SourceBuffer;
 			Audio::AlignedFloatBuffer PreEffectBuffer;
 			Audio::AlignedFloatBuffer PreDistanceAttenuationBuffer;
+			Audio::AlignedFloatBuffer SourceEffectScratchBuffer;
 
 			TArray<float> CurrentFrameValues;
 			TArray<float> NextFrameValues;
@@ -421,7 +423,6 @@ namespace Audio
 			TArray<USoundEffectSourcePreset*> SourceEffectPresets;
 			bool bEffectTailsDone;
 			FSoundEffectSourceInputData SourceEffectInputData;
-			FSoundEffectSourceOutputData SourceEffectOutputData;
 
 			FAudioPluginSourceOutputData AudioPluginOutputData;
 

@@ -70,6 +70,11 @@ FNiagaraEmitterInstance::~FNiagaraEmitterInstance()
 	CachedBounds.Init();
 	UnbindParameters();
 
+	if (CachedEmitter != nullptr && CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
+	{
+		NiagaraEmitterInstanceBatcher::Get()->Remove(&GPUExecContext);
+	}
+
 	/** We defer the deletion of the particle dataset to the RT to be sure all in-flight RT commands have finished using it.*/
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(FDeleteParticleDataSetCommand,
 		FNiagaraDataSet*, DataSet, ParticleDataSet,
@@ -94,13 +99,6 @@ void FNiagaraEmitterInstance::ClearRenderer()
 
 FBox FNiagaraEmitterInstance::GetBounds()
 {
-	checkSlow(CachedEmitter);
-	{
-		if (CachedEmitter->bFixedBounds || CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)//We must use fixed bounds on GPU sim.
-		{
-			return CachedEmitter->FixedBounds.TransformBy(ParentSystemInstance->GetComponent()->GetComponentToWorld());
-		}
-	}
 	return CachedBounds;
 }
 
@@ -257,11 +255,13 @@ void FNiagaraEmitterInstance::Init(int32 InEmitterIdx, FName InSystemInstanceNam
 	//Setup direct bindings for setting parameter values.
 	SpawnIntervalBinding.Init(SpawnExecContext.Parameters, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_SPAWN_INTERVAL));
 	InterpSpawnStartBinding.Init(SpawnExecContext.Parameters, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_INTERP_SPAWN_START_DT));
+	SpawnGroupBinding.Init(SpawnExecContext.Parameters, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_SPAWN_GROUP));
 
 	if (CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
 	{
 		SpawnIntervalBindingGPU.Init(GPUExecContext.CombinedParamStore, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_SPAWN_INTERVAL));
 		InterpSpawnStartBindingGPU.Init(GPUExecContext.CombinedParamStore, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_INTERP_SPAWN_START_DT));
+		SpawnGroupBindingGPU.Init(GPUExecContext.CombinedParamStore, CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_SPAWN_GROUP));
 	}
 
 	FNiagaraVariable EmitterAgeParam = CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_AGE);
@@ -590,19 +590,26 @@ int FNiagaraEmitterInstance::GetTotalBytesUsed()
 	return BytesUsed;
 }
 
-FBox FNiagaraEmitterInstance::CalculateDynamicBounds()
+TOptional<FBox> FNiagaraEmitterInstance::CalculateDynamicBounds()
 {
 	checkSlow(ParticleDataSet);
 	FNiagaraDataSet& Data = *ParticleDataSet;
 	int32 NumInstances = Data.GetNumInstances();
 	FBox Ret;
 	Ret.Init();
+
 	if (IsComplete() || NumInstances == 0 || CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)//TODO: Pull data back from gpu buffers to get bounds for GPU sims.
 	{
-		return Ret;
+		return TOptional<FBox>();
 	}
 
 	PositionAccessor.InitForAccess(true);
+
+	if (PositionAccessor.IsValid() == false)
+	{
+		return TOptional<FBox>();
+	}
+
 	SizeAccessor.InitForAccess(true);
 	MeshScaleAccessor.InitForAccess(true);
 
@@ -666,12 +673,6 @@ FBox FNiagaraEmitterInstance::CalculateDynamicBounds()
 
 	Ret = Ret.ExpandBy(MaxSize*MaxBaseSize);
 
-	if (CachedEmitter->bLocalSpace || PositionAccessor.IsValid() == false)
-	{
-		FMatrix SystemLocalToWorld = GetParentSystemInstance()->GetComponent()->GetComponentTransform().ToMatrixNoScale();
-		Ret = Ret.TransformBy(SystemLocalToWorld);
-	}
-
 	return Ret;
 }
 
@@ -683,16 +684,29 @@ void FNiagaraEmitterInstance::PostProcessParticles()
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraKill);
 
 	checkSlow(CachedEmitter);
-	if (CachedEmitter->bFixedBounds)
+	CachedBounds.Init();
+	if (CachedEmitter->bFixedBounds || CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
 	{
 		CachedBounds = CachedEmitter->FixedBounds;
 	}
 	else
 	{
-		checkSlow(ParticleDataSet);
-		FNiagaraDataSet& Data = *ParticleDataSet;
-		int32 NumParticles = Data.GetNumInstances();
-		CachedBounds = CalculateDynamicBounds();
+		TOptional<FBox> DynamicBounds = CalculateDynamicBounds();
+		if (DynamicBounds.IsSet())
+		{
+			if (CachedEmitter->bLocalSpace)
+			{
+				CachedBounds = DynamicBounds.GetValue();
+			}
+			else
+			{
+				CachedBounds = DynamicBounds.GetValue().TransformBy(ParentSystemInstance->GetComponent()->GetComponentToWorld().Inverse());
+			}
+		}
+		else
+		{
+			CachedBounds = CachedEmitter->FixedBounds;
+		}
 	}
 }
 
@@ -719,7 +733,7 @@ bool FNiagaraEmitterInstance::HandleCompletion(bool bForce)
 bool FNiagaraEmitterInstance::RequiredPersistentID()const
 {
 	//TODO: can we have this be enabled at runtime from outside the system?
-	return GetEmitterHandle().GetInstance()->RequiresPersistantIDs();
+	return GetEmitterHandle().GetInstance()->RequiresPersistantIDs() || ParticleDataSet->HasVariable(SYS_PARAM_PARTICLES_ID);
 }
 
 /** 
@@ -944,6 +958,7 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 			{
 				SpawnIntervalBindingGPU.SetValue(Info.IntervalDt);
 				InterpSpawnStartBindingGPU.SetValue(Info.InterpStartDt);
+				SpawnGroupBindingGPU.SetValue(Info.SpawnGroup);
 				bOnlySetOnce = true;
 			}
 			else if (Info.Count > 0)
@@ -976,9 +991,10 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 
 		int32 ParmSize = GPUExecContext.CombinedParamStore.GetPaddedParameterSizeInBytes();
 		
-
 		GPUExecContext.ParamData_RT.SetNumZeroed(ParmSize);
 		GPUExecContext.CombinedParamStore.CopyParameterDataToPaddedBuffer(GPUExecContext.ParamData_RT.GetData(), ParmSize);
+		// Because each context is only ran once each frame, the CBuffer layout stays constant for the lifetime duration of the CBuffer (one frame).
+		GPUExecContext.CBufferLayout.ConstantBufferSize = ParmSize;
 
 		// push event data sets to the context
 		for (FNiagaraDataSet *Set : UpdateScriptEventDataSets)
@@ -999,8 +1015,7 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 			EventContext.PostTick();
 		}
 
-		CachedBounds.Init();
-		CachedBounds = CachedBounds.ExpandBy(FVector(20.0, 20.0, 20.0));	// temp until GPU sims update bounds
+		CachedBounds = CachedEmitter->FixedBounds;
 
 		CPUTimeMS = TickTime.GetElapsedMilliseconds();
 
@@ -1134,6 +1149,7 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 		{
 			SpawnIntervalBinding.SetValue(Info.IntervalDt);
 			InterpSpawnStartBinding.SetValue(Info.InterpStartDt);
+			SpawnGroupBinding.SetValue(Info.SpawnGroup);
 
 			SpawnParticles(Info.Count, TEXT("Regular Spawn"));
 		};
@@ -1150,6 +1166,7 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 				//Event spawns are instantaneous at the middle of the frame?
 				SpawnIntervalBinding.SetValue(0.0f);
 				InterpSpawnStartBinding.SetValue(DeltaSeconds * 0.5f);
+				SpawnGroupBinding.SetValue(0);
 
 				SpawnParticles(EventNumToSpawn, TEXT("Event Spawn"));
 			}

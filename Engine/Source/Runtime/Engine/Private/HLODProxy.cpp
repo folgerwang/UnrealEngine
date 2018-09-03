@@ -367,7 +367,17 @@ FName UHLODProxy::GenerateKeyForActor(const ALODActor* LODActor)
 bool UHLODProxy::ContainsDataForActor(const ALODActor* InLODActor) const
 {
 #if WITH_EDITOR
-	FName Key = GenerateKeyForActor(InLODActor);
+	FName Key;
+
+	// Only re-generate the key in non-PIE worlds
+	if(InLODActor->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
+	{
+		Key = InLODActor->GetKey();
+	}
+	else
+	{
+		Key = GenerateKeyForActor(InLODActor);
+	}
 #else
 	FName Key = InLODActor->GetKey();
 #endif

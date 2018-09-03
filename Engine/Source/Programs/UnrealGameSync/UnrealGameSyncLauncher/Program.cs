@@ -119,34 +119,41 @@ namespace UnrealGameSyncLauncher
 
 		public static void SaveSettings(string ServerAndPort, string UserName, string DepotPath)
 		{
-			using (RegistryKey Key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Epic Games\\UnrealGameSync", true))
+			try
 			{
-				if(String.IsNullOrEmpty(ServerAndPort))
+				using (RegistryKey Key = Registry.CurrentUser.CreateSubKey("SOFTWARE\\Epic Games\\UnrealGameSync"))
 				{
-					try { Key.DeleteValue("Server"); } catch(Exception) { }
-				}
-				else
-				{
-					Key.SetValue("Server", ServerAndPort);
-				}
+					if(String.IsNullOrEmpty(ServerAndPort))
+					{
+						try { Key.DeleteValue("Server"); } catch(Exception) { }
+					}
+					else
+					{
+						Key.SetValue("Server", ServerAndPort);
+					}
 
-				if(String.IsNullOrEmpty(UserName))
-				{
-					try { Key.DeleteValue("UserName"); } catch(Exception) { }
-				}
-				else
-				{
-					Key.SetValue("UserName", UserName);
-				}
+					if(String.IsNullOrEmpty(UserName))
+					{
+						try { Key.DeleteValue("UserName"); } catch(Exception) { }
+					}
+					else
+					{
+						Key.SetValue("UserName", UserName);
+					}
 
-				if(String.IsNullOrEmpty(DepotPath) || (DefaultDepotPath != null && String.Equals(DepotPath, DefaultDepotPath, StringComparison.InvariantCultureIgnoreCase)))
-				{
-					try { Key.DeleteValue("DepotPath"); } catch(Exception) { }
+					if(String.IsNullOrEmpty(DepotPath) || (DefaultDepotPath != null && String.Equals(DepotPath, DefaultDepotPath, StringComparison.InvariantCultureIgnoreCase)))
+					{
+						try { Key.DeleteValue("DepotPath"); } catch(Exception) { }
+					}
+					else
+					{
+						Key.SetValue("DepotPath", DepotPath);
+					}
 				}
-				else
-				{
-					Key.SetValue("DepotPath", DepotPath);
-				}
+			}
+			catch(Exception Ex)
+			{
+				MessageBox.Show("Unable to save settings.\n\n" + Ex.ToString());
 			}
 		}
 

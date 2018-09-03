@@ -25,6 +25,14 @@ enum class ENiagaraRibbonAgeOffsetMode : uint8
 	Clip
 };
 
+/** This enum decides in which order the ribbon segments will be rendered */
+UENUM()
+enum class ENiagaraRibbonDrawDirection : uint8
+{
+	FrontToBack,
+	BackToFront
+};
+
 UCLASS(editinlinenew)
 class UNiagaraRibbonRendererProperties : public UNiagaraRendererProperties
 {
@@ -73,6 +81,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Ribbon Rendering")
 	ENiagaraRibbonAgeOffsetMode UV1AgeOffsetMode;
 
+	/** If true, the particles are only sorted when using a translucent material. */
+	UPROPERTY(EditAnywhere, Category = "Ribbon Rendering")
+	ENiagaraRibbonDrawDirection DrawDirection;
+
 	//~ UNiagaraRendererProperties interface
 	virtual NiagaraRenderer* CreateEmitterRenderer(ERHIFeatureLevel::Type FeatureLevel) override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;
@@ -81,7 +93,7 @@ public:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual const TArray<FNiagaraVariable>& GetRequiredAttributes() override;
 	virtual const TArray<FNiagaraVariable>& GetOptionalAttributes() override;
-    virtual bool IsMaterialValidForRenderer(UMaterial* Material, FText& InvalidMessage) override;
+	virtual bool IsMaterialValidForRenderer(UMaterial* Material, FText& InvalidMessage) override;
 	virtual void FixMaterial(UMaterial* Material);
 #endif
 
@@ -90,55 +102,59 @@ public:
 
 
 	/** Which attribute should we use for position when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding PositionBinding;
 
 	/** Which attribute should we use for color when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding ColorBinding;
 
 	/** Which attribute should we use for velocity when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding VelocityBinding;
 
 	/** Which attribute should we use for normalized age when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding NormalizedAgeBinding;
 
 	/** Which attribute should we use for ribbon twist when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding RibbonTwistBinding;
 
 	/** Which attribute should we use for ribbon width when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding RibbonWidthBinding;
 
 	/** Which attribute should we use for ribbon facing when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding RibbonFacingBinding;
 	
 	/** Which attribute should we use for ribbon id when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding RibbonIdBinding;
 
 	/** Which attribute should we use for RibbonLinkOrder when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding RibbonLinkOrderBinding;
 
+	/** Which attribute should we use for MaterialRandom when generating ribbons?*/
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
+	FNiagaraVariableAttributeBinding MaterialRandomBinding;
+
 	/** Which attribute should we use for dynamic material parameters when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding DynamicMaterialBinding;
 
 	/** Which attribute should we use for dynamic material parameters when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding DynamicMaterial1Binding;
 
 	/** Which attribute should we use for dynamic material parameters when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding DynamicMaterial2Binding;
 
 	/** Which attribute should we use for dynamic material parameters when generating ribbons?*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Ribbon Rendering")
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Bindings")
 	FNiagaraVariableAttributeBinding DynamicMaterial3Binding;
 
 	UPROPERTY(Transient)
