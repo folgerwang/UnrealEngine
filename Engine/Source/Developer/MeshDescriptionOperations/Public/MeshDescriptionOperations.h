@@ -66,8 +66,7 @@ public:
 	/** Remove the UV channel at the given index from the MeshDescription. */
 	static bool RemoveUVChannel(FMeshDescription& MeshDescription, int32 UVChannelIndex);
 
-
-	static void ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, FRawMesh& DestinationRawMesh);
+	static void ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, TArray<uint32>& FaceSmoothingMasks);
 
 	static void ConvertSmoothGroupToHardEdges(const TArray<uint32>& FaceSmoothingMasks, FMeshDescription& DestinationMeshDescription);
 };

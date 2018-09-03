@@ -63,7 +63,7 @@ namespace MeshDescriptionOperationNamespace
 //////////////////////////////////////////////////////////////////////////
 // Converters
 
-void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, FRawMesh& DestinationRawMesh)
+void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, TArray<uint32>& FaceSmoothingMasks)
 {
 	TMap<FPolygonID, uint32> PolygonSmoothGroup;
 	PolygonSmoothGroup.Reserve(SourceMeshDescription.Polygons().GetArraySize());
@@ -73,9 +73,10 @@ void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescri
 	TMap < FPolygonID, uint32> PolygonAvoidances;
 
 	TEdgeAttributesConstRef<bool> EdgeHardnesses = SourceMeshDescription.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
-
+	int32 TriangleCount = 0;
 	for (const FPolygonID PolygonID : SourceMeshDescription.Polygons().GetElementIDs())
 	{
+		TriangleCount += SourceMeshDescription.GetPolygonTriangles(PolygonID).Num();
 		if (ConsumedPolygons[PolygonID.GetValue()])
 		{
 			continue;
@@ -173,7 +174,8 @@ void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescri
 			ConsumedPolygons[CurrentPolygonID.GetValue()] = true;
 		}
 	}
-	//Now we have to put the data into the RawMesh
+	//Set the smooth group in the FaceSmoothingMasks parameter
+	check(FaceSmoothingMasks.Num() == TriangleCount);
 	int32 TriangleIndex = 0;
 	for (const FPolygonID PolygonID : SourceMeshDescription.Polygons().GetElementIDs())
 	{
@@ -181,7 +183,7 @@ void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescri
 		const TArray<FMeshTriangle>& Triangles = SourceMeshDescription.GetPolygonTriangles(PolygonID);
 		for (const FMeshTriangle& MeshTriangle : Triangles)
 		{
-			DestinationRawMesh.FaceSmoothingMasks[TriangleIndex++] = PolygonSmoothValue;
+			FaceSmoothingMasks[TriangleIndex++] = PolygonSmoothValue;
 		}
 	}
 }
@@ -324,7 +326,7 @@ void FMeshDescriptionOperations::ConvertToRawMesh(const FMeshDescription& Source
 		}
 	}
 	//Convert the smoothgroup
-	ConvertHardEdgesToSmoothGroup(SourceMeshDescription, DestinationRawMesh);
+	ConvertHardEdgesToSmoothGroup(SourceMeshDescription, DestinationRawMesh.FaceSmoothingMasks);
 }
 
 //We want to fill the FMeshDescription vertex position mesh attribute with the FRawMesh vertex position
