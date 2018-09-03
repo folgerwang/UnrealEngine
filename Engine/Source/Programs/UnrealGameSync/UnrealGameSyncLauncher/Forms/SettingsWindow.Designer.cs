@@ -86,9 +86,10 @@ namespace UnrealGameSyncLauncher
 			// 
 			this.PromptLabel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+			this.PromptLabel.AutoSize = true;
 			this.PromptLabel.Location = new System.Drawing.Point(12, 19);
 			this.PromptLabel.Name = "PromptLabel";
-			this.PromptLabel.Size = new System.Drawing.Size(863, 15);
+			this.PromptLabel.Size = new System.Drawing.Size(409, 15);
 			this.PromptLabel.TabIndex = 0;
 			this.PromptLabel.Text = "UnrealGameSync will be updated from Perforce using the following settings.";
 			// 
@@ -176,8 +177,8 @@ namespace UnrealGameSyncLauncher
 			// SettingsWindow
 			// 
 			this.AcceptButton = this.RetryBtn;
-			this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.CancelButton = this.CancelBtn;
 			this.ClientSize = new System.Drawing.Size(887, 231);
 			this.Controls.Add(this.ViewLogBtn);
@@ -195,6 +196,7 @@ namespace UnrealGameSyncLauncher
 			this.groupBox1.ResumeLayout(false);
 			this.groupBox1.PerformLayout();
 			this.ResumeLayout(false);
+			this.PerformLayout();
 
 		}
 

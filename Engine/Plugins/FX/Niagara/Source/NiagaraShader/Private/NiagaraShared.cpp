@@ -373,7 +373,7 @@ void FNiagaraShaderScript::SetDataInterfaceParamInfo(TArray<FNiagaraDataInterfac
 
 NIAGARASHADER_API  FNiagaraShader* FNiagaraShaderScript::GetShader() const
 {
-	check(! IsInGameThread() );
+	check(!GIsThreadedRendering || !IsInGameThread());
 	if (!GIsEditor || RenderingThreadShaderMap /*&& RenderingThreadShaderMap->IsComplete(this, true)*/)
 	{
 		return RenderingThreadShaderMap->GetShader<FNiagaraShader>();

@@ -218,6 +218,7 @@ public:
 			]
 		];
 	}
+	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 private:
 	TSharedRef<SWidget> OnGenerateWidget(TSharedPtr<FEngineInstallationInfo> Item)
@@ -357,6 +358,8 @@ public:
 			]
 		];
 	}
+	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 private:
 	FReply OnOkClicked()
 	{

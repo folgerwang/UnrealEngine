@@ -44,6 +44,11 @@ namespace UnrealBuildTool
 		public UEBuildBinaryType Type;
 
 		/// <summary>
+		/// Output directory for this binary
+		/// </summary>
+		public DirectoryReference OutputDir;
+
+		/// <summary>
 		/// The output file path. This must be set before a binary can be built using it.
 		/// </summary>
 		public List<FileReference> OutputFilePaths;
@@ -143,6 +148,7 @@ namespace UnrealBuildTool
 			)
 		{
 			this.Type = Type;
+			this.OutputDir = OutputFilePaths.First().Directory;
 			this.OutputFilePaths = new List<FileReference>(OutputFilePaths);
 			this.IntermediateDirectory = IntermediateDirectory;
 			this.bAllowExports = bAllowExports;
@@ -172,9 +178,10 @@ namespace UnrealBuildTool
 		/// <param name="LinkEnvironment">The environment to link the binary in</param>
 		/// <param name="SharedPCHs">List of templates for shared PCHs</param>
 		/// <param name="WorkingSet">The working set of source files</param>
+		/// <param name="ExeDir">Directory containing the output executable</param>
 		/// <param name="ActionGraph">Graph to add build actions to</param>
 		/// <returns>Set of built products</returns>
-		public IEnumerable<FileItem> Build(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph)
+		public IEnumerable<FileItem> Build(ReadOnlyTargetRules Target, UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, ActionGraph ActionGraph)
 		{
 			// Return nothing if we're using precompiled binaries
 			if(bUsePrecompiled)
@@ -183,7 +190,7 @@ namespace UnrealBuildTool
 			}
 
 			// Setup linking environment.
-			LinkEnvironment BinaryLinkEnvironment = SetupBinaryLinkEnvironment(Target, ToolChain, LinkEnvironment, CompileEnvironment, SharedPCHs, WorkingSet, ActionGraph);
+			LinkEnvironment BinaryLinkEnvironment = SetupBinaryLinkEnvironment(Target, ToolChain, LinkEnvironment, CompileEnvironment, SharedPCHs, WorkingSet, ExeDir, ActionGraph);
 
 			// If we're generating projects, we only need include paths and definitions, there is no need to run the linking logic.
 			if (ProjectFileGenerator.bGenerateProjectFiles)
@@ -240,11 +247,10 @@ namespace UnrealBuildTool
 		/// Gets all the runtime dependencies Copies all the runtime dependencies from any modules in 
 		/// </summary>
 		/// <param name="RuntimeDependencies">The output list of runtime dependencies, mapping target file to type</param>
-		/// <param name="SourceFiles">Receives the list of source files that were copied</param>
-		/// <param name="ActionGraph">Actions to be executed</param>
-		public IEnumerable<FileItem> PrepareRuntimeDependencies(List<RuntimeDependency> RuntimeDependencies, List<FileReference> SourceFiles, ActionGraph ActionGraph)
+		/// <param name="TargetFileToSourceFile">Map of target files to source files that need to be copied</param>
+		/// <param name="ExeDir">Output directory for the executable</param>
+		public void PrepareRuntimeDependencies(List<RuntimeDependency> RuntimeDependencies, Dictionary<FileReference, FileReference> TargetFileToSourceFile, DirectoryReference ExeDir)
 		{
-			List<FileItem> CopiedFiles = new List<FileItem>();
 			foreach(UEBuildModule Module in Modules)
 			{
 				foreach (ModuleRules.RuntimeDependency Dependency in Module.Rules.RuntimeDependencies.Inner)
@@ -252,7 +258,7 @@ namespace UnrealBuildTool
 					if(Dependency.SourcePath == null)
 					{
 						// Expand the target path
-						string ExpandedPath = Module.ExpandPathVariables(Dependency.Path, this);
+						string ExpandedPath = Module.ExpandPathVariables(Dependency.Path, OutputDir, ExeDir);
 						if (FileFilter.FindWildcardIndex(ExpandedPath) == -1)
 						{
 							RuntimeDependencies.Add(new RuntimeDependency(new FileReference(ExpandedPath), Dependency.Type));
@@ -265,8 +271,8 @@ namespace UnrealBuildTool
 					else
 					{
 						// Parse the source and target patterns
-						FilePattern SourcePattern = new FilePattern(UnrealBuildTool.EngineSourceDirectory, Module.ExpandPathVariables(Dependency.SourcePath, this));
-						FilePattern TargetPattern = new FilePattern(UnrealBuildTool.EngineSourceDirectory, Module.ExpandPathVariables(Dependency.Path, this));
+						FilePattern SourcePattern = new FilePattern(UnrealBuildTool.EngineSourceDirectory, Module.ExpandPathVariables(Dependency.SourcePath, OutputDir, ExeDir));
+						FilePattern TargetPattern = new FilePattern(UnrealBuildTool.EngineSourceDirectory, Module.ExpandPathVariables(Dependency.Path, OutputDir, ExeDir));
 
 						// Resolve all the wildcards between the source and target paths
 						Dictionary<FileReference, FileReference> Mapping;
@@ -282,48 +288,20 @@ namespace UnrealBuildTool
 						// Add actions to copy everything
 						foreach(KeyValuePair<FileReference, FileReference> Pair in Mapping)
 						{
-							CopiedFiles.Add(CreateCopyAction(Pair.Value, Pair.Key, ActionGraph));
-							SourceFiles.Add(Pair.Value);
-							RuntimeDependencies.Add(new RuntimeDependency(Pair.Key, Dependency.Type));
+							FileReference ExistingSourceFile;
+							if(!TargetFileToSourceFile.TryGetValue(Pair.Key, out ExistingSourceFile))
+							{
+								TargetFileToSourceFile[Pair.Key] = Pair.Value;
+								RuntimeDependencies.Add(new RuntimeDependency(Pair.Key, Dependency.Type));
+							}
+							else if(ExistingSourceFile != Pair.Value)
+							{
+								throw new BuildException("Runtime dependency '{0}' is configured to be staged from '{1}' and '{2}'", Pair.Key, Pair.Value, ExistingSourceFile);
+							}
 						}
 					}
 				}
 			}
-			return CopiedFiles;
-		}
-
-		/// <summary>
-		/// Creates an action which copies a file from one location to another
-		/// </summary>
-		/// <param name="SourceFile">The source file location</param>
-		/// <param name="TargetFile">The target file location</param>
-		/// <param name="ActionGraph">The action graph</param>
-		/// <returns>File item for the output file</returns>
-		static FileItem CreateCopyAction(FileReference SourceFile, FileReference TargetFile, ActionGraph ActionGraph)
-		{
-			FileItem SourceFileItem = FileItem.GetItemByFileReference(SourceFile);
-			FileItem TargetFileItem = FileItem.GetItemByFileReference(TargetFile);
-
-			Action CopyAction = ActionGraph.Add(ActionType.BuildProject);
-			CopyAction.CommandDescription = "Copy";
-			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
-			{
-				CopyAction.CommandPath = "cmd.exe";
-				CopyAction.CommandArguments = String.Format("/C \"copy /Y \"{0}\" \"{1}\" 1>nul\"", SourceFile, TargetFile);
-			}
-			else
-			{
-				CopyAction.CommandPath = "/bin/sh";
-				CopyAction.CommandArguments = String.Format("cp -f {0} {1}", Utils.EscapeShellArgument(SourceFile.FullName), Utils.EscapeShellArgument(TargetFile.FullName));
-			}
-			CopyAction.WorkingDirectory = Environment.CurrentDirectory;
-			CopyAction.PrerequisiteItems.Add(SourceFileItem);
-			CopyAction.ProducedItems.Add(TargetFileItem);
-			CopyAction.DeleteItems.Add(TargetFileItem);
-			CopyAction.StatusDescription = TargetFileItem.Location.GetFileName();
-			CopyAction.bCanExecuteRemotely = false;
-
-			return TargetFileItem;
 		}
 
 		/// <summary>
@@ -729,7 +707,7 @@ namespace UnrealBuildTool
 			return BinaryCompileEnvironment;
 		}
 
-		private LinkEnvironment SetupBinaryLinkEnvironment(ReadOnlyTargetRules Target, UEToolChain ToolChain, LinkEnvironment LinkEnvironment, CppCompileEnvironment CompileEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, ActionGraph ActionGraph)
+		private LinkEnvironment SetupBinaryLinkEnvironment(ReadOnlyTargetRules Target, UEToolChain ToolChain, LinkEnvironment LinkEnvironment, CppCompileEnvironment CompileEnvironment, List<PrecompiledHeaderTemplate> SharedPCHs, ISourceFileWorkingSet WorkingSet, DirectoryReference ExeDir, ActionGraph ActionGraph)
 		{
 			LinkEnvironment BinaryLinkEnvironment = new LinkEnvironment(LinkEnvironment);
 			HashSet<UEBuildModule> LinkEnvironmentVisitedModules = new HashSet<UEBuildModule>();
@@ -763,7 +741,7 @@ namespace UnrealBuildTool
 				}
 
 				// Allow the module to modify the link environment for the binary.
-				Module.SetupPrivateLinkEnvironment(this, BinaryLinkEnvironment, BinaryDependencies, LinkEnvironmentVisitedModules);
+				Module.SetupPrivateLinkEnvironment(this, BinaryLinkEnvironment, BinaryDependencies, LinkEnvironmentVisitedModules, ExeDir);
 			}
 
 

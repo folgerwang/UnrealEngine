@@ -51,7 +51,8 @@ NiagaraRendererSprites::NiagaraRendererSprites(ERHIFeatureLevel::Type FeatureLev
 	, MaterialParamOffset3(INDEX_NONE)
 	, CameraOffsetOffset(INDEX_NONE)
 	, UVScaleOffset(INDEX_NONE)
-	, ParticleRandomOffset(INDEX_NONE)
+	, NormalizedAgeOffset(INDEX_NONE)
+	, MaterialRandomOffset(INDEX_NONE)
 	, CustomSortingOffset(INDEX_NONE)
 	, LastSyncId(INDEX_NONE)
 {
@@ -89,6 +90,7 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 		|| DynamicDataSprites->RTParticleData.GetNumInstancesAllocated() == 0
 		|| DynamicDataSprites->RTParticleData.GetNumInstances() == 0
 		|| nullptr == Properties
+		|| !GSupportsResourceView // Current shader requires SRV to draw properly in all cases.
 		)
 	{
 		return;
@@ -164,12 +166,13 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 				PerViewUniformParameters.MaterialParam2DataOffset = MaterialParamOffset2;
 				PerViewUniformParameters.MaterialParam3DataOffset = MaterialParamOffset3;
 				PerViewUniformParameters.SubimageDataOffset = SubImageOffset;
-				PerViewUniformParameters.FacingOffset = FacingOffset;
-				PerViewUniformParameters.AlignmentOffset = AlignmentOffset;
+				PerViewUniformParameters.FacingDataOffset = FacingOffset;
+				PerViewUniformParameters.AlignmentDataOffset = AlignmentOffset;
 				PerViewUniformParameters.SubImageBlendMode = Properties->bSubImageBlend;
-				PerViewUniformParameters.CameraOffsetOffset = CameraOffsetOffset;
-				PerViewUniformParameters.UVScaleOffset = UVScaleOffset;
-				PerViewUniformParameters.ParticleRandomOffset = ParticleRandomOffset;
+				PerViewUniformParameters.CameraOffsetDataOffset = CameraOffsetOffset;
+				PerViewUniformParameters.UVScaleDataOffset = UVScaleOffset;
+				PerViewUniformParameters.NormalizedAgeDataOffset = NormalizedAgeOffset;
+				PerViewUniformParameters.MaterialRandomDataOffset = MaterialRandomOffset;
 				PerViewUniformParameters.DefaultPos = bLocalSpace ? FVector4(0.0f, 0.0f, 0.0f, 1.0f) : FVector4(SceneProxy->GetLocalToWorld().GetOrigin());
 
 				//UE_LOG(LogNiagara, Log, TEXT("SubImageSize: %f %f offset: %d"), Properties->SubImageSize.X, Properties->SubImageSize.Y, SubImageOffset);
@@ -296,6 +299,11 @@ bool NiagaraRendererSprites::SetMaterialUsage()
 	return Material && Material->CheckMaterialUsage_Concurrent(MATUSAGE_NiagaraSprites);
 }
 
+void NiagaraRendererSprites::TransformChanged()
+{
+	WorldSpacePrimitiveUniformBuffer.ReleaseResource();
+}
+
 /** Update render data buffer from attributes */
 FNiagaraDynamicDataBase *NiagaraRendererSprites::GenerateVertexData(const FNiagaraSceneProxy* Proxy, FNiagaraDataSet &Data, const ENiagaraSimTarget Target)
 {
@@ -325,7 +333,8 @@ FNiagaraDynamicDataBase *NiagaraRendererSprites::GenerateVertexData(const FNiaga
 			Data.GetVariableComponentOffsets(Properties->DynamicMaterial3Binding.DataSetVariable, MaterialParamOffset3, IntDummy);
 			Data.GetVariableComponentOffsets(Properties->CameraOffsetBinding.DataSetVariable, CameraOffsetOffset, IntDummy);
 			Data.GetVariableComponentOffsets(Properties->UVScaleBinding.DataSetVariable, UVScaleOffset, IntDummy);
-			Data.GetVariableComponentOffsets(Properties->MaterialRandomBinding.DataSetVariable, ParticleRandomOffset, IntDummy);
+			Data.GetVariableComponentOffsets(Properties->NormalizedAgeBinding.DataSetVariable, NormalizedAgeOffset, IntDummy);
+			Data.GetVariableComponentOffsets(Properties->MaterialRandomBinding.DataSetVariable, MaterialRandomOffset, IntDummy);
 			Data.GetVariableComponentOffsets(Properties->CustomSortingBinding.DataSetVariable, CustomSortingOffset, IntDummy);
 
 			if (CustomSortingOffset == INDEX_NONE && (Properties->SortMode == ENiagaraSortMode::CustomAscending || Properties->SortMode == ENiagaraSortMode::CustomDecending))

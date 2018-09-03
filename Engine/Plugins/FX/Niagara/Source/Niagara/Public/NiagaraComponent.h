@@ -220,6 +220,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Float)"))
 	void SetNiagaraVariableFloat(const FString& InVariableName, float InValue);
 
+	/** Sets a Niagara int parameter by name, overriding locally if necessary.*/
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Int32)"))
+	void SetNiagaraVariableInt(const FString& InVariableName, int32 InValue);
+
 	/** Sets a Niagara float parameter by name, overriding locally if necessary.*/
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Niagara Variable (Bool)"))
 	void SetNiagaraVariableBool(const FString& InVariableName, bool InValue);
@@ -261,6 +265,12 @@ public:
 	/** Advances this system's simulation by the specified time in seconds and delta time. Advancement is done in whole ticks of TickDeltaSeconds so actual simulated time will be the nearest lower multiple of TickDeltaSeconds. */
 	UFUNCTION(BlueprintCallable, Category = Niagara)
 	void AdvanceSimulationByTime(float SimulateTime, float TickDeltaSeconds);
+
+	UFUNCTION(BlueprintCallable, Category = Niagara)
+	void SetPaused(bool bInPaused);
+
+	UFUNCTION(BlueprintCallable, Category = Niagara)
+	bool IsPaused()const;
 
 	//~ Begin UObject Interface.
 	virtual void PostLoad();

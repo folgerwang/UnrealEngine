@@ -190,7 +190,13 @@ void FNiagaraSceneProxy::CreateRenderThreadResources()
 
 void FNiagaraSceneProxy::OnTransformChanged()
 {
-	//WorldSpacePrimitiveUniformBuffer.ReleaseResource();
+	for (NiagaraRenderer* Renderer : EmitterRenderers)
+	{
+		if (Renderer)
+		{
+			Renderer->TransformChanged();
+		}
+	}
 }
 
 FPrimitiveViewRelevance FNiagaraSceneProxy::GetViewRelevance(const FSceneView* View) const
@@ -461,6 +467,23 @@ void UNiagaraComponent::AdvanceSimulationByTime(float SimulateTime, float TickDe
 	}
 }
 
+void UNiagaraComponent::SetPaused(bool bInPaused)
+{
+	if (SystemInstance.IsValid())
+	{
+		SystemInstance->SetPaused(bInPaused);
+	}
+}
+
+bool UNiagaraComponent::IsPaused()const
+{
+	if (SystemInstance.IsValid())
+	{
+		return SystemInstance->IsPaused();
+	}
+	return false;
+}
+
 bool UNiagaraComponent::InitializeSystem()
 {
 	if (SystemInstance.IsValid() == false)
@@ -482,13 +505,6 @@ void UNiagaraComponent::Activate(bool bReset /* = false */)
 
 	if (GbSuppressNiagaraSystems != 0)
 	{
-		OnSystemComplete();
-		return;
-	}
-
-	if (IsSwitchPlatform(GMaxRHIShaderPlatform))
-	{
-		UE_LOG(LogNiagara, Warning, TEXT("Failed to activate Niagara component as Niagara is not yet supported on this platform: %s"), *LegacyShaderPlatformToShaderFormat(GMaxRHIShaderPlatform).ToString());
 		OnSystemComplete();
 		return;
 	}
@@ -760,8 +776,6 @@ void UNiagaraComponent::SendRenderDynamicData_Concurrent()
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraComponentSendRenderData);
 	if (SystemInstance.IsValid() && SceneProxy)
 	{
-		SystemInstance->GetSystemBounds().Init();
-		
 		FNiagaraSceneProxy* NiagaraProxy = static_cast<FNiagaraSceneProxy*>(SceneProxy);
 
 		for (int32 i = 0; i < SystemInstance->GetEmitters().Num(); i++)
@@ -813,7 +827,7 @@ int32 UNiagaraComponent::GetNumMaterials() const
 
 FBoxSphereBounds UNiagaraComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
-	FBox SimBounds(ForceInit);
+	FBoxSphereBounds SystemBounds;
 	if (SystemInstance.IsValid())
 	{
 		SystemInstance->GetSystemBounds().Init();
@@ -823,13 +837,16 @@ FBoxSphereBounds UNiagaraComponent::CalcBounds(const FTransform& LocalToWorld) c
 			SystemInstance->GetSystemBounds() += Sim.GetBounds();
 		}
 		FBox BoundingBox = SystemInstance->GetSystemBounds();
-		const FVector ExpandAmount = FVector(0.0f, 0.0f, 0.0f);// BoundingBox.GetExtent() * 0.1f;
-		BoundingBox = FBox(BoundingBox.Min - ExpandAmount, BoundingBox.Max + ExpandAmount);
 
-		FBoxSphereBounds BSBounds(BoundingBox);
-		return BSBounds;
+		SystemBounds = FBoxSphereBounds(BoundingBox);
 	}
-	return FBoxSphereBounds(SimBounds);
+	else
+	{
+		FBox SimBounds(ForceInit);
+		SystemBounds = FBoxSphereBounds(SimBounds);
+	}
+
+	return SystemBounds.TransformBy(LocalToWorld);
 }
 
 FPrimitiveSceneProxy* UNiagaraComponent::CreateSceneProxy()
@@ -907,6 +924,13 @@ void UNiagaraComponent::SetNiagaraVariableFloat(const FString& InVariableName, f
 	FName VarName = FName(*InVariableName);
 
 	OverrideParameters.SetParameterValue(InValue, FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), VarName), true);
+}
+
+void UNiagaraComponent::SetNiagaraVariableInt(const FString& InVariableName, int32 InValue)
+{
+	FName VarName = FName(*InVariableName);
+
+	OverrideParameters.SetParameterValue(InValue, FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), VarName), true);
 }
 
 void UNiagaraComponent::SetNiagaraVariableBool(const FString& InVariableName, bool InValue)

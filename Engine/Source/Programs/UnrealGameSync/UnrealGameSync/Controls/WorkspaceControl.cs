@@ -21,6 +21,7 @@ using System.Windows.Forms.VisualStyles;
 using Microsoft.Win32;
 using System.Threading;
 using System.Drawing.Imaging;
+using System.Web.Script.Serialization;
 
 namespace UnrealGameSync
 {
@@ -396,21 +397,26 @@ namespace UnrealGameSync
 					ColumnWidths[Idx] = BuildList.Columns[Idx].Width;
 				}
 
-				MinColumnWidths = Enumerable.Repeat(32, BuildList.Columns.Count).ToArray();
-				MinColumnWidths[IconColumn.Index] = 50;
-				MinColumnWidths[TypeColumn.Index] = 100;
-				MinColumnWidths[TimeColumn.Index] = 75;
-				MinColumnWidths[ChangeColumn.Index] = 75;
-				MinColumnWidths[CISColumn.Index] = 200;
+				using(Graphics Graphics = Graphics.FromHwnd(IntPtr.Zero))
+				{
+					float DpiScaleX = Graphics.DpiX / 96.0f;
 
-				DesiredColumnWidths = Enumerable.Repeat(65536, BuildList.Columns.Count).ToArray();
-				DesiredColumnWidths[IconColumn.Index] = MinColumnWidths[IconColumn.Index];
-				DesiredColumnWidths[TypeColumn.Index] = MinColumnWidths[TypeColumn.Index];
-				DesiredColumnWidths[TimeColumn.Index] = MinColumnWidths[TimeColumn.Index];
-				DesiredColumnWidths[ChangeColumn.Index] = MinColumnWidths[ChangeColumn.Index];
-				DesiredColumnWidths[AuthorColumn.Index] = 120;
-				DesiredColumnWidths[CISColumn.Index] = 200;
-				DesiredColumnWidths[StatusColumn.Index] = 300;
+					MinColumnWidths = Enumerable.Repeat(32, BuildList.Columns.Count).ToArray();
+					MinColumnWidths[IconColumn.Index] = (int)(50 * DpiScaleX);
+					MinColumnWidths[TypeColumn.Index] = (int)(100 * DpiScaleX);
+					MinColumnWidths[TimeColumn.Index] = (int)(75 * DpiScaleX);
+					MinColumnWidths[ChangeColumn.Index] = (int)(75 * DpiScaleX);
+					MinColumnWidths[CISColumn.Index] = (int)(200 * DpiScaleX);
+
+					DesiredColumnWidths = Enumerable.Repeat(65536, BuildList.Columns.Count).ToArray();
+					DesiredColumnWidths[IconColumn.Index] = MinColumnWidths[IconColumn.Index];
+					DesiredColumnWidths[TypeColumn.Index] = MinColumnWidths[TypeColumn.Index];
+					DesiredColumnWidths[TimeColumn.Index] = MinColumnWidths[TimeColumn.Index];
+					DesiredColumnWidths[ChangeColumn.Index] = MinColumnWidths[ChangeColumn.Index];
+					DesiredColumnWidths[AuthorColumn.Index] = (int)(120 * DpiScaleX);
+					DesiredColumnWidths[CISColumn.Index] = (int)(200 * DpiScaleX);
+					DesiredColumnWidths[StatusColumn.Index] = (int)(300 * DpiScaleX);
+				}
 
 				ColumnWeights = Enumerable.Repeat(1.0f, BuildList.Columns.Count).ToArray();
 				ColumnWeights[IconColumn.Index] = 3.0f;
@@ -1482,7 +1488,10 @@ namespace UnrealGameSync
 		{
 			PerforceChangeSummary Change = (PerforceChangeSummary)e.Item.Tag;
 
-			int IconY = e.Bounds.Top + (e.Bounds.Height - 16) / 2;
+			float DpiScaleX = e.Graphics.DpiX / 96.0f;
+			float DpiScaleY = e.Graphics.DpiY / 96.0f;
+
+			float IconY = e.Bounds.Top + (e.Bounds.Height - 16 * DpiScaleY) / 2;
 
 			StringFormat Format = new StringFormat();
 			Format.LineAlignment = StringAlignment.Center;
@@ -1499,20 +1508,20 @@ namespace UnrealGameSync
 			{
 				EventSummary Summary = EventMonitor.GetSummaryForChange(Change.Number);
 
-				int MinX = 4;
+				float MinX = 4 * DpiScaleX;
 				if((Summary != null && EventMonitor.WasSyncedByCurrentUser(Summary.ChangeNumber)) || (Workspace != null && Workspace.CurrentChangeNumber == Change.Number))
 				{
-					e.Graphics.DrawImage(Properties.Resources.Icons, MinX, IconY, PreviousSyncIcon, GraphicsUnit.Pixel);
+					e.Graphics.DrawImage(Properties.Resources.Icons, MinX * DpiScaleX, IconY, PreviousSyncIcon, GraphicsUnit.Pixel);
 				}
 				else if(WorkspaceSettings != null && WorkspaceSettings.AdditionalChangeNumbers.Contains(Change.Number))
 				{
-					e.Graphics.DrawImage(Properties.Resources.Icons, MinX, IconY, AdditionalSyncIcon, GraphicsUnit.Pixel);
+					e.Graphics.DrawImage(Properties.Resources.Icons, MinX * DpiScaleX, IconY, AdditionalSyncIcon, GraphicsUnit.Pixel);
 				}
 				else if(bAllowSync && ((Summary != null && Summary.LastStarReview != null && Summary.LastStarReview.Type == EventType.Starred) || PromotedChangeNumbers.Contains(Change.Number)))
 				{
-					e.Graphics.DrawImage(Properties.Resources.Icons, MinX, IconY, PromotedBuildIcon, GraphicsUnit.Pixel);
+					e.Graphics.DrawImage(Properties.Resources.Icons, MinX * DpiScaleX, IconY, PromotedBuildIcon, GraphicsUnit.Pixel);
 				}
-				MinX += PromotedBuildIcon.Width;
+				MinX += PromotedBuildIcon.Width * DpiScaleX;
 
 				if(bAllowSync)
 				{
@@ -1569,7 +1578,7 @@ namespace UnrealGameSync
 					}
 					e.Graphics.DrawImage(Properties.Resources.Icons, MinX, IconY, QualityIcon, GraphicsUnit.Pixel);
 
-					MinX += QualityIcon.Width;
+					MinX += QualityIcon.Width * DpiScaleX;
 				}
 			}
 			else if(e.ColumnIndex == ChangeColumn.Index || e.ColumnIndex == TimeColumn.Index)
@@ -1590,12 +1599,12 @@ namespace UnrealGameSync
 				    e.Graphics.IntersectClip(e.Bounds);
 				    e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
 
-					RemainingBounds = new Rectangle(RemainingBounds.Left, RemainingBounds.Top, RemainingBounds.Width - 2, RemainingBounds.Height);
+					RemainingBounds = new Rectangle(RemainingBounds.Left, RemainingBounds.Top, RemainingBounds.Width - (int)(2 * DpiScaleX), RemainingBounds.Height);
 
 					Point ListLocation = GetBadgeListLocation(Layout.DescriptionBadges, RemainingBounds, HorizontalAlign.Right, VerticalAlignment.Middle);
 					DrawBadges(e.Graphics, ListLocation, Layout.DescriptionBadges, BadgeAlpha);
 
-					RemainingBounds = new Rectangle(RemainingBounds.Left, RemainingBounds.Top, ListLocation.X - RemainingBounds.Left - 2, RemainingBounds.Height);
+					RemainingBounds = new Rectangle(RemainingBounds.Left, RemainingBounds.Top, ListLocation.X - RemainingBounds.Left - (int)(2 * DpiScaleX), RemainingBounds.Height);
 				}
 
 				TextRenderer.DrawText(e.Graphics, e.SubItem.Text, CurrentFont, RemainingBounds, TextColor, TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
@@ -1627,7 +1636,7 @@ namespace UnrealGameSync
 			}
 			else if(e.ColumnIndex == StatusColumn.Index)
 			{
-				int MaxX = e.SubItem.Bounds.Right;
+				float MaxX = e.SubItem.Bounds.Right;
 
 				if(Change.Number == Workspace.PendingChangeNumber && Workspace.IsBusy())
 				{
@@ -1642,9 +1651,9 @@ namespace UnrealGameSync
 						e.Graphics.DrawImage(Properties.Resources.Icons, MaxX, IconY, InfoIcon, GraphicsUnit.Pixel);
 					}
 
-					int MinX = e.Bounds.Left;
+					float MinX = e.Bounds.Left;
 
-					TextRenderer.DrawText(e.Graphics, Progress.Item1, CurrentFont, new Rectangle(MinX, e.Bounds.Top, MaxX - MinX, e.Bounds.Height), TextColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+					TextRenderer.DrawText(e.Graphics, Progress.Item1, CurrentFont, new Rectangle((int)MinX, e.Bounds.Top, (int)(MaxX - MinX), e.Bounds.Height), TextColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
 				}
 				else
 				{
@@ -1655,17 +1664,17 @@ namespace UnrealGameSync
 					{
 						EventData Review = EventMonitor.GetReviewByCurrentUser(Change.Number);
 
-						MaxX -= FrownIcon.Width;
+						MaxX -= FrownIcon.Width * DpiScaleX;
 						e.Graphics.DrawImage(Properties.Resources.Icons, MaxX, IconY, (Review == null || !EventMonitor.IsPositiveReview(Review.Type))? FrownIcon : DisabledFrownIcon, GraphicsUnit.Pixel);
 
-						MaxX -= HappyIcon.Width;
+						MaxX -= HappyIcon.Width * DpiScaleX;
 						e.Graphics.DrawImage(Properties.Resources.Icons, MaxX, IconY, (Review == null || !EventMonitor.IsNegativeReview(Review.Type))? HappyIcon : DisabledHappyIcon, GraphicsUnit.Pixel);
 					}
 					else if(e.ItemIndex == BuildList.HoverItem && bAllowSync)
 					{
 						Rectangle SyncBadgeRectangle = GetSyncBadgeRectangle(e.SubItem.Bounds);
 						DrawBadge(e.Graphics, SyncBadgeRectangle, "Sync", bHoverSync? Color.FromArgb(140, 180, 230) : Color.FromArgb(112, 146, 190), true, true);
-						MaxX = SyncBadgeRectangle.Left - 2;
+						MaxX = SyncBadgeRectangle.Left - (int)(2 * DpiScaleX);
 					}
 
 					string SummaryText;
@@ -1698,7 +1707,7 @@ namespace UnrealGameSync
 						SummaryText = SummaryText.Substring(0, SummaryText.IndexOf('\n')).TrimEnd() + "...";
 					}
 
-					TextRenderer.DrawText(e.Graphics, SummaryText, CurrentFont, new Rectangle(e.Bounds.Left, e.Bounds.Top, MaxX - e.Bounds.Left, e.Bounds.Height), TextColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+					TextRenderer.DrawText(e.Graphics, SummaryText, CurrentFont, new Rectangle(e.Bounds.Left, e.Bounds.Top, (int)MaxX - e.Bounds.Left, e.Bounds.Height), TextColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
 				}
 			}
 			else
@@ -2286,6 +2295,40 @@ namespace UnrealGameSync
 
 		private string GetEditorExePath(BuildConfig Config)
 		{
+			// Try to read the executable path from the target receipt
+			List<string> ReceiptFileNames = GetEditorReceiptPaths(Config);
+			foreach(string ReceiptFileName in ReceiptFileNames)
+			{
+				if(File.Exists(ReceiptFileName))
+				{
+					Log.WriteLine("Reading {0}", ReceiptFileName);
+					try
+					{
+						string Text = File.ReadAllText(ReceiptFileName);
+						JavaScriptSerializer Serializer = new JavaScriptSerializer();
+						Dictionary<string, object> RawObject = Serializer.Deserialize<Dictionary<string, object>>(Text);
+
+						object LaunchFileNameObject;
+						if(RawObject.TryGetValue("Launch", out LaunchFileNameObject))
+						{
+							string LaunchFileName = LaunchFileNameObject as string;
+							if(LaunchFileName != null)
+							{
+								LaunchFileName = LaunchFileName.Replace("$(EngineDir)", Path.Combine(BranchDirectoryName, "Engine"));
+								LaunchFileName = LaunchFileName.Replace("$(ProjectDir)", Path.GetDirectoryName(SelectedFileName));
+								return Path.GetFullPath(LaunchFileName);
+							}
+						}
+					}
+					catch(Exception Ex)
+					{
+						Log.WriteLine("  Exception while parsing receipt: {0}", Ex.ToString());
+					}
+					break;
+				}
+			}
+
+			// Otherwise use the standard editor path
 			string ExeFileName = "UE4Editor.exe";
 			if((Config != BuildConfig.DebugGame || PerforceMonitor.LatestProjectConfigFile.GetValue("Options.DebugGameHasSeparateExecutable", false)) && Config != BuildConfig.Development)
 			{
@@ -2628,14 +2671,17 @@ namespace UnrealGameSync
 				}
 			}
 
-			int StatusPanelHeight = 148;
-			if(Alert != null)
+			using(Graphics Graphics = CreateGraphics())
 			{
-				StatusPanelHeight += 40;
-			}
-			if(StatusLayoutPanel.RowStyles[0].Height != StatusPanelHeight)
-			{
-				StatusLayoutPanel.RowStyles[0].Height = StatusPanelHeight;
+				int StatusPanelHeight = (int)(148.0f * Graphics.DpiY / 96.0f);
+				if(Alert != null)
+				{
+					StatusPanelHeight += (int)(40.0f * Graphics.DpiY / 96.0f);
+				}
+				if(StatusLayoutPanel.RowStyles[0].Height != StatusPanelHeight)
+				{
+					StatusLayoutPanel.RowStyles[0].Height = StatusPanelHeight;
+				}
 			}
 
 			StatusPanel.Set(Lines, Caption, Alert, TintColor);

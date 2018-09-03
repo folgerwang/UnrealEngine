@@ -4,8 +4,6 @@
 #include "ObjectPropertyNode.h"
 #include "Misc/ConfigCacheIni.h"
 
-
-
 #include "DetailCategoryGroupNode.h"
 #include "DetailItemNode.h"
 #include "DetailAdvancedDropdownNode.h"
@@ -13,6 +11,7 @@
 #include "DetailGroup.h"
 #include "StructurePropertyNode.h"
 #include "ItemPropertyNode.h"
+#include "IPropertyGenerationUtilities.h"
 
 namespace DetailLayoutConstants
 {
@@ -462,15 +461,21 @@ void FDetailCategoryImpl::RequestItemExpanded(TSharedRef<FDetailTreeNode> TreeNo
 
 void FDetailCategoryImpl::RefreshTree(bool bRefilterCategory)
 {
-	TSharedPtr<FDetailLayoutBuilderImpl> DetailLayoutBuilderPtr = DetailLayoutBuilder.Pin();
-	if (DetailLayoutBuilderPtr.IsValid() && GetDetailsView())
+	if (bRefilterCategory)
 	{
-		if (bRefilterCategory)
+		TSharedPtr<FDetailLayoutBuilderImpl> DetailLayoutBuilderPtr = DetailLayoutBuilder.Pin();
+		if (DetailLayoutBuilderPtr.IsValid())
 		{
 			FilterNode(DetailLayoutBuilderPtr->GetCurrentFilter());
+			DetailLayoutBuilderPtr->GetPropertyGenerationUtilities().RebuildTreeNodes();
 		}
-
-		GetDetailsView()->RefreshTree();
+	}
+	else
+	{
+		if (GetDetailsView())
+		{
+			GetDetailsView()->RefreshTree();
+		}
 	}
 }
 
@@ -869,14 +874,9 @@ void FDetailCategoryImpl::FilterNode(const FDetailFilter& InFilter)
 
 FCustomPropertyTypeLayoutMap FDetailCategoryImpl::GetCustomPropertyTypeLayoutMap() const
 {
-	if (GetDetailsView())
-	{
-		return GetDetailsView()->GetCustomPropertyTypeLayoutMap();
-	}
-
 	if (DetailLayoutBuilder.IsValid())
 	{
-		return DetailLayoutBuilder.Pin()->GetInstancedPropertyTypeLayoutMap();
+		return DetailLayoutBuilder.Pin()->GetPropertyGenerationUtilities().GetInstancedPropertyTypeLayoutMap();
 	}
 
 	return FCustomPropertyTypeLayoutMap();

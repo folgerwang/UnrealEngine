@@ -629,6 +629,7 @@ void SColorPicker::GenerateDefaultColorPickerContent( bool bAdvancedSectionExpan
 	
 	HideSmallTrash();
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 EActiveTimerReturnType SColorPicker::AnimatePostConstruct( double InCurrentTime, float InDeltaTime )
 {

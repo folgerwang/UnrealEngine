@@ -106,12 +106,6 @@ public:
 private:
 	TMap<UTexture2D*, TArray<FLockedMipDataInfo> > LockedMipInfoMap;
 };
-
-//@todo.VC10: Apparent VC10 compiler bug here causes an access violation in UnlockMip in Shipping builds
-#ifdef _MSC_VER
-PRAGMA_ENABLE_OPTIMIZATION
-#endif
-
 	
 //
 // FLandscapeComponentDataInterface

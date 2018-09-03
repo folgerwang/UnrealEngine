@@ -56,7 +56,7 @@ public:
 
 	uint32 CalculateEventSpawnCount(const FNiagaraEventScriptProperties &EventHandlerProps, TArray<int32, TInlineAllocator<16>>& EventSpawnCounts, FNiagaraDataSet *EventSet);
 
-	NIAGARA_API FBox CalculateDynamicBounds();
+	NIAGARA_API TOptional<FBox> CalculateDynamicBounds();
 
 	FNiagaraDataSet &GetData()	{ return *ParticleDataSet; }
 
@@ -137,9 +137,12 @@ private:
 
 	FNiagaraParameterDirectBinding<float> SpawnIntervalBinding;
 	FNiagaraParameterDirectBinding<float> InterpSpawnStartBinding;
+	FNiagaraParameterDirectBinding<int32> SpawnGroupBinding;
 
 	FNiagaraParameterDirectBinding<float> SpawnIntervalBindingGPU;
 	FNiagaraParameterDirectBinding<float> InterpSpawnStartBindingGPU;
+	FNiagaraParameterDirectBinding<int32> SpawnGroupBindingGPU;
+
 	FNiagaraParameterDirectBinding<float> EmitterAgeBindingGPU;
 
 	FNiagaraParameterDirectBinding<float> SpawnEmitterAgeBinding;

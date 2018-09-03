@@ -481,7 +481,7 @@ void UNiagaraStackEntry::RefreshChildren()
 
 void UNiagaraStackEntry::RefreshStackErrorChildren()
 {
-    // keep the error entries that are already built
+	// keep the error entries that are already built
 	TArray<UNiagaraStackErrorItem*> NewErrorChildren;
 	for (FStackIssue Issue : StackIssues)
 	{

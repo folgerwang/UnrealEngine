@@ -46,6 +46,8 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FNiagaraMeshUniformParameters, NIAGARAVERTEXFACTORIE
 	UNIFORM_MEMBER(int, MaterialParam1DataOffset)
 	UNIFORM_MEMBER(int, MaterialParam2DataOffset)
 	UNIFORM_MEMBER(int, MaterialParam3DataOffset)
+	UNIFORM_MEMBER(int, NormalizedAgeDataOffset)
+	UNIFORM_MEMBER(int, MaterialRandomDataOffset)
 	UNIFORM_MEMBER(FVector4, DefaultPos)
 END_UNIFORM_BUFFER_STRUCT(FNiagaraMeshUniformParameters)
 

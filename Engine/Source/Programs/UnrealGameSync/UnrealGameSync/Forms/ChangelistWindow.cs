@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -19,6 +19,9 @@ namespace UnrealGameSync
 		public ChangelistWindow(int InChangeNumber)
 		{
 			InitializeComponent();
+
+			this.MaximumSize = new System.Drawing.Size(32768, Height);
+			this.MinimumSize = new System.Drawing.Size(Width, Height);
 
 			ChangeNumber = InChangeNumber;
 			ChangeNumberTextBox.Text = (ChangeNumber > 0)? ChangeNumber.ToString() : "";
