@@ -70,6 +70,11 @@ void SVirtualKeyboardEntry::SetTextFromVirtualKeyboard(const FText& InNewText, E
 	}
 }
 
+void SVirtualKeyboardEntry::SetSelectionFromVirtualKeyboard(int InSelStart, int InSelEnd)
+{
+	//Nothing to do for widgets without a cursor
+}
+
 /**
  * Restores the text to the original state
  */

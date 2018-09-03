@@ -3135,6 +3135,13 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		    return super.dispatchKeyEvent(event);
 		}
 
+		// listen for cursor position changes &  send message to the UMG widget
+		@Override   
+		protected void onSelectionChanged(int selStart, int selEnd) 
+		{
+			nativeVirtualKeyboardSendSelection(selStart, selEnd);
+		}
+
 		//extend associated InputConnection to handle special keys 
 		@Override
 		public InputConnection onCreateInputConnection(EditorInfo outAttrs) 
@@ -3475,6 +3482,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	public native void nativeVirtualKeyboardChanged(String contents);
 	public native void nativeVirtualKeyboardResult(boolean update, String contents);
 	public native void nativeVirtualKeyboardSendKey(int keyCode);
+	public native void nativeVirtualKeyboardSendTextSelection(String contents, int selStart, int selEnd);
+	public native void nativeVirtualKeyboardSendSelection(int selStart, int selEnd);
 
 	public native void nativeInitHMDs();
 

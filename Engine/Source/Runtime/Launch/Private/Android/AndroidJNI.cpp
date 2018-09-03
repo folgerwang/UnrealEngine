@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Android/AndroidJNI.h"
 
@@ -895,6 +895,24 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeVirtualKeyboardSendKey
 	Message.messageType = MessageType_KeyDown;
 	Message.KeyEventData.keyId = keyCode;
 	FAndroidInputInterface::DeferMessage(Message);
+}
+
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeVirtualKeyboardSendSelection(JNIEnv* jenv, jobject thiz, jint selStart, jint selEnd)
+{
+	// call to set the widget selection on game thread
+	if (VirtualKeyboardWidget != NULL)
+	{
+		if (FTaskGraphInterface::IsRunning())
+		{
+			FGraphEventRef SetWidgetSelection = FFunctionGraphTask::CreateAndDispatchWhenReady([&, selStart, selEnd]()
+			{
+				if (VirtualKeyboardWidget != NULL)
+				{
+					VirtualKeyboardWidget->SetSelectionFromVirtualKeyboard(selStart, selEnd);
+				}
+			}, TStatId(), NULL, ENamedThreads::GameThread);
+		}
+	}
 }
 
 void AndroidThunkCpp_LaunchURL(const FString& URL)
