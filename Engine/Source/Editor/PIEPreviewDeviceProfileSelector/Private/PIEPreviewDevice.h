@@ -80,6 +80,10 @@ public:
 	int32 GetWindowWidth() const;
 	int32 GetWindowHeight() const;
 
+	// functions to retrieve the window client area size
+	int32 GetWindowClientWidth() const;
+	int32 GetWindowClientHeight() const;
+
 	// returns true if the current device was rotated from the original orientation
 	bool IsDeviceFlipped() const;
 
@@ -100,6 +104,7 @@ public:
 	// if true the device supports rotations
 	bool IsRotationAllowed() const;
 
+	// call this to enable or disable mobile content scale factor effects
 	void SetIgnoreMobileContentScaleFactor(bool bIgnore);
 
 	FString GetProfile() const;
@@ -125,6 +130,11 @@ FORCEINLINE int32 FPIEPreviewDevice::GetWindowWidth() const
 FORCEINLINE int32 FPIEPreviewDevice::GetWindowHeight() const
 {
 	return WindowHeight;
+}
+
+FORCEINLINE int32 FPIEPreviewDevice::GetWindowClientWidth() const
+{
+	return WindowWidth;
 }
 
 FORCEINLINE bool FPIEPreviewDevice::IsDeviceFlipped() const

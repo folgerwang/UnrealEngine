@@ -85,10 +85,10 @@ private:
 	// utility function that will compute a screen and DPI scale factor needed to scale the display window to the physical device size
 	void ComputeScaleToDeviceSizeFactor(float& OutScreenFactor, float& OutDPIScaleFactor) const;
 
-	// callback when DPI value varies, useful when we need to constrain the window to the physical device size
+	// callback used when DPI value varies, useful when we need to constrain the window to the physical device size
 	void OnWindowMoved(const TSharedRef<SWindow>& Window);
 
-	// callback when DPI value varies, useful when we need to constrain the window to the physical device size
+	// callback used when DPI value varies, useful when we need to constrain the window to the physical device size
 	void OnDisplayDPIChanged(TSharedRef<SWindow> Window);
 
 protected:

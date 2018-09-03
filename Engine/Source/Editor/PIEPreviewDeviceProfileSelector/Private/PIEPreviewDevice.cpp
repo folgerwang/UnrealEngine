@@ -15,6 +15,7 @@
 #include "ImageUtils.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "SEditorViewport.h"
+#include "Widgets/SWindow.h"
 
 static const int32 g_JSON_VALUE_NOT_SET = 0;
 
@@ -94,6 +95,8 @@ void FPIEPreviewDevice::ComputeViewportSize(const bool bClampWindowSize)
 
 			WindowWidth = DesktopWidth;
 			WindowHeight *= ScaleFactor;
+
+			ViewportMargin = ViewportMargin * ScaleFactor;
 		}
 		if (WindowHeight > DesktopHeight)
 		{
@@ -103,6 +106,8 @@ void FPIEPreviewDevice::ComputeViewportSize(const bool bClampWindowSize)
 
 			WindowWidth *= ScaleFactor;
 			WindowHeight = DesktopHeight;
+
+			ViewportMargin = ViewportMargin * ScaleFactor;
 		}
 	}
 }
@@ -355,7 +360,7 @@ void FPIEPreviewDevice::ApplyRHIOverrides() const
 	if (PreviewPlatform != SP_NumPlatforms)
 	{
 		FName QualityPreviewShaderPlatform = LegacyShaderPlatformToShaderFormat(PreviewPlatform);
-		UMaterialShaderQualitySettings::Get()->SetPreviewPlatform(QualityPreviewShaderPlatform);
+		//UMaterialShaderQualitySettings::Get()->SetPreviewPlatform(QualityPreviewShaderPlatform);
 	}
 
 	if (RHIOverrideState != nullptr)
@@ -415,4 +420,9 @@ FString FPIEPreviewDevice::GetProfile() const
 	}
 
 	return Profile;
+}
+
+int32 FPIEPreviewDevice::GetWindowClientHeight() const
+{
+	return WindowHeight - WindowTitleBarSize;
 }

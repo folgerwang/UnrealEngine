@@ -13,6 +13,7 @@
 #include "Widgets/Input/SMenuAnchor.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SCheckBox.h"
+#include "Misc/ConfigCacheIni.h"
 
 
 #if WITH_EDITOR
@@ -364,6 +365,10 @@ void SPIEPreviewWindow::OnWindowMoved(const TSharedRef<SWindow>& Window)
 	{
 		ScaleDeviceToPhisicalSize();
 	}
+
+	FVector2D WindowPos = GetPositionInScreen();
+	GConfig->SetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosX"), FMath::CeilToInt(WindowPos.X), GEngineIni);
+	GConfig->SetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosY"), FMath::CeilToInt(WindowPos.Y), GEngineIni);
 }
 
 void SPIEPreviewWindow::OnDisplayDPIChanged(TSharedRef<SWindow> Window)

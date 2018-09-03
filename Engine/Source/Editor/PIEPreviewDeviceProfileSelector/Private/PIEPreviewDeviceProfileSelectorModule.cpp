@@ -55,6 +55,21 @@ void FPIEPreviewDeviceModule::InitPreviewDevice()
 
 TSharedRef<SWindow> FPIEPreviewDeviceModule::CreatePIEPreviewDeviceWindow(FVector2D ClientSize, FText WindowTitle, EAutoCenter AutoCenterType, FVector2D ScreenPosition, TOptional<float> MaxWindowWidth, TOptional<float> MaxWindowHeight)
 {
+	if (ScreenPosition.IsNearlyZero())
+	{
+		int32 WinX, WinY;
+		bool bFoundX = GConfig->GetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosX"), WinX, GEngineIni);
+		bool bFoundY = GConfig->GetInt(TEXT("/Script/Engine.MobilePIE"), TEXT("WindowPosY"), WinY, GEngineIni);
+
+		if (bFoundX && bFoundY)
+		{
+			ScreenPosition.X = WinX;
+			ScreenPosition.Y = WinY;
+
+			AutoCenterType = EAutoCenter::None;
+		}
+	}
+
 	FPIEPreviewWindowCoreStyle::InitializePIECoreStyle();
 
 	static FWindowStyle BackgroundlessStyle = FCoreStyle::Get().GetWidgetStyle<FWindowStyle>("Window");
@@ -92,10 +107,10 @@ void FPIEPreviewDeviceModule::UpdateDisplayResolution()
 		return;
 	}
 
-	const int32 WindowWidth = Device->GetWindowWidth();
-	const int32 WindowHeight = Device->GetWindowHeight();
+	const int32 ClientWidth = Device->GetWindowClientWidth();
+	const int32 ClientHeight = Device->GetWindowClientHeight();
 
-	FSystemResolution::RequestResolutionChange(WindowWidth, WindowHeight, EWindowMode::Windowed);
+	FSystemResolution::RequestResolutionChange(ClientWidth, ClientHeight, EWindowMode::Windowed);
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
