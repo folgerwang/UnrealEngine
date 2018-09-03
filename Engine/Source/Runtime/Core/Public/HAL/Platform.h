@@ -890,9 +890,9 @@ namespace TypeTests
 
 // this function is used to suppress static analysis warnings
 #if PLATFORM_HTML5
-#define IsHTML5Platform() true
+FORCEINLINE bool IsHTML5Platform() { return true; }
 #else
-#define IsHTML5Platform() false
+FORCEINLINE bool IsHTML5Platform() { return false; }
 #endif
 
 
