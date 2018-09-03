@@ -1070,6 +1070,28 @@ id<MTLDevice> GMetalDevice = nil;
 	return YES;
 }
 
+/*
+* Set the preferred landscape orientation 
+*/
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation
+{
+	FString PreferredLandscapeOrientation = "";
+
+	GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("PreferredLandscapeOrientation"), PreferredLandscapeOrientation, GEngineIni);
+	if (PreferredLandscapeOrientation.Equals("LandscapeLeft"))
+	{
+		return UIInterfaceOrientationLandscapeLeft;
+	}
+	else if (PreferredLandscapeOrientation.Equals("LandscapeRight"))
+	{
+		return UIInterfaceOrientationLandscapeRight;
+	}
+	else
+	{
+		return UIInterfaceOrientationPortrait;
+	}
+}
+
 - (UIRectEdge)preferredScreenEdgesDeferringSystemGestures
 {
 	return UIRectEdgeBottom;

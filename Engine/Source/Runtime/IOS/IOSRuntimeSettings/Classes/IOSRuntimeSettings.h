@@ -66,6 +66,16 @@ enum class EIOSMetalShaderStandard : uint8
 	IOSMetalSLStandard_2_0 = 3 UMETA(DisplayName="Metal v2.0 (iOS 11.0/tvOS 11.0)"),
 };
 
+UENUM()
+enum class EIOSLandscapeOrientation : uint8
+{
+	/** Landscape Left */
+	LandscapeLeft = 0 UMETA(DisplayName = "Landscape (left home button)"),
+
+	/** Landscape Right */
+	LandscapeRight = 1 UMETA(DisplayName = "Landscape (right home button)"),
+};
+
 /**
  *	IOS Build resource file struct, used to serialize filepaths to the configs for use in the build system,
  */
@@ -328,6 +338,10 @@ public:
 	// Supports right landscape orientation. Portrait will not be supported.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations)
 	uint32 bSupportsLandscapeRightOrientation : 1;
+
+	// The Preferred Orientation will be used as the initial orientation at launch when both Landscape Left and Landscape Right orientations are to be supported.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations)
+	EIOSLandscapeOrientation PreferredLandscapeOrientation;
 
 	// Specifies the the display name for the application. This will be displayed under the icon on the device.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = BundleInformation)

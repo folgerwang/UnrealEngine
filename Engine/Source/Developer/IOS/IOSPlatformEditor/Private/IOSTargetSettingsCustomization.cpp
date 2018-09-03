@@ -805,6 +805,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 	SETUP_PLIST_PROP(bSupportsUpsideDownOrientation, OrientationCategory);
 	SETUP_PLIST_PROP(bSupportsLandscapeLeftOrientation, OrientationCategory);
 	SETUP_PLIST_PROP(bSupportsLandscapeRightOrientation, OrientationCategory);
+	SETUP_PLIST_PROP(PreferredLandscapeOrientation, OrientationCategory);
 	
 	SETUP_PLIST_PROP(bSupportsMetal, RenderCategory);
 	
