@@ -92,13 +92,17 @@ class SIOSWebBrowserWidget : public SLeafWidget
 	{
 		if (WebViewWrapper != nil)
 		{
-			if (WebBrowserWindowPtr.IsValid() && WebBrowserWindowPtr.Pin()->GetParentWindow().IsValid())
+			if (WebBrowserWindowPtr.IsValid())
 			{
-				bool ShouldSet3DBrowser = WebBrowserWindowPtr.Pin()->GetParentWindow().Get()->IsVirtualWindow();
-				if (IsIOS3DBrowser != ShouldSet3DBrowser)
+				WebBrowserWindowPtr.Pin()->SetTickLastFrame();
+				if (WebBrowserWindowPtr.Pin()->GetParentWindow().IsValid())
 				{
-					IsIOS3DBrowser = ShouldSet3DBrowser;
-					[WebViewWrapper set3D : IsIOS3DBrowser];
+					bool ShouldSet3DBrowser = WebBrowserWindowPtr.Pin()->GetParentWindow().Get()->IsVirtualWindow();
+					if (IsIOS3DBrowser != ShouldSet3DBrowser)
+					{
+						IsIOS3DBrowser = ShouldSet3DBrowser;
+						[WebViewWrapper set3D : IsIOS3DBrowser];
+					}
 				}
 			}
 
@@ -193,7 +197,9 @@ class SIOSWebBrowserWidget : public SLeafWidget
 	int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 	{
 #if !PLATFORM_TVOS
-		if (IsIOS3DBrowser && WebBrowserBrush.IsValid())
+		bool bIsVisible = !WebBrowserWindowPtr.IsValid() || WebBrowserWindowPtr.Pin()->IsVisible();
+		
+		if (bIsVisible && IsIOS3DBrowser && WebBrowserBrush.IsValid())
 		{
 			FSlateDrawElement::MakeBox(OutDrawElements, LayerId, AllottedGeometry.ToPaintGeometry(), WebBrowserBrush.Get(), ESlateDrawEffect::None);
 		}
@@ -250,6 +256,16 @@ class SIOSWebBrowserWidget : public SLeafWidget
 			}
 		}
 
+	}
+
+	void SetWebBrowserVisibility(bool InIsVisible)
+	{
+		if (WebViewWrapper != nil)
+		{
+			UE_LOG(LogIOS, Warning, TEXT("SetWebBrowserVisibility %d!"), InIsVisible);
+
+			[WebViewWrapper setVisibility : InIsVisible];
+		}
 	}
 
 	void ExecuteJavascript(const FString& Script)
@@ -348,7 +364,7 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 			[self.WebView setOpaque : YES];
 		}
 
-		[self setWebViewVisible];
+		[self setDefaultVisibility];
 	});
 #endif
 }
@@ -441,22 +457,43 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 		{
 			//default is 2D
 			IsIOS3DBrowser = InIsIOS3DBrowser;
-			[self setWebViewVisible];
+			[self setDefaultVisibility];
 		}
 	});
 }
 
--(void)setWebViewVisible;
+-(void)setDefaultVisibility;
 {
 #if !PLATFORM_TVOS
-	if (IsIOS3DBrowser)
+	dispatch_async(dispatch_get_main_queue(), ^
 	{
-		[self.WebViewContainer setHidden : YES];
-	}
-	else
+		if (IsIOS3DBrowser)
+		{
+			[self.WebViewContainer setHidden : YES];
+		}
+		else
+		{
+			[self.WebViewContainer setHidden : NO];
+		}
+	});
+#endif
+}
+
+-(void)setVisibility:(bool)InIsVisible;
+{
+#if !PLATFORM_TVOS
+	dispatch_async(dispatch_get_main_queue(), ^
 	{
-		[self.WebViewContainer setHidden : NO];
-	}
+		if (InIsVisible)
+		{
+			[self setDefaultVisibility];
+		}
+		else
+		{
+			UE_LOG(LogIOS, Warning, TEXT("setVisibility %d HIDE!"), InIsVisible);
+			[self.WebViewContainer setHidden : YES];
+		}
+	});
 #endif
 }
 
@@ -591,6 +628,8 @@ FWebBrowserWindow::FWebBrowserWindow(FString InUrl, TOptional<FString> InContent
 	, ContentsToLoad(MoveTemp(InContentsToLoad))
 	, bUseTransparency(InUseTransparency)
 	, IOSWindowSize(FIntPoint(500, 500))
+	, bTickedLastFrame(true)
+	, bIsVisible(true)
 {
 }
 
@@ -800,4 +839,25 @@ void FWebBrowserWindow::NotifyUrlChanged(const FString& InCurrentUrl)
 		UrlChangedEvent.Broadcast(CurrentUrl);
 	}
 }
+void FWebBrowserWindow::CheckTickActivity()
+{
+	if (bIsVisible != bTickedLastFrame)
+	{
+		bIsVisible = bTickedLastFrame;
+		BrowserWidget->SetWebBrowserVisibility(bIsVisible);
+	}
+
+	bTickedLastFrame = false;
+}
+
+void FWebBrowserWindow::SetTickLastFrame()
+{
+	bTickedLastFrame = true;
+}
+
+bool FWebBrowserWindow::IsVisible()
+{
+	return bIsVisible;
+}
+
 #endif

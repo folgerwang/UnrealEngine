@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #if USE_ANDROID_JNI
 
 #include "IWebBrowserWindow.h"
@@ -188,7 +190,17 @@ public:
 	/**
 	* Called from the WebBrowserSingleton tick event. Should test whether the widget got a tick from Slate last frame and set the state to hidden if not.
 	*/
-	//void CheckTickActivity();
+	void CheckTickActivity() override;
+
+	/**
+	* Signal from the widget, meaning that the widget is still active
+	*/
+	void SetTickLastFrame();
+
+	/**
+	* Browser's visibility
+	*/
+	bool IsVisible();
 
 private:
 
@@ -276,6 +288,12 @@ private:
 	TSharedPtr<SWindow> ParentWindow;
 
 	FIntPoint AndroidWindowSize;
+
+	/** Used to detect when the widget is hidden*/
+	bool bTickedLastFrame;
+
+	/** Tracks whether the widget is currently visible or not*/
+	bool bIsVisible;
 };
 
 typedef FAndroidWebBrowserWindow FWebBrowserWindow;

@@ -30,6 +30,8 @@ FAndroidWebBrowserWindow::FAndroidWebBrowserWindow(FString InUrl, TOptional<FStr
 	, ErrorCode(0)
 	, Scripting(new FAndroidJSScripting(bInJSBindingToLoweringEnabled))
 	, AndroidWindowSize(FIntPoint(500, 500))
+	, bTickedLastFrame(true)
+	, bIsVisible(true)
 {
 }
 
@@ -296,6 +298,27 @@ void FAndroidWebBrowserWindow::BindUObject(const FString& Name, UObject* Object,
 void FAndroidWebBrowserWindow::UnbindUObject(const FString& Name, UObject* Object /*= nullptr*/, bool bIsPermanent /*= true*/)
 {
 	Scripting->UnbindUObject(Name, Object, bIsPermanent);
+}
+
+void FAndroidWebBrowserWindow::CheckTickActivity()
+{
+	if (bIsVisible != bTickedLastFrame)
+	{
+		bIsVisible = bTickedLastFrame;
+		BrowserWidget->SetWebBrowserVisibility(bIsVisible);
+	}
+
+	bTickedLastFrame = false;
+}
+
+void FAndroidWebBrowserWindow::SetTickLastFrame()
+{
+	bTickedLastFrame = true;
+}
+
+bool FAndroidWebBrowserWindow::IsVisible()
+{
+	return bIsVisible;
 }
 
 #endif // USE_ANDROID_JNI

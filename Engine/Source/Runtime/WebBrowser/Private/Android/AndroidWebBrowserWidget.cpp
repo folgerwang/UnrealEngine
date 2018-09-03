@@ -108,9 +108,8 @@ void SAndroidWebBrowserWidget::Construct(const FArguments& Args)
 		AllWebControls.Add(reinterpret_cast<int64>(this), StaticCastSharedRef<SAndroidWebBrowserWidget>(AsShared()));
 	}
 
-	WebBrowserWindowPtr = Args._WebBrowserWindow;
 	IsAndroid3DBrowser = true;
-
+	WebBrowserWindowPtr = Args._WebBrowserWindow;
 	HistorySize = 0;
 	HistoryPosition = 0;
 	
@@ -162,13 +161,17 @@ void SAndroidWebBrowserWidget::Construct(const FArguments& Args)
 
 void SAndroidWebBrowserWidget::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
-	if (WebBrowserWindowPtr.IsValid() && WebBrowserWindowPtr.Pin()->GetParentWindow().IsValid())
+	if(WebBrowserWindowPtr.IsValid())
 	{
-		bool ShouldSetAndroid3DBrowser = WebBrowserWindowPtr.Pin()->GetParentWindow().Get()->IsVirtualWindow();
-		if(IsAndroid3DBrowser != ShouldSetAndroid3DBrowser)
+		WebBrowserWindowPtr.Pin()->SetTickLastFrame();
+		if (WebBrowserWindowPtr.Pin()->GetParentWindow().IsValid())
 		{
-			IsAndroid3DBrowser = ShouldSetAndroid3DBrowser;
-			JavaWebBrowser->SetAndroid3DBrowser(IsAndroid3DBrowser);
+			bool ShouldSetAndroid3DBrowser = WebBrowserWindowPtr.Pin()->GetParentWindow().Get()->IsVirtualWindow();
+			if (IsAndroid3DBrowser != ShouldSetAndroid3DBrowser)
+			{
+				IsAndroid3DBrowser = ShouldSetAndroid3DBrowser;
+				JavaWebBrowser->SetAndroid3DBrowser(IsAndroid3DBrowser);
+			}
 		}
 	}
 
@@ -392,7 +395,9 @@ void SAndroidWebBrowserWidget::Tick(const FGeometry& AllottedGeometry, const dou
 
 int32 SAndroidWebBrowserWidget::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
-	if (IsAndroid3DBrowser && WebBrowserBrush.IsValid())
+	bool bIsVisible = !WebBrowserWindowPtr.IsValid() || WebBrowserWindowPtr.Pin()->IsVisible();
+
+	if (bIsVisible && IsAndroid3DBrowser && WebBrowserBrush.IsValid())
 	{
 		FSlateDrawElement::MakeBox(OutDrawElements, LayerId, AllottedGeometry.ToPaintGeometry(), WebBrowserBrush.Get(), ESlateDrawEffect::None);
 	}
@@ -454,6 +459,11 @@ bool SAndroidWebBrowserWidget::CanGoBack()
 bool SAndroidWebBrowserWidget::CanGoForward()
 {
 	return HistoryPosition < HistorySize-1;
+}
+
+void SAndroidWebBrowserWidget::SetWebBrowserVisibility(bool InIsVisible)
+{
+	JavaWebBrowser->SetVisibility(InIsVisible);
 }
 
 jbyteArray SAndroidWebBrowserWidget::HandleShouldInterceptRequest(jstring JUrl)

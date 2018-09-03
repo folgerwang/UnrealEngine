@@ -84,6 +84,8 @@ public:
 	// Jobj can either be a WebViewControl, a WebViewControl.ViewClient or WebViewControl.ChromeClient instance
 	static TSharedPtr<SAndroidWebBrowserWidget> GetWidgetPtr(JNIEnv* JEnv, jobject Jobj);
 
+	//set the native control's visibility
+	void SetWebBrowserVisibility(bool InIsVisible);
 protected:
 	static FCriticalSection WebControlsCS;
 	static TMap<int64, TWeakPtr<SAndroidWebBrowserWidget>> AllWebControls;

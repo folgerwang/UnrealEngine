@@ -55,7 +55,8 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 -(void)loadurl:(NSURL*)InURL;
 -(void)executejavascript:(NSString*)InJavaScript;
 -(void)set3D:(bool)InIsIOS3DBrowser;
--(void)setWebViewVisible;
+-(void)setDefaultVisibility;
+-(void)setVisibility:(bool)InIsVisible;
 -(FTextureRHIRef)GetVideoTexture;
 -(void)SetVideoTexture:(FTextureRHIRef)Texture;
 -(void)SetVideoTextureValid:(bool)Condition;
@@ -250,6 +251,20 @@ public:
 	void NotifyUrlChanged(const FString& InCurrentUrl);
 
 public:
+	/**
+	* Called from the WebBrowserSingleton tick event. Should test whether the widget got a tick from Slate last frame and set the state to hidden if not.
+	*/
+	void CheckTickActivity() override;
+
+	/**
+	* Signal from the widget, meaning that the widget is still active
+	*/
+	void SetTickLastFrame();
+
+	/**
+	* Browser's visibility
+	*/
+	bool IsVisible();
 
 private:
 
@@ -317,6 +332,12 @@ private:
 	TSharedPtr<SWindow> ParentWindow;
 
 	FIntPoint IOSWindowSize;
+
+	/** Used to detect when the widget is hidden*/
+	bool bTickedLastFrame;
+
+	/** Tracks whether the widget is currently visible or not*/
+	bool bIsVisible;
 };
 
 #endif

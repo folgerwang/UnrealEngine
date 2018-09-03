@@ -481,7 +481,7 @@ public:
 	/**
 	 * Called from the WebBrowserSingleton tick event. Should test wether the widget got a tick from Slate last frame and set the state to hidden if not.
 	 */
-	void CheckTickActivity();
+	void CheckTickActivity() override;
 
 	/**
 	* Called from the engine tick.

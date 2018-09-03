@@ -168,6 +168,20 @@ class WebViewControl
 		});
 	}
 
+	boolean PendingSetVisibility;
+	public void SetVisibility(boolean InIsVisible)
+	{
+		PendingSetVisibility = InIsVisible;
+		GameActivity._activity.runOnUiThread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				webView.setVisibility(PendingSetVisibility? View.VISIBLE: View.GONE);
+			}
+		});
+	}
+	
 	public boolean didResolutionChange()
 	{
 		if (null != mOESTextureRenderer)
