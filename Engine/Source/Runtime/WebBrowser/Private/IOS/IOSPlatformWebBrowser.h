@@ -64,8 +64,8 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 -(void)updateWebViewGLESTexture:(GLuint)gltexture;
 - (void)updateWebViewMetalTexture : (id<MTLTexture>)texture;
 #if !PLATFORM_TVOS
--(BOOL)webView:(UIWebView*)InWebView shouldStartLoadWithRequest:(NSURLRequest*)InRequest navigationType:(UIWebViewNavigationType)InNavigationType;
--(void)webView:(UIWebView*)InWebView didFailLoadWithError:(NSError*)InError;
+- (void)webView:(WKWebView*)InWebView decidePolicyForNavigationAction : (WKNavigationAction*)InNavigationAction decisionHandler : (void(^)(WKNavigationActionPolicy))InDecisionHandler;
+-(void)webView:(WKWebView *)InWebView didCommitNavigation : (WKNavigation *)InNavigation;
 #endif
 @end
 

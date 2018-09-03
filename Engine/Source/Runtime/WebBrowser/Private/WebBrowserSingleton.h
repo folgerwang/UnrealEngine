@@ -39,6 +39,7 @@ class IWebBrowserCookieManager;
 class IWebBrowserWindow;
 struct FWebBrowserWindowInfo;
 struct FWebBrowserInitSettings;
+class UMaterialInterface;
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
@@ -121,6 +122,30 @@ public:
 		bJSBindingsToLoweringEnabled = bEnabled;
 	}
 
+	/** Set a reference to UWebBrowser's default material*/
+	virtual void SetDefaultMaterial(UMaterialInterface* InDefaultMaterial) override
+	{
+		DefaultMaterial = InDefaultMaterial;
+	}
+
+	/** Set a reference to UWebBrowser's translucent material*/
+	virtual void SetDefaultTranslucentMaterial(UMaterialInterface* InDefaultMaterial) override
+	{
+		DefaultTranslucentMaterial = InDefaultMaterial;
+	}
+
+	/** Get a reference to UWebBrowser's default material*/
+	virtual UMaterialInterface* GetDefaultMaterial() override
+	{
+		return DefaultMaterial;
+	}
+
+	/** Get a reference to UWebBrowser's translucent material*/
+	virtual UMaterialInterface* GetDefaultTranslucentMaterial() override
+	{
+		return DefaultTranslucentMaterial;
+	}
+
 public:
 
 	// FTickerObjectBase Interface
@@ -150,6 +175,11 @@ private:
 	bool bDevToolsShortcutEnabled;
 
 	bool bJSBindingsToLoweringEnabled;
+
+	/** Reference to UWebBrowser's default material*/
+	UMaterialInterface* DefaultMaterial;
+	/** Reference to UWebBrowser's translucent material*/
+	UMaterialInterface* DefaultTranslucentMaterial;
 
 };
 

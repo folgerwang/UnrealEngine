@@ -20,6 +20,8 @@
 #include "Templates/SharedPointer.h"
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "WebBrowserTextureSample.h"
+#include "WebBrowserModule.h"
+#include "IWebBrowserSingleton.h"
 
 // For UrlDecode
 #include "Http.h"
@@ -106,8 +108,9 @@ void SAndroidWebBrowserWidget::Construct(const FArguments& Args)
 		AllWebControls.Add(reinterpret_cast<int64>(this), StaticCastSharedRef<SAndroidWebBrowserWidget>(AsShared()));
 	}
 
-	IsAndroid3DBrowser = true;
 	WebBrowserWindowPtr = Args._WebBrowserWindow;
+	IsAndroid3DBrowser = true;
+
 	HistorySize = 0;
 	HistoryPosition = 0;
 	
@@ -131,11 +134,13 @@ void SAndroidWebBrowserWidget::Construct(const FArguments& Args)
 	}
 
 	// create wrapper material
-	UMaterial* Material = LoadObject<UMaterial>(nullptr, TEXT("/WebBrowserWidget/WebTexture_M"), nullptr, LOAD_None, nullptr);
-	if (Material)
+	IWebBrowserSingleton* WebBrowserSingleton = IWebBrowserModule::Get().GetSingleton();
+	
+	UMaterialInterface* DefaultWBMaterial = Args._UseTransparency? WebBrowserSingleton->GetDefaultTranslucentMaterial(): WebBrowserSingleton->GetDefaultMaterial();
+	if (WebBrowserSingleton && DefaultWBMaterial)
 	{
 		// create wrapper material
-		WebBrowserMaterial = UMaterialInstanceDynamic::Create(Material, nullptr);
+		WebBrowserMaterial = UMaterialInstanceDynamic::Create(DefaultWBMaterial, nullptr);
 
 		if (WebBrowserMaterial)
 		{

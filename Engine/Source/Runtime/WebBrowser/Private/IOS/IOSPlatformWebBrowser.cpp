@@ -11,6 +11,9 @@
 #import <MetalKit/MetalKit.h>
 #include <OpenGLES/ES2/glext.h>
 #include "ExternalTexture.h"
+#include "WebBrowserModule.h"
+#include "IWebBrowserSingleton.h"
+
 
 class SIOSWebBrowserWidget : public SLeafWidget
 {
@@ -60,11 +63,13 @@ class SIOSWebBrowserWidget : public SLeafWidget
 		}
 
 		// create wrapper material
-		UMaterial* Material = LoadObject<UMaterial>(nullptr, TEXT("/WebBrowserWidget/WebTexture_M"), nullptr, LOAD_None, nullptr);
-		if (Material)
+		IWebBrowserSingleton* WebBrowserSingleton = IWebBrowserModule::Get().GetSingleton();
+
+		UMaterialInterface* DefaultWBMaterial = Args._UseTransparency ? WebBrowserSingleton->GetDefaultTranslucentMaterial() : WebBrowserSingleton->GetDefaultMaterial();
+		if (WebBrowserSingleton && DefaultWBMaterial)
 		{
 			// create wrapper material
-			WebBrowserMaterial = UMaterialInstanceDynamic::Create(Material, nullptr);
+			WebBrowserMaterial = UMaterialInstanceDynamic::Create(DefaultWBMaterial, nullptr);
 
 			if (WebBrowserMaterial)
 			{
@@ -541,11 +546,10 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 }
 
 #if !PLATFORM_TVOS
-- (BOOL)webView:(UIWebView*)InWebView
-shouldStartLoadWithRequest : (NSURLRequest*)InRequest
-	navigationType : (UIWebViewNavigationType)InNavigationType;
+- (void)webView:(WKWebView*)InWebView decidePolicyForNavigationAction : (WKNavigationAction*)InNavigationAction decisionHandler : (void(^)(WKNavigationActionPolicy))InDecisionHandler
 {
-	FString UrlStr([[InRequest URL]absoluteString]);
+	NSURLRequest *request = InNavigationAction.request;
+	FString UrlStr([[request URL]absoluteString]);
 
 	// Notify on the game thread
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
@@ -558,25 +562,25 @@ shouldStartLoadWithRequest : (NSURLRequest*)InRequest
 		return true;
 	}];
 
-	return YES;
+	InDecisionHandler(WKNavigationActionPolicyAllow);
 }
 
--(void)webView:(WKWebView *)webView didCommitNavigation : (WKNavigation *)navigation;
+-(void)webView:(WKWebView *)InWebView didCommitNavigation : (WKNavigation *)InNavigation
 {
 	NSString* CurrentUrl = [self.WebView URL].absoluteString;
-	NSLog(@"didCommitNavigation: %@", CurrentUrl);
+//	NSLog(@"didCommitNavigation: %@", CurrentUrl);
 	WebBrowserWidget->NotifyUrlChanged(CurrentUrl);
 }
 
--(void)webView:(UIWebView*)InWebView didFailLoadWithError : (NSError*)InError;
+-(void)webView:(WKWebView *)InWebView didFailNavigation : (WKNavigation *)InNavigation withError : (NSError*)InError
 {
 	if (InError.domain == NSURLErrorDomain && InError.code == NSURLErrorCancelled)
 	{
 		//ignore this one, interrupted load
 		return;
 	}
-	NSString* CurrentUrl = [InError.userInfo objectForKey : @"NSErrorFailingURLStringKey"]; 
-	NSLog(@"didFailLoadWithError %@", CurrentUrl);
+	NSString* CurrentUrl = [InError.userInfo objectForKey : @"NSErrorFailingURLStringKey"];
+//	NSLog(@"didFailNavigation: %@, error %@", CurrentUrl, InError);
 	WebBrowserWidget->NotifyUrlChanged(CurrentUrl);
 }
 #endif

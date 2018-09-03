@@ -219,6 +219,8 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 #endif
 	, bDevToolsShortcutEnabled(UE_BUILD_DEBUG)
 	, bJSBindingsToLoweringEnabled(true)
+	, DefaultMaterial(nullptr)
+	, DefaultTranslucentMaterial(nullptr)
 {
 #if WITH_CEF3
 	// The FWebBrowserSingleton must be initialized on the game thread
