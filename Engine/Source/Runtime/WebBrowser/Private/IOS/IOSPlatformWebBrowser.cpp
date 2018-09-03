@@ -490,7 +490,6 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 		}
 		else
 		{
-			UE_LOG(LogIOS, Warning, TEXT("setVisibility %d HIDE!"), InIsVisible);
 			[self.WebViewContainer setHidden : YES];
 		}
 	});
