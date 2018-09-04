@@ -77,7 +77,7 @@ asset
 **AI** (Artificial intelligence, 인공지능)은 사람의 입력이 아니라 프로그래밍된 명령 세트에 의해 제어되는 행위를 말합니다. 예를 들어 NPC (플레이어 이외의 캐릭터)는 AI 로 제어됩니다.
 [/EXCERPT:Glossary_AI]
 [EXCERPT:Glossary_AIController]
-PlayerController 가 게임 내 플레이어의 표상으로 Pawn 을 빙의하듯이, **AIController**, AI 콘트롤러는 게임내 NPC (플레이 가능하지 않은 캐릭터)의 표상으로 Pawn 을 빙의합니다. 기본적으로 Pawn 과 Character 는 구체적인 PlayerController 에 빙의되거나 별도의 AIController 를 만들어주지 않는 한, 기본 AIController 를 갖게 됩니다.
+PlayerController 가 게임 내 플레이어의 표상으로 Pawn 을 빙의하듯이, **AIController**, AI 컨트롤러는 게임내 NPC (플레이 가능하지 않은 캐릭터)의 표상으로 Pawn 을 빙의합니다. 기본적으로 Pawn 과 Character 는 구체적인 PlayerController 에 빙의되거나 별도의 AIController 를 만들어주지 않는 한, 기본 AIController 를 갖게 됩니다.
 [/EXCERPT:Glossary_AIController]
 [EXCERPT:Glossary_Animation]
 **Animation** (애니메이션)은 시간의 흐름에 따른 프로퍼티 값의 변화를 말합니다. 위치, 방향, 크기의 변화는 물론 다른 어떤 프로퍼티 값에 속하는 것도 포함될 수 있습니다.

@@ -23,8 +23,11 @@ class FNiagaraSystemInstance;
 class SNiagaraSystemViewport : public SEditorViewport, public FGCObject, public ICommonEditorViewportToolbarInfoProvider
 {
 public:
+	DECLARE_DELEGATE_OneParam(FOnThumbnailCaptured, UTexture2D*);
+
+public:
 	SLATE_BEGIN_ARGS( SNiagaraSystemViewport ){}
-	//SLATE_ARGUMENT(TWeakPtr<INiagaraSystemEditor>, SystemEditor)
+		SLATE_EVENT(FOnThumbnailCaptured, OnThumbnailCaptured)
 	SLATE_END_ARGS()
 	
 	void Construct(const FArguments& InArgs);
@@ -75,7 +78,7 @@ public:
 
 	bool GetDrawElement(EDrawElements Element) const;
 	void ToggleDrawElement(EDrawElements Element);
-	void CreateThumbnail();
+	void CreateThumbnail(UObject* InScreenShotOwner);
 
 
 	bool IsToggleOrbitChecked() const;
@@ -92,6 +95,11 @@ protected:
 	EVisibility OnGetViewportCompileTextVisibility() const;
 
 private:
+	bool IsVisible() const override;
+
+	void OnScreenShotCaptured(UTexture2D* ScreenShot);
+
+private:
 	/** The parent tab where this viewport resides */
 	TWeakPtr<SDockTab> ParentTab;
 	
@@ -99,8 +107,6 @@ private:
 	TSharedPtr<class FAdvancedPreviewScene> AdvancedPreviewScene;
 
 	TSharedPtr<STextBlock> CompileText;
-	
-	bool IsVisible() const override;
 	
 	/** Pointer back to the material editor tool that owns us */
 	//TWeakPtr<INiagaraSystemEditor> SystemEditorPtr;
@@ -111,4 +117,6 @@ private:
 	TSharedPtr<class FNiagaraSystemViewportClient> SystemViewportClient;
 
 	uint32 DrawFlags;
+
+	FOnThumbnailCaptured OnThumbnailCaptured;
 };

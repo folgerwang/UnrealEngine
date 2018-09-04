@@ -122,7 +122,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.8.2-release](h
 
 * UE-17167	[CrashReport] 애셋 포함 캐릭터 통합 시 크래시 유발
 
-* UE-17177	소스 콘트롤 연결 상태에서 manifest 가 이미 존재하지 않는 경우 현지화 manifest 쓰기 실패
+* UE-17177	소스 컨트롤 연결 상태에서 manifest 가 이미 존재하지 않는 경우 현지화 manifest 쓰기 실패
 
 * UE-17211	[CrashReport] 블루프린트 노드 사이 연결 선을 클릭하면 크래시 유발
 
@@ -136,7 +136,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.8.2-release](h
 
 * UE-17384	본만 있는 fbx 애니메이션 임포트 시 임포트 옵션 깨짐
 
-* UE-17385	apk 외부 obb 로 패키징된 안드로이드 게임이 디바이스에 SaveGame 디렉토리를 생성하지 않음
+* UE-17385	apk 외부 obb 로 패키징된 안드로이드 게임이 디바이스에 SaveGame 디렉터리를 생성하지 않음
 
 * UE-17400	PIE 도중 ("어태치먼트 도중 템플릿 불일치") 크래시를 유발하는 UPROPERTY 지정자 퇴보
 

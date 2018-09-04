@@ -4,6 +4,7 @@
 #include "../VulkanRHIPrivate.h"
 #include <dlfcn.h>
 #include <SDL.h>
+#include <SDL_vulkan.h>
 
 
 
@@ -105,7 +106,7 @@ void FVulkanLinuxPlatform::GetInstanceExtensions(TArray<const ANSICHAR*>& OutExt
 	if (CachedLinuxExtensions.Num() == 0)
 	{
 		uint32_t Count = 0;
-		auto RequiredExtensions = SDL_VK_GetRequiredInstanceExtensions(&Count);
+		auto RequiredExtensions = SDL_Vulkan_GetRequiredInstanceExtensions(&Count);
 		for (int32 i = 0; i < Count; i++)
 		{
 			CachedLinuxExtensions.Add(RequiredExtensions[i]);
@@ -124,7 +125,7 @@ void FVulkanLinuxPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExten
 
 void FVulkanLinuxPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)
 {
-	if (SDL_VK_CreateSurface((SDL_Window*)WindowHandle, (SDL_VkInstance)Instance, (SDL_VkSurface*)OutSurface) == SDL_FALSE)
+	if (SDL_Vulkan_CreateSurface((SDL_Window*)WindowHandle, Instance, OutSurface) == SDL_FALSE)
 	{
 		UE_LOG(LogInit, Error, TEXT("Error initializing SDL Vulkan Surface: %s"), SDL_GetError());
 		check(0);

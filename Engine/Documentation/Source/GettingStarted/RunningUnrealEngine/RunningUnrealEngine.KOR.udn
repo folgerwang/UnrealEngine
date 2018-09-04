@@ -67,7 +67,7 @@ _클릭하면 원래 크기 이미지로 볼 수 있습니다:_
 게임을 명령줄에서 실행할 때는, 바로 가기의 **대상** 칸에 `UE4Editor.exe` 게임 실행파일에다 실행시킬 게임 이름을 
 인수로 붙여 줘야 하는 것은 물론, `-game` 파라미터를 지정하여 에디터에 에디터 UI 를 띄우는 대신 게임 모드로 실행되도록 해 줘야 합니다.
 
-1.	명령줄에서 `UE4` 아래 `\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+1.	명령줄에서 `UE4` 아래 `\Engine\Binaries\Win64` 디렉터리로 이동합니다.
 
 1.	`UE4Editor.exe -game` 에 실행시킬 게임 이름을 붙여 실행합니다.
 
@@ -92,7 +92,7 @@ _클릭하면 원래 크기 이미지로 볼 수 있습니다:_
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1.	명령줄에서 `[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+	1.	명령줄에서 `[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉터리로 이동합니다.
 
 	1.	**UE4Editor.exe** 에 실행시킬 프로젝트 경로와 아울러 `-game` 파라미터를 붙여 실행합니다:
 
@@ -109,7 +109,7 @@ _클릭하면 원래 크기 이미지로 볼 수 있습니다:_
 	[PARAMLITERAL:active]
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1.	명령줄에서 `[LauncherInstall]/[VersionNumber]/Engine/Binaries/Mac` 디렉토리로 이동합니다.
+	1.	명령줄에서 `[LauncherInstall]/[VersionNumber]/Engine/Binaries/Mac` 디렉터리로 이동합니다.
 
 	1.	**UE4Editor.app** 에 실행시킬 프로젝트 경로와 아울러 `-game` 파라미터를 붙여 실행합니다:
 
@@ -126,7 +126,7 @@ _클릭하면 원래 크기 이미지로 볼 수 있습니다:_
 실행파일에서 실행할 때는, 바로 가기의 **대상** 칸에다 `UE4Editor.exe` 게임 실행파일 뒤에 실행시키고자 하는 게임 이름을 인수로 붙여 줘야 하는 것은 물론,
 `-game` 파라미터를 지정하여 에디터에 에디터 UI 를 띄우는 대신 게임 모드로 실행되도록 해 줘야 합니다.
 
-1.	`UE4` 의 `\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+1.	`UE4` 의 `\Engine\Binaries\Win64` 디렉터리로 이동합니다.
 
 1.	`UE4Editor.exe` 실행파일에 우클릭한 다음 **바로 가기 만들기** 를 선택합니다.
 
@@ -136,7 +136,7 @@ _클릭하면 원래 크기 이미지로 볼 수 있습니다:_
 
 1.	**대상** 칸 뒤에 실행시킬 게임 이름을 인수로 붙여 줍니다:
 
-|프로젝트 위치|타겟|
+|프로젝트 위치|타깃|
 |----------------|--------------|
 |UE4 루트 | `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe MyGame -game`|
 |다른 위치| `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe "[ProjectPath]\[ProjectName].uproject" -game`|
@@ -163,7 +163,7 @@ _클릭하면 원래 크기 이미지로 볼 수 있습니다:_
 	실행파일을 실행할 때, 바로가기의 **대상** 칸을 통해 실행시키고자 하는 프로젝트의 경로와 아울러 `-game` 스위치를 
 	실행파일의 인수로 전해줘야 합니다.
 
-	1.	`[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+	1.	`[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉터리로 이동합니다.
 
 	1.	**UE4Editor.exe** 실행파일에 우클릭한 다음 **바로가기 생성** 을 클릭합니다.
 
@@ -392,7 +392,7 @@ $ VIEWMODE [Mode] :
 ### 명령줄에서 에디터 실행하기
 
 [PUBLISH:Licensee]
-1.	명령줄에서 `UE4` 아래 `\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+1.	명령줄에서 `UE4` 아래 `\Engine\Binaries\Win64` 디렉터리로 이동합니다.
 
 1.	`UE4Editor.exe` 에 실행시킬 게임 이름을 인수로 붙여 실행합니다:
 
@@ -417,7 +417,7 @@ $ VIEWMODE [Mode] :
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1.	명령줄에서 `[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+	1.	명령줄에서 `[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉터리로 이동합니다.
 
 	1.	`UE4Editor.exe` 에 프로젝트 경로를 인수로 붙여 실행합니다.
 
@@ -434,7 +434,7 @@ $ VIEWMODE [Mode] :
 	[PARAMLITERAL:active]
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1.	명령줄에서 `[LauncherInstall]\[VersionNumber]/Engine/Binaries/Mac` 디렉토리로 이동합니다.
+	1.	명령줄에서 `[LauncherInstall]\[VersionNumber]/Engine/Binaries/Mac` 디렉터리로 이동합니다.
 
 	1.	`UE4Editor.app` 에 프로젝트 경로를 붙여서 실행합니다.
 
@@ -449,7 +449,7 @@ $ VIEWMODE [Mode] :
 [PUBLISH:Licensee]
 
 
-1.	`UE4` 아래 `\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+1.	`UE4` 아래 `\Engine\Binaries\Win64` 디렉터리로 이동합니다.
 
 1.	`UE4Editor.exe` 실행파일에 우클릭한 다음 **바로 가기 만들기** 를 선택합니다.
 
@@ -459,7 +459,7 @@ $ VIEWMODE [Mode] :
 
 1.	**대상** 칸 끝에 실행시킬 게임 이름을 인수로 추가해 줍니다:
 
-|프로젝트 위치|타겟|
+|프로젝트 위치|타깃|
 |----------------|--------------|
 |UE4 루트 | `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe MyGame`|
 |다른 위치| `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"`|
@@ -483,7 +483,7 @@ $ VIEWMODE [Mode] :
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1.	`[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+	1.	`[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉터리로 이동합니다.
 
 	1.	`UE4Editor.exe` 실행파일에 우클릭한 다음 **바로 가기 만들기** 를 선택합니다.
 

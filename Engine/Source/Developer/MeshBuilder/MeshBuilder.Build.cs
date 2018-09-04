@@ -18,7 +18,8 @@ namespace UnrealBuildTool.Rules
                     "RenderCore",
                     "MeshDescriptionOperations",
                     "MeshReductionInterface",
-                    "RawMesh"
+                    "RawMesh",
+                    "MeshUtilitiesCommon",
                 }
 			);
 

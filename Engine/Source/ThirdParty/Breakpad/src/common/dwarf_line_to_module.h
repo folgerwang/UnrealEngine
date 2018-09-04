@@ -44,6 +44,12 @@
 #include "common/dwarf/dwarf2reader.h"
 #include "common/using_std_string.h"
 
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+#include "common/dwarf_cu_to_module.h"
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
 namespace google_breakpad {
 
 // A class for producing a vector of google_breakpad::Module::Line
@@ -121,10 +127,21 @@ class DwarfLineToModule: public dwarf2reader::LineInfoHandler {
   // sort out which lines belong to which functions; we don't add them
   // to any particular function in MODULE ourselves.
   DwarfLineToModule(Module *module, const string& compilation_dir,
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
                     vector<Module::Line> *lines)
+#else
+                    vector<Module::Line> *lines, map<uint64, DwarfCUToModule::InlineEntry> *inline_entries)
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
       : module_(module),
         compilation_dir_(compilation_dir),
         lines_(lines),
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+        inline_entries_(inline_entries),
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
         highest_file_number_(-1),
         omitted_line_end_(0),
         warned_bad_file_number_(false),
@@ -162,6 +179,12 @@ class DwarfLineToModule: public dwarf2reader::LineInfoHandler {
   // function info as well. Instead, we accumulate lines here, and let
   // whoever constructed this sort it all out.
   vector<Module::Line> *lines_;
+
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+  map<uint64, DwarfCUToModule::InlineEntry> *inline_entries_;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
   // A table mapping directory numbers to paths.
   DirectoryTable directories_;

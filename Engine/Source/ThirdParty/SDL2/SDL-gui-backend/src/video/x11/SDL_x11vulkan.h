@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -17,24 +17,38 @@
   2. Altered source versions must be plainly marked as such, and must not be
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
-*/#include "../../SDL_internal.h"
+*/
+#include "../../SDL_internal.h"
 
-#define VK_USE_PLATFORM_XLIB_KHR
-#include <vulkan/vulkan.h>
+#ifndef SDL_x11vulkan_h_
+#define SDL_x11vulkan_h_
 
-#ifndef _SDL_x11vulkan_h
-#define _SDL_x11vulkan_h
+#include "../SDL_vulkan_internal.h"
 
-struct SDL_VKDriverData
-{
-    VkResult (*vkCreateXlibSurfaceKHR) (VkInstance, const VkXlibSurfaceCreateInfoKHR*, const VkAllocationCallbacks*, VkSurfaceKHR*);
-};
+#if SDL_VIDEO_VULKAN && SDL_VIDEO_DRIVER_X11
 
-int X11_VK_LoadLibrary(_THIS, const char *path);
-extern void X11_VK_UnloadLibrary(_THIS);
-extern char** X11_VK_GetRequiredInstanceExtensions(_THIS, unsigned int* count);
-extern SDL_bool X11_VK_CreateSurface(_THIS, SDL_Window* window, SDL_VkInstance instance, SDL_VkSurface* surface);
+/*typedef struct xcb_connection_t xcb_connection_t;*/
+typedef xcb_connection_t *(*PFN_XGetXCBConnection)(Display *dpy);
 
-#endif /* _SDL_x11vulkan_h */
+int X11_Vulkan_LoadLibrary(_THIS, const char *path);
+void X11_Vulkan_UnloadLibrary(_THIS);
+SDL_bool X11_Vulkan_GetInstanceExtensions(_THIS,
+                                          SDL_Window *window,
+                                          unsigned *count,
+                                          const char **names);
+SDL_bool X11_Vulkan_CreateSurface(_THIS,
+                                  SDL_Window *window,
+                                  VkInstance instance,
+                                  VkSurfaceKHR *surface);
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+extern char** X11_Vulkan_GetRequiredInstanceExtensions(_THIS, unsigned int* count);
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
+#endif
+
+#endif /* SDL_x11vulkan_h_ */
+
+/* vi: set ts=4 sw=4 expandtab: */

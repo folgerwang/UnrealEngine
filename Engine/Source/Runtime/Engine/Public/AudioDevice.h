@@ -543,6 +543,9 @@ public:
 	 */
 	void Update(bool bGameTicking);
 
+	/** Update called on game thread. */
+	virtual void UpdateGameThread() {}
+
 	/**
 	 * Suspend/resume all sounds (global pause for device suspend/resume, etc.)
 	 *
@@ -1154,16 +1157,34 @@ public:
 	/** This is called by a USoundSubmix to start recording a submix instance on this device. */
 	virtual void StartRecording(USoundSubmix* InSubmix, float ExpectedRecordingDuration) 
 	{
-		UE_LOG(LogAudio, Error, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
+		UE_LOG(LogAudio, Error, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to or set INI file use submix recording."));
 	}
 
 	/** This is called by a USoundSubmix when we stop recording a submix on this device. */
 	virtual Audio::AlignedFloatBuffer& StopRecording(USoundSubmix* InSubmix, float& OutNumChannels, float& OutSampleRate) 
 	{
-		UE_LOG(LogAudio, Error, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
+		UE_LOG(LogAudio, Error, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to or set INI file use submix recording."));
 		
 		static Audio::AlignedFloatBuffer InvalidBuffer;
 		return InvalidBuffer;
+	}
+
+	/** This is called by a USoundSubmix to start envelope following on a submix isntance on this device. */
+	virtual void StartEnvelopeFollowing(USoundSubmix* InSubmix)
+	{
+		UE_LOG(LogAudio, Error, TEXT("Envelope following submixes only works with the audio mixer. Please run using -audiomixer or set INI file to use submix recording."));
+	}
+
+	/** This is called by a USoundSubmix when we stop envelope following a submix instance on this device. */
+	virtual void StopEnvelopeFollowing(USoundSubmix* InSubmix)
+	{
+		UE_LOG(LogAudio, Error, TEXT("Envelope following submixes only works with the audio mixer. Please run using -audiomixer or set INI file to use submix recording."));
+	}
+
+	/** Adds an envelope follower delegate to the submix for this audio device. */
+	virtual void AddEnvelopeFollowerDelegate(USoundSubmix* InSubmix, const FOnSubmixEnvelopeBP& OnSubmixEnvelopeBP)
+	{
+		UE_LOG(LogAudio, Error, TEXT("Envelope following submixes only works with the audio mixer. Please run using -audiomixer or set INI file to use submix recording."));
 	}
 
 protected:

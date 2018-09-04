@@ -410,6 +410,31 @@ void UNiagaraNodeFunctionCall::Compile(class FHlslNiagaraTranslator* Translator,
 	}
 	else if (Signature.IsValid())
 	{
+		if (Signature.Inputs.Num() > 0)
+		{
+			if (Signature.Inputs[0].GetType().IsDataInterface())
+			{
+				UClass* DIClass = Signature.Inputs[0].GetType().GetClass();
+				if (UNiagaraDataInterface* DataInterfaceCDO = Cast<UNiagaraDataInterface>(DIClass->GetDefaultObject()))
+				{
+					TArray<FText> ValidationErrors;
+					DataInterfaceCDO->ValidateFunction(Signature, ValidationErrors);
+
+					bError = ValidationErrors.Num() > 0;
+
+					for (FText& ValidationError : ValidationErrors)
+					{
+						Translator->Error(ValidationError, this, nullptr);
+					}
+
+					if (bError)
+					{
+						return;
+					}
+				}
+			}
+		}
+
 		bError = CompileInputPins(Translator, Inputs);
 	}		
 	else

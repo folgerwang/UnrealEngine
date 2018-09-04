@@ -27,13 +27,16 @@ namespace Audio
 		~FDelayStereo();
 
 		// Initializes the stereo delay with given sample rate and default max delay length
-		void Init(const float InSampleRate, const float InDelayLengthSec = 2.0f);
+		void Init(const float InSampleRate, const int32 InNumChannels, const float InDelayLengthSec = 2.0f);
 
 		// Resets the stereo delay state
 		void Reset();
 
-		// Process the stereo delay to generate new stereo output
-		void ProcessAudio(const float InLeftSample, const float InRightSample, float& OutLeftSample, float& OutRightSample);
+		// Process a single frame of audio
+		void ProcessAudioFrame(const float* InFrame, float* OutFrame);
+
+		// Process a buffer of audio
+		void ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer);
 
 		// Sets which delay stereo mode to use
 		void SetMode(const EStereoDelayMode::Type InMode);
@@ -58,10 +61,7 @@ namespace Audio
 		void UpdateDelays();
 
 		// Left channel delay line
-		FDelay LeftDelay;
-
-		// Right channel delay line
-		FDelay RightDelay;
+		TArray<FDelay> Delays;
 
 		// What mode the stereo delay is in
 		EStereoDelayMode::Type DelayMode;
@@ -77,6 +77,9 @@ namespace Audio
 
 		// The amount of wet level on the output
 		float WetLevel;
+
+		// The number of channels to use (will sum mono)
+		int32 NumChannels;
 
 		// If the delay has started processing yet
 		bool bIsInit;

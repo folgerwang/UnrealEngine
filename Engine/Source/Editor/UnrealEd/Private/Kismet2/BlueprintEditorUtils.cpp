@@ -48,7 +48,7 @@
 #include "Kismet2/CompilerResultsLog.h"
 #include "Algo/Transform.h"
 
-#include "Editor/KismetCompiler/Public/KismetCompilerModule.h"
+#include "KismetCompilerModule.h"
 #include "EdGraphSchema_K2_Actions.h"
 #include "K2Node_Event.h"
 #include "K2Node_ActorBoundEvent.h"
@@ -113,6 +113,8 @@
 
 #include "EditorCategoryUtils.h"
 #include "Styling/SlateIconFinder.h"
+#include "BaseWidgetBlueprint.h"
+#include "Components/Widget.h"
 
 extern COREUOBJECT_API bool GBlueprintUseCompilationManager;
 
@@ -3939,6 +3941,15 @@ void FBlueprintEditorUtils::SetBlueprintVariableCategory(UBlueprint* Blueprint, 
 			if (UTimelineTemplate* Timeline = Blueprint->FindTimelineTemplateByVariableName(TargetProperty->GetFName()))
 			{
 				Timeline->SetMetaData(TEXT("Category"), *SetCategory.ToString());
+			}
+			else if (UBaseWidgetBlueprint* WidgetBP = Cast<UBaseWidgetBlueprint>(Blueprint))
+			{
+				WidgetBP->ForEachSourceWidget([&](UWidget* InWidget) {
+					if (InWidget->GetFName() == VarName)
+					{
+						InWidget->SetCategoryName(SetCategory.ToString());
+					}
+				});
 			}
 			else
 			{

@@ -117,7 +117,6 @@ public:
 protected:
 
 	// FEdMode interface
-	virtual void Initialize() override;
 	virtual void Enter() override;
 	virtual void Exit() override;
 	virtual void Tick( FEditorViewportClient* ViewportClient, float DeltaTime ) override;

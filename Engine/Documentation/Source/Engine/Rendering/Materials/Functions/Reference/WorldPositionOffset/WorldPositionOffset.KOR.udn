@@ -140,14 +140,14 @@ WorldPositionOffset 카테고리 아래 모든 함수 목록은 다음과 같습
 
 ### StaticMeshMorphTargets
 
-스태틱 메시 모프 타겟 함수는 3ds Max 의 Morph Packer MAXScript 를 통해 추가된 모프 타겟 데이터를 풉니다.
+스태틱 메시 모프 타깃 함수는 3ds Max 의 Morph Packer MAXScript 를 통해 추가된 모프 타깃 데이터를 풉니다.
 
 | 항목 | 설명 |
 | -------- | -------- |
 |[REGION:tablesection]출력[/REGION] ||
-| **Morph Target 1 Normals** | 모프 타겟 1 노멀 - 모프 타겟 1 에 연관된 표면 노멀입니다. |
-| **Morph Target 1 WPO** | 모프 타겟 1 WPO - 모프 타겟 1 에 대한 월드 포지션 오프셋입니다. |
-| **Morph Target 2 WPO** | 모프 타겟 2 WPO - 모프 타겟 2 에 대한 월드 포지션 오프셋입니다. |
+| **Morph Target 1 Normals** | 모프 타깃 1 노멀 - 모프 타깃 1 에 연관된 표면 노멀입니다. |
+| **Morph Target 1 WPO** | 모프 타깃 1 WPO - 모프 타깃 1 에 대한 월드 포지션 오프셋입니다. |
+| **Morph Target 2 WPO** | 모프 타깃 2 WPO - 모프 타깃 2 에 대한 월드 포지션 오프셋입니다. |
 
 ![StaticMeshMorphTargets](StaticMeshMorphTargets.png)
 

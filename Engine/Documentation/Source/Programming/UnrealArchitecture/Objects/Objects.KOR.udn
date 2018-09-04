@@ -36,14 +36,14 @@ UObject 는 (프로퍼티라 알려진) 멤버 변수 또는 어떤 유형의 �
 
 new `UObject` 인스턴스는 물론 그 표준 `new` 연산자를 만드는 데도 사용할 수 있는 함수가 여럿 있으며, 각각의 용례는 다음과 같습니다:
 
-| 메소드 | 설명 |
+| 메서드 | 설명 |
 | --- | --- |
 | [`NewObject<class>()`](Programming/UnrealArchitecture/Objects/Creation#NewObject) | 자동 생성되는 이름으로 새 인스턴스를 만듭니다. 단순한 클래스를 생성할 때 자주 쓰이는 방법입니다. |
 | [`NewNamedObject<class>()`](Programming/UnrealArchitecture/Objects/Creation#NewNamedObject) | 지정된 이름과 함께 약간의 파라미터 옵션으로 새 인스턴스를 만듭니다. 이름이 새 인스턴스의 Outer 와 충돌하는 경우 어서트가 발생합니다. |
 | [`ConstructObject<class>()`](Programming/UnrealArchitecture/Objects/Creation#ConstructObject) | 가능한 모든 생성 옵션으로 새 인스턴스를 만듭니다. 유연성이 필요한 때만 사용합니다. |
 | `new` | 생성자가 인수를 필요로 할 때와 같이, 특정 로우 레벨 환경에서 오브젝트를 생성할 때 사용합니다. |
 
-게임플레이용 `UObject` 클래스 인스턴스 생성을 위한 여러가지 메소드 관련 상세 정보는 [](Programming/UnrealArchitecture/Objects/Creation) 문서를 참고하세요.
+게임플레이용 `UObject` 클래스 인스턴스 생성을 위한 여러가지 메서드 관련 상세 정보는 [](Programming/UnrealArchitecture/Objects/Creation) 문서를 참고하세요.
 
 ## UObject 에 제공되는 함수성
 

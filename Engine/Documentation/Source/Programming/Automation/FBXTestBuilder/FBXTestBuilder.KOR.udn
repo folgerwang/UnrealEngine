@@ -140,7 +140,7 @@ FBX 테스트 빌더를 사용하면, 선택된 **Action** (액션 또는 동작
 | **Warning Number** | 경고 횟수 - 데이터에 경고 횟수가 [int0] 있어야 합니다. | Integer |
 | **Created Static Mesh Number** | 스태틱 메시 생성 횟수 - 데이터에 스태틱 메시 생성 횟수가 [int0] 있어야 합니다. | Integer |
 | **Created Skeletal Mesh Number** | 스켈레탈 메시 생성 횟수 - 데이터에 스켈레탈 메시 생성 횟수가 [int0] 있어야 합니다. | Integer |
-| **Materials Created Number** | 머티리얼 생성 횟수 - 데이터에 타겟 콘텐츠 폴더 내 머티리얼 생성 횟수가 [int0] 있어야 합니다. | Integer |
+| **Materials Created Number** | 머티리얼 생성 횟수 - 데이터에 타깃 콘텐츠 폴더 내 머티리얼 생성 횟수가 [int0] 있어야 합니다. | Integer |
 | **Material Slot Imported Name** | 머티리얼 슬롯 임포트 횟수 - 데이터가 슬롯 인덱스 [int0] 이고 예상되는 원본 임포트 머티리얼 슬롯 이름이 [string0] 여야 합니다. | Integer 및 String |
 | **Vertex Number** | 버텍스 수 - 데이터가 모든 LOD 에 대한 버텍스 총 수 [int0] 여야 합니다. | Integer |
 | **LOD Number** | LOD 수 - 데이터가 예상되는 LOD 수가 [int0] 여야 합니다.  | Integer |

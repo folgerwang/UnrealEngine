@@ -109,7 +109,7 @@ private:
 	FOnlineSessionNullPtr SessionInterface;
 
 	/** Interface for voice communication */
-	mutable FOnlineVoiceImplPtr VoiceInterface;
+	mutable IOnlineVoicePtr VoiceInterface;
 
 	/** Interface for voice communication */
 	mutable bool bVoiceInterfaceInitialized;

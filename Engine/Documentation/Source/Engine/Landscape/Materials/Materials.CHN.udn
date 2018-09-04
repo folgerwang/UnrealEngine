@@ -342,9 +342,6 @@ version:4.9
 	[/PARAMLITERAL]
 	[/OBJECT]
 
-[REGION:note]
-如需了解利用绘制工具创建地形洞穴的内容，请查阅 [利用不透明遮罩创建洞穴](Engine\Landscape\Editing\SculptMode\#UsingOpacityMaskingtoCreateaHole)。
-[/REGION]
 
 
 ## 将材质指定到地形
@@ -371,10 +368,6 @@ version:4.9
 
 	![](Landscape_HoleSettings.png)
 
-
-[REGION:note]
-如需了解地形洞穴材质的使用方法，请查阅 [利用不透明遮罩创建洞穴](Engine\Landscape\Editing\SculptMode\#UsingOpacityMaskingtoCreateaHole)。
-[/REGION]
 
 [COMMENT:none]
 

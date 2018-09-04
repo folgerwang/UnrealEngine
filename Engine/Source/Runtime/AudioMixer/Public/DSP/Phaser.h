@@ -16,7 +16,7 @@ namespace Audio
 		FPhaser();
 		~FPhaser();
 
-		void Init(const float SampleRate);
+		void Init(const float SampleRate, const int32 InNumChannels);
 
 		// Sets the phaser LFO rate
 		void SetFrequency(const float InFreqHz);
@@ -33,15 +33,18 @@ namespace Audio
 		// Sets whether or not to put the phaser in quadrature mode
 		void SetQuadPhase(const bool bQuadPhase);
 
-		// Generates the next stereo frame of audio
-		void ProcessAudio(const float* InFrame, float* OutFrame);
+		// Process an audio frame
+		void ProcessAudioFrame(const float* InFrame, float* OutFrame);
+
+		// Process an audio buffer.
+		void ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer);
 
 	protected:
 		void ComputeNewCoefficients(const int32 ChannelIndex, const float LFOValue);
 
 		// First-order all-pass filters in series
 		static const int32 NumApfs = 6;
-		static const int32 NumChannels = 2;
+		static const int32 MaxNumChannels = 2;
 
 		int32 ControlSampleCount;
 		int32 ControlRate;
@@ -49,16 +52,20 @@ namespace Audio
 		float WetLevel;
 		float Feedback;
 		ELFO::Type LFOType;
-		bool bIsBiquadPhase;
 
 		// 6 APFs per channel
-		FBiquadFilter APFs[NumChannels][NumApfs];
+		FBiquadFilter APFs[MaxNumChannels][NumApfs];
 		FVector2D APFFrequencyRanges[NumApfs];
 
 		// Feedback samples
-		float FeedbackFrame[NumChannels];
+		float FeedbackFrame[MaxNumChannels];
 
 		FLFO LFO;
+
+		// Number of channels actually used
+		int32 NumChannels;
+
+		bool bIsBiquadPhase;
 	};
 
 }

@@ -187,7 +187,7 @@ namespace UnrealGameSync
 				}
 
 				// Wait for another request, or scan for new builds after a timeout
-				RefreshEvent.WaitOne((IsActive? 1 : 10) * 60 * 1000);
+				RefreshEvent.WaitOne((IsActive? 2 : 10) * 60 * 1000);
 			}
 		}
 

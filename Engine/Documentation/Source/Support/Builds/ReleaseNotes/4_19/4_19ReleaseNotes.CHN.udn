@@ -1,0 +1,3816 @@
+﻿INTSourceChangelist:3941748
+Availability:Public
+Title: 虚幻引擎4.19版本说明
+Description: 虚幻引擎4.19版本说明
+Crumbs:%ROOT%, Engine
+Parent:Support/Builds
+Order:19
+reference-image:image_7.gif
+reference-image:image_30.gif
+reference-image:image_43.gif
+
+虚幻引擎4.19版本说明
+
+![image alt text](419Banner.png)(w:1000 convert:false)
+
+# 新增内容
+
+虚幻引擎4.19版可帮助您 **潜心创意开发**——各种工具皆清晰明了，以便您专注打造内容。此版本对渲染、物理、地形地貌等诸多系统进行了改良，使您 **创建的世界场景运行得更加快捷**。工具的易用性始终是我们关注的重点，因此我们也继续推进了这方面的改良工作，**让开发者获得更多的自主性**。
+
+无论您打造的是游戏、线性媒体、建筑可视化，还是产品设计工具，虚幻引擎4.19版都能在每一步工作中为您准确呈现最终成品的效果。全新的Live Link插件将无缝衔接第三方内容创建工具和虚幻引擎之间的工作流程，让您在修改源内容时便能及时查看更新。而随着Sequencer的持续改进，您将成为名符其实的导演，进一步实时掌控您的场景。
+
+当你想要实现理想中的世界场景时，天空往往会成为限制因素。而地形渲染优化能够帮助用户创建大型开放世界中惊艳绝伦的远景。全新的动态分辨率（Dynamic Resolution）功能将根据需要调整分辨率、满足所需的帧率。世界场景在PS4和Xbox One上的运行速度将前所未有的流畅。
+
+如果没有大量工作流程和易用性方面的改良，那一个新版本就是不完整。在这一点上，虚幻引擎4.19版同样不会令人失望。材质图层和参数的使用将更为简便、更为直观。蓝图的调试功能也更加强大，拥有进入、越过和跳出功能。在新版本中，用户将还可以收藏内容文件夹。动画工具改良后加入了可锁定命令、打开多个视口等诸多内容。
+
+除Epic的更新外，此版本还包含了 **GitHub的虚幻引擎开发者社区提交的128项改良**！衷心感谢以下诸位对于虚幻引擎4.19版做出的贡献：
+
+ 
+
+Adam Rehn (adamrehn), Alex Chi (alexchicn), Alexander Stevens (MilkyEngineer), alexformosoc, Andrew Armbruster (aarmbruster), Anton Rassadin (Antonrr) Austin Pukasamsombut (AustinPuk-Conffx), Bo Anderson (Bo98), Carlos (carloshellin), Carsten Neumann (cneumann), Celso Dantas (celsodantas), Chris Conway (Koderz), Chris Dietsch (cdietschrun), Chrispykins, Clinton Freeman (freemancw), cmheo, CuoXia (shrimpy56), Daniel Butum (leyyin), Daniel Neel (dneelyep), Daniel Sell (djsell), David Payne (dwrpayne), DavidNSilva, Deep Silver Dambuster Studios (DSDambuster), Derek van Vliet (derekvanvliet), DerelictHelmsman, dfb, Dorgon Chang (dorgonman), druhasu, Eddy Luten (EddyLuten), foollbar, GeorgeR, Giperionn, Hyuk Kim (Hybrid0), Ilya (ill), Jack Knobel (jackknobel), Jacob Nelson (JacobNelsonGames), James Horsley (mmdanggg2), Jared Taylor (Vaei), Javad Shafique (JavadSM), jessicafalk, John W. Ratcliff (jratcliff63367), Jørgen P. Tjernø (jorgenpt), Josef Gluyas (Josef-CL), Julien Le Corre (jlc-innerspace), konflictue, Kryofenix, Kyle Langley (Vawx), Marcin Gorzel (mgorzel), Matt Hoffman (LordNed), Matthew Davey (reapazor), Michael Allar (Allar), Michał Nowak (BibbitM), Mikael Hermansson (mihe), mkirzinger, Mustafa Top (MSTF), nakapon, nullbus, pfoote, phlknght, projectgheist, Richard Schubert (Hemofektik), Ron Radeztsky, rlefebvre, ruffenman, sangpan, Sébastien Rombauts (SRombauts), smt923, Stefan Zimecki (stefanzimecki), Stephen Swires (sswires), Tim Niederhausen (timniederhausen), Timothee Besset (TTimo), Tom Ward (tomwardio), tomari, TomFors, Toru Hisai (torus), Vikram Saran (vikhik), yaakuro, Yohann Martel (ymartel06), YuchenMei, Zeno Ahn (zenoengine)
+
+# 主要特性
+
+## 新增特性：临时上采样
+
+新版本中增加了名为临时上采样（Temporal Upsample）的分辨率修改法，它能执行低分辨率下帧数和主空间分辨率提升的临时累加，借此降低输出的模糊度。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	Z4fa3EdnG5k
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+*1 - 启用临时上采样；2 - 禁用临时上采样*
+
+我们在之前的版本中引入了屏幕百分比的概念，这使用户能够在低分辨率下渲染3D场景，并空间性地在UI绘制之前上调到输入的分辨率。这种方法非常灵活，能在性能不强的硬件上满足GPU的消耗，但仍需要在输出清晰度和GPU性能之间做出权衡。
+
+在新版本中，我们提供了两个单独的屏幕百分比用于分辨率调整，替代之前的单一屏幕百分比：
+
+* 和旧版本相同，主屏幕百分比将默认使用空间分辨率修改通道；
+
+* 次屏幕百分比则是在后期处理的最后、UI绘制之前进行的静态纯空间分辨率修改。
+
+![image alt text](image_1.png)(w:1000 convert:false)
+
+在临时抗锯齿（TAA）通道中发生的临时分辨率修改可在不同的主屏幕百分比（从50%到200%）中形成稳定的几何体锐度。实际上，即使屏幕百分比降低，启用TAAU后背景中的几何体也能保持细节和精细度（这些几何体在之前的版本中通常精度不高，且容易相互混入），如上例中的栅栏和电话线杆。
+
+如需了解更多信息，请查阅[带临时上采样的屏幕百分比（Screen Percentage with Temporal Upsample）](https://docs.unrealengine.com/en-us/Engine/Rendering/ScreenPercentage)页面。
+
+## 新增特性：动态分辨率
+
+新版本现支持动态分辨率（Dynamic Resolution），**根据需要调整分辨率，在PS4和Xbox One游戏达到理想的帧率**！它的工作原理是使用一个启发法，基于之前的帧GPU工作量来设置主屏幕百分比。
+
+![image alt text](image_2.png)(w:1000 convert:false)
+
+未来版本更新将加入其他平台支持。如需了解更多信息，请查阅[动态分辨率（Dynamic Resolution）](https://docs.unrealengine.com/en-us/Engine/Rendering/DynamicResolution)页面。
+
+## 新增特性：统一虚幻AR框架
+
+在这个全新的虚幻引擎版本中，统一虚幻增强现实框架（Unified Unreal Augmented Reality Framework）将为苹果和Google移动平台增强现实（AR）应用程序的开发提供丰富而统一的框架。此框架提供了单一开发路径，使开发者能使用单一代码路径开发两个平台的AR应用。统一虚幻增强现实框架包含支持对齐、光照估算、锁定、会话状态、追踪结果和跟踪的函数。
+
+![image alt text](image_3.png)(w:1000 convert:false)
+
+## 新增特性：统一虚幻AR框架项目模板
+
+我们还同时推出了全新的蓝图模板HandheldAR，它提供了一个展示新功能的完整范例项目。
+
+![image alt text](image_4.png)(w:849 h:590 convert:false)
+
+## 新增特性：物理光照单位
+
+在虚幻引擎4.19版中，所有光照单位均使用基于物理的单位定义。部分光照单位已妥善定义，但其他部分仍在使用未定义的、由引擎指定的单位。光照的单位选择可通过下拉菜单执行（在适用处）。出于兼容性考虑，默认光照单位将继续兼容之前的引擎版本。全新的光照单位属性可在每个光照上进行编辑，进而修改执行与光照相关的计算时引擎对“强度”属性的解译。
+
+![image alt text](image_5.png)(w:1000 convert:false)
+
+*项目由Litrix提供*
+
+## 新增特性：Live Link插件改良
+
+**Maya Live Link插件** 现已推出。它可以在Maya和UE4之间建立联系，以便用户 **在UE4编辑器中实时预览在Maya中进行的修改**。 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	q_h-HxeVaJA
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+启用插件后，您需要将与所使用的Maya版本相关的二进制文件复制到Maya插件文件夹，并通过Maya插件管理器启用。 
+
+在以下路径中的引擎安装文件夹中可找到Maya Live Link插件的预编译二进制文件：Engine\Extras\MayaLiveLink\LiveLinkMaya.zip。Zip文件中包含Windows版Maya 2016、2017和2018的二进制文件。如果需要其他版本的二进制文件，您也可以在Engine\Source\Programs\MayaLiveLinkPlugin文件夹中找到插件的源代码，用于编译二进制文件。 
+
+在MEL控制台中使用命令 **MayaLiveLinkU** 即可启用Maya Live Link的UI窗口。右上角的显示说明此Maya实例是否连接到了虚幻引擎客户端。虚幻引擎Live Link的下方则是当前流送中所有主体的列表（上图中只有一个主体在流送），在下方窗口中则有添加和移除流送主体的功能按钮。
+
+### 动作捕捉Live Link插件
+
+**
+**动作捕捉插件可提供与Maya插件相同的功能，并以相似的方式出现在编辑器中。它还具有管理流送的自定义界面：
+
+您可以在当前场景中选择对象，并将其添加到流送列表（如上所示）。之后，您可以在 **主体命名** 列中设置它们的命名以及 **流送类型** （如镜头、骨架等）。您也可以在这里开启和关闭主体的流送。 
+
+### 将活动相机作为编辑器活动相机流送
+
+现在，在Maya中控制活动相机也将同时操作编辑器的活动相机。我们重新制作了编辑器更新钩，流送将更为稳定，面部绑定和叶状骨骼将正确更新。 
+
+### 将虚拟主体添加到Live Link
+
+利用虚拟主体能将进入Live Link的多个主体整合为一个主体，以供编辑器使用。虚拟主体在客户端中创建，其中包含多个真实主体的骨骼，并全部连接在同一个根骨骼上。 
+
+以下虚拟主体应用到了编辑器中的骨架网格体上。 
+
+[REGION:asyncgif]
+![image alt text](image_7.gif)(w:624 convert:false)
+[/REGION]
+
+我们在此新建了一个虚拟主体（使用 **添加>添加虚拟主体（Add > Add Virtual Subject）**），并设置其从Maya Live Link源读取主体。设置后，虚拟主体包含了来自Maya的3个物品主体。
+
+### Live Link插件开发
+
+Live Link的作用是为UE4之外第三方来源的任意类型动画数据（例如DDC工具和动态捕捉服务器）提供一个通用的流送和使用接口。它被可通过虚幻插件进行延展，使第三方软件无需进行和维护引擎修改即可开发新功能。 
+
+Live Link提供了两种整合方法：
+
+1. 编译一个将新源公开到Live Link的虚幻引擎插件。已有自身流送协议的开发者推荐使用此方法。
+
+2. 在第三方软件中整合一个消息总线（Message Bus）终端，使其成为内置消息总线源的数据传输器。我们在Maya插件中使用的就是此方法。
+
+如需了解总体插件开发的概览，请查阅[插件](https://docs.unrealengine.com/latest/INT/Programming/Plugins/)文档页面。
+
+### Live Link运动控制器支持
+
+现在，Live Link可以结合运动控制器使用了。运动控制器的运动源属性可以被设置到Live Link中的一个主体上。依此进行设置后，运动控制器组件的位置将由主体的首次变换所控制。
+
+运动控制器整合也能访问Live Link主体上的自定义参数。它们通过内置在Live Link主体中的曲线支持进行传递。 
+
+如要访问数值，则必须从 **运动控制器组件** 派生一个新蓝图并覆盖 **OnMotionControllerUpdated** 函数。在 **OnMotionControllerUpdated** 中，在运动控制器上调用 **GetParameterValue** 有效。
+
+下例为一个从Live Link中的强度参数派生一个光照组件强度的可行方法：
+
+![image alt text](image_8.png)(w:925 h:289 convert:false)
+
+### 其他改良
+
+* **新增Live Link源定义自身自定义设置的功能** - 此功能由提供Live Link支持的合作伙伴（IKinema等）建议加入。
+
+* **现在，将骨架推送至Live Link客户端的Live Link源也可传递源GUID了 ** - 消息总线源将在发送骨架时将推送GUID。
+
+* **在Live Link重定向器API中新增了虚拟初始化函数和Update DeltaTime参数**
+
+## 新增特性：Sequencer改良
+
+我们仍在对Sequencer的功能和工作流程进行持续改进，使其更强大、更高效。
+
+### 拷贝/粘贴/复制Object轨迹
+
+现在，您可以通过右键快捷菜单拷贝/粘贴/复制Object轨迹及其子轨迹了。您也可以将一个可生成项拷贝到相同的关卡序列或另一个序列，或将一个可拥有项从一个关卡序列复制到另一个；而且此object将绑定到其他关卡序列中相同的object上。您还可以从一个UMG动画拷贝到另一个。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	e2ixsUw0S6k
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### L关卡序列动态变换原点
+
+现在，您能通过运行时的全局偏移使Sequence Transform轨迹控制的actor产生偏移了。这可以让您在不同的坐标空间中重复使用一个关卡序列。如要使用此功能，须在关卡序列的详细信息（Details）面板中启用 **覆盖实例数据（Override Instance Data）**，然后指定一个 **变换原点（Transform Origin）Actor。**
+
+**变换原点（Transform Origin）** 分段指定了一个变换，序列中的所有绝对变换分段都将从此变换被添加（无视大小）。为达到最佳效果，将actor的初始变换在关卡序列中的0,0,0处设置关键帧，然后让您定义的变换原点Actor从世界场景中的初始位置开始驱动位置（如下所示）。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	hf82P3SmWqU
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+按下按键后（如上所示），立方体开始移动，而我们的Actor从 **变换原点Actor** 的位置开始继续沿一条路径前行。
+
+### Sequencer动画蓝图权重控制
+
+现在，Sequencer权重混合可对动画蓝图生效了。您可对动画使用相同的插槽，并根据曲线控制权重。在属性（Properties）下为每个动画指定相同的插槽名进行混合。然后对所需的权重值设置关键帧，并在动画蓝图中使用Slot节点。动画蓝图将使用混合时提供的任意权重值。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	4c8S4BEFUa4
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### Sequencer编辑器性能改良
+
+* 编译即时逻辑 - 现在，Sequencer能够根据需要从源数据完整或部分编译过期的求值模板。这将使在编辑器中使用Sequencer进行编译的效率更高。
+
+* 详细信息面板更新 - 现在，在Sequencer编辑器内进行拖动或播放时详细信息面板将延迟更新。
+
+### 细微改良
+
+* 对“When Finished”的默认行为进行了新的.ini设置。 
+
+    * 关卡序列仍将默认为RestoreState。而UMG现在将被设为Keep State。
+	
+	[/Script/LevelSequence.LevelSequence]
+DefaultCompletionMode=RestoreState
+
+* 添加摄像机时固定创建一个切镜轨迹，以消除启动sequencer后摄像机无法进行控制所造成的疑惑。
+
+* 现在，自动设置关键帧或添加一个新关键帧时旋转将不再翻转。 
+
+* 新增仅在树状图中显示所选节点的选项。此选项在关卡序列中处理大量actor时十分实用，能够限制视图的上下滚动。 
+
+* 新增在帧间隔时将变换轨迹烘焙到关键帧的选项。
+
+* 新增从变换轨迹创建摄像机动画的选项。
+
+* 新增将（路径轨迹、切镜轨迹或附加轨迹）绑定到子序列中可生成项的功能。 
+
+* 现在，您可以将分段上拖一排，而不是只能下拉了。
+
+## 新增特性：地形渲染优化
+
+地形细节级别（LOD）系统已经过修改。现在，它不再根据距离，而是根据屏幕大小决定组件的细节，与静态网格体LOD系统的工作原理相似。LOD分配将基于屏幕中的大小为远景三角形给出更一致的尺寸，从而达到前所未有的精细度。
+
+![image alt text](image_12.png)(w:1000 convert:false)
+
+![image alt text](image_13.png)(w:490 convert:false)    ![image alt text](image_14.png)(w:490 convert:false)
+
+*（左图为旧方法；右图为新方法）*
+
+您可以前往 **视口>查看器>LOD** 查看地形LOD。
+
+以下设置可根据屏幕大小控制出现LOD过渡的地方。此外，您现在还可以对材质曲面细分进行控制，使用启动动态阴影的定向光照时可提升性能。 
+
+![image alt text](image_15.png)(w:441 convert:false)
+
+## 新增特性：代理LOD系统（实验性）
+
+全新的代理LOD系统是一款实验性插件，可为多个网格体生成带烘焙材质的低多边形LOD。新系统由HLOD使用，将替代Simplygon。 
+
+[REGION:note]
+**注意：** 当前只支持Windows版本。
+[/REGION]
+
+在编辑器中的“项目设置（Project Settings）”对话框内找到“层级LOD网格体简化（Hierarchical LOD Mesh Simplification）”即可启动此工具。在层级LOD网格体简化插件中，您可以选择全新模块“ProxyLODMeshReduction”。在弹出编辑器重启的提示后，完成重启即可使插件替代第三方Simplygon工具进行静态网格体合并LOD。您可以用两种方式访问这个新插件：HLOD大纲窗口和“合并Actor”对话框。
+
+![image alt text](image_16.png)(w:490 convert:false) ![image alt text](image_17.png)(w:490 convert:false)
+
+
+*源几何体：11个几何体部件、38360个三角形和27194个顶点 | 生成的几何体代理：1个几何体部件、8095个三角形和5663个顶点*
+
+
+
+## 新增特性：材质参数编辑和保存
+
+现在，您能够**将参数值保存到材质编辑器和材质实例编辑器内的新子实例或兄弟实例中了！**
+
+ ![image alt text](image_18.png)(w:1000 convert:false)
+
+* **保存到兄弟实例** 能让您保存当前参数，并用相同的父材质覆盖到新的材质实例。
+
+* **保存到子实例** 能让您保存当前参数，并用当前实例覆盖到新的材质实例作为父材质。
+
+现在，“材质编辑器”加入了 **参数默认值（Parameter Defaults）** 面板。您可在此处访问在材质图表中为所有参数设置的默认值，并轻松修改所有参数的默认值。
+
+![image alt text](image_19.png)(w:1000 convert:false)
+
+## 新增特性：材质分层（实验性）
+
+材质分层可以让您使用新材质图层和材质图层混合资源，**将材质组合在一个堆栈中**！这使用户能构建起正确的材质图表，无需手动构建节点分段。此功能与材质函数相似，但支持创建子实例。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	vc5Jg-iqPgk
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+材质分层是实验性功能，在 **项目设置（Project Settings）** **>渲染（Rendering）>实验性（Experimental）** 中将 **支持材质图层（Support Material Layers）** 设为true即可启用。
+
+欲知更多详情，请查看[论坛](https://forums.unrealengine.com/development-discussion/rendering/1414193-material-layering-feedback-for-4-19)相关讨论帖。欢迎大家使用，并为我们提供宝贵反馈！
+## 新增特性：“自动凸包”工具更新
+
+现在，使用自动凸包工具（Auto Convex Tool）生成静态网格体的简单碰撞时可指定 **最大凸包**，而非精准度。计算在静态网格体编辑器后台进行。自动凸包工具还将使用较新版本的V-HACD库，这可提供更为精确的结果。
+
+![image alt text](image_21.png)(w:1000 convert:false)
+
+## 新增特性：使用纯曲线动画改良面部动画共享
+
+现在，您可以对曲线设置动画驱动姿势即可在多个角色之间共享面部动画，而无需借助任何骨骼变形。任何骨骼变形（即使带模网格体的参考姿势）均无法用于其他网格体。因此，在不同网格体之间共享曲线时需要将骨骼变形移除，从网格体自身的参考姿势开始着手。这样您才能在不同面部上共享面部曲线。 
+
+We’ve added the ability to allow users to delete all bone tracks, leaving only animation curves. You can access the **Remove All Bone Tracks **option from the **Asset **menu under **Animation. **我们添加了删除所有骨骼轨迹、只保留动画曲线的功能。访问路径：**动画（Animation）** - **资源（Asset）** 菜单 - **移除所有骨骼轨迹（Remove All Bone Tracks）** 选项
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	m54mNljjiAs
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+如果您需要共享躯干动画，但使用面部驱动曲线，也可使用动画修改器（Animation Modifier）对特定关节进行单独移除。新增功能 **移除骨骼动画（Remove Bone Animation）** 将根据命名移除给定动画序列中的动画曲线（原动画曲线[命名]可能不会从骨架中被删除）；新增功能 **移除所有骨骼动画（Remove All Bone Animation）** 则将从给定动画序列中移除所有动画骨骼追踪数据。
+
+![image alt text](image_23.png)(w:1000 convert:false)
+
+此外，您还可以在导入进程中关闭骨骼轨迹的导入（纯曲线动画）。
+
+我们修复了姿势预览（Pose Preview），现在可以选择资源所包含的权重了。您可在 **动画轨迹命名（Animation Track Names）** 下的资源详情（Asset Details）面板中查看动画所包含的骨骼轨迹。
+
+## N新增特性：布料更新
+
+新增布料资源的全新“动画驱动（Anim Drive）”功能。模拟的运行时交互为“动画驱动乘数（Anim Drive Multipliers）”添加了一个新的遮罩目标，用于驱动弹簧朝动画设置的位置拉伸布料，使动画师能够控制过场或动画驱动的场景。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	iXY2jqgYZ3o
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+可使用“交互器（Interactor）”object（蓝图可在骨架网格体组件上访问此 object）在运行时进行驱动。运行时设置的数值与绘制的数值相乘组合，获得最终的弹簧和阻尼强度。
+
+其他改良包括：
+
+* **布料模拟的重力超覆支持** - 在一个骨架网格体组件上使用交互器object——可指定任意重力超覆。
+
+* **为布料显示范围新增自动范围功能** - 还新增了在必要时可使用工具延展此范围的功能。
+
+* **改良布料显示** - 可在布料绘制模式（Clothing Paint Mode）启动后启用。
+
+* **布料创建菜单现在默认使用骨架网格体物理资源。**
+
+## 新增特性：动画蓝图改良
+
+我们对动画蓝图系统进行了数项易用性改良：
+
+* 现在，您可以控制后期处理实例是否在来自蓝图和动画编辑器套件的骨架网格体组件上运行。 
+
+* **现在，复制姿势（Copy Pose）节点同时支持复制曲线和骨骼变形了** - 在使用时，您如果需要复制曲线，则需要启用 **bCopyCurves** （默认为false）。启用后，它将复制当前骨架中存在的曲线。如曲线列表已修改，则需要重新启动动画系统。
+
+* **新增在additive姿势上播放动画时的additive警告** - 当一个非additive动画连接到additive动画节点的additive引脚时（如Apply Additive），系统将在消息日志中输出包含动画和蓝图名的警告。
+
+* **新增骨架网格体组件上的原生动画实例选择**** - **现在，您可以在骨架网格体组件上设置原生动画实例了。在旧版本中，骨架网格体组件上只能设置动画蓝图。
+
+## 新增特性：动画工具改良
+
+**在动画编辑器中新增可锁定的命令列表**
+
+在骨架树过滤器或视口菜单中按住Shift键点击菜单选项可以将命令“锁定”在菜单外，以便您轻松选取常用的命令。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	jy3VPBRus9k
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+**为所有动画编辑器视口新增了多达4个独立视口** - 所有与动画相关的编辑器现在均可在同一个场景中打开最多4个单独视口，且能对每个视口进行单独设置。
+
+![image alt text](image_26.png)(w:1000 convert:false)
+
+**新增跟随和绕特定骨骼运行的功能** 
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	Z-WVH9XwH_c
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+**更多骨架网格体组件调试信息**
+
+你可以延展在骨架网格体编辑器中显示的视口文本。此外还新增了文本行，以显示当前的布料值。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	JHb5BwJJcHY
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+**新增在运行时修改骨架网格体分段可视性的能力**
+
+公开ShowMaterialSection函数，在运行时对蓝图隐藏/显示骨架网格体材质分段。新增ShowAllMaterialSections和IsMaterialSectionShown函数。从资源中移除内部“禁用” 和“高亮”标记：现在将固定使用每个组件的标记。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	igoOgJPtQFU
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+**为BreakStruct节点新增“隐藏未连接引脚（Hide Unconnected Pins）”按键。**
+
+现在，BreakStruct节点拥有一个快速隐藏未连接引脚的按键
+
+[REGION:asyncgif]
+![image alt text](image_30.gif)(w:800 convert:false)
+[/REGION]
+
+此外，动画工具改良还包括：
+
+* **修改骨架网格体属性时固定动态模糊** - 动画系统借助修订号拥有之前的骨骼变形，因此能够在重新创建RenderState时发送至渲染线程。**帧数** 依然存在，因为布料系统仍在使用。组件tick时，修订号将发生变化。如不tick，它将保留相同的修订号（保留历史记录）。
+
+* **在动画编辑器中公开了序列录制设置**
+
+* **新增对碰撞形态进行命名的功能** - 您可以在编辑物理资源时对单独的碰撞形态进行命名。
+
+* **改进了动画编辑器视口中的边界跟随** - 边界跟随不再存在滞后。
+
+* **新增在姿势资源中修改重定向源的功能** - 现在，姿势资源将保存原始源姿势，以便在重定向源发生变化时重新计算新姿势。重定向源用于烘焙姿势资源增量变换。因此，您如果在不同网格体上使用相同的资源，则需要确保拥有正确的重定向源。 
+
+* **可配置网格体绘制顶点大小** - 新增网格体绘制的个人设置的功能；并增加预览顶点大小，以便用户进行配置，并将其用于不同尺寸的网格体。
+
+* **修改Persona中的动画预览提示文本。如动画尚未加载，则停止加载。**
+
+* **在动画编辑器中必要之处添加“预览（Preview）”按钮** - 如相关，预览网格体、预览动画和参考姿势均可通过工具栏进行编辑。
+
+* **为高级预览场景（Advanced Preview Scene）设置面板新增搜索栏**
+
+* **为HLOD大纲树状图中的HLOD关卡节点新增快捷菜单** - 这能让您从当前关卡视口选择创建一个新集群。
+
+* **新增在预览场景中开关后期处理的热键和命令**
+
+* **新增在网格体绘制器中切换前景和背景的快捷方式** - 网格体绘制器启动状态下快捷方式默认绑定到“X”键。
+
+* **材质烘焙已脱离实验性阶段**
+
+* **新增网格体绘制器的RGBA遮罩支持** - 这能让您在网格体绘制器中使用填充工具时将RGBA通道用作遮罩。
+
+* **新增过程网格体组件（ProceduralMeshComponent）的“GetSectionFromProceduralMesh&”效用函数**
+
+* **新增同步组中跟随动画上的通知** - 新增标记，在同步组中的跟随动画上触发通知。
+
+* **删减生成全部资源时冗长的记录日志** - 每个资源只记录2行，而非4行。
+
+* **在弹簧动画节点（Spring AnimNode）上将阻尼（Damping）和刚性（Stiffness）公开为引脚** - 现在，弹簧动画节点可将弹簧阻尼和弹簧刚性公开为引脚。
+
+## 新增特性：运动控制器组件可视化
+
+虚幻引擎4.19版中的运动控制器拥有了一个全新的可视化类目，能让您快速（且简便）地将显示模型静态网格体添加到运动控制器。系统将默认尝试加载一个与驱动运动控制器的设备相匹配的静态网格体模型。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	sVp5n4FkZwE
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+* 现在，运动控制器组件加入了全新可视化域，提供以下选项：*显示设备模型（Display Device Model）*、*显示模型源（Display Model Source*、*自定义显示网格体（Custom Display Mesh）* 和 *网格体材质覆盖（Display Mesh Material Overrides）*。
+
+    * *自定义显示网格体（Custom Display Mesh）* 只有将在 *Display Model Source* 设为“自定义（Custom）”时才能使用。
+
+    * 对于更为复杂的自定义模型，则需要手动附加自用的静态网格体模型。
+
+    * 如目标XR系统未加载，您可以对 *“显示模型源（Display Model Source）”* 进行手动设置。
+
+* 为空时，*“显示模型源（Display Model Source）”* 默认将尝试从备份XR系统加载模型。
+
+    * 实现IXRSystemAssets接口来区分支持此功能的XR系统——目前只有Oculus和SteamVR支持此功能。
+
+## 新增特性：Vive Pro支持
+
+![image alt text](image_32.jpg)(w:1000 convert:false)
+
+现在，所有目前支持SteamVR的UE4内容均兼容HTC新发布的Vive Pro了！虽然将现有UE4项目用于Vive Pro时不需要进行任何修改，但您仍需确认项目在Vive Pro上的运行性能并依此进行优化（因为Vive Pro会以更高的分辨率运行）。 
+
+## 新增特性：平台SDK升级
+
+在每个更新版本中我们都将更新引擎，以支持平台合作伙伴的最新SDK版本。
+
+![image alt text](image_33.jpg)(w:1000 convert:false)
+
+* **Build farm进行编译的IDE版本**
+
+    * **Visual Studio:**  Visual Studio 2015 Update 3
+
+    * **Xcode:**  Xcode 9.2
+
+* **Android:  **
+
+    * NDK 12b（发布前，Android 1r6u1安装程序的新CodeWorks将替代Android 1R5的CodeWorks，仍在NDK 12b上)
+
+* **HTML5:** emscripten工具链到1.37.19
+
+* **LInux:** v11_clang-5.0.0-centos7
+
+* **Steam:** 1.39
+
+* **Oculus Runtime:** 1.17
+
+* **SteamVR:** 1.39
+
+* **Switch:** 3.7.0 with NEX:4.3.1（可选）、4.5.0 with NEX 4.3.1（可选）、固件版本3.0.1-1.0
+
+* **PS4:**
+
+    * 5.008.071
+
+    * 固件版本4.730.001
+
+    * 支持IDE：Visual Studio 2015、Visual Studio 2013
+
+* **Xbox One (XB1, XB1-S, XB!-X):**
+
+    * XDK: 2017年6月QFE9 
+
+    * 固件版本：2017年10月Preview 3（16291.1000.170913-1900版本）
+
+    * 支持IDE：Visual Studio 2017、Visual Studio 2015
+
+* **macOS:** SDK 10.13
+
+* **iOS:** SDK 11
+
+* **tvOS:** SDK 11
+
+## 新增特性：低输入延迟帧同步（Xbox One和PS4）
+
+低延迟帧同步（Low-latency frame syncing）模式可修改游戏、渲染和RHI线程之间的线程同步方式，将极大降低G消耗并控制输入延迟。您可使用r.GTSyncType（游戏线程同步类型）控制台变量来控制低延迟帧同步的效果。此控制台变量驱动全新帧同步机制的工作方式，并允许以下数值：
+
+* 0 - 游戏线程与渲染线程同步（默认的旧版本行为）
+
+* 1 - 游戏线程与RHI线程同步（等同于并行渲染前的UE4）
+
+* 2 - 游戏线程与交换链同步，显示以毫秒为单位的+/-偏差（仅在支持平台上可用，且仅在同步启用后有效）
+
+如需了解更多信息，请查阅[低延迟帧同步（Low Latency Frame Syncing）](https://docs.unrealengine.com/en-us/Platforms/LowLatencyFrameSyncing)页面。
+
+## 新增特性：加密/签名密钥生成器
+
+现在，您可以通过单独的统一设置面板<strong>完全从编辑器配置.pak文件签名和加密</strong>。您可以在“项目（Project）”>“项目设置（Project Settings）”>“加密（Crypto）”面板中对这些功能进行控制。
+
+![image alt text](image_34.png)(w:577 convert:false)
+
+此面板可以生成或清除加密/签名密钥，并启用/禁用多种类型的签名和加密。您可以从此菜单中启用或禁用以下功能：
+
+* **加密Pak .ini文件（Encrypt Pak .ini Files）** - 对项目.pak文件中所有的.ini文件进行加密。运行时消耗极低，且能防止产品配置数据被轻易挖掘或篡改。
+
+* **加密Pak索引（Encrypt Pak Index）** - 以最低的运行消耗对pak文件索引进行加密，可防止UnrealPak打开、查看和解包产品的pak文件。
+
+* **加密UAsset文件（Encrypt UAsset Files）** - 对pak文件中的uasset文件进行加密。uasset文件包含其中资源的标头信息，但不包含实际的资源数据本身。对此数据进行加密可使数据的安全性提升，但会少量提高运行消耗、增加数据熵，并对补丁大小产生不良影响。
+
+* **加密资源（Encrypt Assets）** - 完整加密pak文件中的所有资源。注意：此设置将对运行时文件I/O性能产生重大影响，并增加最终打包数据中的熵数量，使发布补丁系统的工作效率降低。
+
+## 新增特性：显示蓝图调试调用堆栈
+
+显示当前已添加到开发者工具（Developer Tools）菜单的蓝图调用堆栈。双击调用堆栈中的条目将聚焦蓝图编辑器中相应的节点。
+
+![image alt text](image_35.png)(w:1000 convert:false)
+
+## 新增特性：对蓝图调试的单步改良
+
+The Engine’s Blueprint Debugger now supports **Step Into (F11)**, **Step Over (F10)**, and **Step Out (Alt+Shift+F11)** operations when stopped at a Blueprint Breakpoint, making debugging sessions quicker and easier.引擎的蓝图调试器现支持停留在蓝图断点时进行 **进入（Step Into）（F11）**、**越过（Step Over）（F10）** 和 **跳出（Step Out）（Alt+Shift+F11）** 操作，使调试会话更简易快捷。
+
+![image alt text](image_36.png)(w:1000 convert:false)
+
+此外，我们还新增了直接在宏和重叠图表节点上进行中断，以及进入、越过和跳出的功能：
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	fkBHxds-cKg
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	78
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## 新增特性：改良磁盘空间优化工具
+
+新版本中新增和改良了数个工具，可用于分析打包游戏的磁盘和下载容量。“资源审核（Asset Audit）”窗口新增了“添加文件块（Add Chunks）”选项，可显示所有打包的Chunk/Pak文件。您还可以在此视图中使用“参考查看器（Reference Viewer）”和“尺寸图（Size Map）”，分析资源被加入特定文件块的原因。
+
+“尺寸图”工具已经过修改，将默认显示磁盘大小，这比估算的内存大小更为准确。如在“资源审核（Asset Audit）”窗口中选择了平台，则会显示此平台实际生成的数据包大小。“尺寸图（Size Map）”的用户界面也经过了改良，支持右键点击操作，性能也更佳。
+
+![image alt text](image_38.png)(w:1000 convert:false)
+
+## 新鲜出炉：音频改良
+
+**更新至Steam Audio Beta 10（仅限全新音频引擎）**
+
+![image alt text](image_39.png)(w:361 convert:false)
+
+随着Steam Audio的更新（Beta 10版本），改良包括：
+
+* 新增空间化和遮蔽的Android支持
+
+* 新增编辑器模式，便于访问Steam Audio功能
+
+* 新增按键，可给所有静态网格体Actor添加或移除声子几何体组件（Phonon Geometry Component）
+
+* 新增按键，可将场景导出为.obj文件进行调试
+
+* 移除声子场景（Phonon Scene）actor，以便导出到文件
+
+* 对将数据写入磁盘的生成和烘焙进行探测，避免地图文件的加载和保存过慢
+
+* 多项信息显示改良
+
+* 多项错误修复
+
+**Oculus Audio更新（仅限全新音频引擎）**
+
+![image alt text](image_40.png)(w:356 convert:false)
+
+Oculus Audio插件已更新，将支持Android。
+
+除提供HRTF空间化外，新版本还支持带体积参数的Oculus Audio空间建模混响，以及高保真环绕源播放。  
+
+**新增Resonance Audio插件（仅限全新音频引擎）**
+
+![image alt text](image_41.jpg)(w:340 convert:false)
+
+在虚幻引擎4.19 版中，Resonance Audio插件已成为引擎插件的一部分。Resonance Audio插件支持Windows、iOS、Android、Linux和Mac上的双声道空间化、混响、声音指向性和高保真环绕播放。 
+
+**一阶高保真环绕文件支持（通过插件支持播放）**
+
+一阶高保真环绕文件现在可导入虚幻引擎项目，并借助空间化（Spatialization）插件进行播放。一阶高保真环绕是一种球形环绕文件格式，提供声场向前、向右和向上的矢量，以便设计者创建包含垂直声音朝向的环绕声效体验。这在VR项目中十分实用，用户可以通过转动头部体验垂直声场中的自然变化；也可用于其他用户朝向能发生垂直变化的交互体验。在文件名中加入FuMa或AmbiX（两项一阶高保真环绕通道配置）便能导入4通道一阶高保真环绕文件。Oculus Audio和Google Resonance皆拥有高保真环绕播放功能。
+
+**改良UE4的原生VOIP实现（仅限全新音频引擎）**
+
+我们对原生VOIP实现进行了改良，能提供更佳的一致性，其中包括Windows上改良的寂静探测。此外，新版本还支持将VOIP源纳入场景，以便执行以下操作：
+
+* 空间化
+
+* 距离衰减
+
+* 混响
+
+* 自定义源效果
+
+使用UVoipTalker场景组件进行全面控制。
+
+**全新麦克风采集组件 （仅限全新音频引擎）（仅限Windows）**
+
+新版本中实现了麦克风采集组件（Microphone Capture Component），可执行以下操作：
+
+* 将音频直接填入游戏供混音器（Audio Mixer）使用
+
+* 使用实时振幅数据来驱动游戏中的参数。
+
+* 用源效果或Submix效果处理音频。
+
+当前这只用于本地客户端麦克风采集，未连接到VoIP系统
+
+虽然当前不支持录制麦克风直接输出到资源，但第三方插件开发者有机会通过麦克风输入利用数据。
+
+**将实时音频振幅采集为蓝图数据（仅限全新音频引擎）**
+
+新增获取振幅包络数据的功能，通过蓝图委托直接跟随音频组件和合成组件。
+
+![image alt text](image_42.png)(w:564 convert:false)
+
+**前后源效果总线发送类型**** ****（仅限全新音频引擎）**
+
+新增前后源效果总线发送类型，使设计者能在源效果和衰减处理前后将源音频发送到源总线。
+
+**新增多通道文件导入支持**
+
+新版本支持将交叉存取的多通道wav文件直接导入浏览器（也保留了使用多个单视场文件的老方法）。
+
+**合成上的采样率控制**
+
+新增合成器在初始化时修改其请求采样率，使合成源指定其自身的采样率。
+
+**改良跨平台音频插件（仅限全新音频引擎）**
+
+添加一个平移源效果
+
+为了方便用户，我们还为PS4和Switch平台设置新增了插件下拉菜单。
+
+**添加一个平移源效果**
+
+该源效果使设计者能够将蓝图的立体平移值作为源效果进行驱动。这使得您可以修改单视场/立体3D/2D源的平移。
+
+## 新鲜出炉：物理改良
+
+新版本对物理系统进行了数项改良和优化，使物理对象的模拟更加简易高效！
+
+* **为物理资源编辑器新增“仅显示选中约束（Show Only Selected Constraints）”功能**
+
+* **新增通过Ctrl+T快捷键切换形体和约束选择的功能**
+
+* **新增“设置使用CCD（Set Use CCD）”函数，在运行时修改“持续碰撞检测（Continuous Collision Detection）”选项**
+
+* **保存BodyInstance运行时内存** - 从非编辑器版本移除了FBodyInstance::ResponseToChannels_DEPRECATED属性来节约内存。
+
+* **为弹簧臂组件（SpringArmComponent）新增函数，获取碰撞测试的相关状态。**
+
+* **新增分析场景查询卡顿的功能** - 使用p.SQHitchDetection控制台变量
+
+* **公开部分物理资源功能，使其在C++中拥有更好的延展性**
+
+* **改良初始重叠中的HitResult信息** - ImpactPoint将包含来自最深重叠点上PhysX的信息。 
+
+* **引擎将脱离PhysX进行纯净编译** - 可将WITH_PHYSX指令设为0，进行无误编译。 
+
+## 新增特性：iOS上的自动代码签名
+
+使用Xcode时的自动代码签名（Automatic Code Signing）已加入虚幻引擎4.19版。ACS加上Team ID后即可创建包，并进行iOS项目签名。Mac上未预安装移动条款同样能够使用，但Mac必须含有认证。开发团队仍然需要将iOS设备添加到Apple账户才能部署app，但使用此功能时无需再将移动条款下载并安装到Mac上。 
+
+## 新增特性：4.19版Android改良
+
+* 添加代理网络支持。
+
+* 新增弹出框，告知用户运行中的移动项目是否在使用不支持的纹理格式，并提示所支持的纹理格式
+
+* 新增编译和打包项目前的NDK和SDK平台验证，更早告知编译是否成功。
+
+## 新增特性：内容浏览器的文件夹收藏
+
+现在，您可以 **将内容浏览器中的任意文件夹标记为“收藏”** ，以便于访问！文件夹被标为收藏后，它将存入文件夹树结构上方的“收藏夹”部分。点击右键即可在此处添加/移除文件夹。
+
+可使用“显示收藏夹”的“查看”选项来启用/禁用内容浏览器的“收藏夹”部分。此功能默认启用。
+
+[REGION:asyncgif]
+![image alt text](image_43.gif)(w:600 convert:false)
+[/REGION]
+
+## RELEASE NOTES （以下部分不作翻译）
+
+#### AI
+
+* Bug Fix: Fixed the On Perception Updated delegate to be correctly bindable to AI Perception Component.
+
+##### Behavior Tree
+
+* Bug Fix: Changed the order of the Behavior Tree tick to allow Blueprint-based nodes to update before processing search data.
+
+* Bug Fix: Fixed a bug that caused a Behavior Tree asset containing a Run Dynamic Behavior node to become dirty upon opening.
+
+* Bug Fix: Fixed a Behavior Tree state change during a latent abort. Decorators and services updates are delayed until after the aborting node finishes.
+
+* New: Added the local decorator scope to the Behavior Tree Composite Nodes. The local decorator scope is controlled by the Apply Decorator Scope** **variable. This addition provides better control of flow-observing decorators, allowing them to be active only in a specified branch of the tree.
+
+* New: Added a simple mechanism for logging Behavior Tree** **nodes that reference empty or removed Blackboard keys.
+
+##### Debugging Tools
+
+* New: Extended the EQS Testing Pawn with an option to specify navigation agent properties to support navigation-related EQS tests and features.
+
+* New: Added more Visual Logging functions to Blueprint.
+
+* Bug Fix: Fixed some existing Visual Logging Blueprint functions.
+
+##### Navigation
+
+* Bug Fix: Fixed cases where changes to Nav Mesh Bounds Volumes properties were not causing Nav Mesh to rebuild.
+
+* Bug Fix: Fixed a failure to set the area flags when updating the Nav Area of a given Nav Mesh poly.
+
+* New: Made updates to allow the proper use of Nav Link Component via Blueprints.
+
+#### Animation
+
+* Crash Fix: Fixed a crash when opening Animation Compression settings for newly imported Alembic File.
+
+* Crash Fix: Applied a fix for a rare crash when Notify Queue caches a pointer to the notify that if garbage collected, would have a pointer to invalid memory. We now cache a pointer to the owner of the notify memory so we can track its validity. 
+
+* Crash Fix: Applied a fix for a Live Link module startup crash.
+
+* Crash Fix: Prevented threaded work from running in a single-threaded environment, which avoids a Linux server crash.
+
+* Bug Fix: Fixed debug builds hitting checkSlow when using a post process Anim Instance on a Skeletal Mesh Component without a main AnimInstance.
+
+* Bug Fix: Fixed some race conditions in Skeletal Mesh Resource Sync UV Channel Data and Static Mesh Render Data Sync UV Channel Data.
+
+* Bug Fix: Fixed a bug with adjacency DDC serialization in Skeletal Meshes.
+
+* Bug Fix: Non-rendered anim updates now run on worker threads.
+
+* Bug Fix: Changed the way Get Bone Poses For Time inside of the Animation Modifiers library retrieves the Bone Transforms for a specific time-code.
+
+* Bug Fix: Fixed Anim Sequence Base Get Time At Frame and Anim Sequence Base Get Frame At Time to return correct frame indices.
+
+* Bug Fix: Fixed pasted socket name getting an appended _0 when no other sockets contained that name.
+
+* Bug Fix: Reset Tick Records when doing 'Only Tick Montages When Not Rendered' since the montage will appear to have jumped when regular ticking resumes.
+
+* Bug Fix: URO now ensures you don't skip more frames than desired when switching LODs. 
+
+* Bug Fix: Animation tasks are no longer created for Skeletal Meshes that have no anim instance.
+
+* Bug Fix: Skeletal Meshes that are not being ticked due to URO can no longer dispatch tick tasks.
+
+* Bug Fix: Fix for notifies not getting fired in cases where Always Tick Pose was set on Skeletal Mesh Components.
+
+* Bug Fix: Looping sound cues and particle systems used in notifies no longer leak a component per invocation.
+
+* Bug Fix: Recalc Required Bones now uses correct predicted LOD level instead of defaulting to 0.
+
+* New: Optimized Post Anim Evaluation when URO is skipping a frame with no interpolation.
+
+* New: Changed the notify system to allow notifies on follower animations in a sync group to be triggered.
+
+* New: Added two callbacks on Character Movement Component for the root motion world space conversion to allow users to modify the root motion:
+
+    * Pre conversion (while it is still in component space).
+
+    * Post conversion (when it is in world space).
+
+* New: Added Virtual Subjects to Live Link which are created within the client and contain the bones of multiple real subjects.
+
+* New: Added Initialization and Update Delta Time to Live Link Retargeter API:
+
+    * Pushing skeleton to Live Link can now take source GUID.
+
+    * Message bus source pushes GUID when sending skeleton.
+
+* New: Added 'Play Rate Basis' to Sequence Player node to scale Play Rate without having to do more expensive BP code.
+
+* New: Added support for Dialogue Waves driving Audio Curve Source Components.
+
+* New: Added default Get Axis Vector static function to Axis Option.
+
+* New: Skeletal Mesh Component Init Anim doesn't call Update and Eval anymore. 
+
+* New: Rigid Body Anim Node Updates:
+
+    * Now maintains Bone Velocity transfers through LOD changes. 
+
+    * Added support for transferring angular velocity. 
+
+    * Added option Transfer Bone Velocities to transfer bone velocities to simulation upon start, so ragdolls transition seamlessly from kinematic (animation) to simulation.
+
+    * Added Freeze Incoming Pose On Start option to freeze incoming pose and stop ticking/evaluating rest of the AnimGraph. 
+
+* New: Moved Update Component Pose Any Thread and Evaluate Component Pose Any Thread functions to Anim Node Skeletal Control Base to enable overriding these in child classes.
+
+* New: Added Pre Eval Skel Control Any Thread to Skel Control Base, to allow capture of incoming pose before SkelControl is evaluated.
+
+* New: Added the Empty function to Base Compact Pose and FCS Pose to release allocated arrays.
+
+* New: Added the notify class name to the notify tooltip.
+
+* New: Optimized redundant key removal on curves. Optimized code takes less than 1% of the time to execute of the original.
+
+* New: Added prebuilt binaries for the Maya Live Link plugin to Engine/Extras (Maya 2016, Maya 2017, Maya 2018).
+
+* New: Skeletal Mesh Render Data Get Max Bones Per Section is now an ENGINE_API exported function.
+
+##### Animation Assets
+
+* Crash Fix: Fixed a crash with streaming if a montage is streamed out while an event is queued.
+
+* Crash Fix: A crash no longer occurs due to oversampling animation during compression.
+
+* Crash Fix: No longer crashes when the Skeleton has been changed and joints have been removed from a Pose Asset.
+
+* Bug Fix: Fixed an ensure that was triggering when compressing an animation which has had its Skeleton switched due to Skeletal Mesh Merging.
+
+* Bug Fix: Changed raw animation data evaluation so that Virtual Bone positions are built before interpolation is carried out instead of after. 
+
+    * This fixes a slight mismatch between the Virtual Bone positions in raw animation and compressed animation.
+
+* Bug Fix: Marker Sync position is now maintained across instant transitions.
+
+* Bug Fix: Animations with a scaled root bone now generate correct root motion.
+
+* Bug Fix: Changes Retarget Source hard reference to Soft Object Ptr, so that the Skeleton won't load all the references of Retarget Sources.
+
+* Bug Fix: Fixed Pose Asset retargeting not working for additive pose assets.
+
+* Bug Fix: Fixed issues with Pose Assets of additive blending using shortest path to blend, causing it to blend between rather than accumulating.
+
+* Bug Fix: Fixed Retarget Source for Pose Asset.
+
+    * Changing Retarget Source in Pose Asset now works.
+
+    * Pose Asset now saves original source pose, so that it can recalculate new pose when Retarget Source changes.
+
+    * Retarget Source is used to bake the pose asset delta transform. 
+
+* New: Native Animation Instances can now be set on Skeletal Mesh Components.
+
+* New: Anim Sequence Base is now entirely exported with ENGINE_API.
+
+* New: Added support for curve-only animation (required for facial pose retargeting).
+
+* New: Added inline time/frame settings to notify context menu.
+
+##### Animation Blueprints
+
+* Crash Fix: Loading an Anim Instance with a re-instanced class no longer crashes.
+
+* Crash Fix: A crash no longer occurs when loading reparented Animation Blueprints that do not have an Anim Graph but are no longer Child Blueprints. 
+
+* Crash Fix: Initialized Poses To Evaluate on Blend nodes to fix a crash from gathering stale data after reinitializing.
+
+* Bug Fix: Fixed "Modify Curve" Anim Node breaking certain nodes that were used before it (due to not caching bones correctly).
+
+* Bug Fix: Anim Dynamics correctly calculates simulation transforms and world vector transformations. 
+
+* Bug Fix: Transition nodes no longer reference the wrong state node due to non-unique node GUIDs being introduced by copy and paste.
+
+* Bug Fix: Subinstance nodes inside states no longer fail to correctly create bridge variables on their skeleton class due to not correctly processing subgraphs in the Anim Blueprint compiler.
+
+* Bug Fix: Added a fix for animation reinitializing when replacing animation via Single Node Instance.
+
+* Bug Fix: Added code to correct duplicate node GUIDs during Anim Blueprint compilation.
+
+* New: Copy Pose node now supports copying curves as well as bone transforms. Enable Copy Curves if you want to copy curves (by default, this is not enabled).
+
+* New: Added ability for worker thread Animation Blueprint code to report to Message Log and added additive warning when playing an animation on an additive pose.
+
+* New: Added "Uncheck All Unconnected Pins" for button Break Struct nodes.
+
+* New: Added Native Begin Play function to Anim Instance.
+
+* New: Added ability to control whether or not a post process instance runs on a skeletal mesh component. Exposed both to blueprints and anim editor suite
+
+* New: Added support for logical negation when copying to array properties in the fast path.
+
+* Deprecated: Get Scalar Parameter Default has been deprecated and replaced with Get Scalar Parameter Default Value.
+
+##### Animation Tools
+
+* Crash Fix: Removing bones in a LOD on a Skeleton that has Virtual Bones no longer crashes.
+
+* Crash Fix: Crash no longer occurs when updating clothing paint mode after tab spawners have been destroyed by the hosting application.
+
+* Crash Fix: Attempting to zero out an array with the wrong size in Control Rig no longer crashes.
+
+* Crash Fix: Addressed a crash in Animation Editor menus caused by audio compression. 
+
+* Crash Fix: No longer crashes when displaying a two bone IK gizmo for a node that hadn't had a chance to evaluate or had a zero alpha.
+
+* Bug Fix: Skeleton Tree now correctly no longer allows selection of filtered items. 
+
+* Bug Fix: Bone modifications via transform type-in can now be undone.
+
+* Bug Fix: Fix to make sure Debug Bone Rendering of raw animation data in the Animation Editors actually shows the raw data when an animation uses additive track layers instead of showing the source.
+
+* Bug Fix: Fixed bad blend profile references from copy/paste operations on nodes using external profiles.
+
+* Bug Fix: Fixed Blend Profile properties not being correctly customized on anim nodes - and Animation Sequence references not being correctly filtered on anim nodes.
+
+* Bug Fix: Addressed Single Node Instances not getting ticked properly. Due to them not increasing UpdateCounter, and forcing a tick even if we're doing parallel ticking later.
+
+* Bug Fix: Removed recompress animation from curve track actions. This allows for smoother interaction on animations with a slow recompression time.
+
+* Bug Fix: Text is now red again in Anim Viewports.
+
+* Bug Fix: Fixed Set Root Motion Enabled Anim Data Modifier node (previously didn't set the enabled flag)
+
+* New: Exposed Sequence Recording Settings in Animation Editors.
+
+* New: Changed animation preview tooltips in Persona to stop loading the animation if it is not already loaded.
+
+* New: Tweaked debug display of Anim Sequences and added DeltaTime to AnimInstance debug.
+
+* New: The console command "showdebug animation" now shows current LOD and counters to know if Update/Eval/Cachebones/Init was called. 
+
+    * Also for URO settings, renamed Display Debug Custom to Display Debug Instance.
+
+* New: Added Anim Instance Display Debug Custom, to display custom debug info before AnimGraph display.
+
+* New: Removing a section when creating a clothing data entry will now just disable the section in the mesh, so that the operation is non-destructive to the mesh data.
+
+* New: Moved Live Link Message Bus Source heartbeats to their own thread using a new  Heartbeat Manager singleton. This prevents sources from incorrectly being removed during Slate UI operations.
+
+##### Import/Export
+
+* New: Refactored Facial Animation importing so it can be used from inside other modules.
+
+##### Skeletal Mesh
+
+* Crash Fix: Undoing a change on a Skeletal Mesh that uses Virtual Bones no longer crashes.
+
+* Crash Fix: Setting a Master Pose Component on a Slave Component using the Rigidbody node during actor construction will not result in a crash. 
+
+* Crash Fix: No longer crashes when clearing a Skeletal Mesh on a Skeletal Mesh Component with an active Post Process Anim Instance.
+
+* Bug Fix: Skeletal Mesh Component LOD info no longer cleans up all override resources and only cleans up one. 
+
+* Bug Fix: Set the Used by Morph Target Material option to only the Materials affecting section deform by a Morph Target instead of all Materials used by the Skinned Mesh component.
+
+* Bug Fix: Multi-convex generation for Skeletal Meshes no longer uses incorrect index buffer.
+
+* Bug Fix: Correctly return whether a Skeletal Mesh section is shown or not when it has not been edited.
+
+* New: Exposed Show Material Section function to hide/show Skeletal Mesh material sections at runtime to Blueprint (also added Show All Material Sections and Is Material Section Shown functions). 
+
+* New: Animation System owns previous Bone Transform with revision number that are used for motion blur or temporal AA, so that it can send to the render thread when RenderState is recreated. 
+
+* New: You can set attached and parent to sync their LOD by setting Sync Attach Parent LOD to true.
+
+##### Tools
+
+* Crash Fix: Skeletal Mesh Editor no longer crashes when importing more than 5 LODs.
+
+* Bug Fix: Refactored View menus in Animation Editors.
+
+* Bug Fix: Incorrect reporting of Animation Blueprint Fast Path is no longer caused by enabling the Compilation Manager. 
+
+* Bug Fix: Compression Settings panel no longer allows "Use Adaptive Error" and "Use Adaptive Error 2" to be enabled at the same time.
+
+* Bug Fix: Ensured bounds inside of the Animation Editor(s) are correctly shown for Alembic Skeletal Meshes.
+
+* Bug Fix: Removed unused preferences from Persona Options.
+
+* Bug Fix: Persona Viewport settings are now per-asset editor.
+
+* New: Defaulted the Clothing Create menu to use the Skeletal Mesh Physics Asset.
+
+* New: All animation-related editors now have the ability to open up to 4 separate viewports onto the same scene, each with their own settings.
+
+    * Added the ability to follow (and orbit) a specified bone as well.
+
+    * Added a new "pinnable command list" widget to animation editors.
+
+* New: Preview buttons are now present where applicable inside the Animation Editors.
+
+* New: Added Mesh Paint settings to per-user settings and added preview vertex size so it's configurable by the user for use on differently sized meshes.
+
+* New: Auto-range feature added to cloth view ranges and a way for tools to extend those ranges when necessary.
+
+* New: Improved Skeletal Mesh Component debugging.
+
+    * Extended the viewport text seen in Skeletal Mesh Editor.
+
+    * Added lines for current cloth value.
+
+* New: Clothing visualizations can now be enabled while clothing paint mode is active.
+
+* New: Added a search bar to the Advanced Preview Scene settings panel.
+
+#### Audio
+
+* Crash Fix: Fixed an issue with VOIP crashing on Mac.
+
+* Crash Fix: Fixed Ngs2 sources getting recycled while getting setup.
+
+* Crash Fix: Applied a fix for editing inherited audio component overrides in attenuation detail customization.
+
+* Crash Fix: Fixed a crash in the Audio Device function, Processing Pending Active Sound Stops.
+
+* Bug Fix: Fixed a case where audio is already set to be a preview sound. Sequencer sets the sound to be a preview sound when scrubbing in editor.
+
+* Bug Fix: Fixed a hang during multi-PIE shutdown when using a synth component.
+
+* Bug Fix: Sound mix fade time now fades audio properly.
+
+* Bug Fix: Fixed a bug during shutdown of audio mixer.
+
+* Bug Fix: The sample rate of synth components can now be overridden in C++.
+
+* Bug Fix: Fixed a bug in Android VOIP.
+
+* Bug Fix: Fixed a potential memory leak caused when starting and stopping a SynthComponent on the same frame.
+
+* Bug Fix: Fixed Ogg Vorbis 5.1 channel ordering channel maps in the Audio Mixer.
+
+* Bug Fix: Fixed an issue where audio sources were gently filtered near Nyquist when a source's LPF was set to max frequency in the new Audio Engine.
+
+* Bug Fix: Fixed a memory leak in the audio decompressor.
+
+* Bug Fix: Libvorbis DLL failing to load will now recover gracefully.
+
+* Bug Fix: Removed "Stopping sound already in the process of stopping" log spam.
+
+* Bug Fix: Envelope Attack and Release times are now setting properly on Synth Components.
+
+* Bug Fix: White Noise in the new Audio Engine no longer produces non-uniform noise.
+
+* Bug Fix: Fixed an issue in which the Delay Submix effect would allocate too much memory for delay lines.
+
+* Bug Fix: Recording audio in Recording Sequencer will no longer cause the Editor process to persist after shutdown.
+
+* Bug Fix: Fixed issues in wavetable sampleplayer synth component.
+
+* New: Added the ability for Submixes to define their own channel format. Currently, Stereo, Quad, 5.1, 7.1, and first order ambisonics are supported.
+
+* New: Made improvements to Unreal Engine 4's native VOIP implementation. Spatialization, Distance Attenuation, Reverb, and custom effects for a player's voice can now be controlled using the UVoipTalker Scene Component.
+
+* New: The new Microphone Capture Component enables feeding audio directly into a game for use with the Audio Engine and for driving in-game parameters.
+
+* New: Upgraded to Steam Audio Beta 10.
+
+* New: Added the ability to get envelope following Audio Components and Synth Components through BP delegates.
+
+* New: Added the ability for synthesizers to modify the requested sample rate on initialization.
+
+* New: Users can now have different Audio Plugin source settings for different Plugins.
+
+* New: Added a Panner Source Effect.
+
+* New: Sound Submixes and Sound Classes are now Blueprint types.
+
+* New: Added support for seeking with ADPCM.
+
+* New: Optimized Active Sound by not processing active sounds if they are out of range.
+
+* New: On Mac Media, audio playback uses the operating system media player mixer rather than mixing in Unreal Engine 4. This is currently only enabled on Mac, but may come to iOS in the future.
+
+* New: Oculus Audio Plugin has been updated. It now includes a Reverb Plugin, as well as support for Android and playing back Ambisonics files.
+
+* New: First-order Ambisonics files can now be imported into Unreal projects and played back using select Spatialization Plugins.
+
+* New: Added pre and post Source Effect Bus Send types. At this time, sending audio to post-source effects sends before distance-based effects, such as occlusion and distance attenuation are applied.
+
+* New: Multichannel file import is now supported.
+
+* New: The Allow Anyone To Destroy Me variable is now enabled on audio components.
+
+* New: The Resonance Audio Plugin for Unreal is now included as an Engine Plugin. The Resonance Audio Plugin supports binaural spatialization, reverberation, sound directivity, and ambisonics playback on Windows, iOS, Android, Linux, and Mac.
+
+* New: Audio Components can automatically manage attachment, opting in to cache their attach parent and attach socket. This enables them to attach to their cached parent only while playing audio, then detach after playback is completed. Set to false by default.
+
+* New: Optimizing the way audio stream chunks are serialized to take advantage of alignment optimizations on console.
+
+* New: Added a Blueprint function for enabling and disabling the Low Pass Filter on Audio Components, as well as setting the frequency of the filter.
+
+* New: Added "Owner" parameter to Play Sound At Location and Play Sound 2D functions to support "Limit to Owner" concurrency settings.
+
+#### Automation
+
+* Crash Fix: Fixed a crash in Screen Shot Manager caused by an attempt to access a deleted String in an async lambda expression.
+
+* Bug Fix: Fixed issue with UnrealBuildTool and AutomationTool always being out of date, which forced a rebuild and made it impossible to debug operations dependent on them.
+
+* Bug Fix: Automated test screenshots now have more consistent overrides for gamma, eye adaption, dpi and other post process effects (regardless of capture mode).
+
+* Bug Fix: Fixed automation routines that list files in Perforce to return those whose last action was a rename.
+
+* New: Added automated test for per-platform blacklist defined in the relative platform engine ini file.
+
+* New: Automated test screenshots are now able to test against a hierarchical fallback platform and RHI.
+
+* New: Added button to automated test screenshot browser to add or replace all outstanding test reports (if appropriate).
+
+* New: Automated screenshot tests that fail due to size mismatch will now show a delta image, where mismatched bounds are colored red.
+
+#### Blueprints
+
+* Crash Fix: Fixed inclusion of private plugin header files in nativized Blueprint C++ source.
+
+* Crash Fix: Resolved a potential crash that could occur prior to initiating a global "Find in Blueprints" indexing operation with source control disabled.
+
+* Crash Fix: Fixed a crash when using EDL to load certain data-only blueprints that inherit from other blueprint classes
+
+* Crash Fix: Fixed a crash on load in a nativized build caused by a reference to a Blueprint class containing a User-Defined Enum asset.
+
+* Crash Fix: Fixed a potential crash when collapsing nodes to a function when a potential entry pin had no links.
+
+* Crash Fix: Fixed a crash when using blueprinted components created by a specialized subclass of Blueprint.
+
+* Crash Fix: Added a guard fix against a reported crash when deleting a non-root scene component with no parent attachment.
+
+* Crash Fix: Prevented a reported crash when deleting one or more Actor components.
+
+* Crash Fix: Added a guard fix against a reported crash when setting bIsEditorOnly flag on attached scene components.
+
+* Crash Fix: Fixed an issue where split struct pins would not respect Allowed Classes on things like Slate Font Info, which could cause crashes when passing in the wrong type of asset
+
+* Crash Fix: Fixed occasional crashes when manually compiling simple blueprints.
+
+* Crash Fix: Fixed several crash and data loss issues when undoing changes to user defined structs used in Data Tables
+
+* Bug Fix: In the Blueprint Material And Texture Nodes Plugin, clamping sampled HDR render target values by setting Range Compression Mode in the Read Surface Data Flags to RCM_MinMax now behaves as expected.
+
+* Bug Fix: User Defined Structures now store default values in the same way that native structs do, so they will now be correct in cooked builds and when added to containers. Changing the default value will also correctly propagate to unmodified instances in blueprints or other user structs.
+
+* Bug Fix: Fixed missing Outer mapping at cook time on nested subobjects instanced with the New Object function in emitted C++ code during Blueprint nativization.
+
+* Bug Fix: Blueprint nativization now emits external plugin dependencies to the generated plugin descriptor file in order to mute UBT warnings at build time.
+
+* Bug Fix: Removed the Inverse Lerp node and redirected it to call Normalize To Range. Also Fixed incorrect value being returned by Normalize To Range when Range Min and Range Max are equal.
+
+* Bug Fix: Fixed a rare linker issue where Is Blueprint Finalization Pending would return true when trying to force-load subobjects that weren’t ready to be loaded. This would prevent some placeholder objects from being replaced.
+
+* Bug Fix: We now ensure that "-build" is always passed to BuildCookRun automation workflows in the editor for projects configured with Blueprint nativization enabled so that it doesn't skip that stage.
+
+* Bug Fix: Revised both UAT/UBT-driven and custom code/data workflows to more seamlessly work with Blueprint nativization settings.
+
+* Bug Fix: Ed Graph Schema’s Break Single Pin Link function is now correctly marked as a const function.
+
+* Bug Fix: Local variables can now be created in blueprint function libraries.
+
+* Bug Fix: Fixed several issues with copy/pasting nodes that allow customizing which pins are visible.
+
+* Bug Fix: Light error sprite will no longer appear in blueprint preview window.
+
+* Bug Fix: Copy-pasting a collapsed graph containing a map input will no longer result in a map with an unset value type.
+
+* Bug Fix: Prevented nativization from creating uncompilable code when using a non-referenceable term (e.g. subclass of, weak object pointer) in a select node.
+
+* Bug Fix: We now properly cast between mismatched soft pointer types in nativized Blueprint C++ assignment statements and function calls.
+
+* Bug Fix: Blueprints that are asynchronously loaded inside the editor are correctly registered with editor systems like the list of cast nodes.
+
+* Bug Fix: Text can be specified in blueprint functions as default parameters.
+
+* Bug Fix: Fixed a serialization oversight in Ed Graph Pin that could lead to a compile error during Blueprint nativization.
+
+* Bug Fix: Added more descriptive log output after an attempt to break Blueprint execution on an unimplemented function/interface.
+
+* Bug Fix: Added Component nodes no longer lose their component type when another the component blueprint is compiled
+
+* Bug Fix: Split struct pins now handle both user struct variable renaming and native Core Redirects variable renaming, the same way that Make/Break did before.
+
+* Bug Fix: Implemented Get Redirect Pin Names for async nodes. This fixes a bug where property redirectors on async nodes did not work correctly.
+
+* Bug Fix: Fixed issues where type would not be correctly propagated through multiple redirect nodes.
+
+* Bug Fix: User Defined Structures can now be imported from text using the human-readable field names, which fixes their use in nested arrays inside data table rows.
+
+* Bug Fix: User Defined Structures that are nested inside other user structs can now be safely modified. It is now safe to modify the inner struct's defaults without corrupting the outer struct, and those default changes will be correctly propagated to the outer struct.
+
+* Bug Fix: Blueprint nativization now correctly generates and builds code for "Client" builds
+
+* Bug Fix: Improvements to the Cpp backend to allow VC++ to compile nativized code more effectively
+
+* Bug Fix: Subobjects of assets are now correctly referenced by nativized code Disabled animation fast-path optimization when running a native anim BP, as native code is faster!
+
+* Bug Fix: Fix split pins on macro instances for resolved wildcard pins not resetting when disconnected
+
+* Bug Fix: Child Actor Template label in the details panel will now correctly reflect the selected class.
+
+* Bug Fix: Blueprints that have no parent class can now be reparented when using the compilation manager
+
+* Bug Fix: Harden pin serialization logic, specifically to prevent crash due to bad 'conform' routines when renaming functions
+
+* Bug Fix: Fixed ensure when initializing replication data for blueprint generated classes
+
+* Bug Fix: Fixed missing marching ants on trace wires when stopped at a breakpoint in macro and collapsed source graphs.
+
+* Bug Fix: Fix issue where references from a component to its parent blueprint would be cleared on compilation.
+
+* Bug Fix: Fixed an ensure when exiting PIE after tracing into a Blueprint Function Library source graph while single-stepping.
+
+* Bug Fix: Fixed incorrect access to nested instanced subobjects in nativized Blueprint class constructor code.
+
+* Bug Fix: Prevented debug object selection dropdown from displaying objects with pending-kill outers.
+
+* Bug Fix: Fixed a packaging build failure that could occur with Blueprint nativization enabled and EDL disabled.
+
+* Bug Fix: The proper syntax is now being emitted for set/map fields containing converted assets to C++ class headers when Blueprint nativization is enabled.
+
+* Bug Fix: Fixed a scoping issue for local instanced subobject references in nativized Blueprint C++ code.
+
+* Bug Fix: Fix several issues with the class pin on the Spawn Actor From Class node
+
+* Bug Fix: Added more verbose log output to assist with debugging any crash reports due to an invalid object reference detected in the BP event graph frame during garbage collection.
+
+* New: Added Call Stack controls for viewing Blueprint call stacks when paused at a breakpoint. These are available from the Developer Tools menu.
+
+* New: Improved Blueprint single-step debugging and breakpoints.
+
+    * Added new Step Over (F10) and Step Out (ALT+SHIFT+F11) debugging features.
+
+    * Added the ability to break directly on and step into/over/out of macro and collapsed graph nodes.
+
+* New: Updated numeric graph pins to use a numeric editor.
+
+* New: Validated Get option for Soft Object/Class references in blueprints.
+
+* New: The Game Mode Base function Get Default Pawn Class For Controller can now be called in blueprints.
+
+* New: Added an Editor Preferences setting to disable navigation to native functions from call function nodes.
+
+* New: Deprecated properties can still be accessed in blueprints so long as they have blueprint getters and setters. This creates a clean deprecation path for blueprint-accessed properties.
+
+* New: Added new Blueprint functions to query parameters from Material Instance Constant objects. Previously, these were only available on Material Instance Dynamic objects. The functions included are:
+
+    * Get Scalar Parameter Value
+
+    * Get Texture Parameter Value
+
+    * Get Vector Parameter Value
+
+* New: Added a step to the compilation manager to skip recompilation of classes that are dependent on a given classes function signatures when those signatures have not changed. This greatly improves compile times for blueprints with large numbers of dependencies.
+
+* New: Preserve graph editor widgets when clicking on a hyperlink, this speeds up navigation via the debugger "step" command and Find in Blueprints control - both are now more responsive.
+
+* New: Added Vector Length XY to Blueprint math library.
+
+#### Core
+
+* Crash Fix: Fixed a crash on shutdown due to component visualizers not being cleaned up properly by the Unregister Component Visualizer function.
+
+* Crash Fix: Network platform file heartbeat function can no longer cause a crash by firing during async loading.
+
+* Crash Fix: Fixed a potential garbage collection crash caused by a stale pointer in Anim Instance Proxy.
+
+* Crash Fix: Fixed CVar access crashes with the async loading thread enabled.
+
+* Crash Fix: Fixed a crash in EDL loading when simple construction scripts and inherited component handlers were not being loaded early enough in complicated blueprint hierarchies.
+
+* Crash Fix: Rntering a single quote in an ini field will no longer crash the editor or make a project fail to load.
+
+* Crash Fix: Dumping stats with massive callstacks no longer causes a crash.
+
+* Crash Fix: Fixed some crashes with the new Blueprint Garbage Collection weak reference feature (and possibly Hot Reload) by updating the archive's serialized property when serializing arrays, sets, or maps to point to the inner property.
+
+* Crash Fix: Fixed a crash that could happen when GC Objects were constructed and destroyed during engine shutdown.
+
+* Crash Fix: An editor startup crash when using cook-on-the-side has been fixed.
+
+* Crash Fix: Fixed an issue where packaged games that disabled the TCP/UDP messaging plugins would crash on startup in shipping configuration.
+
+* Crash Fix: Fixed a crash when the engine was reporting package errors.
+
+* Crash Fix: Running DDC commandlet with an invalid package name no longer causes crashes.
+
+* Bug Fix: Multicast Delegate Property’s Identical function now has the same behavior as Delegate Property’s Identical function. This prevents it from giving incorrect results and causing serialization errors.
+
+* Bug Fix: The Asset Registry module is now always preloaded on startup, even if EDL is disabled.
+
+* Bug Fix: Fixed Thread Sanitizer warnings in stats system. Optimized Cycle Counter’s Start function to only read the stat name once (atomically).
+
+* Bug Fix: Fix ambiguities in calculating root directory.
+
+* Bug Fix: When serializing a compressed archive with multithreaded compression enabled, the engine will wait for the oldest async task instead of spinning.
+
+* Bug Fix: When Async time limit is set to a low value, the linker will no longer get stuck in a loop of reloading the preload dependencies.
+
+* Bug Fix: Fixed a small race condition with config data in Low Level Mem Tracker.
+
+* Bug Fix: Fixed some data races in Compression's stats.
+
+* Bug Fix: Shared Ptr, Shared Ref and Weak Ptr assignment operators are now implemented as copy-and-swap, to avoid bad states being visible to any destructors being called.
+
+* Bug Fix: Added atomic reads to Shared Ptr, Shared Ref, and Weak Ptr in Thread Safe mode.
+
+* Bug Fix: Used new Platform Atomics function, AtomicRead, in Thread Safe Counter‘s Get Value function.
+
+* Bug Fix: Fixed thread-unsafe sharing of a static array in the String function, Parse Into Array WS.
+
+* Bug Fix: Fixed a regression in hot reload speed accidentally introduced in 4.17, caused by rerunning UnrealHeaderTool redundantly if a source file has changed in the same folder as a header file which contains at least one UCLASS. This has also been fixed in non-hot-reload compiles.
+
+* Bug Fix: Removed a redundant call to Update Vertices when creating a level's model components, which was causing a race condition with the renderer thread.
+
+* Bug Fix: Suppressed Thread Sanitizer warnings in the Async Read Request interface.
+
+* Bug Fix: Fixed the debugger visualization of Array with an Inline Allocator or Fixed Allocator. Improved the visualization of Sparse Array.
+
+* Bug Fix: Fixed the wrong "P_GET_" macro being used in the generated code for Soft Class Ptr properties.
+
+* Bug Fix: Removed a redundant class access modifier from Queue.
+
+* Bug Fix: Freed the stats thread on shutdown.
+
+* Bug Fix: Is Integral now correctly reports true for int64 on 32-bit platforms.
+
+* Bug Fix: Fixed truncation errors in the parsing of very large integer values in FJsonObject::GetIntegerField().
+
+* Bug Fix: Unreal Header Tool's error reporting now specifies the correct source file when a header doesn't specify a .generated.h as its last #include.
+
+* Bug Fix: Deleted an unnecessary specialization of Make Array View.
+
+* Bug Fix: Removed String's char pointer constructor’s confusing void pointer parameter.
+
+* Bug Fix: Base64’s Encode function is now const-correct.
+
+* Bug Fix: Json Value no longer stringifies whole numbers as floats.
+
+* Bug Fix: Relaxed enum property importing to allow valid integer values to be imported too. This was previously made more strict, which caused a regression in Data Table importing.
+
+* Bug Fix: Fixed memory leaks for pipe writes and added data pipe writes.
+
+* Bug Fix: Fast XML now properly parses attributes with legally unescaped single and double quote characters
+
+* Bug Fix: Zipping in UAT now always uses UTF-8 encoding to prevent Unicode issues.
+
+* Bug Fix: Fixed pure-virtual function call in Multicast Delegate Property.
+
+* Bug Fix: Fixed console output not working when using "-log" in a shipping build.
+
+* Bug Fix: Loading maps via content browser or async load in the editor no longer leads to their references not loading properly.
+
+* Bug Fix: Fixed an issue where deleting a source package would not cause the generated cooked package to get deleted while doing an incremental build.
+
+* Bug Fix: Enum redirects handle typedef enums properly when a value redirect is not also specified. Enum classes continue to work correctly.
+
+* Bug Fix: Fixed an issue where the Streamable Manager could return partially loaded objects when called from Post Load. It will now schedule a callback for when those objects finish loading instead.
+
+* Bug Fix: Comparing NAME_None to an empty string, or a Name constructed from an empty string, now correctly returns true.
+
+* Bug Fix: Fixed cmake include directory generation putting engine include files in the game root.
+
+* Bug Fix: Fixed cases where an include path that is external to both the engine and game root were incorrectly getting the game root prepended.
+
+* Bug Fix: Many fixes were implemented for Thread Sanitizer warnings.
+
+* Bug Fix: Fixed build command line in generated projects missing a space before the compiler version override.
+
+* Bug Fix: If UAT is invoked with platforms in both the "-platform" and “-targetplatform” command-line switches, we will now build using all of them rather than just the ones in “-targetplatform”.
+
+* Bug Fix: Fixed cases where String’s Printf function was used without a formatting string.
+
+* Bug Fix: Updated loading movie code to properly calculate delta time when throttled at 60 frames per second.
+
+* Bug Fix: Fixed an inconsistency with how Soft Object Ptr case is managed between Linker Save and Archive Save Tag Imports, which could cause a cook ensure under some circumstances.
+
+* Bug Fix: Fixed an occasional loading assert in Script Struct’s Post Load function caused by a race condition on the Prepare CPP Struct Ops Completed variable.
+
+* Bug Fix: Changed Visual Studio Code project file generation to use "taskName" rather than "label" for C# build task names.
+
+* Bug Fix: Improved whitespace handling in both Map Property’s and Set Property’s "ImportText_Internal" function. Emptied the map or set if an error occurs during a text import of a property to avoid bad container states.
+
+* Bug Fix: Fixed a potential buffer overrun in Set Property.
+
+* Bug Fix: Map Property’s Import Text function now correctly skips duplicate keys.
+
+* Bug Fix: Unreal Build Tool now enforces Development and Debug configurations in existing C# projects. Fixes command-line builds and prevents solution from being marked dirty on initial load.
+
+* Bug Fix: Cleaned up delegates in UObjectGlobals.h, fixing several incorrect comments and moving some editor delegates into WITH_EDITOR.
+
+* Bug Fix: Fixed an optimization issue with CPU benchmarking. Also added better support for debugging local rocket builds.
+
+* Bug Fix: Fixed the final enumerators being missing from the generated FOREACH_ENUM_ macros.
+
+* Bug Fix: Parallel .pak generation now uses the number of reported CPU cores. Also fixed an issue with concurrent .ini file reading.
+
+* Bug Fix: Dedicated servers do not include RHI modules except NullRHI.
+
+* Bug Fix: Changed String’s Parse Into Array function to use Reset instead of Empty on the passed in array, allowing it to be approximately resized
+
+* Bug Fix: Fixed accounting for Curve Table assets in "obj list".
+
+* Bug Fix: Fixed a bug that caused the engine to fail to identify a running instance of Visual Studio as having the current solution open.
+
+* Bug Fix: Fixed the "quote issue" with foreign project build tasks on PC.
+
+* Bug Fix: Fixed limit on number of async precache tasks while cooking, due to counter not being updated correctly.
+
+* Bug Fix: The Windows version string is now determined correctly.
+
+* Bug Fix: Asset registry memory usage reported by memreport is now correct.
+
+* Bug Fix: Fixed Platform File Pak interface’s Find Files Recursively function not correctly calling the base class implementation.
+
+* Bug Fix: Literal soft object pins are correctly cooked and tracked in the reference viewer. This may cause assets referenced by disabled nodes to be cooked into your project. In this case, the reference viewer will track which blueprints are causing this.
+
+* Bug Fix: The serializing object will now be logged during reachability analysis in the event that an invalid object reference is detected during a garbage collection pass.
+
+* Bug Fix: Hot reloads no longer occur during PIE, which was causing bad states in blueprint types when they are reinstanced.
+
+* New: Encryption/Signing Key Generator.A plugin which allows the automatic creation and configuration of in-engine data cryptography through the project settings, under the "crypto" header.
+
+    * Added options to plugin settings which allow encryption to be used on the various asset files in a pak. Encryption can be used on just the .uasset file, which contains only the package header information, or the .uexp and .ubulk files too, which contain the rest of the package data. Encryption on .uasset files provides a good compromise between data security and runtime performance.
+
+* New: Added Level Streaming CVars to customize streaming for your project. These all default to enabled, but can be disabled to make different trade offs for memory and level loading performance.
+
+    * "s.ForceGCAfterLevelStreamedOut" - Whether to force a GC after levels are streamed out to instantly reclaim the memory, at the cost of a hitch. Defaults to on.
+
+    * "s.ContinuouslyIncrementalGCWhileLevelsPendingPurge" - Whether to repeatedly kick off incremental GC when there are levels still waiting to be purged. Defaults to on.
+
+    * "s.AllowLevelRequestsWhileAsyncLoadingInMatch" - Enables level streaming requests while async loading (of anything) while the match is already in progress and no loading screen is up. Defaults to on.
+
+    * Added several new stats for potentially slow code.
+
+    * Added SCOPE_CYCLE_UOBJECT macro, instead of using Scope Cycle Counter UObject directly.
+
+* New: Cheat cvars are now usable in Test builds by default. Can be overridden by defining ALLOW_CHEAT_CVARS_IN_TEST as 0 in Target.cs files.
+
+* New: Make Weak Object Ptr function, which constructs a Weak Object Ptr from a C++ pointer by deducing its type. Fixed Weak Object Ptr's constructor which implicitly removed const.
+
+* New: Upgraded the Array function, Insert, to allow it to take an array with any allocator type. It can also move elements out of another Array.
+
+* New: Array now has a "_GetRef" variants for many of its functions, which will create an element and return a reference to it rather than its index in the Array. These functions are: “Insert_GetRef”, “InsertZeroed_GetRef”, “InsertDefaulted_GetRef”, “Emplace_GetRef”, “EmplaceAt_GetRef”, “Add_GetRef”, “AddZeroed_GetRef” and “AddDefaulted_GetRef”.
+
+* New: There is a new Multi Map function, Append, to match the Map class’ function of the same name.
+
+* New: Base64 encoding library now supports ANSI/wide characters, decoding streams without padding marks, and decoding into preallocated buffers without writing dummy padding bytes.
+
+* New: Integer support added to Is Aligned.
+
+* New: Static asserts to stop alignment functions (Align(), IsAligned(), etc.) being called with non-intergal, non-pointer types.
+
+* New: Visual Studio Code project file generation now creates a .code-workspace for the workspace. Allows foreign projects to "mount" the UE4 folder so that the engine tasks are available, and all engine source is visible to VSCode for searching purposes
+
+* New: Visual Studio Code - Add launch task for generating project files for the given folder
+
+* New: Ensure that all branches within Generic Platform Misc’s Root Dir function produce an absolute path with no duplicate slashes. Remove relative-to-absolute conversion of the root directory from the Paths function, Make Standard Filename, now that we know Root Dir always returns an absolute path.
+
+* New: Added Net Serialize to Date Time.
+
+* New: Vector 4 now features a -= operator.
+
+* New: Allowed Visit Tuple Elements to take multiple tuples of the same size. These are now iterated in parallel and will invoke the visitor with multiple arguments.
+
+* New: Minimal Name now has an Is None function.
+
+* New: Relaxed memory ordering atomic operations.
+
+* New: Atomic object wrapper has been created. This guarantees atomic access to the underlying object, with additional memory ordering guarantees.
+
+* New: Platform Atomics now has an Atomic Read function. 
+
+* New: Added overloads of atomic functions to handle int8, int16, and int64, in addition to the existing int32.
+
+    * Switched Android and Linux builds over to use the Clang implementation.
+
+* New: Command-line option "-NOEDL" will disable EDL.
+
+* New: Command-line "-diffonly" mode added to cook commandlet. This mode compares packages on disk that have already been cooked with packages currently being cooked to detect deterministic cook issues.
+
+* New: Added As Const helper function, for const-ifying pointers and references.
+
+* New: Checks to prevent Flush Async Loading and Load Object / Load Package from being called from any threads other than the game thread.
+
+* New: Tickable Base Objects can now avoid calling Is Tickable every frame if they will never or always be ticked.
+
+* New: Denormalized values are now allowed when converting float32 to float16.
+
+* New: Added static asserts to Logf and checkf to ensure that they're always called with a literal formatting string.
+
+* New: Cook metadata like DevelopmentAssetRegistry.bin will no longer be packed into a shipping game.
+
+* New: Added a new target rule, "Use Inlining", to UnrealBuildTool to disable inlining for debugging purposes - defaults to true.
+
+* New: Opened .pak files can be listed with the console command "DumpOpenedFiles".
+
+* New: Added a new command line option, "-statnamedevents", for enabling named events.
+
+* New: Json Object Converter now supports sets in its Json Value To UProperty function.
+
+* New: Mutable lambda functions can now be bound to delegates.
+
+* New: To go along with changes to the Size Map tool, the way that ResourceSize is calculated has changed. Exclusive is the same but Inclusive is now EstimatedTotal and represents the total size of the object and all of its sub objects, but not any external assets it references. It now tries to estimate the size on a generic cooked platform so it will handle texture LOD bias better.
+
+* New: The Platform Stack Walk function, Capture Stack Backtrace, now returns the stack size rather than checking for the first null pointer, to prevent truncated callstacks if parts of the stack are zeroed out.
+
+* New: Improved "caching file" message in networkplatformfile so it says "Requesting file..." and is only output when we actually request the file from the server.
+
+* New: Improved Variant's support for move semantics. Switched Variant Types over to an enum class to aid debugger visualization.
+
+* New: When cooking with Generate Chunks and the asset manager enabled, AllChunksInfo.csv is now written out to the CookMetadata directory. This file can be used to look for historical chunk size changes, and it now uses the per-platform cooked size.
+
+* New: Added more debug info for ensure in Linker Save when a name that has not yet been mapped is being serialized.
+
+* New: Tweaked "LogInit" command-line logging to clarify when the command line is incomplete due to some arguments being filtered out.
+
+* New: Promoted Statistical Float (a utility class to track basic statistics of a real number data series with constant storage) into Core from FunctionalTesting
+
+* New: Made optimizations to Paths function, Is Relative.
+
+* New: Improved cook performance by optimizing the EDL assumption verification code.
+
+* New: Removed all locks from EDL Cook Checker to improve Save Package performance.
+
+* New: Optimized adding and removing objects to GC Object Referencer.
+
+* New: Switched our allocator to ANSI when running a Thread Sanitizer build, for better error reporting.
+
+* New: Improved filename to long package name resolution when providing a relative path.
+
+* Removed: Move-unaware allocators are no longer usable with containers.
+
+* Removed: Startup Packages have been removed, along with the associated code.
+
+* Removed: Removed deprecated delegate functions.
+
+#### Editor
+
+* Crash Fix: Fixed a crash when opening the level viewport context menu if the actor-component selection is out of sync.
+
+* Crash Fix: Details panel no longer crashes after compiling blueprints that have edit condition properties.
+
+* Crash Fix: The .fbx scene importer no longer causes a morph target import crash.
+
+* Bug Fix: Added a value threshold for Paint and Fill values while using the Cloth Painter to prevent negative numbers.
+
+* Bug Fix: Fixed Camera Rig Rail Preview Meshes to match Spline Component .
+
+* Bug Fix: Added ".vscode" folder to generated .gitignore file for new projects.
+
+* Bug Fix: Fixed an issue with content browser columns not sorting properly.
+
+* Bug Fix: Made the font editor canvas respect DPI scale.
+
+* Bug Fix: Fixed a crash when dragging and dropping a non-array UI element onto array element..
+
+* Bug Fix: Fixed "Game Gets Mouse Control" setting.
+
+* Bug Fix: Duplicate actors are no longer created for USD primitives that specify a custom actor class.
+
+* Bug Fix: Moving a copy of an Actor to a different persistent level or sublevel now only dirties the target level.
+
+* Bug Fix: Clamped "Assets to Load at Once Before Warning" so it cannot be set below 1.
+
+* Bug Fix: Fixed auto import to import into the correct map folder.
+
+* Bug Fix: Fixed reordering of materials when importing a LOD containing new materials.
+
+* Bug Fix: Fixed a crash using Actor Details with the struct details panel.
+
+* Bug Fix: Fixed .fbx importer scale not always applying.
+
+* Bug Fix: The "Add New C++ Class" dialog now remembers the previously-selected module.
+
+* Bug Fix: Source Control Submit Files now interprets Escape key as if the user clicked "cancel".
+
+* Bug Fix: Fixed a leak in the Git plugin.
+
+* Bug Fix: Fixed Resave Packages working poorly with projects on other Windows drives with names like X, Y, Z.
+
+* Bug Fix: Prevented hit proxies from being rendered for cursor query when the cursor is not visible.
+
+* Bug Fix: Source control submenu menu customization
+
+* Bug Fix: Fixed window size and position adjustment not accounting for primary monitor not being a high DPI monitor when a secondary monitor is.
+
+* Bug Fix: Expanded array elements no longer collapse after reordering with drag-and-drop.
+
+* Bug Fix: Fixed a bug where Undo History would be cleared up when starting a multiplayer game in editor with 2 or more players.
+
+* Bug Fix: Fixed a crash when additional level viewport sprites are added after the level editor module is loaded.
+
+* Bug Fix: Fixed pending netgame travels in Play in Editor games erroneously stating there was a problem browsing to the pending map.
+
+* Bug Fix: Opening a color picker no longer causes values to change each time.
+
+* Bug Fix: Source control module now properly allows you to select a workspace when a dialog is up (e.g. the save asset dialog).
+
+* Bug Fix: Fixed a bug that caused Visual Studio to open repeatedly.
+
+* Bug Fix: Prevented importing more than MAX_SKELETAL_MESH_LODS when importing a skeletal mesh.
+
+* Bug Fix: Array reordering in a Blueprint now propagates to placed instances.
+
+* Bug Fix: Fixed a crash that could happen while hot-reloading content in the editor.
+
+* Bug Fix: Fixed levels not being lockable or unlockable if they are not checked out.
+
+* Bug Fix: Fixed HLOD auto-clustering incorrectly including transient and template actors.
+
+* Bug Fix: The Enter key now works as expected for details panel asset pickers.
+
+* Bug Fix: Removed circular referencing to parent window when creating an asset from an object.
+
+* Bug Fix: Perforce Plugin: Removed all calls to methods that would store passwords on the users local machine.
+
+* New: Added "favorite folders" to the content browser. You can add or remove folders from the Favorites list in the folder's right-click context menu, and hide or show the Favorites list in the Content Browser options.
+
+* New: Added support for the replay (demo) system, both record and playback, in PIE sessions. Demos from PIE sessions are compatible with those made in standalone instances, and vice versa.
+
+* New: Added the ability to have conditionally overridden HLOD settings from project-global defaults.
+
+* New: Created an Actor Component to decode Linear timecodes from an audio source. Outputs timecode, or timecode event.
+
+* New: Added an editor setting for the shared DDC location to use.
+
+* New: Improved cook process asset error handling including content browser links and better failure notification
+
+* New: Added support for canvas-based DPI scaling.
+
+* New: If a shared DDC is not being used with Perforce, a notification with a link on how to setup a shared DDC will be presented.
+
+* New: Unattended commandlets can now rename and save packages.
+
+* New: Added camera speed scalar setting and Toolbar UI to increase range on camera speed presets.
+
+* New: Added a setting to enable/disable high DPI support in editor.
+
+* New: Replaced the skeletal mesh import option "keep overlapping vertex" with thresholds, enabling the user to control the vertices’ welding thresholds.
+
+* New: The Persistent Level in the Levels tab can now be locked.
+
+* New: Added the Auto Checkout function to Asset Rename Manager for commandlet usage.
+
+* New: The realtime level editor viewport is disabled if running under remote desktop.
+
+* New: Added the project setting "bValidateUnloadedSoftActorReferences" to the Blueprints section. This setting is true by default. Setting it to false it will disable the code that loads assets to check for references when deleting/renaming an actor.
+
+* New: Added documentation tooltips showing type information to header columns of DataTables.
+
+* New: Added Rename Assets With Dialog to Asset Tools. All previous implementations now use the "With Dialog" version. Delete Object and Duplicate Asset can be completed without dialog.
+
+* New: Added a variable called GIsRunningUnattendedScript. If true, we are running an editor script that should not prompt any modal dialog. Can be set for commandlets with "-RUNNINGUNATTENDEDSCRIPT" command-line option.
+
+* New: Many improvements to the Asset Audit, Size Map, and Reference Viewer tools to support their use in analyzing cooked content
+
+* New: Added a function. Get All Content Browser Command Extenders to Content Browser Module that supports registering commands/keybinds to extend the content browser via plugins.
+
+* New: Added "Don't show this again" checkbox to warning about deleting actors referenced by HLOD Actors.
+
+* New: Added new options to the "ResavePackages" commandlet when using "-BuildHLOD":
+
+    * "-ForceEnableHLOD" turns on Hierarchical LOD in the level automatically.
+
+    * "-ForceSingleCluster" turns on the Force Single Cluster for Level" option automatically.
+
+    * "-ForceHLODSetupAsset=<asset path>" clobbers the level's customized HLOD asset with the specified one..
+
+    * "-SkipToMap" will resume generating HLODs at the specified map name (going in the order of map files found while searching folders).
+
+* New: In the glTF importer plugin: Import Static Mesh, Material, and Texture assets from the Khronos glTF 2.0 format. Text (.gltf) and Crash Fix: Fixed frequent crash when opening Config Editor more than once per session.
+
+* New: Added support for binary (.glb) files are supported.
+
+* New: Improved morph target import time.
+
+* Removed: Removed .fbx export file version 2010 compatibility. The 2018 .fbx SDK does not export to 2010 and earlier file formats.
+
+##### Content Browser
+
+* Crash Fix: Fixed a crash when renaming an asset without an enabled source control via the Asset Tool.
+
+* Crash Fix: Fixed a crash that could happen when content hot-reloading a Level with streaming sub-Levels. 
+
+* Bug Fix: Fixed the asset search suggestions list closing if you clicked on its scrollbar. 
+
+* Bug Fix: Selection no longer resets when changing certain view settings.
+
+* Bug Fix: Fixed the row structure tag not appearing for Data Table assets.
+
+* Bug Fix: Fixed an issue so that we verify a folder is newly created before removing from the tree list.
+
+* Bug Fix: Fixed an issue with dragging and dropping folders.
+
+* New: Added a Clear option for the Content Browser folder search box when using the escape key.
+
+* New: Improved responsiveness of Open Asset dialog and when searching or filtering assets.
+
+* New: Added the ability for the Reference Viewer to show and copy references lists for nodes with multiple objects, or multiple selected nodes.
+
+##### Foliage
+
+* Crash Fix: Fixed a crash for Instanced Static meshes and Foliage when used with a Static Mesh that had an invalid lightmap coordinate index set.
+
+* Crash Fix: Fixed a crash that could happen when replacing placed instances with another asset type.
+
+* Bug Fix: We now properly update random streams for Static Mesh instancing only when adding new instances or from saved data.
+
+* Bug Fix: Fixed a Static Mesh Instancing issue where the proper index would not be removed after multiple add and removes.
+
+* Bug Fix: When duplicating Static Mesh Instances through the Details panel, the source transform is now correctly used for the result.
+
+* Bug Fix: Fixed an issue with a special case where building a Blueprint that used a Foliage type would remove all visible Foliage already painted.
+
+* Bug Fix: When moving Foliage from one level to another, if there was an error during the process, it would not abort the process gracefully. 
+
+* Bug Fix: Fixed a case where having very low FPS would cause the foliage to disappear for a few frames while moving the camera. 
+
+* Bug Fix: Fixed an issue that prevented foliage addition during PIE or Simulate mode.
+
+* Bug Fix: Fixed a special case where adding and removing multiple times would cause the regeneration of random streams for all changed instances.
+
+##### Landscape
+
+* Crash Fix: Fixed a crash when updating Landscape grass.
+
+* Crash Fix: Fixed a crash where you would use the Spline Component with no point specified.
+
+* Crash Fix: Fixed a case where it was possible that doing undo on Landscape would cause an assert or crash.
+
+* Bug Fix: Fixed an issue that could cause Landscape shaders to be recompiled very often during the cook process.
+
+* New: Added the possibility to update the Landscape Material at runtime using Material Instance Dynamic Materials.
+
+##### Material Editor
+
+* Crash Fix: Fixed a crash when filtering Material Layers drop-down with no set value.
+
+* Crash Fix: Fixed a crash caused by the Layered Material property widget of the Material Instance Editor.
+
+* Crash Fix: Fixed an assert on expanding vector param in Layered Material.
+
+* Bug Fix: Fixed an issue to not show empty Global group if it only contained the Material Layer parameter.
+
+* Bug Fix: Fixed an issue with Details panels to now "own" a color picker so that a different Detail panel refreshing doesn’t close it. This fixed the refreshing state of the graph after changing the texture or color parameter values. 
+
+* Bug Fix: Fixed an issue to allow visible parameters parameter retrieval to correctly recurse through internally called functions. Previous checks were intended to prevent function previews from leaving their graph through unhooked inputs but unintentionally blocked all function inputs. 
+
+* Bug Fix: Fixed an issue with Material overrides to display the actually used values even when greyed out.
+
+* Bug Fix: Fixed a reset to default issue on Material Layer Parameter node and layers.
+
+* Bug Fix: Changing a parameter in the Material Parameter Panel now dirties the Material correctly. Changing a layer parameter in the Material Instance Editor now refreshes the details panel as well.
+
+* Bug Fix: Fixed an issue with thumbnails for Material Function Instances not being able to delete new function instances.
+
+* Bug Fix: Empty Material groups are now being pruned correctly.
+
+* Bug Fix: Toggling "Show Background" now updates the background correctly.
+
+* Bug Fix: Material window now uses the background color set in preview scene.
+
+* Bug Fix: Fixed an issue to properly display the Material node preview label is now centered on HiDPI screens.
+
+* New: Turned on Material Layering by default.
+
+    * Adding parent field and asset field to Material Layers and Material Layer Blends. Setting the parent restricts the assets available, and setting the layer or blend asset fills in the parent as well.
+
+    * Added Content Browser filters for Material Layers, Material Layer Instances, Material Blends, and Material Blend Instances.
+
+* New: Added a Parameter Defaults tab to the Material Editor so users can see and change the default value of all the parameter nodes currently in the Material Graph, also added Parameter Defaults tab support for Material Functions.
+
+* New: Save to Child and Save To Sibling buttons now work for material layer parameters and are shown on the material layer parameter panel.
+
+* New: Creating a new parameter immediately allows naming.
+
+* New: Added axis input to the material editor's viewport client to allow rotating the preview viewport.
+
+* New: Material Blends now have plane mesh previews in their icons.
+
+* New: Added Material Layers Parameters Preview (all editing disabled) panel to the Material Editor.
+
+* New: Layers in Material Layer Functions can now be renamed, except Layer 0, which is always named "Background". 
+
+* New: Added access to a Material Function Instance's parent in the Material Instance Editor.
+
+* New: Disabled being able to create a layer or blend in the asset drop-down, sections of the stack that have been disabled now inactivate that part of the UI.
+
+* New: The create a Layer or Blend in asset drop-down menu has been disabled. Sections of the stack that have been disabled are no inactive for that part of the UI.
+
+* New: Create Function Instance now indicates if you are making a Layer or a Blend.
+
+* New: Updated the optional example Layers and Blends checkbox in the Experimental Settings so that it makes basic Layers and Blends when you create new assets.
+
+* New: The Parent field in Layer and Blend Instances is now editable.
+
+* New: Any applicable Layer and Blend compile warnings now also appear in the Layer or Blend itself. We enforce only two layers in a blend and prevent users from deleting Layer or Blend output nodes.
+
+* Removed: Parent drop-down has been removed from Layers and Clends. A filter button has been added instead.
+
+##### Media Framework
+
+* Crash Fix: Fixed a crash with Media assets in Media Sound Component’s "Update Player."
+
+* Crash Fix: Fixed a crash when opening AVF Media after opening multiple media players.
+
+* Crash Fix: Fixed a crash due to a race condition by adding a missing scope lock to WMF Media.
+
+* Crash Fix: Fixed a crash for media textures that could happen if the media player is generated from GC clustered Blueprint.
+
+* Bug Fix: Fixed external textures not registering correctly in all cases for the Engine.
+
+* Bug Fix: Fixed Media Asset issue with Media Player’s Previous and Next not playing automatically if the player was playing previously. 
+
+* Bug Fix: Fixed an issue with image media player never finishing initialization if loading failed.
+
+* Bug Fix: Fixed an ensure when cooking projects that use Image Media Source.
+
+* Bug Fix: Fixed media sessions that were no generating Playback End Reached event when session forced to stop for WMF Media.
+
+* Bug Fix: Fixed an issue with video capture on Windows 7 where the feed would display black or error out when selecting a different track and format.
+
+* Bug Fix: Fixed issues with tracks being reported in reverse order.
+
+* Bug Fix: Fixed an issue where external textures referenced by a Material before being associate with a Media Player never having their uniform expressions reached. 
+
+* New: Added simplified track switching to enable seeking.
+
+* New: Added a notification if no video track is available or selected to the Media Player Editor.
+
+* New: Added the ability to disable video output when no video track is selected for Image Media.
+
+* New: Added verbose logging to the Media Player BP functions for Media Assets.
+
+* Removed: Looping option has been removed from playlists for Media Assets.
+
+##### Sequencer
+
+* Crash Fix: Fixed a copy/paste crash that could happen when only processing Movie Scene Copyable Binding and objects that can be spawned by the movie scene spawn were registered. 
+
+* Crash Fix: Fixed a crash when an existing hotspot is null.
+
+* Crash Fix: Fixed a crash when pasting a camera cut track that happened when the outer track isn’t set to the movie scene. 
+
+* Crash Fix: Prevented a crash by ensuring that the null object in property actuate when there’s a track without a binding object. This occured when pasting a property track to the root. 
+
+* Crash Fix: Fixed a crash when dragging a Level Sequence into the tree area.
+
+* Crash Fix: Fixed a crash caused by erroneous persistent references to FSequencer.
+
+* Crash Fix: Fixed a crash when calling Set Playback Position in an event when adding Set Playback Position as a latent action.
+
+* Crash Fix: Prevented a reload crash that could happen if a Sequence was being recorded in a currently opened Sequencer. On Recording Started and On Recording Finished are now set to multicast delegates.
+
+* Crash Fix: Added a nullptr check to fix a crash in Actor Sequence when it doesn’t exist.
+
+* Crash Fix: Fixed a crash opening a new Sequence while another is still active.
+
+* Crash Fix: Fixed a crash when an Actor Factory is not found.
+
+* Crash Fix: Added null checks to prevent a crash when saving the default state of a spawnable.
+
+* Bug Fix: Fixed an issue to unregister missing track editors in Movie Scene Tools.
+
+* Bug Fix: Fixed an issue with quaternions > rotation > quaternions so that unwinding is only processed if the last transform is valid.  
+
+* Bug Fix: Fixed a rotation rotator to quaternion to rotator conversion which prevents you from typing in a rotation of 0,0,320 into the Key Editor. Unwind rotations from the previous transform to the current transform so that the nearest rotation is set rather than the rotator to quaternion to rotator conversion. 
+
+* Bug Fix: Sequencer: Set min/max values for generic key area so that they don't default to 0,10.
+
+* Bug Fix: Fixed an issue returning unhandled only if not dragged. There was an issue where dragging in the track area would sometimes leave the handled state with the time slider controller to not allow you to pop up a menu with the movement tool. 
+
+* Bug Fix: Fixed a problem to now defer Details panel updates on scrubbing and playing.
+
+* Bug Fix: Fixed an issue by adding a null check and warning for invalid Get Parameter Collection Instance.
+
+* Bug Fix: Fixed an issue to set row index when creating a new take
+
+* Bug Fix: Fixed issues with  pre-edit property chain broadcast so that the property path will include possible struct/array node.
+
+* Bug Fix: Fixed all light colors being set if any color property is animated.
+
+* Bug Fix: Fixed spawnables not playing back when Editor Preview Actor was set to false for Sequencer spawnables so that Begin Play doesn't get skipped.
+
+* Bug Fix: Fixed an issue to reset drop node on drag leave.
+
+* Bug Fix: Fixed a delay at shot boundaries causing Sequences to not play back and render out. The shot ID needs to be tracked to determine whether a new shot is encountered.
+
+* Bug Fix: Fixed a delay before warm up causing Sequences not to render.
+
+* Bug Fix: Fixed an issue to enable the camera cut track when popping back to the master only if there’s a camera cut track in the Master Sequence. It addresses an issue where if you don’t have a camera cut track in the Master, the camera gets locked to a camera cut in a sub-scene and you can’t toggle out of it. 
+
+* Bug Fix: Pivot locations are now updated for a selection when closing Sequencer.
+
+* Bug Fix: Fixed an overlap issue by looking at the key behind it. It addresses if there’s 3 keyframes on consecutive frames, so if you zoom out, you should see two bordered keys when the overlap threshold is passed. 
+
+* Bug Fix: Fixed UMG animations not working with Blueprint Nativization.
+
+* Bug Fix: Fixed an issue in Sequencer to remove null tracks on object bindings. Tracks can become null if they're from a plugin and the plugin is disabled.
+
+* Bug Fix: Moved some commands out of the generic Sequencer command bindings so that they don't take over the viewport. For example, end for "Snap to Floor" should still function in the viewport.
+
+* Bug Fix: Fixed an issue to restore pre-animated state when changing active channels.
+
+* Bug Fix: Fixed an issue to suspend broadcast of selection delegates when performing multiple operations.
+
+* Bug Fix: Display names for Shot are now switched to FString so that it's not localized.
+
+* Bug Fix: Fixed an issue with Sequence Recorder to close the target animation asset editor if it exists before recording into it. 
+
+* Bug Fix: Fixed an issue with Sequence Recorder to record to the specified target animation for the target Actor only. Newly tracked components will have newly created animations so that they don’t record to the same target animation assets.
+
+* Bug Fix: Sequencer now uses drag and drop actor factory if specified. This ensures that the correct Actor Factory is used in creating the object template for the Sequencer spawner. It fixes some spawnables not getting created properly (for example, an Empty Actor).
+
+* Bug Fix: We prevent throttling on the Curve Editor so that the Editor world tick can apply. It fixes the viewport not updating sometimes when adjusting curves in the Curve Editor. 
+
+* Bug Fix: Fixed an issue where parameters were not used. 
+
+* Bug Fix: Fixed WMF Media for IYUV encoded AVIs not playing correctly. 
+
+* Bug Fix: Fixed WMF Media that caused H.265 frames to be dropped due to false negative buffer size checks.
+
+* Bug Fix: Fixed an issue in Sequencer to always save the default spawnable states regardless of the focused Sequence. Addresses issue if you step back to the Master Sequence (and the spawnable if it still exists) and then scrubs outside the region where the spawnable exists. It gets destroyed but saved default spawnable state doesn’t get called because it’s no longer the focused Sequence.
+
+* Bug Fix: Fixed Sequencer viewport invalidation so that it happens on Sequence evaluation.
+
+* Bug Fix: Fixed an issue when scrolling in track area.
+
+* Bug Fix: Fixed an issue with Sequence Recorder causing duplicate Actor triggers before playing so that the Sequence can be recorded and played back at the same time. 
+
+* Bug Fix: Fixed an issue with Sequence Recorder when recording spawnables not getting the correct position for being spawned at.
+
+* Bug Fix: Fixed an issue with Sequence Recorder to record spawn Actors immediately so that they won’t be missed if they’re deleted before Tick.
+
+* Bug Fix: Fixed a problem where Sequencer was not updating after toggling Bind Sequencer to PIE/Simulate while PIE is active.
+
+* Bug Fix: Addressed an issue in Sequencer to find available non-overlapping row index when adding sub-sections. 
+
+* Bug Fix: Fixed an issue with Sequence Recorder to address Level Sequences no triggering when recording. Level Sequences would not get recorded if the World Settings Actor was not recorded.
+
+* Bug Fix: Fixed an issue in Sequence Recorder causing Editor-only components to be recorded.
+
+* Bug Fix: Fixed missing display text for audio and video tracks when switching media. 
+
+* Bug Fix: Fixed a slot animation issue where it was not being restored for montages that are recreated during evaluation. 
+
+* Bug Fix: Fixed the import camera in Sequencer so that when new Cameras are created, values from the FBX are going to the newly created Cameras. Also, added Reduce Keys and Reduce Keys Tolerance to import FBX options. 
+
+* Bug Fix: Fixed an issue in Sequencer when exporting unmatched float properties to custom attributes. 
+
+* Bug Fix: Fixed an issue in Sequencer to override the animation asset in the player state if it doesn’t match the animation asset being evaluated. 
+
+* Bug Fix: Fixed an issue in Sequencer so that we don’t update current time to be within the view range when stepping into a Sequence. 
+
+* Bug Fix: Fixed an issue to skip binding IDs if the Sequence can’t be found. 
+
+* New: Added some options to the Curve Editor for Modify Owner Change to the Curve Owner Interface. We call mark as changed when modifying keys or tangents. 
+
+* New: We now add a transaction for easing length.
+
+* New: Added Copy, cut, paste, and duplicate options to object bindings.
+
+* New: Added the ability to drag sections up in Sequencer.
+
+* New: Sequencer can now compile on the fly.
+
+    * It is now able to compile partially or completely out-of-date evaluation templates from the source data as needed. It affords much more efficient compilation when working within Sequencer.
+
+    * The concept of "instance data" for sub-Sequences, available through Movie Scene Player interface or persistent data stores. It replaces the compilation of specific templates for control rig templates. 
+
+    * Moved sub-tracks and sections to the Movie Scene module. 
+
+    * Removed the concept of shared tracks. Any previous uses should port over to shared execution tokens instead.
+
+* New: Now automatically create a camera cut track if a camera is dropped and there’s no existing camera cut or there’s no existing camera cut sections. 
+
+* New: The sub-Sequence name is now displayed on binding ID pickers rather than sub-section name.
+
+* New: Added an active column for Sequence Recorder.
+
+* New: Added an option to export an object’s transform to a Camera Anim asset.
+
+* New: We now allow blending for vector tracks.
+
+* New: Added an option to bake transforms to keys. 
+
+* New: Added configuration for default completion mode for Movie Scene Sequences. The default Level Sequences is Restore State. All others, such as UMG are set to Keep State. 
+
+* New: We now update auto scroll when moving Keys or Sections.
+
+* New: Added the ability to specify a global transform origin for Level Sequences" 
+
+    * It leverages the new concept of specifying an instance data object to the evaluation that allows systems to inject information into a Sequence at runtime, enabling more dynamic control of the track. 
+
+    * Level Sequence Actors use this by default to supply a dynamic "transform origin" to all component transform tracks, which all absolute transform sections will be added. 
+
+* New: The constraint guid has been switched to constraint binding ID. 
+
+* New: Playback speed has been added to the settings menu. 
+
+* New: Added recording button to Sequence Recorder that adds for any selected Actors. 
+
+* New: Added option to only show selected nodes only. 
+
+* New: Added option to disable camera cuts on the Movie Scene Player.
+
+* New: Added icons in Sequencer for Delete and Rename icons. 
+
+* New: Added default expansion states to allow track editors to specify them per track type. Material track is currently the only track that defaults to expanded.
+
+* Deprecated: We now show binding ID picker customization on all Details panels. This allows creation of new camera cut sections from existing bindings. Add New Camera Cut has been deprecated.
+
+* Removed: In Sequencer, the hotkeys Shift-C and Shift-D for toggling the Cinematic viewport have been removed. This was causing some confusion when users were accidently hitting them. 
+
+##### Static Mesh Editor
+
+* Crash Fix: Fixed an Editor crash when a distributed Simplygon job fails.
+
+* New: Moved the LOD sections dropdown to the LOD picker category. Custom LOD checkboxes are now hidden until "Custom" is checked. The same change applies to the Skeletal Mesh Editor.
+
+* New: Added LOD menu to viewport toolbar.
+
+##### World Browser
+
+* Bug Fix: Fixed issues with re-importing of tiled Landscape data in the Word Composition window.
+
+#### Gameplay Framework
+
+* Crash Fix: Fixed a crash in the Get Asset Registry Tags function in Static Mesh that happened when the Find Object function was called during saving.
+
+* Crash Fix: Fixed a rare crash when child actor components were loaded as part of an async sublevel load.
+
+* Crash Fix: Servers traveling to a world that shares a name with an Asset will log a warning instead of crashing. The full path to the map file can be used to travel successfully in these cases.
+
+* Crash Fix: Fixed an initialization crash when using GameplayTags from global singleton objects.
+
+* Crash Fix: Removed an extra dereference that was causing a crash in the Gameplay Cue Manager.
+
+* Bug Fix: Added tracking of Idle Seconds to the Performance Data Consumer interface’s Frame Data.
+
+* Bug Fix: Fixed the Load Asset blueprint node so it can be correctly called from a loop with different inputs.
+
+* Bug Fix: Player Camera Manager’s Update View Target Internal function will no longer apply values from Blueprint Update Camera if it returns false.
+
+* Bug Fix: Fixed an issue where module redirects could cause the Asset Manager to incorrectly allow Primary Assets with the wrong base class.
+
+* Bug Fix: Fixed several bugs with async loading streaming levels via Streamable Manager, levels loaded this way now correctly handle offsets and navigation.
+
+* Bug Fix: Disabled the duplicate Primary Asset ID ensure for editor-only types like Maps, as it could activate unnecessarily.
+
+* Bug Fix: Exporting a Package without a type now adds warnings to the output logs.
+
+* Bug Fix: Components and Tick functions will no longer be unregistered and re-registered when testing a rename for an Actor.
+
+* Bug Fix: Modified Gameplay Tag’s Import Text Item function to account for redirects when establishing Tag Name.
+
+* Bug Fix: Fixed character proxies doing up to two floor checks when only rotation is changed (there shouldn't be any). Added some optional verbose logging to the Find Floor and Compute Floor Dist functions.
+
+* Bug Fix: String allocations are no longer performed on every Server Move function call that the server runs.
+
+* Bug Fix: A bug with Post Significance not firing when unregistering an object unless it was the last object of its tag has been fixed.
+
+* Bug Fix: The engine will now only create a Material Instance Dynamic as a child of the calling object if the construction script is running. Otherwise, it will be created in the transient package.
+
+* Bug Fix: Fixed clients bypassing network move combining and RPC throttling when there is no acceleration and velocity is non-zero (for instance, when falling or decelerating). Changed velocity condition on whether moves may be combined to a delta from or to zero velocity.
+
+* Bug Fix: Fixed "infinite jump" exploits from rogue clients. The server no longer incorrectly resets the Jump Key Hold Time variable while not changing the Was Jumping variable.
+
+* Bug Fix: Log Gameplay Tags is now exposed.
+
+* Bug Fix: Disabled HLOD volume overlap events, and set to not load on client or server.
+
+* Bug Fix: Optimized client movement to avoid updating skeletal mesh bones on the client when teleporting back to combine a network move to the server. This can be avoided since the following Perform Movement call will move the mesh and cause the update there.
+
+* Bug Fix: Added stat for Force Position Update (when server ticks client that has timed out) so that it doesn’t show up as Perform Movement.
+
+* Bug Fix: Redirectors or otherwise invalid .umap files are no longer considered sub levels for world composition.
+
+* Bug Fix: All Actor subclasses now correctly enforce not ticking when tick type is Viewports Only, even if they override TickActor. The Should Tick If Viewports Only function can override this by returning true.
+
+* Bug Fix: Added several transform related functions to the HIDE_ACTOR_TRANSFORM_FUNCTIONS macro and fixed the signatures on some that were already there.
+
+* New: Added a new plugin for performing data validation. Data validation can be run on individual assets, multiple assets or whole directories. It can also be run as a commandlet and included in your build process.
+
+* New: Added a function called Return To Main Menu to the Game Instance class. Games may call function to return to their main menu reliably, even in cases where a Player Controller isn't available to call Client Return To Main Menu With Text Reason.
+
+* New: Data Tables now support getting the value of each row for a specific column/property, excluding the title of the column.
+
+* New: Improved the editor UI for Primary Asset ID properties. It now uses the same one as Pins and better handles objects that aren't already loaded.
+
+* New: Added functions to Spring Arm Component to get relevant status of the collision test.
+
+* New: Added a To String to the Lex class for physics enums Collision Trace Flag, Physics Type, and Body Collision Response.
+
+* New: Added "p.NetForceClientServerMoveLossPercent" cvar to simulate loss of client-to-server movement RPCs (without hosing the rest of networking).
+
+* New: The Player Input function Massage Axis Input can now be overridden in subclasses.
+
+* New: A new variable, Should Manager Determine Type And Name, has been added to Asset Manager settings. It is disabled by default. If enabled, the Asset Manager will be able to load assets that do not have a native class that implements Get Primary Asset ID, in both the editor and a cooked game. This will behave similarly to Should Editor Guess Type And Name, but in exchange for some runtime performance it will work properly in a cooked build.
+
+* New: Primary Data Asset can now be directly blueprinted to enable blueprint-only Primary Assets, even if Should Manager Determine Type And Name is disabled. If you do this, the Primary Asset Type will be the blueprint below Primary Data Asset, which you can then inherit from to create your Primary Assets.
+
+* New: If overrides of Actor Component’s Begin Play function are not routed up the hierarchy code, the engine will now use Ensure to warn that initialization steps were missed.
+
+* New: Alpha Blend struct is now marked as BlueprintType.
+
+* New: Gameplay Abilities now pass along their Source Object when creating the effect context for a new effect.
+
+    * Consolidated all of the events on Active Gameplay Effect into a single struct.
+
+* New: Added an active effect event for when the inhibition of an effect changes, meaning that the effect is no longer relevant, but had not actually been removed.
+
+* New: Added functionality to cycle between targets with Page Up and Page Down for 'showdebug' commands. List of targets is contextual (For example 'showdebug animation' will consider all visible actors with an AnimGraph). Current debug Target is highlighted in a green bounding box.
+
+* New: Performance optimization: Added Network Skip Proxy Prediction On Net Update to the Character Movement Component. This skips immediate forward prediction for proxies on the frame they receive a network update, avoiding all forward prediction sweeps and floor checks on those updates. Intermediate frames will interpolate with prediction. This can also be disabled globally by setting the CVar "p.NetEnableSkipProxyPredictionOnNetUpdate" to 0.
+
+* New: Reduced overhead of evaluating streaming level volumes when all Player Controllers have Is Using Streaming Volumes set to false.
+
+* New: Significance Manager’s Update function now takes viewpoints in as an Array View instead of a const Array reference.
+
+* New: When keys with unknown character code are received by the input system, a new Key struct will now be dynamically created to represent it rather than it being rejected as an invalid key.
+
+* New: Significance Managers’ Post Significance Update functions can now specify to be executed sequentially on the game thread instead of only as concurrently in the parallel for.
+
+* New: Conditional Init Axis Properties is now protected instead of private, so it can be seen by child classes.
+
+* New: The Smooth Mouse function is virtual, so games can implement their own smoothing code.
+
+* New: Added Rand Point In Circle function. It returns a random point, uniformly distributed, within the specified radius.
+
+* New: Updated ensures to give more information when there is an invalid Ground Movement Mode.
+
+* New: Added a new trait called Post Script Construct. This enables users to perform initialization after blueprints have created a temporary object.
+
+* New: Hooked up gameplay tag containers to use Post Script Construct to populate parent tags.
+
+#### Localization
+
+* Crash Fix: Fixed a crash if a break iterator outlives ICU during shutdown.
+
+* Crash Fix: Fixed a crash if a regex pattern or matcher outlive ICU during shutdown.
+
+* Bug Fix: Translation Editor now shows stale translations as "Untranslated".
+
+* Bug Fix: Fixed Roboto Light for certain Russian characters.
+
+* Bug Fix: Gather Text From Source no longer causes the commandlet to fail.
+
+* Bug Fix: Fixed some case-sensitivity issues with Text format argument names/pins. This change restores their original behavior.
+
+* Bug Fix: Fixed game preview language not updating from the native text when switching between preview languages.
+
+* Bug Fix: Fixed game preview language not updating in realtime while PIE was enabled.
+
+* Bug Fix: Fixed struct instances sometimes gathering text that was identical to a parent instance.
+
+* Bug Fix: Fixed culture being incorrect when added via the Localization Dashboard.
+
+* New: Support for culture correct parsing of decimal numbers has been added.
+
+* New: Implemented Always Sign number formatting option.
+
+* New: Added an improved Korean font to the editor.
+
+* New: Added an improved Japanese font to the editor.
+
+* New: Improved the ability to lockdown available game languages. In addition to the previous "DisabledCultures" array, you can now add an array of "EnabledCultures".
+
+* New: Added a warning for duplicate package localization IDs when gathering asset localization.
+
+* New: Added a way to display and reset the package localization ID via the Content Browser.
+
+#### Networking
+
+* Crash Fix: Fixed a rare crash that could occur on servers where replicated, placed-in-map actors could be destroyed, and clients could send references to these actors in server function parameters.
+
+* Crash Fix: Fixed a crash caused by not clearing the send buffer after closing the connection when trying to send data before the handshake is completed.
+
+* Crash Fix: Fixed a client-side assert when trying to send RPCs while the connection is pending closure due to queued bunches.
+
+* Crash Fix: Fixed several errors and asserts that could occur when using network encryption.
+
+* Bug Fix: Removed an ensure that could fire inappropriately in some cases during playback of a replay.
+
+* Bug Fix: Made a change to TCP Listener to prevent it from polling while waiting for connections.
+
+* Bug Fix: Fixed an issue where the single process Play-In-Editor dedicated server could tick incorrect objects.
+
+* Bug Fix: Fixed a replication issue with network startup actors that are renamed on the server.
+
+* Crash Fix: Fixed a crash that could occur when replicating objects during a Play-In-Editor game.
+
+* Bug Fix: Steam voice now continues to work after seamless travel.
+
+* Bug Fix: Changed the adaptive network update frequency option to be disabled by default. This was causing annoying and difficult-to-debug replication artifacts if network update rates weren't managed carefully.
+
+* Bug Fix: Fixed a socket send bug that could cause large files to fail to transfer from the cook on the fly server.
+
+* Bug Fix: UDP Messaging serialization notification is now thread-safe.
+
+* Bug Fix: Fixed a replication checksum issue with Slate brushes.
+
+* Bug Fix: Added stats to Net Driver’s Tick Flush function and analytic stat-gathering blocks within that function.
+
+* Bug Fix: When a client informs the server that it has loaded a streaming level, we now force a net update on all dormant actors that have, at any point, replicated data to relevant clients and ensure that the connection's destroyed startup/dormant actors list is properly populated.
+
+* Bug Fix: Fixed an issue that could cause character movement to look jittery in replay playback in some cases.
+
+* Bug Fix: Fixed a bug that could cause replicated actors that are destroyed while dormant to never be destroyed on clients.
+
+* Bug Fix: Fixed a server crash that could occur if a client sent a reference to an object who's outer object had already been garbage collected.
+
+* Bug Fix: GetGameLoginOptions to URL for split screen players was missing, it has now been added for consistency with first player login flow
+
+* Bug Fix: Fixed a rare server crash when actors in the process of being destroyed could erroneously be re-added to the network object list.
+
+* Bug Fix: Actors are now removed from all net drivers' object lists instead of just the one matching the net driver name stored on the actor.
+
+* Bug Fix: Fixed websocket not providing information when the peer closes the connection.
+
+* Bug Fix: Fixed a rare server crash that could occur if network encryption was in use.
+
+* Bug Fix: Fixed a rare crash due to a null game mode that could occur when joining a server.
+
+* New: Added a local file replay streamer that supports playback, recording, compression, and replay events.
+
+* New: Added a way to view a dedicated server's network stats on a client in realtime (useful for seeing server stats for cloud hosted servers).
+
+    * Changed some server stats to be the total for the server instead of the stats for Connection Zero.
+
+* New: Added a console command ("net dumpdormancy") to view the dormancy status of Actors. Improved the names displayed when editing Net Dormancy properties.
+
+* New: Switched property type comparisons from Strings to Names for speed.
+
+* New: Optimized uint replication by removing unnecessary memory management.
+
+* New: Optimized updating level visibility state between client and servers. When possible, we now only send a single RPC to communicate which levels are visible or should be visible rather than separate RPCs for each level.
+
+* New: Added a new console variable net.Max Connections To Tick Per Server Frame, which can be set to limit the number of client connections a server processes every frame. When many clients are connected, this can help maintain the desired framerate on the server.
+
+* New: Added the ability to disable automatic ping replication to all clients in Player State. This can add up to a lot of CPU and bandwidth overhead with many clients connected, since player states are always network relevant. See the Should Update Replicated Ping variable in the Player State class.
+
+* New: Added new global network delegates callback Network Cheat Detected for responding when cheating is detected on a server.
+
+* New: Analytics have been added for oodle compression percentages.
+
+* New: We now use "-multihomehttp" instead of "-multihome" for routing HTTP sockets.
+
+* New: Support has been added to Oodle for iOS, Android, and Switch.
+
+* New: Network optimizations to reduce memory management churn have been implemented, saving about `10%` of net tick time.
+
+* New: Improved handling for "pending connection lost" notification, which is triggered only if a connection is lost and there is no "owning actor" to deal with the connection loss.
+
+    * Added Received Join and Cleaned Up states to connection to make sure that the pending connection lost delegate only fires at the appropriate time.
+
+* New: Games now receive a notification when the Player State integer unique ID is available.
+
+* New: The Player class can handle beacon connections calling Exec functions.
+
+* New: Added the "demo.Loop" console command which will restart playback from the beginning of a replay once the end has been reached.
+
+* New: Added some additional cycle counter stats in networking code to provide more insight when viewing stat profiles.
+
+* New: CurlHttp now logs send/response basics at normal Log level, providing a better intermediate log level between Warning and Verbose.
+
+* New: Added the command-line option "-ExitAfterReplay" to close the client when a replay reaches the end of playback.
+
+* New: Added verbose http logging to CurlHttp when a request is canceled.
+
+* New: The "net.UseEncryptionToken" console variable has been renamed to “net.AllowEncryption” and made more robust.
+
+#### Online
+
+* Crash Fix: Fixed a crash in web browser module destruction related to the freeing of memory via default destructors after Cef Shutdown has been called.
+
+* Bug Fix: Dedicated servers will now respect the voice online subsystem override option. Bug Fix: Fixed a thread safety issue in the user cloud interface for Steam.
+
+* Bug Fix: Fixed LoginFlow module not being included in installed builds of the engine.
+
+* Bug Fix: Is Server Delegate For OSS can now use the play world during PIE even if no context was passed in.
+
+* Bug Fix: Failure to load TCP socket library (possibly due to lacking the protocol file) on Windows is now handled by defaulting to IPPROTO_TCP.
+
+* Bug Fix: The Net Connection variable, Player ID is now set up properly on clients and servers for both beacons and game net drivers.
+
+* Bug Fix: Improved the way HTTP requests handle timeouts.
+
+* New: Included a Rich Presence interface to the Steam Online Subsystem.
+
+* New: Created a test harness for testing an online subsystem's rich presence interface.
+
+* New: Added embedded browser cookie deletion for Google sign-in when Logout is called.
+
+* New: Added the ability to retry HTTP operations by VERB. This enables cloud-save PUT operations to retry automatically.
+
+* New: Removed the "Pragma: no-cache" header from libcurl requests.
+
+* New: You can now enable libcurl debug callbacks in shipping builds to get more information on libcurl errors.
+
+* New: Added the ability to update cacert.pem from Curl's website. ([https://curl.haxx.se/docs/caextract.html](https://curl.haxx.se/docs/caextract.html))
+
+#### Physics
+
+* Crash Fix: Fixed a crash that would delete max distance mask from a clothing data entry.
+
+* Crash Fix: Fixed a crash when adding empty materials to destructible meshes in the destructible mesh editor.
+
+* Crash Fix: Fixed a crash on destroying Physical Animation Component if the scene had gone away.
+
+* Crash Fix: No longer crashes when switching between clothing assets while painting with a gradient tool that has cached start/end indices.
+
+* Crash Fix: Opening a physics asset that uses a preview mesh with no skeleton no longer causes a crash.
+
+* Crash Fix: Fixed a crash that could happen due to outdated rendering data while editing destructible meshes.
+
+* Crash Fix: Pasting properties in the Physics Asset Editor no longer crashes.
+
+* Crash Fix: Fixed a crash with destructible components cleaning up physics bodies.
+
+* Bug Fix: Removed the deprecated Response To Channels property of Body Instance from non-Editor builds to save memory.
+
+* Bug Fix: Moved constraint and physical anim profile indicators to the top of the details panel.
+
+* Bug Fix: We now update cloth appropriately in the physics asset editor, so physics can interact in real time with cloth.
+
+* Bug Fix: Fixed hang when selecting all bodies or constraints in a physics asset.
+
+* Bug Fix: Copy/paste of physics properties when the skeleton tree has focus now works as expected.
+
+* Bug Fix: Fixed clothing sphere collision detection issue when clothing bounds are flat or almost flat.
+
+* Bug Fix: Welded bodies with negative scale now correctly use the mirrored convex hull.
+
+* Bug Fix: Fixed generation of adjacency buffers for older clothing data.
+
+* Bug Fix: Fixed 'NODEBUG' option for PVD CONNECT console command (PhysX Visual Debugger). It now (correctly) only sends profile data.
+
+* Bug Fix: Fixed calling Update Kinematic Bones in Skeletal Mesh Component if there are no physics bodies
+
+* New: Added "Anim Drive" to clothing assets and runtime interaction for simulations.
+
+* New: Added gravity override support for clothing simulations.
+
+* New: Exposed some PhysicsAsset functionality to be more extensible.
+
+* New: Improved information in Hit Result in case of initial overlap. The Impact Point member variable will now contain information from PhysX on the deepest overlap point.
+
+* New: Added the ability to profile scene query hitches. (See p.SQHitchDetection in code.)
+
+* New: Added 'Set Use CCD' function for changing Continuous Collision Detection option at run-time.
+
+##### Clothing
+
+* Crash Fix: Fixed a crash in clothing actor creation when the clothing simulation mesh has no simulated vertices.
+
+* Crash Fix: Fixed a crash when setting a Poseable Mesh Component as the Master Pose Component for a Skeletal Mesh Component that was using clothing.
+
+* Bug Fix: Fixed non-working tethers in clothing.
+
+* Bug Fix: Clothing configuration now applies to active simulation after editing.
+
+* Bug Fix: Fixed and re-enabled accurate wind mode.
+
+* Bug Fix: Added a clamp to solver frequency to make it impossible to hang the editor with very high clothing solver frequencies.
+
+* New: Changed "bCompileNvCloth" compile option to use the same pattern as “bCompileAPEX” (on by default, disabled on some platforms). This allows game projects to disable it.
+
+##### Collision Detection
+
+* New: Improved "Auto Convex" tool for generating simplified convex collision for meshes.
+
+    * Now uses "Max Hulls" option instead of “Accuracy”.
+
+    * Computation is now done asynchronously.
+
+    * Now using V-HACD version 2.3.
+
+##### Physics Asset Editor
+
+* Crash Fix: Fixed a crash undoing primitive regeneration when stopping an in-progress simulation.
+
+* Crash Fix: Deleting primitives in Physics Asset Editor no longer causes a crash during garbage collection.
+
+* Bug Fix: Constraint setup shortcuts and body-body collision are now undoable.
+
+* Bug Fix: Right-click now displays the context menu for constraints correctly.
+
+* Bug Fix: Fixed dangling lines, poor search focus, and graph not refreshing when making new constraints.
+
+* Bug Fix: Added warning to "Use Async Scene" property when shown in the physics asset editor if the project doesn't currently use an async scene.
+
+* Bug Fix: Tweaked physics asset editor viewport tooltip.
+
+* Bug Fix: Renamed "Create Joints" to "Create Constraints" in Physics Asset Editor.
+
+* Bug Fix: Fix that now allows edits to physics sim options to be undone/redone.
+
+* Bug Fix: Constraints are now displayed only once in the physics asset editor tree view.
+
+* Bug Fix: Fixed not being able to assign/unassign constraint and physical animation profiles from the context menu.
+
+* Bug Fix: Prevented undo/redo breaking when moving both a constraint and a body at the same time.
+
+* New: Added "Show Only Selected Constraints" to the physics asset editor.
+
+* New: Included a keyboard shortcut (Ctrl+T) to toggle between body and constraint selection.
+
+* New: Added the ability to rename shapes in the Physics Asset Editor.
+
+* New: Added back constraint shortcut to PhAT toolbar.
+
+* New: Added error-reporting to the physics profile name widgets.
+
+#### Platforms
+
+* Crash Fix: Updated Intel SPC Tex Comp DLLs to address crashes with some processors on Windows during texture compression.
+
+* Bug Fix: Fixed an issue with vsnprintf on platforms that use the custom implementation found in Standard Platform String to ignore length modifier for certain types (floating point and pointer).
+
+* Bug Fix: Delete existing Source Config File before allocating a new one to prevent them leaking.
+
+* Bug Fix: Fixed compile issues in builds without Low Level Memory enabled.
+
+* Bug Fix: Fixed Update Texture 3D to support  source pitch correctly.
+
+* New: Added missing executable icons for Lightmass and other programs.
+
+* New: Added a descriptive error message when using an Invalid iOS Mobile Provision.
+
+##### All Mobile
+
+* Bug Fix: Fixed an issue for functional code checks being removed for shipping builds in media framework.
+
+* Bug Fix: Fixed an issue that prevented properly flushable logs from assertions and errors on renderthread for Android and iOS.
+
+* New: Disabled Niagara vertex factories for mobile targets.
+
+* New: Disabled manual vertex fetch on mobile.
+
+##### Android
+
+* Crash Fix: Fixed crash if quickly clicking on "Configure Now" button in Android Project Settings multiple times.
+
+* Crash Fix: Fixed a crash in OpenGL Dynamic RHI with Create OpenGL Texture when launching on Mali Galaxy S III.
+
+* Crash Fix: Fixed a crash on application exit of SPRINGBOARD. The process-exit watchdog transgression found several issues if the game is forced closed when the startup movie is playing and the "Wait for movies to complete" is enabled/ 
+
+* Crash Fix: Addressed some crashes related to Experimental Android Virtual Keyboard. 
+
+    * Backspace on an empty line would crash.
+
+    * Virtual keyboard text field isn’t visible after rotating from landscape to portrait. 
+
+    * Chinese and Korean virtual keyboards don’t allow native characters.
+
+    * Number pad reverts back to normal keyboard
+
+    * Gboard and Swift swipe entry are not supported.
+
+    * Cursor and UMG do not match. 
+
+    * Text field doesn’t appear if there was too much text.
+
+* Crash Fix: Samsung Galaxy S8 with Android 7.0 is not hiding suggestions and disabling predictive input. There are cases with this that can cause a crash. Global solution: On text change, downgrade to simple suggestions all the easy correction spans that are not a spell check span (remove android.text.style.SuggestionSpan.FLAG_EASY_CORRECT flags).
+
+* Bug Fix: Fixed an issue to properly detect need for rebuilds from the final NDK and SDK levels only in UEBuildSettings.txt.
+
+* Bug Fix: Fixed Android icon paths.
+
+* Bug Fix: Fixed polling code in Tcp Message Transport that was wasting CPU cycles when using Launch on an Android device.
+
+* Bug Fix: Fixed an issue related to Text Watcher On Text Change being called multiple times when typing or deleting the content of a native Android Edit Text control. 
+
+* Bug Fix: Fixed an issue where Android startup movies not always playing.
+
+* Bug Fix: Fixed an issue with values for pinch input producing very different results for the same area on Android devices:
+
+    * When the pinch goes beyond the viewport boundaries, the touch that goes off-screen is "released" and the zoom effect is over. This is solved by remembering the last pinch event values
+
+    * The initial distance for the pinch/rotate are "hacked" by touching the screen and moving the finger to another position before using the second finger. This is solved by using the correct values when the pinch event starts.
+
+* Bug Fix: Fixed an issue with Android Web Browser 3D. The external texture was moved from Content Browser to the Web Browser plugin.
+
+* Bug Fix: Fixed access to Frame Update Info in MediaPlayer14.java and CameraPlayer14.java with Proguard.
+
+* Bug Fix: Fixed an issue with flag vertex and fragment shaders belonging to materials with external textures.
+
+* Bug Fix: Protected against asking for duration before prepare completed in movie player.
+
+* Bug Fix: Fixed support for GL_OES_standard_derivatives on Android.
+
+* Bug Fix: Fixed an issue so that the relative path to ResonanceAudio_API.xml is accurate.
+
+* Bug Fix: Fixed an issue with external texture shaders for some devices.
+
+* Bug Fix: Added missing SecureHash.h include needed for non-unity builds. 
+
+* Bug Fix: Fixed some issues on Lenovo 939 when rendering a simple scene. The shader compiler complained about code lines before the #extension directectives. Added a placeholder ("// end extensions") in the shader code. 
+
+* Bug Fix: Fixed DXT apps that failed on first launch when 'For Distribution' enabled with the error message: "Unsupported Texture Format".
+
+* Bug Fix: Corrected the code which rounded up the coordinates to the nearest even number.
+
+* New: Updated Android SDK license agreement for Gradle.
+
+* New: We now use UPL hash to invalidate build if any UPL files are changed.
+
+* New: Added a wait for the audio thread to pause audio when going to background. 
+
+* New: Added a new packaging mode for Android:
+
+    * ETC1a, which will compress files with alpha channel as ETC2 and files without alpha channel. 
+
+    * At runtime, detection will determine when ETC2 is not supported and will decompress those files. 
+
+    * This format will work on all Android devices while using one single compressed texture format, but devices without ETC2 support will have an impact on performance.
+
+* New: Added support for texture streaming to most Android devices with ES 3.1 support.
+
+* New: Added verification of support for cooked texture format(s) on device at runtime. (optional with Validate texture formats checkbox in Android project settings and skipped for cook on the fly)
+
+* New: Added new Android Project Settings to override the NDK and SDK may now be optionally used per-project. Leave them blank to use the global setting in Android SDK Project Settings. 
+
+* New: Added LOD Proxy support.
+
+##### HTML5
+
+* Bug Fix: Chrome renders transparent on OSX even though canvas has been set with alpha to false. 
+
+    * Note that if backbuffer is needed with alpha values, this will need to be rewritten.
+
+* Bug Fix: Fixed an issue for "Runtime Error: integer result unrepresentable" compiler error removed the following linker options: 
+
+    * -s OUTLINTING_LIMIT flags -s BINARYEN_TRAP_MODE=’clamp’
+
+* Bug Fix: Disabled Support Screen Percentage to render the full screen otherwise. This was causing HTML5 screens to render only a portion of the screen and in black. 
+
+* Bug Fix: Fixed an issue with 2D text rendering. 
+
+* Bug Fix: Fixed an issue so that logs are redirected to the console window instead of "low window".
+
+* New: Added HTML5 Launch Helper to check to see if the port is already in use and gracefully exit with a message if already in use. . 
+
+* New: Set controller axis and button max value in code instead of relying on emscripten Get Gamepad Status. 
+
+* New: Updated HTML5 readme file with a lot of new and clearer information on files generated, what they are, and how to use the compressed versus uncompressed versions. 
+
+* New: Resurrected vehicle games and removed "IsContentOnly" check during HTML file generation to allow code projects to work again. This corrected optimization suffix for PhysX 3 Vehicles. 
+
+##### iOS
+
+* Bug Fix: Fixed an issue while remote compiling Metal shaders to now check the connection before starting the compile process. 
+
+* Bug Fix: While Remote Shader Compiling for Metal, the editor no longer spawns and closes a lot of minimized windows.
+
+* Bug Fix: Fixed an issue to modify the toolchain to insert the correct SDKRoot. 
+
+    * XCode address sanitizer feature did not work on iOS. The dylib loader depended on the default SDKROOT parameter. 
+
+* Bug Fix: Fixed local WiFi multiplayer discovery on iOS.
+
+* Bug Fix: Fixed large Metal texture memory leak when opening card packs.
+
+* Bug Fix: Fixed a issue causing iOS remote building to fail when the remote mac user name contained a space character.
+
+* Bug Fix: When building on Mac if no valid provisioning profile and sign in certificate is set up, but the XCode has a correct development wildcard, it will use that wildcard to sign the build.
+
+* Bug Fix: tvOS now correctly package or launch-on.
+
+* New: Enabled Avf Media plugin for tvOS.
+
+* New: Disabled the validation layer in iOS App Store builds for shipping builds.
+
+##### Linux
+
+* Crash Fix: Fixed a crash on a headless system.
+
+* Crash Fix: Fixed a crash when printing `%c` on Linux, Mac, HTML5 etc.
+
+* Crash Fix: Made RHI initialization not crash on Mesa drivers.
+
+* Crash Fix: Pop-up a message box when unable to launch ShaderCompileWorker instead of crashing.
+
+* Crash Fix: Disabled some unstable gdb visualizers that can crash the debugger.
+
+* Crash Fix: Fixed an edge-case initialization crash (will print a user-friendly message and exit).
+
+* Crash Fix: Fixed the Editor crashing on start if compiled with a recent (5.0+) clang.
+
+* Crash Fix: Fix an audio clean up crash when exiting PIE. 
+
+* Bug Fix: Fixed the Setup.sh handling of special characters in PNG path.
+
+* Bug Fix: Fixed UBT to invoke newer (supported) clang versions.
+
+* Bug Fix: Fixed libelf breaking build if some third party libs are used.
+
+* Bug Fix: Remove unneeded dependency on CEF for base engine.
+
+* Bug Fix: Fixed mismatching "noperspective" qualifier.
+
+* Bug Fix: Fixed Linux thread/process priorities (requires system settings to allow raising them).
+
+* Bug Fix: Fix priority calculation when RLIMIT_NICE is not 0.
+
+* Bug Fix: Fixed the Output Device Std Output function to use printf() on Unix platforms. Mixing wprintf/printf is undefined behavior.
+
+* Bug Fix: Fixed the unnecessary test for popcnt presence.
+
+* Bug Fix: Fixed compilation with glibc 2.26+ (e.g. Ubuntu 17.10).
+
+* Bug Fix: Fixed Slate Dialogs to show image icon for *.tga.
+
+* Bug Fix: Fixed submenus of context menu not working.
+
+* Bug Fix: Fixed RHI settings being wrong when removed via project properties UI.
+
+* Bug Fix: Fixed the inability to click on some UI elements at the edges of the screen due to tooltip windows obscuring it.
+
+* Bug Fix: Made UBT use response files for the Linux compiler (avoids MAX_PATH issues when cross-compiling).
+
+* Bug Fix: Fixed symbol interposition problems with both AMD and NVidia drivers.
+
+* Bug Fix: Fixed ARB callback errors when hitting Build Lighting.
+
+* Bug Fix: Fix shadow compiler warnings around our includes.
+
+* Bug Fix: Do not assert on an unimplemented function, just log the function.
+
+* Bug Fix: Set sound to unfocused volume multiplier if not focused.
+
+* Bug Fix: Open project in the file explorer when finished creating it if the Null Source Code Access is the default source code editor
+
+* Bug Fix: Fixed inability to create C++ projects on Linux despite being able to compile the editor.
+
+* New: Updated Linux VHACD.
+
+* New: Added LTO support.
+
+* New: Enabled DPI on/off switch.
+
+* New: Changed BinnedAllocFromOS to place descriptor after allocated chunk instead of in front of it to save some memory.
+
+* New: Re-enabled index buffer optimization. It was disabled due to problems found in the live release.
+
+* New: Added build-id to all binaries to improve lldb startup times.
+
+* New: Vulkan RHI will default to SM5
+
+* New: Updated OpenAL to 1.18.1.
+
+* New: Use elementary OS versions to set the Ubuntu versions for dependencies.
+
+* New: Use Xft.dpi when calculating DPI on Linux.
+
+* New: Rebuild libcurl 7.57.
+
+* New: Added detection and messaging when building lighting is impossible due to local network interface problems.
+
+* New: Add better error handling when using new Toolchain for Linux on Windows.
+
+* New: Add Alembic (*.abc) support
+
+* New: Added fixes to make porting to gcc easier.
+
+* New: Included VSCode in the list of default project generators.
+
+* New: Implemented voice capture using SDL.
+
+* New: Recompiled the bundled SDL library with Wayland support.
+
+* New: UBT will use compiler response files when compiling for Linux.
+
+* New: Enabled pooling of memory allocations (only 64KB allocations) on servers.
+
+* New: Added LTO support to the Linux cross-builds (requires v11 and newer toolchain).
+
+* New: Enabled packaging for Android Vulkan.
+
+* New: Added a message about running out of inotify handles a warning instead of error so it doesn't break cooking.
+
+* New: Added better error messaging when running out of inotify watches.: 
+
+* Removed: Removed the support for /-prefixed command line switches.
+
+##### Mac
+
+* Crash Fix: Fixed a rare crash caused by a deferred call to Close Window function executing during Slate's PrepassWindowAndChildren call.
+
+* Crash Fix: Fix a crash when using VOIP on Mac.
+
+* Crash Fix: Fixed a crash in Avf Media Player related to reusing an Avf Media Player object.
+
+* Crash Fix: Fixed a crash on destroying certain menus in an animation persona window.
+
+* Bug Fix: Fixed a problem with Xcode project generator not handling quoted preprocessor definitions correctly.
+
+* Bug Fix: Fixed a problem with IME not working in context menu text edit fields.
+
+* Bug Fix: Disable Zoom button if project requests a resizable window without it.
+
+* Bug Fix: Fixed header search paths in XCode project for paths containing space character.
+
+* Bug Fix: Fixed an issue with creating an NSString for the Low Level Output Debug String. The string can just be printed out as a UTF-8 string.
+
+* Bug Fix: Fixed a C++ std in generated Xcode project to match rest of engine (C++14). 
+
+* Bug Fix: Fixed an issue with some context menus opened right after closing other context menu disappearing right after being shown.
+
+* Bug Fix: Don't activate Mac Crash Reporter Client on launch when it's running in unattended mode.
+
+* Bug Fix: Fixed a small number of persistent memory leaks on the Mac build that slowly consume more and more memory as you use the Editor. Interacting with menu's was particularly egregious as each NSMenu would leak after you move away.
+
+* Bug Fix: Fixed a problem with Mac editor not exiting with error code returned from Guarded Main function.
+
+* Bug Fix: Better support for GPUs with 4GB or more of video memory.
+
+* New: Updated Xcode project generator to sort projects in the navigator by name (within folders) and also sort the list of schemes so that their order matches the order of projects in the navigator.
+
+* New: Changed XCode project to automatically build ShaderCompileWorker in addition to the selected target for non-program targets.
+
+* New: Added initial support for building and running Niagara.
+
+* New: Added support for changing monitor's display mode on Mac in fullscreen mode. This greatly improves performance on Retina screens when playing in resolutions lower than native.
+
+##### Windows
+
+* Bug Fix: Switched Windows to use wprintf() consistently.
+
+* Bug Fix: Fixed an issue with Windows file save dialog not appending the correct extension when there were multiple options available.
+
+* Bug Fix: Fixed an issue with custom window positions in "windowed mode".
+
+#### Programming
+
+* New: Minimized number of fractional digits you can have in a resultant string while using FString::SanitizeFloat, defaulting to 1. Setting this to 0 prevents adding '.0' to integers.
+
+* New: Added ‘.idea/misc.xml’ file generation to speed up CLion indexing.
+
+* New: Added option to generate minimal set of targets for CMake files.
+
+* New: Added shader and config files to CMake file generation for searching in IDEs.
+
+* New: Added icon size override to FObjectEntryBox.
+
+* New: Added CMAKE_CXX_COMPILER and CMAKE_C_COMPILER settings to generated CMake files.
+
+* New: Removed deprecated version of RHISetStreamSource.
+
+* New: Optimized hlslcc to use hashes instead of lists with hash bucket sizes being prime.
+
+* New: When generating CMake files on Mac, added support for iOS and TVOS targets.
+
+* New: Merged CLion source code access Plugin support.
+
+* New: Reduced calls to malloc by using larger memory blocks for hlslcc Type allocation pools.
+
+* New: Optimized hlslcc memory allocation policy on Mac, resulting in `34%` faster and `83%` cheaper memory moves.
+
+* New: Added basic support for hotfixing live assets from .ini files.
+
+#### Rendering
+
+* Crash Fix: Fixed a Metal shader standards iOS crash when users would try to load a project that tries to use an incompatible shader version.
+
+* Crash Fix: Disable the METAL_SM5_NOTESS shader platform again to workaround the Nvidia pipeline state compiler crash by changing the buffer address space from "constant" to "device".
+
+* Crash Fix: Fixed a crash on D3D12 when locking buffers for read access.
+
+* Crash Fix: Resolved an intermittent crash in the MetalRHI by retaining the bound Render Targets until we bind something else. 
+
+* Crash Fix: Developed a workaround for a crash on fullscreen startup in packaged builds of Showdown for Mac.
+
+* CrashFix: Fixed a crash in Metal on one kind of draw call when tessellation is enabled.
+
+* Crash Fix: Fixed crash when building Texture Streaming in the resave package commantlet.
+
+* Crash Fix: Attempt to reduce the number of crashes on Nvidia Macs by retaining resources used in each command-buffer.
+
+* Crash Fix: Fixed a crash in the MetalRHI when using dithered LODs caused by one of the fragment shaders not declaring any explicit outputs.
+
+* Crash Fix: Fixed a crash in projects that used Distance Field Shadowing when Static Meshes were updated while not yet registered with the level.
+
+* Crash Fix: Doubled the size of the occlusion query buffer in D3D12, to 256KB of memory, to prevent crashes in larger levels.
+
+* Crash Fix: Fix for Intel HD 4000 crashing on Mac OS 10.12.6.
+
+* CrashFix: Fixed a crash when calling the "FreezeRendering" console command on non Editor builds.
+
+* Crash Fix: Fixed crash when scaling a Blueprint with a Planar Reflection component.
+
+* Crash Fix: Fixed issue where FOpenGLDynamicRHI RHISetRenderTargetsAndClear function would crash when the render target did not have a color binding.
+
+* Bug Fix: Fixed Alembic Geom Cache no longer rendering correctly.
+
+* Bug Fix: Fix the Intel vector-array-dereference workaround so that it doesn't cause the AMD compiler to explode instead.
+
+* Bug Fix: Fixed the way iOS version specific Metal features are enabled to avoid an overflow bug that meant some weren't being enabled.
+
+* Bug Fix: Removed support for Metal Shader Model 4 on Mac. 
+
+* Bug Fix: Fix compilation on HLSLCC with integral values are not automatically converted into comparisons with zero.
+
+* Bug Fix: Fixed the normalization of Morph Tangents. 
+
+* Bug Fix: Tweaked Metal GPU identification so that it works with eGPU boxes and prototype hardware.
+
+* Bug Fix: Implement Byte Address Buffer RWByte Address Buffer in HLSLCC in a similar manner to Structured Buffer RWStructured Buffer so that the backends don't need too much modification. 
+
+* Bug Fix: Enabled the ability to use GPU morph targets on Mac.
+
+* Bug Fix: Fixed RHI thread and parallel execution in Mac -game mode.
+
+* Bug Fix: DX11 Texture formats are now supported on Mac Metal.
+
+* Bug Fix: Fixed long standing bug in OpenGL Vertex Declaration cache with hash collisions in the cache sometimes returning the wrong declaration.
+
+* Bug Fix: Fixed Material events not showing up in RenderDoc.
+
+* Bug Fix: Fixed Anisotropic Filtering not working on Vulkan.
+
+* Bug Fix: Memory is no longer reallocated on every Vulkan draw call.
+
+* Bug Fix: Stopped memory leak from MTL Textures missing autorelease pool blocks in Metal Texture functions.
+
+* Bug Fix: Fixed Metal compilation for PCSS shadows.
+
+* Bug Fix: Fixed comparison of Scene Color Format. 
+
+* Bug Fix: Fixed incorrect handling of some float to uint shader loads in Metal.
+
+* Bug Fix: Reduce the number of Metal PCH shader compiler errors by using atomic file operations.
+
+* Bug Fix: Changed the Metal sampler filter translation to better match Direct3d.
+
+* Bug Fix: Shared Texture samplers are now refreshed when changing Max Anisotropy level.
+
+* Bug Fix: Fixed a bug where Static Meshes were being added to the scene twice when in Simple Forward rendering was enabled.
+
+* Bug Fix: Fixed the native shader libraries again & undo.
+
+* Bug Fix: Removed the single linear array for accumulated shader code.
+
+* Bug Fix: Uncompress the shader data for the native library system. 
+
+* Big Fix: Fixed an errant change to the Metal compiler that was trying to force the fully compiled library into the single Metal library.
+
+* Bug Fix: Fixed up the internal validation layer in MetalRHI which can now be enabled from the OS command-line.
+
+* Bug Fix: Fixed condition controlling which features are enabled when iOS >= 10.3.
+
+* Bug Fix: Errors from failed attempts to compile global shaders are now reported correctly. This information enables us to identify the causes of these failures on non-Windows platforms.
+
+* Bug Fix: Fixed Texture resolution returning 0 when running Blueprint Construction scripts when cooking.
+
+* Bug Fix: We can now handle swizzle's in the HLSLCC FMA identification pass so that we reduce the number of instructions and the platform compiler can't break the instructions up.
+
+* Bug Fix: Developed a work around two different bugs with Metal shader compilation behavior that caused black flickering when a material used World Position Offset. 
+
+* Bug Fix: Metal Shader Format will no longer fallback to text shaders when you ask it to compile to bytecode but the bytecode compiler is not available (either locally or remotely).
+
+* Bug Fix: Metal can now render patches as well as triangles when tessellation is enabled.
+
+* Bug Fix: Add the ability to emit more details when a pixel shader is found to have no outputs at all.
+
+* Bug Fix: Fixed image plates not showing up in high resolution screenshots.
+
+* Bug Fix: VIS_Max meta is now set to hidden. 
+
+* Bug Fix: Fixed Distance Field Ambient Occlusion not working on Metal platforms.
+
+* Bug Fix: Changed Metal pipeline bindings warning to Verbose.
+
+* Bug Fix: Prevented an unnecessary red<->blue swap in FVulkan Dynamic RHI RHI Read Surface Data function when reading back a surface in VK_FORMAT_R16G16B16A16_SFLOAT format.
+
+* Bug Fix: Fixed non-deterministic locations of procedurally placed Landscape grass on different platforms and compilers.
+
+* Bug Fix: Fixed huge client hitch when applying changes to rendering scalability settings while in game.
+
+* Bug Fix: Stopped MetalRHI leaking vertex-descriptors and debug-group strings.
+
+* Bug Fix: applied a fix to runtime error with textures being loaded from bulk data when texture streaming is disabled.
+
+* Bug Fix: Removed faulty ensure in the texture streaming code.
+
+* Bug Fix: Fix on D3D12 for CPUs with more than 16 cores.
+
+* Bug Fix: Added support for Vulkan devices that don't support cached memory type.
+
+* Bug Fix: Fixes for UScene Capture Component Hidden Actors always staying gray out in World Editor.
+
+* Bug Fix: Fixed Recompute Tangents and Skin Cache on OpenGL 4.
+
+* Bug Fix: Fixed OpenGL sometimes overwriting resources if too many were bound on OpenGL 4.
+
+* Bug Fix: Fixed Metal support for Manual Vertex Fetch by making it a property of the shader platform.
+
+* Bug Fix: Fixed tessellation shader capability initialization in OpenGL renderer.
+
+* Bug Fix: Fixed instancing in Vulkan.
+
+* Bug Fix: Fixed Skeletal Mesh LODs inside editor.
+
+* Bug Fix: Fixed loading shaders from the cooked DDC.
+
+* Bug Fix: Planar Reflections now properly handle world origin rebasing.
+
+* Bug Fix: Fixed initialization of instancing random vertex stream.
+
+* Bug Fix: Using the -opengl command line argument will now default OpenGL to 4.3.
+
+* New: Added a recompute Tangents options for cloth assets.
+
+* New: Updated Nvidia Ansel to v1.4
+
+* New: Added a new console-variable to enable and disable Manual-Vertex-Fetch for Metal. MVF works on macOS, though testing did expose an error with Tessellation on Nvidia (true for MVF enabled & disabled).
+
+* New: Refactored the way we compile Buffer and RW Buffer types for Metal so that we can support the type-conversion semantics of HLSL/D3D.
+
+* New: Manual Vfetch for Static Meshes. Skeletal Meshes also use the new layout.
+
+* New: Added code to D3D11RHI (enabled with "-d3ddebug") to validate Draw Indexed Primitives isn't trying to draw off the end of the instanced vertex streams.
+
+* New: Added Get Section From Procedural Mesh utility function for the Procedural Mesh Component.
+
+* New: Added support for 2D IES asymmetrical light profiles that can be up to 256x256 in size. 
+
+* New: Added support for linear HDR EXR output from Sequencer.
+
+* New: More Metal debugging commandline options "-metalfastmath" & "-metalnofastmath" to force fast-math on or off for all shaders, must be using runtime-compiled shaders (i.e. -metalshaderdebug or r.Shaders.Optimise=0) to take effect.
+
+* New: Added support for Nvidia Aftermath v1.3.
+
+* New: New  cvar r.ForceStripAdjacencyDataDuringCooking that will strip adjacency data from all Skeletal and Static meshes during cooking.
+
+* New: ViewToClipNoAA added to uniform shader parameters. This allows "After Tonemapper" post process blendables that can be positioned in view space when using temporal AA.
+
+* New: Added Render Target Pool Stats. Use "stat render target pool" to view.
+
+* New: Added support for Speedtree 8.
+
+* New: Update to AGS v5.1.1 support.
+
+* New: Changed IES texture brightness to be the max candela value and set the texture multiplier to 1. 
+
+* New: Made major changes on how Vulkan manages its descriptor pools.
+
+* New: Support for DX11 quad buffer stereo rendering.
+
+* New: Added unified present threshold console variables between all supported platforms. 
+
+* New: Added RHI Command List Enqueue Lambda method which can be used to enqueue arbitrary tasks on the RHI thread from the render thread without having to write lots of boilerplate FRHI Command functor classes.
+
+##### FX
+
+* Bug Fix: Fixed texture streaming with particle Subuv.
+
+* New: Implemented a fast particle pool memory which default is 2MB and automatically cleans up oldest used pool slots. 
+
+##### Lighting
+
+* Bug Fix: Fixed Lightmass correctness issues so that, Point, Spot, Directional and Skylights more closely match reference renderer. 
+
+* Bug Fix: Removed legacy fudge factor on point / spot light photon energy * Spotlights no longer emit based on indirect photon paths. 
+
+* Bug Fix: Added the ability to enable LPVs for Mac Metal.
+
+* Bug Fix: Integrated the LPV_STORE_INDEX_IN_HEAD_BUFFER related changes from Lionhead to make Light Propagation Volumes potentially viable on non-Microsoft platforms.
+
+* Bug Fix: Created Stat Map Build Data to track the memory size of lighting and reflection capture build outputs.
+
+* Bug Fix: Added support for Reflection Captures to support Lighting Scenarios without the need for recapturing. 
+
+* Bug Fix: Reflection Captures are now part of the Map Build so modifying a Reflection Capture in Editor will display a preview, but game can only display built captures (black for unbuilt with screen message) * 
+
+* Bug Fix: Moved Reflection Capture build data to the Build Data package so building lighting / Reflection Captures no longer dirties U Levels.
+
+* Bug Fix: Added the ability for Skylights which capture the scene to work correctly with Lighting Scenarios.
+
+* Bug Fix: Lighting Scenarios must now be loaded for each time they are made visible no switching back and forth while keeping both loaded.
+
+* Bug Fix: Exposed the Emissive Boost, since Lightmass supports Emissive areas on Static Meshes.
+
+* Bug Fix: Added the ability for Translucency lighting modes to work with Volumetric Lightmaps to give the  lighting much more accuracy. 
+
+* Bug Fix: Added A Volumetric Lightmap Density Volume which gives local control over Volumetric Lightmap density. 
+
+* Bug Fix: Volumetric Lightmap no longer refines around static translucent geometry.
+
+* Bug Fix: Reworked brick culling by error mechanism which now compares error to interpolated parent lighting instead of the brick average.
+
+* Bug Fix: Added Lightmap Type to Primitive Component.
+
+* Bug Fix: Added new property, Force Volumetric which allows forcing Static Geometry to use Volumetric Lightmaps. 
+
+* Bug Fix: Added Force Surface which replaces b Light As If Static Improvements to Volumetric Lightmap quality needed for static geometry.
+
+* Bug Fix: Fixed Stationary light shadowing so it is now dilated when inside geometry.
+
+* Bug Fix: Added refinement around geometry which uses an expanded cell bounds when the geometry is going to use Volumetric Lightmaps, since cross-resolution stitching causes leaking.
+
+* Bug FIx: Added a New World Settings Lightmass property, Volumetric LightmapSphericalHarmonic Smoothing, which  controls the global amount of smoothing applied.
+
+* Bug Fix: Hidden levels now keep their last build data when using lighting scenarios.Fixed light build bug where hidden levels affected volumetric lightmaps.
+
+* Bug Fix: Prevent an assert from firing when LPV Intensity is saved to a value of 0.0.
+
+* Bug Fix: Fixed instanced static mesh lightmaps when using lighting scenarios.
+
+* New: Added a intensity units property, for Point and Spot lights, that can be set to Candelas, Lumens or Unitless (as before). 
+
+* New: Added r.Capsule Direct Shadows and r.Capsule Indirect Shadows for more specific scalability control over capsule shadow features. 
+
+* New: Added a Lighting Feature show flags for RTDF shadows and Capsule Shadows.
+
+* New: Capsules Shadows are now disabled on the lowest shadow scalability quality.
+
+* New: Added Forward shadowing of Directional light for Translucency * Static shadowing and added CSM supported with minimal filtering (1 PCF) * Deferred renderer. This affects Translucency using 'Surface Forward Shading' lighting mode while the Forward renderer affects all translucency.
+
+* New: Volumetric fog is now always interpolated in the Pixel shader, since per-vertex interpolation gives consistently poor results. 
+
+* New: Added a checkpoint for Screen Shadow Mask Texture, allowing Vis Screen Shadow Mask Texture.
+
+##### Materials
+
+* Bug Fix: Return error for external texture if not used in pixel shader
+
+* Bug Fix: Fixed vertex interpolator node when used with sprite and gpu particle materials.
+
+* Bug Fix: Fixed an issue where media textures that were referenced by a material and then later associated with a media player by a blueprint would fail to render media
+
+* Bug Fix: Fixed a bug where renaming a parameter in a material using functions would sometimes reset the value in child instances.
+
+* Bug Fix: Fixed texture streaming issue when the camera FOV is reduced by gameplay (like when using a weapon scopes)
+
+* New: Added a Channel Mask material parameter, changeable at runtime and returns the selected channel of it's input.
+
+* New: Material Layers experimental enable flag has moved to Rendering > Experimental > Support Material Layers. 
+
+##### Mobile Rendering
+
+* Bug Fix: Cancelled the applied exposure scale with planar reflections for non-hdr mobile
+
+* Bug Fix: Added half float -> float conversion for static vertex buffers when device does not support half float vertex attributes.
+
+* Bug Fix: Fixed ES2 issue reading from a render target in float format for BGRA8888 when the glReadPixels() call fails
+
+* Bug Fix: Provided an implementation of round() under GLES2 when the shader compiler does not provide it
+
+* New: Added GLES3.1 compatibility mode for mobile preview to the windows Open GLRHI.
+
+* New: Changed the way Manual Vertex Fetch is enabled on Metal platforms so that it is enabled when targeting Metal v1.2 and higher (macOS 10.12+/iOS 10+). 
+
+* New: Pass project defined maximum CSM count to mobile CSM shaders. 
+
+* New: Added CSM distance fading for mobile.
+
+* New: Add mobile CSM shader culling for movable directional lights.
+
+##### Optimizations
+
+* Bug Fix: Vulkan descriptor pools are now allocated per PSO instead of globally to reduce peak mem consumption and fragmentation (enabled on Windows only).
+
+* Bug Fix: Reduced Vulkan saved pipeline cache file size by filtering duplicated shader SPIRV.
+
+* Bug Fix: Fixed Actors with HLOD parent primitives not having synchronized visibility with their parent.
+
+* Bug Fix: Improved consistency of HLOD transitions by using the distance to the closest point on the AABB instead of distance to the origin of their bounding sphere.
+
+* Bug Fix: Applications using OpenGL now properly discard copy of vertex and index buffers in memory once they are uploaded to GPU.
+
+* New: Added new command "stat Streaming Overview" giving high level metrics of Texture usage.
+
+* New: Added optional support for compressing saved Vulkan PSO cache with r.Vulkan.Pipeline Cache Compression.
+
+* New: Added Shader compiling memory optimizations to reduce memory and time it takes to re-compile Editor shaders.
+
+* New: Removed read / write locks from PipelineStateCache, Estimated half time on the main thread for PipelineStatecache operations. Introduces duplicate which are cleaned up at end of frame. Slightly higher memory overhead.
+
+* Optimized the texture streaming update loop when using a many small levels in big worlds.
+
+* New: Added new CVar "r.DistanceFields.ForceMaxAtlasSize" (defaults to zero, which leaves the current behavior of auto-sizing up to configured maximum, as needed.) This can be used to avoid costly hitches when resizing the distance field in projects with large numbers of actors.
+
+* New: Added new "r.HLOD.DistanceOverride" CVar, which can be used to force all HLODs to transition at a specific distance, regardless of the individual cluster's settings. Defaults to zero (off).
+
+* New: Added new options to HLOD settings to strip adjacency and distance fields from generated meshes.
+
+* New:  Added new CVar for adjusting view distance scale, which is not affected by scalability settings
+
+* Depreciation: Removed deprecated Lightmap UV Bias, Shadow Map UV Bias from Instanced Static Mesh Component.
+
+##### Post Processing
+
+* Bug Fix: Fix the black ground scattering on Metal by ensuring that input into abs() is non-negative for atmosphere rendering.
+
+* New: Added color grading control Blue Correction to correct for artifacts with "electric" blues due to the ACEScg color space.
+
+* New: Added color grading control Expand Gamut which expands bright saturated colors outside the sRGB gamut to fake wide gamut rendering.
+
+* New: Implemented a SSR input Post Process Material location to compose linear color space backplate after TAA for next frame's SSR.
+
+#### Tools
+
+* Crash Fix: Fixed a crash when attempting to move windows in VR Mode.
+
+* Bug Fix: Fixed an issue where the Selection Laser is detached from the controllers in VR Mode.
+
+* Bug Fix: ASTC texture versioning is now corrected.
+
+* Bug Fix: Fixed an issue reporting some files did not copy to the device while those files were not actually needed.
+
+* Bug Fix: Fixed an issue where SSH Key was failing to generate when the remote Mac user contained a space character.
+
+* Bug Fix: Fixed memory corruption that could occur when using the Open Level dialog.
+
+* New: Added Post Process preview in the Material Editor viewport.
+
+* New: Reduced memory requirements of many graph related classes by storing data as FName instead of FString.
+
+* New: Added support for Debug Symbols (.udebugsymbols) files generated for iOS builds to be used for memory debugging with the Memory Profiler 2 tool.
+
+##### AutomationTool
+
+* Bug Fix: Fixed parallel executor getting the working directory from task element, not tool node.
+
+* Bug Fix: Fixed an issue to no longer produce access violations when creating an installed build of the Engine  when running the Automation Tool directly, rather than using the Automation Tool Launcher.
+
+* Bug Fix: Fixed one CPU core spinning during compilation using Parallel Executor. This was due to Completed Event never being reset.
+
+* Bug Fix: Fixed the ability to distribute app-local dependencies with games packaged using the launcher UE4 distribution. 
+
+* Bug Fix: App-local dependencies now work for C++ and Blueprint projects.
+
+* Bug Fix: Fixed a race condition where stdout/stderr write handles could be inherited by multiple processes, resulting in them not being closed (and the process exit being detected) until all processes that inherited them had been closed. This improves performance of Parallel Executor.
+
+* New: Added support for external projects with new parameter to "List Third Party Software". The parameter -ProjectPath specifies the path to the UProject file so that the build rules of the project are parsed and the folder is part of the search for Third Party Software files.
+
+* New: Lowered logging level for cached file notification during Cook from Warning to Verbose in order to reduce clutter in the logs.
+
+* Removed: Code that deletes cooked data on a failed cook has been removed because deleting the cooked data prevented post-mortem analysis. The Engine now writes out packages transactionally by writing to a temporary file and moving them into place.
+
+* Removed: Code that executes pre-built steps from UE4Build have been removed. These build steps should be executed before generating the action graph. So, they have to be done inside of Unreal Build Tool. Running them here causes them to execute twice.
+
+##### BuildGraph
+
+* New: Added an example script for building the Editor and Game targets for a project, and submitting the binaries to source control.
+
+* New: Improved error reporting when compiling a C# project with an invalid reference.
+
+* New: Added an <MsBuild> task for compiling MSBuild projects.
+
+##### Network Profiler
+
+* New: The Network Profile is now 64 bit and the solution has been converted to VS2015 and are now about `6%` smaller.
+
+* New: Added a checkbox above the connections list that will select or deselect all connections in the Network Profiler.
+
+##### UnrealBuildTool
+
+* Bug Fix: Fixed an issue causing Unreal Build Tool on Mac to not use makefiles which made the time it needed to determine what needs to be compiled and linked longer than on other platforms.
+
+* Bug Fix: Fixed some errors encountered when cleaning a target now cause an error code to be returned.
+
+* Bug Fix: Fixed the command line arguments -monolithic and -modular to now be parsed correctly.
+
+* Bug Fix: Fixed the include paths ending with a backslash that were escaping the closing quote when passed on the command line.
+
+* Bug Fix: Fixed post-build steps for plugins not being executed.
+
+* Bug Fix: Output subfolders are no longer being appended twice when generating project files if set by a target. This was causing incorrect command lines when launching from Visual Studio.
+
+* Bug Fix: Fixed batch file paths not being quoted correctly when running through XGE.
+
+* Bug Fix: Fixed issues where Includes with backslashes were causing an unhandled exception on a background thread in UnrealBuildTool.
+
+* Bug Fix: Fixed Version and Module files not being included in the output manifest. This fixes missing version information when using precompiled binaries in UGS.
+
+* New: UnrealBuildTool now passes the "/d2cgsummary" flag to the Visual C++ compiler when running with the -Timing argument.
+
+* New: Added include and library-related fields to module JSON output. 
+
+* New: VSWHERE is now used to find the location of MsBuild.exe if available.
+
+* New: Improved error handling while generating intellisense project files. It now includes the name of the target being compiled and allows project file generation to continue without it. 
+
+* New: The Module Rules "Definitions" property has been renamed to "Public Definitions", to make its semantics clearer. A complementary "Private Definitions" property has also been added.
+
+* New: UnrealBuildTool now validates that targets don't modify properties that affect other targets. For example, modifying global definitions for an Editor target, where other Editor targets may use the same engine DLLs).
+
+* New: Added the build version to the Target Rules and Read Only Target Rules class, allowing it to be read from the target and module rules files. 
+
+    * Changed Launch.build.cs to set private defines for the build changelist in non-formal builds. This allows the version to be set correctly with executables copies to console. 
+
+    * Modular builds on desktop platforms still read the Version file from disk since it’s quicker than compiling a value in. They need the build ID to prevent mismatched binaries. 
+
+* New: Version files are only generated for non-promoted builds, and are included in the target receipt.
+
+* New: Added a proper error message if the user attempts to clean a target through hot-reload, rather than just failing to delete DLLs because they are locked.
+
+* New: Added a logging option to format output messages in a form that can be parsed by MSBuild. This prevents errors showing as "EXEC: Error:", and displays them correctly in the error list window.
+
+* New: Unreal Build Tool will now use the preferred source code accessor selected in the editor to compile with, if an explicit compiler is not specified in the Project Settings.
+
+* Deprecated: Unified command line arguments now use the -Name=Value syntax. The following are no longer supported:
+
+    *  -Module <Name> 
+
+    * -ModuleWithSuffix <Name> <Suffix>
+
+    * -Plugin <Path>
+
+    * -Receipt <Path>
+
+* Removed: UDN documentation source files are no longer included in the generated project files by default.
+
+##### UnrealGameSync
+
+* Bug Fix: Fixed an issue so that the project filename is now included in the Editor build command. The project may not be in one of the .uprojectdirs paths.
+
+* Bug Fix: Fixed an issue where the "More Info..." button was not using P4 server override.
+
+* New: UProject and UPlugin files are now treated as code changes. This change was made since they can invalidate the Editor target. 
+
+* New: Added an in-place error panel to show when a project fails to open. This enables the user to retry and have their tabs saved instead of creating a modal dialog.
+
+##### UnrealVS
+
+* New: Added Log GenerateProjectFiles to file when using Unreal VS.
+
+#### UI
+
+* Crash Fix: Fixed a line-ending inconsistency when retrieving rich-text that could cause Input Method crashes. 
+
+* Bug Fix: Fixed some clipping issues that could occur with right-aligned text. 
+
+* Bug Fix: No longer include trailing whitespace in the justification calculation for soft-wrapped lines. 
+
+* Bug Fix: Fixed incorrect text selection when selecting via double-click beyond the bounds of the line.
+
+* Bug Fix: Special case zero-width space in the text shaper to avoid fonts rendering the fallback glyph.
+
+* New: Added support for displaying and editing numbers in a culture-correct way. 
+
+    * Numeric input boxes in Slate will now display and accept numbers using the culture correct decimal separators. 
+
+    * This is enabled by default, and can be disabled by setting Should Use Localized Numeric Input to False in the XEditorSettings.ini (for the editor), or XGameUserSettings.ini (for a game).
+
+* New: Added support for a catch-all fallback font within composite fonts. 
+
+    * This allows you to provide broad "font of last resort" behavior on a per-composite font basis, in a way that can also work with different font styles.
+
+* New: Added support for per-culture sub-fonts within a composite font.
+
+    * This allows you to do things like create a Japanese specific Han sub-font to override the Han characters used in a CJK font. 
+
+* New: Safe Area is no longer centered or symmetrical. The UI will use the Safe Area reported by the OS. 
+
+* New: Added Editable Text functionality.
+
+##### Slate
+
+* Crash Fix: Fixed a crash when trying to use the widget reflector in a client cooked build.
+
+* Bug Fix: Fix for accessing Slate window on render thread.
+
+* Bug Fix: Updated Scroll Descendant Into View to account for situations where there are widget(s) between the target widget and the scroll panel, causing the widget geometry position to be incorrect.
+
+* Bug Fix: Fix slate material box brushes not being keyed off image size.
+
+* Bug Fix: Added conditional to only unregister the active timer if it is still valid after execution.
+
+* New: Slate now supports a Custom Boundary Navigation type which allows a custom handler if the boundary is hit. 
+
+    * This provides the ability to have normal navigation while within the boundary and the custom function only on the boundary. 
+
+    * This differs from Custom, which is a full override of the navigation behavior.
+
+##### UMG
+
+* Crash Fix: Fixed a crash on compile due to partial GC of a widget.
+
+* Crash Fix: Implemented a fix for a crash when playing in editor after changing, but not compiling, a Widget Blueprint.
+
+* Crash Fix: Calling Find All Ancestor Named Slot Host Widgets For Content with a null widget no longer crashes. 
+
+* Crash Fix: When the widget passed to Scroll Widget Into View is null no longer crashes.
+
+* Bug Fix: Fixed an issue where instanced properties on User Widgets might not be properly serialized.
+
+* Bug Fix: Fixed paused state so that it doesn't return widgets to their original state.
+
+* Bug Fix: UMG objects returned from Create Widget and Create Drag Drop Operation are no longer marked as always being hard referenced by the blueprint. 
+
+    * This means that they will no longer leak if they are not in use. 
+
+    * If the widget or drag operation are on screen they will correctly stay in memory, but if you need them not to be freed for other reasons, you can assign them to a blueprint variable. 
+
+* Bug Fix: Fixed Additive UI materials not being affected by the widget opacity.
+
+* Bug Fix: Common Activatable Panel does a better job of cleaning up when it is reset.
+
+* Bug Fix: Common Tree View Set Selection correctly updates list navigation and behaves similarly to Common List View Set Selected Item.
+
+* Bug Fix: Fixed Common Buttons sending OnClicked events while not interactable.
+
+* Bug Fix: UMG Designer now refreshes the widget preview even if the dragged widgets are dropped in an invalid location.
+
+* Bug Fix: Implemented a fix for large numbers of unused variables being added to the widget blueprint when the widget hierarchy was changed.
+
+* New: Exposed the virtual keyboard dismiss action to UMG.
+
+* New: Added Auto Wrap Blueprint-callable function to Text Block.
+
+* New: Now able to set escape keys and no key specified text on Input Key Selector.
+
+#### VR
+
+* Crash Fix: Fixed a crash that could occur when increasing and then decreasing screen percentage in the editor's VR preview.
+
+* Crash Fix: Fixed a bug on Gear VR that could cause the app to crash or hang when invoking the system quit menu.
+
+* Crash Fix: Fixed a crash that could occur on Oculus when creating a layer surface likely from a bad graphics state.
+
+* Crash Fix: Fixed a crash that could occur on Gear VR when using more than four stereo layers.
+
+* Bug Fix: Prevented the Front Buffer surface on Gear VR from needlessly updating. This improves performance.
+
+* Bug Fix: Fixed a perf regression introduced in 4.17 on Oculus platforms, where operating on the HMD was slowed by a superfluous module check.
+
+* Bug Fix: Motion Controller Component cleanup should now be in Begin Destroy and not Destructor. 
+
+* Bug Fix: Moved View Extension cleanup to Begin Destroy from the Destructor.
+
+* Bug Fix: Fixed Google Cardboard rendering upside down on some iOS devices.
+
+* Bug Fix: Fixed an issue with the Google VR controller model laser pointer portion wasn't rendering.
+
+* Bug Fix: Prevented the editor's camera from locking after playing in Google VR instant preview.  
+
+* Bug Fix: Set the default value of  CVar "vr.HiddenAreaMask" back to one, meaning that it is enabled by default.
+
+* Bug Fix: Fixed a bug causing world-locked stereo layer positions to be wrong on SteamVR when there was a camera component representing the HMD.
+
+* Bug Fix: Oculus Go touchpad event is now properly handled.
+
+* New: VR Screen Percentage Refactor to support new upsample and Dynamic Resolution rendering features. 
+
+* New: Added new Visualization settings to Motion Controller components. 
+
+* New: You can now input "bSupportsDash" under the [Oculus.Settings] heading in your engine config files to enable Oculus Dash support.
+
+* New: Added a render event name for the Oculus Rift's eye padding draw 
+
+* New: New code path for deciding whether to add a post processing pass for HMD distortion has been simplified to happen only in a single place.
+
+* New: Allow VR plugins to have multiple viewports and rotated eye orientations.
+
+* New: Added a new Controller model for the Oculus Go controller.
+
+* New: Added several Oculus specific functions that can be accessed through Blueprint. 
+
+* New: Enabled the debug canvas layer by default for the console command window on Gear VR and Google VR.
+
+#### XR
+
+* Bug Fix: Fixed a bug with Oculus, that caused the tracking origin to be reset on startup.
+
+* Bug Fix: Fixed a visual bug that could produce a strobe effect with lighting when using the VR preview in editor.
+
+* Bug Fix: Fixed a soft assert that would trigger when exiting the editor's VR preview on Oculus.
+
+* Bug Fix: Disable Mobile Multi-View when running with Google cardboard.
+
+* New: Added a new Blueprint function that supplies a tracking-to-world space transform.
+
+* New: Added an option to Motion Controller components to display an optional model (see the Display Device Model option in the component's details). This can be set up to generically use the device model provided by the backing XR system (if the system has one).
+
+* New: Added new Blueprint functions to generically enumerate tracked devices, and another to request a model component from the backing XR system (NOTE: at the moment, not all systems support returning a model).
+
+* New: Added a "MotionDelayBuffer" service to the engine that hooks into Motion Controller components, and lets programmers render the components at a delayed rate (to simulate latency).
+
+* New: The XR Tracking System and Head Mounted Display interfaces have been updated to make handling of pose updates and late update more explicit.
+
+* New: Added a new function to convert poses from XR tracking space to Unreal world space.
+
+* New: Changed Motion Controller "Hand" property to a more generic “MotionSource” name field, and added a function to query for generic float parameters associated with the Motion Controller.
+
+* New: Added new Blueprint node for getting the current VR pixel density.
+
+* New: Refactored the Rift dynamic resolution implementation to use the new general Dynamic Resolution State interface.
+
+* Deprecated: XR Tracking System interface function Refresh Poses has been deprecated.
+
+## UPGRADE NOTES
+
+#### Animation
+
+##### Animation Blueprints
+
+* Bug Fix: We changed the order of how to get the material default value. Previous implementation was to get parent's default value first before itself, which was incorrect, so we fixed it by getting own default value if exists. However, if you were relying on the previous behavior, you're going to see the issue. Make sure you set correct default value for the material instance if it was incorrect.
+
+* Bug Fix: If this code executes (it will add a log warning if it does) it could cause problems with deterministic cooking / patch creation as new guids will be generated during cook. Nothing will break but patch sizes could be bigger than they need to be. Re-saving the problematic assets will correct the issue.
+
+##### Skeletal Mesh
+
+* The function name of SkeletalMeshComponent::PostBlendPhysics() has changed to FinalizeAnimationUpdate() for clarification.
+
+#### Blueprints
+
+* New: Step Into has been remapped to the F11 key. The Step Over command is now mapped to F10 instead.
+
+* User Defined Structure default values now correctly propagate to blueprints and other user structs the same way that native structs do, which may cause issues if your blueprints were depending on this not happening. If this is a problem you may need to modify your outer blueprint or struct and set some values back to empty or 0.
+
+#### Core
+
+* VisitTupleElements has had its parameters swapped - the visitor is now the first parameter, followed by the tuple (now multiple tuples). Any existing calls will need to swap arguments.
+
+* FPlatformAtomics::AtomicRead64() has been deprecated - the int64* overload of FPlatformAtomics::AtomicRead() should be used instead.
+
+* The bWasReloaded flag was removed from FModuleManager::LoadModule(), FModuleManager::LoadModuleChecked() and FModuleManager::LoadModuleWithFailureReason() - any calls to it should also remove this flag.
+
+* TWeakObjectPtr's constructor was silently casting away const - this has now been fixed and any use of TWeakObjectPtr will now warn if it is not const-correct.
+
+* UE4 containers now expect move-aware allocators, which means they need to support the MoveToEmpty(SrcAllocator) member function to move all elements across from SrcAllocator, leaving it empty. Any custom allocators should be updated to add this support and specialize the TAllocatorTraits<Allocator>::SupportsMove trait to be true.
+
+* FArchive::Logf() and checkf() macros will now fail to compile if they are not passed a literal formatting string - these should be fixed to use a formatting string like TEXT("%s").
+
+* If you have any build scripts that were looking for DevelopmentAssetRegistry.bin or other metadata files you will need to change them to look inside the new Metadata directory.
+
+* Code using PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS or PLATFORM_COMPILER_HAS_AUTO_RETURN_TYPES should be replaced with the assumption they are always 1.
+
+* ENamedThreads::RenderThread and ENamedThreads::RenderThread_Local are no longer publicly accessible - they should be replaced with ENamedThreads::GetRenderThread() and ENamedThreads::GetRenderThread_Local() respectively.
+
+* TVariant::GetType() now returns an EVariantTypes enum class instead of an int32. Any use of this return value as an int32 will need to be changed to EVariantTypes.
+
+* Bug Fix: PPF_DeltaComparison has been removed - please remove any use of it from your projects.
+
+* Bug Fix: Calls to Align(), AlignDown(), AlignArbitrary() and IsAligned() will no longer compile if passed a non-integer/pointer type. This often fires when trying to align an enum value - it should be explicitly cast to an integer type of the right size.
+
+* Bug Fix: Calling FReferenceCollector::AddReferencedObjects() with a container will no longer compile if the container has pointers to forward declared types. You should ensure the types are included before calling this function.
+
+#### Editor
+
+* The debug canvas for stats is always dpi scaled in editor and pie. Any existing tools that directly use viewport positions and size as positions for canvas elements will need to divide out dpi scale using 1/CanvasObject->GetDPIScale().
+
+* Bug Fix: Note: This only applies to perforce users NOT using ticket based perforce servers.The perforce source control login flow will no longer make any calls to the perforce api which results in a password being stored on the local users machine by perforce. We have determined that the security level of this feature is not high enough to continue using it. Users can now expect to have to type in their perforce password each time they open the editor. To work around this users can call p4 passwd directly from a command window to save a password on their machine if they so choose.
+
+##### Sequencer
+
+* 'Shared' templates are no longer supported in sequencer. Any previous usage should be easily converted to a shared execution token instead (FMovieSceneExecutionTokens::AddShared()). Such tokens are shared globally, rather than per sub-sequence which makes them more robust for shared responsibilities.
+
+#### Gameplay Framework
+
+* Bug Fix: AActor subclasses that intended to be tick when the tick type is Viewports Only and did not set ShouldTickIfViewportsOnly to return true, but instead overrode TickActor and did not filter on Viewports Only will now need to correctly implement the ShouldTickIfViewportsOnly virtual to achieve this behavior.
+
+#### Networking
+
+* UNetConnection::ClientWorldPackageName is now a private member and should accessed through the available Get/Set methods.
+
+* Bug Fix: The net.UseAdaptiveNetUpdateFrequency console variable is now disabled by default, since it was causing replication issues in many projects. If you want to keep using this feature, you may enable it in your project's configuration files.
+
+#### Rendering
+
+* We changed the Vertexbuffer layout from AoS to SoA because after this change we can bind the Input Attributes via SRV and load them in the shader directly (also from compute). Before this change it was very difficult and involved manual interpretation of the Raw Data in the Shader. We recommend everyone to follow this route and change their Vertexbuffers as we probably will deprecate mixed AoS Vertexbuffers in the Future.
+
+* Tube shaped point lights will be automatically rotated to compensate for this change. Dynamically generated point lights with a source length will need to have a 90 degrees pitch added to their orientation.
+
+* Inside Sequencer->Render->CompositionGraphOptionsSet Output Format to "Custom Render Passes"Set Include Render Passes to "Final Image"Set Capture Frames in HDR "On"Set Capture Gamut to "Linear"
+
+#### UI
+
+##### UMG
+
+* Bug Fix: If a game was depending on this functionality to keep things loaded, change your blueprint to set the return value into a variable, that will keep it hard referenced normally
+
+#### XR
+
+* Deprecated the MotionController component's EControllerHand 'Hand' property and replaced it with a 'MotionSource' name. To support the same functionality, use names corresponding to the old enum values ("Left", "Right", etc.).
+
+* vr.oculus.PixelDensity.adaptive has been removed. Dynamic resolution needs to be enabled using the general engine system now.
+
+## PROGRAMMING UPGRADE NOTES
+
+#### AI
+
+* Bug Fix: Fixed a bug in UAISense_Sight::UnregisterSource that resulted in sources being removed not getting removed from the ObservedTargets collection.
+
+##### Debugging Tools
+
+* Redone how visual log is using categories. Now it's using FName rather than FLogCategoryBase to indicated log category. All UE_VLOG macros have been updated. This change made it possible to actually vislog things using blueprint functions.
+
+##### Navigation
+
+* Bug Fix: Fixed navmesh not loading properly in PIE when owning world has been duplicated-for-play
+
+#### Animation
+
+* Bug Fix: Now when meshes are set to EMeshComponentUpdateFlag::AlwaysTickPose, we optionally kick of a task to perform parallel update only (no evaluation). Previously we needed to run this on the game thread as if we skipped evaluation we did not run a worker task.
+
+#### Audio
+
+* New: The new Microphone Capture Component enables feeding audio directly into a game for use with the Audio Engine and for driving in-game parameters. Limitations:
+
+    * Only implemented on PC.
+
+    * Only for local client microphone capture, not connected to VoIP system.
+
+    * Doesn't support recording microphone output to assets.
+
+#### Automation
+
+* Added automated test per-platform blacklist, defined in the project DefaultEngine.ini or platform equivalent e.g. MacEngine.ini:	[AutomationTestBlacklist]	;Use format +BlacklistTest=(Map=/Game/Tests/MapName, Test=TestName)	+BlacklistTest=(Map=/Game/Tests/Physics/Stability, Test=StackCubes)
+
+* Automated test screenshots are now able to test against a hierarchical fallback platform and RHI. This is defined in DefaultEngine.ini, for example:	[AutomationTestFallbackHierarchy]	;Use format +FallbackPlatform=(Child=/Platform/RHI, Parent=/Platform/RHI)	+FallbackPlatform=(Child=/Windows/OpenGL_SM4, Parent=/Windows/D3D11_SM5)	+FallbackPlatform=(Child=/Mac/SM5, Parent=/Windows/D3D11_SM5)
+
+#### Core
+
+* Any usage of FStartupPackages in project code should be removed
+
+* "Native" (now called “FNativeFuncPtr”) is now a function pointer that takes a UObject* context, rather than a UObject member function pointer. Use “P_THIS” if you were previously using the “this” pointer in your native function.
+
+* FTickableBaseObject::GetTickableType can be overriden and returns an enum value of either Conditional (default), Always, or Never.
+
+    * Tickable Never objects will not get added to the tickable array or ever evaluated.
+
+    * Tickable Always objects do not call IsTickable and assume it will return true.
+
+    * Tickable Conditional objects work as in the past with IsTickable called each frame to make the determination whether to call Tick or not.
+
+* FTickableObjectBase::IsTickable() is no longer a pure virtual.
+
+* To match the change in functionality EResourceSizeMode::Inclusive was changed to EstimatedTotal. If any of your code was using Inclusive, you need to decide whether you want to change to EstimatedTotal or Exclusive.
+
+* The ResourceSize asset registry tag has been removed as it was inaccurate. To get an accurate estimate, you must load the object and call GetResourceSize().
+
+* Bug Fix: Cleaned up delegate definitions in UObjectGlobals.h and moved several to be WITH_EDITOR. If you were using those definitions in a game you will need to wrap your use in WITH_EDITOR.
+
+#### Editor
+
+* Being an early feature, some Editor UI buttons do not work during playback of demos.
+
+* The debug canvas for stats is always dpi scaled in editor and pie. Any existing tools that directly use viewport positions and size as positions for canvas elements will need to divide out DPI scale using 1/CanvasObject->GetDPIScale().
+
+* RenameAssetsWithDialog() is often recommended in places where RenameAssets() was being used.
+
+* The SizeMap and ReferenceViewer have been merged into the AssetManagerEditor plugin so they can share the data needed to show cooked sizes.
+
+#### Gameplay Framework
+
+* C++ Header cleanups for Actor, Pawn, Character, Controller, and PlayerController. Marked several fields as private that were accidentally exposed in 4.17.
+
+* Projects using this plugin are strongly encouraged to add a project specific subclass of UDataValidationManager. Any objects that require validation should override IsDataValid.
+
+* Overriden versions of USignificanceManager::Update will need to change signature to receive a TArrayView instead of const TArray&.
+
+#### Networking
+
+* Bug Fix: Programmers using HasPendingConnection() on a listening FScocket should consider using the new WaitForPendingConnection() function instead, which prevents wasting CPU cycles due to polling. This change supported a change to the behavior of the FTcpListener constructor's InSleepTime parameter which now specifies the maximum time to wait for a connection in its polling loop. It now defaults to 1 second, but using a value of 0 will restore the previous polling behavior.
+
+#### Online
+
+* This Online Presence Test requires that the testing user to have friends and be connected to the platform.Usage is "online test presence [OPTIONAL ID]". The ID passed should be an arbitrary non-friend. If no ID is passed, the arbitrary lookup test is skipped. This test does wait for presence updates for about two minutes, after this time if no updates are received, the harness will mark the test as a failure.
+
+#### Rendering
+
+* The STRONG_TYPE #define now seen in UE4 .usf/HLSL is actually hlslcc's "invariant" keyword applied as a type-qualifier to a Buffer<>/RWBuffer<> type - only valid when using Metal which exports this through ILanguageSpec and #define'd out for everyone else. When this is applied the MetalBackend will emit a "raw" buffer whose type must match the shader exactly, which avoids the overheads of Linear-Textures & Function-Constants.
+
+* Vertexbuffer Objects now bind their SRVs directly instead of filling out a StreamDescriptor. Care must be taken when the Vertexfactory is initialized before the VertexBuffer as the bound SRV will become invalid if the underlying vertexbuffer is re-created. We do not support late binding of the data anymore.
+
+##### Mobile Rendering
+
+* Removed cvar "r.AllReceiveDynamicCSM" and primitive flag “FPrimitiveSceneProxy.bReceiveCombinedCSMAndStaticShadowsFromStationaryLights”. Added “FPrimitiveSceneProxy.bReceiveMobileCSMShadows”, which now applies to both stationary and movable lights and defaults to on.
+
+#### Tools
+
+* UEdGraphPin::PinCategory, UEdGraphPin::PinSubcategory, and UEdGraphPin::PinName are now stored as FName instead of FString.UEdGraphPin::CreatePin has several simplified overrides so you can only specify Subcategory or SubcategoryObject or neither.UEdGraphPin::CreatePin also takes a parameter bundle for reference, const, container type, index, and value terminal type rather than a long list of default parameters.Material Expressions now store input and output names as FName instead of FString.FNiagaraParameterHandle now stores the parameter handle, namespace, and name as FName instead of FString.Most existing pin related functions using string have been deprecated.
+
+#### UI
+
+##### Slate
+
+* Renamed FTextBlockLayout to FSlateTextBlockLayout to reflect that it's a Slate specific type
+
+#### XR
+
+* If you maintain a VR or AR plugin, you will have to remove your RefreshPoses() override and move any late update functionality to OnBeginRendering_RenderThread/GameThread(). Alternatively, if your plugin does not support late update, you can remove RefreshPoses() completely and override DoesSupportLateUpdate(), returning false.
+
+    * Added two methods to the IXRTrackingSystem API - GetTrackingToWorldTransform() and UpdateTrackingToWorldTransform(). GetTrackingToWorldTransform() is expected to return an transform that will convert poses from GetCurrentPose() into world space. UpdateTrackingToWorldTransform() is meant for users to override the transform since the anchor between the two spaces is controlled by the project.
+
+    * MotionControllerComponents' 'Hand' property is no longer available. Instead, switch to using the new 'MotionSource' field with text names matching the old enum values ("Left", "Right", etc.). For ease of use, "Left" and "Right" are predefined in FXRMotionControllerBase (as LeftHandSourceId & RightHandSourceId).
+
+    * Replaced EControllerHand parameters in the IMotionController API with generic "source" name parameters. To handle backwards compatibility, use name values corresponding to the old enum ("Left", "Right", etc.).
+
+    * Added two new functions to the IMotionController API - EnumerateSources() & GetCustomParameterValue(). Use EnumerateSources() to return a list of the supported devices (replaces the static EControllerHand enum). GetCustomParameterValue() can be used to expose float values associated with the motion device (such as FOV with cameras, etc.).
+
+#### VR
+
+* The GetHMDDistortionEnabled method on IHeadMountedDisplay how takes a single argument of type EShaderPath. If you maintain a custom HMD plugin, you will need to update your method signature.
+
+## DEPRECATIONS
+
+#### Automation
+
+* UFunctionalTestingManager::RunAllFunctionalTests has dropped an unused parameter. The original version is now deprecated.
+
+#### Core
+
+* Removed the PLATFORM_HAS_64BIT_ATOMICS macro, as it is always 1.
+
+* Deprecated the VARARG macros and replaced them with variadic templates.
+
+#### Editor and Tools
+
+* Deprecated Material Baking functionality inside of the MaterialUtilities module. Users should use the functionality provided by the Material Baking module instead.
+
+#### Gameplay Framework
+
+* Add APlayerController::ClientReturnToMainMenuWithTextReason to support an FText reason parameter so that the message can be localized. Deprecated APlayerController::ClientReturnToMainMenu.
+
+#### Rendering
+
+* The Editor is now only supported on Feature Level 5 platforms. Feature Level 4 platforms (D3D10, OpenGL3) are no longer supported.
+
+##### Materials
+
+* Material Layer experimental support feature, Shared Input Collection and associated material graph nodes have been removed. See the forum feedback thread for more insight.
+
+#### Tools
+
+##### UnrealBuildTool
+
+* The bOutputToEngineBinaries flag has been removed from the target rules. The output directory for targets is always determined by the location of that target.
+
+#### XR
+
+* The IHeadMountedDisplay::GetHMDDeviceType() method has been removed as it was not extensible enough. Code that needs know which XR plugin is currently active should use IXRTrackingSystem::GetSystemName() instead.

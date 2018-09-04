@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -268,7 +268,7 @@ void IME_Present(SDL_VideoData *videodata)
 
 #else
 
-#ifdef _SDL_msctf_h
+#ifdef SDL_msctf_h_
 #define USE_INIT_GUID
 #elif defined(__GNUC__)
 #define USE_INIT_GUID
@@ -295,11 +295,11 @@ DEFINE_GUID(IID_ITfThreadMgrEx,                                0x3E90ADE3,0x7594
 #define IMEID_VER(id) ((id) & 0xffff0000)
 #define IMEID_LANG(id) ((id) & 0x0000ffff)
 
-#define CHT_HKL_DAYI            ((HKL)0xE0060404)
-#define CHT_HKL_NEW_PHONETIC    ((HKL)0xE0080404)
-#define CHT_HKL_NEW_CHANG_JIE   ((HKL)0xE0090404)
-#define CHT_HKL_NEW_QUICK       ((HKL)0xE00A0404)
-#define CHT_HKL_HK_CANTONESE    ((HKL)0xE00B0404)
+#define CHT_HKL_DAYI            ((HKL)(UINT_PTR)0xE0060404)
+#define CHT_HKL_NEW_PHONETIC    ((HKL)(UINT_PTR)0xE0080404)
+#define CHT_HKL_NEW_CHANG_JIE   ((HKL)(UINT_PTR)0xE0090404)
+#define CHT_HKL_NEW_QUICK       ((HKL)(UINT_PTR)0xE00A0404)
+#define CHT_HKL_HK_CANTONESE    ((HKL)(UINT_PTR)0xE00B0404)
 #define CHT_IMEFILENAME1        "TINTLGNT.IME"
 #define CHT_IMEFILENAME2        "CINTLGNT.IME"
 #define CHT_IMEFILENAME3        "MSTCIPHA.IME"
@@ -312,7 +312,7 @@ DEFINE_GUID(IID_ITfThreadMgrEx,                                0x3E90ADE3,0x7594
 #define IMEID_CHT_VER60         (LANG_CHT | MAKEIMEVERSION(6, 0))
 #define IMEID_CHT_VER_VISTA     (LANG_CHT | MAKEIMEVERSION(7, 0))
 
-#define CHS_HKL                 ((HKL)0xE00E0804)
+#define CHS_HKL                 ((HKL)(UINT_PTR)0xE00E0804)
 #define CHS_IMEFILENAME1        "PINTLGNT.IME"
 #define CHS_IMEFILENAME2        "MSSCIPYA.IME"
 #define IMEID_CHS_VER41         (LANG_CHS | MAKEIMEVERSION(4, 1))
@@ -351,6 +351,7 @@ IME_Init(SDL_VideoData *videodata, HWND hwnd)
     videodata->ime_himm32 = SDL_LoadObject("imm32.dll");
     if (!videodata->ime_himm32) {
         videodata->ime_available = SDL_FALSE;
+        SDL_ClearError();
         return;
     }
     videodata->ImmLockIMC = (LPINPUTCONTEXT2 (WINAPI *)(HIMC))SDL_LoadFunction(videodata->ime_himm32, "ImmLockIMC");
@@ -445,16 +446,12 @@ IME_GetReadingString(SDL_VideoData *videodata, HWND hwnd)
     INT err = 0;
     BOOL vertical = FALSE;
     UINT maxuilen = 0;
-    static OSVERSIONINFOA osversion;
 
     if (videodata->ime_uiless)
         return;
 
     videodata->ime_readingstring[0] = 0;
-    if (!osversion.dwOSVersionInfoSize) {
-        osversion.dwOSVersionInfoSize = sizeof(osversion);
-        GetVersionExA(&osversion);
-    }
+    
     id = IME_GetId(videodata, 0);
     if (!id)
         return;
@@ -515,9 +512,6 @@ IME_GetReadingString(SDL_VideoData *videodata, HWND hwnd)
             }
             break;
         case IMEID_CHS_VER42:
-            if (osversion.dwPlatformId != VER_PLATFORM_WIN32_NT)
-                break;
-
             p = *(LPBYTE *)((LPBYTE)videodata->ImmLockIMCC(lpimc->hPrivate) + 1*4 + 1*4 + 6*4);
             if (!p)
                 break;

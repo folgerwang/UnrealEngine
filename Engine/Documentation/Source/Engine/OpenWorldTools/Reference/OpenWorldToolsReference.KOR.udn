@@ -70,7 +70,7 @@ Version: 4.12
 |**Cull Distance** | 컬링 거리 - PerInstanceFadeAmount 머티리얼 노드 사용시 인스턴스의 페이드 아웃 시작 거리입니다. 전체 클러스터가 이 거리 너머에 있으면, 클러스터는 완전히 컬링되어 전혀 렌더링되지 않습니다. |
 |**Cast Shadow** | 그림자 드리우기 - 폴리지가 그림자를 드리울지 말지를 조절합니다. |
 |**Affect Dynamic Indirect Lighting** | 동적 간접광 영향 - 폴리지가 Light Propagation Volume 에 빛을 주사시킬지 여부를 조절합니다. 이 옵션은 CastShadow 가 true 일 때만 사용됩니다. |
-|**Affect Distance Field Lighting** | 디스턴스 필드 라이팅 영향 - 프리미티브가 다이내믹 인스턴스 필드 라이팅 메소드에 영향을 주는지 여부를 조절합니다. 이 옵션은 CastShadow 가 true 일 때만 사용됩니다. |
+|**Affect Distance Field Lighting** | 디스턴스 필드 라이팅 영향 - 프리미티브가 다이내믹 인스턴스 필드 라이팅 메서드에 영향을 주는지 여부를 조절합니다. 이 옵션은 CastShadow 가 true 일 때만 사용됩니다. |
 |**Cast Dynamic Shadow** | 동적인 그림자 드리우기 - 폴리지가 미리계산된 그림자가 아닌 상황에서 그림자를 드리울지 여부를 조절합니다. 이 옵션은 CastShadow 가 true 일 때만 사용됩니다. |
 |**Cast Static Shadow** | 정적인 그림자 드리우기 - 폴리지가 그림자를 드리우는 라이트에서 정적인 그림자를 드리울지 여부입니다. 이 옵션은 CastShadow 가 true 일 때만 사용됩니다. |
 |**Light Map Resolution** | 라이트 맵 해상도 - 스태틱 메시에 정의된 라이트맵 해상도를 덮어씁니다. |

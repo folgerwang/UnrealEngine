@@ -1,0 +1,17 @@
+﻿INTSourceChangelist:4284256
+Availability: Public
+Crumbs: 
+Title: 编辑器脚本使用指南
+Description: 提供一系列实例页面以展示如何使用蓝图和Python在虚幻编辑器中编写脚本并自动执行内容生成任务。
+Version: 4.20
+Parent: Engine/Editor/ScriptingAndAutomation
+Order: 0
+Tags: scripting
+Tags: editor
+
+
+本节中的页面展示如何使用蓝图和Python自动执行虚幻编辑器中的某些常见的内容制作任务。这些示例可以直接复制，也可作为自有脚本的模型。
+
+## 中级
+
+[DIR(output:"fancy" type:"how-to" skill:"Intermediate" parent:"Engine/Editor/ScriptingAndAutomation/HowTos" org:"hierarchy")]

@@ -281,6 +281,15 @@ void UAnimSequenceBase::GetAnimNotifiesFromDeltaPositions(const float& PreviousP
 	}
 }
 
+#if WITH_EDITOR
+void UAnimSequenceBase::RemapTracksToNewSkeleton(USkeleton* NewSkeleton, bool bConvertSpaces)
+{
+	Super::RemapTracksToNewSkeleton(NewSkeleton, bConvertSpaces);
+	VerifyCurveNames<FFloatCurve>(*NewSkeleton, USkeleton::AnimCurveMappingName, RawCurveData.FloatCurves);
+	VerifyCurveNames<FTransformCurve>(*NewSkeleton, USkeleton::AnimTrackCurveMappingName, RawCurveData.TransformCurves);
+}
+#endif
+
 void UAnimSequenceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const
 {
 	float& CurrentTime = *(Instance.TimeAccumulator);
@@ -508,6 +517,13 @@ void UAnimSequenceBase::RefreshCacheData()
 #endif //WITH_EDITOR
 }
 
+int32 UAnimSequenceBase::GetNumberOfFrames() const
+{
+	static float DefaultSampleRateInterval = 1.f / DEFAULT_SAMPLERATE;
+	// because of float error, add small margin at the end, so it can clamp correctly
+	return (SequenceLength / DefaultSampleRateInterval + KINDA_SMALL_NUMBER);
+}
+
 #if WITH_EDITOR
 void UAnimSequenceBase::RefreshCurveData()
 {
@@ -521,13 +537,6 @@ void UAnimSequenceBase::InitializeNotifyTrack()
 	{
 		AnimNotifyTracks.Add(FAnimNotifyTrack(TEXT("1"), FLinearColor::White ));
 	}
-}
-
-int32 UAnimSequenceBase::GetNumberOfFrames() const
-{
-	static float DefaultSampleRateInterval = 1.f/DEFAULT_SAMPLERATE;
-	// because of float error, add small margin at the end, so it can clamp correctly
-	return (SequenceLength/DefaultSampleRateInterval + KINDA_SMALL_NUMBER);
 }
 
 int32 UAnimSequenceBase::GetFrameAtTime(const float Time) const

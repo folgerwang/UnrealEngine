@@ -1,0 +1,161 @@
+﻿INTSourceChangelist:4223439
+Availability:Public
+Title:Sequencer时间重构技术说明
+Crumbs:%ROOT%, Engine
+Description:4.20中对Sequencer工具进行时间重构的技术信息。 
+Navigation:topic
+Parent:Engine\Sequencer\Workflow
+order:1
+Version:4.20
+tags:Sequencer
+
+[TOC(start:2 end:2)]
+
+[REGION:warning]
+在UE4 4.20发行版中，我们对Sequencer中时间的表示方法进行了大幅修改。这样做是为了更好地支持电影性流程和情境，对于电影性流程和情境来说，帧准确性极为重要。该页概述了重要概念转变并详细介绍了为实现升级所做的突破性C++代码更改。
+[/REGION]
+
+## 发生了哪些转变？
+
+自从问世以来，**Sequencer** 就一直使用 **浮点数** 将时间表示为 **秒数**。这大大增加了支持稳定帧准确性的难度，并且会导致关键帧定位误差、渲染时出现错误、摄像机剪辑帧不稳定、求值模糊等问题。从引擎4.20发行版开始，已转变为使用整数更新来表示时间，这即使解决不了所有问题，也能解决很多问题。
+
+这些更新的解译方式是通过序列的 **更新分辨率** 逐序列定义的，“更新分辨率”定义每秒的更新数。使用该机制，用户可以控制sequencer数据的粒度。例如，对于不太关注帧准确性的实时应用，人们可能会选择极高的分辨率，但是渲染后的过场动画的主序列可能会为项目选择真正想要的帧率。
+
+该方法可赋予Sequencer适应不同情境的极大灵活性，同时不影响稳定性或性能。默认情况下，将会以 **60,000 fps** 的更新分辨率升级使用4.20之前的版本创建的内容，该更新分辨率涵盖了除 **23.976（NTSC）** 以外的所有常见帧率。新序列的默认更新分辨率为 **24,000**，它可以涵盖所有常见的整数速率以及 **23.976（NTSC）**。
+
+自定义用于任何给定项目的默认值时，以下cvar非常有用。
+
+* MovieScene.LegacyConversionFrameRate（**默认值：60000fps**）
+
+    * 为使用4.20之前的版本保存的UMovieScene数据指定默认帧分辨率。 
+
+    * 对使用4.20之后的版本（重新）保存的资源没有影响。
+
+* LevelSequence.DefaultTickResolution（**默认值：24000fps**）
+
+    * 为新建的关卡序列指定默认更新分辨率。
+
+* LevelSequence.DefaultDisplayRate（**默认值：30fps**）
+
+    * 为新建的关卡序列指定默认显示帧率；也指定序列设置为帧锁定情况下的锁定帧帧率。
+
+需要注意的是，Sequencer仍然支持使用浮点子帧的关键帧数据求值，这意味着我们仍然可以在运行时针对更新分辨率极低的序列执行平滑插值。只有片段边界和关键帧自身会受到更新分辨率约束。
+
+给定序列的时序信息现在都位于Sequencer工具栏的 **显示速率** 下拉菜单中，工具提示会说明当前序列的更新分辨率：
+
+![image alt text](image_0.png)(w:624 h:314 convert:false)
+
+该菜单允许您更改序列的显示帧率、时间显示模式和求值类型。与当前序列的更新分辨率兼容的常见显示速率会显示在顶部。可以使用不与更新分辨率兼容的帧率来进行显示，但是我们建议您不要这样做。
+
+创建后可以更改序列的更新分辨率，但是需要注意的是，将序列转换为非其当前分辨率倍数的更新分辨率可能将导致片段边界和键被四舍五入到 **高级选项** 菜单中的新分辨率。
+
+![image alt text](image_1.png)(w:624 h:416 convert:false)
+
+## C++ 升级说明
+
+为支持新的时间格式，需要修改很多内部Sequencer和MovieScene类及数据结构。鉴于修改的规模和范围，无法为部分API提供简单的弃用路径。 
+
+该部分将详细说明主要更改并提供从4.19迁移到4.20的示例代码。
+
+### 更改和添加
+
+* **TimeManagement **模块：提供常见的与时间相关的数据结构和操作及处理工具：
+
+
+| 代码                        | 说明                                       |
+| ------------------------- | ---------------------------------------- |
+| FFrameNumber（32位）         | 类型安全的32位整数，主要用于表示与上下文无关的更新号或帧号。不支持从int32以外的任何其他数值类型进行转换。 |
+| FFrameTime（64位）           | 由与上下文无关的帧号和浮点子帧组成的时间表示。主要在求值时使用。         |
+| FFrameRate（64位）           | 以整数分子和分母（帧数 / 秒数）形式存储的分数帧率。              |
+| FQualifiedFrameTime（128位） | 由FFrameTime和FFrameRate组合而成，便于在秒值和其他帧率间来回转换。 |
+| FTimecode（20字节）           | 由对应时、分、秒和帧的整数组成的时间码表示，包含表示丢帧/非丢帧时间码的布尔标志。 |
+
+
+
+* **MovieScene Data**：UMovieScene现在包含更新分辨率和显示速率，并且使用求值类型列举对之前的“强制固定帧间隔”求值进行了增强。对UMovieScene的API的明显更改包括：
+
+
+| 代码                               | 说明                                       |
+| -------------------------------- | ---------------------------------------- |
+| UMovieScene::GetEvaluationType() | 检索指定如何对该序列进行求值的列举：[INCLUDE:#MovieSceneDataInsetTable] |
+| UMovieScene::GetTickResolution() | 检索该过场动画场景中所有 FFrameNumber 解译时应使用的更新分辨率（除非另有说明） |
+| UMovieScene::GetDisplayRate()    | 检索面向用户的UI、蓝图节点和序列播放器与该序列交互时使用的帧率。当EvaluationType设置为FrameLocked时，也会定义t.maxfps和锁定帧率。 |
+
+<!---
+[EXCERPT:MovieSceneDataInsetTable]
+| 代码                | 说明                                       |
+| ----------------- | ---------------------------------------- |
+| WithSubFrames（默认） | 使用子帧插值进行求值                               |
+| FrameLocked       | 锁定到序列的DisplayRate，仅对四舍五入的帧号进行求值，无子帧，在求值过程中设置t.maxfps。 |
+[/EXCERPT]
+--->
+
+
+已基于所在UMovieScene的更新分辨率将与时间相关的所有过场动画场景数据转换为使用FFrameNumber。其中包括： 
+
+* UMovieSceneSection范围。片段范围现在独占公开为TRange<FFrameNumber>。该范围现在也暗指无上限或无下限，从而不再需要单独的IsInfinite标志。支持无穷范围的片段现在可以将bSupportsInfiniteRange设置为true。 
+
+* UMovieScene播放和选择范围。现在可正确处理包含性和排他性上限和下限。
+
+* 预卷/后卷量
+
+* UMovieSceneSubSection开始偏移（在内部序列的更新分辨率中）
+
+* **曲线数据**：已在内部将所有现有曲线类（例如，FRichCurve、FIntegralCurve、FNameCurve）替换为在所在UMovieScene的更新分辨率中基于FFrameNumber时间而非浮点运行的新信道类型。由于时间类型差异，无法向后兼容浮点时间表示。通过SerializeFromMismatchedTag支持使用上面列出的旧升级更新分辨率从旧类型自动升级。
+
+    * FRichCurve变为FMovieSceneFloatChannel
+
+    * FIntegralCurve变为FMovieSceneIntegerChannel
+
+    * FStringCurve变为FMovieSceneStringChannel
+
+    * FNameCurve已不再在内部使用
+
+    * 已添加了FMovieSceneByteChannel（包括列举）和FMovieSceneBoolChannel。
+
+只要提供TMovieSceneChannelData<> GetData()方法，之前使用TCurveInterface的自定义曲线数据类型都可轻松迁移到新的FMovieSceneXYZChannel模型。
+
+### 过场动画场景信道
+
+由于对曲线（现在称为信道）数据作出了必要的突破性更改，我们也借机统一了几个编辑器代码路径并减少了支持关键帧的片段的重复。添加了可为编辑器和运行时代码提供与关键帧进行交互并操纵关键帧的通用语言的新类型FMovieSceneChannelProxy。 
+
+为此，已彻底删除不再需要的IKeyframeSection<>。支持关键帧的片段现在只需正确填充其信道代理，以支持一般关键帧交互。这一更改也将大大简化未来创建带有关键帧的新片段类型的方式，因为通用的键操纵接口在信道级别存在，而非片段级别。
+
+该新系统包含几个组成部分，每一个都提供略微不同的编辑器自定义方法：
+
+#### FMovieSceneChannelProxy
+
+存储在UMovieSceneSection:上，派生类型会使用其所有信道填充该结构体，如以下示例所示。信道依据其基FMovieSceneChannel*存储在依据派生类型排序的桶中。因此，在重新分配信道之后，应立即接着重新创建信道代理；这样做会使存储在旧代理中的所有信道的指针和句柄失效。
+
+根据于上下文，与信道的所有交互要么直接通过FMovieSceneChannel接口进行，要么通过ISequencerChannelInterface。后者通过sequencer模块（ISequencerModule::RegisterChannelEditor）按类型注册。
+
+[REGION: warning]如果不这样做将导致尝试编辑这些信道时出现运行时断言失败。通过TSequencerChannelInterface提供模板化辅助方法，从而允许对任何给定的信道类型进行单独概念重载，通过参数依赖查找（ADL）解析。[/REGION]
+
+该方法允许在不重新实现整个接口的情况下自定义特定行为（如果缺省值对于大部分信道都适用）。这也意味着核心sequencer代码可以自动填充UI的信道数据，无需在编辑器及运行时中手动定义ISequencerSection接口及手动定义信道布局。这在一定程度上简化了创建自定义片段类型的过程，尤其是在从已经受支持的内部信道数据创建片段时。
+
+ISequencerChannelInterface的默认实现函数在Sequencer命名空间中定义，但是应该向信道的命名空间或全局命名空间添加重载。
+
+[REGION: note]我们建议自定义信道遵循以平行数组形式存储时间和值的模式，并提供TMovieSceneChannelData<T> GetData()方法以与键进行交互。FMovieSceneChannel的大部分接口都直接映射到在TMovieSceneChannelData上可调用的函数。[/REGION]
+
+使用该代理方法，构建UI和与信道的键交互所需的所有数据都可方便地用于Sequencer UI代码。 
+
+#### FMovieSceneChannel
+
+提供藉以与所有常用信道数据进行交互的接口。添加到信道代理的所有信道都必须实现该类型。
+
+#### ISequencerChannelInterface
+
+Sequencer针对给定信道要求的所有与UI交互和操纵相关的重载的接口。必须通过ISequencerModule类针对每个信道类型注册（通常使用编辑器模块的StartupModule方法）。
+
+#### TMovieSceneChannelTraits
+
+为信道类型指定扩展的编辑器数据等编译时特性，并指定信道是否支持默认值。许多sequencer UI实用程序都使用MovieSceneChannelTraits.h中指定的函数重载与每个具体的信道类型交互。如果默认模板化重载与信道类型不兼容，就应该为特定信道重载所需的函数。
+
+### 其他实用程序
+
+已添加了多个辅助实用程序以简化处理过场动画场景范围的过程。现在我们使用了离散时间轴，方便了关于片段边界的合理化。在内部范围表示为TRange<FFrameNumber>，它支持包含性、排他性和开放边界。要简化处理离散时间轴的范围的过程，可以使用MovieScene::DiscreteInclusiveLower、DiscreteExclusiveUpper和DiscreteSize，以一致的方式处理不同的边界条件。
+
+### 迁移指南
+
+鉴于这些更改的性质，如果你在C++中编写了自己的轨迹、片段或曲线，将需要进行要求迁移的C++更改。请参阅我们为协助您进行升级而准备的轨迹、片段和信道类型[示例迁移](https://bitbucket.org/BrakePad/custom-sequencer-example/commits/all)项目。
+

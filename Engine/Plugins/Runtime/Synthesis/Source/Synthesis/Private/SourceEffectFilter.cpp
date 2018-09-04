@@ -17,10 +17,10 @@ FSourceEffectFilter::FSourceEffectFilter()
 void FSourceEffectFilter::Init(const FSoundEffectSourceInitData& InitData)
 {
 	bIsActive = true;
-
-	StateVariableFilter.Init(InitData.SampleRate, 2);
-	LadderFilter.Init(InitData.SampleRate, 2);
-	OnePoleFilter.Init(InitData.SampleRate, 2);
+	NumChannels = InitData.NumSourceChannels;
+	StateVariableFilter.Init(InitData.SampleRate, NumChannels);
+	LadderFilter.Init(InitData.SampleRate, NumChannels);
+	OnePoleFilter.Init(InitData.SampleRate, NumChannels);
 
 	UpdateFilter();
 }
@@ -86,18 +86,9 @@ void FSourceEffectFilter::OnPresetChanged()
 	UpdateFilter();
 }
 
-void FSourceEffectFilter::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectFilter::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	if (InData.AudioFrame.Num() == 2)
-	{
-		CurrentFilter->ProcessAudio(InData.AudioFrame.GetData(), OutData.AudioFrame.GetData());
-	}
-	else
-	{
-		AudioInput[0] = InData.AudioFrame[0];
-		CurrentFilter->ProcessAudio(AudioInput, AudioOutput);
-		OutData.AudioFrame[0] = AudioOutput[0];
-	}
+	CurrentFilter->ProcessAudio(InData.InputSourceEffectBufferPtr, InData.NumSamples, OutAudioBufferData);
 }
 
 void USourceEffectFilterPreset::SetSettings(const FSourceEffectFilterSettings& InSettings)

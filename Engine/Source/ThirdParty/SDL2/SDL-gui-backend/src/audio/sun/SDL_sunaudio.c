@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -40,6 +40,7 @@
 
 #include "SDL_timer.h"
 #include "SDL_audio.h"
+#include "../../core/unix/SDL_poll.h"
 #include "../SDL_audio_c.h"
 #include "../SDL_audiodev_c.h"
 #include "SDL_sunaudio.h"
@@ -97,11 +98,7 @@ SUNAUDIO_WaitDevice(_THIS)
         }
     }
 #else
-    fd_set fdset;
-
-    FD_ZERO(&fdset);
-    FD_SET(this->hidden->audio_fd, &fdset);
-    select(this->hidden->audio_fd + 1, NULL, &fdset, NULL, NULL);
+    SDL_IOReady(this->hidden->audio_fd, SDL_TRUE, -1);
 #endif
 }
 

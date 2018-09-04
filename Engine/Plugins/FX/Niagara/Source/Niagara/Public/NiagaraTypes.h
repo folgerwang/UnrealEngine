@@ -145,6 +145,13 @@ struct FNiagaraSpawnInfo
 	/** The sub frame delta time between each particle. */
 	UPROPERTY(EditAnywhere, Category = SpawnInfo)
 	float IntervalDt;
+	/**
+	 * An integer used to identify this spawn info.
+	 * Typically this is unused.
+	 * An example usage is when using multiple spawn modules to spawn from multiple discreet locations.
+	 */
+	UPROPERTY(EditAnywhere, Category = SpawnInfo)
+	int32 SpawnGroup;
 };
 
 USTRUCT(Blueprintable, meta = (DisplayName = "Niagara ID"))

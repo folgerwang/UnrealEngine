@@ -14,27 +14,8 @@ void SKeyAreaEditorSwitcher::Construct(const FArguments& InArgs, TSharedRef<FSeq
 	WeakKeyAreaNode = InKeyAreaNode;
 	ChildSlot
 	[
-		SNew(SBox)
-		.HAlign(HAlign_Right)
-		.VAlign(VAlign_Center)
-		[
-			SNew(SHorizontalBox)
-
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Right)
-			.VAlign(VAlign_Center)
-			[
-				SAssignNew(Overlay, SOverlay)
-				.IsEnabled(!InKeyAreaNode->GetSequencer().IsReadOnly())
-			]
-
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
-			[
-				SNew(SKeyNavigationButtons, InKeyAreaNode)
-			]
-		]
+		SAssignNew(Overlay, SOverlay)
+		.IsEnabled(!InKeyAreaNode->GetSequencer().IsReadOnly())
 	];
 
 	Rebuild();

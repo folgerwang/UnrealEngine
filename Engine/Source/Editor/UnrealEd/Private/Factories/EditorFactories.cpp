@@ -5304,6 +5304,36 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended();
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
 
+	if (ImportData == nullptr)
+	{
+		// An existing import data object was not found, make one here and show the options dialog
+		ImportData = UFbxStaticMeshImportData::GetImportDataForStaticMesh(Mesh, ImportUI->StaticMeshImportData);
+		Mesh->AssetImportData = ImportData;
+	}
+
+	//Get the re-import filename
+	const FString Filename = ImportData->GetFirstFilename();
+	const FString FileExtension = FPaths::GetExtension(Filename);
+	const bool bIsValidFile = FileExtension.Equals(TEXT("fbx"), ESearchCase::IgnoreCase) || FileExtension.Equals("obj", ESearchCase::IgnoreCase);
+	if (!bIsValidFile)
+	{
+		return EReimportResult::Failed;
+	}
+	if (!(Filename.Len()))
+	{
+		// Since this is a new system most static meshes don't have paths, so logging has been commented out
+		//UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: static mesh resource does not have path stored."));
+		return EReimportResult::Failed;
+	}
+	// Ensure that the file provided by the path exists
+	if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
+	{
+		UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
+		return EReimportResult::Failed;
+	}
+	CurrentFilename = Filename;
+
+
 	if( ImportData  && !ShowImportDialogAtReimport)
 	{
 		// Import data already exists, apply it to the fbx import options
@@ -5312,12 +5342,6 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	}
 	else
 	{
-		if (ImportData == nullptr)
-		{
-			// An existing import data object was not found, make one here and show the options dialog
-			ImportData = UFbxStaticMeshImportData::GetImportDataForStaticMesh(Mesh, ImportUI->StaticMeshImportData);
-			Mesh->AssetImportData = ImportData;
-		}
 		ReimportUI->bIsReimport = true;
 		ReimportUI->StaticMeshImportData = ImportData;
 		
@@ -5334,7 +5358,8 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		bool bOutImportAll = false;
 		bool bIsObjFormat = false;
 		bool bIsAutomated = false;
-		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_StaticMesh, Mesh);
+
+		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_StaticMesh, Mesh);
 		
 		//Put back the original bAutoGenerateCollision settings since the user cancel the re-import
 		if (bOperationCanceled && Mesh->bCustomizedCollision)
@@ -5351,30 +5376,7 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 
 	if( !bOperationCanceled && ensure(ImportData) )
 	{
-		const FString Filename = ImportData->GetFirstFilename();
-		const FString FileExtension = FPaths::GetExtension(Filename);
-		const bool bIsValidFile = FileExtension.Equals( TEXT("fbx"), ESearchCase::IgnoreCase ) || FileExtension.Equals( "obj",  ESearchCase::IgnoreCase );
-
-		if ( !bIsValidFile )
-		{
-			return EReimportResult::Failed;
-		}
-
-		if(!(Filename.Len()))
-		{
-			// Since this is a new system most static meshes don't have paths, so logging has been commented out
-			//UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: static mesh resource does not have path stored."));
-			return EReimportResult::Failed;
-		}
-
 		UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
-
-		// Ensure that the file provided by the path exists
-		if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
-		{
-			UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
-			return EReimportResult::Failed;
-		}
 
 		//Create a copy of the mesh we re-import
 		if (!IsUnattended)
@@ -5382,7 +5384,6 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 			ImportOptions->OriginalMeshCopy = Cast<UStaticMesh>(StaticDuplicateObject(Mesh, GetTransientPackage(), NAME_None, RF_Standalone));
 		}
 
-		CurrentFilename = Filename;
 		bool bImportSucceed = true;
 		if ( FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
 		{
@@ -5591,7 +5592,25 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	bool bSuccess = false;
 	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended();
 	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
-	
+
+	if (ImportData == nullptr)
+	{
+		// An existing import data object was not found, make one here and show the options dialog
+		ImportData = UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(SkeletalMesh, ImportUI->SkeletalMeshImportData);
+		SkeletalMesh->AssetImportData = ImportData;
+	}
+
+	const FString Filename = ImportData->GetFirstFilename();
+	UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
+
+	// Ensure that the file provided by the path exists
+	if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
+	{
+		UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
+		return EReimportResult::Failed;
+	}
+	CurrentFilename = Filename;
+
 	if( ImportData && !ShowImportDialogAtReimport)
 	{
 		// Import data already exists, apply it to the fbx import options
@@ -5603,12 +5622,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	}
 	else
 	{
-		if (ImportData == nullptr)
-		{
-			// An existing import data object was not found, make one here and show the options dialog
-			ImportData = UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(SkeletalMesh, ImportUI->SkeletalMeshImportData);
-			SkeletalMesh->AssetImportData = ImportData;
-		}
 		ReimportUI->bIsReimport = true;
 		ReimportUI->SkeletalMeshImportData = ImportData;
 
@@ -5623,23 +5636,12 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		ImportOptions->bCreatePhysicsAsset = false;
 		ImportOptions->PhysicsAsset = SkeletalMesh->PhysicsAsset;
 
-		ImportOptions = GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_SkeletalMesh, Obj );
+		ImportOptions = GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_SkeletalMesh, Obj );
 	}
 
 	if( !bOperationCanceled && ensure(ImportData) )
 	{
 		ImportOptions->bCanShowDialog = !IsUnattended;
-
-		const FString Filename = ImportData->GetFirstFilename();
-		UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
-
-		// Ensure that the file provided by the path exists
-		if (IFileManager::Get().FileSize(*Filename) == INDEX_NONE)
-		{
-			UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found.") );
-			return EReimportResult::Failed;
-		}
-		CurrentFilename = Filename;
 
 		//Create a copy of the mesh we re-import
 		if (!IsUnattended)
@@ -5688,7 +5690,7 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		CleanUp();
 
 		// Reimporting can have dangerous effects if the mesh is still in the transaction buffer.  Reset the transaction buffer if this is the case
-		if( GEditor->IsObjectInTransactionBuffer( SkeletalMesh ) )
+		if(!IsRunningCommandlet() && GEditor->IsObjectInTransactionBuffer( SkeletalMesh ) )
 		{
 			GEditor->ResetTransaction( LOCTEXT("ReimportSkeletalMeshTransactionReset", "Reimporting a skeletal mesh which was in the undo buffer") );
 		}
@@ -5861,6 +5863,7 @@ EReimportResult::Type UReimportFbxAnimSequenceFactory::Reimport( UObject* Obj )
 
 		// update the data in case the file source has changed
 		ImportData->Update(UFactory::CurrentFilename);
+		AnimSequence->ImportFileFramerate = Importer->GetOriginalFbxFramerate();
 
 		// Try to find the outer package so we can dirty it up
 		if (AnimSequence->GetOuter())

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3433106
+﻿INTSourceChangelist:4279407
 Availability:NoPublish
 Title:
 Crumbs:
@@ -205,6 +205,41 @@ Description:
 [/REGION]
 [/VAR]
 
+[VAR:BlueprintOrPythonSelectVar]
+[REGION:section]
+	[REGION:titlesection]
+	구현 방법을 선택하세요:
+	[/REGION]
+	[OBJECT:ToggleButton]
+		[PARAMLITERAL:category]
+		BlueprintOrCPPSelect
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		blueprintimplementation
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		active_button
+		[/PARAMLITERAL]
+		[PARAM:label]
+		Blueprints
+		[/PARAM]
+	[/OBJECT]
+	[OBJECT:ToggleButton]
+		[PARAMLITERAL:category]
+		BlueprintOrCPPSelect
+		[/PARAMLITERAL]
+		[PARAMLITERAL:id]
+		pythonimplementation
+		[/PARAMLITERAL]
+		[PARAMLITERAL:active]
+		[/PARAMLITERAL]
+		[PARAM:label]
+		Python
+		[/PARAM]
+	[/OBJECT]
+[/REGION]
+[/VAR]
+
 [VAR:MobileSelect]
 [REGION:section]
 	[REGION:titlesection]
@@ -304,7 +339,7 @@ Description:
 [VAR:MethodSelect]
 [REGION:section]
 	[REGION:titlesection]
-	구현 메소드 선택
+	구현 메서드 선택
 	[/REGION]
 	[OBJECT:ToggleButton]
 		[PARAMLITERAL:category]

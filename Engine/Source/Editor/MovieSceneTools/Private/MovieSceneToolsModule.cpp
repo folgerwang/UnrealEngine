@@ -40,6 +40,7 @@
 
 #include "MovieSceneBuiltInEasingFunctionCustomization.h"
 #include "MovieSceneObjectBindingIDCustomization.h"
+#include "MovieSceneEventCustomization.h"
 #include "SequencerClipboardReconciler.h"
 #include "ClipboardTypes.h"
 #include "ISettingsModule.h"
@@ -50,6 +51,7 @@
 #include "ISequencerChannelInterface.h"
 #include "SequencerChannelInterface.h"
 #include "Channels/BuiltInChannelEditors.h"
+#include "Channels/MovieSceneEventChannel.h"
 #include "Sections/MovieSceneEventSection.h"
 
 
@@ -120,6 +122,7 @@ public:
 		PropertyModule.RegisterCustomClassLayout("MovieSceneToolsProjectSettings", FOnGetDetailCustomizationInstance::CreateStatic(&FMovieSceneToolsProjectSettingsCustomization::MakeInstance));
 		PropertyModule.RegisterCustomClassLayout("MovieSceneBuiltInEasingFunction", FOnGetDetailCustomizationInstance::CreateLambda(&MakeShared<FMovieSceneBuiltInEasingFunctionCustomization>));
 		PropertyModule.RegisterCustomPropertyTypeLayout("MovieSceneObjectBindingID", FOnGetPropertyTypeCustomizationInstance::CreateLambda(&MakeShared<FMovieSceneObjectBindingIDCustomization>));
+		PropertyModule.RegisterCustomPropertyTypeLayout("MovieSceneEvent", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FMovieSceneEventCustomization::MakeInstance));
 
 		SequencerModule.RegisterChannelInterface<FMovieSceneBoolChannel>();
 		SequencerModule.RegisterChannelInterface<FMovieSceneByteChannel>();
@@ -129,6 +132,8 @@ public:
 		SequencerModule.RegisterChannelInterface<FMovieSceneParticleChannel>();
 		SequencerModule.RegisterChannelInterface<FMovieSceneActorReferenceData>();
 		SequencerModule.RegisterChannelInterface<FMovieSceneEventSectionData>();
+
+		SequencerModule.RegisterChannelInterface<FMovieSceneEventChannel>();
 	}
 
 	virtual void ShutdownModule() override
@@ -185,6 +190,7 @@ public:
 			PropertyModule.UnregisterCustomClassLayout("MovieSceneToolsProjectSettings");
 			PropertyModule.UnregisterCustomClassLayout("MovieSceneBuiltInEasingFunction");
 			PropertyModule.UnregisterCustomPropertyTypeLayout("MovieSceneObjectBindingID");
+			PropertyModule.UnregisterCustomPropertyTypeLayout("MovieSceneEvent");
 		}
 	}
 

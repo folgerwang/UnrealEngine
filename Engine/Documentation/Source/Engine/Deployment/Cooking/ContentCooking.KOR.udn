@@ -33,7 +33,7 @@ Version: 4.9
 | 옵션 | 설명 |
 | --- | --- |
 | `-targetplatform=<Plat1>+<Plat2>` | 쿠킹할 플랫폼을 지정합니다. 사용가능한 플랫폼은 WindowsNoEditor, WindowsServer, LinuxServer, PS4, XboxOne, IOS, Android 입니다. |
-| `-iterate` | 쿠커가 철지난(OOD) 항목만 쿠킹하도록 설정합니다. 이 옵션이 없으면 샌드박스 디렉토리를 삭제하고 모든 것을 다시 쿠킹합니다. |
+| `-iterate` | 쿠커가 철지난(OOD) 항목만 쿠킹하도록 설정합니다. 이 옵션이 없으면 샌드박스 디렉터리를 삭제하고 모든 것을 다시 쿠킹합니다. |
 | `-Map=<Map1>+<Map2>+...` | 빌드할 맵을 지정합니다. |
 | `-cookonthefly` | 쿠커가 서버 모드에서 시작되도록 합니다. 그러면 게임 접속을 기다리다가 쿠킹된 데이터를 요청에 따라 제공해 주는 서버가 실행됩니다. 이 옵션이 사용되면 게임은 명령줄에 -filehostip=<Server IP> 옵션을 붙여야 서버에 접속 가능합니다. |
 | `-MapIniSection=<ini file section>` | 맵 이름이 포함된 ini 파일 섹션을 지정합니다. 쿠커는 지정된 섹션에 지정된 모든 맵을 쿠킹합니다. |

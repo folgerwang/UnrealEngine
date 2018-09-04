@@ -104,6 +104,58 @@ void FInstanceUpdateCmdBuffer::SetEditorData(int32 RenderIndex, const FColor& Co
 	Edit();
 }
 
+void FInstanceUpdateCmdBuffer::SetLightMapData(int32 RenderIndex, const FVector2D& LightmapUVBias)
+{
+	// We only support 1 command to update lightmap/shadowmap
+	bool CommandExist = false;
+
+	for (FInstanceUpdateCommand& Cmd : Cmds)
+	{
+		if (Cmd.Type == FInstanceUpdateCmdBuffer::LightmapData && Cmd.InstanceIndex == RenderIndex)
+		{
+			CommandExist = true;
+			Cmd.LightmapUVBias = LightmapUVBias;
+			break;
+		}
+	}
+
+	if (!CommandExist)
+	{
+		FInstanceUpdateCommand& Cmd = Cmds.AddDefaulted_GetRef();
+		Cmd.InstanceIndex = RenderIndex;
+		Cmd.Type = FInstanceUpdateCmdBuffer::LightmapData;
+		Cmd.LightmapUVBias = LightmapUVBias;
+	}
+
+	Edit();
+}
+
+void FInstanceUpdateCmdBuffer::SetShadowMapData(int32 RenderIndex, const FVector2D& ShadowmapUVBias)
+{
+	// We only support 1 command to update lightmap/shadowmap
+	bool CommandExist = false;
+
+	for (FInstanceUpdateCommand& Cmd : Cmds)
+	{
+		if (Cmd.Type == FInstanceUpdateCmdBuffer::LightmapData && Cmd.InstanceIndex == RenderIndex)
+		{
+			CommandExist = true;
+			Cmd.ShadowmapUVBias = ShadowmapUVBias;
+			break;
+		}
+	}
+
+	if (!CommandExist)
+	{
+		FInstanceUpdateCommand& Cmd = Cmds.AddDefaulted_GetRef();
+		Cmd.InstanceIndex = RenderIndex;
+		Cmd.Type = FInstanceUpdateCmdBuffer::LightmapData;
+		Cmd.ShadowmapUVBias = ShadowmapUVBias;
+	}
+
+	Edit();
+}
+
 void FInstanceUpdateCmdBuffer::ResetInlineCommands()
 {
 	Cmds.Reset();
@@ -199,6 +251,9 @@ void FStaticMeshInstanceBuffer::UpdateFromCommandBuffer_RenderThread(FInstanceUp
 			break;
 		case FInstanceUpdateCmdBuffer::EditorData:
 			InstanceData->SetInstanceEditorData(Cmd.InstanceIndex, Cmd.HitProxyColor, Cmd.bSelected);
+			break;
+		case FInstanceUpdateCmdBuffer::LightmapData:
+			InstanceData->SetInstanceLightMapData(Cmd.InstanceIndex, Cmd.LightmapUVBias, Cmd.ShadowmapUVBias);
 			break;
 		default:
 			check(false);
@@ -1027,8 +1082,6 @@ FPrimitiveSceneProxy* UInstancedStaticMeshComponent::CreateSceneProxy()
 		if (InstanceUpdateCmdBuffer.NumTotalCommands() != 0)
 		{
 			InstanceUpdateCmdBuffer.Reset();
-
-			//TODO: should we not use the command buffer here instead of updating all instances?!
 
 			FStaticMeshInstanceData RenderInstanceData = FStaticMeshInstanceData(GVertexElementTypeSupport.IsSupported(VET_Half2));
 			BuildRenderData(RenderInstanceData, PerInstanceRenderData->HitProxies);

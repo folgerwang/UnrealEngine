@@ -23,9 +23,13 @@ struct SYNTHESIS_API FSourceEffectChorusSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float Feedback;
 
-	// The wetlevel of the chorus effect
+	// The wet level of the chorus effect
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float WetLevel;
+
+	// The dry level of the chorus effect
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
+	float DryLevel;
 
 	// The spread of the effect (larger means greater difference between left and right delay lines)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SourceEffect|Preset", meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
@@ -36,6 +40,7 @@ struct SYNTHESIS_API FSourceEffectChorusSettings
 		, Frequency(2.0f)
 		, Feedback(0.3f)
 		, WetLevel(0.5f)
+		, DryLevel(0.5f)
 		, Spread(0.0f)
 	{}
 };
@@ -44,13 +49,13 @@ class SYNTHESIS_API FSourceEffectChorus : public FSoundEffectSource
 {
 public:
 	// Called on an audio effect at initialization on main thread before audio processing begins.
-	virtual void Init(const FSoundEffectSourceInitData& InSampleRate) override;
+	virtual void Init(const FSoundEffectSourceInitData& InitData) override;
 	
 	// Called when an audio effect preset is changed
 	virtual void OnPresetChanged() override;
 
 	// Process the input block of audio. Called on audio thread.
-	virtual void ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData) override;
+	virtual void ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData) override;
 
 protected:
 	Audio::FChorus Chorus;

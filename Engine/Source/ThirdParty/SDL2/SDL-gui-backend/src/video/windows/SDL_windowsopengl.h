@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -20,8 +20,8 @@
 */
 #include "../../SDL_internal.h"
 
-#ifndef _SDL_windowsopengl_h
-#define _SDL_windowsopengl_h
+#ifndef SDL_windowsopengl_h_
+#define SDL_windowsopengl_h_
 
 #if SDL_VIDEO_OPENGL_WGL
 
@@ -30,6 +30,8 @@ struct SDL_GLDriverData
     SDL_bool HAS_WGL_ARB_pixel_format;
     SDL_bool HAS_WGL_EXT_swap_control_tear;
     SDL_bool HAS_WGL_ARB_context_flush_control;
+    SDL_bool HAS_WGL_ARB_create_context_robustness;
+    SDL_bool HAS_WGL_ARB_create_context_no_error;
 
 	/* Max version of OpenGL ES context that can be created if the
 	   implementation supports WGL_EXT_create_context_es2_profile.
@@ -135,6 +137,6 @@ extern SDL_bool WIN_GL_SetPixelFormatFrom(_THIS, SDL_Window * fromWindow, SDL_Wi
 
 #endif /* SDL_VIDEO_OPENGL_WGL */
 
-#endif /* _SDL_windowsopengl_h */
+#endif /* SDL_windowsopengl_h_ */
 
 /* vi: set ts=4 sw=4 expandtab: */

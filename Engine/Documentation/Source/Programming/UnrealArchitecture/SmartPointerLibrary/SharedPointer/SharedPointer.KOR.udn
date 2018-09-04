@@ -47,14 +47,14 @@ Tags:Programming
 
 이 오브젝트는 더이상 가리키는 공유 포인터가 없을 때까지 지속됩니다.
 
-공유 포인터는 `Reset()` 메소드를 사용하거나 null 을 할당시켜 리셋시킬 수 있습니다.
+공유 포인터는 `Reset()` 메서드를 사용하거나 null 을 할당시켜 리셋시킬 수 있습니다.
 
 	Node.Reset();
 	Node = null;
 
 ## 레퍼런스 해제와 접근
 
-레퍼런스 해제(dereferencing), 메소드 호출, 멤버 접근은 보통의 C++ 포인터와 같은 방식으로 이루어집니다.
+레퍼런스 해제(dereferencing), 메서드 호출, 멤버 접근은 보통의 C++ 포인터와 같은 방식으로 이루어집니다.
 
 	Node->ListChildren();
 	Node.Get()->ListChildren();
@@ -71,7 +71,7 @@ Tags:Programming
 		...
 	}
 
-공유 포인터는 `IsValid()` 메소드를 사용하거나 raw 포인터에 접근한 다음 비교를 하여 null 테스트 가능합니다.
+공유 포인터는 `IsValid()` 메서드를 사용하거나 raw 포인터에 접근한 다음 비교를 하여 null 테스트 가능합니다.
 
 	if( Node.IsValid() )
 	{
@@ -89,7 +89,7 @@ Tags:Programming
 
 	TSharedPtr<float> Height = 45.0f;
 
-그러나 `MakeShareable()` 메소드를 사용하여 명시적으로 만들 수 있습니다.
+그러나 `MakeShareable()` 메서드를 사용하여 명시적으로 만들 수 있습니다.
 
 	TSharedPtr<float> Height = MakeShareable( new float( 45.0f ) );
 

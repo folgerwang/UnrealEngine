@@ -42,7 +42,7 @@ tags:Particles
 | **Delay First Loop Only** | 첫 루핑에만 딜레이 - _True_ 면 EmitterDelay 가 0 보다 크고 EmitterLoops 가 1 보다 큰 이미터는 첫 번째 루핑에서만 딜레이가 적용됩니다. |
 | [REGION:tablesection]Sub UV[/REGION] ||
 | [REGION:note]Sub UV 데이터는 이미터가 적용된 텍스처의 서브 이미지를 활용할 것임을 나타냅니다. 파티클에 단순한 애니메이션을 구현하는 데 좋습니다.[/REGION] ||
-| **Interpolation Method** | 보간 메소드 - 두 개의 서브 이미지를 보간하는 데 활용할 메소드를 나타내는 Enum 입니다. 가능한 옵션은 다음과 같습니다: [INCLUDE:#InterpMethod] |
+| **Interpolation Method** | 보간 메서드 - 두 개의 서브 이미지를 보간하는 데 활용할 메서드를 나타내는 Enum 입니다. 가능한 옵션은 다음과 같습니다: [INCLUDE:#InterpMethod] |
 | **Sub Images_Horizontal** | 서브 이미지_가로 - 텍스처의 가로 (X) 축에 있는 텍스처 서브 이미지 갯수입니다. |
 | **Sub Images_Vertical** | 서브 이미지_세로 - 텍스처의 세로 (Y) 축에 있는 텍스처 서브 이미지 갯수입니다. |
 | **Scale UV** | 스케일 UV - 서브 이미지 크기에 적절히 `맞추기` 위해 UV 값에 스케일을 적용해야 할지를 나타냅니다. 메시 이미터에만 사용됩니다. |
@@ -75,7 +75,7 @@ tags:Particles
 | **Process Spawn Rate** | 스폰율 처리 - _True_ 면 _Rate_ 를 처리합니다. 하나의 이미터에 Spawn 모듈이 여럿 쌓여있고, 그 중 하나라도 이 프로퍼티가 꺼져 있는 경우, 그 이미터에 대해서는 아무 _Rate_ 도 처리하지 않습니다. |
 | [REGION:tablesection]Burst[/REGION] ||
 | 버스트 데이터란 설정된 시간에 이미터가 주어진 파티클 갯수만큼을 강제 방출시킨다는 것을 나타냅니다. 속한 내용은 다음과 같습니다: | |
-| **ParticleBurstMethod** | 파티클 버스트 메소드 - 파티클을 버스트 방출시킬 때 사용할 방법입니다. 현재 사용되지 않습니다. |
+| **ParticleBurstMethod** | 파티클 버스트 메서드 - 파티클을 버스트 방출시킬 때 사용할 방법입니다. 현재 사용되지 않습니다. |
 | **BurstList** | 버스트 리스트 - 원하는 파티클 버스트를 나타내는, 정수 Count 와 CountLow, 실수 Time 값으로 구성된 배열입니다. Time 은 이미터의 수명을 [0..1] 범위로 나타냅니다. CountLow 가 -1 로 설정된 경우, 이미터는 주어진 시간에 Count 만큼의 파티클을, 그 외의 경우 [CountLow..Count] 범위에서 임의 갯수만큼의 파티클을 내뿜습니다. |
 | **Process Burst list** | 버스트 리스트 처리 - _True_ 면 _Burst List_ 는 처리됩니다. 하나의 이미터에 쌓여있는 다수의 Spawn 모듈 중 하나라도 이 프로퍼티가 꺼져 있는 경우, 해당 이미터에는 아무 _Burst List_ 도 처리되지 않습니다. |
 | **Burst Scale** | 버스트 스케일 - 모든 버스트 항목에 이만큼 스케일을 적용합니다. |
@@ -96,7 +96,7 @@ tags:Particles
 | Square | 정사각형 - (X 세팅으로 강제 적용되는) 균일 스케일로, 카메라를 향합니다. |
 | Rectangle | 직사각형 - 비균일 스케일로, 카메라를 향합니다. |
 | Velocity | 속도 - 파티클의 이동 방향과 카메라 방향 모두를 향해 파티클의 방향을 맞춥니다. 비균일 스케일이 가능합니다. 
-| TypeSpecific | 지정된 유형 - TypeData 모듈에 지정된 정렬 메소드를 사용합니다 (Mesh 전용). |
+| TypeSpecific | 지정된 유형 - TypeData 모듈에 지정된 정렬 메서드를 사용합니다 (Mesh 전용). |
 [/REGION]
 [/EXCERPT:ScreenAlign]
 
@@ -130,7 +130,7 @@ tags:Particles
 
 [EXCERPT:InterpMethod]
 [REGION:simpletable]
-| 메소드 | 설명 |
+| 메서드 | 설명 |
 | --- | --- |
 | None | 이 이미터에는 SubUV 모듈을 적용하지 않습니다. |
 | Linear | 현재와 다음 서브 이미지 블렌딩 없이 주어진 순서대로 부드럽게 전환합니다. |

@@ -1780,7 +1780,7 @@ struct CompressAnimationsFunctor
 			++ActiveAnimationIndex;
 
 			// If animation hasn't been compressed, force it.
-			bool bForceCompression = (AnimSeq->CompressedTrackOffsets.Num() == 0);
+			bool bForceCompression = !AnimSeq->IsCompressedDataValid();
 
 			// If animation has already been compressed with the commandlet and version is the same. then skip.
 			// We're only interested in new animations.

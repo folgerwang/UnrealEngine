@@ -23,7 +23,7 @@ order:5
 [/OBJECT]
 [/VAR]
 
-
+%Steps%
 
 %Globals:OSSelect%
 ## Steps
@@ -95,3 +95,4 @@ When completed you will now have a new app ID added to your iOS app ID's page.
 [/COMMENT]
 
 
+%Steps%

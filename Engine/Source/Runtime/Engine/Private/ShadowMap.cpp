@@ -110,7 +110,7 @@ struct FShadowMapAllocation
 				// Need to create per-LOD instance data to fix that
 				MeshBuildData->PerInstanceLightmapData[InstanceIndex].ShadowmapUVBias = ShadowMap->GetCoordinateBias();
 
-				Component->InstanceUpdateCmdBuffer.Edit();
+				Component->InstanceUpdateCmdBuffer.SetShadowMapData(InstanceIndex, MeshBuildData->PerInstanceLightmapData[InstanceIndex].ShadowmapUVBias);
 				Component->MarkRenderStateDirty();
 			}
 		}

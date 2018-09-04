@@ -165,6 +165,20 @@ bool DwarfCUToModule::FileContext::IsUnhandledInterCUReference(
   return offset < compilation_unit_start;
 }
 
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+struct MalformedFunction
+{
+  // The function that had a malformed name that we need to update once we've read in all the abstract origins
+  Module::Function* function;
+
+  // The abstract origin we will check again at the end of the CU
+  // entry to see if we can find it now. If so update the previous function
+  uint64 unknown_abstract_origin;
+};
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
 // Information global to the particular compilation unit we're
 // parsing. This is for data shared across the CU's entire DIE tree,
 // and parameters from the code invoking the CU parser.
@@ -172,7 +186,30 @@ struct DwarfCUToModule::CUContext {
   CUContext(FileContext *file_context_arg, WarningReporter *reporter_arg)
       : file_context(file_context_arg),
         reporter(reporter_arg),
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
         language(Language::CPlusPlus) {}
+#else
+        language(Language::CPlusPlus),
+        cu_low_pc(0),
+        range_section_start(NULL)
+  {
+    // Need to store the range section start so we can read from this offset on the fly
+    const dwarf2reader::SectionMap &section_map
+      = file_context->section_map();
+    dwarf2reader::SectionMap::const_iterator map_entry
+      = section_map.find(".debug_ranges");
+
+    if (map_entry == section_map.end()) {
+      map_entry = section_map.find("__debug_ranges");
+    }
+
+    if (map_entry != section_map.end()) {
+      range_section_start = map_entry->second.first;
+    }
+  }
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
   ~CUContext() {
     for (vector<Module::Function *>::iterator it = functions.begin();
@@ -196,6 +233,22 @@ struct DwarfCUToModule::CUContext {
   //
   // Destroying this destroys all the functions this vector points to.
   vector<Module::Function *> functions;
+
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+  // List of functions that had malformed function names. Once we are done try to do a second pass and figure out what should be the name
+  vector<MalformedFunction> malformed_function_names;
+
+  //map<uint64, DwarfCUToModule::SubprogramInlinedEntires> subprogram_inline_entries;
+  map<uint64, DwarfCUToModule::InlineEntry> inline_entries;
+
+  // This offset is required for finding the absolute address of debug_ranges
+  uint64 cu_low_pc;
+
+  // The start of the ranges section, if it exists
+  const uint8_t *range_section_start;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 };
 
 // Information about the context of a particular DIE. This is for
@@ -433,6 +486,135 @@ string DwarfCUToModule::GenericDIEHandler::ComputeQualifiedName() {
   return return_value;
 }
 
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+
+class DwarfCUToModule::InlineFuncHandler : public GenericDIEHandler {
+ public:
+  InlineFuncHandler(CUContext *cu_context, DIEContext* parent_context,
+              uint64 offset, vector<InlineEntry>* inlined_subroutines)
+      : GenericDIEHandler(cu_context, parent_context, offset),
+        low_pc_(0), high_pc_(0), high_pc_form_(dwarf2reader::DW_FORM_addr),
+        call_file_(0), call_line_(0), ranges_offset_(0), inlined_subroutines_(inlined_subroutines) { }
+
+  void ProcessAttributeUnsigned(enum DwarfAttribute attr,
+                                enum DwarfForm form,
+                                uint64 data) override;
+
+  DIEHandler *FindChildHandler(uint64 offset, enum DwarfTag tag) override;
+
+  bool EndAttributes() override { return true; }
+  void Finish() override;
+
+ private:
+  uint64 low_pc_, high_pc_; // DW_AT_low_pc, DW_AT_high_pc
+  DwarfForm high_pc_form_;  // DW_AT_high_pc can be length or address.
+  uint64 call_file_;        // DW_AT_call_file
+  uint64 call_line_;        // DW_AT_call_line
+  uint64 ranges_offset_;    // DW_AT_ranges, If we are not a contigous address stream we need to read this offset
+
+  vector<InlineEntry>* inlined_subroutines_;
+};
+
+void DwarfCUToModule::InlineFuncHandler::ProcessAttributeUnsigned(
+    enum DwarfAttribute attr,
+    enum DwarfForm form,
+    uint64 data) {
+  switch (attr) {
+    case dwarf2reader::DW_AT_low_pc:    low_pc_    = data; break;
+    case dwarf2reader::DW_AT_call_file: call_file_ = data; break;
+    case dwarf2reader::DW_AT_call_line: call_line_ = data; break;
+    case dwarf2reader::DW_AT_ranges:    ranges_offset_ = data; break;
+    case dwarf2reader::DW_AT_high_pc:
+      high_pc_form_ = form;
+      high_pc_ = data;
+      break;
+    default:
+      GenericDIEHandler::ProcessAttributeUnsigned(attr, form, data);
+      break;
+  }
+}
+
+void DwarfCUToModule::InlineFuncHandler::Finish() {
+  // Make high_pc_ an address, if it isn't already.
+  if (high_pc_form_ != dwarf2reader::DW_FORM_addr) {
+    high_pc_ += low_pc_;
+  }
+
+  if (low_pc_ < high_pc_) {
+    inlined_subroutines_->push_back({low_pc_, high_pc_, call_file_, call_line_});
+  }
+  else if (cu_context_->range_section_start) {
+    uintptr_t range_low_pc  = 0x0;
+    uintptr_t range_high_pc = 0x0;
+    uint32 count = 0;
+
+    // Reads all of the non-contigous memory regions from the ranges_offset_
+    // Will always have two pair, place two NULL pair to signal the end
+    do {
+      range_low_pc = *reinterpret_cast<const uintptr_t*>(cu_context_->range_section_start + ranges_offset_ + sizeof(uintptr_t) * count);
+      count++;
+
+      if (range_low_pc != 0) {
+        range_high_pc = *reinterpret_cast<const uintptr_t*>(cu_context_->range_section_start + ranges_offset_ + sizeof(uintptr_t) * count);
+        count++;
+
+        if (range_high_pc != 0) {
+          inlined_subroutines_->push_back({range_low_pc + cu_context_->cu_low_pc, range_high_pc + cu_context_->cu_low_pc, call_file_, call_line_});
+        }
+      }
+    } while (range_low_pc != 0 && range_high_pc != 0);
+  }
+}
+
+// We just need find more inlined_subrotines, so find them!
+class DwarfCUToModule::SubprogramChildHandler : public GenericDIEHandler {
+public:
+  SubprogramChildHandler(CUContext *cu_context, DIEContext *parent_context,
+              uint64 offset, vector<InlineEntry>* inlined_subroutines)
+      : GenericDIEHandler(cu_context, parent_context, offset),
+        inlined_subroutines_(inlined_subroutines) { }
+
+  DIEHandler *FindChildHandler(uint64 offset, enum DwarfTag tag) override
+  {
+    switch (tag) {
+     case dwarf2reader::DW_TAG_inlined_subroutine:
+       return new InlineFuncHandler(cu_context_, parent_context_, offset, inlined_subroutines_);
+     case dwarf2reader::DW_TAG_lexical_block:
+     case dwarf2reader::DW_TAG_label:
+     case dwarf2reader::DW_TAG_try_block:
+     case dwarf2reader::DW_TAG_with_stmt:
+       return new SubprogramChildHandler(cu_context_, parent_context_, offset, inlined_subroutines_);
+     default:
+       return NULL;
+    }
+  }
+
+  bool EndAttributes() override { return true; }
+
+private:
+  vector<InlineEntry>* inlined_subroutines_;
+};
+
+// There could be other inlined subroutine as a child from this, keep looking
+dwarf2reader::DIEHandler *DwarfCUToModule::InlineFuncHandler::FindChildHandler(uint64 offset, enum DwarfTag tag)
+{
+  switch (tag) {
+   case dwarf2reader::DW_TAG_inlined_subroutine:
+     return new InlineFuncHandler(cu_context_, parent_context_, offset, inlined_subroutines_);
+   case dwarf2reader::DW_TAG_lexical_block:
+   case dwarf2reader::DW_TAG_label:
+   case dwarf2reader::DW_TAG_try_block:
+   case dwarf2reader::DW_TAG_with_stmt:
+     return new SubprogramChildHandler(cu_context_, parent_context_, offset, inlined_subroutines_);
+   default:
+     return NULL;
+  }
+}
+
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
 // A handler class for DW_TAG_subprogram DIEs.
 class DwarfCUToModule::FuncHandler: public GenericDIEHandler {
  public:
@@ -440,19 +622,41 @@ class DwarfCUToModule::FuncHandler: public GenericDIEHandler {
               uint64 offset)
       : GenericDIEHandler(cu_context, parent_context, offset),
         low_pc_(0), high_pc_(0), high_pc_form_(dwarf2reader::DW_FORM_addr),
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
         abstract_origin_(NULL), inline_(false) { }
+#else
+        abstract_origin_(NULL), inline_(false), unknown_abstract_origin_(0) { }
+
+  DIEHandler *FindChildHandler(uint64 offset, enum DwarfTag tag) override
+  {
+    switch (tag) {
+     case dwarf2reader::DW_TAG_inlined_subroutine:
+       return new InlineFuncHandler(cu_context_, parent_context_, offset, &inlined_subroutines);
+     case dwarf2reader::DW_TAG_lexical_block:
+     case dwarf2reader::DW_TAG_label:
+     case dwarf2reader::DW_TAG_try_block:
+     case dwarf2reader::DW_TAG_with_stmt:
+       return new SubprogramChildHandler(cu_context_, parent_context_, offset, &inlined_subroutines);
+     default:
+       return NULL;
+    }
+  }
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
   void ProcessAttributeUnsigned(enum DwarfAttribute attr,
                                 enum DwarfForm form,
-                                uint64 data);
+                                uint64 data) override;
   void ProcessAttributeSigned(enum DwarfAttribute attr,
                               enum DwarfForm form,
-                              int64 data);
+                              int64 data) override;
   void ProcessAttributeReference(enum DwarfAttribute attr,
                                  enum DwarfForm form,
-                                 uint64 data);
+                                 uint64 data) override;
 
-  bool EndAttributes();
-  void Finish();
+  bool EndAttributes() override;
+  void Finish() override;
 
  private:
   // The fully-qualified name, as derived from name_attribute_,
@@ -462,6 +666,16 @@ class DwarfCUToModule::FuncHandler: public GenericDIEHandler {
   DwarfForm high_pc_form_; // DW_AT_high_pc can be length or address.
   const AbstractOrigin* abstract_origin_;
   bool inline_;
+
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+  // If we fail to find the abstract origin in the first pass, lets pass to do a 2nd pass at the end
+  uint64 unknown_abstract_origin_;
+
+  // Given to any inlined_subroutine child to fill in info
+  vector<InlineEntry> inlined_subroutines;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 };
 
 void DwarfCUToModule::FuncHandler::ProcessAttributeUnsigned(
@@ -513,7 +727,13 @@ void DwarfCUToModule::FuncHandler::ProcessAttributeReference(
       if (origin != origins.end()) {
         abstract_origin_ = &(origin->second);
       } else {
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
         cu_context_->reporter->UnknownAbstractOrigin(offset_, data);
+#else
+        unknown_abstract_origin_ = data;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
       }
       break;
     }
@@ -546,12 +766,69 @@ void DwarfCUToModule::FuncHandler::Finish() {
     // Malformed DWARF may omit the name, but all Module::Functions must
     // have names.
     string name;
+
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+    bool malformed = false;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
     if (!name_.empty()) {
       name = name_;
     } else {
-      cu_context_->reporter->UnnamedFunction(offset_);
       name = "<name omitted>";
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+      cu_context_->reporter->UnnamedFunction(offset_);
+#else
+      malformed = true;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
     }
+
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+  if (!inlined_subroutines.empty()) {
+    // Take our inlined subrotines, leafs are the desired call file/line. So we have to take
+    // the memory regions they take and collapses them in such a way as the first come first
+    // server region wise. IE. The first region cannot be overwritten and you need to carve up
+    // incoming regions to fit in unused space
+    for (int i = inlined_subroutines.size() - 1; i >= 0; i--) {
+      InlineEntry entry = inlined_subroutines[i];
+      uint64 x = entry.low_pc;
+      uint64 y = entry.high_pc;
+
+      while (x < y) {
+        auto it = cu_context_->inline_entries.upper_bound(x);
+
+        // We couldnt find anything larger then our starting chunk. Free to add our entire self
+        if (it == cu_context_->inline_entries.end()) {
+          cu_context_->inline_entries[y] = {x, y, entry.call_file, entry.call_line};
+          break;
+        }
+        else if (x < it->second.low_pc) {
+          // Our chunk start + size is less then the start of the chunk found. So we can fit, add it and break out
+          if (x + (y - x) < it->second.low_pc) {
+            cu_context_->inline_entries[y] = {x, y, entry.call_file, entry.call_line};
+            break;
+          }
+          else {
+            // Add as much of the front chunk as we can
+            cu_context_->inline_entries[it->second.low_pc] = {x, it->second.low_pc, entry.call_file, entry.call_line};
+          }
+        }
+        // We are with-in an already set chunk, bail out
+        else if (y <= it->second.high_pc) {
+          break;
+        }
+
+        // Move our start to the end of the found chunk and start again
+        x = it->second.high_pc;
+      }
+    }
+  }
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
     // Create a Module::Function based on the data we've gathered, and
     // add it to the functions_ list.
@@ -562,6 +839,14 @@ void DwarfCUToModule::FuncHandler::Finish() {
        // If the function address is zero this is a sign that this function
        // description is just empty debug data and should just be discarded.
        cu_context_->functions.push_back(func.release());
+
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+       if (malformed) {
+         cu_context_->malformed_function_names.push_back({cu_context_->functions.back(), unknown_abstract_origin_});
+       }
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
      }
   } else if (inline_) {
     AbstractOrigin origin(name_);
@@ -724,6 +1009,13 @@ void DwarfCUToModule::ProcessAttributeUnsigned(enum DwarfAttribute attr,
       has_source_line_info_ = true;
       source_line_offset_ = data;
       break;
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+    case dwarf2reader::DW_AT_low_pc:
+      cu_context_->cu_low_pc = data; // The offset used by ranges
+      break;
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
     case dwarf2reader::DW_AT_language: // source language of this CU
       SetLanguage(static_cast<DwarfLanguage>(data));
       break;
@@ -832,7 +1124,13 @@ void DwarfCUToModule::ReadSourceLines(uint64 offset) {
     return;
   }
   line_reader_->ReadProgram(section_start + offset, section_length - offset,
-                            cu_context_->file_context->module_, &lines_);
+                            cu_context_->file_context->module_, &lines_
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+                            , &cu_context_->inline_entries
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
+    );
 }
 
 namespace {
@@ -1045,6 +1343,24 @@ void DwarfCUToModule::Finish() {
   // to functions, skip CUs in languages that lack functions.
   if (!cu_context_->language->HasFunctions())
     return;
+
+/* EG BEGIN */
+#ifdef DUMP_SYMS_WITH_EPIC_EXTENSIONS
+  // Do a second pass on all malformed function names. Trying to find possibly abstract_origin that were
+  // defined after we hit the function info
+  for (auto& malformed_function : cu_context_->malformed_function_names)
+  {
+    AbstractOriginByOffset& origins =
+      cu_context_->file_context->file_private_->origins;
+    AbstractOriginByOffset::const_iterator origin = origins.find(malformed_function.unknown_abstract_origin);
+
+    if (origin != origins.end()) {
+      // overwrite the const functio name, bad but better then removing the const.
+      *const_cast<std::string*>(&malformed_function.function->name) = origin->second.name;
+    }
+  }
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
   // Read source line info, if we have any.
   if (has_source_line_info_)

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -25,11 +25,9 @@
 
 /* SDL internals */
 #include "../SDL_sysvideo.h"
-#include "SDL_version.h"
 #include "SDL_syswm.h"
-#include "SDL_loadso.h"
-#include "SDL_events.h"
 #include "SDL_log.h"
+#include "SDL_hints.h"
 #include "../../events/SDL_mouse_c.h"
 #include "../../events/SDL_keyboard_c.h"
 
@@ -39,7 +37,7 @@
 
 /* KMS/DRM declarations */
 #include "SDL_kmsdrmvideo.h"
-#include "SDL_kmsdrmevents_c.h"
+#include "SDL_kmsdrmevents.h"
 #include "SDL_kmsdrmopengles.h"
 #include "SDL_kmsdrmmouse.h"
 #include "SDL_kmsdrmdyn.h"
@@ -123,8 +121,8 @@ KMSDRM_Create(int devindex)
     device->VideoQuit = KMSDRM_VideoQuit;
     device->GetDisplayModes = KMSDRM_GetDisplayModes;
     device->SetDisplayMode = KMSDRM_SetDisplayMode;
-    device->CreateWindow = KMSDRM_CreateWindow;
-    device->CreateWindowFrom = KMSDRM_CreateWindowFrom;
+    device->CreateSDLWindow = KMSDRM_CreateWindow;
+    device->CreateSDLWindowFrom = KMSDRM_CreateWindowFrom;
     device->SetWindowTitle = KMSDRM_SetWindowTitle;
     device->SetWindowIcon = KMSDRM_SetWindowIcon;
     device->SetWindowPosition = KMSDRM_SetWindowPosition;
@@ -138,6 +136,7 @@ KMSDRM_Create(int devindex)
     device->SetWindowGrab = KMSDRM_SetWindowGrab;
     device->DestroyWindow = KMSDRM_DestroyWindow;
     device->GetWindowWMInfo = KMSDRM_GetWindowWMInfo;
+#if SDL_VIDEO_OPENGL_EGL
     device->GL_LoadLibrary = KMSDRM_GLES_LoadLibrary;
     device->GL_GetProcAddress = KMSDRM_GLES_GetProcAddress;
     device->GL_UnloadLibrary = KMSDRM_GLES_UnloadLibrary;
@@ -147,6 +146,7 @@ KMSDRM_Create(int devindex)
     device->GL_GetSwapInterval = KMSDRM_GLES_GetSwapInterval;
     device->GL_SwapWindow = KMSDRM_GLES_SwapWindow;
     device->GL_DeleteContext = KMSDRM_GLES_DeleteContext;
+#endif
 
     device->PumpEvents = KMSDRM_PumpEvents;
 
@@ -197,6 +197,10 @@ KMSDRM_FBFromBO(_THIS, struct gbm_bo *bo)
 
     /* Here a new DRM FB must be created */
     fb_info = (KMSDRM_FBInfo *)SDL_calloc(1, sizeof(KMSDRM_FBInfo));
+    if (fb_info == NULL) {
+        SDL_OutOfMemory();
+        return NULL;
+    }
     fb_info->drm_fd = vdata->drm_fd;
 
     w  = KMSDRM_gbm_bo_get_width(bo);
@@ -278,6 +282,10 @@ KMSDRM_VideoInit(_THIS)
 
     /* Open /dev/dri/cardNN */
     devname = (char *) SDL_calloc(1, 16);
+    if (devname == NULL) {
+        ret = SDL_OutOfMemory();
+        goto cleanup;
+    }
     SDL_snprintf(devname, 16, "/dev/dri/card%d", vdata->devindex);
     vdata->drm_fd = open(devname, O_RDWR | O_CLOEXEC);
     SDL_free(devname);
@@ -315,6 +323,7 @@ KMSDRM_VideoInit(_THIS)
         }
 
         KMSDRM_drmModeFreeConnector(connector);
+        connector = NULL;
     }
 
     if (i == resources->count_connectors) {
@@ -335,6 +344,7 @@ KMSDRM_VideoInit(_THIS)
         }
 
         KMSDRM_drmModeFreeEncoder(encoder);
+        encoder = NULL;
     }
 
     if (i == resources->count_encoders) {
@@ -352,6 +362,7 @@ KMSDRM_VideoInit(_THIS)
                  vdata->saved_crtc->y, vdata->saved_crtc->width, vdata->saved_crtc->height);
     data->crtc_id = encoder->crtc_id;
     data->cur_mode = vdata->saved_crtc->mode;
+    vdata->crtc_id = encoder->crtc_id;
 
     SDL_zero(current_mode);
 
@@ -477,7 +488,8 @@ KMSDRM_CreateWindow(_THIS, SDL_Window * window)
     /* Allocate window internal data */
     wdata = (SDL_WindowData *) SDL_calloc(1, sizeof(SDL_WindowData));
     if (wdata == NULL) {
-        return SDL_OutOfMemory();
+        SDL_OutOfMemory();
+        goto error;
     }
 
     wdata->waiting_for_flip = SDL_FALSE;
@@ -490,7 +502,7 @@ KMSDRM_CreateWindow(_THIS, SDL_Window * window)
     /* Maybe you didn't ask for a fullscreen OpenGL window, but that's what you get */
     window->flags |= (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_OPENGL);
 
-    surface_fmt = GBM_BO_FORMAT_XRGB8888;
+    surface_fmt = GBM_FORMAT_XRGB8888;
     surface_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 
     if (!KMSDRM_gbm_device_is_format_supported(vdata->gbm, surface_fmt, surface_flags)) {
@@ -511,6 +523,18 @@ KMSDRM_CreateWindow(_THIS, SDL_Window * window)
         goto error;
     }
 #endif /* SDL_VIDEO_OPENGL_EGL */
+
+    /* In case we want low-latency, double-buffer video, we take note here */
+    wdata->double_buffer = SDL_FALSE;
+    if (SDL_GetHintBoolean(SDL_HINT_VIDEO_DOUBLE_BUFFER, SDL_FALSE)) {
+        wdata->double_buffer = SDL_TRUE;
+    }
+
+    /* Window is created, but we have yet to set up CRTC to one of the GBM buffers if we want
+       drmModePageFlip to work, and we can't do it until EGL is completely setup, because we
+       need to do eglSwapBuffers so we can get a valid GBM buffer object to call
+       drmModeSetCrtc on it. */
+    wdata->crtc_ready = SDL_FALSE;
 
     /* Setup driver data for this window */
     window->driverdata = wdata;

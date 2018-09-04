@@ -5,6 +5,7 @@
 #include "RawIndexBuffer.h"
 #include "Rendering/SkeletalMeshLODRenderData.h"
 #include "Rendering/SkeletalMeshRenderData.h"
+#include "UObject/NiagaraObjectVersion.h"
 
 //////////////////////////////////////////////////////////////////////////
 //FSkeletalMeshAreaWeightedTriangleSampler
@@ -109,9 +110,17 @@ bool FSkeletalMeshSamplingLODBuiltData::Serialize(FArchive& Ar)
 
 bool FSkeletalMeshSamplingRegionBuiltData::Serialize(FArchive& Ar)
 {
+	Ar.UsingCustomVersion(FNiagaraObjectVersion::GUID);
+
 	Ar << TriangleIndices;
 	Ar << BoneIndices;
 	AreaWeightedSampler.Serialize(Ar);
+
+	if (Ar.CustomVer(FNiagaraObjectVersion::GUID) >= FNiagaraObjectVersion::SkeletalMeshVertexSampling)
+	{
+		Ar << Vertices;
+	}
+
 	return true;
 }
 
@@ -213,9 +222,9 @@ bool FSkeletalMeshSamplingRegion::IsMaterialAllowed(FName MaterialName)
 #if WITH_EDITORONLY_DATA
 
 template<bool bExtraBoneInfluencesT>
-FORCEINLINE_DEBUGGABLE void GetRegionValidTris(USkeletalMesh* SkeletalMesh, FSkeletalMeshSamplingRegion& SamplingRegion,
+FORCEINLINE_DEBUGGABLE void GetRegionValidData(USkeletalMesh* SkeletalMesh, FSkeletalMeshSamplingRegion& SamplingRegion,
 	FSkeletalMeshLODRenderData& LODData, FReferenceSkeleton& RefSkel, FSkinWeightVertexBuffer* SkinWeightBuffer,
-	TArray<int32>& IncludedBoneIndices, TArray<int32>& ExcludedBoneIndices, TArray<int32>& OutValidTris)
+	TArray<int32>& IncludedBoneIndices, TArray<int32>& ExcludedBoneIndices, TArray<int32>& OutValidTris, TArray<int32>& OutValidVerts)
 {
 	int32 MaxBoneInfluences = bExtraBoneInfluencesT ? MAX_TOTAL_INFLUENCES : MAX_INFLUENCES_PER_STREAM;
 	auto VertIsValid = [&](FSkelMeshRenderSection& Section, int32 VertexIdx)
@@ -257,6 +266,16 @@ FORCEINLINE_DEBUGGABLE void GetRegionValidTris(USkeletalMesh* SkeletalMesh, FSke
 				if (VertIsValid(Section, Idx0) || VertIsValid(Section, Idx1) || VertIsValid(Section, Idx2))
 				{
 					OutValidTris.Add(TriBase);
+				}
+			}
+
+			int32 FirstVert = Section.BaseVertexIndex;
+			int32 MaxVert = FirstVert + Section.GetNumVertices();
+			for (int32 VertexIdx = Section.BaseVertexIndex ; VertexIdx < MaxVert; ++VertexIdx)
+			{
+				if (VertIsValid(Section, VertexIdx))
+				{
+					OutValidVerts.Add(VertexIdx);
 				}
 			}
 		}
@@ -312,11 +331,11 @@ void FSkeletalMeshSamplingInfo::BuildRegions(USkeletalMesh* SkeletalMesh)
 
 		if (SkinWeightBuffer->HasExtraBoneInfluences())
 		{
-			GetRegionValidTris<true>(SkeletalMesh, Region, LODData, RefSkel, SkinWeightBuffer, IncludedBoneIndices, ExcludedBoneIndices, RegionBuiltData.TriangleIndices);
+			GetRegionValidData<true>(SkeletalMesh, Region, LODData, RefSkel, SkinWeightBuffer, IncludedBoneIndices, ExcludedBoneIndices, RegionBuiltData.TriangleIndices, RegionBuiltData.Vertices);
 		}
 		else
 		{
-			GetRegionValidTris<false>(SkeletalMesh, Region, LODData, RefSkel, SkinWeightBuffer, IncludedBoneIndices, ExcludedBoneIndices, RegionBuiltData.TriangleIndices);
+			GetRegionValidData<false>(SkeletalMesh, Region, LODData, RefSkel, SkinWeightBuffer, IncludedBoneIndices, ExcludedBoneIndices, RegionBuiltData.TriangleIndices, RegionBuiltData.Vertices);
 		}
 
 		if (Region.bSupportUniformlyDistributedSampling)

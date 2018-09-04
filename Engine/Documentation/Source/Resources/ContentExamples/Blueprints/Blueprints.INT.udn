@@ -200,7 +200,7 @@ The **Dynamic Examples** show how a Spline Component can be updated dynamically 
 [COMMENT:none]
 
 [EXCERPT:BlueprintsCEInstructions]
-You can [open the Blueprints](Engine/Blueprints/UserGuide/Types/ClassBlueprint/Opening) in the Content Example and see how the [Defaults](Engine/Blueprints/Editor\Modes\Defaults), [Components](Engine/Blueprints/UserGuide\Components), and [Graphs](Engine/Blueprints/Editor\Modes\GraphPanel) are set up to create each Blueprint.
+You can [open the Blueprints](Engine/Blueprints/UserGuide/Types/ClassBlueprint/Opening) in the Content Example and see how the [Defaults](Engine/Blueprints/Editor\Modes\Defaults), [Components](Engine/Blueprints/UserGuide\Components), and [Graphs]() are set up to create each Blueprint.
 [/EXCERPT:BlueprintsCEInstructions]
 
 

@@ -15,7 +15,7 @@ tags:Composure
 
 이번 예제에서는 비디오 편집 파이프라인과 마찬가지로 컴포셔와 시퀀서를 사용했지만, 현실의 실제 영상과 컴퓨터 생성 영상을 합성하는 것이면 무엇이든 컴포셔를 사용할 수 있습니다. 컴포셔는 증강현실 체험에도 사용할 수 있는데, 뒷판 텍스처에 카메라의 비디오 피드를 사용하는 식입니다. 이제 컴포셔 작동방식 기본을 알았으니, 추가로 시도해 볼 수 있는 몇 가지 작업을 알려드립니다.
 
-* [애니메이션 리타게팅](Engine/Animation/RetargetingDifferentSkeletons) 시스템을 사용하여 사용된 캐릭터를 바꿔봅니다.
+* [애니메이션 리타기팅](Engine/Animation/RetargetingDifferentSkeletons) 시스템을 사용하여 사용된 캐릭터를 바꿔봅니다.
 * [페이드 트랙](Engine/Sequencer/HowTo/TracksFade) 을 사용하여 씬 페이드 인/아웃 효과를 추가해 봅니다.
 * [오디오 트랙](Engine\Sequencer\HowTo\TracksAudio) 을 사용하여 **Content/StarterContent/Audio** 폴더에 있는 음악을 추가해 봅니다.
 * [플레이 레이트 트랙](Engine\Sequencer\HowTo\TracksPlayRate) 으로 씬에 슬로우 모션을 줍니다.

@@ -7,4 +7,69 @@ Navigation:home
 social-image:home_social.png
 type:landing
 
+[PUBLISH:Rocket]
+## 検索
+
+[REGION:frontpage]
+	[OBJECT:SearchBox]
+		[PARAMLITERAL:path]
+		https://www.unrealengine.com/bing-search
+		[/PARAMLITERAL]
+		[PARAMLITERAL:placeholder]
+		検索したい言葉を入力してください
+		[/PARAMLITERAL]
+		[PARAM:message]
+		[/PARAM]
+		[PARAMLITERAL:label]
+			おすすめ検索：
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			クイック スタート
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			方法
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			C++
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			ブループリント
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			iOS
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			Android
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			アクタ
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			コンポーネント
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			マテリアル
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			ライティング
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			カメラ
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			UMG UI
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			シーケンサー
+		[/PARAMLITERAL]
+		[PARAMLITERAL:terms]
+			VR
+		[/PARAMLITERAL]
+	[/OBJECT]
+[/REGION]
+
+## おすすめトピック
+
+[/PUBLISH:Rocket]
+
 [DIR(end:"1" output:"role" org:"hierarchy" parent:"%ROOT%" type:"landing")]

@@ -117,6 +117,9 @@ public:
 	/** See ScrollBarAlwaysVisible attribute */
 	void SetScrollBarAlwaysVisible(bool InAlwaysVisible);
 
+	/** Returns True when the scrollbar should always be shown, else False */
+	bool AlwaysShowScrollbar() const;
+
 	/** Allows external scrolling panels to notify the scrollbar when scrolling begins. */
 	virtual void BeginScrolling();
 
@@ -149,11 +152,11 @@ protected:
 	FOnUserScrolled OnUserScrolled;
 	float DragGrabOffset;
 	EOrientation Orientation;
+	bool bAlwaysShowScrollbar;
 	EFocusCause DragFocusCause;
 	bool bHideWhenNotInUse;
 	bool bIsScrolling;
 	double LastInteractionTime;
-	bool bAlwaysShow;
 
 	/** Image to use when the scrollbar thumb is in its normal state */
 	const FSlateBrush* NormalThumbImage;

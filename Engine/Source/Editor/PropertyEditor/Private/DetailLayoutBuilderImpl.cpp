@@ -9,10 +9,11 @@
 #include "DetailMultiTopLevelObjectRootNode.h"
 #include "ObjectEditorUtils.h"
 
-FDetailLayoutBuilderImpl::FDetailLayoutBuilderImpl(TSharedPtr<FComplexPropertyNode>& InRootNode, FClassToPropertyMap& InPropertyMap, const TSharedRef< class IPropertyUtilities >& InPropertyUtilities, const TSharedPtr< IDetailsViewPrivate >& InDetailsView, bool bIsExternal)
+FDetailLayoutBuilderImpl::FDetailLayoutBuilderImpl(TSharedPtr<FComplexPropertyNode>& InRootNode, FClassToPropertyMap& InPropertyMap, const TSharedRef<IPropertyUtilities>& InPropertyUtilities, const TSharedRef<IPropertyGenerationUtilities>& InPropertyGenerationUtilities, const TSharedPtr< IDetailsViewPrivate >& InDetailsView, bool bIsExternal)
 	: RootNode( InRootNode )
 	, PropertyMap( InPropertyMap )
 	, PropertyDetailsUtilities( InPropertyUtilities )
+	, PropertyGenerationUtilities( InPropertyGenerationUtilities )
 	, DetailsView( InDetailsView.Get() )
 	, CurrentCustomizationClass( nullptr )
 {
@@ -508,14 +509,11 @@ void FDetailLayoutBuilderImpl::NotifyNodeVisibilityChanged()
 	OnNodeVisibilityChanged.Broadcast();
 }
 
-FCustomPropertyTypeLayoutMap&  FDetailLayoutBuilderImpl::GetInstancedPropertyTypeLayoutMap()
+IPropertyGenerationUtilities& FDetailLayoutBuilderImpl::GetPropertyGenerationUtilities() const
 {
-	return InstancedPropertyTypeLayoutMap;
-}
-
-void FDetailLayoutBuilderImpl::SetInstancedPropertyTypeLayoutMap(FCustomPropertyTypeLayoutMap& InInstancedPropertyTypeLayoutMap)
-{
-	InstancedPropertyTypeLayoutMap = InInstancedPropertyTypeLayoutMap;
+	TSharedPtr<IPropertyGenerationUtilities> PropertyGenerationUtilitiesPinned = PropertyGenerationUtilities.Pin();
+	checkf(PropertyGenerationUtilitiesPinned.IsValid(), TEXT("Property generation utilities were destroyed while the layout builder was still in use."));
+	return *PropertyGenerationUtilitiesPinned.Get();
 }
 
 TSharedPtr<FAssetThumbnailPool> FDetailLayoutBuilderImpl::GetThumbnailPool() const

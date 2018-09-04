@@ -971,20 +971,9 @@ EReplacementResult FBlueprintNativeCodeGenModule::IsTargetedForReplacement(const
 			}
 
 			// Unconvertable Blueprint
+			if (!Blueprint->SupportsNativization())
 			{
-				const EBlueprintType UnconvertableBlueprintTypes[] = {
-					//BPTYPE_Const,		// What is a "const" Blueprint?
-					BPTYPE_MacroLibrary,
-					BPTYPE_LevelScript,
-				};
-				const EBlueprintType BlueprintType = Blueprint->BlueprintType;
-				for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(UnconvertableBlueprintTypes); ++TypeIndex)
-				{
-					if (BlueprintType == UnconvertableBlueprintTypes[TypeIndex])
-					{
-						return true;
-					}
-				}
+				return true;
 			}
 
 			// ExcludedBlueprintTypes

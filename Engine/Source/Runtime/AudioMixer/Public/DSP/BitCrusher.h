@@ -19,7 +19,7 @@ namespace Audio
 		~FBitCrusher();
 
 		// Initialize the equalizer
-		void Init(const float InSampleRate);
+		void Init(const float InSampleRate, const int32 InNumChannels);
 
 		// The amount to reduce the sample rate of the audio stream.
 		void SetSampleRateCrush(const float InFrequency);
@@ -27,11 +27,9 @@ namespace Audio
 		// The amount to reduce the bit depth of the audio stream.
 		void SetBitDepthCrush(const float InBitDepth);
 
-		// Processes a mono stream
-		void ProcessAudio(const float InLeftSample, float& OutLeftSample);
-
-		// Processes a stereo stream
-		void ProcessAudio(const float InLeftSample, const float InRightSample, float& OutLeftSample, float& OutRightSample);
+		// Processes audio
+		void ProcessAudioFrame(const float* InFrame, float* OutFrame);
+		void ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer);
 
 	private:
 		// i.e. 8 bit, etc. But can be float!
@@ -46,9 +44,9 @@ namespace Audio
 		float PhaseDelta;
 
 		// Used to sample+hold the last output
-		float LastOutputLeft;
-		float LastOutputRight;
+		float LastOutput[2];
 
+		int32 NumChannels;
 	};
 
 }

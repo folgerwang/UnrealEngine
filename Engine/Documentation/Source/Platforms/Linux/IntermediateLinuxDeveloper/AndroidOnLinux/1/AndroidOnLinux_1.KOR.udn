@@ -29,7 +29,7 @@ Android SDK 와 엔진의 호환성을 위해 언리얼 엔진 4 에 CodeWorks f
 계속하기 전 참고로, 현재 리눅스에서 Android Vulkan 은 지원하지 않습니다.
 [/REGION]
 
-1.	우선 Terminal 을 열고 컴파일된 엔진이 들어있는 `[UE4Root]` 폴더로 이동합니다 (`cd` 명령을 사용하여, shell 작업 디렉토리를 변경합니다).
+1.	우선 Terminal 을 열고 컴파일된 엔진이 들어있는 `[UE4Root]` 폴더로 이동합니다 (`cd` 명령을 사용하여, shell 작업 디렉터리를 변경합니다).
 
 	![](LinuxAndroid_Step0.png)(w:900)
 
@@ -37,7 +37,7 @@ Android SDK 와 엔진의 호환성을 위해 언리얼 엔진 4 에 CodeWorks f
 
 	![](LinuxAndroid_Step1.png)(w:900)
 
-1.	터미널에 `ls -l` 을 치면, 디렉토리 내용이 긴 리스트로 나옵니다.
+1.	터미널에 `ls -l` 을 치면, 디렉터리 내용이 긴 리스트로 나옵니다.
 
 	![](LinuxAndroid_Step2.png)(w:900)
 
@@ -77,7 +77,7 @@ Android SDK 와 엔진의 호환성을 위해 언리얼 엔진 4 에 CodeWorks f
 
 	![](LinuxAndroid_Step8.png)(w:900)
 
-1.	CodeWorks for Android 1R6u1 설치 및 다운로드 디렉토리를 지정합니다.
+1.	CodeWorks for Android 1R6u1 설치 및 다운로드 디렉터리를 지정합니다.
 
 	![](LinuxAndroid_Step9.png)(w:900)
 

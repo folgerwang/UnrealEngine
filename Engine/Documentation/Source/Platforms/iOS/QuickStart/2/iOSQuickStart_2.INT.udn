@@ -25,6 +25,7 @@ parent:Platforms/iOS/QuickStart
 [/VAR]
 
 
+%Steps%
 
 [REGION:note]
 This step is not necessary at this point, but it is always good to have a project ready to test deploy. [You can skip this section if you already have a project prepared.](Platforms/iOS/QuickStart/3)
@@ -95,3 +96,5 @@ page to develop code-based projects for iOS on a PC.
 [/COMMENT]
 
 
+
+%Steps%

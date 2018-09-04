@@ -1484,6 +1484,11 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		}
 	}
 
+	if (!bHasFocus)
+	{
+		SetPreviewMeshMode(false);
+	}
+
 	// Tick any editor FTickableEditorObject dervived classes
 	FTickableEditorObject::TickObjects( DeltaSeconds );
 

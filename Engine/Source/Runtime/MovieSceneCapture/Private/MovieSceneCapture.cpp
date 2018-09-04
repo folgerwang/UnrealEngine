@@ -229,6 +229,19 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieFolder=" ), OutputPathOverride ) )
 		{
 			Settings.OutputDirectory.Path = OutputPathOverride;
+			FPaths::NormalizeFilename(Settings.OutputDirectory.Path);
+
+			if (!IFileManager::Get().DirectoryExists(*Settings.OutputDirectory.Path))
+			{
+				if (!IFileManager::Get().MakeDirectory(*Settings.OutputDirectory.Path))
+				{
+					UE_LOG(LogMovieSceneCapture, Error, TEXT("Invalid output directory: %s."), *Settings.OutputDirectory.Path);
+				}
+			}
+			else if (IFileManager::Get().IsReadOnly(*Settings.OutputDirectory.Path))
+			{
+				UE_LOG(LogMovieSceneCapture, Error, TEXT("Read only output directory: %s."), *Settings.OutputDirectory.Path);
+			}
 		}
 
 		FString OutputNameOverride;

@@ -1,0 +1,25 @@
+Availability: Public
+Crumbs:
+Title: Mixed Reality Capture Overview
+Description: Product documentation including reference and guides for Unreal Engine 4 
+Version: 4.20
+Parent: Platforms/MR
+Order:1
+Tags: GettingStarted
+Tags: MR
+Tags: landingpage
+Tags: Early Access
+topic-image:MR_RoboRecall.png
+reference-image:MR_RoboRecall.gif
+
+The Mixed Reality Capture (MRC) framework makes it easy for users to composite real players into a virtual play space so that observing XR experiences is more compelling.
+
+[REGION:asyncgif]
+![image alt text](MR_RoboRecall.gif)(w:653)
+[/REGION]
+
+Mixed Reality Capture support has three components: video input, calibration, and in-game compositing. We have a list of supported [webcams and HDMI capture devices](Platforms/MR/MRSupportedVideoDevices) that enable you to pull real world green screened video into the Unreal Engine from a variety of sources. If you have a separate tracking device, Mixed Reality Capture can match your camera location to the in-game camera to make shots more dynamic and interesting. Setup and calibration is done through a standalone calibration tool. Once you set up and calibrate your filming location, you can reuse those calibration settings across Unreal applications.
+
+While feature support is in early access, we’re looking forward to getting feedback as we continue to improve the framework. 
+
+Get started using Mixed Reality Capture by following the [Mixed Reality Quick Start](Platforms/MR/MRQuickStart).

@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3759010
 Availability: Docs
-Title:Rendering Out Cinematic Movies
+Title:시네마틱 무비 렌더링 출력
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:Shows you can render out your cinematic sequences to a saved movie file on your computer. 
+Description:시네마틱 시퀀스를 컴퓨터에 저장되는 무비 파일로 렌더링 출력하는 법을 보여드립니다. 
 Version: 4.18
 SkillLevel: Intermediate
 parent:Engine/Sequencer/HowTo
@@ -15,79 +15,79 @@ Related: Engine/Sequencer/HowTo/CustomBurnIns
 tags:Sequencer
 type:how-to
 
-Once you have created your cinematic sequence (or even during your production process as part of daily reviews), you may want to render it out as a movie file that you can share with others. The **Render Movie** option in Sequencer enables you to share your movie with others as an `.avi` file that will play with most media players. In addition to rendering as a movie file, you can render your cinematic as an Image Sequence or render out [Custom Render Passes](Engine/Sequencer/Workflow/CustomRenderPass) that you can use in an external application to finalize your scene.
+시네마틱 시퀀스를 생성한 이후(, 아니면 제작 프로세스에서 데일리 리뷰의 일부로든) 다른 이와 공유할 수 있는 무비 파일로 렌더링 출력고 싶을 수가 있습니다. 시퀀서의 **Render Movie** (무비 렌더링) 옵션에서 대부분의 미디어 플레이어로 재생되는 .avi 파일을 통해 무비를 다른 사람과 공유할 수 있습니다. 무비 파일로 렌더링하는 것에 더해, 시네마틱을 이미지 시퀀스로 렌더링하거나 [커스텀 렌더 패스(pass)](Engine/Sequencer/Workflow/CustomRenderPass) 로 렌더링 출력하고 외부 프로그램에서 사용하여 씬을 마무리할 수도 있습니다. 
 
-In this example, we create a sample cinematic and render it out as a movie while outlining some of the options that are available as part of the rendering process: 
+이 예제에서는, 샘플 시네마틱을 생성하여 무비로 렌더링 출력해 보면서 렌더링 프로세스의 일부로 사용할 수 있는 옵션도 몇 가지 살펴보겠습니다. 
 
 ![](HeroImage.png)
 
 
-## Steps
+## 단계
 
 [REGION:note]
-For this how-to guide, we are using the **Blueprint Third Person Template** with **Starter Content** enabled. 
+여기서는 **블루프린트 삼인칭 템플릿** 에 **시작용 콘텐츠** 를 포함시켜 사용하고 있습니다. 
 [/REGION]
 
-1.	Inside your project, from the **Main Toolbar**, click the **Cinematics** button then select **Add Level Sequence**. 
+1. 프로텍트의 **메인 툴바** 에서 **시네마틱** 버튼을 클릭한 뒤 **레벨 시퀀스 추가** 를 선택합니다. 
 
 	![](RenderMovie_01.png)
 
-1.	In the **Save Asset As** window, enter a name for your Sequence, then click **Save**. 
+1. **새 이름으로 저장** 창에서 시퀀스에 새 이름을 입력한 뒤 **저장** 을 클릭합니다. 
 
 	![](RenderMovie_02.png)
 
-1.	Inside the **Sequencer Editor**, click the **Add Camera** button. 
+1. **시퀀서 에디터** 안에서 **카메라 추가** 버튼을 클릭합니다. 
 
 	![](RenderMovie_03.png)
 
-1.	In the Viewport, position the camera anywhere in the Level facing the Character, then press the **S** key to add a keyframe. 
+1. 뷰포트에서, 레벨 아무데나 캐릭터를 보도록 카메라 위치를 잡은 뒤 **S** 키를 눌러 키프레임을 추가합니다. 
 
 	![](RenderMovie_04.png)
 
-	We will shoot a sample scene where the camera pushes in on our the Character in the Level for a close-up shot. 
+레벨의 캐릭터 클로즈업 샷을 수 있도록 카메라를 밀어놓고 샘플 씬을 찍겠습니다. 
 
-1.	In the **Sequencer Editor** move to frame **150**, then move the Camera in the Level to a new location and press the **S** key to add a keyframe. 
+1. **시퀀서 에디터** 에서 **150** 프레임으로 이동한 뒤, 레벨의 카메라를 새 위치로 옮기고 **S** 키를 눌러 키프레임을 추가합니다. 
 
 	[REGION:lightbox]
 	[![](RenderMovie_05.png)(w:640)](RenderMovie_05.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click image for full view. 
+	이미지를 클릭하면 원본을 확인합니다. 
 	[/REGION]
 
-	The camera will now move from our first keyframe to our second keyframe, pushing in on the Character. 
+이제 카메라가 첫 번째 키프레임에서 두 번째 키프레임으로 이동하면서, 캐릭터 앞으로 이동합니다. 
 
-1.	In the **Sequencer Editor**, click the **Render Movie** button. 
+1. **시퀀서 에디터** 에서 **Render Movie** (무비 렌더링) 버튼을 클릭합니다. 
 
 	![](RenderMovie_06.png)
 
-	The **Render Movie Settings** window will open. 
+**Render Movie Settings** (무비 렌더링 세팅) 창이 열립니다. 
 
 	![](RenderMovie_07.png)
 
-1.	Under the **Capture Settings**, click the **Output Format** option to view the available options, then select **Video Sequence**. 
+1. **Capture Settings** (캡처 세팅) 아래 **Output Format** (출력 포맷) 옵션을 클릭하여 나오는 옵션 중에서 **Video Sequence** (비디오 시퀀스)를 선택합니다. 
 
 	![](RenderMovie_08.png)
 
-	In addition to rendering your sequence out as a movie, you can also render it as an Image Sequence or render out Custom Render Passes. 
+시퀀스를 무비로 렌더링 출력하는 것에 더해, 이미지 시퀀스로 렌더링하거나 커스텀 렌드 패스(pass)로 렌더링 출력할 수도 있습니다. 
 
-1.	Under **General**, choose an **Output Directory** to save your cinematic to, then click **Capture Movie**. 
+1. **General** (일반) 아래 시네마틱을 저장할 **Output Directory** (출력 디렉터리)를 선택하고, **Capture Movie** (무비 캡처)를 클릭합니다. 
 
 	![](RenderMovie_09.png)
 
-	A preview window will appear while the rendering process occurs. 
+렌더링 프로세스 진행 도중 프리뷰 창이 나타납니다. 
 
 	![](RenderMovie_10.png)
 
 	[REGION:note]
-	If prompted to **Save** your content after selecting **Capture Movie**, click **Save** or **Don't Save** to continue. Selecting **Cancel** will abort the rendering process. 
+	**무비 캡처** 선택 이후 콘텐츠 **저장** 확인 창이 뜨면, **저장** 또는 **저장 않음** 을 선택하여 계속합니다. **취소** 를 선택하면 렌더링 프로세스가 중단됩니다. 
 	[/REGION]
 
 
-## End Result
+## 최종 결과
 
-After the capture process, you will have a video file of your cinematic sequence (below is our rendered-out cinematic).
+캡처 프로세스가 끝나면 시네마틱 시퀀스의 비디오 파일이 생겨있을 것입니다 (아래는 렌더링 출력한 시네마틱입니다).
 
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:videoid]
@@ -107,11 +107,11 @@ simple
 [/PARAMLITERAL]
 [/OBJECT]
 
-**Burn-ins** are overlays that are embedded with your video, generally to provide internal information about the frame being shown. You can add burn-ins to your video, including [custom burn-ins](Engine/Sequencer/HowTo/CustomBurnIns) that you create, by enabling the **Use Burn In** option.
+**Burn-ins** (번 인)이란 비디오에 삽입되는 오버레이로, 보통 표시 중인 프레임 관련 내부 정보가 제공됩니다. 비디오에 번 인을 [커스텀 번 인](Engine/Sequencer/HowTo/CustomBurnIns) 포함해서 추가할 수 있는데, **Use Burn In** (번 인 사용) 옵션을 켜면 됩니다. 
 
 ![](BurnIns.png)
 
-This can be useful if you are doing reviews of a cinematic, as it will display timecode information as well as shot names and any other custom information you want to provide.
+시네마틱 리뷰를 할 때 특히나 유용하게 쓸 수 있는데, 타임코드 정보는 물론 샷 이름과 다른 커스텀 정보도 제공할 수 있기 때문입니다. 
 
 ![](BurnInsApplied.png)
 

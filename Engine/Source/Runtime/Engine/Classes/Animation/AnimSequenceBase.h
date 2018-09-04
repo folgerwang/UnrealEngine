@@ -105,9 +105,10 @@ class ENGINE_API UAnimSequenceBase : public UAnimationAsset
 
 	virtual const FRawCurveTracks& GetCurveData() const { return RawCurveData; }
 
-#if WITH_EDITOR
 	/** Return Number of Frames **/
 	virtual int32 GetNumberOfFrames() const;
+
+#if WITH_EDITOR
 
 	/** Get the frame number for the provided time */
 	virtual int32 GetFrameAtTime(const float Time) const;
@@ -144,6 +145,9 @@ public:
 #endif // WITH_EDITOR
 
 	//~ Begin UAnimationAsset Interface
+#if WITH_EDITOR
+	virtual void RemapTracksToNewSkeleton(USkeleton* NewSkeleton, bool bConvertSpaces) override;
+#endif
 	virtual void TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const override;
 
 	void TickByMarkerAsFollower(FMarkerTickRecord &Instance, FMarkerTickContext &MarkerContext, float& CurrentTime, float& OutPreviousTime, const float MoveDelta, const bool bLooping) const;

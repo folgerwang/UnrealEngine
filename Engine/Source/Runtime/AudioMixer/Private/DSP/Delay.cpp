@@ -158,17 +158,7 @@ namespace Audio
 		}
 	}
 
-	void FDelay::ProcessAudio(const float* InAudio, float* OutAudio)
-	{
-		Update();
-
-		const float Xn = *InAudio;
-		const float Yn = DelayInSamples == 0 ? Xn : Read();
-		WriteDelayAndInc(Xn);
-		*OutAudio = OutputAttenuation * Yn;
-	}
-
-	float FDelay::ProcessAudio(const float InAudio)
+	float FDelay::ProcessAudioSample(const float InAudio)
 	{
 		Update();
 

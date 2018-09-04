@@ -44,7 +44,7 @@ VR 미러 모드 작동 방식 변경을 위한 명령과 VR 미러 모습에 �
 |**vr.SteamVR.AdaptiveGPUTimeThreshold**|GPU 프레임 시간 안정화 목표로 삼을 ms 단위 시간입니다. |
 |**vr.SteamVR.PixelDensityAdaptiveDebugCycle**|0 이 아니면 적응형 픽셀 밀도가 최대에서 최소로 순환한 뒤 최대로 점프합니다. |
 |**vr.SteamVR.PixelDensityAdaptiveDebugOutput**|0 이 아니면 적응형 픽셀 밀도는 로그에 디버깅 정보를 출력합니다.|
-|**vr.SteamVR.PixelDensityAdaptivePostProcess**|0 이 아니면 적응형 밀도 변경 시 몇 프레임 동안 TAA (템포럴 안티 앨리어싱)을 꺼 버퍼를 지웁니다. |
+|**vr.SteamVR.PixelDensityAdaptivePostProcess**|0 이 아니면 적응형 밀도 변경 시 몇 프레임 동안 TAA (템포럴 안티 에일리어싱)을 꺼 버퍼를 지웁니다. |
 |**vr.SteamVR.PixelDensityMax**|최대 픽셀 밀도를 나타내는 플로트 값입니다.|
 |**vr.SteamVR.PixelDensityMin**|최소 픽셀 밀도를 나타내는 플로트 값입니다.|
 |**vr.SteamVR.ShowDebug**|	0 이 아니면 캔버스에 디버깅 정보를 그립니다.|

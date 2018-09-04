@@ -1140,7 +1140,7 @@ FReply SColorThemesViewer::DuplicateColorTheme()
 	const TArray< TSharedPtr<FColorInfo> >& CurrentColors = CurrentlySelectedThemePtr.Pin()->GetColors();
 	for (int32 ColorIndex = 0; ColorIndex < CurrentColors.Num(); ++ColorIndex)
 	{
-		NewColors.Add(MakeShareable(new FColorInfo(CurrentColors[ColorIndex]->Color)));
+		NewColors.Add(MakeShareable(new FColorInfo(CurrentColors[ColorIndex]->Color, CurrentColors[ColorIndex]->Label)));
 	}
 	const FText Name = NSLOCTEXT("ColorThemesViewer", "CopyThemeNameAppend", " Copy");
 	NewColorTheme( CurrentlySelectedThemePtr.Pin()->Name + Name.ToString(), NewColors );

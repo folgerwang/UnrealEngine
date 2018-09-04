@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -31,6 +31,10 @@ struct joystick_hwdata
     SDL_JoystickGUID guid;
     char *fname;                /* Used in haptic subsystem */
 
+    SDL_bool ff_rumble;
+    SDL_bool ff_sine;
+    struct ff_effect effect;
+
     /* The current Linux joystick driver maps hats to two axes */
     struct hwdata_hat
     {
@@ -52,6 +56,9 @@ struct joystick_hwdata
     } abs_correct[ABS_MAX];
 
     int fresh;
+
+    /* Steam Controller support */
+    SDL_bool m_bSteamController;
 };
 
 /* vi: set ts=4 sw=4 expandtab: */

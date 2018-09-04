@@ -13,7 +13,7 @@ namespace Audio
 	{
 	}
 
-	void FDelayAPF::ProcessAudio(const float* InputSample, float* OutputSample)
+	float FDelayAPF::ProcessAudioSample(const float InputSample)
 	{
 		// Read the delay line to get w(n-D);
 		const float WnD = this->Read();
@@ -21,20 +21,19 @@ namespace Audio
 		// For the APF if the delay is 0.0 we just need to pass input -> output
 		if (ReadIndex == WriteIndex)
 		{
-			this->WriteDelayAndInc(*InputSample);
-			*OutputSample = *InputSample;
-			return;
+			this->WriteDelayAndInc(InputSample);
+			return InputSample;
 		}
 
 		// Form w(n) = x(n) + gw(n-D)
-		const float Wn = *InputSample + G*WnD;
+		const float Wn = InputSample + G*WnD;
 
 		// form y(n) = -gw(n) + w(n-D)
 		float Yn = -G*Wn + WnD;
 
 		Yn = UnderflowClamp(Yn);
 		this->WriteDelayAndInc(Wn);
-		*OutputSample = Yn;
+		return Yn;
 	}
 
 }

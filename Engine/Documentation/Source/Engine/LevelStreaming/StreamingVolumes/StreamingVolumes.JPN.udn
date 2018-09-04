@@ -13,9 +13,7 @@ tags:Level Streaming
 
 [INCLUDE:Engine/Actors/Volumes#lsv]
 
-以下の画像のように、**[Details (詳細)]** パネルからプロパティを調整すれば、Level Streaming Volume のレベル ストリーミング処理方法を調整できます。 
-
-![](levelstreamingvolume.png)
+以下の画像のように、**[Details (詳細)]** パネルからプロパティを調整すれば、Level Streaming Volume のレベル ストリーミング処理方法を調整できます。
 
 Level Streaming Volumes については [](Engine/LevelStreaming/StreamingVolumes) を参照してください。
 

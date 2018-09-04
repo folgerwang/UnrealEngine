@@ -48,6 +48,7 @@
 #include "UObject/PropertyPortFlags.h"
 #include "Templates/UniquePtr.h"
 #include "AnimationRuntime.h"
+#include "UObject/NiagaraObjectVersion.h"
 
 #if WITH_EDITOR
 #include "Rendering/SkeletalMeshModel.h"
@@ -939,6 +940,7 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 	Ar.UsingCustomVersion(FSkeletalMeshCustomVersion::GUID);
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
+	Ar.UsingCustomVersion(FNiagaraObjectVersion::GUID);
 
 	FStripDataFlags StripFlags( Ar );
 
@@ -1616,6 +1618,12 @@ void USkeletalMesh::PostLoad()
 	bHasActiveClothingAssets = ComputeActiveClothingAssets();
 
 #if WITH_EDITOR
+	if (GetLinkerCustomVersion(FNiagaraObjectVersion::GUID) < FNiagaraObjectVersion::SkeletalMeshVertexSampling)
+	{
+		SamplingInfo.BuildRegions(this);
+		SamplingInfo.BuildWholeMesh(this);
+	}
+
 	UpdateGenerateUpToData();
 #endif
 }
@@ -1731,7 +1739,16 @@ void USkeletalMesh::DebugVerifySkeletalMeshLOD()
 	}
 }
 
-void USkeletalMesh::RegisterMorphTarget(UMorphTarget* MorphTarget)
+void USkeletalMesh::InitMorphTargetsAndRebuildRenderData()
+{
+	MarkPackageDirty();
+	// need to refresh the map
+	InitMorphTargets();
+	// invalidate render data
+	InvalidateRenderData();
+}
+
+bool USkeletalMesh::RegisterMorphTarget(UMorphTarget* MorphTarget, bool bInvalidateRenderData)
 {
 	if ( MorphTarget )
 	{
@@ -1765,25 +1782,20 @@ void USkeletalMesh::RegisterMorphTarget(UMorphTarget* MorphTarget)
 			bRegistered = true;
 		}
 
-		if (bRegistered)
+		if (bRegistered && bInvalidateRenderData)
 		{
-			MarkPackageDirty();
-			// need to refresh the map
-			InitMorphTargets();
-			// invalidate render data
-			InvalidateRenderData();
+			InitMorphTargetsAndRebuildRenderData();
 		}
+		return bRegistered;
 	}
+	return false;
 }
+
 
 void USkeletalMesh::UnregisterAllMorphTarget()
 {
 	MorphTargets.Empty();
-	MarkPackageDirty();
-	// need to refresh the map
-	InitMorphTargets();
-	// invalidate render data
-	InvalidateRenderData();
+	InitMorphTargetsAndRebuildRenderData();
 }
 
 void USkeletalMesh::UnregisterMorphTarget(UMorphTarget* MorphTarget)
@@ -1798,15 +1810,10 @@ void USkeletalMesh::UnregisterMorphTarget(UMorphTarget* MorphTarget)
 			{
 				MorphTargets.RemoveAt(I);
 				--I;
-				MarkPackageDirty();
-				// need to refresh the map
-				InitMorphTargets();
-				// invalidate render data
-				InvalidateRenderData();
+				InitMorphTargetsAndRebuildRenderData();
 				return;
 			}
 		}
-
 		UE_LOG( LogSkeletalMesh, Log, TEXT("UnregisterMorphTarget: %s not found."), *MorphTarget->GetName() );
 	}
 }

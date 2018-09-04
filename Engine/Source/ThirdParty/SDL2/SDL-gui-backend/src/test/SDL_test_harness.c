@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -103,11 +103,11 @@ SDLTest_GenerateExecKey(const char *runSeed, char *suiteName, char *testName, in
     SDLTest_Md5Context md5Context;
     Uint64 *keys;
     char iterationString[16];
-    Uint32 runSeedLength;
-    Uint32 suiteNameLength;
-    Uint32 testNameLength;
-    Uint32 iterationStringLength;
-    Uint32 entireStringLength;
+    size_t runSeedLength;
+    size_t suiteNameLength;
+    size_t testNameLength;
+    size_t iterationStringLength;
+    size_t entireStringLength;
     char *buffer;
 
     if (runSeed == NULL || runSeed[0] == '\0') {
@@ -150,7 +150,7 @@ SDLTest_GenerateExecKey(const char *runSeed, char *suiteName, char *testName, in
 
     /* Hash string and use half of the digest as 64bit exec key */
     SDLTest_Md5Init(&md5Context);
-    SDLTest_Md5Update(&md5Context, (unsigned char *)buffer, entireStringLength);
+    SDLTest_Md5Update(&md5Context, (unsigned char *)buffer, (unsigned int) entireStringLength);
     SDLTest_Md5Final(&md5Context);
     SDL_free(buffer);
     keys = (Uint64 *)md5Context.digest;
@@ -206,6 +206,9 @@ SDLTest_SetTestTimeout(int timeout, void (*callback)())
 /**
 * \brief Timeout handler. Aborts test run and exits harness process.
 */
+#if defined(__WATCOMC__)
+#pragma aux SDLTest_BailOut aborts;
+#endif
 static SDL_NORETURN void
 SDLTest_BailOut()
 {
@@ -676,3 +679,5 @@ int SDLTest_RunSuites(SDLTest_TestSuiteReference *testSuites[], const char *user
     SDLTest_Log("Exit code: %d", runResult);
     return runResult;
 }
+
+/* vi: set ts=4 sw=4 expandtab: */

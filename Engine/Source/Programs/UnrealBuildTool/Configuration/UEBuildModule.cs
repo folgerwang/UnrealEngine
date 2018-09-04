@@ -239,7 +239,7 @@ namespace UnrealBuildTool
 			{
 				foreach(string InputString in InEnumerableStrings)
 				{
-					DirectoryReference Dir = new DirectoryReference(ExpandPathVariables(InputString, null));
+					DirectoryReference Dir = new DirectoryReference(ExpandPathVariables(InputString, null, null));
 					if(DirectoryReference.Exists(Dir))
 					{
 						Directories.Add(Dir);
@@ -539,9 +539,10 @@ namespace UnrealBuildTool
 		/// Expand path variables within the context of this module
 		/// </summary>
 		/// <param name="Path">Path to expand variables within</param>
-		/// <param name="Binary">The source binary containing the module. May be null.</param>
+		/// <param name="BinaryOutputDir">Directory containing the binary that links this module. May be mull.</param>
+		/// <param name="TargetOutputDir">Directory containing the output executable. May be null.</param>
 		/// <returns>The path with variables expanded</returns>
-		public string ExpandPathVariables(string Path, UEBuildBinary Binary)
+		public string ExpandPathVariables(string Path, DirectoryReference BinaryOutputDir, DirectoryReference TargetOutputDir)
 		{
 			if(Path.StartsWith("$(", StringComparison.Ordinal))
 			{
@@ -573,9 +574,13 @@ namespace UnrealBuildTool
 						{
 							Path = Rules.PluginDirectory + Path.Substring(EndIdx + 1);
 						}
-						else if(Binary != null && MatchVariableName(Path, StartIdx, EndIdx, "OutputDir"))
+						else if(BinaryOutputDir != null && MatchVariableName(Path, StartIdx, EndIdx, "BinaryOutputDir"))
 						{
-							Path = Binary.OutputFilePaths[0].Directory.FullName + Path.Substring(EndIdx + 1);
+							Path = BinaryOutputDir.FullName + Path.Substring(EndIdx + 1);
+						}
+						else if(TargetOutputDir != null && MatchVariableName(Path, StartIdx, EndIdx, "TargetOutputDir"))
+						{
+							Path = TargetOutputDir.FullName + Path.Substring(EndIdx + 1);
 						}
 						else
 						{
@@ -611,13 +616,14 @@ namespace UnrealBuildTool
 		/// Expand path variables within the context of this module
 		/// </summary>
 		/// <param name="Paths">Path to expand variables within</param>
-		/// <param name="Binary">The source binary containing the module. May be null.</param>
+		/// <param name="BinaryDir">Directory containing the binary that links this module. May be mull.</param>
+		/// <param name="ExeDir">Directory containing the output executable. May be null.</param>
 		/// <returns>The path with variables expanded</returns>
-		private IEnumerable<string> ExpandPathVariables(IEnumerable<string> Paths, UEBuildBinary Binary)
+		private IEnumerable<string> ExpandPathVariables(IEnumerable<string> Paths, DirectoryReference BinaryDir, DirectoryReference ExeDir)
 		{
 			foreach(string Path in Paths)
 			{
-				yield return ExpandPathVariables(Path, Binary);
+				yield return ExpandPathVariables(Path, BinaryDir, ExeDir);
 			}
 		}
 
@@ -636,7 +642,8 @@ namespace UnrealBuildTool
 			List<UEBuildBundleResource> AdditionalBundleResources,
 			List<string> DelayLoadDLLs,
 			List<UEBuildBinary> BinaryDependencies,
-			HashSet<UEBuildModule> VisitedModules
+			HashSet<UEBuildModule> VisitedModules,
+			DirectoryReference ExeDir
 			)
 		{
 			// There may be circular dependencies in compile dependencies, so we need to avoid reentrance.
@@ -669,7 +676,7 @@ namespace UnrealBuildTool
 						if (bIsExternalModule || bIsInStaticLibrary)
 						{
 							DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LibraryPaths, AdditionalLibraries, RuntimeLibraryPaths, Frameworks, WeakFrameworks,
-								AdditionalFrameworks, AdditionalShadowFiles, AdditionalBundleResources, DelayLoadDLLs, BinaryDependencies, VisitedModules);
+								AdditionalFrameworks, AdditionalShadowFiles, AdditionalBundleResources, DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
 						}
 					}
 				}
@@ -677,7 +684,7 @@ namespace UnrealBuildTool
 				// Add this module's public include library paths and additional libraries.
 				LibraryPaths.AddRange(PublicLibraryPaths);
 				AdditionalLibraries.AddRange(PublicAdditionalLibraries);
-				RuntimeLibraryPaths.AddRange(ExpandPathVariables(Rules.PublicRuntimeLibraryPaths, SourceBinary));
+				RuntimeLibraryPaths.AddRange(ExpandPathVariables(Rules.PublicRuntimeLibraryPaths, SourceBinary.OutputDir, ExeDir));
 				Frameworks.AddRange(PublicFrameworks);
 				WeakFrameworks.AddRange(PublicWeakFrameworks);
 				AdditionalBundleResources.AddRange(PublicAdditionalBundleResources);
@@ -699,15 +706,16 @@ namespace UnrealBuildTool
 			UEBuildBinary SourceBinary,
 			LinkEnvironment LinkEnvironment,
 			List<UEBuildBinary> BinaryDependencies,
-			HashSet<UEBuildModule> VisitedModules
+			HashSet<UEBuildModule> VisitedModules,
+			DirectoryReference ExeDir
 			)
 		{
 			// Add the private rpaths
-			LinkEnvironment.RuntimeLibraryPaths.AddRange(ExpandPathVariables(Rules.PrivateRuntimeLibraryPaths, SourceBinary));
+			LinkEnvironment.RuntimeLibraryPaths.AddRange(ExpandPathVariables(Rules.PrivateRuntimeLibraryPaths, SourceBinary.OutputDir, ExeDir));
 
 			// Allow the module's public dependencies to add library paths and additional libraries to the link environment.
 			SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeLibraryPaths, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
-				LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules);
+				LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
 
 			// Also allow the module's public and private dependencies to modify the link environment.
 			List<UEBuildModule> AllDependencyModules = new List<UEBuildModule>();
@@ -717,7 +725,7 @@ namespace UnrealBuildTool
 			foreach (UEBuildModule DependencyModule in AllDependencyModules)
 			{
 				DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeLibraryPaths, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
-					LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules);
+					LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules, ExeDir);
 			}
 		}
 

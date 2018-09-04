@@ -50,7 +50,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/tree/4.6.1-release](https://g
 
 * 이제 모바일 디바이스에서 InstancedStaticMesh 가 제대로 렌더링됩니다.
 
-* 애니메이션 리타게팅이 루핑 애니메이션에 반대로 영향을 끼치던 버그를 잡았습니다.
+* 애니메이션 리타기팅이 루핑 애니메이션에 반대로 영향을 끼치던 버그를 잡았습니다.
 
 ## 4.6.1 핫픽스용 QFE
 

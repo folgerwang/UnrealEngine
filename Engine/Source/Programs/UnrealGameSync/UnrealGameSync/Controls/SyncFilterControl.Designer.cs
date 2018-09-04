@@ -97,7 +97,7 @@
 			this.CategoriesGroupBox.Location = new System.Drawing.Point(0, 63);
 			this.CategoriesGroupBox.Margin = new System.Windows.Forms.Padding(0, 3, 0, 0);
 			this.CategoriesGroupBox.Name = "CategoriesGroupBox";
-			this.CategoriesGroupBox.Size = new System.Drawing.Size(1008, 364);
+			this.CategoriesGroupBox.Size = new System.Drawing.Size(1008, 367);
 			this.CategoriesGroupBox.TabIndex = 4;
 			this.CategoriesGroupBox.TabStop = false;
 			this.CategoriesGroupBox.Text = "Categories";
@@ -114,7 +114,7 @@
 			this.CategoriesCheckList.Location = new System.Drawing.Point(12, 26);
 			this.CategoriesCheckList.Margin = new System.Windows.Forms.Padding(7);
 			this.CategoriesCheckList.Name = "CategoriesCheckList";
-			this.CategoriesCheckList.Size = new System.Drawing.Size(986, 328);
+			this.CategoriesCheckList.Size = new System.Drawing.Size(986, 331);
 			this.CategoriesCheckList.Sorted = true;
 			this.CategoriesCheckList.TabIndex = 7;
 			// 
@@ -139,21 +139,19 @@
 			// 
 			// tableLayoutPanel1
 			// 
-			this.tableLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
 			this.tableLayoutPanel1.AutoSize = true;
 			this.tableLayoutPanel1.ColumnCount = 1;
 			this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
 			this.tableLayoutPanel1.Controls.Add(this.groupBox1, 0, 0);
 			this.tableLayoutPanel1.Controls.Add(this.CategoriesGroupBox, 0, 1);
+			this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
 			this.tableLayoutPanel1.Margin = new System.Windows.Forms.Padding(0);
 			this.tableLayoutPanel1.Name = "tableLayoutPanel1";
 			this.tableLayoutPanel1.RowCount = 2;
 			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
 			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-			this.tableLayoutPanel1.Size = new System.Drawing.Size(1008, 427);
+			this.tableLayoutPanel1.Size = new System.Drawing.Size(1008, 430);
 			this.tableLayoutPanel1.TabIndex = 8;
 			// 
 			// groupBox1
@@ -169,11 +167,11 @@
 			this.groupBox1.TabStop = false;
 			this.groupBox1.Text = "General";
 			// 
-			// SyncAllProjectsInStream
+			// SyncAllProjects
 			// 
 			this.SyncAllProjects.AutoSize = true;
 			this.SyncAllProjects.Location = new System.Drawing.Point(12, 23);
-			this.SyncAllProjects.Name = "SyncAllProjectsInStream";
+			this.SyncAllProjects.Name = "SyncAllProjects";
 			this.SyncAllProjects.Size = new System.Drawing.Size(163, 19);
 			this.SyncAllProjects.TabIndex = 6;
 			this.SyncAllProjects.Text = "Sync all projects in stream";
@@ -181,8 +179,8 @@
 			// 
 			// SyncFilterControl
 			// 
-			this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.BackColor = System.Drawing.SystemColors.Window;
 			this.Controls.Add(this.SplitContainer);
 			this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));

@@ -199,6 +199,7 @@ void SMontageEditor::Construct(const FArguments& InArgs, const FMontageEditorReq
 		.OnRequestRefreshOffsets(this, &SMontageEditor::RefreshNotifyTriggerOffsets)
 		.OnGetTimingNodeVisibility(TimingNodeVisibilityDelegate)
 		.OnInvokeTab(InArgs._OnInvokeTab)
+		.OnNotifiesChanged(this, &SMontageEditor::HandleNotifiesChanged)
 	];
 
 	EditorPanels->AddSlot()
@@ -331,6 +332,11 @@ void SMontageEditor::RefreshNotifyTriggerOffsets()
 			Notify.EndTriggerTimeOffset = 0.0f;
 		}
 	}
+}
+
+void SMontageEditor::HandleNotifiesChanged()
+{
+	AnimTimingPanel->Update();
 }
 
 bool SMontageEditor::GetSectionTime( int32 SectionIndex, float &OutTime ) const

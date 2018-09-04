@@ -16,7 +16,7 @@ related: Engine/Animation/AnimationRetargeting
 * 스켈레탈 계층구조에 특정 본 선택 및 확인.
 * [소켓](Engine/Content\Types\SkeletalMeshes\Sockets) 생성 및 편집. 소켓이란 장식같은 것을 붙일 수 있는 본 오프셋 지점입니다.
 * 임시로 붙는 애셋인 프리뷰 애셋 생성. 무기가 캐릭터에 어때 보이나 확인하는 데 좋습니다.
-* [애니메이션 리타게팅](Engine/Animation/AnimHowTo/Retargeting) 세팅 조절 (**Show Advanced Options** (고급 옵션 표시) 체크시).
+* [애니메이션 리타기팅](Engine/Animation/AnimHowTo/Retargeting) 세팅 조절 (**Show Advanced Options** (고급 옵션 표시) 체크시).
 [/EXCERPT:Overview]
 
 ## 인터페이스 분석
@@ -45,7 +45,7 @@ related: Engine/Animation/AnimationRetargeting
 ![](BoneHierarchyList.png)
 
 이 창에는 현재 선택된 스켈레톤 애셋에 사용되는 본, 소켓, 프리뷰 오브젝트가 전부 표시됩니다.
-이 창 안에서는 소켓이나 프리뷰 오브젝트를 추가하고 트랜슬레이션 리타게팅 옵션을 조절할 수 있습니다.
+이 창 안에서는 소켓이나 프리뷰 오브젝트를 추가하고 트랜슬레이션 리타기팅 옵션을 조절할 수 있습니다.
 본 계층구조 목록에 가한 조정사항 대부분은 어떤 오브젝트를 클릭했는가에 따라 달라지는 **우클릭** 맥락 메뉴를 통해 처리됩니다 (아래 맥락 메뉴 부분 참고).
 
 #### 본 맥락 메뉴
@@ -61,11 +61,11 @@ related: Engine/Animation/AnimationRetargeting
 |**Paste Selected Socket** | 선택된 소켓 붙여넣기 - 소켓을 클립보드에 (우클릭한 다음 _Copy Selected Socket_ (선택된 소켓 복사)를 선택하여) 복사해둔 경우, 그 소켓을 선택된 본 위에 붙여넣습니다. |
 |[REGION:tablesection]Selected Bone Actions (선택된 본 액션)[/REGION]||
 |**Copy Selected Bone Names**|선택된 본 이름 복사 - 선택된 본 이름을 클립보드로 복사합니다. 프로퍼티 칸에 복잡한 본 이름을 입력해야할 때 좋습니다. |
-| [REGION:tablesection]Bone Translation Retargeting (본 트랜슬레이션 리타게팅)[/REGION]||
-|**Recursively Set Translation Retargeting Skeleton**| 스켈레톤의 트랜슬레이션 리타게팅 재귀적 설정 - 본과 그 모든 자손에 대해 스켈레톤을 기반으로 한 트랜슬레이션 리타게팅을 사용하도록 재귀적으로 설정합니다. [트랜슬레이션 리타게팅 콘트롤](#트랜슬레이션리타게팅콘트롤) 참고.
-|**Recursively Set Translation Retargeting Animation**| 애니메이션의 트랜슬레이션 리타게팅 재귀적 설정 - 본과 그 모든 자손에 대해 애니메이션을 기반으로 한 트랜슬레이션 리타게팅을 사용하도록 재귀적으로 설정합니다. [트랜슬레이션 리타게팅 콘트롤](#트랜슬레이션리타게팅콘트롤) 참고.
-|**Recursively Set Translation Retargeting AnimationScaled**| 스케일적용 애니메이션의 트랜슬레이션 리타게팅 재귀적 설정 - 본과 그 모든 자손에 대해 스케일 적용된 애니메이션을 기반으로 한 트랜슬레이션 리타게팅을 사용하도록 재귀적으로 설정합니다. [트랜슬레이션 리타게팅 콘트롤](#트랜슬레이션리타게팅콘트롤) 참고.
-|**Recursively Set Translation Retargeting AnimationRelative**| 애니메이션 상대적 트랜슬레이션 리타게팅 재귀적 설정 - 본과 그 모든 자손에 대해 애니메이션을 기준으로 한 트랜슬레이션 리타게팅을 사용하도록 재귀적으로 설정합니다. [트랜슬레이션 리타게팅 콘트롤](#트랜슬레이션리타게팅콘트롤) 참고.
+| [REGION:tablesection]Bone Translation Retargeting (본 트랜슬레이션 리타기팅)[/REGION]||
+|**Recursively Set Translation Retargeting Skeleton**| 스켈레톤의 트랜슬레이션 리타기팅 재귀적 설정 - 본과 그 모든 자손에 대해 스켈레톤을 기반으로 한 트랜슬레이션 리타기팅을 사용하도록 재귀적으로 설정합니다. [트랜슬레이션 리타기팅 컨트롤](#트랜슬레이션리타기팅컨트롤) 참고.
+|**Recursively Set Translation Retargeting Animation**| 애니메이션의 트랜슬레이션 리타기팅 재귀적 설정 - 본과 그 모든 자손에 대해 애니메이션을 기반으로 한 트랜슬레이션 리타기팅을 사용하도록 재귀적으로 설정합니다. [트랜슬레이션 리타기팅 컨트롤](#트랜슬레이션리타기팅컨트롤) 참고.
+|**Recursively Set Translation Retargeting AnimationScaled**| 스케일적용 애니메이션의 트랜슬레이션 리타기팅 재귀적 설정 - 본과 그 모든 자손에 대해 스케일 적용된 애니메이션을 기반으로 한 트랜슬레이션 리타기팅을 사용하도록 재귀적으로 설정합니다. [트랜슬레이션 리타기팅 컨트롤](#트랜슬레이션리타기팅컨트롤) 참고.
+|**Recursively Set Translation Retargeting AnimationRelative**| 애니메이션 상대적 트랜슬레이션 리타기팅 재귀적 설정 - 본과 그 모든 자손에 대해 애니메이션을 기준으로 한 트랜슬레이션 리타기팅을 사용하도록 재귀적으로 설정합니다. [트랜슬레이션 리타기팅 컨트롤](#트랜슬레이션리타기팅컨트롤) 참고.
 | [REGION:tablesection]LOD Bone Reduction (LOD 본 감소)[/REGION]||
 |**Remove Selected Bone from...**| 다음에서 선택된 본 제거... - 선택된 본과 그 자손을 LOD 세팅 내 지정된 LOD 레벨에 대한 _Bones to Remove_ (제거할 본) 목록에 올립니다. 자세한 정보는 LOD 세팅을 참고하세요. |
 |**Add Remove Selected Bone to...**| 선택된 본을 추가 제거... - 선택된 본을 지정된 LOD 레벨에 대한 _Bones to Remove_ (제거할 본) 목록에서 제거합니다. 자세한 정보는 LOD 세팅을 참고하세요. |
@@ -128,14 +128,14 @@ Blend Profile (블렌드 프로파일)은 본 단위의 스케일 세트로, 트
 
 ![](SkeletonOptionsWindow.png)
 
-스켈레톤 옵션 창에서는 스켈레톤 리타게팅 옵션은 물론 본과 소켓을 표시하거나 숨길 수 있습니다.
+스켈레톤 옵션 창에서는 스켈레톤 리타기팅 옵션은 물론 본과 소켓을 표시하거나 숨길 수 있습니다.
 
-#### 트랜슬레이션 리타게팅 콘트롤
+#### 트랜슬레이션 리타기팅 컨트롤
 
-**스켈레톤 옵션** 메뉴의 **Show Retargeting Options** (리타게팅 옵션 표시) 옵션을 켜면, 본 계층구조 창에 추가 옵션이 생깁니다.
-스켈레톤 트리 오른쪽 열의 버튼으로 스켈레탈 메시의 트랜슬레이션 [리타게팅](Engine/Animation/AnimationRetargeting) 처리 방식을 제어할 수 있습니다. 이 드롭다운을 통해 무엇을 리타게팅 기준으로 삼을 것인지를 지정할 수 있습니다. 그 기준은 스켈레톤의 본 정보, 애니메이션의 로테이션 데이터, 스케일적용 캐릭터에 적용된 애니메이션 중 하나입니다.
+**스켈레톤 옵션** 메뉴의 **Show Retargeting Options** (리타기팅 옵션 표시) 옵션을 켜면, 본 계층구조 창에 추가 옵션이 생깁니다.
+스켈레톤 트리 오른쪽 열의 버튼으로 스켈레탈 메시의 트랜슬레이션 [리타기팅](Engine/Animation/AnimationRetargeting) 처리 방식을 제어할 수 있습니다. 이 드롭다운을 통해 무엇을 리타기팅 기준으로 삼을 것인지를 지정할 수 있습니다. 그 기준은 스켈레톤의 본 정보, 애니메이션의 로테이션 데이터, 스케일적용 캐릭터에 적용된 애니메이션 중 하나입니다.
 
-각 드롭다운을 통해 특정 본의 리타게팅 처리 방식과 그 리타게팅의 기준을 제어할 수 있습니다.
+각 드롭다운을 통해 특정 본의 리타기팅 처리 방식과 그 리타기팅의 기준을 제어할 수 있습니다.
 
 ![](RetargetingControls.png)
 

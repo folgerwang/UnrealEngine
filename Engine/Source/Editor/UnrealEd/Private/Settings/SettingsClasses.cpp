@@ -553,39 +553,69 @@ FMargin ULevelEditorPlaySettings::FlipCustomUnsafeZones(TArray<FVector2D>& Custo
 	return CustomSafeZoneOverride;
 }
 
-void ULevelEditorPlaySettings::RescaleForMobilePreview(UDeviceProfile* DeviceProfile, int32 &PreviewWidth, int32 &PreviewHeight, float &ScaleFactor)
+void ULevelEditorPlaySettings::RescaleForMobilePreview(const UDeviceProfile* DeviceProfile, int32 &PreviewWidth, int32 &PreviewHeight, float &ScaleFactor)
 {
 	bool bShouldScale = false;
-	float CVarMobileContentScaleFactor = FCString::Atof(*DeviceProfile->GetCVarValue(TEXT("r.MobileContentScaleFactor")));
-	if (CVarMobileContentScaleFactor != 0)
+	float CVarMobileContentScaleFactor = 0.0f;
+	const FString ScaleFactorString = DeviceProfile->GetCVarValue(TEXT("r.MobileContentScaleFactor"));
+	if (ScaleFactorString != FString())
 	{
-		bShouldScale = true;
+		CVarMobileContentScaleFactor = FCString::Atof(*ScaleFactorString);
+
+		if (!FMath::IsNearlyEqual(CVarMobileContentScaleFactor, 0.0f))
+		{
+			bShouldScale = true;
+			ScaleFactor = CVarMobileContentScaleFactor;
+		}
 	}
 	else
 	{
-		if (DeviceProfile->GetConsolidatedCVarValue(TEXT("r.MobileContentScaleFactor"), CVarMobileContentScaleFactor, true))
+		TMap<FString, FString> ParentValues;
+		DeviceProfile->GatherParentCVarInformationRecursively(ParentValues);
+		const FString* ParentScaleFactorPtr = ParentValues.Find(TEXT("r.MobileContentScaleFactor"));
+		if (ParentScaleFactorPtr != nullptr)
 		{
-			bShouldScale = true;
+			FString CompleteString = *ParentScaleFactorPtr;
+			FString DiscardString;
+			FString ValueString;
+			CompleteString.Split(TEXT("="), &DiscardString, &ValueString);
+			CVarMobileContentScaleFactor = FCString::Atof(*ValueString);
+			if (!FMath::IsNearlyEqual(CVarMobileContentScaleFactor, 0.0f))
+			{
+				bShouldScale = true;
+				ScaleFactor = CVarMobileContentScaleFactor;
+			}
 		}
 	}
 	if (bShouldScale)
 	{
 		if (DeviceProfile->DeviceType == TEXT("Android"))
 		{
+			const float OriginalPreviewWidth = PreviewWidth;
+			const float OriginalPreviewHeight = PreviewHeight;
+			float TempPreviewHeight = 0.0f;
+			float TempPreviewWidth = 0.0f;
+			// Portrait
 			if (PreviewHeight > PreviewWidth)
 			{
-				PreviewHeight = 1280;
-				PreviewWidth = 720;
+				TempPreviewHeight = 1280 * ScaleFactor;
+			
 			}
+			// Landscape
 			else
 			{
-				PreviewHeight = 720;
-				PreviewWidth = 1280;
+				TempPreviewHeight = 720 * ScaleFactor;
 			}
+			TempPreviewWidth = TempPreviewHeight * OriginalPreviewWidth / OriginalPreviewHeight + 0.5f;
+			PreviewHeight = (int32)FMath::GridSnap(TempPreviewHeight, 8.0f);
+			PreviewWidth = (int32)FMath::GridSnap(TempPreviewWidth, 8.0f);
 		}
-		PreviewWidth *= CVarMobileContentScaleFactor;
-		PreviewHeight *= CVarMobileContentScaleFactor;
-		ScaleFactor = CVarMobileContentScaleFactor;
+		else
+		{
+			PreviewWidth *= ScaleFactor;
+			PreviewHeight *= ScaleFactor;
+		}
+	
 	}
 }
 

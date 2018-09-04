@@ -5,3 +5,6 @@
 #include "NiagaraVertexFactory.h"
 
 IMPLEMENT_MODULE(INiagaraVertexFactoriesModule, NiagaraVertexFactories);
+
+
+TGlobalResource<FNiagaraNullSortedIndicesVertexBuffer> GFNiagaraNullSortedIndicesVertexBuffer;

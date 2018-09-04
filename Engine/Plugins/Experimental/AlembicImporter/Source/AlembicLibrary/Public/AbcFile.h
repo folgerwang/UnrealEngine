@@ -61,6 +61,7 @@ public:
 	const int32 GetMaxFrameIndex() const;
 	const float GetImportTimeOffset() const;
 	const float GetImportLength() const;
+	const int32 GetFramerate() const;
 	const FBoxSphereBounds& GetArchiveBounds() const;
 	const bool ContainsHeterogeneousMeshes() const;
 

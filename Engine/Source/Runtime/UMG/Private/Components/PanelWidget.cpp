@@ -89,13 +89,8 @@ bool UPanelWidget::RemoveChildAt(int32 Index)
 
 	OnSlotRemoved(PanelSlot);
 
-	// If the child is a UserWidget, we should let it manage it's own slate resources instead of forcing a clear here. This fixes issues such as UE-39106
-	if (PanelSlot->Content && !PanelSlot->Content->IsA<UUserWidget>())
-	{
-		const bool bReleaseChildren = true;
-		PanelSlot->ReleaseSlateResources(bReleaseChildren);
-	}
-
+	const bool bReleaseChildren = true;
+	PanelSlot->ReleaseSlateResources(bReleaseChildren);
 	PanelSlot->Parent = nullptr;
 	PanelSlot->Content = nullptr;
 

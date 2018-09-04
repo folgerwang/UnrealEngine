@@ -16,6 +16,4 @@ struct ANIMGRAPH_API AnimNodeEditModes
 	const static FEditorModeID PoseDriver;
 	const static FEditorModeID SplineIK;
 	const static FEditorModeID LookAt;
-	const static FEditorModeID ConstraintFabrik;
-	const static FEditorModeID MultiFabrik;
 };

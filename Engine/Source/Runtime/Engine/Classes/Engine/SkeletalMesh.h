@@ -922,8 +922,11 @@ public:
 	UMorphTarget* FindMorphTarget(FName MorphTargetName) const;
 	UMorphTarget* FindMorphTargetAndIndex(FName MorphTargetName, int32& OutIndex) const;
 
+	/* Initialize morph targets and rebuild the render data */
+	void InitMorphTargetsAndRebuildRenderData();
+
 	/** if name conflicts, it will overwrite the reference */
-	void RegisterMorphTarget(UMorphTarget* MorphTarget);
+	bool RegisterMorphTarget(UMorphTarget* MorphTarget, bool bInvalidateRenderData = true);
 
 	void UnregisterMorphTarget(UMorphTarget* MorphTarget);
 
@@ -940,7 +943,7 @@ public:
 	 * @param InSectionIndex Index to check
 	 * @param bCheckCorrespondingSections Whether to check corresponding sections for disabled sections
 	 */
-	UFUNCTION(BlueprintCallable, Category="Cloth")
+	UFUNCTION(BlueprintCallable, Category="Clothing Simulation")
 	bool IsSectionUsingCloth(int32 InSectionIndex, bool bCheckCorrespondingSections = true) const;
 
 	void CreateBodySetup();

@@ -79,6 +79,7 @@ namespace Audio
 		virtual void FadeOut() override;
 		virtual void TeardownHardware() override;
 		virtual void UpdateHardwareTiming() override;
+		virtual void UpdateGameThread() override;
 		virtual void UpdateHardware() override;
 		virtual double GetAudioTime() const override;
 		virtual FAudioEffectsManager* CreateEffectsManager() override;
@@ -114,6 +115,11 @@ namespace Audio
 		virtual void PauseRecording(USoundSubmix* InSubmix);
 		virtual void ResumeRecording(USoundSubmix* InSubmix);
 
+		/** Submix envelope following */
+		virtual void StartEnvelopeFollowing(USoundSubmix* InSubmix) override;
+		virtual void StopEnvelopeFollowing(USoundSubmix* InSubmix) override;
+		virtual void AddEnvelopeFollowerDelegate(USoundSubmix* InSubmix, const FOnSubmixEnvelopeBP& OnSubmixEnvelopeBP) override;
+
 		// Submix buffer listener callbacks
 		virtual void RegisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix = nullptr) override;
 		virtual void UnregisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix = nullptr) override;
@@ -124,7 +130,7 @@ namespace Audio
 		virtual void OnAudioStreamShutdown() override;
 		//~ End IAudioMixer
 
-		FMixerSubmixPtr GetSubmixInstance(USoundSubmix* SoundSubmix);
+		FMixerSubmixWeakPtr GetSubmixInstance(USoundSubmix* SoundSubmix);
 
 		// Functions which check the thread it's called on and helps make sure functions are called from correct threads
 		void CheckAudioThread();
@@ -150,11 +156,11 @@ namespace Audio
 
 		FMixerSourceManager* GetSourceManager();
 
-		FMixerSubmixPtr GetMasterSubmix(); 
-		FMixerSubmixPtr GetMasterReverbSubmix();
-		FMixerSubmixPtr GetMasterReverbPluginSubmix();
-		FMixerSubmixPtr GetMasterEQSubmix();
-		FMixerSubmixPtr GetMasterAmbisonicsSubmix();
+		FMixerSubmixWeakPtr GetMasterSubmix(); 
+		FMixerSubmixWeakPtr GetMasterReverbSubmix();
+		FMixerSubmixWeakPtr GetMasterReverbPluginSubmix();
+		FMixerSubmixWeakPtr GetMasterEQSubmix();
+		FMixerSubmixWeakPtr GetMasterAmbisonicsSubmix();
 
 		// Add submix effect to master submix
 		void AddMasterSubmixEffect(uint32 SubmixEffectId, FSoundEffectSubmix* SoundEffect);
@@ -247,6 +253,9 @@ namespace Audio
 
 		/** Map of USoundSubmix static data objects to the dynamic audio mixer submix. */
 		TMap<USoundSubmix*, FMixerSubmixPtr> Submixes;
+
+		/** Which submixes have been told to envelope follow with this audio device. */
+		TArray<USoundSubmix*> EnvelopeFollowingSubmixes;
 
 		/** Queue of mixer source voices. */
 		TQueue<FMixerSourceVoice*> SourceVoices;

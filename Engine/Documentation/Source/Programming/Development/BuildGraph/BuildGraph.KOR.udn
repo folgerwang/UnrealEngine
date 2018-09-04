@@ -27,7 +27,7 @@ BuildGraph 스크립트는 XML 로 작성하며, 사용자 지정 노드 그래�
 할 수 있습니다.
 
 에픽에서는 BuildGraph 를 사용하여 UE4 바이너리 릴리즈를 준비하고, 마켓플레이스의 샘플을 패키징하고, (다른 것 보다도) 자체 게임에 
-쓰이는 파이프라인을 구현합니다. `[UE4Root]/Engine/Build/Graph/Examples` 디렉토리에 예제 BuildGraph 스크립트가 
+쓰이는 파이프라인을 구현합니다. `[UE4Root]/Engine/Build/Graph/Examples` 디렉터리에 예제 BuildGraph 스크립트가 
 여럿 제공되어 있으며, UE4 바이너리 배포 버전 제작을 위한 스크립트는 
 `[UE4Root]/Engine/Build/InstalledEngineBuild.xml` 에 있습니다.
 

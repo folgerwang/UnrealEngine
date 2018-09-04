@@ -22,6 +22,7 @@
 #include "UObject/ReflectionCaptureObjectVersion.h"
 #include "UObject/LoadTimesObjectVersion.h"
 #include "UObject/AutomationObjectVersion.h"
+#include "UObject/NiagaraObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDevObjectVersion, Log, All);
 
@@ -151,3 +152,8 @@ FDevVersionRegistration GRegisterFortniteMainBranchObjectVersion(FFortniteMainBr
 const FGuid FEnterpriseObjectVersion::GUID(0x9DFFBCD6, 0x494F0158, 0xE2211282, 0x3C92A888);
 // Register Enterprise custom version with Core
 FDevVersionRegistration GRegisterEnterpriseObjectVersion(FEnterpriseObjectVersion::GUID, FEnterpriseObjectVersion::LatestVersion, TEXT("Dev-Enterprise"));
+
+// Unique Niagara Object version id
+const FGuid FNiagaraObjectVersion::GUID(0xF2AED0AC, 0x9AFE416F, 0x8664AA7F, 0xFA26D6FC);
+// Register Niagara custom version with Core
+FDevVersionRegistration GRegisterNiagaraObjectVersion(FNiagaraObjectVersion::GUID, FNiagaraObjectVersion::LatestVersion, TEXT("Dev-Niagara"));

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -70,9 +70,6 @@ static const AudioBootStrap *const bootstrap[] = {
 #endif
 #if SDL_AUDIO_DRIVER_WASAPI
     &WASAPI_bootstrap,
-#endif
-#if SDL_AUDIO_DRIVER_XAUDIO2
-    &XAUDIO2_bootstrap,
 #endif
 #if SDL_AUDIO_DRIVER_DSOUND
     &DSOUND_bootstrap,
@@ -150,6 +147,7 @@ LoadLibSampleRate(void)
     SDL_assert(SRC_lib == NULL);
     SRC_lib = SDL_LoadObject(SDL_LIBSAMPLERATE_DYNAMIC);
     if (!SRC_lib) {
+        SDL_ClearError();
         return SDL_FALSE;
     }
 
@@ -229,6 +227,11 @@ SDL_AudioThreadInit_Default(_THIS)
 
 static void
 SDL_AudioThreadDeinit_Default(_THIS)
+{                               /* no-op. */
+}
+
+static void
+SDL_AudioBeginLoopIteration_Default(_THIS)
 {                               /* no-op. */
 }
 
@@ -352,6 +355,7 @@ finish_audio_entry_points_init(void)
     FILL_STUB(OpenDevice);
     FILL_STUB(ThreadInit);
     FILL_STUB(ThreadDeinit);
+    FILL_STUB(BeginLoopIteration);
     FILL_STUB(WaitDevice);
     FILL_STUB(PlayDevice);
     FILL_STUB(GetPendingBytes);
@@ -447,7 +451,11 @@ void SDL_OpenedAudioDeviceDisconnected(SDL_AudioDevice *device)
     SDL_assert(get_audio_device(device->id) == device);
 
     if (!SDL_AtomicGet(&device->enabled)) {
-        return;
+        return;  /* don't report disconnects more than once. */
+    }
+
+    if (SDL_AtomicGet(&device->shutdown)) {
+        return;  /* don't report disconnect if we're trying to close device. */
     }
 
     /* Ends the audio callback and mark the device as STOPPED, but the
@@ -641,12 +649,13 @@ SDL_RunAudio(void *devicep)
     SDL_AudioDevice *device = (SDL_AudioDevice *) devicep;
     void *udata = device->callbackspec.userdata;
     SDL_AudioCallback callback = device->callbackspec.callback;
+    int data_len = 0;
     Uint8 *data;
 
     SDL_assert(!device->iscapture);
 
     /* The audio mixing is always a high priority thread */
-    SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
+    SDL_SetThreadPriority(SDL_THREAD_PRIORITY_TIME_CRITICAL);
 
     /* Perform any thread setup */
     device->threadid = SDL_ThreadID();
@@ -654,7 +663,8 @@ SDL_RunAudio(void *devicep)
 
     /* Loop, filling the audio buffers */
     while (!SDL_AtomicGet(&device->shutdown)) {
-        const int data_len = device->callbackspec.size;
+        current_audio.impl.BeginLoopIteration(device);
+        data_len = device->callbackspec.size;
 
         /* Fill the current buffer with sound */
         if (!device->stream && SDL_AtomicGet(&device->enabled)) {
@@ -753,6 +763,8 @@ SDL_CaptureAudio(void *devicep)
         int still_need;
         Uint8 *ptr;
 
+        current_audio.impl.BeginLoopIteration(device);
+
         if (SDL_AtomicGet(&device->paused)) {
             SDL_Delay(delay);  /* just so we don't cook the CPU. */
             if (device->stream) {
@@ -824,6 +836,8 @@ SDL_CaptureAudio(void *devicep)
         }
     }
 
+    current_audio.impl.PrepareToClose(device);
+
     current_audio.impl.FlushCapture(device);
 
     current_audio.impl.ThreadDeinit(device);
@@ -873,8 +887,6 @@ SDL_GetAudioDriver(int index)
     return NULL;
 }
 
-extern void SDL_ChooseAudioConverters(void);
-
 int
 SDL_AudioInit(const char *driver_name)
 {
@@ -888,8 +900,6 @@ SDL_AudioInit(const char *driver_name)
 
     SDL_zero(current_audio);
     SDL_zero(open_devices);
-
-    SDL_ChooseAudioConverters();
 
     /* Select the proper audio driver */
     if (driver_name == NULL) {
@@ -1050,16 +1060,14 @@ close_audio_device(SDL_AudioDevice * device)
         return;
     }
 
-    if (device->id > 0) {
-        SDL_AudioDevice *opendev = open_devices[device->id - 1];
-        SDL_assert((opendev == device) || (opendev == NULL));
-        if (opendev == device) {
-            open_devices[device->id - 1] = NULL;
-        }
-    }
-
+    /* make sure the device is paused before we do anything else, so the
+       audio callback definitely won't fire again. */
+    current_audio.impl.LockDevice(device);
+    SDL_AtomicSet(&device->paused, 1);
     SDL_AtomicSet(&device->shutdown, 1);
     SDL_AtomicSet(&device->enabled, 0);
+    current_audio.impl.UnlockDevice(device);
+
     if (device->thread != NULL) {
         SDL_WaitThread(device->thread, NULL);
     }
@@ -1069,6 +1077,14 @@ close_audio_device(SDL_AudioDevice * device)
 
     SDL_free(device->work_buffer);
     SDL_FreeAudioStream(device->stream);
+
+    if (device->id > 0) {
+        SDL_AudioDevice *opendev = open_devices[device->id - 1];
+        SDL_assert((opendev == device) || (opendev == NULL));
+        if (opendev == device) {
+            open_devices[device->id - 1] = NULL;
+        }
+    }
 
     if (device->hidden != NULL) {
         current_audio.impl.CloseDevice(device);
@@ -1412,7 +1428,14 @@ SDL_OpenAudio(SDL_AudioSpec * desired, SDL_AudioSpec * obtained)
         id = open_audio_device(NULL, 0, desired, obtained,
                                SDL_AUDIO_ALLOW_ANY_CHANGE, 1);
     } else {
-        id = open_audio_device(NULL, 0, desired, NULL, 0, 1);
+        SDL_AudioSpec _obtained;
+        SDL_zero(_obtained);
+        id = open_audio_device(NULL, 0, desired, &_obtained, 0, 1);
+        /* On successful open, copy calculated values into 'desired'. */
+        if (id > 0) {
+            desired->size = _obtained.size;
+            desired->silence = _obtained.silence;
+        }
     }
 
     SDL_assert((id == 0) || (id == 1));
@@ -1539,6 +1562,8 @@ SDL_AudioQuit(void)
 #ifdef HAVE_LIBSAMPLERATE_H
     UnloadLibSampleRate();
 #endif
+
+    SDL_FreeResampleFilter();
 }
 
 #define NUM_FORMATS 10

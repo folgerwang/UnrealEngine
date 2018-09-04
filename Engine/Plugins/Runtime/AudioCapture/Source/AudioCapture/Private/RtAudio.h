@@ -1,3 +1,5 @@
+#include "AudioCapture.h"
+
 #if PLATFORM_WINDOWS
 /************************************************************************/
 /*! \class RtAudio

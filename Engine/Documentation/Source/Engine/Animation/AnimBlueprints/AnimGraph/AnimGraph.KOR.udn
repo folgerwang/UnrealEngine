@@ -19,7 +19,7 @@ tags:Blueprints
 [EXCERPT:Intro]
 **AnimGraph** (애님 그래프)는 현재 프레임에 대한 스켈레탈 메시의 최종 포즈를 구하는 데 사용됩니다.
 기본적으로 각각의 애니메이션 블루프린트에는 애님 그래프가 있으며, 그 안에는 [애니메이션 노드](Engine/Animation/NodeReference) 를 놓아 
-애니메이션 시퀀스 샘플링, 애니메이션 블렌딩, 스켈레탈 콘트롤을 사용한 본 트랜스폼 작업을 합니다.
+애니메이션 시퀀스 샘플링, 애니메이션 블렌딩, 스켈레탈 컨트롤을 사용한 본 트랜스폼 작업을 합니다.
 그 결과 포즈를 매 프레임 스켈레탈 메시에 적용합니다.
 [/EXCERPT:Intro]
 
@@ -27,7 +27,7 @@ tags:Blueprints
 
 애님 그래프 안에서는 **이벤트 그래프** 나 다른 곳, 이를테면 코드에서 계산된 값을 사용할 수 있으며, 
 그것을 블렌드 스페이스나 다른 블렌드 노드의 입력으로 사용할 수 있습니다. 물론 별도의 블렌딩 없이 바로 
-애니메이션 시퀀스만 샘플링할 수도 있습니다. **애님 그래프** 에서는 스켈레탈 콘트롤을 사용하여 
+애니메이션 시퀀스만 샘플링할 수도 있습니다. **애님 그래프** 에서는 스켈레탈 컨트롤을 사용하여 
 본 위치, 방향, 크기를 직접 조절할 수도 있습니다.
 
 ## 실행 흐름
@@ -61,7 +61,7 @@ tags:Blueprints
 * [애니메이션 노드](Engine/Animation/NodeReference) - 입력 포즈에 블렌딩, 직접 본 조작 등과 같은 작업을 하는 데 사용됩니다.
 * [애니메이션 시퀀스](Engine/Animation/Sequences/UserGuide) - 애님 그래프 안에 바로 배치하여 최종 애니메이션 포즈를 구동시킬 수 있습니다.
 * [블렌드 스페이스](Engine/Animation/Blendspaces/UserGuide) - 애님 그래프 안에서 사용하여 변수에 따라 포즈를 블렌딩할 수 있습니다.
-* [스켈레탈 콘트롤](Engine/Animation/NodeReference/SkeletalControls) - 스켈레톤 내 본을 직접 구동시키는 데 사용할 수 있는 노드입니다.
+* [스켈레탈 컨트롤](Engine/Animation/NodeReference/SkeletalControls) - 스켈레톤 내 본을 직접 구동시키는 데 사용할 수 있는 노드입니다.
 * [좌표계 변환](Engine/Animation/NodeReference/SpaceConversion) - 포즈의 기준 좌표계를 로컬 - 컴포넌트 변환시킬 수 있는 노드입니다.
 * [스테이트 머신](Engine/Animation/StateMachines) - 일련의 그래프, 규칙, 변수를 통해 캐릭터가 들어갈 애니메이션 상태를 결정합니다.
 * [싱크 그룹](Engine\Animation\SyncGroups) - 연관성은 있지만 길이가 다를 수 있는 애니메이션의 동기화 상태를 유지하는 데 사용됩니다.
@@ -107,12 +107,12 @@ tags:Blueprints
 스페이스 변환 노드 관련 상세 정보는 [](Engine/Animation/NodeReference/Blend) 문서를 참고해 주시기 바랍니다.
 [/REGION]
 
-#### 스켈레탈 콘트롤
+#### 스켈레탈 컨트롤
 
 [INCLUDE:Engine/Animation/NodeReference/SkeletalControls#intro]
 
 [REGION:note]
-사용가능한 여러 스켈레탈 콘트롤 관련 상세 정보는 [](Engine/Animation/NodeReference/SkeletalControls) 문서를 참고해 주시기 바랍니다.
+사용가능한 여러 스켈레탈 컨트롤 관련 상세 정보는 [](Engine/Animation/NodeReference/SkeletalControls) 문서를 참고해 주시기 바랍니다.
 [/REGION]
 
 #### 스페이스 변환

@@ -18,6 +18,17 @@ struct UInt32Vector
 	uint32 A { 0 }, B { 0 }, C { 0 };
 };
 
+struct JointInfluence
+{
+	FVector4 Weight;
+	uint16 ID[4]{ 0, 0, 0, 0 };
+
+	JointInfluence(const FVector4& InWeight)
+		: Weight(InWeight)
+	{
+	}
+};
+
 // --- in-memory versions of glTF types -----------
 
 struct FBuffer
@@ -108,9 +119,11 @@ struct FAccessor
 	virtual bool IsValid() const = 0;
 
 	virtual uint32 GetUnsignedInt(uint32 Index) const = 0;
+	virtual void GetUnsignedInt16x4(uint32 Index, uint16 Values[4]) const = 0;
 	virtual FVector2D GetVec2(uint32 Index) const = 0;
 	virtual FVector GetVec3(uint32 Index) const = 0;
 	virtual FVector4 GetVec4(uint32 Index) const = 0;
+	virtual FMatrix GetMat4(uint32 Index) const = 0;
 
 	// GetMatrix functions are not needed yet, will be added later.
 
@@ -118,6 +131,7 @@ struct FAccessor
 	virtual TArray<FVector2D> GetVec2Array() const = 0;
 	virtual TArray<FVector> GetVec3Array() const = 0;
 	virtual TArray<FVector4> GetVec4Array() const = 0;
+	virtual TArray<FMatrix> GetMat4Array() const = 0;
 
 	virtual uint32 ValueSize() const = 0;
 };
@@ -187,6 +201,35 @@ public:
 
 		// complain?
 		return 0;
+	}
+
+	void GetUnsignedInt16x4(uint32 Index, uint16 Values[4]) const override
+	{
+		// should be Vec4, not Normalized, unsigned integer (8 or 16 bit)
+
+		if (Index < Count)
+		{
+			if (Type == EType::Vec4 && !Normalized)
+			{
+				const void* Pointer = DataAt(Index);
+
+				switch (CompType)
+				{
+				case ECompType::U8:
+					for (int i = 0; i < 4; ++i)
+					{
+						Values[i] = *(const uint8*)Pointer;
+					}
+				case ECompType::U16:
+					for (int i = 0; i < 4; ++i)
+					{
+						Values[i] = *(const uint16*)Pointer;
+					}
+				default:
+					break;
+				}
+			}
+		}
 	}
 
 	FVector2D GetVec2(uint32 Index) const override
@@ -318,6 +361,44 @@ public:
 		return FVector4();
 	}
 
+	FMatrix GetMat4(uint32 Index) const override
+	{
+		// Focus on F32 for now, add other types as needed.
+
+		FMatrix Matrix;
+
+		if (Index < Count)
+		{
+			if (Type == EType::Mat4) // strict format match, unlike GPU shader fetch
+			{
+				const void* Pointer = DataAt(Index);
+
+				if (CompType == ECompType::F32)
+				{
+					// copy float vec4 directly from buffer
+					const float* P = static_cast<const float*>(Pointer);
+					for (int32 Row = 0; Row < 4; ++Row)
+					{
+						for (int32 Col = 0; Col < 4; ++Col)
+						{
+							// glTF stores matrix elements in column major order
+							// Unreal's FMatrix is row major
+							Matrix.M[Row][Col] = P[Col * 4 + Row];
+						}
+					}
+
+				}
+				else
+				{
+					check(false); // are normalized int types valid?
+				}
+			}
+		}
+
+		// unsupported format
+		return Matrix;
+	}
+
 	TArray<uint32> GetUnsignedIntArray() const override
 	{
 		// cheesy & unoptimized
@@ -365,6 +446,18 @@ public:
 		}
 		return Result;
 	}
+
+	TArray<FMatrix> GetMat4Array() const override
+	{
+		// cheesy & unoptimized
+		TArray<FMatrix> Result;
+		Result.Reserve(Count);
+		for (uint32 i = 0; i < Count; ++i)
+		{
+			Result.Push(GetMat4(i));
+		}
+		return Result;
+	}
 };
 
 struct FVoidAccessor final : FAccessor
@@ -384,6 +477,10 @@ struct FVoidAccessor final : FAccessor
 		return 0;
 	}
 
+	void GetUnsignedInt16x4(uint32 Index, uint16 Values[4]) const override
+	{
+	}
+
 	FVector2D GetVec2(uint32 Index) const override
 	{
 		return FVector2D::ZeroVector;
@@ -397,6 +494,11 @@ struct FVoidAccessor final : FAccessor
 	FVector4 GetVec4(uint32 Index) const override
 	{
 		return FVector4();
+	}
+
+	FMatrix GetMat4(uint32 Index) const override
+	{
+		return FMatrix::Identity;
 	}
 
 	TArray<uint32> GetUnsignedIntArray() const override
@@ -419,6 +521,11 @@ struct FVoidAccessor final : FAccessor
 		return TArray<FVector4>();
 	}
 
+	TArray<FMatrix> GetMat4Array() const override
+	{
+		return TArray<FMatrix>();
+	}
+
 	uint32 ValueSize() const override
 	{
 		return 0;
@@ -430,13 +537,16 @@ class FPrimitive
 	// index buffer
 	const FAccessor& Indices;
 
-	// attributes
+	// common attributes
 	const FAccessor& Position; // required
 	const FAccessor& Normal;
 	const FAccessor& Tangent;
 	const FAccessor& TexCoord0;
 	const FAccessor& TexCoord1;
 	const FAccessor& Color0;
+	// skeletal mesh attributes
+	const FAccessor& Joints0;
+	const FAccessor& Weights0;
 
 public:
 	enum class EMode
@@ -467,7 +577,9 @@ public:
 	           const FAccessor& InTangent,
 	           const FAccessor& InTexCoord0,
 	           const FAccessor& InTexCoord1,
-	           const FAccessor& InColor0)
+	           const FAccessor& InColor0,
+	           const FAccessor& InJoints0,
+	           const FAccessor& InWeights0)
 		: Indices(InIndices)
 		, Position(InPosition)
 		, Normal(InNormal)
@@ -475,8 +587,10 @@ public:
 		, TexCoord0(InTexCoord0)
 		, TexCoord1(InTexCoord1)
 		, Color0(InColor0)
+		, Joints0(InJoints0)
+		, Weights0(InWeights0)
 		, Mode(InMode)
-		, MaterialIndex(InMaterial)	
+		, MaterialIndex(InMaterial)
 	{
 	}
 
@@ -531,6 +645,26 @@ public:
 			default:
 				return TArray<FVector2D>();
 		}
+	}
+
+	bool HasJointWeights() const
+	{
+		return Joints0.IsValid() && Weights0.IsValid();
+	}
+
+	TArray<JointInfluence> GetJointInfluences() const
+	{
+		TArray<JointInfluence> Influences;
+		// return a flat array that corresponds 1-to-1 with vertex positions
+		const int32 N = Joints0.Count;
+		Influences.Reserve(N);
+		for (int32 i = 0; i < N; ++i)
+		{
+			JointInfluence& Joint = Influences.Emplace_GetRef(Weights0.GetVec4(i));
+			Joints0.GetUnsignedInt16x4(i, Joint.ID);
+		}
+
+		return Influences;
 	}
 
 	UInt32Vector TriangleVerts(uint32 T) const
@@ -711,6 +845,52 @@ struct FMesh
 		}
 		return false;
 	}
+
+	bool HasJointWeights() const
+	{
+		// According to spec, *all* primitives of a skinned mesh must have joint weights.
+		// TODO: add this to validation
+		for (const FPrimitive& Prim : Primitives)
+		{
+			if (Prim.HasJointWeights())
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+};
+
+struct FNode
+{
+	FString Name;
+	FTransform Transform;
+
+	TArray<int32> Children; // index into Asset::Nodes
+
+	bool IsJoint { false };
+	// TODO: enum, whether this node is a Mesh, Joint, Camera, Empty, etc.
+	// more accurately, does this node *have* a Mesh, Camera, etc.
+
+	int32 MeshIndex { INDEX_NONE }; // index into Asset::Meshes
+	int32 Skindex { INDEX_NONE }; // index into Asset::Skins
+
+	// Skindex is the skin used by the mesh at this node.
+	// It's not the joints belonging *to* a skin 
+};
+
+struct FSkinfo
+{
+	FString Name;
+	TArray<int32> Joints; // each is an index into Asset::Nodes
+	int32 Skeleton { INDEX_NONE }; // AKA root node, index into Asset::Nodes
+
+	const FAccessor& InverseBindMatrices;
+
+	FSkinfo(const FAccessor& InIBM)
+		: InverseBindMatrices(InIBM)
+	{
+	}
 };
 
 struct FImage
@@ -857,12 +1037,16 @@ struct FAsset
 	TArray<FValidAccessor> Accessors;
 	TArray<FMesh> Meshes;
 
+	TArray<FNode> Nodes;
+	TArray<FSkinfo> Skins;
+
 	TArray<FImage> Images;
 	TArray<FSampler> Samplers;
 	TArray<FTex> Textures;
 	TArray<FMat> Materials;
 
 	void Reset(uint32 BufferCount, uint32 BufferViewCount, uint32 AccessorCount, uint32 MeshCount,
+	           uint32 NodeCount, uint32 SkinCount,
 	           uint32 ImageCount, uint32 SamplerCount, uint32 TextureCount, uint32 MaterialCount);
 
 	bool Validate() const;

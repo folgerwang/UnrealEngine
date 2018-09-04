@@ -285,7 +285,7 @@ private:
 	FReply OnRemoveCacheBar();
 
 	/** Callback to return the cache bar's display text, informing the user of the situation */
-	FText GetUncachedBlueprintWarningText() const;
+	FText GetUncachedAssetWarningText() const;
 
 	/** Callback to return the cache bar's current indexing Blueprint name */
 	FText GetCurrentCacheBlueprintName() const;

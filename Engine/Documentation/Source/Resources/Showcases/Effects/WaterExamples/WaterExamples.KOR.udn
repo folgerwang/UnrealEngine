@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+INTSourceChangelist:4309172
 Availability: Public
 Title:물 예제
 Crumbs:%ROOT%, Resources, Resources/Showcases/Effects
@@ -75,8 +75,3 @@ Version: 4.9
 ![](FallingWaterDrops.png)(w:300)
 
 위의 스크린샷에서, 이미지 상단 부근에 떨어지는 파티클 다수의 색이 밝은 흰색인 것이 보입니다. 처음에는 파티클 근처의 하얀색 하이라이트 블루밍으로 인해 자연 현상인 것으로 보입니다. 그러나 그렇게 보이는 이유는, 단지 파티클 수명상 해당 지점에서 _불투명도를 높이도록_ 하여서, 레벨의 라이팅을 더욱 많이 받도록 한 것일 뿐입니다.
-
-
-
-
-[INCLUDE:Resources\Showcases\Effects#ParticleTopics]
