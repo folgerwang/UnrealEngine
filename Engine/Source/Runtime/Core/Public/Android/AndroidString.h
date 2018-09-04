@@ -431,7 +431,13 @@ struct FAndroidPlatformString : public FGenericPlatformString
 		return StrToken + (Pos - AnsiStrToken);
 	}
 
+	DEPRECATED(4.22, "GetVarArgs with DestSize and Count arguments has been deprecated - only DestSize should be passed")
 	static FORCEINLINE int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, int32 Count, const WIDECHAR*& Fmt, va_list ArgPtr )
+	{
+		return GetVarArgs(Dest, DestSize, Fmt, ArgPtr);
+	}
+
+	static FORCEINLINE int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, const WIDECHAR*& Fmt, va_list ArgPtr )
 	{
 #if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
 		// fix up the Fmt string, as fast as possible, without using an FString
@@ -481,7 +487,7 @@ struct FAndroidPlatformString : public FGenericPlatformString
 		}
 		NewFormat[NewIndex] = 0;
 #endif // PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
-		int32 Result = vswprintf( Dest, Count, NewFormat, ArgPtr);
+		int32 Result = vswprintf( Dest, DestSize, NewFormat, ArgPtr);
 		va_end( ArgPtr );
 		return Result;
 	}
@@ -576,9 +582,15 @@ struct FAndroidPlatformString : public FGenericPlatformString
 		return strtok(StrToken, Delim);
 	}
 
-	static FORCEINLINE int32 GetVarArgs( ANSICHAR* Dest, SIZE_T DestSize, int32 Count, const ANSICHAR*& Fmt, va_list ArgPtr )
+	DEPRECATED(4.22, "GetVarArgs with DestSize and Count arguments has been deprecated - only DestSize should be passed")
+	static FORCEINLINE int32 GetVarArgs(ANSICHAR* Dest, SIZE_T DestSize, int32 Count, const ANSICHAR*& Fmt, va_list ArgPtr)
 	{
-		int32 Result = vsnprintf(Dest,Count,Fmt,ArgPtr);
+		return GetVarArgs(Dest, DestSize, Count, Fmt, ArgPtr);
+	}
+
+	static FORCEINLINE int32 GetVarArgs( ANSICHAR* Dest, SIZE_T DestSize, const ANSICHAR*& Fmt, va_list ArgPtr )
+	{
+		int32 Result = vsnprintf(Dest, DestSize, Fmt, ArgPtr);
 		va_end( ArgPtr );
 		return Result;
 	}

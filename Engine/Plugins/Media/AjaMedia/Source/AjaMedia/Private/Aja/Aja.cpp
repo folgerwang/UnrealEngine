@@ -110,7 +110,7 @@ void FAja::LogInfo(const TCHAR* InFormat, ...)
 	va_list Args;
 
 	va_start(Args, InFormat );
-	FCString::GetVarArgs(TempString, ARRAY_COUNT(TempString), ARRAY_COUNT(TempString) - 1, InFormat, Args);
+	FCString::GetVarArgs(TempString, ARRAY_COUNT(TempString), InFormat, Args);
 	va_end(Args);
 
 	UE_LOG(LogAjaMedia, Log, TempString);
@@ -124,7 +124,7 @@ void FAja::LogWarning(const TCHAR* InFormat, ...)
 	va_list Args;
 
 	va_start(Args, InFormat );
-	FCString::GetVarArgs(TempString, ARRAY_COUNT(TempString), ARRAY_COUNT(TempString) - 1, InFormat, Args);
+	FCString::GetVarArgs(TempString, ARRAY_COUNT(TempString), InFormat, Args);
 	va_end(Args);
 
 	UE_LOG(LogAjaMedia, Warning, TempString);
@@ -138,7 +138,7 @@ void FAja::LogError(const TCHAR* InFormat, ...)
 	va_list Args;
 
 	va_start(Args, InFormat );
-	FCString::GetVarArgs(TempString, ARRAY_COUNT(TempString), ARRAY_COUNT(TempString) - 1, InFormat, Args);
+	FCString::GetVarArgs(TempString, ARRAY_COUNT(TempString), InFormat, Args);
 	va_end(Args);
 
 	UE_LOG(LogAjaMedia, Error, TempString);

@@ -179,60 +179,59 @@ int32 TestGetVarArgs(WIDECHAR* OutputString, const WIDECHAR* Format, ...)
 {
     va_list ArgPtr;
     va_start( ArgPtr, Format );
-    
-    return FGenericWidePlatformString::GetVarArgs(OutputString, OUTPUT_SIZE, OUTPUT_SIZE - 1, Format, ArgPtr);
+
+	return FGenericWidePlatformString::GetVarArgs(OutputString, OUTPUT_SIZE, Format, ArgPtr);
 }
 
 void RunGetVarArgsTests()
 {
-    WIDECHAR OutputString[OUTPUT_SIZE];
+	WIDECHAR OutputString[OUTPUT_SIZE];
 
-    TestGetVarArgs(OutputString, TEXT("Test A|%-20s|%20s|%10.2f|%-10.2f|"), TEXT("LEFT"), TEXT("RIGHT"), 33.333333, 66.666666);
-    check(FString(OutputString) == FString(TEXT("Test A|LEFT                |               RIGHT|     33.33|66.67     |")));
-    
-    TestGetVarArgs(OutputString, TEXT("Test B|Percents:%%%%%%%d|"), 3);
-    check(FString(OutputString) == FString(TEXT("Test B|Percents:%%%3|")));
-    
-    TestGetVarArgs(OutputString, TEXT("Test C|%d|%i|%X|%x|%u|"), 12345, 54321, 0x123AbC, 15, 99);
-    check(FString(OutputString) == FString(TEXT("Test C|12345|54321|123ABC|f|99|")));
-    
-    TestGetVarArgs(OutputString, TEXT("Test D|%p|"), 0x12345);
-    check(FString(OutputString) == FString(TEXT("Test D|0x12345|")));
+	TestGetVarArgs(OutputString, TEXT("Test A|%-20s|%20s|%10.2f|%-10.2f|"), TEXT("LEFT"), TEXT("RIGHT"), 33.333333, 66.666666);
+	check(FString(OutputString) == FString(TEXT("Test A|LEFT                |               RIGHT|     33.33|66.67     |")));
 
-    TestGetVarArgs(OutputString, TEXT("Test E|%lld|"), 12345678912345);
-    check(FString(OutputString) == FString(TEXT("Test E|12345678912345|")));
+	TestGetVarArgs(OutputString, TEXT("Test B|Percents:%%%%%%%d|"), 3);
+	check(FString(OutputString) == FString(TEXT("Test B|Percents:%%%3|")));
 
-    TestGetVarArgs(OutputString, TEXT("Test F|%f|%e|%g|"), 123.456, 123.456, 123.456);
-    check(FString(OutputString) == FString(TEXT("Test F|123.456000|1.234560e+02|123.456|")));
+	TestGetVarArgs(OutputString, TEXT("Test C|%d|%i|%X|%x|%u|"), 12345, 54321, 0x123AbC, 15, 99);
+	check(FString(OutputString) == FString(TEXT("Test C|12345|54321|123ABC|f|99|")));
+
+	TestGetVarArgs(OutputString, TEXT("Test D|%p|"), 0x12345);
+	check(FString(OutputString) == FString(TEXT("Test D|0x12345|")));
+
+	TestGetVarArgs(OutputString, TEXT("Test E|%lld|"), 12345678912345);
+	check(FString(OutputString) == FString(TEXT("Test E|12345678912345|")));
+
+	TestGetVarArgs(OutputString, TEXT("Test F|%f|%e|%g|"), 123.456, 123.456, 123.456);
+	check(FString(OutputString) == FString(TEXT("Test F|123.456000|1.234560e+02|123.456|")));
 }
 #endif
 
-int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, int32 Count, const WIDECHAR*& Fmt, va_list ArgPtr )
+int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, const WIDECHAR*& Fmt, va_list ArgPtr )
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-    static bool bTested = false;
-    if(!bTested)
-    {
-        bTested = true;
-        RunGetVarArgsTests();
-    }
+	static bool bTested = false;
+	if(!bTested)
+	{
+		bTested = true;
+		RunGetVarArgsTests();
+	}
 #endif
 
 	if (Fmt == nullptr)
 	{
 		if ((DestSize > 0) && (Dest != nullptr))
-        {
+		{
 			*Dest = 0;
-        }
+		}
 		return 0;
 	}
-	
-	int FmtLen = FPlatformMath::Min(Count, Strlen(Fmt));
-    const TCHAR *Src = Fmt;
-	
+
+	const TCHAR *Src = Fmt;
+
 	TCHAR *Dst = Dest;
 	TCHAR *EndDst = Dst + (DestSize - 1);
-	
+
 	while ((*Src) && (Dst < EndDst))
 	{
 		if (*Src != '%')
@@ -242,58 +241,58 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 			Src++;
 			continue;
 		}
-		
+
 		const TCHAR *Percent = Src;
 		int FieldLen = 0;
 		int PrecisionLen = -1;
-		
+
 		Src++; // skip the '%' char...
-		
+
 		while (*Src == ' ')
 		{
 			*Dst = ' ';
 			Dst++;
 			Src++;
 		}
-		
+
 		// Skip modifier flags that don't need additional processing;
 		// they still get passed to snprintf() below based on the conversion.
 		if (*Src == '+')
 		{
 			Src++;
 		}
-		
+
 		// check for field width requests...
 		if ((*Src == '-') || ((*Src >= '0') && (*Src <= '9')))
 		{
 			const TCHAR *Cur = Src + 1;
 			while ((*Cur >= '0') && (*Cur <= '9'))
-            {
+			{
 				Cur++;
-            }
-			
+			}
+
 			FieldLen = Atoi(Src);			
 			Src = Cur;
 		}
-		
+
 		if (*Src == '.')
 		{
 			const TCHAR *Cur = Src + 1;
 			while ((*Cur >= '0') && (*Cur <= '9'))
-            {
+			{
 				Cur++;
-            }
-			
+			}
+
 			PrecisionLen = Atoi(Src + 1);
 			Src = Cur;
 		}
-		
+
 		// Check for 'ls' field, change to 's'
 		if ((Src[0] == 'l' && Src[1] == 's'))
 		{
 			Src++;
 		}
-		
+
 		switch (*Src)
 		{
 			case '%':
@@ -301,18 +300,18 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 				Src++;
 				*Dst = '%';
 				Dst++;
-                break;
+				break;
 			}
-				
+
 			case 'c':
 			{
 				TCHAR Val = (TCHAR) va_arg(ArgPtr, int);
 				Src++;
 				*Dst = Val;
 				Dst++;
-                break;
+				break;
 			}
-				
+
 			case 'd':
 			case 'i':
 			case 'X':
@@ -323,7 +322,7 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 				int Val = va_arg(ArgPtr, int);
 				ANSICHAR AnsiNum[30];
 				ANSICHAR FmtBuf[30];
-				
+
 				// Yes, this is lame.
 				int CpyIdx = 0;
 				while (Percent < Src)
@@ -333,27 +332,27 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 					CpyIdx++;
 				}
 				FmtBuf[CpyIdx] = 0;
-				
+
 				int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
 				if ((Dst + RetCnt) > EndDst)
-                {
+				{
 					return -1;	// Fail - the app needs to create a larger buffer and try again
-                }
+				}
 				for (int i = 0; i < RetCnt; i++)
 				{
 					*Dst = (TCHAR)AnsiNum[i];
 					Dst++;
 				}
-                break;
+				break;
 			}
-				
+
 			case 'p':
 			{
 				Src++;
 				void* Val = va_arg(ArgPtr, void*);
 				ANSICHAR AnsiNum[30];
 				ANSICHAR FmtBuf[30];
-				
+
 				// Yes, this is lame.
 				int CpyIdx = 0;
 				while (Percent < Src)
@@ -363,20 +362,20 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 					CpyIdx++;
 				}
 				FmtBuf[CpyIdx] = 0;
-				
+
 				int RetCnt = snprintf(AnsiNum, sizeof (AnsiNum), FmtBuf, Val);
 				if ((Dst + RetCnt) > EndDst)
-                {
+				{
 					return -1;	// Fail - the app needs to create a larger buffer and try again
-                }
+				}
 				for (int i = 0; i < RetCnt; i++)
 				{
 					*Dst = (TCHAR) AnsiNum[i];
 					Dst++;
 				}
-                break;
+				break;
 			}
-				
+
 			case 'l':
 			case 'I':
 			{
@@ -387,7 +386,7 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 					int Val = va_arg(ArgPtr, int);
 					ANSICHAR AnsiNum[30];
 					ANSICHAR FmtBuf[30];
-					
+
 					// Yes, this is lame.
 					int CpyIdx = 0;
 					while (Percent < Src)
@@ -397,12 +396,12 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 						CpyIdx++;
 					}
 					FmtBuf[CpyIdx] = 0;
-					
+
 					int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
 					if ((Dst + RetCnt) > EndDst)
-                    {
+					{
 						return -1;	// Fail - the app needs to create a larger buffer and try again
-                    }
+					}
 					for (int i = 0; i < RetCnt; i++)
 					{
 						*Dst = (TCHAR)AnsiNum[i];
@@ -410,8 +409,8 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 					}
 					break;
 				}
-				
-				
+
+
 				if ((Src[0] == 'l' && Src[1] != 'l') ||
 					(Src[0] == 'I' && (Src[1] != '6' || Src[2] != '4')))
 				{
@@ -419,7 +418,7 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 					Src++;  // skip it, I guess.
 					break;
 				}
-				
+
 				// Yes, this is lame.
 				int CpyIdx = 0;
 				unsigned long long Val = va_arg(ArgPtr, unsigned long long);
@@ -436,7 +435,7 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 					Percent += 4;
 					CpyIdx = 2;
 				}
-				
+
 				while (Percent < Src)
 				{
 					FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
@@ -444,20 +443,20 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 					CpyIdx++;
 				}
 				FmtBuf[CpyIdx] = 0;
-				
+
 				int RetCnt = snprintf(AnsiNum, sizeof (AnsiNum), FmtBuf, Val);
 				if ((Dst + RetCnt) > EndDst)
-                {
+				{
 					return -1;	// Fail - the app needs to create a larger buffer and try again
-                }
+				}
 				for (int i = 0; i < RetCnt; i++)
 				{
 					*Dst = (TCHAR) AnsiNum[i];
 					Dst++;
 				}
-                break;
+				break;
 			}
-				
+
 			case 'f':
 			case 'e':
 			case 'g':
@@ -466,7 +465,7 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 				double Val = va_arg(ArgPtr, double);
 				ANSICHAR AnsiNum[30];
 				ANSICHAR FmtBuf[30];
-				
+
 				// Yes, this is lame.
 				int CpyIdx = 0;
 				while (Percent < Src)
@@ -476,36 +475,36 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 					CpyIdx++;
 				}
 				FmtBuf[CpyIdx] = 0;
-				
+
 				int RetCnt = snprintf(AnsiNum, sizeof (AnsiNum), FmtBuf, Val);
 				if ((Dst + RetCnt) > EndDst)
-                {
+				{
 					return -1;	// Fail - the app needs to create a larger buffer and try again
-                }
+				}
 				for (int i = 0; i < RetCnt; i++)
 				{
 					*Dst = (TCHAR) AnsiNum[i];
 					Dst++;
 				}
-                break;
+				break;
 			}
-				
+
 			case 's':
 			{
 				Src++;
 				static const TCHAR* Null = TEXT("(null)");
 				const TCHAR *Val = va_arg(ArgPtr, TCHAR *);
 				if (Val == nullptr)
-                {
+				{
 					Val = Null;
-                }
-				
+				}
+
 				int RetCnt = Strlen(Val);
 				int Spaces = FPlatformMath::Max(FPlatformMath::Abs(FieldLen) - RetCnt, 0);
 				if ((Dst + RetCnt + Spaces) > EndDst)
-                {
+				{
 					return -1;	// Fail - the app needs to create a larger buffer and try again
-                }
+				}
 				if (Spaces > 0 && FieldLen > 0)
 				{
 					for (int i = 0; i < Spaces; i++)
@@ -528,23 +527,23 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, i
 						Dst++;
 					}
 				}
-                break;
+				break;
 			}
-				
+
 			default:
 				printf("Unknown percent [%%%c] in FGenericWidePlatformString::GetVarArgs().\n", *Src);
 				Src++;  // skip char, I guess.
 				break;
 		}
 	}
-	
+
 	// Check if we were able to finish the entire format string
 	// If not, the app needs to create a larger buffer and try again
 	if (*Src)
-    {
+	{
 		return -1;
-    }
-	
+	}
+
 	*Dst = 0;  // null terminate the new string.
 	return Dst - Dest;
 }
