@@ -56,6 +56,8 @@ namespace WorldHierarchy
 				: bExpanded(1)
 				, bFilteredOut(0)
 				, bChildrenRequiresSort(1)
+				, bVisible(1)
+				, bLocked(0)
 			{}
 		};
 
