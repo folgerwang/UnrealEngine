@@ -141,7 +141,7 @@ FAddressInfoResult FSocketSubsystemBSD::GetAddressInfo(const TCHAR* HostName, co
 				sockaddr_storage* AddrData = reinterpret_cast<sockaddr_storage*>(AddrInfo->ai_addr);
 				if (AddrData != nullptr)
 				{
-					TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD);
+					TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD(this));
 					NewAddress->Set(*AddrData, AddrInfo->ai_addrlen);
 					AddrQueryResult.Results.Add(FAddressInfoResultData(NewAddress, AddrInfo->ai_addrlen,
 						GetProtocolFamilyType(AddrInfo->ai_family), GetSocketType(AddrInfo->ai_protocol)));
@@ -186,7 +186,7 @@ const TCHAR* FSocketSubsystemBSD::GetSocketAPIName() const
 
 TSharedRef<FInternetAddr> FSocketSubsystemBSD::CreateInternetAddr(uint32 Address, uint32 Port)
 {
-	TSharedRef<FInternetAddr> ReturnAddr = MakeShareable(new FInternetAddrBSD);
+	TSharedRef<FInternetAddr> ReturnAddr = MakeShareable(new FInternetAddrBSD(this));
 	ReturnAddr->SetIp(Address);
 	ReturnAddr->SetPort(Port);
 	return ReturnAddr;

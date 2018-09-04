@@ -171,7 +171,7 @@ bool FSocketSubsystemUnix::GetLocalAdapterAddresses(TArray<TSharedPtr<FInternetA
 				(Travel->ifa_flags & IFF_LOOPBACK) == 0 && 
 				(AddrFamily == AF_INET || AddrFamily == AF_INET6))
 			{
-				TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD);
+				TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD(this));
 				NewAddress->SetIp(*((sockaddr_storage*)Travel->ifa_addr));
 
 				// Write the scope id if what we found was the multihome address.

@@ -8,6 +8,8 @@
 
 #if PLATFORM_HAS_BSD_SOCKETS || PLATFORM_HAS_BSD_IPV6_SOCKETS
 
+class FSocketSubsystemBSD;
+
 /**
  * Represents an internet ip address with support for ipv4/v6. 
  * All data is in network byte order
@@ -18,6 +20,9 @@ class FInternetAddrBSD : public FInternetAddr
 	sockaddr_storage Addr;
 
 protected:
+	/** The Subsystem that created this address */
+	FSocketSubsystemBSD* SocketSubsystem;
+
 	/**
 	 * Sets the ip address using a network byte order ipv4 address
 	 *
@@ -50,6 +55,8 @@ public:
 	 * Constructor. Sets address to default state
 	 */
 	FInternetAddrBSD();
+
+	FInternetAddrBSD(FSocketSubsystemBSD* InSocketSubsystem);
 
 	/**
 	 * Compares FInternetAddrs together, comparing the logical net addresses (endpoints)

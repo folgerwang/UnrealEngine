@@ -112,7 +112,7 @@ FSocket* FSocketSubsystemIOS::CreateSocket(const FName& SocketType, const FStrin
 
 TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll)
 {
-	TSharedRef<FInternetAddrBSDIOS> HostAddr = MakeShareable(new FInternetAddrBSDIOS);
+	TSharedRef<FInternetAddrBSDIOS> HostAddr = MakeShareable(new FInternetAddrBSDIOS(this));
 	HostAddr->SetAnyAddress();
 
 	ifaddrs* Interfaces = NULL;
@@ -194,7 +194,7 @@ TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& O
 
 TSharedRef<FInternetAddr> FSocketSubsystemIOS::CreateInternetAddr(uint32 Address, uint32 Port)
 {
-	TSharedRef<FInternetAddr> Result = MakeShareable(new FInternetAddrBSDIOS);
+	TSharedRef<FInternetAddr> Result = MakeShareable(new FInternetAddrBSDIOS(this));
 	Result->SetIp(Address);
 	Result->SetPort(Port);
 	return Result;

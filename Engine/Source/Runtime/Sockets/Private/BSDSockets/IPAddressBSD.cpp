@@ -7,6 +7,12 @@
 
 FInternetAddrBSD::FInternetAddrBSD()
 {
+	SocketSubsystem = nullptr;
+	Clear();
+}
+
+FInternetAddrBSD::FInternetAddrBSD(FSocketSubsystemBSD* InSocketSubsystem) : SocketSubsystem(InSocketSubsystem)
+{
 	Clear();
 }
 
@@ -151,14 +157,17 @@ void FInternetAddrBSD::SetIp(const TCHAR* InAddr, bool& bIsValid)
 	AddressString.RemoveFromEnd("]");
 	
 	const auto InAddrAnsi = StringCast<ANSICHAR>(*AddressString);
-	FSocketSubsystemBSD* SocketSubsystem = static_cast<FSocketSubsystemBSD*>(ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM));
-	if (SocketSubsystem)
+	if (SocketSubsystem != nullptr)
 	{
 		bIsValid = (SocketSubsystem->CreateAddressFromIP(InAddrAnsi.Get(), *this) == SE_NO_ERROR);
 		if (bHasPort && bIsValid)
 		{
 			SetPort(FCString::Atoi(*Port));
 		}
+	}
+	else
+	{
+		UE_LOG(LogSockets, Verbose, TEXT("SocketSubsystem pointer is null, cannot resolve the stringed address"));
 	}
 }
 
@@ -291,8 +300,7 @@ int32 FInternetAddrBSD::GetPort() const
 
 void FInternetAddrBSD::SetAnyAddress()
 {
-	FSocketSubsystemBSD* SocketSubsystem = static_cast<FSocketSubsystemBSD*>(ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM));
-	if (SocketSubsystem)
+	if (SocketSubsystem != nullptr)
 	{
 		SetAnyAddress(SocketSubsystem->GetDefaultSocketProtocolFamily());
 	}
@@ -319,7 +327,6 @@ void FInternetAddrBSD::SetAnyIPv6Address()
 
 void FInternetAddrBSD::SetBroadcastAddress()
 {
-	FSocketSubsystemBSD* SocketSubsystem = static_cast<FSocketSubsystemBSD*>(ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM));
 	if (SocketSubsystem)
 	{
 		SetBroadcastAddress(SocketSubsystem->GetDefaultSocketProtocolFamily());
@@ -355,7 +362,6 @@ void FInternetAddrBSD::SetIPv6BroadcastAddress()
 
 void FInternetAddrBSD::SetLoopbackAddress()
 {
-	FSocketSubsystemBSD* SocketSubsystem = static_cast<FSocketSubsystemBSD*>(ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM));
 	if (SocketSubsystem)
 	{
 		SetLoopbackAddress(SocketSubsystem->GetDefaultSocketProtocolFamily());
@@ -477,7 +483,7 @@ bool FInternetAddrBSD::IsValid() const
 
 TSharedRef<FInternetAddr> FInternetAddrBSD::Clone() const
 {
-	TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD);
+	TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD(SocketSubsystem));
 	NewAddress->Addr = Addr;
 	return NewAddress;
 }

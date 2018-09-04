@@ -13,6 +13,8 @@ class FInternetAddrBSDIOS : public FInternetAddrBSD
 
 public:
 
+	FInternetAddrBSDIOS(FSocketSubsystemBSD* InSocketSubsystem) : FInternetAddrBSD(InSocketSubsystem) {}
+
 	/** Sets the address to broadcast */
 	virtual void SetIPv6BroadcastAddress() override
 	{
