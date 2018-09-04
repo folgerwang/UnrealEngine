@@ -958,11 +958,11 @@ bool UFbxImportUI::CanEditChange( const UProperty* InProperty ) const
 	{
 		FName PropName = InProperty->GetFName();
 
-		if(PropName == TEXT("StartFrame") || PropName == TEXT("EndFrame"))
+		if(PropName == TEXT("FrameImportRange"))
 		{
 			bIsMutable = AnimSequenceImportData->AnimationLength == FBXALIT_SetRange && bImportAnimations;
 		}
-		else if(PropName == TEXT("bImportCustomAttribute") || PropName == TEXT("AnimationLength"))
+		else if(PropName == TEXT("bImportCustomAttribute") || PropName == TEXT("AnimationLength") || PropName == TEXT("CustomSampleRate") || PropName == TEXT("bUseDefaultSampleRate"))
 		{
 			bIsMutable = bImportAnimations;
 		}
