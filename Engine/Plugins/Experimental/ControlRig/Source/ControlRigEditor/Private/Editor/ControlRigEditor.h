@@ -104,6 +104,8 @@ public:
 	void SelectJoint(const FName& InJoint);
 	// this changes everytime you compile, so don't cache it expecting it will last. 
 	UControlRig* GetInstanceRig() const { return ControlRig;  }
+	// restart animation 
+	void OnHierarchyChanged();
 protected:
 	// FBlueprintEditor Interface
 	virtual void CreateDefaultCommands() override;
@@ -166,6 +168,9 @@ private:
 	/** Wraps the normal blueprint editor's action menu creation callback */
 	FActionMenuContent HandleCreateGraphActionMenu(UEdGraph* InGraph, const FVector2D& InNodePosition, const TArray<UEdGraphPin*>& InDraggedPins, bool bAutoExpand, SGraphEditor::FActionMenuClosed InOnMenuClosed);
 
+	void ToggleExecuteGraph();
+	bool IsExecuteGraphOn() const;
+
 protected:
 
 	/** Toolbox hosting widget */
@@ -187,6 +192,9 @@ protected:
 
 	/** Our currently running control rig instance */
 	UControlRig* ControlRig;
+
+	/** preview scene */
+	TSharedPtr<IPersonaPreviewScene> PreviewScene;
 
 	/** Recursion guard for selection */
 	bool bSelecting;
