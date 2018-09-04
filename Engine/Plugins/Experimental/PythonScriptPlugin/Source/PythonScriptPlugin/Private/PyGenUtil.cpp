@@ -1187,7 +1187,7 @@ bool IsBlueprintExposedEnumEntry(const UEnum* InEnum, int32 InEnumEntryIndex)
 
 bool IsBlueprintExposedProperty(const UProperty* InProp)
 {
-	return InProp->HasAnyPropertyFlags(CPF_BlueprintVisible);
+	return InProp->HasAnyPropertyFlags(CPF_BlueprintVisible | CPF_BlueprintAssignable);
 }
 
 bool IsBlueprintExposedFunction(const UFunction* InFunc)

@@ -17,7 +17,6 @@ enum class EAjaMediaSourceColorFormat : uint8
 {
 	BGRA UMETA(DisplayName = "8bit RGBA"),
 	BGR10 UMETA(DisplayName = "10bit RGB"),
-	UYVY UMETA(DisplayName = "8bit YUV 4:2:2"),
 };
 
 /**
@@ -33,7 +32,7 @@ enum class EAjaMediaAudioChannel : uint8
 /**
  * Media source for Aja streams.
  */
-UCLASS(BlueprintType)
+UCLASS(BlueprintType, hideCategories=(Platforms,Object))
 class AJAMEDIA_API UAjaMediaSource : public UTimeSynchronizableMediaSource
 {
 	GENERATED_BODY()
@@ -46,59 +45,48 @@ public:
 	 * The input name of the AJA source to be played".
 	 * This combines the device ID, and the input.
 	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA", AssetRegistrySearchable)
+	UPROPERTY()
 	FAjaMediaPort MediaPort;
 
-private:
 	/** Override project setting's media mode. */
 	UPROPERTY()
 	bool bIsDefaultModeOverriden;
 
 	/** The expected input signal format from the MediaPort. Uses project settings by default. */
-	UPROPERTY(EditAnywhere, Category="AJA", meta=(EditCondition="bIsDefaultModeOverriden", MediaPort="MediaPort"))
+	UPROPERTY()
 	FAjaMediaMode MediaMode;
-
-public:
 
 	/** Use the time code embedded in the input stream. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
 	EAjaMediaTimecodeFormat TimecodeFormat;
 
-public:
 	/**
-	 * The capture of the Audio, Ancillary and/or video will be perform at the same time.
-	 * This may decrease transfer performance but the data will be sync in relation with each other.
+	 * Use a ring buffer to capture and transfer data.
+	 * This may decrease transfer latency but increase stability.
 	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Capture")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
 	bool bCaptureWithAutoCirculating;
 
+public:
 	/**
 	 * Capture Ancillary from the AJA source.
 	 * It will decrease performance
 	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Capture")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Ancillary")
 	bool bCaptureAncillary;
 
-	/**
-	 * Capture Audio from the AJA source.
-	 * It will decrease performance
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Capture")
-	bool bCaptureAudio;
-
-	/**
-	 * Capture Video from the AJA source.
-	 * It will decrease performance
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Capture")
-	bool bCaptureVideo;
-
-public:
 	/** Maximum number of ancillary data frames to buffer. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, AdvancedDisplay, Category="Ancillary", meta=(EditCondition="bCaptureAncillary", ClampMin="1", ClampMax="32"))
 	int32 MaxNumAncillaryFrameBuffer;
 
 public:
+	/**
+	 * Capture Audio from the AJA source.
+	 * It will decrease performance
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Audio")
+	bool bCaptureAudio;
+
 	/** Desired number of audio channel to capture. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Audio", meta=(EditCondition="bCaptureAudio"))
 	EAjaMediaAudioChannel AudioChannel;
@@ -108,6 +96,13 @@ public:
 	int32 MaxNumAudioFrameBuffer;
 
 public:
+	/**
+	 * Capture Video from the AJA source.
+	 * It will decrease performance
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Video")
+	bool bCaptureVideo;
+
 	/** Desired color format of input video frames (default = BGRA). */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Video", meta=(EditCondition="bCaptureVideo"))
 	EAjaMediaSourceColorFormat ColorFormat;
@@ -129,23 +124,16 @@ public:
 	bool bEncodeTimecodeInTexel;
 
 public:
-	/** Sets desired MediaMode on this Source to override project setting. */
-	UFUNCTION(BlueprintCallable, Category = "AJA")
-	void OverrideMediaMode(const FAjaMediaMode& InMediaMode);
-
-	/** Disables MediaMode override for this source to use project setting. */
-	UFUNCTION(BlueprintCallable, Category = "AJA")
-	void DisableMediaModeOverride() { bIsDefaultModeOverriden = false; }
+	FAjaMediaMode GetMediaMode() const;
+	FAjaMediaConfiguration GetMediaConfiguration() const;
 
 public:
 	//~ IMediaOptions interface
 
 	virtual bool GetMediaOption(const FName& Key, bool DefaultValue) const override;
 	virtual int64 GetMediaOption(const FName& Key, int64 DefaultValue) const override;
+	virtual FString GetMediaOption(const FName& Key, const FString& DefaultValue) const override;
 	virtual bool HasMediaOption(const FName& Key) const override;
-
-public:
-	FAjaMediaMode GetMediaMode() const;
 
 public:
 	//~ UMediaSource interface

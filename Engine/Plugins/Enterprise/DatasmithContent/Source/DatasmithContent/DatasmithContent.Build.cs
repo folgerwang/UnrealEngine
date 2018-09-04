@@ -16,6 +16,13 @@ namespace UnrealBuildTool.Rules
 					"Engine"
 				}
 			);
+
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"Landscape"
+				}
+			);
 		}
 	}
 }

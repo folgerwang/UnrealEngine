@@ -1775,7 +1775,7 @@ PyTypeObject* FPyWrapperTypeRegistry::GenerateWrappedDelegateType(const UFunctio
 	// Generate the proxy class needed to wrap Python callables in Unreal delegates
 	UClass* PythonCallableForDelegateClass = nullptr;
 	{
-		PythonCallableForDelegateClass = NewObject<UClass>(GetTransientPackage(), *FString::Printf(TEXT("%s__PythonCallable"), *DelegateBaseTypename), RF_Public);
+		PythonCallableForDelegateClass = NewObject<UClass>(GetPythonTypeContainer(), *FString::Printf(TEXT("%s__PythonCallable"), *DelegateBaseTypename), RF_Public);
 		UFunction* PythonCallableForDelegateFunc = (UFunction*)StaticDuplicateObject(InDelegateSignature, PythonCallableForDelegateClass, UPythonCallableForDelegate::GeneratedFuncName, RF_AllFlags, UFunction::StaticClass());
 		PythonCallableForDelegateFunc->FunctionFlags = (PythonCallableForDelegateFunc->FunctionFlags | FUNC_Native) & ~(FUNC_Delegate | FUNC_MulticastDelegate);
 		PythonCallableForDelegateFunc->SetNativeFunc(&UPythonCallableForDelegate::CallPythonNative);
@@ -1785,6 +1785,7 @@ PyTypeObject* FPyWrapperTypeRegistry::GenerateWrappedDelegateType(const UFunctio
 		PythonCallableForDelegateClass->Bind();
 		PythonCallableForDelegateClass->StaticLink(true);
 		PythonCallableForDelegateClass->AssembleReferenceTokenStream();
+		PythonCallableForDelegateClass->GetDefaultObject();
 	}
 
 	if (InDelegateSignature->HasAnyFunctionFlags(FUNC_MulticastDelegate))

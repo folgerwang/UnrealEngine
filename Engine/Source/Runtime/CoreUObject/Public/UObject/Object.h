@@ -314,9 +314,6 @@ public:
 	 */
 	virtual void PostEditChangeChainProperty( struct FPropertyChangedChainEvent& PropertyChangedEvent );
 
-	/** Gathers external data required for applying an undo transaction */
-	virtual TSharedPtr<ITransactionObjectAnnotation> GetTransactionAnnotation() const { return NULL; }
-
 	/** Called before applying a transaction to the object.  Default implementation simply calls PreEditChange. */
 	virtual void PreEditUndo();
 
@@ -332,6 +329,17 @@ public:
 	 * @note Unlike PostEditUndo (which is called for any object in the transaction), this is only called on objects that are actually changed by the transaction.
 	 */
 	virtual void PostTransacted(const FTransactionObjectEvent& TransactionEvent);
+
+	/** Find or create and populate an annotation object with any external data required for applying a transaction */
+	TSharedPtr<ITransactionObjectAnnotation> FindOrCreateTransactionAnnotation() const;
+
+	/** Create and restore a previously serialized annotation object with any external data required for applying a transaction */
+	TSharedPtr<ITransactionObjectAnnotation> CreateAndRestoreTransactionAnnotation(FArchive& Ar) const;
+
+protected:
+	/** Factory a new annotation object and optionally populate it with data */
+	enum class ETransactionAnnotationCreationMode : uint8 { DefaultInstance, FindOrCreate };
+	virtual TSharedPtr<ITransactionObjectAnnotation> FactoryTransactionAnnotation(const ETransactionAnnotationCreationMode InCreationMode) const { return nullptr; }
 
 private:
 	/**

@@ -12,7 +12,7 @@
 class FUdpReassembledMessage;
 class IMessageAttachment;
 class UScriptStruct;
-
+class FUdpDeserializedMessageDetails;
 
 /**
  * Holds a deserialized message.
@@ -54,12 +54,15 @@ public:
 	virtual TSharedPtr<IMessageContext, ESPMode::ThreadSafe> GetOriginalContext() const override;
 	virtual const TArray<FMessageAddress>& GetRecipients() const override;
 	virtual EMessageScope GetScope() const override;
+	virtual EMessageFlags GetFlags() const override;
+
 	virtual const FMessageAddress& GetSender() const override;
 	virtual ENamedThreads::Type GetSenderThread() const override;
 	virtual const FDateTime& GetTimeForwarded() const override;
 	virtual const FDateTime& GetTimeSent() const override;
 
 private:
+	friend class FUdpDeserializedMessageDetails;
 
 	/** Holds the optional message annotations. */
 	TMap<FName, FString> Annotations;
@@ -78,6 +81,9 @@ private:
 
 	/** Holds the message's scope. */
 	EMessageScope Scope;
+
+	/** Holds the message's flags. */
+	EMessageFlags Flags;
 
 	/** Holds the sender's identifier. */
 	FMessageAddress Sender;

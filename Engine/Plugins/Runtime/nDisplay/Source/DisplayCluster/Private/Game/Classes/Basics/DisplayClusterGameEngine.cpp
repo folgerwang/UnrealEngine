@@ -168,6 +168,8 @@ void UDisplayClusterGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 	if (OperationMode == EDisplayClusterOperationMode::Cluster ||
 		OperationMode == EDisplayClusterOperationMode::Standalone)
 	{
+		FTimecode Timecode;
+		FFrameRate FrameRate;
 
 		// Update input device state (master only)
 		InputMgr->Update();
@@ -185,10 +187,13 @@ void UDisplayClusterGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 
 		// Get DisplayCluster time delta
 		NodeController->GetDeltaTime(DeltaSeconds);
+		NodeController->GetTimecode(Timecode, FrameRate);
 		UE_LOG(LogDisplayClusterEngine, Verbose, TEXT("DisplayCluster delta time (seconds): %f"), DeltaSeconds);
+		UE_LOG(LogDisplayClusterEngine, Verbose, TEXT("DisplayCluster Timecode: %s | %s"), *Timecode.ToString(), *FrameRate.ToPrettyText().ToString());
 
 		// Update delta time in the application
 		FApp::SetDeltaTime(DeltaSeconds);
+		FApp::SetTimecodeAndFrameRate(Timecode, FrameRate);
 
 		// Update input state in the cluster
 		ClusterMgr->SyncInput();
@@ -205,7 +210,11 @@ void UDisplayClusterGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 		{
 			const float lag = CfgDebug.LagMaxTime;
 			UE_LOG(LogDisplayClusterEngine, Log, TEXT("Simulating lag: %f seconds"), lag);
+#if 1
+			FPlatformProcess::Sleep(FMath::RandRange(0.f, lag));
+#else
 			FPlatformProcess::Sleep(lag);
+#endif
 		}
 
 #if 0

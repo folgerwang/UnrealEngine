@@ -132,6 +132,7 @@ void FMessageRpcServer::SendResult(const FGuid& CallId, const FReturnInfo& Retur
 	MessageEndpoint->Send(
 		Message,
 		ReturnInfo.Return->GetResponseTypeInfo(),
+		EMessageFlags::None,
 		nullptr,
 		TArrayBuilder<FMessageAddress>().Add(ReturnInfo.ClientAddress),
 		FTimespan::Zero(),

@@ -23,7 +23,7 @@ UExpandableArea::UExpandableArea(const FObjectInitializer& ObjectInitializer)
 	SExpandableArea::FArguments ExpandableDefaults;
 	Style       = *ExpandableDefaults._Style;
 	BorderColor = ExpandableDefaults._BorderBackgroundColor.Get( FLinearColor::White );
-	BorderBrush = *ExpandableDefaults._BorderImage;
+	BorderBrush = *ExpandableDefaults._BorderImage.Get( FStyleDefaults::GetNoBrush() );
 	AreaPadding = ExpandableDefaults._Padding.Get();
 	HeaderPadding = ExpandableDefaults._HeaderPadding.Get();
 }

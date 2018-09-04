@@ -11,33 +11,178 @@
 
 #define LOCTEXT_NAMESPACE "TimecodeSynchronizer"
 
-/**
- * FTimecodeSynchronizerActiveTimecodedInputSource
- */
-
-void FTimecodeSynchronizerActiveTimecodedInputSource::ConvertToLocalFrameRate(const FFrameRate& InLocalFrameRate)
+namespace TimecodeSynchronizerPrivate
 {
-	const FFrameTime MaxSampleTime = NextSampleTime + AvailableSampleCount;
-	NextSampleLocalTime = FFrameRate::TransformTime(NextSampleTime, FrameRate, InLocalFrameRate);
-	MaxSampleLocalTime = FFrameRate::TransformTime(MaxSampleTime, FrameRate, InLocalFrameRate);
+	struct FTimecodeInputSourceValidator
+	{
+	private:
+
+		const FTimecodeSynchronizerCachedSyncState& SyncState;
+
+		bool bTimecodeErrors = false;
+		int32 FoundOffset = 0;
+
+		FFrameTime Newest;
+		FFrameTime Oldest;
+
+		bool bAnySourcesHadRollover = false;
+		bool bAllSourcesHadRollover = false;
+
+	public:
+
+		FTimecodeInputSourceValidator(const FTimecodeSynchronizerCachedSyncState& InSyncState, const FTimecodeSynchronizerActiveTimecodedInputSource& InitialInputSource) :
+			SyncState(InSyncState)
+		{
+			ValidateSource(InitialInputSource);
+			if (AllSourcesAreValid())
+			{
+				const FTimecodeSourceState& SynchronizerRelativeState = InitialInputSource.GetSynchronizerRelativeState();
+				Newest = SynchronizerRelativeState.NewestAvailableSample;
+				Oldest = SynchronizerRelativeState.OldestAvailableSample;
+				bAnySourcesHadRollover = (SyncState.RolloverFrame.IsSet() && Newest < Oldest);
+				bAllSourcesHadRollover = bAnySourcesHadRollover;
+			}
+		}
+
+		void UpdateFrameTimes(const FTimecodeSynchronizerActiveTimecodedInputSource& InputSource)
+		{
+			ValidateSource(InputSource);
+			if (AllSourcesAreValid())
+			{
+				const FTimecodeSourceState& SynchronizerRelativeState = InputSource.GetSynchronizerRelativeState();
+				Oldest = FMath::Max(SynchronizerRelativeState.OldestAvailableSample, Oldest);
+				Newest = FMath::Min(SynchronizerRelativeState.NewestAvailableSample, Newest);
+			}
+		}
+
+		const bool AllSourcesAreValid() const
+		{
+			return !FoundTimecodeErrors() && !FoundFrameRolloverMistmatch();
+		}
+
+		const bool FoundFrameRolloverMistmatch() const
+		{
+			return bAllSourcesHadRollover != bAnySourcesHadRollover;
+		}
+
+		const bool FoundTimecodeErrors() const
+		{
+			return bTimecodeErrors;
+		}
+
+		const bool DoAllSourcesContainFrame(const FFrameTime& FrameToCheck) const
+		{
+			if (FoundTimecodeErrors() || FoundFrameRolloverMistmatch())
+			{
+				return false;
+			}
+			else if (!SyncState.RolloverFrame.IsSet() || !bAnySourcesHadRollover)
+			{
+				return (Oldest <= FrameToCheck) && (FrameToCheck <= Newest);
+			}
+			else
+			{
+				return UTimeSynchronizationSource::IsFrameBetweenWithRolloverModulus(FrameToCheck, Oldest, Newest, SyncState.RolloverFrame.GetValue());
+			}
+		}
+
+		const int32 CalculateOffsetNewest(const FFrameTime& FrameTime) const
+		{
+			// These cases should never happen, but they may be recoverable, so don't crash.
+			ensureAlwaysMsgf(!FoundTimecodeErrors(), TEXT("FTimecodeInputSourceValidator::CalculateOffsetNewest - Called with TimecodeErrors"));
+			ensureAlwaysMsgf(!FoundFrameRolloverMistmatch(), TEXT("FTimecodeInputSourceValidater::CalculateOffsetNewest - Called with FrameRolloverMismatch"));
+
+			bool bUnused_DidRollover;
+			return UTimeSynchronizationSource::FindDistanceBetweenFramesWithRolloverModulus(FrameTime, Newest, SyncState.RolloverFrame, bUnused_DidRollover);
+		}
+
+		const int32 CalculateOffsetOldest(const FFrameTime& FrameTime) const
+		{
+			// These cases should never happen, but they may be recoverable, so don't crash.
+			ensureAlwaysMsgf(!FoundTimecodeErrors(), TEXT("FTimecodeInputSourceValidator::CalculateOffsetOldest - Called with TimecodeErrors"));
+			ensureAlwaysMsgf(!FoundFrameRolloverMistmatch(), TEXT("FTimecodeInputSourceValidater::CalculateOffsetOldest - Called with FrameRolloverMismatch"));
+
+			bool bUnused_DidRollover;
+
+			// Because we switched order of inputs, we need to flip the output as well.
+			return -UTimeSynchronizationSource::FindDistanceBetweenFramesWithRolloverModulus(Oldest, FrameTime, SyncState.RolloverFrame, bUnused_DidRollover);
+		}
+
+	private:
+
+		void ValidateSource(const FTimecodeSynchronizerActiveTimecodedInputSource& InputSource)
+		{
+			const FTimecodeSourceState& SynchronizerRelativeState = InputSource.GetSynchronizerRelativeState();
+			const FFrameTime& OldestSample = SynchronizerRelativeState.OldestAvailableSample;
+			const FFrameTime& NewestSample = SynchronizerRelativeState.NewestAvailableSample;
+
+			const bool bUseRollover = SyncState.RolloverFrame.IsSet();
+			const bool bSourceBufferHasRolledOver = (bUseRollover && OldestSample > NewestSample);
+
+			if (!bUseRollover)
+			{
+				// If we're not using rollover, but Oldest time is later than the Newest time, then the source is
+				// reporting incorrect values.
+				if (OldestSample > NewestSample)
+				{
+					UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("Source %s reported out of order frame times (Oldest = %d | Newest = %d)"),
+						*InputSource.GetDisplayName(), OldestSample.GetFrame().Value, NewestSample.GetFrame().Value);
+
+					bTimecodeErrors = true;
+				}
+			}
+			else
+			{
+				const FFrameTime& RolloverFrame = SyncState.RolloverFrame.GetValue();
+
+				// If we're using rollover, and either source has reported a value beyond where we expect to rollover,
+				// then the source is reporting incorrect values.
+				if ((OldestSample >= RolloverFrame) || (NewestSample >= RolloverFrame))
+				{
+					UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("Source %s reported frames that go beyond expected rollover point (Oldest = %d | Newest = %d | Rollover = %d"),
+						*InputSource.GetDisplayName(), OldestSample.GetFrame().Value, NewestSample.GetFrame().Value, RolloverFrame.GetFrame().Value);
+
+					bTimecodeErrors = true;
+				}
+
+				if (bSourceBufferHasRolledOver)
+				{
+					// See CalculateOffset for the justification
+
+					// Since we think a rollover has occurred, then we'd expect the frame values to be relatively
+					// far apart.
+					const int32 Offset = (OldestSample - NewestSample).GetFrame().Value;
+					if (FMath::Abs<int32>(Offset) < (RolloverFrame.GetFrame().Value / 2))
+					{
+						UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("Source %s reported out of order frame times (Oldest = %d | Newest = %d)"),
+							*InputSource.GetDisplayName(), OldestSample.GetFrame().Value, NewestSample.GetFrame().Value);
+
+						bTimecodeErrors = true;
+					}
+				}
+			}
+
+			bAllSourcesHadRollover &= bSourceBufferHasRolledOver;
+			bAnySourcesHadRollover |= bSourceBufferHasRolledOver;
+		}
+	};
+
 }
 
 /**
  * UTimecodeSynchronizer
  */
 
-UTimecodeSynchronizer::UTimecodeSynchronizer(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-	, bUseCustomTimeStep(false)
+UTimecodeSynchronizer::UTimecodeSynchronizer()
+	: bUseCustomTimeStep(false)
 	, CustomTimeStep(nullptr)
 	, FixedFrameRate(30, 1)
-	, TimecodeProviderType(ETimecodeSynchronizationTimecodeType::SystemTime)
+	, TimecodeProviderType(ETimecodeSynchronizationTimecodeType::TimecodeProvider)
 	, TimecodeProvider(nullptr)
 	, MasterSynchronizationSourceIndex(INDEX_NONE)
 	, PreRollingTimecodeMarginOfErrors(4)
 	, PreRollingTimeout(30.f)
 	, State(ESynchronizationState::None)
-	, CurrentFrameTime(0)
 	, StartPreRollingTime(0.0)
 	, bRegistered(false)
 	, PreviousFixedFrameRate(0.f)
@@ -64,13 +209,23 @@ bool UTimecodeSynchronizer::CanEditChange(const UProperty* InProperty) const
 		return false;
 	}
 
-	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UTimecodeSynchronizer, TimecodeProvider))
+	const FName PropertyName = InProperty->GetFName();
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UTimecodeSynchronizer, TimecodeProvider))
 	{
 		return TimecodeProviderType == ETimecodeSynchronizationTimecodeType::TimecodeProvider;
 	}
-	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UTimecodeSynchronizer, MasterSynchronizationSourceIndex))
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UTimecodeSynchronizer, MasterSynchronizationSourceIndex))
 	{
 		return TimecodeProviderType == ETimecodeSynchronizationTimecodeType::InputSource;
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UTimecodeSynchronizer, FrameOffset))
+	{
+		return SyncMode == ETimecodeSynchronizationSyncMode::UserDefinedOffset;
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UTimecodeSynchronizer, AutoFrameOffset))
+	{
+		return (SyncMode == ETimecodeSynchronizationSyncMode::Auto) ||
+			(SyncMode == ETimecodeSynchronizationSyncMode::AutoOldest);
 	}
 
 	return true;
@@ -94,44 +249,64 @@ void UTimecodeSynchronizer::PostEditChangeChainProperty(FPropertyChangedChainEve
 }
 #endif
 
-FFrameTime UTimecodeSynchronizer::ConvertTimecodeToFrameTime(const FTimecode& InTimecode) const
-{
-	return InTimecode.ToFrameNumber(GetFrameRate());
-}
-
-FTimecode UTimecodeSynchronizer::ConvertFrameTimeToTimecode(const FFrameTime& InFFrameTime) const
-{
-	const bool bIsDropFrame = FTimecode::IsDropFormatTimecodeSupported(GetFrameRate());
-	return FTimecode::FromFrameNumber(InFFrameTime.FrameNumber, GetFrameRate(), bIsDropFrame);
-}
-
 FTimecode UTimecodeSynchronizer::GetTimecode() const
 {
-	if(TimecodeProviderType == ETimecodeSynchronizationTimecodeType::InputSource)
+	FTimecode Timecode;
+	if (IsSynchronized())
 	{
-		if(ActiveTimecodedInputSources.IsValidIndex(ActiveMasterSynchronizationTimecodedSourceIndex))
-		{
-			FTimecodeSynchronizerActiveTimecodedInputSource TimecodedInputSource = ActiveTimecodedInputSources[ActiveMasterSynchronizationTimecodedSourceIndex];
-			FFrameTime NextSampleTime = TimecodedInputSource.InputSource->GetNextSampleTime();
-			if (NextSampleTime != 0)
-			{
-				TimecodedInputSource.NextSampleTime = NextSampleTime;
-				TimecodedInputSource.AvailableSampleCount = TimecodedInputSource.InputSource->GetAvailableSampleCount();
-				TimecodedInputSource.ConvertToLocalFrameRate(GetFrameRate());
-			}
-			return ConvertFrameTimeToTimecode(TimecodedInputSource.MaxSampleLocalTime);
-		}
+		Timecode = UTimeSynchronizationSource::ConvertFrameTimeToTimecode(CurrentSystemFrameTime.GetValue(), CachedSyncState.FrameRate);
 	}
-	else if(TimecodeProviderType == ETimecodeSynchronizationTimecodeType::TimecodeProvider)
+	else if (IsSynchronizing())
 	{
-		if (RegisteredTimecodeProvider)
-		{
-			return RegisteredTimecodeProvider->GetTimecode();
-		}
+		Timecode = UTimeSynchronizationSource::ConvertFrameTimeToTimecode(CurrentProviderFrameTime, CachedSyncState.FrameRate);
+	}
+	else
+	{
+		Timecode = UTimeSynchronizationSource::ConvertFrameTimeToTimecode(GetProviderFrameTime(), GetFrameRate());
 	}
 
-	FTimecode Result = UTimecodeProvider::GetSystemTimeTimecode(GetFrameRate());
-	return Result;
+	return Timecode;
+}
+
+FFrameTime UTimecodeSynchronizer::GetProviderFrameTime() const
+{
+	FFrameTime ProviderFrameTime;
+
+	if (TimecodeProviderType == ETimecodeSynchronizationTimecodeType::InputSource)
+	{
+		if (SynchronizedSources.IsValidIndex(ActiveMasterSynchronizationTimecodedSourceIndex))
+		{
+			const FTimecodeSynchronizerActiveTimecodedInputSource& TimecodedInputSource = SynchronizedSources[ActiveMasterSynchronizationTimecodedSourceIndex];
+
+			if (GFrameCounter != LastUpdatedSources)
+			{
+				const_cast<FTimecodeSynchronizerActiveTimecodedInputSource&>(TimecodedInputSource).UpdateSourceState(GetFrameRate());
+			}
+
+			if (TimecodedInputSource.IsReady())
+			{
+				ProviderFrameTime = TimecodedInputSource.GetSynchronizerRelativeState().NewestAvailableSample;
+			}
+			else
+			{
+				UE_LOG(LogTimecodeSynchronizer, Log, TEXT("Unable to get frame time - Specified source was not ready."));
+			}
+		}
+		else
+		{
+			UE_LOG(LogTimecodeSynchronizer, Log, TEXT("Unable to get frame time - Invalid source specified."));
+		}
+	}
+	else
+	{
+		// In the case where we aren't registered, or we've registered ourselves, we'll use the engine default provider.
+		const bool bIsProviderValid = (RegisteredTimecodeProvider != nullptr && RegisteredTimecodeProvider != this);
+		const UTimecodeProvider* Provider = bIsProviderValid ? RegisteredTimecodeProvider : GEngine->GetDefaultTimecodeProvider();
+
+		ProviderFrameTime = FFrameTime(Provider->GetTimecode().ToFrameNumber(GetFrameRate()));
+	}
+
+	return ProviderFrameTime;
 }
 
 FFrameRate UTimecodeSynchronizer::GetFrameRate() const
@@ -141,18 +316,17 @@ FFrameRate UTimecodeSynchronizer::GetFrameRate() const
 
 ETimecodeProviderSynchronizationState UTimecodeSynchronizer::GetSynchronizationState() const
 {
-	switch(State)
+	switch (State)
 	{
-		case ESynchronizationState::PreRolling_WaitGenlockTimecodeProvider:
-		case ESynchronizationState::PreRolling_WaitReadiness:
-		case ESynchronizationState::PreRolling_Synchronizing:
-		case ESynchronizationState::PreRolling_Buffering:
-			return ETimecodeProviderSynchronizationState::Synchronizing;
-		case ESynchronizationState::Synchronized:
-		case ESynchronizationState::Rolling:
-			return ETimecodeProviderSynchronizationState::Synchronized;
-		case ESynchronizationState::Error:
-			return ETimecodeProviderSynchronizationState::Error;
+	case ESynchronizationState::Initializing:
+	case ESynchronizationState::PreRolling_WaitGenlockTimecodeProvider:
+	case ESynchronizationState::PreRolling_WaitReadiness:
+	case ESynchronizationState::PreRolling_Synchronizing:
+		return ETimecodeProviderSynchronizationState::Synchronizing;
+	case ESynchronizationState::Synchronized:
+		return ETimecodeProviderSynchronizationState::Synchronized;
+	case ESynchronizationState::Error:
+		return ETimecodeProviderSynchronizationState::Error;
 	}
 	return ETimecodeProviderSynchronizationState::Closed;
 }
@@ -162,112 +336,117 @@ bool UTimecodeSynchronizer::IsSynchronizing() const
 	return State == ESynchronizationState::PreRolling_WaitGenlockTimecodeProvider
 		|| State == ESynchronizationState::PreRolling_WaitReadiness
 		|| State == ESynchronizationState::PreRolling_Synchronizing
-		|| State == ESynchronizationState::PreRolling_Buffering;
+		|| State == ESynchronizationState::Initializing;
 }
 
 bool UTimecodeSynchronizer::IsSynchronized() const
 {
-	return State == ESynchronizationState::Synchronized
-		|| State == ESynchronizationState::Rolling;
+	return State == ESynchronizationState::Synchronized;
+}
+
+bool UTimecodeSynchronizer::IsError() const
+{
+	return State == ESynchronizationState::Error;
 }
 
 void UTimecodeSynchronizer::Register()
 {
-	// Set CustomTimeStep
-	bRegistered = false;
-
-	if (bUseCustomTimeStep)
+	if (!bRegistered)
 	{
-		if (GEngine->GetCustomTimeStep())
+		bRegistered = true;
+
+		if (bUseCustomTimeStep)
 		{
-			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("Genlock source is already in place."));
-			SwitchState(ESynchronizationState::Error);
+			if (GEngine->GetCustomTimeStep())
+			{
+				UE_LOG(LogTimecodeSynchronizer, Error, TEXT("Genlock source is already in place."));
+				SwitchState(ESynchronizationState::Error);
+				return;
+			}
+			else if (!CustomTimeStep)
+			{
+				UE_LOG(LogTimecodeSynchronizer, Error, TEXT("The Genlock source is not set."));
+				SwitchState(ESynchronizationState::Error);
+				return;
+			}
+			else if (!GEngine->SetCustomTimeStep(CustomTimeStep))
+			{
+				UE_LOG(LogTimecodeSynchronizer, Error, TEXT("The Genlock source failed to be set on Engine."));
+				SwitchState(ESynchronizationState::Error);
+				return;
+			}
+
+			RegisteredCustomTimeStep = CustomTimeStep;
+		}
+		else
+		{
+			PreviousFixedFrameRate = GEngine->FixedFrameRate;
+			bPreviousUseFixedFrameRate = GEngine->bUseFixedFrameRate;
+			GEngine->FixedFrameRate = FixedFrameRate.AsDecimal();
+			GEngine->bUseFixedFrameRate = true;
 		}
 
-		if (!CustomTimeStep)
+		// Set TimecodeProvider
+		if (GEngine->GetTimecodeProvider() != GEngine->GetDefaultTimecodeProvider())
 		{
-			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("The Genlock source is not set."));
+			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("A Timecode Provider is already in place."));
 			SwitchState(ESynchronizationState::Error);
 			return;
 		}
-
-		if (!GEngine->SetCustomTimeStep(CustomTimeStep))
+		else if (TimecodeProviderType == ETimecodeSynchronizationTimecodeType::TimecodeProvider && TimecodeProvider)
 		{
-			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("The Genlock source failed to be set on Engine."));
-			SwitchState(ESynchronizationState::Error);
-			return;
+			if (!GEngine->SetTimecodeProvider(TimecodeProvider))
+			{
+				UE_LOG(LogTimecodeSynchronizer, Error, TEXT("TimecodeProvider failed to be set on Engine."));
+				SwitchState(ESynchronizationState::Error);
+				return;
+			}
+
+			RegisteredTimecodeProvider = TimecodeProvider;
 		}
-		RegisteredCustomTimeStep = CustomTimeStep;
-	}
-	else
-	{
-		PreviousFixedFrameRate = GEngine->FixedFrameRate;
-		bPreviousUseFixedFrameRate = GEngine->bUseFixedFrameRate;
-		GEngine->FixedFrameRate = FixedFrameRate.AsDecimal();
-		GEngine->bUseFixedFrameRate = true;
-	}
-
-	// Set TimecodeProvider
-	if (GEngine->GetTimecodeProvider())
-	{
-		UE_LOG(LogTimecodeSynchronizer, Error, TEXT("A Timecode Provider is already in place."));
-		SwitchState(ESynchronizationState::Error);
-	}
-	else if (TimecodeProviderType == ETimecodeSynchronizationTimecodeType::TimecodeProvider)
-	{
-		if (!TimecodeProvider)
+		else
 		{
-			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("TimecodeProvider is not set."));
-			SwitchState(ESynchronizationState::Error);
-			return;
+			if (!GEngine->SetTimecodeProvider(this))
+			{
+				UE_LOG(LogTimecodeSynchronizer, Error, TEXT("TimecodeSynchronizer failed to be set as the TimecodeProvider for the Engine."));
+				SwitchState(ESynchronizationState::Error);
+				return;
+			}
+
+			RegisteredTimecodeProvider = this;
 		}
 
-		if (!GEngine->SetTimecodeProvider(TimecodeProvider))
-		{
-			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("TimecodeProvider failed to be set on Engine."));
-			SwitchState(ESynchronizationState::Error);
-			return;
-		}
-		RegisteredTimecodeProvider = TimecodeProvider;
+		SetTickEnabled(true);
 	}
-	else
-	{
-		if (!GEngine->SetTimecodeProvider(this))
-		{
-			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("TimecodeSynchronizer failed to be set as the TimecodeProvider for the Engine."));
-			SwitchState(ESynchronizationState::Error);
-			return;
-		}
-		RegisteredTimecodeProvider = this;
-	}
-
-	bRegistered = true;
-	SetTickEnabled(bRegistered);
 }
 
 void UTimecodeSynchronizer::Unregister()
 {
-	UTimecodeProvider* Provider = GEngine->GetTimecodeProvider();
-	if (Provider == RegisteredTimecodeProvider)
+	if (bRegistered)
 	{
-		GEngine->SetTimecodeProvider(nullptr);
-	}
-	RegisteredTimecodeProvider = nullptr;
+		bRegistered = false;
 
-	UEngineCustomTimeStep* TimeStep = GEngine->GetCustomTimeStep();
-	if (TimeStep == RegisteredCustomTimeStep)
-	{
-		GEngine->SetCustomTimeStep(nullptr);
-	}
-	else if (RegisteredCustomTimeStep == nullptr)
-	{
-		GEngine->FixedFrameRate = PreviousFixedFrameRate;
-		GEngine->bUseFixedFrameRate = bPreviousUseFixedFrameRate;
-	}
-	RegisteredCustomTimeStep = nullptr;
+		const UTimecodeProvider* Provider = GEngine->GetTimecodeProvider();
+		if (Provider == RegisteredTimecodeProvider)
+		{
+			GEngine->SetTimecodeProvider(nullptr);
+		}
+		RegisteredTimecodeProvider = nullptr;
 
-	bRegistered = false;
-	SetTickEnabled(bRegistered);
+		UEngineCustomTimeStep* TimeStep = GEngine->GetCustomTimeStep();
+		if (TimeStep == RegisteredCustomTimeStep)
+		{
+			GEngine->SetCustomTimeStep(nullptr);
+		}
+		else if (RegisteredCustomTimeStep == nullptr)
+		{
+			GEngine->FixedFrameRate = PreviousFixedFrameRate;
+			GEngine->bUseFixedFrameRate = bPreviousUseFixedFrameRate;
+		}
+		RegisteredCustomTimeStep = nullptr;
+
+		SetTickEnabled(false);
+	}
 }
 
 void UTimecodeSynchronizer::SetTickEnabled(bool bEnabled)
@@ -289,6 +468,9 @@ void UTimecodeSynchronizer::SetTickEnabled(bool bEnabled)
 
 void UTimecodeSynchronizer::Tick()
 {
+	UpdateSourceStates();
+	CurrentProviderFrameTime = GetProviderFrameTime();
+
 	Tick_Switch();
 
 	if (IsSynchronizing() && bUsePreRollingTimeout)
@@ -302,201 +484,151 @@ void UTimecodeSynchronizer::Tick()
 	}
 }
 
-bool UTimecodeSynchronizer::StartPreRoll()
+bool UTimecodeSynchronizer::StartSynchronization()
 {
 	if (IsSynchronizing() || IsSynchronized())
 	{
-		UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("Already synchronizing or synchronized."));
-		return false;
+		UE_LOG(LogTimecodeSynchronizer, Log, TEXT("Already synchronizing or synchronized."));
+		return true;
 	}
 	else
 	{
-		StopInputSources();
-
-		ActiveMasterSynchronizationTimecodedSourceIndex = INDEX_NONE;
-	
-		// Go through all sources and select usable ones
-		for (int32 Index = 0; Index < TimeSynchronizationInputSources.Num(); ++Index)
+		if (!ensure(SynchronizedSources.Num() == 0) || !ensure(NonSynchronizedSources.Num() == 0) || !ensure(ActiveMasterSynchronizationTimecodedSourceIndex))
 		{
-			UTimeSynchronizationSource* InputSource = TimeSynchronizationInputSources[Index];
-			if (InputSource)
-			{
-				if (InputSource->bUseForSynchronization && InputSource->Open())
-				{
-					const int32 NewItemIndex = ActiveTimecodedInputSources.AddDefaulted();
-					FTimecodeSynchronizerActiveTimecodedInputSource& NewSource = ActiveTimecodedInputSources[NewItemIndex];
-					NewSource.InputSource = InputSource;
-
-					if (TimecodeProviderType == ETimecodeSynchronizationTimecodeType::InputSource && Index == MasterSynchronizationSourceIndex)
-					{
-						ActiveMasterSynchronizationTimecodedSourceIndex = NewItemIndex;
-					}
-				}
-				else if (!InputSource->bUseForSynchronization && InputSource->Open())
-				{
-					const int32 NewItemIndex = ActiveSynchronizedSources.AddDefaulted();
-					FTimecodeSynchronizerActiveTimecodedInputSource& NewSource = ActiveSynchronizedSources[NewItemIndex];
-					NewSource.InputSource = InputSource;
-
-					//Stamp source FrameRate for time conversion
-					NewSource.FrameRate = InputSource->GetFrameRate();
-					NewSource.bCanBeSynchronized = false;
-				}
-			}
+			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("StartSynchronization called without properly closing sources"));
+			CloseSources();
 		}
 
-		if (TimecodeProviderType == ETimecodeSynchronizationTimecodeType::InputSource && ActiveMasterSynchronizationTimecodedSourceIndex == INDEX_NONE)
+		SwitchState(ESynchronizationState::Initializing);
+		OpenSources();
+
+		if (SynchronizedSources.Num() == 0)
+		{
+			UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("No sources available to synchronize."));
+			SwitchState(ESynchronizationState::Error);
+		}
+		else if (TimecodeProviderType == ETimecodeSynchronizationTimecodeType::InputSource && ActiveMasterSynchronizationTimecodedSourceIndex == INDEX_NONE)
 		{
 			UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("The Master Synchronization Source could not be found."));
-		}
-
-		if (ActiveTimecodedInputSources.Num() > 0)
-		{
-			Register();
-		}
-
-		//Engage synchronization procedure only if we've successfully
-		if (bRegistered)
-		{
-			const bool bDoTick = true;
-			SwitchState(ESynchronizationState::PreRolling_WaitGenlockTimecodeProvider, bDoTick);
+			SwitchState(ESynchronizationState::Error);
 		}
 		else
 		{
-			StopInputSources();
+			Register();
 
-			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("Couldn't start preroll. TimecodeSynchronizer is not registered. (Maybe there is no input sources)"));
-			SwitchState(ESynchronizationState::Error);
+			if (bRegistered)
+			{
+				SwitchState(ESynchronizationState::PreRolling_WaitGenlockTimecodeProvider);
+			}
 		}
 
 		return bRegistered;
 	}
 }
 
-void UTimecodeSynchronizer::StopInputSources()
+void UTimecodeSynchronizer::StopSynchronization()
 {
-	Unregister();
-	for (FTimecodeSynchronizerActiveTimecodedInputSource& TimecodedInputSource : ActiveTimecodedInputSources)
+	if (IsSynchronizing() || IsSynchronized() || IsError())
 	{
-		if (TimecodedInputSource.InputSource)
-		{
-			TimecodedInputSource.InputSource->Close();
-		}
-	}
+		Unregister();
+		CloseSources();
 
-	for (FTimecodeSynchronizerActiveTimecodedInputSource& SynchronizedInputSource : ActiveSynchronizedSources)
-	{
-		if (SynchronizedInputSource.InputSource)
-		{
-			SynchronizedInputSource.InputSource->Close();
-		}
-	}
+		LastUpdatedSources = 0;
+		CurrentSystemFrameTime.Reset();
+		CurrentProviderFrameTime = FFrameTime(0);
+		StartPreRollingTime = 0.f;
 
-	CurrentFrameTime = FFrameTime(0);
-	ActiveTimecodedInputSources.Reset();
-	ActiveSynchronizedSources.Reset();
-	SwitchState(ESynchronizationState::None);
-	ActiveMasterSynchronizationTimecodedSourceIndex = INDEX_NONE;
+		SwitchState(ESynchronizationState::None);
+	}
 }
 
-void UTimecodeSynchronizer::SwitchState(const ESynchronizationState NewState, const bool bDoTick)
+void UTimecodeSynchronizer::SwitchState(const ESynchronizationState NewState)
 {
 	if (NewState != State)
 	{
 		State = NewState;
 
-		//Do State entering procedure and tick if required
+		// Do any setup that needs to happen to "enter" the state.
 		switch (NewState)
 		{
-		case ESynchronizationState::None:
-		{
+		case ESynchronizationState::Initializing:
+			CachedSyncState.FrameRate = GetFrameRate();
+			CachedSyncState.SyncMode = SyncMode;
+			CachedSyncState.FrameOffset = FrameOffset;
+
+			// System time inherently has rollover.
+			if (bWithRollover)
+			{
+				// In most cases, rollover occurs on 24 periods.
+				// TODO: Make this configurable
+				CachedSyncState.RolloverFrame = FTimecode(24, 0, 0, 0, false).ToFrameNumber(CachedSyncState.FrameRate);
+			}
+			else
+			{
+				CachedSyncState.RolloverFrame.Reset();
+			}
+
 			break;
-		}
+
 		case ESynchronizationState::PreRolling_WaitGenlockTimecodeProvider:
-		{
 			StartPreRollingTime = FApp::GetCurrentTime();
 			SynchronizationEvent.Broadcast(ETimecodeSynchronizationEvent::SynchronizationStarted);
-			if (bDoTick)
-			{
-				TickPreRolling_WaitGenlockTimecodeProvider();
-			}
 			break;
-		}
-		case ESynchronizationState::PreRolling_WaitReadiness:
-		{
-			if (bDoTick)
-			{
-				TickPreRolling_WaitReadiness();
-			}
-			break;
-		}
-		case ESynchronizationState::PreRolling_Synchronizing:
-		{
-			if (bDoTick)
-			{
-				TickPreRolling_Synchronizing();
-			}
-			break;
-		}
-		case ESynchronizationState::PreRolling_Buffering:
-		{
-			if (bDoTick)
-			{
-				TickPreRolling_Buffering();
-			}
-			break;
-		}
+
 		case ESynchronizationState::Synchronized:
-		{
-			bSourceStarted = false;
+			StartSources();
 			SynchronizationEvent.Broadcast(ETimecodeSynchronizationEvent::SynchronizationSucceeded);
-			if (bDoTick)
-			{
-				TickSynchronized();
-			}
 			break;
-		}
+
 		case ESynchronizationState::Error:
-		{
-			EnterStateError();
-			if (bDoTick)
-			{
-				TickError();
-			}
+			StopSynchronization();
+			SynchronizationEvent.Broadcast(ETimecodeSynchronizationEvent::SynchronizationFailed);
 			break;
-		}
+
 		default:
-		{
-			SetTickEnabled(false);
 			break;
-		}
 		};
+
+		Tick_Switch();
 	}
 }
 
 void UTimecodeSynchronizer::Tick_Switch()
 {
+#define CONDITIONALLY_CALL_TICK(TickFunc) {if (ShouldTick()) {TickFunc();}}
+
 	switch (State)
 	{
+	case ESynchronizationState::Initializing:
+		break;
+
 	case ESynchronizationState::PreRolling_WaitGenlockTimecodeProvider:
-		TickPreRolling_WaitGenlockTimecodeProvider();
+		CONDITIONALLY_CALL_TICK(TickPreRolling_WaitGenlockTimecodeProvider);
 		break;
+
 	case ESynchronizationState::PreRolling_WaitReadiness:
-		TickPreRolling_WaitReadiness();
+		CONDITIONALLY_CALL_TICK(TickPreRolling_WaitReadiness);
 		break;
+
 	case ESynchronizationState::PreRolling_Synchronizing:
-		TickPreRolling_Synchronizing();
+		CONDITIONALLY_CALL_TICK(TickPreRolling_Synchronizing);
 		break;
-	case ESynchronizationState::PreRolling_Buffering:
-		TickPreRolling_Buffering();
-		break;
+
 	case ESynchronizationState::Synchronized:
-		TickSynchronized();
+		CONDITIONALLY_CALL_TICK(Tick_Synchronized);
 		break;
+
 	default:
 		SetTickEnabled(false);
 		break;
 	}
+
+#undef CONDITIONALLY_CALL_TICK
+}
+
+bool UTimecodeSynchronizer::ShouldTick()
+{
+	return Tick_TestGenlock() && Tick_TestTimecode();
 }
 
 bool UTimecodeSynchronizer::Tick_TestGenlock()
@@ -518,7 +650,6 @@ bool UTimecodeSynchronizer::Tick_TestGenlock()
 		}
 
 		const ECustomTimeStepSynchronizationState SynchronizationState = RegisteredCustomTimeStep->GetSynchronizationState();
-
 		if (SynchronizationState != ECustomTimeStepSynchronizationState::Synchronized && SynchronizationState != ECustomTimeStepSynchronizationState::Synchronizing)
 		{
 			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("The Genlock source stopped while synchronizing."));
@@ -550,12 +681,16 @@ bool UTimecodeSynchronizer::Tick_TestTimecode()
 		}
 
 		const ETimecodeProviderSynchronizationState SynchronizationState = RegisteredTimecodeProvider->GetSynchronizationState();
-
 		if (SynchronizationState != ETimecodeProviderSynchronizationState::Synchronized && SynchronizationState != ETimecodeProviderSynchronizationState::Synchronizing)
 		{
 			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("The TimecodeProvider stopped while synchronizing."));
 			SwitchState(ESynchronizationState::Error);
 			return false;
+		}
+
+		if (RegisteredTimecodeProvider == this)
+		{
+			return true;
 		}
 
 		if (SynchronizationState == ETimecodeProviderSynchronizationState::Synchronized)
@@ -571,294 +706,270 @@ bool UTimecodeSynchronizer::Tick_TestTimecode()
 	}
 	else if (TimecodeProviderType == ETimecodeSynchronizationTimecodeType::InputSource)
 	{
-		if (!ActiveTimecodedInputSources.IsValidIndex(ActiveMasterSynchronizationTimecodedSourceIndex))
+		if (!SynchronizedSources.IsValidIndex(ActiveMasterSynchronizationTimecodedSourceIndex))
 		{
 			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("The InputSource '%d' that we try to synchronize on is not valid."), ActiveMasterSynchronizationTimecodedSourceIndex);
 			SwitchState(ESynchronizationState::Error);
 			return false;
 		}
 
-		if (ActiveTimecodedInputSources[ActiveMasterSynchronizationTimecodedSourceIndex].InputSource == nullptr)
-		{
-			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("The InputSource '%d' doesn't have an input source."), ActiveMasterSynchronizationTimecodedSourceIndex);
-			SwitchState(ESynchronizationState::Error);
-			return false;
-		}
-
-		return ActiveTimecodedInputSources[ActiveMasterSynchronizationTimecodedSourceIndex].InputSource->IsReady();
+		return SynchronizedSources[ActiveMasterSynchronizationTimecodedSourceIndex].IsReady();
 	}
 	return true;
 }
 
 void UTimecodeSynchronizer::TickPreRolling_WaitGenlockTimecodeProvider()
 {
-	const bool bCustomTimeStepReady = Tick_TestGenlock();
-	const bool bTimecodeProvider = Tick_TestTimecode();
-
-	if (bCustomTimeStepReady && bTimecodeProvider)
-	{
-		const bool bDoTick = true;
-		SwitchState(ESynchronizationState::PreRolling_WaitReadiness, bDoTick);
-	}
+	SwitchState(ESynchronizationState::PreRolling_WaitReadiness);
 }
 
 void UTimecodeSynchronizer::TickPreRolling_WaitReadiness()
 {
-	const bool bCustomTimeStepReady = Tick_TestGenlock();
-	const bool bTimecodeProvider = Tick_TestTimecode();
-	if (!bCustomTimeStepReady || !bTimecodeProvider)
-	{
-		return;
-	}
-
 	bool bAllSourceAreReady = true;
-	for (FTimecodeSynchronizerActiveTimecodedInputSource& TimecodedInputSource : ActiveTimecodedInputSources)
+
+	for (const FTimecodeSynchronizerActiveTimecodedInputSource& InputSource : SynchronizedSources)
 	{
-		check(TimecodedInputSource.InputSource);
-
-		bool bIsReady = TimecodedInputSource.InputSource->IsReady();
-		if (bIsReady != TimecodedInputSource.bIsReady)
+		if (InputSource.IsReady())
 		{
-			if (bIsReady)
+			const FFrameRate SourceFrameRate = InputSource.GetFrameRate();
+			if (!SourceFrameRate.IsMultipleOf(CachedSyncState.FrameRate) && !SourceFrameRate.IsFactorOf(CachedSyncState.FrameRate))
 			{
-				check(TimecodedInputSource.InputSource);
-
-				TimecodedInputSource.AvailableSampleCount = TimecodedInputSource.InputSource->GetAvailableSampleCount();
-				bIsReady = bIsReady && TimecodedInputSource.AvailableSampleCount > 0;
-
-				if (!TimecodedInputSource.bIsReady && bIsReady)
-				{
-					//Stamp source FrameRate for time conversion
-					TimecodedInputSource.FrameRate = TimecodedInputSource.InputSource->GetFrameRate();
-					if (!TimecodedInputSource.FrameRate.IsMultipleOf(GetFrameRate()) && !TimecodedInputSource.FrameRate.IsFactorOf(GetFrameRate()))
-					{
-						UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("Source %s doesn't have a frame rate common to TimecodeSynchronizer frame rate."), *TimecodedInputSource.InputSource->GetDisplayName())
-					}
-				}
-
-				TimecodedInputSource.bIsReady = bIsReady;
+				UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("Source %s doesn't have a frame rate common to TimecodeSynchronizer frame rate."), *InputSource.GetDisplayName())
 			}
 		}
-
-		bAllSourceAreReady = bAllSourceAreReady && bIsReady;
+		else
+		{
+			bAllSourceAreReady = false;
+		}
 	}
 
 	if (bAllSourceAreReady)
 	{
-		const bool bDoTick = true;
-		SwitchState(ESynchronizationState::PreRolling_Synchronizing, bDoTick);
+		SwitchState(ESynchronizationState::PreRolling_Synchronizing);
 	}
 }
 
 void UTimecodeSynchronizer::TickPreRolling_Synchronizing()
 {
-	const bool bCustomTimeStepReady = Tick_TestGenlock();
-	const bool bTimecodeProvider = Tick_TestTimecode();
-	if (!bCustomTimeStepReady || !bTimecodeProvider)
+	TimecodeSynchronizerPrivate::FTimecodeInputSourceValidator Validator(CachedSyncState, SynchronizedSources[0]);
+	for (int32 i = 1; i < SynchronizedSources.Num(); ++i)
 	{
-		return;
+		Validator.UpdateFrameTimes(SynchronizedSources[i]);
 	}
 
-	// Fetch each sources samples time and early exit if a source isn`t ready
-	for (FTimecodeSynchronizerActiveTimecodedInputSource& TimecodedInputSource : ActiveTimecodedInputSources)
+	if (Validator.AllSourcesAreValid())
 	{
-		check(TimecodedInputSource.InputSource);
-
-		FFrameTime NextSampleTime = TimecodedInputSource.InputSource->GetNextSampleTime();
-		if (NextSampleTime != 0)
+		switch (CachedSyncState.SyncMode)
 		{
-			TimecodedInputSource.NextSampleTime = NextSampleTime;
-			TimecodedInputSource.AvailableSampleCount = TimecodedInputSource.InputSource->GetAvailableSampleCount();
-			TimecodedInputSource.ConvertToLocalFrameRate(GetFrameRate());
-		}
+		case ETimecodeSynchronizationSyncMode::Auto:
+			ActualFrameOffset = Validator.CalculateOffsetNewest(CurrentProviderFrameTime) - AutoFrameOffset;
+			break;
 
-		const bool bIsReady = TimecodedInputSource.InputSource->IsReady();
-		if (!bIsReady)
-		{
-			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("Source '%s' stopped while synchronizing."), *TimecodedInputSource.InputSource->GetDisplayName());
-			SwitchState(ESynchronizationState::Error);
-			return;
-		}
-	}
+		case ETimecodeSynchronizationSyncMode::AutoOldest:
+			ActualFrameOffset = Validator.CalculateOffsetOldest(CurrentProviderFrameTime) + AutoFrameOffset;
+			break;
 
-	FFrameTime NewSynchronizedTime = ConvertTimecodeToFrameTime(GetTimecode());
-
-	// Check if all inputs have that valid FrameTime
-	bool bDoContains = true;
-	for (FTimecodeSynchronizerActiveTimecodedInputSource& TimecodedInputSource : ActiveTimecodedInputSources)
-	{
-		TimecodedInputSource.bCanBeSynchronized = TimecodedInputSource.NextSampleLocalTime <= NewSynchronizedTime && NewSynchronizedTime <= TimecodedInputSource.MaxSampleLocalTime;
-		if (!TimecodedInputSource.bCanBeSynchronized)
-		{
-			bDoContains = false;
+		default:
+			ActualFrameOffset = CachedSyncState.FrameOffset;
 			break;
 		}
 
-		if (bUsePreRollingTimecodeMarginOfErrors)
+		if (Validator.DoAllSourcesContainFrame(CalculateSyncTime()))
 		{
-			const FFrameTime Difference = TimecodedInputSource.MaxSampleLocalTime - NewSynchronizedTime;
-			if (Difference.FrameNumber.Value > PreRollingTimecodeMarginOfErrors)
-			{
-				UE_LOG(LogTimecodeSynchronizer, Error, TEXT("PreRollingTimecodeMarginOfErrors '%s'."), *TimecodedInputSource.InputSource->GetDisplayName());
-				SwitchState(ESynchronizationState::Error);
-				return;
-			}
-		}
-	}
-
-	if (bDoContains)
-	{
-		CurrentFrameTime = NewSynchronizedTime;
-
-		const bool bDoTick = true;
-		SwitchState(ESynchronizationState::PreRolling_Buffering, bDoTick);
-	}
-}
-
-void UTimecodeSynchronizer::TickPreRolling_Buffering()
-{
-	const bool bCustomTimeStepReady = Tick_TestGenlock();
-	const bool bTimecodeProvider = Tick_TestTimecode();
-	if (!bCustomTimeStepReady || !bTimecodeProvider)
-	{
-		return;
-	}
-
-	// Wait for all the NumberOfExtraBufferedFrame
-	bool bAllBuffered = true;
-	for (FTimecodeSynchronizerActiveTimecodedInputSource& TimecodedInputSource : ActiveTimecodedInputSources)
-	{
-		check(TimecodedInputSource.InputSource);
-		if (TimecodedInputSource.InputSource->NumberOfExtraBufferedFrame > 0)
-		{
-			FFrameTime NextSampleTime = TimecodedInputSource.InputSource->GetNextSampleTime();
-			if (NextSampleTime != 0)
-			{
-				TimecodedInputSource.NextSampleTime = NextSampleTime;
-				TimecodedInputSource.AvailableSampleCount = TimecodedInputSource.InputSource->GetAvailableSampleCount();
-				TimecodedInputSource.ConvertToLocalFrameRate(GetFrameRate());
-			}
-
-			bool bIsReady = TimecodedInputSource.InputSource->IsReady();
-			if (bIsReady && TimecodedInputSource.AvailableSampleCount > 0)
-			{
-				//Count buffered frame from the selected start time and not from this source next sample time
-				const FFrameTime NextSampleDelta = TimecodedInputSource.NextSampleLocalTime - CurrentFrameTime;
-				const int32 FrameCountAfterStartTime = TimecodedInputSource.AvailableSampleCount - NextSampleDelta.AsDecimal();
-				if (FrameCountAfterStartTime < TimecodedInputSource.InputSource->NumberOfExtraBufferedFrame)
-				{
-					bAllBuffered = false;
-					break;
-				}
-			}
-			else
-			{
-				UE_LOG(LogTimecodeSynchronizer, Error, TEXT("Source '%s' stopped while buffering."), *TimecodedInputSource.InputSource->GetDisplayName());
-				SwitchState(ESynchronizationState::Error);
-				break;
-			}
-		}
-	}
-	
-	if (bAllBuffered)
-	{
-		const bool bCanProceed = AreSourcesReady();
-		if (bCanProceed)
-		{			
-			const bool bDoTick = false;
-			SwitchState(ESynchronizationState::Synchronized, bDoTick);
+			SwitchState(ESynchronizationState::Synchronized);
 		}
 	}
 }
 
-void UTimecodeSynchronizer::TickSynchronized()
+void UTimecodeSynchronizer::Tick_Synchronized()
 {
-	const bool bCustomTimeStepReady = Tick_TestGenlock();
-	const bool bTimecodeProvider = Tick_TestTimecode();
-	if (!bCustomTimeStepReady || !bTimecodeProvider)
-	{
-		return;
-	}
+	// Sanity check to make sure all sources still have valid frames.
+	CurrentSystemFrameTime = CalculateSyncTime();
+	const FFrameTime& UseFrameTime = CurrentSystemFrameTime.GetValue();
 
-	if (!bSourceStarted)
+	if (CachedSyncState.RolloverFrame.IsSet())
 	{
-		StartSources();
-		bSourceStarted = true;
-		UE_LOG(LogTimecodeSynchronizer, Log, TEXT("TimecodeProvider synchronized at %s"), *FApp::GetTimecode().ToString());
-	}
-
-	CurrentFrameTime = ConvertTimecodeToFrameTime(FApp::GetTimecode());
-
-	// Test if all sources have the frame
-	for (FTimecodeSynchronizerActiveTimecodedInputSource& TimecodedInputSource : ActiveTimecodedInputSources)
-	{
-		FFrameTime NextSampleTime = TimecodedInputSource.InputSource->GetNextSampleTime();
-		if (NextSampleTime != 0)
+		for (const FTimecodeSynchronizerActiveTimecodedInputSource& InputSource : SynchronizedSources)
 		{
-			TimecodedInputSource.NextSampleTime = NextSampleTime;
-			TimecodedInputSource.AvailableSampleCount = TimecodedInputSource.InputSource->GetAvailableSampleCount();
-			TimecodedInputSource.ConvertToLocalFrameRate(GetFrameRate());
-		}
-		
-		const bool bIsReady = TimecodedInputSource.InputSource->IsReady();
-		if (bIsReady)
-		{
-			const bool bDoContains = TimecodedInputSource.NextSampleLocalTime <= CurrentFrameTime && CurrentFrameTime <= TimecodedInputSource.MaxSampleLocalTime;
-			if (!bDoContains)
+			const FTimecodeSourceState& SynchronizerRelativeState = InputSource.GetSynchronizerRelativeState();
+			if (!UTimeSynchronizationSource::IsFrameBetweenWithRolloverModulus(UseFrameTime, SynchronizerRelativeState.OldestAvailableSample, SynchronizerRelativeState.NewestAvailableSample, CachedSyncState.RolloverFrame.GetValue()))
 			{
-				UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("Source '%s' doesn't have the timecode ready."), *TimecodedInputSource.InputSource->GetDisplayName());
+				UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("Source '%s' doesn't have the timecode ready."), *InputSource.GetDisplayName());
 			}
+		}
+	}
+	else
+	{
+		for (const FTimecodeSynchronizerActiveTimecodedInputSource& InputSource : SynchronizedSources)
+		{
+			const FTimecodeSourceState& SynchronizerRelativeState = InputSource.GetSynchronizerRelativeState();
+			if (SynchronizerRelativeState.OldestAvailableSample > UseFrameTime || UseFrameTime > SynchronizerRelativeState.NewestAvailableSample)
+			{
+				UE_LOG(LogTimecodeSynchronizer, Warning, TEXT("Source '%s' doesn't have the timecode ready."), *InputSource.GetDisplayName());
+			}
+		}
+	}
+}
+
+const bool FTimecodeSynchronizerActiveTimecodedInputSource::UpdateSourceState(const FFrameRate& SynchronizerFrameRate)
+{
+	check(InputSource);
+
+	bIsReady = InputSource->IsReady();
+
+	if (bIsReady)
+	{
+		FrameRate = InputSource->GetFrameRate();
+
+		InputSourceState.NewestAvailableSample = InputSource->GetNewestSampleTime();
+		InputSourceState.OldestAvailableSample = InputSource->GetOldestSampleTime();
+
+		if (FrameRate != SynchronizerFrameRate)
+		{
+			SynchronizerRelativeState.NewestAvailableSample = FFrameRate::TransformTime(InputSourceState.NewestAvailableSample, FrameRate, SynchronizerFrameRate);
+			SynchronizerRelativeState.OldestAvailableSample = FFrameRate::TransformTime(InputSourceState.OldestAvailableSample, FrameRate, SynchronizerFrameRate);
 		}
 		else
 		{
-			UE_LOG(LogTimecodeSynchronizer, Error, TEXT("Source '%s' stopped when all sources were synchronized."), *TimecodedInputSource.InputSource->GetDisplayName());
-			SwitchState(ESynchronizationState::Error);
-		}
-	}
-}
-
-void UTimecodeSynchronizer::EnterStateError()
-{
-	StopInputSources();
-	SynchronizationEvent.Broadcast(ETimecodeSynchronizationEvent::SynchronizationFailed);
-}
-
-void UTimecodeSynchronizer::TickError()
-{
-
-}
-
-bool UTimecodeSynchronizer::AreSourcesReady() const
-{
-	for (const FTimecodeSynchronizerActiveTimecodedInputSource& InputSource : ActiveTimecodedInputSources)
-	{
-		if (!InputSource.InputSource->IsReady())
-		{
-			return false;
+			SynchronizerRelativeState = InputSourceState;
 		}
 	}
 
-	for (const FTimecodeSynchronizerActiveTimecodedInputSource& InputSource : ActiveSynchronizedSources)
-	{
-		if (!InputSource.InputSource->IsReady())
-		{
-			return false;
-		}
-	}
-
-	return true;
+	return bIsReady;
 }
 
 void UTimecodeSynchronizer::StartSources()
 {
-	for (FTimecodeSynchronizerActiveTimecodedInputSource& InputSource : ActiveTimecodedInputSources)
+	FTimeSynchronizationStartData StartData;
+	CurrentSystemFrameTime = StartData.StartFrame = CalculateSyncTime();
+
+	FApp::SetTimecodeAndFrameRate(GetTimecode(), GetFrameRate());
+
+	for (UTimeSynchronizationSource* InputSource : TimeSynchronizationInputSources)
 	{
-		InputSource.InputSource->Start();
+		if (InputSource != nullptr)
+		{
+			InputSource->Start(StartData);
+		}
+	}
+}
+
+void UTimecodeSynchronizer::OpenSources()
+{
+	FTimeSynchronizationOpenData OpenData;
+	OpenData.RolloverFrame = CachedSyncState.RolloverFrame;
+	OpenData.SynchronizationFrameRate = CachedSyncState.FrameRate;
+	for (int32 Index = 0; Index < TimeSynchronizationInputSources.Num(); ++Index)
+	{
+		if (UTimeSynchronizationSource* InputSource = TimeSynchronizationInputSources[Index])
+		{
+			if (InputSource->Open(OpenData))
+			{
+				if (InputSource->bUseForSynchronization)
+				{
+					FTimecodeSynchronizerActiveTimecodedInputSource& NewSource = SynchronizedSources.Emplace_GetRef(InputSource);
+					if (TimecodeProviderType == ETimecodeSynchronizationTimecodeType::InputSource && Index == MasterSynchronizationSourceIndex)
+					{
+						ActiveMasterSynchronizationTimecodedSourceIndex = SynchronizedSources.Num() - 1;
+					}
+				}
+				else
+				{
+					NonSynchronizedSources.Emplace(InputSource);
+				}
+			}
+		}
+	}
+}
+
+void UTimecodeSynchronizer::CloseSources()
+{
+	for (UTimeSynchronizationSource* InputSource : TimeSynchronizationInputSources)
+	{
+		if (InputSource != nullptr)
+		{
+			InputSource->Close();
+		}
 	}
 
-	for (FTimecodeSynchronizerActiveTimecodedInputSource& InputSource : ActiveSynchronizedSources)
+	SynchronizedSources.Reset();
+	NonSynchronizedSources.Reset();
+	ActiveMasterSynchronizationTimecodedSourceIndex = INDEX_NONE;
+}
+
+void UTimecodeSynchronizer::UpdateSourceStates()
+{
+	// Update all of our source states.
+	if (GFrameCounter != LastUpdatedSources)
 	{
-		InputSource.InputSource->Start();
+		LastUpdatedSources = GFrameCounter;
+
+		// If we're in the process of synchronizing, or have already achieved synchronization,
+		// we don't expect sources to become unready. If they do, that's an error.
+		// This is only relevant to 
+		const bool bTreatUnreadyAsError = (State > ESynchronizationState::PreRolling_WaitReadiness);
+		TArray<const FTimecodeSynchronizerActiveTimecodedInputSource*> UnreadySources;
+		TArray<const FTimecodeSynchronizerActiveTimecodedInputSource*> InvalidSources;
+
+		const FFrameRate FrameRate = GetFrameRate();
+		for (FTimecodeSynchronizerActiveTimecodedInputSource& InputSource : SynchronizedSources)
+		{
+			InputSource.UpdateSourceState(FrameRate);
+			if (!InputSource.IsInputSourceValid())
+			{
+				InvalidSources.Add(&InputSource);
+			}
+			else if (!InputSource.IsReady())
+			{
+				UnreadySources.Add(&InputSource);
+			}
+		}
+
+		// Don't track readiness for these sources, they are not actively being used.
+		for (FTimecodeSynchronizerActiveTimecodedInputSource& InputSource : NonSynchronizedSources)
+		{
+			InputSource.UpdateSourceState(FrameRate);
+			if (!InputSource.IsInputSourceValid())
+			{
+				InvalidSources.Add(&InputSource);
+			}
+		}
+
+		const FString StateString = SynchronizationStateToString(State);
+		if (InvalidSources.Num() > 0)
+		{
+			for (const FTimecodeSynchronizerActiveTimecodedInputSource* UnreadySource : UnreadySources)
+			{
+				UE_LOG(LogTimecodeSynchronizer, Error, TEXT("Invalid source found unready during State '%s'"), *StateString);
+			}
+		}
+
+		// Process our unready sources.
+		// This is done here to keep the loops above fairly clean.
+		if (bTreatUnreadyAsError && UnreadySources.Num() > 0)
+		{
+			for (const FTimecodeSynchronizerActiveTimecodedInputSource* UnreadySource : UnreadySources)
+			{
+				UE_LOG(LogTimecodeSynchronizer, Error, TEXT("Source '%s' became unready during State '%s'"), *(UnreadySource->GetDisplayName()), *StateString);
+			}
+		}
+
+		if (InvalidSources.Num() > 0 || (bTreatUnreadyAsError && UnreadySources.Num() > 0))
+		{
+			SwitchState(ESynchronizationState::Error);
+		}
+	}
+}
+
+FFrameTime UTimecodeSynchronizer::CalculateSyncTime()
+{
+	if (CachedSyncState.RolloverFrame.IsSet())
+	{
+		return UTimeSynchronizationSource::AddOffsetWithRolloverModulus(CurrentProviderFrameTime, ActualFrameOffset, CachedSyncState.RolloverFrame.GetValue());
+	}
+	else
+	{
+		return CurrentProviderFrameTime + ActualFrameOffset;
 	}
 }
 

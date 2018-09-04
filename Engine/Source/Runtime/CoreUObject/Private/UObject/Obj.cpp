@@ -13,6 +13,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
+#include "Misc/ITransaction.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
@@ -540,6 +541,25 @@ void UObject::PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionA
 void UObject::PostTransacted(const FTransactionObjectEvent& TransactionEvent)
 {
 	FCoreUObjectDelegates::OnObjectTransacted.Broadcast(this, TransactionEvent);
+}
+
+TSharedPtr<ITransactionObjectAnnotation> UObject::FindOrCreateTransactionAnnotation() const
+{
+	return FactoryTransactionAnnotation(ETransactionAnnotationCreationMode::FindOrCreate);
+}
+
+TSharedPtr<ITransactionObjectAnnotation> UObject::CreateAndRestoreTransactionAnnotation(FArchive& Ar) const
+{
+	TSharedPtr<ITransactionObjectAnnotation> TransactionAnnotation = FactoryTransactionAnnotation(ETransactionAnnotationCreationMode::DefaultInstance);
+	if (TransactionAnnotation.IsValid())
+	{
+		TransactionAnnotation->Serialize(Ar);
+		if (Ar.IsError())
+		{
+			TransactionAnnotation.Reset();
+		}
+	}
+	return TransactionAnnotation;
 }
 
 bool UObject::IsSelectedInEditor() const
@@ -1119,9 +1139,10 @@ bool UObject::Modify( bool bAlwaysMarkDirty/*=true*/ )
 
 	if (CanModify())
 	{
-		// Do not consider PIE world objects or script packages, as they should never end up in the
+		// Do not consider script packages, as they should never end up in the
 		// transaction buffer and we don't want to mark them dirty here either.
-		if (GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript | PKG_CompiledIn) == false || GetClass()->HasAnyClassFlags(CLASS_DefaultConfig | CLASS_Config))
+		// We do want to consider PIE objects however
+		if (GetOutermost()->HasAnyPackageFlags(PKG_ContainsScript | PKG_CompiledIn) == false || GetClass()->HasAnyClassFlags(CLASS_DefaultConfig | CLASS_Config))
 		{
 			// Attempt to mark the package dirty and save a copy of the object to the transaction
 			// buffer. The save will fail if there isn't a valid transactor, the object isn't

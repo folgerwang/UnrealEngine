@@ -125,7 +125,7 @@ FText SGraphNodeK2CreateDelegate::GetCurrentFunctionDescription() const
 
 	if (!FunctionSignature || !ScopeClass)
 	{
-		return NSLOCTEXT("GraphNodeK2Create", "NoneLabel", "");
+		return FText::GetEmpty();
 	}
 
 	if (const auto Func = FindField<UFunction>(ScopeClass, Node->GetFunctionName()))

@@ -21,7 +21,7 @@ FMovieSceneEvalTemplatePtr UMovieSceneParticleParameterTrack::CreateTemplateForS
 
 UMovieSceneSection* UMovieSceneParticleParameterTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneParameterSection>( this, UMovieSceneParameterSection::StaticClass(), NAME_None, RF_Transactional );
+	return NewObject<UMovieSceneParameterSection>(this, NAME_None, RF_Transactional);
 }
 
 void UMovieSceneParticleParameterTrack::RemoveAllAnimationData()

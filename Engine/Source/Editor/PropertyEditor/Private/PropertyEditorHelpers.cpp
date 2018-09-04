@@ -358,6 +358,8 @@ bool SEditConditionWidget::HasEditCondition() const
 
 void SEditConditionWidget::OnEditConditionCheckChanged( ECheckBoxState CheckState )
 {
+	FScopedTransaction EditConditionChangedTransaction(FText::Format(LOCTEXT("UpdatedEditConditionFmt", "{0} Edit Condition Changed"), PropertyEditor->GetDisplayName()));
+
 	if( PropertyEditor.IsValid() && PropertyEditor->HasEditCondition() && PropertyEditor->SupportsEditConditionToggle() )
 	{
 		PropertyEditor->SetEditConditionState( CheckState == ECheckBoxState::Checked );

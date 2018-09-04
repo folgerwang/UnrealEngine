@@ -38,6 +38,13 @@ public:
 	UMediaSource* GetMediaSource() const;
 
 	/**
+	 * Get the last element of the media source chain that is not a proxy media source.
+	 *
+	 * @return The media source, or nullptr if not set.
+	 */
+	UMediaSource* GetLeafMediaSource() const;
+
+	/**
 	 * Set the dynamic media source proxy.
 	 * 
 	 * @param InProxy The proxy to use.
@@ -66,6 +73,7 @@ private:
 
 	mutable bool bUrlGuard;
 	mutable bool bValidateGuard;
+	mutable bool bLeafMediaSource;
 	mutable bool bMediaOptionGuard;
 
 };

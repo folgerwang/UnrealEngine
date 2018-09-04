@@ -2,6 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "Misc/AutomationTest.h"
+#include "Containers/ArrayBuilder.h"
+
+#include "UdpMessagingPrivate.h"
 #include "Transport/UdpSerializedMessage.h"
 #include "Transport/UdpMessageSegmenter.h"
 
@@ -17,7 +20,7 @@ void RunSegmentationTest(FAutomationTestBase& Test, uint32 MessageSize, uint16 S
 	Test.AddInfo(FString::Printf(TEXT("Segmenting message of size %i with %i segments of size %i..."), MessageSize, NumSegments, SegmentSize));
 
 	// create a large message to segment
-	TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe> Message = MakeShareable(new FUdpSerializedMessage());
+	TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe> Message = MakeShareable(new FUdpSerializedMessage(UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION, EMessageFlags::None));
 
 	for (uint8 SegmentIndex = 0; SegmentIndex < NumSegments; ++SegmentIndex)
 	{
@@ -66,7 +69,7 @@ void RunSegmentationTest(FAutomationTestBase& Test, uint32 MessageSize, uint16 S
 
 		while (Segmenter.GetNextPendingSegment(OutData, OutSegmentNumber))
 		{
-			Segmenter.MarkAsSent(OutSegmentNumber);
+			Segmenter.MarkAsAcknowledged(TArrayBuilder<uint16>().Add(OutSegmentNumber));
 			++GeneratedSegmentCount;
 
 			// verify segment size

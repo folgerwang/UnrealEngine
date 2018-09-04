@@ -7,7 +7,7 @@
 
 UMovieSceneSection* UMovieSceneBoolTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneBoolSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneBoolSection>(this, NAME_None, RF_Transactional);
 }
 
 

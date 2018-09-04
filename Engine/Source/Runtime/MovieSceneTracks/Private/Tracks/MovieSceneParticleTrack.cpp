@@ -64,7 +64,7 @@ void UMovieSceneParticleTrack::AddNewSection( FFrameNumber SectionTime )
 
 UMovieSceneSection* UMovieSceneParticleTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneParticleSection>( this, NAME_None, RF_Transactional );
+	return NewObject<UMovieSceneParticleSection>(this, NAME_None, RF_Transactional);
 }
 
 #if WITH_EDITORONLY_DATA
