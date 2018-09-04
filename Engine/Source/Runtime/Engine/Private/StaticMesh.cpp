@@ -42,6 +42,7 @@
 #include "Templates/UniquePtr.h"
 
 #if WITH_EDITOR
+#include "Editor.h"
 #include "RawMesh.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "MeshBuilder.h"
@@ -4332,6 +4333,12 @@ int32 UStaticMesh::GetMaterialIndex(FName MaterialSlotName) const
 #if WITH_EDITOR
 void UStaticMesh::SetMaterial(int32 MaterialIndex, UMaterialInterface* NewMaterial)
 {
+	if (!GIsEditor || GEditor->PlayWorld != nullptr || GIsPlayInEditorWorld)
+	{
+		UE_LOG(LogStaticMesh, Warning, TEXT("UStaticMesh::SetMaterial can only be called in editor mode."));
+		return;
+	}
+
 	static FName NAME_StaticMaterials = GET_MEMBER_NAME_CHECKED(UStaticMesh, StaticMaterials);
 
 	if (StaticMaterials.IsValidIndex(MaterialIndex))
