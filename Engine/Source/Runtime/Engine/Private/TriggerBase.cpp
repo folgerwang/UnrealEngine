@@ -43,7 +43,6 @@ ATriggerBase::ATriggerBase(const FObjectInitializer& ObjectInitializer)
 		SpriteComponent->Sprite = ConstructorStatics.TriggerTextureObject.Get();
 		SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
 		SpriteComponent->bHiddenInGame = false;
-		SpriteComponent->Sprite = ConstructorStatics.TriggerTextureObject.Get();
 		SpriteComponent->SpriteInfo.Category = ConstructorStatics.ID_Triggers;
 		SpriteComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Triggers;
 		SpriteComponent->bIsScreenSizeScaled = true;
