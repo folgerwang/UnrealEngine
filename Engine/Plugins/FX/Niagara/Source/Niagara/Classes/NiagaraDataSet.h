@@ -1379,12 +1379,14 @@ struct FNiagaraDataSetAccessor<FNiagaraSpawnInfo> : public FNiagaraDataSetAccess
 			CountBase = (int32*)DataBuffer->GetComponentPtrInt32(VarLayout->Int32ComponentStart);
 			InterpStartDtBase = (float*)DataBuffer->GetComponentPtrFloat(VarLayout->FloatComponentStart);
 			IntervalDtBase = (float*)DataBuffer->GetComponentPtrFloat(VarLayout->FloatComponentStart + 1);
+			GroupBase = (int32*)DataBuffer->GetComponentPtrInt32(VarLayout->Int32ComponentStart + 1);
 		}
 		else
 		{
 			CountBase = nullptr;
 			InterpStartDtBase = nullptr;
 			IntervalDtBase = nullptr;
+			GroupBase = nullptr;
 		}
 	}
 
@@ -1415,6 +1417,7 @@ struct FNiagaraDataSetAccessor<FNiagaraSpawnInfo> : public FNiagaraDataSetAccess
 		OutValue.Count = CountBase[Index];
 		OutValue.InterpStartDt = InterpStartDtBase[Index];
 		OutValue.IntervalDt = IntervalDtBase[Index];
+		OutValue.SpawnGroup = GroupBase[Index];
 	}
 
 	FORCEINLINE void Set(int32 Index, const FNiagaraSpawnInfo& InValue)
@@ -1422,16 +1425,18 @@ struct FNiagaraDataSetAccessor<FNiagaraSpawnInfo> : public FNiagaraDataSetAccess
 		CountBase[Index] = InValue.Count;
 		InterpStartDtBase[Index] = InValue.InterpStartDt;
 		IntervalDtBase[Index] = InValue.IntervalDt;
+		GroupBase[Index] = InValue.SpawnGroup;
 	}
 
 
-	FORCEINLINE bool BaseIsValid() const { return CountBase != nullptr && InterpStartDtBase != nullptr && IntervalDtBase != nullptr; }
+	FORCEINLINE bool BaseIsValid() const { return CountBase != nullptr && InterpStartDtBase != nullptr && IntervalDtBase != nullptr && GroupBase != nullptr; }
 
 private:
 
 	int32* CountBase;
 	float* InterpStartDtBase;
 	float* IntervalDtBase;
+	int32* GroupBase;
 };
 
 template<>

@@ -59,6 +59,9 @@ public:
 	void Deactivate(bool bImmediate = false);
 	void Complete();
 
+	void SetPaused(bool bInPaused);
+	FORCEINLINE bool IsPaused()const { return bPaused; }
+
 	void SetSolo(bool bInSolo);
 
 	//void RebindParameterCollection(UNiagaraParameterCollectionInstance* OldInstance, UNiagaraParameterCollectionInstance* NewInstance);
@@ -294,6 +297,9 @@ private:
 
 	/** If this instance has any currently ticking emitters. If false, allows us to skip some work. */
 	uint32 bHasTickingEmitters : 1;
+
+	/** If this system is paused. When paused it will not tick and never complete etc. */
+	uint32 bPaused : 1;
 
 	/* Execution state requested by external code/BPs calling Activate/Deactivate. */
 	ENiagaraExecutionState RequestedExecutionState;

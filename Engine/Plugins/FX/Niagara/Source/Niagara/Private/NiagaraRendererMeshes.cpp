@@ -43,6 +43,8 @@ NiagaraRendererMeshes::NiagaraRendererMeshes(ERHIFeatureLevel::Type FeatureLevel
 	, MaterialParamOffset2(INDEX_NONE)
 	, MaterialParamOffset3(INDEX_NONE)
 	, TransformOffset(INDEX_NONE)
+	, NormalizedAgeOffset(INDEX_NONE)
+	, MaterialRandomOffset(INDEX_NONE)
 	, CustomSortingOffset(INDEX_NONE)
 	, LastSyncedId(INDEX_NONE)
 {
@@ -121,7 +123,9 @@ void NiagaraRendererMeshes::GetDynamicMeshElements(const TArray<const FSceneView
 	if (!DynamicDataMesh 
 		|| DynamicDataMesh->RTParticleData.GetNumInstancesAllocated() == 0
 		|| DynamicDataMesh->RTParticleData.GetNumInstances() == 0
-		|| nullptr == Properties)
+		|| nullptr == Properties
+		|| !GSupportsResourceView  // Current shader requires SRV to draw properly in all cases.
+		)
 	{
 		return;
 	}
@@ -188,6 +192,8 @@ void NiagaraRendererMeshes::GetDynamicMeshElements(const TArray<const FSceneView
 				PerViewUniformParameters.MaterialParam1DataOffset = MaterialParamOffset1;
 				PerViewUniformParameters.MaterialParam2DataOffset = MaterialParamOffset2;
 				PerViewUniformParameters.MaterialParam3DataOffset = MaterialParamOffset3;
+				PerViewUniformParameters.NormalizedAgeDataOffset = NormalizedAgeOffset;
+				PerViewUniformParameters.MaterialRandomDataOffset = MaterialRandomOffset;
 				PerViewUniformParameters.DefaultPos = bLocalSpace ? FVector4(0.0f, 0.0f, 0.0f, 1.0f) : FVector4(SceneProxy->GetLocalToWorld().GetOrigin());
 				/*
 				if (Properties)
@@ -343,7 +349,10 @@ bool NiagaraRendererMeshes::SetMaterialUsage()
 	return Material && Material->CheckMaterialUsage_Concurrent(MATUSAGE_NiagaraMeshParticles);
 }
 
-
+void NiagaraRendererMeshes::TransformChanged()
+{
+	WorldSpacePrimitiveUniformBuffer.ReleaseResource();
+}
 
 /** Update render data buffer from attributes */
 FNiagaraDynamicDataBase *NiagaraRendererMeshes::GenerateVertexData(const FNiagaraSceneProxy* Proxy, FNiagaraDataSet &Data, const ENiagaraSimTarget Target)
@@ -374,6 +383,8 @@ FNiagaraDynamicDataBase *NiagaraRendererMeshes::GenerateVertexData(const FNiagar
 		Data.GetVariableComponentOffsets(Properties->DynamicMaterial2Binding.DataSetVariable, MaterialParamOffset2, IntDummy);
 		Data.GetVariableComponentOffsets(Properties->DynamicMaterial3Binding.DataSetVariable, MaterialParamOffset3, IntDummy);
 		Data.GetVariableComponentOffsets(Properties->MeshOrientationBinding.DataSetVariable, TransformOffset, IntDummy);
+		Data.GetVariableComponentOffsets(Properties->NormalizedAgeBinding.DataSetVariable, NormalizedAgeOffset, IntDummy);
+		Data.GetVariableComponentOffsets(Properties->MaterialRandomBinding.DataSetVariable, MaterialRandomOffset, IntDummy);
 		Data.GetVariableComponentOffsets(Properties->CustomSortingBinding.DataSetVariable, CustomSortingOffset, IntDummy);
 		LastSyncedId = Properties->SyncId;
 	}

@@ -48,6 +48,7 @@
 #include "UObject/PropertyPortFlags.h"
 #include "Templates/UniquePtr.h"
 #include "AnimationRuntime.h"
+#include "UObject/NiagaraObjectVersion.h"
 
 #if WITH_EDITOR
 #include "Rendering/SkeletalMeshModel.h"
@@ -939,6 +940,7 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 	Ar.UsingCustomVersion(FSkeletalMeshCustomVersion::GUID);
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
+	Ar.UsingCustomVersion(FNiagaraObjectVersion::GUID);
 
 	FStripDataFlags StripFlags( Ar );
 
@@ -1616,6 +1618,12 @@ void USkeletalMesh::PostLoad()
 	bHasActiveClothingAssets = ComputeActiveClothingAssets();
 
 #if WITH_EDITOR
+	if (GetLinkerCustomVersion(FNiagaraObjectVersion::GUID) < FNiagaraObjectVersion::SkeletalMeshVertexSampling)
+	{
+		SamplingInfo.BuildRegions(this);
+		SamplingInfo.BuildWholeMesh(this);
+	}
+
 	UpdateGenerateUpToData();
 #endif
 }

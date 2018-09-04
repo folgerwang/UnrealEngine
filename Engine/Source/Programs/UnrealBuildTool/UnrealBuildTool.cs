@@ -1542,11 +1542,19 @@ namespace UnrealBuildTool
 
 							if (BuildConfiguration.bUseUBTMakefiles && !UBTMakefile.PrerequisiteActions.Any(x => x.ActionHandler != null))
 							{
-								// We've been told to prepare to build, so let's go ahead and save out our action graph so that we can use in a later invocation 
-								// to assemble the build.  Even if we are configured to assemble the build in this same invocation, we want to save out the
-								// Makefile so that it can be used on subsequent 'assemble only' runs, for the fastest possible iteration times
-								// @todo ubtmake: Optimization: We could make 'gather + assemble' mode slightly faster by saving this while busy compiling (on our worker thread)
-								UBTMakefile.SaveUBTMakefile(TargetDescs, HotReload, UBTMakefile);
+								if(UBTMakefile.PrerequisiteActions.Length == 0)
+								{
+									// Nothing to build for this target
+									Log.TraceInformation("No buildable actions for this target. Makefile will not be saved.");
+								}
+								else
+								{
+									// We've been told to prepare to build, so let's go ahead and save out our action graph so that we can use in a later invocation 
+									// to assemble the build.  Even if we are configured to assemble the build in this same invocation, we want to save out the
+									// Makefile so that it can be used on subsequent 'assemble only' runs, for the fastest possible iteration times
+									// @todo ubtmake: Optimization: We could make 'gather + assemble' mode slightly faster by saving this while busy compiling (on our worker thread)
+									UBTMakefile.SaveUBTMakefile(TargetDescs, HotReload, UBTMakefile);
+								}
 							}
 						}
 
@@ -1638,13 +1646,23 @@ namespace UnrealBuildTool
 									CppIncludeThread = new CppIncludeBackgroundThread(TargetToOutdatedPrerequisitesMap, TargetToHeaders);
 								}
 
+								// Check if we're allowed to modify manifests
+								bool bNoManifestChanges = Arguments.Any(x => x.Equals("-NoManifestChanges", StringComparison.OrdinalIgnoreCase));
+
 								// If we're not touching any shared files (ie. anything under Engine), allow the build ids to be recycled between applications.
 								HashSet<FileReference> OutputFiles = new HashSet<FileReference>(ActionsToExecute.SelectMany(x => x.ProducedItems.Select(y => y.Location)));
 								foreach (UEBuildTarget Target in Targets)
 								{
-									if (!Target.TryRecycleVersionManifests(OutputFiles))
+									if (!Target.TryRecycleVersionManifests(OutputFiles, bNoManifestChanges))
 									{
-										Target.InvalidateVersionManifests();
+										if(bNoManifestChanges)
+										{
+											throw new BuildException("Stopping build due to manifest changes.");
+										}
+										else
+										{
+											Target.InvalidateVersionManifests();
+										}
 									}
 								}
 
@@ -1667,7 +1685,7 @@ namespace UnrealBuildTool
 								{
 									foreach (UEBuildTarget Target in Targets)
 									{
-										Target.WriteReceipts();
+										Target.WriteReceipts(bNoManifestChanges);
 										UEBuildPlatform.GetBuildPlatform(Target.Platform).PostBuildSync(Target);
 									}
 									if (ActionsToExecute.Count == 0 && BuildConfiguration.bSkipLinkingWhenNothingToCompile)
@@ -2262,7 +2280,7 @@ namespace UnrealBuildTool
 			foreach (UEBuildTarget Target in Targets)
 			{
 				Target.PatchModuleManifestsForHotReloadAssembling(OnlyModulesLocal);
-				Target.WriteReceipts();
+				Target.WriteReceipts(false);
 			}
 		}
 	}

@@ -24,6 +24,7 @@ private:
 
 	TSharedRef<SWidget> OnGetAddButtonMenuContent();
 	
+	TSharedPtr<class SComboButton> AddButton;
 
 private:
 	UNiagaraNodeWithDynamicPins* OwningNode;

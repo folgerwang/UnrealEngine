@@ -1,8 +1,9 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Tools.DotNETCommon;
 
 namespace AutomationTool
 {
@@ -40,6 +41,135 @@ namespace AutomationTool
 		public string ParseParamValue(string Param, string Default = null)
 		{
 			return ParseParamValue(Params, Param, Default);
+		}
+
+		/// <summary>
+		/// Parses an argument.
+		/// </summary>
+		/// <param name="Param"></param>
+		/// <returns></returns>
+		public string ParseOptionalStringParam(string Param)
+		{
+			return ParseParamValue(Param, null);
+		}
+
+		/// <summary>
+		/// Parses an argument. Throws an exception if the parameter is not specified.
+		/// </summary>
+		/// <param name="Param">Name of the argument</param>
+		/// <returns>Value of the argument</returns>
+		public string ParseRequiredStringParam(string Param)
+		{
+			string Value = ParseOptionalStringParam(Param);
+			if(Value == null)
+			{
+				throw new AutomationException("Missing -{0}=... parameter");
+			}
+			return Value;
+		}
+
+		/// <summary>
+		/// Parses an file reference argument.
+		/// </summary>
+		/// <param name="Param">Name of the argument</param>
+		/// <returns>Value of the argument</returns>
+		public FileReference ParseOptionalFileReferenceParam(string Param)
+		{
+			string StringValue = ParseParamValue(Param);
+			if(StringValue == null)
+			{
+				return null;
+			}
+			else
+			{
+				return new FileReference(StringValue);
+			}
+		}
+
+		/// <summary>
+		/// Parses an file reference argument. Throws an exception if the parameter is not specified.
+		/// </summary>
+		/// <param name="Param">Name of the argument</param>
+		/// <returns>Value of the argument</returns>
+		public FileReference ParseRequiredFileReferenceParam(string Param)
+		{
+			FileReference Value = ParseOptionalFileReferenceParam(Param);
+			if(Value == null)
+			{
+				throw new AutomationException("Missing -{0}=... parameter");
+			}
+			return Value;
+		}
+
+		/// <summary>
+		/// Parses a directory reference argument.
+		/// </summary>
+		/// <param name="Param">Name of the argument</param>
+		/// <returns>Value of the argument</returns>
+		public DirectoryReference ParseOptionalDirectoryReferenceParam(string Param)
+		{
+			string StringValue = ParseOptionalStringParam(Param);
+			if(StringValue == null)
+			{
+				return null;
+			}
+			else
+			{
+				return new DirectoryReference(StringValue);
+			}
+		}
+
+		/// <summary>
+		/// Parses a directory reference argument. Throws an exception if the parameter is not specified.
+		/// </summary>
+		/// <param name="Param">Name of the argument</param>
+		/// <returns>Value of the argument</returns>
+		public DirectoryReference ParseRequiredDirectoryReferenceParam(string Param)
+		{
+			DirectoryReference Value = ParseOptionalDirectoryReferenceParam(Param);
+			if(Value == null)
+			{
+				throw new AutomationException("Missing -{0}=... parameter");
+			}
+			return Value;
+		}
+
+		/// <summary>
+		/// Parses an argument as an enum.
+		/// </summary>
+		/// <param name="Param">Name of the parameter to read.</param>
+		/// <returns>Returns the value that was parsed.
+		public Nullable<T> ParseOptionalEnumParam<T>(string Param) where T : struct
+		{
+			string ValueString = ParseParamValue(Param);
+			if(ValueString == null)
+			{
+				return null;
+			}
+			else
+			{
+				T Value;
+				if(!Enum.TryParse<T>(ValueString, out Value))
+				{
+					throw new AutomationException("'{0}' is not a valid value for {1}", ValueString, typeof(T).Name);
+				}
+				return Value;
+			}
+		}
+
+		/// <summary>
+		/// Parses an argument as an enum. Throws an exception if the parameter is not specified.
+		/// </summary>
+		/// <param name="Param">Name of the parameter to read.</param>
+		/// <returns>Returns the value that was parsed.
+		public T ParseRequiredEnumParamEnum<T>(string Param) where T : struct
+		{
+			Nullable<T> Value = ParseOptionalEnumParam<T>(Param);
+			if(!Value.HasValue)
+			{
+				throw new AutomationException("Missing -{0}=... parameter");
+			}
+			return Value.Value;
 		}
 
 		/// <summary>

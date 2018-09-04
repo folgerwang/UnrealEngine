@@ -59,6 +59,7 @@
 #define SYS_PARAM_EMITTER_SPAWNRATE					INiagaraModule::GetVar_Emitter_SpawnRate()
 #define SYS_PARAM_EMITTER_SPAWN_INTERVAL			INiagaraModule::GetVar_Emitter_SpawnInterval()
 #define SYS_PARAM_EMITTER_INTERP_SPAWN_START_DT		INiagaraModule::GetVar_Emitter_InterpSpawnStartDt()
+#define SYS_PARAM_EMITTER_SPAWN_GROUP		INiagaraModule::GetVar_Emitter_SpawnGroup()
 
 #define SYS_PARAM_PARTICLES_ID						INiagaraModule::GetVar_Particles_ID()
 #define SYS_PARAM_PARTICLES_POSITION				INiagaraModule::GetVar_Particles_Position()

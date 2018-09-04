@@ -26,11 +26,18 @@ public:
 private:
 	void OnInterfaceChanged();
 	void OnDataChanged();
-	TArray<TSharedPtr<FName>> GenerateSourceArray();
+	void GenerateRegionsArray(TArray<TSharedPtr<FName>>& SourceArray);
+	void GenerateBonesArray(TArray<TSharedPtr<FName>>& SourceArray);
+	void GenerateSocketsArray(TArray<TSharedPtr<FName>>& SourceArray);
 
 private:
 	TSharedPtr<FNiagaraDetailSourcedArrayBuilder> RegionsBuilder;
+	TSharedPtr<FNiagaraDetailSourcedArrayBuilder> BonesBuilder;
+	TSharedPtr<FNiagaraDetailSourcedArrayBuilder> SocketsBuilder;
 	IDetailLayoutBuilder* LayoutBuilder;
-	UNiagaraDataInterfaceSkeletalMesh*  MeshInterface;
-	USkeletalMesh* MeshObject;
+	TWeakObjectPtr<UNiagaraDataInterfaceSkeletalMesh>  MeshInterface;
+	TWeakObjectPtr<USkeletalMesh> MeshObject;
+
+	IDetailCategoryBuilder* MeshCategory;
+	IDetailCategoryBuilder* SkelCategory;
 };

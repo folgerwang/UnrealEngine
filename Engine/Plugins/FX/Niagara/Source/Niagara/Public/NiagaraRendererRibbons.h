@@ -31,25 +31,10 @@ public:
 
 	virtual bool SetMaterialUsage() override;
 
+	virtual void TransformChanged() override;
+
 	/** Update render data buffer from attributes */
 	FNiagaraDynamicDataBase *GenerateVertexData(const FNiagaraSceneProxy* Proxy, FNiagaraDataSet &Data, const ENiagaraSimTarget Target) override;
-
-	void AddRibbonVert(TArray<FNiagaraRibbonVertex>& RenderData, FVector ParticlePos, FVector2D UV1, FVector2D UV2,
-		const FLinearColor &Color, const float Rotation, const float Size, const FVector NormDir, const FVector CustomFacing)
-	{
-		FNiagaraRibbonVertex NewVertex;
-		NewVertex.Position = ParticlePos;
-		NewVertex.Direction = NormDir;
-		NewVertex.Color = Color;
-		NewVertex.Size = Size;
-		NewVertex.Rotation = Rotation;
-		NewVertex.Tex_U = UV1.X;
-		NewVertex.Tex_V = UV1.Y;
-		NewVertex.Tex_U2 = UV2.X;
-		NewVertex.Tex_V2 = UV2.Y;
-		NewVertex.CustomFacingVector = CustomFacing;
-		RenderData.Add(NewVertex);
-	}
 
 	void AddDynamicParam(TArray<FNiagaraRibbonVertexDynamicParameter>& ParamData, const FVector4& DynamicParam)
 	{
@@ -74,7 +59,8 @@ public:
 
 	UClass *GetPropertiesClass() override { return UNiagaraRibbonRendererProperties::StaticClass(); }
 	void SetRendererProperties(UNiagaraRendererProperties *Props) override { Properties = Cast<UNiagaraRibbonRendererProperties>(Props); }
-	virtual UNiagaraRendererProperties* GetRendererProperties() const override {
+	virtual UNiagaraRendererProperties* GetRendererProperties() const override 
+	{
 		return Properties;
 	}
 
@@ -83,10 +69,18 @@ private:
 	UNiagaraRibbonRendererProperties *Properties;
 	mutable TUniformBuffer<FPrimitiveUniformShaderParameters> WorldSpacePrimitiveUniformBuffer;
 	int32 PositionDataOffset;
+	int32 VelocityDataOffset;
 	int32 WidthDataOffset;
 	int32 TwistDataOffset;
+	int32 FacingDataOffset;
 	int32 ColorDataOffset;
+	int32 NormalizedAgeDataOffset;
+	int32 MaterialRandomDataOffset;
 	int32 LastSyncedId;
+	int32 MaterialParamOffset;
+	int32 MaterialParamOffset1;
+	int32 MaterialParamOffset2;
+	int32 MaterialParamOffset3;
 };
 
 

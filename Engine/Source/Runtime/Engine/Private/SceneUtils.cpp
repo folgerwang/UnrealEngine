@@ -778,5 +778,3 @@ void FRenderQueryPool::ReleaseQuery(FRenderQueryRHIRef &Query)
 		Query = NULL;
 	}
 }
-
-PRAGMA_ENABLE_OPTIMIZATION

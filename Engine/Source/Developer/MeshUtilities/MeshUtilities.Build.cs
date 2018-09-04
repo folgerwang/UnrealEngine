@@ -95,10 +95,10 @@ public class MeshUtilities : ModuleRules
             PublicIncludePaths.Add(SDKDir + "include");
             PublicLibraryPaths.Add(SDKDir + "lib");
             PublicAdditionalLibraries.Add("embree.2.14.0.lib");
-            RuntimeDependencies.Add("$(EngineDir)/Binaries/Win64/embree.2.14.0.dll");
-            RuntimeDependencies.Add("$(EngineDir)/Binaries/Win64/tbb.dll");
-            RuntimeDependencies.Add("$(EngineDir)/Binaries/Win64/tbbmalloc.dll");
-            PublicDefinitions.Add("USE_EMBREE=1");
+            RuntimeDependencies.Add("$(TargetOutputDir)/embree.2.14.0.dll", SDKDir + "lib/embree.2.14.0.dll");
+            RuntimeDependencies.Add("$(TargetOutputDir)/tbb.dll", SDKDir + "lib/tbb.dll");
+			RuntimeDependencies.Add("$(TargetOutputDir)/tbbmalloc.dll", SDKDir + "lib/tbbmalloc.dll");
+			PublicDefinitions.Add("USE_EMBREE=1");
         }
         else if (Target.Platform == UnrealTargetPlatform.Mac)
         {

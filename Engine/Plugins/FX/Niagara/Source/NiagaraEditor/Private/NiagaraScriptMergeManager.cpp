@@ -416,23 +416,25 @@ void FNiagaraEmitterMergeAdapter::Initialize(const UNiagaraEmitter& InEmitter, U
 	TArray<UNiagaraNodeOutput*> EventOutputNodes;
 	for (UNiagaraNodeOutput* OutputNode : OutputNodes)
 	{
-		switch (OutputNode->GetUsage())
+		if (UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::EmitterSpawnScript))
 		{
-		case ENiagaraScriptUsage::EmitterSpawnScript:
 			EmitterSpawnStack = MakeShared<FNiagaraScriptStackMergeAdapter>(*OutputNode, *Emitter->EmitterSpawnScriptProps.Script, Emitter->GetUniqueEmitterName());
-			break;
-		case ENiagaraScriptUsage::EmitterUpdateScript:
+		}
+		else if (UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::EmitterUpdateScript))
+		{
 			EmitterUpdateStack = MakeShared<FNiagaraScriptStackMergeAdapter>(*OutputNode, *Emitter->EmitterUpdateScriptProps.Script, Emitter->GetUniqueEmitterName());
-			break;
-		case ENiagaraScriptUsage::ParticleSpawnScript:
+		}
+		else if (UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::ParticleSpawnScript))
+		{
 			ParticleSpawnStack = MakeShared<FNiagaraScriptStackMergeAdapter>(*OutputNode, *Emitter->SpawnScriptProps.Script, Emitter->GetUniqueEmitterName());
-			break;
-		case ENiagaraScriptUsage::ParticleUpdateScript:
+		}
+		else if (UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::ParticleUpdateScript))
+		{
 			ParticleUpdateStack = MakeShared<FNiagaraScriptStackMergeAdapter>(*OutputNode, *Emitter->UpdateScriptProps.Script, Emitter->GetUniqueEmitterName());
-			break;
-		case ENiagaraScriptUsage::ParticleEventScript:
+		}
+		else if(UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::ParticleEventScript))
+		{
 			EventOutputNodes.Add(OutputNode);
-			break;
 		}
 	}
 

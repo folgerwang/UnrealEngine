@@ -368,12 +368,18 @@ void FOutputDeviceFile::Flush()
  */
 void FOutputDeviceFile::CreateBackupCopy(const TCHAR* Filename)
 {
-	if (IFileManager::Get().FileSize(Filename) > 0)
+	IFileManager& FileManager = IFileManager::Get();
+	if (FileManager.FileSize(Filename) > 0) // file exists and is not empty
 	{
 		FString Name, Extension;
 		FString(Filename).Split(TEXT("."), &Name, &Extension, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-		FString BackupFilename = FString::Printf(TEXT("%s%s%s.%s"), *Name, BACKUP_LOG_FILENAME_POSTFIX, *GSystemStartTime, *Extension);
-		IFileManager::Get().Copy(*BackupFilename, Filename, false);
+		FDateTime OriginalTime = FileManager.GetTimeStamp(Filename);
+		FString BackupFilename = FString::Printf(TEXT("%s%s%s.%s"), *Name, BACKUP_LOG_FILENAME_POSTFIX, *OriginalTime.ToString(), *Extension);
+		if (FileManager.Copy(*BackupFilename, Filename, false) == COPY_OK)
+		{
+			FileManager.SetTimeStamp(*BackupFilename, OriginalTime);
+		}
+		// We use Copy + SetTimeStamp instead of Move because caller might want to append to original log file.
 	}
 }
 

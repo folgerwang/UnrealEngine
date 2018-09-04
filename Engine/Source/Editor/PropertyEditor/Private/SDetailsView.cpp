@@ -17,10 +17,10 @@
 #include "Widgets/Input/SSearchBox.h"
 #include "Classes/EditorStyleSettings.h"
 #include "DetailLayoutBuilderImpl.h"
+#include "DetailsViewPropertyGenerationUtilities.h"
 
 
 #define LOCTEXT_NAMESPACE "SDetailsView"
-
 
 SDetailsView::~SDetailsView()
 {
@@ -42,6 +42,7 @@ void SDetailsView::Construct(const FArguments& InArgs)
 	bViewingClassDefaultObject = false;
 
 	PropertyUtilities = MakeShareable( new FPropertyDetailsUtilities( *this ) );
+	PropertyGenerationUtilities = MakeShareable( new FDetailsViewPropertyGenerationUtilities(*this) );
 	
 	ColumnWidth = DetailsViewArgs.ColumnWidth;
 

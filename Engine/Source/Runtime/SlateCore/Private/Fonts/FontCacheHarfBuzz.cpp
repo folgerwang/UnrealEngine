@@ -18,9 +18,6 @@
 			#define snprintf _snprintf
 		#endif
 	#endif // #if PLATFORM_WINDOWS
-	#if PLATFORM_MAC || PLATFORM_IOS || PLATFORM_TVOS
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	#endif
 
 	// Include some private headers needed for our font implementation
 	PRAGMA_DISABLE_DEPRECATION_WARNINGS
@@ -30,9 +27,6 @@
 	THIRD_PARTY_INCLUDES_END
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
-	#if PLATFORM_MAC || PLATFORM_IOS || PLATFORM_TVOS
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	#endif
 	#if PLATFORM_WINDOWS || PLATFORM_XBOXONE
 		#pragma warning(pop)
 	#endif // #if PLATFORM_WINDOWS
