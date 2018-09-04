@@ -4,6 +4,7 @@
 
 #include "IPDisplayClusterClusterManager.h"
 #include "Network/DisplayClusterMessage.h"
+#include "Misc/App.h"
 
 class ADisplayClusterGameMode;
 class ADisplayClusterSettings;
@@ -58,6 +59,12 @@ public:
 	virtual void  SetDeltaTime(float deltaTime) override
 	{ DeltaTime = deltaTime; }
 
+	virtual void GetTimecode(FTimecode& timecode, FFrameRate& frameRate) const override
+	{ timecode = FApp::GetTimecode(); frameRate = FApp::GetTimecodeFrameRate(); }
+
+	virtual void SetTimecode(const FTimecode& timecode, const FFrameRate& frameRate) override
+	{ FApp::SetTimecodeAndFrameRate(timecode, frameRate); }
+	
 	virtual void RegisterSyncObject(IDisplayClusterClusterSyncObject* pSyncObj) override;
 	virtual void UnregisterSyncObject(IDisplayClusterClusterSyncObject* pSyncObj) override;
 

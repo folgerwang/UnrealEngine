@@ -1223,16 +1223,27 @@ void FComponentTransformDetails::OnSetTransform(ETransformField::Type TransformF
 					// This can invalidate OldSceneComponent
 					// We don't call PostEditChange for non commit changes because most classes implement the version that doesn't check the interaction type
 					OldSceneComponent->PostEditChangeChainProperty(PropertyChangedChainEvent);
+				}
+				else
+				{
+					SnapshotTransactionBuffer(OldSceneComponent);
+				}
 
-					SceneComponent = FindObject<USceneComponent>(EditedActor, *SceneComponentPath);
+				SceneComponent = FindObject<USceneComponent>(EditedActor, *SceneComponentPath);
 
-					if (EditedActor && EditedActor->GetRootComponent() == SceneComponent)
+				if (EditedActor && EditedActor->GetRootComponent() == SceneComponent)
+				{
+					if (bCommitted)
 					{
 						EditedActor->PostEditChangeChainProperty(PropertyChangedChainEvent);
 						SceneComponent = FindObject<USceneComponent>(EditedActor, *SceneComponentPath);
 					}
+					else
+					{
+						SnapshotTransactionBuffer(EditedActor);
+					}
 				}
-
+				
 				if (!Object->IsTemplate())
 				{
 					if (TransformField == ETransformField::Rotation || TransformField == ETransformField::Location)

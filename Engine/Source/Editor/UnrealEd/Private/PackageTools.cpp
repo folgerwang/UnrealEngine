@@ -14,6 +14,7 @@
 #include "UObject/Package.h"
 #include "UObject/MetaData.h"
 #include "UObject/UObjectHash.h"
+#include "UObject/GCObjectScopeGuard.h"
 #include "Serialization/ArchiveFindCulprit.h"
 #include "Misc/PackageName.h"
 #include "Editor/EditorPerProjectUserSettings.h"
@@ -37,6 +38,7 @@
 #include "UObject/UObjectIterator.h"
 #include "ComponentReregisterContext.h"
 #include "Engine/Selection.h"
+#include "Engine/GameEngine.h"
 #include "Engine/LevelStreaming.h"
 #include "Engine/MapBuildDataRegistry.h"
 
@@ -461,7 +463,7 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 	bool UPackageTools::ReloadPackages( const TArray<UPackage*>& TopLevelPackages )
 	{
 		FText ErrorMessage;
-		const bool bResult = ReloadPackages(TopLevelPackages, ErrorMessage, /*bInteractive*/true);
+		const bool bResult = ReloadPackages(TopLevelPackages, ErrorMessage, EReloadPackagesInteractionMode::Interactive);
 		
 		if (!ErrorMessage.IsEmpty())
 		{
@@ -473,6 +475,12 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 
 
 	bool UPackageTools::ReloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage, const bool bInteractive )
+	{
+		return ReloadPackages(TopLevelPackages, OutErrorMessage, bInteractive ? EReloadPackagesInteractionMode::Interactive : EReloadPackagesInteractionMode::AssumeNegative);
+	}
+
+
+	bool UPackageTools::ReloadPackages( const TArray<UPackage*>& TopLevelPackages, FText& OutErrorMessage, const EReloadPackagesInteractionMode InteractionMode )
 	{
 		bool bResult = false;
 
@@ -504,22 +512,34 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 					}
 				}
 
-				// Ask the user whether dirty packages should be reloaded.
-				if (bInteractive && DirtyPackages.Num() > 0)
+				// How should we handle locally dirty packages?
+				if (DirtyPackages.Num() > 0)
 				{
-					FTextBuilder ReloadDirtyPackagesMsgBuilder;
-					ReloadDirtyPackagesMsgBuilder.AppendLine(NSLOCTEXT("UnrealEd", "ShouldReloadDirtyPackagesHeader", "The following packages have been modified:"));
-					{
-						ReloadDirtyPackagesMsgBuilder.Indent();
-						for (UPackage* DirtyPackage : DirtyPackages)
-						{
-							ReloadDirtyPackagesMsgBuilder.AppendLine(DirtyPackage->GetFName());
-						}
-						ReloadDirtyPackagesMsgBuilder.Unindent();
-					}
-					ReloadDirtyPackagesMsgBuilder.AppendLine(NSLOCTEXT("UnrealEd", "ShouldReloadDirtyPackagesFooter", "Would you like to reload these packages? This will revert any changes you have made."));
+					EAppReturnType::Type ReloadDirtyPackagesResult = EAppReturnType::No;
 
-					if (FMessageDialog::Open(EAppMsgType::YesNo, ReloadDirtyPackagesMsgBuilder.ToText()) == EAppReturnType::Yes)
+					// Ask the user whether dirty packages should be reloaded.
+					if (InteractionMode == EReloadPackagesInteractionMode::Interactive)
+					{
+						FTextBuilder ReloadDirtyPackagesMsgBuilder;
+						ReloadDirtyPackagesMsgBuilder.AppendLine(NSLOCTEXT("UnrealEd", "ShouldReloadDirtyPackagesHeader", "The following packages have been modified:"));
+						{
+							ReloadDirtyPackagesMsgBuilder.Indent();
+							for (UPackage* DirtyPackage : DirtyPackages)
+							{
+								ReloadDirtyPackagesMsgBuilder.AppendLine(DirtyPackage->GetFName());
+							}
+							ReloadDirtyPackagesMsgBuilder.Unindent();
+						}
+						ReloadDirtyPackagesMsgBuilder.AppendLine(NSLOCTEXT("UnrealEd", "ShouldReloadDirtyPackagesFooter", "Would you like to reload these packages? This will revert any changes you have made."));
+
+						ReloadDirtyPackagesResult = FMessageDialog::Open(EAppMsgType::YesNo, ReloadDirtyPackagesMsgBuilder.ToText());
+					}
+					else if (InteractionMode == EReloadPackagesInteractionMode::AssumePositive)
+					{
+						ReloadDirtyPackagesResult = EAppReturnType::Yes;
+					}
+
+					if (ReloadDirtyPackagesResult == EAppReturnType::Yes)
 					{
 						for (UPackage* DirtyPackage : DirtyPackages)
 						{
@@ -571,71 +591,95 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 			}
 		}
 
+		// Get the current world.
+		TWeakObjectPtr<UWorld> CurrentWorld;
+		if (GIsEditor)
+		{
+			if (UWorld* EditorWorld = GEditor->GetEditorWorldContext().World())
+			{
+				CurrentWorld = EditorWorld;
+			}
+		}
+		else if (UGameEngine* GameEngine = Cast<UGameEngine>(GEngine))
+		{
+			if (UWorld* GameWorld = GameEngine->GetGameWorld())
+			{
+				CurrentWorld = GameWorld;
+			}
+		}
+
 		// Check to see if we need to reload the current world.
 		FName WorldNameToReload;
 		TMap<FName, const UMapBuildDataRegistry*> LevelsToMapBuildData;
 		TArray<ULevelStreaming*> RemovedStreamingLevels;
+		if (UWorld* CurrentWorldPtr = CurrentWorld.Get())
 		{
-			if (UWorld* EditorWorld = GEditor->GetEditorWorldContext().World())
+			// Is the current world being reloaded? If so, we just reset the current world and load it again at the end rather than let it go through ReloadPackage 
+			// (which doesn't work for the current world due to some assumptions about worlds, and their lifetimes).
+			// We also need to skip the build data package as that will also be destroyed by the transition.
+			if (PackagesToReload.Contains(CurrentWorldPtr->GetOutermost()))
 			{
-				// Is the currently loaded world being reloaded? If so, we just reset the current world and load it again at the end rather than let it go 
-				// through ReloadPackage (which doesn't work for the editor due to some assumptions it makes about worlds, and their lifetimes).
-				// We also need to skip the build data package as that will also be destroyed by the call to CreateNewMapForEditing.
-				if (PackagesToReload.Contains(EditorWorld->GetOutermost()))
+				// Cache this so we can reload the world later
+				WorldNameToReload = *CurrentWorldPtr->GetPathName();
+
+				// Remove the world package from the reload list
+				PackagesToReload.Remove(CurrentWorldPtr->GetOutermost());
+
+				// Remove the level build data package from the reload list as creating a new map will unload build data for the current world
+				for (int32 LevelIndex = 0; LevelIndex < CurrentWorldPtr->GetNumLevels(); ++LevelIndex)
 				{
-					// Cache this so we can reload the world later
-					WorldNameToReload = *EditorWorld->GetPathName();
-
-					// Remove the world package from the reload list
-					PackagesToReload.Remove(EditorWorld->GetOutermost());
-
-					// Remove the level build data package from the reload list as creating a new map will unload build data for the current world
-					for (int32 LevelIndex = 0; LevelIndex < EditorWorld->GetNumLevels(); ++LevelIndex)
+					ULevel* Level = CurrentWorldPtr->GetLevel(LevelIndex);
+					if (Level->MapBuildData)
 					{
-						ULevel* Level = EditorWorld->GetLevel(LevelIndex);
-						if (Level->MapBuildData)
-						{
-							PackagesToReload.Remove(Level->MapBuildData->GetOutermost());
-						}
+						PackagesToReload.Remove(Level->MapBuildData->GetOutermost());
 					}
+				}
 
-					// Remove any streaming levels from the reload list as creating a new map will unload streaming levels for the current world
-					for (ULevelStreaming* EditorStreamingLevel : EditorWorld->GetStreamingLevels())
+				// Remove any streaming levels from the reload list as creating a new map will unload streaming levels for the current world
+				for (ULevelStreaming* StreamingLevel : CurrentWorldPtr->GetStreamingLevels())
+				{
+					if (StreamingLevel->IsLevelLoaded())
 					{
-						if (EditorStreamingLevel->IsLevelLoaded())
-						{
-							UPackage* EditorStreamingLevelPackage = EditorStreamingLevel->GetLoadedLevel()->GetOutermost();
-							PackagesToReload.Remove(EditorStreamingLevelPackage);
-						}
+						UPackage* StreamingLevelPackage = StreamingLevel->GetLoadedLevel()->GetOutermost();
+						PackagesToReload.Remove(StreamingLevelPackage);
 					}
+				}
 
-					// Unload the current world
+				// Unload the current world
+				if (GIsEditor)
+				{
 					GEditor->CreateNewMapForEditing();
 				}
-				// Cache the current map build data for the levels of the current world so we can see if they change due to a reload (we can skip this if reloading the current world).
-				else
+				else if (UGameEngine* GameEngine = Cast<UGameEngine>(GEngine))
 				{
-					TArray<ULevel*> EditorLevels = EditorWorld->GetLevels();
+					// Outside of the editor we need to keep the packages alive to stop the world transition from GC'ing them
+					TGCObjectsScopeGuard<UPackage> KeepPackagesAlive(PackagesToReload);
 
-					for (ULevel* Level : EditorLevels)
+					FString LoadMapError;
+					GameEngine->LoadMap(GameEngine->GetWorldContextFromWorldChecked(CurrentWorldPtr), FURL(TEXT("/Engine/Maps/Templates/Template_Default")), nullptr, LoadMapError);
+				}
+			}
+			// Cache the current map build data for the levels of the current world so we can see if they change due to a reload (we can skip this if reloading the current world).
+			else
+			{
+				for (ULevel* Level : CurrentWorldPtr->GetLevels())
+				{
+					if (PackagesToReload.Contains(Level->GetOutermost()))
 					{
-						if (PackagesToReload.Contains(Level->GetOutermost()))
+						for (ULevelStreaming* StreamingLevel : CurrentWorldPtr->GetStreamingLevels())
 						{
-							for (ULevelStreaming* StreamingLevel : EditorWorld->GetStreamingLevels())
+							if (StreamingLevel->GetLoadedLevel() == Level)
 							{
-								if (StreamingLevel->GetLoadedLevel() == Level)
-								{
-									EditorWorld->RemoveFromWorld(Level);
-									StreamingLevel->RemoveLevelFromCollectionForReload();
-									RemovedStreamingLevels.Add(StreamingLevel);
-									break;
-								}
+								CurrentWorldPtr->RemoveFromWorld(Level);
+								StreamingLevel->RemoveLevelFromCollectionForReload();
+								RemovedStreamingLevels.Add(StreamingLevel);
+								break;
 							}
 						}
-						else
-						{
-							LevelsToMapBuildData.Add(Level->GetFName(), Level->MapBuildData);
-						}
+					}
+					else
+					{
+						LevelsToMapBuildData.Add(Level->GetFName(), Level->MapBuildData);
 					}
 				}
 			}
@@ -649,8 +693,10 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 			::SortPackagesForReload(PackagesToReload);
 
 			// Remove potential references to to-be deleted objects from the global selection set.
-			GEditor->GetSelectedObjects()->DeselectAll();
-
+			if (GIsEditor)
+			{
+				GEditor->GetSelectedObjects()->DeselectAll();
+			}
 			// Detach all components while loading a package.
 			// This is necessary for the cases where the load replaces existing objects which may be referenced by the attached components.
 			FGlobalComponentReregisterContext ReregisterContext;
@@ -704,7 +750,7 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 			}
 
 			// Update the actor browser if a script package was reloaded.
-			if (bScriptPackageWasReloaded)
+			if (GIsEditor && bScriptPackageWasReloaded)
 			{
 				GEditor->BroadcastClassPackageLoadedOrUnloaded();
 			}
@@ -713,21 +759,29 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 		// Load the previous world (if needed).
 		if (!WorldNameToReload.IsNone())
 		{
-			TArray<FName> WorldNamesToReload;
-			WorldNamesToReload.Add(WorldNameToReload);
-			FAssetEditorManager::Get().OpenEditorsForAssets(WorldNamesToReload);
+			if (GIsEditor)
+			{
+				TArray<FName> WorldNamesToReload;
+				WorldNamesToReload.Add(WorldNameToReload);
+				FAssetEditorManager::Get().OpenEditorsForAssets(WorldNamesToReload);
+			}
+			else if (UGameEngine* GameEngine = Cast<UGameEngine>(GEngine))
+			{
+				FString LoadMapError;
+				GameEngine->LoadMap(GameEngine->GetWorldContextFromWorldChecked(GameEngine->GetGameWorld()), FURL(*WorldNameToReload.ToString()), nullptr, LoadMapError);
+			}
 		}
 		// Update the rendering resources for the levels of the current world if their map build data has changed (we skip this if reloading the current world).
 		else
 		{
 			if (LevelsToMapBuildData.Num() > 0)
 			{
-				UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
-				check(EditorWorld);
+				UWorld* CurrentWorldPtr = CurrentWorld.Get();
+				check(CurrentWorldPtr);
 
-				for (int32 LevelIndex = 0; LevelIndex < EditorWorld->GetNumLevels(); ++LevelIndex)
+				for (int32 LevelIndex = 0; LevelIndex < CurrentWorldPtr->GetNumLevels(); ++LevelIndex)
 				{
-					ULevel* Level = EditorWorld->GetLevel(LevelIndex);
+					ULevel* Level = CurrentWorldPtr->GetLevel(LevelIndex);
 					const UMapBuildDataRegistry* OldMapBuildData = LevelsToMapBuildData.FindRef(Level->GetFName());
 
 					if (OldMapBuildData && OldMapBuildData != Level->MapBuildData)
@@ -737,15 +791,16 @@ UPackageTools::UPackageTools(const FObjectInitializer& ObjectInitializer)
 					}
 				}
 			}
+
 			if (RemovedStreamingLevels.Num() > 0)
 			{
-				UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
-				check(EditorWorld);
+				UWorld* CurrentWorldPtr = CurrentWorld.Get();
+				check(CurrentWorldPtr);
 
 				for (ULevelStreaming* StreamingLevel : RemovedStreamingLevels)
 				{
 					ULevel* NewLevel = StreamingLevel->GetLoadedLevel();
-					EditorWorld->AddToWorld(NewLevel, StreamingLevel->LevelTransform, false);
+					CurrentWorldPtr->AddToWorld(NewLevel, StreamingLevel->LevelTransform, false);
 					StreamingLevel->AddLevelToCollectionAfterReload();
 				}
 			}

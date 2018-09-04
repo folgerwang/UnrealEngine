@@ -48,14 +48,17 @@ FTimecode UAjaTimecodeProvider::GetTimecode() const
 {
 	if (SyncChannel)
 	{
-		AJA::FTimecode NewTimecode;
-		if (SyncChannel->GetTimecode(NewTimecode))
+		if (State == ETimecodeProviderSynchronizationState::Synchronized)
 		{
-			return FAja::ConvertAJATimecode2Timecode(NewTimecode, GetFrameRate());
-		}
-		else if (State == ETimecodeProviderSynchronizationState::Synchronized)
-		{
-			const_cast<UAjaTimecodeProvider*>(this)->State = ETimecodeProviderSynchronizationState::Error;
+			AJA::FTimecode NewTimecode;
+			if (SyncChannel->GetTimecode(NewTimecode))
+			{
+				return FAja::ConvertAJATimecode2Timecode(NewTimecode, GetFrameRate());
+			}
+			else
+			{
+				const_cast<UAjaTimecodeProvider*>(this)->State = ETimecodeProviderSynchronizationState::Error;
+			}
 		}
 	}
 	return FTimecode();
@@ -84,8 +87,8 @@ bool UAjaTimecodeProvider::Initialize(class UEngine* InEngine)
 		State = ETimecodeProviderSynchronizationState::Error;
 
 		const bool bAddProjectSettingMessage = MediaPort.IsValid() && !bIsDefaultModeOverriden;
-		const FString OverrideString = bAddProjectSettingMessage ? TEXT("The project settings haven't been set for this port.") : TEXT("");
-		UE_LOG(LogAjaMedia, Warning, TEXT("The TimecodeProvider '%s' is invalid. %s %s"), *GetName(), *FailureReason, *OverrideString);
+		const TCHAR* OverrideString = bAddProjectSettingMessage ? TEXT("The project settings haven't been set for this port.") : TEXT("");
+		UE_LOG(LogAjaMedia, Warning, TEXT("The TimecodeProvider '%s' is invalid. %s %s"), *GetName(), *FailureReason, OverrideString);
 		return false;
 	}
 
@@ -98,6 +101,8 @@ bool UAjaTimecodeProvider::Initialize(class UEngine* InEngine)
 	Options.CallbackInterface = SyncCallback;
 	Options.VideoFormatIndex = CurrentMediaMode.VideoFormatIndex;
 	Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
+	Options.bReadTimecodeFromReferenceIn = false;
+	Options.LTCSourceIndex = 1;
 	switch(TimecodeFormat)
 	{
 		case EAjaMediaTimecodeFormat::None:

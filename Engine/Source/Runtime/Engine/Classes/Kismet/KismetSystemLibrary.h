@@ -349,7 +349,7 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 * @param	Duration		The display duration (if Print to Screen is True). Using negative number will result in loading the duration time from the config.
 	 */
 	UFUNCTION(BlueprintCallable, meta=(WorldContext="WorldContextObject", CallableWithoutWorldContext, Keywords = "log", AdvancedDisplay = "2", DevelopmentOnly), Category="Utilities|Text")
-	static void PrintText(UObject* WorldContextObject, const FText InText = FText::FromString(TEXT("Hello")), bool bPrintToScreen = true, bool bPrintToLog = true, FLinearColor TextColor = FLinearColor(0.0, 0.66, 1.0), float Duration = 2.f);
+	static void PrintText(UObject* WorldContextObject, const FText InText = INVTEXT("Hello"), bool bPrintToScreen = true, bool bPrintToLog = true, FLinearColor TextColor = FLinearColor(0.0, 0.66, 1.0), float Duration = 2.f);
 
 	/**
 	 * Prints a warning string to the log and the screen. Meant to be used as a way to inform the user that they misused the node.
@@ -1659,6 +1659,51 @@ class ENGINE_API UKismetSystemLibrary : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintCallable, Category="Utilities")
 	static FString GetCommandLine();
+
+	// --- Transactions ------------------------------
+
+	/**
+	 * Begin a new undo transaction. An undo transaction is defined as all actions which take place when the user selects "undo" a single time.
+	 * @note If there is already an active transaction in progress, then this increments that transaction's action counter instead of beginning a new transaction.
+	 * @note You must call TransactObject before modifying each object that should be included in this undo transaction.
+	 * @note Only available in the editor.
+	 * 
+	 * @param	Context			The context for the undo session. Typically the tool/editor that caused the undo operation.
+	 * @param	Description		The description for the undo session. This is the text that will appear in the "Edit" menu next to the Undo item.
+	 * @param	PrimaryObject	The primary object that the undo session operators on (can be null, and mostly is).
+	 *
+	 * @return	The number of active actions when BeginTransaction was called (values greater than 0 indicate that there was already an existing undo transaction in progress), or -1 on failure.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Transactions")
+	static int32 BeginTransaction(const FString& Context, FText Description, UObject* PrimaryObject);
+
+	/**
+	 * Attempt to end the current undo transaction. Only successful if the transaction's action counter is 1.
+	 * @note Only available in the editor.
+	 * 
+	 * @return	The number of active actions when EndTransaction was called (a value of 1 indicates that the transaction was successfully closed), or -1 on failure.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Transactions")
+	static int32 EndTransaction();
+
+	/**
+	 * Cancel the current transaction, and no longer capture actions to be placed in the undo buffer.
+	 * @note Only available in the editor.
+	 *
+	 * @param	Index		The action counter to cancel transactions from (as returned by a call to BeginTransaction).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Transactions")
+	static void CancelTransaction(const int32 Index);
+
+	/**
+	 * Notify the current transaction (if any) that this object is about to be modified and should be placed into the undo buffer.
+	 * @note Internally this calls Modify on the given object, so will also mark the owner package dirty.
+	 * @note Only available in the editor.
+	 *
+	 * @param	Object		The object that is about to be modified.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Transactions")
+	static void TransactObject(UObject* Object);
 
 	// --- Asset Manager ------------------------------
 

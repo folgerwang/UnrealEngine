@@ -35,7 +35,7 @@ void FActorViewportTransformable::ApplyTransform( const FTransform& NewTransform
 
 			// @todo vreditor: InvalidateLightingCacheDetailed() causes static mesh components to re-create their physics state, 
 			// cancelling all velocity on the rigid body.  So we currently avoid calling it for simulated actors.
-			if( !IsPhysicallySimulated() )
+			if( !IsPhysicallySimulated() && !GIsDemoMode)
 			{
 				Actor->InvalidateLightingCacheDetailed( bOnlyTranslationChanged );
 			}

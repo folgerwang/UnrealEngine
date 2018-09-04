@@ -4803,7 +4803,7 @@ EReimportResult::Type UFontFileImportFactory::Reimport(UObject* InObject)
 		return EReimportResult::Succeeded;
 	}
 
-	return EReimportResult::Failed;
+	return OutCanceled ? EReimportResult::Cancelled : EReimportResult::Failed;
 }
 
 int32 UFontFileImportFactory::GetPriority() const
@@ -5194,10 +5194,12 @@ EReimportResult::Type UReimportTextureFactory::Reimport( UObject* Obj )
 	else if (OutCanceled)
 	{
 		UE_LOG(LogEditorFactories, Warning, TEXT("-- import canceled"));
+		return EReimportResult::Cancelled;
 	}
 	else
 	{
 		UE_LOG(LogEditorFactories, Warning, TEXT("-- import failed"));
+		return EReimportResult::Failed;
 	}
 	
 	return EReimportResult::Succeeded;
@@ -5879,6 +5881,8 @@ EReimportResult::Type UReimportFbxAnimSequenceFactory::Reimport( UObject* Obj )
 	{
 		UE_LOG(LogEditorFactories, Warning, TEXT("-- import failed") );
 		Importer->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Error, LOCTEXT("Error_CouldNotReimportAnimation", "Cannot re-import animation.")), FFbxErrors::Generic_ReimportingObjectFailed);
+		Importer->ReleaseScene();
+		return EReimportResult::Failed;
 	}
 
 	Importer->ReleaseScene(); 

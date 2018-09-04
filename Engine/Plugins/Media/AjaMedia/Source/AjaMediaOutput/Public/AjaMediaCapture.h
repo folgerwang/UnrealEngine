@@ -28,6 +28,8 @@ protected:
 	virtual bool ValidateMediaOutput() const override;
 	virtual bool CaptureSceneViewportImpl(TSharedPtr<FSceneViewport>& InSceneViewport) override;
 	virtual bool CaptureRenderTargetImpl(UTextureRenderTarget2D* InRenderTarget) override;
+	virtual bool UpdateSceneViewportImpl(TSharedPtr<FSceneViewport>& InSceneViewport) override;
+	virtual bool UpdateRenderTargetImpl(UTextureRenderTarget2D* InRenderTarget) override;
 	virtual void StopCaptureImpl(bool bAllowPendingFrameToBeProcess) override;
 
 	virtual void OnFrameCaptured_RenderingThread(const FCaptureBaseData& InBaseData, TSharedPtr<FMediaCaptureUserData> InUserData, void* InBuffer, int32 Width, int32 Height) override;
@@ -39,6 +41,8 @@ private:
 private:
 	bool InitAJA(UAjaMediaOutput* InMediaOutput);
 	void WaitForSync_RenderingThread() const;
+	void ApplyViewportTextureAlpha(TSharedPtr<FSceneViewport> InSceneViewport);
+	void RestoreViewportTextureAlpha(TSharedPtr<FSceneViewport> InSceneViewport);
 
 private:
 	/** Aja Port for outputting */

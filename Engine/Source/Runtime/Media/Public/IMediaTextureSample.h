@@ -5,6 +5,8 @@
 #include "CoreTypes.h"
 #include "Math/Color.h"
 #include "Math/IntPoint.h"
+#include "Misc/Optional.h"
+#include "Misc/Timecode.h"
 #include "Misc/Timespan.h"
 #include "Templates/SharedPointer.h"
 
@@ -159,6 +161,14 @@ public:
 	 * @see GetBuffer, GetDim, GetDuration, GetFormat, GetOutputDim, GetStride, GetTexture
 	 */
 	virtual FTimespan GetTime() const = 0;
+
+	/**
+	 * Get the sample timecode if available.
+	 *
+	 * @return Sample timecode.
+	 * @see GetTime
+	 */
+	virtual TOptional<FTimecode> GetTimecode() const { return TOptional<FTimecode>(); }
 
 	/**
 	 * Whether the sample can be held in a cache.

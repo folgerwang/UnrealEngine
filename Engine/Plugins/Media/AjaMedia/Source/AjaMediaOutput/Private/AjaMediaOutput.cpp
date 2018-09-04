@@ -71,52 +71,46 @@ bool UAjaMediaOutput::Validate(FString& OutFailureReason) const
 		return false;
 	}
 
-	if (CurrentMode.DeviceIndex != FillPort.DeviceIndex)
-	{
-		OutFailureReason = FString::Printf(TEXT("The MediaMode & FillPort of '%s' are not on the same device."), *GetName());
-		return false;
-	}
-
 	TUniquePtr<AJA::AJADeviceScanner> Scanner = MakeUnique<AJA::AJADeviceScanner>();
 	AJA::AJADeviceScanner::DeviceInfo DeviceInfo;
 	if (!Scanner->GetDeviceInfo(FillPort.DeviceIndex, DeviceInfo))
 	{
-		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that doesn't exist on this machine."), *GetName(), *FillPort.DeviceName);
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that doesn't exist on this machine."), *GetName(), *FillPort.DeviceName.ToString());
 		return false;
 	}
 
 	if (!DeviceInfo.bIsSupported)
 	{
-		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that is not supported by the AJA SDK."), *GetName(), *FillPort.DeviceName);
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that is not supported by the AJA SDK."), *GetName(), *FillPort.DeviceName.ToString());
 		return false;
 	}
 
 	if (!DeviceInfo.bCanDoPlayback)
 	{
-		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that can't do playback."), *GetName(), *FillPort.DeviceName);
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that can't do playback."), *GetName(), *FillPort.DeviceName.ToString());
 		return false;
 	}
 
 	if (FillPort.PortIndex == 1 && !DeviceInfo.bCanFrameStore1DoPlayback)
 	{
-		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that can't do playback on port 1."), *GetName(), *FillPort.DeviceName);
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that can't do playback on port 1."), *GetName(), *FillPort.DeviceName.ToString());
 		return false;
 	}
 
 	if (OutputType == EAjaMediaOutputType::FillAndKey && KeyPort.PortIndex == 1 && !DeviceInfo.bCanFrameStore1DoPlayback)
 	{
-		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that can't do playback on port 1."), *GetName(), *FillPort.DeviceName);
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that can't do playback on port 1."), *GetName(), *FillPort.DeviceName.ToString());
 		return false;
 }
 
 	if (PixelFormat == EAjaMediaOutputPixelFormat::PF_8BIT_ARGB && !DeviceInfo.bSupportPixelFormat8bitARGB)
 	{
-		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that doesn't support the 8bit ARGB pixel format."), *GetName(), *FillPort.DeviceName);
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that doesn't support the 8bit ARGB pixel format."), *GetName(), *FillPort.DeviceName.ToString());
 		return false;
 	}
 	if (PixelFormat == EAjaMediaOutputPixelFormat::PF_10BIT_RGB && !DeviceInfo.bSupportPixelFormat10bitRGB)
 	{
-		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that doesn't support the 10bit RGB pixel format."), *GetName(), *FillPort.DeviceName);
+		OutFailureReason = FString::Printf(TEXT("The MediaOutput '%s' use the device '%s' that doesn't support the 10bit RGB pixel format."), *GetName(), *FillPort.DeviceName.ToString());
 		return false;
 	}
 

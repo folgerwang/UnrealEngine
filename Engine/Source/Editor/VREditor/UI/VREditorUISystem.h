@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 #include "UObject/Object.h"
 #include "Widgets/SOverlay.h"
 #include "VRRadialMenuHandler.h"
+#include "EditorWorldExtension.h"
 #include "VREditorUISystem.generated.h"
 
 class AVREditorDockableWindow;
@@ -206,7 +207,7 @@ public:
 	void UpdateExternalSlateUI(TSharedRef<SWidget> InWidget, FName Name);
 
 	/** Transition the user widgets to a new world */
-	void TransitionWorld(UWorld* NewWorld);
+	void TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState);
 
 	UVRRadialMenuHandler* GetRadialMenuHandler()
 	{

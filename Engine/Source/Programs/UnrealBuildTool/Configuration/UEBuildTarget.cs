@@ -1572,7 +1572,7 @@ namespace UnrealBuildTool
 			foreach(FileReference ExistingFile in FileReferenceToModuleManifestPairs.Select(x => x.Key))
 			{
 				ModuleManifest ExistingManifest;
-				if(ExistingFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory) && ModuleManifest.TryRead(ExistingFile, out ExistingManifest))
+				if(UnrealBuildTool.IsUnderAnEngineDirectory(ExistingFile.Directory) && ModuleManifest.TryRead(ExistingFile, out ExistingManifest))
 				{
 					ExistingFileToManifest.Add(ExistingFile, ExistingManifest);
 				}
@@ -3651,18 +3651,8 @@ namespace UnrealBuildTool
 
 			GlobalCompileEnvironment.Definitions.Add(String.Format("IS_MONOLITHIC={0}", ShouldCompileMonolithic() ? "1" : "0"));
 
-			if (Rules.bCompileAgainstEngine)
-			{
-				GlobalCompileEnvironment.Definitions.Add("WITH_ENGINE=1");
-				GlobalCompileEnvironment.Definitions.Add(
-					String.Format("WITH_UNREAL_DEVELOPER_TOOLS={0}", Rules.bBuildDeveloperTools ? "1" : "0"));
-			}
-			else
-			{
-				GlobalCompileEnvironment.Definitions.Add("WITH_ENGINE=0");
-				// Can't have developer tools w/out engine
-				GlobalCompileEnvironment.Definitions.Add("WITH_UNREAL_DEVELOPER_TOOLS=0");
-			}
+			GlobalCompileEnvironment.Definitions.Add(String.Format("WITH_ENGINE={0}", Rules.bCompileAgainstEngine ? "1" : "0"));
+			GlobalCompileEnvironment.Definitions.Add(String.Format("WITH_UNREAL_DEVELOPER_TOOLS={0}", Rules.bBuildDeveloperTools ? "1" : "0"));
 
 			// Set a macro to control whether to initialize ApplicationCore. Command line utilities should not generally need this.
 			if (Rules.bCompileAgainstApplicationCore)

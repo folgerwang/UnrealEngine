@@ -9,7 +9,8 @@
 
  
 UProxyMediaOutput::UProxyMediaOutput()
-	: bValidateGuard(false)
+	: bLeafMediaOutput(false)
+	, bValidateGuard(false)
 	, bRequestedSizeGuard(false)
 	, bRequestedPixelFormatGuard(false)
 	, bCreateMediaCaptureImplGuard(false)
@@ -93,6 +94,25 @@ UMediaCapture* UProxyMediaOutput::CreateMediaCaptureImpl()
 UMediaOutput* UProxyMediaOutput::GetMediaOutput() const
 {
 	return DynamicProxy ? DynamicProxy : Proxy;
+}
+
+
+UMediaOutput* UProxyMediaOutput::GetLeafMediaOutput() const
+{
+	// Guard against reentrant calls.
+	if (bLeafMediaOutput)
+	{
+		UE_LOG(LogMediaFrameworkUtilities, Warning, TEXT("UMediaSourceProxy::GetLeafMediaOutput - Reentrant calls are not supported. Asset: %s"), *GetPathName());
+		return nullptr;
+	}
+	TGuardValue<bool> ValidatingGuard(bLeafMediaOutput, true);
+
+	UMediaOutput* MediaOutput = GetMediaOutput();
+	if (UProxyMediaOutput* ProxyMediaOutput = Cast<UProxyMediaOutput>(MediaOutput))
+	{
+		MediaOutput = ProxyMediaOutput->GetLeafMediaOutput();
+	}
+	return MediaOutput;
 }
 
 

@@ -1,0 +1,42 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Blackmagic Media Player",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games Inc",
+	"CreatedByURL" : "http://epicgames.com",
+	"Description" : "Implements input and output using Blackmagic Capture cards.",
+	"Category" : "Media Players",
+	"CanContainContent" : false,
+	"EnabledByDefault" : false,
+	"IsBetaVersion": false,
+
+	"Modules" :
+	[
+		{
+			"Name" : "BlackmagicMedia",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "PreLoadingScreen",
+			"WhitelistPlatforms" : [ "Win64" ]
+		},
+		{
+			"Name": "BlackmagicMediaOutput",
+			"Type" : "RuntimeNoCommandlet",
+			"LoadingPhase" : "PreLoadingScreen",
+			"WhitelistPlatforms" : [ "Win64" ]
+		},
+		{
+			"Name" : "BlackmagicMediaFactory",
+			"Type": "RuntimeNoCommandlet",
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms" : [ "Win64" ]
+		},
+		{
+			"Name" : "BlackmagicMediaEditor",
+			"Type" : "Editor",
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms" : [ "Win64" ]
+		}
+	]
+}

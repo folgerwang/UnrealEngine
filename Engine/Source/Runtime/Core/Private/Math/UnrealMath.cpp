@@ -1835,7 +1835,7 @@ uint32 FMath::ComputeProjectedSphereScissorRect(FIntRect& InOutScissorRect, FVec
 	}
 }
 
-bool FMath::PlaneAABBIntersection(const FPlane& P, const FBox& AABB)
+int32 FMath::PlaneAABBRelativePosition(const FPlane& P, const FBox& AABB)
 {
 	// find diagonal most closely aligned with normal of plane
 	FVector Vmin, Vmax;
@@ -1868,7 +1868,20 @@ bool FMath::PlaneAABBIntersection(const FPlane& P, const FBox& AABB)
 	float dMin = P.PlaneDot(Vmin);
 
 	// if Max is below plane, or Min is above we know there is no intersection.. otherwise there must be one
-	return (dMax >= 0.f && dMin <= 0.f);
+	if (dMax < 0.f)
+	{
+		return -1;
+	}
+	else if (dMin > 0.f)
+	{
+		return 1;
+	}
+	return 0;
+}
+
+bool FMath::PlaneAABBIntersection(const FPlane& P, const FBox& AABB)
+{
+	return PlaneAABBRelativePosition(P, AABB) == 0;
 }
 
 bool FMath::SphereConeIntersection(const FVector& SphereCenter, float SphereRadius, const FVector& ConeAxis, float ConeAngleSin, float ConeAngleCos)

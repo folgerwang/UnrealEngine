@@ -363,7 +363,7 @@ namespace UnrealBuildTool
 		/// Whether to compile the developer tools.
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
-		public bool bBuildDeveloperTools = true;
+		public bool? bBuildDeveloperTools;
 
 		/// <summary>
 		/// Whether to force compiling the target platform modules, even if they wouldn't normally be built.
@@ -1550,7 +1550,8 @@ namespace UnrealBuildTool
 
 		public bool bBuildDeveloperTools
 		{
-			get { return Inner.bBuildDeveloperTools; }
+			// appropriate default will be set by this point
+			get { return Inner.bBuildDeveloperTools.Value; }
 		}
 
 		public bool bForceBuildTargetPlatforms

@@ -20,8 +20,8 @@ DECLARE_LOG_CATEGORY_EXTERN(LogAjaMedia, Log, All);
 
 namespace AjaMediaOption
 {
-	static const FName FrameRateNumerator("FrameRateNumerator");
-	static const FName FrameRateDenominator("FrameRateDenominator");
+	static const FName DeviceIndex("DeviceIndex");
+	static const FName PortIndex("PortIndex");
 	static const FName TimecodeFormat("TimecodeFormat");
 	static const FName LogDropFrame("LogDropFrame");
 	static const FName EncodeTimecodeInTexel("EncodeTimecodeInTexel");
@@ -37,9 +37,4 @@ namespace AjaMediaOption
 	static const FName MaxVideoFrameBuffer("MaxVideoFrameBuffer");
 
 	static const AJA::FAJAVideoFormat DefaultVideoFormat = 9; // 1080p3000
-}
-
-namespace AJAHelpers
-{
-	FAjaMediaMode FromVideoFormatDescriptor(int32 InDeviceIndex, const AJA::AJAVideoFormats::VideoFormatDescriptor& InDescriptor);
 }

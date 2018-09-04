@@ -179,7 +179,7 @@ namespace EProxyNormalComputationMethod
 }
 
 
-USTRUCT()
+USTRUCT(Blueprintable)
 struct FMeshProxySettings
 {
 	GENERATED_USTRUCT_BODY()
@@ -233,7 +233,7 @@ struct FMeshProxySettings
 	UPROPERTY(EditAnywhere, Category = MaxRayCastDist, meta = (InlineEditConditionToggle))
 	bool bOverrideTransferDistance;
 
-	/** Override search distance used when discovering texture values for simplified geometry.  Useful when non-zero Merge Distance setting generates new geometry in concave corners.*/
+	/** Override search distance used when discovering texture values for simplified geometry. Useful when non-zero Merge Distance setting generates new geometry in concave corners.*/
 	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (EditCondition = "bOverrideTransferDistance", DisplayName = "Transfer Distance Override", ClampMin = 0))
 	float MaxRayCastDist;
 
@@ -276,7 +276,7 @@ struct FMeshProxySettings
 	UPROPERTY(EditAnywhere, Category = ProxySettings)
 	bool bAllowAdjacency;
 
-	/** Whether to allow distance field to be computed for this mesh.  Disable this to save memory if you mesh will only rendered in the distance. */
+	/** Whether to allow distance field to be computed for this mesh. Disable this to save memory if the merged mesh will only be rendered in the distance. */
 	UPROPERTY(EditAnywhere, Category = ProxySettings)
 	bool bAllowDistanceField;
 
@@ -284,7 +284,7 @@ struct FMeshProxySettings
 	UPROPERTY(EditAnywhere, Category = ProxySettings)
 	bool bReuseMeshLightmapUVs;
 
-	/** Whether to generate collision for the proxy mesh */
+	/** Whether to generate collision for the merged mesh */
 	UPROPERTY(EditAnywhere, Category = ProxySettings)
 	bool bCreateCollision;
 
@@ -475,7 +475,7 @@ struct FMeshMergingSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MeshSettings)
 	bool bIncludeImposters;
 
-	/** Whether to allow distance field to be computed for this mesh.  Disable this to save memory if you mesh will only rendered in the distance. */
+	/** Whether to allow distance field to be computed for this mesh. Disable this to save memory if the merged mesh will only be rendered in the distance. */
 	UPROPERTY(EditAnywhere, Category = MeshSettings)
 	bool bAllowDistanceField;
 

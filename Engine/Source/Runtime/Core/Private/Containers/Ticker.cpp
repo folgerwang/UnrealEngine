@@ -46,13 +46,10 @@ void FTicker::RemoveTicker(FDelegateHandle Handle)
 	Elements.RemoveAllSwap(CompareHandle);
 	TickedElements.RemoveAllSwap(CompareHandle);
 	// if we are ticking, we must check for the edge case of the CurrentElement removing itself.
-	if (bInTick)
+	if (bInTick && CompareHandle(CurrentElement))
 	{
-		if (CompareHandle(CurrentElement))
-		{
-			// Technically it's possible for someone to try to remove CurrentDelegate multiple times, so make sure we never set this value to false in here.
-			bCurrentElementRemoved = true;
-		}
+		// Technically it's possible for someone to try to remove CurrentDelegate multiple times, so make sure we never set this value to false in here.
+		bCurrentElementRemoved = true;
 	}
 }
 
@@ -108,6 +105,8 @@ void FTicker::Tick(float DeltaTime)
 
 	// Now that we've considered all the delegates, we swap it back into the Elements array.
 	Exchange(TickedElements, Elements);
+	// Also clear the CurrentElement delegate as our tick is done
+	CurrentElement.Delegate.Unbind();
 }
 
 FTicker::FElement::FElement() 

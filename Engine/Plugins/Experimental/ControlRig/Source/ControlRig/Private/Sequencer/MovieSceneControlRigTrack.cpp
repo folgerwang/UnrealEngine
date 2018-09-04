@@ -40,7 +40,7 @@ void UMovieSceneControlRigTrack::AddNewControlRig(FFrameNumber KeyTime, UControl
 
 UMovieSceneSection* UMovieSceneControlRigTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneControlRigSection>(this);
+	return NewObject<UMovieSceneControlRigSection>(this, NAME_None, RF_Transactional);
 }
 
 #if WITH_EDITORONLY_DATA

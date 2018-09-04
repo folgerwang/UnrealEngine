@@ -12,12 +12,15 @@ namespace UnrealBuildTool.Rules
 					"AjaMediaOutput",
 					"Core",
 					"CoreUObject",
+					"EditorStyle",
 					"MediaAssets",
+					"MediaPlayerEditor",
 					"Projects",
 					"PropertyEditor",
 					"Settings",
 					"Slate",
 					"SlateCore",
+					"TimeManagement",
 					"UnrealEd",
 				});
 

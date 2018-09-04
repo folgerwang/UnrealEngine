@@ -273,7 +273,7 @@ void AActor::RerunConstructionScripts()
 #if WITH_EDITOR
 		if (!CurrentTransactionAnnotation.IsValid())
 		{
-			CurrentTransactionAnnotation = MakeShareable(new FActorTransactionAnnotation(this, false));
+			CurrentTransactionAnnotation = FActorTransactionAnnotation::Create(this, false);
 		}
 		FActorTransactionAnnotation* ActorTransactionAnnotation = CurrentTransactionAnnotation.Get();
 		InstanceDataCache = &ActorTransactionAnnotation->ComponentInstanceData;

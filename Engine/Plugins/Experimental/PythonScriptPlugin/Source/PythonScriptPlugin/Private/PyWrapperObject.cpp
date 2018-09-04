@@ -1086,6 +1086,9 @@ struct FPythonGeneratedClassUtil
 		// Map the Unreal class to the Python type
 		InClass->PyType = FPyTypeObjectPtr::NewReference(InPyType);
 		FPyWrapperTypeRegistry::Get().RegisterWrappedClassType(InClass->GetFName(), InPyType);
+
+		// Ensure the CDO exists
+		InClass->GetDefaultObject();
 	}
 
 	static bool CreatePropertyFromDefinition(UPythonGeneratedClass* InClass, PyTypeObject* InPyType, const FString& InFieldName, FPyUPropertyDef* InPyPropDef)

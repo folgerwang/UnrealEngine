@@ -1284,7 +1284,11 @@ public:
 private:
 	/** Control how the Engine process the Framerate/Timestep */
 	UPROPERTY(transient)
-	UEngineCustomTimeStep* CustomTimeStep;
+	UEngineCustomTimeStep* DefaultCustomTimeStep;
+
+	/** Control how the Engine process the Framerate/Timestep */
+	UPROPERTY(transient)
+	UEngineCustomTimeStep* CurrentCustomTimeStep;
 
 public:
 	/**
@@ -1296,20 +1300,39 @@ public:
 	FSoftClassPath CustomTimeStepClassName;
 
 private:
-	/** Provide a timecode to the Engine */
+	/**
+	 * Default timecode provider that will be used when no custom provider is set.
+	 * This is expected to be valid throughout the entire life of the application.
+	 */
 	UPROPERTY(transient)
-	UTimecodeProvider* TimecodeProvider;
+	UTimecodeProvider* DefaultTimecodeProvider;
+
+	UPROPERTY(transient)
+	UTimecodeProvider* CustomTimecodeProvider;
 
 public:
-	/** Provide a timecode to the Engine */
+
+	/**
+	 * Allows UEngine subclasses a chance to override the DefaultTimecodeProvider class.
+	 * This must be set before InitializeObjectReferences is called.
+	 * This is intentionally protected and not exposed to config.
+	 */
+	UPROPERTY(config, EditAnywhere, Category=Timecode, meta=(MetaClass="TimecodeProvider", DisplayName="DefaultTimecodeProvider", ConfigRestartRequired=true))
+	FSoftClassPath DefaultTimecodeProviderClassName;
+
+	/**
+	 * Override the CustomTimecodeProvider when the engine is started.
+	 * When set, this does not change the DefaultTImecodeProvider class.
+	 * Instead, it will create an instance and set it as the CustomTimecodeProvider.
+	 */
 	UPROPERTY(config, EditAnywhere, Category=Timecode, meta=(MetaClass="TimecodeProvider", DisplayName="TimecodeProvider", ConfigRestartRequired=true))
 	FSoftClassPath TimecodeProviderClassName;
-
+	
 	/**
 	 * Frame rate used to generated the engine Timecode's frame number when no TimecodeProvider are specified.
 	 * It doesn't control the Engine frame rate. The Engine can run faster or slower that the specified TimecodeFrameRate.
 	 */
-	UPROPERTY(config, EditAnywhere, Category=Timecode)
+	UPROPERTY(config, EditAnywhere, Category=Timecode, Meta=(ConfigRestartRequired=true))
 	FFrameRate DefaultTimecodeFrameRate;
 
 public:
@@ -1887,9 +1910,6 @@ public:
 	virtual void FinishDestroy() override;
 	virtual void Serialize(FArchive& Ar) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-#if WITH_EDITOR
-	virtual bool CanEditChange(const UProperty* InProperty) const override;
-#endif // #if WITH_EDITOR
 	//~ End UObject Interface.
 
 	/** Initialize the game engine. */
@@ -2008,6 +2028,9 @@ public:
 	 */
 	void UpdateTimeAndHandleMaxTickRate();
 
+	/** Causes the current CustomTimeStep to be shut down and then reinitialized. */
+	void ReinitializeCustomTimeStep();
+
 	/**
 	 * Set the CustomTimeStep that will control the Engine Framerate/Timestep
 	 *
@@ -2016,7 +2039,13 @@ public:
 	bool SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep);
 
 	/** Get the CustomTimeStep that control the Engine Framerate/Timestep */
-	UEngineCustomTimeStep* GetCustomTimeStep() const { return CustomTimeStep; };
+	UEngineCustomTimeStep* GetCustomTimeStep() const { return CurrentCustomTimeStep; };
+
+	/**
+	 * Get the DefaultCustomTimeStep created at the engine initialization.
+	 * This may be null if no CustomTimeStep was defined in the project settings and may not be currently active.
+	 */
+	UEngineCustomTimeStep* GetDefaultCustomTimeStep() const { return DefaultCustomTimeStep; }
 
 	/** Executes the deferred commands */
 	void TickDeferredCommands();
@@ -2039,15 +2068,36 @@ public:
 	/** Update FApp::Timecode. */
 	void UpdateTimecode();
 
+	/** Causes the current TimecodeProvider to be shut down and then reinitialized. */
+	void ReinitializeTimecodeProvider();
+
 	/**
-	 * Get the TimecodeProvider that control the FApp::Timecode
+	 * Sets the CustomTimecodeProvider for the engine, shutting down the the default provider if necessary.
+	 * Passing nullptr will clear the current CustomTimecodeProvider, and re-initialize the default.
 	 *
-	 * @return	true if the TimecodeProvider was properly initialized
+	 * @return True if the provider was set (and initialized successfully when non-null).
 	 */
 	bool SetTimecodeProvider(UTimecodeProvider* InTimecodeProvider);
 
-	/** Get the TimecodeProvider that control the Engine's Timecode */
-	UTimecodeProvider* GetTimecodeProvider() const { return TimecodeProvider; };
+	/**
+	 * Get the TimecodeProvider that control the Engine's Timecode
+	 * The return value should always be non-null.
+	 */
+	const UTimecodeProvider* GetTimecodeProvider() const { return CustomTimecodeProvider ? CustomTimecodeProvider : GetDefaultTimecodeProvider(); }
+
+	/**
+	 * Get the DefaultTimecodeProvider.
+	 * This should be valid throughout the lifetime of the Engine (although, it may not always be active).
+	 */
+	const UTimecodeProvider* GetDefaultTimecodeProvider() const { check(DefaultTimecodeProvider != nullptr); return DefaultTimecodeProvider; }
+
+protected:
+
+	/** Provide mutable access to the current TimecodeProvider to Engine. This is needed to Initialize / Shutdown providers. */
+	UTimecodeProvider* GetTimecodeProviderProtected() { return const_cast<UTimecodeProvider*>(const_cast<const UEngine*>(this)->GetTimecodeProvider()); }
+	UTimecodeProvider* GetDefaultTimecodeProviderProtected() { return const_cast<UTimecodeProvider*>(const_cast<const UEngine*>(this)->GetDefaultTimecodeProvider()); }
+
+public:
 
 	/**
 	 * Pauses / un-pauses the game-play when focus of the game's window gets lost / gained.
@@ -3089,6 +3139,14 @@ private:
 
 	/** Allows subclasses to pass the failure to a UGameInstance if possible (mainly for blueprints) */
 	virtual void HandleTravelFailure_NotifyGameInstance(UWorld* World, ETravelFailure::Type FailureType);
+
+public:
+#if WITH_EDITOR
+	//~ Begin Transaction Interfaces.
+	virtual int32 BeginTransaction(const TCHAR* TransactionContext, const FText& Description, UObject* PrimaryObject) { return INDEX_NONE; }
+	virtual int32 EndTransaction() { return INDEX_NONE; }
+	virtual void CancelTransaction(int32 Index) { }
+#endif
 
 public:
 	/**

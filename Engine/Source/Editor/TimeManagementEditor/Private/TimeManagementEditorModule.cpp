@@ -7,9 +7,9 @@
 #include "STimecodeProviderTab.h"
 
 /**
- * Timecode Provider Editor module
+ * Time Management Editor module
  */
-class FTimecodeProviderEditorModule : public IModuleInterface
+class FTimeManagementEditorModule : public IModuleInterface
 {
 public:
 	//~ IModuleInterface interface
@@ -24,4 +24,4 @@ public:
 	}
 };
 
-IMPLEMENT_MODULE(FTimecodeProviderEditorModule, TimecodeProviderEditorModule);
+IMPLEMENT_MODULE(FTimeManagementEditorModule, TimeManagementEditorModule);
