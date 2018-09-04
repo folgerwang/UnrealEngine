@@ -108,14 +108,12 @@ int LightmassMain(int argc, ANSICHAR* argv[])
 
 	// Override 'NumThreads' with the environment variable, if it's set.
 	{
-		TCHAR* SwarmMaxCoresVariable = new TCHAR[32768];
-		FPlatformMisc::GetEnvironmentVariable( TEXT("Swarm_MaxCores"), SwarmMaxCoresVariable, 32768 );
-		int32 SwarmMaxCores = FCString::Atoi( SwarmMaxCoresVariable );
+		FString SwarmMaxCoresVariable = FPlatformMisc::GetEnvironmentVariable( TEXT("Swarm_MaxCores") );
+		int32 SwarmMaxCores = FCString::Atoi( *SwarmMaxCoresVariable );
 		if ( SwarmMaxCores >= 1 && SwarmMaxCores < 128 )
 		{
 			NumThreads = SwarmMaxCores;
 		}
-		delete [] SwarmMaxCoresVariable;
 	}
 
 	for (int32 ArgIndex = 1; ArgIndex < argc; ArgIndex++)

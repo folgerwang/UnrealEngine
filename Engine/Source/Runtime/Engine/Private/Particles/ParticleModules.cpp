@@ -1098,27 +1098,29 @@ void UParticleModuleRequired::PostInitProperties()
 	}
 }
 
-void UParticleModuleRequired::Serialize(FArchive& Ar)
+void UParticleModuleRequired::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::MovedParticleCutoutsToRequiredModule)
+	Super::Serialize(Record);
+
+	UnderlyingArchive.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	if (UnderlyingArchive.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::MovedParticleCutoutsToRequiredModule)
 	{
-		bool bCooked = Ar.IsCooking();
+		bool bCooked = UnderlyingArchive.IsCooking();
 
 		// Save a bool indicating whether this is cooked data
 		// This is needed when loading cooked data, to know to serialize differently
-		Ar << bCooked;
+		Record << NAMED_FIELD(bCooked);
 
-		if (FPlatformProperties::RequiresCookedData() && !bCooked && Ar.IsLoading())
+		if (FPlatformProperties::RequiresCookedData() && !bCooked && UnderlyingArchive.IsLoading())
 		{
 			UE_LOG(LogParticles, Fatal, TEXT("This platform requires cooked packages, and this SubUV animation does not contain cooked data %s."), *GetName());
 		}
 
 		if (bCooked)
 		{
-			DerivedData.Serialize(Ar);
+			DerivedData.Serialize(Record.EnterField(FIELD_NAME_TEXT("DerivedData")));
 		}
 	}
 }

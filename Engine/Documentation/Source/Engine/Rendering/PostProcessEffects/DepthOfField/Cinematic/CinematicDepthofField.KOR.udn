@@ -1,0 +1,477 @@
+INTSourceChangelist:4314037
+title: 시네마틱 뎁스 오브 필드
+description: 디퍼드 렌더링 패스를 사용하는 데스크톱 및 콘솔 플랫폼에서 마치 사진이나 영화같은 시네마틱 느낌을 내는 뎁스 오브 필드 메서드에 대한 설명입니다.
+crumbs:
+availability:Public
+version:4.20
+parent:Engine/Rendering/PostProcessEffects/DepthOfField
+order:1
+type:overview
+tags:Post Process
+tags:Depth of Field
+topic-image:DOF_Cine_Topic.png
+
+디퍼드 렌더링 패스를 사용하는 데스크톱 및 콘솔 플랫폼에서 마치 사진이나 영화같은 시네마틱 느낌을 내는 뎁스 오브 필드 메서드에 대한 설명입니다.
+
+## 시네마틱
+
+[REGION:note]
+이 뎁스 오브 필드 메서드는 **Circle** (원형) DOF 를 대체하여 언리얼 엔진 4 버전 4.20 에서 기본 시네마틱 메서드가 되었습니다. 지원되는 하드웨어에서 기본 활성화됩니다.
+[/REGION]
+
+**Cinematic** (시네마틱) DOF 는 현실의 카메라 효과에 거의 일치하며, 원형 및 Bokeh (보케) DOF 와 비슷하게 선명한 [하이 다이내믹 레인지](Engine/Rendering/HDRDisplayOutput) (HDR) 콘텐츠와 함께 원 모양 보케를 볼 수 있습니다. 이 메서드는 절차적 보케 시뮬레이션을 사용하여 동적 해상도 안정성을 높이고 알파 채널을 지원함과 동시에 더욱 빠르고 다양한 퀄리티 옵션을 지원하며, 데스크톱 및 콘솔 개발 프로젝트에 최적화되어 있습니다.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![뎁스 오브 필드 비활성화](image_0.png)
+	[/PARAM]
+	[PARAM:after]
+	![시네마틱 뎁스 오브 필드](image_1.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### 샷의 피사체 포커싱 방식
+
+뎁스 오브 필드 이펙트의 미적 기준을 충족시키는 핵심은 샷의 피사체 포커싱 방식에 있습니다. 어떤 샷의 뎁스 오브 필드 구성에 영향을 주는 핵심 요소는 세 가지입니다.
+
+* 렌즈의 **Focal Length** (초점 길이) 결정.
+
+* 적합한 **Aperture** (조리개, f값) 선택.
+
+* 카메라에서 **피사체까지의 거리** 선택.
+
+캡처 중인 카메라와 씬을 이루는 요소를 분석하여 위 세팅을 조절할 때 어떤 일이 벌어지는지 알아봅시다.
+
+![image_2.png](image_2.png)
+
+1. 씬의 지점
+
+    1. 빨강 = 아웃 포커스
+
+    2. 파랑 = 완전 인 포커스
+
+    3. 초록 = 겨우 인 포커스
+
+2. 샷의 피사체까지 초점 거리 (파랑 점)
+
+3. 카메라 렌즈
+
+4. f값으로 측정한 렌즈 조리개 막
+
+5. 렌즈 초점 거리
+
+6. 필름백 / 이미지 센서
+
+7. 최종 이미지 결과
+
+[REGION:note]
+참고로 오른쪽 렌더링 이미지는 카메라 렌즈를 통해 뒤집힌 것입니다.
+[/REGION]
+
+여기 여러 지점(1)이 있는데, 정의된 **초점 거리** (2)에서 카메라에 잡힌 오브젝트는 이 경우 파랑 피사체입니다. **조리개** (4)는 초점이 잡히지 않은 전경과 배경의 오브젝트를 뿌옇게 만드는 방식을 정의하며, 마지막으로 렌즈의 **초점 길이** (5)는 시야, 즉 이미지 줌 인 정도를 제어합니다. 
+
+#### 조리개
+
+**Aperture** (조리개)는 f값으로 제어되는 **Diaphragm** (조리개 막) 직경에 따라 전경과 배경의 선명하고 흐린 정도를 정의합니다. 
+
+![image_3.png](image_3.png)
+
+1. 카메라 렌즈
+
+2. 렌즈 조리개의 조리개 막, f값으로 측정
+
+이 도표는 렌즈(1)를 통과하는 빛을 막는 조리개 막(2)을 나타냅니다. 조리개 크기(또는 f값)는 렌즈를 통해 빛이 얼마나 통과하는지, 이어서 샷의 초점 거리에 따라 전경과 배경을 얼마나 흐리게 할지를 제어합니다. 
+
+조리개, **f값** 과 **조리개 막** 을 이루는 요소는 두 가지입니다.
+
+![image_4.png](image_4.png)
+
+1. **조리개** 는 빛이 통과하는 구멍의 직경입니다. 조리개는 초점 거리를 f값으로 나눈 값으로 정의합니다.
+
+2. **조리개 막** 은 여러 날로 이루어진 기계식 구조물로 빛을 막는 데 사용됩니다. 제공된 f값에 따라 열리고 닫힙니다.
+
+렌즈의 조리개를 정의하는 것은 조리개 막의 직경으로, f값에 반비례하며, 뎁스 오브 필드 이펙트의 얕고 넓은 정도를 제어합니다. 이 효과를 나타내는 도표는 초점 거리 부분을 참고하세요. 
+
+조리개 작동 방식 데모로, 아래 슬라이더를 끌어 보면 f값이 1.4, 2.8, 5.6 일 때의 모습입니다. f값이 작을 수록 DOF 효과는 얕아(, 즉 배경과 전경이 더욱 흐려)집니다. f값이 클 수록 DOF 깊이는 깊어지고 흐려짐은 덜합니다. 참고로 여기서는 f값만 변경했을 뿐, 초점 거리와 초점 길이는 각각 7m 와 75mm 그대로입니다.
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	aperture
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	2
+	[/PARAMLITERAL]
+	[PARAMLITERAL:caption]
+	슬라이더를 끌면 조리개 f값이 바뀝니다.
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![aperture_0.png](aperture_0.png)
+	![aperture_1.png](aperture_1.png)
+	![aperture_2.png](aperture_2.png)
+	[/PARAM]
+[/OBJECT]
+
+[REGION:note]
+보통 실제 카메라의 조리개를 조절할 때는, 노출도 같이 조절하여 필름백 / 이미지 센서가 받는 빛의 강도를 동일하게 유지합니다. 하지만 UE4 는 실제 카메라가 아니므로 f값과 조리개 막을 조절해도 빛 강도가 제어되지는 않습니다. 
+[/REGION]
+
+#### 초점 길이
+
+**Focal Length** (초점 길이)는 렌즈 중앙에서 **Filmback** (필름백 또는 이미지 센서)까지 거리를 밀리미터(mm) 단위로 측정한 것입니다. 렌즈의 초점 길이 관련해서 이미지의 필름백이 커지면, 시야(FOV)도 같이 커집니다. 초점 길이를 줄이면, FOV 역시 늘어납니다. 
+
+![image_8.png](image_8.png)
+
+1. 카메라 렌즈
+
+2. 초점 길이
+
+그 작동 방식 데모로, 슬라이더를 끌면 렌즈 초점 길이가 50mm, 75mm, 100mm 로 변합니다. 사실상 샷의 시야(FOV)가 바뀌는 것을 볼 수 있습니다.시점 길이가 늘어나면, FOV 는 줄어듭니다. 초점 길이는 샷의 아웃 포커싱 부분도 같이 줌 인 시켜 이미지 전경과 배경에 흐려지는 부분도 늘어난다는 점만 제외하면 줌 인과 비슷하다 생각해도 됩니다. 
+
+참고로 여기서는 초점 길이만 변하며, 초점 거리와 f값은 각각 7m 와 f/2.8 고정입니다.
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	focal
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	2
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![focal_0.png](focal_0.png)
+	![focal_1.png](focal_1.png)
+	![focal_2.png](focal_2.png)
+	[/PARAM]
+[/OBJECT]
+
+[REGION:note]
+참고로 카메라의 FOV 는 시네 카메라 액터에서 필름백과 초점 길이를 통해 제어할 수 있는데, 물리적으로 정확한 카메라이기 때문입니다. 하지만 카메라 액터에서는 초점 길이 세팅이 없으므로 직접 FOV 각도를 제어할 수 있습니다. DOF 에 사용된 초점 길이는 렌더러가 FOV 각도 및 필름백 세팅에서 자동 파생해 옵니다.
+[/REGION]
+
+#### 초점 거리
+
+Focus Distance (초점 거리)는 카메라 렌즈 중앙에서 초점이 잡혀 초점 면이 생긴 샷 피사체까지의 거리입니다. 카메라가 피사체에 가까울수록, 배경의 아웃 포커싱은 심해집니다. 
+
+![image_12.png](image_12.png)
+
+1. 씬의 지점
+
+   1. 빨강 = 아웃 포커스
+
+   2. 파랑 = 완전 인 포커스
+
+   3. 초록 = 겨우 인 포커스
+
+2. 샷의 피사체까지 초점 거리 (파랑 점)
+
+3. 카메라 렌즈
+
+이 도표는 씬을 구성하는 다양한 오브젝트(1), 즉 배경, 피사체, 전경을 보여줍니다. 렌즈(3)에서 초점 피사체, 이 경우 파랑 점까지의 거리(2)가 초점 거리입니다. 전경과 배경 부분의 흐려짐은 사용된 f값과 카메라의 초점 길이에 따라 달라집니다. 
+
+DOF 레이어 시각화는 **뷰포트** 의 **표시** 드롭다운에서 **고급** > **뎁스 오브 필드 레이어** 를 선택하면 됩니다. 여기서 초록은 전경의 오브젝트를, 검정은 초점 잡힌 오브젝트를, 파랑은 배경 부분을 나타냅니다.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![렌더링한 씬](image_13.png)
+	[/PARAM]
+	[PARAM:after]
+	![뎁스 오브 필드 레이어 시각화](image_14.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+이 작동방식 데모로, 슬라이더를 끌어보면 초점 거리 값이 4m, 7m, 10m 로 바뀝니다. 초점 거리를 조절하면 샷의 초점 구역이 어디인지 나타내는 씬의 (보라 점선) 초점 면이 조절됩니다. 도표의 파랑 점은 여기 캐릭터를 초점 피사체로 사용합니다. 카메라와 도표에서 초점이 바뀌면, 전경과 배경의 오브젝트도 바뀝니다. 
+
+시작인 4m 에서, 전경의 경찰차는 선명한 인 포커스이고 배경의 캐릭터는 아웃 포커스 상태입니다. 도표의 파랑 부분이 필름백 앞의 초점 교차 부분을 잘 나타내 줍니다. 7m 에서, 캐릭터는 완전 인 포커스이고 배경과 전경 오브젝트는 아웃 포커스 상태입니다. 10m 에서, 공사장벽이 선명한 인 포커스이고 캐릭터와 경찰차는 전경에서 아웃 포커스 상태입니다. 교차점이 필름백 너머로 뻗어가므로 도표의 파랑 부분이 이를 잘 나타냅니다. 
+
+이 모든 초점 거리 변화를 통해, 오브젝트가 있는 곳이 전경인지 배경인지에 따라 DOF 이펙트가 커지고 작아집니다. 참고로 여기서 초점 거리를 변경하고 있으며, f값과 초점 길이는 각각 f/1.4 와 75mm 로 고정입니다.
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	distance
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	2
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![distance_0.png](distance_0.png)
+	![distance_1.png](distance_1.png)
+	![distance_2.png](distance_2.png)
+	[/PARAM]
+[/OBJECT]
+
+### 절차적 조리개 막 시뮬레이션
+
+뎁스 오브 필드 잡은 초점 중요도를 씬의 피사체에 적용하는 것입니다. 그와 마찬가지로 중요하게, 아웃 포커스된 부분 역시 중요합니다. 언리얼 엔진 4 의 뎁스 오브 필드는 렌즈 조리개 막을 시뮬레이션하여 (아웃 포커스 부분의) 보케 모양을 제어합니다. 
+
+![image_18.png](image_18.png)
+
+[REGION:note]
+퍼포먼스 상의 이유로, 조리개 막 시뮬레이션은 엔진 퀄리티 세팅 중 **에픽** 및 **시네마틱** 에서만 지원됩니다. 퀄리티 세팅이 그보다 낮으면 같은 부분을 원형 보케 모양으로 예비 전환하여 자동 노출 기능과 비슷한 작동방식을 보이다가 차례로 조리개 막 시뮬레이션을 비활성화합니다. 
+[/REGION]
+
+#### 조리개 막의 날 수
+
+**조리개 막** (또는 아이리스)는 여러 개의 날로 구성된 장치로, 보케의 미적인 모양을 냅니다. 날 수가 적으면 조리개 막은 다각형 모양이 되는 반면, 많으면 조리개 막으로 이루어지는 곡선이 부드러워져 보케 모양이 보다 자연스러운 원 모양이 됩니다. 
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	blades
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![blades_0.png](blades_0.png)
+	![blades_1.png](blades_1.png)
+	![blades_2.png](blades_2.png)
+	![blades_3.png](blades_3.png)
+	[/PARAM]
+[/OBJECT]
+
+조리개 막의 날 수는 **Maximum Aperture** (최대 조리개)가 늘어나면 (최소 f값이 줄어) 보케 모양에 직접 영향을 줍니다.
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	blades_zoom
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![blades_zoom_0.png](blades_zoom_0.png)
+	![blades_zoom_1.png](blades_zoom_1.png)
+	![blades_zoom_2.png](blades_zoom_2.png)
+	![blades_zoom_3.png](blades_zoom_3.png)
+	[/PARAM]
+[/OBJECT]
+
+#### 조리개와 최대 조리개
+
+**조리개** 는 렌즈의 구멍이며, **f값** 으로 측정한 **조리개 막** 지름으로 제어합니다. 렌즈를 통과하는 빛의 허용량은 조리개 크기로 조절합니다. 조리개 크기를 조절하면 초점 면을 설정하여 초점 구역 밖 인 포커스 또는 아웃 포커스 부분의 모양을 조절합니다. 
+
+다음 차트는 조리개 크기 (f값), 최대 조리개 (최소 f값), 뎁스 오브 필드 이펙트 사이 상관 관계를 표시합니다. 
+
+![image_27.png](image_27.png)
+
+조리개가 클(f값이 작을) 수록 초점 구역이 얕아져, 전경과 배경의 아웃 포커스가 심해집니다. 조리개가 작을(f값이 클) 수록 초점 구역이 넓어져 전경과 배경의 인 포커스에 포함되는 오브젝트가 많아집니다.
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	max_aperture
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	5
+	[/PARAMLITERAL]
+	[PARAMLITERAL:caption]
+	조리개 f값: 1.4, 2.0, 2.8, 4.0, 5.6, 8.0
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![max_aperture_0.png](max_aperture_0.png)
+	![max_aperture_1.png](max_aperture_1.png)
+	![max_aperture_2.png](max_aperture_2.png)
+	![max_aperture_3.png](max_aperture_3.png)
+	![max_aperture_4.png](max_aperture_4.png)
+	![max_aperture_5.png](max_aperture_5.png)
+	[/PARAM]
+[/OBJECT]
+
+조리개는 원하는 만큼 줄일 수 있지만, 최대 렌즈 크기까지입니다. (f값으로 측정되는) **최대 조리개** 는 렌즈의 최대 크기를 정의합니다. 조리개를 열 수 있는 크기를 제한하여 조리개 막을 이루는 날의 곡률을 정의하기도 하며, 조리개 크기를 제한하면 아웃 포커스 부분을 제한시키는 실제 초점 구역이 짧아집니다. 
+
+[OBJECT:SliderSequence]
+	[PARAMLITERAL:id]
+	max_aperture_blades
+	[/PARAMLITERAL]
+	[PARAMLITERAL:max]
+	3
+	[/PARAMLITERAL]
+	[PARAMLITERAL:caption]
+	날이 5 개인 조리개 막에 최대 조리개 값을 다르게 한 경우
+	[/PARAMLITERAL]
+	[PARAMLITERAL:ext]
+	jpg
+	[/PARAMLITERAL]
+	[PARAM:image_list]
+	![max_aperture_blades_0.png](max_aperture_blades_0.png)
+	![max_aperture_blades_1.png](max_aperture_blades_1.png)
+	![max_aperture_blades_2.png](max_aperture_blades_2.png)
+	![max_aperture_blades_3.png](max_aperture_blades_3.png)
+	[/PARAM]
+[/OBJECT]
+
+이 예제에서 **Number of Diaphragm Blades** (조리개 막의 날 수)는 5 로 설정했습니다. 조리개가 작을수록, 조리개 막의 날이 보케 모양으로 더욱 잘 보이게 됩니다. 조리개가 커질수록 (f값 = 최소 f값) 보케 모양은 원이 되기 시작합니다.
+
+이 예제에서, 시네 카메라 액터를 다음과 같이 설정하여 사용하고 있습니다:
+
+* **Min F-Stop** 최소 f값: 1.4
+* **Max F-Stop** 최대 f값: 4.0
+* **Diaphragm Blade Count** 조리개 막의 날 수: 5
+* **Current Aperture** 현재 조리개: 1.4 - 4.0
+
+위 설정으로 f값은 **1.4** 에서 **4.0** 사이 값만 받을 수 있습니다. f값이 커(조리개가 작아)지면서 뎁스 오브 필드 이펙트가 넓어지고, 조리개 막의 날이 보케 모양으로 더욱 잘 보이게 됩니다.
+
+[REGION:note]
+조리개가 빛의 강도를 제어하지는 않는다는 점 유념하세요. 그렇게 한 것은 실체 카메라처럼 계속해서 노출을 동시에 조절할 필요가 없도록 하기 위해서입니다. 
+[/REGION]
+
+### 사용 가능한 세팅
+
+#### 시네마틱 카메라
+
+다음 세팅은 시네마틱 카메라 액터 관련 세팅입니다. 카메라 및 뎁스 오브 필드 세팅도 접할 수 있는 점 참고하세요. 
+
+| 프로퍼티 | 설명 |
+| --- | --- |
+| Filmback Settings | 필름백 세팅 |
+| Sensor Width | 센서 너비 - 필름백 또는 디지털 센서의 가로 크기를 (밀리미터(mm) 단위로 측정하여) 설정합니다. |
+| Lens Settings | 렌즈 세팅 |
+| Min Focal Length | 최소 초점 길이 - 렌즈의 최소 초점 길이를 (밀리미터(mm) 단위로 측정하여) 설정합니다. |
+| Max Focal Length | 최대 초점 길이 - 렌즈의 최대 초점 길이를 (밀리미터(mm) 단위로 측정하여) 설정합니다. |
+| Min FStop | 최소 f값 - 이 렌즈의 최대 조리개입니다. 예를 들어, 2.8 은 f/2.8 렌즈입니다. 조리개 막의 날 곡률을 정의하기도 합니다. |
+| Max FStop | 최대 f값 - 이 렌즈의 최소 조리개입니다. 예를 들어, 8.0 은 f/8.0 렌즈입니다. |
+| Diaphragm Blade Count | 조리개 막의 날 수 - 조리개 막 메커니즘을 구성하는 날 개수입니다. |
+| Focus Settings | 초점 세팅 |
+| Focus Method | 초점 방식 - 카메라 초점 제어에 사용할 초점 방식 유형을 None(없음), Manual(수동), Tracking (트래킹) 중에서 선택합니다. |
+| Manual Focus Distance | 수동 초점 거리 - 수동 제어 초점 거리를 설정합니다. Focus Method (초점 방식)이 Manual (수동) 설정된 경우에만 사용할 수 있습니다. |
+| Draw Debug Focus Plane | 디버그 초점 면 그리기 - 현재 초점 깊이에 반투명 면 그리기를 활성화합니다. 샷의 초점이 어디 잡혔는지 시각적인 방식으로 추적할 수 있습니다. |
+| Debug Focus Plane Color | 디버그 초점 면 색 - Draw Debug Focus Plane (디버그 초점 면 그리기)가 활성화되었을 때의 색을 설정합니다. |
+| Smooth Focus Changes | 부드러운 초점 변화 - 이 옵션을 활성화하면 보간을 ㅌ초점 거리 변화를 부드럽게 만듭니다. 비활성화하면, 초점 변화는 즉시 일어납니다. |
+| Focus Smoothing Interp Speed | 초점 스무딩 보간 속도 - 초점 거리 변화를 부드럽게 만들 때의 보간 속도를 제어합니다. 이 옵션은 **Smooth Focus Changes** (부드러운 초점 변화) 옵션이 활성화되지 않은 경우 무시됩니다. |
+| Focus Offset | 초점 오프셋 - 선택된 초점 방식에 조정이 필요한 경우 수동 트윅에 사용할 수 있는 초점 깊이에 추가로 오프셋을 더합니다. |
+| Current Focal Length | 현재 초점 길이 - 시야(FoV) 및 줌을 제어하는 카메라의 현재 초점 길이를 제어합니다. |
+| Current Aperture | 조리개는 초점 거리를 f값으로 나눈 값으로 정의합니다. 참고로 이 세팅은 **Min FStop** 에서 **Max FStop** 범위 내 값만 받습니다. |
+| Current Focal Distance | Focus Settings (초점 세팅)에서 사용되는 읽기 전용 값을 표시합니다. |
+| Current Horizontal FOV | 현재 가로 FOV - Current Focal Length (현재 초점 길이) 및 Filmback (필름백) 세팅에서 사용되는 읽기 전용 값을 표시합니다. |
+
+#### 포스트 프로세스 볼륨 및 카메라 액터
+
+시네 카메라, 카메라, 포스트 프로세스 볼륨에서 사용할 수 있는 세팅은 다음과 같습니다.
+
+| 프로퍼티 | 설명 |
+| --- | --- |
+| Camera Settings | 카메라 세팅 |
+| Aperture (F-stop) | 조리개 (f값) - 카메라 렌즈 구멍을 정의합니다. 조리개는 1/f값 이며, 전형적으로 렌즈는 f/1.2 (큰 구멍)까지 내려갑니다. 숫자가 클 수록 DoF 이펙트가 감소합니다. |
+| Maximum Aperture (minimum f-stop) | 최대 조리개 (최소 f값) - 조리개 막의 곡률을 제어하는 카메라 렌즈 구멍 최대치를 정의합니다. 이 값을 0 으로 설정하면 직선 날이 나옵니다. |
+| Number of Diaphragm Blades | 조리개 막의 날 수 - 렌즈 내 조리개 막의 날 개수를 정의합니다. 4 에서 16 사이 값을 사용할 수 있습니다. |
+| Depth of Field Settings | 뎁스 오브 필드 세팅 |
+| Focal Distance | 초점 거리 - 뎁스 오브 필드 이펙트가 선명하게 보이는 거리입니다. 이 값은 언리얼 유닛 (cm) 단위로 측정합니다. |
+| Depth Blur km for 50% | 50% 에 대한 뎁스 블러 km - 여기 정한 거리의 픽셀은 Depth Blur Radius (뎁스 블러 반경)의 반경 절반으로 흐리게 만듭니다. 대기 산란 효과를 낮은 비용으로 모방하는 데 특히 좋습니다. |
+| Depth Blur Radius | 뎁스 블러 반경 - 카메라와의 거리에 따라 대기 산란 효과를 모방할 때 1080p 해상도에서 이 반경의 픽셀에 적용합니다. |
+
+### 최적화에 유용한 콘솔 변수
+
+DOF 가 어려운 점은 콘텐츠에 따라 그리고 미적으로 얼마나 중요한 역할을 하는가에 따라 달라질 수 있다는 점입니다. 그때문에, 플랫폼 별 바로 커스터마이징할 수 있는 다양한 콘솔 변수가 DOF 구현에 제공되어, 우선순위에 따라 약한 플랫폼에서 프로젝트에 할당할 예산을 제어할 수 있습니다. 
+
+시네마틱 DoF 퍼포먼스 바인딩에 유용할 수 있는 몇가지 콘솔 변수는 아래와 같습니다. 참고로 여기서부터 시작해서 더 많은 콘솔 변수를 r.DOF.* 아래에서 찾을 수 있습니다.
+
+* r.DOF.Kernel.MaxBackgroundRadius - 가로 스크린 스페이스에서 배경 블러링 반경의 최대 크기입니다. 
+* r.DOF.Kernel.MaxForegroundRadius - 가로 스크린 스페이스에서 전경 블러링 반경의 최대 크기입니다. 
+* r.DOF.Scatter.MaxSpriteRatio - 스프라이트로 분산된 픽셀 쿼드의 최대 비율입니다. DOF 분산 상한선을 제어하는 데 좋습니다. 
+
+## 보케 DOF 방식 (레거시)
+
+[REGION:warning]
+이 뎁스 오브 필드 방식은 앞으로 폐기될 예정입니다.
+[/REGION]
+
+[EXCERPT:DepthOfField_Bokeh]
+**Bokeh** (보케) DOF 는 사진이나 영화에서 사물이 아웃 포커싱되었을 때 볼 수 있는 모양 이름을 가리킵니다. 이 방식은 모양을 정의하는 사용자 지정 텍스처를 사용하여 각 픽셀에 대해 텍스처입힌 쿼드를 렌더링하여, 카메라 렌즈 효과를 재현합니다. 
+
+사용된 구현은 반해상도만으로 이 비싼 이펙트를 구현합니다. 적응형 뎁스 오브 필드를 사용하여 이펙트가 보이지 않는 부분의 렌더링 퍼포먼스 절약을 시도합니다. 보케 DOF 는 UE4 에서 사용할 수 있는 다른 DOF 메소드보다 비용이 많이 들어, 시네마틱이나 쇼케이스처럼 퍼포먼스보다 환상적인 비주얼이 중요한 상황에서 유력한 후보가 됩니다. 
+[/EXCERPT:DepthOfField_Bokeh]
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![뎁스 오브 필드 비활성화](image_38.png)
+	[/PARAM]
+	[PARAM:after]
+	![보케 뎁스 오브 필드](image_39.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### 보케 DoF 에 적응형 DoF
+
+보케 DoF 는 퍼포먼스때문에 (각 방향마다 절반 해상도씩) 1/4 해상도로 렌더링합니다. 대부분의 경우 이러한 다운샘플링이 문제되지는 않지만, 부작용이 심해 원치 않는 결과가 날 수도 있습니다. **Adaptive Depth of Field** (적응형 DoF)는 이러한 부작용 유형을 해결할 수 있습니다.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![다운샘플링 없는 적응형 DOF](image_40.png)
+	[/PARAM]
+	[PARAM:after]
+	![다운샘플링 있는 적응형 DOF](image_41.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+다운샘플링 DoF 기법만 사용할 때, 배경에 블러링이 적용되고 있는 캐릭터를 보면 덩어리진 모습을 확인할 수 있습니다. 게다가 전경의 캐릭터 뿔 주변에 약간의 부작용도 보입니다. 적응형 DoF 를 사용하니 부작용도 사라지고 배경 캐릭터의 모습도 훨씬 부드러워 졌습니다.
+
+적응형 DoF 는 ( **표시 > 시각화** 아래) **적응형 뎁스 오브 필드** 표시 옵션으로 시각화시켜 볼 수 있습니다. 켜면 다운샘플링 이펙트가 사용된 곳은 어디인지 (초록), 최대 해상도 이펙트가 사용된 곳은 어디인지 (빨강) 보여주는 오버레이가 표시됩니다. 블러링이 적용되지 않은 곳은 원래 씬 색으로 표시됩니다.
+
+![image_42.png](image_42.png)
+
+일반적으로 모두 초록으로 나타나는 것이 좋습니다. 시각화에 빨강으로 나타나는 부분이 많을 수록, 매 프레임마다 씬 렌더링에 드는 비용이 늘어납니다.
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![적응형 해상도 - 최적화](image_43.png)
+	[/PARAM]
+	[PARAM:after]
+	![적응형 해상도 - 비쌈](image_44.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+### 사용 가능한 세팅
+
+시네 카메라, 카메라, 포스트 프로세스 볼륨에서 사용할 수 있는 세팅은 다음과 같으며, **Lens** (렌즈) 탭 아래 **Depth of Field** (뎁스 오브 필드) 섹션에 있습니다.
+
+| 프로퍼티 | 설명 |
+| --- | --- |
+| Focal Distance | 초점 거리 - 뎁스 오브 필드 이펙트가 선명하게 보이는 거리입니다. 이 값은 언리얼 유닛 (cm) 단위로 측정합니다. |
+| Near Transition Region | 근거리 전환 구역 - 보케 또는 가우시안 DOF 를 사용할 때 카메라 가까운 쪽의 초점 구역에서 이 언리얼 유닛 단위 거리까지 초점 상태에서 흐린 상태로 장면 전환이 일어납니다. |
+| Far Transition Region | 원거리 전환 구역 - 보케 또는 가우시안 DOF 를 사용할 때 카메라 먼 쪽의 초점 구역에서 이 언리얼 유닛 단위 거리까지 초점 잡힌 상태에서 흐린 상태로 장면 전환이 일어납니다. |
+| Scale | 스케일 - 보케 기반 블러링에 대한 전반적인 스케일 인수입니다. |
+| Max Bokeh Size | 최대 보케 크기 - 보케 기반 DOF 의 흐려지는 부분에 대한 최대 크기입니다 (뷰 너비의 퍼센트로 지정합니다). 참고로 퍼포먼스는 크기에 비례합니다. |
+| Shape Texture | 모양 텍스처 - 오브젝트가 아웃 포커스 상태로 전환될 때 보케 모양을 정의하는 텍스처입니다.  참고로 다른 포스트 프로세스 볼륨과 블렌딩되지 않습니다.  |
+| Occlusion | 오클루전 - 지오메트리의 실루엣과 불투명도를 넘어 얼마만큼이나 흐려지게 만들 것인지를 제어합니다.  0.18 이면 꽤 자연스러운 오클루전 결과가 납니다.  0.4 정도면 레이어 색이 번지는 문제를 해결하기에 충분할 것입니다.  값이 아주 (0.18 미만) 작으면 보통 흐려지는 효과를 무효화시키게 되는데, 카메라에 아주 가까운 오브젝트에는 잘 통할 수 있습니다.  |
+| Color Threshold | 색 한계치 - 여기 설정된 색 한계치를 넘으면 적응형 DOF 가 전체 해상도를 사용합니다. 값이 작을 수록 씬의 보다 많은 부분이 전체 해상도 처리를 사용하게 됩니다. |
+| Size Threshold | 크기 한계치 - 여기 설정된 크기 한계치를 넘으면 적응형 DOF 가 전체 해상도를 사용합니다. 값이 클 수록 씬의 보다 많은 부분이 전해상도 처리를 사용하게 됩니다.  |
+
+## 참고 자료
+
+* [피사계 심도](https://namu.wiki/w/피사계%20심도)
+
+* [조리개](https://namu.wiki/w/조리개)
+
+* [조리개 개구는 원형이어야 하는가? (원형 조리개)](http://surplusperson.tistory.com/249)
+
+* [뎁스 오브 필드에 영향을 주는 요인에 대한 이해 (영문)](https://photography.tutsplus.com/articles/understanding-the-factors-that-affect-depth-of-field--photo-6844)

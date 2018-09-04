@@ -25,9 +25,9 @@ public class HTML5Platform : Platform
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
-		Log("Package {0}", Params.RawProjectPath);
+		LogInformation("Package {0}", Params.RawProjectPath);
 
-		Log("Setting Emscripten SDK for packaging..");
+		LogInformation("Setting Emscripten SDK for packaging..");
 		HTML5SDKInfo.SetupEmscriptenTemp();
 		HTML5SDKInfo.SetUpEmscriptenConfigFile();
 
@@ -56,9 +56,9 @@ public class HTML5Platform : Platform
 			ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "Compressed", out Compressed);
 			ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableIndexedDB", out enableIndexedDB);
 		}
-		Log("HTML5Platform.Automation: TargetWebGL2 = "     + targetWebGL2    );
-		Log("HTML5Platform.Automation: Compressed = "       + Compressed      );
-		Log("HTML5Platform.Automation: EnableIndexedDB = "  + enableIndexedDB );
+		LogInformation("HTML5Platform.Automation: TargetWebGL2 = "     + targetWebGL2    );
+		LogInformation("HTML5Platform.Automation: Compressed = "       + Compressed      );
+		LogInformation("HTML5Platform.Automation: EnableIndexedDB = "  + enableIndexedDB );
 
 		string FinalDataLocation = Path.Combine(PackagePath, Params.ShortProjectName) + ".data";
 
@@ -128,7 +128,7 @@ public class HTML5Platform : Platform
 		// ensure the ue4game binary exists, if applicable
 		if (!FileExists_NoExceptions(FullGameExePath))
 		{
-			Log("Failed to find game application " + FullGameExePath);
+			LogInformation("Failed to find game application " + FullGameExePath);
 			throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find application {0}. You may need to build the UE4 project with your target configuration and platform.", FullGameExePath);
 		}
 
@@ -196,7 +196,7 @@ public class HTML5Platform : Platform
 
 		if (Compressed)
 		{
-			Log("Build configuration is " + Params.ClientConfigsToBuild[0].ToString() + ", so (gzip) compressing files for web servers.");
+			LogInformation("Build configuration is " + Params.ClientConfigsToBuild[0].ToString() + ", so (gzip) compressing files for web servers.");
 
 			// Compress all files. These are independent tasks which can be threaded.
 			List<Task> CompressionTasks = new List<Task>();
@@ -222,7 +222,7 @@ public class HTML5Platform : Platform
 		}
 		else
 		{
-			Log("Build configuration is " + Params.ClientConfigsToBuild[0].ToString() + ", so not compressing. Build Shipping configuration to compress files to save space.");
+			LogInformation("Build configuration is " + Params.ClientConfigsToBuild[0].ToString() + ", so not compressing. Build Shipping configuration to compress files to save space.");
 
 			// nuke old compressed files to prevent using stale files
 			File.Delete(FinalDataLocation + "gz");
@@ -240,7 +240,7 @@ public class HTML5Platform : Platform
 
 	void CompressFile(string Source, string Destination)
 	{
-		Log(" Compressing " + Source);
+		LogInformation(" Compressing " + Source);
 		bool DeleteSource = false;
 
 		if(  Source == Destination )
@@ -651,7 +651,7 @@ public class HTML5Platform : Platform
 
 		if ( !AmazonIdentity )
 		{
-			Log("Amazon S3 Incorrectly configured");
+			LogInformation("Amazon S3 Incorrectly configured");
 			return;
 		}
 
@@ -682,13 +682,13 @@ public class HTML5Platform : Platform
 		{
 			msTimeOut = 100*1000;
 		}
-		Log("Upload Timeout set to: " + (msTimeOut/1000) + "secs");
+		LogInformation("Upload Timeout set to: " + (msTimeOut/1000) + "secs");
 		Task.WaitAll(UploadTasks.ToArray(), (int)msTimeOut); // set timeout [miliseconds]
 
 		string URL = "https://" + BucketName + ".s3.amazonaws.com/" + FolderName + "/" + OutputFilename;
-		Log("Your project's shareable link is: " + URL);
+		LogInformation("Your project's shareable link is: " + URL);
 
-		Log("Upload Tasks finished.");
+		LogInformation("Upload Tasks finished.");
 	}
 
 	private static IDictionary<string, string> MimeTypeMapping = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase)
@@ -713,7 +713,7 @@ public class HTML5Platform : Platform
 		// "AWS Signature Version 4"
 		// http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
 		// --------------------------------------------------
-		Log(" Uploading " + Info.Name);
+		LogInformation(" Uploading " + Info.Name);
 
 		// --------------------------------------------------
 		// http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-post-example.html
@@ -805,7 +805,7 @@ public class HTML5Platform : Platform
 		var response = await httpClient.PostAsync(URL, formData);
 		if (response.IsSuccessStatusCode)
 		{
-			Log("Upload done: " + Info.Name);
+			LogInformation("Upload done: " + Info.Name);
 		}
 		else
 		{

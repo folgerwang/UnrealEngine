@@ -25,6 +25,8 @@ enum EStereoscopicPass
 class IStereoRendering
 {
 public:
+	virtual ~IStereoRendering() { }
+
 	/** 
 	 * Whether or not stereo rendering is on this frame.
 	 */
@@ -125,9 +127,6 @@ public:
 	 * Sets view-specific params (such as view projection matrix) for the canvas.
 	 */
 	virtual void InitCanvasFromView(class FSceneView* InView, class UCanvas* Canvas) = 0;
-
-	// Are we outputting so a Spectator Screen now.
-	virtual bool IsSpectatorScreenActive() const { return false; }
 
 	// Renders texture into a backbuffer. Could be empty if no rendertarget texture is used, or if direct-rendering 
 	// through RHI bridge is implemented. 

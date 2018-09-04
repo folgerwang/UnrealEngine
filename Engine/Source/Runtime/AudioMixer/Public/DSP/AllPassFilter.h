@@ -22,7 +22,7 @@ namespace Audio
 		void SetG(float InG) { G = InG; }
 
 		// overrides
-		virtual void ProcessAudio(const float* pInput, float* pOutput) override;
+		virtual float ProcessAudioSample(const float pInput) override;
 
 	protected:
 		// Feedback/Feedforward gain coefficient

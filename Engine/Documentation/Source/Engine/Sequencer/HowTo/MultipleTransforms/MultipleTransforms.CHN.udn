@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title:Blending Multiple Transform Tracks
+﻿INTSourceChangelist:3717107
+Availability: Public
+Title:混合多个变换轨迹
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:How to use and blend multiple Transform Tracks in absolute, additive or relative space. 
+Description:如何在绝对、附加或相对空间中使用及混合变换轨迹。 
 Version: 4.17
 SkillLevel: Advanced
 parent:Engine/Sequencer/HowTo
@@ -13,65 +13,65 @@ Related: Engine\Sequencer\ReferenceEditor\
 tags:Sequencer
 type:how-to
 
-Whenever you add an Actor to Sequencer, a **Transform Track** is also added that enables you to move the Actor by changing and keyframing different Transform values. 
-New Transform Tracks are set to **Infinite**, meaning you can add new Transform data to affect the Actor at any time during the Sequence. 
-While this is the most common method of moving Actors, there may be instances when you want to apply additional changes to a given Actor's location, rotation, or scale.
-This can be accomplished by creating a new **Transform Section** within a Transform Track which enables us to define when to apply transform data as well as the ability to blend between multiple transforms. 
+每当向Sequencer添加Actor时，还会添加一个 **变换轨迹（Transform Track）**，让你可以通过更改变换值并为不同的变换值设置关键帧来移动Actor。 
+新的变换轨迹（Transform Track）设置为 **无限（Infinite）**，也就是说你可以在序列期间随时添加新的变换数据来影响Actor。 
+这是移动Actor最常用的方法，但有时你可能想对给定Actor的位置、旋转或缩放应用其他更改。
+这可通过在变换轨迹中创建新的 **变换片段（Transform Section）** 来实现，它让我们能定义何时应用变换数据并可在多个变换之间混合。 
 
-In this example, we use two different transform tracks that are blended together to generate movement for a box in the level. 
+在这个例子中，我们使用两个混合到一起的不同变换轨迹，为关卡中的盒子设置运行。 
 
 ![](MultipleTransforms.png)
 
-## Steps
+## 步骤
 
 [REGION:note]
-For this how-to guide, we are using the **Blueprint Third Person Template** with **Starter Content** enabled. 
+在本操作指南使用 **蓝图第三人称模板（Blueprint Third Person Template）**，其中启用了 **初学者内容包（Starter Content）**。 
 [/REGION]
 
-1.	Inside your project, from the **Modes** panel under **Basic**, drag the **Cube** asset into the Level.
+1.   在项目中，在 **基本（Basic）** 下的 **模式（Modes）** 面板上，将 **立方体（Cube）** 资源拖动到关卡中。
 
-	![](MultipleTransform_01.png)
+  ![](MultipleTransform_01.png)
 
-1.	From the main toolbar, click the **Cinematics** button then select **Add Level Sequence** and save it with any name. 
+  1. 在主工具栏中，单击 **过场动画（Cinematics）** 按钮，然后选择 **添加关卡序列（Add Level Sequence）** 并用任意名称保存。 
 
-	![](MultipleTransform_02.png)
+  ![](MultipleTransform_02.png)
 
-1.	Add the cube in the Level to Sequencer, then right-click on the Transform Track. Under **Properties**, uncheck **Is Infinite**. 
+  1. 将关卡中的立方体添加到Sequencer，然后右键单击变换轨迹（Transform Track）。在 **属性（Properties）** 下，清除 **无限（Is Infinite）**。 
 
-	![](MultipleTransform_03.png)
+  ![](MultipleTransform_03.png)
 
-	By default, Transform Tracks are set to Infinite, meaning they span all time and there is usually only one Transform Track being used. 
-	By unchecking the Infinite option, we are declaring that the Transform Track will use a section of the Sequence (defined within the keyframes we add). 
+  默认情况下，变换轨迹设置为无限（Infinite），也就是说它们可以一直延伸，通常只使用一个变换轨迹。 
+  清除无限（Infinite）选项表示变换轨迹将使用序列片段（在我们添加的关键帧中定义）。 
 
-1.	Add keyframes for the **Y Track** of **Location** to generate a path of desired movement. 
+  1. 为 **位置（Location）** 的 **Y轨迹（Y Track）** 添加关键帧，以设置所需运动的路径。 
 
-	![](MultipleTransform_04.png)
+  ![](MultipleTransform_04.png)
 
-1.	Right-click on the Transform Track in the keyframe window and set only the Y axis as the **Active Channel**. 
+  1. 在关键帧窗口中右键单击变换轨迹（Transform Track），并仅将 **平移（Translation）** 的Y轴设置为 **活动信道（Active Channel）**。 
 
-	![](MultipleTransform_05.png)
+  ![](MultipleTransform_05.png)
 
-	This will isolate the Y axis for evaluation, enabling us to move the cube anywhere in the level and maintain our Y axis keyframe data. 
+  这可以将平移Y轴隔离出来进行求值，让我们能将立方体移动到关卡中的任何位置并保持Y轴关键帧数据。 
 
-1.	On the Transform Track in the Track Window, click the **Section** button and select **Additive**. 
+  1. 在轨迹窗口（Track Window）中的变换轨迹（Transform Track）上，单击 **片段（Section）** 按钮并选择 **附加（Additive）**。 
 
-	![](MultipleTransform_06.png)
+  ![](MultipleTransform_06.png)
 
-	Here we are adding a new Transform Section that will be applied to the existing Transform Track.
+  这样就添加了一个新的变换片段，它将应用到现有的变换轨迹。
 
-1.	On the new additive Transform Track, in the keyframe window, right-click and set only the Z axis as the **Active Channel**. 
+  1. 在新附加变换轨迹的关键帧窗口，右键单击并只将平移Z轴设置为 **活动信道（Active Channel）**。 
 
-	![](MultipleTransform_07.png)
+  ![](MultipleTransform_07.png)
 
-1.	For the additive Transform Track, add a keyframe at **0** with its default value, then scrub ahead and add **300** to the **Z** value and keyframe it. 
+  1. 对于附加的变换轨迹，使用默认值在第 **0** 帧处添加关键帧，然后向前拉动时间轴并将 **300** 添加到 **Z** 值，然后为其设置关键帧。 
 
-	![](MultipleTransform_08.png)
+  ![](MultipleTransform_08.png)
 
-1.	Click the **Preview Play** button to preview the movement. 
+  1. 单击 **预览播放（Preview Play）** 按钮预览运动。 
 
-## End Result
+## 最终结果
 
-When we play the Sequence, the cube will move along the Y axis while blending the Z axis movement in as well, so that the cube moves forward and up. 
+当我们播放序列时，立方体将沿着Y轴移动，同时也将Z轴运动混合在一起，这样立方体便可以向前和向上移动。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -91,16 +91,16 @@ When we play the Sequence, the cube will move along the Y axis while blending th
 	[/PARAMLITERAL]
 [/OBJECT]
 
-As displayed in the video above, we can move each Section to change the blending process. In our example, we shift the additive Section to later in the Sequence so that blending starts later and gives us a different type of movement (delaying when the cube starts to ascend). 
+如上面视频所示，我们可以移动每个片段来更改混合过程。在示例中，我们将附加的片段移动到序列中的稍后时间，这样混合的开始时间就会推后，从而形成不同类型的运动（在立方体开始上升时延迟）。 
 
-Additionally, you can change the type of blending by right-clicking on the Transform Section and choosing **Blend Type**. 
+此外，你可以右键单击变换片段（Transform Section）并选择 **混合类型（Blend Type）** 来更改混合类型。 
 
 ![](MultipleTransform_09.png)
 
-The available options include: 
+可用选项包括： 
 
-| Blend Type | Meaning |
-| --- | --- |
-| **Absolute** | Blends all other weighted values together as an average of the total weight. |
-| **Additive** | Applies the values as a sum total with all other additives. |
-| **Relative** | Applies the values as a sum total with all other additives and the initial value before the animation. |
+| 混合类型         | 含义                               |
+| ------------ | -------------------------------- |
+| **Absolute** | 将所有其他加权值混合在一起作为总权重的平均值。          |
+| **Additive** | 将值作为总和与所有其他Additive一起应用。         |
+| **Relative** | 在动画前将值作为总和与所有其他Additive及初始值一起应用。 |

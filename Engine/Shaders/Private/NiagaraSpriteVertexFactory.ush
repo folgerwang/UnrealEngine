@@ -101,7 +101,7 @@ struct FVertexFactoryInterpolantsVSToPS
 #endif
 
 #if USE_PARTICLE_TIME
-	float ParticleTime : PARTICLE_TIME;
+	float RelativeTime : PARTICLE_TIME;
 #endif
 
 #if USE_PARTICLE_LIGHTING_OFFSET
@@ -172,14 +172,21 @@ struct FVertexFactoryIntermediates
 
 	/** The sub-image lerp. */
 	float SubImageLerp;
+
+#if USE_PARTICLE_TIME
 	/** Relative time. */
 	float RelativeTime;
+#endif
+
 	/** Transform from tangent space to local space. */
 	float3x3 TangentToLocal;
 	/** Size of the particle */
 	float2 ParticleSize;
+
+#if USE_PARTICLE_RANDOM
 	/** Particle Random value */
 	float ParticleRandom;
+#endif
 };
 
 #if NUM_MATERIAL_TEXCOORDS
@@ -272,7 +279,7 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 #endif
 
 #if USE_PARTICLE_TIME
-	Result.Particle.RelativeTime = Interpolants.ParticleTime;
+	Result.Particle.RelativeTime = Interpolants.RelativeTime;
 #endif
 
 	Result.Particle.MotionBlurFade = 1.0f;
@@ -630,33 +637,44 @@ float4 GetNiagaraParticleColor(uint InstanceID)
 
 float2 GetNiagaraUVScale(uint InstanceID)
 {
-	if(NiagaraSpriteVF.UVScaleOffset  == -1)
+	if(NiagaraSpriteVF.UVScaleDataOffset  == -1)
 	{
 		// See FNiagaraConstants for a synchronized value...
 		return float2(1.0f, 1.0f);
 	}
-	return GetVec2(NiagaraSpriteVF.UVScaleOffset, InstanceID);	
+	return GetVec2(NiagaraSpriteVF.UVScaleDataOffset, InstanceID);	
 }
 
 float GetNiagaraParticleRandom(uint InstanceID)
 {
-	if(NiagaraSpriteVF.ParticleRandomOffset  == -1)
+	if(NiagaraSpriteVF.MaterialRandomDataOffset  == -1)
 	{
 		// See FNiagaraConstants for a synchronized value...
 		return 0.0f;
 	}
-	return GetFloat(NiagaraSpriteVF.ParticleRandomOffset, InstanceID);	
+	return GetFloat(NiagaraSpriteVF.MaterialRandomDataOffset, InstanceID);	
 }
 
 float GetNiagaraCameraOffset(uint InstanceID)
 {
-	if (NiagaraSpriteVF.CameraOffsetOffset == -1)
+	if (NiagaraSpriteVF.CameraOffsetDataOffset == -1)
 	{
 		// See FNiagaraConstants for a synchronized value...
 		return 0.0f;
 	}
-	return GetFloat(NiagaraSpriteVF.CameraOffsetOffset, InstanceID);
+	return GetFloat(NiagaraSpriteVF.CameraOffsetDataOffset, InstanceID);
 }
+
+#if USE_PARTICLE_TIME
+float GetNiagaraNormalizedAge(uint InstanceID)
+{
+	if (NiagaraSpriteVF.NormalizedAgeDataOffset == -1)
+	{
+		return 0;
+	}
+	return GetFloat(NiagaraSpriteVF.NormalizedAgeDataOffset, InstanceID);
+}
+#endif
 
 #if NUM_DYNAMIC_PARAMETERS > 0
 float4 GetNiagaraParticleDynamicParameters(uint InstanceID)
@@ -699,9 +717,9 @@ float3 GetNiagaraParticleFacingVector(uint InstanceID)
 {
 	// See FNiagaraConstants for a synchronized value...
 	float3 Val = float3(1.0f, 0.0f, 0.0f);
-    if(NiagaraSpriteVF.FacingOffset != -1)
+    if(NiagaraSpriteVF.FacingDataOffset != -1)
 	{
-		Val = GetVec3(NiagaraSpriteVF.FacingOffset, InstanceID);
+		Val = GetVec3(NiagaraSpriteVF.FacingDataOffset, InstanceID);
 	}
 	return TransformVector(Val);
 }
@@ -709,9 +727,9 @@ float3 GetNiagaraParticleFacingVector(uint InstanceID)
 float3 GetNiagaraParticleAlignmentVector(uint InstanceID)
 {
 	float3 Val = float3(1.0f, 0.0f, 0.0f);
-    if(NiagaraSpriteVF.AlignmentOffset != -1)
+    if(NiagaraSpriteVF.AlignmentDataOffset != -1)
 	{
-		Val = GetVec3(NiagaraSpriteVF.AlignmentOffset, InstanceID);
+		Val = GetVec3(NiagaraSpriteVF.AlignmentDataOffset, InstanceID);
 	}
 	return TransformVector(Val);
 }
@@ -826,7 +844,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 #endif
 
 #if USE_PARTICLE_TIME
-	Intermediates.RelativeTime = Intermediates.Position.w;
+	Intermediates.RelativeTime = GetNiagaraNormalizedAge(ParticleID);
 #endif
 
 #if USE_PARTICLE_RANDOM
@@ -939,7 +957,7 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 #endif
 
 #if USE_PARTICLE_TIME
-	Interpolants.ParticleTime = Intermediates.RelativeTime;
+	Interpolants.RelativeTime = Intermediates.RelativeTime;
 #endif
 
 #if USE_PARTICLE_LIGHTING_OFFSET

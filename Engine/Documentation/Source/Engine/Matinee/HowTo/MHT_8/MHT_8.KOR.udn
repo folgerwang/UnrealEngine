@@ -150,7 +150,7 @@ SkillLevel: Intermediate
 
 	![](MHT8_OpenLevelBlueprint.png)
 
-1.	그래프 창에 **우클릭** 한 다음 **마티네 콘트롤러 생성** 옵션을 선택합니다.
+1.	그래프 창에 **우클릭** 한 다음 **마티네 컨트롤러 생성** 옵션을 선택합니다.
 
 	![](MHT8_AddMatineeController.png)
 

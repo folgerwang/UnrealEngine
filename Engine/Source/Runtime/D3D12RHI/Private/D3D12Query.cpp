@@ -176,16 +176,16 @@ void FD3D12CommandContext::RHIEndOcclusionQueryBatch()
 *=============================================================================*/
 
 FD3D12QueryHeap::FD3D12QueryHeap(FD3D12Device* InParent, const D3D12_QUERY_HEAP_TYPE &InQueryHeapType, uint32 InQueryHeapCount, uint32 InMaxActiveBatches)
-	:HeadActiveElement(0)
+	: FD3D12DeviceChild(InParent)
+	, FD3D12SingleNodeGPUObject(InParent->GetGPUMask())
+	, MaxActiveBatches(InMaxActiveBatches)
+	, LastBatch(InMaxActiveBatches - 1)
+	, HeadActiveElement(0)
 	, TailActiveElement(0)
 	, ActiveAllocatedElementCount(0)
 	, LastAllocatedElement(InQueryHeapCount - 1)
 	, ResultSize(8)
 	, pResultData(nullptr)
-	, MaxActiveBatches(InMaxActiveBatches)
-	, LastBatch(InMaxActiveBatches - 1)
-	, FD3D12DeviceChild(InParent)
-	, FD3D12SingleNodeGPUObject(InParent->GetGPUMask())
 {
 	if (InQueryHeapType == D3D12_QUERY_HEAP_TYPE_OCCLUSION)
 	{
@@ -477,14 +477,14 @@ void FD3D12QueryHeap::CreateResultBuffer()
   * @param InBufferSize		Number of buffered measurements
   */
 FD3D12BufferedGPUTiming::FD3D12BufferedGPUTiming(FD3D12Adapter* InParent, int32 InBufferSize)
-	: BufferSize(InBufferSize)
+	: FD3D12AdapterChild(InParent)
+	, BufferSize(InBufferSize)
 	, CurrentTimestamp(-1)
 	, NumIssuedTimestamps(0)
 	, TimestampQueryHeap(nullptr)
 	, TimestampQueryHeapBuffer(nullptr)
 	, bIsTiming(false)
 	, bStablePowerState(false)
-	, FD3D12AdapterChild(InParent)
 {
 }
 

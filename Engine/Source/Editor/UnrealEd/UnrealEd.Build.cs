@@ -124,6 +124,7 @@ public class UnrealEd : ModuleRules
 				"PropertyEditor",
 				"Projects",
 				"RawMesh",
+				"MeshUtilitiesCommon",
 				"RenderCore",
 				"RHI",
 				"ShaderCore",
@@ -162,6 +163,7 @@ public class UnrealEd : ModuleRules
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface",
 				"PIEPreviewDeviceProfileSelector",
+				"PakFileUtilities",
 				"TimeManagement",
 			}
 		);

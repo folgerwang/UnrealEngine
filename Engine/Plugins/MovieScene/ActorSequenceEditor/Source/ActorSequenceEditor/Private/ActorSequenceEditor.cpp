@@ -5,6 +5,7 @@
 #include "BlueprintEditorModule.h"
 #include "BlueprintEditorTabs.h"
 #include "ActorSequenceComponentCustomization.h"
+#include "MovieSceneSequenceEditor_ActorSequence.h"
 #include "ActorSequenceEditorStyle.h"
 #include "ActorSequenceEditorTabSummoner.h"
 #include "Framework/Docking/LayoutExtender.h"
@@ -17,6 +18,7 @@
 #include "Widgets/Docking/SDockTab.h"
 #include "ISettingsModule.h"
 #include "SequencerSettings.h"
+#include "ISequencerModule.h"
 
 
 #define LOCTEXT_NAMESPACE "ActorSequenceEditor"
@@ -120,6 +122,9 @@ public:
 		RegisterCustomizations();
 		RegisterSettings();
 		OnInitializeSequenceHandle = UActorSequence::OnInitializeSequence().AddStatic(FActorSequenceEditorModule::OnInitializeSequence);
+
+		ISequencerModule& SequencerModule = FModuleManager::Get().LoadModuleChecked<ISequencerModule>("Sequencer");
+		SequenceEditorHandle = SequencerModule.RegisterSequenceEditor(UActorSequence::StaticClass(), MakeUnique<FMovieSceneSequenceEditor_ActorSequence>());
 	}
 	
 	virtual void ShutdownModule() override
@@ -127,6 +132,13 @@ public:
 		UActorSequence::OnInitializeSequence().Remove(OnInitializeSequenceHandle);
 		UnregisterCustomizations();
 		UnregisterSettings();
+
+		ISequencerModule* SequencerModule = FModuleManager::Get().GetModulePtr<ISequencerModule>("Sequencer");
+		if (SequencerModule)
+		{
+			SequencerModule->UnregisterSequenceEditor(SequenceEditorHandle);
+		}
+
 		BlueprintEditorTabBinding = nullptr;
 	}
 
@@ -195,6 +207,7 @@ public:
 		}
 	}
 
+	FDelegateHandle SequenceEditorHandle;
 	FDelegateHandle OnInitializeSequenceHandle;
 	TSharedPtr<FActorSequenceEditorTabBinding> BlueprintEditorTabBinding;
 	FName ActorSequenceComponentName;

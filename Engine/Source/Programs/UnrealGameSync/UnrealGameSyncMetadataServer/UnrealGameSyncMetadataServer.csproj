@@ -89,10 +89,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App_Start\WebApiConfig.cs" />
+    <Compile Include="Controllers\BuildController.cs" />
     <Compile Include="Controllers\CISController.cs" />
     <Compile Include="Controllers\CommentController.cs" />
     <Compile Include="Controllers\ErrorController.cs" />
     <Compile Include="Controllers\EventController.cs" />
+    <Compile Include="Controllers\LatestController.cs" />
     <Compile Include="Controllers\TelemetryController.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
@@ -101,6 +103,7 @@
     <Compile Include="Models\CommentData.cs" />
     <Compile Include="Models\EventData.cs" />
     <Compile Include="Models\EventSummary.cs" />
+    <Compile Include="Models\LatestData.cs" />
     <Compile Include="Models\TelemetryErrorData.cs" />
     <Compile Include="Models\TelemetryTimingData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

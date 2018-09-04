@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4300247
 Availability: Public
 title:머티리얼 표현식 참고서
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
@@ -184,27 +184,13 @@ tags:Materials
 		[RELATIVE:Engine/Rendering/Materials/ExpressionReference/Particles]
 	[/PARAM]
 [/OBJECT]
-[COMMENT:none]
--
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/Materials/ExpressionReference/Parameters:title%](exp_parameter.png)
-	[/PARAM]
-	[PARAM:title]
-		SpeedTree
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/Materials/ExpressionReference/SpeedTree]
-	[/PARAM]
-[/OBJECT]
--
-[/COMMENT]
+
 [OBJECT:TopicCompact]
 	[PARAM:image]
 		![%Engine/Rendering/Materials/ExpressionReference/Landscape:title%](exp_landscape.png)
 	[/PARAM]
 	[PARAM:title]
-		랜드스케이프
+		Landscapes
 	[/PARAM]
 	[PARAM:path]
 		[RELATIVE:Engine/Rendering/Materials/ExpressionReference/Landscape]
@@ -421,14 +407,7 @@ tags:Materials
 * [ParticleSubUV](Engine/Rendering/Materials\ExpressionReference\Particles#ParticleSubUV)
 * [TextureSampleParameterSubUV](Engine/Rendering/Materials\ExpressionReference\Particles#TextureSampleParameterSubUV)
 [/REGION]
-[COMMENT:none]
--
-[**SpeedTree**](Engine/Rendering/Materials\ExpressionReference\SpeedTree)
-[REGION:indentedlist]
-* [SpeedTree](Engine/Rendering/Materials\ExpressionReference\SpeedTree#스피드트리)
-[/REGION]
--
-[/COMMENT]
+
 [**Terrain**](Engine/Rendering/Materials\ExpressionReference\Landscape)
 [REGION:indentedlist]
 * [LanscapeLayerBlend](Engine/Rendering/Materials\ExpressionReference\Landscape#LandscapeLayerBlend)

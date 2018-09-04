@@ -7,6 +7,7 @@
 #include "UObject/LinkerLoad.h"
 #include "UObject/PropertyHelper.h"
 #include "Misc/ScopeExit.h"
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 
 namespace UE4SetProperty_Private
 {
@@ -212,17 +213,20 @@ void USetProperty::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 	OutDeps.Add(ElementProp);
 }
 
-void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults) const
+void USetProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, const void* Defaults) const
 {
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+
 	// Ar related calls in this function must be mirrored in USetProperty::ConvertFromType
 	checkSlow(ElementProp);
 
 	// Ensure that the element property has been loaded before calling SerializeItem() on it
-	Ar.Preload(ElementProp);
+	UnderlyingArchive.Preload(ElementProp);
 
 	FScriptSetHelper SetHelper(this, Value);
 
-	if (Ar.IsLoading())
+	if (UnderlyingArchive.IsLoading())
 	{
 		if (Defaults)
 		{
@@ -245,17 +249,18 @@ void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 
 		// Delete any explicitly-removed elements
 		int32 NumElementsToRemove = 0;
-		Ar << NumElementsToRemove;
+		FStructuredArchive::FArray ElementsToRemoveArray = Record.EnterArray(FIELD_NAME_TEXT("ElementsToRemove"), NumElementsToRemove);
+
 		if (NumElementsToRemove)
 		{
 			TempElementStorage = (uint8*)FMemory::Malloc(SetLayout.Size);
 			ElementProp->InitializeValue(TempElementStorage);
 
-			FSerializedPropertyScope SerializedProperty(Ar, ElementProp, this);
+			FSerializedPropertyScope SerializedProperty(UnderlyingArchive, ElementProp, this);
 			for (; NumElementsToRemove; --NumElementsToRemove)
 			{
 				// Read key into temporary storage
-				ElementProp->SerializeItem(Ar, TempElementStorage);
+				ElementProp->SerializeItem(ElementsToRemoveArray.EnterElement(), TempElementStorage);
 
 				// If the key is in the map, remove it
 				const int32 Found = SetHelper.FindElementIndex(TempElementStorage);
@@ -267,7 +272,7 @@ void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 		}
 
 		int32 Num = 0;
-		Ar << Num;
+		FStructuredArchive::FArray ElementsArray = Record.EnterArray(FIELD_NAME_TEXT("Elements"), Num);
 
 		// Allocate temporary key space if we haven't allocated it already above
 		if (Num != 0 && !TempElementStorage)
@@ -276,12 +281,12 @@ void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 			ElementProp->InitializeValue(TempElementStorage);
 		}
 
-		FSerializedPropertyScope SerializedProperty(Ar, ElementProp, this);
+		FSerializedPropertyScope SerializedProperty(UnderlyingArchive, ElementProp, this);
 		// Read remaining items into container
 		for (; Num; --Num)
 		{
 			// Read key into temporary storage
-			ElementProp->SerializeItem(Ar, TempElementStorage);
+			ElementProp->SerializeItem(ElementsArray.EnterElement(), TempElementStorage);
 
 			// Add a new entry if the element doesn't currently exist in the set
 			if (SetHelper.FindElementIndex(TempElementStorage) == INDEX_NONE)
@@ -324,12 +329,13 @@ void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 
 		// Write out the removed elements
 		int32 RemovedElementsNum = Indices.Num();
-		Ar << RemovedElementsNum;
+		FStructuredArchive::FArray RemovedElementsArray = Record.EnterArray(FIELD_NAME_TEXT("ElementsToRemove"), RemovedElementsNum);
+		
 		{
-			FSerializedPropertyScope SerializedProperty(Ar, ElementProp, this);
+			FSerializedPropertyScope SerializedProperty(UnderlyingArchive, ElementProp, this);
 			for (int32 Index : Indices)
 			{
-				ElementProp->SerializeItem(Ar, DefaultsHelper.GetElementPtr(Index));
+				ElementProp->SerializeItem(RemovedElementsArray.EnterElement(), DefaultsHelper.GetElementPtr(Index));
 			}
 		}
 
@@ -355,29 +361,29 @@ void USetProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 
 			// Write out differences from defaults
 			int32 Num = Indices.Num();
-			Ar << Num;
+			FStructuredArchive::FArray ElementsArray = Record.EnterArray(FIELD_NAME_TEXT("Elements"), Num);
 
-			FSerializedPropertyScope SerializedProperty(Ar, ElementProp, this);
+			FSerializedPropertyScope SerializedProperty(UnderlyingArchive, ElementProp, this);
 			for (int32 Index : Indices)
 			{
 				uint8* ElementPtr = SetHelper.GetElementPtrWithoutCheck(Index);
 
-				ElementProp->SerializeItem(Ar, ElementPtr);
+				ElementProp->SerializeItem(ElementsArray.EnterElement(), ElementPtr);
 			}
 		}
 		else
 		{
 			int32 Num = SetHelper.Num();
-			Ar << Num;
+			FStructuredArchive::FArray ElementsArray = Record.EnterArray(FIELD_NAME_TEXT("Elements"), Num);
 
-			FSerializedPropertyScope SerializedProperty(Ar, ElementProp, this);
+			FSerializedPropertyScope SerializedProperty(UnderlyingArchive, ElementProp, this);
 			for (int32 Index = 0; Num; ++Index)
 			{
 				if (SetHelper.IsValidIndex(Index))
 				{
 					uint8* ElementPtr = SetHelper.GetElementPtrWithoutCheck(Index);
 
-					ElementProp->SerializeItem(Ar, ElementPtr);
+					ElementProp->SerializeItem(ElementsArray.EnterElement(), ElementPtr);
 
 					--Num;
 				}
@@ -750,13 +756,15 @@ bool USetProperty::SameType(const UProperty* Other) const
 	return Super::SameType(Other) && ElementProp && ElementProp->SameType(SetProp->ElementProp);
 }
 
-EConvertFromTypeResult USetProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult USetProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
+	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
+
 	// Ar related calls in this function must be mirrored in USetProperty::ConvertFromType
 	checkSlow(ElementProp);
 
 	// Ensure that the element property has been loaded before calling SerializeItem() on it
-	Ar.Preload(ElementProp);
+	UnderlyingArchive.Preload(ElementProp);
 
 	// Ar related calls in this function must be mirrored in USetProperty::SerializeItem
 	if (Tag.Type == NAME_SetProperty)
@@ -781,18 +789,20 @@ EConvertFromTypeResult USetProperty::ConvertFromType(const FPropertyTag& Tag, FA
 
 			bool bConversionSucceeded = true;
 
+			FStructuredArchive::FRecord ValueRecord = Slot.EnterRecord();
+
 			// When we saved this instance we wrote out any elements that were in the 'Default' instance but not in the 
 			// instance that was being written. Presumably we were constructed from our defaults and must now remove 
 			// any of the elements that were not present when we saved this Set:
 			int32 NumElementsToRemove = 0;
-			Ar << NumElementsToRemove;
+			FStructuredArchive::FArray ElementsToRemoveArray = ValueRecord.EnterArray(FIELD_NAME_TEXT("ElementsToRemove"), NumElementsToRemove);
 
 			if(NumElementsToRemove)
 			{
 				TempElementStorage = (uint8*)FMemory::Malloc(SetLayout.Size);
 				ElementProp->InitializeValue(TempElementStorage);
 
-				if (ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted)
+				if (ElementProp->ConvertFromType(InnerPropertyTag, ElementsToRemoveArray.EnterElement(), TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted)
 				{
 					int32 Found = ScriptSetHelper.FindElementIndex(TempElementStorage);
 					if (Found != INDEX_NONE)
@@ -802,7 +812,7 @@ EConvertFromTypeResult USetProperty::ConvertFromType(const FPropertyTag& Tag, FA
 
 					for (int32 I = 1; I < NumElementsToRemove; ++I)
 					{
-						verify(ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted);
+						verify(ElementProp->ConvertFromType(InnerPropertyTag, ElementsToRemoveArray.EnterElement(), TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted);
 
 						Found = ScriptSetHelper.FindElementIndex(TempElementStorage);
 						if (Found != INDEX_NONE)
@@ -818,7 +828,7 @@ EConvertFromTypeResult USetProperty::ConvertFromType(const FPropertyTag& Tag, FA
 			}
 
 			int32 Num = 0;
-			Ar << Num;
+			FStructuredArchive::FArray ElementsArray = ValueRecord.EnterArray(FIELD_NAME_TEXT("Elements"), Num);
 
 			if(bConversionSucceeded)
 			{
@@ -833,7 +843,7 @@ EConvertFromTypeResult USetProperty::ConvertFromType(const FPropertyTag& Tag, FA
 
 					// and read the first entry, we have to check for conversion possibility again because 
 					// NumElementsToRemove may not have run (in fact, it likely did not):
-					if (ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted)
+					if (ElementProp->ConvertFromType(InnerPropertyTag, ElementsArray.EnterElement(), TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted)
 					{
 						if (ScriptSetHelper.FindElementIndex(TempElementStorage) == INDEX_NONE)
 						{
@@ -848,7 +858,7 @@ EConvertFromTypeResult USetProperty::ConvertFromType(const FPropertyTag& Tag, FA
 						for (int32 I = 1; I < Num; ++I)
 						{
 							// Read key into temporary storage
-							verify(ElementProp->ConvertFromType(InnerPropertyTag, Ar, TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted);
+							verify(ElementProp->ConvertFromType(InnerPropertyTag, ElementsArray.EnterElement(), TempElementStorage, DefaultsStruct) == EConvertFromTypeResult::Converted);
 
 							// Add a new entry if the element doesn't currently exist in the set
 							if (ScriptSetHelper.FindElementIndex(TempElementStorage) == INDEX_NONE)
@@ -873,7 +883,7 @@ EConvertFromTypeResult USetProperty::ConvertFromType(const FPropertyTag& Tag, FA
 			// if we could not convert the property ourself, then indicate that calling code needs to advance the property
 			if(!bConversionSucceeded)
 			{
-				UE_LOG(LogClass, Warning, TEXT("Set Element Type mismatch in %s of %s - Previous (%s) Current (%s) for package: %s"), *Tag.Name.ToString(), *GetName(), *Tag.InnerType.ToString(), *ElementProp->GetID().ToString(), *Ar.GetArchiveName() );
+				UE_LOG(LogClass, Warning, TEXT("Set Element Type mismatch in %s of %s - Previous (%s) Current (%s) for package: %s"), *Tag.Name.ToString(), *GetName(), *Tag.InnerType.ToString(), *ElementProp->GetID().ToString(), *UnderlyingArchive.GetArchiveName() );
 			}
 
 			return bConversionSucceeded ? EConvertFromTypeResult::Converted : EConvertFromTypeResult::CannotConvert;

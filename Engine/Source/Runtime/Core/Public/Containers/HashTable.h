@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
+#include "Misc/AssertionMacros.h"
+#include "HAL/UnrealMemory.h"
+#include "Math/UnrealMathUtility.h"
+#include <initializer_list>
 
 static FORCEINLINE uint32 Murmur32( std::initializer_list< uint32 > InitList )
 {

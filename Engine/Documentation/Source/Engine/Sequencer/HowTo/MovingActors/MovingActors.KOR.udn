@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3741733
 Availability: Docs
-Title:Moving Actors with Sequencer
+Title:시퀀서로 액터 이동
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:Illustrates the different ways you can move Actors in your levels with Sequencer.
+Description:시퀀서로 레벨의 액터를 이동시키는 여러가지 방법을 설명합니다. 
 Version: 4.18
 SkillLevel: Beginner
 parent:Engine/Sequencer/HowTo
@@ -14,62 +14,62 @@ Related: Engine\Sequencer\HowTo\MultipleTransforms
 tags:Sequencer
 type:how-to
 
-When creating your cinematic, you may want to move objects around in your scene (for example, moving a camera which you are shooting from, opening a door, moving a car down the street). 
-Using the **Transform** track of an Actor added to Sequencer, you can keyframe a starting position, scrub the timeline forward then move the Actor to a new position and keyframe it to have that Actor move between keyframes over time. 
+시네마틱을 만들 때, 씬의 오브젝트를 (예로, 문을 열거나, 샷을 찍는 카메라 또는 도로 위의 차를) 옮기고 싶을 수가 있습니다. 
+시퀀서에 추가된 액터의 **Transform** (트랜스폼) 트랙을 사용하면, 시작 위치 키프레임을 설정하고, 타임라인을 문질러 앞으로 이동한 뒤 액터를 새 위치로 옮긴 뒤 다시 키프레임 설정하는 것으로, 액터가 일정 시간에 걸친 키프레임 사이를 이동하도록 할 수 있습니다. 
 
-In this example, we move a box around in the scene using the **Transform** track. 
+이 예제에서는, **트랜스폼** 트랙을 사용하여 씬의 박스를 움직여봅니다. 
 
 ![](MovingActors_06.png)
 
-## Steps
+## 단계
 
 [REGION:note]
-For this how-to guide, we are using the **Blueprint Third Person Template** with **Starter Content** enabled. 
+여기서는 **블루프린트 삼인칭 템플릿** 에 **시작용 콘텐츠** 를 포함시켜 사용하고 있습니다. 
 [/REGION]
 
-1.	Inside your project, from the **Modes** panel under **Basic**, drag the **Cube** asset into the level. 
+1. 프로젝트 안에서, **모드** 패널의 **기본** 아래 **큐브** 애셋을 끌어 레벨에 놓습니다. 
 
 	![](MovingActors_01.png)
 
-1.	From the main toolbar, click the **Cinematics** button then select **Add Level Sequence**. 
+1. 메인 툴바에서, **시네마틱** 버튼을 클릭한 뒤 **레벨 시퀀스에 추가** 를 선택합니다. 
 
 	![](MovingActors_02.png)
 
-1.	In the **Save Asset As** window, choose a save name and location then click the **Save** button. 
+1. **애셋을 다른 이름으로 저장** 창에서, 저장 이름과 위치를 선택한 뒤 **저장** 버튼을 클릭합니다. 
 
 	![](MovingActors_02b.png)
 
-1.	Inside the level select the cube, then inside **Sequencer**, click the **Track** button and under **Actor To Sequencer** select **Add Cube**. 
+1. 레벨 안에서 큐브를 선택하고, **시퀀서** 안에서 **트랙** 버튼을 클릭한 뒤, **Actor To Sequencer** (액터에서 시퀀서로) 아래 **큐브 추가** 를 선택합니다. 
 
 	![](MovingActors_03.png)
 
-	This will add the cube to and enable us to control through the Sequencer Editor. 
+그러면 시퀀서 에디터에 큐브가 추가되어 제어할 수 있습니다. 
 
-1.	On the **Transform** track for the cube, click the **+** symbol to add a key at frame **0**. 
+1. 큐브의 **트랜스폼** 트랙에서, **+** 기호를 클릭하고 **0** 프레임에 키를 추가합니다. 
 
 	![](MovingActors_04.png)
 
-	This will add a keyframe for the current transform of the cube to Sequencer. 
+그러면 큐브의 현재 트랜스폼에 대한 키프레임이 시퀀서에 추가됩니다. 
 
-1.	Scrub the timeline marker forward to frame **100**, then move the cube in the level along the **Y** axis forward and add a key for it by clicking the **+** symbol.
+1. 타임라인 마커를 앞으로 문질러 **100** 프레임으로 이동한 뒤, 레벨의 큐브를 **Y** 축 앞으로 옮긴 뒤 **+** 기호를 클릭하여 키를 추가합니다. 
 
 	![](MovingActors_05.png)
 
-	After adding the keyframe at frame 100, you will see a dotted line inside the viewport indicating the movement path of the cube. 
+100 프레임에 키프레임을 추가하면, 뷰포트 안에 점선으로 큐브의 동선이 보일 것입니다. 
 
 	![](MovingActors_06.png)
 
 	[REGION:tip]
-	Instead of clicking the **+** symbol on the **Transform** track, you can also press the **S** key with an Actor selected. 
+	**트랜스폼** 트랙에서 **+** 기호를 클릭하는 대신, 액터를 선택한 채 **S** 키를 눌러도 됩니다. 
 	[/REGION]
 
-1.	Click the **Preview Play** button in the viewport or inside Sequencer.
+1. 뷰포트 또는 시퀀서 안의 **Preview Play** (프리뷰 재생) 버튼을 클릭합니다. 
 
 	![](PreviewPlayButton.png)
 
-## End Result
+## 최종 결과
 
-When we play the sequence, the cube will move along the specified keyframe path. 
+시퀀스를 재생하면, 큐브가 지정된 키프레임 경로대로 움직일 것입니다. 
 
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:videoid]
@@ -89,8 +89,7 @@ simple
 [/PARAMLITERAL]
 [/OBJECT]
 
-This method of generating movement for an Actor is perfect for situations where you have an object that you want to move at a specified start/end location that will not change. 
-
+이런 식의 액터 이동 생성은 변하지 않는 시작/끝 지정 위치로 오브젝트를 이동시키고자 할 때 적합합니다.
 
 
 

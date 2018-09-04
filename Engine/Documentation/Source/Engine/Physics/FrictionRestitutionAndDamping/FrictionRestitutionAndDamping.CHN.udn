@@ -69,7 +69,7 @@ it which may look odd.
 To simulate 'friction' within a joint, you can use the joint drive properties in the RB_ConstraintInstance (you can get to these properties in PhAT by selecting the joint and 
 pressing the 'I' key or the 'i' icon on the toolbar).First you want to turn on the appropriate bTwistVelocityDrive or bSwingVelocityDrive drive, set the desired angular velocity 
 to zero and modify the AngularDriveForceLimit to control how much friction is in the joint.You can find more information on this on the 
-[PhysicsConstraintReference](Engine/Physics/PhysX/Constraints) page. 
+[PhysicsConstraintReference](Engine/Physics/Constraints) page. 
 
 The key thing here is that the damping is applied between two jointed object.Imagine two objects jointed together, but then thrown through space.If you used PhysicalMaterial 
 damping here, it would slow down how quickly the pair of objects would move through the air, when what you really want is to modify how they move relative to each other. 

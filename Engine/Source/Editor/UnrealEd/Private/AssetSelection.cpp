@@ -210,10 +210,7 @@ namespace AssetSelectionUtils
 						ActorInfo.bHaveAttachedActor = true;
 					}
 
-					TInlineComponentArray<UActorComponent*> ActorComponents;
-					CurrentActor->GetComponents(ActorComponents);
-
-					for( UActorComponent* Component : ActorComponents )
+					for (UActorComponent* Component : CurrentActor->GetComponents())
 					{
 						if( UStaticMeshComponent* SMComp = Cast<UStaticMeshComponent>(Component) )
 						{
@@ -749,10 +746,14 @@ bool FActorFactoryAssetProxy::IsActorValidForMaterialApplication( AActor* Target
 	// a material applied to it. Otherwise, it cannot.
 	if ( TargetActor )
 	{
-		TInlineComponentArray<UMeshComponent*> MeshComponents;
-		TargetActor->GetComponents(MeshComponents);
-
-		bIsValid = (MeshComponents.Num() > 0);
+		for (UActorComponent* Component : TargetActor->GetComponents())
+		{
+			if (Cast<UMeshComponent>(Component))
+			{
+				bIsValid = true;
+				break;
+			}
+		}
 	}
 
 	return bIsValid;
@@ -792,15 +793,12 @@ bool FActorFactoryAssetProxy::ApplyMaterialToActor( AActor* TargetActor, UMateri
 			TArray<USceneComponent*> FoundMeshComponents;
 
 			// Find which mesh the user clicked on first.
-			TInlineComponentArray<USceneComponent*> SceneComponents;
-			TargetActor->GetComponents(SceneComponents);
-
-			for ( int32 ComponentIdx=0; ComponentIdx < SceneComponents.Num(); ComponentIdx++ )
+			for (UActorComponent* Component : TargetActor->GetComponents())
 			{
-				USceneComponent* SceneComp = SceneComponents[ComponentIdx];
+				USceneComponent* SceneComp = Cast<USceneComponent>(Component);
 				
 				// Only apply the material to editable components.  Components which are not exposed are not intended to be changed.
-				if( EditableComponents.Contains( SceneComp ) )
+				if (SceneComp && EditableComponents.Contains( SceneComp ) )
 				{
 					UMeshComponent* MeshComponent = Cast<UMeshComponent>(SceneComp);
 

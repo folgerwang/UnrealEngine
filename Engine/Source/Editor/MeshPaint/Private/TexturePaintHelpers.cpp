@@ -407,8 +407,14 @@ void TexturePaintHelpers::FindMaterialIndicesUsingTexture(const UTexture* Textur
 	for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex)
 	{
 		const UMaterialInterface* MaterialInterface = MeshComponent->GetMaterial(MaterialIndex);
-		const bool bUsesTexture = DoesMaterialUseTexture(MaterialInterface, Texture);
-		OutIndices.AddUnique(MaterialIndex);
+		if (MaterialInterface)
+		{
+			const bool bUsesTexture = DoesMaterialUseTexture(MaterialInterface, Texture);
+			if (bUsesTexture)
+			{
+				OutIndices.AddUnique(MaterialIndex);
+			}
+		}
 	}
 }
 

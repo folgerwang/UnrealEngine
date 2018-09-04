@@ -163,11 +163,12 @@ bool F3DPathTrackEditor::IsActorPickable(const AActor* const ParentActor, FGuid 
 		!ParentActor->IsA( AWorldSettings::StaticClass() ) &&
 		!ParentActor->IsPendingKill())
 	{			
-		TArray<USplineComponent*> SplineComponents;
-		ParentActor->GetComponents(SplineComponents);
-		if (SplineComponents.Num())
+		for (UActorComponent* Component : ParentActor->GetComponents())
 		{
-			return true;
+			if (Cast<USplineComponent>(Component))
+			{
+				return true;
+			}
 		}
 	}
 	return false;

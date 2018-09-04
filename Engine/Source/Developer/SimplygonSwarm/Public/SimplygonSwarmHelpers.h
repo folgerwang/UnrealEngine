@@ -21,7 +21,7 @@ public:
 	*/
 	static ssf::ssfString SFFEmptyGuid()
 	{
-		return TCHARToSSFString(*FGuid::FGuid().ToString());
+		return TCHARToSSFString(*FGuid().ToString());
 	}
 
 	/**

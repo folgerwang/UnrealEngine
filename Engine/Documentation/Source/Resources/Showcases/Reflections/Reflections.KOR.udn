@@ -36,28 +36,28 @@ JZaQVznNBcA
 [/OBJECT]
 
 
-## 리플렉션 인바이언먼트
+## 리플렉션 인바이런먼트
 
 [INCLUDE:Engine/Rendering/LightingAndShadows/ReflectionEnvironment#RefEnvIntro]
 
 ![](Engine/Rendering/LightingAndShadows/ReflectionEnvironment\reflection_environment.png)(w:600)
 
-리플렉션 인바이언먼트와 리플렉션 캡처 관련 상세 정보는 [](Engine/Rendering/LightingAndShadows/ReflectionEnvironment) 문서를 참고해 주시기 바랍니다.
+리플렉션 인바이런먼트와 리플렉션 캡처 관련 상세 정보는 [](Engine/Rendering/LightingAndShadows/ReflectionEnvironment) 문서를 참고해 주시기 바랍니다.
 
 ## 리플렉션 캡처 액터
 
 ![](CaptureIcon.gif)
 
-리플렉션 캡처 액터(Reflection Capture Actor)는 레벨에 전략적으로 고르게 놓고서 리플렉션 데이터를 리플렉션 인바이언먼트(Reflection Environment)에 제공해 주는 오브젝트입니다.
+리플렉션 캡처 액터(Reflection Capture Actor)는 레벨에 전략적으로 고르게 놓고서 리플렉션 데이터를 리플렉션 인바이런먼트(Reflection Environment)에 제공해 주는 오브젝트입니다.
 
 [INCLUDE:Engine/Rendering/LightingAndShadows/ReflectionEnvironment#RefCaptures]
 
 
-리플렉션 인바이언먼트와 리플렉션 캡처 관련 상세 정보는 [](Engine/Rendering/LightingAndShadows/ReflectionEnvironment) 문서를 참고해 주시기 바랍니다.
+리플렉션 인바이런먼트와 리플렉션 캡처 관련 상세 정보는 [](Engine/Rendering/LightingAndShadows/ReflectionEnvironment) 문서를 참고해 주시기 바랍니다.
 
 ## 스크린 스페이스 리플렉션
 
-스크린 스페이스 리플렉션이란 땅바닥같은 평평한 표면 위에 오브젝트를 접지시키는 것을 보조해 주는 엔진 기능입니다. 기본적으로 켜지는 기능으로, 리플렉션 인바이언먼트 결과와 블렌딩하여 좀 더 완벽한 리플렉션 느낌을 냅니다.
+스크린 스페이스 리플렉션이란 땅바닥같은 평평한 표면 위에 오브젝트를 접지시키는 것을 보조해 주는 엔진 기능입니다. 기본적으로 켜지는 기능으로, 리플렉션 인바이런먼트 결과와 블렌딩하여 좀 더 완벽한 리플렉션 느낌을 냅니다.
 
 ![](ScreenSpaceReflections.gif)
 

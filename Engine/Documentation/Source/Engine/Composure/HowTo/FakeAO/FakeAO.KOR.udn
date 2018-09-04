@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3580568
 Availability:Docs
 Crumbs:%ROOT%
-Title:Fake AO Blueprint
-Description:Show's how to use the Fake AO Blueprint to simulate soft contact shadows.
+Title:페이크 AO 블루프린트
+Description:Fake AO 블루프린트를 사용하여 소프트 컨택트 섀도를 시뮬레이션하는 방법을 보여줍니다.
 Type:how-to
 SkillLevel:Beginner
 Version:4.17
@@ -12,103 +12,102 @@ Tags:Composure
 
 ![](HTCS_01.png)
 
-In Order to have the character's feet in the Composure sample look as though they are casting a very soft shadow when the feet come in close contact with a surface, a Fake AO Shadow Blueprint was created. This Blueprint works by adjusting the intensity of a Texture based on how far the character foot is away from a surface. The closer the foot is to the surface the more intense the fake AO shadow will be. The further away the foot is from the surface, the less intense the fake AO shadow will be. In the following How - To we will take a look at setting up the Fake AO Shadow Blueprint.
+컴포셔 샘플에서 캐릭터의 발이 표면에 맞닿아 있을 때 매우 부드러운 그림자를 드리우는 것처럼 보이도록 만들기 위해서 Fake AO Blueprint (페이크 AO 블루프린트)를 만들었습니다. 이 블루프린트는 캐릭터의 발이 표면에서 얼마나 멀리 떨어져 있는지에 따라 텍스처의 강도(intensity)를 조정하여 작동합니다. 발이 표면에 가까울수록 페이크 AO 그림자가 강해집니다. 발이 표면에서 멀어질수록, 페이크 AO 그림자의 강도는 줄어듭니다. 이번 하우투에서는 페이크 AO 섀도 블루프린트를 설정하는 법을 살펴보겠습니다.
 
 
 [region:note] 
-For this How - To we will be using content that comes with the Composure Sample project. If you have not done so already, make sure to download this content from the Epic Games Launcher. 
+여기서는 컴포셔 샘플 프로젝트에 포함된 콘텐츠를 사용합니다. 그 콘텐츠가 없는 분들은 에픽게임즈 런처에서 이 콘텐츠를 다운로드하세요. 
 [/region]
 
 
-## Steps
+## 단계
 
-1. Open up the Composure Sample project and from the main toolbar, go to **File** > **New Level** and from the New Level dialogue box, select the **Default** level option.
+1. 컴포셔 샘플 프로젝트를 열고 메인 툴바에서 **파일** > **새 레벨** 로 이동하여 **Default** (기본) 레벨 옵션을 선택합니다.
 
-	![](HTCS_02.png)
+![](HTCS_02.png)
 
-1. To make things easier to see, drag a **Sky Light** Actor from the Modes panel into the level.
+1. 더욱 잘 보이게 하기 위해, 모드 패널에서 **스카이 라이트** 액터를 끌어 레벨에 놓습니다.
 
 	[REGION:lightbox]
 	[![](HTCS_03.png)(w:398)](HTCS_03.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. Next, over in the Content Browser, go to **Mannequin** > **Character** > **Mesh** and drag the **SK_Mannequin** into the level.
+1. 다음 콘텐츠 브라우저에서, **Mannequin** > **Character** > **Mesh** 로 이동하여 **SK_Mannequin** 을 끌어 레벨에 놓습니다.
 
 	[REGION:lightbox]
 	[![](HTCS_04.png)(w:642)](HTCS_04.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. Select the SK_Mannequin that was added to the level and in the **Details** panel under the **Animation** tab set the following properties:
+1. 레벨에 추가된 SK_Mannequin 을 선택하고 **디테일** 패널의 **Animation** (애니메이션) 탭에서 프로퍼티 설정을 다음과 같이 합니다:
 
-	* **Animation Mode:** Use Animation Asset
-	* **Anim To Play:** mocap_patio_walk
-	* **Initial Position:**  7.5
+	* **Animation Mode:** 애니메이션 모드: Use Animation Asset (애니메이션 애셋 사용)
+	* **Anim To Play:** 재생할 애님: mocap_patio_walk
+	* **Initial Position:** 초기 위치: 7.5
 
 	[REGION:lightbox]
 	[![](HTCS_05.png)(w:642)](HTCS_05.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. Now, in the Content Browser, go to **Blueprints** > **fakeAO** and drag the **Bp_fake_Ao** Blueprint from the Content Browser into the level.
+1. 이제 콘텐츠 브라우저에서 **Blueprints** > **fakeAO** 로 이동하여 **Bp_fake_Ao** 블루프린트를 끌어 레벨에 놓습니다.
 
 	[REGION:lightbox]
 	[![](HTCS_06.png)(w:642)](HTCS_06.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. Select the Bp_fake_Ao Blueprint and in the Details panel, under the **Default** section, press the eyedropper icon in the **Actor** section and then select the SK_Mannequin mesh that was placed into the scene.
+1. Bp_fake_Ao 블루프린트를 선택하고 디테일 패널에서, **Default** (기본) 섹션 아래 **Actor** (액터) 섹션의 스포이드 아이콘을 클릭한 뒤 씬에 배치한 SK_Mannequin 메시를 선택합니다.
 
 	[REGION:lightbox]
 	[![](HTCS_07.png)(w:642)](HTCS_07.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1. To better see the effect that the  Bp_fake_Ao Blueprint has, search for the **M_gray** Material in the Content Browser and when located, apply it to the **Floor** Static Mesh that is in the level.
+1. Bp_fake_Ao 블루프린트의 효과를 더욱 잘 보이게 하기 위해, 콘텐츠 브라우저에서 **M_gray** 머티리얼을 찾은 뒤, 레벨의 **Floor** 스태틱 메시에 적용합니다.
 
 	[REGION:lightbox]
 	[![](HTCS_08.png)(w:642)](HTCS_08.png)
 	[/REGION]
 
 	[REGION:caption]
-	Click for full image.
+	클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-## End Result
+## 최종 결과
 
-Now position the camera so that it is looking at the feet of the SK_Mannequin and then press the **Simulate** button and when you look at the  SK_Mannequin feet, they should look like they are casting very faint shadow on the Floor Static Mesh that is under the feet of the  SK_Mannequin like in the following image.
+카메라가 SK_Mannequin 의 발을 보도록 위치를 잡은 뒤 **시뮬레이트** 버튼을 누르고 SK_Mannequin 발을 보면, 다음 그림처럼 SK_Mannequin 발 아래 있는 Floor 스태틱 메시에 매우 희미한 그림자가 드리워진 것처럼 보일 것입니다.
 [region:note]
-	The only way to see the effect in action is to play or simulate the level the effect is placed in. 
+이 효과를 확인할 수 있는 유일한 방법은 이펙트가 배치된 레벨을 플레이 또는 시뮬레이트 하는 것입니다. 
 [/region]
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![No AO Shadow](HTCS_No_Shadow.png)
+	![AO 섀도 없음](HTCS_No_Shadow.png)
 	[/PARAM]
 	[PARAM:after]
-	![AO Shadow](HTCS_Shadow.png)
+	![AO 섀도 있음](HTCS_Shadow.png)
 	[/PARAM]
 [/OBJECT]
 
 [region:note]
-	In the above image, dynamic shadows have been disabled to allow of the AO shadow effect to be seen better.
+위 그림에서는, AO 섀도 이펙트가 더 잘 보이도록 다이내믹 섀도를 비활성화시켰습니다.
 [/region]
 
-With the Player now casting fake soft shadows when their feet come in contact with the floor, you can quickly see how this effect could be used for a wide range of objects to help them cast very cheap yet convincing soft shadows. 
-
+이제 플레이어가 바닥에 가까워지면 부드러운 페이크 섀도가 드리워지니, 여러가지 다양한 오브젝트에 적용해 보면 매우 저렴한 비용으로 설득력있는 부드러운 그림자를 만들 수 있다는 것을 바로 알 수 있습니다. 

@@ -89,6 +89,23 @@ bool UMediaPlayer::CanPlayUrl(const FString& Url)
 	return PlayerFacade->CanPlayUrl(Url, GetDefault<UMediaSource>());
 }
 
+void UMediaPlayer::SetPlaylistInternal(UMediaPlaylist* InPlaylist)
+{
+	if (Playlist && Playlist != InPlaylist && Playlist->IsRooted())
+	{
+		// To avoid leaking UObjects we need to remove the old playlist from root set 
+		// (which has been most likely rooted because this MediaPlayer is in disregard for GC set)
+		Playlist->RemoveFromRoot();
+	}
+
+	Playlist = InPlaylist;
+
+	if (InPlaylist && GUObjectArray.IsDisregardForGC(this))
+	{
+		// If this MediaPlayer object is in disregard for GC set, add the new Playlist to root set.
+		Playlist->AddToRoot();
+	}
+}
 
 void UMediaPlayer::Close()
 {
@@ -99,8 +116,9 @@ void UMediaPlayer::Close()
 	Playlist = nullptr;
 	if (!HasAnyFlags(RF_ClassDefaultObject) && !GExitPurge)
 	{
-		Playlist = NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient);
+		SetPlaylistInternal(NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient));
 	}
+
 	PlaylistIndex = INDEX_NONE;
 	PlayOnNext = false;
 }
@@ -400,8 +418,8 @@ bool UMediaPlayer::OpenPlaylistIndex(UMediaPlaylist* InPlaylist, int32 Index)
 
 	UE_LOG(LogMediaAssets, Verbose, TEXT("%s.OpenSource %s %i"), *GetFName().ToString(), *InPlaylist->GetFName().ToString(), Index);
 
-	Playlist = InPlaylist;
-
+	SetPlaylistInternal(InPlaylist);
+	
 	if (Index == INDEX_NONE)
 	{
 		return true;

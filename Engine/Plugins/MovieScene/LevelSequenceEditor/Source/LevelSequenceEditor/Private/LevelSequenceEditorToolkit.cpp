@@ -426,8 +426,12 @@ void FLevelSequenceEditorToolkit::AddDefaultTracksForActor(AActor& Actor, const 
 					NewTrack = MovieScene->AddTrack(TrackClass, Binding);
 				}
 
-				// Create a section for any property tracks
-				if (Cast<UMovieScenePropertyTrack>(NewTrack))
+				bool bCreateDefaultSection = false;
+#if WITH_EDITORONLY_DATA
+				bCreateDefaultSection = NewTrack->SupportsDefaultSections();
+#endif
+
+				if (bCreateDefaultSection)
 				{
 					UMovieSceneSection* NewSection;
 					if (NewTrack->GetAllSections().Num() > 0)

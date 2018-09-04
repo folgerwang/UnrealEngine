@@ -25,6 +25,7 @@
 #include "Types/ReflectionMetadata.h"
 #include "Serialization/PropertyLocalizationDataGathering.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Components/NamedSlotInterface.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -866,11 +867,27 @@ ULocalPlayer* UWidget::GetOwningLocalPlayer() const
 void UWidget::SetDesignerFlags(EWidgetDesignFlags::Type NewFlags)
 {
 	DesignerFlags = ( EWidgetDesignFlags::Type )( DesignerFlags | NewFlags );
+
+	INamedSlotInterface* NamedSlotWidget = Cast<INamedSlotInterface>(this);
+	if (NamedSlotWidget)
+	{
+		NamedSlotWidget->SetNamedSlotDesignerFlags(NewFlags);
+	}
 }
 
 void UWidget::SetDisplayLabel(const FString& InDisplayLabel)
 {
 	DisplayLabel = InDisplayLabel;
+}
+
+const FString& UWidget::GetCategoryName() const
+{
+	return CategoryName;
+}
+
+void UWidget::SetCategoryName(const FString& InValue)
+{
+	CategoryName = InValue;
 }
 
 bool UWidget::IsGeneratedName() const

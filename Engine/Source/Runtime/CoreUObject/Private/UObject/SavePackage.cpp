@@ -999,7 +999,7 @@ FArchive& FArchiveSaveTagExports::operator<<(FWeakObjectPtr& Value)
 	}
 	else
 	{
-		Value.Serialize(*this);
+		FArchiveUObject::SerializeWeakObjectPtr(*this, Value);
 	}
 	return *this;
 }
@@ -1213,7 +1213,7 @@ FArchive& FArchiveSaveTagImports::operator<< (struct FWeakObjectPtr& Value)
 	}
 	else
 	{
-		Value.Serialize(*this);
+		FArchiveUObject::SerializeWeakObjectPtr(*this, Value);
 	}
 	return *this;
 }
@@ -5363,9 +5363,15 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 							if ( Export.Object->HasAnyFlags(RF_ClassDefaultObject) )
 							{
-								FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
-								Adapter.SetExternalObjectIndicesMap(&Linker->ObjectIndicesMap);
-								Export.Object->GetClass()->SerializeDefaultObject(Export.Object, Adapter);
+								if (bSupportsText)
+								{
+									Export.Object->GetClass()->SerializeDefaultObject(Export.Object, ExportSlot);
+								}
+								else
+								{
+									FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
+									Export.Object->GetClass()->SerializeDefaultObject(Export.Object, Adapter);
+								}
 							}
 							else
 							{
@@ -5384,7 +5390,6 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 								else
 								{
 									FArchiveUObjectFromStructuredArchive Adapter(ExportSlot);
-									Adapter.SetExternalObjectIndicesMap(&Linker->ObjectIndicesMap);
 									Export.Object->Serialize(Adapter);
 								}
 
@@ -5723,13 +5728,8 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					Linker->Detach();
 
 					delete StructuredArchive;
-
-					if (TextFormatArchive)
-					{
-						TextFormatArchive->Flush();
-						TextFormatArchive->Close();
-						delete TextFormatArchive;
-					}
+					delete Formatter;
+					delete TextFormatArchive;
 				}
 				UNCLOCK_CYCLES(Time);
 				UE_CLOG(!(SaveFlags & (SAVE_DiffCallstack | SAVE_DiffOnly)), LogSavePackage, Verbose,  TEXT("Save=%.2fms"), FPlatformTime::ToMilliseconds(Time) );
@@ -5810,6 +5810,10 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 							}
 						}
 						Linker->Detach();
+
+						delete StructuredArchive;
+						delete Formatter;
+						delete TextFormatArchive;
 					}
 					// Move the temporary file.
 					else
@@ -5871,7 +5875,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 						// Warn about long package names, which may be bad for consoles with limited filename lengths.
 						if( bWarnOfLongFilename == true )
 						{
-							int32 MaxFilenameLength = MAX_UNREAL_FILENAME_LENGTH;
+							int32 MaxFilenameLength = FPlatformMisc::GetMaxPathLength();
 
 							// If the name is of the form "_LOC_xxx.ext", remove the loc data before the length check
 							FString CleanBaseFilename = BaseFilename;

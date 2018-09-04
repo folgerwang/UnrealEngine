@@ -375,6 +375,53 @@ bool CanConnectMaterialValueTypes(uint32 InputType, uint32 OutputType)
 
 #if WITH_EDITOR
 
+
+void ValidateParameterNameInternal(class UMaterialExpression* ExpressionToValidate, class UMaterial* OwningMaterial)
+{
+	if (OwningMaterial != nullptr)
+	{
+		int32 NameIndex = 1;
+		bool FoundValidName = false;
+		FName PotentialName;
+
+		// Find an available unique name
+		while (!FoundValidName)
+		{
+			PotentialName = ExpressionToValidate->GetParameterName();
+
+			// Parameters cannot be named Name_None, use the default name instead
+			if (PotentialName == NAME_None)
+			{
+				PotentialName = UMaterialExpressionParameter::ParameterDefaultName;
+			}
+
+			if (NameIndex != 1)
+			{
+				PotentialName.SetNumber(NameIndex);
+			}
+
+			FoundValidName = true;
+
+			for (UMaterialExpression* Expression : OwningMaterial->Expressions)
+			{
+				if (Expression != nullptr && Expression->HasAParameterName())
+				{
+					// Name are unique per class type
+					if (Expression != ExpressionToValidate && Expression->GetClass() == ExpressionToValidate->GetClass() && Expression->GetParameterName() == PotentialName)
+					{
+						FoundValidName = false;
+						break;
+					}
+				}
+			}
+
+			++NameIndex;
+		}
+
+		ExpressionToValidate->SetParameterName(PotentialName);
+	}
+}
+
 /**
  * Helper function that wraps the supplied texture coordinates in the necessary math to transform them for external textures
  *
@@ -582,16 +629,16 @@ void UMaterialExpression::CopyMaterialExpressions(const TArray<UMaterialExpressi
 #endif // WITH_EDITOR
 
 
-void UMaterialExpression::Serialize( FArchive& Ar )
+void UMaterialExpression::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 
 #if WITH_EDITORONLY_DATA
 	const TArray<FExpressionInput*> Inputs = GetInputs();
 	for (int32 InputIndex = 0; InputIndex < Inputs.Num(); ++InputIndex)
 	{
 		FExpressionInput* Input = Inputs[InputIndex];
-		DoMaterialAttributeReorder(Input, Ar.UE4Ver());
+		DoMaterialAttributeReorder(Input, Record.GetUnderlyingArchive().UE4Ver());
 	}
 #endif // WITH_EDITORONLY_DATA
 }
@@ -672,6 +719,13 @@ void UMaterialExpression::PostEditChangeProperty(FPropertyChangedEvent& Property
 		bNeedToUpdatePreview = true;
 
 		const FName PropertyName = PropertyThatChanged->GetFName();
+
+		const FName ParameterName = TEXT("ParameterName");
+		if (PropertyName == ParameterName)
+		{
+			ValidateParameterName();
+		}
+
 		if (PropertyName == GET_MEMBER_NAME_CHECKED(UMaterialExpression, Desc) && !IsA(UMaterialExpressionComment::StaticClass()))
 		{
 			if (GraphNode)
@@ -1155,42 +1209,7 @@ void UMaterialExpression::SetEditableName(const FString& NewName)
 
 void UMaterialExpression::ValidateParameterName()
 {
-	if (Material != nullptr)
-	{
-		int32 NameIndex = 1;
-		bool FoundValidName = false;
-		FName PotentialName;
-
-		// Find an available unique name
-		while (!FoundValidName)
-		{
-			PotentialName = GetParameterName();
-
-			if (NameIndex != 1)
-			{
-				PotentialName.SetNumber(NameIndex);
-			}
-
-			FoundValidName = true;
-
-			for (UMaterialExpression* Expression : Material->Expressions)
-			{
-				if (Expression != nullptr && Expression->HasAParameterName())
-				{
-					// Name are unique per class type
-					if (Expression != this && Expression->GetClass() == GetClass() && Expression->GetParameterName() == PotentialName)
-					{
-						FoundValidName = false;
-						break;
-					}
-				}
-			}
-
-			++NameIndex;
-		}
-
-		SetParameterName(PotentialName);
-	}
+	// Incrementing the name is now handled in UMaterialExpressionParameter::ValidateParameterName
 }
 
 #endif // WITH_EDITOR
@@ -1865,6 +1884,12 @@ void UMaterialExpressionTextureSampleParameter::GetCaption(TArray<FString>& OutC
 	OutCaptions.Add(TEXT("Texture Param")); 
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
+
+void UMaterialExpressionTextureSampleParameter::ValidateParameterName()
+{
+	ValidateParameterNameInternal(this, Material);
+}
+
 #endif // WITH_EDITOR
 
 bool UMaterialExpressionTextureSampleParameter::IsNamedParameter(const FMaterialParameterInfo& ParameterInfo, UTexture*& OutValue) const
@@ -2934,11 +2959,12 @@ UMaterialExpressionClamp::UMaterialExpressionClamp(const FObjectInitializer& Obj
 #endif
 }
 
-void UMaterialExpressionClamp::Serialize(FArchive& Ar)
+void UMaterialExpressionClamp::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_RETROFIT_CLAMP_EXPRESSIONS_SWAP)
+	if (UnderlyingArchive.IsLoading() && UnderlyingArchive.UE4Ver() < VER_UE4_RETROFIT_CLAMP_EXPRESSIONS_SWAP)
 	{
 		if (ClampMode == CMODE_ClampMin)
 		{
@@ -4341,13 +4367,14 @@ UMaterialExpressionMakeMaterialAttributes::UMaterialExpressionMakeMaterialAttrib
 #endif
 }
 
-void UMaterialExpressionMakeMaterialAttributes::Serialize(FArchive& Ar)
+void UMaterialExpressionMakeMaterialAttributes::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	UnderlyingArchive.UsingCustomVersion(FRenderingObjectVersion::GUID);
 	
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
+	if (UnderlyingArchive.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
 	{
 		// Update the legacy masks else fail on vec3 to vec2 conversion
 		Refraction.SetMask(1, 1, 1, 0, 0);
@@ -4465,14 +4492,15 @@ UMaterialExpressionBreakMaterialAttributes::UMaterialExpressionBreakMaterialAttr
 #endif
 }
 
-void UMaterialExpressionBreakMaterialAttributes::Serialize(FArchive& Ar)
+void UMaterialExpressionBreakMaterialAttributes::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	UnderlyingArchive.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
 #if WITH_EDITOR
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
+	if (UnderlyingArchive.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
 	{
 		// Update the masks for legacy content
 		int32 OutputIndex = 0;
@@ -5977,6 +6005,7 @@ int32 UMaterialExpressionDesaturation::Compile(class FMaterialCompiler* Compiler
 //
 //	UMaterialExpressionParameter
 //
+FName UMaterialExpressionParameter::ParameterDefaultName = TEXT("Param");
 
 UMaterialExpressionParameter::UMaterialExpressionParameter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -5985,14 +6014,17 @@ UMaterialExpressionParameter::UMaterialExpressionParameter(const FObjectInitiali
 	struct FConstructorStatics
 	{
 		FText NAME_Parameters;
+		FName ParameterName;
 		FConstructorStatics()
 			: NAME_Parameters(LOCTEXT( "Parameters", "Parameters" ))
+			, ParameterName(UMaterialExpressionParameter::ParameterDefaultName)
 		{
 		}
 	};
 	static FConstructorStatics ConstructorStatics;
 
 	bIsParameterExpression = true;
+	ParameterName = ConstructorStatics.ParameterName;
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
@@ -6013,6 +6045,8 @@ bool UMaterialExpressionParameter::MatchesSearchQuery( const TCHAR* SearchQuery 
 
 	return Super::MatchesSearchQuery(SearchQuery);
 }
+
+
 
 FString UMaterialExpressionParameter::GetEditableName() const
 {
@@ -6036,6 +6070,13 @@ void UMaterialExpressionParameter::GetAllParameterInfo(TArray<FMaterialParameter
 		OutParameterIds.Add(ExpressionGUID);
 	}
 }
+
+#if WITH_EDITOR
+void UMaterialExpressionParameter::ValidateParameterName()
+{
+	ValidateParameterNameInternal(this, Material);
+}
+#endif
 
 bool UMaterialExpressionParameter::NeedsLoadForClient() const
 {
@@ -6909,10 +6950,12 @@ bool UMaterialExpressionFeatureLevelSwitch::IsResultMaterialAttributes(int32 Out
 }
 #endif // WITH_EDITOR
 
-void UMaterialExpressionFeatureLevelSwitch::Serialize(FArchive& Ar)
+void UMaterialExpressionFeatureLevelSwitch::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
-	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_RENAME_SM3_TO_ES3_1)
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
+
+	if (UnderlyingArchive.IsLoading() && UnderlyingArchive.UE4Ver() < VER_UE4_RENAME_SM3_TO_ES3_1)
 	{
 		// Copy the ES2 input to SM3 (since SM3 will now become ES3_1 and we don't want broken content)
 		Inputs[ERHIFeatureLevel::ES3_1] = Inputs[ERHIFeatureLevel::ES2];
@@ -8718,6 +8761,11 @@ void UMaterialExpressionFontSampleParameter::GetCaption(TArray<FString>& OutCapt
 	OutCaptions.Add(TEXT("Font Param")); 
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
+
+void UMaterialExpressionFontSampleParameter::ValidateParameterName()
+{
+	ValidateParameterNameInternal(this, Material);
+}
 #endif // WITH_EDITOR
 
 bool UMaterialExpressionFontSampleParameter::IsNamedParameter(const FMaterialParameterInfo& ParameterInfo, UFont*& OutFontValue, int32& OutFontPage) const
@@ -9297,18 +9345,19 @@ uint32 UMaterialExpressionCustom::GetOutputType(int32 OutputIndex)
 }
 #endif // WITH_EDITOR
 
-void UMaterialExpressionCustom::Serialize(FArchive& Ar)
+void UMaterialExpressionCustom::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
+	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	UnderlyingArchive.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
 	// Make a copy of the current code before we change it
 	const FString PreFixUp = Code;
 
 	bool bDidUpdate = false;
 
-	if (Ar.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_UPDATE)
+	if (UnderlyingArchive.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_UPDATE)
 	{
 		// Look for WorldPosition rename
 		if (Code.ReplaceInline(TEXT("Parameters.WorldPosition"), TEXT("Parameters.AbsoluteWorldPosition"), ESearchCase::CaseSensitive) > 0)
@@ -9317,7 +9366,7 @@ void UMaterialExpressionCustom::Serialize(FArchive& Ar)
 		}
 	}
 	// Fix up uniform references that were moved from View to Frame as part of the instanced stereo implementation
-	else if (Ar.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_REFACTOR)
+	else if (UnderlyingArchive.UE4Ver() < VER_UE4_INSTANCED_STEREO_UNIFORM_REFACTOR)
 	{
 		// Uniform members that were moved from View to Frame
 		static const FString UniformMembers[] = {
@@ -9409,7 +9458,7 @@ void UMaterialExpressionCustom::Serialize(FArchive& Ar)
 		}
 	}
 
-	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::RemovedRenderTargetSize)
+	if (UnderlyingArchive.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::RemovedRenderTargetSize)
 	{
 		if (Code.ReplaceInline(TEXT("View.RenderTargetSize"), TEXT("View.BufferSizeAndInvSize.xy"), ESearchCase::CaseSensitive) > 0)
 		{
@@ -11393,6 +11442,7 @@ void UMaterialExpressionFunctionInput::GetCaption(TArray<FString>& OutCaptions) 
 		TEXT("Vector4"),
 		TEXT("Texture2D"),
 		TEXT("TextureCube"),
+		TEXT("VolumeTexture"),
 		TEXT("StaticBool"),
 		TEXT("MaterialAttributes"),
 		TEXT("External")
@@ -13947,11 +13997,11 @@ void UMaterialExpressionSpeedTree::GetCaption(TArray<FString>& OutCaptions) cons
 }
 #endif // WITH_EDITOR
 
-void UMaterialExpressionSpeedTree::Serialize(FArchive& Ar)
+void UMaterialExpressionSpeedTree::Serialize(FStructuredArchive::FRecord Record)
 {
-	Super::Serialize(Ar);
+	Super::Serialize(Record);
 
-	if (Ar.UE4Ver() < VER_UE4_SPEEDTREE_WIND_V7)
+	if (Record.GetUnderlyingArchive().UE4Ver() < VER_UE4_SPEEDTREE_WIND_V7)
 	{
 		// update wind presets for speedtree v7
 		switch (WindType)

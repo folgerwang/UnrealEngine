@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3810557
+INTSourceChangelist:4307067
 Availability: Public
 Title:랜드스케이프 머티리얼
 Crumbs: %ROOT%, Engine, Engine/Landscape
@@ -321,9 +321,6 @@ Landscape **Layer Blend** 머티리얼 노드에는 세 가지 블렌드 모드 
 	[/PARAMLITERAL]
 	[/OBJECT]
 
-[REGION:note]
-페인팅 툴을 사용해서 랜드스케이프 홀을 만드는 데 대한 정보는, [오파시티 마스크를 사용해서 홀 만들기](Engine\Landscape\Editing\SculptMode\#오파시티마스크를사용해서구멍만들기) 부분을 참고해 주세요.
-[/REGION]
 
 
 ## 랜드스케이프에 머티리얼 할당하기
@@ -351,9 +348,6 @@ Landscape **Layer Blend** 머티리얼 노드에는 세 가지 블렌드 모드 
 	![](Landscape_HoleSettings.png)
 
 
-[REGION:note]
-랜드스케이프 홀 머티리얼 사용법 관련 정보는, [오파시티 마스크를 사용해서 홀 만들기](Engine\Landscape\Editing\SculptMode\#오파시티마스크를사용해서구멍만들기) 부분을 참고하세요.
-[/REGION]
 
 [COMMENT:none]
 

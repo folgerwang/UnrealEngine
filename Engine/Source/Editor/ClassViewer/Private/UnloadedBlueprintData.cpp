@@ -96,6 +96,27 @@ const UClass* FUnloadedBlueprintData::GetClassWithin() const
 	return nullptr;
 }
 
+const UClass* FUnloadedBlueprintData::GetNativeParent() const
+{
+	TSharedPtr<FClassViewerNode> CurrentNode = ClassViewerNode.Pin()->ParentNode.Pin();
+
+	while (CurrentNode.IsValid())
+	{
+		// The class field will be invalid for unloaded classes.
+		// However, it should be valid once we've hit a loaded class or a Native class.
+		// Assuming BP cannot change ClassWithin data, this should be safe.
+		if (CurrentNode->Class.IsValid() && CurrentNode->Class->HasAnyClassFlags(CLASS_Native))
+		{
+			return CurrentNode->Class.Get();
+		}
+
+		CurrentNode = CurrentNode->ParentNode.Pin();
+	}
+
+	return nullptr;
+}
+
+
 const TWeakPtr<FClassViewerNode>& FUnloadedBlueprintData::GetClassViewerNode() const
 {
 	return ClassViewerNode;

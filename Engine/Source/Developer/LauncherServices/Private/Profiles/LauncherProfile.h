@@ -1092,7 +1092,6 @@ public:
 		Writer.WriteValue("nocompile", !IsBuildingUAT());
 		Writer.WriteValue("nocompileeditor", FApp::IsEngineInstalled());
 		Writer.WriteValue("ue4exe", GetEditorExe());
-		Writer.WriteValue("usedebugparamforeditorexe", FApp::IsRunningDebug());
 		Writer.WriteValue("utf8output", true);
 
 		// client configurations
@@ -1400,7 +1399,6 @@ public:
 		"skipcookingeditorcontent", "true/false"
 		"numcookerstospawn", "8"
 		"compressed", "true/false"
-		"usedebugparamforeditorexe", "true/false"
 		"iterativecooking", "true/false"
 		"skipcookonthefly", "true/false"
 		"cookall", "true/false"

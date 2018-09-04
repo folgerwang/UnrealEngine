@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -31,7 +31,7 @@ public partial class Project : CommandUtils
 		}
 		Params.ValidateAndLog();
 
-		Log("********** COOK COMMAND STARTED **********");
+		LogInformation("********** COOK COMMAND STARTED **********");
 
 		string UE4EditorExe = HostPlatform.Current.GetUE4ExePath(Params.UE4Exe);
 		if (!FileExists(UE4EditorExe))
@@ -60,10 +60,6 @@ public partial class Project : CommandUtils
 				{
 					COTFCommandLine += " -iterate -iteratehash";
 				}
-				if (Params.UseDebugParamForEditorExe)
-				{
-					COTFCommandLine += " -debug";
-				}
 
 				var ServerLogFile = CombinePaths(LogFolderOutsideOfSandbox, "Server.log");
 				Platform ClientPlatformInst = Params.ClientTargetPlatformInstances[0];
@@ -72,7 +68,7 @@ public partial class Project : CommandUtils
 
 				if (ServerProcess != null)
 				{
-					Log("Waiting a few seconds for the server to start...");
+					LogInformation("Waiting a few seconds for the server to start...");
 					Thread.Sleep(5000);
 				}
 			}
@@ -107,7 +103,7 @@ public partial class Project : CommandUtils
 
 			if (Params.Clean.HasValue && Params.Clean.Value && !Params.IterativeCooking)
 			{
-				Log("Cleaning cooked data.");
+				LogInformation("Cleaning cooked data.");
 				CleanupCookedData(PlatformsToCook.ToList(), Params);
 			}
 
@@ -118,11 +114,11 @@ public partial class Project : CommandUtils
 				Maps = Params.MapsToCook.ToArray();
                 foreach (var M in Maps)
                 {
-					Log("HasMapsToCook " + M.ToString());
+					LogInformation("HasMapsToCook " + M.ToString());
                 }
                 foreach (var M in Params.MapsToCook)
                 {
-					Log("Params.HasMapsToCook " + M.ToString());
+					LogInformation("Params.HasMapsToCook " + M.ToString());
                 }
 			}
 			
@@ -155,10 +151,6 @@ public partial class Project : CommandUtils
 				{
 					CommandletParams += " -FastCook";
 				}
-                if (Params.UseDebugParamForEditorExe)
-                {
-                    CommandletParams += " -debug";
-                }
                 if (Params.Manifests)
                 {
                     CommandletParams += " -manifests";
@@ -285,7 +277,7 @@ public partial class Project : CommandUtils
 		}
 
 
-		Log("********** COOK COMMAND COMPLETED **********");
+		LogInformation("********** COOK COMMAND COMPLETED **********");
 	}
 
     public struct FileInfo
@@ -337,7 +329,7 @@ public partial class Project : CommandUtils
             {
                 if (!(Ex is System.IO.DirectoryNotFoundException))
                 {
-                    Log("Failed deleting temporary directories " + TemporaryPakPath + " continuing. " + Ex.GetType().ToString());
+                    LogInformation("Failed deleting temporary directories " + TemporaryPakPath + " continuing. " + Ex.GetType().ToString());
                 }
             }
             try
@@ -348,7 +340,7 @@ public partial class Project : CommandUtils
             {
                 if (!(Ex is System.IO.DirectoryNotFoundException))
                 {
-                    Log("Failed deleting temporary directories " + TemporaryFilesPath + " continuing. " + Ex.GetType().ToString());
+                    LogInformation("Failed deleting temporary directories " + TemporaryFilesPath + " continuing. " + Ex.GetType().ToString());
                 }
             }
 
@@ -396,7 +388,7 @@ public partial class Project : CommandUtils
 
                     if ( PakFiles.Count <= 0 )
                     {
-                        Log("No Pak files found in " + SourceCookedContentPlatformPath +" :(");
+                        LogInformation("No Pak files found in " + SourceCookedContentPlatformPath +" :(");
                     }
                 }
                 else if (SourceCookedContentPath.EndsWith(".pak"))
@@ -414,7 +406,7 @@ public partial class Project : CommandUtils
 
                 foreach (var Name in PakFiles)
                 {
-                    Log("Extracting pak " + Name + " for comparision to location " + TemporaryFilesPath);
+                    LogInformation("Extracting pak " + Name + " for comparision to location " + TemporaryFilesPath);
 
                     string UnrealPakParams = Name + " -Extract " + " " + TemporaryFilesPath + " -ExtractToMountPoint";
                     try
@@ -423,7 +415,7 @@ public partial class Project : CommandUtils
                     }
                     catch(Exception Ex)
                     {
-                        Log("Pak failed to extract because of " + Ex.GetType().ToString());
+                        LogInformation("Pak failed to extract because of " + Ex.GetType().ToString());
                     }
                 }
 
@@ -474,7 +466,7 @@ public partial class Project : CommandUtils
 
                     if (SourceFile == null || DestFile == null)
                     {
-                        Log(LogStringBuilder.ToString());
+                        LogInformation(LogStringBuilder.ToString());
                         LogError("Diff cooked content failed on file " + SourceFilename + " when comparing against " + DestFilename + " " + (SourceFile == null ? SourceFilename : DestFilename) + " file is missing");
 			return;
                     }
@@ -528,7 +520,7 @@ public partial class Project : CommandUtils
                             bool bFailedToSaveDestFile = !Directory.Exists(Path.GetDirectoryName(SavedDestFilename));
                             if (bFailedToSaveSourceFile || bFailedToSaveDestFile)
                             {
-                                Log(LogStringBuilder.ToString());
+                                LogInformation(LogStringBuilder.ToString());
 
                                 if(bFailedToSaveSourceFile)
                                 {
@@ -564,26 +556,26 @@ public partial class Project : CommandUtils
                         FileReport.Add(DiffFileInfo);
                     }
                     
-                    Log(LogStringBuilder.ToString());
+                    LogInformation(LogStringBuilder.ToString());
                 });
 
-                Log("Mismatching files:");
+                LogInformation("Mismatching files:");
                 foreach (var Report in FileReport)
                 {
                     if ( Report.FirstByteFailed == -1)
                     {
-                        Log("File " + Report.Filename + " size mismatch: " + Report.File1Size + " VS " +Report.File2Size);
+                        LogInformation("File " + Report.Filename + " size mismatch: " + Report.File1Size + " VS " +Report.File2Size);
                     }
                     else
                     {
-                        Log("File " + Report.Filename + " bytes mismatch: " + Report.BytesMismatch + " first byte failed at: " + Report.FirstByteFailed + " file size: " + Report.File1Size);
+                        LogInformation("File " + Report.Filename + " bytes mismatch: " + Report.BytesMismatch + " first byte failed at: " + Report.FirstByteFailed + " file size: " + Report.File1Size);
                     }
                 }
 
             }
             catch ( Exception Ex )
             {
-                Log("Exception " + Ex.ToString());
+                LogInformation("Exception " + Ex.ToString());
                 continue;
             }
         }

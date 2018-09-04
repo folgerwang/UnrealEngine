@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3891955
+INTSourceChangelist:4307254
 Availability: Public
 Title:피직스 컨스트레인트 참고서
 Crumbs: %ROOT%, Engine, Engine/Physics
@@ -230,31 +230,31 @@ Physics Constraint (피직스 컨스트레인트)의 프로퍼티를 주요 카�
 
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
-|[REGION:tablesection]Constraint[/REGION]||
-| **Component Name 1** |  |
-| **Component Name 2** |   |
-| **Joint Name** |  |
-| **Constraint Bone 1** |  |
-| **Constraint Bone 2** |  |
-| **Disable Collision** |  |
+| [REGION:tablesection] Constraint [/REGION] ||
+| **Component Name 1** ||
+| **Component Name 2** ||
+| **Joint Name** ||
+| **Constraint Bone 1** ||
+| **Constraint Bone 2** ||
+| **Disable Collision** ||
 
-* **피직스 컨스트레인트** 를 블루프린트 컴포넌트로 사용하는 법 관련 정보는 [](Engine/Physics\Constraints\ConstraintsBlueprints) 문서를 참고하세요.
+* **피직스 컨스트레인트** 를 블루프린트 컴포넌트로 사용하는 방법은 [](Engine/Physics\Constraints\ConstraintsBlueprints) 문서를 참고하세요.
 
 ### 피직스 애셋 툴 컨스트레인트
 
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
-|[REGION:tablesection]Constraint[/REGION]|
+|[REGION:tablesection]Constraint[/REGION]||
 | **Joint Name** |  |
 | **Constraint Bone 1** |  |
 | **Constraint Bone 2** |  |
 | **Disable Collision** |  |
 
-* 피직스 애셋 툴 (PhAT) 관련 상세 참고서는 [](Engine/Physics\PhAT\Reference) 문서를 참고하세요.
 
-* **피직스 애셋 툴** (**PhAT**) 에서 **피직스 컨스트레인트** 를 사용하는 법에 대한 정보는 [](Engine/Physics\PhAT\UserGuide) 문서를 참고하세요.
 
-* **피직스 애셋 툴** (**PhAT**) 사용법 관련 정보는 [](Engine/Physics\PhAT) 문서를 참고하세요.
+
+
+
 
 ### 공유 프로퍼티
 

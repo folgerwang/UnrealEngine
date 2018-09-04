@@ -6,7 +6,7 @@ void FSourceEffectChorus::Init(const FSoundEffectSourceInitData& InitData)
 {
 	bIsActive = true;
 
-	Chorus.Init(InitData.SampleRate, 2.0f, 64);
+	Chorus.Init(InitData.SampleRate, InitData.NumSourceChannels, 2.0f, 64);
 }
 
 void FSourceEffectChorus::OnPresetChanged()
@@ -26,22 +26,13 @@ void FSourceEffectChorus::OnPresetChanged()
 	Chorus.SetFrequency(Audio::EChorusDelays::Right, Settings.Frequency);
 
 	Chorus.SetWetLevel(Settings.WetLevel);
+	Chorus.SetDryLevel(Settings.DryLevel);
 	Chorus.SetSpread(Settings.Spread);
 }
 
-void FSourceEffectChorus::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectChorus::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	if (InData.AudioFrame.Num() == 2)
-	{
-		Chorus.ProcessAudio(InData.AudioFrame[0], InData.AudioFrame[1], OutData.AudioFrame[0], OutData.AudioFrame[1]);
-	}
-	else
-	{
-		float OutLeft = 0.0f;
-		float OutRight = 0.0f;
-		Chorus.ProcessAudio(InData.AudioFrame[0], InData.AudioFrame[0], OutLeft, OutRight);
-		OutData.AudioFrame[0] = 0.5f * (OutLeft + OutRight);
-	}
+	Chorus.ProcessAudio(InData.InputSourceEffectBufferPtr, InData.NumSamples, OutAudioBufferData);
 }
 
 void USourceEffectChorusPreset::SetSettings(const FSourceEffectChorusSettings& InSettings)

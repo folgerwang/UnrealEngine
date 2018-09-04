@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -27,6 +27,7 @@
 
 #if SDL_VIDEO_DRIVER_MIR
 
+#include "SDL_assert.h"
 #include "SDL_log.h"
 
 #include "SDL_mirwindow.h"
@@ -36,6 +37,7 @@
 #include "SDL_mirmouse.h"
 #include "SDL_miropengl.h"
 #include "SDL_mirvideo.h"
+#include "SDL_mirvulkan.h"
 
 #include "SDL_mirdyn.h"
 
@@ -102,7 +104,7 @@ MIR_Available()
     if (SDL_MIR_LoadSymbols()) {
 
         /* Lets ensure we can connect to the mir server */
-        MirConnection* connection = MIR_mir_connect_sync(NULL, __PRETTY_FUNCTION__);
+        MirConnection* connection = MIR_mir_connect_sync(NULL, SDL_FUNCTION);
 
         if (!MIR_mir_connection_is_valid(connection)) {
             SDL_LogWarn(SDL_LOG_CATEGORY_VIDEO, "Unable to connect to the mir server %s",
@@ -179,7 +181,7 @@ MIR_CreateDevice(int device_index)
     device->GL_GetProcAddress  = MIR_GL_GetProcAddress;
 
     /* mirwindow */
-    device->CreateWindow         = MIR_CreateWindow;
+    device->CreateSDLWindow         = MIR_CreateWindow;
     device->DestroyWindow        = MIR_DestroyWindow;
     device->GetWindowWMInfo      = MIR_GetWindowWMInfo;
     device->SetWindowFullscreen  = MIR_SetWindowFullscreen;
@@ -196,7 +198,7 @@ MIR_CreateDevice(int device_index)
     device->SetWindowGammaRamp   = MIR_SetWindowGammaRamp;
     device->GetWindowGammaRamp   = MIR_GetWindowGammaRamp;
 
-    device->CreateWindowFrom     = NULL;
+    device->CreateSDLWindowFrom     = NULL;
     device->SetWindowIcon        = NULL;
     device->RaiseWindow          = NULL;
     device->SetWindowBordered    = NULL;
@@ -231,6 +233,13 @@ MIR_CreateDevice(int device_index)
     device->HasClipboardText = NULL;
 
     device->ShowMessageBox = NULL;
+
+#if SDL_VIDEO_VULKAN
+    device->Vulkan_LoadLibrary = MIR_Vulkan_LoadLibrary;
+    device->Vulkan_UnloadLibrary = MIR_Vulkan_UnloadLibrary;
+    device->Vulkan_GetInstanceExtensions = MIR_Vulkan_GetInstanceExtensions;
+    device->Vulkan_CreateSurface = MIR_Vulkan_CreateSurface;
+#endif
 
     return device;
 }
@@ -311,7 +320,7 @@ MIR_VideoInit(_THIS)
 {
     MIR_Data* mir_data = _this->driverdata;
 
-    mir_data->connection     = MIR_mir_connect_sync(NULL, __PRETTY_FUNCTION__);
+    mir_data->connection     = MIR_mir_connect_sync(NULL, SDL_FUNCTION);
     mir_data->current_window = NULL;
     mir_data->software       = SDL_FALSE;
     mir_data->pixel_format   = mir_pixel_format_invalid;

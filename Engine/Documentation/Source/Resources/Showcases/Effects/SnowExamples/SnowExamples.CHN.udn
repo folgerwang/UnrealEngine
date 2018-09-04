@@ -80,6 +80,3 @@ Related: Engine/Rendering/ParticleSystems/Optimization
 
 取而代之的是，雪炫光粒子系统被作为暴风雪特效的本地化版本，并且仅被放置在薄雾粒子 _需要_ 对光照进行响应的位置处。 这样比起让所有的薄雾粒子随时对光照进行响应来说要高效得多。
 
-
-
-[INCLUDE:Resources\Showcases\Effects#ParticleTopics]

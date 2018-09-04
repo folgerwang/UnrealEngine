@@ -604,12 +604,12 @@ namespace AutomationTool
 				// Format them to the log
 				if(Messages.Count > 0)
 				{
-					CommandUtils.Log("");
-					CommandUtils.Log("Options:");
-					CommandUtils.Log("");
+					CommandUtils.LogInformation("");
+					CommandUtils.LogInformation("Options:");
+					CommandUtils.LogInformation("");
 					foreach(string Line in CommandUtils.FormatParams(Messages, 4, 24))
 					{
-						CommandUtils.Log(Line);
+						CommandUtils.LogInformation(Line);
 					}
 				}
 			}
@@ -620,8 +620,8 @@ namespace AutomationTool
 			AllTriggers.AddRange(NameToTrigger.Values.OrderBy(x => x.QualifiedName));
 
 			// Output all the triggers in order
-			CommandUtils.Log("");
-			CommandUtils.Log("Graph:");
+			CommandUtils.LogInformation("");
+			CommandUtils.LogInformation("Graph:");
 			foreach(ManualTrigger Trigger in AllTriggers)
 			{
 				// Filter everything by this trigger
@@ -642,12 +642,12 @@ namespace AutomationTool
 				}
 
 				// Print the trigger name
-				CommandUtils.Log("    Trigger: {0}", (Trigger == null)? "None" : Trigger.QualifiedName);
+				CommandUtils.LogInformation("    Trigger: {0}", (Trigger == null)? "None" : Trigger.QualifiedName);
 				if(Trigger != null && PrintOptions.HasFlag(GraphPrintOptions.ShowNotifications))
 				{
 					foreach(string User in Trigger.NotifyUsers)
 					{
-						CommandUtils.Log("            notify> {0}", User);
+						CommandUtils.LogInformation("            notify> {0}", User);
 					}
 				}
 
@@ -657,21 +657,21 @@ namespace AutomationTool
 					Node[] Nodes;
 					if(FilteredAgentToNodes.TryGetValue(Agent, out Nodes))
 					{
-						CommandUtils.Log("        Agent: {0} ({1})", Agent.Name, String.Join(";", Agent.PossibleTypes));
+						CommandUtils.LogInformation("        Agent: {0} ({1})", Agent.Name, String.Join(";", Agent.PossibleTypes));
 						foreach(Node Node in Nodes)
 						{
-							CommandUtils.Log("            Node: {0}{1}", Node.Name, CompletedNodes.Contains(Node)? " (completed)" : Node.bRunEarly? " (early)" : "");
+							CommandUtils.LogInformation("            Node: {0}{1}", Node.Name, CompletedNodes.Contains(Node)? " (completed)" : Node.bRunEarly? " (early)" : "");
 							if(PrintOptions.HasFlag(GraphPrintOptions.ShowDependencies))
 							{
 								HashSet<Node> InputDependencies = new HashSet<Node>(Node.GetDirectInputDependencies());
 								foreach(Node InputDependency in InputDependencies)
 								{
-									CommandUtils.Log("                input> {0}", InputDependency.Name);
+									CommandUtils.LogInformation("                input> {0}", InputDependency.Name);
 								}
 								HashSet<Node> OrderDependencies = new HashSet<Node>(Node.GetDirectOrderDependencies());
 								foreach(Node OrderDependency in OrderDependencies.Except(InputDependencies))
 								{
-									CommandUtils.Log("                after> {0}", OrderDependency.Name);
+									CommandUtils.LogInformation("                after> {0}", OrderDependency.Name);
 								}
 							}
 							if(PrintOptions.HasFlag(GraphPrintOptions.ShowNotifications))
@@ -679,29 +679,29 @@ namespace AutomationTool
 								string Label = Node.bNotifyOnWarnings? "warnings" : "errors";
 								foreach(string User in Node.NotifyUsers)
 								{
-									CommandUtils.Log("                {0}> {1}", Label, User);
+									CommandUtils.LogInformation("                {0}> {1}", Label, User);
 								}
 								foreach(string Submitter in Node.NotifySubmitters)
 								{
-									CommandUtils.Log("                {0}> submitters to {1}", Label, Submitter);
+									CommandUtils.LogInformation("                {0}> submitters to {1}", Label, Submitter);
 								}
 							}
 						}
 					}
 				}
 			}
-			CommandUtils.Log("");
+			CommandUtils.LogInformation("");
 
 			// Print out all the aggregates
 			string[] AggregateNames = AggregateNameToNodes.Keys.OrderBy(x => x).ToArray();
 			if(AggregateNames.Length > 0)
 			{
-				CommandUtils.Log("Aggregates:");
+				CommandUtils.LogInformation("Aggregates:");
 				foreach(string AggregateName in AggregateNames)
 				{
-					CommandUtils.Log("    {0}", AggregateName);
+					CommandUtils.LogInformation("    {0}", AggregateName);
 				}
-				CommandUtils.Log("");
+				CommandUtils.LogInformation("");
 			}
 		}
 	}

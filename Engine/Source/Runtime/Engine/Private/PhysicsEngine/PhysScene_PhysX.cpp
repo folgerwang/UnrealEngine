@@ -873,11 +873,11 @@ void FPhysScene_PhysX::ClearTorques_AssumesLocked(FBodyInstance* BodyInstance, b
 		PRigidBody->clearTorque();
 		uint32 BodySceneType = SceneType_AssumesLocked(BodyInstance);
 		if (bAllowSubstepping && IsSubstepping(BodySceneType))
-		{
+{
 			FPhysSubstepTask * PhysSubStepper = PhysSubSteppers[BodySceneType];
 			PhysSubStepper->ClearTorques_AssumesLocked(BodyInstance);
 		}
-	}
+}
 #endif
 }
 
@@ -2298,34 +2298,34 @@ void ListAwakeRigidBodiesFromScene(bool bIncludeKinematic, PxScene* PhysXScene, 
 	PxActor* PhysXActors[2048];
 	int32 NumberActors = PhysXScene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC, PhysXActors, 2048);
 	for(int32 i = 0; i < NumberActors; ++i)
-	{
+{
 		PxRigidDynamic* RgActor = (PxRigidDynamic*)PhysXActors[i];
 		if(!RgActor->isSleeping() && (bIncludeKinematic || RgActor->getRigidBodyFlags() != PxRigidBodyFlag::eKINEMATIC))
-		{
+	{
 			++totalCount;
 			FBodyInstance* BodyInst = FPhysxUserData::Get<FBodyInstance>(RgActor->userData);
 			if(BodyInst)
-			{
+		{
 				UE_LOG(LogPhysics, Log, TEXT("BI %s %d"), BodyInst->OwnerComponent.Get() ? *BodyInst->OwnerComponent.Get()->GetPathName() : TEXT("NONE"), BodyInst->InstanceBodyIndex);
-			}
-			else
-			{
+		}
+		else
+		{
 				UE_LOG(LogPhysics, Log, TEXT("BI %s"), TEXT("NONE"));
 			}
 		}
-	}
-}
+			}
+		}
 #endif // WITH_PHYSX
 
 /** Util to list to log all currently awake rigid bodies */
 void FPhysScene_PhysX::ListAwakeRigidBodies(bool bIncludeKinematic)
-{
+	{
 #if WITH_PHYSX
 	int32 BodyCount = 0;
 	UE_LOG(LogPhysics, Log, TEXT("TOTAL: ListAwakeRigidBodies needs fixing."));
 	ListAwakeRigidBodiesFromScene(bIncludeKinematic, GetPxScene(PST_Sync), BodyCount);
 	if(HasAsyncScene())
-	{
+		{
 		ListAwakeRigidBodiesFromScene(bIncludeKinematic, GetPxScene(PST_Async), BodyCount);
 	}
 	UE_LOG(LogPhysics, Log, TEXT("TOTAL: %d awake bodies."), BodyCount);
@@ -2338,23 +2338,23 @@ int32 FPhysScene::GetNumAwakeBodies()
 	int32 NumAwake = 0;
 
 	for(int32 SceneType = 0; SceneType < PST_MAX; ++SceneType)
-	{
+{
 		if(PxScene* PScene = GetPxScene(SceneType))
-		{
+{
 			TArray<PxActor*> PxActors;
 			int32 NumActors = PScene->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC);
 			PxActors.AddZeroed(NumActors);
 
 			PScene->getActors(PxActorTypeFlag::eRIGID_DYNAMIC, PxActors.GetData(), NumActors * sizeof(PxActors[0]));
 			for(PxActor* PActor : PxActors)
-			{
+	{
 				if(!PActor->is<PxRigidDynamic>()->isSleeping())
-				{
+{
 					++NumAwake;
-				}
-			}
-		}
+}
 	}
+	}
+}
 
 	return NumAwake;
 }

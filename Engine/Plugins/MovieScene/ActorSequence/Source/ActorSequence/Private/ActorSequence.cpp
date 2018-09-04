@@ -8,6 +8,7 @@
 #include "Engine/Blueprint.h"
 #include "GameFramework/Actor.h"
 #include "ActorSequenceComponent.h"
+#include "Engine/LevelScriptActor.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, ActorSequence);
 
@@ -162,6 +163,24 @@ UObject* UActorSequence::GetParentObject(UObject* Object) const
 void UActorSequence::UnbindPossessableObjects(const FGuid& ObjectId)
 {
 	ObjectReferences.RemoveBinding(ObjectId);
+}
+
+UObject* UActorSequence::CreateDirectorInstance(IMovieScenePlayer& Player)
+{
+	AActor* Actor = CastChecked<AActor>(Player.GetPlaybackContext(), ECastCheckedType::NullAllowed);
+	if (!Actor)
+	{
+		return nullptr;
+	}
+
+	// If this sequence is inside a blueprint, or its component's archetype is from a blueprint, we use the actor as the instace (which will be an instance of the blueprint itself)
+	if (GetTypedOuter<UBlueprintGeneratedClass>() || GetTypedOuter<UActorSequenceComponent>()->GetArchetype() != GetDefault<UActorSequenceComponent>())
+	{
+		return Actor;
+	}
+
+	// Otherwise we use the level script actor as the instance
+	return Actor->GetLevel()->GetLevelScriptActor();
 }
 
 #if WITH_EDITOR

@@ -9,6 +9,7 @@
 #include "Blueprint/WidgetBlueprintGeneratedClass.h"
 #include "Settings/WidgetDesignerSettings.h"
 #include "WidgetBlueprint.h"
+#include "Animation/WidgetAnimation.h"
 
 #include "AssetToolsModule.h"
 #include "IAssetTypeActions.h"
@@ -20,6 +21,7 @@
 #include "Animation/MarginTrackEditor.h"
 #include "Animation/Sequencer2DTransformTrackEditor.h"
 #include "Animation/WidgetMaterialTrackEditor.h"
+#include "Animation/MovieSceneSequenceEditor_WidgetAnimation.h"
 #include "IUMGModule.h"
 #include "ComponentReregisterContext.h"
 #include "Components/WidgetComponent.h"
@@ -39,14 +41,6 @@
 #define LOCTEXT_NAMESPACE "UMG"
 
 const FName UMGEditorAppIdentifier = FName(TEXT("UMGEditorApp"));
-
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-const FSlateBrush* GetEditorIcon_Deprecated(UWidget* Widget)
-{
-	const FSlateBrush* Brush = Widget->GetEditorIcon();
-	return Brush ? Brush : FClassIconFinder::FindIconForClass(Widget->GetClass());
-}
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 class FUMGEditorModule : public IUMGEditorModule, public IBlueprintCompiler, public FGCObject
 {
@@ -84,6 +78,7 @@ public:
 
 		// Register with the sequencer module that we provide auto-key handlers.
 		ISequencerModule& SequencerModule = FModuleManager::Get().LoadModuleChecked<ISequencerModule>("Sequencer");
+		SequenceEditorHandle                              = SequencerModule.RegisterSequenceEditor(UWidgetAnimation::StaticClass(), MakeUnique<FMovieSceneSequenceEditor_WidgetAnimation>());
 		MarginTrackEditorCreateTrackEditorHandle          = SequencerModule.RegisterPropertyTrackEditor<FMarginTrackEditor>();
 		TransformTrackEditorCreateTrackEditorHandle       = SequencerModule.RegisterPropertyTrackEditor<F2DTransformTrackEditor>();
 		WidgetMaterialTrackEditorCreateTrackEditorHandle  = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FWidgetMaterialTrackEditor::CreateTrackEditor));
@@ -117,6 +112,8 @@ public:
 		ISequencerModule* SequencerModule = FModuleManager::GetModulePtr<ISequencerModule>( "Sequencer" );
 		if ( SequencerModule != nullptr )
 		{
+			SequencerModule->UnregisterSequenceEditor(SequenceEditorHandle);
+
 			SequencerModule->UnRegisterTrackEditor( MarginTrackEditorCreateTrackEditorHandle );
 			SequencerModule->UnRegisterTrackEditor( TransformTrackEditorCreateTrackEditorHandle );
 			SequencerModule->UnRegisterTrackEditor( WidgetMaterialTrackEditorCreateTrackEditorHandle );
@@ -240,6 +237,7 @@ private:
 	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
 	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
 
+	FDelegateHandle SequenceEditorHandle;
 	FDelegateHandle MarginTrackEditorCreateTrackEditorHandle;
 	FDelegateHandle TransformTrackEditorCreateTrackEditorHandle;
 	FDelegateHandle WidgetMaterialTrackEditorCreateTrackEditorHandle;

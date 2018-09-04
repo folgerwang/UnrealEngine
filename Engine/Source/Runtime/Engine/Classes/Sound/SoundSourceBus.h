@@ -24,7 +24,7 @@ enum class ESourceBusChannels : uint8
 UCLASS(hidecategories= (Compression, SoundWave, Streaming, Subtitles, Sound, Info, ImportSettings), ClassGroup = Sound, meta = (BlueprintSpawnableComponent))
 class ENGINE_API USoundSourceBus : public USoundWave
 {
-	GENERATED_BODY()
+	GENERATED_UCLASS_BODY()
 
 public:
 
@@ -42,7 +42,6 @@ public:
 
 	//~ Begin UObject Interface. 
 	virtual void PostLoad() override;
-	virtual void BeginDestroy() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
@@ -54,6 +53,7 @@ public:
 	//~ End USoundBase Interface.
 
 protected:
+	void Init();
 
 	uint32 DurationSamples;
 	bool bInitialized;

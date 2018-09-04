@@ -338,13 +338,13 @@ void FEnumEditorUtils::BroadcastChanges(const UUserDefinedEnum* Enum, const TArr
 			INodeDependingOnEnumInterface* NodeDependingOnEnum = Cast<INodeDependingOnEnumInterface>(Node);
 			if (FNodeValidatorHelper::IsValid(Node) && NodeDependingOnEnum && (Enum == NodeDependingOnEnum->GetEnum()))
 			{
-				if (UBlueprint* Blueprint = Node->GetBlueprint())
+				if (Node->HasValidBlueprint())
 				{
 					if (NodeDependingOnEnum->ShouldBeReconstructedAfterEnumChanged())
 					{
 						Node->ReconstructNode();
 					}
-					BlueprintsToRefresh.Add(Blueprint);
+					BlueprintsToRefresh.Add(Node->GetBlueprint());
 				}
 			}
 		}

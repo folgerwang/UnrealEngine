@@ -42,6 +42,7 @@ public:
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector, const FNiagaraSceneProxy *SceneProxy) const override;
 	virtual bool SetMaterialUsage() override;
+	virtual void TransformChanged() override;
 	/** Update render data buffer from attributes */
 	FNiagaraDynamicDataBase *GenerateVertexData(const FNiagaraSceneProxy* Proxy, FNiagaraDataSet &Data, const ENiagaraSimTarget Target) override;
 
@@ -97,6 +98,8 @@ private:
 	int32 MaterialParamOffset2;
 	int32 MaterialParamOffset3;
 	int32 TransformOffset;
+	int32 NormalizedAgeOffset;
+	int32 MaterialRandomOffset;
 	int32 CustomSortingOffset;
 	int32 LastSyncedId;
 };

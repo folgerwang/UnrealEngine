@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title:4. Triggering the Sequence Playback and Blend
+﻿INTSourceChangelist:3782314
+Availability: Public
+Title:4.触发序列播放与混合
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
-Description:In this step we trigger the playback of our sequence and tell our Blueprints to start blending in our Slot animation.
+Description:在此步骤中，我们要触发序列的播放，并告知蓝图开始混合进插槽动画。
 Version: 4.17
 SkillLevel: Advanced
-parent:Engine/Sequencer/HowTo
+parent:Engine/Sequencer/HowTo/GameplayAnimBlending
 order:1
 checkpoint: editorqs
 Related: Engine/Sequencer/Overview
@@ -39,31 +39,32 @@ type:how-to
 
 [nav]
 
-In the final step before we can test out our setup, we use the Level Blueprint to activate our Level Sequence when the player enters the Trigger Box. 
-When our Sequence starts, the exposed to cinematics property **DefaultSlotInterp** is changed which starts the process of updating our interp values, telling our Animation Blueprint to start blending from gameplay animation to our Slot Animation. 
+完成这步后就可以对设置进行测试了。在这步中，我们使用关卡蓝图在玩家进入触发框时激活关卡序列。 
+当序列开始时，对过场动画公开的属性 **DefaultSlotInterp** 发生了更改，这将开始更新插值数值的过程。 
+这个操作会让动画蓝图开始从游戏动画混合到插槽动画。 
 
-1.	With the **Triggerbox** selected, from the main toolbar click the **Blueprints** button then **Open Level Blueprint**. 
+1.   在选中 **触发框（Triggerbox）** 后，请单击主工具栏中的 **蓝图（Blueprints）** 按钮，然后单击 **打开关卡蓝图（Open Level Blueprint）**。 
 
-	![](GameBlend_16.png)
+  ![](GameBlend_16.png)
 
-1.	Right-click in the graph then under **Collision** for the Trigger Box select **Add On Actor Begin Overlap**. 
+  1. 在图表中单击鼠标右键，然后在触发框的 **碰撞（Collision）** 下选择 **在Actor开始重叠时添加（Add On Actor Begin Overlap）**。 
 
-	![](GameBlend_17.png)
+  ![](GameBlend_17.png)
 
-1.	Return to the level viewport and select your Level Sequence, then in the **Level Blueprint** right-click and add a reference to your Level Sequence. 
+  1. 返回到关卡视图并选择关卡序列，然后在 **关卡蓝图（Level Blueprint）** 中单击鼠标右键并添加对关卡序列的引用。 
 
-	![](GameBlend_18.png)
+  ![](GameBlend_18.png)
 
-1.	Off your Level Sequence, **Get Sequence Player** then off it use the **Play** node and connect as shown. 
+  1. 关闭关卡序列，使用 **获取序列播放器（Get Sequence Player）**，然后将其关闭，使用 **播放（Play）** 节点并按图中所示进行连接。 
 
-	![](GameBlend_19.png)
+  ![](GameBlend_19.png)
 
-1.	**Compile** and **Save**, then click **Play** to play in the editor. 
+  1. **编译（Compile）** 并 **保存（Save）**，然后单击 **播放（Play）** 以在编辑器中播放。 
 
 
-## End Result
+## 最终结果
 
-When our character enters the trigger volume, regardless of their current animation state, we start to blend from our gameplay pose into our death pose defined by Sequencer.
+当角色进入触发器体积时，无论他们当前的动作状态如何，我们都会开始将游戏动作混合到Sequencer定义的死亡动作中。
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -83,7 +84,7 @@ When our character enters the trigger volume, regardless of their current animat
 	[/PARAMLITERAL]
 [/OBJECT]
 
-We could take this a step further by adding a camera to our Sequence and improve the blending by shifting the point in which the death animation starts in our Sequence. 
+我们可以在序列中添加摄像机来对此一步细化，并通过移动序列中死亡动作开始的点来改进混合效果。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -103,7 +104,7 @@ We could take this a step further by adding a camera to our Sequence and improve
 	[/PARAMLITERAL]
 [/OBJECT]
 
-In the example above, the player can walk, run, crouch walk or jump into the trigger and each case they will blend into the death animation when entering the trigger volume. 
+在上面的例子中，玩家可以行走、跑步、下蹲行走或跳入触发器，无论进行何种动作都会在进入触发器体积时混合到死亡动作。 
 
 [nav]
 

@@ -246,6 +246,15 @@ FGameplayAbilitySpec::FGameplayAbilitySpec(FGameplayAbilitySpecDef& InDef, int32
 
 // ----------------------------------------------------
 
+void FGameplayAbilitySpecHandle::GenerateNewHandle()
+{
+	// Must be in C++ to avoid duplicate statics accross execution units
+	static int32 GHandle = 1;
+	Handle = GHandle++;
+}
+
+// ----------------------------------------------------
+
 FScopedAbilityListLock::FScopedAbilityListLock(UAbilitySystemComponent& InAbilitySystemComponent)
 	: AbilitySystemComponent(InAbilitySystemComponent)
 {

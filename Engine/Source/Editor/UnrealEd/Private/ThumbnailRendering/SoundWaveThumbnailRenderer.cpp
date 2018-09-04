@@ -4,10 +4,21 @@
 #include "CanvasItem.h"
 #include "Audio.h"
 #include "Sound/SoundWave.h"
-
+#include "Sound/SoundSourceBus.h"
+ 
 USoundWaveThumbnailRenderer::USoundWaveThumbnailRenderer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+}
+
+bool USoundWaveThumbnailRenderer::CanVisualizeAsset(UObject* Object)
+{
+	USoundSourceBus* SourceBus = Cast<USoundSourceBus>(Object);
+	if (SourceBus)
+	{
+		return false;
+	}
+	return true;
 }
 
 void USoundWaveThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32 Width, uint32 Height, FRenderTarget*, FCanvas* Canvas)

@@ -1,0 +1,176 @@
+Availability: Public
+Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
+title: Working with Tracks in Sequencer
+description:
+type: how-to
+SkillLevel: intermediate
+Version: 4.20
+Parent: Engine/Sequencer/HowTo
+Order: 2
+Tags: Sequencer
+Tags: how-to
+
+# Working with Tracks in Sequencer
+
+Whenever you create a Level Sequence, regardless of the type of cinematic you wish to create, you will be adding and working with Tracks inside the Tracks window. Sequencer offers several features that you can use to help organize and visualize those Tracks and the content within them. 
+
+In this how-to, we take a look at several different features of the Track system inside Sequencer and how to use those features.
+
+## Steps
+
+[REGION:note]For this guide we are using the **Blueprint Thirdperson** template with **Starter Content** enabled.[/REGION]
+
+1.  Inside your project in the **Content/Mannequin/Character/Mesh **folder, drag the **SK_Mannequin **into the Level. 
+
+	![image alt text](image_0.png)(w:624 h:250 convert:false)
+
+1.  From the Main Toolbar, click the **Cinematics **button and **Add Level Sequence **then give it any name and save location. 
+
+	![image alt text](image_1.png)(w:420 h:162 convert:false)
+
+1.  From the **World Outliner** window, drag the **SK_Mannequin **Actor into the **Tracks **window to add it to Sequencer. 
+
+	![image alt text](image_2.png)(w:624 h:353 convert:false)
+
+	This is an alternate method of adding Actors to Sequencer. In addition to the clicking the **+ Track **button, you can drag items from the **World Outliner **or even the **Content Browser**. 
+
+1.  Inside the **Content/StarterContent/Audio **folder, drag any of the **Sound Wave **assets into Sequencer. 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		RlCorqp9wdg
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	When dragging an asset into Sequencer, it will highlight the drop location to show you where it will be placed and pulsate yellow briefly when added to show you your newly added section. You can also drag any section onto any row within the Timeline or move the Timeline Marker to your desired location, then drop in an asset to create the section at that point (as shown in the video above). 
+
+1.  Add a **Folder **from the **+ Track **menu, rename it with **F2**, then drag-and-drop tracks into it or re-order it in the **Tracks List **window. 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		LieJ347Qa9U
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	You can group several Tracks together inside of **Folders **to help organize the Tracks window. Tracks, Actors, and Folders that are added to a Sequence are highlighted after creating them. If a folder is already currently selected, new items will be placed inside the folder. If another Track is currently selected, the new item will be placed as a sibling of that item. 
+
+	Tracks, Actors and Folders can also be reordered in Sequencer (as well as UMG Animations) and you can sort them (by type and then alphabetically) from the **General Options **menu. 
+
+1.  For the **SK_Mannequin **track, add any animations to the **Animation **track then scrub the track with the animation selected. 
+	
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		TXZnzMkgFvM
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	When you scrub an animation inside Sequencer, the frame number for the source animation is displayed for your selected sections. You can use this to see where the start of an animation that is being blending starts or where the blended animation ends. 
+
+1.  Loop any of your animations, then right-click on it and select **Auto Size **under **Edit **from the context menu. 
+
+	![image alt text](image_3.png)(w:624 h:350 convert:false)
+
+	You can use the Auto Size feature to quickly resize a section to its source duration (for example, resizing Skeletal Mesh Animation to the bounds of their animation as we've done above). 
+
+1.  Add some movement for the character as shown below, then mask out the **Z **axis by deleting the channel or disabling it from the context menu. 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		0pg9DgIrpGo
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	You can also perform channel masking in UMG animations (below we mask out the Translation and Scale of an animation). 
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		jrTfOw0GhLo
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+1. Move the timeline marker to any location where a transform key is not present, then right-click any transform key and select **Rekey **to move it to the markers location.
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		nGglzSUID9I
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		78
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	Using Rekey from the context menu is useful for quickly adjusting keyframes and assigning them to the current time. In the example above, we move our character with the Transform track however the animation continues while our movement has stopped. We use Rekey to move the Transform value to the end of the sequence matching the length of our animation. 
+
+## End Result
+
+In this guide you have learned about some of the different ways you can work with Tracks in Sequencer including how to organize those tracks with Folders, resizing sections, how to rekey a keyframe, channel masking, and other tips when adding Tracks to a Sequence. While you may not use all of these tips at once, its good to know that they are there and can be used situationally with your existing Sequencer workflow. 
+

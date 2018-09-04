@@ -221,6 +221,8 @@ public class Engine : ModuleRules
 			if (Target.Type != TargetType.Server)
 			{
 				PrivateIncludePathModuleNames.Add("MeshUtilities");
+				PrivateIncludePathModuleNames.Add("MeshUtilitiesCommon");
+
 				DynamicallyLoadedModuleNames.Add("MeshUtilities");
 
 				PrivateDependencyModuleNames.AddRange(

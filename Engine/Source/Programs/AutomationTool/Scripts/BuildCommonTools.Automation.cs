@@ -16,7 +16,7 @@ public class BuildCommonTools : BuildCommand
 {
 	public override void ExecuteBuild()
 	{
-		Log("************************* BuildCommonTools");
+		LogInformation("************************* BuildCommonTools");
 
 		// Get the list of platform names
 		string[] PlatformNames = ParseParamValue("platforms", BuildHostPlatform.Current.Platform.ToString()).Split('+');
@@ -85,7 +85,8 @@ public class BuildCommonTools : BuildCommand
 		UE4Build.BuildAgenda Agenda = new UE4Build.BuildAgenda();
 
 		// C# binaries
-		Agenda.SwarmProject = @"Engine\Source\Programs\UnrealSwarm\UnrealSwarm.sln";
+		Agenda.SwarmAgentProject = @"Engine\Source\Programs\UnrealSwarm\SwarmAgent.sln";
+		Agenda.SwarmCoordinatorProject = @"Engine\Source\Programs\UnrealSwarm\SwarmCoordinator.sln";
 		Agenda.DotNetProjects.Add(@"Engine/Source/Editor/SwarmInterface/DotNET/SwarmInterface.csproj");
 		Agenda.DotNetProjects.Add(@"Engine/Source/Programs/DotNETCommon/DotNETUtilities/DotNETUtilities.csproj");
 		Agenda.DotNetProjects.Add(@"Engine/Source/Programs/RPCUtility/RPCUtility.csproj");
@@ -179,10 +180,10 @@ public class ZipProjectUp : BuildCommand
 		string InstallDirectory = ParseParamValue("install", "");
 		ProjectDirectory = Path.GetDirectoryName(ProjectDirectory);
 
-		Log("Started zipping project up");
-		Log("Project directory: {0}", ProjectDirectory);
-		Log("Install directory: {0}", InstallDirectory);
-		Log("Packaging up the project...");
+		LogInformation("Started zipping project up");
+		LogInformation("Project directory: {0}", ProjectDirectory);
+		LogInformation("Install directory: {0}", InstallDirectory);
+		LogInformation("Packaging up the project...");
 
 		// Setup filters
 		FileFilter Filter = new FileFilter();
@@ -193,6 +194,6 @@ public class ZipProjectUp : BuildCommand
 
 		ZipFiles(new FileReference(InstallDirectory), new DirectoryReference(ProjectDirectory), Filter);
 
-		Log("Completed zipping project up");
+		LogInformation("Completed zipping project up");
 	}
 }

@@ -123,6 +123,9 @@ private:
 private:
 	TSharedRef<SWidget> GenerateBoundsMenuContent(TSharedRef<FUICommandList> InCommandList);
 	void OnSaveThumbnailImage();
+	void OnThumbnailCaptured(UTexture2D* Thumbnail);
+
+private:
 
 	/** The System being edited in system mode, or the placeholder system being edited in emitter mode. */
 	UNiagaraSystem* System;
@@ -132,6 +135,10 @@ private:
 
 	/** The value of the emitter change id from the last time it was in sync with the original emitter. */
 	FGuid LastSyncedEmitterChangeId;
+
+	/** Whether or not the emitter thumbnail has been updated.  The is needed because after the first update the
+		screenshot uobject is reused, so a pointer comparison doesn't work to checking if the images has been updated. */
+	bool bEmitterThumbnailUpdated;
 
 	ESystemToolkitMode SystemToolkitMode;
 

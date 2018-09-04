@@ -2,9 +2,11 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
+#include "Containers/ContainersFwd.h"
 #include "Containers/ArrayView.h"
 #include "Internationalization/LocalizedTextSourceTypes.h"
+#include "CoreGlobals.h"
 
 class FTextLocalizationResource;
 class FTextLocalizationResources;

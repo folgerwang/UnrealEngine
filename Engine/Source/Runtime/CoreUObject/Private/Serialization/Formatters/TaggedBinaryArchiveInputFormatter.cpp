@@ -73,22 +73,27 @@ FArchive& FTaggedBinaryArchiveInputFormatter::GetUnderlyingArchive()
 	return Inner;
 }
 
+bool FTaggedBinaryArchiveInputFormatter::HasDocumentTree() const
+{
+	return true;
+}
+
 void FTaggedBinaryArchiveInputFormatter::EnterRecord()
 {
 	ExpectType(EArchiveValueType::Record);
 	RecordStack.Push(NextRecordIdx++);
 }
 
-void FTaggedBinaryArchiveInputFormatter::EnterRecord(TArray<FString>& OutKeys)
+void FTaggedBinaryArchiveInputFormatter::EnterRecord_TextOnly(TArray<FString>& OutFieldNames)
 {
 	EnterRecord();
 
 	FRecord& Record = Records[RecordStack.Top()];
 
-	OutKeys.Reset();
+	OutFieldNames.Reset();
 	for (const FField& Field : Record.Fields)
 	{
-		OutKeys.Add(Names[Field.NameIdx]);
+		OutFieldNames.Add(Names[Field.NameIdx]);
 	}
 }
 
@@ -109,7 +114,7 @@ void FTaggedBinaryArchiveInputFormatter::EnterField(FArchiveFieldName Name)
 	Inner.Seek(Field->Offset);
 }
 
-void FTaggedBinaryArchiveInputFormatter::EnterField(FArchiveFieldName Name, EArchiveValueType& OutType)
+void FTaggedBinaryArchiveInputFormatter::EnterField_TextOnly(FArchiveFieldName Name, EArchiveValueType& OutType)
 {
 	EnterField(Name);
 	OutType = PeekType();
@@ -147,7 +152,7 @@ void FTaggedBinaryArchiveInputFormatter::EnterArrayElement()
 {
 }
 
-void FTaggedBinaryArchiveInputFormatter::EnterArrayElement(EArchiveValueType& OutType)
+void FTaggedBinaryArchiveInputFormatter::EnterArrayElement_TextOnly(EArchiveValueType& OutType)
 {
 	OutType = PeekType();
 }
@@ -165,10 +170,10 @@ void FTaggedBinaryArchiveInputFormatter::EnterStream()
 	Inner << Length;
 }
 
-void FTaggedBinaryArchiveInputFormatter::EnterStream(int32& NumElements)
+void FTaggedBinaryArchiveInputFormatter::EnterStream_TextOnly(int32& OutNumElements)
 {
 	ExpectType(EArchiveValueType::Stream);
-	Inner << NumElements;
+	Inner << OutNumElements;
 }
 
 void FTaggedBinaryArchiveInputFormatter::LeaveStream()
@@ -179,7 +184,7 @@ void FTaggedBinaryArchiveInputFormatter::EnterStreamElement()
 {
 }
 
-void FTaggedBinaryArchiveInputFormatter::EnterStreamElement(EArchiveValueType& OutType)
+void FTaggedBinaryArchiveInputFormatter::EnterStreamElement_TextOnly(EArchiveValueType& OutType)
 {
 	OutType = PeekType();
 }
@@ -204,7 +209,7 @@ void FTaggedBinaryArchiveInputFormatter::EnterMapElement(FString& OutName)
 	Inner << OutName;
 }
 
-void FTaggedBinaryArchiveInputFormatter::EnterMapElement(FString& OutName, EArchiveValueType& OutType)
+void FTaggedBinaryArchiveInputFormatter::EnterMapElement_TextOnly(FString& OutName, EArchiveValueType& OutType)
 {
 	EnterMapElement(OutName);
 	OutType = PeekType();
@@ -290,6 +295,36 @@ void FTaggedBinaryArchiveInputFormatter::Serialize(UObject*& Value)
 {
 	ExpectType(EArchiveValueType::Object);
 	SerializeObject(Inner, Value);
+}
+
+void FTaggedBinaryArchiveInputFormatter::Serialize(FText& Value)
+{
+	ExpectType(EArchiveValueType::Text);
+	Inner << Value;
+}
+
+void FTaggedBinaryArchiveInputFormatter::Serialize(FWeakObjectPtr& Value)
+{
+	ExpectType(EArchiveValueType::WeakObjectPtr);
+	Inner << Value;
+}
+
+void FTaggedBinaryArchiveInputFormatter::Serialize(FSoftObjectPtr& Value)
+{
+	ExpectType(EArchiveValueType::SoftObjectPtr);
+	Inner << Value;
+}
+
+void FTaggedBinaryArchiveInputFormatter::Serialize(FSoftObjectPath& Value)
+{
+	ExpectType(EArchiveValueType::SoftObjectPath);
+	Inner << Value;
+}
+
+void FTaggedBinaryArchiveInputFormatter::Serialize(FLazyObjectPtr& Value)
+{
+	ExpectType(EArchiveValueType::LazyObjectPtr);
+	Inner << Value;
 }
 
 void FTaggedBinaryArchiveInputFormatter::Serialize(TArray<uint8>& Value) 

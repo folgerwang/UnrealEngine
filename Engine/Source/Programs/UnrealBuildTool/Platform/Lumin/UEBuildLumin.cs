@@ -157,6 +157,7 @@ namespace UnrealBuildTool
 		{
 			CompileEnvironment.Definitions.Add("PLATFORM_LUMIN=1");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_JNI=0");
+			CompileEnvironment.Definitions.Add("USE_ANDROID_AUDIO=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_FILE=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_INPUT=0");
 			CompileEnvironment.Definitions.Add("USE_ANDROID_LAUNCH=0");
@@ -164,7 +165,7 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("USE_ANDROID_OPENGL=0");
 			CompileEnvironment.Definitions.Add("WITH_OGGVORBIS=1");
 
-			DirectoryReference MLSDKDir = DirectoryReference.MakeFromNormalizedFullPath("$(MLSDK)");
+			DirectoryReference MLSDKDir = new DirectoryReference("$(MLSDK)", DirectoryReference.Sanitize.None);
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include"));
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "lumin/stl/gnu-libstdc++/include/aarch64-linux-android"));
 			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(MLSDKDir, "include"));

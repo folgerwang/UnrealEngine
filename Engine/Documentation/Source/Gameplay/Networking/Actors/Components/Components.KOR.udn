@@ -90,7 +90,7 @@ CPU 측면에서는 액터상의 프로퍼티 리플리케이션 vs 컴포넌트
 	/** Called on the Actor when a new subobject is dynamically created via replication */
 	virtual void OnSubobjectCreatedFromReplication(UObject *NewSubobject);
 
-액터 컴포넌트가 아닌 서브오브젝트를 리플리케이트하고자 하는 클래스는 위의 세 가지 메소드를 구현해야 합니다.
+액터 컴포넌트가 아닌 서브오브젝트를 리플리케이트하고자 하는 클래스는 위의 세 가지 메서드를 구현해야 합니다.
 
 ### 용례
 이것이 유용한 이유는 UObject 와 다형성을 액터 채널 레벨에서 활용할 수 있기 때문입니다. 기존에 복합 데이터 구조체에 대한 리플리케이션은 항상 액터 클래스 내에 

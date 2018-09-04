@@ -654,7 +654,10 @@ TSharedRef<SWidget> FBehaviorTreeEditor::SpawnProperties()
 				.Padding(FMargin(5.0f))
 				[
 					SNew(STextBlock)
-					.Text(LOCTEXT("RootLevelNode", "Root level decorators are not executed\nThey will be injected into a parent tree"))
+					.Text(LOCTEXT("RootLevelNode", "\
+Root-level decorators are only valid and will be executed if this BT is be used\n\
+as static a sub-tree (via \"Run Behavior\"). These decorators will be ignored if\n\
+dynamically injected with \"Run Dynamic Behavior\"."))
 				]
 			]
 			+SVerticalBox::Slot()

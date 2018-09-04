@@ -1,33 +1,36 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Title: Distance Fields How-To's
-Crumbs:
-Description: A how to Guide for using different aspects of Mesh Distance Fields in Unreal Engine 4.
-Version: 4.15
-type:landing
-parent:Engine/Rendering/LightingAndShadows/DistanceFields
-order:
+﻿INTSourceChangelist:3782314
+Availability: Public
+Crumbs: %ROOT%
+Title: 距离场使用指南
+Description: 关于在虚幻引擎4中使用网格体距离场各方面功能的指南。
+Type: how-to
+Version:4.18
+Parent:Engine/Rendering/LightingAndShadows/MeshDistanceFields
+Related:Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing
+Related:Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference
+Order:
+Tags:Lighting
 topic-image:DFHowTo_topic.png
-tags:Lighting
 
 
-The following step-by-step guides walk you through a variety of topics designed to help you better use Distance Fields in your projects. 
+以下[网格体距离场（Mesh Distance Field）](Engine/Rendering/LightingAndShadows/MeshDistanceFields)分步指南将介绍一些您可以启用的功能，例如，向使用[距离场环境光遮蔽](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion)的场景中添加天空光照，如何为光源启用[光线追踪距离场阴影（RayTraced Distance Field Shadowing）](Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing)，设置粒子视觉效果以将网格体距离场（Mesh Distance Field）用于场景中的碰撞等等。
 
+## 初级
 
-## Beginner
+[DIR(output:"fancy" parent:"Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo" skill_level:"Beginner" tags:"Lighting")]
 
-[DIR(output:"fancy" parent:"Engine/Rendering/LightingAndShadows/DistanceFields/HowTo" skill_level:"Beginner")]
+## 中级
 
-## Intermediate
-
-[DIR(output:"fancy" parent:"Engine/Rendering/LightingAndShadows/DistanceFields/HowTo" skill_level:"Intermediate")]
+[DIR(output:"fancy" parent:"Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo" skill_level:"Intermediate" tags:"Lighting")]
 
 
 [COMMENT:none]
 -
-## Advanced
+## 高级
 
 [DIR(output:"fancy" parent:"Engine/Rendering/Materials/HowTo" skill_level:"Advanced")]
 
+skill_level:"Intermediate"
 -
 [/COMMENT]

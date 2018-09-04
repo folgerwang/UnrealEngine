@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -80,7 +80,10 @@ typedef struct
     int xdelta;
     int ydelta;
     int last_x, last_y;         /* the last reported x and y coordinates */
+    float accumulated_wheel_x;
+    float accumulated_wheel_y;
     Uint32 buttonstate;
+    SDL_bool has_position;
     SDL_bool relative_mode;
     SDL_bool relative_mode_warp;
     float normal_speed_scale;
@@ -100,11 +103,13 @@ typedef struct
 
     /* Driver-dependent data. */
     void *driverdata;
+
 /* EG BEGIN */
 #ifdef SDL_WITH_EPIC_EXTENSIONS
     SDL_bool initiate_window_drag; /* Used to initiate the window drag in the hit-test area */
 #endif /* SDL_WITH_EPIC_EXTENSIONS */
 /* EG END */
+
 } SDL_Mouse;
 
 
@@ -133,7 +138,7 @@ extern int SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 s
 extern int SDL_SendMouseButtonClicks(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8 button, int clicks);
 
 /* Send a mouse wheel event */
-extern int SDL_SendMouseWheel(SDL_Window * window, SDL_MouseID mouseID, int x, int y, SDL_MouseWheelDirection direction);
+extern int SDL_SendMouseWheel(SDL_Window * window, SDL_MouseID mouseID, float x, float y, SDL_MouseWheelDirection direction);
 
 /* Shutdown the mouse subsystem */
 extern void SDL_MouseQuit(void);

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -54,7 +54,10 @@ extern SDL_AudioFormat SDL_NextAudioFormat(void);
 /* Function to calculate the size and silence for a SDL_AudioSpec */
 extern void SDL_CalculateAudioSpec(SDL_AudioSpec * spec);
 
-/* These pointers get set during init to various SIMD implementations. */
+/* Choose the audio filter functions below */
+extern void SDL_ChooseAudioConverters(void);
+
+/* These pointers get set during SDL_ChooseAudioConverters() to various SIMD implementations. */
 extern SDL_AudioFilter SDL_Convert_S8_to_F32;
 extern SDL_AudioFilter SDL_Convert_U8_to_F32;
 extern SDL_AudioFilter SDL_Convert_S16_to_F32;
@@ -66,46 +69,11 @@ extern SDL_AudioFilter SDL_Convert_F32_to_S16;
 extern SDL_AudioFilter SDL_Convert_F32_to_U16;
 extern SDL_AudioFilter SDL_Convert_F32_to_S32;
 
+/* You need to call SDL_PrepareResampleFilter() before using the internal resampler.
+   SDL_AudioQuit() calls SDL_FreeResamplerFilter(), you should never call it yourself. */
+extern int SDL_PrepareResampleFilter(void);
+extern void SDL_FreeResampleFilter(void);
 
-/* SDL_AudioStream is a new audio conversion interface. It
-    might eventually become a public API.
-   The benefits vs SDL_AudioCVT:
-    - it can handle resampling data in chunks without generating
-      artifacts, when it doesn't have the complete buffer available.
-    - it can handle incoming data in any variable size.
-    - You push data as you have it, and pull it when you need it
-
-    (Note that currently this converts as data is put into the stream, so
-    you need to push more than a handful of bytes if you want decent
-    resampling. This can be changed later.)
- */
-
-/* this is opaque to the outside world. */
-typedef struct SDL_AudioStream SDL_AudioStream;
-
-/* create a new stream */
-SDL_AudioStream *SDL_NewAudioStream(const SDL_AudioFormat src_format,
-                                    const Uint8 src_channels,
-                                    const int src_rate,
-                                    const SDL_AudioFormat dst_format,
-                                    const Uint8 dst_channels,
-                                    const int dst_rate);
-
-/* add data to be converted/resampled to the stream */
-int SDL_AudioStreamPut(SDL_AudioStream *stream, const void *buf, const Uint32 len);
-
-/* get converted/resampled data from the stream */
-int SDL_AudioStreamGet(SDL_AudioStream *stream, void *buf, const Uint32 len);
-
-/* clear any pending data in the stream without converting it. */
-void SDL_AudioStreamClear(SDL_AudioStream *stream);
-
-/* number of converted/resampled bytes available */
-int SDL_AudioStreamAvailable(SDL_AudioStream *stream);
-
-/* dispose of a stream */
-void SDL_FreeAudioStream(SDL_AudioStream *stream);
-
-#endif
+#endif /* SDL_audio_c_h_ */
 
 /* vi: set ts=4 sw=4 expandtab: */

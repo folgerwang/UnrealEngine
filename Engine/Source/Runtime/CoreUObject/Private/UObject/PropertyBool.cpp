@@ -191,10 +191,10 @@ FString UBoolProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 }
 
 template<typename T>
-void LoadFromType(UBoolProperty* Property, const FPropertyTag& Tag, FArchive& Ar, uint8* Data)
+void LoadFromType(UBoolProperty* Property, const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data)
 {
 	T IntValue;
-	Ar << IntValue;
+	Slot << IntValue;
 
 	if (IntValue != 0)
 	{
@@ -212,23 +212,23 @@ void LoadFromType(UBoolProperty* Property, const FPropertyTag& Tag, FArchive& Ar
 	}
 }
 
-EConvertFromTypeResult UBoolProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
+EConvertFromTypeResult UBoolProperty::ConvertFromType(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct)
 {
 	if (Tag.Type == NAME_IntProperty)
 	{
-		LoadFromType<int32>(this, Tag, Ar, Data);
+		LoadFromType<int32>(this, Tag, Slot, Data);
 	}
 	else if (Tag.Type == NAME_Int8Property)
 	{
-		LoadFromType<int8>(this, Tag, Ar, Data);
+		LoadFromType<int8>(this, Tag, Slot, Data);
 	}
 	else if (Tag.Type == NAME_Int16Property)
 	{
-		LoadFromType<int16>(this, Tag, Ar, Data);
+		LoadFromType<int16>(this, Tag, Slot, Data);
 	}
 	else if (Tag.Type == NAME_Int64Property)
 	{
-		LoadFromType<int64>(this, Tag, Ar, Data);
+		LoadFromType<int64>(this, Tag, Slot, Data);
 	}
 	else if (Tag.Type == NAME_ByteProperty)
 	{
@@ -241,7 +241,7 @@ EConvertFromTypeResult UBoolProperty::ConvertFromType(const FPropertyTag& Tag, F
 				return EConvertFromTypeResult::UseSerializeItem;
 			}
 
-			LoadFromType<uint8>(this, Tag, Ar, Data);
+			LoadFromType<uint8>(this, Tag, Slot, Data);
 		}
 		else
 		{
@@ -250,15 +250,15 @@ EConvertFromTypeResult UBoolProperty::ConvertFromType(const FPropertyTag& Tag, F
 	}
 	else if (Tag.Type == NAME_UInt16Property)
 	{
-		LoadFromType<uint16>(this, Tag, Ar, Data);
+		LoadFromType<uint16>(this, Tag, Slot, Data);
 	}
 	else if (Tag.Type == NAME_UInt32Property)
 	{
-		LoadFromType<uint32>(this, Tag, Ar, Data);
+		LoadFromType<uint32>(this, Tag, Slot, Data);
 	}
 	else if (Tag.Type == NAME_UInt64Property)
 	{
-		LoadFromType<uint64>(this, Tag, Ar, Data);
+		LoadFromType<uint64>(this, Tag, Slot, Data);
 	}
 	else
 	{
@@ -319,12 +319,12 @@ bool UBoolProperty::Identical( const void* A, const void* B, uint32 PortFlags ) 
 	return ((*ByteValueA ^ (B ? *ByteValueB : 0)) & FieldMask) == 0;
 }
 
-void UBoolProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+void UBoolProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, void const* Defaults ) const
 {
 	check(FieldSize != 0);
 	uint8* ByteValue = (uint8*)Value + ByteOffset;
 	uint8 B = (*ByteValue & FieldMask) ? 1 : 0;
-	Ar << B;
+	Slot << B;
 	*ByteValue = ((*ByteValue) & ~FieldMask) | (B ? ByteMask : 0);
 }
 

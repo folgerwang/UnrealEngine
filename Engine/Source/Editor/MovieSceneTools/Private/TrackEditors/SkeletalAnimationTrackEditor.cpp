@@ -55,13 +55,9 @@ USkeletalMeshComponent* AcquireSkeletalMeshFromObjectGuid(const FGuid& Guid, TSh
 
 	if (AActor* Actor = Cast<AActor>(BoundObject))
 	{
-		TInlineComponentArray<USkeletalMeshComponent*> SkeletalMeshComponents;
-		Actor->GetComponents(SkeletalMeshComponents);
-
-		for (int32 j = 0; j <SkeletalMeshComponents.Num(); ++j)
+		for (UActorComponent* Component : Actor->GetComponents())
 		{
-			USkeletalMeshComponent* SkeletalMeshComp = SkeletalMeshComponents[j];
-			if (SkeletalMeshComp)
+			if (USkeletalMeshComponent* SkeletalMeshComp = Cast<USkeletalMeshComponent>(Component))
 			{
 				return SkeletalMeshComp;
 			}
@@ -84,13 +80,10 @@ USkeleton* AcquireSkeletonFromObjectGuid(const FGuid& Guid, TSharedPtr<ISequence
 
 	if (AActor* Actor = Cast<AActor>(BoundObject))
 	{
-		TInlineComponentArray<USkeletalMeshComponent*> SkeletalMeshComponents;
-		Actor->GetComponents(SkeletalMeshComponents);
-
-		for (int32 j = 0; j <SkeletalMeshComponents.Num(); ++j)
+		for (UActorComponent* Component : Actor->GetComponents())
 		{
-			USkeletalMeshComponent* SkeletalMeshComp = SkeletalMeshComponents[j];
-			if (SkeletalMeshComp->SkeletalMesh && SkeletalMeshComp->SkeletalMesh->Skeleton)
+			USkeletalMeshComponent* SkeletalMeshComp = Cast<USkeletalMeshComponent>(Component);
+			if (SkeletalMeshComp && SkeletalMeshComp->SkeletalMesh && SkeletalMeshComp->SkeletalMesh->Skeleton)
 			{
 				// @todo Multiple actors, multiple components
 				return SkeletalMeshComp->SkeletalMesh->Skeleton;

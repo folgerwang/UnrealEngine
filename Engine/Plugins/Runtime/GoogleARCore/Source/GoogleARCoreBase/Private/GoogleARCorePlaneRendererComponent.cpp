@@ -53,10 +53,10 @@ void UGoogleARCorePlaneRendererComponent::DrawPlanes()
 				FVector BoundingBoxSize = Plane->GetExtent();
 				
 				PlaneVertices.Empty();
-				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(-BoundingBoxSize.X / 2.0f, -BoundingBoxSize.Y / 2.0f, 0)));
-				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(-BoundingBoxSize.X / 2.0f, BoundingBoxSize.Y / 2.0f, 0)));
-				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(BoundingBoxSize.X / 2.0f, BoundingBoxSize.Y / 2.0f, 0)));
-				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(BoundingBoxSize.X / 2.0f, -BoundingBoxSize.Y / 2.0f, 0)));
+				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(-BoundingBoxSize.X, -BoundingBoxSize.Y, 0)));
+				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(-BoundingBoxSize.X, BoundingBoxSize.Y, 0)));
+				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(BoundingBoxSize.X, BoundingBoxSize.Y, 0)));
+				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(BoundingBoxSize.X, -BoundingBoxSize.Y, 0)));
 				// plane quad
 				DrawDebugMesh(World, PlaneVertices, PlaneIndices, PlaneColor);
 			}

@@ -30,10 +30,10 @@ public:
 
 	/** Initialization constructor. */
 	FD3D12RenderQuery(FD3D12Device* Parent, ERenderQueryType InQueryType) :
+		FD3D12DeviceChild(Parent),
 		Result(0),
 		Type(InQueryType),
-		Timestamp(0), 
-		FD3D12DeviceChild(Parent)
+		Timestamp(0)
 	{
 		Reset();
 	}

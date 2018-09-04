@@ -74,6 +74,22 @@ void ABrush::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyCha
 	Super::PostEditChangeChainProperty(PropertyChangedEvent);
 }
 
+FName ABrush::GetCustomIconName() const
+{
+	if (BrushType == Brush_Add)
+	{
+		static const FName AdditiveIconName("ClassIcon.BrushAdditive");
+		return AdditiveIconName;
+	}
+	else if (BrushType == Brush_Subtract)
+	{
+		static const FName SubtactiveIconName("ClassIcon.BrushSubtractive");
+		return SubtactiveIconName;
+	}
+
+	return NAME_None;
+}
+
 void ABrush::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	if(Brush)

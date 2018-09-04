@@ -3,123 +3,182 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UObject/GCObject.h"
+#include "OnlineSubsystemTypes.h"
+#include "OnlineSubsystemSteamTypes.h"
 #include "Interfaces/VoiceInterface.h"
 #include "Net/VoiceDataCommon.h"
-#include "OnlineSubsystemTypes.h"
-#include "OnlineSubsystemSteamPrivate.h"
-#include "OnlineSubsystemSteamTypes.h"
-#include "UObject/GCObject.h"
-#include "OnlineSubsystemSteamPackage.h"
+#include "Interfaces/VoiceCapture.h"
+#include "Interfaces/VoiceCodec.h"
+#include "OnlineSubsystemUtilsPackage.h"
+#include "VoipListenerSynthComponent.h"
 
-class FOnlineSubsystemSteam;
-class UAudioComponent;
+class IOnlineSubsystem;
+class FUniqueNetIdSteam;
+class IVoiceDecoder;
+class IVoiceEncoder;
+class IVoiceCapture;
 
-/** 
- * Remote voice data playing on a single client
- */
-class FRemoteTalkerDataSteam
+#define INVALID_INDEX -1
+
+/**
+* Container for unprocessed voice data
+*/
+struct FLocalVoiceDataSteam
 {
-public:
-	FRemoteTalkerDataSteam() :
-		LastSeen(0.0),
-		AudioComponent(NULL)
+	FLocalVoiceDataSteam() :
+		VoiceRemainderSize(0)
 	{
 	}
 
-	// Receive side timestamp since last voice packet fragment
-	double LastSeen;
-	// Audio component playing this buffer (only valid on remote instances)
-	class UAudioComponent* AudioComponent;
+	/** Amount of voice data not encoded last time */
+	uint32 VoiceRemainderSize;
+	/** Voice sample data not encoded last time */
+	TArray<uint8> VoiceRemainder;
 };
 
 /**
- * The Steam implementation of the voice engine 
- */
-class FVoiceEngineSteam : public IVoiceEngine
+* Remote voice data playing on a single client
+*/
+class FRemoteTalkerDataSteam
 {
- 	class FVoiceSerializeHelper : public FGCObject
- 	{
- 		/** Reference to audio components */
- 		FVoiceEngineSteam* VoiceEngine;
- 		FVoiceSerializeHelper() :
- 			VoiceEngine(NULL)
- 		{}
- 
- 	public:
- 
- 		FVoiceSerializeHelper(FVoiceEngineSteam* InVoiceEngine) :
- 			VoiceEngine(InVoiceEngine)
- 		{}
- 		~FVoiceSerializeHelper() {}
- 		
- 		/** FGCObject interface */
- 		virtual void AddReferencedObjects(FReferenceCollector& Collector) override
- 		{
- 			// Prevent garbage collection of audio components
- 			for (FRemoteTalkerData::TIterator It(VoiceEngine->RemoteTalkerBuffers); It; ++It)
- 			{
- 				FRemoteTalkerDataSteam& RemoteData = It.Value();
- 				if (RemoteData.AudioComponent)
- 				{
- 					Collector.AddReferencedObject(RemoteData.AudioComponent);
- 				}
- 			}
- 		}
- 	};
+public:
+
+	FRemoteTalkerDataSteam();
+	/** Required for TMap FindOrAdd() */
+	FRemoteTalkerDataSteam(FRemoteTalkerDataSteam&& Other);
+	~FRemoteTalkerDataSteam();
+
+	/** Reset the talker after long periods of silence */
+	void Reset();
+	/** Cleanup the talker before unregistration */
+	void Cleanup();
+
+	/** Maximum size of a single decoded packet */
+	int32 MaxUncompressedDataSize;
+	/** Maximum size of the outgoing playback queue */
+	int32 MaxUncompressedDataQueueSize;
+	/** Amount of data currently in the outgoing playback queue */
+	int32 CurrentUncompressedDataQueueSize;
+
+	/** Receive side timestamp since last voice packet fragment */
+	double LastSeen;
+	/** Number of frames starved of audio */
+	int32 NumFramesStarved;
+	/** Synth component playing this buffer (only valid on remote instances) */
+	UVoipListenerSynthComponent* VoipSynthComponent;
+	/** Cached Talker Ptr. Is checked against map before use to ensure it has not been destroyed. */
+	UVOIPTalker* CachedTalkerPtr;
+	/** Boolean used to ensure that we only bind the VOIP talker to the SynthComponent's corresponding envelope delegate once. */
+	bool bIsEnvelopeBound;
+	/** Boolean flag used to tell whether this synth component is currently consuming incoming voice packets. */
+	bool bIsActive;
+	/** Buffer for outgoing audio intended for procedural streaming */
+	mutable FCriticalSection QueueLock;
+	TArray<uint8> UncompressedDataQueue;
+	/** Per remote talker voice decoding state */
+	TSharedPtr<IVoiceDecoder> VoiceDecoder;
+};
+
+/**
+* Generic implementation of voice engine, using Voice module for capture/codec
+*/
+class FVoiceEngineSteam : public IVoiceEngine, public FSelfRegisteringExec
+{
+	class FVoiceSerializeHelper : public FGCObject
+	{
+		/** Reference to audio components */
+		FVoiceEngineSteam* VoiceEngine;
+		FVoiceSerializeHelper() :
+			VoiceEngine(nullptr)
+		{}
+
+	public:
+
+		FVoiceSerializeHelper(FVoiceEngineSteam* InVoiceEngine) :
+			VoiceEngine(InVoiceEngine)
+		{}
+		~FVoiceSerializeHelper() {}
+
+		/** FGCObject interface */
+		virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+		{
+			// Prevent garbage collection of audio components
+			for (FRemoteTalkerData::TIterator It(VoiceEngine->RemoteTalkerBuffers); It; ++It)
+			{
+				FRemoteTalkerDataSteam& RemoteData = It.Value();
+				if (RemoteData.VoipSynthComponent)
+				{
+					Collector.AddReferencedObject(RemoteData.VoipSynthComponent);
+				}
+			}
+		}
+	};
 
 	friend class FVoiceSerializeHelper;
 
 	/** Mapping of UniqueIds to the incoming voice data and their audio component */
-	typedef TMap<FUniqueNetIdSteam, FRemoteTalkerDataSteam> FRemoteTalkerData;
+	// TODO: find a better way to make this ID class work so it stops screwing everything up.
+	typedef TMap<FUniqueNetIdWrapper, FRemoteTalkerDataSteam> FRemoteTalkerData;
 
-	/** Reference to the main Steam subsystem */
-	class FOnlineSubsystemSteam* SteamSubsystem;
-    /** Steam User interface */
+	/** Reference to the main online subsystem */
+	IOnlineSubsystem* OnlineSubsystem;
+
+	/** Steam User interface */
 	class ISteamUser* SteamUserPtr;
-    /** Steam Friends interface */
+	/** Steam Friends interface */
 	class ISteamFriends* SteamFriendsPtr;
-    /** User index currently holding onto the voice interface */
+
+	FLocalVoiceDataSteam PlayerVoiceData[MAX_SPLITSCREEN_TALKERS];
+	/** Reference to voice capture device */
+	TSharedPtr<IVoiceCapture> VoiceCapture;
+	/** Reference to voice encoding object */
+	TSharedPtr<IVoiceEncoder> VoiceEncoder;
+
+	/** User index currently holding onto the voice interface */
 	int32 OwningUserIndex;
+	/** Amount of uncompressed data available this frame */
+	uint32 UncompressedBytesAvailable;
 	/** Amount of compressed data available this frame */
 	uint32 CompressedBytesAvailable;
-	/** Result of call to GetAvailableVoice() this frame*/
-	EVoiceResult AvailableVoiceResult;
-    /** Have we stopped Steam voice but are waiting for its completion */
+	/** Current frame state of voice capture */
+	EVoiceCaptureState::Type AvailableVoiceResult;
+	/** Have we stopped capturing voice but are waiting for its completion */
 	mutable bool bPendingFinalCapture;
-    /** State of voice recording */
+	/** State of voice recording */
 	bool bIsCapturing;
 
-	/** Data from Steamworks, waiting to send to network. */
+	/** Data from voice codec, waiting to send to network. */
 	TArray<uint8> CompressedVoiceBuffer;
 	/** Data from network playing on an audio component. */
 	FRemoteTalkerData RemoteTalkerBuffers;
-	/** Voice decompression buffer, shared by all talkers */
+	/** Voice decompression buffer, shared by all talkers, valid during SubmitRemoteVoiceData */
 	TArray<uint8> DecompressedVoiceBuffer;
 	/** Serialization helper */
-	class FVoiceSerializeHelper* SerializeHelper;
+	FVoiceSerializeHelper* SerializeHelper;
 
 	/**
-	 * Determines if the specified index is the owner or not
-	 *
-	 * @param InIndex the index being tested
-	 *
-	 * @return true if this is the owner, false otherwise
-	 */
+	* Determines if the specified index is the owner or not
+	*
+	* @param InIndex the index being tested
+	*
+	* @return true if this is the owner, false otherwise
+	*/
 	FORCEINLINE bool IsOwningUser(uint32 UserIndex)
 	{
 		return UserIndex >= 0 && UserIndex < MAX_SPLITSCREEN_TALKERS && OwningUserIndex == UserIndex;
 	}
 
-	/** 
-	 * Update the internal state of the voice capturing state 
-	 * Handles Steam's continual recording for "last half second" after requested stop
-	 */
+	/**
+	* Update the internal state of the voice capturing state
+	* Handles possible continuation waiting for capture stop event
+	*/
 	void VoiceCaptureUpdate() const;
 
-	/** Tell Steam to start capturing voice data */
+	/** Start capturing voice data */
 	void StartRecording() const;
 
-	/** Tell Steam to stop capturing voice data */
+	/** Stop capturing voice data */
 	void StopRecording() const;
 
 	/** Called when "last half second" is over */
@@ -128,19 +187,31 @@ class FVoiceEngineSteam : public IVoiceEngine
 	/** @return is active recording occurring at the moment */
 	bool IsRecording() const { return bIsCapturing || bPendingFinalCapture; }
 
+	/**
+	* Callback from streaming audio when data is requested for playback
+	*
+	* @param InProceduralWave SoundWave requesting more data
+	* @param SamplesRequired number of samples needed for immediate playback
+	* @param TalkerId id of the remote talker to allocate voice data for
+	*/
+	void GenerateVoiceData(USoundWaveProcedural* InProceduralWave, int32 SamplesRequired, const FUniqueNetId& TalkerId);
+
 PACKAGE_SCOPE:
 
 	/** Constructor */
 	FVoiceEngineSteam() :
-		SteamSubsystem(NULL),
-		SteamUserPtr(NULL),
-		SteamFriendsPtr(NULL),
+		OnlineSubsystem(nullptr),
+		SteamUserPtr(nullptr),
+		SteamFriendsPtr(nullptr),
+		VoiceCapture(nullptr),
+		VoiceEncoder(nullptr),
 		OwningUserIndex(INVALID_INDEX),
+		UncompressedBytesAvailable(0),
 		CompressedBytesAvailable(0),
-		AvailableVoiceResult(k_EVoiceResultNotInitialized),
+		AvailableVoiceResult(EVoiceCaptureState::UnInitialized),
 		bPendingFinalCapture(false),
 		bIsCapturing(false),
-		SerializeHelper(NULL)
+		SerializeHelper(nullptr)
 	{};
 
 	// IVoiceEngine
@@ -148,24 +219,26 @@ PACKAGE_SCOPE:
 
 public:
 
-	FVoiceEngineSteam(FOnlineSubsystemSteam* InSteamSubsystem);
+	FVoiceEngineSteam(IOnlineSubsystem* InSubsystem);
 	virtual ~FVoiceEngineSteam();
 
 	// IVoiceEngine
-    virtual uint32 StartLocalVoiceProcessing(uint32 LocalUserNum) override;
-    virtual uint32 StopLocalVoiceProcessing(uint32 LocalUserNum) override;
-    virtual uint32 StartRemoteVoiceProcessing(const FUniqueNetId& UniqueId) override
+	virtual uint32 StartLocalVoiceProcessing(uint32 LocalUserNum) override;
+	virtual uint32 StopLocalVoiceProcessing(uint32 LocalUserNum) override;
+
+	virtual uint32 StartRemoteVoiceProcessing(const FUniqueNetId& UniqueId) override
 	{
-		// Not needed in Steam
-		return S_OK;
-	}
-    virtual uint32 StopRemoteVoiceProcessing(const FUniqueNetId& UniqueId) override
-	{
-		// Not needed in Steam
+		// Not needed
 		return S_OK;
 	}
 
-    virtual uint32 RegisterLocalTalker(uint32 LocalUserNum) override
+	virtual uint32 StopRemoteVoiceProcessing(const FUniqueNetId& UniqueId) override
+	{
+		// Not needed
+		return S_OK;
+	}
+
+	virtual uint32 RegisterLocalTalker(uint32 LocalUserNum) override
 	{
 		if (OwningUserIndex == INVALID_INDEX)
 		{
@@ -176,7 +249,7 @@ public:
 		return E_FAIL;
 	}
 
-    virtual uint32 UnregisterLocalTalker(uint32 LocalUserNum) override
+	virtual uint32 UnregisterLocalTalker(uint32 LocalUserNum) override
 	{
 		if (IsOwningUser(LocalUserNum))
 		{
@@ -187,31 +260,27 @@ public:
 		return E_FAIL;
 	}
 
-    virtual uint32 RegisterRemoteTalker(const FUniqueNetId& UniqueId) override
+	virtual uint32 RegisterRemoteTalker(const FUniqueNetId& UniqueId) override
 	{
-		// Not needed in Steam
+		// Not needed
 		return S_OK;
 	}
 
-    virtual uint32 UnregisterRemoteTalker(const FUniqueNetId& UniqueId) override
-	{
-		// Not needed in Steam
-		return S_OK;
-	}
+	virtual uint32 UnregisterRemoteTalker(const FUniqueNetId& UniqueId) override;
 
-    virtual bool IsHeadsetPresent(uint32 LocalUserNum) override
+	virtual bool IsHeadsetPresent(uint32 LocalUserNum) override
 	{
 		return IsOwningUser(LocalUserNum) ? true : false;
 	}
 
-    virtual bool IsLocalPlayerTalking(uint32 LocalUserNum) override
+	virtual bool IsLocalPlayerTalking(uint32 LocalUserNum) override
 	{
 		return (GetVoiceDataReadyFlags() & (LocalUserNum << 1)) != 0;
 	}
 
 	virtual bool IsRemotePlayerTalking(const FUniqueNetId& UniqueId) override
 	{
-		return RemoteTalkerBuffers.Find((const FUniqueNetIdSteam&)UniqueId) != NULL;
+		return RemoteTalkerBuffers.Find(FUniqueNetIdWrapper(UniqueId.AsShared())) != nullptr;
 	}
 
 	virtual uint32 GetVoiceDataReadyFlags() const override;
@@ -221,25 +290,33 @@ public:
 		return S_OK;
 	}
 
-	virtual uint32 ReadLocalVoiceData(uint32 LocalUserNum, uint8* Data, uint32* Size) override;
-	virtual uint32 SubmitRemoteVoiceData(const FUniqueNetId& RemoteTalkerId, uint8* Data, uint32* Size) override;
+	virtual uint32 ReadLocalVoiceData(uint32 LocalUserNum, uint8* Data, uint32* Size) override { return ReadLocalVoiceData(LocalUserNum, Data, Size, nullptr); }
+	virtual uint32 ReadLocalVoiceData(uint32 LocalUserNum, uint8* Data, uint32* Size, uint64* OutSampleCount) override;
+
+	virtual uint32 SubmitRemoteVoiceData(const FUniqueNetId& RemoteTalkerId, uint8* Data, uint32* Size)
+	{
+		checkf(false, TEXT("Please use the following function signature instead: SubmitRemoteVoiceData(const FUniqueNetIdWrapper& RemoteTalkerId, uint8* Data, uint32* Size, uint64& InSampleCount)"));
+		return 0;
+	}
+	virtual uint32 SubmitRemoteVoiceData(const FUniqueNetIdWrapper& RemoteTalkerId, uint8* Data, uint32* Size, uint64& InSampleCount) override;
+
 	virtual void Tick(float DeltaTime) override;
 	FString GetVoiceDebugState() const override;
 
+	// FSelfRegisteringExec
+	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
+
+private:
+
 	/**
-	 * Update the state of all remote talkers, possibly dropping data or the talker entirely
-	 */
+	* Update the state of all remote talkers, possibly dropping data or the talker entirely
+	*/
 	void TickTalkers(float DeltaTime);
 
 	/**
-	 * Delegate triggered when an audio component Stop() function is called
-	 */
-	void OnAudioFinished(UAudioComponent* AC);
-
-	/**
-	 * Delegate that fixes up remote audio components when the level changes
-	 */
-	void OnPostLoadMap(UWorld*);
+	* Delegate triggered when an audio component Stop() function is called
+	*/
+	void OnAudioFinished();
 };
 
-typedef TSharedPtr<FVoiceEngineSteam, ESPMode::ThreadSafe> FVoiceEngineSteamPtr;
+typedef TSharedPtr<FVoiceEngineSteam, ESPMode::ThreadSafe> FVoiceEngineImplPtr;

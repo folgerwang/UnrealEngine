@@ -2,11 +2,16 @@
 /*********************************************************************************
  *							Niagara Vertex Factory data access
  *********************************************************************************/
+
+//Currently we have no integer data being fed into the renderers.
+//Buffer<int> NiagaraParticleDataInt;
+//uint NiagaraIntDataOffset;
+//uint NiagaraIntDataStride;
+
+
 Buffer<float> NiagaraParticleDataFloat;
-Buffer<int> NiagaraParticleDataInt;
 uint NiagaraFloatDataOffset;
 uint NiagaraFloatDataStride;
-
 
 float GetFloat(int RegisterIdx, uint InstanceID)
 {

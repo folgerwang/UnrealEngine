@@ -166,3 +166,15 @@ void FGenericPlatformOutputDevices::GetPerChannelFileOverrides(TArray<FOutputDev
 		}
 	}
 }
+
+FOutputDeviceError* FGenericPlatformOutputDevices::GetError()
+{
+	static FOutputDeviceAnsiError Singleton;
+	return &Singleton;
+}
+
+FFeedbackContext* FGenericPlatformOutputDevices::GetFeedbackContext()
+{
+	static FFeedbackContextAnsi Singleton;
+	return &Singleton;
+}

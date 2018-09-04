@@ -137,7 +137,7 @@ Now that the required Blueprints have been setup, in the next section we will go
 [EXCERPT:m2]
 
 [REGION:note]
-You have to enable **Support UV from Hit Result** feature in the editor to use this method. See [](Engine/Physics/Tracing/Overview#EnablingUVCoordinatesfromTrace) for information on how to do this.
+You have to enable **Support UV from Hit Result** feature in the editor to use this method. See [getting uv coordinates from trace](Engine/Physics/Tracing/Overview#gettinguvcoordinatesfromtrace) for information on how to do this.
 [/REGION]
 
 1. Click the small (white) plus sign on the **Functions** tab to create a new function and name it **TraceFromCamera**.
@@ -936,7 +936,7 @@ Now that the required Blueprints have been setup, in the next section we will go
 		blueprint
 	[/PARAMLITERAL]
 	[PARAM:image]
-		![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_VP_Setup_UV_01.png)
+		![](Engine/Rendering/RenderTargets/BlueprintRenderTargets/HowTo/HeightFieldPainter/HFP_BP_Setup_01.png)
 	[/PARAM]
 	[PARAM:snippet]
 		Begin Object Class=K2Node_FunctionEntry Name="K2Node_FunctionEntry_48"
@@ -1165,7 +1165,7 @@ Now that the required Blueprints have been setup, in the next section we will go
 		blueprint
 	[/PARAMLITERAL]
 	[PARAM:image]
-		![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_VP_Setup_UV_02.png)
+		![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_BP_Setup_02.png)
 	[/PARAM]
 	[PARAM:snippet]
 		Begin Object Class=K2Node_CustomEvent Name="K2Node_CustomEvent_0"

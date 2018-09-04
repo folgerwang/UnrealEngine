@@ -238,8 +238,8 @@ public:
 	virtual void RemoveAllAnimationData() { }
 
 	/**
-	 * @return Whether or not this track supports multiple row indices.
-	 */
+	* @return Whether or not this track supports multiple row indices.
+	*/
 	virtual bool SupportsMultipleRows() const
 	{
 		return SupportedBlendTypes.Num() != 0;
@@ -340,21 +340,29 @@ public:
 	}
 
 	/**
-	* Get this folder's desired sorting order
-	*/
+	 * Get this folder's desired sorting order
+	 */
 	int32 GetSortingOrder() const
 	{
 		return SortingOrder;
 	}
 
 	/**
-	* Set this folder's desired sorting order.
-	*
-	* @param InSortingOrder The higher the value the further down the list the folder will be.
-	*/
+	 * Set this folder's desired sorting order.
+	 *
+	 * @param InSortingOrder The higher the value the further down the list the folder will be.
+	 */
 	void SetSortingOrder(const int32 InSortingOrder)
 	{
 		SortingOrder = InSortingOrder;
+	}
+
+	/**
+	 * @return Whether or not this track supports the creation of default sections when the track is created.
+	 */
+	virtual bool SupportsDefaultSections() const
+	{
+		return bSupportsDefaultSections;
 	}
 
 protected:
@@ -366,6 +374,11 @@ protected:
 	/** This folder's desired sorting order */
 	UPROPERTY()
 	int32 SortingOrder;
+
+	/** Does this track support the creation of a default section when created? */
+	UPROPERTY()
+	bool bSupportsDefaultSections;
+
 public:
 #endif
 

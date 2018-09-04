@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3238697
+﻿INTSourceChangelist:3967023
 Title:게임플레이 디버거
 Availability:Public
 Crumbs:
@@ -9,9 +9,9 @@ Gameplay Debugger, 게임플레이 디버거는 실행시간에 실시간 데이
 엔진 구현에서 표시할 수 있는 내용:
 
 * 폰에서의 기본 데이터
-* AI 콘트롤러에서의 기본 데이터
+* AI 컨트롤러에서의 기본 데이터
 * 비헤이비어 트리 및 블랙보드 데이터 관련 정보
-* 실행된 인바이언먼트 쿼리 (EQS) 관련 정보
+* 실행된 인바이런먼트 쿼리 (EQS) 관련 정보
 * 인지 시스템에서의 정보
 * 플레이어 또는 선택된 폰 주변 내비메시에 링크나 영역같은 디테일 전부 포함
 
@@ -22,7 +22,7 @@ Gameplay Debugger, 게임플레이 디버거는 실행시간에 실시간 데이
 * Navmesh 내비메시
 * Basic 기본
 * Behavior Tree 비헤이비어 트리
-* EQS 인바이언먼트 쿼리 시스템
+* EQS 인바이런먼트 쿼리 시스템
 * Perception 인지
 * 그 외 프로젝트에 사용되는 다섯 개의 카테고리
 

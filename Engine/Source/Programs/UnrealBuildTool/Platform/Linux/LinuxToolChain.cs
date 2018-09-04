@@ -191,7 +191,7 @@ namespace UnrealBuildTool
 		internal string GetDumpEncodeDebugCommand(LinkEnvironment LinkEnvironment, FileItem OutputFile)
 		{
 			bool bUseCmdExe = BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32;
-			string DumpCommand = bUseCmdExe ? "\"{0}\" \"{1}\" \"{2}\" 2>NUL\n" : "\"{0}\" -o \"{2}\" \"{1}\"\n";
+			string DumpCommand = bUseCmdExe ? "\"{0}\" \"{1}\" \"{2}\" 2>NUL\n" : "\"{0}\" -c -o \"{2}\" \"{1}\"\n";
 			FileItem EncodedBinarySymbolsFile = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.OutputDirectory.FullName, OutputFile.Location.GetFileNameWithoutExtension() + ".sym"));
 			FileItem SymbolsFile  = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, OutputFile.Location.GetFileName() + ".rawsym"));
 			FileItem StrippedFile = FileItem.GetItemByPath(Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, OutputFile.Location.GetFileName() + "_nodebug"));
@@ -477,8 +477,12 @@ namespace UnrealBuildTool
 			}
 
 			Result += " -Wall -Werror";
-			// Comment out for now, if we run into issues with our stack tracing double check this flag
-			//Result += " -funwind-tables";               // generate unwind tables as they seem to be needed for stack tracing (why??)
+
+			if (!CompileEnvironment.Architecture.StartsWith("x86_64") && !CompileEnvironment.Architecture.StartsWith("i686"))
+			{
+				Result += " -funwind-tables";               // generate unwind tables as they are needed for backtrace (on x86(64) they are generated implicitly)
+			}
+
 			Result += " -Wsequence-point";              // additional warning not normally included in Wall: warns if order of operations is ambigious
 			//Result += " -Wunreachable-code";            // additional warning not normally included in Wall: warns if there is code that will never be executed - not helpful due to bIsGCC and similar
 			//Result += " -Wshadow";                      // additional warning not normally included in Wall: warns if there variable/typedef shadows some other variable - not helpful because we have gobs of code that shadows variables
@@ -1022,10 +1026,7 @@ namespace UnrealBuildTool
 
 			if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 			{
-				// Add the precompiled header file's path to the include path so Clang can find it.
-				// This needs to be before the other include paths to ensure Clang uses it instead of the source header file.
-				string PrecompiledFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
-				PCHArguments += string.Format(" -include \"{0}\"", CompileEnvironment.PrecompiledHeaderFile.AbsolutePath.Replace(PrecompiledFileExtension, "").Replace('\\', '/'));
+				PCHArguments += string.Format(" -include \"{0}\"", CompileEnvironment.PrecompiledHeaderIncludeFilename.FullName.Replace('\\', '/'));
 			}
 
 			foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
@@ -1093,14 +1094,8 @@ namespace UnrealBuildTool
 
 				if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
 				{
-					string PrecompiledFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 					// Add the precompiled header file to the produced item list.
-					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
-						FileReference.Combine(
-							OutputDir,
-							Path.GetFileName(SourceFile.AbsolutePath) + PrecompiledFileExtension
-							)
-						);
+					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + ".gch"));
 
 					CompileAction.ProducedItems.Add(PrecompiledHeaderFile);
 					Result.PrecompiledHeaderFile = PrecompiledHeaderFile;
@@ -1116,14 +1111,8 @@ namespace UnrealBuildTool
 						CompileAction.PrerequisiteItems.Add(CompileEnvironment.PrecompiledHeaderFile);
 					}
 
-					string ObjectFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.Object);
 					// Add the object file to the produced item list.
-					FileItem ObjectFile = FileItem.GetItemByFileReference(
-						FileReference.Combine(
-							OutputDir,
-							Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension
-							)
-						);
+					FileItem ObjectFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, Path.GetFileName(SourceFile.AbsolutePath) + ".o"));
 					CompileAction.ProducedItems.Add(ObjectFile);
 					Result.ObjectFiles.Add(ObjectFile);
 
@@ -1396,19 +1385,19 @@ namespace UnrealBuildTool
 				}
 			}
 
-			foreach (FileReference RuntimeDependency in LinkEnvironment.RuntimeDependencies)
+			foreach(string RuntimeLibaryPath in LinkEnvironment.RuntimeLibraryPaths)
 			{
-				if (RuntimeDependency.ContainsName(new FileSystemName("Binaries"), 0) && RuntimeDependency.GetExtension() == ".so" && Path.GetDirectoryName(RuntimeDependency.FullName) != Path.GetDirectoryName(OutputFile.AbsolutePath))
+				string RelativePath = RuntimeLibaryPath;
+				if(!RelativePath.StartsWith("$"))
 				{
-					string RelativeRootPath = RuntimeDependency.Directory.MakeRelativeTo(UnrealBuildTool.RootDirectory);
+					string RelativeRootPath = new DirectoryReference(RuntimeLibaryPath).MakeRelativeTo(UnrealBuildTool.RootDirectory);
 					// We're assuming that the binary will be placed according to our ProjectName/Binaries/Platform scheme
-					string RelativePath = Path.Combine("..", "..", "..", RelativeRootPath);
-
-					if (!RPaths.Contains(RelativePath))
-					{
-						RPaths.Add(RelativePath);
-						ResponseLines.Add(string.Format(" -rpath=\"${{ORIGIN}}/{0}\"", RelativePath.Replace('\\', '/')));
-					}
+					RelativePath = Path.Combine("..", "..", "..", RelativeRootPath);
+				}
+				if (!RPaths.Contains(RelativePath))
+				{
+					RPaths.Add(RelativePath);
+					ResponseLines.Add(string.Format(" -rpath=\"${{ORIGIN}}/{0}\"", RelativePath.Replace('\\', '/')));
 				}
 			}
 

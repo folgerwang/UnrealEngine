@@ -61,6 +61,6 @@ public class CopyUAT : BuildCommand
 			CommandUtils.CopyFile(SourceFile.FullName, TargetFile.FullName);
 		}
 
-		Log("Copied {0} files to {1}", SourceFiles.Count, TargetDir);
+		LogInformation("Copied {0} files to {1}", SourceFiles.Count, TargetDir);
 	}
 }

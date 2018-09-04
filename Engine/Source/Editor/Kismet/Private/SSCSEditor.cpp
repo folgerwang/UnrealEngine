@@ -1543,7 +1543,9 @@ TSharedRef<SWidget> SSCS_RowWidget::GenerateWidgetForColumn( const FName& Column
 				.Text( LOCTEXT("UnknownColumn", "Unknown Column") );
 	}
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SSCS_RowWidget::AddToToolTipInfoBox(const TSharedRef<SVerticalBox>& InfoBox, const FText& Key, TSharedRef<SWidget> ValueIcon, const TAttribute<FText>& Value, bool bImportant)
 {
 	InfoBox->AddSlot()
@@ -1576,7 +1578,9 @@ void SSCS_RowWidget::AddToToolTipInfoBox(const TSharedRef<SVerticalBox>& InfoBox
 			]
 		];
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 TSharedRef<SToolTip> SSCS_RowWidget::CreateToolTipWidget() const
 {
 	// Create a box to hold every line of info in the body of the tooltip
@@ -3394,6 +3398,7 @@ TSharedRef<SWidget> SSCS_RowWidget_Separator::GenerateWidgetForColumn(const FNam
 //////////////////////////////////////////////////////////////////////////
 // SSCSEditor
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SSCSEditor::Construct( const FArguments& InArgs )
 {
 	EditorMode = InArgs._EditorMode;
@@ -3522,8 +3527,11 @@ void SSCSEditor::Construct( const FArguments& InArgs )
 
 	TSharedPtr<SHorizontalBox> ButtonBox;
 	TSharedPtr<SVerticalBox>   HeaderBox;
-	TSharedPtr<SWidget> SearchBar = SAssignNew(FilterBox, SSearchBox)
-		.OnTextChanged(this, &SSCSEditor::OnFilterTextChanged);
+	TSharedPtr<SWidget> SearchBar =
+		SAssignNew(FilterBox, SSearchBox)
+			.HintText(EditorMode == EComponentEditorMode::ActorInstance ? LOCTEXT("SearchComponentsHint", "Search Components") : LOCTEXT("SearchHint", "Search"))
+			.OnTextChanged(this, &SSCSEditor::OnFilterTextChanged);
+
 	const bool  bInlineSearchBarWithButtons = (EditorMode == EComponentEditorMode::BlueprintSCS);
 
 	bool bHideComponentClassCombo = InArgs._HideComponentClassCombo.Get();
@@ -4695,7 +4703,7 @@ bool SSCSEditor::ShouldAddInstancedActorComponent(UActorComponent* ActorComp, US
 {
 	// Exclude nested DSOs attached to BP-constructed instances, which are not mutable.
 	return (ActorComp != nullptr
-		&& (ActorComp->CreationMethod == EComponentCreationMethod::Instance || !ActorComp->IsEditorOnly())
+		&& (!ActorComp->IsVisualizationComponent())
 		&& (ActorComp->CreationMethod != EComponentCreationMethod::UserConstructionScript || !GetDefault<UBlueprintEditorSettings>()->bHideConstructionScriptComponentsInDetailsView)
 		&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)));
 }

@@ -48,7 +48,7 @@ protected:
 
 	void OnTextCommitted(const FText& InText, ETextCommit::Type InCommitType)
 	{
-		if (this->GraphPinObj->PinName.ToString() != InText.ToString())
+		if (!this->GraphPinObj->PinName.ToString().Equals(InText.ToString(), ESearchCase::CaseSensitive))
 		{
 			UNiagaraNode* ParentNode = Cast<UNiagaraNode>(this->GraphPinObj->GetOwningNode());
 			if (ParentNode != nullptr)

@@ -33,6 +33,7 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <net/if_arp.h>
+#include <linux/limits.h>
 
 #include "Modules/ModuleManager.h"
 #include "HAL/ThreadHeartBeat.h"
@@ -181,6 +182,11 @@ void FUnixPlatformMisc::PlatformTearDown()
 	FPlatformProcess::CeaseBeingFirstInstance();
 }
 
+int32 FUnixPlatformMisc::GetMaxPathLength()
+{
+	return PATH_MAX;
+}
+
 void FUnixPlatformMisc::GetEnvironmentVariable(const TCHAR* InVariableName, TCHAR* Result, int32 ResultLength)
 {
 	FString VariableName = InVariableName;
@@ -193,6 +199,21 @@ void FUnixPlatformMisc::GetEnvironmentVariable(const TCHAR* InVariableName, TCHA
 	else
 	{
 		*Result = 0;
+	}
+}
+
+FString FUnixPlatformMisc::GetEnvironmentVariable(const TCHAR* InVariableName)
+{
+	FString VariableName = InVariableName;
+	VariableName.ReplaceInline(TEXT("-"), TEXT("_"));
+	ANSICHAR *AnsiResult = secure_getenv(TCHAR_TO_ANSI(*VariableName));
+	if (AnsiResult)
+	{
+		return UTF8_TO_TCHAR(AnsiResult);
+	}
+	else
+	{
+		return FString();
 	}
 }
 
@@ -227,6 +248,7 @@ void FUnixPlatformMisc::RequestExit(bool Force)
 		// Still log something but use a signal-safe function
 		const ANSICHAR ExitMsg[] = "FUnixPlatformMisc::RequestExit\n";
 		write(STDOUT_FILENO, ExitMsg, sizeof(ExitMsg));
+
 		GDeferedExitLogging = 1;
 	}
 	else
@@ -268,6 +290,7 @@ void FUnixPlatformMisc::RequestExitWithStatus(bool Force, uint8 ReturnCode)
 		// Still log something but use a signal-safe function
 		const ANSICHAR ExitMsg[] = "FUnixPlatformMisc::RequestExitWithStatus\n";
 		write(STDOUT_FILENO, ExitMsg, sizeof(ExitMsg));
+
 		GDeferedExitLogging = 1;
 	}
 	else

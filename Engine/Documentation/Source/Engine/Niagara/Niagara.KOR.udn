@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:4220814
 Availability:Docs
-Title: Niagara Editor
+Title: 나이아가라 에디터
 Crumbs: %ROOT%, Engine
-Description: Niagara's Unreal Engine 4's visual effect editor used for creating and previewing particle effects in real time. 
+Description: 나이아가라는 파티클 이펙트를 실시간 확인하며 만드는 언리얼 엔진 4 의 비주얼 이펙트 에디터입니다. 
 Navigation:topic
 parent:Engine
 order:4
@@ -15,19 +15,15 @@ tags:Niagara
 ![](NiagaraBanner.png)(convert:false)
 [/REGION]
 
-The **Niagara Editor** is one of two tools you can use to create and adjust visual effects inside Unreal Engine 4 (UE4). Before Niagara, the primary way to create and edit visual effects in UE4 was to use [**Cascade**](Engine\Rendering\ParticleSystems). While Niagara does have many of the same of particle manipulation methods that Cascade offers, the manner in which you interact and build visual effects with Niagara is vastly different. 
+**Niagara Editor** (나이아가라 에디터)는 언리얼 엔진 4 (UE4)에서 비주얼 이펙트를 만들고 편집할 수 있는 두 가지 툴 중 하나입니다. 나이아가라 이전 UE4 에서 비주얼 이펙트를 만들고 편집하는 주된 방법은 [캐스케이드](Engine\Rendering\ParticleSystems) 를 사용하는 것이었습니다. 나이아가라에도 캐스케이드에서 제공하는 것과 똑같은 파티클 조작 방식이 여럿 있지만, 나이아가라에서 비주얼 이펙트를 만들고 다루는 방식은 크게 다릅니다. 
 
-On this page, you will find links to documentation regarding the different aspects of the Niagara Editor. If you are new to Niagara, it is recommended that you check out the **Essentials** section which includes a high-level overview of the Niagara Editor. In this section, you will also find an Editor Reference which breaks down components of the Niagara Editor, a Quick Start guide to quickly get you up and running, multiple How-to's which are one-off pages of how to perform certain tasks with Niagara as well as a section on Workflow tips. 
+여기서는 나이아가라 에디터의 여러 부분에 관련된 문서 링크를 찾을 수 있습니다. 나이아가라가 처음인 경우, 나이아가라 에디터에 대한 일반적인 수준의 개요서인 **필독자료** 부분을 먼저 살펴볼 것을 추천합니다. 여기서는 나이아가라 에디터 구성요소에 대한 분석인 에디터 레퍼런스, 빠른 시작을 돕는 퀵 스타트 가이드, 나이아가라로 어떤 작업을 수행하는 방법을 설명하는 단편 안내서 하우투, 워크플로우 팁 관련 섹션을 찾을 수 있습니다. 
 
-## Starting Out
+## 시작하기
 
 [DIR(output:"topic" parent:"Engine/Niagara" org:"hierarchy" end:"1" tags:"Getting Started")]
 
-[COMMENT:none]
-## Essentials
-[/COMMENT]
-
-## Guides
+## 가이드
 
 [DIR(output:"fancy" parent:"Engine/Niagara/HowTo" org:"hierarchy" end:"1" )]
 

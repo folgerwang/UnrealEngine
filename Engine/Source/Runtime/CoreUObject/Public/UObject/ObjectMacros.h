@@ -1378,6 +1378,10 @@ namespace UM
 	friend FArchive &operator<<( FArchive& Ar, TClass*& Res ) \
 	{ \
 		return Ar << (UObject*&)Res; \
+	} \
+	friend void operator<<(FStructuredArchive::FSlot InSlot, TClass*& Res) \
+	{ \
+		InSlot << (UObject*&)Res; \
 	}
 
 #define IMPLEMENT_FARCHIVE_SERIALIZER( TClass ) void TClass::Serialize(FArchive& Ar) { TClass::Serialize(FStructuredArchiveFromArchive(Ar).GetSlot().EnterRecord()); }

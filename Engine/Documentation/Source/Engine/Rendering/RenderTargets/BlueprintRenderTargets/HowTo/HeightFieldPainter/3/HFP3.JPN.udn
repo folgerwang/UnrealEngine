@@ -138,7 +138,7 @@ Method Split Here
 [EXCERPT:m2]
 
 [REGION:note]
-このメソッドを使うには、エディタで **[Support UV from Hit Result]** 機能を有効にします。この方法に関する詳細は、[](Engine/Physics/Tracing/Overview#EnablingUVCoordinatesfromTrace) をご覧ください。
+このメソッドを使うには、エディタで **[Support UV from Hit Result]** 機能を有効にします。この方法に関する詳細は、[getting uv coordinates from trace](Engine/Physics/Tracing/Overview#トレースからのUV座標の取得) をご覧ください。
 [/REGION]
 
 1. **[Functions (関数)]** タブ上にある小さな (白い) プラス記号をクリックして、新規関数を作成し、**「TraceFromCamera」** と名前を付けます。
@@ -937,7 +937,7 @@ Method Split Here
 		blueprint
 	[/PARAMLITERAL]
 	[PARAM:image]
-		![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_VP_Setup_UV_01.png)
+		![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_BP_Setup_01.png)
 	[/PARAM]
 	[PARAM:snippet]
 		Begin Object Class=K2Node_FunctionEntry Name="K2Node_FunctionEntry_48"
@@ -1166,7 +1166,7 @@ Method Split Here
 		blueprint
 	[/PARAMLITERAL]
 	[PARAM:image]
-		![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_VP_Setup_UV_02.png)
+		![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_BP_Setup_02.png)
 	[/PARAM]
 	[PARAM:snippet]
 		Begin Object Class=K2Node_CustomEvent Name="K2Node_CustomEvent_0"

@@ -45,25 +45,26 @@ namespace FActorEditorUtils
 
 	void GetEditableComponents( const AActor* InActor, TArray<UActorComponent*>& OutEditableComponents )
 	{
-		TInlineComponentArray<UActorComponent*> InstanceComponents;
-		InActor->GetComponents(InstanceComponents);
-		for (UActorComponent* Component : InstanceComponents)
+		for (UActorComponent* Component : InActor->GetComponents())
 		{
-#if WITH_EDITOR
-			if (Component->CreationMethod == EComponentCreationMethod::Native)
+			if (Component)
 			{
-				// Make sure it's an exposed native component
-				if (FComponentEditorUtils::CanEditNativeComponent(Component))
+#if WITH_EDITOR
+				if (Component->CreationMethod == EComponentCreationMethod::Native)
+				{
+					// Make sure it's an exposed native component
+					if (FComponentEditorUtils::CanEditNativeComponent(Component))
+					{
+						OutEditableComponents.Add(Component);
+					}
+				}
+				else if (Component->CreationMethod == EComponentCreationMethod::Instance)
+#else
+				if (!Component->IsCreatedByConstructionScript())
+#endif
 				{
 					OutEditableComponents.Add(Component);
 				}
-			}
-			else if (Component->CreationMethod == EComponentCreationMethod::Instance)
-#else
-			if (!Component->IsCreatedByConstructionScript())
-#endif
-			{
-				OutEditableComponents.Add(Component);
 			}
 		}
 	}

@@ -451,9 +451,36 @@ bool FPluginManager::ConfigureEnabledPlugins()
 			}
 		}
 
-#if !IS_PROGRAM || HACK_HEADER_GENERATOR
 		if (!FParse::Param(FCommandLine::Get(), TEXT("NoEnginePlugins")))
 		{
+			// Configure the plugins that were enabled from the target file
+			TArray<FString> TargetEnabledPlugins = { UBT_TARGET_ENABLED_PLUGINS };
+			for (const FString& TargetEnabledPlugin : TargetEnabledPlugins)
+			{
+				if (!ConfiguredPluginNames.Contains(TargetEnabledPlugin))
+				{
+					if (!ConfigureEnabledPlugin(FPluginReferenceDescriptor(TargetEnabledPlugin, true), EnabledPluginNames))
+					{
+						return false;
+					}
+					ConfiguredPluginNames.Add(TargetEnabledPlugin);
+				}
+			}
+
+			// Configure the plugins that were enabled from the target file
+			TArray<FString> TargetDisabledPlugins = { UBT_TARGET_DISABLED_PLUGINS };
+			for (const FString& TargetDisabledPlugin : TargetDisabledPlugins)
+			{
+				if (!ConfiguredPluginNames.Contains(TargetDisabledPlugin))
+				{
+					if (!ConfigureEnabledPlugin(FPluginReferenceDescriptor(TargetDisabledPlugin, false), EnabledPluginNames))
+					{
+						return false;
+					}
+					ConfiguredPluginNames.Add(TargetDisabledPlugin);
+				}
+			}
+
 			// Find all the plugin references in the project file
 			const FProjectDescriptor* ProjectDescriptor = IProjectManager::Get().GetCurrentProject();
 			if (ProjectDescriptor != nullptr)
@@ -486,7 +513,6 @@ bool FPluginManager::ConfigureEnabledPlugins()
 				}
 			}
 		}
-#endif
 #if IS_PROGRAM
 		// Programs can also define the list of enabled plugins in ini
 		TArray<FString> ProgramPluginNames;
@@ -743,6 +769,14 @@ bool FPluginManager::ConfigureEnabledPlugin(const FPluginReferenceDescriptor& Fi
 			if(!Plugin.Descriptor.SupportsTargetPlatform(FPlatformMisc::GetUBTPlatform()))
 			{
 				UE_LOG(LogPluginManager, Verbose, TEXT("Ignoring plugin '%s' due to unsupported platform in plugin descriptor"), *Reference.Name);
+				continue;
+			}
+#endif
+			// Check that this plugin supports the current program
+#if IS_PROGRAM
+			if (!Plugin.Descriptor.SupportedPrograms.Contains(UE_APP_NAME))
+			{
+				UE_LOG(LogPluginManager, Verbose, TEXT("Ignoring plugin '%s' due to absence from the supported programs list"), *Reference.Name);
 				continue;
 			}
 #endif

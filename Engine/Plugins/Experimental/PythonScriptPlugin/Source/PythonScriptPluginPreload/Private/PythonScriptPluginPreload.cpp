@@ -63,13 +63,7 @@ private:
 			if (PythonDLLPaths.Num() == 0)
 			{
 				// If we didn't find anything, check the Windows directory as the DLLs can sometimes be installed there
-				FString WinDir;
-				{
-					TCHAR WinDirA[1024] = {0};
-					FPlatformMisc::GetEnvironmentVariable(TEXT("WINDIR"), WinDirA, ARRAY_COUNT(WinDirA) - 1);
-					WinDir = WinDirA;
-				}
-
+				FString WinDir = FPlatformMisc::GetEnvironmentVariable(TEXT("WINDIR"));
 				if (!WinDir.IsEmpty())
 				{
 					PythonDLLPaths = FindPythonDLLs(WinDir / TEXT("System32"));

@@ -32,7 +32,7 @@ SkillLevel: Intermediate
 
 ### 서피스 타입
 
-기본적으로 언리얼 엔진 4 는 62 개 까지의 Surface Types (서피스 타입)을 지원합니다. 이름은 원하는 대로 붙일 수 있으며, `프로젝트 루트 디렉토리\Config\DefaultEngine.ini` 파일에 저장됩니다.
+기본적으로 언리얼 엔진 4 는 62 개 까지의 Surface Types (서피스 타입)을 지원합니다. 이름은 원하는 대로 붙일 수 있으며, `프로젝트 루트 디렉터리\Config\DefaultEngine.ini` 파일에 저장됩니다.
 
 
 

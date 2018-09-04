@@ -369,7 +369,7 @@ This warning is caused when there is a AmbientSound Actor with a NULL SoundCue p
 [EXCERPT:StaticMeshNull]
 **[Static Mesh Actor] &#58; Static Mesh Actor has NULL StaticMesh property**
 
-This warning is caused when there is a Static Mesh Actor in a level with a NULL StaticMesh property.  This can be a problem because the Actor exists and is using memory, but does not have a Atatic Mesh to actually draw.  This warning is usually the result of creating a StaticMesh Actor without first selecting a StaticMesh in the generic browser.  This warning can be fixed by first selecting a Static Mesh in the generic browser and then going to the StaticMesh Actor's Property Window->StaticMeshActor Category->StaticMeshComponent->StaticMeshComponent Category to set the 'StaticMesh' Property.
+This warning is caused when there is a Static Mesh Actor in a level with a NULL StaticMesh property.  This can be a problem because the Actor exists and is using memory, but does not have a Static Mesh to actually draw.  This warning is usually the result of creating a StaticMesh Actor without first selecting a StaticMesh in the generic browser.  This warning can be fixed by first selecting a Static Mesh in the generic browser and then going to the StaticMesh Actor's Property Window->StaticMeshActor Category->StaticMeshComponent->StaticMeshComponent Category to set the 'StaticMesh' Property.
 [/EXCERPT:StaticMeshNull]
 
 (#StaticMeshComponent)

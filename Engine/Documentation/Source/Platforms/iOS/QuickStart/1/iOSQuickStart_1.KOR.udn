@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+INTSourceChangelist:4300533
 Title:1. 필수 프로그램 설치
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
 Description:iOS 디바이스용 게임 개발에 필수인 소프트웨어를 구해 설치합니다.
@@ -25,6 +25,7 @@ order:1
 
 
 
+%Steps%
 
 
 %Globals:OSSelect%
@@ -100,3 +101,5 @@ order:1
 
 
 
+
+%Steps%

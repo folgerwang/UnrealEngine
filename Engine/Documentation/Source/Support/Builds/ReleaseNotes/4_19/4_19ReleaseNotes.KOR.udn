@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:0
+INTSourceChangelist:4300533
 Availability:Public
-Title: Unreal Engine 4.19 Release Notes
-Description: Release Notes for Unreal Engine 4.19
+Title: 언리얼 엔진 4.19 릴리즈 노트
+Description: 언리얼 엔진 4.19 릴리즈 노트입니다.
 Crumbs:%ROOT%, Engine
 Parent:Support/Builds
 Order:19
@@ -9,31 +9,30 @@ reference-image:image_7.gif
 reference-image:image_30.gif
 reference-image:image_43.gif
 
-Unreal Engine 4.19 Release Notes
 
 ![image alt text](419Banner.png)(w:1000 convert:false)
 
-# What’s New
+## 새로운 기능
 
-Unreal Engine 4.19 enables you to **step inside the creative process** - the tools become almost transparent so you can spend more time creating. Improvements to rendering, physics, Landscape terrain, and many more systems mean you can **build worlds that run faster than ever before**. The quality of life for the developers using our tools is always top of mind, so we continue to look at areas we can improve to **put the power into the developers’ hands**.
+언리얼 엔진 4.19 를 사용하면 **창의적 프로세스로 한 발 더** 나아갈 수 있습니다. 매우 직관적인 툴로 콘텐츠 제작에 더 많은 시간을 할애할 수 있습니다. 렌더링, 피직스, 랜드스케이프, 터레인 시스템 등이 개선되어 **이전보다 더 빠른 속도로 월드를 제작** 할 수 있습니다. 저희의 최우선 과제는 항상 저희 툴을 사용하는 개발자의 삶의 질 향상이므로, **개발자가 더욱 많은 작업을 할 수 있도록** 개선할 수 있는 부분이 없는지 계속해서 검토하고 있습니다.
 
-Whether you are creating games, linear media, architectural visualizations, or product design tools, Unreal Engine 4.19 enables you to know exactly what the finished product will look like every step of the way. The new Live Link plugin seamlessly blends workflows between external content creation tools and Unreal Engine so you can see updates as you make changes to source content. And with the continued improvements to Sequencer, you can be the director with even more control of your scenes in real time.
+언리얼 엔진 4.19 를 사용하면 게임, 단방향 매체, 건축 시각화 또는 제품 디자인 도구를 만들 때 완성된 제품이 모든 단계에서 어떻게 보일지 정확히 알 수 있습니다. 새로운 라이브 링크 플러그인은 외부 콘텐츠 제작 도구와 언리얼 엔진 간의 작업방식을 자연스럽게 혼합하여 소스 콘텐츠 변경 결과를 바로 확인할 수 있도록 해줍니다. 시퀀서의 지속적인 개선으로 실시간 씬을 더욱 완벽하게 제어 할 수 있습니다.
 
-When it comes to bringing the worlds in your imagination to life, the sky's the limit. Create breathtaking vistas in large, open worlds thanks to Landscape rendering optimizations. With the new Dynamic Resolution feature that adjusts the resolution as needed to achieve desired frame rates, those worlds will run smoother than ever before on PlayStation 4 and Xbox One.
+상상 속 세계를 현실화 하는 데 있어 한계는 없습니다. 랜드스케이프 렌더링 최적화 덕분에 거대한 오픈월드에서 숨이 멎을듯한 풍경을 만들 수 있습니다. 새로운 동적 해상도 기능을 사용하면 필요에 따라 해상도를 조정하여 원하는 프레임 속도를 맞춰주므로 PlayStation 4 및 Xbox One 에서 보다 부드럽게 실행됩니다.
 
-It wouldn’t be a complete release without a mountain of workflow and usability improvements, and Unreal Engine 4.19 does not disappoint in this respect. Working with Material layers and parameters is easier and more intuitive. Features for debugging Blueprints are more powerful with the ability to step over, step into, and step out. You can now save content folders as favorites. Animation tools have been improved with pinnable commands, ability to have multiple viewports, and lots more.
+작업방식이 편하고 사용하기 쉽지 않으면 릴리즈의 완성이라고 할 수 없습니다. 이러한 점에서 언리얼 엔진 4.19 는 여러분을 실망시키지 않습니다. 머티리얼 레이어 및 파라미터를 사용하는 것이 직관적으로 더 쉬워졌습니다. 블루프린트 디버깅은 단계별 실행, 스텝 인 및 스텝 아웃 기능을 통해 더욱 강력해졌습니다. 이제 콘텐츠 폴더를 즐겨찾기로 설정할 수 있습니다. 애니메이션 툴의 핀 고정 가능 명령, 다중 뷰포트 기능 등 여러 기능이 향상되었습니다.
 
-In addition to all of the updates from Epic, this release includes **128**** improvements ****submitted by the incredible community of Unreal Engine developers on GitHub**! Thanks to each of these contributors to Unreal Engine 4.19:
+이번 릴리즈에는 위 모든 업데이트는 물론 **엄청난 GitHub 언리얼 엔진 커뮤니티 개발자들이 제출한 개선 사항이 128 종 포함되어** 있습니다! 언리얼 엔진 4.19 에 기여해 주신 분들께 감사드립니다:
 
  
 
 Adam Rehn (adamrehn), Alex Chi (alexchicn), Alexander Stevens (MilkyEngineer), alexformosoc, Andrew Armbruster (aarmbruster), Anton Rassadin (Antonrr) Austin Pukasamsombut (AustinPuk-Conffx), Bo Anderson (Bo98), Carlos (carloshellin), Carsten Neumann (cneumann), Celso Dantas (celsodantas), Chris Conway (Koderz), Chris Dietsch (cdietschrun), Chrispykins, Clinton Freeman (freemancw), cmheo, CuoXia (shrimpy56), Daniel Butum (leyyin), Daniel Neel (dneelyep), Daniel Sell (djsell), David Payne (dwrpayne), DavidNSilva, Deep Silver Dambuster Studios (DSDambuster), Derek van Vliet (derekvanvliet), DerelictHelmsman, dfb, Dorgon Chang (dorgonman), druhasu, Eddy Luten (EddyLuten), foollbar, GeorgeR, Giperionn, Hyuk Kim (Hybrid0), Ilya (ill), Jack Knobel (jackknobel), Jacob Nelson (JacobNelsonGames), James Horsley (mmdanggg2), Jared Taylor (Vaei), Javad Shafique (JavadSM), jessicafalk, John W. Ratcliff (jratcliff63367), Jørgen P. Tjernø (jorgenpt), Josef Gluyas (Josef-CL), Julien Le Corre (jlc-innerspace), konflictue, Kryofenix, Kyle Langley (Vawx), Marcin Gorzel (mgorzel), Matt Hoffman (LordNed), Matthew Davey (reapazor), Michael Allar (Allar), Michał Nowak (BibbitM), Mikael Hermansson (mihe), mkirzinger, Mustafa Top (MSTF), nakapon, nullbus, pfoote, phlknght, projectgheist, Richard Schubert (Hemofektik), Ron Radeztsky, rlefebvre, ruffenman, sangpan, Sébastien Rombauts (SRombauts), smt923, Stefan Zimecki (stefanzimecki), Stephen Swires (sswires), Tim Niederhausen (timniederhausen), Timothee Besset (TTimo), Tom Ward (tomwardio), tomari, TomFors, Toru Hisai (torus), Vikram Saran (vikhik), yaakuro, Yohann Martel (ymartel06), YuchenMei, Zeno Ahn (zenoengine)
 
-# Major Features 
+## 주요 기능
 
-## New: Temporal Upsampling
+### 신규 : 템포럴 업샘플
 
-We have added a new upscaling method called Temporal Upsample that performs both a temporal accumulation of the frame at lower resolution and primary spatial upscale, reducing output blur.
+템포럴 업샘플(Temporal Upsample)이라는 새로운 업스케일 메서드를 추가했습니다. 프레임을 더 낮은 해상도로 임시 축적한 뒤 주 공간 스케일을 올려 결과물이 흐려지는 것을 줄여줍니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -53,53 +52,53 @@ We have added a new upscaling method called Temporal Upsample that performs both
 	[/PARAMLITERAL]
 [/OBJECT]
 
-*1 - Temporal Upsample Enabled; 2 - Temporal Upsample Disabled *
+*1 템포럴 업샘플 활성화시; 2 - 템포럴 업샘플 비활성화시* 
 
-In previous versions, the idea of Screen Percentage enabled you to render the 3D scene at lower resolution, and spatially upscale it to the output resolution, before the UI gets drawn on top. This was a very flexible method to hit a GPU budget on less powerful hardware, but it required you to make a tradeoff between output sharpness and GPU performance.
+이전 버전에서 스크린 퍼센티지(Screen Percentage) 라는 개념은, 3D씬을 더 낮은 해상도로 렌더링한 뒤 공간적으로 스케일을 올려 출력 해상도로 높인 뒤, 그 위에 UI 를 그리는 것이었습니다. 저사양 하드웨어의 GPU 예산을 맞출 수 있는 매우 유연한 방법이었지만 결과물의 선명도를 희생시켜야 한다는 단점이 있었습니다.
 
-To replace that single screen percentage, we now offer two separate screen percentages used for upscaling:
+이제 단일 스크린 퍼센티지 대신, 별도로 제공되는 두 개의 스크린 퍼센티지를 업스케일에 사용할 수 있습니다:
 
-* Primary screen percentage that by default will use the spatial upscale pass as before;
+* 주 스크린 퍼센티지는 기본적으로 전과 같은 공간적 업스케일 패스를 사용합니다.
 
-* Secondary screen percentage that is a static, spatial only upscale at the very end of post processing, before the UI draws.
+* 보조 스크린 퍼센티지는 UI 를 그리기 전, 포스트 프로세싱의 끝 부분에서 정적, 공간적 업스케일만을 담당합니다.
 
 ![image alt text](image_1.png)(w:1000 convert:false)
 
-The temporal upscaler that happens in the Temporal Anti-Aliasing (TAA) pass enables consistent geometry sharpness from varying primary screen percentages from `50%` up to `200%`. In effect, even though the screen percentage may be lowered, with TAAU enabled, geometry in the background that would usually become muddy or blend together can now maintain its detail and complexity, like the fence and telephone pole in the example above.
+TAA (Temporal Anti-Aliasing) 패스에서 동작하는 템포럴 업스칼라는 주 스크린 퍼센티지를 50\%에서 최대 200\%까지 다양하게 변경하여 지오메트리 선명도를 일정하게 유지합니다. 실제로 스크린 퍼센티지를 낮춘다 할지라도 TAAU 를 켜면, 보통은 뭉개지거나 섞여버리고 말았을 배경의 지오메트리에 디테일과 복잡도가 유지됩니다. 위 예의 철망이나 전신주에서 확인할 수 있습니다.
 
-For additional information, see the [Screen Percentage with Temporal Upsample](https://docs.unrealengine.com/en-us/Engine/Rendering/ScreenPercentage) page.
+더 많은 정보는 [템포럴 업샘플 및 스크린 퍼센티지](https://docs.unrealengine.com/en-us/Engine/Rendering/ScreenPercentage) 페이지를 참고하세요.
 
-## New: Dynamic Resolution
+### 신규 : 동적 해상도
 
-We now have support for Dynamic Resolution, which **adjusts the resolution as needed to achieve a desired framerate**, for games on PlayStation 4 and Xbox One! This works by using a heuristic to set the primary screen percentage based on the previous frames GPU workload.
+이제 PlayStation 4와 Xbox One 게임에서 **원하는 프레임 속도를 내기 위해 필요에 따라 해상도를 조절하는 방식을 지원** 합니다! 휴리스틱을 통해 이전 프레임 GPU 작업 부하에 따라 주 스크린 퍼센티지를 설정하는 방식으로 작동합니다.
 
 ![image alt text](image_2.png)(w:1000 convert:false)
 
-Support for additional platforms will be coming in a future release. For additional information, see the [Dynamic Resolution](https://docs.unrealengine.com/en-us/Engine/Rendering/DynamicResolution) page.
+더 많은 플랫폼에 대한 지원은 향후 릴리즈에서 제공 될 예정입니다. 자세한 내용은 [동적 해상도](https://docs.unrealengine.com/en-us/Engine/Rendering/DynamicResolution) 페이지를 참조하십시오.
 
-## New: Unified Unreal AR Framework
+### 신규 : 언리얼 AR 프레임워크
 
-With this release of Unreal Engine, the Unified Unreal Augmented Reality Framework provides a rich, unified framework for building Augmented Reality (AR) apps for both Apple and Google handheld platforms. The framework provides a single path of development, allowing developers to build AR apps for both platforms using a single code path. The Unified Unreal AR Framework includes functions supporting Alignment, Light Estimation, Pinning, Session State, Trace Results, and Tracking.
+언리얼 엔진의 이번 릴리즈의 통합된 언리얼 AR 프레임워크에서는 애플 및 구글 핸드헬드 플랫폼 모두에서 증강 현실 응용 프로그램을 빌드하기 위한 풍부하고 통일 된 프레임 워크를 제공합니다. 프레임워크는 단일 개발 패스를 제공함으로써 개발자는 하나의 코드 패스로 두 플랫폼의 AR 응용 프로그램을 모두 제작할 수 있습니다. 통합된 언리얼 AR 프레임워크에는 정렬, 라이트 추정, 고정하기, 세션 스테이트, 트레이스 결과등을 지원하는 함수가 포함되어 있습니다.
 
 ![image alt text](image_3.png)(w:1000 convert:false)
 
-## New: Unified Unreal AR Framework Project Template
+### 신규 : 통합된 언리얼 AR 프레임워크 프로젝트 템플릿
 
-Also new is the Blueprint template HandheldAR, which provides a complete example project demonstrating the new functionality.
+또한 새 기능을 시연하는 완벽한 예제 프로젝트로 블루프린트 템플릿에 휴대형 증강 현실(Handheld AR) 템플릿을 새로 추가하였습니다.
 
 ![image alt text](image_4.png)(w:849 h:590 convert:false)
 
-## New: Physical Light Units
+### 신규 : 물리적 라이트 밝기 단위
 
-New to Unreal Engine 4.19, all light units are now defined using physically based units. Some light units were already well defined, but others were using undefined, engine specific units. The unit selection of a light is done through a drop-down menu (where applicable). For compatibility reasons, the default light units are kept compatible with previous versions of the engine. The new light unit property can be edited per light, changing how the engine interprets the "Intensity" property when doing lighting related computations.
+언리얼 엔진 4.19에 새로 도입된 기능으로, 모든 라이트의 단위는 이제 물리기반 단위로 정의됩니다. 어떤 라이트는 이미 잘 정의된 값을 사용하는 것도 있지만, 아직 엔진 전용 값을 사용하는 것도 있습니다. 밝기 단위는 (적용 가능한 경우) 드롭 다운 메뉴에서 선택할 수 있습니다. 호환성을 위해 기본 라이트 밝기 단위는 이전 버전의 엔진과 호환됩니다. 새로운 라이트 단위 프로퍼티는 라이트 별로 편집할 수 있으며, 라이팅 관련 계산 시 엔진이 "강도" (Intensity) 프로퍼티를 해석하는 방법이 변경됩니다.
 
 ![image alt text](image_5.png)(w:1000 convert:false)
 
-*Project courtesy of Litrix*
+*Litrix의 Project courtesy* 
 
-## New: Live Link Plugin Improvements
+### 신규 : 라이브 링크 플러그인 개선사항
 
-The **Maya Live Link Plugin** is now available and can be used to establish a connection between Maya and UE4 enabling you to **preview changes made in Maya in real-time inside the UE4 Editor**. 
+이제 **마야 라이브 링크 플러그인을** 사용할 수 있으며 마야와 UE4 사이의 연결을 설정하여 **마야에서 변경된 내용을 UE4 에디터에서 실시간** 으로 볼 수 있습니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -119,74 +118,74 @@ The **Maya Live Link Plugin** is now available and can be used to establish a co
 	[/PARAMLITERAL]
 [/OBJECT]
 
-Once enabled, you will need to copy the binary files associated with your version of Maya to your Maya Plugins folder and enable it through the Maya Plugins Manager. 
+플러그인이 활성화 되면, 마야 버전과 관련된 바이너리 파일을 마야의 Plugins 폴더에 복사하고 Maya Plugins Manager를 통해 활성화 해야 합니다.
 
-You can find pre-built binaries of the Maya Live Link Plugin inside your Engine installation folder in the following location: Engine\Extras\MayaLiveLink\LiveLinkMaya.zip. Inside the zip file are binaries for Maya 2016/2017 and 2018 for Windows. If you require binaries for other versions, the source code for the Plugin can be found in the Engine\Source\Programs\MayaLiveLinkPlugin folder which can be used to build the binaries. 
+Engine\Extras\MayaLiveLink\LiveLinkMaya.zip 위치에서 엔진 설치 폴더 내에 마야 라이브 링크 플러그인의 바이너리 파일을 찾을 수 있습니다. zip 파일에는 Windows 용 Maya 2016/2017/2018 용 바이너리가 있습니다. 다른 버전의 바이너리가 필요한 경우 Engine\Source\Programs\MayaLiveLinkPlugin 폴더에서 소스를 찾을 수 있을 것입니다.
 
-The Maya Live Link UI window can be enabled through the MEL console with the command **MayaLiveLinkU**. At the top right is a display that shows whether this instance of Maya is connected to an Unreal client. Below Unreal Engine Live Link is a list of all the subjects currently being streamed (in the image above, only one is being streamed) and in the lower window, controls for adding and removing subjects from streaming is available. 
+마야 라이브 링크 UI 창은 MEL 콘솔에서 **MayaLiveLinkU** 명령으로 활성화 할 수 있습니다. 맨 위 오른쪽에는 이 마야 인스턴스가 언리얼 엔진(클라이언트)에 연결되어 있는지 여부를 보여주는 디스플레이가 있습니다. 언리얼 엔진 라이브 링크 아래에는 현재 스트리밍되고 있는 모든 대상(서브젝트)의 리스트가 있습니다. (위 이미지에서는 현재 하나만 스트리밍 중). 하단 창에서는 스트리밍되는 대상을 추가하고 제거할 컨트롤을 사용할 수 있습니다.
 
-### Motionbuilder Live Link Plugin
+#### 모션빌더 라이브 링크 플러그인
 
 **
-**The Motionbuilder Plugin offers the same functionality as the Maya Plugin and shows up in the Editor as a connection in a similar way. It also has a custom UI for managing streaming:
+**모션빌더 플러그인은 마야 플러그인과 동일한 기능을 제공하며 에디터에서 연결시 비슷한 방식으로 표시됩니다. 또한 스트리밍 관리를 위한 사용자 정의 UI가 있습니다.
 
-Objects can be selected from the the current scene and added to the streamed list (as shown above). From there, their names can be set in the **Subject Name** column and their **Stream Type** (Camera, Skeleton, etc.) can be set. Streaming on the subject can also be enabled and disabled from here. 
+현재 씬에서 선택된 오브젝트를 스트리밍 목록에 추가 할 수 있습니다 (위 그림 참조). 이 창에서 이름은 **Subject Name** 열에 설정 할 수 있으며 **Stream Type** (카메라, 스켈레톤 등)을 설정할 수 있습니다. 대상의 스트리밍 사용 여부 또한 여기서 설정할 수 있습니다.
 
-### Stream Active Camera as Editor Active Camera
+#### 활성 카메라를 에디터 활성 카메라로 스트리밍
 
-Controlling the active camera within Maya will now manipulate the Editor’s active camera. We’ve also reworked the Editor update hook so that streaming is more robust and facial rigs/leaf bones now correctly update. 
+이제 마야에서 활성 카메라 제어 상태가 에디터의 활성 카메라에 동기화 됩니다. 스트리밍이 더욱 강력해지고 얼굴 릭 / 리프 본이 올바르게 업데이트 되도록 에디터 업데이트 훅을 수정했습니다.
 
-### Added Virtual Subjects to Live Link
+#### 라이브 링크에 버추얼 서브젝트 추가
 
-Virtual subjects are a way to combine multiple subjects coming into Live Link into one subject that can then be used by the Editor. Virtual Subjects are created within the client and contain the bones of multiple real subjects, all tied to a common root. 
+버추얼 서브젝트는 라이브 링크에 들어오는 여러 서브젝트를 하나의 서브젝트로 결합하여 에디터에서 사용할 수있는 방법입니다. 버추얼 서브젝트는 엔진 내에서 생성되며 공통의 루트에 연결된 여러 개의 실제 서브젝트의 본들을 포함합니다.
 
-Below is the virtual subject being applied to a skeletal mesh in the editor. 
+아래는 버추얼 서브젝트가 에디터에서 스켈레탈 메시에 적용된 모습입니다.
 
 [REGION:asyncgif]
 ![image alt text](image_7.gif)(w:624 convert:false)
 [/REGION]
 
-Here we have created a new virtual subject (using **Add > Add Virtual Subject**) and set it to read subjects from the Maya Live Link source. The virtual subject is set to consist of the three Item subjects being sent from Maya. 
+여기에서는 **Add > Add Virtual Subject** 를 사용하여 새로운 버추얼 서브젝트를 만들고 마야 라이브링크 소스에서 대상(서브젝트)을 읽어오도록 설정했습니다. 버추얼 서브젝트는 마야에서 전송되는 세 가지 서브젝트들로 구성됩니다.
 
-### Live Link Plugin Development
+#### 라이브 링크 플러그인 개발
 
-The purpose of Live Link is to provide a common interface for streaming and consuming any kind of animation data from sources outside of UE4 (for example, DDC tools and Motion Capture servers). It is designed to be extensible via Unreal Plugins, allowing third parties to develop new features with no need to make and then maintain Engine changes. 
+라이브 링크의 목적은 스트리밍을 위한 공통된 인터페이스를 제공하고 UE4 외부 소스 (예 : DDC 도구 및 모션 캡처 서버)에서 모든 종류의 애니메이션 데이터를 사용하는 것입니다. 언리얼 플러그인을 통해 확장 가능하도록 설계되었으므로 서드 파티가 엔진 변경에 따른 개발과 유지 보수없이 새로운 기능을 개발할 수 있습니다.
 
-There are two paths for integrating in Live Link:
+라이브 링크를 통합하는 방법은 두 가지입니다:
 
-1. Building an Unreal Engine Plugin that exposes a new Source to Live Link. This is the recommended approach for anyone that already has their own streaming protocol.
+1. 새로운 소스를 라이브 링크에 노출하는 언리얼 엔진 플러그인을 만듭니다. 이미 자체 스트리밍 프로토콜이 있는 사용자에게 권장되는 방법입니다.
 
-2. Integrating a Message Bus end-point in third party software to allow it to act as a data transmitter for the built-in Message Bus Source. This is the approach we have taken for our Maya and MotionBuilder Plugins.
+2. 메시지 버스 엔드 포인트를 서드 파티 소프트웨어에 통합시켜 내장 메시지 버스 소스에 대한 데이터 전송기 역할을 할 수 있도록 합니다. 마야와 모션빌더 플러그인 제작에 사용된 방법입니다.
 
-For an overview of general Plugin development, see the [Plugins](https://docs.unrealengine.com/latest/INT/Programming/Plugins/) documentation pages. 
+일반 플러그인 개발에 대한 개요는 [플러그인](Programming/Plugins/) 설명서 페이지를 참조하십시오.
 
-### Live Link Motion Controller Support
+#### 라이브 링크 모션 컨트롤러 지원
 
-Live Link can now be used with Motion Controllers. The motion source property of a Motion Controller can be set to a subject within Live Link. When set in this way, the position of the Motion Controller Component is governed by the first transform of the subject.
+이제 라이브 링크를 모션 컨트롤러와 함께 사용할 수 있습니다. 모션 컨트롤러의 모션 소스 프로퍼티를 라이브 링크 내 제목으로 설정할 수 있습니다. 이런 식으로 설정하면 모션 컨트롤러 컴포넌트의 위치는 서브젝트의 첫 번째 트랜스폼이 관리합니다.
 
-The Motion Controller integration can also access custom parameters on the Live Link subject. These are passed via the curve support built into Live Link subjects. 
+모션 컨트롤러 통합은 라이브 링크 주제의 커스텀 파라미터에 접근할 수도 있습니다. 이들은 라이브 링크 서브젝트에 내장된 커브를 통해 전달됩니다.
 
-To access the values, it is necessary to derive a new Blueprint from **MotionControllerComponent **and override the **OnMotionControllerUpdated **function. During **OnMotionControllerUpdated**, it is valid to call **GetParameterValue **on the Motion Controller.
+값에 접근하려면 **MotionControllerComponent ** 를 상속받는 새 블루프린트 컴포넌트 속의 **OnMotionControllerUpdated ** 함수를 오버라이드 해야 합니다. **OnMotionControllerUpdated** 이벤트가 호출될 때는 모션 컨트롤러에서 **GetParameterValue ** 호출이 유효합니다.
 
-Here is an example of a possible way to drive a light components Intensity from an Intensity parameter in Live Link:
+다음은 라이브 링크의 Intensity 파라미터로 라이트 컴포넌트의 강도를 변경 할 수 있는 한 예입니다.
 
 ![image alt text](image_8.png)(w:925 h:289 convert:false)
 
-### Miscellaneous Improvements
+#### 기타 개선 사항
 
-* **Added ability for Live Link Sources to define their own custom settings - **This was requested by partners like IKinema building Live Link support
+* **라이브 링크 소스에 사용자 지정 설정을 정의하는 기능 추가** - IKinema 등의 파트너가 라이브 링크 지원 기능을 만들어 달라고 요청하였습니다.
 
-* **Live Link Sources pushing skeletons to Live Link Client can now pass source GUID as well** - Message bus source now pushes GUID when sending skeleton.
+* **라이브 링크 소스가 스켈레톤을 라이브 링크 클라이언트로 전송하는 기능에서 GUID도 함께 전송가능** - 스켈레톤을 보낼 때 메시지 버스 소스가 이제 GUID를 함께 전송합니다.
 
-* **Added virtual Initialization function and Update DeltaTime parameter to Live Link Retargeter API**
+* **Live Link Retargeter API에 Virtual Initialization 함수 및 Update DeltaTime 파라미터 추가**
 
-## New: Sequencer Improvements
+### 신규 : 시퀀서 개선사항
 
-We continue to make improvements to the functionality and workflow of Sequencer to make it more powerful and increase efficiency.
+시퀀서를 보다 강력하고 효율적으로 만들기 위해 시퀀서의 기능과 작업방식을 지속적으로 개선하고 있습니다.
 
-### Copy/Paste/Duplicate Object Tracks
+#### 오브젝트 트랙 복사/붙여넣기/복제하기
 
-You can now copy/paste/duplicate object tracks and their child tracks from the right-click context menu. You can copy a spawnable to the same Level Sequence or another Sequence or a possessable from one Level Sequence to another and the object will be bound to the same object in the other Level Sequence. You can now also copy from one UMG animation to another.
+마우스 우클릭 맥락 메뉴에서 오브젝트 트랙과 그 자식 트랙을 복사 / 붙여넣기 / 복제할 수 있습니다. 스포너블을 같은 레벨 시퀀스 또는 다른 레벨 시퀀스로 복사하거나, 포제서블을 한 레벨 시퀀스에서 다른 레벨 시퀀스로 복사하면, 그 오브젝트는 다른 레벨 시퀀스의 같은 오브젝트에 바인딩됩니다. 이제 UMG 애니메이션을 다른 UMG 애니메이션으로 복사 할 수도 있습니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -206,11 +205,11 @@ You can now copy/paste/duplicate object tracks and their child tracks from the r
 	[/PARAMLITERAL]
 [/OBJECT]
 
-### Level Sequence Dynamic Transform Origin
+#### 레벨 시퀀스 다이내믹 트랜스폼 원점
 
-You can now offset the Actors controlled by Sequence Transform tracks with a global offset at runtime. This allows you to also reuse a Level Sequence in different coordinate spaces. To use this feature, inside the Details panel for your Level Sequence, enable **Override Instance Data** then assign a **Transform Origin Actor. **
+런타임에서 월드 좌표로 설정된 시퀀스 트랜스폼 트랙으로 제어되는 액터에 오프셋을 적용할 수 있습니다. 이렇게 하면 다른 좌표 공간에서 레벨 시퀀스를 재사용 할 수 있습니다. 이 기능을 사용하려면 레벨 시퀀스의 세부 정보 패널에서 **Override Instance Data** 옵션을 활성화 한 다음 **트랜스폼 오리진 액터(Transform Origin Actor)** 를 할당합니다.
 
-The **Transform Origin **section specifies a transform from which all absolute transform sections inside the Sequence should be added to (Scale is ignored). For the best results, keyframe your Actor’s starting transform at 0,0,0 inside your Level Sequence and let the Transform Origin Actor you define drive the position from which to start in the world (depicted below). 
+**Transform Origin** 섹션에 지정된 트랜스폼은 (스케일을 무시하고) 시퀀스 내 모든 절대 트랜스폼 섹션에 더합니다. 최적의 결과를 얻으려면 액터의 시작 트랜스폼을 레벨 시퀀스의 0,0,0에 키 프레임으로 지정하고 지정한 트랜스폼 오리진 액터가 월드에서 시작할 위치를 (아래 그림처럼) 지정하도록 하세요.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -230,11 +229,11 @@ The **Transform Origin **section specifies a transform from which all absolute t
 	[/PARAMLITERAL]
 [/OBJECT]
 
-Whenever we press a key (see above), the cube moves and our Actor continues to walk along a path, starting from the location of the **Transform Origin Actor**.
+키를 누를 때마다 (위 참고), 큐브가 이동하며 우리의 액터는 트랜스폼 오리진 액터의 위치에서 시작하여 경로를 따라 계속 걷습니다.
 
-### Sequencer Anim BP Weight Control
+#### 시퀀서 애님 블루프린트 웨이트 컨트롤
 
-Sequencer weight blending now works with Animation Blueprints. You can use the same slot for the animation, and control weight by curve. Assign the same Slot Name under Properties for each animation to blend. Then keyframe the Weight values you desire. Inside your Anim BP, use the Slot Node. The AnimBP will use whatever Weight values you provided when blending.
+시퀀서 웨이트 블랜딩이 이제 애니메이션 블루프린트 내에서 동작합니다. 동일한 슬롯을 애니메이션에 사용하고 커브로 웨이트를 제어할 수 있습니다. 블렌드할 각 애니메이션의 속성에서 동일한 슬롯 이름을 지정하세요. 그런 다음 원하는 웨이트 값을 키 프레임으로 만드세요. 애님 블루프린트 내부에서 슬롯 노드를 사용하세요. 애님 블루프린트는 블렌딩할 때 제공한 웨이트 값을 사용합니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -254,85 +253,85 @@ Sequencer weight blending now works with Animation Blueprints. You can use the s
 	[/PARAMLITERAL]
 [/OBJECT]
 
-### Improved Sequencer Editor Performance
+#### 향상된 시퀀서 에디터 성능
 
-* Compile On The Fly Logic - Sequencer is now able to compile partially or completely out-of-date evaluation templates from the source data as it needs. This affords much more efficient compilation when working within Sequencer in the editor.
+* 즉석 컴파일 (Compile On The Fly) 로직 - 시퀀서는 이제 소스 데이터에서 버전이 지난 평가 템플릿을 일부 또는 전부 필요에 따라 컴파일 할 수 있습니다. 에디터에서 시퀀서 작업을 할 때 훨씬 효율적으로 컴파일 할 수 있습니다.
 
-* Details Panel Updates - The details panel now defers updates while scrubbing/playing in the Sequencer Editor.
+* 디테일 패널 업데이트 - 디테일 패널은 이제 시퀀서 에디터에서 스크러빙 / 재생하는 동안 업데이트를 연기합니다.
 
-### Minor Improvements
+#### 작은 개선사항들
 
-* New .ini setting for the default behavior of "When Finished". 
+* "When Finished"(완료 시)의 기본값을 .ini 로 설정할 수 있습니다.
 
-    * For level sequences, it continues to default to RestoreState. For UMG, it’s now set to Keep State.
+    * 레벨 시퀀스의 경우 RestoreState(기존 값으로 복귀)가 기본값으로 계속 사용됩니다. UMG의 경우 현재 기본값은 Keep State(현재 상태 유지)입니다.
 	
 	[/Script/LevelSequence.LevelSequence]
 DefaultCompletionMode=RestoreState
 
-* Always create a camera cut track when adding a camera so that there’s less confusion as to why a camera doesn’t take control when sequencer is activated.
+* 시퀀서가 활성화되었을 때 카메라가 제어되지 않는 문제로 인한 혼란스러움을 줄이기 위해 카메라를 추가 할 때 항상 카메라 컷 트랙을 만들도록 하였습니다.
 
-* Rotations will no longer flip when autokeying/adding a new key. 
+* 자동 키 설정/키 추가 시 더 이상 회전 값이 뒤집히지 않습니다.
 
-* Option to show selected nodes in the tree view only. This can be useful when working with a lot of actors in your level sequence to limit scrolling up and down the view. 
+* 트리 뷰에서 선택된 액터만 표시하는 옵션이 추가되었습니다. 이 기능은 레벨 시퀀스에서 많은 수의 액터를 가지고 작업하는 경우 뷰 상하 스크롤을 제한시킬 때 좋습니다.
 
-* Option to bake transform track to keys at frame intervals.
+* 일정 프레임 간격마다 트랜스폼 트랙을 키로 굽는 옵션이 생겼습니다.
 
-* Option to create a camera anim from a transform track.
+* 트랜스폼 트랙에서 카메라 애니메이션을 만드는 옵션이 생겼습니다.
 
-* Ability to bind (path track, camera cut track or attach track) to spawnables in subsequences. 
+* 서브시퀀스의 스포너블에 (패스 트랙, 카메라 컷 또는 어태치 트랙을) 바인딩하는 기능이 추가되었습니다.
 
-* Can now drag sections up a row, instead of only just down.
+* 이제 섹션을 행 아래만이 아닌 위로도 끌어 올릴 수 있습니다.
 
-## New: Landscape Rendering Optimization
+### 신규 : 랜드스케이프 렌더링 최적화
 
-The Landscape level of detail (LOD) system has been changed so that instead of being distance-based it now uses screen size to determine detail for a component, similar to how the Static Mesh LOD system works. The LOD distribution now gives more coherent sizes on distant triangles based on their screen size, which can maintain detail that was not possible before.
+랜드 스케이프 레벨 오브 디테일 (LOD) 시스템이 변경되어 거리 기반 대신 스태틱 메시 LOD 시스템의 작동 방식과 마찬가지로 화면 크기를 사용하여 컴포넌트의 디테일을 결정합니다. 이제 LOD 분포가 원거리 트라이앵글에서도 그 화면 크기에 따라 보다 일관된 크기를 제공합니다. 이것은 이전에 불가능했던 디테일을 유지할 수 있습니다.
 
 ![image alt text](image_12.png)(w:1000 convert:false)
 
 ![image alt text](image_13.png)(w:490 convert:false)    ![image alt text](image_14.png)(w:490 convert:false)
 
-*(Left, old method; Right, new method)*
+*(왼쪽: 기존 방식, 오른쪽: 새로운 방식)* 
 
-You can visualize the Landscape LODs by going to **Viewport > Visualizers > LOD**. 
+**에디터의 뷰포트> Visualizer(보통 Lit가 선택된 버튼)> LOD** 로 이동하여 Landscape LOD를 시각화할 수 있습니다.
 
-The following settings are available to control where LODs transition based on screen size. Additionally, material tessellation can now be controlled, which gives the added performance benefit while using a Directional light with dynamic shadowing enabled. 
+다음 설정을 사용하여 화면 크기에 따라 LOD가 전환되는 시점을 제어할 수 있습니다. 또한, 이제는 머티리얼 테셀레이션을 제어할 수 있으므로 다이내믹 섀도잉이 활성화된 디렉셔널 라이트를 사용하는 도중 추가적인 퍼포먼스 이득을 볼 수 있습니다.
 
 ![image alt text](image_15.png)(w:441 convert:false)
 
-## New: Proxy LOD System (Experimental)
+### 신규 : 프록시 LOD 시스템 (실험단계 기능)
 
-The new Proxy LOD system is an experimental Plugin for producing low poly LOD with baked materials for multiple meshes. The new system is used by HLOD and is a replacement for Simplygon. 
+새로운 프록시 LOD 시스템은 다수의 메시에 쓰이는 구운 머티리얼을 가진 로우 폴리 LOD 를 생성하는 실험단계 플러그인입니다. 새로운 시스템은 HLOD에서 사용되며 Simplygon 을 대체합니다.
 
 [REGION:note]
-**Note:** Currently, only Windows builds are supported.
+**주** : 현재 Windows 만 지원됩니다.
 [/REGION]
 
-To enable the tool, look for the "Hierarchical LOD Mesh Simplification" option under Editor in the Project Settings dialog. From the Hierarchical LOD Mesh Reduction Plugin, you should be able to select the new module "ProxyLODMeshReduction".  After the prompted editor restart, the Plugin will replace the third party Simplygon tool for static mesh merging LODs.  This new Plugin is accessed in two ways: The HLOD Outliner, and the Merge Actors dialog.
+이 툴을 사용하려면 프로젝트 세팅 창의 에디터 섹션에서 "Hierarchical LOD Mesh Simplification" 옵션을 찾으십시오. Hierarchical LOD Mesh Reduction Plugin 에서 새로운 모듈 "ProxyLODMeshReduction" 을 선택할 수 있을 것입니다. 에디터 재시작을 선택하면 이 플러그인은 스태틱 메시 병합 LOD 용 서드 파티 툴 Simplygon 을 대체합니다. 이 새로운 플러그인에 접근하는 방법은 HLOD 아웃라이너와 액터 병합 대화창 두 가지입니다.
 
 ![image alt text](image_16.png)(w:490 convert:false) ![image alt text](image_17.png)(w:490 convert:false)
 
 
-*Source Geometry: 11 geometry pieces, 38,360 tris, and 27,194 verts | Result Geometry Proxy: 1 geometry piece, 8,095 tris, and 5,663 verts*
+*원본 지오메트리: 지오메트리 11 개, 트라이앵글 38,360 개, 버텍스 27,194 개 | 프록시 LOD 시스템 적용 지오메트리: 지오메트리 1 개, 트라이앵글 8,095 개, 버텍스 5,663 개* 
 
 
 
-## New: Material Parameters Editing and Saving
+### 신규 : 머티리얼 파라미터 편집 및 저장
 
-You can now **save parameter values to a new Child Instance or Sibling Instance** in the Material Editor and the Material Instance Editor!
+이제 머티리얼 에디터와 머티리얼 인스턴스 에디터에서 **파라미터 값을 새 자손 인스턴스 또는 동기 인스턴스에 저장** 할 수 있습니다!
 
  ![image alt text](image_18.png)(w:1000 convert:false)
 
-* **Save to Sibling Instance** enables you to save the current parameters and overrides to a new Material Instance with the same Parent Material.
+* **동기 인스턴스에 저장(Save to Sibling Instance)** 을 사용하면 동일한 부모를 갖는 새 머티리얼 인스턴스를 생성한 뒤 현재 파라미터와 변경해 본 값을 옮깁니다.
 
-* **Save to Child Instance** enables you to save the current parameters and overrides to a new Material Instance with the current instance as the Parent Material.
+* **자손 인스턴스에 저장(Save to Child Instance)** 을 사용하면 현재 인스턴스를 부모 머티리얼로 하는 새 머티리얼 인스턴스를 만들고 현재 파라미터와 변경해 본 값을 옮깁니다.
 
-The Material Editor now features a **Parameter Defaults** panel. Here, you’ll have access to the default values set in your Material Graph for any parameter. You can easily change any of your parameter default values here.
+머티리얼 에디터에는 **파라미터 디폴트(Parameter Defaults)** 패널이 있습니다. 여기서는 모든 파라미터에 대해 머티리얼 그래프에 설정된 기본값에 접근할 수 있습니다. 여기서 파라미터 기본값을 쉽게 변경할 수 있습니다.
 
 ![image alt text](image_19.png)(w:1000 convert:false)
 
-## New: Material Layering (Experimental)
+### 신규 : 머티리얼 레이어링 (실험단계 기능)
 
-Material Layering enables you to **combine your Materials in a stack**, using the new Material Layer and Material Layer Blend assets! This enables you to build the correct Material Graph without building sections of nodes by hand. This functionality is similar to Material Functions, but supports the creation of child instances.
+머티리얼 레이어링을 사용하면 새로운 머티리얼 레이어 및 머티리얼 레이어 블렌드 애셋을 사용하여 **머티리얼을 쌓아서 결합** 할 수 있습니다! 이를 통해 노드 섹션을 직접 작성하지 않고도 정확한 머티리얼 그래프를 작성할 수 있습니다. 이 기능은 머티리얼 함수와 유사하지만 자손 인스턴스 생성을 지원합니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -352,21 +351,21 @@ Material Layering enables you to **combine your Materials in a stack**, using th
 	[/PARAMLITERAL]
 [/OBJECT]
 
-Material Layering is experimental and can be enabled in the **Project Settings** **> Rendering > Experimental** section by setting **Support Material Layers** to true.
+머티리얼 레이어링은 실험단계 기능이며 **프로젝트 세팅에서 Rendering> Support Material Layers ** 를 체크하여 활성화 할 수 있습니다.
 
-For additional information, see our post on the [forums](https://forums.unrealengine.com/development-discussion/rendering/1414193-material-layering-feedback-for-4-19) to get started and leave us feedback!
+자세한 내용은 [포럼](https://forums.unrealengine.com/development-discussion/rendering/1414193-material-layering-feedback-for-4-19) 에 게시 된 게시물을 참조하십시오.
 
-## New: Upgraded 'Auto Convex' Tool
+### 신규 : 자동 컨벡스 툴 업그레이드
 
-You can now specify **Max Hulls **instead of accuracy when generating simplified collision for a Static Mesh using the Auto Convex Tool. Computation is now a background task in the Static Mesh Editor. The Auto Convex Tool also uses a newer version of V-HACD library that should give more accurate results. 
+자동 컨벡스 툴(Auto Convex Tool)을 사용하여 스태틱 메시에 단순화된 콜리전을 생성할 때 Accuracy (정확도) 대신 **Max Hulls (최대 헐 수)** 를 지정할 수 있습니다. 이제 스태틱 메시 에디터에서는 백그라운드에서 계산을 합니다. 자동 컨벡스 툴은 최신 버전의 V-HACD 라이브러리를 사용하여 더 정확한 결과를 제공합니다.
 
 ![image alt text](image_21.png)(w:1000 convert:false)
 
-## New: Improved Facial Animation Sharing using Curve only animations
+### 신규 : 커브만 있는 애니메이션을 사용하여 페이셜 애니메이션 공유 개선
 
-You can share facial animations between characters by animating a curve to drive a pose without having any bone transform. Any bone transform, even with one mesh’s ref pose, won’t work for other meshes, so it is important to remove them and start with the mesh’s own ref pose if you want to share the curve between different meshes. This allows you to share the facial curves between different faces. 
+본 트랜스폼 없이 애니메이션 커브로 포즈를 구동시켜 캐릭터 사이에 페이셜 애니메이션을 공유할 수 있습니다. 본 트랜스폼은, 한 메시의 레퍼런스 포즈가 있어도, 다른 메시에는 작동하지 않을 것입니다. 그래서 각기 다른 메시 사이 커브를 공유하려면 본 트랜스폼은 제거하고 메시 자체 레퍼런스 포즈로 시작하는 것이 중요합니다. 이렇게 하면 서로 다른 얼굴 메시에 페이셜 커브를 공유할 수 있습니다.
 
-We’ve added the ability to allow users to delete all bone tracks, leaving only animation curves. You can access the **Remove All Bone Tracks **option from the **Asset **menu under **Animation. **
+사용자가 모든 본 트랙을 삭제하고 애니메이션 커브만 남길 수 있는 기능을 추가했습니다. **애니메이션 ** 아래 **애셋 ** 메뉴의 **본 트랙 제거(Remove Bone Tracks)** 옵션입니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -386,17 +385,17 @@ We’ve added the ability to allow users to delete all bone tracks, leaving only
 	[/PARAMLITERAL]
 [/OBJECT]
 
-You can also use Animation Modifier to remove certain joints only if you want to share body animations but drive curves with face. Added the functions **Remove Bone Animation **to remove an Animation Curve by Name from the given Animation Sequence (Raw Animation Curves [Names] may not be removed from the Skeleton) and **Remove All Bone Animation **to remove all Animation Bone Track Data from the given animation Sequence. 
+바디 애니메이션을 공유하지만 얼굴은 커브로 애니메이션 하려는 경우에도 애니메이션 모디파이어를 이용하여 특정 조인트만을 제거할 수도 있습니다. 주어진 애니메이션 시퀀스에서 이름으로 커브를 찾아서 삭제하기 위해 **본 애니메이션 제거(Remove Bone Animation)** 함수를 추가하였습니다 ( [Names] 라는 이름을 갖는 원시 애니메이션 커브는 스켈레톤에서 제거되지 않을 수 있습니다.) 그리고 지정한 애니메이션 시퀀스로부터 모든 애니메이션 본 트랙 데이터를 제거하기 위해 **모든 본 애니메이션 제거(Remove All Bone Animation) ** 함수를 만들었습니다.
 
 ![image alt text](image_23.png)(w:1000 convert:false)
 
-We’ve also allowed the opting out of importing bone tracks (curve only animation) during the import process.
+또한 임포트 프로세스 도중 본 트랙 (커브만 있는 애니메이션) 임포트를 선택하지 않을 수 있도록 했습니다.
 
-We’ve fixed Pose Preview to select weights that the asset contains. You can see what bone tracks the animation contains inside the Asset Details panel under **Animation Track Names.**
+애셋에 포함 된 웨이트를 선택하기 위해 포즈 미리보기를 수정했습니다. 애셋의 애셋 디테일 탭 아래 **Animation Track Names** 에서 애니메이션에 포함된 본 트랙을 볼 수 있습니다.
 
-## New: Cloth Updates
+### 신규: 클로스 업데이트
 
-The new "Anim Drive" feature added to clothing assets and runtime interaction for simulations adds a new mask target for "Anim Drive Multipliers" that is used to drive springs that pull clothing towards its animated position, giving control to animators in cinematics or animation driven scenes.
+클로스 애셋에 추가 된 새로운 "애님 드라이브"기능과 시뮬레이션용 런타임 인터랙션은 클로스를 애니메이션 위치로 당기는 스프링을 구동하는 데 사용되는 “애님 드라이브 멀티플라이어”에 마스크 타깃을 새로 추가하여, 시네마틱이나 애니메이션 구동 씬에서 애니메이터가 제어할 수 있도록 해줍니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -416,35 +415,35 @@ The new "Anim Drive" feature added to clothing assets and runtime interaction fo
 	[/PARAMLITERAL]
 [/OBJECT]
 
-This can be driven at runtime using the "Interactor" object that Blueprints can access on skeletal mesh components. The value set at runtime is multiplicatively combined with the painted values to get the final spring and damper strengths.
+블루프린트가 스켈레탈 메시 컴포넌트에서 접근할 수 있는 "인터랙터(Interactor)" 오브젝트를 사용하여 런타임에 조절할 수 있습니다. 런타임에 설정된 값은 칠해진 값과 곱셈 결합하여 최종 스프링 및 댐퍼 세기를 얻습니다.
 
-Other improvements include:
+기타 개선 사항은 다음과 같습니다:
 
-* **Gravity override support for clothing simulations - **Using the interactor object on a skeletal mesh component - an arbitrary gravity override can be specified.
+* **클로딩 시뮬레이션에서 중력 오버라이드 지원 ** - 스켈레탈 메시 컴포넌트에서 인터랙터 오브젝트를 사용하여 임의로 중력을 지정할 수 있습니다.
 
-* **Added auto-range feature to cloth view ranges - **Also added a way for tools to extend those ranges when necessary
+* **클로스 보이는 범위 자동 조절 기능 추가 ** - 또한 필요할 때 그 범위를 확장하는 툴도 추가하였습니다.
 
-* **Improved Clothing Visualizations - **Can now be enabled when Clothing Paint Mode is active.
+* **향상된 클로스 시각화 ** - 클로스 페인트 모드가 활성화되었을 때 기능을 켤 수 있습니다.
 
-* **Clothing Create Menu now defaults to use the Skeletal Mesh Physics Asset**
+* **클로딩 생성 메뉴가 이제 기본으로 스켈레탈 메시 피직스 애셋을 사용합니다.** 
 
-## New: Animation Blueprint Improvements
+### 신규 : 애니메이션 블루프린트 개선
 
-We have made several quality of life improvements to the Animation Blueprints system:
+애님 블루프린트 시스템에 삶의 질을 향상시켜줄 몇 가지 개선 사항을 추가하였습니다:
 
-* You now have the ability to control whether or not the post process instance runs on a Skeletal Mesh Component from both Blueprints and the Animation Editor suite 
+* 이제 스켈레탈 메시 컴포넌트에서 포스트 프로세스 인스턴스를 실행할지 여부를 블루프린트와 애니메이션 에디터 시리즈 양쪽에서 제어할 수 있습니다.
 
-* **Copy Pose node now supports copying curves as well as Bone transform - **When using this, make sure to enable **bCopyCurves** if you want to copy curves (by default this is false). When enabled, it will copy the curves that exist in the current Skeleton. If the curve list has changed, it will require the animation system to be reinitialized.
+* **포즈 복사(Copy Pose)** **노드는 이제 본 트랜스폼은 물론 커브 복사도 지원합니다 - ** 이 옵션을 사용 하여 커브를 복사하려면 **bCopyCurves ** 를 활성화 해야 합니다 (기본적으로 비활성화됨). 활성화되면 현재 스켈레톤에있는 커브를 복사합니다. 커브 목록이 변경되면 애니메이션 시스템을 다시 초기화해야합니다.
 
-* **Added additive warning when playing an animation on an additive pose - **When a non-additive animation is connected to the additive pin of an additive animation node (such as Apply Additive), we will now output a warning in the message log with the Animation and Blueprint name.
+* **애디티브 포즈(Additive Pose)에서 애니메이션을 재생할 때 애디티브 경고를 추가했습니다 - ** 애디티브 애니메이션을 사용하지 않는 애니메이션이 (Apply Additive 와 같은) 애디티브 애니메이션 노드의 애디티브 핀에 연결되면, 애니메이션 및 블루프린트 이름과 함께 메시지 로그에 경고를 출력합니다.
 
-* **Native AnimInstance selection on SkeletalMeshComponent**** - **Allow native Animation Instances to be set on Skeletal Mesh Components. Previously, only Anim Blueprints could be set on Skeletal Mesh Components.
+* **스켈레탈 메시 컴포넌트의 네이티브 애님 인스턴스 선택이 가능합니다 - ** 스켈레탈 메시 컴포넌트에 네이티브 애니메이션 인스턴스를 설정하도록 할 수 있습니다. 이전에는 스켈레탈 메시 컴포넌트에만 애님 블루프린트를 설정할 수 있었습니다.
 
-## New: Animation Tools Improvements
+### 신규 : 애니메이션 도구 개선
 
-**Added Pinnable Command List to animation editors**
+**애니메이션 에디터에 핀 고정 가능 명령 목록을 추가했습니다.** 
 
-Shift-clicking a menu option in either the skeleton tree filter or the viewport menus will 'pin' the command outside of the menu. This allows for easier access to commands that are frequently used.
+스켈레톤 트리 필터 또는 뷰포트 메뉴에서 메뉴 옵션을 Shift+좌클릭하면 명령이 메뉴 외부에 ‘핀’ 으로 고정됩니다. 이렇게 하면 자주 사용되는 명령을 핀으로 고정하여 쉽게 접할 수 있습니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -464,11 +463,11 @@ Shift-clicking a menu option in either the skeleton tree filter or the viewport 
 	[/PARAMLITERAL]
 [/OBJECT]
 
-**Added up to 4 separate viewports to all Animation Editor viewports - **All animation-related editors now have the ability to open up to 4 separate viewports onto the same scene, each with their own settings.
+**모든 애니메이션 에디터 뷰포트에 최대 4개의 독립 뷰포트를 추가했습니다** - 모든 애니메이션 관련 에디터는 동일한 씬에 최대 4개의 독립 뷰포트를 열 수 있습니다. 각 뷰포트는 자체 설정이 가능합니다.
 
 ![image alt text](image_26.png)(w:1000 convert:false)
 
-**Added the ability to follow and orbit specified bones** 
+**(각 뷰포트의 카메라가) 지정된 본을 일정 거리를 유지하며 따라가는 기능을 추가했습니다.** 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -488,9 +487,9 @@ Shift-clicking a menu option in either the skeleton tree filter or the viewport 
 	[/PARAMLITERAL]
 [/OBJECT]
 
-**Additional Skeletal Mesh Component Debug Info**
+**스켈레탈 메시 컴포넌트 디버그 정보를 추가했습니다.** 
 
-You can extend the viewport text seen in the Skeletal Mesh Editor. Lines were also added, displaying current Cloth Value.
+스켈레탈 메시 에디터에 표시된 뷰포트 텍스트를 확장 할 수 있습니다. 현재의 클로스 값(Cloth Value)을 표시하는 줄도 추가되었습니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -510,9 +509,9 @@ You can extend the viewport text seen in the Skeletal Mesh Editor. Lines were al
 	[/PARAMLITERAL]
 [/OBJECT]
 
-**Ability to change Skeletal Mesh section visibility at runtime**
+**런타임에서 스켈레탈 메시 섹션 표시여부를 변경할 수 있는 기능을 추가했습니다.** 
 
-Exposed ShowMaterialSection function to hide/show Skeletal Mesh material sections at runtime to Blueprint. Added ShowAllMaterialSections and IsMaterialSectionShown functions. Removed internal 'disable' and 'highlight' flags from asset: always use per-component flags now.
+런타임에 스켈레탈 메시 머티리얼 섹션을 표시 또는 숨기는 ShowMaterialSection (머티리얼 섹션 표시) 함수를 블루프린트로 노출시켰습니다. ShowAllMaterialSections (모든 머티리얼 섹션 표시) 및 IsMaterialSectionShown (머티리얼 섹션이 표시되었는지) 함수를 추가했습니다. 애셋에서 내부적으로 사용하던 'disable'(비활성화) 및 'highlight'(강조) 플래그가 제거되었습니다. 이제 항상 컴포넌트 별 플래그를 사용합니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -532,55 +531,55 @@ Exposed ShowMaterialSection function to hide/show Skeletal Mesh material section
 	[/PARAMLITERAL]
 [/OBJECT]
 
-**Added "Hide Unconnected Pins" for button BreakStruct nodes**
+**BreakStruct (구조체 분해) 노드 버튼에 "연결되지 않은 핀 숨기기(Hide Unconnected Pin)" 기능이 추가되었습니다.** 
 
-BreakStruct nodes now have a button to quickly hide unconnected pins
+구조체 분해 노드에 연결되지 않은 핀을 빠르게 숨길 수있는 버튼이 추가되었습니다.
 
 [REGION:asyncgif]
 ![image alt text](image_30.gif)(w:800 convert:false)
 [/REGION]
 
-In addition, the Animation Tools improvements include:
+추가적인 애니메이션 툴 개선 사항은 다음과 같습니다:
 
-* **Fixed motion blur when changing skeletal mesh properties - **The animation system owns the previous bone transform with revision number, so that it can send to the render thread when RenderState is recreated. **Frame Number** still exists because the clothing system still uses it. Revision number progresses when the component ticks. If it doesn't tick, it will keep the same revision number (keeps history).
+* **스켈레탈 메시 프로퍼티를 변경할 때 모션 블러 문제를 수정했습니다 - ** 애니메이션 시스템은 예전 본 트랜스폼에 순번을 붙여 가지고 있다가, RenderState 재생성 시 렌더 스레드에 본 트랜스폼을 전송합니다. **프레임 번호** 가 여전히 존재하는데 그 이유는 클로딩 시스템이 아직 이를 사용하고 있기 때문입니다. 컴포넌트에서 틱이 일어날 때마다 순번이 증가합니다. 만약 틱이 일어나지 않으면 같은 순번이 (히스토리가) 유지됩니다.
 
-* **Exposed Sequence Recording Settings in Animation Editors**
+* **애니메이션 에디터에 시퀀스 녹화 설정을 노출했습니다.** 
 
-* **Ability to name collision shapes** - You can now name individual collision shapes when editing a Physics Asset.
+* **콜리전 모양에 이름을 붙일 수 있습니다 ** - 이제 피직스 애셋을 편집 할 때 개별 콜리전 모양의 이름을 지정할 수 있습니다.
 
-* **Improved bounds following in Animation Editor Viewports** - Bounds following now follows without lag.
+* **애니메이션 에디터 뷰포트에서 바운드 따라가기(Bounds Following) 기능이 개선되었습니다 - ** 이제 랙 없이 따라갑니다.
 
-* **Added ability to change the Retarget Source inside a Pose Asset** - Pose Assets now save the original Source Pose so that it can recalculate a new pose when Retarget Source changes. Retarget Source is used to bake the pose asset delta transform, so you will need to make sure you have the right Retarget Source if you are using the same asset for different meshes. 
+* **포즈 애셋 내에서 리타깃 소스를 변경하는 기능을 추가했습니다- ** 포즈 애셋은 원본 소스 포즈를 저장하므로 리타깃 소스 변경시 새 포즈를 다시 계산할 수 있습니다. 리타깃 소스는 포즈 애셋 델타 트랜스폼을 굽는 데 사용되므로, 서로 다른 메시에 대해 동일한 애셋을 사용하는 경우 올바른 리타깃 소스가 있는지 확인해야 합니다.
 
-* **Configurable mesh paint vertex size** - Added mesh paint settings to per-user settings, and added preview vertex size, so that it's configurable by the user for use on different-size meshes.
+* **환경설정에 메시 페인트 버텍스 크기 지정이 가능합니다- ** 사용자 별 설정에 메시 페인트 설정을 추가하고 미리보기 버텍스 크기를 추가하여 사용자가 환경설정에서 각기 다른 크기의 메시에 대해 지정할 수 있습니다.
 
-* **Changed animation preview tooltips in Persona to stop loading the animation if it is not already loaded**
+* **페르소나에서 애니메이션 미리보기 툴팁을 변경하여 애니메이션이 로드되지 않은 경우 로드를 중지합니다.** 
 
-* **Preview buttons are now present where applicable in animation editors - **If relevant, Preview Mesh, Preview Animation and Reference Pose are all editable via the toolbar.
+* **이제 미리보기 버튼은 애니메이션 에디터에서 사용 가능한 곳에만 나타납니다 -** 미리보기 메시, 애니메이션 미리보기 및 참조 포즈는 모두 툴바를 통해 편집할 수 있습니다.
 
-* **Added Search bar to Advanced Preview Scene settings panel**
+* **고급 프리뷰 씬 세팅 패널에 검색창을 추가했습니다.** 
 
-* **Added Context Menu to HLOD level nodes in HLOD outliner treeview** - This allows creating a new cluster from the current level viewport selection.
+* **HLOD 아웃라이너 트리 뷰의 HLOD 레벨 노드에 맥락 메뉴를 추가했습니다 -** 현재 레벨 뷰포트 선택에서 새 클러스터를 만들 수 있습니다.
 
-* **Added a hotkey and command for toggling Post Processing in Preview Scenes**
+* **프리뷰 씬에서 포스트 프로세싱을 토글하기 위한 단축키 및 명령을 추가했습니다.** 
 
-* **Added a new shortcut for switching foreground and background colors in the Mesh Painter** - By default the shortcut is bound to the ‘X’ Key when the Mesh Painter is active.
+* **메시 페인터에서 전경색과 배경색을 전환하는 단축키를 추가했습니다 - ** 기본적으로 메시 페인터가 활성화되면 X 키가 단축키로 설정됩니다.
 
-* **Material Baking has been moved out of the experimental phase**
+* **머티리얼 굽기(Baking)가 실험단계를 벗어났습니다.** 
 
-* **Added support for RGBA Masks in Mesh Painter** - This allows the use of RGBA channels as masks while using the fill tool inside of the Mesh Painter.
+* **메시 페인터에 RGBA 마스크 지원 추가 -** 메시 페인터 내부의 채우기 도구를 사용하는 도중 RGBA 채널을 마스크로 사용할 수 있습니다.
 
-* **Added 'GetSectionFromProceduralMesh' utility function for ProceduralMeshComponent**
+* **ProceduralMeshComponent (프로시저럴 메시 컴포넌트)에 'GetSectionFromProceduralMesh' (프로시저럴 메시에서 섹션 구하기) 유틸리티 함수를 추가했습니다.** 
 
-* **Notifies on follower animations in a sync group** - Added flag to allow notifies to be triggered on follower animations in a Sync Group.
+* **동기화 그룹 내의 팔로워 애니메이션에 노티파이를 설정할 수 있도록 플래그를 추가했습니다.** 
 
-* **Reduced Logging verbosity when cooking all assets** - Only log 2 lines per asset instead of 4.
+* **모든 애셋 쿠킹 시 로그의 상세 정도를 줄였습니다 ** - 기존 애셋 당 4줄 출력되던 것이 현재 2 줄 출력됩니다.
 
-* **Exposed Damping and Stiffness as pins on Spring AnimNode** - Spring Anim Node now allows exposing the Spring Damping and Spring Stiffness as pins.
+* **Spring AnimNode의 강성(Stiffness)과 감쇠(Damping)를 핀으로 노출하였습니다 -** 스프링 애님 노드에서 스프링 감쇠 및 스프링 강성을 핀으로 노출 하였습니다.
 
-## New: Motion Controller Component Visualization
+### 신규 : 모션 컨트롤러 컴포넌트 시각화
 
-Motion Controllers in Unreal Engine 4.19 now have a new Visualization category that enables you to quickly (and more easily) add a display model Static Mesh to your Motion Controllers. By default, the system attempts to load a Static Mesh model matching the device driving the Motion Controller.
+언리얼 엔진 4.19 의 모션 컨트롤러에는 빠르게 (그리고 더 쉽게) 시각화용 스태틱 메시를 추가할 수 있는 Visualization (시각화) 카테고리가 추가되었습니다. 기본적으로 시스템은 연결된 모션 컨트롤러와 동일한 스태틱 메시 모델을 로드 시도합니다.
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -600,115 +599,115 @@ Motion Controllers in Unreal Engine 4.19 now have a new Visualization category t
 	[/PARAMLITERAL]
 [/OBJECT]
 
-* Motion Controller components now have new visualization fields that offer the following options: *Display Device Model*, *Display Model Source*, *Custom Display Mesh*, and *Display Mesh Material Overrides*.
+* 메시 컨트롤러 컴포넌트에 새로 추가된 시각화 관련 옵션은 다음과 같습니다: *디바이스 모델 표시, 모델 소스 표시, 커스텀 디스플레이 메시, 디스플레이 메시 머티리얼 오버라이드* 
 
-    * *Custom Display Mesh* is only available when *Display Model Source* is set to "Custom".
+   * *커스텀 디스플레이 메시(Custom Display Mesh)*  는 *디스플레이 모델 소스(Display Model Source)*  가 "커스텀(Custom)"으로 설정된 경우에만 사용할 수 있습니다.
 
-    * For more complicated, custom models, manually attach your own Static Mesh model.
+   * 보다 복잡한 커스텀 모델의 경우, 직접 스태틱 메시 모델을 붙이세요.
 
-    * ‘*Display Model Source*’ can be manually set if the target XR system isn’t loaded.
+   * 타깃 XR 시스템이 로드되지 않은 경우 '디스플레이 모델 소스'를 수동으로 설정할 수 있습니다.
 
-* By default, when empty, ‘*Display Model Source*’ will attempt to load a model from the backing XR system.
+* 기본적으로 '디스플레이 모델 소스'는 비어있는 경우 배후의 XR 시스템에서 모델을 로드 시도합니다.
 
-    * Distinct XR systems support this feature by implementing the IXRSystemAssets interface - currently, only Oculus and SteamVR support this functionality.
+   * 별개의 XR 시스템은 IXRSystemAssets 인터페이스를 구현하여 이 기능을 지원합니다. 현재 Oculus 및 SteamVR 만 이 기능을 지원합니다.
 
-## New: Vive Pro Support
+### 신규 : Vive Pro 지원
 
 ![image alt text](image_32.jpg)(w:1000 convert:false)
 
-All existing UE4 content that supports SteamVR is compatible with HTC’s newly-announced Vive Pro!  While no modifications are necessary to use the Vive Pro with your existing UE4 project, you will need to check the performance of your UE4 project with the Vive Pro and optimize accordingly as the Vive Pro operates at a higher resolution. 
+SteamVR 을 지원하는 모든 기존 UE4 컨텐츠는 HTC 가 새롭게 발표한 Vive Pro 와 호환됩니다! Vive Pro 는 별도의 수정 없이 기존 UE4 프로젝트를 사용할 수 있지만, 더 높은 해상도에서 작동하므로 그에 맞게 퍼포먼스를 확인하고 최적화시켜 줘야 할 것입니다.
 
-## New: Platform SDK Upgrades
+### 신규 : 플랫폼 SDK 업그레이드
 
-In every release, we update the engine to support the latest SDK releases from platform partners.
+모든 언리얼 엔진 릴리즈마다 플랫폼 파트너의 최신 SDK 릴리즈를 지원하도록 업데이트합니다.
 
 ![image alt text](image_33.jpg)(w:1000 convert:false)
 
-* **IDE Version the Build farm compiles against**
+* **빌드 팜에서 컴파일되는 IDE 버전**
 
-    * **Visual Studio:**  Visual Studio 2015 Update 3
+    * **Visual Studio** :Visual Studio 2015 업데이트 3
 
-    * **Xcode:**  Xcode 9.2
+    * **Xcode** : Xcode 9.2
 
-* **Android:  **
+* **Android** : 
 
-    * NDK 12b (New CodeWorks for Android 1r6u1 installer will replace previous CodeWorks for Android 1R5 before release, still on NDK 12b)
+    * NDK 12b (Android 1r6u1 용 새 CodeWorks가 이전 CodeWorks for Android 1R5를 대체합니다. 여전히 NDK 12b를 사용합니다.)
 
-* **HTML5:** emscripten toolchain to 1.37.19
+* **HTML5** : emscripten toolchain 1.37.19
 
-* **LInux:** v11_clang-5.0.0-centos7
+* **Linux** : v11_clang-5.0.0-centos7
 
-* **Steam:** 1.39
+* **Steam** : 1.39
 
-* **Oculus Runtime:** 1.17
+* **Oculus Runtime** : 1.17
 
-* **SteamVR:** 1.39
+* **SteamVR** : 1.39
 
-* **Switch:** 3.7.0 with NEX: 4.3.1 (optional), 4.5.0 with NEX 4.3.1 (optional); Firmware Version 3.0.1-1.0
+* **Switch: ** 3.7.0 + NEX 4.3.1 (선택 사항), 4.5.0 + NEX 4.3.1 (선택 사항), 펌웨어 버전 3.0.1-1.0
 
-* **PS4:**
+* **PS4** :
 
     * 5.008.071
 
-    * Firmware Version 4.730.001
+    * 펌웨어 버전 4.730.001
 
-    * Supported IDE: Visual Studio 2015, Visual Studio 2013
+    * 지원되는 IDE : Visual Studio 2015, Visual Studio 2013
 
-* **Xbox One (XB1, XB1-S, XB!-X):**
+* **Xbox One (XB1, XB1-S, XB1-X)** :
 
-    * XDK: June 2017 QFE9 
+    * XDK: June 2017 QFE9
 
-    * Firmware Version: October 2017 Preview 3 (version 16291.1000.170913-1900)
+    * 펌웨어 버전 : October 2017 Preview 3 (버전 16291.1000.170913-1900)
 
-    * Supported IDE: Visual Studio 2017
+    * 지원되는 IDE : Visual Studio 2017
 
-* **macOS:** SDK 10.13
+* **macOS** : SDK 10.13
 
-* **iOS:** SDK 11
+* **iOS** : SDK 11
 
-* **tvOS:** SDK 11
+* **tvOS** : SDK 11
 
-## New: Low Input Latency Frame Syncing (Xbox One and PlayStation 4)
+### 신규 : 입력 지연시간 낮은 프레임 동기화 (Xbox One 및 PlayStation 4)
 
-Low-latency frame syncing mode modifies the way thread syncing is performed between the game, rendering and RHI threads, and the GPU to greatly reduce and control input latency. The effects of Low-latency frame syncing can be controlled using the r.GTSyncType (game thread sync type) console variable. This console variable drives how the new frame syncing mechanism works and allows the following values:
+지연시간 낮은 프레임 동기화(low-latency frame syncing) 모드는 게임, 렌더링, RHI 스레드 및 GPU 간에 스레드 동기화를 수행하는 방식을 수정하여 입력 지연시간을 크게 줄여 제어합니다. 지연시간 낮은 프레임 동기화의 효과는 r.GTSyncType 콘솔 변수를 사용하여 제어할 수 있습니다. 이 콘솔 변수는 새 프레임 동기화 메커니즘이 작동하는 방식을 결정합니다. 아래 값으로 설정할 수 있습니다:
 
-* 0 - Game thread syncs with rendering thread (old behavior, and default)
+* 0 - 게임 스레드가 렌더링 스레드와 동기화 (예전 작동방식, 기본값)
 
-* 1 - Game thread syncs to the RHI thread (equivalent to UE4 before parallel rendering)
+* 1 - 게임 스레드가 RHI 스레드에 동기화 (병렬 렌더링 이전의 UE4 에 해당)
 
-* 2 - Game thread syncs with the swap chain present +/- an offset in milliseconds (only available on supported platforms, and only works when vsync is enabled)
+* 2 - 게임 스레드가 스왑 체인으로 밀리초 단위 +/- 오프셋을 주고 동기화 (지원되는 플랫폼 전용, vsync 활성화 상태에서만 작동)
 
-For additional information, see the [Low Latency Frame Syncing](https://docs.unrealengine.com/en-us/Platforms/LowLatencyFrameSyncing) page.
+자세한 내용은 [Low Latency Frame Syncing](https://docs.unrealengine.com/en-us/Platforms/LowLatencyFrameSyncing) 페이지를 참조하십시오.
 
-## New: Encryption/Signing Key Generator
+### 신규 : 암호화/사이닝 키 생성기
 
-It is now possible to **configure .pak file signing and encryption fully from the Editor** via a single unified settings panel. These features can now be controlled in Project Settings, under the Project section, in the Crypto panel.
+이제는 단일 통합 세팅 패널을 통해 **에디터에서 .pak 파일 서명 및 암호화를 완벽하게 구성** 할 수 있습니다. 이 기능들은 프로젝트 세팅 > 프로젝트 섹션 > 암호화 패널(Crypto)에서 설정 할 수 있습니다.
 
 ![image alt text](image_34.png)(w:577 convert:false)
 
-From this panel, it is possible to generate or clear keys for either signing or encryption, as well as enable or disable the various types of signing and encryption that are available. The following features can be activated or deactivated from this menu:
+이 패널에서 서명 또는 암호화를 위한 키를 생성하거나 지울 수 있으며, 다양한 유형의 서명 및 암호화를 활성화 또는 비활성화 할 수 있습니다. 이 메뉴에서 가능한 작업은 다음과 같습니다:
 
-* **Encrypt Pak .ini Files** - Encrypts all .ini files that exist in your project’s .pak files. This will prevent easy mining or tampering with configuration data for your product, at minimal runtime cost.
+* **Pak .ini 파일 암호화** - 프로젝트의 .pak 파일에있는 모든 .ini 파일을 암호화합니다. 이렇게하면 최소한의 런타임 비용으로 제품의 구성 데이터를 쉽게 마이닝하거나 변경하는 것을 방지할 수 있습니다.
 
-* **Encrypt Pak Index** - Encrypts the pak file index, which prevents UnrealPak from opening, viewing, and unpacking your product’s pak files, at minimal runtime cost.
+* **Pak Index 암호화** - pak 파일 인덱스를 암호화하여 최소한의 런타임 비용으로 UnrealPak 이 제품의 pak 파일을 열거나 읽거나 언패킹하지 못하게 합니다.
 
-* **Encrypt UAsset Files** - Encrypts the uasset files in the pak file. uasset files contain header information about the assets inside, but not the actual asset data itself. Encrypting this data provides extra security to your data, but does add a small runtime cost and an increase in data entropy which can have a negative impact on patch sizes.
+* **Uasset 파일 암호화** - pak 파일의 uasset 파일을 암호화합니다. uasset 파일에는 실제 애셋 데이터 자체가 아닌 애셋에 대한 헤더 정보가 들어 있습니다. 이 데이터를 암호화하면 데이터에 대한 보안이 강화되지만 런타임 비용이 조금 추가되고 데이터 엔트로피가 증가하여 패치 크기에 악영향을 줄 수 있습니다.
 
-* **Encrypt Assets** - Fully encrypts all Assets within the pak file. Please note that this setting will have a measurable effect on run-time file I/O performance, and increases the amount of entropy in your final packaged data, making the distribution patching system less efficient.
+* **Encrypt Assets** - pak 파일 내의 모든 Asset 을 완전히 암호화합니다. 이 설정은 런타임 파일 읽기/쓰기 퍼포먼스에 상당한 영향을 미치며 최종 패키지 데이터의 엔트로피 양을 늘려 배포 패치 시스템의 효율성을 떨어뜨립니다.
 
-## New: Call Stack Display for Blueprint Debugging
+### 신규 : 블루프린트 디버깅을 위한 콜스택 표시
 
-A control that displays the current Blueprint Call Stack has been added to the Developer Tools menu. Double-clicking entries in the Call Stack will focus the corresponding node in the Blueprint Editor.
+현재 블루프린트 호출 스택을 표시하는 컨트롤이 개발자 도구 메뉴에 추가되었습니다. 콜스택에서 항목을 두 번 클릭하면 블루프린트 에디터 속 해당 노드로 바로 이동합니다.
 
 ![image alt text](image_35.png)(w:1000 convert:false)
 
-## New: Single stepping improvements to Blueprint Debugging
+### 신규 : 블루프린트 디버깅시 싱글 스텝 기능 개선
 
-The Engine’s Blueprint Debugger now supports **Step Into (F11)**, **Step Over (F10)**, and **Step Out (Alt+Shift+F11)** operations when stopped at a Blueprint Breakpoint, making debugging sessions quicker and easier.
+엔진의 블루프린트 디버거는 블루프린트 중단점에서 멈추었을 때 **스텝 인(Step Into, F11) , 스텝 오버(Step Over, F10) 및 스텝 아웃(Step Out, Alt + Shift + F11)** 기능을 지원하여 디버깅 세션을 더 빠르고 쉽게 할 수 있습니다.
 
 ![image alt text](image_36.png)(w:1000 convert:false)
 
-In addition, we have added the ability to break directly on, and step into, over, or out of, macros and collapsed graph nodes:
+또한 매크로와 접힌 그래프 노드를 더 세분화해서 살펴보거나, 넘어갈 수 있는 기능을 제공합니다:
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
@@ -728,151 +727,151 @@ In addition, we have added the ability to break directly on, and step into, over
 	[/PARAMLITERAL]
 [/OBJECT]
 
-## New: Improved Tools For Optimizing Disk Size
+### 신규 : 디스크 크기 최적화 도구 개선
 
-Several tools have been added or improved to help analyze disk and download sizes for packaged games. The Asset Audit window has a new "Add Chunks" option which shows all packaged Chunk/Pak files, and the Reference Viewer and Size Map can be used from that view to analyze why Assets are being cooked into a specific chunk.
+패키지 게임의 디스크 및 다운로드 크기를 분석하는 데 도움이 되는 몇 가지 도구가 추가되거나 향상되었습니다. 애셋 검사(Audit Asset) 창에는 패키지의 모든 청크 / Pak 파일을 보여주는 새로운 "청크 추가(Add Chunks)" 옵션이 있으며 레퍼런스 뷰어와 사이즈 맵을 통해 왜 애셋이 특정 청크로 분할되는지 그 이유를 분석 할 수 있습니다.
 
-The Size Map tool has been changed to show Disk Size by default, which is more accurate than the estimated memory size. If a platform is selected in the Asset Audit window, the actual cooked size for that platform will be shown. The Size Map’s user interface has also been improved to support right-click operations and better performance.
+사이즈 맵 도구가 기본적으로 디스크 크기를 표시하도록 변경되어 예상 메모리 크기보다 더 정확합니다. 애셋 검사 창에서 플랫폼을 선택하면 해당 플랫폼에서 실제 쿠킹된 크기가 표시됩니다. 사이즈 맵의 사용자 인터페이스는 마우스 오른쪽 버튼을 더 잘 지원하도록, 그리고 더 좋은 성능을 내도록 개선되었습니다.
 
 ![image alt text](image_38.png)(w:1000 convert:false)
 
-## New: Audio Improvements
+### 신규 : 오디오 기능 향상
 
-**Upgrade to Steam Audio Beta 10 (New Audio Engine Only)**
+**Steam Audio Beta 10 (새 오디오 엔진 전용)으로 업그레이드되었습니다.** 
 
 ![image alt text](image_39.png)(w:361 convert:false)
 
-Along with the update to Steam Audio (Beta 10 Release), improvements include:
+Steam Audio (Beta 10 Release)에 대한 업데이트와 함께 향상된 기능은 다음과 같습니다:
 
-* Android support for spatialization and occlusion
+* 안드로이드에 공간화 및 차폐(occulusion)가 지원됩니다.
 
-* Editor mode for easy access to Steam Audio functionality
+* Steam Audio 기능을 쉽게 접할 수 있는 에디터 모드가 제공됩니다.
 
-* Buttons to add and remove Phonon Geometry Components to all Static Mesh Actors
+* Phonon Geometry 컴포넌트를 모든 스태틱 메시 액터에 추가/제거하는 버튼이 생겼습니다.
 
-* Button to export the scene to .obj for debugging
+* 디버깅을 위해 씬을 .obj로 익스포트 하는 버튼이 추가되었습니다.
 
-* Removed Phonon Scene actor in favor of export to file
+* 파일로 익스포트 하기 위해 Phonon Scene 액터를 삭제했습니다.
 
-* Probe generation and baking writes data to disk, to avoid slow loading and saving of map files
+* 프로브 생성 및 굽기는 로딩과 맵 파일 저장이 느려지는 것을 피하기 위해 데이터를 디스크에 기록합니다.
 
-* Numerous information display improvements
+* 다양한 정보 표시가 개선되었습니다.
 
-* Numerous bug fixes
+* 수많은 버그가 수정되었습니다.
 
-**Oculus Audio Updates (New Audio Engine Only)**
+**Oculus 오디오 업데이트 (새로운 오디오 엔진 전용)** 
 
 ![image alt text](image_40.png)(w:356 convert:false)
 
-Oculus Audio plugin has been updated with support for Android.
+Oculus Audio 플러그인이 Android 에 대한 지원을 포함하여 업데이트되었습니다.
 
-In addition to providing HRTF spatialization, we now support Oculus Audio’s room modeling reverb with volumetric parameters as well as Ambisonics Source playback.  
+HRTF 공간화를 제공하는 것 외에도 Oculus Audio 의 룸 모델링 리버브는 볼류매트릭 파라미터 및 Ambisonics Source 재생을 지원합니다.
 
-**Added Resonance Audio Plugin (New Audio Engine Only)**
+**Resonance Audio Plugin 추가 (새 오디오 엔진 전용)** 
 
 ![image alt text](image_41.jpg)(w:340 convert:false)
 
-The Resonance Audio plugin for Unreal is now included as part of the Engine Plugins in UE 4.19. The Resonance Audio Plugin supports binaural spatialization, reverberation, sound directivity, and ambisonics playback on Windows, iOS, Android, Linux, and Mac. 
+언리얼용 Resonance Audio 플러그인은 이제 UE 4.19의 엔진 플러그인의 일부로 포함되었습니다. Resonance Audio 플러그인은 Windows, iOS, Android, Linux 및 Mac에서 스테레오 공간화, 반향, 사운드 지향성 및 앰비소닉스 재생을 지원합니다.
 
-**First-Order Ambisonics File Support (Playback supported through plugins)**
+**First-Order Ambisonics 파일 지원 (플러그인을 통해 지원되는 재생)** 
 
-First-order Ambisonics files can now be imported into Unreal projects and played back using select Spatialization plugins. First-Order Ambisonics is a spherical surround format that offers forward, right, and upward vectors of a sound field allowing designers to create Surround Sound experiences that include vertical sound orientation.  This is useful for VR, where users will experience natural changes in vertical sound fields by tilting their heads or for any other interactive experience where user orientation allows changes in the vertical.  Users can import 4 channel First-Order Ambisonics files by including the FuMa or AmbiX (the two First-Order Ambisonics channel configurations) tag in their file name. Oculus Audio and Google Resonance both have ambisonics playback implementations.
+First-Order Ambisonics 파일은 이제 언리얼 프로젝트로 가져와 선택한 공간화 플러그인을 사용하여 재생할 수 있습니다. First-Order Ambisonics 는 음장의 전방, 오른쪽 및 상향 벡터를 제공하는 구형 서라운드 형식으로, 설계자는 수직 사운드 방향을 포함한 서라운드 사운드 환경을 만들 수 있습니다. 이 기능은 사용자가 머리를 기울여 수직 음장의 자연스러운 변화를 경험하도록 하거나, 사용자가 머리 방향이 수직으로 바뀔 수도 있는 다른 인터랙티브 환경에서 VR 을 사용할 때 유용합니다. 사용자는 파일 이름에 FuMa 또는 AmbiX (2가지 First-Order Ambisonics 채널 구성) 태그를 포함시켜 4채널 First-Order Ambisonics 파일을 가져올 수 있습니다. Oculus Audio 와 Google Resonance 모두 앰비소닉 재생이 구현되어 있습니다.
 
-**Improvements to UE4's native VOIP implementation (New Audio Engine Only)**
+**UE4 내장 VOIP 구현 개선 (새 오디오 엔진 전용)** 
 
-Our native VOIP implementation has been improved to provide better coherency including improved silence detection on Windows.  Additionally, we now support bringing VOIP sources into the scene allowing for:
+내장 VOIP 구현이 개선되어 Windows 에서 무음 감지 기능이 향상되고 간섭성이 개선됩니다. 또한 VOIP 소스를 씬에 가져오기가 지원되어 아래와 같은 것들이 가능합니다:
 
-* Spatialization
+* 공간화(Spatialization)
 
-* Distance Attenuation
+* 거리 감쇠(Distance Attenuation)
 
-* Reverb
+* 반향(Reverb)
 
-* Custom Source Effects
+* 임의 음원 효과(Custom Source Effects)
 
-All controlled using the UVoipTalker scene component.
+모두 UVoipTalker 씬 컴포넌트로 제어합니다.
 
-**New microphone capture component  (New Audio Engine Only) (Windows Only)**
+**새 마이크 캡처 컴포넌트 (새 오디오 엔진 전용) (Windows 전용)** 
 
-We have implemented a Microphone Capture Component which allows:
+Microphone Capture Component (마이크 캡처 컴포넌트)를 구현하여, 다음과 같은 것들이 가능합니다:
 
-* Feeding audio directly into a game for use with the Audio Mixer
+* 오디오를 오디오 믹서에서 사용할 수 있도록 게임에 바로 물려줍니다.
 
-* Driving in-game parameters using real-time amplitude data.
+* 실시간 진폭 데이터를 사용하여 게임 내 파라미터를 구동합니다.
 
-* Processing audio with Source Effects or Submix Effects.
+* 소스 이펙트 또는 서브믹스 이펙트로 오디오를 처리합니다.
 
-Currently, this is only for local client microphone capture and is not connected to the VoIP system
+현재 로컬 클라이언트 마이크 캡처에만 사용되며 VoIP 시스템에는 연결되어 있지 않습니다.
 
-While it doesn't support recording microphone output directly to assets at the moment, there are opportunities 3rd party plugin developers to take advantage of data from a microphone input.
+현재 마이크 출력을 직접 녹음하여 애셋으로 저장하는 기능은 지원하지 않지만 서드 파티 플러그인 개발자가 마이크 입력 데이터를 활용할 수 있는 방법이 있습니다.
 
-**Get real-time audio amplitude as Blueprint data (New Audio Engine Only)**
+**블루프린트 데이터로 실시간 오디오 진폭 가져 오기 (새 오디오 엔진 전용)** 
 
-Added ability to get amplitude envelope data, directly following audio components and synth components through BP delegates.
+진폭 엔벨로프 데이터를 구하는 기능을 추가했습니다. 블루프린트 델리게이트를 통해 오디오 컴포넌트 및 신디 컴포넌트를 바로 따라갑니다.
 
 ![image alt text](image_42.png)(w:564 convert:false)
 
-**Pre and Post Source Effect Bus Sends Types**** ****(New Audio Engine Only)**
+**프리 / 포스트 소스 이펙트 버스 전송 유형 (새로운 오디오 엔진 전용)** 
 
-We have added Pre- and Post- Source Effect Bus Sends types allowing designers to send Source audio to Source Busses both before and after Source Effect and Attenuation processing.
+Pre-/Post-Source Effect Bus Sends 타입을 추가하여 설계자가 소스 이펙트와 감쇠 프로세싱 전/후에 소스 버스로 소스 오디오를 보낼 수 있습니다.
 
-**Added support for Multichannel file import**
+**멀티채널 파일 임포트 지원** 
 
-We now support importing interleaved multichannel wav files directly into the browser (in addition to the legacy method using multiple mono files).
+이제 인터리브 멀티채널 wav 파일을 브라우저로 직접 가져 오는 기능이 (다수의 모노 파일을 사용하는 기존 방식에 추가로) 지원됩니다.
 
-**Sample rate control on synths**
+**신디에서 샘플링 속도 제어** 
 
-We have added the ability for synthesizers to modify their requested sample rate on initialization allowing synth sources to specify their own sample rate.
+신디사이저가 초기화시 요청된 샘플링 속도를 변경하여 신디 소스가 별도의 샘플링 속도를 지정할 수 있도록 하는 기능을 추가했습니다.
 
-**Improved cross-platform audio plugins (New Audio Engine Only)**
+**향상된 크로스 플랫폼 오디오 플러그인 (새로운 오디오 엔진 전용)** 
 
-We now allow multiple audio plugin source settings so users can have different settings for different plugins which is especially useful for designers working on multi-SKU products where different plugins will be used on different platforms.
+이제 사용자는 오디오 플러그인 소스 세팅을 여러 개 만들어 각기 다른 플러그인에 각기 다른 세팅을 가질 수 있습니다. 이는 각기 다른 플랫폼마다 각기 다른 플러그인을 사용하는 멀티 SKU 제품으로 작업하는 디자이너에게 특히 유용합니다.
 
-We have also added Plugin drop down menus for PS4 and Switch platform settings for added convenience.
+플러그인 드롭다운 메뉴에 PS4 및 Switch 플랫폼 세팅을 추가하여 편리해졌습니다.
 
-**Adding a panner source effect**
+**패너 소스 이펙트 추가** 
 
-This Source Effect will allow designers the ability to drive stereo panning values from Blueprints as a Source Effect. This allows you to change the pan of a mono or stereo 3d or 2d source.
+이 소스 이펙트를 통해 디자이너는 블루프린트에서 스테레오 패닝 값을 소스 이펙트로 구동시킬 수 있습니다. 모노 또는 스테레오 3d / 2d 소스의 패닝을 변경할 수 있습니다.
 
-## New: Physics Improvements
+### 신규 : 피직스 개선
 
-Several improvements and optimizations have been made to the physics system to make simulating physical objects easier and efficient!
+피직스 오브젝트를 보다 쉽고 효율적으로 만들기 위해 피직스 시스템에 몇 가지 개선 및 최적화가 이루어졌습니다!
 
-* **Added "Show Only Selected Constraints" to the physics asset editor**
+* **피직스 애셋 에디터에 "선택된 컨스트레인트만 표시(Show Only Selected Constraints)" 옵션이 추가되었습니다.** 
 
-* **Added Ctrl+T keyboard shortcut to toggle between Body and Constraint Selection**
+* **바디와 컨스트레인트 선택을 전환하는 Ctrl+T 키보드 단축키가 추가되었습니다.** 
 
-* **Added "Set Use CCD" function for changing Continuous Collision Detection option at run-time**
+* **런타임에서 Continuous Collision Detection (연속 충돌 감지) 옵션을 변경하기위한 "Set Use CCD" (CCD 사용 설정) 기능이 추가되었습니다.** 
 
-* **Saved BodyInstance runtime memory - **Removed FBodyInstance::ResponseToChannels_DEPRECATED property from non-Editor Builds to save memory.
+* **바디인스턴스 런타임 메모리 절약** - 에디터가 아닌 빌드에서 FBodyInstance :: ResponseToChannels_DEPRECATED 속성을 제거하여 메모리를 절약했습니다.
 
-* **Added functions to SpringArmComponent to get relevant status of the collision test**.
+* **콜리전 테스트의 연관성 상태를 얻기 위한 함수를 SpringArmComponent 에 추가했습니다.** 
 
-* **Added the ability to profile scene query hitches - **Using p.SQHitchDetection console variable
+* **씬 쿼리 히치 프로파일링을 위한 기능 추가 ** - p.SQHitchDetection 콘솔 변수를 사용합니다.
 
-* **Exposed some PhysicsAsset functionality to be more extensible in C++**
+* **C++ 에서 추가 확장 가능하도록 일부 PhysicsAsset 기능을 노출시켰습니다.** 
 
-* **Improved information in HitResult in case of initial overlap - **ImpactPoint will now contain information from PhysX on deepest overlap point. 
+* **초기 오버랩 시 HitResult 정보 개선** - 이제 겹친 점들 중 가장 깊이 위치한 것의 PhysX 정보가 ImpactPoint 에 포함됩니다.
 
-* **Engine now compiles cleanly without PhysX - **Can set WITH_PHYSX define directive to 0 and compile without errors. 
+* **PhysX 없이도 깨끗한 엔진 컴파일** - #define WITH_PHYSX 0 으로 설정하면 오류없이 컴파일할 수 있습니다.
 
-## New: Automatic Code Signing on iOS
+### 신규 : iOS에서 자동 코드 서명
 
-Automatic Code Signing (ACS) when using Xcode has now been introduced in UE4.19. ACS plus a Team ID allows a package to be created and signed for an iOS project. This also works when there are no mobile provisions pre-installed on the Mac but the Mac must contain the certificates. A development team will still need to add iOS devices to their Apple account in order to deploy their apps, but they will no longer need to download and install mobile provisions on to a Mac if they use this feature. 
+Xcode 를 사용할 때 자동 코드 사이닝(ACS) 기능이 UE 4.19 에 도입되었습니다. ACS 와 Team ID 를 함께 사용하면 iOS 프로젝트용 패키지를 만들고 signing 할 수 있습니다. 이 기능은 Mac에 인증서가 있을 때 미리 설치된 mobile provision 없어도 사용할 수 있습니다. 개발 팀은 앱을 설치할 iOS 기기를 Apple 계정에 추가하여야 하지만 이 기능을 사용하는 경우 더 이상 Mac에 mobile provision 을 다운로드하여 설치할 필요가 없습니다.
 
-## New: Android 4.19 Improvements
+### 신규 : Android 4.19 개선 사항
 
-* Added Proxy network support.
+* 프록시 네트워크를 지원합니다.
 
-* Added a new pop up box that will inform you if the mobile project you are running is using an unsupported Texture format and also let you know what texture formats are supported
+* 기기에서 지원되지 않는 텍스처 형식을 사용하는 모바일 프로젝트에서 실행 중 지원되는 텍스처 형식을 알려주는 새로운 팝업 상자가 추가되었습니다.
 
-* Added NDK and SDK platform validation before you compile and pack your project to let you know sooner if the build has failed or not.
+* 빌드가 실패했는지 여부를 빨리 알 수 있도록 프로젝트를 컴파일하고 압축하기 전에 NDK 및 SDK 플랫폼 유효성 검사가 추가되었습니다.
 
-## New: Folder Favorites for the Content Browser
+### 신규 : 콘텐츠 브라우저의 폴더 즐겨 찾기
 
-You can now **mark any folder in your Content Browser as a "favorite"** to make it easily accessible! When a folder is marked as a favorite, it will populate under the new "Favorites" section located above the folder tree. Simply right-click to add or remove folders from this section.
+이제 **콘텐츠 브라우저에서 폴더를 즐겨찾기로 설정** 하면 쉽게 접근하도록 만들 수 있습니다. 폴더를 즐겨찾기 설정하면 폴더 트리 위에있는 새로운 "Favorites" (즐겨찾기) 섹션 아래에 폴더가 채워집니다. 이 섹션의 폴더에 우클릭하는 것만으로 추가 또는 제거할 수 있습니다.
 
-The "Favorites" section of the Content Browser can be enabled/disabled using the View Options for Show Favorites. This feature is enabled by default.
+콘텐츠 브라우저의 즐겨찾기 섹션은 ‘뷰 옵션’ 중 ‘즐겨찾기 표시’ 옵션으로 켜고 끌 수 있습니다. 이 기능은 기본적으로 켜져 있습니다.
 
 [REGION:asyncgif]
 ![image alt text](image_43.gif)(w:600 convert:false)
@@ -880,11 +879,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 ## RELEASE NOTES
 
-#### AI
+### AI
 
 * Bug Fix: Fixed the On Perception Updated delegate to be correctly bindable to AI Perception Component.
 
-##### Behavior Tree
+#### Behavior Tree
 
 * Bug Fix: Changed the order of the Behavior Tree tick to allow Blueprint-based nodes to update before processing search data.
 
@@ -896,7 +895,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added a simple mechanism for logging Behavior Tree** **nodes that reference empty or removed Blackboard keys.
 
-##### Debugging Tools
+#### Debugging Tools
 
 * New: Extended the EQS Testing Pawn with an option to specify navigation agent properties to support navigation-related EQS tests and features.
 
@@ -904,7 +903,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed some existing Visual Logging Blueprint functions.
 
-##### Navigation
+#### Navigation
 
 * Bug Fix: Fixed cases where changes to Nav Mesh Bounds Volumes properties were not causing Nav Mesh to rebuild.
 
@@ -912,7 +911,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Made updates to allow the proper use of Nav Link Component via Blueprints.
 
-#### Animation
+### Animation
 
 * Crash Fix: Fixed a crash when opening Animation Compression settings for newly imported Alembic File.
 
@@ -1000,7 +999,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Skeletal Mesh Render Data Get Max Bones Per Section is now an ENGINE_API exported function.
 
-##### Animation Assets
+#### Animation Assets
 
 * Crash Fix: Fixed a crash with streaming if a montage is streamed out while an event is queued.
 
@@ -1040,7 +1039,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added inline time/frame settings to notify context menu.
 
-##### Animation Blueprints
+#### Animation Blueprints
 
 * Crash Fix: Loading an Anim Instance with a re-instanced class no longer crashes.
 
@@ -1074,7 +1073,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Deprecated: Get Scalar Parameter Default has been deprecated and replaced with Get Scalar Parameter Default Value.
 
-##### Animation Tools
+#### Animation Tools
 
 * Crash Fix: Removing bones in a LOD on a Skeleton that has Virtual Bones no longer crashes.
 
@@ -1120,11 +1119,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Moved Live Link Message Bus Source heartbeats to their own thread using a new  Heartbeat Manager singleton. This prevents sources from incorrectly being removed during Slate UI operations.
 
-##### Import/Export
+#### Import/Export
 
 * New: Refactored Facial Animation importing so it can be used from inside other modules.
 
-##### Skeletal Mesh
+#### Skeletal Mesh
 
 * Crash Fix: Undoing a change on a Skeletal Mesh that uses Virtual Bones no longer crashes.
 
@@ -1146,7 +1145,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: You can set attached and parent to sync their LOD by setting Sync Attach Parent LOD to true.
 
-##### Tools
+#### Tools
 
 * Crash Fix: Skeletal Mesh Editor no longer crashes when importing more than 5 LODs.
 
@@ -1186,7 +1185,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added a search bar to the Advanced Preview Scene settings panel.
 
-#### Audio
+### Audio
 
 * Crash Fix: Fixed an issue with VOIP crashing on Mac.
 
@@ -1274,7 +1273,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added "Owner" parameter to Play Sound At Location and Play Sound 2D functions to support "Limit to Owner" concurrency settings.
 
-#### Automation
+### Automation
 
 * Crash Fix: Fixed a crash in Screen Shot Manager caused by an attempt to access a deleted String in an async lambda expression.
 
@@ -1292,7 +1291,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Automated screenshot tests that fail due to size mismatch will now show a delta image, where mismatched bounds are colored red.
 
-#### Blueprints
+### Blueprints
 
 * Crash Fix: Fixed inclusion of private plugin header files in nativized Blueprint C++ source.
 
@@ -1328,13 +1327,13 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Removed the Inverse Lerp node and redirected it to call Normalize To Range. Also Fixed incorrect value being returned by Normalize To Range when Range Min and Range Max are equal.
 
-* Bug Fix: Fixed a rare linker issue where Is Blueprint Finalization Pending would return true when trying to force-load subobjects that weren’t ready to be loaded. This would prevent some placeholder objects from being replaced.
+* Bug Fix: Fixed a rare linker issue where Is Blueprint Finalization Pending would return true when trying to force-load subobjects that weren't ready to be loaded. This would prevent some placeholder objects from being replaced.
 
 * Bug Fix: We now ensure that "-build" is always passed to BuildCookRun automation workflows in the editor for projects configured with Blueprint nativization enabled so that it doesn't skip that stage.
 
 * Bug Fix: Revised both UAT/UBT-driven and custom code/data workflows to more seamlessly work with Blueprint nativization settings.
 
-* Bug Fix: Ed Graph Schema’s Break Single Pin Link function is now correctly marked as a const function.
+* Bug Fix: Ed Graph Schema's Break Single Pin Link function is now correctly marked as a const function.
 
 * Bug Fix: Local variables can now be created in blueprint function libraries.
 
@@ -1436,7 +1435,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added Vector Length XY to Blueprint math library.
 
-#### Core
+### Core
 
 * Crash Fix: Fixed a crash on shutdown due to component visualizers not being cleaned up properly by the Unregister Component Visualizer function.
 
@@ -1464,11 +1463,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Crash Fix: Running DDC commandlet with an invalid package name no longer causes crashes.
 
-* Bug Fix: Multicast Delegate Property’s Identical function now has the same behavior as Delegate Property’s Identical function. This prevents it from giving incorrect results and causing serialization errors.
+* Bug Fix: Multicast Delegate Property's Identical function now has the same behavior as Delegate Property's Identical function. This prevents it from giving incorrect results and causing serialization errors.
 
 * Bug Fix: The Asset Registry module is now always preloaded on startup, even if EDL is disabled.
 
-* Bug Fix: Fixed Thread Sanitizer warnings in stats system. Optimized Cycle Counter’s Start function to only read the stat name once (atomically).
+* Bug Fix: Fixed Thread Sanitizer warnings in stats system. Optimized Cycle Counter's Start function to only read the stat name once (atomically).
 
 * Bug Fix: Fix ambiguities in calculating root directory.
 
@@ -1510,9 +1509,9 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Deleted an unnecessary specialization of Make Array View.
 
-* Bug Fix: Removed String's char pointer constructor’s confusing void pointer parameter.
+* Bug Fix: Removed String's char pointer constructor's confusing void pointer parameter.
 
-* Bug Fix: Base64’s Encode function is now const-correct.
+* Bug Fix: Base64's Encode function is now const-correct.
 
 * Bug Fix: Json Value no longer stringifies whole numbers as floats.
 
@@ -1548,21 +1547,21 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: If UAT is invoked with platforms in both the "-platform" and “-targetplatform” command-line switches, we will now build using all of them rather than just the ones in “-targetplatform”.
 
-* Bug Fix: Fixed cases where String’s Printf function was used without a formatting string.
+* Bug Fix: Fixed cases where String's Printf function was used without a formatting string.
 
 * Bug Fix: Updated loading movie code to properly calculate delta time when throttled at 60 frames per second.
 
 * Bug Fix: Fixed an inconsistency with how Soft Object Ptr case is managed between Linker Save and Archive Save Tag Imports, which could cause a cook ensure under some circumstances.
 
-* Bug Fix: Fixed an occasional loading assert in Script Struct’s Post Load function caused by a race condition on the Prepare CPP Struct Ops Completed variable.
+* Bug Fix: Fixed an occasional loading assert in Script Struct's Post Load function caused by a race condition on the Prepare CPP Struct Ops Completed variable.
 
 * Bug Fix: Changed Visual Studio Code project file generation to use "taskName" rather than "label" for C# build task names.
 
-* Bug Fix: Improved whitespace handling in both Map Property’s and Set Property’s "ImportText_Internal" function. Emptied the map or set if an error occurs during a text import of a property to avoid bad container states.
+* Bug Fix: Improved whitespace handling in both Map Property's and Set Property's "ImportText_Internal" function. Emptied the map or set if an error occurs during a text import of a property to avoid bad container states.
 
 * Bug Fix: Fixed a potential buffer overrun in Set Property.
 
-* Bug Fix: Map Property’s Import Text function now correctly skips duplicate keys.
+* Bug Fix: Map Property's Import Text function now correctly skips duplicate keys.
 
 * Bug Fix: Unreal Build Tool now enforces Development and Debug configurations in existing C# projects. Fixes command-line builds and prevents solution from being marked dirty on initial load.
 
@@ -1576,7 +1575,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Dedicated servers do not include RHI modules except NullRHI.
 
-* Bug Fix: Changed String’s Parse Into Array function to use Reset instead of Empty on the passed in array, allowing it to be approximately resized
+* Bug Fix: Changed String's Parse Into Array function to use Reset instead of Empty on the passed in array, allowing it to be approximately resized
 
 * Bug Fix: Fixed accounting for Curve Table assets in "obj list".
 
@@ -1590,7 +1589,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Asset registry memory usage reported by memreport is now correct.
 
-* Bug Fix: Fixed Platform File Pak interface’s Find Files Recursively function not correctly calling the base class implementation.
+* Bug Fix: Fixed Platform File Pak interface's Find Files Recursively function not correctly calling the base class implementation.
 
 * Bug Fix: Literal soft object pins are correctly cooked and tracked in the reference viewer. This may cause assets referenced by disabled nodes to be cooked into your project. In this case, the reference viewer will track which blueprints are causing this.
 
@@ -1598,7 +1597,8 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Hot reloads no longer occur during PIE, which was causing bad states in blueprint types when they are reinstanced.
 
-* New: Encryption/Signing Key Generator.A plugin which allows the automatic creation and configuration of in-engine data cryptography through the project settings, under the "crypto" header.
+* New: Encryption/Signing Key Generator.
+A plugin which allows the automatic creation and configuration of in-engine data cryptography through the project settings, under the "crypto" header.
 
     * Added options to plugin settings which allow encryption to be used on the various asset files in a pak. Encryption can be used on just the .uasset file, which contains only the package header information, or the .uexp and .ubulk files too, which contain the rest of the package data. Encryption on .uasset files provides a good compromise between data security and runtime performance.
 
@@ -1622,7 +1622,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Array now has a "_GetRef" variants for many of its functions, which will create an element and return a reference to it rather than its index in the Array. These functions are: “Insert_GetRef”, “InsertZeroed_GetRef”, “InsertDefaulted_GetRef”, “Emplace_GetRef”, “EmplaceAt_GetRef”, “Add_GetRef”, “AddZeroed_GetRef” and “AddDefaulted_GetRef”.
 
-* New: There is a new Multi Map function, Append, to match the Map class’ function of the same name.
+* New: There is a new Multi Map function, Append, to match the Map class' function of the same name.
 
 * New: Base64 encoding library now supports ANSI/wide characters, decoding streams without padding marks, and decoding into preallocated buffers without writing dummy padding bytes.
 
@@ -1634,7 +1634,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Visual Studio Code - Add launch task for generating project files for the given folder
 
-* New: Ensure that all branches within Generic Platform Misc’s Root Dir function produce an absolute path with no duplicate slashes. Remove relative-to-absolute conversion of the root directory from the Paths function, Make Standard Filename, now that we know Root Dir always returns an absolute path.
+* New: Ensure that all branches within Generic Platform Misc's Root Dir function produce an absolute path with no duplicate slashes. Remove relative-to-absolute conversion of the root directory from the Paths function, Make Standard Filename, now that we know Root Dir always returns an absolute path.
 
 * New: Added Net Serialize to Date Time.
 
@@ -1714,7 +1714,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Removed: Removed deprecated delegate functions.
 
-#### Editor
+### Editor
 
 * Crash Fix: Fixed a crash when opening the level viewport context menu if the actor-component selection is out of sync.
 
@@ -1816,7 +1816,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added a setting to enable/disable high DPI support in editor.
 
-* New: Replaced the skeletal mesh import option "keep overlapping vertex" with thresholds, enabling the user to control the vertices’ welding thresholds.
+* New: Replaced the skeletal mesh import option "keep overlapping vertex" with thresholds, enabling the user to control the vertices' welding thresholds.
 
 * New: The Persistent Level in the Levels tab can now be locked.
 
@@ -1856,7 +1856,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Removed: Removed .fbx export file version 2010 compatibility. The 2018 .fbx SDK does not export to 2010 and earlier file formats.
 
-##### Content Browser
+#### Content Browser
 
 * Crash Fix: Fixed a crash when renaming an asset without an enabled source control via the Asset Tool.
 
@@ -1878,7 +1878,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added the ability for the Reference Viewer to show and copy references lists for nodes with multiple objects, or multiple selected nodes.
 
-##### Foliage
+#### Foliage
 
 * Crash Fix: Fixed a crash for Instanced Static meshes and Foliage when used with a Static Mesh that had an invalid lightmap coordinate index set.
 
@@ -1900,7 +1900,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed a special case where adding and removing multiple times would cause the regeneration of random streams for all changed instances.
 
-##### Landscape
+#### Landscape
 
 * Crash Fix: Fixed a crash when updating Landscape grass.
 
@@ -1912,7 +1912,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added the possibility to update the Landscape Material at runtime using Material Instance Dynamic Materials.
 
-##### Material Editor
+#### Material Editor
 
 * Crash Fix: Fixed a crash when filtering Material Layers drop-down with no set value.
 
@@ -1922,7 +1922,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed an issue to not show empty Global group if it only contained the Material Layer parameter.
 
-* Bug Fix: Fixed an issue with Details panels to now "own" a color picker so that a different Detail panel refreshing doesn’t close it. This fixed the refreshing state of the graph after changing the texture or color parameter values. 
+* Bug Fix: Fixed an issue with Details panels to now "own" a color picker so that a different Detail panel refreshing doesn't close it. This fixed the refreshing state of the graph after changing the texture or color parameter values. 
 
 * Bug Fix: Fixed an issue to allow visible parameters parameter retrieval to correctly recurse through internally called functions. Previous checks were intended to prevent function previews from leaving their graph through unhooked inputs but unintentionally blocked all function inputs. 
 
@@ -1978,9 +1978,9 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Removed: Parent drop-down has been removed from Layers and Clends. A filter button has been added instead.
 
-##### Media Framework
+#### Media Framework
 
-* Crash Fix: Fixed a crash with Media assets in Media Sound Component’s "Update Player."
+* Crash Fix: Fixed a crash with Media assets in Media Sound Component's "Update Player."
 
 * Crash Fix: Fixed a crash when opening AVF Media after opening multiple media players.
 
@@ -1990,7 +1990,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed external textures not registering correctly in all cases for the Engine.
 
-* Bug Fix: Fixed Media Asset issue with Media Player’s Previous and Next not playing automatically if the player was playing previously. 
+* Bug Fix: Fixed Media Asset issue with Media Player's Previous and Next not playing automatically if the player was playing previously. 
 
 * Bug Fix: Fixed an issue with image media player never finishing initialization if loading failed.
 
@@ -2014,15 +2014,15 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Removed: Looping option has been removed from playlists for Media Assets.
 
-##### Sequencer
+#### Sequencer
 
 * Crash Fix: Fixed a copy/paste crash that could happen when only processing Movie Scene Copyable Binding and objects that can be spawned by the movie scene spawn were registered. 
 
 * Crash Fix: Fixed a crash when an existing hotspot is null.
 
-* Crash Fix: Fixed a crash when pasting a camera cut track that happened when the outer track isn’t set to the movie scene. 
+* Crash Fix: Fixed a crash when pasting a camera cut track that happened when the outer track isn't set to the movie scene. 
 
-* Crash Fix: Prevented a crash by ensuring that the null object in property actuate when there’s a track without a binding object. This occured when pasting a property track to the root. 
+* Crash Fix: Prevented a crash by ensuring that the null object in property actuate when there's a track without a binding object. This occured when pasting a property track to the root. 
 
 * Crash Fix: Fixed a crash when dragging a Level Sequence into the tree area.
 
@@ -2032,7 +2032,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Crash Fix: Prevented a reload crash that could happen if a Sequence was being recorded in a currently opened Sequencer. On Recording Started and On Recording Finished are now set to multicast delegates.
 
-* Crash Fix: Added a nullptr check to fix a crash in Actor Sequence when it doesn’t exist.
+* Crash Fix: Added a nullptr check to fix a crash in Actor Sequence when it doesn't exist.
 
 * Crash Fix: Fixed a crash opening a new Sequence while another is still active.
 
@@ -2068,11 +2068,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed a delay before warm up causing Sequences not to render.
 
-* Bug Fix: Fixed an issue to enable the camera cut track when popping back to the master only if there’s a camera cut track in the Master Sequence. It addresses an issue where if you don’t have a camera cut track in the Master, the camera gets locked to a camera cut in a sub-scene and you can’t toggle out of it. 
+* Bug Fix: Fixed an issue to enable the camera cut track when popping back to the master only if there's a camera cut track in the Master Sequence. It addresses an issue where if you don't have a camera cut track in the Master, the camera gets locked to a camera cut in a sub-scene and you can't toggle out of it. 
 
 * Bug Fix: Pivot locations are now updated for a selection when closing Sequencer.
 
-* Bug Fix: Fixed an overlap issue by looking at the key behind it. It addresses if there’s 3 keyframes on consecutive frames, so if you zoom out, you should see two bordered keys when the overlap threshold is passed. 
+* Bug Fix: Fixed an overlap issue by looking at the key behind it. It addresses if there's 3 keyframes on consecutive frames, so if you zoom out, you should see two bordered keys when the overlap threshold is passed. 
 
 * Bug Fix: Fixed UMG animations not working with Blueprint Nativization.
 
@@ -2088,7 +2088,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed an issue with Sequence Recorder to close the target animation asset editor if it exists before recording into it. 
 
-* Bug Fix: Fixed an issue with Sequence Recorder to record to the specified target animation for the target Actor only. Newly tracked components will have newly created animations so that they don’t record to the same target animation assets.
+* Bug Fix: Fixed an issue with Sequence Recorder to record to the specified target animation for the target Actor only. Newly tracked components will have newly created animations so that they don't record to the same target animation assets.
 
 * Bug Fix: Sequencer now uses drag and drop actor factory if specified. This ensures that the correct Actor Factory is used in creating the object template for the Sequencer spawner. It fixes some spawnables not getting created properly (for example, an Empty Actor).
 
@@ -2100,7 +2100,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed WMF Media that caused H.265 frames to be dropped due to false negative buffer size checks.
 
-* Bug Fix: Fixed an issue in Sequencer to always save the default spawnable states regardless of the focused Sequence. Addresses issue if you step back to the Master Sequence (and the spawnable if it still exists) and then scrubs outside the region where the spawnable exists. It gets destroyed but saved default spawnable state doesn’t get called because it’s no longer the focused Sequence.
+* Bug Fix: Fixed an issue in Sequencer to always save the default spawnable states regardless of the focused Sequence. Addresses issue if you step back to the Master Sequence (and the spawnable if it still exists) and then scrubs outside the region where the spawnable exists. It gets destroyed but saved default spawnable state doesn't get called because it's no longer the focused Sequence.
 
 * Bug Fix: Fixed Sequencer viewport invalidation so that it happens on Sequence evaluation.
 
@@ -2110,7 +2110,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed an issue with Sequence Recorder when recording spawnables not getting the correct position for being spawned at.
 
-* Bug Fix: Fixed an issue with Sequence Recorder to record spawn Actors immediately so that they won’t be missed if they’re deleted before Tick.
+* Bug Fix: Fixed an issue with Sequence Recorder to record spawn Actors immediately so that they won't be missed if they're deleted before Tick.
 
 * Bug Fix: Fixed a problem where Sequencer was not updating after toggling Bind Sequencer to PIE/Simulate while PIE is active.
 
@@ -2128,11 +2128,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed an issue in Sequencer when exporting unmatched float properties to custom attributes. 
 
-* Bug Fix: Fixed an issue in Sequencer to override the animation asset in the player state if it doesn’t match the animation asset being evaluated. 
+* Bug Fix: Fixed an issue in Sequencer to override the animation asset in the player state if it doesn't match the animation asset being evaluated. 
 
-* Bug Fix: Fixed an issue in Sequencer so that we don’t update current time to be within the view range when stepping into a Sequence. 
+* Bug Fix: Fixed an issue in Sequencer so that we don't update current time to be within the view range when stepping into a Sequence. 
 
-* Bug Fix: Fixed an issue to skip binding IDs if the Sequence can’t be found. 
+* Bug Fix: Fixed an issue to skip binding IDs if the Sequence can't be found. 
 
 * New: Added some options to the Curve Editor for Modify Owner Change to the Curve Owner Interface. We call mark as changed when modifying keys or tangents. 
 
@@ -2152,13 +2152,13 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
     * Removed the concept of shared tracks. Any previous uses should port over to shared execution tokens instead.
 
-* New: Now automatically create a camera cut track if a camera is dropped and there’s no existing camera cut or there’s no existing camera cut sections. 
+* New: Now automatically create a camera cut track if a camera is dropped and there's no existing camera cut or there's no existing camera cut sections. 
 
 * New: The sub-Sequence name is now displayed on binding ID pickers rather than sub-section name.
 
 * New: Added an active column for Sequence Recorder.
 
-* New: Added an option to export an object’s transform to a Camera Anim asset.
+* New: Added an option to export an object's transform to a Camera Anim asset.
 
 * New: We now allow blending for vector tracks.
 
@@ -2192,7 +2192,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Removed: In Sequencer, the hotkeys Shift-C and Shift-D for toggling the Cinematic viewport have been removed. This was causing some confusion when users were accidently hitting them. 
 
-##### Static Mesh Editor
+#### Static Mesh Editor
 
 * Crash Fix: Fixed an Editor crash when a distributed Simplygon job fails.
 
@@ -2200,11 +2200,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added LOD menu to viewport toolbar.
 
-##### World Browser
+#### World Browser
 
 * Bug Fix: Fixed issues with re-importing of tiled Landscape data in the Word Composition window.
 
-#### Gameplay Framework
+### Gameplay Framework
 
 * Crash Fix: Fixed a crash in the Get Asset Registry Tags function in Static Mesh that happened when the Find Object function was called during saving.
 
@@ -2216,11 +2216,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Crash Fix: Removed an extra dereference that was causing a crash in the Gameplay Cue Manager.
 
-* Bug Fix: Added tracking of Idle Seconds to the Performance Data Consumer interface’s Frame Data.
+* Bug Fix: Added tracking of Idle Seconds to the Performance Data Consumer interface's Frame Data.
 
 * Bug Fix: Fixed the Load Asset blueprint node so it can be correctly called from a loop with different inputs.
 
-* Bug Fix: Player Camera Manager’s Update View Target Internal function will no longer apply values from Blueprint Update Camera if it returns false.
+* Bug Fix: Player Camera Manager's Update View Target Internal function will no longer apply values from Blueprint Update Camera if it returns false.
 
 * Bug Fix: Fixed an issue where module redirects could cause the Asset Manager to incorrectly allow Primary Assets with the wrong base class.
 
@@ -2232,7 +2232,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Components and Tick functions will no longer be unregistered and re-registered when testing a rename for an Actor.
 
-* Bug Fix: Modified Gameplay Tag’s Import Text Item function to account for redirects when establishing Tag Name.
+* Bug Fix: Modified Gameplay Tag's Import Text Item function to account for redirects when establishing Tag Name.
 
 * Bug Fix: Fixed character proxies doing up to two floor checks when only rotation is changed (there shouldn't be any). Added some optional verbose logging to the Find Floor and Compute Floor Dist functions.
 
@@ -2252,7 +2252,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Optimized client movement to avoid updating skeletal mesh bones on the client when teleporting back to combine a network move to the server. This can be avoided since the following Perform Movement call will move the mesh and cause the update there.
 
-* Bug Fix: Added stat for Force Position Update (when server ticks client that has timed out) so that it doesn’t show up as Perform Movement.
+* Bug Fix: Added stat for Force Position Update (when server ticks client that has timed out) so that it doesn't show up as Perform Movement.
 
 * Bug Fix: Redirectors or otherwise invalid .umap files are no longer considered sub levels for world composition.
 
@@ -2280,7 +2280,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Primary Data Asset can now be directly blueprinted to enable blueprint-only Primary Assets, even if Should Manager Determine Type And Name is disabled. If you do this, the Primary Asset Type will be the blueprint below Primary Data Asset, which you can then inherit from to create your Primary Assets.
 
-* New: If overrides of Actor Component’s Begin Play function are not routed up the hierarchy code, the engine will now use Ensure to warn that initialization steps were missed.
+* New: If overrides of Actor Component's Begin Play function are not routed up the hierarchy code, the engine will now use Ensure to warn that initialization steps were missed.
 
 * New: Alpha Blend struct is now marked as BlueprintType.
 
@@ -2296,11 +2296,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Reduced overhead of evaluating streaming level volumes when all Player Controllers have Is Using Streaming Volumes set to false.
 
-* New: Significance Manager’s Update function now takes viewpoints in as an Array View instead of a const Array reference.
+* New: Significance Manager's Update function now takes viewpoints in as an Array View instead of a const Array reference.
 
 * New: When keys with unknown character code are received by the input system, a new Key struct will now be dynamically created to represent it rather than it being rejected as an invalid key.
 
-* New: Significance Managers’ Post Significance Update functions can now specify to be executed sequentially on the game thread instead of only as concurrently in the parallel for.
+* New: Significance Managers' Post Significance Update functions can now specify to be executed sequentially on the game thread instead of only as concurrently in the parallel for.
 
 * New: Conditional Init Axis Properties is now protected instead of private, so it can be seen by child classes.
 
@@ -2314,7 +2314,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Hooked up gameplay tag containers to use Post Script Construct to populate parent tags.
 
-#### Localization
+### Localization
 
 * Crash Fix: Fixed a crash if a break iterator outlives ICU during shutdown.
 
@@ -2350,7 +2350,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added a way to display and reset the package localization ID via the Content Browser.
 
-#### Networking
+### Networking
 
 * Crash Fix: Fixed a rare crash that could occur on servers where replicated, placed-in-map actors could be destroyed, and clients could send references to these actors in server function parameters.
 
@@ -2380,7 +2380,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed a replication checksum issue with Slate brushes.
 
-* Bug Fix: Added stats to Net Driver’s Tick Flush function and analytic stat-gathering blocks within that function.
+* Bug Fix: Added stats to Net Driver's Tick Flush function and analytic stat-gathering blocks within that function.
 
 * Bug Fix: When a client informs the server that it has loaded a streaming level, we now force a net update on all dormant actors that have, at any point, replicated data to relevant clients and ensure that the connection's destroyed startup/dormant actors list is properly populated.
 
@@ -2450,7 +2450,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: The "net.UseEncryptionToken" console variable has been renamed to “net.AllowEncryption” and made more robust.
 
-#### Online
+### Online
 
 * Crash Fix: Fixed a crash in web browser module destruction related to the freeing of memory via default destructors after Cef Shutdown has been called.
 
@@ -2480,7 +2480,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added the ability to update cacert.pem from Curl's website. ([https://curl.haxx.se/docs/caextract.html](https://curl.haxx.se/docs/caextract.html))
 
-#### Physics
+### Physics
 
 * Crash Fix: Fixed a crash that would delete max distance mask from a clothing data entry.
 
@@ -2530,7 +2530,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added 'Set Use CCD' function for changing Continuous Collision Detection option at run-time.
 
-##### Clothing
+#### Clothing
 
 * Crash Fix: Fixed a crash in clothing actor creation when the clothing simulation mesh has no simulated vertices.
 
@@ -2546,7 +2546,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Changed "bCompileNvCloth" compile option to use the same pattern as “bCompileAPEX” (on by default, disabled on some platforms). This allows game projects to disable it.
 
-##### Collision Detection
+#### Collision Detection
 
 * New: Improved "Auto Convex" tool for generating simplified convex collision for meshes.
 
@@ -2556,7 +2556,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
     * Now using V-HACD version 2.3.
 
-##### Physics Asset Editor
+#### Physics Asset Editor
 
 * Crash Fix: Fixed a crash undoing primitive regeneration when stopping an in-progress simulation.
 
@@ -2592,7 +2592,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added error-reporting to the physics profile name widgets.
 
-#### Platforms
+### Platforms
 
 * Crash Fix: Updated Intel SPC Tex Comp DLLs to address crashes with some processors on Windows during texture compression.
 
@@ -2608,7 +2608,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added a descriptive error message when using an Invalid iOS Mobile Provision.
 
-##### All Mobile
+#### All Mobile
 
 * Bug Fix: Fixed an issue for functional code checks being removed for shipping builds in media framework.
 
@@ -2618,7 +2618,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Disabled manual vertex fetch on mobile.
 
-##### Android
+#### Android
 
 * Crash Fix: Fixed crash if quickly clicking on "Configure Now" button in Android Project Settings multiple times.
 
@@ -2630,9 +2630,9 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
     * Backspace on an empty line would crash.
 
-    * Virtual keyboard text field isn’t visible after rotating from landscape to portrait. 
+    * Virtual keyboard text field isn't visible after rotating from landscape to portrait. 
 
-    * Chinese and Korean virtual keyboards don’t allow native characters.
+    * Chinese and Korean virtual keyboards don't allow native characters.
 
     * Number pad reverts back to normal keyboard
 
@@ -2640,7 +2640,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
     * Cursor and UMG do not match. 
 
-    * Text field doesn’t appear if there was too much text.
+    * Text field doesn't appear if there was too much text.
 
 * Crash Fix: Samsung Galaxy S8 with Android 7.0 is not hiding suggestions and disabling predictive input. There are cases with this that can cause a crash. Global solution: On text change, downgrade to simple suggestions all the easy correction spans that are not a spell check span (remove android.text.style.SuggestionSpan.FLAG_EASY_CORRECT flags).
 
@@ -2704,7 +2704,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added LOD Proxy support.
 
-##### HTML5
+#### HTML5
 
 * Bug Fix: Chrome renders transparent on OSX even though canvas has been set with alpha to false. 
 
@@ -2712,7 +2712,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed an issue for "Runtime Error: integer result unrepresentable" compiler error removed the following linker options: 
 
-    * -s OUTLINTING_LIMIT flags -s BINARYEN_TRAP_MODE=’clamp’
+    * -s OUTLINTING_LIMIT flags -s BINARYEN_TRAP_MODE='clamp'
 
 * Bug Fix: Disabled Support Screen Percentage to render the full screen otherwise. This was causing HTML5 screens to render only a portion of the screen and in black. 
 
@@ -2728,7 +2728,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Resurrected vehicle games and removed "IsContentOnly" check during HTML file generation to allow code projects to work again. This corrected optimization suffix for PhysX 3 Vehicles. 
 
-##### iOS
+#### iOS
 
 * Bug Fix: Fixed an issue while remote compiling Metal shaders to now check the connection before starting the compile process. 
 
@@ -2752,7 +2752,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Disabled the validation layer in iOS App Store builds for shipping builds.
 
-##### Linux
+#### Linux
 
 * Crash Fix: Fixed a crash on a headless system.
 
@@ -2864,7 +2864,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Removed: Removed the support for /-prefixed command line switches.
 
-##### Mac
+#### Mac
 
 * Crash Fix: Fixed a rare crash caused by a deferred call to Close Window function executing during Slate's PrepassWindowAndChildren call.
 
@@ -2904,7 +2904,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added support for changing monitor's display mode on Mac in fullscreen mode. This greatly improves performance on Retina screens when playing in resolutions lower than native.
 
-##### Windows
+#### Windows
 
 * Bug Fix: Switched Windows to use wprintf() consistently.
 
@@ -2912,11 +2912,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Fixed an issue with custom window positions in "windowed mode".
 
-#### Programming
+### Programming
 
 * New: Minimized number of fractional digits you can have in a resultant string while using FString::SanitizeFloat, defaulting to 1. Setting this to 0 prevents adding '.0' to integers.
 
-* New: Added ‘.idea/misc.xml’ file generation to speed up CLion indexing.
+* New: Added ‘.idea/misc.xml' file generation to speed up CLion indexing.
 
 * New: Added option to generate minimal set of targets for CMake files.
 
@@ -2936,11 +2936,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Reduced calls to malloc by using larger memory blocks for hlslcc Type allocation pools.
 
-* New: Optimized hlslcc memory allocation policy on Mac, resulting in `34%` faster and `83%` cheaper memory moves.
+* New: Optimized hlslcc memory allocation policy on Mac, resulting in 34\% faster and 83\% cheaper memory moves.
 
 * New: Added basic support for hotfixing live assets from .ini files.
 
-#### Rendering
+### Rendering
 
 * Crash Fix: Fixed a Metal shader standards iOS crash when users would try to load a project that tries to use an incompatible shader version.
 
@@ -3132,13 +3132,13 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added RHI Command List Enqueue Lambda method which can be used to enqueue arbitrary tasks on the RHI thread from the render thread without having to write lots of boilerplate FRHI Command functor classes.
 
-##### FX
+#### FX
 
 * Bug Fix: Fixed texture streaming with particle Subuv.
 
 * New: Implemented a fast particle pool memory which default is 2MB and automatically cleans up oldest used pool slots. 
 
-##### Lighting
+#### Lighting
 
 * Bug Fix: Fixed Lightmass correctness issues so that, Point, Spot, Directional and Skylights more closely match reference renderer. 
 
@@ -3182,7 +3182,8 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug FIx: Added a New World Settings Lightmass property, Volumetric LightmapSphericalHarmonic Smoothing, which  controls the global amount of smoothing applied.
 
-* Bug Fix: Hidden levels now keep their last build data when using lighting scenarios.Fixed light build bug where hidden levels affected volumetric lightmaps.
+* Bug Fix: Hidden levels now keep their last build data when using lighting scenarios.
+Fixed light build bug where hidden levels affected volumetric lightmaps.
 
 * Bug Fix: Prevent an assert from firing when LPV Intensity is saved to a value of 0.0.
 
@@ -3202,7 +3203,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added a checkpoint for Screen Shadow Mask Texture, allowing Vis Screen Shadow Mask Texture.
 
-##### Materials
+#### Materials
 
 * Bug Fix: Return error for external texture if not used in pixel shader
 
@@ -3218,7 +3219,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Material Layers experimental enable flag has moved to Rendering > Experimental > Support Material Layers. 
 
-##### Mobile Rendering
+#### Mobile Rendering
 
 * Bug Fix: Cancelled the applied exposure scale with planar reflections for non-hdr mobile
 
@@ -3238,7 +3239,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Add mobile CSM shader culling for movable directional lights.
 
-##### Optimizations
+#### Optimizations
 
 * Bug Fix: Vulkan descriptor pools are now allocated per PSO instead of globally to reduce peak mem consumption and fragmentation (enabled on Windows only).
 
@@ -3270,7 +3271,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Depreciation: Removed deprecated Lightmap UV Bias, Shadow Map UV Bias from Instanced Static Mesh Component.
 
-##### Post Processing
+#### Post Processing
 
 * Bug Fix: Fix the black ground scattering on Metal by ensuring that input into abs() is non-negative for atmosphere rendering.
 
@@ -3280,7 +3281,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Implemented a SSR input Post Process Material location to compose linear color space backplate after TAA for next frame's SSR.
 
-#### Tools
+### Tools
 
 * Crash Fix: Fixed a crash when attempting to move windows in VR Mode.
 
@@ -3300,7 +3301,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added support for Debug Symbols (.udebugsymbols) files generated for iOS builds to be used for memory debugging with the Memory Profiler 2 tool.
 
-##### AutomationTool
+#### AutomationTool
 
 * Bug Fix: Fixed parallel executor getting the working directory from task element, not tool node.
 
@@ -3322,7 +3323,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Removed: Code that executes pre-built steps from UE4Build have been removed. These build steps should be executed before generating the action graph. So, they have to be done inside of Unreal Build Tool. Running them here causes them to execute twice.
 
-##### BuildGraph
+#### BuildGraph
 
 * New: Added an example script for building the Editor and Game targets for a project, and submitting the binaries to source control.
 
@@ -3330,13 +3331,13 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added an <MsBuild> task for compiling MSBuild projects.
 
-##### Network Profiler
+#### Network Profiler
 
 * New: The Network Profile is now 64 bit and the solution has been converted to VS2015 and are now about `6%` smaller.
 
 * New: Added a checkbox above the connections list that will select or deselect all connections in the Network Profiler.
 
-##### UnrealBuildTool
+#### UnrealBuildTool
 
 * Bug Fix: Fixed an issue causing Unreal Build Tool on Mac to not use makefiles which made the time it needed to determine what needs to be compiled and linked longer than on other platforms.
 
@@ -3372,7 +3373,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
     * Changed Launch.build.cs to set private defines for the build changelist in non-formal builds. This allows the version to be set correctly with executables copies to console. 
 
-    * Modular builds on desktop platforms still read the Version file from disk since it’s quicker than compiling a value in. They need the build ID to prevent mismatched binaries. 
+    * Modular builds on desktop platforms still read the Version file from disk since it's quicker than compiling a value in. They need the build ID to prevent mismatched binaries. 
 
 * New: Version files are only generated for non-promoted builds, and are included in the target receipt.
 
@@ -3394,7 +3395,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Removed: UDN documentation source files are no longer included in the generated project files by default.
 
-##### UnrealGameSync
+#### UnrealGameSync
 
 * Bug Fix: Fixed an issue so that the project filename is now included in the Editor build command. The project may not be in one of the .uprojectdirs paths.
 
@@ -3404,11 +3405,11 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added an in-place error panel to show when a project fails to open. This enables the user to retry and have their tabs saved instead of creating a modal dialog.
 
-##### UnrealVS
+#### UnrealVS
 
 * New: Added Log GenerateProjectFiles to file when using Unreal VS.
 
-#### UI
+### UI
 
 * Crash Fix: Fixed a line-ending inconsistency when retrieving rich-text that could cause Input Method crashes. 
 
@@ -3438,7 +3439,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Added Editable Text functionality.
 
-##### Slate
+#### Slate
 
 * Crash Fix: Fixed a crash when trying to use the widget reflector in a client cooked build.
 
@@ -3456,7 +3457,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
     * This differs from Custom, which is a full override of the navigation behavior.
 
-##### UMG
+#### UMG
 
 * Crash Fix: Fixed a crash on compile due to partial GC of a widget.
 
@@ -3494,7 +3495,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Now able to set escape keys and no key specified text on Input Key Selector.
 
-#### VR
+### VR
 
 * Crash Fix: Fixed a crash that could occur when increasing and then decreasing screen percentage in the editor's VR preview.
 
@@ -3542,7 +3543,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * New: Enabled the debug canvas layer by default for the console command window on Gear VR and Google VR.
 
-#### XR
+### XR
 
 * Bug Fix: Fixed a bug with Oculus, that caused the tracking origin to be reset on startup.
 
@@ -3574,25 +3575,25 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 ## UPGRADE NOTES
 
-#### Animation
+### Animation
 
-##### Animation Blueprints
+#### Animation Blueprints
 
 * Bug Fix: We changed the order of how to get the material default value. Previous implementation was to get parent's default value first before itself, which was incorrect, so we fixed it by getting own default value if exists. However, if you were relying on the previous behavior, you're going to see the issue. Make sure you set correct default value for the material instance if it was incorrect.
 
 * Bug Fix: If this code executes (it will add a log warning if it does) it could cause problems with deterministic cooking / patch creation as new guids will be generated during cook. Nothing will break but patch sizes could be bigger than they need to be. Re-saving the problematic assets will correct the issue.
 
-##### Skeletal Mesh
+#### Skeletal Mesh
 
 * The function name of SkeletalMeshComponent::PostBlendPhysics() has changed to FinalizeAnimationUpdate() for clarification.
 
-#### Blueprints
+### Blueprints
 
 * New: Step Into has been remapped to the F11 key. The Step Over command is now mapped to F10 instead.
 
 * User Defined Structure default values now correctly propagate to blueprints and other user structs the same way that native structs do, which may cause issues if your blueprints were depending on this not happening. If this is a problem you may need to modify your outer blueprint or struct and set some values back to empty or 0.
 
-#### Core
+### Core
 
 * VisitTupleElements has had its parameters swapped - the visitor is now the first parameter, followed by the tuple (now multiple tuples). Any existing calls will need to swap arguments.
 
@@ -3620,41 +3621,47 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Calling FReferenceCollector::AddReferencedObjects() with a container will no longer compile if the container has pointers to forward declared types. You should ensure the types are included before calling this function.
 
-#### Editor
+### Editor
 
 * The debug canvas for stats is always dpi scaled in editor and pie. Any existing tools that directly use viewport positions and size as positions for canvas elements will need to divide out dpi scale using 1/CanvasObject->GetDPIScale().
 
-* Bug Fix: Note: This only applies to perforce users NOT using ticket based perforce servers.The perforce source control login flow will no longer make any calls to the perforce api which results in a password being stored on the local users machine by perforce. We have determined that the security level of this feature is not high enough to continue using it. Users can now expect to have to type in their perforce password each time they open the editor. To work around this users can call p4 passwd directly from a command window to save a password on their machine if they so choose.
+* Bug Fix: Note: This only applies to perforce users NOT using ticket based perforce servers.
 
-##### Sequencer
+The perforce source control login flow will no longer make any calls to the perforce api which results in a password being stored on the local users machine by perforce. We have determined that the security level of this feature is not high enough to continue using it. Users can now expect to have to type in their perforce password each time they open the editor. To work around this users can call p4 passwd directly from a command window to save a password on their machine if they so choose.
+
+#### Sequencer
 
 * 'Shared' templates are no longer supported in sequencer. Any previous usage should be easily converted to a shared execution token instead (FMovieSceneExecutionTokens::AddShared()). Such tokens are shared globally, rather than per sub-sequence which makes them more robust for shared responsibilities.
 
-#### Gameplay Framework
+### Gameplay Framework
 
 * Bug Fix: AActor subclasses that intended to be tick when the tick type is Viewports Only and did not set ShouldTickIfViewportsOnly to return true, but instead overrode TickActor and did not filter on Viewports Only will now need to correctly implement the ShouldTickIfViewportsOnly virtual to achieve this behavior.
 
-#### Networking
+### Networking
 
 * UNetConnection::ClientWorldPackageName is now a private member and should accessed through the available Get/Set methods.
 
 * Bug Fix: The net.UseAdaptiveNetUpdateFrequency console variable is now disabled by default, since it was causing replication issues in many projects. If you want to keep using this feature, you may enable it in your project's configuration files.
 
-#### Rendering
+### Rendering
 
 * We changed the Vertexbuffer layout from AoS to SoA because after this change we can bind the Input Attributes via SRV and load them in the shader directly (also from compute). Before this change it was very difficult and involved manual interpretation of the Raw Data in the Shader. We recommend everyone to follow this route and change their Vertexbuffers as we probably will deprecate mixed AoS Vertexbuffers in the Future.
 
 * Tube shaped point lights will be automatically rotated to compensate for this change. Dynamically generated point lights with a source length will need to have a 90 degrees pitch added to their orientation.
 
-* Inside Sequencer->Render->CompositionGraphOptionsSet Output Format to "Custom Render Passes"Set Include Render Passes to "Final Image"Set Capture Frames in HDR "On"Set Capture Gamut to "Linear"
+* Inside Sequencer->Render->CompositionGraphOptions
+Set Output Format to "Custom Render Passes"
+Set Include Render Passes to "Final Image"
+Set Capture Frames in HDR "On"
+Set Capture Gamut to "Linear"
 
-#### UI
+### UI
 
-##### UMG
+#### UMG
 
 * Bug Fix: If a game was depending on this functionality to keep things loaded, change your blueprint to set the return value into a variable, that will keep it hard referenced normally
 
-#### XR
+### XR
 
 * Deprecated the MotionController component's EControllerHand 'Hand' property and replaced it with a 'MotionSource' name. To support the same functionality, use names corresponding to the old enum values ("Left", "Right", etc.).
 
@@ -3662,23 +3669,23 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 ## PROGRAMMING UPGRADE NOTES
 
-#### AI
+### AI
 
 * Bug Fix: Fixed a bug in UAISense_Sight::UnregisterSource that resulted in sources being removed not getting removed from the ObservedTargets collection.
 
-##### Debugging Tools
+#### Debugging Tools
 
 * Redone how visual log is using categories. Now it's using FName rather than FLogCategoryBase to indicated log category. All UE_VLOG macros have been updated. This change made it possible to actually vislog things using blueprint functions.
 
-##### Navigation
+#### Navigation
 
 * Bug Fix: Fixed navmesh not loading properly in PIE when owning world has been duplicated-for-play
 
-#### Animation
+### Animation
 
 * Bug Fix: Now when meshes are set to EMeshComponentUpdateFlag::AlwaysTickPose, we optionally kick of a task to perform parallel update only (no evaluation). Previously we needed to run this on the game thread as if we skipped evaluation we did not run a worker task.
 
-#### Audio
+### Audio
 
 * New: The new Microphone Capture Component enables feeding audio directly into a game for use with the Audio Engine and for driving in-game parameters. Limitations:
 
@@ -3688,13 +3695,22 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
     * Doesn't support recording microphone output to assets.
 
-#### Automation
+### Automation
 
-* Added automated test per-platform blacklist, defined in the project DefaultEngine.ini or platform equivalent e.g. MacEngine.ini:	[AutomationTestBlacklist]	;Use format +BlacklistTest=(Map=/Game/Tests/MapName, Test=TestName)	+BlacklistTest=(Map=/Game/Tests/Physics/Stability, Test=StackCubes)
+* Added automated test per-platform blacklist, defined in the project DefaultEngine.ini or platform equivalent e.g. MacEngine.ini:
 
-* Automated test screenshots are now able to test against a hierarchical fallback platform and RHI. This is defined in DefaultEngine.ini, for example:	[AutomationTestFallbackHierarchy]	;Use format +FallbackPlatform=(Child=/Platform/RHI, Parent=/Platform/RHI)	+FallbackPlatform=(Child=/Windows/OpenGL_SM4, Parent=/Windows/D3D11_SM5)	+FallbackPlatform=(Child=/Mac/SM5, Parent=/Windows/D3D11_SM5)
+	[AutomationTestBlacklist]
+	;Use format +BlacklistTest=(Map=/Game/Tests/MapName, Test=TestName)
+	+BlacklistTest=(Map=/Game/Tests/Physics/Stability, Test=StackCubes)
 
-#### Core
+* Automated test screenshots are now able to test against a hierarchical fallback platform and RHI. This is defined in DefaultEngine.ini, for example:
+
+	[AutomationTestFallbackHierarchy]
+	;Use format +FallbackPlatform=(Child=/Platform/RHI, Parent=/Platform/RHI)
+	+FallbackPlatform=(Child=/Windows/OpenGL_SM4, Parent=/Windows/D3D11_SM5)
+	+FallbackPlatform=(Child=/Mac/SM5, Parent=/Windows/D3D11_SM5)
+
+### Core
 
 * Any usage of FStartupPackages in project code should be removed
 
@@ -3716,7 +3732,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Bug Fix: Cleaned up delegate definitions in UObjectGlobals.h and moved several to be WITH_EDITOR. If you were using those definitions in a game you will need to wrap your use in WITH_EDITOR.
 
-#### Editor
+### Editor
 
 * Being an early feature, some Editor UI buttons do not work during playback of demos.
 
@@ -3726,7 +3742,7 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * The SizeMap and ReferenceViewer have been merged into the AssetManagerEditor plugin so they can share the data needed to show cooked sizes.
 
-#### Gameplay Framework
+### Gameplay Framework
 
 * C++ Header cleanups for Actor, Pawn, Character, Controller, and PlayerController. Marked several fields as private that were accidentally exposed in 4.17.
 
@@ -3734,35 +3750,41 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
 * Overriden versions of USignificanceManager::Update will need to change signature to receive a TArrayView instead of const TArray&.
 
-#### Networking
+### Networking
 
 * Bug Fix: Programmers using HasPendingConnection() on a listening FScocket should consider using the new WaitForPendingConnection() function instead, which prevents wasting CPU cycles due to polling. This change supported a change to the behavior of the FTcpListener constructor's InSleepTime parameter which now specifies the maximum time to wait for a connection in its polling loop. It now defaults to 1 second, but using a value of 0 will restore the previous polling behavior.
 
-#### Online
+### Online
 
-* This Online Presence Test requires that the testing user to have friends and be connected to the platform.Usage is "online test presence [OPTIONAL ID]". The ID passed should be an arbitrary non-friend. If no ID is passed, the arbitrary lookup test is skipped. This test does wait for presence updates for about two minutes, after this time if no updates are received, the harness will mark the test as a failure.
+* This Online Presence Test requires that the testing user to have friends and be connected to the platform.
+Usage is "online test presence [OPTIONAL ID]". The ID passed should be an arbitrary non-friend. If no ID is passed, the arbitrary lookup test is skipped. This test does wait for presence updates for about two minutes, after this time if no updates are received, the harness will mark the test as a failure.
 
-#### Rendering
+### Rendering
 
 * The STRONG_TYPE #define now seen in UE4 .usf/HLSL is actually hlslcc's "invariant" keyword applied as a type-qualifier to a Buffer<>/RWBuffer<> type - only valid when using Metal which exports this through ILanguageSpec and #define'd out for everyone else. When this is applied the MetalBackend will emit a "raw" buffer whose type must match the shader exactly, which avoids the overheads of Linear-Textures & Function-Constants.
 
 * Vertexbuffer Objects now bind their SRVs directly instead of filling out a StreamDescriptor. Care must be taken when the Vertexfactory is initialized before the VertexBuffer as the bound SRV will become invalid if the underlying vertexbuffer is re-created. We do not support late binding of the data anymore.
 
-##### Mobile Rendering
+#### Mobile Rendering
 
 * Removed cvar "r.AllReceiveDynamicCSM" and primitive flag “FPrimitiveSceneProxy.bReceiveCombinedCSMAndStaticShadowsFromStationaryLights”. Added “FPrimitiveSceneProxy.bReceiveMobileCSMShadows”, which now applies to both stationary and movable lights and defaults to on.
 
-#### Tools
+### Tools
 
-* UEdGraphPin::PinCategory, UEdGraphPin::PinSubcategory, and UEdGraphPin::PinName are now stored as FName instead of FString.UEdGraphPin::CreatePin has several simplified overrides so you can only specify Subcategory or SubcategoryObject or neither.UEdGraphPin::CreatePin also takes a parameter bundle for reference, const, container type, index, and value terminal type rather than a long list of default parameters.Material Expressions now store input and output names as FName instead of FString.FNiagaraParameterHandle now stores the parameter handle, namespace, and name as FName instead of FString.Most existing pin related functions using string have been deprecated.
+* UEdGraphPin::PinCategory, UEdGraphPin::PinSubcategory, and UEdGraphPin::PinName are now stored as FName instead of FString.
+UEdGraphPin::CreatePin has several simplified overrides so you can only specify Subcategory or SubcategoryObject or neither.
+UEdGraphPin::CreatePin also takes a parameter bundle for reference, const, container type, index, and value terminal type rather than a long list of default parameters.
+Material Expressions now store input and output names as FName instead of FString.
+FNiagaraParameterHandle now stores the parameter handle, namespace, and name as FName instead of FString.
+Most existing pin related functions using string have been deprecated.
 
-#### UI
+### UI
 
-##### Slate
+#### Slate
 
 * Renamed FTextBlockLayout to FSlateTextBlockLayout to reflect that it's a Slate specific type
 
-#### XR
+### XR
 
 * If you maintain a VR or AR plugin, you will have to remove your RefreshPoses() override and move any late update functionality to OnBeginRendering_RenderThread/GameThread(). Alternatively, if your plugin does not support late update, you can remove RefreshPoses() completely and override DoesSupportLateUpdate(), returning false.
 
@@ -3774,44 +3796,44 @@ The "Favorites" section of the Content Browser can be enabled/disabled using the
 
     * Added two new functions to the IMotionController API - EnumerateSources() & GetCustomParameterValue(). Use EnumerateSources() to return a list of the supported devices (replaces the static EControllerHand enum). GetCustomParameterValue() can be used to expose float values associated with the motion device (such as FOV with cameras, etc.).
 
-#### VR
+### VR
 
 * The GetHMDDistortionEnabled method on IHeadMountedDisplay how takes a single argument of type EShaderPath. If you maintain a custom HMD plugin, you will need to update your method signature.
 
 ## DEPRECATIONS
 
-#### Automation
+### Automation
 
 * UFunctionalTestingManager::RunAllFunctionalTests has dropped an unused parameter. The original version is now deprecated.
 
-#### Core
+### Core
 
 * Removed the PLATFORM_HAS_64BIT_ATOMICS macro, as it is always 1.
 
 * Deprecated the VARARG macros and replaced them with variadic templates.
 
-#### Editor and Tools
+### Editor and Tools
 
 * Deprecated Material Baking functionality inside of the MaterialUtilities module. Users should use the functionality provided by the Material Baking module instead.
 
-#### Gameplay Framework
+### Gameplay Framework
 
 * Add APlayerController::ClientReturnToMainMenuWithTextReason to support an FText reason parameter so that the message can be localized. Deprecated APlayerController::ClientReturnToMainMenu.
 
-#### Rendering
+### Rendering
 
 * The Editor is now only supported on Feature Level 5 platforms. Feature Level 4 platforms (D3D10, OpenGL3) are no longer supported.
 
-##### Materials
+#### Materials
 
 * Material Layer experimental support feature, Shared Input Collection and associated material graph nodes have been removed. See the forum feedback thread for more insight.
 
-#### Tools
+### Tools
 
-##### UnrealBuildTool
+#### UnrealBuildTool
 
 * The bOutputToEngineBinaries flag has been removed from the target rules. The output directory for targets is always determined by the location of that target.
 
-#### XR
+### XR
 
 * The IHeadMountedDisplay::GetHMDDeviceType() method has been removed as it was not extensible enough. Code that needs know which XR plugin is currently active should use IXRTrackingSystem::GetSystemName() instead.

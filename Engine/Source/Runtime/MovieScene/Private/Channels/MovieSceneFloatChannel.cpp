@@ -6,13 +6,13 @@
 #include "MovieSceneFrameMigration.h"
 
 
-bool FMovieSceneFloatChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)
+bool FMovieSceneFloatChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FStructuredArchive::FSlot Slot)
 {
 	static const FName RichCurveName("RichCurve");
 	if (Tag.Type == NAME_StructProperty && Tag.StructName == RichCurveName)
 	{
 		FRichCurve RichCurve;
-		FRichCurve::StaticStruct()->SerializeItem(Ar, &RichCurve, nullptr);
+		FRichCurve::StaticStruct()->SerializeItem(Slot, &RichCurve, nullptr);
 
 		if (RichCurve.GetDefaultValue() != MAX_flt)
 		{
@@ -812,33 +812,6 @@ FKeyHandle AddKeyToChannel(FMovieSceneFloatChannel* Channel, FFrameNumber InFram
 	{
 		FMovieSceneFloatValue& Value = ChannelData.GetValues()[ExistingIndex]; //-V758
 		Value.Value = InValue;
-		switch (Interpolation)
-		{
-		case EMovieSceneKeyInterpolation::User:
-			Value.InterpMode = RCIM_Cubic;
-			Value.TangentMode = RCTM_User;
-			break;
-
-		case EMovieSceneKeyInterpolation::Break:
-			Value.InterpMode = RCIM_Cubic;
-			Value.TangentMode = RCTM_Break;
-			break;
-
-		case EMovieSceneKeyInterpolation::Linear:
-			Value.InterpMode = RCIM_Linear;
-			Value.TangentMode = RCTM_Auto;
-			break;
-
-		case EMovieSceneKeyInterpolation::Constant:
-			Value.InterpMode = RCIM_Constant;
-			Value.TangentMode = RCTM_Auto;
-			break;
-
-		default:
-			Value.InterpMode = RCIM_Cubic;
-			Value.TangentMode = RCTM_Auto;
-			break;
-		}
 	}
 	else switch (Interpolation)
 	{

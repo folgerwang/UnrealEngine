@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3807090
+INTSourceChangelist:4308120
 Availability: Public
 Crumbs: %ROOT%
 Title: 스카이 라이트
@@ -173,15 +173,12 @@ Sky Light (스카이 라이트)는 레벨의 먼 부분을 캡처하여 그 부�
 [/REGION]
 
 
-
-
-
-
 ### 다중 반사
 
 스카이 라이트에서 온 간접광의 다중 반사(multiple bounce)는 **월드 세팅** > **Lightmass** (라이트매스) 아래 **Num Sky Lighting Bounces** (스카이 라이팅 반사 횟수) 옵션으로 지원됩니다. 
 
 ![](LightmassSettings.png)
+
 [REGION:caption] 스카이 라이트 반사 횟수에 사용되는 세팅입니다. [/REGION]
 
 [OBJECT:ComparisonSlider]
@@ -202,7 +199,6 @@ Sky Light (스카이 라이트)는 레벨의 먼 부분을 캡처하여 그 부�
 [/REGION]
 
 [COMMENT:none]
--
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
 	![반사 횟수: 1](SkyLight_6.png)(w:1000)
@@ -211,7 +207,6 @@ Sky Light (스카이 라이트)는 레벨의 먼 부분을 캡처하여 그 부�
 	![반사 횟수: 10](SkyLight_5.png)(w:1000)
 	[/PARAM]
 [/OBJECT]
--
 [/COMMENT]
 
 ## 프로퍼티
@@ -281,43 +276,7 @@ Sky Light 컴포넌트의 프로퍼티는 Light 와 Sky Light 두 가지 카테�
 	
 	![](RecaptureSkyLightBP.png)(w:700)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 [COMMENT:none]
--
-
 
 [REGION:fullwidth raw]
 ![](Skylight_Header.png)
@@ -346,11 +305,11 @@ Sky Light 컴포넌트의 프로퍼티는 Light 와 Sky Light 두 가지 카테�
 	![Sky Light](Skylight.png)(w:800)
 	[/PARAM]
 	[PARAM:after]
-	![No Sky Light](NoSkylight.png)(w:800)
+	![No Sky Light](NoSkyLight.png)(w:800)
 	[/PARAM]
 [/OBJECT]
 
-<!--
+
 [REGION:lightbox]
 
 [![](skyLightEx_01.png)(w:884)](skyLightEx_01.png) [![](skyLightEx_02.png)(w:884)](skyLightEx_02.png)
@@ -399,10 +358,10 @@ _첫 그림은 AO 만 있는 스카이 라이트입니다. 둘째 그림은 굽�
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Direct Lighting Only](0Original.jpg)(w:800)
+	![디렉셔널 라이팅만](0Original.jpg)(w:800)
 	[/PARAM]
 	[PARAM:after]
-	![Direct Lighting and Diffuse GI computed for a Stationary Sky Light](0SkyLightGI.jpg)(w:800)
+	![디렉셔널 라이팅 및 스테이셔너리 스카이 라이트에 디퓨즈 GI 계산](0SkyLightGI.jpg)(w:800)
 	[/PARAM]
 [/OBJECT]
 
@@ -452,5 +411,3 @@ _위: 직사광만, 아래: 스테이셔너리 스카이라이트에 대해 라�
 | **Sky Distance Threshold** | 스카이 거리 한계치 - **스카이 라이트** 에서 이 거리 이상인 지오메트리는 스카이 일부로 간주됩니다 (**리플렉션 캡처** 에도 사용됩니다). |
 | **Lower Hemisphere is Black** | 하반구는 검정 - 하반구의 모든 라이팅을 0 으로 설정할지 입니다. 하반구에서의 빛샘 현상을 방지하는 데 좋습니다. |
 | **Recapture Scene** | 씬 리캡처 - **스카이 라이트 액터** 가 `SLS_CapturedScene` 로 설정된 경우, 스카이 라이트가 씬을 라이팅하는 데 사용하고 있는 이미지를 다시 캡처합니다. |
-
----->

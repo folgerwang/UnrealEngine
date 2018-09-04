@@ -36,17 +36,17 @@ void FD3D12CommandListHandle::Create(FD3D12Device* ParentDevice, D3D12_COMMAND_L
 }
 
 FD3D12CommandListHandle::FD3D12CommandListData::FD3D12CommandListData(FD3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE InCommandListType, FD3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager)
-	: CommandListManager(InCommandListManager)
+	: FD3D12DeviceChild(ParentDevice)
+	, FD3D12SingleNodeGPUObject(ParentDevice->GetGPUMask())
+	, CommandListManager(InCommandListManager)
+	, CurrentOwningContext(nullptr)
+	, CommandListType(InCommandListType)
+	, CurrentCommandAllocator(&CommandAllocator)
 	, CurrentGeneration(1)
 	, LastCompleteGeneration(0)
 	, IsClosed(false)
 	, PendingResourceBarriers()
-	, CurrentOwningContext(nullptr)
-	, CurrentCommandAllocator(&CommandAllocator)
-	, CommandListType(InCommandListType)
 	, ResidencySet(nullptr)
-	, FD3D12DeviceChild(ParentDevice)
-	, FD3D12SingleNodeGPUObject(ParentDevice->GetGPUMask())
 {
 	VERIFYD3D12RESULT(ParentDevice->GetDevice()->CreateCommandList((uint32)GetGPUMask(), CommandListType, CommandAllocator, nullptr, IID_PPV_ARGS(CommandList.GetInitReference())));
 	INC_DWORD_STAT(STAT_D3D12NumCommandLists);

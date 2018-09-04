@@ -22,7 +22,7 @@ struct FUnixPlatformTypes : public FGenericPlatformTypes
 
 typedef FUnixPlatformTypes FPlatformTypes;
 
-#define MAX_PATH				PATH_MAX
+#define UNIX_MAX_PATH				PATH_MAX
 
 // Base defines, must define these for the platform, there are no defaults
 #ifndef PLATFORM_DESKTOP
@@ -46,7 +46,7 @@ typedef FUnixPlatformTypes FPlatformTypes;
 #define PLATFORM_TCHAR_IS_4_BYTES					1
 #define PLATFORM_HAS_BSD_TIME						1
 #define PLATFORM_USE_PTHREADS						1
-#define PLATFORM_MAX_FILEPATH_LENGTH				MAX_PATH /* @todo linux: avoid using PATH_MAX as it is known to be broken */
+#define PLATFORM_MAX_FILEPATH_LENGTH_DEPRECATED		UNIX_MAX_PATH /* @todo linux: avoid using PATH_MAX as it is known to be broken */
 #define PLATFORM_HAS_NO_EPROCLIM					1
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_IOCTL		1
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_MSG_DONTWAIT	1

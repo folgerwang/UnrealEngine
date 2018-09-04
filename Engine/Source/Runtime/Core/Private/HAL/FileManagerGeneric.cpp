@@ -99,7 +99,6 @@ FArchive* FFileManagerGeneric::CreateFileWriter( const TCHAR* Filename, uint32 F
 		UE_LOG( LogFileManager, Log, TEXT( "Can't write to signed game file: %s" ),Filename );
 		return new FArchiveFileWriterDummy();
 	}
-	MakeDirectory( *FPaths::GetPath(Filename), true );
 
 	if( Flags & FILEWRITE_EvenIfReadOnly )
 	{
@@ -107,6 +106,14 @@ FArchive* FFileManagerGeneric::CreateFileWriter( const TCHAR* Filename, uint32 F
 	}
 
 	IFileHandle* Handle = GetLowLevel().OpenWrite( Filename, !!( Flags & FILEWRITE_Append ), !!( Flags & FILEWRITE_AllowRead ) );
+
+	if (!Handle)
+	{
+		MakeDirectory(*FPaths::GetPath(Filename), true);
+
+		Handle = GetLowLevel().OpenWrite(Filename, !!(Flags & FILEWRITE_Append), !!(Flags & FILEWRITE_AllowRead));
+	}
+
 	if( !Handle )
 	{
 		if( Flags & FILEWRITE_NoFail )

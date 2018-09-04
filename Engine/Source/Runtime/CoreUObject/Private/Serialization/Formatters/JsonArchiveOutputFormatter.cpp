@@ -1,9 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Serialization/Formatters/JsonArchiveOutputFormatter.h"
+#include "Serialization/MemoryWriter.h"
 #include "Misc/Base64.h"
 #include "Misc/SecureHash.h"
 #include "UObject/Object.h"
+#include "UObject/WeakObjectPtr.h"
+#include "UObject/SoftObjectPtr.h"
+#include "UObject/SoftObjectPath.h"
+#include "UObject/LazyObjectPtr.h"
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
 
@@ -26,6 +31,11 @@ FArchive& FJsonArchiveOutputFormatter::GetUnderlyingArchive()
 	return Inner;
 }
 
+bool FJsonArchiveOutputFormatter::HasDocumentTree() const
+{
+	return true;
+}
+
 void FJsonArchiveOutputFormatter::EnterRecord()
 {
 	WriteOptionalComma();
@@ -33,6 +43,12 @@ void FJsonArchiveOutputFormatter::EnterRecord()
 	Write("{");
 	Newline.Add('\t');
 	bNeedsNewline = true;
+}
+
+void FJsonArchiveOutputFormatter::EnterRecord_TextOnly(TArray<FString>& OutFieldNames)
+{
+	EnterRecord();
+	OutFieldNames.Reset();
 }
 
 void FJsonArchiveOutputFormatter::LeaveRecord()
@@ -49,6 +65,12 @@ void FJsonArchiveOutputFormatter::EnterField(FArchiveFieldName Name)
 	WriteOptionalComma();
 	WriteOptionalNewline();
 	WriteFieldName(Name.Name);
+}
+
+void FJsonArchiveOutputFormatter::EnterField_TextOnly(FArchiveFieldName Name, EArchiveValueType& OutType)
+{
+	EnterField(Name);
+	OutType = EArchiveValueType::None;
 }
 
 void FJsonArchiveOutputFormatter::LeaveField()
@@ -81,6 +103,12 @@ void FJsonArchiveOutputFormatter::EnterArrayElement()
 	EnterStreamElement();
 }
 
+void FJsonArchiveOutputFormatter::EnterArrayElement_TextOnly(EArchiveValueType& OutType)
+{
+	EnterArrayElement();
+	OutType = EArchiveValueType::None;
+}
+
 void FJsonArchiveOutputFormatter::LeaveArrayElement()
 {
 	LeaveStreamElement();
@@ -93,6 +121,12 @@ void FJsonArchiveOutputFormatter::EnterStream()
 	Write("[");
 	Newline.Add('\t');
 	bNeedsNewline = true;
+}
+
+void FJsonArchiveOutputFormatter::EnterStream_TextOnly(int32& OutNumElements)
+{
+	EnterStream();
+	OutNumElements = 0;
 }
 
 void FJsonArchiveOutputFormatter::LeaveStream()
@@ -108,6 +142,12 @@ void FJsonArchiveOutputFormatter::EnterStreamElement()
 {
 	WriteOptionalComma();
 	WriteOptionalNewline();
+}
+
+void FJsonArchiveOutputFormatter::EnterStreamElement_TextOnly(EArchiveValueType& OutType)
+{
+	EnterStreamElement();
+	OutType = EArchiveValueType::None;
 }
 
 void FJsonArchiveOutputFormatter::LeaveStreamElement()
@@ -129,6 +169,12 @@ void FJsonArchiveOutputFormatter::LeaveMap()
 void FJsonArchiveOutputFormatter::EnterMapElement(FString& Name)
 {
 	EnterField(FArchiveFieldName(*Name));
+}
+
+void FJsonArchiveOutputFormatter::EnterMapElement_TextOnly(FString& Name, EArchiveValueType& OutType)
+{
+	EnterMapElement(Name);
+	OutType = EArchiveValueType::None;
 }
 
 void FJsonArchiveOutputFormatter::LeaveMapElement()
@@ -184,7 +230,13 @@ void FJsonArchiveOutputFormatter::Serialize(float& Value)
 	}
 	else
 	{
-		WriteValue(LexToString(Value));
+		FString String = FString::Printf(TEXT("%.9g"), Value);
+#if DO_GUARD_SLOW
+		float RoundTripped;
+		LexFromString(RoundTripped, *String);
+		check(RoundTripped == Value);
+#endif
+		WriteValue(String);
 	}
 }
 
@@ -196,7 +248,13 @@ void FJsonArchiveOutputFormatter::Serialize(double& Value)
 	}
 	else
 	{
-		WriteValue(LexToString(Value));
+		FString String = FString::Printf(TEXT("%.17g"), Value);
+#if DO_GUARD_SLOW
+		double RoundTripped;
+		LexFromString(RoundTripped, *String);
+		check(RoundTripped == Value);
+#endif
+		WriteValue(FString::Printf(TEXT("%.17g"), Value));
 	}
 }
 
@@ -232,6 +290,61 @@ void FJsonArchiveOutputFormatter::Serialize(UObject*& Value)
 	else
 	{
 		SerializeStringInternal(FString::Printf(TEXT("Object:%s"), *Value->GetFullName()));
+	}
+}
+
+void FJsonArchiveOutputFormatter::Serialize(FText& Value)
+{
+	FStructuredArchive ChildArchive(*this);
+	FText::SerializeText(ChildArchive.Open(), Value);
+	ChildArchive.Close();
+}
+
+void FJsonArchiveOutputFormatter::Serialize(FWeakObjectPtr& Value)
+{
+	if (Value.IsValid())
+	{
+		SerializeStringInternal(FString::Printf(TEXT("Object:%s"), *Value.Get()->GetFullName()));
+	}
+	else
+	{
+		WriteValue(TEXT("null"));
+	}
+}
+
+void FJsonArchiveOutputFormatter::Serialize(FSoftObjectPtr& Value)
+{
+	if (Value.IsValid())
+	{
+		SerializeStringInternal(FString::Printf(TEXT("Object:%s"), *Value.Get()->GetFullName()));
+	}
+	else
+	{
+		WriteValue(TEXT("null"));
+	}
+}
+
+void FJsonArchiveOutputFormatter::Serialize(FSoftObjectPath& Value)
+{
+	if (Value.IsValid())
+	{
+		SerializeStringInternal(FString::Printf(TEXT("Object:%s"), *Value.GetAssetPathName().ToString()));
+	}
+	else
+	{
+		WriteValue(TEXT("null"));
+	}
+}
+
+void FJsonArchiveOutputFormatter::Serialize(FLazyObjectPtr& Value)
+{
+	if (Value.IsValid())
+	{
+		SerializeStringInternal(FString::Printf(TEXT("Lazy:%s"), *Value.GetUniqueID().ToString()));
+	}
+	else
+	{
+		WriteValue(TEXT("null"));
 	}
 }
 

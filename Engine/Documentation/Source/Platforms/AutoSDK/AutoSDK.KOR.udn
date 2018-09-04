@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability: Docs
 Crumbs: %ROOT%
-Title: How-to Enable AutoSDK
-Description: This page shows you how to set up your development environment to take advantage of UE4's AutoSDK system.
+Title: AutoSDK 활성화 방법
+Description: UE4 의 AutoSDK 시스템을 활용하는 개발 환경 설정 방법 설명서입니다.
 Type: how-to
 SkillLevel:Advanced
 Version: 4.18
@@ -13,30 +13,30 @@ Related:Platforms/Linux/GettingStarted
 Related:Platforms/Linux/AdvancedLinuxDeveloper/LinuxCrossCompileLegacy
 
 [REGION:warning]
-The following page is for those teams choosing to opt into leveraging our AutoSDK feature as part of an automated build system.
+자동화 빌드 시스템의 일부로 AutoSDK 기능을 활용하려는 팀을 위한 문서입니다.
 [/REGION]
 
-Manually installing Software Development Kits (SDKs) is supported; however, if you have to manage several SDK versions of a single platform, forcing you to build multiple versions of the same SDK, you might want to use our **AutoSDK** feature, which is available in Unreal Engine 4 (UE4). 
-The main advantage of using [AutoSDK](https://docs.unrealengine.com/latest/INT/API/Developer/DesktopPlatform/FPlatformInfo/index.html) is that you will enable [](Programming/UnrealBuildSystem) to automatically select the correct SDK version based on your project and branch. 
-After using AutoSDK, you'll be able to set up your machine to compile your project for all supported platforms.
+SDK (Software Development Kit, 소프트웨어 개발 키트) 수동 설치도 지원하지만, 단일 플랫폼에 다수의 SDK 버전을 관리해서 같은 SDK 를 여러 버전 빌드해야만 하는 경우라면, 언리얼 엔진 4 (UE4)의 **AutoSDK** 기능이 좋습니다. 
+[AutoSDK](https://docs.unrealengine.com/latest/INT/API/Developer/DesktopPlatform/FPlatformInfo/index.html) 를 사용하는 주된 이점은 [언리얼 빌드 시스템](Programming/UnrealBuildSystem) 이 프로젝트와 브랜치에 따라 올바른 SDK 버전을 자동 선택해 준다는 점입니다. 
+AutoSDK 를 사용하면, 지원하는 모든 플랫폼용으로 프로젝트를 컴파일하도록 머신을 설정할 수 있을 것입니다.
 
-##Setting the Environment Variable
+##환경 변수 설정
 
-Before you can get started using AutoSDK, you'll have to set up the **UE_SDKS_ROOT** Environment Variable.
+AutoSDK 를 사용하기 전에는, **UE_SDKS_ROOT** 환경 변수를 설정해야 했습니다.
 
-1.	Make note of the directory that holds all of the toolchains for your platforms (or a subset of those platforms). Your directory might look like `D:\YourPath\Host<Platform>`.
-
-	[REGION:note]
-	Generally, **AutoSDK** expects you to supply the `Host<Platform>` subdirectory, containing SDKs for target platforms (`Host<Platform>\TargetPlatform`). For example, the supplied subdirectory might look like `D:\YourPath\HostWin64\Linux_x64`.
-	[/REGION]
-
-1.	If needed, go ahead and add `//repo/YourDirectory` to your client workspace definition. As an example, in Perforce, you can add the directory to your [Client Spec](https://www.perforce.com/perforce/doc.081/manuals/p4web/help/client.html).
+1.	모든 플랫폼(또는 그 부분집합)의 툴체인이 저장된 디렉터리를 기록해 둡니다. `D:\YourPath\Host<Platform>` 와 같은 식일 것입니다.
 
 	[REGION:note]
-	Pay attention to the directory path's casing, because AutoSDK's path detection makes sure that case sensitive platforms don't get confused with pre-existing platforms that might have different casing.
+	보통 **AutoSDK** 는 `Host<Platform>` 서브디렉터리에 타깃 플랫폼에 대한 SDK 가 (`Host<Platform>\TargetPlatform`) 있을 것으로 기대합니다. 예로, 지정한 서브디렉터리는 `D:\YourPath\HostWin64\Linux_x64` 식일 것입니다.
 	[/REGION]
 
-	Now that you've added the directory to your client workspace definition, it's time to set the **UE_SDKS_ROOT** Environment Variable.
+1.	필요한 경우 클라이언트 워크스페이스 정의에 `//repo/YourDirectory` 를 추가하세요. 예를 들어 Perforce 에서 [Client Spec](https://www.perforce.com/perforce/doc.081/manuals/p4web/help/client.html) 에 디렉터리를 추가하면 됩니다.
+
+	[REGION:note]
+	디렉터리 대소문자에 주의하세요. AutoSDK 가 경로를 감지할 때 기존 플랫폼에 대소문자가 다른 경우 혼동될 수 있기 때문입니다.
+	[/REGION]
+
+클라이언트 워크스페이스 정의에 디렉터리를 추가했으니, **UE_SDKS_ROOT** 환경 변수를 설정할 차례입니다.
 
 %Globals:OSSelect_Linux%
 
@@ -81,58 +81,58 @@ Before you can get started using AutoSDK, you'll have to set up the **UE_SDKS_RO
 	[/PARAM]
 [/OBJECT]
 
-##End Result
+## 최종 결과
 
-At this point, you should have the **UE_SDKS_ROOT** Environment Variable defined the Unreal Build Tool (UBT) to take advantage of **AutoSDK**. 
-Now, whenever UBT switches to an SDK, the **Setup** and **Unsetup** batch (or bash) script files will be able to install or reinstall the SDK.
+이제 **UE_SDKS_ROOT** 환경 변수에 **AutoSDK** 를 활용하는 UBT (Unreal Build Tool) 를 정의했을 것입니다. 
+이제 UBT 가 SDK 를 전환할 때마다, **Setup**, **Unsetup** batch (또는 bash) 스크립트 파일로 SDK 설치 또는 해제가 가능할 것입니다.
 
 [COMMENT:none]
 
 [EXCERPT:WindowsConsoleSteps]
 
-###Using the Console
+###콘솔 사용
 
 [REGION:tip]
-If you're more comfortable using the **System Settings** window, feel free to jump to set the Environment Variable by [using the System Settings Window.](#Bookmark1)
+**시스템 설정** 창 사용이 더 편한 경우, [시스템 설정 창 사용법](#Bookmark1) 을 통한 환경 변수 설정으로 넘어가도 됩니다.
 [/REGION]
 
-1.	To set the **UE_SDKS_ROOT** Environment Variable, open a **Command Prompt**.
+1.	**UE_SDKS_ROOT** 환경 변수 설정을 위해 **cmd** 명령줄을 엽니다.
 
 	![](AutoSDK_Win_0.png)
 
-1.	Now, enter the following command into the console: `setx UE_SDKS_ROOT D:\YourPath`.
+1.	콘솔에 다음 명령을 입력합니다: `setx UE_SDKS_ROOT D:\YourPath`.
 
 	![](AutoSDK_Win_1.png)
 
 	[REGION:tip]
-	To learn more about the **setx** command, enter `setx /?` into the console.
+	**setx** 명령 도움말은 콘솔에 `setx /?` 를 입력하면 됩니다.
 	[/REGION]
 
-###Using the System Settings Window
+###시스템 설정 창 사용법
 
 (#Bookmark1)
 
-1.	To open the Windows **System** menu, press the **Windows+Pause/Break** keyboard combination.
+1.	Windows 의 **시스템** 메뉴를 열기 위해, **Windows+Pause/Break** 조합키를 누릅니다.
 
 	![](AutoSDK_Win_2.png)
 
-1.	Click the **Advanced system settings** link to open the **System Properties** menu.
+1.	**고급 시스템 설정** 링크를 클릭하여 **시스템 속성** 메뉴를 엽니다.
 
 	![](AutoSDK_Win_3.png)
 
-1.	Now, click the **Environment Variables...** button to open the **Environment Variables** menu.
+1.	**환경 변수...** 버튼을 눌러 **환경 변수** 메뉴를 엽니다.
 
 	![](AutoSDK_Win_4.png)
 
-1.	For this step, you can use either the **User variables** section or the **System variables** section of the **Environment Variables** menu. For illustrative purposes, go ahead and click the **New...** button in the **System variables** section of the **Environment Variables** menu.
+1.	여기서는 **환경 변수** 메뉴의 **사용자 변수** 부분 아니면 **시스템 변수** 부분을 사용합니다. 설명을 위해 **환경 변수** 메뉴의 **시스템 변수** 부분에서 **새로 만들기...** 버튼을 누릅니다.
 
 	![](AutoSDK_Win_5.png)
 
-1.	Enter `UE_SDKS_ROOT` in the **Variable name:** text field of the **New System Variable** menu.
+1.	**새 시스템 변수** 메뉴의 **변수 이름:** 칸에 `UE_SDKS_ROOT` 라 입력합니다.
 
 	![](AutoSDK_Win_6.png)
 
-1.	Now, enter the location of your directory path in the **Variable value:** field before clicking the **OK** button to save your new Environment Variable.
+1.	이제 **변수 값:** 칸에 디렉터리 경로 위치를 입력하고 **확인** 버튼을 눌러 새 환경 변수를 저장합니다.
 
 	![](AutoSDK_Win_7.png)
 
@@ -144,32 +144,32 @@ If you're more comfortable using the **System Settings** window, feel free to ju
 
 [EXCERPT:LinuxTerminalSteps]
 
-###Using the Terminal
+###Terminal 사용법
 
-1.	To set the **UE_SDKS_ROOT** Environment Variable, open a **Terminal**.
+1.	**UE_SDKS_ROOT** 환경 변수를 설정하기 위해, **Terminal** 을 엽니다.
 
 	![](AutoSDK_Linux_0.png)
 
-1.	Now, enter the following command into the terminal: `sudo -H gedit /etc/environment`.
+1.	terminal 에 다음 명령을 입력합니다: `sudo -H gedit /etc/environment`.
 
 	![](AutoSDK_Linux_1.png)
 
 	[REGION:note]
-	We're using **gedit** as our text editor for this example; however, if you want to use another text editor to update the Environment Variable text file, feel free to use the editor of your choice.
+	이 예제에서는 **gedit** 텍스트 에디터를 사용합니다. 하지만 얼마든지 다른 에디터로 환경 변수 텍스트 파일을 업데이트해도 됩니다.
 	[/REGION]
 
-1.	Type your **sudo** password to open the Environment Variable text file with **gedit**.
+1.	**sudo** 비밀번호를 입력하여 **gedit** 로 환경 변수 텍스트 파일을 엽니다.
 
 	![](AutoSDK_Linux_2.png)
 
-1.	To edit the newly opened Environment Variable text file, add `UE_SDKS_ROOT=YourPath` to the end of the file.
+1.	새로 연 환경 변수 텍스트 파일을 편집하기 위해, 파일 끝에 `UE_SDKS_ROOT=YourPath` 를 붙입니다.
 
 	![](AutoSDK_Linux_3.png)
 
-1.	After saving and closing the file, you'll need to restart your operating system in order for the changes to take effect.
+1.	파일을 저장하고 닫은 후, 운영 체제를 재시작해야 변경이 적용됩니다.
 
 	[REGION:tip]
-	If you want to verify your newly added Environment Variable, you can either use `echo` or type `printenv` into the terminal.
+	새로 추가한 환경 변수를 확인하려면, terminal 에 `echo` 또는 `printenv` 를 입력하면 됩니다.
 	[/REGION]
 
 [/EXCERPT:LinuxTerminalSteps]
@@ -180,29 +180,29 @@ If you're more comfortable using the **System Settings** window, feel free to ju
 
 [EXCERPT:MacTerminalSteps]
 
-###Using the Terminal
+###Terminal 사용법
 
-1.	To set the **UE_SDKS_ROOT** Environment Variable, open a **Terminal**.
+1.	**UE_SDKS_ROOT** 환경 변수를 설정하려면, **Terminal** 을 엽니다.
 
 	![](AutoSDK_Mac_0.png)
 
-1.	Now, enter the following command into the terminal: `sudo nano /etc/paths`.
+1.	Terminal 에 다음 명령을 입력합니다: `sudo nano /etc/paths`.
 
 	![](AutoSDK_Mac_1.png)
 
 	[REGION:note]
-	We're using **nano** as our text editor for this example; however, if you want to use another text editor to update the Environment Variable text file, feel free to use the editor of your choice.
+	이 예제에서는 **nano** 텍스트 에디터를 사용합니다. 하지만 얼마든지 다른 텍스트 에디터로 환경 변수 텍스트 파일을 업데이트해도 됩니다.
 	[/REGION]
 
-1.	Type your **sudo** password to open the Environment Variable text file with **nano**.
+1.	**sudo** 비밀번호를 입력하여 **nano** 로 환경 변수 텍스트 파일을 엽니다.
 
 	![](AutoSDK_Mac_2.png)
 
-1.	To edit the newly opened Environment Variable text file, add `UE_SDKS_ROOT=YourPath` to the end of the file.
+1.	새로 연 환경 변수 텍스트 파일을 편집하려면, 파일 끝에 `UE_SDKS_ROOT=YourPath` 를 붙입니다.
 
 	![](AutoSDK_Mac_3.png)
 
-1.	After saving and closing the file, go ahead and close your terminal.
+1.	파일을 저장하고 닫은 후 Terminal 도 닫습니다.
 	
 [/EXCERPT:MacTerminalSteps]
 

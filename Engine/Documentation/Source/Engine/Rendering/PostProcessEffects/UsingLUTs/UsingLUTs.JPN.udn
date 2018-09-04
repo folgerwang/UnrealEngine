@@ -10,8 +10,7 @@ Parent:Engine/Rendering/PostProcessEffects
 Related:Engine/Rendering/PostProcessEffects/ColorGrading
 Order:1000
 Tags:Post Process
-Topic-image:ColorGrading_Topic.png
-Social-image:ColorGrading_Overview.png
+
 
 
 ![](Engine/Rendering/PostProcessEffects/ColorGrading/ColorGrading_Overview.png)

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -52,6 +52,12 @@ namespace AutomationTool
 		/// </summary>
 		[TaskParameter(Optional = true)]
 		public bool AllowParallelExecutor = true;
+
+		/// <summary>
+		/// Whether to allow cleaning this target. If unspecified, targets are cleaned if the -Clean argument passed on the command line.
+		/// </summary>
+		[TaskParameter(Optional = true)]
+		public bool? Clean = null;
 
 		/// <summary>
 		/// Tag to be applied to build products of this task
@@ -123,7 +129,7 @@ namespace AutomationTool
 			bAllowXGE &= Parameters.AllowXGE;
 			bAllowParallelExecutor &= Parameters.AllowParallelExecutor;
 
-			UE4Build.BuildTarget Target = new UE4Build.BuildTarget { TargetName = Parameters.Target, Platform = Parameters.Platform, Config = Parameters.Configuration, UBTArgs = "-nobuilduht " + (Parameters.Arguments ?? "") };
+			UE4Build.BuildTarget Target = new UE4Build.BuildTarget { TargetName = Parameters.Target, Platform = Parameters.Platform, Config = Parameters.Configuration, UBTArgs = "-nobuilduht " + (Parameters.Arguments ?? ""), Clean = Parameters.Clean };
 			if(!String.IsNullOrEmpty(Parameters.Tag))
 			{
 				TargetToTagName.Add(Target, Parameters.Tag);
@@ -168,13 +174,11 @@ namespace AutomationTool
 				{
 					HashSet<FileReference> FileSet = CustomTask.FindOrAddTagSet(TagNameToFileSet, TagName);
 					FileSet.UnionWith(Manifest.BuildProducts.Select(x => new FileReference(x)));
-					FileSet.UnionWith(Manifest.LibraryBuildProducts.Select(x => new FileReference(x)));
 				}
 			}
 
 			// Add everything to the list of build products
 			BuildProducts.UnionWith(Builder.BuildProductFiles.Select(x => new FileReference(x)));
-			BuildProducts.UnionWith(Builder.LibraryBuildProductFiles.Select(x => new FileReference(x)));
 		}
 	}
 

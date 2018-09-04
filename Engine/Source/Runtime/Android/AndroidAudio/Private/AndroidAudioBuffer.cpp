@@ -163,6 +163,8 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateNativeBuffer( FSLESAudioDevice* AudioD
 	Buffer->NumChannels		= InWave->NumChannels;
 	Buffer->SampleRate		= InWave->GetSampleRateForCurrentPlatform();
 
+	check(!InWave->RawPCMData || InWave->RawPCMDataSize);
+
 	// Take ownership the PCM data
 	Buffer->AudioData = InWave->RawPCMData;
 	Buffer->BufferSize = InWave->RawPCMDataSize;

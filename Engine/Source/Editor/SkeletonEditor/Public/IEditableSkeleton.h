@@ -93,6 +93,11 @@ public:
 	virtual int32 DeleteAnimNotifies(const TArray<FName>& InotifyNames) = 0;
 
 	/**
+	 * Delete sync markers from the skeleton cache by name
+	 */
+	virtual void DeleteSyncMarkers(const TArray<FName>& ISyncMarkerNames) = 0;
+
+	/**
 	* Add a notify
 	*/
 	virtual void AddNotify(FName NewName) = 0;
@@ -102,6 +107,14 @@ public:
 	 * @return the number of animations modified
 	 */	
 	virtual int32 RenameNotify(const FName& NewName, const FName& OldName) = 0;
+
+	/**
+	* Add a sync marker
+	*/
+	virtual void AddSyncMarker(FName NewName) = 0;
+
+	/** Inform the system that something about a notify changed */	
+	virtual void BroadcastNotifyChanged() = 0;
 
 	/** Populates OutAssets with the AnimSequences that match this current skeleton */
 	virtual void GetCompatibleAnimSequences(TArray<struct FAssetData>& OutAssets) = 0;

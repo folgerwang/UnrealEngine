@@ -10,11 +10,10 @@
 // TODO: would be nice if Unreal make that function public so we don't need to make a duplicate.
 inline void GetAdbPath(FString& OutAdbPath)
 {
-	TCHAR AndroidDirectory[32768] = { 0 };
-	FPlatformMisc::GetEnvironmentVariable(TEXT("ANDROID_HOME"), AndroidDirectory, 32768);
+	FString AndroidDirectory = FPlatformMisc::GetEnvironmentVariable(TEXT("ANDROID_HOME"));
 
 #if PLATFORM_MAC
-	if (AndroidDirectory[0] == 0)
+	if (AndroidDirectory.Len() == 0)
 	{
 		// didn't find ANDROID_HOME, so parse the .bash_profile file on MAC
 		FArchive* FileReader = IFileManager::Get().CreateFileReader(*FString([@"~/.bash_profile" stringByExpandingTildeInPath]));
@@ -33,25 +32,25 @@ inline void GetAdbPath(FString& OutAdbPath)
 
 			for (int32 Index = Lines.Num() - 1; Index >= 0; Index--)
 			{
-				if (AndroidDirectory[0] == 0 && Lines[Index].StartsWith(TEXT("export ANDROID_HOME=")))
+				if (AndroidDirectory.Len() == 0 && Lines[Index].StartsWith(TEXT("export ANDROID_HOME=")))
 				{
 					FString Directory;
 					Lines[Index].Split(TEXT("="), NULL, &Directory);
 					Directory = Directory.Replace(TEXT("\""), TEXT(""));
-					FCString::Strcpy(AndroidDirectory, *Directory);
-					setenv("ANDROID_HOME", TCHAR_TO_ANSI(AndroidDirectory), 1);
+					AndroidDirectory = Directory;
+					setenv("ANDROID_HOME", TCHAR_TO_ANSI(*AndroidDirectory), 1);
 				}
 			}
 		}
 	}
 #endif
 
-	if (AndroidDirectory[0] != 0)
+	if (AndroidDirectory.Len() != 0)
 	{
 #if PLATFORM_WINDOWS
-		OutAdbPath = FString::Printf(TEXT("%s\\platform-tools\\adb.exe"), AndroidDirectory);
+		OutAdbPath = FString::Printf(TEXT("%s\\platform-tools\\adb.exe"), *AndroidDirectory);
 #else
-		OutAdbPath = FString::Printf(TEXT("%s/platform-tools/adb"), AndroidDirectory);
+		OutAdbPath = FString::Printf(TEXT("%s/platform-tools/adb"), *AndroidDirectory);
 #endif
 
 		// if it doesn't exist then just clear the path as we might set it later

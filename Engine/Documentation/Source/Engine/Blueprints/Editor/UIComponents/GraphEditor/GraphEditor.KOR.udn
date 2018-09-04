@@ -28,7 +28,7 @@ tags:Blueprints
 [/EXCERPT:Interface]
 
 [EXCERPT:Main]
-### 그래프 에디터 콘트롤
+### 그래프 에디터 컨트롤
 
 **그래프 에디터** 탭은 아래와 같은 방법으로 조작 가능합니다:
 
@@ -48,7 +48,7 @@ tags:Blueprints
 [COMMENT:none]
 [EXCERPT:Controls]
 
-| 콘트롤 | 동작 |
+| 컨트롤 | 동작 |
 | --- | --- |
 | 우클릭 + 드래그 | 그래프 패닝(이동)입니다. |
 | 마우스 스크롤 | 그래프 줌 입니다. |

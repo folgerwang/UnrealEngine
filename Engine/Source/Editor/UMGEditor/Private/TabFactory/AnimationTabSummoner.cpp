@@ -7,6 +7,7 @@
 #include "MovieScene.h"
 #include "Animation/WidgetAnimation.h"
 #include "WidgetBlueprint.h"
+#include "WidgetBlueprintEditorUtils.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SScrollBorder.h"
 #include "Widgets/Views/STableViewBase.h"
@@ -67,6 +68,16 @@ bool VerifyAnimationRename( FWidgetBlueprintEditor& BlueprintEditor, UWidgetAnim
 	{
 		OutErrorMessage = LOCTEXT("NameInUseByFunction", "A function with this name already exists");
 		return false;
+	}
+
+	// Check for BindWidgetAnim property
+	if (Blueprint)
+	{
+		UProperty* Property = Blueprint->ParentClass->FindPropertyByName(NewAnimationNameAsName);
+		if (Property && FWidgetBlueprintEditorUtils::IsBindWidgetAnimProperty(Property))
+		{
+			return true;
+		}
 	}
 
 	FKismetNameValidator Validator( Blueprint );
@@ -136,7 +147,7 @@ private:
 	{
 		if( ListItem.IsValid() )
 		{
-			return FText::FromString( ListItem.Pin()->Animation->GetName() );
+			return ListItem.Pin()->Animation->GetDisplayName();
 		}
 
 		return FText::GetEmpty();
@@ -146,12 +157,12 @@ private:
 	{
 		UWidgetAnimation* Animation = ListItem.Pin()->Animation;
 
-		FString NewName = InText.ToString();
+		const FName NewName = MakeObjectNameFromDisplayLabel(InText.ToString(), Animation->GetFName());
 
-		if ( Animation->GetName() != NewName )
+		if ( Animation->GetFName() != NewName )
 		{
 			TSharedPtr<FWidgetBlueprintEditor> Editor = BlueprintEditor.Pin();
-			return Editor.IsValid() && VerifyAnimationRename( *Editor, Animation, NewName, OutErrorMessage );
+			return Editor.IsValid() && VerifyAnimationRename( *Editor, Animation, NewName.ToString(), OutErrorMessage );
 		}
 
 		return true;
@@ -162,23 +173,33 @@ private:
 		UWidgetAnimation* WidgetAnimation = ListItem.Pin()->Animation;
 		UWidgetBlueprint* Blueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
 
-		FName CurrentName = WidgetAnimation->GetFName();
+		// Get the new FName slug from the given display name
+		const FName NewFName = MakeObjectNameFromDisplayLabel(InText.ToString(), WidgetAnimation->GetFName());
+		const FName OldFName = WidgetAnimation->GetFName();
 
-		bool bNewAnimation = ListItem.Pin()->bNewAnimation;
+		UObjectPropertyBase* ExistingProperty = Cast<UObjectPropertyBase>(Blueprint->ParentClass->FindPropertyByName(NewFName));
+		const bool bBindWidgetAnim = ExistingProperty && FWidgetBlueprintEditorUtils::IsBindWidgetAnimProperty(ExistingProperty) && ExistingProperty->PropertyClass->IsChildOf(UWidgetAnimation::StaticClass());
 
-		if(!CurrentName.ToString().Equals(InText.ToString()) && !InText.IsEmpty())
+		const bool bValidName = !OldFName.IsEqual(NewFName) && !InText.IsEmpty();
+		const bool bCanRename = (bValidName || bBindWidgetAnim);
+
+		const bool bNewAnimation = ListItem.Pin()->bNewAnimation;
+		if (bCanRename)
 		{
-			FText TransactionName = bNewAnimation ? LOCTEXT("NewAnimation", "New Animation") : LOCTEXT("RenameAnimation", "Rename Animation");
+			const FString NewNameStr = NewFName.ToString();
+			const FString OldNameStr = OldFName.ToString();
 
+			FText TransactionName = bNewAnimation ? LOCTEXT("NewAnimation", "New Animation") : LOCTEXT("RenameAnimation", "Rename Animation");
 			{
 				const FScopedTransaction Transaction(TransactionName);
 				WidgetAnimation->Modify();
 				WidgetAnimation->GetMovieScene()->Modify();
 
-				WidgetAnimation->Rename(*InText.ToString());
-				WidgetAnimation->GetMovieScene()->Rename(*InText.ToString());
+				WidgetAnimation->SetDisplayLabel(InText.ToString());
+				WidgetAnimation->Rename(*NewNameStr);
+				WidgetAnimation->GetMovieScene()->Rename(*NewNameStr);
 
-				if(bNewAnimation)
+				if (bNewAnimation)
 				{
 					Blueprint->Modify();
 					Blueprint->Animations.Add(WidgetAnimation);
@@ -186,11 +207,10 @@ private:
 				}
 			}
 
-			FBlueprintEditorUtils::ReplaceVariableReferences(Blueprint, CurrentName, FName(*InText.ToString()));
-
+			FBlueprintEditorUtils::ReplaceVariableReferences(Blueprint, OldFName, NewFName);
 			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 		}
-		else if( bNewAnimation )
+		else if (bNewAnimation)
 		{
 			const FScopedTransaction Transaction(LOCTEXT("NewAnimation", "New Animation"));
 			Blueprint->Modify();
@@ -398,9 +418,12 @@ private:
 			UniqueName = FString::Printf( TEXT( "%s_%i" ), *BaseName, NameIndex );
 			NameIndex++;
 		}
-		NewAnimation->Rename( *UniqueName );
 
-		NewAnimation->MovieScene = NewObject<UMovieScene>(NewAnimation, NewAnimation->GetFName(), RF_Transactional);
+		const FName NewFName = MakeObjectNameFromDisplayLabel(UniqueName, NewAnimation->GetFName());
+		NewAnimation->SetDisplayLabel( UniqueName );
+		NewAnimation->Rename(*UniqueName);
+
+		NewAnimation->MovieScene = NewObject<UMovieScene>(NewAnimation, NewFName, RF_Transactional);
 
 		// Default to 20 fps display rate (as was the previous default in USequencerSettings)
 		NewAnimation->MovieScene->SetDisplayRate(FFrameRate(20, 1));

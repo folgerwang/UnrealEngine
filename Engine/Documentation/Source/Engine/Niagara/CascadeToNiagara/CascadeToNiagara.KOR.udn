@@ -1,66 +1,68 @@
-﻿INTSourceChangelist:0
-Availability: Docs
-Crumbs: %ROOT%
-Title: Cascade To Niagara
-Description: Showing the differences and similarities between Cascade and Niagara
-Type: Overview
-SkillLevel: Beginner
-Version: 4.18
+INTSourceChangelist:4293098
+Availability: Public
+Crumbs: 
+Title: 캐스케이드에서 나이아가라로
+Description: 캐스케이드와 나이아가라의 차이점과 유사점을 짚어봅니다. 
+Version: 4.20
 Parent: Engine/Niagara
-Order: 1
-Tags: Cascade
+Order: 0
 Tags: Getting Started
-topic-image:NiagaraToCascadeTopicImage.png
+Tags: Cascade
+Tags: Early Access
 
-[TOC(start:1 end:3)]
+[TOC(start:2 end:3)]
 
-While both **Cascade** and **Niagara** can be used to make visual effects (VFX) inside of Unreal Engine 4 (UE4), the manner in which you use Cascade to create and adjust visual effects is vastly different from how you use Niagara to achieve the same ends. In the following document, we will take a look at how to transition from Cascade to Niagara to make all of your visual effects. The reason for creating this new tool is to put more power into the hands of the artist to create additional functionality without the help of a programmer. We take some inspiration from movie FX tools and try to make the system as adaptable and flexible as possible while keeping usability high and accommodating the 90% use cases.
+**캐스케이드** 및 **나이아가라** 를 사용하여 언리얼 엔진 4 (UE4) 안에서 비주얼 이펙트를 만들 수는 있지만, 캐스케이드에서 비주얼 이펙트를 만들고 수정하는 방식과 나이아가라에서 똑같은 결과를 얻기 위한 방식은 큰 차이가 있습니다. 이 글에서는, 캐스케이드에서 나이아가라로 전환하여 비주얼 이펙트를 만드는 법을 살펴보겠습니다. 툴을 새로 만든 이유는 프로그래머의 도움 없이 아티스트가 더욱 많은 기능을 구현할 수 있도록 하기 위해서입니다. 영화용 FX 툴에서 영감을 얻어 사용하기 편리하고 기존 사용 사례 90% 정도를 수용하면서도 최대한의 적응력과 유연성을 갖춘 시스템을 만들기 위해 노력했습니다. 
 
-## Niagara Overview
+## 나이아가라 개요
 
-Niagara is Unreal Engine's next-generation visual effects system. It's a complete replacement for Cascade, with which it will coexist until Niagara functionally is deemed to fully supersede that of Cascade.
+나이아가라는 언리얼 엔진의 차세대 비주얼 이펙트 시스템입니다. 캐스케이드를 완벽히 대체하기 위한 용도이기는 하지만, 완전히 대체할 때까지는 공존할 예정입니다. 아래 이미지는 UE4 에서 나이아가라 작동 방식을 일반적인 관점에서 분석한 것입니다.
 
-## Why is Niagara Better Than Cascade?
+![CascadeVS Niagara.png](CascadeVS20Niagara.png "CascadeVS Niagara.png")
 
-The fundamental power of Niagara lies predominantly in the ability to share arbitrary particle data in whatever way the user sees fit. This helps to enable users to script their own behaviors rather than requiring code intervention to create new hard-coded features. In Cascade, particle simulations are controlled by hard-coded modules, each providing a specific set of functionality to modify particle attributes. In contrast, Niagara simulation is controlled by node graphs that artists can create and edit.
+## 나이아가라와 캐스케이드의 다른 점은?
 
-[OBJECT:ComparisonSlider]
-    [PARAM:before]
-    ![Cascade](Cascade.png)(w:1000)
-    [/PARAM]
-    [PARAM:after]
-    ![Niagara](Ninagra.png)
-    [/PARAM]
-[/OBJECT]
-
-One of the other reasons Niagara is superior to Cascade is that Niagara's node graphs are compiled to bytecode that runs in a very low-overhead interpreter, resulting in very high performance even on CPU simulations. GPU simulations are planned, and switching between the two is expected to be transparent - with a few caveats, any emitter should be able to be simulated on CPU or GPU, based on user choice.
-
-## Cascade & Niagara UI 
-
-When you first open up Niagara, the User Interface (UI) will look completely different than Cascade. However, if you take a close look, you will begin to notice that the Niagara interface does share some of the following similarities to Cascade:
-
-* Realtime 3D viewport to visualize effects while they are being created.
-
-* Curves Editor for adjusting R, G, B and Alpha values.
-
-* Details Panel for adjusting various properties.
+나이아가라의 진정한 위력은 임의의 파티클 데이터를 사용자가 적합하다고 생각하는 방식으로 공유할 수 있다는 데 있습니다. 이렇게하면 사용자가 코드를 통해 새로운 기능을 하드코딩할 필요 없이 별도의 작동방식을 스크립트로 작성할 수 있습니다. 캐스케이드에서는 하드코딩된 모듈로 파티클 시뮬레이션을 제어하며, 각 모듈에 제공된 구체적인 기능 세트로 파티클 특성을 수정합니다. 반대로 나이아가라 시뮬레이션은 노드 그래프로 제어하며, 아티스트가 만들고 편집할 수 있습니다. 
 
 [OBJECT:ComparisonSlider]
-    [PARAM:before]
-    ![Cascade](CTN_Cas_VFX.png)(w:1000)
-    [/PARAM]
-    [PARAM:after]
-    ![Niagara](CTN_Nia_VFX.png)
-    [/PARAM]
+	[PARAM:before]
+	![캐스케이드](Cascade.png)(w:800)
+	[/PARAM]
+	[PARAM:after]
+	![나이아가라](Ninagra.png)(w:800)
+	[/PARAM]
 [/OBJECT]
 
-## Niagara Emitters & Systems
+나이아가라가 캐스케이드보다 좋은 이유 또 한가지는, 나이아가라의 노드 그래프는 부하가 매우 적게 걸리는 인터프리터 실행 바이트코드로 컴파일되어, CPU 시뮬레이션에서도 퍼포먼스가 매우 높습니다. GPU 시뮬레이션은 곧 구현될 예정이며, 그 둘 사이 전환은 투명하게 이루어질 것으로 예상합니다. 약간의 주의사항이 있지만, 어떤 이미터든 사용자 선택에 따라 시뮬레이션을 CPU 나 GPU 어디서든 할 수 있을 것입니다. 
 
-One of the biggest differences between Cascade and Niagara is how you build emitters. When using Cascade, emitters are built as a self-contained unit. While this made the emitters easy to place and spawn, it also made it hard to share behavior between different emitter or make updates as everything had to be done manually.  Niagara changes all of this by giving visual effect artist the ability to control, add, or modify any part of a visual effects behavior right down to the pixel level. To accomplish this, Niagara particle systems have been broken up into the following two parts:
+## 캐스케이드 & 나이아가라 UI
 
-* **Niagara Emitters:** This is a single visual effect that will be combined with other Niagara Emitters to make a Niagara System. If we are making a fire effect, the Niagara Emitters would be each of the different elements that make up the fire effect like the smoke, fire, distortion, and embers.
- 
+처음 나이아가라를 열면, 유저 인터페이스(UI)는 케스케이드와 완전 달라보일 것입니다. 그러나 자세히 살펴보면 나이아가라 인터페이스가 캐스케이드와 비슷한 점이 몇 가지 있는데, 다음과 같습니다: 
+
+*   실시간 3D 뷰포트로 이펙트를 만들면서 시각화시켜 볼 수 있습니다. 
+
+*   커브 에디터로 R, G, B, A 값을 조절할 수 있습니다. 
+
+*   디테일 패널에서 여러 프로퍼티를 조절할 수 있습니다. 
+    
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![캐스케이드](CTN_Cas_VFX.png)(w:800)
+	[/PARAM]
+	[PARAM:after]
+	![나이아가라](CTN_Nia_VFX.png)(w:800) 
+	[/PARAM]
+[/OBJECT]
+
+## 나이아가라 이미터 & 시스템
+
+캐스케이드와 나이아가라의 가장 큰 차이점 중 하나는 이미터를 만드는 방식입니다. 캐스케이드를 사용할 때는, 이미터가 자체 독립적인 단위로 만들어집니다. 그 덕에 이미터를 배치하고 스폰하는 작업은 쉽지만, 여러 이미터 사이에 작동방식을 공유하거나 업데이트시키는 일은 모두 수동으로 해야 하기에 어렵습니다. 나이아가라에서는 이 모든 것이 바뀌어, 비주얼 이펙트의 작동방식 어떤 부분이든 픽셀 단위까지 비주얼 이펙트 아티스트가 제어 추가 수정할 수 있습니다. 이를 위해 나이아가라 파티클 시스템은 다음 두 부분으로 나뉩니다: 
+
+*   **나이아가라 이미터:** 하나의 비주얼 이펙트를 나타내며, 다른 나이아가라 이미터와 합쳐 나이아가라 시스템을 만듭니다. 화염 이펙트를 만드는 경우, 나이아가라 이머터는 연기, 불, 왜곡, 불꽃 등 그것을 이루는 요소 각각이 나이아가라 이미터입니다. 
+    
     ![](CTN_NiagaraEmitters.png)
-* **Niagara Systems:** This contains everything needed to make up a single effect. Continuing with our fire example, this would be the completed fire effect that contains the Niagara Emitters for the smoke, fire, distortion, and embers.
- 
+    
+*   **나이아가라 시스템:** 하나의 이펙트를 만드는 데 필요한 모든 것이 들어갑니다. 화염 이펙트 예제를 계속 들면, 각각의 연기, 불, 왜곡, 불꽃에 대한 나이아가라 이미터를 합쳐 완성시킨 화염 이펙트가 나이아가라 시스템입니다. 
+    
     ![](CTN_NiagaraSystem.png)

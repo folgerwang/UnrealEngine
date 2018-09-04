@@ -8436,8 +8436,7 @@ void UEngine::EnableScreenSaver( bool bEnable )
 		return;
 	}
 
-	TCHAR EnvVariable[32];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("UE-DisallowScreenSaverInhibitor"), EnvVariable, ARRAY_COUNT(EnvVariable));
+	FString EnvVariable = FPlatformMisc::GetEnvironmentVariable(TEXT("UE-DisallowScreenSaverInhibitor"));
 	const bool bDisallowScreenSaverInhibitor = FString(EnvVariable).ToBool();
 
 	// By default we allow to use screen saver inhibitor, but in some cases user can override this setting.
@@ -8572,6 +8571,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				NewMessage->ScreenMessage = DebugMessage;
 				NewMessage->DisplayColor = DisplayColor;
 				NewMessage->TimeToDisplay = TimeToDisplay;
+				NewMessage->TextScale = TextScale;
 				NewMessage->CurrentTimeDisplayed = 0.0f;				
 			}
 			else
@@ -8581,7 +8581,8 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				NewMessage.Key = Key;
 				NewMessage.DisplayColor = DisplayColor;
 				NewMessage.TimeToDisplay = TimeToDisplay;
-				NewMessage.ScreenMessage = DebugMessage;				
+				NewMessage.ScreenMessage = DebugMessage;
+				NewMessage.TextScale = TextScale;
 				PriorityScreenMessages.Insert(NewMessage, 0);
 			}
 		}
@@ -8597,6 +8598,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				NewMessage.DisplayColor = DisplayColor;
 				NewMessage.TimeToDisplay = TimeToDisplay;
 				NewMessage.ScreenMessage = DebugMessage;				
+				NewMessage.TextScale = TextScale;
 				ScreenMessages.Add((int32)Key, NewMessage);
 			}
 			else
@@ -8607,6 +8609,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				Message->TextScale = TextScale;
 				Message->TimeToDisplay = TimeToDisplay;
 				Message->CurrentTimeDisplayed = 0.0f;				
+				Message->TextScale = TextScale;
 			}
 		}
 	}
@@ -8697,14 +8700,12 @@ bool UEngine::FErrorsAndWarningsCollector::Tick(float Seconds)
 /** Wrapper from int32 to uint64 */
 void UEngine::AddOnScreenDebugMessage(int32 Key, float TimeToDisplay, FColor DisplayColor, const FString& DebugMessage, bool bNewerOnTop, const FVector2D& TextScale)
 {
-	if (bEnableOnScreenDebugMessages == true)
-	{
-		AddOnScreenDebugMessage((uint64)Key, TimeToDisplay, DisplayColor, DebugMessage, bNewerOnTop, TextScale);
-	}
+	AddOnScreenDebugMessage((uint64)Key, TimeToDisplay, DisplayColor, DebugMessage, bNewerOnTop, TextScale);
 }
 
 bool UEngine::OnScreenDebugMessageExists(uint64 Key)
 {
+#if !UE_BUILD_SHIPPING
 	if (bEnableOnScreenDebugMessages == true)
 	{
 		if (Key == (uint64)-1)
@@ -8719,14 +8720,17 @@ bool UEngine::OnScreenDebugMessageExists(uint64 Key)
 			return true;
 		}
 	}
+#endif // !UE_BUILD_SHIPPING
 
 	return false;
 }
 
 void UEngine::ClearOnScreenDebugMessages()
 {
+#if !UE_BUILD_SHIPPING
 	ScreenMessages.Empty();
 	PriorityScreenMessages.Empty();
+#endif // !UE_BUILD_SHIPPING
 }
 
 #if !UE_BUILD_SHIPPING
@@ -9503,6 +9507,8 @@ float DrawMapWarnings(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanv
 */
 float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas* CanvasObject, float MessageX, float MessageY)
 {
+	static TFrameValue<bool> HasUpdatedScreenDebugMessages;
+
 	int32 YPos = MessageY;
 	const int32 MaxYPos = CanvasObject ? CanvasObject->SizeY : 700;
 	if (GEngine->PriorityScreenMessages.Num() > 0)
@@ -9515,14 +9521,18 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 			if (YPos < MaxYPos)
 			{
 				MessageTextItem.Text = FText::FromString(Message.ScreenMessage);
-				MessageTextItem.SetColor(Message.DisplayColor);				
+				MessageTextItem.SetColor(Message.DisplayColor);
+				MessageTextItem.Scale = Message.TextScale;
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+			if (!HasUpdatedScreenDebugMessages.IsSet())
 			{
-				GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
+				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+				{
+					GEngine->PriorityScreenMessages.RemoveAt(PrioIndex);
+				}
 			}
 		}
 	}
@@ -9542,13 +9552,19 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
-			Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
-			if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+			if (!HasUpdatedScreenDebugMessages.IsSet())
 			{
-				MsgIt.RemoveCurrent();
+				Message.CurrentTimeDisplayed += World->GetDeltaSeconds();
+				if (Message.CurrentTimeDisplayed >= Message.TimeToDisplay)
+				{
+					MsgIt.RemoveCurrent();
+				}
 			}
 		}
 	}
+
+	// Flag variable that the update has already been done this frame
+	HasUpdatedScreenDebugMessages = true;
 
 	return MessageY;
 }
@@ -11672,7 +11688,7 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 			if (!MakeSureMapNameIsValid(Context.PendingNetGame->URL.Map))
 			{
 				BrowseToDefaultMap(Context);
-				BroadcastTravelFailure(Context.World(), ETravelFailure::PackageMissing, Context.PendingNetGame->URL.RedirectURL);
+				BroadcastTravelFailure(Context.World(), ETravelFailure::PackageMissing, Context.PendingNetGame->URL.Map);
 			}
 			else
 			{
@@ -13503,12 +13519,9 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	AActor* NewActor = Cast<AActor>(NewObject);
 	if (NewActor != nullptr)
 	{
-		TInlineComponentArray<UActorComponent*> Components;
-		NewActor->GetComponents(Components);
-
-		for(int32 i=0; i<Components.Num(); i++)
+		for (UActorComponent* Component : NewActor->GetComponents())
 		{
-			ensure(!Components[i]->IsRegistered());
+			ensure(Component == nullptr || !Component->IsRegistered());
 		}
 	}
 

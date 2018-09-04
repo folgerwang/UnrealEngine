@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3920986
+INTSourceChangelist:4300533
 Availability:Public
 Title: 차량 머티리얼 팩
 Description:Automotive Material 팩에 들어있는 애셋에 대한 분석 및 사용법입니다.
@@ -9,7 +9,7 @@ tags:Studio
 tags:Automotive
 tags:Materials
 type:overview
-order:1
+order:100
 Related:Engine/Rendering/Materials/PhysicallyBased/
 Related:Engine/Rendering/Materials/MaterialProperties/LightingModels
 Related:Engine/Rendering/Materials/HowTo/ClearCoatDualNormal

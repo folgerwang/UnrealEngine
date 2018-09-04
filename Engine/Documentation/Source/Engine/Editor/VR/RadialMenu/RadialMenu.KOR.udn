@@ -105,7 +105,7 @@ UE4 에디터에서 원형 메뉴 각 옵션의 기능에 대한 분석입니다
 |![](T_Radial_Translate_Snap.png)(w:64)|**Scale Snap Value**|스케일 스냅 값 - 오브젝트를 스케일 그리드에 끌어붙이는 스케일 그리드를 켜고 끕니다. |
 |![](T_Radial_Scale_Num.png)(w:64)|**Scale Snap Value**|스케일 스냅 값 - 스케일 스냅 그리드 값을 설정합니다. |
 |![](T_Radial_Align_Actors.png)(w:64)|**Smart Snapping**|스마트 스냅 - 스마트 스냅은 오브젝트의 바운드를 사용하여 씬의 다른 액터에 붙이는 기능으로, 그리드를 염두에 두고 애셋을 모듈식으로 제작하지 않아도 정확히 맞출 수 있습니다.|
-|![](T_Radial_Set_Targets.png)(w:64)|**Set Targets**|타겟 설정 - 스마트 스냅을 적용할 액터를 설정합니다.|
+|![](T_Radial_Set_Targets.png)(w:64)|**Set Targets**|타깃 설정 - 스마트 스냅을 적용할 액터를 설정합니다.|
 ### 기즈모
 
 ![](T_Radial_Universal.png)(w:128)

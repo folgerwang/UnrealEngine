@@ -100,10 +100,10 @@ topic-image:Engine/UI/curveEditor_topic.png
 
 
 
-## 콘트롤
+## 컨트롤
 
 
-### 마우스 콘트롤
+### 마우스 컨트롤
 
 패닝/편집 모드에서:
 [EXCERPT:curvecontrols]
@@ -125,7 +125,7 @@ topic-image:Engine/UI/curveEditor_topic.png
 | _좌클릭 + 우클릭 + 드래그_ | X와 Y축 줌입니다.|
 
 
-### 키보드 콘트롤
+### 키보드 컨트롤
 
 패닝/편집 모드에서:
 

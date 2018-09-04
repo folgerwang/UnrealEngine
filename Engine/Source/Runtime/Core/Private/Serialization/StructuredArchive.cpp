@@ -40,6 +40,7 @@ FStructuredArchiveChildReader::FStructuredArchiveChildReader(FStructuredArchive:
 
 	Archive = new FStructuredArchive(*Formatter);
 	Root.Emplace(Archive->Open());
+	InSlot.EnterRecord();
 }
 
 FStructuredArchiveChildReader::~FStructuredArchiveChildReader()
@@ -65,7 +66,7 @@ FStructuredArchive::FStructuredArchive(FArchiveFormatterType& InFormatter)
 #if DO_GUARD_SLOW
 	, bRequiresStructuralMetadata(true)
 #else
-	, bRequiresStructuralMetadata(InFormatter.RequiresStructuralMetadata())
+	, bRequiresStructuralMetadata(InFormatter.HasDocumentTree())
 #endif
 	, NextElementId(RootElementId + 1)
 	, CurrentSlotElementId(INDEX_NONE)
@@ -223,6 +224,19 @@ FStructuredArchive::FRecord FStructuredArchive::FSlot::EnterRecord()
 	return FRecord(Ar, Depth + 1, ElementId);
 }
 
+FStructuredArchive::FRecord FStructuredArchive::FSlot::EnterRecord_TextOnly(TArray<FString>& OutFieldNames)
+{
+	Ar.EnterSlot(ElementId, EElementType::Record);
+
+#if DO_GUARD_SLOW
+	Ar.CurrentContainer.Add(new FContainer(0));
+#endif
+
+	Ar.Formatter.EnterRecord_TextOnly(OutFieldNames);
+
+	return FRecord(Ar, Depth + 1, ElementId);
+}
+
 FStructuredArchive::FArray FStructuredArchive::FSlot::EnterArray(int32& Num)
 {
 	Ar.EnterSlot(ElementId, EElementType::Array);
@@ -241,6 +255,15 @@ FStructuredArchive::FStream FStructuredArchive::FSlot::EnterStream()
 	Ar.EnterSlot(ElementId, EElementType::Stream);
 
 	Ar.Formatter.EnterStream();
+
+	return FStream(Ar, Depth + 1, ElementId);
+}
+
+FStructuredArchive::FStream FStructuredArchive::FSlot::EnterStream_TextOnly(int32& OutNumElements)
+{
+	Ar.EnterSlot(ElementId, EElementType::Stream);
+
+	Ar.Formatter.EnterStream_TextOnly(OutNumElements);
 
 	return FStream(Ar, Depth + 1, ElementId);
 }
@@ -367,6 +390,41 @@ void FStructuredArchive::FSlot::operator<< (UObject*& Value)
 	Ar.LeaveSlot();
 }
 
+void FStructuredArchive::FSlot::operator<< (FText& Value)
+{
+	Ar.EnterSlot(ElementId);
+	Ar.Formatter.Serialize(Value);
+	Ar.LeaveSlot();
+}
+
+void FStructuredArchive::FSlot::operator<< (FWeakObjectPtr& Value)
+{
+	Ar.EnterSlot(ElementId);
+	Ar.Formatter.Serialize(Value);
+	Ar.LeaveSlot();
+}
+
+void FStructuredArchive::FSlot::operator<< (FLazyObjectPtr& Value)
+{
+	Ar.EnterSlot(ElementId);
+	Ar.Formatter.Serialize(Value);
+	Ar.LeaveSlot();
+}
+
+void FStructuredArchive::FSlot::operator<< (FSoftObjectPtr& Value)
+{
+	Ar.EnterSlot(ElementId);
+	Ar.Formatter.Serialize(Value);
+	Ar.LeaveSlot();
+}
+
+void FStructuredArchive::FSlot::operator<< (FSoftObjectPath& Value)
+{
+	Ar.EnterSlot(ElementId);
+	Ar.Formatter.Serialize(Value);
+	Ar.LeaveSlot();
+}
+
 void FStructuredArchive::FSlot::Serialize(TArray<uint8>& Data)
 {
 	Ar.EnterSlot(ElementId);
@@ -410,6 +468,11 @@ FStructuredArchive::FRecord FStructuredArchive::FRecord::EnterRecord(FArchiveFie
 	return EnterField(Name).EnterRecord();
 }
 
+FStructuredArchive::FRecord FStructuredArchive::FRecord::EnterRecord_TextOnly(FArchiveFieldName Name, TArray<FString>& OutFieldNames)
+{
+	return EnterField(Name).EnterRecord_TextOnly(OutFieldNames);
+}
+
 FStructuredArchive::FArray FStructuredArchive::FRecord::EnterArray(FArchiveFieldName Name, int32& Num)
 {
 	return EnterField(Name).EnterArray(Num);
@@ -418,6 +481,11 @@ FStructuredArchive::FArray FStructuredArchive::FRecord::EnterArray(FArchiveField
 FStructuredArchive::FStream FStructuredArchive::FRecord::EnterStream(FArchiveFieldName Name)
 {
 	return EnterField(Name).EnterStream();
+}
+
+FStructuredArchive::FStream FStructuredArchive::FRecord::EnterStream_TextOnly(FArchiveFieldName Name, int32& OutNumElements)
+{
+	return EnterField(Name).EnterStream_TextOnly(OutNumElements);
 }
 
 FStructuredArchive::FMap FStructuredArchive::FRecord::EnterMap(FArchiveFieldName Name, int32& Num)
@@ -468,6 +536,21 @@ FStructuredArchive::FSlot FStructuredArchive::FArray::EnterElement()
 	return FSlot(Ar, Depth, Ar.CurrentSlotElementId);
 }
 
+FStructuredArchive::FSlot FStructuredArchive::FArray::EnterElement_TextOnly(EArchiveValueType& OutType)
+{
+	Ar.SetScope(Depth, ElementId);
+
+#if DO_GUARD_SLOW
+	checkf(Ar.CurrentContainer.Top()->Index < Ar.CurrentContainer.Top()->Count, TEXT("Serialized too many array elements"));
+#endif
+
+	Ar.CurrentSlotElementId = Ar.NextElementId++;
+
+	Ar.Formatter.EnterArrayElement_TextOnly(OutType);
+
+	return FSlot(Ar, Depth, Ar.CurrentSlotElementId);
+}
+
 //////////// FStructuredArchive::FStream ////////////
 
 FStructuredArchive::FSlot FStructuredArchive::FStream::EnterElement()
@@ -477,6 +560,17 @@ FStructuredArchive::FSlot FStructuredArchive::FStream::EnterElement()
 	Ar.CurrentSlotElementId = Ar.NextElementId++;
 
 	Ar.Formatter.EnterStreamElement();
+
+	return FSlot(Ar, Depth, Ar.CurrentSlotElementId);
+}
+
+FStructuredArchive::FSlot FStructuredArchive::FStream::EnterElement_TextOnly(EArchiveValueType& OutType)
+{
+	Ar.SetScope(Depth, ElementId);
+
+	Ar.CurrentSlotElementId = Ar.NextElementId++;
+
+	Ar.Formatter.EnterStreamElement_TextOnly(OutType);
 
 	return FSlot(Ar, Depth, Ar.CurrentSlotElementId);
 }
@@ -505,6 +599,43 @@ FStructuredArchive::FSlot FStructuredArchive::FMap::EnterElement(FString& Name)
 #endif
 
 	Ar.Formatter.EnterMapElement(Name);
+
+#if DO_GUARD_SLOW
+#if CHECK_UNIQUE_FIELD_NAMES
+	if(Ar.GetUnderlyingArchive().IsLoading())
+	{
+		FContainer& Container = *Ar.CurrentContainer.Top();
+		checkf(!Container.KeyNames.Contains(Name), TEXT("Multiple keys called '%s' serialized into record"), *Name);
+		Container.KeyNames.Add(Name);
+	}
+#endif
+#endif
+
+	return FSlot(Ar, Depth, Ar.CurrentSlotElementId);
+}
+
+FStructuredArchive::FSlot FStructuredArchive::FMap::EnterElement_TextOnly(FString& Name, EArchiveValueType& OutType)
+{
+	Ar.SetScope(Depth, ElementId);
+
+#if DO_GUARD_SLOW
+	checkf(Ar.CurrentContainer.Top()->Index < Ar.CurrentContainer.Top()->Count, TEXT("Serialized too many map elements"));
+#endif
+
+	Ar.CurrentSlotElementId = Ar.NextElementId++;
+
+#if DO_GUARD_SLOW
+#if CHECK_UNIQUE_FIELD_NAMES
+	if(Ar.GetUnderlyingArchive().IsSaving())
+	{
+		FContainer& Container = *Ar.CurrentContainer.Top();
+		checkf(!Container.KeyNames.Contains(Name), TEXT("Multiple keys called '%s' serialized into record"), *Name);
+		Container.KeyNames.Add(Name);
+	}
+#endif
+#endif
+
+	Ar.Formatter.EnterMapElement_TextOnly(Name, OutType);
 
 #if DO_GUARD_SLOW
 #if CHECK_UNIQUE_FIELD_NAMES

@@ -1382,12 +1382,12 @@ bool FLevelEditorViewportClient::DropObjectsAtCoordinates(int32 MouseX, int32 Mo
 					}
 
 					// Prevent future selection. This also prevents the hit proxy from interfering with placement logic.
-					TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
-					NewActor->GetComponents(PrimitiveComponents);
-
-					for ( auto CompIt = PrimitiveComponents.CreateConstIterator(); CompIt; ++CompIt )
+					for (UActorComponent* Component : NewActor->GetComponents())
 					{
-						(*CompIt)->bSelectable = false;
+						if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component))
+						{
+							PrimComp->bSelectable = false;
+						}
 					}
 				}
 
@@ -1938,6 +1938,14 @@ void FLevelEditorViewportClient::ReceivedFocus(FViewport* InViewport)
 	FEditorViewportClient::ReceivedFocus(InViewport);
 }
 
+void FLevelEditorViewportClient::LostFocus(FViewport* InViewport)
+{
+	FEditorViewportClient::LostFocus(InViewport);
+
+	GEditor->SetPreviewMeshMode(false);
+}
+
+
 //
 //	FLevelEditorViewportClient::ProcessClick
 //
@@ -2153,7 +2161,7 @@ void FLevelEditorViewportClient::Tick(float DeltaTime)
 void FLevelEditorViewportClient::UpdateViewForLockedActor(float DeltaTime)
 {
 	// We can't be locked to a matinee actor if this viewport doesn't allow matinee control
-	if ( !bAllowCinematicPreview && ActorLockedByMatinee.IsValid() )
+	if ( !bAllowCinematicControl && ActorLockedByMatinee.IsValid() )
 	{
 		ActorLockedByMatinee = nullptr;
 	}
@@ -4150,13 +4158,10 @@ void FLevelEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDrawInter
 				continue;
 			}
 
-			TInlineComponentArray<USceneComponent*> Components;
-			Actor->GetComponents(Components);
-
-			for (int32 ComponentIndex = 0 ; ComponentIndex < Components.Num(); ++ComponentIndex)
+			for (UActorComponent* Component : Actor->GetComponents())
 			{
-				USceneComponent* SceneComponent = Components[ComponentIndex];
-				if (SceneComponent->HasAnySockets())
+				USceneComponent* SceneComponent = Cast<USceneComponent>(Component);
+				if (SceneComponent && SceneComponent->HasAnySockets())
 				{
 					TArray<FComponentSocketDescription> Sockets;
 					SceneComponent->QuerySupportedSockets(Sockets);
@@ -4453,7 +4458,7 @@ void FLevelEditorViewportClient::CopyLayoutFromViewport( const FLevelEditorViewp
 	ViewportType = InViewport.ViewportType;
 	SetOrthoZoom( InViewport.GetOrthoZoom() );
 	ActorLockedToCamera = InViewport.ActorLockedToCamera;
-	bAllowCinematicPreview = InViewport.bAllowCinematicPreview;
+	bAllowCinematicControl = InViewport.bAllowCinematicControl;
 }
 
 
@@ -4586,13 +4591,10 @@ void FLevelEditorViewportClient::AddHoverEffect( const FViewportHoverTarget& InH
 
 	if( ActorUnderCursor != nullptr )
 	{
-		TInlineComponentArray<UPrimitiveComponent*> Components;
-		ActorUnderCursor->GetComponents(Components);
-
-		for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
+		for (UActorComponent* Component : ActorUnderCursor->GetComponents())
 		{
-			UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
-			if (PrimitiveComponent->IsRegistered())
+			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component);
+			if (PrimitiveComponent && PrimitiveComponent->IsRegistered())
 			{
 				PrimitiveComponent->PushHoveredToProxy( true );
 			}
@@ -4618,13 +4620,10 @@ void FLevelEditorViewportClient::RemoveHoverEffect( const FViewportHoverTarget& 
 	AActor* CurHoveredActor = InHoverTarget.HoveredActor;
 	if( CurHoveredActor != nullptr )
 	{
-		TInlineComponentArray<UPrimitiveComponent*> Components;
-		CurHoveredActor->GetComponents(Components);
-
-		for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
+		for (UActorComponent* Component : CurHoveredActor->GetComponents())
 		{
-			UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
-			if (PrimitiveComponent->IsRegistered())
+			UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(Component);
+			if (PrimitiveComponent && PrimitiveComponent->IsRegistered())
 			{
 				check(PrimitiveComponent->IsRegistered());
 				PrimitiveComponent->PushHoveredToProxy( false );

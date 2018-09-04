@@ -28,8 +28,12 @@
 #include "HAL/FileManagerGeneric.h"
 #include "HAL/ExceptionHandling.h"
 #include "Stats/StatsMallocProfilerProxy.h"
+#if WITH_ENGINE
 #include "HAL/PlatformSplash.h"
+#endif
+#if WITH_APPLICATION_CORE
 #include "HAL/PlatformApplicationMisc.h"
+#endif
 #include "HAL/ThreadManager.h"
 #include "ProfilingDebugging/ExternalProfiler.h"
 #include "Containers/Ticker.h"
@@ -281,10 +285,12 @@ public:
 class FOutputDeviceStdOutput : public FOutputDevice
 {
 public:
-
 	FOutputDeviceStdOutput()
-		: AllowedLogVerbosity(ELogVerbosity::Display)
 	{
+#if PLATFORM_WINDOWS
+		bIsConsoleOutput = IsStdoutAttachedToConsole() && !FParse::Param(FCommandLine::Get(), TEXT("GenericConsoleOutput"));
+#endif
+
 		if (FParse::Param(FCommandLine::Get(), TEXT("AllowStdOutLogVerbosity")))
 		{
 			AllowedLogVerbosity = ELogVerbosity::Log;
@@ -296,10 +302,6 @@ public:
 		}
 	}
 
-	virtual ~FOutputDeviceStdOutput()
-	{
-	}
-
 	virtual bool CanBeUsedOnAnyThread() const override
 	{
 		return true;
@@ -309,20 +311,54 @@ public:
 	{
 		if (Verbosity <= AllowedLogVerbosity)
 		{
+			FString line = FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes);
+
+#if PLATFORM_WINDOWS
+			if (bIsConsoleOutput)
+			{
+				line.AppendChar('\n');
+
+				WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), *line, line.Len(), NULL, NULL);
+
+				return;
+			}
+
+			// fall through to standard printf path
+#endif
+
 #if PLATFORM_TCHAR_IS_CHAR16
 			printf("%s\n", TCHAR_TO_UTF8(*FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes)));
 #elif PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
 			// printf prints wchar_t strings just fine with %ls, while mixing printf()/wprintf() is not recommended (see https://stackoverflow.com/questions/8681623/printf-and-wprintf-in-single-c-code)
-			printf("%ls\n", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
+			printf("%ls\n", *line);
 #else
-			wprintf(TEXT("%s\n"), *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V, GPrintLogTimes));
+			wprintf(TEXT("%s\n"), *line);
 #endif
+
 			fflush(stdout);
 		}
 	}
 
 private:
-	ELogVerbosity::Type AllowedLogVerbosity;
+	ELogVerbosity::Type AllowedLogVerbosity = ELogVerbosity::Display;
+	bool				bIsConsoleOutput = false;
+
+#if PLATFORM_WINDOWS
+	static bool IsStdoutAttachedToConsole()
+	{
+		HANDLE StdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+		if (StdoutHandle != INVALID_HANDLE_VALUE)
+		{
+			DWORD FileType = GetFileType(StdoutHandle);
+			if (FileType == FILE_TYPE_CHAR)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+#endif
 };
 
 
@@ -369,7 +405,9 @@ public:
 };
 
 
+#if WITH_APPLICATION_CORE
 static TUniquePtr<FOutputDeviceConsole>	GScopedLogConsole;
+#endif
 static TUniquePtr<FOutputDeviceStdOutput> GScopedStdOut;
 static TUniquePtr<FOutputDeviceTestExit> GScopedTestExit;
 
@@ -956,6 +994,11 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 {
 	FMemory::SetupTLSCachesOnCurrentThread();
 
+	// Set the flag for whether we've build DebugGame instead of Development. The engine does not know this (whereas the launch module does) because it is always built in development.
+#if UE_BUILD_DEVELOPMENT && defined(UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME) && UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME
+	FApp::SetDebugGame(true);
+#endif
+
 	// disable/enable LLM based on commandline
 	LLM(FLowLevelMemTracker::Get().ProcessCommandLine(CmdLine));
 	LLM_SCOPE(ELLMTag::EnginePreInitMemory);
@@ -1017,8 +1060,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		return 1;
 	}
 
+#if WITH_APPLICATION_CORE
 	// Initialize log console here to avoid statics initialization issues when launched from the command line.
 	GScopedLogConsole = TUniquePtr<FOutputDeviceConsole>(FPlatformApplicationMisc::CreateConsoleOutputDevice());
+#endif
 
 	// Always enable the backlog so we get all messages, we will disable and clear it in the game
 	// as soon as we determine whether GIsEditor == false
@@ -1088,8 +1133,13 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 
 	// Output devices.
+#if WITH_APPLICATION_CORE
 	GError = FPlatformApplicationMisc::GetErrorOutputDevice();
 	GWarn = FPlatformApplicationMisc::GetFeedbackContext();
+#else
+	GError = FPlatformOutputDevices::GetError();
+	GWarn = FPlatformOutputDevices::GetFeedbackContext();
+#endif
 
 	// allow the command line to override the platform file singleton
 	bool bFileOverrideFound = false;
@@ -1508,8 +1558,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 #endif
 	}
 
+#if WITH_APPLICATION_CORE
 	// Get a pointer to the log output device
 	GLogConsole = GScopedLogConsole.Get();
+#endif
 
 	LoadPreInitModules();
 
@@ -1595,7 +1647,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 		// platform specific initialization now that the SystemSettings are loaded
 		FPlatformMisc::PlatformInit();
+#if WITH_APPLICATION_CORE
 		FPlatformApplicationMisc::Init();
+#endif
 		FPlatformMemory::Init();
 	}
 
@@ -1914,7 +1968,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 				GetMoviePlayer()->Initialize(SlateRenderer.Get());
 
                 // hide splash screen now before playing any movies
-                FPlatformMisc::PlatformHandleSplashScreen(false);
+				FPlatformMisc::PlatformHandleSplashScreen(false);
 
 				// only allowed to play any movies marked as early startup.  These movies or widgets can have no interaction whatsoever with uobjects or engine features
 				GetMoviePlayer()->PlayEarlyStartupMovies();
@@ -2086,7 +2140,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	if (!IsRunningDedicatedServer() && !IsRunningCommandlet() && !GetMoviePlayer()->IsMovieCurrentlyPlaying())
 	{
 		if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
-		{
+	{
 			GetMoviePlayer()->Initialize(*Renderer);
 		}
 	}
@@ -2507,7 +2561,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 #if USE_LOCALIZED_PACKAGE_CACHE
 	FPackageLocalizationManager::Get().InitializeFromDefaultCache();
 #endif	// USE_LOCALIZED_PACKAGE_CACHE
+#if WITH_APPLICATION_CORE
 	FPlatformApplicationMisc::PostInit();
+#endif
 #endif // WITH_ENGINE
 
 	//run automation smoke tests now that everything is setup to run
@@ -2870,8 +2926,8 @@ int32 FEngineLoop::Init()
 			
 			if (SessionService.IsValid())
 			{
-				SessionService->Start();
-			}
+			SessionService->Start();
+		}
 		}
 
 		EngineService = new FEngineService();
@@ -3352,22 +3408,22 @@ void FEngineLoop::Tick()
 
 		// beginning of RHI frame
 		ENQUEUE_RENDER_COMMAND(BeginFrame)([CurrentFrameCounter](FRHICommandListImmediate& RHICmdList)
-		{
-			GRHICommandList.LatchBypass();
-			GFrameNumberRenderThread++;
+			{
+				GRHICommandList.LatchBypass();
+				GFrameNumberRenderThread++;
 
-			// If we are profiling, kick off a long GPU task to make the GPU always behind the CPU so that we
-			// won't get GPU idle time measured in profiling results
+				// If we are profiling, kick off a long GPU task to make the GPU always behind the CPU so that we
+				// won't get GPU idle time measured in profiling results
 			IssueLongGPUTaskHelper();
 
 			FString FrameString = FString::Printf(TEXT("Frame %d"), CurrentFrameCounter);
 			FPlatformMisc::BeginNamedEvent(FColor::Yellow, *FrameString);
 			RHICmdList.PushEvent(*FrameString, FColor::Green);
 
-			GPU_STATS_BEGINFRAME(RHICmdList);
-			RHICmdList.BeginFrame();
-			FCoreDelegates::OnBeginFrameRT.Broadcast();
-		});
+				GPU_STATS_BEGINFRAME(RHICmdList);
+				RHICmdList.BeginFrame();
+				FCoreDelegates::OnBeginFrameRT.Broadcast();
+			});
 
 		#if !UE_SERVER && WITH_ENGINE
 		if (!GIsEditor && GEngine->GameViewport && GEngine->GameViewport->GetWorld() && GEngine->GameViewport->GetWorld()->IsCameraMoveable())
@@ -3537,7 +3593,7 @@ void FEngineLoop::Tick()
 		if (bDoConcurrentSlateTick)
 		{
 			const float DeltaSeconds = FApp::GetDeltaTime();
-			
+
 			if (CurrentDemoNetDriver && CurrentDemoNetDriver->ShouldTickFlushAsyncEndOfFrame())
 			{
 			ConcurrentTask = TGraphTask<FExecuteConcurrentWithSlateTickTask>::CreateTask(nullptr, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(
@@ -3873,24 +3929,15 @@ bool FEngineLoop::AppInit( )
 	}
 
 
-	// 8192 is the maximum length of the command line on Windows XP.
-	TCHAR CmdLineEnv[8192];
-
 	// Retrieve additional command line arguments from environment variable.
-	FPlatformMisc::GetEnvironmentVariable(TEXT("UE-CmdLineArgs"), CmdLineEnv,ARRAY_COUNT(CmdLineEnv));
-
-	// Manually nullptr terminate just in case. The nullptr string is returned above in the error case so
-	// we don't have to worry about that.
-	CmdLineEnv[ARRAY_COUNT(CmdLineEnv)-1] = 0;
-	FString Env = FString(CmdLineEnv).TrimStart();
-
+	FString Env = FPlatformMisc::GetEnvironmentVariable(TEXT("UE-CmdLineArgs")).TrimStart();
 	if (Env.Len())
 	{
 		// Append the command line environment after inserting a space as we can't set it in the
 		// environment. Note that any code accessing GCmdLine before appInit obviously won't
 		// respect the command line environment additions.
 		FCommandLine::Append(TEXT(" -EnvAfterHere "));
-		FCommandLine::Append(CmdLineEnv);
+		FCommandLine::Append(*Env);
 	}
 #endif
 
@@ -3899,7 +3946,9 @@ bool FEngineLoop::AppInit( )
 
 	// Platform specific pre-init.
 	FPlatformMisc::PlatformPreInit();
+#if WITH_APPLICATION_CORE
 	FPlatformApplicationMisc::PreInit();
+#endif
 
 	// Keep track of start time.
 	GSystemStartTime = FDateTime::Now().ToString();
@@ -4281,7 +4330,9 @@ void FEngineLoop::AppExit( )
 
 	UE_LOG(LogExit, Log, TEXT("Exiting."));
 
+#if WITH_APPLICATION_CORE
 	FPlatformApplicationMisc::TearDown();
+#endif
 	FPlatformMisc::PlatformTearDown();
 
 	if (GConfig)

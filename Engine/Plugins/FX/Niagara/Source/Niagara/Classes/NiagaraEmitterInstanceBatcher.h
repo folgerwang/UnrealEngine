@@ -19,6 +19,8 @@ the same VectorVM byte code / compute shader code
 struct FNiagaraScriptExecutionContext;
 struct FNiagaraComputeExecutionContext;
 
+#define SIMULATION_QUEUE_COUNT 2
+
 class NiagaraEmitterInstanceBatcher : public FTickableGameObject, public FComputeDispatcher
 {
 public:
@@ -51,6 +53,8 @@ public:
 	}
 
 	void Queue(FNiagaraComputeExecutionContext *InContext);
+
+	void Remove(FNiagaraComputeExecutionContext* InContext);
 
 	virtual ETickableTickType GetTickableTickType() const override
 	{
@@ -113,5 +117,5 @@ private:
 	static NiagaraEmitterInstanceBatcher* BatcherSingleton;
 
 	uint32 CurQueueIndex;
-	TArray<FNiagaraComputeExecutionContext*> SimulationQueue[2];
+	TArray<FNiagaraComputeExecutionContext*> SimulationQueue[SIMULATION_QUEUE_COUNT];
 };

@@ -1,0 +1,98 @@
+INTSourceChangelist:4312754
+title: 모바일 뎁스 오브 필드
+description: 포워드 렌더링 패스를 사용하는 모바일 플랫폼에 최적화된 저비용 뎁스 오브 필드 이펙트 메서드에 대한 설명입니다. 
+crumbs:
+availability:Public
+version:4.20
+parent:Engine/Rendering/PostProcessEffects/DepthOfField
+order:2
+type:overview
+tags:Post Process
+tags:Depth of Field
+topic-image:DOF_Gaussian_Topic1.png
+
+포워드 렌더링 패스를 사용하는 모바일 플랫폼에 최적화된 저비용 뎁스 오브 필드 이펙트 메서드에 대한 설명입니다. 
+
+## 가우시안
+
+[REGION:warning]
+Gaussian (가우시안) 뎁스 오브 필드 메서드는 더이상 디퍼드 렌더러에 지원되지 않으며, 모바일 렌더링 패스만 지원합니다.
+[/REGION]
+
+**Gaussian** (가우시안) 뎁스 오브 필드(DOF) 메서드는 표준 [Gaussian blur](https://en.wikipedia.org/wiki/Gaussian_blur) (다른 말로 스무딩) 함수를 사용하여 씬을 흐리게 만듭니다. 가우시안 DOF 블러는 고정 크기 가우시안 블러 커널을 사용하여 전경과 배경을 흐리게 만드는데, 모바일같은 저사양 하드웨어에서 매우 빠릅니다. 퍼포먼스가 중요한 상황에서 오버헤드를 낮게 유지할 수 있습니다. 
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![뎁스 오브 필드 없음](image_0.png)
+	[/PARAM]
+	[PARAM:after]
+	![가우시안 뎁스 오브 필드](image_1.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+## 뎁스 오브 필드 시각화
+
+전환 구역을 포함한 이 레이어는 레벨 뷰포트에서 **표시** > **시각화** 아래 **Depth of Field layers** (뎁스 오브 필드 레이어)로 시각화할 수 있습니다. 
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![최종 씬](image_2.png)
+	[/PARAM]
+	[PARAM:after]
+	![뎁스 오브 필드 시각화](image_3.png)
+	[/PARAM]
+	[PARAMLITERAL:position]
+	bottom
+	[/PARAMLITERAL]
+[/OBJECT]
+
+**뎁스 오브 필드 레이어** 시각화에는 선택된 DOF 메서드 관련해서, 프로퍼티와 현재 설정된 값 포함 유용한 정보가 들어있기도 합니다.
+
+![image_4.png](image_4.png)
+
+## 초점 거리
+
+**Focal Distance** (초점 거리)는 캡처되는 초점 구역과 시야각을 나타냅니다. 초점 거리가 길수록 뎁스 오브 필드가 얕아져 초점 구역 바깥 쪽이 더 흐려지며, 초점 거리가 짧을수록 뎁스 오브 필드가 넓고 초점이 선명해져 초점이 맞지 않는 오브젝트가 줄어 듭니다. f값은 그대로 두고 렌즈 크기만 바꾸는 것으로 뎁스 오브 필드 이펙트의 얕고 넓은 정도를 조절할 수 있습니다.
+
+[REGION:lightbox]
+[![image_5.png](image_5.png)](image_5.png)
+[/REGION]
+
+**Focal Distance** (초점 거리) 및 **Focal Region** (초점 구역)을 설정했으면, **Near Transition** (근거리 전환) 및 **Far Transition** (원거리 전환) 옵션을 사용하여 초점 구역과 완전 흐려진 씬 사이 거리를 조절합니다. 추가로, **Near Blur Size** (근거리 블러 크기)와 **Far Blur Size** (원거리 블러 크기)를 사용하여 가우시안 DOF 의 외형을 더욱 미세 조정할 수 있습니다. 
+
+![image_6.png](image_6.png)
+
+[REGION:caption]
+근거리/원거리 전환 및 블러 크기 값을 조절한 가우시안 DOF 로 멋진 뎁스 오브 필드 이펙트를 만듭니다. 
+[/REGION]
+
+이 예제에서, 근거리 및 원거리 구역에 부드러운 뎁스 오브 필드 이펙트를 만들기 위해 다음과 같이 설정했습니다. 
+
+* 초점 거리: **215**
+
+* 초점 구역: **2500**
+
+* 근거리 전환: **500**
+
+* 원거리 전환: **400**
+
+* 근거리 블러 크기: **2.0**
+
+* 원거리 블러 크기: **2.5**
+
+## 사용 가능한 세팅
+
+| 프로퍼티 | 설명 |
+| --- | --- |
+| High Quality Gaussian DOF on Mobile | 모바일에서 하이 퀄리티 가우시안 DOF - 고사양 모바일 플랫폼에서 HQ 가우시안을 활성화합니다. |
+| Focal Distance | 초점 거리 - 뎁스 오브 필드 이펙트가 선명하게 보이는 거리입니다. 이 값은 언리얼 유닛 (cm) 단위로 측정합니다. |
+| Near Transition Region | 근거리 전환 구역 - 보케 또는 가우시안 DOF 를 사용할 때 카메라 가까운 쪽의 초점 구역에서 이 언리얼 유닛 단위 거리까지 초점 상태에서 흐린 상태로 장면 전환이 일어납니다. |
+| Far Transition Region | 원거리 전환 구역 - 보케 또는 가우시안 DOF 를 사용할 때 카메라 먼 쪽의 초점 구역에서 이 언리얼 유닛 단위 거리까지 초점 잡힌 상태에서 흐린 상태로 장면 전환이 일어납니다. |
+| Focal Region | 초점 구역 - 모든 콘텐츠에 초점이 잡히는 인공 구역으로, Focal Distance (초점 거리)부터 시작합니다 (언리얼 유닛 (cm) 단위로 측정합니다). |
+| Near Blur Size | 근거리 블러 크기 - 가우시안 기반 DOF 에서 근거리 블러의 최대 크기입니다 (뷰 너비의 퍼센트로 지정합니다). 참고로 퍼포먼스 비용은 크기와 비례합니다. |
+| Far Blur Size | 원거리 블러 크기 - 가우시안 기반 DOF 에서 원거리 블러의 최대 크기입니다 (뷰 너비의 퍼센트로 지정합니다). 참고로 퍼포먼스 비용은 크기와 비례합니다. |
+| Sky Distance | 하늘 거리 - 스카이박스에 초점이 잡히도록 허용할 인공 (예를 들면 200000 유닛) 거리로, 0 미만이면 기능을 비활성화합니다. 참고로 이 기능은 퍼포먼스가 낮아질 수 있습니다. |
+| Vignette Size | 비녜트 크기 - 화면 너비 퍼센트로 지정한 직경 반경 밖 콘텐츠에 (근거리) 블러를 적용할 인공 원형 마스크입니다. 마스크를 사용하면 퍼포먼스가 낮아집니다. |

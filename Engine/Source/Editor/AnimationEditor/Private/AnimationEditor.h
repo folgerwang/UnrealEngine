@@ -114,8 +114,6 @@ private:
 		Max
 	};
 
-	void HandleAnimNotifiesChanged();
-
 	void HandleSectionsChanged();
 
 	bool HasValidAnimationSequence() const;
@@ -181,9 +179,6 @@ private:
 
 	bool RecordMeshToAnimation(USkeletalMeshComponent* PreviewComponent, UAnimSequence* NewAsset) const;
 public:
-	/** Multicast delegate fired on anim notifies changing */
-	FSimpleMulticastDelegate OnChangeAnimNotifies;
-
 	/** Multicast delegate fired on global undo/redo */
 	FSimpleMulticastDelegate OnPostUndo;
 

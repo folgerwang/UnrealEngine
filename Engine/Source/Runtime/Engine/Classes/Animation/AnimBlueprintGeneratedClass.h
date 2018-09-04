@@ -189,8 +189,7 @@ class ENGINE_API UAnimBlueprintGeneratedClass : public UBlueprintGeneratedClass,
 	UPROPERTY()
 	TArray<FAnimNotifyEvent> AnimNotifies;
 
-	// The index of the root node in the animation tree
-	UPROPERTY()
+	// The index of the root node in the animation tree (created during link)
 	int32 RootAnimNodeIndex;
 
 	// Indices for each of the saved pose nodes that require updating, in the order they need to get updates.
@@ -334,13 +333,16 @@ public:
 
 #endif
 
+	// UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	// End of UObject interface
+
 	// UStruct interface
 	virtual void Link(FArchive& Ar, bool bRelinkExistingProperties) override;
 	// End of UStruct interface
 
 	// UClass interface
 	virtual void PurgeClass(bool bRecompilingOnLoad) override;
-	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
 	virtual void PostLoadDefaultObject(UObject* Object) override;
 	// End of UClass interface
 };

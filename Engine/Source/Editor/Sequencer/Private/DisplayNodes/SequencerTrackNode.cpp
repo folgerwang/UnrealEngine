@@ -34,6 +34,17 @@ namespace SequencerNodeConstants
 	extern const float CommonPadding;
 }
 
+bool ContainsKeyableArea(TSharedRef<FSequencerSectionKeyAreaNode> InKeyAreaNode)
+{
+	for (const TSharedRef<IKeyArea>& KeyArea : InKeyAreaNode->GetAllKeyAreas())
+	{
+		if (KeyArea->CanCreateKeyEditor())
+		{
+			return true;
+		}
+	}
+	return false;
+}
 
 /* FTrackNode structors
  *****************************************************************************/
@@ -161,9 +172,10 @@ FReply FSequencerTrackNode::CreateNewSection() const
 TSharedRef<SWidget> FSequencerTrackNode::GetCustomOutlinerContent()
 {
 	TSharedPtr<FSequencerSectionKeyAreaNode> KeyAreaNode = GetTopLevelKeyNode();
+	TSharedPtr<SWidget> KeyEditorWidget;
 	if (KeyAreaNode.IsValid())
 	{
-		return KeyAreaNode->GetCustomOutlinerContent();
+		KeyEditorWidget = KeyAreaNode->GetOrCreateKeyAreaEditorSwitcher();
 	}
 
 	TAttribute<bool> NodeIsHovered = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FSequencerDisplayNode::IsHovered));
@@ -191,43 +203,68 @@ TSharedRef<SWidget> FSequencerTrackNode::GetCustomOutlinerContent()
 		Params.TrackInsertRowIndex = Track->GetMaxRowIndex()+1;
 	}
 
-	TSharedPtr<SWidget> Widget = GetSequencer().IsReadOnly() ? SNullWidget::NullWidget : AssociatedEditor.BuildOutlinerEditWidget(ObjectBinding, Track, Params);
+	TSharedPtr<SWidget> CustomWidget = GetSequencer().IsReadOnly() ? SNullWidget::NullWidget : AssociatedEditor.BuildOutlinerEditWidget(ObjectBinding, Track, Params);
 
-	bool bHasKeyableAreas = false;
-
-	TArray<TSharedRef<FSequencerSectionKeyAreaNode>> ChildKeyAreaNodes;
-	FSequencerDisplayNode::GetChildKeyAreaNodesRecursively(ChildKeyAreaNodes);
-	for (int32 ChildIndex = 0; ChildIndex < ChildKeyAreaNodes.Num() && !bHasKeyableAreas; ++ChildIndex)
+	if (KeyEditorWidget.IsValid())
 	{
-		TArray< TSharedRef<IKeyArea> > ChildKeyAreas = ChildKeyAreaNodes[ChildIndex]->GetAllKeyAreas();
+		TSharedRef<SOverlay> Overlay = SNew(SOverlay);
 
-		for (int32 ChildKeyAreaIndex = 0; ChildKeyAreaIndex < ChildKeyAreas.Num() && !bHasKeyableAreas; ++ChildKeyAreaIndex)
+		Overlay->AddSlot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		[
+			KeyEditorWidget.ToSharedRef()
+		];
+
+		if (CustomWidget.IsValid())
 		{
-			if (ChildKeyAreas[ChildKeyAreaIndex]->CanCreateKeyEditor())
-			{
-				bHasKeyableAreas = true;
-			}
+			Overlay->AddSlot()
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Center)
+			[
+				CustomWidget.ToSharedRef()
+			];
 		}
-	}
 
-	if (Widget.IsValid())
-	{
 		BoxPanel->AddSlot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
-		.HAlign(HAlign_Right)
 		[
-			Widget.ToSharedRef()
+			Overlay
+		];
+
+		BoxPanel->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SKeyNavigationButtons, KeyAreaNode.ToSharedRef())
 		];
 	}
 
-	if (bHasKeyableAreas)
+	else
 	{
-		BoxPanel->AddSlot()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SKeyNavigationButtons, AsShared())
-		];
+		if (CustomWidget.IsValid())
+		{
+			BoxPanel->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				CustomWidget.ToSharedRef()
+			];
+		}
+
+		TArray<TSharedRef<FSequencerSectionKeyAreaNode>> ChildKeyAreaNodes;
+		FSequencerDisplayNode::GetChildKeyAreaNodesRecursively(ChildKeyAreaNodes);
+
+		if (ChildKeyAreaNodes.FindByPredicate(ContainsKeyableArea))
+		{
+			BoxPanel->AddSlot()
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(SKeyNavigationButtons, AsShared())
+			];
+		}
 	}
 
 	return SNew(SBox)

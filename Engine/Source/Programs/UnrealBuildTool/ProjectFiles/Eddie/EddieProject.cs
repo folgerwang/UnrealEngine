@@ -114,28 +114,7 @@ namespace UnrealBuildTool
 		
 		private static string ConvertPath(string InPath)
 		{
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				if (InPath[1] != ':')
-				{
-					throw new BuildException("Can only convert full paths ({0})", InPath);
-				}
-
-				string MacPath = string.Format("{0}/{1}/{2}/{3}",
-					RemoteToolChain.UserDevRootMac,
-					Environment.MachineName,
-					InPath[0].ToString().ToUpper(),
-					InPath.Substring(3));
-
-				// clean the path
-				MacPath = MacPath.Replace("\\", "/");
-
-				return MacPath;
-			}
-			else
-			{
-				return InPath.Replace("\\", "/");
-			}
+			return InPath.Replace("\\", "/");
 		}
 		
 		private void ParseSourceFilesIntoGroups()

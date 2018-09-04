@@ -137,7 +137,7 @@ namespace AutomationTool.Tasks
 					SubmitP4.RevertUnchanged(NewCL);
 					if(SubmitP4.TryDeleteEmptyChange(NewCL))
 					{
-						CommandUtils.Log("No files to submit; ignored.");
+						CommandUtils.LogInformation("No files to submit; ignored.");
 						return;
 					}
 				}
@@ -149,7 +149,7 @@ namespace AutomationTool.Tasks
 				{
 					throw new AutomationException("Submit failed.");
 				}
-				CommandUtils.Log("Submitted in changelist {0}", SubmittedCL);
+				CommandUtils.LogInformation("Submitted in changelist {0}", SubmittedCL);
 			}
 		}
 

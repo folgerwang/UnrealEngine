@@ -187,8 +187,8 @@ class ENGINE_API USoundWave : public USoundBase
 	UPROPERTY(EditAnywhere, Category=Subtitles )
 	uint8 bSingleLine:1;
 
-	/** Allows sound to play at 0 volume, otherwise will stop the sound when the sound is silent. */
-	UPROPERTY(EditAnywhere, Category=Sound)
+	/** Allows sound to continue playing when silent. This prevents issues with sounds restarting when coming back in range, etc. */
+	UPROPERTY(EditAnywhere, Category=Sound, meta = (DisplayName = "Play When Silent"))
 	uint8 bVirtualizeWhenSilent:1;
 
 	/** Whether or not this source is ambisonics file format. */
@@ -261,10 +261,6 @@ public:
 
 #endif // WITH_EDITORONLY_DATA
 
-	/** Size of RawPCMData, or what RawPCMData would be if the sound was fully decompressed */
-	UPROPERTY()
-	int32 RawPCMDataSize;
-
 protected:
 
 	/** Cached sample rate for displaying in the tools */
@@ -330,6 +326,9 @@ public:
 
 	/** Pointer to 16 bit PCM data - used to decompress data to and preview sounds */
 	uint8*						RawPCMData;
+
+	/** Size of RawPCMData, or what RawPCMData would be if the sound was fully decompressed */
+	int32						RawPCMDataSize;
 
 	/** Memory containing the data copied from the compressed bulk data */
 	uint8*						ResourceData;

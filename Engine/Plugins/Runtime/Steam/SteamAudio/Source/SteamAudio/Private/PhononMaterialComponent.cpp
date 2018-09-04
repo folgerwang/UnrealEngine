@@ -5,8 +5,8 @@
 #include "PhononMaterialComponent.h"
 
 UPhononMaterialComponent::UPhononMaterialComponent()
-	: MaterialPreset(EPhononMaterial::GENERIC)
-	, MaterialIndex(0)
+	: MaterialIndex(0)
+	, MaterialPreset(EPhononMaterial::GENERIC)
 {
 	IPLMaterial SelectedMaterialPreset = SteamAudio::MaterialPresets[MaterialPreset];
 	LowFreqAbsorption = SelectedMaterialPreset.lowFreqAbsorption;

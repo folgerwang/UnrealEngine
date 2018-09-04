@@ -1,18 +1,19 @@
-﻿INTSourceChangelist:3599948
+INTSourceChangelist:4309183
 Availability: Public
-Title:실사 캐릭터
+Title:포토리얼리스틱 캐릭터
 Crumbs:%ROOT%, Resources
-Description:Photoreal Character, 실사 캐릭터 쇼케이스 개요입니다.
+Description:Photoreal Character, 사진과 같은 실사 캐릭터 쇼케이스 개요입니다.
 Related: Engine/Rendering/Materials
 Related: Engine/Rendering/Materials/PhysicallyBased
 Related: Engine/Rendering/Materials/LayeredMaterials
+Related: Resources/Showcases/DigitalHumans
 Version: 4.15
 topic-image:PhotorealHead.png
 social-image:PhotorealHead.png
 
 
 [TOC(start:2 end:3)]
-
+[REGION:note]포토리얼리스틱 캐릭터 예제는 **에픽게임즈 런처** 의 **학습** 탭에 있는 **디지털 휴먼** 프로젝트 예제에서 다운로드할 수 있습니다.[/REGION]
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
 	K-VyoqRB5_g
@@ -192,7 +193,7 @@ Tangent (탄젠트) 프로퍼티는 헤어 셰이더를 노멀 프로퍼티를 �
 
 ##### 탄젠트용 플로우 맵
 
-다른 방식은 플로우 맵을 만들어야 합니다. 캐릭터 헤어가 길고 굽어지면서 실제 지오메트리보다 꼬불꼬불해 보일 필요가 있을 때, 또는 헤어의 개별 텍스처 부분이 각기 다른 방향을 하고 있을 (위 설명대로 하향식이 아닐) 때 좋습니다. 플로우 맵은 헤어의 이동 방향을 탄젠트 스페이스로, 또는 표면을 따라서 나타냅니다. 실사 캐릭터 프로젝트 안에 보면 *T_Hair_Flow* 라는 미사용 플로우 맵을 찾을 수 있습니다. 아래는 그 플로우 맵과 스페큘러의 결과를 비교한 것입니다.
+다른 방식은 플로우 맵을 만들어야 합니다. 캐릭터 헤어가 길고 굽어지면서 실제 지오메트리보다 꼬불꼬불해 보일 필요가 있을 때, 또는 헤어의 개별 텍스처 부분이 각기 다른 방향을 하고 있을 (위 설명대로 하향식이 아닐) 때 좋습니다. 플로우 맵은 헤어의 이동 방향을 탄젠트 스페이스로, 또는 표면을 따라서 나타냅니다. 포토리얼리스틱 캐릭터 프로젝트 안에 보면 *T_Hair_Flow* 라는 미사용 플로우 맵을 찾을 수 있습니다. 아래는 그 플로우 맵과 스페큘러의 결과를 비교한 것입니다.
 
 [OBJECT:ComparisonSlider]
 [PARAM:before]
@@ -231,7 +232,7 @@ Pixel Depth Offset (PDO, 픽셀 뎁스 오프셋)은 헤어 셰이더 고유 프
 
 [REGION:warning]UE4 의 눈 셰이더는 고도로 기술적이며, 셰이더 코드, 머티리얼, 지오메트리 셰이프, 지오메트리 UV 레이아웃 사이에 **매우 강한 종속성** 을 갖도록 개발되어 왔습니다. 이 셰이더로 눈을 완전 새로 만드는 것은 셰이더 개발 경험이 매우 충분치 않다면 **비추천** 입니다. 그렇기에 현실적인 인간의 눈을 만들려는 경우, 이 예제에서 눈 지오메트리를 추출한 뒤 머티리얼을 **있는 그대로** 사용하고, 필요한 텍스처만 용도에 맞게끔 대체하여 사용하시기를 강력히 권합니다.[/REGION]
 
-[REGION:tip]실사 캐릭터 프로젝트 안에는 **PhotorealEyeGeo** 라는 이름의 스태틱 메시가 있습니다. 이를 프로젝트에서 FBX 를 통해 원하는 디지털 콘텐츠 제작 앱으로 익스포트한 뒤 자신의 프로젝트에서 사용할 수 있습니다.[/REGION]
+[REGION:tip]포토리얼리스틱 캐릭터 프로젝트 안에는 **PhotorealEyeGeo** 라는 이름의 스태틱 메시가 있습니다. 이를 프로젝트에서 FBX 를 통해 원하는 디지털 콘텐츠 제작 앱으로 익스포트한 뒤 자신의 프로젝트에서 사용할 수 있습니다.[/REGION]
 
 ### 눈 생물학
 
@@ -279,7 +280,7 @@ Pixel Depth Offset (PDO, 픽셀 뎁스 오프셋)은 헤어 셰이더 고유 프
 |**Sclera inner color**| 공막 내부 색 - 공막이 홍채와 만나는 부분의 색입니다. |없음|
 |**Sclera outer color**| 공막 외부 색 - 눈의 외부 테두리 위치의 공막 색입니다. | 없음|
 |**SecondaryEnvBalance**|이차 배경 밸런스 - 눈 표면에 얼마만큼의 [Secondary Environment](#눈셰이더이차배경) (이차 배경)을 보이도록 할 것인지를 조절합니다. |0.00 - 0.03|
-|**SecondaryEnvRotationAxis**|이차 배경 회전 축 - [이차 배경](#눈셰이더이차배경) 은 가짜 리플렉션이므로, 눈에 수동으로 회전시켜 줘야 합니다. 이 프로퍼티는 어떤 축으로 회전할 것인지를 결정합니다. | [0.0, 0.0, 1.0] (Z 축)|
+|**SecondaryEnvRotationAxis**|이차 배경 회전 축 - [이차 배경](#눈셰이더이차배경) 은 가짜 리플렉션이므로, 눈에 수동으로 회전시켜 줘야 합니다. 이 프로퍼티는 어떤 축으로 회전할 것인지를 결정합니다. | 0.0, 0.0, 1.0 Z 축|
 |[REGION:tablesection]스칼라 파라미터 값[/REGION]|||
 |**Depth Scale**|뎁스 스케일 - 각막 아래 홍채의 굴절 깊이를 조절합니다. |1.0-1.4|
 |**Flatten Normal**|노멀 평탄화 - 눈, 특히 공막 부분에서의 노멀 맵을 얼마만큼 평탄화시킬지를 조절하는 값입니다. |0.9 - 1.1|
@@ -332,7 +333,7 @@ Secondary Environment (이차 배경)은 눈 표면에 가짜 리플렉션 맵�
 
 자신만의 눈을 만들 때는, 이 예제에 제공된 실제 눈 지오메트리와 머티리얼을 먼저 사용할 것을 **강력** 추천합니다. 앞으로의 정보 대부분은 그렇게 했다는 것을 가정하고 작성된 것입니다.
 
-[REGION:tip]실사 캐릭터 프로젝트 안에는 **PhotorealEyeGeo** 라는 이름의 스태틱 메시가 있습니다. 이것을 프로젝트에서 FBX 를 통해 원하는 디지털 콘텐츠 제작 프로그램으로 익스포트한 뒤 자신의 프로젝트에서 사용할 수 있습니다.[/REGION]
+[REGION:tip]포토리얼리스틱 캐릭터 프로젝트 안에는 **PhotorealEyeGeo** 라는 이름의 스태틱 메시가 있습니다. 이것을 프로젝트에서 FBX 를 통해 원하는 디지털 콘텐츠 제작 프로그램으로 익스포트한 뒤 자신의 프로젝트에서 사용할 수 있습니다.[/REGION]
 
 #### 셰이프와 UV 레이아웃
 

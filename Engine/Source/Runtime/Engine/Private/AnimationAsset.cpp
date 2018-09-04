@@ -278,6 +278,10 @@ USkeletalMesh* UAnimationAsset::GetPreviewMesh(bool bFindIfNotSet)
 USkeletalMesh* UAnimationAsset::GetPreviewMesh() const
 {
 #if WITH_EDITORONLY_DATA
+	if (!PreviewSkeletalMesh.IsValid())
+	{
+		PreviewSkeletalMesh.LoadSynchronous();
+	}
 	return PreviewSkeletalMesh.Get();
 #else
 	return nullptr;
@@ -343,6 +347,10 @@ bool UAnimationAsset::ReplaceSkeleton(USkeleton* NewSkeleton, bool bConvertSpace
 		}
 
 		RemapTracksToNewSkeleton(NewSkeleton, bConvertSpaces);
+		if (UAnimSequence* Seq = Cast<UAnimSequence>(this))
+		{
+			Seq->PostProcessSequence(false);
+		}
 
 		PostEditChange();
 		MarkPackageDirty();

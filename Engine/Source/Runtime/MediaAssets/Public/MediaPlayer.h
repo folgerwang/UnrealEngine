@@ -1076,9 +1076,13 @@ protected:
 	FRotator ViewRotation;
 
 private:
+	virtual bool CanBeInCluster() const override { return false; }
 
 	/** Callback for when a media event occurred in the player. */
 	void HandlePlayerMediaEvent(EMediaEvent Event);
+
+	/** Sets the playlist and properly handles cases when this MediaPlayer object is in disregard for GC set */
+	void SetPlaylistInternal(UMediaPlaylist* InPlaylist);
 
 private:
 

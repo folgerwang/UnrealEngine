@@ -59,7 +59,7 @@ Topic-image:DFRef_Topic.png
 | 프로퍼티 | 설명 |
 |----------|-------------|
 | [REGION:tablesection]Light 라이트[/REGION] ||
-| **Light Source Angle** | 라이트 소스 앵글 - 도 단위 광원의 앵글로, 디스턴스 필드 또는 캡슐 섀도우를 사용하는 다이내믹 섀도잉 메소드에 대해 부드러운 에리어 섀도우 지원을 위해 사용됩니다. | 
+| **Light Source Angle** | 라이트 소스 앵글 - 도 단위 광원의 앵글로, 디스턴스 필드 또는 캡슐 섀도우를 사용하는 다이내믹 섀도잉 메서드에 대해 부드러운 에리어 섀도우 지원을 위해 사용됩니다. | 
 | [REGION:tablesection]Distance Field Shadows 디스턴스 필드 섀도우[/REGION] ||
 | **DistanceField Shadow Distance** | 디스턴스 필드 섀도우 거리 - 디스턴스 필드 섀도잉이 적용되는 최대 거리입니다. 디스턴스 필드 섀도우는 이 값과 CSM 섀도우에 대한 **Dynamic Shadow Distance Movable Light** (다이내믹 섀도우 디스턴스 무버블 라이트) 사이 거리도 커버합니다. | 
 | **RayTraced DistanceField Shadows** | 레이 트레이스 디스턴스 필드 섀도우 - 라이트 소스에 대해 디스턴스 필드 섀도우를 켭니다. | 
@@ -225,7 +225,7 @@ Topic-image:DFRef_Topic.png
 [EXCERPT:combinemode]
 | 선택 | 설명 |
 | --- | --- |
-| **OCM Minimum** | 최소 오클루전 값을 취합니다. 여러 메소드로부터 오클루전이 과해지는 것을 피하는 데 좋지만, 실내가 너무 밋밋해 보이게 만들 수 있습니다. |
+| **OCM Minimum** | 최소 오클루전 값을 취합니다. 여러 메서드로부터 오클루전이 과해지는 것을 피하는 데 좋지만, 실내가 너무 밋밋해 보이게 만들 수 있습니다. |
 | **OCM Multiply** | 디스턴스 필드 앰비언트 오클루전과 스크린 스페이스 앰비언트 오클루전의 오클루전 값을 곱합니다. 전체적인 원근감은 좋지만 오클루전이 과할 수 있습니다. 스크린 스페이스 앰비언트 오클루전은 최소에 비해 강하지 않도록 트윅 조정을 해야 합니다. |
 [/EXCERPT:combinemode]
 -
@@ -399,7 +399,7 @@ DFAO 섀도잉으로 차폐된 영역만 사용된 색 값에 따라 색조를 �
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
 | **Generate Mesh Distance Field** | 메시 디스턴스 필드 생성 - 이 메시에 대한 디스턴스 필드 생성 여부로, [디스턴스 필드 섀도우 간접 섀도우](Engine/Rendering/LightingAndShadows/MeshDistanceFields) 와 함께 사용할 수 있습니다. **Generate Mesh Distance Fields** 프로젝트 세팅이 켜진 경우 무시됩니다.  | 
-| **Distance Field Self Shadow Bias** | 디스턴스 필드 셀프 섀도우 바이어스 - World Position Offset 을 사용하여 메시의 버텍스에 애니메이션을 줄 때 디스턴스 필드 메소드로부터 오는 셀프 섀도잉을 줄이는 데 사용됩니다. |
+| **Distance Field Self Shadow Bias** | 디스턴스 필드 셀프 섀도우 바이어스 - World Position Offset 을 사용하여 메시의 버텍스에 애니메이션을 줄 때 디스턴스 필드 메서드로부터 오는 셀프 섀도잉을 줄이는 데 사용됩니다. |
 [/REGION]
 
 ## 액터 컴포넌트
@@ -414,8 +414,8 @@ DFAO 섀도잉으로 차폐된 영역만 사용된 색 값에 따라 색조를 �
 | **Distance Field Indirect Shadow** | 디스턴스 필드 간접 그림자 - 무버블 컴포넌트 상의 (라이트맵 또는 스카이라이트에서 오는) 간접광 그림자에 (있는 경우) 메시 디스턴스 필드 표현을 사용할지 여부입니다. 메시 디스턴스 필드를 사용한다는 점을 제외하고는 스켈레탈 메시의 [캡슐 섀도우](Engine/Rendering/LightingAndShadows/CapsuleShadows) 와 비슷합니다. 즉 피직스 애셋이 필요치 않습니다. 이 기능의 정상 작동을 위해서는 스태틱 메시에는 반드시 빌드 세팅 중 **Generate Mesh Distance Field** 옵션 또는 프로젝트에 **Generate Mesh Distance Fields** 옵션이 켜져있어야 합니다. |
 | **Distance Field Indirect Shadow Min Visibility** | 디스턴스 필드 간접 그림자 최소 비저빌리티 - 디스턴스 필드 간접 그림자를 얼마나 어둡게할 수 있을지를 조절합니다. |
 | **Override Distance Field Self Shadow Bias** | 디스턴스 필드 셀프 섀도우 바이어스 오버라이드 - 스태틱 메시 애셋의 Distance Field Self Shadow Bias 세팅을 이 컴포넌트의 Distance Field Shadow Bias 로 덮어쓸지 여부입니다. |
-| **Distance Field Self Shadow Bias** | 디스턴스 필드 셀프 섀도우 바이어스 - World Position Offset 을 사용하여 메시의 버텍스에 애니메이션을 줄 때 디스턴스 필드 메소드로부터의 셀프 섀도잉을 줄이는 데 좋습니다. |
-| **Affect Distance Field Lighting** | 디스턴스 필드 라이팅에 영향 - 프리미티브가 다이내믹 디스턴스 필드 라이팅 메소드에 영향을 줄지 여부를 조절합니다. Cast Shadow 옵션 역시 활성화되어 있어야 합니다. |
+| **Distance Field Self Shadow Bias** | 디스턴스 필드 셀프 섀도우 바이어스 - World Position Offset 을 사용하여 메시의 버텍스에 애니메이션을 줄 때 디스턴스 필드 메서드로부터의 셀프 섀도잉을 줄이는 데 좋습니다. |
+| **Affect Distance Field Lighting** | 디스턴스 필드 라이팅에 영향 - 프리미티브가 다이내믹 디스턴스 필드 라이팅 메서드에 영향을 줄지 여부를 조절합니다. Cast Shadow 옵션 역시 활성화되어 있어야 합니다. |
 [/REGION]
 
 #### 디스턴스 필드 간접 그림자 최소 비저빌리티

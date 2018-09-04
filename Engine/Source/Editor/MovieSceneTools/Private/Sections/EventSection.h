@@ -7,30 +7,70 @@
 
 class FSequencerSectionPainter;
 
-/**
-* An implementation of event sections.
-*/
-class FEventSection
+class FEventSectionBase
 	: public FSequencerSection
 {
 public:
 
-	/**
-	* Creates a new event section for editing event sections.
-	*
-	* @param InSectionObject The section object which is being displayed and edited.
-	* @param InDisplayName A display name for the section being displayed and edited.
-	*/
-	FEventSection(UMovieSceneSection& InSectionObject, TWeakPtr<ISequencer> InSequencer)
+	FEventSectionBase(UMovieSceneSection& InSectionObject, TWeakPtr<ISequencer> InSequencer)
 		: FSequencerSection(InSectionObject)
 		, Sequencer(InSequencer)
+	{}
+
+protected:
+
+	void PaintEventName(FSequencerSectionPainter& Painter, int32 LayerId, const FString& EventString, float PixelPosition, bool bIsEventValid = true) const;
+
+	bool IsSectionSelected() const;
+
+protected:
+
+	TWeakPtr<ISequencer> Sequencer;
+};
+
+/**
+* An implementation of event sections.
+*/
+class FEventSection
+	: public FEventSectionBase
+{
+public:
+	FEventSection(UMovieSceneSection& InSectionObject, TWeakPtr<ISequencer> InSequencer)
+		: FEventSectionBase(InSectionObject, InSequencer)
 	{}
 
 public:
 
 	virtual int32 OnPaintSection(FSequencerSectionPainter& Painter) const override;
+};
 
-private:
+class FEventTriggerSection
+	: public FEventSectionBase
+{
+public:
 
-	TWeakPtr<ISequencer> Sequencer;
+	FEventTriggerSection(UMovieSceneSection& InSectionObject, TWeakPtr<ISequencer> InSequencer)
+		: FEventSectionBase(InSectionObject, InSequencer)
+	{}
+
+public:
+
+	virtual int32 OnPaintSection(FSequencerSectionPainter& Painter) const override;
+	virtual FReply OnKeyDoubleClicked(FKeyHandle KeyHandle) override;
+};
+
+class FEventRepeaterSection
+	: public FEventSectionBase
+{
+public:
+
+	FEventRepeaterSection(UMovieSceneSection& InSectionObject, TWeakPtr<ISequencer> InSequencer)
+		: FEventSectionBase(InSectionObject, InSequencer)
+	{}
+
+
+public:
+
+	virtual int32 OnPaintSection(FSequencerSectionPainter& Painter) const override;
+	virtual FReply OnSectionDoubleClicked(const FGeometry& SectionGeometry, const FPointerEvent& MouseEvent) override;
 };

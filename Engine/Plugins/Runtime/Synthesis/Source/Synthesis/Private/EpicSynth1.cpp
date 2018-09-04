@@ -692,7 +692,7 @@ namespace Audio
 
 		// Apply filters...
 #if !SYNTH_DEBUG_MODE
-		CurrentFilter->ProcessAudio(OutSamples, OutSamples);
+		CurrentFilter->ProcessAudioFrame(OutSamples, OutSamples);
 #endif
 		// Stop the oscillators if they're done
 		if (GainEnv.IsDone())
@@ -1455,11 +1455,10 @@ namespace Audio
 		return true;
 	}
 
-	void FEpicSynth1::Generate(float& OutLeft, float& OutRight)
+	void FEpicSynth1::GenerateFrame(float* OutFrame)
 	{
-		float OutputSamples[2];
-		OutputSamples[0] = 0.0f;
-		OutputSamples[1] = 0.0f;
+		OutFrame[0] = 0.0f;
+		OutFrame[1] = 0.0f;
 
 		for (int32 VoiceId = 0; VoiceId < Voices.Num(); ++VoiceId)
 		{
@@ -1497,27 +1496,19 @@ namespace Audio
 			Voices[VoiceId]->Generate(VoiceSamples);
 
 			// Mix the voices audio with the output
-			OutputSamples[0] += VoiceSamples[0];
-			OutputSamples[1] += VoiceSamples[1];
+			OutFrame[0] += VoiceSamples[0];
+			OutFrame[1] += VoiceSamples[1];
 		}
-
-#if 0
-		OutLeft = OutputSamples[0];
-		OutRight = OutputSamples[1];
-#else
-		OutLeft = OutputSamples[0];
-		OutRight = OutputSamples[1];
 
 		if (bIsChorusEnabled)
 		{
-			Chorus.ProcessAudio(OutLeft, OutRight, OutLeft, OutRight);
+			Chorus.ProcessAudioFrame(OutFrame, OutFrame);
 		}
 
 		if (bIsStereoEnabled)
 		{
-			StereoDelay.ProcessAudio(OutLeft, OutRight, OutLeft, OutRight);
+			StereoDelay.ProcessAudioFrame(OutFrame, OutFrame);
 		}
-#endif
 	}
 
 

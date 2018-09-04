@@ -53,7 +53,7 @@ HTML5 플랫폼 + WebGL 이 사용 준비가 완료되었습니다. 한 번의 �
 
 
 
-이번 릴리즈에는 언리얼 엔진의 놀라운 개발자 커뮤니티에서 제출된 뛰어난 변경사항 38 개가 포함되어 있습니다. 에픽에서는 언리얼 엔진 이번 릴리즈에 Git 소스 콘트롤 플러그인을 기여해 주신 커뮤니티 일원 Sebastien Rombauts 께 특별히 감사드리고자 합니다. 놀라운 작업물입니다! 아래 기여자분들께도 모두 감사드립니다:
+이번 릴리즈에는 언리얼 엔진의 놀라운 개발자 커뮤니티에서 제출된 뛰어난 변경사항 38 개가 포함되어 있습니다. 에픽에서는 언리얼 엔진 이번 릴리즈에 Git 소스 컨트롤 플러그인을 기여해 주신 커뮤니티 일원 Sebastien Rombauts 께 특별히 감사드리고자 합니다. 놀라운 작업물입니다! 아래 기여자분들께도 모두 감사드립니다:
 
 Artem V. Navrotskiy (bozaro), ArneBezuijen, Black Phoenix (PheonixBlack), codetackler, Daniel Zeligman (dzeligman), Derek van Vliet (derekvanvliet), Fazouane Marouane (fazouane-marouane), Jesus Fernandez (jsfdez), Lukasz Baran (iniside), Moritz Wundke (moritz-wundke), Michael Kosel (TheCodez), Michael Allar (Allar), Marat Radchenko (slonopotamus), 3dluvr, Pierdek, Quadtree, Rama (EverNewJoy), Robert Wallis (robert-wallis), Rick Yorgason (Skrapion), Simon Taylor (simontaylor81), Stephen Whittle (stephenwhittle), Tobias Mollstam (mollstam), Cengiz Terzibas (yaakuro)
  
@@ -137,7 +137,7 @@ Artem V. Navrotskiy (bozaro), ArneBezuijen, Black Phoenix (PheonixBlack), codeta
 
 외부 어플리케이션에서 이 파일을 업데이트하면, 에디터가 자동 감지하여 콘텐츠를 리임포트할 것입니다! 게임 콘텐츠 반복처리 작업이 훨씬 빨라집니다.
 
-이 기능은 기본으로 켜져있으나, 에디터 개인설정의 `"로드 & 저장"` 섹션의 "Monitor Content Directories" (콘텐츠 디렉토리 모니터링) 옵션으로 토글시킬 수 있습니다.
+이 기능은 기본으로 켜져있으나, 에디터 개인설정의 `"로드 & 저장"` 섹션의 "Monitor Content Directories" (콘텐츠 디렉터리 모니터링) 옵션으로 토글시킬 수 있습니다.
 
 #### 블루프린트 에디터 UI 디자인 변경
 블루프린트 에디터의 디자인이 더욱 사용하기 쉽도록 변경되었습니다! 세 가지 모드 전부 하나의 화면으로 통합되어 작업의 흐름을 더욱 매끄럽게 파악할 수 있을 뿐만 아니라, 여러가지 개선사항도 포함되어 있습니다.
@@ -229,8 +229,8 @@ pifYPUX4ccU
 
 C++ 클래스 아이콘에 더블클릭하면 Visual Stuio 또는 Xcode 에서 해당 소스 코드에 바로 점프하거나, 우클릭하면 선택된 클래스를 기반으로 새 클래스를 만들 수도 있습니다.
 
-#### 모프 타겟 과장
-모프 타겟의 웨이트를 100% 이상으로 하여 과장된 포즈를 만들거나, 0% 미만으로 하여 반대 포즈를 만들 수 있습니다.
+#### 모프 타깃 과장
+모프 타깃의 웨이트를 100% 이상으로 하여 과장된 포즈를 만들거나, 0% 미만으로 하여 반대 포즈를 만들 수 있습니다.
 
 ![](MorphTargetExagg.png)
 
@@ -268,9 +268,9 @@ C++ 클래스 아이콘에 더블클릭하면 Visual Stuio 또는 Xcode 에서 �
 
 * 애니메이션 커브는 필요치 않은 경우 비활성화 또는 삭제 가능합니다.
 * 굽고 나면 익스포트는 최종 구워진 애니메이션에 작동합니다. 애디티브 커브는 익스포트되지 않습니다.
-* 리타게팅시 커브는 전송되지 않습니다. 하지만 최종 구워진 애니메이션은 리타게팅될 것입니다.
+* 리타기팅시 커브는 전송되지 않습니다. 하지만 최종 구워진 애니메이션은 리타기팅될 것입니다.
 
-#### 즉석 본 콘트롤러 프리뷰
+#### 즉석 본 컨트롤러 프리뷰
 Bone Controller 노드는 이제 뷰포트 기즈모를 사용하여 대화식으로 조절 가능하며, 매번 컴파일할 필요가 없습니다!
 
 [OBJECT:EmbeddedVideo]
@@ -326,16 +326,16 @@ VthaM3yZbVM
 이 툴을 사용하는 방법은 세 가지입니다:
 
 * 블루프린트 에디터에서 **파일 -> 병합** 을 선택합니다.
-* 소스 콘트롤 병합 충돌이 있는 애셋에 우클릭한 다음 **병합** 을 선택합니다.
+* 소스 컨트롤 병합 충돌이 있는 애셋에 우클릭한 다음 **병합** 을 선택합니다.
 * **명령줄** 에서 `UE4Editor.exe -diff [옵션] <파일 A> <파일 B> <공통 조상 파일> <출력 파일>` 을 실행시킵니다.
 
-#### Git 소스 콘트롤 플러그인 (베타!)
+#### Git 소스 컨트롤 플러그인 (베타!)
 
-뛰어난 Git 소스 콘트롤 플러그인을 언리얼 엔진에 기여해 주신 커뮤니티 일원 Sebastien Rombauts 께 감사드립니다!
+뛰어난 Git 소스 컨트롤 플러그인을 언리얼 엔진에 기여해 주신 커뮤니티 일원 Sebastien Rombauts 께 감사드립니다!
 
 ![](GitHubPlugin.png)
 
-Git 저장소에 프로젝트를 연결한 경우, 파일 추가 및 제거, 변경사항 제출, 파일 히스토리 표시, 파일 버전비교, 애셋의 소스 콘트롤 상태 표시와 같은 대부분의 소스 콘트롤 작업이 에디터에 지원됩니다.
+Git 저장소에 프로젝트를 연결한 경우, 파일 추가 및 제거, 변경사항 제출, 파일 히스토리 표시, 파일 버전비교, 애셋의 소스 컨트롤 상태 표시와 같은 대부분의 소스 컨트롤 작업이 에디터에 지원됩니다.
 
 #### AI 인지 시스템: 블루프린트 스크립팅
 AI 인지(Perception) 시스템은 이제 블루프린트 스크립트를 통해 환경설정 가능합니다! AI 에 AI Perception 컴포넌트를 추가한 다음, 그 프로퍼티와 이벤트를 조사하고 조절해 주면 됩니다.
@@ -460,10 +460,10 @@ AI 인지(Perception) 시스템은 이제 블루프린트 스크립트를 통해
 
 애니메이션 스켈레탈 메시가 많은 게임의 퍼포먼스가 향상됩니다!
 
-#### 안드로이드에서 데스크탑 퀄리티 렌더링 *베타* (OpenGL ES 3.1 w/ AEP)
+#### 안드로이드에서 데스크톱 퀄리티 렌더링 *베타* (OpenGL ES 3.1 w/ AEP)
 (Android Extension Pack 이 결합된) OpenGL ES 3.1 를 통해 안드로이드 디바이스에서도 **데스크톱 수준의 렌더링** 느낌을 내는 기능을 대부분 사용할 수 있습니다! 이 기능은 현재 **베타** 테스팅 단계이니, 피드백을 주시면 고맙겠습니다.
 
-* 이제 빌드와 쿠킹 타겟에 **ES3.1+AEP** 를 선택할 수 있습니다.
+* 이제 빌드와 쿠킹 타깃에 **ES3.1+AEP** 를 선택할 수 있습니다.
 * Tegra K1 디바이스 (예: NVIDIA Shield Tablet) 가 테스팅 및 개발에 사용되었습니다. 앞으로 AEP 를 지원하는 디바이스가 많아질 것입니다!
 * 안드로이드 프로젝트 세팅에서 "Enable OpenGL ES31 + AEP" 옵션을 통해 활성화시킵니다.
 

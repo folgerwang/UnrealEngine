@@ -2,14 +2,14 @@
 Availability:Public
 Title:펑션 콜
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
-Description: 타겟 액터나 오브젝트의 코드 정의 함수와 사용자 정의 함수 둘 다를 실행하는 노드입니다.
+Description: 타깃 액터나 오브젝트의 코드 정의 함수와 사용자 정의 함수 둘 다를 실행하는 노드입니다.
 Related: Engine/Blueprints/UserGuide/Functions
 version: 4.9
 tags:Blueprints
 topic-image:Engine/Blueprints/UserGuide/Functions.png
 
 [EXCERPT:Intro]
-**Function Call** 이란 블루프린트 안에서 가능한 동작들로, 타겟 액터나 오브젝트가 속하는 함수에 
+**Function Call** 이란 블루프린트 안에서 가능한 동작들로, 타깃 액터나 오브젝트가 속하는 함수에 
 상응하는 것입니다. 레벨 블루프린트의 경우, 대부분 연관된 액터는 
 레벨 블루프린트 자체입니다. Function Call 은 함수의 이름을 나타내는 제목이 붙은 상자로 표시됩니다.
 여러가지 유형의 Function Call 마다 다른 색의 제목이 붙습니다.

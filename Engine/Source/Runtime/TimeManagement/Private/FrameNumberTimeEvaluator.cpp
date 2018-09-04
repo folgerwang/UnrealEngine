@@ -38,6 +38,7 @@ FFrameNumberTimeEvaluator::FFrameNumberTimeEvaluator()
 	FrameTokenDefinitions.DefineToken(&ConsumeSymbol<FFrames>);
 	FrameTokenDefinitions.DefineToken(&ConsumeSymbol<FPlus>);
 	FrameTokenDefinitions.DefineToken(&ConsumeSymbol<FMinus>);
+	FrameTokenDefinitions.DefineToken(&ConsumeSymbol<FStar>);
 	FrameTokenDefinitions.DefineToken(&ConsumeLocalizedNumber);
 
 	TimeTokenDefinitions.IgnoreWhitespace();
@@ -92,7 +93,7 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateT
 		{
 			OutDirectlyParsed = true;
 		}
-		else if (Node.Cast<FBracketStart>() || Node.Cast<FBracketEnd>() || Node.Cast<FPlus>() || Node.Cast<FMinus>())
+		else if (Node.Cast<FBracketStart>() || Node.Cast<FBracketEnd>() || Node.Cast<FPlus>() || Node.Cast<FMinus>() || Node.Cast<FStar>())
 		{
 			if (Node.Cast<FMinus>())
 			{
@@ -217,11 +218,15 @@ TValueOrError<FFrameTime, FExpressionError> FFrameNumberTimeEvaluator::EvaluateF
 			Tokens.RemoveAt(i);
 			i--;
 		}
-		else if (Node.Cast<FMinus>())
+		else if (Node.Cast<FMinus>() || Node.Cast<FStar>())
 		{
+			if (Node.Cast<FMinus>())
+			{
+				bIsNegative = true;
+			}
+
 			Tokens.RemoveAt(i);
 			i--;
-			bIsNegative = true;
 		}
 	}
 

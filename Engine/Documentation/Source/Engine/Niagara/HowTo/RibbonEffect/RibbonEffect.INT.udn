@@ -1,143 +1,113 @@
-Availability: Docs
-Crumbs: %ROOT%, 
-Title:Create a Ribbon Based Effect with Niagara
-Description:Describes how you can create a ribbon-based visual effect using Niagara.
+Availability: Public
+Crumbs: 
+Title: Create a Ribbon Effect in Niagara
+Description: Describes how you can create a ribbon visual effect using Niagara.
 Type: how-to
-SkillLevel:Beginner
-Version: 4.17
-parent:Engine/Niagara/HowTo
-order:5
-tags:Niagara
-topic-image:
+Version: 4.20
+Parent: Engine/Niagara/HowTo
+Order: 5
+Tags: Niagara
+Tags: Early Access
+prereqs:Engine/Niagara/HowTo/EnableNiagara
+    
 
-Trying to simulate natural phenomena like smoke or vapor trails can be quite challenging to accomplish with sprite- or mesh-based particles. A better approach to simulating this type of object would be to use a **Ribbon** emitter, and in the following how-to, we will take a look at how to set up a Niagara Emitter to emit a continuous ribbon-style particle effect into the world.
+Simulating natural phenomena is challenging, especially when using sprite or mesh-based particles to simulate smoke or vapor trails. **Ribbon Emitters** are an excellent solution for simulating these objects, and in the following How-To, you will learn how to set up a Niagara Emitter to emit a continuous ribbon-style particle effect into the world.
 
-![](HeroImage_00.png)
+![](Ribbon_Banner_01.png "Ribbon_Banner_01.png")
 
 ## Steps
 
-1. First, we will need to create a new Material to color our Ribbon Emitter. To do this, right-click in the **Content Browser**, and select the **Material** option from the displayed list, naming the Material **MAT_Ribbon**.
-
+1.  First, we will need to create a new Material to color our Ribbon Emitter. To do this, right-click in the **Content Browser**, and under **Create a Basic Asset**, select the **Material** option from the displayed list. Name the Material **M_Ribbon**.  
     ![](RE_01.png)
-
-1. Double-click on the MAT_Ribbon Material to open it up and then, while holding down the **3** key, left-click in the Material graph to add a **Constant 3 Vector** Material Expression node.
-
-    [REGION:lightbox]
-    [![](RE_02.png)(w:639)](RE_02.png)
-    [/REGION]
-
-    [REGION:caption]
-    Click for full image.
-    [/REGION]
-
-1. Connect the **Constant 3 Vector** to the **Base Color** and **Emissive Color** input and then set the color to red.
-
-    [REGION:lightbox]
-    [![](RE_03.png)(w:639)](RE_03.png)
-    [/REGION]
-
-    [REGION:caption]
-    Click for full image.
-    [/REGION]
-
-1. In the **Details** panel, under **Usage**, make sure that **Used with Niagara Ribbons** is checked and then press the **Compile** and **Save** buttons to save your work.
-
-    [REGION:lightbox]
-    [![](RE_04.png)(w:639)](RE_04.png)
-    [/REGION]
-
-    [REGION:caption]
-    Click for full image.
-    [/REGION]
-
-1. Now, right-click in the **Content Browser** and select **FX** from the context menu. Next, click on the **Niagara Emitter** entry to create a new Niagara Emitter.
-
-    ![](Engine\Niagara\HowTo\SpriteEffect\SE_01.png)
-
-1. Name the newly-created Niagara Emitter **FX_Ribbon**, and then double-click on it to open it up.
-
-    ![](RE_05.png)
-
-1. Go to the **Render** section of the FX_Ribbon Emitter and press the **Trashcan** icon to delete the **Sprite Rendering**  rendering module.  
+2.  Double-click the **M_Ribbon Material** to open it. Press and hold the **3** key, and left-click in the **Material** grid to add a **Constant 3 Vector Material** Expression node.  
     
-     ![](RE_16.png)
+3.  Hover the cursor over the small circle on the right side of the node, then click and drag to connect the **Constant 3 Vector** to the **Base Color** and **Emissive Color** inputs in the M_Ribbon box on the right.   
+    ![](CreateRibbonBasedEffect_Steps_Step03-ConnectNodes.png)
+4.  Double-click the **Constant 3 Vector** to open the color picker. Set the **R** value to 1, then click **OK**. This turns the material red.  
+    ![](CreateRibbonBasedEffect_Steps_Step04-PickColor.png)
+5.  Click in the grid to take focus off the Constant 3 Vector. This changes the **Details** panel display on the left. In the **Details** panel, scroll down to locate **Usage**, and expand it. Check the box for **Used with Niagara Ribbons**.  
+    ![](CreateRibbonBasedEffect_Steps_Step05-DetailsUsage.png)
+6.  Click the **Apply** and **Save** buttons to apply changes and save your work.
+7.  Now, right-click in the **Content Browser**, and select **FX > Niagara Emitter** to create a new Niagara Emitter.   
+    ![](SE_01.png)
+8.  Name the newly-created Niagara Emitter **FX_Ribbon**, and then double-click it to open it.  
+    ![](RE_05.png)
+9.  "Locate the **Render** section of the **FX_Ribbon** Emitter, and click the **Trash** icon to delete the **Sprite Rendering** module.  
+    ![CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png?](CreateRibbonBasedEffect_Steps_Step09-RemoveSpriteRender.png)
+10. Press the **Plus** sign icon **(+) **and from the displayed list, select the **Niagara Ribbon Renderer** Properties.  
+    ![](CreateRibbonBasedEffect_Steps_Step10-AddRibbonRender.png)
+11. Next, click the small white triangle to expand the **Ribbon Rendering** section. In the **Material** section, click the dropdown to select the **M_Ribbon** Material that was created in steps one through five.   
+    ![](CreateRibbonBasedEffect_Steps_Step11-AddMaterial.jpg)
+[REGION:note]
+The value in the **SpawnRate** module (found in the **Emitter Update** section) is set to **20.0** by default. The **Spawn Rate** affects the roundness or angularity of the resulting ribbon effect. Lower values create a more angular or polygonal effect shape. Higher values create a more round effect shape.
+[/REGION]
 
-1. Press the **Plus** sign icon and from the displayed list, select the **Niagara Ribbon Renderer Properties**.
+[OBJECT:ComparisonSlider]
+    [PARAM:before]
+    ![Low Spawn Rate value](CreateRibbonBasedEffect_Steps_Step11a-SpawnRateLow.png) 
+    [/PARAM]
+    [PARAM:after]
+    ![High Spawn Rate value](CreateRibbonBasedEffect_Steps_Step11b-SpawnRateHigh.png) 
+    [/PARAM]
+[/OBJECT]
 
-    ![](RE_06.png)
-
-1. Next, click on the small white triangle to expand the **Ribbon Rendering** section. In the **Material** section, input the MAT_Ribbon Material that was created.
-
-    ![](RE_11.png)
-
-1. Now, over in the **Emitter Update** section, go to the **Spawn Rate** section and set the **Spawn Rate** to a value of **20**.
-
-    ![](RE_07.png)
-
-1. In the **Particle Spawn** section, delete the following modules by pressing the **Trash Can** icon:
-
-    ![](RE_08.png)
-
-    * **Add Velocity**
-    * **Sphere Location**
-    * **Set Particle Sprite Size**
-    * **Set Particle Sprite Rotation**
-
-1. When those entries have been deleted, press the **Plus** sign icon at the bottom of the Particle Spawn and from the displayed list add the following modules:
-
-    ![](RE_09.png)
-
-    * **Set Particle Ribbon Width**
-    * **Set Particles Velocity**
-    * **Point Spiral Location** 
-
-1. With the needed modules now added to the Ribbon effect, input the following values into the following modules:
-
-    ![](RE_10.png)
-
-    |Module Name|Value|
-    |----|---|
-    |**Set Particle Ribbon Width**| 32|
-    |**Set Particles Velocity**| X:1 y:0 Z:1|
-    |**Point Spiral Location** | Speed: 500, RotSpeed: 1|
-    |**Set Particle Lifetime**| 5|
-
-1. Now, over in the **Particle Update** section, set the **Z** value of the  **Acceleration Force** to **-100**.
-
-    ![](RE_12.png)
-
-1. Once that has all been completed, press the **Compile**, **Apply** and **Save** buttons to compile and save our work.
-
-    ![](RE_13.png)
-
-1. In the Content Browser, right-click. From the displayed list, go to **FX** and then select the **Niagara System** option, giving it a name of **FX_Ribbon**.
-
-    ![](Engine\Niagara\HowTo\SpriteEffect\SE_16.png)
-
-1. Double-click on the Ribbon Niagara System to open it up and when open, drag the **FX_Ribbon** from the Content Browser to the **Timeline**.
-
-    ![](RE_14.png)
-
-1. Press the **Compile** and **Save** buttons, and then close the Mesh Niagara System down. In the Content Browser, drag the Mesh Niagara System into the level viewport.
-
-    [REGION:lightbox]
-    [![](RE_15.png)(w:834)](RE_15.png)
+1.  Locate and expand the **Particle Spawn** section.
+1.  Delete the following modules by clicking the **Trash** icon.  
+    
+    *   **Add Velocity**
+    *   **Sphere Location**
+    
+    ![](CreateRibbonBasedEffect_Steps_Step13-RemoveSpriteVariables.png)
+1.  In the **Set Variables** section, click the small white arrow next to the following variables and select **Remove**.
+    
+    *   **Particles.SpriteRotation**
+    *   **Particles.SpriteSize**
+    
+    ![](CreateRibbonBasedEffect_Steps_Step14-RemoveSpriteVariables2.png)
+1.  When those variables have been deleted, click the **Plus** sign icon (**+**) next to **Particle Spawn** to display a list of options. Expand **Set Specific Parameters**, and add the following variables:
+    
+    *   **Particles.RibbonWidth**
+    *   **Particles.Velocity**
+    
+    ![](CreateRibbonBasedEffect_Steps_Step15-AddParticlesParameters.png)
+1.  Click the **Plus** sign icon (**+**) next to **Particle Spawn** to display a list of options again. Select **Experimental > Point Spiral Location**.
+    [REGION:note]
+    The **Speed** value of this variable expands the base diameter of the overall effect.
+    [/REGION]![](CreateRibbonBasedEffect_Steps_Step16-AddPointSpiralLocation.png)
+1.  With the variables now added to the Ribbon emitter, set the following Variables to the following values.
+    
+    | Variable Name | Value |
+    | --- | --- |
+    | **Particles.RibbonWidth** | 35.0 |
+    | **Particles.Velocity** | X:1.0, Y: 0, Z: 1.0 |
+    | **Point Spiral Location** | Speed: 500.0, RotSpeed: 4.0 |
+    | **Particles.Lifetime** | 5.0 |
+    
+1.  Locate and expand the **Acceleration Force** module.
+1.  Set the **Acceleration Z** value to **-100.0**.  
+    ![](CreateRibbonBasedEffect_Steps_Step19-SetAccelerationForce.png)
+    [REGION:note]
+    A negative value in the **Z** field produces a cone-shaped ribbon effect. If you put a positive value in the **Z** field, an inverted cup-shape is produced.
     [/REGION]
-
-    [REGION:caption]
-    Click for full image.
-    [/REGION]
+1.  Once all that has been completed, click the **Compile**, **Apply** and **Save** buttons to compile and save your work.  
+    ![](ME_09.png)
+1.  Now right-click in the **Content Browser**, and select **FX > Niagara System**. Name the new system **Ribbon**.   
+    ![](SE_16.png)
+1.  Double-click on the Ribbon Niagara System to open it, then drag the **FX_Ribbon** Niagara Emitter from the Content Browser to the **Timeline**.  
+    ![](CreateRibbonBasedEffect_Steps_Step22-AddtoSystem.png)
+1.  Click the **Compile** and **Save** buttons to compile and save your work, and then close the Ribbon Niagara System. In the **Content Browser**, drag the **Ribbon Niagara System** into the level viewport.  
+    ![](CreateRibbonBasedEffect_Steps_Step23-AddToLevel.png)
 
 ## End Result
 
-When completed, you will now have a Niagara System that will play your Niagara Emitter when the Niagara System is placed in a Level, as shown in the following video:
+When completed, you have a Niagara System that plays your Niagara Emitter when the Niagara System is placed in a level, as shown in the following video.
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]
-    wSRBBGirYig
+    pxQEQ4zWLWI
     [/PARAMLITERAL]
     [PARAMLITERAL:width]
-    100
+    78
     [/PARAMLITERAL]
     [PARAMLITERAL:height]
     56.25

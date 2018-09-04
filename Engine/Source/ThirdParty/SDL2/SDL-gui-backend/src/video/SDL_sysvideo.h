@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,6 +26,8 @@
 #include "SDL_messagebox.h"
 #include "SDL_shape.h"
 #include "SDL_thread.h"
+
+#include "SDL_vulkan_internal.h"
 
 /* The SDL video driver */
 
@@ -205,8 +207,8 @@ struct SDL_VideoDevice
     /*
      * Window functions
      */
-    int (*CreateWindow) (_THIS, SDL_Window * window);
-    int (*CreateWindowFrom) (_THIS, SDL_Window * window, const void *data);
+    int (*CreateSDLWindow) (_THIS, SDL_Window * window);
+    int (*CreateSDLWindowFrom) (_THIS, SDL_Window * window, const void *data);
     void (*SetWindowTitle) (_THIS, SDL_Window * window);
     void (*SetWindowIcon) (_THIS, SDL_Window * window, SDL_Surface * icon);
     void (*SetWindowPosition) (_THIS, SDL_Window * window);
@@ -243,10 +245,10 @@ struct SDL_VideoDevice
     /*
      * Vulkan support
      */
-    int (*VK_LoadLibrary) (_THIS, const char *path);
-    void (*VK_UnloadLibrary) (_THIS);
-    char** (*VK_GetRequiredInstanceExtensions)(_THIS, unsigned int* count);
-    SDL_bool (*VK_CreateSurface)(_THIS, SDL_Window* window, SDL_VkInstance instance, SDL_VkSurface* surface);
+    //int (*VK_LoadLibrary) (_THIS, const char *path);
+    //void (*VK_UnloadLibrary) (_THIS);
+    char** (*Vulkan_GetRequiredInstanceExtensions)(_THIS, unsigned int* count);
+    //SDL_bool (*VK_CreateSurface)(_THIS, SDL_Window* window, SDL_VkInstance instance, SDL_VkSurface* surface);
 
 #endif /* SDL_WITH_EPIC_EXTENSIONS */
 /* EG END */
@@ -275,6 +277,17 @@ struct SDL_VideoDevice
     int (*GL_GetSwapInterval) (_THIS);
     int (*GL_SwapWindow) (_THIS, SDL_Window * window);
     void (*GL_DeleteContext) (_THIS, SDL_GLContext context);
+    void (*GL_DefaultProfileConfig) (_THIS, int *mask, int *major, int *minor);
+
+    /* * * */
+    /*
+     * Vulkan support
+     */
+    int (*Vulkan_LoadLibrary) (_THIS, const char *path);
+    void (*Vulkan_UnloadLibrary) (_THIS);
+    SDL_bool (*Vulkan_GetInstanceExtensions) (_THIS, SDL_Window *window, unsigned *count, const char **names);
+    SDL_bool (*Vulkan_CreateSurface) (_THIS, SDL_Window *window, VkInstance instance, VkSurfaceKHR *surface);
+    void (*Vulkan_GetDrawableSize) (_THIS, SDL_Window * window, int *w, int *h);
 
     /* * * */
     /*
@@ -306,6 +319,9 @@ struct SDL_VideoDevice
 
     /* Hit-testing */
     int (*SetWindowHitTest)(SDL_Window * window, SDL_bool enabled);
+
+    /* Tell window that app enabled drag'n'drop events */
+    void (*AcceptDragAndDrop)(SDL_Window * window, SDL_bool accept);
 
     /* * * */
     /* Data common to all drivers */
@@ -345,28 +361,14 @@ struct SDL_VideoDevice
         int profile_mask;
         int share_with_current_context;
         int release_behavior;
+        int reset_notification;
         int framebuffer_srgb_capable;
+        int no_error;
         int retained_backing;
         int driver_loaded;
         char driver_path[256];
         void *dll_handle;
     } gl_config;
-
-/* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
-   /* * * */
-    /* Data used by the Vulkan drivers */
-    struct
-    {
-        int driver_loaded;
-        char driver_path[256];
-        void *dll_handle;
-        char** required_instance_extensions;
-    } vk_config;
-
-    struct SDL_VKDriverData *vk_data;
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-/* EG END */
 
     /* * * */
     /* Cache current GL context; don't call the OS when it hasn't changed. */
@@ -377,6 +379,22 @@ struct SDL_VideoDevice
     SDL_GLContext current_glctx;
     SDL_TLSID current_glwin_tls;
     SDL_TLSID current_glctx_tls;
+
+    /* * * */
+    /* Data used by the Vulkan drivers */
+    struct
+    {
+        PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
+        PFN_vkEnumerateInstanceExtensionProperties vkEnumerateInstanceExtensionProperties;
+        int loader_loaded;
+        char loader_path[256];
+        void *loader_handle;
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+        char** required_instance_extensions;
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
+    } vulkan_config;
 
     /* * * */
     /* Data private to this driver */
@@ -405,13 +423,11 @@ typedef struct VideoBootStrap
 } VideoBootStrap;
 
 /* Not all of these are available in a given build. Use #ifdefs, etc. */
-
 /* EG BEGIN */
 #if SDL_VIDEO_DRIVER_OFFSCREEN
 extern VideoBootStrap OFFSCREEN_bootstrap;
 #endif
 /* EG END */
-
 extern VideoBootStrap COCOA_bootstrap;
 extern VideoBootStrap X11_bootstrap;
 extern VideoBootStrap MIR_bootstrap;
@@ -442,6 +458,7 @@ extern void *SDL_GetDisplayDriverData( int displayIndex );
 extern void SDL_GL_DeduceMaxSupportedESProfile(int* major, int* minor);
 
 extern int SDL_RecreateWindow(SDL_Window * window, Uint32 flags);
+extern SDL_bool SDL_HasWindows(void);
 
 extern void SDL_OnWindowShown(SDL_Window * window);
 extern void SDL_OnWindowHidden(SDL_Window * window);
@@ -465,6 +482,8 @@ extern void SDL_OnApplicationWillResignActive(void);
 extern void SDL_OnApplicationDidEnterBackground(void);
 extern void SDL_OnApplicationWillEnterForeground(void);
 extern void SDL_OnApplicationDidBecomeActive(void);
+
+extern void SDL_ToggleDragAndDropSupport(void);
 
 #endif /* SDL_sysvideo_h_ */
 

@@ -145,15 +145,18 @@ FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* Sou
 
 					for (UEdGraphNode* Node : ChildGraph->Nodes)
 					{
-						if (NodeGuids.Contains(Node->NodeGuid))
+						if (Node)
 						{
-							bNodeGuidsRegenerated = true;
+							if (NodeGuids.Contains(Node->NodeGuid))
+							{
+								bNodeGuidsRegenerated = true;
 							
-							Node->CreateNewGuid(); // GUID is already being used, create a new one.
-						}
-						else
-						{
-							NodeGuids.Add(Node->NodeGuid);
+								Node->CreateNewGuid(); // GUID is already being used, create a new one.
+							}
+							else
+							{
+								NodeGuids.Add(Node->NodeGuid);
+							}
 						}
 					}
 				}
@@ -236,6 +239,11 @@ void FAnimBlueprintCompilerContext::CreateEvaluationHandlerStruct(UAnimGraphNode
 	// Shouldn't create a handler if there is nothing to work with
 	check(Record.ServicedProperties.Num() > 0);
 	check(Record.NodeVariableProperty != NULL);
+
+	if (Record.IsFastPath())
+	{
+		return;
+	}
 
 	// Use the node GUID for a stable name across compiles
 	FString FunctionName = FString::Printf(TEXT("%s_%s_%s_%s"), *Record.EvaluationHandlerProperty->GetName(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString());
@@ -1140,7 +1148,6 @@ void FAnimBlueprintCompilerContext::ProcessAllAnimationNodes()
 	TArray<UAnimGraphNode_Base*> RootSet;
 
 	AllocateNodeIndexCounter = 0;
-	NewAnimBlueprintClass->RootAnimNodeIndex = 0;//INDEX_NONE;
 
 	for (auto SourceNodeIt = AnimNodeList.CreateIterator(); SourceNodeIt; ++SourceNodeIt)
 	{
@@ -1194,8 +1201,6 @@ void FAnimBlueprintCompilerContext::ProcessAllAnimationNodes()
 		{
 			AutoWireAnimGetter(Getter, nullptr);
 		}
-
-		NewAnimBlueprintClass->RootAnimNodeIndex = GetAllocationIndexOfNode(PrePhysicsRoot);
 	}
 	else
 	{
@@ -2055,8 +2060,6 @@ void FAnimBlueprintCompilerContext::CleanAndSanitizeClass(UBlueprintGeneratedCla
 	//@TODO: Move this into PurgeClass
 	NewAnimBlueprintClass->BakedStateMachines.Empty();
 	NewAnimBlueprintClass->AnimNotifies.Empty();
-
-	NewAnimBlueprintClass->RootAnimNodeIndex = INDEX_NONE;
 	NewAnimBlueprintClass->RootAnimNodeProperty = NULL;
 	NewAnimBlueprintClass->OrderedSavedPoseIndices.Empty();
 	NewAnimBlueprintClass->AnimNodeProperties.Empty();
@@ -2074,7 +2077,6 @@ void FAnimBlueprintCompilerContext::CleanAndSanitizeClass(UBlueprintGeneratedCla
 
 		NewAnimBlueprintClass->BakedStateMachines.Append(RootAnimClass->BakedStateMachines);
 		NewAnimBlueprintClass->AnimNotifies.Append(RootAnimClass->AnimNotifies);
-		NewAnimBlueprintClass->RootAnimNodeIndex = RootAnimClass->RootAnimNodeIndex;
 		NewAnimBlueprintClass->OrderedSavedPoseIndices = RootAnimClass->OrderedSavedPoseIndices;
 	}
 }

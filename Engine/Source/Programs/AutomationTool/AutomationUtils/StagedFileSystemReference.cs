@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Tools.DotNETCommon;
 using UnrealBuildTool;
 
 /// <summary>
@@ -13,14 +14,17 @@ using UnrealBuildTool;
 public abstract class StagedFileSystemReference
 {
 	/// <summary>
+	/// Special value used to invoke the non-sanitizing constructor overload
+	/// </summary>
+	public enum Sanitize
+	{
+		None
+	}
+
+	/// <summary>
 	/// The name of this file system entity
 	/// </summary>
 	public readonly string Name;
-
-	/// <summary>
-	/// Name of this filesystem entity in a canonical format for easy comparison
-	/// </summary>
-	public readonly string CanonicalName;
 
 	/// <summary>
 	/// Constructor
@@ -29,7 +33,6 @@ public abstract class StagedFileSystemReference
 	public StagedFileSystemReference(string InName)
 	{
 		Name = InName.Replace('\\', '/');
-		CanonicalName = Name.ToLowerInvariant();
 
 		// Make sure it's not an absolute path
 		if (Name.Length >= 2 && (Name[1] == ':' || Name[0] == '/'))
@@ -116,11 +119,27 @@ public abstract class StagedFileSystemReference
 	/// Protected constructor. Initializes to the given parameters without validation.
 	/// </summary>
 	/// <param name="Name">The name of this entity.</param>
-	/// <param name="CanonicalName">Canonical name of this entity. Should be equal to Name.ToLowerInvariant().</param>
-	protected StagedFileSystemReference(string Name, string CanonicalName)
+	/// <param name="Sanitize">Dummy argument to force overload resolution to use this implementation.</param>
+	public StagedFileSystemReference(string Name, Sanitize Sanitize)
 	{
 		this.Name = Name;
-		this.CanonicalName = CanonicalName;
+	}
+
+	/// <summary>
+	/// Checks whether this name has the given extension.
+	/// </summary>
+	/// <param name="Extension">The extension to check</param>
+	/// <returns>True if this name has the given extension, false otherwise</returns>
+	public bool HasExtension(string Extension)
+	{
+		if (Extension.Length > 0 && Extension[0] != '.')
+		{
+			return Name.Length >= Extension.Length + 1 && Name[Name.Length - Extension.Length - 1] == '.' && Name.EndsWith(Extension, FileSystemReference.Comparison);
+		}
+		else
+		{
+			return Name.EndsWith(Extension, FileSystemReference.Comparison);
+		}
 	}
 
 	/// <summary>
@@ -130,7 +149,7 @@ public abstract class StagedFileSystemReference
 	/// <returns>True if the path is under the given directory</returns>
 	public bool IsUnderDirectory(StagedDirectoryReference Directory)
 	{
-		return CanonicalName.StartsWith(Directory.CanonicalName) && (CanonicalName.Length == Directory.CanonicalName.Length || CanonicalName[Directory.CanonicalName.Length] == '/');
+		return Name.StartsWith(Directory.Name, FileSystemReference.Comparison) && (Name.Length == Directory.Name.Length || Name[Directory.Name.Length] == '/');
 	}
 
 	/// <summary>

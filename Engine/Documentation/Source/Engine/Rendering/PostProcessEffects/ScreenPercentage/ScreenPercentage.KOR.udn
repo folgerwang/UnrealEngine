@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:0
+INTSourceChangelist:3782314
 Availability: Docs
 Crumbs: %ROOT%
-Title: Screen Percentage: Dynamic Resolution and Temporal Anti-Aliasing Upsample
+Title: 스크린 퍼센티지와 템포럴 업샘플
 Description: 
 Type: Overview
 SkillLevel: Intermediate
@@ -17,704 +17,470 @@ Tags:
 
 
 [REGION:note]
-The release of Unreal Engine 4.19 makes some significant changes to how Screen Percentage works. Most of this will directly affect those developing projects for Virtual Reality (VR) which will break backward comptability in some cases. 
+언리얼 엔진 4.19 릴리즈에 Screen Percentage (스크린 퍼센티지) 작동방식이 크게 변경되었습니다. 대부분 가상 현실(VR) 프로젝트 개발에 직접 영향을 주며, 거의 하위 호환성을 잃게됩니다.
 [/REGION]
 
 
 
-**Screen Percentage** is a [Post Process](Engine/Rendering/PostProcessEffects) technique used to render a lower or higher resolution image than what it is actually being presented as. Being able to adjust the screen percentage can allow your games to maintain a balance between performance and image resolution quality. 
+**Screen Percentage** (스크린 퍼센티지)는 해상도 스케일 조절 기술로, 이미지의 실제 표현 해상도보다 높이거나 낮춰 렌더링하는 것입니다. 스크린 퍼센티지를 조절할 수 있으면 게임의 퍼포먼스와 이미지 해상도 퀄리티 사이 균형을 유지할 수 있습니다.
 
-Prior to Unreal Engine 4(UE4) version 4.19, you only had to change the screen percentage, but it has now been split into two types of scaling during the rendering pipeline: Primary and Secondary Spatial Upscaling.
+언리얼 엔진 4 (UE4) 4.19 이전에는 스크린 퍼센티지만 변경해야 했지만, 이제 렌더링 파이프라인 도중 두 가지 유형의 스케일로 분리되었습니다. Primary / Secondary Spatial Upscaling (1차 / 2차 공간 업스케일)입니다.   
 
-* **Primary Spatial Upscaling** is the same screen percentage that has been used previously. It is based on the idea of rendering a frame at a lower resolution and then upscaling it before the UI is drawn.
-* **Secondary Spatial Upscaling** does a second and final upscale pass, independently of the Primary upscaling pass. This pass can happen if the GPU is not able to keep up with a high DPI (Dots per Inch) monitor and makes Dynamic Resolution changes possible. 
+* **Primary Spatial Upscaling** (1차 공간 업스케일)은 기존에 사용되던 스크린 퍼센티지와 같습니다. 더 낮은 해상도로 프레임을 렌더링한 뒤 스케일을 올린 다음 유저 인터페이스(UI)를 그린다는 개념입니다.
+* **Secondary Spatial Upscaling** (2차 공간 업스케일)은 1차 업스케일 패스와 상관없이 이루어지는 2차 최종 공간 업스케일 패스입니다.
 
+## 1차 스크린 퍼센티지
 
-
-
-
-
-
-
-
-## Primary Spatial Upscale
-
-The **Primary Spatial Upscale** (or primary screen percentage) works by rendering the screen resolution at a percentage of the screen and then scaling it to fit your current screen resolution. Using a lower screen percentage (or lower resolution) and then upscaling it is called **upsampling**. Or, when the screen percentage is increased (rendering at a higher resolution), it is scaled down to your current screens resolution, which is called **supersampling**. All of this takes place before the user interface (UI) is drawn and can have an impact on performance.
-
-[COMMENT:none]
-- TODO Fix Image in PSD Custom for Easier Translation later -
-[/COMMENT]
+**Primary Spatial Upscale** (1차 공간 업스케일, 또는 1차 스크린 퍼센티지)는 화면을 일정 백분율로 렌더링한 뒤 현재 화면 해상도에 맞게 스케일을 조절하는 식으로 작동합니다. 스크린 퍼센티지( 또는 해상도)를 낮춘 뒤 스케일을 높이는 것을 **upsampling** (업샘플링)이라 합니다. 또는 스크린 퍼센티지를 높인 (더 높은 해상도로 렌더링한) 뒤 현재 화면 해상도에 맞춰 스케일을 낮추는 것을 **super sampling** (수퍼 샘플링)이라 합니다. 이 모든 작업은 UI 를 그리기 전에 일어나며, 퍼포먼스에 영향을 줄 수 있습니다.
 
 ![](SpatialUpscalingPipelineComparison.png)(w:900)
 
-The conceptual idea of how screen percentage works for all the buffer render targets that make up the rendered image for a single GPU frame can be shown as follows:
+GPU 한 프레임동안 화면에 렌더링되는 이미지를 이루는 모든 버퍼 렌더 타깃에 스크린 퍼센티지가 어떻게 작동하는지 개념적으로 살펴보면 다음과 같습니다.
 
-[COMMENT:none]
-- TODO Fix Image in PSD Custom for Easier Translation later -
-[/COMMENT]
 ![](NoUpscalingPipeline.png)(w:900)
 
-For each GPU frame, all the render targets use their full resolution throught out the pipeline.
+각 GPU 프레임에 대해, 모든 렌더 타깃은 파이프라인 전반에 전체 해상도를 사용합니다.  
 
-[COMMENT:none]
-- TODO Fix Image in PSD Custom for Easier Translation later -
-[/COMMENT]
 ![](SpatialUpscalingPipeline.png)(w:900)
 
-With Spatial Upscaling, anything drawn before the UI is at a lower or higher resolution based on the Screen Percentage used. The screen percentage has been lowered (indicated by the narrower render targets before UI), creating a lower resolution image for the render targets. Spatial Scaling happens befor the UI to scale the image to the screen resolution it will be output to. For example, if the current resolution is set to 1920x1080 and a screen percentage of 83% is used, the render targets will be resized to an approximate resolution of 1600x900 before being upscaled back to 1920x1080. 
+Spatial Upscaling (공간 업스케일)로 UI 전에 그리는 것은 무엇이든 사용된 Screen Percentage (스크린 퍼센티지)에 따라 낮거나 높은 해상도로 그립니다. (UI 이전 렌더 타깃이 좁은 것으로 보아) 스크린 퍼센티지를 낮춰 렌더 타깃에 저해상도 이미지를 만듭니다. 공간 업스케일은 UI 이전에 발생하여 이미지 스케일을 출력할 화면 해상도에 맞춥니다. 예를 들어, 현재 해상도가 1920x1080 이고 스크린 퍼센티지가 83% 인 경우, 렌더 타깃 해상도를 약 1600x900 으로 조절했다가 다시 1920x1080 으로 업스케일합니다.  
 
+### 공간 업스케일 퀄리티
 
-
-
-
-
-
-### Render Target Upscale Quality
-
-When upscaling the render targets, the quality of the upscale can be defined by using the following console variable: 
+렌더 타깃을 업스케일할 때의 퀄리티를 정의하는 콘솔 명령은 다음과 같습니다.
 
 	r.Upscale.Quality
 
-It controls the quality in qhich screen percentage and Windowed FullScreen mode scales the 3D rendering.
+스크린 퍼센티지와 Windowed Fullscreen (전체화면 창) 모드의 3D 렌더링 스케일 조절 정도를 제어합니다.
 
-| Upsample Quality Value | Upsample Result |
+| 업샘플 퀄리티 값 | 업샘플 결과 |
 | --- | --- |
-| **0** | Nearest Filtering |
-| **1** | Simple Bilinear |
-| **2** | Directional blur with unsharp mask upsample |
-| **3** | 5-tap Catmull-Rom bicubic, approximating Lanczos 2 (default) |
-| **4** | 13-tap Lanczos 3 |
-| **5** | 36-tap Gaussian-filtered unsharp mask (very expensive, but good for extreme upsampling) |
+| **0** | 가장 가까운 필터링입니다. |
+| **1** | 단순 바이리니어 필터입니다. |
+| **2** | 디렉셔널 블러에 선명하지 않은 마스크 업샘플을 적용합니다. |
+| **3** | 5-tap Catmull-Rom 바이큐빅으로, Lanczos 2 근사값입니다. (기본) |
+| **4** | 13-tap Lanczos 3 입니다. |
+| **5** | 36-tap Gaussian 필터 적용 선명하지 않은 마스크입니다 (매우 비싸지만, 극한 업샘플링에 좋습니다). |
 
-Alternatively, you can change how the tonemapper pass is handled. The screen percentage upscale is integrated into the tonemapper pass and they are run separately by default. If they are run together, they can be run in the same pass, which is faster but will affect any post process passes that happen after the tonemapper, including post process materials. It can be enabled by using the following command: 
+다른 방법으로, 톤매퍼 패스 처리 방식을 제어하는 콘솔 명령은 다음과 같습니다.
 
-	r.Tonemapper.MergeWithUpscale.Mode
-	
+    r.Tonemapper.MergeWithUpscale.Mode
 
-[COMMENT:none]
-- TODO IMAGE - Possible with an image demonstration? -
-[/COMMENT]	
+톤매퍼는 **1** 값으로 활성화하면 퍼포먼스상의 이유로 단순 바이리니어 컬러 스페이스 공간 업스케일을 통합합니다. 하지만 톤매퍼 이후 포스트 프로세스 머티리얼을 삽입한 경우, 톤매퍼는 업스케일을 하지 않습니다. 비활성화한 것처럼 예전 1차 공간 업스케일 방식으로 돌아갑니다.
 
+## 템포럴 안티에일리어싱 업샘플
 
-
-
-
-
-
-
-
-### Temporal Anti-Aliasing Upsample
-
-In addition to Primary Spatial Upscale, a second upscaling technique is also supported for the primary screen percentage: Temporal Upsample. Instead of performing temporal integration with the Temporal Anti-Aliasing (TAA) and then doing a primary spatial upscale, both happen at the same time in the Temporal Anti-Aliasing Upsample (TAAU) shader. It allows them to converge to sharper images than what a spatial-only upscale could provide but comes at a higher cost since a larger number of post processes run at a higher resolution.
+1차 공간 업스케일 외에, 1차 스크린 퍼센티지에 Temporal Upsample (템포럴 업샘플)이라는 2차 업스케일 기법도 지원됩니다. 템포럴 안티에일리어싱(TAA) 으로 임시 통합한 뒤 1차 공간 업스케일을 하는 대신, 템포럴 안티에일리어싱 업샘플 (TAAU) 셰이더에서 둘 다 동시에 하는 것입니다. 공간 업스케일만 했을 때보다 선명한 이미지를 얻을 수 있지만, 다수의 고해상도 포스트 프로세스때문에 비용이 높아집니다. 또한 동적 해상도로 1차 스크린 퍼센티지 변경사항을 숨겨 자주 바꾸면서 GPU 예산에 최대한 맞출 수 있습니다.
 
 ![](TAAUPipeline.png)(w:900)
 
 [REGION:caption]
-TAAU happens earlier in the pipeline causing the render targets that follow to render at a higher resolution, leading to higher costs with sharper images. 
+TAAU 는 파이프라인 초기에 발생해서 이후 패스는 더 높은 해상도로 렌더링하게 되므로, 비용은 높아지고 이미지는 선명해집니다.
 [/REGION]
 
-It should be noted that with the temporal upsample, the ordering of the different post processes has not changed with the addition of TAAU, it simply replaced TAA. The difference now is that anything that runs after the temporal upsample is ready and aware of the different resolution than those before the upsample. Before 4.19, the resolution was assumed to be the same everywhere in the post processing.
-
-The benefit of moving the temporal upscale up in the pipeline means that arbitrary primary screen percentages can be used with TAAU with minimal user-perceivable changes on the final output sharpness. Before, you had to sometimes use a "magic" number that depended on the display it was being output. This  largely affected Virtual Reality (VR) Head Mounted Displays (HMD), where each one would use their own screen percentage to get the best result. With temporal upscaling, you no longer have to keep track or remember these values to achieve a similar result.
+템포럴 업샘플을 사용하면, TAAU 가 단순히 TAA 를 대체할 뿐, 여러 포스트 프로세스의 순서가 바뀌지는 않습니다. 이제 그 차이점은 TAAU 이전 프로세스는 저해상도를 사용하다가 TAAU 패스 이후 업샘플링하게 됩니다. 4.19 이전에는 포스트 프로세싱 모든 곳에 해상도가 같다 가정했습니다.
 
 [REGION:note]
-The changes to the final output sharpness does not use a "magic" number, so as the primary screen percentage decreases, the convergence to a clean full-resolution output changes. Therefore, some existing TAA artifacts would be more noticeable. For example, aliasing can become an issue for very thin geometry increasing the probability to miss geometric detail as the primary screen percentage is lowering.
+1차 스크린 퍼센티지가 감소할 수록 깨끗한 전체 해상도 출력물로 수렴합니다. 따라서 기존 TAA 부작용 중 일부가 눈에 더 잘 띄게됩니다. 예를 들어 매우 얇은 지오메트리는 1차 스크린 퍼센티지를 낮추면서 지오메트리 디테일이 손실될 확률이 높아져 에일리어싱 문제가 생길 수 있습니다.
 [/REGION]
 
-#### Enabling Temporal Upsample
+### 템포럴 업샘플 활성화
 
-To use Temporal Anti-Aliasing Upsample, you'll need to opt into it by using the following console variable: 
+템포럴 안티에일리어싱 업샘플을 사용하려면, 프로젝트 세팅에서 **Temporal Upsampling** (템포럴 업샘플)을 활성화하거나 그냥 다음 콘솔 명령을 사용하면 됩니다. 
 
-	r.TemporalAA.Upsampling 1
+    r.TemporalAA.Upsampling 1
 
-A lower primary screen percentage can lose significant detail when using lower resolutions. For example, for something like a chain-link fence or the grill on the front of a car, the detail can become harder to see at farther distances when Temporal Anti-Aliasing is used. Enabling TAAU, this can be reduced while still using a lower screen percentage.
+1차 스크린 퍼센티지를 낮추고 공간 업스케일을 사용하면 해상도가 낮을 때 디테일 손실이 클 수 있습니다. 예를 들어 체인 링크 펜스나 자동차 정면의 그릴과 같은 경우, 템포럴 안티에일리어싱을 사용하면 먼 거리에서 디테일이 잘 보이지 않습니다. TAAU 를 활성화하면 낮은 스크린 퍼센티지를 사용해도 이런 현상이 줄어들 수 있습니다.
 
-[REGION:imagetable]
-| ![](FenceAsset.png)(w:560) | [INCLUDE:#taau] |
-| --- | --- |
-|||
-[/REGION]
+비교에서 1차 스크린 퍼센티지를 **70** 으로 설정하고 카메라를 충분히 멀리 움직이면 지그재그가 심한 지오메트리와 머티리얼에 TAA 가 실제로 미치는 영향을 확인할 수 있습니다. 템포럴 업샘플을 사용하면 이 디테일을 볼 수 있으며, 저해상도를 사용할 때도 디테일이 최대한 유지됩니다.
 
-In the comparison, the primary screen percentage has been set to **50** and the camera has been moved to a far enough distance to effectively see how TAA affects high-frequency geometry and materials. The temporal upsample enables this detail to be seen, even when lower resolutions are used to maintain this detail as much as possible.
+### 추가 예제
 
-In this comparison, the Primary Screen Percentage has been set to **50** and the camera has been moved to a far eough distance to see the effect. 
-
-[COMMENT:none]
--
-[INCLUDE:#taau]
-[EXCERPT:tAAU]
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![TemporalAA Upsample | Disabled](TemporalUpsampleDisabled.png)(w:560)
-	[/PARAM]
-	[PARAM:after]
-	![TemporalAA Upsample | Enabled](TemporalUpsampleEnabled.png)(w:560)
-	[/PARAM]
-[/OBJECT]
-[/EXCERPT:tAAU]
-
--
-[/COMMENT]
-
-
-#### Additional Examples
-
-
-In this first set of comparisons, a default scene that has only lowered the screen percentage is compared to one using the same screen percentage except it has the temporal upsample enabled. The difference may seem minute for these screenshots but on larger screens the areas with dense geometry or high-frequency textures can regain some lost detail, like with the fencing on the top of the house, or the tree fronds on the trees (close and far ones). 
+첫 비교 세트에서는, 스크린 퍼센티지만 낮춘 기본 씬을 똑같은 상태에서 템포럴 업샘플만 활성화한 씬과 비교합니다. 이 스크린샷에서는 차이가 잘 보이지 않을 수 있지만 큰 화면에서 보면, 집 위 펜스나 나뭇 잎사귀처럼 지오메트리가 빽빽하거나 텍스처 지그재그가 심한 부분에 잃었던 디테일이 살아나는 것을 볼 수 있습니다.
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Screen Percentage: 70 | Temporal AA Upsample: Disabled](Shot3c.png)(w:1100)
+	![스크린 퍼센티지: 70 | 템포럴 AA 업샘플: 비활성화](Shot3c.png)(w:1100)
 	[/PARAM]
 	[PARAM:after]
-	![Screen Percentage: 70 | Temporal AA Upsample: Enabled](Shot2c.png)(w:1100)
+	![스크린 퍼센티지: 70 | 템포럴 AA 업샘플: 활성화](Shot2c.png)(w:1100)
 	[/PARAM]
 [/OBJECT]
 
-In this one, the default screen percentage of 100 without any temporal upsample can be compared to the lower screen percentage that is using temporal upsample. While some specular highlights and some material detail is lost, the temporal upsample does a really good job of maintaining geometry detail even though the screen percentage has been lowered.
+기본 스크린 퍼센티지 100 에 템포럴 업샘플을 사용하지 않은 것과 스크린 퍼센티지를 낮추고 템포럴 업샘플을 사용한 것의 비교입니다. 일부 스페큘러 하이라이트와 머티리얼 디테일은 잃었지만, 템포럴 엄샘플 효과가 정말 뛰어나 스크린 퍼센티지를 낮췄어도 지오메트리 디테일은 유지되어 있습니다.
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Screen Percentage: 100 | Temporal AA Upsample: Disabled ](Shot1c.png)(w:1100)
+	![스크린 퍼센티지: 100 | 템포럴 AA 업샘플: 비활성화](Shot1c.png)(w:1100)
 	[/PARAM]
 	[PARAM:after]
-	![Screen Percentage: 70 | Temporal AA Upsample: Enabled ](Shot2c.png)(w:1100)
+	![스크린 퍼센티지: 70 | 템포럴 AA 업샘플: 활성화](Shot2c.png)(w:1100)
 	[/PARAM]
 [/OBJECT]
 
+### 자동 뷰 텍스처 밉 바이어스
 
+스크린 퍼센티지로 인해 지오메트리가 낮은 픽셀 밀도로 렌더링될 수 있으므로, 템포럴 업샘플은 **표면** 및 **디퍼드 데칼* 머티리얼에서 더 많은 텍스처 정보를 얻어야 동일한 출력 선명도를 유지할 수 있습니다. 이를 위해 Texture Sample 표현식은 기본적으로 **Automatic View Mip Bias** (자동 뷰 밉 바이어스) 옵션을 사용할 수 있습니다.
 
-[COMMENT:none]
--
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Screen Percentage: 70 | Temporal AA Upsample: Disabled](Shot3a.png)(w:1100)
-	[/PARAM]
-	[PARAM:after]
-	![Screen Percentage: 70 | Temporal AA Upsample: Enabled](Shot2a.png)(w:1100)
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Screen Percentage: 100 | Temporal AA Upsample: Disabled ](Shot1a.png)(w:1100)
-	[/PARAM]
-	[PARAM:after]
-	![Screen Percentage: 70 | Temporal AA Upsample: Enabled ](Shot2a.png)(w:1100)
-	[/PARAM]
-[/OBJECT]
-
--
-[/COMMENT]
-
-[COMMENT:none]
----  EXAMPLES OF TAAU UPSCALES
-
-Take examples from Guillaume's pre-doc for comparison shots and add some context
-
-Shot 1 - Primary Screen Percentage = 100% with no extra frills, no TAAU upscaling.
-Shot 2 - Primary Screen Percentage = 70%  with TAA Upsampling enables (uses temporal and spatial upsampling)
-Shot 3 - Primary Screen Percentage = 70%  with TAA Upsampling disabled (default, so no temporal and spatial upsampling) but does use r.Upscale Quality 3 (default value)
-
---
-[/COMMENT]
-
-
-
-
-
-### Automatic View Texture Mip Bias
-
-Becasue screen percentage causes geometry to render at a lower pixel density, temporal upsample requires more texture information from the Material Domains using **Surface** and **Deferred Decal** to maintain the same output sharpness. For this purpose, the Texture Sample expression can use **Automatic View Mip Bias** 
-
-The Texture Sample expression can use **Automatic View Mip Bias** to toggle whether the texture should be sampled with per-view mip biasing for sharper output with Temporal Anti-Aliasing.
+Texture Sample 표현식은 **Automatic View Mip Bias** 옵션으로 텍스처를 샘플링할 때 뷰별 밉 바이어스를 사용하는 기능을 토글하여 템포럴 안티에일리어싱에 더욱 선명한 결과물을 얻을 수 있습니다.
 
 ![](AutomaticViewMipBias.png)
 
-For high-frequency textures (like the example below), the automatic mip bias can become problematic at lower screen percentages.
+지그재그가 심한 (위 예제같은) 텍스처의 경우, 낮은 스크린 퍼센티지에서 자동 밉 바이어스가 문제될 수 있습니다.
 
 ![](HFtexture.png)(w:512)
 
-[COMMENT:none]
--TODO IMAGE - GRILL OR HIGH FREQUENCY TEXTURE FROM DISTANCE> SET THE IMAGE UP AND ZOOM INTO PART OF THE IMAGE TO SHOW THE GRILL LARGER FOR EASE OF VIEWING. 
-[/COMMENT]
-
-However, if you need to access the mip map level accurately, Automatic View Mip Bias should be unchecked. 
+이 경우, 밉 바이어스 입력으로 보정하거나 **Automatic View Mip Bias** 옵션을 끄면 됩니다.  
 
 ![](AutomaticViewMipBiasUnchecked.png)
 
 [REGION:note]
-Automatic View Mip Bias only happens when TAAU is enabled. Normal Anti-Aliasing methods (TAA, MSAA, and FXAA) won't be able to use this option. 
+**Automatic View Mip Bias** 옵션은 TAAU 가 활성화되었을 때만 사용할 수 있습니다. 일반 (TAA, MSAA, FXAA) 안티에일리어싱 메서드는 이 옵션을 사용할 수 없습니다.
 [/REGION]
 
+### 안티에일리어싱 퀄리티를 위한 셰이더 퍼포먼스 퍼뮤테이션
 
+TAA 처럼 템포럴 업샘플에도 Post Process Quality(포스트 프로세스 퀄리티) 3 및 4 로 빠른 셰이더 퍼뮤테이션이 가능합니다. 셰이더 퍼뮤테이션은 콘솔에서 60Hz 로 타이틀을 출시하기 위해 어느 정도 퀄리티를 희생하는 것입니다. 퀄리티 세팅은 이미 포스트 프로세스 퀄리티를 설정할 때 사용한 것과 비슷합니다. 또 TAAU 는 TAA 보다 작업량이 많은데, TAAU 패스에 따르는 포스트 프로세스와 함께 고해상도로 실행되기 때문입니다.
 
+포스트 프로세스 퀄리티를 조절하는 콘솔 변수는 다음과 같습니다.
 
+	r.PostProcessAAQuality
 
+템포럴 업샘플 이후 포스트 프로세스는 전체 해상도로 실행되므로, TAA 를 사용하지 않으면 저해상도로 실행 후 마지막에 공간 업스케일을 적용하여 결국 포스트 프로세싱이 빨라집니다. `profileGPU` 명령을 사용해서 패스별 GPU 퍼포먼스, 사용 중인 패스, 예산이 가장 많이 소모되는 부분을 조사할 수 있습니다.
 
+[REGION:note]
+뎁스 오브 필드(DOF)는 TAA 전 절반 해상도로 실행되지만 컨볼루션의 일시적 안정화를 위해 별도의 절반 해상도 TAA 패스가 있습니다. TAA 를 비활성화하면, DOF 의 TAA 패스도 비활성화됩니다. 
+[/REGION]
 
+템포럴 업샘플 이후 포스트 프로세스는 전체 해상도로 실행되므로, TAA 를 사용하지 않으면 저해상도로 실행 후 마지막에 공간 업스케일을 적용하여 결국 포스트 프로세싱이 빨라집니다. `profileGPU` 명령을 사용해서 패스별 GPU 퍼포먼스, 사용 중인 패스, 예산이 가장 많이 소모되는 부분을 조사할 수 있습니다.
 
-#### Performance Permutations  (TODO BASED ON NOTES FROM GUILLAUME)
+아래 표는 1차 스크린 퍼센티지 값 범위에 따라 기대할 수 있는 것을 나타냅니다.
 
-TODO REWRITE
-
-The temporal upsample comes with a faster shader permutation that is traded against some quality to ship at 60Hz on consoles. This is similar to what is currently achieved with TAA.
-
-
-
-
-
-
-
-Temporal Upsample comes with a faster shader permutation (traded against some quality) minded titles to ship at 60Hz on consoles, like we currently do with TAA (r.postprocessingQuality=3 or r.PostProcessAAQuality=4).
-
-More over, both quality also have their own shader permutations for primary screen percentage ranges: 
-
-
-
-| r.PostProcessAAQuality 3 | r.PostProcessAAQuality 4 | Notes | 
+| r.PostProcessAAQuality 3 | r.PostProcessAAQuality 4 | 참고 | 
 | --- | --- | --- |
-| 50% | 71% | even faster version because uses smaller LDS tile in memory, targeting temporal upsampling to 4K on desktop and console use-cases. |
-| 71% | 100% | Useful for "normal" DPI rendering on desktop and base consoles.  |
-| 100% | 200% | For giving dynamic resolution the theoretic possibility to go over 100%, if not limited by the GPU memory for render targets.  |
+| 50% | 71% | 메모리에 로컬 데이터 스토리지(LDS) 타일을 작게 사용하므로 퍼포먼스가 가장 빠른 방법입니다. 데스크톱 및 콘솔에서는 템포럴 업샘플 목표를 4K 로 하는 것이 이상적입니다. |
+| 71% | 100% | 데스크톱 및 콘솔의 일반 DPI (인치당 도트 수) 렌더링에 이상적입니다. |
+| 100% | 200% | 렌더 타깃을 위한 GPU 메모리가 제한되지 않는다면 이론적으로 Dynamic Resolution (동적 해상도)를 100% 이상 올리는 데 이상적입니다. |
 
+### 머티리얼 개선
 
+머티리얼이 Scene Texture 표현식을 사용해서 씬을 샘플링하는 방식에 약간의 개선이 있었습니다. View Size (뷰 크기)가 항상 사용 중인 Render Target Size (렌더 타깃 크기)와 같도록 단순화시켰습니다. Screen Position (스크린 포지션) 표현식에 출력이 새로 생겨 뷰 크기 내 정확한 픽셀 위치를 구할 수 있습니다. TAAU 이후 포스트 프로세스 머티리얼을 사용할 때 추가로 고려할 사항도 나열해 두었습니다.
 
-### Material Improvements
+#### 뷰 크기와 렌더 타깃 크기
 
-
-There have been some improvements with how Materials use the Scene Texture expression to sample the scene. It has been simplified so that the view size is always equal to that of the render target being used, a new output on the Screen Position expression enables accurate pixel position within the view size, and some things to consider when using post process materials after TAAU.
-
-
-#### View Size is now equal to Render Target Size
-
-The view size will now always equal the render target size in a material. Prior to UE4 4.19, when sampling a scene texture, the material had to work with the complexity of Scene Texture UV, which is different from the Viewport UV. For example, the Screen Position expression would output both of these values and View Property would also expose a Render Target Size that was not necessarily equal to the View Size. That was due to the renderer actually rendering the viewport in possibly larger render targets. 
+이제 뷰 크기는 항상 머티리얼의 렌더 타깃 크기와 같습니다. UE4 4.19 이전 씬 텍스처를 샘플링할 때, 머티리얼은 뷰포트 UV 와 씬 텍스처 UV 가 다른 복잡성을 처리해야 했습니다. 예를 들어 Screen Position 표현식은 이 두 값을 모두 출력하는데 View Property (뷰 프로퍼티)는 뷰 크기와 반드시 같지 않은 렌더 타깃 크기를 노출하곤 했습니다. 렌더러가 실제로 더 큰 렌더 타깃에서 뷰포트를 렌더링하기 때문입니다.
 
 ![](ViewSizeInRT.png)
-[COMMENT:none]
--TODO IMAGE - Viewport of the view that is captured vs the actual render target size. -
-[/COMMENT]
 
-With that complexity removed, the Material will always behave as if the Render Target Size is equal to the View Size. The Screen Position expression will now always return the Viewport UV and the Scene Texture expression takes the Viewport UV as an input. 
+그 복잡성을 제거하면, 머티리얼은 항상 렌더 타깃 크기가 뷰 크기와 같은 것처럼 작동할 것입니다. 이제 Screen Position 표현식은 항상 뷰포트 뷰포트 UV 를 반환하고, Scene Texture 표현식은 뷰포트 UV 를 입력으로 받습니다.  
 
 ![](ScreenPosViewportUVMat.png)
+
 [REGION:caption]
-An example setup of how Screen Position returning the ViewportUV size for a Scene Texture expression.
+	Screen Position 이 Scene Texture 표현식에 **뷰포트 UV** 크기를 반환하는 설정 예제입니다.
 [/REGION]
 
 
 
-#### Screen Position's high-precision Pixel Position Output
+#### Screen Position 의 고정밀 Pixel Position 출력
 
-The Screen Position expression now includes a second input for Pixel Position, which is the Viewport UV multiplied by the size of the pass. The size of the pass is always equal to the View Size as you would get with the View Property, unless it's taken from a [post process material running after TAAU](#postprocessmaterialsaftertaau).
+Screen Position 표현식은 이제 뷰포트 UV 에 패스 크기를 곱한 픽셀 위치에 대한 2차 입력을 포함합니다. 뷰 프로퍼티의 뷰 크기는 TAAU 이후 실행되는 포스트 프로세스 머티리얼에 있어도 항상 TAAU 이전 해상도를 반환합니다.
 
-Pixel Position is used to give the material the most accurate pixel position within the View Size, which is critical for effects such as custom pixel dithering that is synchronized with TAA. The follow is an example how the Viewport UV is computed: 
+Pixel Position 은 머티리얼에 뷰 크기 내 가장 정확한 픽셀 위치를 지정하는 데 쓰이는데, TAA 와 동기화되는 커스텀 픽셀 디더링과 같은 이펙트에 중요합니다. 다음은 뷰포트 UV 계산 방법 예제입니다.
 
 ![](ScreenPosPixelPosOutput.png)
 
+#### 톤매퍼 업샘플 이후 포스트 프로세스 머티리얼
 
-#### Post Process Materials After TAAU
-
-When creating a Post Process Material, you can select the Blendable Location to use. The **After Tonemapping** and **Replacing the Tonemapper** locations are after TAAU in the pipeline, meaning that they are actually running at full resolution and are different from the View Size. 
+포스트 프로세스 머티리얼을 생성할 때, 사용할 Blendable Location (블렌더블 위치)를 선택할 수 있습니다. 파이프라인에서 **After Tonemapping** (돈매핑 이후) 및 **Replacing the Tonemapper** (톤매퍼 대체) 위치는 TAAU 다음으로, 실제 전체 해상도로 실행되며 뷰 크기와 다르다는 뜻입니다.
 
 ![](BlendableLocation.png)
 
-The View Property expression's View Size and Render Target Size will still return the resolution of the view before TAAU, even though it's happening after that.To know what the view size and texel UV size are after TAAU, the Scene Texture expression using PostProcessInput0 can use the outputs for **Size** and **InvSize**.
+View Property 표현식의 View Size 및 Render Target Size 는 계속 TAAU 이후 일어나긴 하지만 이전 해상도를 반환합니다.TAAU 이후 뷰 크기와 텍셀 UV 크기를 알아내려면, PostProcessInput0 을 사용하는 Scene Texture 에서 **Size** 및 **InvSize** 출력을 사용할 수 있습니다.
 
 ![](ViewProperty.png)
 
-Recomputing Viewport UV from Pixel Position can be done like so:
+Pixel Position 에서의 Viewport UV 재계산 방법은 다음과 같습니다.
 
 ![](ViewportUVFromPixelPos.png)
 
-Now that Scene Texture expressions only accept Viewport UV, it's possible to sample in any arbitrary scene textures without possible errors while doing UV viewport conversion.
+Scene Texture 표현식이 Viewport UV 만 받으므로, UV 뷰포트 변환을 하면서도 오류 걱정 없이 임의 씬 텍스처를 샘플링할 수 있습니다.
 
+## 2차 공간 업스케일
 
+1차 공간 업스케일 외에도 TAAU 패스 이후 **Secondary Spatial Upscale** (2차 공간 업스케일)이 일어납니다. DPI 가 높은 모니터에서는 더 높은 해상도로 렌더링되는 씬 복잡도에 따라 GPU 가 따라가지 못하는 문제가 생길 수 있습니다. 그래서 렌더러는 2차 최종 업스케일 패스를 구동하는 2차 스크린 퍼센티지를 지원합니다. 이 패스는 1차 스크린 퍼센티지와 별개입니다.
 
-
-## Secondary Spatial Upscale
-
-In addition to the [Primary Spatial Upscale](#primaryspatialupscale) there is the **Secondary Spatial Upscale** taking place after the [TAAU](#temporalanti-aliasingupsample) pass. For high DPI monitors, the GPU may not be able to keep up depending on scene complexity. For that purpose, the renderer supports using a secondary screen percentage that drives the second and final upscale pass that is independent of the primary screen percentage. 
+[REGION:note]
+	참고로 1차 공간 업스케일과 달리, 2차 공간 업스케일은 정적이며 게임 내에서 동적으로 변경할 수 없습니다.
+[/REGION]
 
 ![](SecondarySpatialUpscale.png)(w:900)
 
-
-
-
-
-
-
-
-
-
-### DPI Editor Viewport Scaling
-
-In the Editor, all the viewports are rendered with a secondary screen percentage that is divided by the operating systems (OS) DPI scale setting. It adjusts the scene scaling (or quality) for high DPI monitors to ensure consistent performance with very large render targets. When it is enabled, the secondary screen percentage will render at the full resolution of the viewport. 
-
-![](DPIEditorViewportScaling.png)
-
-The following command is platform independent but will benefit those projects shipping on console with 4k resolution support more, you can use a static secondary upscale with the following console variable: 
+2차 스크린 퍼센티지를 설정은 구성 (.ini) 파일에서 다음 콘솔 변수를 사용합니다.
 
 	r.SecondaryScreenPercentage.GameViewport
 
-When enabled, it will override the secondary screen percentage so that it is not dynamic, which would originally change the resolution of the TAAU. When the resolution would change, the scene would become blurier before reconverging after a couple of frames. 
+백버퍼 해상도가 1080p 임을 안다면, 2차 스크린 퍼센티지를 적절히 입력하여 900p 해상도로 낮출 수 있습니다.
 
+	목표 해상도 / 현재 설정 해상도 * 100 = 2차 스크린 퍼센티지
+	900 / 1080 * 100 = 0.8333 * 100 = 83.33
 
+예를 들어 83.33 값을 사용하여 포트나이트 배틀 로얄 Xbox One 버전을 60hz 목표로 삼는 경우, 다음과 같이 합니다.
 
-
-
-
-
-
-
-
-## VR Pixel Density
-
-TODO WRITE LATER
-
-
-(Link to whatever page SamD writes. This section will be very high-level and should probably just contain some snippets from his blog post here: https://docs.google.com/a/epicgames.com/document/d/12cpUby8Fgxuzet92emCtWVyKrXYvScRipDFDRJm1zFw/edit?usp=sharing)
-
-
-
-
-
-
-
-
-## Render Thread Dynamic Resolution
-
-Dynamic resolution enables a heuristic to choose the primary screen percentage according to the previous frames GPU workload. It enables the games resolution to adjust as needed, like when there are too many objects on screen or if an expensive effect enters the frame. Dyanmic Resolution functionality is supported for game builds and while Playing-in-Editor (PIE), but not while editing in the viewport. When dynamic resolution is used with PIE, keep in mind that all the additional cost of the Editor UI and processing must be taken into account for the work the GPU is doing. Game builds would give much more accurate results of what to expect.
+	[XboxOne_60 DeviceProfile]
+	DeviceType=XboxOne
+	BaseProfileName=XboxOne
+	+CVars=r.SecondaryScreenPercentage.GameViewport=83.33
 
 [REGION:note]
-The **Stat Raw** command is helpful to see the results of dynamic resolution in your game. You can find more information in the [Using Stats](#usingstats) section of this page. 
+	구성 파일에 2차 스크린 퍼센티지를 추가하면 에디터와 설정 대상 플랫폼을 덮어씁니다. 또 `r.SetRes` 콘솔 변수를 사용하면 백버퍼 해상도를 제어한다는 점도 명심하세요. UI 가 항상 대상 플랫폼의 기본 해상도로 렌더링되도록 1080p 또는 4k 로 놔두는 것이 가장 좋습니다.
 [/REGION]
 
+### DPI 에디터 뷰포트 스케일링
+
+에디터 작업을 할 때, 모든 뷰포트는 운영 체제(OS)의 DPI 스케일로 나눈 2차 스크린 퍼센티지로 렌더링합니다. 2차 스크린 퍼센티지를 구하는 공식은 다음과 같습니다.  
+
+	2차 스크린 퍼센티지 = 100 / OS 의 DPI 스케일
 
 
+높은 DPI 모니터에는 씬 스케일( 또는 퀄리티) 조정을 통해 매우 큰 렌더 타깃에 일관된 퍼포먼스를 내도록 합니다. 또한 중간 렌더 타깃 할당이 시스템 GPU 에 비해 너무 커져 발생할 수 있는 에디터 크래시 및 작업 내용 손실을 방지할 수도 있습니다.
+기본적으로 에디터는 높은 DPI 모니터에 대해 씬 스케일을 조절하여 매우 높은 픽셀 밀도로 일관된 퍼포먼스를 보장합니다.하지만 이 세팅은 커스터마이징 가능한데  
+에디터 개인설정의 **Disable DPI Based Editor Viewport Scaling** (DPI 기반 에디터 뷰포트 스케일 비활성화) 옵션을 사용하면 됩니다. 2차 스크린 퍼센티지 기본값을 100 으로 설정하여, 모든 에디터 뷰포트에서 전체 해상도로 렌더링합니다.
 
+![](DPIEditorViewportScaling.png)
 
+이 옵션을 변경하면 에디터에만 영향을 줄 뿐, 게임 빌드의 2차 스크린 퍼센티지는 기본으로 100% 와 같습니다.
 
+## VR 픽셀 밀도
 
+UE4 4.19 이전에는 스크린 퍼센티지 콘솔 명령을 사용하여 머리 장착 디스플레이(HMD) 화면에 VR 프로젝트를 렌더링할 해상도를 결정했습니다. 보통 프로젝트에 사용되는 HMD 에 따라 조정( 및 기억)해야 하는 "마법의" 수치가 있었습니다.
 
+이제 화면 해상도는 Pixel Density (픽셀 밀도)로 제어합니다. 스크린 퍼센티지에 "마법의" 수치를 사용할 필요가 없어져, 여러 HMD 용으로 개발하는 것이 쉬워집니다. 기본적으로 각 눈의 뷰는 HMD 권장 해상도로 렌더링하여, 보통 흐려짐의 원인이 되는 업스케일 작업을 HMD 컴포지터가 하지 않도록 합니다. 화면 권장 해상도보다 높거나 낮은 픽셀 밀도를 지정하는 콘솔 명령은 다음과 같습니다.
 
+	    vr.PixelDensity
 
-### Enabling Dynamic Resolution
+이 다이어그램에서는 이상적인 HMD 해상도를 사용하고, VR 픽셀 밀도에 임의 수치를 사용하여 필요에 따라 이상적인 HMD 해상도를 높이고 낮추는 것을 볼 수 있습니다. 이 변화로 1차 스크린 퍼센티지를 독립적으로 제어하여 이 파이프라인에서 HMD 컴포지터로 전송되는 뷰 해상도에 템포럴 업스케일을 적용할 수 있습니다.
 
-Dynamic Resolution can be enabled by using a new boolean that has been added to **Game User Settings**. It can be set when using Blueprint or C++.
+자세한 내용은 <a href="https://www.unrealengine.com/en-US/blog/significant-changes-coming-to-vr-resolution-settings-in-4-19">VR Pixel Density</a> 글을 참고하세요.
 
-In **Blueprint**, you can enaable dynamic resolution by using the **Game User Settings** node to opt into the feature like so:
+# 동적 해상도
 
-![](DynResBP.png)
+**Dynamic Resolution** (동적 해상도)는 이전 프레임의 GPU 작업 부하에 따라 1차 스크린 퍼센티지를 조정합니다. 해상도 조정이 필요한 경우 휴리스틱에 기반합니다. 예를 들어 화면에 오브젝트가 너무 많을 경우, 또는 프레임에 갑자기 비싼 이펙트가 들어오는 경우입니다. GPU 렌더링 시간이 늘어나므로 목표 프레임 속도를 유지하기 위해 화면 해상도를 낮춥니다.
 
-In **C++**, the boolean value can be set in `UGameUserSettings` like so:
+### 동적 해상도 활성화
 
-	GEngine->GetDynamicResolutionState()->SetEnabled(true);
+프로젝트에 동적 해상도를 활성화하는 방법은, **Operation Mode** (동작 모드)를 사용하여 오버라이드 방식과 게임에서의 사용 방식을 설정하면 됩니다. 이를 제어하려면 프로젝트의 (Xbox One, PlayStation 4 등) 플랫폼별 구성 파일( 또는 디바이스 프로파일)에 다음 콘솔 명령을 사용하면 됩니다.
 
-Use **false** for `SetEnabled` to disable it.
+    r.DynamicRes.OperationMode
 
-[REGION:note]
-Game thread logic has the final programmatic control when to actually enable/disable dynamic resolution, so if it's enabled at runtime using Blueprint that will take precedent over setting it in code.
-[/REGION]	
+프로젝트의 플랫폼에 대한 동작 모드 방식을 설정하는 값은 다음과 같습니다.
 
-To restore game user settings to its original state, use the following:
+* **1** - (C++ 또는 블루프린트에서 설정하는) Game User Settings 상태에 따라 동적 해상도를 활성화합니다.
+* **2** - Game User Settings 상태와 무관하게 동적 해상도를 활성화합니다.
 
-	GEngine->GameUserSettings->ApplyNonResolutionSettings();
+동적 해상도 활성화 이후, 다음 콘솔 변수로 최소 최대 스크린 퍼센티지 및 해상도를 낮추기 전까지 사용할 최대 예산을 설정합니다. 따로 설정하지 않아도 이미 기본값이 설정되어 있습니다.
 
-#### Controlloing Dynamic Resolution
-
-Once dynamic resolution is enabled, the following console variables can be used to set the minimum and maximum screen percentages to be used and the maximum budget of any given frame before it lowers resolution:
-
-* **r.DynamicRes.MinScreenPercentage** sets the minimal primary screen percentage to use. 
-* **r.DynamicRes.MaxScreenPercentage** sets the maximum primary screen percentage that is used to allocate render targets.
-* **r.DynamicRes.FrameTimeBudget** sets the budget of the frame (in milliseconds).
-
-[REGION:note]
-If you are debugging a scene, you can use the the console variable **r.Test.DynamicRes.EnableOverride** to enable/disable Dynamic Resolution for the scene. This is only available for use with non-Shipping builds.
+[REGION:tip]
+UE4 에서 디바이스 프로파일 창을 사용하여 구성 파일을 설정하면 관리해 줍니다. 이 창은 파일 메뉴의 **편집** > **개발자 툴** > **디바이스 프로파일** 로 열 수 있습니다.
 [/REGION]
 
+### 동적 해상도 일시 중지 및 다시 시작
 
+때로는 동적 해상도를 전체 프로젝트에는 사용하지만 메인 로비같은 곳에는 사용하지 않을 수도 있습니다. 그럴 때는 동작 모드로 동적 해상도를 일시 중지하고 다시 시작할 수 있습니다.
 
-### Using Stats 
+동적 해상도의 동작 모드를 설정하는 콘솔 변수는 다음과 같습니다.
 
-There are several stat screens that you can enable debugging performance with dynamic resolution:
+	r.DynamicRes.OperationMode
 
-* **Stat Unit** is used to look at the overall frame time as well as the game thread, rendering thread, and GPU times.
-* **Stat UnitGraph** is used to see a graph with the Stat Unit data.
-* **Stat Raw** outputs unfiltered data using Stat UnitGraph.
+아래 표는 특정 동작 모드를 활성화 또는 비활성화했을 때 사용할 수 있는 여러가지 상태에 대한 요약 및 GameUserSettings 에 주는 영향입니다.
 
-#### Stat Unit
+**C++** 에서 동적 해상도 상태를 제어하고 확인하는 함수는 다음과 같습니다.
 
-When **Stat Unit** is called, you can immediately see if dynamic resolution is enabled for your scene by referencing the **DynRes:** line.
+[REGION:note]
+	이 표의 **Pause** (일시 중지) 및 **Resume** (다시 시작) C++ 함수에 제공되는 기능은 **Set Dynamic Resolution Enabled** 노드를 활성화 또는 비활성화하여 이뤄낼 수 있습니다. 상태를 확인하려면 **Is Dynamic Resolution Enabled** 노드를 사용하세요.
+[/REGION]
+
+## 통계 사용
+
+동적 해상도 퍼포먼스 디버깅을 위해 사용할 수 있는 통계 화면이 몇 가지 있습니다. 물결표 (**`**) 키를 눌러 콘솔을 열고 다음 명령 중 하나를 입력하면 사용할 수 있습니다. 
+
+* **Stat Unit** 은 전반적인 프레임 시간은 물론 게임 스레드, 렌더링 스레드, GPU 시간을 살펴봅니다.
+* **Stat UnitGraph** 는 Stat Unit 데이터로 그래프를 그립니다.
+* **Stat Raw** 는 Stat UnitGraph 에 필터를 적용하지 않은 데이터를 출력합니다.
+
+### Stat Unit
+
+**Stat Unit** 을 호출하면, 씬의 동적 해상도 활성화 여부가 **DynRes** 줄에 바로 나타납니다.
 
 ![](DynResOFF.png)
 
-Dynamic resolution in the viewport can be enabled for testing and debugging by using the following command: 
+뷰포트의 동적 해상도를 테스트 및 디버깅 용으로 활성화하는 명령은 다음과 같습니다. 
 
 	r.Test.DynamicRes.EnableOverride 2
 
-Once enabled, the **DynRes:** label will show the [Primary Screen Percentage](#primaryspatialupscale) and the [Secondary Screen Percentage](#secondaryspatialupscale):	
-	
+활성화하면, **DynRes** 라벨은 1차 스크린 퍼센티지와 2차 스크린 퍼센티지를 표시합니다.
+
 ![](DynResON.png)
 
-There are two screen percentages used because it happens both on the X and Y axis. The number of pixels drawn by the GPU is actually represented by:
+양 축 스케일을 조절했음을 잊지 않도록 X 및 Y 에 대한 1차 스크린 퍼센티지가 표시됩니다. GPU 가 그리는 픽셀 수는 실제로 **Screen Percentage x Screen Percentage** 에 비례합니다.
 
-	Screen Percentage x Screen Percentage
-	
-An example would be 1920x1080 or 1280x720.
+예로 1920x1080 또는 1280x720 입니다.
 
+### Stat UnitGraph 및 Stat Raw
 
-
-
-
-
-#### Stat UnitGraph and Stat Raw
-
-When **Stat UnitGraph** is called, a graph will be drawn to show the [Primary Screen Percentage](#primaryspatialupscale) chosen by dynamic resolution.
+**Stat UnitGraph** 를 호출하면, 동적 해상도가 선택한 1차 스크린 퍼센티지를 나타내는 그래프를 그립니다.
 
 ![](StatUnitGraph.png)
 
-1. Timings (Filtered or Raw) - 
-1. Target Frame Time Threshold - 
-1. Dynamic Resolution Maximum Screen Percentage - 
-1. Dynamic Primary Screen Percentage Curve - 
+1. 타이밍 (필터 적용 또는 원시)
+1. 목표 프레임 시간 한계치
+1. 동적 해상도 최대 스크린 퍼센티지
+1. 동적 1차 스크린 퍼센티지 커브
 
-The UnitGraph can show the primary screen percentage that is chosen by Dynamic Resolution. However, that curve is proportional to the amount of pixels drawn by the GPU using Screen Percentage x Screen Percentage.
+UnitGraph 는 동적 해상도가 선택한 1차 스크린 퍼센티지를 표시할 수 있습니다. 하지만, 그 커브는 스크린 퍼센티지 x 스크린 퍼센티지를 사용하여 GPU 가 그리는 픽셀 양에 비례합니다.
 
-Additionaly, you can get unfiltered (raw) timings in the UnitGraph by using **Stat Raw** to toggle them on. It does require that the UnitGraph already have been enabled to work. The timings section of the graph will change to indicate that it's displaying raw timings.
+또한 **Stat Raw** 를 사용하여 필터 적용 및 해제 토글하여 UnitGraph 의 필터를 적용하지 않은 (원시) 타이밍을 구할 수 있습니다. 원시 타이밍을 표시할 때는 그래프의 타이밍 레이블이 바뀝니다. 
 
 ![](StatRaw.png)
 
+콘솔 창을 사용하여 필터 적용 또는 미적용 타이밍을 토글합니다. **Stat Raw** 토글 전 반드시 **Stat UnitGraph** 를 입력해야 합니다.
 
+## 동적 해상도 크루즈
 
-### Dynamic Resolution Cruising (?)
+UE4 의 동적 해상도 구현은 이전에 사용되던 것과 약간 다른데, 단일 해상도에 (1080p, 900p, 720p) 한정되기 보다는 지정한 범위 내 필요에 따라 바꿀 수 있기 때문입니다. 
 
-When using your graph view for your scene, you want to adjust how dynamic resolution works for your project to get the most out of it. The following graph is a simplistic ideal scene model that indicates where each of these console variables work within it and how they can be used to achieve a desired result:
+이 예제 그래프에서 이 모델은 콘솔 변수가 제어하는 것을 보여줍니다. 모든 것이 정상 작동하고 예산이 지정한 프레임에 예산이 초과되지 않았을 때 지정한 범위 (3) 내 동적 해상도가 자동 조절하는 방식을 보여줍니다. 이 범위는 비행기가 이상적인 속도로 목적지에 도달하기 위해 자유롭게 이동할 수 있는 순항(크루즈) 고도 범위라고 생각하면 됩니다. 비행기처럼, 해상도 역시 해상도화 퍼포먼스 사이 균형을 유지하는 데 필요한 만큼 오르내릴 수 있습니다.
 
+[REGION:note]
+이 모델은 데모 용이며 지정한 씬에서 벌어지는 모든 것을 고려하지 않습니다. 예를 들어 CPU 와 동기화되지 않은 GPU 가 어떻게 보이는지, 심지어 휴리스틱이 해상도 변경량을 제대로 추측하고 있는지 같은 것도 잘 잡아내지 못하고 있습니다. 그 목적은 동적 해상도 콘솔 변수 작동 방식을 보여주는 "이상적인" 상황을 명확히 하는 것입니다.
+[/REGION]
 
 ![](DynResCruising.png)
 
-
-[COMMENT:none]
--TODO A BUNCH OF CONSOLE COMMANDS -
-[/COMMENT]
-
-| Reference Number | Console Variable | Description |
+| 참조 번호 | 콘솔 변수 | 설명 |
 | --- | --- | ---|
-| 1 | **r.DynamicRes.TargetedGPUHeadRoom** | The headroom left for the GPU to increase before going over budget (in percentages of the frame's budget). This will likely depend on the shipping platform or according to what rendering features are enabled. For example, motion blur needs additional room for cost to account for fast rotation of camera movements. |
-| 2 | **r.DynamicRes.MinResolutionChangePeriod** | The minimal number of frames before allowing any resolution changes. It has multiple purposes: better reliability of the heuristic to model the GPU consumption at a given primary screen percentage despite the measurements noise; and to avoid [Temporal Upsample's](#temporalanti-aliasingupsample) input sample offset interferences between per-frame offset jittering and changing resolution that can be responsible for anti-aliasing divergence. |
-| 3 | **r.DynamicRes.HistorySize** | The number of frames in the heuristic's frame history. If it's too short, the history may be too noisy for the heuristic to be reliable, or if it's too long there may be very delayed adaptations. |
-| 4 | **r.DynamicRes.ChangePercentageThreshold** | The minimal changes that are required in percentage to actually resize the allocation. It is useful to not constantly change between a very close resolution size. If the value is too small, it may end up constantly changing the resolution, and if it's too large, it may cause a higher risk to go over the GPU budget. |
-| 5 | **r.DynamicRes.CPUBoundScreenPercentage** | The primary screen percentage that should be targeted when you are bound by the CPU. It's useful to set a lower screen percentage to decrease the resolution on platforms where the CPU and GPU are sharing the same memory bandwidth. |
+| 1 | **r.DynamicRes.TargetedGPUHeadRoom** | 목표 GPU 여유 공간 - GPU 에 남은 공간이 이 밑으로 떨어지면 늘려 예산 초과를 방지합니다 (프레임 예산 백분율 단위입니다). 출시 플랫폼 또는 활성화한 렌더링 기능에 따라 달라질 수 있습니다. 예를 들어 모션 블러는 비용에 여유 공간이 있어야 카메라 이동의 빠른 회전을 처리할 수 있습니다. |
+| 2 | **r.DynamicRes.MinResolutionChangePeriod** | 최소 해상도 변경 주기 - 최소 이 프레임 수를 넘으면 해상도 변경을 허용합니다. 목적이 여러가지입니다. 측정 노이즈에도 불구하고 지정한 1차 스크린 퍼센티지로 GPU 소모를 모델링하는 휴리스틱 신뢰성 향상일 수도 있고, 템포럴 업샘플의 입력 샘플 오프셋 간섭을 피하기 위해서일 수도 있습니다. 이 간섭은 프레임별 오프셋 지터링과 해상도 변경 사이 발생하여 안티에일리어싱 차이의 원인이 될 수 있습니다. |
+| 3 | **r.DynamicRes.HistorySize** | 히스토리 크기 - 휴리스틱 프레임 히스토리의 프레임 수입니다. 너무 짧으면 히스토리 노이즈가 너무 심해 안정성이 떨어질 수 있고, 너무 길면 적응이 매우 지연될 수 있습니다. |
+| 4 | **r.DynamicRes.ChangePercentageThreshold** | 퍼센티지 변화 한계치 - 퍼센티지 변화량이 최소 이 이상 되어야 실제 할당 크기를 조정합니다. 해상도 크기가 매우 비슷한데도 계속 바뀌지 않도록 하는 데 좋습니다. 값이 너무 작으면 해상도가 계속 바뀔 수 있고, 너무 크면 GPU 예산 초과 위험이 높아집니다. |
+| 5 | **r.DynamicRes.CPUBoundScreenPercentage** | CPU 바운드 스크린 퍼센티지 - CPU 에 구속되었을 때 목표로 삼을 1차 스크린 퍼센티지입니다. CPU 와 GPU 가 같은 메모리 대역폭을 공유하는 플랫폼에서는 스크린 퍼센티지를 낮게 설정하여 해상도를 낮추는 것이 좋습니다. |
 
+### 예산 초과 패닉
 
+카메라 컷 도중 또는 비싼 비주얼 이펙트가 발생할 때처럼 동적 해상도가 매우 빠르게 예산을 초과하는 경우가 있는데, 사실 휴리스틱으로는 이게 언제 발생할지 예측할 수 없습니다. 이 경우 "panic" (패닉) 스위치를 사용하면 예산 초과인 프레임 수를 감소시킬 상황이 발생했을 때 해상도를 빠르게 낮출 수 있습니다. 휴리스틱이 가용 GPU 타이밍이 예산을 초과한 프레임을 연속 N (일정 숫자) 개 발견한 경우, 즉시 예산 초과 타이밍에 맞서기 위해 해상도를 적응시킵니다. 또한 기존의 비용이 싼 프레임 타이밍이 보다 비싼 프레임에 대한 휴리스틱에 영향을 주지 않도록 히스토리도 자동 리셋합니다.
 
-
-
-
-
-
-
-
-
-
-
-
-### Screen Resolution Over Budget Panic Switch
-
-There may be times when dynamic resolution will go over budget very quickly, like during a camera cut or when a very expensive viaul effect enters the scene. The heuristic that is used can't predict when this will happen, a "panic" switch is used to quickly lower the resolution when it does to reduce the number of frames that are over budget. If the heuristic finds that N (some number) consecutive frames with the available GPU timings is over budget, it is going to immediately adapt the resolution to combat the over budget GPU timings. It will also perform an automatic history reset so that previously less expensive frames timings do not influence the heuristic for the more expensive frames.
-
-The following console command can be used to control the maximum number of consecutive frames the GPU can be over budget before flipping the "panic" switch to lower the resolution:
+"패닉" 스위치를 켜서 해상도를 낮추기 전까지 GPU 예산 초과를 버틸 수 있는 최대 연속 프레임 수를 제어하는 콘솔 명령은 다음과 같습니다.
 
 	r.DynamicRes.MaxConsecutiveOverbudgetGPUFrameCount
 
+이 그래프에서 프레임이 설정 예산 33.3 ms 를 초과하여 연속 2 프레임 이상 동안 급격히 점프했습니다. 패닉 스위치 가동, 프레임 예산 초과 방지를 위해 빠르게 해상도를 낮춥니다.
+
 ![](OverBudgetPanicGraph.png)
 
-1. This spike represents the frame latency between detection and resolution change caused by the GPU not being synchronized wih the render thread.
-1. Frame ID
-1. Where the resolution change occurs
-1. Panic Detection happens
-
-In this example, the frame jumps over the set budget of 33.3 ms (milliseconds) causing the over budget panic switch to quickly lower the resolution of the scene. 
+1. 예산을 초과한 최대 연속 GPU 프레임 수.
+1. GPU 와 렌더 스레드 사이 동기화가 이루어지지 않아 해상도 감지와 변경 사이 발생한 프레임 지연. 
+1. 프레임 드랍 발동을 위한 패닉 감지 발생.
+1. 지정한 프레임에 대해 해상도 변경.
 
 ![](OverBudgetPanicExample.png)
 
-The following captures are taken from the Infiltrator demo (available on the **Learn** tab of the Epic Games Launcher) using the **Stat Raw** command to identify scene behavior when there is a camera cut and when an expensive effect enters the frame.
-
+다음 (에픽게임즈 런처의 **학습** 탭에서 받을 수 있는 Infiltrator(잠입자) 데모에서 찍은) 캡처를 보면, **Stat Raw** 명령으로 카메라 컷 또는 화면에 비싼 비주얼 이펙트가 발생할 때 씬이 어떻게 작동하는지 명확히 알 수 있습니다.
 
 ![](CameraCut.png)
 
-1. After the camera cut, the frame becomes significantly more expensive to render.
-1. Dynamic resolution has a panic reaction and quickly lowers the resolution.
-
+1. 카메라 컷 이후, 프레임 렌더링 비용이 최소 몇 프레임 동안 크게 비싸집니다. 
+1. 동적 해상도가 패닉 반응으로 해상도를 빠르게 낮춰 보정하여 서서히 정상 상태로 돌아옵니다.
 
 ![](ExpensiveEffect.png)
 
-1. The frame becomes more expensive at the beginning of an expensive visual effect.
-1. Again, dynamic resolution has a panic reaction and lowers the resolution.
+1. 비용이 비싼 비주얼 이펙트가 발생하여 몇 프레임 이상 프레임 예산을 넘는 스파이크가 발생합니다. 
+1. 동적 해상도가 패닉 반응으로 해상도를 빠르게 낮춰 보정하여 서서히 정상 상태로 돌아옵니다.
 
+## 다양한 1차 스크린 퍼센티지로 콘텐츠 테스트
 
-
-
-
-### VR Non-TAAU Dynamic Resolution (WIP: still needs to be implemented)
-
-TODO WRITE THIS
-
-(This may just go in SamD's doc or at the very least high-level mention and then link to it.)
-
-
-
-For VR when not using TAAU, the renderer avoids making a spatial upscale pass of the eye views before handing this off to the HMD's compositor. The static vr.PixelDensity still defines the resolution of the views for primary screen percentage = 100% and dynamic resolution simply changes the primary screen percentage as normal. 
-
-TODO GRAPH
-
-
-
-
-
-
-
-
-### Testing Content at different Primary Screen Percentages in the Viewport
-
-If your project has enabled dynamic resolution, you'll need to test it and make sure that it doesn't look significantly different than intended when using a lower primary screen percentage. At lower resolutions, some details can be lost and your assets may not retain the look that you intend them to have. For this very reason, all Editor viewport can set a Screen Percentage using a slider for testing. 
+프로젝트에 동적 해상도가 활성화된 경우, 1차 스크린 퍼센티지를 낮췄을 때 의도한 것과 크게 달라보이지 않는지 테스트하여 확인해야 합니다. 낮은 해상도에서 애셋에 일부 디테일이 손실되어 원했던 모양이 유지되지 않을 수 있습니다. 바로 그 이유로 모든 에디터 뷰포트에서 슬라이더로 스크린 퍼센티지를 설정하여 테스트할 수 있습니다.
 
 ![](ScreenPercentageViewportSlider.png)
 
-Use the slider to apply a higher or lower screen percentage to the viewport and check your level content accordinly. Artists, particularly, should use the slider to check their content at the high and low ranges of the screen percentages that will be used for the project. 
+슬라이더로 뷰포트에 높고 낮은 스크린 퍼센티지를 적용하면서 레벨 콘텐츠를 확인합니다. 특히 아티스트는 슬라이더를 사용하여 프로젝트에 사용할 스크린 퍼센티지 상하한 범위에서 콘텐츠를 확인해야 합니다.
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Screen Percentage: 100](CompSP1.png)
+	![스크린 퍼센티지: 100](CompSP1.png)
 	[/PARAM]
 	[PARAM:after]
-	![Screen Percentage: 100](CompSP1.png)
+	![스크린 퍼센티지: 100](CompSP1.png)
 	[/PARAM]
 [/OBJECT]
 
-When adjusting the screen percentage slider, the viewport (lower-right) will display any slider value that is not equal to 100. This is meant as a reminder that the viewport screen percentage has been changed from it's default resolution.
+스크린 퍼센티지 슬라이더를 조절할 때, 뷰포트(우하단)에 100 보다 큰 스크린 퍼센티지 값이 표시됩니다. 뷰포트 스크린 퍼센티지 값이 기본값 이외로 변경되었고 정상 해상도보다 높아 퍼포먼스 이슈가 생길 수 있다는 것을 알리기 위함입니다. 
 
 ![](ViewportSPValue.png)
 
+[REGION:warning]
+스크린 퍼센티지 값이 기본값보다 높으면 에디터 속도가 느려질 수 있습니다. 이 경우 값을 기본값 100 으로 리셋해 보세요.
+[/REGION]
 
-When the value is higher than 100, it will be displayed in RED. This indicates that it is more expensive to use and if you are experiencing sluggishness or a decrease in performance, try reseting it to the the default value. 
+## 지원 플랫폼
 
-![](SPViewport_HIGH.png)
+현재 Xbox One, PlayStation 4 (PSVR 제외), Nintendo Switch, Oculus VR 이 동적 해상도를 지원합니다. 앞으로 지원 플랫폼을 늘릴 계획입니다.
 
-When the value is lower than 100, the set screen percentage will be listed as an indicator that it's not the default value for the viewport.
+[REGION:warning]
+허용되지 않은 플랫폼에 동적 해상도를 활성화하는 것은 위험하며 의도하지 않은 결과를 초래할 수 있습니다. 잘못된 GPU 타이밍으로 인해 해상도를 불필요하게 떨어뜨리거나 아니면 너무 높여 프레임이 떨어지는 상황이 포함될 수 있습니다. 결국 게임플레이 경험을 망칠 수 있습니다. 기본적으로 엔진에서는 허용되지 않는 플랫폼을 사용할 수 없습니다. 
+[/REGION]
 
-![](SPViewport_LOW.png)
+## C++ 에서 동적 해상도 휴리스틱 대체
 
+엔진 제공 렌더링 휴리스틱은 **DynamicResolution.cpp** 에 완전히 포함됩니다. 그 구조는 휴리스틱을 게임 코드에서 플러그인으로 완전 대체할 수 있게 되어 있습니다.
 
-
-
-
-### Supported Platforms
-
-Dynamic resolution relies on the RHI's (Rendering Hardware Interface) ability to do reliable timestamp queries. For that reason, dynamic resolution is supported for the following features and platforms while using PIE or while in game. 
-
-
-Windows D3D11
-|  | Editor PIE | Game |
-| --- | --- | --- |
-| **No Game Max FPS** | Yes | Yes |
-| **Game Thread Max FPS** | Yes | Yes |
-| **r.VSyncEditor 1** | No | Work-In-Progress |
-
-
-| RHI | Support |
-| --- | --- |
-| **Windows D3D12** | Same as Windows D3D11 with VSync. |
-| **PlayStation 4** | Yes |
-| **Xbox One D3D12** | Yes |
-| **Switch** | Currently Untested |
-| **Vulkan** | No: Timestamp queries are not yet implemented |
-| **Metal** | Currently Untested |
-| **OpenGL** | No Plans to Implement |
-
-
-
-
-### Replace Dynamic Resolution Heuristic in C++
-
-The engine-provided render thread heuristic is completely self-contained within **DynamicResolution.cpp**. It is architectured so that it allows the heuristic to be fully replaceable by plugins in game code. 
-
-For example, if your project needs to replace the default heuristic because you want to do something like game play code giving hints of what is going to happen in the next frame, you can rewrite the entire heuristic to do just that. By reimplementing `IDynamicResolutionState` and `ISceneViewFamilyScreenPercentage`, you can replace the default dynamic resolution states, like the example below:
+예를 들어 프로젝트에서 게임 플레이 코드로 다음 프레임에 일어날 일에 대한 힌트를 주거나 하기 위해 기본 휴리스틱을 대체해야 하는 경우, 전체 휴리스틱을 다시 작성하면 됩니다. `IDynamicResolutionState` 및 `ISceneViewFamilyScreenPercentage` 를 구현하면 기본 동적 해상도 상태를 대체할 수 있습니다. 예:
 
 	GEngine->ChangeDynamicResolutionStateNextFrame(new FMyGameSpecificDynamicResolutionState());
 
 [REGION:note]
-The renderer will now work with **ResolutionFraction** to avoid the divide by 100 everywhere in the screen percentage math. It is named **fraction** instead of "scale" because the upscale ratio is done by the TAA upsample or the spatial upscale is actually represented by 1 divided by the Resolution Fraction, like so:
-	
+이제 렌더러는 **ResolutionFraction** (해상도 분수)를 사용하여 스크린 퍼센티지 수학 관련 모든 곳에 100 을 나누지 않습니다. 이름이 "scale" (스케일)이 아닌 **fraction** (분수)인 이유는 업스케일 비율이 TAA 업샘플로 이루어지기 때문에, 또는 공간 업스케일은 사실 1 나누기 Resolution Fraction 값으로 표현되기 때문입니다. 예:
+[/REGION]
+
 	Resolution Fraction = Screen Percentage/100 = 1/Upscaling Factor
 
-[/REGION]	
+## 한계
 
+동적 해상도의 현재 한계는 다음과 같습니다.
+* 디자인 상 멀티 월드 에디터에서 플레이를 지원하지 않습니다.
+* TAAU 를 활성화하면, VR 에 작동합니다. 곧 멀티샘플 안티에일리어싱(MSAA)을 지원할 예정입니다. 
+* API 는 모바일 렌더러와 완벽 호환됩니다. 하지만 뷰 크기가 1차 스크린 퍼센티지 상한에 설정된 렌더 타깃 버퍼와 같지 않게 유지하려는 노력은 없었습니다. 
+* 가우시안 뎁스 오브 필드(DoF) 및 디스턴스 필드 앰비언트 오클루전(DFAO)에 해상도 변경 관련 이슈가 있습니다.
 
+## 자주 묻는 질문
 
+동적 해상도 관련 자주 묻는 일반적인 질문은 다음과 같습니다. 
 
-### Frequently Asked Questions
-
-The following are some general fequently asked questions regarding Dynamic Resolution:
-
-* Can dynamic resolution be force enabled/disabled in the Editor using the console (**`**)?
+* 동적 해상도 휴리스틱을 대체할 수 있나요?
 	
-	* Yes. Use the console variable **r.Test.DynamicRes.EnableOverride 2**. 
+	* 네, C++ 모듈식 플러그인식으로 디자인했습니다. 언리얼 엔진 4 는 하나의 휴리스틱만 유지하나, 구조 상 독립형 커스텀 휴리스틱을 만들어 게임플레이 코드나 시퀀서로 커스텀 게임 스레드 이벤트를 발동시킬 수 있습니다.
 	
-* Can the heuristic for dynamic resolution be replaced?
-	
-	* Yes, it was designed to be modular and pluggable in C++. Unreal Engine 4 will only maintain a single heuristic, but the architecture allows for the creation of a standalone custom heuristic with custom game thread events that could be triggered by gameplay code or Sequencer.
-	
-* Does dynamic resolution work with any arbitrary secondary screen percentage?
+* 동적 해상도는 어떤 2차 스크린 퍼센티지를 써도 되나요?
 
-	* Yes. This can be achieved by using the console variable **r.SecondaryScreenPercentage.GameViewport 1**.
+	* 네. **r.SecondaryScreenPercentage.GameViewport** 콘솔 변수를 사용하면 됩니다.
 
-* Is it possible to control the dynamic resolution of the secondard screen percentage?
+추가 정보는 스크린 퍼센티지와 템포럴 업샘플 페이지를 참조하세요.
 
-	* No, it's not possible. If you encounter this, please report to Epic as this is a bug that needs to be resolved.
-	
-* Why is the function in **FPostProcessSettings** for `ScreenPercentage` ignored by dynamic resolution? 
-	
-	* This was part of the previous mechanism where screen percentage could be configured in the settings for a Post Process Volume to manually scale up or down. With dynamic resolution, there is no need to set that any longer since it is automatically handled according to the GPU's workload.
-	
-* Why is there no showflag option for dynamic resolution? 
-		
-	* Because it happens globally and at game thread discretion. The screen percentage showflag will only toggle the [Primary Screen Percentage](#primaryspatialupscale). 
-	
-* Why is dynamic resolution not supported in Editor viewports?
+* 2차 스크린 퍼센티지의 동적 해상도를 제어할 수 있나요?
 
-	* While working in the Editor, it can be distracting to have the resolution shifting. While in PIE, dynamic resolution is supported for any viewport. 
-	
-* Can the Primary and Secondary Screen Percentages be accessed in Materials?
+	* 아니오, 불가능하며 의도된 것입니다. 템포럴 안티에일리어싱 히스토리는 바꾸지 않는 것이 좋으며, 2차 스크린 퍼센티지를 동적으로 바꾸지 말아야 하는 이유이기도 합니다.
 
-	* No they cannot. There shouldn't be a need to do this as the Material is rendering independently of the screen resolution.
+* ScreenPercentage 에 대한 FPostProcessSettings 의 함수가 동적 해상도에서 무시되는 이유는 무엇인가요?
 
+	* 포스트 프로세스 볼륨 세팅에서 스크린 퍼센티지를 구성하여 스케일을 수동으로 높이고 낮추는 이전 메커니즘의 일부였습니다. 동적 해상도를 사용하면 GPU 작업 부하에 따라 자동 처리해 주니 더이상 수동 설정할 필요가 없습니다.
 
-### Limitations
+* 에디터에 동적 해상도 표시 플래그 옵션이 없는 이유는 무엇인가요?
 
-The following are some limitations of Dynamic Resolution:
+	* 글로벌 그리고 게임 스레드에서 전적으로 발생하기 때문입니다. 스크린 퍼센티지 표시 플래그는 1차 스크린 퍼센티지만 토글합니다.
 
-* It is not supported for multi-world Play-In-Editor by design. 
-* When TAAU is enabled, it will work with VR. MSAA support will follow in a future release.
-* The API is fully compatible with the mobile renderer. However, there hasn't been an effort to maintain the view size not being equal to the render target buffer size that is set by the primary screen percentage upper bound.
-* Guassian Depth of Field (DoF) and [Distance Field Ambient Occlusion](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) (DFAO) have issues with resolution changes.
+* 에디터 뷰포트에 동적 해상도가 지원되지 않는 이유는 무엇인가요?
 
+	* 현재 동적 해상도는 PIE 를 사용하지 않는 Xbox One ,PlayStation 4, Nintendo Switch 만 지원합니다. 사용하는 (Vulkan, D3D12 같은) 플랫폼을 지원하면, PIE 로 에디터 안에서 사용할 수 있을 것입니다.
 
+* 머티리얼에서 1차 / 2차 스크린 퍼센티지에 액세스할 수 있나요?
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	* 아니오, 불가능합니다. 머티리얼 렌더링은 해상도와 독립적입니다.

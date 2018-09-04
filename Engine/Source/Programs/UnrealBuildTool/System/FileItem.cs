@@ -38,11 +38,6 @@ namespace UnrealBuildTool
 		public bool bNeedsHotReloadNumbersDLLCleanUp = false;
 
 		/// <summary>
-		/// Whether or not this is a remote file, in which case we can't access it directly
-		/// </summary>
-		public bool bIsRemoteFile = false;
-
-		/// <summary>
 		/// Accessor for the absolute path to the file
 		/// </summary>
 		public string AbsolutePath
@@ -74,16 +69,6 @@ namespace UnrealBuildTool
 
 
 		///
-		/// Preparation only (not serialized)
-		/// 
-
-		/// <summary>
-		/// The PCH file that this file will use
-		/// </summary>
-		public FileReference PrecompiledHeaderIncludeFilename;
-
-
-		///
 		/// Transients (not serialized)
 		///
 
@@ -108,14 +93,7 @@ namespace UnrealBuildTool
 		public DateTimeOffset _LastWriteTime;
 		public DateTimeOffset LastWriteTime
 		{
-			get
-			{
-				if (bIsRemoteFile)
-				{
-					LookupOutstandingFiles();
-				}
-				return _LastWriteTime;
-			}
+			get { return _LastWriteTime; }
 			set { _LastWriteTime = value; }
 		}
 
@@ -125,14 +103,7 @@ namespace UnrealBuildTool
 		public bool _bExists = false;
 		public bool bExists
 		{
-			get
-			{
-				if (bIsRemoteFile)
-				{
-					LookupOutstandingFiles();
-				}
-				return _bExists;
-			}
+			get { return _bExists; }
 			set { _bExists = value; }
 		}
 
@@ -142,14 +113,7 @@ namespace UnrealBuildTool
 		public long _Length = -1;
 		public long Length
 		{
-			get
-			{
-				if (bIsRemoteFile)
-				{
-					LookupOutstandingFiles();
-				}
-				return _Length;
-			}
+			get { return _Length; }
 			set { _Length = value; }
 		}
 
@@ -170,17 +134,11 @@ namespace UnrealBuildTool
 		static Dictionary<FileReference, FileItem> UniqueSourceFileMap = new Dictionary<FileReference, FileItem>();
 
 		/// <summary>
-		/// A list of remote file items that have been created but haven't needed the remote info yet, so we can gang up many into one request
-		/// </summary>
-		static List<FileItem> DelayedRemoteLookupFiles = new List<FileItem>();
-
-		/// <summary>
 		/// Clears the FileItem caches.
 		/// </summary>
 		public static void ClearCaches()
 		{
 			UniqueSourceFileMap.Clear();
-			DelayedRemoteLookupFiles.Clear();
 		}
 
 		/// <summary>
@@ -191,32 +149,6 @@ namespace UnrealBuildTool
 			foreach(FileItem Item in UniqueSourceFileMap.Values)
 			{
 				Item.CachedIncludePaths = null;
-			}
-		}
-
-		/// <summary>
-		/// Resolve any outstanding remote file info lookups
-		/// </summary>
-		private void LookupOutstandingFiles()
-		{
-			// for remote files, look up any outstanding files
-			if (bIsRemoteFile)
-			{
-				FileItem[] Files = null;
-				lock (DelayedRemoteLookupFiles)
-				{
-					if (DelayedRemoteLookupFiles.Count > 0)
-					{
-						// make an array so we can clear the original array, just in case BatchFileInfo does something that uses
-						// DelayedRemoteLookupFiles, so we don't deadlock
-						Files = DelayedRemoteLookupFiles.ToArray();
-						DelayedRemoteLookupFiles.Clear();
-					}
-				}
-				if (Files != null)
-				{
-					RPCUtilHelper.BatchFileInfo(Files);
-				}
 			}
 		}
 
@@ -237,27 +169,6 @@ namespace UnrealBuildTool
 			else
 			{
 				return new FileItem(Reference);
-			}
-		}
-
-		/// <returns>The remote FileItem that represents the given file path.</returns>
-		public static FileItem GetRemoteItemByPath(string AbsoluteRemotePath, UnrealTargetPlatform Platform)
-		{
-			if (AbsoluteRemotePath.StartsWith("."))
-			{
-				throw new BuildException("GetRemoteItemByPath must be passed an absolute path, not a relative path '{0}'", AbsoluteRemotePath);
-			}
-
-			FileReference RemoteFileReference = FileReference.MakeRemote(AbsoluteRemotePath);
-
-			FileItem Result = null;
-			if (UniqueSourceFileMap.TryGetValue(RemoteFileReference, out Result))
-			{
-				return Result;
-			}
-			else
-			{
-				return new FileItem(RemoteFileReference, true, Platform);
 			}
 		}
 
@@ -319,17 +230,7 @@ namespace UnrealBuildTool
 				string CurrentContents = Utils.ReadAllText(AbsolutePath.FullName);
 				if(!String.Equals(CurrentContents, Contents, StringComparison.InvariantCultureIgnoreCase))
 				{
-					try
-					{
-						FileReference PrevAbsolutePath = new FileReference(AbsolutePath.FullName + ".prev");
-						FileReference.Delete(PrevAbsolutePath);
-						FileReference.Move(AbsolutePath, PrevAbsolutePath);
-						Log.TraceLog("Updating {0} - contents have changed (previous version renamed to {1}).", AbsolutePath.FullName, PrevAbsolutePath);
-					}
-					catch
-					{
-						Log.TraceLog("Updating {0} - contents have changed (unable to rename). Previous:\n  {1}\nNew:\n  {2}", AbsolutePath.FullName, CurrentContents.Replace("\n", "\n  "), Contents.Replace("\n", "\n  "));
-					}
+					Log.TraceLog("Updating {0} - contents have changed. Previous:\n  {1}\nNew:\n  {2}", AbsolutePath.FullName, CurrentContents.Replace("\n", "\n  "), Contents.Replace("\n", "\n  "));
 					File.WriteAllText(AbsolutePath.FullName, Contents, GetEncodingForString(Contents));
 				}
 			}
@@ -354,7 +255,6 @@ namespace UnrealBuildTool
 		public void Delete()
 		{
 			Debug.Assert(_bExists);
-			Debug.Assert(!bIsRemoteFile);
 
 			int MaxRetryCount = 3;
 			int DeleteTryCount = 0;
@@ -423,7 +323,6 @@ namespace UnrealBuildTool
 		{
 			ProducingAction = (Action)SerializationInfo.GetValue("pa", typeof(Action));
 			Location = (FileReference)SerializationInfo.GetValue("fi", typeof(FileReference));
-			bIsRemoteFile = SerializationInfo.GetBoolean("rf");
 			bNeedsHotReloadNumbersDLLCleanUp = SerializationInfo.GetBoolean("hr");
 			CachedIncludePaths = (CppIncludePaths)SerializationInfo.GetValue("ci", typeof(CppIncludePaths));
 
@@ -438,17 +337,7 @@ namespace UnrealBuildTool
 					// Log.TraceInformation( "Missing: " + FileAbsolutePath );
 				}
 
-				if (bIsRemoteFile)
-				{
-					lock (DelayedRemoteLookupFiles)
-					{
-						DelayedRemoteLookupFiles.Add(this);
-					}
-				}
-				else
-				{
-					UniqueSourceFileMap[Location] = this;
-				}
+				UniqueSourceFileMap[Location] = this;
 			}
 		}
 
@@ -460,7 +349,6 @@ namespace UnrealBuildTool
 		{
 			SerializationInfo.AddValue("pa", ProducingAction);
 			SerializationInfo.AddValue("fi", Location);
-			SerializationInfo.AddValue("rf", bIsRemoteFile);
 			SerializationInfo.AddValue("hr", bNeedsHotReloadNumbersDLLCleanUp);
 			SerializationInfo.AddValue("ci", CachedIncludePaths);
 		}
@@ -509,41 +397,22 @@ namespace UnrealBuildTool
 		/// </summary>
 		protected FileItem(FileReference InReference, bool InIsRemoteFile, UnrealTargetPlatform Platform)
 		{
-			bIsRemoteFile = InIsRemoteFile;
 			Location = InReference;
 
-			// @todo iosmerge: This doesn't handle remote directories (may be needed for compiling Mac from Windows)
-			if (bIsRemoteFile)
+			FileInfo Info = new FileInfo(AbsolutePath);
+
+			_bExists = Info.Exists;
+			if (_bExists)
 			{
-				if (Platform == UnrealTargetPlatform.IOS || Platform == UnrealTargetPlatform.Mac)
-				{
-					lock (DelayedRemoteLookupFiles)
-					{
-						DelayedRemoteLookupFiles.Add(this);
-					}
-				}
-				else
-				{
-					throw new BuildException("Only IPhone and Mac support remote FileItems");
-				}
+				_LastWriteTime = Info.LastWriteTimeUtc;
+				_Length = Info.Length;
 			}
-			else
+
+			++TotalFileItemCount;
+			if (!_bExists)
 			{
-				FileInfo Info = new FileInfo(AbsolutePath);
-
-				_bExists = Info.Exists;
-				if (_bExists)
-				{
-					_LastWriteTime = Info.LastWriteTimeUtc;
-					_Length = Info.Length;
-				}
-
-				++TotalFileItemCount;
-				if (!_bExists)
-				{
-					++MissingFileItemCount;
-					// Log.TraceInformation( "Missing: " + FileAbsolutePath );
-				}
+				++MissingFileItemCount;
+				// Log.TraceInformation( "Missing: " + FileAbsolutePath );
 			}
 
 			// @todo iosmerge: This was in UE3, why commented out now?

@@ -43,13 +43,9 @@ static UGeometryCacheComponent* AcquireGeometryCacheFromObjectGuid(const FGuid& 
 
 	if (AActor* Actor = Cast<AActor>(BoundObject))
 	{
-		TInlineComponentArray<UGeometryCacheComponent*> GeometryMeshComponents;
-		Actor->GetComponents(GeometryMeshComponents);
-
-		for (int32 j = 0; j <GeometryMeshComponents.Num(); ++j)
+		for (UActorComponent* Component : Actor->GetComponents())
 		{
-			UGeometryCacheComponent* GeometryMeshComp = GeometryMeshComponents[j];
-			if (GeometryMeshComp)
+			if (UGeometryCacheComponent* GeometryMeshComp = Cast<UGeometryCacheComponent>(Component))
 			{
 				return GeometryMeshComp;
 			}

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -20,8 +20,8 @@
 */
 #include "../../SDL_internal.h"
 
-#ifndef _SDL_cocoavideo_h
-#define _SDL_cocoavideo_h
+#ifndef SDL_cocoavideo_h_
+#define SDL_cocoavideo_h_
 
 #include "SDL_opengl.h"
 
@@ -113,6 +113,6 @@ typedef struct SDL_VideoData
 /* Utility functions */
 extern NSImage * Cocoa_CreateImage(SDL_Surface * surface);
 
-#endif /* _SDL_cocoavideo_h */
+#endif /* SDL_cocoavideo_h_ */
 
 /* vi: set ts=4 sw=4 expandtab: */

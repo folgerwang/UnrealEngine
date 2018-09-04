@@ -35,9 +35,9 @@ bool FMovieSceneAnimationSectionRecorderFactory::CanRecordObject(UObject* InObje
 }
 
 FMovieSceneAnimationSectionRecorder::FMovieSceneAnimationSectionRecorder(const FAnimationRecordingSettings& InAnimationSettings, UAnimSequence* InSpecifiedSequence, const FString& InAnimAssetPath, const FString& InAnimAssetName)
-	: AnimSequence(InSpecifiedSequence)
+	: AnimationSettings(InAnimationSettings)
+	, AnimSequence(InSpecifiedSequence)
 	, bRemoveRootTransform(true)
-	, AnimationSettings(InAnimationSettings)
 	, AnimAssetPath(InAnimAssetPath)
 	, AnimAssetName(InAnimAssetName)
 {
@@ -170,6 +170,6 @@ void FMovieSceneAnimationSectionRecorder::Record(float CurrentTime)
 	{
 		// re-force updates on as gameplay can sometimes turn these back off!
 		SkeletalMeshComponent->bEnableUpdateRateOptimizations = false;
-		SkeletalMeshComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+		SkeletalMeshComponent->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
 	}
 }

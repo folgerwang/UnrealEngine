@@ -94,7 +94,7 @@ public:
 	//~ End UObject Interface
 
 	bool ModifyCVarValue(const FString& CVarName, const FString& CVarValue, bool bAddIfNonExistant = false);
-	FString GetCVarValue(const FString& CVarName);
+	FString GetCVarValue(const FString& CVarName) const;
 
 	/** Lazily generate a consolidated list of CVars, recursing up the device profile hierarchy */
 	const TMap<FString, FString>& GetConsolidatedCVars() const;

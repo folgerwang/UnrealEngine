@@ -30,6 +30,9 @@ struct ENGINE_API FSkeletalMeshSamplingRegionBuiltData
 
 	/** Triangles included in this region. */
 	TArray<int32> TriangleIndices;
+
+	/** Vertices included in this region. */
+	TArray<int32> Vertices;
 	
 	/** Bones included in this region. */
 	TArray<int32> BoneIndices;

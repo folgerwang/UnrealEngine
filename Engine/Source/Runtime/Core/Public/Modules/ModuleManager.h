@@ -797,24 +797,12 @@ class FDefaultGameModuleImpl
 		} \
 	} GEncryptionKeyRegistration;
 
-/**
- * Macro for declaring the GIsDebugGame variable for monolithic development builds. NB: This define, and the UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME defines like it, should NEVER be 
- * directly used or defined for engine code, because it prevents sharing the same build products with the development build (important for Launcher build sizes). In modular builds, 
- * DebugGame modules will be loaded by specifying the -debug parameter on the command-line.
- */
-#if IS_MONOLITHIC && UE_BUILD_DEVELOPMENT
-	#define IMPLEMENT_DEBUGGAME() extern const bool GIsDebugGame = (UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME != 0);
-#else
-	#define IMPLEMENT_DEBUGGAME()
-#endif 
-
 #if IS_PROGRAM
 
 	#if IS_MONOLITHIC
 		#define IMPLEMENT_APPLICATION( ModuleName, GameName ) \
 			/* For monolithic builds, we must statically define the game's name string (See Core.h) */ \
 			TCHAR GInternalProjectName[64] = TEXT( GameName ); \
-			IMPLEMENT_DEBUGGAME() \
 			IMPLEMENT_FOREIGN_ENGINE_DIR() \
 			IMPLEMENT_SIGNING_KEY_REGISTRATION() \
 			IMPLEMENT_ENCRYPTION_KEY_REGISTRATION() \
@@ -851,7 +839,6 @@ class FDefaultGameModuleImpl
 			TCHAR GInternalProjectName[64] = TEXT( PREPROCESSOR_TO_STRING(UE_PROJECT_NAME) ); \
 			/* Implement the GIsGameAgnosticExe variable (See Core.h). */ \
 			bool GIsGameAgnosticExe = false; \
-			IMPLEMENT_DEBUGGAME() \
 			IMPLEMENT_FOREIGN_ENGINE_DIR() \
 			IMPLEMENT_SIGNING_KEY_REGISTRATION() \
 			IMPLEMENT_ENCRYPTION_KEY_REGISTRATION() \
@@ -863,7 +850,6 @@ class FDefaultGameModuleImpl
 		#define IMPLEMENT_PRIMARY_GAME_MODULE( ModuleImplClass, ModuleName, DEPRECATED_GameName ) \
 			/* For monolithic builds, we must statically define the game's name string (See Core.h) */ \
 			TCHAR GInternalProjectName[64] = TEXT( PREPROCESSOR_TO_STRING(UE_PROJECT_NAME) ); \
-			IMPLEMENT_DEBUGGAME() \
 			PER_MODULE_BOILERPLATE \
 			IMPLEMENT_FOREIGN_ENGINE_DIR() \
 			IMPLEMENT_SIGNING_KEY_REGISTRATION() \

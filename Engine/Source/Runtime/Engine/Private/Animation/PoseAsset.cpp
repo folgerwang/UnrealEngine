@@ -4,7 +4,7 @@
 #include "UObject/FrameworkObjectVersion.h"
 #include "AnimationRuntime.h"
 #include "Components/SkeletalMeshComponent.h"
-
+#include "Animation/AnimSequence.h"
 #define LOCTEXT_NAMESPACE "PoseAsset"
 
 // utility function 
@@ -407,6 +407,8 @@ void UPoseAsset::GetBaseAnimationPose(struct FCompactPose& OutPose, FBlendedCurv
 
 bool UPoseAsset::GetAnimationPose(struct FCompactPose& OutPose, FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext) const
 {
+	ANIM_MT_SCOPE_CYCLE_COUNTER(PoseAssetGetAnimationPose, !IsInGameThread());
+
 	const FBoneContainer& RequiredBones = OutPose.GetBoneContainer();
 	USkeleton* MySkeleton = GetSkeleton();
 

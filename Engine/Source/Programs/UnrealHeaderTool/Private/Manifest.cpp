@@ -133,7 +133,6 @@ FManifest FManifest::LoadFromFile(const FString& Filename)
 		GetJsonFieldValue(ClassesHeaders,                        ModuleObj, TEXT("ClassesHeaders"),           *Outer);
 		GetJsonFieldValue(PublicHeaders,                         ModuleObj, TEXT("PublicHeaders"),            *Outer);
 		GetJsonFieldValue(PrivateHeaders,                        ModuleObj, TEXT("PrivateHeaders"),           *Outer);
-		GetJsonFieldValue(KnownModule.PCH,                       ModuleObj, TEXT("PCH"),                      *Outer);
 		GetJsonFieldValue(KnownModule.GeneratedCPPFilenameBase,  ModuleObj, TEXT("GeneratedCPPFilenameBase"), *Outer);
 		GetJsonFieldValue(GeneratedCodeVersionString, ModuleObj, TEXT("UHTGeneratedCodeVersion"), *Outer);
 		KnownModule.GeneratedCodeVersion = ToGeneratedCodeVersion(GeneratedCodeVersionString);
@@ -246,7 +245,6 @@ bool FManifestModule::IsCompatibleWith(const FManifestModule& ManifestModule)
 		&& PublicUObjectClassesHeaders == ManifestModule.PublicUObjectClassesHeaders
 		&& PublicUObjectHeaders == ManifestModule.PublicUObjectHeaders
 		&& PrivateUObjectHeaders == ManifestModule.PrivateUObjectHeaders
-		&& PCH == ManifestModule.PCH
 		&& GeneratedCPPFilenameBase == ManifestModule.GeneratedCPPFilenameBase
 		&& SaveExportedHeaders == ManifestModule.SaveExportedHeaders
 		&& GeneratedCodeVersion == ManifestModule.GeneratedCodeVersion;

@@ -10,7 +10,7 @@
 /**
  * Draws 3D text in the world along with targeting line cues
  */
-UCLASS()
+UCLASS(NotPlaceable, NotBlueprintable)
 class AFloatingText : public AActor
 {
 	GENERATED_BODY()

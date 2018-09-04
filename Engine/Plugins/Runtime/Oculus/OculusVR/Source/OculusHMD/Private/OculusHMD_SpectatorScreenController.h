@@ -10,15 +10,15 @@ namespace OculusHMD
 {
 
 //-------------------------------------------------------------------------------------------------
-// FOculusHMD_SpectatorScreenController
+// FSpectatorScreenController
 //-------------------------------------------------------------------------------------------------
 
-class FOculusHMD_SpectatorScreenController : public FDefaultSpectatorScreenController
+class FSpectatorScreenController : public FDefaultSpectatorScreenController
 {
 public:
-	FOculusHMD_SpectatorScreenController(class FOculusHMD* InOculusHMD);
+	FSpectatorScreenController(class FOculusHMD* InOculusHMD);
 
-	virtual void RenderSpectatorScreen_RenderThread(FRHICommandListImmediate& RHICmdList, FRHITexture2D* BackBuffer, FTexture2DRHIRef RenderTarget, FVector2D WindowSize) const override;
+	virtual void RenderSpectatorScreen_RenderThread(FRHICommandListImmediate& RHICmdList, FRHITexture2D* BackBuffer, FTexture2DRHIRef RenderTarget, FVector2D WindowSize) override;
 	virtual void RenderSpectatorModeUndistorted(FRHICommandListImmediate& RHICmdList, FTexture2DRHIRef TargetTexture, FTexture2DRHIRef EyeTexture, FTexture2DRHIRef OtherTexture, FVector2D WindowSize) override;
 	virtual void RenderSpectatorModeDistorted(FRHICommandListImmediate& RHICmdList, FTexture2DRHIRef TargetTexture, FTexture2DRHIRef EyeTexture, FTexture2DRHIRef OtherTexture, FVector2D WindowSize) override;
 	virtual void RenderSpectatorModeSingleEye(FRHICommandListImmediate& RHICmdList, FTexture2DRHIRef TargetTexture, FTexture2DRHIRef EyeTexture, FTexture2DRHIRef OtherTexture, FVector2D WindowSize) override;

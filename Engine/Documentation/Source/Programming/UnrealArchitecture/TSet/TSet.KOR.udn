@@ -65,7 +65,7 @@ Append 함수를 사용하여 병합하는 것으로 다른 세트의 모든 엘
 	FruitSet.Append(FruitSet2);
 	// FruitSet == [ "Banana", "Grapefruit", "Pineapple", "Pear", "Orange", "Kiwi", "Melon", "Mango" ]
 
-여기서, 결과 세트는 Add/Emplace 로 개별 추가하는 것과 같으며, 소스 세트의 중복 키는 타겟의 키를 대체합니다.
+여기서, 결과 세트는 Add/Emplace 로 개별 추가하는 것과 같으며, 소스 세트의 중복 키는 타깃의 키를 대체합니다.
 
 ### UPROPERTY TSet 편집
 

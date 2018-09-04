@@ -222,19 +222,19 @@ CodeWorks for Android 1R6u1 인스톨러는 맥용 언리얼 엔진 4 에 포함
 저희가 의존하는 변수, 그리고 가리키는 대상은 다음과 같습니다:
 
 **ANDROID_HOME**
-* Android SDK 를 설치한 디렉토리 또는 ADT 를 설치한 경우 `sdk` 디렉토리로 설정합니다.
-* `platform-tools` 라는 디렉토리를 포함해야 합니다.
+* Android SDK 를 설치한 디렉터리 또는 ADT 를 설치한 경우 `sdk` 디렉터리로 설정합니다.
+* `platform-tools` 라는 디렉터리를 포함해야 합니다.
 
 **JAVA_HOME**
-* JDK 가 설치된 디렉토리로 설정합니다. `jdk1.8.0_121` 식의 이름일 것입니다.
-* `javac.exe` 가 들어있는 `bin` 디렉토리가 들어있어야 합니다.
+* JDK 가 설치된 디렉터리로 설정합니다. `jdk1.8.0_121` 식의 이름일 것입니다.
+* `javac.exe` 가 들어있는 `bin` 디렉터리가 들어있어야 합니다.
 
 **ANT_HOME**
-* Ant 압축을 푼 디렉토리로 설정합니다.
-* `ant.bat` 가 들어있는 `bin` 디렉토리가 들어있어야 합니다.
+* Ant 압축을 푼 디렉터리로 설정합니다.
+* `ant.bat` 가 들어있는 `bin` 디렉터리가 들어있어야 합니다.
 
 **NDKROOT**
-* NDK 압축을 푼 디렉토리로 설정합니다. `android-ndk-r11c` 식의 이름일 것입니다.
+* NDK 압축을 푼 디렉터리로 설정합니다. `android-ndk-r11c` 식의 이름일 것입니다.
 * `ndk-build.cmd` 라는 파일이 들어있어야 합니다.
 
 [/EXCERPT:ENVWindowsSetup]
@@ -246,7 +246,7 @@ CodeWorks for Android 1R6u1 를 설치한 것이 아니라면, 일부 환경 변
 (.bash_profile 파일을 편집해서든, CodeWorks for Android 1R6u1 를 설치해서든) 설치가 완료되었으면, 에디터와 런처 어플리케이션 둘 다 재시작해 줘야 합니다.
 [/REGION]
 
-환경 변수 설정을 위해서는 홈 디렉토리의 **.bash_profile** 파일을 편집해야 합니다.
+환경 변수 설정을 위해서는 홈 디렉터리의 **.bash_profile** 파일을 편집해야 합니다.
 파일은 Finder 에 숨겨져 있으므로, Terminal 을 사용해서 열어야 편집할 수 있습니다.
 유닉스 터미널 명령에 익숙치 않으신 분들을 위해 다음과 같이 방법을 안내해 드립니다.
 
@@ -262,13 +262,13 @@ CodeWorks for Android 1R6u1 를 설치한 것이 아니라면, 일부 환경 변
 종속 변수 이름 및 그 변수가 가리키는 대상은 다음과 같습니다:
 
 * **ANDROID_HOME**
-	* Android SDK 를 설치한 디렉토리 또는 ADT 를 설치한 경우 SDK 디렉토리로 설정합니다.
-	* platform-tools 라는 디렉토리를 포함해야 합니다.
+	* Android SDK 를 설치한 디렉터리 또는 ADT 를 설치한 경우 SDK 디렉터리로 설정합니다.
+	* platform-tools 라는 디렉터리를 포함해야 합니다.
 * **ANT_HOME**
-	* Ant 압축을 푼 디렉토리로 설정합니다.
-	* ANT 라는 파일이 들어있는 bin 디렉토리가 들어있어야 합니다.
+	* Ant 압축을 푼 디렉터리로 설정합니다.
+	* ANT 라는 파일이 들어있는 bin 디렉터리가 들어있어야 합니다.
 * **NDKROOT**
-	* NDK 압축을 푼 디렉토리로 설정합니다. **android-ndk-r12b** 식의 이름일 것입니다.
+	* NDK 압축을 푼 디렉터리로 설정합니다. **android-ndk-r12b** 식의 이름일 것입니다.
 	* **ndk-build** 라는 파일이 들어있어야 합니다.
 
 [/EXCERPT:ENVMacOSSetup]

@@ -103,11 +103,9 @@ Paint ツールは、現在選択されているブラシとフォールオフ�
 | **Flatten Mode** | ツールで選択したレイヤーのウェイトのアプリケーションを増加、減少、または増減させるかを決定します。|
 
 [COMMENT:none]
---
 | **Use Slope Flatten** | 有効な場合、ランドスケープの既存スロープに沿って平坦化します。|
 | **Pick Value Per Apply** | チェックが入っていると、最初にクリックした点のみを使用するのではなく、常に新しい値を選んで平坦化します。 |
 | **Flatten Target** | 平坦化するためのターゲット値を設定します。|
---
 [/COMMENT]
 
 
@@ -193,7 +191,7 @@ Paint ツールは、現在選択されているブラシとフォールオフ�
 | オプション | 説明 |
 | ------ | ----------- |
 | **Phys Material** | このレイヤーが優先されているランドスケープ領域に割り当てられた [物理マテリアル](Engine/Physics/PhysicalMaterials) (ある場合) です。 |
-| **Hardness** | [侵食](Engine/Landscape/Editing/SculptMode/#Erosion) ツールで使用する値です。 |
+| **Hardness** | [侵食](Engine/Landscape/Editing/SculptMode/Erosion) ツールで使用する値です。 |
 
 ### 存在しないレイヤー
 

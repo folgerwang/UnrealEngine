@@ -1,0 +1,26 @@
+INTSourceChangelist:4320499
+Availability: Public
+Crumbs:
+Title: 혼합 현실 캡처 개요
+Description: 언리얼 엔진 4 의 혼합 현실 캡처 기능에 대한 가이드와 레퍼런스입니다. 
+Version: 4.20
+Parent: Platforms/MR
+Order:1
+Tags: GettingStarted
+Tags: MR
+Tags: landingpage
+Tags: Early Access
+topic-image:MR_RoboRecall.png
+reference-image:MR_RoboRecall.gif
+
+Mixed Reality Capture (MRC, 혼합 현실 캡처) 프레임워크는 실제 플레이어를 가상 플레이 공간에 합성하여 뛰어난 XR 경험 관람용 화면을 쉽게 만들 수 있습니다.
+
+[REGION:asyncgif]
+![image alt text](MR_RoboRecall.gif)(w:653)
+[/REGION]
+
+혼합 현실 캡처의 구성 요소는 세 가지, 비디오 입력, 보정, 게임 내 합성으로 이루어집니다. 지원하는 [웹캠 및 HDMI 캡처 디바이스](Platforms/MR/MRSupportedVideoDevices) 목록의 다양한 소스에서 언리얼 엔진으로 현실의 녹색 화면 비디오를 끌어올 수 있습니다. 별도의 트래킹 디바이스가 있는 경우, 혼합 현실 캡처는 카메라 위치를 게임내 카메라에 일치시켜 보다 역동적이고 재미있는 샷을 만들 수 있습니다. 설정과 고정은 독립형 교정 툴을 통해 이루어집니다. 촬영 위치를 설정하고 보정해 두면, 여러 언리얼 앱에서 이 보정 세팅을 재사용할 수 있습니다.
+
+기능 지원은 얼리 액세스 단계이지만, 프레임워크를 지속적으로 개선하면서 피드백을 얻을 수 있기를 기대합니다. 
+
+[혼합 현실 퀵 스타트](Platforms/MR/MRQuickStart) 문서를 따라 혼합 현실 캡처를 시작하세요.

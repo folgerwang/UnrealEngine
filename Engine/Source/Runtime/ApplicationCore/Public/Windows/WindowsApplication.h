@@ -30,6 +30,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogWindowsDesktop, Log, All);
 class FWindowsWindow;
 class FGenericApplicationMessageHandler;
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FWindowsApplication_OnWindowCreated, HWND);
 
 namespace ETaskbarProgressState
 {

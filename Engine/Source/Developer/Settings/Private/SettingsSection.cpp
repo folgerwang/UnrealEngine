@@ -190,6 +190,17 @@ bool FSettingsSection::ResetDefaults()
 	return false;
 }
 
+bool FSettingsSection::NotifySectionOnPropertyModified()
+{
+	bool bShouldSaveChanges = true;
+	// Notify the section that it has been modified
+	if (ModifiedDelegate.IsBound())
+	{
+		// return value of FOnModified indicates whether the modifications should be saved.
+		bShouldSaveChanges = ModifiedDelegate.Execute();
+	}
+	return bShouldSaveChanges;
+}
 
 bool FSettingsSection::Save()
 {

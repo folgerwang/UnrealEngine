@@ -412,13 +412,6 @@ public class MacPlatform : Platform
 
 	public override bool IsSupported { get { return true; } }
 
-	public override bool ShouldUseManifestForUBTBuilds(string AddArgs)
-	{
-		// don't use the manifest to set up build products if we are compiling Mac under Windows and we aren't going to copy anything back to the PC
-		bool bIsBuildingRemotely = UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac;
-		bool bUseManifest = !bIsBuildingRemotely || AddArgs.IndexOf("-CopyAppBundleBackToDevice", StringComparison.InvariantCultureIgnoreCase) > 0;
-		return bUseManifest;
-	}
 	public override List<string> GetDebugFileExtensions()
 	{
 		return new List<string> { ".dSYM" };
@@ -443,22 +436,22 @@ public class MacPlatform : Platform
 		{
 			// Sign everything we built
 			List<FileReference> FilesToSign = GetExecutableNames(SC);
-			Log("RuntimeProjectRootDir: " + SC.RuntimeProjectRootDir);
+			LogInformation("RuntimeProjectRootDir: " + SC.RuntimeProjectRootDir);
 			foreach (var Exe in FilesToSign)
 			{
-				Log("Signing: " + Exe);
+				LogInformation("Signing: " + Exe);
 				string AppBundlePath = "";
 				if (Exe.IsUnderDirectory(DirectoryReference.Combine(SC.RuntimeProjectRootDir, "Binaries", SC.PlatformDir)))
 				{
-					Log("Starts with Binaries");
+					LogInformation("Starts with Binaries");
 					AppBundlePath = CombinePaths(SC.RuntimeProjectRootDir.FullName, "Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe.FullName) + ".app");
 				}
 				else if (Exe.IsUnderDirectory(DirectoryReference.Combine(SC.RuntimeRootDir, "Engine/Binaries", SC.PlatformDir)))
 				{
-					Log("Starts with Engine/Binaries");
+					LogInformation("Starts with Engine/Binaries");
 					AppBundlePath = CombinePaths("Engine/Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe.FullName) + ".app");
 				}
-				Log("Signing: " + AppBundlePath);
+				LogInformation("Signing: " + AppBundlePath);
 				CodeSign.SignMacFileOrFolder(AppBundlePath);
 			}
 

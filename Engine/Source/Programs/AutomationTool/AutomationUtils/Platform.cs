@@ -553,11 +553,6 @@ namespace AutomationTool
 			return 0;
 		}
 
-		public virtual bool ShouldUseManifestForUBTBuilds(string AddArgs)
-		{
-			return true;
-		}
-
 		/// <summary>
 		/// Determines whether we should stage a UE4CommandLine.txt for this platform
 		/// </summary>

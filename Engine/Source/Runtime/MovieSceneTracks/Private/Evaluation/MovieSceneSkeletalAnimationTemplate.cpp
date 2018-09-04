@@ -77,7 +77,7 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 			FToken(USkeletalMeshComponent* InComponent)
 			{
 				// Cache this object's current update flag and animation mode
-				MeshComponentUpdateFlag = InComponent->MeshComponentUpdateFlag;
+				VisibilityBasedAnimTickOption = InComponent->VisibilityBasedAnimTickOption;
 				AnimationMode = InComponent->GetAnimationMode();
 			}
 
@@ -94,7 +94,7 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 				UAnimSequencerInstance::UnbindFromSkeletalMeshComponent(Component);
 
 				// Reset the mesh component update flag and animation mode to what they were before we animated the object
-				Component->MeshComponentUpdateFlag = MeshComponentUpdateFlag;
+				Component->VisibilityBasedAnimTickOption = VisibilityBasedAnimTickOption;
 				if (Component->GetAnimationMode() != AnimationMode)
 				{
 					// this SetAnimationMode reinitializes even if the mode is same
@@ -103,7 +103,7 @@ struct FPreAnimatedAnimationTokenProducer : IMovieScenePreAnimatedTokenProducer
 				}
 			}
 
-			EMeshComponentUpdateFlag::Type MeshComponentUpdateFlag;
+			EVisibilityBasedAnimTickOption VisibilityBasedAnimTickOption;
 			EAnimationMode::Type AnimationMode;
 		};
 
@@ -191,7 +191,9 @@ namespace MovieScene
 
 			OriginalStack.SavePreAnimatedState(Player, *SkeletalMeshComponent, GetAnimControlTypeID(), FPreAnimatedAnimationTokenProducer());
 
-			UAnimCustomInstance::BindToSkeletalMeshComponent<UAnimSequencerInstance>(SkeletalMeshComponent);
+			const UAnimInstance* ExistingAnimInstance = SkeletalMeshComponent->GetAnimInstance();
+
+			const UAnimSequencerInstance* SequencerInstance = UAnimCustomInstance::BindToSkeletalMeshComponent<UAnimSequencerInstance>(SkeletalMeshComponent);
 
 			const bool bPreviewPlayback = ShouldUsePreviewPlayback(Player, *SkeletalMeshComponent);
 
@@ -226,6 +228,21 @@ namespace MovieScene
 						AnimParams.SlotName, AnimParams.Section, AnimParams.Animation, AnimParams.EvalTime, AnimParams.BlendWeight,
 						bLooping, Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Playing, bFireNotifies && !AnimParams.bSkipAnimNotifiers);
 				}
+			}
+
+			// If the skeletal component has already ticked this frame because tick prerequisites weren't set up yet or a new binding was created, forcibly tick this component to update.
+			// This resolves first frame issues where the skeletal component ticks first, then the sequencer binding is resolved which sets up tick prerequisites
+			// for the next frame.
+			if (SkeletalMeshComponent->PoseTickedThisFrame() || SequencerInstance != ExistingAnimInstance)
+			{
+				SkeletalMeshComponent->TickAnimation(0.f, false);
+
+				SkeletalMeshComponent->RefreshBoneTransforms();
+				SkeletalMeshComponent->RefreshSlaveComponents();
+				SkeletalMeshComponent->UpdateComponentToWorld();
+				SkeletalMeshComponent->FinalizeBoneTransform();
+				SkeletalMeshComponent->MarkRenderTransformDirty();
+				SkeletalMeshComponent->MarkRenderDynamicDataDirty();
 			}
 
 			Player.PreAnimatedState.SetCaptureEntity(FMovieSceneEvaluationKey(), EMovieSceneCompletionMode::KeepState);

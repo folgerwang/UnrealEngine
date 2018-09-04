@@ -71,21 +71,13 @@ class ENGINE_API UAnimationSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category = Compression)
 	bool bRaiseMaxErrorToExisting;
 
-	/** If true, the uniform bitwise techniques will be tried */
+	/** If true, then an exhaustive search is used otherwise only a short list of the best methods is tried */
 	UPROPERTY(config, EditAnywhere, Category = Compression)
-	bool bTryFixedBitwiseCompression;
+	bool bTryExhaustiveSearch;
 
-	/** If true, the per-track compressor techniques will be tried */
+	/** If true, anim sequences are compressed in segments. This allows for parallel compression of individual sequences. */
 	UPROPERTY(config, EditAnywhere, Category = Compression)
-	bool bTryPerTrackBitwiseCompression;
-
-	/** If true, the linear key removal techniques will be tried */
-	UPROPERTY(config, EditAnywhere, Category = Compression)
-	bool bTryLinearKeyRemovalCompression;
-
-	/** If true, the resampling techniques will be tried */
-	UPROPERTY(config, EditAnywhere, Category = Compression)
-	bool bTryIntervalKeyRemoval;
+	bool bEnableSegmenting;
 
 	UPROPERTY(config, EditAnywhere, Category = Performance)
 	bool bEnablePerformanceLog;

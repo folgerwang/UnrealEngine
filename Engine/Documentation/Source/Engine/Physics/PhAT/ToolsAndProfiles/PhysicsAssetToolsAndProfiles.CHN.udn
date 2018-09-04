@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3801260
 Availability: Public
 Crumbs: %ROOT%
-Title: Physics Asset Editor - Tools and Profiles
-Description:User guide for the Tools and Profiles properties inside the Physics Asset Editor.
+Title: 物理资源编辑器：工具与配置文件
+Description:物理资源编辑器中工具与配置文件属性的使用指南。
 Type: Reference
 Version:4.18
 Parent:Engine/Physics/PhAT/PhysicsAssetEditor
@@ -14,79 +14,72 @@ Related:Engine/Physics/PhAT/SkeletonTree
 Order:
 Tags:Physics
 
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:100 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:0 convert:false)[/VAR]
-
-
 [TOC(start:2 end:3)]
 
 
-The **Tools** and **Profiles** tabs enable you to choose how [Bodies](Engine/Physics/PhysicsBodies) are generated and allows for custom profiles for default properties of assigned
-bodies and constraints. 
+**工具（Tools）** 和 **配置文件（Profiles）** 选项卡使你能够选择[形体](Engine/Physics/PhysicsBodies)生成方式和为指定的形体和约束的默认属性设置自定义配置文件。 
 
 ![](ToolsAndProfiles.png)(w:450)
 
 
-## Tools Tab
+## 工具（Tools）选项卡
 
-The **Tools** tab enables you to perform batch edits of your Physics Asset. It includes being able to add, generate or re-generate bodies for the entire skeleton or selected bodies 
-in the [Skeleton Tree](Engine/Physics/PhAT/SkeletonTree).
+**工具（Tools）** 选项卡使你能够对物理资源进行批量编辑。包括为整个骨架或[骨架树](Engine/Physics/PhAT/SkeletonTree)中的所选形体添加、生成或重新生成形体。
 
 ![](Tools.png)
 
 
-### Body Creation Settings
+### 形体创建（Body Creation）设置
 
-The following options are available when creating or editing primitive shapes, size, and more for bodies:
+为形体创建或编辑基本形状、大小和执行更多操作时的可用选项如下：
 
 ![](BodyCreationSettings.png)
 
 [REGION:raw]
-| Property | Description |
-| -------- | ----------- |
-| **Min Bone Size** | Bones that are shorter than this value will be ignored for body creation. |
-| **Primitive Type** | The geometry type that should be used when creating bodies. [INCLUDE:#primitivetype] |
-| **Vertex Weighting Type** | How vertices are mapped to bones when approximating them with bodies. [INCLUDE:#vertexweightingtype] |
-| **Auto Orient to Bone** | Whether to automatically orient the created bodies to their corresponding bones. |
-| **Walk Past Small Bones** | Whether to skip small bones entirely (rather than merge them with the adjacent bones). |
-| **Create Body for All Bones** | Forces creation of a body for each bone. |
-| [REGION:tablesection] Advanced Properties [/REGION] |  |
-| **Min Weld Size** | Bones that are smaller than this value will be merged together for body creation. |
-| **Hull Accuracy** | When creating convex hulls, the target accuracy of the created hull. |
-| **Max Hull Verts** | When creating convex hulls, the maximum verts that should be created. |
+| 属性                                 | 说明                                       |
+| ---------------------------------- | ---------------------------------------- |
+| **Min Bone Size**                  | 创建形体时，短于该值的骨骼将被忽略。                       |
+| **基本类型（Primitive Type）**           | 创建形体时应使用的几何体类型。[INCLUDE:#primitivetype]  |
+| **Vertex Weighting Type**          | 针对形体估算顶点时顶点映射到骨骼的方式。[INCLUDE:#vertexweightingtype] |
+| **Auto Orient to Bone**            | 是否自动调整已创建形体的方向使其朝向相应的骨骼。                 |
+| **Walk Past Small Bones**          | 是否完全跳过较小的骨骼（而非将它们与相邻的骨骼合并）。              |
+| **Create Body for All Bones**      | 强制为每个骨骼创建形体。                             |
+| [REGION:tablesection]高级属性[/REGION] |                                          |
+| **Min Weld Size**                  | 小于该值的骨骼将会被合并起来以进行形体创建。                   |
+| **Hull Accuracy**                  | 创建凸包时，所创建凸包的目标精确度。                       |
+| **Max Hull Verts**                 | 创建凸包时，应创建的最大顶点数。                         |
 [/REGION]
 
 [COMMENT:none]
 -
 
 [EXCERPT:primitivetype]
-* Box
-* Capsule
-* Sphere
-* Single Convex Hull
-* Multi Convex Hull
+* 盒体
+* 胶囊体
+* 球体
+* 单个凸包
+* 多个凸包
 [/EXCERPT:primitivetype]
 
 [EXCERPT:VertexWeightingtype]
-* Any Weight
-* Dominant Weight
+* 任意加权
+* 最高权
 [/EXCERPT:VertexWeightingtype]
 
 -
 [/COMMENT]
 
-### Constraint Creation Settings
+### 约束创建（Constraint Creation）设置
 
-The following options are available when creating or editing the constraints of bodies:
+创建或编辑形体的约束时的可用选项如下：
 
 ![](ConstraintCreationSettings.png)
 
 [REGION:raw]
-| Property | Description |
-| -------- | ----------- |
-| **Create Joints** | Whether to create constraints between adjacent created bodies. |
-| **Angular Constraint Mode** | The type of angular constraints to create between bodies. [INCLUDE:#constraintmode] |
+| 属性                          | 说明                                       |
+| --------------------------- | ---------------------------------------- |
+| **Create Joints**           | 是否在相邻的已创建形体间创建约束。                        |
+| **Angular Constraint Mode** | 要在形体间创建的角度约束的类型。[INCLUDE:#constraintmode] |
 [/REGION]
 
 [COMMENT:none]
@@ -94,156 +87,150 @@ The following options are available when creating or editing the constraints of 
 [INCLUDE:#vertexweightingtype]
 [EXCERPT:constraintmode]
 | --- | --- |
-| **Free** | No constraint against this axis. |
-| **Limited** | Limited freedome along this axis. |
-| **Locked** | Fully constraint against this axis. |
+| **Free** | 对该轴没有约束。|
+| **Limited** | 沿该轴自由度受限。|
+| **Locked** | 该轴完全受约束。|
 [/EXCERPT:constraintmode]
 
 -
 [/COMMENT]
 
 
-#### Body Generation Options
+#### 形体生成（Body Generation）选项
 
-Once the properties have been set for the **Body Creation** and **Constraint Creation** categories, any selected bodies, constraints, or bones will display an action to add, generate, or re-generate 
-bodies.
+为 **形体创建（Body Creation）** 和 **约束创建（Constraint Creation）** 类别设置好属性后，任何选中的形体、约束或骨骼都将显示添加、生成或重新生成形体的操作。
 
 ![](ToolsBodyButton.png)
 
 [REGION:simpletable]
-| Button |  |
-| --- | --- |
-| ![](AllBodies.png) | All phyiscs bodies and constraints will be re-created. |  
-| ![](GenerateAllBodies.png) | When a constraint is selected, this button will enable all bodies and constraints to be recreated using the new settings. | 
-| ![](ReGenerateBodies.png) | Selected bodies will be replaced along with their constraints using the new settings.| 
+| 按钮                         |                                   |
+| -------------------------- | --------------------------------- |
+| ![](AllBodies.png)         | 将重新创建所有物理形体和约束。                   |
+| ![](GenerateAllBodies.png) | 在选中约束的情况下，点击该按钮会使用新设置重新创建所有形体和约束。 |
+| ![](ReGenerateBodies.png)  | 使用新设置替换选中形体及其约束。                  |
 [/REGION]
 
 
-## Profiles Tab
+## 配置文件（Profiles）选项卡
 
-The Physics Asset **Profiles** tab enables you to view, select, and edit a collection of settings for **Physical Animations** and **Constraints** that can be saved to profiles which can then be assigned
-to the selected bodies or constraints in the [Skeleton Tree](Engine/Physics/PhAT/SkeletonTree).
+物理资源 **配置文件（Profiles）** 选项卡使你能够查看、选择和编辑 **物理动画** 和 **约束** 的一系列设置，这些设置可以保存到配置文件中，然后指定给[骨架树](Engine/Physics/PhAT/SkeletonTree)中的选中形体或约束。
 
 ![](Profiles.png)
 
 
 [REGION:note]
-For additional information, see the [Using Profiles for Bodies and Constraints](Engine/Physics/PhAT/HowTo/UsingProfiles) page.
+要了解更多信息，请参阅[为形体和约束使用配置文件](Engine/Physics/PhAT/HowTo/UsingProfiles)页面。
 [/REGION]
 
 
 
-### Current Profile
+### 当前配置文件（Current Profile）
 
-The **Current Profile** drop-down is where you'll find any new or existing profiles that have been created. When the profile is selected, options to remove it from the list of profiles, and assign or 
-unassign it from the selected bodies or constraints will become available.
+在 **当前配置文件（Current Profile）** 下拉菜单中你可以查找任何已创建的新配置文件或现有配置文件。选择好配置文件后，从配置文件列表中将其删除和为选中的形体或约束指定或取消指定配置文件的选项都将变为可用状态。
 
 ![](CurrentProfile.png)
 
 [REGION:simpletable]
-| Option | Description | 
-| --- | --- |
-| **New** | Creates a new profile that has properties set and can be assigned to bodies or constraints. |
-| **Delete** | Removes the custom profile when it is set as the **Current Profile** selection. |
-| **Assign** | Assigns the selected bodies or constraints to the **Current Profile** selection. |
-| **Unassign** | Unassigns the selected bodies or constraints from the **Current Profile** selection. |
+| 选项                 | 说明                                       |
+| ------------------ | ---------------------------------------- |
+| **新建（New）**        | 创建属性已设置并且能够指定给形体或约束的新配置文件。               |
+| **删除（Delete）**     | 删除已设置为 **当前配置文件（Current Profile）** 选择的自定义配置文件。 |
+| **指定（Assign）**     | 将选中形体或约束指定给 **当前配置文件（Current Profile）** 选择。 |
+| **取消指定（Unassign）** | 从 **当前配置文件（Current Profile）** 选择将选中形体或约束取消指定。 |
 [/REGION]
 
-Some options are available for the Current Profile by clicking the **arrow** drop-down.
+可通过单击 **箭头** 下拉菜单来使用部分当前配置文件（Current Profile）选项。
 
 ![](CurrentProfileMenu.png)
 
 [REGION:simpletable]
-| Option | Description | 
-| --- | --- |
-| **Duplicate** | Copies the currently set profile. |
-| **Set Current Constraint Profile** | Select from the currently created profiles the one to be used as the Current Profile to assign, unassign, or delete. |
+| 选项                                       | 说明                                       |
+| ---------------------------------------- | ---------------------------------------- |
+| **复制（Duplicate）**                        | 复制当前设置的配置文件。                             |
+| **设置当前约束配置文件（Set Current Constraint Profile）** | 从当前已创建的配置文件中选择要用作“当前配置文件（Current Profile）”以指定、取消指定或删除的配置文件。 |
 [/REGION]
 
 
-#### Current Profile Assignment
+#### 当前配置文件（Current Profile）指定
 
-When bodies or constraints are assigned a profile, there are a couple of places that you can check the status of the assignment:
+为形体或约束指定配置文件后，你可以在几个地方查看指定的状态：
 
-* From the Details panel
-* From the [Graph](Engine/Physics/PhAT/Graph)
+* 从“细节（Details）”面板
+* 从[约束图](Engine/Physics/PhAT/Graph)
 
-In the **Details** panel, the **Current Profile** being used for the selected body will be listed. When there isn't a profile assigned, it will be listed as **None**.
+在 **细节（Details）** 面板中，为选中形体使用的 **当前配置文件（Current Profile）** 将会被列示出来。当未指定配置文件时，“当前配置文件（Current Profile）”处将列示 **None**。
 
 ![](CurrentProfileAssignment.png)
 
 [REGION:imagetable]
 | ![](CurrentProfile_Name.png) | ![](CurrentProfile_None.png) |
-| --- | --- |
-| Unassigned Profile | Assigned Profile |
+| ---------------------------- | ---------------------------- |
+| 未指定配置文件                      | 已指定配置文件                      |
 [/REGION]
 
-In the [Graph](Engine/Physics/PhAT/Graph), the selected bodies and their constraints will be displayed. The shading of the bodies and constraints will be based on which 
-profile is selected as the **Current Profile**. 
+在[约束图](Engine/Physics/PhAT/Graph)中，将显示选中的形体及其约束。形体和约束的着色取决于被选中作为 **当前配置文件（Current Profile）** 的配置文件。 
 
 ![](Engine\Physics\PhAT\Graph\ProfileAssignment.png)
 
-For example, the Graph is showing the selected body and constraints, while the Profiles tab is showing the Current Profile for Physical Animation set to **MyPhysicalAnimation_Profile** which 
-is assigned to two of the four bodies in the Graph. When the Current Profile selected is assigned to a node, it will have unshaded fill color, and when the node is not assigned that profile, 
-it will appear shaded. The constraints displayed all appear with their fill color since the Current Profile for Constraints is set to **None**. 
+例如，约束图中显示了选中的形体和约束，“配置文件（Profiles）”选项卡显示了物理动画的“当前配置文件（Current Profile）”设置为 **MyPhysicalAnimation_Profile**，该配置文件指定给了约束图的四个形体中的两个形体。当将选择的“当前配置文件（Current Profile）”指定给节点时，节点的填充颜色为浅色，当未将该配置文件指定给节点时，它将显示为深色。显示的约束都使用了填充颜色，因为约束的“当前配置文件（Current Profile）”设置为了 **None**。 
 
 
 [REGION:note]
-For additional information about the nodes in the Graph, see the [Constraints Graph](Engine/Physics/PhAT/Graph) page.
+有关约束图中的节点的更多信息，请参阅[约束图](Engine/Physics/PhAT/Graph)页面。
 [/REGION]
 
 
 
-#### Physical Animation Profiles
+#### 物理动画（Physical Animation）配置文件
 
-When Bodies are selected and assigned a Physical Animation profile, the following options will become available:
+当选中了形体并指定了“物理动画（Physical Animation）”配置文件时，以下选项将变为可用状态：
 
 ![](PhysicalAnimationSettings.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| -------- | -------- | ----------- |
-| **Is Local Simulation** || Whether the drive targets are in world or local space. |
-| **Orientation Strength** || The strength used to correct orientation error. |
-| **Angular Velocity Strength** || The strength used to correct angular velocity error. |
-| **Position Strength** || The strength used to correct linear position error. Only used for non-local simulation. |
-| **Velocity Strength** || The strength used to correct linear velocity . Only used for non-local simulation. |
-| **Max Linear Force** || The max force used to correct linear errors. |
-| **Max Angular Force** || The max force used to correct angular errors. |
+| 属性                            | 说明                      |
+| ----------------------------- | ----------------------- |
+| **Is Local Simulation**       | 驱动目标是全局空间还是局部空间。        |
+| **Orientation Strength**      | 用于更正方向误差的力。             |
+| **Angular Velocity Strength** | 用于更正角速度误差的力。            |
+| **Position Strength**         | 用于更正线性位置误差的力。仅可用于非局部模拟。 |
+| **Velocity Strength**         | 用于更正线性速度的力。仅可用于非局部模拟。   |
+| **Max Linear Force**          | 用于更正线性误差的最大力。           |
+| **Max Angular Force**         | 用于更正角度误差的最大力。           |
 [/REGION]
 
-#### Constraint Profiles
+#### 约束配置文件
 
-When Constraints are selected and assigned a Constraints Profile, the following options will become available:  
+当选中了约束并指定了“约束配置文件（Constraints Profile）”时，以下选项将变为可用状态：  
 
 [REGION:lightbox]
 [![](ConstraintSettings.png)(h:500)](ConstraintSettings.png)
 [/REGION]
-[REGION:caption] Click image to view full size. [/REGION]
+[REGION:caption] 单击图片可查看大图。[/REGION]
 
 [REGION:note]
-For additional information, visit the [Constraints Reference](Engine/Physics/Constraints/ConstraintsReference) page.
+有关更多信息，请访问[约束参考](Engine/Physics/Constraints/ConstraintsReference)页面。
 [/REGION]
 
 
-### Thumbnail
+### 缩略图
 
-Control how the thumbnail image for the Physics Asset should appear in the **Content Browser**. You can control the Pitch, Yaw, and Zoom of the thumbnail. 
+控制物理资源的缩略图像在 **内容浏览器（Content Browser）** 中的显示方式。你可以控制缩略图的Pitch、Yaw和缩放。 
 
 ![](ThumbnailSettings.png)
 
-When the Thumbnail pitch, yaw, and zoom values are adjusted the thumbnail in the **Content Browser** will update in real time.
+当调整缩略图Pitch、Yaw和缩放数值时，在 **内容浏览器（Content Browser）** 中缩略图会实时更新。
 
 ![](CB_Thumbnail.png)
 
-### Physics
+### 物理（Physics）
 
-The following options are available that will apply to all assigned profiles.
+以下选项将变为可用状态并将应用到所有已指定的配置文件。
 
 ![](PhysicsSettings.png)
 
 [REGION:raw]
-| Property | %spacer% | Description |
-| -------- | -------- | ----------- |
-| **Use Async Scene** || If true, bodies of the physics asset will be put into the asynchronous physics scene. If false, they will be put into the synchronous physics scene. |
+| 属性                  | 说明                                       |
+| ------------------- | ---------------------------------------- |
+| **Use Async Scene** | 如果选中，物理资源的形体将会被放置到异步物理场景中。如果未选中，它们会被放置到同步物理场景中。 |
 [/REGION]

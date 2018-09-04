@@ -152,7 +152,7 @@ HRSST 툴 사용은 다음 몇 단계로 할 수 있는 것입니다.
 * **SubsurfaceColor**
 * **WorldNormal**
 
-HRSST 에 GBuffer 를 이미지로 익스포트하는 기능을 켜려면, 먼저 **버퍼 시각화 타겟 포함** 옵션을 켠 다음 캡처 버튼을 눌러야 합니다. 이 작업이 완료되면 캡처 폴더에는 위에 나열된 각 GBuffer 에 대한 스크린샷이 들어갑니다.
+HRSST 에 GBuffer 를 이미지로 익스포트하는 기능을 켜려면, 먼저 **버퍼 시각화 타깃 포함** 옵션을 켠 다음 캡처 버튼을 눌러야 합니다. 이 작업이 완료되면 캡처 폴더에는 위에 나열된 각 GBuffer 에 대한 스크린샷이 들어갑니다.
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]
 	640
@@ -185,7 +185,7 @@ HRSST 에 GBuffer 를 이미지로 익스포트하는 기능을 켜려면, 먼�
 * **SubsurfaceColor**
 * **WorldNormal**
 
-OpenEXR 이미지 지원을 켜려면, **HDR 포맷 시각화 타겟 출력** 옵션을 켠 다음 캡처 버튼을 눌러야 합니다. 이 기능이 완료된 이후, 캡처 폴더에는 위에 나열된 각 GBuffer 에 대한 스크린샷이 저장됩니다.
+OpenEXR 이미지 지원을 켜려면, **HDR 포맷 시각화 타깃 출력** 옵션을 켠 다음 캡처 버튼을 눌러야 합니다. 이 기능이 완료된 이후, 캡처 폴더에는 위에 나열된 각 GBuffer 에 대한 스크린샷이 저장됩니다.
  
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]

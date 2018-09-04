@@ -52,6 +52,13 @@ public:
 	virtual bool IsVREditorAvailable() const = 0;
 
 	/**
+	* Checks to see if the VR Mode button should be active or grayed out (such as during SIE)
+	*
+	* @return	True if button should be active
+	*/
+	virtual bool IsVREditorButtonActive() const = 0;
+
+	/**
 	 * Enables or disables editor VR features.  Calling this to active VR will turn on the HMD and setup
 	 * the editor UI for VR interaction.
 	 *

@@ -274,3 +274,13 @@ void FMacConsoleOutputDevice::SetDefaultTextColor()
 		OutstandingTasks--;
 	}, NSDefaultRunLoopMode, false);
 }
+
+@implementation FMacConsoleWindow
+- (void)windowWillClose:(NSNotification*)Notification
+{
+	if (!MacApplication && [[NSApp orderedWindows] count] == 1)
+	{
+		_Exit(0);
+	}
+}
+@end

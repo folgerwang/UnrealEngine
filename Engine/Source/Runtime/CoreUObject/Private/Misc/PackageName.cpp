@@ -744,28 +744,52 @@ bool FPackageName::FindPackageFileWithoutExtension(const FString& InPackageFilen
 {
 	auto& FileManager = IFileManager::Get();
 
-	static const FString* PackageExtensions[] =
 	{
-		&TextAssetPackageExtension,
-		&TextMapPackageExtension,
-		&AssetPackageExtension,
-		&MapPackageExtension
-	};
-
-	// Loop through all known extensions and check if the file exist.
-	const int32 BaseIndex = (InAllowTextFormats && WITH_TEXT_ARCHIVE_SUPPORT) ? 0 : 2;
-	for (int32 ExtensionIndex = BaseIndex; ExtensionIndex < ARRAY_COUNT(PackageExtensions); ++ExtensionIndex)
-	{
-		FString   PackageFilename = InPackageFilename + *PackageExtensions[ExtensionIndex];
-		FDateTime Timestamp       = FileManager.GetTimeStamp(*PackageFilename);
-		if (Timestamp != FDateTime::MinValue())
+		static const FString* PackageExtensions[] =
 		{
-			// The package exists so exit. From now on InPackageFilename can be equal to OutFilename so
-			// don't attempt to use it anymore (case where &InPackageFilename == &OutFilename).
-			OutFilename = MoveTemp(PackageFilename);
-			return true;
+			&AssetPackageExtension,
+			&MapPackageExtension
+		};
+
+		// Loop through all known extensions and check if the file exists
+
+		for (int32 ExtensionIndex = 0; ExtensionIndex < ARRAY_COUNT(PackageExtensions); ++ExtensionIndex)
+		{
+			FString   PackageFilename = InPackageFilename + *PackageExtensions[ExtensionIndex];
+			FDateTime Timestamp       = FileManager.GetTimeStamp(*PackageFilename);
+			if (Timestamp != FDateTime::MinValue())
+			{
+				// The package exists so exit. From now on InPackageFilename can be equal to OutFilename so
+				// don't attempt to use it anymore (case where &InPackageFilename == &OutFilename).
+				OutFilename = MoveTemp(PackageFilename);
+				return true;
+			}
 		}
 	}
+
+#if WITH_TEXT_ARCHIVE_SUPPORT
+	if (InAllowTextFormats)
+	{
+		static const FString* TextPackageExtensions[] =
+		{
+			&TextAssetPackageExtension,
+			&TextMapPackageExtension
+		};
+
+		for (int32 ExtensionIndex = 0; ExtensionIndex < ARRAY_COUNT(TextPackageExtensions); ++ExtensionIndex)
+		{
+			FString   PackageFilename = InPackageFilename + *TextPackageExtensions[ExtensionIndex];
+			FDateTime Timestamp		  = FileManager.GetTimeStamp(*PackageFilename);
+			if (Timestamp != FDateTime::MinValue())
+			{
+				// The package exists so exit. From now on InPackageFilename can be equal to OutFilename so
+				// don't attempt to use it anymore (case where &InPackageFilename == &OutFilename).
+				OutFilename = MoveTemp(PackageFilename);
+				return true;
+			}
+		}
+	}
+#endif
 
 	return false;
 }

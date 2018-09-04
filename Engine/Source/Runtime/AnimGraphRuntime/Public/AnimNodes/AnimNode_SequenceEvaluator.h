@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Animation/AnimNode_AssetPlayerBase.h"
+#include "Animation/AnimSequenceBase.h"
+#include "Animation/AnimSequenceDecompressionContext.h"
 #include "AnimNode_SequenceEvaluator.generated.h"
 
 UENUM(BlueprintType)
@@ -58,7 +60,7 @@ public:
 	UPROPERTY(Transient)
 	bool bReinitialized;
 
-public:	
+public:
 	FAnimNode_SequenceEvaluator()
 		: Sequence(nullptr)
 		, ExplicitTime(0.0f)

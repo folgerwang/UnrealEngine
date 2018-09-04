@@ -288,106 +288,66 @@ bool FMeshDescriptionTest::CompareRawMesh(const FString& AssetName, FAutomationT
 	return bAllSame;
 }
 
-template<typename T, typename U, typename V>
-void MeshDescriptionStructureArrayCompare(const FString& ConversionName, const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, bool& bIsSame, const U& ElementIterator, const FString& VectorArrayName, const T& ReferenceArray, const T& ResultArray)
-{
-	if (ReferenceArray.Num() != ResultArray.Num())
-	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s count is different. %s count expected [%d] result [%d]"),
-			*AssetName,
-			*ConversionName,
-			*VectorArrayName,
-			*VectorArrayName,
-			ReferenceArray.Num(),
-			ResultArray.Num())));
-		bIsSame = false;
-	}
-	else
-	{
-		for (V ElementID : ElementIterator.GetElementIDs())
-		{
-			if (ReferenceArray[ElementID] != ResultArray[ElementID])
-			{
-				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s array is different. Array index [%d] expected %s [%s] result [%s]"),
-					*AssetName,
-					*ConversionName,
-					*VectorArrayName,
-					ElementID.GetValue(),
-					*VectorArrayName,
-					*ReferenceArray[ElementID].ToString(),
-					*ResultArray[ElementID].ToString())));
-				bIsSame = false;
-				break;
-			}
-		}
-	}
-}
 
-template<typename T, typename U, typename V>
-void MeshDescriptionNumberArrayCompare(const FString& ConversionName, const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, bool& bIsSame, const U& ElementIterator, const FString& VectorArrayName, const T& ReferenceArray, const T& ResultArray)
-{
-	if (ReferenceArray.Num() != ResultArray.Num())
-	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s count is different. %s count expected [%d] result [%d]"),
-			*AssetName,
-			*ConversionName,
-			*VectorArrayName,
-			*VectorArrayName,
-			ReferenceArray.Num(),
-			ResultArray.Num())));
-		bIsSame = false;
-	}
-	else
-	{
-		for (V ElementID : ElementIterator.GetElementIDs())
-		{
-			if (ReferenceArray[ElementID] != ResultArray[ElementID])
-			{
-				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s array is different. Array index [%d] expected %s [%d] result [%d]"),
-					*AssetName,
-					*ConversionName,
-					*VectorArrayName,
-					ElementID.GetValue(),
-					*VectorArrayName,
-					ReferenceArray[ElementID],
-					ResultArray[ElementID])));
-				bIsSame = false;
-				break;
-			}
-		}
-	}
-}
+template <typename T> FString AttributeValueAsString(const T& Value) { return LexToString(Value); }
+FString AttributeValueAsString(const FVector& Value) { return Value.ToString(); }
+FString AttributeValueAsString(const FVector2D& Value) { return Value.ToString(); }
+FString AttributeValueAsString(const FVector4& Value) { return Value.ToString(); }
 
-template<typename U, typename V>
-void MeshDescriptionNumberFNameCompare(const FString& ConversionName, const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, bool& bIsSame, const U& ElementIterator, const FString& VectorArrayName, const TPolygonGroupAttributeArray<FName>& ReferenceArray, const TPolygonGroupAttributeArray<FName>& ResultArray)
+template<typename T, typename U>
+void MeshDescriptionAttributeArrayCompare(const FString& ConversionName, const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, bool& bIsSame, const U& ElementIterator, const FString& ArrayName, const T ReferenceArray, const T ResultArray)
 {
-	if (ReferenceArray.Num() != ResultArray.Num())
+	if (ReferenceArray.GetNumElements() != ResultArray.GetNumElements())
 	{
 		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s count is different. %s count expected [%d] result [%d]"),
 			*AssetName,
 			*ConversionName,
-			*VectorArrayName,
-			*VectorArrayName,
-			ReferenceArray.Num(),
-			ResultArray.Num())));
+			*ArrayName,
+			*ArrayName,
+			ReferenceArray.GetNumElements(),
+			ResultArray.GetNumElements())));
+		bIsSame = false;
+	}
+	else if (ReferenceArray.GetNumIndices() != ResultArray.GetNumIndices())
+	{
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s channel count is different. %s channel count expected [%d] result [%d]"),
+			*AssetName,
+			*ConversionName,
+			*ArrayName,
+			*ArrayName,
+			ReferenceArray.GetNumIndices(),
+			ResultArray.GetNumIndices())));
 		bIsSame = false;
 	}
 	else
 	{
-		for (V ElementID : ElementIterator.GetElementIDs())
+		int32 NumDifferent = 0;
+		for (int32 Index = 0; Index < ReferenceArray.GetNumIndices(); ++Index)
 		{
-			if (ReferenceArray[ElementID] != ResultArray[ElementID])
+			for (auto ElementID : ElementIterator.GetElementIDs())
 			{
-				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s array is different. Array index [%d] expected %s [%s] result [%s]"),
-					*AssetName,
-					*ConversionName,
-					*VectorArrayName,
-					ElementID.GetValue(),
-					*VectorArrayName,
-					*ReferenceArray[ElementID].ToString(),
-					*ResultArray[ElementID].ToString())));
-				bIsSame = false;
-				break;
+				if (ReferenceArray.Get(ElementID, Index) != ResultArray.Get(ElementID, Index))
+				{
+					NumDifferent++;
+					if (NumDifferent < 5)
+					{
+						ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s array is different. Element [%d] of attribute index [%d] expected %s [%s] result [%s]"),
+							*AssetName,
+							*ConversionName,
+							*ArrayName,
+							ElementID.GetValue(),
+							Index,
+							*ArrayName,
+							*AttributeValueAsString(ReferenceArray.Get(ElementID, Index)),
+							*AttributeValueAsString(ResultArray.Get(ElementID, Index)))));
+					}
+					else
+					{
+						ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, TEXT("More than 5 unequal elements - silencing")));
+						break;
+					}
+					bIsSame = false;
+				}
 			}
 		}
 	}
@@ -397,32 +357,26 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 {
 	//////////////////////////////////////////////////////////////////////////
 	//Gather the reference data
-	const TVertexAttributeArray<FVector>& ReferenceVertexPositions = ReferenceMeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-
-	const TVertexInstanceAttributeArray<FVector>& ReferenceVertexInstanceNormals = ReferenceMeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
-	const TVertexInstanceAttributeArray<FVector>& ReferenceVertexInstanceTangents = ReferenceMeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
-	const TVertexInstanceAttributeArray<float>& ReferenceVertexInstanceBinormalSigns = ReferenceMeshDescription.VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
-	const TVertexInstanceAttributeArray<FVector4>& ReferenceVertexInstanceColors = ReferenceMeshDescription.VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
-	const TVertexInstanceAttributeIndicesArray<FVector2D>& ReferenceVertexInstanceUVs = ReferenceMeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
-
-	const TEdgeAttributeArray<bool>& ReferenceEdgeHardnesses = ReferenceMeshDescription.EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-
-	const TPolygonGroupAttributeArray<FName>& ReferencePolygonGroupMaterialName = ReferenceMeshDescription.PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TVertexAttributesConstRef<FVector> ReferenceVertexPositions = ReferenceMeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TVertexInstanceAttributesConstRef<FVector> ReferenceVertexInstanceNormals = ReferenceMeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesConstRef<FVector> ReferenceVertexInstanceTangents = ReferenceMeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesConstRef<float> ReferenceVertexInstanceBinormalSigns = ReferenceMeshDescription.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesConstRef<FVector4> ReferenceVertexInstanceColors = ReferenceMeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributesConstRef<FVector2D> ReferenceVertexInstanceUVs = ReferenceMeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TEdgeAttributesConstRef<bool> ReferenceEdgeHardnesses = ReferenceMeshDescription.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+	TPolygonGroupAttributesConstRef<FName> ReferencePolygonGroupMaterialName = ReferenceMeshDescription.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 
 	//////////////////////////////////////////////////////////////////////////
 	//Gather the result data
-	const TVertexAttributeArray<FVector>& ResultVertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-
-	const TVertexInstanceAttributeArray<FVector>& ResultVertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
-	const TVertexInstanceAttributeArray<FVector>& ResultVertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
-	const TVertexInstanceAttributeArray<float>& ResultVertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
-	const TVertexInstanceAttributeArray<FVector4>& ResultVertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
-	const TVertexInstanceAttributeIndicesArray<FVector2D>& ResultVertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
-
-	const TEdgeAttributeArray<bool>& ResultEdgeHardnesses = MeshDescription.EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-
-	const TPolygonGroupAttributeArray<FName>& ResultPolygonGroupMaterialName = MeshDescription.PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TVertexAttributesConstRef<FVector> ResultVertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TVertexInstanceAttributesConstRef<FVector> ResultVertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesConstRef<FVector> ResultVertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesConstRef<float> ResultVertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesConstRef<FVector4> ResultVertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributesConstRef<FVector2D> ResultVertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TEdgeAttributesConstRef<bool> ResultEdgeHardnesses = MeshDescription.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+	TPolygonGroupAttributesConstRef<FName> ResultPolygonGroupMaterialName = MeshDescription.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 	
 	//////////////////////////////////////////////////////////////////////////
@@ -432,48 +386,31 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 	FString ConversionName = TEXT("MeshDescription to RawMesh to MeshDescription");
 
 	//Positions
-	MeshDescriptionStructureArrayCompare<TVertexAttributeArray<FVector>, FVertexArray, FVertexID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.Vertices(), TEXT("vertex positions"), ReferenceVertexPositions, ResultVertexPositions);
+	MeshDescriptionAttributeArrayCompare(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.Vertices(), TEXT("vertex positions"), ReferenceVertexPositions, ResultVertexPositions);
 
 	//Normals
-	MeshDescriptionStructureArrayCompare<TVertexInstanceAttributeArray<FVector>, FVertexInstanceArray, FVertexInstanceID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.VertexInstances(), TEXT("vertex instance normals"), ReferenceVertexInstanceNormals, ResultVertexInstanceNormals);
+	MeshDescriptionAttributeArrayCompare(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.VertexInstances(), TEXT("vertex instance normals"), ReferenceVertexInstanceNormals, ResultVertexInstanceNormals);
 
 	//Tangents
-	MeshDescriptionStructureArrayCompare<TVertexInstanceAttributeArray<FVector>, FVertexInstanceArray, FVertexInstanceID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.VertexInstances(), TEXT("vertex instance tangents"), ReferenceVertexInstanceTangents, ResultVertexInstanceTangents);
+	MeshDescriptionAttributeArrayCompare(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.VertexInstances(), TEXT("vertex instance tangents"), ReferenceVertexInstanceTangents, ResultVertexInstanceTangents);
 
 	//BiNormal signs
-	MeshDescriptionNumberArrayCompare<TVertexInstanceAttributeArray<float>, FVertexInstanceArray, FVertexInstanceID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.VertexInstances(), TEXT("vertex instance binormals"), ReferenceVertexInstanceBinormalSigns, ResultVertexInstanceBinormalSigns);
+	MeshDescriptionAttributeArrayCompare(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.VertexInstances(), TEXT("vertex instance binormals"), ReferenceVertexInstanceBinormalSigns, ResultVertexInstanceBinormalSigns);
 
 	//Colors
-	MeshDescriptionStructureArrayCompare<TVertexInstanceAttributeArray<FVector4>, FVertexInstanceArray, FVertexInstanceID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.VertexInstances(), TEXT("vertex instance colors"), ReferenceVertexInstanceColors, ResultVertexInstanceColors);
+	MeshDescriptionAttributeArrayCompare(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.VertexInstances(), TEXT("vertex instance colors"), ReferenceVertexInstanceColors, ResultVertexInstanceColors);
 
 	//Uvs
-	if (ReferenceVertexInstanceUVs.GetNumIndices() != ResultVertexInstanceUVs.GetNumIndices())
-	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion MeshDescription to RawMesh to MeshDescription is not lossless, vertex instance UVs channel count is different. UVs channel count expected [%d] result [%d]"),
-			*AssetName,
-			ReferenceVertexInstanceUVs.GetNumIndices(),
-			ResultVertexInstanceUVs.GetNumIndices())));
-		bAllSame = false;
-	}
-	else
-	{
-		for (int32 UVChannelIndex = 0; UVChannelIndex < ReferenceVertexInstanceUVs.GetNumIndices(); ++UVChannelIndex)
-		{
-			FString UVIndexName = FString::Printf(TEXT("vertex instance UVs(%d)"), UVChannelIndex);
-			const TMeshAttributeArray<FVector2D, FVertexInstanceID>& ReferenceUVs = ReferenceVertexInstanceUVs.GetArrayForIndex(UVChannelIndex);
-			const TMeshAttributeArray<FVector2D, FVertexInstanceID>& ResultUVs = ResultVertexInstanceUVs.GetArrayForIndex(UVChannelIndex);
-			MeshDescriptionStructureArrayCompare<TMeshAttributeArray<FVector2D, FVertexInstanceID>, FVertexInstanceArray, FVertexInstanceID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.VertexInstances(), UVIndexName, ReferenceUVs, ResultUVs);
-		}
-	}
+	MeshDescriptionAttributeArrayCompare(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.VertexInstances(), TEXT("vertex instance UVs"), ReferenceVertexInstanceUVs, ResultVertexInstanceUVs);
 
 	//Edges
 	//We do not use a template since we need to check the connected polygon count to validate a false comparison
-	if (ReferenceEdgeHardnesses.Num() != ResultEdgeHardnesses.Num())
+	if (ReferenceEdgeHardnesses.GetNumElements() != ResultEdgeHardnesses.GetNumElements())
 	{
 		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion MeshDescription to RawMesh to MeshDescription is not lossless, Edge count is different. Edges count expected [%d] result [%d]"),
 			*AssetName,
-			ReferenceEdgeHardnesses.Num(),
-			ResultEdgeHardnesses.Num())));
+			ReferenceEdgeHardnesses.GetNumElements(),
+			ResultEdgeHardnesses.GetNumElements())));
 		bAllSame = false;
 	}
 	else
@@ -500,7 +437,7 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 	}
 
 	//Polygon group ID
-	MeshDescriptionNumberFNameCompare<FPolygonGroupArray, FPolygonGroupID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.PolygonGroups(), TEXT("PolygonGroup Material Name"), ReferencePolygonGroupMaterialName, ResultPolygonGroupMaterialName);
+	MeshDescriptionAttributeArrayCompare(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription.PolygonGroups(), TEXT("PolygonGroup Material Name"), ReferencePolygonGroupMaterialName, ResultPolygonGroupMaterialName);
 
 	return bAllSame;
 }
@@ -631,11 +568,11 @@ bool FMeshDescriptionTest::NTBTest(FAutomationTestExecutionInfo& ExecutionInfo)
 		AssetMesh->SourceModels[0].LoadRawMesh(RawMesh);
 
 		//const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-		const TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
-		const TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
-		const TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
-		const TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
-		const TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		const TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+		const TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+		const TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+		const TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+		const TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 		int32 ExistingUVCount = VertexInstanceUVs.GetNumIndices();
 		//Build the normals and tangent and compare the result
 		MeshDescription.ComputePolygonTangentsAndNormals(SMALL_NUMBER);
@@ -734,10 +671,10 @@ bool FMeshDescriptionTest::NTBTest(FAutomationTestExecutionInfo& ExecutionInfo)
 
 					for (int32 UVIndex = 0; UVIndex < ExistingUVCount; ++UVIndex)
 					{
-						if (!RawMesh.WedgeTexCoords[UVIndex][WedgeIndex].Equals(VertexInstanceUVs.GetArrayForIndex(UVIndex)[VertexInstanceID], THRESH_UVS_ARE_SAME))
+						if (!RawMesh.WedgeTexCoords[UVIndex][WedgeIndex].Equals(VertexInstanceUVs.Get(VertexInstanceID, UVIndex), THRESH_UVS_ARE_SAME))
 						{
 							OutputError(FString::Printf(TEXT("Vertex Texture coordinnate is different between MeshDescription [%s] and FRawMesh [%s].   UVIndex[%d]  Indice[%d]")
-								, *(VertexInstanceUVs.GetArrayForIndex(UVIndex)[VertexInstanceID].ToString())
+								, *(VertexInstanceUVs.Get(VertexInstanceID, UVIndex).ToString())
 								, *(RawMesh.WedgeTexCoords[UVIndex][WedgeIndex].ToString())
 								, UVIndex
 								, VertexInstanceIDValue));

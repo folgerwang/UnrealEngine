@@ -300,7 +300,9 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 				}
 				else
 				{
-					if (ResolveParams.Rect.IsValid())
+					if (ResolveParams.Rect.IsValid()
+						&& !SourceTextureRHI->IsMultisampled()
+						&& !DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite))
 					{
 						D3D12_BOX SrcBox;
 
@@ -310,6 +312,8 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 						SrcBox.right = ResolveParams.Rect.X2;
 						SrcBox.bottom = ResolveParams.Rect.Y2;
 						SrcBox.back = 1;
+
+						const FResolveRect& DestRect = ResolveParams.DestRect.IsValid() ? ResolveParams.DestRect : ResolveParams.Rect;
 
 						FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierDest(CommandListHandle, DestTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, ResolveParams.DestArrayIndex);
 						FConditionalScopeResourceBarrier ConditionalScopeResourceBarrierSource(CommandListHandle, SourceTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, ResolveParams.SourceArrayIndex);
@@ -321,7 +325,7 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 						CommandListHandle.FlushResourceBarriers();
 						CommandListHandle->CopyTextureRegion(
 							&DestCopyLocation,
-							ResolveParams.DestRect.X1, ResolveParams.DestRect.Y1, 0,
+							DestRect.X1, DestRect.Y1, 0,
 							&SourceCopyLocation,
 							&SrcBox);
 

@@ -21,6 +21,7 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Images/SImage.h"
 #include "Factories/AnimMontageFactory.h"
+#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "AnimSequenceEditor"
 
@@ -52,9 +53,12 @@ void SMontageEditor::Construct(const FArguments& InArgs, const FMontageEditorReq
 		.OnObjectsSelected(InArgs._OnObjectsSelected), 
 		InRequiredArgs.PreviewScene );
 
-	InRequiredArgs.OnPostUndo.Add(FSimpleDelegate::CreateSP(this, &SMontageEditor::PostUndo));
+	if(GEditor)
+	{
+		GEditor->RegisterForUndo(this);
+	}
 
-	SAssignNew(AnimTimingPanel, SAnimTimingPanel, InRequiredArgs.OnAnimNotifiesChanged, InRequiredArgs.OnSectionsChanged)
+	SAssignNew(AnimTimingPanel, SAnimTimingPanel, InRequiredArgs.OnSectionsChanged)
 		.IsEnabled(!bChildAnimMontage)
 		.InSequence(MontageObj)
 		.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
@@ -144,7 +148,7 @@ void SMontageEditor::Construct(const FArguments& InArgs, const FMontageEditorReq
 	.AutoHeight()
 	.Padding(0, 5)
 	[
-		SAssignNew( AnimMontagePanel, SAnimMontagePanel, InRequiredArgs.OnAnimNotifiesChanged, InRequiredArgs.OnSectionsChanged)
+		SAssignNew( AnimMontagePanel, SAnimMontagePanel, InRequiredArgs.OnSectionsChanged)
 		.Montage(MontageObj)
 		.bChildAnimMontage(bChildAnimMontage)
 		.MontageEditor(SharedThis(this))
@@ -180,7 +184,7 @@ void SMontageEditor::Construct(const FArguments& InArgs, const FMontageEditorReq
 	.AutoHeight()
 	.Padding(0, 10)
 	[
-		SAssignNew( AnimNotifyPanel, SAnimNotifyPanel, InRequiredArgs.OnPostUndo )
+		SAssignNew( AnimNotifyPanel, SAnimNotifyPanel, InRequiredArgs.EditableSkeleton )
 		.Sequence(MontageObj)
 		.IsEnabled(!bChildAnimMontage)
 		.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
@@ -194,8 +198,8 @@ void SMontageEditor::Construct(const FArguments& InArgs, const FMontageEditorReq
 		.MarkerBars(this, &SMontageEditor::GetMarkerBarInformation)
 		.OnRequestRefreshOffsets(this, &SMontageEditor::RefreshNotifyTriggerOffsets)
 		.OnGetTimingNodeVisibility(TimingNodeVisibilityDelegate)
-		.OnAnimNotifiesChanged(InArgs._OnAnimNotifiesChanged)
 		.OnInvokeTab(InArgs._OnInvokeTab)
+		.OnNotifiesChanged(this, &SMontageEditor::HandleNotifiesChanged)
 	];
 
 	EditorPanels->AddSlot()
@@ -252,6 +256,11 @@ SMontageEditor::~SMontageEditor()
 	if (MontageObj)
 	{
 		MontageObj->UnregisterOnMontageChanged(this);
+	}
+
+	if(GEditor)
+	{
+		GEditor->UnregisterForUndo(this);
 	}
 }
 
@@ -323,6 +332,11 @@ void SMontageEditor::RefreshNotifyTriggerOffsets()
 			Notify.EndTriggerTimeOffset = 0.0f;
 		}
 	}
+}
+
+void SMontageEditor::HandleNotifiesChanged()
+{
+	AnimTimingPanel->Update();
 }
 
 bool SMontageEditor::GetSectionTime( int32 SectionIndex, float &OutTime ) const
@@ -886,7 +900,17 @@ void SMontageEditor::ClearSquenceOrdering()
 	RestartPreview();
 }
 
-void SMontageEditor::PostUndo()
+void SMontageEditor::PostUndo( bool bSuccess )
+{
+	PostRedoUndo();
+}
+
+void SMontageEditor::PostRedo( bool bSuccess )
+{
+	PostRedoUndo();
+}
+
+void SMontageEditor::PostRedoUndo()
 {
 	// when undo or redo happens, we still have to recalculate length, so we can't rely on sequence length changes or not
 	if (MontageObj->SequenceLength)

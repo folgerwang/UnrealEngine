@@ -101,6 +101,7 @@ public:
 	}
 
 	virtual bool ResetDefaults() override;
+	virtual bool NotifySectionOnPropertyModified() override;
 	virtual bool Save() override;
 	virtual bool SaveDefaults() override;
 
