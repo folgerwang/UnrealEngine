@@ -212,10 +212,16 @@ public:
 
 private:
 
+
 	// Update the LOD for the current actors, this is more complex than just updating a LOD value,
 	// we need to skin the incoming simulation mesh to the outgoing mesh (the weighting data should have been
 	// built in the asset already) to make sure it matches up without popping
-	void UpdateLod(int32 InPredictedLod, const FTransform& ComponentToWorld, const TArray<FTransform>& CSTransforms, bool bForceNoRemap = false);
+	// @param InPredictedLod The predicted LOD for the mesh component this clothing simulation is running on
+	// @param ComponentToWorld The component to world transform for the mesh component this clothing simulation is running on
+	// @param CSTranforms Component space transforms of the owning skeletal mesh component
+	// @param bForceNoRemap When changing LODs The incoming LOD can be skinned to the outgoing LOD for better transitions - this flag skips that step
+	// @param bForceActorChecks Typically we trust all LODs to be in sync, but that isn't always the case (e.g. adding a new actor). This forces each actor's LOD to be checked instead of trusting the master LOD
+	void UpdateLod(int32 InPredictedLod, const FTransform& ComponentToWorld, const TArray<FTransform>& CSTransforms, bool bForceNoRemap = false, bool bForceActorChecks = false);
 
 	// The core simulation is only solving unoriented particles, so we need to compute normals after the
 	// simulation runs
