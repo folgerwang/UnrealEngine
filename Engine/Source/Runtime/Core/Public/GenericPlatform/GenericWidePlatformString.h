@@ -191,7 +191,7 @@ public:
 		return GetVarArgs(Dest, DestSize, Fmt, ArgPtr);
 	}
 
-	static int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, const WIDECHAR*& Fmt, va_list ArgPtr );
+	static CORE_API int32 GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, const WIDECHAR*& Fmt, va_list ArgPtr );
 
 	/**
 	 * Ansi implementation
@@ -293,7 +293,7 @@ public:
 	{
 		int32 Result = vsnprintf(Dest, DestSize, Fmt, ArgPtr);
 		va_end( ArgPtr );
-		return Result;
+		return (Result != -1 && Result < DestSize) ? Result : -1;
 	}
 
 	/**

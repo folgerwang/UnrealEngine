@@ -592,7 +592,7 @@ struct FAndroidPlatformString : public FGenericPlatformString
 	{
 		int32 Result = vsnprintf(Dest, DestSize, Fmt, ArgPtr);
 		va_end( ArgPtr );
-		return Result;
+		return (Result != -1 && Result < DestSize) ? Result : -1;
 	}
 
 	/** 

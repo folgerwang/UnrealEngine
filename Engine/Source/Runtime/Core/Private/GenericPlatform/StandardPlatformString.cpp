@@ -206,13 +206,23 @@ int32 FStandardPlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, cons
 	const WIDECHAR* Format = Fmt;
 	const WIDECHAR* DestStart = Dest;
 
+	if (DestSize == 0)
+	{
+		return -1;
+	}
+
 	--DestSize;
-	while (DestSize > 1 && *Format)
+	while (*Format)
 	{
 		if (*Format == LITERAL(WIDECHAR, '%'))
 		{
 			if (*(Format + 1) == LITERAL(WIDECHAR, '%'))
 			{
+				if (DestSize == 0)
+				{
+					*Dest = 0;
+					return -1;
+				}
 				*Dest++ = *Format;
 				Format += 2;
 				DestSize--;
@@ -231,12 +241,24 @@ int32 FStandardPlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, cons
 				{
 					FMemory::Memcpy(Dest, FormattedArg, Length * sizeof(WIDECHAR));
 					Dest += Length;
+					DestSize -= Length;
 				}
-				DestSize -= Length;
+				else
+				{
+					FMemory::Memcpy(Dest, FormattedArg, DestSize * sizeof(WIDECHAR));
+					Dest += DestSize;
+					*Dest = 0;
+					return -1;
+				}
 			}
 		}
 		else
 		{
+			if (DestSize == 0)
+			{
+				*Dest = 0;
+				return -1;
+			}
 			*Dest++ = *Format++;
 			DestSize--;
 		}
@@ -244,7 +266,7 @@ int32 FStandardPlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, cons
 
 	*Dest = 0;
 
-	return DestSize > 1 ? Dest - DestStart : -1;
+	return Dest - DestStart;
 }
 
 #endif // !PLATFORM_USE_SYSTEM_VSWPRINTF
