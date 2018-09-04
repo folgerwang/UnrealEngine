@@ -1,7 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#pragma once
-
 #include "Units/RigUnit.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogRigUnit, Log, All);
