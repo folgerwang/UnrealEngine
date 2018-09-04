@@ -147,7 +147,6 @@
     <Compile Include="RestrictedFolders.cs" />
     <Compile Include="ResXResource\UEResXReader.cs" />
     <Compile Include="ResXResource\UEResXWriter.cs" />
-    <Compile Include="RPCCommandHelper.cs" />
     <Compile Include="StringUtils.cs" />
     <Compile Include="ThreadPoolWorkQueue.cs" />
   </ItemGroup>
