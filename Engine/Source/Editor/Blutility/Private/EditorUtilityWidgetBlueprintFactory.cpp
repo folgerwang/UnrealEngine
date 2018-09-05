@@ -4,7 +4,6 @@
 #include "Misc/MessageDialog.h"
 #include "Modules/ModuleManager.h"
 #include "Widgets/SWindow.h"
-#include "Engine/Blueprint.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "EditorUtilityBlueprint.h"

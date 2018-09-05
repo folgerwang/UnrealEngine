@@ -10,7 +10,9 @@
 #include "UObject/ObjectMacros.h"
 #include "Templates/SubclassOf.h"
 #include "Factories/Factory.h"
+#include "Engine/Blueprint.h"
 #include "EditorUtilityWidgetBlueprintFactory.generated.h"
+
 
 class SWindow;
 
@@ -21,7 +23,7 @@ class UEditorUtilityWidgetBlueprintFactory : public UFactory
 
 	// The type of blueprint that will be created
 	UPROPERTY(EditAnywhere, Category = WidgetBlueprintFactory)
-	TEnumAsByte<enum EBlueprintType> BlueprintType;
+	TEnumAsByte<EBlueprintType> BlueprintType;
 
 	// The parent class of the created blueprint
 	UPROPERTY(EditAnywhere, Category = WidgetBlueprintFactory, meta = (AllowAbstract = ""))
