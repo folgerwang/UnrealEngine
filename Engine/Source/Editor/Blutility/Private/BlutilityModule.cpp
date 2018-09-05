@@ -120,7 +120,7 @@ public:
 		}
 	}
 
-	void OnMapChanged(UWorld* World, EMapChangeType MapChangeType)
+	void OnMapChanged(UWorld* InWorld, EMapChangeType MapChangeType)
 	{
 		if (EditorUtilityContext)
 		{
