@@ -908,6 +908,12 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 				GEngine->StereoRenderingDevice->RenderTexture_RenderThread(RHICmdList, RHICmdList.GetViewportBackBuffer(ViewportInfo.ViewportRHI), ViewportInfo.GetRenderTargetTexture(), WindowSize);
 			}
 			RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, BackBuffer);
+
+			// Fire delegate to inform bound functions the back buffer is ready to be captured.
+			if (OnBackBufferReadyToPresentDelegate.IsBound())
+			{
+				OnBackBufferReadyToPresentDelegate.Execute(BackBuffer);
+			}
 		}
 	}
 

@@ -106,3 +106,55 @@ public:
 	FDatasmithTessellationOptions TessellationOptions;
 #endif		// WITH_EDITORONLY_DATA
 };
+
+UCLASS()
+class DATASMITHCONTENT_API UDatasmithMDLSceneImportData : public UDatasmithSceneImportData
+{
+	GENERATED_BODY()
+};
+
+UCLASS(EditInlineNew)
+class DATASMITHCONTENT_API UDatasmithDeltaGenAssetImportData : public UDatasmithAssetImportData
+{
+	GENERATED_BODY()
+};
+
+UCLASS(EditInlineNew)
+class DATASMITHCONTENT_API UDatasmithDeltaGenSceneImportData : public UDatasmithSceneImportData
+{
+	GENERATED_BODY()
+};
+
+UENUM(BlueprintType)
+enum class EVREDDataTableType : uint8
+{
+	NotDatatable,
+	Variants,
+	AnimClips,
+	AnimNodes
+};
+
+UCLASS(EditInlineNew)
+class DATASMITHCONTENT_API UDatasmithVREDAssetImportData : public UDatasmithAssetImportData
+{
+	GENERATED_BODY()
+
+public:
+	EVREDDataTableType DataTableType;
+};
+
+UCLASS(EditInlineNew)
+class DATASMITHCONTENT_API UDatasmithVREDSceneImportData : public UDatasmithSceneImportData
+{
+	GENERATED_BODY()
+
+// TODO
+/*#if WITH_EDITORONLY_DATA
+public:
+	UPROPERTY(EditAnywhere, Category="VREDOptions", meta=(ShowOnlyInnerProperties))
+	class UDatasmithVREDImportOptions* VREDOptions;
+
+#endif // WITH_EDITORONLY_DATA*/
+};
+
+

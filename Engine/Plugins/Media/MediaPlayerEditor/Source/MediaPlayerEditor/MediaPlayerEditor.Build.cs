@@ -26,12 +26,18 @@ public class MediaPlayerEditor : ModuleRules
 				"MediaPlayerEditor/Private/Widgets",
 			});
 
+		PublicDependencyModuleNames.AddRange(
+			new string[] {
+				"Core",
+				"Slate",
+				"SlateCore",
+			});
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"AudioMixer",
 				"ComponentVisualizers",
 				"ContentBrowser",
-				"Core",
 				"CoreUObject",
 				"ApplicationCore",
 				"DesktopPlatform",
@@ -46,8 +52,6 @@ public class MediaPlayerEditor : ModuleRules
 				"RenderCore",
 				"RHI",
 				"ShaderCore",
-				"Slate",
-				"SlateCore",
 				"TextureEditor",
 				"UnrealEd",
 			});

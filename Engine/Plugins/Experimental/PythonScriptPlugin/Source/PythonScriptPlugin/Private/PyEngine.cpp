@@ -41,6 +41,11 @@ PyTypeObject InitializePyActorIteratorType(const char* InTypeName, const char* I
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'world' (%s) to 'World'"), *PyUtil::GetFriendlyTypename(PyWorldObj)));
 				return -1;
 			}
+			if (!IterWorld)
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("'world' cannot be 'None'"), *PyUtil::GetFriendlyTypename(PyWorldObj)));
+				return -1;
+			}
 
 			UClass* IterClass = AActor::StaticClass();
 			if (PyTypeObj && !PyConversion::NativizeClass(PyTypeObj, IterClass, AActor::StaticClass()))

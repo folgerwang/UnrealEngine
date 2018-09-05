@@ -19,7 +19,7 @@ UMovieSceneFadeTrack::UMovieSceneFadeTrack(const FObjectInitializer& Init)
 
 UMovieSceneSection* UMovieSceneFadeTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneFadeSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneFadeSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneFadeTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const

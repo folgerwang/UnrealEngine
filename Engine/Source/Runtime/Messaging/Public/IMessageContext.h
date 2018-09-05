@@ -182,6 +182,15 @@ enum class EMessageScope : uint8
 	All
 };
 
+enum class EMessageFlags : uint32
+{
+	/** No special flags */
+	None = 0,
+	/** Guarantee that this message is delivered */
+	Reliable = 1 << 0,
+};
+ENUM_CLASS_FLAGS(EMessageFlags);
+
 
 /** Type definition for message scope ranges. */
 typedef TRange<EMessageScope> FMessageScopeRange;
@@ -270,6 +279,13 @@ public:
 	 * @return The message scope.
 	 */
 	virtual EMessageScope GetScope() const = 0;
+
+	/**
+	* Gets the scope to which the message was sent.
+	*
+	* @return The message scope.
+	*/
+	virtual EMessageFlags GetFlags() const = 0;
 
 	/**
 	 * Gets the sender's address.

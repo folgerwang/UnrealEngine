@@ -7,7 +7,7 @@
 
 UMovieSceneSection* UMovieSceneNiagaraIntegerParameterTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneIntegerSection>(this);
+	return NewObject<UMovieSceneIntegerSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneNiagaraIntegerParameterTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const

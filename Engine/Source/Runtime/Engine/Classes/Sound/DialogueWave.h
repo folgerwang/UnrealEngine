@@ -131,6 +131,12 @@ public:
 	ENGINE_API bool SupportsContext(const FDialogueContext& Context) const;
 	ENGINE_API USoundBase* GetWaveFromContext(const FDialogueContext& Context) const;
 	ENGINE_API USoundBase* GetWaveFromContext(const FDialogueContextMapping& ContextMapping) const;
+	ENGINE_API FText GetLocalizedSpokenText() const;
+	ENGINE_API FText GetLocalizedSpokenText(const FDialogueContext& Context) const;
+	ENGINE_API FText GetLocalizedSpokenText(const FDialogueContextMapping& ContextMapping) const;
+	ENGINE_API FText GetLocalizedSubtitle() const;
+	ENGINE_API FText GetLocalizedSubtitle(const FDialogueContext& Context) const;
+	ENGINE_API FText GetLocalizedSubtitle(const FDialogueContextMapping& ContextMapping) const;
 	ENGINE_API FString GetContextLocalizationKey(const FDialogueContext& Context) const;
 	ENGINE_API FString GetContextLocalizationKey(const FDialogueContextMapping& ContextMapping) const;
 	ENGINE_API FString GetContextRecordedAudioFilename(const FDialogueContext& Context) const;

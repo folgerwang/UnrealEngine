@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Misc/Guid.h"
 #include "UObject/UObjectHierarchyFwd.h"
 #include "Change.h"
 
@@ -10,6 +11,64 @@
 typedef void(*STRUCT_DC)( void* TPtr );						// default construct
 typedef void(*STRUCT_AR)( class FArchive& Ar, void* TPtr );	// serialize
 typedef void(*STRUCT_DTOR)( void* TPtr );					// destruct
+
+
+/** Different kinds of actions that can trigger a transaction state change */
+enum class ETransactionStateEventType : uint8
+{
+	/** A transaction has been started. This will be followed by a TransactionCanceled or TransactionFinalized event. */
+	TransactionStarted,
+	/** A transaction was canceled. */
+	TransactionCanceled,
+	/** A transaction was finalized. */
+	TransactionFinalized,
+
+	/** A transaction will be used used in an undo/redo operation. This will be followed by a UndoRedoFinalized event. */
+	UndoRedoStarted,
+	/** A transaction has been used in an undo/redo operation. */
+	UndoRedoFinalized,
+};
+
+
+/**
+ * Convenience struct for passing around transaction context.
+ */
+struct FTransactionContext 
+{
+	FTransactionContext()
+		: TransactionId()
+		, OperationId()
+		, Title()
+		, Context()
+		, PrimaryObject(nullptr)
+	{
+	}
+
+	FTransactionContext(const FGuid& InTransactionId, const FGuid& InOperationId, const FText& InSessionTitle, const TCHAR* InContext, UObject* InPrimaryObject) 
+		: TransactionId(InTransactionId)
+		, OperationId(InOperationId)
+		, Title(InSessionTitle)
+		, Context(InContext)
+		, PrimaryObject(InPrimaryObject)
+	{
+	}
+
+	bool IsValid() const
+	{
+		return TransactionId.IsValid() && OperationId.IsValid();
+	}
+
+	/** Unique identifier for the transaction, used to track it during its lifetime */
+	FGuid TransactionId;
+	/** Unique identifier for the active operation on the transaction (if any) */
+	FGuid OperationId;
+	/** Descriptive title of the transaction */
+	FText Title;
+	/** The context that generated the transaction */
+	FString Context;
+	/** The primary UObject for the transaction (if any). */
+	UObject* PrimaryObject;
+};
 
 
 /**
@@ -20,11 +79,12 @@ typedef void(*STRUCT_DTOR)( void* TPtr );					// destruct
  * on the UObject that a modification was performed on, but it does not see other changes that may have
  * to be remembered in order to properly restore the object internals.
  */
-class ITransactionObjectAnnotation 
-{ 
+class ITransactionObjectAnnotation
+{
 public:
-	virtual ~ITransactionObjectAnnotation() {}
+	virtual ~ITransactionObjectAnnotation() = default;
 	virtual void AddReferencedObjects(class FReferenceCollector& Collector) = 0;
+	virtual void Serialize(class FArchive& Ar) = 0;
 };
 
 
@@ -42,6 +102,19 @@ struct FTransactionObjectDeltaChange
 	bool HasChanged() const
 	{
 		return bHasNameChange || bHasOuterChange || bHasPendingKillChange || bHasNonPropertyChanges || ChangedProperties.Num() > 0;
+	}
+
+	void Merge(const FTransactionObjectDeltaChange& InOther)
+	{
+		bHasNameChange |= InOther.bHasNameChange;
+		bHasOuterChange |= InOther.bHasOuterChange;
+		bHasPendingKillChange |= InOther.bHasPendingKillChange;
+		bHasNonPropertyChanges |= InOther.bHasNonPropertyChanges;
+
+		for (const FName& OtherChangedPropName : InOther.ChangedProperties)
+		{
+			ChangedProperties.AddUnique(OtherChangedPropName);
+		}
 	}
 
 	/** True if the object name has changed */
@@ -79,14 +152,32 @@ enum class ETransactionObjectEventType : uint8
 class FTransactionObjectEvent
 {
 public:
-	FTransactionObjectEvent(const ETransactionObjectEventType InEventType, const FTransactionObjectDeltaChange& InDeltaChange, const TSharedPtr<ITransactionObjectAnnotation>& InAnnotation, const FName InOriginalObjectName, const FName InOriginalObjectPathName, const FName InOriginalObjectOuterPathName)
-		: EventType(InEventType)
+	FTransactionObjectEvent() = default;
+
+	FTransactionObjectEvent(const FGuid& InTransactionId, const FGuid& InOperationId, const ETransactionObjectEventType InEventType, const FTransactionObjectDeltaChange& InDeltaChange, const TSharedPtr<ITransactionObjectAnnotation>& InAnnotation, const FName InOriginalObjectName, const FName InOriginalObjectPathName, const FName InOriginalObjectOuterPathName)
+		: TransactionId(InTransactionId)
+		, OperationId(InOperationId)
+		, EventType(InEventType)
 		, DeltaChange(InDeltaChange)
 		, Annotation(InAnnotation)
 		, OriginalObjectName(InOriginalObjectName)
 		, OriginalObjectPathName(InOriginalObjectPathName)
 		, OriginalObjectOuterPathName(InOriginalObjectOuterPathName)
 	{
+		check(TransactionId.IsValid());
+		check(OperationId.IsValid());
+	}
+
+	/** The unique identifier of the transaction this event belongs to */
+	const FGuid& GetTransactionId() const
+	{
+		return TransactionId;
+	}
+
+	/** The unique identifier for the active operation on the transaction this event belongs to */
+	const FGuid& GetOperationId() const
+	{
+		return OperationId;
 	}
 
 	/** What kind of action caused this event? */
@@ -132,9 +223,9 @@ public:
 	}
 
 	/** Were any non-property changes made to the object? */
-	bool HasNonPropertyChanges() const
+	bool HasNonPropertyChanges(const bool InSerializationOnly = false) const
 	{
-		return DeltaChange.bHasNameChange || DeltaChange.bHasOuterChange || DeltaChange.bHasPendingKillChange || DeltaChange.bHasNonPropertyChanges;
+		return (!InSerializationOnly && (DeltaChange.bHasNameChange || DeltaChange.bHasOuterChange || DeltaChange.bHasPendingKillChange)) || DeltaChange.bHasNonPropertyChanges;
 	}
 
 	/** Were any property changes made to the object? */
@@ -150,12 +241,25 @@ public:
 	}
 
 	/** Get the annotation object associated with the object being transacted (if any). */
-	TSharedPtr<const ITransactionObjectAnnotation> GetAnnotation() const
+	TSharedPtr<ITransactionObjectAnnotation> GetAnnotation() const
 	{
 		return Annotation;
 	}
 
+	/** Merge this transaction event with another */
+	void Merge(const FTransactionObjectEvent& InOther)
+	{
+		if (EventType == ETransactionObjectEventType::Snapshot)
+		{
+			EventType = InOther.EventType;
+		}
+
+		DeltaChange.Merge(InOther.DeltaChange);
+	}
+
 private:
+	FGuid TransactionId;
+	FGuid OperationId;
 	ETransactionObjectEventType EventType;
 	FTransactionObjectDeltaChange DeltaChange;
 	TSharedPtr<ITransactionObjectAnnotation> Annotation;
@@ -163,7 +267,6 @@ private:
 	FName OriginalObjectPathName;
 	FName OriginalObjectOuterPathName;
 };
-
 
 /**
  * Interface for transactions.
@@ -175,11 +278,23 @@ class ITransaction
 {
 public:
 
+	/** BeginOperation should be called when a transaction or undo/redo starts */
+	virtual void BeginOperation() = 0;
+
+	/** EndOperation should be called when a transaction is finalized or canceled or undo/redo ends */
+	virtual void EndOperation() = 0;
+
 	/** Called when this transaction is completed to finalize the transaction */
-	virtual void Finalize( ) = 0;
+	virtual void Finalize() = 0;
 
 	/** Applies the transaction. */
-	virtual void Apply( ) = 0;
+	virtual void Apply() = 0;
+
+	/** Gets the full context for the transaction */
+	virtual FTransactionContext GetContext() const = 0;
+
+	/** @returns if this transaction tracks PIE objects */
+	virtual bool ContainsPieObjects() const = 0;
 
 	/**
 	 * Saves an array to the transaction.

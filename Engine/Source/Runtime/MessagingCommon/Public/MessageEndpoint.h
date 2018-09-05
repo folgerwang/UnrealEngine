@@ -241,13 +241,31 @@ public:
 	 * @param Delay The delay after which to send the message.
 	 * @param Expiration The time at which the message expires.
 	 */
+	DEPRECATED(4.21, "FMessageEndpoint::Send with 6 params is deprecated. Please use FMessageEndpoint::Send that takes additionnal EMessageFlags instead!")
 	void Send(void* Message, UScriptStruct* TypeInfo, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration)
+	{
+		Send(Message, TypeInfo, EMessageFlags::None, Attachment, Recipients, Delay, Expiration);
+	}
+
+	/**
+	 * Sends a message to the specified list of recipients.
+	 * Allows to specify message flags
+	 *
+	 * @param Message The message to send.
+	 * @param TypeInfo The message's type information.
+	 * @param Flags The message's type information.
+	 * @param Attachment An optional binary data attachment.
+	 * @param Recipients The message recipients.
+	 * @param Delay The delay after which to send the message.
+	 * @param Expiration The time at which the message expires.
+	 */
+	void Send(void* Message, UScriptStruct* TypeInfo, EMessageFlags Flags, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration)
 	{
 		TSharedPtr<IMessageBus, ESPMode::ThreadSafe> Bus = GetBusIfEnabled();
 
 		if (Bus.IsValid())
 		{
-			Bus->Send(Message, TypeInfo, Attachment, Recipients, Delay, Expiration, AsShared());
+			Bus->Send(Message, TypeInfo, Flags, Attachment, Recipients, Delay, Expiration, AsShared());
 		}
 	}
 
@@ -539,7 +557,7 @@ public:
 	template<typename MessageType>
 	void Send(MessageType* Message, const FMessageAddress& Recipient)
 	{
-		Send(Message, MessageType::StaticStruct(), nullptr, TArrayBuilder<FMessageAddress>().Add(Recipient), FTimespan::Zero(), FDateTime::MaxValue());
+		Send(Message, MessageType::StaticStruct(), EMessageFlags::None, nullptr, TArrayBuilder<FMessageAddress>().Add(Recipient), FTimespan::Zero(), FDateTime::MaxValue());
 	}
 
 	/**
@@ -553,7 +571,7 @@ public:
 	template<typename MessageType>
 	void Send(MessageType* Message, const FMessageAddress& Recipient, const FTimespan& Delay)
 	{
-		Send(Message, MessageType::StaticStruct(), nullptr, TArrayBuilder<FMessageAddress>().Add(Recipient), Delay, FDateTime::MaxValue());
+		Send(Message, MessageType::StaticStruct(), EMessageFlags::None, nullptr, TArrayBuilder<FMessageAddress>().Add(Recipient), Delay, FDateTime::MaxValue());
 	}
 
 	/**
@@ -568,7 +586,7 @@ public:
 	template<typename MessageType>
 	void Send(MessageType* Message, const FMessageAddress& Recipient, const FTimespan& Delay, const FDateTime& Expiration)
 	{
-		Send(Message, MessageType::StaticStruct(), nullptr, TArrayBuilder<FMessageAddress>().Add(Recipient), Delay, Expiration);
+		Send(Message, MessageType::StaticStruct(), EMessageFlags::None, nullptr, TArrayBuilder<FMessageAddress>().Add(Recipient), Delay, Expiration);
 	}
 
 	/**
@@ -582,7 +600,7 @@ public:
 	template<typename MessageType>
 	void Send(MessageType* Message, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const FMessageAddress& Recipient)
 	{
-		Send(Message, MessageType::StaticStruct(), Attachment, TArrayBuilder<FMessageAddress>().Add(Recipient), FTimespan::Zero(), FDateTime::MaxValue());
+		Send(Message, MessageType::StaticStruct(), EMessageFlags::None, Attachment, TArrayBuilder<FMessageAddress>().Add(Recipient), FTimespan::Zero(), FDateTime::MaxValue());
 	}
 
 	/**
@@ -598,7 +616,7 @@ public:
 	template<typename MessageType>
 	void Send(MessageType* Message, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const FMessageAddress& Recipient, const FDateTime& Expiration, const FTimespan& Delay)
 	{
-		Send(Message, MessageType::StaticStruct(), Attachment, TArrayBuilder<FMessageAddress>().Add(Recipient), Delay, Expiration);
+		Send(Message, MessageType::StaticStruct(), EMessageFlags::None, Attachment, TArrayBuilder<FMessageAddress>().Add(Recipient), Delay, Expiration);
 	}
 
 	/**
@@ -611,7 +629,7 @@ public:
 	template<typename MessageType>
 	void Send(MessageType* Message, const TArray<FMessageAddress>& Recipients)
 	{
-		Send(Message, MessageType::StaticStruct(), nullptr, Recipients, FTimespan::Zero(), FDateTime::MaxValue());
+		Send(Message, MessageType::StaticStruct(), EMessageFlags::None, nullptr, Recipients, FTimespan::Zero(), FDateTime::MaxValue());
 	}
 
 	/**
@@ -625,7 +643,7 @@ public:
 	template<typename MessageType>
 	void Send(MessageType* Message, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay)
 	{
-		Send(Message, MessageType::StaticStruct(), nullptr, Recipients, Delay, FDateTime::MaxValue());
+		Send(Message, MessageType::StaticStruct(), EMessageFlags::None, nullptr, Recipients, Delay, FDateTime::MaxValue());
 	}
 
 	/**
@@ -640,7 +658,7 @@ public:
 	template<typename MessageType>
 	void Send(MessageType* Message, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay)
 	{
-		Send(Message, MessageType::StaticStruct(), Attachment, Recipients, Delay, FDateTime::MaxValue());
+		Send(Message, MessageType::StaticStruct(), EMessageFlags::None, Attachment, Recipients, Delay, FDateTime::MaxValue());
 	}
 
 	/**
@@ -656,7 +674,7 @@ public:
 	template<typename MessageType>
 	void Send(MessageType* Message, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration)
 	{
-		Send(Message, MessageType::StaticStruct(), Attachment, Recipients, Delay, Expiration);
+		Send(Message, MessageType::StaticStruct(), EMessageFlags::None, Attachment, Recipients, Delay, Expiration);
 	}
 
 	/**

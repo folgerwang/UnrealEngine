@@ -15,6 +15,7 @@
 #include "Misc/Timespan.h"
 #include "Templates/SharedPointer.h"
 
+#include "UdpMessagingPrivate.h"
 #include "Shared/UdpMessageSegment.h"
 #include "Transport/UdpMessageResequencer.h"
 
@@ -49,6 +50,9 @@ class FUdpMessageProcessor
 		/** Holds the endpoint's node identifier. */
 		FGuid NodeId;
 
+		/** Holds the protocol version this node is communicating with */
+		uint8 ProtocolVersion;
+
 		/** Holds the collection of reassembled messages. */
 		TMap<int32, TSharedPtr<FUdpReassembledMessage, ESPMode::ThreadSafe>> ReassembledMessages;
 
@@ -56,12 +60,13 @@ class FUdpMessageProcessor
 		FUdpMessageResequencer Resequencer;
 
 		/** Holds the collection of message segmenters. */
-		TMap<int32, TSharedPtr<FUdpMessageSegmenter> > Segmenters;
+		TMap<int32, TSharedPtr<FUdpMessageSegmenter>> Segmenters;
 
 		/** Default constructor. */
 		FNodeInfo()
 			: LastSegmentReceivedTime(FDateTime::MinValue())
 			, NodeId()
+			, ProtocolVersion(UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION)
 		{ }
 
 		/** Resets the endpoint info. */
@@ -104,16 +109,16 @@ class FUdpMessageProcessor
 		/** Holds the serialized message. */
 		TSharedPtr<FUdpSerializedMessage, ESPMode::ThreadSafe> SerializedMessage;
 
-		/** Holds the recipient. */
-		FGuid RecipientId;
+		/** Holds the recipients. */
+		TArray<FGuid> RecipientIds;
 
 		/** Default constructor. */
 		FOutboundMessage() { }
 
 		/** Creates and initializes a new instance. */
-		FOutboundMessage(const TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe>& InSerializedMessage, const FGuid& InRecipientId)
+		FOutboundMessage(TSharedPtr<FUdpSerializedMessage, ESPMode::ThreadSafe> InSerializedMessage, const TArray<FGuid>& InRecipientIds)
 			: SerializedMessage(InSerializedMessage)
-			, RecipientId(InRecipientId)
+			, RecipientIds(InRecipientIds)
 		{ }
 	};
 
@@ -134,6 +139,14 @@ public:
 public:
 
 	/**
+	 * Get a list of Nodes Ids split by supported Protocol version
+	 *
+	 * @param Recipients The list of recipients Ids
+	 * @return A map of protocol version -> list of node ids for that protocol
+	 */
+	TMap<uint8, TArray<FGuid>> GetRecipientsPerProtocolVersion(const TArray<FGuid>& Recipients);
+
+	/**
 	 * Queues up an inbound message segment.
 	 *
 	 * @param Data The segment data.
@@ -145,11 +158,11 @@ public:
 	/**
 	 * Queues up an outbound message.
 	 *
-	 * @param SerializedMessage The serialized message to send.
-	 * @param Recipient The recipient's IPv4 endpoint.
+	 * @param MessageContext The message to serialize and send.
+	 * @param Recipients The recipients ids to send to.
 	 * @return true if the message was queued up, false otherwise.
 	 */
-	bool EnqueueOutboundMessage(const TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe>& SerializedMessage, const FGuid& Recipient);
+	bool EnqueueOutboundMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& MessageContext, const TArray<FGuid>& Recipients);
 
 	/**
 	 * Get the event used to signal the message processor that work is available.
@@ -243,7 +256,7 @@ protected:
 	 * @param Sender The segment sender.
 	 * @return true if the segment passed the filter, false otherwise.
 	 */
-	bool FilterSegment(const FUdpMessageSegment::FHeader& Header, const TSharedPtr<FArrayReader, ESPMode::ThreadSafe>& Data, const FIPv4Endpoint& Sender);
+	bool FilterSegment(const FUdpMessageSegment::FHeader& Header);
 
 	/**
 	 * Processes an Abort segment.
@@ -254,12 +267,20 @@ protected:
 	void ProcessAbortSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
 
 	/**
-	 * Processes a Success segment.
+	 * Processes an Acknowledgement segment.
 	 *
 	 * @param Segment The segment to process.
 	 * @param NodeInfo Details for the node that sent the segment.
 	 */
 	void ProcessAcknowledgeSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
+
+	/**
+	 * Processes an AcknowledgmentSegments segment.
+	 *
+	 * @param Segment The segment to process.
+	 * @param NodeInfo Details for the node that sent the segment.
+	 */
+	void ProcessAcknowledgeSegmentsSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
 
 	/**
 	 * Processes a Bye segment.
@@ -291,6 +312,22 @@ protected:
 	 * @param Segment The segment to process.
 	 * @param NodeInfo Details for the node that sent the segment.
 	 */
+	void ProcessPingSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
+
+	/**
+	 * Processes a Pong segment.
+	 *
+	 * @param Segment The segment to process.
+	 * @param NodeInfo Details for the node that sent the segment.
+	*/
+	void ProcessPongSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
+
+	/**
+	 * Processes a Retransmit segment.
+	 *
+	 * @param Segment The segment to process.
+	 * @param NodeInfo Details for the node that sent the segment.
+	 */
 	void ProcessRetransmitSegment(FInboundSegment& Segment, FNodeInfo& NodeInfo);
 
 	/**
@@ -317,8 +354,6 @@ protected:
 	 */
 	void RemoveKnownNode(const FGuid& NodeId);
 
-	/** Update the message processor. */
-	void Update();
 
 	/** Updates all known remote nodes. */
 	void UpdateKnownNodes();
@@ -330,8 +365,19 @@ protected:
 	 */
 	void UpdateSegmenters(FNodeInfo& NodeInfo);
 
+	/**
+	 * Updates all reassemblers of the specified node.
+	 *
+	 * @param NodeInfo Details for the node to update.
+	 */
+	void UpdateReassemblers(FNodeInfo& NodeInfo);
+
+
 	/** Updates all static remote nodes. */
 	void UpdateStaticNodes();
+
+	/** Updates nodes per protocol version map */
+	void UpdateNodesPerVersion();
 
 protected:
 
@@ -355,14 +401,26 @@ private:
 	/** Holds the current time. */
 	FDateTime CurrentTime;
 
+	/** Holds the protocol version that can be communicated in. */
+	TArray<uint8> SupportedProtocolVersions;
+
+	/** Mutex protecting access to the NodeVersions map. */
+	mutable FCriticalSection NodeVersionCS;
+
+	/** Holds the protocol version of each nodes separately for safe access (NodeId -> Protocol Version). */
+	TMap<FGuid, uint8> NodeVersions;
+
 	/** Holds the collection of known remote nodes. */
 	TMap<FGuid, FNodeInfo> KnownNodes;
 
-	/** Holds the last sent message number. */
-	int32 LastSentMessage;
+	/** Holds the collection of static remote nodes. */
+	TMap<FIPv4Endpoint, FNodeInfo> StaticNodes;
 
 	/** Holds the local node identifier. */
 	FGuid LocalNodeId;
+
+	/** Holds the last sent message number. */
+	int32 LastSentMessage;
 
 	/** Holds the multicast endpoint. */
 	FIPv4Endpoint MulticastEndpoint;
@@ -372,9 +430,6 @@ private:
 
 	/** Holds the socket sender. */
 	FUdpSocketSender* SocketSender;
-
-	/** Holds the collection of static remote nodes. */
-	TMap<FIPv4Endpoint, FNodeInfo> StaticNodes;
 
 	/** Holds a flag indicating that the thread is stopping. */
 	bool Stopping;
@@ -400,4 +455,7 @@ private:
 
 	/** Defines the maximum number of Hello segments that can be dropped before a remote endpoint is considered dead. */
 	static const int32 DeadHelloIntervals;
+
+	/** Defines a timespan after which non fully reassembled messages that have stopped receiving segments are dropped. */
+	static const FTimespan StaleReassemblyInterval;
 };

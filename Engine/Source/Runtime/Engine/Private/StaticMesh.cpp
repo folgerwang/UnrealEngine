@@ -3160,6 +3160,34 @@ bool UStaticMesh::RemoveUVChannel(int32 LODIndex, int32 UVChannelIndex)
 	return false;
 }
 
+bool UStaticMesh::SetUVChannel(int32 LODIndex, int32 UVChannelIndex, const TArray<FVector2D>& TexCoords)
+{
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (!MeshDescription)
+	{
+		return false;
+	}
+
+	if (TexCoords.Num() < MeshDescription->VertexInstances().Num())
+	{
+		return false;
+	}
+
+	Modify();
+
+	int32 TextureCoordIndex = 0;
+	TMeshAttributesRef<FVertexInstanceID, FVector2D> UVs = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	for (const FVertexInstanceID& VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+	{
+		UVs.Set(VertexInstanceID, UVChannelIndex, TexCoords[TextureCoordIndex++]);
+	}
+
+	CommitOriginalMeshDescription(LODIndex);
+	PostEditChange();
+
+	return true;
+}
+
 #endif
 
 int32 UStaticMesh::GetNumUVChannels(int32 LODIndex)

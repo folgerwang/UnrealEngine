@@ -1310,6 +1310,10 @@ void UVREditorMotionControllerInteractor::UpdateSplineLaser(const FVector& InSta
 {
 	if (LaserSplineComponent)
 	{
+
+		LaserStart = InStartLocation;
+		LaserEnd = InEndLocation;
+
 		// Clear the segments before updating it
 		LaserSplineComponent->ClearSplinePoints(true);
 
@@ -1437,8 +1441,7 @@ void UVREditorMotionControllerInteractor::UpdateRadialMenuInput( const float Del
 		{
 			if (bIsScrubbingSequence)
 			{
-				const float NewPlayRate = 0.0f;
-				FVREditorActionCallbacks::PlaySequenceAtRate(VRMode, NewPlayRate);
+				FVREditorActionCallbacks::PauseSequencePlayback(VRMode);
 			}
 
 			if (UISystem.IsShowingRadialMenu(this))

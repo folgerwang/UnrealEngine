@@ -6,7 +6,11 @@ public class UnrealFrontend : ModuleRules
 {
 	public UnrealFrontend( ReadOnlyTargetRules Target ) : base(Target)
 	{
-		PublicIncludePaths.Add("Runtime/Launch/Public");
+		PublicIncludePaths.AddRange(
+            new string[] {
+                "Runtime/Launch/Public",
+            }
+        );
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -31,8 +35,8 @@ public class UnrealFrontend : ModuleRules
                 "ProjectLauncher",
 				"Projects",
 				"SessionFrontend",
-				"SessionServices",
-				"Slate",
+				"SessionServices",                
+                "Slate",
 				"SlateCore",
 				"SourceCodeAccess",
 				"StandaloneRenderer",

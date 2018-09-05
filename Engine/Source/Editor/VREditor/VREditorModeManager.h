@@ -75,4 +75,7 @@ private:
 
 	/** True when we detect that the user is wearing the HMD */
 	EHMDWornState::Type HMDWornState;
+
+	/** True if the ViewportWorldInteraction extension was not pre-existing. */
+	bool bAddedViewportWorldInteractionExtension;
 };

@@ -790,6 +790,16 @@ public:
 	 * @return true if the UV channel was removed.
 	 */
 	ENGINE_API bool RemoveUVChannel(int32 LODIndex, int32 UVChannelIndex);
+
+	/**
+	 * Sets the texture coordinates at the specified UV channel index on the given LOD of a StaticMesh.
+	 * @param	LODIndex			Index of the StaticMesh LOD.
+	 * @param	UVChannelIndex		Index where to remove the UV channel.
+	 * @param	TexCoords			The texture coordinates to set on the UV channel.
+	 * @return true if the UV channel could be set.
+	 */
+	ENGINE_API bool SetUVChannel(int32 LODIndex, int32 UVChannelIndex, const TArray<FVector2D>& TexCoords);
+
 #endif
 
 	/**

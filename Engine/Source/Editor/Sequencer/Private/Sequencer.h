@@ -619,6 +619,7 @@ public:
 	//~ ISequencer Interface
 
 	virtual void Close() override;
+	virtual FOnCloseEvent& OnCloseEvent() override { return OnCloseEventDelegate; }
 	virtual TSharedRef<SWidget> GetSequencerWidget() const override;
 	virtual FMovieSceneSequenceIDRef GetRootTemplateID() const override { return ActiveTemplateIDs[0]; }
 	virtual FMovieSceneSequenceIDRef GetFocusedTemplateID() const override { return ActiveTemplateIDs.Top(); }
@@ -885,6 +886,7 @@ protected:
 	void BindCommands();
 
 	//~ Begin FEditorUndoClient Interface
+	virtual bool MatchesContext(const FTransactionContext& InContext, const TArray<TPair<UObject*, FTransactionObjectEvent>>& TransactionObjects) const override;
 	virtual void PostUndo(bool bSuccess) override;
 	virtual void PostRedo(bool bSuccess) override { PostUndo(bSuccess); }
 	// End of FEditorUndoClient
@@ -1080,6 +1082,9 @@ private:
 
 	/** Represents the tree of nodes to display in the animation outliner. */
 	TSharedRef<FSequencerNodeTree> NodeTree;
+
+	/** A delegate which is called when the sequencer closes. */
+	FOnCloseEvent OnCloseEventDelegate;
 
 	/** A delegate which is called any time the global time changes. */
 	FOnGlobalTimeChanged OnGlobalTimeChangedDelegate;

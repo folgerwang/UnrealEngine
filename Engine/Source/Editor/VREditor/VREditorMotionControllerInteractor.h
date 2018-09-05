@@ -17,7 +17,7 @@ class UStaticMeshSocket;
  * Represents the interactor in the world
  */
 UCLASS()
-class UVREditorMotionControllerInteractor : public UVREditorInteractor
+class VREDITOR_API UVREditorMotionControllerInteractor : public UVREditorInteractor
 {
 	GENERATED_BODY()
 
@@ -105,6 +105,10 @@ public:
 	{
 		return bIsScrubbingSequence;
 	}
+
+	FVector LaserStart;
+
+	FVector LaserEnd;
 
 protected:
 

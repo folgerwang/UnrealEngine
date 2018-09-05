@@ -6,6 +6,7 @@
 
 struct FMeshDescription;
 struct FRawMesh;
+struct FUVMapSettings;
 struct FOverlappingCorners;
 enum class ELightmapUVVersion : int32;
 
@@ -66,6 +67,14 @@ public:
 	/** Remove the UV channel at the given index from the MeshDescription. */
 	static bool RemoveUVChannel(FMeshDescription& MeshDescription, int32 UVChannelIndex);
 
+	/** Generate planar UV mapping for the MeshDescription */
+	static void GeneratePlanarUV(const FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords);
+
+	/** Generate cylindrical UV mapping for the MeshDescription */
+	static void GenerateCylindricalUV(FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords);
+
+	/** Generate box UV mapping for the MeshDescription */
+	static void GenerateBoxUV(const FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords);
 
 	static void ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, FRawMesh& DestinationRawMesh);
 

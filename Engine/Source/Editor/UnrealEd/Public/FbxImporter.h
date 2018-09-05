@@ -11,6 +11,7 @@
 #include "Factories/FbxStaticMeshImportData.h"
 #include "Factories/FbxTextureImportData.h"
 #include "Factories/FbxSceneImportFactory.h"
+#include "Materials/MaterialInterface.h"
 #include "MeshBuild.h"
 #include "Algo/LevenshteinDistance.h"
 
@@ -29,7 +30,6 @@ class UInterpTrackMoveAxis;
 class ULightComponent;
 class UMaterial;
 class UMaterialInstanceConstant;
-class UMaterialInterface;
 class UPhysicsAsset;
 class USkeletalMesh;
 class USkeleton;
@@ -1183,7 +1183,12 @@ public:
 		FbxSurfaceMaterial* FbxMaterial;
 		UMaterialInterface* Material;
 
-		FString GetName() const { return FbxMaterial ? ANSI_TO_TCHAR(FbxMaterial->GetName()) : TEXT("None"); }
+		FFbxMaterial()
+			: FbxMaterial(nullptr)
+			, Material(nullptr)
+		{}
+
+		FString GetName() const { return FbxMaterial ? ANSI_TO_TCHAR(FbxMaterial->GetName()) : (Material != nullptr ? Material->GetName() : TEXT("None")); }
 	};
 
 	/**

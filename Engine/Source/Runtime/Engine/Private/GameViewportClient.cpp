@@ -368,7 +368,29 @@ void UGameViewportClient::Init(struct FWorldContext& WorldContext, UGameInstance
 
 	// Set the projects default viewport mouse capture mode
 	MouseCaptureMode = GetDefault<UInputSettings>()->DefaultViewportMouseCaptureMode;
+	FString DefaultViewportMouseCaptureMode;
+	if (FParse::Value(FCommandLine::Get(), TEXT("DefaultViewportMouseCaptureMode="), DefaultViewportMouseCaptureMode))
+	{
+		const UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMouseCaptureMode"));
+		checkf(EnumPtr, TEXT("Unable to find EMouseCaptureMode enum"));
+		if (EnumPtr)
+		{
+			int64 EnumValue = EnumPtr->GetValueByName(FName(*DefaultViewportMouseCaptureMode));
+			if (EnumValue != INDEX_NONE)
+			{
+				MouseCaptureMode = static_cast<EMouseCaptureMode>(EnumValue);
+			}
+			else
+			{
+				UE_LOG(LogInit, Warning, TEXT("Unknown DefaultViewportMouseCaptureMode %s. Command line setting will be ignored."), *DefaultViewportMouseCaptureMode);
+			}
+		}
+	}
 	MouseLockMode = GetDefault<UInputSettings>()->DefaultViewportMouseLockMode;
+	// In off-screen rendering mode don't lock mouse to the viewport, as we don't want mouse to lock to an invisible window
+	if (FSlateApplication::Get().IsRenderingOffScreen()) {
+		MouseLockMode = EMouseLockMode::DoNotLock;
+	}
 
 	// Create the cursor Widgets
 	UUserInterfaceSettings* UISettings = GetMutableDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
@@ -845,6 +867,11 @@ void UGameViewportClient::AddSoftwareCursor(EMouseCursor::Type Cursor, const FSo
 	{
 		FMessageLog("PIE").Warning(LOCTEXT("AddCursor:InvalidClass", "UGameViewportClient::AddCursor: Invalid class specified."));
 	}
+}
+
+bool UGameViewportClient::HasSoftwareCursor(EMouseCursor::Type Cursor) const
+{
+	return CursorWidgets.Contains(Cursor);
 }
 
 void UGameViewportClient::AddCursorWidget(EMouseCursor::Type Cursor, class UUserWidget* CursorWidget)

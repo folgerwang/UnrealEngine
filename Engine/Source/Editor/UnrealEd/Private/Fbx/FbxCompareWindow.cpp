@@ -261,7 +261,7 @@ TSharedRef<SWidget> FMaterialCompareData::ConstructCell(FCompMesh *MeshData, int
 			.Padding(FMargin(5.0f, 0.0f, 0.0f, 0.0f))
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("FMaterialCompareData_EmptyCell", ""))
+				.Text(FText::GetEmpty())
 			];
 	}
 

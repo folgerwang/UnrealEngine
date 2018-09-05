@@ -232,7 +232,7 @@ struct FLandscapePatternBrushWorldSpaceSettings
 	FLandscapePatternBrushWorldSpaceSettings() = default;
 };
 
-UCLASS()
+UCLASS(MinimalAPI)
 class ULandscapeEditorObject : public UObject
 {
 	GENERATED_UCLASS_BODY()

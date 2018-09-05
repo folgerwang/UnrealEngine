@@ -6,6 +6,10 @@
 #include "Containers/Array.h"
 #include "Containers/BitArray.h"
 #include "Templates/SharedPointer.h"
+#include "Misc/DateTime.h"
+
+// IMessageContext forward declaration
+enum class EMessageFlags : uint32;
 
 class FArchive;
 class FUdpSerializedMessage;
@@ -24,6 +28,7 @@ public:
 	/** Default constructor. */
 	FUdpMessageSegmenter()
 		: MessageReader(nullptr)
+		, SentNumber(0)
 	{ }
 
 	/**
@@ -34,6 +39,8 @@ public:
 	FUdpMessageSegmenter(const TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe>& InSerializedMessage, uint16 InSegmentSize)
 		: MessageReader(nullptr)
 		, SegmentSize(InSegmentSize)
+		, SentNumber(0)
+		, LastSentTime(0)
 		, SerializedMessage(InSerializedMessage)
 	{ }
 
@@ -57,6 +64,25 @@ public:
 	 * @return true if a segment was returned, false if there are no more pending segments.
 	 */
 	bool GetNextPendingSegment(TArray<uint8>& OutData, uint16& OutSegment) const;
+
+	/**
+	 * Gets the pending segment at.
+	 *
+	 * @param InSegment the segment number we are requesting the data for.
+	 * @param OutData Will hold the segment data.
+	 * @return true if a segment was returned, false if that segment is no longer pending or the segment number is invalid.
+	 */
+	bool GetPendingSegment(uint16 InSegment, TArray<uint8>& OutData) const;
+
+
+	/**
+	 * Get the pending segments array.
+	 * @return the list of pending segments flags.
+	 */
+	const TBitArray<>& GetPendingSegments() const
+	{
+		return PendingSegments;
+	}
 
 	/**
 	 * Gets the number of segments that haven't been received yet.
@@ -108,12 +134,18 @@ public:
 	 */
 	bool IsInvalid() const;
 
+	/** Return the Protocol Version for this segmenter.	*/
+	uint8 GetProtocolVersion() const;
+
+	/** @return the message flags. */
+	EMessageFlags GetMessageFlags() const;
+
 	/**
-	 * Marks the specified segment as sent.
-	 *
-	 * @param Segment The sent segment.
-	 */
-	void MarkAsSent(uint16 Segment);
+	* Marks the specified segments as acknowledged.
+	*
+	* @param Segments The acknowledged segments.
+	*/
+	void MarkAsAcknowledged(const TArray<uint16>& Segments);
 
 	/**
 	 * Marks the entire message for retransmission.
@@ -130,7 +162,23 @@ public:
 	 */
 	void MarkForRetransmission(const TArray<uint16>& Segments);
 
+	/**
+	 * Checks if this segmenter needs to send segments
+	 *
+	 * @return true if the segmenter needs to send
+	 */
+	bool NeedSending(const FDateTime& CurrentTime);
+
+	/**
+	 * Update the last sent time and increment the sent number for this segmenter
+	 *
+	 * @param CurrentTime the time to update to.
+	 */
+	void UpdateSentTime(const FDateTime& CurrentTime);
+
 private:
+	/** Defines the time interval for sending. */
+	static const FTimespan SendInterval;
 
 	/** temp hack to support new transport API. */
 	FArchive* MessageReader;
@@ -143,6 +191,12 @@ private:
 
 	/** Holds the segment size. */
 	uint16 SegmentSize;
+
+	/** Holds the number of time we sent the segments */
+	uint16 SentNumber;
+
+	/** Holds the time at which we last sent */
+	FDateTime LastSentTime;
 
 	/** Holds the message. */
 	TSharedPtr<FUdpSerializedMessage, ESPMode::ThreadSafe> SerializedMessage;

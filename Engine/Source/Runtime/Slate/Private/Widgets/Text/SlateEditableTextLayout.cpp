@@ -239,7 +239,7 @@ void FSlateEditableTextLayout::SetText(const TAttribute<FText>& InText)
 	if (RefreshImpl(&NewText, bForceRefresh))
 	{
 		// Make sure we move the cursor to the end of the new text if we had keyboard focus
-		if (OwnerWidget->GetSlateWidget()->HasAnyUserFocus().IsSet())
+		if (OwnerWidget->GetSlateWidget()->HasAnyUserFocus().IsSet() && !bWasFocusedByLastMouseDown)
 		{
 			JumpTo(ETextLocation::EndOfDocument, ECursorAction::MoveCursor);
 		}
@@ -709,8 +709,8 @@ bool FSlateEditableTextLayout::HandleFocusReceived(const FFocusEvent& InFocusEve
 		GoTo(ETextLocation::EndOfDocument);
 	}
 
-	// Select All Text
-	if (OwnerWidget->ShouldSelectAllTextWhenFocused())
+	// Select All Text for non-mouse events (mouse events are handled by HandleMouseButtonUp)
+	if (InFocusEvent.GetCause() != EFocusCause::Mouse && OwnerWidget->ShouldSelectAllTextWhenFocused())
 	{
 		SelectAllText();
 	}
@@ -1157,7 +1157,7 @@ FReply FSlateEditableTextLayout::HandleMouseButtonUp(const FGeometry& MyGeometry
 			// we'll leave things alone!
 			if (bWasFocusedByLastMouseDown)
 			{
-				if (!bHasDragSelectedSinceFocused)
+				if (!bHasDragSelectedSinceFocused || !SelectionStart.IsSet())
 				{
 					if (OwnerWidget->ShouldSelectAllTextWhenFocused())
 					{
