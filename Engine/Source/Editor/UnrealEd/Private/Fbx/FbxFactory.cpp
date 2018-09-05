@@ -483,6 +483,8 @@ UObject* UFbxFactory::FactoryCreateFile
 							{
 								FAssetRegistryModule::AssetCreated(Asset);
 								Asset->MarkPackageDirty();
+								//Make sure the build is up to date with the latest section info map
+								Asset->PostEditChange();
 							}
 						}
 
