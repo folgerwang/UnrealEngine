@@ -183,5 +183,21 @@ public:
 	/** If enabled, the editor will load packages to look for soft references to actors when deleting/renaming them. This can be slow in large projects so disable this to improve performance but increase the chance of breaking blueprints/sequences that use soft actor references */
 	UPROPERTY(EditAnywhere, config, Category=Actors)
 	uint32 bValidateUnloadedSoftActorReferences : 1;
+
+	/** 
+	 * List of compiler messages that have been suppressed during cook (or other commandlets) for 
+	 * the current project - useful for silencing warnings that were added to the engine after 
+	 * project inception and are going to be addressed as they are found by content authors
+	 */
+	UPROPERTY(EditAnywhere, config, Category= Blueprints, DisplayName = "Compiler Messages Disabled during Cook")
+	TArray<FName> DisabledCompilerMessagesHeadless;
+	
+	/** 
+	 * List of compiler messages that have been suppressed completely - message suppression is only 
+	 * advisable when using blueprints that you cannot update and are raising innocuous warnings. 
+	 * If useless messages are being raised prefer to contact support rather than disabling messages
+	 */
+	UPROPERTY(EditAnywhere, config, Category= Blueprints, DisplayName = "Compiler Messages Disabled Entirely")
+	TArray<FName> DisabledCompilerMessages;
 };
 

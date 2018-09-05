@@ -68,5 +68,32 @@ protected:
 	FString EmitArrayGetByRef(FEmitterLocalContext& EmitterContext, FBlueprintCompiledStatement& Statement);
 
 public:
-	FString TermToText(FEmitterLocalContext& EmitterContext, const FBPTerminal* Term, const ENativizedTermUsage TermUsage, const bool bUseSafeContext = true, FString* EndCustomSetExpression = nullptr);
+	struct FTermToTextParams
+	{
+		const FBPTerminal* Term;
+		ENativizedTermUsage TermUsage;
+		bool bUseSafeContext;
+		FString* EndCustomSetExpression;
+		const UProperty* CoerceProperty;
+
+		FTermToTextParams()
+			:Term(nullptr)
+			,TermUsage(ENativizedTermUsage::UnspecifiedOrReference)
+			,bUseSafeContext(true)
+			,EndCustomSetExpression(nullptr)
+			,CoerceProperty(nullptr)
+		{}
+	};
+
+	FString TermToText(FEmitterLocalContext& EmitterContext, const FTermToTextParams& Params);
+	FString TermToText(FEmitterLocalContext& EmitterContext, const FBPTerminal* Term, const ENativizedTermUsage TermUsage, const bool bUseSafeContext = true, FString* EndCustomSetExpression = nullptr)
+	{
+		FTermToTextParams Params;
+		Params.Term = Term;
+		Params.TermUsage = TermUsage;
+		Params.bUseSafeContext = bUseSafeContext;
+		Params.EndCustomSetExpression = EndCustomSetExpression;
+
+		return TermToText(EmitterContext, Params);
+	}
 };

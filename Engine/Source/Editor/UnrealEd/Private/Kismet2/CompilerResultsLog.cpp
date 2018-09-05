@@ -13,6 +13,7 @@
 #include "EngineLogs.h"
 #include "Engine/Blueprint.h"
 #include "IMessageLogListing.h"
+#include "Settings/EditorProjectSettings.h"
 
 #if WITH_EDITOR
 
@@ -192,6 +193,33 @@ void FCompilerResultsLog::InternalLogEvent(const FCompilerEvent& InEvent, int32 
 	}
 }
 
+bool FCompilerResultsLog::IsMessageEnabled(FName ID)
+{
+	if(ID == NAME_None)
+	{
+		return true;
+	}
+
+	const UBlueprintEditorProjectSettings* EditorProjectSettings = GetDefault<UBlueprintEditorProjectSettings>();
+	if(IsRunningCommandlet())
+	{
+		if(	EditorProjectSettings->DisabledCompilerMessagesHeadless.Contains(ID) ||
+			EditorProjectSettings->DisabledCompilerMessages.Contains(ID))
+		{
+			return false;
+		}
+	}
+	else
+	{
+		if( EditorProjectSettings->DisabledCompilerMessages.Contains(ID) )
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 void FCompilerResultsLog::InternalLogSummary()
 {
 	if(CurrentEventScope.IsValid())
@@ -236,6 +264,39 @@ void FCompilerResultsLog::InternalLogSummary()
 	}
 }
 
+bool FCompilerResultsLog::CommitPotentialMessages(UEdGraphNode* Source)
+{
+	TArray<TSharedRef<FTokenizedMessage>> FoundMessages;
+	if (PotentialMessages.RemoveAndCopyValue(Source, FoundMessages))
+	{
+		for (const TSharedRef<FTokenizedMessage>& Message : FoundMessages)
+		{
+			switch (Message->GetSeverity())
+			{
+			case EMessageSeverity::Error:
+				++NumErrors;
+				break;
+
+			case EMessageSeverity::Warning:
+				++NumWarnings;
+				break;
+
+			default:
+				break;
+			}
+
+			// build nodes list:
+			TArray<UEdGraphNode*> Nodes;
+			GetNodesFromTokens(Message->GetMessageTokens(), Nodes);
+
+			Nodes.Add(Source);
+			InternalLogMessage(Message->GetIdentifier(), Message, Nodes);
+		}
+		return true;
+	}
+	return false;
+}
+
 /** Update the source backtrack map to note that NewObject was most closely generated/caused by the SourceObject */
 void FCompilerResultsLog::NotifyIntermediateObjectCreation(UObject* NewObject, UObject* SourceObject)
 {
@@ -258,9 +319,36 @@ UObject const* FCompilerResultsLog::FindSourceObject(UObject const* PossiblyDupl
 	return SourceBacktrackMap.FindSourceObject(PossiblyDuplicatedObject);
 }
 
+UObject* FCompilerResultsLog::FindSourceMacroInstance(const UEdGraphNode* IntermediateNode) const
+{
+	UObject* Result = nullptr;
+	const UEdGraphNode* Iter = IntermediateNode;
+	while (const TWeakObjectPtr<UEdGraphNode>* SourceInstanceNode = FullMacroBacktrackMap.Find(Iter))
+	{
+		Iter = SourceInstanceNode->Get();
+	}
+
+	Result = const_cast<UEdGraphNode*>(Iter);
+
+	if(Result)
+	{
+		Result = const_cast<FCompilerResultsLog*>(this)->FindSourceObject(Result);
+	}
+
+	return Result;
+}
+
 void FCompilerResultsLog::NotifyIntermediateTunnelNode(const UEdGraphNode* Node, const UEdGraphNode* OuterTunnelInstance)
 {
 	IntermediateTunnelNodeToTunnelInstanceMap.Add(Node, OuterTunnelInstance);
+}
+
+void FCompilerResultsLog::NotifyIntermediateMacroNode(UEdGraphNode* SourceNode, const UEdGraphNode* IntermediateNode)
+{
+	if(ensure(SourceNode != IntermediateNode))
+	{
+		FullMacroBacktrackMap.Add(IntermediateNode, SourceNode);
+	}
 }
 
 const UEdGraphNode* FCompilerResultsLog::GetIntermediateTunnelInstance(const UEdGraphNode* IntermediateNode) const
@@ -345,11 +433,12 @@ const UEdGraphPin* FCompilerResultsLog::FindSourcePin(const UEdGraphPin* Possibl
 	return SourceBacktrackMap.FindSourcePin(PossiblyDuplicatedPin);
 }
 
-void FCompilerResultsLog::InternalLogMessage(const TSharedRef<FTokenizedMessage>& Message, UEdGraphNode* SourceNode)
+void FCompilerResultsLog::InternalLogMessage(FName MessageID, const TSharedRef<FTokenizedMessage>& Message, const TArray<UEdGraphNode*>& SourceNodes)
 {
 	const EMessageSeverity::Type Severity = Message->GetSeverity();
 	Messages.Add(Message);
-	AnnotateNode(SourceNode, Message);
+	AnnotateNode(SourceNodes, Message);
+	Message->SetIdentifier(MessageID);
 
 	if (!bSilentMode && (!bLogInfoOnly || (Severity == EMessageSeverity::Info)))
 	{
@@ -376,12 +465,10 @@ void FCompilerResultsLog::InternalLogMessage(const TSharedRef<FTokenizedMessage>
 	}
 }
 
-void FCompilerResultsLog::AnnotateNode(class UEdGraphNode* Node, TSharedRef<FTokenizedMessage> LogLine)
+void FCompilerResultsLog::AnnotateNode(const TArray<UEdGraphNode*>& Nodes, TSharedRef<FTokenizedMessage> LogLine)
 {
-	if (Node != nullptr)
+	for(UEdGraphNode* Node : Nodes)
 	{
-		LogLine->SetMessageLink(FUObjectToken::Create(Node));
-
 		if (bAnnotateMentionedNodes)
 		{
 			// Determine if this message is the first or more important than the previous one (only showing one error/warning per node for now)
@@ -532,6 +619,43 @@ void FCompilerResultsLog::GetGlobalModuleCompilerDump(const FString& LogDump, EC
 
 	MessageLog.AddMessages(ParseCompilerLogDump(LogDump));
 }
+		
+void FCompilerResultsLog::GetNodesFromTokens(const TArray<TSharedRef<IMessageToken> >& MessageTokens, TArray<UEdGraphNode*>& OutOwnerNodes)
+{
+	for (TSharedRef<IMessageToken> const& Token : MessageTokens)
+	{
+		if (Token->GetType() == EMessageToken::Object)
+		{
+			FWeakObjectPtr ObjectPtr = ((FUObjectToken&)Token.Get()).GetObject();
+			if (!ObjectPtr.IsValid())
+			{
+				continue;
+			}
+			UObject* ObjectArgument = ObjectPtr.Get();
+			if(UEdGraphNode* Node = Cast<UEdGraphNode>(ObjectArgument))
+			{
+				OutOwnerNodes.Add(Node);
+			}
+		}
+		else if (Token->GetType() == EMessageToken::EdGraph)
+		{
+			FEdGraphToken& AsEdGraphToken = ((FEdGraphToken&)Token.Get());
+			const UEdGraphPin* PinBeingReferenced = AsEdGraphToken.GetPin();
+			UEdGraphNode* OwnerNode = Cast<UEdGraphNode>((UObject*)AsEdGraphToken.GetGraphObject());
+			if (OwnerNode == nullptr)
+			{
+				if (PinBeingReferenced)
+				{
+					OutOwnerNodes.Add(Cast<UEdGraphNode>(PinBeingReferenced->GetOwningNodeUnchecked()));
+				}
+			}
+			else
+			{
+				OutOwnerNodes.Add(OwnerNode);
+			}
+		}
+	}
+}
 
 void FCompilerResultsLog::Append(FCompilerResultsLog const& Other)
 {
@@ -558,37 +682,9 @@ void FCompilerResultsLog::Append(FCompilerResultsLog const& Other)
 		}
 		Messages.Add(Message);
 		
-		UEdGraphNode* OwnerNode = nullptr;
-		for (TSharedRef<IMessageToken> const& Token : Message->GetMessageTokens())
-		{
-			if (Token->GetType() == EMessageToken::Object)
-			{
-				FWeakObjectPtr ObjectPtr = ((FUObjectToken&)Token.Get()).GetObject();
-				if (!ObjectPtr.IsValid())
-				{
-					continue;
-				}
-				UObject* ObjectArgument = ObjectPtr.Get();
-
-				OwnerNode = Cast<UEdGraphNode>(ObjectArgument);
-				break;
-			}
-			else if (Token->GetType() == EMessageToken::EdGraph)
-			{
-				FEdGraphToken& AsEdGraphToken = ((FEdGraphToken&)Token.Get());
-				const UEdGraphPin* PinBeingReferenced = AsEdGraphToken.GetPin();
-				OwnerNode = Cast<UEdGraphNode>((UObject*)AsEdGraphToken.GetGraphObject());
-				if (OwnerNode == nullptr)
-				{
-					if (PinBeingReferenced)
-					{
-						OwnerNode = PinBeingReferenced->GetOwningNodeUnchecked();
-					}
-				}
-				break;
-			}
-		}
-		AnnotateNode(OwnerNode, Message);
+		TArray<UEdGraphNode*> OwnerNodes;
+		GetNodesFromTokens(Message->GetMessageTokens(), OwnerNodes);
+		AnnotateNode(OwnerNodes, Message);
 	}
 }
 

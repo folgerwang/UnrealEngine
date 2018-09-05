@@ -124,4 +124,6 @@ public:
 	/** returns references from default instance */
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
+	/** Inspects properties and default values, setting appropriate StructFlags */
+	void UpdateStructFlags();
 };

@@ -287,7 +287,22 @@ struct FEmitHelper
 
 	static void EmitLifetimeReplicatedPropsImpl(FEmitterLocalContext& EmitterContext);
 
-	static FString LiteralTerm(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& Type, const FString& CustomValue, UObject* LiteralObject, const FText* OptionalTextLiteral = nullptr);
+	struct FLiteralTermParams
+	{
+		FEdGraphPinType Type;
+		FString CustomValue;
+		FText LiteralText;
+		UObject* LiteralObject;
+		const UProperty* CoerceProperty;
+
+		FLiteralTermParams()
+			:LiteralObject(nullptr)
+			,CoerceProperty(nullptr)
+		{
+		}
+	};
+
+	static FString LiteralTerm(FEmitterLocalContext& EmitterContext, const FLiteralTermParams& Params);
 
 	static FString PinTypeToNativeType(const FEdGraphPinType& InType);
 

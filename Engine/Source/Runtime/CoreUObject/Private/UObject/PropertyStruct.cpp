@@ -84,6 +84,19 @@ void UStructProperty::LinkInternal(FArchive& Ar)
 		// User Defined structs won't have UScriptStruct::ICppStructOps. Setting their flags here.
 		PropertyFlags |= CPF_HasGetValueTypeHash;
 	}
+
+	if (Struct->StructFlags & STRUCT_ZeroConstructor)
+	{
+		PropertyFlags |= CPF_ZeroConstructor;
+	}
+	if (Struct->StructFlags & STRUCT_IsPlainOldData)
+	{
+		PropertyFlags |= CPF_IsPlainOldData;
+	}
+	if (Struct->StructFlags & STRUCT_NoDestructor)
+	{
+		PropertyFlags |= CPF_NoDestructor;
+	}
 }
 
 bool UStructProperty::Identical( const void* A, const void* B, uint32 PortFlags ) const

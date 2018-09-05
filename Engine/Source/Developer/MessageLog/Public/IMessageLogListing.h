@@ -26,13 +26,6 @@ public:
 	virtual void ClearMessages() = 0;
 
 	/** 
-	 * Tries to find the first message that matches the message data.
-	 * 
-	 * @param	MessageData	The message data to test.
-	 */
-	virtual TSharedPtr<class FTokenizedMessage> GetMessageFromData(const struct FTokenizedMiscData& MessageData) const = 0;
-
-	/** 
 	 * Gets a list of the selected messages for the specific log listing
 	 * 
 	 * @returns an array of selected messages.

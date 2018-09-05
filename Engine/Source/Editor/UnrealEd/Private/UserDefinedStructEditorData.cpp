@@ -215,6 +215,9 @@ void UUserDefinedStructEditorData::RecreateDefaultInstance(FString* OutLog)
 			}
 		}
 	}
+
+	// Make sure StructFlags are in sync with the new default instance:
+	ScriptStruct->UpdateStructFlags();
 }
 
 void UUserDefinedStructEditorData::CleanDefaultInstance()

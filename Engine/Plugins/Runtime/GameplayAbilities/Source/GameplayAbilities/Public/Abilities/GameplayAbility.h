@@ -500,7 +500,7 @@ protected:
 	bool bHasBlueprintShouldAbilityRespondToEvent;
 
 	/** Sends a gameplay event, also creates a prediction window */
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, Category = Ability)
 	virtual void SendGameplayEvent(FGameplayTag EventTag, FGameplayEventData Payload);
 
 	// --------------------------------------
