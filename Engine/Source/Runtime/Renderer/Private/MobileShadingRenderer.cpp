@@ -555,23 +555,28 @@ int32 FMobileSceneRenderer::ComputeNumOcclusionQueriesToBatch() const
 void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-	
 	SceneContext.ResolveSceneDepthToAuxiliaryTexture(RHICmdList);
-
-	auto ShaderPlatform = ViewFamily.GetShaderPlatform();
-
-	if ((IsMobileHDR() || IsHTML5Platform())
+	
+	EShaderPlatform ShaderPlatform = ViewFamily.GetShaderPlatform();
+	if (IsSimulatedPlatform(ShaderPlatform)) // mobile emulation on PC
+	{
+		// resolve MSAA depth for translucency
+		SceneContext.ResolveSceneDepthTexture(RHICmdList, FResolveRect(0, 0, FamilySize.X, FamilySize.Y));
+	}
+	else if ((IsMobileHDR() || IsHTML5Platform())
 		&& IsMobilePlatform(ShaderPlatform) 
 		&& !IsVulkanPlatform(ShaderPlatform)
 		&& !IsMetalPlatform(ShaderPlatform)
-		&& !IsPCPlatform(ShaderPlatform) // exclude mobile emulation on PC
 		&& !View.bIsPlanarReflection)	// exclude depth resolve from planar reflection captures, can't do it reliably more than once per frame
 	{
 		bool bSceneDepthInAlpha = (SceneContext.GetSceneColor()->GetDesc().Format == PF_FloatRGBA);
 		bool bOnChipDepthFetch = (GSupportsShaderDepthStencilFetch || (GSupportsShaderFramebufferFetch && bSceneDepthInAlpha));
-		
-		const bool bAlwaysResolveDepth = CVarMobileAlwaysResolveDepth.GetValueOnRenderThread() == 1;
 
+		const bool bAlwaysResolveDepth = CVarMobileAlwaysResolveDepth.GetValueOnRenderThread() == 1;
+		
+		static const auto CVarMobileMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
+		const bool bMobileMSAA = (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false);
+		
 		if (!bOnChipDepthFetch || bAlwaysResolveDepth)
 		{
 			// Only these features require depth texture
@@ -590,7 +595,7 @@ void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate
 						CopySceneAlpha(RHICmdList, View);
 					}
 				}
-				else
+				else if (!bMobileMSAA)
 				{
 					// Switch target to force hardware flush current depth to texture
 					FTextureRHIRef DummySceneColor = GSystemTextures.BlackDummy->GetRenderTargetItem().TargetableTexture;

@@ -939,6 +939,9 @@ inline bool IsSimulatedPlatform(EShaderPlatform Platform)
 		case SP_PCD3D_ES2:
 		case SP_PCD3D_ES3_1:
 		case SP_OPENGL_PCES3_1:
+		case SP_METAL_MACES3_1:
+		case SP_METAL_MACES2:
+		case SP_VULKAN_PCES3_1:
 			return true;
 		break;
 
