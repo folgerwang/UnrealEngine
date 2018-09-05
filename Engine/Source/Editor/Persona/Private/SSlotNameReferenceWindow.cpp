@@ -316,7 +316,7 @@ TSharedRef<SWidget> SSlotNameReferenceWindow::GetContent()
 				+ SHeaderRow::Column("MontageName")
 				.DefaultLabel(FText(LOCTEXT("MontageColumnDefaultLabel", "Montage Name")))
 				+ SHeaderRow::Column("Asset")
-				.DefaultLabel(FText(LOCTEXT("MontageAssetColumnDefaultLabel", "")))
+				.DefaultLabel(FText::GetEmpty())
 				)
 			]
 		]
@@ -352,7 +352,7 @@ TSharedRef<SWidget> SSlotNameReferenceWindow::GetContent()
 				+ SHeaderRow::Column("NodeName")
 				.DefaultLabel(FText(LOCTEXT("NodeColumnDefaultLabel", "Node Name")))
 				+ SHeaderRow::Column("Asset")
-				.DefaultLabel(FText(LOCTEXT("BPAssetColumnDefaultLabel", "")))
+				.DefaultLabel(FText::GetEmpty())
 				)
 			]
 		]

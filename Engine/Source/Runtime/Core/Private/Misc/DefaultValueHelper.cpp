@@ -402,31 +402,6 @@ bool FDefaultValueHelper::StringFromCppString(const FString& Source, const FStri
 			return false;
 		}
 
-		if (Source.Find(FString("::"), ESearchCase::CaseSensitive) == Pos)
-		{
-			Pos += 2;
-
-			if (!Trim(Pos, Source))
-			{
-				return false;
-			}
-
-			const FString AllowedFunctionName(TEXT("FromString"));
-			if (Source.Find(AllowedFunctionName, ESearchCase::CaseSensitive, ESearchDir::FromStart, Pos) == Pos)
-			{
-				Pos += AllowedFunctionName.Len();
-			}
-			else
-			{
-				return false;
-			}
-
-			if (!Trim(Pos, Source))
-			{
-				return false;
-			}
-		}
-
 		if( TS(TEXT("(")) != Source[Pos++] )
 		{
 			return false;

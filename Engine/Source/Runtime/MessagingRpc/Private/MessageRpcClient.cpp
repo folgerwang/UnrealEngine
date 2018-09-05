@@ -77,6 +77,7 @@ void FMessageRpcClient::SendCall(const TSharedPtr<IMessageRpcCall>& Call)
 		MessageEndpoint->Send(
 			Call->ConstructMessage(),
 			Call->GetMessageType(),
+			EMessageFlags::None,
 			nullptr,
 			TArrayBuilder<FMessageAddress>().Add(ServerAddress),
 			FTimespan::Zero(),

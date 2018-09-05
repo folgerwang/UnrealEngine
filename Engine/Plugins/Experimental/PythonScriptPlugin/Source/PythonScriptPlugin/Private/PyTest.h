@@ -157,7 +157,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Python)
 	FPyTestDelegate Delegate;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Python)
+	UPROPERTY(EditAnywhere, BlueprintAssignable, Category = Python)
 	FPyTestMulticastDelegate MulticastDelegate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Python)

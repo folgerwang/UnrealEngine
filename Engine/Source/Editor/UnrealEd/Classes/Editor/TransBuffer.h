@@ -128,7 +128,8 @@ protected:
 				UndoBuffer.Emplace(MakeShareable(new TTransaction(SessionContext, Description, 1)));
 				GUndo = &UndoBuffer.Last().Get();			
 
-				UndoBufferChangedDelegate.Broadcast();
+				GUndo->BeginOperation();
+				TransactionStateChangedDelegate.Broadcast(GUndo->GetContext(), ETransactionStateEventType::TransactionStarted);
 			}
 			const int32 PriorRecordsCount = (Result > 0 ? ActiveRecordCounts[Result - 1] : 0);
 			ActiveRecordCounts.Add(UndoBuffer.Last()->GetRecordCount() - PriorRecordsCount);
@@ -149,10 +150,10 @@ public:
 	virtual bool CanRedo( FText* Text=NULL ) override;
 	virtual int32 GetQueueLength( ) const override { return UndoBuffer.Num(); }
 	virtual const FTransaction* GetTransaction( int32 QueueIndex ) const override;
-	virtual FUndoSessionContext GetUndoContext( bool bCheckWhetherUndoPossible = true ) override;
+	virtual FTransactionContext GetUndoContext( bool bCheckWhetherUndoPossible = true ) override;
 	virtual SIZE_T GetUndoSize() const override;
 	virtual int32 GetUndoCount( ) const override { return UndoCount; }
-	virtual FUndoSessionContext GetRedoContext() override;
+	virtual FTransactionContext GetRedoContext() override;
 	virtual void SetUndoBarrier() override;
 	virtual void RemoveUndoBarrier() override;
 	virtual void ClearUndoBarriers() override;
@@ -164,7 +165,7 @@ public:
 	virtual void SetPrimaryUndoObject( UObject* Object ) override;
 	virtual bool IsObjectInTransationBuffer( const UObject* Object ) const override;
 	virtual bool IsObjectTransacting(const UObject* Object) const override;
-	virtual bool ContainsPieObject() const override;
+	virtual bool ContainsPieObjects() const override;
 	virtual bool IsActive() override
 	{
 		return ActiveCount > 0;
@@ -175,13 +176,24 @@ public:
 public:
 
 	/**
+	 * Gets an event delegate that is executed when a transaction state changes.
+	 *
+	 * @return The event delegate.
+	 */
+	DECLARE_EVENT_TwoParams(UTransBuffer, FOnTransactorTransactionStateChanged, const FTransactionContext& /*TransactionContext*/, ETransactionStateEventType /*TransactionState*/)
+	FOnTransactorTransactionStateChanged& OnTransactionStateChanged( )
+	{
+		return TransactionStateChangedDelegate;
+	}
+
+	/**
 	 * Gets an event delegate that is executed when a redo operation is being attempted.
 	 *
 	 * @return The event delegate.
 	 *
 	 * @see OnUndo
 	 */
-	DECLARE_EVENT_OneParam(UTransBuffer, FOnTransactorBeforeRedoUndo, FUndoSessionContext /*RedoContext*/)
+	DECLARE_EVENT_OneParam(UTransBuffer, FOnTransactorBeforeRedoUndo, const FTransactionContext& /*TransactionContext*/)
 	FOnTransactorBeforeRedoUndo& OnBeforeRedoUndo( )
 	{
 		return BeforeRedoUndoDelegate;
@@ -194,7 +206,7 @@ public:
 	 *
 	 * @see OnUndo
 	 */
-	DECLARE_EVENT_TwoParams(UTransBuffer, FOnTransactorRedo, FUndoSessionContext /*RedoContext*/, bool /*Succeeded*/)
+	DECLARE_EVENT_TwoParams(UTransBuffer, FOnTransactorRedo, const FTransactionContext& /*TransactionContext*/, bool /*Succeeded*/)
 	FOnTransactorRedo& OnRedo( )
 	{
 		return RedoDelegate;
@@ -207,7 +219,7 @@ public:
 	 *
 	 * @see OnRedo
 	 */
-	DECLARE_EVENT_TwoParams(UTransBuffer, FOnTransactorUndo, FUndoSessionContext /*RedoContext*/, bool /*Succeeded*/)
+	DECLARE_EVENT_TwoParams(UTransBuffer, FOnTransactorUndo, const FTransactionContext& /*TransactionContext*/, bool /*Succeeded*/)
 	FOnTransactorUndo& OnUndo( )
 	{
 		return UndoDelegate;
@@ -232,6 +244,9 @@ private:
 	int32 DisallowObjectSerialization;
 
 private:
+
+	// Holds an event delegate that is executed when a transaction state changes.
+	FOnTransactorTransactionStateChanged TransactionStateChangedDelegate;
 
 	// Holds an event delegate that is executed before a redo or undo operation is attempted.
 	FOnTransactorBeforeRedoUndo BeforeRedoUndoDelegate;

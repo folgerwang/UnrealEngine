@@ -53,7 +53,7 @@ FText FActorLayerViewModel::GetName() const
 {
 	if( !Layer.IsValid() )
 	{
-		return LOCTEXT("Invalid layer Name", "");
+		return FText::GetEmpty();
 	}
 
 	return FText::FromName(Layer->LayerName);

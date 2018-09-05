@@ -14,7 +14,12 @@
 	"CanContainContent" : false,
 	"IsBetaVersion" : false,
 	"Installed" : false,
-	"SupportedPrograms" : [ "UnrealFrontend", "UnrealLightmass" ],
+	"SupportedPrograms" : 
+	[
+		"UnrealFrontend",
+		"UnrealCollaborationServer",
+		"UnrealLightmass"
+	],
 	"Modules" :
 	[
 		{
@@ -25,7 +30,12 @@
 			[
 				"HTML5"
 			],
-			"WhitelistPrograms" : [ "UnrealFrontend", "UnrealLightmass" ]
+			"WhitelistPrograms": 
+			[
+				"UnrealFrontend",
+				"UnrealCollaborationServer",
+				"UnrealLightmass"
+			]
 		}
 	]
 }

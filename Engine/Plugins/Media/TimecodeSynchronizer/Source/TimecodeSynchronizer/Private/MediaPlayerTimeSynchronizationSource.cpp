@@ -27,63 +27,79 @@ void UMediaPlayerTimeSynchronizationSource::PostEditChangeProperty(FPropertyChan
 }
 #endif
 
-FFrameTime UMediaPlayerTimeSynchronizationSource::GetNextSampleTime() const
+static FFrameTime TimeSpanToFrameTime(const FTimespan& Timespan, const FFrameRate& FrameRate)
 {
-	FFrameTime NextSampleTime;
+	return FFrameTime::FromDecimal(Timespan.GetTotalSeconds() * FrameRate.AsDecimal()).RoundToFrame();
+}
+
+FFrameTime UMediaPlayerTimeSynchronizationSource::GetOldestSampleTime() const
+{
+	TOptional<FTimespan> UseTimespan;
 
 	if (MediaTexture && MediaTexture->GetMediaPlayer())
 	{
+		if (MediaTexture->GetAvailableSampleCount() > 0)
+		{
+			// Ideally, the MediaTexture (or more likely, the TMediaSampleQueue) would be able to track
+			// the current span of samples available. However, that's already prone to some threading issues
+			// and trying to manage more data will only exacerbate that.
+
+			// Therefore, we can only use the next available sample time.
+			UseTimespan = MediaTexture->GetNextSampleTime();
+		}
+
 		const TSharedPtr<IMediaPlayer, ESPMode::ThreadSafe>& Player = MediaTexture->GetMediaPlayer()->GetPlayerFacade()->GetPlayer();
 		if (Player.IsValid())
 		{
-			//If there is a sample in the Texture, we consider it as the next one to be used/rendered
-			if (MediaTexture->GetAvailableSampleCount() > 0)
-			{
-				const FTimespan TextureTime = MediaTexture->GetNextSampleTime();
-				NextSampleTime = FFrameTime::FromDecimal(TextureTime.GetTotalSeconds() * GetFrameRate().AsDecimal()).RoundToFrame();
-			}
-			else if (Player->GetCache().GetSampleCount(EMediaCacheState::Loaded) > 0)
+			IMediaCache& Cache = Player->GetCache();
+			if (Cache.GetSampleCount(EMediaCacheState::Loaded) > 0)
 			{
 				TRangeSet<FTimespan> SampleTimes;
-				if (Player->GetCache().QueryCacheState(EMediaCacheState::Loaded, SampleTimes))
+				if (Cache.QueryCacheState(EMediaCacheState::Loaded, SampleTimes))
 				{
-					//Fetch the minimum sample time from all ranges queried from the player's cache
-					TArray<TRange<FTimespan>> Ranges;
-					SampleTimes.GetRanges(Ranges);
-					check(Ranges.Num() > 0);
-
-					TRangeBound<FTimespan> MinBound = Ranges[0].GetLowerBound();
-					for (const auto& Range : Ranges)
-					{
-						MinBound = TRangeBound<FTimespan>::MinLower(MinBound, Range.GetLowerBound());
-					}
-					const FTimespan MinSampleTime = MinBound.GetValue();
-			
-					NextSampleTime = FFrameTime::FromDecimal(MinSampleTime.GetTotalSeconds() * GetFrameRate().AsDecimal()).RoundToFrame();
+					const FTimespan MinBound = SampleTimes.GetMinBoundValue();
+					UseTimespan = (UseTimespan.IsSet()) ? FMath::Min(MinBound, UseTimespan.GetValue()) : MinBound;
 				}
 			}
 		}
 	}
 
-	return NextSampleTime;
+	return UseTimespan.IsSet() ? TimeSpanToFrameTime(UseTimespan.GetValue(), GetFrameRate()) : FFrameTime(0);
 }
 
-int32 UMediaPlayerTimeSynchronizationSource::GetAvailableSampleCount() const
+FFrameTime UMediaPlayerTimeSynchronizationSource::GetNewestSampleTime() const
 {
-	int32 AvailableSampleCount = 0;
+	TOptional<FTimespan> UseTimespan;
 
 	if (MediaTexture && MediaTexture->GetMediaPlayer())
 	{
+		if (MediaTexture->GetAvailableSampleCount() > 0)
+		{
+			// Ideally, the MediaTexture (or more likely, the TMediaSampleQueue) would be able to track
+			// the current span of samples available. However, that's already prone to some threading issues
+			// and trying to manage more data will only exacerbate that.
+
+			// Therefore, we can only use the next available sample time.
+			UseTimespan = MediaTexture->GetNextSampleTime();
+		}
+
 		const TSharedPtr<IMediaPlayer, ESPMode::ThreadSafe>& Player = MediaTexture->GetMediaPlayer()->GetPlayerFacade()->GetPlayer();
 		if (Player.IsValid())
 		{
-			const int32 TextureSampleCount = MediaTexture->GetAvailableSampleCount();
-			const int32 PlayerSampleCount = Player->GetCache().GetSampleCount(EMediaCacheState::Loaded);
-			AvailableSampleCount = TextureSampleCount + PlayerSampleCount;
+			IMediaCache& Cache = Player->GetCache();
+			if (Cache.GetSampleCount(EMediaCacheState::Loaded) > 0)
+			{
+				TRangeSet<FTimespan> SampleTimes;
+				if (Cache.QueryCacheState(EMediaCacheState::Loaded, SampleTimes))
+				{
+					const FTimespan MaxBound = SampleTimes.GetMaxBoundValue();
+					UseTimespan = (UseTimespan.IsSet()) ? FMath::Max(MaxBound, UseTimespan.GetValue()) : MaxBound;
+				}
+			}
 		}
 	}
 
-	return AvailableSampleCount;
+	return UseTimespan.IsSet() ? TimeSpanToFrameTime(UseTimespan.GetValue(), GetFrameRate()) : FFrameTime(0);
 }
 
 FFrameRate UMediaPlayerTimeSynchronizationSource::GetFrameRate() const
@@ -114,8 +130,10 @@ bool UMediaPlayerTimeSynchronizationSource::IsReady() const
 	return MediaTexture && MediaTexture->GetMediaPlayer() && MediaTexture->GetMediaPlayer()->IsReady() && MediaSource;
 }
 
-bool UMediaPlayerTimeSynchronizationSource::Open()
+bool UMediaPlayerTimeSynchronizationSource::Open(const FTimeSynchronizationOpenData& InOpenData)
 {
+	OpenData = InOpenData;
+
 	bool bResult = false;
 	if (MediaSource && MediaTexture)
 	{
@@ -149,15 +167,40 @@ bool UMediaPlayerTimeSynchronizationSource::Open()
 	return bResult;
 }
 
-void UMediaPlayerTimeSynchronizationSource::Start()
+void UMediaPlayerTimeSynchronizationSource::Start(const FTimeSynchronizationStartData& InStartData)
 {
+	StartData = InStartData;
+
 	UMediaPlayer* MediaPlayer = MediaTexture ? MediaTexture->GetMediaPlayer() : nullptr;
 	if (MediaPlayer)
 	{
-		//Once we're on the verge of playing the source, it's time to setup the delay
-		if (!bUseForSynchronization)
+		const FFrameRate LocalFrameRate = GetFrameRate();
+		const FFrameTime LocalStartFrame = FFrameRate::TransformTime(StartData->StartFrame, OpenData->SynchronizationFrameRate, LocalFrameRate);
+		const FTimespan StartTimespan = FTimespan::FromSeconds(LocalFrameRate.AsSeconds(LocalStartFrame));
+
+		// If this source is used for synchronization, then we'll try to seek to the start frame.
+		if (bUseForSynchronization)
 		{
-			MediaPlayer->SetTimeDelay(FTimespan::FromSeconds(TimeDelay));
+			if (MediaPlayer->SupportsSeeking())
+			{
+				MediaPlayer->Seek(StartTimespan);
+			}
+		}
+
+		// Otherwise, we'll at least try to set a delay so it sort of lines up.
+		else
+		{
+			const FFrameTime MinimumTime = GetOldestSampleTime();
+
+			// TODO: Verify this is the correct order. The comments on SetDelay seem confusing.
+			// TODO: Maybe also do this for sync sources that don't support seeking? Need test cases.
+			const FFrameTime DelayFrames = LocalStartFrame - MinimumTime;
+			const double Delay = LocalFrameRate.AsSeconds(DelayFrames);
+
+			if (Delay > 0)
+			{
+				MediaPlayer->SetTimeDelay(Delay);
+			}
 		}
 
 		MediaPlayer->Play();
@@ -174,6 +217,9 @@ void UMediaPlayerTimeSynchronizationSource::Close()
 			MediaPlayer->Close();
 		}
 	}
+
+	StartData.Reset();
+	OpenData.Reset();
 }
 
 FString UMediaPlayerTimeSynchronizationSource::GetDisplayName() const

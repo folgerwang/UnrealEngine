@@ -14,7 +14,7 @@ UMovieSceneColorTrack::UMovieSceneColorTrack( const FObjectInitializer& ObjectIn
 
 UMovieSceneSection* UMovieSceneColorTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneColorSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneColorSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneColorTrack::CreateTemplateForSection(const UMovieSceneSection& Section) const

@@ -14,6 +14,9 @@
  */
 struct FPropertyTag
 {
+	// Transient.
+	UProperty* Prop;
+
 	// Variables.
 	FName	Type;		// Type of property
 	uint8	BoolVal;	// a boolean property's value (never need to serialize data for bool properties except here)

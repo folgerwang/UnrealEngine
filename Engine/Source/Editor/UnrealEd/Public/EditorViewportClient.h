@@ -273,6 +273,10 @@ public:
 
 	virtual ~FEditorViewportClient();
 
+	/** Non-copyable */
+	FEditorViewportClient(const FEditorViewportClient&) = delete;
+	FEditorViewportClient& operator=(const FEditorViewportClient&) = delete;
+
 	/**
 	 * Toggles whether or not the viewport updates in realtime and returns the updated state.
 	 *
@@ -449,6 +453,13 @@ public:
 	/** FViewElementDrawer interface */
 	virtual void Draw(const FSceneView* View,FPrimitiveDrawInterface* PDI) override;
 	virtual void Draw(FViewport* Viewport,FCanvas* Canvas) override;
+
+	/**
+	 * Gets the world space cursor info from the current mouse position
+	 *
+	 * @return					An FViewportCursorLocation containing information about the mouse position in world space.
+	 */
+	FViewportCursorLocation GetCursorWorldLocationFromMousePos();
 
 	/** FViewportClient interface */
 	virtual void ProcessScreenShots(FViewport* Viewport) override;

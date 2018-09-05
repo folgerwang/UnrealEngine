@@ -24,7 +24,7 @@ void UMovieSceneEventTrack::AddSection(UMovieSceneSection& Section)
 
 UMovieSceneSection* UMovieSceneEventTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneEventTriggerSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneEventTriggerSection>(this, NAME_None, RF_Transactional);
 }
 
 

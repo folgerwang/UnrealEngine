@@ -927,6 +927,11 @@ void FSlateApplication::SetPlatformApplication(const TSharedRef<class GenericApp
 	PlatformApplication->SetMessageHandler(CurrentApplication.ToSharedRef());
 }
 
+void FSlateApplication::OverridePlatformApplication(TSharedPtr<class GenericApplication> InPlatformApplication)
+{
+	PlatformApplication = InPlatformApplication;
+}
+
 void FSlateApplication::Create()
 {
 	GSlateFastWidgetPath = GIsEditor ? 0 : 1;
@@ -1056,6 +1061,8 @@ FSlateApplication::FSlateApplication()
 		GConfig->GetBool(TEXT("MobileSlateUI"), TEXT("bTouchFallbackToMouse"), bTouchFallbackToMouse, GEngineIni);
 		GConfig->GetBool(TEXT("CursorControl"), TEXT("bAllowSoftwareCursor"), bSoftwareCursorAvailable, GEngineIni);
 	}
+
+	bRenderOffScreen = FParse::Param(FCommandLine::Get(), TEXT("RenderOffScreen"));
 
 	// causes InputCore to initialize, even if statically linked
 	FInputCoreModule& InputCore = FModuleManager::LoadModuleChecked<FInputCoreModule>(TEXT("InputCore"));
@@ -1305,8 +1312,8 @@ void FSlateApplication::DrawWindowAndChildren( const TSharedRef<SWindow>& Window
 	// On other platforms we set bDrawChildWindows to true only if we draw the current window.
 	bool bDrawChildWindows = PLATFORM_MAC;
 
-	// Only draw visible windows
-	if( WindowToDraw->IsVisible() && (!WindowToDraw->IsWindowMinimized() || FApp::UseVRFocus()) )
+	// Only draw visible windows or in off-screen rendering mode
+	if (bRenderOffScreen || (WindowToDraw->IsVisible() && (!WindowToDraw->IsWindowMinimized() || FApp::UseVRFocus())) )
 	{
 	
 		// Switch to the appropriate world for drawing
@@ -1570,7 +1577,8 @@ void FSlateApplication::PrivateDrawWindows( TSharedPtr<SWindow> DrawOnlyThisWind
 			for( TArray< TSharedRef<SWindow> >::TConstIterator CurrentWindowIt( SlateWindows ); CurrentWindowIt; ++CurrentWindowIt )
 			{
 				TSharedRef<SWindow> CurrentWindow = *CurrentWindowIt;
-				if ( CurrentWindow->IsVisible() )
+				// Only draw visible windows or in off-screen rendering mode
+				if (bRenderOffScreen || CurrentWindow->IsVisible() )
 				{
 					DrawWindowAndChildren( CurrentWindow, DrawWindowArgs );
 				}
@@ -1995,6 +2003,14 @@ TSharedRef<SWindow> FSlateApplication::AddWindow( TSharedRef<SWindow> InSlateWin
 
 TSharedRef< FGenericWindow > FSlateApplication::MakeWindow( TSharedRef<SWindow> InSlateWindow, const bool bShowImmediately )
 {
+	// When rendering off-screen don't render to screen, create a dummy generic window
+	if (bRenderOffScreen)
+	{
+		TSharedRef< FGenericWindow > NewWindow = MakeShareable(new FGenericWindow());
+		InSlateWindow->SetNativeWindow(NewWindow);
+		return NewWindow;
+	}
+
 	TSharedPtr<FGenericWindow> NativeParent = nullptr;
 	TSharedPtr<SWindow> ParentWindow = InSlateWindow->GetParentWindow();
 	if ( ParentWindow.IsValid() )

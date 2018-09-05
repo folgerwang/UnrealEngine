@@ -67,6 +67,36 @@ bool FUdpMessageSegmenter::GetNextPendingSegment(TArray<uint8>& OutData, uint16&
 }
 
 
+bool FUdpMessageSegmenter::GetPendingSegment(uint16 InSegment, TArray<uint8>& OutData) const
+{
+	if (MessageReader == nullptr)
+	{
+		return false;
+	}
+
+	if (InSegment < PendingSegments.Num() && PendingSegments[InSegment])
+	{
+		uint32 SegmentOffset = InSegment * SegmentSize;
+		int32 ActualSegmentSize = MessageReader->TotalSize() - SegmentOffset;
+
+		if (ActualSegmentSize > SegmentSize)
+		{
+			ActualSegmentSize = SegmentSize;
+		}
+
+		OutData.Reset(ActualSegmentSize);
+		OutData.AddUninitialized(ActualSegmentSize);
+
+		MessageReader->Seek(SegmentOffset);
+		MessageReader->Serialize(OutData.GetData(), ActualSegmentSize);
+
+		return true;
+	}
+
+	return false;
+}
+
+
 void FUdpMessageSegmenter::Initialize()
 {
 	if (MessageReader != nullptr)
@@ -89,12 +119,27 @@ bool FUdpMessageSegmenter::IsInvalid() const
 }
 
 
-void FUdpMessageSegmenter::MarkAsSent(uint16 Segment)
+uint8 FUdpMessageSegmenter::GetProtocolVersion() const
 {
-	if (Segment < PendingSegments.Num())
+	return SerializedMessage->GetProtocolVersion();
+}
+
+
+EMessageFlags FUdpMessageSegmenter::GetMessageFlags() const
+{
+	return SerializedMessage->GetFlags();
+}
+
+
+void FUdpMessageSegmenter::MarkAsAcknowledged(const TArray<uint16>& Segments)
+{
+	for (const auto& Segment : Segments)
 	{
-		PendingSegments[Segment] = false;
-		--PendingSegmentsCount;
+		if (Segment < PendingSegments.Num())
+		{
+			PendingSegments[Segment] = false;
+			--PendingSegmentsCount;
+		}
 	}
 }
 
@@ -108,4 +153,17 @@ void FUdpMessageSegmenter::MarkForRetransmission(const TArray<uint16>& Segments)
 			PendingSegments[Segment] = true;
 		}
 	}
+}
+
+const FTimespan FUdpMessageSegmenter::SendInterval = FTimespan::FromMilliseconds(100);
+
+bool FUdpMessageSegmenter::NeedSending(const FDateTime& CurrentTime)
+{
+	return LastSentTime + SendInterval <= CurrentTime;
+}
+
+void FUdpMessageSegmenter::UpdateSentTime(const FDateTime& CurrentTime)
+{
+	LastSentTime = CurrentTime;
+	++SentNumber;
 }

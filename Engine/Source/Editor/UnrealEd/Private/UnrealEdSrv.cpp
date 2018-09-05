@@ -1355,30 +1355,16 @@ bool UUnrealEdEngine::IsUserInteracting()
 {
 	// Check to see if the user is in the middle of a drag operation.
 	bool bUserIsInteracting = false;
-	for( int32 ClientIndex = 0 ; ClientIndex < AllViewportClients.Num() ; ++ClientIndex )
+	for (const FEditorViewportClient* VC : AllViewportClients)
 	{
 		// Check for tracking and capture.  If a viewport has mouse capture, it could be locking the mouse to the viewport, which means if we prompt with a dialog
 		// while the mouse is locked to a viewport, we wont be able to interact with the dialog.  
-		if ( AllViewportClients[ClientIndex]->IsTracking() ||  AllViewportClients[ClientIndex]->Viewport->HasMouseCapture() )
+		if (VC->IsTracking() || (VC->Viewport && VC->Viewport->HasMouseCapture()))
 		{
 			bUserIsInteracting = true;
 			break;
 		}
 	}
-	
-	if( !bUserIsInteracting )
-	{
-		// When a property window is open and the user is dragging to modify a property with a spinbox control, 
-		// the viewport clients will have bIsTracking to false. 
-		// We check for the state of the right and left mouse buttons and assume the user is interacting with something if a mouse button is pressed down
-		
-#if PLATFORM_WINDOWS
-		bool bLeftDown = !!(GetAsyncKeyState(VK_LBUTTON) & 0x8000);
-		bool bRightDown = !!(GetAsyncKeyState(VK_RBUTTON) & 0x8000);
-		bUserIsInteracting = bLeftDown || bRightDown;
-#endif
-	}
-
 	return bUserIsInteracting;
 }
 

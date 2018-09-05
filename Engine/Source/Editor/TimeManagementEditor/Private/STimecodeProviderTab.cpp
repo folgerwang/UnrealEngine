@@ -30,17 +30,6 @@ namespace TimecodeProviderTab
 				SNew(STimecodeProviderTab)
 			];
 	}
-	
-	FReply ApplyTimecodeProvider(UTimecodeProvider* InTimecodeProvider)
-	{
-		if (GEngine)
-		{
-			GEngine->SetTimecodeProvider(nullptr);
-			GEngine->SetTimecodeProvider(InTimecodeProvider);
-		}
-
-		return FReply::Handled();
-	}
 }
 
 void STimecodeProviderTab::RegisterNomadTabSpawner()
@@ -66,7 +55,6 @@ void STimecodeProviderTab::Construct(const FArguments& InArgs)
 		.ContentPadding(0)
 		.ButtonStyle(&FCoreStyle::Get(), "ToolBar.Button")
 		.ForegroundColor(FCoreStyle::Get().GetSlateColor("DefaultForeground"))
-		//.Visibility_Lambda([]() { return (GEngine && GEngine->GetTimecodeProvider() != nullptr) ? EVisibility::Visible : EVisibility::Hidden; } )
 		.ButtonContent()
 		[
 			SNullWidget::NullWidget
@@ -83,11 +71,11 @@ void STimecodeProviderTab::Construct(const FArguments& InArgs)
 		.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
 		[
 			SNew(SBorder)
-			//.Padding(ToolBarPadding)
 			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 			[
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot()
+				.AutoHeight()
 				[
 					SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
@@ -122,7 +110,7 @@ TSharedRef<SWidget> STimecodeProviderTab::OnGetMenuContent()
 			LOCTEXT("ReapplyMenuLabel", "Reinitialize"),
 			LOCTEXT("ReapplyMenuToolTip", "Reinitialize the current Timecode Provider."),
 			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda([](){ TimecodeProviderTab::ApplyTimecodeProvider(GEngine->GetTimecodeProvider()); }))
+			FUIAction(FExecuteAction::CreateUObject(GEngine, &UEngine::ReinitializeTimecodeProvider))
 			);
 
 		MenuBuilder.EndSection();

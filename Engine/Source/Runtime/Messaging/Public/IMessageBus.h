@@ -17,6 +17,7 @@ class IMessageTracer;
 class UScriptStruct;
 
 enum class EMessageScope : uint8;
+enum class EMessageFlags : uint32;
 
 struct FDateTime;
 struct FMessageAddress;
@@ -172,6 +173,7 @@ public:
 	 *
 	 * @param Message The message to send.
 	 * @param TypeInfo The message's type information.
+	 * @param Flags The message flags.
 	 * @param Attachment The binary data to attach to the message.
 	 * @param Recipients The list of message recipients.
 	 * @param Delay The delay after which to send the message.
@@ -179,7 +181,7 @@ public:
 	 * @param Sender The message sender.
 	 * @see Forward, Publish
 	 */
-	virtual void Send(void* Message, UScriptStruct* TypeInfo, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration, const TSharedRef<IMessageSender, ESPMode::ThreadSafe>& Sender) = 0;
+	virtual void Send(void* Message, UScriptStruct* TypeInfo, EMessageFlags Flags, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration, const TSharedRef<IMessageSender, ESPMode::ThreadSafe>& Sender) = 0;
 
 	/**
 	 * Shuts down the message bus.

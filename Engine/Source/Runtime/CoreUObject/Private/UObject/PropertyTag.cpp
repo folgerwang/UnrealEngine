@@ -14,7 +14,8 @@ FPropertyTag
 
 // Constructors.
 FPropertyTag::FPropertyTag()
-	: Type      (NAME_None)
+	: Prop      (nullptr)
+	, Type      (NAME_None)
 	, BoolVal   (0)
 	, Name      (NAME_None)
 	, StructName(NAME_None)
@@ -25,10 +26,12 @@ FPropertyTag::FPropertyTag()
 	, ArrayIndex(INDEX_NONE)
 	, SizeOffset(INDEX_NONE)
 	, HasPropertyGuid(0)
-{}
+{
+}
 
 FPropertyTag::FPropertyTag( FArchive& InSaveAr, UProperty* Property, int32 InIndex, uint8* Value, uint8* Defaults )
-	: Type      (Property->GetID())
+	: Prop      (Property)
+	, Type      (Property->GetID())
 	, BoolVal   (0)
 	, Name      (Property->GetFName())
 	, StructName(NAME_None)
@@ -105,6 +108,8 @@ void operator<<(FStructuredArchive::FSlot Slot, FPropertyTag& Tag)
 	FStructuredArchive::FRecord Record = Slot.EnterRecord();
 	int32 Version = UnderlyingArchive.UE4Ver();
 
+	checkf(!UnderlyingArchive.IsSaving() || Tag.Prop, TEXT("FPropertyTag must be constructed with a valid property when used for saving data!"));
+
 	// Name.
 	Record << NAMED_ITEM("Name", Tag.Name);
 	if ((Tag.Name == NAME_None) || !Tag.Name.IsValid())
@@ -135,7 +140,15 @@ void operator<<(FStructuredArchive::FSlot Slot, FPropertyTag& Tag)
 	// only need to serialize this for bools
 	else if (Tag.Type == NAME_BoolProperty && !UnderlyingArchive.IsTextFormat())
 	{
-		Record << NAMED_ITEM("BoolVal", Tag.BoolVal);
+		if (UnderlyingArchive.IsSaving())
+		{
+			FSerializedPropertyScope SerializedProperty(UnderlyingArchive, Tag.Prop);
+			Record << NAMED_ITEM("BoolVal", Tag.BoolVal);
+		}
+		else
+		{
+			Record << NAMED_ITEM("BoolVal", Tag.BoolVal);
+		}
 	}
 	// only need to serialize this for bytes/enums
 	else if (Tag.Type == NAME_ByteProperty || Tag.Type == NAME_EnumProperty)

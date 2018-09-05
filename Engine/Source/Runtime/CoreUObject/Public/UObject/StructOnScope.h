@@ -17,23 +17,23 @@ protected:
 	/** Whether the struct memory is owned by this instance. */
 	bool OwnsMemory;
 
-	FStructOnScope()
-		: SampleStructMemory(nullptr)
-		, OwnsMemory(false)
-	{
-	}
-
 	virtual void Initialize()
 	{
-		if (ScriptStruct.IsValid())
+		if (const UStruct* ScriptStructPtr = ScriptStruct.Get())
 		{
-			SampleStructMemory = (uint8*)FMemory::Malloc(ScriptStruct->GetStructureSize() ? ScriptStruct->GetStructureSize() : 1);
-			ScriptStruct.Get()->InitializeStruct(SampleStructMemory);
+			SampleStructMemory = (uint8*)FMemory::Malloc(ScriptStructPtr->GetStructureSize() ? ScriptStructPtr->GetStructureSize() : 1);
+			ScriptStructPtr->InitializeStruct(SampleStructMemory);
 			OwnsMemory = true;
 		}
 	}
 
 public:
+
+	FStructOnScope()
+		: SampleStructMemory(nullptr)
+		, OwnsMemory(false)
+	{
+	}
 
 	FStructOnScope(const UStruct* InScriptStruct)
 		: ScriptStruct(InScriptStruct)
@@ -48,6 +48,40 @@ public:
 		, SampleStructMemory(InData)
 		, OwnsMemory(false)
 	{
+	}
+
+	FStructOnScope(FStructOnScope&& InOther)
+	{
+		ScriptStruct = InOther.ScriptStruct;
+		SampleStructMemory = InOther.SampleStructMemory;
+		OwnsMemory = InOther.OwnsMemory;
+
+		InOther.OwnsMemory = false;
+		InOther.Reset();
+	}
+
+	FStructOnScope& operator=(FStructOnScope&& InOther)
+	{
+		if (this != &InOther)
+		{
+			Reset();
+
+			ScriptStruct = InOther.ScriptStruct;
+			SampleStructMemory = InOther.SampleStructMemory;
+			OwnsMemory = InOther.OwnsMemory;
+
+			InOther.OwnsMemory = false;
+			InOther.Reset();
+		}
+		return *this;
+	}
+
+	FStructOnScope(const FStructOnScope&) = delete;
+	FStructOnScope& operator=(const FStructOnScope&) = delete;
+
+	virtual bool OwnsStructMemory() const
+	{
+		return OwnsMemory;
 	}
 
 	virtual uint8* GetStructMemory()
@@ -87,17 +121,29 @@ public:
 			return;
 		}
 
-		if (ScriptStruct.IsValid() && SampleStructMemory)
+		if (const UStruct* ScriptStructPtr = ScriptStruct.Get())
 		{
-			ScriptStruct.Get()->DestroyStruct(SampleStructMemory);
-			ScriptStruct = NULL;
+			if (SampleStructMemory)
+			{
+				ScriptStructPtr->DestroyStruct(SampleStructMemory);
+			}
+			ScriptStruct = nullptr;
 		}
 
 		if (SampleStructMemory)
 		{
 			FMemory::Free(SampleStructMemory);
-			SampleStructMemory = NULL;
+			SampleStructMemory = nullptr;
 		}
+	}
+
+	virtual void Reset()
+	{
+		Destroy();
+
+		ScriptStruct = nullptr;
+		SampleStructMemory = nullptr;
+		OwnsMemory = false;
 	}
 
 	virtual ~FStructOnScope()
@@ -108,12 +154,8 @@ public:
 	/** Re-initializes the scope with a specified UStruct */
 	void Initialize(TWeakObjectPtr<const UStruct> InScriptStruct)
 	{
+		Destroy();
 		ScriptStruct = InScriptStruct;
 		Initialize();
 	}
-
-private:
-
-	FStructOnScope(const FStructOnScope&);
-	FStructOnScope& operator=(const FStructOnScope&);
 };

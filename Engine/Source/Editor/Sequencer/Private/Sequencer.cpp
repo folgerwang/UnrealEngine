@@ -492,6 +492,8 @@ void FSequencer::Close()
 	TrackEditors.Empty();
 
 	GUnrealEd->UpdatePivotLocationForSelection();
+	
+	OnCloseEventDelegate.Broadcast(AsShared());
 }
 
 
@@ -788,8 +790,13 @@ void FSequencer::SuppressAutoEvaluation(UMovieSceneSequence* Sequence, const FGu
 
 FGuid FSequencer::CreateBinding(UObject& InObject, const FString& InName)
 {
+	const FScopedTransaction Transaction(LOCTEXT("CreateBinding", "Create New Binding"));
+
 	UMovieSceneSequence* OwnerSequence = GetFocusedMovieSceneSequence();
 	UMovieScene* OwnerMovieScene = OwnerSequence->GetMovieScene();
+
+	OwnerSequence->Modify();
+	OwnerMovieScene->Modify();
 		
 	const FGuid PossessableGuid = OwnerMovieScene->AddPossessable(InName, InObject.GetClass());
 
@@ -4301,6 +4308,19 @@ bool FSequencer::OnRequestNodeDeleted( TSharedRef<const FSequencerDisplayNode> N
 	return bAnythingRemoved;
 }
 
+bool FSequencer::MatchesContext(const FTransactionContext& InContext, const TArray<TPair<UObject*, FTransactionObjectEvent>>& TransactionObjects) const
+{
+	// Check if we care about the undo/redo
+	for (const TPair<UObject*, FTransactionObjectEvent>& TransactionObjectPair : TransactionObjects)
+	{
+		if (TransactionObjectPair.Value.HasPendingKillChange() || TransactionObjectPair.Key->GetClass()->IsChildOf(UMovieSceneSignedObject::StaticClass()))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void FSequencer::PostUndo(bool bSuccess)
 {
 	NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::Unknown );
@@ -5927,8 +5947,19 @@ void FSequencer::PasteCopiedTracks()
 
 		TArray<FMovieSceneBinding> BindingsPasted;
 		for (UMovieSceneCopyableBinding* CopyableBinding : ImportedBindings)
-		{
-			
+		{	
+			// Clear transient flags on the imported tracks
+			for (UMovieSceneTrack* CopiedTrack : CopyableBinding->Tracks)
+			{
+				CopiedTrack->ClearFlags(RF_Transient);
+				TArray<UObject*> Subobjects;
+				GetObjectsWithOuter(CopiedTrack, Subobjects);
+				for (UObject* Subobject : Subobjects)
+				{
+					Subobject->ClearFlags(RF_Transient);
+				}
+			}
+
 			if (CopyableBinding->Possessable.GetGuid().IsValid())
 			{
 				FGuid NewGuid = FGuid::NewGuid();

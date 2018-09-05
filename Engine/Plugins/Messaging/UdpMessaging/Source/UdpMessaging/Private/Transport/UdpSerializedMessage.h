@@ -5,10 +5,11 @@
 #include "CoreTypes.h"
 #include "Containers/Array.h"
 #include "Delegates/Delegate.h"
+#include "Templates/SharedPointer.h"
 #include "Serialization/Archive.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
-
+#include "IMessageContext.h"
 
 /**
  * Enumerates possibly states of a serialized message.
@@ -37,10 +38,18 @@ class FUdpSerializedMessage
 public:
 
 	/** Default constructor. */
-	FUdpSerializedMessage()
+	FUdpSerializedMessage(uint8 InProtocolVersion, EMessageFlags InFlags)
 		: FMemoryWriter(DataArray, true)
 		, State(EUdpSerializedMessageState::Incomplete)
-	{ }
+		, Flags(InFlags)
+		, ProtocolVersion(InProtocolVersion)
+	{
+		// Flags aren't supported in protocol version previous to 11
+		if (ProtocolVersion < 11)
+		{
+			Flags = EMessageFlags::None;
+		}
+	}
 
 public:
 
@@ -89,6 +98,18 @@ public:
 		State = InState;
 	}
 
+	/** @return the message flags. */
+	EMessageFlags GetFlags() const
+	{
+		return Flags;
+	}
+
+	/** @return the message protocol version. */
+	uint8 GetProtocolVersion() const
+	{
+		return ProtocolVersion;
+	}
+
 private:
 
 	/** Holds the serialized data. */
@@ -96,4 +117,10 @@ private:
 
 	/** Holds the message data state. */
 	EUdpSerializedMessageState State;
+
+	/** Holds message flags, captured from context. */
+	EMessageFlags Flags;
+
+	/** Holds the Protocol Version the message will be serialized in. */
+	uint8 ProtocolVersion;
 };

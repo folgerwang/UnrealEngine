@@ -1,0 +1,26 @@
+{
+	"FileVersion" : 3,
+	"Version" : 0.1,
+	"VersionName" : "0.1",
+	"FriendlyName" : "Pixel Streaming",
+	"Description" : "Support for pixel streaming from UE4",
+	"Category" : "Graphics",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : false,
+	"CanContainContent" : true,
+	"IsBetaVersion" : true,
+	"Installed" : false,
+	"Modules" :
+	[
+    {
+      "Name" : "PixelStreaming",
+      "Type" : "Runtime",
+      "LoadingPhase" : "PostEngineInit",
+      "WhitelistPlatforms" : [ "Win64" ]
+    }
+	]
+}

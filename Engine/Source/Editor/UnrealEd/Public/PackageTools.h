@@ -75,6 +75,18 @@ public:
 	 */
 	static bool UnloadPackages( const TArray<UPackage*>& PackagesToUnload, FText& OutErrorMessage );
 
+	enum class EReloadPackagesInteractionMode : uint8
+	{
+		/** Interactive, ask the user what to do */
+		Interactive,
+
+		/** Non-interactive, assume a positive response */
+		AssumePositive,
+
+		/** Non-interactive, assume a negative response */
+		AssumeNegative,
+	};
+
 	/**
 	 * Helper function that attempts to reload the specified top-level packages.
 	 *
@@ -93,7 +105,19 @@ public:
 	 *
 	 * @return	true if the set of loaded packages was changed
 	 */
+	DEPRECATED(4.21, "ReloadPackages taking bInteractive is deprecated. Use the version taking EReloadPackagesInteractionMode instead.")
 	static bool ReloadPackages( const TArray<UPackage*>& PackagesToReload, FText& OutErrorMessage, const bool bInteractive = true );
+
+	/**
+	 * Helper function that attempts to reload the specified top-level packages.
+	 *
+	 * @param	PackagesToReload	The list of packages that should be reloaded
+	 * @param	OutErrorMessage		An error message specifying any problems with reloading packages
+	 * @param	InteractionMode		Whether the function is allowed to ask the user questions (such as whether to reload dirty packages)
+	 *
+	 * @return	true if the set of loaded packages was changed
+	 */
+	static bool ReloadPackages( const TArray<UPackage*>& PackagesToReload, FText& OutErrorMessage, const EReloadPackagesInteractionMode InteractionMode = EReloadPackagesInteractionMode::Interactive );
 
 	/**
 	 *	Exports the given packages to files.

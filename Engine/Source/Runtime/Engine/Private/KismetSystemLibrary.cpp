@@ -2553,6 +2553,44 @@ FString UKismetSystemLibrary::GetCommandLine()
 	return FString(FCommandLine::Get());
 }
 
+int32 UKismetSystemLibrary::BeginTransaction(const FString& Context, FText Description, UObject* PrimaryObject)
+{
+#if WITH_EDITOR
+	return GEngine->BeginTransaction(*Context, Description, PrimaryObject);
+#else
+	return INDEX_NONE;
+#endif
+}
+
+int32 UKismetSystemLibrary::EndTransaction()
+{
+#if WITH_EDITOR
+	return GEngine->EndTransaction();
+#else
+	return INDEX_NONE;
+#endif
+}
+
+void UKismetSystemLibrary::CancelTransaction(const int32 Index)
+{
+#if WITH_EDITOR
+	if (Index >= 0)
+	{
+		GEngine->CancelTransaction(Index);
+	}
+#endif
+}
+
+void UKismetSystemLibrary::TransactObject(UObject* Object)
+{
+#if WITH_EDITOR
+	if (Object)
+	{
+		Object->Modify();
+	}
+#endif
+}
+
 UObject* UKismetSystemLibrary::GetObjectFromPrimaryAssetId(FPrimaryAssetId PrimaryAssetId)
 {
 	if (UAssetManager* Manager = UAssetManager::GetIfValid())

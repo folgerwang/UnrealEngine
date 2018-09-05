@@ -26,7 +26,7 @@ namespace EditorScriptingUtils
 	/*
 	 * Check if the Path is a valid ContentBrowser Path
 	 */
-	bool IsAValidPath(const FString& Path, FString& OutFailureReason);
+	bool IsAValidPath(const FString& Path, const TCHAR* InvalidChar, FString& OutFailureReason);
 
 	/*
 	 * Check if the AssetPath can be used to create a new asset

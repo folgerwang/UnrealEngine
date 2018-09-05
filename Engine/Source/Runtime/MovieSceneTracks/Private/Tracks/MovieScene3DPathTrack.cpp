@@ -23,7 +23,7 @@ FMovieSceneEvalTemplatePtr UMovieScene3DPathTrack::CreateTemplateForSection(cons
 
 void UMovieScene3DPathTrack::AddConstraint(FFrameNumber KeyTime, int32 Duration, const FName SocketName, const FName ComponentName, const FMovieSceneObjectBindingID& ConstraintBindingID)
 {
-	UMovieScene3DPathSection* NewSection = NewObject<UMovieScene3DPathSection>(this);
+	UMovieScene3DPathSection* NewSection = NewObject<UMovieScene3DPathSection>(this, NAME_None, RF_Transactional);
 	{
 		NewSection->SetPathBindingID( ConstraintBindingID );
 		NewSection->InitialPlacement( ConstraintSections, KeyTime, Duration, SupportsMultipleRows() );
