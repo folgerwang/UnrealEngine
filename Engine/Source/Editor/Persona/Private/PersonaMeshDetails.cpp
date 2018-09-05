@@ -798,14 +798,14 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 			SNew(STextBlock)
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 			.Text(this, &FPersonaMeshDetails::GetLODCustomModeNameContent, (int32)INDEX_NONE)
-			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode allow editing multiple LOD in same time."))
+			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode shows multiple LOD's properties at the same time for easier editing."))
 		]
 		.ValueContent()
 		[
 			SNew(SCheckBox)
 			.IsChecked(this, &FPersonaMeshDetails::IsLODCustomModeCheck, (int32)INDEX_NONE)
 			.OnCheckStateChanged(this, &FPersonaMeshDetails::SetLODCustomModeCheck, (int32)INDEX_NONE)
-			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode allow editing multiple LOD in same time."))
+			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode shows multiple LOD's properties at the same time for easier editing."))
 		];
 
 		LodCategories.Empty(SkelMeshLODCount);
@@ -2620,7 +2620,7 @@ TSharedRef<SWidget> FPersonaMeshDetails::OnGenerateLodMenuForLodPicker()
 
 	FText AutoLodText = FText::FromString((TEXT("Auto LOD")));
 	FUIAction AutoLodAction(FExecuteAction::CreateSP(this, &FPersonaMeshDetails::SetCurrentLOD, 0));
-	MenuBuilder.AddMenuEntry(AutoLodText, LOCTEXT("OnGenerateLodMenuForSectionList_Auto_ToolTip", "LOD0 is edit when selecting Auto LOD"), FSlateIcon(), AutoLodAction);
+	MenuBuilder.AddMenuEntry(AutoLodText, LOCTEXT("OnGenerateLodMenuForSectionList_Auto_ToolTip", "With Auto LOD selected, LOD0's properties are visible for editing."), FSlateIcon(), AutoLodAction);
 	// Add a menu item for each texture.  Clicking on the texture will display it in the content browser
 	for (int32 AllLodIndex = 0; AllLodIndex < SkelMeshLODCount; ++AllLodIndex)
 	{

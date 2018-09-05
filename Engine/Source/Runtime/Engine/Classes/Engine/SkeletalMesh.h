@@ -500,7 +500,7 @@ private:
 
 public:
 	/** Minimum LOD to render. Can be overridden per component as well as set here for all mesh instances here */
-	UPROPERTY(EditAnywhere, Category = LODSettings)
+	UPROPERTY(EditAnywhere, Category = LODSettings, meta = (DisplayName = "Minimum LOD"))
 	FPerPlatformInt MinLod;
 
 #if WITH_EDITORONLY_DATA

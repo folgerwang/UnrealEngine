@@ -102,7 +102,7 @@ class USkeletalMeshLODSettings : public UDataAsset
 protected:
 
 	/** Minimum LOD to render. Can be overridden per component as well as set here for all mesh instances here */
-	UPROPERTY(globalconfig, EditAnywhere, Category=LODGroups)
+	UPROPERTY(globalconfig, EditAnywhere, Category=LODGroups, meta = (DisplayName = "Minimum LOD"))
 	FPerPlatformInt MinLod;
 
 	UPROPERTY(globalconfig, EditAnywhere, Category=LODGroups)
