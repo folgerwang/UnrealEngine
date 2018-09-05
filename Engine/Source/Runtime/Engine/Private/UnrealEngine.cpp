@@ -13542,6 +13542,26 @@ public:
 
 void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* NewObject, FCopyPropertiesForUnrelatedObjectsParams Params)
 {
+	// UObject::CollectDefaultSubobjects will not return all DSOs for the CDO (only returns inherited subobjects). It also
+	// includes any subobjects that have a matching name on the archetype. This function returns all subobjects that have
+	// a matching instancing on Object's archetype and any objects tagged as RF_DefaultSubObject. Non-DSO instanced subobjects
+	// may be missing, but testing will determine that:
+	const auto CollectAllSubobjects = [](UObject* Object, TArray<UObject*>& OutSubobjectArray)
+	{
+		const bool bIncludedNestedObjects = true;
+		GetObjectsWithOuter(Object, OutSubobjectArray, bIncludedNestedObjects);
+
+		// Remove contained objects that are not subobjects.
+		for ( int32 ComponentIndex = 0; ComponentIndex < OutSubobjectArray.Num(); ComponentIndex++ )
+		{
+			UObject* PotentialComponent = OutSubobjectArray[ComponentIndex];
+			if (!PotentialComponent->IsDefaultSubobject() && !PotentialComponent->HasAnyFlags(RF_DefaultSubObject))
+			{
+				OutSubobjectArray.RemoveAtSwap(ComponentIndex--);
+			}
+		}
+	};
+
 	check(OldObject && NewObject);
 
 	// Bad idea to write data to an actor while its components are registered
@@ -13575,7 +13595,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	{
 		// Find all instanced objects of the old CDO, and save off their modified properties to be later applied to the newly instanced objects of the new CDO
 		TArray<UObject*> Components;
-		OldObject->CollectDefaultSubobjects(Components, true);
+		CollectAllSubobjects( OldObject, Components );
 
 		for (UObject* OldInstance : Components)
 		{
@@ -13600,7 +13620,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	TArray<UObject*> ComponentsOnNewObject;
 	{
 		TArray<UObject*> EditInlineSubobjectsOfComponents;
-		NewObject->CollectDefaultSubobjects(ComponentsOnNewObject,true);
+		CollectAllSubobjects( NewObject, ComponentsOnNewObject );
 
 		// populate the ReferenceReplacementMap 
 		for (int32 Index = 0; Index < ComponentsOnNewObject.Num(); Index++)
