@@ -54,6 +54,26 @@ public partial class Project : CommandUtils
 			);
 	}
 
+	static Mutex DSBlockMutex = null;
+
+	static void CreateDeploymentServerMutex()
+	{
+		bool bCreatedMutex = false;
+		String MutexName = "Global\\DeploymentServer_Mutex_RestartNotAllowed";
+		DSBlockMutex = new Mutex(true, MutexName, out bCreatedMutex); // we don'e really care if ia already created here, we just want it to be active when we're building
+	}
+
+	static void CloseDeploymentServerMutex()
+	{
+		// Release the mutex to avoid the abandoned mutex timeout.
+		if (DSBlockMutex != null)
+		{
+			DSBlockMutex.ReleaseMutex();
+			DSBlockMutex.Dispose();
+			DSBlockMutex = null;
+		}
+	}
+
 	public static void Build(BuildCommand Command, ProjectParams Params, int WorkingCL = -1, ProjectBuildTargets TargetMask = ProjectBuildTargets.All)
 	{
 		Params.ValidateAndLog();
@@ -99,7 +119,6 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
-
 		// allow all involved platforms to hook into the agenda
 		HashSet<UnrealTargetPlatform> UniquePlatforms = new HashSet<UnrealTargetPlatform>();
 		UniquePlatforms.UnionWith(Params.ClientTargetPlatforms.Select(x => x.Type));
@@ -108,7 +127,6 @@ public partial class Project : CommandUtils
 		{
 			Platform.GetPlatform(TargetPlatform).PreBuildAgenda(UE4Build, Agenda);
 		}
-
 		// Build any tools we need to stage
 		if ((TargetMask & ProjectBuildTargets.UnrealPak) == ProjectBuildTargets.UnrealPak && !Automation.IsEngineInstalled())
 		{
@@ -117,7 +135,6 @@ public partial class Project : CommandUtils
 				Agenda.AddTargets(new string[] { "UnrealPak" }, HostPlatform.Current.HostEditorPlatform, UnrealTargetConfiguration.Development, Params.CodeBasedUprojectPath);
 			}
 		}
-
 		// Additional compile arguments
 		string AdditionalArgs = "";
 
@@ -125,7 +142,6 @@ public partial class Project : CommandUtils
 		{
 			AdditionalArgs += " " + Params.UbtArgs;
 		}
-
 		if (Params.MapFile)
 		{
 			AdditionalArgs += " -mapfile";
@@ -142,7 +158,6 @@ public partial class Project : CommandUtils
 			AdditionalArgs += " -";
 			AdditionalArgs += ConfigOverrideParam;
 		}
-
 		// Setup cooked targets
 		if (Params.HasClientCookedTargets && (!Params.SkipBuildClient) && (TargetMask & ProjectBuildTargets.ClientCooked) == ProjectBuildTargets.ClientCooked)
 		{
@@ -203,7 +218,9 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
+		CreateDeploymentServerMutex();
 		UE4Build.Build(Agenda, InDeleteBuildProducts: Params.Clean, InUpdateVersionFiles: WorkingCL > 0);
+		CloseDeploymentServerMutex();
 
 		if (WorkingCL > 0) // only move UAT files if we intend to check in some build products
 		{
