@@ -309,6 +309,9 @@ protected:
 	/** Called when the filter text changes.  This filters specific property nodes out of view */
 	void OnFilterTextChanged(const FText& InFilterText);
 
+	/** Called when the filter text is cleared. Resets the filters */
+	void OnFilterTextCommitted(const FText& InSearchText, ETextCommit::Type InCommitType);
+
 	/** Called when the list of currently differing properties changes */
 	virtual void UpdatePropertiesWhitelist(const TSet<FPropertyPath> InWhitelistedProperties) override { CurrentFilter.WhitelistedProperties = InWhitelistedProperties; }
 

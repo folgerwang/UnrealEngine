@@ -192,6 +192,7 @@ void SDetailsView::Construct(const FArguments& InArgs)
 				SAssignNew(SearchBox, SSearchBox)
 				.HintText(LOCTEXT("SearchDetailsHint", "Search Details"))
 				.OnTextChanged(this, &SDetailsView::OnFilterTextChanged)
+				.OnTextCommitted(this, &SDetailsView::OnFilterTextCommitted)
 				.AddMetaData<FTagMetaData>(TEXT("Details.Search"))
 			]
 		];

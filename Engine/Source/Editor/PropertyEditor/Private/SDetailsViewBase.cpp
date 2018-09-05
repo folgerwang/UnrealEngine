@@ -574,6 +574,16 @@ void SDetailsViewBase::OnFilterTextChanged(const FText& InFilterText)
 
 }
 
+void SDetailsViewBase::OnFilterTextCommitted(const FText& InSearchText, ETextCommit::Type InCommitType)
+{
+	if (InCommitType == ETextCommit::OnCleared)
+	{
+		SearchBox->SetText(FText::GetEmpty());
+		OnFilterTextChanged(FText::GetEmpty());
+		FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::Cleared);
+	}
+}
+
 TSharedPtr<SWidget> SDetailsViewBase::GetNameAreaWidget()
 {
 	return DetailsViewArgs.bCustomNameAreaLocation ? NameArea : nullptr;
