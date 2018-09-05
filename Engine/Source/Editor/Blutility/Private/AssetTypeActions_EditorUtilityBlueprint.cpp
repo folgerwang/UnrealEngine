@@ -8,9 +8,10 @@
 #include "GlobalEditorUtilityBase.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "BlueprintEditorModule.h"
-#include "GlobalBlutilityDialog.h"
+#include "EditorUtilityDialog.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
+#include "IBlutilityModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -119,8 +120,8 @@ void FAssetTypeActions_EditorUtilityBlueprint::OpenAssetEditor(const TArray<UObj
 				}
 				else
 				{
-					// This one needs settings or has multiple actions to execute, so invoke the blutility dialog
-					TSharedRef<FGlobalBlutilityDialog> NewBlutilityDialog(new FGlobalBlutilityDialog());
+					// This one needs settings or has multiple actions to execute, so invoke the dialog
+					TSharedRef<FGlobalEditorUtilityDialog> NewBlutilityDialog(new FGlobalEditorUtilityDialog());
 					NewBlutilityDialog->InitBlutilityDialog(Mode, EditWithinLevelEditor, Blueprint);
 				}
 			}
@@ -136,7 +137,8 @@ void FAssetTypeActions_EditorUtilityBlueprint::OpenAssetEditor(const TArray<UObj
 
 uint32 FAssetTypeActions_EditorUtilityBlueprint::GetCategories()
 {
-	return EAssetTypeCategories::Blueprint;
+	IBlutilityModule* BlutilityModule = FModuleManager::GetModulePtr<IBlutilityModule>("Blutility");
+	return BlutilityModule->GetAssetCategory();
 }
 
 void FAssetTypeActions_EditorUtilityBlueprint::ExecuteEdit(FWeakBlueprintPointerArray Objects)

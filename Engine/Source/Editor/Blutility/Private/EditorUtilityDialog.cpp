@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "GlobalBlutilityDialog.h"
+#include "EditorUtilityDialog.h"
 #include "GlobalEditorUtilityBase.h"
 #include "Modules/ModuleManager.h"
 #include "EditorUtilityBlueprint.h"
@@ -17,17 +17,18 @@ const FName NAME_GlobalBlutilityDialogAppIdentifier = FName(TEXT("GlobalBlutilit
 //////////////////////////////////////////////////////////////////////////
 // FGlobalBlutilityDialog
 
-void FGlobalBlutilityDialog::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
+void FGlobalEditorUtilityDialog::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	InTabManager->RegisterTabSpawner( NAME_DetailsPanel, FOnSpawnTab::CreateRaw( this, &FGlobalBlutilityDialog::SpawnTab_DetailsPanel ) );
+	InTabManager->RegisterTabSpawner( NAME_DetailsPanel, FOnSpawnTab::CreateRaw( this, &FGlobalEditorUtilityDialog::SpawnTab_DetailsPanel ) );
+
 }
 
-void FGlobalBlutilityDialog::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
+void FGlobalEditorUtilityDialog::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
 	InTabManager->UnregisterTabSpawner( NAME_DetailsPanel );
 }
 
-TSharedRef<SDockTab> FGlobalBlutilityDialog::SpawnTab_DetailsPanel( const FSpawnTabArgs& SpawnTabArgs )
+TSharedRef<SDockTab> FGlobalEditorUtilityDialog::SpawnTab_DetailsPanel( const FSpawnTabArgs& SpawnTabArgs )
 {
 	const TSharedRef<SDockTab> SpawnedTab = SNew(SDockTab)
 		//@TODO: Add an icon .Icon( FEditorStyle::GetBrush("SoundClassEditor.Tabs.Properties") )
@@ -44,7 +45,7 @@ TSharedRef<SDockTab> FGlobalBlutilityDialog::SpawnTab_DetailsPanel( const FSpawn
 	return SpawnedTab;
 }
 
-void FGlobalBlutilityDialog::InitBlutilityDialog(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UObject* ObjectToEdit)
+void FGlobalEditorUtilityDialog::InitBlutilityDialog(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UObject* ObjectToEdit)
 {
 	// Create an instance of the blutility
 	check(ObjectToEdit != NULL);
@@ -73,14 +74,9 @@ void FGlobalBlutilityDialog::InitBlutilityDialog(const EToolkitMode::Type Mode, 
 	const bool bCreateDefaultToolbar = false;
 	FAssetEditorToolkit::InitAssetEditor( Mode, InitToolkitHost, NAME_GlobalBlutilityDialogAppIdentifier, StandaloneDefaultLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, ObjectToEdit );
 
-	// @todo toolkit world centric editing
-	/*if (IsWorldCentricAssetEditor())
-	{
-		SpawnToolkitTab(NAME_DetailsPanel, FString(), EToolkitTabSpot::Details);
-	}*/
 }
 
-FGlobalBlutilityDialog::~FGlobalBlutilityDialog()
+FGlobalEditorUtilityDialog::~FGlobalEditorUtilityDialog()
 {
 	if (UGlobalEditorUtilityBase* Instance = BlutilityInstance.Get())
 	{
@@ -90,7 +86,7 @@ FGlobalBlutilityDialog::~FGlobalBlutilityDialog()
 	DetailsView.Reset();
 }
 
-void FGlobalBlutilityDialog::AddReferencedObjects(FReferenceCollector& Collector)
+void FGlobalEditorUtilityDialog::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	if (UGlobalEditorUtilityBase* Instance = BlutilityInstance.Get())
 	{
@@ -98,27 +94,27 @@ void FGlobalBlutilityDialog::AddReferencedObjects(FReferenceCollector& Collector
 	}
 }
 
-FName FGlobalBlutilityDialog::GetToolkitFName() const
+FName FGlobalEditorUtilityDialog::GetToolkitFName() const
 {
 	return FName("Blutility");
 }
 
-FText FGlobalBlutilityDialog::GetBaseToolkitName() const
+FText FGlobalEditorUtilityDialog::GetBaseToolkitName() const
 {
 	return LOCTEXT( "AppLabel", "Blutility" );
 }
 
-FString FGlobalBlutilityDialog::GetWorldCentricTabPrefix() const
+FString FGlobalEditorUtilityDialog::GetWorldCentricTabPrefix() const
 {
 	return LOCTEXT("WorldCentricTabPrefix", "Blutility ").ToString();
 }
 
-FLinearColor FGlobalBlutilityDialog::GetWorldCentricTabColorScale() const
+FLinearColor FGlobalEditorUtilityDialog::GetWorldCentricTabColorScale() const
 {
 	return FLinearColor( 0.3f, 0.2f, 0.5f, 0.5f );
 }
 
-void FGlobalBlutilityDialog::CreateInternalWidgets()
+void FGlobalEditorUtilityDialog::CreateInternalWidgets()
 {
 	// Create a details view
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
@@ -127,7 +123,7 @@ void FGlobalBlutilityDialog::CreateInternalWidgets()
 	DetailsView = PropertyEditorModule.CreateDetailView(DetailsViewArgs);
 }
 
-void FGlobalBlutilityDialog::UpdatePropertyWindow(const TArray<UObject*>& SelectedObjects)
+void FGlobalEditorUtilityDialog::UpdatePropertyWindow(const TArray<UObject*>& SelectedObjects)
 {
 	DetailsView->SetObjects(SelectedObjects);
 }

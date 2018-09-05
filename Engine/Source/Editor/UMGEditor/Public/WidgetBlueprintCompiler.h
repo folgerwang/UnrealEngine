@@ -5,19 +5,51 @@
 #include "CoreMinimal.h"
 #include "WidgetBlueprint.h"
 #include "KismetCompiler.h"
+#include "KismetCompilerModule.h"
+#include "ComponentReregisterContext.h"
+#include "Components/WidgetComponent.h"
 
 
 //////////////////////////////////////////////////////////////////////////
-// FWidgetBlueprintCompiler
+// FWidgetBlueprintCompiler 
 
-class FWidgetBlueprintCompiler : public FKismetCompilerContext
+class UMGEDITOR_API FWidgetBlueprintCompiler : public IBlueprintCompiler
+{
+
+public:
+	FWidgetBlueprintCompiler();
+
+	bool CanCompile(const UBlueprint* Blueprint) override;
+	void PreCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions) override;
+	void Compile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions, FCompilerResultsLog& Results, TArray<UObject*>* ObjLoaded) override;
+	void PostCompile(UBlueprint* Blueprint, const FKismetCompilerOptions& CompileOptions) override;
+	bool GetBlueprintTypesForClass(UClass* ParentClass, UClass*& OutBlueprintClass, UClass*& OutBlueprintGeneratedClass) const override;
+
+private:
+
+	/** The temporary variable that captures and reinstances components after compiling finishes. */
+	TComponentReregisterContext<UWidgetComponent>* ReRegister;
+
+	/**
+	* The current count on the number of compiles that have occurred.  We don't want to re-register components until all
+	* compiling has stopped.
+	*/
+	int32 CompileCount;
+
+};
+
+//////////////////////////////////////////////////////////////////////////
+// FWidgetBlueprintCompilerContext
+
+
+class UMGEDITOR_API FWidgetBlueprintCompilerContext : public FKismetCompilerContext
 {
 protected:
 	typedef FKismetCompilerContext Super;
 
 public:
-	FWidgetBlueprintCompiler(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions, TArray<UObject*>* InObjLoaded);
-	virtual ~FWidgetBlueprintCompiler();
+	FWidgetBlueprintCompilerContext(UWidgetBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions, TArray<UObject*>* InObjLoaded);
+	virtual ~FWidgetBlueprintCompilerContext();
 
 	static bool CanAllowTemplate(FCompilerResultsLog& MessageLog, UWidgetBlueprintGeneratedClass* InClass);
 	static bool CanTemplateWidget(FCompilerResultsLog& MessageLog, UUserWidget* ThisWidget, TArray<FText>& OutErrors);

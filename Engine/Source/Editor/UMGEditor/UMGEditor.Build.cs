@@ -28,6 +28,12 @@ public class UMGEditor : ModuleRules
 				"UMG",
 			});
 
+        PublicDependencyModuleNames.AddRange(
+            new string[]
+            {
+                "Sequencer",
+            });
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
@@ -52,7 +58,6 @@ public class UMGEditor : ModuleRules
 				"MovieScene",
 				"MovieSceneTools",
                 "MovieSceneTracks",
-				"Sequencer",
 				"DetailCustomizations",
                 "Settings",
 				"RenderCore",

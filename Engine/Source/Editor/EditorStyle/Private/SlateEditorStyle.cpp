@@ -5217,6 +5217,8 @@ void FSlateEditorStyle::FStyle::SetupLevelEditorStyle()
 	{
 		Set( "Scalability.ScalabilitySettings", new IMAGE_BRUSH("Scalability/ScalabilitySettings", FVector2D(473.0f, 266.0f) ) );
 	}
+
+	Set("WorkspaceMenu.AdditionalUI", new IMAGE_BRUSH("Icons/icon_ViewMode_LODColoration_16px", Icon16x16));
 }
 
 void FSlateEditorStyle::FStyle::SetupPersonaStyle()
