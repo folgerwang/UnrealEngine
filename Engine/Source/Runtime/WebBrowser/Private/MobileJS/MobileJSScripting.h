@@ -3,25 +3,26 @@
 
 #include "CoreMinimal.h"
 
-#if USE_ANDROID_JNI
+#if PLATFORM_ANDROID  || PLATFORM_IOS
 
 #include "WebJSFunction.h"
 #include "WebJSScripting.h"
 
-typedef TSharedRef<class FAndroidJSScripting> FAndroidJSScriptingRef;
-typedef TSharedPtr<class FAndroidJSScripting> FAndroidJSScriptingPtr;
+typedef TSharedRef<class FMobileJSScripting> FMobileJSScriptingRef;
+typedef TSharedPtr<class FMobileJSScripting> FMobileJSScriptingPtr;
 
 /**
  * Implements handling of bridging UObjects client side with JavaScript renderer side.
  */
-class FAndroidJSScripting
+class FMobileJSScripting
 	: public FWebJSScripting
-	, public TSharedFromThis<FAndroidJSScripting>
+	, public TSharedFromThis<FMobileJSScripting>
 {
 public:
 	static const FString JSMessageTag;
+	static const FString JSMessageHandler;
 
-	FAndroidJSScripting(bool bJSBindingToLoweringEnabled);
+	FMobileJSScripting(bool bJSBindingToLoweringEnabled);
 
 	virtual void BindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true) override;
 	virtual void UnbindUObject(const FString& Name, UObject* Object = nullptr, bool bIsPermanent = true) override;
@@ -40,7 +41,8 @@ public:
 
 	virtual void InvokeJSFunction(FGuid FunctionId, int32 ArgCount, FWebJSParam Arguments[], bool bIsError=false) override;
 	virtual void InvokeJSErrorResult(FGuid FunctionId, const FString& Error) override;
-	void PageLoaded(TSharedRef<class FAndroidWebBrowserWindow> InWindow); // Called on page load
+	void PageLoaded(TSharedRef<class IWebBrowserWindow> InWindow); // Called on page load
+
 private:
 	void InvokeJSFunctionRaw(FGuid FunctionId, const FString& JSValue, bool bIsError=false);
 	bool IsValid()
@@ -52,8 +54,8 @@ private:
 
 	bool HandleExecuteUObjectMethodMessage(const TArray<FString>& Params);
 
-	/** Pointer to the Android Browser for this window. */
-	TWeakPtr<class FAndroidWebBrowserWindow> WindowPtr;
+	/** Pointer to the Mobile Browser for this window. */
+	TWeakPtr<class IWebBrowserWindow> WindowPtr;
 };
 
-#endif // USE_ANDROID_JNI
+#endif // PLATFORM_ANDROID  || PLATFORM_IOS

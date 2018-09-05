@@ -17,7 +17,7 @@ namespace {
 
 	static const FString JSGetSourceCommand = TEXT("GetSource");
 	static const FString JSMessageGetSourceScript =
-		TEXT("document.location = '") + FAndroidJSScripting::JSMessageTag + JSGetSourceCommand +
+		TEXT("document.location = '") + FMobileJSScripting::JSMessageTag + JSGetSourceCommand +
 		TEXT("/' + encodeURIComponent(document.documentElement.innerHTML);");
 
 }
@@ -28,10 +28,11 @@ FAndroidWebBrowserWindow::FAndroidWebBrowserWindow(FString InUrl, TOptional<FStr
 	, bUseTransparency(InUseTransparency)
 	, DocumentState(EWebBrowserDocumentState::NoDocument)
 	, ErrorCode(0)
-	, Scripting(new FAndroidJSScripting(bInJSBindingToLoweringEnabled))
+	, Scripting(new FMobileJSScripting(bInJSBindingToLoweringEnabled))
 	, AndroidWindowSize(FIntPoint(500, 500))
-	, bTickedLastFrame(true)
+	, bIsDisabled(false)
 	, bIsVisible(true)
+	, bTickedLastFrame(true)
 {
 }
 
@@ -257,6 +258,7 @@ void FAndroidWebBrowserWindow::NotifyDocumentLoadingStateChange(const FString& I
 
 void FAndroidWebBrowserWindow::SetIsDisabled(bool bValue)
 {
+	bIsDisabled = bValue;
 }
 
 TSharedPtr<SWindow> FAndroidWebBrowserWindow::GetParentWindow() const
@@ -313,7 +315,7 @@ void FAndroidWebBrowserWindow::CheckTickActivity()
 
 void FAndroidWebBrowserWindow::SetTickLastFrame()
 {
-	bTickedLastFrame = true;
+	bTickedLastFrame = !bIsDisabled;
 }
 
 bool FAndroidWebBrowserWindow::IsVisible()

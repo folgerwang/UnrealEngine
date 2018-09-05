@@ -7,8 +7,8 @@
 #if USE_ANDROID_JNI
 
 #include "IWebBrowserWindow.h"
-#include "AndroidJSScripting.h"
 #include "Widgets/SWidget.h"
+#include "MobileJS/MobileJSScripting.h"
 
 class SAndroidWebBrowserWidget;
 class SWebBrowserView;
@@ -281,7 +281,7 @@ private:
 	EWebBrowserDocumentState DocumentState;
 	int ErrorCode;
 
-	FAndroidJSScriptingPtr Scripting;
+	FMobileJSScriptingPtr Scripting;
 
 	mutable TOptional<TFunction<void (const FString&)>> GetPageSourceCallback;
 
@@ -289,11 +289,14 @@ private:
 
 	FIntPoint AndroidWindowSize;
 
-	/** Used to detect when the widget is hidden*/
-	bool bTickedLastFrame;
+	/** Tracks whether the widget is currently disabled or not*/
+	bool bIsDisabled;
 
 	/** Tracks whether the widget is currently visible or not*/
 	bool bIsVisible;
+
+	/** Used to detect when the widget is hidden*/
+	bool bTickedLastFrame;
 };
 
 typedef FAndroidWebBrowserWindow FWebBrowserWindow;

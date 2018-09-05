@@ -2,25 +2,26 @@
 
 #pragma once
 
-#if USE_ANDROID_JNI
-
 #include "CoreMinimal.h"
-#include "AndroidJSScripting.h"
+
+#if PLATFORM_ANDROID  || PLATFORM_IOS
+
+#include "MobileJSScripting.h"
 #include "Backends/JsonStructDeserializerBackend.h"
 #include "Serialization/MemoryReader.h"
 
-class FAndroidJSStructDeserializerBackend
+class FMobileJSStructDeserializerBackend
 	: public FJsonStructDeserializerBackend
 {
 public:
-	FAndroidJSStructDeserializerBackend(FAndroidJSScriptingRef InScripting, const FString& JsonString);
+	FMobileJSStructDeserializerBackend(FMobileJSScriptingRef InScripting, const FString& JsonString);
 
 	virtual bool ReadProperty( UProperty* Property, UProperty* Outer, void* Data, int32 ArrayIndex ) override;
 
 private:
-	FAndroidJSScriptingRef Scripting;
+	FMobileJSScriptingRef Scripting;
 	TArray<uint8> JsonData;
 	FMemoryReader Reader;
 };
 
-#endif // USE_ANDROID_JNI
+#endif // USE_ANDROID_JNI || PLATFORM_IOS

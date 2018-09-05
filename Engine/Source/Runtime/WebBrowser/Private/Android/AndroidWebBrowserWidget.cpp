@@ -6,7 +6,7 @@
 
 #include "AndroidWebBrowserWindow.h"
 #include "AndroidWebBrowserDialog.h"
-#include "AndroidJSScripting.h"
+#include "MobileJS/MobileJSScripting.h"
 #include "Android/AndroidApplication.h"
 #include "Android/AndroidWindow.h"
 #include "Android/AndroidJava.h"
@@ -450,7 +450,6 @@ void SAndroidWebBrowserWidget::GoForward()
 	JavaWebBrowser->GoForward();
 }
 
-
 bool SAndroidWebBrowserWidget::CanGoBack()
 {
 	return HistoryPosition > 1;
@@ -476,7 +475,7 @@ jbyteArray SAndroidWebBrowserWidget::HandleShouldInterceptRequest(jstring JUrl)
 
 	FString Response;
 	bool bOverrideResponse = false;
-	int32 Position = Url.Find(*FAndroidJSScripting::JSMessageTag, ESearchCase::CaseSensitive);
+	int32 Position = Url.Find(*FMobileJSScripting::JSMessageTag, ESearchCase::CaseSensitive);
 	if (Position >= 0)
 	{
 		AsyncTask(ENamedThreads::GameThread, [Url, Position, this]()
@@ -487,7 +486,7 @@ jbyteArray SAndroidWebBrowserWidget::HandleShouldInterceptRequest(jstring JUrl)
 				if (BrowserWindow.IsValid())
 				{
 					FString Origin = Url.Left(Position);
-					FString Message = Url.RightChop(Position + FAndroidJSScripting::JSMessageTag.Len());
+					FString Message = Url.RightChop(Position + FMobileJSScripting::JSMessageTag.Len());
 
 					TArray<FString> Params;
 					Message.ParseIntoArray(Params, TEXT("/"), false);

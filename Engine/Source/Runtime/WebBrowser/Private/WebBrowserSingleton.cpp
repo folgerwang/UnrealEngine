@@ -532,16 +532,39 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 		WindowSettings.bUseTransparency,
 		bJSBindingsToLoweringEnabled));
 
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		WindowInterfaces.Add(NewBrowserWindow);
+	}
 	return NewBrowserWindow;
-#elif PLATFORM_IOS || PLATFORM_PS4
+#elif PLATFORM_IOS
 	// Create new window
 	TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(
 		WindowSettings.InitialURL, 
 		WindowSettings.ContentsToLoad, 
 		WindowSettings.bShowErrorMessage, 
 		WindowSettings.bThumbMouseButtonNavigation, 
+		WindowSettings.bUseTransparency,
+		bJSBindingsToLoweringEnabled));
+
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		WindowInterfaces.Add(NewBrowserWindow);
+	}
+	return NewBrowserWindow;
+#elif PLATFORM_PS4
+	// Create new window
+	TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(
+		WindowSettings.InitialURL,
+		WindowSettings.ContentsToLoad,
+		WindowSettings.bShowErrorMessage,
+		WindowSettings.bThumbMouseButtonNavigation,
 		WindowSettings.bUseTransparency));
 
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		WindowInterfaces.Add(NewBrowserWindow);
+	}
 	return NewBrowserWindow;
 #endif
 	return nullptr;
