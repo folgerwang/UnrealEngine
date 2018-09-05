@@ -909,28 +909,28 @@ public class DeploymentContext //: ProjectParams
 	{
 		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, UFSDeployDeltaFileName + SanitizedDeviceName);
+		return Path.Combine(StageDirectory.FullName, UFSDeployDeltaFileName + " " + SanitizedDeviceName);
 	}
 
 	public String GetNonUFSDeploymentDeltaPath(string DeviceName)
 	{
 		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, NonUFSDeployDeltaFileName + SanitizedDeviceName);
+		return Path.Combine(StageDirectory.FullName, NonUFSDeployDeltaFileName + " " + SanitizedDeviceName);
 	}
 
 	public String GetUFSDeploymentObsoletePath(string DeviceName)
 	{
 		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, UFSDeployObsoleteFileName + SanitizedDeviceName);
+		return Path.Combine(StageDirectory.FullName, UFSDeployObsoleteFileName + " " + SanitizedDeviceName);
 	}
 
 	public String GetNonUFSDeploymentObsoletePath(string DeviceName)
 	{
 		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, NonUFSDeployObsoleteFileName + SanitizedDeviceName);
+		return Path.Combine(StageDirectory.FullName, NonUFSDeployObsoleteFileName + " " + SanitizedDeviceName);
 	}
 
 	public string UFSDeployedManifestFileName

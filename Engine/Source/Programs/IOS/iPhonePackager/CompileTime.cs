@@ -177,10 +177,10 @@ namespace iPhonePackager
 			}
 		}
 
-		static bool FindMobileProvision(string BundleIdentifier, out string OutFileName)
+		static bool FindMobileProvision(string BundleIdentifier, out string OutFileName, bool bCheckCert = true)
 		{
 			bool bNameMatch;
-			string ProvisionWithPrefix = MobileProvision.FindCompatibleProvision(BundleIdentifier, out bNameMatch, true, true, false);
+			string ProvisionWithPrefix = MobileProvision.FindCompatibleProvision(BundleIdentifier, out bNameMatch, bCheckCert, true, false);
 			if (!File.Exists(ProvisionWithPrefix))
 			{
 				ProvisionWithPrefix = FileOperations.FindPrefixedFile(Config.BuildDirectory, Program.GameName + ".mobileprovision");
@@ -213,7 +213,8 @@ namespace iPhonePackager
 		static public void ExportCertificate()
 		{
 			string ProvisionWithPrefix;
-			if(!FindMobileProvision("", out ProvisionWithPrefix))
+			// this needs the provisioningUUID or it will fail
+			if(!FindMobileProvision("", out ProvisionWithPrefix, false))
 			{
 				Program.Error("Missing provision");
 				return;
