@@ -53,8 +53,8 @@ void* FMallocStomp::Malloc(SIZE_T Size, uint32 Alignment)
 		Size = 1U;
 	}
 
-#if PLATFORM_APPLE
-	// Apple's libraries expect at least 16-byte alignment.
+#if PLATFORM_64BITS
+	// 64-bit ABIs on x86_64 expect a 16-byte alignment
 	Alignment = FMath::Max<uint32>(Alignment, 16U);
 #endif
 
