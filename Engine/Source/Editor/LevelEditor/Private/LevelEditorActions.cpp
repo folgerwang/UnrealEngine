@@ -563,27 +563,7 @@ bool FLevelEditorActionCallbacks::IsMaterialQualityLevelChecked( EMaterialQualit
 
 void FLevelEditorActionCallbacks::SetPreviewPlatform(FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel)
 {
-	// If we have specified a MaterialQualityPlatform ensure its feature level matches the requested feature level.
-	check(MaterialQualityPlatform.IsNone() || GetMaxSupportedFeatureLevel(ShaderFormatToLegacyShaderPlatform(MaterialQualityPlatform)) == PreviewFeatureLevel);
-
-	UMaterialShaderQualitySettings* MaterialShaderQualitySettings = UMaterialShaderQualitySettings::Get();
-	const FName InitialPreviewPlatform = MaterialShaderQualitySettings->GetPreviewPlatform();
-
-	const ERHIFeatureLevel::Type InitialFeatureLevel = GetWorld()->FeatureLevel;
-	MaterialShaderQualitySettings->SetPreviewPlatform(MaterialQualityPlatform);
-	SetFeatureLevelPreview(PreviewFeatureLevel);
-
-	if (
-		// Rebuild materials if the preview platform has changed. 
-		InitialPreviewPlatform != MaterialQualityPlatform
-		// If the feature level changed then materials have been rebuilt already.
-		&& InitialFeatureLevel == PreviewFeatureLevel)
-	{
-		FGlobalComponentRecreateRenderStateContext Recreate;
-		FlushRenderingCommands();
-		UMaterial::AllMaterialsCacheResourceShadersForRendering();
-		UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
-	}
+	GEditor->SetPreviewPlatform(MaterialQualityPlatform, PreviewFeatureLevel);
 }
 
 bool FLevelEditorActionCallbacks::IsPreviewPlatformChecked(FName MaterialQualityPlatform, ERHIFeatureLevel::Type PreviewFeatureLevel)
@@ -594,23 +574,7 @@ bool FLevelEditorActionCallbacks::IsPreviewPlatformChecked(FName MaterialQuality
 
 void FLevelEditorActionCallbacks::SetFeatureLevelPreview(ERHIFeatureLevel::Type InPreviewFeatureLevel)
 {
-	// Record this feature level as we want to use it for all subsequent level creation and loading
-	GEditor->DefaultWorldFeatureLevel = InPreviewFeatureLevel;
-
-	GetWorld()->ChangeFeatureLevel(InPreviewFeatureLevel);
-
-	// Update any currently running PIE sessions.
-	for (TObjectIterator<UWorld> It; It; ++It)
-	{
-		UWorld* ItWorld = *It;
-		if (ItWorld->WorldType == EWorldType::PIE)
-		{
-			ItWorld->ChangeFeatureLevel(InPreviewFeatureLevel);
-		}
-	}
-
-	GUnrealEd->OnSceneMaterialsModified();
-	GUnrealEd->RedrawAllViewports();
+	GEditor->SetPreviewPlatform(NAME_None, InPreviewFeatureLevel);
 }
 
 bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewChecked(ERHIFeatureLevel::Type InPreviewFeatureLevel)

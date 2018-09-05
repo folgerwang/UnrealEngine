@@ -12047,6 +12047,14 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 				NewWorld->RenameToPIEWorld(WorldContext.PIEInstance);
 			}
 			ResetPIEAudioSetting(NewWorld);
+
+#if WITH_EDITOR
+			// PIE worlds should use the same feature level as the editor
+			if (WorldContext.PIEWorldFeatureLevel != ERHIFeatureLevel::Num && NewWorld->FeatureLevel != WorldContext.PIEWorldFeatureLevel)
+			{
+				NewWorld->ChangeFeatureLevel(WorldContext.PIEWorldFeatureLevel);
+			}
+#endif
 		}
 		else if (WorldContext.WorldType == EWorldType::Game)
 		{

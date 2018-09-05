@@ -361,6 +361,9 @@ struct FWorldContext
 	/** The Prefix in front of PIE level names, empty is default */
 	FString	PIEPrefix;
 
+	/** The feature level that PIE world should use */
+	ERHIFeatureLevel::Type PIEWorldFeatureLevel;
+
 	/** Is this running as a dedicated server */
 	bool	RunAsDedicated;
 
@@ -414,6 +417,7 @@ struct FWorldContext
 		, bWaitingOnOnlineSubsystem(false)
 		, AudioDeviceHandle(INDEX_NONE)
 		, ThisCurrentWorld(nullptr)
+		, PIEWorldFeatureLevel(ERHIFeatureLevel::Num)
 	{ }
 
 private:

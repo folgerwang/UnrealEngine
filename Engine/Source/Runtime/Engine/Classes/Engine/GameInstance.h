@@ -9,6 +9,7 @@
 #include "Templates/SubclassOf.h"
 #include "Engine/EngineBaseTypes.h"
 #include "Engine/NetworkDelegates.h"
+#include "RHIDefinitions.h"
 #include "GameInstance.generated.h"
 
 class AGameModeBase;
@@ -96,6 +97,9 @@ struct FGameInstancePIEParameters
 
 	// Is this a dedicated server instance for PIE?
 	bool bRunAsDedicated;
+
+	// The feature level that PIE world should use
+	ERHIFeatureLevel::Type WorldFeatureLevel = ERHIFeatureLevel::Num;
 };
 
 #endif
