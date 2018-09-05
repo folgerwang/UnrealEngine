@@ -1107,7 +1107,7 @@ public:
 
 #if WITH_EDITOR
 	/** Called when this component is moved in the editor */
-	virtual void PostEditComponentMove(bool bFinished) {}
+	virtual void PostEditComponentMove(bool bFinished);
 	virtual bool CanEditChange( const UProperty* Property ) const override;
 
 	virtual const int32 GetNumUncachedStaticLightingInteractions() const;

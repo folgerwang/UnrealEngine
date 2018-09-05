@@ -92,6 +92,7 @@ void FMessageBus::Publish(
 		Publisher->GetSenderAddress(),
 		TArray<FMessageAddress>(),
 		Scope,
+		EMessageFlags::None,
 		FDateTime::UtcNow() + Delay,
 		Expiration,
 		FTaskGraphInterface::Get().GetCurrentThreadIfKnown()
@@ -108,6 +109,7 @@ void FMessageBus::Register(const FMessageAddress& Address, const TSharedRef<IMes
 void FMessageBus::Send(
 	void* Message,
 	UScriptStruct* TypeInfo,
+	EMessageFlags Flags,
 	const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment,
 	const TArray<FMessageAddress>& Recipients,
 	const FTimespan& Delay,
@@ -122,6 +124,7 @@ void FMessageBus::Send(
 		Sender->GetSenderAddress(),
 		Recipients,
 		EMessageScope::Network,
+		Flags,
 		FDateTime::UtcNow() + Delay,
 		Expiration,
 		FTaskGraphInterface::Get().GetCurrentThreadIfKnown()

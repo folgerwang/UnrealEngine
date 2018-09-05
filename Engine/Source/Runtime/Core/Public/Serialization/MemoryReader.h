@@ -11,7 +11,7 @@
 /**
  * Archive for reading arbitrary data from the specified memory location
  */
-class FMemoryReader final : public FMemoryArchive
+class FMemoryReader : public FMemoryArchive
 {
 public:
 	/**

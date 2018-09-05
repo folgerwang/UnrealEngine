@@ -11,32 +11,23 @@
 class FAjaMediaAudioSample
 	: public FMediaIOCoreAudioSampleBase
 {
+	using Super = FMediaIOCoreAudioSampleBase;
+
 public:
 
-	bool Initialize(const AJA::AJAAudioFrameData& InAudioData, FTimespan InTime)
+	bool Initialize(const AJA::AJAAudioFrameData& InAudioData, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
 	{
-		if (InAudioData.AudioBuffer)
-		{
-			Buffer.Reset(InAudioData.AudioBufferSize);
-			Buffer.Append(reinterpret_cast<const int32*>(InAudioData.AudioBuffer), InAudioData.AudioBufferSize/sizeof(int32));
-		}
-		else
-		{
-			Buffer.Reset();
-			return false;
-		}
-
-		Channels = InAudioData.NumChannels;
-		SampleRate = InAudioData.AudioRate;
-		Time = InTime;
-		Duration = (InAudioData.AudioBufferSize * ETimespan::TicksPerSecond) / (Channels * SampleRate * sizeof(int32));
-
-		return true;
+		return Super::Initialize(
+			reinterpret_cast<int32*>(InAudioData.AudioBuffer)
+			, InAudioData.AudioBufferSize / sizeof(int32)
+			, InAudioData.NumChannels
+			, InAudioData.AudioRate
+			, InTime
+			, InTimecode);
 	}
 };
 
 /*
  * Implements a pool for AJA audio sample objects. 
  */
-
 class FAjaMediaAudioSamplePool : public TMediaObjectPool<FAjaMediaAudioSample> { };

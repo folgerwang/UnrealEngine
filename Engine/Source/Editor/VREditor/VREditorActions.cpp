@@ -443,6 +443,7 @@ void FVREditorActionCallbacks::PauseSequencePlayback(UVREditorMode* InVRMode)
 	ISequencer* CurrentSequencer = InVRMode->GetCurrentSequencer();
 	if (CurrentSequencer != nullptr)
 	{
+		CurrentSequencer->SetPlaybackSpeed(1.0f);
 		CurrentSequencer->Pause();
 	}
 }

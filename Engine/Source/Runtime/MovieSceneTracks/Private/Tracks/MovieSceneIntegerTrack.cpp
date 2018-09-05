@@ -13,7 +13,7 @@ UMovieSceneIntegerTrack::UMovieSceneIntegerTrack( const FObjectInitializer& Obje
 
 UMovieSceneSection* UMovieSceneIntegerTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneIntegerSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneIntegerSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneIntegerTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const

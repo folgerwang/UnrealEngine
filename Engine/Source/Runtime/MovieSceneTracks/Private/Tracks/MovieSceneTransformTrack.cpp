@@ -22,7 +22,7 @@ UMovieSceneTransformTrack::UMovieSceneTransformTrack(const FObjectInitializer& O
 
 UMovieSceneSection* UMovieSceneTransformTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieScene3DTransformSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieScene3DTransformSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneTransformTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const

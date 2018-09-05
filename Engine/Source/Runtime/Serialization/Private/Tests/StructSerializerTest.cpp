@@ -8,6 +8,8 @@
 #include "Templates/SubclassOf.h"
 #include "Backends/JsonStructDeserializerBackend.h"
 #include "Backends/JsonStructSerializerBackend.h"
+#include "Backends/CborStructDeserializerBackend.h"
+#include "Backends/CborStructSerializerBackend.h"
 #include "StructDeserializer.h"
 #include "StructSerializer.h"
 #include "Tests/StructSerializerTestTypes.h"
@@ -87,10 +89,10 @@ namespace StructSerializerTest
 /* Tests
  *****************************************************************************/
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJsonStructSerializerTest, "System.Core.Serialization.JsonStructSerializer", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStructSerializerTest, "System.Core.Serialization.StructSerializer", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 
-bool FJsonStructSerializerTest::RunTest( const FString& Parameters )
+bool FStructSerializerTest::RunTest( const FString& Parameters )
 {
 	// json
 	{
@@ -105,6 +107,17 @@ bool FJsonStructSerializerTest::RunTest( const FString& Parameters )
 
 		// uncomment this to look at the serialized data
 //		GLog->Logf(TEXT("%s"), (TCHAR*)Buffer.GetData());
+	}
+	// cbor
+	{
+		TArray<uint8> Buffer;
+		FMemoryReader Reader(Buffer);
+		FMemoryWriter Writer(Buffer);
+
+		FCborStructSerializerBackend SerializerBackend(Writer);
+		FCborStructDeserializerBackend DeserializerBackend(Reader);
+
+		StructSerializerTest::TestSerialization(*this, SerializerBackend, DeserializerBackend);
 	}
 
 	return true;

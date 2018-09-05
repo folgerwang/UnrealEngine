@@ -70,7 +70,28 @@ void FDisplayClusterClusterSyncClient::GetDeltaTime(float& deltaTime)
 	// Extract sync data from response message
 	if (response->GetArg(FDisplayClusterClusterSyncMsg::GetDeltaTime::argDeltaTime, deltaTime) == false)
 	{
-		UE_LOG(LogDisplayClusterNetworkMsg, Error, TEXT("Coulnd't extract an argument: %s"), FDisplayClusterClusterSyncMsg::GetDeltaTime::argDeltaTime);
+		UE_LOG(LogDisplayClusterNetworkMsg, Error, TEXT("Couldn't extract an argument: %s"), FDisplayClusterClusterSyncMsg::GetDeltaTime::argDeltaTime);
+	}
+}
+
+void FDisplayClusterClusterSyncClient::GetTimecode(FTimecode& timecode, FFrameRate& frameRate)
+{
+	static const TSharedPtr<FDisplayClusterMessage> request(new FDisplayClusterMessage(FDisplayClusterClusterSyncMsg::GetTimecode::name, FDisplayClusterClusterSyncMsg::TypeRequest, FDisplayClusterClusterSyncMsg::ProtocolName));
+	TSharedPtr<FDisplayClusterMessage> response = SendRecvMsg(request);
+
+	if (!response.IsValid())
+	{
+		return;
+	}
+
+	// Extract sync data from response message
+	if (response->GetArg(FDisplayClusterClusterSyncMsg::GetTimecode::argTimecode, timecode) == false)
+	{
+		UE_LOG(LogDisplayClusterNetworkMsg, Error, TEXT("Couldn't extract an argument: %s"), FDisplayClusterClusterSyncMsg::GetTimecode::argTimecode);
+	}
+	if (response->GetArg(FDisplayClusterClusterSyncMsg::GetTimecode::argFrameRate, frameRate) == false)
+	{
+		UE_LOG(LogDisplayClusterNetworkMsg, Error, TEXT("Couldn't extract an argument: %s"), FDisplayClusterClusterSyncMsg::GetTimecode::argTimecode);
 	}
 }
 

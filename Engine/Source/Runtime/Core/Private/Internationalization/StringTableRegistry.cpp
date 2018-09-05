@@ -65,7 +65,12 @@ void FStringTableRegistry::RegisterStringTable(const FName InTableId, FStringTab
 	FScopeLock RegisteredStringTablesLock(&RegisteredStringTablesCS);
 
 	checkf(!InTableId.IsNone(), TEXT("String table ID cannot be 'None'!"));
-	checkf(!RegisteredStringTables.Contains(InTableId), TEXT("String table ID '%s' is already in use!"), *InTableId.ToString());
+#if DO_CHECK
+	{
+		FStringTableConstPtr ExistingStringTable = RegisteredStringTables.FindRef(InTableId);
+		checkf(!ExistingStringTable.IsValid() || IStringTableEngineBridge::IsStringTableAssetBeingReplaced(ExistingStringTable->GetOwnerAsset()), TEXT("String table ID '%s' is already in use!"), *InTableId.ToString());
+	}
+#endif
 
 	RegisteredStringTables.Add(InTableId, MoveTemp(InTable));
 }

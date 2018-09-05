@@ -7,6 +7,7 @@
 #include "Containers/StringConv.h"
 #include "CoreGlobals.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "Misc/OutputDeviceConsole.h"
 #include "Misc/App.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/FeedbackContext.h"
@@ -50,8 +51,10 @@ public:
 	void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override
 	{
 		// When -stdout is specified then FOutputDeviceStdOutput will be installed and pipe logging to stdout. 
-		// If so don't use LocalPrint or else duplicate messages will be written to stdout
-		static bool bUsingStdOut = FParse::Param(FCommandLine::Get(), TEXT("stdout"));
+		// If so don't use LocalPrint or else duplicate messages will be written to stdout.
+		// A similar issue happens when a Console is shown.
+		static bool bUsingStdOut = FParse::Param(FCommandLine::Get(), TEXT("stdout")) ||
+			(GLogConsole != nullptr && GLogConsole->IsShown());
 
 		if (bUsingStdOut == false &&
 			(Verbosity == ELogVerbosity::Error || Verbosity == ELogVerbosity::Warning || Verbosity == ELogVerbosity::Display))

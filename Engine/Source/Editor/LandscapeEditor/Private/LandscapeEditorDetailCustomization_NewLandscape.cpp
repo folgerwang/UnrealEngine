@@ -20,6 +20,7 @@
 #include "LandscapeEditorObject.h"
 #include "Landscape.h"
 #include "LandscapeEditorUtils.h"
+#include "NewLandscapeUtils.h"
 
 #include "DetailLayoutBuilder.h"
 #include "IDetailChildrenBuilder.h"
@@ -42,8 +43,6 @@
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor.NewLandscape"
 
-const int32 FLandscapeEditorDetailCustomization_NewLandscape::SectionSizes[] = {7, 15, 31, 63, 127, 255};
-const int32 FLandscapeEditorDetailCustomization_NewLandscape::NumSections[] = {1, 2};
 
 TSharedRef<IDetailCustomization> FLandscapeEditorDetailCustomization_NewLandscape::MakeInstance()
 {
@@ -541,9 +540,10 @@ TSharedRef<SWidget> FLandscapeEditorDetailCustomization_NewLandscape::GetSection
 {
 	FMenuBuilder MenuBuilder(true, nullptr);
 
-	for (int32 i = 0; i < ARRAY_COUNT(SectionSizes); i++)
+	for (int32 i = 0; i < ARRAY_COUNT(FNewLandscapeUtils::SectionSizes); i++)
 	{
-		MenuBuilder.AddMenuEntry(FText::Format(LOCTEXT("NxNQuads", "{0}\u00D7{0} Quads"), FText::AsNumber(SectionSizes[i])), FText::GetEmpty(), FSlateIcon(), FExecuteAction::CreateStatic(&OnChangeSectionSize, PropertyHandle, SectionSizes[i]));
+		MenuBuilder.AddMenuEntry(FText::Format(LOCTEXT("NxNQuads", "{0}\u00D7{0} Quads"), FText::AsNumber(FNewLandscapeUtils::SectionSizes[i])), FText::GetEmpty(),
+			FSlateIcon(), FExecuteAction::CreateStatic(&OnChangeSectionSize, PropertyHandle, FNewLandscapeUtils::SectionSizes[i]));
 	}
 
 	return MenuBuilder.MakeWidget();
@@ -572,12 +572,13 @@ TSharedRef<SWidget> FLandscapeEditorDetailCustomization_NewLandscape::GetSection
 {
 	FMenuBuilder MenuBuilder(true, nullptr);
 
-	for (int32 i = 0; i < ARRAY_COUNT(NumSections); i++)
+	for (int32 i = 0; i < ARRAY_COUNT(FNewLandscapeUtils::NumSections); i++)
 	{
 		FFormatNamedArguments Args;
-		Args.Add(TEXT("Width"), NumSections[i]);
-		Args.Add(TEXT("Height"), NumSections[i]);
-		MenuBuilder.AddMenuEntry(FText::Format(NumSections[i] == 1 ? LOCTEXT("1x1Section", "{Width}\u00D7{Height} Section") : LOCTEXT("NxNSections", "{Width}\u00D7{Height} Sections"), Args), FText::GetEmpty(), FSlateIcon(), FExecuteAction::CreateStatic(&OnChangeSectionsPerComponent, PropertyHandle, NumSections[i]));
+		Args.Add(TEXT("Width"), FNewLandscapeUtils::NumSections[i]);
+		Args.Add(TEXT("Height"), FNewLandscapeUtils::NumSections[i]);
+		MenuBuilder.AddMenuEntry(FText::Format(FNewLandscapeUtils::NumSections[i] == 1 ? LOCTEXT("1x1Section", "{Width}\u00D7{Height} Section") : LOCTEXT("NxNSections", "{Width}\u00D7{Height} Sections"), Args),
+			FText::GetEmpty(), FSlateIcon(), FExecuteAction::CreateStatic(&OnChangeSectionsPerComponent, PropertyHandle, FNewLandscapeUtils::NumSections[i]));
 	}
 
 	return MenuBuilder.MakeWidget();
@@ -783,132 +784,32 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 		LandscapeEdMode->GetWorld() != nullptr && 
 		LandscapeEdMode->GetWorld()->GetCurrentLevel()->bIsVisible)
 	{
-		// Initialize heightmap data
-		TArray<uint16> Data;
 		const int32 ComponentCountX = LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X;
 		const int32 ComponentCountY = LandscapeEdMode->UISettings->NewLandscape_ComponentCount.Y;
 		const int32 QuadsPerComponent = LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent * LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection;
 		const int32 SizeX = ComponentCountX * QuadsPerComponent + 1;
 		const int32 SizeY = ComponentCountY * QuadsPerComponent + 1;
-		Data.AddUninitialized(SizeX * SizeY);
-		uint16* WordData = Data.GetData();
 
-		// Initialize blank heightmap data
-		for (int32 i = 0; i < SizeX * SizeY; i++)
+		TOptional< TArray< FLandscapeImportLayerInfo > > ImportLayers = FNewLandscapeUtils::CreateImportLayersInfo( LandscapeEdMode->UISettings, LandscapeEdMode->NewLandscapePreviewMode );
+
+		if ( !ImportLayers )
 		{
-			WordData[i] = 32768;
+			return FReply::Handled();
 		}
 
-		TArray<FLandscapeImportLayerInfo> ImportLayers;
-
-		if (LandscapeEdMode->NewLandscapePreviewMode == ENewLandscapePreviewMode::NewLandscape)
-		{
-			const auto& ImportLandscapeLayersList = LandscapeEdMode->UISettings->ImportLandscape_Layers;
-			ImportLayers.Reserve(ImportLandscapeLayersList.Num());
-
-			// Fill in LayerInfos array and allocate data
-			for (const FLandscapeImportLayer& UIImportLayer : ImportLandscapeLayersList)
-			{
-				FLandscapeImportLayerInfo ImportLayer = FLandscapeImportLayerInfo(UIImportLayer.LayerName);
-				ImportLayer.LayerInfo = UIImportLayer.LayerInfo;
-				ImportLayer.SourceFilePath = "";
-				ImportLayer.LayerData = TArray<uint8>();
-				ImportLayers.Add(MoveTemp(ImportLayer));
-			}
-
-			// Fill the first weight-blended layer to 100%
-			if (FLandscapeImportLayerInfo* FirstBlendedLayer = ImportLayers.FindByPredicate([](const FLandscapeImportLayerInfo& ImportLayer) { return ImportLayer.LayerInfo && !ImportLayer.LayerInfo->bNoWeightBlend; }))
-			{
-				FirstBlendedLayer->LayerData.AddUninitialized(SizeX * SizeY);
-
-				uint8* ByteData = FirstBlendedLayer->LayerData.GetData();
-				for (int32 i = 0; i < SizeX * SizeY; i++)
-				{
-					ByteData[i] = 255;
-				}
-			}
-		}
-		else if (LandscapeEdMode->NewLandscapePreviewMode == ENewLandscapePreviewMode::ImportLandscape)
-		{
-			const uint32 ImportSizeX = LandscapeEdMode->UISettings->ImportLandscape_Width;
-			const uint32 ImportSizeY = LandscapeEdMode->UISettings->ImportLandscape_Height;
-
-			if (LandscapeEdMode->UISettings->ImportLandscape_HeightmapImportResult == ELandscapeImportResult::Error)
-			{
-				// Cancel import
-				return FReply::Handled();
-			}
-
-			TArray<FLandscapeImportLayer>& ImportLandscapeLayersList = LandscapeEdMode->UISettings->ImportLandscape_Layers;
-			ImportLayers.Reserve(ImportLandscapeLayersList.Num());
-
-			// Fill in LayerInfos array and allocate data
-			for (FLandscapeImportLayer& UIImportLayer : ImportLandscapeLayersList)
-			{
-				ImportLayers.Add((const FLandscapeImportLayer&)UIImportLayer); //slicing is fine here
-				FLandscapeImportLayerInfo& ImportLayer = ImportLayers.Last();
-
-				if (ImportLayer.LayerInfo != nullptr && ImportLayer.SourceFilePath != "")
-				{
-					ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
-					const ILandscapeWeightmapFileFormat* WeightmapFormat = LandscapeEditorModule.GetWeightmapFormatByExtension(*FPaths::GetExtension(ImportLayer.SourceFilePath, true));
-
-					if (WeightmapFormat)
-					{
-						FLandscapeWeightmapImportData WeightmapImportData = WeightmapFormat->Import(*ImportLayer.SourceFilePath, ImportLayer.LayerName, {ImportSizeX, ImportSizeY});
-						UIImportLayer.ImportResult = WeightmapImportData.ResultCode;
-						UIImportLayer.ErrorMessage = WeightmapImportData.ErrorMessage;
-						ImportLayer.LayerData = MoveTemp(WeightmapImportData.Data);
-					}
-					else
-					{
-						UIImportLayer.ImportResult = ELandscapeImportResult::Error;
-						UIImportLayer.ErrorMessage = LOCTEXT("Import_UnknownFileType", "File type not recognised");
-					}
-
-					if (UIImportLayer.ImportResult == ELandscapeImportResult::Error)
-					{
-						ImportLayer.LayerData.Empty();
-						FMessageDialog::Open(EAppMsgType::Ok, UIImportLayer.ErrorMessage);
-
-						// Cancel import
-						return FReply::Handled();
-					}
-				}
-			}
-
-			const TArray<uint16>& ImportData = LandscapeEdMode->UISettings->GetImportLandscapeData();
-			if (ImportData.Num() != 0)
-			{
-				const int32 OffsetX = (int32)(SizeX - ImportSizeX) / 2;
-				const int32 OffsetY = (int32)(SizeY - ImportSizeY) / 2;
-
-				// Heightmap
-				Data = LandscapeEditorUtils::ExpandData(ImportData,
-					0, 0, ImportSizeX - 1, ImportSizeY - 1,
-					-OffsetX, -OffsetY, SizeX - OffsetX - 1, SizeY - OffsetY - 1);
-
-				// Layers
-				for (int32 LayerIdx = 0; LayerIdx < ImportLayers.Num(); LayerIdx++)
-				{
-					TArray<uint8>& ImportLayerData = ImportLayers[LayerIdx].LayerData;
-					if (ImportLayerData.Num())
-					{
-						ImportLayerData = LandscapeEditorUtils::ExpandData(ImportLayerData,
-							0, 0, ImportSizeX - 1, ImportSizeY - 1,
-							-OffsetX, -OffsetY, SizeX - OffsetX - 1, SizeY - OffsetY - 1);
-					}
-				}
-			}
-		}
+		TArray<uint16> Data = FNewLandscapeUtils::ComputeHeightData( LandscapeEdMode->UISettings, ImportLayers.GetValue(), LandscapeEdMode->NewLandscapePreviewMode );
 
 		FScopedTransaction Transaction(LOCTEXT("Undo", "Creating New Landscape"));
 
-		const FVector Offset = FTransform(LandscapeEdMode->UISettings->NewLandscape_Rotation, FVector::ZeroVector, LandscapeEdMode->UISettings->NewLandscape_Scale).TransformVector(FVector(-ComponentCountX * QuadsPerComponent / 2, -ComponentCountY * QuadsPerComponent / 2, 0));
+		const FVector Offset = FTransform(LandscapeEdMode->UISettings->NewLandscape_Rotation, FVector::ZeroVector,
+			LandscapeEdMode->UISettings->NewLandscape_Scale).TransformVector(FVector(-ComponentCountX * QuadsPerComponent / 2, -ComponentCountY * QuadsPerComponent / 2, 0));
+		
 		ALandscape* Landscape = LandscapeEdMode->GetWorld()->SpawnActor<ALandscape>(LandscapeEdMode->UISettings->NewLandscape_Location + Offset, LandscapeEdMode->UISettings->NewLandscape_Rotation);
 		Landscape->LandscapeMaterial = LandscapeEdMode->UISettings->NewLandscape_Material.Get();
 		Landscape->SetActorRelativeScale3D(LandscapeEdMode->UISettings->NewLandscape_Scale);
-		Landscape->Import(FGuid::NewGuid(), 0, 0, SizeX-1, SizeY-1, LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent, LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection, Data.GetData(), nullptr, ImportLayers, LandscapeEdMode->UISettings->ImportLandscape_AlphamapType);
+
+		Landscape->Import(FGuid::NewGuid(), 0, 0, SizeX-1, SizeY-1, LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent, LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection, Data.GetData(),
+			nullptr, ImportLayers.GetValue(), LandscapeEdMode->UISettings->ImportLandscape_AlphamapType);
 
 		// automatically calculate a lighting LOD that won't crash lightmass (hopefully)
 		// < 2048x2048 -> LOD0
@@ -1080,45 +981,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::OnImportHeightmapFilename
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
 	if (LandscapeEdMode != nullptr)
 	{
-		ImportResolutions.Reset(1);
-		LandscapeEdMode->UISettings->ImportLandscape_Width = 0;
-		LandscapeEdMode->UISettings->ImportLandscape_Height = 0;
-		LandscapeEdMode->UISettings->ClearImportLandscapeData();
-		LandscapeEdMode->UISettings->ImportLandscape_HeightmapImportResult = ELandscapeImportResult::Success;
-		LandscapeEdMode->UISettings->ImportLandscape_HeightmapErrorMessage = FText();
-
-		if (!LandscapeEdMode->UISettings->ImportLandscape_HeightmapFilename.IsEmpty())
-		{
-			ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
-			const ILandscapeHeightmapFileFormat* HeightmapFormat = LandscapeEditorModule.GetHeightmapFormatByExtension(*FPaths::GetExtension(LandscapeEdMode->UISettings->ImportLandscape_HeightmapFilename, true));
-
-			if (HeightmapFormat)
-			{
-				FLandscapeHeightmapInfo HeightmapImportInfo = HeightmapFormat->Validate(*LandscapeEdMode->UISettings->ImportLandscape_HeightmapFilename);
-				LandscapeEdMode->UISettings->ImportLandscape_HeightmapImportResult = HeightmapImportInfo.ResultCode;
-				LandscapeEdMode->UISettings->ImportLandscape_HeightmapErrorMessage = HeightmapImportInfo.ErrorMessage;
-				ImportResolutions = MoveTemp(HeightmapImportInfo.PossibleResolutions);
-				if (HeightmapImportInfo.DataScale.IsSet())
-				{
-					LandscapeEdMode->UISettings->NewLandscape_Scale = HeightmapImportInfo.DataScale.GetValue();
-					LandscapeEdMode->UISettings->NewLandscape_Scale.Z *= LANDSCAPE_INV_ZSCALE;
-				}
-			}
-			else
-			{
-				LandscapeEdMode->UISettings->ImportLandscape_HeightmapImportResult = ELandscapeImportResult::Error;
-				LandscapeEdMode->UISettings->ImportLandscape_HeightmapErrorMessage = LOCTEXT("Import_UnknownFileType", "File type not recognised");
-			}
-		}
-
-		if (ImportResolutions.Num() > 0)
-		{
-			int32 i = ImportResolutions.Num() / 2;
-			LandscapeEdMode->UISettings->ImportLandscape_Width = ImportResolutions[i].Width;
-			LandscapeEdMode->UISettings->ImportLandscape_Height = ImportResolutions[i].Height;
-			LandscapeEdMode->UISettings->ImportLandscapeData();
-			ChooseBestComponentSizeForImport(LandscapeEdMode);
-		}
+		FNewLandscapeUtils::ImportLandscapeData(LandscapeEdMode->UISettings, ImportResolutions);
 	}
 }
 
@@ -1207,83 +1070,7 @@ FText FLandscapeEditorDetailCustomization_NewLandscape::GetImportLandscapeResolu
 
 void FLandscapeEditorDetailCustomization_NewLandscape::ChooseBestComponentSizeForImport(FEdModeLandscape* LandscapeEdMode)
 {
-	int32 Width = LandscapeEdMode->UISettings->ImportLandscape_Width;
-	int32 Height = LandscapeEdMode->UISettings->ImportLandscape_Height;
-
-	bool bFoundMatch = false;
-	if (Width > 0 && Height > 0)
-	{
-		// Try to find a section size and number of sections that exactly matches the dimensions of the heightfield
-		for (int32 SectionSizesIdx = ARRAY_COUNT(SectionSizes) - 1; SectionSizesIdx >= 0; SectionSizesIdx--)
-		{
-			for (int32 NumSectionsIdx = ARRAY_COUNT(NumSections) - 1; NumSectionsIdx >= 0; NumSectionsIdx--)
-			{
-				int32 ss = SectionSizes[SectionSizesIdx];
-				int32 ns = NumSections[NumSectionsIdx];
-
-				if (((Width - 1) % (ss * ns)) == 0 && ((Width - 1) / (ss * ns)) <= 32 &&
-					((Height - 1) % (ss * ns)) == 0 && ((Height - 1) / (ss * ns)) <= 32)
-				{
-					bFoundMatch = true;
-					LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection = ss;
-					LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent = ns;
-					LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X = (Width - 1) / (ss * ns);
-					LandscapeEdMode->UISettings->NewLandscape_ComponentCount.Y = (Height - 1) / (ss * ns);
-					LandscapeEdMode->UISettings->NewLandscape_ClampSize();
-					break;
-				}
-			}
-			if (bFoundMatch)
-			{
-				break;
-			}
-		}
-
-		if (!bFoundMatch)
-		{
-			// if there was no exact match, try increasing the section size until we encompass the whole heightmap
-			const int32 CurrentSectionSize = LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection;
-			const int32 CurrentNumSections = LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent;
-			for (int32 SectionSizesIdx = 0; SectionSizesIdx < ARRAY_COUNT(SectionSizes); SectionSizesIdx++)
-			{
-				if (SectionSizes[SectionSizesIdx] < CurrentSectionSize)
-				{
-					continue;
-				}
-
-				const int32 ComponentsX = FMath::DivideAndRoundUp((Width - 1), SectionSizes[SectionSizesIdx] * CurrentNumSections);
-				const int32 ComponentsY = FMath::DivideAndRoundUp((Height - 1), SectionSizes[SectionSizesIdx] * CurrentNumSections);
-				if (ComponentsX <= 32 && ComponentsY <= 32)
-				{
-					bFoundMatch = true;
-					LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection = SectionSizes[SectionSizesIdx];
-					//LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent = ;
-					LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X = ComponentsX;
-					LandscapeEdMode->UISettings->NewLandscape_ComponentCount.Y = ComponentsY;
-					LandscapeEdMode->UISettings->NewLandscape_ClampSize();
-					break;
-				}
-			}
-		}
-
-		if (!bFoundMatch)
-		{
-			// if the heightmap is very large, fall back to using the largest values we support
-			const int32 MaxSectionSize = SectionSizes[ARRAY_COUNT(SectionSizes) - 1];
-			const int32 MaxNumSubSections = NumSections[ARRAY_COUNT(NumSections) - 1];
-			const int32 ComponentsX = FMath::DivideAndRoundUp((Width - 1), MaxSectionSize * MaxNumSubSections);
-			const int32 ComponentsY = FMath::DivideAndRoundUp((Height - 1), MaxSectionSize * MaxNumSubSections);
-
-			bFoundMatch = true;
-			LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection = MaxSectionSize;
-			LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent = MaxNumSubSections;
-			LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X = ComponentsX;
-			LandscapeEdMode->UISettings->NewLandscape_ComponentCount.Y = ComponentsY;
-			LandscapeEdMode->UISettings->NewLandscape_ClampSize();
-		}
-
-		check(bFoundMatch);
-	}
+	FNewLandscapeUtils::ChooseBestComponentSizeForImport(LandscapeEdMode->UISettings);
 }
 
 EVisibility FLandscapeEditorDetailCustomization_NewLandscape::GetMaterialTipVisibility() const

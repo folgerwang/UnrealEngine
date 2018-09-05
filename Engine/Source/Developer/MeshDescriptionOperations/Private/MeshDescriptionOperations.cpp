@@ -9,6 +9,7 @@
 #include "OverlappingCorners.h"
 #include "RenderUtils.h"
 #include "mikktspace.h"
+#include "UVMapSettings.h"
 
 DEFINE_LOG_CATEGORY(LogMeshDescriptionOperations);
 
@@ -1248,6 +1249,257 @@ bool FMeshDescriptionOperations::RemoveUVChannel(FMeshDescription& MeshDescripti
 
 	VertexInstanceUVs.RemoveIndex(UVChannelIndex);
 	return true;
+}
+
+void FMeshDescriptionOperations::GeneratePlanarUV(const FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords)
+{
+	FVector U = FVector::ForwardVector;
+	FVector V = FVector::RightVector;
+
+	switch (Settings.Axis)
+	{
+	case 0:
+		// Project along X-axis (left view), UV along Z Y axes
+		U = FVector::UpVector;
+		V = FVector::RightVector;
+		break;
+	case 1:
+		// Project along Y-axis (front view), UV along X -Z axes
+		U = FVector::ForwardVector;
+		V = -FVector::UpVector;
+		break;
+	case 2:
+		// Project along Z-axis (top view), UV along X Y axes
+		U = FVector::ForwardVector;
+		V = FVector::RightVector;
+		break;
+	}
+
+	TMeshAttributesConstRef<FVertexID, FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+
+	OutTexCoords.AddZeroed(MeshDescription.VertexInstances().Num());
+
+	FVector Size = Settings.Size * Settings.Scale;
+	FVector Offset = Settings.Position - Size / 2.f;
+	FQuat Rotation(Settings.RotationAxis, FMath::DegreesToRadians(Settings.RotationAngle));
+
+	int32 TextureCoordIndex = 0;
+	for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
+	{
+		const FVertexID VertexID = MeshDescription.GetVertexInstanceVertex(VertexInstanceID);
+		FVector Vertex = VertexPositions[VertexID];
+
+		// Apply the gizmo transforms
+		Vertex = Rotation.RotateVector(Vertex);
+		Vertex -= Offset;
+		Vertex /= Size;
+
+		float UCoord = FVector::DotProduct(Vertex, U) * Settings.UVTile.X;
+		float VCoord = FVector::DotProduct(Vertex, V) * Settings.UVTile.Y;
+		OutTexCoords[TextureCoordIndex++] = FVector2D(UCoord, VCoord);
+	}
+}
+
+void FMeshDescriptionOperations::GenerateCylindricalUV(FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords)
+{
+	FVector Size = Settings.Size * Settings.Scale;
+	FVector Offset = Settings.Position;
+
+	FVector U;
+	FVector V;
+
+	switch (Settings.Axis)
+	{
+	case 0:
+		// Cylinder along Y-axis, counterclockwise from -Z axis as seen from back view
+		V = FVector::RightVector;
+		Offset.Y -= Size.Y / 2.f;
+		break;
+	case 1:
+		// Cylinder along X-axis, counterclockwise from -Y axis as seen from left view
+		V = FVector::ForwardVector;
+		Offset.X -= Size.X / 2.f;
+		break;
+	case 2:
+		// Cylinder along Z-axis, counterclockwise from -Y axis as seen from top view
+		V = -FVector::UpVector;
+		Offset.Z -= Size.Z / 2.f;
+		break;
+	}
+
+	TMeshAttributesConstRef<FVertexID, FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+
+	OutTexCoords.AddZeroed(MeshDescription.VertexInstances().Num());
+
+	const float AngleOffset = PI; // offset to get the same result as in 3dsmax
+	int32 TextureCoordIndex = 0;
+	FQuat Rotation(Settings.RotationAxis, FMath::DegreesToRadians(Settings.RotationAngle));
+
+	for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
+	{
+		const FVertexID VertexID = MeshDescription.GetVertexInstanceVertex(VertexInstanceID);
+		FVector Vertex = VertexPositions[VertexID];
+
+		// Apply the gizmo transforms
+		Vertex = Rotation.RotateVector(Vertex);
+		Vertex -= Offset;
+		Vertex /= Size;
+
+		float Angle = 0.f;
+		switch (Settings.Axis)
+		{
+		case 0:
+			Angle = FMath::Atan2(Vertex.X, Vertex.Z);
+			break;
+		case 1:
+			Angle = FMath::Atan2(Vertex.Z, Vertex.Y);
+			break;
+		case 2:
+			Angle = FMath::Atan2(Vertex.X, Vertex.Y);
+			break;
+		}
+
+		Angle += AngleOffset;
+		Angle *= Settings.UVTile.X;
+
+		float UCoord = Angle / (2 * PI);
+		float VCoord = FVector::DotProduct(Vertex, V) * Settings.UVTile.Y;
+
+		OutTexCoords[TextureCoordIndex++] = FVector2D(UCoord, VCoord);
+	}
+
+	// Fix the UV coordinates for triangles at the seam where the angle wraps around
+	for (const FPolygonID& PolygonID : MeshDescription.Polygons().GetElementIDs())
+	{
+		const TArray<FVertexInstanceID>& VertexInstances = MeshDescription.GetPolygonPerimeterVertexInstances(PolygonID);
+		int32 NumInstances = VertexInstances.Num();
+		if (NumInstances >= 2)
+		{
+			for (int32 StartIndex = 1; StartIndex < NumInstances; ++StartIndex)
+			{
+				int32 EndIndex = StartIndex + 1;
+				if (EndIndex >= NumInstances)
+				{
+					EndIndex = EndIndex % NumInstances;
+				}
+
+				const FVector2D& StartUV = OutTexCoords[VertexInstances[StartIndex].GetValue()];
+				FVector2D& EndUV = OutTexCoords[VertexInstances[EndIndex].GetValue()];
+
+				// TODO: Improve fix for UVTile other than 1
+				float Threshold = 0.5f / Settings.UVTile.X;
+				if (FMath::Abs(EndUV.X - StartUV.X) > Threshold)
+				{
+					// Fix the U coordinate to get the texture go counterclockwise
+					if (EndUV.X > Threshold)
+					{
+						EndUV.X -= 1.f;
+					}
+					else
+					{
+						EndUV.X += 1.f;
+					}
+				}
+			}
+		}
+	}
+}
+
+void FMeshDescriptionOperations::GenerateBoxUV(const FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords)
+{
+	FVector Size = Settings.Size * Settings.Scale;
+	FVector HalfSize = Size / 2.0f;
+	FVector Offset = Settings.Position - HalfSize;
+
+	FVector HintU;
+	FVector HintV;
+
+	switch (Settings.Axis)
+	{
+	case 0:
+		HintU = FVector::UpVector;
+		HintV = FVector::RightVector;
+		break;
+	case 1:
+		HintU = FVector::ForwardVector;
+		HintV = -FVector::UpVector;
+		break;
+	case 2:
+		HintU = FVector::ForwardVector;
+		HintV = FVector::RightVector;
+		break;
+	}
+
+	TMeshAttributesConstRef<FVertexID, FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+
+	OutTexCoords.AddZeroed(MeshDescription.VertexInstances().Num());
+
+	TArray<FPlane> BoxPlanes;
+	const FVector& Center = Settings.Position;
+
+	BoxPlanes.Add(FPlane(Center + FVector(0, 0, HalfSize.Z), FVector::UpVector));		// Top plane
+	BoxPlanes.Add(FPlane(Center - FVector(0, 0, HalfSize.Z), -FVector::UpVector));		// Bottom plane
+	BoxPlanes.Add(FPlane(Center + FVector(HalfSize.X, 0, 0), FVector::ForwardVector));	// Right plane
+	BoxPlanes.Add(FPlane(Center - FVector(HalfSize.X, 0, 0), -FVector::ForwardVector));	// Left plane
+	BoxPlanes.Add(FPlane(Center + FVector(0, HalfSize.Y, 0), FVector::RightVector));	// Front plane
+	BoxPlanes.Add(FPlane(Center - FVector(0, HalfSize.Y, 0), -FVector::RightVector));	// Back plane
+
+	FQuat Rotation(Settings.RotationAxis, FMath::DegreesToRadians(Settings.RotationAngle));
+
+	// For each polygon, find the box plane that best matches the polygon normal
+	for (const FPolygonID& PolygonID : MeshDescription.Polygons().GetElementIDs())
+	{
+		const TArray<FVertexInstanceID>& VertexInstances = MeshDescription.GetPolygonPerimeterVertexInstances(PolygonID);
+		check(VertexInstances.Num() == 3);
+
+		FVector Vertex0 = VertexPositions[MeshDescription.GetVertexInstanceVertex(VertexInstances[0])];
+		FVector Vertex1 = VertexPositions[MeshDescription.GetVertexInstanceVertex(VertexInstances[1])];
+		FVector Vertex2 = VertexPositions[MeshDescription.GetVertexInstanceVertex(VertexInstances[2])];
+
+		FPlane PolygonPlane(Vertex0, Vertex2, Vertex1);
+
+		// Find the box plane that is most aligned with the polygon plane
+		// TODO: Also take the distance between the planes into consideration
+		float MaxProj = 0.f;
+		int32 BestPlaneIndex = 0;
+		for (int32 Index = 0; Index < BoxPlanes.Num(); ++Index)
+		{
+			float Proj = FVector::DotProduct(BoxPlanes[Index], PolygonPlane);
+			if (Proj > MaxProj)
+			{
+				MaxProj = Proj;
+				BestPlaneIndex = Index;
+			}
+		}
+
+		const FPlane& BestPlane = BoxPlanes[BestPlaneIndex];
+
+		FVector U = HintU;
+		FVector V = BestPlane ^ HintU;
+
+		if (V.IsZero())
+		{
+			// Plane normal and U were aligned, so try with V instead
+			U = HintV;
+			V = BestPlane ^ HintV;
+		}
+
+		for (const FVertexInstanceID& VertexInstanceID : VertexInstances)
+		{
+			const FVertexID VertexID = MeshDescription.GetVertexInstanceVertex(VertexInstanceID);
+			FVector Vertex = VertexPositions[VertexID];
+
+			// Apply the gizmo transforms
+			Vertex = Rotation.RotateVector(Vertex);
+			Vertex -= Offset;
+			Vertex /= Size;
+
+			float UCoord = FVector::DotProduct(Vertex, U) * Settings.UVTile.X;
+			float VCoord = FVector::DotProduct(Vertex, V) * Settings.UVTile.Y;
+
+			OutTexCoords[VertexInstanceID.GetValue()] = FVector2D(UCoord, VCoord);
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

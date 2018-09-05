@@ -45,6 +45,11 @@ void FDisplayClusterNodeCtrlStandalone::GetDeltaTime(float& deltaTime)
 	// Nothing special to do here in standalone mode
 }
 
+void FDisplayClusterNodeCtrlStandalone::GetTimecode(FTimecode& timecode, FFrameRate& frameRate)
+{
+	// Nothing special to do here in standalone mode
+}
+
 void FDisplayClusterNodeCtrlStandalone::GetSyncData(FDisplayClusterMessage::DataType& data)
 {
 	// Nothing special to do here in standalone mode

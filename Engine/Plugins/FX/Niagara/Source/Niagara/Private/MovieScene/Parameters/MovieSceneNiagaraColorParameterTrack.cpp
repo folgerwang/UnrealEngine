@@ -7,7 +7,7 @@
 
 UMovieSceneSection* UMovieSceneNiagaraColorParameterTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneColorSection>(this);
+	return NewObject<UMovieSceneColorSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneNiagaraColorParameterTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const

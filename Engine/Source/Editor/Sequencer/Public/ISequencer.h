@@ -163,12 +163,17 @@ public:
 
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnSelectionChangedSections, TArray<UMovieSceneSection*> /*Sections*/);
 
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnCloseEvent, TSharedRef<ISequencer>);
+
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActorAddedToSequencer, AActor*, const FGuid);
 
 public:
 
 	/** Close the sequencer. */
 	virtual void Close() = 0;
+
+	/** @return a multicast delegate which is executed when sequencer closes. */
+	virtual FOnCloseEvent& OnCloseEvent() = 0;
 
 	/** @return Widget used to display the sequencer */
 	virtual TSharedRef<SWidget> GetSequencerWidget() const = 0;

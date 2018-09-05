@@ -1030,6 +1030,15 @@ struct FMath : public FPlatformMath
 	static CORE_API bool PlaneAABBIntersection(const FPlane& P, const FBox& AABB);
 
 	/**
+	 * Determine the position of an AABB relative to a plane:
+	 * completely above (in the direction of the normal of the plane), completely below or intersects it
+	 * @param P - the plane to test
+	 * @param AABB - the axis aligned bounding box to test
+	 * @return -1 if below, 1 if above, 0 if intersects
+	 */
+	static CORE_API int32 PlaneAABBRelativePosition(const FPlane& P, const FBox& AABB);
+
+	/**
 	 * Performs a sphere vs box intersection test using Arvo's algorithm:
 	 *
 	 *	for each i in (x, y, z)

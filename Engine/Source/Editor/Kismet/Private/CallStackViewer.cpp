@@ -375,7 +375,7 @@ void SCallStackViewer::Construct(const FArguments& InArgs, TArray<TSharedRef<FCa
 					(
 						SNew(SHeaderRow)
 						+SHeaderRow::Column(TEXT("ProgramCounter"))
-						.DefaultLabel(LOCTEXT("ProgramCounterLabel", ""))
+						.DefaultLabel(FText::GetEmpty())
 						.FixedWidth(16.f)
 						+SHeaderRow::Column(TEXT("FunctionName"))
 						.FillWidth(.8f)

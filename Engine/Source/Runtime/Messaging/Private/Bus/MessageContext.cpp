@@ -94,6 +94,15 @@ EMessageScope FMessageContext::GetScope() const
 	return Scope;
 }
 
+EMessageFlags FMessageContext::GetFlags() const
+{
+	if (OriginalContext.IsValid())
+	{
+		return OriginalContext->GetFlags();
+	}
+
+	return Flags;
+}
 
 const FMessageAddress& FMessageContext::GetSender() const
 {

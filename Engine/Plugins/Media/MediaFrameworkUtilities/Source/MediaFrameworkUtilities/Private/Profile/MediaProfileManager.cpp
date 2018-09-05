@@ -20,13 +20,14 @@ void FMediaProfileManager::SetCurrentMediaProfile(UMediaProfile* InMediaProfile)
 	UMediaProfile* Previous = CurrentMediaProfile.Get();
 	if (InMediaProfile != Previous)
 	{
+		if (Previous)
+		{
+			Previous->Reset();
+		}
+
 		if (InMediaProfile)
 		{
 			InMediaProfile->Apply();
-		}
-		else
-		{
-			GetMutableDefault<UMediaProfile>()->Apply();
 		}
 
 		CurrentMediaProfile.Reset(InMediaProfile);

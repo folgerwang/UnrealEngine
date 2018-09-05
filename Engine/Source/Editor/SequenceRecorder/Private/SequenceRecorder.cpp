@@ -42,6 +42,7 @@
 #include "ScopedTransaction.h"
 #include "Features/IModularFeatures.h"
 #include "ILiveLinkClient.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
@@ -925,6 +926,8 @@ bool FSequenceRecorder::StopRecording(bool bAllowLooping)
 	
 		return false;
 	}
+
+	FScopedTransaction ScopeTransaction(LOCTEXT("ProcessedRecording", "Processed Recording"));
 
 	// 1 step for the audio processing
 	static const uint8 NumAdditionalSteps = 1;

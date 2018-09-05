@@ -19,7 +19,7 @@ UMovieSceneSlomoTrack::UMovieSceneSlomoTrack(const FObjectInitializer& Init)
 
 UMovieSceneSection* UMovieSceneSlomoTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneSlomoSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneSlomoSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneSlomoTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const

@@ -97,6 +97,7 @@ struct FHittestGrid::FGridTestingParams
 
 FHittestGrid::FHittestGrid()
 : WidgetsCachedThisFrame()
+, NumCellsExcess(0, 0)
 {
 }
 
@@ -224,6 +225,7 @@ void FHittestGrid::ClearGridForNewFrame(const FSlateRect& HittestArea)
 	GridOrigin = HittestArea.GetTopLeft();
 	const FVector2D GridSize = HittestArea.GetSize();
 	NumCells = FIntPoint(FMath::CeilToInt(GridSize.X / CellSize.X), FMath::CeilToInt(GridSize.Y / CellSize.Y));
+	NumCells += NumCellsExcess;
 	WidgetsCachedThisFrame.Reset();
 
 	const int32 NewTotalCells = NumCells.X * NumCells.Y;

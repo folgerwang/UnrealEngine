@@ -43,7 +43,7 @@ void UMovieSceneLevelVisibilityTrack::RemoveSection( UMovieSceneSection& Section
 
 UMovieSceneSection* UMovieSceneLevelVisibilityTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneLevelVisibilitySection>(this, UMovieSceneLevelVisibilitySection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneLevelVisibilitySection>(this, NAME_None, RF_Transactional);
 }
 
 

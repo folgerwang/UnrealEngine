@@ -38,6 +38,13 @@ public:
 	UMediaOutput* GetMediaOutput() const;
 
 	/**
+	 * Get the last element of the media output chain that is not a proxy media output.
+	 *
+	 * @return The media output, or nullptr if not set.
+	 */
+	UMediaOutput* GetLeafMediaOutput() const;
+
+	/**
 	 * Set the dynamic media output proxy.
 	 *
 	 * @param InProxy The proxy to use.
@@ -57,6 +64,7 @@ protected:
 
 private:
 
+	mutable bool bLeafMediaOutput;
 	mutable bool bValidateGuard;
 	mutable bool bRequestedSizeGuard;
 	mutable bool bRequestedPixelFormatGuard;

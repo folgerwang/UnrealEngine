@@ -381,7 +381,7 @@ UCameraAnimInst* APlayerCameraManager::PlayCameraAnim(UCameraAnim* Anim, float R
 		UCameraAnimInst* const Inst = AllocCameraAnimInst();
 		if (Inst)
 		{
-			if (!Anim->bRelativeToInitialFOV)
+			if (Anim != nullptr && !Anim->bRelativeToInitialFOV)
 			{
 				Inst->InitialFOV = ViewTarget.POV.FOV;
 			}

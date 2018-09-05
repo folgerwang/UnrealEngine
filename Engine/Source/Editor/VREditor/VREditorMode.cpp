@@ -808,7 +808,6 @@ bool UVREditorMode::IsHandAimingTowardsCapsule(UViewportInteractor* Interactor, 
 UVREditorInteractor* UVREditorMode::GetHandInteractor( const EControllerHand ControllerHand ) const 
 {
 	UVREditorInteractor* ResultInteractor = ControllerHand == EControllerHand::Left ? LeftHandInteractor : RightHandInteractor;
-	check( ResultInteractor != nullptr );
 	return ResultInteractor;
 }
 
@@ -904,11 +903,11 @@ void UVREditorMode::TogglePIEAndVREditor()
 	}
 }
 
-void UVREditorMode::TransitionWorld(UWorld* NewWorld)
+void UVREditorMode::TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState)
 {
-	Super::TransitionWorld(NewWorld);
+	Super::TransitionWorld(NewWorld, TransitionState);
 
-	UISystem->TransitionWorld(NewWorld);
+	UISystem->TransitionWorld(NewWorld, TransitionState);
 }
 
 void UVREditorMode::StartViewport(TSharedPtr<SLevelViewport> Viewport)

@@ -10,7 +10,7 @@ public class UnrealFrontendTarget : TargetRules
 		Type = TargetType.Program;
 		LinkType = TargetLinkType.Modular;
 		AdditionalPlugins.Add("UdpMessaging");
-		LaunchModuleName = "UnrealFrontend";
+        LaunchModuleName = "UnrealFrontend";
 
 		bBuildEditor = false;
 		bCompileAgainstEngine = false;

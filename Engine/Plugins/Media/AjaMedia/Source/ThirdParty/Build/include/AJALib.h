@@ -89,11 +89,13 @@ namespace AJA
 			bool bCanDoCapture;
 			bool bCanDoPlayback;
 			bool bCanFrameStore1DoPlayback;
+			bool bCanDoDualLink;
 			bool bCanDo2K;
 			bool bCanDo4K;
 			bool bCanDoMultiFormat;
 			bool bCanDoAlpha;
 			bool bCanDoCustomAnc;
+			bool bCanDoLtcInRefPort;
 			bool bSupportPixelFormat8bitYCBCR;
 			bool bSupportPixelFormat8bitARGB;
 			bool bSupportPixelFormat10bitRGB;
@@ -118,21 +120,26 @@ namespace AJA
 	*****************************************************************************/
 	struct AJA_API AJAVideoFormats
 	{
-		const static int32_t FormatedTextSize = 64;
 		struct AJA_API VideoFormatDescriptor
 		{
 			VideoFormatDescriptor();
 
 			FAJAVideoFormat VideoFormatIndex;
-			TCHAR FormatedText[FormatedTextSize];
 			uint32_t FrameRateNumerator;
 			uint32_t FrameRateDenominator;
-			uint32_t Width;
-			uint32_t Height;
-			bool bIsProgressive;
-			bool bValid;
+			uint32_t ResolutionWidth;
+			uint32_t ResolutionHeight;
+			bool bIsProgressiveStandard;
+			bool bIsInterlacedStandard;
+			bool bIsPsfStandard;
+			bool bIsVideoFormatA;
+			bool bIsVideoFormatB;
+			bool bIsSD;
+			bool bIsHD;
+			bool bIs2K;
+			bool bIs4K;
 
-			bool operator<(const VideoFormatDescriptor& Other) const;
+			bool bIsValid;
 		};
 
 		AJAVideoFormats(int32_t InDeviceId, bool bForOutput);
@@ -182,6 +189,10 @@ namespace AJA
 		FAJAVideoFormat VideoFormatIndex;
 		ETimecodeFormat TimecodeFormat;
 		bool bOutput; // port is output
+		bool bWaitForFrameToBeReady; // port is input and we want to wait for the image to be sent to UE4 before ticking
+
+		bool bReadTimecodeFromReferenceIn;
+		uint32_t LTCSourceIndex; //[1...x]
 	};
 
 	class AJA_API AJASyncChannel

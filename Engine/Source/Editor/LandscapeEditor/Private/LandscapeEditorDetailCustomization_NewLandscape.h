@@ -81,9 +81,6 @@ public:
 	EVisibility GetMaterialTipVisibility() const;
 
 protected:
-	static const int32 SectionSizes[];
-	static const int32 NumSections[];
-
 	TArray<FLandscapeFileResolution> ImportResolutions;
 };
 

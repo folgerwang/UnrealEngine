@@ -20,6 +20,16 @@ class IMediaEventSink;
 
 enum class EMediaTextureSampleFormat;
 
+struct MEDIAIOCORE_API FMediaIOCoreMediaOption
+{
+	static const FName FrameRateNumerator;
+	static const FName FrameRateDenominator;
+	static const FName ResolutionWidth;
+	static const FName ResolutionHeight;
+	static const FName VideoStandard;
+};
+
+
 /**
  * Implements a base player for hardware IO cards. 
  *
@@ -63,10 +73,12 @@ public:
 	virtual IMediaCache& GetCache() override;
 	virtual IMediaControls& GetControls() override;
 	virtual IMediaSamples& GetSamples() override;
+	const FMediaIOCoreSamples& GetSamples() const;
 	virtual FString GetStats() const override;
 	virtual IMediaTracks& GetTracks() override;
+	virtual FString GetUrl() const override;
 	virtual IMediaView& GetView() override;
-	virtual bool TickTimeManagement();
+	virtual void TickTimeManagement();
 
 public:
 	//~ IMediaCache interface
@@ -126,6 +138,9 @@ protected:
 	/** Enable timecode logging */
 	bool bIsTimecodeLogEnable;
 
+	/** Url used to open the media player */
+	FString OpenUrl;
+
 	/** format of the video */
 	FMediaVideoTrackFormat VideoTrackFormat;
 	
@@ -141,12 +156,6 @@ protected:
 	/** The media event handler. */
 	IMediaEventSink& EventSink;
 
-	/** Number of audio channels in the last received sample. */
-	int32 LastAudioChannels;
-
-	/** Audio sample rate in the last received sample. */
-	int32 LastAudioSampleRate;
-
 	/** Video dimensions in the last received sample. */
 	FIntPoint LastVideoDim;
 
@@ -158,9 +167,6 @@ protected:
 
 	/** The media sample cache. */
 	FMediaIOCoreSamples* Samples;
-
-	/** Whether to use the timecode embedded in a frame. */
-	bool bUseFrameTimecode;
 
 	/** Whether to use the Synchronization Time module as time source. */
 	bool bUseTimeSynchronization;

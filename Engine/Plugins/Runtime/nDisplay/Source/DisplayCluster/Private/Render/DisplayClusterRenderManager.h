@@ -6,7 +6,7 @@
 #include "IPDisplayClusterRenderManager.h"
 
 class FDisplayClusterDeviceBase;
-
+class FDisplayClusterNativePresentHandler;
 
 /**
  * Render manager. Responsible for anything related to a visual part.
@@ -42,6 +42,8 @@ public:
 private:
 	FDisplayClusterDeviceBase* CreateStereoDevice();
 	void ResizeWindow(int32 WinX, int32 WinY, int32 ResX, int32 ResY);
+	void OnViewportCreatedHandler();
+	void OnBeginDrawHandler();
 
 private:
 	EDisplayClusterOperationMode CurrentOperationMode;
@@ -50,6 +52,7 @@ private:
 
 	// Interface pointer to eliminate type casting
 	IDisplayClusterStereoDevice* Device = nullptr;
+	FDisplayClusterNativePresentHandler* NativePresentHandler;
 	bool bWindowAdjusted = false;
 };
 

@@ -69,7 +69,8 @@ public:
 	void Construct(const FArguments& InArgs);
 
 private:
-	UTimecodeProvider* GetTimecodeProvider() const;
+
+	const UTimecodeProvider* GetTimecodeProvider() const;
 	FSlateColor HandleIconColorAndOpacity() const;
 	const FSlateBrush* HandleIconImage() const;
 	EVisibility HandleImageVisibility() const;

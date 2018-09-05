@@ -21,16 +21,12 @@ namespace UnrealBuildTool.Rules
 					"AssetTools",
 					"EditorStyle",
 					"MainFrame",
+					"MeshDescription",
+					"MeshDescriptionOperations",
+					"RawMesh",
 					"Slate",
 					"SlateCore",
-                    "MeshDescription",
 					"UnrealEd",
-				}
-			);
-
-			PrivateIncludePathModuleNames.AddRange(
-				new string[] {
-					"PythonScriptPlugin",
 				}
 			);
 		}

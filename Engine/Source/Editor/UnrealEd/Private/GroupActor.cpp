@@ -77,6 +77,20 @@ void AGroupActor::PostEditUndo()
 	{
 		GetWorld()->ActiveGroupActors.RemoveSwap(this);
 	}
+	else
+	{
+		// Cache group on de-serialization
+		GetWorld()->ActiveGroupActors.AddUnique(this);
+
+		// Fix up references for GetParentForActor()
+		for (int32 i = 0; i < GroupActors.Num(); ++i)
+		{
+			if (GroupActors[i] != NULL)
+			{
+				GroupActors[i]->GroupActor = this;
+			}
+		}
+	}
 }
 
 bool AGroupActor::IsSelected() const
