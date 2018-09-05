@@ -85,9 +85,10 @@ private:
 	void AddFilter(const TSharedRef<SFilter>& FilterToAdd);
 
 	/** Handler for when the remove filter button was clicked on a filter */
-	void RemoveFilter(const TWeakPtr<IAssetTypeActions>& AssetTypeActions);
-	void RemoveFilter(const TSharedRef<FFrontendFilter>& FrontendFilter);
+	void RemoveFilter(const TWeakPtr<IAssetTypeActions>& AssetTypeActions, bool ExecuteOnFilterChanged = true);
+	void RemoveFilter(const TSharedRef<FFrontendFilter>& FrontendFilter, bool ExecuteOnFilterChanged = true);
 	void RemoveFilter(const TSharedRef<SFilter>& FilterToRemove);
+	void RemoveFilterAndUpdate(const TSharedRef<SFilter>& FilterToRemove);
 
 	/** Handler for when the enable only this button was clicked on a single filter */
 	void EnableOnlyThisFilter(const TSharedRef<SFilter>& FilterToEnable);
