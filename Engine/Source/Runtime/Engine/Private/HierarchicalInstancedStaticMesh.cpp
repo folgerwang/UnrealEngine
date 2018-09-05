@@ -30,6 +30,7 @@
 #include "SceneManagement.h"
 #include "HAL/LowLevelMemTracker.h"
 #include "UObject/ReleaseObjectVersion.h"
+#include "ComponentRecreateRenderStateContext.h"
 
 static TAutoConsoleVariable<int32> CVarFoliageSplitFactor(
 	TEXT("foliage.SplitFactor"),
@@ -2698,6 +2699,31 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTreeAsync()
 	}
 }
 
+void UHierarchicalInstancedStaticMeshComponent::PropagateLightingScenarioChange()
+{
+	if (GIsEditor && PerInstanceRenderData.IsValid())
+	{
+		FComponentRecreateRenderStateContext Context(this);
+
+		const FMeshMapBuildData* MeshMapBuildData = nullptr;
+		if (LODData.Num() > 0)
+		{
+			MeshMapBuildData = GetMeshMapBuildData(LODData[0]);
+		}
+
+		if (MeshMapBuildData != nullptr)
+		{
+			for (int32 InstanceIndex = 0; InstanceIndex < PerInstanceSMData.Num(); ++InstanceIndex)
+			{
+				int32 RenderIndex = InstanceReorderTable.IsValidIndex(InstanceIndex) ? InstanceReorderTable[InstanceIndex] : InstanceIndex;
+
+				InstanceUpdateCmdBuffer.SetLightMapData(RenderIndex, MeshMapBuildData->PerInstanceLightmapData[InstanceIndex].LightmapUVBias);
+				InstanceUpdateCmdBuffer.SetShadowMapData(RenderIndex, MeshMapBuildData->PerInstanceLightmapData[InstanceIndex].ShadowmapUVBias);
+			}
+		}
+	}
+}
+
 void UHierarchicalInstancedStaticMeshComponent::SetPerInstanceLightMapAndEditorData(FStaticMeshInstanceData& PerInstanceData, const TArray<TRefCountPtr<HHitProxy>>& HitProxies)
 {
 	int32 NumInstances = PerInstanceData.GetNumInstances();
@@ -2726,9 +2752,9 @@ void UHierarchicalInstancedStaticMeshComponent::SetPerInstanceLightMapAndEditorD
 			{
 				LightmapUVBias = MeshMapBuildData->PerInstanceLightmapData[Index].LightmapUVBias;
 				ShadowmapUVBias = MeshMapBuildData->PerInstanceLightmapData[Index].ShadowmapUVBias;
-			}
 
-			PerInstanceData.SetInstanceLightMapData(RenderIndex, LightmapUVBias, ShadowmapUVBias);
+				PerInstanceData.SetInstanceLightMapData(RenderIndex, LightmapUVBias, ShadowmapUVBias);
+			}
 
 	#if WITH_EDITOR
 			if (GIsEditor)
