@@ -954,7 +954,6 @@ void SDetailsViewBase::RestoreExpandedItems(TSharedRef<FPropertyNode> InitialSta
 void SDetailsViewBase::UpdateFilteredDetails()
 {
 	RootTreeNodes.Reset();
-	ExpandedDetailNodes.Empty();
 
 	FDetailNodeList InitialRootNodeList;
 	
@@ -974,8 +973,6 @@ void SDetailsViewBase::UpdateFilteredDetails()
 			RootPropertyNode->FilterNodes(CurrentFilter.FilterStrings);
 			RootPropertyNode->ProcessSeenFlags(true);
 
-			RestoreExpandedItems(RootPropertyNode.ToSharedRef());
-
 			TSharedPtr<FDetailLayoutBuilderImpl>& DetailLayout = DetailLayouts[RootNodeIndex].DetailLayout;
 			if(DetailLayout.IsValid())
 			{
@@ -986,8 +983,6 @@ void SDetailsViewBase::UpdateFilteredDetails()
 					{
 						ExternalRootNode->FilterNodes(CurrentFilter.FilterStrings);
 						ExternalRootNode->ProcessSeenFlags(true);
-					
-						RestoreExpandedItems(ExternalRootNode.ToSharedRef());
 					}
 				}
 

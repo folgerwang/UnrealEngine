@@ -483,6 +483,10 @@ TSharedRef<IPropertyHandle> FDetailLayoutBuilderImpl::GetPropertyHandle( TShared
 void FDetailLayoutBuilderImpl::AddExternalRootPropertyNode(TSharedRef<FComplexPropertyNode> InExternalRootNode)
 {
 	ExternalRootPropertyNodes.Add(InExternalRootNode);
+	if (GetDetailsView())
+	{
+		GetDetailsView()->RestoreExpandedItems(InExternalRootNode);
+	}
 }
 
 void FDetailLayoutBuilderImpl::RemoveExternalRootPropertyNode(TSharedRef<FComplexPropertyNode> InExternalRootNode)

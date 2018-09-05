@@ -166,7 +166,8 @@ public:
 	virtual void UpdateSinglePropertyMap(TSharedPtr<FComplexPropertyNode> InRootPropertyNode, FDetailLayoutData& LayoutData, bool bIsExternal) override;
 	virtual FNotifyHook* GetNotifyHook() const override { return DetailsViewArgs.NotifyHook; }
 	virtual const FCustomPropertyTypeLayoutMap& GetCustomPropertyTypeLayoutMap() const { return InstancedTypeToLayoutMap; }
-	void SaveExpandedItems( TSharedRef<FPropertyNode> StartNode ) override;
+	virtual void SaveExpandedItems( TSharedRef<FPropertyNode> StartNode ) override;
+	virtual void RestoreExpandedItems(TSharedRef<FPropertyNode> StartNode) override;
 
 	virtual bool IsConnected() const = 0;
 	virtual FRootPropertyNodeList& GetRootNodes() = 0;
@@ -208,13 +209,6 @@ public:
 	virtual FReply OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent) override;
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	// End of SWidget interface
-
-
-	/**
-	* Restores the expansion state of property nodes for the selected object set
-	*/
-	void RestoreExpandedItems(TSharedRef<FPropertyNode> StartNode);
-
 
 protected:
 	/**
