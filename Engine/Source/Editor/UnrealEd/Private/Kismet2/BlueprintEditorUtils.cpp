@@ -9088,10 +9088,10 @@ void FBlueprintEditorUtils::HandleDisableEditableWhenInherited(UObject* Modified
 			UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(ArchetypeInstance->GetOuter());
 			if (BPGC)
 			{
-				UInheritableComponentHandler* ICH = BPGC->GetInheritableComponentHandler(false);
-				check(ICH);
-
-				ICH->RemoveOverridenComponentTemplate(ICH->FindKey(CastChecked<UActorComponent>(ArchetypeInstance)));
+				if (UInheritableComponentHandler* ICH = BPGC->GetInheritableComponentHandler(false))
+				{
+					ICH->RemoveOverridenComponentTemplate(ICH->FindKey(CastChecked<UActorComponent>(ArchetypeInstance)));
+				}
 			}
 		}
 	}

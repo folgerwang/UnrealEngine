@@ -97,7 +97,7 @@ enum class ECrossplayPreference: uint8
 /**
  * Current state of the party
  */
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FPartyState
 {
 	GENERATED_USTRUCT_BODY();
