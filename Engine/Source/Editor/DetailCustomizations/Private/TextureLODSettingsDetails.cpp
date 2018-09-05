@@ -329,7 +329,7 @@ void FTextureLODGroupLayout::OnMinMagFilterChanged(TSharedPtr<FName> NewSelectio
 
 FText FTextureLODGroupLayout::GetMinMagFilterComboBoxToolTip() const
 {
-	return LOCTEXT("MinMagFilterComboToolTip", "");
+	return FText::GetEmpty();
 }
 
 FText FTextureLODGroupLayout::GetMinMagFilterComboBoxContent() const
@@ -355,7 +355,7 @@ void FTextureLODGroupLayout::OnMipFilterChanged(TSharedPtr<FName> NewSelection, 
 
 FText FTextureLODGroupLayout::GetMipFilterComboBoxToolTip() const
 {
-	return LOCTEXT("MipFilterComboToolTip", "");
+	return FText::GetEmpty();
 }
 
 FText FTextureLODGroupLayout::GetMipFilterComboBoxContent() const
@@ -384,7 +384,7 @@ void FTextureLODGroupLayout::OnMipGenSettingsChanged(TSharedPtr<TextureMipGenSet
 
 FText FTextureLODGroupLayout::GetMipGenSettingsComboBoxToolTip() const
 {
-	return LOCTEXT("MipGenSettingsComboToolTip", "");
+	return FText::GetEmpty();
 }
 
 FText FTextureLODGroupLayout::GetMipGenSettingsComboBoxContent() const

@@ -1938,6 +1938,14 @@ void FLevelEditorViewportClient::ReceivedFocus(FViewport* InViewport)
 	FEditorViewportClient::ReceivedFocus(InViewport);
 }
 
+void FLevelEditorViewportClient::LostFocus(FViewport* InViewport)
+{
+	FEditorViewportClient::LostFocus(InViewport);
+
+	GEditor->SetPreviewMeshMode(false);
+}
+
+
 //
 //	FLevelEditorViewportClient::ProcessClick
 //
@@ -3840,28 +3848,6 @@ EMouseCursor::Type FLevelEditorViewportClient::GetCursor(FViewport* InViewport,i
 	return CursorType;
 
 }
-
-FViewportCursorLocation FLevelEditorViewportClient::GetCursorWorldLocationFromMousePos()
-{
-	// Create the scene view context
-	FSceneViewFamilyContext ViewFamily( FSceneViewFamily::ConstructionValues(
-		Viewport, 
-		GetScene(),
-		EngineShowFlags )
-		.SetRealtimeUpdate( IsRealtime() ));
-
-	// Calculate the scene view
-	FSceneView* View = CalcSceneView( &ViewFamily );
-
-	// Construct an FViewportCursorLocation which calculates world space postion from the scene view and mouse pos.
-	return FViewportCursorLocation( View, 
-		this, 
-		Viewport->GetMouseX(), 
-		Viewport->GetMouseY()
-		);
-}
-
-
 
 /**
  * Called when the mouse is moved while a window input capture is in effect

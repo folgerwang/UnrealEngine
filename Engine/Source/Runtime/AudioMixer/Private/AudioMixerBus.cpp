@@ -97,7 +97,8 @@ namespace Audio
 				}
 
 				const int32 NumSourceChannels = SourceManager->GetNumChannels(BusSend.SourceId);
-				const int32 NumSourceSamples = NumSourceChannels * SourceManager->GetNumOutputFrames();
+				const int32 NumOutputFrames = SourceManager->GetNumOutputFrames();
+				const int32 NumSourceSamples = NumSourceChannels * NumOutputFrames;
 
 				// If source channels are 1 but the bus is 2 channels, we need to up-mix
 				if (NumSourceChannels == 1 && NumChannels == 2)
@@ -119,7 +120,7 @@ namespace Audio
 				else if (NumSourceChannels == 2 && NumChannels == 1)
 				{
 					int32 SourceSampleIndex = 0;
-					for (int32 BusSampleIndex = 0; BusSampleIndex < NumSourceSamples; ++BusSampleIndex)
+					for (int32 BusSampleIndex = 0; BusSampleIndex < NumOutputFrames; ++BusSampleIndex)
 					{
 						// Downmix the stereo source to mono before summing to bus
 						float SourceSample = 0.0f;

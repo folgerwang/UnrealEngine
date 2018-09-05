@@ -44,7 +44,7 @@
 			this.OkBtn.Text = "Ok";
 			this.OkBtn.UseVisualStyleBackColor = true;
 			// 
-			// UpdateLog
+			// LogTextBox
 			// 
 			this.LogTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
@@ -53,22 +53,22 @@
 			this.LogTextBox.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.LogTextBox.Location = new System.Drawing.Point(12, 12);
 			this.LogTextBox.Multiline = true;
-			this.LogTextBox.Name = "UpdateLog";
+			this.LogTextBox.Name = "LogTextBox";
 			this.LogTextBox.ReadOnly = true;
 			this.LogTextBox.ScrollBars = System.Windows.Forms.ScrollBars.Both;
 			this.LogTextBox.Size = new System.Drawing.Size(882, 288);
 			this.LogTextBox.TabIndex = 2;
 			this.LogTextBox.WordWrap = false;
 			// 
-			// UpdateLogWindow
+			// LogWindow
 			// 
-			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.ClientSize = new System.Drawing.Size(906, 341);
 			this.Controls.Add(this.OkBtn);
 			this.Controls.Add(this.LogTextBox);
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-			this.Name = "UpdateLogWindow";
+			this.Name = "LogWindow";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Log";
 			this.ResumeLayout(false);

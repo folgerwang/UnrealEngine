@@ -1105,7 +1105,7 @@ struct FActorReplacementHelper
 		, AttachmentData( MoveTemp(InAttachmentData) )
 		, bSelectNewActor(OldActor->IsSelected())
 	{
-		CachedActorData = StaticCastSharedPtr<AActor::FActorTransactionAnnotation>(OldActor->GetTransactionAnnotation());
+		CachedActorData = StaticCastSharedPtr<AActor::FActorTransactionAnnotation>(OldActor->FindOrCreateTransactionAnnotation());
 		TArray<AActor*> AttachedActors;
 		OldActor->GetAttachedActors(AttachedActors);
 

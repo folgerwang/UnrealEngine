@@ -300,15 +300,7 @@ UViewportWorldInteraction::UViewportWorldInteraction():
 
 void UViewportWorldInteraction::Init()
 {
-	Colors.SetNumZeroed( (int32)EColors::TotalCount );
-	{
-		Colors[(int32)EColors::DefaultColor] = FLinearColor(0.7f, 0.7f, 0.7f, 1.0f);
-		Colors[(int32)EColors::Forward] = FLinearColor(0.594f, 0.0197f, 0.0f, 1.0f);
-		Colors[(int32)EColors::Right] = FLinearColor(0.1349f, 0.3959f, 0.0f, 1.0f);
-		Colors[(int32)EColors::Up] = FLinearColor(0.0251f, 0.207f, 0.85f, 1.0f);
-		Colors[(int32)EColors::GizmoHover] = FLinearColor::Yellow;
-		Colors[(int32)EColors::GizmoDragging] = FLinearColor::Yellow;
-	}
+	InitColors();
 
 	AppTimeEntered = FTimespan::FromSeconds( FApp::GetCurrentTime() );
 
@@ -344,6 +336,19 @@ void UViewportWorldInteraction::Init()
 	GEditor->SelectNone(true, true, false);
 
 	CurrentTickNumber = 0;
+}
+
+void UViewportWorldInteraction::InitColors()
+{
+	Colors.SetNumZeroed((int32)EColors::TotalCount);
+	{
+		Colors[(int32)EColors::DefaultColor] = FLinearColor(0.7f, 0.7f, 0.7f, 1.0f);
+		Colors[(int32)EColors::Forward] = FLinearColor(0.594f, 0.0197f, 0.0f, 1.0f);
+		Colors[(int32)EColors::Right] = FLinearColor(0.1349f, 0.3959f, 0.0f, 1.0f);
+		Colors[(int32)EColors::Up] = FLinearColor(0.0251f, 0.207f, 0.85f, 1.0f);
+		Colors[(int32)EColors::GizmoHover] = FLinearColor::Yellow;
+		Colors[(int32)EColors::GizmoDragging] = FLinearColor::Yellow;
+	}
 }
 
 void UViewportWorldInteraction::Shutdown()
@@ -397,7 +402,7 @@ void UViewportWorldInteraction::Shutdown()
 	GizmoType.Reset();
 
 	// Remove the input pre-processor
-	if (InputProcessor.IsValid())
+	if (InputProcessor.IsValid() && FSlateApplication::IsInitialized())
 	{
 		FSlateApplication::Get().UnregisterInputPreProcessor(InputProcessor);
 		InputProcessor.Reset();
@@ -406,13 +411,19 @@ void UViewportWorldInteraction::Shutdown()
 	GEditor->OnEditorClose().RemoveAll( this );
 }
 
-void UViewportWorldInteraction::TransitionWorld(UWorld* NewWorld)
+void UViewportWorldInteraction::TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState)
 {
-	Super::TransitionWorld(NewWorld);
+	check(NewWorld != nullptr);
 
-	for (UViewportInteractor* Interactor : Interactors)
+	Super::TransitionWorld(NewWorld, TransitionState);
+
+	if (TransitionState == EEditorWorldExtensionTransitionState::TransitionAll ||
+		TransitionState == EEditorWorldExtensionTransitionState::TransitionNonPIEOnly)
 	{
-		Interactor->Rename(nullptr, NewWorld->PersistentLevel);
+		for (UViewportInteractor* Interactor : Interactors)
+		{
+			Interactor->Rename(nullptr, NewWorld->PersistentLevel);
+		}
 	}
 }
 
@@ -3655,6 +3666,47 @@ void UViewportWorldInteraction::UseLegacyInteractions()
 		InputProcessor.Reset();
 	}
 	USelection::SelectionChangedEvent.RemoveAll(this);
+}
+
+void UViewportWorldInteraction::UseVWInteractions()
+{
+	// Add colors
+	InitColors();
+
+	// Setup the asset container.
+	AssetContainer = &LoadAssetContainer();
+
+	if (DefaultMouseCursorInteractorRefCount == 0)
+	{
+		this->AddMouseCursorInteractor();
+	}
+	if (DefaultOptionalViewportClient != nullptr)
+	{
+		DefaultOptionalViewportClient->ShowWidget(false);
+	}
+
+	// Start with the default transformer
+	SetTransformer(nullptr);
+
+	// Spawn the transform gizmo
+	SpawnTransformGizmoIfNeeded();
+
+	const bool bShouldBeVisible = false;
+	const bool bPropagateToChildren = true;
+	TransformGizmoActor->GetRootComponent()->SetVisibility(bShouldBeVisible, bPropagateToChildren);
+
+	// Create and add the input pre-processor to the slate application.
+	if (!InputProcessor.IsValid())
+	{
+		InputProcessor = MakeShareable(new FViewportInteractionInputProcessor(this));
+		FSlateApplication::Get().RegisterInputPreProcessor(InputProcessor);
+	}
+
+	// Pretend that actor selection changed, so that our gizmo refreshes right away based on which objects are selected
+	GEditor->NoteSelectionChange();
+	GEditor->SelectNone(true, true, false);
+
+	CurrentTickNumber = 0;
 }
 
 #undef LOCTEXT_NAMESPACE

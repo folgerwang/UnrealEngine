@@ -11,20 +11,21 @@ namespace Audio
 		, BitDelta(0.0f)
 		, Phase(1.0f)
 		, PhaseDelta(1.0f)
-		, LastOutputLeft(0.0f)
-		, LastOutputRight(0.0f)
 	{
 		BitDelta = 1.0f / FMath::Pow(2.0f, BitDepth);
+		LastOutput[0] = 0.0f;
+		LastOutput[1] = 0.0f;
 	}
 
 	FBitCrusher::~FBitCrusher()
 	{
 	}
 
-	void FBitCrusher::Init(const float InSampleRate)
+	void FBitCrusher::Init(const float InSampleRate, const int32 InNumChannels)
 	{
 		SampleRate = InSampleRate;
 		Phase = 1.0f;
+		NumChannels = InNumChannels;
 	}
 
 	void FBitCrusher::SetSampleRateCrush(const float InFrequency)
@@ -38,40 +39,30 @@ namespace Audio
 		BitDelta = 1.0f / FMath::Pow(2.0f, BitDepth);
 	}
 
-	void FBitCrusher::ProcessAudio(const float InLeftSample, float& OutLeftSample)
+	void FBitCrusher::ProcessAudioFrame(const float* InFrame, float* OutFrame)
 	{
 		Phase += PhaseDelta;
-
-		// Only output audio at the sample rate set, otherwise sample and hold the last output value
-		// This filters out every N samples, etc.
 		if (Phase >= 1.0f)
 		{
 			Phase -= 1.0f;
 
-			// This quantizes the input audio to the set bit depth
-			LastOutputLeft = BitDelta * (float)FMath::FloorToInt(InLeftSample / BitDelta + 0.5f);
+			for (int32 ChannelIndex = 0; ChannelIndex < NumChannels; ++ChannelIndex)
+			{
+				LastOutput[ChannelIndex] = BitDelta * (float)FMath::FloorToInt(InFrame[ChannelIndex] / BitDelta + 0.5f);
+			}
 		}
 
-		OutLeftSample = LastOutputLeft;
-	}
-
-	void FBitCrusher::ProcessAudio(const float InLeftSample, const float InRightSample, float& OutLeftSample, float& OutRightSample)
-	{
-		Phase += PhaseDelta;
-
-		// Only output audio at the sample rate set, otherwise sample and hold the last output value
-		// This filters out every N samples, etc.
-		if (Phase >= 1.0f)
+		for (int32 ChannelIndex = 0; ChannelIndex < NumChannels; ++ChannelIndex)
 		{
-			Phase -= 1.0f;
-
-			// This quantizes the input audio to the set bit depth
-			LastOutputLeft = BitDelta * (float)FMath::FloorToInt(InLeftSample / BitDelta + 0.5f);
-			LastOutputRight = BitDelta * (float)FMath::FloorToInt(InRightSample / BitDelta + 0.5f);
+			OutFrame[ChannelIndex] = LastOutput[ChannelIndex];
 		}
-
-		OutLeftSample = LastOutputLeft;
-		OutRightSample = LastOutputRight;
 	}
 
+	void FBitCrusher::ProcessAudio(const float* InBuffer, const int32 InNumSamples, float* OutBuffer)
+	{
+		for (int32 SampleIndex = 0; SampleIndex < InNumSamples; SampleIndex += NumChannels)
+		{
+			ProcessAudioFrame(&InBuffer[SampleIndex], &OutBuffer[SampleIndex]);
+		}
+	}
 }

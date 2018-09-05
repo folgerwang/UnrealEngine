@@ -847,7 +847,7 @@ void FAnimationEditor::FillInsertPoseMenu(FMenuBuilder& MenuBuilder) const
 
 	MenuBuilder.AddWidget(
 		ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig),
-		LOCTEXT("Select_Label", "")
+		FText::GetEmpty()
 	);
 }
 
@@ -919,7 +919,7 @@ void FAnimationEditor::FillCopyToSoundWaveMenu(FMenuBuilder& MenuBuilder) const
 		[
 			ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
 		],
-		LOCTEXT("Select_Label", "")
+		FText::GetEmpty()
 	);
 
 }

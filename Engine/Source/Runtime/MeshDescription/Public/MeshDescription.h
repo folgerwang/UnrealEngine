@@ -8,9 +8,15 @@
 #include "MeshElementArray.h"
 #include "MeshAttributeArray.h"
 #include "UObject/ObjectMacros.h"
+#include "UObject/EditorObjectVersion.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "MeshDescription.generated.h"
 
+enum
+{
+	//Remove the _MD when FRawMesh will be remove
+	MAX_MESH_TEXTURE_COORDS_MD = 8,
+};
 
 struct FMeshVertex
 {
@@ -221,6 +227,43 @@ using FEdgeArray = TMeshElementArray<FMeshEdge, FEdgeID>;
 using FPolygonArray = TMeshElementArray<FMeshPolygon, FPolygonID>;
 using FPolygonGroupArray = TMeshElementArray<FMeshPolygonGroup, FPolygonGroupID>;
 
+/** Define aliases for element attributes */
+template <typename AttributeType> using TVertexAttributeIndicesArray = TAttributeIndicesArray<AttributeType, FVertexID>;
+template <typename AttributeType> using TVertexInstanceAttributeIndicesArray = TAttributeIndicesArray<AttributeType, FVertexInstanceID>;
+template <typename AttributeType> using TEdgeAttributeIndicesArray = TAttributeIndicesArray<AttributeType, FEdgeID>;
+template <typename AttributeType> using TPolygonAttributeIndicesArray = TAttributeIndicesArray<AttributeType, FPolygonID>;
+template <typename AttributeType> using TPolygonGroupAttributeIndicesArray = TAttributeIndicesArray<AttributeType, FPolygonGroupID>;
+
+template <typename AttributeType> using TVertexAttributeArray = TMeshAttributeArray<AttributeType, FVertexID>;
+template <typename AttributeType> using TVertexInstanceAttributeArray = TMeshAttributeArray<AttributeType, FVertexInstanceID>;
+template <typename AttributeType> using TEdgeAttributeArray = TMeshAttributeArray<AttributeType, FEdgeID>;
+template <typename AttributeType> using TPolygonAttributeArray = TMeshAttributeArray<AttributeType, FPolygonID>;
+template <typename AttributeType> using TPolygonGroupAttributeArray = TMeshAttributeArray<AttributeType, FPolygonGroupID>;
+
+template <typename AttributeType> using TVertexAttributesRef = TMeshAttributesRef<FVertexID, AttributeType>;
+template <typename AttributeType> using TVertexInstanceAttributesRef = TMeshAttributesRef<FVertexInstanceID, AttributeType>;
+template <typename AttributeType> using TEdgeAttributesRef = TMeshAttributesRef<FEdgeID, AttributeType>;
+template <typename AttributeType> using TPolygonAttributesRef = TMeshAttributesRef<FPolygonID, AttributeType>;
+template <typename AttributeType> using TPolygonGroupAttributesRef = TMeshAttributesRef<FPolygonGroupID, AttributeType>;
+
+template <typename AttributeType> using TVertexAttributesConstRef = TMeshAttributesConstRef<FVertexID, AttributeType>;
+template <typename AttributeType> using TVertexInstanceAttributesConstRef = TMeshAttributesConstRef<FVertexInstanceID, AttributeType>;
+template <typename AttributeType> using TEdgeAttributesConstRef = TMeshAttributesConstRef<FEdgeID, AttributeType>;
+template <typename AttributeType> using TPolygonAttributesConstRef = TMeshAttributesConstRef<FPolygonID, AttributeType>;
+template <typename AttributeType> using TPolygonGroupAttributesConstRef = TMeshAttributesConstRef<FPolygonGroupID, AttributeType>;
+
+template <typename AttributeType> using TVertexAttributesView = TMeshAttributesView<FVertexID, AttributeType>;
+template <typename AttributeType> using TVertexInstanceAttributesView = TMeshAttributesView<FVertexInstanceID, AttributeType>;
+template <typename AttributeType> using TEdgeAttributesView = TMeshAttributesView<FEdgeID, AttributeType>;
+template <typename AttributeType> using TPolygonAttributesView = TMeshAttributesView<FPolygonID, AttributeType>;
+template <typename AttributeType> using TPolygonGroupAttributesView = TMeshAttributesView<FPolygonGroupID, AttributeType>;
+
+template <typename AttributeType> using TVertexAttributesConstView = TMeshAttributesConstView<FVertexID, AttributeType>;
+template <typename AttributeType> using TVertexInstanceAttributesConstView = TMeshAttributesConstView<FVertexInstanceID, AttributeType>;
+template <typename AttributeType> using TEdgeAttributesConstView = TMeshAttributesConstView<FEdgeID, AttributeType>;
+template <typename AttributeType> using TPolygonAttributesConstView = TMeshAttributesConstView<FPolygonID, AttributeType>;
+template <typename AttributeType> using TPolygonGroupAttributesConstView = TMeshAttributesConstView<FPolygonGroupID, AttributeType>;
+
 UENUM()
 enum class EComputeNTBsOptions : uint32
 {
@@ -234,7 +277,8 @@ ENUM_CLASS_FLAGS(EComputeNTBsOptions);
 #define MESHDESCRIPTION_VER TEXT("42190ADE250046AC958045C7DA930FEC")
 
 
-class MESHDESCRIPTION_API FMeshDescription
+//USTRUCT()
+struct MESHDESCRIPTION_API FMeshDescription
 {
 public:
 
@@ -828,26 +872,26 @@ private:
 	bool ComputePolygonTangentsAndNormals(
 		  const FPolygonID PolygonID
 		, float ComparisonThreshold
-		, const TVertexAttributeArray<FVector>& VertexPositions
-		, const TVertexInstanceAttributeArray<FVector2D>& VertexUVs
-		, TPolygonAttributeArray<FVector>& PolygonNormals
-		, TPolygonAttributeArray<FVector>& PolygonTangents
-		, TPolygonAttributeArray<FVector>& PolygonBinormals
-		, TPolygonAttributeArray<FVector>& PolygonCenters
+		, const TVertexAttributesRef<FVector> VertexPositions
+		, const TVertexInstanceAttributesRef<FVector2D> VertexUVs
+		, TPolygonAttributesRef<FVector> PolygonTangents
+		, TPolygonAttributesRef<FVector> PolygonBinormals
+		, TPolygonAttributesRef<FVector> PolygonCenters
+		, TPolygonAttributesRef<FVector> PolygonNormals
 	);
 
 	void GetVertexConnectedPolygonsInSameSoftEdgedGroup(const FVertexID VertexID, const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs) const;
 	void GetPolygonsInSameSoftEdgedGroupAsPolygon(const FPolygonID PolygonID, const TArray<FPolygonID>& CandidatePolygonIDs, const TArray<FEdgeID>& SoftEdgeIDs, TArray<FPolygonID>& OutPolygonIDs) const;
 	void GetConnectedSoftEdges(const FVertexID VertexID, TArray<FEdgeID>& OutConnectedSoftEdges) const;
 	void ComputeTangentsAndNormals(
-		  const FVertexInstanceID& VertexInstanceID
+		  const FVertexInstanceID VertexInstanceID
 		, EComputeNTBsOptions ComputeNTBsOptions
-		, const TPolygonAttributeArray<FVector>& PolygonNormals
-		, const TPolygonAttributeArray<FVector>& PolygonTangents
-		, const TPolygonAttributeArray<FVector>& PolygonBinormals
-		, TVertexInstanceAttributeArray<FVector>& VertexNormals
-		, TVertexInstanceAttributeArray<FVector>& VertexTangents
-		, TVertexInstanceAttributeArray<float>& VertexBinormalSigns
+		, const TPolygonAttributesRef<FVector> PolygonNormals
+		, const TPolygonAttributesRef<FVector> PolygonTangents
+		, const TPolygonAttributesRef<FVector> PolygonBinormals
+		, TVertexInstanceAttributesRef<FVector> VertexNormals
+		, TVertexInstanceAttributesRef<FVector> VertexTangents
+		, TVertexInstanceAttributesRef<float> VertexBinormalSigns
 	);
 private:
 

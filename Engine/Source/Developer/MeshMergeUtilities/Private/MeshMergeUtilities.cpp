@@ -1059,23 +1059,6 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 
 void FMeshMergeUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const struct FMeshProxySettings& InMeshProxySettings, UMaterialInterface* InBaseMaterial, UPackage* InOuter, const FString& InProxyBasePackageName, const FGuid InGuid, const FCreateProxyDelegate& InProxyCreatedDelegate, const bool bAllowAsync /*= false*/, const float ScreenSize /*= 1.0f*/) const
 {
-	// The MeshReductionInterface manages the choice mesh reduction plugins, Unreal native vs third party (e.g. Simplygon)
-
-	IMeshReductionModule& ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionModule>("MeshReductionInterface");
-	// Error/warning checking for input
-	if (ReductionModule.GetMeshMergingInterface() == nullptr)
-	{
-		UE_LOG(LogMeshMerging, Log, TEXT("No automatic mesh merging module available"));
-		return;
-	}
-
-	// Check that the delegate has a func-ptr bound to it
-	if (!InProxyCreatedDelegate.IsBound())
-	{
-		UE_LOG(LogMeshMerging, Log, TEXT("Invalid (unbound) delegate for returning generated proxy mesh"));
-		return;
-	}
-
 	// No actors given as input
 	if (InActors.Num() == 0)
 	{
@@ -1083,57 +1066,24 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const
 		return;
 	}
 
-	// Base asset name for a new assets
-	// In case outer is null ProxyBasePackageName has to be long package name
-	if (InOuter == nullptr && FPackageName::IsShortPackageName(InProxyBasePackageName))
-	{
-		UE_LOG(LogMeshMerging, Warning, TEXT("Invalid long package name: '%s'."), *InProxyBasePackageName);
-		return;
-	}
-
-	FScopedSlowTask SlowTask(100.f, (LOCTEXT("CreateProxyMesh_CreateMesh", "Creating Mesh Proxy")));
-	SlowTask.MakeDialog();
-
-	// Retrieve static mesh components valid for merging from the given set of actors	
+	// Collect components to merge
 	TArray<UStaticMeshComponent*> ComponentsToMerge;
+	for (AActor* Actor : InActors)
 	{
-		// Collect components to merge
-		for (AActor* Actor : InActors)
-		{
-			TInlineComponentArray<UStaticMeshComponent*> Components;
-			Actor->GetComponents<UStaticMeshComponent>(Components);
-
-			// Remove anything non-regular or non-spline static mesh components
-			Components.RemoveAll([](UStaticMeshComponent* Val) 
-				{ 
-					if (Val->GetClass() != UStaticMeshComponent::StaticClass() && Val->GetClass() != UInstancedStaticMeshComponent::StaticClass() && !Val->IsA(USplineMeshComponent::StaticClass()))
-					{
-						return true;
-					}
-
-					if (Val->GetStaticMesh() == nullptr)
-					{
-						return true;
-					}
-
-					return false;
-				});
-
-			ComponentsToMerge.Append(Components);
-		}
+		TInlineComponentArray<UStaticMeshComponent*> Components;
+		Actor->GetComponents<UStaticMeshComponent>(Components);
+		ComponentsToMerge.Append(Components);
 	}
-
 
 	CreateProxyMesh(ComponentsToMerge, InMeshProxySettings, InBaseMaterial, InOuter, InProxyBasePackageName, InGuid, InProxyCreatedDelegate, bAllowAsync, ScreenSize);
-
 }
 
 void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& InComponentsToMerge, const struct FMeshProxySettings& InMeshProxySettings, UMaterialInterface* InBaseMaterial,
 	UPackage* InOuter, const FString& InProxyBasePackageName, const FGuid InGuid, const FCreateProxyDelegate& InProxyCreatedDelegate, const bool bAllowAsync, const float ScreenSize) const
 {
 	// The MeshReductionInterface manages the choice mesh reduction plugins, Unreal native vs third party (e.g. Simplygon)
-
 	IMeshReductionModule& ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionModule>("MeshReductionInterface");
+
 	// Error/warning checking for input
 	if (ReductionModule.GetMeshMergingInterface() == nullptr)
 	{
@@ -1149,6 +1099,8 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 	}
 
 	TArray<UStaticMeshComponent*> ComponentsToMerge = InComponentsToMerge;
+
+	// Remove anything non-regular or non-spline static mesh components
 	ComponentsToMerge.RemoveAll([](UStaticMeshComponent* Val)
 	{
 		if (Val->GetClass() != UStaticMeshComponent::StaticClass() && Val->GetClass() != UInstancedStaticMeshComponent::StaticClass() && !Val->IsA(USplineMeshComponent::StaticClass()))
@@ -1182,16 +1134,7 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 	FScopedSlowTask SlowTask(100.f, (LOCTEXT("CreateProxyMesh_CreateMesh", "Creating Mesh Proxy")));
 	SlowTask.MakeDialog();
 
-
-	// Check if there are actually any static mesh components to merge
-	if (ComponentsToMerge.Num() == 0)
-	{
-		UE_LOG(LogMeshMerging, Log, TEXT("No valid static mesh components found in given set of Actors"));
-		return;
-	}
-
 	TArray<FRawMeshExt> SourceMeshes;
-	//TArray<FSectionInfo> UniqueSections;
 	TMap<FMeshIdAndLOD, TArray<int32>> GlobalMaterialMap;
 	static const int32 ProxyMeshTargetLODLevel = 0;
 
@@ -1201,7 +1144,8 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 		EstimatedBounds = EstimatedBounds + StaticMeshComponent->Bounds;
 	}
 
-	static const float FOVRad = 90.0f * (float)PI / 360.0f;
+	static const float FOVRad = FMath::DegreesToRadians(45.0f);
+
 	static const FMatrix ProjectionMatrix = FPerspectiveMatrix(FOVRad, 1920, 1080, 0.01f);
 	FHierarchicalLODUtilitiesModule& HLODModule = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 	IHierarchicalLODUtilities* Utilities = HLODModule.GetUtilities();

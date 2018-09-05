@@ -74,8 +74,6 @@ bool FTextTest::RunTest (const FString& Parameters)
 	FText ArgText2 = FText::FromString(TEXT("Arg2"));
 	FText ArgText3 = FText::FromString(TEXT("Arg3"));
 
-#define INVTEXT(x) FText::FromString(TEXT(x))
-
 #define TEST( Desc, A, B ) if( !A.EqualTo(B) ) AddError(FString::Printf(TEXT("%s - A=%s B=%s"),*Desc,*A.ToString(),*B.ToString()))
 	
 	FText TestText;

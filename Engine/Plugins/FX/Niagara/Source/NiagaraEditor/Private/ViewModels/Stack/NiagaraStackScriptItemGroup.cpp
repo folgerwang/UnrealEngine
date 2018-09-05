@@ -292,7 +292,7 @@ void UNiagaraStackScriptItemGroup::RefreshChildrenInternal(const TArray<UNiagara
 	{
 		bIsValidForOutput = true;
 
-		UNiagaraNodeOutput* MatchingOutputNode = Graph->FindOutputNode(ScriptUsage, ScriptUsageId);
+		UNiagaraNodeOutput* MatchingOutputNode = Graph->FindEquivalentOutputNode(ScriptUsage, ScriptUsageId);
 		AddUtilities->SetOutputNode(MatchingOutputNode);
 
 		TArray<UNiagaraNodeFunctionCall*> ModuleNodes;

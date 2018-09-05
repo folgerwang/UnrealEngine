@@ -5101,6 +5101,26 @@ void FEditorViewportClient::MouseLeave(FViewport* InViewport)
 	PixelInspectorRealtimeManagement(this, false);
 }
 
+FViewportCursorLocation FEditorViewportClient::GetCursorWorldLocationFromMousePos()
+{
+	// Create the scene view context
+	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
+		Viewport,
+		GetScene(),
+		EngineShowFlags)
+		.SetRealtimeUpdate(IsRealtime()));
+
+	// Calculate the scene view
+	FSceneView* View = CalcSceneView(&ViewFamily);
+
+	// Construct an FViewportCursorLocation which calculates world space postion from the scene view and mouse pos.
+	return FViewportCursorLocation(View,
+		this,
+		Viewport->GetMouseX(),
+		Viewport->GetMouseY()
+	);
+}
+
 void FEditorViewportClient::CapturedMouseMove( FViewport* InViewport, int32 InMouseX, int32 InMouseY )
 {
 	UpdateRequiredCursorVisibility();

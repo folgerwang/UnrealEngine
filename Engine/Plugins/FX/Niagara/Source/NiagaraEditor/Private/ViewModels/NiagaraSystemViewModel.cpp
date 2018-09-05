@@ -88,15 +88,16 @@ void FNiagaraSystemViewModel::Cleanup()
 {
 	UE_LOG(LogNiagaraEditor, Warning, TEXT("Cleanup System view model %p"), this);
 
-	if (PreviewComponent)
-	{
-		PreviewComponent->OnSystemInstanceChanged().RemoveAll(this);
-	}
-
 	if (SystemInstance)
 	{
 		SystemInstance->OnInitialized().RemoveAll(this);
 		SystemInstance->OnReset().RemoveAll(this);
+	}
+
+	if (PreviewComponent)
+	{
+		PreviewComponent->OnSystemInstanceChanged().RemoveAll(this);
+		PreviewComponent->DeactivateImmediate();
 	}
 
 	CurveOwner.EmptyCurves();
@@ -1582,11 +1583,21 @@ void FNiagaraSystemViewModel::UpdateEmitterFixedBounds()
 		{
 			if (&EmitterInst->GetEmitterHandle() == SelectedEmitterHandle && !EmitterInst->IsComplete())
 			{
-				FBox EmitterBounds = EmitterInst->CalculateDynamicBounds();
-				Emitter->Modify();
-				Emitter->bFixedBounds = true;
-				//Dynamic bounds are in world space. Transform back to local.
-				Emitter->FixedBounds = EmitterBounds.TransformBy(PreviewComponent->GetComponentToWorld().Inverse());
+				TOptional<FBox> EmitterBounds = EmitterInst->CalculateDynamicBounds();
+				if (EmitterBounds.IsSet())
+				{
+					Emitter->Modify();
+					Emitter->bFixedBounds = true;
+					if (Emitter->bLocalSpace)
+					{
+						Emitter->FixedBounds = EmitterBounds.GetValue();
+					}
+					else
+					{
+						//Dynamic bounds are in world space. Transform back to local.
+						Emitter->FixedBounds = EmitterBounds.GetValue().TransformBy(PreviewComponent->GetComponentToWorld().Inverse());
+					}
+				}
 			}
 		}
 	}

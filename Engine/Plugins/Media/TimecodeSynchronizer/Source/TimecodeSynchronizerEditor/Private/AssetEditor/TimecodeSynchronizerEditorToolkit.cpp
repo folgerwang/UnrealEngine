@@ -296,7 +296,7 @@ void FTimecodeSynchronizerEditorToolkit::ExtendToolBar()
 						{
 							if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
 							{
-								Asset->StartPreRoll();
+								Asset->StartSynchronization();
 							}
 						}),
 						FCanExecuteAction::CreateLambda([&]()
@@ -322,7 +322,7 @@ void FTimecodeSynchronizerEditorToolkit::ExtendToolBar()
 						{
 							if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
 							{
-								Asset->StopInputSources();
+								Asset->StopSynchronization();
 							}
 						}),
 						FCanExecuteAction::CreateLambda([&]()

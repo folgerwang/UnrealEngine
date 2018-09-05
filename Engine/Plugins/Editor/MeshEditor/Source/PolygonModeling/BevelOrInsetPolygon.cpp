@@ -67,7 +67,7 @@ namespace BevelOrInsetPolygonHelpers
 				float CenterWeight = 0.0f;
 				FVector BestEdgeVertex0Position, BestEdgeVertex1Position;
 				{
-					const TVertexAttributeArray<FVector>& VertexPositions = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+					TVertexAttributesConstRef<FVector> VertexPositions = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
 
 					static TArray<FVertexID> PerimeterVertexIDs;
 					EditableMesh->GetPolygonPerimeterVertices( PolygonID, /* Out */ PerimeterVertexIDs );

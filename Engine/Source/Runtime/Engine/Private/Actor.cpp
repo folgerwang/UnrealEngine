@@ -4344,11 +4344,14 @@ void AActor::DrawDebugComponents(FColor const& BaseColor) const
 
 void AActor::InvalidateLightingCacheDetailed(bool bTranslationOnly)
 {
-	for (UActorComponent* Component : GetComponents())
+	if(GIsEditor && !GIsDemoMode)
 	{
-		if(Component && Component->IsRegistered())
+		for (UActorComponent* Component : GetComponents())
 		{
-			Component->InvalidateLightingCacheDetailed(true, bTranslationOnly);
+			if (Component && Component->IsRegistered())
+			{
+				Component->InvalidateLightingCacheDetailed(true, bTranslationOnly);
+			}
 		}
 	}
 }

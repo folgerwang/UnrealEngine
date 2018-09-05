@@ -17,7 +17,7 @@ void UMovieSceneEnumTrack::PostLoad()
 
 UMovieSceneSection* UMovieSceneEnumTrack::CreateNewSection()
 {
-	UMovieSceneEnumSection* NewEnumSection = NewObject<UMovieSceneEnumSection>(this, UMovieSceneEnumSection::StaticClass(), NAME_None, RF_Transactional);
+	UMovieSceneEnumSection* NewEnumSection = NewObject<UMovieSceneEnumSection>(this, NAME_None, RF_Transactional);
 	NewEnumSection->EnumCurve.SetEnum(Enum);
 	return NewEnumSection;
 }

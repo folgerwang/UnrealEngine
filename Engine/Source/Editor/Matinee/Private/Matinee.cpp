@@ -1513,7 +1513,7 @@ void FMatinee::StopPlaying()
 	UpdateFixedTimeStepPlayback();
 }
 
-void FMatinee::OnPostUndoRedo(FUndoSessionContext SessionContext, bool Succeeded)
+void FMatinee::OnPostUndoRedo(const FTransactionContext& TransactionContext, bool Succeeded)
 {
 	InvalidateTrackWindowViewports();
 }

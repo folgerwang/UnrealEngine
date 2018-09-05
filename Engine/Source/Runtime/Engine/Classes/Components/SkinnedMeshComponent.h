@@ -728,7 +728,12 @@ public:
 
 	/** Caches the RefToLocal matrices. */
 	void CacheRefToLocalMatrices(TArray<FMatrix>& OutRefToLocal) const;
-	
+
+	FORCEINLINE	const USkinnedMeshComponent* GetBaseComponent()const
+	{
+		return MasterPoseComponent.IsValid() ? MasterPoseComponent.Get() : this;
+	}
+
 	/**
 	* Returns color of the vertex.
 	*

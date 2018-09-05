@@ -10,6 +10,7 @@
 #include "ShaderCompiler.h"
 #include "NiagaraShaderDerivedDataVersion.h"
 #include "NiagaraShaderCompilationManager.h"
+#include "UObject/CoreRedirects.h"
 #if WITH_EDITOR
 	#include "Interfaces/ITargetPlatformManagerModule.h"
 	#include "TickableEditorObject.h"
@@ -734,7 +735,6 @@ void FNiagaraShaderMap::Compile(
 			Script->RemoveOutstandingCompileId(CompilingId);
 			// Assign a unique identifier so that shaders from this shader map can be associated with it after a deferred compile
 			CompilingId = NextCompilingId;
-			UE_LOG(LogShaders, Log, TEXT("CompilingId = %p %d"), Script, CompilingId);
 			Script->AddCompileId(CompilingId);
 
 			check(NextCompilingId < UINT_MAX);
@@ -784,6 +784,12 @@ void FNiagaraShaderMap::Compile(
 						SharedShaderJobs.Add(ShaderType, Job);
 					}
 					NumShaders++;
+				}
+				else if (ShaderType)
+				{
+					UE_LOG(LogWindows, Display, TEXT("Skipping compilation of %s as it isn't supported on this target type."), *Script->SourceName);
+					Script->RemoveOutstandingCompileId(CompilingId);
+					Script->NotifyCompilationFinished();
 				}
 			}
   
@@ -1329,6 +1335,17 @@ void FNiagaraDataInterfaceParamRef::ConstructParameters()
 void FNiagaraDataInterfaceParamRef::InitDIClass()
 {
 	DIClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *ParameterInfo.DIClassName, true));
+	if (DIClass == nullptr)
+	{
+		FCoreRedirectObjectName OldObjName;
+		OldObjName.ObjectName = *ParameterInfo.DIClassName;
+		FCoreRedirectObjectName NewObjName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Class, OldObjName);
+		if (NewObjName.IsValid())
+		{
+			DIClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *NewObjName.ObjectName.ToString(), true));
+		}
+
+	}
 	ensureMsgf(DIClass, TEXT("Failed to load class for FNiagaraDataInterfaceParamRef. %s"), *ParameterInfo.DIClassName);
 }
 

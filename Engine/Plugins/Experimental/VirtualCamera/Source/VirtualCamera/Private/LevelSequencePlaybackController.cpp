@@ -299,6 +299,18 @@ FString ULevelSequencePlaybackController::GetCurrentRecordingTakeName() const
 	return FText::AsNumber(NextTakeNumber, &LeadingZeroesFormatter).ToString();
 }
 
+void ULevelSequencePlaybackController::OnObjectSpawned(UObject * InObject, const FMovieSceneEvaluationOperand & Operand)
+{
+	Super::OnObjectSpawned(InObject, Operand);
+	
+	// Camera actors spawn with lock to hmd set to true by default. Unlock them here to prevent unwanted movement.
+	ACameraActor* CameraActor = Cast<ACameraActor>(InObject);
+	if (CameraActor && CameraActor->GetCameraComponent())
+	{
+		CameraActor->GetCameraComponent()->bLockToHmd = false;
+	}
+}
+
 void ULevelSequencePlaybackController::PlayToEnd()
 {
 	if (Sequence)

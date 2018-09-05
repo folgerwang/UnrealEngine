@@ -33,6 +33,20 @@
 #pragma clang diagnostic ignored "-Wreserved-user-defined-literal"
 #pragma clang diagnostic ignored "-Wdelete-non-virtual-dtor"
 #pragma clang diagnostic ignored "-Wlogical-op-parentheses"
+#pragma clang diagnostic ignored "-Wunused-variable"
+#pragma clang diagnostic ignored "-Wunused-value"
+#pragma clang diagnostic ignored "-Wunused-function" // This will hide the warnings about static functions in headers that aren't used in every single .cpp file
+#pragma clang diagnostic ignored "-Wswitch" // This hides the "enumeration value 'XXXXX' not handled in switch [-Wswitch]" warnings - we should maybe remove this at some point and add UE_LOG(, Fatal, ) to default cases
+#pragma clang diagnostic ignored "-Wtautological-compare" // This hides the "warning : comparison of unsigned expression < 0 is always false" type warnings due to constant comparisons, which are possible with template arguments
+#pragma clang diagnostic ignored "-Wunused-private-field" // This will prevent the issue of warnings for unused private variables.
+#pragma clang diagnostic ignored "-Winvalid-offsetof" // needed to suppress warnings about using offsetof on non-POD types.
+#pragma clang diagnostic ignored "-Wgnu-string-literal-operator-template" // we use this feature to allow static FNames.
+#pragma clang diagnostic ignored "-Wdeprecated-register" // Needed for Alembic third party lib
+#pragma clang diagnostic ignored "-Winconsistent-missing-override" // too many missing overrides...
+#pragma clang diagnostic ignored "-Wunused-local-typedef" // PhysX has some, hard to remove
+#pragma clang diagnostic ignored "-Wlogical-op-parentheses"
+#pragma clang diagnostic ignored "-Wunknown-pragmas"
+#pragma clang diagnostic ignored "-Wundefined-var-template"
 
 // Apple LLVM 9.1.0 (Xcode 9.3)
 #if (__clang_major__ > 9) || (__clang_major__ == 9 && __clang_minor__ >= 1)

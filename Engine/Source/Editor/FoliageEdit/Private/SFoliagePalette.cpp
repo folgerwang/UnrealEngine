@@ -195,7 +195,7 @@ void SFoliagePalette::Construct(const FArguments& InArgs)
 		FOnGetDetailCustomizationInstance::CreateStatic(&FFoliageTypePaintingCustomization::MakeInstance, FoliageEditMode)
 		);
 
-	const FText BlankText = LOCTEXT("Blank", "");
+	const FText BlankText = FText::GetEmpty();
 
 	ChildSlot
 	[
@@ -570,7 +570,7 @@ void SFoliagePalette::AddFoliageType(const FAssetData& AssetData)
 
 TSharedRef<SWidgetSwitcher> SFoliagePalette::CreatePaletteViews()
 {
-	const FText BlankText = LOCTEXT("Blank", "");
+	const FText BlankText = FText::GetEmpty();
 
 	// Tile View Widget
 	SAssignNew(TileViewWidget, SFoliageTypeTileView)

@@ -4,9 +4,11 @@
 
 #include "CoreMinimal.h"
 
-
-class FMeshDescription;
+struct FMeshDescription;
 struct FRawMesh;
+struct FUVMapSettings;
+struct FOverlappingCorners;
+enum class ELightmapUVVersion : int32;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMeshDescriptionOperations, Log, All);
 
@@ -23,17 +25,6 @@ public:
 		BlendOverlappingNormals = 0x1,
 		IgnoreDegenerateTriangles = 0x2,
 		UseMikkTSpace = 0x4,
-	};
-
-	enum class ELightmapUVVersion : int32
-	{
-		BitByBit = 0,
-		Segments = 1,
-		SmallChartPacking = 2,
-		ScaleChartsOrderingFix = 3,
-		ChartJoiningLFix = 4,
-		Allocator2DFlipFix = 5,
-		Latest = ScaleChartsOrderingFix
 	};
 
 	/** Convert this mesh description into the old FRawMesh format. */
@@ -55,14 +46,14 @@ public:
 	static void CreateMikktTangents(FMeshDescription& MeshDescription, ETangentOptions TangentOptions);
 
 	/** Find all overlapping vertex using the threshold in the mesh description. */
-	static void FindOverlappingCorners(TMultiMap<int32, int32>& OverlappingCorners, const FMeshDescription& MeshDescription, float ComparisonThreshold);
+	static void FindOverlappingCorners(FOverlappingCorners& OverlappingCorners, const FMeshDescription& MeshDescription, float ComparisonThreshold);
 
 	static void CreateLightMapUVLayout(FMeshDescription& MeshDescription,
 		int32 SrcLightmapIndex,
 		int32 DstLightmapIndex,
 		int32 MinLightmapResolution,
 		ELightmapUVVersion LightmapUVVersion,
-		const TMultiMap<int32, int32>& OverlappingCorners);
+		const FOverlappingCorners& OverlappingCorners);
 
 	/** Create some UVs from the specified mesh description data. */
 	static bool GenerateUniqueUVsForStaticMesh(const FMeshDescription& MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords);
@@ -76,9 +67,16 @@ public:
 	/** Remove the UV channel at the given index from the MeshDescription. */
 	static bool RemoveUVChannel(FMeshDescription& MeshDescription, int32 UVChannelIndex);
 
-private:
-	
+	/** Generate planar UV mapping for the MeshDescription */
+	static void GeneratePlanarUV(const FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords);
+
+	/** Generate cylindrical UV mapping for the MeshDescription */
+	static void GenerateCylindricalUV(FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords);
+
+	/** Generate box UV mapping for the MeshDescription */
+	static void GenerateBoxUV(const FMeshDescription& MeshDescription, const FUVMapSettings& Settings, TArray<FVector2D>& OutTexCoords);
+
 	static void ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, FRawMesh& DestinationRawMesh);
 
-	static void ConvertSmoothGroupToHardEdges(const FRawMesh& SourceRawMesh, FMeshDescription& DestinationMeshDescription);
+	static void ConvertSmoothGroupToHardEdges(const TArray<uint32>& FaceSmoothingMasks, FMeshDescription& DestinationMeshDescription);
 };

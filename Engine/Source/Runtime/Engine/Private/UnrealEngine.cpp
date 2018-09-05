@@ -89,6 +89,7 @@ UnrealEngine.cpp: Implements the UEngine class and helpers.
 #include "Engine/ObjectReferencer.h"
 #include "Engine/TextureLODSettings.h"
 #include "Engine/TimecodeProvider.h"
+#include "Engine/SystemTimeTimecodeProvider.h"
 #include "Misc/NetworkVersion.h"
 #include "Net/OnlineEngineInterface.h"
 #include "Engine/Console.h"
@@ -1571,7 +1572,13 @@ void UEngine::PreExit()
 
 	delete ScreenSaverInhibitorRunnable;
 
-	SetTimecodeProvider(nullptr);
+	GetTimecodeProviderProtected()->Shutdown(this);
+	CustomTimecodeProvider = nullptr;
+
+	// Don't clear the pointer to DefaultTimecodeProvider, as other systems shutting down may try to reference it
+	// for validation.
+	DefaultTimecodeProvider->RemoveFromRoot();
+
 	SetCustomTimeStep(nullptr);
 
 	ShutdownHMD();
@@ -1708,9 +1715,9 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 	FTimedMemReport::Get().PumpTimedMemoryReports();
 #endif
 
-	if (CustomTimeStep)
+	if (CurrentCustomTimeStep)
 	{
-		bool bRunEngineCode = CustomTimeStep->UpdateTimeStep(this);
+		bool bRunEngineCode = CurrentCustomTimeStep->UpdateTimeStep(this);
 		if (!bRunEngineCode)
 		{
 			UpdateTimecode();
@@ -1921,74 +1928,115 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 	UpdateTimecode();
 }
 
+void UEngine::ReinitializeCustomTimeStep()
+{
+	UEngineCustomTimeStep* CustomTimeStep = GetCustomTimeStep();
+	if (CustomTimeStep)
+	{
+		CustomTimeStep->Shutdown(this);
+		if (!CustomTimeStep->Initialize(this))
+		{
+			UE_LOG(LogEngine, Error, TEXT("Failed reinitializing CustomTimeStep %s"), *GetPathName(CustomTimeStep));
+		}
+	}
+}
+
 bool UEngine::SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep)
 {
 	bool bResult = true;
 
-	if (InCustomTimeStep != CustomTimeStep)
+	UEngineCustomTimeStep* Previous = GetCustomTimeStep();
+	if (InCustomTimeStep != Previous)
 	{
-		if (CustomTimeStep)
+		if (Previous)
 		{
-			CustomTimeStep->Shutdown(this);
+			Previous->Shutdown(this);
 		}
 
-		CustomTimeStep = InCustomTimeStep;
+		CurrentCustomTimeStep = InCustomTimeStep;
 
-		if (CustomTimeStep)
+		if (CurrentCustomTimeStep)
 		{
-			bResult = CustomTimeStep->Initialize(this);
+			bResult = CurrentCustomTimeStep->Initialize(this);
 			if (!bResult)
 			{
-				CustomTimeStep = nullptr;
+				UE_LOG(LogEngine, Error, TEXT("SetCustomTimeStep - Failed to intialize CustomTimeStep %s"), *GetPathName(CurrentCustomTimeStep));
+				CurrentCustomTimeStep = nullptr;
 			}
 		}
 	}
 
 	return bResult;
+}
+
+void UEngine::ReinitializeTimecodeProvider()
+{
+	UTimecodeProvider* Provider = GetTimecodeProviderProtected();
+	Provider->Shutdown(this);
+	if (!Provider->Initialize(this))
+	{
+		UE_LOG(LogEngine, Error, TEXT("Failed reinitializing TimecodeProvider %s"), *GetPathName(Provider));
+	}
 }
 
 bool UEngine::SetTimecodeProvider(UTimecodeProvider* InTimecodeProvider)
 {
 	bool bResult = true;
 
-	if (InTimecodeProvider != TimecodeProvider)
+	if (InTimecodeProvider != CustomTimecodeProvider)
 	{
-		if (TimecodeProvider)
+		const bool bCurrentlyUsingDefault = !CustomTimecodeProvider;
+		if (bCurrentlyUsingDefault)
 		{
-			TimecodeProvider->Shutdown(this);
+			// If we're already using the default, and we're resetting to the default, we don't need to do anything.
+			if (InTimecodeProvider == DefaultTimecodeProvider || InTimecodeProvider == nullptr)
+			{
+				return bResult;
+			}
+			else
+			{
+				DefaultTimecodeProvider->Shutdown(this);
+			}
+		}
+		else
+		{
+			CustomTimecodeProvider->Shutdown(this);
+			CustomTimecodeProvider = nullptr;
 		}
 
-		TimecodeProvider = InTimecodeProvider;
-
-		if (TimecodeProvider)
+		if (InTimecodeProvider != nullptr)
 		{
-			bResult = TimecodeProvider->Initialize(this);
-			if (!bResult)
+			bResult = InTimecodeProvider->Initialize(this);
+			if (bResult)
 			{
-				TimecodeProvider = nullptr;
+				CustomTimecodeProvider = InTimecodeProvider;
+			}
+		}
+
+		// If the new provider failed to initialized (or was null), then
+		// re-initialize the default provider.
+		if (!CustomTimecodeProvider)
+		{
+			if (!ensure(DefaultTimecodeProvider->Initialize(this)))
+			{
+				UE_LOG(LogEngine, Error, TEXT("SetTimecodeProvider - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
 			}
 		}
 	}
-
+	
 	return bResult;
 }
 
 void UEngine::UpdateTimecode()
 {
-	if (TimecodeProvider)
+	const UTimecodeProvider* Provider = GetTimecodeProvider();
+	if (Provider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized)
 	{
-		if (TimecodeProvider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized)
-		{
-			FApp::SetTimecodeAndFrameRate(TimecodeProvider->GetTimecode(), TimecodeProvider->GetFrameRate());
-		}
-		else
-		{
-			FApp::SetTimecodeAndFrameRate(FTimecode(), FFrameRate());
-		}
+		FApp::SetTimecodeAndFrameRate(Provider->GetTimecode(), Provider->GetFrameRate());
 	}
 	else
 	{
-		FApp::SetTimecodeAndFrameRate(UTimecodeProvider::GetSystemTimeTimecode(DefaultTimecodeFrameRate), DefaultTimecodeFrameRate);
+		FApp::SetTimecodeAndFrameRate(FTimecode(), FFrameRate());
 	}
 }
 
@@ -2095,44 +2143,23 @@ void LoadEngineClass(FSoftClassPath& ClassName, TSubclassOf<ClassType>& EngineCl
 	}
 }
 
-void InitializeTimecodeProvider(UEngine* InEngine, FSoftClassPath InTimecodeFrameRateClassName)
+UEngineCustomTimeStep* InitializeCustomTimeStep(UEngine* InEngine, FSoftClassPath InCustomTimeStepClassName)
 {
-	if (InEngine->GetTimecodeProvider() == nullptr && InTimecodeFrameRateClassName.IsValid())
-	{
-		UClass* TimecodeProviderClass = LoadClass<UObject>(nullptr, *InTimecodeFrameRateClassName.ToString());
-		if (TimecodeProviderClass)
-		{
-			UTimecodeProvider* NewTimecodeProvider = NewObject<UTimecodeProvider>(InEngine, TimecodeProviderClass);
-			if (!InEngine->SetTimecodeProvider(NewTimecodeProvider))
-			{
-				UE_LOG(LogEngine, Error, TEXT("Engine config TimecodeProviderClassName '%s' could not be initialized."), *InTimecodeFrameRateClassName.ToString());
-			}
-		}
-		else
-		{
-			UE_LOG(LogEngine, Error, TEXT("Engine config value TimecodeProviderClassName '%s' is not a valid class name."), *InTimecodeFrameRateClassName.ToString());
-		}
-	}
-}
-
-void InitializeCustomTimeStep(UEngine* InEngine, FSoftClassPath InCustomTimeStepClassName)
-{
+	UEngineCustomTimeStep* NewCustomTimeStep = nullptr;
 	if (InEngine->GetCustomTimeStep() == nullptr && InCustomTimeStepClassName.IsValid())
 	{
 		UClass* CustomTimeStepClass = LoadClass<UObject>(nullptr, *InCustomTimeStepClassName.ToString());
 		if (CustomTimeStepClass)
 		{
-			UEngineCustomTimeStep* NewCustomTimeStep = NewObject<UEngineCustomTimeStep>(InEngine, CustomTimeStepClass);
-			if (!InEngine->SetCustomTimeStep(NewCustomTimeStep))
-			{
-				UE_LOG(LogEngine, Error, TEXT("Engine config CustomTimeStepClassName '%s' could not be initialized."), *InCustomTimeStepClassName.ToString());
-			}
+			NewCustomTimeStep = NewObject<UEngineCustomTimeStep>(InEngine, CustomTimeStepClass);
+			InEngine->SetCustomTimeStep(NewCustomTimeStep);
 		}
 		else
 		{
 			UE_LOG(LogEngine, Error, TEXT("Engine config value CustomTimeStepClassName '%s' is not a valid class name."), *InCustomTimeStepClassName.ToString());
 		}
 	}
+	return NewCustomTimeStep;
 }
 
 /**
@@ -2319,8 +2346,43 @@ void UEngine::InitializeObjectReferences()
 		}
 	}
 
-	InitializeCustomTimeStep(this, CustomTimeStepClassName);
-	InitializeTimecodeProvider(this, TimecodeProviderClassName);
+	DefaultCustomTimeStep = InitializeCustomTimeStep(this, CustomTimeStepClassName);
+
+	// Setup the timecode providers.
+	{
+		if (DefaultTimecodeProvider == nullptr)
+		{
+			UClass* DefaultTimecodeProviderClass = DefaultTimecodeProviderClassName.TryLoadClass<UTimecodeProvider>();
+			if (DefaultTimecodeProviderClass == nullptr)
+			{
+				DefaultTimecodeProviderClass = USystemTimeTimecodeProvider::StaticClass();
+			}
+
+			DefaultTimecodeProvider = NewObject<UTimecodeProvider>(this, DefaultTimecodeProviderClass);
+			if (!ensure(DefaultTimecodeProvider->Initialize(this)))
+			{
+				UE_LOG(LogEngine, Error, TEXT("InitializeObjectReferences - Failed to intialize DefaultTimecodeProvider %s"), *GetPathName(DefaultTimecodeProvider));
+			}
+
+			DefaultTimecodeProvider->AddToRoot();
+			if (USystemTimeTimecodeProvider* LocalSystemTimeProvider = Cast<USystemTimeTimecodeProvider>(DefaultTimecodeProvider))
+			{
+				LocalSystemTimeProvider->SetFrameRate(DefaultTimecodeFrameRate);
+			}
+		}
+
+		if (CustomTimecodeProvider == nullptr && TimecodeProviderClassName.IsValid())
+		{
+			if (UClass* TimecodeProviderClass = TimecodeProviderClassName.TryLoadClass<UTimecodeProvider>())
+			{
+				SetTimecodeProvider(NewObject<UTimecodeProvider>(this, TimecodeProviderClass));
+			}
+			else
+			{
+				UE_LOG(LogEngine, Error, TEXT("Engine config value TimecodeProviderClassName '%s' is not a valid class name."), *TimecodeProviderClassName.ToString());
+			}
+		}
+	}
 
 	if (GameSingleton == nullptr && GameSingletonClassName.ToString().Len() > 0)
 	{
@@ -2476,22 +2538,6 @@ void UEngine::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collect
 	Super::AddReferencedObjects(This, Collector);
 }
 
-#if WITH_EDITOR
-bool UEngine::CanEditChange(const UProperty* InProperty) const
-{
-	if (!Super::CanEditChange(InProperty))
-	{
-		return false;
-	}
-
-	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UEngine, DefaultTimecodeFrameRate))
-	{
-		return !TimecodeProviderClassName.IsValid();
-	}
-
-	return true;
-}
-#endif // #if WITH_EDITOR
 
 void UEngine::CleanupGameViewport()
 {
@@ -8571,6 +8617,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				NewMessage->ScreenMessage = DebugMessage;
 				NewMessage->DisplayColor = DisplayColor;
 				NewMessage->TimeToDisplay = TimeToDisplay;
+				NewMessage->TextScale = TextScale;
 				NewMessage->CurrentTimeDisplayed = 0.0f;				
 			}
 			else
@@ -8580,7 +8627,8 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				NewMessage.Key = Key;
 				NewMessage.DisplayColor = DisplayColor;
 				NewMessage.TimeToDisplay = TimeToDisplay;
-				NewMessage.ScreenMessage = DebugMessage;				
+				NewMessage.ScreenMessage = DebugMessage;
+				NewMessage.TextScale = TextScale;
 				PriorityScreenMessages.Insert(NewMessage, 0);
 			}
 		}
@@ -8596,6 +8644,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				NewMessage.DisplayColor = DisplayColor;
 				NewMessage.TimeToDisplay = TimeToDisplay;
 				NewMessage.ScreenMessage = DebugMessage;				
+				NewMessage.TextScale = TextScale;
 				ScreenMessages.Add((int32)Key, NewMessage);
 			}
 			else
@@ -8606,6 +8655,7 @@ void UEngine::AddOnScreenDebugMessage(uint64 Key, float TimeToDisplay, FColor Di
 				Message->TextScale = TextScale;
 				Message->TimeToDisplay = TimeToDisplay;
 				Message->CurrentTimeDisplayed = 0.0f;				
+				Message->TextScale = TextScale;
 			}
 		}
 	}
@@ -8696,14 +8746,12 @@ bool UEngine::FErrorsAndWarningsCollector::Tick(float Seconds)
 /** Wrapper from int32 to uint64 */
 void UEngine::AddOnScreenDebugMessage(int32 Key, float TimeToDisplay, FColor DisplayColor, const FString& DebugMessage, bool bNewerOnTop, const FVector2D& TextScale)
 {
-	if (bEnableOnScreenDebugMessages == true)
-	{
-		AddOnScreenDebugMessage((uint64)Key, TimeToDisplay, DisplayColor, DebugMessage, bNewerOnTop, TextScale);
-	}
+	AddOnScreenDebugMessage((uint64)Key, TimeToDisplay, DisplayColor, DebugMessage, bNewerOnTop, TextScale);
 }
 
 bool UEngine::OnScreenDebugMessageExists(uint64 Key)
 {
+#if !UE_BUILD_SHIPPING
 	if (bEnableOnScreenDebugMessages == true)
 	{
 		if (Key == (uint64)-1)
@@ -8718,14 +8766,17 @@ bool UEngine::OnScreenDebugMessageExists(uint64 Key)
 			return true;
 		}
 	}
+#endif // !UE_BUILD_SHIPPING
 
 	return false;
 }
 
 void UEngine::ClearOnScreenDebugMessages()
 {
+#if !UE_BUILD_SHIPPING
 	ScreenMessages.Empty();
 	PriorityScreenMessages.Empty();
+#endif // !UE_BUILD_SHIPPING
 }
 
 #if !UE_BUILD_SHIPPING
@@ -9516,7 +9567,8 @@ float DrawOnscreenDebugMessages(UWorld* World, FViewport* Viewport, FCanvas* Can
 			if (YPos < MaxYPos)
 			{
 				MessageTextItem.Text = FText::FromString(Message.ScreenMessage);
-				MessageTextItem.SetColor(Message.DisplayColor);				
+				MessageTextItem.SetColor(Message.DisplayColor);
+				MessageTextItem.Scale = Message.TextScale;
 				Canvas->DrawItem(MessageTextItem, FVector2D(MessageX, YPos));
 				YPos += MessageTextItem.DrawnSize.Y * 1.15f;
 			}
@@ -13977,6 +14029,7 @@ int32 UEngine::RenderStatFPS(UWorld* World, FViewport* Viewport, FCanvas* Canvas
 	// Start drawing the various counters.
 	const int32 RowHeight = FMath::TruncToInt(Font->GetMaxCharHeight() * 1.1f);
 
+	UEngineCustomTimeStep* CustomTimeStep = GetCustomTimeStep();
 	if (CustomTimeStep)
 	{
 		ECustomTimeStepSynchronizationState State = CustomTimeStep->GetSynchronizationState();
@@ -15729,34 +15782,31 @@ int32 UEngine::RenderStatTimecode(UWorld* World, FViewport* Viewport, FCanvas* C
 	UFont* Font = FPlatformProperties::SupportsWindowedMode() ? GetSmallFont() : GetMediumFont();
 	const int32 RowHeight = FMath::TruncToInt(Font->GetMaxCharHeight() * 1.1f);
 
-	UTimecodeProvider* Provider = GetTimecodeProvider();
-	if (Provider)
+	const UTimecodeProvider* Provider = GetTimecodeProvider();
+	ETimecodeProviderSynchronizationState State = Provider->GetSynchronizationState();
+	FString ProviderName = Provider->GetName();
+	float CharWidth, CharHeight;
+	Font->GetCharSize(TEXT(' '), CharWidth, CharHeight);
+	int32 NewX = X - Font->GetStringSize(*ProviderName) - (int32)CharWidth;
+	switch (State)
 	{
-		ETimecodeProviderSynchronizationState State = Provider->GetSynchronizationState();
-		FString ProviderName = Provider->GetName();
-		float CharWidth, CharHeight;
-		Font->GetCharSize(TEXT(' '), CharWidth, CharHeight);
-		int32 NewX = X - Font->GetStringSize(*ProviderName) - (int32)CharWidth;
-		switch(State)
-		{
-			case ETimecodeProviderSynchronizationState::Closed:
-				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Closed"), *ProviderName), Font, FColor::Red);
-				break;
-			case ETimecodeProviderSynchronizationState::Error:
-				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Error"), *ProviderName), Font, FColor::Red);
-				break;
-			case ETimecodeProviderSynchronizationState::Synchronized:
-				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronized"), *ProviderName), Font, FColor::Green);
-				break;
-			case ETimecodeProviderSynchronizationState::Synchronizing:
-				Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronizing"), *ProviderName), Font, FColor::Yellow);
-				break;
-			default:
-				check(false);
-				break;
-		}
-		Y += RowHeight;
+	case ETimecodeProviderSynchronizationState::Closed:
+		Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Closed"), *ProviderName), Font, FColor::Red);
+		break;
+	case ETimecodeProviderSynchronizationState::Error:
+		Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Error"), *ProviderName), Font, FColor::Red);
+		break;
+	case ETimecodeProviderSynchronizationState::Synchronized:
+		Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronized"), *ProviderName), Font, FColor::Green);
+		break;
+	case ETimecodeProviderSynchronizationState::Synchronizing:
+		Canvas->DrawShadowedString(NewX, Y, *FString::Printf(TEXT("%s TC: Synchronizing"), *ProviderName), Font, FColor::Yellow);
+		break;
+	default:
+		check(false);
+		break;
 	}
+	Y += RowHeight;
 	Canvas->DrawShadowedString(X, Y, *FString::Printf(TEXT("TC: %s"), *FApp::GetTimecode().ToString()), Font, FColor::Green);
 	Y += RowHeight;
 

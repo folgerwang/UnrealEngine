@@ -94,6 +94,11 @@ bool FNiagaraSystemSimulation::Init(UNiagaraSystem* InSystem, UWorld* InWorld, F
 		DataSet.AddVariables(System->GetSystemUpdateScript()->GetVMExecutableData().Attributes);
 		DataSet.Finalize();
 
+		PausedInstanceData.Init(FNiagaraDataSetID(), ENiagaraSimTarget::CPUSim);
+		PausedInstanceData.AddVariables(System->GetSystemSpawnScript()->GetVMExecutableData().Attributes);
+		PausedInstanceData.AddVariables(System->GetSystemUpdateScript()->GetVMExecutableData().Attributes);
+		PausedInstanceData.Finalize();
+
 		{
 			SpawnInstanceParameterDataSet.Init(FNiagaraDataSetID(), ENiagaraSimTarget::CPUSim);
 			FNiagaraParameters* EngineParamsSpawn = System->GetSystemSpawnScript()->GetVMExecutableData().DataSetToParameters.Find(TEXT("Engine"));
@@ -279,8 +284,8 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemSim);
 
 	int32 OrigNum = SystemInstances.Num();
-	int32 SpawnNum = PendingSystemInstances.Num();
-	int32 NewNum = OrigNum + SpawnNum;
+	int32 SpawnNum = 0;
+	int32 NewNum = 0;
 
 	{
 		SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemSim_PreSimulate);
@@ -306,9 +311,30 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 			//Pre tick and gather any still valid pending instances for spawn.
 			SystemInstances.Reserve(NewNum);
 			SpawnNum = 0;
-			while (PendingSystemInstances.Num())
+			int32 NumPending = PendingSystemInstances.Num();
+			for (int32 i = NumPending - 1; i >= 0; --i)
 			{
-				FNiagaraSystemInstance* Inst = PendingSystemInstances.Pop();
+				FNiagaraSystemInstance* Inst = PendingSystemInstances[i];
+
+				//Don't spawn systems that are paused. Keep them in pending list so they are spawned when unpaused.
+				if (Inst->IsPaused())
+				{
+					if (GbDumpSystemData || (System && System->bDumpDebugSystemInfo))
+					{
+						UE_LOG(LogNiagara, Log, TEXT("=== Skipping Paused Pending Spawn %d ==="), Inst->SystemInstanceIndex);
+						//DataSet.Dump(true, Instance->SystemInstanceIndex, 1);
+					}
+					continue;
+				}
+
+				check(Inst->SystemInstanceIndex == i);
+				PendingSystemInstances.RemoveAt(i);
+
+				if (GbDumpSystemData || (System && System->bDumpDebugSystemInfo))
+				{
+					UE_LOG(LogNiagara, Log, TEXT("=== Spawning %d -> %d ==="), Inst->SystemInstanceIndex, SystemInstances.Num());
+					//DataSet.Dump(true, Instance->SystemInstanceIndex, 1);
+				}
 
 				Inst->TickDataInterfaces(DeltaSeconds, false);
 				Inst->SetPendingSpawn(false);
@@ -654,6 +680,11 @@ void FNiagaraSystemSimulation::RemoveInstance(FNiagaraSystemInstance* Instance)
 	UNiagaraSystem* System = WeakSystem.Get();
 	if (Instance->IsPendingSpawn())
 	{
+		if (GbDumpSystemData || (System && System->bDumpDebugSystemInfo))
+		{
+			UE_LOG(LogNiagara, Log, TEXT("=== Removing Pending Spawn %d ==="), Instance->SystemInstanceIndex);
+			DataSet.Dump(true, Instance->SystemInstanceIndex, 1);
+		}
 		int32 SystemIndex = Instance->SystemInstanceIndex;
 		check(Instance == PendingSystemInstances[SystemIndex]);
 		PendingSystemInstances.RemoveAtSwap(SystemIndex);
@@ -662,6 +693,23 @@ void FNiagaraSystemSimulation::RemoveInstance(FNiagaraSystemInstance* Instance)
 		if (PendingSystemInstances.IsValidIndex(SystemIndex))
 		{
 			PendingSystemInstances[SystemIndex]->SystemInstanceIndex = SystemIndex;
+		}
+	}
+	else if (Instance->IsPaused())
+	{
+		if (GbDumpSystemData || (System && System->bDumpDebugSystemInfo))
+		{
+			UE_LOG(LogNiagara, Log, TEXT("=== Removing Paused %d ==="), Instance->SystemInstanceIndex);
+			DataSet.Dump(true, Instance->SystemInstanceIndex, 1);
+		}
+
+		int32 SystemIndex = Instance->SystemInstanceIndex;
+		check(Instance == PausedSystemInstances[SystemIndex]);
+		PausedSystemInstances.RemoveAtSwap(SystemIndex);
+		Instance->SystemInstanceIndex = INDEX_NONE;
+		if (PausedSystemInstances.IsValidIndex(SystemIndex))
+		{
+			PausedSystemInstances[SystemIndex]->SystemInstanceIndex = SystemIndex;
 		}
 	}
 	else if (SystemInstances.IsValidIndex(Instance->SystemInstanceIndex))
@@ -695,8 +743,98 @@ void FNiagaraSystemSimulation::RemoveInstance(FNiagaraSystemInstance* Instance)
 
 void FNiagaraSystemSimulation::AddInstance(FNiagaraSystemInstance* Instance)
 {
+	check(Instance->SystemInstanceIndex == INDEX_NONE);
 	Instance->SetPendingSpawn(true);
 	Instance->SystemInstanceIndex = PendingSystemInstances.Add(Instance);
+
+	UNiagaraSystem* System = WeakSystem.Get();
+	if (GbDumpSystemData || (System && System->bDumpDebugSystemInfo))
+	{
+		UE_LOG(LogNiagara, Log, TEXT("=== Adding To Pending Spawn %d ==="), Instance->SystemInstanceIndex);
+		//DataSet.Dump(true, Instance->SystemInstanceIndex, 1);
+	}
+}
+
+void FNiagaraSystemSimulation::PauseInstance(FNiagaraSystemInstance* Instance)
+{
+	check(!Instance->IsPaused());
+
+	UNiagaraSystem* System = WeakSystem.Get();
+	if (Instance->IsPendingSpawn())
+	{
+		if (GbDumpSystemData || (System && System->bDumpDebugSystemInfo))
+		{
+			UE_LOG(LogNiagara, Log, TEXT("=== Pausing Pending Spawn %d ==="), Instance->SystemInstanceIndex);
+			//DataSet.Dump(true, Instance->SystemInstanceIndex, 1);
+		}
+		//Nothing to do for pending spawn systems.
+		check(PendingSystemInstances[Instance->SystemInstanceIndex] == Instance);
+		return;
+	}
+
+	if (GbDumpSystemData || (System && System->bDumpDebugSystemInfo))
+	{
+		UE_LOG(LogNiagara, Log, TEXT("=== Pausing System %d ==="), Instance->SystemInstanceIndex);
+		DataSet.Dump(true, Instance->SystemInstanceIndex, 1);
+	}
+
+	int32 SystemIndex = Instance->SystemInstanceIndex;
+	check(SystemInstances.IsValidIndex(SystemIndex));
+	check(Instance == SystemInstances[SystemIndex]);
+
+	int32 NewSystemIndex = PausedInstanceData.TransferInstance(DataSet, SystemIndex);
+	DataSet.KillInstance(SystemIndex);
+
+	check(PausedSystemInstances.Num() == NewSystemIndex);
+	Instance->SystemInstanceIndex = NewSystemIndex;
+	PausedSystemInstances.Add(Instance);
+
+	SystemInstances.RemoveAtSwap(SystemIndex);
+	if (SystemInstances.IsValidIndex(SystemIndex))
+	{
+		SystemInstances[SystemIndex]->SystemInstanceIndex = SystemIndex;
+	}
+}
+
+void FNiagaraSystemSimulation::UnpauseInstance(FNiagaraSystemInstance* Instance)
+{
+	check(Instance->IsPaused());
+
+	UNiagaraSystem* System = WeakSystem.Get();
+	if (Instance->IsPendingSpawn())
+	{
+		if (GbDumpSystemData || (System && System->bDumpDebugSystemInfo))
+		{
+			UE_LOG(LogNiagara, Log, TEXT("=== Unpausing Pending Spawn %d ==="), Instance->SystemInstanceIndex);
+			//DataSet.Dump(true, Instance->SystemInstanceIndex, 1);
+		}
+		//Nothing to do for pending spawn systems.
+		check(PendingSystemInstances[Instance->SystemInstanceIndex] == Instance);
+		return;
+	}
+
+	if (GbDumpSystemData || (System && System->bDumpDebugSystemInfo))
+	{
+		UE_LOG(LogNiagara, Log, TEXT("=== Unpausing System %d ==="), Instance->SystemInstanceIndex);
+		DataSet.Dump(true, Instance->SystemInstanceIndex, 1);
+	}
+
+	int32 SystemIndex = Instance->SystemInstanceIndex;
+	check(PausedSystemInstances.IsValidIndex(SystemIndex));
+	check(Instance == PausedSystemInstances[SystemIndex]);
+
+	int32 NewSystemIndex = DataSet.TransferInstance(PausedInstanceData, SystemIndex);
+	PausedInstanceData.KillInstance(SystemIndex);
+
+	check(SystemInstances.Num() == NewSystemIndex);
+	Instance->SystemInstanceIndex = NewSystemIndex;
+	SystemInstances.Add(Instance);
+
+	PausedSystemInstances.RemoveAtSwap(SystemIndex);
+	if (PausedSystemInstances.IsValidIndex(SystemIndex))
+	{
+		PausedSystemInstances[SystemIndex]->SystemInstanceIndex = SystemIndex;
+	}
 }
 
 void FNiagaraSystemSimulation::InitBindings(FNiagaraSystemInstance* SystemInst)

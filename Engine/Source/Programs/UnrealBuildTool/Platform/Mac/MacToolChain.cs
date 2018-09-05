@@ -188,29 +188,6 @@ namespace UnrealBuildTool
 			Result += " -Wdelete-non-virtual-dtor";
 			//Result += " -Wsign-compare"; // fed up of not seeing the signed/unsigned warnings we get on Windows - lets enable them here too.
 
-			Result += " -Wno-unused-variable";
-			Result += " -Wno-unused-value";
-			// This will hide the warnings about static functions in headers that aren't used in every single .cpp file
-			Result += " -Wno-unused-function";
-			// This hides the "enumeration value 'XXXXX' not handled in switch [-Wswitch]" warnings - we should maybe remove this at some point and add UE_LOG(, Fatal, ) to default cases
-			Result += " -Wno-switch";
-			// This hides the "warning : comparison of unsigned expression < 0 is always false" type warnings due to constant comparisons, which are possible with template arguments
-			Result += " -Wno-tautological-compare";
-			// This will prevent the issue of warnings for unused private variables.
-			Result += " -Wno-unused-private-field";
-			// needed to suppress warnings about using offsetof on non-POD types.
-			Result += " -Wno-invalid-offsetof";
-			// we use this feature to allow static FNames.
-			Result += " -Wno-gnu-string-literal-operator-template";
-			// Needed for Alembic third party lib
-			Result += " -Wno-deprecated-register";
-
-			if (Settings.MacOSSDKVersionFloat < 10.9f && Settings.MacOSSDKVersionFloat >= 10.11f)
-			{
-				Result += " -Wno-inconsistent-missing-override"; // too many missing overrides...
-				Result += " -Wno-unused-local-typedef"; // PhysX has some, hard to remove
-			}
-
 			if (CompileEnvironment.bEnableShadowVariableWarnings)
 			{
 				Result += " -Wshadow" + (CompileEnvironment.bShadowVariableWarningsAsErrors ? "" : " -Wno-error=shadow");
@@ -220,11 +197,6 @@ namespace UnrealBuildTool
 			{
 				Result += " -Wundef" + (CompileEnvironment.bUndefinedIdentifierWarningsAsErrors ? "" : " -Wno-error=undef");
 			}
-
-			// @todo: Remove these three when the code is fixed and they're no longer needed
-			Result += " -Wno-logical-op-parentheses";
-			Result += " -Wno-unknown-pragmas";
-			Result += " -Wno-undefined-var-template";
 
 			Result += " -c";
 

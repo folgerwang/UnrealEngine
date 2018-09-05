@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Misc/FrameRate.h"
+#include "Misc/Timecode.h"
 #include "Network/DisplayClusterMessage.h"
 
 
@@ -25,6 +27,9 @@ public:
 
 	// Provides with time delta for current frame
 	virtual void GetDeltaTime(float& deltaTime) = 0;
+
+	// Get the Timecode value for the current frame.
+	virtual void GetTimecode(FTimecode& timecode, FFrameRate& frameRate) = 0;
 
 	// Sync objects
 	virtual void GetSyncData(FDisplayClusterMessage::DataType& data) = 0;

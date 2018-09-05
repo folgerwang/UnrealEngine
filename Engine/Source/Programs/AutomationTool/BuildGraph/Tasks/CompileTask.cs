@@ -54,6 +54,12 @@ namespace AutomationTool
 		public bool AllowParallelExecutor = true;
 
 		/// <summary>
+		/// Whether to allow cleaning this target. If unspecified, targets are cleaned if the -Clean argument passed on the command line.
+		/// </summary>
+		[TaskParameter(Optional = true)]
+		public bool? Clean = null;
+
+		/// <summary>
 		/// Tag to be applied to build products of this task
 		/// </summary>
 		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.TagList)]
@@ -123,7 +129,7 @@ namespace AutomationTool
 			bAllowXGE &= Parameters.AllowXGE;
 			bAllowParallelExecutor &= Parameters.AllowParallelExecutor;
 
-			UE4Build.BuildTarget Target = new UE4Build.BuildTarget { TargetName = Parameters.Target, Platform = Parameters.Platform, Config = Parameters.Configuration, UBTArgs = "-nobuilduht " + (Parameters.Arguments ?? "") };
+			UE4Build.BuildTarget Target = new UE4Build.BuildTarget { TargetName = Parameters.Target, Platform = Parameters.Platform, Config = Parameters.Configuration, UBTArgs = "-nobuilduht " + (Parameters.Arguments ?? ""), Clean = Parameters.Clean };
 			if(!String.IsNullOrEmpty(Parameters.Tag))
 			{
 				TargetToTagName.Add(Target, Parameters.Tag);

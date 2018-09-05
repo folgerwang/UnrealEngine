@@ -511,7 +511,10 @@ void USceneComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 	if (bLocationChanged || (PropertyName == RotationName || MemberPropertyName == RotationName) || (PropertyName == ScaleName || MemberPropertyName == ScaleName))
 	{
 		FNavigationSystem::UpdateComponentData(*this);
-		InvalidateLightingCacheDetailed(true, bLocationChanged);
+		if (!GIsDemoMode)
+		{
+			InvalidateLightingCacheDetailed(true, bLocationChanged);
+		}
 	}
 }
 
@@ -3217,6 +3220,16 @@ void USceneComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 }
 
 #if WITH_EDITOR
+void USceneComponent::PostEditComponentMove(bool bFinished)
+{
+	if (!bFinished)
+	{
+		// Snapshot the transaction buffer for this component if we've not finished moving yet
+		// This allows listeners to be notified of intermediate changes of state
+		SnapshotTransactionBuffer(this);
+	}
+}
+
 bool USceneComponent::CanEditChange( const UProperty* Property ) const
 {
 	bool bIsEditable = Super::CanEditChange( Property );

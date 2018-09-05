@@ -64,6 +64,7 @@ private:
 
 	void BuildWidgetList();
 	void BuildClassWidgetList();
+	bool FilterAssetData(FAssetData &BPAssetData);
 	void BuildSpecialWidgetList();
 
 	void OnGetChildren(TSharedPtr<FWidgetViewModel> Item, TArray< TSharedPtr<FWidgetViewModel> >& Children);

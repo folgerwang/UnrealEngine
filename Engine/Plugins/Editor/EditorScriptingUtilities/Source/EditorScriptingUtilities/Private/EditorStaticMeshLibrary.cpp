@@ -24,6 +24,10 @@
 #include "Layers/ILayers.h"
 #include "LevelEditorViewport.h"
 #include "Engine/MapBuildDataRegistry.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescription.h"
+#include "MeshDescriptionOperations.h"
 #include "MeshMergeModule.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "RawMesh.h"
@@ -112,6 +116,37 @@ namespace InternalEditorMeshLibrary
 
 		return true;
 	}
+
+	bool IsUVChannelValid(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex)
+	{
+		if (StaticMesh == nullptr)
+		{
+			UE_LOG(LogEditorScripting, Error, TEXT("The StaticMesh is null."));
+			return false;
+		}
+
+		if (LODIndex >= StaticMesh->GetNumLODs() || LODIndex < 0)
+		{
+			UE_LOG(LogEditorScripting, Error, TEXT("The StaticMesh doesn't have LOD %d."), LODIndex);
+			return false;
+		}
+
+		FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+		if (!MeshDescription)
+		{
+			UE_LOG(LogEditorScripting, Error, TEXT("No mesh description for LOD %d."), LODIndex);
+			return false;
+		}
+
+		int32 NumUVChannels = StaticMesh->GetNumUVChannels(LODIndex);
+		if (UVChannelIndex < 0 || UVChannelIndex >= NumUVChannels)
+		{
+			UE_LOG(LogEditorScripting, Error, TEXT("The given UV channel index %d is out of bounds."), UVChannelIndex);
+			return false;
+		}
+
+		return true;
+	}
 }
 
 int32 UEditorStaticMeshLibrary::SetLods(UStaticMesh* StaticMesh, const FEditorScriptingMeshReductionOptions& ReductionOptions)
@@ -192,6 +227,68 @@ int32 UEditorStaticMeshLibrary::SetLods(UStaticMesh* StaticMesh, const FEditorSc
 	}
 
 	return LODIndex;
+}
+
+int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationStaticMesh, int32 DestinationLodIndex, UStaticMesh* SourceStaticMesh, int32 SourceLodIndex)
+{
+	TGuardValue<bool> UnattendedScriptGuard( GIsRunningUnattendedScript, true );
+
+	if ( !EditorScriptingUtils::CheckIfInEditorAndPIE( ))
+	{
+		return -1;
+	}
+
+	if ( DestinationStaticMesh == nullptr )
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("SetLodFromStaticMesh: The DestinationStaticMesh is null."));
+		return -1;
+	}
+
+	if ( SourceStaticMesh == nullptr )
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("SetLodFromStaticMesh: The SourceStaticMesh is null."));
+		return -1;
+	}
+
+	if ( !SourceStaticMesh->SourceModels.IsValidIndex( SourceLodIndex ) )
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("SetLodFromStaticMesh: SourceLodIndex is invalid."));
+		return -1;
+	}
+
+	// Close the mesh editor to prevent crashing. Reopen it after the mesh has been built.
+	FAssetEditorManager& AssetEditorManager = FAssetEditorManager::Get();
+	bool bStaticMeshIsEdited = false;
+	if ( AssetEditorManager.FindEditorForAsset( DestinationStaticMesh, false ) )
+	{
+		AssetEditorManager.CloseAllEditorsForAsset( DestinationStaticMesh );
+		bStaticMeshIsEdited = true;
+	}
+
+	DestinationStaticMesh->Modify();
+
+	if ( DestinationStaticMesh->SourceModels.Num() < DestinationLodIndex + 1 )
+	{
+		// Add one LOD 
+		DestinationStaticMesh->AddSourceModel();
+		
+		DestinationLodIndex = DestinationStaticMesh->SourceModels.Num() - 1;
+	}
+
+	FRawMesh SourceRawMesh;
+	SourceStaticMesh->SourceModels[ SourceLodIndex ].LoadRawMesh( SourceRawMesh );
+
+	DestinationStaticMesh->SourceModels[ DestinationLodIndex ].SaveRawMesh( SourceRawMesh );
+
+	DestinationStaticMesh->PostEditChange();
+
+	// Reopen MeshEditor on this mesh if the MeshEditor was previously opened in it
+	if ( bStaticMeshIsEdited )
+	{
+		AssetEditorManager.OpenEditorForAsset( DestinationStaticMesh );
+	}
+
+	return DestinationLodIndex;
 }
 
 int32 UEditorStaticMeshLibrary::GetLodCount(UStaticMesh* StaticMesh)
@@ -673,19 +770,23 @@ bool UEditorStaticMeshLibrary::HasVertexColors(UStaticMesh* StaticMesh)
 		return false;
 	}
 
-	for (FStaticMeshSourceModel& SourceModel : StaticMesh->SourceModels)
+	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
-		if (SourceModel.RawMeshBulkData && !SourceModel.RawMeshBulkData->IsEmpty())
+		const FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
+		if (!MeshDescription->VertexInstanceAttributes().HasAttribute(MeshAttribute::VertexInstance::Color))
 		{
-			FRawMesh RawMesh;
-			SourceModel.RawMeshBulkData->LoadRawMesh(RawMesh);
-			if (RawMesh.WedgeColors.Num() > 0)
+			continue;
+		}
+		TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+		for (const FVertexInstanceID VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+		{
+			FLinearColor VertexInstanceColor(VertexInstanceColors[VertexInstanceID]);
+			if (VertexInstanceColor != FLinearColor::White)
 			{
 				return true;
 			}
 		}
 	}
-
 	return false;
 }
 
@@ -731,10 +832,11 @@ bool UEditorStaticMeshLibrary::SetGenerateLightmapUVs(UStaticMesh* StaticMesh, b
 	}
 
 	bool AnySettingsToChange = false;
-	for (FStaticMeshSourceModel& SourceModel : StaticMesh->SourceModels)
+	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
+		FStaticMeshSourceModel& SourceModel = StaticMesh->SourceModels[LodIndex];
 		//Make sure LOD is not a reduction before considering its BuildSettings
-		if (SourceModel.RawMeshBulkData && !SourceModel.RawMeshBulkData->IsEmpty())
+		if (StaticMesh->GetOriginalMeshDescription(LodIndex) != nullptr)
 		{
 			AnySettingsToChange = (SourceModel.BuildSettings.bGenerateLightmapUVs != bGenerateLightmapUVs);
 
@@ -845,9 +947,9 @@ bool UEditorStaticMeshLibrary::AddUVChannel(UStaticMesh* StaticMesh, int32 LODIn
 		return false;
 	}
 
-	if (StaticMesh->GetNumUVChannels(LODIndex) >= MAX_MESH_TEXTURE_COORDS)
+	if (StaticMesh->GetNumUVChannels(LODIndex) >= MAX_MESH_TEXTURE_COORDS_MD)
 	{
-		UE_LOG(LogEditorScripting, Error, TEXT("AddUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS);
+		UE_LOG(LogEditorScripting, Error, TEXT("AddUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS_MD);
 		return false;
 	}
 
@@ -882,9 +984,9 @@ bool UEditorStaticMeshLibrary::InsertUVChannel(UStaticMesh* StaticMesh, int32 LO
 		return false;
 	}
 
-	if (NumUVChannels >= MAX_MESH_TEXTURE_COORDS)
+	if (NumUVChannels >= MAX_MESH_TEXTURE_COORDS_MD)
 	{
-		UE_LOG(LogEditorScripting, Error, TEXT("InsertUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS);
+		UE_LOG(LogEditorScripting, Error, TEXT("InsertUVChannel: Cannot add UV channel. Maximum number of UV channels reached (%d)."), MAX_MESH_TEXTURE_COORDS_MD);
 		return false;
 	}
 
@@ -928,5 +1030,70 @@ bool UEditorStaticMeshLibrary::RemoveUVChannel(UStaticMesh* StaticMesh, int32 LO
 	return StaticMesh->RemoveUVChannel(LODIndex, UVChannelIndex);
 }
 
-#undef LOCTEXT_NAMESPACE
+bool UEditorStaticMeshLibrary::GeneratePlanarUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings)
+{
+	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
 
+	if (!EditorScriptingUtils::CheckIfInEditorAndPIE())
+	{
+		return false;
+	}
+
+	if (!InternalEditorMeshLibrary::IsUVChannelValid(StaticMesh, LODIndex, UVChannelIndex))
+	{
+		return false;
+	}
+
+	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+
+	TArray<FVector2D> TexCoords;
+	FMeshDescriptionOperations::GeneratePlanarUV(*MeshDescription, UVSettings, TexCoords);
+
+	return StaticMesh->SetUVChannel(LODIndex, UVChannelIndex, TexCoords);
+}
+
+bool UEditorStaticMeshLibrary::GenerateCylindricalUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings)
+{
+	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
+
+	if (!EditorScriptingUtils::CheckIfInEditorAndPIE())
+	{
+		return false;
+	}
+
+	if (!InternalEditorMeshLibrary::IsUVChannelValid(StaticMesh, LODIndex, UVChannelIndex))
+	{
+		return false;
+	}
+
+	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+
+	TArray<FVector2D> TexCoords;
+	FMeshDescriptionOperations::GenerateCylindricalUV(*MeshDescription, UVSettings, TexCoords);
+
+	return StaticMesh->SetUVChannel(LODIndex, UVChannelIndex, TexCoords);
+}
+
+bool UEditorStaticMeshLibrary::GenerateBoxUVChannel(UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannelIndex, const FUVMapSettings& UVSettings)
+{
+	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
+
+	if (!EditorScriptingUtils::CheckIfInEditorAndPIE())
+	{
+		return false;
+	}
+
+	if (!InternalEditorMeshLibrary::IsUVChannelValid(StaticMesh, LODIndex, UVChannelIndex))
+	{
+		return false;
+	}
+
+	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+
+	TArray<FVector2D> TexCoords;
+	FMeshDescriptionOperations::GenerateBoxUV(*MeshDescription, UVSettings, TexCoords);
+
+	return StaticMesh->SetUVChannel(LODIndex, UVChannelIndex, TexCoords);
+}
+
+#undef LOCTEXT_NAMESPACE

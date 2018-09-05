@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -37,6 +37,8 @@
 
 - (void)terminate:(id)sender;
 - (void)sendEvent:(NSEvent *)theEvent;
+
++ (void)registerUserDefaults;
 
 @end
 
@@ -88,6 +90,17 @@ static void Cocoa_DispatchEvent(NSEvent *theEvent)
     }
 
     [super sendEvent:theEvent];
+}
+
++ (void)registerUserDefaults
+{
+    NSDictionary *appDefaults = [[NSDictionary alloc] initWithObjectsAndKeys:
+                                 [NSNumber numberWithBool:NO], @"AppleMomentumScrollSupported",
+                                 [NSNumber numberWithBool:NO], @"ApplePressAndHoldEnabled",
+                                 [NSNumber numberWithBool:YES], @"ApplePersistenceIgnoreState",
+                                 nil];
+    [[NSUserDefaults standardUserDefaults] registerDefaults:appDefaults];
+    [appDefaults release];
 }
 
 @end // SDLApplication
@@ -215,6 +228,22 @@ static void Cocoa_DispatchEvent(NSEvent *theEvent)
 - (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename
 {
     return (BOOL)SDL_SendDropFile(NULL, [filename UTF8String]) && SDL_SendDropComplete(NULL);
+}
+
+- (void)applicationDidFinishLaunching:(NSNotification *)notification
+{
+    /* The menu bar of SDL apps which don't have the typical .app bundle
+     * structure fails to work the first time a window is created (until it's
+     * de-focused and re-focused), if this call is in Cocoa_RegisterApp instead
+     * of here. https://bugzilla.libsdl.org/show_bug.cgi?id=3051
+     */
+    if (!SDL_GetHintBoolean(SDL_HINT_MAC_BACKGROUND_APP, SDL_FALSE)) {
+        [NSApp activateIgnoringOtherApps:YES];
+    }
+
+    /* If we call this before NSApp activation, macOS might print a complaint
+     * about ApplePersistenceIgnoreState. */
+    [SDLApplication registerUserDefaults];
 }
 @end
 
@@ -361,20 +390,18 @@ Cocoa_RegisterApp(void)
 
         if (!SDL_GetHintBoolean(SDL_HINT_MAC_BACKGROUND_APP, SDL_FALSE)) {
             [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-            [NSApp activateIgnoringOtherApps:YES];
 		}
 		
         if ([NSApp mainMenu] == nil) {
             CreateApplicationMenus();
         }
         [NSApp finishLaunching];
-        NSDictionary *appDefaults = [[NSDictionary alloc] initWithObjectsAndKeys:
-            [NSNumber numberWithBool:NO], @"AppleMomentumScrollSupported",
-            [NSNumber numberWithBool:NO], @"ApplePressAndHoldEnabled",
-            [NSNumber numberWithBool:YES], @"ApplePersistenceIgnoreState",
-            nil];
-        [[NSUserDefaults standardUserDefaults] registerDefaults:appDefaults];
-        [appDefaults release];
+        if ([NSApp delegate]) {
+            /* The SDL app delegate calls this in didFinishLaunching if it's
+             * attached to the NSApp, otherwise we need to call it manually.
+             */
+            [SDLApplication registerUserDefaults];
+        }
     }
     if (NSApp && !appDelegate) {
         appDelegate = [[SDLAppDelegate alloc] init];

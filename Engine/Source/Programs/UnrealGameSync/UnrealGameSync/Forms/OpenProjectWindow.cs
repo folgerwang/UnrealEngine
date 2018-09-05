@@ -324,6 +324,15 @@ namespace UnrealGameSync
 			OpenFileDialog Dialog = new OpenFileDialog();
 			Dialog.Filter = "Project files (*.uproject)|*.uproject|Project directory lists (*.uprojectdirs)|*.uprojectdirs|All supported files (*.uproject;*.uprojectdirs)|*.uproject;*.uprojectdirs|All files (*.*)|*.*" ;
 			Dialog.FilterIndex = Settings.FilterIndex;
+			
+			try
+			{
+				Dialog.InitialDirectory = Path.GetDirectoryName(LocalFileTextBox.Text);
+			}
+			catch
+			{
+			}
+
 			if(Dialog.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
 			{
 				string FullName = Path.GetFullPath(Dialog.FileName);

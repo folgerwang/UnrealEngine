@@ -46,6 +46,7 @@
 #include "Settings/EditorExperimentalSettings.h"
 #include "MeshBuilder.h"
 #include "MeshUtilities.h"
+#include "MeshUtilitiesCommon.h"
 #include "DerivedDataCacheInterface.h"
 #include "PlatformInfo.h"
 #include "ScopedTransaction.h"
@@ -2956,7 +2957,7 @@ void UStaticMesh::FixupMaterialSlotName()
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("A3E9E442F5784050BCAF878E4E80EE44")
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("ED22489A741846E9830C0AEFB207E591")
 
 static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
 {
@@ -3159,6 +3160,34 @@ bool UStaticMesh::RemoveUVChannel(int32 LODIndex, int32 UVChannelIndex)
 	return false;
 }
 
+bool UStaticMesh::SetUVChannel(int32 LODIndex, int32 UVChannelIndex, const TArray<FVector2D>& TexCoords)
+{
+	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
+	if (!MeshDescription)
+	{
+		return false;
+	}
+
+	if (TexCoords.Num() < MeshDescription->VertexInstances().Num())
+	{
+		return false;
+	}
+
+	Modify();
+
+	int32 TextureCoordIndex = 0;
+	TMeshAttributesRef<FVertexInstanceID, FVector2D> UVs = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	for (const FVertexInstanceID& VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+	{
+		UVs.Set(VertexInstanceID, UVChannelIndex, TexCoords[TextureCoordIndex++]);
+	}
+
+	CommitOriginalMeshDescription(LODIndex);
+	PostEditChange();
+
+	return true;
+}
+
 #endif
 
 int32 UStaticMesh::GetNumUVChannels(int32 LODIndex)
@@ -3168,8 +3197,7 @@ int32 UStaticMesh::GetNumUVChannels(int32 LODIndex)
 	FMeshDescription* MeshDescription = GetOriginalMeshDescription(LODIndex);
 	if (MeshDescription)
 	{
-		TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
-		NumUVChannels = VertexInstanceUVs.GetNumIndices();
+		NumUVChannels = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 	}
 #endif
 	return NumUVChannels;

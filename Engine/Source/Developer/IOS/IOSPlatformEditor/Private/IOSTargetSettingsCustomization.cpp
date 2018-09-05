@@ -439,7 +439,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 						(
 						SNew(SHeaderRow)
 						+ SHeaderRow::Column("Selected")
-						.DefaultLabel(LOCTEXT("ProvisionListSelectColumnHeader", ""))
+						.DefaultLabel(FText::GetEmpty())
 						.FixedWidth(30.0f)
 						+ SHeaderRow::Column("Name")
 						.DefaultLabel(LOCTEXT("ProvisionListNameColumnHeader", "Provision"))
@@ -600,7 +600,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 								(
 									SNew(SHeaderRow)
 									+ SHeaderRow::Column("Selected")
-									.DefaultLabel(LOCTEXT("CertificateListSelectColumnHeader", ""))
+									.DefaultLabel(FText::GetEmpty())
 									.FixedWidth(30.0f)
 									+ SHeaderRow::Column("Name")
 									.DefaultLabel(LOCTEXT("CertificateListNameColumnHeader", "Certificate"))

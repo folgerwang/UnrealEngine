@@ -54,6 +54,9 @@ protected:
 	// Map of properties created for widgets; to aid in debug data generation
 	TMap<class UWidget*, class UProperty*> WidgetToMemberVariableMap;
 
+	// Map of properties created for widget animations; to aid in debug data generation
+	TMap<class UWidgetAnimation*, class UProperty*> WidgetAnimToMemberVariableMap;
+
 	///----------------------------------------------------------------
 };
 

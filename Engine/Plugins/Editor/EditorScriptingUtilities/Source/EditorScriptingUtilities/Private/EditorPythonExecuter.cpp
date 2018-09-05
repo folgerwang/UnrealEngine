@@ -1,7 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorPythonExecuter.h"
-#include "IPythonScriptPlugin.h"
 
 #include "AssetRegistryModule.h"
 #include "Editor.h"
@@ -164,7 +163,12 @@ namespace InternalEditorPythonRunner
 					if (!AssetRegistryModule.Get().IsLoadingAssets())
 					{
 						bIsRunning = true;
-						IPythonScriptPlugin::Get()->ExecPythonCommand(*FileName);
+
+						// Try and run the command
+						if (!GEngine->Exec(GWorld, *FString::Printf(TEXT("PY \"%s\""), *FileName), *GLog))
+						{
+							UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be used without a valid Python Script Plugin. Ensure the plugin is enabled and wasn't compiled with Python support stubbed out."));
+						}
 					}
 				}
 				else
@@ -212,16 +216,8 @@ void FEditorPythonExecuter::OnStartupModule()
 		}
 		else
 		{
-			IPythonScriptPlugin* PythonScriptPlugin = IPythonScriptPlugin::Get();
-			if (PythonScriptPlugin && PythonScriptPlugin->IsPythonAvailable())
-			{
-				InternalEditorPythonRunner::Executer = new InternalEditorPythonRunner::FExecuterTickable(MoveTemp(FileValue));
-				InternalEditorPythonRunner::SExecutingDialog::OpenDialog();
-			}
-			else
-			{
-				UE_LOG(LogEditorPythonExecuter, Error, TEXT("-ExecutePythonScript cannot be used without a valid Python Script Plugin. Ensure the plugin is enabled and wasn't compiled with Python support stubbed out."));
-			}
+			InternalEditorPythonRunner::Executer = new InternalEditorPythonRunner::FExecuterTickable(MoveTemp(FileValue));
+			InternalEditorPythonRunner::SExecutingDialog::OpenDialog();
 		}
 	}
 }

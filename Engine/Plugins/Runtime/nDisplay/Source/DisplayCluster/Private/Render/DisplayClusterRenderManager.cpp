@@ -3,11 +3,13 @@
 #include "Render/DisplayClusterRenderManager.h"
 #include "Config/IPDisplayClusterConfigManager.h"
 
+#include "Engine/GameViewportClient.h"
 #include "Engine/GameEngine.h"
 #include "Misc/DisplayClusterLog.h"
 #include "DisplayClusterStrings.h"
 #include "DisplayClusterOperationMode.h"
 
+#include "Render/Devices/DisplayClusterNativePresentHandler.h"
 #include "Render/Devices/Debug/DisplayClusterDeviceDebug.h"
 #include "Render/Devices/Monoscopic/DisplayClusterDeviceMonoscopicOpenGL.h"
 #include "Render/Devices/Monoscopic/DisplayClusterDeviceMonoscopicD3D11.h"
@@ -17,6 +19,8 @@
 #include "Render/Devices/QuadBufferStereo/DisplayClusterDeviceQuadBufferStereoD3D12.h"
 #include "Render/Devices/SideBySide/DisplayClusterDeviceSideBySide.h"
 #include "Render/Devices/TopBottom/DisplayClusterDeviceTopBottom.h"
+
+#include "UnrealClient.h"
 
 
 FDisplayClusterRenderManager::FDisplayClusterRenderManager()
@@ -153,7 +157,7 @@ FDisplayClusterDeviceBase* FDisplayClusterRenderManager::CreateStereoDevice()
 			}
 		}
 		// Monoscopic
-		else //if (FParse::Param(FCommandLine::Get(), DisplayClusterConstants::args::dev::Mono))
+		else if (FParse::Param(FCommandLine::Get(), DisplayClusterStrings::args::dev::Mono))
 		{
 			if (RHIName.Compare(DisplayClusterStrings::rhi::OpenGL, ESearchCase::IgnoreCase) == 0)
 			{
@@ -170,6 +174,11 @@ FDisplayClusterDeviceBase* FDisplayClusterRenderManager::CreateStereoDevice()
 				UE_LOG(LogDisplayClusterRender, Log, TEXT("Instantiating DX12 monoscopic device..."));
 				pDevice = new FDisplayClusterDeviceMonoscopicD3D12;
 			}
+		}
+		// Leave native render but inject custom present for cluster synchronization
+		else
+		{
+			UGameViewportClient::OnViewportCreated().AddRaw(this, &FDisplayClusterRenderManager::OnViewportCreatedHandler);
 		}
 
 		if (pDevice == nullptr)
@@ -193,6 +202,29 @@ FDisplayClusterDeviceBase* FDisplayClusterRenderManager::CreateStereoDevice()
 	}
 
 	return pDevice;
+}
+
+void FDisplayClusterRenderManager::OnViewportCreatedHandler()
+{
+	if (GEngine && GEngine->GameViewport)
+	{
+		if (!GEngine->GameViewport->Viewport->GetViewportRHI().IsValid())
+		{
+			GEngine->GameViewport->OnBeginDraw().AddRaw(this, &FDisplayClusterRenderManager::OnBeginDrawHandler);
+		}
+	}
+}
+
+void FDisplayClusterRenderManager::OnBeginDrawHandler()
+{
+	//@todo: this is fast solution for prototype. We shouldn't use raw handlers to be able to unsubscribe from the event.
+	static bool initialized = false;
+	if (!initialized && GEngine->GameViewport->Viewport->GetViewportRHI().IsValid())
+	{
+		NativePresentHandler  = new FDisplayClusterNativePresentHandler;
+		GEngine->GameViewport->Viewport->GetViewportRHI().GetReference()->SetCustomPresent(NativePresentHandler);
+		initialized = true;
+	}
 }
 
 void FDisplayClusterRenderManager::PreTick(float DeltaSeconds)

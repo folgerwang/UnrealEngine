@@ -10,12 +10,9 @@
 
 /**
  * List of attribute types which are supported.
- * We do this so we can automatically generate the attribute containers and their associated accessors with
- * some template magic.
  *
- * IMPORTANT NOTE: Do not remove any type from this tuple, or serialization will fail.
- * Types may be added at the end of this list if necessary, although please do so sparingly as each extra type will
- * impact on performance and object size.
+ * IMPORTANT NOTE: Do not reorder or remove any type from this tuple, or serialization will fail.
+ * Types may be added at the end of this list as required.
  */
 using AttributeTypes = TTuple
 <
@@ -27,6 +24,50 @@ using AttributeTypes = TTuple
 	bool,
 	FName
 >;
+
+
+/**
+ * Helper template which gets the tuple index of a given type from a given TTuple.
+ * If the type occurs more than once, the first index is returned.
+ * If the type doesn't appear, a compile error is generated.
+ *
+ * Given Type = char, and Tuple = TTuple<int, float, char>,
+ * TTupleIndex<Type, Tuple>::Value will be 2.
+ *
+ * @todo: Move to Tuple.h
+ */
+template <typename Type, typename Tuple> struct TTupleIndex;
+template <typename Type, typename... Ts> struct TTupleIndex<Type, TTuple<Type, Ts...>> : TIntegralConstant<uint32, 0> {};
+template <typename Type, typename... Ts> struct TTupleIndex<Type, TTuple<Ts...>> : TIntegralConstant<uint32, 0> { static_assert( sizeof...( Ts ) > 0, "TTuple type not found" ); };
+template <typename Type, typename T, typename... Ts> struct TTupleIndex<Type, TTuple<T, Ts...>> : TIntegralConstant<uint32, 1 + TTupleIndex<Type, TTuple<Ts...>>::Value> {};
+
+
+/**
+ * Helper template which gets the element type of a TTuple with the given index.
+ *
+ * Given Index = 1, and Tuple = TTuple<int, float, char>,
+ * TTupleElement<Index, Tuple>::Type will be float.
+ *
+ * @todo: Move to Tuple.h
+ */
+template <uint32 Index, typename Tuple> struct TTupleElement;
+template <uint32 Index, typename T, typename... Ts> struct TTupleElement<Index, TTuple<T, Ts...>> : TTupleElement<Index - 1, TTuple<Ts...>> {};
+template <typename T, typename... Ts> struct TTupleElement<0, TTuple<T, Ts...>> { using Type = T; };
+template <typename... Ts> struct TTupleElement<0, TTuple<Ts...>> { static_assert( sizeof...( Ts ) > 0, "TTuple element index out of range" ); };
+
+
+/**
+ * Class which implements a function jump table to be automatically generated at compile time.
+ * This is used by TAttributesSet to provide O(1) dispatch by attribute type at runtime.
+ */
+template <typename FnType, uint32 Size>
+struct TJumpTable
+{
+	template <typename... T>
+	explicit constexpr TJumpTable( T... Ts ) : Fns{ Ts... } {}
+
+	FnType* Fns[Size];
+};
 
 
 /**
@@ -43,61 +84,79 @@ template <> struct TIsBulkSerializable<FName> { static const bool Value = false;
  * Note that the container may grow arbitrarily as new elements are inserted, but it will never be
  * shrunk as elements are removed. The only operations that will shrink the container are Initialize() and Remap().
  */
-template <typename ElementType>
+template <typename AttributeType>
 class TMeshAttributeArrayBase
 {
 public:
 
-	/**
-	 * Custom serialization for TMeshAttributeArrayBase.
-	 */
-	template <typename T>
-	friend typename TEnableIf<!TIsBulkSerializable<T>::Value, FArchive>::Type& operator<<( FArchive& Ar, TMeshAttributeArrayBase<T>& Array );
+	/** Custom serialization for TMeshAttributeArrayBase. */
+	template <typename T> friend typename TEnableIf<!TIsBulkSerializable<T>::Value, FArchive>::Type& operator<<( FArchive& Ar, TMeshAttributeArrayBase<T>& Array );
+	template <typename T> friend typename TEnableIf<TIsBulkSerializable<T>::Value, FArchive>::Type& operator<<( FArchive& Ar, TMeshAttributeArrayBase<T>& Array );
 
-	template <typename T>
-	friend typename TEnableIf<TIsBulkSerializable<T>::Value, FArchive>::Type& operator<<( FArchive& Ar, TMeshAttributeArrayBase<T>& Array );
+	/** Return size of container */
+	FORCEINLINE int32 Num() const { return Container.Num(); }
 
-protected:
-
-	/** Should not instance this base class directly */
-	TMeshAttributeArrayBase() = default;
-
-	/** Disallow use of the copy constructor outside of FMeshDescription, to prevent arrays being mistakenly accessed in the UMeshDescription by value */
-	TMeshAttributeArrayBase( const TMeshAttributeArrayBase& ) = default;
-	TMeshAttributeArrayBase( TMeshAttributeArrayBase&& ) = default;
-	TMeshAttributeArrayBase& operator=( const TMeshAttributeArrayBase& ) = default;
-	TMeshAttributeArrayBase& operator=( TMeshAttributeArrayBase&& ) = default;
-
-	/** Expands the array if necessary so that the passed element index is valid. Newly created elements will be assigned the default value. */
-	void Insert( const int32 Index, const ElementType& Default )
-	{
-		if( Index >= Container.Num() )
-		{
-			// If the index is off the end of the container, add as many elements as required to make it the last valid index.
-			int32 StartIndex = Container.AddUninitialized( Index + 1 - Container.Num() );
-			ElementType* Data = Container.GetData() + StartIndex;
-
-			// Construct added elements with the default value passed in
-			while( StartIndex <= Index )
-			{
-				new( Data ) ElementType( Default );
-				StartIndex++;
-				Data++;
-			}
-		}
-	}
+	/** Return base of data */
+	FORCEINLINE const AttributeType* GetData() const { return Container.GetData(); }
 
 	/** Initializes the array to the given size with the default value */
-	void Initialize( const int32 ElementCount, const ElementType& Default )
+	FORCEINLINE void Initialize( const int32 ElementCount, const AttributeType& Default )
 	{
 		Container.Reset( ElementCount );
 		Insert( ElementCount - 1, Default );
 	}
 
+	/** Expands the array if necessary so that the passed element index is valid. Newly created elements will be assigned the default value. */
+	void Insert( const int32 Index, const AttributeType& Default );
+
+	/** Remaps elements according to the passed remapping table */
+	void Remap( const TSparseArray<int32>& IndexRemap, const AttributeType& Default );
+
+	/** Element accessors */
+	FORCEINLINE const AttributeType& operator[]( const int32 Index ) const { return Container[ Index ]; }
+	FORCEINLINE AttributeType& operator[]( const int32 Index ) { return Container[ Index ]; }
+
+protected:
 	/** The actual container, represented by a regular array */
-	TArray<ElementType> Container;
+	TArray<AttributeType> Container;
 };
 
+
+template <typename AttributeType>
+void TMeshAttributeArrayBase<AttributeType>::Insert( const int32 Index, const AttributeType& Default )
+{
+	if( Index >= Container.Num() )
+	{
+		// If the index is off the end of the container, add as many elements as required to make it the last valid index.
+		int32 StartIndex = Container.AddUninitialized( Index + 1 - Container.Num() );
+		AttributeType* Data = Container.GetData() + StartIndex;
+
+		// Construct added elements with the default value passed in
+		while( StartIndex <= Index )
+		{
+			new( Data ) AttributeType( Default );
+			StartIndex++;
+			Data++;
+		}
+	}
+}
+
+template <typename AttributeType>
+void TMeshAttributeArrayBase<AttributeType>::Remap( const TSparseArray<int32>& IndexRemap, const AttributeType& Default )
+{
+	TMeshAttributeArrayBase NewAttributeArray;
+
+	for( typename TSparseArray<int32>::TConstIterator It( IndexRemap ); It; ++It )
+	{
+		const int32 OldElementIndex = It.GetIndex();
+		const int32 NewElementIndex = IndexRemap[ OldElementIndex ];
+
+		NewAttributeArray.Insert( NewElementIndex, Default );
+		NewAttributeArray[ NewElementIndex ] = MoveTemp( Container[ OldElementIndex ] );
+	}
+
+	Container = MoveTemp( NewAttributeArray.Container );
+}
 
 template <typename T>
 inline typename TEnableIf<!TIsBulkSerializable<T>::Value, FArchive>::Type& operator<<( FArchive& Ar, TMeshAttributeArrayBase<T>& Array )
@@ -125,181 +184,177 @@ inline typename TEnableIf<TIsBulkSerializable<T>::Value, FArchive>::Type& operat
 }
 
 
-
+// This is a deprecated class which will be removed in 4.21
 template <typename AttributeType, typename ElementIDType>
-class TAttributeIndicesArray;
-
-/**
- * We prefer to access elements of the container via strongly-typed IDs.
- * This derived class imposes this type safety.
- */
-template <typename ElementType, typename ElementIDType>
-class TMeshAttributeArray : private TMeshAttributeArrayBase<ElementType>
+class TMeshAttributeArray final : public TMeshAttributeArrayBase<AttributeType>
 {
 	static_assert( TIsDerivedFrom<ElementIDType, FElementID>::IsDerived, "ElementIDType must be derived from FElementID" );
 
-	using TMeshAttributeArrayBase<ElementType>::Container;
+	using Super = TMeshAttributeArrayBase<AttributeType>;
+	using Super::operator[];
 
 public:
 
 	/** Element accessors */
-	FORCEINLINE const ElementType& operator[]( const ElementIDType ElementID ) const { return Container[ ElementID.GetValue() ]; }
-	FORCEINLINE ElementType& operator[]( const ElementIDType ElementID ) { return Container[ ElementID.GetValue() ]; }
-
-	/** Return size of container */
-	FORCEINLINE int32 Num() const { return Container.Num(); }
-
-	/** Return base of data */
-	FORCEINLINE const ElementType* GetData() const { return Container.GetData(); }
-
-protected:
-
-	friend class TAttributeIndicesArray<ElementType, ElementIDType>;
-
-	/** Expands the array if necessary so that the passed element index is valid. Newly created elements will be assigned the default value. */
-	FORCEINLINE void Insert( const ElementIDType Index, const ElementType& Default )
-	{
-		TMeshAttributeArrayBase<ElementType>::Insert( Index.GetValue(), Default );
-	}
-
-	/** Serializer */
-	friend FORCEINLINE FArchive& operator<<( FArchive& Ar, TMeshAttributeArray& Array )
-	{
-		Ar << static_cast<TMeshAttributeArrayBase<ElementType>&>( Array );
-		return Ar;
-	}
-
-	/** Remaps elements according to the passed remapping table */
-	void Remap( const TSparseArray<ElementIDType>& IndexRemap, const ElementType& Default );
+	FORCEINLINE const AttributeType& operator[]( const ElementIDType ElementID ) const { return this->Container[ ElementID.GetValue() ]; }
+	FORCEINLINE AttributeType& operator[]( const ElementIDType ElementID ) { return this->Container[ ElementID.GetValue() ]; }
 };
 
-
-template <typename ElementType, typename ElementIDType>
-void TMeshAttributeArray<ElementType, ElementIDType>::Remap( const TSparseArray<ElementIDType>& IndexRemap, const ElementType& Default )
-{
-	TMeshAttributeArray NewAttributeArray;
-
-	for( typename TSparseArray<ElementIDType>::TConstIterator It( IndexRemap ); It; ++It )
-	{
-		const int32 OldElementIndex = It.GetIndex();
-		const ElementIDType NewElementIndex = IndexRemap[ OldElementIndex ];
-
-		NewAttributeArray.Insert( NewElementIndex, Default );
-		NewAttributeArray[ NewElementIndex ] = MoveTemp( Container[ OldElementIndex ] );
-	}
-
-	Container = MoveTemp( NewAttributeArray.Container );
-}
-
-
-/** Define aliases for element attributes */
-template <typename AttributeType> using TVertexAttributeArray = TMeshAttributeArray<AttributeType, FVertexID>;
-template <typename AttributeType> using TVertexInstanceAttributeArray = TMeshAttributeArray<AttributeType, FVertexInstanceID>;
-template <typename AttributeType> using TEdgeAttributeArray = TMeshAttributeArray<AttributeType, FEdgeID>;
-template <typename AttributeType> using TPolygonAttributeArray = TMeshAttributeArray<AttributeType, FPolygonID>;
-template <typename AttributeType> using TPolygonGroupAttributeArray = TMeshAttributeArray<AttributeType, FPolygonGroupID>;
 
 
 /**
  * Flags specifying properties of an attribute
- * @todo mesh description: this needs to be moved to a application-specific place;
- * this code is too low-level to assume particular meanings for the flags.
  */
 enum class EMeshAttributeFlags : uint32
 {
 	None				= 0,
-	Lerpable			= ( 1 << 0 ),
-	AutoGenerated		= ( 1 << 1 ),
-	Mergeable			= ( 1 << 2 )
+	Lerpable			= ( 1 << 0 ),	/** Attribute can be automatically lerped according to the value of 2 or 3 other attributes */
+	AutoGenerated		= ( 1 << 1 ),	/** Attribute is auto-generated by importer or editable mesh, rather than representing an imported property */	
+	Mergeable			= ( 1 << 2 ),	/** If all vertices' attributes are mergeable, and of near-equal value, they can be welded */
+	Transient			= ( 1 << 3 )	/** Attribute is not serialized */
 };
 
 ENUM_CLASS_FLAGS( EMeshAttributeFlags );
 
 
 /**
- * This class represents a container for a named attribute on a mesh element.
- * It contains an array of TMeshAttributeArrays, one per attribute index. 
+ * This is the base class for an attribute array set.
+ * An attribute array set is a container which holds attribute arrays, one per attribute index.
+ * Many attributes have only one index, while others (such as texture coordinates) may want to define many.
+ *
+ * All attribute array set instances will be of derived types; this type exists for polymorphism purposes,
+ * so that they can be managed by a generic TUniquePtr<FMeshAttributeArraySetBase>.
+ *
+ * In general, we avoid accessing them via virtual dispatch by insisting that their type be passed as
+ * a template parameter in the accessor. This can be checked against the Type field to ensure that we are
+ * accessing an instance by its correct type.
  */
-template <typename T, typename U>
-class TAttributeIndicesArray
+class FMeshAttributeArraySetBase
 {
 public:
-
-	using AttributeType = T;
-	using ElementIDType = U;
-
-	/** Default constructor - required so that it builds correctly */
-	TAttributeIndicesArray() = default;
-
 	/** Constructor */
-	TAttributeIndicesArray( const int32 NumberOfIndices, const AttributeType& InDefaultValue, const EMeshAttributeFlags InFlags, const int32 InNumberOfElements )
-		: NumElements( InNumberOfElements ),
-		  DefaultValue( InDefaultValue ),
+	FORCEINLINE FMeshAttributeArraySetBase( const uint32 InType, const EMeshAttributeFlags InFlags, const int32 InNumberOfElements )
+		: Type( InType ),
+		  NumElements( InNumberOfElements ),
 		  Flags( InFlags )
+	{}
+
+	/** Virtual interface */
+	virtual ~FMeshAttributeArraySetBase() = default;
+	virtual TUniquePtr<FMeshAttributeArraySetBase> Clone() const = 0;
+	virtual void Insert( const int32 Index ) = 0;
+	virtual void Remove( const int32 Index ) = 0;
+	virtual void Initialize( const int32 Count ) = 0;
+	virtual void Serialize( FArchive& Ar ) = 0;
+	virtual void Remap( const TSparseArray<int32>& IndexRemap ) = 0;
+	virtual int32 GetNumIndices() const = 0;
+	virtual void SetNumIndices( const int32 NumIndices ) = 0;
+	virtual void InsertIndex( const int32 Index ) = 0;
+	virtual void RemoveIndex( const int32 Index ) = 0;
+
+	/** Determine whether this attribute array set is of the given type */
+	template <typename T>
+	FORCEINLINE bool HasType() const
 	{
-		SetNumIndices( NumberOfIndices );
+		return TTupleIndex<T, AttributeTypes>::Value == Type;
 	}
 
-	/** Insert the element at the given index */
-	FORCEINLINE void Insert( const ElementIDType ElementID )
-	{
-		for( TMeshAttributeArray<AttributeType, ElementIDType>& ArrayForIndex : ArrayForIndices )
-		{
-			ArrayForIndex.Insert( ElementID, DefaultValue );
-		}
+	/** Get the type index of this attribute array set */
+	FORCEINLINE uint32 GetType() const { return Type; }
 
-		NumElements = FMath::Max( NumElements, ElementID.GetValue() + 1 );
-	}
-
-	/** Remove the element at the given index, replacing it with a default value */
-	FORCEINLINE void Remove( const ElementIDType ElementID )
-	{
-		for( TMeshAttributeArray<AttributeType, ElementIDType>& ArrayForIndex : ArrayForIndices )
-		{
-			ArrayForIndex[ ElementID ] = DefaultValue;
-		}
-	}
-
-	/** Add an array filled with the default value */
-	FORCEINLINE void AddArray()
-	{
-		TMeshAttributeArray<AttributeType, ElementIDType>& NewArray = ArrayForIndices.AddDefaulted_GetRef();
-		NewArray.Initialize(NumElements, DefaultValue);
-	}
-
-	/** Insert an array at the given index, filled with the default value */
-	FORCEINLINE void InsertArray(int32 Index)
-	{
-		TMeshAttributeArray<AttributeType, ElementIDType>& NewArray = ArrayForIndices.InsertDefaulted_GetRef(Index);
-		NewArray.Initialize(NumElements, DefaultValue);
-	}
-
-	/** Remove the array at the given index */
-	FORCEINLINE void RemoveArray(int32 Index)
-	{
-		ArrayForIndices.RemoveAt(Index);
-	}
-
-	/** Return the TMeshAttributeArray corresponding to the given attribute index */
-	FORCEINLINE const TMeshAttributeArray<AttributeType, ElementIDType>& GetArrayForIndex( const int32 Index ) const { return ArrayForIndices[ Index ]; }
-	FORCEINLINE TMeshAttributeArray<AttributeType, ElementIDType>& GetArrayForIndex( const int32 Index ) { return ArrayForIndices[ Index ]; }
-
-	/** Return flags for this attribute type */
+	/** Get the flags for this attribute array set */
 	FORCEINLINE EMeshAttributeFlags GetFlags() const { return Flags; }
-
-	/** Return default value for this attribute type */
-	FORCEINLINE AttributeType GetDefaultValue() const { return DefaultValue; }
-
-	/** Return number of indices this attribute has */
-	FORCEINLINE int32 GetNumIndices() const { return ArrayForIndices.Num(); }
 
 	/** Return number of elements each attribute index has */
 	FORCEINLINE int32 GetNumElements() const { return NumElements; }
 
-	/** Sets number of indices this attribute has */
-	void SetNumIndices( const int32 NumIndices )
+protected:
+	/** Type of the attribute array (based on the tuple element index from AttributeTypes) */
+	uint32 Type;
+
+	/** Number of elements in each index */
+	int32 NumElements;
+
+	/** Implementation-defined attribute name flags */
+	EMeshAttributeFlags Flags;
+};
+
+
+/**
+ * This is a type-specific attribute array, which is actually instanced in the attribute set.
+ */
+template <typename AttributeType>
+class TMeshAttributeArraySet : public FMeshAttributeArraySetBase
+{
+	using Super = FMeshAttributeArraySetBase;
+
+public:
+	/** Constructor */
+	FORCEINLINE explicit TMeshAttributeArraySet( const int32 NumberOfIndices = 0, const AttributeType& InDefaultValue = AttributeType(), const EMeshAttributeFlags InFlags = EMeshAttributeFlags::None, const int32 InNumberOfElements = 0 )
+		: Super( TTupleIndex<AttributeType, AttributeTypes>::Value, InFlags, InNumberOfElements ),
+		  DefaultValue( InDefaultValue )
 	{
-		check( NumIndices > 0 );
+		SetNumIndices( NumberOfIndices );
+	}
+
+	/** Creates a copy of itself and returns a TUniquePtr to it */
+	virtual TUniquePtr<FMeshAttributeArraySetBase> Clone() const
+	{
+		return MakeUnique<TMeshAttributeArraySet>( *this );
+	}
+
+	/** Insert the element at the given index */
+	virtual void Insert( const int32 Index )
+	{
+		for( TMeshAttributeArrayBase<AttributeType>& ArrayForIndex : ArrayForIndices )
+		{
+			ArrayForIndex.Insert( Index, DefaultValue );
+		}
+
+		NumElements = FMath::Max( NumElements, Index + 1 );
+	}
+
+	/** Remove the element at the given index, replacing it with a default value */
+	virtual void Remove( const int32 Index )
+	{
+		for( TMeshAttributeArrayBase<AttributeType>& ArrayForIndex : ArrayForIndices )
+		{
+			ArrayForIndex[ Index ] = DefaultValue;
+		}
+	}
+
+	/** Sets the number of elements to the exact number provided, and initializes them to the default value */
+	virtual void Initialize( const int32 Count )
+	{
+		NumElements = Count;
+		for( TMeshAttributeArrayBase<AttributeType>& ArrayForIndex : ArrayForIndices )
+		{
+			ArrayForIndex.Initialize( Count, DefaultValue );
+		}
+	}
+
+	/** Polymorphic serialization */
+	virtual void Serialize( FArchive& Ar )
+	{
+		Ar << ( *this );
+	}
+
+	/** Performs an element index remap according to the passed array */
+	virtual void Remap( const TSparseArray<int32>& IndexRemap )
+	{
+		for( TMeshAttributeArrayBase<AttributeType>& ArrayForIndex : ArrayForIndices )
+		{
+			ArrayForIndex.Remap( IndexRemap, DefaultValue );
+			NumElements = ArrayForIndex.Num();
+		}
+	}
+
+	/** Return number of indices this attribute has */
+	virtual inline int32 GetNumIndices() const { return ArrayForIndices.Num(); }
+
+	/** Sets number of indices this attribute has */
+	virtual void SetNumIndices( const int32 NumIndices )
+	{
 		const int32 OriginalNumIndices = ArrayForIndices.Num();
 		ArrayForIndices.SetNum( NumIndices );
 
@@ -310,331 +365,377 @@ public:
 		}
 	}
 
-	/** Sets the number of elements to the exact number provided, and initializes them to the default value */
-	void Initialize( const int32 Count )
+	/** Insert a new attribute index */
+	virtual void InsertIndex( const int32 Index )
 	{
-		NumElements = Count;
-		for( TMeshAttributeArray<AttributeType, ElementIDType>& ArrayForIndex : ArrayForIndices )
-		{
-			ArrayForIndex.Initialize( Count, DefaultValue );
-		}
+		ArrayForIndices.InsertDefaulted( Index );
+		ArrayForIndices[ Index ].Initialize( NumElements, DefaultValue );
 	}
 
-	/** Remaps all attribute indices according to the passed mapping */
-	void Remap( const TSparseArray<ElementIDType>& IndexRemap )
+	/** Remove the array at the given index */
+	virtual void RemoveIndex( const int32 Index )
 	{
-		for( TMeshAttributeArray<AttributeType, ElementIDType>& ArrayForIndex : ArrayForIndices )
-		{
-			ArrayForIndex.Remap( IndexRemap, DefaultValue );
-			NumElements = ArrayForIndex.Num();
-		}
+		ArrayForIndices.RemoveAt( Index );
 	}
+
+
+	/** Return the TMeshAttributeArrayBase corresponding to the given attribute index */
+	FORCEINLINE const TMeshAttributeArrayBase<AttributeType>& GetArrayForIndex( const int32 Index ) const { return ArrayForIndices[ Index ]; }
+	FORCEINLINE TMeshAttributeArrayBase<AttributeType>& GetArrayForIndex( const int32 Index ) { return ArrayForIndices[ Index ]; }
+
+	/** Return default value for this attribute type */
+	FORCEINLINE AttributeType GetDefaultValue() const { return DefaultValue; }
 
 	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, TAttributeIndicesArray& AttributesArray )
+	friend FArchive& operator<<( FArchive& Ar, TMeshAttributeArraySet& AttributeArraySet )
 	{
-		Ar << AttributesArray.NumElements;
-		Ar << AttributesArray.ArrayForIndices;
-		Ar << AttributesArray.DefaultValue;
-		Ar << AttributesArray.Flags;
+		Ar << AttributeArraySet.NumElements;
+		Ar << AttributeArraySet.ArrayForIndices;
+		Ar << AttributeArraySet.DefaultValue;
+		Ar << AttributeArraySet.Flags;
 		return Ar;
 	}
 
-private:
-	/** Number of elements in each index */
-	int32 NumElements;
-
+protected:
 	/** An array of MeshAttributeArrays, one per attribute index */
-	TArray<TMeshAttributeArray<AttributeType, ElementIDType>> ArrayForIndices;
+	TArray<TMeshAttributeArrayBase<AttributeType>> ArrayForIndices;
 
 	/** The default value for an attribute of this name */
 	AttributeType DefaultValue;
-
-	/** Implementation-defined attribute name flags */
-	EMeshAttributeFlags Flags;
 };
 
 
-/** Define aliases for element attributes */
-template <typename AttributeType> using TVertexAttributeIndicesArray = TAttributeIndicesArray<AttributeType, FVertexID>;
-template <typename AttributeType> using TVertexInstanceAttributeIndicesArray = TAttributeIndicesArray<AttributeType, FVertexInstanceID>;
-template <typename AttributeType> using TEdgeAttributeIndicesArray = TAttributeIndicesArray<AttributeType, FEdgeID>;
-template <typename AttributeType> using TPolygonAttributeIndicesArray = TAttributeIndicesArray<AttributeType, FPolygonID>;
-template <typename AttributeType> using TPolygonGroupAttributeIndicesArray = TAttributeIndicesArray<AttributeType, FPolygonGroupID>;
+// This is a deprecated class which will be removed in 4.21
+template <typename T, typename U>
+class TAttributeIndicesArray : public TMeshAttributeArraySet<T>
+{
+public:
+
+	using AttributeType = T;
+	using ElementIDType = U;
+
+	/** Return the TMeshAttributeArray corresponding to the given attribute index */
+	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	FORCEINLINE const TMeshAttributeArray<AttributeType, ElementIDType>& GetArrayForIndex( const int32 Index ) const
+	{
+		return static_cast<const TMeshAttributeArray<AttributeType, ElementIDType>&>( this->ArrayForIndices[ Index ] );
+	}
+
+	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	FORCEINLINE TMeshAttributeArray<AttributeType, ElementIDType>& GetArrayForIndex( const int32 Index )
+	{
+		return static_cast<TMeshAttributeArray<AttributeType, ElementIDType>&>( this->ArrayForIndices[ Index ] );
+	}
+};
 
 
 /**
- * This maps an attribute name to a TAttributeIndicesArray, i.e. an array of MeshAttributeArrays, one per attribute index.
+ * This is the class used to access attribute values.
+ * It is a proxy object to a TMeshAttributeArraySet<> and should be passed by value.
+ * It is valid for as long as the owning FMeshDescription exists.
+ * Note that this only provides non-mutating accessors; a mutating version is derived from this.
  */
-template <typename T, typename U>
-class TAttributesMap
+template <typename ElementIDType, typename AttributeType>
+class TMeshAttributesConstRef
 {
 public:
-	using AttributeType = T;
-	using ElementIDType = U;
-	using AttributeIndicesArrayType = TAttributeIndicesArray<AttributeType, ElementIDType>;
-	using MapType = TMap<FName, AttributeIndicesArrayType>;
+	using Type = AttributeType;
+	using ArrayType = TMeshAttributeArraySet<AttributeType>;
 
-	FORCEINLINE TAttributesMap()
+	FORCEINLINE explicit TMeshAttributesConstRef( const ArrayType* InArrayPtr = nullptr )
+		: ArrayPtr( InArrayPtr )
+	{}
+
+	/** Access elements from attribute index 0 */
+	FORCEINLINE const AttributeType& operator[]( const ElementIDType ElementID ) const
+	{
+		return ArrayPtr->GetArrayForIndex( 0 )[ ElementID.GetValue() ];
+	}
+
+	/** Get the element with the given ID from index 0 */
+	FORCEINLINE AttributeType Get( const ElementIDType ElementID ) const
+	{
+		return ArrayPtr->GetArrayForIndex( 0 )[ ElementID.GetValue() ];
+	}
+
+	/** Get the element with the given ID and index */
+	FORCEINLINE AttributeType Get( const ElementIDType ElementID, const int32 Index ) const
+	{
+		return ArrayPtr->GetArrayForIndex( Index )[ ElementID.GetValue() ];
+	}
+
+	/** Return whether the reference is valid or not */
+	FORCEINLINE bool IsValid() const { return ( ArrayPtr != nullptr ); }
+
+	/** Return default value for this attribute type */
+	FORCEINLINE AttributeType GetDefaultValue() const { return ArrayPtr->GetDefaultValue(); }
+
+	/** Return number of indices this attribute has */
+	FORCEINLINE int32 GetNumIndices() const
+	{
+		return ArrayPtr->ArrayType::GetNumIndices();	// note: override virtual dispatch
+	}
+
+	/** Get the number of elements in this attribute array */
+	FORCEINLINE int32 GetNumElements() const
+	{
+		return ArrayPtr->GetNumElements();
+	}
+
+	/** Get the flags for this attribute array set */
+	FORCEINLINE EMeshAttributeFlags GetFlags() const { return ArrayPtr->GetFlags(); }
+
+protected:
+	const ArrayType* ArrayPtr;
+};
+
+
+/**
+ * This is a version which provides mutating accessors.
+ * This hierarchy allows us to assign MeshAttributesConstRef = MeshAttributesRef.
+ */
+template <typename ElementIDType, typename AttributeType>
+class TMeshAttributesRef final : public TMeshAttributesConstRef<ElementIDType, AttributeType>
+{
+public:
+	using Super = TMeshAttributesConstRef<ElementIDType, AttributeType>;
+	using Type = typename Super::Type;
+	using ArrayType = typename Super::ArrayType;
+
+	FORCEINLINE explicit TMeshAttributesRef( const ArrayType* InArrayPtr = nullptr )
+		: Super( InArrayPtr )
+	{}
+
+	/** Access elements from attribute index 0 */
+	FORCEINLINE AttributeType& operator[]( const ElementIDType ElementID ) const
+	{
+		return const_cast<ArrayType*>( this->ArrayPtr )->GetArrayForIndex( 0 )[ ElementID.GetValue() ];
+	}
+
+	/** Set the element with the given ID and index 0 to the provided value */
+	FORCEINLINE void Set( const ElementIDType ElementID, const AttributeType& Value ) const
+	{
+		const_cast<ArrayType*>( this->ArrayPtr )->GetArrayForIndex( 0 )[ ElementID.GetValue() ] = Value;
+	}
+
+	/** Set the element with the given ID and index to the provided value */
+	FORCEINLINE void Set( const ElementIDType ElementID, const int32 Index, const AttributeType& Value ) const
+	{
+		const_cast<ArrayType*>( this->ArrayPtr )->GetArrayForIndex( Index )[ ElementID.GetValue() ] = Value;
+	}
+
+	/** Sets number of indices this attribute has */
+	FORCEINLINE void SetNumIndices( const int32 NumIndices ) const
+	{
+		const_cast<ArrayType*>( this->ArrayPtr )->ArrayType::SetNumIndices( NumIndices );	// note: override virtual dispatch
+	}
+
+	/** Inserts an attribute index */
+	FORCEINLINE void InsertIndex( const int32 Index ) const
+	{
+		const_cast<ArrayType*>( this->ArrayPtr )->ArrayType::InsertIndex( Index );	// note: override virtual dispatch
+	}
+
+	/** Removes an attribute index */
+	FORCEINLINE void RemoveIndex( const int32 Index ) const
+	{
+		const_cast<ArrayType*>( this->ArrayPtr )->ArrayType::RemoveIndex( Index );	// note: override virtual dispatch
+	}
+};
+
+
+
+/**
+ * This is the class used to provide a 'view' of the specified type on an attribute array.
+ * Like TMeshAttributesRef, it is a proxy object which is valid for as long as the owning FMeshDescription exists,
+ * and should be passed by value.
+ *
+ * This is the base class, and shouldn't be instanced directly.
+ */
+template <typename ViewType>
+class TMeshAttributesViewBase
+{
+public:
+	/** Return whether the reference is valid or not */
+	FORCEINLINE bool IsValid() const { return ( ArrayPtr != nullptr ); }
+
+	/** Return number of indices this attribute has */
+	FORCEINLINE int32 GetNumIndices() const { return ArrayPtr->GetNumIndices(); }
+
+	/** Return default value for this attribute type */
+	FORCEINLINE ViewType GetDefaultValue() const;
+
+	/** Get the number of elements in this attribute array */
+	FORCEINLINE int32 GetNumElements() const
+	{
+		return ArrayPtr->GetNumElements();
+	}
+
+protected:
+	FORCEINLINE explicit TMeshAttributesViewBase( const FMeshAttributeArraySetBase* InArrayPtr )
+		: ArrayPtr( InArrayPtr )
+	{}
+
+	/** Get the element with the given ID from index 0 */
+	FORCEINLINE ViewType GetByIndex( const int32 ElementIndex ) const;
+
+	/** Get the element with the given element and attribute indices */
+	FORCEINLINE ViewType GetByIndex( const int32 ElementIndex, const int32 AttributeIndex ) const;
+
+	/** Set the attribute index 0 element with the given index to the provided value */
+	FORCEINLINE void SetByIndex( const int32 ElementIndex, const ViewType& Value ) const;
+
+	/** Set the element with the given element and attribute indices to the provided value */
+	FORCEINLINE void SetByIndex( const int32 ElementIndex, const int32 AttributeIndex, const ViewType& Value ) const;
+
+	const FMeshAttributeArraySetBase* ArrayPtr;
+};
+
+
+/**
+ * This is a derived version with typesafe element accessors, which is returned by TAttributesSet<>.
+ * It is also limited to non-mutating accessors, and is returned by GetAttributesRef on a const attribute set.
+ */
+template <typename ElementIDType, typename ViewType>
+class TMeshAttributesConstView : public TMeshAttributesViewBase<ViewType>
+{
+	using Super = TMeshAttributesViewBase<ViewType>;
+
+public:
+	FORCEINLINE explicit TMeshAttributesConstView( const FMeshAttributeArraySetBase* InArrayPtr = nullptr )
+		: Super( InArrayPtr )
+	{}
+
+	/** Get the element with the given ID from index 0. This version has a typesafe element ID accessor. */
+	FORCEINLINE ViewType Get( const ElementIDType ElementID ) const { return this->GetByIndex( ElementID.GetValue() ); }
+
+	/** Get the element with the given ID and index. This version has a typesafe element ID accessor. */
+	FORCEINLINE ViewType Get( const ElementIDType ElementID, const int32 Index ) const { return this->GetByIndex( ElementID.GetValue(), Index ); }
+};
+
+
+/**
+ * This is a derived version with mutating accessors.
+ * This type of hierarchy means it's possible to assign a MeshAttributesConstView = MeshAttributesView.
+ */
+template <typename ElementIDType, typename ViewType>
+class TMeshAttributesView final : public TMeshAttributesConstView<ElementIDType, ViewType>
+{
+	using Super = TMeshAttributesConstView<ElementIDType, ViewType>;
+
+public:
+	FORCEINLINE explicit TMeshAttributesView( FMeshAttributeArraySetBase* InArrayPtr = nullptr )
+		: Super( InArrayPtr )
+	{}
+
+	/** Set the element with the given ID and index 0 to the provided value. This version has a typesafe element ID accessor. */
+	FORCEINLINE void Set( const ElementIDType ElementID, const ViewType& Value ) const { this->SetByIndex( ElementID.GetValue(), Value ); }
+
+	/** Set the element with the given ID and index to the provided value. This version has a typesafe element ID accessor. */
+	FORCEINLINE void Set( const ElementIDType ElementID, const int32 Index, const ViewType& Value ) const { this->SetByIndex( ElementID.GetValue(), Index, Value ); }
+
+	/** Sets number of indices this attribute has */
+	FORCEINLINE void SetNumIndices( const int32 NumIndices ) const
+	{
+		const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr )->SetNumIndices( NumIndices );
+	}
+
+	/** Inserts an attribute index */
+	FORCEINLINE void InsertIndex( const int32 Index ) const
+	{
+		const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr )->InsertIndex( Index );
+	}
+
+	/** Removes an attribute index */
+	FORCEINLINE void RemoveIndex( const int32 Index )
+	{
+		const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr )->RemoveIndex( Index );
+	}
+};
+
+
+/**
+ * This is a wrapper for an allocated attributes array.
+ * It holds a TUniquePtr pointing to the actual attributes array, and performs polymorphic copy and assignment,
+ * as per the actual array type.
+ */
+class FAttributesSetEntry
+{
+public:
+	/**
+	 * Default constructor.
+	 * This breaks the invariant that Ptr be always valid, but is necessary so that it can be the value type of a TMap.
+	 */
+	FORCEINLINE FAttributesSetEntry() = default;
+
+	/**
+	 * Construct a valid FAttributesSetEntry of the concrete type specified.
+	 */
+	template <typename AttributeType>
+	FORCEINLINE FAttributesSetEntry( const int32 NumberOfIndices, const AttributeType& Default, const EMeshAttributeFlags Flags, const int32 NumElements )
+		: Ptr( MakeUnique<TMeshAttributeArraySet<AttributeType>>( NumberOfIndices, Default, Flags, NumElements ) )
+	{}
+
+	/** Default destructor */
+	FORCEINLINE ~FAttributesSetEntry() = default;
+
+	/** Polymorphic copy: a new copy of Other is created */
+	FAttributesSetEntry( const FAttributesSetEntry& Other )
+		: Ptr( Other.Ptr ? Other.Ptr->Clone() : nullptr )
+	{}
+
+	/** Default move constructor */
+	FAttributesSetEntry( FAttributesSetEntry&& ) = default;
+
+	/** Polymorphic assignment */
+	FAttributesSetEntry& operator=( const FAttributesSetEntry& Other )
+	{
+		FAttributesSetEntry Temp( Other );
+		Swap( *this, Temp );
+		return *this;
+	}
+
+	/** Default move assignment */
+	FAttributesSetEntry& operator=( FAttributesSetEntry&& ) = default;
+
+	/** Transparent access through the TUniquePtr */
+	FORCEINLINE const FMeshAttributeArraySetBase* Get() const { return Ptr.Get(); }
+	FORCEINLINE const FMeshAttributeArraySetBase* operator->() const { return Ptr.Get(); }
+	FORCEINLINE const FMeshAttributeArraySetBase& operator*() const { return *Ptr; }
+	FORCEINLINE FMeshAttributeArraySetBase* Get() { return Ptr.Get(); }
+	FORCEINLINE FMeshAttributeArraySetBase* operator->() { return Ptr.Get(); }
+	FORCEINLINE FMeshAttributeArraySetBase& operator*() { return *Ptr; }
+
+	/** Object can be coerced to bool to indicate if it is valid */
+	FORCEINLINE explicit operator bool() const { return Ptr.IsValid(); }
+	FORCEINLINE bool operator!() const { return !Ptr.IsValid(); }
+
+	/** Given a type at runtime, allocate an attribute array of that type, owned by Ptr */
+	void CreateArrayOfType( const uint32 Type );
+
+	/** Serialization */
+	friend FArchive& operator<<( FArchive& Ar, FAttributesSetEntry& Entry );
+
+private:
+	TUniquePtr<FMeshAttributeArraySetBase> Ptr;
+};
+
+
+/**
+ * This is the container for all attributes and their arrays. It wraps a TMap, mapping from attribute name to attribute array.
+ * An attribute may be of any arbitrary type; we use a mixture of polymorphism and compile-time templates to handle the different types.
+ */
+class FAttributesSetBase
+{
+public:
+	/** Constructor */
+	FAttributesSetBase()
 		: NumElements( 0 )
 	{}
 
-	/** Register an attribute name */
-	FORCEINLINE void RegisterAttribute( const FName AttributeName, const int32 NumberOfIndices, const AttributeType& Default, const EMeshAttributeFlags Flags )
-	{
-		if( !Map.Contains( AttributeName ) )
-		{
-			Map.Emplace( AttributeName, TAttributeIndicesArray<AttributeType, ElementIDType>( NumberOfIndices, Default, Flags, NumElements ) );
-		}
-	}
-
-	/** Unregister an attribute name */
-	FORCEINLINE void UnregisterAttribute( const FName AttributeName )
-	{
-		Map.Remove( AttributeName );
-	}
-
-	/** Determines whether an attribute exists with the given name */
-	FORCEINLINE bool HasAttribute( const FName AttributeName ) const
-	{
-		return Map.Contains( AttributeName );
-	}
-
-	/** Get attribute array with the given name and index */
-	FORCEINLINE TMeshAttributeArray<AttributeType, ElementIDType>& GetAttributes( const FName AttributeName, const int32 AttributeIndex = 0 )
-	{
-		// @todo mesh description: should this handle non-existent attribute names and indices gracefully?
-		return Map.FindChecked( AttributeName ).GetArrayForIndex( AttributeIndex );
-	}
-
-	FORCEINLINE const TMeshAttributeArray<AttributeType, ElementIDType>& GetAttributes( const FName AttributeName, const int32 AttributeIndex = 0 ) const
-	{
-		// @todo mesh description: should this handle non-existent attribute names and indices gracefully?
-		return Map.FindChecked( AttributeName ).GetArrayForIndex( AttributeIndex );
-	}
-
-	/** Get attribute indices array with the given name */
-	FORCEINLINE TAttributeIndicesArray<AttributeType, ElementIDType>& GetAttributesSet( const FName AttributeName )
-	{
-		// @todo mesh description: should this handle non-existent attribute names gracefully?
-		return Map.FindChecked( AttributeName );
-	}
-
-	FORCEINLINE const TAttributeIndicesArray<AttributeType, ElementIDType>& GetAttributesSet( const FName AttributeName ) const
-	{
-		// @todo mesh description: should this handle non-existent attribute names gracefully?
-		return Map.FindChecked( AttributeName );
-	}
-
-	/** Returns the number of indices for the attribute with the given name */
-	FORCEINLINE int32 GetAttributeIndexCount( const FName AttributeName ) const
-	{
-		// @todo mesh description: should this handle non-existent attribute names and indices gracefully?
-		return Map.FindChecked( AttributeName ).GetNumIndices();
-	}
-
-	/** Sets the number of indices for the attribute with the given name */
-	FORCEINLINE void SetAttributeIndexCount( const FName AttributeName, const int32 NumIndices )
-	{
-		Map.FindChecked( AttributeName ).SetNumIndices( NumIndices );
-	}
-
-	/** Returns an array of all the attribute names registered for this attribute type */
-	template <typename Allocator>
-	FORCEINLINE void GetAttributeNames( TArray<FName, Allocator>& OutAttributeNames ) const
-	{
-		Map.GetKeys( OutAttributeNames );
-	}
-
-	/** Gets a single attribute with the given ElementID, Name and Index */
-	FORCEINLINE AttributeType GetAttribute( const ElementIDType ElementID, const FName AttributeName, const int32 AttributeIndex = 0 ) const
-	{
-		return Map.FindChecked( AttributeName ).GetArrayForIndex( AttributeIndex )[ ElementID ];
-	}
-
-	/** Sets a single attribute with the given ElementID, Name and Index to the given value */
-	FORCEINLINE void SetAttribute( const ElementIDType ElementID, const FName AttributeName, const int32 AttributeIndex, const AttributeType& AttributeValue )
-	{
-		Map.FindChecked( AttributeName ).GetArrayForIndex( AttributeIndex )[ ElementID ] = AttributeValue;
-	}
-
-	/** Inserts a default-initialized value for all attributes of the given ID */
-	void Insert( const ElementIDType ElementID )
-	{
-		NumElements = FMath::Max( NumElements, ElementID.GetValue() + 1 );
-		for( auto& AttributeNameAndIndicesArray : Map )
-		{
-			AttributeNameAndIndicesArray.Value.Insert( ElementID );
-			check( AttributeNameAndIndicesArray.Value.GetNumElements() == this->NumElements );
-		}
-	}
-
-	/** Removes all attributes with the given ID */
-	void Remove( const ElementIDType ElementID )
-	{
-		for( auto& AttributeNameAndIndicesArray : Map )
-		{
-			AttributeNameAndIndicesArray.Value.Remove( ElementID );
-		}
-	}
-
-	/** Initializes all attributes to have the given number of elements with the default value */
-	void Initialize( const int32 Count )
-	{
-		NumElements = Count;
-		for( auto& AttributeNameAndIndicesArray : Map )
-		{
-			AttributeNameAndIndicesArray.Value.Initialize( Count );
-		}
-	}
-
-	/** Returns the number of elements held by each attribute in this map */
-	FORCEINLINE int32 GetNumElements() const
-	{
-		return NumElements;
-	}
-
-	/**
-	 * Call the supplied function on each attribute.
-	 * The prototype should be Func( const FName AttributeName, auto& AttributeIndicesArray );
-	 */
-	template <typename FuncType>
-	void ForEachAttributeIndicesArray( const FuncType& Func )
-	{
-		for( auto& AttributeNameAndIndicesArray : Map )
-		{
-			Func( AttributeNameAndIndicesArray.Key, AttributeNameAndIndicesArray.Value );
-		}
-	}
-
-	template <typename FuncType>
-	void ForEachAttributeIndicesArray( const FuncType& Func ) const
-	{
-		for( const auto& AttributeNameAndIndicesArray : Map )
-		{
-			Func( AttributeNameAndIndicesArray.Key, AttributeNameAndIndicesArray.Value );
-		}
-	}
-
-	/** Registers attributes copied from the specified attributes map */
-	void RegisterAttributesFromAttributesSet( const TAttributesMap& SrcAttributesMap )
-	{
-		for( const auto& AttributeNameAndIndicesArray : SrcAttributesMap.Map )
-		{
-			const FName& AttributeName = AttributeNameAndIndicesArray.Key;
-			const AttributeIndicesArrayType& AttributeIndicesArray = AttributeNameAndIndicesArray.Value;
-
-			RegisterAttribute( AttributeName, AttributeIndicesArray.GetNumIndices(), AttributeIndicesArray.GetDefaultValue(), AttributeIndicesArray.GetFlags() );
-		}
-	}
-
-	/** Applies the given remapping to the attributes set */
-	void Remap( const TSparseArray<ElementIDType>& IndexRemap )
-	{
-		if( Map.Num() == 0 )
-		{
-			// If there are no attributes registered, determine the number of elements by finding the maximum
-			// remapped element ID in the IndexRemap array
-			NumElements = 0;
-			for( const ElementIDType ElementID : IndexRemap )
-			{
-				NumElements = FMath::Max( NumElements, ElementID.GetValue() + 1 );
-			}
-		}
-		else
-		{
-			// Otherwise perform the remap, and get the number of elements from the resulting attribute indices array.
-			for( auto& AttributeNameAndIndicesArray : Map )
-			{
-				AttributeNameAndIndicesArray.Value.Remap( IndexRemap );
-				NumElements = AttributeNameAndIndicesArray.Value.GetNumElements();
-			}
-		}
-	}
-
-private:
-	friend FArchive& operator<<( FArchive& Ar, TAttributesMap& AttributesMap )
-	{
-		// First serialize the number of elements which each attribute should contain
-		Ar << AttributesMap.NumElements;
-
-		// Now serialize the attributes of this type.
-		Ar << AttributesMap.Map;
-
-		return Ar;
-	}
-
-	/** Number of elements for each attribute index */
-	int32 NumElements;
-
-	/** The actual container */
-	MapType Map;
-};
-
-
-/**
- * Helper template which transforms a tuple of types into a tuple of TAttributesArrays of those types.
- *
- * We need to instance TAttributeArrays for each type in the AttributeTypes tuple.
- * Then we can access the appropriate array (as long as we know what its index is).
- *
- * This template, given ElementIDType and TTuple<A, B>, will generate:
- * TTuple<TAttributesArray<A, ElementIDType>, TAttributesArray<B, ElementIDType>>
- */
-template <typename ElementIDType, typename Tuple>
-struct TMakeAttributesSet;
-
-template <typename ElementIDType, typename... TupleTypes>
-struct TMakeAttributesSet<ElementIDType, TTuple<TupleTypes...>>
-{
-	using Type = TTuple<TAttributesMap<TupleTypes, ElementIDType>...>;
-};
-
-
-/**
- * Helper template which gets the tuple index of a given type from a given TTuple.
- *
- * Given Type = char, and Tuple = TTuple<int, float, char>,
- * TTupleIndex<Type, Tuple>::Value will be 2.
- */
-template <typename Type, typename Tuple>
-struct TTupleIndex;
-
-template <typename Type, typename... Types>
-struct TTupleIndex<Type, TTuple<Type, Types...>>
-{
-	static const uint32 Value = 0U;
-};
-
-template <typename Type, typename Head, typename... Tail>
-struct TTupleIndex<Type, TTuple<Head, Tail...>>
-{
-	static const uint32 Value = 1U + TTupleIndex<Type, TTuple<Tail...>>::Value;
-};
-
-
-/** Helper template which splits a tuple into head and tail */
-template <typename Tuple>
-struct TSplitTuple;
-
-template <typename TupleHead, typename... TupleTail>
-struct TSplitTuple<TTuple<TupleHead, TupleTail...>>
-{
-	using Head = TupleHead;
-	using Tail = TTuple<TupleTail...>;
-};
-
-
-/**
- * This is the container for all attributes of a particular mesh element.
- * It contains a TTuple of TAttributesMap, one per attribute type (FVector, float, bool, etc)
- */
-template <typename ElementIDType>
-class TAttributesSet
-{
-public:
 	/**
 	 * Register a new attribute name with the given type (must be a member of the AttributeTypes tuple).
+	 * If the attribute name is already registered, it will do nothing.
 	 *
 	 * Example of use:
 	 *
@@ -646,210 +747,725 @@ public:
 	template <typename AttributeType>
 	void RegisterAttribute( const FName AttributeName, const int32 NumberOfIndices = 1, const AttributeType& Default = AttributeType(), const EMeshAttributeFlags Flags = EMeshAttributeFlags::None )
 	{
-		Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().RegisterAttribute( AttributeName, NumberOfIndices, Default, Flags );
+		if( !Map.Contains( AttributeName ) )
+		{
+			Map.Emplace( AttributeName, FAttributesSetEntry( NumberOfIndices, Default, Flags, NumElements ) );
+		}
 	}
 
-	/** Unregister an attribute name with the given type */
-	template <typename AttributeType>
+	/**
+	 * Unregister an attribute with the given name.
+	 */
 	void UnregisterAttribute( const FName AttributeName )
 	{
-		Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().UnregisterAttribute( AttributeName );
+		Map.Remove( AttributeName );
 	}
 
-	/** Determines whether an attribute of the given type exists with the given name */
-	template <typename AttributeType>
+	/** Determines whether an attribute exists with the given name */
 	bool HasAttribute( const FName AttributeName ) const
 	{
-		return Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().HasAttribute( AttributeName );
+		return ( Map.Contains( AttributeName ) );
 	}
 
 	/**
-	 * Get an attribute array with the given type, name and index.
+	 * Determines whether an attribute of the given type exists with the given name
+	 */
+	template <typename AttributeType>
+	bool HasAttributeOfType( const FName AttributeName ) const
+	{
+		if( const FAttributesSetEntry* ArraySetPtr = Map.Find( AttributeName ) )
+		{
+			return ( *ArraySetPtr )->HasType<AttributeType>();
+		}
+
+		return false;
+	}
+
+	/** Initializes all attributes to have the given number of elements with the default value */
+	void Initialize( const int32 Count )
+	{
+		NumElements = Count;
+		for( auto& MapEntry : Map )
+		{
+			MapEntry.Value->Initialize( Count );
+		}
+	}
+
+	/** Applies the given remapping to the attributes set */
+	void Remap( const TSparseArray<int32>& IndexRemap );
+
+	template <typename AttributeType>
+	DEPRECATED( 4.20, "Please use untemplated UnregisterAttribute() instead" )
+	void UnregisterAttribute( const FName AttributeName )
+	{
+		return UnregisterAttribute( AttributeName );
+	}
+
+	template <typename AttributeType>
+	DEPRECATED( 4.20, "Please use untemplated HasAttribute() instead" )
+	bool HasAttribute( const FName AttributeName )
+	{
+		return HasAttribute( AttributeName );
+	}
+
+protected:
+	/**
+	 * Insert a new element at the given index.
+	 * The public API version of this function takes an ID of ElementIDType instead of a typeless index.
+	 */
+	void Insert( const int32 Index )
+	{
+		NumElements = FMath::Max( NumElements, Index + 1 );
+
+		for( auto& MapEntry : Map )
+		{
+			MapEntry.Value->Insert( Index );
+			check( MapEntry.Value->GetNumElements() == NumElements );
+		}
+	}
+
+	/**
+	 * Remove an element at the given index.
+	 * The public API version of this function takes an ID of ElementIDType instead of a typeless index.
+	 */
+	void Remove( const int32 Index )
+	{
+		for( auto& MapEntry : Map )
+		{
+			MapEntry.Value->Remove( Index );
+		}
+	}
+
+	/** Serialization */
+	friend FArchive& operator<<( FArchive& Ar, FAttributesSetBase& AttributesSet );
+
+	template <typename T>
+	friend void SerializeLegacy( FArchive& Ar, FAttributesSetBase& AttributesSet );
+
+	/** The actual container */
+	TMap<FName, FAttributesSetEntry> Map;
+
+	/** The number of elements in each attribute array */
+	int32 NumElements;
+};
+
+
+/**
+ * This is a version of the attributes set container which accesses elements by typesafe IDs.
+ * This prevents access of (for example) vertex instance attributes by vertex IDs.
+ */
+template <typename ElementIDType>
+class TAttributesSet final : public FAttributesSetBase
+{
+	using FAttributesSetBase::Insert;
+	using FAttributesSetBase::Remove;
+
+public:
+	/**
+	 * Get an attribute array with the given type and name.
+	 * The attribute type must correspond to the type passed as the template parameter.
 	 *
 	 * Example of use:
 	 *
-	 *		const TVertexAttributeArray<FVector>& VertexPositions = VertexAttributes().GetAttributes<FVector>( "Position" );
+	 *		TVertexAttributesConstRef<FVector> VertexPositions = VertexAttributes().GetAttributesRef<FVector>( "Position" ); // note: assign to value type
 	 *		for( const FVertexID VertexID : GetVertices().GetElementIDs() )
 	 *		{
-	 *			const FVector Position = VertexPositions[ VertexID ];
+	 *			const FVector Position = VertexPositions.Get( VertexID );
 	 *			DoSomethingWith( Position );
 	 *		}
+	 *
+	 * Note that the returned object is a value type which should be assigned and passed by value, not reference.
+	 * It is valid for as long as this TAttributesSet object exists.
 	 */
 	template <typename AttributeType>
-	TMeshAttributeArray<AttributeType, ElementIDType>& GetAttributes( const FName AttributeName, const int32 AttributeIndex = 0 )
+	TMeshAttributesConstRef<ElementIDType, AttributeType> GetAttributesRef( const FName AttributeName ) const
 	{
-		// @todo mesh description: should this handle non-existent attribute names and indices gracefully?
-		return Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().GetAttributes( AttributeName, AttributeIndex );
+		if( const FAttributesSetEntry* ArraySetPtr = this->Map.Find( AttributeName ) )
+		{
+			if( ( *ArraySetPtr )->HasType<AttributeType>() )
+			{
+				return TMeshAttributesConstRef<ElementIDType, AttributeType>( static_cast<const TMeshAttributeArraySet<AttributeType>*>( ArraySetPtr->Get() ) );
+			}
+		}
+
+		return TMeshAttributesConstRef<ElementIDType, AttributeType>();
 	}
 
 	template <typename AttributeType>
-	const TMeshAttributeArray<AttributeType, ElementIDType>& GetAttributes( const FName AttributeName, const int32 AttributeIndex = 0 ) const
+	TMeshAttributesRef<ElementIDType, AttributeType> GetAttributesRef( const FName AttributeName )
 	{
-		// @todo mesh description: should this handle non-existent attribute names and indices gracefully?
-		return Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().GetAttributes( AttributeName, AttributeIndex );
+		if( FAttributesSetEntry* ArraySetPtr = this->Map.Find( AttributeName ) )
+		{
+			if( ( *ArraySetPtr )->HasType<AttributeType>() )
+			{
+				return TMeshAttributesRef<ElementIDType, AttributeType>( static_cast<TMeshAttributeArraySet<AttributeType>*>( ArraySetPtr->Get() ) );
+			}
+		}
+
+		return TMeshAttributesRef<ElementIDType, AttributeType>();
 	}
 
 	/**
-	 * Get a set of attribute arrays with the given type and name.
+	 * Get a view on an attribute array with the given name, accessing elements as the given type.
+	 * Access to elements will be slightly slower than with GetAttributesRef, but element access is not strongly typed.
 	 *
 	 * Example of use:
 	 *
-	 *		const TArray<TVertexInstanceAttributeArray<FVector2D>>& UVs = VertexInstanceAttributes().GetAttributesSet<FVector2D>( "UV" );
+	 *		const TVertexInstanceAttributesView<FVector> VertexNormals = VertexInstanceAttributes().GetAttributesView<FVector>( "Normal" );
 	 *		for( const FVertexInstanceID VertexInstanceID : GetVertexInstances().GetElementIDs() )
 	 *		{
-	 *			const FVector2D UV0 = UVs[ 0 ][ VertexInstanceID ];
-	 *			const FVector2D UV1 = UVs[ 1 ][ VertexInstanceID ];
-	 *			DoSomethingWith( UV0, UV1 );
+	 *          // This will work even if the Normals array has a different internal type, e.g. FPackedVector
+	 *			const FVector Normal = VertexNormals.Get( VertexInstanceID );
+	 *			DoSomethingWith( Normal );
 	 *		}
+	 *
+	 * Note that the returned object is a value type which should be assigned and passed by value, not reference.
+	 * It is valid for as long as this TAttributesSet object exists.
 	 */
-	template <typename AttributeType>
-	TAttributeIndicesArray<AttributeType, ElementIDType>& GetAttributesSet( const FName AttributeName )
+	template <typename ViewType>
+	TMeshAttributesConstView<ElementIDType, ViewType> GetAttributesView( const FName AttributeName ) const
 	{
-		// @todo mesh description: should this handle non-existent attribute names gracefully?
-		return Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().GetAttributesSet( AttributeName );
+		if( const FAttributesSetEntry* ArraySetPtr = this->Map.Find( AttributeName ) )
+		{
+			return TMeshAttributesConstView<ElementIDType, ViewType>( ArraySetPtr->Get() );
+		}
+
+		return TMeshAttributesConstView<ElementIDType, ViewType>();
 	}
 
-	template <typename AttributeType>
-	const TAttributeIndicesArray<AttributeType, ElementIDType>& GetAttributesSet( const FName AttributeName ) const
+	template <typename ViewType>
+	TMeshAttributesView<ElementIDType, ViewType> GetAttributesView( const FName AttributeName )
 	{
-		// @todo mesh description: should this handle non-existent attribute names gracefully?
-		return Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().GetAttributesSet( AttributeName );
+		if( FAttributesSetEntry* ArraySetPtr = this->Map.Find( AttributeName ) )
+		{
+			return TMeshAttributesView<ElementIDType, ViewType>( ArraySetPtr->Get() );
+		}
+
+		return TMeshAttributesView<ElementIDType, ViewType>();
 	}
 
 	/** Returns the number of indices for the attribute with the given name */
 	template <typename AttributeType>
 	int32 GetAttributeIndexCount( const FName AttributeName ) const
 	{
-		// @todo mesh description: should this handle non-existent attribute names and indices gracefully?
-		return Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().GetAttributeIndexCount( AttributeName );
+		if( const FAttributesSetEntry* ArraySetPtr = this->Map.Find( AttributeName ) )
+		{
+			if( ( *ArraySetPtr )->HasType<AttributeType>() )
+			{
+				using ArrayType = TMeshAttributeArraySet<AttributeType>;
+				return static_cast<const ArrayType*>( ArraySetPtr->Get() )->ArrayType::GetNumIndices();	// note: override virtual dispatch
+			}
+		}
+
+		return 0;
 	}
 
 	/** Sets the number of indices for the attribute with the given name */
 	template <typename AttributeType>
 	void SetAttributeIndexCount( const FName AttributeName, const int32 NumIndices )
 	{
-		Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().SetAttributeIndexCount( AttributeName, NumIndices );
+		if( FAttributesSetEntry* ArraySetPtr = this->Map.Find( AttributeName ) )
+		{
+			if( ( *ArraySetPtr )->HasType<AttributeType>() )
+			{
+				using ArrayType = TMeshAttributeArraySet<AttributeType>;
+				static_cast<ArrayType*>( ArraySetPtr->Get() )->ArrayType::SetNumIndices( NumIndices );	// note: override virtual dispatch
+			}
+		}
+	}
+
+	/** Insert a new index for the attribute with the given name */
+	template <typename AttributeType>
+	void InsertAttributeIndex( const FName AttributeName, const int32 Index )
+	{
+		if( FAttributesSetEntry* ArraySetPtr = this->Map.Find( AttributeName ) )
+		{
+			if( ( *ArraySetPtr )->HasType<AttributeType>() )
+			{
+				using ArrayType = TMeshAttributeArraySet<AttributeType>;
+				static_cast<ArrayType*>( ArraySetPtr->Get() )->ArrayType::InsertIndex( Index );	// note: override virtual dispatch
+			}
+		}
+	}
+
+	/** Remove an existing index from the attribute with the given name */
+	template <typename AttributeType>
+	void RemoveAttributeIndex( const FName AttributeName, const int32 Index )
+	{
+		if( FAttributesSetEntry* ArraySetPtr = this->Map.Find( AttributeName ) )
+		{
+			if( ( *ArraySetPtr )->HasType<AttributeType>() )
+			{
+				using ArrayType = TMeshAttributeArraySet<AttributeType>;
+				static_cast<ArrayType*>( ArraySetPtr->Get() )->ArrayType::RemoveIndex( Index );	// note: override virtual dispatch
+			}
+		}
 	}
 
 	/** Returns an array of all the attribute names registered for this attribute type */
 	template <typename AttributeType, typename Allocator>
 	void GetAttributeNames( TArray<FName, Allocator>& OutAttributeNames ) const
 	{
-		Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().GetAttributeNames( OutAttributeNames );
+		this->Map.GetKeys( OutAttributeNames );
 	}
 
 	template <typename AttributeType>
 	AttributeType GetAttribute( const ElementIDType ElementID, const FName AttributeName, const int32 AttributeIndex = 0 ) const
 	{
-		return Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().GetAttribute( ElementID, AttributeName, AttributeIndex );
+		const FMeshAttributeArraySetBase* ArraySetPtr = this->Map.FindChecked( AttributeName ).Get();
+		check( ArraySetPtr->HasType<AttributeType>() );
+		return static_cast<const TMeshAttributeArraySet<AttributeType>*>( ArraySetPtr )->GetArrayForIndex( AttributeIndex )[ ElementID.GetValue() ];
 	}
 
 	template <typename AttributeType>
 	void SetAttribute( const ElementIDType ElementID, const FName AttributeName, const int32 AttributeIndex, const AttributeType& AttributeValue )
 	{
-		Container.template Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().SetAttribute( ElementID, AttributeName, AttributeIndex, AttributeValue );
+		FMeshAttributeArraySetBase* ArraySetPtr = this->Map.FindChecked( AttributeName ).Get();
+		check( ArraySetPtr->HasType<AttributeType>() );
+		static_cast<TMeshAttributeArraySet<AttributeType>*>( ArraySetPtr )->GetArrayForIndex( AttributeIndex )[ ElementID.GetValue() ] = AttributeValue;
 	}
 
 	/** Inserts a default-initialized value for all attributes of the given ID */
-	void Insert( const ElementIDType ElementID )
+	FORCEINLINE void Insert( const ElementIDType ElementID )
 	{
-		VisitTupleElements( [ ElementID ]( auto& AttributesMap ) { AttributesMap.Insert( ElementID ); }, Container );
+		this->Insert( ElementID.GetValue() );
 	}
 
 	/** Removes all attributes with the given ID */
-	void Remove( const ElementIDType ElementID )
+	FORCEINLINE void Remove( const ElementIDType ElementID )
 	{
-		VisitTupleElements( [ ElementID ]( auto& AttributesMap ) { AttributesMap.Remove( ElementID ); }, Container );
+		this->Remove( ElementID.GetValue() );
 	}
 
-	/** Initializes the attribute set with the given number of elements, all at the default value */
-	void Initialize( const int32 NumElements )
-	{
-		VisitTupleElements( [ NumElements ]( auto& AttributesMap ) { AttributesMap.Initialize( NumElements); }, Container );
-	}
+	/**
+	 * Call the supplied function on each attribute.
+	 * The prototype should be Func( const FName AttributeName, auto AttributesRef );
+	 */
+	template <typename ForEachFunc> void ForEach( ForEachFunc Func );
+
+	/**
+	* Call the supplied function on each attribute.
+	* The prototype should be Func( const FName AttributeName, auto AttributesConstRef );
+	*/
+	template <typename ForEachFunc> void ForEach( ForEachFunc Func ) const;
 
 	/**
 	 * Call the supplied function on each attribute.
 	 * The prototype should be Func( const FName AttributeName, auto& AttributeIndicesArray );
 	 */
 	template <typename FuncType>
+	DEPRECATED( 4.20, "This is no longer supported; please use ForEach() instead and amend your lambda to accept an auto of type TMeshAttributesRef instead." )
 	void ForEachAttributeIndicesArray( const FuncType& Func )
 	{
-		VisitTupleElements( [ &Func ]( auto& AttributesMap ) { AttributesMap.ForEachAttributeIndicesArray( Func ); }, Container );
+		check( false );
 	}
 
 	template <typename FuncType>
+	DEPRECATED( 4.20, "This is no longer supported; please use ForEach() instead and amend your lambda to accept an auto of type const TMeshAttributesRef instead." )
 	void ForEachAttributeIndicesArray( const FuncType& Func ) const
 	{
-		VisitTupleElements( [ &Func ]( const auto& AttributesMap ) { AttributesMap.ForEachAttributeIndicesArray( Func ); }, Container );
+		check( false );
 	}
 
-	/** Applies the given remapping to the attributes set */
-	void Remap( const TSparseArray<ElementIDType>& IndexRemap )
+	template <typename AttributeType>
+	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	TMeshAttributeArray<AttributeType, ElementIDType>& GetAttributes( const FName AttributeName, const int32 AttributeIndex = 0 )
 	{
-		VisitTupleElements( [ &IndexRemap ]( auto& AttributesMap ) { AttributesMap.Remap( IndexRemap ); }, Container );
+		FMeshAttributeArraySetBase* ArraySetPtr = this->Map.FindChecked( AttributeName ).Get();
+		check( ArraySetPtr->HasType<AttributeType>() );
+		return static_cast<TAttributeIndicesArray<AttributeType, ElementIDType>*>( ArraySetPtr )->GetArrayForIndex( AttributeIndex );
 	}
 
-	/** Copies registered attributes from another TAttributesSet */
-	void RegisterAttributesFromAttributesSet( const TAttributesSet& Other )
+	template <typename AttributeType>
+	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	const TMeshAttributeArray<AttributeType, ElementIDType>& GetAttributes( const FName AttributeName, const int32 AttributeIndex = 0 ) const
 	{
-		VisitTupleElements( [ this ]( auto& DestAttributesMap, const auto& SrcAttributesMap ) { DestAttributesMap.RegisterAttributesFromAttributesSet( SrcAttributesMap ); },
-			Container, Other.Container );
+		const FMeshAttributeArraySetBase* ArraySetPtr = this->Map.FindChecked( AttributeName ).Get();
+		check( ArraySetPtr->HasType<AttributeType>() );
+		return static_cast<const TAttributeIndicesArray<AttributeType, ElementIDType>*>( ArraySetPtr )->GetArrayForIndex( AttributeIndex );
 	}
 
-	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, TAttributesSet& AttributesSet )
+	template <typename AttributeType>
+	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	TAttributeIndicesArray<AttributeType, ElementIDType>& GetAttributesSet( const FName AttributeName )
 	{
-		// Serialize the number of attribute types in the container tuple.
-		// If loading, this may be different to the current number defined.
-		const int32 NumAttributeTypes = TTupleArity<AttributeTypes>::Value;
-		int32 SerializedAttributeTypes = NumAttributeTypes;
-		Ar << SerializedAttributeTypes;
-		// Cannot deserialize more attribute types than there are
-		check( NumAttributeTypes >= SerializedAttributeTypes );
-
-		// Serialize the tuple of attribute maps by hand, so we can deserialize correctly when the archive contains fewer tuple elements than the current code
-		// NOTE: This relies on the assumption that VisitTupleElements will always visit elements in ascending order.
-		VisitTupleElements( [ &Ar, SerializedAttributeTypes, TypeIndex = 0, NumElements = 0 ]( auto& AttributesMap ) mutable
-			{
-				if( TypeIndex < SerializedAttributeTypes )
-				{
-					// Serialize attributes map, and keep note of the number of elements present.
-					// This should be the same every iteration.
-					Ar << AttributesMap;
-					check( TypeIndex == 0 || NumElements == AttributesMap.GetNumElements() );
-					NumElements = AttributesMap.GetNumElements();
-				}
-				else
-				{
-					// If we have run out of data to deserialize, initialize this attributes map so that it has the same number of elements
-					// as the other maps.
-					check( Ar.IsLoading() );
-					AttributesMap.Initialize( NumElements );
-				}
-				TypeIndex++;
-			},
-			AttributesSet.Container );
-
-		return Ar;
+		FMeshAttributeArraySetBase* ArraySetPtr = this->Map.FindChecked( AttributeName ).Get();
+		check( ArraySetPtr->HasType<AttributeType>() );
+		return static_cast<TAttributeIndicesArray<AttributeType, ElementIDType>&>( *ArraySetPtr );
 	}
 
-private:
-	/**
-	 * Define type for the entire attribute container.
-	 * We can have attributes of multiple types, each with a name and an arbitrary number of indices,
-	 * whose elements are indexed by an ElementIDType.
-	 *
-	 * This implies the below data structure:
-	 * A TTuple (one per attribute type) of
-	 * TMap keyed on the attribute name,
-	 * yielding a TArray indexed by attribute index,
-	 * yielding a TMeshAttributeArray indexed by an Element ID,
-	 * yielding an item of type AttributeType.
-	 *
-	 * This looks complicated, but actually makes attribute lookup easy when we are interested in a particular attribute for many element IDs.
-	 * By caching the TMeshAttributeArray arrived at by the attribute name and index, we have O(1) access to that attribute for all elements.
-	 */
-	using ContainerType = typename TMakeAttributesSet<ElementIDType, AttributeTypes>::Type;
-	ContainerType Container;
+	template <typename AttributeType>
+	DEPRECATED( 4.20, "Please use GetAttributesRef() or GetAttributesView() instead." )
+	const TAttributeIndicesArray<AttributeType, ElementIDType>& GetAttributesSet( const FName AttributeName ) const
+	{
+		const FMeshAttributeArraySetBase* ArraySetPtr = this->Map.FindChecked( AttributeName ).Get();
+		check( ArraySetPtr->HasType<AttributeType>() );
+		return static_cast<const TAttributeIndicesArray<AttributeType, ElementIDType>&>( *ArraySetPtr );
+	}
 };
+
+
+/**
+ * We need a mechanism by which we can iterate all items in the attribute map and perform an arbitrary operation on each.
+ * We require polymorphic behavior, as attribute arrays are templated on their attribute type, and derived from a generic base class.
+ * However, we cannot have a virtual templated method, so we use a different approach.
+ *
+ * Effectively, we wish to cast the attribute array depending on the type member of the base class as we iterate through the map.
+ * This might look something like this:
+ *
+ *    template <typename FuncType>
+ *    void ForEach(FuncType Func)
+ *    {
+ *        for (const auto& MapEntry : Map)
+ *        {
+ *            const uint32 Type = MapEntry.Value->GetType();
+ *            switch (Type)
+ *            {
+ *                case 0: Func(static_cast<TMeshAttributeArraySet<FVector>*>(MapEntry.Value.Get()); break;
+ *                case 1: Func(static_cast<TMeshAttributeArraySet<FVector4>*>(MapEntry.Value.Get()); break;
+ *                case 2: Func(static_cast<TMeshAttributeArraySet<FVector2D>*>(MapEntry.Value.Get()); break;
+ *                case 3: Func(static_cast<TMeshAttributeArraySet<float>*>(MapEntry.Value.Get()); break;
+ *                      ....
+ *            }
+ *        }
+ *    }
+ *
+ * (The hope is that the compiler would optimize the switch into a jump table so we get O(1) dispatch even as the number of attribute types
+ * increases.)
+ *
+ * The approach taken here is to generate a jump table at compile time, one entry per possible attribute type.
+ * The function Dispatch(...) is the actual function which gets called.
+ * MakeJumpTable() is the constexpr function which creates a static jump table at compile time.
+ */
+namespace ForEachImpl
+{
+	// Declare type of jump table used to dispatch functions
+	template <typename ElementIDType, typename ForEachFunc>
+	using JumpTableType = TJumpTable<void( FName, ForEachFunc, FMeshAttributeArraySetBase* ), TTupleArity<AttributeTypes>::Value>;
+
+	// Define dispatch function
+	template <typename ElementIDType, typename ForEachFunc, uint32 I>
+	static void Dispatch( FName Name, ForEachFunc Fn, FMeshAttributeArraySetBase* Attributes )
+	{
+		using AttributeType = typename TTupleElement<I, AttributeTypes>::Type;
+		Fn( Name, TMeshAttributesRef<ElementIDType, AttributeType>( static_cast<TMeshAttributeArraySet<AttributeType>*>( Attributes ) ) );
+	}
+
+	// Build ForEach jump table at compile time, a separate instantiation of Dispatch for each attribute type
+	template <typename ElementIDType, typename ForEachFunc, uint32... Is>
+	static constexpr JumpTableType<ElementIDType, ForEachFunc> MakeJumpTable( TIntegerSequence< uint32, Is...> )
+	{
+		return JumpTableType<ElementIDType, ForEachFunc>( Dispatch<ElementIDType, ForEachFunc, Is>... );
+	}
+}
+
+template <typename ElementIDType>
+template <typename ForEachFunc>
+void TAttributesSet<ElementIDType>::ForEach( ForEachFunc Func )
+{
+	// Construct compile-time jump table for dispatching ForEachImpl::Dispatch() by the attribute type at runtime
+	static constexpr ForEachImpl::JumpTableType<ElementIDType, ForEachFunc>
+		JumpTable = ForEachImpl::MakeJumpTable<ElementIDType, ForEachFunc>( TMakeIntegerSequence<uint32, TTupleArity<AttributeTypes>::Value>() );
+
+	for( auto& MapEntry : this->Map )
+	{
+		const uint32 Type = MapEntry.Value->GetType();
+		JumpTable.Fns[ Type ]( MapEntry.Key, Func, MapEntry.Value.Get() );
+	}
+}
+
+namespace ForEachConstImpl
+{
+	// Declare type of jump table used to dispatch functions
+	template <typename ElementIDType, typename ForEachFunc>
+	using JumpTableType = TJumpTable<void( FName, ForEachFunc, const FMeshAttributeArraySetBase* ), TTupleArity<AttributeTypes>::Value>;
+
+	// Define dispatch function
+	template <typename ElementIDType, typename ForEachFunc, uint32 I>
+	static void Dispatch( FName Name, ForEachFunc Fn, const FMeshAttributeArraySetBase* Attributes )
+	{
+		using AttributeType = typename TTupleElement<I, AttributeTypes>::Type;
+		Fn( Name, TMeshAttributesConstRef<ElementIDType, AttributeType>( static_cast<const TMeshAttributeArraySet<AttributeType>*>( Attributes ) ) );
+	}
+
+	// Build ForEach jump table at compile time, a separate instantiation of Dispatch for each attribute type
+	template <typename ElementIDType, typename ForEachFunc, uint32... Is>
+	static constexpr JumpTableType<ElementIDType, ForEachFunc> MakeJumpTable( TIntegerSequence< uint32, Is...> )
+	{
+		return JumpTableType<ElementIDType, ForEachFunc>( Dispatch<ElementIDType, ForEachFunc, Is>... );
+	}
+}
+
+template <typename ElementIDType>
+template <typename ForEachFunc>
+void TAttributesSet<ElementIDType>::ForEach( ForEachFunc Func ) const
+{
+	// Construct compile-time jump table for dispatching ForEachImpl::Dispatch() by the attribute type at runtime
+	static constexpr ForEachConstImpl::JumpTableType<ElementIDType, ForEachFunc>
+		JumpTable = ForEachConstImpl::MakeJumpTable<ElementIDType, ForEachFunc>( TMakeIntegerSequence<uint32, TTupleArity<AttributeTypes>::Value>() );
+
+	for( const auto& MapEntry : this->Map )
+	{
+		const uint32 Type = MapEntry.Value->GetType();
+		JumpTable.Fns[ Type ]( MapEntry.Key, Func, MapEntry.Value.Get() );
+	}
+}
+
+/**
+ * This is a similar approach to ForEach, above.
+ * Given a type index, at runtime, we wish to create an attribute array of the corresponding type; essentially a factory.
+ *
+ * We generate a jump table at compile time, containing generated functions to register attributes of each type.
+ */
+namespace CreateTypeImpl
+{
+	// Declare type of jump table used to dispatch functions
+	using JumpTableType = TJumpTable<TUniquePtr<FMeshAttributeArraySetBase>(), TTupleArity<AttributeTypes>::Value>;
+
+	// Define dispatch function
+	template <uint32 I>
+	static TUniquePtr<FMeshAttributeArraySetBase> Dispatch()
+	{
+		using AttributeType = typename TTupleElement<I, AttributeTypes>::Type;
+		return MakeUnique<TMeshAttributeArraySet<AttributeType>>();
+	}
+
+	// Build RegisterAttributeOfType jump table at compile time, a separate instantiation of Dispatch for each attribute type
+	template <uint32... Is>
+	static constexpr JumpTableType MakeJumpTable( TIntegerSequence< uint32, Is...> )
+	{
+		return JumpTableType( Dispatch<Is>... );
+	}
+}
+
+inline void FAttributesSetEntry::CreateArrayOfType( const uint32 Type )
+{
+	static constexpr CreateTypeImpl::JumpTableType JumpTable = CreateTypeImpl::MakeJumpTable( TMakeIntegerSequence<uint32, TTupleArity<AttributeTypes>::Value>() );
+	Ptr = JumpTable.Fns[ Type ]();
+}
+
+
+/**
+ * Helper struct which determines whether ViewType and the I'th type from AttributeTypes are mutually constructible from each other.
+ */
+template <typename ViewType, uint32 I>
+struct TIsViewable
+{
+	enum { Value = TIsConstructible<ViewType, typename TTupleElement<I, AttributeTypes>::Type>::Value &&
+				   TIsConstructible<typename TTupleElement<I, AttributeTypes>::Type, ViewType>::Value };
+};
+
+/**
+ * Implementation for TMeshAttributesConstViewBase::Get(ElementIndex).
+ *
+ * This is implemented similarly to the above. A jump table is built, so the correct implementation is dispatched according to the array type.
+ * This cannot be a regular virtual function because the return type depends on the array type.
+ */
+namespace AttributesViewGetImpl
+{
+	// Declare type of jump table used to dispatch functions
+	template <typename ViewType>
+	using JumpTableType = TJumpTable<ViewType( const FMeshAttributeArraySetBase*, int32 ), TTupleArity<AttributeTypes>::Value>;
+
+	// Define dispatch functions
+	template <typename ViewType, uint32 I, typename TEnableIf<TIsViewable<ViewType, I>::Value, int>::Type = 0>
+	static ViewType Dispatch( const FMeshAttributeArraySetBase* Array, const int32 Index )
+	{
+		// Implementation when the attribute type is convertible to the view type
+		return ViewType( static_cast<const TMeshAttributeArraySet<typename TTupleElement<I, AttributeTypes>::Type>*>( Array )->GetArrayForIndex( 0 )[ Index ] );
+	}
+
+	template <typename ViewType, uint32 I, typename TEnableIf<!TIsViewable<ViewType, I>::Value, int>::Type = 0>
+	static ViewType Dispatch( const FMeshAttributeArraySetBase* Array, const int32 Index )
+	{
+		// Implementation when the attribute type is not convertible to the view type
+		check( false );
+		return ViewType();
+	}
+
+	// Build jump table at compile time, a separate instantiation of Dispatch for each view type
+	template <typename ViewType, uint32... Is>
+	static constexpr JumpTableType<ViewType> MakeJumpTable( TIntegerSequence< uint32, Is...> )
+	{
+		return JumpTableType<ViewType>( Dispatch<ViewType, Is>... );
+	}
+}
+
+template <typename ViewType>
+FORCEINLINE ViewType TMeshAttributesViewBase<ViewType>::GetByIndex( const int32 ElementIndex ) const
+{
+	static constexpr AttributesViewGetImpl::JumpTableType<ViewType>
+		JumpTable = AttributesViewGetImpl::MakeJumpTable<ViewType>( TMakeIntegerSequence<uint32, TTupleArity<AttributeTypes>::Value>() );
+
+	return JumpTable.Fns[ ArrayPtr->GetType() ]( ArrayPtr, ElementIndex );
+}
+
+
+/**
+ * Implementation for TMeshAttributesConstViewBase::Get(ElementIndex, AttributeIndex).
+ */
+namespace AttributesViewGetWithIndexImpl
+{
+	// Declare type of jump table used to dispatch functions
+	template <typename ViewType>
+	using JumpTableType = TJumpTable<ViewType( const FMeshAttributeArraySetBase*, int32, int32 ), TTupleArity<AttributeTypes>::Value>;
+
+	// Define dispatch functions
+	template <typename ViewType, uint32 I, typename TEnableIf<TIsViewable<ViewType, I>::Value, int>::Type = 0>
+	static ViewType Dispatch( const FMeshAttributeArraySetBase* Array, const int32 ElementIndex, const int32 AttributeIndex )
+	{
+		return ViewType( static_cast<const TMeshAttributeArraySet<typename TTupleElement<I, AttributeTypes>::Type>*>( Array )->GetArrayForIndex( AttributeIndex )[ ElementIndex ] );
+	}
+
+	template <typename ViewType, uint32 I, typename TEnableIf<!TIsViewable<ViewType, I>::Value, int>::Type = 0>
+	static ViewType Dispatch( const FMeshAttributeArraySetBase* Array, const int32 ElementIndex, const int32 AttributeIndex )
+	{
+		check( false );
+		return ViewType();
+	}
+
+	// Build jump table at compile time, a separate instantiation of Dispatch for each attribute type
+	template <typename ViewType, uint32... Is>
+	static constexpr JumpTableType<ViewType> MakeJumpTable( TIntegerSequence< uint32, Is...> )
+	{
+		return JumpTableType<ViewType>( Dispatch<ViewType, Is>... );
+	}
+}
+
+template <typename ViewType>
+FORCEINLINE ViewType TMeshAttributesViewBase<ViewType>::GetByIndex( const int32 ElementIndex, const int32 AttributeIndex ) const
+{
+	static constexpr AttributesViewGetWithIndexImpl::JumpTableType<ViewType>
+		JumpTable = AttributesViewGetWithIndexImpl::MakeJumpTable<ViewType>( TMakeIntegerSequence<uint32, TTupleArity<AttributeTypes>::Value>() );
+
+	return JumpTable.Fns[ ArrayPtr->GetType() ]( ArrayPtr, ElementIndex, AttributeIndex );
+}
+
+
+/**
+ * Implementation for TMeshAttributesViewBase::Set(ElementIndex, Value).
+ */
+namespace AttributesViewSetImpl
+{
+	// Declare type of jump table used to dispatch functions
+	template <typename ViewType>
+	using JumpTableType = TJumpTable<void( FMeshAttributeArraySetBase*, int32, const ViewType& ), TTupleArity<AttributeTypes>::Value>;
+
+	// Define dispatch functions
+	template <typename ViewType, uint32 I, typename TEnableIf<TIsViewable<ViewType, I>::Value, int>::Type = 0>
+	static void Dispatch( FMeshAttributeArraySetBase* Array, const int32 Index, const ViewType& Value )
+	{
+		// Implementation when the attribute type is convertible to the view type
+		using AttributeType = typename TTupleElement<I, AttributeTypes>::Type;
+		static_cast<TMeshAttributeArraySet<AttributeType>*>( Array )->GetArrayForIndex( 0 )[ Index ] = AttributeType( Value );
+	}
+
+	template <typename ViewType, uint32 I, typename TEnableIf<!TIsViewable<ViewType, I>::Value, int>::Type = 0>
+	static void Dispatch( FMeshAttributeArraySetBase* Array, const int32 Index, const ViewType& Value )
+	{
+		// Implementation when the attribute type is not convertible to the view type
+		check( false );
+	}
+
+	// Build jump table at compile time, a separate instantiation of Dispatch for each view type
+	template <typename ViewType, uint32... Is>
+	static constexpr JumpTableType<ViewType> MakeJumpTable( TIntegerSequence< uint32, Is...> )
+	{
+		return JumpTableType<ViewType>( Dispatch<ViewType, Is>... );
+	}
+}
+
+template <typename ViewType>
+FORCEINLINE void TMeshAttributesViewBase<ViewType>::SetByIndex( const int32 ElementIndex, const ViewType& Value ) const
+{
+	static constexpr AttributesViewSetImpl::JumpTableType<ViewType>
+		JumpTable = AttributesViewSetImpl::MakeJumpTable<ViewType>( TMakeIntegerSequence<uint32, TTupleArity<AttributeTypes>::Value>() );
+
+	JumpTable.Fns[ this->ArrayPtr->GetType() ]( const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr ), ElementIndex, Value );
+}
+
+
+/**
+ * Implementation for TMeshAttributesViewBase::Set(ElementIndex, AttributeIndex, Value).
+ */
+namespace AttributesViewSetWithIndexImpl
+{
+	// Declare type of jump table used to dispatch functions
+	template <typename ViewType>
+	using JumpTableType = TJumpTable<void( FMeshAttributeArraySetBase*, int32, int32, const ViewType& ), TTupleArity<AttributeTypes>::Value>;
+
+	// Define dispatch functions
+	template <typename ViewType, uint32 I, typename TEnableIf<TIsViewable<ViewType, I>::Value, int>::Type = 0>
+	static void Dispatch( FMeshAttributeArraySetBase* Array, const int32 ElementIndex, const int32 AttributeIndex, const ViewType& Value )
+	{
+		// Implementation when the attribute type is convertible to the view type
+		using AttributeType = typename TTupleElement<I, AttributeTypes>::Type;
+		static_cast<TMeshAttributeArraySet<AttributeType>*>( Array )->GetArrayForIndex( AttributeIndex )[ ElementIndex ] = AttributeType( Value );
+	}
+
+	template <typename ViewType, uint32 I, typename TEnableIf<!TIsViewable<ViewType, I>::Value, int>::Type = 0>
+	static void Dispatch( FMeshAttributeArraySetBase* Array, const int32 ElementIndex, const int32 AttributeIndex, const ViewType& Value )
+	{
+		// Implementation when the attribute type is not convertible to the view type
+		check( false );
+	}
+
+	// Build jump table at compile time, a separate instantiation of Dispatch for each view type
+	template <typename ViewType, uint32... Is>
+	static constexpr JumpTableType<ViewType> MakeJumpTable( TIntegerSequence< uint32, Is...> )
+	{
+		return JumpTableType<ViewType>( Dispatch<ViewType, Is>... );
+	}
+}
+
+template <typename ViewType>
+FORCEINLINE void TMeshAttributesViewBase<ViewType>::SetByIndex( const int32 ElementIndex, const int32 AttributeIndex, const ViewType& Value ) const
+{
+	static constexpr AttributesViewSetWithIndexImpl::JumpTableType<ViewType>
+		JumpTable = AttributesViewSetWithIndexImpl::MakeJumpTable<ViewType>( TMakeIntegerSequence<uint32, TTupleArity<AttributeTypes>::Value>() );
+
+	JumpTable.Fns[ this->ArrayPtr->GetType() ]( const_cast<FMeshAttributeArraySetBase*>( this->ArrayPtr ), ElementIndex, AttributeIndex, Value );
+}
+
+
+/**
+ * Implementation for TMeshAttributesViewBase::GetDefaultValue().
+ */
+namespace AttributesViewGetDefaultImpl
+{
+	// Declare type of jump table used to dispatch functions
+	template <typename ViewType>
+	using JumpTableType = TJumpTable<ViewType( const FMeshAttributeArraySetBase* ), TTupleArity<AttributeTypes>::Value>;
+
+	// Define dispatch functions
+	template <typename ViewType, uint32 I, typename TEnableIf<TIsViewable<ViewType, I>::Value, int>::Type = 0>
+	static ViewType Dispatch( const FMeshAttributeArraySetBase* Array )
+	{
+		// Implementation when the attribute type is convertible to the view type
+		return ViewType( static_cast<const TMeshAttributeArraySet<typename TTupleElement<I, AttributeTypes>::Type>*>( Array )->GetDefaultValue() );
+	}
+
+	template <typename ViewType, uint32 I, typename TEnableIf<!TIsViewable<ViewType, I>::Value, int>::Type = 0>
+	static ViewType Dispatch( const FMeshAttributeArraySetBase* Array )
+	{
+		// Implementation when the attribute type is not convertible to the view type
+		check( false );
+		return ViewType();
+	}
+
+	// Build jump table at compile time, a separate instantiation of Dispatch for each view type
+	template <typename ViewType, uint32... Is>
+	static constexpr JumpTableType<ViewType> MakeJumpTable( TIntegerSequence< uint32, Is...> )
+	{
+		return JumpTableType<ViewType>( Dispatch<ViewType, Is>... );
+	}
+}
+
+template <typename ViewType>
+FORCEINLINE ViewType TMeshAttributesViewBase<ViewType>::GetDefaultValue() const
+{
+	static constexpr AttributesViewGetDefaultImpl::JumpTableType<ViewType>
+		JumpTable = AttributesViewGetDefaultImpl::MakeJumpTable<ViewType>( TMakeIntegerSequence<uint32, TTupleArity<AttributeTypes>::Value>() );
+
+	return JumpTable.Fns[ ArrayPtr->GetType() ]( ArrayPtr );
+}

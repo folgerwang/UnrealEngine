@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -168,9 +168,7 @@ public:
 	UPROPERTY()
 	TMap<FName, FString> StringMetaData;
 
-	DEPRECATED(4.20, "SceneTime will become an FQualifiedFrameTime from TimeManagement in 4.21. FLiveLinkTimeCode will implicitly allow conversion to FQualifiedFrameTime so please update your code in preparation.")
-	UPROPERTY()
-	FLiveLinkTimeCode SceneTime;
+	FQualifiedFrameTime SceneTime;
 };
 
 USTRUCT()
@@ -268,10 +266,10 @@ struct FLiveLinkSubjectFrame
 struct FLiveLinkFrame
 {
 public:
-	TArray<FTransform>		Transforms;
-	TArray<FOptionalCurveElement>	Curves;
+	TArray<FTransform> Transforms;
+	TArray<FOptionalCurveElement> Curves;
 
-	FLiveLinkMetaData		MetaData;
+	FLiveLinkMetaData MetaData;
 
 	FLiveLinkWorldTime WorldTime;
 

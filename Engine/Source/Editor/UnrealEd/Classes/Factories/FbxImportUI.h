@@ -164,6 +164,43 @@ public:
 
 	/* Whether this UI is construct for a reimport */
 	bool bIsReimport;
+
+
+	//////////////////////////////////////////////////////////////////////////
+	// FBX file informations
+	// Transient value that are set everytime we show the options dialog. These are information only and should be string.
+
+	/* The fbx file version */
+	UPROPERTY(VisibleAnywhere, Transient, Category = FbxFileInformation, meta = (ImportType = "Mesh|Animation", DisplayName = "File Version"))
+	FString FileVersion;
+
+	/* The file creator information */
+	UPROPERTY(VisibleAnywhere, Transient, Category = FbxFileInformation, meta = (ImportType = "Mesh|Animation", DisplayName = "File Creator"))
+	FString FileCreator;
+
+	/* The file vendor information, software name and version that was use to create the file */
+	UPROPERTY(VisibleAnywhere, Transient, Category = FbxFileInformation, meta = (ImportType = "Mesh|Animation", DisplayName = "File Creator Application"))
+	FString FileCreatorApplication;
+
+	/* The file units */
+	UPROPERTY(VisibleAnywhere, Transient, Category = FbxFileInformation, meta = (ImportType = "Mesh|Animation", DisplayName = "File Units"))
+	FString FileUnits;
+
+	/* The file axis direction, up vector and hand */
+	UPROPERTY(VisibleAnywhere, Transient, Category = FbxFileInformation, meta = (ImportType = "Mesh|Animation", DisplayName = "File Axis Direction"))
+	FString FileAxisDirection;
+
+	/* The fbx animation frame rate */
+	UPROPERTY(VisibleAnywhere, Transient, Category = FbxFileInformation, meta = (ImportType = "SkeletalMesh|Animation", DisplayName = "File Frame Rate"))
+	FString FileSampleRate;
+	
+	/* The fbx animation start frame */
+	UPROPERTY(VisibleAnywhere, Transient, Category = FbxFileInformation, meta = (ImportType = "SkeletalMesh|Animation", DisplayName = "Animation Start Frame"))
+	FString AnimStartFrame;
+	
+	/* The fbx animation end frame */
+	UPROPERTY(VisibleAnywhere, Transient, Category = FbxFileInformation, meta = (ImportType = "SkeletalMesh|Animation", DisplayName = "Animation End Frame"))
+	FString AnimEndFrame;
 };
 
 

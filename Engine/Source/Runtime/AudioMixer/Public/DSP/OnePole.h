@@ -46,18 +46,12 @@ namespace Audio
 			}
 		}
 
-		float ProcessAudio(const float InputSample)
+		FORCEINLINE float ProcessAudioSample(const float InputSample)
 		{
 			float Yn = InputSample*A0 + B1*Z1;
 			Yn = UnderflowClamp(Yn);
 			Z1 = Yn;
 			return Yn;
-		}
-
-		// Process audio
-		void ProcessAudio(const float* InputSample, float* OutputSample)
-		{
-			*OutputSample = ProcessAudio(*InputSample);
 		}
 
 	protected:

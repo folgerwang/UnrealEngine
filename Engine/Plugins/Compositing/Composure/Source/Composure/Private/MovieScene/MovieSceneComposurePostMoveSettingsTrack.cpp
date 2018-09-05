@@ -16,7 +16,7 @@ UMovieSceneComposurePostMoveSettingsTrack::UMovieSceneComposurePostMoveSettingsT
 
 UMovieSceneSection* UMovieSceneComposurePostMoveSettingsTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneComposurePostMoveSettingsSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneComposurePostMoveSettingsSection>(this, NAME_None, RF_Transactional);
 }
 
 

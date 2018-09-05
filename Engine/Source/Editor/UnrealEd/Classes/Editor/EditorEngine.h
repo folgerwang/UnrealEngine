@@ -528,6 +528,10 @@ public:
 	UPROPERTY()
 	uint32 bSquelchTransactionNotification:1;
 
+	/** True if we should force a selection change notification during an undo/redo */
+	UPROPERTY()
+	uint32 bNotifyUndoRedoSelectionChange:1;
+
 	/** The PlayerStart class used when spawning the player at the current camera location. */
 	UPROPERTY()
 	TSubclassOf<class ANavigationObjectBase>  PlayFromHerePlayerStartClass;
@@ -967,11 +971,11 @@ public:
 	void ExecFile( UWorld* InWorld, const TCHAR* InFilename, FOutputDevice& Ar );
 
 	//~ Begin Transaction Interfaces.
-	int32 BeginTransaction(const TCHAR* SessionContext, const FText& Description, UObject* PrimaryObject);
+	virtual int32 BeginTransaction(const TCHAR* TransactionContext, const FText& Description, UObject* PrimaryObject) override;
 	int32 BeginTransaction(const FText& Description);
-	int32 EndTransaction();
+	virtual int32 EndTransaction() override;
+	virtual void CancelTransaction(int32 Index) override;
 	void ResetTransaction(const FText& Reason);
-	void CancelTransaction(int32 Index);
 	bool UndoTransaction(bool bCanRedo = true);
 	bool RedoTransaction();
 	bool IsTransactionActive() const;
@@ -1138,7 +1142,7 @@ public:
 	 */
 	virtual void TakeHighResScreenShots(){}
 
-	virtual void NoteSelectionChange() {}
+	virtual void NoteSelectionChange(bool bNotify = true) {}
 
 	/**
 	 * Adds an actor to the world at the specified location.
@@ -2717,11 +2721,8 @@ private:
 
 	ULevel* CreateTransLevelMoveBuffer( UWorld* InWorld );
 
-	/**	Broadcasts that an undo has just occurred. */
-	void BroadcastPostUndo(const FString& UndoContext, UObject* PrimaryObject, bool bUndoSuccess);
-	
-	/**	Broadcasts that an redo has just occurred. */
-	void BroadcastPostRedo(const FString& RedoContext, UObject* PrimaryObject, bool bRedoSuccess);
+	/**	Broadcasts that an undo or redo has just occurred. */
+	void BroadcastPostUndoRedo(const FTransactionContext& UndoContext, bool bWasUndo);
 
 	/** Helper function to show undo/redo notifications */
 	void ShowUndoRedoNotification(const FText& NotificationText, bool bSuccess);
@@ -2754,15 +2755,40 @@ private:
 	void HandleSettingChanged( FName Name );
 
 	/** Callback for handling undo and redo transactions before they happen. */
-	void HandleTransactorBeforeRedoUndo( FUndoSessionContext SessionContext );
+	void HandleTransactorBeforeRedoUndo(const FTransactionContext& TransactionContext);
+
+	/** Common code for finished undo and redo transactions. */
+	void HandleTransactorRedoUndo(const FTransactionContext& TransactionContext, bool Succeeded, bool WasUndo);
 
 	/** Callback for finished redo transactions. */
-	void HandleTransactorRedo( FUndoSessionContext SessionContext, bool Succeeded );
+	void HandleTransactorRedo(const FTransactionContext& TransactionContext, bool Succeeded);
 
 	/** Callback for finished undo transactions. */
-	void HandleTransactorUndo( FUndoSessionContext SessionContext, bool Succeeded );
+	void HandleTransactorUndo(const FTransactionContext& TransactionContext, bool Succeeded);
+
+public:
+	/** Callback for object changes during undo/redo. */
+	void HandleObjectTransacted(UObject* InObject, const class FTransactionObjectEvent& InTransactionObjectEvent);
 
 private:
+
+	/** Internal struct to hold undo/redo transaction object context */
+	struct FTransactionDeltaContext
+	{
+		FGuid	OuterOperationId;
+		int32	OperationDepth;
+		TArray<TPair<UObject*, FTransactionObjectEvent>> TransactionObjects;
+
+		void Reset()
+		{
+			OuterOperationId.Invalidate();
+			TransactionObjects.Empty();
+			OperationDepth = 0;
+		}
+
+		FTransactionDeltaContext() = default;
+	};
+	FTransactionDeltaContext CurrentUndoRedoContext;
 
 	/** Delegate broadcast just before a blueprint is compiled */
 	FBlueprintPreCompileEvent BlueprintPreCompileEvent;

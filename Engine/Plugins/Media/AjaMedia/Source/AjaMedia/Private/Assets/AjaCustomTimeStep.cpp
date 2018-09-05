@@ -64,7 +64,7 @@ bool UAjaCustomTimeStep::Initialize(UEngine* InEngine)
 	if (!FAja::IsInitialized())
 	{
 		State = ECustomTimeStepSynchronizationState::Error;
-		UE_LOG(LogAjaMedia, Warning, TEXT("The CustomTimeStep '%s' can't be initialized. Aja is not initialized on your machine."), *GetName());
+		UE_LOG(LogAjaMedia, Error, TEXT("The CustomTimeStep '%s' can't be initialized. Aja is not initialized on your machine."), *GetName());
 		return false;
 	}
 
@@ -76,9 +76,19 @@ bool UAjaCustomTimeStep::Initialize(UEngine* InEngine)
 		State = ECustomTimeStepSynchronizationState::Error;
 
 		const bool bAddProjectSettingMessage = MediaPort.IsValid() && !bIsDefaultModeOverriden;
-		const FString OverrideString = bAddProjectSettingMessage ? TEXT("The project settings haven't been set for this port.") : TEXT("");
-		UE_LOG(LogAjaMedia, Warning, TEXT("The CustomTimeStep '%s' is invalid. %s %s"), *GetName(), *FailureReason, *OverrideString);
+		const TCHAR* OverrideString = bAddProjectSettingMessage ? TEXT("The project settings haven't been set for this port.") : TEXT("");
+		UE_LOG(LogAjaMedia, Error, TEXT("The CustomTimeStep '%s' is invalid. %s %s"), *GetName(), *FailureReason, OverrideString);
 		return false;
+	}
+
+	if (bUseReferenceIn && bWaitForFrameToBeReady)
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The CustomTimeStep '%s' use both the reference and wait for the frame to be ready. These options are not compatible."), *GetName());
+	}
+
+	if (bWaitForFrameToBeReady && CurrentMediaMode.bIsInterlacedStandard)
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The CustomTimeStep '%s' is waiting for the frame to be ready and interlaced picture is not supported."), *GetName());
 	}
 
 	check(SyncCallback == nullptr);
@@ -91,6 +101,7 @@ bool UAjaCustomTimeStep::Initialize(UEngine* InEngine)
 	Options.CallbackInterface = SyncCallback;
 	Options.VideoFormatIndex = CurrentMediaMode.VideoFormatIndex;
 	Options.bOutput = bUseReferenceIn;
+	Options.bWaitForFrameToBeReady = bWaitForFrameToBeReady && !bUseReferenceIn;
 
 	Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
 	if (!Options.bOutput)
@@ -164,7 +175,7 @@ bool UAjaCustomTimeStep::UpdateTimeStep(UEngine* InEngine)
 
 		// Use fixed delta time and update time.
 		FApp::SetDeltaTime(GetFixedFrameRate().AsInterval());
-		FApp::SetCurrentTime(FApp::GetCurrentTime() + FApp::GetDeltaTime());
+		FApp::SetCurrentTime(FPlatformTime::Seconds());
 
 		bRunEngineTimeStep = false;
 		bDidAValidUpdateTimeStep = true;

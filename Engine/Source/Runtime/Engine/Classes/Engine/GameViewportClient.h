@@ -775,6 +775,12 @@ public:
 
 	void SetVirtualCursorWidget(EMouseCursor::Type Cursor, class UUserWidget* Widget);
 
+	/** Adds a cursor to the set based on the enum and the class reference to it. */
+	void AddSoftwareCursor(EMouseCursor::Type Cursor, const FSoftClassPath& CursorClass);
+
+	/** Does the viewport client have a software cursor set up for the given enum? */
+	bool HasSoftwareCursor(EMouseCursor::Type Cursor) const;
+
 private:
 	/** Resets the platform type shape to nullptr, to restore it to the OS default. */
 	void ResetHardwareCursorStates();
@@ -823,9 +829,6 @@ private:
 
 	/** Delegate handler for when a window DPI changes and we might need to adjust the scenes resolution */
 	void HandleWindowDPIScaleChanged(TSharedRef<SWindow> InWindow);
-
-	/** Adds a cursor to the set based on the enum and the class reference to it. */
-	void AddSoftwareCursor(EMouseCursor::Type Cursor, const FSoftClassPath& CursorClass);
 
 private:
 	/** Slate window associated with this viewport client.  The same window may host more than one viewport client. */

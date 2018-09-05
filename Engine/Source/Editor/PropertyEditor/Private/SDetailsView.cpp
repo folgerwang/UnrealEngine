@@ -17,10 +17,10 @@
 #include "Widgets/Input/SSearchBox.h"
 #include "Classes/EditorStyleSettings.h"
 #include "DetailLayoutBuilderImpl.h"
+#include "DetailsViewPropertyGenerationUtilities.h"
 
 
 #define LOCTEXT_NAMESPACE "SDetailsView"
-
 
 SDetailsView::~SDetailsView()
 {
@@ -42,6 +42,7 @@ void SDetailsView::Construct(const FArguments& InArgs)
 	bViewingClassDefaultObject = false;
 
 	PropertyUtilities = MakeShareable( new FPropertyDetailsUtilities( *this ) );
+	PropertyGenerationUtilities = MakeShareable( new FDetailsViewPropertyGenerationUtilities(*this) );
 	
 	ColumnWidth = DetailsViewArgs.ColumnWidth;
 
@@ -190,6 +191,7 @@ void SDetailsView::Construct(const FArguments& InArgs)
 			[
 				// Create the search box
 				SAssignNew(SearchBox, SSearchBox)
+				.HintText(LOCTEXT("SearchDetailsHint", "Search Details"))
 				.OnTextChanged(this, &SDetailsView::OnFilterTextChanged)
 				.AddMetaData<FTagMetaData>(TEXT("Details.Search"))
 			]
@@ -892,7 +894,7 @@ void SDetailsView::SetOnObjectArrayChanged(FOnObjectArrayChanged OnObjectArrayCh
 
 bool SDetailsView::IsConnected() const
 {
-	return RootPropertyNodes.Num() > 0;
+	return GetNumObjects() > 0;
 }
 
 const FSlateBrush* SDetailsView::OnGetLockButtonImageResource() const

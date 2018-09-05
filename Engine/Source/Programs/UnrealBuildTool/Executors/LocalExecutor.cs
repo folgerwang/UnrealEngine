@@ -265,13 +265,13 @@ namespace UnrealBuildTool
 		/// When using the local executor (not XGE), run a single action on each CPU core.  Note that you can set this to a larger value
 		/// to get slightly faster build times in many cases, but your computer's responsiveness during compiling may be much worse.
 		/// </summary>
-		[XmlConfigFile(Category = "BuildConfiguration")]
+		[XmlConfigFile]
 		double ProcessorCountMultiplier = 1.0;
 
 		/// <summary>
 		/// Maximum processor count for local execution. 
 		/// </summary>
-		[XmlConfigFile(Category = "BuildConfiguration")]
+		[XmlConfigFile]
 		int MaxProcessorCount = int.MaxValue;
 
 		public LocalExecutor()

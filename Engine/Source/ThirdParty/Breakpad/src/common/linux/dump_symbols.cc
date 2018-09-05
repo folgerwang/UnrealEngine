@@ -222,8 +222,15 @@ class DumperLineToModule: public DwarfCUToModule::LineToModuleHandler {
     compilation_dir_ = compilation_dir;
   }
   void ReadProgram(const uint8_t *program, uint64 length,
+/* EG BEGIN */
+#ifndef DUMP_SYMS_WITH_EPIC_EXTENSIONS
                    Module* module, std::vector<Module::Line>* lines) {
     DwarfLineToModule handler(module, compilation_dir_, lines);
+#else
+                   Module* module, std::vector<Module::Line>* lines, std::map<uint64, DwarfCUToModule::InlineEntry>* inline_entires) {
+    DwarfLineToModule handler(module, compilation_dir_, lines, inline_entires);
+#endif /* DUMP_SYMS_WITH_EPIC_EXTENSIONS */
+/* EG END */
     dwarf2reader::LineInfo parser(program, length, byte_reader_, &handler);
     parser.Start();
   }

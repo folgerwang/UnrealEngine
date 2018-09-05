@@ -927,6 +927,11 @@ void FSlateApplication::SetPlatformApplication(const TSharedRef<class GenericApp
 	PlatformApplication->SetMessageHandler(CurrentApplication.ToSharedRef());
 }
 
+void FSlateApplication::OverridePlatformApplication(TSharedPtr<class GenericApplication> InPlatformApplication)
+{
+	PlatformApplication = InPlatformApplication;
+}
+
 void FSlateApplication::Create()
 {
 	GSlateFastWidgetPath = GIsEditor ? 0 : 1;
@@ -1056,6 +1061,8 @@ FSlateApplication::FSlateApplication()
 		GConfig->GetBool(TEXT("MobileSlateUI"), TEXT("bTouchFallbackToMouse"), bTouchFallbackToMouse, GEngineIni);
 		GConfig->GetBool(TEXT("CursorControl"), TEXT("bAllowSoftwareCursor"), bSoftwareCursorAvailable, GEngineIni);
 	}
+
+	bRenderOffScreen = FParse::Param(FCommandLine::Get(), TEXT("RenderOffScreen"));
 
 	// causes InputCore to initialize, even if statically linked
 	FInputCoreModule& InputCore = FModuleManager::LoadModuleChecked<FInputCoreModule>(TEXT("InputCore"));
@@ -1305,8 +1312,8 @@ void FSlateApplication::DrawWindowAndChildren( const TSharedRef<SWindow>& Window
 	// On other platforms we set bDrawChildWindows to true only if we draw the current window.
 	bool bDrawChildWindows = PLATFORM_MAC;
 
-	// Only draw visible windows
-	if( WindowToDraw->IsVisible() && (!WindowToDraw->IsWindowMinimized() || FApp::UseVRFocus()) )
+	// Only draw visible windows or in off-screen rendering mode
+	if (bRenderOffScreen || (WindowToDraw->IsVisible() && (!WindowToDraw->IsWindowMinimized() || FApp::UseVRFocus())) )
 	{
 	
 		// Switch to the appropriate world for drawing
@@ -1490,15 +1497,20 @@ void FSlateApplication::DrawPrepass( TSharedPtr<SWindow> DrawOnlyThisWindow )
 	}
 }
 
-TArray<TSharedRef<SWindow>> GatherAllDescendants(const TArray< TSharedRef<SWindow> >& InWindowList)
+TArray<SWindow*> GatherAllDescendants(const TArray< TSharedRef<SWindow> >& InWindowList)
 {
-	TArray<TSharedRef<SWindow>> GatheredDescendants(InWindowList);
+	TArray<SWindow*> GatheredDescendants;
+	GatheredDescendants.Reserve(InWindowList.Num());
+	for (const TSharedRef<SWindow>& Window : InWindowList)
+	{
+		GatheredDescendants.Add(&Window.Get());
+	}
 
 	for (const TSharedRef<SWindow>& SomeWindow : InWindowList)
 	{
-		GatheredDescendants.Append( GatherAllDescendants( SomeWindow->GetChildWindows() ) );
+		GatheredDescendants.Append(GatherAllDescendants(SomeWindow->GetChildWindows()));
 	}
-	
+
 	return GatheredDescendants;
 }
 
@@ -1565,7 +1577,8 @@ void FSlateApplication::PrivateDrawWindows( TSharedPtr<SWindow> DrawOnlyThisWind
 			for( TArray< TSharedRef<SWindow> >::TConstIterator CurrentWindowIt( SlateWindows ); CurrentWindowIt; ++CurrentWindowIt )
 			{
 				TSharedRef<SWindow> CurrentWindow = *CurrentWindowIt;
-				if ( CurrentWindow->IsVisible() )
+				// Only draw visible windows or in off-screen rendering mode
+				if (bRenderOffScreen || CurrentWindow->IsVisible() )
 				{
 					DrawWindowAndChildren( CurrentWindow, DrawWindowArgs );
 				}
@@ -1578,7 +1591,7 @@ void FSlateApplication::PrivateDrawWindows( TSharedPtr<SWindow> DrawOnlyThisWind
 	{
 		// Some windows may have been destroyed/removed.
 		// Do not attempt to draw any windows that have been removed.
-		TArray<TSharedRef<SWindow>> AllWindows = GatherAllDescendants(SlateWindows);
+		TArray<SWindow*> AllWindows = GatherAllDescendants(SlateWindows);
 		DrawWindowArgs.OutDrawBuffer.RemoveUnusedWindowElement(AllWindows);
 	}
 
@@ -1990,6 +2003,14 @@ TSharedRef<SWindow> FSlateApplication::AddWindow( TSharedRef<SWindow> InSlateWin
 
 TSharedRef< FGenericWindow > FSlateApplication::MakeWindow( TSharedRef<SWindow> InSlateWindow, const bool bShowImmediately )
 {
+	// When rendering off-screen don't render to screen, create a dummy generic window
+	if (bRenderOffScreen)
+	{
+		TSharedRef< FGenericWindow > NewWindow = MakeShareable(new FGenericWindow());
+		InSlateWindow->SetNativeWindow(NewWindow);
+		return NewWindow;
+	}
+
 	TSharedPtr<FGenericWindow> NativeParent = nullptr;
 	TSharedPtr<SWindow> ParentWindow = InSlateWindow->GetParentWindow();
 	if ( ParentWindow.IsValid() )
@@ -2814,6 +2835,16 @@ bool FSlateApplication::SetUserFocus(FSlateUser* User, const FWidgetPath& InFocu
 	if ( !User )
 	{
 		return false;
+	}
+
+	if (InFocusPath.IsValid())
+	{
+		TSharedRef<SWindow> Window = InFocusPath.GetWindow();
+		if (ActiveModalWindows.Num() != 0 && !(Window->IsDescendantOf(GetActiveModalWindow()) || ActiveModalWindows.Top() == Window))
+		{
+			UE_LOG(LogSlate, Warning, TEXT("Ignoring SetUserFocus because it's not an active modal Window (user %i not set to %s."), User->GetUserIndex(), *InFocusPath.GetLastWidget()->ToString());
+			return false;
+		}
 	}
 
 	TSharedPtr<IWidgetReflector> WidgetReflector = WidgetReflectorPtr.Pin();
@@ -4519,7 +4550,7 @@ TSharedPtr< FSlateWindowElementList > FSlateApplication::FCacheElementPools::Get
 	// Remove inactive lists that don't belong to this window.
 	for ( int32 i = InactiveCachedElementListPool.Num() - 1; i >= 0; i-- )
 	{
-		if ( InactiveCachedElementListPool[i]->GetWindow() != CurrentWindow )
+		if (InactiveCachedElementListPool[i]->GetPaintWindow() != CurrentWindow.Get())
 		{
 			InactiveCachedElementListPool.RemoveAtSwap(i, 1, false);
 		}
@@ -4898,9 +4929,9 @@ bool FSlateApplication::ShouldProcessUserInputMessages( const TSharedPtr< FGener
 		Window = FSlateWindowHelper::FindWindowByPlatformWindow( SlateWindows, PlatformWindow.ToSharedRef() );
 	}
 
-	if ( ActiveModalWindows.Num() == 0 || 
-		( Window.IsValid() &&
-			( Window->IsDescendantOf( GetActiveModalWindow() ) || ActiveModalWindows.Contains( Window ) ) ) )
+	if (ActiveModalWindows.Num() == 0 ||
+		(Window.IsValid() &&
+		(Window->IsDescendantOf(GetActiveModalWindow()) || ActiveModalWindows.Top() == Window)))
 	{
 		return true;
 	}
@@ -6916,6 +6947,8 @@ EWindowZone::Type FSlateApplication::GetWindowZoneForPoint( const TSharedRef< FG
 
 void FSlateApplication::PrivateDestroyWindow( const TSharedRef<SWindow>& DestroyedWindow )
 {
+	WindowBeingDestroyedEvent.Broadcast(*DestroyedWindow);
+
 	// Notify the window that it is going to be destroyed.  The window must be completely intact when this is called 
 	// because delegates are allowed to leave Slate here
 	DestroyedWindow->NotifyWindowBeingDestroyed();
@@ -7337,7 +7370,7 @@ bool FSlateApplication::InputPreProcessorsHelper::Add(TSharedPtr<IInputProcessor
 		InputPreProcessorList.AddUnique(InputProcessor);
 		bResult = true;
 		}
-	else if (!InputPreProcessorList.Find(InputProcessor))
+	else if (InputPreProcessorList.Find(InputProcessor) == INDEX_NONE)
 		{
 		InputPreProcessorList.Insert(InputProcessor, Index);
 		bResult = true;

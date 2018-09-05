@@ -234,7 +234,7 @@ FLinearColor SScrollBar::GetThumbOpacity() const
 	}
 	else
 	{
-		if ( bHideWhenNotInUse && !bAlwaysShow )
+		if ( bHideWhenNotInUse && !bAlwaysShowScrollbar )
 		{
 			const double LastInteractionDelta = bIsScrolling ? 0 : ( FSlateApplication::Get().GetCurrentTime() - LastInteractionTime );
 
@@ -343,7 +343,8 @@ void SScrollBar::SetThickness(TAttribute<FVector2D> InThickness)
 
 void SScrollBar::SetScrollBarAlwaysVisible(bool InAlwaysVisible)
 {
-	bAlwaysShow = InAlwaysVisible;
+	bAlwaysShowScrollbar = InAlwaysVisible;
+
 	if ( InAlwaysVisible )
 	{
 		Visibility = EVisibility::Visible;
@@ -352,4 +353,10 @@ void SScrollBar::SetScrollBarAlwaysVisible(bool InAlwaysVisible)
 	{
 		Visibility = TAttribute<EVisibility>(SharedThis(this), &SScrollBar::ShouldBeVisible);
 	}
+	Track->SetIsAlwaysVisible(InAlwaysVisible);
+}
+
+bool SScrollBar::AlwaysShowScrollbar() const
+{
+	return bAlwaysShowScrollbar;
 }

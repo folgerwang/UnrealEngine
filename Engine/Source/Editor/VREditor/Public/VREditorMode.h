@@ -318,7 +318,7 @@ public:
 
 protected:
 	
-	virtual void TransitionWorld(UWorld* NewWorld) override;
+	virtual void TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState) override;
 
 private:
 

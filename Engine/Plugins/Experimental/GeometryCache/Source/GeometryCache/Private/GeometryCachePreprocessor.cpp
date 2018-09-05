@@ -6,6 +6,7 @@
 #include "Modules/ModuleManager.h"
 #include "MeshUtilities.h"
 #include "MeshBuild.h"
+#include "OverlappingCorners.h"
 #include "GeometryCacheTrackStreamable.h"
 
 void FCodecGeometryCachePreprocessor::AddMeshSample(const FGeometryCacheMeshData& MeshData, const float SampleTime, bool bSameTopologyAsPrevious)

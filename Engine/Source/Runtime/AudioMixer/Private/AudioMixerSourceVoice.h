@@ -90,7 +90,7 @@ namespace Audio
 		void MixOutputBuffers(const ESubmixChannelFormat InSubmixChannelType, const float SendLevel, AlignedFloatBuffer& OutWetBuffer) const;
 
 		// Sets the submix send levels
-		void SetSubmixSendInfo(FMixerSubmixPtr Submix, const float SendLevel);
+		void SetSubmixSendInfo(FMixerSubmixWeakPtr Submix, const float SendLevel);
 
 		// Called when the source is a bus and needs to mix other sources together to generate output
 		void OnMixBus(FMixerSourceVoiceBuffer* OutMixerSourceBuffer);

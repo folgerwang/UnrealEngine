@@ -129,10 +129,9 @@ namespace UnrealGameSync
 			// PromptBeforeLaunchCheckBox
 			// 
 			this.PromptBeforeLaunchCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.PromptBeforeLaunchCheckBox.AutoSize = true;
-			this.PromptBeforeLaunchCheckBox.Location = new System.Drawing.Point(12, 388);
+			this.PromptBeforeLaunchCheckBox.Location = new System.Drawing.Point(12, 381);
 			this.PromptBeforeLaunchCheckBox.Name = "PromptBeforeLaunchCheckBox";
-			this.PromptBeforeLaunchCheckBox.Size = new System.Drawing.Size(299, 19);
+			this.PromptBeforeLaunchCheckBox.Size = new System.Drawing.Size(647, 26);
 			this.PromptBeforeLaunchCheckBox.TabIndex = 8;
 			this.PromptBeforeLaunchCheckBox.Text = "Always show this dialog before launching the editor";
 			this.PromptBeforeLaunchCheckBox.UseVisualStyleBackColor = true;
@@ -141,8 +140,8 @@ namespace UnrealGameSync
 			// ArgumentsWindow
 			// 
 			this.AcceptButton = this.OkButton;
-			this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.CancelButton = this.CancelBtn;
 			this.ClientSize = new System.Drawing.Size(791, 419);
 			this.Controls.Add(this.PromptBeforeLaunchCheckBox);
@@ -158,7 +157,6 @@ namespace UnrealGameSync
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Command Line Arguments";
 			this.ResumeLayout(false);
-			this.PerformLayout();
 
 		}
 

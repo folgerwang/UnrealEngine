@@ -20,6 +20,7 @@ namespace UnrealGameSync
 			this.components = new System.ComponentModel.Container();
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainWindow));
 			this.TabPanel = new System.Windows.Forms.Panel();
+			this.DefaultControl = new UnrealGameSync.StatusPanel();
 			this.TabMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
 			this.TabMenu_OpenProject = new System.Windows.Forms.ToolStripMenuItem();
 			this.TabMenu_RecentProjects = new System.Windows.Forms.ToolStripMenuItem();
@@ -31,7 +32,6 @@ namespace UnrealGameSync
 			this.TabMenu_TabNames_WorkspaceName = new System.Windows.Forms.ToolStripMenuItem();
 			this.TabMenu_TabNames_WorkspaceRoot = new System.Windows.Forms.ToolStripMenuItem();
 			this.TabMenu_TabNames_ProjectFile = new System.Windows.Forms.ToolStripMenuItem();
-			this.DefaultControl = new UnrealGameSync.StatusPanel();
 			this.TabControl = new UnrealGameSync.TabControl();
 			this.TabPanel.SuspendLayout();
 			this.TabMenu.SuspendLayout();
@@ -48,6 +48,20 @@ namespace UnrealGameSync
 			this.TabPanel.Name = "TabPanel";
 			this.TabPanel.Size = new System.Drawing.Size(1339, 745);
 			this.TabPanel.TabIndex = 3;
+			// 
+			// DefaultControl
+			// 
+			this.DefaultControl.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.DefaultControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
+			this.DefaultControl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+			this.DefaultControl.Font = new System.Drawing.Font("Segoe UI", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.DefaultControl.Location = new System.Drawing.Point(0, 0);
+			this.DefaultControl.Margin = new System.Windows.Forms.Padding(0);
+			this.DefaultControl.Name = "DefaultControl";
+			this.DefaultControl.Size = new System.Drawing.Size(1339, 745);
+			this.DefaultControl.TabIndex = 0;
 			// 
 			// TabMenu
 			// 
@@ -132,20 +146,6 @@ namespace UnrealGameSync
 			this.TabMenu_TabNames_ProjectFile.Text = "Project File";
 			this.TabMenu_TabNames_ProjectFile.Click += new System.EventHandler(this.TabMenu_TabNames_ProjectFile_Click);
 			// 
-			// DefaultControl
-			// 
-			this.DefaultControl.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-			this.DefaultControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
-			this.DefaultControl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-			this.DefaultControl.Font = new System.Drawing.Font("Segoe UI", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.DefaultControl.Location = new System.Drawing.Point(0, 0);
-			this.DefaultControl.Margin = new System.Windows.Forms.Padding(0);
-			this.DefaultControl.Name = "DefaultControl";
-			this.DefaultControl.Size = new System.Drawing.Size(1339, 745);
-			this.DefaultControl.TabIndex = 0;
-			// 
 			// TabControl
 			// 
 			this.TabControl.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
@@ -158,8 +158,8 @@ namespace UnrealGameSync
 			// 
 			// MainWindow
 			// 
-			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
 			this.ClientSize = new System.Drawing.Size(1367, 808);
 			this.Controls.Add(this.TabPanel);
 			this.Controls.Add(this.TabControl);

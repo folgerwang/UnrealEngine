@@ -282,7 +282,7 @@ void STutorialContent::GetAnimationValues(float& OutAlphaFactor, float& OutPulse
 int32 STutorialContent::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
 	CachedContentGeometry = AllottedGeometry;
-	CachedContentGeometry.AppendTransform(FSlateLayoutTransform(OutDrawElements.GetWindow()->GetPositionInScreen()));
+	CachedContentGeometry.AppendTransform(FSlateLayoutTransform(OutDrawElements.GetPaintWindow()->GetPositionInScreen()));
 
 	if(bIsVisible && Anchor.Type != ETutorialAnchorIdentifier::None && Anchor.bDrawHighlight)
 	{
@@ -296,7 +296,7 @@ int32 STutorialContent::OnPaint(const FPaintArgs& Args, const FGeometry& Allotte
 		const FSlateBrush* BorderBrush = FCoreStyle::Get().GetBrush(TEXT("Tutorials.Border"));
 					
 		const FGeometry& WidgetGeometry = CachedGeometry;
-		const FVector2D WindowSize = OutDrawElements.GetWindow()->GetSizeInScreen();
+		const FVector2D WindowSize = OutDrawElements.GetPaintWindow()->GetSizeInScreen();
 
 		// We should be clipped by the window size, not our containing widget, as we want to draw outside the widget
 		FSlateRect WindowClippingRect(0.0f, 0.0f, WindowSize.X, WindowSize.Y);

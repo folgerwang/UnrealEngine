@@ -523,6 +523,10 @@ public:
 	DECLARE_EVENT_OneParam(FSlateApplication, FUserRegisteredEvent, int32);
 	FUserRegisteredEvent& OnUserRegistered() { return UserRegisteredEvent; }
 
+	/** Delegate called when a window is about to be destroyed */
+	DECLARE_EVENT_OneParam(FSlateApplication, FOnWindowBeingDestroyed, const SWindow&);
+	FOnWindowBeingDestroyed& OnWindowBeingDestroyed() { return WindowBeingDestroyedEvent; }
+
 	/** 
 	 * Removes references to FViewportRHI's.  
 	 * This has to be done explicitly instead of using the FRenderResource mechanism because FViewportRHI's are managed by the game thread.
@@ -865,6 +869,12 @@ public:
 	void EnableMenuAnimations( const bool bEnableAnimations );
 
 	void SetPlatformApplication(const TSharedRef<class GenericApplication>& InPlatformApplication);
+
+	/**
+	 * Replace the current platform application with a custom version.
+	 * @param InPlatformApplication - The replacement platform application.
+	 */
+	void OverridePlatformApplication(TSharedPtr<class GenericApplication> InPlatformApplication);
 
 	/** Set the global application icon */
 	void SetAppIcon(const FSlateBrush* const InAppIcon);
@@ -1325,6 +1335,8 @@ public:
 	void SetAllowTooltips(bool bCanShow);
 	bool GetAllowTooltips() const;
 	
+	bool IsRenderingOffScreen() const { return bRenderOffScreen; }
+
 public:
 
 	//~ Begin FSlateApplicationBase Interface
@@ -1707,6 +1719,9 @@ private:
 
 	/** true if any slate window is currently active (not just top level windows) */
 	bool bSlateWindowActive;
+
+	/** true if rendering windows even when they are set to invisible */
+	bool bRenderOffScreen;
 
 	/** Application-wide scale for supporting monitors of varying pixel density */
 	float Scale;
@@ -2139,6 +2154,9 @@ private:
 
 	/** Delegate for when a new user has been registered. */
 	FUserRegisteredEvent UserRegisteredEvent;
+
+	/** Delegate for when a window is in the process of being destroyed */
+	FOnWindowBeingDestroyed WindowBeingDestroyedEvent;
 
 	/** Delegate for slate Tick during modal dialogs */
 	FOnModalLoopTickEvent ModalLoopTickEvent;

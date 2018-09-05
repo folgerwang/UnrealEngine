@@ -21,6 +21,7 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"CoreUObject",
 					"Json",
+					"Cbor",
 					"Networking",
 					"Serialization",
 					"Sockets",

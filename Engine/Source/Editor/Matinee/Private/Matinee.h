@@ -123,7 +123,7 @@ public:
 	void StopPlaying() override;
 
 	/** Handle undo redo events */
-	void OnPostUndoRedo(FUndoSessionContext SessionContext, bool Succeeded);
+	void OnPostUndoRedo(const FTransactionContext& TransactionContext, bool Succeeded);
 
 	// Menu handlers
 	void OnMenuAddKey();

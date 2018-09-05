@@ -173,7 +173,8 @@ public:
 	virtual void SetCameraSpeedSetting(int32 SpeedSetting) override;
 	virtual float GetCameraSpeedScalar() const override;
 	virtual void SetCameraSpeedScalar(float SpeedScalar) override;
-	virtual void ReceivedFocus(FViewport* Viewport) override;
+	virtual void ReceivedFocus(FViewport* InViewport) override;
+	virtual void LostFocus(FViewport* InViewport) override;
 	virtual void ProcessClick(FSceneView& View, HHitProxy* HitProxy, FKey Key, EInputEvent Event, uint32 HitX, uint32 HitY) override;
 	virtual UWorld* GetWorld() const override;
 	virtual void BeginCameraMovement(bool bHasMovement) override;
@@ -423,14 +424,6 @@ public:
 	/** Set the global ptr to the last viewport to receive a key press */
 	void SetLastKeyViewport();
 
-	/** 
-	 * Gets the world space cursor info from the current mouse position
-	 * 
-	 * @param InViewportClient	The viewport client to check for mouse position and to set up the scene view.
-	 * @return					An FViewportCursorLocation containing information about the mouse position in world space.
-	 */
-	FViewportCursorLocation GetCursorWorldLocationFromMousePos();
-	
 	/** 
 	 * Access the 'active' actor lock. This is the actor locked to the viewport via the viewport menus.
 	 * It is forced to be inactive if Matinee is controlling locking.

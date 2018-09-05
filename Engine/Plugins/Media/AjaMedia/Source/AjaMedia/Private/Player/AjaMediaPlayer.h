@@ -54,7 +54,6 @@ public:
 
 	virtual void Close() override;
 	virtual FName GetPlayerName() const override;
-	virtual FString GetUrl() const override;
 
 	virtual bool Open(const FString& Url, const IMediaOptions* Options) override;
 
@@ -102,9 +101,6 @@ private:
 	/** Current state of the media player. */
 	EMediaState AjaThreadNewState;
 
-	/** Current playback time. */
-	FTimespan AjaThreadCurrentTime;
-
 	/** The media event handler. */
 	IMediaEventSink& EventSink;
 
@@ -129,6 +125,9 @@ private:
 	/** Whether to use the time code embedded in Aja frames. */
 	bool bEncodeTimecodeInTexel;
 
+	/** Whether to use the timecode embedded in a frame. */
+	bool bUseFrameTimecode;
+
 	/** Which field need to be capture. */
 	bool bUseAncillary;
 	bool bUseAudio;
@@ -137,9 +136,6 @@ private:
 
 	/** The current video sample format. */
 	EMediaTextureSampleFormat VideoSampleFormat;
-	
-	/** The currently opened URL. */
-	FAjaMediaPort DeviceSource;
 
 	/** Maps to the current input Device */
 	AJA::AJAInputChannel* InputChannel;

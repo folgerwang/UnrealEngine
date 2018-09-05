@@ -17,13 +17,14 @@
 #endif //WITH_EDITOR
 
 
+
 DEFINE_LOG_CATEGORY(LogMediaFrameworkUtilities);
 
 #define LOCTEXT_NAMESPACE "MediaFrameworkUtilities"
 
 /**
-* Implements the MediaFrameworkUtilitiesModule module.
-*/
+ * Implements the MediaFrameworkUtilitiesModule module.
+ */
 class FMediaFrameworkUtilitiesModule : public IMediaFrameworkUtilitiesModule
 {
 	FMediaProfileManager MediaProfileManager;

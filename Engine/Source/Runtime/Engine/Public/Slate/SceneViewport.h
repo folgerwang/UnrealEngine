@@ -309,7 +309,7 @@ private:
 	 * @param InGeometry	The geometry of the viewport to convert to local space
 	 * @param InMouseEvent	The mouse event containing the position of the mouse in absolute space
 	 */
-	void UpdateCachedMousePos( const FGeometry& InGeometry, const FPointerEvent& InMouseEvent );
+	void UpdateCachedCursorPos( const FGeometry& InGeometry, const FPointerEvent& InMouseEvent );
 
 	/**
 	 * Updates the cached viewport geometry
@@ -372,11 +372,11 @@ private:
 	/** A mapping of key names to their pressed state */
 	TMap<FKey,bool> KeyStateMap;
 	/** The last known mouse position in local space, -1, -1 if unknown */
-	FIntPoint CachedMousePos;
+	FIntPoint CachedCursorPos;
 	/** The last known geometry info */
 	FGeometry CachedGeometry;
 	/** Mouse position before the latest capture */
-	FIntPoint PreCaptureMousePos;
+	FIntPoint PreCaptureCursorPos;
 	/**	The current position of the software cursor */
 	FVector2D SoftwareCursorPosition;
 	/**	Whether the software cursor should be drawn in the viewport */

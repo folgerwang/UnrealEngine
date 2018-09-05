@@ -347,6 +347,8 @@ UEditorEngine::UEditorEngine(const FObjectInitializer& ObjectInitializer)
 	NumOnlinePIEInstances = 0;
 	DefaultWorldFeatureLevel = GMaxRHIFeatureLevel;
 
+	bNotifyUndoRedoSelectionChange = true;
+
 	EditorWorldExtensionsManager = nullptr;
 
 	ActorGroupingUtilsClassName = UActorGroupingUtils::StaticClass();
@@ -1489,6 +1491,11 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			// If there is currently a pie world a viewport is overriding audio settings do not adjust the volume.
 			FApp::SetVolumeMultiplier( 1.0f );
 		}
+	}
+
+	if (!bHasFocus)
+	{
+		SetPreviewMeshMode(false);
 	}
 
 	// Tick any editor FTickableEditorObject dervived classes
@@ -2752,7 +2759,10 @@ void UEditorEngine::ApplyDeltaToActor(AActor* InActor,
 
 	// Update the actor before leaving.
 	InActor->MarkPackageDirty();
-	InActor->InvalidateLightingCacheDetailed(bTranslationOnly);
+	if (!GIsDemoMode)
+	{
+		InActor->InvalidateLightingCacheDetailed(bTranslationOnly);
+	}
 	InActor->PostEditMove( false );
 }
 

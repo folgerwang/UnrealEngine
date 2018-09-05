@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -99,6 +99,12 @@ int SDL_RecordGesture(SDL_TouchID touchId)
         }
     }
     return (touchId < 0);
+}
+
+void SDL_GestureQuit()
+{
+    SDL_free(SDL_gestureTouch);
+    SDL_gestureTouch = NULL;
 }
 
 static unsigned long SDL_HashDollar(SDL_FloatPoint* points)
@@ -454,6 +460,28 @@ int SDL_GestureAddTouch(SDL_TouchID touchId)
     SDL_zero(SDL_gestureTouch[SDL_numGestureTouches]);
     SDL_gestureTouch[SDL_numGestureTouches].id = touchId;
     SDL_numGestureTouches++;
+    return 0;
+}
+
+int SDL_GestureDelTouch(SDL_TouchID touchId)
+{
+    int i;
+    for (i = 0; i < SDL_numGestureTouches; i++) {
+        if (SDL_gestureTouch[i].id == touchId) {
+            break;
+        }
+    }
+
+    if (i == SDL_numGestureTouches) {
+        /* not found */
+        return -1;
+    }
+
+    SDL_free(SDL_gestureTouch[i].dollarTemplate);
+    SDL_zero(SDL_gestureTouch[i]);
+
+    SDL_numGestureTouches--;
+    SDL_memcpy(&SDL_gestureTouch[i], &SDL_gestureTouch[SDL_numGestureTouches], sizeof(SDL_gestureTouch[i]));
     return 0;
 }
 

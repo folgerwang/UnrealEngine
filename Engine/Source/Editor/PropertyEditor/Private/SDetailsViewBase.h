@@ -29,6 +29,7 @@ class IDetailCustomization;
 class IDetailKeyframeHandler;
 class IDetailPropertyExtensionHandler;
 class SDetailNameArea;
+class IPropertyGenerationUtilities;
 
 
 
@@ -373,6 +374,8 @@ protected:
 	bool bHasOpenColorPicker;
 	/** Settings for this view */
 	TSharedPtr<class IPropertyUtilities> PropertyUtilities;
+	/** Gets internal utilities for generating property layouts. */
+	TSharedPtr<IPropertyGenerationUtilities> PropertyGenerationUtilities;
 	/** The name area which is not recreated when selection changes */
 	TSharedPtr<class SDetailNameArea> NameArea;
 	/** Asset pool for rendering and managing asset thumbnails visible in this view*/

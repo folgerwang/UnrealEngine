@@ -9,7 +9,7 @@
 
 struct FOverlappingCorners;
 struct FRawMesh;
-class FMeshDescription;
+struct FMeshDescription;
 
 /**
 * Mesh reduction interface.
@@ -45,7 +45,7 @@ public:
 		FMeshDescription& OutReducedMesh,
 		float& OutMaxDeviation,
 		const FMeshDescription& InMesh,
-		const TMultiMap<int32, int32>& InOverlappingCorners,
+		const FOverlappingCorners& InOverlappingCorners,
 		const struct FMeshReductionSettings& ReductionSettings
 	) = 0;
 
@@ -76,7 +76,7 @@ DECLARE_DELEGATE_TwoParams(FCreateProxyDelegate, const FGuid, TArray<UObject*>&)
 /** Data used for passing back the data resulting from a completed mesh merging operation*/ 
 struct FMergeCompleteData
 {
-	/** Outer object for the to store/save UObjects */
+	/** Outer object to store/save UObjects */
 	class UPackage* InOuter;
 	/** Base package name for the proxy mesh UObjects */
 	FString ProxyBasePackageName;

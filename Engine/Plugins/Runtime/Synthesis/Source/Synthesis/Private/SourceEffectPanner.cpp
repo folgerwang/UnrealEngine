@@ -7,6 +7,7 @@ void FSourceEffectPanner::Init(const FSoundEffectSourceInitData& InitData)
 {
 	bIsActive = true;
 	PanValue = 0.0f;
+	NumChannels = InitData.NumSourceChannels;
 }
 
 void FSourceEffectPanner::OnPresetChanged()
@@ -20,29 +21,33 @@ void FSourceEffectPanner::OnPresetChanged()
 	PanValue *= 0.5f * PI;
 }
 
-void FSourceEffectPanner::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectPanner::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	const int32 NumChannels = InData.AudioFrame.Num();
-
-	// If only 1 channel, do a simple passthrough
-	if (NumChannels == 1)
+	if (NumChannels != 2)
 	{
-		OutData.AudioFrame[0] = InData.AudioFrame[0];
+		FMemory::Memcpy(OutAudioBufferData, InData.InputSourceEffectBufferPtr, sizeof(float)*InData.NumSamples);
 	}
 	else
 	{
-		// Use the "cosine" equal power panning law to compute a smooth pan based off our parameter
 		float PanGains[2];
+		// Use the "cosine" equal power panning law to compute a smooth pan based off our parameter
 		FMath::SinCos(&PanGains[0], &PanGains[1], PanValue);
 
-		// Then simply scale the pan value output with the channel inputs. 
-		for (int32 i = 0; i < NumChannels; ++i)
+		// Clamp this to be between 0.0 and 1.0 since SinCos is fast and may have values greater than 1.0 or less than 0.0
+		for (int32 i = 0; i < 2; ++i)
 		{
-			// Clamp this to be between 0.0 and 1.0 since SinCos is fast and may have values greater than 1.0 or less than 0.0
-			float PanGain = FMath::Clamp(PanGains[i], 0.0f, 1.0f);
+			PanGains[i] = FMath::Clamp(PanGains[i], 0.0f, 1.0f);
+		}
 
-			// Simply scale the input sample with the pan value 
-			OutData.AudioFrame[i] = PanGain * InData.AudioFrame[i];
+		for (int32 SampleIndex = 0; SampleIndex < InData.NumSamples; SampleIndex += NumChannels)
+		{
+			// Then simply scale the pan value output with the channel inputs. Note we have to clamp the 
+			// the output of the SinCos since 
+			for (int32 i = 0; i < 2; ++i)
+			{
+				// Simply scale the input sample with the pan value 
+				OutAudioBufferData[SampleIndex + i] = PanGains[i] * InData.InputSourceEffectBufferPtr[SampleIndex + i];
+			}
 		}
 	}
 }
