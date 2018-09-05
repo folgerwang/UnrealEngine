@@ -749,8 +749,6 @@ namespace UnFbx {
 		if (!AnimStack)
 			return;
 
-		MergeAllLayerAnimation(AnimStack, FbxTime::GetFrameRate(Scene->GetGlobalSettings().GetTimeMode()));
-
 		FbxAnimLayer* AnimLayer = AnimStack->GetMember<FbxAnimLayer>(0);
 		if (AnimLayer == NULL)
 			return;

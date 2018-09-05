@@ -143,7 +143,7 @@ FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImport
 		{
 			FbxAnimStack* CurAnimStack = FbxImporter->Scene->GetSrcObject<FbxAnimStack>(AnimStackIndex);
 			FbxTimeSpan AnimatedInterval(FBXSDK_TIME_INFINITE, FBXSDK_TIME_MINUS_INFINITE);
-			FbxImporter->Scene->GetRootNode()->GetAnimationInterval(AnimatedInterval, CurAnimStack);
+			FbxImporter->GetAnimationIntervalMultiLayer(FbxImporter->Scene->GetRootNode(), CurAnimStack, AnimatedInterval);
 			// find the most range that covers by both method, that'll be used for clamping
 			AnimTimeSpan.SetStart(FMath::Min<FbxTime>(AnimTimeSpan.GetStart(), AnimatedInterval.GetStart()));
 			AnimTimeSpan.SetStop(FMath::Max<FbxTime>(AnimTimeSpan.GetStop(), AnimatedInterval.GetStop()));
@@ -1171,6 +1171,16 @@ bool FFbxImporter::ImportFile(FString Filename, bool bPreventMaterialNameClash /
 
 void FFbxImporter::ConvertScene()
 {
+	//Merge the anim stack before the conversion since the above 0 layer will not be converted
+	int32 AnimStackCount = Scene->GetSrcObjectCount<FbxAnimStack>();
+	//Merge the animation stack layer before converting the scene
+	for (int32 AnimStackIndex = 0; AnimStackIndex < AnimStackCount; AnimStackIndex++)
+	{
+		FbxAnimStack* CurAnimStack = Scene->GetSrcObject<FbxAnimStack>(AnimStackIndex);
+		int32 ResampleRate = GetGlobalAnimStackSampleRate(CurAnimStack);
+		MergeAllLayerAnimation(CurAnimStack, ResampleRate);
+	}
+
 	//Set the original file information
 	FileAxisSystem = Scene->GetGlobalSettings().GetAxisSystem();
 	FileUnitSystem = Scene->GetGlobalSettings().GetSystemUnit();

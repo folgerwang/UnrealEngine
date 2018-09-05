@@ -34,6 +34,10 @@
 
 #define LOCTEXT_NAMESPACE "SkeletalMeshEdit"
 
+//The max reference rate is use to cap the maximum rate we support.
+//It must be base on DEFAULT_SAMPLERATE*2ExpX where X is a integer with range [1 to 6] because we use KINDA_SMALL_NUMBER(0.0001) we do not want to pass 1920Hz 1/1920 = 0.0005
+#define MaxReferenceRate 1920.0f
+
 UAnimSequence * UEditorEngine::ImportFbxAnimation( USkeleton* Skeleton, UObject* Outer, UFbxAnimSequenceImportData* TemplateImportData, const TCHAR* InFilename, const TCHAR* AnimName, bool bImportMorphTracks )
 {
 	check(Skeleton);
@@ -518,6 +522,25 @@ FbxTimeSpan UnFbx::FFbxImporter::GetAnimationTimeSpan(FbxNode* RootNode, FbxAnim
 
 	return AnimTimeSpan;
 }
+
+void UnFbx::FFbxImporter::GetAnimationIntervalMultiLayer(FbxNode* RootNode, FbxAnimStack* AnimStack, FbxTimeSpan& AnimTimeSpan)
+{
+	int NumAnimLayers = AnimStack != nullptr ? AnimStack->GetMemberCount() : 0;
+	for (int AnimLayerIndex = 0; AnimLayerIndex < NumAnimLayers; ++AnimLayerIndex)
+	{
+		FbxTimeSpan LayerAnimTimeSpan(FBXSDK_TIME_INFINITE, FBXSDK_TIME_MINUS_INFINITE);
+		RootNode->GetAnimationInterval(LayerAnimTimeSpan, AnimStack, AnimLayerIndex);
+		if (LayerAnimTimeSpan.GetStart() < AnimTimeSpan.GetStart())
+		{
+			AnimTimeSpan.SetStart(LayerAnimTimeSpan.GetStart());
+		}
+		if (LayerAnimTimeSpan.GetStop() > AnimTimeSpan.GetStop())
+		{
+			AnimTimeSpan.SetStop(LayerAnimTimeSpan.GetStop());
+		}
+	}
+}
+
 /**
 * Add to the animation set, the animations contained within the FBX document, for the given skeleton
 */
@@ -632,8 +655,7 @@ UAnimSequence * UnFbx::FFbxImporter::ImportAnimations(USkeleton* Skeleton, UObje
 
 //Get the smallest sample rate(integer) representing the DeltaTime(time between 0.0f and 1.0f).
 //@DeltaTime: the time to find the rate between 0.0f and 1.0f
-//@MaxReferenceRate: the maximum rate we can find
-int32 GetTimeSampleRate(const float DeltaTime, const float MaxReferenceRate)
+int32 GetTimeSampleRate(const float DeltaTime)
 {
 	float OriginalSampleRateDivider = 1.0f / DeltaTime;
 	float SampleRateDivider = OriginalSampleRateDivider;
@@ -654,7 +676,7 @@ int32 GetTimeSampleRate(const float DeltaTime, const float MaxReferenceRate)
 	return FMath::Min(FPlatformMath::RoundToInt(SampleRateDivider), FPlatformMath::RoundToInt(MaxReferenceRate));
 }
 
-int32 GetAnimationCurveRate(FbxAnimCurve* CurrentCurve, float MaxReferenceRate)
+int32 GetAnimationCurveRate(FbxAnimCurve* CurrentCurve)
 {
 	if (CurrentCurve == nullptr)
 		return 0;
@@ -702,7 +724,7 @@ int32 GetAnimationCurveRate(FbxAnimCurve* CurrentCurve, float MaxReferenceRate)
 				int32 DeltaKey = FPlatformMath::RoundToInt(Delta*KeyMultiplier);
 				if (!FMath::IsNearlyZero(Delta, KINDA_SMALL_NUMBER) && !DeltaComputed.Contains(DeltaKey))
 				{
-					int32 ComputeSampleRate = GetTimeSampleRate(Delta, MaxReferenceRate);
+					int32 ComputeSampleRate = GetTimeSampleRate(Delta);
 					DeltaComputed.Add(DeltaKey);
 					//Use the least common multiplier with the new delta entry
 					int32 LeastCommonMultiplier = FMath::Min(FMath::LeastCommonMultiplier(SampleRate, ComputeSampleRate), FPlatformMath::RoundToInt(MaxReferenceRate));
@@ -717,11 +739,126 @@ int32 GetAnimationCurveRate(FbxAnimCurve* CurrentCurve, float MaxReferenceRate)
 	return 0;
 }
 
+void GetNodeSampleRate(FbxNode* Node, FbxAnimLayer* AnimLayer, TArray<int32>& NodeAnimSampleRates, bool bCurve, bool bBlendCurve)
+{
+	if (bCurve)
+	{
+		const int32 MaxElement = 9;
+		FbxAnimCurve* Curves[MaxElement];
+
+		Curves[0] = Node->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
+		Curves[1] = Node->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
+		Curves[2] = Node->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
+		Curves[3] = Node->LclRotation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
+		Curves[4] = Node->LclRotation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
+		Curves[5] = Node->LclRotation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
+		Curves[6] = Node->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
+		Curves[7] = Node->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
+		Curves[8] = Node->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
+
+
+		for (int32 CurveIndex = 0; CurveIndex < MaxElement; ++CurveIndex)
+		{
+			FbxAnimCurve* CurrentCurve = Curves[CurveIndex];
+			if (CurrentCurve)
+			{
+				int32 CurveAnimRate = GetAnimationCurveRate(CurrentCurve);
+				if (CurveAnimRate != 0)
+				{
+					NodeAnimSampleRates.AddUnique(CurveAnimRate);
+				}
+			}
+		}
+	}
+
+	if (bBlendCurve)
+	{
+		FbxGeometry* Geometry = (FbxGeometry*)Node->GetNodeAttribute();
+		if (Geometry)
+		{
+			int32 BlendShapeDeformerCount = Geometry->GetDeformerCount(FbxDeformer::eBlendShape);
+			for (int32 BlendShapeIndex = 0; BlendShapeIndex < BlendShapeDeformerCount; ++BlendShapeIndex)
+			{
+				FbxBlendShape* BlendShape = (FbxBlendShape*)Geometry->GetDeformer(BlendShapeIndex, FbxDeformer::eBlendShape);
+
+				int32 BlendShapeChannelCount = BlendShape->GetBlendShapeChannelCount();
+				for (int32 ChannelIndex = 0; ChannelIndex < BlendShapeChannelCount; ++ChannelIndex)
+				{
+					FbxBlendShapeChannel* Channel = BlendShape->GetBlendShapeChannel(ChannelIndex);
+
+					if (Channel)
+					{
+						FbxAnimCurve* CurrentCurve = Geometry->GetShapeChannel(BlendShapeIndex, ChannelIndex, AnimLayer);
+						if (CurrentCurve)
+						{
+							int32 CurveAnimRate = GetAnimationCurveRate(CurrentCurve);
+							if (CurveAnimRate != 0)
+							{
+								NodeAnimSampleRates.AddUnique(CurveAnimRate);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+int32 UnFbx::FFbxImporter::GetGlobalAnimStackSampleRate(FbxAnimStack* CurAnimStack)
+{
+	int32 ResampleRate = DEFAULT_SAMPLERATE;
+	if (ImportOptions->bResample)
+	{
+		TArray<int32> CurveAnimSampleRates;
+		int32 MaxStackResampleRate = 0;
+		int32 AnimStackLayerCount = CurAnimStack->GetMemberCount();
+		for (int32 LayerIndex = 0; LayerIndex < AnimStackLayerCount; ++LayerIndex)
+		{
+			FbxAnimLayer* AnimLayer = (FbxAnimLayer*)CurAnimStack->GetMember(LayerIndex);
+			for (int32 NodeIndex = 0; NodeIndex < Scene->GetNodeCount(); ++NodeIndex)
+			{
+				FbxNode* Node = Scene->GetNode(NodeIndex);
+				//Get both the transform properties curve and the blend shape animation sample rate
+				GetNodeSampleRate(Node, AnimLayer, CurveAnimSampleRates, true, true);
+			}
+		}
+
+		MaxStackResampleRate = CurveAnimSampleRates.Num() > 0 ? 1 : MaxStackResampleRate;
+		//Find the lowest sample rate that will pass by all the keys from all curves
+		for (int32 CurveSampleRate : CurveAnimSampleRates)
+		{
+			if (CurveSampleRate >= MaxReferenceRate && MaxStackResampleRate < CurveSampleRate)
+			{
+				MaxStackResampleRate = CurveSampleRate;
+			}
+			else if (MaxStackResampleRate < MaxReferenceRate)
+			{
+				int32 LeastCommonMultiplier = FMath::LeastCommonMultiplier(MaxStackResampleRate, CurveSampleRate);
+				MaxStackResampleRate = LeastCommonMultiplier != 0 ? LeastCommonMultiplier : FMath::Max3(FPlatformMath::RoundToInt(DEFAULT_SAMPLERATE), MaxStackResampleRate, CurveSampleRate);
+				if (MaxStackResampleRate >= MaxReferenceRate)
+				{
+					MaxStackResampleRate = MaxReferenceRate;
+				}
+			}
+		}
+
+		// Make sure we're not hitting 0 for samplerate
+		if (MaxStackResampleRate != 0)
+		{
+			//Make sure the resample rate is positive
+			if (!ensure(MaxStackResampleRate >= 0))
+			{
+				MaxStackResampleRate *= -1;
+			}
+			ResampleRate = MaxStackResampleRate;
+		}
+	}
+	return ResampleRate;
+}
+
 int32 UnFbx::FFbxImporter::GetMaxSampleRate(TArray<FbxNode*>& SortedLinks, TArray<FbxNode*>& NodeArray)
 {
-	//The max reference rate is use to cap the maximum rate we support.
-	//It must be base on DEFAULT_SAMPLERATE*2ExpX where X is a integer with range [1 to 6] because we use KINDA_SMALL_NUMBER(0.0001) we do not want to pass 1920Hz 1/1920 = 0.0005
-	float MaxReferenceRate = 1920.0f;
+	
 	int32 MaxStackResampleRate = 0;
 	TArray<int32> CurveAnimSampleRates;
 	const FBXImportOptions* ImportOption = GetImportOptions();
@@ -735,72 +872,23 @@ int32 UnFbx::FFbxImporter::GetMaxSampleRate(TArray<FbxNode*>& SortedLinks, TArra
 		double AnimStackStart = AnimStackTimeSpan.GetStart().GetSecondDouble();
 		double AnimStackStop = AnimStackTimeSpan.GetStop().GetSecondDouble();
 
-		FbxAnimLayer* AnimLayer = (FbxAnimLayer*)CurAnimStack->GetMember(0);
-		for(int32 LinkIndex = 0; LinkIndex < SortedLinks.Num(); ++LinkIndex)
+		int32 AnimStackLayerCount = CurAnimStack->GetMemberCount();
+		for (int32 LayerIndex = 0; LayerIndex < AnimStackLayerCount; ++LayerIndex)
 		{
-			FbxNode* CurrentLink = SortedLinks[LinkIndex];
-
-			const int32 MaxElement = 9;
-			FbxAnimCurve* Curves[MaxElement];
-
-			Curves[0] = CurrentLink->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
-			Curves[1] = CurrentLink->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
-			Curves[2] = CurrentLink->LclTranslation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
-			Curves[3] = CurrentLink->LclRotation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
-			Curves[4] = CurrentLink->LclRotation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
-			Curves[5] = CurrentLink->LclRotation.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
-			Curves[6] = CurrentLink->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
-			Curves[7] = CurrentLink->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
-			Curves[8] = CurrentLink->LclScaling.GetCurve(AnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
-
-			
-			for(int32 CurveIndex = 0; CurveIndex < MaxElement; ++CurveIndex)
+			FbxAnimLayer* AnimLayer = (FbxAnimLayer*)CurAnimStack->GetMember(LayerIndex);
+			for (int32 LinkIndex = 0; LinkIndex < SortedLinks.Num(); ++LinkIndex)
 			{
-				FbxAnimCurve* CurrentCurve = Curves[CurveIndex];
-				if(CurrentCurve)
-				{
-					int32 CurveAnimRate = GetAnimationCurveRate(CurrentCurve, MaxReferenceRate);
-					if (CurveAnimRate != 0)
-					{
-						CurveAnimSampleRates.AddUnique(CurveAnimRate);
-					}
-				}
+				FbxNode* CurrentLink = SortedLinks[LinkIndex];
+				GetNodeSampleRate(CurrentLink, AnimLayer, CurveAnimSampleRates, true, false);
 			}
-		}
 
-		// it doens't matter whether you choose to import morphtarget or not
-		// blendshape are always imported. Import morphtarget is only used for morphtarget for mesh
-		{
-			for (int32 NodeIndex = 0; NodeIndex < NodeArray.Num(); NodeIndex++)
+			// it doens't matter whether you choose to import morphtarget or not
+			// blendshape are always imported. Import morphtarget is only used for morphtarget for mesh
 			{
-				// consider blendshape animation curve
-				FbxGeometry* Geometry = (FbxGeometry*)NodeArray[NodeIndex]->GetNodeAttribute();
-				if (Geometry)
+				for (int32 NodeIndex = 0; NodeIndex < NodeArray.Num(); NodeIndex++)
 				{
-					int32 BlendShapeDeformerCount = Geometry->GetDeformerCount(FbxDeformer::eBlendShape);
-					for (int32 BlendShapeIndex = 0; BlendShapeIndex < BlendShapeDeformerCount; ++BlendShapeIndex)
-					{
-						FbxBlendShape* BlendShape = (FbxBlendShape*)Geometry->GetDeformer(BlendShapeIndex, FbxDeformer::eBlendShape);
-
-						int32 BlendShapeChannelCount = BlendShape->GetBlendShapeChannelCount();
-						for (int32 ChannelIndex = 0; ChannelIndex < BlendShapeChannelCount; ++ChannelIndex)
-						{
-							FbxBlendShapeChannel* Channel = BlendShape->GetBlendShapeChannel(ChannelIndex);
-
-							if (Channel)
-							{
-								FbxAnimCurve* CurrentCurve = Geometry->GetShapeChannel(BlendShapeIndex, ChannelIndex, AnimLayer);
-								if (CurrentCurve)
-								{
-									int32 CurveAnimRate = GetAnimationCurveRate(CurrentCurve, MaxReferenceRate);
-									if (CurveAnimRate != 0)
-									{
-										CurveAnimSampleRates.AddUnique(CurveAnimRate);
-									}
-								}
-							}
-						}
-					}
+					// consider blendshape animation curve
+					GetNodeSampleRate(NodeArray[NodeIndex], AnimLayer, CurveAnimSampleRates, false, true);
 				}
 			}
 		}
@@ -845,9 +933,6 @@ bool UnFbx::FFbxImporter::ValidateAnimStack(TArray<FbxNode*>& SortedLinks, TArra
 	Scene->SetCurrentAnimationStack(CurAnimStack);
 
 	UE_LOG(LogFbx, Log, TEXT("Parsing AnimStack %s"),UTF8_TO_TCHAR(CurAnimStack->GetName()));
-
-	// There are a FBX unroll filter bug, so don't bake animation layer at all
-	MergeAllLayerAnimation(CurAnimStack, ResampleRate);
 
 	bool bValidAnimStack = true;
 
