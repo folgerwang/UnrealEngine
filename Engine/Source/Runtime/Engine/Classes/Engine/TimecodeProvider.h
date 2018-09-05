@@ -31,8 +31,10 @@ enum class ETimecodeProviderSynchronizationState
 };
 
 /**
-  * A class responsible of fetching a timecode from a source.
-  */
+ * A class responsible of fetching a timecode from a source.
+ * Note, FApp::GetTimecode and FApp::GetTimecodeFramerate should be used to retrieve
+ * the current system Timecode and Framerate.
+ */
 UCLASS(abstract)
 class ENGINE_API UTimecodeProvider : public UObject
 {
@@ -63,13 +65,4 @@ public:
 
 	/** This Provider stopped being the Engine's Provider. */
 	virtual void Shutdown(class UEngine* InEngine) PURE_VIRTUAL(UTimecodeProvider::Shutdown, );
-
-public:
-	/**
-	 * Calculate a timecode from the system clock.
-	 * The frame number will depends on the FrameRate.
-	 * Will take into account DropFrame if the FrameRate support it.
-	 * The frame number will be clamp to a max of 60.
-	 */
-	static FTimecode GetSystemTimeTimecode(const FFrameRate& InForFrameRate);
 };

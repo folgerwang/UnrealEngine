@@ -24,7 +24,25 @@ UVirtualCameraMovementComponent::UVirtualCameraMovementComponent(const FObjectIn
 
 void UVirtualCameraMovementComponent::AddInputVector(FVector WorldVector, bool bForce /*=false*/)
 {
+	if (WorldVector.IsZero())
+	{
+		return;
+	}
+
 	ApplyLocationScaling(WorldVector);
+	ApplyLocationLocks(WorldVector);
+
+	TargetLocation += WorldVector;
+}
+
+void UVirtualCameraMovementComponent::AddInputVectorFromController(FVector WorldVector, EVirtualCameraAxis MovementScaleAxis)
+{
+	if (WorldVector.IsZero())
+	{
+		return;
+	}
+
+	WorldVector *= AxisSettings[MovementScaleAxis].MovementScale;
 	ApplyLocationLocks(WorldVector);
 
 	TargetLocation += WorldVector;
@@ -128,14 +146,14 @@ void UVirtualCameraMovementComponent::OnMoveForward(const float InValue)
 {
 	FVector InputVector = UpdatedComponent->GetForwardVector();
 	InputVector = GetOwner()->GetActorRotation().UnrotateVector(InputVector);
-	AddInputVector(InputVector * InValue);
+	AddInputVectorFromController(InputVector * InValue, EVirtualCameraAxis::LocationX);
 }
 
 void UVirtualCameraMovementComponent::OnMoveRight(const float InValue)
 {
 	FVector InputVector = UpdatedComponent->GetRightVector();
 	InputVector = GetOwner()->GetActorRotation().UnrotateVector(InputVector);
-	AddInputVector(InputVector * InValue);
+	AddInputVectorFromController(InputVector * InValue, EVirtualCameraAxis::LocationY);
 }
 
 void UVirtualCameraMovementComponent::OnMoveUp(const float InValue)
@@ -149,7 +167,7 @@ void UVirtualCameraMovementComponent::OnMoveUp(const float InValue)
 	{
 		FVector InputVector = UpdatedComponent->GetUpVector();
 		InputVector = GetOwner()->GetActorRotation().UnrotateVector(InputVector);
-		AddInputVector(InputVector * InValue);
+		AddInputVectorFromController(InputVector * InValue, EVirtualCameraAxis::LocationZ);
 	}
 }
 
@@ -220,11 +238,20 @@ FVector UVirtualCameraMovementComponent::GetStabilizedDeltaLocation() const
 
 void UVirtualCameraMovementComponent::ApplyLocationScaling(FVector& VectorToAdjust)
 {
+	// Get the axes to scale along
 	FVector ForwardVector;
 	FVector RightVector;
 	FVector UpVector;
 
 	GetDirectionVectorsForCamera(ForwardVector, RightVector, UpVector);
+
+	// Orient to global Z up, but maintain yaw
+	ForwardVector = FVector::VectorPlaneProject(ForwardVector, FVector::UpVector);
+	RightVector = FVector::VectorPlaneProject(RightVector, FVector::UpVector);
+	UpVector = FVector::UpVector;
+
+	ForwardVector.Normalize();
+	RightVector.Normalize();
 
 	FVector XComponent = VectorToAdjust.ProjectOnTo(ForwardVector);
 	FVector YComponent = VectorToAdjust.ProjectOnTo(RightVector);

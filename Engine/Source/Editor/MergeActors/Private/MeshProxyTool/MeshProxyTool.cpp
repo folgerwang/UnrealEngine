@@ -162,7 +162,7 @@ bool FMeshProxyTool::CanMerge() const
 
 FText FThirdPartyMeshProxyTool::GetTooltipText() const
 {
-	return LOCTEXT("ThirdPartyMeshProxyToolTooltip", "Harvest geometry selected meshes and merge and and simplify them as a single mesh.");
+	return LOCTEXT("ThirdPartyMeshProxyToolTooltip", "Harvest geometry from selected meshes, merge and simplify them as a single mesh.");
 }
 
 

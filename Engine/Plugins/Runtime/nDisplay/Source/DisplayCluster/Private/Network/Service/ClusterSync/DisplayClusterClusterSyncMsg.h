@@ -40,6 +40,13 @@ namespace FDisplayClusterClusterSyncMsg
 		constexpr static auto argDeltaTime = "DeltaTime";
 	};
 
+	namespace GetTimecode
+	{
+		constexpr static auto name         = "GetTimecode";
+		constexpr static auto argTimecode  = "Timecode";
+		constexpr static auto argFrameRate = "FrameRate";
+	}
+
 	namespace GetSyncData
 	{
 		constexpr static auto name = "GetSyncData";

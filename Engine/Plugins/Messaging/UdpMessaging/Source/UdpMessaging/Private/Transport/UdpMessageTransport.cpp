@@ -17,7 +17,6 @@
 #include "Transport/UdpDeserializedMessage.h"
 #include "Transport/UdpSerializedMessage.h"
 #include "Transport/UdpMessageProcessor.h"
-#include "Transport/UdpSerializeMessageTask.h"
 
 
 /* FUdpMessageTransport structors
@@ -180,25 +179,7 @@ bool FUdpMessageTransport::TransportMessage(const TSharedRef<IMessageContext, ES
 		return false;
 	}
 
-	TSharedRef<FUdpSerializedMessage, ESPMode::ThreadSafe> SerializedMessage = MakeShared<FUdpSerializedMessage, ESPMode::ThreadSafe>();
-
-	if (Recipients.Num() == 0)
-	{
-		// publish the message
-		MessageProcessor->EnqueueOutboundMessage(SerializedMessage, FGuid());
-	}
-	else
-	{
-		// send the message
-		for (const auto& Recipient : Recipients)
-		{
-			MessageProcessor->EnqueueOutboundMessage(SerializedMessage, Recipient);
-		}
-	}
-
-	TGraphTask<FUdpSerializeMessageTask>::CreateTask().ConstructAndDispatchWhenReady(Context, SerializedMessage, MessageProcessor->GetWorkEvent());
-
-	return true;
+	return MessageProcessor->EnqueueOutboundMessage(Context, Recipients);
 }
 
 
@@ -208,7 +189,7 @@ bool FUdpMessageTransport::TransportMessage(const TSharedRef<IMessageContext, ES
 void FUdpMessageTransport::HandleProcessorMessageReassembled(const FUdpReassembledMessage& ReassembledMessage, const TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe>& Attachment, const FGuid& NodeId)
 {
 	// @todo gmp: move message deserialization into an async task
-	TSharedRef<FUdpDeserializedMessage, ESPMode::ThreadSafe> DeserializedMessage = MakeShareable(new FUdpDeserializedMessage(Attachment));
+	TSharedRef<FUdpDeserializedMessage, ESPMode::ThreadSafe> DeserializedMessage = MakeShared<FUdpDeserializedMessage, ESPMode::ThreadSafe>(Attachment);
 
 	if (DeserializedMessage->Deserialize(ReassembledMessage))
 	{

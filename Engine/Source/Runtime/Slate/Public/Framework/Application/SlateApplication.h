@@ -867,6 +867,12 @@ public:
 
 	void SetPlatformApplication(const TSharedRef<class GenericApplication>& InPlatformApplication);
 
+	/**
+	 * Replace the current platform application with a custom version.
+	 * @param InPlatformApplication - The replacement platform application.
+	 */
+	void OverridePlatformApplication(TSharedPtr<class GenericApplication> InPlatformApplication);
+
 	/** Set the global application icon */
 	void SetAppIcon(const FSlateBrush* const InAppIcon);
 
@@ -1326,6 +1332,8 @@ public:
 	void SetAllowTooltips(bool bCanShow);
 	bool GetAllowTooltips() const;
 	
+	bool IsRenderingOffScreen() const { return bRenderOffScreen; }
+
 public:
 
 	//~ Begin FSlateApplicationBase Interface
@@ -1707,6 +1715,9 @@ private:
 
 	/** true if any slate window is currently active (not just top level windows) */
 	bool bSlateWindowActive;
+
+	/** true if rendering windows even when they are set to invisible */
+	bool bRenderOffScreen;
 
 	/** Application-wide scale for supporting monitors of varying pixel density */
 	float Scale;

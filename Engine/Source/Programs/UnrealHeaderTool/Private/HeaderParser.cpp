@@ -8738,7 +8738,45 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 		}
 		else if( Property->IsA(UTextProperty::StaticClass()) )
 		{
-			return FDefaultValueHelper::StringFromCppString(CppForm, TEXT("FText"), OutForm);
+			// Handle legacy cases of FText::FromString being used as default values
+			// These should be replaced with INVTEXT as FText::FromString can produce inconsistent keys
+			if (FDefaultValueHelper::StringFromCppString(CppForm, TEXT("FText::FromString"), OutForm))
+			{
+				UE_LOG_WARNING_UHT(TEXT("FText::FromString should be replaced with INVTEXT for default parameter values"));
+				return true;
+			}
+
+			// Parse the potential value into an instance
+			FText ParsedText;
+			if (FDefaultValueHelper::Is(CppForm, TEXT("FText()")) || FDefaultValueHelper::Is(CppForm, TEXT("FText::GetEmpty()")))
+			{
+				ParsedText = FText::GetEmpty();
+			}
+			else
+			{
+				static const FString UHTDummyNamespace = TEXT("__UHT_DUMMY_NAMESPACE__");
+
+				if (!FTextStringHelper::ReadFromString(*CppForm, ParsedText, *UHTDummyNamespace, nullptr, nullptr, /*bRequiresQuotes*/true, EStringTableLoadingPolicy::Find))
+				{
+					return false;
+				}
+
+				// If the namespace of the parsed text matches the default we gave then this was a LOCTEXT macro which we 
+				// don't allow in default values as they rely on an external macro that is known to C++ but not to UHT
+				// TODO: UHT could parse these if it tracked the current LOCTEXT_NAMESPACE macro as it parsed
+				if (TOptional<FString> ParsedTextNamespace = FTextInspector::GetNamespace(ParsedText))
+				{
+					if (ParsedTextNamespace.GetValue().Equals(UHTDummyNamespace))
+					{
+						FError::Throwf(TEXT("LOCTEXT default parameter values are not supported; use NSLOCTEXT instead: %s \"%s\" "), *Property->GetName(), *CppForm);
+						return false;
+					}
+				}
+			}
+
+			// Normalize the default value from the parsed value
+			FTextStringHelper::WriteToString(OutForm, ParsedText, /*bRequiresQuotes*/false);
+			return true;
 		}
 		else if( Property->IsA(UStrProperty::StaticClass()) )
 		{

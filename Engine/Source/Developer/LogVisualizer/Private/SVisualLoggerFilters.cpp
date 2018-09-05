@@ -150,7 +150,7 @@ TSharedRef<SWidget> SVisualLoggerFilters::MakeGraphsFilterMenu()
 			.HintText(LOCTEXT("GraphsFilterSearchHint", "Quick find"))
 			.OnTextChanged(this, &SVisualLoggerFilters::OnSearchChanged);
 
-		MenuBuilder.AddWidget(FiltersSearchBox, LOCTEXT("FiltersSearchMenuWidget", ""));
+		MenuBuilder.AddWidget(FiltersSearchBox, FText::GetEmpty());
 
 		if (CachedDatasPerGraph.Num() > 0)
 		{

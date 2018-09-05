@@ -3,6 +3,8 @@
 #include "AjaMediaSource.h"
 #include "AjaMediaPrivate.h"
 
+#include "MediaIOCorePlayerBase.h"
+
 UAjaMediaSource::UAjaMediaSource()
 	: TimecodeFormat(EAjaMediaTimecodeFormat::None)
 	, bCaptureWithAutoCirculating(true)
@@ -54,15 +56,33 @@ bool UAjaMediaSource::GetMediaOption(const FName& Key, bool DefaultValue) const
 
 int64 UAjaMediaSource::GetMediaOption(const FName& Key, int64 DefaultValue) const
 {
-	if (Key == AjaMediaOption::FrameRateNumerator)
+	if (Key == AjaMediaOption::DeviceIndex)
+	{
+		return MediaPort.DeviceIndex;
+	}
+	if (Key == AjaMediaOption::PortIndex)
+	{
+		return MediaPort.PortIndex;
+	}
+	if (Key == FMediaIOCoreMediaOption::FrameRateNumerator)
 	{
 		const FAjaMediaMode CurrentMediaMode = GetMediaMode();
 		return CurrentMediaMode.FrameRate.Numerator;
 	}
-	if (Key == AjaMediaOption::FrameRateDenominator)
+	if (Key == FMediaIOCoreMediaOption::FrameRateDenominator)
 	{
 		const FAjaMediaMode CurrentMediaMode = GetMediaMode();
 		return CurrentMediaMode.FrameRate.Denominator;
+	}
+	if (Key == FMediaIOCoreMediaOption::ResolutionWidth)
+	{
+		const FAjaMediaMode CurrentMediaMode = GetMediaMode();
+		return CurrentMediaMode.TargetSize.X;
+	}
+	if (Key == FMediaIOCoreMediaOption::ResolutionHeight)
+	{
+		const FAjaMediaMode CurrentMediaMode = GetMediaMode();
+		return CurrentMediaMode.TargetSize.Y;
 	}
 	if (Key == AjaMediaOption::TimecodeFormat)
 	{
@@ -97,10 +117,25 @@ int64 UAjaMediaSource::GetMediaOption(const FName& Key, int64 DefaultValue) cons
 	return Super::GetMediaOption(Key, DefaultValue);
 }
 
+FString UAjaMediaSource::GetMediaOption(const FName& Key, const FString& DefaultValue) const
+{
+	if (Key == FMediaIOCoreMediaOption::VideoStandard)
+	{
+		const FAjaMediaMode CurrentMediaMode = GetMediaMode();
+		return CurrentMediaMode.ToString();
+	}
+	return Super::GetMediaOption(Key, DefaultValue);
+}
+
 bool UAjaMediaSource::HasMediaOption(const FName& Key) const
 {
-	if ((Key == AjaMediaOption::FrameRateNumerator) ||
-		(Key == AjaMediaOption::FrameRateDenominator) ||
+	if ((Key == AjaMediaOption::DeviceIndex) ||
+		(Key == AjaMediaOption::PortIndex) ||
+		(Key == FMediaIOCoreMediaOption::FrameRateNumerator) ||
+		(Key == FMediaIOCoreMediaOption::FrameRateDenominator) ||
+		(Key == FMediaIOCoreMediaOption::ResolutionWidth) ||
+		(Key == FMediaIOCoreMediaOption::ResolutionHeight) ||
+		(Key == FMediaIOCoreMediaOption::VideoStandard) ||
 		(Key == AjaMediaOption::TimecodeFormat) ||
 		(Key == AjaMediaOption::CaptureWithAutoCirculating) ||
 		(Key == AjaMediaOption::CaptureAncillary) ||
@@ -137,10 +172,13 @@ FAjaMediaMode UAjaMediaSource::GetMediaMode() const
 	return CurrentMode;
 }
 
-void UAjaMediaSource::OverrideMediaMode(const FAjaMediaMode& InMediaMode)
+FAjaMediaConfiguration UAjaMediaSource::GetMediaConfiguration() const
 {
-	bIsDefaultModeOverriden = true;
-	MediaMode = InMediaMode;
+	FAjaMediaConfiguration Result;
+	Result.MediaPort = MediaPort;
+	Result.MediaMode = GetMediaMode();
+	Result.bInput = true;
+	return Result;
 }
 
 /*
@@ -168,25 +206,31 @@ bool UAjaMediaSource::Validate() const
 	AJA::AJADeviceScanner::DeviceInfo DeviceInfo;
 	if (!Scanner->GetDeviceInfo(MediaPort.DeviceIndex, DeviceInfo))
 	{
-		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't exist on this machine."), *GetName(), *MediaPort.DeviceName);
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't exist on this machine."), *GetName(), *MediaPort.DeviceName.ToString());
 		return false;
 	}
 
 	if (!DeviceInfo.bIsSupported)
 	{
-		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that is not supported by the AJA SDK."), *GetName(), *MediaPort.DeviceName);
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that is not supported by the AJA SDK."), *GetName(), *MediaPort.DeviceName.ToString());
 		return false;
 	}
 
 	if (!DeviceInfo.bCanDoCapture)
 	{
-		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that can't capture."), *GetName(), *MediaPort.DeviceName);
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that can't capture."), *GetName(), *MediaPort.DeviceName.ToString());
 		return false;
 	}
 
 	if (bCaptureAncillary && !DeviceInfo.bCanDoCustomAnc)
 	{
-		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that can't capture Ancillary data."), *GetName(), *MediaPort.DeviceName);
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that can't capture Ancillary data."), *GetName(), *MediaPort.DeviceName.ToString());
+		return false;
+	}
+
+	if (bUseTimeSynchronization && TimecodeFormat == EAjaMediaTimecodeFormat::None)
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use time synchronization but doesn't enabled the timecode."), *GetName());
 		return false;
 	}
 
@@ -194,17 +238,12 @@ bool UAjaMediaSource::Validate() const
 	{
 		if (ColorFormat == EAjaMediaSourceColorFormat::BGRA && !DeviceInfo.bSupportPixelFormat8bitARGB)
 		{
-			UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't support the 8bit ARGB pixel format."), *GetName(), *MediaPort.DeviceName);
-			return false;
-		}
-		if (ColorFormat == EAjaMediaSourceColorFormat::UYVY && !DeviceInfo.bSupportPixelFormat8bitYCBCR)
-		{
-			UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't support the 8bit YCbCr pixel format."), *GetName(), *MediaPort.DeviceName);
+			UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't support the 8bit ARGB pixel format."), *GetName(), *MediaPort.DeviceName.ToString());
 			return false;
 		}
 		if (ColorFormat == EAjaMediaSourceColorFormat::BGR10 && !DeviceInfo.bSupportPixelFormat10bitRGB)
 		{
-			UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't support the 10bit ARGB pixel format."), *GetName(), *MediaPort.DeviceName);
+			UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' use the device '%s' that doesn't support the 10bit ARGB pixel format."), *GetName(), *MediaPort.DeviceName.ToString());
 			return false;
 		}
 	}
@@ -223,7 +262,12 @@ bool UAjaMediaSource::CanEditChange(const UProperty* InProperty) const
 	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UAjaMediaSource, bEncodeTimecodeInTexel))
 	{
 		return TimecodeFormat != EAjaMediaTimecodeFormat::None && bCaptureVideo;
-	}	
+	}
+
+	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UTimeSynchronizableMediaSource, bUseTimeSynchronization))
+	{
+		return TimecodeFormat != EAjaMediaTimecodeFormat::None;
+	}
 
 	return true;
 }

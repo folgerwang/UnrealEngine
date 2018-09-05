@@ -7,6 +7,7 @@
 
 #include "Customizations/AjaMediaPortCustomization.h"
 #include "Customizations/AjaMediaModeCustomization.h"
+#include "Customizations/AjaMediaSourceDetailCustomization.h"
 
 #include "Brushes/SlateImageBrush.h"
 #include "Interfaces/IPluginManager.h"
@@ -58,12 +59,14 @@ private:
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyModule.RegisterCustomPropertyTypeLayout(FAjaMediaPort::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FAjaMediaPortCustomization::MakeInstance));
 		PropertyModule.RegisterCustomPropertyTypeLayout(FAjaMediaMode::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FAjaMediaModeCustomization::MakeInstance));
+		PropertyModule.RegisterCustomClassLayout(UAjaMediaSource::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FAjaMediaSourceDetailCustomization::MakeInstance));
 	}
 
 	/** Unregister details view customizations. */
 	void UnregisterCustomizations()
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.UnregisterCustomClassLayout(UAjaMediaSource::StaticClass()->GetFName());
 		PropertyModule.UnregisterCustomPropertyTypeLayout(FAjaMediaPort::StaticStruct()->GetFName());
 		PropertyModule.UnregisterCustomPropertyTypeLayout(FAjaMediaMode::StaticStruct()->GetFName());
 	}

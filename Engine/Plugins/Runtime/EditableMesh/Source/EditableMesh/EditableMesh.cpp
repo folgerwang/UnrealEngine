@@ -8395,19 +8395,14 @@ void UEditableMesh::RebuildOctree()
 	}
 }
 
-
-void UEditableMesh::SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineSegment( const FVector LineSegmentStart, const FVector LineSegmentEnd, TArray<FPolygonID>& OutPolygons ) const
+void UEditableMesh::SearchSpatialDatabaseWithPredicate( TFunctionRef< bool( const FBox& Bounds ) > Predicate, TArray< FPolygonID >& OutPolygons ) const
 {
 	OutPolygons.Reset();
 
-	// @todo mesheditor perf: Ideally we "early out" of octree traversal, by walking through the octree along the ray, reporting back to QueryElement to find out when we should stop
 	// @todo mesheditor scripting: Should spit a warning for Blueprint users if Octree is not allowed when calling this function
 
 	if( IsSpatialDatabaseAllowed() && ensure( Octree.IsValid() ) )
 	{
-		const FVector LineSegmentVector = LineSegmentEnd - LineSegmentStart;
-		const FVector LineSegmentVectorReciprocal = LineSegmentVector.Reciprocal();
-
 		// @todo mesheditor perf: Do we need to use a custom stack allocator for iterating?  The default should probably be okay.
 		for( FEditableMeshOctree::TConstIterator<> OctreeIt( *Octree );
 			 OctreeIt.HasPendingNodes();
@@ -8419,32 +8414,16 @@ void UEditableMesh::SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineS
 			// Leaf nodes have no children, so don't bother iterating
 			if( !OctreeNode.IsLeaf() )
 			{
-				// Find children of this octree node that overlap our line segment
 				FOREACH_OCTREE_CHILD_NODE( ChildRef )
 				{
 					if( OctreeNode.HasChild( ChildRef ) )
 					{
 						const FOctreeNodeContext ChildContext = OctreeNodeContext.GetChildContext( ChildRef );
 
-						// @todo mesheditor: LineBoxIntersection() has a magic number in its implementation we might want to look at (search for BOX_SIDE_THRESHOLD)
-						const bool bIsOverlappingLineSegment =
-							FMath::LineBoxIntersection(
-								ChildContext.Bounds.GetBox(),
-								LineSegmentStart,
-								LineSegmentEnd,
-								LineSegmentVector,
-								LineSegmentVectorReciprocal );
-
-						if( bIsOverlappingLineSegment )
+						if( Predicate( ChildContext.Bounds.GetBox() ) )
 						{
-							// DrawDebugBox( GWorld, ChildContext.Bounds.Center, ChildContext.Bounds.Extent * 0.8f, FQuat::Identity, FColor::Green, false, 0.0f );		// @todo mesheditor debug: (also, wrong coordinate system!)
-
 							// Push it on the iterator's pending node stack.
 							OctreeIt.PushChild( ChildRef );
-						}
-						else
-						{
-							// DrawDebugBox( GWorld, ChildContext.Bounds.Center, ChildContext.Bounds.Extent, FQuat::Identity, FColor( 128, 128, 128 ), false, 0.0f );	// @todo mesheditor debug: (also, wrong coordinate system!)
 						}
 					}
 				}
@@ -8458,6 +8437,38 @@ void UEditableMesh::SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineS
 			}
 		}
 	}
+}
+
+void UEditableMesh::SearchSpatialDatabaseForPolygonsInVolume( const TArray<FPlane>& Planes, TArray<FPolygonID>& OutPolygons ) const
+{
+	auto SearchInVolume = [ &Planes ]( const FBox& Bounds )
+	{
+		bool bIsInside = true;
+
+		// Inside volume if node intersects or above all planes that form the volume
+		for( int32 Index = 0; bIsInside && Index < Planes.Num(); ++Index )
+		{
+			bIsInside = bIsInside && FMath::PlaneAABBRelativePosition( Planes[ Index ], Bounds ) >= 0;
+		}
+		return bIsInside;
+	};
+
+	SearchSpatialDatabaseWithPredicate( SearchInVolume, OutPolygons );
+}
+
+void UEditableMesh::SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineSegment( const FVector LineSegmentStart, const FVector LineSegmentEnd, TArray<FPolygonID>& OutPolygons ) const
+{
+	const FVector LineSegmentVector = LineSegmentEnd - LineSegmentStart;
+	const FVector LineSegmentVectorReciprocal = LineSegmentVector.Reciprocal();
+
+	auto SearchByLineSegmentIntersection = [ & ]( const FBox& Bounds )
+	{
+		// @todo mesheditor: LineBoxIntersection() has a magic number in its implementation we might want to look at (search for BOX_SIDE_THRESHOLD)
+		return FMath::LineBoxIntersection( Bounds, LineSegmentStart, LineSegmentEnd, LineSegmentVector, LineSegmentVectorReciprocal );
+
+	};
+
+	SearchSpatialDatabaseWithPredicate( SearchByLineSegmentIntersection, OutPolygons );
 }
 
 

@@ -12,6 +12,7 @@
 #include "Editor/UnrealEdEngine.h"
 #include "EngineUtils.h"
 #include "Engine/Brush.h"
+#include "Engine/MapBuildDataRegistry.h"
 #include "Engine/Selection.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
@@ -23,7 +24,8 @@
 #include "Kismet2/ComponentEditorUtils.h"
 #include "Layers/ILayers.h"
 #include "LevelEditorViewport.h"
-#include "Engine/MapBuildDataRegistry.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialInterface.h"
 #include "MeshMergeModule.h"
 #include "ScopedTransaction.h"
 #include "UnrealEdGlobals.h"
@@ -914,11 +916,6 @@ namespace InternalEditorLevelLibrary
 				ActorsToTest.RemoveAtSwap(Index);
 			}
 		}
-		if (ActorsToTest.Num() < 2)
-		{
-			OutFailureReason = TEXT("A merge operation requires at least 2 Actors.");
-			return false;
-		}
 
 		// All actors need to come from the same World
 		UWorld* CurrentWorld = ActorsToTest[0]->GetWorld();
@@ -983,12 +980,6 @@ namespace InternalEditorLevelLibrary
 			}
 		}
 
-		if (OutValidActor.Num() < 2)
-		{
-			OutFailureReason = TEXT("A merge operation requires at least 2 valid Actors.");
-			return false;
-		}
-
 		OutAverageLocation = PivotLocation / OutValidActor.Num();
 
 		return true;
@@ -1034,7 +1025,13 @@ AActor* UEditorLevelLibrary::JoinStaticMeshActors(const TArray<AStaticMeshActor*
 	FString FailureReason;
 	if (!InternalEditorLevelLibrary::FindValidActorAndComponents(ActorsToMerge, AllActors, AllComponents, PivotLocation, FailureReason))
 	{
-		UE_LOG(LogEditorScripting, Error, TEXT("JoinStaticMeshSctors failed. %s"), *FailureReason);
+		UE_LOG(LogEditorScripting, Error, TEXT("JoinStaticMeshActors failed. %s"), *FailureReason);
+		return nullptr;
+	}
+
+	if (AllActors.Num() < 2)
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("JoinStaticMeshActors failed. A merge operation requires at least 2 valid Actors."));
 		return nullptr;
 	}
 
@@ -1044,7 +1041,7 @@ AActor* UEditorLevelLibrary::JoinStaticMeshActors(const TArray<AStaticMeshActor*
 	AActor* NewActor = AllActors[0]->GetWorld()->SpawnActor<AActor>(PivotLocation, FRotator::ZeroRotator, Params);
 	if (!NewActor)
 	{
-		UE_LOG(LogEditorScripting, Error, TEXT("JoinStaticMeshSctors failed. Internal error while creating the join actor."));
+		UE_LOG(LogEditorScripting, Error, TEXT("JoinStaticMeshActors failed. Internal error while creating the join actor."));
 		return nullptr;
 	}
 
@@ -1129,7 +1126,7 @@ bool UEditorLevelLibrary::MergeStaticMeshActors(const TArray<AStaticMeshActor*>&
 	FVector MergedActorLocation;
 	TArray<UObject*> CreatedAssets;
 	const float ScreenAreaSize = TNumericLimits<float>::Max();
-	MeshUtilities.MergeComponentsToStaticMesh(AllComponents, AllActors[0]->GetWorld(), MergeOptions.MeshMergingSettings, nullptr, nullptr, MergeOptions.BasePackageName, CreatedAssets, MergedActorLocation, ScreenAreaSize, true);
+	MeshUtilities.MergeComponentsToStaticMesh(AllComponents, AllActors[0]->GetWorld(), MergeOptions.MeshMergingSettings, nullptr, nullptr, PackageName, CreatedAssets, MergedActorLocation, ScreenAreaSize, true);
 
 	UStaticMesh* MergedMesh = nullptr;
 	if (!CreatedAssets.FindItemByClass(&MergedMesh))
@@ -1180,6 +1177,105 @@ bool UEditorLevelLibrary::MergeStaticMeshActors(const TArray<AStaticMeshActor*>&
 	GEditor->SelectNone(false, true, false);
 	GEditor->SelectActor(OutMergedActor, true, false);
 	GEditor->NoteSelectionChange();
+
+	return true;
+}
+
+bool UEditorLevelLibrary::CreateProxyMeshActor(const TArray<class AStaticMeshActor*>& ActorsToMerge, const FEditorScriptingCreateProxyMeshActorOptions& MergeOptions, class AStaticMeshActor*& OutMergedActor)
+{
+	// See FMeshProxyTool::RunMerge (Engine\Source\Editor\MergeActors\Private\MeshProxyTool\MeshProxyTool.cpp)
+	TGuardValue<bool> UnattendedScriptGuard(GIsRunningUnattendedScript, true);
+
+	OutMergedActor = nullptr;
+
+	if (!EditorScriptingUtils::CheckIfInEditorAndPIE())
+	{
+		return false;
+	}
+
+	// Cleanup actors
+	TArray<AStaticMeshActor*> StaticMeshActors;
+	TArray<UPrimitiveComponent*> AllComponents_UNUSED;
+	FVector PivotLocation;
+	FString FailureReason;
+	if (!InternalEditorLevelLibrary::FindValidActorAndComponents(ActorsToMerge, StaticMeshActors, AllComponents_UNUSED, PivotLocation, FailureReason))
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("MergeStaticMeshActors failed. %s"), *FailureReason);
+		return false;
+	}
+	TArray<AActor*> AllActors(StaticMeshActors);
+
+	const IMeshMergeUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshMergeModule>("MeshMergeUtilities").GetUtilities();
+
+	FCreateProxyDelegate ProxyDelegate;
+	TArray<UObject*> CreatedAssets;
+	ProxyDelegate.BindLambda([&CreatedAssets](const FGuid Guid, TArray<UObject*>& InAssetsToSync){CreatedAssets.Append(InAssetsToSync);});
+
+	MeshUtilities.CreateProxyMesh(
+		AllActors,                      // List of Actors to merge
+		MergeOptions.MeshProxySettings, // Merge settings
+		nullptr,                        // Base Material used for final proxy material. Note: nullptr for default impl: /Engine/EngineMaterials/BaseFlattenMaterial.BaseFlattenMaterial
+		nullptr,                        // Package for generated assets. Note: if nullptr, BasePackageName is used
+		MergeOptions.BasePackageName,   // Will be used for naming generated assets, in case InOuter is not specified ProxyBasePackageName will be used as long package name for creating new packages
+		FGuid::NewGuid(),               // Identify a job, First argument of the ProxyDelegate
+		ProxyDelegate                   // Called back on asset creation
+	);
+
+	UStaticMesh* MergedMesh = nullptr;
+	if (!CreatedAssets.FindItemByClass(&MergedMesh))
+	{
+		UE_LOG(LogEditorScripting, Error, TEXT("CreateProxyMeshActor failed. No mesh created."));
+		return false;
+	}
+
+	// Update the asset registry that a new static mesh and material has been created
+	FAssetRegistryModule& AssetRegistry = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	for (UObject* Asset : CreatedAssets)
+	{
+		AssetRegistry.AssetCreated(Asset);
+		GEditor->BroadcastObjectReimported(Asset);
+	}
+
+	// Also notify the content browser that the new assets exists
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+	ContentBrowserModule.Get().SyncBrowserToAssets(CreatedAssets, true);
+
+	// Place new mesh in the world
+	UWorld* ActorWorld = AllActors[0]->GetWorld();
+	ULevel* ActorLevel = AllActors[0]->GetLevel();
+	if (MergeOptions.bSpawnMergedActor)
+	{
+		FActorSpawnParameters Params;
+		Params.OverrideLevel = ActorLevel;
+		OutMergedActor = ActorWorld->SpawnActor<AStaticMeshActor>(FVector::ZeroVector, FRotator::ZeroRotator, Params);
+		if (!OutMergedActor)
+		{
+			UE_LOG(LogEditorScripting, Error, TEXT("CreateProxyMeshActor failed. Internal error while creating the merged actor."));
+			return false;
+		}
+
+		OutMergedActor->GetStaticMeshComponent()->SetStaticMesh(MergedMesh);
+		OutMergedActor->SetActorLabel(MergeOptions.NewActorLabel);
+		ActorWorld->UpdateCullDistanceVolumes(OutMergedActor, OutMergedActor->GetStaticMeshComponent());
+	}
+
+	// Remove source actors
+	if (MergeOptions.bDestroySourceActors)
+	{
+		for (AActor* Actor : AllActors)
+		{
+			GEditor->Layers->DisassociateActorFromLayers(Actor);
+			ActorWorld->EditorDestroyActor(Actor, true);
+		}
+	}
+
+	//Select newly created actor
+	if (OutMergedActor)
+	{
+		GEditor->SelectNone(false, true, false);
+		GEditor->SelectActor(OutMergedActor, true, false); // don't notify but manually call NoteSelectionChange ?
+		GEditor->NoteSelectionChange();
+	}
 
 	return true;
 }

@@ -89,19 +89,7 @@ bool UAjaMediaCapture::CaptureSceneViewportImpl(TSharedPtr<FSceneViewport>& InSc
 	bool bResult = InitAJA(AjaMediaSource);
 	if (bResult)
 	{
-		TSharedPtr<SViewport> Widget(InSceneViewport->GetViewportWidget().Pin());
-		if (Widget.IsValid())
-		{
-			bSavedIgnoreTextureAlpha = Widget->GetIgnoreTextureAlpha();
-			if (AjaMediaSource->OutputType == EAjaMediaOutputType::FillAndKey)
-			{
-				if (bSavedIgnoreTextureAlpha)
-				{
-					bIgnoreTextureAlphaChanged = true;
-					Widget->SetIgnoreTextureAlpha(false);
-				}
-			}
-		}
+		ApplyViewportTextureAlpha(InSceneViewport);
 	}
 	return bResult;
 }
@@ -111,6 +99,19 @@ bool UAjaMediaCapture::CaptureRenderTargetImpl(UTextureRenderTarget2D* InRenderT
 	UAjaMediaOutput* AjaMediaSource = CastChecked<UAjaMediaOutput>(MediaOutput);
 	bool bResult = InitAJA(AjaMediaSource);
 	return bResult;
+}
+
+bool UAjaMediaCapture::UpdateSceneViewportImpl(TSharedPtr<FSceneViewport>& InSceneViewport)
+{
+	RestoreViewportTextureAlpha(GetCapturingSceneViewport());
+	ApplyViewportTextureAlpha(InSceneViewport);
+	return true;
+}
+
+bool UAjaMediaCapture::UpdateRenderTargetImpl(UTextureRenderTarget2D* InRenderTarget)
+{
+	RestoreViewportTextureAlpha(GetCapturingSceneViewport());
+	return true;
 }
 
 void UAjaMediaCapture::StopCaptureImpl(bool bAllowPendingFrameToBeProcess)
@@ -138,20 +139,46 @@ void UAjaMediaCapture::StopCaptureImpl(bool bAllowPendingFrameToBeProcess)
 			}
 		}
 
-		// restore the ignore texture alpha state
-		if (bIgnoreTextureAlphaChanged)
+		RestoreViewportTextureAlpha(GetCapturingSceneViewport());
+	}
+}
+
+void UAjaMediaCapture::ApplyViewportTextureAlpha(TSharedPtr<FSceneViewport> InSceneViewport)
+{
+	if (InSceneViewport.IsValid())
+	{
+		TSharedPtr<SViewport> Widget(InSceneViewport->GetViewportWidget().Pin());
+		if (Widget.IsValid())
 		{
-			TSharedPtr<FSceneViewport> Viewport = GetCapturingSceneViewport();
-			if (Viewport.IsValid())
+			bSavedIgnoreTextureAlpha = Widget->GetIgnoreTextureAlpha();
+
+			UAjaMediaOutput* AjaMediaSource = CastChecked<UAjaMediaOutput>(MediaOutput);
+			if (AjaMediaSource->OutputType == EAjaMediaOutputType::FillAndKey)
 			{
-				TSharedPtr<SViewport> Widget(Viewport->GetViewportWidget().Pin());
-				if (Widget.IsValid())
+				if (bSavedIgnoreTextureAlpha)
 				{
-					Widget->SetIgnoreTextureAlpha(bSavedIgnoreTextureAlpha);
+					bIgnoreTextureAlphaChanged = true;
+					Widget->SetIgnoreTextureAlpha(false);
 				}
 			}
-			bIgnoreTextureAlphaChanged = false;
 		}
+	}
+}
+
+void UAjaMediaCapture::RestoreViewportTextureAlpha(TSharedPtr<FSceneViewport> InSceneViewport)
+{
+	// restore the ignore texture alpha state
+	if (bIgnoreTextureAlphaChanged)
+	{
+		if (InSceneViewport.IsValid())
+		{
+			TSharedPtr<SViewport> Widget(InSceneViewport->GetViewportWidget().Pin());
+			if (Widget.IsValid())
+			{
+				Widget->SetIgnoreTextureAlpha(bSavedIgnoreTextureAlpha);
+			}
+		}
+		bIgnoreTextureAlphaChanged = false;
 	}
 }
 

@@ -66,53 +66,38 @@ void STimecodeSynchronizerSourceViewer::PopulateActiveSources()
 	
 	if (TimecodeSynchronizer.IsValid())
 	{
-		const TArray<FTimecodeSynchronizerActiveTimecodedInputSource>& TimecodedSources = TimecodeSynchronizer->GetTimecodedSources();
-		for (int32 Index = 0; Index < TimecodedSources.Num(); ++Index)
+		struct FLocal
 		{
-			const FTimecodeSynchronizerActiveTimecodedInputSource& Source = TimecodedSources[Index];
-			if (Source.InputSource)
+			static void BuildViewportsForSources(UTimecodeSynchronizer* Synchronizer, TSharedPtr<SVerticalBox> Owner, const bool bSynchronizedSources)
 			{
-				UMediaPlayerTimeSynchronizationSource* MediaPlayerSource = Cast<UMediaPlayerTimeSynchronizationSource>(Source.InputSource);
-				UMediaTexture* TextureArg = MediaPlayerSource ? MediaPlayerSource->MediaTexture : nullptr;
-							 
-				//Add a Viewport Widget for each active Source
-				ViewportVerticalBox->AddSlot()
-				.Padding(1.0f, 1.0f, 1.0f, 1.0f)
-				[
-					SNew(SBorder)
-					.BorderImage(FCoreStyle::Get().GetBrush("GreenBrush"))
-					.Padding(0.0f)
-					[
-						//Source area
-						SNew(STimecodeSynchronizerSourceViewport, TimecodeSynchronizer.Get(), Index, true, TextureArg)
-					]
-				];
-			}
-		}
+				const TArray<FTimecodeSynchronizerActiveTimecodedInputSource>& TimecodedSources = bSynchronizedSources ? Synchronizer->GetSynchronizedSources() : Synchronizer->GetNonSynchronizedSources();
+				for (int32 Index = 0; Index < TimecodedSources.Num(); ++Index)
+				{
+					const FTimecodeSynchronizerActiveTimecodedInputSource& Source = TimecodedSources[Index];
+					if (const UTimeSynchronizationSource* SyncSource = Source.GetInputSource())
+					{
+						const UMediaPlayerTimeSynchronizationSource* MediaPlayerSource = Cast<UMediaPlayerTimeSynchronizationSource>(SyncSource);
+						const UMediaTexture* TextureArg = MediaPlayerSource ? MediaPlayerSource->MediaTexture : nullptr;
 
-		const TArray<FTimecodeSynchronizerActiveTimecodedInputSource>& SynchronizationSources = TimecodeSynchronizer->GetSynchronizationSources();
-		for (int32 Index = 0; Index < SynchronizationSources.Num(); ++Index)
-		{
-			const FTimecodeSynchronizerActiveTimecodedInputSource& Source = SynchronizationSources[Index];
-			if (Source.InputSource)
-			{
-				UMediaPlayerTimeSynchronizationSource* MediaPlayerSource = Cast<UMediaPlayerTimeSynchronizationSource>(Source.InputSource);
-				UMediaTexture* TextureArg = MediaPlayerSource ? MediaPlayerSource->MediaTexture : nullptr;
-							 
-				//Add a Viewport Widget for each active Source
-				ViewportVerticalBox->AddSlot()
-				.Padding(1.0f, 1.0f, 1.0f, 1.0f)
-				[
-					SNew(SBorder)
-					.BorderImage(FCoreStyle::Get().GetBrush("GreenBrush"))
-					.Padding(0.0f)
-					[
-						//Source area
-						SNew(STimecodeSynchronizerSourceViewport, TimecodeSynchronizer.Get(), Index, false, TextureArg)
-					]
-				];
+						//Add a Viewport Widget for each active Source
+						Owner->AddSlot()
+							.Padding(1.0f, 1.0f, 1.0f, 1.0f)
+							[
+								SNew(SBorder)
+								.BorderImage(FCoreStyle::Get().GetBrush("GreenBrush"))
+								.Padding(0.0f)
+								[
+									//Source area
+									SNew(STimecodeSynchronizerSourceViewport, Synchronizer, Index, bSynchronizedSources, const_cast<UMediaTexture*>(TextureArg))
+								]
+							];
+					}
+				}
 			}
-		}
+		};
+
+		FLocal::BuildViewportsForSources(TimecodeSynchronizer.Get(), ViewportVerticalBox, true);
+		FLocal::BuildViewportsForSources(TimecodeSynchronizer.Get(), ViewportVerticalBox, false);
 	}
 }
 

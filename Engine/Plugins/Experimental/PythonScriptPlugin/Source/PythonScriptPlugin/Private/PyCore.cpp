@@ -1568,7 +1568,7 @@ void InitializeModule()
 	GPythonPropertyContainer.Reset(NewObject<UStruct>(GetTransientPackage(), TEXT("PythonProperties")));
 
 	GPythonTypeContainer.Reset(NewObject<UPackage>(nullptr, TEXT("/Engine/PythonTypes"), RF_Public));
-	GPythonTypeContainer->SetPackageFlags(PKG_CompiledIn | PKG_ContainsScript);
+	GPythonTypeContainer->SetPackageFlags(PKG_ContainsScript);
 
 	PyGenUtil::FNativePythonModule NativePythonModule;
 	NativePythonModule.PyModuleMethods = PyCoreMethods;

@@ -80,8 +80,8 @@ FTimespan FAja::ConvertAJATimecode2Timespan(const AJA::FTimecode& InTimecode, co
 
 	//With FrameRate faster than 30FPS, max frame number will still be small than 30
 	//Get by how much we need to divide the actual count.
-	const float FrameRate = InFPS.AsDecimal();
-	const float DividedFrameRate = FrameRate > 30.0f ? (FrameRate * 30.0f) / FrameRate : FrameRate;
+	const double FrameRate = InFPS.AsDecimal();
+	const double DividedFrameRate = FrameRate > 30.0f ? (FrameRate * 30.0f) / FrameRate : FrameRate;
 
 	FTimespan NewTimespan;
 	if (PreviousTimeCode == InTimecode)

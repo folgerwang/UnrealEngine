@@ -5992,8 +5992,7 @@ TSharedRef<SDockTab> SpawnResponsiveGrid(const FSpawnTabArgs& Args)
 {
 	TSharedRef<SDockTab> ResponsiveGridTab =
 		SNew(SDockTab)
-		.Label(LOCTEXT("ResponsiveGridTabLabel", "Responsive Grid"))
-		.ToolTipText(LOCTEXT("ResponsiveGridTabToolTip", ""));
+		.Label(LOCTEXT("ResponsiveGridTabLabel", "Responsive Grid"));
 
 	ResponsiveGridTab->SetContent
 		(
@@ -6135,7 +6134,7 @@ TSharedRef<SDockTab> SpawnTestSuite1( const FSpawnTabArgs& Args )
 	FMenuBarBuilder MenuBarBuilder = FMenuBarBuilder( TSharedPtr<FUICommandList>() );
 	MenuBarBuilder.AddPullDownMenu(
 		NSLOCTEXT("TestSuite", "WindowMenuLabel", "Window"),
-		NSLOCTEXT("TestSuite", "WindowMenuToolTip", ""),
+		FText::GetEmpty(),
 		FNewMenuDelegate::CreateSP(TestSuite1TabManager.ToSharedRef(), &FTabManager::PopulateTabSpawnerMenu, TestSuiteMenu::MenuRoot));
 
 	TestSuite1Tab->SetContent

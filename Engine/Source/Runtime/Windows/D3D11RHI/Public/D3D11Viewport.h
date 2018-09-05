@@ -131,6 +131,11 @@ private:
 	TRefCountPtr<IDXGIOutput>	ForcedFullscreenOutput;
 	bool						bForcedFullscreenDisplay;
 
+	// Whether to create swap chain and use swap chain's back buffer surface, 
+	// or don't create swap chain and create an off-screen back buffer surface.
+	// Currently used for pixel streaming plugin "windowless" mode to run in the cloud without on screen display.
+	bool						bNeedSwapChain;
+
 	/** An event used to track the GPU's progress. */
 	FD3D11EventQuery FrameSyncEvent;
 

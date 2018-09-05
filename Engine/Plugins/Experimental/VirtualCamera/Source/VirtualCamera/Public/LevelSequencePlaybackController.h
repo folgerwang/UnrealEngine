@@ -152,6 +152,11 @@ protected:
 	/** Pointer to the sequence recorder module */
 	IAssetRegistry* AssetRegistry;
 
+	/** 
+	 * Overriding to allow playback controller to intercept and modify objects spawned by sequencer, for example disabling attach to HMD on spawned cameras 
+	 */
+	virtual void OnObjectSpawned(UObject* InObject, const FMovieSceneEvaluationOperand& Operand) override;
+
 #if WITH_EDITOR
 	/** Pointer to the sequence recorder module */
 	ISequenceRecorder* Recorder;

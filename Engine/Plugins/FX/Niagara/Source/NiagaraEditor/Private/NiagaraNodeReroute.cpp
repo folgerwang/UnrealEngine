@@ -41,7 +41,7 @@ void UNiagaraNodeReroute::AllocateDefaultPins()
 
 FText UNiagaraNodeReroute::GetTooltipText() const
 {
-	return LOCTEXT("RerouteNodeDesc", "");
+	return FText::GetEmpty();
 }
 
 FText UNiagaraNodeReroute::GetNodeTitle(ENodeTitleType::Type TitleType) const

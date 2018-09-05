@@ -39,6 +39,14 @@ public:
 	virtual void AddInputVector(FVector WorldVector, bool bForce = false) override;
 
 	/**
+	 * Adds the given vector to the accumulated input in world space. Similar to AddInputVector().
+	 * This calls input scaling specific to how controller (joystick) input should be handled.
+	 * @param WorldVector - Direction in world space to apply input.
+	 * @param MovementScaleAxis - Which axis movement scale to use.
+	 */
+	void AddInputVectorFromController(FVector WorldVector, EVirtualCameraAxis MovementScaleAxis);
+
+	/**
 	 * Update the position and rotation of the camera.
 	 * @param Location - The current location of the tracker being used for input
 	 * @param Rotation - The current rotation of the tracker being used for input

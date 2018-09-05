@@ -116,10 +116,8 @@ void FUserInterfaceCommand::InitializeSlateApplication( const FString& LayoutIni
 
 	if (bAllowDebugTools)
 	{
-		static const FName SlateReflectorModuleName("SlateReflector");
-		FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName);
-		ISlateReflectorModule* SlateReflectorModule = FModuleManager::GetModulePtr<ISlateReflectorModule>(SlateReflectorModuleName);
-		if (SlateReflectorModule != nullptr)
+		ISlateReflectorModule* SlateReflectorModule = FModuleManager::LoadModulePtr<ISlateReflectorModule>("SlateReflector");
+		if (SlateReflectorModule)
 		{
 			SlateReflectorModule->RegisterTabSpawner(UserInterfaceCommand::DeveloperTools);
 		}

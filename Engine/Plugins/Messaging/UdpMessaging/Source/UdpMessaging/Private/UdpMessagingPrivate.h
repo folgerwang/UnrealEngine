@@ -23,5 +23,17 @@ DECLARE_LOG_CATEGORY_EXTERN(LogUdpMessaging, Log, All);
 /** Defines the desired size of socket receive buffers (in bytes). */
 #define UDP_MESSAGING_RECEIVE_BUFFER_SIZE 2 * 1024 * 1024
 
+/** Define the desired size for the message segments */
+#define UDP_MESSAGING_SEGMENT_SIZE 1024
+
 /** Defines the protocol version of the UDP message transport. */
-#define UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION 10
+#define UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION 11
+
+/** Supported message serialization format */
+enum class EUdpMessageFormat : uint8
+{
+	None = 0,
+	Json,
+	TaggedProperty,
+	Cbor,
+};

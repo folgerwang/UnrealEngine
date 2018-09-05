@@ -49,47 +49,47 @@ void  SMeshProxyDialog::Construct(const FArguments& InArgs, FMeshProxyTool* InTo
 
 	// Create widget layout
 	this->ChildSlot
+	[
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(0, 10, 0, 0)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(0, 10, 0, 0)
+			SNew(SBorder)
+			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 			[
-				SNew(SBorder)
-				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+				SNew(SVerticalBox)
+				// Static mesh component selection
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
 				[
-					SNew(SVerticalBox)
-					// Static mesh component selection
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
 					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						.VAlign(VAlign_Center)
-						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("MergeStaticMeshComponentsLabel", "Mesh Components to be incorporated in the merge:"))
-						]
-					]
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-					[
-						SAssignNew(ComponentSelectionControl.ComponentsListView, SListView<TSharedPtr<FMergeComponentData>>)
-						.ListItemsSource(&ComponentSelectionControl.SelectedComponents)
-						.OnGenerateRow(this, &SMeshProxyDialog::MakeComponentListItemWidget)
-						.ToolTipText(LOCTEXT("SelectedComponentsListBoxToolTip", "The selected mesh components will be incorporated into the merged mesh"))
+						SNew(STextBlock)
+						.Text(LOCTEXT("CreateProxyMeshComponentsLabel", "Mesh components used to compute the proxy mesh:"))
 					]
 				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+				[
+					SAssignNew(ComponentSelectionControl.ComponentsListView, SListView<TSharedPtr<FMergeComponentData>>)
+					.ListItemsSource(&ComponentSelectionControl.SelectedComponents)
+					.OnGenerateRow(this, &SMeshProxyDialog::MakeComponentListItemWidget)
+					.ToolTipText(LOCTEXT("CreateProxyMeshSelectedComponentsListBoxToolTip", "The selected mesh components will be used to compute the proxy mesh"))
+				]
 			]
+		]
 
-			+ SVerticalBox::Slot()
-			.Padding(0, 10, 0, 0)
-			[
-				SNew(SBorder)
-				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+		+ SVerticalBox::Slot()
+		.Padding(0, 10, 0, 0)
+		[
+			SNew(SBorder)
+			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 			[
 				SNew(SVerticalBox)
 				// Static mesh component selection
@@ -106,8 +106,6 @@ void  SMeshProxyDialog::Construct(const FArguments& InArgs, FMeshProxyTool* InTo
 			]
 		]
 
-
-
 		+ SVerticalBox::Slot()
 		.AutoHeight()
 		.Padding(10)
@@ -120,8 +118,8 @@ void  SMeshProxyDialog::Construct(const FArguments& InArgs, FMeshProxyTool* InTo
 				SNew(STextBlock)
 				.Text(LOCTEXT("DeleteUndo", "Insufficient mesh components found for merging."))
 			]
-			]
-		];
+		]
+	];
 
 
 	// Selection change

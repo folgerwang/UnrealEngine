@@ -225,7 +225,7 @@ void FUdpMessageTunnel::TcpToUdp()
 			*Payload << Header;
 
 			// check protocol version
-			if (Header.ProtocolVersion != UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION)
+			if (Header.ProtocolVersion > UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION)
 			{
 				return;
 			}
@@ -288,7 +288,7 @@ void FUdpMessageTunnel::UdpToTcp(FSocket* Socket)
 			*Datagram << Header;
 
 			// check protocol version
-			if (Header.ProtocolVersion != UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION)
+			if (Header.ProtocolVersion > UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION)
 			{
 				return;
 			}
