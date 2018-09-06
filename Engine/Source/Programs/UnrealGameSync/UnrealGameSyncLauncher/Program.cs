@@ -110,7 +110,7 @@ namespace UnrealGameSyncLauncher
 			{
 				if(Key != null)
 				{
-					ServerAndPort = Key.GetValue("Server", ServerAndPort) as string;
+					ServerAndPort = Key.GetValue("ServerAndPort", ServerAndPort) as string;
 					UserName = Key.GetValue("UserName", UserName) as string;
 					DepotPath = Key.GetValue("DepotPath", DepotPath) as string;
 				}
@@ -123,13 +123,16 @@ namespace UnrealGameSyncLauncher
 			{
 				using (RegistryKey Key = Registry.CurrentUser.CreateSubKey("SOFTWARE\\Epic Games\\UnrealGameSync"))
 				{
+					// Delete this legacy setting
+					try { Key.DeleteValue("Server"); } catch(Exception) { }
+
 					if(String.IsNullOrEmpty(ServerAndPort))
 					{
-						try { Key.DeleteValue("Server"); } catch(Exception) { }
+						try { Key.DeleteValue("ServerAndPort"); } catch(Exception) { }
 					}
 					else
 					{
-						Key.SetValue("Server", ServerAndPort);
+						Key.SetValue("ServerAndPort", ServerAndPort);
 					}
 
 					if(String.IsNullOrEmpty(UserName))

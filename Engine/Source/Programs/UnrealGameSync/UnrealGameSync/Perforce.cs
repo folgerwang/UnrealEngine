@@ -155,7 +155,6 @@ namespace UnrealGameSync
 		public string UserName;
 		public string HostName;
 		public string ClientAddress;
-		public string ServerAddress;
 		public TimeSpan ServerTimeZone;
 
 		public PerforceInfoRecord(Dictionary<string, string> Tags)
@@ -163,7 +162,6 @@ namespace UnrealGameSync
 			Tags.TryGetValue("userName", out UserName);
 			Tags.TryGetValue("clientHost", out HostName);
 			Tags.TryGetValue("clientAddress", out ClientAddress);
-			Tags.TryGetValue("serverAddress", out ServerAddress);
 
 			string ServerDateTime;
 			if(Tags.TryGetValue("serverDate", out ServerDateTime))
@@ -474,6 +472,8 @@ namespace UnrealGameSync
 
 		delegate bool HandleRecordDelegate(Dictionary<string, string> Tags);
 		delegate bool HandleOutputDelegate(PerforceOutputLine Line);
+
+		public const string DefaultServerAndPort = "perforce:1666";
 
 		public readonly string ServerAndPort;
 		public readonly string UserName;
