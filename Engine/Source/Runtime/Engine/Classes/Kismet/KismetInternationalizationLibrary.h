@@ -8,6 +8,9 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "KismetInternationalizationLibrary.generated.h"
 
+enum class ELocalizationLoadFlags : uint8;
+enum class ELocalizedTextSourceCategory : uint8;
+
 UCLASS(meta=(BlueprintThreadSafe, ScriptName="InternationalizationLibrary"))
 class ENGINE_API UKismetInternationalizationLibrary : public UBlueprintFunctionLibrary
 {
@@ -110,4 +113,42 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Utilities|Internationalization", meta=(AdvancedDisplay="1"))
 	static void ClearCurrentAssetGroupCulture(const FName AssetGroup, const bool SaveToConfig = false);
+
+	/**
+	 * Get the native culture for the given localization category.
+	 * @param Category The localization category to query.
+	 * @return The culture as an IETF language tag (eg, "zh-Hans-CN").
+	 */
+	UFUNCTION(BlueprintPure, Category="Utilities|Internationalization")
+	static FString GetNativeCulture(const ELocalizedTextSourceCategory TextCategory);
+
+	/**
+	 * Get the list of cultures that have localization data available for them.
+	 * @param IncludeGame Check for localized game resources.
+	 * @param IncludeEngine Check for localized engine resources.
+	 * @param IncludeEditor Check for localized editor resources.
+	 * @param IncludeAdditional Check for localized additional (eg, plugin) resources.
+	 * @return The list of cultures as IETF language tags (eg, "zh-Hans-CN").
+	 */
+	UFUNCTION(BlueprintPure, Category="Utilities|Internationalization")
+	static TArray<FString> GetLocalizedCultures(const bool IncludeGame = true, const bool IncludeEngine = false, const bool IncludeEditor = false, const bool IncludeAdditional = false);
+
+	/**
+	 * Get the list of cultures that have localization data available for them.
+	 * @param LoadFlags Controls which resource groups should be checked.
+	 * @return The list of cultures as IETF language tags (eg, "zh-Hans-CN").
+	 */
+	static TArray<FString> GetLocalizedCultures(const ELocalizationLoadFlags LoadFlags);
+
+	/**
+	 * Given a list of available cultures, try and find the most suitable culture from the list based on culture prioritization.
+	 *   eg) If your list was [en, fr, de] and the given culture was "en-US", this function would return "en".
+	 *   eg) If your list was [zh, ar, pl] and the given culture was "en-US", this function would return the fallback culture.
+	 * @param AvailableCultures List of available cultures to filter against (see GetLocalizedCultures).
+	 * @param CultureToMatch Culture to try and match (see GetCurrentLanguage).
+	 * @param FallbackCulture The culture to return if there is no suitable match in the list (typically your native culture, see GetNativeCulture).
+	 * @return The culture as an IETF language tag (eg, "zh-Hans-CN").
+	 */
+	UFUNCTION(BlueprintPure, Category="Utilities|Internationalization")
+	static FString GetSuitableCulture(const TArray<FString>& AvailableCultures, const FString& CultureToMatch, const FString& FallbackCulture = TEXT("en"));
 };
