@@ -18,27 +18,27 @@ enum class EPIEPreviewDeviceType : uint8
 };
 
 UCLASS()
-class PIEPREVIEWDEVICEPROFILESELECTOR_API UPIEPreviewDeviceSpecification : public UObject
+class PIEPREVIEWDEVICESPECIFICATION_API UPIEPreviewDeviceSpecification : public UObject
 {
 	GENERATED_UCLASS_BODY()
 public:
 	UPROPERTY()
-	EPIEPreviewDeviceType PreviewDeviceType;
+		EPIEPreviewDeviceType PreviewDeviceType;
 
 	UPROPERTY()
-	FString GPUFamily;
+		FString GPUFamily;
 	UPROPERTY()
-	FString GLVersion;
+		FString GLVersion;
 	UPROPERTY()
-	FString VulkanVersion;
+		FString VulkanVersion;
 	UPROPERTY()
-	FString AndroidVersion;
+		FString AndroidVersion;
 	UPROPERTY()
-	FString DeviceMake;
+		FString DeviceMake;
 	UPROPERTY()
-	FString DeviceModel;
+		FString DeviceModel;
 	UPROPERTY()
-	bool UsingHoudini;
+		bool UsingHoudini;
 };
 
 USTRUCT()

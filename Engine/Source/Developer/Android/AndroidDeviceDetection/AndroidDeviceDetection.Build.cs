@@ -14,7 +14,7 @@ public class AndroidDeviceDetection : ModuleRules
 				"Core",
 				"Json",
                 "JsonUtilities",
-                "PIEPreviewDeviceProfileSelector"
+                "PIEPreviewDeviceSpecification"
             }
 		);
 
@@ -31,14 +31,6 @@ public class AndroidDeviceDetection : ModuleRules
 				"Runtime/Core/Public/Android"
 			}
 		);
-
-        PrivateIncludePaths.AddRange(
-            new string[]
-            {
-                "Editor/PIEPreviewDeviceProfileSelector/Private"
-            }
-        );
-
 
         if (Target.bCompileAgainstEngine)
 		{

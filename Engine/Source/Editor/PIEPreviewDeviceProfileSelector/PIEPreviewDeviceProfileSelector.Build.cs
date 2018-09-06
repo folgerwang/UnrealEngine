@@ -19,7 +19,8 @@ namespace UnrealBuildTool.Rules
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
-					"RHI",
+                    "PIEPreviewDeviceSpecification",
+                    "RHI",
 					"Json",
 					"JsonUtilities",
 					"MaterialShaderQualitySettings",
