@@ -157,4 +157,16 @@ FString UKismetInternationalizationLibrary::GetSuitableCulture(const TArray<FStr
 	return FallbackCulture;
 }
 
+FString UKismetInternationalizationLibrary::GetCultureDisplayName(const FString& Culture, const bool Localized)
+{
+	const FCulturePtr CulturePtr = FInternationalization::Get().GetCulture(Culture);
+	if (CulturePtr.IsValid())
+	{
+		return Localized
+			? CulturePtr->GetDisplayName()
+			: CulturePtr->GetNativeName();
+	}
+	return Culture;
+}
+
 #undef LOCTEXT_NAMESPACE
