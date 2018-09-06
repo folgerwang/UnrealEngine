@@ -947,14 +947,15 @@ bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid Obj
 
 				}
 
+				Channel->AutoSetTangents();
+
 				if (ImportFBXSettings->bReduceKeys)
 				{
 					FKeyDataOptimizationParams Params;
 					Params.Tolerance = ImportFBXSettings->ReduceKeysTolerance;
-					using namespace MovieScene;
-					Optimize(Channel, Params);
+					Params.DisplayRate = FrameRate;
+					Channel->Optimize(Params);
 				}
-				Channel->AutoSetTangents();
 
 				return true;
 			}
@@ -1007,16 +1008,16 @@ void ImportTransformChannel(const FRichCurve& Source, FMovieSceneFloatChannel* D
 
 	}
 
+	Dest->AutoSetTangents();
 
 	const UMovieSceneUserImportFBXSettings* ImportFBXSettings = GetDefault<UMovieSceneUserImportFBXSettings>();
 	if (ImportFBXSettings->bReduceKeys)
 	{
 		FKeyDataOptimizationParams Params;
 		Params.Tolerance = ImportFBXSettings->ReduceKeysTolerance;
-		using namespace MovieScene;
-		Optimize(Dest, Params);
+		Params.DisplayRate = DestFrameRate;
+		Dest->Optimize(Params);
 	}
-	Dest->AutoSetTangents();
 }
 
 bool ImportFBXTransform(FString NodeName, FGuid ObjectBinding, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene)
