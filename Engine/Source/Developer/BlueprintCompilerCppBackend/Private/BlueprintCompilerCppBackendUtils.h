@@ -464,6 +464,6 @@ public:
 
 struct FStructAccessHelper
 {
-	static FString EmitStructAccessCode(const UStruct* InStruct);
+	static FString EmitStructAccessCode(const UScriptStruct* InStruct);
 	static bool CanEmitDirectFieldAccess(const UScriptStruct* InStruct);
 };
