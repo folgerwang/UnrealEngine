@@ -33,7 +33,7 @@ public:
  * to map certain keys to certain images.  We recommend you subclass this
  * as a blueprint to configure the instance.
  */
-UCLASS()
+UCLASS(Blueprintable)
 class UMG_API URichTextBlockImageDecorator : public URichTextBlockDecorator
 {
 	GENERATED_BODY()
