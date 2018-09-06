@@ -413,11 +413,11 @@ struct FWorldContext
 		, GameViewport(nullptr)
 		, OwningGameInstance(nullptr)
 		, PIEInstance(INDEX_NONE)
+		, PIEWorldFeatureLevel(ERHIFeatureLevel::Num)
 		, RunAsDedicated(false)
 		, bWaitingOnOnlineSubsystem(false)
 		, AudioDeviceHandle(INDEX_NONE)
 		, ThisCurrentWorld(nullptr)
-		, PIEWorldFeatureLevel(ERHIFeatureLevel::Num)
 	{ }
 
 private:
