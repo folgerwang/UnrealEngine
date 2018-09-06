@@ -41,6 +41,7 @@ public:
 
 	// UEdGraphNode interface
 	virtual void AllocateDefaultPins() override;
+	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	// End of UEdGraphNode interface
 
 	// UK2Node interface

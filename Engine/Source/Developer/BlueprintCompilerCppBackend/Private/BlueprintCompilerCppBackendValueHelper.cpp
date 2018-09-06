@@ -699,7 +699,7 @@ FString FEmitDefaultValueHelper::HandleSpecialTypes(FEmitterLocalContext& Contex
 	{
 		if (Object)
 		{
-			const bool bIsDefaultSubobject = Object->IsDefaultSubobject();
+			const bool bIsDefaultSubobject = Object->IsDefaultSubobject() && Object->HasAllFlags(RF_DefaultSubObject);
 			const bool bIsInstancedReference = Property->HasAnyPropertyFlags(CPF_InstancedReference);
 
 			UClass* ObjectClassToUse = Context.GetFirstNativeOrConvertedClass(Class);

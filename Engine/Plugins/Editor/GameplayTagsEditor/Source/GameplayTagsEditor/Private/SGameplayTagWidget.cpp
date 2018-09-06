@@ -712,13 +712,18 @@ ECheckBoxState SGameplayTagWidget::IsTagChecked(TSharedPtr<FGameplayTagNode> Nod
 
 void SGameplayTagWidget::OnAllowChildrenTagCheckStatusChanged(ECheckBoxState NewCheckState, TSharedPtr<FGameplayTagNode> NodeChanged)
 {
-	if (NewCheckState == ECheckBoxState::Checked)
+	IGameplayTagsEditorModule& TagsEditor = IGameplayTagsEditorModule::Get();
+
+	if (TagsEditor.UpdateTagInINI(NodeChanged->GetCompleteTagString(), NodeChanged->DevComment, NodeChanged->bIsRestrictedTag, NewCheckState == ECheckBoxState::Checked))
 	{
-		NodeChanged->bAllowNonRestrictedChildren = true;
-	}
-	else if (NewCheckState == ECheckBoxState::Unchecked)
-	{
-		NodeChanged->bAllowNonRestrictedChildren = false;
+		if (NewCheckState == ECheckBoxState::Checked)
+		{
+			NodeChanged->bAllowNonRestrictedChildren = true;
+		}
+		else if (NewCheckState == ECheckBoxState::Unchecked)
+		{
+			NodeChanged->bAllowNonRestrictedChildren = false;
+		}
 	}
 }
 
@@ -898,7 +903,7 @@ void SGameplayTagWidget::OnDeleteTag(TSharedPtr<FGameplayTagNode> InTagNode)
 	{
 		IGameplayTagsEditorModule& TagsEditor = IGameplayTagsEditorModule::Get();
 
-		const bool bDeleted = TagsEditor.DeleteTagFromINI(InTagNode->GetCompleteTagString());
+		const bool bDeleted = TagsEditor.DeleteTagFromINI(InTagNode);
 
 		if (bDeleted)
 		{

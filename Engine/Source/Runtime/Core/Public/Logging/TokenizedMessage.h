@@ -102,10 +102,6 @@ protected:
 	FText CachedText;
 };
 
-
-/** Dummy struct that other structs need to inherit from if they wish to assign to MessageData */
-struct FTokenizedMiscData {};
-
 /** This class represents a rich tokenized message, such as would be used for compiler output with 'hyperlinks' to source file locations */
 class FTokenizedMessage : public TSharedFromThis<FTokenizedMessage>
 {
@@ -150,21 +146,6 @@ public:
 	 */
 	CORE_API EMessageSeverity::Type GetSeverity() const;
 
-	/** 
-	 * Sets the custom message data of this message
-	 * 
-	 * @param	InMessageData	The custom message data to set
-	 * @returns this message, so calls can be chained together
-	 */
-	CORE_API TSharedRef<FTokenizedMessage> SetMessageData( FTokenizedMiscData* InMessageData );
-
-	/** 
-	 * Gets the custom message data of this message
-	 * 
-	 * @returns the custom message data contained in this message
-	 */
-	CORE_API FTokenizedMiscData* GetMessageData() const;
-
 	/**
 	 * Get the tokens in this message
 	 * 
@@ -203,12 +184,18 @@ public:
 	 * @returns the name of the icon for the severity
 	 */
 	CORE_API static FName GetSeverityIconName(EMessageSeverity::Type InSeverity);
+	
+	/** @returns Identifier for the message, if set, else NAME_None */
+	CORE_API FName GetIdentifier() const;
+	
+	/** Assigns Identifier for the message to the provided name */
+	CORE_API void SetIdentifier(FName InIdentifier);
 
 private:
 	/** Private constructor - we want to only create these structures as shared references via Create() */
 	FTokenizedMessage()
 		: Severity( EMessageSeverity::Info )
-		, MessageData( nullptr )
+		, Identifier(NAME_None)
 	{ }
 
 protected:
@@ -224,8 +211,8 @@ private:
 	/** The severity of this message */
 	EMessageSeverity::Type Severity;
 
-	/** A payload for this message */
-	FTokenizedMiscData* MessageData;	// @todo Don't use TSharedPtr as it'll get free'd mid-sort! (refcount == 0)
+	/** Identifier for the message */
+	FName Identifier;
 };
 
 /** Basic message token with a localized text payload */

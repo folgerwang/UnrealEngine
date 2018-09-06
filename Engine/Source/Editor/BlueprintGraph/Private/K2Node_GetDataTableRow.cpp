@@ -92,10 +92,18 @@ void UK2Node_GetDataTableRow::SetReturnTypeForStruct(UScriptStruct* NewRowStruct
 	if (NewRowStruct != OldRowStruct)
 	{
 		UEdGraphPin* ResultPin = GetResultPin();
+
+		if (ResultPin->SubPins.Num() > 0)
+		{
+			GetSchema()->RecombinePin(ResultPin);
+		}
+
 		// NOTE: purposefully not disconnecting the ResultPin (even though it changed type)... we want the user to see the old
 		//       connections, and incompatible connections will produce an error (plus, some super-struct connections may still be valid)
 		ResultPin->PinType.PinSubCategoryObject = NewRowStruct;
 		ResultPin->PinType.PinCategory = (NewRowStruct == nullptr) ? UEdGraphSchema_K2::PC_Wildcard : UEdGraphSchema_K2::PC_Struct;
+
+		CachedNodeTitle.Clear();
 	}
 }
 

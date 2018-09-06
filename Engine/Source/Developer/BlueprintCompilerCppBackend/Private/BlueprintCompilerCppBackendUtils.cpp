@@ -1021,22 +1021,193 @@ FString FEmitHelper::FloatToString(float Value)
 	return FString::Printf(TEXT("%f"), Value);
 }
 
-FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& Type, const FString& CustomValue, UObject* LiteralObject, const FText* OptionalTextLiteral)
+FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FLiteralTermParams& Params)
 {
 	auto Schema = GetDefault<UEdGraphSchema_K2>();
 
-	if (UEdGraphSchema_K2::PC_String == Type.PinCategory)
+	class FImportTextErrorContext : public FStringOutputDevice
+	{
+	public:
+		int32 NumErrors;
+
+		FImportTextErrorContext() : FStringOutputDevice(), NumErrors(0) {}
+
+		virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category) override
+		{
+			if (ELogVerbosity::Type::Error == Verbosity)
+			{
+				NumErrors++;
+			}
+			FStringOutputDevice::Serialize(V, Verbosity, Category);
+		}
+	};
+
+	const FEdGraphPinType& Type = Params.Type;
+	const FString& CustomValue = Params.CustomValue;
+
+	if (Type.IsContainer())
+	{
+		FString ContainerInitializerList;
+		FImportTextErrorContext ImportError;
+
+		if (const UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Params.CoerceProperty))
+		{
+			FScriptArray ScriptArray;
+			if (!ArrayProperty->ImportText(*CustomValue, &ScriptArray, PPF_None, nullptr, &ImportError))
+			{
+				UE_LOG(LogK2Compiler, Error, TEXT("FEmitHelper::LiteralTerm cannot parse array value \"%s\" error: %s class: %s"), *CustomValue, *ImportError, *GetPathNameSafe(EmitterContext.GetCurrentlyGeneratedClass()));
+			}
+
+			const int32 NumElements = ScriptArray.Num();
+			FScriptArrayHelper ScriptArrayHelper(ArrayProperty, &ScriptArray);
+
+			FLiteralTermParams InnerTermParams;
+			Schema->ConvertPropertyToPinType(ArrayProperty->Inner, InnerTermParams.Type);
+
+			const UTextProperty* InnerTextProperty = Cast<UTextProperty>(ArrayProperty->Inner);
+			const UObjectPropertyBase* InnerObjectProperty = InnerTextProperty ? nullptr : Cast<UObjectPropertyBase>(ArrayProperty->Inner);
+
+			for (int32 ElementIdx = 0; ElementIdx < NumElements; ++ElementIdx)
+			{
+				uint8* ValuePtr = ScriptArrayHelper.GetRawPtr(ElementIdx);
+				if (ArrayProperty->Inner->ExportText_Direct(InnerTermParams.CustomValue, ValuePtr, ValuePtr, nullptr, PPF_None))
+				{
+					if (InnerTextProperty)
+					{
+						InnerTermParams.LiteralText = InnerTextProperty->GetPropertyValue(ValuePtr);
+						InnerTermParams.CustomValue = InnerTermParams.LiteralText.ToString();
+					}
+					else if (InnerObjectProperty)
+					{
+						InnerTermParams.LiteralObject = InnerObjectProperty->GetObjectPropertyValue(ValuePtr);
+					}
+
+					ContainerInitializerList += LiteralTerm(EmitterContext, InnerTermParams);
+					if (ElementIdx < NumElements - 1)
+					{
+						ContainerInitializerList += TEXT(", ");
+					}
+				}
+			}
+		}
+		else if (const USetProperty* SetProperty = Cast<USetProperty>(Params.CoerceProperty))
+		{
+			FScriptSet ScriptSet;
+			if (!CustomValue.IsEmpty())	// unlike UArrayProperty, USetProperty::ImportText() doesn't allow empty values to pass, so we check for that here.
+			{
+				if (!SetProperty->ImportText(*CustomValue, &ScriptSet, PPF_None, nullptr, &ImportError))
+				{
+					UE_LOG(LogK2Compiler, Error, TEXT("FEmitHelper::LiteralTerm cannot parse set value \"%s\" error: %s class: %s"), *CustomValue, *ImportError, *GetPathNameSafe(EmitterContext.GetCurrentlyGeneratedClass()));
+				}
+			}
+
+			const int32 NumElements = ScriptSet.Num();
+			FScriptSetHelper ScriptSetHelper(SetProperty, &ScriptSet);
+
+			FLiteralTermParams ElementTermParams;
+			Schema->ConvertPropertyToPinType(SetProperty->ElementProp, ElementTermParams.Type);
+
+			const UTextProperty* ElementTextProperty = Cast<UTextProperty>(SetProperty->ElementProp);
+			const UObjectPropertyBase* ElementObjectProperty = ElementTextProperty ? nullptr : Cast<UObjectPropertyBase>(SetProperty->ElementProp);
+
+			for (int32 ElementIdx = 0; ElementIdx < NumElements; ++ElementIdx)
+			{
+				uint8* ValuePtr = ScriptSetHelper.GetElementPtr(ElementIdx);
+				if (SetProperty->ElementProp->ExportText_Direct(ElementTermParams.CustomValue, ValuePtr, ValuePtr, nullptr, PPF_None))
+				{
+					if (ElementTextProperty)
+					{
+						ElementTermParams.LiteralText = ElementTextProperty->GetPropertyValue(ValuePtr);
+						ElementTermParams.CustomValue = ElementTermParams.LiteralText.ToString();
+					}
+					else if (ElementObjectProperty)
+					{
+						ElementTermParams.LiteralObject = ElementObjectProperty->GetObjectPropertyValue(ValuePtr);
+					}
+
+					ContainerInitializerList += LiteralTerm(EmitterContext, ElementTermParams);
+					if (ElementIdx < NumElements - 1)
+					{
+						ContainerInitializerList += TEXT(", ");
+					}
+				}
+			}
+		}
+		else if (const UMapProperty* MapProperty = Cast<UMapProperty>(Params.CoerceProperty))
+		{
+			FScriptSet ScriptMap;
+			if (!CustomValue.IsEmpty())	// unlike UArrayProperty, UMapProperty::ImportText() doesn't allow empty values to pass, so we check for that here.
+			{
+				if (!MapProperty->ImportText(*CustomValue, &ScriptMap, PPF_None, nullptr, &ImportError))
+				{
+					UE_LOG(LogK2Compiler, Error, TEXT("FEmitHelper::LiteralTerm cannot parse map value \"%s\" error: %s class: %s"), *CustomValue, *ImportError, *GetPathNameSafe(EmitterContext.GetCurrentlyGeneratedClass()));
+				}
+			}
+
+			const int32 NumElements = ScriptMap.Num();
+			FScriptMapHelper ScriptMapHelper(MapProperty, &ScriptMap);
+
+			FLiteralTermParams KeyTermParams, ValueTermParams;
+			Schema->ConvertPropertyToPinType(MapProperty->KeyProp, KeyTermParams.Type);
+			Schema->ConvertPropertyToPinType(MapProperty->ValueProp, ValueTermParams.Type);
+
+			const UTextProperty* KeyTextProperty = Cast<UTextProperty>(MapProperty->KeyProp);
+			const UTextProperty* ValueTextProperty = Cast<UTextProperty>(MapProperty->ValueProp);
+			const UObjectPropertyBase* KeyObjectProperty = KeyTextProperty ? nullptr : Cast<UObjectPropertyBase>(MapProperty->KeyProp);
+			const UObjectPropertyBase* ValueObjectProperty = ValueTextProperty ? nullptr : Cast<UObjectPropertyBase>(MapProperty->ValueProp);
+
+			for (int32 ElementIdx = 0, SparseIdx = 0; ElementIdx < NumElements; ++SparseIdx)
+			{
+				if (ScriptMap.IsValidIndex(SparseIdx))
+				{
+					uint8* KeyPtr = ScriptMapHelper.GetKeyPtr(SparseIdx);
+					if (MapProperty->KeyProp->ExportText_Direct(KeyTermParams.CustomValue, KeyPtr, KeyPtr, nullptr, PPF_None))
+					{
+						if (KeyTextProperty)
+						{
+							KeyTermParams.LiteralText = KeyTextProperty->GetPropertyValue(KeyPtr);
+							KeyTermParams.CustomValue = KeyTermParams.LiteralText.ToString();
+						}
+						else if (KeyObjectProperty)
+						{
+							KeyTermParams.LiteralObject = KeyObjectProperty->GetObjectPropertyValue(KeyPtr);
+						}
+
+						uint8* ValuePtr = ScriptMapHelper.GetValuePtr(SparseIdx);
+						if (MapProperty->ValueProp->ExportText_Direct(ValueTermParams.CustomValue , ValuePtr, ValuePtr, nullptr, PPF_None))
+						{
+							if (ValueTextProperty)
+							{
+								ValueTermParams.LiteralText = ValueTextProperty->GetPropertyValue(ValuePtr);
+								ValueTermParams.CustomValue = ValueTermParams.LiteralText.ToString();
+							}
+							else if (ValueObjectProperty)
+							{
+								ValueTermParams.LiteralObject = ValueObjectProperty->GetObjectPropertyValue(ValuePtr);
+							}
+
+							ContainerInitializerList += FString::Printf(TEXT("{%s, %s}"), *LiteralTerm(EmitterContext, KeyTermParams), *LiteralTerm(EmitterContext, ValueTermParams));
+							if (ElementIdx < NumElements - 1)
+							{
+								ContainerInitializerList += TEXT(", ");
+							}
+						}
+					}
+
+					++ElementIdx;
+				}
+			}
+		}
+
+		return FString::Printf(TEXT("{%s}"), *ContainerInitializerList);
+	}
+	else if (UEdGraphSchema_K2::PC_String == Type.PinCategory)
 	{
 		return FString::Printf(TEXT("FString(%s)"), *UStrProperty::ExportCppHardcodedText(CustomValue, EmitterContext.DefaultTarget->Indent));
 	}
 	else if (UEdGraphSchema_K2::PC_Text == Type.PinCategory)
 	{
-		ensure(OptionalTextLiteral);
-		if (OptionalTextLiteral)
-		{
-			return UTextProperty::GenerateCppCodeForTextValue(*OptionalTextLiteral, FString());
-		}
-		return FString::Printf(TEXT("FText::FromString(%s)"), *UStrProperty::ExportCppHardcodedText(CustomValue, EmitterContext.DefaultTarget->Indent));
+		return UTextProperty::GenerateCppCodeForTextValue(Params.LiteralText, FString());
 	}
 	else if (UEdGraphSchema_K2::PC_Float == Type.PinCategory)
 	{
@@ -1151,23 +1322,6 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FEd
 				FStructOnScope StructOnScope(StructType);
 				StructType->InitializeDefaultValue(StructOnScope.GetStructMemory()); // after cl#3098294 only delta (of structure data) against the default value is stored in string. So we need to explicitly provide default values before serialization.
 
-				class FImportTextErrorContext : public FStringOutputDevice
-				{
-				public:
-					int32 NumErrors;
-
-					FImportTextErrorContext() : FStringOutputDevice(), NumErrors(0) {}
-
-					virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category) override
-					{
-						if (ELogVerbosity::Type::Error == Verbosity)
-						{
-							NumErrors++;
-						}
-						FStringOutputDevice::Serialize(V, Verbosity, Category);
-					}
-				};
-
 				FImportTextErrorContext ImportError;
 				const TCHAR* EndOfParsedBuff = StructType->ImportText(*CustomValue, StructOnScope.GetStructMemory(), nullptr, PPF_None, &ImportError, TEXT("FEmitHelper::LiteralTerm"));
 				if (!EndOfParsedBuff || ImportError.NumErrors)
@@ -1205,14 +1359,14 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FEd
 	}
 	else if (UEdGraphSchema_K2::PC_Class == Type.PinCategory)
 	{
-		if (auto FoundClass = Cast<const UClass>(LiteralObject))
+		if (auto FoundClass = Cast<const UClass>(Params.LiteralObject))
 		{
-			const FString MappedObject = EmitterContext.FindGloballyMappedObject(LiteralObject, UClass::StaticClass());
+			const FString MappedObject = EmitterContext.FindGloballyMappedObject(Params.LiteralObject, UClass::StaticClass());
 			if (!MappedObject.IsEmpty())
 			{
 				return MappedObject;
 			}
-			return FString::Printf(TEXT("LoadClass<UClass>(nullptr, TEXT(\"%s\"), nullptr, 0, nullptr)"), *(LiteralObject->GetPathName().ReplaceCharWithEscapedChar()));
+			return FString::Printf(TEXT("LoadClass<UClass>(nullptr, TEXT(\"%s\"), nullptr, 0, nullptr)"), *(Params.LiteralObject->GetPathName().ReplaceCharWithEscapedChar()));
 		}
 		return FString(TEXT("((UClass*)nullptr)"));
 	}
@@ -1236,9 +1390,9 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FEd
 	{
 		UClass* FoundClass = Cast<UClass>(Type.PinSubCategoryObject.Get());
 		UClass* ObjectClassToUse = FoundClass ? EmitterContext.GetFirstNativeOrConvertedClass(FoundClass) : UObject::StaticClass();
-		if (LiteralObject)
+		if (Params.LiteralObject)
 		{
-			const FString MappedObject = EmitterContext.FindGloballyMappedObject(LiteralObject, ObjectClassToUse, true);
+			const FString MappedObject = EmitterContext.FindGloballyMappedObject(Params.LiteralObject, ObjectClassToUse, true);
 			if (!MappedObject.IsEmpty())
 			{
 				return MappedObject;
@@ -1249,25 +1403,12 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FEd
 	}
 	else if (UEdGraphSchema_K2::PC_Interface == Type.PinCategory)
 	{
-		if (!LiteralObject && CustomValue.IsEmpty())
+		if (!Params.LiteralObject && CustomValue.IsEmpty())
 		{
 			return FString(TEXT("nullptr"));
 		}
 	}
-	/*
-	else if (CoerceProperty->IsA(UInterfaceProperty::StaticClass()))
-	{
-		if (Term->Type.PinSubCategory == PSC_Self)
-		{
-			return TEXT("this");
-		}
-		else
-		{
-			ensureMsgf(false, TEXT("It is not possible to express this interface property as a literal value!"));
-			return Term->Name;
-		}
-	}
-	*/
+
 	ensureMsgf(false, TEXT("It is not possible to express this type as a literal value!"));
 	return CustomValue;
 }

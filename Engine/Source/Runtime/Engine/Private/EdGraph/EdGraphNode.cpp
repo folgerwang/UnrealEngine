@@ -765,6 +765,84 @@ void UEdGraphNode::SetMakeCommentBubbleVisible(bool MakeVisible)
 	bCommentBubbleMakeVisible = MakeVisible;
 }
 
+void UEdGraphNode::ForEachNodeDirectlyConnected(TFunctionRef<void(UEdGraphNode*)> Func)
+{
+	TSet<UEdGraphNode*> DirectNeighbors;
+	for( UEdGraphPin* Pin : Pins )
+	{
+		if(Pin->LinkedTo.Num() > 0)
+		{
+			for(UEdGraphPin* Connection : Pin->LinkedTo)
+			{
+				// avoid including the current node in the case of a self connection:
+				if(Connection->GetOwningNode() != this)
+				{
+					DirectNeighbors.Add(Connection->GetOwningNode());
+				}
+			}
+		}
+	}
+
+	for(UEdGraphNode* Neighbor : DirectNeighbors)
+	{
+		Func(Neighbor);
+	}
+}
+
+void UEdGraphNode::ForEachNodeDirectlyConnectedIf(TFunctionRef<bool(const UEdGraphPin* Pin)> Filter, TFunctionRef<void(UEdGraphNode*)> Func)
+{
+	TSet<UEdGraphNode*> NeighborsAcceptedForConsideration;
+	for( UEdGraphPin* Pin : Pins )
+	{
+		if(Pin->LinkedTo.Num() > 0 && Filter(Pin))
+		{
+			for(UEdGraphPin* Connection : Pin->LinkedTo)
+			{
+				// avoid including the current node in the case of a self connection:
+				if(Connection->GetOwningNode() != this)
+				{
+					NeighborsAcceptedForConsideration.Add(Connection->GetOwningNode());
+				}
+			}
+		}
+	}
+
+	for(UEdGraphNode* Neighbor : NeighborsAcceptedForConsideration)
+	{
+		Func(Neighbor);
+	}
+}
+
+void UEdGraphNode::ForEachNodeDirectlyConnectedToInputs(TFunctionRef<void(UEdGraphNode*)> Func)
+{
+	ForEachNodeDirectlyConnectedIf(
+		[](const UEdGraphPin* Pin)
+		{ 
+			if(Pin->Direction == EGPD_Input)
+			{
+				return true;
+			}
+			return false;
+		},
+		Func
+	);
+}
+
+void UEdGraphNode::ForEachNodeDirectlyConnectedToOutputs(TFunctionRef<void(UEdGraphNode*)> Func)
+{
+	ForEachNodeDirectlyConnectedIf(
+		[](const UEdGraphPin* Pin)
+		{ 
+			if(Pin->Direction == EGPD_Output)
+			{
+				return true;
+			}
+			return false;
+		},
+		Func
+	);
+}
+
 #endif	//#if WITH_EDITOR
 
 bool UEdGraphNode::IsInDevelopmentMode() const

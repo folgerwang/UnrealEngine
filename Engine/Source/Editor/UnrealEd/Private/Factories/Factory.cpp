@@ -80,7 +80,7 @@ UObject* UFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName I
 		ParseParms(Parms);
 		const TCHAR* Ptr = *Data;
 			
-		return FactoryCreateText(InClass, InParent, InName, Flags, nullptr, *FileExtension, Ptr, Ptr + Data.Len(), Warn);
+		return FactoryCreateText(InClass, InParent, InName, Flags, nullptr, *FileExtension, Ptr, Ptr + Data.Len(), Warn, bOutOperationCanceled);
 	}
 
 	// load as binary
