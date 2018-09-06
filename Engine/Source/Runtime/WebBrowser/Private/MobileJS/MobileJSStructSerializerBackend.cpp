@@ -52,10 +52,10 @@ FString FMobileJSStructSerializerBackend::ToString()
 }
 
 FMobileJSStructSerializerBackend::FMobileJSStructSerializerBackend(TSharedRef<class FMobileJSScripting> InScripting)
-	: Scripting(InScripting)
+	: FJsonStructSerializerBackend(Writer)
+	, Scripting(InScripting)
 	, ReturnBuffer()
 	, Writer(ReturnBuffer)
-	, FJsonStructSerializerBackend(Writer)
 {
 }
 

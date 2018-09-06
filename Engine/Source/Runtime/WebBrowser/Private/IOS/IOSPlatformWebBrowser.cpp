@@ -538,7 +538,7 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 -(NSString *)UrlDecode:(NSString *)stringToDecode
 {
 	NSString *result = [stringToDecode stringByReplacingOccurrencesOfString : @"+" withString:@" "];
-	result = [result stringByReplacingPercentEscapesUsingEncoding : NSUTF8StringEncoding];
+	result = [result stringByRemovingPercentEncoding];
 	return result;
 }
 

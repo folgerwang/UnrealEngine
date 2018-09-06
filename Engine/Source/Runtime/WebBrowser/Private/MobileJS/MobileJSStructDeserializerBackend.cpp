@@ -94,10 +94,10 @@ bool FMobileJSStructDeserializerBackend::ReadProperty( UProperty* Property, UPro
 }
 
 FMobileJSStructDeserializerBackend::FMobileJSStructDeserializerBackend(FMobileJSScriptingRef InScripting, const FString& JsonString)
-	: Scripting(InScripting)
+	: FJsonStructDeserializerBackend(Reader)
+	, Scripting(InScripting)
 	, JsonData()
 	, Reader(JsonData)
-	, FJsonStructDeserializerBackend(Reader)
 {
 	auto Convert = StringCast<UCS2CHAR>(*JsonString);
 	JsonData.Append((uint8*)Convert.Get(), JsonString.Len() * sizeof(UCS2CHAR));
