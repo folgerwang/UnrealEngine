@@ -248,6 +248,7 @@ void FStaticMeshEditorViewportClient::TrackingStarted( const struct FInputEventS
 {
 	if( !bManipulating && bIsDraggingWidget )
 	{
+		Widget->SetSnapEnabled(true);
 		const UStaticMeshSocket* SelectedSocket = StaticMeshEditorPtr.Pin()->GetSelectedSocket();
 		if (SelectedSocket)
 		{
