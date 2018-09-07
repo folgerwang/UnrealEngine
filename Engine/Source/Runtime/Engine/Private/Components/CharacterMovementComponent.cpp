@@ -1167,12 +1167,7 @@ void UCharacterMovementComponent::TickComponent(float DeltaTime, enum ELevelTick
 		// Update camera to ensure client gets updates even when physics move him far away from point where simulation started
 		if (CharacterOwner->Role == ROLE_AutonomousProxy && IsNetMode(NM_Client))
 		{
-			APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
-			APlayerCameraManager* PlayerCameraManager = (PC ? PC->PlayerCameraManager : NULL);
-			if (PlayerCameraManager != NULL && PlayerCameraManager->bUseClientSideCameraUpdates)
-			{
-				PlayerCameraManager->bShouldSendClientSideCameraUpdate = true;
-			}
+			MarkForClientCameraUpdate();
 		}
 
 		ClearAccumulatedForces();
@@ -5311,6 +5306,8 @@ void UCharacterMovementComponent::OnTeleported()
 		return;
 	}
 
+	Super::OnTeleported();
+
 	bJustTeleported = true;
 
 	// Find floor at current location
@@ -7917,13 +7914,7 @@ void UCharacterMovementComponent::CallServerMove
 			);
 	}
 
-
-	APlayerController* PC = Cast<APlayerController>(CharacterOwner->GetController());
-	APlayerCameraManager* PlayerCameraManager = (PC ? PC->PlayerCameraManager : NULL);
-	if (PlayerCameraManager != NULL && PlayerCameraManager->bUseClientSideCameraUpdates)
-	{
-		PlayerCameraManager->bShouldSendClientSideCameraUpdate = true;
-	}
+	MarkForClientCameraUpdate();
 }
 
 

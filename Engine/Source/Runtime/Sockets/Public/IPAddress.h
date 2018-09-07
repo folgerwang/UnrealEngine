@@ -24,6 +24,21 @@ public:
 	}
 
 	/**
+	 * Compares FInternetAddrs together, comparing the logical net addresses (endpoints)
+	 * of the data stored, rather than doing a memory comparison like the equality operator does.
+	 * If it is not explicitly implemented, this falls back to just doing the same behavior of the
+	 * comparison operator.
+	 *
+	 * @Param InAddr The address to compare with.
+	 *
+	 * @return true if the endpoint stored in this FInternetAddr is the same as the input.
+	 */
+	virtual bool CompareEndpoints(const FInternetAddr& InAddr) const
+	{
+		return *this == InAddr;
+	}
+
+	/**
 	 * Sets the ip address from a host byte order uint32
 	 *
 	 * @param InAddr the new address to use (must convert to network byte order)
@@ -56,7 +71,10 @@ public:
 	 *
 	 * @param OutPort the host byte order int that receives the port
 	 */
-	virtual void GetPort(int32& OutPort) const = 0;
+	virtual void GetPort(int32& OutPort) const
+	{
+		OutPort = GetPort();
+	}
 
 	/**
 	 * Returns the port number from this address in host byte order
@@ -79,11 +97,28 @@ public:
 		return GetPort();
 	}
 
+	/**
+	 * Sets the ip address from a raw network byte order array.
+	 *
+	 * @param RawAddr the new address to use (must be converted to network byte order)
+	 */
+	virtual void SetRawIp(const TArray<uint8>& RawAddr) = 0;
+
+	/**
+	 * Gets the ip address in a raw array stored in network byte order.
+	 *
+	 * @return The raw address stored in an array
+	 */
+	virtual TArray<uint8> GetRawIp() const = 0;
+
 	/** Sets the address to be any address */
 	virtual void SetAnyAddress() = 0;
 
 	/** Sets the address to broadcast */
 	virtual void SetBroadcastAddress() = 0;
+
+	/** Sets the address to loopback */
+	virtual void SetLoopbackAddress() = 0;
 
 	/**
 	 * Converts this internet ip address to string form
@@ -99,11 +134,17 @@ public:
 	 */
 	virtual bool operator==(const FInternetAddr& Other) const
 	{
-		uint32 ThisIP, OtherIP;
-		GetIp(ThisIP);
-		Other.GetIp(OtherIP);
+		TArray<uint8> ThisIP = GetRawIp();
+		TArray<uint8> OtherIP = Other.GetRawIp();
 		return ThisIP == OtherIP && GetPort() == Other.GetPort();
 	}
+
+	/**
+	 * Hash function for use with TMap's - exposed through FInternetAddrMapRef
+	 *
+	 * @return	The value to use for the hash
+	 */
+	virtual uint32 GetTypeHash() = 0;
 
 	/**
 	 * Is this a well formed internet address
@@ -112,25 +153,12 @@ public:
 	 */
 	virtual bool IsValid() const = 0;
 	
-#if PLATFORM_IOS
-	virtual void Copy(const FInternetAddr& Other) { check(false); }
-#endif
-
 	/**
-	 * Determines if the string is in IP address form or needs host resolution
+	 * Creates a new structure with the same data as this structure
 	 *
-	 * @param IpAddr the string to check for being a well formed ip
-	 *
-	 * @return true if the ip address was parseable, false otherwise
+	 * @return The new structure
 	 */
-// 	static bool IsValidIp(const TCHAR* IpAddr) override
-// 	{
-// 		FInternetAddr LocalAddr;
-// 		bool bIsValid = false;
-// 		LocalAddr.SetIp(IpAddr,bIsValid);
-// 		return bIsValid;
-// 	}
-
+	virtual TSharedRef<FInternetAddr> Clone() const = 0;
 };
 
 /**
@@ -335,3 +363,28 @@ public:
 		return *Addr;
 	}
 };
+
+/**
+ * KeyFuncs for mapping/hashing FInternetAddr shared references
+ *
+ * NOTE: Implements TSharedRef over TSharedPtr, as this is required for performance critical code
+ */
+template<typename ValueType>
+struct FInternetAddrKeyMapFuncs : public BaseKeyFuncs<ValueType, TSharedRef<FInternetAddr>, false>
+{
+	static FORCEINLINE const TSharedRef<FInternetAddr>& GetSetKey(const TPair<TSharedRef<FInternetAddr>, ValueType>& Element)
+	{
+		return Element.Key;
+	}
+
+	static FORCEINLINE bool Matches(const TSharedRef<FInternetAddr>& A, const TSharedRef<FInternetAddr>& B)
+	{
+		return *A == *B;
+	}
+
+	static FORCEINLINE uint32 GetKeyHash(const TSharedRef<FInternetAddr>& Key)
+	{
+		return Key->GetTypeHash();
+	}
+};
+

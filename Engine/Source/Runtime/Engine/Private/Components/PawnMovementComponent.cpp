@@ -2,6 +2,8 @@
 
 #include "GameFramework/PawnMovementComponent.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
+#include "Camera/PlayerCameraManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPawnMovementComponent, Log, All);
 
@@ -90,4 +92,27 @@ void UPawnMovementComponent::RequestPathMove(const FVector& MoveInput)
 FVector UPawnMovementComponent::K2_GetInputVector() const
 {
 	return GetPendingInputVector();
+}
+
+void UPawnMovementComponent::OnTeleported()
+{
+	if (PawnOwner && PawnOwner->IsNetMode(NM_Client) && PawnOwner->IsLocallyControlled())
+	{
+		MarkForClientCameraUpdate();
+	}
+}
+
+void UPawnMovementComponent::MarkForClientCameraUpdate()
+{
+	if(PawnOwner)
+	{
+		if (APlayerController* PlayerController = Cast<APlayerController>(PawnOwner->GetController()))
+		{
+			APlayerCameraManager* PlayerCameraManager = PlayerController->PlayerCameraManager;
+			if (PlayerCameraManager != nullptr && PlayerCameraManager->bUseClientSideCameraUpdates)
+			{
+				PlayerCameraManager->bShouldSendClientSideCameraUpdate = true;
+			}
+		}
+	}	
 }

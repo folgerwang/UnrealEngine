@@ -11,13 +11,11 @@
 
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 
-
-
 /**
  * Standard BSD specific IPv6 socket subsystem implementation
  */
-class FSocketSubsystemBSDIPv6
-	: public FSocketSubsystemBSDCommon
+class DEPRECATED(4.21, "Move to FSocketSubsystemBSD") FSocketSubsystemBSDIPv6
+	: public ISocketSubsystem
 {
 public:
 
@@ -25,11 +23,16 @@ public:
 
 	virtual TSharedRef<FInternetAddr> CreateInternetAddr( uint32 Address = 0, uint32 Port = 0 ) override;
 
-	virtual class FSocket* CreateSocket( const FName& SocketType, const FString& SocketDescription, bool bForceUDP = false ) override;
+	virtual class FSocket* CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP = false) override;
 
 	virtual FResolveInfoCached* CreateResolveInfoCached(TSharedPtr<FInternetAddr> Addr) const override;
 
 	virtual void DestroySocket( class FSocket* Socket ) override;
+
+	virtual FAddressInfoResult GetAddressInfo(const TCHAR* HostName, const TCHAR* ServiceName = nullptr,
+		EAddressInfoFlags QueryFlags = EAddressInfoFlags::Default,
+		ESocketProtocolFamily ProtocolType = ESocketProtocolFamily::None,
+		ESocketType SocketType = ESocketType::SOCKTYPE_Unknown) override;
 
 	virtual ESocketErrors GetHostByName( const ANSICHAR* HostName, FInternetAddr& OutAddr ) override;
 
@@ -70,10 +73,17 @@ protected:
 	 */
 	virtual class FSocketBSDIPv6* InternalBSDSocketFactory( SOCKET Socket, ESocketType SocketType, const FString& SocketDescription );
 
+	/**
+	 * Translates an ESocketAddressInfoFlags into a value usable by getaddrinfo
+	 */
+	virtual int32 GetAddressInfoHintFlag(EAddressInfoFlags InFlags) const;
+
 	// allow BSD sockets to use this when creating new sockets from accept() etc
-	friend FSocketBSDIPv6;
+	friend class FSocketBSDIPv6;
 
 	// Used to prevent multiple threads accessing the shared data.
 	FCriticalSection HostByNameSynch;
+
+	ESocketErrors TranslateGAIErrorCode(int32 Code) const;
 };
 #endif

@@ -340,7 +340,8 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 
 	/** Net startup actors that need to be destroyed after checkpoints are loaded */
 	TSet< FString >									DeletedNetStartupActors;
-
+	TSet< FNetworkGUID >							DeletedNetStartupActorGUIDs;
+	
 	/** 
 	 * Net startup actors that need to be rolled back during scrubbing by being destroyed and re-spawned 
 	 * NOTE - DeletedNetStartupActors will take precedence here, and destroy the actor instead

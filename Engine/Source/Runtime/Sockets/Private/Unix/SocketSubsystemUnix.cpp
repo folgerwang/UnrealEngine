@@ -3,8 +3,10 @@
 #include "Unix/SocketSubsystemUnix.h"
 #include "Misc/CommandLine.h"
 #include "SocketSubsystemModule.h"
-#include "IPAddress.h"
+#include "BSDSockets/IPAddressBSD.h"
+#include "BSDSockets/SocketsBSD.h"
 
+#include <ifaddrs.h>
 #include <net/if.h>
 
 FSocketSubsystemUnix* FSocketSubsystemUnix::SocketSingleton = NULL;
@@ -89,68 +91,105 @@ bool FSocketSubsystemUnix::HasNetworkDevice()
 	return true;
 }
 
+FSocket* FSocketSubsystemUnix::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP)
+{
+	FSocketBSD* NewSocket = (FSocketBSD*)FSocketSubsystemBSD::CreateSocket(SocketType, SocketDescription, ProtocolType, bForceUDP);
+
+	if (NewSocket != nullptr)
+	{
+		NewSocket->SetIPv6Only(false);
+	}
+	else
+	{
+		UE_LOG(LogSockets, Warning, TEXT("Failed to create socket %s [%s]"), *SocketType.ToString(), *SocketDescription);
+	}
+
+	return NewSocket;
+}
+
 TSharedRef<FInternetAddr> FSocketSubsystemUnix::GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll)
 {
-	// get parent address first
-	TSharedRef<FInternetAddr> Addr = FSocketSubsystemBSD::GetLocalHostAddr(Out, bCanBindAll);
+	bCanBindAll = true;
 
-	// If the address is not a loopback one (or none), return it.
-	uint32 ParentIp = 0;
-	Addr->GetIp(ParentIp); // will return in host order
-	if (ParentIp != 0 && (ParentIp & 0xff000000) != 0x7f000000)
+	TArray<TSharedPtr<FInternetAddr>> ResultArray;
+	if (GetLocalAdapterAddresses(ResultArray))
 	{
-		return Addr;
-	}
-
-	// If superclass got the address from command line, honor that override
-	TCHAR Home[256]=TEXT("");
-	if (FParse::Value(FCommandLine::Get(),TEXT("MULTIHOME="),Home,ARRAY_COUNT(Home)))
-	{
-		TSharedRef<FInternetAddr> TempAddr = CreateInternetAddr();
-		bool bIsValid = false;
-		TempAddr->SetIp(Home, bIsValid);
-		if (bIsValid)
+		if (FParse::Param(FCommandLine::Get(), TEXT("PRIMARYNET")) || FParse::Param(FCommandLine::Get(), TEXT("MULTIHOME")))
 		{
-			return TempAddr;
+			bCanBindAll = false;
 		}
+
+		UE_LOG(LogSockets, Verbose, TEXT("Local address is %s"), *(ResultArray[0]->ToString(false)));
+		return ResultArray[0]->Clone();
+	}
+	else
+	{
+		UE_LOG(LogSockets, Warning, TEXT("GetLocalAdapterAddresses had no results!"));
 	}
 
-	// we need to go deeper...  (see http://unixhelp.ed.ac.uk/CGI/man-cgi?netdevice+7)
-	int TempSocket = socket(PF_INET, SOCK_STREAM, 0);
-	if (TempSocket)
+	// Fall back to this.
+	TSharedRef<FInternetAddr> Addr = CreateInternetAddr();
+	Addr->SetAnyAddress();
+	return Addr;
+}
+
+bool FSocketSubsystemUnix::GetLocalAdapterAddresses(TArray<TSharedPtr<FInternetAddr> >& OutAddresses)
+{
+	TSharedRef<FInternetAddr> MultihomeAddress = FSocketSubsystemBSD::CreateInternetAddr();
+	bool bHasMultihome = GetMultihomeAddress(MultihomeAddress);
+
+	// Multihome addresses should always be the first in the array.
+	if (bHasMultihome)
 	{
-		ifreq IfReqs[8];
-		
-		ifconf IfConfig;
-		FMemory::Memzero(IfConfig);
-		IfConfig.ifc_req = IfReqs;
-		IfConfig.ifc_len = sizeof(IfReqs);
-		
-		int Result = ioctl(TempSocket, SIOCGIFCONF, &IfConfig);
-		if (Result == 0)
+		OutAddresses.Add(MultihomeAddress);
+	}
+
+	ifaddrs* Interfaces = NULL;
+	int InterfaceQueryRet = getifaddrs(&Interfaces);
+	UE_LOG(LogSockets, Verbose, TEXT("Querying net interfaces returned: %d"), InterfaceQueryRet);
+	if (InterfaceQueryRet == 0)
+	{
+		// Loop through linked list of interfaces
+		for (ifaddrs* Travel = Interfaces; Travel != NULL; Travel = Travel->ifa_next)
 		{
-			for (int32 IdxReq = 0; IdxReq < ARRAY_COUNT(IfReqs); ++IdxReq)
+			// Skip over empty data sets.
+			if (Travel->ifa_addr == NULL)
 			{
-				// grab the first non-loobpack one which is up
-				int ResultFlags = ioctl(TempSocket, SIOCGIFFLAGS, &IfReqs[IdxReq]);
-				if (ResultFlags == 0 && 
-					(IfReqs[IdxReq].ifr_flags & IFF_UP) && 
-					(IfReqs[IdxReq].ifr_flags & IFF_LOOPBACK) == 0)
+				continue;
+			}
+
+			uint16 AddrFamily = Travel->ifa_addr->sa_family;
+			// Find any up and non-loopback addresses
+			if ((Travel->ifa_flags & IFF_UP) != 0 &&
+				(Travel->ifa_flags & IFF_LOOPBACK) == 0 && 
+				(AddrFamily == AF_INET || AddrFamily == AF_INET6))
+			{
+				TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD(this));
+				NewAddress->SetIp(*((sockaddr_storage*)Travel->ifa_addr));
+				uint32 AddressInterface = ntohl(if_nametoindex(Travel->ifa_name));
+
+				// Write the scope id if what we found was the multihome address.
+				// Don't write it to our list again though.
+				if (bHasMultihome && NewAddress == MultihomeAddress)
 				{
-					int32 NetworkAddr = reinterpret_cast<sockaddr_in *>(&IfReqs[IdxReq].ifr_addr)->sin_addr.s_addr;
-					Addr->SetIp(ntohl(NetworkAddr));
-					break;
+					static_cast<FInternetAddrBSD&>(MultihomeAddress.Get()).SetScopeId(AddressInterface);
 				}
+				else
+				{
+					NewAddress->SetScopeId(AddressInterface);
+					OutAddresses.Add(NewAddress);
+				}
+				UE_LOG(LogSockets, Verbose, TEXT("Got Address %s on interface %d"), *(NewAddress->ToString(false)), AddressInterface);
 			}
 		}
-		else
-		{
-			int ErrNo = errno;
-			UE_LOG(LogSockets, Warning, TEXT("ioctl( ,SIOGCIFCONF, ) failed, errno=%d (%s)"), ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
-		}
-		
-		close(TempSocket);
+
+		freeifaddrs(Interfaces);
+	}
+	else
+	{
+		UE_LOG(LogSockets, Warning, TEXT("getifaddrs returned result %d"), InterfaceQueryRet);
+		return bHasMultihome; // if getifaddrs somehow doesn't work but we have multihome, then it's fine.
 	}
 
-	return Addr;
+	return (OutAddresses.Num() > 0);
 }

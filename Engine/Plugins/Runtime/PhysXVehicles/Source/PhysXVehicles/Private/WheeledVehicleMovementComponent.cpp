@@ -1112,6 +1112,11 @@ void UWheeledVehicleMovementComponent::UpdateState( float DeltaTime )
 
 		// and send to server
 		ServerUpdateState(SteeringInput, ThrottleInput, BrakeInput, HandbrakeInput, GetCurrentGear());
+
+		if (PawnOwner && PawnOwner->IsNetMode(NM_Client))
+		{
+			MarkForClientCameraUpdate();
+		}
 	}
 	else
 	{

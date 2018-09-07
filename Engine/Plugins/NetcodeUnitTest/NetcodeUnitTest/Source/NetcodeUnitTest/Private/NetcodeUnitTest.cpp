@@ -11,6 +11,7 @@
 #include "INetcodeUnitTest.h"
 #include "NUTUtil.h"
 #include "Net/NUTUtilNet.h"
+#include "NUTGlobals.h"
 #include "NUTUtilDebug.h"
 #include "NUTUtilReflection.h"
 #include "UnitTestEnvironment.h"
@@ -22,9 +23,6 @@
 
 bool GIsInitializingActorChan = false;
 
-/** Limits DumpRPCs to RPC's (partially) matching the specified names */
-static TArray<FString> DumpRPCMatches;
-
 
 /**
  * Definitions/implementations
@@ -33,6 +31,13 @@ static TArray<FString> DumpRPCMatches;
 DEFINE_LOG_CATEGORY(LogUnitTest);
 DEFINE_LOG_CATEGORY(NetCodeTestNone);
 
+
+// @todo #JohnB: Need to rewrite Startup/Shutdown for Hot Reload support
+
+
+// @todo #JohnB: IMPORTANT: Need to review all log-hooking code, and add inherent support for hot reloading,
+//					as every single log hook used within unit tests, will be a source of crashes,
+//					unless it unloads while a hot reload is in progress
 
 /**
  * Module implementation
@@ -54,6 +59,8 @@ public:
 	 */
 	virtual void StartupModule() override
 	{
+		FNUTModuleInterface::StartupModule();
+
 		static bool bSetDelegate = false;
 
 		if (!bSetDelegate && FParse::Param(FCommandLine::Get(), TEXT("NUTServer")))
@@ -89,7 +96,7 @@ public:
 		{
 			if (MatchesStr.Len() > 0)
 			{
-				MatchesStr.ParseIntoArray(DumpRPCMatches, TEXT(","));
+				MatchesStr.ParseIntoArray(UNUTGlobals::Get().DumpRPCMatches, TEXT(","));
 			}
 
 			DumpRPCsHandle = FProcessEventHook::Get().AddGlobalRPCHook(FOnProcessNetEvent::CreateStatic(&FNetcodeUnitTest::DumpRPC));
@@ -142,6 +149,8 @@ public:
 			FProcessEventHook::Get().RemoveGlobalRPCHook(DumpRPCsHandle);
 			DumpRPCsHandle.Reset();
 		}
+
+		FNUTModuleInterface::ShutdownModule();
 	}
 
 
@@ -178,7 +187,9 @@ public:
 	// @todo #JohnB: Presently this has a 'bug' (feature?) where it logs not just received RPC's, but sent RPC's as well.
 	static void DumpRPC(AActor* Actor, UFunction* Function, void* Parameters, bool& bBlockRPC)
 	{
+		TArray<FString>& DumpRPCMatches = UNUTGlobals::Get().DumpRPCMatches;
 		FString FuncName = Function->GetName();
+
 		bool bContainsMatch = DumpRPCMatches.Num() == 0 || DumpRPCMatches.ContainsByPredicate(
 								[&FuncName](FString& CurEntry)
 								{
@@ -208,5 +219,36 @@ FDelegateHandle FNetcodeUnitTest::OnWorldCreatedDelegateHandle;
 FDelegateHandle FNetcodeUnitTest::DumpRPCsHandle;
 
 
-// Essential for getting the .dll to compile, and for the package to be loadable
+
 IMPLEMENT_MODULE(FNetcodeUnitTest, NetcodeUnitTest);
+
+
+/**
+ * INUTModuleInterface
+ */
+void FNUTModuleInterface::StartupModule()
+{
+	check(ModuleName != nullptr);
+
+	// Create a dependency on NetcodeUnitTest
+	FModuleManager::Get().LoadModuleChecked(TEXT("NetcodeUnitTest"));
+
+
+	UNUTGlobals& NUTGlobals = UNUTGlobals::Get();
+
+	NUTGlobals.UnitTestModules.AddUnique(ModuleName);
+	NUTGlobals.UnloadedModules.Remove(ModuleName);
+}
+
+void FNUTModuleInterface::ShutdownModule()
+{
+	if (UObjectInitialized())
+	{
+		UNUTGlobals& NUTGlobals = UNUTGlobals::Get();
+
+		if (NUTGlobals.IsValidLowLevel())
+		{
+			NUTGlobals.UnloadedModules.AddUnique(ModuleName);
+		}
+	}
+}

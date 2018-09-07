@@ -33,8 +33,10 @@ enum class ESteamAuthStatus : uint8
 {
 	None = 0,
 	AuthSuccess = 1 << 0,
-	FailKick = 1 << 1,
+	AuthFail = 1 << 1,
 	ValidationStarted = 1 << 2,
+	KickUser = 1 << 3,
+	FailKick = AuthFail | KickUser,
 	HasOrIsPendingAuth = AuthSuccess | ValidationStarted
 };
 
@@ -88,7 +90,7 @@ private:
 	{
 		return SteamSubsystem != nullptr && SteamSubsystem->IsServer();
 	}
-	bool KickPlayer(const FUniqueNetId& InUserId);
+	bool KickPlayer(const FUniqueNetId& InUserId, bool bSuppressFailure);
 
 	FOnlineAuthSteam();
 

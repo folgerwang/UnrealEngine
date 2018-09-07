@@ -11,9 +11,11 @@
 PACKETHANDLER_API DECLARE_LOG_CATEGORY_EXTERN(PacketHandlerLog, Log, All);
 
 
+// Forward declarations
 class HandlerComponent;
 class FEncryptionComponent;
 class ReliabilityHandlerComponent;
+class FDDoSDetection;
 
 
 /**
@@ -196,8 +198,10 @@ public:
 	 * @param InMaxPacketBits		The maximum supported packet size
 	 * @param bConnectionlessOnly	Whether or not this is a connectionless-only manager (ignores .ini components)
 	 * @param InProvider			The analytics provider
+	 * @param InDDoS				Reference to the owning net drivers DDoS detection handler
 	 */
-	void Initialize(Handler::Mode Mode, uint32 InMaxPacketBits, bool bConnectionlessOnly=false, TSharedPtr<class IAnalyticsProvider> InProvider=nullptr);
+	void Initialize(Handler::Mode Mode, uint32 InMaxPacketBits, bool bConnectionlessOnly=false,
+					TSharedPtr<class IAnalyticsProvider> InProvider=nullptr, FDDoSDetection* InDDoS=nullptr);
 
 	/**
 	 * Used for external initialization of delegates
@@ -452,6 +456,9 @@ public:
 		return State == Handler::State::Initialized;
 	}
 
+	/** Returns a pointer to the DDoS detection handler */
+	FDDoSDetection* GetDDoS() const { return DDoS; }
+
 
 private:
 	/**
@@ -493,10 +500,14 @@ public:
 	/** Time, updated by Tick */
 	float Time;
 
+
+private:
 	/** Whether or not this PacketHandler handles connectionless (i.e. non-UNetConnection) data */
 	bool bConnectionlessHandler;
 
-private:
+	/** Mirroring UNetDriver.DDoS*/
+	FDDoSDetection* DDoS;
+
 	/** Delegate used for triggering PacketHandler/HandlerComponent-sourced sends */
 	FPacketHandlerLowLevelSend LowLevelSendDel;
 

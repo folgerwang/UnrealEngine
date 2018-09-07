@@ -54,6 +54,7 @@ public:
 	virtual int32 IsNetReady( bool Saturate ) override;
 	virtual void FlushNet( bool bIgnoreSimulation = false ) override;
 	virtual void HandleClientPlayer( APlayerController* PC, class UNetConnection* NetConnection ) override;
+	virtual TSharedPtr<FInternetAddr> GetInternetAddr() override;
 	virtual bool ClientHasInitializedLevelFor( const AActor* TestActor ) const override;
 	virtual TSharedPtr<FObjectReplicator> CreateReplicatorForNewActorChannel(UObject* Object);
 

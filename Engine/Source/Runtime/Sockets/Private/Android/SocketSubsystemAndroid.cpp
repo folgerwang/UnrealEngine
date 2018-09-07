@@ -6,6 +6,7 @@
 #include "Misc/Parse.h"
 #include "Misc/CommandLine.h"
 #include "Modules/ModuleManager.h"
+#include "BSDSockets/IPAddressBSD.h"
 
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -100,6 +101,33 @@ const TCHAR* FSocketSubsystemAndroid::GetSocketAPIName() const
 	return TEXT("BSD_Android");
 }
 
+ESocketErrors FSocketSubsystemAndroid::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
+{
+	FAddressInfoResult GAIResult = GetAddressInfo(ANSI_TO_TCHAR(HostName), nullptr, EAddressInfoFlags::Default);
+
+	if (GAIResult.Results.Num() > 0)
+	{
+		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
+		return SE_NO_ERROR;
+	}
+
+	return SE_HOST_NOT_FOUND;
+}
+
+ESocketErrors FSocketSubsystemAndroid::CreateAddressFromIP(const ANSICHAR* IPAddress, FInternetAddr& OutAddr)
+{
+	FAddressInfoResult GAIResult = GetAddressInfo(ANSI_TO_TCHAR(IPAddress), nullptr,
+		EAddressInfoFlags::NoResolveHost | EAddressInfoFlags::OnlyUsableAddresses);
+
+	if (GAIResult.Results.Num() > 0)
+	{
+		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
+		return SE_NO_ERROR;
+	}
+
+	return SE_HOST_NOT_FOUND;
+}
+
 
 TSharedRef<FInternetAddr> FSocketSubsystemAndroid::GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll)
 {
@@ -111,33 +139,24 @@ TSharedRef<FInternetAddr> FSocketSubsystemAndroid::GetLocalHostAddr(FOutputDevic
 	// Depreciated function gethostname() returns 'localhost' on (all?) Android devices
 	// Which in turn means that FSocketSubsystemBSD::GetLocalHostAddr() resolves to 127.0.0.1
 	// Getting info from android.net.wifi.WifiManager is a little messy due to UE4 modular architecture and JNI
-	// IPv4 code using ioctl(.., SIOCGIFCONF, ..) actually based on FSocketSubsytemLinux::GetLocalHostAddr works fine for now...
+	// IPv4 code using ioctl(.., SIOCGIFCONF, ..) based on formally FSocketSubsytemLinux::GetLocalHostAddr works fine for now...
 	//
 	// Also NOTE: Network can flip out behind applications back when connectivity changes. eg. Move out of wifi range.
 	// This seems to recover OK between matches as subsystems are reinited each session Host/Join.
 
-	uint32 ParentIp = 0;
-	Addr->GetIp(ParentIp); // will return in host order
+	uint32 ParentIp;
+	Addr->GetIp(ParentIp);
 	if (ParentIp != 0 && (ParentIp & 0xff000000) != 0x7f000000)
 	{
 		return Addr;
 	}
 
-	// If superclass got the address from command line, honor that override
-	TCHAR Home[256] = TEXT("");
-	if (FParse::Value(FCommandLine::Get(), TEXT("MULTIHOME="), Home, ARRAY_COUNT(Home)))
-	{
-		TSharedRef<FInternetAddr> TempAddr = CreateInternetAddr();
-		bool bIsValid = false;
-		TempAddr->SetIp(Home, bIsValid);
-		if (bIsValid)
-		{
-			UE_LOG(LogSockets, Warning, TEXT("FSocketSubsystemAndroid::GetLocalHostAddr Using MULTIHOME"));
-			return TempAddr;
-		}
-	}
+	// TODO: Android doesn't support ifaddrs either except in the Android OS 7.0+
+	// Which isn't super great either. So I guess this block is stuck the way it is.
+	// Other alternatives could be rtnetdevice but it's blocking 
+	// (sure you can make it non-blocking but you still have to wait for a recv otherwise you have no data)
 
-	// We need to go deeper...
+	// we need to go deeper...  (see http://man7.org/linux/man-pages/man7/netdevice.7.html)
 	int TempSocket = socket(PF_INET, SOCK_STREAM, 0);
 	if (TempSocket)
 	{
@@ -151,9 +170,14 @@ TSharedRef<FInternetAddr> FSocketSubsystemAndroid::GetLocalHostAddr(FOutputDevic
 		int Result = ioctl(TempSocket, SIOCGIFCONF, &IfConfig);
 		if (Result == 0)
 		{
-			int32 WifiAddress = 0;
-			int32 CellularAddress = 0;
-			int32 OtherAddress = 0;
+			sockaddr_storage WifiAddress;
+			sockaddr_storage CellularAddress;
+			sockaddr_storage OtherAddress;
+
+			// Clear these out
+			FMemory::Memzero(&WifiAddress, sizeof(sockaddr_storage));
+			FMemory::Memzero(&CellularAddress, sizeof(sockaddr_storage));
+			FMemory::Memzero(&OtherAddress, sizeof(sockaddr_storage));
 
 			for (int32 IdxReq = 0; IdxReq < ARRAY_COUNT(IfReqs); ++IdxReq)
 			{
@@ -166,45 +190,46 @@ TSharedRef<FInternetAddr> FSocketSubsystemAndroid::GetLocalHostAddr(FOutputDevic
 					if (strcmp(IfReqs[IdxReq].ifr_name, "wlan0") == 0)
 					{
 						// 'Usually' wifi, Prefer wifi
-						WifiAddress = reinterpret_cast<sockaddr_in *>(&IfReqs[IdxReq].ifr_addr)->sin_addr.s_addr;
+						FMemory::Memcpy((void*)&WifiAddress, (void*)(&IfReqs[IdxReq].ifr_addr), sizeof(sockaddr_in));
 						break;
 					}
 					else if (strcmp(IfReqs[IdxReq].ifr_name, "rmnet0") == 0)
 					{
 						// 'Usually' cellular
-						CellularAddress = reinterpret_cast<sockaddr_in *>(&IfReqs[IdxReq].ifr_addr)->sin_addr.s_addr;
+						FMemory::Memcpy((void*)&CellularAddress, (void*)(&IfReqs[IdxReq].ifr_addr), sizeof(sockaddr_in));
 					}
-					else if (OtherAddress == 0)
+					else if (OtherAddress.ss_family == AF_UNSPEC)
 					{
 						// First alternate found
-						OtherAddress = reinterpret_cast<sockaddr_in *>(&IfReqs[IdxReq].ifr_addr)->sin_addr.s_addr;
+						FMemory::Memcpy((void*)&OtherAddress, (void*)(&IfReqs[IdxReq].ifr_addr), sizeof(sockaddr_in));
 					}
 				}
 			}
 
+			FInternetAddrBSD& NewAddrRef = static_cast<FInternetAddrBSD&>(Addr.Get());
 			// Prioritize results found
-			if (WifiAddress != 0)
+			if (WifiAddress.ss_family != AF_UNSPEC)
 			{
 				// Prefer Wifi
-				Addr->SetIp(ntohl(WifiAddress));
+				NewAddrRef.SetIp(WifiAddress);
 				UE_LOG(LogSockets, Log, TEXT("(%s) Wifi Adapter IP %s"), GetSocketAPIName(), *Addr->ToString(false));
 			}
-			else if (CellularAddress != 0)
+			else if (CellularAddress.ss_family != AF_UNSPEC)
 			{
 				// Then cellular
-				Addr->SetIp(ntohl(CellularAddress));
+				NewAddrRef.SetIp(CellularAddress);
 				UE_LOG(LogSockets, Log, TEXT("(%s) Cellular Adapter IP %s"), GetSocketAPIName(), *Addr->ToString(false));
 			}
-			else if (OtherAddress != 0)
+			else if (OtherAddress.ss_family != AF_UNSPEC)
 			{
 				// Then whatever else was found
-				Addr->SetIp(ntohl(OtherAddress));
+				NewAddrRef.SetIp(OtherAddress);
 				UE_LOG(LogSockets, Log, TEXT("(%s) Adapter IP %s"), GetSocketAPIName(), *Addr->ToString(false));
 			}
 			else
 			{
 				// Give up
-				Addr->SetIp(0x7f000001);  // 127.0.0.1
+				Addr->SetLoopbackAddress();  // 127.0.0.1
 				UE_LOG(LogSockets, Warning, TEXT("(%s) NO 'UP' ADAPTER FOUND! using: %s"), GetSocketAPIName(), *Addr->ToString(false));
 			}
 		}

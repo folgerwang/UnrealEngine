@@ -4246,7 +4246,7 @@ EAcceptConnection::Type UWorld::NotifyAcceptingConnection()
 	else
 	{
 		// Server is up and running.
-		UE_LOG(LogNet, Verbose, TEXT("NotifyAcceptingConnection: Server %s accept"), *GetName() );
+		UE_CLOG(!NetDriver->DDoS.CheckLogRestrictions(), LogNet, Verbose, TEXT("NotifyAcceptingConnection: Server %s accept"), *GetName());
 		return EAcceptConnection::Accept;
 	}
 }
@@ -5697,6 +5697,11 @@ UWorld* FSeamlessTravelHandler::Tick()
 				{
 					ProcessActor(Player);
 				}
+			}
+
+			if (NetDriver)
+			{
+				NetDriver->CleanupWorldForSeamlessTravel();
 			}
 
 			bool bCreateNewGameMode = !bIsClient;
