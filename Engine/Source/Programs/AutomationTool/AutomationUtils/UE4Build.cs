@@ -22,8 +22,6 @@ namespace AutomationTool
 	{
 		private BuildCommand OwnerCommand;
 
-		private String XGEConsoleExePath = "";
-
 		public bool HasBuildProduct(string InFile)
 		{
 			string File = CommandUtils.CombinePaths(InFile);
@@ -587,30 +585,6 @@ namespace AutomationTool
 			return Result;
 		}
 
-		public string XGEConsoleExe()
-		{
-			if (string.IsNullOrEmpty(XGEConsoleExePath))
-			{
-				string[] PathDirs = Environment.GetEnvironmentVariable("PATH").Split(Path.PathSeparator);
-				foreach (string PathDir in PathDirs)
-				{
-					try
-					{
-						string FullPath = Path.Combine(PathDir, "xgConsole" + Platform.GetExeExtension(BuildHostPlatform.Current.Platform));
-						if (CommandUtils.FileExists(FullPath))
-						{
-							XGEConsoleExePath = FullPath;
-							break;
-						}
-					}
-					catch
-					{
-					}
-				}
-			}
-			return XGEConsoleExePath;
-		}
-
 		public bool ProcessXGEItems(List<XGEItem> Actions, string XGETool, string Args, string TaskFilePath, bool ShowProgress)
 		{
 			TelemetryStopwatch CombineXGEStopwatch = new TelemetryStopwatch("CombineXGEItemFiles.{0}", Path.GetFileNameWithoutExtension(XGETool));
@@ -1144,9 +1118,9 @@ namespace AutomationTool
 			bool bForceNonUnity = ParseParam("ForceNonUnity") || InForceNonUnity;
 			bool bForceUnity = ParseParam("ForceUnity") || InForceUnity;
 			bool bForceDebugInfo = ParseParam("ForceDebugInfo");
-			string XGEConsole = XGEConsoleExe();
+			string XGEConsole = null;
 			bool bDisableXGE = ParseParam("NoXGE") || InForceNoXGE;
-			bool bCanUseXGE = !bDisableXGE && !String.IsNullOrEmpty(XGEConsole);
+			bool bCanUseXGE = !bDisableXGE && PlatformExports.TryGetXgConsoleExecutable(out XGEConsole);
 
 			// only run ParallelExecutor if not running XGE (and we've requested ParallelExecutor and it exists)
 			bool bCanUseParallelExecutor = !bCanUseXGE && InUseParallelExecutor && (HostPlatform.Current.HostEditorPlatform == UnrealTargetPlatform.Win64);
@@ -1238,7 +1212,7 @@ namespace AutomationTool
 				string Args = null;
 				if (bCanUseXGE) 
 				{
-					XGETool = XGEConsoleExePath;
+					XGETool = XGEConsole;
 					Args = "\"" + TaskFilePath + "\" /Rebuild /NoLogo /ShowAgent /ShowTime";
 					if (ParseParam("StopOnErrors"))
 					{

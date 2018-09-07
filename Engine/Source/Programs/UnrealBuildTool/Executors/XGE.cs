@@ -47,8 +47,24 @@ namespace UnrealBuildTool
 			get { return "XGE"; }
 		}
 
-		public static bool IsAvailable()
+		public static bool TryGetXgConsoleExecutable(out string OutXgConsoleExe)
 		{
+			// Try to get the path from the registry
+			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+			{
+				string XgConsoleExe;
+				if(TryGetXgConsoleExecutableFromRegistry(RegistryView.Registry32, out XgConsoleExe))
+				{
+					OutXgConsoleExe = XgConsoleExe;
+					return true;
+				}
+				if(TryGetXgConsoleExecutableFromRegistry(RegistryView.Registry64, out XgConsoleExe))
+				{
+					OutXgConsoleExe = XgConsoleExe;
+					return true;
+				}
+			}
+
 			// Get the name of the XgConsole executable.
 			string XgConsole = "xgConsole";
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
@@ -69,6 +85,7 @@ namespace UnrealBuildTool
 					string PotentialPath = Path.Combine(SearchPath, XgConsole);
 					if(File.Exists(PotentialPath))
 					{
+						OutXgConsoleExe = PotentialPath;
 						return true;
 					}
 				}
@@ -77,7 +94,48 @@ namespace UnrealBuildTool
 					// PATH variable may contain illegal characters; just ignore them.
 				}
 			}
+
+			OutXgConsoleExe = null;
 			return false;
+		}
+
+		private static bool TryGetXgConsoleExecutableFromRegistry(RegistryView View, out string OutXgConsoleExe)
+		{
+			try
+			{
+				using(RegistryKey BaseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, View))
+				{
+					using (RegistryKey Key = BaseKey.OpenSubKey("SOFTWARE\\Xoreax\\IncrediBuild\\Builder", false))
+					{
+						if(Key != null)
+						{
+							string Folder = Key.GetValue("Folder", null) as string;
+							if(!String.IsNullOrEmpty(Folder))
+							{
+								string FileName = Path.Combine(Folder, "xgConsole.exe");
+								if(File.Exists(FileName))
+								{
+									OutXgConsoleExe = FileName;
+									return true;
+								}
+							}
+						}
+					}
+				}
+			}
+			catch(Exception Ex)
+			{
+				Log.WriteException(Ex, null);
+			}
+
+			OutXgConsoleExe = null;
+			return false;
+		}
+
+		public static bool IsAvailable()
+		{
+			string XgConsoleExe;
+			return TryGetXgConsoleExecutable(out XgConsoleExe);
 		}
 
 		// precompile the Regex needed to parse the XGE output (the ones we want are of the form "File (Duration at +time)"
