@@ -161,6 +161,8 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 	// Any loaded instance will get marked as PendingKill
 	virtual void PostLoad() override;
 
+	virtual void PostInitProperties() override;
+
 	// We need to implement GetWorld() so that any EQS-related blueprints (such as blueprint contexts) can implement
 	// GetWorld() and so provide access to blueprint nodes using hidden WorldContextObject parameters.
 	virtual UWorld* GetWorld() const override;
@@ -319,4 +321,11 @@ private:
 	void CheckQueryCount() const;
 	void LogQueryCountWarning() const;
 #endif
+
+#if WITH_EDITOR
+	FDelegateHandle OnBlueprintCompiledHandle;
+
+	// used to reset LocalContextMap in case we had BP contexts stored
+	void OnBlueprintCompiled();
+#endif // WITH_EDITOR
 };

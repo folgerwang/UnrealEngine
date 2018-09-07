@@ -41,7 +41,6 @@ public:
 	virtual void AddMessage( const TSharedRef< class FTokenizedMessage >& NewMessage, bool bMirrorToOutputLog ) override;
 	virtual void AddMessages( const TArray< TSharedRef< class FTokenizedMessage > >& NewMessages, bool bMirrorToOutputLog ) override;
 	virtual void ClearMessages() override;
-	virtual TSharedPtr<FTokenizedMessage> GetMessageFromData(const struct FTokenizedMiscData& MessageData) const override;
 	virtual const TArray< TSharedRef<class FTokenizedMessage> >& GetSelectedMessages() const override;
 	virtual void SelectMessages( const TArray< TSharedRef<class FTokenizedMessage> >& InSelectedMessages ) override;
 	virtual const TArray< TSharedRef<class FTokenizedMessage> >& GetFilteredMessages() const override;

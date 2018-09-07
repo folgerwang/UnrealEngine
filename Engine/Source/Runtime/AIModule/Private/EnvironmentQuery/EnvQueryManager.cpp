@@ -132,6 +132,17 @@ void UEnvQueryManager::PostLoad()
 	MarkPendingKill();
 }
 
+void UEnvQueryManager::PostInitProperties()
+{
+	Super::PostInitProperties();
+#if WITH_EDITOR
+	if (GEditor)
+	{
+		OnBlueprintCompiledHandle = GEditor->OnBlueprintCompiled().AddUObject(this, &UEnvQueryManager::OnBlueprintCompiled);
+	}
+#endif // WITH_EDITOR
+}
+
 UWorld* UEnvQueryManager::GetWorld() const
 {
 	return Cast<UWorld>(GetOuter());
@@ -140,6 +151,14 @@ UWorld* UEnvQueryManager::GetWorld() const
 void UEnvQueryManager::FinishDestroy()
 {
 	FCoreUObjectDelegates::PreLoadMap.RemoveAll(this);
+
+#if WITH_EDITOR
+	if (GEditor)
+	{
+		GEditor->OnBlueprintCompiled().Remove(OnBlueprintCompiledHandle);
+	}
+#endif // WITH_EDITOR
+
 	Super::FinishDestroy();
 }
 
@@ -947,6 +966,13 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::FindQueryInstance(const int32 Qu
 
 	return nullptr;
 }
+
+#if WITH_EDITOR
+void UEnvQueryManager::OnBlueprintCompiled()
+{
+	LocalContextMap.Reset();
+}
+#endif // WITH_EDITOR
 
 //----------------------------------------------------------------------//
 // Exec functions (i.e. console commands)

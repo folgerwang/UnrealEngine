@@ -11,6 +11,7 @@
 #include "Curves/RichCurve.h"
 #include "Factories/Factory.h"
 #include "Factories/ImportSettings.h"
+#include "EditorReimportHandler.h"
 #include "CSVImportFactory.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogCSVImportFactory, Log, All);
@@ -55,14 +56,14 @@ class UNREALED_API UCSVImportFactory : public UFactory, public IImportSettingsPa
 
 	//~ Begin UFactory Interface
 	virtual FText GetDisplayName() const override;
-	virtual UObject* FactoryCreateText( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn ) override;
+	virtual UObject* FactoryCreateText(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled) override;
 	virtual bool DoesSupportClass(UClass * Class) override;
 	virtual bool FactoryCanImport(const FString& Filename) override;
 	virtual	IImportSettingsParser* GetImportSettingsParser() override { return this; }
 
 
 	/* Reimport an object that was created based on a CSV */
-	bool ReimportCSV(UObject* Obj);
+	EReimportResult::Type ReimportCSV(UObject* Obj);
 	
 	/**
 	 * IImportSettings interface
@@ -76,7 +77,7 @@ protected:
 
 private:
 	/* Reimport object from the given path*/
-	bool Reimport(UObject* Obj, const FString& Path  );
+	EReimportResult::Type Reimport(UObject* Obj, const FString& Path);
 
 	UPROPERTY()
 	FCSVImportSettings AutomatedImportSettings;
