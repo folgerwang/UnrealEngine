@@ -322,7 +322,7 @@ class FChunkedFixedUObjectArray
 {
 	enum
 	{
-		NumElementsPerChunk = 65 * 1024,
+		NumElementsPerChunk = 64 * 1024,
 	};
 
 	/** Master table to chunks of pointers **/
