@@ -201,20 +201,17 @@ bool FCompilerResultsLog::IsMessageEnabled(FName ID)
 	}
 
 	const UBlueprintEditorProjectSettings* EditorProjectSettings = GetDefault<UBlueprintEditorProjectSettings>();
-	if(IsRunningCommandlet())
+	if(IsRunningCommandlet() || !GIsEditor)
 	{
-		if(	EditorProjectSettings->DisabledCompilerMessagesHeadless.Contains(ID) ||
-			EditorProjectSettings->DisabledCompilerMessages.Contains(ID))
+		if(	EditorProjectSettings->DisabledCompilerMessagesExceptEditor.Contains(ID))
 		{
 			return false;
 		}
 	}
-	else
+
+	if( EditorProjectSettings->DisabledCompilerMessages.Contains(ID) )
 	{
-		if( EditorProjectSettings->DisabledCompilerMessages.Contains(ID) )
-		{
-			return false;
-		}
+		return false;
 	}
 
 	return true;

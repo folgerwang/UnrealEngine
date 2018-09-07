@@ -79,7 +79,8 @@ FUniqueObjectGuid FUniqueObjectGuid::GetOrCreateIDForObject(const class UObject 
 #if WITH_EDITOR
 		if (GIsCookerLoadingPackage)
 		{
-			UE_ASSET_LOG(LogUObjectGlobals, Warning, Object, TEXT("Creating a new object GUID for object '%s' during cooking - this asset should be resaved"), *Object->GetFullName());
+			// TEMP to uncomment after FN-Staging integration to Main
+			//UE_ASSET_LOG(LogUObjectGlobals, Warning, Object, TEXT("Creating a new object GUID for object '%s' during cooking - this asset should be resaved"), *Object->GetFullName());
 		}
 #endif
 		ObjectGuid.Guid = FGuid::NewGuid();

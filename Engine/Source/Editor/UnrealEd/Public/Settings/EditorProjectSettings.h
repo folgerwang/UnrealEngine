@@ -185,12 +185,12 @@ public:
 	uint32 bValidateUnloadedSoftActorReferences : 1;
 
 	/** 
-	 * List of compiler messages that have been suppressed during cook (or other commandlets) for 
+	 * List of compiler messages that have been suppressed outside of full, interactive editor sessions for 
 	 * the current project - useful for silencing warnings that were added to the engine after 
 	 * project inception and are going to be addressed as they are found by content authors
 	 */
-	UPROPERTY(EditAnywhere, config, Category= Blueprints, DisplayName = "Compiler Messages Disabled during Cook")
-	TArray<FName> DisabledCompilerMessagesHeadless;
+	UPROPERTY(EditAnywhere, config, Category= Blueprints, DisplayName = "Compiler Messages Disabled Except in Editor")
+	TArray<FName> DisabledCompilerMessagesExceptEditor;
 	
 	/** 
 	 * List of compiler messages that have been suppressed completely - message suppression is only 
