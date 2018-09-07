@@ -93,11 +93,13 @@ protected:
 	 * update only some components of the rotation).
 	 */
 	UPROPERTY(EditDefaultsOnly, AdvancedDisplay, Category="Controller|Transform")
-	uint32 bAttachToPawn:1;
+	uint8 bAttachToPawn:1;
 
 	/** Whether this controller is a PlayerController. */
-	UPROPERTY()
-	uint32 bIsPlayerController:1;
+	uint8 bIsPlayerController:1;
+
+	/** Whether the controller must have authority to be able to call possess on a Pawn */
+	uint8 bCanPossessWithoutAuthority:1;
 
 	/** Ignores movement input. Stacked state storage, Use accessor function IgnoreMoveInput() */
 	uint8 IgnoreMoveInput;
@@ -251,12 +253,28 @@ public:
 	 * @see HasAuthority()
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Pawn, meta=(Keywords="set controller"))
-	virtual void Possess(APawn* InPawn);
+	virtual void Possess(APawn* InPawn) final; // DEPRECATED(4.22, "Posssess is marked virtual final as you should now be overriding OnPossess instead")
 
 	/** Called to unpossess our pawn for any reason that is not the pawn being destroyed (destruction handled by PawnDestroyed()). */
 	UFUNCTION(BlueprintCallable, Category=Pawn, meta=(Keywords="set controller"))
-	virtual void UnPossess();
+	virtual void UnPossess() final; // DEPRECATED(4.22, "Posssess is marked virtual final as you should now be overriding OnUnPossess instead")
 
+protected:
+	/** Blueprint implementable event to react to the controller possessing a pawn */
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Possess"))
+	void ReceivePossess(APawn* PossessedPawn);
+
+	/** Overridable native function for when this controller possesses a pawn. */
+	virtual void OnPossess(APawn* InPawn);
+
+	/** Blueprint implementable event to react to the controller unpossessing a pawn */
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On UnPossess"))
+	void ReceiveUnPossess(APawn* UnpossessedPawn);
+
+	/** Overridable native function for when this controller unpossesses its pawn. */
+	virtual void OnUnPossess();
+
+public:
 	/**
 	 * Called to unpossess our pawn because it is going to be destroyed.
 	 * (other unpossession handled by UnPossess())

@@ -24,6 +24,7 @@
 
 #include "GameFramework/PlayerState.h"
 
+DEFINE_LOG_CATEGORY(LogController);
 DEFINE_LOG_CATEGORY(LogPath);
 
 #define LOCTEXT_NAMESPACE "Controller"
@@ -46,6 +47,7 @@ AController::AController(const FObjectInitializer& ObjectInitializer)
 	bCanBeDamaged = false;
 	bAttachToPawn = false;
 	bIsPlayerController = false;
+	bCanPossessWithoutAuthority = false;
 
 	if (RootComponent)
 	{
@@ -274,17 +276,25 @@ void AController::PostInitializeComponents()
 
 void AController::Possess(APawn* InPawn)
 {
-	if (!HasAuthority())
+	if (!bCanPossessWithoutAuthority && !HasAuthority())
 	{
 		FMessageLog("PIE").Warning(FText::Format(
 			LOCTEXT("ControllerPossessAuthorityOnly", "Possess function should only be used by the network authority for {0}"),
 			FText::FromName(GetFName())
 			));
+		UE_LOG(LogController, Warning, TEXT("Trying to possess %s without network authority! Request will be ignored."), *GetNameSafe(InPawn));
 		return;
 	}
 
 	REDIRECT_OBJECT_TO_VLOG(InPawn, this);
 
+	OnPossess(InPawn);
+
+	ReceivePossess(InPawn);
+}
+
+void AController::OnPossess(APawn* InPawn)
+{
 	const bool bNewPawn = GetPawn() != InPawn;
 
 	if (InPawn != NULL)
@@ -316,6 +326,15 @@ void AController::Possess(APawn* InPawn)
 
 void AController::UnPossess()
 {
+	APawn* CurrentPawn = GetPawn();
+
+	OnUnPossess();
+
+	ReceiveUnPossess(CurrentPawn);
+}
+
+void AController::OnUnPossess()
+{
 	if ( Pawn != NULL )
 	{
 		Pawn->UnPossessed();
@@ -323,12 +342,11 @@ void AController::UnPossess()
 	}
 }
 
-
 void AController::PawnPendingDestroy(APawn* inPawn)
 {
 	if ( IsInState(NAME_Inactive) )
 	{
-		UE_LOG(LogPath, Log, TEXT("PawnPendingDestroy while inactive %s"), *GetName());
+		UE_LOG(LogController, Log, TEXT("PawnPendingDestroy while inactive %s"), *GetName());
 	}
 
 	if ( inPawn != Pawn )

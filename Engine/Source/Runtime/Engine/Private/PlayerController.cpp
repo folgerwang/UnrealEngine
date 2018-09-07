@@ -747,18 +747,8 @@ void APlayerController::ClientRestart_Implementation(APawn* NewPawn)
 
 /// @endcond
 
-void APlayerController::Possess(APawn* PawnToPossess)
+void APlayerController::OnPossess(APawn* PawnToPossess)
 {
-	if (!HasAuthority())
-	{
-		FMessageLog("PIE").Warning(FText::Format(
-			LOCTEXT("PlayerControllerPossessAuthorityOnly", "Possess function should only be used by the network authority for {0}"),
-			FText::FromName(GetFName())
-			));
-		UE_LOG(LogPlayerController, Warning, TEXT("Trying to possess %s without network authority! Request will be ignored."), *GetNameSafe(PawnToPossess));
-		return;
-	}
-
 	if ( PawnToPossess != NULL && 
 		(PlayerState == NULL || !PlayerState->bOnlySpectator) )
 	{
@@ -1218,7 +1208,7 @@ bool APlayerController::ServerAcknowledgePossession_Validate(APawn* P)
 
 /// @endcond
 
-void APlayerController::UnPossess()
+void APlayerController::OnUnPossess()
 {
 	if (GetPawn() != NULL)
 	{

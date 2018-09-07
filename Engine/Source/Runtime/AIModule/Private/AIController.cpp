@@ -454,7 +454,7 @@ void AAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 }
 
 
-void AAIController::Possess(APawn* InPawn)
+void AAIController::OnPossess(APawn* InPawn)
 {
 	// don't even try possessing pending-kill pawns
 	if (InPawn != nullptr && InPawn->IsPendingKill())
@@ -462,7 +462,7 @@ void AAIController::Possess(APawn* InPawn)
 		return;
 	}
 
-	Super::Possess(InPawn);
+	Super::OnPossess(InPawn);
 
 	if (GetPawn() == nullptr || InPawn == nullptr)
 	{
@@ -501,15 +501,13 @@ void AAIController::Possess(APawn* InPawn)
 
 		REDIRECT_OBJECT_TO_VLOG(CachedGameplayTasksComponent, this);
 	}
-
-	OnPossess(InPawn);
 }
 
-void AAIController::UnPossess()
+void AAIController::OnUnPossess()
 {
 	APawn* CurrentPawn = GetPawn();
 
-	Super::UnPossess();
+	Super::OnUnPossess();
 
 	if (PathFollowingComponent)
 	{
@@ -529,8 +527,6 @@ void AAIController::UnPossess()
 		CachedGameplayTasksComponent->OnClaimedResourcesChange.RemoveDynamic(this, &AAIController::OnGameplayTaskResourcesClaimed);
 		CachedGameplayTasksComponent = nullptr;
 	}
-
-	OnUnpossess(CurrentPawn);
 }
 
 void AAIController::SetPawn(APawn* InPawn)

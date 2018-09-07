@@ -150,14 +150,6 @@ public:
 
 	AAIController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	/** Event called when PossessedPawn is possessed by this controller. */
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnPossess(APawn* PossessedPawn);
-
-	/** Gets triggered after given pawn has been unpossesed */
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnUnpossess(APawn* UnpossessedPawn);
-
 	virtual void SetPawn(APawn* InPawn) override;
 
 	/** Makes AI go toward specified Goal actor (destination will be continuously updated), aborts any active path following
@@ -334,8 +326,11 @@ public:
 	//~ End AActor Interface
 
 	//~ Begin AController Interface
-	virtual void Possess(APawn* InPawn) override;
-	virtual void UnPossess() override;
+protected:
+	virtual void OnPossess(APawn* InPawn) override;
+	virtual void OnUnPossess() override;
+
+public:
 	virtual bool ShouldPostponePathUpdates() const override;
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 
