@@ -71,6 +71,15 @@ public:
 	virtual const TCHAR* GetSocketAPIName() const override;
 
 	/**
+	 * Does a DNS look up of a host name
+	 *
+	 * @param HostName the name of the host to look up
+	 * @param Addr the address to copy the IP address to
+	 */
+	virtual ESocketErrors GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr) override;
+	virtual ESocketErrors CreateAddressFromIP(const ANSICHAR* IPAddress, FInternetAddr& OutAddr) override;
+
+	/**
 	 * Android platform specific look up to determine the host address
 	 * as many Android devices have multiple interfaces (wifi, cellular et al.)
 	 * Prefer Wifi, fallback to cellular, then anything else present
