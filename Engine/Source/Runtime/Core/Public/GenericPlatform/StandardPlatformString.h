@@ -317,7 +317,7 @@ public:
 	{
 		int32 Result = vsnprintf(Dest, DestSize, Fmt, ArgPtr);
 		va_end( ArgPtr );
-		return (Result != -1 && Result < DestSize) ? Result : -1;
+		return (Result != -1 && Result < (int32)DestSize) ? Result : -1;
 	}
 
 	/**
