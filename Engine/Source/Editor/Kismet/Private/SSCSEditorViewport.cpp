@@ -111,96 +111,22 @@ public:
 
 	FText GetCameraMenuLabel() const
 	{
-		FText Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Default", "Camera");
-
 		if(EditorViewport.IsValid())
 		{
-			switch(EditorViewport.Pin()->GetViewportClient()->GetViewportType())
-			{
-			case LVT_Perspective:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Perspective", "Perspective");
-				break;
-
-			case LVT_OrthoXY:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Top", "Top");
-				break;
-
-			case LVT_OrthoYZ:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Left", "Left");
-				break;
-
-			case LVT_OrthoXZ:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Front", "Front");
-				break;
-
-			case LVT_OrthoNegativeXY:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Bottom", "Bottom");
-				break;
-
-			case LVT_OrthoNegativeYZ:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Right", "Right");
-				break;
-
-			case LVT_OrthoNegativeXZ:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Back", "Back");
-				break;
-
-			case LVT_OrthoFreelook:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_OrthoFreelook", "Ortho");
-				break;
-			}
+			return GetCameraMenuLabelFromViewportType(EditorViewport.Pin()->GetViewportClient()->GetViewportType());
 		}
 
-		return Label;
+		return NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Default", "Camera");
 	}
 
 	const FSlateBrush* GetCameraMenuLabelIcon() const
 	{
-		static FName PerspectiveIconName("EditorViewport.Perspective");
-		static FName TopIconName("EditorViewport.Top");
-		static FName LeftIconName("EditorViewport.Left");
-		static FName FrontIconName("EditorViewport.Front");
-		static FName BottomIconName("EditorViewport.Bottom");
-		static FName RightIconName("EditorViewport.Right");
-		static FName BackIconName("EditorViewport.Back");
-
-		FName Icon = NAME_None;
-
 		if(EditorViewport.IsValid())
 		{
-			switch(EditorViewport.Pin()->GetViewportClient()->GetViewportType())
-			{
-			case LVT_Perspective:
-				Icon = PerspectiveIconName;
-				break;
-
-			case LVT_OrthoXY:
-				Icon = TopIconName;
-				break;
-
-			case LVT_OrthoYZ:
-				Icon = LeftIconName;
-				break;
-
-			case LVT_OrthoXZ:
-				Icon = FrontIconName;
-				break;
-
-			case LVT_OrthoNegativeXY:
-				Icon = BottomIconName;
-				break;
-
-			case LVT_OrthoNegativeYZ:
-				Icon = RightIconName;
-				break;
-
-			case LVT_OrthoNegativeXZ:
-				Icon = BackIconName;
-				break;
-			}
+			return GetCameraMenuLabelIconFromViewportType( EditorViewport.Pin()->GetViewportClient()->GetViewportType() );
 		}
 
-		return FEditorStyle::GetBrush(Icon);
+		return FEditorStyle::GetBrush(NAME_None);
 	}
 
 	TSharedRef<SWidget> GenerateCameraMenu() const

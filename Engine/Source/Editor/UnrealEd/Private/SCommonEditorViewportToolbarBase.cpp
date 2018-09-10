@@ -125,85 +125,12 @@ void SCommonEditorViewportToolbarBase::Construct(const FArguments& InArgs, TShar
 
 FText SCommonEditorViewportToolbarBase::GetCameraMenuLabel() const
 {
-	FText Label = LOCTEXT("CameraMenuTitle_Default", "Camera");
-
-	switch (GetViewportClient().GetViewportType())
-	{
-		case LVT_Perspective:
-			Label = LOCTEXT("CameraMenuTitle_Perspective", "Perspective");
-			break;
-
-		case LVT_OrthoXY:
-			Label = LOCTEXT("CameraMenuTitle_Top", "Top");
-			break;
-
-		case LVT_OrthoYZ:
-			Label = LOCTEXT("CameraMenuTitle_Left", "Left");
-			break;
-
-		case LVT_OrthoXZ:
-			Label = LOCTEXT("CameraMenuTitle_Front", "Front");
-			break;
-
-		case LVT_OrthoNegativeXY:
-			Label = LOCTEXT("CameraMenuTitle_Bottom", "Bottom");
-			break;
-
-		case LVT_OrthoNegativeYZ:
-			Label = LOCTEXT("CameraMenuTitle_Right", "Right");
-			break;
-
-		case LVT_OrthoNegativeXZ:
-			Label = LOCTEXT("CameraMenuTitle_Back", "Back");
-			break;
-
-		case LVT_OrthoFreelook:
-			Label = LOCTEXT("CameraMenuTitle_OrthoFreelook", "Ortho");
-			break;
-	}
-
-	return Label;
+	return GetCameraMenuLabelFromViewportType( GetViewportClient().GetViewportType() );
 }
 
 const FSlateBrush* SCommonEditorViewportToolbarBase::GetCameraMenuLabelIcon() const
 {
-	FName Icon = NAME_None;
-
-	switch (GetViewportClient().GetViewportType())
-	{
-		case LVT_Perspective:
-			Icon = FName( "EditorViewport.Perspective" );
-			break;
-
-		case LVT_OrthoXY:
-			Icon = FName( "EditorViewport.Top" );
-			break;
-
-		case LVT_OrthoYZ:
-			Icon = FName( "EditorViewport.Left" );
-			break;
-
-		case LVT_OrthoXZ:
-			Icon = FName( "EditorViewport.Front" );
-			break;
-
-		case LVT_OrthoNegativeXY:
-			Icon = FName("EditorViewport.Bottom");
-			break;
-
-		case LVT_OrthoNegativeYZ:
-			Icon = FName("EditorViewport.Right");
-			break;
-
-		case LVT_OrthoNegativeXZ:
-			Icon = FName("EditorViewport.Back");
-			break;
-
-		case LVT_OrthoFreelook:
-			break;
-	}
-
-	return FEditorStyle::GetBrush( Icon );
+	return GetCameraMenuLabelIconFromViewportType( GetViewportClient().GetViewportType() );
 }
 
 EVisibility SCommonEditorViewportToolbarBase::GetViewModeOptionsVisibility() const

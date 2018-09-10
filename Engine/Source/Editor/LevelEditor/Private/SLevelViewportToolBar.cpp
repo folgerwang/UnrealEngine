@@ -262,45 +262,13 @@ bool SLevelViewportToolBar::IsViewModeSupported(EViewModeIndex ViewModeIndex) co
 
 FText SLevelViewportToolBar::GetCameraMenuLabel() const
 {
-	FText Label = LOCTEXT("CameraMenuTitle_Default", "Camera");
 	TSharedPtr< SLevelViewport > PinnedViewport( Viewport.Pin() );
 	if( PinnedViewport.IsValid() )
 	{
-		switch( PinnedViewport->GetLevelViewportClient().ViewportType )
-		{
-			case LVT_Perspective:
-				Label = LOCTEXT("CameraMenuTitle_Perspective", "Perspective");
-				break;
-
-			case LVT_OrthoXY:
-				Label = LOCTEXT("CameraMenuTitle_Top", "Top");
-				break;
-
-			case LVT_OrthoYZ:
-				Label = LOCTEXT("CameraMenuTitle_Left", "Left");
-				break;
-
-			case LVT_OrthoXZ:
-				Label = LOCTEXT("CameraMenuTitle_Front", "Front");
-				break;
-
-			case LVT_OrthoNegativeXY:
-				Label = LOCTEXT("CameraMenuTitle_Bottom", "Bottom");
-				break;
-
-			case LVT_OrthoNegativeYZ:
-				Label = LOCTEXT("CameraMenuTitle_Right", "Right");
-				break;
-
-			case LVT_OrthoNegativeXZ:
-				Label = LOCTEXT("CameraMenuTitle_Back", "Back");
-				break;
-			case LVT_OrthoFreelook:
-				break;
-		}
+		return GetCameraMenuLabelFromViewportType( PinnedViewport->GetLevelViewportClient().ViewportType );
 	}
 
-	return Label;
+	return LOCTEXT("CameraMenuTitle_Default", "Camera");
 }
 
 FText SLevelViewportToolBar::GetDevicePreviewMenuLabel() const
@@ -342,53 +310,13 @@ const FSlateBrush* SLevelViewportToolBar::GetDevicePreviewMenuLabelIcon() const
 
 const FSlateBrush* SLevelViewportToolBar::GetCameraMenuLabelIcon() const
 {
-	FName Icon = NAME_None;
 	TSharedPtr< SLevelViewport > PinnedViewport( Viewport.Pin() );
 	if( PinnedViewport.IsValid() )
 	{
-		static FName PerspectiveIcon("EditorViewport.Perspective");
-		static FName TopIcon("EditorViewport.Top");
-		static FName LeftIcon("EditorViewport.Left");
-		static FName FrontIcon("EditorViewport.Front");
-		static FName BottomIcon("EditorViewport.Bottom");
-		static FName RightIcon("EditorViewport.Right");
-		static FName BackIcon("EditorViewport.Back");
-
-		switch( PinnedViewport->GetLevelViewportClient().ViewportType )
-		{
-			case LVT_Perspective:
-				Icon = PerspectiveIcon;
-				break;
-
-			case LVT_OrthoXY:
-				Icon = TopIcon;
-				break;
-
-			case LVT_OrthoYZ:
-				Icon = LeftIcon;
-				break;
-
-			case LVT_OrthoXZ:
-				Icon = FrontIcon;
-				break;
-
-			case LVT_OrthoNegativeXY:
-				Icon = BottomIcon;
-				break;
-
-			case LVT_OrthoNegativeYZ:
-				Icon = RightIcon;
-				break;
-
-			case LVT_OrthoNegativeXZ:
-				Icon = BackIcon;
-				break;
-			case LVT_OrthoFreelook:
-				break;
-		}
+		return GetCameraMenuLabelIconFromViewportType(PinnedViewport->GetLevelViewportClient().ViewportType);
 	}
 
-	return FEditorStyle::GetBrush( Icon );
+	return FEditorStyle::GetBrush(NAME_None);
 }
 
 bool SLevelViewportToolBar::IsCurrentLevelViewport() const
