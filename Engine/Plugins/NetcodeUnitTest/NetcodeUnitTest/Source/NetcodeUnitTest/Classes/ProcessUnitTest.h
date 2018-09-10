@@ -285,7 +285,7 @@ protected:
 
 
 protected:
-	virtual void CleanupUnitTest() override;
+	virtual void CleanupUnitTest(EUnitTestResetStage ResetStage) override;
 
 
 	virtual void UnitTick(float DeltaTime) override;

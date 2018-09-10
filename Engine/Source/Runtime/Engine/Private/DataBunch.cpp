@@ -49,10 +49,6 @@ FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 /** Copy constructor but with optional parameter to not copy buffer */
 FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 {
-	// Copy fields
-//	FMemory::Memcpy(&PacketId,&InBunch.PacketId,sizeof(FInBunch) - sizeof(FNetBitReader));
-
-	// This is portable
 	PacketId =	InBunch.PacketId;
 	Next =	InBunch.Next;
 	Connection = InBunch.Connection;
@@ -60,6 +56,7 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	ChType = InBunch.ChType;
 	ChSequence = InBunch.ChSequence;
 	bOpen =	InBunch.bOpen;
+	bClose = InBunch.bClose;
 	bDormant = InBunch.bDormant;
 	bIsReplicationPaused = InBunch.bIsReplicationPaused;
 	bReliable =	InBunch.bReliable;
@@ -100,11 +97,11 @@ FOutBunch::FOutBunch( UChannel* InChannel, bool bInClose )
 ,	Next		( NULL )
 ,	Channel		( InChannel )
 ,	Time		( 0 )
-,	ReceivedAck	(false)
-,	ChIndex     ( InChannel->ChIndex )
-,	ChType      ( InChannel->ChType )
+,	ChIndex		( InChannel->ChIndex )
+,	ChType		( InChannel->ChType )
 ,	ChSequence	( 0 )
 ,	PacketId	( 0 )
+,	ReceivedAck	( 0 )
 ,	bOpen		( 0 )
 ,	bClose		( bInClose )
 ,	bDormant	( 0 )
@@ -133,12 +130,12 @@ FOutBunch::FOutBunch( UPackageMap *InPackageMap, int64 MaxBits )
 :	FNetBitWriter	( InPackageMap, MaxBits )
 ,	Next		( NULL )
 ,	Channel		( NULL )
-,   Time		( 0 )
-,	ReceivedAck	(false)
+,	Time		( 0 )
 ,	ChIndex     ( 0 )
 ,	ChType      ( 0 )
 ,	ChSequence	( 0 )
 ,	PacketId	( 0 )
+,	ReceivedAck	( 0 )
 ,	bOpen		( 0 )
 ,	bClose		( 0 )
 ,	bDormant	( 0 )

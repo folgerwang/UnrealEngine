@@ -155,6 +155,12 @@ void UOculusNetConnection::FinishDestroy()
 	}
 }
 
+TSharedPtr<FInternetAddr> UOculusNetConnection::GetInternetAddr()
+{
+	// @todo #JIRA UENET-883: This should be based on NetConnection.RemoteAddr, when moved down from IPConnection
+	return MakeShareable(new FInternetAddrOculus(PeerID));
+}
+
 FString UOculusNetConnection::RemoteAddressToString()
 {
 	if (bIsPassThrough)

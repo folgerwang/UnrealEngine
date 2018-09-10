@@ -577,8 +577,9 @@ void UNetConnection::CleanUp()
 
 	Handler.Reset(NULL);
 
-	Driver = NULL;
 	SetClientLoginState(EClientLoginState::CleanedUp);
+
+	Driver = nullptr;
 }
 
 UChildConnection::UChildConnection(const FObjectInitializer& ObjectInitializer)
@@ -2427,10 +2428,11 @@ void UChildConnection::HandleClientPlayer(APlayerController* PC, UNetConnection*
 		}
 	}
 
-	if (NewPlayer == NULL)
+	if (!ensure(NewPlayer != NULL))
 	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		UE_LOG(LogNet, Error, TEXT("Failed to find LocalPlayer for received PlayerController '%s' with index %d. PlayerControllers:"), *PC->GetName(), int32(PC->NetPlayerIndex));
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		check( PC->GetWorld() );
 		for (TActorIterator<APlayerController> It(PC->GetWorld()); It; ++It)
 		{
@@ -2439,10 +2441,12 @@ void UChildConnection::HandleClientPlayer(APlayerController* PC, UNetConnection*
 				UE_LOG(LogNet, Log, TEXT(" - %s"), *It->GetFullName());
 			}
 		}
-		UE_LOG(LogNet, Fatal,TEXT("Failed to find LocalPlayer for received PlayerController"));
-#else
-		return; // avoid crash
 #endif
+		if (ensure(Parent != nullptr))
+		{
+			Parent->Close();
+		}
+		return; // avoid crash
 	}
 
 	// Detach old player.
@@ -2638,24 +2642,33 @@ void UNetConnection::SetClientLoginState( const EClientLoginState::Type NewState
 		return;
 	}
 
-	UE_LOG(LogNet, Verbose, TEXT("UNetConnection::SetClientLoginState: State changing from %s to %s"), EClientLoginState::ToString( ClientLoginState ), EClientLoginState::ToString( NewState ) );
+	UE_CLOG((Driver == nullptr || !Driver->DDoS.CheckLogRestrictions()), LogNet, Verbose,
+				TEXT("UNetConnection::SetClientLoginState: State changing from %s to %s"),
+				EClientLoginState::ToString(ClientLoginState), EClientLoginState::ToString(NewState));
+
 	ClientLoginState = NewState;
 }
 
 /** Wrapper for setting the current expected client login msg type. */
-void UNetConnection::SetExpectedClientLoginMsgType( const uint8 NewType )
+void UNetConnection::SetExpectedClientLoginMsgType(const uint8 NewType)
 {
+	const bool bLogRestricted = Driver != nullptr && Driver->DDoS.CheckLogRestrictions();
+
 	if ( ExpectedClientLoginMsgType == NewType )
 	{
-		UE_LOG(LogNet, Verbose, TEXT("UNetConnection::SetExpectedClientLoginMsgType: Type same: [%d]%s"), NewType, FNetControlMessageInfo::IsRegistered(NewType) ? FNetControlMessageInfo::GetName(NewType) : TEXT("UNKNOWN"));
+		UE_CLOG(!bLogRestricted, LogNet, Verbose, TEXT("UNetConnection::SetExpectedClientLoginMsgType: Type same: [%d]%s"),
+				NewType, FNetControlMessageInfo::IsRegistered(NewType) ? FNetControlMessageInfo::GetName(NewType) : TEXT("UNKNOWN"));
+
 		return;
 	}
 
-	UE_LOG(LogNet, Verbose, TEXT("UNetConnection::SetExpectedClientLoginMsgType: Type changing from [%d]%s to [%d]%s"), 
+	UE_CLOG(!bLogRestricted, LogNet, Verbose,
+		TEXT("UNetConnection::SetExpectedClientLoginMsgType: Type changing from [%d]%s to [%d]%s"), 
 		ExpectedClientLoginMsgType,
 		FNetControlMessageInfo::IsRegistered(ExpectedClientLoginMsgType) ? FNetControlMessageInfo::GetName(ExpectedClientLoginMsgType) : TEXT("UNKNOWN"),
 		NewType,
 		FNetControlMessageInfo::IsRegistered(NewType) ? FNetControlMessageInfo::GetName(NewType) : TEXT("UNKNOWN"));
+
 	ExpectedClientLoginMsgType = NewType;
 }
 

@@ -1549,49 +1549,56 @@ bool UDemoNetDriver::DemoReplicateActor(AActor* Actor, UNetConnection* Connectio
 void UDemoNetDriver::SerializeGuidCache(TSharedPtr<FNetGUIDCache> InGuidCache, FArchive* CheckpointArchive)
 {
 	int32 NumValues = 0;
+	int32 UnloadedValues = 0;
 
-	for ( auto It = InGuidCache->ObjectLookup.CreateIterator(); It; ++It )
-	{
-		FNetGuidCacheObject& CacheObject = It.Value();
-
-		if ( CacheObject.Object == nullptr || !CacheObject.Object->IsNameStableForNetworking() )
-		{
-			continue;
-		}
-
-		NumValues++;
-	}
+	int64 CountPos = CheckpointArchive->Tell();
 
 	*CheckpointArchive << NumValues;
-
-	UE_LOG( LogDemo, Verbose, TEXT( "Checkpoint. SerializeGuidCache: %i" ), NumValues );
 
 	for ( auto It = InGuidCache->ObjectLookup.CreateIterator(); It; ++It )
 	{
 		FNetworkGUID& NetworkGUID = It.Key();
 		FNetGuidCacheObject& CacheObject = It.Value();
 
-		if ( CacheObject.Object == NULL || !CacheObject.Object->IsNameStableForNetworking() )
+		if (NetworkGUID.IsValid() && (NetworkGUID.IsStatic() || (CacheObject.Object.IsValid() && CacheObject.Object->IsNameStableForNetworking())))
 		{
-			continue;
+			// if we know the guid was specifically deleted, do not serialize it
+			if (DeletedNetStartupActorGUIDs.Contains(NetworkGUID))
+			{
+				continue;
+			}
+
+			FString PathName = CacheObject.Object.IsValid() ? CacheObject.Object->GetName() : CacheObject.PathName.ToString();
+
+			GEngine->NetworkRemapPath(this, PathName, false);
+
+			*CheckpointArchive << NetworkGUID;
+			*CheckpointArchive << CacheObject.OuterGUID;
+			*CheckpointArchive << PathName;
+			*CheckpointArchive << CacheObject.NetworkChecksum;
+
+			uint8 Flags = 0;
+			Flags |= CacheObject.bNoLoad ? (1 << 0) : 0;
+			Flags |= CacheObject.bIgnoreWhenMissing ? (1 << 1) : 0;
+
+			*CheckpointArchive << Flags;
+
+			++NumValues;
+
+			const bool bUnloaded = !CacheObject.Object.IsValid() || !CacheObject.Object->IsNameStableForNetworking();
+			if (bUnloaded)
+			{
+				++UnloadedValues;
+			}
 		}
-
-		FString PathName = CacheObject.Object->GetName();
-
-		GEngine->NetworkRemapPath(this, PathName, false);
-
-		*CheckpointArchive << NetworkGUID;
-		*CheckpointArchive << CacheObject.OuterGUID;
-		*CheckpointArchive << PathName;
-		*CheckpointArchive << CacheObject.NetworkChecksum;
-
-		uint8 Flags = 0;
-		
-		Flags |= CacheObject.bNoLoad ? ( 1 << 0 ) : 0;
-		Flags |= CacheObject.bIgnoreWhenMissing ? ( 1 << 1 ) : 0;
-
-		*CheckpointArchive << Flags;
 	}
+
+	int64 Pos = CheckpointArchive->Tell();
+	CheckpointArchive->Seek(CountPos);
+	*CheckpointArchive << NumValues;
+	CheckpointArchive->Seek(Pos);
+
+	UE_LOG( LogDemo, Verbose, TEXT( "Checkpoint. SerializeGuidCache: %i Unloaded: %i" ), NumValues, UnloadedValues );
 }
 
 float UDemoNetDriver::GetCheckpointSaveMaxMSPerFrame() const
@@ -4723,6 +4730,12 @@ void UDemoNetConnection::HandleClientPlayer( APlayerController* PC, UNetConnecti
 	}
 }
 
+TSharedPtr<FInternetAddr> UDemoNetConnection::GetInternetAddr()
+{
+	// Does not use MappedClientConnections
+	return TSharedPtr<FInternetAddr>();
+}
+
 bool UDemoNetConnection::ClientHasInitializedLevelFor(const AActor* TestActor) const
 {
 	// We save all currently streamed levels into the demo stream so we can force the demo playback client
@@ -4885,6 +4898,12 @@ void UDemoNetDriver::NotifyActorDestroyed( AActor* Actor, bool IsSeamlessTravel 
 
 			UE_LOG(LogDemo, VeryVerbose, TEXT("NotifyActyorDestroyed: adding actor to deleted startup list: %s"), *Actor->GetFullName());
 			DeletedNetStartupActors.Add( Actor->GetFullName() );
+
+			FNetworkGUID NetGUID = GuidCache->NetGUIDLookup.FindRef(Actor);
+			if (NetGUID.IsValid())
+			{
+				DeletedNetStartupActorGUIDs.Add(NetGUID);
+			}
 		}
 	}
 
