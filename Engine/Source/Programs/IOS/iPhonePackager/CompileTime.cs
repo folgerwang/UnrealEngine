@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -213,29 +214,29 @@ namespace iPhonePackager
 		static public void ExportCertificate()
 		{
 			string ProvisionWithPrefix;
-			// this needs the provisioningUUID or it will fail
-			if(!FindMobileProvision("", out ProvisionWithPrefix, false))
+			if(!FindMobileProvision(Config.OverrideBundleName ?? "", out ProvisionWithPrefix, false))
 			{
 				Program.Error("Missing provision");
 				return;
 			}
 
-			if(Config.Certificate == null)
+			if(Config.OutputCertificate == null)
 			{
-				Program.Error("Missing -Certificate=... argument");
+				Program.Error("Missing -OutputCertificate=... argument");
 				return;
 			}
 
 			// export the signing certificate to a file
 			MobileProvision Provision = MobileProvisionParser.ParseFile(ProvisionWithPrefix);
-			var Certificate = CodeSignatureBuilder.FindCertificate(Provision);
+			X509Certificate2 Certificate = CodeSignatureBuilder.FindCertificate(Provision);
             if (Certificate == null)
             {
                 Program.Error("Failed to find a valid certificate");
                 return;
             }
-            byte[] Data = Certificate.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pkcs12, "A");
-			File.WriteAllBytes(Config.Certificate, Data);
+
+			byte[] Data = Certificate.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pkcs12, "A");
+			File.WriteAllBytes(Config.OutputCertificate, Data);
 		}
 
 		/// <summary>
