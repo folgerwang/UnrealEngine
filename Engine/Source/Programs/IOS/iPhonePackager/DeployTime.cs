@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
  */
 
@@ -245,20 +245,14 @@ namespace iPhonePackager
 		{
 			if (DeployTimeInstance == null)
 			{
-				DeployTimeInstance = (DeploymentInterface)Activator.GetObject(
-				  typeof(DeploymentInterface),
-				  @"ipc://iPhonePackager/DeploymentServer_PID");
-				if (DeployTimeInstance == null)
+				if (DeploymentServerProcess == null)
 				{
-					if (DeploymentServerProcess == null)
-					{
-						DeploymentServerProcess = CreateDeploymentServerProcess();
-					}
+					DeploymentServerProcess = CreateDeploymentServerProcess();
 				}
 
 				DeployTimeInstance = (DeploymentInterface)Activator.GetObject(
 				  typeof(DeploymentInterface),
-				  @"ipc://iPhonePackager/DeploymentServer_PID");
+				  @"ipc://iPhonePackager/DeploymentServer_PID" + Process.GetCurrentProcess().Id.ToString());
 			}
 
 			if (DeployTimeInstance == null)

@@ -80,7 +80,7 @@ namespace AutomationTool
 				throw new AutomationException(String.Format("Unabled to build Project {0}. Project file not found.", ProjectFile));
 			}
 
-			string CmdLine = String.Format(@"/verbosity:minimal /nologo /target:Build /property:Configuration={0} /property:Platform=AnyCPU", BuildConfig);
+			string CmdLine = String.Format(@"/verbosity:minimal /nologo /target:Rebuild /property:Configuration={0} /property:Platform=AnyCPU", BuildConfig);
 			MsBuild(Env, ProjectFile, CmdLine, LogName);
 		}
 

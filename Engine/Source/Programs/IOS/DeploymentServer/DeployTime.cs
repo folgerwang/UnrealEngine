@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
  */
 
@@ -360,7 +360,7 @@ namespace DeploymentServer
             });
         }
 
-		public void ListenToDevice(string inDeviceID, TextWriter Writer)
+		public void ListenToDevice(string inDeviceID)
 		{
 			MobileDeviceInstance	targetDevice = null;
 
@@ -383,10 +383,8 @@ namespace DeploymentServer
 					string	curLog = targetDevice.GetSyslogData();
 					if(curLog.Trim().Length > 0)
 					{
-						//Console.Write(curLog);
-						Writer.Write(curLog);
+						Console.Write(curLog);
 					}
-					System.Threading.Thread.Sleep(50);
 				}
 			}
 			else
