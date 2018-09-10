@@ -4418,7 +4418,10 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 
 	//root of tick hierarchy
 
-	if ((GetRemoteRole() == ROLE_AutonomousProxy) && !IsNetMode(NM_Client) && !IsLocalPlayerController())
+	const bool bIsClient = IsNetMode(NM_Client);
+	const bool bIsLocallyControlled = IsLocalPlayerController();
+
+	if ((GetRemoteRole() == ROLE_AutonomousProxy) && !bIsClient && !bIsLocallyControlled)
 	{
 		// force physics update for clients that aren't sending movement updates in a timely manner 
 		// this prevents cheats associated with artificially induced ping spikes
@@ -4462,11 +4465,11 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 		}
 
 		// update viewtarget replicated info
-		if (PlayerCameraManager != NULL)
+		if (PlayerCameraManager != nullptr)
 		{
 			APawn* TargetPawn = PlayerCameraManager->GetViewTargetPawn();
 			
-			if ((TargetPawn != GetPawn()) && (TargetPawn != NULL))
+			if ((TargetPawn != GetPawn()) && (TargetPawn != nullptr))
 			{
 				TargetViewRotation = TargetPawn->GetViewRotation();
 			}
@@ -4475,7 +4478,7 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 	else if (Role > ROLE_SimulatedProxy)
 	{
 		// Process PlayerTick with input.
-		if (!PlayerInput && (Player == NULL || Cast<ULocalPlayer>( Player ) != NULL))
+		if (!PlayerInput && (Player == nullptr || Cast<ULocalPlayer>( Player ) != nullptr))
 		{
 			InitInputSystem();
 		}
@@ -4491,12 +4494,23 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 		}
 
 		// update viewtarget replicated info
-		if (PlayerCameraManager != NULL)
+		if (PlayerCameraManager != nullptr)
 		{
 			APawn* TargetPawn = PlayerCameraManager->GetViewTargetPawn();
-			if ((TargetPawn != GetPawn()) && (TargetPawn != NULL))
+			if ((TargetPawn != GetPawn()) && (TargetPawn != nullptr))
 			{
 				SmoothTargetViewRotation(TargetPawn, DeltaSeconds);
+			}
+
+			// Send a camera update if necessary.
+			if (bIsClient && bIsLocallyControlled && GetPawn() && PlayerCameraManager->bUseClientSideCameraUpdates)
+			{
+				UPawnMovementComponent* PawnMovement = GetPawn()->GetMovementComponent();
+				if (!PawnMovement->IsMoveInputIgnored() &&
+					(PawnMovement->GetLastInputVector() != FVector::ZeroVector || PawnMovement->Velocity != FVector::ZeroVector))
+				{
+					PlayerCameraManager->bShouldSendClientSideCameraUpdate = true;
+				}
 			}
 		}
 	}
@@ -4510,7 +4524,7 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 	RotationInput = FRotator::ZeroRotator;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if (CheatManager != NULL)
+	if (CheatManager != nullptr)
 	{
 		CheatManager->TickCollisionDebug();
 	}

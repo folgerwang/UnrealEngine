@@ -13,6 +13,8 @@
 #include "GameFramework/WorldSettings.h"
 #include "PacketHandler.h"
 #include "Channel.h"
+#include "DDoSDetection.h"
+#include "IPAddress.h"
 
 #include "NetDriver.generated.h"
 
@@ -29,6 +31,8 @@ class StatelessConnectHandlerComponent;
 class UNetConnection;
 class UReplicationDriver;
 struct FNetworkObjectInfo;
+
+using FConnectionMap = TMap<TSharedRef<FInternetAddr>, UNetConnection*, FDefaultSetAllocator, FInternetAddrKeyMapFuncs<UNetConnection*>>;
 
 extern ENGINE_API TAutoConsoleVariable<int32> CVarNetAllowEncryption;
 extern ENGINE_API int32 GNumSaturatedConnections;
@@ -279,9 +283,12 @@ public:
 	UPROPERTY()
 	class UNetConnection* ServerConnection;
 
-	/** Array of connections to clients (this net driver is a host) */
+	/** Array of connections to clients (this net driver is a host) - unsorted, and ordering changes depending on actor replication */
 	UPROPERTY()
-	TArray<class UNetConnection*> ClientConnections;
+	TArray<UNetConnection*> ClientConnections;
+
+	/** Map of IP's to NetConnection's - for fast lookup, particularly under DDoS - only valid IP's mapped (e.g. excludes DemoNetConnection) */
+	FConnectionMap MappedClientConnections;
 
 
 	/** Serverside PacketHandler for managing connectionless packets */
@@ -491,6 +498,11 @@ public:
 
 	/** Tracks the amount of time spent during the current frame processing queued bunches. */
 	float ProcessQueuedBunchesCurrentFrameMilliseconds;
+
+	/** DDoS detection management */
+	FDDoSDetection DDoS;
+
+
 
 	/**
 	* Updates the standby cheat information and
@@ -766,6 +778,10 @@ public:
 	ENGINE_API virtual bool IsServer() const;
 
 	ENGINE_API virtual void CleanPackageMaps();
+
+	void RemoveClassRepLayoutReferences(UClass* Class);
+
+	ENGINE_API void CleanupWorldForSeamlessTravel();
 
 	ENGINE_API void PreSeamlessTravelGarbageCollect();
 

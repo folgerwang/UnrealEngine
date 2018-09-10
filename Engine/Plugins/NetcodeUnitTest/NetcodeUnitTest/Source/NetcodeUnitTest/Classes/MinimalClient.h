@@ -2,6 +2,8 @@
 
 #pragma once
 
+// @todo #JohnB: This file is missing a high-level description of what MinimalClient's are, and their purpose
+
 // @todo #JohnB: Refactor
 /**
  * Refactoring Plan

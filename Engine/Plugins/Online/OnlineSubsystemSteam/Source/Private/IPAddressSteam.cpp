@@ -1,6 +1,46 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IPAddressSteam.h"
+#include "Algo/Reverse.h"
+
+TArray<uint8> FInternetAddrSteam::GetRawIp() const
+{
+	TArray<uint8> RawAddressArray;
+	const uint8* SteamIdWalk = SteamId.GetBytes();
+	while (RawAddressArray.Num() < SteamId.GetSize())
+	{
+		RawAddressArray.Add(*SteamIdWalk);
+		++SteamIdWalk;
+	}
+
+	// We want to make sure that these arrays are in big endian format.
+#if PLATFORM_LITTLE_ENDIAN
+	Algo::Reverse(RawAddressArray);
+#endif
+
+	return RawAddressArray;
+}
+
+void FInternetAddrSteam::SetRawIp(const TArray<uint8>& RawAddr)
+{
+	uint64 NewSteamId = 0;
+
+	// Make a quick copy of the array
+	TArray<uint8> WorkingArray = RawAddr;
+
+	// Flip the entire array.
+	// Normally we would just do a ntohll on the final result but it's not a portable function.
+#if PLATFORM_LITTLE_ENDIAN
+	Algo::Reverse(WorkingArray);
+#endif
+
+	for (int32 i = 0; i < WorkingArray.Num(); ++i)
+	{
+		NewSteamId |= (uint64)WorkingArray[i] << (i * 8);
+	}
+
+	SteamId = FUniqueNetIdSteam(NewSteamId);
+}
 
 /**
  * Sets the ip address from a string ("steam.STEAMID" or "STEAMID")

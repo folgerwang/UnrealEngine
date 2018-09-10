@@ -24,6 +24,7 @@
 
 #define NETCONNECTION_HAS_SETENCRYPTIONKEY 1
 
+class FInternetAddr;
 class FObjectReplicator;
 class StatelessConnectHandlerComponent;
 class UActorChannel;
@@ -682,6 +683,14 @@ public:
 	{
 		return 0;
 	}
+
+	/**
+	 * Return the platform specific FInternetAddr type, containing this connections address.
+	 * If nullptr is returned, connection is not added to MappedClientConnections, and can't receive net packets which depend on this.
+	 *
+	 * @return	The platform specific FInternetAddr containing this connections address
+	 */
+	virtual TSharedPtr<FInternetAddr> GetInternetAddr() PURE_VIRTUAL(UNetConnection::GetInternetAddr,return TSharedPtr<FInternetAddr>(););
 
 	/** closes the connection (including sending a close notify across the network) */
 	ENGINE_API void Close();

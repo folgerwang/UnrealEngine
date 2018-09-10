@@ -10,6 +10,7 @@
 #include "UObject/Package.h"
 #include "HAL/ConsoleManager.h"
 
+#include "DDoSDetection.h"
 #include "HandlerComponentFactory.h"
 #include "ReliabilityHandlerComponent.h"
 
@@ -31,6 +32,7 @@ PacketHandler::PacketHandler()
 	: Mode(Handler::Mode::Client)
 	, Time(0.f)
 	, bConnectionlessHandler(false)
+	, DDoS(nullptr)
 	, LowLevelSendDel()
 	, HandshakeCompleteDel()
 	, OutgoingPacket()
@@ -77,15 +79,19 @@ void PacketHandler::Tick(float DeltaTime)
 	}
 }
 
-void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, bool bConnectionlessOnly/*=false*/, TSharedPtr<IAnalyticsProvider> InProvider/*=nullptr*/)
+void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, bool bConnectionlessOnly/*=false*/,
+								TSharedPtr<IAnalyticsProvider> InProvider/*=nullptr*/, FDDoSDetection* InDDoS/*=nullptr*/)
 {
 	Mode = InMode;
 	MaxPacketBits = InMaxPacketBits;
+	DDoS = InDDoS;
 
 	// @todo #JohnB: Redo this, so you don't load from the .ini at all, have it hardcoded elsewhere - do not want this in shipping.
 
+	bConnectionlessHandler = bConnectionlessOnly;
+
 	// Only UNetConnection's will load the .ini components, for now.
-	if (!bConnectionlessOnly)
+	if (!bConnectionlessHandler)
 	{
 		TArray<FString> Components;
 
@@ -374,7 +380,8 @@ const ProcessedPacket PacketHandler::Incoming_Internal(uint8* Packet, int32 Coun
 			bError = true;
 
 #if !UE_BUILD_SHIPPING
-			UE_LOG(PacketHandlerLog, Error, TEXT("PacketHandler parsing packet with zero's in last byte."));
+			UE_CLOG((DDoS == nullptr || !DDoS->CheckLogRestrictions()), PacketHandlerLog, Error,
+					TEXT("PacketHandler parsing packet with zero's in last byte."));
 #endif
 		}
 	}
@@ -583,8 +590,8 @@ void PacketHandler::SendHandlerPacket(HandlerComponent* InComponent, FBitWriter&
 {
 	// @todo #JohnB: There is duplication between this function and others, it would be nice to reduce this.
 
-	// For the moment, this should only be used by HandlerComponents which are in the process of initializing.
-	check(State == Handler::State::InitializingComponents);
+	// Prevent any cases where a send happens before the handler is ready.
+	check(State != Handler::State::Uninitialized);
 
 	if (LowLevelSendDel.IsBound())
 	{

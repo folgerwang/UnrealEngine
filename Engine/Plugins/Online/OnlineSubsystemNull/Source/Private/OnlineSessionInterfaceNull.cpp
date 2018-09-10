@@ -699,9 +699,7 @@ uint32 FOnlineSessionNull::JoinLANSession(int32 PlayerNum, FNamedOnlineSession* 
 		FOnlineSessionInfoNull* SessionInfo = (FOnlineSessionInfoNull*)Session->SessionInfo.Get();
 		SessionInfo->SessionId = SearchSessionInfo->SessionId;
 
-		uint32 IpAddr;
-		SearchSessionInfo->HostAddr->GetIp(IpAddr);
-		SessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr(IpAddr, SearchSessionInfo->HostAddr->GetPort());
+		SessionInfo->HostAddr = SearchSessionInfo->HostAddr->Clone();
 		Result = ERROR_SUCCESS;
 	}
 

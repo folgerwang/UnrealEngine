@@ -668,11 +668,7 @@ bool FPendingSearchResultSteam::FillSessionFromServerRules()
 	if (bSuccess && (KeysFound == STEAMKEY_NUMREQUIREDSERVERKEYS) && (SteamAddrKeysFound == 2))
 	{
 		SessionInfo->HostAddr = HostAddr;
-
-		if (SteamAddrKeysFound == 2) //-V547
-		{
-			SessionInfo->SteamP2PAddr = SteamP2PAddr;
-		}
+		SessionInfo->SteamP2PAddr = SteamP2PAddr;
 
 		Session->SessionInfo = SessionInfo;
 		return true;
@@ -953,7 +949,7 @@ void FOnlineAsyncTaskSteamFindServerBase::ParseSearchResult(class gameserveritem
 			ServerBuildId = FCString::Atoi(*TagArray[0].Mid(ARRAY_COUNT(STEAMKEY_BUILDUNIQUEID)));
 		}
 
-		if (ServerBuildId != 0 && ServerBuildId == BuildUniqueId)
+		if (ServerBuildId == BuildUniqueId)
 		{
 			// Create a new pending search result 
 			FPendingSearchResultSteam* NewPendingSearch = new (PendingSearchResults) FPendingSearchResultSteam(this);

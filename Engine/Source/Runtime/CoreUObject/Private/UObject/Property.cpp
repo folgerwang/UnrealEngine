@@ -272,6 +272,8 @@ struct TStructOpsTypeTraits<FTimespan> : public TStructOpsTypeTraitsBase2<FTimes
 		WithExportTextItem = true,
 		WithImportTextItem = true,
 		WithSerializer = true,
+		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithZeroConstructor = true,
 		WithIdenticalViaEquality = true,
 	};

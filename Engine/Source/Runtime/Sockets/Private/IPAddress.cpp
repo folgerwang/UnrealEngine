@@ -10,10 +10,7 @@
  */
 FResolveInfoCached::FResolveInfoCached(const FInternetAddr& InAddr)
 {
-	// @todo sockets: This should use Clone
-	uint32 IpAddr;
-	InAddr.GetIp(IpAddr);
-	Addr = ISocketSubsystem::Get()->CreateInternetAddr(IpAddr, InAddr.GetPort());
+	Addr = InAddr.Clone();
 }
 
 /**
