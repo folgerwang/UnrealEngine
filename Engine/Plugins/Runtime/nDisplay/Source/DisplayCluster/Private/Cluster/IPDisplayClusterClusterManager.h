@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Misc/Timecode.h"
+#include "Misc/FrameRate.h"
 #include "Cluster/IDisplayClusterClusterManager.h"
 #include "IPDisplayClusterManager.h"
 
@@ -25,6 +27,9 @@ struct IPDisplayClusterClusterManager :
 	
 	virtual float GetDeltaTime() const = 0;
 	virtual void  SetDeltaTime(float deltaTime) = 0;
+
+	virtual void GetTimecode(FTimecode& timecode, FFrameRate& frameRate) const = 0;
+	virtual void  SetTimecode(const FTimecode& timecode, const FFrameRate& frameRate) = 0;
 	
 	virtual void RegisterSyncObject  (IDisplayClusterClusterSyncObject* pSyncObj) = 0;
 	virtual void UnregisterSyncObject(IDisplayClusterClusterSyncObject* pSyncObj) = 0;

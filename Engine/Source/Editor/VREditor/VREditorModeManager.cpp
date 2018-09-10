@@ -27,7 +27,8 @@
 FVREditorModeManager::FVREditorModeManager() :
 	CurrentVREditorMode( nullptr ),
 	bEnableVRRequest( false ),
-	HMDWornState( EHMDWornState::Unknown )
+	HMDWornState( EHMDWornState::Unknown ), 
+	bAddedViewportWorldInteractionExtension( false )
 {
 }
 
@@ -179,7 +180,20 @@ void FVREditorModeManager::StartVREditorMode( const bool bForceWithoutHMD )
 			UEditorWorldExtensionCollection* ExtensionCollection = GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(World);
 			check(ExtensionCollection != nullptr);
 		
-			UViewportWorldInteraction* ViewportWorldInteraction = Cast<UViewportWorldInteraction>(ExtensionCollection->AddExtension(UViewportWorldInteraction::StaticClass()));
+			// Add viewport world interaction to the collection if not already there
+			UViewportWorldInteraction* ViewportWorldInteraction = Cast<UViewportWorldInteraction>(ExtensionCollection->FindExtension(UViewportWorldInteraction::StaticClass()));
+			if (ViewportWorldInteraction == nullptr)
+			{
+				ViewportWorldInteraction = NewObject<UViewportWorldInteraction>(ExtensionCollection);
+				check(ViewportWorldInteraction != nullptr);
+
+				ExtensionCollection->AddExtension(ViewportWorldInteraction);
+				bAddedViewportWorldInteractionExtension = true;
+			}
+			else
+			{
+				ViewportWorldInteraction->UseVWInteractions();
+			}
 
 			// Create vr editor mode.
 			VRMode = NewObject<UVREditorMode>();
@@ -216,7 +230,16 @@ void FVREditorModeManager::CloseVREditor( const bool bShouldDisableStereo )
 		UEditorWorldExtensionCollection* Collection = CurrentVREditorMode->GetOwningCollection();
 		check(Collection != nullptr);
 		Collection->RemoveExtension(CurrentVREditorMode);
-		Collection->RemoveExtension(WorldInteraction);
+
+		if (bAddedViewportWorldInteractionExtension)
+		{
+			Collection->RemoveExtension(WorldInteraction);
+			bAddedViewportWorldInteractionExtension = false;
+		}
+		else
+		{
+			WorldInteraction->UseLegacyInteractions();
+		}
 
 		CurrentVREditorMode = nullptr;
 	}

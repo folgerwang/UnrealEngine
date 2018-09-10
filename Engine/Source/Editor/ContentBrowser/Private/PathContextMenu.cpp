@@ -439,7 +439,7 @@ void FPathContextMenu::MakeSetColorSubMenu(FMenuBuilder& MenuBuilder)
 								.Size( FVector2D(77,16) )
 							]
 						],
-					LOCTEXT("CustomColor", ""),
+					FText::GetEmpty(),
 					/*bNoIndent=*/true
 				);
 			}

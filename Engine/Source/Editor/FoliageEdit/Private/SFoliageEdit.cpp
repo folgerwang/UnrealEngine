@@ -44,7 +44,7 @@ void SFoliageEdit::Construct(const FArguments& InArgs)
 
 	FSlateFontInfo StandardFont = FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont"));
 
-	const FText BlankText = LOCTEXT("Blank", "");
+	const FText BlankText = FText::GetEmpty();
 
 	ChildSlot
 	[

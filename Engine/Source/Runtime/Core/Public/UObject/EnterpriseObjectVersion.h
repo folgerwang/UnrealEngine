@@ -20,6 +20,9 @@ struct CORE_API FEnterpriseObjectVersion
 
 		// Update FMediaFrameworkCaptureCameraViewportCameraOutputInfo with LazyObjectPtr
 		MediaFrameworkUserDataLazyObject,
+		
+		// Live Live timecode synchronization updates
+		LiveLinkTimeSynchronization,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

@@ -90,7 +90,7 @@ public:
 		const bool bDirtyState = MyAsset->GetOutermost()->IsDirty();
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("AssetName"), FText::AsCultureInvariant(MyAsset->GetName()));
-		Args.Add(TEXT("DirtyState"), bDirtyState ? LOCTEXT("AssetModified", " [Modified]") : LOCTEXT("AssetNotModified", ""));
+		Args.Add(TEXT("DirtyState"), bDirtyState ? LOCTEXT("AssetModified", " [Modified]") : FText::GetEmpty());
 		FText AssetText = FText::Format(LOCTEXT("AssetEntryLabel", "{AssetName}{DirtyState}"), Args);
 
 		// Create a thumbnail to represent the asset type

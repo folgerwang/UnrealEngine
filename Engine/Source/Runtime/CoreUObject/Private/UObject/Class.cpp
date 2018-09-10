@@ -442,7 +442,7 @@ void UField::SetMetaData(const TCHAR* Key, const TCHAR* InValue)
 	UPackage* Package = GetOutermost();
 	check(Package);
 
-	return Package->GetMetaData()->SetValue(this, Key, InValue);
+	Package->GetMetaData()->SetValue(this, Key, InValue);
 }
 
 void UField::SetMetaData(const FName& Key, const TCHAR* InValue)
@@ -450,7 +450,7 @@ void UField::SetMetaData(const FName& Key, const TCHAR* InValue)
 	UPackage* Package = GetOutermost();
 	check(Package);
 
-	return Package->GetMetaData()->SetValue(this, Key, InValue);
+	Package->GetMetaData()->SetValue(this, Key, InValue);
 }
 
 UClass* UField::GetClassMetaData(const TCHAR* Key) const

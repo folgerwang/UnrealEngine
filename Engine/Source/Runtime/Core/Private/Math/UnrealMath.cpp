@@ -797,10 +797,12 @@ FVector FQuat::Euler() const
 
 bool FQuat::NetSerialize(FArchive& Ar, class UPackageMap*, bool& bOutSuccess)
 {
-	FQuat &Q = *this;
+	FQuat Q;
 
 	if (Ar.IsSaving())
 	{
+		Q = *this;
+
 		// Make sure we have a non null SquareSum. It shouldn't happen with a quaternion, but better be safe.
 		if(Q.SizeSquared() <= SMALL_NUMBER)
 		{
@@ -809,7 +811,10 @@ bool FQuat::NetSerialize(FArchive& Ar, class UPackageMap*, bool& bOutSuccess)
 		else
 		{
 			// All transmitted quaternions *MUST BE* unit quaternions, in which case we can deduce the value of W.
-			Q.Normalize();
+			if (!ensure(Q.IsNormalized()))
+			{
+				Q.Normalize();
+			}
 			// force W component to be non-negative
 			if (Q.W < 0.f)
 			{
@@ -822,6 +827,7 @@ bool FQuat::NetSerialize(FArchive& Ar, class UPackageMap*, bool& bOutSuccess)
 	}
 
 	Ar << Q.X << Q.Y << Q.Z;
+
 	if ( Ar.IsLoading() )
 	{
 		const float XYZMagSquared = (Q.X*Q.X + Q.Y*Q.Y + Q.Z*Q.Z);
@@ -841,6 +847,8 @@ bool FQuat::NetSerialize(FArchive& Ar, class UPackageMap*, bool& bOutSuccess)
 			Q.Y *= XYZInvMag;
 			Q.Z *= XYZInvMag;
 		}
+
+		*this = Q;
 	}
 
 	bOutSuccess = true;
@@ -1835,7 +1843,7 @@ uint32 FMath::ComputeProjectedSphereScissorRect(FIntRect& InOutScissorRect, FVec
 	}
 }
 
-bool FMath::PlaneAABBIntersection(const FPlane& P, const FBox& AABB)
+int32 FMath::PlaneAABBRelativePosition(const FPlane& P, const FBox& AABB)
 {
 	// find diagonal most closely aligned with normal of plane
 	FVector Vmin, Vmax;
@@ -1868,7 +1876,20 @@ bool FMath::PlaneAABBIntersection(const FPlane& P, const FBox& AABB)
 	float dMin = P.PlaneDot(Vmin);
 
 	// if Max is below plane, or Min is above we know there is no intersection.. otherwise there must be one
-	return (dMax >= 0.f && dMin <= 0.f);
+	if (dMax < 0.f)
+	{
+		return -1;
+	}
+	else if (dMin > 0.f)
+	{
+		return 1;
+	}
+	return 0;
+}
+
+bool FMath::PlaneAABBIntersection(const FPlane& P, const FBox& AABB)
+{
+	return PlaneAABBRelativePosition(P, AABB) == 0;
 }
 
 bool FMath::SphereConeIntersection(const FVector& SphereCenter, float SphereRadius, const FVector& ConeAxis, float ConeAngleSin, float ConeAngleCos)

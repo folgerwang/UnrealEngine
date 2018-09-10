@@ -1607,7 +1607,7 @@ void FCollisionProfileDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBui
 					.AutoWidth()
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("ProfileListHeader_Category", ""))
+						.Text(FText::GetEmpty())
 						.Font(IDetailLayoutBuilder::GetDetailFont())
 					]
 				]

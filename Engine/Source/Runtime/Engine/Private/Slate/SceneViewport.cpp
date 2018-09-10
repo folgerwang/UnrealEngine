@@ -1205,91 +1205,100 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 			TOptional<FVector2D> NewWindowPos;
 			FVector2D NewWindowSize(NewWindowSizeX, NewWindowSizeY);
 
-			const FSlateRect BestWorkArea = FSlateApplication::Get().GetWorkArea(FSlateRect::FromPointAndExtent(OldWindowPos, OldWindowSize));
-
-			// A switch to window mode should position the window to be in the center of the work-area (we don't do this if we were already in window mode to allow the user to move the window)
-			// Fullscreen modes should position the window to the top-left of the monitor.
-			// If we're going into windowed fullscreen mode, we always want the window to fill the entire screen.
-			// When we calculate the scene view, we'll check the fullscreen mode and configure the screen percentage
-			// scaling so we actual render to the resolution we've been asked for.
-			if (NewWindowMode == EWindowMode::Windowed)
+			// Only adjust window size if not in off-screen rendering mode, because off-screen rendering skips rendering to screen and uses custom size.
+			if (!FSlateApplication::Get().IsRenderingOffScreen())
 			{
-				if (OldWindowMode == EWindowMode::Windowed && NewWindowSize == OldWindowSize)
+				const FSlateRect BestWorkArea = FSlateApplication::Get().GetWorkArea(FSlateRect::FromPointAndExtent(OldWindowPos, OldWindowSize));
+
+				// A switch to window mode should position the window to be in the center of the work-area (we don't do this if we were already in window mode to allow the user to move the window)
+				// Fullscreen modes should position the window to the top-left of the monitor.
+				// If we're going into windowed fullscreen mode, we always want the window to fill the entire screen.
+				// When we calculate the scene view, we'll check the fullscreen mode and configure the screen percentage
+				// scaling so we actual render to the resolution we've been asked for.
+				if (NewWindowMode == EWindowMode::Windowed)
 				{
-					// Leave the window position alone!
-					NewWindowPos.Reset();
+					if (OldWindowMode == EWindowMode::Windowed && NewWindowSize == OldWindowSize)
+					{
+						// Leave the window position alone!
+						NewWindowPos.Reset();
+					}
+					else
+					{
+						const FVector2D BestWorkAreaTopLeft = BestWorkArea.GetTopLeft();
+						const FVector2D BestWorkAreaSize = BestWorkArea.GetSize();
+
+						FVector2D CenteredWindowPos = BestWorkAreaTopLeft;
+
+						if (NewWindowSize.X < BestWorkAreaSize.X)
+						{
+							CenteredWindowPos.X += FMath::Max(0.0f, (BestWorkAreaSize.X - NewWindowSize.X) * 0.5f);
+						}
+
+						if (NewWindowSize.Y < BestWorkAreaSize.Y)
+						{
+							CenteredWindowPos.Y += FMath::Max(0.0f, (BestWorkAreaSize.Y - NewWindowSize.Y) * 0.5f);
+						}
+
+						NewWindowPos = CenteredWindowPos;
+					}
 				}
 				else
 				{
-					const FVector2D BestWorkAreaTopLeft = BestWorkArea.GetTopLeft();
-					const FVector2D BestWorkAreaSize = BestWorkArea.GetSize();
+					FDisplayMetrics DisplayMetrics;
+					FSlateApplication::Get().GetInitialDisplayMetrics(DisplayMetrics);
 
-					FVector2D CenteredWindowPos = BestWorkAreaTopLeft;
-
-					if (NewWindowSize.X < BestWorkAreaSize.X)
+					if (DisplayMetrics.MonitorInfo.Num() > 0)
 					{
-						CenteredWindowPos.X += FMath::Max(0.0f, (BestWorkAreaSize.X - NewWindowSize.X) * 0.5f);
-					}
+						// Try to find the monitor that the viewport belongs to based on BestWorkArea.
+						// For widowed fullscreen and fullscreen modes it should be top left position of one of monitors.
+						FPlatformRect DisplayRect = DisplayMetrics.MonitorInfo[0].DisplayRect;
+						for (int32 Index = 1; Index < DisplayMetrics.MonitorInfo.Num(); ++Index)
+						{
+							const FMonitorInfo& MonitorInfo = DisplayMetrics.MonitorInfo[Index];
+							if (BestWorkArea.GetTopLeft() == FVector2D(MonitorInfo.WorkArea.Left, MonitorInfo.WorkArea.Top))
+							{
+								DisplayRect = DisplayMetrics.MonitorInfo[Index].DisplayRect;
+							}
+						}
 
-					if (NewWindowSize.Y < BestWorkAreaSize.Y)
+						NewWindowPos = FVector2D(DisplayRect.Left, DisplayRect.Top);
+
+						if (NewWindowMode == EWindowMode::WindowedFullscreen)
+						{
+							NewWindowSize.X = DisplayRect.Right - DisplayRect.Left;
+							NewWindowSize.Y = DisplayRect.Bottom - DisplayRect.Top;
+						}
+					}
+					else
 					{
-						CenteredWindowPos.Y += FMath::Max(0.0f, (BestWorkAreaSize.Y - NewWindowSize.Y) * 0.5f);
-					}
+						NewWindowPos = FVector2D(0.0f, 0.0f);
 
-					NewWindowPos = CenteredWindowPos;
+						if (NewWindowMode == EWindowMode::WindowedFullscreen)
+						{
+							NewWindowSize.X = DisplayMetrics.PrimaryDisplayWidth;
+							NewWindowSize.Y = DisplayMetrics.PrimaryDisplayHeight;
+						}
+					}
 				}
+
+#if !PLATFORM_MAC
+				IHeadMountedDisplay::MonitorInfo MonitorInfo;
+				if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->GetHMDMonitorInfo(MonitorInfo))
+				{
+					if (MonitorInfo.DesktopX > 0 || MonitorInfo.DesktopY > 0)
+					{
+						NewWindowSize.X = MonitorInfo.ResolutionX;
+						NewWindowSize.Y = MonitorInfo.ResolutionY;
+						NewWindowPos = FVector2D(MonitorInfo.DesktopX, MonitorInfo.DesktopY);
+					}
+				}
+#endif
 			}
 			else
 			{
-				FDisplayMetrics DisplayMetrics;
-				FSlateApplication::Get().GetInitialDisplayMetrics(DisplayMetrics);
-
-				if (DisplayMetrics.MonitorInfo.Num() > 0)
-				{
-					// Try to find the monitor that the viewport belongs to based on BestWorkArea.
-					// For widowed fullscreen and fullscreen modes it should be top left position of one of monitors.
-					FPlatformRect DisplayRect = DisplayMetrics.MonitorInfo[0].DisplayRect;
-					for (int32 Index = 1; Index < DisplayMetrics.MonitorInfo.Num(); ++Index)
-					{
-						const FMonitorInfo& MonitorInfo = DisplayMetrics.MonitorInfo[Index];
-						if (BestWorkArea.GetTopLeft() == FVector2D(MonitorInfo.WorkArea.Left, MonitorInfo.WorkArea.Top))
-						{
-							DisplayRect = DisplayMetrics.MonitorInfo[Index].DisplayRect;
-						}
-					}
-
-					NewWindowPos = FVector2D(DisplayRect.Left, DisplayRect.Top);
-
-					if (NewWindowMode == EWindowMode::WindowedFullscreen)
-					{
-						NewWindowSize.X = DisplayRect.Right - DisplayRect.Left;
-						NewWindowSize.Y = DisplayRect.Bottom - DisplayRect.Top;
-					}
-				}
-				else
-				{
-					NewWindowPos = FVector2D(0.0f, 0.0f);
-
-					if (NewWindowMode == EWindowMode::WindowedFullscreen)
-					{
-						NewWindowSize.X = DisplayMetrics.PrimaryDisplayWidth;
-						NewWindowSize.Y = DisplayMetrics.PrimaryDisplayHeight;
-					}
-				}
+				NewWindowPos = FVector2D(0.0f, 0.0f);
 			}
 
-#if !PLATFORM_MAC
-			IHeadMountedDisplay::MonitorInfo MonitorInfo;
-			if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->GetHMDMonitorInfo(MonitorInfo))
-			{
-				if (MonitorInfo.DesktopX > 0 || MonitorInfo.DesktopY > 0)
-				{
-					NewWindowSize.X = MonitorInfo.ResolutionX;
-					NewWindowSize.Y = MonitorInfo.ResolutionY;
-					NewWindowPos = FVector2D(MonitorInfo.DesktopX, MonitorInfo.DesktopY);
-				}
-			}
-#endif
 			// Resize window
 			const bool bSizeChanged = NewWindowSize != OldWindowSize;
 			const bool bPositionChanged = NewWindowPos.IsSet() && NewWindowPos != OldWindowPos;

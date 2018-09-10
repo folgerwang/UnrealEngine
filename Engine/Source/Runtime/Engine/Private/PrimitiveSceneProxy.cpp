@@ -550,7 +550,8 @@ void FPrimitiveSceneProxy::SetCollisionEnabled_RenderThread(const bool bNewEnabl
 bool FPrimitiveSceneProxy::IsShown(const FSceneView* View) const
 {
 #if WITH_EDITOR
-	if (!View->Family->EngineShowFlags.VREditing)
+	// Don't draw editor specific actors during game mode
+	if (View->Family->EngineShowFlags.Game)
 	{
 		if (DrawInVREditMode)
 		{
@@ -558,7 +559,7 @@ bool FPrimitiveSceneProxy::IsShown(const FSceneView* View) const
 		}
 	}
 
-	// After checking for VR Edit mode specific actors, check for Editor vs. Game
+	// After checking for VR/Desktop Edit mode specific actors, check for Editor vs. Game
 	if(View->Family->EngineShowFlags.Editor)
 	{
 		if(!DrawInEditor)

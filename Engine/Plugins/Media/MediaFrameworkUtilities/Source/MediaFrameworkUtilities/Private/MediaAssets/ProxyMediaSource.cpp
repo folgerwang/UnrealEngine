@@ -11,6 +11,7 @@
 UProxyMediaSource::UProxyMediaSource()
 	: bUrlGuard(false)
 	, bValidateGuard(false)
+	, bLeafMediaSource(false)
 	, bMediaOptionGuard(false)
 {}
 
@@ -55,6 +56,25 @@ bool UProxyMediaSource::Validate() const
 UMediaSource* UProxyMediaSource::GetMediaSource() const
 {
 	return DynamicProxy ? DynamicProxy : Proxy;
+}
+
+
+UMediaSource* UProxyMediaSource::GetLeafMediaSource() const
+{
+	// Guard against reentrant calls.
+	if (bLeafMediaSource)
+	{
+		UE_LOG(LogMediaFrameworkUtilities, Warning, TEXT("UMediaSourceProxy::GetLeafMediaSource - Reentrant calls are not supported. Asset: %s"), *GetPathName());
+		return nullptr;
+	}
+	TGuardValue<bool> ValidatingGuard(bLeafMediaSource, true);
+
+	UMediaSource* MediaSource = GetMediaSource();
+	if (UProxyMediaSource* ProxyMediaSource = Cast<UProxyMediaSource>(MediaSource))
+	{
+		MediaSource = ProxyMediaSource->GetLeafMediaSource();
+	}
+	return MediaSource;
 }
 
 

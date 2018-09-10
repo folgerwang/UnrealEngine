@@ -629,6 +629,95 @@ USoundBase* UDialogueWave::GetWaveFromContext(const FDialogueContextMapping& Con
 	return ContextMapping.Proxy;
 }
 
+FText UDialogueWave::GetLocalizedSpokenText() const
+{
+	// Try and find a general dialogue wave localization
+	FText LocalizedSpokenText;
+	if (!FText::FindText(FDialogueConstants::DialogueNamespace, LocalizationGUID.ToString(), /*OUT*/LocalizedSpokenText, &SpokenText))
+	{
+		LocalizedSpokenText = FText::AsCultureInvariant(SpokenText);
+	}
+	return LocalizedSpokenText;
+}
+
+FText UDialogueWave::GetLocalizedSpokenText(const FDialogueContext& Context) const
+{
+	for (const FDialogueContextMapping& ContextMapping : ContextMappings)
+	{
+		if (ContextMapping.Context == Context)
+		{
+			return GetLocalizedSpokenText(ContextMapping);
+		}
+	}
+	return FText::GetEmpty();
+}
+
+FText UDialogueWave::GetLocalizedSpokenText(const FDialogueContextMapping& ContextMapping) const
+{
+	// First try and find a context specific localization
+	FText LocalizedSpokenText;
+	if (!FText::FindText(FDialogueConstants::DialogueNamespace, GetContextLocalizationKey(ContextMapping), /*OUT*/LocalizedSpokenText, &SpokenText))
+	{
+		// Failing that, try and find a general dialogue wave localization
+		LocalizedSpokenText = GetLocalizedSpokenText();
+	}
+	return LocalizedSpokenText;
+}
+
+FText UDialogueWave::GetLocalizedSubtitle() const
+{
+	const FString* SubtitleSourceString = &SpokenText;
+
+	// Try and find a general dialogue wave localization
+	FString Key = LocalizationGUID.ToString();
+	if (bOverride_SubtitleOverride)
+	{
+		SubtitleSourceString = &SubtitleOverride;
+		Key += FDialogueConstants::SubtitleKeySuffix;
+	}
+
+	FText LocalizedSubtitle;
+	if (!FText::FindText(FDialogueConstants::DialogueNamespace, Key, /*OUT*/LocalizedSubtitle, SubtitleSourceString))
+	{
+		LocalizedSubtitle = bOverride_SubtitleOverride ? FText::AsCultureInvariant(SubtitleOverride) : FText::AsCultureInvariant(SpokenText);
+	}
+	return LocalizedSubtitle;
+}
+
+FText UDialogueWave::GetLocalizedSubtitle(const FDialogueContext& Context) const
+{
+	for (const FDialogueContextMapping& ContextMapping : ContextMappings)
+	{
+		if (ContextMapping.Context == Context)
+		{
+			return GetLocalizedSubtitle(ContextMapping);
+		}
+	}
+	return FText::GetEmpty();
+}
+
+FText UDialogueWave::GetLocalizedSubtitle(const FDialogueContextMapping& ContextMapping) const
+{
+	const FString* SubtitleSourceString = &SpokenText;
+
+	// Do we have a subtitle override?
+	FString Key = GetContextLocalizationKey(ContextMapping);
+	if (bOverride_SubtitleOverride)
+	{
+		SubtitleSourceString = &SubtitleOverride;
+		Key += FDialogueConstants::SubtitleKeySuffix;
+	}
+
+	// First try and find a context specific localization
+	FText LocalizedSubtitle;
+	if (!FText::FindText(FDialogueConstants::DialogueNamespace, Key, /*OUT*/LocalizedSubtitle, SubtitleSourceString))
+	{
+		// Failing that, try and find a general dialogue wave localization
+		LocalizedSubtitle = GetLocalizedSubtitle();
+	}
+	return LocalizedSubtitle;
+}
+
 FString UDialogueWave::GetContextLocalizationKey(const FDialogueContext& Context) const
 {
 	for (const FDialogueContextMapping& ContextMapping : ContextMappings)
@@ -721,32 +810,9 @@ void UDialogueWave::UpdateMappingProxy(FDialogueContextMapping& ContextMapping)
 		UEngine::CopyPropertiesForUnrelatedObjects(ContextMapping.SoundWave, ContextMapping.Proxy);
 
 		FSubtitleCue NewSubtitleCue;
-
-		// Do we have a subtitle override?
-		const FString* NewSubtitleCueSourceString = &SpokenText;
-		FString Key = GetContextLocalizationKey(ContextMapping);
-		if (bOverride_SubtitleOverride)
-		{
-			NewSubtitleCueSourceString = &SubtitleOverride;
-			Key += FDialogueConstants::SubtitleKeySuffix;
-		}
-
-		// First try and find a context specific localization
-		if (!FText::FindText(FDialogueConstants::DialogueNamespace, Key, /*OUT*/NewSubtitleCue.Text, NewSubtitleCueSourceString))
-		{
-			// Failing that, try and find a general dialogue wave localization
-			Key = LocalizationGUID.ToString();
-			if (bOverride_SubtitleOverride)
-			{
-				Key += FDialogueConstants::SubtitleKeySuffix;
-			}
-
-			if (!FText::FindText(FDialogueConstants::DialogueNamespace, Key, /*OUT*/NewSubtitleCue.Text, NewSubtitleCueSourceString))
-			{
-				NewSubtitleCue.Text = bOverride_SubtitleOverride ? FText::AsCultureInvariant(SubtitleOverride) : FText::AsCultureInvariant(SpokenText);
-			}
-		}
+		NewSubtitleCue.Text = GetLocalizedSubtitle(ContextMapping);
 		NewSubtitleCue.Time = 0.0f;
+
 		ContextMapping.Proxy->Subtitles.Empty();
 		ContextMapping.Proxy->Subtitles.Add(NewSubtitleCue);
 	}

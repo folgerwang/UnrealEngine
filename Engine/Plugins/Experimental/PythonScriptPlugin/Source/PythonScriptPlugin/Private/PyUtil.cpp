@@ -673,7 +673,7 @@ PyObject* GetPropertyValue(const UStruct* InStruct, void* InStructData, const UP
 {
 	if (InStruct && InProp && ensureAlways(InStructData))
 	{
-		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
+		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible | CPF_BlueprintAssignable))
 		{
 			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is protected and cannot be read"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
 			return nullptr;
@@ -701,7 +701,7 @@ int SetPropertyValue(const UStruct* InStruct, void* InStructData, PyObject* InVa
 
 	if (InStruct && InProp && ensureAlways(InStructData))
 	{
-		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible))
+		if (!InProp->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible | CPF_BlueprintAssignable))
 		{
 			SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Property '%s' for attribute '%s' on '%s' is protected and cannot be set"), *InProp->GetName(), UTF8_TO_TCHAR(InAttributeName), *InStruct->GetName()));
 			return -1;

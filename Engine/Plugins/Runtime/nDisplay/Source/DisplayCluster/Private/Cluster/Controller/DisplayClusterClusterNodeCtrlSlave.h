@@ -36,6 +36,7 @@ public:
 	virtual void WaitForFrameEnd()   override final;
 	virtual void WaitForTickEnd()    override final;
 	virtual void GetDeltaTime(float& deltaTime) override final;
+	virtual void GetTimecode(FTimecode& timecode, FFrameRate& frameRate) override;
 	virtual void GetSyncData(FDisplayClusterMessage::DataType& data)  override;
 	virtual void GetInputData(FDisplayClusterMessage::DataType& data) override;
 

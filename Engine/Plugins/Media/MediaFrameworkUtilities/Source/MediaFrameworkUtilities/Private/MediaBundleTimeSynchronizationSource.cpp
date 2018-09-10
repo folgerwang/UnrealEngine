@@ -17,7 +17,7 @@ void UMediaBundleTimeSynchronizationSource::PostEditChangeProperty(FPropertyChan
 {
 	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(UMediaBundleTimeSynchronizationSource, MediaBundle))
 	{
-		if (bUseForSynchronization && MediaBundle && MediaBundle->GetMediaSource() )
+		if (bUseForSynchronization && MediaBundle && MediaBundle->GetMediaSource())
 		{
 			UTimeSynchronizableMediaSource* SynchronizableMediaSource = Cast<UTimeSynchronizableMediaSource>(MediaBundle->GetMediaSource());
 			if (SynchronizableMediaSource == nullptr || SynchronizableMediaSource->bUseTimeSynchronization)
@@ -32,9 +32,14 @@ void UMediaBundleTimeSynchronizationSource::PostEditChangeProperty(FPropertyChan
 }
 #endif
 
-FFrameTime UMediaBundleTimeSynchronizationSource::GetNextSampleTime() const
+static FFrameTime TimeSpanToFrameTime(const FTimespan& Timespan, const FFrameRate& FrameRate)
 {
-	FFrameTime NextSampleTime;
+	return FFrameTime::FromDecimal(Timespan.GetTotalSeconds() * FrameRate.AsDecimal()).RoundToFrame();
+}
+
+FFrameTime UMediaBundleTimeSynchronizationSource::GetNewestSampleTime() const
+{
+	TOptional<FTimespan> UseTimespan;
 
 	if (MediaBundle && MediaBundle->GetMediaPlayer() && MediaBundle->GetMediaTexture())
 	{
@@ -44,51 +49,54 @@ FFrameTime UMediaBundleTimeSynchronizationSource::GetNextSampleTime() const
 			//If there is a sample in the Texture, we consider it as the next one to be used/rendered
 			if (MediaBundle->GetMediaTexture()->GetAvailableSampleCount() > 0)
 			{
-				const FTimespan TextureTime = MediaBundle->GetMediaTexture()->GetNextSampleTime();
-				NextSampleTime = FFrameTime::FromDecimal(TextureTime.GetTotalSeconds() * GetFrameRate().AsDecimal()).RoundToFrame();
+				UseTimespan = MediaBundle->GetMediaTexture()->GetNextSampleTime();
 			}
-			else if (Player->GetCache().GetSampleCount(EMediaCacheState::Loaded) > 0)
+
+			if (Player->GetCache().GetSampleCount(EMediaCacheState::Loaded) > 0)
 			{
 				TRangeSet<FTimespan> SampleTimes;
 				if (Player->GetCache().QueryCacheState(EMediaCacheState::Loaded, SampleTimes))
 				{
 					//Fetch the minimum sample time from all ranges queried from the player's cache
-					TArray<TRange<FTimespan>> Ranges;
-					SampleTimes.GetRanges(Ranges);
-					check(Ranges.Num() > 0);
-
-					TRangeBound<FTimespan> MinBound = Ranges[0].GetLowerBound();
-					for (const auto& Range : Ranges)
-					{
-						MinBound = TRangeBound<FTimespan>::MinLower(MinBound, Range.GetLowerBound());
-					}
-					const FTimespan MinSampleTime = MinBound.GetValue();
-			
-					NextSampleTime = FFrameTime::FromDecimal(MinSampleTime.GetTotalSeconds() * GetFrameRate().AsDecimal()).RoundToFrame();
+					const FTimespan MinBound = SampleTimes.GetMaxBoundValue();
+					UseTimespan = (UseTimespan.IsSet()) ? FMath::Max(MinBound, UseTimespan.GetValue()) : MinBound;
 				}
 			}
 		}
 	}
 
-	return NextSampleTime;
+	return UseTimespan.IsSet() ? TimeSpanToFrameTime(UseTimespan.GetValue(), GetFrameRate()) : FFrameTime();
 }
 
-int32 UMediaBundleTimeSynchronizationSource::GetAvailableSampleCount() const
+FFrameTime UMediaBundleTimeSynchronizationSource::GetOldestSampleTime() const
 {
-	int32 AvailableSampleCount = 0;
+	TOptional<FTimespan> UseTimespan;
 
 	if (MediaBundle && MediaBundle->GetMediaPlayer() && MediaBundle->GetMediaTexture())
 	{
 		const TSharedPtr<IMediaPlayer, ESPMode::ThreadSafe>& Player = MediaBundle->GetMediaPlayer()->GetPlayerFacade()->GetPlayer();
 		if (Player.IsValid())
 		{
-			const int32 TextureSampleCount = MediaBundle->GetMediaTexture()->GetAvailableSampleCount();
-			const int32 PlayerSampleCount = Player->GetCache().GetSampleCount(EMediaCacheState::Loaded);
-			AvailableSampleCount = TextureSampleCount + PlayerSampleCount;
+			//If there is a sample in the Texture, we consider it as the next one to be used/rendered
+			if (MediaBundle->GetMediaTexture()->GetAvailableSampleCount() > 0)
+			{
+				UseTimespan = MediaBundle->GetMediaTexture()->GetNextSampleTime();
+			}
+
+			if (Player->GetCache().GetSampleCount(EMediaCacheState::Loaded) > 0)
+			{
+				TRangeSet<FTimespan> SampleTimes;
+				if (Player->GetCache().QueryCacheState(EMediaCacheState::Loaded, SampleTimes))
+				{
+					//Fetch the minimum sample time from all ranges queried from the player's cache
+					const FTimespan MinBound = SampleTimes.GetMinBoundValue();
+					UseTimespan = (UseTimespan.IsSet()) ? FMath::Min(MinBound, UseTimespan.GetValue()) : MinBound;
+				}
+			}
 		}
 	}
 
-	return AvailableSampleCount;
+	return UseTimespan.IsSet() ? TimeSpanToFrameTime(UseTimespan.GetValue(), GetFrameRate()) : FFrameTime();
 }
 
 FFrameRate UMediaBundleTimeSynchronizationSource::GetFrameRate() const
@@ -119,8 +127,9 @@ bool UMediaBundleTimeSynchronizationSource::IsReady() const
 	return MediaBundle && MediaBundle->GetMediaPlayer() && MediaBundle->GetMediaPlayer()->IsReady() && MediaBundle->GetMediaSource() && MediaBundle->GetMediaTexture();
 }
 
-bool UMediaBundleTimeSynchronizationSource::Open()
+bool UMediaBundleTimeSynchronizationSource::Open(const FTimeSynchronizationOpenData& InOpenData)
 {
+	OpenData = InOpenData;
 	bool bResult = false;
 	if (MediaBundle)
 	{
@@ -155,21 +164,49 @@ bool UMediaBundleTimeSynchronizationSource::Open()
 	return bResult;
 }
 
-void UMediaBundleTimeSynchronizationSource::Start()
+void UMediaBundleTimeSynchronizationSource::Start(const FTimeSynchronizationStartData& InStartData)
 {
+	StartData = InStartData;
 	UMediaPlayer* MediaPlayer = MediaBundle ? MediaBundle->GetMediaPlayer() : nullptr;
 	if (MediaPlayer)
 	{
-		//Once we're on the verge of playing the source, it's time to setup the delay
-		if (!bUseForSynchronization)
+		const FFrameRate LocalFrameRate = GetFrameRate();
+		const FFrameTime LocalStartFrame = FFrameRate::TransformTime(StartData->StartFrame, OpenData->SynchronizationFrameRate, LocalFrameRate);
+		const FTimespan StartTimespan = FTimespan::FromSeconds(LocalFrameRate.AsSeconds(LocalStartFrame));
+
+		// If this source is used for synchronization, then we'll try to seek to the start frame.
+		if (bUseForSynchronization)
 		{
-			MediaPlayer->SetTimeDelay(FTimespan::FromSeconds(TimeDelay));
+			if (MediaPlayer->SupportsSeeking())
+			{
+				MediaPlayer->Seek(StartTimespan);
+			}
 		}
+
+		// Otherwise, we'll at least try to set a delay so it sort of lines up.
+		else
+		{
+			const FFrameTime MinimumTime = GetOldestSampleTime();
+
+			// TODO: Verify this is the correct order. The comments on SetDelay seem confusing.
+			// TODO: Maybe also do this for sync sources that don't support seeking? Need test cases.
+			const FFrameTime DelayFrames = LocalStartFrame - MinimumTime;
+			const double Delay = LocalFrameRate.AsSeconds(DelayFrames);
+
+			if (Delay > 0)
+			{
+				MediaPlayer->SetTimeDelay(Delay);
+			}
+		}
+
+		MediaPlayer->Play();
 	}
 }
 
 void UMediaBundleTimeSynchronizationSource::Close()
 {
+	StartData.Reset();
+	OpenData.Reset();
 	if (MediaBundle)
 	{
 		MediaBundle->CloseMediaSource();

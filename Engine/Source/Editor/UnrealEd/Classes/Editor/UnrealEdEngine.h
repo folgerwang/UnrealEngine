@@ -212,7 +212,7 @@ public:
 	virtual void SelectBSPSurf(UModel* InModel, int32 iSurf, bool bSelected, bool bNoteSelectionChange) override;
 	virtual void SelectNone(bool bNoteSelectionChange, bool bDeselectBSPSurfs, bool WarnAboutManyActors=true) override;
 	virtual void DeselectAllSurfaces() override;
-	virtual void NoteSelectionChange() override;
+	virtual void NoteSelectionChange(bool bNotify = true) override;
 	virtual void NoteActorMovement() override;
 	virtual void FinishAllSnaps() override;
 	virtual void Cleanse( bool ClearSelection, bool Redraw, const FText& Reason ) override;

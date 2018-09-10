@@ -259,4 +259,9 @@ private:
  */
 #define NSLOCTEXT( InNamespace, InKey, InTextLiteral ) FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText( TEXT( InTextLiteral ), TEXT( InNamespace ), TEXT( InKey ) )
 
+/**
+ * Creates a culture invariant FText from the given string literal.
+ */
+#define INVTEXT(InTextLiteral) FText::AsCultureInvariant(TEXT(InTextLiteral))
+
 #undef LOC_DEFINE_REGION

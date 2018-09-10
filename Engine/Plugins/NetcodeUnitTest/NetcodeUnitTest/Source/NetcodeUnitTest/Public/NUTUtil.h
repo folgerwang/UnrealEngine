@@ -11,9 +11,10 @@
 
 
 class UNetDriver;
-class UUnitTest;
+class UPackage;
 struct FStackTracker;
 class FOutputDeviceFile;
+class UUnitTest;
 
 // @todo #JohnBRefactor: Adjust all of these utility .h files, so that they implement code in .cpp, as these probably slow down compilation
 
@@ -561,6 +562,17 @@ struct NUTUtil
 		return bReturnVal;
 	}
 
+	/**
+	 * Parses the value of specific enum, from the specified commandline stream
+	 *
+	 * @param Stream	The stream to parse from (typically FCommandline::Get())
+	 * @param Match		The commandline option to match as the key specifying the value
+	 * @param EnumName	The name of the enum type
+	 * @param Value		Outputs the integer value of the enum, as specified on the commandline
+	 * @return			Whether or not an enum value was parsed successfully
+	 */
+	static bool ParseEnum(const TCHAR* Stream, const TCHAR* Match, const TCHAR* EnumName, uint32& Value);
+
 
 	/**
 	 * Puts out a log message to FOutputDeviceFile, with a special category prefix added.
@@ -576,5 +588,14 @@ struct NUTUtil
 	 */
 	static void SpecialLog(FOutputDeviceFile* Ar, const TCHAR* SpecialCategory, const TCHAR* Data, ELogVerbosity::Type Verbosity,
 							const FName& Category);
+
+	/**
+	 * Get a module name from any UPackage - if it has one
+	 *
+	 * @param Package			The package to be linked to a module
+	 * @param bVerifyModule		Whether or not to verify that the module is loaded (specify false, when using with Hot Reload code)
+	 * @return					The name of the module
+	 */
+	static FString GetPackageModule(UPackage* Package, bool bVerifyModule=true);
 };
 

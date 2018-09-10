@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Misc/Timecode.h"
+#include "Misc/FrameRate.h"
 #include "DisplayClusterOperationMode.h"
 #include "DisplayClusterStrings.h"
 
@@ -27,6 +29,10 @@ public:
 	template <> static FString ToString<> (const FVector& from)   { return from.ToString(); }
 	template <> static FString ToString<> (const FVector2D& from) { return from.ToString(); }
 	template <> static FString ToString<> (const FRotator& from)  { return from.ToString(); }
+
+	// We can't just use FTimecode ToString as that loses information.
+	template <> static FString ToString<> (const FTimecode& from)	{ return FString::Printf(TEXT("%d;%d;%d;%d;%d"), from.bDropFrameFormat ? 1 : 0, from.Hours, from.Minutes, from.Seconds, from.Frames); }
+	template <> static FString ToString<> (const FFrameRate& from) 	{ return FString::Printf(TEXT("%d;%d"), from.Numerator, from.Denominator); }
 
 	template <> static FString ToString<> (const EDisplayClusterOperationMode& from)
 	{
@@ -59,4 +65,41 @@ public:
 	template <> static FVector   FromString<> (const FString& from) { FVector vec;  vec.InitFromString(from); return vec; }
 	template <> static FVector2D FromString<> (const FString& from) { FVector2D vec;  vec.InitFromString(from); return vec; }
 	template <> static FRotator  FromString<> (const FString& from) { FRotator rot; rot.InitFromString(from); return rot; }
+	template <> static FTimecode FromString<> (const FString& from)
+	{
+		FTimecode timecode;
+
+		TArray<FString> parts;
+		parts.Reserve(5);
+		const int32 found = from.ParseIntoArray(parts, TEXT(";"));
+
+		// We are expecting 5 "parts" - DropFrame, Hours, Minutes, Seconds, Frames.
+		if (found == 5)
+		{
+			timecode.bDropFrameFormat = FromString<bool>(parts[0]);
+			timecode.Hours = FromString<int32>(parts[1]);
+			timecode.Minutes = FromString<int32>(parts[2]);
+			timecode.Seconds = FromString<int32>(parts[3]);
+			timecode.Frames = FromString<int32>(parts[4]);
+		}
+
+		return timecode;
+	}
+	template <> static FFrameRate FromString<> (const FString& from)
+	{
+		FFrameRate frameRate;
+
+		TArray<FString> parts;
+		parts.Reserve(2);
+		const int32 found = from.ParseIntoArray(parts, TEXT(";"));
+
+		// We are expecting 2 "parts" - Numerator, Denominator.
+		if (found == 2)
+		{
+			frameRate.Numerator = FromString<int32>(parts[0]);
+			frameRate.Denominator = FromString<int32>(parts[1]);
+		}
+
+		return frameRate;
+	}
 };

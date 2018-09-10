@@ -60,6 +60,7 @@
 #include "Stats/StatsMisc.h"
 #include "Engine/ReplicationDriver.h"
 #include "ProfilingDebugging/CsvProfiler.h"
+#include "Engine/LevelScriptActor.h"
 
 #if USE_SERVER_PERF_COUNTERS
 #include "PerfCountersModule.h"
@@ -202,6 +203,7 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,   bNoTimeouts(false)
 ,   ServerConnection(nullptr)
 ,	ClientConnections()
+,	MappedClientConnections()
 ,	ConnectionlessHandler()
 ,	StatelessConnectComponent()
 ,   World(nullptr)
@@ -234,6 +236,7 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,	SendRPCDel()
 #endif
 ,	ProcessQueuedBunchesCurrentFrameMilliseconds(0.0f)
+,	DDoS()
 ,	NetworkObjects(new FNetworkObjectList)
 ,	LagState(ENetworkLagState::NotLagging)
 ,	DuplicateLevelID(INDEX_NONE)
@@ -1255,6 +1258,17 @@ bool UNetDriver::InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FU
 		InitDestroyedStartupActors();
 		InitReplicationDriverClass();
 		SetReplicationDriver(UReplicationDriver::CreateReplicationDriver(this, URL, GetWorld()));
+
+		DDoS.Init(FMath::Clamp(NetServerMaxTickRate, 1, 1000));
+
+		if (DDoS.IsDDoSDetectionEnabled() && DDoS.IsDDoSAnalyticsEnabled())
+		{
+			DDoS.NotifySeverityEscalation.BindLambda(
+				[this](FString SeverityCategory)
+				{
+					GEngine->BroadcastNetworkDDosSEscalation(this->GetWorld(), this, SeverityCategory);
+				});
+		}
 	}
 
 	Notify = InNotify;
@@ -1274,9 +1288,7 @@ void UNetDriver::InitConnectionlessHandler()
 
 		if (ConnectionlessHandler.IsValid())
 		{
-			ConnectionlessHandler->bConnectionlessHandler = true;
-
-			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true, AnalyticsProvider);
+			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true, AnalyticsProvider, &DDoS);
 
 			// Add handling for the stateless connect handshake, for connectionless packets, as the outermost layer
 			TSharedPtr<HandlerComponent> NewComponent =
@@ -1351,6 +1363,15 @@ void UNetDriver::Shutdown()
 	// Client closing connection to server
 	if (ServerConnection)
 	{
+		for (UChannel* Channel : ServerConnection->OpenChannels)
+		 {
+			 UActorChannel* ActorChannel = Cast<UActorChannel>(Channel);
+			 if (ActorChannel)
+			 {
+				 ActorChannel->CleanupReplicators();
+			 }
+		 }
+
 		// Calls Channel[0]->Close to send a close bunch to server
 		ServerConnection->Close();
 		ServerConnection->FlushNet();
@@ -2435,8 +2456,42 @@ void UNetDriver::NotifyActorRenamed(AActor* ThisActor, FName PreviousName)
 	}
 }
 
+// This method will be called when a Streaming Level is about to be Garbage Collected.
 void UNetDriver::NotifyStreamingLevelUnload(ULevel* Level)
 {
+	if (IsServer())
+	{
+		for (AActor* Actor : Level->Actors)
+		{
+			if (Actor && Actor->IsNetStartupActor())
+			{
+				NotifyActorLevelUnloaded(Actor);
+			}
+		}
+		
+		TArray<FNetworkGUID> RemovedGUIDs;
+		for (auto It = DestroyedStartupOrDormantActors.CreateIterator(); It; ++It)
+		{
+			FActorDestructionInfo* DestructInfo = It->Value.Get();
+			if (DestructInfo->Level == Level && DestructInfo->NetGUID.IsStatic())
+			{
+				for (UNetConnection* Connection : ClientConnections)
+				{
+					Connection->RemoveDestructionInfo(DestructInfo);
+				}
+
+				RemovedGUIDs.Add(It->Key);
+				It.RemoveCurrent();
+			}
+		}
+	}	
+
+	if (Level->LevelScriptActor)
+	{
+		RemoveClassRepLayoutReferences(Level->LevelScriptActor->GetClass());
+		ReplicationChangeListMap.Remove(Level->LevelScriptActor);
+	}
+
 	if (ServerConnection && ServerConnection->PackageMap)
 	{
 		UE_LOG(LogNet, Log, TEXT("NotifyStreamingLevelUnload: %s"), *Level->GetFullName() );
@@ -2650,6 +2705,11 @@ void UNetDriver::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 	{
 		Collector.AddReferencedObject(Replicator->ObjectPtr, This);
 		Collector.AddReferencedObject(Replicator->ObjectClass, This);
+	}
+
+	for (FConnectionMap::TIterator It(This->MappedClientConnections); It; ++It)
+	{
+		Collector.AddReferencedObject(It.Value(), This);
 	}
 }
 
@@ -4121,9 +4181,17 @@ void UNetDriver::AddClientConnection(UNetConnection * NewConnection)
 {
 	SCOPE_CYCLE_COUNTER(Stat_NetDriverAddClientConnection);
 
-	UE_LOG( LogNet, Log, TEXT( "AddClientConnection: Added client connection: %s" ), *NewConnection->Describe() );
+	UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Log, TEXT("AddClientConnection: Added client connection: %s"),
+			*NewConnection->Describe());
 
 	ClientConnections.Add(NewConnection);
+
+	TSharedPtr<FInternetAddr> ConnAddr = NewConnection->GetInternetAddr();
+
+	if (ConnAddr.IsValid())
+	{
+		MappedClientConnections.Add(ConnAddr.ToSharedRef(), NewConnection);
+	}
 
 	if (ReplicationDriver)
 	{
@@ -4223,6 +4291,14 @@ void UNetDriver::NotifyActorFullyDormantForConnection(AActor* Actor, UNetConnect
 void UNetDriver::RemoveClientConnection(UNetConnection* ClientConnectionToRemove)
 {
 	verify(ClientConnections.Remove(ClientConnectionToRemove) == 1);
+
+	TSharedPtr<FInternetAddr> AddrToRemove = ClientConnectionToRemove->GetInternetAddr();
+
+	if (AddrToRemove.IsValid())
+	{
+		verify(MappedClientConnections.Remove(AddrToRemove.ToSharedRef()) == 1);
+	}
+
 	if (ReplicationDriver)
 	{
 		ReplicationDriver->RemoveClientConnection(ClientConnectionToRemove);
@@ -4291,6 +4367,54 @@ void UNetDriver::CleanPackageMaps()
 	if ( GuidCache.IsValid() )
 	{ 
 		GuidCache->CleanReferences();
+	}
+}
+
+void UNetDriver::RemoveClassRepLayoutReferences(UClass* Class)
+{
+	RepLayoutMap.Remove(Class);
+
+	for (auto Func : TFieldRange<UFunction>(Class, EFieldIteratorFlags::ExcludeSuper))
+	{
+		if (Func && Func->HasAnyFunctionFlags(EFunctionFlags::FUNC_Net))
+		{
+			RepLayoutMap.Remove(Func);
+		}
+	}
+}
+
+void UNetDriver::CleanupWorldForSeamlessTravel()
+{
+	if (World != nullptr)
+	{
+		for (auto LevelIt(World->GetLevelIterator()); LevelIt; ++LevelIt)
+		{
+			if (const ULevel* Level = *LevelIt)
+			{
+				if (Level->LevelScriptActor)
+				{
+					// workaround for this not being called on clients
+					if (ServerConnection != nullptr)
+					{
+						NotifyActorLevelUnloaded(Level->LevelScriptActor);
+					}
+
+					RemoveClassRepLayoutReferences(Level->LevelScriptActor->GetClass());
+
+					ReplicationChangeListMap.Remove(Level->LevelScriptActor);
+				}
+
+				// This is currently necessary because the actor iterator used in the seamless travel handler 
+				// skips over AWorldSettings actors for an unknown reason.
+				if (Level->GetWorldSettings())
+				{
+					if (ServerConnection != nullptr)
+					{
+						NotifyActorLevelUnloaded(Level->GetWorldSettings());
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -4403,33 +4527,67 @@ TSharedPtr< FReplicationChangelistMgr > UNetDriver::GetReplicationChangeListMgr(
 	return *ReplicationChangeListMgrPtr;
 }
 
-void UNetDriver::OnLevelRemovedFromWorld(class ULevel* InLevel, class UWorld* InWorld)
+// This method will be called when Streaming Levels become Visible.
+void UNetDriver::OnLevelAddedToWorld(ULevel* Level, UWorld* InWorld)
 {
-	if (InWorld == World)
+	// Actors will be re-added to the network list when ULevel::SortActorList is called.
+}
+
+// This method will be called when Streaming Levels are hidden.
+void UNetDriver::OnLevelRemovedFromWorld(class ULevel* Level, class UWorld* InWorld)
+{
+	if (Level && InWorld == GetWorld())
 	{
-		for (AActor* Actor : InLevel->Actors)
+		if (!IsServer())
 		{
-			if (Actor)
+			for (AActor* Actor : Level->Actors)
 			{
-				NotifyActorLevelUnloaded(Actor);
-				RemoveNetworkActor(Actor);
-			}
-		}
-
-		TArray<FNetworkGUID> RemovedGUIDs;
-		for (auto It = DestroyedStartupOrDormantActors.CreateIterator(); It; ++It)
-		{
-			if (It->Value->Level == InLevel)
-			{
-				// Connections must be updated before we remove from our map
-				FActorDestructionInfo* DestructInfo = It->Value.Get();
-				for (UNetConnection* Connection : ClientConnections)
+				if (Actor)
 				{
-					Connection->RemoveDestructionInfo(DestructInfo);
+					// Always call this on clients.
+					// It won't actually destroy the Actor, but it will do some cleanup of the channel, etc.
+					NotifyActorLevelUnloaded(Actor);
 				}
+			}
+		}	
+		else
+		{
+			for (AActor* Actor : Level->Actors)
+			{
+				if (Actor)
+				{
+					// Keep Startup actors alive, because they haven't been destroyed yet.
+					// Technically, Dynamic actors may not have been destroyed either, but this
+					// resembles relevancy.
+					if (!Actor->IsNetStartupActor())
+					{
+						NotifyActorLevelUnloaded(Actor);
+					}
+					else
+					{
+						// We still want to remove Startup actors from the Network list so they aren't processed anymore.
+						GetNetworkObjectList().Remove(Actor);
+					}
+				}
+			}
 
-				RemovedGUIDs.Add(It->Key);
-				It.RemoveCurrent();
+			TArray<FNetworkGUID> RemovedGUIDs;
+			for (auto It = DestroyedStartupOrDormantActors.CreateIterator(); It; ++It)
+			{
+				FActorDestructionInfo* DestructInfo = It->Value.Get();
+				
+				// Until the level is actually unloaded / reloaded, any Static Actors that have been
+				// destroyed will not be recreated, so we still need to track them.
+				if (DestructInfo->Level == Level && !DestructInfo->NetGUID.IsStatic())
+				{
+					for (UNetConnection* Connection : ClientConnections)
+					{
+						Connection->RemoveDestructionInfo(DestructInfo);
+					}
+
+					RemovedGUIDs.Add(It->Key);
+					It.RemoveCurrent();
+				}
 			}
 		}
 	}
@@ -4487,10 +4645,6 @@ FCreateReplicationDriver& UReplicationDriver::CreateReplicationDriverDelegate()
 {
 	static FCreateReplicationDriver Delegate;
 	return Delegate;
-}
-
-void UNetDriver::OnLevelAddedToWorld(ULevel* InLevel, UWorld* InWorld)
-{
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------------------

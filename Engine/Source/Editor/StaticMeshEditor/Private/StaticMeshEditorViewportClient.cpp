@@ -846,6 +846,8 @@ void FStaticMeshEditorViewportClient::DrawCanvas( FViewport& InViewport, FSceneV
 		const int32 YPos = 160;
 		DrawUVsForMesh(Viewport, &Canvas, YPos);
 	}
+
+	FEditorViewportClient::DrawCanvas(InViewport, View, Canvas);
 }
 
 void FStaticMeshEditorViewportClient::DrawUVsForMesh(FViewport* InViewport, FCanvas* InCanvas, int32 InTextYPos )

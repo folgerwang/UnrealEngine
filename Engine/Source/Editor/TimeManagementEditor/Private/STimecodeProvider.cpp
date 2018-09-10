@@ -41,8 +41,7 @@ void STimecodeProvider::Construct(const FArguments& InArgs)
 		TSharedRef<SWidget> FrameRateWidget = InArgs._DisplayFrameRate ? SNew(STextBlock)
 			.Text(MakeAttributeLambda([this]
 			{
-				UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider();
-				if (TimecodeProviderPtr)
+				if (const UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider())
 				{
 					return TimecodeProviderPtr->GetFrameRate().ToPrettyText();
 				}
@@ -73,8 +72,7 @@ void STimecodeProvider::Construct(const FArguments& InArgs)
 				SNew(STextBlock)
 				.Text(MakeAttributeLambda([this]
 				{
-					UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider();
-					if (TimecodeProviderPtr)
+					if (const UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider())
 					{
 						return FText::FromName(TimecodeProviderPtr->GetFName());
 					}
@@ -98,8 +96,7 @@ void STimecodeProvider::Construct(const FArguments& InArgs)
 			SNew(STimecode)
 			.Timecode(MakeAttributeLambda([this]
 				{
-					UTimecodeProvider* OverrideTimecodeProviderPtr = OverrideTimecodeProvider.Get().Get();
-					if (OverrideTimecodeProviderPtr)
+					if (const UTimecodeProvider* OverrideTimecodeProviderPtr = OverrideTimecodeProvider.Get().Get())
 					{
 						return OverrideTimecodeProviderPtr->GetTimecode();
 					}
@@ -113,9 +110,9 @@ void STimecodeProvider::Construct(const FArguments& InArgs)
 	];
 }
 
-UTimecodeProvider* STimecodeProvider::GetTimecodeProvider() const
+const UTimecodeProvider* STimecodeProvider::GetTimecodeProvider() const
 {
-	UTimecodeProvider* TimecodeProviderPtr = OverrideTimecodeProvider.Get().Get();
+	const UTimecodeProvider* TimecodeProviderPtr = OverrideTimecodeProvider.Get().Get();
 	if (!TimecodeProviderPtr)
 	{
 		TimecodeProviderPtr = GEngine->GetTimecodeProvider();
@@ -127,8 +124,7 @@ UTimecodeProvider* STimecodeProvider::GetTimecodeProvider() const
 FSlateColor STimecodeProvider::HandleIconColorAndOpacity() const
 {
 	FSlateColor Result = FSlateColor::UseForeground();
-	UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider();
-	if (TimecodeProviderPtr)
+	if (const UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider())
 	{
 		ETimecodeProviderSynchronizationState State = TimecodeProviderPtr->GetSynchronizationState();
 		switch (State)
@@ -152,8 +148,7 @@ const FSlateBrush* STimecodeProvider::HandleIconImage() const
 {
 	const FSlateBrush* Result = nullptr;
 
-	UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider();
-	if (TimecodeProviderPtr)
+	if (const UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider())
 	{
 		ETimecodeProviderSynchronizationState State = TimecodeProviderPtr->GetSynchronizationState();
 		switch (State)
@@ -183,8 +178,7 @@ EVisibility STimecodeProvider::HandleImageVisibility() const
 
 EVisibility STimecodeProvider::HandleThrobberVisibility() const
 {
-	UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider();
-	if (TimecodeProviderPtr)
+	if (const UTimecodeProvider* TimecodeProviderPtr = GetTimecodeProvider())
 	{
 		ETimecodeProviderSynchronizationState State = TimecodeProviderPtr->GetSynchronizationState();
 		if (State == ETimecodeProviderSynchronizationState::Synchronizing)

@@ -25,7 +25,7 @@ UMovieScene3DTransformTrack::UMovieScene3DTransformTrack( const FObjectInitializ
 
 UMovieSceneSection* UMovieScene3DTransformTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieScene3DTransformSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieScene3DTransformSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneInterrogationKey UMovieScene3DTransformTrack::GetInterrogationKey()

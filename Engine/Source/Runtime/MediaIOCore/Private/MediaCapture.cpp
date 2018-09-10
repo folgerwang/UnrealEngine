@@ -13,6 +13,7 @@
 #include "RendererInterface.h"
 #include "RenderUtils.h"
 #include "Slate/SceneViewport.h"
+#include "Misc/ScopeLock.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -27,6 +28,13 @@
 namespace MediaCaptureDetails
 {
 	bool FindSceneViewportAndLevel(TSharedPtr<FSceneViewport>& OutSceneViewport);
+
+	//Validation for the source of a capture
+	bool ValidateSceneViewport(const TSharedPtr<FSceneViewport>& SceneViewport, const FIntPoint& DesiredSize, const EPixelFormat DesiredPixelFormat, const bool bCurrentlyCapturing);
+	bool ValidateTextureRenderTarget2D(const UTextureRenderTarget2D* RenderTarget, const FIntPoint& DesiredSize, const EPixelFormat DesiredPixelFormat, const bool bCurrentlyCapturing);
+
+	//Validation that there is a capture 
+	bool ValidateIsCapturing(const UMediaCapture& CaptureToBeValidated);
 }
 
 /* UMediaCapture
@@ -63,6 +71,7 @@ FString UMediaCapture::GetDesc()
 bool UMediaCapture::CaptureActiveSceneViewport()
 {
 	StopCapture(false);
+
 	check(IsInGameThread());
 
 	TSharedPtr<FSceneViewport> FoundSceneViewport;
@@ -78,13 +87,8 @@ bool UMediaCapture::CaptureActiveSceneViewport()
 bool UMediaCapture::CaptureSceneViewport(TSharedPtr<FSceneViewport>& InSceneViewport)
 {
 	StopCapture(false);
-	check(IsInGameThread());
 
-	if (!InSceneViewport.IsValid())
-	{
-		UE_LOG(LogMediaIOCore, Error, TEXT("Can not start the capture. The Scene Viewport is invalid."));
-		return false;
-	}
+	check(IsInGameThread());
 
 	if (!ValidateMediaOutput())
 	{
@@ -93,23 +97,10 @@ bool UMediaCapture::CaptureSceneViewport(TSharedPtr<FSceneViewport>& InSceneView
 
 	DesiredSize = MediaOutput->GetRequestedSize();
 	DesiredPixelFormat = MediaOutput->GetRequestedPixelFormat();
-	
-	FIntPoint SceneViewportSize = InSceneViewport->GetRenderTargetTextureSizeXY();
-	if (DesiredSize.X != SceneViewportSize.X || DesiredSize.Y != SceneViewportSize.Y)
-	{
-		UE_LOG(LogMediaIOCore, Error, TEXT("Can not start the capture. The Render Target size doesn't match with the requested size. SceneViewport: %d,%d  MediaOutput: %d,%d")
-			, SceneViewportSize.X, SceneViewportSize.Y
-			, DesiredSize.X, DesiredSize.Y);
-		return false;
-	}
 
-	static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
-	EPixelFormat SceneTargetFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread()));
-	if (DesiredPixelFormat != SceneTargetFormat)
+	const bool bCurrentlyCapturing = false;
+	if (!MediaCaptureDetails::ValidateSceneViewport(InSceneViewport, DesiredSize, DesiredPixelFormat, bCurrentlyCapturing))
 	{
-		UE_LOG(LogMediaIOCore, Error, TEXT("Can not start the capture. The Render Target pixel format doesn't match with the requested pixel format. SceneViewport: %s MediaOutput: %s")
-			, GetPixelFormatString(SceneTargetFormat)
-			, GetPixelFormatString(DesiredPixelFormat));
 		return false;
 	}
 
@@ -120,7 +111,9 @@ bool UMediaCapture::CaptureSceneViewport(TSharedPtr<FSceneViewport>& InSceneView
 		return false;
 	}
 
+	//no lock required the command on the render thread is not active
 	CapturingSceneViewport = InSceneViewport;
+
 	InitializeResolveTarget(MediaOutput->NumberOfTextureBuffers);
 	CurrentResolvedTargetIndex = 0;
 	FCoreDelegates::OnEndFrame.AddUObject(this, &UMediaCapture::OnEndFrame_GameThread);
@@ -133,33 +126,13 @@ bool UMediaCapture::CaptureTextureRenderTarget2D(UTextureRenderTarget2D* InRende
 	StopCapture(false);
 
 	check(IsInGameThread());
-	if (InRenderTarget2D == nullptr)
-	{
-		UE_LOG(LogMediaIOCore, Error, TEXT("Couldn't start the capture. The Render Target is invalid."));
-		return false;
-	}
-
-	if (!ValidateMediaOutput())
-	{
-		return false;
-	}
 
 	DesiredSize = MediaOutput->GetRequestedSize();
 	DesiredPixelFormat = MediaOutput->GetRequestedPixelFormat();
 
-	if (DesiredSize.X != InRenderTarget2D->SizeX || DesiredSize.Y != InRenderTarget2D->SizeY)
+	const bool bCurrentlyCapturing = false;
+	if (!MediaCaptureDetails::ValidateTextureRenderTarget2D(InRenderTarget2D, DesiredSize, DesiredPixelFormat, bCurrentlyCapturing))
 	{
-		UE_LOG(LogMediaIOCore, Error, TEXT("Can not start the capture. The Render Target size doesn't match with the requested size. RenderTarget: %d,%d  MediaOutput: %d,%d")
-			, InRenderTarget2D->SizeX, InRenderTarget2D->SizeY
-			, DesiredSize.X, DesiredSize.Y);
-		return false;
-	}
-
-	if (DesiredPixelFormat != InRenderTarget2D->GetFormat())
-	{
-		UE_LOG(LogMediaIOCore, Error, TEXT("Can not start the capture. The Render Target pixel format doesn't match with the requested pixel format. RenderTarget: %s MediaOutput: %s")
-			, GetPixelFormatString(InRenderTarget2D->GetFormat())
-			, GetPixelFormatString(DesiredPixelFormat));
 		return false;
 	}
 
@@ -168,11 +141,78 @@ bool UMediaCapture::CaptureTextureRenderTarget2D(UTextureRenderTarget2D* InRende
 		return false;
 	}
 
+	//no lock required the command on the render thread is not active yet
 	CapturingRenderTarget = InRenderTarget2D;
+
 	InitializeResolveTarget(MediaOutput->NumberOfTextureBuffers);
 	CurrentResolvedTargetIndex = 0;
 	FCoreDelegates::OnEndFrame.AddUObject(this, &UMediaCapture::OnEndFrame_GameThread);
 	MediaState = EMediaCaptureState::Preparing;
+
+	return true;
+}
+
+bool UMediaCapture::UpdateSceneViewport(TSharedPtr<FSceneViewport>& InSceneViewport)
+{
+	if (!MediaCaptureDetails::ValidateIsCapturing(*this))
+	{
+		StopCapture(false);
+		return false;
+	}
+
+	check(IsInGameThread());
+
+	const bool bCurrentlyCapturing = true;
+
+	if (!MediaCaptureDetails::ValidateSceneViewport(InSceneViewport, DesiredSize, DesiredPixelFormat, bCurrentlyCapturing))
+	{
+		StopCapture(false);
+		return false;
+	}
+
+	if (!UpdateSceneViewportImpl(InSceneViewport))
+	{
+		StopCapture(false);
+		return false;
+	}
+
+	{
+		FScopeLock Lock(&AccessingCapturingSource);
+		CapturingSceneViewport = InSceneViewport;
+		CapturingRenderTarget = nullptr;
+	}
+
+	return true;
+}
+
+bool UMediaCapture::UpdateTextureRenderTarget2D(UTextureRenderTarget2D * InRenderTarget2D)
+{
+	if (!MediaCaptureDetails::ValidateIsCapturing(*this))
+	{
+		StopCapture(false);
+		return false;
+	}
+
+	check(IsInGameThread());
+
+	const bool bCurrentlyCapturing = true;
+	if (!MediaCaptureDetails::ValidateTextureRenderTarget2D(InRenderTarget2D, DesiredSize, DesiredPixelFormat, bCurrentlyCapturing))
+	{
+		StopCapture(false);
+		return false;
+	}
+
+	if (!UpdateRenderTargetImpl(InRenderTarget2D))
+	{
+		StopCapture(false);
+		return false;
+	}
+
+	{
+		FScopeLock Lock(&AccessingCapturingSource);
+		CapturingRenderTarget = InRenderTarget2D;
+		CapturingSceneViewport.Reset();
+	}
 
 	return true;
 }
@@ -195,7 +235,7 @@ void UMediaCapture::StopCapture(bool bAllowPendingFrameToBeProcess)
 
 			FCoreDelegates::OnEndFrame.RemoveAll(this);
 
-			if (bWaitingForResolveCommandExecution || !bResolvedTargetInitialized)
+			while (bWaitingForResolveCommandExecution || !bResolvedTargetInitialized)
 			{
 				FlushRenderingCommands();
 			}
@@ -244,7 +284,7 @@ void UMediaCapture::InitializeResolveTarget(int32 InNumberOfBuffers)
 				1,
 				TexCreate_CPUReadback,
 				CreateInfo
-				);
+			);
 		}
 		bResolvedTargetInitialized = true;
 	};
@@ -297,8 +337,8 @@ void UMediaCapture::OnEndFrame_GameThread()
 		return;
 	}
 
-	CurrentResolvedTargetIndex = (CurrentResolvedTargetIndex+1) % NumberOfCaptureFrame;
-	int32 ReadyFrameIndex = (CurrentResolvedTargetIndex+1) % NumberOfCaptureFrame; // Next one in the buffer queue
+	CurrentResolvedTargetIndex = (CurrentResolvedTargetIndex + 1) % NumberOfCaptureFrame;
+	int32 ReadyFrameIndex = (CurrentResolvedTargetIndex + 1) % NumberOfCaptureFrame; // Next one in the buffer queue
 
 	FCaptureFrame* ReadyFrame = (CaptureFrames[ReadyFrameIndex].bResolvedTargetRequested) ? &CaptureFrames[ReadyFrameIndex] : nullptr;
 	FCaptureFrame* CapturingFrame = (GetState() != EMediaCaptureState::StopRequested) ? &CaptureFrames[CurrentResolvedTargetIndex] : nullptr;
@@ -324,9 +364,11 @@ void UMediaCapture::OnEndFrame_GameThread()
 	{
 		FTexture2DRHIRef SourceTexture;
 		{
-			UTextureRenderTarget2D* InCapturingRenderTarget = nullptr;
-			FPlatformAtomics::InterlockedExchangePtr((void**)(&InCapturingRenderTarget), CapturingRenderTarget);
+			FScopeLock Lock(&AccessingCapturingSource);
+
+			UTextureRenderTarget2D* InCapturingRenderTarget = CapturingRenderTarget;
 			TSharedPtr<FSceneViewport> InSceneViewportPtr = CapturingSceneViewport.Pin();
+
 			if (InSceneViewportPtr.IsValid())
 			{
 				SourceTexture = InSceneViewportPtr->GetRenderTargetTexture();
@@ -458,5 +500,81 @@ namespace MediaCaptureDetails
 			OutSceneViewport = GameEngine->SceneViewport;
 			return true;
 		}
+	}
+
+	bool ValidateSceneViewport(const TSharedPtr<FSceneViewport>& SceneViewport, const FIntPoint& DesiredSize, const EPixelFormat DesiredPixelFormat, const bool bCurrentlyCapturing)
+	{
+
+		if (!SceneViewport.IsValid())
+		{
+			UE_LOG(LogMediaIOCore, Error, TEXT("Can not %s the capture. The Scene Viewport is invalid.")
+				, bCurrentlyCapturing ? TEXT("continue") : TEXT("start"));
+			return false;
+		}
+
+		FIntPoint SceneViewportSize = SceneViewport->GetRenderTargetTextureSizeXY();
+		if (DesiredSize.X != SceneViewportSize.X || DesiredSize.Y != SceneViewportSize.Y)
+		{
+			UE_LOG(LogMediaIOCore, Error, TEXT("Can not %s the capture. The Render Target size doesn't match with the requested size. SceneViewport: %d,%d  MediaOutput: %d,%d")
+				, bCurrentlyCapturing ? TEXT("continue") : TEXT("start")
+				, SceneViewportSize.X, SceneViewportSize.Y
+				, DesiredSize.X, DesiredSize.Y);
+			return false;
+		}
+
+		static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+		EPixelFormat SceneTargetFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread()));
+		if (DesiredPixelFormat != SceneTargetFormat)
+		{
+			UE_LOG(LogMediaIOCore, Error, TEXT("Can not %s the capture. The Render Target pixel format doesn't match with the requested pixel format. SceneViewport: %s MediaOutput: %s")
+				, bCurrentlyCapturing ? TEXT("continue") : TEXT("start")
+				, GetPixelFormatString(SceneTargetFormat)
+				, GetPixelFormatString(DesiredPixelFormat));
+			return false;
+		}
+
+		return true;
+	}
+
+	bool ValidateTextureRenderTarget2D(const UTextureRenderTarget2D* InRenderTarget2D, const FIntPoint& DesiredSize, const EPixelFormat DesiredPixelFormat, const bool bCurrentlyCapturing)
+	{
+		if (InRenderTarget2D == nullptr)
+		{
+			UE_LOG(LogMediaIOCore, Error, TEXT("Couldn't %s the capture. The Render Target is invalid.")
+				, bCurrentlyCapturing ? TEXT("continue") : TEXT("start"));
+			return false;
+		}
+
+		if (DesiredSize.X != InRenderTarget2D->SizeX || DesiredSize.Y != InRenderTarget2D->SizeY)
+		{
+			UE_LOG(LogMediaIOCore, Error, TEXT("Can not %s the capture. The Render Target size doesn't match with the requested size. RenderTarget: %d,%d  MediaOutput: %d,%d")
+				, bCurrentlyCapturing ? TEXT("continue") : TEXT("start")
+				, InRenderTarget2D->SizeX, InRenderTarget2D->SizeY
+				, DesiredSize.X, DesiredSize.Y);
+			return false;
+		}
+
+		if (DesiredPixelFormat != InRenderTarget2D->GetFormat())
+		{
+			UE_LOG(LogMediaIOCore, Error, TEXT("Can not %s the capture. The Render Target pixel format doesn't match with the requested pixel format. RenderTarget: %s MediaOutput: %s")
+				, bCurrentlyCapturing ? TEXT("continue") : TEXT("start")
+				, GetPixelFormatString(InRenderTarget2D->GetFormat())
+				, GetPixelFormatString(DesiredPixelFormat));
+			return false;
+		}
+
+		return true;
+	}
+
+	bool ValidateIsCapturing(const UMediaCapture& CaptureToBeValidated)
+	{
+		if (CaptureToBeValidated.GetState() != EMediaCaptureState::Capturing && CaptureToBeValidated.GetState() != EMediaCaptureState::Preparing)
+		{
+			UE_LOG(LogMediaIOCore, Error, TEXT("Can not update the capture. There is no capture currently.\
+			Only use UpdateSceneViewport or UpdateTextureRenderTarget2D when the state is Capturing or Preparing"));
+			return false;
+		}
+
+		return true;
 	}
 }

@@ -1088,7 +1088,7 @@ int32 UEditorEngine::BeginTransaction(const TCHAR* TransactionContext, const FTe
 {
 	int32 Index = INDEX_NONE;
 
-	if (Trans && !bIsSimulatingInEditor)
+	if (Trans)
 	{
 		// generate transaction context
 		Index = Trans->Begin(TransactionContext, Description);
@@ -1105,7 +1105,8 @@ int32 UEditorEngine::BeginTransaction(const FText& Description)
 int32 UEditorEngine::EndTransaction()
 {
 	int32 Index = INDEX_NONE;
-	if (Trans && !bIsSimulatingInEditor)
+
+	if (Trans) 
 	{
 		Index = Trans->End();
 	}
@@ -1113,19 +1114,19 @@ int32 UEditorEngine::EndTransaction()
 	return Index;
 }
 
-void UEditorEngine::ResetTransaction(const FText& Reason)
-{
-	if (Trans)
-	{
-		Trans->Reset( Reason );
-	}
-}
-
 void UEditorEngine::CancelTransaction(int32 Index)
 {
 	if (Trans)
 	{
 		Trans->Cancel( Index );
+	}
+}
+
+void UEditorEngine::ResetTransaction(const FText& Reason)
+{
+	if (Trans)
+	{
+		Trans->Reset(Reason);
 	}
 }
 
@@ -1152,7 +1153,7 @@ void UEditorEngine::ShowUndoRedoNotification(const FText& NotificationText, bool
 	}
 }
 
-void UEditorEngine::HandleTransactorBeforeRedoUndo( FUndoSessionContext SessionContext )
+void UEditorEngine::HandleTransactorBeforeRedoUndo(const FTransactionContext& TransactionContext)
 {
 	//Get the list of all selected actors before the undo/redo is performed
 	OldSelectedActors.Empty();
@@ -1169,32 +1170,58 @@ void UEditorEngine::HandleTransactorBeforeRedoUndo( FUndoSessionContext SessionC
 		auto Component = CastChecked<UActorComponent>(*It);
 		OldSelectedComponents.Add(Component);
 	}
-}
 
-void UEditorEngine::HandleTransactorRedo( FUndoSessionContext SessionContext, bool Succeeded )
-{
-	NoteSelectionChange();
-	PostUndo(Succeeded);
-
-	BroadcastPostRedo(SessionContext.Context, SessionContext.PrimaryObject, Succeeded);
-	InvalidateAllViewportsAndHitProxies();
-	if (!bSquelchTransactionNotification)
+	// Before an undo, store the current operation and hook on object transaction, if we do not have an outer operation already
+	if (CurrentUndoRedoContext.OperationDepth++ == 0)
 	{
-		ShowUndoRedoNotification(FText::Format(NSLOCTEXT("UnrealEd", "RedoMessageFormat", "Redo: {0}"), SessionContext.Title), Succeeded);
+		check(!CurrentUndoRedoContext.OuterOperationId.IsValid());
+		CurrentUndoRedoContext.OuterOperationId = TransactionContext.OperationId;
+		FCoreUObjectDelegates::OnObjectTransacted.AddUObject(this, &UEditorEngine::HandleObjectTransacted);
 	}
 }
 
-void UEditorEngine::HandleTransactorUndo( FUndoSessionContext SessionContext, bool Succeeded )
+void UEditorEngine::HandleTransactorRedoUndo(const FTransactionContext& TransactionContext, bool Succeeded, bool WasUndo)
 {
-	NoteSelectionChange();
+	NoteSelectionChange(bNotifyUndoRedoSelectionChange);
 	PostUndo(Succeeded);
 
-	BroadcastPostUndo(SessionContext.Context, SessionContext.PrimaryObject, Succeeded);
-	InvalidateAllViewportsAndHitProxies();
+	// Broadcast only if you have an actual transaction context
+	if (Succeeded)
+	{
+		check(CurrentUndoRedoContext.OuterOperationId.IsValid() && CurrentUndoRedoContext.OperationDepth > 0);
+		BroadcastPostUndoRedo(TransactionContext, WasUndo);
+
+		if (--CurrentUndoRedoContext.OperationDepth == 0)
+		{
+			// Undo/Redo is done clear out operation
+			check(CurrentUndoRedoContext.OuterOperationId == TransactionContext.OperationId);
+			CurrentUndoRedoContext.Reset();
+			FCoreUObjectDelegates::OnObjectTransacted.RemoveAll(this);
+		}
+	}
+
 	if (!bSquelchTransactionNotification)
 	{
-		ShowUndoRedoNotification(FText::Format(NSLOCTEXT("UnrealEd", "UndoMessageFormat", "Undo: {0}"), SessionContext.Title), Succeeded);
+		const FText UndoRedoMessage = WasUndo ? NSLOCTEXT("UnrealEd", "UndoMessageFormat", "Undo: {0}") : NSLOCTEXT("UnrealEd", "RedoMessageFormat", "Redo: {0}");
+		ShowUndoRedoNotification(FText::Format(UndoRedoMessage, TransactionContext.Title), Succeeded);
 	}
+}
+
+void UEditorEngine::HandleTransactorRedo(const FTransactionContext& TransactionContext, bool Succeeded)
+{
+	HandleTransactorRedoUndo(TransactionContext, Succeeded, /*WasUndo*/false);
+}
+
+void UEditorEngine::HandleTransactorUndo(const FTransactionContext& TransactionContext, bool Succeeded)
+{
+	HandleTransactorRedoUndo(TransactionContext, Succeeded, /*WasUndo*/true);
+}
+
+void UEditorEngine::HandleObjectTransacted(UObject* InObject, const FTransactionObjectEvent& InTransactionObjectEvent)
+{
+	check(CurrentUndoRedoContext.OuterOperationId.IsValid() && CurrentUndoRedoContext.OperationDepth > 0);
+	check(InTransactionObjectEvent.GetEventType() == ETransactionObjectEventType::UndoRedo);
+	CurrentUndoRedoContext.TransactionObjects.Add(TPair<UObject*, FTransactionObjectEvent>{ InObject, InTransactionObjectEvent });
 }
 
 bool UEditorEngine::AreEditorAnalyticsEnabled() const 
@@ -1235,7 +1262,7 @@ UTransactor* UEditorEngine::CreateTrans()
 	return TransBuffer;
 }
 
-void UEditorEngine::PostUndo(bool bSuccess)
+void UEditorEngine::PostUndo(bool)
 {
 	// Cache any Actor that needs to be re-instanced because it still points to a REINST_ class
 	TMap< UClass*, UClass* > OldToNewClassMapToReinstance;
@@ -5077,7 +5104,7 @@ bool UEditorEngine::Exec_Transaction(const TCHAR* Str, FOutputDevice& Ar)
 	return true;
 }
 
-void UEditorEngine::BroadcastPostUndo(const FString& Context, UObject* PrimaryObject, bool bUndoSuccess )
+void UEditorEngine::BroadcastPostUndoRedo(const FTransactionContext& UndoContext, bool bWasUndo)
 {
 	// This sanitization code can be removed once blueprint ::Conform(ImplementedEvents/ImplementedInterfaces) 
 	// functions have been fixed. For the time being it improves editor stability, though:
@@ -5086,25 +5113,16 @@ void UEditorEngine::BroadcastPostUndo(const FString& Context, UObject* PrimaryOb
 	for (auto UndoIt = UndoClients.CreateIterator(); UndoIt; ++UndoIt)
 	{
 		FEditorUndoClient* Client = *UndoIt;
-		if (Client && Client->MatchesContext(Context, PrimaryObject))
+		if (Client && Client->MatchesContext(UndoContext, CurrentUndoRedoContext.TransactionObjects))
 		{
-			Client->PostUndo( bUndoSuccess );
-		}
-	}
-}
-
-void UEditorEngine::BroadcastPostRedo(const FString& Context, UObject* PrimaryObject, bool bRedoSuccess )
-{
-	// This sanitization code can be removed once blueprint ::Conform(ImplementedEvents/ImplementedInterfaces) 
-	// functions have been fixed. For the time being it improves editor stability, though:
-	UEdGraphPin::SanitizePinsPostUndoRedo();
-
-	for (auto UndoIt = UndoClients.CreateIterator(); UndoIt; ++UndoIt)
-	{
-		FEditorUndoClient* Client = *UndoIt;
-		if (Client && Client->MatchesContext(Context, PrimaryObject))
-		{
-			Client->PostRedo( bRedoSuccess );
+			if (bWasUndo)
+			{
+				Client->PostUndo( true );
+			}
+			else
+			{
+				Client->PostRedo( true );
+			}
 		}
 	}
 

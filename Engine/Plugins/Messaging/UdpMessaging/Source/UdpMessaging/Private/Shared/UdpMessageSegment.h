@@ -7,6 +7,8 @@
 #include "Misc/Guid.h"
 #include "Serialization/Archive.h"
 
+// IMessageContext forward declaration
+enum class EMessageFlags : uint32;
 
 /**
  * Enumerates message segment types.
@@ -35,7 +37,18 @@ enum class EUdpMessageSegments : uint8
 	Retransmit,
 
 	/** Notification that an inbound message timed out. */
-	Timeout
+	Timeout,
+
+	/** Acknowledges that message segments were received successfully */
+	AcknowledgeSegments,
+
+	/** Announces existence to static endpoints. */
+	Ping,
+
+	/** Answers back to ping segment. */
+	Pong,
+
+	// New segment type needs to be added at the end
 };
 
 
@@ -68,7 +81,7 @@ namespace FUdpMessageSegment
 		 * Serializes the given header from or into the specified archive.
 		 *
 		 * @param Ar The archive to serialize from or into.
-		 * @param DateTime The header to serialize.
+		 * @param Header The header to serialize.
 		 * @return The archive.
 		 */
 		friend FArchive& operator<<(FArchive& Ar, FHeader& Header)
@@ -76,7 +89,6 @@ namespace FUdpMessageSegment
 			return Ar << Header.ProtocolVersion << Header.RecipientNodeId << Header.SenderNodeId << Header.SegmentType;
 		}
 	};
-
 
 	/**
 	 * Structure for the sub-header of Abort segments.
@@ -89,15 +101,14 @@ namespace FUdpMessageSegment
 	public:
 
 		/**
-		 * Serializes the given header from or to the specified archive.
+		 * Serializes the given header from or to the specified archive for the specified version.
 		 *
 		 * @param Ar The archive to serialize from or into.
-		 * @param DateTime The header to serialize.
-		 * @return The archive.
+		 * @param ProtocolVersion The protocol version we want to serialize the Chunk in.
 		 */
-		friend FArchive& operator<<(FArchive& Ar, FAbortChunk& Header)
+		void Serialize(FArchive& Ar, uint8 /*ProtocolVersion*/)
 		{
-			return Ar << Header.MessageId;
+			Ar << MessageId;
 		}
 	};
 
@@ -111,17 +122,41 @@ namespace FUdpMessageSegment
 		int32 MessageId;
 
 	public:
-
 		/**
-		 * Serializes the given header from or into the specified archive.
+		 * Serializes the given header from or to the specified archive for the specified version.
 		 *
 		 * @param Ar The archive to serialize from or into.
-		 * @param DateTime The header to serialize.
-		 * @return The archive.
+		 * @param ProtocolVersion The protocol version we want to serialize the Chunk in.
 		 */
-		friend FArchive& operator<<(FArchive& Ar, FAcknowledgeChunk& Header)
+		void Serialize(FArchive& Ar, uint8 /*ProtocolVersion*/)
 		{
-			return Ar << Header.MessageId;
+			Ar << MessageId;
+		}
+	};
+
+
+	/**
+	 * Structure for the header of AcknowledgeSegments segments.
+	 */
+	struct FAcknowledgeSegmentsChunk
+	{
+		/** Holds the identifier of the message that received segments successfully. */
+		int32 MessageId;
+
+		/** List of Acknowledged segments */
+		TArray<uint16> Segments;
+
+	public:
+
+		/**
+		 * Serializes the given header from or to the specified archive for the specified version.
+		 *
+		 * @param Ar The archive to serialize from or into.
+		 * @param ProtocolVersion The protocol version we want to serialize the Chunk in.
+		 */
+		void Serialize(FArchive& Ar, uint8 /*ProtocolVersion*/)
+		{
+			Ar << MessageId << Segments;
 		}
 	};
 
@@ -136,6 +171,9 @@ namespace FUdpMessageSegment
 
 		/** Holds the total size of the message. */
 		int32 MessageSize;
+
+		/** Holds the message flags. */
+		EMessageFlags MessageFlags;
 
 		/** Holds the sequence number of this segment. */
 		uint16 SegmentNumber;
@@ -153,24 +191,28 @@ namespace FUdpMessageSegment
 		TArray<uint8> Data;
 
 	public:
+		FDataChunk() = default;
 
 		/**
-		 * Serializes the given header from or into the specified archive.
+		 * Serializes the given header from or to the specified archive for the specified version.
 		 *
 		 * @param Ar The archive to serialize from or into.
-		 * @param DateTime The header to serialize.
-		 * @return The archive.
+		 * @param ProtocolVersion The protocol version we want to serialize the Chunk in.
 		 */
-		friend FArchive& operator<<(FArchive& Ar, FDataChunk& Chunk)
+		void Serialize(FArchive& Ar, uint8 ProtocolVersion)
 		{
-			return Ar
-				<< Chunk.MessageId
-				<< Chunk.MessageSize
-				<< Chunk.SegmentNumber
-				<< Chunk.SegmentOffset
-				<< Chunk.Sequence
-				<< Chunk.TotalSegments
-				<< Chunk.Data;
+			Ar	<< MessageId
+				<< MessageSize
+				<< SegmentNumber
+				<< SegmentOffset
+				<< Sequence
+				<< TotalSegments
+				<< Data;
+			// if the protocol version is 11 onward
+			if (ProtocolVersion > 10)
+			{
+				Ar << MessageFlags;
+			}
 		}
 	};
 
@@ -193,15 +235,14 @@ namespace FUdpMessageSegment
 	public:
 
 		/**
-		 * Serializes the given header from or into the specified archive.
+		 * Serializes the given header from or to the specified archive for the specified version.
 		 *
 		 * @param Ar The archive to serialize from or into.
-		 * @param DateTime The header to serialize.
-		 * @return The archive.
+		 * @param ProtocolVersion The protocol version we want to serialize the Chunk in.
 		 */
-		friend FArchive& operator<<(FArchive& Ar, FRetransmitChunk& Header)
+		void Serialize(FArchive& Ar, uint8 /*ProtocolVersion*/)
 		{
-			return Ar << Header.MessageId << Header.Segments;
+			Ar << MessageId << Segments;
 		}
 	};
 
@@ -217,15 +258,14 @@ namespace FUdpMessageSegment
 	public:
 
 		/**
-		 * Serializes the given header from or into the specified archive.
+		 * Serializes the given header from or to the specified archive for the specified version.
 		 *
 		 * @param Ar The archive to serialize from or into.
-		 * @param DateTime The header to serialize.
-		 * @return The archive.
+		 * @param ProtocolVersion The protocol version we want to serialize the Chunk in.
 		 */
-		friend FArchive& operator<<(FArchive& Ar, FTimeoutChunk& Header)
+		void Serialize(FArchive& Ar, uint8 /*ProtocolVersion*/)
 		{
-			return Ar << Header.MessageId;
+			Ar << MessageId;
 		}
 	};
 };

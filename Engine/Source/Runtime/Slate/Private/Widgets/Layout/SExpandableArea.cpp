@@ -45,9 +45,9 @@ void SExpandableArea::Construct( const FArguments& InArgs )
 	// Furthermore, we still need to fallback to just using one border if they do want them the
 	// same, otherwise we could introduce curved edges between the upper and lower sections.
 	const bool bBodyDiffers = InArgs._BodyBorderImage != nullptr || InArgs._BodyBorderBackgroundColor.IsSet();
-	const FSlateBrush* FullBorderImage = bBodyDiffers ? FStyleDefaults::GetNoBrush() : InArgs._BorderImage;
+	const TAttribute<const FSlateBrush*> FullBorderImage = bBodyDiffers ? FStyleDefaults::GetNoBrush() : InArgs._BorderImage;
 	const TAttribute<FSlateColor> FullBorderBackgroundColor = bBodyDiffers ? FLinearColor::Transparent : InArgs._BorderBackgroundColor;
-	const FSlateBrush* TitleBorderImage = !bBodyDiffers ? FStyleDefaults::GetNoBrush() : InArgs._BorderImage;
+	const TAttribute<const FSlateBrush*> TitleBorderImage = !bBodyDiffers ? FStyleDefaults::GetNoBrush() : InArgs._BorderImage;
 	const TAttribute<FSlateColor> TitleBorderBackgroundColor = !bBodyDiffers ? FLinearColor::Transparent : InArgs._BorderBackgroundColor;
 
 	ChildSlot

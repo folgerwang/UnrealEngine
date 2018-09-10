@@ -342,6 +342,8 @@ UEditorEngine::UEditorEngine(const FObjectInitializer& ObjectInitializer)
 	NumOnlinePIEInstances = 0;
 	DefaultWorldFeatureLevel = GMaxRHIFeatureLevel;
 
+	bNotifyUndoRedoSelectionChange = true;
+
 	EditorWorldExtensionsManager = nullptr;
 
 	ActorGroupingUtilsClassName = UActorGroupingUtils::StaticClass();
@@ -912,7 +914,7 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	{
 		if (GetPIEWorldContext() != nullptr && GetPIEWorldContext()->World() != nullptr)
 		{
-			GetPIEWorldContext()->World()->DestroyDemoNetDriver();
+			GEngine->ShutdownWorldNetDriver(GetPIEWorldContext()->World());
 		}
 	});
 
@@ -2751,7 +2753,10 @@ void UEditorEngine::ApplyDeltaToActor(AActor* InActor,
 
 	// Update the actor before leaving.
 	InActor->MarkPackageDirty();
-	InActor->InvalidateLightingCacheDetailed(bTranslationOnly);
+	if (!GIsDemoMode)
+	{
+		InActor->InvalidateLightingCacheDetailed(bTranslationOnly);
+	}
 	InActor->PostEditMove( false );
 }
 

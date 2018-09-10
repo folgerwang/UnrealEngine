@@ -89,11 +89,11 @@ private:
 	/** Current TimecodeSynchronization being used. */
 	UTimecodeSynchronizer* TimecodeSynchronization;
 
-	/** Attached Input source index in TimecodeSynchronization.GetActiveSources(). */
+	/** Attached Input source index in either TimecodeSynchronization.GetSynchronizedSources() or GetNonSynchronizedSources(). */
 	int32 AttachedSourceIndex;
 
-	/** Attached Input source index in TimecodeSynchronization.GetActiveSources(). */
-	bool bIsTimecodedSource;
+	/** Whether or not this source is used for synchronization. */
+	bool bIsSynchronizedSource;
 	
 	/** The material that wraps the video texture for display in an SImage. */
 	UMaterial* Material;

@@ -15,7 +15,7 @@ UMovieSceneFloatTrack::UMovieSceneFloatTrack( const FObjectInitializer& ObjectIn
 
 UMovieSceneSection* UMovieSceneFloatTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneFloatSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneFloatSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneFloatTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const

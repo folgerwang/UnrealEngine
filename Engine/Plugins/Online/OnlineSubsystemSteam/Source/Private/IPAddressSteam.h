@@ -46,6 +46,20 @@ public:
 	}
 
 	/**
+	 * Gets the ip address in a raw array stored in network byte order.
+	 *
+	 * @return The raw address stored in an array
+	 */
+	virtual TArray<uint8> GetRawIp() const override;
+
+	/**
+	 * Sets the ip address from a raw network byte order array.
+	 *
+	 * @param RawAddr the new address to use (must be converted to network byte order)
+	 */
+	virtual void SetRawIp(const TArray<uint8>& RawAddr) override;
+
+	/**
 	 * Sets the ip address from a host byte order uint32
 	 *
 	 * @param InAddr the new address to use (must convert to network byte order)
@@ -111,6 +125,11 @@ public:
 	{
 	}
 
+	/** Sets the address to the loopback address */
+	void SetLoopbackAddress() override
+	{
+	}
+
 	/**
 	 * Converts this internet ip address to string form
 	 *
@@ -144,6 +163,11 @@ public:
 		return !(FInternetAddrSteam::operator==(Other));
 	}
 
+	virtual uint32 GetTypeHash() override
+	{
+		return ::GetTypeHash(*(uint64*)SteamId.GetBytes());
+	}
+
 	/**
 	 * Is this a well formed internet address
 	 *
@@ -152,5 +176,13 @@ public:
 	virtual bool IsValid() const override
 	{
 		return SteamId.IsValid();
+	}
+
+	virtual TSharedRef<FInternetAddr> Clone() const override
+	{
+		TSharedRef<FInternetAddrSteam> NewAddress = MakeShareable(new FInternetAddrSteam);
+		NewAddress->SteamId = SteamId;
+		NewAddress->SteamChannel = SteamChannel;
+		return NewAddress;
 	}
 };

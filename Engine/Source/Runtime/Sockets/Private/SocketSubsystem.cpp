@@ -293,48 +293,59 @@ TSharedRef<FInternetAddr> ISocketSubsystem::GetLocalHostAddr(FOutputDevice& Out,
 	HostAddr->SetAnyAddress();
 
 	bCanBindAll = false;
-
-	TCHAR Home[256]=TEXT("");
 	FString HostName;
+
+	if (GetMultihomeAddress(HostAddr))
+	{
+		return HostAddr;
+	}
+
 	if (GetHostName(HostName) == false)
 	{
 		Out.Logf(TEXT("%s: gethostname failed (%s)"), GetSocketAPIName(), GetSocketError());
 	}
-	if (FParse::Value(FCommandLine::Get(),TEXT("MULTIHOME="),Home,ARRAY_COUNT(Home)))
+
+	// Failing to find the host is not considered an error and we just bind to any address
+	ESocketErrors FindHostResult = GetHostByName(TCHAR_TO_ANSI(*HostName), *HostAddr);
+	if (FindHostResult == SE_NO_ERROR || FindHostResult == SE_HOST_NOT_FOUND 
+		|| FindHostResult == SE_EWOULDBLOCK || FindHostResult == SE_TRY_AGAIN)
 	{
-		bool bIsValid = false;
-		HostAddr->SetIp(Home,bIsValid);
-		if (Home == NULL || bIsValid == false)
+		if( !FParse::Param(FCommandLine::Get(),TEXT("PRIMARYNET")) )
 		{
-			Out.Logf( TEXT("Invalid multihome IP address %s"), Home );
+			bCanBindAll = true;
+		}
+		static bool First;
+		if( !First )
+		{
+			First = true;
+			UE_LOG(LogInit, Log, TEXT("%s: I am %s (%s)"), GetSocketAPIName(), *HostName, *HostAddr->ToString(true) );
 		}
 	}
 	else
 	{
-		// Failing to find the host is not considered an error and we just bind to any address
-		ESocketErrors FindHostResult = GetHostByName(TCHAR_TO_ANSI(*HostName), *HostAddr);
-		if (FindHostResult == SE_NO_ERROR || FindHostResult == SE_HOST_NOT_FOUND 
-			|| FindHostResult == SE_EWOULDBLOCK || FindHostResult == SE_TRY_AGAIN)
-		{
-			if( !FParse::Param(FCommandLine::Get(),TEXT("PRIMARYNET")) )
-			{
-				bCanBindAll = true;
-			}
-			static bool First;
-			if( !First )
-			{
-				First = true;
-				UE_LOG(LogInit, Log, TEXT("%s: I am %s (%s)"), GetSocketAPIName(), *HostName, *HostAddr->ToString(true) );
-			}
-		}
-		else
-		{
-			Out.Logf(TEXT("GetHostByName failed (%s)"), GetSocketError(FindHostResult));
-		}
+		Out.Logf(TEXT("GetHostByName failed (%s)"), GetSocketError(FindHostResult));
 	}
 
 	// return the newly created address
 	return HostAddr;
+}
+
+bool ISocketSubsystem::GetMultihomeAddress(TSharedRef<class FInternetAddr>& Addr)
+{
+	TCHAR Home[256] = TEXT("");
+	if (FParse::Value(FCommandLine::Get(), TEXT("MULTIHOME="), Home, ARRAY_COUNT(Home)))
+	{
+		bool bIsValid = false;
+		Addr->SetIp(Home, bIsValid);
+		if (Home == NULL || !bIsValid)
+		{
+			UE_LOG(LogSockets, Log, TEXT("Invalid multihome IP address %s"), Home);
+			return false;
+		}
+
+		return true;
+	}
+	return false;
 }
 
 bool ISocketSubsystem::GetHostByNameFromCache(const ANSICHAR* HostName, TSharedPtr<FInternetAddr>& Addr)

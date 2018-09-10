@@ -79,7 +79,7 @@ public:
 	}
 
 private:
-	//~ IStringTableEngineInterop interface
+	//~ IStringTableEngineBridge interface
 	virtual void RedirectAndLoadStringTableAssetImpl(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy) override
 	{
 		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InOutTableId);
@@ -115,6 +115,11 @@ private:
 	{
 		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InTableId);
 		return StringTableAssetReference.IsValid();
+	}
+
+	virtual bool IsStringTableAssetBeingReplacedImpl(const UStringTable* InStringTableAsset) override
+	{
+		return InStringTableAsset && InStringTableAsset->HasAnyFlags(RF_NewerVersionExists);
 	}
 
 	static FSoftObjectPath GetAssetReference(const FName InTableId)

@@ -102,6 +102,16 @@ FName FTokenizedMessage::GetSeverityIconName(EMessageSeverity::Type InSeverity)
 	return SeverityIconName;
 }
 
+FName FTokenizedMessage::GetIdentifier() const
+{
+	return Identifier;
+}
+
+void FTokenizedMessage::SetIdentifier(FName InIdentifier)
+{
+	Identifier = InIdentifier;
+}
+
 TSharedRef<FTokenizedMessage> FTokenizedMessage::AddToken( const TSharedRef<IMessageToken>& InToken )
 {
 	MessageTokens.Add( InToken );
@@ -122,17 +132,6 @@ void FTokenizedMessage::SetSeverity( const EMessageSeverity::Type InSeverity )
 EMessageSeverity::Type FTokenizedMessage::GetSeverity() const
 {
 	return Severity;
-}
-
-TSharedRef<FTokenizedMessage> FTokenizedMessage::SetMessageData( FTokenizedMiscData* InMessageData )
-{
-	MessageData = InMessageData;
-	return AsShared();
-}
-
-FTokenizedMiscData* FTokenizedMessage::GetMessageData() const
-{
-	return MessageData;
 }
 
 const TArray<TSharedRef<IMessageToken> >& FTokenizedMessage::GetMessageTokens() const
