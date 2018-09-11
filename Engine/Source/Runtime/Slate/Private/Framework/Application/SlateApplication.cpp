@@ -6062,6 +6062,12 @@ bool FSlateApplication::ProcessMouseWheelOrGestureEvent( FPointerEvent& InWheelE
 	}
 
 	SetLastUserInteractionTime(this->GetCurrentTime());
+
+	// Input preprocessors get the first chance at the input
+	if (InputPreProcessors.HandleMouseWheelOrGestureEvent(*this, InWheelEvent, InGestureEvent))
+	{
+		return true;
+	}
 	
 	// NOTE: We intentionally don't reset LastUserInteractionTimeForThrottling here so that the UI can be responsive while scrolling
 
@@ -7312,6 +7318,19 @@ bool FSlateApplication::InputPreProcessorsHelper::HandleMouseButtonUpEvent(FSlat
 	for (TSharedPtr<IInputProcessor> InputPreProcessor : InputPreProcessorList)
 	{
 		if (InputPreProcessor->HandleMouseButtonUpEvent(SlateApp, MouseEvent))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FSlateApplication::InputPreProcessorsHelper::HandleMouseWheelOrGestureEvent(FSlateApplication& SlateApp, const FPointerEvent& WheelEvent, const FPointerEvent* GestureEvent)
+{
+	for (TSharedPtr<IInputProcessor> InputPreProcessor : InputPreProcessorList)
+	{
+		if (InputPreProcessor->HandleMouseWheelOrGestureEvent(SlateApp, WheelEvent, GestureEvent))
 		{
 			return true;
 		}
