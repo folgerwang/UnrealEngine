@@ -1,276 +1,89 @@
-﻿<!DOCTYPE html>
-<html lang="en">
-<head>
-	<title>%GAME%</title>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
+﻿// javascript code used with Epic Games HTML5 projects
+//
+// much of this is for UE4 development purposes.
+//
+// to create a custom JS file for your project:
+// - make a copy of this file - or make one from scratch
+// - and put it in: "your project folder"/Build/HTML/GameX.js.template
 
-	<script>
-		// THIS IS TEMP -- to be removed when the following has been removed as well
-		// .../Engine/Source/Runtime/Engine/Private/ActiveSound.cpp
-		//     // for velocity-based effects like doppler
-		//     ParseParams.Velocity = (ParseParams.Transform.GetTranslation() - LastLocation) / DeltaTime;
-		window.AudioContext = ( window.AudioContext || window.webkitAudioContext || null );
-		if ( AudioContext ) {
-			var ue4_hacks = {}; // making this obvious...
-			ue4_hacks.ctx = new AudioContext();
-			ue4_hacks.panner = ue4_hacks.ctx.createPanner();
-			ue4_hacks.panner.__proto__.setVelocity = ( ue4_hacks.panner.__proto__.setVelocity || function(){} );
-		}
-	</script>
 
-	<script>
-		// Minimum WebGL version that the page needs in order to run. UE4 will attempt to use WebGL 2 if available.
-		// Set this to 1 to run with a WebGL 1 fallback if the graphical features required by your UE4 project are
-		// low enough that they do not strictly require WebGL 2.
-		const requiredWebGLVersion = 1;
 
-		// Add ?webgl1 GET param to explicitly test the WebGL 1 fallback version even if browser does support WebGL 2.
-		const explicitlyUseWebGL1 = (location.search.indexOf('webgl1') != -1);
 
-		// Deduce which version to load up.
-		var supportsWasm = (typeof WebAssembly === 'object' && typeof WebAssembly.Memory === 'function');
+// ================================================================================
+// ================================================================================
+// stubbing in missing/un-supported functions
 
-		// By default, Shipping builds serve out compressed assets, and Development builds serve uncompressed assets.
-		// Change the following line to customize. When hosting UE4 builds live on a production CDN, compression
-		// should always be enabled, since uncompressed files are too huge to be downloaded over the web.
-		const serveCompressedAssets = %SERVE_COMPRESSED%;
-
-		// For the large .data file, there's two ways to manage compression: either UE4 UnrealPak tool can compress it in engine, or
-		// it can be gzip compressed on disk like other assets. Compressing via UnrealPak has the advantage of storing a smaller data
-		// file to IndexedDB, whereas gzip compressing to disk has the advantage of starting up the page slightly faster.
-		// If true, serve out 'UE4Game.data.gz', if false, serve out 'UE4Game.data'.
-//		const dataFileIsGzipCompressed = false;
-
-		var Module = {
-			// state management
-			infoPrinted: false,
-			lastcurrentDownloadedSize: 0,
-			totalDependencies: 0,
-			dataBytesStoredInIndexedDB: 0, // Track how much data is currently stored in IndexedDB.
-
-			assetDownloadProgress: {}, // Track how many bytes of each needed asset has been downloaded so far.
-
-			UE4_indexedDBName: 'UE4_assetDatabase_%GAME%', // TODO Nick: this should be an ascii ID string without special characters that is unique to the project that is being packaged
-			UE4_indexedDBVersion: %TIMESTAMP%, // Bump this number to invalidate existing IDB storages in browsers.
-		};
-
-		// Tests if type === 'browser' or type === 'os' is 64-bit or not.
-		function heuristicIs64Bit(type) {
-			function contains(str, substrList) { for(var i in substrList) if (str.indexOf(substrList[i]) != -1) return true; return false; }
-			var ua = (navigator.userAgent + ' ' + navigator.oscpu + ' ' + navigator.platform).toLowerCase();
-			if (contains(ua, ['wow64'])) return type === 'os'; // 32bit browser on 64bit OS
-			if (contains(ua, ['x86_64', 'amd64', 'ia64', 'win64', 'x64', 'arm64', 'irix64', 'mips64', 'ppc64', 'sparc64'])) return true;
-			if (contains(ua, ['i386', 'i486', 'i586', 'i686', 'x86', 'arm7', 'android', 'mobile', 'win32'])) return false;
-			if (contains(ua, ['intel mac os'])) return true;
-			return false;
-		}
-
-		// For best stability on 32-bit browsers, allocate asm.js/WebAssembly heap up front before proceeding
-		// to load any other page content. This mitigates the chances that loading up page assets first would
-		// fragment the memory area of the browser process.
-		var pageSize = 64 * 1024;
-		var heuristic64BitBrowser = heuristicIs64Bit('browser');
-		function alignPageUp(size) { return pageSize * Math.ceil(size / pageSize); }
-
-		// The application should not be able to allocate more than MAX bytes of memory. If the application
-		// attempts to allocate any more, it will be forbidden. Use this field to defensively impose a
-		// strict limit to an application to keep it from going rogue with its memory usage beyond some
-		// undesired limit. The absolute maximum that is possible is one memory page short of 2GB.
-		var MAX_MEMORY_64BIT = Infinity;
-		var MAX_MEMORY_32BIT = 512*1024*1024;
-		var MAX_MEMORY = Math.min(alignPageUp(heuristic64BitBrowser ? MAX_MEMORY_64BIT : MAX_MEMORY_32BIT), 2048 * 1024 * 1024 - pageSize);
-
-		// The application needs at least this much memory to run. If the browser can't provide this,
-		// the page startup should be aborted in an out-of-memory exception.
-		var MIN_MEMORY = Math.min(alignPageUp(32 * 1024 * 1024), MAX_MEMORY);
-
-		// As a hint to the implementation, the application would prefer to reserve this much address
-		// space at startup, and the browser will attempt its best to satisfy this. If this is not
-		// possible, the browser will attempt to allocate anything as close to this IDEAL amount as
-		// possible, but at least MIN bytes.
-		var IDEAL_MEMORY_64BIT = %HEAPSIZE%;
-		var IDEAL_MEMORY_32BIT = %HEAPSIZE%;
-		var IDEAL_MEMORY = Math.min(Math.max(alignPageUp(heuristic64BitBrowser ? IDEAL_MEMORY_64BIT : IDEAL_MEMORY_32BIT), MIN_MEMORY), MAX_MEMORY);
-
-		// If true, assume the application will have most of its memory allocation pressure inside the
-		// application heap, so reserve address space there up front. If false, assume that the memory
-		// allocation pressure is outside the heap, so avoid reserving memory up front, until needed.
-		var RESERVE_MAX_64BIT = true;
-		var RESERVE_MAX_32BIT = false;
-		var RESERVE_MAX = heuristic64BitBrowser ? RESERVE_MAX_64BIT : RESERVE_MAX_32BIT;
-
-		function MB(x) { return (x/1024/1024) + 'MB'; }
-		function allocateHeap() {
-			// Try to get as much memory close to IDEAL, but at least MIN.
-			for(var mem = IDEAL_MEMORY; mem >= MIN_MEMORY; mem -= pageSize) {
-				try {
-					if (RESERVE_MAX)
-						Module['wasmMemory'] = new WebAssembly.Memory({ initial: mem / pageSize, maximum: MAX_MEMORY / pageSize });
-					else
-						Module['wasmMemory'] = new WebAssembly.Memory({ initial: mem / pageSize });
-					Module['buffer'] = Module['wasmMemory'].buffer;
-					if (Module['buffer'].byteLength != mem) throw 'Out of memory';
-					break;
-				} catch(e) { /*nop*/ }
-			}
-			if (!Module['buffer'] || !(Module['buffer'].byteLength >= MIN_MEMORY)) {
-				delete Module['buffer'];
-				throw 'Out of memory';
-			}
-			Module['TOTAL_MEMORY'] = Module['buffer'].byteLength;
-		}
-		allocateHeap();
-		Module['MAX_MEMORY'] = MAX_MEMORY;
-		console.log('Initial memory size: ' + MB(Module['TOTAL_MEMORY']) + ' (MIN_MEMORY: ' + MB(MIN_MEMORY) + ', IDEAL_MEMORY: ' + MB(IDEAL_MEMORY) + ', MAX_MEMORY: ' + MB(MAX_MEMORY) + ', RESERVE_MAX: ' + RESERVE_MAX + ', heuristic64BitBrowser: ' + heuristic64BitBrowser + ', heuristic64BitOS: ' + heuristicIs64Bit('os') + ')');
-	</script>
-	<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
-	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
-	<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-
-<style type="text/css">
-
-html, body, .container {
-	height: 100%;
-	font-family: "Helvetica Neue", "HelveticaNeue", Helvetica, Arial, sans-serif;
+// .../Engine/Source/Runtime/Engine/Private/ActiveSound.cpp
+//     // for velocity-based effects like doppler
+//     ParseParams.Velocity = (ParseParams.Transform.GetTranslation() - LastLocation) / DeltaTime;
+window.AudioContext = ( window.AudioContext || window.webkitAudioContext || null );
+if ( AudioContext ) {
+	var ue4_hacks = {}; // making this obvious...
+	ue4_hacks.ctx = new AudioContext();
+	ue4_hacks.panner = ue4_hacks.ctx.createPanner();
+	ue4_hacks.panner.__proto__.setVelocity = ( ue4_hacks.panner.__proto__.setVelocity || function(){} );
 }
 
-.h4, h4 {
-	margin-top: 1pt;
-	margin-bottom: 1pt;
-	font-size: 10pt;
+
+
+
+// ================================================================================
+// ================================================================================
+// project configuration
+
+// Minimum WebGL version that the page needs in order to run. UE4 will attempt to use WebGL 2 if available.
+// Set this to 1 to run with a WebGL 1 fallback if the graphical features required by your UE4 project are
+// low enough that they do not strictly require WebGL 2.
+const requiredWebGLVersion = 1;
+
+// Add ?webgl1 GET param to explicitly test the WebGL 1 fallback version even if browser does support WebGL 2.
+const explicitlyUseWebGL1 = (location.search.indexOf('webgl1') != -1);
+
+// "Project Settings" -> Platforms -> HTML5 -> Packaging -> "Compress files during shipping packaging"
+// When hosting UE4 builds live on a production CDN, compression should always be enabled,
+// since uncompressed files are too huge to be downloaded over the web.
+// Please view tip in "Project Setting" for more information.
+const serveCompressedAssets = %SERVE_COMPRESSED%;
+
+// "Project Settings" -> Project -> Packaging -> "Use Pak File"
+// For the large .data file, there's two ways to manage compression: either UE4 UnrealPak tool can compress it in engine, or
+// it can be gzip compressed on disk like other assets. Compressing via UnrealPak has the advantage of storing a smaller data
+// file to IndexedDB, whereas gzip compressing to disk has the advantage of starting up the page slightly faster.
+// If true, serve out 'UE4Game.data.gz', if false, serve out 'UE4Game.data'.
+//const dataFileIsGzipCompressed = false;
+
+
+
+
+// ================================================================================
+// *** HTML5 emscripten ***
+
+var Module = {
+	// state management
+	infoPrinted: false,
+	lastcurrentDownloadedSize: 0,
+	totalDependencies: 0,
+	dataBytesStoredInIndexedDB: 0, // Track how much data is currently stored in IndexedDB.
+
+	assetDownloadProgress: {}, // Track how many bytes of each needed asset has been downloaded so far.
+
+	UE4_indexedDBName: 'UE4_assetDatabase_%SHORTNAME%', // this should be an ascii ID string without special characters that is unique to the project that is being packaged
+	UE4_indexedDBVersion: %TIMESTAMP%, // Bump this number to invalidate existing IDB storages in browsers.
+};
+
+
+
+
+// ================================================================================
+// *** HTML5 UE4 ***
+
+Module.arguments = [%UE4CMDLINE%];
+
+// UE4 Editor or UE4 Frontend with assets "cook on the fly"?
+if (location.host != "" && (location.search.indexOf('cookonthefly') != -1)) {
+	Module.arguments.push("'-filehostIp=" + location.protocol + "//" + location.host + "'");
 }
 
-.container {
-	display: table;
-	vertical-align: middle;
-	border: 0px;
-	border-spacing: 0px;
-}
-
-.glyphicon-spin {
-	animation: spin 2000ms infinite linear;
-}
-
-@keyframes spin {
-	0% {
-		transform: rotate(0deg);
-	}
-	100% {
-		transform: rotate(359deg);
-	}
-}
-
-@-webkit-keyframes spin {
-	0% {
-		transform: rotate(0deg);
-	}
-	100% {
-		transform: rotate(359deg);
-	}
-}
-
-.wrapper {
-	position: relative;
-	margin: 1em auto 10px auto;
-	text-align: center;
-	min-width: 640px;
-	width: 100%;
-	height: 480px; /* initial height, will be dynamically adjusted at runtime */
-	max-width: 95%;
-	display: block;
-	align-items: center;
-	position: relative;
-	text-align: center;
-	justify-content: center;
-}
-
- .emscripten {
-	padding-right: 0;
-	margin-left: auto;
-	margin-right: auto;
-	display: block;
-	display: -webkit-box;
-	display: -moz-box;
-	display: box;
-
-	-webkit-box-align: center;
-	-moz-box-align: center;
-	box-align: center;
-
-	-webkit-box-pack: center;
-	-moz-box-pack: center;
-	box-pack: center;
-}
-
-#canvas:not([fullscreen]) {
-	padding-right: 0;
-	margin-left: auto;
-	margin-right: auto;
-	width: 100%;
-}
-
-.texthalf {
-	height: 37%;
-	border: 0px;
-	padding: 0px;
-	overflow-y: scroll;
-	font-size: 2em;
-}
-
-.buttonarea {
-	min-height: 3%;
-	border-top: 0px;
-	border-bottom: 0px;
-	padding: 0px;
-	margin-right: 0px;
-	margin-top: 0px;
-	margin-bottom: 0px;
- }
-
-.btn { padding: 0px; text-align: center; min-width: 150px }
-.progress { background: rgba(245, 245, 245, 1); border: 0px solid rgba(245, 245, 245, 1); border-radius: 0px; height: 4px; }
-.progress-bar-custom { background: rgba(153, 153, 153, 1); }
-.centered-axis-xy {
-	position: absolute;
-	left: 50%;
-	top: 50%;
-	transform: translate(-50%,-50%);
-}
-</style>
-
-<div class="wrapper" id="mainarea">
-	<div class="alert alert-warning centered-axis-xy" style="min-height: 20px; display:none;" role="alert" id="compilingmessage">
-		<div id='loadTasks'> </div>
-	</div>
-	<canvas id="canvas" class="emscripten" oncontextmenu="event.preventDefault()" style="display:none;">
-</div>
-<div class="row buttonarea text-center" id="buttonrow">
-	<div class="col-sm-2 text-center"></div>
-	<div class="col-sm-2 text-center"><button type="button" class="btn btn-primary" onclick="Module['pauseMainLoop']();">Pause</button></div>
-	<div class="col-sm-2 text-center"><button type="button" class="btn btn-primary" onclick="Module['resumeMainLoop']();">Resume</button></div>
-	<div class="col-sm-2 text-center"></div>
-	<div class="col-sm-2 text-center"><button type="button" class="btn btn-primary" id='clear_indexeddb' onclick="deleteIndexedDBStorage();">Clear IndexedDB</button></div>
-	<div class="col-sm-2 text-center"><button type="button" class="btn btn-primary" id="fullscreen_request">FullScreen</button></div>
-	<div class="col-sm-2 text-center"></div>
-	<div class="col-sm-2 text-center"></div>
-</div>
-<div class="texthalf text-normal jumbotron " id="logwindow" style='display:none'></div>
-
-<script type="text/javascript">
-
-// combine all parallel downloads into one progress bar.
-var totalDownloadSize = 0;
-var currentDownloadedSize = 0;
-
-// helper functions.
-// http://stackoverflow.com/questions/4750015/regular-expression-to-find-urls-within-a-string
-function getHTMLGetParam(name) {
-	if (name=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search))
-		return decodeURIComponent(name[1]);
-}
 
 var UE4 = {
 	on_fatal: function() {
@@ -282,7 +95,113 @@ var UE4 = {
 	},
 };
 
+
+// ----------------------------------------
+// UE4 error and logging
+
+document.addEventListener('error', function(){document.getElementById('clear_indexeddb').style.display = 'inline-block';}, false);
+
+function addLog(info, color) {
+	$("#logwindow").append("<h4><small>" + info + " </small></h4>");
+}
+Module.print = addLog;
+
+Module.printErr = function(text) {
+	console.error(text);
+};
+
+window.onerror = function(e) {
+	e = e.toString();
+	if (e.toLowerCase().indexOf('memory') != -1) {
+		e += '<br>';
+		if (!heuristic64BitBrowser) e += ' Try running in a 64-bit browser to resolve.';
+	}
+	showErrorDialog(e);
+}
+
+
+// ================================================================================
+// ================================================================================
+// emscripten memory system
+
+// Tests if type === 'browser' or type === 'os' is 64-bit or not.
+function heuristicIs64Bit(type) {
+	function contains(str, substrList) { for(var i in substrList) if (str.indexOf(substrList[i]) != -1) return true; return false; }
+	var ua = (navigator.userAgent + ' ' + navigator.oscpu + ' ' + navigator.platform).toLowerCase();
+	if (contains(ua, ['wow64'])) return type === 'os'; // 32bit browser on 64bit OS
+	if (contains(ua, ['x86_64', 'amd64', 'ia64', 'win64', 'x64', 'arm64', 'irix64', 'mips64', 'ppc64', 'sparc64'])) return true;
+	if (contains(ua, ['i386', 'i486', 'i586', 'i686', 'x86', 'arm7', 'android', 'mobile', 'win32'])) return false;
+	if (contains(ua, ['intel mac os'])) return true;
+	return false;
+}
+
+// For best stability on 32-bit browsers, allocate asm.js/WebAssembly heap up front before proceeding
+// to load any other page content. This mitigates the chances that loading up page assets first would
+// fragment the memory area of the browser process.
+var pageSize = 64 * 1024;
+var heuristic64BitBrowser = heuristicIs64Bit('browser');
+function alignPageUp(size) { return pageSize * Math.ceil(size / pageSize); }
+
+// The application should not be able to allocate more than MAX bytes of memory. If the application
+// attempts to allocate any more, it will be forbidden. Use this field to defensively impose a
+// strict limit to an application to keep it from going rogue with its memory usage beyond some
+// undesired limit. The absolute maximum that is possible is one memory page short of 2GB.
+var MAX_MEMORY_64BIT = Infinity;
+var MAX_MEMORY_32BIT = 512*1024*1024;
+var MAX_MEMORY = Math.min(alignPageUp(heuristic64BitBrowser ? MAX_MEMORY_64BIT : MAX_MEMORY_32BIT), 2048 * 1024 * 1024 - pageSize);
+
+// The application needs at least this much memory to run. If the browser can't provide this,
+// the page startup should be aborted in an out-of-memory exception.
+var MIN_MEMORY = Math.min(alignPageUp(32 * 1024 * 1024), MAX_MEMORY);
+
+// As a hint to the implementation, the application would prefer to reserve this much address
+// space at startup, and the browser will attempt its best to satisfy this. If this is not
+// possible, the browser will attempt to allocate anything as close to this IDEAL amount as
+// possible, but at least MIN bytes.
+var IDEAL_MEMORY_64BIT = %HEAPSIZE%;
+var IDEAL_MEMORY_32BIT = %HEAPSIZE%;
+var IDEAL_MEMORY = Math.min(Math.max(alignPageUp(heuristic64BitBrowser ? IDEAL_MEMORY_64BIT : IDEAL_MEMORY_32BIT), MIN_MEMORY), MAX_MEMORY);
+
+// If true, assume the application will have most of its memory allocation pressure inside the
+// application heap, so reserve address space there up front. If false, assume that the memory
+// allocation pressure is outside the heap, so avoid reserving memory up front, until needed.
+var RESERVE_MAX_64BIT = true;
+var RESERVE_MAX_32BIT = false;
+var RESERVE_MAX = heuristic64BitBrowser ? RESERVE_MAX_64BIT : RESERVE_MAX_32BIT;
+
+function MB(x) { return (x/1024/1024) + 'MB'; }
+function allocateHeap() {
+	// Try to get as much memory close to IDEAL, but at least MIN.
+	for(var mem = IDEAL_MEMORY; mem >= MIN_MEMORY; mem -= pageSize) {
+		try {
+			if (RESERVE_MAX)
+				Module['wasmMemory'] = new WebAssembly.Memory({ initial: mem / pageSize, maximum: MAX_MEMORY / pageSize });
+			else
+				Module['wasmMemory'] = new WebAssembly.Memory({ initial: mem / pageSize });
+			Module['buffer'] = Module['wasmMemory'].buffer;
+			if (Module['buffer'].byteLength != mem) throw 'Out of memory';
+			break;
+		} catch(e) { /*nop*/ }
+	}
+	if (!Module['buffer'] || !(Module['buffer'].byteLength >= MIN_MEMORY)) {
+		delete Module['buffer'];
+		throw 'Out of memory';
+	}
+	Module['TOTAL_MEMORY'] = Module['buffer'].byteLength;
+}
+allocateHeap();
+Module['MAX_MEMORY'] = MAX_MEMORY;
+console.log('Initial memory size: ' + MB(Module['TOTAL_MEMORY']) + ' (MIN_MEMORY: ' + MB(MIN_MEMORY) + ', IDEAL_MEMORY: ' + MB(IDEAL_MEMORY) + ', MAX_MEMORY: ' + MB(MAX_MEMORY) + ', RESERVE_MAX: ' + RESERVE_MAX + ', heuristic64BitBrowser: ' + heuristic64BitBrowser + ', heuristic64BitOS: ' + heuristicIs64Bit('os') + ')');
+
+
+
+
+// ================================================================================
+// WebGL
+
 Module['preinitializedWebGLContext'] = null;
+
+Module['canvas'] = document.getElementById('canvas');
 
 function getGpuInfo() {
 	var gl = Module['preinitializedWebGLContext'];
@@ -340,7 +259,10 @@ function detectWebGL() {
 	return 0;
 }
 
-Module['canvas'] = document.getElementById('canvas');
+
+// ----------------------------------------
+// ----------------------------------------
+// canvas - scaling
 
 // Canvas scaling mode should be set to one of: 1=STRETCH, 2=ASPECT, or 3=FIXED.
 // This dictates how the canvas size changes when the browser window is resized
@@ -361,53 +283,6 @@ var canvasWindowedUseHighDpi = true;
 var canvasAspectRatioWidth = 1366;
 var canvasAspectRatioHeight = 768;
 
-// Fullscreen scaling mode behavior (export these to Module object for the engine to read)
-// This value is one of:
-// 0=NONE: The same canvas size is kept when entering fullscreen without change.
-// 1=STRETCH: The canvas is resized to the size of the whole screen, potentially changing aspect ratio.
-// 2=ASPECT: The canvas is resized to the size of the whole screen, but retaining current aspect ratio.
-// 3=FIXED: The canvas is centered on screen with a fixed resolution.
-Module['UE4_fullscreenScaleMode'] = 1;//canvasWindowedScaleMode; // BUG: if using FIXED, fullscreen gets some strange padding on margin...
-
-// When entering fullscreen mode, should UE4 engine resize the canvas?
-// 0=No resizing (do it manually in resizeCanvas()), 1=Resize to standard DPI, 2=Resize to highDPI
-Module['UE4_fullscreenCanvasResizeMode'] = canvasWindowedUseHighDpi ? 2/*HIDPI*/ : 1/*Standard DPI*/;
-
-// Specifies how canvas is scaled to fullscreen, if not rendering in 1:1 pixel perfect mode.
-// One of 0=Default, 1=Nearest, 2=Bilinear
-Module['UE4_fullscreenFilteringMode'] = 0;
-
-document.addEventListener('error', function(){document.getElementById('clear_indexeddb').style.display = 'inline-block';}, false);
-
-// Startup task which is run after UE4 engine has launched.
-function postRunEmscripten() {
-	taskFinished(TASK_MAIN);
-	$("#compilingmessage").remove();
-
-	// The default Emscripten provided canvas resizing behavior is not needed,
-	// since we are controlling the canvas sizes here, so stub those functions out.
-	Browser.updateCanvasDimensions = function() {};
-	Browser.setCanvasSize = function() {};
-
-	// If you'd like to configure the initial canvas size to render using the resolution
-	// defined in UE4 DefaultEngine.ini [SystemSettings] r.setRes=WidthxHeight,
-	// uncomment the following two lines before calling resizeCanvas() below:
-
-	// canvasAspectRatioWidth = UE_JSlib.UE_GSystemResolution_ResX();
-	// canvasAspectRatioHeight = UE_JSlib.UE_GSystemResolution_ResY();
-
-	// Configure the size of the canvas and display it.
-	resizeCanvas();
-	Module['canvas'].style.display = 'block';
-
-	// Whenever the browser window size changes, relayout the canvas size on the page.
-	window.addEventListener('resize', resizeCanvas, false);
-	window.addEventListener('orientationchange', resizeCanvas, false);
-
-	// The following is needed if game is within an iframe - main window already has focus...
-	window.focus();
-}
-Module.postRun = [postRunEmscripten];
 
 // The resizeCanvas() function recomputes the canvas size on the page as the user changes
 // the browser window size.
@@ -480,153 +355,48 @@ function resizeCanvas(aboutToEnterFullscreen) {
 }
 Module['UE4_resizeCanvas'] = resizeCanvas;
 
-Module.arguments = [%UE4CMDLINE%];
 
-// we are serving via a server and it is unreal file server?
-if (location.host != "" && getHTMLGetParam("cookonthefly") == "true") {
-	Module.arguments.push("'-filehostIp=" + location.protocol + "//" + location.host + "'");
-}
+// ----------------------------------------
+// ----------------------------------------
+// canvas - fullscreen
 
-function addLog(info, color) {
-	$("#logwindow").append("<h4><small>" + info + " </small></h4>");
-}
-Module.print = addLog;
+// Fullscreen scaling mode behavior (export these to Module object for the engine to read)
+// This value is one of:
+// 0=NONE: The same canvas size is kept when entering fullscreen without change.
+// 1=STRETCH: The canvas is resized to the size of the whole screen, potentially changing aspect ratio.
+// 2=ASPECT: The canvas is resized to the size of the whole screen, but retaining current aspect ratio.
+// 3=FIXED: The canvas is centered on screen with a fixed resolution.
+Module['UE4_fullscreenScaleMode'] = 1;//canvasWindowedScaleMode; // BUG: if using FIXED, fullscreen gets some strange padding on margin...
 
-Module.printErr = function(text) {
-	console.error(text);
-};
+// When entering fullscreen mode, should UE4 engine resize the canvas?
+// 0=No resizing (do it manually in resizeCanvas()), 1=Resize to standard DPI, 2=Resize to highDPI
+Module['UE4_fullscreenCanvasResizeMode'] = canvasWindowedUseHighDpi ? 2/*HIDPI*/ : 1/*Standard DPI*/;
 
-// Module.locateFile() routes asset downloads to either gzip compressed or uncompressed assets.
-Module.locateFile = function(name) {
-	var serveGzipped = serveCompressedAssets;
-	// When serving from file:// URLs, don't read .gz compressed files, because these files can't be transparently uncompressed.
-	var isFileProtocol = name.indexOf('file://') != -1 || location.protocol.indexOf('file') != -1;
-	if (isFileProtocol) {
-		if (!Module['shownFileProtocolWarning']) {
-			showWarningRibbon('Attempting to load the page via the "file://" protocol. This only works in Firefox, and even there only when not using compression, so attempting to load uncompressed assets. Please host the page on a web server and visit it via a "http://" URL.');
-			Module['shownFileProtocolWarning'] = true;
-		}
-		serveGzipped = false;
-	}
+// Specifies how canvas is scaled to fullscreen, if not rendering in 1:1 pixel perfect mode.
+// One of 0=Default, 1=Nearest, 2=Bilinear
+Module['UE4_fullscreenFilteringMode'] = 0;
 
-	// uncompressing very large gzip files may slow down startup times.
-//	if (!dataFileIsGzipCompressed && name.split('.').slice(-1)[0] == 'data') serveGzipped = false;
 
-	return serveGzipped ? (name + 'gz') : name;
-};
 
-Module.getPreloadedPackage = function(remotePackageName, remotePackageSize) {
-	return Module['preloadedPackages'] ? Module['preloadedPackages'][remotePackageName] : null;
-}
 
-// Asynchronously appends the given script code to DOM. This is to ensure that
-// browsers parse and compile the JS code parallel to all other execution.
-function addScriptToDom(scriptCode) {
-	return new Promise(function(resolve, reject) {
-		var script = document.createElement('script');
-		var blob = (scriptCode instanceof Blob) ? scriptCode : new Blob([scriptCode], { type: 'text/javascript' });
-		var objectUrl = URL.createObjectURL(blob);
-		script.src = objectUrl;
-		script.onload = function() {
-			script.onload = script.onerror = null; // Remove these onload and onerror handlers, because these capture the inputs to the Promise and the input function, which would leak a lot of memory!
-			URL.revokeObjectURL(objectUrl); // Free up the blob. Note that for debugging purposes, this can be useful to comment out to be able to read the sources in debugger.
-			resolve();
-		}
-		script.onerror = function(e) {
-			script.onload = script.onerror = null; // Remove these onload and onerror handlers, because these capture the inputs to the Promise and the input function, which would leak a lot of memory!
-			URL.revokeObjectURL(objectUrl);
-			console.error('script failed to add to dom: ' + e);
-			console.error(scriptCode);
-			console.error(e);
-			// The onerror event sends a DOM Level 3 event error object, which does not seem to have any kind of human readable error reason (https://developer.mozilla.org/en-US/docs/Web/Events/error)
-			// There is another error event object at https://developer.mozilla.org/en-US/docs/Web/API/ErrorEvent, which would have an error reason. Perhaps that error event might sometimes be fired,
-			// but if not, guess that the error reason was an OOM, since we are dealing with large .js files.
-			reject(e.message || "(out of memory?)");
-		}
-		document.body.appendChild(script);
-	});
-}
+// ================================================================================
+// ================================================================================
+// IndexDB
 
-var TASK_DOWNLOADING = 0;
-var TASK_COMPILING = 1;
-var TASK_SHADERS = 2;
-var TASK_MAIN = 3;
-var loadTasks = [ 'Downloading', 'Compiling WebAssembly', 'Building shaders', 'Launching engine'];
+// NOTE: in a future release of UE4 - this whole section WILL GO AWAY (i.e. handled internally)
 
-function taskProgress(taskId, progress) {
-	var c = document.getElementById('compilingmessage');
-	if (c) c.style.display = 'block';
-	else return;
-	var l = document.getElementById('load_' + taskId);
-	if (!l) {
-		var tasks = document.getElementById('loadTasks');
-		if (!tasks) return;
-		l = document.createElement('div');
-		l.innerHTML = '<span id="icon_' + taskId + '" class="glyphicon glyphicon-refresh glyphicon-spin"></span>  <span id="load_' + taskId + '"></span>';
-		tasks.appendChild(l);
-		l = document.getElementById('load_' + taskId);
-	}
-	if (!l.startTime) l.startTime = performance.now();
-	var text = loadTasks[taskId];
-	if (progress && progress.total) {
-		text += ': ' + (progress.currentShow || progress.current) + '/' + (progress.totalShow || progress.total) + ' (' + (progress.current * 100 / progress.total).toFixed(0) + '%)';
-	} else {
-		text += '...';
-	}
-	l.innerHTML = text;
-}
 
-function showErrorDialog(errorText) {
-	if ( errorText.indexOf('SyntaxError: ') != -1 ) { // this may be due to caching issue -- otherwise, compile time would have caught this
-		errorText = "NOTE: attempting to flush cache and force reload...<br>Please standby...";
-		setTimeout(function() {
-			location.reload(true);
-		}, 2000); // 2 seconds
-	}
-	console.error('error: ' + errorText);
-	var existingErrorDialog = document.getElementById('errorDialog');
-	if (existingErrorDialog) {
-		existingErrorDialog.innerHTML += '<br>' + errorText;
-	} else {
-		$('#mainarea').empty();
-		$('#mainarea').append('<div class="alert alert-danger centered-axis-xy" style ="min-height: 10pt" role="alert" id="errorDialog">' + errorText + '</div></div>');
-	}
-}
+var enableReadFromIndexedDB = (location.search.indexOf('noidbread') == -1);
+var enableWriteToIndexedDB = enableReadFromIndexedDB && (location.search.indexOf('noidbwrite') == -1);
+%DISABLE_INDEXEDDB%
 
-function showWarningRibbon(warningText) {
-	var existingWarningDialog = document.getElementById('warningDialog');
-	if (existingWarningDialog) {
-		existingWarningDialog.innerHTML += '<br>' + warningText;
-	} else {
-		$('#buttonrow').prepend('<div class="alert alert-warning centered-axis-x" role="warning" id="warningDialog" style="padding-top:5px; padding-bottom: 5px">' + warningText + '</div></div>');
-	}
-}
+if (!enableReadFromIndexedDB) showWarningRibbon('Running with IndexedDB access disabled.');
+else if (!enableWriteToIndexedDB) showWarningRibbon('Running in read-only IndexedDB access mode.');
 
-function taskFinished(taskId, error) {
-	var l = document.getElementById('load_' + taskId);
-	var icon = document.getElementById('icon_' + taskId);
-	if (l && icon) {
-		var totalTime = performance.now() - l.startTime;
-		if (!error) {
-			l.innerHTML = loadTasks[taskId] + ' (' + (totalTime/1000).toFixed(2) + 's)';
-			icon.className = 'glyphicon glyphicon-ok';
-		}
-		else {
-			l.innerHTML = loadTasks[taskId] + ': FAILED! ' + error;
-			icon.className = 'glyphicon glyphicon-remove';
 
-			showErrorDialog(loadTasks[taskId] + ' failed: <br> ' + error);
-		}
-	}
-}
-
-window.onerror = function(e) {
-	e = e.toString();
-	if (e.toLowerCase().indexOf('memory') != -1) {
-		e += '<br>';
-		if (!heuristic64BitBrowser) e += ' Try running in a 64-bit browser to resolve.';
-	}
-	showErrorDialog(e);
+function getIDBRequestErrorString(req) {
+	try { return req.error ? ('IndexedDB ' + req.error.name + ': ' + req.error.message) : req.result;
+	} catch(ex) { return null; }
 }
 
 function formatBytes(bytes) {
@@ -640,104 +410,6 @@ function reportDataBytesStoredInIndexedDB(deltaBytes) {
 	if (deltaBytes === null) Module['dataBytesStoredInIndexedDB'] = 0; // call with deltaBytes == null to report that DB was cleared.
 	else Module['dataBytesStoredInIndexedDB'] += deltaBytes;
 	document.getElementById('clear_indexeddb').innerText = 'Clear IndexedDB (' + formatBytes(Module['dataBytesStoredInIndexedDB']) + ')';
-}
-
-function reportDownloadProgress(url, downloadedBytes, totalBytes, finished) {
-	Module['assetDownloadProgress'][url] = {
-		current: downloadedBytes,
-		total: totalBytes,
-		finished: finished
-	};
-	var aggregated = {
-		current: 0,
-		total: 0,
-		finished: true
-	};
-	for(var i in Module['assetDownloadProgress']) {
-		aggregated.current += Module['assetDownloadProgress'][i].current;
-		aggregated.total += Module['assetDownloadProgress'][i].total;
-		aggregated.finished = aggregated.finished && Module['assetDownloadProgress'][i].finished;
-	}
-
-	aggregated.currentShow = formatBytes(aggregated.current);
-	aggregated.totalShow = formatBytes(aggregated.total);
-
-	if (aggregated.finished) taskFinished(TASK_DOWNLOADING);
-	else taskProgress(TASK_DOWNLOADING, aggregated);
-}
-
-function download(url, responseType) {
-	return new Promise(function(resolve, reject) {
-		var xhr = new XMLHttpRequest();
-		xhr.open('GET', url, true);
-		xhr.responseType = responseType || 'blob';
-		reportDownloadProgress(url, 0, 1);
-		xhr.onload = function() {
-			if (xhr.status == 0 || (xhr.status >= 200 && xhr.status < 300)) {
-				var len = xhr.response.size || xhr.response.byteLength;
-				reportDownloadProgress(url, len, len, true);
-				resolve(xhr.response);
-			} else {
-				taskFinished(TASK_DOWNLOADING, 'HTTP error ' + (xhr.status || 404) + ' ' + xhr.statusText + ' on file ' + url);
-				reject({
-					status: xhr.status,
-					statusText: xhr.statusText
-				});
-			}
-		};
-		xhr.onprogress = function(p) {
-			if (p.lengthComputable) reportDownloadProgress(url, p.loaded, p.total);
-		};
-		xhr.onerror = function(e) {
-			var isFileProtocol = url.indexOf('file://') == 0 || location.protocol.indexOf('file') != -1;
-			if (isFileProtocol) taskFinished(TASK_DOWNLOADING, 'HTTP error ' + (xhr.status || 404) + ' ' + xhr.statusText + ' on file ' + url +'<br>Try using a web server to avoid loading via a "file://" URL.'); // Convert the most common source of errors to a more friendly message format.
-			else taskFinished(TASK_DOWNLOADING, 'HTTP error ' + (xhr.status || 404) + ' ' + xhr.statusText + ' on file ' + url);
-			reject({
-				status: xhr.status || 404,
-				statusText: xhr.statusText
-			});
-		};
-		xhr.onreadystatechange = function() {
-			if (xhr.readyState >= xhr.HEADERS_RECEIVED) {
-				if (url.endsWith('gz') && (xhr.status == 0 || xhr.status == 200)) {
-					if (xhr.getResponseHeader('Content-Encoding') != 'gzip') {
-						// A fallback is to set serveCompressedAssets = false to serve uncompressed assets instead, but that is not really recommended for production use, since gzip compression shrinks
-						// download sizes so dramatically that omitting it for production is not a good idea.
-						taskFinished(TASK_DOWNLOADING, 'Downloaded a compressed file ' + url + ' without the necessary HTTP response header "Content-Encoding: gzip" specified!<br>Please configure gzip compression on this asset on the web server to serve gzipped assets!');
-						xhr.onload = xhr.onprogress = xhr.onerror = xhr.onreadystatechange = null; // Abandon tracking events from this XHR further.
-						xhr.abort();
-						return reject({
-							status: 406,
-							statusText: 'Not Acceptable'
-						});
-					}
-
-					// After enabling Content-Encoding: gzip, make sure that the appropriate MIME type is being used for the asset, i.e. the MIME
-					// type should be that of the uncompressed asset, and not the MIME type of the compression method that was used.
-					if (xhr.getResponseHeader('Content-Type').toLowerCase().indexOf('zip') != -1) {
-						function expectedMimeType(url) {
-							if (url.indexOf('.wasm') != -1) return 'application/wasm';
-							if (url.indexOf('.js') != -1) return 'application/javascript';
-							return 'application/octet-stream';
-						}
-						taskFinished(TASK_DOWNLOADING, 'Downloaded a compressed file ' + url + ' with incorrect HTTP response header "Content-Type: ' + xhr.getResponseHeader('Content-Type') + '"!<br>Please set the MIME type of the asset to "' + expectedMimeType(url) + '".');
-						xhr.onload = xhr.onprogress = xhr.onerror = xhr.onreadystatechange = null; // Abandon tracking events from this XHR further.
-						xhr.abort();
-						return reject({
-							status: 406,
-							statusText: 'Not Acceptable'
-						});
-					}
-				}
-			}
-		}
-		xhr.send(null);
-	});
-}
-
-function getIDBRequestErrorString(req) {
-	try { return req.error ? ('IndexedDB ' + req.error.name + ': ' + req.error.message) : req.result;
-	} catch(ex) { return null; }
 }
 
 function deleteIndexedDBStorage(dbName, onsuccess, onerror, onblocked) {
@@ -759,13 +431,6 @@ function deleteIndexedDBStorage(dbName, onsuccess, onerror, onblocked) {
 		if (onblocked) onblocked(errorString);
 	}
 }
-
-var enableReadFromIndexedDB = (location.search.indexOf('noidbread') == -1);
-var enableWriteToIndexedDB = enableReadFromIndexedDB && (location.search.indexOf('noidbwrite') == -1);
-%DISABLE_INDEXEDDB%
-
-if (!enableReadFromIndexedDB) showWarningRibbon('Running with IndexedDB access disabled.');
-else if (!enableWriteToIndexedDB) showWarningRibbon('Running in read-only IndexedDB access mode.');
 
 function storeToIndexedDB(db, key, value) {
 	return new Promise(function(resolve, reject) {
@@ -882,6 +547,39 @@ function openIndexedDB(dbName, dbVersion) {
 	});
 }
 
+// Module.locateFile() routes asset downloads to either gzip compressed or uncompressed assets.
+Module.locateFile = function(name) {
+	var serveGzipped = serveCompressedAssets;
+	// When serving from file:// URLs, don't read .gz compressed files, because these files can't be transparently uncompressed.
+	var isFileProtocol = name.indexOf('file://') != -1 || location.protocol.indexOf('file') != -1;
+	if (isFileProtocol) {
+		if (!Module['shownFileProtocolWarning']) {
+			showWarningRibbon('Attempting to load the page via the "file://" protocol. This only works in Firefox, and even there only when not using compression, so attempting to load uncompressed assets. Please host the page on a web server and visit it via a "http://" URL.');
+			Module['shownFileProtocolWarning'] = true;
+		}
+		serveGzipped = false;
+	}
+
+	// uncompressing very large gzip files may slow down startup times.
+//	if (!dataFileIsGzipCompressed && name.split('.').slice(-1)[0] == 'data') serveGzipped = false;
+
+	return serveGzipped ? (name + 'gz') : name;
+};
+
+// see site/source/docs/api_reference/module.rst for details
+Module.getPreloadedPackage = function(remotePackageName, remotePackageSize) {
+	return Module['preloadedPackages'] ? Module['preloadedPackages'][remotePackageName] : null;
+}
+
+
+
+
+// ================================================================================
+// COMPILER
+
+// ----------------------------------------
+// wasm
+
 Module['instantiateWasm'] = function(info, receiveInstance) {
 	Module['wasmDownloadAction'].then(function(downloadResults) {
 		taskProgress(TASK_COMPILING);
@@ -908,15 +606,9 @@ Module['instantiateWasm'] = function(info, receiveInstance) {
 	return {};
 }
 
-// Given a blob, asynchronously reads the byte contents of that blob to an arraybuffer and returns it as a Promise.
-function readBlobToArrayBuffer(blob) {
-	return new Promise(function(resolve, reject) {
-		var fileReader = new FileReader();
-		fileReader.onload = function() { resolve(this.result); }
-		fileReader.onerror = function(e) { reject(e); }
-		fileReader.readAsArrayBuffer(blob);
-	});
-}
+
+// ----------------------------------------
+// shaders
 
 function compileShadersFromJson(jsonData) {
 	var shaderPrograms = [];
@@ -1049,16 +741,280 @@ function compileShadersFromJson(jsonData) {
 	return promise;
 }
 
+
+
+
+// ================================================================================
+// download project files and progress handlers
+
+var TASK_DOWNLOADING = 0;
+var TASK_COMPILING = 1;
+var TASK_SHADERS = 2;
+var TASK_MAIN = 3;
+var loadTasks = [ 'Downloading', 'Compiling WebAssembly', 'Building shaders', 'Launching engine'];
+
+function taskProgress(taskId, progress) {
+	var c = document.getElementById('compilingmessage');
+	if (c) c.style.display = 'block';
+	else return;
+	var l = document.getElementById('load_' + taskId);
+	if (!l) {
+		var tasks = document.getElementById('loadTasks');
+		if (!tasks) return;
+		l = document.createElement('div');
+		l.innerHTML = '<span id="icon_' + taskId + '" class="glyphicon glyphicon-refresh glyphicon-spin"></span>  <span id="load_' + taskId + '"></span>';
+		tasks.appendChild(l);
+		l = document.getElementById('load_' + taskId);
+	}
+	if (!l.startTime) l.startTime = performance.now();
+	var text = loadTasks[taskId];
+	if (progress && progress.total) {
+		text += ': ' + (progress.currentShow || progress.current) + '/' + (progress.totalShow || progress.total) + ' (' + (progress.current * 100 / progress.total).toFixed(0) + '%)';
+	} else {
+		text += '...';
+	}
+	l.innerHTML = text;
+}
+
+function taskFinished(taskId, error) {
+	var l = document.getElementById('load_' + taskId);
+	var icon = document.getElementById('icon_' + taskId);
+	if (l && icon) {
+		var totalTime = performance.now() - l.startTime;
+		if (!error) {
+			l.innerHTML = loadTasks[taskId] + ' (' + (totalTime/1000).toFixed(2) + 's)';
+			icon.className = 'glyphicon glyphicon-ok';
+		}
+		else {
+			l.innerHTML = loadTasks[taskId] + ': FAILED! ' + error;
+			icon.className = 'glyphicon glyphicon-remove';
+
+			showErrorDialog(loadTasks[taskId] + ' failed: <br> ' + error);
+		}
+	}
+}
+
+function reportDownloadProgress(url, downloadedBytes, totalBytes, finished) {
+	Module['assetDownloadProgress'][url] = {
+		current: downloadedBytes,
+		total: totalBytes,
+		finished: finished
+	};
+	var aggregated = {
+		current: 0,
+		total: 0,
+		finished: true
+	};
+	for(var i in Module['assetDownloadProgress']) {
+		aggregated.current += Module['assetDownloadProgress'][i].current;
+		aggregated.total += Module['assetDownloadProgress'][i].total;
+		aggregated.finished = aggregated.finished && Module['assetDownloadProgress'][i].finished;
+	}
+
+	aggregated.currentShow = formatBytes(aggregated.current);
+	aggregated.totalShow = formatBytes(aggregated.total);
+
+	if (aggregated.finished) taskFinished(TASK_DOWNLOADING);
+	else taskProgress(TASK_DOWNLOADING, aggregated);
+}
+
+function download(url, responseType) {
+	return new Promise(function(resolve, reject) {
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', url, true);
+		xhr.responseType = responseType || 'blob';
+		reportDownloadProgress(url, 0, 1);
+		xhr.onload = function() {
+			if (xhr.status == 0 || (xhr.status >= 200 && xhr.status < 300)) {
+				var len = xhr.response.size || xhr.response.byteLength;
+				reportDownloadProgress(url, len, len, true);
+				resolve(xhr.response);
+			} else {
+				taskFinished(TASK_DOWNLOADING, 'HTTP error ' + (xhr.status || 404) + ' ' + xhr.statusText + ' on file ' + url);
+				reject({
+					status: xhr.status,
+					statusText: xhr.statusText
+				});
+			}
+		};
+		xhr.onprogress = function(p) {
+			if (p.lengthComputable) reportDownloadProgress(url, p.loaded, p.total);
+		};
+		xhr.onerror = function(e) {
+			var isFileProtocol = url.indexOf('file://') == 0 || location.protocol.indexOf('file') != -1;
+			if (isFileProtocol) taskFinished(TASK_DOWNLOADING, 'HTTP error ' + (xhr.status || 404) + ' ' + xhr.statusText + ' on file ' + url +'<br>Try using a web server to avoid loading via a "file://" URL.'); // Convert the most common source of errors to a more friendly message format.
+			else taskFinished(TASK_DOWNLOADING, 'HTTP error ' + (xhr.status || 404) + ' ' + xhr.statusText + ' on file ' + url);
+			reject({
+				status: xhr.status || 404,
+				statusText: xhr.statusText
+			});
+		};
+		xhr.onreadystatechange = function() {
+			if (xhr.readyState >= xhr.HEADERS_RECEIVED) {
+				if (url.endsWith('gz') && (xhr.status == 0 || xhr.status == 200)) {
+					if (xhr.getResponseHeader('Content-Encoding') != 'gzip') {
+						// A fallback is to set serveCompressedAssets = false to serve uncompressed assets instead, but that is not really recommended for production use, since gzip compression shrinks
+						// download sizes so dramatically that omitting it for production is not a good idea.
+						taskFinished(TASK_DOWNLOADING, 'Downloaded a compressed file ' + url + ' without the necessary HTTP response header "Content-Encoding: gzip" specified!<br>Please configure gzip compression on this asset on the web server to serve gzipped assets!');
+						xhr.onload = xhr.onprogress = xhr.onerror = xhr.onreadystatechange = null; // Abandon tracking events from this XHR further.
+						xhr.abort();
+						return reject({
+							status: 406,
+							statusText: 'Not Acceptable'
+						});
+					}
+
+					// After enabling Content-Encoding: gzip, make sure that the appropriate MIME type is being used for the asset, i.e. the MIME
+					// type should be that of the uncompressed asset, and not the MIME type of the compression method that was used.
+					if (xhr.getResponseHeader('Content-Type').toLowerCase().indexOf('zip') != -1) {
+						function expectedMimeType(url) {
+							if (url.indexOf('.wasm') != -1) return 'application/wasm';
+							if (url.indexOf('.js') != -1) return 'application/javascript';
+							return 'application/octet-stream';
+						}
+						taskFinished(TASK_DOWNLOADING, 'Downloaded a compressed file ' + url + ' with incorrect HTTP response header "Content-Type: ' + xhr.getResponseHeader('Content-Type') + '"!<br>Please set the MIME type of the asset to "' + expectedMimeType(url) + '".');
+						xhr.onload = xhr.onprogress = xhr.onerror = xhr.onreadystatechange = null; // Abandon tracking events from this XHR further.
+						xhr.abort();
+						return reject({
+							status: 406,
+							statusText: 'Not Acceptable'
+						});
+					}
+				}
+			}
+		}
+		xhr.send(null);
+	});
+}
+
+
+
+
+// ================================================================================
+// ================================================================================
+// UE4 DEFAULT UX TEMPLATE
+
+function showErrorDialog(errorText) {
+	if ( errorText.indexOf('SyntaxError: ') != -1 ) { // this may be due to caching issue -- otherwise, compile time would have caught this
+		errorText = "NOTE: attempting to flush cache and force reload...<br>Please standby...";
+		setTimeout(function() {
+			location.reload(true);
+		}, 2000); // 2 seconds
+	}
+	console.error('error: ' + errorText);
+	var existingErrorDialog = document.getElementById('errorDialog');
+	if (existingErrorDialog) {
+		existingErrorDialog.innerHTML += '<br>' + errorText;
+	} else {
+		$('#mainarea').empty();
+		$('#mainarea').append('<div class="alert alert-danger centered-axis-xy" style ="min-height: 10pt" role="alert" id="errorDialog">' + errorText + '</div></div>');
+	}
+}
+
+function showWarningRibbon(warningText) {
+	var existingWarningDialog = document.getElementById('warningDialog');
+	if (existingWarningDialog) {
+		existingWarningDialog.innerHTML += '<br>' + warningText;
+	} else {
+		$('#buttonrow').prepend('<div class="alert alert-warning centered-axis-x" role="warning" id="warningDialog" style="padding-top:5px; padding-bottom: 5px">' + warningText + '</div></div>');
+	}
+}
+
+// Given a blob, asynchronously reads the byte contents of that blob to an arraybuffer and returns it as a Promise.
+function readBlobToArrayBuffer(blob) {
+	return new Promise(function(resolve, reject) {
+		var fileReader = new FileReader();
+		fileReader.onload = function() { resolve(this.result); }
+		fileReader.onerror = function(e) { reject(e); }
+		fileReader.readAsArrayBuffer(blob);
+	});
+}
+
+// Asynchronously appends the given script code to DOM. This is to ensure that
+// browsers parse and compile the JS code parallel to all other execution.
+function addScriptToDom(scriptCode) {
+	return new Promise(function(resolve, reject) {
+		var script = document.createElement('script');
+		var blob = (scriptCode instanceof Blob) ? scriptCode : new Blob([scriptCode], { type: 'text/javascript' });
+		var objectUrl = URL.createObjectURL(blob);
+		script.src = objectUrl;
+		script.onload = function() {
+			script.onload = script.onerror = null; // Remove these onload and onerror handlers, because these capture the inputs to the Promise and the input function, which would leak a lot of memory!
+			URL.revokeObjectURL(objectUrl); // Free up the blob. Note that for debugging purposes, this can be useful to comment out to be able to read the sources in debugger.
+			resolve();
+		}
+		script.onerror = function(e) {
+			script.onload = script.onerror = null; // Remove these onload and onerror handlers, because these capture the inputs to the Promise and the input function, which would leak a lot of memory!
+			URL.revokeObjectURL(objectUrl);
+			console.error('script failed to add to dom: ' + e);
+			console.error(scriptCode);
+			console.error(e);
+			// The onerror event sends a DOM Level 3 event error object, which does not seem to have any kind of human readable error reason (https://developer.mozilla.org/en-US/docs/Web/Events/error)
+			// There is another error event object at https://developer.mozilla.org/en-US/docs/Web/API/ErrorEvent, which would have an error reason. Perhaps that error event might sometimes be fired,
+			// but if not, guess that the error reason was an OOM, since we are dealing with large .js files.
+			reject(e.message || "(out of memory?)");
+		}
+		document.body.appendChild(script);
+	});
+}
+
+
+// ----------------------------------------
+// ----------------------------------------
+// Startup task which is run after UE4 engine has launched.
+
+function postRunEmscripten() {
+	taskFinished(TASK_MAIN);
+	$("#compilingmessage").remove();
+
+	// The default Emscripten provided canvas resizing behavior is not needed,
+	// since we are controlling the canvas sizes here, so stub those functions out.
+	Browser.updateCanvasDimensions = function() {};
+	Browser.setCanvasSize = function() {};
+
+	// If you'd like to configure the initial canvas size to render using the resolution
+	// defined in UE4 DefaultEngine.ini [SystemSettings] r.setRes=WidthxHeight,
+	// uncomment the following two lines before calling resizeCanvas() below:
+
+//	canvasAspectRatioWidth  = UE_JSlib.UE_GSystemResolution_ResX();
+//	canvasAspectRatioHeight = UE_JSlib.UE_GSystemResolution_ResY();
+
+	// Configure the size of the canvas and display it.
+	resizeCanvas();
+	Module['canvas'].style.display = 'block';
+
+	// Whenever the browser window size changes, relayout the canvas size on the page.
+	window.addEventListener('resize', resizeCanvas, false);
+	window.addEventListener('orientationchange', resizeCanvas, false);
+
+	// The following is needed if game is within an iframe - main window already has focus...
+	window.focus();
+}
+Module.postRun = [postRunEmscripten];
+
+
+// ----------------------------------------
+// ----------------------------------------
+// MAIN
+
 $(document).ready(function() {
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// Deduce which version to load up.
+	var supportsWasm = (typeof WebAssembly === 'object' && typeof WebAssembly.Memory === 'function');
 	if (!supportsWasm) {
 		showErrorDialog('Your browser does not support WebAssembly. Please try updating to latest 64-bit browser that supports WebAssembly.<br>Current user agent: ' + navigator.userAgent);
 		return;
 	}
 
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// memory heap
 	if (!Module['buffer'] && allocateHeapUpFront) {
 		showErrorDialog('Failed to allocate ' + MB(MIN_MEMORY) + ' of linear memory for the ' + 'WebAssembly' + ' heap!');
 		return;
 	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// check for webgl and cache it for later (UE_BrowserWebGLVersion() reads this)
 	Module['WEBGL_VERSION'] = detectWebGL();
 	console.log(getGpuInfo());
@@ -1077,14 +1033,6 @@ $(document).ready(function() {
 			showWarningRibbon('Your GPU does not support WebGL 2. This affects graphics performance and quality. Please try updating your graphics driver and/or browser to latest version.<br>Error reason: ' + (Module['webGLErrorReason'] || 'Unknown') + '<br>Current renderer: ' + getGpuInfo());
 		} else {
 			showWarningRibbon('The current browser does not support WebGL 2. This affects graphics performance and quality.<br>Please try updating your browser (and/or video drivers).  NOTE: old hardware might have been blacklisted by this browser -- you may need to use a different browser.<br>Error reason: ' + (Module['webGLErrorReason'] || 'Unknown') + '<br>Current renderer: ' + getGpuInfo());
-		}
-	}
-
-	if (!heuristicIs64Bit('browser')) {
-		if (heuristicIs64Bit('os')) {
-			showWarningRibbon('It looks like you are running a 32-bit browser on a 64-bit operating system. This can dramatically affect performance and risk running out of memory on large applications. Try updating to a 64-bit browser for an optimized experience.');
-		} else {
-			showWarningRibbon('It looks like your computer hardware is 32-bit. This can dramatically affect performance.');
 		}
 	}
 
@@ -1133,9 +1081,23 @@ $(document).ready(function() {
 		showWarningRibbon('Your browser or graphics card does not support the WebGL extension ' + unsupportedWebGLExtensions[0] + '. This can impact UE4 graphics performance and quality.');
 	}
 
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// browser 64bit vs 32bit check
+	if (!heuristicIs64Bit('browser')) {
+		if (heuristicIs64Bit('os')) {
+			showWarningRibbon('It looks like you are running a 32-bit browser on a 64-bit operating system. This can dramatically affect performance and risk running out of memory on large applications. Try updating to a 64-bit browser for an optimized experience.');
+		} else {
+			showWarningRibbon('It looks like your computer hardware is 32-bit. This can dramatically affect performance.');
+		}
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// files to download/cache
 	function withIndexedDB(db) {
 		Module['dbInstance'] = db;
 
+		// ----------------------------------------
+		// WASM
 		var mainCompiledCode = fetchFromIndexedDB(db, 'wasmModule').then(function(wasmModule) {
 			return { db: db, wasmModule: wasmModule, fromIndexedDB: true };
 		}).catch(function() {
@@ -1143,7 +1105,7 @@ $(document).ready(function() {
 				return { db: db, wasmBytes: wasmBytes, fromIndexedDB: true };
 			});
 		}).catch(function() {
-			return download(Module.locateFile('%CONFIG%.wasm'), 'arraybuffer').then(function(wasmBytes) {
+			return download(Module.locateFile('%UE4GAMENAME%.wasm'), 'arraybuffer').then(function(wasmBytes) {
 				return { db: db, wasmBytes: wasmBytes, fromIndexedDB: false };
 			});
 		});
@@ -1153,33 +1115,38 @@ $(document).ready(function() {
 			Module['wasmInstantiateActionReject'] = reject;
 		});
 
-		var mainJsDownload = fetchOrDownloadAndStore(db, Module.locateFile('%CONFIG%.js')).then(function(data) {
+		// ----------------------------------------
+		// MAIN JS
+		var mainJsDownload = fetchOrDownloadAndStore(db, Module.locateFile('%UE4GAMENAME%.js')).then(function(data) {
 				return addScriptToDom(data).then(function() {
 					addRunDependency('wait-for-compiled-code');
 				});
 			});
 
-		var dataJsDownload = fetchOrDownloadAndStore(db, Module.locateFile('%GAME%.data.js'));
+		// ----------------------------------------
+		// MORE JS
+		var dataJsDownload = fetchOrDownloadAndStore(db, Module.locateFile('%PROJECTNAME%.data.js'));
 		var utilityJsDownload = fetchOrDownloadAndStore(db, Module.locateFile('Utility.js')).then(addScriptToDom);
-		var dataDownload = 
+		var dataDownload =
 /* // The following code would download and store the .data file as a Blob, which should be more efficient than loading an ArrayBuffer. However that seems to be buggy, so avoid it for now.
-			fetchOrDownloadAndStore(db, Module.locateFile('%GAME%.data')).then(function(dataBlob) {
+			fetchOrDownloadAndStore(db, Module.locateFile('%PROJECTNAME%.data')).then(function(dataBlob) {
 				return readBlobToArrayBuffer(dataBlob).then(function(dataArrayBuffer) {
 					Module['preloadedPackages'] = {};
-					Module['preloadedPackages'][Module.locateFile('%GAME%.data')] = dataArrayBuffer;
+					Module['preloadedPackages'][Module.locateFile('%PROJECTNAME%.data')] = dataArrayBuffer;
 					return dataJsDownload.then(addScriptToDom);
 				})
 			});
 */
 // Instead as a fallback, download as ArrayBuffer. (TODO: Figure out the bugs with the above, and switch to using that one instead)
-			fetchOrDownloadAndStore(db, Module.locateFile('%GAME%.data'), 'arraybuffer').then(function(dataArrayBuffer) {
+			fetchOrDownloadAndStore(db, Module.locateFile('%PROJECTNAME%.data'), 'arraybuffer').then(function(dataArrayBuffer) {
 				Module['preloadedPackages'] = {};
-				Module['preloadedPackages'][Module.locateFile('%GAME%.data')] = dataArrayBuffer;
+				Module['preloadedPackages'][Module.locateFile('%PROJECTNAME%.data')] = dataArrayBuffer;
 				return dataJsDownload.then(addScriptToDom);
 			});
 
+		// ----------------------------------------
+		// SHADERS
 		const precompileShaders = false; // Currently not enabled.
-
 		if (precompileShaders) {
 			var compileShaders = fetchOrDownloadAndStore(db, Module.locateFile('shaders.json'), 'arraybuffer')
 			.then(function(json) {
@@ -1193,6 +1160,8 @@ $(document).ready(function() {
 			var compileShaders = true; // Not precompiling shaders, no-op Promise action.
 		}
 
+		// ----------------------------------------
+		// WAIT FOR DOWNLOADS AND COMPILES
 		Promise.all([mainCompiledCode, mainJsDownload, dataJsDownload, utilityJsDownload, dataDownload, compiledCodeInstantiateAction, compileShaders]).then(function() {
 			if (!precompileShaders) {
 				Module['precompiledShaders'] = Module['precompiledPrograms'] = Module['preinitializedWebGLContext'] = Module['glIDCounter'] = Module['precompiledUniforms'] = null;
@@ -1202,6 +1171,8 @@ $(document).ready(function() {
 		});
 	};
 
+	// ----------------------------------------
+	// GO !
 	openIndexedDB(Module['UE4_indexedDBName'], Module['UE4_indexedDBVersion'] || 1).then(withIndexedDB).catch(function(e) {
 		console.error('Failed to openIndexedDB, proceeding without reading or storing contents to IndexedDB! Error: ');
 		console.error(e);
@@ -1209,6 +1180,3 @@ $(document).ready(function() {
 	});
 });
 
-</script>
-</body>
-</html>

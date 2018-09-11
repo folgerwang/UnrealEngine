@@ -168,6 +168,20 @@ class WebViewControl
 		});
 	}
 
+	boolean PendingSetVisibility;
+	public void SetVisibility(boolean InIsVisible)
+	{
+		PendingSetVisibility = InIsVisible;
+		GameActivity._activity.runOnUiThread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				webView.setVisibility(PendingSetVisibility? View.VISIBLE: View.GONE);
+			}
+		});
+	}
+	
 	public boolean didResolutionChange()
 	{
 		if (null != mOESTextureRenderer)
@@ -326,7 +340,37 @@ class WebViewControl
 						else
 						if(NextURL != null)
 						{
-							if(!NextURL.contains("://") && !NextURL.startsWith("about:"))
+
+							int colPos = NextURL.indexOf(':');
+
+							boolean bNeedsPrefix = colPos < 0;;
+
+							if(!bNeedsPrefix  && !NextURL.equalsIgnoreCase("about:blank"))
+							{
+								try
+								{
+									String UrlAddress = NextURL.substring(colPos + 1);
+
+									//check if the address contains only numbers
+									bNeedsPrefix = UrlAddress.matches("[0-9]+"); // it's a port number, and URLs like "google.com:80" also need the "http://" prefix
+
+									//try to correct malformed protocols, like "http:www.google.com"
+									if(!bNeedsPrefix)
+									{
+										String UrlProtocol = NextURL.substring(0, colPos);
+																			
+										if((NextURL.equalsIgnoreCase("http") || NextURL.equalsIgnoreCase("https")) && !UrlAddress.startsWith("/"))
+										{
+											NextURL = UrlProtocol + "://" + UrlAddress;
+										}
+									}
+
+								}
+								catch(IndexOutOfBoundsException e)
+								{}
+							}
+
+							if(bNeedsPrefix)
 							{
 								//default scheme is http://
 								NextURL = "http://" + NextURL;

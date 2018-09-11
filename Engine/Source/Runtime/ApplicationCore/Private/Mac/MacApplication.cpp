@@ -1965,11 +1965,41 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 
 		FMonitorInfo Info;
 		Info.ID = FString::Printf(TEXT("%u"), DisplayID);
-		Info.NativeWidth = CGDisplayPixelsWide(DisplayID);
-		Info.NativeHeight = CGDisplayPixelsHigh(DisplayID);
+
+		CFArrayRef ArrDisplay = CGDisplayCopyAllDisplayModes(DisplayID, nullptr);
+
+		Info.NativeWidth = 0;
+		Info.NativeHeight = 0;
+		const CFIndex AppsCount = CFArrayGetCount(ArrDisplay);
+		for (CFIndex i = 0; i < AppsCount; ++i)
+		{
+			const CGDisplayModeRef Mode = (const CGDisplayModeRef)CFArrayGetValueAtIndex(ArrDisplay, i);
+			const int32 Width = (int32)CGDisplayModeGetWidth(Mode);
+			const int32 Height = (int32)CGDisplayModeGetHeight(Mode);
+
+			if (Width * Height > Info.NativeWidth * Info.NativeHeight)
+			{
+				Info.NativeWidth = Width;
+				Info.NativeHeight = Height;
+			}
+		}
+
+		if (!Info.NativeWidth || !Info.NativeHeight)
+		{
+			Info.NativeWidth = CGDisplayPixelsWide(DisplayID);
+			Info.NativeHeight = CGDisplayPixelsHigh(DisplayID);
+		}
+
 		Info.DisplayRect = FPlatformRect(Screen->FramePixels.origin.x, Screen->FramePixels.origin.y, Screen->FramePixels.origin.x + Screen->FramePixels.size.width, Screen->FramePixels.origin.y + Screen->FramePixels.size.height);
 		Info.WorkArea = FPlatformRect(Screen->VisibleFramePixels.origin.x, Screen->VisibleFramePixels.origin.y, Screen->VisibleFramePixels.origin.x + Screen->VisibleFramePixels.size.width, Screen->VisibleFramePixels.origin.y + Screen->VisibleFramePixels.size.height);
 		Info.bIsPrimary = Screen->Screen == [NSScreen mainScreen];
+
+		// dpi computations
+		const CGSize DisplayPhysicalSize = CGDisplayScreenSize(DisplayID);
+		const float MilimetreInch = 25.4f;
+		float HorizontalDPI = MilimetreInch * (float)Info.NativeWidth / (float)DisplayPhysicalSize.width;
+		float VerticalDPI = MilimetreInch * (float)Info.NativeHeight / (float)DisplayPhysicalSize.height;
+		Info.DPI = FMath::CeilToInt((HorizontalDPI + VerticalDPI) / 2.0f);
 
 		// Monitor's name can only be obtained from IOKit
 		io_iterator_t IOIterator;

@@ -274,7 +274,7 @@ namespace UnrealBuildTool
 			Result += " -s BINARYEN=1 -s ALLOW_MEMORY_GROWTH=1";
 //			Result += " -s BINARYEN_METHOD=\\'native-wasm\\'";
 //			Result += " -s BINARYEN_MEM_MAX=-1";
-//			Result += " -s BINARYEN_TRAP_MODE=\\'clamp\\'";
+			Result += " -s BINARYEN_TRAP_MODE=\\'clamp\\'";
 
 			// no need for exceptions
 			Result += " -s DISABLE_EXCEPTION_CATCHING=1";

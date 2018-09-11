@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
+
 #include "PIEPreviewDeviceSpecification.generated.h"
 
 UENUM()
@@ -17,27 +18,27 @@ enum class EPIEPreviewDeviceType : uint8
 };
 
 UCLASS()
-class PIEPREVIEWDEVICEPROFILESELECTOR_API UPIEPreviewDeviceSpecification : public UObject
+class PIEPREVIEWDEVICESPECIFICATION_API UPIEPreviewDeviceSpecification : public UObject
 {
 	GENERATED_UCLASS_BODY()
 public:
 	UPROPERTY()
-	EPIEPreviewDeviceType PreviewDeviceType;
+		EPIEPreviewDeviceType PreviewDeviceType;
 
 	UPROPERTY()
-	FString GPUFamily;
+		FString GPUFamily;
 	UPROPERTY()
-	FString GLVersion;
+		FString GLVersion;
 	UPROPERTY()
-	FString VulkanVersion;
+		FString VulkanVersion;
 	UPROPERTY()
-	FString AndroidVersion;
+		FString AndroidVersion;
 	UPROPERTY()
-	FString DeviceMake;
+		FString DeviceMake;
 	UPROPERTY()
-	FString DeviceModel;
+		FString DeviceModel;
 	UPROPERTY()
-	bool UsingHoudini;
+		bool UsingHoudini;
 };
 
 USTRUCT()
@@ -106,6 +107,9 @@ public:
 	FString DeviceModel;
 
 	UPROPERTY()
+	float NativeScaleFactor = 0.0f;
+
+	UPROPERTY()
 	FPIERHIOverrideState GLES2RHIState;
 
 	UPROPERTY()
@@ -119,14 +123,25 @@ public:
 	GENERATED_USTRUCT_BODY()
 	
 	UPROPERTY()
-	int32 X;
+	int32 X = 0;
 	UPROPERTY()
-	int32 Y;
+	int32 Y = 0;
 	UPROPERTY()
-	int32 Width;
+	int32 Width = 0;
 	UPROPERTY()
-	int32 Height;
+	int32 Height = 0;
 }; 
+
+USTRUCT()
+struct FPIEBezelProperties
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString DeviceBezelFile;
+	UPROPERTY()
+	FPIEPreviewDeviceBezelViewportRect BezelViewportRect;
+};
 
 USTRUCT()
 struct FPIEPreviewDeviceSpecifications
@@ -141,13 +156,19 @@ struct FPIEPreviewDeviceSpecifications
 	int32 ResolutionY;
 	UPROPERTY()
 	int32 ResolutionYImmersiveMode;
+
+	UPROPERTY()
+	int32 PPI;
+
+	UPROPERTY()
+	TArray<float> ScaleFactors;
 	
+	UPROPERTY()
+	FPIEBezelProperties BezelProperties;
+
 	UPROPERTY()
 	FPIEAndroidDeviceProperties AndroidProperties;
 
 	UPROPERTY()
 	FPIEIOSDeviceProperties IOSProperties;
-
-	UPROPERTY()
-	FPIEPreviewDeviceBezelViewportRect BezelViewportRect;
 };

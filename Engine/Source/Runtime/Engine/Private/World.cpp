@@ -6894,25 +6894,6 @@ void UWorld::ChangeFeatureLevel(ERHIFeatureLevel::Type InFeatureLevel, bool bSho
 			FGlobalComponentReregisterContext RecreateComponents;
 			FlushRenderingCommands();
 
-			// Decrement refcount on old feature level
-			UMaterialInterface::SetGlobalRequiredFeatureLevel(InFeatureLevel, true);
-
-            SlowTask.EnterProgressFrame(10.0f);
-            UMaterial::AllMaterialsCacheResourceShadersForRendering();
-            SlowTask.EnterProgressFrame(10.0f);
-            UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
-            SlowTask.EnterProgressFrame(10.0f);
-            CompileGlobalShaderMap(InFeatureLevel);
-            SlowTask.EnterProgressFrame(10.0f);
-            GShaderCompilingManager->ProcessAsyncResults(false, true);
-
-			SlowTask.EnterProgressFrame(10.0f);
-			//invalidate global bound shader states so they will be created with the new shaders the next time they are set (in SetGlobalBoundShaderState)
-			for (TLinkedList<FGlobalBoundShaderStateResource*>::TIterator It(FGlobalBoundShaderStateResource::GetGlobalBoundShaderStateList()); It; It.Next())
-			{
-				BeginUpdateResourceRHI(*It);
-			}
-
 			FeatureLevel = InFeatureLevel;
 
 			SlowTask.EnterProgressFrame(10.0f);

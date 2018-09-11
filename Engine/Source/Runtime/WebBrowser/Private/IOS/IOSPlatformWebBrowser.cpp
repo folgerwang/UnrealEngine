@@ -6,11 +6,16 @@
 #include "IOS/IOSView.h"
 #include "IOS/IOSAppDelegate.h"
 #include "Widgets/SLeafWidget.h"
+#include "MobileJS/MobileJSScripting.h"
+#include "PlatformHttp.h"
 
 #import <UIKit/UIKit.h>
 #import <MetalKit/MetalKit.h>
 #include <OpenGLES/ES2/glext.h>
 #include "ExternalTexture.h"
+#include "WebBrowserModule.h"
+#include "IWebBrowserSingleton.h"
+
 
 class SIOSWebBrowserWidget : public SLeafWidget
 {
@@ -60,11 +65,13 @@ class SIOSWebBrowserWidget : public SLeafWidget
 		}
 
 		// create wrapper material
-		UMaterial* Material = LoadObject<UMaterial>(nullptr, TEXT("/WebBrowserWidget/WebTexture_M"), nullptr, LOAD_None, nullptr);
-		if (Material)
+		IWebBrowserSingleton* WebBrowserSingleton = IWebBrowserModule::Get().GetSingleton();
+
+		UMaterialInterface* DefaultWBMaterial = Args._UseTransparency ? WebBrowserSingleton->GetDefaultTranslucentMaterial() : WebBrowserSingleton->GetDefaultMaterial();
+		if (WebBrowserSingleton && DefaultWBMaterial)
 		{
 			// create wrapper material
-			WebBrowserMaterial = UMaterialInstanceDynamic::Create(Material, nullptr);
+			WebBrowserMaterial = UMaterialInstanceDynamic::Create(DefaultWBMaterial, nullptr);
 
 			if (WebBrowserMaterial)
 			{
@@ -87,13 +94,17 @@ class SIOSWebBrowserWidget : public SLeafWidget
 	{
 		if (WebViewWrapper != nil)
 		{
-			if (WebBrowserWindowPtr.IsValid() && WebBrowserWindowPtr.Pin()->GetParentWindow().IsValid())
+			if (WebBrowserWindowPtr.IsValid())
 			{
-				bool ShouldSet3DBrowser = WebBrowserWindowPtr.Pin()->GetParentWindow().Get()->IsVirtualWindow();
-				if (IsIOS3DBrowser != ShouldSet3DBrowser)
+				WebBrowserWindowPtr.Pin()->SetTickLastFrame();
+				if (WebBrowserWindowPtr.Pin()->GetParentWindow().IsValid())
 				{
-					IsIOS3DBrowser = ShouldSet3DBrowser;
-					[WebViewWrapper set3D : IsIOS3DBrowser];
+					bool ShouldSet3DBrowser = WebBrowserWindowPtr.Pin()->GetParentWindow().Get()->IsVirtualWindow();
+					if (IsIOS3DBrowser != ShouldSet3DBrowser)
+					{
+						IsIOS3DBrowser = ShouldSet3DBrowser;
+						[WebViewWrapper set3D : IsIOS3DBrowser];
+					}
 				}
 			}
 
@@ -188,7 +199,9 @@ class SIOSWebBrowserWidget : public SLeafWidget
 	int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 	{
 #if !PLATFORM_TVOS
-		if (IsIOS3DBrowser && WebBrowserBrush.IsValid())
+		bool bIsVisible = !WebBrowserWindowPtr.IsValid() || WebBrowserWindowPtr.Pin()->IsVisible();
+		
+		if (bIsVisible && IsIOS3DBrowser && WebBrowserBrush.IsValid())
 		{
 			FSlateDrawElement::MakeBox(OutDrawElements, LayerId, AllottedGeometry.ToPaintGeometry(), WebBrowserBrush.Get(), ESlateDrawEffect::None);
 		}
@@ -216,29 +229,20 @@ class SIOSWebBrowserWidget : public SLeafWidget
 			[WebViewWrapper loadstring : [NSString stringWithUTF8String : TCHAR_TO_UTF8(*InContents)] dummyurl : [NSURL URLWithString : [NSString stringWithUTF8String : TCHAR_TO_UTF8(*InDummyURL)]]];
 		}
 	}
-
-	bool OnBeforeBrowse(const FString& Url, const FWebNavigationRequest& RequestDetails)
-	{
-		bool Retval = false;
-		if (WebBrowserWindowPtr.IsValid())
-		{
-			TSharedPtr<FWebBrowserWindow> BrowserWindow = WebBrowserWindowPtr.Pin();
-			if (BrowserWindow.IsValid())
-			{
-				if (BrowserWindow->OnBeforeBrowse().IsBound())
-				{
-					Retval = BrowserWindow->OnBeforeBrowse().Execute(Url, RequestDetails);
-				}
-			}
-		}
-		return Retval;
-	}
-
-	void ExecuteJavascript(const FString& Script)
+	
+	void StopLoad()
 	{
 		if (WebViewWrapper != nil)
 		{
-			[WebViewWrapper executejavascript : [NSString stringWithUTF8String : TCHAR_TO_UTF8(*Script)]];
+			[WebViewWrapper stopLoading];
+		}
+	}
+
+	void Reload()
+	{
+		if (WebViewWrapper != nil)
+		{
+			[WebViewWrapper reload];
 		}
 	}
 
@@ -251,6 +255,146 @@ class SIOSWebBrowserWidget : public SLeafWidget
 		}
 		WebBrowserWindowPtr.Reset();
 	}
+
+	void GoBack()
+	{
+		if (WebViewWrapper != nil)
+		{
+			[WebViewWrapper goBack];
+		}
+	}
+
+	void GoForward()
+	{
+		if (WebViewWrapper != nil)
+		{
+			[WebViewWrapper goForward];
+		}
+	}
+
+
+	bool CanGoBack()
+	{
+		if (WebViewWrapper != nil)
+		{
+			return [WebViewWrapper canGoBack];
+		}
+		return false;
+	}
+
+	bool CanGoForward()
+	{
+		if (WebViewWrapper != nil)
+		{
+			return [WebViewWrapper canGoForward];
+		}
+		return false;
+	}
+
+	void SetWebBrowserVisibility(bool InIsVisible)
+	{
+		if (WebViewWrapper != nil)
+		{
+			UE_LOG(LogIOS, Warning, TEXT("SetWebBrowserVisibility %d!"), InIsVisible);
+
+			[WebViewWrapper setVisibility : InIsVisible];
+		}
+	}
+
+	bool HandleShouldOverrideUrlLoading(const FString& Url)
+	{
+		bool Retval = false;
+		if (WebBrowserWindowPtr.IsValid())
+		{
+			TSharedPtr<FWebBrowserWindow> BrowserWindow = WebBrowserWindowPtr.Pin();
+			if (BrowserWindow.IsValid())
+			{
+				if (BrowserWindow->OnBeforeBrowse().IsBound())
+				{
+					FWebNavigationRequest RequestDetails;
+					RequestDetails.bIsRedirect = false;
+					RequestDetails.bIsMainFrame = true; // shouldOverrideUrlLoading is only called on the main frame
+
+					Retval = BrowserWindow->OnBeforeBrowse().Execute(Url, RequestDetails);
+					BrowserWindow->SetTitle("");
+				}
+			}
+		}
+		return Retval;
+	}
+
+	void HandleReceivedTitle(const FString& Title)
+	{
+		if (WebBrowserWindowPtr.IsValid())
+		{
+			TSharedPtr<FWebBrowserWindow> BrowserWindow = WebBrowserWindowPtr.Pin();
+			if (BrowserWindow.IsValid() && !BrowserWindow->GetTitle().Equals(Title))
+			{
+				BrowserWindow->SetTitle(Title);
+			}
+		}
+	}
+
+	void ProcessScriptMessage(const FString& Message)
+	{
+		if (WebBrowserWindowPtr.IsValid())
+		{
+			TSharedPtr<FWebBrowserWindow> BrowserWindow = WebBrowserWindowPtr.Pin();
+			if (BrowserWindow.IsValid())
+			{
+				TArray<FString> Params;
+				Message.ParseIntoArray(Params, TEXT("/"), false);
+				if (Params.Num() > 0)
+				{
+					for (int I = 0; I < Params.Num(); I++)
+					{
+						Params[I] = FPlatformHttp::UrlDecode(Params[I]);
+					}
+
+					FString Command = Params[0];
+					Params.RemoveAt(0, 1);
+					BrowserWindow->OnJsMessageReceived(Command, Params, "");
+				}
+				else
+				{
+					GLog->Logf(ELogVerbosity::Error, TEXT("Invalid message from browser view: %s"), *Message);
+				}
+			}
+		}
+	}
+
+	void HandlePageLoad(const FString& InCurrentUrl, bool bIsLoading)
+	{
+		if (WebBrowserWindowPtr.IsValid())
+		{
+			TSharedPtr<FWebBrowserWindow> BrowserWindow = WebBrowserWindowPtr.Pin();
+			if (BrowserWindow.IsValid())
+			{
+				BrowserWindow->NotifyDocumentLoadingStateChange(InCurrentUrl, bIsLoading);
+			}
+		}
+	}
+
+	void HandleReceivedError(int ErrorCode, const FString& InCurrentUrl)
+	{
+		if (WebBrowserWindowPtr.IsValid())
+		{
+			TSharedPtr<FWebBrowserWindow> BrowserWindow = WebBrowserWindowPtr.Pin();
+			if (BrowserWindow.IsValid())
+			{
+				BrowserWindow->NotifyDocumentError(InCurrentUrl, ErrorCode);
+			}
+		}
+	}
+
+	void ExecuteJavascript(const FString& Script)
+	{
+		if (WebViewWrapper != nil)
+		{
+			[WebViewWrapper executejavascript : [NSString stringWithUTF8String : TCHAR_TO_UTF8(*Script)]];
+		}
+	}
+
 
 	~SIOSWebBrowserWidget()
 	{
@@ -312,8 +456,11 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 		[self.WebViewContainer setOpaque : NO];
 		[self.WebViewContainer setBackgroundColor : [UIColor clearColor]];
 
+		WKWebViewConfiguration *theConfiguration = [[WKWebViewConfiguration alloc] init];
+		NSString* MessageHandlerName = [NSString stringWithFString : FMobileJSScripting::JSMessageHandler];
+		[theConfiguration.userContentController addScriptMessageHandler:self name: MessageHandlerName];
 
-		WebView = [[WKWebView alloc]initWithFrame:CGRectMake(1, 1, 100, 100)];
+		WebView = [[WKWebView alloc]initWithFrame:CGRectMake(1, 1, 100, 100)  configuration : theConfiguration];
 		[self.WebViewContainer addSubview : WebView];
 		WebView.navigationDelegate = self;
 		WebView.UIDelegate = self;
@@ -330,7 +477,7 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 			[self.WebView setOpaque : YES];
 		}
 
-		[self setWebViewVisible];
+		[self setDefaultVisibility];
 	});
 #endif
 }
@@ -388,11 +535,33 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 #endif
 }
 
+-(NSString *)UrlDecode:(NSString *)stringToDecode
+{
+	NSString *result = [stringToDecode stringByReplacingOccurrencesOfString : @"+" withString:@" "];
+	result = [result stringByRemovingPercentEncoding];
+	return result;
+}
+
+-(void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage : (WKScriptMessage *)message
+{
+	if ([message.body isKindOfClass : [NSString class]])
+	{
+		NSString *Message = message.body;
+		if (Message != nil)
+		{
+			//NSLog(@"Received message %@", Message);
+			WebBrowserWidget->ProcessScriptMessage(Message);
+		}
+
+	}
+}
+
 -(void)executejavascript:(NSString*)InJavaScript
 {
 #if !PLATFORM_TVOS
 	dispatch_async(dispatch_get_main_queue(), ^
 	{
+	//	NSLog(@"executejavascript %@", InJavaScript);
 		[self.WebView evaluateJavaScript : InJavaScript completionHandler : nil];
 	});
 #endif
@@ -423,22 +592,96 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 		{
 			//default is 2D
 			IsIOS3DBrowser = InIsIOS3DBrowser;
-			[self setWebViewVisible];
+			[self setDefaultVisibility];
 		}
 	});
 }
 
--(void)setWebViewVisible;
+-(void)setDefaultVisibility;
 {
 #if !PLATFORM_TVOS
-	if (IsIOS3DBrowser)
+	dispatch_async(dispatch_get_main_queue(), ^
 	{
-		[self.WebViewContainer setHidden : YES];
-	}
-	else
+		if (IsIOS3DBrowser)
+		{
+			[self.WebViewContainer setHidden : YES];
+		}
+		else
+		{
+			[self.WebViewContainer setHidden : NO];
+		}
+	});
+#endif
+}
+
+-(void)setVisibility:(bool)InIsVisible;
+{
+#if !PLATFORM_TVOS
+	dispatch_async(dispatch_get_main_queue(), ^
 	{
-		[self.WebViewContainer setHidden : NO];
-	}
+		if (InIsVisible)
+		{
+			[self setDefaultVisibility];
+		}
+		else
+		{
+			[self.WebViewContainer setHidden : YES];
+		}
+	});
+#endif
+}
+
+-(void)stopLoading;
+{
+#if !PLATFORM_TVOS
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+		[self.WebView stopLoading];
+	});
+#endif
+}
+
+-(void)reload;
+{
+#if !PLATFORM_TVOS
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+		[self.WebView reload];
+	});
+#endif
+}
+
+-(void)goBack;
+{
+#if !PLATFORM_TVOS
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+		[self.WebView goBack];
+	});
+#endif
+}
+
+-(void)goForward;
+{
+#if !PLATFORM_TVOS
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+		[self.WebView goForward];
+	});
+#endif
+}
+
+-(bool)canGoBack;
+{
+#if !PLATFORM_TVOS
+	return [self.WebView canGoBack];
+#endif
+}
+
+-(bool)canGoForward;
+{
+#if !PLATFORM_TVOS
+	return [self.WebView canGoForward];
 #endif
 }
 
@@ -528,38 +771,72 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 }
 
 #if !PLATFORM_TVOS
-- (BOOL)webView:(UIWebView*)InWebView
-shouldStartLoadWithRequest : (NSURLRequest*)InRequest
-	navigationType : (UIWebViewNavigationType)InNavigationType;
+- (void)webView:(WKWebView*)InWebView decidePolicyForNavigationAction : (WKNavigationAction*)InNavigationAction decisionHandler : (void(^)(WKNavigationActionPolicy))InDecisionHandler
 {
-	FString UrlStr([[InRequest URL]absoluteString]);
+	NSURLRequest *request = InNavigationAction.request;
+	FString UrlStr([[request URL]absoluteString]);
 
 	// Notify on the game thread
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
-		FWebNavigationRequest RequestDetails;
-		//@todo sz - not sure how to detect redirects here .. InNavigationType == UIWebViewNavigationTypeOther?
-		RequestDetails.bIsRedirect = true;
-		RequestDetails.bIsMainFrame = true;
-		WebBrowserWidget->OnBeforeBrowse(UrlStr, RequestDetails);
+		WebBrowserWidget->HandleShouldOverrideUrlLoading(UrlStr);
 		return true;
 	}];
 
-	return YES;
+	InDecisionHandler(WKNavigationActionPolicyAllow);
 }
 
--(void)webView:(UIWebView*)InWebView didFailLoadWithError : (NSError*)InError;
+-(void)webView:(WKWebView *)InWebView didCommitNavigation : (WKNavigation *)InNavigation
 {
+	NSString* CurrentUrl = [self.WebView URL].absoluteString;
+	NSString* Title = [self.WebView title];
+	
+//	NSLog(@"didCommitNavigation: %@", CurrentUrl);
+	WebBrowserWidget->HandleReceivedTitle(Title);
+	WebBrowserWidget->HandlePageLoad(CurrentUrl, true);
+}
 
+-(void)webView:(WKWebView *)InWebView didFinishNavigation : (WKNavigation *)InNavigation
+{
+	NSString* CurrentUrl = [self.WebView URL].absoluteString;
+	NSString* Title = [self.WebView title];
+	// NSLog(@"didFinishNavigation: %@", CurrentUrl);
+	WebBrowserWidget->HandleReceivedTitle(Title);
+	WebBrowserWidget->HandlePageLoad(CurrentUrl, false);
+}
+-(void)webView:(WKWebView *)InWebView didFailNavigation : (WKNavigation *)InNavigation withError : (NSError*)InError
+{
+	if (InError.domain == NSURLErrorDomain && InError.code == NSURLErrorCancelled)
+	{
+		//ignore this one, interrupted load
+		return;
+	}
+	NSString* CurrentUrl = [InError.userInfo objectForKey : @"NSErrorFailingURLStringKey"];
+//	NSLog(@"didFailNavigation: %@, error %@", CurrentUrl, InError);
+	WebBrowserWidget->HandleReceivedError(InError.code, CurrentUrl);
 }
 #endif
 @end
 
-FWebBrowserWindow::FWebBrowserWindow(FString InUrl, TOptional<FString> InContentsToLoad, bool InShowErrorMessage, bool InThumbMouseButtonNavigation, bool InUseTransparency)
+namespace {
+	static const FString JSGetSourceCommand = TEXT("GetSource");
+	static const FString JSMessageGetSourceScript =
+		TEXT("	window.webkit.messageHandlers.") + FMobileJSScripting::JSMessageHandler + TEXT(".postMessage('")+ JSGetSourceCommand +
+		TEXT("/' + encodeURIComponent(document.documentElement.innerHTML));");
+
+}
+
+FWebBrowserWindow::FWebBrowserWindow(FString InUrl, TOptional<FString> InContentsToLoad, bool InShowErrorMessage, bool InThumbMouseButtonNavigation, bool InUseTransparency, bool bInJSBindingToLoweringEnabled)
 	: CurrentUrl(MoveTemp(InUrl))
 	, ContentsToLoad(MoveTemp(InContentsToLoad))
 	, bUseTransparency(InUseTransparency)
+	, DocumentState(EWebBrowserDocumentState::NoDocument)
+	, ErrorCode(0)
+	, Scripting(new FMobileJSScripting(bInJSBindingToLoweringEnabled))
 	, IOSWindowSize(FIntPoint(500, 500))
+	, bIsDisabled(false)
+	, bIsVisible(true)
+	, bTickedLastFrame(true)
 {
 }
 
@@ -622,17 +899,17 @@ bool FWebBrowserWindow::IsClosing() const
 
 EWebBrowserDocumentState FWebBrowserWindow::GetDocumentLoadingState() const
 {
-	return EWebBrowserDocumentState::Loading;
+	return DocumentState;
 }
 
 FString FWebBrowserWindow::GetTitle() const
 {
-	return "";
+	return Title;
 }
 
 FString FWebBrowserWindow::GetUrl() const
 {
-	return "";
+	return CurrentUrl;
 }
 
 bool FWebBrowserWindow::OnKeyDown(const FKeyEvent& InKeyEvent)
@@ -699,49 +976,105 @@ void FWebBrowserWindow::OnCaptureLost()
 
 bool FWebBrowserWindow::CanGoBack() const
 {
-	return false;
+	return BrowserWidget->CanGoBack();
 }
 
 void FWebBrowserWindow::GoBack()
 {
+	BrowserWidget->GoBack();
 }
 
 bool FWebBrowserWindow::CanGoForward() const
 {
-	return false;
+	return BrowserWidget->CanGoForward();
 }
 
 void FWebBrowserWindow::GoForward()
 {
+	BrowserWidget->GoForward();
 }
 
 bool FWebBrowserWindow::IsLoading() const
 {
-	return false;
+	return DocumentState != EWebBrowserDocumentState::Loading;
 }
 
 void FWebBrowserWindow::Reload()
 {
+	BrowserWidget->Reload();
 }
 
 void FWebBrowserWindow::StopLoad()
 {
+	BrowserWidget->StopLoad();
 }
 
 void FWebBrowserWindow::GetSource(TFunction<void(const FString&)> Callback) const
 {
-	Callback(FString());
+	//@todo: decide what to do about multiple pending requests
+	GetPageSourceCallback.Emplace(Callback);
+
+	// Ugly hack: Work around the fact that ExecuteJavascript is non-const.
+	const_cast<FWebBrowserWindow*>(this)->ExecuteJavascript(JSMessageGetSourceScript);
 }
 
 int FWebBrowserWindow::GetLoadError()
 {
-	return 0;
+	return ErrorCode;
+}
+
+void FWebBrowserWindow::NotifyDocumentError(const FString& InCurrentUrl, int InErrorCode)
+{
+	if (!CurrentUrl.Equals(InCurrentUrl, ESearchCase::CaseSensitive))
+	{
+		CurrentUrl = InCurrentUrl;
+		UrlChangedEvent.Broadcast(CurrentUrl);
+	}
+
+	ErrorCode = InErrorCode;
+	DocumentState = EWebBrowserDocumentState::Error;
+	DocumentStateChangedEvent.Broadcast(DocumentState);
+}
+
+void FWebBrowserWindow::NotifyDocumentLoadingStateChange(const FString& InCurrentUrl, bool IsLoading)
+{
+	// Ignore a load completed notification if there was an error.
+	// For load started, reset any errors from previous page load.
+	if (IsLoading || DocumentState != EWebBrowserDocumentState::Error)
+	{
+		if (!CurrentUrl.Equals(InCurrentUrl, ESearchCase::CaseSensitive))
+		{
+			CurrentUrl = InCurrentUrl;
+			UrlChangedEvent.Broadcast(CurrentUrl);
+		}
+
+		if (!IsLoading && !InCurrentUrl.StartsWith("javascript:"))
+		{
+			Scripting->PageLoaded(SharedThis(this));
+		}
+		ErrorCode = 0;
+		DocumentState = IsLoading
+			? EWebBrowserDocumentState::Loading
+			: EWebBrowserDocumentState::Completed;
+		DocumentStateChangedEvent.Broadcast(DocumentState);
+	}
+
 }
 
 void FWebBrowserWindow::SetIsDisabled(bool bValue)
 {
+	bIsDisabled = bValue;
 }
 
+TSharedPtr<SWindow> FWebBrowserWindow::GetParentWindow() const
+{
+	return ParentWindow;
+}
+
+void FWebBrowserWindow::SetParentWindow(TSharedPtr<SWindow> Window)
+{
+	ParentWindow = Window;
+}
 
 void FWebBrowserWindow::ExecuteJavascript(const FString& Script)
 {
@@ -753,12 +1086,46 @@ void FWebBrowserWindow::CloseBrowser(bool bForce)
 	BrowserWidget->Close();
 }
 
+bool FWebBrowserWindow::OnJsMessageReceived(const FString& Command, const TArray<FString>& Params, const FString& Origin)
+{
+	if (Command.Equals(JSGetSourceCommand, ESearchCase::CaseSensitive) && GetPageSourceCallback.IsSet() && Params.Num() == 1)
+	{
+		GetPageSourceCallback.GetValue()(Params[0]);
+		GetPageSourceCallback.Reset();
+		return true;
+	}
+	return Scripting->OnJsMessageReceived(Command, Params, Origin);
+}
+
 void FWebBrowserWindow::BindUObject(const FString& Name, UObject* Object, bool bIsPermanent /*= true*/)
 {
+	Scripting->BindUObject(Name, Object, bIsPermanent);
 }
 
 void FWebBrowserWindow::UnbindUObject(const FString& Name, UObject* Object /*= nullptr*/, bool bIsPermanent /*= true*/)
 {
+	Scripting->UnbindUObject(Name, Object, bIsPermanent);
+}
+
+void FWebBrowserWindow::CheckTickActivity()
+{
+	if (bIsVisible != bTickedLastFrame)
+	{
+		bIsVisible = bTickedLastFrame;
+		BrowserWidget->SetWebBrowserVisibility(bIsVisible);
+	}
+
+	bTickedLastFrame = false;
+}
+
+void FWebBrowserWindow::SetTickLastFrame()
+{
+	bTickedLastFrame = !bIsDisabled;
+}
+
+bool FWebBrowserWindow::IsVisible()
+{
+	return bIsVisible;
 }
 
 #endif

@@ -875,6 +875,9 @@ namespace UnrealBuildTool
 								case ProjectFileFormat.CLion:
 									Generator = new CLionGenerator(ProjectFile);
 									break;
+								case ProjectFileFormat.VisualStudioMac:
+									Generator = new VCMacProjectFileGenerator(ProjectFile, OverrideWindowsCompiler);
+									break;
 								default:
 									throw new BuildException("Unhandled project file type '{0}", ProjectFileFormat);
 							}

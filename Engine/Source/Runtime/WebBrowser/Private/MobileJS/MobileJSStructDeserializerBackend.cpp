@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidJSStructDeserializerBackend.h"
+#include "MobileJSStructDeserializerBackend.h"
 
-#if USE_ANDROID_JNI
+#if	PLATFORM_ANDROID || PLATFORM_IOS
 
-#include "AndroidJSScripting.h"
+#include "MobileJSScripting.h"
 #include "UObject/UnrealType.h"
 #include "Templates/Casts.h"
 
@@ -62,7 +62,7 @@ namespace
 	}
 }
 
-bool FAndroidJSStructDeserializerBackend::ReadProperty( UProperty* Property, UProperty* Outer, void* Data, int32 ArrayIndex )
+bool FMobileJSStructDeserializerBackend::ReadProperty( UProperty* Property, UProperty* Outer, void* Data, int32 ArrayIndex )
 {
 	switch (GetLastNotation())
 	{
@@ -93,14 +93,14 @@ bool FAndroidJSStructDeserializerBackend::ReadProperty( UProperty* Property, UPr
 	return FJsonStructDeserializerBackend::ReadProperty(Property, Outer, Data, ArrayIndex);
 }
 
-FAndroidJSStructDeserializerBackend::FAndroidJSStructDeserializerBackend(FAndroidJSScriptingRef InScripting, const FString& JsonString)
-	: Scripting(InScripting)
+FMobileJSStructDeserializerBackend::FMobileJSStructDeserializerBackend(FMobileJSScriptingRef InScripting, const FString& JsonString)
+	: FJsonStructDeserializerBackend(Reader)
+	, Scripting(InScripting)
 	, JsonData()
 	, Reader(JsonData)
-	, FJsonStructDeserializerBackend(Reader)
 {
 	auto Convert = StringCast<UCS2CHAR>(*JsonString);
 	JsonData.Append((uint8*)Convert.Get(), JsonString.Len() * sizeof(UCS2CHAR));
 }
 
-#endif // USE_ANDROID_JNI
+#endif // PLATFORM_ANDROID || PLATFORM_IOS

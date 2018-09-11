@@ -174,3 +174,19 @@ float FGenericWindow::GetDPIScaleFactor() const
 {
 	return 1.0f;
 }
+
+void FGenericWindow::SetDPIScaleFactor(const float Factor)
+{
+	// empty default functionality
+}
+
+bool FGenericWindow::IsManualManageDPIChanges() const
+{
+	// returns false by default so the application can auto-manage the size of its windows, in response to DPI variations
+	return false;
+}
+
+void FGenericWindow::SetManualManageDPIChanges(const bool bAutoHandle)
+{
+	// empty default functionality
+}

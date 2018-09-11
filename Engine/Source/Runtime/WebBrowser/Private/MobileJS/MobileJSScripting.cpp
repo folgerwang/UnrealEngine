@@ -1,26 +1,24 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidJSScripting.h"
+#include "MobileJSScripting.h"
 
-#if USE_ANDROID_JNI
+#if PLATFORM_ANDROID  || PLATFORM_IOS
 
-#include "Android/AndroidApplication.h"
-#include "AndroidWebBrowserWindow.h"
-#include "AndroidWebBrowserDialog.h"
-#include "AndroidWebBrowserWidget.h"
-#include "Android/AndroidJava.h"
-#include "AndroidJSStructSerializerBackend.h"
-#include "AndroidJSStructDeserializerBackend.h"
+#include "IWebBrowserWindow.h"
+#include "MobileJSStructSerializerBackend.h"
+#include "MobileJSStructDeserializerBackend.h"
 #include "StructSerializer.h"
 #include "StructDeserializer.h"
 #include "UObject/UnrealType.h"
+#include "Async/Async.h"
 
 // For UrlDecode/Encode
 #include "Http.h"
 
 // Inseterted as a part of an URL to send a message to the front end.
 // Note, we can't use a custom protocol due to cross-domain issues.
-const FString FAndroidJSScripting::JSMessageTag = TEXT("/!!com.epicgames.ue4.message/");
+const FString FMobileJSScripting::JSMessageTag = TEXT("/!!com.epicgames.ue4.message/");
+const FString FMobileJSScripting::JSMessageHandler = TEXT("com_epicgames_ue4_message");
 
 
 namespace
@@ -95,9 +93,13 @@ namespace
 			// encodes and sends a message to the host application
 			TEXT("sendMessage: function()")
 			TEXT("{")
+#if PLATFORM_IOS
+			TEXT("	window.webkit.messageHandlers.") + FMobileJSScripting::JSMessageHandler + TEXT(".postMessage(Array.prototype.map.call(arguments,function(e){return encodeURIComponent(e)}).join('/'));")
+#else
 			TEXT("	var req=new XMLHttpRequest();")
-			TEXT("	req.open('GET', '") + FAndroidJSScripting::JSMessageTag + TEXT("' + Array.prototype.map.call(arguments,function(e){return encodeURIComponent(e)}).join('/'), true);")
+			TEXT("	req.open('GET', '") + FMobileJSScripting::JSMessageTag + TEXT("' + Array.prototype.map.call(arguments,function(e){return encodeURIComponent(e)}).join('/'), true);")
 			TEXT("	req.send(null);")
+#endif
 			TEXT("}, ")
 
 			// uses the above helper methods to execute a method on a uobject instance.
@@ -181,7 +183,7 @@ namespace
 	}
 
 	template<typename KeyType>
-	bool WriteJsParam(FAndroidJSScriptingRef Scripting, FJsonWriterRef Writer, const KeyType& Key, FWebJSParam& Param)
+	bool WriteJsParam(FMobileJSScriptingRef Scripting, FJsonWriterRef Writer, const KeyType& Key, FWebJSParam& Param)
 	{
 		switch (Param.Tag)
 		{
@@ -246,7 +248,7 @@ namespace
 	}
 }
 
-void FAndroidJSScripting::BindUObject(const FString& Name, UObject* Object, bool bIsPermanent )
+void FMobileJSScripting::BindUObject(const FString& Name, UObject* Object, bool bIsPermanent )
 {
 	const FString ExposedName = GetBindingName(Name, Object);
 	FString Converted = ConvertObject(Object);
@@ -266,7 +268,7 @@ void FAndroidJSScripting::BindUObject(const FString& Name, UObject* Object, bool
 		PermanentUObjectsByName.Add(ExposedName, Object);
 	}
 
-	TSharedPtr<FAndroidWebBrowserWindow> Window = WindowPtr.Pin();
+	TSharedPtr<IWebBrowserWindow> Window = WindowPtr.Pin();
 	if (Window.IsValid())
 	{
 		FString SetValueScript = FString::Printf(TEXT("window.ue['%s'] = %s;"), *ExposedName.ReplaceCharWithEscapedChar(), *Converted);
@@ -274,7 +276,7 @@ void FAndroidJSScripting::BindUObject(const FString& Name, UObject* Object, bool
 	}
 }
 
-void FAndroidJSScripting::UnbindUObject(const FString& Name, UObject* Object, bool bIsPermanent)
+void FMobileJSScripting::UnbindUObject(const FString& Name, UObject* Object, bool bIsPermanent)
 {
 	const FString ExposedName = GetBindingName(Name, Object);
 	if (bIsPermanent)
@@ -292,7 +294,7 @@ void FAndroidJSScripting::UnbindUObject(const FString& Name, UObject* Object, bo
 		}
 	}
 
-	TSharedPtr<FAndroidWebBrowserWindow> Window = WindowPtr.Pin();
+	TSharedPtr<IWebBrowserWindow> Window = WindowPtr.Pin();
 	if (Window.IsValid())
 	{
 		FString DeleteValueScript = FString::Printf(TEXT("delete window.ue['%s'];"), *ExposedName.ReplaceCharWithEscapedChar());
@@ -300,7 +302,7 @@ void FAndroidJSScripting::UnbindUObject(const FString& Name, UObject* Object, bo
 	}
 }
 
-bool FAndroidJSScripting::OnJsMessageReceived(const FString& Command, const TArray<FString>& Params, const FString& Origin)
+bool FMobileJSScripting::OnJsMessageReceived(const FString& Command, const TArray<FString>& Params, const FString& Origin)
 {
 	bool Result = false;
 	if (Command == ExecuteMethodCommand)
@@ -311,12 +313,12 @@ bool FAndroidJSScripting::OnJsMessageReceived(const FString& Command, const TArr
 	return Result;
 }
 
-FString FAndroidJSScripting::ConvertStruct(UStruct* TypeInfo, const void* StructPtr)
+FString FMobileJSScripting::ConvertStruct(UStruct* TypeInfo, const void* StructPtr)
 {
 	return TEXT("undefined");
 }
 
-FString FAndroidJSScripting::ConvertObject(UObject* Object)
+FString FMobileJSScripting::ConvertObject(UObject* Object)
 {
 	RetainBinding(Object);
 	UClass* Class = Object->GetClass();
@@ -371,9 +373,9 @@ FString FAndroidJSScripting::ConvertObject(UObject* Object)
 	return Result;
 }
 
-void FAndroidJSScripting::InvokeJSFunction(FGuid FunctionId, int32 ArgCount, FWebJSParam Arguments[], bool bIsError)
+void FMobileJSScripting::InvokeJSFunction(FGuid FunctionId, int32 ArgCount, FWebJSParam Arguments[], bool bIsError)
 {
-	TSharedPtr<FAndroidWebBrowserWindow> Window = WindowPtr.Pin();
+	TSharedPtr<IWebBrowserWindow> Window = WindowPtr.Pin();
 	if (Window.IsValid())
 	{
 		FString CallbackScript = FString::Printf(TEXT("window.ue.$.invokeCallback('%s', %s, "), *FunctionId.ToString(EGuidFormats::Digits), (bIsError)?TEXT("true"):TEXT("false"));
@@ -394,9 +396,9 @@ void FAndroidJSScripting::InvokeJSFunction(FGuid FunctionId, int32 ArgCount, FWe
 	}
 }
 
-void FAndroidJSScripting::InvokeJSFunctionRaw(FGuid FunctionId, const FString& RawJSValue, bool bIsError)
+void FMobileJSScripting::InvokeJSFunctionRaw(FGuid FunctionId, const FString& RawJSValue, bool bIsError)
 {
-	TSharedPtr<FAndroidWebBrowserWindow> Window = WindowPtr.Pin();
+	TSharedPtr<IWebBrowserWindow> Window = WindowPtr.Pin();
 	if (Window.IsValid())
 	{
 		FString CallbackScript = FString::Printf(TEXT("window.ue.$.invokeCallback('%s', %s, [%s])"),
@@ -405,13 +407,13 @@ void FAndroidJSScripting::InvokeJSFunctionRaw(FGuid FunctionId, const FString& R
 	}
 }
 
-void FAndroidJSScripting::InvokeJSErrorResult(FGuid FunctionId, const FString& Error)
+void FMobileJSScripting::InvokeJSErrorResult(FGuid FunctionId, const FString& Error)
 {
 	FWebJSParam Args[1] = {FWebJSParam(Error)};
 	InvokeJSFunction(FunctionId, 1, Args, true);
 }
 
-bool FAndroidJSScripting::HandleExecuteUObjectMethodMessage(const TArray<FString>& MessageArgs)
+bool FMobileJSScripting::HandleExecuteUObjectMethodMessage(const TArray<FString>& MessageArgs)
 {
 	if (MessageArgs.Num() != 4)
 	{
@@ -485,7 +487,7 @@ bool FAndroidJSScripting::HandleExecuteUObjectMethodMessage(const TArray<FString
 		Params.AddUninitialized(ParamsSize);
 		Function->InitializeStruct(Params.GetData());
 
-		FAndroidJSStructDeserializerBackend Backend = FAndroidJSStructDeserializerBackend(SharedThis(this), MessageArgs[3]);
+		FMobileJSStructDeserializerBackend Backend = FMobileJSStructDeserializerBackend(SharedThis(this), MessageArgs[3]);
 		FStructDeserializer::Deserialize(Params.GetData(), *Function, Backend);
 	}
 
@@ -508,7 +510,7 @@ bool FAndroidJSScripting::HandleExecuteUObjectMethodMessage(const TArray<FString
 			{
 				return ParentProperty != nullptr || CandidateProperty == ReturnParam;
 			};
-			FAndroidJSStructSerializerBackend ReturnBackend = FAndroidJSStructSerializerBackend(SharedThis(this));
+			FMobileJSStructSerializerBackend ReturnBackend = FMobileJSStructSerializerBackend(SharedThis(this));
 			FStructSerializer::Serialize(Params.GetData(), *Function, ReturnBackend, ReturnPolicies);
 
 			// Extract the result value from the serialized JSON object:
@@ -528,7 +530,7 @@ bool FAndroidJSScripting::HandleExecuteUObjectMethodMessage(const TArray<FString
 	return true;
 }
 
-void FAndroidJSScripting::PageLoaded(TSharedRef<class FAndroidWebBrowserWindow> InWindow)
+void FMobileJSScripting::PageLoaded(TSharedRef<class IWebBrowserWindow> InWindow)
 {
 	WindowPtr = InWindow;
 
@@ -550,9 +552,9 @@ void FAndroidJSScripting::PageLoaded(TSharedRef<class FAndroidWebBrowserWindow> 
 	InWindow->ExecuteJavascript(Script);
 }
 
-FAndroidJSScripting::FAndroidJSScripting(bool bJSBindingToLoweringEnabled)
+FMobileJSScripting::FMobileJSScripting(bool bJSBindingToLoweringEnabled)
 	: FWebJSScripting(bJSBindingToLoweringEnabled)
 {
 }
 
-#endif // USE_ANDROID_JNI
+#endif // PLATFORM_ANDROID  || PLATFORM_IOS

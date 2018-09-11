@@ -1,15 +1,15 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidJSStructSerializerBackend.h"
+#include "MobileJSStructSerializerBackend.h"
 
-#if USE_ANDROID_JNI
+#if PLATFORM_ANDROID || PLATFORM_IOS
 
-#include "AndroidJSScripting.h"
+#include "MobileJSScripting.h"
 #include "UObject/UnrealType.h"
 #include "UObject/PropertyPortFlags.h"
 #include "Templates/Casts.h"
 
-void FAndroidJSStructSerializerBackend::WriteProperty(const FStructSerializerState& State, int32 ArrayIndex)
+void FMobileJSStructSerializerBackend::WriteProperty(const FStructSerializerState& State, int32 ArrayIndex)
 {
 	// The parent class serialzes UObjects as NULLs
 	if (State.ValueType == UObjectProperty::StaticClass())
@@ -23,7 +23,7 @@ void FAndroidJSStructSerializerBackend::WriteProperty(const FStructSerializerSta
 	}
 }
 
-void FAndroidJSStructSerializerBackend::WriteUObject(const FStructSerializerState& State, UObject* Value)
+void FMobileJSStructSerializerBackend::WriteUObject(const FStructSerializerState& State, UObject* Value)
 {
 	// Note this function uses WriteRawJSONValue to append non-json data to the output stream.
 	FString RawValue = Scripting->ConvertObject(Value);
@@ -43,7 +43,7 @@ void FAndroidJSStructSerializerBackend::WriteUObject(const FStructSerializerStat
 	}
 }
 
-FString FAndroidJSStructSerializerBackend::ToString()
+FString FMobileJSStructSerializerBackend::ToString()
 {
 	ReturnBuffer.Add(0);
 	ReturnBuffer.Add(0);
@@ -51,12 +51,12 @@ FString FAndroidJSStructSerializerBackend::ToString()
 	return FString(CastObject.Get(), CastObject.Length());
 }
 
-FAndroidJSStructSerializerBackend::FAndroidJSStructSerializerBackend(TSharedRef<class FAndroidJSScripting> InScripting)
-	: Scripting(InScripting)
+FMobileJSStructSerializerBackend::FMobileJSStructSerializerBackend(TSharedRef<class FMobileJSScripting> InScripting)
+	: FJsonStructSerializerBackend(Writer)
+	, Scripting(InScripting)
 	, ReturnBuffer()
 	, Writer(ReturnBuffer)
-	, FJsonStructSerializerBackend(Writer)
 {
 }
 
-#endif // USE_ANDROID_JNI
+#endif // PLATFORM_ANDROID || PLATFORM_IOS

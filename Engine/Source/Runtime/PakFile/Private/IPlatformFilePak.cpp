@@ -3905,9 +3905,13 @@ void FPakFile::Initialize(FArchive* Reader)
 
 	if (CachedTotalSize < Info.GetSerializedSize())
 	{
-		if (CachedTotalSize) // UEMOB-425: can be zero - only error when not zero
+		if (CachedTotalSize)
 		{
 			UE_LOG(LogPakFile, Fatal, TEXT("Corrupted pak file '%s' (too short). Verify your installation."), *PakFilename);
+		}
+		else
+		{
+			UE_LOG(LogPakFile, Warning, TEXT("Pak file '%s' is ZERO (expected %d) -- Prehaps Out-Of-Memory?"), *PakFilename, Info.GetSerializedSize());
 		}
 	}
 	else

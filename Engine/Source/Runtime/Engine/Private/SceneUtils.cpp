@@ -162,15 +162,6 @@ ENGINE_API EMobileHDRMode GetMobileHDRMode()
 	return HDRMode;
 }
 
-ENGINE_API bool IsHTML5Platform()
-{
-#if PLATFORM_HTML5
-	return true;
-#else
-	return false;
-#endif
-}
-
 
 #if HAS_GPU_STATS
 static const int32 NumGPUProfilerBufferedFrames = 4;

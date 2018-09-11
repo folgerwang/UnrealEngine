@@ -219,6 +219,8 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 #endif
 	, bDevToolsShortcutEnabled(UE_BUILD_DEBUG)
 	, bJSBindingsToLoweringEnabled(true)
+	, DefaultMaterial(nullptr)
+	, DefaultTranslucentMaterial(nullptr)
 {
 #if WITH_CEF3
 	// The FWebBrowserSingleton must be initialized on the game thread
@@ -364,6 +366,12 @@ FWebBrowserSingleton::~FWebBrowserSingleton()
 	CEFBrowserApp = nullptr;
 	// Shut down CEF.
 	CefShutdown();
+#elif PLATFORM_IOS || PLATFORM_PS4 || (PLATFORM_ANDROID && USE_ANDROID_JNI)
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		// Clear this before CefShutdown() below
+		WindowInterfaces.Reset();
+	}
 #endif
 }
 
@@ -524,16 +532,39 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 		WindowSettings.bUseTransparency,
 		bJSBindingsToLoweringEnabled));
 
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		WindowInterfaces.Add(NewBrowserWindow);
+	}
 	return NewBrowserWindow;
-#elif PLATFORM_IOS || PLATFORM_PS4
+#elif PLATFORM_IOS
 	// Create new window
 	TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(
 		WindowSettings.InitialURL, 
 		WindowSettings.ContentsToLoad, 
 		WindowSettings.bShowErrorMessage, 
 		WindowSettings.bThumbMouseButtonNavigation, 
+		WindowSettings.bUseTransparency,
+		bJSBindingsToLoweringEnabled));
+
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		WindowInterfaces.Add(NewBrowserWindow);
+	}
+	return NewBrowserWindow;
+#elif PLATFORM_PS4
+	// Create new window
+	TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(
+		WindowSettings.InitialURL,
+		WindowSettings.ContentsToLoad,
+		WindowSettings.bShowErrorMessage,
+		WindowSettings.bThumbMouseButtonNavigation,
 		WindowSettings.bUseTransparency));
 
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		WindowInterfaces.Add(NewBrowserWindow);
+	}
 	return NewBrowserWindow;
 #endif
 	return nullptr;
@@ -580,6 +611,28 @@ bool FWebBrowserSingleton::Tick(float DeltaTime)
 			}
 		}
 	}
+
+#elif PLATFORM_IOS || PLATFORM_PS4 || (PLATFORM_ANDROID && USE_ANDROID_JNI)
+	FScopeLock Lock(&WindowInterfacesCS);
+	bool bIsSlateAwake = FSlateApplication::IsInitialized() && !FSlateApplication::Get().IsSlateAsleep();
+	// Remove any windows that have been deleted and check whether it's currently visible
+	for (int32 Index = WindowInterfaces.Num() - 1; Index >= 0; --Index)
+	{
+		if (!WindowInterfaces[Index].IsValid())
+		{
+			WindowInterfaces.RemoveAt(Index);
+		}
+		else if (bIsSlateAwake) // only check for Tick activity if Slate is currently ticking
+		{
+			TSharedPtr<IWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
+			if (BrowserWindow.IsValid())
+			{
+				// Test if we've ticked recently. If not assume the browser window has become hidden.
+				BrowserWindow->CheckTickActivity();
+			}
+		}
+	}
+
 #endif
 	return true;
 }

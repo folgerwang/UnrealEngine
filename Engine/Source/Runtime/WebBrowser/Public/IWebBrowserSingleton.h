@@ -9,6 +9,7 @@ class FCEFWebBrowserWindow;
 class IWebBrowserCookieManager;
 class IWebBrowserWindow;
 class IWebBrowserSchemeHandlerFactory;
+class UMaterialInterface;
 struct FWebBrowserWindowInfo;
 
 class IWebBrowserWindowFactory
@@ -202,4 +203,14 @@ public:
 	 */
 	virtual void SetJSBindingToLoweringEnabled(bool bEnabled) = 0;
 
+
+	/** Set a reference to UWebBrowser's default material*/
+	virtual void SetDefaultMaterial(UMaterialInterface* InDefaultMaterial) = 0;
+	/** Set a reference to UWebBrowser's translucent material*/
+	virtual void SetDefaultTranslucentMaterial(UMaterialInterface* InDefaultMaterial) = 0;
+
+	/** Get a reference to UWebBrowser's default material*/
+	virtual UMaterialInterface* GetDefaultMaterial() = 0;
+	/** Get a reference to UWebBrowser's transparent material*/
+	virtual UMaterialInterface* GetDefaultTranslucentMaterial() = 0;
 };

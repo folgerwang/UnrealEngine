@@ -97,6 +97,7 @@ public class UnrealEd : ModuleRules
 				"NavigationSystem",
                 "MeshDescription",
                 "MeshBuilder",
+                "MaterialShaderQualitySettings"
             }
 		);
 
@@ -165,7 +166,7 @@ public class UnrealEd : ModuleRules
 				"PIEPreviewDeviceProfileSelector",
 				"PakFileUtilities",
 				"TimeManagement",
-			}
+            }
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(
@@ -261,7 +262,9 @@ public class UnrealEd : ModuleRules
 		// Add include directory for Lightmass
 		PublicIncludePaths.Add("Programs/UnrealLightmass/Public");
 
-		PublicIncludePathModuleNames.AddRange(
+        PublicIncludePaths.Add("Developer/Android/AndroidDeviceDetection/Public/Interfaces");
+
+        PublicIncludePathModuleNames.AddRange(
 			new string[] {
 				"CollectionManager",
 				"BlueprintGraph",
@@ -272,10 +275,11 @@ public class UnrealEd : ModuleRules
 				"NavigationSystem",
 				"GameplayTasks",
 				"AIModule",
-			}
+            }
 			);
 
-		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
+
+        if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
 			PublicDependencyModuleNames.Add("XAudio2");

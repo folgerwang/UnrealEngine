@@ -472,8 +472,7 @@ void SFoliagePaletteItemTile::Construct(const FArguments& InArgs, TSharedRef<STa
 
 FLinearColor SFoliagePaletteItemTile::GetTileColorAndOpacity() const
 {
-	float Alpha = Model->IsActive() ? 1.f : 0.5f;
-	return FLinearColor(1.f, 1.f, 1.f, Alpha);
+	return Model->IsActive() ? FLinearColor::White : FLinearColor(0.5f, 0.5f, 0.5f, 1.f);
 }
 
 EVisibility SFoliagePaletteItemTile::GetCheckBoxVisibility() const

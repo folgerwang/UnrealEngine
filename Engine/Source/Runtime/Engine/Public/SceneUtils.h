@@ -283,10 +283,6 @@ ENGINE_API bool IsMobileHDRMosaic();
 
 ENGINE_API EMobileHDRMode GetMobileHDRMode();
 
-// this function is used to suppress static analysis warnings
-// it is mainly used in certain situations with IsMobileHDR*() conditions
-ENGINE_API bool IsHTML5Platform();
-
 /**
 * A pool of render (e.g. occlusion/timer) queries which are allocated individually, and returned to the pool as a group.
 */

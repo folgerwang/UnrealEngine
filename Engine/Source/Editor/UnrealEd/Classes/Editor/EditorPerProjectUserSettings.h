@@ -149,6 +149,14 @@ public:
 	UPROPERTY(config)
 	int32 MaterialQualityLevel;
 
+	/** The name of the shader platform that will be used in the editor */
+	UPROPERTY(config)
+	FName PreviewShaderPlatformName;
+
+	/** whether or not the above PreviewShaderPlatformName is a platform that needs to override the material settings in UMaterialShaderQualitySettings */
+	UPROPERTY(config)
+	bool bIsMaterialQualityOverridePlatform;
+
 public:
 
 	/** Delegate for when a user setting has changed */
