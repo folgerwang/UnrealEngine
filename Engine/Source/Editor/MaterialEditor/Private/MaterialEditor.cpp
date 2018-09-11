@@ -3327,6 +3327,7 @@ UMaterialExpressionComment* FMaterialEditor::CreateNewMaterialExpressionComment(
 {
 	UMaterialExpressionComment* NewComment = NULL;
 	{
+		const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MaterialEditorCreateComment", "Material Editor: Create comment"));
 		Material->Modify();
 
 		UObject* ExpressionOuter = Material;
@@ -3360,10 +3361,7 @@ UMaterialExpressionComment* FMaterialEditor::CreateNewMaterialExpressionComment(
 		}
 
 		NewComment->Text = NSLOCTEXT("K2Node", "CommentBlock_NewEmptyComment", "Comment").ToString();
-	}
 
-	if (NewComment)
-	{
 		Material->MaterialGraph->AddComment(NewComment, true);
 
 		// Select the new comment.
