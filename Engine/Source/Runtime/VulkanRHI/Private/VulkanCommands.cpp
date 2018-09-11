@@ -28,25 +28,9 @@ static FAutoConsoleVariableRef CVarVulkanSubmitAfterEveryEndRenderPass(
 	ECVF_Default
 );
 
-/*
-static inline bool UseRealUBs()
-{
-	static int32 Status = -1;
-	if (Status == -1)
-	{
-		TConsoleVariableData<int32>* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
-		if (CVar)
-		{
-			Status = CVar->GetValueOnAnyThread() != 0;
-		}
-		else
-		{
-			Status = 0;
-		}
-	}
-	return Status > 0;
-}
-*/
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+extern TAutoConsoleVariable<int32> CVarVulkanDebugBarrier;
+#endif
 
 // make sure what the hardware expects matches what we give it for indirect arguments
 static_assert(sizeof(FRHIDrawIndirectParameters) == sizeof(VkDrawIndirectCommand), "FRHIDrawIndirectParameters size is wrong.");
@@ -145,6 +129,13 @@ void FVulkanCommandListContext::RHIDispatchComputeShader(uint32 ThreadGroupCount
 	{
 		GpuProfiler.RegisterGPUWork(1);
 	}
+
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() > 1)
+	{
+		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer);
+	}
+#endif
 }
 
 void FVulkanCommandListContext::RHIDispatchIndirectComputeShader(FVertexBufferRHIParamRef ArgumentBufferRHI, uint32 ArgumentOffset) 
@@ -173,6 +164,13 @@ void FVulkanCommandListContext::RHIDispatchIndirectComputeShader(FVertexBufferRH
 	{
 		GpuProfiler.RegisterGPUWork(1);
 	}
+
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() > 1)
+	{
+		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer);
+	}
+#endif
 }
 
 void FVulkanCommandListContext::RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderStateRHI)
