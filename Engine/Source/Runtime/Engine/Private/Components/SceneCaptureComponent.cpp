@@ -447,6 +447,7 @@ USceneCaptureComponent2D::USceneCaptureComponent2D(const FObjectInitializer& Obj
 	bAutoActivate = true;
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.TickGroup = TG_DuringPhysics;
+	PrimaryComponentTick.bAllowTickOnDedicatedServer = false;
 	// Tick in the editor so that bCaptureEveryFrame preview works
 	bTickInEditor = true;
 	// previous behavior was to capture from raw scene color 
@@ -724,6 +725,7 @@ UPlanarReflectionComponent::UPlanarReflectionComponent(const FObjectInitializer&
 	bCaptureEveryFrame = true;
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.TickGroup = TG_DuringPhysics;
+	PrimaryComponentTick.bAllowTickOnDedicatedServer = false;
 	// Tick in the editor so that bCaptureEveryFrame preview works
 	bTickInEditor = true;
 	RenderTarget = NULL;
@@ -867,6 +869,7 @@ USceneCaptureComponentCube::USceneCaptureComponentCube(const FObjectInitializer&
 	bAutoActivate = true;
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.TickGroup = TG_DuringPhysics;
+	PrimaryComponentTick.bAllowTickOnDedicatedServer = false;
 	bTickInEditor = true;
 	IPD = 6.2f;
 }

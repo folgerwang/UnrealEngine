@@ -53,7 +53,8 @@ protected:
 	/** Callback for discovered target devices. */
 	void HandleTargetPlatformDeviceDiscovered(ITargetDeviceRef DiscoveredDevice);
 
-	void AddDeviceEntry(ITargetDeviceRef TargetDevice);
+	void  AddDeviceEntry(ITargetDeviceRef TargetDevice);
+	bool FindDeviceEntry(FTargetDeviceId InDeviceId);
 
 	void OnDeviceSelectionChanged(FTargetDeviceEntryPtr DeviceEntry);
 	TSharedRef<SWidget> MakeDeviceComboButtonMenu();

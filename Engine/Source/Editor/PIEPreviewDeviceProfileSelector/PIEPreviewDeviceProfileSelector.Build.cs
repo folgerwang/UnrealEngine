@@ -13,19 +13,24 @@ namespace UnrealBuildTool.Rules
 				{
 					"Core",
 				    "CoreUObject",
-				}
+                }
 				);
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
-					"RHI",
+                    "PIEPreviewDeviceSpecification",
+                    "RHI",
 					"Json",
 					"JsonUtilities",
 					"MaterialShaderQualitySettings",
 					"Slate",
-					"SlateCore"
-				}
+					"SlateCore",
+                    "ApplicationCore",
+					"Engine",
+					"UnrealEd",
+					"EditorStyle"
+                }
 				);
 		}
 	}

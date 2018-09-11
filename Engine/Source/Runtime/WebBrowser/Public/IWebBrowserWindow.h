@@ -6,6 +6,7 @@
 #include "Input/CursorReply.h"
 #include "Input/Reply.h"
 #include "Widgets/SWindow.h"
+#include "SWebBrowser.h"
 
 class Error;
 class FSlateShaderResource;
@@ -298,6 +299,7 @@ public:
 	*/
 	virtual void SetParentWindow(TSharedPtr<class SWindow> Window) = 0;
 
+	virtual void CheckTickActivity() {};
 public:
 
 	/** A delegate that is invoked when the loading state of a document changed. */
@@ -364,8 +366,25 @@ public:
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnDragWindow, const FPointerEvent& /*MouseEvent*/)
 	virtual FOnDragWindow& OnDragWindow() = 0;
 
+	/** A delegate that is invoked to check the visibility of the native browser */
+	DECLARE_DELEGATE_RetVal(bool, FOnCheckVisibility);
+	virtual FOnCheckVisibility& OnCheckVisibility()
+	{
+		return OnCheckVisibilityDelegate;
+	}
+
+	virtual bool CheckVisibility()
+	{
+		return !OnCheckVisibilityDelegate.IsBound() || OnCheckVisibilityDelegate.Execute();
+	}
+
 protected:
 
 	/** Virtual Destructor. */
 	virtual ~IWebBrowserWindow() { };
+
+private:
+	/** Delegate for veritying the window's visibility  */
+	FOnCheckVisibility OnCheckVisibilityDelegate;
+
 };

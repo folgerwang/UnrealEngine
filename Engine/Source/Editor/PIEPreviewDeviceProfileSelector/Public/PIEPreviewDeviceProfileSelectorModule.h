@@ -7,8 +7,6 @@
 #include "RHIDefinitions.h"
 #include "Misc/CommandLine.h"
 #include "Widgets/SWindow.h"
-#include "../Private/PIEPreviewWindowCoreStyle.h"
-#include "../Private/PIEPreviewWindow.h"
 #include "IPIEPreviewDeviceModule.h"
 /**
 * Implements the Preview Device Profile Selector module.
@@ -42,6 +40,9 @@ public:
 	virtual void ApplyPreviewDeviceState() override;
 	
 	virtual TSharedRef<SWindow> CreatePIEPreviewDeviceWindow(FVector2D ClientSize, FText WindowTitle, EAutoCenter AutoCenterType, FVector2D ScreenPosition, TOptional<float> MaxWindowWidth, TOptional<float> MaxWindowHeight) override;
+
+	/** call this after the window is created and registered to the application to setup display related parameters */
+	virtual void PrepareDeviceDisplay() override;
 	
 	virtual const FPIEPreviewDeviceContainer& GetPreviewDeviceContainer() ;
 	TSharedPtr<FPIEPreviewDeviceContainerCategory> GetPreviewDeviceRootCategory() const { return EnumeratedDevices.GetRootCategory(); }
@@ -58,18 +59,21 @@ private:
 		return TEXT("MobileTargetDevice=");
 	}
 
-	const void GetPreviewDeviceResolution(int32& ScreenWidth, int32& ScreenHeight);
-
 	void InitPreviewDevice();
 	static FString GetDeviceSpecificationContentDir();
 	bool ReadDeviceSpecification();
-	ERHIFeatureLevel::Type GetPreviewDeviceFeatureLevel() const;
 	FString FindDeviceSpecificationFilePath(const FString& SearchDevice);
 
+	void UpdateDisplayResolution();
+
+private:
 	bool bInitialized;
 	FString DeviceProfile;
 	FString PreviewDevice;
 
 	FPIEPreviewDeviceContainer EnumeratedDevices;
-	TSharedPtr<struct FPIEPreviewDeviceSpecifications> DeviceSpecs;
+
+	TSharedPtr<class FPIEPreviewDevice> Device;
+
+	TWeakPtr<class SPIEPreviewWindow> WindowWPtr;
 };

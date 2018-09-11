@@ -249,6 +249,8 @@ void SWindow::Construct(const FArguments& InArgs)
 		.SetMinHeight(InArgs._MinHeight)
 		.SetMaxWidth(InArgs._MaxWidth)
 		.SetMaxHeight(InArgs._MaxHeight);
+	this->bManualManageDPI = InArgs._bManualManageDPI;
+
 	bCanTick = false;
 
 	// calculate window size from client size
@@ -1107,6 +1109,24 @@ float SWindow::GetDPIScaleFactor() const
 	return 1.0f;
 }
 
+void SWindow::SetDPIScaleFactor(const float Factor)
+{
+	if (NativeWindow.IsValid())
+	{
+		NativeWindow->SetDPIScaleFactor(Factor);
+	}
+}
+
+void SWindow::SetManualManageDPIChanges(const bool bManualDPI)
+{
+	bManualManageDPI = bManualDPI;
+
+	if (NativeWindow.IsValid())
+	{
+		NativeWindow->SetManualManageDPIChanges(bManualManageDPI);
+	}
+}
+
 bool SWindow::IsDescendantOf( const TSharedPtr<SWindow>& ParentWindow ) const
 {
 	TSharedPtr<SWindow> CandidateToCheck = this->GetParentWindow();
@@ -1869,6 +1889,7 @@ SWindow::SWindow()
 	, bIsModalWindow( false )
 	, bIsMirrorWindow( false )
 	, bShouldPreserveAspectRatio( false )
+	, bManualManageDPI( false )
 	, WindowActivationPolicy( EWindowActivationPolicy::Always )
 	, InitialDesiredScreenPosition( FVector2D::ZeroVector )
 	, InitialDesiredSize( FVector2D::ZeroVector )

@@ -2056,6 +2056,8 @@ TSharedRef< FGenericWindow > FSlateApplication::MakeWindow( TSharedRef<SWindow> 
 
 	Definition->SizeLimits = InSlateWindow->GetSizeLimits();
 
+	Definition->bManualDPI = InSlateWindow->IsManualManageDPIChanges();
+
 	TSharedRef< FGenericWindow > NewWindow = PlatformApplication->MakeWindow();
 
 	if (LIKELY(FApp::CanEverRender()))
@@ -6660,6 +6662,18 @@ void FSlateApplication::FinishedReshapingWindow( const TSharedRef< FGenericWindo
 	}
 }
 
+void FSlateApplication::SignalSystemDPIChanged(const TSharedRef<FGenericWindow>& PlatformWindow)
+{
+#if WITH_EDITOR
+	TSharedPtr< SWindow > SlateWindow = FSlateWindowHelper::FindWindowByPlatformWindow(SlateWindows, PlatformWindow);
+
+	if (SlateWindow.IsValid() && SlateWindow->IsRegularWindow())
+	{
+		OnSignalSystemDPIChangedEvent.Broadcast(SlateWindow.ToSharedRef());
+	}
+#endif
+}
+
 void FSlateApplication::HandleDPIScaleChanged(const TSharedRef<FGenericWindow>& PlatformWindow)
 {
 #if WITH_EDITOR
@@ -6671,7 +6685,6 @@ void FSlateApplication::HandleDPIScaleChanged(const TSharedRef<FGenericWindow>& 
 	}
 #endif
 }
-
 
 void FSlateApplication::OnMovedWindow( const TSharedRef< FGenericWindow >& PlatformWindow, const int32 X, const int32 Y )
 {

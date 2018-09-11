@@ -18,8 +18,8 @@ class FShaderFormatD3D : public IShaderFormat
 		/** Version for shader format, this becomes part of the DDC key. */
 		UE_SHADER_PCD3D_SM5_VER = 7,
 		UE_SHADER_PCD3D_SM4_VER = 7,
-		UE_SHADER_PCD3D_ES2_VER = 7,
-		UE_SHADER_PCD3D_ES3_1_VER = 7,
+		UE_SHADER_PCD3D_ES2_VER = 8,
+		UE_SHADER_PCD3D_ES3_1_VER = 8,
 	};
 
 	void CheckFormat(FName Format) const

@@ -37,7 +37,7 @@ namespace UnrealBuildTool.Rules
                 );
             }
 			
-			if (Target.bBuildEditor || Target.Platform == UnrealTargetPlatform.Android)
+			if (Target.bBuildEditor || Target.Platform == UnrealTargetPlatform.Android || Target.Platform == UnrealTargetPlatform.IOS)
 			{
                 // WebBrowserTexture required for cooking Android
                 PrivateIncludePathModuleNames.AddRange(

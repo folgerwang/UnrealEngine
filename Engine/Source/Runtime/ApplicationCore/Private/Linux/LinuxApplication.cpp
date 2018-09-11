@@ -1461,6 +1461,16 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 		Display.DisplayRect = FPlatformRect(DisplayBounds.x, DisplayBounds.y, DisplayBounds.x + DisplayBounds.w, DisplayBounds.y + DisplayBounds.h);
 		Display.WorkArea = FPlatformRect(UsableBounds.x, UsableBounds.y, UsableBounds.x + UsableBounds.w, UsableBounds.y + UsableBounds.h);
 		Display.bIsPrimary = DisplayIdx == 0;
+
+		if (FPlatformApplicationMisc::IsHighDPIAwarenessEnabled())
+		{
+			float HorzDPI = 0.0f, VertDPI = 0.0f;
+			if (SDL_GetDisplayDPI(DisplayIdx, nullptr, &HorzDPI, &VertDPI) == 0)
+			{
+				Display.DPI = FMath::FloorToInt((HorzDPI + VertDPI) / 2.0f);
+			}
+		}
+
 		OutDisplayMetrics.MonitorInfo.Add(Display);
 
 		if (Display.bIsPrimary)

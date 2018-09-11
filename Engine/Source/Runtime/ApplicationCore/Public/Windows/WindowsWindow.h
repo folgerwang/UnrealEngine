@@ -70,10 +70,16 @@ public:
 		return DPIScaleFactor;
 	}
 
-	void SetDPIScaleFactor(float Value)
+	virtual void SetDPIScaleFactor(float Value) override
 	{
 		DPIScaleFactor = Value;
 	}
+
+	/** determines whether or not this window does its own DPI management */
+	virtual bool IsManualManageDPIChanges() const override;
+
+	/** call with a true argument if this window need to do its custom size management in response to DPI variations */
+	virtual void SetManualManageDPIChanges(const bool bManualDPIChanges) override;
 
 	/** Called when our parent window is minimized (which will in turn cause us to become minimized). */
 	void OnParentWindowMinimized();
@@ -197,4 +203,7 @@ private:
 	 * E.g. DPIScale of 2.0 means there is a 2x2 pixel square for every 1x1 SlateUnit.
 	 */
 	float DPIScaleFactor;
+
+	/** when true the window is responsible for its own size adjustments in response to a DPI change */
+	bool bHandleManualDPIChanges = false;
 };

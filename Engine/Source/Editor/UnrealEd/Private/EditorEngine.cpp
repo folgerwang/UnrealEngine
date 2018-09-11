@@ -202,10 +202,15 @@
 #include "Developer/HotReload/Public/IHotReload.h"
 #include "EditorBuildUtils.h"
 #include "MaterialStatsCommon.h"
+#include "MaterialShaderQualitySettings.h"
 
 #include "Bookmarks/IBookmarkTypeTools.h"
 #include "Bookmarks/BookMarkTypeActions.h"
 #include "Bookmarks/BookMark2DTypeActions.h"
+#include "ComponentReregisterContext.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialInstance.h"
+#include "ComponentRecreateRenderStateContext.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditor, Log, All);
 
@@ -938,6 +943,8 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	SlowTask.EnterProgressFrame(40);
 	GEditor = this;
 	InitEditor(InEngineLoop);
+
+	LoadEditorFeatureLevel();
 
 	Layers = FLayers::Create( MakeWeakObjectPtr( this ) );
 
@@ -7375,6 +7382,145 @@ void UEditorEngine::UpdateShaderComplexityMaterials()
 void UEditorEngine::OnSceneMaterialsModified()
 {
 	UpdateShaderComplexityMaterials();
+}
+
+void UEditorEngine::SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeatureLevel)
+{
+	FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "UpdatingMaterialsMessage", "Updating Materials"), true);
+	SlowTask.MakeDialog();
+
+	//invalidate global bound shader states so they will be created with the new shaders the next time they are set (in SetGlobalBoundShaderState)
+	for (TLinkedList<FGlobalBoundShaderStateResource*>::TIterator It(FGlobalBoundShaderStateResource::GetGlobalBoundShaderStateList()); It; It.Next())
+	{
+		BeginUpdateResourceRHI(*It);
+	}
+
+	FGlobalComponentReregisterContext RecreateComponents;
+	FlushRenderingCommands();
+
+	SlowTask.EnterProgressFrame(5.0f);
+
+	// Decrement refcount on old feature level
+	UMaterialInterface::SetGlobalRequiredFeatureLevel(InFeatureLevel, true);
+
+	SlowTask.EnterProgressFrame(50.0f);
+	UMaterial::AllMaterialsCacheResourceShadersForRendering();
+	
+	SlowTask.EnterProgressFrame(40.0f);
+	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
+
+	CompileGlobalShaderMap(InFeatureLevel);
+	GShaderCompilingManager->ProcessAsyncResults(false, true);
+	SlowTask.EnterProgressFrame(5.0f);
+}
+
+void UEditorEngine::SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPreviewFeatureLevel)
+{
+	if (DefaultWorldFeatureLevel != InPreviewFeatureLevel)
+	{
+		// Record this feature level as we want to use it for all subsequent level creation and loading
+		DefaultWorldFeatureLevel = InPreviewFeatureLevel;
+
+		FScopedSlowTask SlowTask(100.f, NSLOCTEXT("Engine", "ChangingPreviewRenderingLevelMessage", "Changing Preview Rendering Level"), true);
+		SlowTask.MakeDialog();
+
+		// first change the feature level for global/shared resources
+		SetMaterialsFeatureLevel(InPreviewFeatureLevel);
+
+		SlowTask.EnterProgressFrame(50.0f);
+
+		UWorld* MainWorld = GetEditorWorldContext().World();
+		if (MainWorld != nullptr)
+		{
+			MainWorld->ChangeFeatureLevel(InPreviewFeatureLevel, false);
+		}
+
+		SlowTask.EnterProgressFrame(25.0f);
+
+		// Update any currently running PIE sessions.
+		for (TObjectIterator<UWorld> It; It; ++It)
+		{
+			UWorld* ItWorld = *It;
+			if (ItWorld->WorldType == EWorldType::PIE)
+			{
+				ItWorld->ChangeFeatureLevel(InPreviewFeatureLevel, false);
+			}
+		}
+
+		SlowTask.EnterProgressFrame(25.0f);
+
+		GUnrealEd->OnSceneMaterialsModified();
+		GUnrealEd->RedrawAllViewports();
+	}
+}
+
+void UEditorEngine::AllMaterialsCacheResourceShadersForRendering()
+{
+	FGlobalComponentRecreateRenderStateContext Recreate;
+	FlushRenderingCommands();
+	UMaterial::AllMaterialsCacheResourceShadersForRendering();
+	UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
+}
+
+void UEditorEngine::SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings/* = true*/)
+{
+	// If we have specified a MaterialQualityPlatform ensure its feature level matches the requested feature level.
+	check(MaterialQualityPlatform.IsNone() || GetMaxSupportedFeatureLevel(ShaderFormatToLegacyShaderPlatform(MaterialQualityPlatform)) == PreviewFeatureLevel);
+
+	UMaterialShaderQualitySettings* MaterialShaderQualitySettings = UMaterialShaderQualitySettings::Get();
+	const FName InitialPreviewPlatform = MaterialShaderQualitySettings->GetPreviewPlatform();
+	MaterialShaderQualitySettings->SetPreviewPlatform(MaterialQualityPlatform);
+
+	if (DefaultWorldFeatureLevel != PreviewFeatureLevel)
+	{
+		// a new feature level will recompile the materials and apply the effect of any 'material quality platform'
+		SetFeatureLevelPreview(PreviewFeatureLevel);
+	}
+	else if (InitialPreviewPlatform != MaterialQualityPlatform)
+	{
+		// Rebuild materials if we have the same feature level but a different 'material quality platform'
+		AllMaterialsCacheResourceShadersForRendering();
+	}
+
+	if (bSaveSettings)
+	{
+		SaveEditorFeatureLevel();
+	}
+}
+
+void UEditorEngine::LoadEditorFeatureLevel()
+{
+ 	auto* Settings = GetMutableDefault<UEditorPerProjectUserSettings>();
+	auto* QualitySettings = UMaterialShaderQualitySettings::Get();
+
+	EShaderPlatform ShaderPlatform = ShaderFormatToLegacyShaderPlatform(Settings->PreviewShaderPlatformName);
+	if (ShaderPlatform != SP_NumPlatforms)
+	{
+		const FName MaterialQualityPlatform = Settings->bIsMaterialQualityOverridePlatform ? Settings->PreviewShaderPlatformName : NAME_None;
+		const ERHIFeatureLevel::Type PreviewFeatureLevel = GetMaxSupportedFeatureLevel(ShaderPlatform);
+		SetPreviewPlatform(MaterialQualityPlatform, PreviewFeatureLevel, false);
+	}
+}
+
+void UEditorEngine::SaveEditorFeatureLevel()
+{
+	auto* Settings = GetMutableDefault<UEditorPerProjectUserSettings>();
+
+	const FName& PreviewPlatormName = UMaterialShaderQualitySettings::Get()->GetPreviewPlatform();
+	if (PreviewPlatormName == NAME_None)
+	{
+		Settings->bIsMaterialQualityOverridePlatform = false;
+
+		const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(DefaultWorldFeatureLevel);
+		Settings->PreviewShaderPlatformName = LegacyShaderPlatformToShaderFormat(ShaderPlatform);
+	}
+	else
+	{
+		Settings->bIsMaterialQualityOverridePlatform = true;
+		Settings->PreviewShaderPlatformName = PreviewPlatormName;
+	}
+
+	Settings->PostEditChange();
 }
 
 #undef LOCTEXT_NAMESPACE 

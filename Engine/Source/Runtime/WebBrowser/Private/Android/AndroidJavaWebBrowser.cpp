@@ -42,6 +42,7 @@ FJavaAndroidWebBrowser::FJavaAndroidWebBrowser(bool swizzlePixels, bool vulkanRe
 	, CloseMethod(GetClassMethod("Close", "()V"))
 	, GoBackOrForwardMethod(GetClassMethod("GoBackOrForward", "(I)V"))
 	, SetAndroid3DBrowserMethod(GetClassMethod("SetAndroid3DBrowser", "(Z)V"))
+	, SetVisibilityMethod(GetClassMethod("SetVisibility", "(Z)V"))
 {
 	VideoTexture = nullptr;
 	bVideoTextureValid = false;
@@ -218,6 +219,11 @@ void FJavaAndroidWebBrowser::GoForward()
 void FJavaAndroidWebBrowser::SetAndroid3DBrowser(bool InIsAndroid3DBrowser)
 {
 	CallMethod<void>(SetAndroid3DBrowserMethod, InIsAndroid3DBrowser);
+}
+
+void FJavaAndroidWebBrowser::SetVisibility(bool InIsVisible)
+{
+	CallMethod<void>(SetVisibilityMethod, InIsVisible);
 }
 
 #endif // USE_ANDROID_JNI

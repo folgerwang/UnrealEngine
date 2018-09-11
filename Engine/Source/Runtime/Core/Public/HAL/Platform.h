@@ -890,3 +890,12 @@ namespace TypeTests
 	#endif
 		#define TEXT(x) TEXT_PASTE(x)
 #endif
+
+// this function is used to suppress static analysis warnings
+#if PLATFORM_HTML5
+FORCEINLINE bool IsHTML5Platform() { return true; }
+#else
+FORCEINLINE bool IsHTML5Platform() { return false; }
+#endif
+
+

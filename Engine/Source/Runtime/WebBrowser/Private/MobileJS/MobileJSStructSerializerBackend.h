@@ -2,10 +2,11 @@
 
 #pragma once
 
-#if USE_ANDROID_JNI
-
 #include "CoreMinimal.h"
-#include "AndroidJSScripting.h"
+
+#if PLATFORM_ANDROID || PLATFORM_IOS
+
+#include "MobileJSScripting.h"
 #include "Backends/JsonStructSerializerBackend.h"
 
 class UObject;
@@ -16,7 +17,7 @@ class UObject;
  * Based on FJsonStructSerializerBackend, it adds support for certain object types not representable in pure JSON
  *
  */
-class FAndroidJSStructSerializerBackend
+class FMobileJSStructSerializerBackend
 	: public FJsonStructSerializerBackend
 {
 public:
@@ -26,7 +27,7 @@ public:
 	 *
 	 * @param InScripting An instance of a web browser scripting obnject.
 	 */
-	FAndroidJSStructSerializerBackend(FAndroidJSScriptingRef InScripting);
+	FMobileJSStructSerializerBackend(FMobileJSScriptingRef InScripting);
 
 public:
 	virtual void WriteProperty(const FStructSerializerState& State, int32 ArrayIndex = 0) override;
@@ -36,9 +37,9 @@ public:
 private:
 	void WriteUObject(const FStructSerializerState& State, UObject* Value);
 
-	FAndroidJSScriptingRef Scripting;
+	FMobileJSScriptingRef Scripting;
 	TArray<uint8> ReturnBuffer;
 	FMemoryWriter Writer;
 };
 
-#endif // USE_ANDROID_JNI
+#endif // PLATFORM_ANDROID || PLATFORM_IOS

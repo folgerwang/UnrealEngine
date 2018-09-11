@@ -133,6 +133,10 @@ public:
 	static void CallVoidMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
 	static jobject CallObjectMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
 	static int32 CallIntMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
+	static int64 CallLongMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
+	static float CallFloatMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
+	static double CallDoubleMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
+	
 	static bool CallBooleanMethod(JNIEnv* Env, jobject Object, jmethodID Method, ...);
 
 	// Delegate that can be registered to that is called when an activity is finished
