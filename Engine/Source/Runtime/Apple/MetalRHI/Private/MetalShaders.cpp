@@ -9,7 +9,6 @@
 #include "Misc/Paths.h"
 #include "MetalShaderResources.h"
 #include "MetalResources.h"
-#include "ShaderCache.h"
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
 #include "Serialization/MemoryReader.h"
@@ -124,19 +123,21 @@ NSString* DecodeMetalSourceCode(uint32 CodeSize, TArray<uint8> const& Compressed
 	return GlslCodeNSString;
 }
 
-static mtlpp::LanguageVersion ValidateVersion(uint8 Version)
+mtlpp::LanguageVersion ValidateVersion(uint8 Version)
 {
 	static uint32 MetalMacOSVersions[][3] = {
 		{10,11,6},
 		{10,11,6},
 		{10,12,6},
 		{10,13,0},
+		{10,14,0},
 	};
 	static uint32 MetaliOSVersions[][3] = {
 		{8,0,0},
 		{9,0,0},
 		{10,0,0},
 		{11,0,0},
+		{12,0,0},
 	};
 	static TCHAR const* StandardNames[] =
 	{
@@ -144,22 +145,34 @@ static mtlpp::LanguageVersion ValidateVersion(uint8 Version)
 		TEXT("Metal 1.1"),
 		TEXT("Metal 1.2"),
 		TEXT("Metal 2.0"),
+		TEXT("Metal 2.1"),
 	};
 	
 	Version = FMath::Min(Version, (uint8)3);
 	
 	mtlpp::LanguageVersion Result = mtlpp::LanguageVersion::Version1_1;
-	if (Version < 3)
+	switch(Version)
 	{
+		case 4:
+			Result = mtlpp::LanguageVersion::Version2_1;
+			break;
+		case 3:
+			Result = mtlpp::LanguageVersion::Version2_0;
+			break;
+		case 2:
+			Result = mtlpp::LanguageVersion::Version1_2;
+			break;
+		case 1:
+			Result = mtlpp::LanguageVersion::Version1_1;
+			break;
+		case 0:
+		default:
 #if PLATFORM_MAC
-		Result = Version == 0 ? mtlpp::LanguageVersion::Version1_1 : (mtlpp::LanguageVersion)((1 << 16) + FMath::Min(Version, (uint8)2u));
+			Result = mtlpp::LanguageVersion::Version1_1;
 #else
-		Result = (mtlpp::LanguageVersion)((1 << 16) + FMath::Min(Version, (uint8)2u));
+			Result = mtlpp::LanguageVersion::Version1_0;
 #endif
-	}
-	else if (Version == 3)
-	{
-		Result = (mtlpp::LanguageVersion)(2 << 16);
+			break;
 	}
 	
 	if (!FApplePlatformMisc::IsOSAtLeastVersion(MetalMacOSVersions[Version], MetaliOSVersions[Version], MetaliOSVersions[Version]))
@@ -198,7 +211,6 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 	check(OfflineCompiledFlag == 0 || OfflineCompiledFlag == 1);
 
 	// get the header
-	Header = { 0 };
 	Ar << Header;
 	
 	ValidateVersion(Header.Version);
@@ -602,7 +614,7 @@ FMetalComputeShader::FMetalComputeShader(const TArray<uint8>& InCode, mtlpp::Lib
 , NumThreadsZ(0)
 {
     Pipeline[0] = Pipeline[1] = nil;
-	FMetalCodeHeader Header = {0};
+	FMetalCodeHeader Header;
 	Init(InCode, Header, InLibrary);
 	
 	NumThreadsX = FMath::Max((int32)Header.NumThreadsX, 1);
@@ -638,6 +650,14 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
 		check(Func);
         
 		ns::Error Error;
+		mtlpp::ComputePipelineDescriptor Descriptor;
+		Descriptor.SetLabel(Func.GetName());
+		Descriptor.SetComputeFunction(Func);
+		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesTextureBuffers))
+		{
+			Descriptor.SetMaxTotalThreadsPerThreadgroup(NumThreadsX*NumThreadsY*NumThreadsZ);
+		}
+		
 		mtlpp::ComputePipelineState Kernel;
         mtlpp::ComputePipelineReflection Reflection;
 		
@@ -649,7 +669,7 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
             mtlpp::AutoReleasedComputePipelineReflection ComputeReflection;
 			
 			NSUInteger ComputeOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo METAL_STATISTIC(|NSUInteger(EMTLPipelineStats));
-			Kernel = GetMetalDeviceContext().GetDevice().NewComputePipelineState(Func, mtlpp::PipelineOption(ComputeOption), ComputeReflection, &ComputeError);
+			Kernel = GetMetalDeviceContext().GetDevice().NewComputePipelineState(Descriptor, mtlpp::PipelineOption(ComputeOption), &ComputeReflection, &ComputeError);
 			Error = ComputeError;
 			Reflection = ComputeReflection;
         }
@@ -657,7 +677,7 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
     #endif
         {
 			ns::AutoReleasedError ComputeError;
-			Kernel = GetMetalDeviceContext().GetDevice().NewComputePipelineState(Func, &ComputeError);
+			Kernel = GetMetalDeviceContext().GetDevice().NewComputePipelineState(Descriptor, mtlpp::PipelineOption(0), nil, &ComputeError);
 			Error = ComputeError;
         }
         
@@ -674,9 +694,7 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
         Pipeline[BT]->ComputeSource = GetSourceCode();
 		if (Reflection)
 		{
-			Pipeline[BT]->ComputeDesc = mtlpp::ComputePipelineDescriptor();
-			Pipeline[BT]->ComputeDesc.SetLabel(Func.GetName());
-			Pipeline[BT]->ComputeDesc.SetComputeFunction(Func);
+			Pipeline[BT]->ComputeDesc = Descriptor;
 		}
 #endif
         METAL_DEBUG_OPTION(FMemory::Memzero(Pipeline[BT]->ResourceMask, sizeof(Pipeline[BT]->ResourceMask)));
@@ -688,7 +706,7 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
 
 FMetalVertexShader::FMetalVertexShader(const TArray<uint8>& InCode)
 {
-	FMetalCodeHeader Header = {0};
+	FMetalCodeHeader Header;
 	Init(InCode, Header);
 	
 	TessellationOutputAttribs = Header.TessellationOutputAttribs;
@@ -707,7 +725,7 @@ FMetalVertexShader::FMetalVertexShader(const TArray<uint8>& InCode)
 
 FMetalVertexShader::FMetalVertexShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary)
 {
-	FMetalCodeHeader Header = {0};
+	FMetalCodeHeader Header;
 	Init(InCode, Header, InLibrary);
 	
 	TessellationOutputAttribs = Header.TessellationOutputAttribs;
@@ -740,13 +758,13 @@ mtlpp::Function FMetalVertexShader::GetFunction(EMetalIndexType IndexType, EPixe
 
 FMetalPixelShader::FMetalPixelShader(const TArray<uint8>& InCode)
 {
-	FMetalCodeHeader Header = {0};
+	FMetalCodeHeader Header;
 	Init(InCode, Header);
 }
 
 FMetalPixelShader::FMetalPixelShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary)
 {
-	FMetalCodeHeader Header = {0};
+	FMetalCodeHeader Header;
 	Init(InCode, Header, InLibrary);
 }
 	
@@ -766,13 +784,13 @@ mtlpp::Function FMetalPixelShader::GetFunction(EMetalIndexType IndexType, EPixel
 
 FMetalHullShader::FMetalHullShader(const TArray<uint8>& InCode)
 {
-	FMetalCodeHeader Header = {0};
+	FMetalCodeHeader Header;
 	Init(InCode, Header);
 }
 
 FMetalHullShader::FMetalHullShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary)
 {
-	FMetalCodeHeader Header = {0};
+	FMetalCodeHeader Header;
 	Init(InCode, Header, InLibrary);
 }
 	
@@ -792,7 +810,7 @@ mtlpp::Function FMetalHullShader::GetFunction(EMetalIndexType IndexType, EPixelF
 
 FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode)
 {
-	FMetalCodeHeader Header = {0};
+	FMetalCodeHeader Header;
 	Init(InCode, Header);
 	
 	// for VSHS
@@ -819,7 +837,7 @@ FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode)
 
 FMetalDomainShader::FMetalDomainShader(const TArray<uint8>& InCode, mtlpp::Library InLibrary)
 {
-	FMetalCodeHeader Header = {0};
+	FMetalCodeHeader Header;
 	Init(InCode, Header, InLibrary);
 	
 	// for VSHS
@@ -942,7 +960,7 @@ FGeometryShaderRHIRef FMetalDynamicRHI::RHICreateGeometryShader(const TArray<uin
 {
 	@autoreleasepool {
 	FMetalGeometryShader* Shader = new FMetalGeometryShader;
-	FMetalCodeHeader Header = {0};
+	FMetalCodeHeader Header;
 	Shader->Init(Code, Header);
 	return Shader;
 	}
@@ -983,17 +1001,7 @@ FGeometryShaderRHIRef FMetalDynamicRHI::RHICreateGeometryShaderWithStreamOutput(
 FComputeShaderRHIRef FMetalDynamicRHI::RHICreateComputeShader(const TArray<uint8>& Code) 
 {
 	@autoreleasepool {
-	FMetalComputeShader* Shader = new FMetalComputeShader(Code);
-	
-	// @todo WARNING: We have to hash here because of the way we immediately link and don't afford the cache a chance to set the OutputHash from ShaderCore.
-	if (FShaderCache::GetShaderCache())
-	{
-		FSHAHash Hash;
-		FSHA1::HashBuffer(Code.GetData(), Code.Num(), Hash.Hash);
-		Shader->SetHash(Hash);
-	}
-	
-	return Shader;
+	return new FMetalComputeShader(Code);
 	}
 }
 
@@ -1004,16 +1012,8 @@ FComputeShaderRHIRef FMetalDynamicRHI::RHICreateComputeShader(FRHIShaderLibraryP
 	checkSlow(Library && Library->IsNativeLibrary() && IsMetalPlatform(Library->GetPlatform()) && Library->GetPlatform() <= GMaxRHIShaderPlatform);
 
 	FMetalShaderLibrary* MetalLibrary = ResourceCast(Library);
-	FComputeShaderRHIRef Shader = MetalLibrary->CreateComputeShader(Hash);
-	
-	if(Shader.IsValid() && FShaderCache::GetShaderCache())
-	{
-		// @todo WARNING: We have to hash here because of the way we immediately link and don't afford the cache a chance to set the OutputHash from ShaderCore.
-		Shader->SetHash(Hash);
-	}
-	
-	return Shader;
-	
+	return MetalLibrary->CreateComputeShader(Hash);
+		
 	}
 }
 
@@ -1074,7 +1074,7 @@ FDomainShaderRHIRef FMetalDynamicRHI::CreateDomainShader_RenderThread(class FRHI
 	return RHICreateDomainShader(Library, Hash);
 }
 
-FMetalShaderLibrary::FMetalShaderLibrary(EShaderPlatform InPlatform, FString const& Name, mtlpp::Library InLibrary, FMetalShaderMap const& InMap)
+FMetalShaderLibrary::FMetalShaderLibrary(EShaderPlatform InPlatform, FString const& Name, TArray<mtlpp::Library> InLibrary, FMetalShaderMap const& InMap)
 : FRHIShaderLibrary(InPlatform, Name)
 , Library(InLibrary)
 , Map(InMap)
@@ -1089,22 +1089,22 @@ FMetalShaderLibrary::~FMetalShaderLibrary()
 
 bool FMetalShaderLibrary::ContainsEntry(const FSHAHash& Hash)
 {
-	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	FMetalShadeEntry* Code = Map.HashMap.Find(Hash);
 	return (Code != nullptr);
 }
 
 bool FMetalShaderLibrary::RequestEntry(const FSHAHash& Hash, FArchive* Ar)
 {
-	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	FMetalShadeEntry* Code = Map.HashMap.Find(Hash);
 	return (Code != nullptr);
 }
 
 FPixelShaderRHIRef FMetalShaderLibrary::CreatePixelShader(const FSHAHash& Hash)
 {
-	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	FMetalShadeEntry* Code = Map.HashMap.Find(Hash);
 	if (Code)
 	{
-		FMetalPixelShader* Shader = new FMetalPixelShader(Code->Value, Library);
+		FMetalPixelShader* Shader = new FMetalPixelShader(Code->Data, Library[Code->Index]);
 		if (Shader->GetFunction(EMetalIndexType_None, nullptr, 0))
 		{
 			return Shader;
@@ -1121,10 +1121,10 @@ FPixelShaderRHIRef FMetalShaderLibrary::CreatePixelShader(const FSHAHash& Hash)
 
 FVertexShaderRHIRef FMetalShaderLibrary::CreateVertexShader(const FSHAHash& Hash)
 {
-	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	FMetalShadeEntry* Code = Map.HashMap.Find(Hash);
 	if (Code)
 	{
-		FMetalVertexShader* Shader = new FMetalVertexShader(Code->Value, Library);
+		FMetalVertexShader* Shader = new FMetalVertexShader(Code->Data, Library[Code->Index]);
 		if (Shader->GetFunction(EMetalIndexType_None, nullptr, 0))
 		{
 			return Shader;
@@ -1140,10 +1140,10 @@ FVertexShaderRHIRef FMetalShaderLibrary::CreateVertexShader(const FSHAHash& Hash
 
 FHullShaderRHIRef FMetalShaderLibrary::CreateHullShader(const FSHAHash& Hash)
 {
-	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	FMetalShadeEntry* Code = Map.HashMap.Find(Hash);
 	if (Code)
 	{
-		FMetalHullShader* Shader = new FMetalHullShader(Code->Value, Library);
+		FMetalHullShader* Shader = new FMetalHullShader(Code->Data, Library[Code->Index]);
 		if(Shader->GetFunction(EMetalIndexType_None, nullptr, 0))
 		{
 			return Shader;
@@ -1159,10 +1159,10 @@ FHullShaderRHIRef FMetalShaderLibrary::CreateHullShader(const FSHAHash& Hash)
 
 FDomainShaderRHIRef FMetalShaderLibrary::CreateDomainShader(const FSHAHash& Hash)
 {
-	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	FMetalShadeEntry* Code = Map.HashMap.Find(Hash);
 	if (Code)
 	{
-		FMetalDomainShader* Shader = new FMetalDomainShader(Code->Value, Library);
+		FMetalDomainShader* Shader = new FMetalDomainShader(Code->Data, Library[Code->Index]);
 		if (Shader->GetFunction(EMetalIndexType_None, nullptr, 0))
 		{
 			return Shader;
@@ -1190,10 +1190,10 @@ FGeometryShaderRHIRef FMetalShaderLibrary::CreateGeometryShaderWithStreamOutput(
 
 FComputeShaderRHIRef FMetalShaderLibrary::CreateComputeShader(const FSHAHash& Hash)
 {
-	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	FMetalShadeEntry* Code = Map.HashMap.Find(Hash);
 	if (Code)
 	{
-		FMetalComputeShader* Shader = new FMetalComputeShader(Code->Value, Library);
+		FMetalComputeShader* Shader = new FMetalComputeShader(Code->Data, Library[Code->Index]);
 		if (Shader->GetPipeline(nullptr, 0))
 		{
 			return Shader;
@@ -1215,7 +1215,7 @@ FRHIShaderLibrary::FShaderLibraryEntry FMetalShaderLibrary::FMetalShaderLibraryI
 	FShaderLibraryEntry Entry;
 	
 	Entry.Hash = IteratorImpl->Key;
-	Entry.Frequency = (EShaderFrequency)IteratorImpl->Value.Key;
+	Entry.Frequency = (EShaderFrequency)IteratorImpl->Value.Type;
 	Entry.Platform = GetLibrary()->GetPlatform();
 	
 	return Entry;
@@ -1258,23 +1258,30 @@ FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Pl
 		// Would be good to check the language version of the library with the archive format here.
 		if (Map.Format == PlatformName.GetPlainNameString())
 		{
-			FString MetalLibraryFilePath = FilePath / LibName + METAL_LIB_EXTENSION;
-			MetalLibraryFilePath = FPaths::ConvertRelativePathToFull(MetalLibraryFilePath);
-#if !PLATFORM_MAC
-			MetalLibraryFilePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*MetalLibraryFilePath);
-#endif
-			
-			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewLibraryFile: %s"), *MetalLibraryFilePath)));
-			NSError* Error;
-			mtlpp::Library Library = [GetMetalDeviceContext().GetDevice() newLibraryWithFile:MetalLibraryFilePath.GetNSString() error:&Error];
-			if (Library != nil)
+			TArray<mtlpp::Library> Libraries;
+			for (uint32 i = 0; i < Map.Count; i++)
 			{
-				Result = new FMetalShaderLibrary(Platform, Name, Library, Map);
+				FString MetalLibraryFilePath = (FilePath / LibName) + FString::Printf(TEXT(".%d"), i) + METAL_LIB_EXTENSION;
+				MetalLibraryFilePath = FPaths::ConvertRelativePathToFull(MetalLibraryFilePath);
+	#if !PLATFORM_MAC
+				MetalLibraryFilePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*MetalLibraryFilePath);
+	#endif
+				
+				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewLibraryFile: %s"), *MetalLibraryFilePath)));
+				NSError* Error;
+				mtlpp::Library Library = [GetMetalDeviceContext().GetDevice() newLibraryWithFile:MetalLibraryFilePath.GetNSString() error:&Error];
+				if (Library != nil)
+				{
+					Libraries.Add(Library);
+				}
+				else
+				{
+					UE_LOG(LogMetal, Display, TEXT("Failed to create library: %s"), *FString(Error.description));
+					return nullptr;
+				}
 			}
-			else
-			{
-				UE_LOG(LogMetal, Display, TEXT("Failed to create library: %s"), *FString(Error.description));
-			}
+
+			Result = new FMetalShaderLibrary(Platform, Name, Libraries, Map);
 		}
 		else
 		{
@@ -1316,7 +1323,15 @@ FMetalShaderParameterCache::FMetalShaderParameterCache()
 
 void FMetalShaderParameterCache::ResizeGlobalUniforms(uint32 TypeIndex, uint32 UniformArraySize)
 {
-	PackedGlobalUniforms[TypeIndex] = (uint8*)FMemory::Realloc(PackedGlobalUniforms[TypeIndex], UniformArraySize);
+	if (!PackedGlobalUniforms[TypeIndex])
+	{
+		PackedGlobalUniforms[TypeIndex] = [[FMetalBufferData alloc] initWithSize:UniformArraySize];
+	}
+	else
+	{
+		PackedGlobalUniforms[TypeIndex]->Data = (uint8*)FMemory::Realloc(PackedGlobalUniforms[TypeIndex]->Data, UniformArraySize);
+		PackedGlobalUniforms[TypeIndex]->Len = UniformArraySize;
+	}
 	PackedGlobalUniformsSizes[TypeIndex] = UniformArraySize;
 	PackedGlobalUniformDirty[TypeIndex].LowVector = 0;
 	PackedGlobalUniformDirty[TypeIndex].HighVector = 0;
@@ -1327,7 +1342,7 @@ FMetalShaderParameterCache::~FMetalShaderParameterCache()
 {
 	for (int32 ArrayIndex = 0; ArrayIndex < CrossCompiler::PACKED_TYPEINDEX_MAX; ++ArrayIndex)
 	{
-		FMemory::Free(PackedGlobalUniforms[ArrayIndex]);
+		[PackedGlobalUniforms[ArrayIndex] release];
 	}
 }
 
@@ -1343,7 +1358,7 @@ void FMetalShaderParameterCache::Reset()
 	}
 }
 
-const int SizeOfFloat4 = 4 * sizeof(float);
+static const int SizeOfFloat = sizeof(float);
 
 /**
  * Marks all uniform arrays as dirty.
@@ -1353,7 +1368,7 @@ void FMetalShaderParameterCache::MarkAllDirty()
 	for (int32 ArrayIndex = 0; ArrayIndex < CrossCompiler::PACKED_TYPEINDEX_MAX; ++ArrayIndex)
 	{
 		PackedGlobalUniformDirty[ArrayIndex].LowVector = 0;
-		PackedGlobalUniformDirty[ArrayIndex].HighVector = PackedGlobalUniformsSizes[ArrayIndex] / SizeOfFloat4;
+		PackedGlobalUniformDirty[ArrayIndex].HighVector = PackedGlobalUniformsSizes[ArrayIndex] / SizeOfFloat;
 	}
 }
 
@@ -1366,9 +1381,9 @@ void FMetalShaderParameterCache::Set(uint32 BufferIndexName, uint32 ByteOffset, 
 	check(BufferIndex < CrossCompiler::PACKED_TYPEINDEX_MAX);
 	check(PackedGlobalUniforms[BufferIndex]);
 	check(ByteOffset + NumBytes <= PackedGlobalUniformsSizes[BufferIndex]);
-	PackedGlobalUniformDirty[BufferIndex].LowVector = FMath::Min(PackedGlobalUniformDirty[BufferIndex].LowVector, ByteOffset / SizeOfFloat4);
-	PackedGlobalUniformDirty[BufferIndex].HighVector = FMath::Max(PackedGlobalUniformDirty[BufferIndex].HighVector, (ByteOffset + NumBytes + SizeOfFloat4 - 1) / SizeOfFloat4);
-	FMemory::Memcpy(PackedGlobalUniforms[BufferIndex] + ByteOffset, NewValues, NumBytes);
+	PackedGlobalUniformDirty[BufferIndex].LowVector = FMath::Min(PackedGlobalUniformDirty[BufferIndex].LowVector, ByteOffset / SizeOfFloat);
+	PackedGlobalUniformDirty[BufferIndex].HighVector = FMath::Max(PackedGlobalUniformDirty[BufferIndex].HighVector, (ByteOffset + NumBytes + SizeOfFloat - 1) / SizeOfFloat);
+	FMemory::Memcpy(PackedGlobalUniforms[BufferIndex]->Data + ByteOffset, NewValues, NumBytes);
 }
 
 void FMetalShaderParameterCache::CommitPackedGlobals(FMetalStateCache* Cache, FMetalCommandEncoder* Encoder, EShaderFrequency Frequency, const FMetalShaderBindings& Bindings)
@@ -1379,31 +1394,37 @@ void FMetalShaderParameterCache::CommitPackedGlobals(FMetalStateCache* Cache, FM
 		int32 UniformBufferIndex = Bindings.PackedGlobalArrays[Index].TypeIndex;
  
 		// is there any data that needs to be copied?
-		if (PackedGlobalUniformDirty[UniformBufferIndex].HighVector > 0)
+		if (PackedGlobalUniformDirty[Index].HighVector > 0)
 		{
 			uint32 TotalSize = Bindings.PackedGlobalArrays[Index].Size;
-			uint32 SizeToUpload = PackedGlobalUniformDirty[UniformBufferIndex].HighVector * SizeOfFloat4;
+			uint32 SizeToUpload = PackedGlobalUniformDirty[Index].HighVector * SizeOfFloat;
 			
 			//@todo-rco: Temp workaround
 			SizeToUpload = TotalSize;
 			
 			//@todo-rco: Temp workaround
-			uint8 const* Bytes = PackedGlobalUniforms[UniformBufferIndex];
 			uint32 Size = FMath::Min(TotalSize, SizeToUpload);
-			
-			FMetalBuffer Buffer = Encoder->GetRingBuffer().NewBuffer(Size, 0);
-			
-			FMemory::Memcpy((uint8*)Buffer.GetContents(), Bytes, Size);
-			
-			Cache->SetShaderBuffer(Frequency, Buffer, nil, 0, Size, UniformBufferIndex);
+			if (Size > MetalBufferPageSize)
+			{
+				uint8 const* Bytes = PackedGlobalUniforms[Index]->Data;
+				ns::AutoReleased<FMetalBuffer> Buffer(Encoder->GetRingBuffer().NewBuffer(Size, 0));
+				FMemory::Memcpy((uint8*)Buffer.GetContents(), Bytes, Size);
+				Cache->SetShaderBuffer(Frequency, Buffer, nil, 0, Size, UniformBufferIndex);
+			}
+			else
+			{
+				PackedGlobalUniforms[Index]->Len = Size;
+				Cache->SetShaderBuffer(Frequency, nil, nil, 0, 0, UniformBufferIndex);
+				Cache->SetShaderBuffer(Frequency, nil, PackedGlobalUniforms[Index], 0, Size, UniformBufferIndex);
+			}
 
 			// mark as clean
-			PackedGlobalUniformDirty[UniformBufferIndex].HighVector = 0;
+			PackedGlobalUniformDirty[Index].HighVector = 0;
 		}
 	}
 }
 
-void FMetalShaderParameterCache::CommitPackedUniformBuffers(FMetalStateCache* Cache, TRefCountPtr<FMetalGraphicsPipelineState> BoundShaderState, FMetalComputeShader* ComputeShader, int32 Stage, const TRefCountPtr<FRHIUniformBuffer>* RHIUniformBuffers, const TArray<CrossCompiler::FUniformBufferCopyInfo>& UniformBuffersCopyInfo)
+void FMetalShaderParameterCache::CommitPackedUniformBuffers(FMetalStateCache* Cache, TRefCountPtr<FMetalGraphicsPipelineState> BoundShaderState, FMetalComputeShader* ComputeShader, int32 Stage, const FRHIUniformBuffer** RHIUniformBuffers, const TArray<CrossCompiler::FUniformBufferCopyInfo>& UniformBuffersCopyInfo)
 {
 //	SCOPE_CYCLE_COUNTER(STAT_MetalConstantBufferUpdateTime);
 	// Uniform Buffers are split into precision/type; the list of RHI UBs is traversed and if a new one was set, its
@@ -1424,7 +1445,7 @@ void FMetalShaderParameterCache::CommitPackedUniformBuffers(FMetalStateCache* Ca
 		}
 	}();
 
-	if (!Bindings.bHasRegularUniformBuffers && !FShaderCache::IsPredrawCall(Cache->GetShaderCacheStateObject()))
+	if (!Bindings.bHasRegularUniformBuffers)
 	{
 		check(Bindings.NumUniformBuffers <= ML_MaxBuffers);
 		int32 LastInfoIndex = 0;
@@ -1439,11 +1460,11 @@ void FMetalShaderParameterCache::CommitPackedUniformBuffers(FMetalStateCache* Ca
 				const CrossCompiler::FUniformBufferCopyInfo& Info = UniformBuffersCopyInfo[InfoIndex];
 				if (Info.SourceUBIndex == BufferIndex)
 				{
-					float* RESTRICT ScratchMem = (float*)PackedGlobalUniforms[Info.DestUBTypeIndex];
+					float* RESTRICT ScratchMem = (float*)PackedGlobalUniforms[Info.DestUBTypeIndex]->Data;
 					ScratchMem += Info.DestOffsetInFloats;
 					FMemory::Memcpy(ScratchMem, SourceData + Info.SourceOffsetInFloats, Info.SizeInFloats * sizeof(float));
-					PackedGlobalUniformDirty[Info.DestUBTypeIndex].LowVector = FMath::Min(PackedGlobalUniformDirty[Info.DestUBTypeIndex].LowVector, uint32(Info.DestOffsetInFloats / SizeOfFloat4));
-					PackedGlobalUniformDirty[Info.DestUBTypeIndex].HighVector = FMath::Max(PackedGlobalUniformDirty[Info.DestUBTypeIndex].HighVector, uint32(((Info.DestOffsetInFloats + Info.SizeInFloats) * sizeof(float) + SizeOfFloat4 - 1) / SizeOfFloat4));
+					PackedGlobalUniformDirty[Info.DestUBTypeIndex].LowVector = FMath::Min(PackedGlobalUniformDirty[Info.DestUBTypeIndex].LowVector, uint32(Info.DestOffsetInFloats / SizeOfFloat));
+					PackedGlobalUniformDirty[Info.DestUBTypeIndex].HighVector = FMath::Max(PackedGlobalUniformDirty[Info.DestUBTypeIndex].HighVector, uint32(((Info.DestOffsetInFloats + Info.SizeInFloats) * sizeof(float) + SizeOfFloat - 1) / SizeOfFloat));
 				}
 				else
 				{

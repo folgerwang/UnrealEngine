@@ -80,8 +80,14 @@ public:
 	 */
 	virtual bool CanCompileBinaryShaders() const { return true; }
 
-public:
+	/**
+	* Returns name of directory with platform specific shaders.
+	*
+	* @returns Name of directory with platform specific shaders.
+	*/
+	virtual const TCHAR* GetPlatformIncludeDirectory() const = 0;
 
+public:
 	/** Virtual destructor. */
 	virtual ~IShaderFormat() { }
 };

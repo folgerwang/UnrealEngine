@@ -15,6 +15,8 @@ class FVulkanPendingComputeState;
 class FVulkanQueue;
 class FVulkanOcclusionQueryPool;
 
+struct FInputAttachmentData;
+
 class FTransitionAndLayoutManagerData
 {
 public:
@@ -50,7 +52,7 @@ public:
 	FVulkanFramebuffer* GetOrCreateFramebuffer(FVulkanDevice& InDevice, const FRHISetRenderTargetsInfo& RenderTargetsInfo, const FVulkanRenderTargetLayout& RTLayout, FVulkanRenderPass* RenderPass);
 	FVulkanRenderPass* GetOrCreateRenderPass(FVulkanDevice& InDevice, const FVulkanRenderTargetLayout& RTLayout)
 	{
-		uint32 RenderPassHash = RTLayout.GetRenderPassHash();
+		uint32 RenderPassHash = RTLayout.GetRenderPassFullHash();
 		FVulkanRenderPass** FoundRenderPass = nullptr;
 		{
 			FScopeLock Lock(&RenderPassesCS);
@@ -244,13 +246,7 @@ public:
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
 
 	virtual void RHIUpdateTextureReference(FTextureReferenceRHIParamRef TextureRef, FTextureRHIParamRef NewTexture) final override;
-#if VULKAN_USE_NEW_QUERIES
-	void BeginOcclusionQueryBatch(FVulkanCmdBuffer* CmdBuffer, uint32 NumQueriesInBatch);
-	void EndOcclusionQueryBatch(FVulkanCmdBuffer* CmdBuffer);
-#else
-	void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch);
-	void RHIEndOcclusionQueryBatch();
-#endif
+
 	virtual void RHISubmitCommandsHint() final override;
 
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override;
@@ -284,9 +280,6 @@ public:
 	{
 		return PendingComputeState;
 	}
-
-	// OutSets must have been previously pre-allocated
-	FVulkanDescriptorPool* AllocateDescriptorSets(const VkDescriptorSetAllocateInfo& DescriptorSetAllocateInfo, const FVulkanDescriptorSetsLayout& Layout, VkDescriptorSet* OutSets);
 
 	inline void NotifyDeletedRenderTarget(VkImage Image)
 	{
@@ -341,6 +334,14 @@ public:
 
 	inline VkImageLayout GetLayoutForDescriptor(const FVulkanSurface& Surface) const
 	{
+#if PLATFORM_ANDROID && !PLATFORM_LUMIN && !PLATFORM_LUMINGL4
+		// Workaround clang bug; don't use IsDepthOrStencilAspect() directly
+		VkImageAspectFlags AspectFlags = Surface.GetFullAspectMask();
+		if ((AspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT) != 0 || (AspectFlags & VK_IMAGE_ASPECT_STENCIL_BIT) != 0)
+		{
+			return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		}
+#else
 		if (Surface.IsDepthOrStencilAspect())
 		{
 #if VULKAN_SUPPORTS_MAINTENANCE_LAYER2
@@ -355,6 +356,7 @@ public:
 			return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 #endif
 		}
+#endif
 
 		return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	}
@@ -380,7 +382,10 @@ protected:
 	bool bAutomaticFlushAfterComputeShader;
 	FVulkanUniformBufferUploader* UniformBufferUploader;
 
-	void SetShaderUniformBuffer(DescriptorSet::EStage Stage, const FVulkanUniformBuffer* UniformBuffer, int32 BindingIndex, const FVulkanShader* Shader);
+	void BeginOcclusionQueryBatch(FVulkanCmdBuffer* CmdBuffer, uint32 NumQueriesInBatch);
+	void EndOcclusionQueryBatch(FVulkanCmdBuffer* CmdBuffer);
+
+	void SetShaderUniformBuffer(ShaderStage::EStage Stage, const FVulkanUniformBuffer* UniformBuffer, int32 ParameterIndex, const FVulkanShader* Shader);
 
 	struct
 	{
@@ -390,7 +395,6 @@ protected:
 
 		VulkanRHI::FTempFrameAllocationBuffer::FTempAllocInfo IndexAllocInfo;
 		VkIndexType IndexType = VK_INDEX_TYPE_MAX_ENUM;
-		uint32 PrimitiveType = 0;
 		uint32 NumPrimitives = 0;
 		uint32 MinVertexIndex = 0;
 		uint32 IndexDataStride = 0;
@@ -403,13 +407,6 @@ protected:
 
 	FVulkanCommandBufferManager* CommandBufferManager;
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
-	typedef TArray<FVulkanDescriptorPool*> FDescriptorPoolArray;
-	TMap<uint32, FDescriptorPoolArray> DescriptorPools;
-#else
-	TArray<FVulkanDescriptorPool*> DescriptorPools;
-#endif
-
 	FTransitionAndLayoutManager TransitionAndLayoutManager;
 
 
@@ -417,12 +414,12 @@ protected:
 	{
 		EResourceTransitionAccess TransitionType;
 
-		// Only one of Textures or UAVs is active at a time
-		TArray<FRHITexture*> Textures;
+		// Only one of a) Textures or b) UAVs is active at a time
+		TArray<FRHITexture*, TInlineAllocator<MaxSimultaneousRenderTargets + 1>> Textures;	// a
 
-		TArray<FRHIUnorderedAccessView*> UAVs;
-		FRHIComputeFence* WriteComputeFenceRHI;
-		EResourceTransitionPipeline TransitionPipeline;
+		TArray<FRHIUnorderedAccessView*, TInlineAllocator<4>> UAVs;	// b
+		FRHIComputeFence* WriteComputeFenceRHI = nullptr;			// b
+		EResourceTransitionPipeline TransitionPipeline;				// b
 
 		bool GatherBarriers(FTransitionAndLayoutManager& TransitionAndLayoutManager, TArray<VkBufferMemoryBarrier>& OutBufferBarriers, 
 			TArray<VkImageMemoryBarrier>& OutImageBarriers) const;
@@ -432,48 +429,7 @@ protected:
 	static void TransitionUAVResourcesTransferringOwnership(FVulkanCommandListContext& GfxContext, FVulkanCommandListContext& ComputeContext, 
 		EResourceTransitionPipeline Pipeline, const TArray<VkBufferMemoryBarrier>& BufferBarriers, const TArray<VkImageMemoryBarrier>& ImageBarriers);
 
-#if VULKAN_USE_NEW_QUERIES
 	FVulkanOcclusionQueryPool* CurrentOcclusionQueryPool = nullptr;
-#else
-	struct FOcclusionQueryData
-	{
-		FVulkanCmdBuffer* CmdBuffer;
-		uint64 FenceCounter;
-
-		FOcclusionQueryData()
-			: CmdBuffer(nullptr)
-			, FenceCounter(0)
-		{
-		}
-
-		void AddToResetList(FVulkanQueryPool* Pool, int32 QueryIndex)
-		{
-			TArray<uint64>& ListPerPool = ResetList.FindOrAdd(Pool);
-			int32 Word = QueryIndex / 64;
-			uint64 Bit = QueryIndex % 64;
-			uint64 BitMask = (uint64)1 << Bit;
-			if (Word >= ListPerPool.Num())
-			{
-				ListPerPool.AddZeroed(Word - ListPerPool.Num() + 1);
-			}
-			ListPerPool[Word] = ListPerPool[Word] | BitMask;
-		}
-
-		void ResetQueries(FVulkanCmdBuffer* CmdBuffer);
-
-		void ClearResetList()
-		{
-			for (auto& Pair : ResetList)
-			{
-				FMemory::Memzero(&Pair.Value[0], Pair.Value.Num() * sizeof(uint64));
-			}
-		}
-
-		TMap<FVulkanQueryPool*, TArray<uint64>> ResetList;
-	};
-	FOcclusionQueryData CurrentOcclusionQueryData;
-	void AdvanceQuery(FVulkanRenderQuery* Query);
-#endif
 
 	// List of UAVs which need setting for pixel shaders. D3D treats UAVs like rendertargets so the RHI doesn't make SetUAV calls at the right time
 	struct FPendingPixelUAV
@@ -497,7 +453,7 @@ public:
 		return TransitionAndLayoutManager;
 	}
 
-	FVulkanRenderPass* PrepareRenderPassForPSOCreation(const FGraphicsPipelineStateInitializer& Initializer);
+	FVulkanRenderPass* PrepareRenderPassForPSOCreation(const FGraphicsPipelineStateInitializer& Initializer, const TArray<FInputAttachmentData>& InputAttachmentData);
 	FVulkanRenderPass* PrepareRenderPassForPSOCreation(const FVulkanRenderTargetLayout& Initializer);
 
 private:

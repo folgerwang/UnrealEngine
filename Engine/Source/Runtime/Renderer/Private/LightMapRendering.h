@@ -13,6 +13,7 @@
 #include "ShaderParameters.h"
 #include "DrawingPolicy.h"
 #include "ShadowRendering.h"
+#include "LightMap.h"
 
 class FPrimitiveSceneProxy;
 
@@ -37,7 +38,9 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FPrecomputedLightingParameters, )
 	UNIFORM_MEMBER(FVector4, ShadowMapCoordinateScaleBias) // TDistanceFieldShadowsAndLightMapPolicy
 	UNIFORM_MEMBER_ARRAY_EX(FVector4, LightMapScale, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
 	UNIFORM_MEMBER_ARRAY_EX(FVector4, LightMapAdd, [MAX_NUM_LIGHTMAP_COEF], EShaderPrecisionModifier::Half) // TLightMapPolicy
+	UNIFORM_MEMBER(FMatrix, LightmapVirtualTextureUniformData) // VT
 	UNIFORM_MEMBER_TEXTURE(Texture2D, LightMapTexture) // TLightMapPolicy
+	UNIFORM_MEMBER_TEXTURE(Texture2D, LightMapTexture_1) // VT
 	UNIFORM_MEMBER_TEXTURE(Texture2D, SkyOcclusionTexture) // TLightMapPolicy
 	UNIFORM_MEMBER_TEXTURE(Texture2D, AOMaterialMaskTexture) // TLightMapPolicy
 	UNIFORM_MEMBER_TEXTURE(Texture3D, IndirectLightingCacheTexture0) // FCachedVolumeIndirectLightingPolicy
@@ -51,6 +54,12 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FPrecomputedLightingParameters, )
 	UNIFORM_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler1) // FCachedVolumeIndirectLightingPolicy
 	UNIFORM_MEMBER_SAMPLER(SamplerState, IndirectLightingCacheTextureSampler2) // FCachedVolumeIndirectLightingPolicy
 	UNIFORM_MEMBER_SAMPLER(SamplerState, StaticShadowTextureSampler) // TDistanceFieldShadowsAndLightMapPolicy
+#if LIGHTMAP_VT_16BIT
+	UNIFORM_MEMBER_TEXTURE(Texture2D<uint>, LightmapVirtualTexturePageTable) // VT
+#else
+	UNIFORM_MEMBER_TEXTURE(Texture2D, LightmapVirtualTexturePageTable) // VT
+	UNIFORM_MEMBER_SAMPLER(SamplerState, LightmapVirtualTexturePageTableSampler) // VT
+#endif
 END_UNIFORM_BUFFER_STRUCT( FPrecomputedLightingParameters )
 
 
@@ -131,6 +140,10 @@ struct TLightMapPolicy
 	{
 		OutEnvironment.SetDefine(GLightmapDefineName[LightmapQuality],TEXT("1"));
 		OutEnvironment.SetDefine(TEXT("NUM_LIGHTMAP_COEFFICIENTS"), GNumLightmapCoefficients[LightmapQuality]);
+
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+		OutEnvironment.SetDefine(TEXT("LIGHTMAP_VT_ENABLED"), CVar->GetValueOnAnyThread() != 0);
+		OutEnvironment.SetDefine(TEXT("LIGHTMAP_VT_16BIT"), LIGHTMAP_VT_16BIT);
 	}
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)

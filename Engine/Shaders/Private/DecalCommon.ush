@@ -93,7 +93,7 @@ void DecalCommonOutput(inout FPixelShaderIn In, inout FPixelShaderOut Out, float
 	#endif // DECAL_RENDERSTAGE
 #endif //DECAL_RENDERTARGET_COUNT > 1
 
-#if DECAL_RENDERTARGET_COUNT > 1 && !BIND_RENDERTARGET1 && COMPILER_METAL
+#if DECAL_RENDERTARGET_COUNT > 1 && !BIND_RENDERTARGET1
 	Out.MRT[1] = 0;
 #endif
 }

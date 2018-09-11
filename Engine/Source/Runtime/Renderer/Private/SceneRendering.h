@@ -1470,6 +1470,12 @@ public:
 	/** Setups FViewInfo::ViewRect according to ViewFamilly's ScreenPercentageInterface. */
 	void PrepareViewRectsForRendering();
 
+	/** Setups each FViewInfo::GPUMask. */
+	void ComputeViewGPUMasks(FRHIGPUMask RenderTargetGPUMask);
+
+	/** Update the rendertarget with each view results.*/
+	void DoCrossGPUTransfers(FRHICommandListImmediate& RHICmdList, FRHIGPUMask RenderTargetGPUMask);
+
 	bool DoOcclusionQueries(ERHIFeatureLevel::Type InFeatureLevel) const;
 	/** Issues occlusion queries. */
 	void BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries);
@@ -1862,6 +1868,7 @@ struct FFastVramConfig
 	uint32 DistanceFieldTileIntersectionResources;
 	uint32 DistanceFieldAOScreenGridResources;
 	uint32 ForwardLightingCullingResources;
+	uint32 GlobalDistanceFieldCullGridBuffers;
 	bool bDirty;
 
 private:

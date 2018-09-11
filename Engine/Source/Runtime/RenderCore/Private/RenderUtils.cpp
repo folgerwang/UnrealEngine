@@ -21,6 +21,10 @@ const uint16 GCubeIndices[12*3] =
 	1, 7, 5,
 };
 
+TGlobalResource<FCubeIndexBuffer> GCubeIndexBuffer;
+TGlobalResource<FTwoTrianglesIndexBuffer> GTwoTrianglesIndexBuffer;
+TGlobalResource<FScreenSpaceVertexBuffer> GScreenSpaceVertexBuffer;
+
 //
 // FPackedNormal serializer
 //
@@ -125,6 +129,9 @@ FPixelFormatInfo	GPixelFormats[PF_MAX] =
 
 	{ TEXT("R16G16B16A16_UINT"),1,			1,			1,			8,			4,				0,				1,				PF_R16G16B16A16_UNORM },
 	{ TEXT("R16G16B16A16_SINT"),1,			1,			1,			8,			4,				0,				1,				PF_R16G16B16A16_SNORM },
+	{ TEXT("PLATFORM_HDR_0"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_0 },
+	{ TEXT("PLATFORM_HDR_1"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_1 },
+	{ TEXT("PLATFORM_HDR_2"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_2 },
 };
 
 static struct FValidatePixelFormats
@@ -818,6 +825,29 @@ TGlobalResource<FVector3VertexDeclaration> GVector3VertexDeclaration;
 RENDERCORE_API FVertexDeclarationRHIRef& GetVertexDeclarationFVector3()
 {
 	return GVector3VertexDeclaration.VertexDeclarationRHI;
+}
+
+class FVector2VertexDeclaration : public FRenderResource
+{
+public:
+	FVertexDeclarationRHIRef VertexDeclarationRHI;
+	virtual void InitRHI() override
+	{
+		FVertexDeclarationElementList Elements;
+		Elements.Add(FVertexElement(0, 0, VET_Float2, 0, sizeof(FVector2D)));
+		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+	}
+	virtual void ReleaseRHI() override
+	{
+		VertexDeclarationRHI.SafeRelease();
+	}
+};
+
+TGlobalResource<FVector2VertexDeclaration> GVector2VertexDeclaration;
+
+RENDERCORE_API FVertexDeclarationRHIRef& GetVertexDeclarationFVector2()
+{
+	return GVector2VertexDeclaration.VertexDeclarationRHI;
 }
 
 RENDERCORE_API bool PlatformSupportsSimpleForwardShading(EShaderPlatform Platform)

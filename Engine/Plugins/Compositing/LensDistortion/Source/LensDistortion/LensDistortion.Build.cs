@@ -36,7 +36,8 @@ namespace UnrealBuildTool.Rules
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
-				{
+                {
+                    "Projects",
 					// ... add private dependencies that you statically link with here ...
 				}
 				);

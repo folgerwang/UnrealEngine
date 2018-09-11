@@ -52,13 +52,13 @@ private:
    void PrintType( const glsl_type* Type );
    std::string GetVarName( ir_variable* var );
    void PrintBlockWithScope( exec_list& ir );
-   typedef std::map<ir_variable*, std::string> TNameMap;
+   typedef std::map<ir_variable*, std::string, ir_variable_compare> TNameMap;
    TNameMap NameMap;
 
    typedef std::set<std::string> TNameSet;
    TNameSet UniqueNames;
 
-   typedef std::set<ir_variable*> TVarSet;
+   typedef std::set<ir_variable*, ir_variable_compare> TVarSet;
    TVarSet UniqueVars;
 
    bool bIRVarEOL;

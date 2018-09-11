@@ -1454,16 +1454,18 @@ float4 SceneTextureLookup(float2 UV, int SceneTextureIndex, bool bFiltered)
 #endif // __POST_PROCESS_COMMON__
 		// PPI_DecalMask
 		case 21: return 0;  // material compiler will return an error
-		// PPI_ShadingModel
+		// PPI_ShadingModelColor
 		case 22: return float4(GetShadingModelColor(ScreenSpaceData.GBuffer.ShadingModelID), 1);
+		// PPI_ShadingModelID
+		case 23: return float4(ScreenSpaceData.GBuffer.ShadingModelID, 0, 0, 0);
 		// PPI_AmbientOcclusion
-		case 23: return ScreenSpaceData.AmbientOcclusion;
+		case 24: return ScreenSpaceData.AmbientOcclusion;
 		// PPI_CustomStencil
-		case 24: return ScreenSpaceData.GBuffer.CustomStencil;
+		case 25: return ScreenSpaceData.GBuffer.CustomStencil;
 		// PPI_StoredBaseColor
-		case 25: return float4(ScreenSpaceData.GBuffer.StoredBaseColor, 0);
+		case 26: return float4(ScreenSpaceData.GBuffer.StoredBaseColor, 0);
 		// PPI_StoredSpecular
-		case 26: return float4(ScreenSpaceData.GBuffer.StoredSpecular.rrr, 0);
+		case 27: return float4(ScreenSpaceData.GBuffer.StoredSpecular.rrr, 0);
 		default:
 			return float4(0, 0, 0, 0);
 	}

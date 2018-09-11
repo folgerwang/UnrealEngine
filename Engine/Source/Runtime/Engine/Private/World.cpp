@@ -1365,8 +1365,24 @@ void UWorld::InitWorld(const InitializationValues IVS)
 			}
 		}
 	}
-#endif // WITH_EDITOR
 
+	// invalidate lighting if VT is enabled but no valid data is present
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+	if (CVar && CVar->GetValueOnAnyThread() != 0)
+	{
+		for (auto Level : Levels) //Note: PersistentLevel is part of this array
+		{
+			if (Level && Level->MapBuildData)
+			{
+				if (Level->MapBuildData->IsVTLightingValid() == false)
+				{
+					Level->MapBuildData->InvalidateStaticLighting(this);
+				}
+			}
+		}
+	}
+
+#endif // WITH_EDITOR
 
 	// update it's bIsDefaultLevel
 	bIsDefaultLevel = (FPaths::GetBaseFilename(GetMapName()) == FPaths::GetBaseFilename(UGameMapsSettings::GetGameDefaultMap()));

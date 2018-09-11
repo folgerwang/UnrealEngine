@@ -215,10 +215,50 @@ public:
 		return new FRHIGPUFence(Name);
 	}
 
-	virtual FStagingBufferRHIRef RHICreateStagingBuffer()
+	/**
+	* Creates a staging buffer that uses 'BackingBuffer' as the backing store whose contents may be accessed using Lock/Unlock.
+	* @param BackingBuffer - The buffer whose contents may be accessed using Lock/Unlock.
+	* @return The new staging-buffer.
+	*/
+	// FlushType: Thread safe.	
+	virtual FStagingBufferRHIRef RHICreateStagingBuffer(FVertexBufferRHIParamRef BackingBuffer)
 	{
-		return new FRHIStagingBuffer();
+		return new FRHIStagingBuffer(BackingBuffer);
 	}
+
+    /**
+     * Lock a staging buffer to read contents on the CPU that were written by the GPU, without having to stall.
+     * @discussion This function requires that you have issued an EnqueueStagedRead invocation and verified that the FRHIGPUFence has been signalled before calling.
+     * @param StagingBuffer The buffer to lock.
+     * @param Offset The offset in the buffer to return.
+     * @param SizeRHI The length of the region in the buffer to lock.
+     * @returns A pointer to the data starting at 'Offset' and of length 'SizeRHI' from 'StagingBuffer', or nullptr when there is an error.
+     */
+	virtual void* RHILockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI);
+    
+    /**
+     * Unlock a staging buffer previously locked with RHILockStagingBuffer.
+     * @param StagingBuffer The buffer to lock.
+     */
+    virtual void RHIUnlockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer);
+
+    /**
+     * Lock a staging buffer to read contents on the CPU that were written by the GPU, without having to stall.
+     * @discussion This function requires that you have issued an EnqueueStagedRead invocation and verified that the FRHIGPUFence has been signalled before calling.
+     * @param RHICmdList The command-list to execute on or synchronize with.
+     * @param StagingBuffer The buffer to lock.
+     * @param Offset The offset in the buffer to return.
+     * @param SizeRHI The length of the region in the buffer to lock.
+     * @returns A pointer to the data starting at 'Offset' and of length 'SizeRHI' from 'StagingBuffer', or nullptr when there is an error.
+     */
+	virtual void* LockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI);
+    
+    /**
+     * Unlock a staging buffer previously locked with LockStagingBuffer_RenderThread.
+     * @param RHICmdList The command-list to execute on or synchronize with.
+     * @param StagingBuffer The buffer to lock.
+     */
+    virtual void UnlockStagingBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer);
 
 	/**
 	* Creates a bound shader state instance which encapsulates a decl, vertex shader, hull shader, domain shader and pixel shader
@@ -235,6 +275,11 @@ public:
 	virtual FBoundShaderStateRHIRef RHICreateBoundShaderState(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader) = 0;
 
 	/**
+	* Creates a graphics pipeline state object (PSO) that represents a complete gpu pipeline for rendering.
+	* This function should be considered expensive to call at runtime and may cause hitches as pipelines are compiled.
+	* @param Initializer - Descriptor object defining all the information needed to create the PSO, as well as behavior hints to the RHI.
+	* @return FGraphicsPipelineStateRHIRef that can be bound for rendering; nullptr if the compilation fails.
+	* CAUTION: On certain RHI implementations (eg, ones that do not support runtime compilation) a compilation failure is a Fatal error and this function will not return.
 	* CAUTION: Even though this is marked as threadsafe, it is only valid to call from the render thread or the RHI thread. It need not be threadsafe unless the RHI support parallel translation.
 	* CAUTION: Platforms that support RHIThread but don't actually have a threadsafe implementation must flush internally with FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList()); when the call is from the render thread
 	*/
@@ -458,6 +503,17 @@ public:
 	*/
 	// FlushType: Flush RHI Thread
 	virtual void RHICopySharedMips(FTexture2DRHIParamRef DestTexture2D, FTexture2DRHIParamRef SrcTexture2D) = 0;
+
+	/**
+	* Synchronizes the content of a texture resource between two GPUs using a copy operation.
+	* @param Texture - the texture to synchronize.
+	* @param Rect - the rectangle area to update.
+	* @param SrcGPUIndex - the index of the gpu which content will be red from
+	* @param DestGPUIndex - the index of the gpu which content will be updated.
+	* @param PullData - whether the source writes the data to the dest, or the dest reads the data from the source.
+	*/
+	// FlushType: Flush RHI Thread
+	virtual void RHITransferTexture(FTexture2DRHIParamRef Texture, FIntRect Rect, uint32 SrcGPUIndex, uint32 DestGPUIndex, bool PullData) { unimplemented(); };
 
 	/**
 	* Creates a Array RHI texture resource
@@ -725,6 +781,12 @@ public:
 	// FlushType: Thread safe, but varies by RHI
 	virtual bool RHIGetRenderQueryResult(FRenderQueryRHIParamRef RenderQuery, uint64& OutResult, bool bWait) = 0;
 
+	// FlushType: Thread safe
+	virtual uint32 RHIGetViewportNextPresentGPUIndex(FViewportRHIParamRef Viewport)
+	{
+		return 0; // By default, viewport need to be rendered on GPU0.
+	}
+
 	// With RHI thread, this is the current backbuffer from the perspective of the render thread.
 	// FlushType: Thread safe
 	virtual FTexture2DRHIRef RHIGetViewportBackBuffer(FViewportRHIParamRef Viewport) = 0;
@@ -984,6 +1046,17 @@ public:
 	virtual void RHICopySubTextureRegion_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SourceTexture, FTexture2DRHIParamRef DestinationTexture, FBox2D SourceBox, FBox2D DestinationBox);
 	virtual void RHICopySubTextureRegion(FTexture2DRHIParamRef SourceTexture, FTexture2DRHIParamRef DestinationTexture, FBox2D SourceBox, FBox2D DestinationBox) { }
 	
+    /**
+     * Enqueues on the GPU timeline any necessary operations to make the contents of 'StagingBuffer' accessible to the CPU, flushing outstanding GPU writes and/or transferring from inaccessible non-unified GPU memory to local CPU memory.
+     * @discussion The RHI will call RHIInsertGPUFence on 'Fence', use FRHIGPUFence::Wait or FRHIGPUFence::Poll to determine when the fence has been signalled by the GPU. Only once this occurs may 'StagingBuffer' be locked.
+     * @param StagingBuffer The buffer to stage. Must not be null.
+     * @param Fence A GPU fence that will be inserted into the GPU timeline and which must then be tested on the CPU to know when the StagedRead was completed. Must not be null.
+     * @param Offset The start of the data in 'StagingBuffer' to make available.
+     * @param NumBytes The lenght of data in 'StagingBuffer' to make available.
+     */
+    virtual void RHIEnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes);
+    virtual void RHIEnqueueStagedRead_RenderThread(class FRHICommandListImmediate& RHICmdList, FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes);
+	
 	virtual FRHIFlipDetails RHIWaitForFlip(double TimeoutInSeconds) { return FRHIFlipDetails(); }
 	virtual void RHISignalFlipEvent() { }
 
@@ -1079,6 +1152,11 @@ FORCEINLINE void RHIBindDebugLabelName(FUnorderedAccessViewRHIParamRef Unordered
 FORCEINLINE bool RHIGetRenderQueryResult(FRenderQueryRHIParamRef RenderQuery, uint64& OutResult, bool bWait)
 {
 	return GDynamicRHI->RHIGetRenderQueryResult(RenderQuery, OutResult, bWait);
+}
+
+FORCEINLINE uint32 RHIGetViewportNextPresentGPUIndex(FViewportRHIParamRef Viewport)
+{
+	return GDynamicRHI->RHIGetViewportNextPresentGPUIndex(Viewport);
 }
 
 FORCEINLINE FTexture2DRHIRef RHIGetViewportBackBuffer(FViewportRHIParamRef Viewport)

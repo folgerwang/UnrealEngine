@@ -25,16 +25,26 @@ float ComputeDepthFromZSlice(uint ZSlice)
 		SliceDepth = 2000000.0f;
 	}
 
+	if (ZSlice == 0)
+	{
+		// The exponential distribution of z slices contains an offset, but some screen pixels
+		// may be nearer to the camera than this offset. To avoid false light rejection, we set the
+		// first depth slice to zero to ensure that the AABB includes the [0, offset] depth range.
+		SliceDepth = 0.0f;
+	}
+
 	return SliceDepth;
 }
 
 void ComputeCellViewAABB(uint3 GridCoordinate, out float3 ViewTileMin, out float3 ViewTileMax)
 {
-	float2 TileSize = 2.0f / (float2)ForwardLightData.CulledGridSize.xy;
-	float2 UnitPlaneMin = -1;
+	// Compute extent of tiles in clip-space. Note that the last tile may extend a bit outside of view if view size is not evenly divisible tile size.
+	const float2 InvCulledGridSizeF = (1 << ForwardLightData.LightGridPixelSizeShift) * View.ViewSizeAndInvSize.zw;
+	const float2 TileSize = float2(2.0f, -2.0f) * InvCulledGridSizeF.xy;
+	const float2 UnitPlaneMin = float2(-1.0f, 1.0f);
 
-	float2 UnitPlaneTileMin = (GridCoordinate.xy * TileSize + UnitPlaneMin) * float2(1, -1);
-	float2 UnitPlaneTileMax = ((GridCoordinate.xy + 1) * TileSize + UnitPlaneMin) * float2(1, -1);
+	float2 UnitPlaneTileMin = GridCoordinate.xy * TileSize + UnitPlaneMin;
+	float2 UnitPlaneTileMax = (GridCoordinate.xy + 1) * TileSize + UnitPlaneMin;
 
 	float MinTileZ = ComputeDepthFromZSlice(GridCoordinate.z);
 	float MaxTileZ = ComputeDepthFromZSlice(GridCoordinate.z + 1);
@@ -242,7 +252,7 @@ void LightGridInjectionCS(
 			}
 		}
 
-		RWNumCulledLightsGrid[(ForwardLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE + 0] = ForwardLightData.NumLocalLights;
+		RWNumCulledLightsGrid[(ForwardLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE + 0] = ForwardLightData.NumReflectionCaptures;
 		RWNumCulledLightsGrid[(ForwardLightData.NumGridCells + GridIndex) * NUM_CULLED_LIGHTS_GRID_STRIDE + 1] = (ForwardLightData.NumGridCells + GridIndex) * ForwardLightData.MaxCulledLightsPerCell;
 #endif
 	}

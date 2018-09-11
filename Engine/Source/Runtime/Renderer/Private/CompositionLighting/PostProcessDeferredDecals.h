@@ -65,6 +65,7 @@ struct FDecalRenderTargetManager
 	FTextureRHIParamRef TargetsToResolve[ResolveBufferMax];
 	//
 	bool bGufferADirty;
+	bool bGufferBCDirty;
 
 	// constructor
 	FDecalRenderTargetManager(FRHICommandList& InRHICmdList, EShaderPlatform ShaderPlatform, EDecalRenderStage CurrentStage);

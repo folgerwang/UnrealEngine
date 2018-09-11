@@ -17,7 +17,6 @@
 #include "RenderResource.h"
 #include "ShaderCore.h"
 #include "RenderUtils.h"
-#include "ShaderCache.h"
 #include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
 #include "SceneUtils.h"
@@ -1601,9 +1600,6 @@ void FOpenGLDynamicRHI::Init()
 	VERIFY_GL_SCOPE();
 
 	FOpenGLProgramBinaryCache::Initialize();
-	FShaderCache::InitShaderCache(SCO_Default, GMaxRHIShaderPlatform);
-	FShaderCache::SetMaxShaderResources(FOpenGL::GetMaxTextureImageUnits());
-
 	InitializeStateResources();
 
 	// Create a default point sampler state for internal use.

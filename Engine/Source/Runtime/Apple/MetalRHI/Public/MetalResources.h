@@ -285,7 +285,6 @@ class DEPRECATED(4.15, "Use GraphicsPipelineState Interface") FMetalBoundShaderS
 class FMetalGraphicsPipelineState : public FRHIGraphicsPipelineState
 {
 public:
-	FMetalGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Init);
 	virtual ~FMetalGraphicsPipelineState();
 
 	FMetalShaderPipeline* GetPipeline(EMetalIndexType IndexType, uint32 VertexBufferHash, uint32 PixelBufferHash, uint32 DomainBufferHash, EPixelFormat const* const VertexBufferTypes = nullptr, EPixelFormat const* const PixelBufferTypes = nullptr, EPixelFormat const* const DomainBufferTypes = nullptr);
@@ -306,7 +305,13 @@ public:
 	
 	inline EPrimitiveType GetPrimitiveType() { return Initializer.PrimitiveType; }
 	
+	friend class FMetalDynamicRHI;
+	
 private:
+	// This can only be created through the RHI to make sure Compile() is called.
+	FMetalGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Init) : Initializer(Init) {}
+	// Compiles the underlying gpu pipeline objects. This must be called before usage.
+	bool Compile();
 	// Needed to runtime refine shaders currently.
 	FGraphicsPipelineStateInitializer Initializer;
 	// Tessellation pipelines have three different variations for the indexing-style.
@@ -753,7 +758,7 @@ public:
 	/**
 	 * Get a linear texture for given format.
 	 */
-	ns::AutoReleased<FMetalTexture> CreateLinearTexture(EPixelFormat Format);
+	ns::AutoReleased<FMetalTexture> CreateLinearTexture(EPixelFormat Format, FRHIResource* InParent);
 	
 	/**
 	 * Get a linear texture for given format.
@@ -927,11 +932,11 @@ public:
 	 * Commit shader parameters to the currently bound program.
 	 */
 	void CommitPackedGlobals(class FMetalStateCache* Cache, class FMetalCommandEncoder* Encoder, EShaderFrequency Frequency, const FMetalShaderBindings& Bindings);
-	void CommitPackedUniformBuffers(class FMetalStateCache* Cache, TRefCountPtr<FMetalGraphicsPipelineState> BoundShaderState, FMetalComputeShader* ComputeShader, int32 Stage, const TRefCountPtr<FRHIUniformBuffer>* UniformBuffers, const TArray<CrossCompiler::FUniformBufferCopyInfo>& UniformBuffersCopyInfo);
+	void CommitPackedUniformBuffers(class FMetalStateCache* Cache, TRefCountPtr<FMetalGraphicsPipelineState> BoundShaderState, FMetalComputeShader* ComputeShader, int32 Stage, const FRHIUniformBuffer** UniformBuffers, const TArray<CrossCompiler::FUniformBufferCopyInfo>& UniformBuffersCopyInfo);
 
 private:
 	/** CPU memory block for storing uniform values. */
-	uint8* PackedGlobalUniforms[CrossCompiler::PACKED_TYPEINDEX_MAX];
+	FMetalBufferData* PackedGlobalUniforms[CrossCompiler::PACKED_TYPEINDEX_MAX];
 
 	struct FRange
 	{
@@ -977,10 +982,43 @@ private:
 	mtlpp::Fence Fence;
 };
 
+class FMetalGPUFence final : public FRHIGPUFence
+{
+public:
+	FMetalGPUFence(FName InName)
+		: FRHIGPUFence(InName)
+	{
+	}
+
+	~FMetalGPUFence()
+	{
+
+	}
+
+	virtual bool Poll() const override final;
+
+	virtual bool Wait(float TimeoutMs) const override final;
+
+	mtlpp::CommandBufferFence Fence;
+};
+
+class FMetalStagingBuffer final : public FRHIStagingBuffer
+{
+public:
+	FMetalStagingBuffer(FVertexBufferRHIRef InBuffer)
+	: FRHIStagingBuffer(InBuffer)
+	{
+	}
+
+	void *Lock(uint32 Offset, uint32 NumBytes);
+
+	void Unlock();
+};
+
 class FMetalShaderLibrary final : public FRHIShaderLibrary
 {	
 public:
-	FMetalShaderLibrary(EShaderPlatform Platform, FString const& Name, mtlpp::Library Library, FMetalShaderMap const& Map);
+	FMetalShaderLibrary(EShaderPlatform Platform, FString const& Name, TArray<mtlpp::Library> Library, FMetalShaderMap const& Map);
 	virtual ~FMetalShaderLibrary();
 	
 	virtual bool IsNativeLibrary() const override final {return true;}
@@ -1003,7 +1041,7 @@ public:
 		}
 		
 	private:		
-		TMap<FSHAHash, TPair<uint8, TArray<uint8>>>::TIterator IteratorImpl;
+		TMap<FSHAHash, FMetalShadeEntry>::TIterator IteratorImpl;
 	};
 	
 	virtual TRefCountPtr<FShaderLibraryIterator> CreateIterator(void) final override
@@ -1029,7 +1067,7 @@ private:
 	FComputeShaderRHIRef CreateComputeShader(const FSHAHash& Hash);
 	
 private:
-	mtlpp::Library Library;
+	TArray<mtlpp::Library> Library;
 	FMetalShaderMap Map;
 };
 
@@ -1167,4 +1205,14 @@ template<>
 struct TMetalResourceTraits<FRHIComputePipelineState>
 {
 	typedef FMetalComputePipelineState TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIGPUFence>
+{
+	typedef FMetalGPUFence TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIStagingBuffer>
+{
+	typedef FMetalStagingBuffer TConcreteType;
 };

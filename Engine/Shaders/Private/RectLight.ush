@@ -5,97 +5,9 @@
 #include "CapsuleLight.ush"
 #include "MonteCarlo.ush"
 
-float RepresentativePointApprox( float OffAxis, float DistToLight, float Roughness, float IntervalExtent )
-{
-	OffAxis /= IntervalExtent;
-	DistToLight /= IntervalExtent;
-	
-	//float TanTheta = m;
-	float m = Square( Roughness ) * max( .001, DistToLight * 0.25 );
-	Roughness = sqrt(m);
-
-	float Sign = OffAxis > 0 ? 1 : -1;
-	OffAxis = abs( OffAxis );
-	return Sign * min( OffAxis, OffAxis / ( 0.75 / Square(1 - Roughness) + Square( OffAxis - 0.5 ) ) );
-}
-
-float erf( float x )
-{
-	float ax = abs(x);
-    float d = 1.0 + 0.278393*ax + 0.230389*ax*ax + 0.000972*ax*ax*ax + 0.078108*ax*ax*ax*ax;
-    return sign(x)*(1.0 - 1.0/(d*d*d*d));
-
-	return 1 - 2 / ( 1 + exp2( 3.35 * x ) );
-	//return 1 - 2 / ( 1 + exp2( 3.35 * x ) ) + 0.07219 * x * (15.41819 * Square(x*x) - 1) * exp2( -5.609846 * abs(x) );
-}
-
-float2 erf( float2 x )
-{
-	return 1 - 2 / ( 1 + exp2( 3.35 * x ) );
-	//return 1 - 2 / ( 1 + exp2( 3.35 * x ) ) + 0.07219 * x * (15.41819 * Square(x*x) - 1) * exp2( -5.609846 * abs(x) );
-}
-
-// integral x * e^(-s^2 * (x^2 + y^2) ) dx dy
-// integral y * e^(-s^2 * (x^2 + y^2) ) dx dy
-// integral 1 * e^(-s^2 * (x^2 + y^2) ) dx dy
-float3 IntegrateGaussian( float x, float y, float s )
-{
-	float s2 = s*s;
-
-	float3 Integral;
-	Integral.x = -0.25 * sqrt(PI) / (s*s2) * exp( -s2 * x*x ) * erf(s*y);
-	Integral.y = -0.25 * sqrt(PI) / (s*s2) * exp( -s2 * y*y ) * erf(s*x);
-	Integral.z =  0.25 * PI / s2 * erf(s*x) * erf(s*y);
-	return Integral;
-}
-
-// integral x / ( (x^2 + y^2 - 2 pxy) / (1-p^2) * s + 1 )^2 dx dy
-// integral y / ( (x^2 + y^2 - 2 pxy) / (1-p^2) * s + 1 )^2 dx dy
-// integral 1 / ( (x^2 + y^2 - 2 pxy) / (1-p^2) * s + 1 )^2 dx dy
-float3 IntegratePeak( float x, float y, float p, float s )
-{
-	float s2 = s*s;
-	float pp1 = rsqrt( 1 - p*p ) * s;
-	float xx1 = rsqrt( 1 + x*x * s2 );
-	float yy1 = rsqrt( 1 + y*y * s2 );
-
-	float half_pp1 = 0.5 / pp1;
-	float xx1_atan = xx1 * atan( (p*x - y) * pp1 * xx1 );
-	float yy1_atan = yy1 * atan( (p*y - x) * pp1 * yy1 );
-
-	float3 Integral;
-	Integral.x =  half_pp1 / s2 * ( 1 * xx1_atan + p * yy1_atan );
-	Integral.y =  half_pp1 / s2 * ( p * xx1_atan + 1 * yy1_atan );
-	Integral.z = -half_pp1      * ( x * xx1_atan + y * yy1_atan );
-	return Integral;
-}
-
-// integral x dx dy
-// integral y dx dy
-// integral 1 dx dy
-float3 IntegrateConst( float x, float y )
-{
-	float3 Integral;
-	Integral.x = 0.5 * x*x * y;
-	Integral.y = 0.5 * y*y * x;
-	Integral.z = x*y;
-	return Integral;
-}
-
-// integral 1/(1 + (a*cos(p) + c*sin(p))^2 + (b*cos(p) + d*sin(p))^2) dp
-float IntegrateGGX( float2 L, float2 T, float Phi )
-{
-	float a = L.x;
-	float b = L.y;
-	float c = T.x;
-	float d = T.y;
-	float s = rsqrt( 1 + c*c + d*d + b*b*(1 + c*c) + a*a* (1 + d*d) - 2*a*b*c*d );
-	//float s = sqrt( 1 + dot(T,T) + dot( L.yx*L.yx, 1 + T*T ) - 2*L.x*L.y*T.x*T.y );
-	return atan( ( a*c + b*d + (1 + c*c + d*d) * tan(Phi) ) * s ) * s - atan( ( a*c + b*d ) * s ) * s;
-}
-
-
-
+#ifndef USE_SOURCE_TEXTURE
+#define USE_SOURCE_TEXTURE 1
+#endif
 
 struct FRect
 {
@@ -246,28 +158,6 @@ float3 RectIrradianceApproxKaris( float3 N, FRect Rect, out float BaseIrradiance
 	return L;
 }
 
-/*
-float RectIrradianceApproxLine( float3 N, FRect Rect )
-{
-	float2 RectLocal;
-	RectLocal.x = dot( Rect.Axis[0], -Rect.Origin );
-	RectLocal.y = dot( Rect.Axis[1], -Rect.Origin );
-
-	float2 UnitLocal = abs( RectLocal / Rect.Extent );
-	float UnitMax = max( UnitLocal.x, UnitLocal.y );
-
-	float2 ClippedRectLocal = RectLocal / UnitMax;
-
-	float3 Clipped =	ClippedRectLocal.x * Rect.Axis[0] +
-						ClippedRectLocal.y * Rect.Axis[1];
-
-	float BaseIrradiance, NoL;
-	LineIrradiance( N, Rect.Origin - Clipped, Rect.Origin + Clipped, 1, BaseIrradiance, NoL );
-
-	return NoL * BaseIrradiance;
-}
-*/
-
 float3 RectIrradianceApproxLagarde( float3 N, FRect Rect, out float BaseIrradiance, out float NoL )
 {
 	float3 L = normalize( Rect.Origin );
@@ -368,6 +258,10 @@ float3 RectIrradianceApproxDrobot( float3 N, FRect Rect, out float BaseIrradianc
 
 float3 SampleSourceTexture( float3 L, FRect Rect, Texture2D Texture )
 {
+#if USE_SOURCE_TEXTURE
+	// Force to point at plane
+	L += Rect.Axis[2] * saturate( 0.001 - dot( Rect.Axis[2], L ) );
+
 	// Intersect ray with plane
 	float DistToPlane = dot( Rect.Axis[2], Rect.Origin ) / dot( Rect.Axis[2], L );
 	float3 PointOnPlane = L * DistToPlane;
@@ -376,15 +270,18 @@ float3 SampleSourceTexture( float3 L, FRect Rect, Texture2D Texture )
 	PointInRect.x = dot( Rect.Axis[0], PointOnPlane - Rect.Origin );
 	PointInRect.y = dot( Rect.Axis[1], PointOnPlane - Rect.Origin );
 
-	float2 RectUV = PointInRect / Rect.Extent * 0.5 + 0.5;
+	float2 RectUV = PointInRect / Rect.Extent * float2( 0.5, -0.5 ) + 0.5;
 
 	float2 TextureSize;
-	Texture.GetDimensions( TextureSize.x, TextureSize.y );
+	Texture.GetDimensions( TextureSize.x, TextureSize.y );	// TODO optimize
 
 	float Level = log2( DistToPlane * rsqrt( Rect.Extent.x * Rect.Extent.y ) );
 	Level += log2( max( TextureSize.x, TextureSize.y ) ) - 2;
 
 	return Texture.SampleLevel( View.SharedTrilinearClampedSampler, RectUV, Level ).rgb;
+#else
+	return 1;
+#endif
 }
 
 float IntegrateEdge( float3 L0, float3 L1 )
@@ -526,80 +423,10 @@ float3 RectGGXApproxLTC( float Roughness, float3 SpecularColor, half3 N, float3 
 	
 	SpecularColor = LTCAmp.y + ( LTCAmp.x - LTCAmp.y ) * SpecularColor;
 	
-	float3 LightColor = 1;
-#if 0
-	if(1)
-	{
-		float3 AxisX = Poly[2] - Poly[3];
-		float3 AxisY = Poly[0] - Poly[3];
+	// Transform to world space
+	L = mul( InvLTC, L );
 
-#if 0
-		// Intersect ray with plane
-		float3 PlaneNormal = normalize( cross( AxisX, AxisY ) );
-		float DistToPlane = dot( PlaneNormal, Poly[3] ) / dot( PlaneNormal, L );
-		float3 PointOnPlane = L * DistToPlane - Poly[3];
-#else
-		float3 NormalTimesArea = cross( AxisX, AxisY );
-		float AreaSqr = dot( NormalTimesArea, NormalTimesArea );
-		float DistTimesArea = dot( NormalTimesArea, Poly[3] );
-		float3 PointOnPlane = DistTimesArea * NormalTimesArea / AreaSqr - Poly[3];
-		float DistToPlane = abs( DistTimesArea ) * rsqrt( AreaSqr );
-#endif
-
-		float XoY = dot( AxisX, AxisY );
-		float InvXoX = rcp( dot( AxisX, AxisX ) );
-		AxisY = AxisY - AxisX * XoY * InvXoX;
-
-		float2 RectUV;
-		RectUV.y =   dot( AxisY, PointOnPlane ) / dot( AxisY, AxisY );
-		RectUV.x = ( dot( AxisX, PointOnPlane ) - XoY * RectUV.y ) * InvXoX;
-
-		float2 TextureSize;
-		Texture.GetDimensions( TextureSize.x, TextureSize.y );
-
-		float Level = log2( DistToPlane * rsqrt( Rect.Extent.x * Rect.Extent.y ) );
-		Level += log2( max( TextureSize.x, TextureSize.y ) ) - 2;
-		
-#if 0
-		float DistOutsideUVs = length( RectUV - saturate( RectUV ) );
-		float Width = max( TextureSize.x, TextureSize.y );
-		float FilterWidth = DistOutsideUVs * Width * 0.25;
-		float MinLevel = log2( FilterWidth );
-		Level = max( Level, MinLevel );
-#endif
-		//Level = 3;
-
-		LightColor = Texture.SampleLevel( View.SharedTrilinearClampedSampler, RectUV, Level ).rgb;
-
-		//Irradiance = 1;
-	}
-	else
-	{
-		// Transform to world space
-		L = mul( InvLTC, L );
-
-		//LightColor = SampleSourceTexture( L, Rect, Texture );
-
-		// Intersect ray with plane
-		float DistToPlane = dot( Rect.Axis[2], Rect.Origin ) / dot( Rect.Axis[2], L );
-		float3 PointOnPlane = L * DistToPlane;
-
-		float2 PointInRect;
-		PointInRect.x = dot( Rect.Axis[0], PointOnPlane - Rect.Origin );
-		PointInRect.y = dot( Rect.Axis[1], PointOnPlane - Rect.Origin );
-
-		float2 RectUV = PointInRect / Rect.Extent * 0.5 + 0.5;
-
-		float2 TextureSize;
-		Texture.GetDimensions( TextureSize.x, TextureSize.y );
-
-		//float Level = log2( DistToPlane * rsqrt( 4 * Rect.Extent.x * Rect.Extent.y ) );
-		float Level = log2( rsqrt( dot(L,L) * SinAlphaSqr ) );
-		Level += log2( max( TextureSize.x, TextureSize.y ) ) - 1;
-
-		LightColor = Texture.SampleLevel( View.SharedTrilinearClampedSampler, RectUV, Level ).rgb;
-	}
-#endif
+	float3 LightColor = SampleSourceTexture( L, Rect, Texture );
 	
 	return LightColor * Irradiance * SpecularColor;
 }
@@ -640,6 +467,8 @@ FSphericalRect BuildSphericalRect( FRect Rect )
 	SphericalRect.y0 = LocalPosition.y - Rect.Extent.y;
 	SphericalRect.y1 = LocalPosition.y + Rect.Extent.y;
 	SphericalRect.z0 = -abs( LocalPosition.z );
+
+	SphericalRect.Axis[2] *= LocalPosition.z > 0 ? -1 : 1;
 
 	float3 v0 = float3( SphericalRect.x0, SphericalRect.y0, SphericalRect.z0 );
 	float3 v1 = float3( SphericalRect.x1, SphericalRect.y0, SphericalRect.z0 );

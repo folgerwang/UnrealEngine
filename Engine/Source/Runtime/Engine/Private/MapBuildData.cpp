@@ -667,6 +667,27 @@ bool UMapBuildDataRegistry::IsLegacyBuildData() const
 	return GetOutermost()->ContainsMap();
 }
 
+bool UMapBuildDataRegistry::IsVTLightingValid() const
+{
+	// this code checks if AT LEAST 1 virtual textures is valid. 
+	for (auto MeshBuildDataPair : MeshBuildData)
+	{
+		const FMeshMapBuildData& Data = MeshBuildDataPair.Value;
+		if (/*Data.IsDefault() == false &&*/ Data.LightMap.IsValid())
+		{
+			const FLightMap2D* Lightmap2D = Data.LightMap->GetLightMap2D();
+			if (Lightmap2D)
+			{
+				if (Lightmap2D->GetVirtualTexture() != nullptr)
+				{
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 void UMapBuildDataRegistry::ReleaseResources(const TSet<FGuid>* ResourcesToKeep)
 {
 	for (TMap<FGuid, FPrecomputedVolumetricLightmapData*>::TIterator It(LevelPrecomputedVolumetricLightmapBuildData); It; ++It)

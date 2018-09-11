@@ -19,19 +19,22 @@ template FD3D12VertexBuffer* FD3D12Adapter::CreateRHIBuffer<FD3D12VertexBuffer>(
 	const D3D12_RESOURCE_DESC& Desc,
 	uint32 Alignment, uint32 Stride, uint32 Size, uint32 InUsage,
 	FRHIResourceCreateInfo& CreateInfo,
-	bool SkipCreate);
+	bool SkipCreate,
+	FRHIGPUMask GPUMask);
 
 template FD3D12IndexBuffer* FD3D12Adapter::CreateRHIBuffer<FD3D12IndexBuffer>(FRHICommandListImmediate* RHICmdList,
 	const D3D12_RESOURCE_DESC& Desc,
 	uint32 Alignment, uint32 Stride, uint32 Size, uint32 InUsage,
 	FRHIResourceCreateInfo& CreateInfo,
-	bool SkipCreate);
+	bool SkipCreate,
+	FRHIGPUMask GPUMask);
 
 template FD3D12StructuredBuffer* FD3D12Adapter::CreateRHIBuffer<FD3D12StructuredBuffer>(FRHICommandListImmediate* RHICmdList,
 	const D3D12_RESOURCE_DESC& Desc,
 	uint32 Alignment, uint32 Stride, uint32 Size, uint32 InUsage,
 	FRHIResourceCreateInfo& CreateInfo,
-	bool SkipCreate);
+	bool SkipCreate,
+	FRHIGPUMask GPUMask);
 
 struct FRHICommandUpdateBuffer final : public FRHICommand<FRHICommandUpdateBuffer>
 {
@@ -119,24 +122,26 @@ BufferType* FD3D12Adapter::CreateRHIBuffer(FRHICommandListImmediate* RHICmdList,
 	uint32 Size,
 	uint32 InUsage,
 	FRHIResourceCreateInfo& CreateInfo,
-	bool SkipCreate)
+	bool SkipCreate,
+	FRHIGPUMask GPUMask)
 {
 	SCOPE_CYCLE_COUNTER(STAT_D3D12CreateBufferTime);
 
 	const bool bIsDynamic = (InUsage & BUF_AnyDynamic) ? true : false;
+	const uint32 FirstGPUIndex = GPUMask.GetFirstIndex();
 
 	BufferType* BufferOut = nullptr;
 	if (bIsDynamic)
 	{
 		BufferType* NewBuffer0 = nullptr;
-		BufferOut = CreateLinkedObject<BufferType>(FRHIGPUMask::All(), [&](FD3D12Device* Device)
+		BufferOut = CreateLinkedObject<BufferType>(GPUMask, [&](FD3D12Device* Device)
 		{
 			BufferType* NewBuffer = new BufferType(Device, Stride, Size, InUsage);
 			NewBuffer->BufferAlignment = Alignment;
 
 			if (!SkipCreate)
 			{
-				if (Device->GetGPUIndex() == 0)
+				if (Device->GetGPUIndex() == FirstGPUIndex)
 				{
 					AllocateBuffer(Device, InDesc, Size, InUsage, CreateInfo, Alignment, *NewBuffer, NewBuffer->ResourceLocation);
 					NewBuffer0 = NewBuffer;
@@ -153,7 +158,7 @@ BufferType* FD3D12Adapter::CreateRHIBuffer(FRHICommandListImmediate* RHICmdList,
 	}
 	else
 	{
-		BufferOut = CreateLinkedObject<BufferType>(FRHIGPUMask::All(), [&](FD3D12Device* Device)
+		BufferOut = CreateLinkedObject<BufferType>(GPUMask, [&](FD3D12Device* Device)
 		{
 			BufferType* NewBuffer = new BufferType(Device, Stride, Size, InUsage);
 			NewBuffer->BufferAlignment = Alignment;
@@ -276,22 +281,7 @@ void* FD3D12DynamicRHI::LockBuffer(FRHICommandListImmediate* RHICmdList, BufferT
 		{
 			FD3D12ResourceLocation Location(Buffer->GetParentDevice());
 			Data = Adapter.GetUploadHeapAllocator(Device->GetGPUIndex()).AllocUploadResource(Buffer->GetSize(), Buffer->BufferAlignment, Location);
-
-			// If on the RenderThread, queue up a command on the RHIThread to rename this buffer at the correct time
-			if (ShouldDeferBufferLockOperation(RHICmdList))
-			{
-				FRHICommandRenameUploadBuffer<BufferType>* Command = new (RHICmdList->AllocCommand<FRHICommandRenameUploadBuffer<BufferType>>()) FRHICommandRenameUploadBuffer<BufferType>(Buffer, Device);
-
-				Data = Adapter.GetUploadHeapAllocator(Device->GetGPUIndex()).AllocUploadResource(Buffer->GetSize(), Buffer->BufferAlignment, Command->NewLocation);
-				RHICmdList->RHIThreadFence(true);
-			}
-			else
-			{
-				Data = Adapter.GetUploadHeapAllocator(Device->GetGPUIndex()).AllocUploadResource(Buffer->GetSize(), Buffer->BufferAlignment, Location);
-				Buffer->RenameLDAChain(Location);
-			}
-
-			Buffer = Buffer->GetNextObject();
+			Buffer->RenameLDAChain(Location);
 		}
 	}
 	else

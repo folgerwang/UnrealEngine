@@ -31,7 +31,7 @@ FD3D12Viewport::FD3D12Viewport(class FD3D12Adapter* InParent, HWND InWindowHandl
 	bHDRMetaDataSet(false),
 	ColorSpace(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709),
 	NumBackBuffers(WindowsDefaultNumBackBuffers),
-	PresentGPUIndex(0),
+	BackbufferMultiGPUBinding(0),
 	CurrentBackBufferIndex_RenderThread(0),
 	BackBuffer_RenderThread(nullptr),
 	CurrentBackBufferIndex_RHIThread(0),
@@ -194,12 +194,12 @@ void FD3D12Viewport::ResizeInternal()
 	{
 		TArray<ID3D12CommandQueue*> CommandQueues;
 		TArray<uint32> NodeMasks;
-		TArray<uint32> BackBufferGPUIndices;
+		BackBufferGPUIndices.Empty(NumBackBuffers);
 
 		for (uint32 i = 0; i < NumBackBuffers; ++i)
 		{
-			// When PresentGPUIndex == INDEX_NONE, cycle through each GPU (for AFR or debugging).
-			const uint32 BackBufferGPUIndex = PresentGPUIndex >= 0 ? (uint32)PresentGPUIndex : (i % GNumExplicitGPUsForRendering);
+			// When BackbufferMultiGPUBinding == INDEX_NONE, cycle through each GPU (for AFR or debugging).
+			const uint32 BackBufferGPUIndex = BackbufferMultiGPUBinding >= 0 ? (uint32)BackbufferMultiGPUBinding : (i % GNumExplicitGPUsForRendering);
 			BackBufferGPUIndices.Add(BackBufferGPUIndex);
 		}
 
@@ -246,7 +246,6 @@ void FD3D12Viewport::ResizeInternal()
 
 	SDRBackBuffer_RenderThread = SDRBackBuffers[CurrentBackBufferIndex_RenderThread].GetReference();
 	SDRBackBuffer_RHIThread = SDRBackBuffers[CurrentBackBufferIndex_RHIThread].GetReference();
-
 }
 
 HRESULT FD3D12Viewport::PresentInternal(int32 SyncInterval)

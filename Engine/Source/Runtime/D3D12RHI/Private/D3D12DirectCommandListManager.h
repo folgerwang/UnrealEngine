@@ -44,15 +44,19 @@ struct FD3D12CommandListPayload
 class FD3D12FenceCore : public FD3D12AdapterChild
 {
 public:
-	FD3D12FenceCore(FD3D12Adapter* Parent, uint64 InitialValue);
+	FD3D12FenceCore(FD3D12Adapter* Parent, uint64 InitialValue, uint32 GPUIndex);
 	~FD3D12FenceCore();
 
 	inline ID3D12Fence* GetFence() const { return Fence.GetReference(); }
 	inline HANDLE GetCompletionEvent() const { return hFenceCompleteEvent; }
 	inline bool IsAvailable() const { return FenceValueAvailableAt <= Fence->GetCompletedValue(); }
+	inline uint32 GetGPUIndex() const { return GPUIndex;  }
 
 	uint64 FenceValueAvailableAt;
+
 private:
+	uint32 GPUIndex;
+
 	TRefCountPtr<ID3D12Fence> Fence;
 	HANDLE hFenceCompleteEvent;
 };
@@ -63,13 +67,13 @@ public:
 
 	FD3D12FenceCorePool(FD3D12Adapter* Parent) : FD3D12AdapterChild(Parent) {};
 
-	FD3D12FenceCore* ObtainFenceCore();
+	FD3D12FenceCore* ObtainFenceCore(uint32 GPUIndex);
 	void ReleaseFenceCore(FD3D12FenceCore* Fence, uint64 CurrentFenceValue);
 	void Destroy();
 
 private:
 	FCriticalSection CS;
-	TQueue<FD3D12FenceCore*> AvailableFences;
+	TQueue<FD3D12FenceCore*> AvailableFences[MAX_NUM_GPUS];
 };
 
 // Automatically increments the current fence value after Signal.
@@ -81,6 +85,7 @@ public:
 
 	void CreateFence();
 	uint64 Signal(ED3D12CommandQueueType InQueueType);
+	void GpuWait(uint32 DeviceGPUIndex, ED3D12CommandQueueType InQueueType, uint64 FenceValue, uint32 FenceGPUIndex);
 	void GpuWait(ED3D12CommandQueueType InQueueType, uint64 FenceValue);
 	bool IsFenceComplete(uint64 FenceValue);
 	void WaitForFence(uint64 FenceValue);

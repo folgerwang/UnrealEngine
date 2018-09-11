@@ -294,7 +294,7 @@ enum ETranslucencyLightingMode
 	TLM_VolumetricPerVertexDirectional UMETA(DisplayName="Volumetric PerVertex Directional"),
 
 	/** 
-	 * Lighting will be calculated for a surface. The light in accumulated in a volume so the result is blurry, 
+	 * Lighting will be calculated for a surface. The light is accumulated in a volume so the result is blurry, 
 	 * limited distance but the per pixel cost is very low. Use this on translucent surfaces like glass and water.
 	 * Only diffuse lighting is supported.
 	 */

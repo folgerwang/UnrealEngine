@@ -8,12 +8,12 @@
 	#define ForwardLightData TranslucentBasePass.Shared.Forward
 	#define ReflectionStruct TranslucentBasePass.Shared.Reflection
 	#define FogStruct TranslucentBasePass.Shared.Fog
-	#define BasePassSSProfilesTexture TranslucentBasePass.SSProfilesTexture
+	#define ActualSSProfilesTexture TranslucentBasePass.Shared.SSProfilesTexture
 #else
 	#define ForwardLightData OpaqueBasePass.Shared.Forward
 	#define ReflectionStruct OpaqueBasePass.Shared.Reflection
 	#define FogStruct OpaqueBasePass.Shared.Fog
-	#define BasePassSSProfilesTexture OpaqueBasePass.Shared.SSProfilesTexture
+	#define ActualSSProfilesTexture OpaqueBasePass.Shared.SSProfilesTexture
 #endif 
 
 #undef NEEDS_LIGHTMAP_COORDINATE

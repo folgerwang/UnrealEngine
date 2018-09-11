@@ -97,7 +97,8 @@ public class Engine : ModuleRules
 				"CinematicCamera",
 				"Analytics",
 				"AnalyticsET",
-			}
+                //"CrunchCompression"
+            }
 		);
 
 		DynamicallyLoadedModuleNames.Add("EyeTracker");
@@ -172,9 +173,9 @@ public class Engine : ModuleRules
 		CircularlyReferencedDependentModules.Add("MaterialShaderQualitySettings");
 		CircularlyReferencedDependentModules.Add("CinematicCamera");
 
-		// The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
-		// and needs to be listed in an always-included module in order to be compiled into standalone games
-		DynamicallyLoadedModuleNames.Add("AnimGraphRuntime");
+        // The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
+        // and needs to be listed in an always-included module in order to be compiled into standalone games
+        DynamicallyLoadedModuleNames.Add("AnimGraphRuntime");
         
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]

@@ -705,17 +705,8 @@ namespace WindowsMixedReality
 		const FHMDViewMesh& Mesh = HiddenAreaMesh[index];
 		check(Mesh.IsValid());
 
-		DrawIndexedPrimitiveUP(
-			RHICmdList,
-			PT_TriangleList,
-			0,
-			Mesh.NumVertices,
-			Mesh.NumTriangles,
-			Mesh.pIndices,
-			sizeof(uint16),
-			Mesh.pVertices,
-			sizeof(FFilterVertex)
-		);
+		RHICmdList.SetStreamSource(0, Mesh.VertexBufferRHI, 0);
+		RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, PT_TriangleList, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
 	}
 
 	bool FWindowsMixedRealityHMD::HasVisibleAreaMesh() const
@@ -734,17 +725,8 @@ namespace WindowsMixedReality
 		const FHMDViewMesh& Mesh = VisibleAreaMesh[index];
 		check(Mesh.IsValid());
 
-		DrawIndexedPrimitiveUP(
-			RHICmdList,
-			PT_TriangleList,
-			0,
-			Mesh.NumVertices,
-			Mesh.NumTriangles,
-			Mesh.pIndices,
-			sizeof(uint16),
-			Mesh.pVertices,
-			sizeof(FFilterVertex)
-		);
+		RHICmdList.SetStreamSource(0, Mesh.VertexBufferRHI, 0);
+		RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, PT_TriangleList, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
 	}
 
 	void FWindowsMixedRealityHMD::SetupViewFamily(FSceneViewFamily& InViewFamily)

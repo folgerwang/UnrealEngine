@@ -17,31 +17,46 @@ FD3D12Device::FD3D12Device() :
 	{
 	}
 
-FD3D12Device::FD3D12Device(FRHIGPUMask Node, FD3D12Adapter* InAdapter) :
-	FD3D12SingleNodeGPUObject(Node),
-	FD3D12AdapterChild(InAdapter),
+FD3D12Device::FD3D12Device(FRHIGPUMask InGPUMask, FD3D12Adapter* InAdapter) :
+	RTVAllocator(InGPUMask, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256),
+	DSVAllocator(InGPUMask, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 256),
+	SRVAllocator(InGPUMask, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
+	UAVAllocator(InGPUMask, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
+#if USE_STATIC_ROOT_SIGNATURE
+	CBVAllocator(InGPUMask, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2048),
+#endif
+	SamplerAllocator(InGPUMask, FD3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 128),
+	SamplerID(0),
+	OcclusionQueryHeap(this, D3D12_QUERY_HEAP_TYPE_OCCLUSION, 65536, 4 /*frames to keep results */ * 1 /*batches per frame*/),
+	TimestampQueryHeap(this, D3D12_QUERY_HEAP_TYPE_TIMESTAMP, 8192, 4 /*frames to keep results */ * 5 /*batches per frame*/ ),
+	DefaultBufferAllocator(this, InGPUMask), //Note: Cross node buffers are possible 
 	CommandListManager(nullptr),
 	CopyCommandListManager(nullptr),
 	AsyncCommandListManager(nullptr),
 	TextureStreamingCommandAllocatorManager(this, D3D12_COMMAND_LIST_TYPE_COPY),
-	RTVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256),
-	DSVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 256),
-	SRVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
-	UAVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
-#if USE_STATIC_ROOT_SIGNATURE
-	CBVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2048),
-#endif
-	SamplerAllocator(Node, FD3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 128),
-	GlobalSamplerHeap(this, Node),
-	GlobalViewHeap(this, Node),
-	OcclusionQueryHeap(this, D3D12_QUERY_HEAP_TYPE_OCCLUSION, 65536, 4 /*frames to keep results */ * 1 /*batches per frame*/),
-	TimestampQueryHeap(this, D3D12_QUERY_HEAP_TYPE_TIMESTAMP, 8192, 4 /*frames to keep results */ * 5 /*batches per frame*/ ),
-	DefaultBufferAllocator(this, Node), //Note: Cross node buffers are possible 
-	SamplerID(0),
-	DefaultFastAllocator(this, Node, D3D12_HEAP_TYPE_UPLOAD, 1024 * 1024 * 4),
-	TextureAllocator(this, Node)
+	GlobalSamplerHeap(this, InGPUMask),
+	GlobalViewHeap(this, InGPUMask),
+	DefaultFastAllocator(this, InGPUMask, D3D12_HEAP_TYPE_UPLOAD, 1024 * 1024 * 4),
+	TextureAllocator(this, FRHIGPUMask::All()),
+	FD3D12SingleNodeGPUObject(InGPUMask),
+	FD3D12AdapterChild(InAdapter)
 {
 	InitPlatformSpecific();
+}
+
+FD3D12Device::~FD3D12Device()
+{
+	// Cleanup the allocator near the end, as some resources may be returned to the allocator or references are shared by multiple GPUs
+	DefaultBufferAllocator.FreeDefaultBufferPools();
+
+	DefaultFastAllocator.Destroy<FD3D12ScopeLock>();
+
+	TextureAllocator.CleanUpAllocations();
+	TextureAllocator.Destroy();
+
+	delete CommandListManager;
+	delete CopyCommandListManager;
+	delete AsyncCommandListManager;
 }
 
 ID3D12Device* FD3D12Device::GetDevice()
@@ -180,7 +195,7 @@ void FD3D12Device::SetupAfterDeviceCreation()
 			}
 		}
 	}
-#endif
+#endif // USE_PIX
 
 	if(bUnderGPUCapture)
 	{
@@ -297,13 +312,6 @@ void FD3D12Device::Cleanup()
 	// Flush all pending deletes before destroying the device.
 	FRHIResource::FlushPendingDeletes();
 
-	// Cleanup the allocator near the end, as some resources may be returned to the allocator
-	DefaultBufferAllocator.FreeDefaultBufferPools();
-
-	DefaultFastAllocator.Destroy<FD3D12ScopeLock>();
-
-	TextureAllocator.CleanUpAllocations();
-	TextureAllocator.Destroy();
 	/*
 	// Cleanup thread resources
 	for (int32 index; (index = FPlatformAtomics::InterlockedDecrement(&NumThreadDynamicHeapAllocators)) != -1;)

@@ -16,6 +16,9 @@
 #include "UObject/Package.h"
 #include "GameFramework/WorldSettings.h"
 #include "Engine/MapBuildDataRegistry.h"
+#include "VT/VirtualTexture.h"
+#include "VT/VirtualTextureSpace.h"
+#include "Misc/PackageName.h"
 
 #define VISUALIZE_PACKING 0
 
@@ -353,6 +356,9 @@ struct FLightMapPendingTexture : public FTextureLayout
 	ULightMapTexture2D*				SkyOcclusionTexture;
 	ULightMapTexture2D*				AOMaterialMaskTexture;
 
+	ULightMapVirtualTexture*		VirtualTexture;
+
+
 	TArray<TUniquePtr<FLightMapAllocation>> Allocations;
 	UObject*						Outer;
 	TWeakObjectPtr<UWorld>			OwningWorld;
@@ -377,6 +383,7 @@ struct FLightMapPendingTexture : public FTextureLayout
 		: FTextureLayout(4, 4, InSizeX, InSizeY, /* PowerOfTwo */ true, /* Force2To1Aspect */ true, /* AlignByFour */ true) // Min size is 4x4 in case of block compression.
 		, SkyOcclusionTexture(nullptr)
 		, AOMaterialMaskTexture(nullptr)
+		, VirtualTexture(nullptr)
 		, OwningWorld(InWorld)
 		, Bounds(FBox(ForceInit))
 		, LightmapFlags(LMF_None)
@@ -457,6 +464,9 @@ private:
 	FName GetLightmapName(int32 TextureIndex, int32 CoefficientIndex);
 	FName GetSkyOcclusionTextureName(int32 TextureIndex);
 	FName GetAOMaterialMaskTextureName(int32 TextureIndex);
+	FName GetVirtualTextureName(int32 TextureIndex);
+	ULightMapVirtualTextureSpace *GetVirtualTextureSpace(int32 LayerFlags);
+
 	bool NeedsSkyOcclusionTexture() const;
 	bool NeedsAOMaterialMaskTexture() const;
 };
@@ -491,6 +501,12 @@ bool FLightMapPendingTexture::IsAsyncCacheComplete() const
 			return false;
 		}
 	}
+
+	if (VirtualTexture && VirtualTexture->IsAsyncBuildComplete() == false)
+	{
+		return false;
+	}
+
 	return true;
 }
 
@@ -620,6 +636,12 @@ void FLightMapPendingTexture::PostEncode()
 		}
 	}
 
+	// Rebuild the virtual texture layers
+	if (VirtualTexture != nullptr)
+	{
+		GWarn->StatusUpdate(0, 0, NSLOCTEXT("LightMap2D", "BeginEncodingVTLightMapsTask", "Encoding VT light-maps"));
+		VirtualTexture->BuildLightmapData(true);
+	}
 }
 
 
@@ -646,6 +668,11 @@ void FLightMapPendingTexture::FinishCachingTextures()
 		}
 	}
 
+	if (VirtualTexture != nullptr)
+	{
+		VirtualTexture->FinishAsyncRebuild();
+		VirtualTexture->UpdateResource();
+	}
 }
 
 /**
@@ -1100,6 +1127,50 @@ void FLightMapPendingTexture::CreateUObjects()
 		Textures[CoefficientIndex] = Texture;
 	}
 
+	// Only build VT lightmaps if they are enabled
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+	if (CVar->GetValueOnAnyThread())
+	{
+		VirtualTexture = NewObject<ULightMapVirtualTexture>(Outer, GetVirtualTextureName(GLightmapCounter));
+		
+		int32 LayerFlags = LightMapVirtualTextureLayerFlags::HqLayers;
+		if (NeedsAOMaterialMaskTexture())
+		{
+			LayerFlags |= LightMapVirtualTextureLayerFlags::AOMaterialMaskLayer;
+		}
+		if (NeedsSkyOcclusionTexture())
+		{
+			LayerFlags |= LightMapVirtualTextureLayerFlags::SkyOcclusionLayer;
+		}
+
+		VirtualTexture->Space = GetVirtualTextureSpace(LayerFlags);
+		VirtualTexture->LayerFlags = LayerFlags;
+		VirtualTexture->Layers.AddDefaulted(LightMapVirtualTextureLayerFlags::GetNumLayers(LayerFlags));
+		static_assert(NUM_STORED_LIGHTMAP_COEF == 4, "VT assumes there are four stored lightmap coefficients");
+		
+		// Only add the HQ layer for VT lightmapping
+		VirtualTexture->Layers[0] = Textures[0];
+		//Note: We don't look at layer one but this is future proofed as the packing of the two HQ coefficients in one texture
+		//should go away in the future...
+		VirtualTexture->Layers[1] = Textures[0];
+		
+		// Optional occlusion and AO layers
+		if (NeedsSkyOcclusionTexture())
+		{
+			int32 LayerIndex = LightMapVirtualTextureLayerFlags::GetLayerIndex(VirtualTexture->LayerFlags, LightMapVirtualTextureLayerFlags::SkyOcclusionLayer);
+			VirtualTexture->Layers[LayerIndex] = SkyOcclusionTexture;
+		}
+		if (NeedsAOMaterialMaskTexture())
+		{
+			int32 LayerIndex = LightMapVirtualTextureLayerFlags::GetLayerIndex(VirtualTexture->LayerFlags, LightMapVirtualTextureLayerFlags::AOMaterialMaskLayer);
+			VirtualTexture->Layers[LayerIndex] = AOMaterialMaskTexture;
+		}
+	}
+	else
+	{
+		VirtualTexture = nullptr;
+	}
+	
 	check(bUObjectsCreated == false);
 	bUObjectsCreated = true;
 }
@@ -1502,6 +1573,12 @@ void FLightMapPendingTexture::StartEncoding(ULevel* Unused, ITextureCompressorMo
 		}
 	}
 
+	for (int32 AllocationIndex = 0; AllocationIndex < Allocations.Num(); AllocationIndex++)
+	{
+		auto& Allocation = Allocations[AllocationIndex];
+		Allocation->LightMap->VirtualTexture = VirtualTexture;
+	}
+
 	bIsFinishedEncoding = true;
 }
 
@@ -1562,6 +1639,112 @@ FName FLightMapPendingTexture::GetAOMaterialMaskTextureName(int32 TextureIndex)
 	while (ExistingObject != NULL);
 	return FName(*PotentialName);
 }
+
+FName FLightMapPendingTexture::GetVirtualTextureName(int32 TextureIndex)
+{
+	FString PotentialName = TEXT("");
+	UObject* ExistingObject = NULL;
+	int32 LightmapIndex = 0;
+	// Search for an unused name
+	do
+	{
+		PotentialName = FString(TEXT("VirtualTexture")) + FString::FromInt(LightmapIndex) + TEXT("_") + FString::FromInt(TextureIndex);
+
+		ExistingObject = FindObject<UObject>(Outer, *PotentialName);
+		LightmapIndex++;
+	} while (ExistingObject != NULL);
+	return FName(*PotentialName);
+}
+
+namespace
+{
+	FString GetVirtualTextureSpaceName(int32 LayerFlags, bool Compressed)
+	{
+		return FString::Format(TEXT("LightmapVirtualTextureSpace_{0}_{1}"), TArray<FStringFormatArg>({ LayerFlags, (Compressed) ? TEXT("Compressed") : TEXT("Uncompressed") }));
+	}
+	void GenerateVTLightmapSpaces()
+	{
+		bool CompressedOptions[] = { true, false };
+		int32 LayerOptions[] = {
+			LightMapVirtualTextureLayerFlags::HqLayers,
+			LightMapVirtualTextureLayerFlags::HqLayers | LightMapVirtualTextureLayerFlags::AOMaterialMaskLayer,
+			LightMapVirtualTextureLayerFlags::HqLayers | LightMapVirtualTextureLayerFlags::AOMaterialMaskLayer | LightMapVirtualTextureLayerFlags::SkyOcclusionLayer,
+			LightMapVirtualTextureLayerFlags::HqLayers | LightMapVirtualTextureLayerFlags::SkyOcclusionLayer
+		};
+
+		for (int32 LayerFlags : LayerOptions)
+		{
+			for (bool Compressed : CompressedOptions)
+			{
+				FString BaseName = GetVirtualTextureSpaceName(LayerFlags, Compressed);
+				ULightMapVirtualTextureSpace *Space = FindObject<ULightMapVirtualTextureSpace>(ANY_PACKAGE, *BaseName);
+				if (Space == nullptr)
+				{
+					// Fixme how to properly handle this global object?!? Just created as an engine asset for now
+					const FString PackageName = FString::Format(TEXT("/Engine/VT/{0}"), TArray<FStringFormatArg>({ BaseName }));
+					UPackage *VTSpacePackage = CreatePackage(NULL, *PackageName);
+					EObjectFlags Flags = RF_Public | RF_Standalone;
+					Space = NewObject<ULightMapVirtualTextureSpace>(VTSpacePackage, *BaseName, Flags);
+					Space->Layers.Empty();
+					Space->Layers.AddDefaulted(LightMapVirtualTextureLayerFlags::GetNumLayers(LayerFlags));
+
+					for (int i = 0; i < 2; i++)
+					{
+						Space->Layers[i].bCompressed = GCompressLightmaps;
+						Space->Layers[i].bHasAlpha = true;
+						Space->Layers[i].CompressionSettings = TC_Default; // This will make it choose DXT5 on desktop-like platforms.
+						Space->Layers[i].Format = TSF_BGRA8;
+					}
+
+
+					int32 SkyLayer = LightMapVirtualTextureLayerFlags::GetLayerIndex(LayerFlags, LightMapVirtualTextureLayerFlags::SkyOcclusionLayer);
+					if (SkyLayer != INDEX_NONE)
+					{
+
+						Space->Layers[SkyLayer].bCompressed = GCompressLightmaps;
+						Space->Layers[SkyLayer].bHasAlpha = true;
+						Space->Layers[SkyLayer].CompressionSettings = TC_Default; // This will make it choose DXT5 on desktop-like platforms.
+						Space->Layers[SkyLayer].Format = TSF_BGRA8;
+					}
+
+					int32 AOLayer = LightMapVirtualTextureLayerFlags::GetLayerIndex(LayerFlags, LightMapVirtualTextureLayerFlags::AOMaterialMaskLayer);
+					if (AOLayer != INDEX_NONE)
+					{
+						Space->Layers[AOLayer].bCompressed = GCompressLightmaps;
+						Space->Layers[AOLayer].bHasAlpha = true;
+						Space->Layers[AOLayer].CompressionSettings = TC_Alpha; // This will make it choose BC4 on desktop-like platforms.
+						Space->Layers[AOLayer].Format = TSF_BGRA8;
+					}
+
+					Space->UpdateResource();
+
+					FString PackageFileName = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());
+					UPackage::SavePackage(VTSpacePackage, Space, RF_Standalone, *PackageFileName, GLog, nullptr, false, true, SAVE_None);
+				}
+			}
+		}
+	}
+	static FAutoConsoleCommand GenerateVTLightmapSpacesCVAR(TEXT("VT.Lightmaps.GenerateSpaces"), TEXT("Generate all VT lightmap spaces inside the engine content folder"),
+		FConsoleCommandDelegate::CreateStatic(&GenerateVTLightmapSpaces));
+}
+
+ULightMapVirtualTextureSpace *FLightMapPendingTexture::GetVirtualTextureSpace(int32 LayerFlags)
+{
+	FString BaseName = GetVirtualTextureSpaceName(LayerFlags, GCompressLightmaps);
+	ULightMapVirtualTextureSpace *Space = FindObject<ULightMapVirtualTextureSpace>(ANY_PACKAGE, *BaseName);
+
+	if (Space == nullptr)
+	{
+		UE_LOG(LogLightMap, Fatal, TEXT("Missing VT lightmapping engine content this feature depends on: %s. Make sure your engine content is up to date."), *BaseName);
+	}
+
+	if (Space->GetRenderResource() == nullptr)
+	{
+		Space->UpdateResource();
+	}
+	return Space;
+}
+
 
 /** The light-maps which have not yet been encoded into textures. */
 static TArray<FLightMapAllocationGroup> PendingLightMaps;
@@ -2029,6 +2212,7 @@ FLightMap2D::FLightMap2D()
 	Textures[1] = NULL;
 	SkyOcclusionTexture = NULL;
 	AOMaterialMaskTexture = NULL;
+	VirtualTexture = NULL;
 }
 
 FLightMap2D::FLightMap2D(const TArray<FGuid>& InLightGuids)
@@ -2038,6 +2222,7 @@ FLightMap2D::FLightMap2D(const TArray<FGuid>& InLightGuids)
 	Textures[1] = NULL;
 	SkyOcclusionTexture = NULL;
 	AOMaterialMaskTexture = NULL;
+	VirtualTexture = NULL;
 }
 
 const UTexture2D* FLightMap2D::GetTexture(uint32 BasisIndex) const
@@ -2090,11 +2275,18 @@ void FLightMap2D::AddReferencedObjects( FReferenceCollector& Collector )
 	Collector.AddReferencedObject(Textures[1]);
 	Collector.AddReferencedObject(SkyOcclusionTexture);
 	Collector.AddReferencedObject(AOMaterialMaskTexture);
+	Collector.AddReferencedObject(VirtualTexture);
 }
 
 void FLightMap2D::Serialize(FArchive& Ar)
 {
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+
 	FLightMap::Serialize(Ar);
+
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+	bool bUsingVTLightmaps = CVar->GetValueOnAnyThread() != 0;
+
 
 	if( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_LOW_QUALITY_DIRECTIONAL_LIGHTMAPS )
 	{
@@ -2122,8 +2314,8 @@ void FLightMap2D::Serialize(FArchive& Ar)
 	{
 		if (Ar.IsCooking())
 		{
-			bool bStripLQLightmaps = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::LowQualityLightmaps);
-			bool bStripHQLightmaps = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::HighQualityLightmaps);
+			bool bStripLQLightmaps = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::LowQualityLightmaps) || bUsingVTLightmaps;
+			bool bStripHQLightmaps = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::HighQualityLightmaps) || bUsingVTLightmaps;
 
 			ULightMapTexture2D* Dummy = NULL;
 			ULightMapTexture2D*& Texture1 = bStripHQLightmaps ? Dummy : Textures[0];
@@ -2141,7 +2333,7 @@ void FLightMap2D::Serialize(FArchive& Ar)
 		{
 			if (Ar.IsCooking())
 			{
-				bool bStripHQLightmaps = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::HighQualityLightmaps);
+				bool bStripHQLightmaps = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::HighQualityLightmaps) || bUsingVTLightmaps;
 
 				ULightMapTexture2D* Dummy = NULL;
 				ULightMapTexture2D*& SkyTexture = bStripHQLightmaps ? Dummy : SkyOcclusionTexture;
@@ -2172,6 +2364,29 @@ void FLightMap2D::Serialize(FArchive& Ar)
 	}
 
 	Ar << CoordinateScale << CoordinateBias;
+
+	if (Ar.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::VirtualTexturedLightmaps)
+	{
+		// Don't save VT's if they are disabled for rendering
+		if (bUsingVTLightmaps)
+		{
+			Ar << VirtualTexture;
+		}
+		else
+		{
+			ULightMapVirtualTexture* Dummy = NULL;
+			Ar << Dummy;
+			if (Ar.IsLoading())
+			{
+				VirtualTexture = nullptr;
+			}
+		}
+	}
+	else
+	{
+		VirtualTexture = nullptr;
+	}
+
 	
 	// Force no divide by zeros even with low precision. This should be fixed during build but for some reason isn't.
 	if( Ar.IsLoading() )
@@ -2187,12 +2402,24 @@ void FLightMap2D::Serialize(FArchive& Ar)
 	//In the editor we need to keep these references since they will need to be saved.
 	if (Ar.IsLoading() && !GIsEditor)
 	{
-		Textures[ bAllowHighQualityLightMaps ? 1 : 0 ] = NULL;
-
-		if (!bAllowHighQualityLightMaps)
+		if (bUsingVTLightmaps)
 		{
+			Textures[0] = NULL;
+			Textures[1] = NULL;
 			SkyOcclusionTexture = NULL;
 			AOMaterialMaskTexture = NULL;
+		}
+		else
+		{
+			Textures[bAllowHighQualityLightMaps ? 1 : 0] = NULL;
+
+			if (!bAllowHighQualityLightMaps)
+			{
+				SkyOcclusionTexture = NULL;
+				AOMaterialMaskTexture = NULL;
+			}
+
+			VirtualTexture = NULL;
 		}
 	}
 }
@@ -2203,12 +2430,24 @@ FLightMapInteraction FLightMap2D::GetInteraction(ERHIFeatureLevel::Type InFeatur
 
 	int32 LightmapIndex = bHighQuality ? 0 : 1;
 
-	bool bValidTextures = Textures[ LightmapIndex ] && Textures[ LightmapIndex ]->Resource;
-
-	// When the FLightMap2D is first created, the textures aren't set, so that case needs to be handled.
-	if(bValidTextures)
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+	if (CVar->GetValueOnRenderThread() == 0)
 	{
-		return FLightMapInteraction::Texture(Textures, SkyOcclusionTexture, AOMaterialMaskTexture, ScaleVectors, AddVectors, CoordinateScale, CoordinateBias, bHighQuality);
+		bool bValidTextures = Textures[LightmapIndex] && Textures[LightmapIndex]->Resource;
+
+		// When the FLightMap2D is first created, the textures aren't set, so that case needs to be handled.
+		if (bValidTextures)
+		{
+			return FLightMapInteraction::Texture(Textures, SkyOcclusionTexture, AOMaterialMaskTexture, ScaleVectors, AddVectors, CoordinateScale, CoordinateBias, bHighQuality);
+		}
+	}
+	else
+	{
+		bool bValidVirtualTexture = VirtualTexture && VirtualTexture->IsResourceValid();
+		if (bValidVirtualTexture)
+		{
+			return FLightMapInteraction::InitVirtualTexture(VirtualTexture, ScaleVectors, AddVectors, CoordinateScale, CoordinateBias, bHighQuality);
+		}
 	}
 
 	return FLightMapInteraction::None();

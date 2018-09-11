@@ -8,6 +8,7 @@
 #include "VulkanDevice.h"
 #include "VulkanContext.h"
 #include "Containers/ResourceArray.h"
+#include "VulkanLLM.h"
 
 static TMap<FVulkanResourceMultiBuffer*, VulkanRHI::FPendingBufferLock> GPendingLockIBs;
 static FCriticalSection GPendingLockIBsMutex;
@@ -324,6 +325,7 @@ FVulkanIndexBuffer::FVulkanIndexBuffer(FVulkanDevice* InDevice, uint32 InStride,
 
 FIndexBufferRHIRef FVulkanDynamicRHI::RHICreateIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanIndexBuffers);
 	return new FVulkanIndexBuffer(Device, Stride, Size, InUsage, CreateInfo, nullptr);
 }
 

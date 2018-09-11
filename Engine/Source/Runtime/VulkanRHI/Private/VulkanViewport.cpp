@@ -8,6 +8,7 @@
 #include "VulkanSwapChain.h"
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
+#include "GlobalShader.h"
 
 //#todo-Lumin: Until we have LuminEngine.ini
 FAutoConsoleVariable GCVarDelayAcquireBackBuffer(
@@ -117,12 +118,15 @@ bool FVulkanViewport::DoCheckedSwapChainJob(TFunction<int32(FVulkanViewport*)> S
 
 	while (Status < 0 && AttemptsPending > 0)
 	{
+		bool bForce = true;
+
 		if (Status == (int32)FVulkanSwapChain::EStatus::OutOfDate)
 		{
 			UE_LOG(LogVulkanRHI, Verbose, TEXT("Swapchain is out of date! Trying to recreate the swapchain."));
 		}
 		else if (Status == (int32)FVulkanSwapChain::EStatus::SurfaceLost)
 		{
+			bForce = false;
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Swapchain surface lost! Trying to recreate the swapchain."));
 		}
 		else
@@ -130,7 +134,7 @@ bool FVulkanViewport::DoCheckedSwapChainJob(TFunction<int32(FVulkanViewport*)> S
 			check(0);
 		}
 
-		RecreateSwapchain(WindowHandle, true);
+		RecreateSwapchain(WindowHandle, bForce);
 
 		// Swapchain creation pushes some commands - flush the command buffers now to begin with a fresh state
 		Device->SubmitCommandsAndFlushGPU();
@@ -174,7 +178,16 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 
 	if (FVulkanPlatform::SupportsStandardSwapchain())
 	{
-		VulkanRHI::ImagePipelineBarrier(CmdBuffer->GetHandle(), BackBufferImages[AcquiredImageIndex], EImageLayoutBarrier::Undefined, EImageLayoutBarrier::ColorAttachment, VulkanRHI::SetupImageSubresourceRange());
+		VulkanRHI::ImagePipelineBarrier(CmdBuffer->GetHandle(), BackBufferImages[AcquiredImageIndex],
+			EImageLayoutBarrier::Undefined, EImageLayoutBarrier::ColorAttachment, VulkanRHI::SetupImageSubresourceRange());
+		if (FVulkanPlatform::RequiresSwapchainGeneralInitialLayout())
+		{
+			// Fix for artifacting on Mali on Android O: Take an extra roundtrip through COLOR_OPTIMAL -> GENERAL -> COLOR_OPTIMAL
+			VulkanRHI::ImagePipelineBarrier(CmdBuffer->GetHandle(), BackBufferImages[AcquiredImageIndex],
+				EImageLayoutBarrier::ColorAttachment, EImageLayoutBarrier::PixelGeneralRW, VulkanRHI::SetupImageSubresourceRange());
+			VulkanRHI::ImagePipelineBarrier(CmdBuffer->GetHandle(), BackBufferImages[AcquiredImageIndex],
+				EImageLayoutBarrier::PixelGeneralRW, EImageLayoutBarrier::ColorAttachment, VulkanRHI::SetupImageSubresourceRange());
+		}
 	}
 
 	// Submit here so we can add a dependency with the acquired semaphore
@@ -184,6 +197,7 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 		CmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, AcquiredSemaphore);
 	}
 	Device->GetGraphicsQueue()->Submit(CmdBuffer);
+	CmdBufferManager->FreeUnusedCmdBuffers();
 	CmdBufferManager->PrepareForNewActiveCommandBuffer();
 }
 
@@ -294,6 +308,8 @@ FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRende
 		FVulkanTextureBase* Texture = FVulkanTextureBase::Cast(InRTInfo.DepthStencilRenderTarget.Texture);
 		DepthStencilRenderTargetImage = Texture->Surface.Image;
 		bool bHasStencil = (Texture->Surface.PixelFormat == PF_DepthStencil || Texture->Surface.PixelFormat == PF_X24_G8);
+		check(Texture->PartialView);
+		PartialDepthView = Texture->PartialView->View;
 
 		ensure(Texture->Surface.GetViewType() == VK_IMAGE_VIEW_TYPE_2D || Texture->Surface.GetViewType() == VK_IMAGE_VIEW_TYPE_CUBE);
 		if (NumColorAttachments == 0 && Texture->Surface.GetViewType() == VK_IMAGE_VIEW_TYPE_CUBE)
@@ -317,7 +333,7 @@ FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRende
 	CreateInfo.width  = RTExtents.width;
 	CreateInfo.height = RTExtents.height;
 	CreateInfo.layers = NumLayers;
-	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateFramebuffer(Device.GetInstanceHandle(), &CreateInfo, nullptr, &Framebuffer));
+	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateFramebuffer(Device.GetInstanceHandle(), &CreateInfo, VULKAN_CPU_ALLOCATOR, &Framebuffer));
 
 	Extents.width = CreateInfo.width;
 	Extents.height = CreateInfo.height;
@@ -352,27 +368,10 @@ bool FVulkanFramebuffer::Matches(const FRHISetRenderTargetsInfo& InRTInfo) const
 	{
 		return false;
 	}
-	if (RTInfo.bClearColor != InRTInfo.bClearColor)
-	{
-		return false;
-	}
-	if (RTInfo.bClearDepth != InRTInfo.bClearDepth)
-	{
-		return false;
-	}
-	if (RTInfo.bClearStencil != InRTInfo.bClearStencil)
-	{
-		return false;
-	}
 
 	{
 		const FRHIDepthRenderTargetView& A = RTInfo.DepthStencilRenderTarget;
 		const FRHIDepthRenderTargetView& B = InRTInfo.DepthStencilRenderTarget;
-		if (!(A == B))
-		{
-			return false;
-		}
-
 		if (A.Texture)
 		{
 			VkImage AImage = DepthStencilRenderTargetImage;
@@ -384,17 +383,10 @@ bool FVulkanFramebuffer::Matches(const FRHISetRenderTargetsInfo& InRTInfo) const
 		}
 	}
 
-	// We dont need to compare all render-tagets, since we
-	// already have compared the number of render-targets
 	for (int32 Index = 0; Index < RTInfo.NumColorRenderTargets; ++Index)
 	{
 		const FRHIRenderTargetView& A = RTInfo.ColorRenderTarget[Index];
 		const FRHIRenderTargetView& B = InRTInfo.ColorRenderTarget[Index];
-		if (!(A == B))
-		{
-			return false;
-		}
-
 		if (A.Texture)
 		{
 			VkImage AImage = ColorRenderTargetImages[Index];
@@ -740,11 +732,30 @@ void FVulkanDynamicRHI::RHITick(float DeltaTime)
 {
 	check(IsInGameThread());
 	FVulkanDevice* VulkanDevice = GetDevice();
+	static bool bRequestNULLPixelShader = true;
+	bool bRequested = bRequestNULLPixelShader;
 	ENQUEUE_RENDER_COMMAND(TempFrameReset)(
-		[VulkanDevice](FRHICommandListImmediate& RHICmdList)
+		[VulkanDevice, bRequested](FRHICommandListImmediate& RHICmdList)
 		{
+			if (bRequested)
+			{
+				//work around layering violation
+				TShaderMapRef<FNULLPS>(GetGlobalShaderMap(GMaxRHIFeatureLevel))->GetPixelShader();
+			}
+
 			VulkanDevice->GetImmediateContext().GetTempFrameAllocationBuffer().Reset();
+
+			// Destroy command buffers here when using Delay; when not delaying we'll delete after Acquire
+			if (GCVarDelayAcquireBackBuffer->GetInt() > 0)
+			{
+				VulkanDevice->GetImmediateContext().GetCommandBufferManager()->FreeUnusedCmdBuffers();
+			}
 		});
+
+	if (bRequestNULLPixelShader)
+	{
+		bRequestNULLPixelShader = false;
+	}
 }
 
 FTexture2DRHIRef FVulkanDynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef ViewportRHI)
@@ -752,6 +763,12 @@ FTexture2DRHIRef FVulkanDynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRe
 	check(IsInRenderingThread());
 	check(ViewportRHI);
 	FVulkanViewport* Viewport = ResourceCast(ViewportRHI);
+
+	if (Viewport->SwapChain)
+	{
+		Viewport->SwapChain->RenderThreadPacing();
+	}
+
 	return Viewport->GetBackBuffer(FRHICommandListExecutor::GetImmediateCommandList());
 }
 

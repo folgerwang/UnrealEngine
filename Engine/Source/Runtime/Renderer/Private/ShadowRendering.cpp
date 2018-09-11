@@ -737,27 +737,32 @@ void FProjectedShadowInfo::SetupProjectionStencilMask(
 		float StencilNear = Near.Z / Near.W;
 		float StencilFar = Far.Z / Far.W;
 
-		FVector4 Verts[] =
-		{
+		FRHIResourceCreateInfo CreateInfo;
+		FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FVector4) * 12, BUF_Volatile, CreateInfo);
+		void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FVector4) * 12, RLM_WriteOnly);
+
+		// Generate the vertices used
+		FVector4* Vertices = (FVector4*)VoidPtr;
+
 			// Far Plane
-			FVector4( 1,  1,  StencilFar),
-			FVector4(-1,  1,  StencilFar),
-			FVector4( 1, -1,  StencilFar),
-			FVector4( 1, -1,  StencilFar),
-			FVector4(-1,  1,  StencilFar),
-			FVector4(-1, -1,  StencilFar),
+		Vertices[0] = FVector4( 1,  1,  StencilFar);
+		Vertices[1] = FVector4(-1,  1,  StencilFar);
+		Vertices[2] = FVector4( 1, -1,  StencilFar);
+		Vertices[3] = FVector4( 1, -1,  StencilFar);
+		Vertices[4] = FVector4(-1,  1,  StencilFar);
+		Vertices[5] = FVector4(-1, -1,  StencilFar);
 
 			// Near Plane
-			FVector4(-1,  1, StencilNear),
-			FVector4( 1,  1, StencilNear),
-			FVector4(-1, -1, StencilNear),
-			FVector4(-1, -1, StencilNear),
-			FVector4( 1,  1, StencilNear),
-			FVector4( 1, -1, StencilNear),
-		};
+		Vertices[6]  = FVector4(-1,  1, StencilNear);
+		Vertices[7]  = FVector4( 1,  1, StencilNear);
+		Vertices[8]  = FVector4(-1, -1, StencilNear);
+		Vertices[9]  = FVector4(-1, -1, StencilNear);
+		Vertices[10] = FVector4( 1,  1, StencilNear);
+		Vertices[11] = FVector4( 1, -1, StencilNear);
 
-		// Only draw the near plane if this is not the nearest split
-		DrawPrimitiveUP(RHICmdList, PT_TriangleList, (CascadeSettings.ShadowSplitIndex > 0) ? 4 : 2, Verts, sizeof(FVector4));
+		RHIUnlockVertexBuffer(VertexBufferRHI);
+		RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, (CascadeSettings.ShadowSplitIndex > 0) ? 4 : 2, 1);
 	}
 	// Not a preshadow, mask the projection to any pixels inside the frustum.
 	else
@@ -807,8 +812,16 @@ void FProjectedShadowInfo::SetupProjectionStencilMask(
 		// Set the projection vertex shader parameters
 		VertexShader->SetParameters(RHICmdList, *View, this);
 
+		FRHIResourceCreateInfo CreateInfo;
+		FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FVector4) * FrustumVertices.Num(), BUF_Volatile, CreateInfo);
+		void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FVector4) * FrustumVertices.Num(), RLM_WriteOnly);
+		FPlatformMemory::Memcpy(VoidPtr, FrustumVertices.GetData(), sizeof(FVector4) * FrustumVertices.Num());
+		RHIUnlockVertexBuffer(VertexBufferRHI);
+
+		RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
 		// Draw the frustum using the stencil buffer to mask just the pixels which are inside the shadow frustum.
-		DrawIndexedPrimitiveUP(RHICmdList, PT_TriangleList, 0, 8, 12, GCubeIndices, sizeof(uint16), FrustumVertices.GetData(), sizeof(FVector4));
+		RHICmdList.DrawIndexedPrimitive(GCubeIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 8, 0, 12, 1);
+		VertexBufferRHI.SafeRelease();
 
 		// if rendering modulated shadows mask out subject mesh elements to prevent self shadowing.
 		if (bMobileModulatedProjections && !CVarEnableModulatedSelfShadow.GetValueOnRenderThread())
@@ -983,20 +996,21 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 
 	if (IsWholeSceneDirectionalShadow())
 	{
-		// Render a full screen quad.
-		FVector4 Verts[4] =
-		{
-			FVector4(-1.0f, 1.0f, 0.0f),
-			FVector4(1.0f, 1.0f, 0.0f),
-			FVector4(-1.0f, -1.0f, 0.0f),
-			FVector4(1.0f, -1.0f, 0.0f),
-		};
-		DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Verts, sizeof(FVector4));
+		RHICmdList.SetStreamSource(0, GClearVertexBuffer.VertexBufferRHI, 0);
+		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 	}
 	else
 	{
+		FRHIResourceCreateInfo CreateInfo;
+		FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FVector4) * FrustumVertices.Num(), BUF_Volatile, CreateInfo);
+		void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FVector4) * FrustumVertices.Num(), RLM_WriteOnly);
+		FPlatformMemory::Memcpy(VoidPtr, FrustumVertices.GetData(), sizeof(FVector4) * FrustumVertices.Num());
+		RHIUnlockVertexBuffer(VertexBufferRHI);
+
+		RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
 		// Draw the frustum using the projection shader..
-		DrawIndexedPrimitiveUP(RHICmdList, PT_TriangleList, 0, 8, 12, GCubeIndices, sizeof(uint16), FrustumVertices.GetData(), sizeof(FVector4));
+		RHICmdList.DrawIndexedPrimitive(GCubeIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 8, 0, 12, 1);
+		VertexBufferRHI.SafeRelease();
 	}
 
 	if (!bDepthBoundsTestEnabled)

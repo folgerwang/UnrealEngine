@@ -25,6 +25,8 @@
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
 #include "RendererModule.h"
+#include "VT/VirtualTextureSystem.h"
+#include "VT/VirtualTextureFeedback.h"
 
 TAutoConsoleVariable<int32> CVarEarlyZPass(
 	TEXT("r.EarlyZPass"),
@@ -308,6 +310,7 @@ void FDeferredShadingSceneRenderer::ClearGBufferAtMaxZ(FRHICommandList& RHICmdLi
 	GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
 
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+	VertexShader->SetDepthParameter(RHICmdList, float(ERHIZBuffer::FarPlane));
 
 	// Clear each viewport by drawing background color at MaxZ depth
 	for(int32 ViewIndex = 0;ViewIndex < Views.Num();ViewIndex++)
@@ -322,15 +325,9 @@ void FDeferredShadingSceneRenderer::ClearGBufferAtMaxZ(FRHICommandList& RHICmdLi
 		// Setup PS
 		PixelShader->SetColors(RHICmdList, ClearColors, NumActiveRenderTargets);
 
+		RHICmdList.SetStreamSource(0, GClearVertexBuffer.VertexBufferRHI, 0);
 		// Render quad
-		static const FVector4 ClearQuadVertices[4] = 
-		{
-			FVector4( -1.0f,  1.0f, (float)ERHIZBuffer::FarPlane, 1.0f),
-			FVector4(  1.0f,  1.0f, (float)ERHIZBuffer::FarPlane, 1.0f ),
-			FVector4( -1.0f, -1.0f, (float)ERHIZBuffer::FarPlane, 1.0f ),
-			FVector4(  1.0f, -1.0f, (float)ERHIZBuffer::FarPlane, 1.0f )
-		};
-		DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, ClearQuadVertices, sizeof(ClearQuadVertices[0]));
+		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 	}
 }
 
@@ -531,6 +528,11 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_Render, FColor::Emerald);
 
+#if WITH_MGPU
+	const FRHIGPUMask RenderTargetGPUMask = (GNumExplicitGPUsForRendering > 1 && ViewFamily.RenderTarget) ? ViewFamily.RenderTarget->GetGPUMask(RHICmdList) : FRHIGPUMask::GPU0();
+	ComputeViewGPUMasks(RenderTargetGPUMask);
+#endif // WITH_MGPU
+
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 	
 	//make sure all the targets we're going to use will be safely writable.
@@ -570,6 +572,13 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	// Find the visible primitives.
 	RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 	bool bDoInitViewAftersPrepass = InitViews(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
+
+	static const auto CVarVirtualTextureLightmaps = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+	if (CVarVirtualTextureLightmaps && CVarVirtualTextureLightmaps->GetValueOnRenderThread())
+	{
+		// TODO should probably be in InitViews
+		GetVirtualTextureSystem()->Update( RHICmdList, FeatureLevel );
+	}
 
 	TGuardValue<bool> LockDrawLists(GDrawListsLocked, true);
 #if !UE_BUILD_SHIPPING
@@ -788,6 +797,14 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_AsyncUpdateViewCustomData_Wait);
 		FTaskGraphInterface::Get().WaitUntilTasksComplete(UpdateViewCustomDataEvents, ENamedThreads::GetRenderThread());
+	}
+	
+	if (CVarVirtualTextureLightmaps && CVarVirtualTextureLightmaps->GetValueOnRenderThread())
+	{
+		// Create VT feedback buffer
+		FIntPoint Size = SceneContext.GetBufferSizeXY();
+		Size = FIntPoint::DivideAndRoundUp( Size, 16 );
+		GVirtualTextureFeedback.CreateResourceGPU( RHICmdList, Size.X, Size.Y );
 	}
 
 	// Draw the scene pre-pass / early z pass, populating the scene depth buffer and HiZ
@@ -1011,6 +1028,12 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	check(!SceneContext.DBufferB);
 	check(!SceneContext.DBufferC);
 
+	if (CVarVirtualTextureLightmaps && CVarVirtualTextureLightmaps->GetValueOnRenderThread())
+	{
+		// No pass after this can make VT page requests
+		GVirtualTextureFeedback.TransferGPUToCPU( RHICmdList );
+	}
+
 	if (bRequiresFarZQuadClear)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_ClearGBufferAtMaxZ);
@@ -1050,6 +1073,10 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_Resolve_After_Basepass);
 		SceneContext.FinishRenderingGBuffer(RHICmdList);
+	}
+	else
+	{		
+		ResolveSceneColor(RHICmdList);
 	}
 
 	if (!bOcclusionBeforeBasePass)
@@ -1409,6 +1436,10 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		SceneContext.AdjustGBufferRefCount(RHICmdList, -1);
 	}
 
+#if WITH_MGPU
+	DoCrossGPUTransfers(RHICmdList, RenderTargetGPUMask);
+#endif
+
 	//grab the new transform out of the proxies for next frame
 	if (VelocityRT)
 	{
@@ -1443,10 +1474,11 @@ public:
 		SourceTexelOffsets01.Bind(Initializer.ParameterMap,TEXT("SourceTexelOffsets01"));
 		SourceTexelOffsets23.Bind(Initializer.ParameterMap,TEXT("SourceTexelOffsets23"));
 		UseMaxDepth.Bind(Initializer.ParameterMap, TEXT("UseMaxDepth"));
+		SourceMaxUVParameter.Bind(Initializer.ParameterMap, TEXT("SourceMaxUV"));
 	}
 	FDownsampleSceneDepthPS() {}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, bool bUseMaxDepth)
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, bool bUseMaxDepth, FIntPoint ViewMax)
 	{
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, GetPixelShader(), View.ViewUniformBuffer);
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
@@ -1467,6 +1499,10 @@ public:
 		const FVector4 Offsets23(0.0f, 1.0f / DownsampledBufferSizeY, 1.0f / DownsampledBufferSizeX, 1.0f / DownsampledBufferSizeY);
 		SetShaderValue(RHICmdList, GetPixelShader(), SourceTexelOffsets23, Offsets23);
 		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View.FeatureLevel, ESceneTextureSetupMode::All);
+
+		// Set MaxUV, so we won't sample outside of a valid texture region.
+		FVector2D const SourceMaxUV((ViewMax.X - 0.5f) / BufferSize.X, (ViewMax.Y - 0.5f) / BufferSize.Y);
+		SetShaderValue(RHICmdList, GetPixelShader(), SourceMaxUVParameter, SourceMaxUV);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -1477,12 +1513,14 @@ public:
 		Ar << SourceTexelOffsets23;
 		Ar << SceneTextureParameters;
 		Ar << UseMaxDepth;
+		Ar << SourceMaxUVParameter;
 		return bShaderHasOutdatedParameters;
 	}
 
 	FShaderParameter ProjectionScaleBias;
 	FShaderParameter SourceTexelOffsets01;
 	FShaderParameter SourceTexelOffsets23;
+	FShaderParameter SourceMaxUVParameter;
 	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter UseMaxDepth;
 };
@@ -1533,7 +1571,7 @@ void FDeferredShadingSceneRenderer::DownsampleDepthSurface(FRHICommandList& RHIC
 
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-	PixelShader->SetParameters(RHICmdList, View, bUseMaxDepth);
+	PixelShader->SetParameters(RHICmdList, View, bUseMaxDepth, View.ViewRect.Size());
 	const uint32 DownsampledX = FMath::TruncToInt(View.ViewRect.Min.X * ScaleFactor);
 	const uint32 DownsampledY = FMath::TruncToInt(View.ViewRect.Min.Y * ScaleFactor);
 	const uint32 DownsampledSizeX = FMath::TruncToInt(View.ViewRect.Width() * ScaleFactor);

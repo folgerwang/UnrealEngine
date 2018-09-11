@@ -1772,8 +1772,12 @@ void TD3D12Texture2D<RHIResourceType>::UnlockInternal(class FRHICommandListImmed
 template<typename RHIResourceType>
 void TD3D12Texture2D<RHIResourceType>::UpdateTexture2D(class FRHICommandListImmediate* RHICmdList, uint32 MipIndex, const FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData)
 {
-	check(GPixelFormats[this->GetFormat()].BlockSizeX == 1);
-	check(GPixelFormats[this->GetFormat()].BlockSizeY == 1);
+	check(UpdateRegion.Width  %	GPixelFormats[this->GetFormat()].BlockSizeX == 0);
+	check(UpdateRegion.Height % GPixelFormats[this->GetFormat()].BlockSizeX == 0);
+	check(UpdateRegion.DestX  %	GPixelFormats[this->GetFormat()].BlockSizeX == 0);
+	check(UpdateRegion.DestY  %	GPixelFormats[this->GetFormat()].BlockSizeX == 0);
+	check(UpdateRegion.SrcX   %	GPixelFormats[this->GetFormat()].BlockSizeX == 0);
+	check(UpdateRegion.SrcY   %	GPixelFormats[this->GetFormat()].BlockSizeX == 0);
 
 	const uint32 AlignedSourcePitch = Align(SourcePitch, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 	const uint32 bufferSize = Align(UpdateRegion.Height*AlignedSourcePitch, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
@@ -1787,7 +1791,7 @@ void TD3D12Texture2D<RHIResourceType>::UpdateTexture2D(class FRHICommandListImme
 
 		byte* pRowData = (byte*)pData;
 		byte* pSourceRowData = (byte*)SourceData;
-		uint32 CopyPitch = UpdateRegion.Width * GPixelFormats[this->GetFormat()].BlockBytes;
+		uint32 CopyPitch = FMath::DivideAndRoundUp(UpdateRegion.Width, (uint32)GPixelFormats[this->GetFormat()].BlockSizeX) * GPixelFormats[this->GetFormat()].BlockBytes;
 		check(CopyPitch <= SourcePitch);
 		for (uint32 i = 0; i < UpdateRegion.Height; i++)
 		{

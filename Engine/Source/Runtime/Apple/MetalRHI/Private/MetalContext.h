@@ -22,7 +22,6 @@
 #define NUM_SAFE_FRAMES 4
 
 class FMetalRHICommandContext;
-class FShaderCacheState;
 
 class FMetalContext
 {
@@ -118,8 +117,10 @@ public:
 #endif
 	
 	void SetParallelPassFences(mtlpp::Fence Start, mtlpp::Fence End);
+	FMetalFence const& GetParallelPassStartFence(void) const;
+	FMetalFence const& GetParallelPassEndFence(void) const;
 	
-	void InitFrame(bool const bImmediateContext);
+	void InitFrame(bool const bImmediateContext, uint32 Index, uint32 Num);
 	void FinishFrame();
 
 protected:
@@ -154,6 +155,9 @@ protected:
 	/** the slot to store a per-thread context ref */
 	static uint32 CurrentContextTLSSlot;
 #endif
+	
+	/** Total number of parallel contexts that constitute the current pass. */
+	int32 NumParallelContextsInPass;
 	
 	/** Whether the validation layer is enabled */
 	bool bValidationEnabled;
@@ -202,6 +206,11 @@ public:
 	
 	/** Returns the number of concurrent contexts encoding commands, including the device context. */
 	uint32 GetNumActiveContexts(void) const;
+
+	void BeginParallelRenderCommandEncoding(uint32 Num);
+	void SetParallelRenderPassDescriptor(FRHISetRenderTargetsInfo const& TargetInfo);
+	mtlpp::RenderCommandEncoder GetParallelRenderCommandEncoder(uint32 Index, mtlpp::ParallelRenderCommandEncoder& ParallelEncoder, mtlpp::CommandBuffer& CommandBuffer);
+	void EndParallelRenderCommandEncoding(void);
 	
 	/** Get the index of the bound Metal device in the global list of rendering devices. */
 	uint32 GetDeviceIndex(void) const;
@@ -276,6 +285,9 @@ private:
 	
 	/** Count of concurrent contexts encoding commands. */
 	int32 ActiveContexts;
+	
+	/** Count of concurrent parallel contexts encoding commands. */
+	int32 ActiveParallelContexts;
 	
 	/** Whether we presented this frame - only used to track when to introduce debug markers */
 	bool bPresented;

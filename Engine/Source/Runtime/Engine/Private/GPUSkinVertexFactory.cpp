@@ -66,6 +66,25 @@ static TAutoConsoleVariable<int32> CVarVelocityTest(
 	ECVF_Cheat | ECVF_RenderThreadSafe);
 #endif // if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
+
+
+// ---
+// These should match USE_BONES_SRV_BUFFER
+static inline bool SupportsBonesBufferSRV(EShaderPlatform Platform)
+{
+	//#todo-rco: Add Metal support
+	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) || IsVulkanPlatform(Platform);
+}
+
+static inline bool SupportsBonesBufferSRV(ERHIFeatureLevel::Type InFeatureLevel)
+{
+	//#todo-rco: Add Metal support
+	return InFeatureLevel > ERHIFeatureLevel::ES3_1 || IsVulkanPlatform(GMaxRHIShaderPlatform);
+}
+// ---
+
+
+
 /*-----------------------------------------------------------------------------
  FSharedPoolPolicyData
  -----------------------------------------------------------------------------*/
@@ -227,7 +246,7 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 
 	FVertexBufferAndSRV* CurrentBoneBuffer = 0;
 
-	if (InFeatureLevel > ERHIFeatureLevel::ES3_1)
+	if (SupportsBonesBufferSRV(InFeatureLevel))
 	{
 		check(IsInRenderingThread());
 		
@@ -288,7 +307,7 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 			RefToLocal.To3x4MatrixTranspose( (float*)BoneMat.M );
 		}
 	}
-	if (InFeatureLevel > ERHIFeatureLevel::ES3_1)
+	if (SupportsBonesBufferSRV(InFeatureLevel))
 	{
 		if (NumBones)
 		{
@@ -341,6 +360,7 @@ void TGPUSkinVertexFactory<bExtraBoneInfluencesT>::ModifyCompilationEnvironment(
 		bool bLimit2BoneInfluences = (CVarGPUSkinLimit2BoneInfluences.GetValueOnAnyThread() != 0);
 		OutEnvironment.SetDefine(TEXT("GPUSKIN_LIMIT_2BONE_INFLUENCES"), (bLimit2BoneInfluences ? 1 : 0));
 	}
+	OutEnvironment.SetDefine(TEXT("GPUSKIN_USE_BONES_SRV_BUFFER"), SupportsBonesBufferSRV(Platform) ? 1 : 0);
 }
 
 
@@ -515,7 +535,7 @@ public:
 
 			bool bLocalPerBoneMotionBlur = false;
 
-			if (FeatureLevel > ERHIFeatureLevel::ES3_1)
+			if (SupportsBonesBufferSRV(FeatureLevel))
 			{
 				if(BoneMatrices.IsBound())
 				{

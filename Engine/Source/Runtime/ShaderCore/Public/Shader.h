@@ -649,6 +649,9 @@ public:
 
 	/** Returns the hash of the shader file that this shader was compiled with. */
 	const FSHAHash& GetHash() const;
+
+	/** Returns the shader platform of the shader file that this shader was compiled with. */
+	EShaderPlatform GetShaderPlatform() const;
 	
 	/** @return If the shader is linked with a vertex factory, returns the vertex factory's parameter object. */
 	virtual const FVertexFactoryParameterRef* GetVertexFactoryParameterRef() const { return NULL; }
@@ -946,7 +949,7 @@ public:
 	FShader* ConstructForDeserialization() const;
 
 	/** Calculates a Hash based on this shader type's source code and includes */
-	const FSHAHash& GetSourceHash() const;
+	const FSHAHash& GetSourceHash(EShaderPlatform ShaderPlatform) const;
 
 	/** Serializes a shader type reference by name. */
 	SHADERCORE_API friend FArchive& operator<<(FArchive& Ar,FShaderType*& Ref);
@@ -1067,6 +1070,7 @@ public:
 	void DumpDebugInfo();
 	void SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform);
 	void GetShaderStableKeyParts(FStableShaderKeyAndValue& SaveKeyVal);
+
 private:
 	EShaderTypeForDynamicCast ShaderTypeForDynamicCast;
 	uint32 HashIndex;
@@ -1267,7 +1271,7 @@ public:
 	static void GetOutdatedTypes(TArray<FShaderType*>& OutdatedShaderTypes, TArray<const FShaderPipelineType*>& ShaderPipelineTypesToFlush, TArray<const FVertexFactoryType*>& OutdatedFactoryTypes);
 
 	/** Calculates a Hash based on this shader pipeline type stages' source code and includes */
-	const FSHAHash& GetSourceHash() const;
+	const FSHAHash& GetSourceHash(EShaderPlatform ShaderPlatform) const;
 
 protected:
 	const TCHAR* const Name;
@@ -1817,18 +1821,28 @@ public:
 	 * Used to serialize a shader map inline in a material in a package. 
 	 * @param bInlineShaderResource - whether to inline the shader resource's serializations
 	 * @param bHandleShaderKeyChanges - whether to serialize the data necessary to detect and gracefully handle shader key changes between saving and loading
+	 * @param DependenciesToSave - array of specific ShaderTypeDepencies which should be saved.
 	 */
-	void SerializeInline(FArchive& Ar, bool bInlineShaderResource, bool bHandleShaderKeyChanges)
+	void SerializeInline(FArchive& Ar, bool bInlineShaderResource, bool bHandleShaderKeyChanges, const TArray<FShaderPrimaryKey>* ShaderKeysToSave = nullptr)
 	{
 		if (Ar.IsSaving())
 		{
-			int32 NumShaders = Shaders.Num();
+			TArray<FShaderPrimaryKey> SortedShaderKeys;
+
+			if (ShaderKeysToSave)
+			{
+				SortedShaderKeys = *ShaderKeysToSave;
+			}
+			else
+			{
+				Shaders.GenerateKeyArray(SortedShaderKeys);
+			}
+
+			int32 NumShaders = SortedShaderKeys.Num();
 			Ar << NumShaders;
 
 			// Sort the shaders by type name before saving, to make sure the saved result is binary equivalent to what is generated on other machines, 
 			// Which is a requirement of the Derived Data Cache.
-			TArray<FShaderPrimaryKey> SortedShaderKeys;
-			Shaders.GenerateKeyArray(SortedShaderKeys);
 			SortedShaderKeys.Sort(FCompareShaderPrimaryKey());
 
 			for (FShaderPrimaryKey Key : SortedShaderKeys)
@@ -1845,6 +1859,9 @@ public:
 			GetShaderPipelineList(SortedPipelines, FShaderPipeline::EAll);
 			int32 NumPipelines = SortedPipelines.Num();
 			Ar << NumPipelines;
+
+			checkf(!ShaderKeysToSave || NumPipelines == 0, TEXT("ShaderPipelines currently not supported for specific list of shader keys."));
+
 			// Sort the shader pipelines by type name before saving, to make sure the saved result is binary equivalent to what is generated on other machines, Which is a requirement of the Derived Data Cache.
 			SortedPipelines.Sort();
 			for (FShaderPipeline* CurrentPipeline : SortedPipelines)

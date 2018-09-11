@@ -172,7 +172,7 @@ public class UnrealEd : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
-				"FontEditor",
+                "FontEditor",
 				"StaticMeshEditor",
 				"TextureEditor",
 				"Cascade",

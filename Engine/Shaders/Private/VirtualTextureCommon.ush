@@ -1,6 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
+#ifndef VirtualTextureCommon_ush__
+#define VirtualTextureCommon_ush__
+
 #include "Common.ush"
+#include "Random.ush"
 
 float MipLevel2D( float2 UV, inout float2 dUVdx, inout float2 dUVdy )
 {
@@ -76,3 +80,84 @@ float2 VirtualToPhysical2D(	const float2 pTextureSize, const float vPageSize, co
 	
 	return pUV;
 }
+
+float GetVirtualTextureSpaceID(float4x4 VirtualTextureUniformData)
+{
+	return VirtualTextureUniformData[0][0];
+}
+
+float GetVirtualTexturePageTableSize(float4x4 VirtualTextureUniformData)
+{
+	return VirtualTextureUniformData[0][1];
+}
+
+float GetVirtualTexturePageSize(float4x4 VirtualTextureUniformData)
+{
+	return VirtualTextureUniformData[0][2];
+}
+
+float GetVirtualTexturePageBorder(float4x4 VirtualTextureUniformData)
+{
+	return VirtualTextureUniformData[0][3];
+}
+
+float2 GetVirtualTextureCacheSize(float4x4 VirtualTextureUniformData)
+{
+	return float2(VirtualTextureUniformData[1][0], VirtualTextureUniformData[1][1]) ;
+}
+
+float GetVirtualTextureMaxAnisoTropicLog2(float4x4 VirtualTextureUniformData)
+{
+	return VirtualTextureUniformData[1][2];
+}
+
+float GetVirtualTextureMaxLevel(float4x4 VirtualTextureUniformData)
+{
+	return VirtualTextureUniformData[1][3];
+}
+
+struct VTSampleInfo
+{
+	float2 dUVdx;
+	float2 dUVdy;
+	uint2 vPage;
+	uint  Level; //on 16 TT this is Vlevel, 32 bit this is level
+	uint Request;
+};
+
+VTSampleInfo GetVTSampleInfo(float4x4 VirtualTextureUniformData, float2 UV, bool TranslationTable16Bit, float2 SvPositionXY)
+{
+	const float PageTableSize	= GetVirtualTexturePageTableSize(VirtualTextureUniformData);
+	const float PageTableBias	= log2( PageTableSize );
+	const float vPageSize		= GetVirtualTexturePageSize(VirtualTextureUniformData);
+	const float vPageSizeLog2	= log2( vPageSize );
+	const float pPageBorder		= GetVirtualTexturePageBorder(VirtualTextureUniformData);
+	const float pPageSize		= vPageSize + 2 * pPageBorder;
+	const float2 pTextureSize	= GetVirtualTextureCacheSize(VirtualTextureUniformData);
+	const float MaxAnisoLog2	= GetVirtualTextureMaxAnisoTropicLog2(VirtualTextureUniformData);
+	const uint ID				= GetVirtualTextureSpaceID(VirtualTextureUniformData);
+	const float MaxLevel		= GetVirtualTextureMaxLevel(VirtualTextureUniformData);
+
+	VTSampleInfo VTInfo;
+	
+	float Level = MipLevelAniso2D( UV, VTInfo.dUVdx, VTInfo.dUVdy, MaxAnisoLog2 ) + PageTableBias + vPageSizeLog2;
+
+	// Stochastic trilinear
+    float Noise = InterleavedGradientNoise(SvPositionXY, View.StateFrameIndexMod8);
+	Level += ( Noise * 0.5 - 0.25 );
+
+	Level = clamp( Level, 0, MaxLevel );
+	
+	VTInfo.vPage = uint2( UV * PageTableSize );
+	const uint vLevel = uint( Level );
+	VTInfo.Level = TranslationTable16Bit ? vLevel : Level;
+
+	VTInfo.Request  = VTInfo.vPage.x	<<  0;
+	VTInfo.Request |= VTInfo.vPage.y	<< 12;
+	VTInfo.Request |= vLevel			<< 24;
+	VTInfo.Request |= ID				<< 28;
+
+	return VTInfo;
+}
+
+#endif //VirtualTextureCommon_ush__

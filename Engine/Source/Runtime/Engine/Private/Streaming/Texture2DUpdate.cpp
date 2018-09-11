@@ -98,24 +98,15 @@ void FTexture2DUpdate::Tick(UTexture2D* InTexture, EThreadType InCurrentThread)
 			}
 			else if (PendingTaskState != TS_Scheduled || InCurrentThread != TT_None)
 			{
-				// On systems with only a few cores, prevent async tasks from scheduling render commands.
-				// This avoids the render thread from gettings stalled by low priority async tasks.
-				if (InCurrentThread != TT_Async || FApp::ShouldUseThreadingForPerformance())
-				{
-					// If the task was never scheduled (because synchro was not ready) schedule now.
-					// We also reschedule if this is an executing thread and it end up not being the good thread.
-					// This can happen when a task gets cancelled between scheduling and execution.
-					// We enforce that executing threads either execute or reschedule to prevent a possible stalls
-					// since game thread will not reschedule after the first time.
-					// It's completely safe to schedule several time as task execution can only ever happen once.
-					// we also keep track of how many callbacks are scheduled through ScheduledTaskCount to prevent
-					// deleting the object while another thread is scheduled to access it.
-					ScheduleTick(Context, RelevantThread);
-				}
-				else
-				{
-					PendingTaskState = TS_Pending;
-				}
+				// If the task was never scheduled (because synchro was not ready) schedule now.
+				// We also reschedule if this is an executing thread and it end up not being the good thread.
+				// This can happen when a task gets cancelled between scheduling and execution.
+				// We enforce that executing threads either execute or reschedule to prevent a possible stalls
+				// since game thread will not reschedule after the first time.
+				// It's completely safe to schedule several time as task execution can only ever happen once.
+				// we also keep track of how many callbacks are scheduled through ScheduledTaskCount to prevent
+				// deleting the object while another thread is scheduled to access it.
+				ScheduleTick(Context, RelevantThread);
 			}
 			else // Otherwise unlock the task for the executing thread to process it.
 			{
@@ -145,9 +136,7 @@ void FTexture2DUpdate::PushTask(const FContext& Context, EThreadType InTaskThrea
 
 	// TaskSynchronization is expected to be set before call this.
 	// If the rendering thread is suspended, delay the scheduling until not suspended anymore.
-	// Otherwise, on systems with only a few cores, prevent async tasks from scheduling render commands.
-	// This avoids the render thread from gettings stalled by low priority async tasks.
-	const bool bCanExecuteNow = TaskSynchronization.GetValue() <= 0 && !(GSuspendRenderThreadTasks > 0 && RelevantThread == TT_Render) && (Context.CurrentThread != TT_Async || FApp::ShouldUseThreadingForPerformance());
+	const bool bCanExecuteNow = TaskSynchronization.GetValue() <= 0 && !(GSuspendRenderThreadTasks > 0 && RelevantThread == TT_Render);
 
 	if (RelevantThread == TT_None)
 	{

@@ -119,8 +119,6 @@ struct RHI_API FPipelineCacheFileFormatPSO
 		
 		EPixelFormat RenderTargetFormats[MaxSimultaneousRenderTargets];
 		uint32 RenderTargetFlags[MaxSimultaneousRenderTargets];
-		ERenderTargetLoadAction RenderTargetsLoad[MaxSimultaneousRenderTargets];
-		ERenderTargetStoreAction RenderTargetsStore[MaxSimultaneousRenderTargets];
 		uint32 RenderTargetsActive;
 		uint32 MSAASamples;
 		

@@ -99,7 +99,7 @@ ir_variable::clone(void *mem_ctx, struct hash_table *ht) const
 
 	if (ht)
 	{
-		hash_table_insert(ht, var, (void *)const_cast<ir_variable *>(this));
+		hash_table_insert(ht, var, (void *)const_cast<ir_instruction *>((const ir_instruction*)this));
 	}
 
 	return var;
@@ -181,7 +181,7 @@ ir_loop::clone(void *mem_ctx, struct hash_table *ht) const
 
 	if (ht)
 	{
-		new_loop->counter = (ir_variable *)hash_table_find(ht, counter);
+		new_loop->counter = (ir_variable *)hash_table_find(ht, (ir_instruction*)counter);
 	}
 	if (!new_loop->counter)
 	{
@@ -241,7 +241,7 @@ ir_dereference_variable * ir_dereference_variable::clone(void *mem_ctx, struct h
 
 	if (ht)
 	{
-		new_var = (ir_variable *)hash_table_find(ht, this->var);
+		new_var = (ir_variable *)hash_table_find(ht, (ir_instruction*)this->var);
 		if (!new_var)
 			new_var = this->var;
 	}
@@ -362,7 +362,7 @@ ir_function::clone(void *mem_ctx, struct hash_table *ht) const
 
 		if (ht != NULL)
 			hash_table_insert(ht, sig_copy,
-			(void *)const_cast<ir_function_signature *>(sig));
+			(void *)const_cast<ir_instruction *>((ir_instruction const*)sig));
 	}
 
 	return copy;
@@ -503,7 +503,7 @@ public:
 		* table.  If it is found, replace it with the value from the table.
 		*/
 		ir_function_signature *sig =
-			(ir_function_signature *)hash_table_find(this->ht, ir->callee);
+			(ir_function_signature *)hash_table_find(this->ht, (ir_instruction*)ir->callee);
 		if (sig != NULL)
 		{
 			ir->callee = sig;
@@ -530,7 +530,7 @@ static void fixup_function_calls(struct hash_table *ht, exec_list *instructions)
 void clone_ir_list(void *mem_ctx, exec_list *out, const exec_list *in)
 {
 	struct hash_table *ht =
-		hash_table_ctor(0, hash_table_pointer_hash, hash_table_pointer_compare);
+		hash_table_ctor(0, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 
 	foreach_list_const(node, in)
 	{

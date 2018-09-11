@@ -23,15 +23,12 @@ struct TStaticMeshVertexTangentDatum
 
 	FORCEINLINE FVector4 GetTangentZ() const
 	{
-		return TangentZ.ToFVector();
+		return TangentZ.ToFVector4();
 	}
 
 	FORCEINLINE FVector GetTangentY() const
 	{
-		FVector  TanX = GetTangentX();
-		FVector4 TanZ = GetTangentZ();
-
-		return (FVector(TanZ) ^ TanX) * TanZ.W;
+		return GenerateYAxis(TangentX, TangentZ);
 	}
 
 	FORCEINLINE void SetTangents(FVector X, FVector Y, FVector Z)
@@ -155,13 +152,13 @@ public:
 	* @param InVertices - The vertices to initialize the buffer with.
 	* @param InNumTexCoords - The number of texture coordinate to store in the buffer.
 	*/
-	ENGINE_API void Init(const TArray<FStaticMeshBuildVertex>& InVertices, uint32 InNumTexCoords);
+	ENGINE_API void Init(const TArray<FStaticMeshBuildVertex>& InVertices, uint32 InNumTexCoords, bool bNeedsCPUAccess = true);
 
 	/**
 	* Initializes this vertex buffer with the contents of the given vertex buffer.
 	* @param InVertexBuffer - The vertex buffer to initialize from.
 	*/
-	void Init(const FStaticMeshVertexBuffer& InVertexBuffer);
+	void Init(const FStaticMeshVertexBuffer& InVertexBuffer, bool bNeedsCPUAccess = true);
 
 	/**
 	 * Appends the specified vertices to the end of the buffer
@@ -218,7 +215,7 @@ public:
 		return ElementData[VertexIndex].GetTangentZ();
 	}
 
-	FORCEINLINE_DEBUGGABLE FVector VertexTangentZ(uint32 VertexIndex) const
+	FORCEINLINE_DEBUGGABLE FVector4 VertexTangentZ(uint32 VertexIndex) const
 	{
 		checkSlow(VertexIndex < GetNumVertices());
 
@@ -465,6 +462,8 @@ private:
 
 	/** If true then RGB10A2 is used to store tangent else RGBA8 */
 	bool bUseHighPrecisionTangentBasis;
+
+	bool NeedsCPUAccess = true;
 
 	/** Allocates the vertex data storage type. */
 	void AllocateData(bool bNeedsCPUAccess = true);

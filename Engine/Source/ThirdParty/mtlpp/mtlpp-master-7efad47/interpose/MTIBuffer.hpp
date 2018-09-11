@@ -7,7 +7,7 @@
 
 MTLPP_BEGIN
 
-struct MTIBufferTrace : public IMPTable<id<MTLBuffer>, MTIBufferTrace>, public MTIObjectTrace, public MTIResourceTrace
+struct MTIBufferTrace : public IMPTable<id<MTLBuffer>, MTIBufferTrace>, public MTIResourceTrace
 {
 	typedef IMPTable<id<MTLBuffer>, MTIBufferTrace> Super;
 	
@@ -21,6 +21,10 @@ struct MTIBufferTrace : public IMPTable<id<MTLBuffer>, MTIBufferTrace>, public M
 	}
 	
 	static id<MTLBuffer> Register(id<MTLBuffer> Buffer);
+	
+	static void RetainImpl(id, SEL, void(*RetainPtr)(id,SEL));
+	static void ReleaseImpl(id, SEL, void(*ReleasePtr)(id,SEL));
+	static void DeallocImpl(id, SEL, void(*DeallocPtr)(id,SEL));
 	
 	static void* ContentsImpl(id, SEL, Super::ContentsType::DefinedIMP);
 	static void DidModifyRangeImpl(id, SEL, Super::DidModifyRangeType::DefinedIMP, NSRange);

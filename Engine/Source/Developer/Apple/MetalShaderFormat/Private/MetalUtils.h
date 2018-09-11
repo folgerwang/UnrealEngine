@@ -56,6 +56,13 @@ struct extern_var : public exec_node
 };
 
 
+template<typename T>
+struct ir_type_compare {
+	bool operator() (const T* const& lhs, const T* const& rhs) const {
+		return lhs->id < rhs->id;
+	}
+};
+
 struct FBuffers
 {
 	TIRVarSet AtomicVariables;
@@ -339,7 +346,7 @@ struct FBuffers
             for (auto it : BufferList)
             {
                 _mesa_glsl_error(state, "Buffer '%s' cannot be allocated an appropriate index due to resource overflow.",
-                           *it->name);
+                           it && it->name ? it->name : "<null>");
             }
             
             TIRVarList TextureList;
@@ -350,7 +357,7 @@ struct FBuffers
             for (auto it : TextureList)
             {
                 _mesa_glsl_error(state, "Texture '%s' cannot be allocated an appropriate index due to resource overflow.",
-                                 *it->name);
+                                 it && it->name ? it->name : "<null>");
             }
         }
 
@@ -372,7 +379,7 @@ struct FSemanticQualifier
 
 namespace MetalUtils
 {
-	ir_dereference_variable* GenerateInput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* InputSemantic,
+	ir_dereference_variable* GenerateInput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* InputName, const char* InputSemantic,
 		const glsl_type* InputType, exec_list* DeclInstructions, exec_list* PreCallInstructions);
 
 	ir_dereference_variable* GenerateOutput(EHlslShaderFrequency Frequency, uint32 bIsDesktop, _mesa_glsl_parse_state* ParseState, const char* OutputSemantic,

@@ -419,6 +419,27 @@ float ULightComponent::ComputeLightBrightness() const
 	return LightBrightness;
 }
 
+#if WITH_EDITOR
+void ULightComponent::SetLightBrightness(float InBrightness)
+{
+	if (IESTexture && IESTexture->TextureMultiplier > 0)
+	{
+		if(bUseIESBrightness && IESBrightnessScale > 0)
+		{
+			IESTexture->Brightness = InBrightness / IESBrightnessScale / IESTexture->TextureMultiplier;
+		}
+		else
+		{
+			Intensity = InBrightness / IESTexture->TextureMultiplier;
+		}
+	}
+	else
+	{
+		Intensity = InBrightness;
+	}
+}
+#endif // WITH_EDITOR
+
 void ULightComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);

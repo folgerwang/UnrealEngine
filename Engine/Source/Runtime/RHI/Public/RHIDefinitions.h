@@ -82,6 +82,12 @@ enum ERenderQueryType
 /** Maximum number of miplevels in a texture. */
 enum { MAX_TEXTURE_MIP_COUNT = 14 };
 
+/** Maximum number of immutable samplers in a PSO. */
+enum
+{
+	MaxImmutableSamplers = 2
+};
+
 /** The maximum number of vertex elements which can be used by a vertex declaration. */
 enum
 {
@@ -432,15 +438,6 @@ enum EResourceLockMode
 	RLM_Num
 };
 
-enum class EMultiGPUMode
-{
-	Broadcast,		// Broadcast all (if multi-GPU)
-	AlternateFrame,	// Alternate Frame Rendering (Use GPU# where # = FrameIndex % NumGPU)
-	AlternateView,	// Alternate View Rendering (Use GPU# where # = ViewIndex % NumGPU)
-	GPU0,			// Only use GPU0
-	GPU1			// Only use GPU1
-};
-
 /** limited to 8 types in FReadSurfaceDataFlags */
 enum ERangeCompressionMode
 {
@@ -546,7 +543,6 @@ enum EBufferUsageFlags
 
 	/** 
 	 * The buffer will be written to occasionally, GPU read only, CPU write only.  The data lifetime is until the next update, or the buffer is destroyed.
-	 * Warning: On PS4, BUF_Dynamic do not support multiple updates per frame!  Later updates will overwrite earlier ones, causing a race condition with the GPU.
 	 */
 	BUF_Dynamic           = 0x0002, 
 
@@ -646,21 +642,20 @@ enum ETextureCreateFlags
 
 	// Texture is encoded in sRGB gamma space
 	TexCreate_SRGB					= 1<<4,
-	// Texture will be created without a packed miptail
-	TexCreate_NoMipTail				= 1<<5,
+	// Texture data is writable by the CPU
+	TexCreate_CPUWritable			= 1<<5,
 	// Texture will be created with an un-tiled format
 	TexCreate_NoTiling				= 1<<6,
 	// Texture that may be updated every frame
 	TexCreate_Dynamic				= 1<<8,
-	// Allow silent texture creation failure
-	TexCreate_AllowFailure			= 1<<9,
+	// Texture will be used as a render pass attachment that will be read from
+	TexCreate_InputAttachmentRead	= 1<<9,
 	// Disable automatic defragmentation if the initial texture memory allocation fails.
 	TexCreate_DisableAutoDefrag		= 1<<10,
 	// Create the texture with automatic -1..1 biasing
 	TexCreate_BiasNormalMap			= 1<<11,
 	// Create the texture with the flag that allows mip generation later, only applicable to D3D11
 	TexCreate_GenerateMipCapable	= 1<<12,
-
 	// The texture can be partially allocated in fastvram
 	TexCreate_FastVRAMPartialAlloc  = 1<<13,
 	// UnorderedAccessView (DX11 only)
@@ -796,14 +791,6 @@ inline bool IsPCPlatform(const EShaderPlatform Platform)
 inline bool IsES2Platform(const EShaderPlatform Platform)
 {
 	return Platform == SP_PCD3D_ES2 || Platform == SP_OPENGL_PCES2 || Platform == SP_OPENGL_ES2_ANDROID || Platform == SP_OPENGL_ES2_WEBGL || Platform == SP_OPENGL_ES2_IOS || Platform == SP_METAL_MACES2;
-}
-
-/** Whether the shader platform is OpenGL and corresponds to the ES2/ES3.1 feature level. */
-inline bool IsMobileOpenGlPlatform(const EShaderPlatform Platform)
-{
-	return IsES2Platform(Platform)
-		|| Platform == SP_PCD3D_ES3_1 || Platform == SP_OPENGL_PCES3_1 || Platform == SP_VULKAN_ES3_1_ANDROID
-		|| Platform == SP_VULKAN_PCES3_1 || Platform == SP_METAL || Platform == SP_METAL_MACES3_1 || Platform == SP_OPENGL_ES3_1_ANDROID;
 }
 
 /** Whether the shader platform corresponds to the ES2/ES3.1 feature level. */
@@ -1011,11 +998,6 @@ inline bool RHISupportsComputeShaders(const EShaderPlatform Platform)
 inline bool RHISupportsGeometryShaders(const EShaderPlatform Platform)
 {
 	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && !IsMetalPlatform(Platform) && !IsVulkanMobilePlatform(Platform);
-}
-
-inline bool RHISupportsShaderCompression(const EShaderPlatform Platform)
-{
-	return true;
 }
 
 inline bool RHIHasTiledGPU(const EShaderPlatform Platform)

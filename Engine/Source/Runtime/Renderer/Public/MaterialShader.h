@@ -191,6 +191,16 @@ private:
 	FRHIUniformBufferLayout		DebugUniformExpressionUBLayout;
 	FString						DebugDescription;
 #endif
+
+	// Only needed to avoid unbound parameter error
+	FShaderResourceParameter VTFeedbackBuffer;
+
+	// TEMP
+	FShaderResourceParameter PhysicalTexture;
+	FShaderResourceParameter PhysicalTextureSampler;
+
+	FShaderResourceParameter PageTable;
+	FShaderResourceParameter PageTableSampler;
 	
 	/** If true, cached uniform expressions are allowed. */
 	static int32 bAllowCachedUniformExpressions;

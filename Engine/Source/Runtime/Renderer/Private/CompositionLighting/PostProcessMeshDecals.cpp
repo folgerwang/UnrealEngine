@@ -18,6 +18,7 @@
 #include "ShaderBaseClasses.h"
 #include "DepthRendering.h"
 #include "DecalRenderingCommon.h"
+#include "DecalRenderingShared.h"
 #include "CompositionLighting/PostProcessDeferredDecals.h"
 #include "SceneRendering.h"
 #include "UnrealEngine.h"
@@ -137,6 +138,11 @@ public:
 	{
 		return FMeshDecalAccumulatePolicy::ShouldCompilePermutation(Platform,Material,VertexFactoryType);
 	}
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FMeshMaterialShader::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FDecalRendering::SetDecalCompilationEnvironment(Platform, Material, OutEnvironment);
+	}
 
 	FMeshDecalsPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		:	FMeshMaterialShader(Initializer)
@@ -172,6 +178,31 @@ public:
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FMeshDecalsPS,TEXT("/Engine/Private/MeshDecals.usf"),TEXT("MainPS"),SF_Pixel);
 
+class FMeshDecalsEmissivePS : public FMeshDecalsPS
+{
+	DECLARE_SHADER_TYPE(FMeshDecalsEmissivePS, MeshMaterial);
+
+public:
+	static bool ShouldCompilePermutation(EShaderPlatform Platform, const FMaterial* Material, const FVertexFactoryType* VertexFactoryType)
+	{
+		return FMeshDecalsPS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
+			&& Material->HasEmissiveColorConnected()
+			&& IsDBufferDecalBlendMode(FDecalRenderingCommon::ComputeFinalDecalBlendMode(Platform, Material));
+	}
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FMeshDecalsPS::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		FDecalRendering::SetEmissiveDBufferDecalCompilationEnvironment(Platform, Material, OutEnvironment);
+	}
+
+	FMeshDecalsEmissivePS() {}
+	FMeshDecalsEmissivePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer) :
+		FMeshDecalsPS(Initializer)
+	{}
+};
+
+IMPLEMENT_MATERIAL_SHADER_TYPE(, FMeshDecalsEmissivePS, TEXT("/Engine/Private/MeshDecals.usf"), TEXT("MainPS"), SF_Pixel);
+
 /*-----------------------------------------------------------------------------
 FMeshDecalsDrawingPolicy
 -----------------------------------------------------------------------------*/
@@ -197,7 +228,8 @@ public:
 		const FMaterial& MaterialResouce,
 		ERHIFeatureLevel::Type InFeatureLevel,
 		const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
-		EDebugViewShaderMode InDebugViewShaderMode);
+		EDebugViewShaderMode InDebugViewShaderMode,
+		EDecalRenderStage CurrentDecalStage);
 
 	// FMeshDrawingPolicy interface.
 
@@ -255,7 +287,8 @@ FMeshDecalsDrawingPolicy::FMeshDecalsDrawingPolicy(
 	const FMaterial& InMaterialResource,
 	ERHIFeatureLevel::Type InFeatureLevel,
 	const FMeshDrawingPolicyOverrideSettings& InOverrideSettings,
-	EDebugViewShaderMode InDebugViewShaderMode)
+	EDebugViewShaderMode InDebugViewShaderMode,
+	EDecalRenderStage CurrentDecalStage)
 	: FMeshDrawingPolicy(InVertexFactory, InMaterialRenderProxy, InMaterialResource, InOverrideSettings, InDebugViewShaderMode)
 {
 	HullShader = NULL;
@@ -272,7 +305,10 @@ FMeshDecalsDrawingPolicy::FMeshDecalsDrawingPolicy(
 
 	VertexShader = InMaterialResource.GetShader<FMeshDecalVS>(InVertexFactory->GetType());
 
-	PixelShader = InMaterialResource.GetShader<FMeshDecalsPS>(InVertexFactory->GetType());
+	PixelShader = CurrentDecalStage == DRS_Emissive
+		? InMaterialResource.GetShader<FMeshDecalsEmissivePS>(InVertexFactory->GetType())
+		: InMaterialResource.GetShader<FMeshDecalsPS>(InVertexFactory->GetType());
+
 	BaseVertexShader = VertexShader;
 }
 
@@ -426,9 +462,12 @@ public:
 
 			bool bHasNormal = Material->HasNormalConnected();
 
-			EDecalBlendMode DecalBlendMode = FDecalRenderingCommon::ComputeFinalDecalBlendMode(Context.GetShaderPlatform(), (EDecalBlendMode)Material->GetDecalBlendMode(), bHasNormal);
+			const EDecalBlendMode DecalBlendMode = FDecalRenderingCommon::ComputeDecalBlendModeForRenderStage(
+				FDecalRenderingCommon::ComputeFinalDecalBlendMode(Context.GetShaderPlatform(), (EDecalBlendMode)Material->GetDecalBlendMode(), bHasNormal),
+				CurrentDecalStage);
 
-			FDecalRenderingCommon::ERenderTargetMode RenderTargetMode = FDecalRenderingCommon::ComputeRenderTargetMode(View.GetShaderPlatform(), DecalBlendMode, RenderTargetManager.bGufferADirty);
+			FDecalRenderingCommon::ERenderTargetMode RenderTargetMode = FDecalRenderingCommon::ComputeRenderTargetMode(
+				View.GetShaderPlatform(), DecalBlendMode, RenderTargetManager.bGufferADirty);
 
 			if(LastRenderTargetMode != RenderTargetMode)
 			{
@@ -535,10 +574,17 @@ private:
 			// We have no special engine material for decals since we don't want to eat the compilation & memory cost, so just skip if it failed to compile
 			if (Material->GetRenderingThreadShaderMap())
 			{
-				EDecalRenderStage LocalDecalRenderStage = FDecalRenderingCommon::ComputeRenderStage(View.GetShaderPlatform(), (EDecalBlendMode)Material->GetDecalBlendMode());
+				const EDecalBlendMode FinalDecalBlendMode = FDecalRenderingCommon::ComputeFinalDecalBlendMode(View.GetShaderPlatform(), Material);
+				const EDecalRenderStage LocalDecalRenderStage = FDecalRenderingCommon::ComputeRenderStage(View.GetShaderPlatform(), FinalDecalBlendMode);
 
 				// can be optimized (ranges for different decal stages or separate lists)
-				if (DrawingContext.CurrentDecalStage == LocalDecalRenderStage)
+				const bool bShouldRender = FDecalRenderingCommon::IsCompatibleWithRenderStage(
+					DrawingContext.CurrentDecalStage,
+					LocalDecalRenderStage,
+					FinalDecalBlendMode,
+					Material);
+
+				if (bShouldRender)
 				{
 					FDrawingPolicyRenderState DrawRenderStateLocal(DrawRenderState);
 					DrawingContext.SetState(Material, DrawRenderStateLocal);
@@ -549,7 +595,8 @@ private:
 						*Material,
 						View.GetFeatureLevel(),
 						ComputeMeshOverrideSettings(Mesh),
-						View.Family->GetDebugViewShaderMode());
+						View.Family->GetDebugViewShaderMode(),
+						DrawingContext.CurrentDecalStage);
 					DrawingPolicy.SetupPipelineState(DrawRenderStateLocal, View);
 					CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderStateLocal, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
 					DrawingPolicy.SetSharedState(RHICmdList, DrawRenderStateLocal, &View, FDepthDrawingPolicy::ContextDataType(bIsInstancedStereo, bNeedsInstancedStereoBias));

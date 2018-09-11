@@ -771,36 +771,61 @@ public:
 
 
 
-/* Generic GPU fence class used by FRHIGPUMemoryReadback and FRHIGPUMemoryUpdate
-* RHI specific fences derive from this
+/* 
+* Generic GPU fence class used by FRHIGPUMemoryReadback
+* RHI specific fences derive from this to implement real GPU->CPU fencing.
+* The default implementation always returns false for Poll until the next frame from the frame the fence was inserted
+* because not all APIs have a GPU/CPU sync object, we need to fake it.
 */
 class FRHIGPUFence : public FRHIResource
 {
 public:
 	FRHIGPUFence(FName InName)
 		: FenceName(InName)
+		, InsertedFrameNumber(0)
 	{}
 
 	virtual ~FRHIGPUFence()
 	{}
 
-	virtual bool Write()
+    /* Convenience function to write InsertedFrameNumber, used to emulate true GPU fences, RHI's should override RHIInsertGPUFence and implement their own fence mechanism. */
+	void Write()
 	{
-		return false;
-	};
+		InsertedFrameNumber = GFrameNumberRenderThread;
+	}
 
+    /**
+     * Poll the fence to see if the GPU has signalled it.
+     * @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active.
+     * @returns True if and only if the GPU fence has been inserted and the GPU has signalled the fence.
+     */
 	virtual bool Poll() const
 	{
+		if (GFrameNumberRenderThread > InsertedFrameNumber)
+		{
+			return true;
+		}
 		return false;
-	};
+	}
 
+    /**
+     * Wait for the GPU to pass and signal the fence.
+     * @discussion RHI implementations must be thread-safe and must correctly handle being called before RHIInsertFence if an RHI thread is active.
+     * @param TimeoutMs The maximum time to wait for the fence in milliseconds.
+     * @returns True if and only if the GPU fence has been inserted and the GPU has signalled the fence.
+     */
 	virtual bool Wait(float TimeoutMs) const
 	{
+		if (GFrameNumberRenderThread > InsertedFrameNumber)
+		{
+			return true;
+		}
 		return false;
-	};
+	}
 
 private:
 	FName FenceName;
+	uint32 InsertedFrameNumber;
 };
 
 
@@ -987,32 +1012,22 @@ typedef FRHIGraphicsPipelineState*              FGraphicsPipelineStateRHIParamRe
 typedef TRefCountPtr<FRHIGraphicsPipelineState> FGraphicsPipelineStateRHIRef;
 
 
-/* Generic staging buffer class used by FRHIGPUMemoryReadback and FRHIGPUMemoryUpdate
+/* Generic staging buffer class used by FRHIGPUMemoryReadback
 * RHI specific staging buffers derive from this
 */
 class FRHIStagingBuffer : public FRHIResource
 {
 public:
-	FRHIStagingBuffer()
-		:MappedPtr(nullptr)
-		, LastLockedBuffer(nullptr)
+	FRHIStagingBuffer(FVertexBufferRHIRef InBuffer)
+		: BackingBuffer(InBuffer)
 	{
 	}
 
-	virtual void *Lock(FVertexBufferRHIRef GPUBuffer, uint32 Offset, uint32 NumBytes, EResourceLockMode LockMode)   // copyresource, map, return ptr
-	{
-		return MappedPtr;
-	}
-
-	virtual void Unlock()	// unmap, free memory
-	{
-	}
-
+    /** Convenience function to access the vertex-buffer that acts as the backing-store. */
+	FVertexBufferRHIParamRef GetBackingBuffer() const { return BackingBuffer; }
 
 protected:
-	// pointer to mapped buffer; null if unmapped
-	void *MappedPtr;
-	FVertexBufferRHIParamRef LastLockedBuffer;
+	FVertexBufferRHIParamRef BackingBuffer;
 };
 
 typedef FRHIStagingBuffer*				FStagingBufferRHIParamRef;
@@ -1542,8 +1557,7 @@ struct FBoundShaderStateInput
 
 struct FImmutableSamplerState
 {
-	static constexpr uint32 MaxTextureSamplers = 16;
-	using TImmutableSamplers = TStaticArray<FSamplerStateRHIParamRef, MaxTextureSamplers>;
+	using TImmutableSamplers = TStaticArray<FSamplerStateRHIParamRef, MaxImmutableSamplers>;
 
 	FImmutableSamplerState()
 		: ImmutableSamplers(nullptr)
@@ -1551,7 +1565,7 @@ struct FImmutableSamplerState
 
 	void Reset()
 	{
-		for (uint32 Index = 0; Index < MaxTextureSamplers; ++Index)
+		for (uint32 Index = 0; Index < MaxImmutableSamplers; ++Index)
 		{
 			ImmutableSamplers[Index] = nullptr;
 		}
@@ -1575,8 +1589,6 @@ class FGraphicsPipelineStateInitializer
 public:
 	using TRenderTargetFormats		= TStaticArray<EPixelFormat, MaxSimultaneousRenderTargets>;
 	using TRenderTargetFlags		= TStaticArray<uint32, MaxSimultaneousRenderTargets>;
-	using TRenderTargetLoadActions	= TStaticArray<ERenderTargetLoadAction, MaxSimultaneousRenderTargets>;
-	using TRenderTargetStoreActions = TStaticArray<ERenderTargetStoreAction, MaxSimultaneousRenderTargets>;
 
 	FGraphicsPipelineStateInitializer()
 		: BlendState(nullptr)
@@ -1586,8 +1598,6 @@ public:
 		, RenderTargetsEnabled(0)
 		, RenderTargetFormats(PF_Unknown)
 		, RenderTargetFlags(0)
-		, RenderTargetLoadActions(ERenderTargetLoadAction::ENoAction)
-		, RenderTargetStoreActions(ERenderTargetStoreAction::ENoAction)
 		, DepthStencilTargetFormat(PF_Unknown)
 		, DepthStencilTargetFlag(0)
 		, DepthTargetLoadAction(ERenderTargetLoadAction::ENoAction)
@@ -1595,6 +1605,7 @@ public:
 		, StencilTargetLoadAction(ERenderTargetLoadAction::ENoAction)
 		, StencilTargetStoreAction(ERenderTargetStoreAction::ENoAction)
 		, NumSamples(0)
+		, Flags(0)
 	{
 	}
 
@@ -1603,12 +1614,11 @@ public:
 		FBlendStateRHIParamRef				InBlendState,
 		FRasterizerStateRHIParamRef			InRasterizerState,
 		FDepthStencilStateRHIParamRef		InDepthStencilState,
+		FImmutableSamplerState				InImmutableSamplerState,
 		EPrimitiveType						InPrimitiveType,
 		uint32								InRenderTargetsEnabled,
 		const TRenderTargetFormats&			InRenderTargetFormats,
 		const TRenderTargetFlags&			InRenderTargetFlags,
-		const TRenderTargetLoadActions&		InRenderTargetLoadActions,
-		const TRenderTargetStoreActions&	InRenderTargetStoreActions,
 		EPixelFormat						InDepthStencilTargetFormat,
 		uint32								InDepthStencilTargetFlag,
 		ERenderTargetLoadAction				InDepthTargetLoadAction,
@@ -1617,18 +1627,17 @@ public:
 		ERenderTargetStoreAction			InStencilTargetStoreAction,
 		FExclusiveDepthStencil				InDepthStencilAccess,
 		uint32								InNumSamples,
-		FImmutableSamplerState				InImmutableSamplerState
+		uint16								InFlags
 		)
 		: BoundShaderState(InBoundShaderState)
 		, BlendState(InBlendState)
 		, RasterizerState(InRasterizerState)
 		, DepthStencilState(InDepthStencilState)
+		, ImmutableSamplerState(InImmutableSamplerState)
 		, PrimitiveType(InPrimitiveType)
 		, RenderTargetsEnabled(InRenderTargetsEnabled)
 		, RenderTargetFormats(InRenderTargetFormats)
 		, RenderTargetFlags(InRenderTargetFlags)
-		, RenderTargetLoadActions(InRenderTargetLoadActions)
-		, RenderTargetStoreActions(InRenderTargetStoreActions)
 		, DepthStencilTargetFormat(InDepthStencilTargetFormat)
 		, DepthStencilTargetFlag(InDepthStencilTargetFlag)
 		, DepthTargetLoadAction(InDepthTargetLoadAction)
@@ -1637,7 +1646,7 @@ public:
 		, StencilTargetStoreAction(InStencilTargetStoreAction)
 		, DepthStencilAccess(InDepthStencilAccess)
 		, NumSamples(InNumSamples)
-		, ImmutableSamplerState(InImmutableSamplerState)
+		, Flags(InFlags)
 	{
 	}
 
@@ -1652,13 +1661,12 @@ public:
 			BlendState != rhs.BlendState || 
 			RasterizerState != rhs.RasterizerState || 
 			DepthStencilState != rhs.DepthStencilState ||
+			ImmutableSamplerState != rhs.ImmutableSamplerState ||
 			bDepthBounds != rhs.bDepthBounds ||
 			PrimitiveType != rhs.PrimitiveType ||
 			RenderTargetsEnabled != rhs.RenderTargetsEnabled ||
 			RenderTargetFormats != rhs.RenderTargetFormats || 
 			RenderTargetFlags != rhs.RenderTargetFlags || 
-			RenderTargetLoadActions != rhs.RenderTargetLoadActions ||
-			RenderTargetStoreActions != rhs.RenderTargetStoreActions || 
 			DepthStencilTargetFormat != rhs.DepthStencilTargetFormat || 
 			DepthStencilTargetFlag != rhs.DepthStencilTargetFlag ||
 			DepthTargetLoadAction != rhs.DepthTargetLoadAction ||
@@ -1666,8 +1674,7 @@ public:
 			StencilTargetLoadAction != rhs.StencilTargetLoadAction ||
 			StencilTargetStoreAction != rhs.StencilTargetStoreAction || 
 			DepthStencilAccess != rhs.DepthStencilAccess ||
-			NumSamples != rhs.NumSamples ||
-			ImmutableSamplerState != rhs.ImmutableSamplerState)
+			NumSamples != rhs.NumSamples)
 		{
 			return false;
 		}
@@ -1755,13 +1762,12 @@ public:
 	FBlendStateRHIParamRef			BlendState;
 	FRasterizerStateRHIParamRef		RasterizerState;
 	FDepthStencilStateRHIParamRef	DepthStencilState;
+	FImmutableSamplerState			ImmutableSamplerState;
 	bool							bDepthBounds = false;
 	EPrimitiveType					PrimitiveType;
 	uint32							RenderTargetsEnabled;
 	TRenderTargetFormats			RenderTargetFormats;
 	TRenderTargetFlags				RenderTargetFlags;
-	TRenderTargetLoadActions		RenderTargetLoadActions;
-	TRenderTargetStoreActions		RenderTargetStoreActions;
 	EPixelFormat					DepthStencilTargetFormat;
 	uint32							DepthStencilTargetFlag;
 	ERenderTargetLoadAction			DepthTargetLoadAction;
@@ -1770,7 +1776,20 @@ public:
 	ERenderTargetStoreAction		StencilTargetStoreAction;
 	FExclusiveDepthStencil			DepthStencilAccess;
 	uint16							NumSamples;
-	FImmutableSamplerState			ImmutableSamplerState;
+	
+	// Note: these flags do NOT affect compilation of this PSO.
+	// The resulting object is invariant with respect to whatever is set here, they are
+	// behavior hints.
+	// They do not participate in equality comparisons or hashing.
+	union
+	{
+		struct
+		{
+			uint16					Reserved			: 15;
+			uint16					bFromPSOFileCache	: 1;
+		};
+		uint16						Flags;
+	};
 
 	friend class FMeshDrawingPolicy;
 };

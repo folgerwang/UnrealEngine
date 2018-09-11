@@ -343,6 +343,27 @@ FComputeFenceRHIRef FVulkanDynamicRHI::RHICreateComputeFence(const FName& Name)
 	return new FVulkanComputeFence(Device, Name);
 }
 
+
+bool FVulkanGPUFence::Poll() const
+{
+	return FenceSignaledCounter < CmdBuffer->GetFenceSignaledCounter();
+}
+
+bool FVulkanGPUFence::Wait(float TimeoutMs) const
+{
+	if (!Poll())
+	{
+		CmdBuffer->GetOwner()->GetMgr().WaitForCmdBuffer(CmdBuffer, TimeoutMs / 1000.0f);
+	}
+
+	return Poll();
+}
+
+FGPUFenceRHIRef FVulkanDynamicRHI::RHICreateGPUFence(const FName& Name)
+{
+	return new FVulkanGPUFence(Name);
+}
+
 void FVulkanCommandListContext::RHIWaitComputeFence(FComputeFenceRHIParamRef InFence)
 {
 	FVulkanComputeFence* Fence = ResourceCast(InFence);

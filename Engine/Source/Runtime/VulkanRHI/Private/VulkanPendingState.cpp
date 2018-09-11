@@ -9,21 +9,14 @@
 #include "VulkanPipeline.h"
 #include "VulkanContext.h"
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 FVulkanDescriptorPool::FVulkanDescriptorPool(FVulkanDevice* InDevice, const FVulkanDescriptorSetsLayout& InLayout)
-#else
-FVulkanDescriptorPool::FVulkanDescriptorPool(FVulkanDevice* InDevice)
-#endif
 	: Device(InDevice)
 	, MaxDescriptorSets(0)
 	, NumAllocatedDescriptorSets(0)
 	, PeakAllocatedDescriptorSets(0)
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 	, Layout(InLayout)
-#endif
 	, DescriptorPool(VK_NULL_HANDLE)
 {
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 	INC_DWORD_STAT(STAT_VulkanNumDescPools);
 
 	// Max number of descriptor sets layout allocations
@@ -35,7 +28,7 @@ FVulkanDescriptorPool::FVulkanDescriptorPool(FVulkanDevice* InDevice)
 	// a serious impact.
 	MaxDescriptorSets = MaxSetsAllocations*(VULKAN_HASH_POOLS_WITH_TYPES_USAGE_ID ? 1 : Layout.GetLayouts().Num());
 	TArray<VkDescriptorPoolSize, TFixedAllocator<VK_DESCRIPTOR_TYPE_RANGE_SIZE>> Types;
-	for (uint32 TypeIndex = VK_DESCRIPTOR_TYPE_BEGIN_RANGE; TypeIndex < VK_DESCRIPTOR_TYPE_END_RANGE; ++TypeIndex)
+	for (uint32 TypeIndex = VK_DESCRIPTOR_TYPE_BEGIN_RANGE; TypeIndex <= VK_DESCRIPTOR_TYPE_END_RANGE; ++TypeIndex)
 	{
 		VkDescriptorType DescriptorType =(VkDescriptorType)TypeIndex;
 		uint32 NumTypesUsed = Layout.GetTypesUsed(DescriptorType);
@@ -47,147 +40,56 @@ FVulkanDescriptorPool::FVulkanDescriptorPool(FVulkanDevice* InDevice)
 			Type->descriptorCount = NumTypesUsed * MaxSetsAllocations;
 		}
 	}
-#else
-	// Increased from 8192 to prevent Protostar crashing on Mali
-	MaxDescriptorSets = 16384;
-
-	const VkPhysicalDeviceLimits& Limits = Device->GetLimits();
-	FMemory::Memzero(MaxAllocatedTypes);
-	FMemory::Memzero(NumAllocatedTypes);
-	FMemory::Memzero(PeakAllocatedTypes);
-
-	//#todo-rco: Get some initial values
-	uint32 LimitMaxUniformBuffers = 2048;
-	uint32 LimitMaxSamplers = 1024;
-	uint32 LimitMaxCombinedImageSamplers = 4096;
-	uint32 LimitMaxUniformTexelBuffers = 512;
-	uint32 LimitMaxStorageTexelBuffers = 512;
-	uint32 LimitMaxStorageBuffers = 512;
-	uint32 LimitMaxStorageImage = 512;
-
-	TArray<VkDescriptorPoolSize> Types;
-	VkDescriptorPoolSize* Type = new(Types) VkDescriptorPoolSize;
-	FMemory::Memzero(*Type);
-	Type->type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	Type->descriptorCount = LimitMaxUniformBuffers;
-
-	Type = new(Types) VkDescriptorPoolSize;
-	FMemory::Memzero(*Type);
-	Type->type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	Type->descriptorCount = LimitMaxUniformBuffers;
-
-	Type = new(Types) VkDescriptorPoolSize;
-	FMemory::Memzero(*Type);
-	Type->type = VK_DESCRIPTOR_TYPE_SAMPLER;
-	Type->descriptorCount = LimitMaxSamplers;
-
-	Type = new(Types) VkDescriptorPoolSize;
-	FMemory::Memzero(*Type);
-	Type->type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	Type->descriptorCount = LimitMaxCombinedImageSamplers;
-
-	Type = new(Types) VkDescriptorPoolSize;
-	FMemory::Memzero(*Type);
-	Type->type = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-	Type->descriptorCount = LimitMaxUniformTexelBuffers;
-
-	Type = new(Types) VkDescriptorPoolSize;
-	FMemory::Memzero(*Type);
-	Type->type = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-	Type->descriptorCount = LimitMaxStorageTexelBuffers;
-
-	Type = new(Types) VkDescriptorPoolSize;
-	FMemory::Memzero(*Type);
-	Type->type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	Type->descriptorCount = LimitMaxStorageBuffers;
-
-	Type = new(Types) VkDescriptorPoolSize;
-	FMemory::Memzero(*Type);
-	Type->type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	Type->descriptorCount = LimitMaxStorageImage;
-
-	for (const VkDescriptorPoolSize& PoolSize : Types)
-	{
-		MaxAllocatedTypes[PoolSize.type] = PoolSize.descriptorCount;
-	}
-#endif
 
 	VkDescriptorPoolCreateInfo PoolInfo;
 	ZeroVulkanStruct(PoolInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
-	PoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	//PoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 	PoolInfo.poolSizeCount = Types.Num();
 	PoolInfo.pPoolSizes = Types.GetData();
 	PoolInfo.maxSets = MaxDescriptorSets;
 
-
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanVkCreateDescriptorPool);
 #endif
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateDescriptorPool(Device->GetInstanceHandle(), &PoolInfo, nullptr, &DescriptorPool));
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateDescriptorPool(Device->GetInstanceHandle(), &PoolInfo, VULKAN_CPU_ALLOCATOR, &DescriptorPool));
+
+	INC_DWORD_STAT_BY(STAT_VulkanNumDescSetsTotal, MaxDescriptorSets);
 }
 
 FVulkanDescriptorPool::~FVulkanDescriptorPool()
 {
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	DEC_DWORD_STAT_BY(STAT_VulkanNumDescSetsTotal, MaxDescriptorSets);
 	DEC_DWORD_STAT(STAT_VulkanNumDescPools);
-#endif
 
 	if (DescriptorPool != VK_NULL_HANDLE)
 	{
-		VulkanRHI::vkDestroyDescriptorPool(Device->GetInstanceHandle(), DescriptorPool, nullptr);
+		VulkanRHI::vkDestroyDescriptorPool(Device->GetInstanceHandle(), DescriptorPool, VULKAN_CPU_ALLOCATOR);
 		DescriptorPool = VK_NULL_HANDLE;
 	}
 }
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 void FVulkanDescriptorPool::TrackAddUsage(const FVulkanDescriptorSetsLayout& InLayout)
-#else
-void FVulkanDescriptorPool::TrackAddUsage(const FVulkanDescriptorSetsLayout& Layout)
-#endif
 {
 	// Check and increment our current type usage
-	for (uint32 TypeIndex = VK_DESCRIPTOR_TYPE_BEGIN_RANGE; TypeIndex < VK_DESCRIPTOR_TYPE_END_RANGE; ++TypeIndex)
+	for (uint32 TypeIndex = VK_DESCRIPTOR_TYPE_BEGIN_RANGE; TypeIndex <= VK_DESCRIPTOR_TYPE_END_RANGE; ++TypeIndex)
 	{
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
-		check(Layout.GetTypesUsed((VkDescriptorType)TypeIndex) == InLayout.GetTypesUsed((VkDescriptorType)TypeIndex));
-#else
-		NumAllocatedTypes[TypeIndex] +=	(int32)Layout.GetTypesUsed((VkDescriptorType)TypeIndex);
-		PeakAllocatedTypes[TypeIndex] = FMath::Max(PeakAllocatedTypes[TypeIndex], NumAllocatedTypes[TypeIndex]);
-#endif
+		ensure(Layout.GetTypesUsed((VkDescriptorType)TypeIndex) == InLayout.GetTypesUsed((VkDescriptorType)TypeIndex));
 	}
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 	NumAllocatedDescriptorSets += InLayout.GetLayouts().Num();
-#else
-	NumAllocatedDescriptorSets += Layout.GetLayouts().Num();
-#endif
 	PeakAllocatedDescriptorSets = FMath::Max(NumAllocatedDescriptorSets, PeakAllocatedDescriptorSets);
 }
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 void FVulkanDescriptorPool::TrackRemoveUsage(const FVulkanDescriptorSetsLayout& InLayout)
-#else
-void FVulkanDescriptorPool::TrackRemoveUsage(const FVulkanDescriptorSetsLayout& Layout)
-#endif
 {
-	for (uint32 TypeIndex = VK_DESCRIPTOR_TYPE_BEGIN_RANGE; TypeIndex < VK_DESCRIPTOR_TYPE_END_RANGE; ++TypeIndex)
+	for (uint32 TypeIndex = VK_DESCRIPTOR_TYPE_BEGIN_RANGE; TypeIndex <= VK_DESCRIPTOR_TYPE_END_RANGE; ++TypeIndex)
 	{
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 		check(Layout.GetTypesUsed((VkDescriptorType)TypeIndex) == InLayout.GetTypesUsed((VkDescriptorType)TypeIndex));
-#else
-		NumAllocatedTypes[TypeIndex] -=	(int32)Layout.GetTypesUsed((VkDescriptorType)TypeIndex);
-		check(NumAllocatedTypes[TypeIndex] >= 0);
-#endif
 	}
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 	NumAllocatedDescriptorSets -= InLayout.GetLayouts().Num();
-#else
-	NumAllocatedDescriptorSets -= Layout.GetLayouts().Num();
-#endif
 }
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 void FVulkanDescriptorPool::Reset()
 {
 	if (DescriptorPool != VK_NULL_HANDLE)
@@ -266,7 +168,7 @@ bool FVulkanTypedDescriptorPoolSet::AllocateDescriptorSets(const FVulkanDescript
 		}
 
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
-		INC_DWORD_STAT_BY(STAT_VulkanNumDescSetsTotal, LayoutHandles.Num());
+		//INC_DWORD_STAT_BY(STAT_VulkanNumDescSetsTotal, LayoutHandles.Num());
 		Pool->TrackAddUsage(InLayout);
 #endif
 
@@ -303,9 +205,9 @@ FVulkanTypedDescriptorPoolSet* FVulkanDescriptorPoolSetContainer::AcquireTypedPo
 
 	FVulkanTypedDescriptorPoolSet* TypedPool = TypedDescriptorPools.FindRef(Hash);
 
-	if (TypedPool == nullptr)
+	if (!TypedPool)
 	{
-		TypedPool = new FVulkanTypedDescriptorPoolSet(Device, this, Layout);
+		TypedPool = new FVulkanTypedDescriptorPoolSet(Device, Layout);
 		TypedDescriptorPools.Add(Hash, TypedPool);
 	}
 
@@ -345,12 +247,11 @@ FVulkanDescriptorPoolSetContainer& FVulkanDescriptorPoolsManager::AcquirePoolSet
 			)
 		{
 			PoolSet->SetUsed(true);
-			PoolSet->Reset();
 			return *PoolSet;
 		}
 	}
 
-	auto* PoolSet = new FVulkanDescriptorPoolSetContainer(Device);
+	FVulkanDescriptorPoolSetContainer* PoolSet = new FVulkanDescriptorPoolSetContainer(Device);
 	PoolSets.Add(PoolSet);
 
 	return *PoolSet;
@@ -359,6 +260,7 @@ FVulkanDescriptorPoolSetContainer& FVulkanDescriptorPoolsManager::AcquirePoolSet
 void FVulkanDescriptorPoolsManager::ReleasePoolSet(FVulkanDescriptorPoolSetContainer& PoolSet)
 {
 	PoolSet.SetUsed(false);
+	PoolSet.Reset();
 }
 
 void FVulkanDescriptorPoolsManager::GC()
@@ -393,21 +295,19 @@ void FVulkanDescriptorPoolsManager::GC()
 		}
 	}
 }
-#endif
-
 
 
 FVulkanPendingComputeState::~FVulkanPendingComputeState()
 {
 	for (auto& Pair : PipelineStates)
 	{
-		FVulkanComputePipelineDescriptorState* State = Pair.Value;
+		FVulkanCommonPipelineDescriptorState* State = Pair.Value;
 		delete State;
 	}
 }
 
 
-void FVulkanPendingComputeState::SetSRV(uint32 BindIndex, FVulkanShaderResourceView* SRV)
+void FVulkanPendingComputeState::SetSRVForUBResource(uint32 DescriptorSet, uint32 BindingIndex, FVulkanShaderResourceView* SRV)
 {
 	if (SRV)
 	{
@@ -417,17 +317,17 @@ void FVulkanPendingComputeState::SetSRV(uint32 BindIndex, FVulkanShaderResourceV
 		{
 			FVulkanBufferView* BufferView = SRV->GetBufferView();
 			checkf(BufferView->View != VK_NULL_HANDLE, TEXT("Empty SRV"));
-			CurrentState->SetSRVBufferViewState(BindIndex, BufferView);
+			CurrentState->SetSRVBufferViewState(DescriptorSet, BindingIndex, BufferView);
 		}
 		else if (SRV->SourceStructuredBuffer)
 		{
-			CurrentState->SetStorageBuffer(BindIndex, SRV->SourceStructuredBuffer->GetHandle(), SRV->SourceStructuredBuffer->GetOffset(), SRV->SourceStructuredBuffer->GetSize(), SRV->SourceStructuredBuffer->GetBufferUsageFlags());
+			CurrentState->SetStorageBuffer(DescriptorSet, BindingIndex, SRV->SourceStructuredBuffer->GetHandle(), SRV->SourceStructuredBuffer->GetOffset(), SRV->SourceStructuredBuffer->GetSize(), SRV->SourceStructuredBuffer->GetBufferUsageFlags());
 		}
 		else
 		{
 			checkf(SRV->TextureView.View != VK_NULL_HANDLE, TEXT("Empty SRV"));
 			VkImageLayout Layout = Context.FindLayout(SRV->TextureView.Image);
-			CurrentState->SetSRVTextureView(BindIndex, SRV->TextureView, Layout);
+			CurrentState->SetSRVTextureView(DescriptorSet, BindingIndex, SRV->TextureView, Layout);
 		}
 	}
 	else
@@ -436,7 +336,7 @@ void FVulkanPendingComputeState::SetSRV(uint32 BindIndex, FVulkanShaderResourceV
 	}
 }
 
-void FVulkanPendingComputeState::SetUAV(uint32 UAVIndex, FVulkanUnorderedAccessView* UAV)
+void FVulkanPendingComputeState::SetUAVForUBResource(uint32 DescriptorSet, uint32 BindingIndex, FVulkanUnorderedAccessView* UAV)
 {
 	if (UAV)
 	{
@@ -444,11 +344,11 @@ void FVulkanPendingComputeState::SetUAV(uint32 UAVIndex, FVulkanUnorderedAccessV
 		UAV->UpdateView();
 		if (UAV->SourceStructuredBuffer)
 		{
-			CurrentState->SetStorageBuffer(UAVIndex, UAV->SourceStructuredBuffer->GetHandle(), UAV->SourceStructuredBuffer->GetOffset(), UAV->SourceStructuredBuffer->GetSize(), UAV->SourceStructuredBuffer->GetBufferUsageFlags());
+			CurrentState->SetStorageBuffer(DescriptorSet, BindingIndex, UAV->SourceStructuredBuffer->GetHandle(), UAV->SourceStructuredBuffer->GetOffset(), UAV->SourceStructuredBuffer->GetSize(), UAV->SourceStructuredBuffer->GetBufferUsageFlags());
 		}
 		else if (UAV->BufferView)
 		{
-			CurrentState->SetUAVTexelBufferViewState(UAVIndex, UAV->BufferView);
+			CurrentState->SetUAVTexelBufferViewState(DescriptorSet, BindingIndex, UAV->BufferView);
 		}
 		else if (UAV->SourceTexture)
 		{
@@ -460,7 +360,7 @@ void FVulkanPendingComputeState::SetUAV(uint32 UAVIndex, FVulkanUnorderedAccessV
 				ensure(CmdBuffer->IsOutsideRenderPass());
 				Context.GetTransitionAndLayoutManager().TransitionResource(CmdBuffer, VulkanTexture->Surface, VulkanRHI::EImageLayoutBarrier::ComputeGeneralRW);
 			}
-			CurrentState->SetUAVTextureView(UAVIndex, UAV->TextureView);
+			CurrentState->SetUAVTextureView(DescriptorSet, BindingIndex, UAV->TextureView, VK_IMAGE_LAYOUT_GENERAL);
 		}
 		else
 		{
@@ -566,9 +466,13 @@ void FVulkanPendingGfxState::PrepareForDraw(FVulkanCmdBuffer* CmdBuffer)
 				{
 					if (VertexInputStateInfo.Attributes[AttributeIndex].binding == CurrBinding.binding)
 					{
+#if VULKAN_ENABLE_SHADER_DEBUG_NAMES
 						UE_LOG(LogVulkanRHI, Warning, TEXT("Missing binding on location %d in '%s' vertex shader"),
 							CurrBinding.binding,
-							*CurrentBSS->GetShader(DescriptorSet::Vertex)->GetDebugName());
+							*CurrentBSS->GetShader(ShaderStage::Vertex)->GetDebugName());
+#else
+						UE_LOG(LogVulkanRHI, Warning, TEXT("Missing binding on location %d in vertex shader"), CurrBinding.binding);
+#endif
 						ensure(0);
 					}
 				}
@@ -597,7 +501,7 @@ void FVulkanPendingGfxState::InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd)
 {
 	bool bInCmdNeedsDynamicState = Cmd->bNeedsDynamicStateSet;
 
-	bool bNeedsUpdateViewport = !Cmd->bHasViewport || (Cmd->bHasViewport && FMemory::Memcmp((const void*)&Cmd->CurrentViewport, (const void*)&Viewport, sizeof(VkViewport)) != 0);
+	bool bNeedsUpdateViewport = !Cmd->bHasViewport || (FMemory::Memcmp((const void*)&Cmd->CurrentViewport, (const void*)&Viewport, sizeof(VkViewport)) != 0);
 	// Validate and update Viewport
 	if (bNeedsUpdateViewport)
 	{
@@ -607,7 +511,7 @@ void FVulkanPendingGfxState::InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd)
 		Cmd->bHasViewport = true;
 	}
 
-	bool bNeedsUpdateScissor = !Cmd->bHasScissor || (Cmd->bHasScissor && FMemory::Memcmp((const void*)&Cmd->CurrentScissor, (const void*)&Scissor, sizeof(VkRect2D)) != 0);
+	bool bNeedsUpdateScissor = !Cmd->bHasScissor || (FMemory::Memcmp((const void*)&Cmd->CurrentScissor, (const void*)&Scissor, sizeof(VkRect2D)) != 0);
 	if (bNeedsUpdateScissor)
 	{
 		VulkanRHI::vkCmdSetScissor(Cmd->GetHandle(), 0, 1, &Scissor);
@@ -615,7 +519,7 @@ void FVulkanPendingGfxState::InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd)
 		Cmd->bHasScissor = true;
 	}
 
-	bool bNeedsUpdateStencil = !Cmd->bHasStencilRef || (Cmd->bHasStencilRef && Cmd->CurrentStencilRef != StencilRef);
+	bool bNeedsUpdateStencil = !Cmd->bHasStencilRef || (Cmd->CurrentStencilRef != StencilRef);
 	if (bNeedsUpdateStencil)
 	{
 		VulkanRHI::vkCmdSetStencilReference(Cmd->GetHandle(), VK_STENCIL_FRONT_AND_BACK, StencilRef);
@@ -626,7 +530,30 @@ void FVulkanPendingGfxState::InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd)
 	Cmd->bNeedsDynamicStateSet = false;
 }
 
-void FVulkanPendingGfxState::SetSRV(DescriptorSet::EStage Stage, uint32 BindIndex, FVulkanShaderResourceView* SRV)
+void FVulkanPendingGfxState::UpdateInputAttachments(FVulkanFramebuffer* Framebuffer)
+{
+	const FVulkanGfxPipelineDescriptorInfo& GfxDescriptorInfo = CurrentState->GetGfxPipelineDescriptorInfo();
+	const TArray<FInputAttachmentData>& InputAttachmentData = GfxDescriptorInfo.GetInputAttachmentData();
+
+	for (int32 Index = 0; Index < InputAttachmentData.Num(); ++Index)
+	{
+		const FInputAttachmentData& AttachmentData = InputAttachmentData[Index];
+		switch (AttachmentData.Type)
+		{
+		case FVulkanShaderHeader::EAttachmentType::Color:
+			//#todo-rco: Only supports first render target in frame buffer...
+			CurrentState->SetInputAttachment(AttachmentData.DescriptorSet, AttachmentData.BindingIndex, Framebuffer->AttachmentViews[0], VK_IMAGE_LAYOUT_GENERAL);
+			break;
+		case FVulkanShaderHeader::EAttachmentType::Depth:
+			CurrentState->SetInputAttachment(AttachmentData.DescriptorSet, AttachmentData.BindingIndex, Framebuffer->GetPartialDepthView(), VK_IMAGE_LAYOUT_GENERAL);
+			break;
+		default:
+			check(0);
+		}
+	}
+}
+
+void FVulkanPendingGfxState::SetSRVForUBResource(uint8 DescriptorSet, uint32 BindingIndex, FVulkanShaderResourceView* SRV)
 {
 	if (SRV)
 	{
@@ -636,18 +563,18 @@ void FVulkanPendingGfxState::SetSRV(DescriptorSet::EStage Stage, uint32 BindInde
 		{
 			FVulkanBufferView* BufferView = SRV->GetBufferView();
 			checkf(BufferView->View != VK_NULL_HANDLE, TEXT("Empty SRV"));
-			CurrentState->SetSRVBufferViewState(Stage, BindIndex, BufferView);
+
+			CurrentState->SetSRVBufferViewState(DescriptorSet, BindingIndex, BufferView);
 		}
 		else if (SRV->SourceStructuredBuffer)
 		{
-			CurrentState->SetStorageBuffer(Stage, BindIndex, SRV->SourceStructuredBuffer->GetHandle(), SRV->SourceStructuredBuffer->GetOffset(), SRV->SourceStructuredBuffer->GetSize(), SRV->SourceStructuredBuffer->GetBufferUsageFlags());
+			CurrentState->SetStorageBuffer(DescriptorSet, BindingIndex, SRV->SourceStructuredBuffer->GetHandle(), SRV->SourceStructuredBuffer->GetOffset(), SRV->SourceStructuredBuffer->GetSize(), SRV->SourceStructuredBuffer->GetBufferUsageFlags());
 		}
 		else
 		{
 			checkf(SRV->TextureView.View != VK_NULL_HANDLE, TEXT("Empty SRV"));
-			// If we're in the middle of rendering the mipmap chain for a specific texture, assume ShaderReadOnly, otherwise get the actual layout
 			VkImageLayout Layout = Context.FindLayout(SRV->TextureView.Image);
-			CurrentState->SetSRVTextureView(Stage, BindIndex, SRV->TextureView, Layout);
+			CurrentState->SetSRVTextureView(DescriptorSet, BindingIndex, SRV->TextureView, Layout);
 		}
 	}
 	else
@@ -656,7 +583,7 @@ void FVulkanPendingGfxState::SetSRV(DescriptorSet::EStage Stage, uint32 BindInde
 	}
 }
 
-void FVulkanPendingGfxState::SetUAV(DescriptorSet::EStage Stage, uint32 UAVIndex, FVulkanUnorderedAccessView* UAV)
+void FVulkanPendingGfxState::SetUAVForUBResource(uint8 DescriptorSet, uint32 BindingIndex, FVulkanUnorderedAccessView* UAV)
 {
 	if (UAV)
 	{
@@ -664,16 +591,16 @@ void FVulkanPendingGfxState::SetUAV(DescriptorSet::EStage Stage, uint32 UAVIndex
 		UAV->UpdateView();
 		if (UAV->SourceStructuredBuffer)
 		{
-			CurrentState->SetStorageBuffer(Stage, UAVIndex, UAV->SourceStructuredBuffer->GetHandle(), UAV->SourceStructuredBuffer->GetOffset(), UAV->SourceStructuredBuffer->GetSize(), UAV->SourceStructuredBuffer->GetBufferUsageFlags());
+			CurrentState->SetStorageBuffer(DescriptorSet, BindingIndex, UAV->SourceStructuredBuffer->GetHandle(), UAV->SourceStructuredBuffer->GetOffset(), UAV->SourceStructuredBuffer->GetSize(), UAV->SourceStructuredBuffer->GetBufferUsageFlags());
 		}
 		else if (UAV->BufferView)
 		{
-			CurrentState->SetUAVTexelBufferViewState(Stage, UAVIndex, UAV->BufferView);
+			CurrentState->SetUAVTexelBufferViewState(DescriptorSet, BindingIndex, UAV->BufferView);
 		}
 		else if (UAV->SourceTexture)
 		{
 			VkImageLayout Layout = Context.FindLayout(UAV->TextureView.Image);
-			CurrentState->SetUAVTextureView(Stage, UAVIndex, UAV->TextureView, Layout);
+			CurrentState->SetUAVTextureView(DescriptorSet, BindingIndex, UAV->TextureView, Layout);
 		}
 		else
 		{

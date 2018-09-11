@@ -173,6 +173,7 @@ void NiagaraEmitterInstanceBatcher::ResolveDatasetWrites(FNiagaraComputeExecutio
 	{
 		Context->GPUDataReadback = new FRHIGPUMemoryReadback(DatasetIndexBufferWrite.Buffer, TEXT("Niagara GPU Emitter Readback"));
 		INC_DWORD_STAT(STAT_NiagaraReadbackLatency);
+		Context->GPUDataReadback->Insert();
 	}
 	else if (Context->GPUDataReadback->IsReady())
 	{
@@ -187,6 +188,7 @@ void NiagaraEmitterInstanceBatcher::ResolveDatasetWrites(FNiagaraComputeExecutio
 		Context->AccumulatedSpawnRate = 0;
 		delete Context->GPUDataReadback;
 		Context->GPUDataReadback = new FRHIGPUMemoryReadback(DatasetIndexBufferWrite.Buffer, TEXT("Niagara GPU Emitter Readback"));
+		Context->GPUDataReadback->Insert();
 	}
 }
 

@@ -90,6 +90,11 @@ public:
 
 	ENGINE_API bool ReadLinearColorPixelsPtr(FLinearColor* OutImageBytes, FReadSurfaceDataFlags InFlags = FReadSurfaceDataFlags(RCM_MinMax, CubeFace_MAX), FIntRect InRect = FIntRect(0, 0, 0, 0));
 
+	/**
+	 * Returns the GPU nodes on which to render this rendertarget.
+	 **/
+	ENGINE_API virtual FRHIGPUMask GetGPUMask(FRHICommandListImmediate& RHICmdList) const { return FRHIGPUMask::GPU0(); }
+
 protected:
 
 	FTexture2DRHIRef RenderTargetTextureRHI;
@@ -383,6 +388,11 @@ public:
 	 *	@param bLockToVsync	Whether the GPU should block until VSYNC before presenting
 	 */
 	ENGINE_API virtual void	EndRenderFrame(FRHICommandListImmediate& RHICmdList, bool bPresent, bool bLockToVsync);
+
+	/**
+	 * Returns the GPU nodes on which to render this viewport.
+	 **/
+	ENGINE_API virtual FRHIGPUMask GetGPUMask(FRHICommandListImmediate& RHICmdList) const override;
 
 	/**
 	 * @return whether or not this Controller has a keyboard available to be used

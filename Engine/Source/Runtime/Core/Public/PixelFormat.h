@@ -75,7 +75,10 @@ enum EPixelFormat
 	PF_R8G8B8A8_SNORM		=61,
 	PF_R16G16B16A16_UNORM	=62,
 	PF_R16G16B16A16_SNORM	=63,
-	PF_MAX                  =64,
+	PF_PLATFORM_HDR_0		=64,	// Indicates platform-specific HDR output formats
+	PF_PLATFORM_HDR_1		=65,	// Reserved.
+	PF_PLATFORM_HDR_2		=66,	// Reserved.
+	PF_MAX					=PF_PLATFORM_HDR_2+1,
 };
 #define FOREACH_ENUM_EPIXELFORMAT(op) \
 	op(PF_Unknown) \
@@ -138,5 +141,8 @@ enum EPixelFormat
 	op(PF_R8_UINT) \
 	op(PF_R16G16B16A16_UNORM) \
 	op(PF_R16G16B16A16_SNORM) \
-	op(PF_L8)
+	op(PF_L8) \
+	op(PF_PLATFORM_HDR_0) \
+	op(PF_PLATFORM_HDR_1) \
+	op(PF_PLATFORM_HDR_2)
 

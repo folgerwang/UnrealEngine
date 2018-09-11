@@ -38,7 +38,7 @@
 #define SetSceneColorLayoutToFloat4(dest,value) dest.rgb = (value).rgb
 #endif
 
-#if (!COMPILER_GLSL_ES2 && !COMPILER_GLSL_ES3_1)
+#if (!COMPILER_GLSL_ES2 && !COMPILER_GLSL_ES3_1 && !COMPILER_VULKAN)
 #define TextureExternal Texture2D
 #endif
 
@@ -150,7 +150,7 @@ MaterialFloat4 TextureCubeSampleLevel(TextureCube Tex, SamplerState Sampler, flo
 }
 MaterialFloat TextureCubeSampleDepthLevel(TextureCube TexDepth, SamplerState Sampler, float3 UV, MaterialFloat Mip)
 {
-return TexDepth.SampleLevel(Sampler, UV, Mip).r;
+	return TexDepth.SampleLevel(Sampler, UV, Mip).x;
 }
 MaterialFloat4 TextureCubeSampleBias(TextureCube Tex, SamplerState Sampler, float3 UV, MaterialFloat MipBias)
 {

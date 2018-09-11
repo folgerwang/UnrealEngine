@@ -35,7 +35,8 @@ struct FApplePlatformDebugEvents
 	{
 		void const* Tag;
 		uint32 Color;
-		uint16 Code;
+		uint64 Code;
+		dispatch_block_t Destructor;
 	};
 	
 	static TArray<FEvent>* GetEventStack();
