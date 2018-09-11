@@ -2765,9 +2765,16 @@ TSharedPtr<SWidget> SContentBrowser::GetFolderContextMenu(const TArray<FString>&
 		FUIAction(
 			FExecuteAction::CreateSP( this, &SContentBrowser::CreateNewFolder, SelectedPaths.Num() > 0 ? SelectedPaths[0] : FString(), InOnCreateNewFolder ),
 			FCanExecuteAction::CreateLambda( [bCanCreateNewFolder] { return bCanCreateNewFolder; } )
-			),
-		"NewFolder"
+			)
 		);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("ShowInNewContentBrowser", "Show in New Content Browser"),
+		LOCTEXT("ShowInNewContentBrowserTooltip", "Opens a new Content Browser at this folder location (at least 1 Content Browser window needs to be locked)"),
+		FSlateIcon(),
+		FUIAction(FExecuteAction::CreateSP(this, &SContentBrowser::OpenNewContentBrowser)),
+		"FolderContext"
+	);
 
 	return MenuBuilder.MakeWidget();
 }
@@ -2785,6 +2792,11 @@ void SContentBrowser::CreateNewFolder(FString FolderPath, FOnCreateNewFolder InO
 	}
 
 	InOnCreateNewFolder.ExecuteIfBound(DefaultFolderName.ToString(), FolderPath);
+}
+
+void SContentBrowser::OpenNewContentBrowser()
+{
+	FContentBrowserSingleton::Get().SyncBrowserToFolders(PathContextMenu->GetSelectedPaths(), false, true, true);
 }
 
 #undef LOCTEXT_NAMESPACE

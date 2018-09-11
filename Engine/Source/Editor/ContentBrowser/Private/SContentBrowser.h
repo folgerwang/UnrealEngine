@@ -405,6 +405,9 @@ private:
 	/** Sets up an inline-name for the creation of a default-named folder the specified path */
 	void CreateNewFolder(FString FolderPath, FOnCreateNewFolder OnCreateNewFolder);
 
+	/** Handler for when "Open in new Content Browser" is selected */
+	void OpenNewContentBrowser();
+
 	/** Bind our UI commands */
 	void BindCommands();
 
