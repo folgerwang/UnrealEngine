@@ -105,7 +105,7 @@ namespace ProxyLOD
 	*  @param InUVGrid      Rasterization of the UV triangles of the InOutGrid.
 	*  @param OutMaterial   Material that, on return has the Barycenteric-averaged vertex colors. 
 	*/
-	void DebugVertexAndTextureColors(FRawMesh& InOutRawMesh, const ProxyLOD::FRasterGrid& InUVGrid, FFlattenMaterial& OutMaterial);
+	void DebugVertexAndTextureColors(FMeshDescription& InOutRawMesh, const ProxyLOD::FRasterGrid& InUVGrid, FFlattenMaterial& OutMaterial);
 	
 	/**
 	* Two dimensional grid access to a TArray holding FLinearColor.

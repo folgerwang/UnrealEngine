@@ -37,6 +37,7 @@ namespace UnrealBuildTool.Rules
                     "InputCore",
                     "UnrealEd",
                     "RawMesh",
+                    "MeshDescription",
                     "MeshUtilities",
                     "MaterialUtilities",
                     "PropertyEditor",
@@ -56,7 +57,8 @@ namespace UnrealBuildTool.Rules
                     "Core",
                     "CoreUObject",
                     "Engine",
-                    "UnrealEd"
+                    "UnrealEd",
+                    "MeshDescriptionOperations"
 					// ... add private dependencies that you statically link with here ...
 				}
 				);

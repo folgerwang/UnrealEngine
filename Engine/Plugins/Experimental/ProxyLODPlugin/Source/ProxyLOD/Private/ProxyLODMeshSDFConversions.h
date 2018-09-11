@@ -28,11 +28,11 @@ namespace ProxyLOD
 	*
 	* @retun 'true' is success, 'false' will generally be an out of memory error.
 	*/
-	bool MeshArrayToSDFVolume( const FRawMeshArrayAdapter& InMeshAdapter,
+	bool MeshArrayToSDFVolume( const FMeshDescriptionArrayAdapter& InMeshAdapter,
 	                           openvdb::FloatGrid::Ptr& OutSDFGrid,
 		                       openvdb::Int32Grid* OutPolyIndexGrid = nullptr);
 
-	bool MeshArrayToSDFVolume( const FRawMeshAdapter& InMeshAdapter,
+	bool MeshArrayToSDFVolume( const FMeshDescriptionAdapter& InMeshAdapter,
 		                       openvdb::FloatGrid::Ptr& OutSDFGrid,
 		                       openvdb::Int32Grid* OutPolyIndexGrid = nullptr);
 
@@ -111,7 +111,7 @@ template <typename DstMeshType>
 void ProxyLOD::SDFVolumeToMesh(const openvdb::FloatGrid::ConstPtr SDFVolume, const double IsoValue, const double Adaptivity, DstMeshType& OutMesh)
 {
 
-	// we should be generating a new FRawMesh.
+	// we should be generating a new FMeshDescription.
 
 	OutMesh.Empty();
 

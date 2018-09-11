@@ -594,6 +594,51 @@ void FMeshDescriptionOperations::ConvertFromRawMesh(const FRawMesh& SourceRawMes
 
 //////////////////////////////////////////////////////////////////////////
 // Normals tangents and Bi-normals
+void FMeshDescriptionOperations::RecomputeNormalsAndTangentsIfNeeded(FMeshDescription& MeshDescription, ETangentOptions TangentOptions, bool bUseMikkTSpace, bool bForceRecomputeNormals, bool bForceRecomputeTangents)
+{
+	bool bRecomputeNormals = bForceRecomputeNormals;
+	bool bRecomputeTangents = bForceRecomputeTangents;
+	TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	if (!bRecomputeNormals || !bRecomputeTangents)
+	{
+		for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
+		{
+			bRecomputeNormals |= (VertexInstanceNormals[VertexInstanceID].IsNearlyZero() || VertexInstanceNormals[VertexInstanceID].ContainsNaN());
+			bRecomputeTangents |= (VertexInstanceTangents[VertexInstanceID].IsNearlyZero() || VertexInstanceTangents[VertexInstanceID].ContainsNaN());
+			if (bRecomputeNormals && bRecomputeTangents)
+			{
+				break;
+			}
+		}
+	}
+
+	if (bRecomputeNormals || bRecomputeTangents)
+	{
+		//Zero out all value that need to be recompute
+		for (const FVertexInstanceID& VertexInstanceID : MeshDescription.VertexInstances().GetElementIDs())
+		{
+			if (bRecomputeNormals)
+			{
+				VertexInstanceNormals[VertexInstanceID] = FVector::ZeroVector;
+			}
+			if (bRecomputeTangents)
+			{
+				VertexInstanceTangents[VertexInstanceID] = FVector::ZeroVector;
+			}
+		}
+
+
+		if (bRecomputeNormals)
+		{
+			FMeshDescriptionOperations::CreateNormals(MeshDescription, TangentOptions, bUseMikkTSpace ? false : bRecomputeTangents);
+		}
+		if (bUseMikkTSpace && bRecomputeTangents)
+		{
+			FMeshDescriptionOperations::CreateMikktTangents(MeshDescription, TangentOptions);
+		}
+	}
+}
 
 void FMeshDescriptionOperations::CreatePolygonNTB(FMeshDescription& MeshDescription, float ComparisonThreshold)
 {
@@ -1262,6 +1307,49 @@ bool FMeshDescriptionOperations::RemoveUVChannel(FMeshDescription& MeshDescripti
 
 	VertexInstanceUVs.RemoveIndex(UVChannelIndex);
 	return true;
+}
+
+void FMeshDescriptionOperations::RemapPolygonGroups(FMeshDescription& MeshDescription, TMap<FPolygonGroupID, FPolygonGroupID>& Remap)
+{
+	TPolygonGroupAttributesRef<FName> PolygonGroupNames = MeshDescription.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	
+	struct FOldPolygonGroupData
+	{
+		FName Name;
+		TArray<FPolygonID> Polygons;
+	};
+
+	TMap<FPolygonGroupID, FOldPolygonGroupData> OldData;
+	for (const FPolygonGroupID& PolygonGroupID : MeshDescription.PolygonGroups().GetElementIDs())
+	{
+		if (!Remap.Contains(PolygonGroupID) || PolygonGroupID == Remap[PolygonGroupID])
+		{
+			//No need to change this one
+			continue;
+		}
+		FOldPolygonGroupData& PolygonGroupData = OldData.FindOrAdd(PolygonGroupID);
+		PolygonGroupData.Name = PolygonGroupNames[PolygonGroupID];
+		FMeshPolygonGroup& PolygonGroup = MeshDescription.GetPolygonGroup(PolygonGroupID);
+		PolygonGroupData.Polygons = PolygonGroup.Polygons;
+		PolygonGroup.Polygons.Empty();
+		MeshDescription.DeletePolygonGroup(PolygonGroupID);
+	}
+	for (auto Kvp : OldData)
+	{
+		FPolygonGroupID GroupID = Kvp.Key;
+		FPolygonGroupID ToGroupID = Remap[GroupID];
+		if (!MeshDescription.PolygonGroups().IsValid(ToGroupID))
+		{
+			MeshDescription.CreatePolygonGroupWithID(ToGroupID);
+		}
+		TArray<FPolygonID>& Polygons = MeshDescription.GetPolygonGroup(ToGroupID).Polygons;
+		Polygons.Append(Kvp.Value.Polygons);
+		PolygonGroupNames[ToGroupID] = Kvp.Value.Name;
+		for (FPolygonID PolygonID : Polygons)
+		{
+			MeshDescription.GetPolygon(PolygonID).PolygonGroupID = ToGroupID;
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

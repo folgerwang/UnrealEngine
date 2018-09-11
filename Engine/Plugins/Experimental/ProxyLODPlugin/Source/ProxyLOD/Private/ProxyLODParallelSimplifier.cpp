@@ -71,7 +71,7 @@ void ProxyLOD::PartitionAndSimplifyMesh(const FBBox& SrcBBox, const TArray<int32
 
 void ProxyLOD::ParallelSimplifyMesh(const FClosestPolyField& SrcReference, const float MinFractionToRatain, const float MaxFeatureCost, FAOSMesh& InOutMesh)
 {
-	const FRawMeshArrayAdapter& SrcMeshAdapter = SrcReference.MeshAdapter();
+	const FMeshDescriptionArrayAdapter& SrcMeshAdapter = SrcReference.MeshAdapter();
 
 	const size_t SrcTriNum = SrcMeshAdapter.polygonCount();
 

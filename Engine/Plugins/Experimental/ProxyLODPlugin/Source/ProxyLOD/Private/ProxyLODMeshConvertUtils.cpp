@@ -3,9 +3,21 @@
 #include "ProxyLODMeshConvertUtils.h" 
 #include "ProxyLODMeshUtilities.h"
 
+#include "MeshDescriptionOperations.h"
+
 // Convert QuadMesh to Triangles by splitting
-void ProxyLOD::MixedPolyMeshToRawMesh(const FMixedPolyMesh& SimpleMesh, FRawMesh& DstRawMesh)
+void ProxyLOD::MixedPolyMeshToRawMesh(const FMixedPolyMesh& SimpleMesh, FMeshDescription& DstRawMesh)
 {
+	TVertexAttributesRef<FVector> VertexPositions = DstRawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TEdgeAttributesRef<bool> EdgeHardnesses = DstRawMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributesRef<float> EdgeCreaseSharpnesses = DstRawMesh.EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+	TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = DstRawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = DstRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = DstRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = DstRawMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = DstRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = DstRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+
 	// Splitting a quad doesn't introduce any new verts.
 	const uint32 DstNumVerts = SimpleMesh.Points.size();
 
@@ -16,469 +28,410 @@ void ProxyLOD::MixedPolyMeshToRawMesh(const FMixedPolyMesh& SimpleMesh, FRawMesh
 
 	// Each Triangle has 3 corners
 	const uint32 DstNumIndexes = 3 * DstNumTris;
-	// Copy the vertices over
+
+	if (VertexInstanceUVs.GetNumIndices() < 1)
 	{
-		// Allocate the space for the verts in the DstRawMesh
-
-		ResizeArray(DstRawMesh.VertexPositions, DstNumVerts);
-
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumVerts),
-			[&SimpleMesh, &DstRawMesh](const ProxyLOD::FUIntRange& Range)
-		{
-	
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				const openvdb::Vec3s& Vertex = SimpleMesh.Points[i];
-				DstRawMesh.VertexPositions[i] = FVector(Vertex[0], Vertex[1], Vertex[2]);
-			}
-		}
-		);
+		VertexInstanceUVs.SetNumIndices(1);
 	}
 
-	// Connectivity: 
+	FPolygonGroupID PolygonGroupID = FPolygonGroupID::Invalid;
+	if (DstRawMesh.PolygonGroups().Num() == 0)
 	{
-		// convert each quad into two triangles.
-		TArray<uint32>& WedgeIndices = DstRawMesh.WedgeIndices;
-		ResizeArray(WedgeIndices, DstNumIndexes);
+		PolygonGroupID = DstRawMesh.CreatePolygonGroup();
+		PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(*FString::Printf(TEXT("ProxyLOD_Material_%d"), FMath::Rand()));
+	}
+	else
+	{
+		PolygonGroupID = DstRawMesh.PolygonGroups().GetFirstValidID();
+	}
 
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, NumQuads),
-			[&WedgeIndices, &SimpleMesh](const ProxyLOD::FUIntRange& Range)
+	// Copy the vertices over
+	TMap<int32, FVertexID> VertexIDMap;
+	VertexIDMap.Reserve(DstNumVerts);
+	{
+		for (uint32 i = 0, I = DstNumVerts; i < I; ++i)
 		{
-			for (uint32 q = Range.begin(), Q = Range.end(); q < Q; ++q)
-			{
-				const uint32 Offset = q * 6;
-				const openvdb::Vec4I& Quad = SimpleMesh.Quads[q];
-				// add as two triangles to raw mesh
-#if (PROXYLOD_CLOCKWISE_TRIANGLES == 1)
-				// first triangle
-				WedgeIndices[Offset] = Quad[0];
-				WedgeIndices[Offset + 1] = Quad[1];
-				WedgeIndices[Offset + 2] = Quad[2];
-				// second triangle
-				WedgeIndices[Offset + 3] = Quad[2];
-				WedgeIndices[Offset + 4] = Quad[3];
-				WedgeIndices[Offset + 5] = Quad[0];
-#else
-				WedgeIndices[Offset] = Quad[0];
-				WedgeIndices[Offset + 1] = Quad[3];
-				WedgeIndices[Offset + 2] = Quad[2];
-				// second triangle
-				WedgeIndices[Offset + 3] = Quad[2];
-				WedgeIndices[Offset + 4] = Quad[1];
-				WedgeIndices[Offset + 5] = Quad[0];
-#endif 
-			}
+			const openvdb::Vec3s& Vertex = SimpleMesh.Points[i];
+			const FVertexID NewVertexID = DstRawMesh.CreateVertex();
+			VertexPositions[NewVertexID] = FVector(Vertex[0], Vertex[1], Vertex[2]);
+			VertexIDMap.Add(i, NewVertexID);
+		}
+	}
 
-		});
+	// Connectivity:
+	auto CreateTriangle = [&DstRawMesh, PolygonGroupID, &VertexInstanceNormals, &VertexInstanceTangents, &VertexInstanceBinormalSigns, &VertexInstanceColors, &VertexInstanceUVs, &EdgeHardnesses, &EdgeCreaseSharpnesses](FVertexID TriangleIndex[3])
+	{
+		FVertexInstanceID VertexInstanceIDs[3];
+		for (int32 Corner = 0; Corner < 3; ++Corner)
+		{
+			VertexInstanceIDs[Corner] = DstRawMesh.CreateVertexInstance(TriangleIndex[Corner]);
+			VertexInstanceTangents[VertexInstanceIDs[Corner]] = FVector(1, 0, 0);
+			VertexInstanceNormals[VertexInstanceIDs[Corner]] = FVector(0, 0, 1);
+			VertexInstanceBinormalSigns[VertexInstanceIDs[Corner]] = GetBasisDeterminantSign(VertexInstanceTangents[VertexInstanceIDs[Corner]].GetSafeNormal(),
+																							 (VertexInstanceNormals[VertexInstanceIDs[Corner]] ^ VertexInstanceTangents[VertexInstanceIDs[Corner]]).GetSafeNormal(),
+																							 VertexInstanceNormals[VertexInstanceIDs[Corner]].GetSafeNormal());
+			VertexInstanceColors[VertexInstanceIDs[Corner]] = FVector4(0.0f);
+			VertexInstanceUVs.Set(VertexInstanceIDs[Corner], 0, FVector2D(0.0f, 0.0f));
+		}
+
+		//Create a polygon from this triangle
+		TArray<FMeshDescription::FContourPoint> Contours;
+		for (int32 Corner = 0; Corner < 3; ++Corner)
+		{
+			int32 ContourPointIndex = Contours.AddDefaulted();
+			FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+			//Find the matching edge ID
+			uint32 CornerIndices[2];
+			CornerIndices[0] = (Corner + 0) % 3;
+			CornerIndices[1] = (Corner + 1) % 3;
+
+			FVertexID EdgeVertexIDs[2];
+			EdgeVertexIDs[0] = TriangleIndex[CornerIndices[0]];
+			EdgeVertexIDs[1] = TriangleIndex[CornerIndices[1]];
+
+			FEdgeID MatchEdgeId = DstRawMesh.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+			if (MatchEdgeId == FEdgeID::Invalid)
+			{
+				MatchEdgeId = DstRawMesh.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+				EdgeHardnesses[MatchEdgeId] = false;
+				EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
+			}
+			ContourPoint.EdgeID = MatchEdgeId;
+			ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
+		}
+		// Insert a polygon into the mesh
+		const FPolygonID NewPolygonID = DstRawMesh.CreatePolygon(PolygonGroupID, Contours);
+		//Triangulate the polygon
+		FMeshPolygon& Polygon = DstRawMesh.GetPolygon(NewPolygonID);
+		DstRawMesh.ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
+	};
+
+	{
+		for (uint32 q = 0, Q = NumQuads; q < Q; ++q)
+		{
+			const openvdb::Vec4I& Quad = SimpleMesh.Quads[q];
+			// add as two triangles to raw mesh
+			bool bClockWiseTriangle = true;
+#if (PROXYLOD_CLOCKWISE_TRIANGLES != 1)
+			bClockWiseTriangle = false;
+#endif
+			FVertexID VertexIndexes[3];
+			VertexIndexes[0] = VertexIDMap[Quad[0]];
+			VertexIndexes[1] = bClockWiseTriangle ? VertexIDMap[Quad[1]] : VertexIDMap[Quad[3]];
+			VertexIndexes[2] = VertexIDMap[Quad[2]];
+			CreateTriangle(VertexIndexes);
+			VertexIndexes[0] = VertexIDMap[Quad[2]];
+			VertexIndexes[1] = bClockWiseTriangle ? VertexIDMap[Quad[3]] : VertexIDMap[Quad[1]];
+			VertexIndexes[2] = VertexIDMap[Quad[0]];
+			CreateTriangle(VertexIndexes);
+		}
 
 		// add the SimpleMesh triangles.
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, SimpleMesh.Triangles.size()),
-			[&WedgeIndices, &SimpleMesh, NumQuads](const ProxyLOD::FUIntRange& Range)
+		uint32 IndexStop = SimpleMesh.Triangles.size();
+		for (uint32 t = 0, T = IndexStop; t < T; ++t)
 		{
-			for (uint32 t = Range.begin(), T = Range.end(); t < T; ++t)
-			{
-				const uint32 Offset = NumQuads * 6 + t * 3;
-				const openvdb::Vec3I& Tri = SimpleMesh.Triangles[t];
-				// add the triangle to the raw mesh
-#if (PROXYLOD_CLOCKWISE_TRIANGLES == 1)
-				WedgeIndices[Offset] = Tri[0];
-				WedgeIndices[Offset + 1] = Tri[1];
-				WedgeIndices[Offset + 2] = Tri[2];
-#else
-				WedgeIndices[Offset] = Tri[2];
-				WedgeIndices[Offset + 1] = Tri[1];
-				WedgeIndices[Offset + 2] = Tri[0];
-#endif 
-			}
+			const openvdb::Vec3I& Tri = SimpleMesh.Triangles[t];
+			bool bClockWiseTriangle = true;
+#if (PROXYLOD_CLOCKWISE_TRIANGLES != 1)
+			bClockWiseTriangle = false;
+#endif
+			FVertexID VertexIndexes[3];
+			VertexIndexes[0] = bClockWiseTriangle ? VertexIDMap[Tri[0]] : VertexIDMap[Tri[2]];
+			VertexIndexes[1] = VertexIDMap[Tri[1]];
+			VertexIndexes[2] = bClockWiseTriangle ? VertexIDMap[Tri[2]] : VertexIDMap[Tri[0]];
+			CreateTriangle(VertexIndexes);
 		}
-		);
 	}
-
-
-	ResizeArray(DstRawMesh.WedgeTangentX, DstNumIndexes);
-	ResizeArray(DstRawMesh.WedgeTangentY, DstNumIndexes);
-	ResizeArray(DstRawMesh.WedgeTangentZ, DstNumIndexes);
-
-
-	// Generate Tangent-Space
-	// NB: adding default values for now
-	ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes), [&DstRawMesh](const ProxyLOD::FUIntRange& Range)
-	{
-		for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-		{
-			DstRawMesh.WedgeTangentX[i] = FVector(1, 0, 0);
-			DstRawMesh.WedgeTangentY[i] = FVector(0, 1, 0);
-			// TangentZ is the normal - will be over-written later
-			DstRawMesh.WedgeTangentZ[i] = FVector(0, 0, 1);
-		}
-	});
-
-
-
-	DstRawMesh.FaceMaterialIndices.Empty(DstNumTris);
-	DstRawMesh.FaceMaterialIndices.AddZeroed(DstNumTris);
-
-	DstRawMesh.FaceSmoothingMasks.Empty(DstNumTris);
-	DstRawMesh.FaceSmoothingMasks.AddZeroed(DstNumTris);
-
-	DstRawMesh.WedgeColors.Empty();
-	DstRawMesh.WedgeColors.AddZeroed(3 * DstNumTris);
-	for (int32 TexCoordIndex = 0; TexCoordIndex < 8; ++TexCoordIndex)
-	{
-		DstRawMesh.WedgeTexCoords[TexCoordIndex].Empty();
-	}
-	// Need to have a a WedgeTextCoord channel
-	auto& WedgeTexCoord = DstRawMesh.WedgeTexCoords[0];
-	WedgeTexCoord.AddZeroed(DstNumIndexes);
 }
 
 
-void ProxyLOD::AOSMeshToRawMesh(const FAOSMesh& AOSMesh, FRawMesh& OutRawMesh)
+void ProxyLOD::AOSMeshToRawMesh(const FAOSMesh& AOSMesh, FMeshDescription& OutRawMesh)
 {
-
+	TVertexAttributesRef<FVector> VertexPositions = OutRawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TEdgeAttributesRef<bool> EdgeHardnesses = OutRawMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributesRef<float> EdgeCreaseSharpnesses = OutRawMesh.EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+	TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = OutRawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 	const uint32 DstNumPositions = AOSMesh.GetNumVertexes();
 	const uint32 DstNumIndexes = AOSMesh.GetNumIndexes();
 
+	if (VertexInstanceUVs.GetNumIndices() < 1)
+	{
+		VertexInstanceUVs.SetNumIndices(1);
+	}
+
+	FPolygonGroupID PolygonGroupID = FPolygonGroupID::Invalid;
+	if (OutRawMesh.PolygonGroups().Num() == 0)
+	{
+		PolygonGroupID = OutRawMesh.CreatePolygonGroup();
+		PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(*FString::Printf(TEXT("ProxyLOD_Material_%d"), FMath::Rand()));
+	}
+	else
+	{
+		PolygonGroupID = OutRawMesh.PolygonGroups().GetFirstValidID();
+	}
+
 	checkSlow(DstNumIndexes % 3 == 0);
 	// Copy the vertices over
+	TMap<int32, FVertexID> VertexIDMap;
+	VertexIDMap.Reserve(DstNumPositions);
 	{
-		// Allocate the space for the verts in the DstRawMesh
-		auto& VertexPositions = OutRawMesh.VertexPositions;
-		ResizeArray(VertexPositions, DstNumPositions);
-
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumPositions),
-			[&AOSMesh, &VertexPositions](const ProxyLOD::FUIntRange& Range)
+		const auto& AOSVertexes = AOSMesh.Vertexes;
+		for (uint32 i = 0, I = DstNumPositions; i < I; ++i)
 		{
-			const auto& AOSVertexes = AOSMesh.Vertexes;
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				const FVector& Position = AOSVertexes[i].GetPos();
-				VertexPositions[i] = Position;
-			}
-		});
+			const FVector& Position = AOSVertexes[i].GetPos();
+			const FVertexID NewVertexID = OutRawMesh.CreateVertex();
+			VertexPositions[NewVertexID] = Position;
+			VertexIDMap.Add(i, NewVertexID);
+		}
 
-		checkSlow(OutRawMesh.VertexPositions.Num() == DstNumPositions);
+		checkSlow(VertexPositions.GetNumElements() == DstNumPositions);
 	}
+
+	const uint32* AOSIndexes = AOSMesh.Indexes;
 
 	// Connectivity: 
+	auto CreateTriangle = [&OutRawMesh, PolygonGroupID, &VertexInstanceNormals, &VertexInstanceTangents, &VertexInstanceBinormalSigns, &VertexInstanceColors, &VertexInstanceUVs, &EdgeHardnesses, &EdgeCreaseSharpnesses](const FVertexID TriangleIndex[3], const FVector Normals[3])
 	{
-		// convert each quad into two triangles.
-		TArray<uint32>& WedgeIndices = OutRawMesh.WedgeIndices;
-
-		ResizeArray(WedgeIndices, DstNumIndexes);
-
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-			[&AOSMesh, &WedgeIndices](const ProxyLOD::FUIntRange& Range)
+		FVertexInstanceID VertexInstanceIDs[3];
+		for (int32 Corner = 0; Corner < 3; ++Corner)
 		{
-			const auto& AOSIndexes = AOSMesh.Indexes;
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				WedgeIndices[i] = AOSIndexes[i];
-			}
-		});
-
-		checkSlow(WedgeIndices.Num() == DstNumIndexes);
-	}
-
-	// Add default Tangents
-	{
-
-		ResizeArray(OutRawMesh.WedgeTangentX, DstNumIndexes);
-		ResizeArray(OutRawMesh.WedgeTangentY, DstNumIndexes);
-
-		// Generate Tangent-Space
-		// NB: adding default values for now
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes), [&OutRawMesh](const ProxyLOD::FUIntRange& Range)
-		{
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				OutRawMesh.WedgeTangentX[i] = FVector(1, 0, 0);
-				OutRawMesh.WedgeTangentY[i] = FVector(0, 1, 0);
-			}
-		});
-	}
-
-	// Transfer the normal
-	{
-		TArray<FVector>& NormalArray = OutRawMesh.WedgeTangentZ;
-		ResizeArray(NormalArray, DstNumIndexes);
-
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-			[&AOSMesh, &NormalArray](const ProxyLOD::FUIntRange& Range)
-		{
-			const uint32* Indexes = AOSMesh.Indexes;
-
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				const auto& AOSVertex = AOSMesh.Vertexes[Indexes[i]];
-				NormalArray[i] = AOSVertex.Normal;
-			}
-		});
-	}
-
-	// Makeup other data.
-	// DJH - Note I should be able to 'transfer' the FaceMatieralIdx, but this will require generating
-	// Auxiliary data because I only have this data on verts right now.
-	{
-		const uint32 DstNumTris = DstNumIndexes / 3;
-
-		OutRawMesh.FaceMaterialIndices.Empty(DstNumTris);
-		OutRawMesh.FaceMaterialIndices.AddZeroed(DstNumTris);
-
-		OutRawMesh.FaceSmoothingMasks.Empty(DstNumTris);
-		OutRawMesh.FaceSmoothingMasks.AddZeroed(DstNumTris);
-
-		OutRawMesh.WedgeColors.Empty();
-		OutRawMesh.WedgeColors.AddZeroed(3 * DstNumTris);
-		// what about red?
-		for (uint32 i = 0; i < 3 * DstNumTris; ++i)
-		{
-			OutRawMesh.WedgeColors[i] = FColor(255, 0, 0, 0);
+			VertexInstanceIDs[Corner] = OutRawMesh.CreateVertexInstance(TriangleIndex[Corner]);
+			VertexInstanceTangents[VertexInstanceIDs[Corner]] = FVector(1, 0, 0);
+			VertexInstanceNormals[VertexInstanceIDs[Corner]] = Normals[Corner];
+			VertexInstanceBinormalSigns[VertexInstanceIDs[Corner]] = GetBasisDeterminantSign(VertexInstanceTangents[VertexInstanceIDs[Corner]].GetSafeNormal(),
+																							 (VertexInstanceNormals[VertexInstanceIDs[Corner]] ^ VertexInstanceTangents[VertexInstanceIDs[Corner]]).GetSafeNormal(),
+																							 VertexInstanceNormals[VertexInstanceIDs[Corner]].GetSafeNormal());
+			VertexInstanceColors[VertexInstanceIDs[Corner]] = FVector4(1.0f);
+			VertexInstanceUVs.Set(VertexInstanceIDs[Corner], 0, FVector2D(0.0f, 0.0f));
 		}
 
-		for (int32 TexCoordIndex = 0; TexCoordIndex < 8; ++TexCoordIndex)
+		//Create a polygon from this triangle
+		TArray<FMeshDescription::FContourPoint> Contours;
+		for (int32 Corner = 0; Corner < 3; ++Corner)
 		{
-			OutRawMesh.WedgeTexCoords[TexCoordIndex].Empty();
+			int32 ContourPointIndex = Contours.AddDefaulted();
+			FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+			//Find the matching edge ID
+			uint32 CornerIndices[2];
+			CornerIndices[0] = (Corner + 0) % 3;
+			CornerIndices[1] = (Corner + 1) % 3;
+
+			FVertexID EdgeVertexIDs[2];
+			EdgeVertexIDs[0] = TriangleIndex[CornerIndices[0]];
+			EdgeVertexIDs[1] = TriangleIndex[CornerIndices[1]];
+
+			FEdgeID MatchEdgeId = OutRawMesh.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+			if (MatchEdgeId == FEdgeID::Invalid)
+			{
+				MatchEdgeId = OutRawMesh.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+				EdgeHardnesses[MatchEdgeId] = false;
+				EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
+			}
+			ContourPoint.EdgeID = MatchEdgeId;
+			ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
 		}
-		// Need to have a a WedgeTextCoord channel
-		auto& WedgeTexCoord = OutRawMesh.WedgeTexCoords[0];
-		WedgeTexCoord.AddZeroed(DstNumIndexes);
+		// Insert a polygon into the mesh
+		const FPolygonID NewPolygonID = OutRawMesh.CreatePolygon(PolygonGroupID, Contours);
+		//Triangulate the polygon
+		FMeshPolygon& Polygon = OutRawMesh.GetPolygon(NewPolygonID);
+		OutRawMesh.ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
+	};
+
+	{
+		uint32 IndexStop = DstNumIndexes/3;
+		for (uint32 t = 0, T = IndexStop; t < T; ++t)
+		{
+			FVertexID VertexIndexes[3];
+			FVector Normals[3];
+			for (int32 Corner = 0; Corner < 3; ++Corner)
+			{
+				VertexIndexes[Corner] = VertexIDMap[AOSIndexes[(t*3) + Corner]];
+				const auto& AOSVertex = AOSMesh.Vertexes[AOSIndexes[(t*3) + Corner]];
+				Normals[Corner] = AOSVertex.Normal;
+			}
+			CreateTriangle(VertexIndexes, Normals);
+		}
 	}
 }
 
 
-void ProxyLOD::VertexDataMeshToRawMesh(const FVertexDataMesh& SrcVertexDataMesh, FRawMesh& DstRawMesh)
+void ProxyLOD::VertexDataMeshToRawMesh(const FVertexDataMesh& SrcVertexDataMesh, FMeshDescription& OutRawMesh)
 {
-	
+	TVertexAttributesRef<FVector> VertexPositions = OutRawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TEdgeAttributesRef<bool> EdgeHardnesses = OutRawMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributesRef<float> EdgeCreaseSharpnesses = OutRawMesh.EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+	TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = OutRawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = OutRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 	const uint32 DstNumPositions = SrcVertexDataMesh.Points.Num();
 	const uint32 DstNumIndexes = SrcVertexDataMesh.Indices.Num();
+	const uint32 SrcNumTriangles = DstNumIndexes / 3;
+	
+	if (VertexInstanceUVs.GetNumIndices() < 2)
+	{
+		//We set the lightmap channel so 2
+		VertexInstanceUVs.SetNumIndices(2);
+	}
+
+	FPolygonGroupID PolygonGroupID = FPolygonGroupID::Invalid;
+	if (OutRawMesh.PolygonGroups().Num() == 0)
+	{
+		PolygonGroupID = OutRawMesh.CreatePolygonGroup();
+		PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(*FString::Printf(TEXT("ProxyLOD_Material_%d"), FMath::Rand()));
+	}
+	else
+	{
+		PolygonGroupID = OutRawMesh.PolygonGroups().GetFirstValidID();
+	}
 
 	checkSlow(DstNumIndexes % 3 == 0);
 	// Copy the vertices over
+	TMap<int32, FVertexID> VertexIDMap;
+	VertexIDMap.Reserve(DstNumPositions);
 	{
-		// Allocate the space for the verts in the DstRawMesh
-
 		const TArray<FVector>& SrcPositions = SrcVertexDataMesh.Points;
-		TArray<FVector>& DstPositions = DstRawMesh.VertexPositions;
 
-		ResizeArray(DstPositions, DstNumPositions);
-
-
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumPositions),
-			[&SrcPositions, &DstPositions](const ProxyLOD::FUIntRange& Range)
+		for (uint32 i = 0, I = DstNumPositions; i < I; ++i)
 		{
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				DstPositions[i] = SrcPositions[i];
-			}
-		});
-
-		checkSlow(DstPositions.Num() == DstNumPositions);
-	}
-
-	// Connectivity: 
-	{
-		const TArray<uint32>& SrcIndices = SrcVertexDataMesh.Indices;
-		TArray<uint32>& DstIndices = DstRawMesh.WedgeIndices;
-
-		ResizeArray(DstIndices, DstNumIndexes);
-
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-			[&SrcIndices, &DstIndices](const ProxyLOD::FUIntRange& Range)
-		{
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				DstIndices[i] = SrcIndices[i];
-			}
-		});
-
-		checkSlow(DstIndices.Num() == DstNumIndexes);
-	}
-
-	// Copy the tangent space
-	{
-		const TArray<FVector>& SrcTangentArray = SrcVertexDataMesh.Tangent;
-		const TArray<FVector>& SrcBiTangentArray = SrcVertexDataMesh.BiTangent;
-		const TArray<FVector>& SrcNormalArray = SrcVertexDataMesh.Normal;
-
-		TArray<FVector>& DstTangentArray = DstRawMesh.WedgeTangentX;
-		TArray<FVector>& DstBiTangentArray = DstRawMesh.WedgeTangentY;
-		TArray<FVector>& DstNormalArray = DstRawMesh.WedgeTangentZ;
-
-		ResizeArray(DstTangentArray, DstNumIndexes);
-		ResizeArray(DstBiTangentArray, DstNumIndexes);
-		ResizeArray(DstNormalArray, DstNumIndexes);
-
-		const bool bSrcHasTangentSpace = SrcVertexDataMesh.Tangent.Num() != 0 && SrcVertexDataMesh.BiTangent.Num() != 0 && SrcVertexDataMesh.Normal.Num() != 0;
-		if (bSrcHasTangentSpace)
-		{
-
-			const auto& SrcIndexes = SrcVertexDataMesh.Indices;
-
-			// Copy tangent space.  
-			// NB: The raw mesh potentially stores a different tangent space
-			// for each index.  For the vertex data mesh, the tangent space is per-vertex.
-			ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-				[&SrcTangentArray, &SrcIndexes, &DstTangentArray](const ProxyLOD::FUIntRange& Range)
-			{
-				for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-				{
-					DstTangentArray[i] = SrcTangentArray[SrcIndexes[i]];
-				}
-			});
-
-			ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-				[&SrcBiTangentArray, &SrcIndexes, &DstBiTangentArray](const ProxyLOD::FUIntRange& Range)
-			{
-				for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-				{
-					DstBiTangentArray[i] = SrcBiTangentArray[SrcIndexes[i]];
-				}
-			});
-
-			ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-				[&SrcNormalArray, &SrcIndexes, &DstNormalArray](const ProxyLOD::FUIntRange& Range)
-			{
-				for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-				{
-					DstNormalArray[i] = SrcNormalArray[SrcIndexes[i]];
-				}
-			});
+			const FVector& Position = SrcPositions[i];
+			const FVertexID NewVertexID = OutRawMesh.CreateVertex();
+			VertexPositions[NewVertexID] = Position;
+			VertexIDMap.Add(i, NewVertexID);
 		}
-		else // generate a default tangent space
-		{
-			for (uint32 i = 0; i < DstNumIndexes; ++i)
-			{
-				DstTangentArray[i] = FVector(1, 0, 0);
-				DstBiTangentArray[i] = FVector(0, 1, 0);
-				DstNormalArray[i] = FVector(0, 0, 1);
-			}
-		}
-	}
 
+		checkSlow(VertexPositions.GetNumElements() == DstNumPositions);
+	}
 	
-	// Is the handedness the same for all verts on a given face?
+	const bool bSrcHasTangentSpace = SrcVertexDataMesh.Tangent.Num() != 0 && SrcVertexDataMesh.BiTangent.Num() != 0 && SrcVertexDataMesh.Normal.Num() != 0;
+
+	// Connectivity:
+	auto CreateTriangle = [&OutRawMesh, &SrcVertexDataMesh, bSrcHasTangentSpace, &VertexIDMap, PolygonGroupID, &VertexInstanceNormals, &VertexInstanceTangents, &VertexInstanceBinormalSigns, &VertexInstanceColors, &VertexInstanceUVs, &EdgeHardnesses, &EdgeCreaseSharpnesses](const uint32 TriangleIndices[3])
 	{
-		const uint32 DstNumTris = DstNumIndexes / 3;
-
-
-		ResizeArray(DstRawMesh.FaceMaterialIndices, DstNumTris);
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumTris), [&DstRawMesh](const ProxyLOD::FUIntRange& Range)
-		{
-			auto& FaceMaterialIndices = DstRawMesh.FaceMaterialIndices;
-			for (uint32 f = Range.begin(), F = Range.end(); f < F; ++f)
-			{
-				FaceMaterialIndices[f] = 0;
-			}
-		});
-
-		ResizeArray(DstRawMesh.FaceSmoothingMasks, DstNumTris);
-		if (SrcVertexDataMesh.FacePartition.Num() != 0)
-		{
-
-			ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumTris), [&DstRawMesh, &SrcVertexDataMesh](const ProxyLOD::FUIntRange& Range)
-			{
-				const auto& FacePartition = SrcVertexDataMesh.FacePartition;
-				auto& FaceSmoothingMask = DstRawMesh.FaceSmoothingMasks;
-				for (uint32 f = Range.begin(), F = Range.end(); f < F; ++f)
-				{
-					FaceSmoothingMask[f] = (1 << (FacePartition[f] % 32));
-				}
-			});
-		}
-		else // default 
-		{
-			for (uint32 i = 0; i < DstNumTris; ++i)
-			{
-				DstRawMesh.FaceSmoothingMasks[i] = 1;
-			}
-		}
-
-		ResizeArray(DstRawMesh.WedgeColors, 3 * DstNumTris);
-		if (SrcVertexDataMesh.FaceColors.Num() == 0)
-		{
-
-			// what about red?
-			for (uint32 i = 0; i < 3 * DstNumTris; ++i)
-			{
-				DstRawMesh.WedgeColors[i] = FColor(255, 0, 0, 0);
-			}
-		}
-		else
-		{
-			// Transfer color to the verts.
-			for (uint32 i = 0; i < DstNumTris; ++i)
-			{
-				const uint32 WedgeId = i * 3;
-#if 1
-				const FColor& Color = SrcVertexDataMesh.FaceColors[i];
-
-				DstRawMesh.WedgeColors[WedgeId + 0] = Color;
-				DstRawMesh.WedgeColors[WedgeId + 1] = Color;
-				DstRawMesh.WedgeColors[WedgeId + 2] = Color;
-#else
-
-				uint32 Idx[3];
-				for (uint32 i = 0; i < 3; ++i) Idx[i] = WedgeId + i;
-
-				for (uint32 i = 0; i < 3; ++i) Idx[i] = SrcVertexDataMesh.Indices[Idx[i]];
-
-				for (uint32 i = 0; i < 3; ++i) DstRawMesh.WedgeColors[WedgeId + i] = (SrcVertexDataMesh.TangentHanded[Idx[i]] > 0) ? FColor(255, 0, 0) : FColor(0, 0, 255);
-#endif
-			}
-		}
-#if 0
+		int32 TriangleIndex = TriangleIndices[0] / 3;
 		
-		// Testing with the handedness
-
-		for (uint32 i = 0; i < DstNumIndexes; ++i)
+		FVertexID VertexIndexes[3];
+		FVertexInstanceID VertexInstanceIDs[3];
+		for (int32 Corner = 0; Corner < 3; ++Corner)
 		{
-			uint32 v = DstRawMesh.WedgeIndices[i];
-			DstRawMesh.WedgeColors[i] = (SrcVertexDataMesh.TangentHanded[v] > 0) ? FColor(255, 0, 0) : FColor(0, 255, 0);
-		}
-#endif
+			int32 SrcIndex = SrcVertexDataMesh.Indices[TriangleIndices[Corner]];
 
+			VertexIndexes[Corner] = VertexIDMap[SrcIndex];
+			VertexInstanceIDs[Corner] = OutRawMesh.CreateVertexInstance(VertexIndexes[Corner]);
 
-		{
-			// Empty all the texture coords
-			for (int32 TexCoordIndex = 0; TexCoordIndex < 8; ++TexCoordIndex)
+			//Tangents
+			if (bSrcHasTangentSpace)
 			{
-				DstRawMesh.WedgeTexCoords[TexCoordIndex].Empty();
+				FVector Tangent = SrcVertexDataMesh.Tangent[SrcIndex];
+				FVector BiTangent = SrcVertexDataMesh.BiTangent[SrcIndex];
+				FVector Normal = SrcVertexDataMesh.Normal[SrcIndex];
+				VertexInstanceTangents[VertexInstanceIDs[Corner]] = Tangent;
+				VertexInstanceBinormalSigns[VertexInstanceIDs[Corner]] = GetBasisDeterminantSign(Tangent, BiTangent, Normal);
+				VertexInstanceNormals[VertexInstanceIDs[Corner]] = Normal;
+			}
+			else
+			{
+				VertexInstanceTangents[VertexInstanceIDs[Corner]] = FVector(1, 0, 0);
+				VertexInstanceNormals[VertexInstanceIDs[Corner]] = FVector(0, 0, 1);
+				VertexInstanceBinormalSigns[VertexInstanceIDs[Corner]] = GetBasisDeterminantSign(VertexInstanceTangents[VertexInstanceIDs[Corner]].GetSafeNormal(),
+																		 (VertexInstanceNormals[VertexInstanceIDs[Corner]] ^ VertexInstanceTangents[VertexInstanceIDs[Corner]]).GetSafeNormal(),
+																		 VertexInstanceNormals[VertexInstanceIDs[Corner]].GetSafeNormal());
 			}
 
-			// Copy the UVs over to the first and second texture coord channel.  The second one is used by lightmass, 
-			// if we don't provide it, unreal will make it from the first for us
+			//Color
+			if (SrcVertexDataMesh.FaceColors.Num() == 0)
+			{
+				VertexInstanceColors[VertexInstanceIDs[Corner]] = FVector4(1.0f);
+			}
+			else
+			{
+				//There is 
+				VertexInstanceColors[VertexInstanceIDs[Corner]] = FVector4(FLinearColor(SrcVertexDataMesh.FaceColors[TriangleIndex]));
+			}
+
+			//UVs, copy two time the same value, one for UV_Channel 0 and another for lightmap channel 1
 			for (int32 channel = 0; channel < 2; ++channel)
 			{
-				// Need to have a a WedgeTextCoord channel
-				auto& WedgeTexCoord = DstRawMesh.WedgeTexCoords[channel];
-
 				if (SrcVertexDataMesh.UVs.Num() == 0)
 				{
-					WedgeTexCoord.AddZeroed(DstNumIndexes);
+					VertexInstanceUVs.Set(VertexInstanceIDs[Corner], channel, FVector2D(0.0f, 0.0f));
 				}
 				else
 				{
-					WedgeTexCoord.AddUninitialized(DstNumIndexes);
-					const uint32* Indices = SrcVertexDataMesh.Indices.GetData();
-					const auto& SrcUVs = SrcVertexDataMesh.UVs;
-					ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes), [&Indices, &SrcUVs, &WedgeTexCoord](const ProxyLOD::FUIntRange& Range)
-					{
-						for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-						{
-							const uint32 VertId = Indices[i];
-							const FVector2D& UV = SrcUVs[VertId];
-
-							WedgeTexCoord[i] = UV;
-						}
-					});
+					VertexInstanceUVs.Set(VertexInstanceIDs[Corner], channel, SrcVertexDataMesh.UVs[SrcIndex]);
 				}
 			}
 		}
 
+		//Create a polygon from this triangle
+		TArray<FMeshDescription::FContourPoint> Contours;
+		for (int32 Corner = 0; Corner < 3; ++Corner)
+		{
+			int32 ContourPointIndex = Contours.AddDefaulted();
+			FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+			//Find the matching edge ID
+			uint32 CornerIndices[2];
+			CornerIndices[0] = (Corner + 0) % 3;
+			CornerIndices[1] = (Corner + 1) % 3;
+
+			FVertexID EdgeVertexIDs[2];
+			EdgeVertexIDs[0] = VertexIndexes[CornerIndices[0]];
+			EdgeVertexIDs[1] = VertexIndexes[CornerIndices[1]];
+
+			FEdgeID MatchEdgeId = OutRawMesh.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+			if (MatchEdgeId == FEdgeID::Invalid)
+			{
+				MatchEdgeId = OutRawMesh.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+				EdgeHardnesses[MatchEdgeId] = false;
+				EdgeCreaseSharpnesses[MatchEdgeId] = 0.0f;
+			}
+			ContourPoint.EdgeID = MatchEdgeId;
+			ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
+		}
+		// Insert a polygon into the mesh
+		const FPolygonID NewPolygonID = OutRawMesh.CreatePolygon(PolygonGroupID, Contours);
+		//Triangulate the polygon
+		FMeshPolygon& Polygon = OutRawMesh.GetPolygon(NewPolygonID);
+		OutRawMesh.ComputePolygonTriangulation(NewPolygonID, Polygon.Triangles);
+	};
+
+	{
+		uint32 RangeStop = DstNumIndexes / 3;
+		for (uint32 i = 0, I = RangeStop; i < I; ++i)
+		{
+			uint32 SrcIndexes[3];
+			for (int32 Corner = 0; Corner < 3; ++Corner)
+			{
+				SrcIndexes[Corner] = (i * 3) + Corner;
+			}
+			CreateTriangle(SrcIndexes);
+		}
+
+		checkSlow(OutRawMesh.VertexInstances().Num() == DstNumIndexes);
 	}
+
+	//Put everybody in the same smoothgroup by default
+	TArray<uint32> FaceSmoothingMasks;
+	FaceSmoothingMasks.AddZeroed(SrcNumTriangles);
+
+	if (SrcVertexDataMesh.FacePartition.Num() != 0)
+	{
+		for (uint32 FaceIndex = 0; FaceIndex < SrcNumTriangles; ++FaceIndex)
+		{
+			FaceSmoothingMasks[FaceIndex] = (1 << (SrcVertexDataMesh.FacePartition[FaceIndex] % 32));
+		}
+	}
+
+	FMeshDescriptionOperations::ConvertSmoothGroupToHardEdges(FaceSmoothingMasks, OutRawMesh);
 }
 
 
@@ -486,126 +439,108 @@ void ProxyLOD::VertexDataMeshToRawMesh(const FVertexDataMesh& SrcVertexDataMesh,
 // raw mesh is nominally a per-index data structure and the vertex data mesh is a per-vertex structure.
 // In addition, this only transfers the first texture coordinate and ignores material ids and vertex colors.
 
-void ProxyLOD::RawMeshToVertexDataMesh(const FRawMesh& SrcRawMesh, FVertexDataMesh& DstVertexDataMesh)
+void ProxyLOD::RawMeshToVertexDataMesh(const FMeshDescription& SrcRawMesh, FVertexDataMesh& DstVertexDataMesh)
 {
+	TVertexAttributesConstRef<FVector> VertexPositions = SrcRawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+	TVertexInstanceAttributesConstRef<FVector> VertexInstanceNormals = SrcRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributesConstRef<FVector> VertexInstanceTangents = SrcRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributesConstRef<float> VertexInstanceBinormalSigns = SrcRawMesh.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributesConstRef<FVector2D> VertexInstanceUVs = SrcRawMesh.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 
-	const uint32 DstNumPositions = SrcRawMesh.VertexPositions.Num();
-	const uint32 DstNumIndexes = SrcRawMesh.WedgeIndices.Num();
+	const uint32 DstNumPositions = SrcRawMesh.Vertices().Num();
 
-	checkSlow(DstNumIndexes % 3 == 0);
+	uint32 DstNumIndexes = 0;
+	for (const FPolygonID& PolygonID : SrcRawMesh.Polygons().GetElementIDs())
+	{
+		const FMeshPolygon& Polygon = SrcRawMesh.GetPolygon(PolygonID);
+		DstNumIndexes += Polygon.Triangles.Num() * 3;
+	}
+
 	// Copy the vertices over
+	TMap<FVertexID, uint32> VertexIDToDstVertexIndex;
+	VertexIDToDstVertexIndex.Reserve(SrcRawMesh.Vertices().Num());
 	{
 		// Allocate the space for the verts in the VertexDataMesh
-
 		ResizeArray(DstVertexDataMesh.Points, DstNumPositions);
-
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumPositions),
-			[&DstVertexDataMesh, &SrcRawMesh](const ProxyLOD::FUIntRange& Range)
+		uint32 VertexCount = 0;
+		for (const FVertexID& VertexID : SrcRawMesh.Vertices().GetElementIDs())
 		{
-			const FVector* SrcPos = SrcRawMesh.VertexPositions.GetData();
-			FVector* DstPos = DstVertexDataMesh.Points.GetData();
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				DstPos[i] = SrcPos[i];
-
-			}
-		});
-
-		checkSlow(DstVertexDataMesh.Points.Num() == DstNumPositions);
-	}
-
-	// Connectivity: 
-	{
-		// convert each quad into two triangles.
-		const TArray<uint32>& SrcIndices = SrcRawMesh.WedgeIndices;
-		TArray<uint32>& DstIndices = DstVertexDataMesh.Indices;
-		ResizeArray(DstIndices, DstNumIndexes);
-
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-			[&DstIndices, &SrcIndices](const ProxyLOD::FUIntRange& Range)
-		{;
-		for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-		{
-			DstIndices[i] = SrcIndices[i];
+			DstVertexDataMesh.Points[VertexCount] = VertexPositions[VertexID];
+			VertexIDToDstVertexIndex.Add(VertexID, VertexCount);
+			VertexCount++;
 		}
-		});
-
-		checkSlow(DstIndices.Num() == DstNumIndexes);
 	}
 
-	// Copy the tangent space:
-	// NB: The tangent space is stored per-index in the raw mesh, but only per-vertex in the vertex data mesh.
-	// We assume that the raw mesh per-index data is really duplicated per-vertex data!
+	// Connectivity:
+	uint32 VertexInstanceCount = 0;
+	TArray<uint32>& DstIndices = DstVertexDataMesh.Indices;
+	ResizeArray(DstIndices, DstNumIndexes);
 
+	TArray<FVector>& DstTangentArray = DstVertexDataMesh.Tangent;
+	ResizeArray(DstTangentArray, DstNumPositions);
+
+	TArray<FVector>& DstBiTangentArray = DstVertexDataMesh.BiTangent;
+	ResizeArray(DstBiTangentArray, DstNumPositions);
+
+	TArray<FVector>& DstNormalArray = DstVertexDataMesh.Normal;
+	ResizeArray(DstNormalArray, DstNumPositions);
+
+	TArray<FVector2D>& DstUVs = DstVertexDataMesh.UVs;
+	ResizeArray(DstUVs, DstNumPositions);
+
+	//Iterate all triangle and add the indices
+	for (const FPolygonID& PolygonID : SrcRawMesh.Polygons().GetElementIDs())
 	{
-		// Note, these aren't threaded to avoid possible data-races.
-		const bool bThreaded = false;
-
-
-		const TArray<FVector>& SrcTangentArray = SrcRawMesh.WedgeTangentX;
-		const TArray<FVector>& SrcBiTangentArray = SrcRawMesh.WedgeTangentY;
-		const TArray<FVector>& SrcNormalArray = SrcRawMesh.WedgeTangentZ;
-
-		TArray<FVector>& DstTangentArray = DstVertexDataMesh.Tangent;
-		TArray<FVector>& DstBiTangentArray = DstVertexDataMesh.BiTangent;
-		TArray<FVector>& DstNormalArray = DstVertexDataMesh.Normal;
-
-		ResizeArray(DstTangentArray, DstNumPositions);
-		ResizeArray(DstBiTangentArray, DstNumPositions);
-		ResizeArray(DstNormalArray, DstNumPositions);
-
-		const auto& DstIndexes = DstVertexDataMesh.Indices;
-		// Copy tangent space
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-			[&DstIndexes, &SrcTangentArray, &DstTangentArray](const ProxyLOD::FUIntRange& Range)
+		const FMeshPolygon& Polygon = SrcRawMesh.GetPolygon(PolygonID);
+		for (const FMeshTriangle& Triangle : Polygon.Triangles)
 		{
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
+			for (int32 Corner = 0; Corner < 3; ++Corner)
 			{
-				DstTangentArray[DstIndexes[i]] = SrcTangentArray[i];
-			}
-		}, bThreaded);
+				const FVertexInstanceID& VertexInstanceID = Triangle.GetVertexInstanceID(Corner);
+				DstIndices[VertexInstanceCount] = VertexIDToDstVertexIndex[SrcRawMesh.GetVertexInstanceVertex(VertexInstanceID)];
 
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-			[&DstIndexes, &DstBiTangentArray, &SrcBiTangentArray](const ProxyLOD::FUIntRange& Range)
-		{
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				DstBiTangentArray[DstIndexes[i]] = SrcBiTangentArray[i];
-			}
-		}, bThreaded);
+				// Copy the tangent space:
+				// NB: The tangent space is stored per-index in the raw mesh, but only per-vertex in the vertex data mesh.
+				// We assume that the raw mesh per-index data is really duplicated per-vertex data!
+				DstTangentArray[DstIndices[VertexInstanceCount]] = VertexInstanceTangents[VertexInstanceID];
+				DstBiTangentArray[DstIndices[VertexInstanceCount]] = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceID], VertexInstanceTangents[VertexInstanceID]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceID];
+				DstNormalArray[DstIndices[VertexInstanceCount]] = VertexInstanceNormals[VertexInstanceID];
 
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-			[&DstIndexes, &DstNormalArray, &SrcNormalArray](const ProxyLOD::FUIntRange& Range)
-		{
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				DstNormalArray[DstIndexes[i]] = SrcNormalArray[i];
+				// Copy the UVs:
+				// NB: The UVs is stored per-index in the raw mesh, but only per-vertex in the vertex data mesh.
+				// We assume that the raw mesh per-index data is really duplicated per-vertex data!
+				if (VertexInstanceUVs.GetNumIndices() == 0)
+				{
+					DstUVs[DstIndices[VertexInstanceCount]] = FVector2D(0.0f, 0.0f);
+				}
+				else
+				{
+					DstUVs[DstIndices[VertexInstanceCount]] = VertexInstanceUVs.Get(VertexInstanceID, 0);
+				}
+
+				VertexInstanceCount++;
 			}
-		}, bThreaded);
+		}
 	}
 
+	int32 NumTriangles = VertexInstanceCount / 3;
+	TArray<uint32> FaceSmoothingMasks;
+	FaceSmoothingMasks.AddZeroed(NumTriangles);
 
-	// Copy UVs
+	FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(SrcRawMesh, FaceSmoothingMasks);
+
+	TArray<uint32>& DstFacePartition = DstVertexDataMesh.FacePartition;
+	ResizeArray(DstFacePartition, NumTriangles);
+
+	for (int32 FaceIndex = 0; FaceIndex < NumTriangles; ++FaceIndex)
 	{
-		// Note, these aren't threaded to avoid possible data-races.
-		const bool bThreaded = false;
-
-		// Need to have a a WedgeTextCoord channel
-		auto& SrcUVs = SrcRawMesh.WedgeTexCoords[0];
-		TArray<FVector2D>& DstUVs = DstVertexDataMesh.UVs;
-
-		ResizeArray(DstUVs, DstNumPositions);
-
-		const auto& DstIndexes = DstVertexDataMesh.Indices;
-		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
-			[&DstIndexes, &DstUVs, &SrcUVs](const ProxyLOD::FUIntRange& Range)
+		DstFacePartition[FaceIndex] = 0;
+		for (int32 BitIndex = 0; BitIndex < 32; ++BitIndex)
 		{
-			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
-			{
-				DstUVs[DstIndexes[i]] = SrcUVs[i];
-			}
-		}, bThreaded);
+			uint32 BitMask = FMath::Pow(2, BitIndex);
+			DstFacePartition[FaceIndex] += ((FaceSmoothingMasks[FaceIndex] & BitMask) > 0);
+		}
 	}
 }
 
@@ -730,17 +665,17 @@ void ProxyLOD::ConvertMesh(const FAOSMesh& InMesh, FVertexDataMesh& OutMesh)
 }
 
 
-void ProxyLOD::ConvertMesh(const FAOSMesh& InMesh, FRawMesh& OutMesh)
+void ProxyLOD::ConvertMesh(const FAOSMesh& InMesh, FMeshDescription& OutMesh)
 {
 	AOSMeshToRawMesh(InMesh, OutMesh);
 }
 
-void ProxyLOD::ConvertMesh(const FVertexDataMesh& InMesh, FRawMesh& OutMesh)
+void ProxyLOD::ConvertMesh(const FVertexDataMesh& InMesh, FMeshDescription& OutMesh)
 {
 	VertexDataMeshToRawMesh(InMesh, OutMesh);
 }
 
-void ProxyLOD::ConvertMesh(const FRawMesh& InMesh, FVertexDataMesh& OutMesh)
+void ProxyLOD::ConvertMesh(const FMeshDescription& InMesh, FVertexDataMesh& OutMesh)
 {
 	RawMeshToVertexDataMesh(InMesh, OutMesh);
 }

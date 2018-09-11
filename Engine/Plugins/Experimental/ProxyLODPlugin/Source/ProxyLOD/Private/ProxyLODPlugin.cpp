@@ -5,7 +5,6 @@
 #include "Modules/ModuleManager.h"
 #include "Features/IModularFeatures.h"
 #include "IProxyLODPlugin.h"
-#include "RawMesh.h"
 #include "MeshMergeData.h"
 #include "Engine/MeshMerging.h"
 #include "MaterialUtilities.h" // for FFlattenMaterial 
@@ -35,6 +34,11 @@
 
 #include "ProxyLODkDOPInterface.h"
 #include "ProxyLODThreadedWrappers.h"
+
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescriptionOperations.h"
 
 
 
@@ -419,7 +423,7 @@ static void SimplifyMesh( const FClosestPolyField& SrcGeometryPolyField,
 	//SCOPE_LOG_TIME(TEXT("UE4_ProxyLOD_Simplifier"), nullptr);
 
 	// Compute some of the metrics that relate the desired resolution to simplifier parameters.
-	const FRawMeshArrayAdapter& SrcGeometryAdapter = SrcGeometryPolyField.MeshAdapter();
+	const FMeshDescriptionArrayAdapter& SrcGeometryAdapter = SrcGeometryPolyField.MeshAdapter();
 	const ProxyLOD::FBBox& SrcBBox = SrcGeometryAdapter.GetBBox();
 	const float MaxSide = SrcBBox.extents().length();
 
@@ -578,12 +582,11 @@ void FVoxelizeMeshMerging::ProxyLOD(const FMeshMergeDataArray& InData, const FMe
 	// NB: These will be the product of this function and 
 	//     will be captured by the CompleteDelegate. 
 
-	FRawMesh OutRawMesh;
+	FMeshDescription OutRawMesh;
+	UStaticMesh::RegisterMeshAttributes(OutRawMesh);
 
 	FFlattenMaterial OutMaterial         = FMaterialUtilities::CreateFlattenMaterialWithSettings(InProxySettings.MaterialSettings);
 	const FColor UnresolvedGeometryColor = InProxySettings.UnresolvedGeometryColor;
-
-
 
 	bool bProxyGenerationSuccess = true;
 	// Compute the simplified mesh and related materials.
@@ -591,8 +594,8 @@ void FVoxelizeMeshMerging::ProxyLOD(const FMeshMergeDataArray& InData, const FMe
 	
 		// Create an adapter to make the data appear as a single mesh as required by the voxelization code.
 
-		FRawMeshArrayAdapter SrcGeometryAdapter(InGeometry);
-		FRawMeshArrayAdapter ClippingGeometryAdapter(InClippingGeometry); 
+		FMeshDescriptionArrayAdapter SrcGeometryAdapter(InGeometry);
+		FMeshDescriptionArrayAdapter ClippingGeometryAdapter(InClippingGeometry);
 
 		{
 			const auto& BBox = SrcGeometryAdapter.GetBBox();
@@ -838,7 +841,7 @@ void FVoxelizeMeshMerging::ProxyLOD(const FMeshMergeDataArray& InData, const FMe
 					}
 				}
 			);
-
+			SrcGeometryAdapter.UpdateMaterialsID();
 		}
 		else
 		{
@@ -887,7 +890,7 @@ void FVoxelizeMeshMerging::ProxyLOD(const FMeshMergeDataArray& InData, const FMe
 
 
 			// --- Compute the tangent space on the simplified mesh ---
-			// Convert to FRawMesh because it has the per-index attribute structure needed for the tangent space.
+			// Convert to FMeshDescription because it has the per-index attribute structure needed for the tangent space.
 			// Generate the tangent space, but retain our current normals.
 
 			MapTextureAtlasAndAddTangentSpaceTaskGroup.RunAndWait(
@@ -1003,19 +1006,25 @@ void FVoxelizeMeshMerging::ProxyLOD(const FMeshMergeDataArray& InData, const FMe
 	{
 
 		// Revert the smoothing group to a default.
+		TEdgeAttributesRef<bool> EdgeHardnesses = OutRawMesh.EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
 
-		for (int32 i = 0; i < OutRawMesh.FaceSmoothingMasks.Num(); ++i)
+		for (const FEdgeID& EdgeID : OutRawMesh.Edges().GetElementIDs())
 		{
-			OutRawMesh.FaceSmoothingMasks[i] = 1;
+			EdgeHardnesses[EdgeID] = false;
 		}
 
-		// Debuging
-
-		checkSlow(OutRawMesh.IsValid());
 
 		// NB: FProxyGenerationProcessor::ProxyGenerationComplete
-
-		CompleteDelegate.ExecuteIfBound(OutRawMesh, OutMaterial, InJobGUID);
+		FRawMesh ConvertedRawMesh;
+		TMap<FName, int32> MaterialMap;
+		TPolygonGroupAttributesConstRef<FName> PolygonGroupNames = OutRawMesh.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+		int32 MaterialIndex = 0;
+		for (const FPolygonGroupID PolygonGroupID : OutRawMesh.PolygonGroups().GetElementIDs())
+		{
+			MaterialMap.Add(PolygonGroupNames[PolygonGroupID], MaterialIndex++);
+		}
+		FMeshDescriptionOperations::ConvertToRawMesh(OutRawMesh, ConvertedRawMesh, MaterialMap);
+		CompleteDelegate.ExecuteIfBound(ConvertedRawMesh, OutMaterial, InJobGUID);
 	}
 	else
 	{

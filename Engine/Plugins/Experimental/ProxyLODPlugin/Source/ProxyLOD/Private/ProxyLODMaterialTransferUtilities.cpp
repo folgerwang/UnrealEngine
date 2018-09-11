@@ -9,6 +9,10 @@
 #include "ProxyLODMeshConvertUtils.h"
 #include "Math/Matrix.h" // used in chirality..
 
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+
 
 namespace ProxyLOD
 {
@@ -19,13 +23,13 @@ namespace
 {
 	// returns the HitUV
 	template<typename TestFunctorType>
-	float EvaluateHit(const FVector& HitPoint, const uint32 SrcPolyId, const FRawMeshArrayAdapter& MeshAdapter,
+	float EvaluateHit(const FVector& HitPoint, const uint32 SrcPolyId, const FMeshDescriptionArrayAdapter& MeshAdapter,
 		ProxyLOD::FSrcMeshData& HitPayload, TestFunctorType& TestFunctor)
 	{
 
 
 		int32 MeshId; int32 LocalFaceNumber;
-		const FRawMeshArrayAdapter::FRawPoly SrcPoly = MeshAdapter.GetRawPoly(SrcPolyId, MeshId, LocalFaceNumber);
+		const FMeshDescriptionArrayAdapter::FRawPoly SrcPoly = MeshAdapter.GetRawPoly(SrcPolyId, MeshId, LocalFaceNumber);
 		int32 MaterialIdx = SrcPoly.FaceMaterialIndex;
 
 		FVector2D UVs[3];
@@ -92,17 +96,17 @@ namespace
 		return TestFunctor(SrcPoly);
 	}
 
-	float EvaluateHit(const FVector& HitPoint, const uint32 SrcPolyId, const FRawMeshArrayAdapter& MeshAdapter,
+	float EvaluateHit(const FVector& HitPoint, const uint32 SrcPolyId, const FMeshDescriptionArrayAdapter& MeshAdapter,
 		ProxyLOD::FSrcMeshData& HitPayload)
 	{
-		auto NoOpFunctor = [](const FRawMeshArrayAdapter::FRawPoly& RawPoly)->float {return 1; };
+		auto NoOpFunctor = [](const FMeshDescriptionArrayAdapter::FRawPoly& RawPoly)->float {return 1; };
 
 		return EvaluateHit(HitPoint, SrcPolyId, MeshAdapter, HitPayload, NoOpFunctor);
 	};
 
 	// returns the HitUV
 	template <bool Forward>
-	float EvaluateHit(const FkHitResult& HitResult, const FVector& RayStart, const FVector& RayDirection, const FRawMeshArrayAdapter& MeshAdapter,
+	float EvaluateHit(const FkHitResult& HitResult, const FVector& RayStart, const FVector& RayDirection, const FMeshDescriptionArrayAdapter& MeshAdapter,
 		ProxyLOD::FSrcMeshData& HitPayload)
 	{
 
@@ -115,7 +119,7 @@ namespace
 		const float  HitTime = (Forward) ? HitResult.Time : -HitResult.Time;
 		const FVector HitPoint = RayStart + HitTime * RayDirection;
 
-		auto DirectionalTest = [&RayDirection](const FRawMeshArrayAdapter::FRawPoly& RawPoly)->float
+		auto DirectionalTest = [&RayDirection](const FMeshDescriptionArrayAdapter::FRawPoly& RawPoly)->float
 		{
 			// Is the SrcNormal roughly in the same direction as the ray
 			// the face normal of this poly
@@ -137,7 +141,7 @@ namespace
 // Generate a map between UV locations on the simplified geometry and points on the Src geometry
 // Inactive texels in the result have MaterialId = -1;
 
-ProxyLOD::FSrcDataGrid::Ptr ProxyLOD::CreateCorrespondence( const FRawMeshArrayAdapter& SrcMesh, 
+ProxyLOD::FSrcDataGrid::Ptr ProxyLOD::CreateCorrespondence( const FMeshDescriptionArrayAdapter& SrcMesh,
 															const FVertexDataMesh& ReducedMesh, 
 															const ProxyLOD::FRasterGrid& UVGrid, 
 															const int32 TransferType, 
@@ -377,7 +381,7 @@ ProxyLOD::FSrcDataGrid::Ptr ProxyLOD::CreateCorrespondence( const FRawMeshArrayA
 // Generate a map between UV locations on the simplified geometry and points on the Src geometry
 // Inactive texels in the result have MaterialId = -1;
 ProxyLOD::FSrcDataGrid::Ptr ProxyLOD::CreateCorrespondence( const openvdb::Int32Grid& ClosestPolyGrid, 
-															const FRawMeshArrayAdapter& SrcMesh,
+															const FMeshDescriptionArrayAdapter& SrcMesh,
 															const FVertexDataMesh& ReducedMesh, 
 															const ProxyLOD::FRasterGrid& UVGrid,
 															const int32 TransferType, 
@@ -1033,7 +1037,7 @@ namespace
 	// In the case that the source geometry didn't have a normal map, we have to generate one by 
 	// directly sampling the geometry normals.
 
-	void SuperSampleWSNormal(const FRawMeshArrayAdapter& SrcMeshAdapter,
+	void SuperSampleWSNormal(const FMeshDescriptionArrayAdapter& SrcMeshAdapter,
 		const ProxyLOD::FSrcDataGrid& SuperSampleCorrespondenceGrid,
 		const ProxyLOD::FRasterGrid& SuperSampleUVGrid,
 		const TArray<FFlattenMaterial>& InputMaterials,
@@ -1073,7 +1077,7 @@ namespace
 			{
 
 				int32 MeshId; int32 LocalFaceNumber;
-				const FRawMeshArrayAdapter::FRawPoly SrcPoly = SrcMeshAdapter.GetRawPoly(TriangleId, MeshId, LocalFaceNumber);
+				const FMeshDescriptionArrayAdapter::FRawPoly SrcPoly = SrcMeshAdapter.GetRawPoly(TriangleId, MeshId, LocalFaceNumber);
 
 				// Get the tangent space:  We try to compute this in a way that is consistent with LocalVertexFactory.usf (CalcTangentToLocal).
 
@@ -1252,10 +1256,14 @@ namespace
 	*      texels correspond to each result texel
 	*  
 	*/
-	void SparseDownSampleNormal(const ProxyLOD::TGridWrapper<FVector>& SuperSampledNormalGrid, 
-		                        const ProxyLOD::FRasterGrid& DstUVGrid, const FRawMesh& DstRawMesh,
-		                        ProxyLOD::FLinearColorGrid& OutDstBufferGrid)
+	void SparseDownSampleNormal(const ProxyLOD::TGridWrapper<FVector>& SuperSampledNormalGrid,
+		const ProxyLOD::FRasterGrid& DstUVGrid, const FMeshDescription& MeshDescription,
+		ProxyLOD::FLinearColorGrid& OutDstBufferGrid)
 	{
+		TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+		TVertexInstanceAttributesConstRef<float> VertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
 
 		const FIntPoint SuperSampleSize = SuperSampledNormalGrid.Size();
 		const FIntPoint DstBufferSize = OutDstBufferGrid.Size();
@@ -1263,7 +1271,7 @@ namespace
 
 		const int32 NumXSuperSamples = SuperSampleSize.X / UVSize.X;
 		const int32 NumYSuperSamples = SuperSampleSize.Y / UVSize.Y;
-		
+
 
 		checkSlow(SuperSampleSize.X == UVSize.X * NumXSuperSamples);
 		checkSlow(SuperSampleSize.Y == UVSize.Y * NumYSuperSamples);
@@ -1279,38 +1287,38 @@ namespace
 			typedef openvdb::Mat3R  FTangentSpace;
 
 
-			auto ComputeDstTangentSpace = [&DstRawMesh](const int32 TriangleId, const ProxyLOD::DArray3d& BarycentricCoords, FTangentSpace& TangentSpace)
+			auto ComputeDstTangentSpace = [&MeshDescription, &VertexInstanceTangents, &VertexInstanceBinormalSigns, &VertexInstanceNormals](const int32 TriangleId, const ProxyLOD::DArray3d& BarycentricCoords, FTangentSpace& TangentSpace)
 			{
-				const int32 Indexes[3] = { TriangleId * 3, TriangleId * 3 + 1, TriangleId * 3 + 2 };
+				const FVertexInstanceID VertexInstanceIDs[3] = { FVertexInstanceID(3 * TriangleId),
+																 FVertexInstanceID(3 * TriangleId + 1),
+																 FVertexInstanceID(3 * TriangleId + 2) };
+
 
 				// Compute the local tangent space
 				FVector InterpolatedTangent;
-				//{
-					FVector TangentSamples[3];
-					TangentSamples[0] = DstRawMesh.WedgeTangentX[Indexes[0]];
-					TangentSamples[1] = DstRawMesh.WedgeTangentX[Indexes[1]];
-					TangentSamples[2] = DstRawMesh.WedgeTangentX[Indexes[2]];
-					InterpolatedTangent = ProxyLOD::InterpolateVertexData(BarycentricCoords, TangentSamples);
-				//}
+				FVector TangentSamples[3];
+				TangentSamples[0] = VertexInstanceTangents[VertexInstanceIDs[0]];
+				TangentSamples[1] = VertexInstanceTangents[VertexInstanceIDs[1]];
+				TangentSamples[2] = VertexInstanceTangents[VertexInstanceIDs[2]];
+				InterpolatedTangent = ProxyLOD::InterpolateVertexData(BarycentricCoords, TangentSamples);
 
 				FVector InterpolatedBiTangent;
-
 				// The bi-tangent is reconstructed from the tangent and normal
 				//{
-					FVector BiTangentSamples[3];
-					BiTangentSamples[0] = DstRawMesh.WedgeTangentY[Indexes[0]];
-					BiTangentSamples[1] = DstRawMesh.WedgeTangentY[Indexes[1]];
-					BiTangentSamples[2] = DstRawMesh.WedgeTangentY[Indexes[2]];
-					InterpolatedBiTangent = ProxyLOD::InterpolateVertexData(BarycentricCoords, BiTangentSamples);
+				FVector BiTangentSamples[3];
+				BiTangentSamples[0] = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceIDs[0]], VertexInstanceTangents[VertexInstanceIDs[0]]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceIDs[0]];
+				BiTangentSamples[1] = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceIDs[1]], VertexInstanceTangents[VertexInstanceIDs[1]]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceIDs[1]];
+				BiTangentSamples[2] = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceIDs[2]], VertexInstanceTangents[VertexInstanceIDs[2]]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceIDs[2]];
+				InterpolatedBiTangent = ProxyLOD::InterpolateVertexData(BarycentricCoords, BiTangentSamples);
 				//}
 
 				FVector InterpolatedNormal;
 				//{
-					FVector NormalSamples[3];
-					NormalSamples[0] = DstRawMesh.WedgeTangentZ[Indexes[0]];
-					NormalSamples[1] = DstRawMesh.WedgeTangentZ[Indexes[1]];
-					NormalSamples[2] = DstRawMesh.WedgeTangentZ[Indexes[2]];
-					InterpolatedNormal = ProxyLOD::InterpolateVertexData(BarycentricCoords, NormalSamples);
+				FVector NormalSamples[3];
+				NormalSamples[0] = VertexInstanceNormals[VertexInstanceIDs[0]];
+				NormalSamples[1] = VertexInstanceNormals[VertexInstanceIDs[1]];
+				NormalSamples[2] = VertexInstanceNormals[VertexInstanceIDs[2]];
+				InterpolatedNormal = ProxyLOD::InterpolateVertexData(BarycentricCoords, NormalSamples);
 				//}
 
 				// Testing handedness. Is the tangent x bitangent pointing (roughly) in the direction of the normal?
@@ -1519,7 +1527,7 @@ namespace
 
 
 	template <EFlattenMaterialProperties PropertyType>
-	void TMapFlattenMaterial(const FRawMesh& DstRawMesh, const FRawMeshArrayAdapter& SrcMeshAdapter,
+	void TMapFlattenMaterial(const FMeshDescription& DstRawMesh, const FMeshDescriptionArrayAdapter& SrcMeshAdapter,
 		const ProxyLOD::FSrcDataGrid&  SuperSampledCorrespondenceGrid,
 		const ProxyLOD::FRasterGrid& SuperSampledDstUVGrid, const ProxyLOD::FRasterGrid& DstUVGrid,
 		const TArray<FFlattenMaterial>& InputMaterials, FFlattenMaterial& OutMaterial, const FColor DefaultColor = FColor::Black)
@@ -1682,8 +1690,8 @@ namespace
  // Map Diffuse, Specular, Metallic, Roughness, Normal, Emissive, Opacity to the correct materials.
  // NB: EFlattenMaterialProperties: SubSurface, OpacityMask and AmbientOcclusion are not included
 void MapFlattenMaterial(const EFlattenMaterialProperties PropertyType, 
-	const FRawMesh& DstRawMesh, 
-	const FRawMeshArrayAdapter& SrcMeshAdapter,
+	const FMeshDescription& DstRawMesh,
+	const FMeshDescriptionArrayAdapter& SrcMeshAdapter,
 	const ProxyLOD::FSrcDataGrid& SuperSampledCorrespondenceGrid, 
 	const ProxyLOD::FRasterGrid& SuperSampledDstUVGrid,
 	const ProxyLOD::FRasterGrid& DstUVGrid, 
@@ -1723,7 +1731,7 @@ void MapFlattenMaterial(const EFlattenMaterialProperties PropertyType,
 }// end anonymous namespace
 
 
-void ProxyLOD::MapFlattenMaterials(const FRawMesh& DstRawMesh, const FRawMeshArrayAdapter& SrcMeshAdapter,
+void ProxyLOD::MapFlattenMaterials(const FMeshDescription& DstRawMesh, const FMeshDescriptionArrayAdapter& SrcMeshAdapter,
 	const ProxyLOD::FSrcDataGrid& SuperSampledCorrespondenceGrid,
 	const ProxyLOD::FRasterGrid& SuperSampledDstUVGrid,
 	const ProxyLOD::FRasterGrid& DstUVGrid,
@@ -1759,7 +1767,7 @@ void ProxyLOD::MapFlattenMaterials(const FRawMesh& DstRawMesh, const FRawMeshArr
 
 // Maps each triangle id to a color.  This is just for testing
 void ProxyLOD::ColorMapFlattedMaterials( const FVertexDataMesh& VertexDataMesh, 
-	                                     const FRawMeshArrayAdapter& MeshAdapter, 
+	                                     const FMeshDescriptionArrayAdapter& MeshAdapter,
 	                                     const ProxyLOD::FRasterGrid& UVGrid, 
 	                                     const TArray<FFlattenMaterial>& InputMaterials, 
 	                                     FFlattenMaterial& OutMaterial)

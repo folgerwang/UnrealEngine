@@ -758,7 +758,16 @@ public:
 	ENGINE_API void LoadMeshDescriptions();
 	ENGINE_API void UnloadMeshDescriptions();
 
+	/*
+	 * Return the MeshDescription associate to the LODIndex. The mesh description can be created on the fly if it was null
+	 * and there is a FRawMesh data for this LODIndex.
+	 */
 	ENGINE_API FMeshDescription* GetOriginalMeshDescription(int32 LodIndex);
+	/*
+	 * The const flavor set a new MeshDescription if its null and there is a valid FRawMesh.
+	 * It will simply convert the FRawMesh or copy a valid sourcemodel->MeshDescription pointer into the MeshDescription parameter, .
+	 */
+	ENGINE_API void GetOriginalMeshDescription(int32 LodIndex, FMeshDescription& MeshDescription) const;
 	ENGINE_API FMeshDescription* CreateOriginalMeshDescription(int32 LodIndex);
 	ENGINE_API void CommitOriginalMeshDescription(int32 LodIndex);
 	ENGINE_API void ClearOriginalMeshDescription(int32 LodIndex);

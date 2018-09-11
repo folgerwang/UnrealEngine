@@ -8,6 +8,7 @@ struct FMeshDescription;
 struct FRawMesh;
 struct FOverlappingCorners;
 enum class ELightmapUVVersion : int32;
+struct FPolygonGroupID;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMeshDescriptionOperations, Log, All);
 
@@ -31,6 +32,11 @@ public:
 
 	/** Convert old FRawMesh format to MeshDescription. */
 	static void ConvertFromRawMesh(const FRawMesh& SourceRawMesh, FMeshDescription& DestinationMeshDescription, const TMap<int32, FName>& MaterialMap);
+
+	/*
+	 * Check if all normals and tangents are valid, if not recompute them
+	 */
+	static void RecomputeNormalsAndTangentsIfNeeded(FMeshDescription& MeshDescription, ETangentOptions TangentOptions, bool bUseMikkTSpace, bool bForceRecomputeNormals = false, bool bForceRecomputeTangents = false);
 
 	/**
 	 * Compute normal, tangent and Bi-Normal for every polygon in the mesh description. (this do not compute Vertex NTBs)
@@ -69,4 +75,6 @@ public:
 	static void ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, TArray<uint32>& FaceSmoothingMasks);
 
 	static void ConvertSmoothGroupToHardEdges(const TArray<uint32>& FaceSmoothingMasks, FMeshDescription& DestinationMeshDescription);
+
+	static void RemapPolygonGroups(FMeshDescription& MeshDescription, TMap<FPolygonGroupID, FPolygonGroupID>& Remap);
 };

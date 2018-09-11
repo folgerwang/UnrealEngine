@@ -1600,29 +1600,13 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 			Args.Add(TEXT("StaticMeshName"), FText::FromString( Owner->GetName() ) );
 			FStaticMeshStatusMessageContext StatusContext( FText::Format( NSLOCTEXT("Engine", "BuildingStaticMeshStatus", "Building static mesh {StaticMeshName}..."), Args ) );
 
-			bool bUseMeshDescription = false;
-			if (Owner->GetOriginalMeshDescription(0) != nullptr)
-			{
-				bUseMeshDescription = true;
-			}
+			check(Owner->GetOriginalMeshDescription(0) != nullptr)
 
-			if (bUseMeshDescription)
+			IMeshBuilderModule& MeshBuilderModule = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
+			if (!MeshBuilderModule.BuildMesh(*this, Owner, LODGroup))
 			{
-				IMeshBuilderModule& MeshBuilderModule = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
-				if (!MeshBuilderModule.BuildMesh(*this, Owner, LODGroup))
-				{
-					UE_LOG(LogStaticMesh, Error, TEXT("Failed to build static mesh. See previous line(s) for details."));
-					return;
-				}
-			}
-			else
-			{
-				IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>(TEXT("MeshUtilities"));
-				if (!MeshUtilities.BuildStaticMesh(*this, Owner, LODGroup))
-				{
-					UE_LOG(LogStaticMesh, Error, TEXT("Failed to build static mesh. See previous line(s) for details."));
-					return;
-				}
+				UE_LOG(LogStaticMesh, Error, TEXT("Failed to build static mesh. See previous line(s) for details."));
+				return;
 			}
 
 			ComputeUVDensities();
@@ -2815,6 +2799,28 @@ void UStaticMesh::UnloadMeshDescriptions()
 	MeshDescriptions->Empty();
 	MeshDescriptions->MarkPendingKill();
 	MeshDescriptions = nullptr;
+}
+
+void UStaticMesh::GetOriginalMeshDescription(int32 LodIndex, FMeshDescription& MeshDescription) const
+{
+	if (SourceModels.IsValidIndex(LodIndex))
+	{
+		check(MeshDescriptions->Num() == SourceModels.Num());
+		check(MeshDescriptions->Get(LodIndex) == SourceModels[LodIndex].OriginalMeshDescription);
+
+		if (MeshDescriptions->Get(LodIndex) == nullptr && !SourceModels[LodIndex].IsRawMeshEmpty())
+		{
+			FRawMesh LodRawMesh;
+			SourceModels[LodIndex].LoadRawMesh(LodRawMesh);
+			TMap<int32, FName> MaterialMap;
+			FillMaterialName(StaticMaterials, MaterialMap);
+			FMeshDescriptionOperations::ConvertFromRawMesh(LodRawMesh, MeshDescription, MaterialMap);
+		}
+		else if(MeshDescriptions->Get(LodIndex) != nullptr)
+		{
+			MeshDescription = *MeshDescriptions->Get(LodIndex);
+		}
+	}
 }
 
 FMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex)

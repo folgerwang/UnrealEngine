@@ -54,5 +54,5 @@ namespace ProxyLOD
 	*/
 	void GenerateAdjacency(const FVertexDataMesh& InMesh, std::vector<uint32>& OutAdjacencyArray);
 	void GenerateAdjacency(const FAOSMesh& InMesh, std::vector<uint32>& OutAdjacencyArray);
-	void GenerateAdjacency(const FRawMesh& InMesh, std::vector<uint32>& OutAdjacencyArray);
+	void GenerateAdjacency(const FMeshDescription& InMesh, std::vector<uint32>& OutAdjacencyArray);
 }

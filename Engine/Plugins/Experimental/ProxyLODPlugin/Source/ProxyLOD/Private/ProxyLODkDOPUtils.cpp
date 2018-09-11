@@ -5,9 +5,13 @@
 #include "ProxyLODMeshTypes.h"
 #include "ProxyLODThreadedWrappers.h"
 
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescription.h"
+
 // Utils for building a kdop tree from different mesh types.
 
-void ProxyLOD::BuildkDOPTree(const FRawMeshArrayAdapter& SrcGeometry, ProxyLOD::FkDOPTree& kDOPTree)
+void ProxyLOD::BuildkDOPTree(const FMeshDescriptionArrayAdapter& SrcGeometry, ProxyLOD::FkDOPTree& kDOPTree)
 {
 
 	const auto NumSrcPoly = SrcGeometry.polygonCount();
@@ -34,10 +38,15 @@ void ProxyLOD::BuildkDOPTree(const FRawMeshArrayAdapter& SrcGeometry, ProxyLOD::
 
 }
 
-void ProxyLOD::BuildkDOPTree(const FRawMesh& SrcRawMesh, ProxyLOD::FkDOPTree& kDOPTree)
+void ProxyLOD::BuildkDOPTree(const FMeshDescription& MeshDescription, FkDOPTree& kDOPTree)
 {
+	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
-	const auto NumSrcPoly = SrcRawMesh.WedgeIndices.Num() / 3;
+	uint32 NumSrcPoly = 0;
+	for (const FPolygonID& PolygonID : MeshDescription.Polygons().GetElementIDs())
+	{
+		NumSrcPoly += MeshDescription.GetPolygonTriangles(PolygonID).Num();
+	}
 
 	TArray<FkDOPBuildTriangle> BuildTriangleArray;
 
@@ -45,15 +54,16 @@ void ProxyLOD::BuildkDOPTree(const FRawMesh& SrcRawMesh, ProxyLOD::FkDOPTree& kD
 	ResizeArray(BuildTriangleArray, NumSrcPoly);
 
 	ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, NumSrcPoly),
-		[&BuildTriangleArray, &SrcRawMesh](const ProxyLOD::FUIntRange& Range)
+		[&BuildTriangleArray, &MeshDescription, &VertexPositions](const ProxyLOD::FUIntRange& Range)
 	{
 		FkDOPBuildTriangle* BuildTriangles = BuildTriangleArray.GetData();
-		const uint32* Idxs = SrcRawMesh.WedgeIndices.GetData();
-		const FVector* Positions = SrcRawMesh.VertexPositions.GetData();
 
 		for (uint32 r = Range.begin(), R = Range.end(); r < R; ++r)
 		{
-			FVector Pos[3] = { Positions[Idxs[3 * r]],  Positions[Idxs[3 * r + 1]],  Positions[Idxs[3 * r + 2]] };
+
+			FVector Pos[3] = {	VertexPositions[MeshDescription.GetVertexInstanceVertex(FVertexInstanceID(3 * r))],
+								VertexPositions[MeshDescription.GetVertexInstanceVertex(FVertexInstanceID(3 * r + 1))],
+								VertexPositions[MeshDescription.GetVertexInstanceVertex(FVertexInstanceID(3 * r + 2))] };
 			BuildTriangles[r] = FkDOPBuildTriangle(r, Pos[0], Pos[1], Pos[2]);
 		}
 
