@@ -786,7 +786,7 @@ void FTranslationDataManager::LoadFromArchive(TArray<UTranslationUnit*>& InTrans
 							FString CurrentTranslationTrimmed = TranslationUnit->Translation;
 							CurrentTranslationTrimmed.TrimStartAndEndInline();
 							// Ignore changes to only whitespace at beginning and/or end of string on import
-							if (PreviousTranslationTrimmed == CurrentTranslationTrimmed)
+							if (PreviousTranslationTrimmed.Equals(CurrentTranslationTrimmed))
 							{
 								TranslationUnit->Translation = PreviousTranslation;
 							}
@@ -929,10 +929,10 @@ bool FTranslationDataManager::SaveSelectedTranslations(TArray<UTranslationUnit*>
 					for (UTranslationUnit* Translation : TranslationsArray)
 					{
 						// If namespace matches...
-						if (Translation->Namespace == EditedItem->Namespace)
+						if (Translation->Namespace.Equals(EditedItem->Namespace))
 						{
 							// And source matches
-							if (Translation->Source == EditedItem->Source)
+							if (Translation->Source.Equals(EditedItem->Source))
 							{
 								// Update the translation in TranslationDataManager, and finish searching these translations
 								Translation->Translation = EditedItem->Translation;

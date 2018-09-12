@@ -105,16 +105,8 @@ void STranslationPickerFloatingWindow::Tick( const FGeometry& AllottedGeometry, 
 
 			WindowContents->SetContentWidget(
 				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.Padding(0)
-				.AutoHeight()
-				.Padding(FMargin(5))
-				[
-					SNew(STextBlock)
-					.Text(FText::FromString(FInternationalization::Get().GetCurrentCulture()->GetDisplayName()))
-					.Justification(ETextJustify::Center)
-				]
-			+ SVerticalBox::Slot()
+				
+				+SVerticalBox::Slot()
 				.Padding(0)
 				.FillHeight(1)
 				.Padding(FMargin(5))
@@ -122,13 +114,15 @@ void STranslationPickerFloatingWindow::Tick( const FGeometry& AllottedGeometry, 
 					SNew(SScrollBox)
 					.Orientation(EOrientation::Orient_Vertical)
 					.ScrollBarAlwaysVisible(true)
+					
 					+SScrollBox::Slot()
-						.Padding(FMargin(0))
-						[
-									TextsBox
-						]
+					.Padding(FMargin(0))
+					[
+						TextsBox
+					]
 				]
-			+ SVerticalBox::Slot()
+
+				+SVerticalBox::Slot()
 				.Padding(0)
 				.AutoHeight()
 				.Padding(FMargin(5))
