@@ -349,6 +349,25 @@ public:
 	virtual void GetAllTextureFormats( TArray<FName>& OutFormats ) const = 0;
 
 	/**
+	* Gets the texture format to use for a virtual texturing layer. In order to make a better guess
+	* some parameters are passed to this function.
+	*
+	* @param SourceFormat The raw uncompressed source format (ETextureSourceFormat) the texture is stored in.
+	* @param bAllowCompression Allow a compressed (lossy) format to be chosen.
+	* @param bNoAlpha The chosen format doesn't need to have an alpha channel.
+	* @param bSupportDX11TextureFormats Allow choosing a texture format which is supported only on DX11 hardware (e.g. BC7 etc).
+	* @param settings A hint as to what kind of data is to be stored in the layer or an explicit request for a certain format (TextureCompressionSettings enum value).
+	* @return The chosen format to use for the layer on this platform based on the given input. May return the None name ( Fname::IsNone == true) on platforms that do not support VT.
+	* 
+	* FIXME: Is it better to pass in the UVirtualTexture and layer index instead of all these arguments?! Less encapsulated but cleaner??
+	* this would also mean we don't have to hide the SourceFormat and TextureCompressionSettings enums
+	*/
+	virtual FName GetVirtualTextureLayerFormat(
+		int32 SourceFormat,
+		bool bAllowCompression, bool bNoAlpha,
+		bool bSupportDX11TextureFormats, int32 TextureCompressionSettings) const = 0;
+
+	/**
 	 * Gets the format to use for a particular piece of audio.
 	 *
 	 * @param Wave The sound node wave to get the format for.

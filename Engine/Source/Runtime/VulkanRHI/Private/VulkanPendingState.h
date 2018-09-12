@@ -57,28 +57,80 @@ public:
 		UAVListForAutoFlush.Add(UAV);
 	}
 
-	void SetUAV(uint32 UAVIndex, FVulkanUnorderedAccessView* UAV);
+	void SetUAVForUBResource(uint32 DescriptorSet, uint32 BindingIndex, FVulkanUnorderedAccessView* UAV);
 
-	inline void SetTexture(uint32 BindPoint, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
+	inline void SetUAVForStage(uint32 UAVIndex, FVulkanUnorderedAccessView* UAV)
 	{
-		CurrentState->SetTexture(BindPoint, TextureBase, Layout);
+		const FVulkanComputePipelineDescriptorInfo& DescriptorInfo = CurrentState->GetComputePipelineDescriptorInfo();
+		uint8 DescriptorSet;
+		uint32 BindingIndex;
+		if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(FVulkanShaderHeader::Global, UAVIndex, DescriptorSet, BindingIndex))
+		{
+			return;
+		}
+
+		SetUAVForUBResource(DescriptorSet, BindingIndex, UAV);
 	}
 
-	void SetSRV(uint32 BindIndex, FVulkanShaderResourceView* SRV);
-
-	inline void SetShaderParameter(uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue)
+	inline void SetTextureForStage(uint32 TextureIndex, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
 	{
-		CurrentState->SetShaderParameter(BufferIndex, ByteOffset, NumBytes, NewValue);
+		const FVulkanComputePipelineDescriptorInfo& DescriptorInfo = CurrentState->GetComputePipelineDescriptorInfo();
+		uint8 DescriptorSet;
+		uint32 BindingIndex;
+		if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(FVulkanShaderHeader::Global, TextureIndex, DescriptorSet, BindingIndex))
+		{
+			return;
+		}
+
+		CurrentState->SetTexture(DescriptorSet, BindingIndex, TextureBase, Layout);
 	}
 
-	inline void SetUniformBufferConstantData(uint32 BindPoint, const TArray<uint8>& ConstantData)
+	inline void SetSamplerStateForStage(uint32 SamplerIndex, FVulkanSamplerState* Sampler)
 	{
-		CurrentState->SetUniformBufferConstantData(BindPoint, ConstantData);
+		const FVulkanComputePipelineDescriptorInfo& DescriptorInfo = CurrentState->GetComputePipelineDescriptorInfo();
+		uint8 DescriptorSet;
+		uint32 BindingIndex;
+		if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(FVulkanShaderHeader::Global, SamplerIndex, DescriptorSet, BindingIndex))
+		{
+			return;
+		}
+
+		CurrentState->SetSamplerState(DescriptorSet, BindingIndex, Sampler);
 	}
 
-	inline void SetSamplerState(uint32 BindPoint, FVulkanSamplerState* Sampler)
+	inline void SetTextureForUBResource(int32 DescriptorSet, uint32 BindingIndex, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
 	{
-		CurrentState->SetSamplerState(BindPoint, Sampler);
+		CurrentState->SetTexture(DescriptorSet, BindingIndex, TextureBase, Layout);
+	}
+
+	void SetSRVForUBResource(uint32 DescriptorSet, uint32 BindingIndex, FVulkanShaderResourceView* SRV);
+
+	inline void SetSRVForStage(uint32 SRVIndex, FVulkanShaderResourceView* SRV)
+	{
+		const FVulkanComputePipelineDescriptorInfo& DescriptorInfo = CurrentState->GetComputePipelineDescriptorInfo();
+		uint8 DescriptorSet;
+		uint32 BindingIndex;
+		if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(FVulkanShaderHeader::Global, SRVIndex, DescriptorSet, BindingIndex))
+		{
+			return;
+		}
+
+		SetSRVForUBResource(DescriptorSet, BindingIndex, SRV);
+	}
+
+	inline void SetPackedGlobalShaderParameter(uint32 BufferIndex, uint32 Offset, uint32 NumBytes, const void* NewValue)
+	{
+		CurrentState->SetPackedGlobalShaderParameter(BufferIndex, Offset, NumBytes, NewValue);
+	}
+
+	inline void SetUniformBufferConstantData(uint32 BindingIndex, const TArray<uint8>& ConstantData)
+	{
+		CurrentState->SetUniformBufferConstantData(BindingIndex, ConstantData);
+	}
+
+	inline void SetSamplerStateForUBResource(uint32 DescriptorSet, uint32 BindingIndex, FVulkanSamplerState* Sampler)
+	{
+		CurrentState->SetSamplerState(DescriptorSet, BindingIndex, Sampler);
 	}
 
 	void NotifyDeletedPipeline(FVulkanComputePipeline* Pipeline)
@@ -123,6 +175,8 @@ public:
 		CurrentState = nullptr;
 		CurrentBSS = nullptr;
 		bDirtyVertexStreams = true;
+
+		PrimitiveType = PT_Num;
 
 		//#todo-rco: Would this cause issues?
 		//FMemory::Memzero(PendingStreams);
@@ -182,33 +236,96 @@ public:
 		bDirtyVertexStreams = true;
 	}
 
-	inline void SetTexture(DescriptorSet::EStage Stage, uint32 BindPoint, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
+	inline void Bind(VkCommandBuffer CmdBuffer, FVulkanFramebuffer* Framebuffer)
 	{
-		CurrentState->SetTexture(Stage, BindPoint, TextureBase, Layout);
+		if (CurrentPipeline->bHasInputAttachments)
+		{
+			UpdateInputAttachments(Framebuffer);
+		}
+		CurrentPipeline->Bind(CmdBuffer);
 	}
 
-	inline void SetUniformBufferConstantData(DescriptorSet::EStage Stage, uint32 BindPoint, const TArray<uint8>& ConstantData)
+	inline void SetTextureForStage(ShaderStage::EStage Stage, uint32 ParameterIndex, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
 	{
-		CurrentState->SetUniformBufferConstantData(Stage, BindPoint, ConstantData);
+		const FVulkanGfxPipelineDescriptorInfo& DescriptorInfo = CurrentState->GetGfxPipelineDescriptorInfo();
+		uint8 DescriptorSet;
+		uint32 BindingIndex;
+		if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(FVulkanShaderHeader::Global, Stage, ParameterIndex, DescriptorSet, BindingIndex))
+		{
+			return;
+		}
+
+		CurrentState->SetTexture(DescriptorSet, BindingIndex, TextureBase, Layout);
 	}
 
-	inline void SetUniformBuffer(DescriptorSet::EStage Stage, uint32 BindPoint, const FVulkanUniformBuffer* UniformBuffer)
+	inline void SetTextureForUBResource(uint8 DescriptorSet, uint32 BindingIndex, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
 	{
-		CurrentState->SetUniformBuffer(Stage, BindPoint, UniformBuffer);
+		CurrentState->SetTexture(DescriptorSet, BindingIndex, TextureBase, Layout);
 	}
 
-	void SetUAV(DescriptorSet::EStage Stage, uint32 UAVIndex, FVulkanUnorderedAccessView* UAV);
-
-	void SetSRV(DescriptorSet::EStage Stage, uint32 BindIndex, FVulkanShaderResourceView* SRV);
-
-	inline void SetSamplerState(DescriptorSet::EStage Stage, uint32 BindPoint, FVulkanSamplerState* Sampler)
+	inline void SetUniformBufferConstantData(ShaderStage::EStage Stage, uint32 BindingIndex, const TArray<uint8>& ConstantData)
 	{
-		CurrentState->SetSamplerState(Stage, BindPoint, Sampler);
+		CurrentState->SetUniformBufferConstantData(Stage, BindingIndex, ConstantData);
 	}
 
-	inline void SetShaderParameter(DescriptorSet::EStage Stage, uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue)
+	template<bool bDynamic>
+	inline void SetUniformBuffer(uint8 DescriptorSet, uint32 BindingIndex, const FVulkanRealUniformBuffer* UniformBuffer)
 	{
-		CurrentState->SetShaderParameter(Stage, BufferIndex, ByteOffset, NumBytes, NewValue);
+		CurrentState->SetUniformBuffer<bDynamic>(DescriptorSet, BindingIndex, UniformBuffer);
+	}
+
+	void SetUAVForUBResource(uint8 DescriptorSet, uint32 BindingIndex, FVulkanUnorderedAccessView* UAV);
+
+	inline void SetUAVForStage(ShaderStage::EStage Stage, uint32 ParameterIndex, FVulkanUnorderedAccessView* UAV)
+	{
+		const FVulkanGfxPipelineDescriptorInfo& DescriptorInfo = CurrentState->GetGfxPipelineDescriptorInfo();
+		uint8 DescriptorSet;
+		uint32 BindingIndex;
+		if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(FVulkanShaderHeader::Global, Stage, ParameterIndex, DescriptorSet, BindingIndex))
+		{
+			return;
+		}
+
+		SetUAVForUBResource(DescriptorSet, BindingIndex, UAV);
+	}
+
+	void SetSRVForUBResource(uint8 DescriptorSet, uint32 BindingIndex, FVulkanShaderResourceView* SRV);
+
+	inline void SetSRVForStage(ShaderStage::EStage Stage, uint32 ParameterIndex, FVulkanShaderResourceView* SRV)
+	{
+		const FVulkanGfxPipelineDescriptorInfo& DescriptorInfo = CurrentState->GetGfxPipelineDescriptorInfo();
+		uint8 DescriptorSet;
+		uint32 BindingIndex;
+		if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(FVulkanShaderHeader::Global, Stage, ParameterIndex, DescriptorSet, BindingIndex))
+		{
+			return;
+		}
+
+		SetSRVForUBResource(DescriptorSet, BindingIndex, SRV);
+	}
+
+	inline void SetSamplerStateForStage(ShaderStage::EStage Stage, uint32 ParameterIndex, FVulkanSamplerState* Sampler)
+	{
+		const FVulkanGfxPipelineDescriptorInfo& DescriptorInfo = CurrentState->GetGfxPipelineDescriptorInfo();
+		uint8 DescriptorSet;
+		uint32 BindingIndex;
+		if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(FVulkanShaderHeader::Global, Stage, ParameterIndex, DescriptorSet, BindingIndex))
+		{
+			return;
+		}
+
+		CurrentState->SetSamplerState(DescriptorSet, BindingIndex, Sampler);
+	}
+
+	inline void SetSamplerStateForUBResource(uint32 DescriptorSet, uint32 BindingIndex, FVulkanSamplerState* Sampler)
+	{
+		CurrentState->SetSamplerState(DescriptorSet, BindingIndex, Sampler);
+	}
+
+	inline void SetPackedGlobalShaderParameter(ShaderStage::EStage Stage, uint32 BufferIndex, uint32 Offset, uint32 NumBytes, const void* NewValue)
+	{
+		const FVulkanGfxPipelineDescriptorInfo& DescriptorInfo = CurrentState->GetGfxPipelineDescriptorInfo();
+		CurrentState->SetPackedGlobalShaderParameter(Stage, BufferIndex, Offset, NumBytes, NewValue);
 	}
 
 	void PrepareForDraw(FVulkanCmdBuffer* CmdBuffer);
@@ -243,6 +360,9 @@ public:
 			}
 
 			CurrentState->Reset();
+
+			PrimitiveType = InGfxPipeline->PipelineStateInitializer.PrimitiveType;
+
 			return true;
 		}
 
@@ -273,9 +393,11 @@ public:
 
 protected:
 	VkViewport Viewport;
+	VkRect2D Scissor;
+
+	EPrimitiveType PrimitiveType = PT_Num;
 	uint32 StencilRef;
 	bool bScissorEnable;
-	VkRect2D Scissor;
 
 	bool bNeedToClear;
 
@@ -300,6 +422,7 @@ protected:
 	bool bDirtyVertexStreams;
 
 	void InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd);
+	void UpdateInputAttachments(FVulkanFramebuffer* Framebuffer);
 
 	FVulkanCommandListContext& Context;
 

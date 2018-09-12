@@ -2,6 +2,7 @@
 
 #include "/Engine/Generated/UniformBuffers/PrecomputedLightingBuffer.ush"
 #include "VolumetricLightmapShared.ush"
+#include "VirtualTextureCommon.ush"
 
 #if HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP
  
@@ -15,6 +16,37 @@
 #endif
 
 #define USE_LM_DIRECTIONALITY (MATERIAL_USE_LM_DIRECTIONALITY && !QL_FORCEDISABLE_LM_DIRECTIONALITY)
+
+half4 SampleLightmapVT(float2 UV, Texture2D CacheTexture, SamplerState CacheSampler, float2 SvPositionXY, out uint Request)
+{
+#if LIGHTMAP_VT_ENABLED
+	VTSampleInfo VTInfo = GetVTSampleInfo(PrecomputedLightingBuffer.LightmapVirtualTextureUniformData, UV, LIGHTMAP_VT_16BIT, SvPositionXY);
+
+	uint2 pPage;
+	uint  vPagesWideInLevel;
+
+#if LIGHTMAP_VT_16BIT
+		PageTable2DTranslation16( PrecomputedLightingBuffer.LightmapVirtualTexturePageTable, GetVirtualTexturePageTableSize(PrecomputedLightingBuffer.LightmapVirtualTextureUniformData), VTInfo.vPage, VTInfo.Level, pPage, vPagesWideInLevel );
+#else
+		PageTable2DTranslation32( PrecomputedLightingBuffer.LightmapVirtualTexturePageTable, PrecomputedLightingBuffer.LightmapVirtualTexturePageTableSampler, UV, VTInfo.Level, pPage, vPagesWideInLevel );
+#endif
+	
+	const float vPageSize		= GetVirtualTexturePageSize(PrecomputedLightingBuffer.LightmapVirtualTextureUniformData);
+	const float pPageBorder		= GetVirtualTexturePageBorder(PrecomputedLightingBuffer.LightmapVirtualTextureUniformData);
+	const float pPageSize		= vPageSize + 2 * pPageBorder;
+	const float2 pTextureSize	= GetVirtualTextureCacheSize(PrecomputedLightingBuffer.LightmapVirtualTextureUniformData);
+
+	const float2 pUV = VirtualToPhysical2D( pTextureSize, vPageSize, pPageSize, pPage, vPagesWideInLevel, UV, VTInfo.dUVdx, VTInfo.dUVdy );
+
+	Request = VTInfo.Request;
+
+	return CacheTexture.SampleGrad( CacheSampler, pUV, VTInfo.dUVdx, VTInfo.dUVdy );
+
+#else
+	Request = 0xffffffff;
+	return Texture2DSample( CacheTexture, CacheSampler, UV );
+#endif
+}
 
 half4 GetLightMapColorLQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNormal )
 {
@@ -46,12 +78,26 @@ half4 GetLightMapColorLQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNor
 	return half4( Color, Luma );
 }
 
-void GetLightMapColorHQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNormal, out half3 OutDiffuseLighting, out half3 OutSubsurfaceLighting )
+void GetLightMapColorHQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNormal, float2 SvPositionXY, out half3 OutDiffuseLighting, out half3 OutSubsurfaceLighting, out uint VTRequest )
 {
 	OutSubsurfaceLighting = 0;
 
-	half4 Lightmap0 = Texture2DSample( PrecomputedLightingBuffer.LightMapTexture, PrecomputedLightingBuffer.LightMapSampler, LightmapUV0 );
-	half4 Lightmap1 = Texture2DSample( PrecomputedLightingBuffer.LightMapTexture, PrecomputedLightingBuffer.LightMapSampler, LightmapUV1 );
+#if LIGHTMAP_VT_ENABLED
+	LightmapUV0 *= float2(1, 2);
+#endif
+
+	half4 Lightmap0 = SampleLightmapVT( LightmapUV0 , PrecomputedLightingBuffer.LightMapTexture, PrecomputedLightingBuffer.LightMapSampler, SvPositionXY, VTRequest); 
+
+	uint VTRequest_notused = 0;
+	half4 Lightmap1 = SampleLightmapVT(
+#if LIGHTMAP_VT_ENABLED
+		LightmapUV0, PrecomputedLightingBuffer.LightMapTexture_1, 
+#else
+		LightmapUV1, PrecomputedLightingBuffer.LightMapTexture,
+#endif
+		PrecomputedLightingBuffer.LightMapSampler, SvPositionXY, VTRequest_notused); 
+
+
 
 	half LogL = Lightmap0.w;
 
@@ -93,13 +139,14 @@ void GetLightMapColorHQ( float2 LightmapUV0, float2 LightmapUV1, half3 WorldNorm
 	OutDiffuseLighting = Color;
 }
 
-float4 GetSkyBentNormalAndOcclusion(float2 LightmapUV)
+float4 GetSkyBentNormalAndOcclusion(float2 LightmapUV, float2 SvPositionXY)
 {
+	uint VTRequest_notused;
 #if SUPPORTS_INDEPENDENT_SAMPLERS
 	// Share sampler with lightmaps to give artists more available
-	float4 TextureValue = Texture2DSample(PrecomputedLightingBuffer.SkyOcclusionTexture, PrecomputedLightingBuffer.LightMapSampler, LightmapUV.xy);
+	float4 TextureValue = SampleLightmapVT( LightmapUV.xy , PrecomputedLightingBuffer.SkyOcclusionTexture, PrecomputedLightingBuffer.LightMapSampler, SvPositionXY, VTRequest_notused); 
 #else
-	float4 TextureValue = Texture2DSample(PrecomputedLightingBuffer.SkyOcclusionTexture, PrecomputedLightingBuffer.SkyOcclusionSampler, LightmapUV.xy);
+	float4 TextureValue = SampleLightmapVT( LightmapUV.xy , PrecomputedLightingBuffer.SkyOcclusionTexture, PrecomputedLightingBuffer.SkyOcclusionSampler, SvPositionXY, VTRequest_notused); 
 #endif
 	// Unpack vector
 	TextureValue.rgb = TextureValue.rgb * 2 - 1;
@@ -108,13 +155,14 @@ float4 GetSkyBentNormalAndOcclusion(float2 LightmapUV)
 	return TextureValue;
 }
 
-float GetAOMaterialMask(float2 LightmapUV)
+float GetAOMaterialMask(float2 LightmapUV, float2 SvPositionXY)
 {
+	uint VTRequest_notused;
 #if SUPPORTS_INDEPENDENT_SAMPLERS
 	// Share sampler with lightmaps to give artists more available
-	float TextureValue = Texture2DSample(PrecomputedLightingBuffer.AOMaterialMaskTexture, PrecomputedLightingBuffer.LightMapSampler, LightmapUV.xy).x;
+	float TextureValue = SampleLightmapVT( LightmapUV.xy , PrecomputedLightingBuffer.AOMaterialMaskTexture, PrecomputedLightingBuffer.LightMapSampler, SvPositionXY, VTRequest_notused).x; 
 #else
-	float TextureValue = Texture2DSample(PrecomputedLightingBuffer.AOMaterialMaskTexture, PrecomputedLightingBuffer.AOMaterialMaskSampler, LightmapUV.xy).x;
+	float TextureValue = SampleLightmapVT( LightmapUV.xy , PrecomputedLightingBuffer.AOMaterialMaskTexture, PrecomputedLightingBuffer.AOMaterialMaskSampler, SvPositionXY, VTRequest_notused).x; 
 #endif
 	// Undo sqrt which allocated more precision toward 0
 	return TextureValue * TextureValue;

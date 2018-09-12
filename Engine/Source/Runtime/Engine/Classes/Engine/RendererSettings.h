@@ -398,14 +398,9 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	TEnumAsByte<EAntiAliasingMethod> DefaultFeatureAntiAliasing;
 
 	UPROPERTY(config, EditAnywhere, Category = DefaultSettings, meta = (
-		ConsoleVariable = "r.DefaultFeature.PointLightUnits", DisplayName = "Point Light Units",
-		ToolTip = "Which units to use for point lights"))
-	ELightUnits DefaultPointLightUnits;
-
-	UPROPERTY(config, EditAnywhere, Category = DefaultSettings, meta = (
-		ConsoleVariable = "r.DefaultFeature.SpotLightUnits", DisplayName = "Spot Light Units",
-		ToolTip = "Which units to use for spot lights"))
-	ELightUnits DefaultSpotLightUnits;
+		ConsoleVariable = "r.DefaultFeature.LightUnits", DisplayName = "Light Units",
+		ToolTip = "Which units to use for newly placed point, spot and rect lights"))
+	ELightUnits DefaultLightUnits;
 
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = DefaultSettings, meta = (
 		ConsoleVariable = "r.DefaultBackBufferPixelFormat",DisplayName = "Frame Buffer Pixel Format",

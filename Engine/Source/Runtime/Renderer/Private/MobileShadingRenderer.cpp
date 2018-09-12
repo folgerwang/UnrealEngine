@@ -321,8 +321,12 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	// Notify the FX system that opaque primitives have been rendered.
 	if (Scene->FXSystem && !Views[0].bIsPlanarReflection && ViewFamily.EngineShowFlags.Particles)
 	{
-		//#todo-rco: This is switching to another RT!
-		Scene->FXSystem->PostRenderOpaque(RHICmdList);
+		FMobileSceneTextureUniformParameters MobileSceneTextureParameters;
+		SetupMobileSceneTextureUniformParameters(SceneContext, FeatureLevel, true, MobileSceneTextureParameters);
+		TUniformBufferRef<FMobileSceneTextureUniformParameters> MobileSceneTextureUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(MobileSceneTextureParameters, UniformBuffer_SingleFrame);
+
+		// This is switching to another RT!
+		Scene->FXSystem->PostRenderOpaque(RHICmdList, View.ViewUniformBuffer, &FMobileSceneTextureUniformParameters::StaticStruct, MobileSceneTextureUniformBuffer.GetReference());
 	}
 
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Translucency));

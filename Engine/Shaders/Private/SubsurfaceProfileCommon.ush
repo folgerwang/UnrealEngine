@@ -28,4 +28,9 @@
 /** One profile per line, encoded using constants above. See FSubsurfaceProfileTexture::CreateTexture() in SubsurfaceProfile.cpp. */
 Texture2D SSProfilesTexture;
 
+// Rename to allow the base pass to intercept with a value from its pass uniform buffer
+#ifndef ActualSSProfilesTexture
+#define ActualSSProfilesTexture SSProfilesTexture
+#endif
+
 #endif // __SUBSURFACE_PROFILE_COMMON__

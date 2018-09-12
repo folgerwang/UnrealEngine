@@ -136,7 +136,7 @@ FMetalComputeCommandEncoderDebugging::FMetalComputeCommandEncoderDebugging()
 	
 }
 FMetalComputeCommandEncoderDebugging::FMetalComputeCommandEncoderDebugging(mtlpp::ComputeCommandEncoder& Encoder, FMetalCommandBufferDebugging& Buffer)
-: FMetalCommandEncoderDebugging((FMetalDebugCommandEncoder*)[[FMetalDebugComputeCommandEncoder alloc] initWithEncoder:Encoder.GetPtr() andCommandBuffer:Buffer])
+: FMetalCommandEncoderDebugging((FMetalDebugCommandEncoder*)[[[FMetalDebugComputeCommandEncoder alloc] initWithEncoder:Encoder.GetPtr() andCommandBuffer:Buffer] autorelease])
 {
 	Buffer.BeginComputeCommandEncoder([NSString stringWithFormat:@"Compute: %@", Encoder.GetLabel().GetPtr()]);
 	Encoder.SetAssociatedObject((void const*)&FMetalComputeCommandEncoderDebugging::Get, (FMetalCommandEncoderDebugging const&)*this);

@@ -26,7 +26,7 @@
 #include "ComponentReregisterContext.h"
 #include "EngineUtils.h"
 #include "StaticMeshResources.h"
-
+#include "SpeedTreeWind.h"
 
 #include "Engine/Engine.h"
 #include "Engine/LevelStreaming.h"
@@ -119,9 +119,9 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 	, SectionIndexPreview(InComponent->SectionIndexPreview)
 	, MaterialIndexPreview(InComponent->MaterialIndexPreview)
 #endif
+	, StaticMesh(InComponent->GetStaticMesh())
 #if STATICMESH_ENABLE_DEBUG_RENDERING
 	, Owner(InComponent->GetOwner())
-	, StaticMesh(InComponent->GetStaticMesh())
 	, LightMapResolution(InComponent->GetStaticLightMapResolution())
 	, BodySetup(InComponent->GetBodySetup())
 	, CollisionTraceFlag(ECollisionTraceFlag::CTF_UseSimpleAndComplex)
@@ -266,7 +266,6 @@ FStaticMeshSceneProxy::~FStaticMeshSceneProxy()
 
 void FStaticMeshSceneProxy::AddSpeedTreeWind()
 {
-#if STATICMESH_ENABLE_DEBUG_RENDERING
 	if (StaticMesh && RenderData && StaticMesh->SpeedTreeWind.IsValid())
 	{
 		for (int32 LODIndex = 0; LODIndex < RenderData->LODVertexFactories.Num(); ++LODIndex)
@@ -275,12 +274,10 @@ void FStaticMeshSceneProxy::AddSpeedTreeWind()
 			GetScene().AddSpeedTreeWind(&RenderData->LODVertexFactories[LODIndex].VertexFactoryOverrideColorVertexBuffer, StaticMesh);
 		}
 	}
-#endif
 }
 
 void FStaticMeshSceneProxy::RemoveSpeedTreeWind()
 {
-#if STATICMESH_ENABLE_DEBUG_RENDERING
 	check(IsInRenderingThread());
 	if (StaticMesh && RenderData && StaticMesh->SpeedTreeWind.IsValid())
 	{
@@ -290,12 +287,12 @@ void FStaticMeshSceneProxy::RemoveSpeedTreeWind()
 			GetScene().RemoveSpeedTreeWind_RenderThread(&RenderData->LODVertexFactories[LODIndex].VertexFactory, StaticMesh);
 		}
 	}
-#endif
 }
 
-void UStaticMeshComponent::SetLODDataCount( const uint32 MinSize, const uint32 MaxSize )
+bool UStaticMeshComponent::SetLODDataCount( const uint32 MinSize, const uint32 MaxSize )
 {
 	check(MaxSize <= MAX_STATIC_MESH_LODS);
+
 	if (MaxSize < (uint32)LODData.Num())
 	{
 		// FStaticMeshComponentLODInfo can't be deleted directly as it has rendering resources
@@ -306,6 +303,7 @@ void UStaticMeshComponent::SetLODDataCount( const uint32 MinSize, const uint32 M
 
 		// call destructors
 		LODData.RemoveAt(MaxSize, LODData.Num() - MaxSize);
+		return true;
 	}
 	
 	if(MinSize > (uint32)LODData.Num())
@@ -320,7 +318,10 @@ void UStaticMeshComponent::SetLODDataCount( const uint32 MinSize, const uint32 M
 			// call constructor
 			new (LODData)FStaticMeshComponentLODInfo(this);
 		}
+		return true;
 	}
+
+	return false;
 }
 
 SIZE_T FStaticMeshSceneProxy::GetTypeHash() const

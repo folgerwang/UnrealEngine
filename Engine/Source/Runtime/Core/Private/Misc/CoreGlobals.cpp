@@ -304,6 +304,11 @@ bool GetEmitDrawEvents()
 	return GEmitDrawEvents;
 }
 
+bool CORE_API GetEmitDrawEventsOnlyOnCommandlist()
+{
+	return GCommandListOnlyDrawEvents;
+}
+
 void CORE_API SetEmitDrawEvents(bool EmitDrawEvents)
 {
 	GEmitDrawEvents = EmitDrawEvents;

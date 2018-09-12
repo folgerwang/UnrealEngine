@@ -71,12 +71,21 @@ public:
  */
 FSwarmInterface* FSwarmInterface::GInstance = NULL;
 
-void FSwarmInterface::Initialize(const TCHAR* SwarmInterfacePath)
+bool FSwarmInterface::Initialize(const TCHAR* SwarmInterfacePath)
 {
-	if( GInstance == NULL && FSwarmInterfaceImpl::InitSwarmInterfaceManaged(SwarmInterfacePath) )
+	if (GInstance == NULL)
 	{
-		GInstance = new FSwarmInterfaceImpl();
+		if (!FSwarmInterfaceImpl::InitSwarmInterfaceManaged(SwarmInterfacePath))
+		{
+			return false;
+		}
+		else
+		{
+			GInstance = new FSwarmInterfaceImpl();
+		}
 	}
+
+	return true;
 }
 
 FSwarmInterface& FSwarmInterface::Get( void )
@@ -525,7 +534,8 @@ bool FSwarmInterfaceImpl::InitSwarmInterfaceManaged(const TCHAR* SwarmInterfaceD
 	ICLRRuntimeHost* RuntimeHost = NULL;
 
 	HRESULT Result = CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost, (LPVOID*)&MetaHost);
-	if (SUCCEEDED(Result))
+
+	if ( ensureMsgf(SUCCEEDED(Result), TEXT("Error creating the Swarm instance.") ))
 	{
 		TCHAR NetFrameworkVersion[255];
 		uint32 VersionLength = 255;
@@ -535,22 +545,29 @@ bool FSwarmInterfaceImpl::InitSwarmInterfaceManaged(const TCHAR* SwarmInterfaceD
 			SwarmInterfaceDLLPath = TEXT("SwarmInterface.dll");
 			Result = MetaHost->GetVersionFromFile(SwarmInterfaceDLLPath, NetFrameworkVersion, (unsigned long*)&VersionLength);
 		}
-		if (SUCCEEDED(Result))
+
+		if (ensureMsgf(SUCCEEDED(Result), TEXT("Invalid Swarm version.")))
 		{
 			ICLRRuntimeInfo *RuntimeInfo = NULL;
 			Result = MetaHost->GetRuntime(NetFrameworkVersion, IID_ICLRRuntimeInfo, (LPVOID*)&RuntimeInfo);
-			if (SUCCEEDED(Result))
+
+			if (ensureMsgf(SUCCEEDED(Result), TEXT("Error requesting Swarm runtime info.")))
 			{
 				Result = RuntimeInfo->GetInterface(CLSID_CLRRuntimeHost, IID_ICLRRuntimeHost, (LPVOID*)&RuntimeHost);
+				ensureMsgf( SUCCEEDED(Result), TEXT("Error requesting Swarm interface.") );
 			}
 		}
 	}
+
 	if (SUCCEEDED(Result))
 	{
 		Result = RuntimeHost->Start();
+		ensureMsgf(SUCCEEDED(Result), TEXT("Cannot start Swarm runtime host."));
 	}
+
 	if (FAILED(Result))
 	{
+		ensureMsgf( false, TEXT("Error initializing Swarm interface."));
 		return false;
 	}
 
@@ -559,8 +576,10 @@ bool FSwarmInterfaceImpl::InitSwarmInterfaceManaged(const TCHAR* SwarmInterfaceD
 
 	uint32 ReturnValue = 0;
 	Result = RuntimeHost->ExecuteInDefaultAppDomain(SwarmInterfaceDLLPath, TEXT("NSwarm.FSwarmInterface"), TEXT("InitCppBridgeCallbacks"), SwarmInterfaceDllName, (unsigned long*)&ReturnValue);
+
 	if (FAILED(Result))
 	{
+		ensureMsgf(false, TEXT("Error creating Swarm instance bridge."));
 		return false;
 	}
 #endif // PLATFORM_WINDOWS

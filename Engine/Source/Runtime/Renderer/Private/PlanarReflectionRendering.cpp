@@ -64,15 +64,14 @@ public:
 		PlanarReflectionParameters.Bind(Initializer.ParameterMap);
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FPlanarReflectionSceneProxy* ReflectionSceneProxy, FTextureRHIParamRef SceneColorInput)
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FPlanarReflectionSceneProxy* ReflectionSceneProxy, FTextureRHIParamRef SceneColorInput, int32 FilterWidth)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
 		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 		PlanarReflectionParameters.SetParameters(RHICmdList, ShaderRHI, View, ReflectionSceneProxy);
 
-		int32 RenderTargetSizeY = ReflectionSceneProxy->RenderTarget->GetSizeXY().Y;
-		const float KernelRadiusYValue = FMath::Clamp(ReflectionSceneProxy->PrefilterRoughness, 0.0f, 0.04f) * RenderTargetSizeY;
+		const float KernelRadiusYValue = FMath::Clamp(ReflectionSceneProxy->PrefilterRoughness, 0.0f, 0.04f) * 0.5f * FilterWidth;
 		SetShaderValue(RHICmdList, ShaderRHI, KernelRadiusY, KernelRadiusYValue);
 
 		SetShaderValue(RHICmdList, ShaderRHI, InvPrefilterRoughnessDistance, 1.0f / FMath::Max(ReflectionSceneProxy->PrefilterRoughnessDistance, DELTA));
@@ -152,7 +151,7 @@ void PrefilterPlanarReflection(FRHICommandListImmediate& RHICmdList, FViewInfo& 
 
 		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-		PixelShader->SetParameters(RHICmdList, View, ReflectionSceneProxy, SceneColorInput);
+		PixelShader->SetParameters(RHICmdList, View, ReflectionSceneProxy, SceneColorInput, View.ViewRect.Width());
 		VertexShader->SetSimpleLightParameters(RHICmdList, View, FSphere(0));
 
 		FIntPoint UV = View.ViewRect.Min;
@@ -198,22 +197,25 @@ static void UpdatePlanarReflectionContents_RenderThread(
 	FBox PlanarReflectionBounds = SceneProxy->WorldBounds;
 
 	bool bIsInAnyFrustum = false;
-	for (int32 ViewIndex = 0; ViewIndex < SceneRenderer->Views.Num(); ++ViewIndex)
+	for (int32 ViewIndex = 0; ViewIndex < MainSceneRenderer->Views.Num(); ++ViewIndex)
 	{
-		FViewInfo& View = SceneRenderer->Views[ViewIndex];
-		if (View.ViewFrustum.IntersectBox(PlanarReflectionBounds.GetCenter(), PlanarReflectionBounds.GetExtent()))
+		FViewInfo& View = MainSceneRenderer->Views[ViewIndex];
+		if (MirrorPlane.PlaneDot(View.ViewMatrices.GetViewOrigin()) > 0)
 		{
-			bIsInAnyFrustum = true;
-			break;
+			if (View.ViewFrustum.IntersectBox(PlanarReflectionBounds.GetCenter(), PlanarReflectionBounds.GetExtent()))
+			{
+				bIsInAnyFrustum = true;
+				break;
+			}
 		}
 	}
 
 	if (bIsInAnyFrustum)
 	{
 		bool bIsVisibleInAnyView = true;
-		for (int32 ViewIndex = 0; ViewIndex < SceneRenderer->Views.Num(); ++ViewIndex)
+		for (int32 ViewIndex = 0; ViewIndex < MainSceneRenderer->Views.Num(); ++ViewIndex)
 		{
-			FViewInfo& View = SceneRenderer->Views[ViewIndex];
+			FViewInfo& View = MainSceneRenderer->Views[ViewIndex];
 			FSceneViewState* ViewState = View.ViewState;
 
 			if (ViewState)

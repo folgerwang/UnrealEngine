@@ -12,6 +12,68 @@ THIRD_PARTY_INCLUDES_START
 #include "mtlpp.hpp"
 THIRD_PARTY_INCLUDES_END
 
+class FMetalSampler : public mtlpp::SamplerState
+{
+public:
+	FMetalSampler(ns::Ownership retain = ns::Ownership::Retain) : mtlpp::SamplerState(nullptr, nullptr, retain) { }
+	FMetalSampler(ns::Protocol<id<MTLSamplerState>>::type handle, ns::Ownership retain = ns::Ownership::Retain)
+	: mtlpp::SamplerState(handle, nullptr, retain) {}
+	
+	FMetalSampler(mtlpp::SamplerState&& rhs)
+	: mtlpp::SamplerState((mtlpp::SamplerState&&)rhs)
+	{
+		
+	}
+	
+	FMetalSampler(const FMetalSampler& rhs)
+	: mtlpp::SamplerState(rhs)
+	{
+		
+	}
+	
+	FMetalSampler(const SamplerState& rhs)
+	: mtlpp::SamplerState(rhs)
+	{
+		
+	}
+	
+	FMetalSampler(FMetalSampler&& rhs)
+	: mtlpp::SamplerState((mtlpp::SamplerState&&)rhs)
+	{
+		
+	}
+	
+	FMetalSampler& operator=(const FMetalSampler& rhs)
+	{
+		if (this != &rhs)
+		{
+			mtlpp::SamplerState::operator=(rhs);
+		}
+		return *this;
+	}
+	
+	FMetalSampler& operator=(FMetalSampler&& rhs)
+	{
+		mtlpp::SamplerState::operator=((mtlpp::SamplerState&&)rhs);
+		return *this;
+	}
+	
+	inline bool operator==(FMetalSampler const& rhs) const
+	{
+		return GetPtr() == rhs.GetPtr();
+	}
+	
+	inline bool operator!=(FMetalSampler const& rhs) const
+	{
+		return GetPtr() != rhs.GetPtr();
+	}
+	
+	friend uint32 GetTypeHash(FMetalSampler const& Hash)
+	{
+		return GetTypeHash(Hash.GetPtr());
+	}
+};
+
 class FMetalSamplerState : public FRHISamplerState
 {
 public:
@@ -22,7 +84,10 @@ public:
 	FMetalSamplerState(mtlpp::Device Device, const FSamplerStateInitializerRHI& Initializer);
 	~FMetalSamplerState();
 
-	mtlpp::SamplerState State;
+	FMetalSampler State;
+#if !PLATFORM_MAC
+	FMetalSampler NoAnisoState;
+#endif
 };
 
 class FMetalRasterizerState : public FRHIRasterizerState

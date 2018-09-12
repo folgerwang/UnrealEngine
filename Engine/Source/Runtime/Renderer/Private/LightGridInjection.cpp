@@ -28,7 +28,7 @@ LightGridInjection.cpp
 #include "Components/LightComponent.h"
 #include "Engine/MapBuildDataRegistry.h"
 
-// Workaround for platforms that don't support 16bit integers
+// Workaround for platforms that don't support implicit conversion from 16bit integers on the CPU to uint32 in the shader
 #define	CHANGE_LIGHTINDEXTYPE_SIZE	(PLATFORM_MAC || PLATFORM_IOS) 
 
 int32 GLightGridPixelSize = 64;
@@ -669,13 +669,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			FVector ZParams = GetLightGridZParams(View.NearClippingDistance, FarPlane + 10.f);
 			ForwardLightData.LightGridZParams = ZParams;
 
-			// @todo Metal lacks efficient SRV/UAV format conversions.
-#if CHANGE_LIGHTINDEXTYPE_SIZE
-			static bool const bNoFormatConversion = (IsMetalPlatform(GMaxRHIShaderPlatform));
-			const uint64 NumIndexableLights = bNoFormatConversion ? (1llu << (sizeof(FLightIndexType32) * 8llu)) : (1llu << (sizeof(FLightIndexType) * 8llu));
-#else
-			const uint64 NumIndexableLights = 1llu << (sizeof(FLightIndexType) * 8llu);
-#endif
+			const uint64 NumIndexableLights = CHANGE_LIGHTINDEXTYPE_SIZE && !bAllowFormatConversion ? (1llu << (sizeof(FLightIndexType32) * 8llu)) : (1llu << (sizeof(FLightIndexType) * 8llu));
 
 			if ((uint64)ForwardLocalLightData.Num() > NumIndexableLights)
 			{
@@ -689,13 +683,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			}
 		}
 
-		// @todo Metal lacks efficient SRV/UAV format conversions.
-#if CHANGE_LIGHTINDEXTYPE_SIZE
-		static bool const bNoFormatConversion = (IsMetalPlatform(GMaxRHIShaderPlatform));
-		const SIZE_T LightIndexTypeSize = bNoFormatConversion ? sizeof(FLightIndexType32) : sizeof(FLightIndexType);
-#else
-		const SIZE_T LightIndexTypeSize = sizeof(FLightIndexType);
-#endif
+		const SIZE_T LightIndexTypeSize = CHANGE_LIGHTINDEXTYPE_SIZE && !bAllowFormatConversion ? sizeof(FLightIndexType32) : sizeof(FLightIndexType);
 
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{

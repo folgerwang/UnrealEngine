@@ -150,7 +150,7 @@ void UNiagaraDataInterfaceCurveBase::GetParameterDefinitionHLSL(FNiagaraDataInte
 	OutHLSL += TEXT("\n");
 }
 
-FRWBuffer& UNiagaraDataInterfaceCurveBase::GetCurveLUTGPUBuffer()
+FReadBuffer& UNiagaraDataInterfaceCurveBase::GetCurveLUTGPUBuffer()
 {
 	//TODO: This isn't really very thread safe. Need to move to a proxy like system where DIs can push data to the RT safely.
 	if (GPUBufferDirty)
@@ -193,7 +193,7 @@ struct FNiagaraDataInterfaceParametersCS_Curve : public FNiagaraDataInterfacePar
 
 		const FComputeShaderRHIParamRef ComputeShaderRHI = Shader->GetComputeShader();
 		UNiagaraDataInterfaceCurveBase* CurveDI = CastChecked<UNiagaraDataInterfaceCurveBase>(DataInterface);
-		FRWBuffer& CurveLUTBuffer = CurveDI->GetCurveLUTGPUBuffer();
+		FReadBuffer& CurveLUTBuffer = CurveDI->GetCurveLUTGPUBuffer();
 
 		SetShaderValue(RHICmdList, ComputeShaderRHI, MinTime, CurveDI->GetMinTime());
 		SetShaderValue(RHICmdList, ComputeShaderRHI, MaxTime, CurveDI->GetMaxTime());

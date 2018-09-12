@@ -716,35 +716,6 @@ bool FWindowsPlatformProcess::ExecElevatedProcess(const TCHAR* URL, const TCHAR*
 	return bSuccess;
 }
 
-void FWindowsPlatformProcess::CleanFileCache()
-{
-	bool bShouldCleanShaderWorkingDirectory = true;
-#if !(UE_BUILD_SHIPPING && WITH_EDITOR)
-	// Only clean the shader working directory if we are the first instance, to avoid deleting files in use by other instances
-	//@todo - check if any other instances are running right now
-	bShouldCleanShaderWorkingDirectory = GIsFirstInstance;
-#endif
-
-	if (bShouldCleanShaderWorkingDirectory && !FParse::Param( FCommandLine::Get(), TEXT("Multiprocess")))
-	{
-		// get shader path, and convert it to the userdirectory
-		for (const auto& SHaderSourceDirectoryEntry : FPlatformProcess::AllShaderSourceDirectoryMappings())
-		{
-			FString ShaderDir = FString(FPlatformProcess::BaseDir()) / SHaderSourceDirectoryEntry.Value;
-			FString UserShaderDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ShaderDir);
-			FPaths::CollapseRelativeDirectories(ShaderDir);
-
-			// make sure we don't delete from the source directory
-			if (ShaderDir != UserShaderDir)
-			{
-				IFileManager::Get().DeleteDirectory(*UserShaderDir, false, true);
-			}
-		}
-
-		FPlatformProcess::CleanShaderWorkingDir();
-	}
-}
-
 const TCHAR* FWindowsPlatformProcess::BaseDir()
 {
 	static TCHAR Result[512]=TEXT("");

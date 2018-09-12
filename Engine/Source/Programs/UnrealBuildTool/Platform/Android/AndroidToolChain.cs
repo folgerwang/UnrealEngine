@@ -250,7 +250,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				throw new BuildException("Couldn't find 32-bit or 64-bit versions of the Android toolchain");
+				throw new BuildException("Couldn't find 32-bit or 64-bit versions of the Android toolchain with NDKROOT: " + NDKPath);
 			}
 
 			// prefer clang 3.6, but fall back if needed for now
@@ -294,7 +294,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				throw new BuildException("Cannot find supported Android toolchain");
+				throw new BuildException("Cannot find supported Android toolchain with NDKPath:" + NDKPath);
 			}
 
 			// set up the path to our toolchains

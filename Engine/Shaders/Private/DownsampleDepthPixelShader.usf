@@ -10,6 +10,7 @@
 float2 ProjectionScaleBias;
 float4 SourceTexelOffsets01;
 float4 SourceTexelOffsets23;
+float2 SourceMaxUV;
 float UseMaxDepth;
 
 void Main(
@@ -21,10 +22,10 @@ void Main(
 	OutColor = 0;
 
 	// Lookup the four view space Z's of the full resolution pixels corresponding to this low resolution pixel
-	float ViewSpaceZ0 = CalcSceneDepth(InUV + SourceTexelOffsets01.xy);
-	float ViewSpaceZ1 = CalcSceneDepth(InUV + SourceTexelOffsets01.zw);
-	float ViewSpaceZ2 = CalcSceneDepth(InUV + SourceTexelOffsets23.xy);
-	float ViewSpaceZ3 = CalcSceneDepth(InUV + SourceTexelOffsets23.zw);
+	float ViewSpaceZ0 = CalcSceneDepth(min(InUV + SourceTexelOffsets01.xy, SourceMaxUV));
+	float ViewSpaceZ1 = CalcSceneDepth(min(InUV + SourceTexelOffsets01.zw, SourceMaxUV));
+	float ViewSpaceZ2 = CalcSceneDepth(min(InUV + SourceTexelOffsets23.xy, SourceMaxUV));
+	float ViewSpaceZ3 = CalcSceneDepth(min(InUV + SourceTexelOffsets23.zw, SourceMaxUV));
 
 	float MaxDepth = max(max(ViewSpaceZ0, ViewSpaceZ1), max(ViewSpaceZ2, ViewSpaceZ3));
 

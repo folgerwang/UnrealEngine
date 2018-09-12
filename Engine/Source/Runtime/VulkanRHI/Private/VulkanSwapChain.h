@@ -30,6 +30,8 @@ public:
 	};
 	EStatus Present(FVulkanQueue* GfxQueue, FVulkanQueue* PresentQueue, VulkanRHI::FSemaphore* BackBufferRenderingDoneSemaphore);
 
+	void RenderThreadPacing();
+
 protected:
 	VkSwapchainKHR SwapChain;
 	FVulkanDevice& Device;
@@ -45,6 +47,26 @@ protected:
 #if VULKAN_USE_IMAGE_ACQUIRE_FENCES
 	TArray<VulkanRHI::FFence*> ImageAcquiredFences;
 #endif
+
+#if VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
+	struct FPresentData
+	{
+		uint32 PresentID;
+		uint64 ActualPresentTime;
+		uint64 DesiredPresentTime;
+	};
+	enum
+	{
+		MaxHistoricalPresentData = 10,
+	};
+	uint64 RefreshRateNanoSec = 0;
+	int32 NextHistoricalData = 0;
+	int32 PreviousSyncInterval = 0;
+	FPresentData HistoricalPresentData[MaxHistoricalPresentData];
+	uint64 PreviousEmittedPresentTime = 0;
+#endif
+
+	uint32 PresentID = 0;
 
 	int32 AcquireImageIndex(VulkanRHI::FSemaphore** OutSemaphore);
 

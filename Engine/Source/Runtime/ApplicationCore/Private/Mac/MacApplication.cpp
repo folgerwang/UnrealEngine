@@ -467,7 +467,11 @@ void FMacApplication::DeferEvent(NSObject* Object)
 				{
 					GameThreadCall(^{
 						TSharedPtr<FMacWindow> Window = FindWindowByNSWindow(DeferredEvent.Window);
-						OnWindowDidResize(Window.ToSharedRef()); }, @[ NSDefaultRunLoopMode, UE4ResizeEventMode, UE4ShowEventMode, UE4FullscreenEventMode ], true);
+						if (Window.IsValid())
+						{
+							OnWindowDidResize(Window.ToSharedRef());
+						}
+					}, @[ NSDefaultRunLoopMode, UE4ResizeEventMode, UE4ShowEventMode, UE4FullscreenEventMode ], true);
 				}
 				return;
 			}

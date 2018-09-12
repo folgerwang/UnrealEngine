@@ -14,21 +14,21 @@
 
 #if PS4_PROFILE  
 	// always #include PS4Common.usf so it can #define override anything in any other included file.
-	#include "PS4/PS4Common.ush"
+	#include "Platform/PS4/PS4Common.ush"
 #endif
  
 #if XBOXONE_PROFILE
-	#include "XboxOne/XboxOneCommon.ush"
+	#include "Platform/XboxOne/XboxOneCommon.ush"
 #endif
 
 #if COMPILER_METAL
 	// Helps with iteration when changing Metal shader code generation backend.
-	#include "MetalCommon.ush"
+	#include "Platform/Metal/MetalCommon.ush"
 #endif
 
 #if COMPILER_VULKAN
 	// Helps with iteration when changing Vulkan shader code generation backend.
-	#include "VulkanCommon.ush"
+	#include "Platform/Vulkan/VulkanCommon.ush"
 #endif
 
 
@@ -561,6 +561,40 @@ float max3( float a, float b, float c )
 	return max( a, max( b, c ) );
 }
 
+float2 min3( float2 a, float2 b, float2 c )
+{
+	return float2(
+		min3( a.x, b.x, c.x ),
+		min3( a.y, b.y, c.y )
+	);
+}
+
+float2 max3( float2 a, float2 b, float2 c )
+{
+	return float2(
+		max3( a.x, b.x, c.x ),
+		max3( a.y, b.y, c.y )
+	);
+}
+
+float3 max3( float3 a, float3 b, float3 c )
+{
+	return float3(
+		max3( a.x, b.x, c.x ),
+		max3( a.y, b.y, c.y ),
+		max3( a.z, b.z, c.z )
+	);
+}
+
+float3 min3( float3 a, float3 b, float3 c )
+{
+	return float3(
+		min3( a.x, b.x, c.x ),
+		min3( a.y, b.y, c.y ),
+		min3( a.z, b.z, c.z )
+	);
+}
+
 float4 min3( float4 a, float4 b, float4 c )
 {
 	return float4(
@@ -597,4 +631,12 @@ float4 max3( float4 a, float4 b, float4 c )
 #if FEATURE_LEVEL < FEATURE_LEVEL_ES3_1 && !COMPILER_METAL
 	// DX11 (feature levels >= 10) feature sets natively supports uints in shaders; we just use floats on other platforms.
 	#define uint4	int4
+#endif
+
+#if COMPILER_HLSLCC || PS4_PROFILE
+	#define SNORM 
+	#define UNORM
+#else
+	#define SNORM snorm
+	#define UNORM unorm
 #endif

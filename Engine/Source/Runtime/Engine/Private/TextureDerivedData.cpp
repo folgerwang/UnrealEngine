@@ -910,9 +910,8 @@ int32 FTexturePlatformData::GetNumNonStreamingMips() const
 
 		return NumNonStreamingMips;
 	}
-	else
+	else if (Mips.Num() > 0)
 	{
-		check(Mips.Num() > 0);
 		int32 MipCount = Mips.Num();
 		int32 NumNonStreamingMips = 1;
 
@@ -928,6 +927,10 @@ int32 FTexturePlatformData::GetNumNonStreamingMips() const
 		}
 
 		return NumNonStreamingMips;
+	}
+	else
+	{
+		return 0;
 	}
 }
 

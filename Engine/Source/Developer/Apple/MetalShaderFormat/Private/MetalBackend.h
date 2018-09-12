@@ -16,8 +16,8 @@ THIRD_PARTY_INCLUDES_END
 
 class FMetalLanguageSpec : public ILanguageSpec
 {
-	uint8 Version;
 public:
+	uint8 Version;
 	uint32 ClipDistanceCount;
 	uint32 ClipDistancesUsed;
 	
@@ -85,7 +85,8 @@ enum EMetalTypeBufferMode
 	EMetalTypeBufferModeRaw = 0, // No typed buffers
     EMetalTypeBufferModeSRV = 1, // Buffer<> Typed via 2D textures, RWBuffer<> typed via function constants
     EMetalTypeBufferModeUAV = 2, // Buffer<> SRVs & RWBuffer<> UAVs are typed via 2D textures
-    EMetalTypeBufferModeFun = 3, // Buffer<> SRVs & RWBuffer<> UAVs are typed via function constants
+    EMetalTypeBufferModeTex = 3, // Buffer<> SRVs & RWBuffer<> UAVs are typed via texture-buffers
+    EMetalTypeBufferModeFun = 4, // Buffer<> SRVs & RWBuffer<> UAVs are typed via function constants
 };
 
 // Metal supports 16 across all HW

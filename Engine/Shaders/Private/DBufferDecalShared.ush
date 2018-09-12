@@ -19,12 +19,16 @@ struct FDBufferData
 
 	// 0..1, premultiplied with RoughnessOpacity
 	float PreMulRoughness;
+	// 0..1, premultiplied with RoughnessOpacity
+	float PreMulMetallic;
+	// 0..1, premultiplied with RoughnessOpacity
+	float PreMulSpecular;
 	// 0:opaque ..1:see through
 	float RoughnessOpacity;
 };
 
 /** Populates DBufferA, DBufferB, DBufferC as float4 and puts opacity in alpha for frame buffer blending */
-// @param MultiOpacity .x: Color, .y:Normal, .z:Roughness
+// @param MultiOpacity .x: Color, .y:Normal, .z:Roughness/Metallic/Specular
 void EncodeDBufferData(FGBufferData GBufferData, float3 MultiOpacity,
 	out float4 DBufferA,
 	out float4 DBufferB,
@@ -36,8 +40,8 @@ void EncodeDBufferData(FGBufferData GBufferData, float3 MultiOpacity,
 	// UNORM 4 channel, 128/255 represents 0
 	DBufferB = float4(GBufferData.WorldNormal * 0.5f + 128.0f/255.0f, MultiOpacity.y);
 
-	// UNORM 2 channel
-	DBufferC = float4(GBufferData.Roughness, 0, 0, MultiOpacity.z);
+	// UNORM 4 channel
+	DBufferC = float4(GBufferData.Metallic, GBufferData.Specular, GBufferData.Roughness, MultiOpacity.z);
 
 	// no need to output any data if the channel isn't used anyway (for DX10 we don't adjust the FrameBufferBlend state - it doesn't support different blend modes for different MRT)
 	{
@@ -57,7 +61,7 @@ void EncodeDBufferData(FGBufferData GBufferData, float3 MultiOpacity,
 FDBufferData DecodeDBufferData(
 	float4 DBufferA,
 	float4 DBufferB,
-	float2 DBufferC)
+	float4 DBufferC)
 {
 	FDBufferData ret;
 
@@ -69,9 +73,11 @@ FDBufferData DecodeDBufferData(
 	ret.PreMulWorldNormal = DBufferB.rgb * 2 - (256.0 / 255.0);
 	ret.NormalOpacity = DBufferB.a;
 
-	// UNORM 2 channel
-	ret.PreMulRoughness = DBufferC.r;
-	ret.RoughnessOpacity = DBufferC.g;
+	// UNORM 4 channel
+	ret.PreMulMetallic = DBufferC.r;
+	ret.PreMulSpecular = DBufferC.g;
+	ret.PreMulRoughness = DBufferC.b;
+	ret.RoughnessOpacity = DBufferC.a;
 
 	return ret;
 }
@@ -83,11 +89,11 @@ FDBufferData GetDBufferData(float2 UV)
 	// Share samplers to give artists more
 	float4 DBufferA = Texture2DSampleLevel(OpaqueBasePass.DBufferATexture, OpaqueBasePass.DBufferATextureSampler, UV, 0);
 	float4 DBufferB = Texture2DSampleLevel(OpaqueBasePass.DBufferBTexture, OpaqueBasePass.DBufferATextureSampler, UV, 0);
-	float2 DBufferC = Texture2DSampleLevel(OpaqueBasePass.DBufferCTexture, OpaqueBasePass.DBufferATextureSampler, UV, 0).rg;
+	float4 DBufferC = Texture2DSampleLevel(OpaqueBasePass.DBufferCTexture, OpaqueBasePass.DBufferATextureSampler, UV, 0);
 #else
 	float4 DBufferA = Texture2DSampleLevel(OpaqueBasePass.DBufferATexture, OpaqueBasePass.DBufferATextureSampler, UV, 0);
 	float4 DBufferB = Texture2DSampleLevel(OpaqueBasePass.DBufferBTexture, OpaqueBasePass.DBufferBTextureSampler, UV, 0);
-	float2 DBufferC = Texture2DSampleLevel(OpaqueBasePass.DBufferCTexture, OpaqueBasePass.DBufferCTextureSampler, UV, 0).rg;
+	float4 DBufferC = Texture2DSampleLevel(OpaqueBasePass.DBufferCTexture, OpaqueBasePass.DBufferCTextureSampler, UV, 0);
 #endif
 	
 	return DecodeDBufferData(DBufferA, DBufferB, DBufferC);
@@ -100,10 +106,10 @@ void ApplyDBufferData(
 {
 	WorldNormal = WorldNormal * DBufferData.NormalOpacity + DBufferData.PreMulWorldNormal;
 	Roughness = Roughness * DBufferData.RoughnessOpacity + DBufferData.PreMulRoughness;
-	
+	Metallic = Metallic * DBufferData.RoughnessOpacity + DBufferData.PreMulMetallic;
+	Specular = Specular * DBufferData.RoughnessOpacity + DBufferData.PreMulSpecular;
+
 	SubsurfaceColor *= DBufferData.ColorOpacity;
 
 	BaseColor = BaseColor * DBufferData.ColorOpacity + DBufferData.PreMulColor;
-	Metallic = Metallic * DBufferData.ColorOpacity + 0;			// decals are always no metallic
-	Specular = lerp(0.5f, Specular, DBufferData.ColorOpacity);		// most non metal materials have a specular of 4% which is 0.5 in this scale
 }

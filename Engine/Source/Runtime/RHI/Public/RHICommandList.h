@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RHICommandList.h: RHI Command List definitions for queueing up & executing later.
@@ -1457,6 +1457,18 @@ struct FRHICommandWaitComputeFence final : public FRHICommand<FRHICommandWaitCom
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
 
+template<ECmdList CmdListType>
+struct FRHICommandInsertGPUFence final : public FRHICommand<FRHICommandInsertGPUFence<CmdListType>>
+{
+	FGPUFenceRHIParamRef Fence;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandInsertGPUFence(FGPUFenceRHIParamRef InFence)
+		: Fence(InFence)
+	{		
+	}
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
 struct FRHICommandClearColorTexture final : public FRHICommand<FRHICommandClearColorTexture>
 {
 	FTextureRHIParamRef Texture;
@@ -2218,9 +2230,6 @@ public:
 				GraphicsPSOInit.RenderTargetFormats[i] = PF_Unknown;
 			}
 
-			GraphicsPSOInit.RenderTargetLoadActions[i] = PSOContext.CachedRenderTargets[i].LoadAction;
-			GraphicsPSOInit.RenderTargetStoreActions[i] = PSOContext.CachedRenderTargets[i].StoreAction;
-
 			if (GraphicsPSOInit.RenderTargetFormats[i] != PF_Unknown)
 			{
 				GraphicsPSOInit.NumSamples = PSOContext.CachedRenderTargets[i].Texture->GetNumSamples();
@@ -2310,6 +2319,7 @@ public:
 		new (AllocCommand<FRHICommandBindClearMRTValues>()) FRHICommandBindClearMRTValues(bClearColor, bClearDepth, bClearStencil);
 	}	
 
+	DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 	FORCEINLINE_DEBUGGABLE void BeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 	{
 		//check(IsOutsideRenderPass());
@@ -2330,6 +2340,7 @@ public:
 		DrawUPData.OutVertexData = OutVertexData;
 	}
 
+	DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 	FORCEINLINE_DEBUGGABLE void EndDrawPrimitiveUP()
 	{
 		//check(IsOutsideRenderPass());
@@ -2345,6 +2356,7 @@ public:
 		DrawUPData.NumVertices = 0;
 	}
 
+	DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 	FORCEINLINE_DEBUGGABLE void BeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
 	{
 		//check(IsOutsideRenderPass());
@@ -2370,6 +2382,7 @@ public:
 
 	}
 
+	DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 	FORCEINLINE_DEBUGGABLE void EndDrawIndexedPrimitiveUP()
 	{
 		//check(IsOutsideRenderPass());
@@ -2672,6 +2685,16 @@ public:
 			return;
 		}
 		new (AllocCommand<FRHICommandWaitComputeFence<ECmdList::EGfx>>()) FRHICommandWaitComputeFence<ECmdList::EGfx>(WaitFence);
+	}
+
+	FORCEINLINE_DEBUGGABLE void InsertGPUFence(FGPUFenceRHIParamRef Fence)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIInsertGPUFence)(Fence);
+			return;
+		}
+		new (AllocCommand<FRHICommandInsertGPUFence<ECmdList::EGfx>>()) FRHICommandInsertGPUFence<ECmdList::EGfx>(Fence);
 	}
 
 	FORCEINLINE_DEBUGGABLE void BeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* Name)
@@ -3058,6 +3081,16 @@ public:
 		}
 		new (AllocCommand<FRHICommandWaitComputeFence<ECmdList::ECompute>>()) FRHICommandWaitComputeFence<ECmdList::ECompute>(WaitFence);
 	}
+
+	FORCEINLINE_DEBUGGABLE void InsertGPUFence(FGPUFenceRHIParamRef Fence)
+	{
+		if (Bypass())
+		{
+			COMPUTE_CONTEXT(RHIInsertGPUFence)(Fence);
+			return;
+		}
+		new (AllocCommand<FRHICommandInsertGPUFence<ECmdList::ECompute>>()) FRHICommandInsertGPUFence<ECmdList::ECompute>(Fence);
+	}
 };
 
 namespace EImmediateFlushType
@@ -3275,9 +3308,9 @@ public:
 		return GDynamicRHI->RHICreateGPUFence(Name);
 	}
 
-	FORCEINLINE FStagingBufferRHIRef CreateStagingBuffer()
+	FORCEINLINE FStagingBufferRHIRef CreateStagingBuffer(FVertexBufferRHIParamRef VertexBuffer)
 	{
-		return GDynamicRHI->RHICreateStagingBuffer();
+		return GDynamicRHI->RHICreateStagingBuffer(VertexBuffer);
 	}
 
 	FORCEINLINE FBoundShaderStateRHIRef CreateBoundShaderState(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader)
@@ -3325,6 +3358,17 @@ public:
 	FORCEINLINE void UnlockIndexBuffer(FIndexBufferRHIParamRef IndexBuffer)
 	{
 		GDynamicRHI->UnlockIndexBuffer_RenderThread(*this, IndexBuffer);
+	}
+	
+	FORCEINLINE void* LockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer, uint32 Offset, uint32 SizeRHI)
+	{
+		LLM_SCOPE(ELLMTag::Meshes);
+		return GDynamicRHI->LockStagingBuffer_RenderThread(*this, StagingBuffer, Offset, SizeRHI);
+	}
+	
+	FORCEINLINE void UnlockStagingBuffer(FStagingBufferRHIParamRef StagingBuffer)
+	{
+		GDynamicRHI->UnlockStagingBuffer_RenderThread(*this, StagingBuffer);
 	}
 	
 	FORCEINLINE FVertexBufferRHIRef CreateAndLockVertexBuffer(uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer)
@@ -3487,7 +3531,15 @@ public:
 		 
 		return GDynamicRHI->RHICopySharedMips(DestTexture2D, SrcTexture2D);
 	}
-	
+
+	FORCEINLINE void TransferTexture(FTexture2DRHIParamRef Texture, FIntRect Rect, uint32 SrcGPUIndex, uint32 DestGPUIndex, bool PullData)
+	{
+		LLM_SCOPE(ELLMTag::Textures);
+		ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+
+		return GDynamicRHI->RHITransferTexture(Texture, Rect, SrcGPUIndex, DestGPUIndex, PullData);
+	}
+
 	FORCEINLINE FTexture2DArrayRHIRef CreateTexture2DArray(uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 	{
 		LLM_SCOPE((Flags & (TexCreate_RenderTargetable | TexCreate_DepthStencilTargetable)) != 0 ? ELLMTag::RenderTargets : ELLMTag::Textures);
@@ -3786,6 +3838,11 @@ public:
 		return RHIGetRenderQueryResult(RenderQuery, OutResult, bWait);
 	}
 	
+	FORCEINLINE uint32 GetViewportNextPresentGPUIndex(FViewportRHIParamRef Viewport)
+	{
+		return GDynamicRHI->RHIGetViewportNextPresentGPUIndex(Viewport);
+	}
+
 	FORCEINLINE FTexture2DRHIRef GetViewportBackBuffer(FViewportRHIParamRef Viewport)
 	{
 		return RHIGetViewportBackBuffer(Viewport);
@@ -3914,6 +3971,11 @@ public:
 	FORCEINLINE void CopySubTextureRegion(FTexture2DRHIParamRef SourceTexture, FTexture2DRHIParamRef DestinationTexture, FBox2D SourceBox, FBox2D DestinationBox)
 	{
 		GDynamicRHI->RHICopySubTextureRegion_RenderThread(*this, SourceTexture, DestinationTexture, SourceBox, DestinationBox);
+	}
+
+	FORCEINLINE void EnqueueStagedRead(FStagingBufferRHIParamRef StagingBuffer, FGPUFenceRHIParamRef Fence, uint32 Offset, uint32 NumBytes)
+	{
+		GDynamicRHI->RHIEnqueueStagedRead_RenderThread(*this, StagingBuffer, Fence, Offset, NumBytes);
 	}
 	
 	FORCEINLINE void ExecuteCommandList(FRHICommandList* CmdList)
@@ -4183,13 +4245,10 @@ FORCEINLINE FGPUFenceRHIRef RHICreateGPUFence(const FName& Name)
 	return FRHICommandListExecutor::GetImmediateCommandList().CreateGPUFence(Name);
 }
 
-
-FORCEINLINE FStagingBufferRHIRef RHICreateStagingBuffer()
+FORCEINLINE FStagingBufferRHIRef RHICreateStagingBuffer(FVertexBufferRHIParamRef VertexBuffer)
 {
-	return FRHICommandListExecutor::GetImmediateCommandList().CreateStagingBuffer();
+	return FRHICommandListExecutor::GetImmediateCommandList().CreateStagingBuffer(VertexBuffer);
 }
-
-
 
 FORCEINLINE FIndexBufferRHIRef RHICreateAndLockIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer)
 {
@@ -4309,6 +4368,11 @@ FORCEINLINE FTexture2DRHIRef RHIAsyncCreateTexture2D(uint32 SizeX, uint32 SizeY,
 FORCEINLINE void RHICopySharedMips(FTexture2DRHIParamRef DestTexture2D, FTexture2DRHIParamRef SrcTexture2D)
 {
 	return FRHICommandListExecutor::GetImmediateCommandList().CopySharedMips(DestTexture2D, SrcTexture2D);
+}
+
+FORCEINLINE void RHITransferTexture(FTexture2DRHIParamRef Texture, FIntRect Rect, uint32 SrcGPUIndex, uint32 DestGPUIndex, bool PullData)
+{
+	return FRHICommandListExecutor::GetImmediateCommandList().TransferTexture(Texture, Rect, SrcGPUIndex, DestGPUIndex, PullData);
 }
 
 FORCEINLINE FTexture2DArrayRHIRef RHICreateTexture2DArray(uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)

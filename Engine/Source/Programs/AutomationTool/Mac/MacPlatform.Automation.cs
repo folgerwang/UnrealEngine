@@ -383,6 +383,8 @@ public class MacPlatform : Platform
 				Directory.CreateDirectory(CombinePaths(TargetPath, "Engine", "Binaries", "Mac"));
 				Directory.CreateDirectory(CombinePaths(TargetPath, SC.ShortProjectName, "Binaries", "Mac"));
 			}
+
+			Run("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", "-f " + BundlePath, null, ERunOptions.Default);
 		}
 	}
 

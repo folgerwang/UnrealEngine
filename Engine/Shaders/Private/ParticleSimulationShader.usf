@@ -74,12 +74,14 @@ void VertexMain(
 /** Define to 1 to force no collision in the shader. */
 #define FORCE_NO_COLLISION 0
 
-#if FORCE_NO_COLLISION || FEATURE_LEVEL < FEATURE_LEVEL_SM4
+#if FORCE_NO_COLLISION || (FEATURE_LEVEL < FEATURE_LEVEL_SM4 && !VULKAN_PROFILE)
 	#undef DEPTH_BUFFER_COLLISION
 	#define DEPTH_BUFFER_COLLISION 0
 	#undef DISTANCE_FIELD_COLLISION
 	#define DISTANCE_FIELD_COLLISION 0
 #endif
+
+#define FORWARD_SHADING_NORMAL_CALC	(FORWARD_SHADING || ((FEATURE_LEVEL == FEATURE_LEVEL_ES3_1) && VULKAN_PROFILE))
 
 /** Position (XYZ) and squared radius (W) of the point attractor. */
 float4 PointAttractor;
@@ -347,7 +349,7 @@ void CollideWithDepthBuffer(
 		float SceneDepth = CalcSceneDepth(ScreenUV);
 		if (abs(ClipPosition.w - SceneDepth) < CollisionDepthBounds)
 		{
-#if FORWARD_SHADING_ACCURATE_NORMAL && FORWARD_SHADING
+#if FORWARD_SHADING_ACCURATE_NORMAL && FORWARD_SHADING_NORMAL_CALC
 			float SceneDepth0 = CalcSceneDepth(ScreenUV + float2(View.BufferSizeAndInvSize.z, 0.0));
 			float SceneDepth1 = CalcSceneDepth(ScreenUV + float2(0.0, View.BufferSizeAndInvSize.w));
 			// When using the forward shading, the normal of the pixel is approximated by the derivative of the world position
@@ -362,16 +364,16 @@ void CollideWithDepthBuffer(
 			// Reconstruct world position.
 			float3 WorldPosition = WorldPositionFromSceneDepth(ScreenPosition.xy, SceneDepth);
 			
-#if FORWARD_SHADING && FORWARD_SHADING_ACCURATE_NORMAL
+#if FORWARD_SHADING_NORMAL_CALC && FORWARD_SHADING_ACCURATE_NORMAL
 			// Compute normal using the two additional neighbooring pixel depth buffer fetches.
 			float3 WorldPosition0 = WorldPositionFromSceneDepth(ScreenPosition.xy + float2(2 * View.ViewSizeAndInvSize.z, 0.0), SceneDepth0);
 			float3 WorldPosition1 = WorldPositionFromSceneDepth(ScreenPosition.xy - float2(0.0, 2 * View.ViewSizeAndInvSize.w), SceneDepth1);
 			float3 WorldNormal = normalize(cross(WorldPosition0 - WorldPosition, WorldPosition1 - WorldPosition));
-#elif FORWARD_SHADING // && !FORWARD_SHADING_ACCURATE_NORMAL
+#elif FORWARD_SHADING_NORMAL_CALC // && !FORWARD_SHADING_ACCURATE_NORMAL
 			// Compute normal using a ddx/ddy hack, hopefully the neighbooring particules will be close enough...
 			float3 WorldNormal = normalize(cross(ddx(WorldPosition), ddy(WorldPosition)));
 			WorldNormal *= sign(dot(View.WorldCameraOrigin - NewPosition, WorldNormal));
-#else //!FORWARD_SHADING
+#else //!FORWARD_SHADING_NORMAL_CALC
 			// Sample the normal buffer to create a plane to collide against.
 			float3 WorldNormal = Texture2DSampleLevel(SceneTexturesStruct.GBufferATexture, SceneTexturesStruct.GBufferATextureSampler, ScreenUV, 0).xyz * 2.0 - 1.0;
 #endif

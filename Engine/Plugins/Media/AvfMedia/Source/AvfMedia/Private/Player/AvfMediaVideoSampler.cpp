@@ -288,26 +288,10 @@ void FAvfMediaVideoSampler::Tick()
 				
 				PixelShader->SetParameters(RHICmdList, YTex, UVTex, MediaShaders::YuvToSrgbPs4, true);
 				
-				// draw full-size quad
-				FMediaElementVertex Vertices[4];
-				Vertices[0].Position.Set(-1.0f,  1.0f, 1.0f, 1.0f); // Top Left
-				Vertices[1].Position.Set( 1.0f,  1.0f, 1.0f, 1.0f); // Top Right
-				Vertices[2].Position.Set(-1.0f, -1.0f, 1.0f, 1.0f); // Bottom Left
-				Vertices[3].Position.Set( 1.0f, -1.0f, 1.0f, 1.0f); // Bottom Right
-				
-				const float ULeft   = 0.0f;
-				const float URight  = 1.0f;
-				const float VTop    = 0.0f;
-				const float VBottom = 1.0f;
-				
-				Vertices[0].TextureCoordinate.Set(ULeft, VTop);
-				Vertices[1].TextureCoordinate.Set(URight, VTop);
-				Vertices[2].TextureCoordinate.Set(ULeft, VBottom);
-				Vertices[3].TextureCoordinate.Set(URight, VBottom);
-				
+				RHICmdList.SetStreamSource(0, CreateTempMediaVertexBuffer(), 0);
 				RHICmdList.SetViewport(0, 0, 0.0f, YWidth, YHeight, 1.0f);
 
-				DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+				RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 				
 				RHICmdList.CopyToResolveTarget(ShaderResource, ShaderResource, FResolveParams());
 			}

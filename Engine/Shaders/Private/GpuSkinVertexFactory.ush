@@ -19,11 +19,15 @@ float4x4 PreviousLocalToWorld;
 #endif
 
 #ifndef GPUSKIN_LIMIT_2BONE_INFLUENCES
-#define GPUSKIN_LIMIT_2BONE_INFLUENCES 0 // default is 4 bones
+#define GPUSKIN_LIMIT_2BONE_INFLUENCES	0 // default is 4 bones
 #endif
 
 #ifndef GPUSKIN_USE_EXTRA_INFLUENCES
-#define GPUSKIN_USE_EXTRA_INFLUENCES 0
+#define GPUSKIN_USE_EXTRA_INFLUENCES	0	// 8 bones/vertex
+#endif
+
+#ifndef GPUSKIN_USE_BONES_SRV_BUFFER
+#define GPUSKIN_USE_BONES_SRV_BUFFER	0	// Use a Buffer<float4> if 1, otherwise a uniform buffer
 #endif
 
 #define FIXED_VERTEX_INDEX 0xFFFF
@@ -51,7 +55,7 @@ struct FVertexFactoryInput
 	// TangentZ.w contains sign of tangent basis determinant
 	half4	TangentZ		: ATTRIBUTE2;	
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1 || COMPILER_METAL
+#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1 || COMPILER_METAL || COMPILER_VULKAN
 	uint4	BlendIndices	: ATTRIBUTE3;
 	#if GPUSKIN_USE_EXTRA_INFLUENCES
 	uint4	BlendIndicesExtra	: ATTRIBUTE14;
@@ -144,7 +148,9 @@ struct FVertexFactoryInterpolantsVSToPS
 {
 	TANGENTTOWORLD_INTERPOLATOR_BLOCK
 
+#if INTERPOLATE_VERTEX_COLOR
 	float4 Color : COLOR0;
+#endif
 
 #if NUM_TEX_COORD_INTERPOLATORS
 	float2	TexCoords[NUM_TEX_COORD_INTERPOLATORS]	: TEXCOORD0;
@@ -181,7 +187,11 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	Result.WorldVertexNormal_Center = Interpolants.TangentToWorld2_Center.xyz;
 #endif
 	Result.UnMirrored = TangentToWorld2.w;
+#if INTERPOLATE_VERTEX_COLOR
 	Result.VertexColor = Interpolants.Color;
+#else
+	Result.VertexColor = 0;
+#endif
 	Result.TwoSidedSign = 1;
 	return Result;
 }
@@ -200,7 +210,7 @@ half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
 
 #define FBoneMatrix float3x4
 
-#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
+#if GPUSKIN_USE_BONES_SRV_BUFFER
 
 // The bone matrix buffer stored as 4x3 (3 float4 behind each other), all chunks of a skeletal mesh in one, each skeletal mesh has it's own buffer
 STRONG_TYPE Buffer<float4> BoneMatrices;
@@ -328,7 +338,7 @@ float3 MorphPosition( FVertexFactoryInput Input, FVertexFactoryIntermediates Int
 
 FBoneMatrix GetBoneMatrix(int Index)
 {
-#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
+#if GPUSKIN_USE_BONES_SRV_BUFFER
 	float4 A = BoneMatrices[Index * 3];
 	float4 B = BoneMatrices[Index * 3 + 1];
 	float4 C = BoneMatrices[Index * 3 + 2];
@@ -359,7 +369,7 @@ FBoneMatrix CalcBoneMatrix( FVertexFactoryInput Input )
 
 FBoneMatrix GetPreviousBoneMatrix(int Index)
 {
-#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
+#if GPUSKIN_USE_BONES_SRV_BUFFER
 	float4 A = PreviousBoneMatrices[Index * 3 + 0];
 	float4 B = PreviousBoneMatrices[Index * 3 + 1];
 	float4 C = PreviousBoneMatrices[Index * 3 + 2];
@@ -615,7 +625,9 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	Interpolants.TangentToWorld2_Center = Interpolants.TangentToWorld2;
 #endif
 
+#if INTERPOLATE_VERTEX_COLOR
 	Interpolants.Color = Intermediates.Color;
+#endif
 
 #if INSTANCED_STEREO
 	Interpolants.PackedEyeIndex = 0;
@@ -685,7 +697,9 @@ FMaterialTessellationParameters GetMaterialTessellationParameters(FVertexFactory
 	half3 TangentToWorld0 = Interpolants.InterpolantsVSToPS.TangentToWorld0.xyz;
 	half4 TangentToWorld2 = Interpolants.InterpolantsVSToPS.TangentToWorld2;
 
+#if INTERPOLATE_VERTEX_COLOR
 	Result.VertexColor = Interpolants.InterpolantsVSToPS.Color;
+#endif
 
 	Result.TangentToWorld = AssembleTangentToWorld( TangentToWorld0, TangentToWorld2 );
 
@@ -703,7 +717,9 @@ FVertexFactoryInterpolantsVSToDS VertexFactoryInterpolate(FVertexFactoryInterpol
 
 	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.TangentToWorld0.xyz);
 	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.TangentToWorld2);
+#if INTERPOLATE_VERTEX_COLOR
 	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.Color);
+#endif
 
 #if NUM_TEX_COORD_INTERPOLATORS
 	UNROLL

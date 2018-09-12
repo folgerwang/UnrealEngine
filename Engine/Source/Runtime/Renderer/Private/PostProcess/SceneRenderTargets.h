@@ -112,6 +112,8 @@ static const int32 NumTranslucencyShadowSurfaces = 2;
 
 #define STENCIL_LIGHTING_CHANNELS_MASK(Value) uint8((Value & 0x7) << STENCIL_LIGHTING_CHANNELS_BIT_ID)
 
+#define PREVENT_RENDERTARGET_SIZE_THRASHING (PLATFORM_DESKTOP || PLATFORM_XBOXONE || PLATFORM_PS4)
+
 enum class ESceneColorFormatType
 {
 	Mobile,
@@ -181,6 +183,9 @@ protected:
 		bHMDAllocatedDepthTarget(false)
 		{
 			FMemory::Memset(LargestDesiredSizes, 0);
+#if PREVENT_RENDERTARGET_SIZE_THRASHING
+			FMemory::Memset(HistoryFlags, 0, sizeof(HistoryFlags));
+#endif
 		}
 	/** Constructor that creates snapshot */
 	FSceneRenderTargets(const FViewInfo& InView, const FSceneRenderTargets& SnapshotSource);
@@ -575,7 +580,12 @@ private:
 	/** as we might get multiple BufferSize requests each frame for SceneCaptures and we want to avoid reallocations we can only go as low as the largest request */
 	static const uint32 FrameSizeHistoryCount = 3;
 	FIntPoint LargestDesiredSizes[FrameSizeHistoryCount];
-	
+#if PREVENT_RENDERTARGET_SIZE_THRASHING
+	// bit 0 - whether any scene capture rendered
+	// bit 1 - whether any reflection capture rendered
+	uint8 HistoryFlags[FrameSizeHistoryCount];
+#endif
+
 	/** to detect when LargestDesiredSizeThisFrame is outdated */
 	uint32 ThisFrameNumber;
 	uint32 CurrentDesiredSizeIndex;

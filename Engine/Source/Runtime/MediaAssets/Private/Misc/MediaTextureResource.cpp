@@ -618,20 +618,11 @@ void FMediaTextureResource::ConvertSample(const TSharedPtr<IMediaTextureSample, 
 		}
 
 		// draw full size quad into render target
-		FMediaElementVertex Vertices[4];
-		{
-			Vertices[0].Position.Set(-1.0f, 1.0f, 1.0f, 1.0f);
-			Vertices[0].TextureCoordinate.Set(0.0f, 0.0f);
-			Vertices[1].Position.Set(1.0f, 1.0f, 1.0f, 1.0f);
-			Vertices[1].TextureCoordinate.Set(1.0f, 0.0f);
-			Vertices[2].Position.Set(-1.0f, -1.0f, 1.0f, 1.0f);
-			Vertices[2].TextureCoordinate.Set(0.0f, 1.0f);
-			Vertices[3].Position.Set(1.0f, -1.0f, 1.0f, 1.0f);
-			Vertices[3].TextureCoordinate.Set(1.0f, 1.0f);
-		}
-
+		CommandList.SetStreamSource(0, CreateTempMediaVertexBuffer(), 0);
+		// set viewport to RT size
 		CommandList.SetViewport(0, 0, 0.0f, OutputDim.X, OutputDim.Y, 1.0f);
-		DrawPrimitiveUP(CommandList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+
+		CommandList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 		CommandList.TransitionResource(EResourceTransitionAccess::EReadable, RenderTargetTextureRHI);
 	}
 

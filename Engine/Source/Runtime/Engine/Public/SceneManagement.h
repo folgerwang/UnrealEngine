@@ -43,6 +43,7 @@ class UMaterialInterface;
 class UShadowMapTexture2D;
 class USkyLightComponent;
 struct FDynamicMeshVertex;
+class ULightMapVirtualTexture;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogBufferVisualization, Log, All);
 
@@ -340,10 +341,25 @@ public:
 		const FVector2D& InCoordinateBias,
 		bool bAllowHighQualityLightMaps);
 
+	static FLightMapInteraction InitVirtualTexture(
+		const ULightMapVirtualTexture* VirtualTexture,
+		const FVector4* InCoefficientScales,
+		const FVector4* InCoefficientAdds,
+		const FVector2D& InCoordinateScale,
+		const FVector2D& InCoordinateBias,
+		bool bAllowHighQualityLightMaps);
+
 	/** Default constructor. */
 	FLightMapInteraction():
+#if ALLOW_HQ_LIGHTMAPS
+		HighQualityTexture(NULL),
 		SkyOcclusionTexture(NULL),
 		AOMaterialMaskTexture(NULL),
+		VirtualTexture(NULL),
+#endif
+#if ALLOW_LQ_LIGHTMAPS
+		LowQualityTexture(NULL),
+#endif
 		Type(LMIT_None)
 	{}
 
@@ -377,6 +393,16 @@ public:
 		check(Type == LMIT_Texture);
 #if ALLOW_HQ_LIGHTMAPS
 		return AOMaterialMaskTexture;
+#else
+		return NULL;
+#endif
+	}
+
+	const ULightMapVirtualTexture* GetVirtualTexture() const
+	{
+		check(Type == LMIT_Texture);
+#if ALLOW_HQ_LIGHTMAPS
+		return VirtualTexture;
 #else
 		return NULL;
 #endif
@@ -483,6 +509,7 @@ private:
 	const class ULightMapTexture2D* HighQualityTexture;
 	const ULightMapTexture2D* SkyOcclusionTexture;
 	const ULightMapTexture2D* AOMaterialMaskTexture;
+	const ULightMapVirtualTexture* VirtualTexture;
 #endif
 
 #if ALLOW_LQ_LIGHTMAPS
@@ -933,6 +960,7 @@ public:
 	virtual float GetSourceRadius() const { return 0.0f; }
 	virtual bool IsInverseSquared() const { return true; }
 	virtual bool IsRectLight() const { return false; }
+	virtual bool HasSourceTexture() const { return false; }
 	virtual float GetLightSourceAngle() const { return 0.0f; }
 	virtual float GetTraceDistance() const { return 0.0f; }
 	virtual float GetEffectiveScreenRadius(const FViewMatrices& ShadowViewMatrices) const { return 0.0f; }

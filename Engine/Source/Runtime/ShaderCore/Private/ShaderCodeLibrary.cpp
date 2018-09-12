@@ -66,7 +66,7 @@ static FString GetShaderDebugFolder(const FString& BaseDir, const FString& Libra
 
 static TArray<uint8>& FShaderLibraryHelperUncompressCode(EShaderPlatform Platform, int32 UncompressedSize, TArray<uint8>& Code, TArray<uint8>& UncompressedCode)
 {
-	if (RHISupportsShaderCompression(Platform) && Code.Num() != UncompressedSize)
+	if (Code.Num() != UncompressedSize)
 	{
 		UncompressedCode.SetNum(UncompressedSize);
 		bool bSucceed = FCompression::UncompressMemory(ShaderLibraryCompressionFlag, UncompressedCode.GetData(), UncompressedSize, Code.GetData(), Code.Num());
@@ -81,25 +81,18 @@ static TArray<uint8>& FShaderLibraryHelperUncompressCode(EShaderPlatform Platfor
 
 static void FShaderLibraryHelperCompressCode(EShaderPlatform Platform, const TArray<uint8>& UncompressedCode, TArray<uint8>& CompressedCode)
 {
-	if (RHISupportsShaderCompression(Platform))
-	{
-		int32 CompressedSize = UncompressedCode.Num() * 4.f / 3.f;
-		CompressedCode.SetNumUninitialized(CompressedSize); // Allocate large enough buffer for compressed code
+	int32 CompressedSize = UncompressedCode.Num() * 4.f / 3.f;
+	CompressedCode.SetNumUninitialized(CompressedSize); // Allocate large enough buffer for compressed code
 
-		if (FCompression::CompressMemory(ShaderLibraryCompressionFlag, CompressedCode.GetData(), CompressedSize, UncompressedCode.GetData(), UncompressedCode.Num()))
-		{
-			CompressedCode.SetNum(CompressedSize);
-		}
-		else
-		{
-			CompressedCode = UncompressedCode;
-		}
-		CompressedCode.Shrink();
+	if (FCompression::CompressMemory(ShaderLibraryCompressionFlag, CompressedCode.GetData(), CompressedSize, UncompressedCode.GetData(), UncompressedCode.Num()))
+	{
+		CompressedCode.SetNum(CompressedSize);
 	}
 	else
 	{
 		CompressedCode = UncompressedCode;
 	}
+	CompressedCode.Shrink();
 }
 
 FString FCompactFullName::ToString() const

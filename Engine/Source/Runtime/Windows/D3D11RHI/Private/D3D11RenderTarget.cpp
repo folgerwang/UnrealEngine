@@ -161,8 +161,12 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 		SetShaderResourceView<SF_Pixel>(SourceTexture, SourceTexture->GetShaderResourceView(), TextureIndex, SourceTexture->GetName());
 	}
 
+	FRHIResourceCreateInfo CreateInfo;
+	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FScreenVertex) * 4, BUF_Volatile, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FScreenVertex) * 4, RLM_WriteOnly);
+
 	// Generate the vertices used
-	FScreenVertex Vertices[4];
+	FScreenVertex* Vertices = (FScreenVertex*)VoidPtr;
 
 	Vertices[0].Position.X = MaxX;
 	Vertices[0].Position.Y = MinY;
@@ -184,7 +188,10 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 	Vertices[3].UV.X       = MinU;
 	Vertices[3].UV.Y       = MaxV;
 
-	DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+
 	RHICmdList.Flush(); // always call flush when using a command list in RHI implementations before doing anything else. This is super hazardous.
 
 	if (SourceTexture)

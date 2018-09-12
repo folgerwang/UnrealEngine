@@ -2395,6 +2395,7 @@ static void MarkAllPrimitivesForReflectionProxyUpdate(FScene* Scene)
 		// Note: Only visible primitives will actually update their reflection proxy
 		for (int32 PrimitiveIndex = 0; PrimitiveIndex < Scene->Primitives.Num(); PrimitiveIndex++)
 		{
+			Scene->Primitives[PrimitiveIndex]->CachedPlanarReflectionProxy = NULL;
 			Scene->Primitives[PrimitiveIndex]->bNeedsCachedReflectionCaptureUpdate = true;
 		}
 

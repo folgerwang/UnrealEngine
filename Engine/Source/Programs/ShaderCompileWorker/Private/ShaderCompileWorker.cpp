@@ -10,13 +10,14 @@
 #include "HAL/ExceptionHandling.h"
 #include "Interfaces/IShaderFormat.h"
 #include "Interfaces/IShaderFormatModule.h"
+#include "RHIShaderFormatDefinitions.inl"
 
 #define DEBUG_USING_CONSOLE	0
 
 // this is for the protocol, not the data, bump if FShaderCompilerInput or ProcessInputFromArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerInputVersion = 9;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
-const int32 ShaderCompileWorkerOutputVersion = 4;
+const int32 ShaderCompileWorkerOutputVersion = 5;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerSingleJobHeader = 'S';
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
@@ -36,7 +37,8 @@ enum class ESCWErrorCode
 	CantCompileForSpecificFormat,
 };
 
-double LastCompileTime = 0.0;
+static double LastCompileTime = 0.0;
+static int32 GNumProcessedJobs = 0;
 
 enum class EXGEMode
 {
@@ -124,7 +126,7 @@ static const IShaderFormat* FindShaderFormat(FName Name)
 
 	return nullptr;
 }
-	
+
 /** Processes a compilation job. */
 static void ProcessCompilationJob(const FShaderCompilerInput& Input,FShaderCompilerOutput& Output,const FString& WorkingDirectory)
 {
@@ -136,6 +138,7 @@ static void ProcessCompilationJob(const FShaderCompilerInput& Input,FShaderCompi
 
 	// Compile the shader directly through the platform dll (directly from the shader dir as the working directory)
 	Compiler->CompileShader(Input.ShaderFormat, Input, Output, WorkingDirectory);
+	++GNumProcessedJobs;
 }
 
 static void UpdateFileSize(FArchive& OutputFile, int64 FileSizePosition)
@@ -159,6 +162,8 @@ static int64 WriteOutputFileHeader(FArchive& OutputFile, int32 ErrorCode, int32 
 	OutputFile << FileSize;
 
 	OutputFile << ErrorCode;
+
+	OutputFile << GNumProcessedJobs;
 
 	// Note: Can't use FStrings here as SEH can't be used with destructors
 	OutputFile << CallstackLength;
@@ -350,12 +355,15 @@ private:
 			TMap<FString, FString> DirectoryMappings;
 			InputFile << DirectoryMappings;
 
-			FPlatformProcess::ResetAllShaderSourceDirectoryMappings();
+			ResetAllShaderSourceDirectoryMappings();
 			for (const auto& MappingEntry : DirectoryMappings)
 			{
-				FPlatformProcess::AddShaderSourceDirectoryMapping(MappingEntry.Key, MappingEntry.Value);
+				AddShaderSourceDirectoryMapping(MappingEntry.Key, MappingEntry.Value);
 			}
 		}
+
+		// Initialize shader hash cache before reading any includes.
+		InitializeShaderHashCache();
 
 		TMap<FString, TSharedPtr<FString>> ExternalIncludes;
 		TArray<FShaderCompilerEnvironment> SharedEnvironments;
@@ -385,6 +393,8 @@ private:
 				InputFile << SharedEnvironments[EnvironmentIndex];
 			}
 		}
+
+		GNumProcessedJobs = 0;
 
 		// Individual jobs
 		{
@@ -681,74 +691,6 @@ private:
 	}
 };
 
-static FName NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));
-static FName NAME_PCD3D_SM4(TEXT("PCD3D_SM4"));
-static FName NAME_PCD3D_ES3_1(TEXT("PCD3D_ES31"));
-static FName NAME_PCD3D_ES2(TEXT("PCD3D_ES2"));
-static FName NAME_GLSL_150(TEXT("GLSL_150"));
-static FName NAME_SF_PS4(TEXT("SF_PS4"));
-static FName NAME_SF_XBOXONE_D3D12(TEXT("SF_XBOXONE_D3D12"));
-static FName NAME_GLSL_430(TEXT("GLSL_430"));
-static FName NAME_GLSL_150_ES2(TEXT("GLSL_150_ES2"));
-static FName NAME_GLSL_150_ES2_NOUB(TEXT("GLSL_150_ES2_NOUB"));
-static FName NAME_GLSL_150_ES31(TEXT("GLSL_150_ES31"));
-static FName NAME_GLSL_ES2(TEXT("GLSL_ES2"));
-static FName NAME_GLSL_ES2_WEBGL(TEXT("GLSL_ES2_WEBGL"));
-static FName NAME_GLSL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
-static FName NAME_SF_METAL(TEXT("SF_METAL"));
-static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
-static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
-static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
-static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
-static FName NAME_VULKAN_ES3_1_ANDROID_NOUB(TEXT("SF_VULKAN_ES31_ANDROID_NOUB"));
-static FName NAME_VULKAN_ES3_1_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
-static FName NAME_VULKAN_ES3_1(TEXT("SF_VULKAN_ES31"));
-static FName NAME_VULKAN_ES3_1_NOUB(TEXT("SF_VULKAN_ES31_NOUB"));
-static FName NAME_VULKAN_SM4_NOUB(TEXT("SF_VULKAN_SM4_NOUB"));
-static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
-static FName NAME_VULKAN_SM5_NOUB(TEXT("SF_VULKAN_SM5_NOUB"));
-static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
-static FName NAME_VULKAN_SM5_LUMIN(TEXT("SF_VULKAN_SM5_LUMIN"));
-static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
-static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
-static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
-
-static EShaderPlatform FormatNameToEnum(FName ShaderFormat)
-{
-	if (ShaderFormat == NAME_PCD3D_SM5)			return SP_PCD3D_SM5;
-	if (ShaderFormat == NAME_PCD3D_SM4)			return SP_PCD3D_SM4;
-	if (ShaderFormat == NAME_PCD3D_ES3_1)		return SP_PCD3D_ES3_1;
-	if (ShaderFormat == NAME_PCD3D_ES2)			return SP_PCD3D_ES2;
-	if (ShaderFormat == NAME_GLSL_150)			return SP_OPENGL_SM4;
-	if (ShaderFormat == NAME_SF_PS4)			return SP_PS4;
-	if (ShaderFormat == NAME_SF_XBOXONE_D3D12)	return SP_XBOXONE_D3D12;
-	if (ShaderFormat == NAME_GLSL_430)			return SP_OPENGL_SM5;
-	if (ShaderFormat == NAME_GLSL_150_ES2)		return SP_OPENGL_PCES2;
-	if (ShaderFormat == NAME_GLSL_150_ES2_NOUB)	return SP_OPENGL_PCES2;
-	if (ShaderFormat == NAME_GLSL_150_ES31)		return SP_OPENGL_PCES3_1;
-	if (ShaderFormat == NAME_GLSL_ES2)			return SP_OPENGL_ES2_ANDROID;
-	if (ShaderFormat == NAME_GLSL_ES2_WEBGL)	return SP_OPENGL_ES2_WEBGL;
-	if (ShaderFormat == NAME_GLSL_ES2_IOS)		return SP_OPENGL_ES2_IOS;
-	if (ShaderFormat == NAME_SF_METAL)			return SP_METAL;
-	if (ShaderFormat == NAME_SF_METAL_MRT)		return SP_METAL_MRT;
-	if (ShaderFormat == NAME_GLSL_310_ES_EXT)	return SP_OPENGL_ES31_EXT;
-	if (ShaderFormat == NAME_SF_METAL_SM5)		return SP_METAL_SM5;
-	if (ShaderFormat == NAME_VULKAN_SM4)			return SP_VULKAN_SM4;
-	if (ShaderFormat == NAME_VULKAN_SM5)			return SP_VULKAN_SM5;
-	if (ShaderFormat == NAME_VULKAN_SM5_LUMIN)		return SP_VULKAN_SM5_LUMIN;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)	return SP_VULKAN_ES3_1_ANDROID;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID_NOUB)	return SP_VULKAN_ES3_1_ANDROID;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_LUMIN)		return SP_VULKAN_ES3_1_LUMIN;
-	if (ShaderFormat == NAME_VULKAN_ES3_1)			return SP_VULKAN_PCES3_1;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_NOUB)	return SP_VULKAN_PCES3_1;
-	if (ShaderFormat == NAME_VULKAN_SM4_NOUB)		return SP_VULKAN_SM4;
-	if (ShaderFormat == NAME_VULKAN_SM5_NOUB)		return SP_VULKAN_SM5;
-	if (ShaderFormat == NAME_SF_METAL_SM5_NOTESS)	return SP_METAL_SM5_NOTESS;
-	if (ShaderFormat == NAME_SF_METAL_MACES3_1)	return SP_METAL_MACES3_1;
-	if (ShaderFormat == NAME_GLSL_ES3_1_ANDROID) return SP_OPENGL_ES3_1_ANDROID;
-	return SP_NumPlatforms;
-}
-
 static void DirectCompile(const TArray<const class IShaderFormat*>& ShaderFormats)
 {
 	// Find all the info required for compiling a single shader
@@ -841,7 +783,7 @@ static void DirectCompile(const TArray<const class IShaderFormat*>& ShaderFormat
 	Input.EntryPointName = Entry;
 	Input.ShaderFormat = FormatName;
 	Input.VirtualSourceFilePath = InputFile;
-	Input.Target.Platform =  FormatNameToEnum(FormatName);
+	Input.Target.Platform =  ShaderFormatNameToShaderPlatform(FormatName);
 	Input.Target.Frequency = Frequency;
 	Input.bSkipPreprocessedCache = !bUseMCPP;
 
@@ -901,7 +843,7 @@ static void DirectCompile(const TArray<const class IShaderFormat*>& ShaderFormat
  */
 static int32 GuardedMain(int32 argc, TCHAR* argv[], bool bDirectMode)
 {
-	GEngineLoop.PreInit(argc, argv, TEXT("-NOPACKAGECACHE -Multiprocess"));
+	GEngineLoop.PreInit(argc, argv, TEXT("-NOPACKAGECACHE -ReduceThreadUsage"));
 #if DEBUG_USING_CONSOLE
 	GLogConsole->Show( true );
 #endif

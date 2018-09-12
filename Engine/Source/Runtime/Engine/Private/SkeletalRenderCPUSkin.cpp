@@ -75,13 +75,17 @@ void FSkeletalMeshObjectCPUSkin::InitResources(USkinnedMeshComponent* InMeshComp
 	{
 		FSkeletalMeshObjectLOD& SkelLOD = LODs[LODIndex];
 
-		FSkelMeshComponentLODInfo* CompLODInfo = nullptr;
-		if (InMeshComponent->LODInfo.IsValidIndex(LODIndex))
+		// Skip LODs that have their render data stripped
+		if (SkelLOD.SkelMeshRenderData->LODRenderData[LODIndex].GetNumVertices() > 0)
 		{
-			CompLODInfo = &InMeshComponent->LODInfo[LODIndex];
-		}
+			FSkelMeshComponentLODInfo* CompLODInfo = nullptr;
+			if (InMeshComponent->LODInfo.IsValidIndex(LODIndex))
+			{
+				CompLODInfo = &InMeshComponent->LODInfo[LODIndex];
+			}
 
-		SkelLOD.InitResources(CompLODInfo);
+			SkelLOD.InitResources(CompLODInfo);
+		}
 	}
 }
 
@@ -91,7 +95,12 @@ void FSkeletalMeshObjectCPUSkin::ReleaseResources()
 	for( int32 LODIndex=0;LODIndex < LODs.Num();LODIndex++ )
 	{
 		FSkeletalMeshObjectLOD& SkelLOD = LODs[LODIndex];
-		SkelLOD.ReleaseResources();
+
+		// Skip LODs that have their render data stripped
+		if (SkelLOD.SkelMeshRenderData->LODRenderData[LODIndex].GetNumVertices() > 0)
+		{
+			SkelLOD.ReleaseResources();
+		}
 	}
 }
 

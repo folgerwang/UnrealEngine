@@ -542,39 +542,6 @@ bool FPluginManager::ConfigureEnabledPlugins()
 			{
 				UE_LOG(LogPluginManager, Log, TEXT("Mounting plugin %s"), *Plugin.GetName());
 
-				// Plugins can have their own shaders
-				// Add potential plugin shader directory only if at least one plugin's module is loaded in PostConfigInit. Not supported otherwise
-				{
-					FString RealShaderSourceDir = FPaths::Combine(*Plugin.GetBaseDir(), TEXT("Shaders"));
-
-					if (FPaths::DirectoryExists(RealShaderSourceDir))
-					{
-						UE_LOG(LogPluginManager, Log, TEXT("Plugin shader directory %s found"), *RealShaderSourceDir);
-						bool PluginHasAPostConfigInitModule = false;
-						for (const FModuleDescriptor& Module : Plugin.GetDescriptor().Modules)
-						{
-							if (Module.LoadingPhase == ELoadingPhase::PostConfigInit)
-							{
-								PluginHasAPostConfigInitModule = true;
-								break;
-							}
-						}
-
-						if (PluginHasAPostConfigInitModule)
-						{
-							FString VirtualShaderSourceDir = FString(TEXT("/Plugin")) / Plugin.GetName();
-							UE_LOG(LogPluginManager, Log,
-								TEXT("Mapping shader source directory %s to virtual directory %s"),
-								*RealShaderSourceDir, *VirtualShaderSourceDir);
-							FGenericPlatformProcess::AddShaderSourceDirectoryMapping(VirtualShaderSourceDir, RealShaderSourceDir);
-						}
-						else
-						{
-							UE_LOG(LogPluginManager, Log, TEXT("No ELoadingPhase::PostConfigInit module found."), *RealShaderSourceDir);
-						}
-					}
-				}
-
 				// Build the list of content folders
 				if (Plugin.Descriptor.bCanContainContent)
 				{

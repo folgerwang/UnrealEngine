@@ -146,6 +146,11 @@ ir_visitor_status ir_rvalue_visitor::visit_leave(ir_call *ir)
 	return visit_continue;
 }
 
+ir_visitor_status ir_rvalue_visitor::visit_leave(ir_atomic *ir)
+{
+	return ir_hierarchical_visitor::visit_leave(ir);
+}
+
 ir_visitor_status ir_rvalue_visitor::visit_leave(ir_return *ir)
 {
 	handle_rvalue(&ir->value);;

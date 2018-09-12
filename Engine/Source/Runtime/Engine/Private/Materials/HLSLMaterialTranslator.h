@@ -1065,6 +1065,9 @@ public:
 		{
 			// Add uniform buffer declarations for any parameter collections referenced
 			const FString CollectionName = FString::Printf(TEXT("MaterialCollection%u"), CollectionIndex);
+			// This can potentially become an issue for MaterialCollection Uniform Buffers if they ever get non-numeric resources (eg Textures), as
+			// OutEnvironment.ResourceTableMap has a map by name, and the N ParameterCollection Uniform Buffers ALL are names "MaterialCollection"
+			// (and the hlsl cbuffers are named MaterialCollection0, etc, so the names don't match the layout)
 			FShaderUniformBufferParameter::ModifyCompilationEnvironment(*CollectionName, ParameterCollections[CollectionIndex]->GetUniformBufferStruct(), InPlatform, OutEnvironment);
 		}
 		OutEnvironment.SetDefine(TEXT("IS_MATERIAL_SHADER"), TEXT("1"));
@@ -3817,7 +3820,8 @@ protected:
 			|| SceneTextureId == PPI_Roughness
 			|| SceneTextureId == PPI_MaterialAO
 			|| SceneTextureId == PPI_DecalMask
-			|| SceneTextureId == PPI_ShadingModel
+			|| SceneTextureId == PPI_ShadingModelColor
+			|| SceneTextureId == PPI_ShadingModelID
 			|| SceneTextureId == PPI_StoredBaseColor
 			|| SceneTextureId == PPI_StoredSpecular;
 

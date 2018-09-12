@@ -31,14 +31,16 @@ namespace mtlpp
 {
     enum class TextureType
     {
-        Texture1D                                       = 0,
-        Texture1DArray                                  = 1,
-        Texture2D                                       = 2,
-        Texture2DArray                                  = 3,
-        Texture2DMultisample                            = 4,
-        TextureCube                                     = 5,
-        TextureCubeArray     MTLPP_AVAILABLE(10_11, 11_0) = 6,
-        Texture3D                                       = 7,
+        Texture1D                                      		 = 0,
+        Texture1DArray                                 		 = 1,
+        Texture2D                                      		 = 2,
+        Texture2DArray                                 		 = 3,
+        Texture2DMultisample                           		 = 4,
+        TextureCube                                    		 = 5,
+        TextureCubeArray     	MTLPP_AVAILABLE(10_11, 11_0) = 6,
+        Texture3D                                       	 = 7,
+		Texture2DMultisampleArray MTLPP_AVAILABLE_MAC(10_14) = 8,
+		TextureBuffer 			MTLPP_AVAILABLE(10_14, 12_0) = 9
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
@@ -62,6 +64,7 @@ namespace mtlpp
 
         static ns::AutoReleased<TextureDescriptor> Texture2DDescriptor(PixelFormat pixelFormat, NSUInteger width, NSUInteger height, bool mipmapped);
         static ns::AutoReleased<TextureDescriptor> TextureCubeDescriptor(PixelFormat pixelFormat, NSUInteger size, bool mipmapped);
+		static ns::AutoReleased<TextureDescriptor> TextureBufferDescriptor(PixelFormat pixelFormat, NSUInteger size, ResourceOptions options, TextureUsage usage) MTLPP_AVAILABLE(10_14, 12_0);
 
         TextureType     GetTextureType() const;
         PixelFormat     GetPixelFormat() const;
@@ -75,6 +78,7 @@ namespace mtlpp
         CpuCacheMode    GetCpuCacheMode() const MTLPP_AVAILABLE(10_11, 9_0);
         StorageMode     GetStorageMode() const MTLPP_AVAILABLE(10_11, 9_0);
         TextureUsage    GetUsage() const MTLPP_AVAILABLE(10_11, 9_0);
+		bool    GetAllowGPUOptimisedContents() const MTLPP_AVAILABLE(10_14, 12_0);
 
         void SetTextureType(TextureType textureType);
         void SetPixelFormat(PixelFormat pixelFormat);
@@ -88,6 +92,7 @@ namespace mtlpp
         void SetCpuCacheMode(CpuCacheMode cpuCacheMode) MTLPP_AVAILABLE(10_11, 9_0);
         void SetStorageMode(StorageMode storageMode) MTLPP_AVAILABLE(10_11, 9_0);
         void SetUsage(TextureUsage usage) MTLPP_AVAILABLE(10_11, 9_0);
+		void SetAllowGPUOptimisedContents(bool optimise) MTLPP_AVAILABLE(10_14, 12_0);
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
@@ -143,6 +148,7 @@ namespace mtlpp
         NSUInteger     GetArrayLength() const;
         TextureUsage GetUsage() const;
         bool         IsFrameBufferOnly() const;
+		bool    GetAllowGPUOptimisedContents() const MTLPP_AVAILABLE(10_14, 12_0);
 
         MTLPP_VALIDATED void GetBytes(void* pixelBytes, NSUInteger bytesPerRow, NSUInteger bytesPerImage, const Region& fromRegion, NSUInteger mipmapLevel, NSUInteger slice);
         MTLPP_VALIDATED void Replace(const Region& region, NSUInteger mipmapLevel, NSUInteger slice, void const* pixelBytes, NSUInteger bytesPerRow, NSUInteger bytesPerImage);

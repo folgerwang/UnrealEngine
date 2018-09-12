@@ -18,6 +18,7 @@
 #include "Misc/ScopeRWLock.h"
 #include "Misc/CoreDelegates.h"
 
+
 DECLARE_STATS_GROUP(TEXT("Shader Cache"),STATGROUP_ShaderCache, STATCAT_Advanced);
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Shaders Cached"),STATGROUP_NumShadersCached,STATGROUP_ShaderCache);
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num BSS Cached"),STATGROUP_NumBSSCached,STATGROUP_ShaderCache);
@@ -319,7 +320,7 @@ FPixelShaderRHIRef FShaderCacheLibrary::CreatePixelShader(const FSHAHash& Hash)
 	TPair<uint32,TArray<uint8>> const* CacheCode = Shaders.Find(Key);
 	if (CacheCode && CacheCode->Value.Num())
 	{
-		if (CacheCode->Key != CacheCode->Value.Num() && RHISupportsShaderCompression(Platform))
+		if (CacheCode->Key != CacheCode->Value.Num())
 		{
 			TArray<uint8> UncompressedCode;
 			FShaderCacheHelperUncompressCode(CacheCode->Key, CacheCode->Value, UncompressedCode);
@@ -347,7 +348,7 @@ FVertexShaderRHIRef FShaderCacheLibrary::CreateVertexShader(const FSHAHash& Hash
 	TPair<uint32,TArray<uint8>> const* CacheCode = Shaders.Find(Key);
 	if (CacheCode && CacheCode->Value.Num())
 	{
-		if (CacheCode->Key != CacheCode->Value.Num() && RHISupportsShaderCompression(Platform))
+		if (CacheCode->Key != CacheCode->Value.Num())
 		{
 			TArray<uint8> UncompressedCode;
 			FShaderCacheHelperUncompressCode(CacheCode->Key, CacheCode->Value, UncompressedCode);
@@ -375,7 +376,7 @@ FHullShaderRHIRef FShaderCacheLibrary::CreateHullShader(const FSHAHash& Hash)
 	TPair<uint32,TArray<uint8>> const* CacheCode = Shaders.Find(Key);
 	if (CacheCode && CacheCode->Value.Num())
 	{
-		if (CacheCode->Key != CacheCode->Value.Num() && RHISupportsShaderCompression(Platform))
+		if (CacheCode->Key != CacheCode->Value.Num())
 		{
 			TArray<uint8> UncompressedCode;
 			FShaderCacheHelperUncompressCode(CacheCode->Key, CacheCode->Value, UncompressedCode);
@@ -403,7 +404,7 @@ FDomainShaderRHIRef FShaderCacheLibrary::CreateDomainShader(const FSHAHash& Hash
 	TPair<uint32,TArray<uint8>> const* CacheCode = Shaders.Find(Key);
 	if (CacheCode && CacheCode->Value.Num())
 	{
-		if (CacheCode->Key != CacheCode->Value.Num() && RHISupportsShaderCompression(Platform))
+		if (CacheCode->Key != CacheCode->Value.Num())
 		{
 			TArray<uint8> UncompressedCode;
 			FShaderCacheHelperUncompressCode(CacheCode->Key, CacheCode->Value, UncompressedCode);
@@ -431,7 +432,7 @@ FGeometryShaderRHIRef FShaderCacheLibrary::CreateGeometryShader(const FSHAHash& 
 	TPair<uint32,TArray<uint8>> const* CacheCode = Shaders.Find(Key);
 	if (CacheCode && CacheCode->Value.Num())
 	{
-		if (CacheCode->Key != CacheCode->Value.Num() && RHISupportsShaderCompression(Platform))
+		if (CacheCode->Key != CacheCode->Value.Num())
 		{
 			TArray<uint8> UncompressedCode;
 			FShaderCacheHelperUncompressCode(CacheCode->Key, CacheCode->Value, UncompressedCode);
@@ -459,7 +460,7 @@ FGeometryShaderRHIRef FShaderCacheLibrary::CreateGeometryShaderWithStreamOutput(
 	TPair<uint32,TArray<uint8>> const* CacheCode = Shaders.Find(Key);
 	if (CacheCode && CacheCode->Value.Num())
 	{
-		if (CacheCode->Key != CacheCode->Value.Num() && RHISupportsShaderCompression(Platform))
+		if (CacheCode->Key != CacheCode->Value.Num())
 		{
 			TArray<uint8> UncompressedCode;
 			FShaderCacheHelperUncompressCode(CacheCode->Key, CacheCode->Value, UncompressedCode);
@@ -487,7 +488,7 @@ FComputeShaderRHIRef FShaderCacheLibrary::CreateComputeShader(const FSHAHash& Ha
 	TPair<uint32,TArray<uint8>> const* CacheCode = Shaders.Find(Key);
 	if (CacheCode && CacheCode->Value.Num())
 	{
-		if (CacheCode->Key != CacheCode->Value.Num() && RHISupportsShaderCompression(Platform))
+		if (CacheCode->Key != CacheCode->Value.Num())
 		{
 			TArray<uint8> UncompressedCode;
 			FShaderCacheHelperUncompressCode(CacheCode->Key, CacheCode->Value, UncompressedCode);
@@ -527,7 +528,7 @@ bool FShaderCacheLibrary::AddShader( uint8 Frequency, const FSHAHash& Hash, TArr
 	TArray<uint8> CompressedCode;
 	
 	// Perform in-memory compression
-	if (RHISupportsShaderCompression(Platform) && (UncompressedCode.Num() == UncompressedSize))
+	if (UncompressedCode.Num() == UncompressedSize)
 	{
 		// Recompress
 		int32 CompressedSize = UncompressedCode.Num();
@@ -1272,7 +1273,7 @@ void FShaderCache::InternalLogShader(EShaderPlatform Platform, EShaderFrequency 
 
 			if (!(Cache->Options & SCO_NoShaderPreload) && bSubmit)
 			{
-				if (Code.Num() && Code.Num() != UncompressedSize && RHISupportsShaderCompression(ShaderCache->CurrentPlatform))
+				if (Code.Num() && Code.Num() != UncompressedSize)
 				{
 					TArray<uint8> UncompressedCode;
 					FShaderCacheHelperUncompressCode(UncompressedSize, Code, UncompressedCode);
@@ -1333,8 +1334,6 @@ void FShaderCache::InternalPrelockedLogGraphicsPipelineState(EShaderPlatform Pla
 	{
 		State.RenderTargets[i] = Initializer.RenderTargetFormats[i];
 		State.RenderTargetFlags[i] = Initializer.RenderTargetFlags[i];
-		State.RenderTargetLoad[i] = (uint8)Initializer.RenderTargetLoadActions[i];
-		State.RenderTargetStore[i] = (uint8)Initializer.RenderTargetStoreActions[i];
 	}
 	State.DepthStencilTarget = Initializer.DepthStencilTargetFormat;
 	State.DepthStencilTargetFlags = Initializer.DepthStencilTargetFlag;
@@ -3011,8 +3010,6 @@ void FShaderCache::InternalPreDrawShader(FRHICommandList& RHICmdList, FShaderCac
 							if (Init.RenderTargetFormats[i] > PF_Unknown && Init.RenderTargetFormats[i] < PF_MAX)
 							{
 								Init.RenderTargetFlags[i] = PSOState.RenderTargetFlags[i];
-								Init.RenderTargetLoadActions[i] = (ERenderTargetLoadAction)PSOState.RenderTargetLoad[i];
-								Init.RenderTargetStoreActions[i] = (ERenderTargetStoreAction)PSOState.RenderTargetStore[i];
 							}
 							else
 							{

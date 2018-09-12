@@ -148,10 +148,20 @@ FBlendStateRHIParamRef GetDecalBlendState(const ERHIFeatureLevel::Type SMFeature
 			// DX10 doesn't support masking/using different blend modes per MRT.
 			// We set the opacity in the shader to 0 so we can use the same frame buffer blend.
 
-			return TStaticBlendState<
-				CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha,
-				CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha,
-				CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha >::GetRHI();
+			if (DecalBlendMode == DBM_DBuffer_AlphaComposite)
+			{
+				return TStaticBlendState<
+					CW_RGBA, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha,
+					CW_RGBA, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha,
+					CW_RGBA, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha >::GetRHI();
+			}
+			else
+			{
+				return TStaticBlendState<
+					CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha,
+					CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha,
+					CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha >::GetRHI();
+			}
 		}
 		else
 		{
@@ -161,6 +171,13 @@ FBlendStateRHIParamRef GetDecalBlendState(const ERHIFeatureLevel::Type SMFeature
 
 			switch (DecalBlendMode)
 			{
+			case DBM_DBuffer_AlphaComposite:
+				return TStaticBlendState<
+					CW_RGBA, BO_Add, BF_One,  BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha,
+					CW_RGB, BO_Add, BF_Zero, BF_One, BO_Add, BF_Zero, BF_One,
+					CW_RGBA, BO_Add, BF_One,  BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha
+				>::GetRHI();
+
 			case DBM_DBuffer_ColorNormalRoughness:
 				return TStaticBlendState<
 					CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha,
@@ -305,7 +322,11 @@ FBlendStateRHIParamRef GetDecalBlendState(const ERHIFeatureLevel::Type SMFeature
 
 
 		case DBM_Emissive:
+		case DBM_DBuffer_Emissive:
 			return TStaticBlendState< CW_RGB, BO_Add, BF_SourceAlpha, BF_One >::GetRHI();
+
+		case DBM_DBuffer_EmissiveAlphaComposite:
+			return TStaticBlendState< CW_RGB, BO_Add, BF_One, BF_One >::GetRHI();
 
 		case DBM_AlphaComposite:
 			if (GSupportsSeparateRenderTargetBlendState)
@@ -431,28 +452,28 @@ static FDecalDepthState ComputeDecalDepthState(EDecalRenderStage LocalDecalStage
 		return Ret;
 	}
 
-	const bool bGBufferDecal = LocalDecalStage == DRS_BeforeLighting;
+	const bool bUseDecalMask = LocalDecalStage == DRS_BeforeLighting || LocalDecalStage == DRS_Emissive;
 
 	if (bInsideDecal)
 	{
 		if (bThisDecalUsesStencil)
 		{
-			Ret.DepthTest = bGBufferDecal ? DDS_DepthAlways_StencilEqual1 : DDS_DepthAlways_StencilEqual1_IgnoreMask;
+			Ret.DepthTest = bUseDecalMask ? DDS_DepthAlways_StencilEqual1 : DDS_DepthAlways_StencilEqual1_IgnoreMask;
 		}
 		else
 		{
-			Ret.DepthTest = bGBufferDecal ? DDS_DepthAlways_StencilEqual0 : DDS_Always;
+			Ret.DepthTest = bUseDecalMask ? DDS_DepthAlways_StencilEqual0 : DDS_Always;
 		}
 	}
 	else
 	{
 		if (bThisDecalUsesStencil)
 		{
-			Ret.DepthTest = bGBufferDecal ? DDS_DepthTest_StencilEqual1 : DDS_DepthTest_StencilEqual1_IgnoreMask;
+			Ret.DepthTest = bUseDecalMask ? DDS_DepthTest_StencilEqual1 : DDS_DepthTest_StencilEqual1_IgnoreMask;
 		}
 		else
 		{
-			Ret.DepthTest = bGBufferDecal ? DDS_DepthTest_StencilEqual0 : DDS_DepthTest;
+			Ret.DepthTest = bUseDecalMask ? DDS_DepthTest_StencilEqual0 : DDS_DepthTest;
 		}
 	}
 
@@ -552,7 +573,7 @@ static FRasterizerStateRHIParamRef GetDecalRasterizerState(EDecalRasterizerState
 
 static inline bool IsStencilOptimizationAvailable(EDecalRenderStage RenderStage)
 {
-	return RenderStage == DRS_BeforeLighting || RenderStage == DRS_BeforeBasePass;
+	return RenderStage == DRS_BeforeLighting || RenderStage == DRS_BeforeBasePass || RenderStage == DRS_Emissive;
 }
 
 const TCHAR* GetStageName(EDecalRenderStage Stage)
@@ -566,6 +587,7 @@ const TCHAR* GetStageName(EDecalRenderStage Stage)
 	case DRS_BeforeLighting: return TEXT("DRS_BeforeLighting");
 	case DRS_Mobile: return TEXT("DRS_Mobile");
 	case DRS_AmbientOcclusion: return TEXT("DRS_AmbientOcclusion");
+	case DRS_Emissive: return TEXT("DRS_Emissive");
 	}
 	return TEXT("<UNKNOWN>");
 }
@@ -701,18 +723,16 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SceneContext.DBufferB, TEXT("DBufferB"));
 			}
 
-			Desc.Format = PF_R8G8;
-
 			if (!SceneContext.DBufferC)
 			{
 				Desc.Flags = TexCreate_None | GFastVRamConfig.DBufferC;
-				Desc.ClearValue = FClearValueBinding(FLinearColor(0, 1, 0, 1));
+				Desc.ClearValue = FClearValueBinding(FLinearColor(0, 0, 0, 1));
 				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SceneContext.DBufferC, TEXT("DBufferC"));
 			}
 
 			// we assume views are non overlapping, then we need to clear only once in the beginning, otherwise we would need to set scissor rects
 			// and don't get FastClear any more.
-			bool bFirstView = Context.View.Family->Views[0] == &Context.View;
+			bool bFirstView = Context.View.Family->Views[0] == &Context.View || ViewFamily.bMultiGPUForkAndJoin;
 
 			if (bFirstView)
 			{
@@ -735,22 +755,26 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 	if (ViewFamily.EngineShowFlags.Decals)
 	{
-		if (CurrentStage == DRS_BeforeBasePass || CurrentStage == DRS_BeforeLighting)
+		bool bShouldResolveTargets = false;
+
+		if (CurrentStage == DRS_BeforeBasePass || CurrentStage == DRS_BeforeLighting || CurrentStage == DRS_Emissive)
 		{
 			if (Context.View.MeshDecalPrimSet.NumPrims() > 0)
 			{
 				check(bNeedsDBufferTargets || CurrentStage != DRS_BeforeBasePass);
 				RenderMeshDecals(Context, CurrentStage);
+
+				bShouldResolveTargets = true;
 			}
 		}
 
 		FScene& Scene = *(FScene*)ViewFamily.Scene;
+		FDecalRenderTargetManager RenderTargetManager(RHICmdList, Context.GetShaderPlatform(), CurrentStage);
 
 		//don't early return. Resolves must be run for fast clears to work.
 		if (Scene.Decals.Num())
 		{
 			check(bNeedsDBufferTargets || CurrentStage != DRS_BeforeBasePass);
-			FDecalRenderTargetManager RenderTargetManager(RHICmdList, Context.GetShaderPlatform(), CurrentStage);
 
 			// Build a list of decals that need to be rendered for this view
 			FTransientDecalRenderDataList SortedDecals;
@@ -783,7 +807,8 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 					const FMatrix ComponentToWorldMatrix = DecalProxy.ComponentTrans.ToMatrixWithScale();
 					const FMatrix FrustumComponentToClip = FDecalRendering::ComputeComponentToClipMatrix(View, ComponentToWorldMatrix);
 
-					EDecalBlendMode DecalBlendMode = DecalData.DecalBlendMode;
+					EDecalBlendMode DecalBlendMode = FDecalRenderingCommon::ComputeDecalBlendModeForRenderStage(DecalData.FinalDecalBlendMode, CurrentStage);
+
 					EDecalRenderStage LocalDecalStage = FDecalRenderingCommon::ComputeRenderStage(View.GetShaderPlatform(), DecalBlendMode);
 					bool bStencilThisDecal = IsStencilOptimizationAvailable(LocalDecalStage);
 
@@ -876,7 +901,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 					GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
-					FDecalRendering::SetShader(RHICmdList, GraphicsPSOInit, View, DecalData, FrustumComponentToClip);
+					FDecalRendering::SetShader(RHICmdList, GraphicsPSOInit, View, DecalData, CurrentStage, FrustumComponentToClip);
 					RHICmdList.SetStencilRef(StencilRef);
 
 					RHICmdList.DrawIndexedPrimitive(GetUnitCubeIndexBuffer(), PT_TriangleList, 0, 0, 8, 0, ARRAY_COUNT(GCubeIndices) / 3, 1);
@@ -912,9 +937,15 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 			if (bLastView || !GSupportsRenderTargetWriteMask)
 			{
-				RenderTargetManager.ResolveTargets();
+				bShouldResolveTargets = true;
 			}
 		}
+
+		if (bShouldResolveTargets)
+		{
+			RenderTargetManager.ResolveTargets();
+		}
+
 
 		if (CurrentStage == DRS_BeforeBasePass && bNeedsDBufferTargets)
 		{
@@ -956,6 +987,11 @@ void FDecalRenderTargetManager::ResolveTargets()
 	{
 		TargetsToResolve[FDecalRenderTargetManager::GBufferAIndex] = SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture;
 	}
+	if (bGufferBCDirty)
+	{
+		TargetsToResolve[FDecalRenderTargetManager::GBufferBIndex] = SceneContext.GBufferB->GetRenderTargetItem().TargetableTexture;
+		TargetsToResolve[FDecalRenderTargetManager::GBufferCIndex] = SceneContext.GBufferC->GetRenderTargetItem().TargetableTexture;
+	}
 
 	//those have been cleared or rendered to and need to be resolved
 	TargetsToResolve[FDecalRenderTargetManager::DBufferAIndex] = SceneContext.DBufferA ? SceneContext.DBufferA->GetRenderTargetItem().TargetableTexture : nullptr;
@@ -977,6 +1013,7 @@ void FDecalRenderTargetManager::ResolveTargets()
 FDecalRenderTargetManager::FDecalRenderTargetManager(FRHICommandList& InRHICmdList, EShaderPlatform ShaderPlatform, EDecalRenderStage CurrentStage)
 	: RHICmdList(InRHICmdList)
 	, bGufferADirty(false)
+	, bGufferBCDirty(false)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
@@ -1003,7 +1040,8 @@ FDecalRenderTargetManager::FDecalRenderTargetManager(FRHICommandList& InRHICmdLi
 	if (!IsAnyForwardShadingEnabled(ShaderPlatform))
 	{
 		// Normal buffer is already dirty at this point and needs resolve before being read from (irrelevant for DBuffer).
-		bGufferADirty = CurrentStage == DRS_AfterBasePass;
+		bGufferADirty = (CurrentStage == DRS_AfterBasePass) || (CurrentStage == DRS_BeforeLighting);
+		bGufferBCDirty = (CurrentStage == DRS_BeforeLighting);
 	}
 }
 
@@ -1020,9 +1058,9 @@ void FDecalRenderTargetManager::SetRenderTargetMode(FDecalRenderingCommon::ERend
 		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture);
 	}
 
-	// @todo Workaround Vulkan (always) or Mac with NV/Intel graphics driver bug requires we pointlessly bind into RT1 even though we don't write to it,
+	// @todo Workaround Vulkan requires we pointlessly bind into RT1 even though we don't write to it,
 	// otherwise the writes to RT2 and RT3 go haywire. This isn't really possible to fix lower down the stack.
-	const bool bRequiresDummyRenderTarget = PLATFORM_MAC || IsVulkanPlatform(GMaxRHIShaderPlatform);
+	const bool bRequiresDummyRenderTarget = IsVulkanPlatform(GMaxRHIShaderPlatform);
 
 	switch (CurrentRenderTargetMode)
 	{
@@ -1059,7 +1097,7 @@ void FDecalRenderTargetManager::SetRenderTargetMode(FDecalRenderingCommon::ERend
 		TargetsToResolve[DBufferAIndex] = SceneContext.DBufferA->GetRenderTargetItem().TargetableTexture;
 		TargetsToResolve[DBufferBIndex] = SceneContext.DBufferB->GetRenderTargetItem().TargetableTexture;
 		TargetsToResolve[DBufferCIndex] = SceneContext.DBufferC->GetRenderTargetItem().TargetableTexture;
-		SetRenderTargets(RHICmdList, 3, &TargetsToResolve[DBufferAIndex], SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, TargetsToTransitionWritable[CurrentRenderTargetMode]);
+		SetRenderTargets(RHICmdList, 3, &TargetsToResolve[DBufferAIndex], SceneContext.GetSceneDepthTexture(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, TargetsToTransitionWritable[CurrentRenderTargetMode]);
 		break;
 
 	case FDecalRenderingCommon::RTM_AmbientOcclusion:

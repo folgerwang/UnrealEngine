@@ -31,7 +31,7 @@ class FD3D12CommandContextBase : public IRHICommandContext, public FD3D12Adapter
 {
 public:
 
-	FD3D12CommandContextBase(class FD3D12Adapter* InParent, FRHIGPUMask InNodeMask, bool InIsDefaultContext, bool InIsAsyncComputeContext);
+	FD3D12CommandContextBase(class FD3D12Adapter* InParent, FRHIGPUMask InGPUMask, bool InIsDefaultContext, bool InIsAsyncComputeContext);
 
 	void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override;
 	void RHIEndDrawingViewport(FViewportRHIParamRef Viewport, bool bPresent, bool bLockToVsync) final override;
@@ -347,65 +347,59 @@ public:
 	// This should be called right after the effect generates the resources which will be used in subsequent frame(s).
 	virtual void RHIBroadcastTemporalEffect(const FName& InEffectName, FTextureRHIParamRef* InTextures, int32 NumTextures) final AFR_API_OVERRIDE;
 
-	template<typename ObjectType, typename RHIType>
-	FORCEINLINE_DEBUGGABLE ObjectType* RetrieveObject(RHIType RHIObject)
-	{
-#if !WITH_MGPU
-		return FD3D12DynamicRHI::ResourceCast(RHIObject);
-#else
-		ObjectType* Object = FD3D12DynamicRHI::ResourceCast(RHIObject);
-		if (GNumExplicitGPUsForRendering > 1)
-		{
-			if (!Object)
-			{
-				return nullptr;
-			}
 
-			while (Object && Object->GetParentDevice() != GetParentDevice())
+	template<typename ObjectType, typename RHIType, typename Predicate>
+	static FORCEINLINE_DEBUGGABLE ObjectType* RetrieveObject(RHIType RHIObject, Predicate Func)
+	{
+		ObjectType* Object = FD3D12DynamicRHI::ResourceCast(RHIObject);
+#if WITH_MGPU
+		if (Object && GNumExplicitGPUsForRendering > 1)
+		{
+			while (Object && !Func(Object))
 			{
 				Object = Object->GetNextObject();
 			}
-
 			check(Object)
 		}
+#endif // WITH_MGPU
 		return Object;
-#endif
 	}
 
-	inline FD3D12TextureBase* RetrieveTextureBase(FRHITexture* Texture)
+	template<typename ObjectType, typename RHIType>
+	FORCEINLINE_DEBUGGABLE ObjectType* RetrieveObject(RHIType RHIObject)
 	{
-		if (!Texture)
+		return RetrieveObject<ObjectType, RHIType>(RHIObject, [&](ObjectType* Object)
 		{
-			return nullptr;
-		}
-		
-#if !WITH_MGPU
-		return ((FD3D12TextureBase*)Texture->GetTextureBaseRHI());
-#else
-		FD3D12TextureBase* Result((FD3D12TextureBase*)Texture->GetTextureBaseRHI());
-		if (GNumExplicitGPUsForRendering > 1)
-		{
-			if (!Result)
-			{
-				return nullptr;
-			}
+			return Object->GetParentDevice() == GetParentDevice();
+		});
+	}
 
+	template<typename Predicate>
+	static inline FD3D12TextureBase* RetrieveTextureBase(FRHITexture* Texture, Predicate Func)
+	{
+		FD3D12TextureBase* Result = Texture ? (FD3D12TextureBase*)Texture->GetTextureBaseRHI() : nullptr;
+#if WITH_MGPU
+		if (Result && GNumExplicitGPUsForRendering > 1)
+		{
 			if (Result->GetBaseShaderResource() != Result)
 			{
 				Result = (FD3D12TextureBase*)Result->GetBaseShaderResource();
 			}
-
-			while (Result && Result->GetParentDevice() != GetParentDevice())
+			while (Result && !Func(Result->GetParentDevice()))
 			{
 				Result = Result->GetNextObject();
 			}
-
-			check(Result);
-			return Result;
 		}
-
+#endif // WITH_MGPU
 		return Result;
-#endif
+	}
+
+	FORCEINLINE_DEBUGGABLE FD3D12TextureBase* RetrieveTextureBase(FRHITexture* Texture)
+	{
+		return RetrieveTextureBase(Texture, [&](FD3D12Device* Device)
+		{
+			return Device == GetParentDevice();
+		});
 	}
 
 	uint32 GetGPUIndex() const { return GPUMask.ToIndex(); }
@@ -450,6 +444,7 @@ public:
 	{
 		ContextRedirect(RHIDispatchIndirectComputeShader(ArgumentBuffer, ArgumentOffset));
 	}
+	// Special implementation that only signal the fence once.
 	virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs, FComputeFenceRHIParamRef WriteComputeFenceRHI) final override;
 
 	FORCEINLINE virtual void RHISetShaderTexture(FComputeShaderRHIParamRef PixelShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) final override

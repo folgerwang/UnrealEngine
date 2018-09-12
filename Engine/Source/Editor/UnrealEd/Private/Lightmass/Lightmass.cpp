@@ -2558,7 +2558,6 @@ FLightmassProcessor::FLightmassProcessor(const FStaticLightingSystem& InSystem, 
 ,	bImportCompletedMappingsImmediately(false)
 ,	MappingToProcessIndex(0)
 {
-	check(&Swarm != NULL);
 	// Since these can be set by the commandline, we need to update them here...
 	GLightmassDebugOptions.bDebugMode = GLightmassDebugMode;
 	GLightmassDebugOptions.bStatsEnabled = GLightmassStatsMode;

@@ -322,6 +322,62 @@ FLightMapInteraction FLightMapInteraction::Texture(
 	return Result;
 }
 
+FLightMapInteraction FLightMapInteraction::InitVirtualTexture(
+	const ULightMapVirtualTexture* VirtualTexture,
+	const FVector4* InCoefficientScales,
+	const FVector4* InCoefficientAdds,
+	const FVector2D& InCoordinateScale,
+	const FVector2D& InCoordinateBias,
+	bool bAllowHighQualityLightMaps)
+{
+	FLightMapInteraction Result;
+	Result.Type = LMIT_Texture;
+	check(bAllowHighQualityLightMaps == true);
+
+#if ALLOW_LQ_LIGHTMAPS && ALLOW_HQ_LIGHTMAPS
+	// however, if simple and directional are allowed, then we must use the value passed in,
+	// and then cache the number as well
+	Result.bAllowHighQualityLightMaps = bAllowHighQualityLightMaps;
+	if (bAllowHighQualityLightMaps)
+	{
+		Result.NumLightmapCoefficients = NUM_HQ_LIGHTMAP_COEF;
+	}
+	else
+	{
+		Result.NumLightmapCoefficients = NUM_LQ_LIGHTMAP_COEF;
+	}
+#endif
+
+	//copy over the appropriate textures and scales
+	if (bAllowHighQualityLightMaps)
+	{
+#if ALLOW_HQ_LIGHTMAPS
+		Result.VirtualTexture = VirtualTexture;
+		for (uint32 CoefficientIndex = 0; CoefficientIndex < NUM_HQ_LIGHTMAP_COEF; CoefficientIndex++)
+		{
+			Result.HighQualityCoefficientScales[CoefficientIndex] = InCoefficientScales[CoefficientIndex];
+			Result.HighQualityCoefficientAdds[CoefficientIndex] = InCoefficientAdds[CoefficientIndex];
+		}
+#endif
+	}
+
+	// NOTE: In PC editor we cache both Simple and Directional textures as we may need to dynamically switch between them
+	if (GIsEditor || !bAllowHighQualityLightMaps)
+	{
+#if ALLOW_LQ_LIGHTMAPS
+		for (uint32 CoefficientIndex = 0; CoefficientIndex < NUM_LQ_LIGHTMAP_COEF; CoefficientIndex++)
+		{
+			Result.LowQualityCoefficientScales[CoefficientIndex] = InCoefficientScales[LQ_LIGHTMAP_COEF_INDEX + CoefficientIndex];
+			Result.LowQualityCoefficientAdds[CoefficientIndex] = InCoefficientAdds[LQ_LIGHTMAP_COEF_INDEX + CoefficientIndex];
+		}
+#endif
+	}
+
+	Result.CoordinateScale = InCoordinateScale;
+	Result.CoordinateBias = InCoordinateBias;
+	return Result;
+}
+
 float ComputeBoundsScreenRadiusSquared(const FVector4& BoundsOrigin, const float SphereRadius, const FVector4& ViewOrigin, const FMatrix& ProjMatrix)
 {
 	const float DistSqr = FVector::DistSquared(BoundsOrigin, ViewOrigin);

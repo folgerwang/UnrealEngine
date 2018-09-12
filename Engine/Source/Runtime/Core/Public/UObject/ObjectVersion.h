@@ -630,7 +630,6 @@ enum EUnrealEngineObjectUE4Version
 	// LocalizationId has been added to the package summary (editor-only)
 	VER_UE4_ADDED_PACKAGE_SUMMARY_LOCALIZATION_ID,
 
-
 	// -----<new versions can be added before this line>-------------------------------------------------
 	// - this needs to be the last line (see note below)
 	VER_UE4_AUTOMATIC_VERSION_PLUS_ONE,

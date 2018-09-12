@@ -742,14 +742,14 @@ static FRenderingCompositeOutputRef AddBloom(FBloomDownSampleArray& BloomDownSam
 	// Extract the Context
 	FPostprocessContext& Context = BloomDownSampleArray.Context;
 
-	const bool bOldMetalNoFFT = IsMetalPlatform(Context.View.GetShaderPlatform());
+	const bool bOldMetalNoFFT = IsMetalPlatform(Context.View.GetShaderPlatform()) && (RHIGetShaderLanguageVersion(Context.View.GetShaderPlatform()) < 4);
 	const bool bUseFFTBloom = (Context.View.FinalPostProcessSettings.BloomMethod == EBloomMethod::BM_FFT
 		&& Context.View.FeatureLevel >= ERHIFeatureLevel::SM5);
 		
 	static bool bWarnAboutOldMetalFFTOnce = false;
 	if (bOldMetalNoFFT && bUseFFTBloom && !bWarnAboutOldMetalFFTOnce)
 	{
-		UE_LOG(LogRenderer, Error, TEXT("FFT Bloom is unsupported in Metal."));
+		UE_LOG(LogRenderer, Error, TEXT("FFT Bloom is only supported on Metal 2.1 and later."));
 		bWarnAboutOldMetalFFTOnce = true;
 	}
 

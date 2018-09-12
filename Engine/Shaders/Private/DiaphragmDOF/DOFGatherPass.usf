@@ -70,21 +70,8 @@ void StoreAccumulatorOutput(in uint2 OutputPixelPosition, in FAccumulatorOutput 
 			AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x * AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x);
 		float CocRadiusStdDeviation = sqrt(CocRadiusVariance);
 		
-		#if 1
-			float OcclusionStepness = rcp(max(CocRadiusStdDeviation * (0.5 * CocRadiusAvg), 1));
-			float OcclusionOffset = AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x * OcclusionStepness + 1;
-
-			// Multiply OcclusionStepness, to be equivalent as multiplying AbsCocRadius. This will result in a
-			// pull of the background bokeh closer to the camera when doing occlusion, reducing the amount of tiling
-			// artifacts between fast and slow gathered tiles that can generate noticeably different occlusion buffer.
-			OcclusionStepness *= 1 - FAST_GATHERING_COC_ERROR;
-
-			OutScatterOcclusion.x = OcclusionStepness;
-			OutScatterOcclusion.y = OcclusionOffset;
-		#else
-			OutScatterOcclusion.x = CocRadiusAvg;
-			OutScatterOcclusion.y = CocRadiusStdDeviation;
-		#endif
+		OutScatterOcclusion.x = CocRadiusAvg;
+		OutScatterOcclusion.y = max(CocRadiusVariance, 1);
 	}
 	#endif
 

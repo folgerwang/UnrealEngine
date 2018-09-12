@@ -82,7 +82,7 @@ FString GetMaterialShaderMapDDCKey()
 // this is for the protocol, not the data, bump if FShaderCompilerInput or ProcessInputFromArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerInputVersion = 9;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
-const int32 ShaderCompileWorkerOutputVersion = 4;
+const int32 ShaderCompileWorkerOutputVersion = 5;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerSingleJobHeader = 'S';
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
@@ -416,7 +416,7 @@ bool FShaderCompileUtilities::DoWriteTasks(const TArray<FShaderCommonCompileJob*
 
 	TransferFile << FormatVersionMap;
 
-	TMap<FString, FString> ShaderSourceDirectoryMappings = FPlatformProcess::AllShaderSourceDirectoryMappings();
+	TMap<FString, FString> ShaderSourceDirectoryMappings = AllShaderSourceDirectoryMappings();
 	TransferFile << ShaderSourceDirectoryMappings;
 
 	TArray<FShaderCompileJob*> QueuedSingleJobs;
@@ -552,10 +552,11 @@ static void ProcessErrors(const FShaderCompileJob& CurrentJob, TArray<FString>& 
 				// Construct a path that will enable VS.NET to find the shader file, relative to the solution
 				const FString SolutionPath = FPaths::RootDir();
 				FString ShaderFilePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*CurrentError.GetShaderSourceFilePath());
-				UniqueErrorPrefix = FString::Printf(TEXT("%s(%s): Shader %s, VF %s:\n\t"),
+				UniqueErrorPrefix = FString::Printf(TEXT("%s(%s): Shader %s, Permutation %d, VF %s:\n\t"),
 					*ShaderFilePath,
 					*CurrentError.ErrorLineString,
 					CurrentJob.ShaderType->GetName(),
+					CurrentJob.PermutationId,
 					CurrentJob.VFType ? CurrentJob.VFType->GetName() : TEXT("None"));
 			}
 			else
@@ -619,6 +620,9 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 	int32 ErrorCode;
 	OutputFile << ErrorCode;
 
+	int32 NumProcessedJobs = 0;
+	OutputFile << NumProcessedJobs;
+
 	int32 CallstackLength = 0;
 	OutputFile << CallstackLength;
 
@@ -661,7 +665,7 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 						String += FString::Printf(TEXT(" '%s' Entry '%s' Permutation %i "), *SingleJob->Input.VirtualSourceFilePath, *SingleJob->Input.EntryPointName, SingleJob->PermutationId);
 						return String;
 					};
-					UE_LOG(LogShaderCompilers, Error, TEXT("SCW %d Queued Jobs:"), QueuedJobs.Num());
+					UE_LOG(LogShaderCompilers, Error, TEXT("SCW %d Queued Jobs, Finished %d single jobs"), QueuedJobs.Num(), NumProcessedJobs);
 					for (int32 Index = 0; Index < QueuedJobs.Num(); ++Index)
 					{
 						FShaderCommonCompileJob* CommonJob = QueuedJobs[Index];
@@ -821,27 +825,30 @@ static bool CheckSingleJob(FShaderCompileJob* SingleJob, const TArray<FMaterial*
 		// Allow the shader validation to fail the compile if it sees any parameters bound that aren't supported.
 		if (FMaterialShaderType* MaterialShaderType = SingleJob->ShaderType->GetMaterialShaderType())
 		{
-			bSucceeded = bSucceeded && MaterialShaderType->ValidateCompiledResult(
+			bool bValidationResult = MaterialShaderType->ValidateCompiledResult(
 				(EShaderPlatform)SingleJob->Input.Target.Platform,
 				Materials,
 				SingleJob->Output.ParameterMap,
 				Errors);
+			bSucceeded = bValidationResult && bSucceeded;
 		}
 		else if (FMeshMaterialShaderType* MeshMaterialShaderType = SingleJob->ShaderType->GetMeshMaterialShaderType())
 		{
-			bSucceeded = bSucceeded && MeshMaterialShaderType->ValidateCompiledResult(
+			bool bValidationResult = MeshMaterialShaderType->ValidateCompiledResult(
 				(EShaderPlatform)SingleJob->Input.Target.Platform,
 				Materials,
 				SingleJob->VFType,
 				SingleJob->Output.ParameterMap,
 				Errors);
+			bSucceeded = bValidationResult && bSucceeded;
 		}
 		else if (FGlobalShaderType* GlobalShaderType = SingleJob->ShaderType->GetGlobalShaderType())
 		{
-			bSucceeded = bSucceeded && GlobalShaderType->ValidateCompiledResult(
+			bool bValidationResult = GlobalShaderType->ValidateCompiledResult(
 				(EShaderPlatform)SingleJob->Input.Target.Platform,
 				SingleJob->Output.ParameterMap,
 				Errors);
+			bSucceeded = bValidationResult && bSucceeded;
 		}
 	}
 
@@ -1967,15 +1974,16 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 				auto* SingleJob = CurrentJob.GetSingleShaderJob();
 				if (SingleJob)
 				{
-					bSuccess = bSuccess && CheckSingleJob(SingleJob, MaterialsArray, Errors);
+					bool bCheckSucceeded = CheckSingleJob(SingleJob, MaterialsArray, Errors);
+					bSuccess = bCheckSucceeded && bSuccess;
 				}
 				else
 				{
 					auto* PipelineJob = CurrentJob.GetShaderPipelineJob();
 					for (int32 Index = 0; Index < PipelineJob->StageJobs.Num(); ++Index)
 					{
-						bSuccess = bSuccess && PipelineJob->StageJobs[Index]->bSucceeded;
-						bSuccess = bSuccess && CheckSingleJob(PipelineJob->StageJobs[Index]->GetSingleShaderJob(), MaterialsArray, Errors);
+						bool bCheckSucceeded = CheckSingleJob(PipelineJob->StageJobs[Index]->GetSingleShaderJob(), MaterialsArray, Errors);
+						bSuccess = PipelineJob->StageJobs[Index]->bSucceeded && bCheckSucceeded;
 					}
 				}
 			}
@@ -3833,17 +3841,17 @@ static FString GetGlobalShaderCacheFilename(EShaderPlatform Platform)
 }
 
 /** Creates a string key for the derived data cache entry for the global shader map. */
-FString GetGlobalShaderMapKeyString(const FGlobalShaderMapId& ShaderMapId, EShaderPlatform Platform)
+FString GetGlobalShaderMapKeyString(const FGlobalShaderMapId& ShaderMapId, EShaderPlatform Platform, TArray<FShaderTypeDependency> const& Dependencies)
 {
 	FName Format = LegacyShaderPlatformToShaderFormat(Platform);
 	FString ShaderMapKeyString = Format.ToString() + TEXT("_") + FString(FString::FromInt(GetTargetPlatformManagerRef().ShaderFormatVersion(Format))) + TEXT("_");
 	ShaderMapAppendKeyString(Platform, ShaderMapKeyString);
-	ShaderMapId.AppendKeyString(ShaderMapKeyString);
+	ShaderMapId.AppendKeyString(ShaderMapKeyString, Dependencies);
 	return FDerivedDataCacheInterface::BuildCacheKey(TEXT("GSM"), GLOBALSHADERMAP_DERIVEDDATA_VER, *ShaderMapKeyString);
 }
 
 /** Serializes the global shader map to an archive. */
-static void SerializeGlobalShaders(FArchive& Ar, TShaderMap<FGlobalShaderType>* GlobalShaderMap)
+static void SerializeGlobalShaders(FArchive& Ar, TShaderMap<FGlobalShaderType>* GlobalShaderMap, const TArray<TShaderTypePermutation<FShaderType>>* ShaderKeysToSave)
 {
 	check(IsInGameThread());
 
@@ -3863,7 +3871,7 @@ static void SerializeGlobalShaders(FArchive& Ar, TShaderMap<FGlobalShaderType>* 
 	}
 
 	// Serialize the global shaders.
-	GlobalShaderMap->SerializeInline(Ar, true, false);
+	GlobalShaderMap->SerializeInline(Ar, true, false, ShaderKeysToSave);
 	// And now register them.
 	GlobalShaderMap->RegisterSerializedShaders();
 }
@@ -3873,13 +3881,41 @@ void SaveGlobalShaderMapToDerivedDataCache(EShaderPlatform Platform)
 {
 	// We've finally built the global shader map, so we can count the miss as we put it in the DDC.
 	COOK_STAT(auto Timer = GlobalShaderCookStats::UsageStats.TimeSyncWork());
-	TArray<uint8> SaveData;
-	FMemoryWriter Ar(SaveData, true);
-	SerializeGlobalShaders(Ar, GGlobalShaderMap[Platform]);
 
 	FGlobalShaderMapId ShaderMapId(Platform);
-	GetDerivedDataCacheRef().Put(*GetGlobalShaderMapKeyString(ShaderMapId, Platform), SaveData);
-	COOK_STAT(Timer.AddMiss(SaveData.Num()));
+
+	TArray<uint8> SaveData;
+
+	for (auto const& ShaderFilenameDependencies : ShaderMapId.GetShaderFilenameToDependeciesMap())
+	{
+		SaveData.Reset();
+
+		// Gather shader keys to save for this filename.
+		TArray<TShaderTypePermutation<FShaderType>> ShaderKeysToSave;
+		for (int32 ShaderIndex = 0; ShaderIndex < ShaderFilenameDependencies.Value.Num(); ++ShaderIndex)
+		{
+			const FShaderTypeDependency& ShaderTypeDependency = ShaderFilenameDependencies.Value[ShaderIndex];
+			FGlobalShaderType* GlobalShaderType = ShaderTypeDependency.ShaderType->GetGlobalShaderType();
+
+			if (GlobalShaderType)
+			{
+				bool bList = false;
+				for (int32 PermutationId = 0; PermutationId < GlobalShaderType->GetPermutationCount(); PermutationId++)
+				{
+					if (GlobalShaderType->ShouldCompilePermutation(Platform, PermutationId))
+					{
+						ShaderKeysToSave.Add(TShaderTypePermutation<FShaderType>(GlobalShaderType, PermutationId));
+					}
+				}
+			}
+		}
+
+		FMemoryWriter Ar(SaveData, true);
+		SerializeGlobalShaders(Ar, GGlobalShaderMap[Platform], &ShaderKeysToSave);
+
+		GetDerivedDataCacheRef().Put(*GetGlobalShaderMapKeyString(ShaderMapId, Platform, ShaderFilenameDependencies.Value), SaveData);
+		COOK_STAT(Timer.AddMiss(SaveData.Num()));
+	}
 }
 
 /** Saves the global shader map as a file for the target platform. */
@@ -3899,7 +3935,7 @@ FString SaveGlobalShaderFile(EShaderPlatform Platform, FString SavePath, class I
 	{
 		MemoryWriter.SetCookingTarget(TargetPlatform);
 	}
-	SerializeGlobalShaders(MemoryWriter, GlobalShaderMap);
+	SerializeGlobalShaders(MemoryWriter, GlobalShaderMap, nullptr);
 
 	// make the final name
 	FString FullPath = SavePath / GetGlobalShaderCacheFilename(Platform);
@@ -4029,7 +4065,7 @@ void CompileGlobalShaderMap(EShaderPlatform Platform, bool bRefreshShaderMap)
 
 		// verify that all shader source files are intact
 		SlowTask.EnterProgressFrame(20);
-		VerifyShaderSourceFiles();
+		VerifyShaderSourceFiles(Platform);
 
 		GGlobalShaderMap[Platform] = new TShaderMap<FGlobalShaderType>(Platform);
 
@@ -4066,33 +4102,61 @@ void CompileGlobalShaderMap(EShaderPlatform Platform, bool bRefreshShaderMap)
 			}
 
 			FMemoryReader MemoryReader(GlobalShaderData);
-			SerializeGlobalShaders(MemoryReader, GGlobalShaderMap[Platform]);
+			SerializeGlobalShaders(MemoryReader, GGlobalShaderMap[Platform], nullptr);
 		}
 		// Uncooked platform
 		else
 		{
 			FGlobalShaderMapId ShaderMapId(Platform);
 
-			TArray<uint8> CachedData;
-			SlowTask.EnterProgressFrame(40);
-			const FString DataKey = GetGlobalShaderMapKeyString(ShaderMapId, Platform);
+			const int32 ShaderFilenameNum = ShaderMapId.GetShaderFilenameToDependeciesMap().Num();
+			const float ProgressStep = 25.0f / ShaderFilenameNum;
 
-			// Find the shader map in the derived data cache
-			SlowTask.EnterProgressFrame(10);
+			TArray<uint32> AsyncDDCRequestHandles;
+			AsyncDDCRequestHandles.SetNum(ShaderFilenameNum);
 
-			COOK_STAT(auto Timer = GlobalShaderCookStats::UsageStats.TimeSyncWork());
-			if (GetDerivedDataCacheRef().GetSynchronous(*DataKey, CachedData))
+			int32 HandleIndex = 0;
+
+			// Submit DDC requests.
+			for (const auto& ShaderFilenameDependencies : ShaderMapId.GetShaderFilenameToDependeciesMap())
 			{
-				COOK_STAT(Timer.AddHit(CachedData.Num()));
-				FMemoryReader Ar(CachedData, true);
+				SlowTask.EnterProgressFrame(ProgressStep);
 
-				// Deserialize from the cached data
-				SerializeGlobalShaders(Ar, GGlobalShaderMap[Platform]);
+				const FString DataKey = GetGlobalShaderMapKeyString(ShaderMapId, Platform, ShaderFilenameDependencies.Value);
+
+				AsyncDDCRequestHandles[HandleIndex] = GetDerivedDataCacheRef().GetAsynchronous(*DataKey);
+
+				++HandleIndex;
 			}
-			else
+
+
+			TArray<uint8> CachedData;
+
+			HandleIndex = 0;
+
+			// Process finished DDC requests.
+			for (const auto& ShaderFilenameDependencies : ShaderMapId.GetShaderFilenameToDependeciesMap())
 			{
-				// it's a miss, but we haven't built anything yet. Save the counting until we actually have it built.
-				COOK_STAT(Timer.TrackCyclesOnly());
+				SlowTask.EnterProgressFrame(ProgressStep);
+				CachedData.Reset();
+				COOK_STAT(auto Timer = GlobalShaderCookStats::UsageStats.TimeSyncWork());
+
+				GetDerivedDataCacheRef().WaitAsynchronousCompletion(AsyncDDCRequestHandles[HandleIndex]);
+				if (GetDerivedDataCacheRef().GetAsynchronousResults(AsyncDDCRequestHandles[HandleIndex], CachedData))
+				{
+					COOK_STAT(Timer.AddHit(CachedData.Num()));
+					FMemoryReader Ar(CachedData, true);
+
+					// Deserialize from the cached data
+					SerializeGlobalShaders(Ar, GGlobalShaderMap[Platform], nullptr);
+				}
+				else
+				{
+					// it's a miss, but we haven't built anything yet. Save the counting until we actually have it built.
+					COOK_STAT(Timer.TrackCyclesOnly());
+				}
+
+				++HandleIndex;
 			}
 		}
 

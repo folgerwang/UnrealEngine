@@ -180,8 +180,12 @@ void FD3D12CommandContext::ResolveTextureUsingShader(
 	const uint32 TextureIndex = ResolvePixelShader->UnresolvedSurface.GetBaseIndex();
 	StateCache.SetShaderResourceView<SF_Pixel>(SourceTexture->GetShaderResourceView(), TextureIndex);
 
+	FRHIResourceCreateInfo CreateInfo;
+	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FScreenVertex) * 4, BUF_Volatile, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FScreenVertex) * 4, RLM_WriteOnly);
+
 	// Generate the vertices used
-	FScreenVertex Vertices[4];
+	FScreenVertex* Vertices = (FScreenVertex*)VoidPtr;
 
 	Vertices[0].Position.X = MaxX;
 	Vertices[0].Position.Y = MinY;
@@ -203,7 +207,10 @@ void FD3D12CommandContext::ResolveTextureUsingShader(
 	Vertices[3].UV.X = MinU;
 	Vertices[3].UV.Y = MaxV;
 
-	DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+
 	RHICmdList.Flush(); // always call flush when using a command list in RHI implementations before doing anything else. This is super hazardous.
 
 	ConditionalClearShaderResource(&SourceTexture->ResourceLocation);
@@ -491,6 +498,74 @@ void FD3D12CommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceText
 	}
 
 	DEBUG_EXECUTE_COMMAND_LIST(this);
+}
+
+void FD3D12DynamicRHI::RHIMultiGPULockstep(FRHIGPUMask GPUMask)
+{
+	FD3D12Adapter& Adapter = GetAdapter();
+
+	// First submit everything.
+	for (uint32 GPUIndex : GPUMask)
+	{
+		Adapter.GetDevice(GPUIndex)->GetDefaultCommandContext().RHISubmitCommandsHint();
+	}
+
+	// Then everyone waits for completion of everyone one else.
+	for (uint32 GPUIndex : GPUMask)
+	{
+		FD3D12Fence& Fence = Adapter.GetDevice(GPUIndex)->GetCommandListManager().GetFence();
+
+		for (uint32 GPUIndex2 : GPUMask)
+		{
+			if (GPUIndex != GPUIndex2)
+			{
+				Fence.GpuWait(GPUIndex2, ED3D12CommandQueueType::Default, Fence.GetLastSignaledFence(), GPUIndex);
+			}
+		}
+	}
+}
+
+void FD3D12DynamicRHI::RHITransferTexture(FTexture2DRHIParamRef TextureRHI, FIntRect Rect, uint32 SrcGPUIndex, uint32 DestGPUIndex, bool PullData)
+{
+	FD3D12Adapter& Adapter = GetAdapter();
+
+	FD3D12Texture2D* SrcTexture2D = static_cast<FD3D12Texture2D*>(FD3D12CommandContext::RetrieveTextureBase(TextureRHI->GetTexture2D(), [&](FD3D12Device* Device) { return Device->GetGPUIndex() == SrcGPUIndex; }));
+	FD3D12Texture2D* DestTexture2D = static_cast<FD3D12Texture2D*>(FD3D12CommandContext::RetrieveTextureBase(TextureRHI->GetTexture2D(), [&](FD3D12Device* Device) { return Device->GetGPUIndex() == DestGPUIndex; }));
+
+	const FRHIGPUMask SrcAndDestMask = FRHIGPUMask::FromIndex(SrcGPUIndex) | FRHIGPUMask::FromIndex(DestGPUIndex);
+
+	{
+		FD3D12CommandContext& SrcContext = Adapter.GetDevice(SrcGPUIndex)->GetDefaultCommandContext();
+		FD3D12DynamicRHI::TransitionResource(SrcContext.CommandListHandle, SrcTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, 0);
+
+		FD3D12CommandContext& DestContext = Adapter.GetDevice(DestGPUIndex)->GetDefaultCommandContext();
+		FD3D12DynamicRHI::TransitionResource(DestContext.CommandListHandle, DestTexture2D->GetResource(), D3D12_RESOURCE_STATE_COPY_DEST, 0);
+	}
+
+	RHIMultiGPULockstep(SrcAndDestMask);
+
+	{
+		ensureMsgf(Rect.Min.X >= 0 && Rect.Min.Y >= 0 && Rect.Max.X >= 0 && Rect.Max.Y >= 0, TEXT("Invalid rect for texture transfer: %i, %i, %i, %i"), Rect.Min.X, Rect.Min.Y, Rect.Max.X, Rect.Max.Y);
+		D3D12_BOX Box = { (UINT)Rect.Min.X, (UINT)Rect.Min.Y, 0, (UINT)Rect.Max.X, (UINT)Rect.Max.Y, 1 };
+
+		CD3DX12_TEXTURE_COPY_LOCATION SrcLocation(SrcTexture2D->GetResource()->GetResource(), 0);
+		CD3DX12_TEXTURE_COPY_LOCATION DestLocation(DestTexture2D->GetResource()->GetResource(), 0);
+
+		FD3D12CommandContext& Context = Adapter.GetDevice(PullData ? DestGPUIndex : SrcGPUIndex)->GetDefaultCommandContext();
+
+		Context.CommandListHandle->CopyTextureRegion(
+			&DestLocation,
+			Box.left, Box.top, Box.front,
+			&SrcLocation,
+			&Box);
+
+		Context.numCopies++;
+
+	}
+
+	RHIMultiGPULockstep(SrcAndDestMask);
+
+	DEBUG_RHI_EXECUTE_COMMAND_LIST(this);
 }
 
 /**

@@ -36,6 +36,14 @@ public:
 	{
 		OutFormats.Add(FName(TEXT("FullHDR")));
 	}
+
+	virtual FName GetVirtualTextureLayerFormat(
+		int32 SourceFormat,
+		bool bAllowCompression, bool bNoAlpha,
+		bool bSupportDX11TextureFormats, int32 Settings) const override
+	{
+		return FName();
+	}
 #endif //WITH_ENGINE
 
 	virtual bool PackageBuild( const FString& InPackgeDirectory ) override

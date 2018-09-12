@@ -17,6 +17,7 @@ struct FLLMTagInfoMetal
 
 DECLARE_LLM_MEMORY_STAT(TEXT("Metal Buffers"), STAT_MetalBuffersLLM, STATGROUP_LLMPlatform);
 DECLARE_LLM_MEMORY_STAT(TEXT("Metal Textures"), STAT_MetalTexturesLLM, STATGROUP_LLMPlatform);
+DECLARE_LLM_MEMORY_STAT(TEXT("Metal Heaps"), STAT_MetalHeapsLLM, STATGROUP_LLMPlatform);
 
 // *** order must match ELLMTagMetal enum ***
 const FLLMTagInfoMetal ELLMTagNamesMetal[] =
@@ -24,6 +25,7 @@ const FLLMTagInfoMetal ELLMTagNamesMetal[] =
 	// csv name									// stat name										// summary stat name						// enum value
 	{ TEXT("Metal Buffers"),		GET_STATFNAME(STAT_MetalBuffersLLM),		GET_STATFNAME(STAT_EngineSummaryLLM) },		// ELLMTagMetal::Buffers
 	{ TEXT("Metal Textures"),		GET_STATFNAME(STAT_MetalTexturesLLM),		GET_STATFNAME(STAT_EngineSummaryLLM) },		// ELLMTagMetal::Textures
+	{ TEXT("Metal Heaps"),			GET_STATFNAME(STAT_MetalHeapsLLM),			GET_STATFNAME(STAT_EngineSummaryLLM) },		// ELLMTagMetal::Heaps
 };
 
 /*
@@ -239,6 +241,33 @@ void MetalLLM::LogAllocBuffer(mtlpp::Device& Device, mtlpp::Buffer const& Buffer
 			
 			DEC_MEMORY_STAT_BY(STAT_MetalBufferMemory, Size);
 			DEC_DWORD_STAT(STAT_MetalBufferCount);
+		}] autorelease],
+		OBJC_ASSOCIATION_RETAIN);
+	}
+}
+
+void MetalLLM::LogAllocHeap(mtlpp::Device& Device, mtlpp::Heap const& Heap)
+{
+	void* Ptr = (void*)Heap.GetPtr();
+	uint64 Size = Heap.GetSize();
+	
+	INC_MEMORY_STAT_BY(STAT_MetalHeapMemory, Size);
+	INC_DWORD_STAT(STAT_MetalHeapCount);
+	
+	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ptr, Size, ELLMTag::Untagged, ELLMAllocType::System));
+	// Assign a dealloc handler to untrack the memory - but don't track the dispatch block!
+	{
+		LLM_SCOPED_PAUSE_TRACKING(ELLMAllocType::System);
+		
+		objc_setAssociatedObject(Heap.GetPtr(), (void*)&MetalLLM::LogAllocHeap,
+								 [[[FMetalDeallocHandler alloc] initWithBlock:^{
+			LLM_SCOPE_METAL(ELLMTagMetal::Heaps);
+			LLM_PLATFORM_SCOPE_METAL(ELLMTagMetal::Heaps);
+			
+			LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr, ELLMAllocType::System));
+			
+			DEC_MEMORY_STAT_BY(STAT_MetalHeapMemory, Size);
+			DEC_DWORD_STAT(STAT_MetalHeapCount);
 		}] autorelease],
 		OBJC_ASSOCIATION_RETAIN);
 	}

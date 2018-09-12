@@ -105,11 +105,6 @@ void MainOnePassPointLightGS(triangle FShadowDepthVSToGS Input[3], inout Triangl
 				{
 					Output.OutPosition = ClipSpacePositions[VertexIndex];
 
-#if COMPILER_VULKAN
-					// We currently can't always do this in hlslcc, as some cubemaps don't require this (eg LUTs)
-					Output.OutPosition.y *= -1;
-#endif
-
 					#if INTERPOLATE_VF_ATTRIBUTES
 						Output.PSInputs.FactoryInterpolants = Input[VertexIndex].FactoryInterpolants;
 					#endif

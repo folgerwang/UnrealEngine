@@ -1302,6 +1302,11 @@ bool FMacPlatformMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& T
 		TotalNumberOfBytes = FSStat.f_blocks * FSStat.f_bsize;
 		NumberOfFreeBytes = FSStat.f_bavail * FSStat.f_bsize;
 	}
+	else
+	{
+		int ErrNo = errno;
+		UE_LOG(LogMac, Warning, TEXT("Unable to statfs('%s'): errno=%d (%s)"), *InPath, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
+	}
 	return (Err == 0);
 }
 
@@ -1403,8 +1408,8 @@ FString FMacPlatformMisc::GetXcodePath()
 
 bool FMacPlatformMisc::IsSupportedXcodeVersionInstalled()
 {
-	// We need Xcode 8.2 or newer to be able to compile Metal shaders correctly
-	return GMacAppInfo.XcodeVersion.majorVersion > 8 || (GMacAppInfo.XcodeVersion.majorVersion == 8 && GMacAppInfo.XcodeVersion.minorVersion >= 2);
+	// We need Xcode 9.4 or newer to be able to compile Metal shaders correctly
+	return GMacAppInfo.XcodeVersion.majorVersion > 9 || (GMacAppInfo.XcodeVersion.majorVersion == 9 && GMacAppInfo.XcodeVersion.minorVersion >= 4);
 }
 
 CGDisplayModeRef FMacPlatformMisc::GetSupportedDisplayMode(CGDirectDisplayID DisplayID, uint32 Width, uint32 Height)

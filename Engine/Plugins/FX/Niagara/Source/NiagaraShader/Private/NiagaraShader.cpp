@@ -915,7 +915,7 @@ bool FNiagaraShaderMap::IsNiagaraShaderComplete(const FNiagaraShaderScript* Scri
 
 bool FNiagaraShaderMap::IsComplete(const FNiagaraShaderScript* Script, bool bSilent)
 {
-	check(!IsInRenderingThread());
+	check(!GIsThreadedRendering || !IsInRenderingThread());
 	// Make sure we are operating on a referenced shader map or the below Find will cause this shader map to be deleted,
 	// Since it creates a temporary ref counted pointer.
 	check(NumRefs > 0);
@@ -1174,6 +1174,7 @@ const FNiagaraShaderMap* FNiagaraShaderMap::GetShaderMapBeingCompiled(const FNia
 
 FNiagaraShader::FNiagaraShader(const FNiagaraShaderType::CompiledShaderInitializerType& Initializer)
 	: FShader(Initializer)
+	, CBufferLayout(TEXT("Niagara Compute Sim CBuffer"))
 	, DebugDescription(Initializer.DebugDescription)
 {
 	check(!DebugDescription.IsEmpty());

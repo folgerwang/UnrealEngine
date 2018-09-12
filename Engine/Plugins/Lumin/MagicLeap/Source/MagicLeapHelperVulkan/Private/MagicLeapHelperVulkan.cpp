@@ -125,8 +125,7 @@ uint64 FMagicLeapHelperVulkan::AliasImageSRGB(const uint64 Allocation, const uin
 	VkImageCreateInfo ImageCreateInfo;
 
 	// This must match the RenderTargetTexture image other than format, which we are aliasing as srgb to match the output of the tonemapper.
-	FMemory::Memzero(ImageCreateInfo);
-	ImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	ZeroVulkanStruct(ImageCreateInfo, VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
 	ImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
 	ImageCreateInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
 	ImageCreateInfo.extent.width = Width;

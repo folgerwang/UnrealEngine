@@ -9,16 +9,33 @@
 class IVirtualTexture;
 
 // Allocates virtual memory address space
-class FVirtualTextureAllocator
+class RENDERER_API FVirtualTextureAllocator
 {
 public:
 						FVirtualTextureAllocator( uint32 Size, uint32 Dimensions );
 						~FVirtualTextureAllocator() {}
 
+	/**
+	 * Translate a virtual page address in the address space to a local page address within
+	 * a virtual texture.
+	 * @return nullptr If there is no virtual texture allocated at this address
+	 */
 	IVirtualTexture*	Find( uint64 vAddress, uint64& Local_vAddress ) const;
+	
+	/**
+	 * Allocate address space for the virtual texture.
+	 * @return (~0) if no space left, the virtual page adress if succesfully allocated
+	 */
 	uint64				Alloc( IVirtualTexture* VT );
-	void				Free( IVirtualTexture* VT );
+	
+	/**
+	 * Free the virtual texture from 
+	*/
+	void Free( IVirtualTexture* VT );
+	
 	// TODO				Realloc
+
+	void DumpToConsole();
 
 private:
 	uint32				Find( uint64 vAddress ) const;

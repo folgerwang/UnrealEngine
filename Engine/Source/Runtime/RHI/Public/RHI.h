@@ -139,7 +139,8 @@ inline bool RHISupportsMSAA(EShaderPlatform Platform)
 inline bool RHISupportsBufferLoadTypeConversion(EShaderPlatform Platform)
 {
 #if PLATFORM_MAC || PLATFORM_IOS
-	return !IsMetalPlatform(Platform);
+	// Fixed from Metal v.2.0 onward.
+	return !IsMetalPlatform(Platform) || RHIGetShaderLanguageVersion(Platform) >= 3;
 #else
 	return true;
 #endif
@@ -320,6 +321,9 @@ extern RHI_API float GProjectionSignY;
 /** Does this RHI need to wait for deletion of resources due to ref counting. */
 extern RHI_API bool GRHINeedsExtraDeletionLatency;
 
+/** The maximum size allowed for a computeshader dispatch. */
+extern RHI_API TRHIGlobal<int32> GMaxComputeDispatchDimension;
+
 /** The maximum size to allow for the shadow depth buffer in the X dimension.  This must be larger or equal to GMaxShadowDepthBufferSizeY. */
 extern RHI_API TRHIGlobal<int32> GMaxShadowDepthBufferSizeX;
 /** The maximum size to allow for the shadow depth buffer in the Y dimension. */
@@ -371,9 +375,6 @@ extern RHI_API int32 GDrawUPIndexCheckCount;
 extern RHI_API class FVertexElementTypeSupportInfo GVertexElementTypeSupport;
 
 #include "MultiGPU.h"
-
-RHI_API EMultiGPUMode GetMultiGPUMode();
-RHI_API FRHIGPUMask GetNodeMaskFromMultiGPUMode(EMultiGPUMode Strategy, uint32 ViewIndex, uint32 FrameIndex);
 
 /** Whether the next frame should profile the GPU. */
 extern RHI_API bool GTriggerGPUProfile;
@@ -442,6 +443,9 @@ extern RHI_API bool GRHISupportsParallelRHIExecute;
 /** Whether or not the RHI can perform MSAA sample load. */
 extern RHI_API bool GRHISupportsMSAADepthSampleAccess;
 
+/** Whether or not HDR is currently enabled */
+extern RHI_API bool GRHIIsHDREnabled;
+
 /** Whether the present adapter/display offers HDR output capabilities. */
 extern RHI_API bool GRHISupportsHDROutput;
 
@@ -450,6 +454,14 @@ extern RHI_API EPixelFormat GRHIHDRDisplayOutputFormat;
 
 /** Counter incremented once on each frame present. Used to support game thread synchronization with swap chain frame flips. */
 extern RHI_API uint64 GRHIPresentCounter;
+
+/** Whether or not the RHI can support a real GPU-to-CPU fence or not. 
+ * True if and only if the RHI implements:
+ *  - RHICreateGPUFence
+ *  - RHIInsertGPUFence
+ * such that the implementation is *not* dependent upon GFrameNumber or GFrameNumberRenderThread.
+ */
+extern RHI_API bool GRHISupportsGPUFence;
 
 /** Called once per frame only from within an RHI. */
 extern RHI_API void RHIPrivateBeginFrame();

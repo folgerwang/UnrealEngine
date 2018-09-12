@@ -31,6 +31,14 @@ public:
 	// most platforms can query the surface for the present mode, and size, etc
 	static bool SupportsQuerySurfaceProperties() { return true; }
 
+	static void SetupFeatureLevels()
+	{
+		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_VULKAN_PCES3_1;
+		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_VULKAN_PCES3_1;
+		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_VULKAN_SM4;
+		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_VULKAN_SM5;
+	}
+
 	static bool SupportsStandardSwapchain() { return true; }
 	static EPixelFormat GetPixelFormatForNonDefaultSwapchain()
 	{
@@ -42,7 +50,9 @@ public:
 	static bool SupportsTimestampRenderQueries() { return true; }
 
 	static bool RequiresMobileRenderer() { return false; }
-	static void OverrideCrashHandlers() {}
+
+	// bInit=1 called at RHI init time, bInit=0 at RHI deinit time
+	static void OverridePlatformHandlers(bool bInit) {}
 
 	// Some platforms have issues with the access flags for the Present layout
 	static bool RequiresPresentLayoutFix() { return false; }
@@ -55,29 +65,31 @@ public:
 
 	static bool RegisterGPUWork() { return true; }
 
-	// Does the platform only support Vertex & Pixel stages (not Geometry or Tessellation)?
-	static bool IsVSPSOnly() { return false; }
-
 	static void WriteBufferMarkerAMD(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding) {}
 
-	// allow the platform code to restrict the device features
-	static void RestrictEnabledPhysicalDeviceFeatures(const VkPhysicalDeviceFeatures& DeviceFeatures, VkPhysicalDeviceFeatures& FeaturesToEnable)
+	// Allow the platform code to restrict the device features
+	static void RestrictEnabledPhysicalDeviceFeatures(VkPhysicalDeviceFeatures& InOutFeaturesToEnable)
 	{ 
-		FeaturesToEnable = DeviceFeatures; 
-
-		// disable everything sparse-related
-		FeaturesToEnable.shaderResourceResidency	= VK_FALSE;
-		FeaturesToEnable.shaderResourceMinLod		= VK_FALSE;
-		FeaturesToEnable.sparseBinding				= VK_FALSE;
-		FeaturesToEnable.sparseResidencyBuffer		= VK_FALSE;
-		FeaturesToEnable.sparseResidencyImage2D		= VK_FALSE;
-		FeaturesToEnable.sparseResidencyImage3D		= VK_FALSE;
-		FeaturesToEnable.sparseResidency2Samples	= VK_FALSE;
-		FeaturesToEnable.sparseResidency4Samples	= VK_FALSE;
-		FeaturesToEnable.sparseResidency8Samples	= VK_FALSE;
-		FeaturesToEnable.sparseResidencyAliased		= VK_FALSE;
+		// Disable everything sparse-related
+		InOutFeaturesToEnable.shaderResourceResidency	= VK_FALSE;
+		InOutFeaturesToEnable.shaderResourceMinLod		= VK_FALSE;
+		InOutFeaturesToEnable.sparseBinding				= VK_FALSE;
+		InOutFeaturesToEnable.sparseResidencyBuffer		= VK_FALSE;
+		InOutFeaturesToEnable.sparseResidencyImage2D	= VK_FALSE;
+		InOutFeaturesToEnable.sparseResidencyImage3D	= VK_FALSE;
+		InOutFeaturesToEnable.sparseResidency2Samples	= VK_FALSE;
+		InOutFeaturesToEnable.sparseResidency4Samples	= VK_FALSE;
+		InOutFeaturesToEnable.sparseResidency8Samples	= VK_FALSE;
+		InOutFeaturesToEnable.sparseResidencyAliased	= VK_FALSE;
 	}
+
+	// Some platforms only support real or non-real UBs, so this function can optimize it out
+	static bool UseRealUBsOptimization(bool bCodeHeaderUseRealUBs) { return bCodeHeaderUseRealUBs; }
+
+	static bool SupportParallelRenderingTasks() { return true; }
 
 	// Allow platforms to add extension features to the DeviceInfo pNext chain
 	static void EnablePhysicalDeviceFeatureExtensions(VkDeviceCreateInfo& DeviceInfo) {};
+
+	static bool RequiresSwapchainGeneralInitialLayout() { return false; }
 };

@@ -86,14 +86,13 @@ static NSMutableSet<FIOSFramePacerHandler>* Handlers = [NSMutableSet new];
 
 	{
 		FScopeLock Lock(&HandlersMutex);
-		double OutputSeconds = 0;
-		double OutputDuration = 0;
-		if (!UE4_TARGET_PRE_IOS10)
+		CADisplayLink* displayLink = (CADisplayLink*)param;
+		double OutputSeconds = displayLink.duration + displayLink.timestamp;
+		if (@available(iOS 10.0, tvOS 10.0, *))
 		{
-			CADisplayLink* displayLink = (CADisplayLink*)param;
 			OutputSeconds = displayLink.targetTimestamp;
-			OutputDuration = displayLink.duration;
 		}
+		double OutputDuration = displayLink.duration;
 		for (FIOSFramePacerHandler Handler in Handlers)
 		{
 			Handler(0, OutputSeconds, OutputDuration);

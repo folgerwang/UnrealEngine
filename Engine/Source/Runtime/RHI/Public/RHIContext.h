@@ -126,6 +126,18 @@ public:
 	 * Signal to RHI that cached state is no longer valid
 	 */
 	virtual void RHIInvalidateCachedState() {};
+
+
+	/**
+	 * Insert a GPU-to-CPU fence into the GPU command-stream. 
+	 * The default implementation will simply write the current frame-number into the fence.
+	 * RHIs that can implement true GPU fences should override this to do so.
+	 */
+	virtual void RHIInsertGPUFence(FGPUFenceRHIParamRef Fence) 
+	{ 
+		check(Fence); 
+		Fence->Write(); 
+	}
 };
 
 // These states are now set by the Pipeline State Object and are now deprecated
