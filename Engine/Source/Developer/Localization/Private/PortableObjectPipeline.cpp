@@ -51,137 +51,6 @@ namespace
 		FLocKeyPairMultiMap CollapsedNSSourceStringToExpandedNSKey;
 	};
 
-	/**
-	* Declarations
-	*/
-	FString ConditionIdentityForPOMsgCtxt(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject>& KeyMetaData, const ELocalizedTextCollapseMode InTextCollapseMode);
-	void ParsePOMsgCtxtForIdentity(const FString& MsgCtxt, FString& OutNamespace, FString& OutKey);
-	FString ConditionArchiveStrForPo(const FString& InStr);
-	FString ConditionPoStringForArchive(const FString& InStr);
-	FString ConvertSrcLocationToPORef(const FString& InSrcLocation);
-	FString GetConditionedKeyForExtractedComment(const FString& Key);
-	FString GetConditionedReferenceForExtractedComment(const FString& PORefString);
-	FString GetConditionedInfoMetaDataForExtractedComment(const FString& KeyName, const FString& ValueString);
-	TSharedRef<FInternationalizationManifest> BuildCollapsedManifest(FLocTextHelper& InLocTextHelper, const ELocalizedTextCollapseMode InTextCollapseMode, FCollapsedData& OutCollapsedData);
-
-	/**
-	* Definitions
-	*/
-	FString ConditionIdentityForPOMsgCtxt(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject>& KeyMetaData, const ELocalizedTextCollapseMode InTextCollapseMode)
-	{
-		auto EscapeMsgCtxtParticleInline = [](FString& InStr)
-		{
-			InStr.ReplaceInline(TEXT(","), TEXT("\\,"), ESearchCase::CaseSensitive);
-		};
-
-		FString EscapedNamespace = Namespace;
-		EscapeMsgCtxtParticleInline(EscapedNamespace);
-
-		FString EscapedKey = Key;
-		EscapeMsgCtxtParticleInline(EscapedKey);
-
-		const bool bAppendKey = InTextCollapseMode != ELocalizedTextCollapseMode::IdenticalNamespaceAndSource || KeyMetaData.IsValid();
-		return ConditionArchiveStrForPo(bAppendKey ? FString::Printf(TEXT("%s,%s"), *EscapedNamespace, *EscapedKey) : EscapedNamespace);
-	}
-
-	void ParsePOMsgCtxtForIdentity(const FString& MsgCtxt, FString& OutNamespace, FString& OutKey)
-	{
-		auto UnescapeMsgCtxtParticleInline = [](FString& InStr)
-		{
-			InStr.ReplaceInline(TEXT("\\,"), TEXT(","), ESearchCase::CaseSensitive);
-		};
-
-		const FString ConditionedMsgCtxt = ConditionPoStringForArchive(MsgCtxt);
-
-		// Find the unescaped comma that defines the breaking point between the namespace and the key
-		int32 CommaIndex = INDEX_NONE;
-		{
-			bool bIsEscaped = false;
-			for (int32 Index = 0; Index < ConditionedMsgCtxt.Len(); ++Index)
-			{
-				if (bIsEscaped)
-				{
-					// No longer escaped, and skip this character
-					bIsEscaped = false;
-					continue;
-				}
-
-				if (ConditionedMsgCtxt[Index] == TEXT(','))
-				{
-					// Found the unescaped comma
-					CommaIndex = Index;
-					break;
-				}
-
-				if (ConditionedMsgCtxt[Index] == TEXT('\\'))
-				{
-					// Next character will be escaped
-					bIsEscaped = true;
-					continue;
-				}
-			}
-		}
-
-		if (CommaIndex == INDEX_NONE)
-		{
-			OutNamespace = ConditionedMsgCtxt;
-			OutKey.Reset();
-		}
-		else
-		{
-			OutNamespace = ConditionedMsgCtxt.Mid(0, CommaIndex);
-			OutKey = ConditionedMsgCtxt.Mid(CommaIndex + 1);
-		}
-
-		UnescapeMsgCtxtParticleInline(OutNamespace);
-		UnescapeMsgCtxtParticleInline(OutKey);
-	}
-
-	FString ConditionArchiveStrForPo(const FString& InStr)
-	{
-		FString Result = InStr;
-		Result.ReplaceInline(TEXT("\\"), TEXT("\\\\"), ESearchCase::CaseSensitive);
-		Result.ReplaceInline(TEXT("\""), TEXT("\\\""), ESearchCase::CaseSensitive);
-		Result.ReplaceInline(TEXT("\r"), TEXT("\\r"), ESearchCase::CaseSensitive);
-		Result.ReplaceInline(TEXT("\n"), TEXT("\\n"), ESearchCase::CaseSensitive);
-		Result.ReplaceInline(TEXT("\t"), TEXT("\\t"), ESearchCase::CaseSensitive);
-		return Result;
-	}
-
-	FString ConditionPoStringForArchive(const FString& InStr)
-	{
-		FString Result = InStr;
-		Result.ReplaceInline(TEXT("\\t"), TEXT("\t"), ESearchCase::CaseSensitive);
-		Result.ReplaceInline(TEXT("\\n"), TEXT("\n"), ESearchCase::CaseSensitive);
-		Result.ReplaceInline(TEXT("\\r"), TEXT("\r"), ESearchCase::CaseSensitive);
-		Result.ReplaceInline(TEXT("\\\""), TEXT("\""), ESearchCase::CaseSensitive);
-		Result.ReplaceInline(TEXT("\\\\"), TEXT("\\"), ESearchCase::CaseSensitive);
-		return Result;
-	}
-
-	FString ConvertSrcLocationToPORef(const FString& InSrcLocation)
-	{
-		// Source location format: /Path1/Path2/file.cpp - line 123
-		// PO Reference format: /Path1/Path2/file.cpp:123
-		// @TODO: Note, we assume the source location format here but it could be arbitrary.
-		return InSrcLocation.Replace(TEXT(" - line "), TEXT(":"), ESearchCase::CaseSensitive);
-	}
-
-	FString GetConditionedKeyForExtractedComment(const FString& Key)
-	{
-		return FString::Printf(TEXT("Key:\t%s"), *Key);
-	}
-
-	FString GetConditionedReferenceForExtractedComment(const FString& PORefString)
-	{
-		return FString::Printf(TEXT("SourceLocation:\t%s"), *PORefString);
-	}
-
-	FString GetConditionedInfoMetaDataForExtractedComment(const FString& KeyName, const FString& ValueString)
-	{
-		return FString::Printf(TEXT("InfoMetaData:\t\"%s\" : \"%s\""), *KeyName, *ValueString);
-	}
-
 	TSharedRef<FInternationalizationManifest> BuildCollapsedManifest(FLocTextHelper& InLocTextHelper, const ELocalizedTextCollapseMode InTextCollapseMode, FCollapsedData& OutCollapsedData)
 	{
 		TSharedRef<FInternationalizationManifest> CollapsedManifest = MakeShared<FInternationalizationManifest>();
@@ -319,6 +188,8 @@ namespace
 
 	bool ImportPortableObject(FLocTextHelper& InLocTextHelper, const FString& InCulture, const FString& InPOFilePath, const FCollapsedData& InCollapsedData)
 	{
+		using namespace PortableObjectPipeline;
+
 		if (!FPaths::FileExists(InPOFilePath))
 		{
 			UE_LOG(LogPortableObjectPipeline, Warning, TEXT("Could not find file %s"), *InPOFilePath);
@@ -425,6 +296,8 @@ namespace
 
 	bool ExportPortableObject(FLocTextHelper& InLocTextHelper, const FString& InCulture, const FString& InPOFilePath, const ELocalizedTextCollapseMode InTextCollapseMode, TSharedRef<FInternationalizationManifest> InCollapsedManifest, const FCollapsedData& InCollapsedData, const bool bShouldPersistComments)
 	{
+		using namespace PortableObjectPipeline;
+
 		FPortableObjectFormatDOM NewPortableObject;
 
 		FString LocLang;
@@ -633,4 +506,119 @@ bool PortableObjectPipeline::ExportAll(FLocTextHelper& InLocTextHelper, const FS
 	}
 
 	return bSuccess;
+}
+
+FString PortableObjectPipeline::ConditionIdentityForPOMsgCtxt(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject>& KeyMetaData, const ELocalizedTextCollapseMode InTextCollapseMode)
+{
+	auto EscapeMsgCtxtParticleInline = [](FString& InStr)
+	{
+		InStr.ReplaceInline(TEXT(","), TEXT("\\,"), ESearchCase::CaseSensitive);
+	};
+
+	FString EscapedNamespace = Namespace;
+	EscapeMsgCtxtParticleInline(EscapedNamespace);
+
+	FString EscapedKey = Key;
+	EscapeMsgCtxtParticleInline(EscapedKey);
+
+	const bool bAppendKey = InTextCollapseMode != ELocalizedTextCollapseMode::IdenticalNamespaceAndSource || KeyMetaData.IsValid();
+	return ConditionArchiveStrForPo(bAppendKey ? FString::Printf(TEXT("%s,%s"), *EscapedNamespace, *EscapedKey) : EscapedNamespace);
+}
+
+void PortableObjectPipeline::ParsePOMsgCtxtForIdentity(const FString& MsgCtxt, FString& OutNamespace, FString& OutKey)
+{
+	auto UnescapeMsgCtxtParticleInline = [](FString& InStr)
+	{
+		InStr.ReplaceInline(TEXT("\\,"), TEXT(","), ESearchCase::CaseSensitive);
+	};
+
+	const FString ConditionedMsgCtxt = ConditionPoStringForArchive(MsgCtxt);
+
+	// Find the unescaped comma that defines the breaking point between the namespace and the key
+	int32 CommaIndex = INDEX_NONE;
+	{
+		bool bIsEscaped = false;
+		for (int32 Index = 0; Index < ConditionedMsgCtxt.Len(); ++Index)
+		{
+			if (bIsEscaped)
+			{
+				// No longer escaped, and skip this character
+				bIsEscaped = false;
+				continue;
+			}
+
+			if (ConditionedMsgCtxt[Index] == TEXT(','))
+			{
+				// Found the unescaped comma
+				CommaIndex = Index;
+				break;
+			}
+
+			if (ConditionedMsgCtxt[Index] == TEXT('\\'))
+			{
+				// Next character will be escaped
+				bIsEscaped = true;
+				continue;
+			}
+		}
+	}
+
+	if (CommaIndex == INDEX_NONE)
+	{
+		OutNamespace = ConditionedMsgCtxt;
+		OutKey.Reset();
+	}
+	else
+	{
+		OutNamespace = ConditionedMsgCtxt.Mid(0, CommaIndex);
+		OutKey = ConditionedMsgCtxt.Mid(CommaIndex + 1);
+	}
+
+	UnescapeMsgCtxtParticleInline(OutNamespace);
+	UnescapeMsgCtxtParticleInline(OutKey);
+}
+
+FString PortableObjectPipeline::ConditionArchiveStrForPo(const FString& InStr)
+{
+	FString Result = InStr;
+	Result.ReplaceInline(TEXT("\\"), TEXT("\\\\"), ESearchCase::CaseSensitive);
+	Result.ReplaceInline(TEXT("\""), TEXT("\\\""), ESearchCase::CaseSensitive);
+	Result.ReplaceInline(TEXT("\r"), TEXT("\\r"), ESearchCase::CaseSensitive);
+	Result.ReplaceInline(TEXT("\n"), TEXT("\\n"), ESearchCase::CaseSensitive);
+	Result.ReplaceInline(TEXT("\t"), TEXT("\\t"), ESearchCase::CaseSensitive);
+	return Result;
+}
+
+FString PortableObjectPipeline::ConditionPoStringForArchive(const FString& InStr)
+{
+	FString Result = InStr;
+	Result.ReplaceInline(TEXT("\\t"), TEXT("\t"), ESearchCase::CaseSensitive);
+	Result.ReplaceInline(TEXT("\\n"), TEXT("\n"), ESearchCase::CaseSensitive);
+	Result.ReplaceInline(TEXT("\\r"), TEXT("\r"), ESearchCase::CaseSensitive);
+	Result.ReplaceInline(TEXT("\\\""), TEXT("\""), ESearchCase::CaseSensitive);
+	Result.ReplaceInline(TEXT("\\\\"), TEXT("\\"), ESearchCase::CaseSensitive);
+	return Result;
+}
+
+FString PortableObjectPipeline::ConvertSrcLocationToPORef(const FString& InSrcLocation)
+{
+	// Source location format: /Path1/Path2/file.cpp - line 123
+	// PO Reference format: /Path1/Path2/file.cpp:123
+	// @TODO: Note, we assume the source location format here but it could be arbitrary.
+	return InSrcLocation.Replace(TEXT(" - line "), TEXT(":"), ESearchCase::CaseSensitive);
+}
+
+FString PortableObjectPipeline::GetConditionedKeyForExtractedComment(const FString& Key)
+{
+	return FString::Printf(TEXT("Key:\t%s"), *Key);
+}
+
+FString PortableObjectPipeline::GetConditionedReferenceForExtractedComment(const FString& PORefString)
+{
+	return FString::Printf(TEXT("SourceLocation:\t%s"), *PORefString);
+}
+
+FString PortableObjectPipeline::GetConditionedInfoMetaDataForExtractedComment(const FString& KeyName, const FString& ValueString)
+{
+	return FString::Printf(TEXT("InfoMetaData:\t\"%s\" : \"%s\""), *KeyName, *ValueString);
 }

@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TranslationDataManager.h"
+#include "PortableObjectPipeline.h"
 #include "Internationalization/InternationalizationManifest.h"
 #include "Internationalization/InternationalizationArchive.h"
 #include "Misc/FileHelper.h"
@@ -928,27 +929,44 @@ bool FTranslationDataManager::SaveSelectedTranslations(TArray<UTranslationUnit*>
 					// Search all translations for the one that matches this FText
 					for (UTranslationUnit* Translation : TranslationsArray)
 					{
+						bool bFoundMatchingTranslation = false;
+
 						// If namespace matches...
 						if (Translation->Namespace.Equals(EditedItem->Namespace))
 						{
-							// And source matches
-							if (Translation->Source.Equals(EditedItem->Source))
+							// And key matches...
+							for (const FTranslationContextInfo& ContextInfo : Translation->Contexts)
 							{
-								// Update the translation in TranslationDataManager, and finish searching these translations
-								Translation->Translation = EditedItem->Translation;
-
-								TSharedRef<FPortableObjectEntry> NewEntry = MakeShareable(new FPortableObjectEntry);
-								for (FTranslationContextInfo ContextInfo : Translation->Contexts)
+								if (ContextInfo.Key.Equals(EditedItem->Key))
 								{
-									NewEntry->ExtractedComments.Add(ContextInfo.Key);
-									NewEntry->ReferenceComments.Add(ContextInfo.Context);
+									bFoundMatchingTranslation = true;
+
+									// Update the translation in TranslationDataManager, and finish searching these translations
+									Translation->Translation = EditedItem->Translation;
+
+									// Add the PO entry
+									{
+										TSharedRef<FPortableObjectEntry> PoEntry = MakeShareable(new FPortableObjectEntry());
+
+										PoEntry->MsgId = PortableObjectPipeline::ConditionArchiveStrForPo(Translation->Source);
+										PoEntry->MsgCtxt = PortableObjectPipeline::ConditionIdentityForPOMsgCtxt(Translation->Namespace, ContextInfo.Key, nullptr, LocalizationTarget->Settings.ExportSettings.CollapseMode);
+										PoEntry->MsgStr.Add(PortableObjectPipeline::ConditionArchiveStrForPo(Translation->Translation));
+
+										//@TODO: We support additional metadata entries that can be translated.  How do those fit in the PO file format?  Ex: isMature
+										const FString PORefString = PortableObjectPipeline::ConvertSrcLocationToPORef(ContextInfo.Context);
+										PoEntry->AddReference(PORefString); // Source location.
+
+										PoEntry->AddExtractedComment(PortableObjectPipeline::GetConditionedKeyForExtractedComment(ContextInfo.Key)); // "Notes from Programmer" in the form of the Key.
+										PoEntry->AddExtractedComment(PortableObjectPipeline::GetConditionedReferenceForExtractedComment(PORefString)); // "Notes from Programmer" in the form of the Source Location, since this comes in handy too and OneSky doesn't properly show references, only comments.
+
+										PortableObjectDom.AddEntry(PoEntry);
+									}
+									break;
 								}
+							}
 
-								NewEntry->MsgCtxt = Translation->Namespace;
-								NewEntry->MsgId = Translation->Source;
-								NewEntry->MsgStr.Add(Translation->Translation);
-								PortableObjectDom.AddEntry(NewEntry);
-
+							if (bFoundMatchingTranslation)
+							{
 								break;
 							}
 						}

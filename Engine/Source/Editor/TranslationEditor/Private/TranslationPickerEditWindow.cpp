@@ -269,6 +269,7 @@ void STranslationPickerEditWidget::Construct(const FArguments& InArgs)
 	// Save the necessary data in UTranslationUnit for later.  This is what we pass to TranslationDataManager to save our edits
 	TranslationUnit = NewObject<UTranslationUnit>();
 	TranslationUnit->Namespace = CleanNamespaceString;
+	TranslationUnit->Key = KeyString.Get(TEXT(""));
 	TranslationUnit->Source = SourceString != nullptr ? *SourceString : TEXT("");
 	TranslationUnit->Translation = TranslationString;
 	TranslationUnit->LocresPath = LocresFullPath;
