@@ -42,8 +42,6 @@ void FD3D11DynamicRHI::RHIBeginFrame()
 		IntelMetricsDicoveryBeginFrame();
 	}
 #endif // INTEL_METRICSDISCOVERY
-
-	PSOPrimitiveType = PT_Num;
 }
 
 template <int32 Frequency>

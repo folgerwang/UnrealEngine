@@ -509,7 +509,7 @@ public:
 		FRHIGraphicsPipelineStateFallBack* FallbackGraphicsState = static_cast<FRHIGraphicsPipelineStateFallBack*>(GraphicsState);
 		IRHICommandContext::RHISetGraphicsPipelineState(GraphicsState);
 		// Store the PSO's primitive (after since IRHICommandContext::RHISetGraphicsPipelineState sets the BSS)
-		PSOPrimitiveType = FallbackGraphicsState->Initializer.PrimitiveType;
+		PrimitiveType = FallbackGraphicsState->Initializer.PrimitiveType;
 	}
 
 	virtual void RHISetShaderTexture(FVertexShaderRHIParamRef VertexShader, uint32 TextureIndex, FTextureRHIParamRef NewTexture) final override;
@@ -751,7 +751,7 @@ protected:
 	bool bCurrentDepthStencilStateIsReadOnly;
 
 	// Current PSO Primitive Type
-	EPrimitiveType PSOPrimitiveType;
+	EPrimitiveType PrimitiveType;
 
 	TRefCountPtr<ID3D11RenderTargetView> CurrentRenderTargets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
 	TRefCountPtr<ID3D11UnorderedAccessView> CurrentUAVs[D3D11_PS_CS_UAV_REGISTER_COUNT];
@@ -802,7 +802,6 @@ protected:
 	// State for begin/end draw primitive UP interface.
 	uint32 PendingNumVertices;
 	uint32 PendingVertexDataStride;
-	uint32 PendingPrimitiveType;
 	uint32 PendingNumPrimitives;
 	uint32 PendingMinVertexIndex;
 	uint32 PendingNumIndices;
