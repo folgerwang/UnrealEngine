@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TestDirectoryWatcher.h"
+
+#if USE_DIRECTORY_WATCHER
+
 #include "IDirectoryWatcher.h"
 #include "DirectoryWatcherModule.h"
 #include "LaunchEngineLoop.h"	// GEngineLoop
@@ -195,3 +198,5 @@ int32 DirectoryWatcherTest(const TCHAR* CommandLine)
 	FEngineLoop::AppExit();
 	return 0;
 }
+
+#endif /* USE_DIRECTORY_WATCHER */

@@ -315,50 +315,11 @@ namespace SCWErrorCode
 	}
 }
 
-static const TArray<const IShaderFormat*>& GetShaderFormats()
-{
-	static bool bInitialized = false;
-	static TArray<const IShaderFormat*> Results;
-
-	if (!bInitialized)
-	{
-		bInitialized = true;
-		Results.Empty(Results.Num());
-
-		TArray<FName> Modules;
-		FModuleManager::Get().FindModules(SHADERFORMAT_MODULE_WILDCARD, Modules);
-
-		if (!Modules.Num())
-		{
-			UE_LOG(LogShaders, Error, TEXT("No target shader formats found!"));
-		}
-
-		for (int32 Index = 0; Index < Modules.Num(); Index++)
-		{
-			IShaderFormatModule* Module = FModuleManager::GetModulePtr<IShaderFormatModule>(Modules[Index]);
-			if (Module != nullptr)
-			{
-				IShaderFormat* Format = Module->GetShaderFormat();
-
-				if (Format != nullptr)
-				{
-					Results.Add(Format);
-				}
-			}
-			else
-			{
-				UE_LOG(LogShaders, Display, TEXT("Unable to load module %s, skipping its shader formats."), *Modules[Index].ToString());
-			}
-		}
-	}
-	return Results;
-}
-
 static inline void GetFormatVersionMap(TMap<FString, uint32>& OutFormatVersionMap)
 {
 	if (OutFormatVersionMap.Num() == 0)
 	{
-		const TArray<const class IShaderFormat*>& ShaderFormats = GetShaderFormats();
+		const TArray<const class IShaderFormat*>& ShaderFormats = GetTargetPlatformManagerRef().GetShaderFormats();
 		check(ShaderFormats.Num());
 		for (int32 Index = 0; Index < ShaderFormats.Num(); Index++)
 		{
@@ -3243,6 +3204,10 @@ void GlobalBeginCompileShader(
 	{
 		Input.Environment.SetDefine(TEXT("PLATFORM_SUPPORTS_RENDERTARGET_WRITE_MASK"), 0);
 	}
+
+	// Allow the target shader format to modify the shader input before we add it as a job
+	const IShaderFormat* Format = GetTargetPlatformManagerRef().FindShaderFormat(Input.ShaderFormat);
+	Format->ModifyShaderCompilerInput(Input);
 
 	NewJobs.Add(NewJob);
 }

@@ -1120,8 +1120,7 @@ FTexture2DRHIRef FD3D12DynamicRHI::RHICreateTexture2D_RenderThread(class FRHICom
 {
 	if (CreateInfo.BulkData != nullptr)
 	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		return GDynamicRHI->RHICreateTexture2D(SizeX, SizeY, Format, NumMips, NumSamples, Flags, CreateInfo);
 	}
 
@@ -1345,8 +1344,7 @@ FTexture2DArrayRHIRef FD3D12DynamicRHI::RHICreateTexture2DArray_RenderThread(cla
 {
 	if (CreateInfo.BulkData != nullptr)
 	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		return RHICreateTexture2DArray(SizeX, SizeY, SizeZ, Format, NumMips, Flags, CreateInfo);
 	}
 
@@ -1363,8 +1361,7 @@ FTexture3DRHIRef FD3D12DynamicRHI::RHICreateTexture3D_RenderThread(class FRHICom
 {
 	if (CreateInfo.BulkData != nullptr)
 	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		return RHICreateTexture3D(SizeX, SizeY, SizeZ, Format, NumMips, Flags, CreateInfo);
 	}
 
@@ -1905,7 +1902,7 @@ FUpdateTexture3DData FD3D12DynamicRHI::BeginUpdateTexture3D_RenderThread(class F
 	check(IsInRenderingThread());
 	// This stall could potentially be removed, provided the fast allocator is thread-safe. However we 
 	// currently need to stall in the End method anyway (see below)
-	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
+	RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 	return BeginUpdateTexture3D_Internal(Texture, MipIndex, UpdateRegion);
 }
 
@@ -1914,7 +1911,7 @@ void FD3D12DynamicRHI::EndUpdateTexture3D_RenderThread(class FRHICommandListImme
 	check(IsInRenderingThread());
 	// TODO: move this command entirely to the RHI thread so we can remove these stalls
 	// and fix potential ordering issue with non-compute-shader version
-	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
+	RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 	EndUpdateTexture3D_Internal(UpdateData);
 }
 
@@ -1972,7 +1969,7 @@ FUpdateTexture3DData FD3D12DynamicRHI::BeginUpdateTexture3D_Internal(FTexture3DR
 	check(FormatInfo.BlockSizeZ == 1);
 
 	bool bDoComputeShaderCopy = false; // Compute shader can not cast compressed formats into uint
-	if (CVarUseUpdateTexture3DComputeShader.GetValueOnRenderThread() != 0 && FormatInfo.BlockSizeX == 1 && FormatInfo.BlockSizeY == 1 && Texture->GetResource()->GetHeap() && !(Texture->GetFlags() & TexCreate_OfflineProcessed))
+	if (CVarUseUpdateTexture3DComputeShader.GetValueOnRenderThread() != 0 && FormatInfo.BlockSizeX == 1 && FormatInfo.BlockSizeY == 1 && Texture->ResourceLocation.GetGPUVirtualAddress() && !(Texture->GetFlags() & TexCreate_OfflineProcessed))
 	{
 		// Try a compute shader update. This does a memory allocation internally
 		bDoComputeShaderCopy = BeginUpdateTexture3D_ComputeShader(UpdateData, UpdateDataD3D12);
@@ -2069,8 +2066,7 @@ FTextureCubeRHIRef FD3D12DynamicRHI::RHICreateTextureCube_RenderThread(class FRH
 {
 	if (CreateInfo.BulkData != nullptr)
 	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		return RHICreateTextureCube(Size, Format, NumMips, Flags, CreateInfo);
 	}
 
@@ -2086,8 +2082,7 @@ FTextureCubeRHIRef FD3D12DynamicRHI::RHICreateTextureCubeArray_RenderThread(clas
 {
 	if (CreateInfo.BulkData != nullptr)
 	{
-		FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		return RHICreateTextureCubeArray(Size, ArraySize, Format, NumMips, Flags, CreateInfo);
 	}
 

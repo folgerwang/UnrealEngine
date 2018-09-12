@@ -347,6 +347,7 @@ bool FAndroidTargetPlatform::SupportsFeature( ETargetPlatformFeatures Feature ) 
 	switch (Feature)
 	{
 		case ETargetPlatformFeatures::Packaging:
+		case ETargetPlatformFeatures::DeviceOutputLog:
 			return true;
 			
 		case ETargetPlatformFeatures::LowQualityLightmaps:

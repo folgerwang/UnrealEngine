@@ -1103,11 +1103,12 @@ float4 Decode32BPPHDR(float4 Pixel, float2 SvPosition, Texture2D SourceTexture, 
 uint DecodeRTWriteMaskTexture(in float2 ScreenPosition, in Texture2D<uint> RTWriteMaskTexture)
 {
 	int2 IntPosition = int2(ScreenPosition.xy);
-	uint RTWriteMaskValue = RTWriteMaskTexture.Load( int3(IntPosition.x/8, IntPosition.y/8, 0) );
+	int2 TileIndex = IntPosition / int2(8, 8);
+	int2 TileRegion = ((IntPosition / int2(4, 4)) % int2(2, 2));
+	uint RTWriteMaskValue = RTWriteMaskTexture.Load(int3(TileIndex.x*2 + TileRegion.y, TileIndex.y, 0));
 
-	int2 BitCoord = ((IntPosition / int2(4, 4)) % int2(2, 2));
-	uint BitIdx = BitCoord.x + (BitCoord.y*2);
-	uint RTWriteMaskBit = RTWriteMaskValue & (1<<BitIdx);
+	uint Shift = TileRegion.x * 4;
+	uint RTWriteMaskBit = (RTWriteMaskValue >> Shift) & 0x0f;
 
 	return RTWriteMaskBit;
 }

@@ -248,7 +248,7 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 
 	FString CefLogFile(FPaths::Combine(*FPaths::ProjectLogDir(), TEXT("cef3.log")));
 	CefLogFile = FPaths::ConvertRelativePathToFull(CefLogFile);
-	CefString(&Settings.log_file) = *CefLogFile;
+	CefString(&Settings.log_file) = TCHAR_TO_WCHAR(*CefLogFile);
 	Settings.log_severity = bVerboseLogging ? LOGSEVERITY_VERBOSE : LOGSEVERITY_WARNING;
 
 	uint16 DebugPort;
@@ -259,16 +259,16 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 
 	// Specify locale from our settings
 	FString LocaleCode = GetCurrentLocaleCode();
-	CefString(&Settings.locale) = *LocaleCode;
+	CefString(&Settings.locale) = TCHAR_TO_WCHAR(*LocaleCode);
 
 	// Append engine version to the user agent string.
-	CefString(&Settings.product_version) = *WebBrowserInitSettings.ProductVersion;
+	CefString(&Settings.product_version) = TCHAR_TO_WCHAR(*WebBrowserInitSettings.ProductVersion);
 
 #if CEF3_DEFAULT_CACHE
 	// Enable on disk cache
 	FString CachePath(FPaths::Combine(ApplicationCacheDir(), TEXT("webcache")));
 	CachePath = FPaths::ConvertRelativePathToFull(CachePath);
-	CefString(&Settings.cache_path) = *CachePath;
+	CefString(&Settings.cache_path) = TCHAR_TO_WCHAR(*CachePath);
 #endif
 
 	// Specify path to resources
@@ -278,7 +278,7 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	{
 		UE_LOG(LogWebBrowser, Error, TEXT("Chromium Resources information not found at: %s."), *ResourcesPath);
 	}
-	CefString(&Settings.resources_dir_path) = *ResourcesPath;
+	CefString(&Settings.resources_dir_path) = TCHAR_TO_WCHAR(*ResourcesPath);
 
 #if !PLATFORM_MAC
 	// On Mac Chromium ignores custom locales dir. Files need to be stored in Resources folder in the app bundle
@@ -288,7 +288,7 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	{
 		UE_LOG(LogWebBrowser, Error, TEXT("Chromium Locales information not found at: %s."), *LocalesPath);
 	}
-	CefString(&Settings.locales_dir_path) = *LocalesPath;
+	CefString(&Settings.locales_dir_path) = TCHAR_TO_WCHAR(*LocalesPath);
 #endif
 
 	// Specify path to sub process exe
@@ -299,7 +299,7 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	{
 		UE_LOG(LogWebBrowser, Error, TEXT("UnrealCEFSubProcess.exe not found, check that this program has been built and is placed in: %s."), *SubProcessPath);
 	}
-	CefString(&Settings.browser_subprocess_path) = *SubProcessPath;
+	CefString(&Settings.browser_subprocess_path) = TCHAR_TO_WCHAR(*SubProcessPath);
 
 	// Initialize CEF.
 	bool bSuccess = CefInitialize(MainArgs, Settings, CEFBrowserApp.get(), nullptr);
@@ -392,7 +392,7 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	bool bShowErrorMessage = BrowserWindowParent->IsShowingErrorMessages();
 	bool bThumbMouseButtonNavigation = BrowserWindowParent->IsThumbMouseButtonNavigationEnabled();
 	bool bUseTransparency = BrowserWindowParent->UseTransparency();
-	FString InitialURL = BrowserWindowInfo->Browser->GetMainFrame()->GetURL().ToWString().c_str();
+	FString InitialURL = WCHAR_TO_TCHAR(BrowserWindowInfo->Browser->GetMainFrame()->GetURL().ToWString().c_str());
 	TSharedPtr<FCEFWebBrowserWindow> NewBrowserWindow(new FCEFWebBrowserWindow(BrowserWindowInfo->Browser, BrowserWindowInfo->Handler, InitialURL, ContentsToLoad, bShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency, bJSBindingsToLoweringEnabled));
 	BrowserWindowInfo->Handler->SetBrowserWindow(NewBrowserWindow);
 	{
@@ -480,8 +480,8 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 			if (ExistingRequestContext == nullptr)
 			{
 				CefRequestContextSettings RequestContextSettings;
-				CefString(&RequestContextSettings.accept_language_list) = *Context.AcceptLanguageList;
-				CefString(&RequestContextSettings.cache_path) = *Context.CookieStorageLocation;
+				CefString(&RequestContextSettings.accept_language_list) = TCHAR_TO_WCHAR(*Context.AcceptLanguageList);
+				CefString(&RequestContextSettings.cache_path) = TCHAR_TO_WCHAR(*Context.CookieStorageLocation);
 				RequestContextSettings.persist_session_cookies = Context.bPersistSessionCookies;
 				RequestContextSettings.ignore_certificate_errors = Context.bIgnoreCertificateErrors;
 #if !PLATFORM_LINUX
@@ -500,7 +500,7 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 		}
 
 		// Create the CEF browser window.
-		CefRefPtr<CefBrowser> Browser = CefBrowserHost::CreateBrowserSync(WindowInfo, NewHandler.get(), *WindowSettings.InitialURL, BrowserSettings, RequestContext);
+		CefRefPtr<CefBrowser> Browser = CefBrowserHost::CreateBrowserSync(WindowInfo, NewHandler.get(), TCHAR_TO_WCHAR(*WindowSettings.InitialURL), BrowserSettings, RequestContext);
 		if (Browser.get())
 		{
 			// Create new window
@@ -694,8 +694,8 @@ bool FWebBrowserSingleton::RegisterContext(const FBrowserContextSettings& Settin
 	}
 
 	CefRequestContextSettings RequestContextSettings;
-	CefString(&RequestContextSettings.accept_language_list) = *Settings.AcceptLanguageList;
-	CefString(&RequestContextSettings.cache_path) = *Settings.CookieStorageLocation;
+	CefString(&RequestContextSettings.accept_language_list) = TCHAR_TO_WCHAR(*Settings.AcceptLanguageList);
+	CefString(&RequestContextSettings.cache_path) = TCHAR_TO_WCHAR(*Settings.CookieStorageLocation);
 	RequestContextSettings.persist_session_cookies = Settings.bPersistSessionCookies;
 	RequestContextSettings.ignore_certificate_errors = Settings.bIgnoreCertificateErrors;
 #if !PLATFORM_LINUX

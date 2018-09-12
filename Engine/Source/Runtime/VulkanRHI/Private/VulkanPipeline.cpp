@@ -363,6 +363,7 @@ void FVulkanPipelineStateCacheManager::Load(const TArray<FString>& CacheFilename
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Unable to load pipeline cache '%s'"), *CacheFilename);
 		}
 	}
+
 #endif
 
 #if VULKAN_ENABLE_GENERIC_PIPELINE_CACHE_FILE
@@ -506,6 +507,7 @@ void FVulkanPipelineStateCacheManager::Save(const FString& CacheFilename)
 			UE_LOG(LogVulkanRHI, Display, TEXT("Saved pipeline cache file '%s', %d Gfx Pipelines, %d Compute Pipelines, %d Microcodes, %d bytes"), *CacheFilename, GfxPipelineEntries.Num(), ComputePipelineEntries.Num(), ShaderCache.Data.Num(), MemFile.Num());
 		}
 	}
+
 #endif
 }
 

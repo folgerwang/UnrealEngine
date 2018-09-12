@@ -309,6 +309,11 @@ private:
 	/** Conditionally serialize shader code. */
 	void SerializeShaderCode(FArchive& Ar);
 
+#if WITH_EDITORONLY_DATA
+	/** Conditionally serialize platform debug data. */
+	void SerializePlatformDebugData(FArchive& Ar);
+#endif
+
 	/** Reference to the RHI shader.  Only one of these is ever valid, and it is the one corresponding to Target.Frequency. */
 	FVertexShaderRHIRef VertexShader;
 	FPixelShaderRHIRef PixelShader;
@@ -322,6 +327,11 @@ private:
 
 	/** Compiled bytecode. */
 	TArray<uint8> Code;
+
+#if WITH_EDITORONLY_DATA
+	/** Platform specific debug data output by the shader compiler. Discarded in cooked builds. */
+	TArray<uint8> PlatformDebugData;
+#endif
 
 	/** Original bytecode size, before compression */
 	uint32 UncompressedCodeSize = 0;
@@ -2373,9 +2383,6 @@ extern SHADERCORE_API void DispatchIndirectComputeShader(
 	FShader* Shader,
 	FVertexBufferRHIParamRef ArgumentBuffer,
 	uint32 ArgumentOffset);
-
-/** Returns an array of all target shader formats, possibly from multiple target platforms. */
-extern SHADERCORE_API const TArray<FName>& GetTargetShaderFormats();
 
 /** Appends to KeyString for all shaders. */
 extern SHADERCORE_API void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString);

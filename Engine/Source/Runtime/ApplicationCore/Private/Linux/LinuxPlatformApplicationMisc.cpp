@@ -18,7 +18,7 @@ bool GInitializedSDL = false;
 
 namespace
 {
-	uint32 GWindowStyleSDL = SDL_WINDOW_OPENGL;
+	uint32 GWindowStyleSDL = SDL_WINDOW_VULKAN;
 
 	FString GetHeadlessMessageBoxMessage(EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption, EAppReturnType::Type& Answer)
 	{
@@ -304,17 +304,6 @@ bool FLinuxPlatformApplicationMisc::InitSDL()
 			CompileTimeSDLVersion.major, CompileTimeSDLVersion.minor, CompileTimeSDLVersion.patch
 			);
 
-		if (FParse::Param(FCommandLine::Get(), TEXT("vulkan")))
-		{
-			GWindowStyleSDL = SDL_WINDOW_VULKAN;
-			UE_LOG(LogInit, Log, TEXT("Using SDL_WINDOW_VULKAN"));
-		}
-		else
-		{
-			GWindowStyleSDL = SDL_WINDOW_OPENGL;
-			UE_LOG(LogInit, Log, TEXT("Using SDL_WINDOW_OPENGL"));
-		}
-
 		char const* SdlVideoDriver = SDL_GetCurrentVideoDriver();
 		if (SdlVideoDriver)
 		{
@@ -532,4 +521,16 @@ void FLinuxPlatformApplicationMisc::ClipboardPaste(class FString& Result)
 
 void FLinuxPlatformApplicationMisc::EarlyUnixInitialization(FString& OutCommandLine)
 {
+}
+
+void FLinuxPlatformApplicationMisc::UsingVulkan()
+{
+	UE_LOG(LogInit, Log, TEXT("Using SDL_WINDOW_VULKAN"));
+	GWindowStyleSDL = SDL_WINDOW_VULKAN;
+}
+
+void FLinuxPlatformApplicationMisc::UsingOpenGL()
+{
+	UE_LOG(LogInit, Log, TEXT("Using SDL_WINDOW_OPENGL"));
+	GWindowStyleSDL = SDL_WINDOW_OPENGL;
 }

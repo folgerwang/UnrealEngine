@@ -9,6 +9,7 @@
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
 #include "GlobalShader.h"
+#include "HAL/PlatformAtomics.h"
 
 //#todo-Lumin: Until we have LuminEngine.ini
 FAutoConsoleVariable GCVarDelayAcquireBackBuffer(
@@ -61,6 +62,7 @@ FVulkanViewport::FVulkanViewport(FVulkanDynamicRHI* InRHI, FVulkanDevice* InDevi
 	, SwapChain(nullptr)
 	, WindowHandle(InWindowHandle)
 	, PresentCount(0)
+	, LockToVsync(1)
 	, AcquiredSemaphore(nullptr)
 {
 	check(IsInGameThread());
@@ -434,8 +436,35 @@ void FVulkanViewport::RecreateSwapchain(void* NewNativeWindow, bool bForce)
 	CreateSwapchain();
 }
 
+void FVulkanViewport::Tick(float DeltaTime)
+{
+	check(IsInGameThread());
+
+	if(SwapChain && FPlatformAtomics::AtomicRead(&LockToVsync) != SwapChain->DoesLockToVsync())
+	{
+		FlushRenderingCommands();
+		ENQUEUE_RENDER_COMMAND(UpdateVsync)(
+			[this](FRHICommandListImmediate& RHICmdList)
+		{
+			RecreateSwapchainFromRT();
+		});
+		FlushRenderingCommands();
+	}
+}
+
 void FVulkanViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen)
 {
+	SizeX = InSizeX;
+	SizeY = InSizeY;
+	bIsFullscreen = bInIsFullscreen;
+
+	RecreateSwapchainFromRT();
+}
+
+void FVulkanViewport::RecreateSwapchainFromRT()
+{
+	check(IsInRenderingThread());
+	
 	// Submit all command buffers here
 	Device->SubmitCommandsAndFlushGPU();
 
@@ -466,9 +495,6 @@ void FVulkanViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscree
 		Device->GetDeferredDeletionQueue().ReleaseResources(true);
 	}
 
-	SizeX = InSizeX;
-	SizeY = InSizeY;
-	bIsFullscreen = bInIsFullscreen;
 	CreateSwapchain();
 }
 
@@ -483,7 +509,8 @@ void FVulkanViewport::CreateSwapchain()
 			RHI->Instance, *Device, WindowHandle,
 			PixelFormat, SizeX, SizeY,
 			&DesiredNumBackBuffers,
-			Images
+			Images,
+			LockToVsync
 		);
 
 		check(Images.Num() == NUM_BUFFERS);
@@ -579,6 +606,8 @@ inline static void CopyImageToBackBuffer(FVulkanCmdBuffer* CmdBuffer, bool bSour
 
 bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuffer* CmdBuffer, FVulkanQueue* Queue, FVulkanQueue* PresentQueue, bool bLockToVsync)
 {
+	FPlatformAtomics::AtomicStore(&LockToVsync, bLockToVsync ? 1 : 0);
+
 	//Transition back buffer to presentable and submit that command
 	check(CmdBuffer->IsOutsideRenderPass());
 

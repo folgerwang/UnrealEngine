@@ -17,13 +17,8 @@
 
 static bool IsSupportedPlatform(ITargetPlatform* Platform)
 {
-	static const FName AndroidPlaftomName("Android"); // TODO: currently implemented only for Android & Switch. #TODO: perhaps move to ETargetDeviceFeatures ?
-	static const FName SwitchPlatformName("Switch");
-	static const FName IOSPlatformName("IOS");
-	
 	check(Platform);
-	const auto& PlatfromInfo = Platform->GetPlatformInfo();
-	return PlatfromInfo.IsVanilla() && (PlatfromInfo.VanillaPlatformName == AndroidPlaftomName || PlatfromInfo.VanillaPlatformName == SwitchPlatformName || PlatfromInfo.VanillaPlatformName == IOSPlatformName);
+	return Platform->SupportsFeature( ETargetPlatformFeatures::DeviceOutputLog );
 }
 
 
@@ -239,21 +234,6 @@ void SDeviceOutputLog::HandleTargetPlatformDeviceDiscovered(ITargetDeviceRef Dis
 
 void SDeviceOutputLog::AddDeviceEntry(ITargetDeviceRef TargetDevice)
 {
-	if (FindDeviceEntry(TargetDevice->GetId()))
-	{
-		return;
-	}
-	if (TargetDevice->IsPlatformAggregated())
-	{
-		return;
-	}
-	const FString DummyIOSDeviceName(FString::Printf(TEXT("All_iOS_On_%s"), FPlatformProcess::ComputerName()));
-	const FString DummyTVOSDeviceName(FString::Printf(TEXT("All_tvOS_On_%s"), FPlatformProcess::ComputerName()));
-	if (TargetDevice->GetId().GetDeviceName().Equals(DummyIOSDeviceName, ESearchCase::IgnoreCase) ||
-		TargetDevice->GetId().GetDeviceName().Equals(DummyTVOSDeviceName, ESearchCase::IgnoreCase))
-	{
-		return;
-	}
 	using namespace PlatformInfo;
 	FName DeviceIconStyleName = TargetDevice->GetTargetPlatform().GetPlatformInfo().GetIconStyleName(EPlatformIconSize::Normal);
 	
@@ -264,19 +244,6 @@ void SDeviceOutputLog::AddDeviceEntry(ITargetDeviceRef TargetDevice)
 	DeviceEntry->DeviceWeakPtr = TargetDevice;
 	
 	DeviceList.Add(DeviceEntry);
-}
-
-bool SDeviceOutputLog::FindDeviceEntry(FTargetDeviceId InDeviceId)
-{
-	// Should not do it, but what if someone somewhere holds strong reference to a lost device?
-	for (const TSharedPtr<FTargetDeviceEntry>& EntryPtr : DeviceList)
-	{
-		if (EntryPtr->DeviceId.GetDeviceName() == InDeviceId.GetDeviceName())
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 void SDeviceOutputLog::OnDeviceSelectionChanged(FTargetDeviceEntryPtr DeviceEntry)

@@ -1281,8 +1281,7 @@ void FVulkanCommandListContext::TransitionResources(const FPendingTransition& Pe
 				VkImageSubresourceRange SubresourceRange = {AspectMask, 0, Surface.GetNumMips(), 0, Surface.GetNumberOfArrayLevels()};
 
 				VkImageLayout& SrcLayout = TransitionAndLayoutManager.FindOrAddLayoutRW(Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED);
-
-				//int32 BarrierIndex = Barrier.AddImageBarrier(Surface.Image, Surface.GetFullAspectMask(), Surface.GetNumMips(), Surface.GetNumberOfArrayLevels());
+				EImageLayoutBarrier DestLayout = VulkanRHI::EImageLayoutBarrier::Undefined;
 
 				if ((AspectMask & VK_IMAGE_ASPECT_COLOR_BIT) != 0)
 				{

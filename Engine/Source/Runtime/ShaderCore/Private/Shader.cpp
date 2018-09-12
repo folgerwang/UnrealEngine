@@ -18,6 +18,9 @@
 #include "UObject/RenderingObjectVersion.h"
 #include "UObject/FortniteMainBranchObjectVersion.h"
 
+#if WITH_EDITORONLY_DATA
+#include "Interfaces/IShaderFormat.h"
+#endif
 
 DEFINE_LOG_CATEGORY(LogShaders);
 
@@ -417,6 +420,10 @@ FShaderResource::FShaderResource(const FShaderCompilerOutput& Output, FShaderTyp
 	OutputHash = Output.OutputHash;
 	checkSlow(OutputHash != FSHAHash());
 
+#if WITH_EDITORONLY_DATA
+	PlatformDebugData = Output.PlatformDebugData;
+#endif
+
 	{
 		check(IsInGameThread());
 		ShaderResourceIdMap.Add(GetId(), this);
@@ -503,7 +510,11 @@ void FShaderResource::Serialize(FArchive& Ar)
 	{
 		SerializeShaderCode(Ar);
 	}
-	
+
+#if WITH_EDITORONLY_DATA
+	SerializePlatformDebugData(Ar);
+#endif
+
 	if (Ar.IsLoading())
 	{
 		INC_DWORD_STAT_BY_FName(GetMemoryStatType((EShaderFrequency)Target.Frequency).GetName(), (int64)Code.Num());
@@ -545,6 +556,39 @@ void FShaderResource::SerializeShaderCode(FArchive& Ar)
 		Ar << Code;
 	}
 }
+
+#if WITH_EDITORONLY_DATA
+void FShaderResource::SerializePlatformDebugData(FArchive& Ar)
+{
+#if WITH_ENGINE
+	if (Ar.IsCooking())
+	{
+		// Notify the platform shader format that this particular shader is being used in the cook.
+		// We discard this data in cooked builds unless Ar.CookingTarget()->HasEditorOnlyData() is true.
+		if (PlatformDebugData.Num())
+		{
+			TArray<FName> ShaderFormatNames;
+			Ar.CookingTarget()->GetAllTargetedShaderFormats(ShaderFormatNames);
+
+			for (FName FormatName : ShaderFormatNames)
+			{
+				const IShaderFormat* ShaderFormat = GetTargetPlatformManagerRef().FindShaderFormat(FormatName);
+				if (ShaderFormat)
+				{
+					ShaderFormat->NotifyShaderCooked(PlatformDebugData);
+				}
+			}
+		}
+	}
+
+	if (!Ar.IsCooking() || Ar.CookingTarget()->HasEditorOnlyData())
+#endif
+	{
+		// Always serialize if we're not cooking, the cook target requires editor only data, or we don't have the engine (i.e. we're SCW).
+		Ar << PlatformDebugData;
+	}
+}
+#endif
 
 void FShaderResource::AddRef()
 {
@@ -1764,37 +1808,6 @@ void DispatchIndirectComputeShader(
 }
 
 
-const TArray<FName>& GetTargetShaderFormats()
-{
-	static bool bInit = false;
-	static TArray<FName> Results;
-
-#if WITH_ENGINE
-
-	if (!bInit)
-	{
-		bInit = true;
-		ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
-		if (!TPM || TPM->RestrictFormatsToRuntimeOnly())
-		{
-			// for now a runtime format and a cook format are very different, we don't put any formats here
-		}
-		else
-		{
-			const TArray<ITargetPlatform*>& Platforms = TPM->GetActiveTargetPlatforms();
-
-			for (int32 Index = 0; Index < Platforms.Num(); Index++)
-			{
-				Platforms[Index]->GetAllTargetedShaderFormats(Results);
-			}
-		}
-	}
-
-#endif // WITH_ENGINE
-
-	return Results;
-}
-
 void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 {
 	// Globals that should cause all shaders to recompile when changed must be appended to the key here
@@ -1977,10 +1990,12 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		}
 
 		{
-			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PS4DumpShaderSDB"));
-			if (CVar && CVar->GetValueOnAnyThread() != 0)
+			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PS4ShaderSDBMode"));
+			switch (CVar ? CVar->GetValueOnAnyThread() : 0)
 			{
-				KeyString += TEXT("_SDB");
+			case 1: KeyString += TEXT("_SDB1"); break;
+			case 2: KeyString += TEXT("_SDB2"); break;
+			default: break;
 			}
 		}
 

@@ -30,6 +30,8 @@
 class FVulkanLinuxPlatform : public FVulkanGenericPlatform
 {
 public:
+	static bool IsSupported();
+
 	static bool LoadVulkanLibrary();
 	static bool LoadVulkanInstanceFunctions(VkInstance inInstance);
 	static void FreeVulkanLibrary();

@@ -454,6 +454,7 @@ bool FIOSTargetPlatform::SupportsFeature( ETargetPlatformFeatures Feature ) cons
 	switch (Feature)
 	{
 		case ETargetPlatformFeatures::Packaging:
+		case ETargetPlatformFeatures::DeviceOutputLog:
 			return true;
 
 		case ETargetPlatformFeatures::MobileRendering:

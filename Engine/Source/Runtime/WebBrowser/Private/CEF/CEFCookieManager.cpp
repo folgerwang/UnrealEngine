@@ -41,10 +41,10 @@ public:
 		CefRefPtr<FSetCookieFunctionCallback> Callback = Completed ? new FSetCookieFunctionCallback(Completed) : nullptr;
 
 		CefCookie CefCookie;
-		CefString(&CefCookie.name) = *Cookie.Name;
-		CefString(&CefCookie.value) = *Cookie.Value;
-		CefString(&CefCookie.domain) = *Cookie.Domain;
-		CefString(&CefCookie.path) = *Cookie.Path;
+		CefString(&CefCookie.name) = TCHAR_TO_WCHAR(*Cookie.Name);
+		CefString(&CefCookie.value) = TCHAR_TO_WCHAR(*Cookie.Value);
+		CefString(&CefCookie.domain) = TCHAR_TO_WCHAR(*Cookie.Domain);
+		CefString(&CefCookie.path) = TCHAR_TO_WCHAR(*Cookie.Path);
 		CefCookie.secure = Cookie.bSecure;
 		CefCookie.httponly = Cookie.bHttpOnly;
 		CefCookie.has_expires = Cookie.bHasExpires;
@@ -71,7 +71,7 @@ public:
 
 		CefCookie.expires = CefTime;
 
-		if (!CookieManager->SetCookie(*URL, CefCookie, Callback))
+		if (!CookieManager->SetCookie(TCHAR_TO_WCHAR(*URL), CefCookie, Callback))
 		{
 			Callback->OnComplete(false);
 		}
@@ -80,7 +80,7 @@ public:
 	virtual void DeleteCookies(const FString& URL, const FString& CookieName, TFunction<void(int)> Completed) override
 	{
 		CefRefPtr<FDeleteCookiesFunctionCallback> Callback = Completed ? new FDeleteCookiesFunctionCallback(Completed) : nullptr;
-		if (!CookieManager->DeleteCookies(*URL, *CookieName, Callback))
+		if (!CookieManager->DeleteCookies(TCHAR_TO_WCHAR(*URL), TCHAR_TO_WCHAR(*CookieName), Callback))
 		{
 			Callback->OnComplete(-1);
 		}

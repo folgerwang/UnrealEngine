@@ -7,6 +7,7 @@
 #include "D3D11RHIPrivate.h"
 #include "RenderCore.h"
 #include "Engine/RendererSettings.h"
+#include "HAL/ThreadHeartBeat.h"
 
 #ifndef D3D11_WITH_DWMAPI
 #if WINVER > 0x502		// Windows XP doesn't support DWM
@@ -329,6 +330,8 @@ bool FD3D11Viewport::PresentChecked(int32 SyncInterval)
 			CustomPresent->PostPresent();
 		}
 	}
+
+	FThreadHeartBeat::Get().PresentFrame();
 
 	if (FAILED(Result))
 	{

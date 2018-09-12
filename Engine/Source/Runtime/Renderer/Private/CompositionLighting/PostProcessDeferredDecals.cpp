@@ -609,8 +609,10 @@ void FRCPassPostProcessDeferredDecals::DecodeRTWriteMask(FRenderingCompositePass
 		FMath::DivideAndRoundUp(DBufferTex->GetTexture2D()->GetSizeX(), MaskTileSizeX),
 		FMath::DivideAndRoundUp(DBufferTex->GetTexture2D()->GetSizeY(), MaskTileSizeY));
 
+	FIntPoint CombinedRTWriteMaskDims(RTWriteMaskDims.X * 2, RTWriteMaskDims.Y);
+
 	// allocate the DBufferMask from the render target pool.
-	FPooledRenderTargetDesc MaskDesc(FPooledRenderTargetDesc::Create2DDesc(RTWriteMaskDims,
+	FPooledRenderTargetDesc MaskDesc(FPooledRenderTargetDesc::Create2DDesc(CombinedRTWriteMaskDims,
 		PF_R8_UINT,
 		FClearValueBinding::White,
 		TexCreate_None | GFastVRamConfig.DBufferMask,
@@ -646,14 +648,6 @@ void FRCPassPostProcessDeferredDecals::DecodeRTWriteMask(FRenderingCompositePass
 	Context.RHICmdList.FlushComputeShaderCache();
 
 	RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, SceneContext.DBufferMask->GetRenderTargetItem().UAV);
-	
-	FTextureRHIParamRef Textures[3] =
-	{
-		SceneContext.DBufferA->GetRenderTargetItem().TargetableTexture,
-		SceneContext.DBufferB->GetRenderTargetItem().TargetableTexture,
-		SceneContext.DBufferC->GetRenderTargetItem().TargetableTexture
-	};
-	RHICmdList.TransitionResources(EResourceTransitionAccess::EMetaData, Textures, 3);
 	
 	// un-set destination
 	Context.RHICmdList.SetUAVParameter(ComputeShader->GetComputeShader(), ComputeShader->OutCombinedRTWriteMask.GetBaseIndex(), NULL);
@@ -699,11 +693,13 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 			FPooledRenderTargetDesc GBufferADesc;
 			SceneContext.GetGBufferADesc(GBufferADesc);
 
+			uint32 BaseFlags = (GSupportsRenderTargetWriteMask) ? TexCreate_NoFastClearFinalize : TexCreate_None;
+
 			// DBuffer: Decal buffer
 			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(GBufferADesc.Extent,
 				PF_B8G8R8A8,
 				FClearValueBinding::None,
-				TexCreate_None | GFastVRamConfig.DBufferA,
+				BaseFlags | GFastVRamConfig.DBufferA,
 				TexCreate_ShaderResource | TexCreate_RenderTargetable,
 				false,
 				1,
@@ -718,14 +714,14 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 			if (!SceneContext.DBufferB)
 			{
-				Desc.Flags = TexCreate_None | GFastVRamConfig.DBufferB;
+				Desc.Flags = BaseFlags | GFastVRamConfig.DBufferB;
 				Desc.ClearValue = FClearValueBinding(FLinearColor(128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 1));
 				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SceneContext.DBufferB, TEXT("DBufferB"));
 			}
 
 			if (!SceneContext.DBufferC)
 			{
-				Desc.Flags = TexCreate_None | GFastVRamConfig.DBufferC;
+				Desc.Flags = BaseFlags | GFastVRamConfig.DBufferC;
 				Desc.ClearValue = FClearValueBinding(FLinearColor(0, 0, 0, 1));
 				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SceneContext.DBufferC, TEXT("DBufferC"));
 			}
@@ -772,13 +768,17 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 		FDecalRenderTargetManager RenderTargetManager(RHICmdList, Context.GetShaderPlatform(), CurrentStage);
 
 		//don't early return. Resolves must be run for fast clears to work.
-		if (Scene.Decals.Num())
+		if (Scene.Decals.Num() || Context.View.MeshDecalPrimSet.NumPrims() > 0)
 		{
 			check(bNeedsDBufferTargets || CurrentStage != DRS_BeforeBasePass);
 
 			// Build a list of decals that need to be rendered for this view
 			FTransientDecalRenderDataList SortedDecals;
-			FDecalRendering::BuildVisibleDecalList(Scene, View, CurrentStage, &SortedDecals);
+
+			if (Scene.Decals.Num())
+			{
+				FDecalRendering::BuildVisibleDecalList(Scene, View, CurrentStage, &SortedDecals);
+			}
 
 			if (SortedDecals.Num() > 0)
 			{

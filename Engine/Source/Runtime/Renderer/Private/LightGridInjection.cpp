@@ -827,6 +827,7 @@ void FDeferredShadingSceneRenderer::RenderForwardShadingShadowProjections(FRHICo
 		SceneRenderTargets.AllocateScreenShadowMask(RHICmdList, ForwardScreenSpaceShadowMask);
 
 		SCOPED_DRAW_EVENT(RHICmdList, ShadowProjectionOnOpaque);
+		SCOPED_GPU_STAT(RHICmdList, ShadowProjection);
 
 		// All shadows render with min blending
 		bool bClearToWhite = true;

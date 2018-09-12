@@ -1376,10 +1376,14 @@ void FSlateApplication::DrawWindowAndChildren( const TSharedRef<SWindow>& Window
 				
 				if (CursorWidget.IsValid())
 				{
-					CursorWidget->SlatePrepass(GetApplicationScale()*CursorWindow->GetNativeWindow()->GetDPIScaleFactor());
+					const float WindowRootScale = GetApplicationScale() * CursorWindow->GetNativeWindow()->GetDPIScaleFactor();
 
-					FVector2D CursorPosInWindowSpace = WindowToDraw->GetWindowGeometryInScreen().AbsoluteToLocal(GetCursorPos());
-					CursorPosInWindowSpace += (CursorWidget->GetDesiredSize() * -0.5);
+					CursorWidget->SetVisibility(EVisibility::HitTestInvisible);
+					CursorWidget->SlatePrepass(WindowRootScale);
+
+					FVector2D CursorInScreen = GetCursorPos();
+					FVector2D CursorPosInWindowSpace = WindowToDraw->GetWindowGeometryInScreen().AbsoluteToLocal(CursorInScreen) * WindowRootScale;
+					CursorPosInWindowSpace += (CursorWidget->GetDesiredSize() * -0.5) * WindowRootScale;
 					const FGeometry CursorGeometry = FGeometry::MakeRoot(CursorWidget->GetDesiredSize(), FSlateLayoutTransform(CursorPosInWindowSpace));
 
 					CursorWidget->Paint(

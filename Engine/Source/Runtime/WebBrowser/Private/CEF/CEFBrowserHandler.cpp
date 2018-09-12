@@ -148,8 +148,8 @@ bool FCEFBrowserHandler::OnBeforePopup( CefRefPtr<CefBrowser> Browser,
 	CefBrowserSettings& OutSettings,
 	bool* OutNoJavascriptAccess )
 {
-	FString URL = TargetUrl.ToWString().c_str();
-	FString FrameName = TargetFrameName.ToWString().c_str();
+	FString URL = WCHAR_TO_TCHAR(TargetUrl.ToWString().c_str());
+	FString FrameName = WCHAR_TO_TCHAR(TargetFrameName.ToWString().c_str());
 
 	/* If OnBeforePopup() is not bound, we allow creating new windows as long as OnCreateWindow() is bound.
 	   The BeforePopup delegate is always executed even if OnCreateWindow is not bound to anything .
@@ -215,7 +215,7 @@ void FCEFBrowserHandler::OnLoadError(CefRefPtr<CefBrowser> Browser,
 		{
 			if (AltRetryDomains.Num() > 0 && AltRetryDomainIdx < (uint32)AltRetryDomains.Num())
 			{
-				FString Url = FailedUrl.ToWString().c_str();
+				FString Url = WCHAR_TO_TCHAR(FailedUrl.ToWString().c_str());
 				FString OriginalUrlDomain = FPlatformHttp::GetUrlDomain(Url);
 				if (!OriginalUrlDomain.IsEmpty())
 				{
@@ -361,14 +361,14 @@ CefRequestHandler::ReturnValue FCEFBrowserHandler::OnBeforeResourceLoad(CefRefPt
 		const FString LocaleCode = FWebBrowserSingleton::GetCurrentLocaleCode();
 		CefRequest::HeaderMap HeaderMap;
 		Request->GetHeaderMap(HeaderMap);
-		auto LanguageHeader = HeaderMap.find(*LanguageHeaderText);
+		auto LanguageHeader = HeaderMap.find(TCHAR_TO_WCHAR(*LanguageHeaderText));
 		if (LanguageHeader != HeaderMap.end())
 		{
-			(*LanguageHeader).second = *LocaleCode;
+			(*LanguageHeader).second = TCHAR_TO_WCHAR(*LocaleCode);
 		}
 		else
 		{
-			HeaderMap.insert(std::pair<CefString, CefString>(*LanguageHeaderText, *LocaleCode));
+			HeaderMap.insert(std::pair<CefString, CefString>(TCHAR_TO_WCHAR(*LanguageHeaderText), TCHAR_TO_WCHAR(*LocaleCode)));
 		}
 
 		TSharedPtr<FCEFWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
@@ -395,11 +395,11 @@ CefRequestHandler::ReturnValue FCEFBrowserHandler::OnBeforeResourceLoad(CefRefPt
 				if (HashPos != std::string::npos)
 				{
 					std::string MimeType = Url.substr(HashPos + 1);
-					HeaderMap.insert(std::pair<CefString, CefString>(TEXT("Content-Type"), MimeType));
+					HeaderMap.insert(std::pair<CefString, CefString>(TCHAR_TO_WCHAR(TEXT("Content-Type")), MimeType));
 				}
 
 				// Change http method to tell GetResourceHandler to return the content
-				Request->SetMethod(*CustomContentMethod);
+				Request->SetMethod(TCHAR_TO_WCHAR(*CustomContentMethod));
 			}
 		}
 
@@ -442,7 +442,7 @@ bool FCEFBrowserHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> Browser,
 CefRefPtr<CefResourceHandler> FCEFBrowserHandler::GetResourceHandler( CefRefPtr<CefBrowser> Browser, CefRefPtr< CefFrame > Frame, CefRefPtr< CefRequest > Request )
 {
 
-	if (Request->GetMethod() == *CustomContentMethod)
+	if (Request->GetMethod() == TCHAR_TO_WCHAR(*CustomContentMethod))
 	{
 		// Content override header will be set by OnBeforeResourceLoad before passing the request on to this.
 		if (Request->GetPostData() && Request->GetPostData()->GetElementCount() > 0)
@@ -451,10 +451,10 @@ CefRefPtr<CefResourceHandler> FCEFBrowserHandler::GetResourceHandler( CefRefPtr<
 			FString MimeType = TEXT("text/html"); // default if not specified
 			CefRequest::HeaderMap HeaderMap;
 			Request->GetHeaderMap(HeaderMap);
-			auto ContentOverride = HeaderMap.find(TEXT("Content-Type"));
+			auto ContentOverride = HeaderMap.find(TCHAR_TO_WCHAR(TEXT("Content-Type")));
 			if (ContentOverride != HeaderMap.end())
 			{
-				MimeType = ContentOverride->second.ToWString().c_str();
+				MimeType = WCHAR_TO_TCHAR(ContentOverride->second.ToWString().c_str());
 			}
 
 			// reply with the post data

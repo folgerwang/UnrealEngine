@@ -55,7 +55,7 @@ FLightmassLog::FLightmassLog()
 	else
 	{
 		// print to the screen that we failed to open the file
-		wprintf(TEXT("\nFailed to open the log file '%s' for writing\n\n"), *Filename);
+		printf("\nFailed to open the log file '%s' for writing\n\n", TCHAR_TO_UTF8(*Filename));
 	}
 }
 
@@ -76,7 +76,7 @@ void FLightmassLog::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, co
 
 	// also print it to the screen and debugger output
 #if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
-	printf("%ls\n", V);
+	printf("%s\n", TCHAR_TO_UTF8(V));
 #else
 	wprintf(TEXT("%s\n"), V);
 #endif

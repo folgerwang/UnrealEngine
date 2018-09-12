@@ -2,6 +2,7 @@
 
 #include "Misc/ExpressionParser.h"
 #include "Misc/AutomationTest.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
 #include "Math/BasicMathExpressionEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "ExpressionParser"
@@ -958,8 +959,6 @@ DEFINE_EXPRESSION_NODE_TYPE(Tests::FHugeType, 0x4A329D81, 0x102343A8, 0xAB95BF45
 DEFINE_EXPRESSION_NODE_TYPE(Tests::FOperator, 0xC777A5D7, 0x6895456C, 0x9854BFA0, 0xB71B5A8D)
 DEFINE_EXPRESSION_NODE_TYPE(Tests::FAnd, 0x0687f9c5, 0xd8914cb0, 0xae52cc4c, 0x6770f520)
 DEFINE_EXPRESSION_NODE_TYPE(Tests::FOr, 0x81e2b2a3, 0xbcf545d6, 0x95ae2eac, 0xcc5a9ba5)
-
-DEFINE_EXPRESSION_NODE_TYPE(bool, 0x9d5a4b67, 0x8c8f4fc1, 0xb61e561a, 0x5e4114b6)
 
 struct FShortCircuitTestContext
 {

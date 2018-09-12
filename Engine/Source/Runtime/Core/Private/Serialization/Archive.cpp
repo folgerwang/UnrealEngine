@@ -409,7 +409,7 @@ void FArchive::SerializeBool( bool& D )
 	const uint8 * RESTRICT Src = this->ActiveFPLB->StartFastPathLoadBuffer;
 	if (Src + sizeof(uint32) <= this->ActiveFPLB->EndFastPathLoadBuffer)
 	{
-#if PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 		OldUBoolValue = *(uint32* RESTRICT)Src;
 #else
 		static_assert(sizeof(uint32) == 4, "assuming sizeof(uint32) == 4");

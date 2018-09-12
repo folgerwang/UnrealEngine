@@ -77,6 +77,11 @@ public:
 	 */
 	static bool SetupSignalHandlerStack(void* StackBuffer, const size_t StackBufferSize, void** OutStackGuardPageAddress)
 	{
+		if (FORCE_ANSI_ALLOCATOR)
+		{
+			return true;
+		}
+
 		// find an address close to begin of the stack and protect it
 		uint64 StackGuardPage = reinterpret_cast<uint64>(StackBuffer);
 
