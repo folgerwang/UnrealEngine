@@ -26,6 +26,7 @@ END_UNIFORM_BUFFER_STRUCT( FDrawRectangleParameters )
  * The platform-dependent mapping from pixels to texels is done automatically.
  * Note that the positions are affected by the current viewport.
  * NOTE: DrawRectangle should be used in the vertex shader to calculate the correct position and uv for vertices.
+ * NOTE2: Assumes previously set PSO has PrimitiveType = PT_TriangleList
  *
  * X, Y							Position in screen pixels of the top left corner of the quad
  * SizeX, SizeY					Size in screen pixels of the quad
@@ -54,6 +55,7 @@ extern void DrawRectangle(
 	uint32 InstanceCount = 1
 	);
 
+// NOTE: Assumes previously set PSO has PrimitiveType = PT_TriangleList
 extern void DrawTransformedRectangle(
 	FRHICommandListImmediate& RHICmdList,
 	float X,
@@ -70,6 +72,7 @@ extern void DrawTransformedRectangle(
 	FIntPoint TextureSize
 	);
 
+// NOTE: Assumes previously set PSO has PrimitiveType = PT_TriangleList
 extern void DrawHmdMesh(
 	FRHICommandList& RHICmdList,
 	float X,
@@ -86,6 +89,7 @@ extern void DrawHmdMesh(
 	FShader* VertexShader
 	);
 
+// NOTE: Assumes previously set PSO has PrimitiveType = PT_TriangleList
 extern void DrawPostProcessPass(
 	FRHICommandList& RHICmdList,
 	float X,

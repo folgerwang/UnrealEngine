@@ -679,14 +679,14 @@ IMPLEMENT_SHADER_TYPE(template<>,FLUTBlenderCS<4>,TEXT("/Engine/Private/PostProc
 IMPLEMENT_SHADER_TYPE(template<>,FLUTBlenderCS<5>,TEXT("/Engine/Private/PostProcessCombineLUTs.usf"),TEXT("MainCS"),SF_Compute);
 
 template <typename TRHICommandList>
-static void SetLUTBlenderShader(FRenderingCompositePassContext& Context, TRHICommandList& RHICmdList, uint32 BlendCount, FTexture* Texture[], float Weights[], const FVolumeBounds& VolumeBounds)
+static void SetLUTBlenderShader(FRenderingCompositePassContext& Context, TRHICommandList& RHICmdList, uint32 BlendCount, FTexture* Texture[], float Weights[], const FVolumeBounds& VolumeBounds, bool bUseTriangleStrip)
 {
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
 	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
 	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+	GraphicsPSOInit.PrimitiveType = bUseTriangleStrip ? PT_TriangleStrip : PT_TriangleList;
 
 	check(BlendCount > 0);
 
@@ -960,7 +960,7 @@ void FRCPassPostProcessCombineLUTs::Process(FRenderingCompositePassContext& Cont
 
 		const FVolumeBounds VolumeBounds(GLUTSize);
 
-		SetLUTBlenderShader(Context, Context.RHICmdList, LocalCount, LocalTextures, LocalWeights, VolumeBounds);
+		SetLUTBlenderShader(Context, Context.RHICmdList, LocalCount, LocalTextures, LocalWeights, VolumeBounds, bUseVolumeTextureLUT);
 
 		if (bUseVolumeTextureLUT)
 		{
