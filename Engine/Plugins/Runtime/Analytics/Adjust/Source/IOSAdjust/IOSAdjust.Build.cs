@@ -28,7 +28,7 @@ namespace UnrealBuildTool.Rules
 
 			// Add the Adjust framework
 			PublicAdditionalFrameworks.Add( 
-				new UEBuildFramework( 
+				new Framework( 
 					"AdjustSdk",													// Framework name
 					"../../ThirdPartyFrameworks/AdjustSdk.embeddedframework.zip"	// Zip name
 				)

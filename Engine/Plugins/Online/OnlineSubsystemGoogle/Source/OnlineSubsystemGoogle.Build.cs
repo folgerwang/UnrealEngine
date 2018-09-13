@@ -40,7 +40,7 @@ public class OnlineSubsystemGoogle : ModuleRules
 			});
 
 			PublicAdditionalFrameworks.Add(
-			new UEBuildFramework(
+			new Framework(
 				"GoogleSignIn",
 				"ThirdParty/IOS/GoogleSignInSDK/GoogleSignIn.embeddedframework.zip",
 				"GoogleSignIn.bundle"
@@ -48,7 +48,7 @@ public class OnlineSubsystemGoogle : ModuleRules
 			);
 
 			PublicAdditionalFrameworks.Add(
-			new UEBuildFramework(
+			new Framework(
 				"GoogleSignInDependencies",
 				"ThirdParty/IOS/GoogleSignInSDK/GoogleSignInDependencies.embeddedframework.zip"
 			)
