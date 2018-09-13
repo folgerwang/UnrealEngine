@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -11,39 +11,30 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// 
 	/// </summary>
-	public class UEBuildFramework
+	class UEBuildFramework
 	{
 		/// <summary>
 		/// 
 		/// </summary>
-		/// <param name="InFrameworkName"></param>
-		public UEBuildFramework(string InFrameworkName)
+		/// <param name="Name"></param>
+		/// <param name="ZipPath"></param>
+		/// <param name="CopyBundledAssets"></param>
+		public UEBuildFramework(string Name, string ZipPath = null, string CopyBundledAssets = null)
 		{
-			FrameworkName = InFrameworkName;
+			this.FrameworkName = Name;
+			this.FrameworkZipPath = ZipPath;
+			this.CopyBundledAssets = CopyBundledAssets;
 		}
 
 		/// <summary>
 		/// 
 		/// </summary>
-		/// <param name="InFrameworkName"></param>
-		/// <param name="InFrameworkZipPath"></param>
-		public UEBuildFramework(string InFrameworkName, string InFrameworkZipPath)
+		/// <param name="Framework"></param>
+		public UEBuildFramework(ModuleRules.Framework Framework)
 		{
-			FrameworkName = InFrameworkName;
-			FrameworkZipPath = InFrameworkZipPath;
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="InFrameworkName"></param>
-		/// <param name="InFrameworkZipPath"></param>
-		/// <param name="InCopyBundledAssets"></param>
-		public UEBuildFramework(string InFrameworkName, string InFrameworkZipPath, string InCopyBundledAssets)
-		{
-			FrameworkName = InFrameworkName;
-			FrameworkZipPath = InFrameworkZipPath;
-			CopyBundledAssets = InCopyBundledAssets;
+			FrameworkName = Framework.Name;
+			FrameworkZipPath = Framework.ZipPath;
+			CopyBundledAssets = Framework.CopyBundledAssets;
 		}
 
 		internal UEBuildModule OwningModule = null;

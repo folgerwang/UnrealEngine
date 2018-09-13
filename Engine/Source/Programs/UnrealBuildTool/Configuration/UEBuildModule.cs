@@ -173,7 +173,7 @@ namespace UnrealBuildTool
 			PublicAdditionalLibraries = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalLibraries);
 			PublicFrameworks = HashSetFromOptionalEnumerableStringParameter(Rules.PublicFrameworks);
 			PublicWeakFrameworks = HashSetFromOptionalEnumerableStringParameter(Rules.PublicWeakFrameworks);
-			PublicAdditionalFrameworks = Rules.PublicAdditionalFrameworks == null ? new HashSet<UEBuildFramework>() : new HashSet<UEBuildFramework>(Rules.PublicAdditionalFrameworks);
+			PublicAdditionalFrameworks = Rules.PublicAdditionalFrameworks == null ? new HashSet<UEBuildFramework>() : new HashSet<UEBuildFramework>(Rules.PublicAdditionalFrameworks.Select(x => new UEBuildFramework(x)));
 			PublicAdditionalShadowFiles = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalShadowFiles);
 			PublicAdditionalBundleResources = Rules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(Rules.AdditionalBundleResources);
 			PublicDelayLoadDLLs = HashSetFromOptionalEnumerableStringParameter(Rules.PublicDelayLoadDLLs);

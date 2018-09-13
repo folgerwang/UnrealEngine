@@ -264,6 +264,58 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Stores information about a framework on IOS or MacOS
+		/// </summary>
+		public class Framework
+		{
+			/// <summary>
+			/// Name of the framework
+			/// </summary>
+			internal string Name;
+
+			/// <summary>
+			/// For non-system frameworks, specifies the path to a zip file that contains it.
+			/// </summary>
+			internal string ZipPath;
+
+			/// <summary>
+			/// 
+			/// </summary>
+			internal string CopyBundledAssets = null;
+
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="Name">Name of the framework</param>
+			/// <param name="ZipPath">Path to a zip file containing the framework. May be null.</param>
+			/// <param name="CopyBundledAssets"></param>
+			public Framework(string Name, string ZipPath = null, string CopyBundledAssets = null)
+			{
+				this.Name = Name;
+				this.ZipPath = ZipPath;
+				this.CopyBundledAssets = CopyBundledAssets;
+			}
+		}
+
+		/// <summary>
+		/// Deprecated; wrapper for Framework.
+		/// </summary>
+		[Obsolete("The UEBuildFramework class has been deprecated in UE 4.22. Please use the Framework class instead.")]
+		public class UEBuildFramework : Framework
+		{
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="Name">Name of the framework</param>
+			/// <param name="ZipPath">Path to a zip file containing the framework. May be null.</param>
+			/// <param name="CopyBundledAssets"></param>
+			public UEBuildFramework(string Name, string ZipPath = null, string CopyBundledAssets = null)
+				: base(Name, ZipPath, CopyBundledAssets)
+			{
+			}
+		}
+
+		/// <summary>
 		/// Name of this module
 		/// </summary>
 		public string Name
@@ -510,7 +562,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of addition frameworks - typically used for External (third party) modules on Mac and iOS
 		/// </summary>
-		public List<UEBuildFramework> PublicAdditionalFrameworks = new List<UEBuildFramework>();
+		public List<Framework> PublicAdditionalFrameworks = new List<Framework>();
 
 		/// <summary>
 		/// List of addition resources that should be copied to the app bundle for Mac or iOS

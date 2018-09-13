@@ -1207,11 +1207,11 @@ namespace UnrealBuildTool
 				}
 
 				// Add any zip files from Additional Frameworks
-				foreach (UEBuildFramework Framework in Rules.PublicAdditionalFrameworks)
+				foreach (ModuleRules.Framework Framework in Rules.PublicAdditionalFrameworks)
 				{
-					if (!String.IsNullOrEmpty(Framework.FrameworkZipPath))
+					if (!String.IsNullOrEmpty(Framework.ZipPath))
 					{
-						Files.Add(FileReference.Combine(Module.ModuleDirectory, Framework.FrameworkZipPath));
+						Files.Add(FileReference.Combine(Module.ModuleDirectory, Framework.ZipPath));
 					}
 				}
 
