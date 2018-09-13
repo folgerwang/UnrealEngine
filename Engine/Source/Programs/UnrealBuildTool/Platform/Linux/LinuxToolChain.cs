@@ -1283,7 +1283,7 @@ namespace UnrealBuildTool
 				FileItem ResponseFileItem = FileItem.CreateIntermediateTextFile(ResponsePath, InputFileNames);
 				ArchiveAction.PrerequisiteItems.Add(ResponseFileItem);
 			}
-			ArchiveAction.CommandArguments += string.Format(" @\"{0}\"", ConvertPath(ResponsePath.FullName));
+			ArchiveAction.CommandArguments += string.Format(" @\"{0}\"", ResponsePath.FullName);
 
 			// add ranlib if not using llvm-ar
 			if (String.IsNullOrEmpty(LlvmArPath))
@@ -1837,21 +1837,6 @@ namespace UnrealBuildTool
 				{
 					AllBinaries.Add(FileItem.GetItemByFileReference(Binary.OutputFilePath));
 				}
-			}
-		}
-
-		/// <summary>
-		/// Converts the passed in path from UBT host to compiler native format.
-		/// </summary>
-		public static string ConvertPath(string OriginalPath)
-		{
-			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
-			{
-				return OriginalPath.Replace("\\", "/");
-			}
-			else
-			{
-				return OriginalPath;
 			}
 		}
 

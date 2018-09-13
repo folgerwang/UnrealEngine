@@ -304,16 +304,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Converts the passed in path from UBT host to compiler native format.
-		/// </summary>
-		/// <param name="OriginalPath">The path to convert</param>
-		/// <returns>The path in native format for the toolchain</returns>
-		public virtual string ConvertPath(string OriginalPath)
-		{
-			return OriginalPath;
-		}
-
-		/// <summary>
 		/// Get the bundle directory for the shared link environment
 		/// </summary>
 		/// <param name="Rules">The target rules</param>

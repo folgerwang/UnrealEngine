@@ -379,14 +379,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Converts the passed in path from UBT host to compiler native format.
-		/// </summary>
-		public override string ConvertPath(string OriginalPath)
-		{
-			return LinuxToolChain.ConvertPath(OriginalPath);
-		}
-
-		/// <summary>
 		/// Modify the rules for a newly created module, in a target that's being built for this platform.
 		/// This is not required - but allows for hiding details of a particular platform.
 		/// </summary>

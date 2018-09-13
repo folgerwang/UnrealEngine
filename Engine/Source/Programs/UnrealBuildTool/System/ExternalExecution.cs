@@ -309,16 +309,14 @@ namespace UnrealBuildTool
 
 		public bool IsGameTarget;     // True if the current target is a game target
 		public string RootLocalPath;    // The engine path on the local machine
-		public string RootBuildPath;    // The engine path on the build machine, if different (e.g. Mac/iOS builds)
 		public string TargetName;       // Name of the target currently being compiled
 		public string ExternalDependenciesFile; // File to contain additional dependencies that the generated code depends on
 		public List<Module> Modules;
 
-		public UHTManifest(UEBuildTarget Target, string InRootLocalPath, string InRootBuildPath, string InExternalDependenciesFile, List<Module> InModules)
+		public UHTManifest(UEBuildTarget Target, string InRootLocalPath, string InExternalDependenciesFile, List<Module> InModules)
 		{
 			IsGameTarget = (Target.TargetType != TargetType.Program);
 			RootLocalPath = InRootLocalPath;
-			RootBuildPath = InRootBuildPath;
 			TargetName = Target.GetTargetName();
 			ExternalDependenciesFile = InExternalDependenciesFile;
 			Modules = InModules;
@@ -1126,7 +1124,7 @@ namespace UnrealBuildTool
 				{
 					Modules.Add(new UHTManifest.Module(UObjectModule));
 				}
-				UHTManifest Manifest = new UHTManifest(Target, RootLocalPath, UEBuildPlatform.GetBuildPlatform(Target.Platform).ConvertPath(RootLocalPath + '\\'), ExternalDependenciesFile.FullName, Modules);
+				UHTManifest Manifest = new UHTManifest(Target, RootLocalPath, ExternalDependenciesFile.FullName, Modules);
 
 				if (!bIsBuildingUHT && bUHTNeedsToRun)
 				{
