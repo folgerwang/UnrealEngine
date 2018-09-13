@@ -54,9 +54,6 @@ static FString GameNameFromCmd;
 /** GUID of the crash passed via the command line. */
 static FString CrashGUIDFromCmd;
 
-/** Disable the showing of the yes/no crash upload popup if passed via command line */
-static bool bSkipCrashUploadPopup = false;
-
 /**
  * Look for the report to upload, either in the command line or in the platform's report queue
  */
@@ -109,11 +106,6 @@ void ParseCommandLine(const TCHAR* CommandLine)
 		if (Params.Contains(TEXT("CrashGUID")))
 		{
 			CrashGUIDFromCmd = Params.FindRef(TEXT("CrashGUID"));
-		}
-
-		if (Switches.Contains(TEXT("SkipPopup")))
-		{
-			bSkipCrashUploadPopup = true;
 		}
 	}
 
@@ -345,17 +337,6 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 
 	FPlatformErrorReport::Init();
 	FPlatformErrorReport ErrorReport = LoadErrorReport();
-
-	// For now Linux needs to ask if we want to submit a crash report unless specifically configured not to
-	if (PLATFORM_LINUX)
-	{
-		// We are ignoring the Unattened bool here as for Linux we are always set to true
-		if(!bSkipCrashUploadPopup && FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, TEXT("A crash has occurred. Would you like to submit this crash report?"), TEXT("Crash Client Reporter")) == EAppReturnType::No)
-		{
-			UE_LOG(CrashReportClientLog, Warning, TEXT("User has selected no to crash upload. Crash report will not be uploaded."));
-			GIsRequestingExit = true;
-		}
-	}
 
 	if (!GIsRequestingExit && ErrorReport.HasFilesToUpload() && FPrimaryCrashProperties::Get() != nullptr)
 	{

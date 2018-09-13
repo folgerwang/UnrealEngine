@@ -311,7 +311,7 @@ public:
 	}
 
 	//TODO: Make this a texture and get HW filter + clamping?
-	FRWBuffer& GetCurveLUTGPUBuffer();
+	FReadBuffer& GetCurveLUTGPUBuffer();
 
 	//UNiagaraDataInterface interface
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
@@ -328,7 +328,7 @@ protected:
 	virtual bool CompareLUTS(const TArray<float>& OtherLUT) const;
 	//UNiagaraDataInterface interface END
 
-	FRWBuffer CurveLUT;
+	FReadBuffer CurveLUT;
 };
 
 //External function binder choosing between template specializations based on if a curve should use the LUT over full evaluation.

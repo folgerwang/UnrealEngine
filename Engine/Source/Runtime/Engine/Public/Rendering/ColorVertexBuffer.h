@@ -27,19 +27,19 @@ public:
 	/** Delete existing resources */
 	ENGINE_API void CleanUp();
 
-	ENGINE_API void Init(uint32 InNumVertices);
+	ENGINE_API void Init(uint32 InNumVertices, bool bNeedsCPUAccess = true);
 
 	/**
 	* Initializes the buffer with the given vertices, used to convert legacy layouts.
 	* @param InVertices - The vertices to initialize the buffer with.
 	*/
-	ENGINE_API void Init(const TArray<FStaticMeshBuildVertex>& InVertices);
+	ENGINE_API void Init(const TArray<FStaticMeshBuildVertex>& InVertices, bool bNeedsCPUAccess = true);
 
 	/**
 	* Initializes this vertex buffer with the contents of the given vertex buffer.
 	* @param InVertexBuffer - The vertex buffer to initialize from.
 	*/
-	void Init(const FColorVertexBuffer& InVertexBuffer);
+	void Init(const FColorVertexBuffer& InVertexBuffer, bool bNeedsCPUAccess = true);
 	
 	/**
 	 * Appends the specified vertices to the end of the buffer
@@ -112,7 +112,7 @@ public:
 	* @param Count - must be > 0
 	* @param Stride - in bytes, usually sizeof(FColor) but can be 0 to use a single input color or larger.
 	*/
-	ENGINE_API void InitFromColorArray(const FColor *InColors, uint32 Count, uint32 Stride = sizeof(FColor));
+	ENGINE_API void InitFromColorArray(const FColor *InColors, uint32 Count, uint32 Stride = sizeof(FColor), bool bNeedsCPUAccess = true);
 
 	/**
 	* Load from raw color array.
@@ -165,6 +165,8 @@ private:
 
 	/** The cached number of vertices. */
 	uint32 NumVertices;
+
+	bool NeedsCPUAccess = true;
 
 	/** Allocates the vertex data storage type. */
 	void AllocateData(bool bNeedsCPUAccess = true);

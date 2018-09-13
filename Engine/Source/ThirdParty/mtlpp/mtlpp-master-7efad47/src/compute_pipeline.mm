@@ -85,6 +85,32 @@ namespace mtlpp
 		return ns::AutoReleased<ns::Array<PipelineBufferDescriptor>>();
 #endif
 	}
+	
+	NSUInteger ComputePipelineDescriptor::GetMaxTotalThreadsPerThreadgroup() const
+	{
+		Validate();
+#if MTLPP_IS_AVAILABLE(10_14, 12_0)
+#if MTLPP_CONFIG_IMP_CACHE
+		return m_table->maxTotalThreadsPerThreadgroup(m_ptr);
+#else
+		return [(MTLComputePipelineDescriptor*)m_ptr maxTotalThreadsPerThreadgroup];
+#endif
+#else
+		return 0;
+#endif
+	}
+	
+	void ComputePipelineDescriptor::SetMaxTotalThreadsPerThreadgroup(NSUInteger ThreadCount)
+	{
+		Validate();
+#if MTLPP_IS_AVAILABLE(10_14, 12_0)
+#if MTLPP_CONFIG_IMP_CACHE
+		return m_table->setMaxTotalThreadsPerThreadgroup(m_ptr, ThreadCount);
+#else
+		return [(MTLComputePipelineDescriptor*)m_ptr setMaxTotalThreadsPerThreadgroup:ThreadCount];
+#endif
+#endif
+	}
 
     void ComputePipelineDescriptor::SetLabel(const ns::String& label)
     {

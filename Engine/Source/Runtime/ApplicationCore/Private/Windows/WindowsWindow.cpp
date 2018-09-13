@@ -844,6 +844,15 @@ bool FWindowsWindow::GetRestoredDimensions(int32& X, int32& Y, int32& Width, int
 	}
 }
 
+bool FWindowsWindow::IsManualManageDPIChanges() const
+{
+	return bHandleManualDPIChanges;
+}
+
+void FWindowsWindow::SetManualManageDPIChanges(const bool bManualDPIChanges)
+{
+	bHandleManualDPIChanges = bManualDPIChanges;
+}
 
 void FWindowsWindow::AdjustCachedSize( FVector2D& Size ) const
 {

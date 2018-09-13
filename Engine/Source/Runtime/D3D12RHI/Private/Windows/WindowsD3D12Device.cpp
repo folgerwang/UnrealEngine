@@ -449,7 +449,7 @@ FDynamicRHI* FD3D12DynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type RequestedF
 void FD3D12DynamicRHIModule::StartupModule()
 {
 #if USE_PIX
-	static FString WindowsPixDllRelativePath("../../../Engine/Binaries/ThirdParty/Windows/DirectX/x64");
+	static FString WindowsPixDllRelativePath = FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/Windows/DirectX/x64"));
 	static FString WindowsPixDll("WinPixEventRuntime.dll");
 	UE_LOG(LogD3D12RHI, Log, TEXT("Loading %s for PIX profiling (from %s)."), WindowsPixDll.GetCharArray().GetData(), WindowsPixDllRelativePath.GetCharArray().GetData());
 	WindowsPixDllHandle = FPlatformProcess::GetDllHandle(*FPaths::Combine(*WindowsPixDllRelativePath, *WindowsPixDll));

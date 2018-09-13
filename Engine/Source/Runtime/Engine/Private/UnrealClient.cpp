@@ -1330,6 +1330,11 @@ void FViewport::EndRenderFrame(FRHICommandListImmediate& RHICmdList, bool bPrese
 	GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUPresent]++;
 }
 
+FRHIGPUMask FViewport::GetGPUMask(FRHICommandListImmediate& RHICmdList) const
+{
+	return FRHIGPUMask::FromIndex(RHICmdList.GetViewportNextPresentGPUIndex(GetViewportRHI()));
+}
+
 void InsertVolume(IInterface_PostProcessVolume* Volume, TArray< IInterface_PostProcessVolume* >& VolumeArray)
 {
 	const int32 NumVolumes = VolumeArray.Num();

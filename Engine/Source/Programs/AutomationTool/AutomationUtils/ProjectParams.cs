@@ -769,8 +769,8 @@ namespace AutomationTool
             string DeviceString = ParseParamValueIfNotSpecified(Command, Device, "device", String.Empty).Trim(new char[] { '\"' });
             if(DeviceString == "")
             {
-                this.Devices = new ParamList<string>();
-                this.DeviceNames = new ParamList<string>();
+                this.Devices = new ParamList<string>("");
+                this.DeviceNames = new ParamList<string>("");
             }
             else
             {

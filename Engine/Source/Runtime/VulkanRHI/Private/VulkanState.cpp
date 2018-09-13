@@ -250,11 +250,12 @@ FVulkanSamplerState::FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVul
 	: Sampler(VK_NULL_HANDLE)
 	, bIsImmutable(bInIsImmutable)
 {
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateSampler(InDevice.GetInstanceHandle(), &InInfo, nullptr, &Sampler));
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateSampler(InDevice.GetInstanceHandle(), &InInfo, VULKAN_CPU_ALLOCATOR, &Sampler));
 }
 
-FVulkanRasterizerState::FVulkanRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
+FVulkanRasterizerState::FVulkanRasterizerState(const FRasterizerStateInitializerRHI& InInitializer)
 {
+	Initializer = InInitializer;
 	FVulkanRasterizerState::ResetCreateInfo(RasterizerState);
 
 	// @todo vulkan: I'm assuming that Solid and Wireframe wouldn't ever be mixed within the same BoundShaderState, so we are ignoring the fill mode as a unique identifier
@@ -316,8 +317,9 @@ void FVulkanDepthStencilState::SetupCreateInfo(const FGraphicsPipelineStateIniti
 	}
 }
 
-FVulkanBlendState::FVulkanBlendState(const FBlendStateInitializerRHI& Initializer)
+FVulkanBlendState::FVulkanBlendState(const FBlendStateInitializerRHI& InInitializer)
 {
+	Initializer = InInitializer;
 	for (uint32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
 	{
 		const FBlendStateInitializerRHI::FRenderTarget& ColorTarget = Initializer.RenderTargets[Index];

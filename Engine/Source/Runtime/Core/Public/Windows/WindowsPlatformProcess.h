@@ -128,7 +128,6 @@ public:
 	static void AddDllDirectory(const TCHAR* Directory);
 	static void PushDllDirectory(const TCHAR* Directory);
 	static void PopDllDirectory(const TCHAR* Directory);
-	static void CleanFileCache();
 	static uint32 GetCurrentProcessId();
 	static void SetThreadAffinityMask( uint64 AffinityMask );
 	static const TCHAR* BaseDir();

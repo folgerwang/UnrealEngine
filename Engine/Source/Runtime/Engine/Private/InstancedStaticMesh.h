@@ -178,7 +178,7 @@ struct FInstancedStaticMeshVertexFactory : public FLocalVertexFactory
 	DECLARE_VERTEX_FACTORY_TYPE(FInstancedStaticMeshVertexFactory);
 public:
 	FInstancedStaticMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
-		: FLocalVertexFactory(InFeatureLevel, "FInstancedStaticMeshVertexFactory", &Data)
+		: FLocalVertexFactory(InFeatureLevel, "FInstancedStaticMeshVertexFactory")
 	{
 	}
 
@@ -213,6 +213,7 @@ public:
 	 */
 	void SetData(const FDataType& InData)
 	{
+		FLocalVertexFactory::Data = InData;
 		Data = InData;
 		UpdateRHI();
 	}

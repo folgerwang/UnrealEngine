@@ -11,6 +11,33 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
+	/// <summary>
+	/// Option flags for the Linux toolchain
+	/// </summary>
+	[Flags]
+	enum LinuxToolChainOptions
+	{
+		/// <summary>
+		/// No custom options
+		/// </summary>
+		None = 0,
+
+		/// <summary>
+		/// Enable address sanitzier
+		/// </summary>
+		EnableAddressSanitizer = 0x1,
+
+		/// <summary>
+		/// Enable thread sanitizer
+		/// </summary>
+		EnableThreadSanitizer = 0x2,
+
+		/// <summary>
+		/// Enable undefined behavior sanitizer
+		/// </summary>
+		EnableUndefinedBehaviorSanitizer = 0x4,
+	}
+
 	class LinuxToolChain : UEToolChain
 	{
 		/** Flavor of the current build (target triplet)*/
@@ -28,8 +55,13 @@ namespace UnrealBuildTool
 		/** Toolchain information to print during the build. */
 		protected string ToolchainInfo;
 
-		public LinuxToolChain(string InArchitecture, LinuxPlatformSDK InSDK)
-			: this(CppPlatform.Linux, InArchitecture, InSDK)
+		/// <summary>
+		/// Whether to compile with ASan enabled
+		/// </summary>
+		LinuxToolChainOptions Options;
+
+		public LinuxToolChain(string InArchitecture, LinuxPlatformSDK InSDK, LinuxToolChainOptions InOptions = LinuxToolChainOptions.None)
+			: this(CppPlatform.Linux, InArchitecture, InSDK, InOptions)
 		{
 			
 			MultiArchRoot = PlatformSDK.GetSDKLocation();
@@ -150,11 +182,12 @@ namespace UnrealBuildTool
 			bUseLld = (CompilerVersionMajor >= 5);
 		}
 
-		public LinuxToolChain(CppPlatform InCppPlatform, string InArchitecture, LinuxPlatformSDK InSDK) 
+		public LinuxToolChain(CppPlatform InCppPlatform, string InArchitecture, LinuxPlatformSDK InSDK, LinuxToolChainOptions InOptions = LinuxToolChainOptions.None)
 			: base(InCppPlatform)
 		{
 			Architecture = InArchitecture;
 			PlatformSDK = InSDK;
+			Options = InOptions;
 		}
 
 		protected virtual bool CrossCompiling()
@@ -476,6 +509,24 @@ namespace UnrealBuildTool
 				Result += " -I" + "ThirdParty/Linux/LibCxx/include/c++/v1";
 			}
 
+			// ASan
+			if (Options.HasFlag(LinuxToolChainOptions.EnableAddressSanitizer))
+			{
+				Result += " -fsanitize=address";
+			}
+
+			// TSan
+			if (Options.HasFlag(LinuxToolChainOptions.EnableThreadSanitizer))
+			{
+				Result += " -fsanitize=thread";
+			}
+
+			// UBSan
+			if (Options.HasFlag(LinuxToolChainOptions.EnableUndefinedBehaviorSanitizer))
+			{
+				Result += " -fsanitize=undefined";
+			}
+
 			Result += " -Wall -Werror";
 
 			if (!CompileEnvironment.Architecture.StartsWith("x86_64") && !CompileEnvironment.Architecture.StartsWith("i686"))
@@ -597,13 +648,10 @@ namespace UnrealBuildTool
 			{
 				// libdwarf (from elftoolchain 0.6.1) doesn't support DWARF4. If we need to go back to depending on elftoolchain revert this back to dwarf-3
 				Result += " -gdwarf-4";
-				
-				// Include debug info
-				Result += " -g";
-				
-				// Include additional debug info to help LLDB
+
+				// Make debug info LLDB friendly
 				Result += " -glldb";
-				
+
 				// Makes debugging .so libraries better
 				Result += " -fstandalone-debug";
 			}
@@ -615,7 +663,19 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				Result += " -O2";	// warning: as of now (2014-09-28), clang 3.5.0 miscompiles PlatformerGame with -O3 (bitfields?)
+				// Don't over optimise if using AddressSanitizer or you'll get false positive errors due to erroneous optimisation of necessary AddressSanitizer instrumentation.
+				if (Options.HasFlag(LinuxToolChainOptions.EnableAddressSanitizer))
+				{
+					Result += " -O1 -g -fno-optimize-sibling-calls -fno-omit-frame-pointer";
+				}
+				else if (Options.HasFlag(LinuxToolChainOptions.EnableThreadSanitizer))
+				{
+					Result += " -O1 -g";
+				}
+				else
+				{
+					Result += " -O2";	// warning: as of now (2014-09-28), clang 3.5.0 miscompiles PlatformerGame with -O3 (bitfields?)
+				}
 			}
 
 			if (!CompileEnvironment.bUseInlining)
@@ -777,6 +837,23 @@ namespace UnrealBuildTool
 			{
 				// ignore unresolved symbols in shared libs
 				Result += string.Format(" -Wl,--unresolved-symbols=ignore-in-shared-libs");
+			}
+
+			if (Options.HasFlag(LinuxToolChainOptions.EnableAddressSanitizer) || Options.HasFlag(LinuxToolChainOptions.EnableThreadSanitizer) || Options.HasFlag(LinuxToolChainOptions.EnableUndefinedBehaviorSanitizer))
+			{
+				Result += " -g";
+				if (Options.HasFlag(LinuxToolChainOptions.EnableAddressSanitizer))
+				{
+					Result += " -fsanitize=address";
+				}
+				else if (Options.HasFlag(LinuxToolChainOptions.EnableThreadSanitizer))
+				{
+					Result += " -fsanitize=thread";
+				}
+				else if (Options.HasFlag(LinuxToolChainOptions.EnableUndefinedBehaviorSanitizer))
+				{
+					Result += " -fsanitize=undefined";
+				}
 			}
 
 			// RPATH for third party libs

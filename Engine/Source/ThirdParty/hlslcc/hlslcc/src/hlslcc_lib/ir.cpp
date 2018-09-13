@@ -2215,3 +2215,16 @@ else IF_TEST(as_dereference_image)
 
 	return false;
 }
+
+unsigned ir_hash_table_pointer_hash(const void *key)
+{
+	const ir_instruction* key_instr = (const ir_instruction*)key;
+	return key_instr ? (unsigned)key_instr->id : ~0u;
+}
+
+int ir_hash_table_pointer_compare(const void *key1, const void *key2)
+{
+	const ir_instruction* key1_instr = (const ir_instruction*)key1;
+	const ir_instruction* key2_instr = (const ir_instruction*)key2;
+	return (key1_instr == key2_instr || (key1_instr && key2_instr && key1_instr->id == key2_instr->id)) ? 0 : 1;
+}

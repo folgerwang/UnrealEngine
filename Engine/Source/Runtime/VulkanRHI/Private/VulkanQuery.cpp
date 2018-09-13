@@ -5,34 +5,11 @@
 =============================================================================*/
 
 #include "VulkanRHIPrivate.h"
+#include "VulkanResources.h"
 #include "VulkanContext.h"
 #include "VulkanCommandBuffer.h"
 #include "EngineGlobals.h"
 
-struct FRHICommandWaitForFence final : public FRHICommand<FRHICommandWaitForFence>
-{
-	FVulkanCommandBufferManager* CmdBufferMgr;
-	FVulkanCmdBuffer* CmdBuffer;
-	uint64 FenceCounter;
-
-	FORCEINLINE_DEBUGGABLE FRHICommandWaitForFence(FVulkanCommandBufferManager* InCmdBufferMgr, FVulkanCmdBuffer* InCmdBuffer, uint64 InFenceCounter)
-		: CmdBufferMgr(InCmdBufferMgr)
-		, CmdBuffer(InCmdBuffer)
-		, FenceCounter(InFenceCounter)
-	{
-	}
-
-	void Execute(FRHICommandListBase& CmdList)
-	{
-		if (FenceCounter == CmdBuffer->GetFenceSignaledCounter())
-		{
-			uint32 IdleStart = FPlatformTime::Cycles();
-			check(CmdBuffer->IsSubmitted());
-			CmdBufferMgr->WaitForCmdBuffer(CmdBuffer);
-			GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUQuery] += FPlatformTime::Cycles() - IdleStart;
-		}
-	}
-};
 
 TAutoConsoleVariable<int32> GSubmitOcclusionBatchCmdBufferCVar(
 	TEXT("r.Vulkan.SubmitOcclusionBatchCmdBuffer"),
@@ -41,13 +18,122 @@ TAutoConsoleVariable<int32> GSubmitOcclusionBatchCmdBufferCVar(
 	ECVF_RenderThreadSafe
 );
 
-FCriticalSection GQueryLock;
-
-#if VULKAN_USE_NEW_QUERIES
-const uint32 GMinNumberOfQueriesInPool = 256;
+constexpr uint32 GMinNumberOfQueriesInPool = 256;
+constexpr int32 NUM_FRAMES_TO_WAIT_REUSE_POOL = 10;
+/*
+FCriticalSection GOcclusionQueryCS;
 const uint32 GMaxLifetimeTimestampQueries = 1024;
 
+FVulkanRenderQuery::FVulkanRenderQuery(FVulkanDevice* Device, ERenderQueryType InQueryType)
+	: QueryType(InQueryType)
+{
+	INC_DWORD_STAT(STAT_VulkanNumQueries);
+}
 
+FVulkanRenderQuery::~FVulkanRenderQuery()
+{
+	DEC_DWORD_STAT(STAT_VulkanNumQueries);
+}
+
+inline void FVulkanRenderQuery::Begin(FVulkanCmdBuffer* InCmdBuffer)
+{
+	BeginCmdBuffer = InCmdBuffer;
+	check(State == EState::Reset);
+	if (QueryType == RQT_Occlusion)
+	{
+		check(Pool);
+		VulkanRHI::vkCmdBeginQuery(InCmdBuffer->GetHandle(), Pool->GetHandle(), QueryIndex, VK_QUERY_CONTROL_PRECISE_BIT);
+		State = EState::InBegin;
+		LastPoolReset = Pool->NumResets;
+	}
+	else
+	{
+		ensureMsgf(0, TEXT("Timer queries do NOT support Begin()!"));
+	}
+}
+
+inline void FVulkanRenderQuery::End(FVulkanCmdBuffer* InCmdBuffer)
+{
+	ensure(QueryType != RQT_Occlusion || BeginCmdBuffer == InCmdBuffer);
+	if (QueryType == RQT_Occlusion)
+	{
+		check(State == EState::InBegin);
+		check(Pool);
+		VulkanRHI::vkCmdEndQuery(InCmdBuffer->GetHandle(), Pool->GetHandle(), QueryIndex);
+		check(LastPoolReset == Pool->NumResets);
+	}
+	else
+	{
+		check(State == EState::Reset);
+		BeginCmdBuffer = InCmdBuffer;
+		VulkanRHI::vkCmdWriteTimestamp(InCmdBuffer->GetHandle(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, Pool->GetHandle(), QueryIndex);
+		LastPoolReset = Pool->NumResets;
+	}
+	State = EState::InEnd;
+}
+
+bool FVulkanRenderQuery::GetResult(FVulkanDevice* Device, uint64& OutResult, bool bWait)
+{
+FScopeLock ScopeLock(&GOcclusionQueryCS);
+	if (State == EState::HasResults)
+	{
+		OutResult = Result;
+		return true;
+	}
+
+	check(Pool);
+	check(State == EState::InEnd);
+	if (QueryType == RQT_Occlusion)
+	{
+		check(IsInRenderingThread());
+		if (((FVulkanOcclusionQueryPool*)Pool)->GetResults(QueryIndex, bWait, Result))
+		{
+			check(LastPoolReset == Pool->NumResets);
+			State = EState::HasResults;
+			OutResult = Result;
+			return true;
+		}
+	}
+	else
+	{
+		check(IsInRenderingThread() || IsInRHIThread());
+		if (((FVulkanTimestampQueryPool*)Pool)->GetResults(QueryIndex, bWait, Result))
+		{
+			check(LastPoolReset == Pool->NumResets);
+			State = EState::HasResults;
+			OutResult = Result;
+			return true;
+		}
+	}
+	return false;
+}
+*/
+FVulkanQueryPool::FVulkanQueryPool(FVulkanDevice* InDevice, uint32 InMaxQueries, VkQueryType InQueryType)
+	: VulkanRHI::FDeviceChild(InDevice)
+	, QueryPool(VK_NULL_HANDLE)
+	, MaxQueries(InMaxQueries)
+	, QueryType(InQueryType)
+{
+	INC_DWORD_STAT(STAT_VulkanNumQueryPools);
+	VkQueryPoolCreateInfo PoolCreateInfo;
+	ZeroVulkanStruct(PoolCreateInfo, VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO);
+	PoolCreateInfo.queryType = QueryType;
+	PoolCreateInfo.queryCount = MaxQueries;
+
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateQueryPool(Device->GetInstanceHandle(), &PoolCreateInfo, nullptr, &QueryPool));
+
+	QueryOutput.AddZeroed(MaxQueries);
+}
+
+FVulkanQueryPool::~FVulkanQueryPool()
+{
+	DEC_DWORD_STAT(STAT_VulkanNumQueryPools);
+	VulkanRHI::vkDestroyQueryPool(Device->GetInstanceHandle(), QueryPool, nullptr);
+	QueryPool = VK_NULL_HANDLE;
+	check(QueryPool == VK_NULL_HANDLE);
+}
+
+/*
 inline VkResult FVulkanQueryPool::InternalGetQueryPoolResults(uint32 FirstQuery, uint32 NumQueries, VkQueryResultFlags ExtraFlags)
 {
 	VkResult Result = VulkanRHI::vkGetQueryPoolResults(Device->GetInstanceHandle(), QueryPool, FirstQuery, NumQueries, NumQueries * sizeof(uint64), QueryOutput.GetData() + FirstQuery, sizeof(uint64), VK_QUERY_RESULT_64_BIT | ExtraFlags);
@@ -56,19 +142,126 @@ inline VkResult FVulkanQueryPool::InternalGetQueryPoolResults(uint32 FirstQuery,
 
 inline int32 FVulkanQueryPool::AllocateQuery()
 {
-	FScopeLock ScopeLock(&GQueryLock);
+	FScopeLock ScopeLock(&GOcclusionQueryCS);
 	int32 UsedQuery = NumUsedQueries;
 	++NumUsedQueries;
 	checkf((uint32)UsedQuery < MaxQueries, TEXT("Internal error allocating query! UsedQuery=%d NumUsedQueries=%d MaxQueries=%d"), UsedQuery, NumUsedQueries, MaxQueries);
 	return UsedQuery;
 }
+*/
 
-bool FVulkanOcclusionQueryPool::GetAllResults(bool bWait)
+bool FVulkanOcclusionQueryPool::CanBeReused()
 {
-	FScopeLock ScopeLock(&GQueryLock);
-	check(!bHasResults);
+	const uint64 NumWords = NumUsedQueries / 64;
+	for (int32 Index = 0; Index < NumWords; ++Index)
+	{
+		if (AcquiredIndices[Index])
+		{
+			return false;
+		}
+	}
+
+	const uint64 Remaining = NumUsedQueries % 64;
+	const uint64 Mask = ((uint64)1 << (uint64)Remaining) - 1;
+	return Mask == 0 || (AcquiredIndices[NumWords] & Mask) == 0;
+}
+
+bool FVulkanOcclusionQueryPool::InternalTryGetResults(bool bWait)
+{
 	check(CmdBuffer);
-	checkf(CmdBuffer->GetSubmittedFenceCounter() >= FenceCounter, TEXT("Tried to read a query that has not been submitted!"));
+	check(State == EState::RHIT_PostEndBatch);
+
+	if (CmdBuffer->GetFenceSignaledCounter() <= FenceCounter)
+	{
+		if (FenceCounter == CmdBuffer->GetSubmittedFenceCounter())
+		{
+			//UE_LOG(LogVulkanRHI, Error, TEXT("Tried to read a query that has not been submitted!"));
+			//ensure(0);
+		}
+
+		return false;
+	}
+
+	VkResult Result = VulkanRHI::vkGetQueryPoolResults(Device->GetInstanceHandle(), QueryPool, 0, NumUsedQueries, NumUsedQueries * sizeof(uint64), QueryOutput.GetData(), sizeof(uint64), VK_QUERY_RESULT_64_BIT);
+	if (Result == VK_SUCCESS)
+	{
+		State = EState::RT_PostGetResults;
+		return true;
+	}
+
+	if (Result == VK_NOT_READY)
+	{
+		if (bWait)
+		{
+			uint32 IdleStart = FPlatformTime::Cycles();
+
+			SCOPE_CYCLE_COUNTER(STAT_VulkanWaitQuery);
+
+			// We'll do manual wait
+			double StartTime = FPlatformTime::Seconds();
+
+			ENamedThreads::Type RenderThread_Local = ENamedThreads::GetRenderThread_Local();
+			bool bSuccess = false;
+			int32 NumLoops = 0;
+			while (!bSuccess)
+			{
+				FPlatformProcess::SleepNoStats(0);
+
+				// pump RHIThread to make sure these queries have actually been submitted to the GPU.
+				if (IsInActualRenderingThread())
+				{
+					FTaskGraphInterface::Get().ProcessThreadUntilIdle(RenderThread_Local);
+				}
+
+				Result = VulkanRHI::vkGetQueryPoolResults(Device->GetInstanceHandle(), QueryPool, 0, NumUsedQueries, NumUsedQueries * sizeof(uint64), QueryOutput.GetData(), sizeof(uint64), VK_QUERY_RESULT_64_BIT);
+				if (Result == VK_SUCCESS)
+				{
+					bSuccess = true;
+					break;
+				}
+				else if (Result == VK_NOT_READY)
+				{
+					bSuccess = false;
+				}
+				else
+				{
+					bSuccess = false;
+					VERIFYVULKANRESULT(Result);
+				}
+
+				// timer queries are used for Benchmarks which can stall a bit more
+				const double TimeoutValue = (QueryType == VK_QUERY_TYPE_TIMESTAMP) ? 2.0 : 0.5;
+				// look for gpu stuck/crashed
+				if ((FPlatformTime::Seconds() - StartTime) > TimeoutValue)
+				{
+					if (QueryType == VK_QUERY_TYPE_OCCLUSION)
+					{
+						UE_LOG(LogRHI, Log, TEXT("Timed out while waiting for GPU to catch up on occlusion results. (%.1f s)"), TimeoutValue);
+					}
+					else
+					{
+						UE_LOG(LogRHI, Log, TEXT("Timed out while waiting for GPU to catch up on occlusion/timer results. (%.1f s)"), TimeoutValue);
+					}
+					return false;
+				}
+
+				++NumLoops;
+			}
+
+			GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUQuery] += FPlatformTime::Cycles() - IdleStart;
+			GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUQuery]++;
+
+			State = EState::RT_PostGetResults;
+			return true;
+		}
+	}
+	else
+	{
+		VERIFYVULKANRESULT(Result);
+	}
+/*
+	FScopeLock ScopeLock(&GOcclusionQueryCS);
+	check(!bHasResults);
 	VkResult Result = VK_NOT_READY;
 	bool bFencePassed = false;
 	if (CmdBuffer->GetFenceSignaledCounter() > FenceCounter)
@@ -152,40 +345,52 @@ bool FVulkanOcclusionQueryPool::GetAllResults(bool bWait)
 	{
 		VERIFYVULKANRESULT(Result);
 	}
-
+	*/
 	return false;
 }
 
+/*
 void FVulkanQueryPool::ResetAll(FVulkanCmdBuffer* InCmdBuffer)
 {
 	VulkanRHI::vkCmdResetQueryPool(InCmdBuffer->GetHandle(), QueryPool, 0, MaxQueries);
 	++NumResets;
 }
-
+*/
 
 void FVulkanOcclusionQueryPool::SetFence(FVulkanCmdBuffer* InCmdBuffer)
 {
 	check(InCmdBuffer);
 	CmdBuffer = InCmdBuffer;
 	FenceCounter = InCmdBuffer->GetFenceSignaledCounter();
-	check(!bHasResults);
 }
 
-void FVulkanOcclusionQueryPool::Reset(FVulkanCmdBuffer* InCmdBuffer)
+void FVulkanOcclusionQueryPool::Reset(FVulkanCmdBuffer* InCmdBuffer, uint32 InFrameNumber)
 {
-	check(!CmdBuffer || CmdBuffer->GetFenceSignaledCounter() > FenceCounter);
+/*
+	check(!InCmdBuffer || InCmdBuffer->GetFenceSignaledCounter() > FenceCounter);
+*/
+	//ensure(State == EState::Undefined || State == EState::RT_PostGetResults);
+	FMemory::Memzero(AcquiredIndices.GetData(), AcquiredIndices.GetAllocatedSize());
+/*
 	CmdBuffer = nullptr;
-	FenceCounter = UINT64_MAX;
+	FenceCounter = UINT32_MAX;
+*/
 	NumUsedQueries = 0;
+	FrameNumber = InFrameNumber;
+/*
 	bHasResults = false;
-	FVulkanQueryPool::ResetAll(InCmdBuffer);
-}
+*/
+	VulkanRHI::vkCmdResetQueryPool(InCmdBuffer->GetHandle(), QueryPool, 0, MaxQueries);
+	//FVulkanQueryPool::ResetAll(InCmdBuffer);
 
-bool FVulkanTimestampQueryPool::GetResults(uint32 QueryIndex, /*uint32 Word, uint32 Bit, */bool bWait, uint64& OutResults)
+	State = EState::RHIT_PostBeginBatch;
+}
+/*
+bool FVulkanTimestampQueryPool::GetResults(uint32 QueryIndex, / *uint32 Word, uint32 Bit, * /bool bWait, uint64& OutResults)
 {
 	//check((HasResultsMask[Word] & Bit) == 0);
 
-	VkResult Result = InternalGetQueryPoolResults(QueryIndex, 1, 0/*bWait ? 0 : VK_QUERY_RESULT_PARTIAL_BIT*/);
+	VkResult Result = InternalGetQueryPoolResults(QueryIndex, 1, 0/ *bWait ? 0 : VK_QUERY_RESULT_PARTIAL_BIT* /);
 	if (Result == VK_SUCCESS)
 	{
 		OutResults = QueryOutput[QueryIndex];
@@ -251,31 +456,104 @@ bool FVulkanTimestampQueryPool::GetResults(uint32 QueryIndex, /*uint32 Word, uin
 
 	return false;
 }
+*/
 
 void FVulkanCommandListContext::BeginOcclusionQueryBatch(FVulkanCmdBuffer* CmdBuffer, uint32 NumQueriesInBatch)
 {
-	FScopeLock ScopeLock(&GQueryLock);
 	ensure(IsImmediate());
-	ensure(CmdBuffer->IsOutsideRenderPass());
+/*
+	FScopeLock ScopeLock(&GOcclusionQueryCS);
+*/
 	checkf(!CurrentOcclusionQueryPool, TEXT("BeginOcclusionQueryBatch called without corresponding EndOcclusionQueryBatch!"));
 	CurrentOcclusionQueryPool = Device->AcquireOcclusionQueryPool(NumQueriesInBatch);
-	CurrentOcclusionQueryPool->Reset(CmdBuffer);
+	ensure(CmdBuffer->IsOutsideRenderPass());
+	CurrentOcclusionQueryPool->Reset(CmdBuffer, GFrameNumberRenderThread);
+}
+
+
+inline bool FVulkanOcclusionQueryPool::IsStalePool() const
+{
+	return FrameNumber + NUM_FRAMES_TO_WAIT_REUSE_POOL < GFrameNumberRenderThread;
+}
+
+void FVulkanOcclusionQueryPool::FlushAllocatedQueries()
+{
+	for (int32 Index = 0; Index < AcquiredIndices.Num(); ++Index)
+	{
+		uint32 QueryIndex = 0;
+		uint64 Acquired = AcquiredIndices[Index];
+		while (Acquired)
+		{
+			if (Acquired & 1)
+			{
+				FVulkanOcclusionQuery* Query =AllocatedQueries[QueryIndex + (Index * 64)];
+				Query->State = Query->State == FVulkanOcclusionQuery::EState::RT_GotResults ? FVulkanOcclusionQuery::EState::FlushedFromPoolHadResults : FVulkanOcclusionQuery::EState::Undefined;
+				Query->Pool = nullptr;
+				Query->IndexInPool = UINT32_MAX;
+
+				AllocatedQueries[QueryIndex + (Index * 64)] = nullptr;
+			}
+			Acquired = Acquired >> (uint64)1;
+			QueryIndex++;
+		}
+
+		AcquiredIndices[Index] = Acquired;
+	}
 }
 
 FVulkanOcclusionQueryPool* FVulkanDevice::AcquireOcclusionQueryPool(uint32 NumQueries)
 {
-	if (!OcclusionQueryPools[CurrentOcclusionQueryPool] || OcclusionQueryPools[CurrentOcclusionQueryPool]->GetMaxQueries() < NumQueries)
+	// At least add one query
+	NumQueries = FMath::Max(1u, NumQueries);
+	NumQueries = AlignArbitrary(NumQueries, GMinNumberOfQueriesInPool);
+
+	bool bChanged = false;
+	for (int32 Index = UsedOcclusionQueryPools.Num() - 1; Index >= 0; --Index)
 	{
-		delete OcclusionQueryPools[CurrentOcclusionQueryPool];
-		OcclusionQueryPools[CurrentOcclusionQueryPool] = new FVulkanOcclusionQueryPool(this, AlignArbitrary(NumQueries, GMinNumberOfQueriesInPool));
+		FVulkanOcclusionQueryPool* Pool = UsedOcclusionQueryPools[Index];
+		if (Pool->CanBeReused())
+		{
+			UsedOcclusionQueryPools.RemoveAtSwap(Index);
+			FreeOcclusionQueryPools.Add(Pool);
+			bChanged = true;
+		}
+		else if (Pool->IsStalePool())
+		{
+			Pool->FlushAllocatedQueries();
+			UsedOcclusionQueryPools.RemoveAtSwap(Index);
+			FreeOcclusionQueryPools.Add(Pool);
+			bChanged = true;
+		}
 	}
 
-	FVulkanOcclusionQueryPool* ResultPool = OcclusionQueryPools[CurrentOcclusionQueryPool];
-	CurrentOcclusionQueryPool = (CurrentOcclusionQueryPool + 1) % OcclusionQueryPools.Num();
+	if (FreeOcclusionQueryPools.Num() > 0)
+	{
+		if (bChanged)
+		{
+			FreeOcclusionQueryPools.Sort([](FVulkanOcclusionQueryPool& A, FVulkanOcclusionQueryPool& B)
+			{
+				return A.GetMaxQueries() < B.GetMaxQueries();
+			});
+		}
 
-	return ResultPool;
+		for (int32 Index = 0; Index < FreeOcclusionQueryPools.Num(); ++Index)
+		{
+			if (NumQueries <= FreeOcclusionQueryPools[Index]->GetMaxQueries())
+			{
+				FVulkanOcclusionQueryPool* Pool = FreeOcclusionQueryPools[Index];
+				FreeOcclusionQueryPools.RemoveAt(Index);
+				UsedOcclusionQueryPools.Add(Pool);
+				return Pool;
+			}
+		}
+	}
+
+	FVulkanOcclusionQueryPool* Pool = new FVulkanOcclusionQueryPool(this, NumQueries);
+	UsedOcclusionQueryPools.Add(Pool);
+	return Pool;
 }
 
+/*
 FVulkanTimestampQueryPool* FVulkanDevice::PrepareTimestampQueryPool(bool& bOutRequiresReset)
 {
 	bOutRequiresReset = false;
@@ -295,16 +573,20 @@ FVulkanTimestampQueryPool* FVulkanDevice::PrepareTimestampQueryPool(bool& bOutRe
 
 	return TimestampQueryPool;
 }
-
+*/
 void FVulkanCommandListContext::EndOcclusionQueryBatch(FVulkanCmdBuffer* CmdBuffer)
 {
-	FScopeLock ScopeLock(&GQueryLock);
 	ensure(IsImmediate());
+	check(CmdBuffer);
 	checkf(CurrentOcclusionQueryPool, TEXT("EndOcclusionQueryBatch called without corresponding BeginOcclusionQueryBatch!"));
-	CurrentOcclusionQueryPool->SetFence(CmdBuffer);
+	CurrentOcclusionQueryPool->EndBatch(CmdBuffer);
+	CurrentOcclusionQueryPool = nullptr;
+	TransitionAndLayoutManager.EndRealRenderPass(CmdBuffer);
+/*
+	FScopeLock ScopeLock(&GOcclusionQueryCS);
 	CurrentOcclusionQueryPool = nullptr;
 	TransitionAndLayoutManager.EndEmulatedRenderPass(CmdBuffer);
-
+*/
 	// Sync point
 	if (GSubmitOcclusionBatchCmdBufferCVar.GetValueOnAnyThread())
 	{
@@ -312,353 +594,56 @@ void FVulkanCommandListContext::EndOcclusionQueryBatch(FVulkanCmdBuffer* CmdBuff
 		SafePointSubmit();
 	}
 }
-#endif
 
-FVulkanRenderQuery::FVulkanRenderQuery(ERenderQueryType InQueryType)
-#if VULKAN_USE_NEW_QUERIES
-	: QueryType(InQueryType)
-#else
-	: CurrentQueryIdx(0)
-	, QueryType(InQueryType)
-	, CurrentCmdBuffer(nullptr)
-#endif
+
+FVulkanOcclusionQuery::FVulkanOcclusionQuery()
+	: FVulkanRenderQuery(RQT_Occlusion)
 {
 	INC_DWORD_STAT(STAT_VulkanNumQueries);
-#if VULKAN_USE_NEW_QUERIES
-#else
-	for (int Index = 0; Index < NumQueries; ++Index)
-	{
-		QueryIndices[Index] = -1;
-		QueryPools[Index] = nullptr;
-	}
-#endif
 }
 
-FVulkanRenderQuery::~FVulkanRenderQuery()
+FVulkanOcclusionQuery::~FVulkanOcclusionQuery()
 {
+	if (State != EState::Undefined)
+	{
+		if (IndexInPool != UINT32_MAX)
+		{
+			ReleaseFromPool();
+		}
+		else
+		{
+			ensure(State == EState::RT_GotResults);
+		}
+	}
+
 	DEC_DWORD_STAT(STAT_VulkanNumQueries);
-#if VULKAN_USE_NEW_QUERIES
-#else
-	for (int Index = 0; Index < NumQueries; ++Index)
-	{
-		if (QueryIndices[Index] != -1)
-		{
-			FScopeLock Lock(&GQueryLock);
-			((FVulkanBufferedQueryPool*)QueryPools[Index])->ReleaseQuery(QueryIndices[Index]);
-		}
-	}
-#endif
 }
 
-inline void FVulkanRenderQuery::Begin(FVulkanCmdBuffer* InCmdBuffer)
+void FVulkanOcclusionQuery::ReleaseFromPool()
 {
-#if VULKAN_USE_NEW_QUERIES
-	BeginCmdBuffer = InCmdBuffer;
-	check(State == EState::Reset);
-	if (QueryType == RQT_Occlusion)
-	{
-		check(Pool);
-		VulkanRHI::vkCmdBeginQuery(InCmdBuffer->GetHandle(), Pool->GetHandle(), QueryIndex, VK_QUERY_CONTROL_PRECISE_BIT);
-		State = EState::InBegin;
-		LastPoolReset = Pool->NumResets;
-	}
-	else
-	{
-		ensureMsgf(0, TEXT("Timer queries do NOT support Begin()!"));
-	}
-#else
-	CurrentCmdBuffer = InCmdBuffer;
-	ensure(GetActiveQueryIndex() != -1);
-	if (QueryType == RQT_Occlusion)
-	{
-		VulkanRHI::vkCmdBeginQuery(InCmdBuffer->GetHandle(), GetActiveQueryPool()->GetHandle(), GetActiveQueryIndex(), VK_QUERY_CONTROL_PRECISE_BIT);
-	}
-	else
-	{
-		ensure(0);
-	}
-#endif
+	Pool->ReleaseIndex(IndexInPool);
+	State = EState::Undefined;
+	IndexInPool = UINT32_MAX;
 }
-
-inline void FVulkanRenderQuery::End(FVulkanCmdBuffer* InCmdBuffer)
-{
-#if VULKAN_USE_NEW_QUERIES
-	ensure(QueryType != RQT_Occlusion || BeginCmdBuffer == InCmdBuffer);
-	if (QueryType == RQT_Occlusion)
-	{
-		check(State == EState::InBegin);
-		check(Pool);
-		VulkanRHI::vkCmdEndQuery(InCmdBuffer->GetHandle(), Pool->GetHandle(), QueryIndex);
-		check(LastPoolReset == Pool->NumResets);
-	}
-	else
-	{
-		check(State == EState::Reset);
-		BeginCmdBuffer = InCmdBuffer;
-		VulkanRHI::vkCmdWriteTimestamp(InCmdBuffer->GetHandle(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, Pool->GetHandle(), QueryIndex);
-		LastPoolReset = Pool->NumResets;
-	}
-	State = EState::InEnd;
-#else
-	ensure(QueryType != RQT_Occlusion || CurrentCmdBuffer == InCmdBuffer);
-	ensure(GetActiveQueryIndex() != -1);
-
-	if (QueryType == RQT_Occlusion)
-	{
-		VulkanRHI::vkCmdEndQuery(InCmdBuffer->GetHandle(), GetActiveQueryPool()->GetHandle(), GetActiveQueryIndex());
-	}
-	else
-	{
-		VulkanRHI::vkCmdWriteTimestamp(InCmdBuffer->GetHandle(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, GetActiveQueryPool()->GetHandle(), GetActiveQueryIndex());
-	}
-#endif
-}
-
-bool FVulkanRenderQuery::GetResult(FVulkanDevice* Device, uint64& OutResult, bool bWait)
-{
-#if VULKAN_USE_NEW_QUERIES
-	FScopeLock ScopeLock(&GQueryLock);
-	if (State == EState::HasResults)
-	{
-		OutResult = Result;
-		return true;
-	}
-
-	check(Pool);
-	check(State == EState::InEnd);
-	if (QueryType == RQT_Occlusion)
-	{
-		check(IsInRenderingThread());
-		if (((FVulkanOcclusionQueryPool*)Pool)->GetResults(QueryIndex, bWait, Result))
-		{
-			check(LastPoolReset == Pool->NumResets);
-			State = EState::HasResults;
-			OutResult = Result;
-			return true;
-		}
-	}
-	else
-	{
-		check(IsInRenderingThread() || IsInRHIThread());
-		if (((FVulkanTimestampQueryPool*)Pool)->GetResults(QueryIndex, bWait, Result))
-		{
-			check(LastPoolReset == Pool->NumResets);
-			State = EState::HasResults;
-			OutResult = Result;
-			return true;
-		}
-	}
-	return false;
-#else
-	if (GetActiveQueryIndex() != -1)
-	{
-		check(IsInRenderingThread() || IsInRHIThread());
-		FVulkanCommandListContext& Context = Device->GetImmediateContext();
-		FVulkanBufferedQueryPool* Pool = (FVulkanBufferedQueryPool*)GetActiveQueryPool();
-		return Pool->GetResults(Context, this, bWait, OutResult);
-	}
-	return false;
-#endif
-}
-
-FVulkanQueryPool::FVulkanQueryPool(FVulkanDevice* InDevice, uint32 InMaxQueries, VkQueryType InQueryType)
-	: VulkanRHI::FDeviceChild(InDevice)
-	, QueryPool(VK_NULL_HANDLE)
-	, MaxQueries(InMaxQueries)
-	, QueryType(InQueryType)
-{
-	check(InDevice);
-
-	VkQueryPoolCreateInfo PoolCreateInfo;
-	ZeroVulkanStruct(PoolCreateInfo, VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO);
-	PoolCreateInfo.queryType = QueryType;
-	PoolCreateInfo.queryCount = MaxQueries;
-
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateQueryPool(Device->GetInstanceHandle(), &PoolCreateInfo, nullptr, &QueryPool));
-
-#if VULKAN_USE_NEW_QUERIES
-	QueryOutput.AddUninitialized(MaxQueries);
-#endif
-}
-
-FVulkanQueryPool::~FVulkanQueryPool()
-{
-#if VULKAN_USE_NEW_QUERIES
-	VulkanRHI::vkDestroyQueryPool(Device->GetInstanceHandle(), QueryPool, nullptr);
-	QueryPool = VK_NULL_HANDLE;
-#else
-	check(QueryPool == VK_NULL_HANDLE);
-#endif
-}
-
-#if VULKAN_USE_NEW_QUERIES
-#else
-void FVulkanQueryPool::Destroy()
-{
-	VulkanRHI::vkDestroyQueryPool(Device->GetInstanceHandle(), QueryPool, nullptr);
-	QueryPool = VK_NULL_HANDLE;
-}
-
-void FVulkanQueryPool::Reset(FVulkanCmdBuffer* InCmdBuffer)
-{
-	VulkanRHI::vkCmdResetQueryPool(InCmdBuffer->GetHandle(), QueryPool, 0, MaxQueries);
-}
-
-inline bool FVulkanBufferedQueryPool::GetResults(FVulkanCommandListContext& Context, FVulkanRenderQuery* Query, bool bWait, uint64& OutResult)
-{
-	VkQueryResultFlags Flags = VK_QUERY_RESULT_64_BIT;
-#if VULKAN_USE_QUERY_WAIT
-	if (bWait)
-	{
-		Flags |= VK_QUERY_RESULT_WAIT_BIT;
-	}
-#endif
-	{
-		uint64 Bit = (uint64)(Query->GetActiveQueryIndex() % 64);
-		uint64 BitMask = (uint64)1 << Bit;
-
-		// Try to read in bulk if possible
-		const uint64 AllUsedMask = (uint64)-1;
-		uint32 Word = Query->GetActiveQueryIndex() / 64;
-
-		if ((StartedQueryBits[Word] & BitMask) == 0)
-		{
-			// query never started/ended so how can we get a result ?
-			OutResult = 0;
-			return true;
-		}
-
-#if VULKAN_USE_QUERY_WAIT
-		if ((ReadResultsBits[Word] & BitMask) == 0)
-		{
-			SCOPE_CYCLE_COUNTER(STAT_VulkanWaitQuery);
-			VkResult ScopedResult = VulkanRHI::vkGetQueryPoolResults(Device->GetInstanceHandle(), QueryPool, Query->GetActiveQueryIndex(),
-				1, sizeof(uint64), &QueryOutput[Query->GetActiveQueryIndex()], sizeof(uint64), Flags);
-			if (ScopedResult != VK_SUCCESS)
-			{
-				if (bWait == false && ScopedResult == VK_NOT_READY)
-				{
-					OutResult = 0;
-					return false;
-				}
-				else
-				{
-					VulkanRHI::VerifyVulkanResult(ScopedResult, "vkGetQueryPoolResults", __FILE__, __LINE__);
-				}
-			}
-
-			ReadResultsBits[Word] = ReadResultsBits[Word] | BitMask;
-		}
-#else
-		if ((ReadResultsBits[Word] & BitMask) == 0)
-		{
-			VkResult ScopedResult = VulkanRHI::vkGetQueryPoolResults(Device->GetInstanceHandle(), QueryPool, Query->GetActiveQueryIndex(),
-				1, sizeof(uint64), &QueryOutput[Query->GetActiveQueryIndex()], sizeof(uint64), Flags);
-			if (ScopedResult == VK_SUCCESS)
-			{
-				ReadResultsBits[Word] = ReadResultsBits[Word] | BitMask;
-			}
-			else if (ScopedResult == VK_NOT_READY)
-			{
-				if (bWait)
-				{
-					uint32 IdleStart = FPlatformTime::Cycles();
-
-					SCOPE_CYCLE_COUNTER(STAT_VulkanWaitQuery);
-
-					// We'll do manual wait
-					double StartTime = FPlatformTime::Seconds();
-
-					ENamedThreads::Type RenderThread_Local = ENamedThreads::GetRenderThread_Local();
-					bool bSuccess = false;
-					while (!bSuccess)
-					{
-						FPlatformProcess::SleepNoStats(0);
-
-						// pump RHIThread to make sure these queries have actually been submitted to the GPU.
-						if (IsInActualRenderingThread())
-						{
-							FTaskGraphInterface::Get().ProcessThreadUntilIdle(RenderThread_Local);
-						}
-
-						ScopedResult = VulkanRHI::vkGetQueryPoolResults(Device->GetInstanceHandle(), QueryPool, Query->GetActiveQueryIndex(),
-							1, sizeof(uint64), &QueryOutput[Query->GetActiveQueryIndex()], sizeof(uint64), Flags);
-						if (ScopedResult == VK_SUCCESS)
-						{
-							bSuccess = true;
-							break;
-						}
-						else if (ScopedResult == VK_NOT_READY)
-						{
-							bSuccess = false;
-						}
-						else
-						{
-							bSuccess = false;
-							VulkanRHI::VerifyVulkanResult(ScopedResult, "vkGetQueryPoolResults", __FILE__, __LINE__);
-						}
-
-						// timer queries are used for Benchmarks which can stall a bit more
-						const double TimeoutValue = (QueryType == VK_QUERY_TYPE_TIMESTAMP) ? 2.0 : 0.5;
-						// look for gpu stuck/crashed
-						if ((FPlatformTime::Seconds() - StartTime) > TimeoutValue)
-						{
-							if (QueryType == VK_QUERY_TYPE_OCCLUSION)
-							{
-								UE_LOG(LogRHI, Log, TEXT("Timed out while waiting for GPU to catch up on occlusion results. (%.1f s)"), TimeoutValue);
-							}
-							else
-							{
-								UE_LOG(LogRHI, Log, TEXT("Timed out while waiting for GPU to catch up on occlusion/timer results. (%.1f s)"), TimeoutValue);
-							}
-							return false;
-						}
-					}
-
-					GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUQuery] += FPlatformTime::Cycles() - IdleStart;
-					GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUQuery]++;
-					check(bSuccess);
-					ReadResultsBits[Word] = ReadResultsBits[Word] | BitMask;
-				}
-				else
-				{
-					OutResult = 0;
-					return false;
-				}
-			}
-			else
-			{
-				VulkanRHI::VerifyVulkanResult(ScopedResult, "vkGetQueryPoolResults", __FILE__, __LINE__);
-			}
-		}
-#endif
-
-		OutResult = QueryOutput[Query->GetActiveQueryIndex()];
-		if (QueryType == VK_QUERY_TYPE_TIMESTAMP)
-		{
-			double NanoSecondsPerTimestamp = Device->GetDeviceProperties().limits.timestampPeriod;
-			checkf(NanoSecondsPerTimestamp > 0, TEXT("Driver said it allowed timestamps but returned invalid period %f!"), NanoSecondsPerTimestamp);
-			OutResult *= (NanoSecondsPerTimestamp / 1e3); // to microSec
-		}
-	}
-
-	return true;
-}
-#endif
 
 void FVulkanCommandListContext::ReadAndCalculateGPUFrameTime()
 {
-#if VULKAN_USE_NEW_QUERIES
+	/*
 	check(IsImmediate());
 
 	if (FrameTiming)
 	{
-		const uint64 Delta = FrameTiming->GetTiming(false);
-		const double SecondsPerCycle = FPlatformTime::GetSecondsPerCycle();
-		const double Frequency = double(FVulkanGPUTiming::GetTimingFrequency());
-		GGPUFrameTime = FMath::TruncToInt(double(Delta) / Frequency / SecondsPerCycle);
+	const uint64 Delta = FrameTiming->GetTiming(false);
+	#if VULKAN_USE_NEW_QUERIES
+	const double SecondsPerCycle = FPlatformTime::GetSecondsPerCycle();
+	const double Frequency = double(FVulkanGPUTiming::GetTimingFrequency());
+	GGPUFrameTime = FMath::TruncToInt(double(Delta) / Frequency / SecondsPerCycle);
+	#else
+	GGPUFrameTime = Delta ? (Delta / 1e6) / FPlatformTime::GetSecondsPerCycle() : 0;
+	#endif
 	}
 	else
+	*/
 	{
 		GGPUFrameTime = 0;
 	}
@@ -669,317 +654,148 @@ void FVulkanCommandListContext::ReadAndCalculateGPUFrameTime()
 	//	const uint64 Delta = GetCommandBufferManager()->CalculateGPUTime();
 	//	GGPUFrameTime = Delta ? (Delta / 1e6) / FPlatformTime::GetSecondsPerCycle() : 0;
 	//}
-#else
-	check(IsImmediate());
-
-	if (FrameTiming)
-	{
-		const uint64 Delta = FrameTiming->GetTiming(false);
-		GGPUFrameTime = Delta ? (Delta / 1e6) / FPlatformTime::GetSecondsPerCycle() : 0;
-	}
-	else
-	{
-		GGPUFrameTime = 0;
-	}
-
-	static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Vulkan.ProfileCmdBuffers"));
-	if (CVar->GetInt() != 0)
-	{
-		const uint64 Delta = GetCommandBufferManager()->CalculateGPUTime();
-		GGPUFrameTime = Delta ? (Delta / 1e6) / FPlatformTime::GetSecondsPerCycle() : 0;
-	}
-#endif
 }
 
 
 FRenderQueryRHIRef FVulkanDynamicRHI::RHICreateRenderQuery(ERenderQueryType QueryType)
 {
+	if (QueryType == RQT_Occlusion)
+	{
+		FVulkanRenderQuery* Query = new FVulkanOcclusionQuery();
+		return Query;
+	}
+
 	FVulkanRenderQuery* Query = new FVulkanRenderQuery(QueryType);
 	return Query;
 }
 
-bool FVulkanDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI, uint64& OutResult, bool bWait)
+bool FVulkanDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI, uint64& OutNumPixels, bool bWait)
 {
-#if VULKAN_USE_NEW_QUERIES
-	FScopeLock ScopeLock(&GQueryLock);
+	check(IsInRenderingThread());
+	FVulkanRenderQuery* BaseQuery = ResourceCast(QueryRHI);
+	if (BaseQuery->QueryType == RQT_Occlusion)
+	{
+		FVulkanOcclusionQuery* Query = static_cast<FVulkanOcclusionQuery*>(BaseQuery);
+		if (Query->State == FVulkanOcclusionQuery::EState::RT_GotResults || Query->State == FVulkanOcclusionQuery::EState::FlushedFromPoolHadResults)
+		{
+			OutNumPixels = Query->Result;
+			return true;
+		}
+
+		if (Query->State == FVulkanOcclusionQuery::EState::Undefined)
+		{
+			UE_LOG(LogVulkanRHI, Verbose, TEXT("Stale query asking for result!"));
+			return false;
+		}
+
+		ensure(Query->State == FVulkanOcclusionQuery::EState::RHI_PostEnd);
+		if (Query->Pool->TryGetResults(bWait))
+		{
+			Query->Result = Query->Pool->GetResultValue(Query->IndexInPool);
+			Query->ReleaseFromPool();
+			Query->State = FVulkanOcclusionQuery::EState::RT_GotResults;
+			OutNumPixels = Query->Result;
+			return true;
+		}
+	}
+	/*
+	FScopeLock ScopeLock(&GOcclusionQueryCS);
 	check(IsInRenderingThread());
 
-	FVulkanRenderQuery* Query = ResourceCast(QueryRHI);
 	return Query->GetResult(Device, OutResult, bWait);
-#else
-	check(IsInRenderingThread());
-
-	FVulkanRenderQuery* Query = ResourceCast(QueryRHI);
-	check(Query);
-	return Query->GetResult(Device, OutResult, bWait);
-#endif
+	*/
+	return false;
 }
 
 void FVulkanCommandListContext::RHIBeginRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 {
-#if VULKAN_USE_NEW_QUERIES
-	FScopeLock ScopeLock(&GQueryLock);
-	FVulkanRenderQuery* Query = ResourceCast(QueryRHI);
+	FVulkanRenderQuery* BaseQuery = ResourceCast(QueryRHI);
+	if (BaseQuery->QueryType == RQT_Occlusion)
+	{
+		//#todo-rco: Temp until we get the merge straightened out
+		if (!CurrentOcclusionQueryPool)
+		{
+			return;
+		}
+		check(CurrentOcclusionQueryPool);
+		FVulkanOcclusionQuery* Query = static_cast<FVulkanOcclusionQuery*>(BaseQuery);
+		if (Query->State == FVulkanOcclusionQuery::EState::RHI_PostEnd)
+		{
+			Query->ReleaseFromPool();
+		}
+		else if (Query->State == FVulkanOcclusionQuery::EState::RT_GotResults)
+		{
+			// Nothing to do here...
+		}
+		else
+		{
+			ensure(Query->State == FVulkanOcclusionQuery::EState::Undefined || Query->State == FVulkanOcclusionQuery::EState::FlushedFromPoolHadResults);
+		}
+		Query->State = FVulkanOcclusionQuery::EState::RHI_PostBegin;
+		const uint32 IndexInPool = CurrentOcclusionQueryPool->AcquireIndex(Query);
+		Query->Pool = CurrentOcclusionQueryPool;
+		Query->IndexInPool = IndexInPool;
+		FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
+		VulkanRHI::vkCmdBeginQuery(CmdBuffer->GetHandle(), CurrentOcclusionQueryPool->GetHandle(), IndexInPool, VK_QUERY_RESULT_64_BIT);
+	}
+	else if (BaseQuery->QueryType == RQT_AbsoluteTime)
+	{
+		ensureMsgf(0, TEXT("Timing queries should NOT call RHIBeginRenderQuery()!"));
+	}
+	/*
+	FScopeLock ScopeLock(&GOcclusionQueryCS);
 	if (Query->QueryType == RQT_Occlusion)
 	{
-		FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
-		const int32 QueryIndex = CurrentOcclusionQueryPool->AllocateQuery();
-		Query->Reset(CurrentOcclusionQueryPool, QueryIndex);
-		Query->Begin(CmdBuffer);
+	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
+	const int32 QueryIndex = CurrentOcclusionQueryPool->AllocateQuery();
+	Query->Reset(CurrentOcclusionQueryPool, QueryIndex);
+	Query->Begin(CmdBuffer);
 	}
 	else
 	{
-		check(0);
+	check(0);
 	}
-#else
-	FVulkanRenderQuery* Query = ResourceCast(QueryRHI);
-	if (Query->QueryType == RQT_Occlusion)
-	{
-		FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
-		AdvanceQuery(Query);
-		Query->Begin(CmdBuffer);
-	}
-	else
-	{
-		check(0);
-	}
-#endif
+	*/
 }
 
-#if VULKAN_USE_NEW_QUERIES
-#else
-void FVulkanCommandListContext::AdvanceQuery(FVulkanRenderQuery* Query)
+void FVulkanCommandListContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 {
-	//reset prev query
-	if (Query->GetActiveQueryIndex() != -1)
+	FVulkanRenderQuery* BaseQuery = ResourceCast(QueryRHI);
+	if (BaseQuery->QueryType == RQT_Occlusion)
 	{
-		FVulkanBufferedQueryPool* OcclusionPool = (FVulkanBufferedQueryPool*)Query->GetActiveQueryPool();
-		CurrentOcclusionQueryData.AddToResetList(OcclusionPool, Query->GetActiveQueryIndex());
-	}
-
-	// advance
-	Query->AdvanceQueryIndex();
-
-	// alloc if needed
-	if (Query->GetActiveQueryIndex() == -1)
-	{
-		uint32 QueryIndex = 0;
-		FVulkanBufferedQueryPool* Pool = nullptr;
-
-		{
-			FScopeLock Lock(&GQueryLock);
-
-			if (Query->QueryType == RQT_AbsoluteTime)
-			{
-				Pool = &Device->FindAvailableTimestampQueryPool();
-			}
-			else
-			{
-				Pool = &Device->FindAvailableOcclusionQueryPool();
-			}
-			ensure(Pool);
-
-			bool bResult = Pool->AcquireQuery(QueryIndex);
-			check(bResult);
-		}
-		
-		Query->SetActiveQueryIndex(QueryIndex);
-		Query->SetActiveQueryPool(Pool);
-	}
-
-	// mark at begin
-	((FVulkanBufferedQueryPool*)Query->GetActiveQueryPool())->MarkQueryAsStarted(Query->GetActiveQueryIndex());
-}
-
-void FVulkanCommandListContext::EndRenderQueryInternal(FVulkanCmdBuffer* CmdBuffer, FVulkanRenderQuery* Query)
-{
-	if (Query->QueryType == RQT_Occlusion)
-	{
-		if (Query->GetActiveQueryIndex() != -1)
-		{
-			Query->End(CmdBuffer);
-		}
-	}
-	else
-	{
-		if (Device->GetDeviceProperties().limits.timestampComputeAndGraphics == VK_FALSE)
+		//#todo-rco: Temp until we get the merge straightened out
+		if (!CurrentOcclusionQueryPool)
 		{
 			return;
 		}
 
-		AdvanceQuery(Query);
-
-		// now start it
-		Query->End(CmdBuffer);
+		FVulkanOcclusionQuery* Query = static_cast<FVulkanOcclusionQuery*>(BaseQuery);
+		ensure(Query->State == FVulkanOcclusionQuery::EState::RHI_PostBegin);
+		Query->State = FVulkanOcclusionQuery::EState::RHI_PostEnd;
+		FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
+		VulkanRHI::vkCmdEndQuery(CmdBuffer->GetHandle(), CurrentOcclusionQueryPool->GetHandle(), Query->IndexInPool);
 	}
-}
-#endif
-
-void FVulkanCommandListContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
-{
-#if VULKAN_USE_NEW_QUERIES
-	FScopeLock ScopeLock(&GQueryLock);
-	FVulkanRenderQuery* Query = ResourceCast(QueryRHI);
+	/*
+	FScopeLock ScopeLock(&GOcclusionQueryCS);
 
 	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
 	if (Query->QueryType == RQT_AbsoluteTime)
 	{
-		bool bRequiresReset = false;
-		FVulkanTimestampQueryPool* Pool = Device->PrepareTimestampQueryPool(bRequiresReset);
-		if (bRequiresReset)
-		{
-			FVulkanCmdBuffer* UploadCmdBuffer = CommandBufferManager->GetUploadCmdBuffer();
-			Pool->ResetAll(UploadCmdBuffer);
-			CommandBufferManager->SubmitUploadCmdBuffer(false);
-		}
-		const int32 QueryIndex = Pool->AllocateQuery();
-		Query->Reset(Pool, QueryIndex);
+	bool bRequiresReset = false;
+	FVulkanTimestampQueryPool* Pool = Device->PrepareTimestampQueryPool(bRequiresReset);
+	if (bRequiresReset)
+	{
+	FVulkanCmdBuffer* UploadCmdBuffer = CommandBufferManager->GetUploadCmdBuffer();
+	Pool->ResetAll(UploadCmdBuffer);
+	CommandBufferManager->SubmitUploadCmdBuffer(false);
+	}
+	const int32 QueryIndex = Pool->AllocateQuery();
+	Query->Reset(Pool, QueryIndex);
 	}
 
 	Query->End(CmdBuffer);
-#else
-	FVulkanRenderQuery* Query = ResourceCast(QueryRHI);
-	return EndRenderQueryInternal(CommandBufferManager->GetActiveCmdBuffer(), Query);
-#endif
+	*/
 }
-
-#if VULKAN_USE_NEW_QUERIES
-#else
-void FVulkanCommandListContext::RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
-{
-	ensure(IsImmediate());
-
-	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
-	ensure(CmdBuffer->IsInsideRenderPass());
-}
-
-static inline void ProcessByte(VkCommandBuffer InCmdBufferHandle, FVulkanBufferedQueryPool* Pool, uint8 Bits, int32 BaseStartIndex)
-{
-	if (Bits)
-	{
-		VkQueryPool QueryPool = Pool->GetHandle();
-		if (Bits == 0xff)
-		{
-			VulkanRHI::vkCmdResetQueryPool(InCmdBufferHandle, QueryPool, BaseStartIndex, 8);
-			Pool->ResetReadResultBits(BaseStartIndex, 8);
-		}
-		else
-		{
-			while (Bits)
-			{
-				if (Bits & 1)
-				{
-					//#todo-rco: Group these
-					VulkanRHI::vkCmdResetQueryPool(InCmdBufferHandle, QueryPool, BaseStartIndex, 1);
-					Pool->ResetReadResultBits(BaseStartIndex, 1);
-				}
-
-				Bits >>= 1;
-				++BaseStartIndex;
-			}
-		}
-	}
-}
-
-static inline void Process16Bits(VkCommandBuffer InCmdBufferHandle, FVulkanBufferedQueryPool* Pool, uint16 Bits, int32 BaseStartIndex)
-{
-	if (Bits)
-	{
-		VkQueryPool QueryPool = Pool->GetHandle();
-		if (Bits == 0xffff)
-		{
-			VulkanRHI::vkCmdResetQueryPool(InCmdBufferHandle, QueryPool, BaseStartIndex, 16);
-			Pool->ResetReadResultBits(BaseStartIndex, 16);
-		}
-		else
-		{
-			ProcessByte(InCmdBufferHandle, Pool, (uint8)((Bits >> 0) & 0xff), BaseStartIndex + 0);
-			ProcessByte(InCmdBufferHandle, Pool, (uint8)((Bits >> 8) & 0xff), BaseStartIndex + 8);
-		}
-	}
-}
-
-static inline void Process32Bits(VkCommandBuffer InCmdBufferHandle, FVulkanBufferedQueryPool* Pool, uint32 Bits, int32 BaseStartIndex)
-{
-	if (Bits)
-	{
-		VkQueryPool QueryPool = Pool->GetHandle();
-		if (Bits == 0xffffffff)
-		{
-			VulkanRHI::vkCmdResetQueryPool(InCmdBufferHandle, QueryPool, BaseStartIndex, 32);
-			Pool->ResetReadResultBits(BaseStartIndex, 32);
-		}
-		else
-		{
-			Process16Bits(InCmdBufferHandle, Pool, (uint16)((Bits >> 0) & 0xffff), BaseStartIndex + 0);
-			Process16Bits(InCmdBufferHandle, Pool, (uint16)((Bits >> 16) & 0xffff), BaseStartIndex + 16);
-		}
-	}
-}
-
-void FVulkanCommandListContext::FOcclusionQueryData::ResetQueries(FVulkanCmdBuffer* InCmdBuffer)
-{
-	ensure(InCmdBuffer->IsOutsideRenderPass());
-	const uint64 AllBitsMask = (uint64)-1;
-	VkCommandBuffer CmdBufferHandle = InCmdBuffer->GetHandle();
-
-	for (auto& Pair : ResetList)
-	{
-		TArray<uint64>& ListPerPool = Pair.Value;
-		FVulkanBufferedQueryPool* Pool = (FVulkanBufferedQueryPool*)Pair.Key;
-
-		// Initial bit Index
-		int32 WordIndex = 0;
-		while (WordIndex < ListPerPool.Num())
-		{
-			uint64 Bits = ListPerPool[WordIndex];
-			VkQueryPool PoolHandle = Pool->GetHandle();
-			if (Bits)
-			{
-				if (Bits == AllBitsMask)
-				{
-					// Quick early out
-					VulkanRHI::vkCmdResetQueryPool(CmdBufferHandle, PoolHandle, WordIndex * 64, 64);
-					Pool->ResetReadResultBits(WordIndex * 64, 64);
-				}
-				else
-				{
-					Process32Bits(CmdBufferHandle, Pool, (uint32)((Bits >> (uint64)0) & (uint64)0xffffffff), WordIndex * 64 + 0);
-					Process32Bits(CmdBufferHandle, Pool, (uint32)((Bits >> (uint64)32) & (uint64)0xffffffff), WordIndex * 64 + 32);
-				}
-			}
-			++WordIndex;
-		}
-	}
-}
-
-void FVulkanCommandListContext::RHIEndOcclusionQueryBatch()
-{
-	ensure(IsImmediate());
-
-	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
-	CurrentOcclusionQueryData.CmdBuffer = CmdBuffer;
-	CurrentOcclusionQueryData.FenceCounter = CmdBuffer->GetFenceSignaledCounter();
-
-	TransitionAndLayoutManager.EndRealRenderPass(CmdBuffer);
-
-	// Resetting queries has to happen outside a render pass
-	FVulkanCmdBuffer* UploadCmdBuffer = CommandBufferManager->GetUploadCmdBuffer();
-	{
-		SCOPE_CYCLE_COUNTER(STAT_VulkanResetQuery);
-		CurrentOcclusionQueryData.ResetQueries(UploadCmdBuffer);
-		CurrentOcclusionQueryData.ClearResetList();
-	}
-	CommandBufferManager->SubmitUploadCmdBuffer();
-
-	// Sync point
-	if (GSubmitOcclusionBatchCmdBufferCVar.GetValueOnAnyThread())
-	{
-		RequestSubmitCurrentCommands();
-		SafePointSubmit();
-	}
-}
-#endif
 
 void FVulkanCommandListContext::WriteBeginTimestamp(FVulkanCmdBuffer* CmdBuffer)
 {

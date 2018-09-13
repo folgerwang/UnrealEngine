@@ -25,7 +25,7 @@ UNetBitsTest::UNetBitsTest(const FObjectInitializer& ObjectInitializer)
 
 	// @todo #JohnBExploitCL: Bugtracking/changelist notes
 
-	ExpectedResult.Add(TEXT("ShooterGame"), EUnitTestVerification::VerifiedNotFixed);
+	ExpectedResult.Add(TEXT("ShooterGame"), EUnitTestVerification::VerifiedFixed);
 }
 
 bool UNetBitsTest::ExecuteUnitTest()
@@ -36,7 +36,7 @@ bool UNetBitsTest::ExecuteUnitTest()
 
 	uint32 ReadValue = 0;
 
-	// Invalid tests - these now trigger an assert
+	// Invalid test - this triggers an assert
 #if 0
 	// SerializeInt, Zero Value, Zero Range
 	{
@@ -47,7 +47,10 @@ bool UNetBitsTest::ExecuteUnitTest()
 
 		TestResults.Add(TEXT("Zero range write"), Writer.GetNumBits() == 0);
 	}
+#endif
 
+	// Invalid test - this triggers an assert
+#if 0
 	// ..., Zero Value, 1 range
 	{
 		FBitWriter Writer(0, true);
@@ -57,6 +60,7 @@ bool UNetBitsTest::ExecuteUnitTest()
 
 		TestResults.Add(TEXT("One range write"), Writer.GetNumBits() == 1);
 	}
+#endif
 
 	// SerializeInt, Zero Value, 2 range
 	{
@@ -92,6 +96,8 @@ bool UNetBitsTest::ExecuteUnitTest()
 		TestResults.Add(TEXT("One Value, Two range read"), !Reader.IsError() && ReadValue == WriteValue);
 	}
 
+	// Invalid test - this triggers an assert
+#if 0
 	// SerializeInt, 2 Value, 2 range (deliberate fail)
 	{
 		FBitWriter Writer(0, true);
@@ -135,7 +141,7 @@ bool UNetBitsTest::ExecuteUnitTest()
 
 		Writer.SerializeInt(WriteValue, 3);
 
-		TestResults.Add(TEXT("One Value, Three range write"), !Writer.IsError() && Writer.GetNumBits() == 2);
+		TestResults.Add(TEXT("One Value, Three range write"), !Writer.IsError() && Writer.GetNumBits() == 1);
 
 
 		FBitReader Reader(Writer.GetData(), Writer.GetNumBits());
@@ -162,6 +168,8 @@ bool UNetBitsTest::ExecuteUnitTest()
 		TestResults.Add(TEXT("Two Value, Three range read"), !Reader.IsError() && ReadValue == WriteValue);
 	}
 
+	// Invalid test - this triggers an assert
+#if 0
 	// SerializeInt, 3 Value, 3 range (deliberate fail - technically enough bits to fit though)
 	{
 		FBitWriter Writer(0, true);
@@ -178,7 +186,7 @@ bool UNetBitsTest::ExecuteUnitTest()
 
 		TestResults.Add(TEXT("Three Value, Three range read (FAILURE)"), !Reader.IsError() && ReadValue == 2);
 	}
-
+#endif
 
 	// SerializeInt, 0 Value, 4294967295U range
 	{
@@ -214,7 +222,9 @@ bool UNetBitsTest::ExecuteUnitTest()
 		TestResults.Add(TEXT("Max uint32 Value minus 1, Max uint32 range read"), !Reader.IsError() && ReadValue == WriteValue);
 	}
 
-	// SerializeInt, 4294967294U Value, 4294967295U range (edge case that fails - impossible to send 4294967295U, even though it fits)
+	// Invalid test - this triggers an assert
+#if 0
+	// SerializeInt, 4294967295U Value, 4294967295U range (edge case that fails - impossible to send 4294967295U, even though it fits)
 	{
 		FBitWriter Writer(0, true);
 		uint32 WriteValue = 4294967295U;
@@ -230,6 +240,7 @@ bool UNetBitsTest::ExecuteUnitTest()
 
 		TestResults.Add(TEXT("Max uint32 Value, Max uint32 range read (FAILURE)"), !Reader.IsError() && ReadValue == WriteValue - 1);
 	}
+#endif
 
 	// @todo #JohnB: Remove or incorporate properly - size check
 #if 0

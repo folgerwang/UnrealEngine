@@ -45,6 +45,9 @@
 /** Factor by which to grow occlusion tests **/
 #define OCCLUSION_SLOP (1.0f)
 
+/** Extern GPU stats (used in multiple modules) **/
+DECLARE_GPU_STAT_NAMED_EXTERN(ShadowProjection, TEXT("Shadow Projection"));
+
 class AWorldSettings;
 class FAtmosphericFogSceneInfo;
 class FLightPropagationVolume;

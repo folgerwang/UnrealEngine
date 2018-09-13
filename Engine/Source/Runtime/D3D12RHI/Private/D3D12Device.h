@@ -14,14 +14,8 @@ class FD3D12Device : public FD3D12SingleNodeGPUObject, public FNoncopyable, publ
 {
 public:
 	FD3D12Device();
-	FD3D12Device(FRHIGPUMask Node, FD3D12Adapter* InAdapter);
-
-	virtual ~FD3D12Device()
-	{
-		delete CommandListManager;
-		delete CopyCommandListManager;
-		delete AsyncCommandListManager;
-	}
+	FD3D12Device(FRHIGPUMask InGPUMask, FD3D12Adapter* InAdapter);
+	virtual ~FD3D12Device();
 
 	/** Intialized members*/
 	void Initialize();

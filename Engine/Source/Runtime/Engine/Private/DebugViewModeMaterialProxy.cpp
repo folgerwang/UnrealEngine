@@ -134,7 +134,7 @@ FDebugViewModeMaterialProxy::FDebugViewModeMaterialProxy(UMaterialInterface* InM
 
 		// Overwrite the shader map Id's dependencies with ones that came from the FMaterial actually being compiled (this)
 		// This is necessary as we change FMaterial attributes like GetShadingModel(), which factor into the ShouldCache functions that determine dependent shader types
-		ResourceId.SetShaderDependencies(ShaderTypes, ShaderPipelineTypes, VFTypes);
+		ResourceId.SetShaderDependencies(ShaderTypes, ShaderPipelineTypes, VFTypes, GMaxRHIShaderPlatform);
 	}
 
 	ResourceId.Usage = InUsage;

@@ -1160,9 +1160,13 @@ int32 UGenerateBlueprintAPICommandlet::Main(FString const& Params)
 		}
 	}
 
-	GenerateBlueprintAPIUtils::DumpCategoryInfo(1, FileOut);
+	if(FileOut)
+	{
+		GenerateBlueprintAPIUtils::DumpCategoryInfo(1, FileOut);
 
-	CloseFileStream(&FileOut);
+		CloseFileStream(&FileOut);
+	}
+
 	return 0;
 }
 

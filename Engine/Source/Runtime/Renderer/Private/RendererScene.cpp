@@ -297,7 +297,7 @@ FDistanceFieldSceneData::FDistanceFieldSceneData(EShaderPlatform ShaderPlatform)
 
 	bTrackAllPrimitives = (DoesPlatformSupportDistanceFieldAO(ShaderPlatform) || DoesPlatformSupportDistanceFieldShadowing(ShaderPlatform)) && CVar->GetValueOnGameThread() != 0;
 
-	bCanUse16BitObjectIndices = !IsMetalPlatform(ShaderPlatform);
+	bCanUse16BitObjectIndices = RHISupportsBufferLoadTypeConversion(ShaderPlatform);
 }
 
 FDistanceFieldSceneData::~FDistanceFieldSceneData() 

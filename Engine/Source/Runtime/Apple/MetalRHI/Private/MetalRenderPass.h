@@ -28,6 +28,8 @@ public:
 
 	void Update(mtlpp::Fence Fence);
 	
+    void BeginParallelRenderPass(mtlpp::RenderPassDescriptor RenderPass, uint32 NumParallelContextsInPass);
+
     void BeginRenderPass(mtlpp::RenderPassDescriptor RenderPass);
 
     void RestartRenderPass(mtlpp::RenderPassDescriptor RenderPass);
@@ -122,6 +124,18 @@ public:
 	 * @returns The temporary allocation buffer for the command-pass.
 	 */
 	FMetalSubBufferRing& GetRingBuffer(void);
+	
+	/*
+	 * Whether the render-pass is within a parallel rendering pass.
+	 * @returns True if and only if within a parallel rendering pass, otherwise false.
+	 */
+	bool IsWithinParallelPass(void);
+
+	/*
+	 * Get a child render command-encoder and the parent parallel command-encoder when within a parallel pass.
+	 * @returns A valid render command encoder or nil.
+	 */
+    mtlpp::RenderCommandEncoder GetParallelRenderCommandEncoder(uint32 Index, mtlpp::ParallelRenderCommandEncoder& ParallelEncoder);
 	
 private:
 #pragma mark -

@@ -94,12 +94,14 @@ private:
  */
 FSwarmInterface* FSwarmInterface::GInstance = NULL;
 
-void FSwarmInterface::Initialize(const TCHAR* SwarmInterfacePath)
+bool FSwarmInterface::Initialize(const TCHAR* SwarmInterfacePath)
 {
 	if( GInstance == NULL )
 	{
 		GInstance = new FSwarmInterfaceLocalImpl();
 	}
+
+	return true;
 }
 
 FSwarmInterface& FSwarmInterface::Get( void )

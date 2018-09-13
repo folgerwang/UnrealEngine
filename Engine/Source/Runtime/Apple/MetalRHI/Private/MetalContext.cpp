@@ -13,8 +13,6 @@
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
 
-#include "ShaderCache.h"
-
 int32 GMetalSupportsIntermediateBackBuffer = PLATFORM_MAC ? 1 : 0;
 static FAutoConsoleVariableRef CVarMetalSupportsIntermediateBackBuffer(
 	TEXT("rhi.Metal.SupportsIntermediateBackBuffer"),
@@ -44,10 +42,17 @@ static int32 GMetalCommandQueueSize = 5120; // This number is large due to textu
 #else
 static int32 GMetalCommandQueueSize = 0;
 #endif
+
 static FAutoConsoleVariableRef CVarMetalCommandQueueSize(
 	TEXT("rhi.Metal.CommandQueueSize"),
 	GMetalCommandQueueSize,
 	TEXT("The maximum number of command-buffers that can be allocated from each command-queue. (Default: 5120 Mac, 64 iOS/tvOS)"), ECVF_ReadOnly);
+
+int32 GMetalBufferZeroFill = 1; // Deliberately not static
+static FAutoConsoleVariableRef CVarMetalBufferZeroFill(
+	TEXT("rhi.Metal.BufferZeroFill"),
+	GMetalBufferZeroFill,
+	TEXT("Debug option: when enabled will fill the buffer contents with 0 when allocating buffer objects, or regions thereof. (Default: 0, Off)"));
 
 #if METAL_DEBUG_OPTIONS
 int32 GMetalBufferScribble = 0; // Deliberately not static, see InitFrame_UniformBufferPoolCleanup
@@ -55,12 +60,6 @@ static FAutoConsoleVariableRef CVarMetalBufferScribble(
 	TEXT("rhi.Metal.BufferScribble"),
 	GMetalBufferScribble,
 	TEXT("Debug option: when enabled will scribble over the buffer contents with a single value when releasing buffer objects, or regions thereof. (Default: 0, Off)"));
-
-int32 GMetalBufferZeroFill = 0; // Deliberately not static
-static FAutoConsoleVariableRef CVarMetalBufferZeroFill(
-	TEXT("rhi.Metal.BufferZeroFill"),
-	GMetalBufferZeroFill,
-	TEXT("Debug option: when enabled will fill the buffer contents with 0 when allocating buffer objects, or regions thereof. (Default: 0, Off)"));
 
 static int32 GMetalResourcePurgeOnDelete = 0;
 static FAutoConsoleVariableRef CVarMetalResourcePurgeOnDelete(
@@ -340,6 +339,7 @@ FMetalDeviceContext::FMetalDeviceContext(mtlpp::Device MetalDevice, uint32 InDev
 , SceneFrameCounter(0)
 , FrameCounter(0)
 , ActiveContexts(1)
+, ActiveParallelContexts(0)
 {
 	CommandQueue.SetRuntimeDebuggingLevel(GMetalRuntimeDebugLevel);
 	
@@ -376,7 +376,7 @@ FMetalDeviceContext::FMetalDeviceContext(mtlpp::Device MetalDevice, uint32 InDev
 	
 	METAL_GPUPROFILE(FMetalProfiler::CreateProfiler(this));
 	
-	InitFrame(true);
+	InitFrame(true, 0, 0);
 }
 
 FMetalDeviceContext::~FMetalDeviceContext()
@@ -402,6 +402,9 @@ void FMetalDeviceContext::BeginFrame()
 #if ENABLE_METAL_GPUPROFILE
 	FPlatformTLS::SetTlsValue(CurrentContextTLSSlot, this);
 #endif
+	
+	// Wait for the frame semaphore on the immediate context.
+	dispatch_semaphore_wait(CommandBufferSemaphore, DISPATCH_TIME_FOREVER);
 }
 
 #if METAL_DEBUG_OPTIONS
@@ -427,7 +430,6 @@ void FMetalDeviceContext::ScribbleBuffer(FMetalBuffer& Buffer)
 
 void FMetalDeviceContext::ClearFreeList()
 {
-	static bool bSupportsHeaps = SupportsFeature(EMetalFeaturesHeaps);
 	uint32 Index = 0;
 	while(Index < DelayedFreeLists.Num())
 	{
@@ -505,14 +507,14 @@ void FMetalDeviceContext::EndFrame()
 	
 	if (bPresented)
 	{
-		FMetalGPUProfiler::IncrementFrameIndex();
 		CaptureManager.PresentFrame(FrameCounter++);
 		bPresented = false;
 	}
 	
-	// Latched update of whether to use runtime debugging features
-	uint32 SubmitFlags = EMetalSubmitFlagsResetState;
+	// Force submission so the completion handler that signals CommandBufferSemaphore fires.
+	uint32 SubmitFlags = EMetalSubmitFlagsResetState | EMetalSubmitFlagsForce | EMetalSubmitFlagsLastCommandBuffer;
 #if METAL_DEBUG_OPTIONS
+	// Latched update of whether to use runtime debugging features
 	if (GMetalRuntimeDebugLevel != CommandQueue.GetRuntimeDebuggingLevel())
 	{
 		CommandQueue.SetRuntimeDebuggingLevel(GMetalRuntimeDebugLevel);
@@ -523,7 +525,7 @@ void FMetalDeviceContext::EndFrame()
 #endif
 	SubmitCommandsHint((uint32)SubmitFlags);
 	
-	InitFrame(true);
+	InitFrame(true, 0, 0);
 }
 
 void FMetalDeviceContext::BeginScene()
@@ -567,7 +569,6 @@ bool FMetalDeviceContext::FMetalDelayedFreeList::IsComplete() const
 
 void FMetalDeviceContext::FlushFreeList()
 {
-	static bool bSupportsHeaps = SupportsFeature(EMetalFeaturesHeaps);
 	FMetalDelayedFreeList* NewList = new FMetalDelayedFreeList;
 	
 	// Get the committed command buffer fences and clear the array in the command-queue
@@ -618,11 +619,8 @@ void FMetalDeviceContext::EndDrawingViewport(FMetalViewport* Viewport, bool bPre
 #endif
 		
 		RenderPass.End();
-		
-		mtlpp::CommandBuffer CB = GetCurrentCommandBuffer();
-		FMetalGPUProfiler::RecordFrame(CB);
-		
-		SubmitCommandsHint(EMetalSubmitFlagsCreateCommandBuffer);
+
+		SubmitCommandsHint(EMetalSubmitFlagsForce|EMetalSubmitFlagsCreateCommandBuffer);
 		
 		Viewport->Present(GetCommandQueue(), bLockToVsync);
 	}
@@ -696,7 +694,6 @@ FMetalTexture FMetalDeviceContext::CreateTexture(FMetalSurface* Surface, mtlpp::
 {
 	FMetalTexture Tex = Heap.CreateTexture(Descriptor, Surface);
 #if METAL_DEBUG_OPTIONS
-	static bool bSupportsHeaps = SupportsFeature(EMetalFeaturesHeaps);
 	if (GMetalResourcePurgeOnDelete && !Tex.GetHeap())
 	{
 		Tex.SetPurgeableState(mtlpp::PurgeableState::NonVolatile);
@@ -711,14 +708,9 @@ FMetalBuffer FMetalDeviceContext::CreatePooledBuffer(FMetalPooledBufferArgs cons
 	FMetalBuffer Buffer = Heap.CreateBuffer(Args.Size, BufferOffsetAlignment, GetCommandQueue().GetCompatibleResourceOptions((mtlpp::ResourceOptions)(BUFFER_CACHE_MODE | mtlpp::ResourceOptions::HazardTrackingModeUntracked | ((NSUInteger)Args.Storage << mtlpp::ResourceStorageModeShift))));
 	check(Buffer && Buffer.GetPtr());
 #if METAL_DEBUG_OPTIONS
-	static bool bSupportsHeaps = SupportsFeature(EMetalFeaturesHeaps);
 	if (GMetalResourcePurgeOnDelete && !Buffer.GetHeap())
 	{
 		Buffer.SetPurgeableState(mtlpp::PurgeableState::NonVolatile);
-	}
-	if (GMetalBufferZeroFill && Args.Storage != mtlpp::StorageMode::Private)
-	{
-		FMemory::Memset(Buffer.GetContents(), 0x0, Buffer.GetLength());
 	}
 #endif
 	
@@ -741,43 +733,20 @@ void FMetalDeviceContext::ReleaseBuffer(FMetalBuffer& Buffer)
 
 struct FMetalRHICommandUpdateFence final : public FRHICommand<FMetalRHICommandUpdateFence>
 {
-	enum EMode
-	{
-		Start,
-		End
-	};
-	
-	FMetalDeviceContext* Context;
 	FMetalFence Fence;
-	EMode Mode;
+	uint32 Num;
 	
-	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpdateFence(FMetalDeviceContext* DeviceContext, FMetalFence const& InFence, EMode InMode)
-	: Context(DeviceContext)
-	, Fence(InFence)
-	, Mode(InMode)
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpdateFence(FMetalFence const& InFence, uint32 InNum)
+	: Fence(InFence)
+	, Num(InNum)
 	{
 	}
 	
 	void Execute(FRHICommandListBase& CmdList)
 	{
-		check(Context);
-		if (Mode == Start)
-		{
-			if(!Context->GetCurrentCommandBuffer())
-			{
-				Context->SetParallelPassFences(Fence, nil);
-				Context->InitFrame(false);
-			}
-			else
-			{
-				Context->GetCurrentRenderPass().Wait(Fence);
-			}
-		}
-		else if (Mode == End)
-		{
-			Context->SetParallelPassFences(nil, Fence);
-			Context->FinishFrame();
-		}
+		GetMetalDeviceContext().SetParallelPassFences(nil, Fence);
+		GetMetalDeviceContext().FinishFrame();
+		GetMetalDeviceContext().BeginParallelRenderCommandEncoding(Num);
 	}
 };
 
@@ -819,23 +788,15 @@ FMetalRHICommandContext* FMetalDeviceContext::AcquireContext(int32 NewIndex, int
 	{
 		if (FRHICommandListExecutor::GetImmediateCommandList().Bypass() || !IsRunningRHIInSeparateThread())
 		{
-			FMetalRHICommandUpdateFence UpdateCommand(this, StartFence, FMetalRHICommandUpdateFence::End);
+			FMetalRHICommandUpdateFence UpdateCommand(StartFence, NewNum);
 			UpdateCommand.Execute(FRHICommandListExecutor::GetImmediateCommandList());
 		}
 		else
 		{
-			new (FRHICommandListExecutor::GetImmediateCommandList().AllocCommand<FMetalRHICommandUpdateFence>()) FMetalRHICommandUpdateFence(this, StartFence, FMetalRHICommandUpdateFence::End);
+			new (FRHICommandListExecutor::GetImmediateCommandList().AllocCommand<FMetalRHICommandUpdateFence>()) FMetalRHICommandUpdateFence(StartFence, NewNum);
+			FRHICommandListExecutor::GetImmediateCommandList().RHIThreadFence(true);
+			FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 		}
-	}
-	
-	if (FRHICommandListExecutor::GetImmediateCommandList().Bypass() || !IsRunningRHIInSeparateThread())
-	{
-		FMetalRHICommandUpdateFence UpdateCommand(this, EndFence, FMetalRHICommandUpdateFence::Start);
-		UpdateCommand.Execute(FRHICommandListExecutor::GetImmediateCommandList());
-	}
-	else
-	{
-		new (FRHICommandListExecutor::GetImmediateCommandList().AllocCommand<FMetalRHICommandUpdateFence>()) FMetalRHICommandUpdateFence(this, EndFence, FMetalRHICommandUpdateFence::Start);
 	}
 	
 	FPlatformAtomics::InterlockedIncrement(&ActiveContexts);
@@ -844,8 +805,6 @@ FMetalRHICommandContext* FMetalDeviceContext::AcquireContext(int32 NewIndex, int
 
 void FMetalDeviceContext::ReleaseContext(FMetalRHICommandContext* Context)
 {
-	check(!Context->GetInternalContext().GetCurrentCommandBuffer());
-	
 	ParallelContexts.Push(Context);
 	FPlatformAtomics::InterlockedDecrement(&ActiveContexts);
 	check(ActiveContexts >= 1);
@@ -935,6 +894,7 @@ FMetalContext::FMetalContext(mtlpp::Device InDevice, FMetalCommandQueue& Queue, 
 , QueryBuffer(new FMetalQueryBufferPool(this))
 , StartFence(nil)
 , EndFence(nil)
+, NumParallelContextsInPass(0)
 {
 	// create a semaphore for multi-buffering the command buffer
 	CommandBufferSemaphore = dispatch_semaphore_create(FParse::Param(FCommandLine::Get(),TEXT("gpulockstep")) ? 1 : 3);
@@ -998,7 +958,17 @@ void FMetalContext::SetParallelPassFences(mtlpp::Fence Start, mtlpp::Fence End)
 	EndFence = End;
 }
 
-void FMetalContext::InitFrame(bool const bImmediateContext)
+FMetalFence const& FMetalContext::GetParallelPassStartFence(void) const
+{
+	return StartFence;
+}
+
+FMetalFence const& FMetalContext::GetParallelPassEndFence(void) const
+{
+	return EndFence;
+}
+
+void FMetalContext::InitFrame(bool const bImmediateContext, uint32 Index, uint32 Num)
 {
 #if ENABLE_METAL_GPUPROFILE
 	FPlatformTLS::SetTlsValue(CurrentContextTLSSlot, this);
@@ -1006,11 +976,20 @@ void FMetalContext::InitFrame(bool const bImmediateContext)
 	
 	// Reset cached state in the encoder
 	StateCache.Reset();
-	
-	// Wait for the frame semaphore on the immediate context.
-	if (bImmediateContext)
+
+	bool bStatistics = false;
+#if METAL_STATISTICS
+	bStatistics = GetCommandQueue().GetStatistics() != nullptr;
+#endif
+
+	// Sets the index of the parallel context within the pass
+	if (!bImmediateContext && !bStatistics)
 	{
-		dispatch_semaphore_wait(CommandBufferSemaphore, DISPATCH_TIME_FOREVER);
+		CommandList.SetParallelIndex(Index, Num);
+	}
+	else
+	{
+		CommandList.SetParallelIndex(0, 0);
 	}
 	
 	// Reallocate if necessary to ensure >= 80% usage, otherwise we're just too wasteful
@@ -1038,7 +1017,7 @@ void FMetalContext::FinishFrame()
 	RenderPass.End();
 	
 	// Issue any outstanding commands.
-	SubmitCommandsHint(EMetalSubmitFlagsNone);
+	SubmitCommandsHint((CommandList.IsParallel() ? EMetalSubmitFlagsAsyncCommandBuffer : EMetalSubmitFlagsNone));
 	
 	// make sure first SetRenderTarget goes through
 	StateCache.InvalidateRenderTargets();
@@ -1085,10 +1064,7 @@ bool FMetalContext::PrepareToDraw(uint32 PrimitiveType, EMetalIndexType IndexTyp
 	
 	// Enforce calls to SetRenderTarget prior to issuing draw calls.
 #if PLATFORM_MAC
-	if(!FShaderCache::IsPredrawCall(StateCache.GetShaderCacheStateObject()))
-	{
-		check(StateCache.GetHasValidRenderTarget());
-	}
+	check(StateCache.GetHasValidRenderTarget());
 #else
 	if (!StateCache.GetHasValidRenderTarget())
 	{
@@ -1141,8 +1117,8 @@ bool FMetalContext::PrepareToDraw(uint32 PrimitiveType, EMetalIndexType IndexTyp
 	// @todo Improve the way we handle binding a dummy depth/stencil so we can get pure UAV raster operations...
 	bool const bNeedsDepthStencilForUAVRaster = (StateCache.GetRenderTargetsInfo().NumColorRenderTargets == 0 && StateCache.GetRenderTargetsInfo().NumUAVs > 0);
 	
-	bool const bBindDepthStencilForWrite = bNeedsDepthStencilWrite && !StateCache.HasValidDepthStencilSurface() && !FShaderCache::IsPredrawCall(StateCache.GetShaderCacheStateObject());
-	bool const bBindDepthStencilForUAVRaster = bNeedsDepthStencilForUAVRaster && !StateCache.HasValidDepthStencilSurface() && !FShaderCache::IsPredrawCall(StateCache.GetShaderCacheStateObject());
+	bool const bBindDepthStencilForWrite = bNeedsDepthStencilWrite && !StateCache.HasValidDepthStencilSurface();
+	bool const bBindDepthStencilForUAVRaster = bNeedsDepthStencilForUAVRaster && !StateCache.HasValidDepthStencilSurface();
 	
 	if (bBindDepthStencilForWrite || bBindDepthStencilForUAVRaster)
 	{
@@ -1207,11 +1183,7 @@ bool FMetalContext::PrepareToDraw(uint32 PrimitiveType, EMetalIndexType IndexTyp
 			StateCache.SetScissorRect(false, Rect);
 		}
 		
-		// Enforce calls to SetRenderTarget prior to issuing draw calls.
-		if(!FShaderCache::IsPredrawCall(StateCache.GetShaderCacheStateObject()))
-		{
-			check(StateCache.GetHasValidRenderTarget());
-		}
+		check(StateCache.GetHasValidRenderTarget());
 	}
 	else if (!bNeedsDepthStencilWrite && !bNeedsDepthStencilForUAVRaster && StateCache.GetFallbackDepthStencilBound())
 	{
@@ -1225,11 +1197,7 @@ bool FMetalContext::PrepareToDraw(uint32 PrimitiveType, EMetalIndexType IndexTyp
 		
 		RenderPass.BeginRenderPass(StateCache.GetRenderPassDescriptor());
 		
-		// Enforce calls to SetRenderTarget prior to issuing draw calls.
-		if(!FShaderCache::IsPredrawCall(StateCache.GetShaderCacheStateObject()))
-		{
-			check(StateCache.GetHasValidRenderTarget());
-		}
+		check(StateCache.GetHasValidRenderTarget());
 	}
 	
 	// make sure the BSS has a valid pipeline state object
@@ -1240,8 +1208,13 @@ bool FMetalContext::PrepareToDraw(uint32 PrimitiveType, EMetalIndexType IndexTyp
 
 void FMetalContext::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderTargetsInfo, bool const bRestart)
 {
+	if (CommandList.IsParallel())
+	{
+		GetMetalDeviceContext().SetParallelRenderPassDescriptor(RenderTargetsInfo);
+	}
+
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	if (!CommandList.IsImmediate())
+	if (!CommandList.IsParallel() && !CommandList.IsImmediate())
 	{
 		bool bClearInParallelBuffer = false;
 		
@@ -1321,7 +1294,15 @@ void FMetalContext::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderT
 	if (bSet && StateCache.GetHasValidRenderTarget())
 	{
 		RenderPass.EndRenderPass();
-		RenderPass.BeginRenderPass(StateCache.GetRenderPassDescriptor());
+
+		if (NumParallelContextsInPass == 0)
+		{
+			RenderPass.BeginRenderPass(StateCache.GetRenderPassDescriptor());
+		}
+		else
+		{
+			RenderPass.BeginParallelRenderPass(StateCache.GetRenderPassDescriptor(), NumParallelContextsInPass);
+		}
 	}
 }
 
@@ -1339,11 +1320,6 @@ void FMetalContext::DrawPrimitive(uint32 PrimitiveType, uint32 BaseVertexIndex, 
 	}
 	
 	RenderPass.DrawPrimitive(PrimitiveType, BaseVertexIndex, NumPrimitives, NumInstances);
-	
-	if(!FShaderCache::IsPredrawCall(StateCache.GetShaderCacheStateObject()))
-	{
-		FShaderCache::LogDraw(StateCache.GetShaderCacheStateObject(), PrimitiveType, 0);
-	}
 }
 
 void FMetalContext::DrawPrimitiveIndirect(uint32 PrimitiveType, FMetalVertexBuffer* VertexBuffer, uint32 ArgumentOffset)
@@ -1355,11 +1331,6 @@ void FMetalContext::DrawPrimitiveIndirect(uint32 PrimitiveType, FMetalVertexBuff
 	}
 	
 	RenderPass.DrawPrimitiveIndirect(PrimitiveType, VertexBuffer, ArgumentOffset);
-	
-	if(!FShaderCache::IsPredrawCall(StateCache.GetShaderCacheStateObject()))
-	{
-		FShaderCache::LogDraw(StateCache.GetShaderCacheStateObject(), PrimitiveType, 0);
-	}
 }
 
 void FMetalContext::DrawIndexedPrimitive(FMetalBuffer const& IndexBuffer, uint32 IndexStride, mtlpp::IndexType IndexType, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance, uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
@@ -1371,11 +1342,6 @@ void FMetalContext::DrawIndexedPrimitive(FMetalBuffer const& IndexBuffer, uint32
 	}
 	
 	RenderPass.DrawIndexedPrimitive(IndexBuffer, IndexStride, PrimitiveType, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
-	
-	if(!FShaderCache::IsPredrawCall(StateCache.GetShaderCacheStateObject()))
-	{
-		FShaderCache::LogDraw(StateCache.GetShaderCacheStateObject(), PrimitiveType, IndexStride);
-	}
 }
 
 void FMetalContext::DrawIndexedIndirect(FMetalIndexBuffer* IndexBuffer, uint32 PrimitiveType, FMetalStructuredBuffer* VertexBuffer, int32 DrawArgumentsIndex, uint32 NumInstances)
@@ -1387,11 +1353,6 @@ void FMetalContext::DrawIndexedIndirect(FMetalIndexBuffer* IndexBuffer, uint32 P
 	}
 	
 	RenderPass.DrawIndexedIndirect(IndexBuffer, PrimitiveType, VertexBuffer, DrawArgumentsIndex, NumInstances);
-	
-	if(!FShaderCache::IsPredrawCall(StateCache.GetShaderCacheStateObject()))
-	{
-		FShaderCache::LogDraw(StateCache.GetShaderCacheStateObject(), PrimitiveType, IndexBuffer->GetStride());
-	}
 }
 
 void FMetalContext::DrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FMetalIndexBuffer* IndexBuffer,FMetalVertexBuffer* VertexBuffer, uint32 ArgumentOffset)
@@ -1403,11 +1364,6 @@ void FMetalContext::DrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FMetalInde
 	}
 	
 	RenderPass.DrawIndexedPrimitiveIndirect(PrimitiveType, IndexBuffer, VertexBuffer, ArgumentOffset);
-	
-	if(!FShaderCache::IsPredrawCall(StateCache.GetShaderCacheStateObject()))
-	{
-		FShaderCache::LogDraw(StateCache.GetShaderCacheStateObject(), PrimitiveType, IndexBuffer->GetStride());
-	}
 }
 
 void FMetalContext::CopyFromTextureToBuffer(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalBuffer const& toBuffer, uint32 destinationOffset, uint32 destinationBytesPerRow, uint32 destinationBytesPerImage, mtlpp::BlitOption options)
@@ -1527,6 +1483,48 @@ void FMetalContext::EndTiming(class FMetalEventNode* EventNode)
 	}
 }
 
+void FMetalDeviceContext::BeginParallelRenderCommandEncoding(uint32 Num)
+{
+	FScopeLock Lock(&FreeListMutex);
+	FPlatformAtomics::AtomicStore(&ActiveParallelContexts, (int32)Num);
+	FPlatformAtomics::AtomicStore(&NumParallelContextsInPass, (int32)Num);
+}
+
+void FMetalDeviceContext::SetParallelRenderPassDescriptor(FRHISetRenderTargetsInfo const& TargetInfo)
+{
+	FScopeLock Lock(&FreeListMutex);
+
+	if (!RenderPass.IsWithinParallelPass())
+	{
+		RenderPass.Begin(EndFence);
+		EndFence.Reset();
+		StateCache.InvalidateRenderTargets();
+		SetRenderTargetsInfo(TargetInfo, false);
+	}
+}
+
+mtlpp::RenderCommandEncoder FMetalDeviceContext::GetParallelRenderCommandEncoder(uint32 Index, mtlpp::ParallelRenderCommandEncoder& ParallelEncoder, mtlpp::CommandBuffer& CommandBuffer)
+{
+	FScopeLock Lock(&FreeListMutex);
+	
+	check(RenderPass.IsWithinParallelPass());
+	CommandBuffer = GetCurrentCommandBuffer();
+	return RenderPass.GetParallelRenderCommandEncoder(Index, ParallelEncoder);
+}
+
+void FMetalDeviceContext::EndParallelRenderCommandEncoding(void)
+{
+	FScopeLock Lock(&FreeListMutex);
+
+	if (FPlatformAtomics::InterlockedDecrement(&ActiveParallelContexts) == 0)
+	{
+		RenderPass.EndRenderPass();
+		RenderPass.Begin(StartFence);
+		StartFence.Reset();
+		FPlatformAtomics::AtomicStore(&NumParallelContextsInPass, 0);
+	}
+}
+
 #if METAL_SUPPORTS_PARALLEL_RHI_EXECUTE
 
 class FMetalCommandContextContainer : public IRHICommandContextContainer
@@ -1550,30 +1548,37 @@ public:
 		check(CmdContext);
 	}
 	
-	virtual ~FMetalCommandContextContainer() override
+	virtual ~FMetalCommandContextContainer() override final
 	{
 		check(!CmdContext);
 	}
 	
-	virtual IRHICommandContext* GetContext() override
+	virtual IRHICommandContext* GetContext() override final
 	{
 		check(CmdContext);
-		CmdContext->GetInternalContext().InitFrame(false);
+		CmdContext->GetInternalContext().InitFrame(false, Index, Num);
 		return CmdContext;
 	}
-	virtual void FinishContext() override
+	
+	virtual void FinishContext() override final
 	{
-		if (CmdContext)
-		{
-			CmdContext->GetInternalContext().FinishFrame();
-		}
 	}
-	virtual void SubmitAndFreeContextContainer(int32 NewIndex, int32 NewNum) override
+
+	virtual void SubmitAndFreeContextContainer(int32 NewIndex, int32 NewNum) override final
 	{
 		if (CmdContext)
 		{
 			check(Index == NewIndex && Num == NewNum);
-			check(CmdContext->GetInternalContext().GetCurrentCommandBuffer().GetPtr() == nil);
+			
+			if (Index == (Num - 1))
+			{
+				mtlpp::Fence Fence = CmdContext->GetInternalContext().GetParallelPassEndFence();
+				GetMetalDeviceContext().SetParallelPassFences(Fence, nil);
+			}
+
+			CmdContext->GetInternalContext().FinishFrame();
+			GetMetalDeviceContext().EndParallelRenderCommandEncoding();
+
 			CmdContext->GetInternalContext().GetCommandList().Submit(Index, Num);
 			
 			GetMetalDeviceContext().ReleaseContext(CmdContext);

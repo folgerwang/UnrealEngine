@@ -51,6 +51,14 @@ bool FTimespan::Serialize(FArchive& Ar)
 }
 
 
+bool FTimespan::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+{
+	Ar << *this;
+	bOutSuccess = true;
+	return true;
+}
+
+
 FString FTimespan::ToString() const
 {
 	if (GetDays() == 0)

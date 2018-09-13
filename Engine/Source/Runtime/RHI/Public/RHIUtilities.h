@@ -803,14 +803,22 @@ inline uint32 GetVertexCountForPrimitiveCount(uint32 NumPrimitives, uint32 Primi
  * @param VertexData A reference to memory preallocate in RHIBeginDrawPrimitiveUP
  * @param VertexDataStride Size of each vertex
  */
+DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 inline void DrawPrimitiveUP(FRHICommandList& RHICmdList, uint32 PrimitiveType, uint32 NumPrimitives, const void* VertexData, uint32 VertexDataStride)
 {
-	void* Buffer = NULL;
 	check(NumPrimitives > 0);
 	const uint32 VertexCount = GetVertexCountForPrimitiveCount( NumPrimitives, PrimitiveType );
-	RHICmdList.BeginDrawPrimitiveUP(PrimitiveType, NumPrimitives, VertexCount, VertexDataStride, Buffer);
-	FMemory::Memcpy( Buffer, VertexData, VertexCount * VertexDataStride );
-	RHICmdList.EndDrawPrimitiveUP();
+
+	FRHIResourceCreateInfo CreateInfo;
+	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(VertexDataStride * VertexCount, BUF_Volatile, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, VertexDataStride * VertexCount, RLM_WriteOnly);
+	FPlatformMemory::Memcpy(VoidPtr, VertexData, VertexDataStride * VertexCount);
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+
+	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+	RHICmdList.DrawPrimitive(PrimitiveType, 0, NumPrimitives, 1);
+
+	VertexBufferRHI.SafeRelease();
 }
 
 /**
@@ -824,6 +832,7 @@ inline void DrawPrimitiveUP(FRHICommandList& RHICmdList, uint32 PrimitiveType, u
  * @param VertexData The memory preallocate in RHIBeginDrawIndexedPrimitiveUP
  * @param VertexDataStride The size of one vertex
  */
+DEPRECATED(4.21, "This function is deprecated and will be removed in future releases.")
 inline void DrawIndexedPrimitiveUP(
 	FRHICommandList& RHICmdList,
 	uint32 PrimitiveType,
@@ -835,22 +844,24 @@ inline void DrawIndexedPrimitiveUP(
 	const void* VertexData,
 	uint32 VertexDataStride )
 {
-	void* VertexBuffer = NULL;
-	void* IndexBuffer = NULL;
 	const uint32 NumIndices = GetVertexCountForPrimitiveCount( NumPrimitives, PrimitiveType );
-	RHICmdList.BeginDrawIndexedPrimitiveUP(
-		PrimitiveType,
-		NumPrimitives,
-		NumVertices,
-		VertexDataStride,
-		VertexBuffer,
-		MinVertexIndex,
-		NumIndices,
-		IndexDataStride,
-		IndexBuffer );
-	FMemory::Memcpy( VertexBuffer, VertexData, NumVertices * VertexDataStride );
-	FMemory::Memcpy( IndexBuffer, IndexData, NumIndices * IndexDataStride );
-	RHICmdList.EndDrawIndexedPrimitiveUP();
+
+	FRHIResourceCreateInfo CreateInfo;
+	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(VertexDataStride * NumVertices, BUF_Volatile, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, VertexDataStride * NumVertices, RLM_WriteOnly);
+	FPlatformMemory::Memcpy(VoidPtr, VertexData, VertexDataStride * NumVertices);
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+
+	FIndexBufferRHIRef IndexBufferRHI = RHICreateIndexBuffer(IndexDataStride, IndexDataStride * NumIndices, BUF_Volatile, CreateInfo);
+	void* VoidPtr2 = RHILockIndexBuffer(IndexBufferRHI, 0, IndexDataStride * NumIndices, RLM_WriteOnly);
+	FPlatformMemory::Memcpy(VoidPtr2, IndexData, IndexDataStride * NumIndices);
+	RHIUnlockIndexBuffer(IndexBufferRHI);
+
+	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+	RHICmdList.DrawIndexedPrimitive(IndexBufferRHI, PrimitiveType, MinVertexIndex, 0, NumVertices, 0, NumPrimitives, 1);
+
+	IndexBufferRHI.SafeRelease();
+	VertexBufferRHI.SafeRelease();
 }
 
 inline uint32 ComputeAnisotropyRT(int32 InitializerMaxAnisotropy)
@@ -1009,32 +1020,3 @@ struct FRHILockTracker
 };
 
 extern RHI_API FRHILockTracker GRHILockTracker;
-
-
-
-
-/* Generic implementation of functions for readback and update requests
-* Both of these will need RHI specific implementations, of course
-*/
-
-
-/* Generic implementation of functions for readback and update requests
-* Both of these will need RHI specific implementations, of course
-*/
-/*
-FRHIGPUMemoryReadback *RHIScheduleGPUMemoryReadback(FRHICommandList& CmdList, FVertexBufferRHIRef GPUBuffer, FName RequestName)
-{
-	FRHIStagingBuffer *StagingBuffer = RHICreateStagingBuffer();// new FRHIStagingBuffer();
-	FRHIGPUMemoryReadback *Readback = new FRHIGPUMemoryReadback(StagingBuffer, GPUBuffer, RequestName);
-
-	return Readback;
-}
-
-FRHIGPUMemoryUpdate *RHIScheduleGPUMemoryUpdate(FRHICommandList& CmdList, FVertexBufferRHIRef GPUBuffer, FName RequestName)
-{
-	FRHIStagingBuffer *StagingBuffer = RHICreateStagingBuffer();// new FRHIStagingBuffer();
-	FRHIGPUMemoryUpdate *Update = new FRHIGPUMemoryUpdate(StagingBuffer, GPUBuffer, RequestName);
-
-	return Update;
-}
-*/

@@ -353,6 +353,9 @@ namespace mtlpp
 #else
         class RenderCommandEncoder Encoder = [(id<MTLCommandBuffer>)m_ptr renderCommandEncoderWithDescriptor:mtlRenderPassDescriptor];
 #endif
+#if MTLPP_CONFIG_VALIDATE
+		Encoder.SetCommandBufferFence(GetCompletionFence());
+#endif
 		return Encoder;
     }
 
@@ -378,6 +381,9 @@ namespace mtlpp
 		class ParallelRenderCommandEncoder Encoder = mtlpp::ParallelRenderCommandEncoder(m_table->ParallelRenderCommandEncoderWithDescriptor(m_ptr, mtlRenderPassDescriptor), m_table->TableCache);
 #else
         class ParallelRenderCommandEncoder Encoder = [(id<MTLCommandBuffer>)m_ptr parallelRenderCommandEncoderWithDescriptor:mtlRenderPassDescriptor];
+#endif
+#if MTLPP_CONFIG_VALIDATE
+		Encoder.SetCommandBufferFence(GetCompletionFence());
 #endif
 		return Encoder;
     }

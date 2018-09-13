@@ -74,11 +74,13 @@ namespace mtlpp
         bool                       GetThreadGroupSizeIsMultipleOfThreadExecutionWidth() const;
         ns::AutoReleased<StageInputOutputDescriptor> GetStageInputDescriptor() const MTLPP_AVAILABLE(10_12, 10_0);
 		ns::AutoReleased<ns::Array<PipelineBufferDescriptor>> GetBuffers() const MTLPP_AVAILABLE(10_13, 11_0);
+		NSUInteger GetMaxTotalThreadsPerThreadgroup() const MTLPP_AVAILABLE(10_14, 12_0);
 
         void SetLabel(const ns::String& label);
         void SetComputeFunction(const Function& function);
         void SetThreadGroupSizeIsMultipleOfThreadExecutionWidth(bool value);
         void SetStageInputDescriptor(const StageInputOutputDescriptor& stageInputDescriptor) const MTLPP_AVAILABLE(10_12, 10_0);
+		void SetMaxTotalThreadsPerThreadgroup(NSUInteger ThreadCount) MTLPP_AVAILABLE(10_14, 12_0);
 
         void Reset();
     }

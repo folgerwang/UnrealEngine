@@ -22,24 +22,6 @@ const TSharedPtr< FTokenizedMessage >  FMessageLogListingModel::GetMessageAtInde
 	return FoundMessage;
 }
 
-const TSharedPtr< FTokenizedMessage > FMessageLogListingModel::GetMessageFromData( const FTokenizedMiscData& MessageData ) const
-{
-	// Go through all the messages looking for a data match
-	for(uint32 PageIndex = 0; PageIndex < NumPages(); PageIndex++)
-	{
-		for( MessageContainer::TConstIterator It( GetMessageIterator(PageIndex) ); It; ++It )
-		{
-			const TSharedPtr< FTokenizedMessage > Message = *It;
-
-			if( Message->GetMessageData() == &MessageData )
-			{
-				return Message;
-			}
-		}
-	}
-	return nullptr;
-}
-
 FText FMessageLogListingModel::GetAllMessagesAsText( const uint32 PageIndex ) const
 {
 	FText CompiledText;

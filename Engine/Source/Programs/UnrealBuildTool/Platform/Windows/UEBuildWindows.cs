@@ -1407,7 +1407,7 @@ namespace UnrealBuildTool
 
 			CompileEnvironment.Definitions.Add("DEPTH_32_BIT_CONVERSION=0");
 
-			FileReference MorpheusShaderPath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Shaders", "Private", "PS4", "PostProcessHMDMorpheus.usf");
+			FileReference MorpheusShaderPath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Shaders", "Private", "Platform", "PS4", "PostProcessHMDMorpheus.usf");
 			if (FileReference.Exists(MorpheusShaderPath))
 			{
 				CompileEnvironment.Definitions.Add("HAS_MORPHEUS=1");

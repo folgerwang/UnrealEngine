@@ -136,9 +136,9 @@ FVertexFactoryType::~FVertexFactoryType()
 }
 
 /** Calculates a Hash based on this vertex factory type's source code and includes */
-const FSHAHash& FVertexFactoryType::GetSourceHash() const
+const FSHAHash& FVertexFactoryType::GetSourceHash(EShaderPlatform ShaderPlatform) const
 {
-	return GetShaderFileHash(GetShaderFilename());
+	return GetShaderFileHash(GetShaderFilename(), ShaderPlatform);
 }
 
 FArchive& operator<<(FArchive& Ar,FVertexFactoryType*& TypeRef)
@@ -316,13 +316,14 @@ void FVertexFactory::InitPositionDeclaration(const FVertexDeclarationElementList
 	PositionDeclaration = RHICreateVertexDeclaration(Elements);
 }
 
-FVertexFactoryParameterRef::FVertexFactoryParameterRef(FVertexFactoryType* InVertexFactoryType,const FShaderParameterMap& ParameterMap, EShaderFrequency InShaderFrequency)
+FVertexFactoryParameterRef::FVertexFactoryParameterRef(FVertexFactoryType* InVertexFactoryType,const FShaderParameterMap& ParameterMap, EShaderFrequency InShaderFrequency, EShaderPlatform InShaderPlatform)
 : Parameters(NULL)
 , VertexFactoryType(InVertexFactoryType)
 , ShaderFrequency(InShaderFrequency)
+, ShaderPlatform(InShaderPlatform)
 {
 	Parameters = VertexFactoryType->CreateShaderParameters(InShaderFrequency);
-	VFHash = GetShaderFileHash(VertexFactoryType->GetShaderFilename());
+	VFHash = GetShaderFileHash(VertexFactoryType->GetShaderFilename(), InShaderPlatform);
 
 	if(Parameters)
 	{
@@ -341,6 +342,13 @@ bool operator<<(FArchive& Ar,FVertexFactoryParameterRef& Ref)
 	if(Ar.IsLoading())
 	{
 		Ref.ShaderFrequency = (EShaderFrequency)ShaderFrequencyByte;
+	}
+
+	uint8 ShaderPlatformByte = Ref.ShaderPlatform;
+	Ar << ShaderPlatformByte;
+	if (Ar.IsLoading())
+	{
+		Ref.ShaderPlatform = (EShaderPlatform)ShaderPlatformByte;
 	}
 
 	Ar << FShaderResource::FilterShaderSourceHashForSerialization(Ar, Ref.VFHash);
@@ -393,4 +401,10 @@ bool operator<<(FArchive& Ar,FVertexFactoryParameterRef& Ref)
 const FSHAHash& FVertexFactoryParameterRef::GetHash() const 
 { 
 	return VFHash;
+}
+
+/** Returns the shader platform that this shader was compiled with. */
+EShaderPlatform FVertexFactoryParameterRef::GetShaderPlatform() const
+{
+	return ShaderPlatform;
 }

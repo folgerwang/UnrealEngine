@@ -226,14 +226,14 @@ void FD3D12PipelineStateCache::RebuildFromDiskCache(ID3D12RootSignature* Graphic
 			{
 				// Add PSO to low level cache.
 				FD3D12PipelineState* PipelineState = nullptr;
-				AddToLowLevelCache(*Desc, &PipelineState, [&](FD3D12PipelineState* PipelineState, const FD3D12LowLevelGraphicsPipelineStateDesc& Desc)
+				AddToLowLevelCache(*Desc, &PipelineState, [this](FD3D12PipelineState** PipelineState, const FD3D12LowLevelGraphicsPipelineStateDesc& Desc)
 				{
 					// Actually create the PSO.
 					const GraphicsPipelineCreationArgs Args(&Desc, PipelineLibrary.GetReference());
-					PipelineState->CreateAsync(Args);
+					(*PipelineState)->CreateAsync(Args);
 
 					// Sanity check that we won't add this back to the disk cache again.
-					check(!PipelineState->ShouldAddToDiskCache())
+					check(!(*PipelineState)->ShouldAddToDiskCache())
 				});
 			}
 		}
@@ -729,7 +729,12 @@ ID3D12PipelineState* CreatePipelineState(ID3D12Device* Device, const TDesc* Desc
 	else
 	{
 		SCOPE_CYCLE_COUNTER(STAT_PSOCreateTime);
-		VERIFYD3D12RESULT((Device->*TPSOFunctionMap<TDesc>::GetCreatePipelineState())(Desc, IID_PPV_ARGS(&PSO)));
+		HRESULT r = (Device->*TPSOFunctionMap<TDesc>::GetCreatePipelineState())(Desc, IID_PPV_ARGS(&PSO));
+		if (FAILED(r))
+		{
+			UE_LOG(LogD3D12RHI, Error, TEXT("Failed to create PipelineState %s with hash %s"), *TPSOFunctionMap<TDesc>::GetString(), Name);
+			return nullptr;
+		}
 	}
 
 	check(PSO);
@@ -780,7 +785,13 @@ ID3D12PipelineState* CreatePipelineStateFromStream(ID3D12Device2* Device, const 
 	else
 	{
 		SCOPE_CYCLE_COUNTER(STAT_PSOCreateTime);
-		VERIFYD3D12RESULT(Device->CreatePipelineState(Desc, IID_PPV_ARGS(&PSO)));
+		HRESULT r = Device->CreatePipelineState(Desc, IID_PPV_ARGS(&PSO));
+
+		if (FAILED(r))
+		{
+			UE_LOG(LogD3D12RHI, Error, TEXT("Failed to create PipelineState"));
+			return nullptr;
+		}
 	}
 
 	check(PSO);

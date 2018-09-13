@@ -140,6 +140,7 @@ FSlateEditableTextLayout::FSlateEditableTextLayout(ISlateEditableTextWidget& InO
 	bHasDragSelectedSinceFocused = false;
 	bTextChangedByVirtualKeyboard = false;
 	bTextCommittedByVirtualKeyboard = false;
+	bSelectionChangedExternally = false;
 	VirtualKeyboardTextCommitType = ETextCommit::Default;
 
 	CachedSize = FVector2D::ZeroVector;
@@ -3178,6 +3179,22 @@ void FSlateEditableTextLayout::Tick(const FGeometry& AllottedGeometry, const dou
 		Refresh();
 	}
 
+	if (bSelectionChangedExternally)
+	{
+		bSelectionChangedExternally = false;
+		if (TextInputMethodContext.IsValid())
+		{
+			if (ExternalSelectionStart <= ExternalSelectionEnd)
+			{
+				TextInputMethodContext->SetSelectionRange(ExternalSelectionStart, ExternalSelectionEnd - ExternalSelectionStart, ITextInputMethodContext::ECaretPosition::Beginning);
+			}
+			else
+			{
+				TextInputMethodContext->SetSelectionRange(ExternalSelectionEnd, ExternalSelectionStart - ExternalSelectionEnd, ITextInputMethodContext::ECaretPosition::Ending);
+			}
+		}
+	}
+
 	// Update the search before we process the next PositionToScrollIntoView
 	{
 		const FText& SearchTextToSet = BoundSearchText.Get(FText::GetEmpty());
@@ -3492,6 +3509,17 @@ void FSlateEditableTextLayout::FVirtualKeyboardEntry::SetTextFromVirtualKeyboard
 			OwnerLayout->bTextCommittedByVirtualKeyboard = true;
 		}
 	}
+}
+
+void FSlateEditableTextLayout::FVirtualKeyboardEntry::SetSelectionFromVirtualKeyboard(int InSelStart, int InSelEnd)
+{
+	// Update the text selection and the cursor position
+	// This method is called externally (eg. on Android from the native virtual keyboard implementation) 
+	// The text may also change on the same frame, so the external selection must happen in Tick after the text update
+
+	OwnerLayout->bSelectionChangedExternally = true;
+	OwnerLayout->ExternalSelectionStart = InSelStart;
+	OwnerLayout->ExternalSelectionEnd = InSelEnd;
 }
 
 FText FSlateEditableTextLayout::FVirtualKeyboardEntry::GetText() const

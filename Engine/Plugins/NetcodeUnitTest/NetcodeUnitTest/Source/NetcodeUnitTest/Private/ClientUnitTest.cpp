@@ -16,6 +16,7 @@
 #include "NUTActor.h"
 #include "Net/UnitTestChannel.h"
 #include "UnitTestEnvironment.h"
+#include "NUTGlobals.h"
 #include "NUTUtilDebug.h"
 #include "NUTUtilReflection.h"
 
@@ -969,6 +970,12 @@ bool UClientUnitTest::ExecuteUnitTest()
 				}
 			}
 		}
+		// Immediately execute
+		else
+		{
+			ResetTimeout(TEXT("ExecuteClientUnitTest (ExecuteUnitTest - No server)"));
+			ExecuteClientUnitTest();
+		}
 	}
 	else
 	{
@@ -981,16 +988,39 @@ bool UClientUnitTest::ExecuteUnitTest()
 	return bSuccess;
 }
 
-void UClientUnitTest::CleanupUnitTest()
+void UClientUnitTest::CleanupUnitTest(EUnitTestResetStage ResetStage)
 {
-	if (MinClient != nullptr)
+	if (ResetStage <= EUnitTestResetStage::ResetConnection)
 	{
-		FProcessEventHook::Get().RemoveEventHook(MinClient->GetUnitWorld());
+		if (MinClient != nullptr)
+		{
+			FProcessEventHook::Get().RemoveEventHook(MinClient->GetUnitWorld());
+		}
+
+		CleanupMinimalClient();
 	}
 
-	CleanupMinimalClient();
+	if (ResetStage != EUnitTestResetStage::None)
+	{
+		if (ResetStage <= EUnitTestResetStage::FullReset)
+		{
+			ServerHandle.Reset();
+			ServerAddress = TEXT("");
+			BeaconAddress = TEXT("");
+			ClientHandle.Reset();
+			bBlockingServerDelay = false;
+			bBlockingClientDelay = false;
+			bTriggerredInitialConnect = false;
+		}
 
-	Super::CleanupUnitTest();
+		if (ResetStage <= EUnitTestResetStage::ResetConnection)
+		{
+			bBlockingMinClientDelay = false;
+			NextBlockingTimeout = 0.0;
+		}
+	}
+
+	Super::CleanupUnitTest(ResetStage);
 }
 
 bool UClientUnitTest::ConnectMinimalClient(const TCHAR* InNetID/*=nullptr*/)
@@ -1199,8 +1229,7 @@ FString UClientUnitTest::ConstructServerParameters()
 	// NOTE: Without '?bIsLanMatch', the Steam net driver will be active, when OnlineSubsystemSteam is in use
 	FString Parameters = FPaths::GetProjectFilePath() + TEXT(" ") + BaseServerURL + TEXT("?bIsLanMatch") + TEXT(" -server ") +
 							BaseServerParameters + ServerLogParam +
-							TEXT(" -forcelogflush -stdout -FullStdOutLogOutput -ddc=noshared") +
-							TEXT(" -unattended -CrashForUAT -UseAutoReporter -NUTServer")
+							TEXT(" -stdout -FullStdOutLogOutput -ddc=noshared -unattended -CrashForUAT -UseAutoReporter -NUTServer");
 		
 							// @todo #JohnB: Remove eventually, or wrap with CL #if's, based on when FullStdOutLogOutput was added
 							//TEXT(" -AllowStdOutLogVerbosity")
@@ -1208,6 +1237,12 @@ FString UClientUnitTest::ConstructServerParameters()
 
 							// Removed this, to support detection of shader compilation, based on shader compiler .exe
 							//TEXT(" -NoShaderWorker");
+
+	// Only append -ForceLogFlush, if it's present on this processes commandline
+	if (FParse::Param(FCommandLine::Get(), TEXT("ForceLogFlush")))
+	{
+		Parameters += TEXT(" -ForceLogFlush");
+	}
 
 	return Parameters;
 }
@@ -1219,7 +1254,7 @@ void UClientUnitTest::GetNextServerPorts(int32& OutServerPort, int32& OutBeaconP
 	GConfig->GetInt(TEXT("URL"), TEXT("Port"), DefaultPort, GEngineIni);
 
 	// Increment the server port used by 10, for every unit test
-	static int32 ServerPortOffset = 0;
+	int32& ServerPortOffset = UNUTGlobals::Get().ServerPortOffset;
 	int32 CurPortOffset = ServerPortOffset + 10;
 
 	if (bAdvance)
@@ -1278,11 +1313,17 @@ FString UClientUnitTest::ConstructClientParameters(FString ConnectIP)
 	// NOTE: Without '-CrashForUAT'/'-unattended' the auto-reporter can pop up
 	// NOTE: Without '-UseAutoReporter' the crash report executable is launched
 	FString Parameters = FPaths::GetProjectFilePath() + TEXT(" ") + ConnectIP + BaseClientURL + TEXT(" -game ") + BaseClientParameters +
-							ClientLogParam + TEXT(" -forcelogflush -stdout -AllowStdOutLogVerbosity -ddc=noshared -nosplash") +
-							TEXT(" -unattended -CrashForUAT -nosound -UseAutoReporter");
+							ClientLogParam + TEXT(" -stdout -AllowStdOutLogVerbosity -ddc=noshared -nosplash -unattended") +
+							TEXT(" -CrashForUAT -nosound -UseAutoReporter");
 
 							// Removed this, to support detection of shader compilation, based on shader compiler .exe
 							//TEXT(" -NoShaderWorker")
+
+	// Only append -ForceLogFlush, if it's present on this processes commandline
+	if (FParse::Param(FCommandLine::Get(), TEXT("ForceLogFlush")))
+	{
+		Parameters += TEXT(" -ForceLogFlush");
+	}
 
 	return Parameters;
 }

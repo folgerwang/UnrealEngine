@@ -811,6 +811,22 @@ bool FLowLevelMemTracker::FindTagByName( const TCHAR* Name, uint64& OutTag ) con
 	return false;
 }
 
+const TCHAR* FLowLevelMemTracker::FindTagName(uint64 Tag) const
+{
+	const TCHAR* Result = nullptr;
+
+	if( Tag >= 0 && Tag < (int32)ELLMTag::GenericTagCount )
+	{
+		Result = LLMGetTagName((ELLMTag)Tag);
+	}
+	else if( Tag >= (int32)ELLMTag::PlatformTagStart && Tag <= (int32)ELLMTag::PlatformTagEnd )
+	{
+		Result = PlatformTags[Tag - (int32)ELLMTag::PlatformTagStart].Name;
+	}
+
+	return Result;
+}
+
 
 int64 FLowLevelMemTracker::GetActiveTag(ELLMTracker Tracker)
 {

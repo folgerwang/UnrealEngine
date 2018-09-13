@@ -54,17 +54,8 @@ static void DrawOcclusionMesh(FRHICommandList& RHICmdList, EStereoscopicPass Ste
 	const FHMDViewMesh& Mesh = MeshAssets[MeshIndex];
 	check(Mesh.IsValid());
 
-	DrawIndexedPrimitiveUP(
-		RHICmdList,
-		PT_TriangleList,
-		0,
-		Mesh.NumVertices,
-		Mesh.NumTriangles,
-		Mesh.pIndices,
-		sizeof(Mesh.pIndices[0]),
-		Mesh.pVertices,
-		sizeof(Mesh.pVertices[0])
-		);
+	RHICmdList.SetStreamSource(0, Mesh.VertexBufferRHI, 0);
+	RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, PT_TriangleList, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
 }
 
 void FSteamVRHMD::DrawHiddenAreaMesh_RenderThread(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass) const

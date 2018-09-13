@@ -89,7 +89,7 @@ public:
 	ir_variable_refcount_entry *get_variable_entry(ir_variable *var);
 
 	/* List of ir_variable_refcount_entry */
-	std::map<ir_variable*, ir_variable_refcount_entry*> Variables;
+	std::map<ir_variable*, ir_variable_refcount_entry*, ir_variable_compare> Variables;
 	unsigned control_flow_depth;
 	void *mem_ctx;
 };

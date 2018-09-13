@@ -12,7 +12,10 @@ public class AndroidDeviceDetection : ModuleRules
 			new string[]
 			{
 				"Core",
-			}
+				"Json",
+                "JsonUtilities",
+                "PIEPreviewDeviceSpecification"
+            }
 		);
 
 		PrivateIncludePathModuleNames.AddRange(
@@ -29,7 +32,7 @@ public class AndroidDeviceDetection : ModuleRules
 			}
 		);
 
-		if (Target.bCompileAgainstEngine)
+        if (Target.bCompileAgainstEngine)
 		{
 			PrivateDependencyModuleNames.Add("Engine");
 		}

@@ -145,30 +145,6 @@ const TCHAR* FUnixPlatformProcess::ComputerName()
 	return CachedResult;
 }
 
-void FUnixPlatformProcess::CleanFileCache()
-{
-	bool bShouldCleanShaderWorkingDirectory = IsFirstInstance();
-
-	if (bShouldCleanShaderWorkingDirectory && !FParse::Param( FCommandLine::Get(), TEXT("Multiprocess")))
-	{
-		// get shader path, and convert it to the userdirectory
-		for (const auto& ShaderSourceDirectoryEntry : FPlatformProcess::AllShaderSourceDirectoryMappings())
-		{
-			FString ShaderDir = FString(FPlatformProcess::BaseDir()) / ShaderSourceDirectoryEntry.Value;
-			FString UserShaderDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ShaderDir);
-			FPaths::CollapseRelativeDirectories(ShaderDir);
-
-			// make sure we don't delete from the source directory
-			if (ShaderDir != UserShaderDir)
-			{
-				IFileManager::Get().DeleteDirectory(*UserShaderDir, false, true);
-			}
-		}
-
-		FPlatformProcess::CleanShaderWorkingDir();
-	}
-}
-
 const TCHAR* FUnixPlatformProcess::UserName(bool bOnlyAlphaNumeric)
 {
 	static TCHAR Name[PlatformProcessLimits::MaxUserName] = { 0 };

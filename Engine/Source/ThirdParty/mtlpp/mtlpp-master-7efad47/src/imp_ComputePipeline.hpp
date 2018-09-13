@@ -26,6 +26,8 @@ struct IMPTable<MTLComputePipelineDescriptor*, void> : public IMPTableBase<MTLCo
 	, INTERPOSE_CONSTRUCTOR(setStageInputDescriptor, C)
 	, INTERPOSE_CONSTRUCTOR(buffers, C)
 	, INTERPOSE_CONSTRUCTOR(setBuffers, C)
+	, INTERPOSE_CONSTRUCTOR(maxTotalThreadsPerThreadgroup, C)
+	, INTERPOSE_CONSTRUCTOR(setMaxTotalThreadsPerThreadgroup, C)
 	, INTERPOSE_CONSTRUCTOR(reset, C)
 	{
 	}
@@ -44,6 +46,9 @@ struct IMPTable<MTLComputePipelineDescriptor*, void> : public IMPTableBase<MTLCo
 	
 	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, buffers, buffers, MTLPipelineBufferDescriptorArray*);
 	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, setBuffers:, setBuffers, void, MTLPipelineBufferDescriptorArray*);
+	
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, maxTotalThreadsPerThreadgroup, maxTotalThreadsPerThreadgroup, NSUInteger);
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, setMaxTotalThreadsPerThreadgroup:, setMaxTotalThreadsPerThreadgroup, void, NSUInteger);
 	
 	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, reset, reset, void);
 };

@@ -6,6 +6,14 @@ D3D12Adapter.cpp:D3D12 Adapter implementation.
 
 #include "D3D12RHIPrivate.h"
 
+static TAutoConsoleVariable<int32> CVarTransientUniformBufferAllocatorSizeKB(
+	TEXT("D3D12.TransientUniformBufferAllocatorSizeKB"),
+	2 * 1024,
+	TEXT(""),
+	ECVF_ReadOnly
+);
+
+
 struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalFrameFence>
 {
 	ED3D12CommandQueueType QueueType;
@@ -48,8 +56,7 @@ FD3D12Adapter::FD3D12Adapter(FD3D12AdapterDesc& DescIn)
 	if (!FParse::Value(FCommandLine::Get(), TEXT("MaxGPUCount="), MaxGPUCount))
 	{
 		// If there is a mode token in the command line, enable multi-gpu.
-		FString GPUModeToken;
-		if (FParse::Value(FCommandLine::Get(), TEXT("MGPUMode="), GPUModeToken))
+		if (FParse::Param(FCommandLine::Get(), TEXT("AFR")))
 		{
 			MaxGPUCount = MAX_NUM_GPUS;
 		}
@@ -545,6 +552,17 @@ FD3D12TemporalEffect* FD3D12Adapter::GetTemporalEffect(const FName& EffectName)
 
 	check(Effect);
 	return Effect;
+}
+
+FD3D12FastConstantAllocator& FD3D12Adapter::GetTransientUniformBufferAllocator()
+{
+	// Multi-GPU support : is using device 0 always appropriate here?
+	return *TransientUniformBufferAllocator.GetObjectForThisThread([this]() -> FD3D12FastConstantAllocator*
+	{
+		FD3D12FastConstantAllocator* Alloc = new FD3D12FastConstantAllocator(Devices[0], FRHIGPUMask::All(), CVarTransientUniformBufferAllocatorSizeKB.GetValueOnAnyThread() * 1024);
+		Alloc->Init();
+		return Alloc;
+	});
 }
 
 void FD3D12Adapter::GetLocalVideoMemoryInfo(DXGI_QUERY_VIDEO_MEMORY_INFO* LocalVideoMemoryInfo)

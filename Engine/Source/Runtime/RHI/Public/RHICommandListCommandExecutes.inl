@@ -493,6 +493,15 @@ void FRHICommandWaitComputeFence<CmdListType>::Execute(FRHICommandListBase& CmdL
 template struct FRHICommandWaitComputeFence<ECmdList::EGfx>;
 template struct FRHICommandWaitComputeFence<ECmdList::ECompute>;
 
+template<ECmdList CmdListType>
+void FRHICommandInsertGPUFence<CmdListType>::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(InsertGPUFence);
+	INTERNAL_DECORATOR_CONTEXT(RHIInsertGPUFence)(Fence);
+}
+template struct FRHICommandInsertGPUFence<ECmdList::EGfx>;
+template struct FRHICommandInsertGPUFence<ECmdList::ECompute>;
+
 void FRHICommandBuildLocalGraphicsPipelineState::Execute(FRHICommandListBase& CmdList)
 {
 	LLM_SCOPE(ELLMTag::Shaders);
@@ -618,8 +627,7 @@ template<ECmdList CmdListType>
 void FRHICommandPushEvent<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 #if	RHI_COMMAND_LIST_DEBUG_TRACES
-	extern CORE_API bool GCommandListOnlyDrawEvents;
-	if (GCommandListOnlyDrawEvents)
+	if (GetEmitDrawEventsOnlyOnCommandlist())
 	{
 		return;
 	}
@@ -634,8 +642,7 @@ template<ECmdList CmdListType>
 void FRHICommandPopEvent<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 #if	RHI_COMMAND_LIST_DEBUG_TRACES
-	extern CORE_API bool GCommandListOnlyDrawEvents;
-	if (GCommandListOnlyDrawEvents)
+	if (GetEmitDrawEventsOnlyOnCommandlist())
 	{
 		return;
 	}

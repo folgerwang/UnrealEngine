@@ -20,8 +20,11 @@ namespace Lightmass
 /** Whether to allow static lighting stats that may affect the system's performance. */
 #define ALLOW_STATIC_LIGHTING_STATS 1
 
-/** Whether to make Lightmass do pretty much no processing at all (NOP). */
-#define LIGHTMASS_NOPROCESSING 0
+/** 
+ * When enabled, makes Lightmass do pretty much no processing at all (NOP). 
+ * Useful when iterating on import / export
+ */
+#define LIGHTMASS_DO_PROCESSING 1
 
 #if ALLOW_STATIC_LIGHTING_STATS
 	#define LIGHTINGSTAT(x) x

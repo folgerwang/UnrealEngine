@@ -22,6 +22,29 @@ FUnitTestEnvironment* UUnitTest::NullUnitEnv = nullptr;
 
 
 /**
+ * EUnitTestResetStage
+ */
+
+FString GetUnitTestResetStageName(EUnitTestResetStage Stage)
+{
+	#define EUTRS_CASE(x)	case EUnitTestResetStage::x : return TEXT(#x)
+
+	switch(Stage)
+	{
+		EUTRS_CASE(None);
+		EUTRS_CASE(FullReset);
+		EUTRS_CASE(ResetConnection);
+		EUTRS_CASE(ResetExecute);
+
+		default:
+			return FString::Printf(TEXT("Unknown: %i"), (uint32)Stage);
+	}
+
+	#undef EUTRS_CASE
+}
+
+
+/**
  * UUnitTestBase
  */
 
@@ -221,24 +244,68 @@ void UUnitTest::EndUnitTest()
 	}
 }
 
-void UUnitTest::CleanupUnitTest()
+void UUnitTest::CleanupUnitTest(EUnitTestResetStage ResetStage/*=EUniTestResetStage::None*/)
 {
-	for (UUnitTask* CurTask : UnitTasks)
+	if (ResetStage <= EUnitTestResetStage::FullReset)
 	{
-		CurTask->Cleanup();
+		for (UUnitTask* CurTask : UnitTasks)
+		{
+			CurTask->Cleanup();
+		}
+
+		UnitTasks.Empty();
 	}
 
-	UnitTasks.Empty();
 
-
-	if (GUnitTestManager != nullptr)
+	// Only destroy/end the unit test, if it's being cleaned up fully, and not just reset
+	if (ResetStage == EUnitTestResetStage::None)
 	{
-		GUnitTestManager->NotifyUnitTestCleanup(this);
+		if (GUnitTestManager != nullptr)
+		{
+			GUnitTestManager->NotifyUnitTestCleanup(this);
+		}
+		else
+		{
+			// Mark for garbage collection
+			MarkPendingKill();
+		}
 	}
 	else
 	{
-		// Mark for garbage collection
-		MarkPendingKill();
+		TimeoutExpire = 0.0;
+		LastTimeoutReset = 0.0;
+		LastTimeoutResetEvent = TEXT("");
+
+		UnitTaskState = EUnitTaskFlags::None;
+
+		bCompleted = false;
+		VerificationState = EUnitTestVerification::Unverified;
+		bVerificationLogged = false;
+		bAborted = false;
+	}
+}
+
+void UUnitTest::ResetUnitTest(EUnitTestResetStage ResetStage/*=EUniTestResetStage::FullReset*/)
+{
+	check(ResetStage != EUnitTestResetStage::None);
+
+	if (CanResetUnitTest())
+	{
+		if (ResetStage > EUnitTestResetStage::FullReset)
+		{
+			UNIT_LOG(ELogType::StatusWarning, TEXT("Resetting unit test to stage '%s'."), *GetUnitTestResetStageName(ResetStage));
+		}
+		else
+		{
+			UNIT_LOG(ELogType::StatusWarning, TEXT("Resetting unit test."));
+		}
+
+
+		CleanupUnitTest(ResetStage);
+	}
+	else
+	{
+		UNIT_LOG(ELogType::StatusWarning, TEXT("Unit test does not support resetting."))
 	}
 }
 

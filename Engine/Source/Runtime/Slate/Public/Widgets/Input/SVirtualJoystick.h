@@ -218,4 +218,7 @@ protected:
 
 	/* Countdown until next state change */
 	float Countdown;
+
+	/** Last used scaling value for  */
+	float PreviousScalingFactor = 0.0f;
 };

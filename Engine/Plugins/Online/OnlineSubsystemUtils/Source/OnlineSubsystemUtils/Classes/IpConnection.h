@@ -18,7 +18,11 @@ class ONLINESUBSYSTEMUTILS_API UIpConnection : public UNetConnection
 {
     GENERATED_UCLASS_BODY()
 	// Variables.
+
+	// @todo #JIRA UENET-883: This should be moved down to UNetConnection, now that GetInternetAddr is a thing.
+	//			A lot of platforms reinvent the wheel in their own inefficient way here, despite having their own FInternetAddr type
 	TSharedPtr<FInternetAddr>	RemoteAddr;
+
 	class FSocket*				Socket;
 	class FResolveInfo*			ResolveInfo;
 
@@ -31,6 +35,7 @@ class ONLINESUBSYSTEMUTILS_API UIpConnection : public UNetConnection
 	FString LowLevelDescribe() override;
 	virtual int32 GetAddrAsInt(void) override;
 	virtual int32 GetAddrPort(void) override;
+	virtual TSharedPtr<FInternetAddr> GetInternetAddr() override;
 	virtual FString RemoteAddressToString() override;
 	//~ End NetConnection Interface
 };

@@ -176,7 +176,7 @@ public:
 	}
 
 	/** Calculates a Hash based on this vertex factory type's source code and includes */
-	SHADERCORE_API const FSHAHash& GetSourceHash() const;
+	SHADERCORE_API const FSHAHash& GetSourceHash(EShaderPlatform ShaderPlatform) const;
 
 	/**
 	 * Should we cache the material's shadertype on this platform with this vertex factory? 
@@ -511,7 +511,7 @@ private:
 class SHADERCORE_API FVertexFactoryParameterRef
 {
 public:
-	FVertexFactoryParameterRef(FVertexFactoryType* InVertexFactoryType,const FShaderParameterMap& ParameterMap, EShaderFrequency InShaderFrequency);
+	FVertexFactoryParameterRef(FVertexFactoryType* InVertexFactoryType,const FShaderParameterMap& ParameterMap, EShaderFrequency InShaderFrequency, EShaderPlatform InShaderPlatform);
 
 	FVertexFactoryParameterRef():
 		Parameters(NULL),
@@ -536,6 +536,9 @@ public:
 	/** Returns the hash of the vertex factory shader file that this shader was compiled with. */
 	const FSHAHash& GetHash() const;
 
+	/** Returns the shader platform that this shader was compiled with. */
+	EShaderPlatform GetShaderPlatform() const;
+
 	friend SHADERCORE_API bool operator<<(FArchive& Ar,FVertexFactoryParameterRef& Ref);
 
 	uint32 GetAllocatedSize() const
@@ -547,6 +550,7 @@ private:
 	FVertexFactoryShaderParameters* Parameters;
 	FVertexFactoryType* VertexFactoryType;
 	EShaderFrequency ShaderFrequency;
+	EShaderPlatform ShaderPlatform;
 
 	// Hash of the vertex factory's source file at shader compile time, used by the automatic versioning system to detect changes
 	FSHAHash VFHash;

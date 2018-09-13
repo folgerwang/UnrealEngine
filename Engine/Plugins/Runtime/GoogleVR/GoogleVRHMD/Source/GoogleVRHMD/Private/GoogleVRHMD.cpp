@@ -338,9 +338,6 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 	, BaseOrientation(FQuat::Identity)
 	, PixelDensity(1.0f)
 	, RendererModule(nullptr)
-	, DistortionMeshIndices(nullptr)
-	, DistortionMeshVerticesLeftEye(nullptr)
-	, DistortionMeshVerticesRightEye(nullptr)
 #if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
 	, OverlayView(nil)
 #endif
@@ -555,13 +552,6 @@ FGoogleVRHMD::FGoogleVRHMD(const FAutoRegister& AutoRegister)
 
 FGoogleVRHMD::~FGoogleVRHMD()
 {
-	delete[] DistortionMeshIndices;
-	DistortionMeshIndices = nullptr;
-	delete[] DistortionMeshVerticesLeftEye;
-	DistortionMeshVerticesLeftEye = nullptr;
-	delete[] DistortionMeshVerticesRightEye;
-	DistortionMeshVerticesRightEye = nullptr;
-
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	if (DistortedBufferViewportList)
 	{

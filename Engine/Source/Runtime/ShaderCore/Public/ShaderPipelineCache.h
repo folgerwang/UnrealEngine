@@ -190,6 +190,7 @@ private:
 	FString FileName;
     EShaderPlatform CurrentPlatform;
 	uint32 BatchSize;
+	float BatchTime;
 	bool bPaused;
 	bool bOpened;
 	

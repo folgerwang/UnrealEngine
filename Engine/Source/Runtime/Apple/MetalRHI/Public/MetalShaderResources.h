@@ -206,9 +206,18 @@ enum class EMetalComponentType : uint8
 struct FMetalAttribute
 {
 	uint32 Index;
-	EMetalComponentType Type;
 	uint32 Components;
 	uint32 Offset;
+	EMetalComponentType Type;
+	
+	FMetalAttribute()
+	: Index(0)
+	, Components(0)
+	, Offset(0)
+	, Type(EMetalComponentType::Uint)
+	{
+		
+	}
 	
 	friend FArchive& operator<<(FArchive& Ar, FMetalAttribute& Attr)
 	{
@@ -227,6 +236,14 @@ struct FMetalTessellationOutputs
 	uint32 PatchControlPointOutSize;
 	TArray<FMetalAttribute> HSOut;
 	TArray<FMetalAttribute> PatchControlPointOut;
+	
+	FMetalTessellationOutputs()
+	: HSOutSize(0)
+	, HSTFOutSize(0)
+	, PatchControlPointOutSize(0)
+	{
+		
+	}
 	
 	friend FArchive& operator<<(FArchive& Ar, FMetalTessellationOutputs& Attrs)
 	{
@@ -280,6 +297,37 @@ struct FMetalCodeHeader
 	
 	bool bTessFunctionConstants;
 	bool bDeviceFunctionConstants;
+	
+	FMetalCodeHeader()
+	: Frequency(0)
+	, CompilerBuild(0)
+	, CompilerVersion(0)
+	, TessellationOutputControlPoints(0)
+	, TessellationDomain(0)
+	, TessellationInputControlPoints(0)
+	, TessellationPatchesPerThreadGroup(0)
+	, TessellationPatchCountBuffer(~0u)
+	, TessellationIndexBuffer(~0u)
+	, TessellationHSOutBuffer(~0u)
+	, TessellationHSTFOutBuffer(~0u)
+	, TessellationControlPointOutBuffer(~0u)
+	, TessellationControlPointIndexBuffer(~0u)
+	, TessellationMaxTessFactor(0)
+	, SourceLen(0)
+	, SourceCRC(0)
+	, CompileFlags(0)
+	, NumThreadsX(0)
+	, NumThreadsY(0)
+	, NumThreadsZ(0)
+	, Version(0)
+	, SideTable(-1)
+	, TessellationOutputWinding(EMetalOutputWindingMode::Clockwise)
+	, TessellationPartitioning(EMetalPartitionMode::Pow2)
+	, bTessFunctionConstants(false)
+	, bDeviceFunctionConstants(false)
+	{
+		
+	}
 };
 
 inline FArchive& operator<<(FArchive& Ar, FMetalCodeHeader& Header)
@@ -347,13 +395,41 @@ inline FArchive& operator<<(FArchive& Ar, FMetalCodeHeader& Header)
     return Ar;
 }
 
+struct FMetalShadeEntry
+{
+	TArray<uint8> Data;
+	uint32 Index;
+	uint8 Type;
+
+	FMetalShadeEntry()
+	: Index(0)
+	, Type(0)
+	{
+
+	}
+
+	FMetalShadeEntry(TArray<uint8> InData, uint32 InIndex, uint8 InType)
+	: Data(InData)
+	, Index(InIndex)
+	, Type(InType)
+	{
+
+	}
+	
+	friend FArchive& operator<<(FArchive& Ar, FMetalShadeEntry& Header)
+	{
+		return Ar << Header.Data << Header.Index << Header.Type;
+	}
+};
+
 struct FMetalShaderMap
 {
 	FString Format;
-	TMap<FSHAHash, TPair<uint8, TArray<uint8>>> HashMap;
+	uint32 Count;
+	TMap<FSHAHash, FMetalShadeEntry> HashMap;
 	
 	friend FArchive& operator<<(FArchive& Ar, FMetalShaderMap& Header)
 	{
-		return Ar << Header.Format << Header.HashMap;
+		return Ar << Header.Format << Header.Count << Header.HashMap;
 	}
 };

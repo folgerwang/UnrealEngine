@@ -6,7 +6,6 @@
 
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
-#include "ShaderCache.h"
 
 static mtlpp::VertexFormat TranslateElementTypeToMTLType(EVertexElementType Type)
 {
@@ -177,7 +176,6 @@ FVertexDeclarationRHIRef FMetalDynamicRHI::RHICreateVertexDeclaration(const FVer
 
 		// create and add to the cache if it doesn't exist.
 		VertexDeclarationRefPtr = &VertexDeclarationCache.Add(Key, new FMetalVertexDeclaration(Elements));
-		FShaderCache::LogVertexDeclaration(ImmediateContext.Context->GetCurrentState().GetShaderCacheStateObject(), Elements, *VertexDeclarationRefPtr);
 	}
 
 	return *VertexDeclarationRefPtr;

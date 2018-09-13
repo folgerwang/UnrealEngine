@@ -35,6 +35,14 @@ void FD3D11DynamicRHI::RHIBeginFrame()
 	RHIPrivateBeginFrame();
 	UniformBufferBeginFrame();
 	GPUProfilingData.BeginFrame(this);
+
+#if INTEL_METRICSDISCOVERY
+	if (GDX11IntelMetricsDiscoveryEnabled)
+	{
+		IntelMetricsDicoveryBeginFrame();
+	}
+#endif // INTEL_METRICSDISCOVERY
+
 	PSOPrimitiveType = PT_Num;
 }
 
@@ -345,6 +353,13 @@ void FD3DGPUProfiler::BeginFrame(FD3D11DynamicRHI* InRHI)
 
 void FD3D11DynamicRHI::RHIEndFrame()
 {
+#if INTEL_METRICSDISCOVERY
+	if (GDX11IntelMetricsDiscoveryEnabled)
+	{
+		IntelMetricsDicoveryEndFrame();
+	}
+#endif // INTEL_METRICSDISCOVERY
+
 	GPUProfilingData.EndFrame();
 	CurrentComputeShader = nullptr;
 }

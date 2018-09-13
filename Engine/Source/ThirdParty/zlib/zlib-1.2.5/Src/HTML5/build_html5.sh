@@ -23,16 +23,18 @@ build_via_cmake()
 	else
 		DBGFLAG=NDEBUG
 	fi
+#	EMFLAGS="-msse2 -s SIMD=1 -s USE_PTHREADS=1"
+#	EMFLAGS="-msse2 -s SIMD=0 -s USE_PTHREADS=1 -s WASM=1 -s BINARYEN=1" # WASM still does not play nice with SIMD
+	EMFLAGS="-s SIMD=0 -s USE_PTHREADS=1"
 	# ----------------------------------------
 	rm -f "$ZLIB_HTML5"/../zconf.h
 	emcmake cmake -G "Unix Makefiles" \
-		-DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake \
 		-DBUILD_SHARED_LIBS=OFF \
 		-DEMSCRIPTEN_GENERATE_BITCODE_STATIC_LIBRARIES=ON \
 		-DCMAKE_BUILD_TYPE=$type \
-		-DCMAKE_C_FLAGS_$TYPE="$OPTIMIZATION -D$DBGFLAG -Wno-shift-negative-value" \
+		-DCMAKE_C_FLAGS_$TYPE="$OPTIMIZATION -D$DBGFLAG $EMFLAGS -Wno-shift-negative-value" \
 		../..
-	cmake --build . -- zlib -j VERBOSE=1
+	cmake --build . -- zlib -j VERBOSE=1 2>&1 | tee zzz_build.log
 	# ----------------------------------------
 	if [ $OLEVEL == 0 ]; then
 		SUFFIX=
@@ -70,4 +72,7 @@ build_via_makefile()
 	
 	ls -l ../Lib/HTML5
 }
+
+# no longer needed with latest emscripten:
+#		-DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake \
 

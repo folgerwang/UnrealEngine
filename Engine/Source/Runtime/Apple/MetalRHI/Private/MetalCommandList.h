@@ -36,12 +36,20 @@ public:
 #pragma mark - Public Command List Mutators -
 	
 	/** 
+	 * Set the number of parallel command-lists and the index of this command-list within the pass.
+	 * @param Index The index of this command-list within the parallel pass.
+	 * @param Num The number of command-lists within the parallel pass.
+	 */
+	void SetParallelIndex(uint32 Index, uint32 Num);
+
+	/** 
 	 * Commits the provided buffer to the command-list for execution. When parallel encoding this will be submitted later.
 	 * @param Buffer The buffer to submit to the command-list.
 	 * @param CompletionHandlers The completion handlers that should be attached to this command-buffer.
 	 * @param bWait Whether to wait for the command buffer to complete - it is an error to set this to true on a deferred command-list.
+	 * @param bIsLastCommandBuffer True if this is the final command buffer in a frame.
 	 */
-	void Commit(mtlpp::CommandBuffer& Buffer, TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers, bool const bWait);
+	void Commit(mtlpp::CommandBuffer& Buffer, TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers, bool const bWait, bool const bIsLastCommandBuffer);
 	
 	/**
 	 * Submits all outstanding command-buffers in the proper commit order to the command-queue.
@@ -58,6 +66,24 @@ public:
 	 * @returns True iff the command-list submits immediately to the command-queue, false if it performs any buffering.
 	 */
 	bool IsImmediate(void) const { return bImmediate; }
+	
+	/**
+	 * True iff the command-list is part of an MTLParallelRenderCommandEncoder pass.
+	 * @returns True iff the command-list is part of an MTLParallelRenderCommandEncoder pass, false for immediate and parallel-command-buffer contexts.
+	 */
+	bool IsParallel(void) const { return !bImmediate && Num > 0 && !IsRHIDeviceNVIDIA(); }
+	
+	/**
+	 * The index of this command-list within the parallel pass.
+	 * @returns The index of this command-list within the parallel pass, 0 when IsImmediate() is true.
+	 */
+	uint32 GetParallelIndex(void) const { return Index; }
+	
+	/**
+	 * The number of command-lists within the parallel pass.
+	 * @returns The number of command-lists within the parallel pass, 0 when IsImmediate() is true.
+	 */
+	uint32 GetParallelNum(void) const { return Num; }
 
 	/** @returns The command queue to which this command-list submits command-buffers. */
 	FMetalCommandQueue& GetCommandQueue(void) const { return CommandQueue; }
@@ -66,5 +92,7 @@ private:
 #pragma mark - Private Member Variables -
 	FMetalCommandQueue& CommandQueue;
 	TArray<mtlpp::CommandBuffer> SubmittedBuffers;
+	uint32 Index;
+	uint32 Num;
 	bool bImmediate;
 };

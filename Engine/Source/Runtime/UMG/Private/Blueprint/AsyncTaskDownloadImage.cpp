@@ -102,7 +102,8 @@ void UAsyncTaskDownloadImage::HandleImageRequest(FHttpRequestPtr HttpRequest, FH
 			if ( ImageWrapper.IsValid() && ImageWrapper->SetCompressed(HttpResponse->GetContent().GetData(), HttpResponse->GetContentLength()) )
 			{
 				const TArray<uint8>* RawData = NULL;
-				if ( ImageWrapper->GetRaw(ERGBFormat::BGRA, 8, RawData) )
+				const ERGBFormat InFormat = IsHTML5Platform() ? ERGBFormat::RGBA : ERGBFormat::BGRA;
+				if ( ImageWrapper->GetRaw(InFormat, 8, RawData) )
 				{
 					if ( UTexture2DDynamic* Texture = UTexture2DDynamic::Create(ImageWrapper->GetWidth(), ImageWrapper->GetHeight()) )
 					{

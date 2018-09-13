@@ -60,6 +60,8 @@ public:
 	* @param CommitType If we are sending a TextCommitted event, what commit type is it
 	*/
 	virtual void SetTextFromVirtualKeyboard(const FText& InNewText, ETextEntryType TextEntryType) = 0;
+
+	virtual void SetSelectionFromVirtualKeyboard(int InSelStart, int SelEnd) = 0;
 	
 	/**
 	* Returns the text.

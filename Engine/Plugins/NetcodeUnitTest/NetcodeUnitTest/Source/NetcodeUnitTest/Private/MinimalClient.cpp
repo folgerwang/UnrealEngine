@@ -13,6 +13,7 @@
 #include "NetcodeUnitTest.h"
 #include "UnitTestEnvironment.h"
 #include "UnitTestManager.h"
+#include "NUTGlobals.h"
 #include "NUTUtilDebug.h"
 #include "NUTUtilReflection.h"
 #include "Net/NUTUtilNet.h"
@@ -291,7 +292,7 @@ bool UMinimalClient::SendRawBunch(FOutBunch& Bunch, bool bAllowPartial/*=false*/
 
 
 				SendBunches.Add(NewBunch);
-				NewBunch->DebugString = FString::Printf(TEXT("Partial[%d]: %s"), SendBunches.Num(), *Bunch.DebugString);
+				NewBunch->SetDebugString(FString::Printf(TEXT("Partial[%d]: %s"), SendBunches.Num(), *Bunch.GetDebugString()));
 			}
 
 			UNIT_LOG(, TEXT("SendRawBunch: Split oversized bunch (%i bits) into '%i' partial packets."), BunchNumBits,
@@ -720,7 +721,7 @@ void UMinimalClient::CreateNetDriver()
 
 	if (GameEngine != nullptr && UnitWorld != nullptr)
 	{
-		static int UnitTestNetDriverCount = 0;
+		int32& UnitTestNetDriverCount = UNUTGlobals::Get().UnitTestNetDriverCount;
 
 		// Setup a new driver name entry
 		bool bFoundDef = false;

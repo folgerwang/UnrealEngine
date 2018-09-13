@@ -390,6 +390,8 @@ private:
 		static TSharedRef<FVirtualKeyboardEntry> Create(FSlateEditableTextLayout& InOwnerLayout);
 
 		virtual void SetTextFromVirtualKeyboard(const FText& InNewText, ETextEntryType TextEntryType) override;
+		virtual void SetSelectionFromVirtualKeyboard(int InSelStart, int InSelEnd) override;
+
 		virtual FText GetText() const override;
 		virtual FText GetHintText() const override;
 		virtual EKeyboardType GetVirtualKeyboardType() const override;
@@ -617,4 +619,12 @@ private:
 
 	/** Information about any active context menu widgets */
 	FActiveTextEditContextMenu ActiveContextMenu;
+
+	/** Whether the cursor position has been changed externally*/
+	bool bSelectionChangedExternally;
+
+	/** The boundaries of the external selection */
+	int ExternalSelectionStart;
+	int ExternalSelectionEnd;
+
 };

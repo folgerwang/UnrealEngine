@@ -1090,7 +1090,6 @@ void UConsole::BeginState_Typing(FName PreviousStateName)
 		FlushPlayerInput();
 	}
 	bCaptureKeyInput = true;
-//	HistoryCur = HistoryTop;
 }
 
 void UConsole::EndState_Typing( FName NextStateName )
@@ -1243,6 +1242,10 @@ void UConsole::BeginState_Open(FName PreviousStateName)
 	}
 }
 
+
+void UConsole::EndState_Open(FName NextStateName)
+{
+}
 
 bool UConsole::InputChar( int32 ControllerId, const FString& Unicode )
 {
@@ -1517,6 +1520,10 @@ void UConsole::FakeGotoState(FName NextStateName)
 	if (ConsoleState == NAME_Typing)
 	{
 		EndState_Typing(NextStateName);
+	}
+	else if (ConsoleState == NAME_Open)
+	{
+		EndState_Open(NextStateName);
 	}
 	if (NextStateName == NAME_Typing)
 	{

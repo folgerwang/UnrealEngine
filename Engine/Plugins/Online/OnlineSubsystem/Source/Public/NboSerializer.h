@@ -420,8 +420,7 @@ public:
 		uint32 OutIp;
 		Addr.GetIp(OutIp);
 		Ar << OutIp;
-		int32 OutPort;
-		Addr.GetPort(OutPort);
+		int32 OutPort = Addr.GetPort();
 		Ar << OutPort;
 		return Ar;
 	}

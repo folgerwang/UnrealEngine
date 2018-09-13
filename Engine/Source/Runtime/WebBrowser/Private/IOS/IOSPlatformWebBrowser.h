@@ -7,6 +7,7 @@
 #if PLATFORM_IOS
 
 #include "IWebBrowserWindow.h"
+#include "MobileJS/MobileJSScripting.h"
 #include "Widgets/SWindow.h"
 #import <UIKit/UIKit.h>
 #if !PLATFORM_TVOS
@@ -26,7 +27,7 @@ class SWebBrowserView;
 * Wrapper to contain the UIWebView and implement its delegate functions
 */
 #if !PLATFORM_TVOS
-@interface IOSWebViewWrapper : NSObject <WKUIDelegate, WKNavigationDelegate>
+@interface IOSWebViewWrapper : NSObject <WKUIDelegate, WKNavigationDelegate, WKScriptMessageHandler>
 #else
 @interface IOSWebViewWrapper : NSObject
 #endif
@@ -55,7 +56,14 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 -(void)loadurl:(NSURL*)InURL;
 -(void)executejavascript:(NSString*)InJavaScript;
 -(void)set3D:(bool)InIsIOS3DBrowser;
--(void)setWebViewVisible;
+-(void)setDefaultVisibility;
+-(void)setVisibility:(bool)InIsVisible;
+-(void)stopLoading;
+-(void)reload;
+-(void)goBack;
+-(void)goForward;
+-(bool)canGoBack;
+-(bool)canGoForward;
 -(FTextureRHIRef)GetVideoTexture;
 -(void)SetVideoTexture:(FTextureRHIRef)Texture;
 -(void)SetVideoTextureValid:(bool)Condition;
@@ -64,8 +72,8 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 -(void)updateWebViewGLESTexture:(GLuint)gltexture;
 - (void)updateWebViewMetalTexture : (id<MTLTexture>)texture;
 #if !PLATFORM_TVOS
--(BOOL)webView:(UIWebView*)InWebView shouldStartLoadWithRequest:(NSURLRequest*)InRequest navigationType:(UIWebViewNavigationType)InNavigationType;
--(void)webView:(UIWebView*)InWebView didFailLoadWithError:(NSError*)InError;
+- (void)webView:(WKWebView*)InWebView decidePolicyForNavigationAction : (WKNavigationAction*)InNavigationAction decisionHandler : (void(^)(WKNavigationActionPolicy))InDecisionHandler;
+-(void)webView:(WKWebView *)InWebView didCommitNavigation : (WKNavigation *)InNavigation;
 #endif
 @end
 
@@ -89,7 +97,7 @@ private:
 	* @param InContentsToLoad Optional string to load as a web page.
 	* @param InShowErrorMessage Whether to show an error message in case of loading errors.
 	*/
-	FWebBrowserWindow(FString InUrl, TOptional<FString> InContentsToLoad, bool ShowErrorMessage, bool bThumbMouseButtonNavigation, bool bUseTransparency);
+	FWebBrowserWindow(FString InUrl, TOptional<FString> InContentsToLoad, bool ShowErrorMessage, bool bThumbMouseButtonNavigation, bool bUseTransparency, bool bInJSBindingToLoweringEnabled);
 
 	/**
 	 * Create the SWidget for this WebBrowserWindow
@@ -142,15 +150,8 @@ public:
 	virtual void GetSource(TFunction<void (const FString&)> Callback) const;
 	virtual int GetLoadError() override;
 	virtual void SetIsDisabled(bool bValue) override;
-	virtual TSharedPtr<SWindow> GetParentWindow() const override
-	{
-		return ParentWindow;
-	}
-
-	virtual void SetParentWindow(TSharedPtr<SWindow> Window) override
-	{
-		ParentWindow = Window;
-	}
+	virtual TSharedPtr<SWindow> GetParentWindow() const override;
+	virtual void SetParentWindow(TSharedPtr<SWindow> Window) override;
 
 	// TODO: None of these events are actually called
 
@@ -246,12 +247,41 @@ public:
 	{
 		return DragWindowDelegate;
 	}
+	
+	void NotifyDocumentLoadingStateChange(const FString& InCurrentUrl, bool IsLoading);
+
+	void NotifyDocumentError(const FString& InCurrentUrl, int InErrorCode);
+
+	bool OnJsMessageReceived(const FString& Command, const TArray<FString>& Params, const FString& Origin);
 
 public:
+	/**
+	* Called from the WebBrowserSingleton tick event. Should test whether the widget got a tick from Slate last frame and set the state to hidden if not.
+	*/
+	void CheckTickActivity() override;
+
+	/**
+	* Signal from the widget, meaning that the widget is still active
+	*/
+	void SetTickLastFrame();
+
+	/**
+	* Browser's visibility
+	*/
+	bool IsVisible();
+
+	void SetTitle(const FString& InTitle)
+	{
+		Title = InTitle;
+		OnTitleChanged().Broadcast(Title);
+	}
 
 private:
 
 	TSharedPtr<SIOSWebBrowserWidget> BrowserWidget;
+
+	/** Current title of this window. */
+	FString Title;
 
 	/** Current Url of this window. */
 	FString CurrentUrl;
@@ -312,9 +342,26 @@ private:
 	/** Delegate that is executed when a drag event is detected in an area of the web page tagged as a drag region. */
 	FOnDragWindow DragWindowDelegate;
 
+	/** Current state of the document being loaded. */
+	EWebBrowserDocumentState DocumentState;
+	int ErrorCode;
+
+	FMobileJSScriptingPtr Scripting;
+
+	mutable TOptional<TFunction<void(const FString&)>> GetPageSourceCallback;
+
 	TSharedPtr<SWindow> ParentWindow;
 
 	FIntPoint IOSWindowSize;
+
+	/** Tracks whether the widget is currently disabled or not*/
+	bool bIsDisabled;
+
+	/** Tracks whether the widget is currently visible or not*/
+	bool bIsVisible;
+
+	/** Used to detect when the widget is hidden*/
+	bool bTickedLastFrame;
 };
 
 #endif

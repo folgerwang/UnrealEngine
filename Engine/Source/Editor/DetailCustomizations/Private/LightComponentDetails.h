@@ -7,6 +7,7 @@
 
 class IDetailLayoutBuilder;
 class IPropertyHandle;
+class ULightComponent;
 
 class FLightComponentDetails : public IDetailCustomization
 {
@@ -17,6 +18,8 @@ public:
 	/** IDetailCustomization interface */
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder ) override;
 
+	static void SetComponentIntensity(ULightComponent* Component, float InIntensity);
+
 private:
 
 	/** Helper functions which tell whether the various custom controls are enabled or not */
@@ -24,6 +27,8 @@ private:
 	bool IsUseIESBrightnessEnabled() const;
 	bool IsIESBrightnessScaleEnabled() const;
 
+	void ResetIntensityToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, ULightComponent* Component);
+	bool IsIntensityResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, ULightComponent* Component) const;
 
 private:
 	TSharedPtr<IPropertyHandle> IESBrightnessTextureProperty;

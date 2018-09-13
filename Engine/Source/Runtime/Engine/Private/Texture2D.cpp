@@ -904,7 +904,7 @@ FTextureResource* UTexture2D::CreateResource()
 		{	
 			RequestedMips = FMath::Max( RequestedMips, ResourceMem->GetNumMips() );
 		}
-		RequestedMips	= FMath::Max( RequestedMips, 1 );
+		RequestedMips	= FMath::Max( RequestedMips, 0 );
 	}
 
 	FTexture2DResource* Texture2DResource = NULL;
@@ -1243,11 +1243,7 @@ void FTexture2DResource::InitRHI()
 
 	// Create the RHI texture.
 	uint32 TexCreateFlags = (Owner->SRGB ? TexCreate_SRGB : 0) | TexCreate_OfflineProcessed | TexCreate_Streamable;
-	// if no miptail is available then create the texture without a packed miptail
-	if( Owner->GetMipTailBaseIndex() == -1 )
-	{
-		TexCreateFlags |= TexCreate_NoMipTail;
-	}
+	ensure(Owner->GetMipTailBaseIndex() != -1); //TexCreate_NoMipTail is deprecated
 	// disable tiled format if needed
 	if( Owner->bNoTiling )
 	{

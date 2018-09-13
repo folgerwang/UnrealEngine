@@ -475,6 +475,8 @@ struct FScopedLoadingState
 
 bool CORE_API GetEmitDrawEvents();
 
+bool CORE_API GetEmitDrawEventsOnlyOnCommandlist();
+
 void CORE_API SetEmitDrawEvents(bool EmitDrawEvents);
 
 void CORE_API EnableEmitDrawEventsOnlyOnCommandlist();

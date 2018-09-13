@@ -128,13 +128,10 @@ void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 		else
 		{
 			// Host name resolution just now succeeded.
-#if PLATFORM_IOS
-			RemoteAddr->Copy(ResolveInfo->GetResolvedAddress());
-#else
-			uint32 Addr;
-			ResolveInfo->GetResolvedAddress().GetIp(Addr);
-			RemoteAddr->SetIp(Addr);
-#endif
+			int32 CurPort = RemoteAddr->GetPort();
+			RemoteAddr = ResolveInfo->GetResolvedAddress().Clone();
+			RemoteAddr->SetPort(CurPort);
+
 			UE_LOG(LogNet, Log, TEXT("Host name resolution completed"));
 			delete ResolveInfo;
 			ResolveInfo = NULL;
@@ -216,14 +213,19 @@ FString UIpConnection::LowLevelGetRemoteAddress(bool bAppendPort)
 FString UIpConnection::LowLevelDescribe()
 {
 	TSharedRef<FInternetAddr> LocalAddr = Driver->GetSocketSubsystem()->CreateInternetAddr();
-	Socket->GetAddress(*LocalAddr);
+
+	if (Socket != nullptr)
+	{
+		Socket->GetAddress(*LocalAddr);
+	}
+
 	return FString::Printf
 	(
 		TEXT("url=%s remote=%s local=%s uniqueid=%s state: %s"),
 		*URL.Host,
-		*RemoteAddr->ToString(true),
+		(RemoteAddr.IsValid() ? *RemoteAddr->ToString(true) : TEXT("nullptr")),
 		*LocalAddr->ToString(true),
-		*PlayerId.ToDebugString(),
+		(PlayerId.IsValid() ? *PlayerId->ToDebugString() : TEXT("nullptr")),
 			State==USOCK_Pending	?	TEXT("Pending")
 		:	State==USOCK_Open		?	TEXT("Open")
 		:	State==USOCK_Closed		?	TEXT("Closed")
@@ -241,10 +243,12 @@ int32 UIpConnection::GetAddrAsInt(void)
 
 int32 UIpConnection::GetAddrPort(void)
 {
-	int32 OutPort = 0;
-	// Get the host byte order ip port
-	RemoteAddr->GetPort(OutPort);
-	return OutPort;
+	return RemoteAddr->GetPort();
+}
+
+TSharedPtr<FInternetAddr> UIpConnection::GetInternetAddr()
+{
+	return RemoteAddr;
 }
 
 FString UIpConnection::RemoteAddressToString()

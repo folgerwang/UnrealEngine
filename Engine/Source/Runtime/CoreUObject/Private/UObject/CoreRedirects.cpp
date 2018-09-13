@@ -1454,7 +1454,7 @@ static void RegisterNativeRedirects46(TArray<FCoreRedirect>& Redirects)
 	EPhysicsType->ValueChanges.Add(TEXT("PhysType_Unfixed"), TEXT("PhysType_Simulated"));
 
 	FCoreRedirect* ESceneTextureId = ENUM_REDIRECT("ESceneTextureId", "ESceneTextureId");
-	EPhysicsType->ValueChanges.Add(TEXT("PPI_LightingModel"), TEXT("PPI_ShadingModel"));
+	EPhysicsType->ValueChanges.Add(TEXT("PPI_LightingModel"), TEXT("PPI_ShadingModelColor"));
 
 	// 4.5
 

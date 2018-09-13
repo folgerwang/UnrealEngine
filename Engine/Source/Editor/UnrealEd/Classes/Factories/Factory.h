@@ -275,6 +275,26 @@ protected:
 	}
 
 	/**
+	* Create a new object by importing it from a text buffer.
+	*
+	* @param InClass
+	* @param InParent
+	* @param InName
+	* @param Flags
+	* @param Context
+	* @param Type (must not be nullptr, i.e. TEXT("TGA"))
+	* @param Buffer
+	* @param BufferEnd
+	* @param Warn
+	* @param bOutOperationCanceled Will indicate whether the user canceled the import.
+	* @return The new object.
+	*/
+	virtual UObject* FactoryCreateText(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled)
+	{
+		return FactoryCreateText(InClass, InParent, InName, Flags, Context, Type, Buffer, BufferEnd, Warn);
+	}
+
+	/**
 	 * Create a new object by importing it from a binary buffer.
 	 *
 	 * @param InClass

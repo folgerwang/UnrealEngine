@@ -334,6 +334,7 @@ struct FMonitorInfo
 	FPlatformRect DisplayRect;
 	FPlatformRect WorkArea;
 	bool bIsPrimary;
+	int32 DPI = 0;
 };
 
 
