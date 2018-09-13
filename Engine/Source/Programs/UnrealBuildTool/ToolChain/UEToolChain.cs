@@ -26,10 +26,6 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public virtual void DoLocalToRemoteFileItem(FileItem LocalFileItem)
-		{
-		}
-
 		public abstract CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph);
 
 		public virtual CPPOutput CompileRCFiles(CppCompileEnvironment Environment, List<FileItem> InputFiles, DirectoryReference OutputDir, ActionGraph ActionGraph)

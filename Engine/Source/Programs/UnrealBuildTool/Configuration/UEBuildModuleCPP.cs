@@ -339,7 +339,6 @@ namespace UnrealBuildTool
 				foreach(FileReference OutputFile in Manifest.OutputFiles)
 				{
 					FileItem ObjectFile = FileItem.GetExistingItemByFileReference(OutputFile);
-					ToolChain.DoLocalToRemoteFileItem(ObjectFile);
 					LinkInputFiles.Add(ObjectFile);
 				}
 				return LinkInputFiles;
