@@ -662,7 +662,7 @@ void FMetalRHICommandContext::RHISetRenderTargetsAndClear(const FRHISetRenderTar
 }
 
 
-void FMetalRHICommandContext::RHIDrawPrimitive(uint32 PrimitiveType_DEPRECATED, uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances)
+void FMetalRHICommandContext::RHIDrawPrimitive(uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances)
 {
 	@autoreleasepool {
 	SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);
@@ -684,7 +684,7 @@ void FMetalRHICommandContext::RHIDrawPrimitive(uint32 PrimitiveType_DEPRECATED, 
 	}
 }
 
-void FMetalRHICommandContext::RHIDrawPrimitiveIndirect(uint32 PrimitiveType_DEPRECATED, FVertexBufferRHIParamRef VertexBufferRHI, uint32 ArgumentOffset)
+void FMetalRHICommandContext::RHIDrawPrimitiveIndirect(FVertexBufferRHIParamRef VertexBufferRHI, uint32 ArgumentOffset)
 {
 	@autoreleasepool {
 #if PLATFORM_IOS
@@ -702,7 +702,7 @@ void FMetalRHICommandContext::RHIDrawPrimitiveIndirect(uint32 PrimitiveType_DEPR
 	}
 }
 
-void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType_DEPRECATED, int32 BaseVertexIndex, uint32 FirstInstance,
+void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBufferRHI, int32 BaseVertexIndex, uint32 FirstInstance,
 	uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
 {
 	@autoreleasepool {
@@ -721,7 +721,7 @@ void FMetalRHICommandContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef In
 	}
 }
 
-void FMetalRHICommandContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType_DEPRECATED, FStructuredBufferRHIParamRef VertexBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances)
+void FMetalRHICommandContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, FStructuredBufferRHIParamRef VertexBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances)
 {
 	@autoreleasepool {
 	if (GetMetalDeviceContext().SupportsFeature(EMetalFeaturesIndirectBuffer))
@@ -770,7 +770,7 @@ void FMetalRHICommandContext::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveTy
 }
 
 
-void FMetalRHICommandContext::RHIBeginDrawPrimitiveUP( uint32 PrimitiveType_DEPRECATED, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
+void FMetalRHICommandContext::RHIBeginDrawPrimitiveUP( uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 {
 	@autoreleasepool {
 	SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);
@@ -816,7 +816,7 @@ void FMetalRHICommandContext::RHIEndDrawPrimitiveUP()
 	}
 }
 
-void FMetalRHICommandContext::RHIBeginDrawIndexedPrimitiveUP( uint32 PrimitiveType_DEPRECATED, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
+void FMetalRHICommandContext::RHIBeginDrawIndexedPrimitiveUP( uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
 {
 	@autoreleasepool {
 	SCOPE_CYCLE_COUNTER(STAT_MetalDrawCallTime);

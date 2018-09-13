@@ -231,7 +231,7 @@ void RunBenchmarkShader(FRHICommandList& RHICmdList, FVertexBufferRHIParamRef Ve
 
 			RHICmdList.SetStreamSource(0, VertexThroughputBuffer, 0);
 
-			RHICmdList.DrawPrimitive(PT_TriangleList, 0, PrimitivesThisPass, 1);
+			RHICmdList.DrawPrimitive(0, PrimitivesThisPass, 1);
 
 			TotalNumVertices -= VerticesThisPass;
 		}

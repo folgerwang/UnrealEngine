@@ -365,7 +365,6 @@ void FOcclusionQueryBatcher::Flush(FRHICommandList& RHICmdList)
 			RHICmdList.SetStreamSource(0, VertexBufferRHI, VertexBufferOffset);
 			RHICmdList.DrawIndexedPrimitive(
 				IndexBufferRHI,
-				PT_TriangleList,
 				/*BaseVertexIndex=*/ 0,
 				/*MinIndex=*/ 0,
 				/*NumVertices=*/ 8 * NumPrimitivesThisBatch,
@@ -531,7 +530,7 @@ static void ExecuteDirectionalLightShadowOcclusionQuery(FRHICommandList& RHICmdL
 {
 	RHICmdList.BeginRenderQuery(ShadowOcclusionQuery);
 
-	RHICmdList.DrawPrimitive(PT_TriangleList, BaseVertexIndex, 2, 1);
+	RHICmdList.DrawPrimitive(BaseVertexIndex, 2, 1);
 	BaseVertexIndex += 6;
 
 	RHICmdList.EndRenderQuery(ShadowOcclusionQuery);
@@ -572,7 +571,7 @@ static void ExecuteProjectedShadowOcclusionQuery(FRHICommandList& RHICmdList, ui
 	// Draw the primitive's bounding box, using the occlusion query.
 	RHICmdList.BeginRenderQuery(ShadowOcclusionQuery);
 
-	RHICmdList.DrawIndexedPrimitive(GCubeIndexBuffer.IndexBufferRHI, PT_TriangleList, BaseVertexIndex, 0, 8, 0, 12, 1);
+	RHICmdList.DrawIndexedPrimitive(GCubeIndexBuffer.IndexBufferRHI, BaseVertexIndex, 0, 8, 0, 12, 1);
 	BaseVertexIndex += 8;
 
 	RHICmdList.EndRenderQuery(ShadowOcclusionQuery);
@@ -648,7 +647,7 @@ static void ExecutePlanarReflectionOcclusionQuery(FRHICommandList& RHICmdList, u
 	// Draw the primitive's bounding box, using the occlusion query.
 	RHICmdList.BeginRenderQuery(OcclusionQuery);
 
-	RHICmdList.DrawIndexedPrimitive(GCubeIndexBuffer.IndexBufferRHI, PT_TriangleList, BaseVertexIndex, 0, 8, 0, 12, 1);
+	RHICmdList.DrawIndexedPrimitive(GCubeIndexBuffer.IndexBufferRHI, BaseVertexIndex, 0, 8, 0, 12, 1);
 
 	RHICmdList.EndRenderQuery(OcclusionQuery);
 }

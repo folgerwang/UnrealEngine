@@ -942,7 +942,7 @@ namespace OculusHMD
 		check(Mesh.IsValid());
 
 		RHICmdList.SetStreamSource(0, Mesh.VertexBufferRHI, 0);
-		RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, PT_TriangleList, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
+		RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
 	}
 
 

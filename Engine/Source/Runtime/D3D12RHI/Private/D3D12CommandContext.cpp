@@ -656,11 +656,10 @@ FD3D12CommandContextRedirector::FD3D12CommandContextRedirector(class FD3D12Adapt
 	FMemory::Memzero(PhysicalContexts, sizeof(PhysicalContexts[0]) * MAX_NUM_GPUS);
 }
 
-void FD3D12CommandContextRedirector::RHIBeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
+void FD3D12CommandContextRedirector::RHIBeginDrawPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 {
 	check(!PendingUP);
 
-	PendingUP.PrimitiveType = PrimitiveType;
 	PendingUP.NumPrimitives = NumPrimitives;
 	PendingUP.NumVertices = NumVertices;
 	PendingUP.VertexDataStride = VertexDataStride;
@@ -677,7 +676,7 @@ void FD3D12CommandContextRedirector::RHIEndDrawPrimitiveUP()
 			check(GPUContext);
 
 			void* GPUVertexData = nullptr;
-			GPUContext->RHIBeginDrawPrimitiveUP(PendingUP.PrimitiveType, PendingUP.NumPrimitives, PendingUP.NumVertices, PendingUP.VertexDataStride, GPUVertexData);
+			GPUContext->RHIBeginDrawPrimitiveUP(PendingUP.NumPrimitives, PendingUP.NumVertices, PendingUP.VertexDataStride, GPUVertexData);
 			if (GPUVertexData)
 			{
 				FMemory::Memcpy(GPUVertexData, PendingUP.VertexData, PendingUP.NumVertices * PendingUP.VertexDataStride);
@@ -691,11 +690,10 @@ void FD3D12CommandContextRedirector::RHIEndDrawPrimitiveUP()
 	PendingUP.Reset();
 }
 	
-void FD3D12CommandContextRedirector::RHIBeginDrawIndexedPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
+void FD3D12CommandContextRedirector::RHIBeginDrawIndexedPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
 {
 	check(!PendingUP);
 
-	PendingUP.PrimitiveType = PrimitiveType;
 	PendingUP.NumPrimitives = NumPrimitives;
 	PendingUP.NumVertices = NumVertices;
 	PendingUP.VertexDataStride = VertexDataStride;
@@ -718,7 +716,7 @@ void FD3D12CommandContextRedirector::RHIEndDrawIndexedPrimitiveUP()
 
 			void* GPUVertexData = nullptr;
 			void* GPUIndexData = nullptr;
-			GPUContext->RHIBeginDrawIndexedPrimitiveUP(PendingUP.PrimitiveType, PendingUP.NumPrimitives, PendingUP.NumVertices, PendingUP.VertexDataStride, GPUVertexData, PendingUP.MinVertexIndex, PendingUP.NumIndices, PendingUP.IndexDataStride, GPUIndexData);
+			GPUContext->RHIBeginDrawIndexedPrimitiveUP(PendingUP.NumPrimitives, PendingUP.NumVertices, PendingUP.VertexDataStride, GPUVertexData, PendingUP.MinVertexIndex, PendingUP.NumIndices, PendingUP.IndexDataStride, GPUIndexData);
 			if (GPUVertexData)
 			{
 				FMemory::Memcpy(GPUVertexData, PendingUP.VertexData, PendingUP.NumVertices * PendingUP.VertexDataStride);

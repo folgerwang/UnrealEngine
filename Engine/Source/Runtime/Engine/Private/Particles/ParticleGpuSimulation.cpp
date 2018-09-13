@@ -1379,7 +1379,6 @@ static void DrawAlignedParticleTiles(FRHICommandList& RHICmdList, int32 TileCoun
 	// Draw tiles.
 	RHICmdList.DrawIndexedPrimitive(
 		GParticleIndexBuffer.IndexBufferRHI,
-		PT_TriangleList,
 		/*BaseVertexIndex=*/ 0,
 		/*MinIndex=*/ 0,
 		/*NumVertices=*/ 4,
@@ -1831,7 +1830,6 @@ void InjectNewParticles(FRHICommandList& RHICmdList, FGraphicsPipelineStateIniti
 		// Inject particles.
 		RHICmdList.DrawIndexedPrimitive(
 			GParticleIndexBuffer.IndexBufferRHI,
-			PT_TriangleList,
 			/*BaseVertexIndex=*/ 0,
 			/*MinIndex=*/ 0,
 			/*NumVertices=*/ 4,
@@ -2052,7 +2050,6 @@ static void VisualizeGPUSimulation(
 	// Draw.
 	RHICmdList.DrawIndexedPrimitive(
 		GParticleIndexBuffer.IndexBufferRHI,
-		PT_TriangleList,
 		/*BaseVertexIndex=*/ 0,
 		/*MinIndex=*/ 0,
 		/*NumVertices=*/ 4,

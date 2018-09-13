@@ -1587,7 +1587,7 @@ void FSceneRenderTargets::ResolveDepthTexture(FRHICommandList& RHICmdList, const
 
 	RHIUnlockVertexBuffer(VertexBufferRHI);
 	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+	RHICmdList.DrawPrimitive(0, 2, 1);
 }
 void FSceneRenderTargets::ResolveSceneDepthTexture(FRHICommandList& RHICmdList, const FResolveRect& ResolveRect)
 {

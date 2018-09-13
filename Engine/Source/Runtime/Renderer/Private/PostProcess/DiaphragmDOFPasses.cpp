@@ -1720,14 +1720,13 @@ void FRCPassDiaphragmDOFHybridScatter::Process(FRenderingCompositePassContext& C
 	if (GRHISupportsRectTopology)
 	{
 		Context.RHICmdList.DrawPrimitiveIndirect(
-			PrimitiveType,
 			DrawIndirectParametersBuffer->Buffer,
 			sizeof(FRHIDrawIndirectParameters) * DrawIndirectParametersOffset);
 	}
 	else
 	{
 		Context.RHICmdList.DrawIndexedPrimitiveIndirect(
-			PrimitiveType, GDiaphragmDOFGlobalResource.ScatterIndexBuffer.IndexBufferRHI,
+			GDiaphragmDOFGlobalResource.ScatterIndexBuffer.IndexBufferRHI,
 			DrawIndirectParametersBuffer->Buffer,
 			sizeof(FRHIDrawIndexedIndirectParameters) * DrawIndirectParametersOffset);
 	}

@@ -362,7 +362,7 @@ void FVirtualTextureSpace::ApplyUpdates( FRHICommandList& RHICmdList )
 			uint32 QuadsPerInstance = 8;
 
 			RHICmdList.SetStreamSource( 0, NULL, 0 );
-			RHICmdList.DrawIndexedPrimitive( GQuadIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 32, 0, 2 * QuadsPerInstance, FMath::DivideAndRoundUp( NumUpdates, QuadsPerInstance ) );
+			RHICmdList.DrawIndexedPrimitive( GQuadIndexBuffer.IndexBufferRHI, 0, 0, 32, 0, 2 * QuadsPerInstance, FMath::DivideAndRoundUp( NumUpdates, QuadsPerInstance ) );
 
 			ExpandedUpdates[ Mip ].Reset();
 		}

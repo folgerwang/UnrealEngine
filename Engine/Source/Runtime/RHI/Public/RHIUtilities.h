@@ -816,7 +816,9 @@ inline void DrawPrimitiveUP(FRHICommandList& RHICmdList, uint32 PrimitiveType, u
 	RHIUnlockVertexBuffer(VertexBufferRHI);
 
 	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-	RHICmdList.DrawPrimitive(PrimitiveType, 0, NumPrimitives, 1);
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	RHICmdList.DrawPrimitive(0, NumPrimitives, 1);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	VertexBufferRHI.SafeRelease();
 }
@@ -858,7 +860,7 @@ inline void DrawIndexedPrimitiveUP(
 	RHIUnlockIndexBuffer(IndexBufferRHI);
 
 	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(IndexBufferRHI, PrimitiveType, MinVertexIndex, 0, NumVertices, 0, NumPrimitives, 1);
+	RHICmdList.DrawIndexedPrimitive(IndexBufferRHI, MinVertexIndex, 0, NumVertices, 0, NumPrimitives, 1);
 
 	IndexBufferRHI.SafeRelease();
 	VertexBufferRHI.SafeRelease();

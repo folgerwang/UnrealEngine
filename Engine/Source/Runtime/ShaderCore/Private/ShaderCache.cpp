@@ -3317,17 +3317,17 @@ void FShaderCache::InternalPreDrawShader(FRHICommandList& RHICmdList, FShaderCac
 			{
 				case 0:
 				{
-					RHICmdList.DrawPrimitive(PT_TriangleList, 0, 1, 1);
+					RHICmdList.DrawPrimitive(0, 1, 1);
 					break;
 				}
 				case 2:
 				{
-					RHICmdList.DrawIndexedPrimitive(IndexBufferUInt16, PT_TriangleList, 0, 0, 3, 0, 1, 1);
+					RHICmdList.DrawIndexedPrimitive(IndexBufferUInt16, 0, 0, 3, 0, 1, 1);
 					break;
 				}
 				case 4:
 				{
-					RHICmdList.DrawIndexedPrimitive(IndexBufferUInt32, PT_TriangleList, 0, 0, 3, 0, 1, 1);
+					RHICmdList.DrawIndexedPrimitive(IndexBufferUInt32, 0, 0, 3, 0, 1, 1);
 					break;
 				}
 				default:

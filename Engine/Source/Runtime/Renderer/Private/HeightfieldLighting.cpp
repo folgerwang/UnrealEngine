@@ -503,7 +503,7 @@ void FHeightfieldLightingViewInfo::SetupVisibleHeightfields(const FViewInfo& Vie
 							VertexShader->SetParameters(RHICmdList, View);
 							PixelShader->SetParameters(RHICmdList, View, It.Key().HeightAndNormal, It.Key().DiffuseColor);
 
-							RHICmdList.DrawPrimitive(PT_TriangleList, 0, 2, NumQuads);
+							RHICmdList.DrawPrimitive(0, 2, NumQuads);
 						}
 					}
 
@@ -867,7 +867,7 @@ void FHeightfieldLightingViewInfo::ComputeShadowMapShadowing(const FViewInfo& Vi
 					VertexShader->SetParameters(RHICmdList, View, HeightfieldDescriptions.Num());
 					PixelShader->SetParameters(RHICmdList, View, ProjectedShadowInfo, HeightfieldDescriptions.Num(), Atlas);
 
-					RHICmdList.DrawPrimitive(PT_TriangleList, 0, 2, HeightfieldDescriptions.Num());
+					RHICmdList.DrawPrimitive(0, 2, HeightfieldDescriptions.Num());
 				}
 			}
 		}
@@ -1032,7 +1032,7 @@ void FHeightfieldLightingViewInfo::ComputeRayTracedShadowing(
 					VertexShader->SetParameters(RHICmdList, View, HeightfieldDescriptions.Num());
 					PixelShader->SetParameters(RHICmdList, View, ProjectedShadowInfo, HeightfieldDescriptions.Num(), Atlas, TileIntersectionResources, CulledObjectBuffers);
 
-					RHICmdList.DrawPrimitive(PT_TriangleList, 0, 2, HeightfieldDescriptions.Num());
+					RHICmdList.DrawPrimitive(0, 2, HeightfieldDescriptions.Num());
 				}
 			}
 		}
@@ -1208,7 +1208,7 @@ void FHeightfieldLightingViewInfo::ComputeLighting(const FViewInfo& View, FRHICo
 					VertexShader->SetParameters(RHICmdList, View, HeightfieldDescriptions.Num());
 					PixelShader->SetParameters(RHICmdList, View, LightSceneInfo, MaterialProxy, HeightfieldDescriptions.Num(), Atlas, SkyLightIndirectScale);
 
-					RHICmdList.DrawPrimitive(PT_TriangleList, 0, 2, HeightfieldDescriptions.Num());
+					RHICmdList.DrawPrimitive(0, 2, HeightfieldDescriptions.Num());
 				}
 			}
 		}

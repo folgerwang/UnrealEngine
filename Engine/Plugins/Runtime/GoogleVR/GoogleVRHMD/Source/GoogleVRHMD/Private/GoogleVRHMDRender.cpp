@@ -166,13 +166,13 @@ void FGoogleVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePas
 		{
 			RHICmdList.SetViewport(0, 0, 0.0f, XBound, TextureSize.Y, 1.0f);
 			RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, LocalNumVertsPerEye, 0, LocalNumTrisPerEye, 1);
+			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, 0, 0, LocalNumVertsPerEye, 0, LocalNumTrisPerEye, 1);
 		}
 		else
 		{
 			RHICmdList.SetViewport(XBound, 0, 0.0f, TextureSize.X, TextureSize.Y, 1.0f);
 			RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, LocalNumVertsPerEye, 0, LocalNumTrisPerEye, 1);
+			RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, 0, 0, LocalNumVertsPerEye, 0, LocalNumTrisPerEye, 1);
 		}
 		VertexBufferRHI.SafeRelease();
 	}

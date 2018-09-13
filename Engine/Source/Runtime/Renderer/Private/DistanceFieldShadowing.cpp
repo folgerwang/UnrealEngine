@@ -722,7 +722,6 @@ void ScatterObjectsToShadowTiles(
 	RHICmdList.SetStreamSource(0, GetUnitCubeVertexBuffer(), 0);
 
 	RHICmdList.DrawIndexedPrimitiveIndirect(
-		PT_TriangleList,
 		GetUnitCubeIndexBuffer(),
 		GShadowCulledObjectBuffers.Buffers.ObjectIndirectArguments.Buffer,
 		0);

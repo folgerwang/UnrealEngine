@@ -320,6 +320,8 @@ protected:
 
 			float MinDepth;
 			float MaxDepth;
+
+			EPrimitiveType PrimitiveType = PT_Num;
 		} Graphics;
 
 		struct
@@ -441,6 +443,11 @@ public:
 	const FD3D12RootSignature* GetGraphicsRootSignature()
 	{
 		return PipelineState.Graphics.CurrentPipelineStateObject ? PipelineState.Graphics.CurrentPipelineStateObject->RootSignature : nullptr;
+	}
+
+	inline EPrimitiveType GetGraphicsPipelinePrimitiveType() const
+	{
+		return PipelineState.Graphics.PrimitiveType;
 	}
 
 	const FD3D12RootSignature* GetComputeRootSignature()
@@ -677,6 +684,7 @@ public:
 			// Save the PSO
 			PipelineState.Common.bNeedSetPSO = true;
 			PipelineState.Graphics.CurrentPipelineStateObject = GraphicsPipelineState;
+			PipelineState.Graphics.PrimitiveType = GraphicsPipelineState->PipelineStateInitializer.PrimitiveType;
 
 			// Set the PSO
 			InternalSetPipelineState<false>();

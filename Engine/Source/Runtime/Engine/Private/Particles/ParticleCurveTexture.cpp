@@ -278,7 +278,6 @@ static void InjectCurves(
 		// Inject particles.
 		RHICmdList.DrawIndexedPrimitive(
 			GParticleIndexBuffer.IndexBufferRHI,
-			PT_TriangleList,
 			/*BaseVertexIndex=*/ 0,
 			/*MinIndex=*/ 0,
 			/*NumVertices=*/ 4,

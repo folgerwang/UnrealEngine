@@ -3604,7 +3604,7 @@ void FSceneRenderer::ResolveSceneColor(FRHICommandList& RHICmdList)
 				}
 			}
 
-				RHICmdList.DrawPrimitive(PT_TriangleList, 0, 1, 1);
+				RHICmdList.DrawPrimitive(0, 1, 1);
 			}
 		}
 

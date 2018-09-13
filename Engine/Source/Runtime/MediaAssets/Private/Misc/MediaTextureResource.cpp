@@ -622,7 +622,7 @@ void FMediaTextureResource::ConvertSample(const TSharedPtr<IMediaTextureSample, 
 		// set viewport to RT size
 		CommandList.SetViewport(0, 0, 0.0f, OutputDim.X, OutputDim.Y, 1.0f);
 
-		CommandList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+		CommandList.DrawPrimitive(0, 2, 1);
 		CommandList.TransitionResource(EResourceTransitionAccess::EReadable, RenderTargetTextureRHI);
 	}
 

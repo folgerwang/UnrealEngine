@@ -482,8 +482,6 @@ public:
 
 	struct FDrawUpData
 	{
-
-		uint32 PrimitiveType;
 		uint32 NumPrimitives;
 		uint32 NumVertices;
 		uint32 VertexDataStride;
@@ -494,8 +492,7 @@ public:
 		void* OutIndexData;
 
 		FDrawUpData()
-			: PrimitiveType(PT_Num)
-			, OutVertexData(nullptr)
+			: OutVertexData(nullptr)
 			, OutIndexData(nullptr)
 		{
 		}
@@ -820,13 +817,11 @@ struct FRHICommandSetShaderSampler final : public FRHICommand<FRHICommandSetShad
 
 struct FRHICommandDrawPrimitive final : public FRHICommand<FRHICommandDrawPrimitive>
 {
-	uint32 PrimitiveType;
 	uint32 BaseVertexIndex;
 	uint32 NumPrimitives;
 	uint32 NumInstances;
-	FORCEINLINE_DEBUGGABLE FRHICommandDrawPrimitive(uint32 InPrimitiveType, uint32 InBaseVertexIndex, uint32 InNumPrimitives, uint32 InNumInstances)
-		: PrimitiveType(InPrimitiveType)
-		, BaseVertexIndex(InBaseVertexIndex)
+	FORCEINLINE_DEBUGGABLE FRHICommandDrawPrimitive(uint32 InBaseVertexIndex, uint32 InNumPrimitives, uint32 InNumInstances)
+		: BaseVertexIndex(InBaseVertexIndex)
 		, NumPrimitives(InNumPrimitives)
 		, NumInstances(InNumInstances)
 	{
@@ -837,16 +832,14 @@ struct FRHICommandDrawPrimitive final : public FRHICommand<FRHICommandDrawPrimit
 struct FRHICommandDrawIndexedPrimitive final : public FRHICommand<FRHICommandDrawIndexedPrimitive>
 {
 	FIndexBufferRHIParamRef IndexBuffer;
-	uint32 PrimitiveType;
 	int32 BaseVertexIndex;
 	uint32 FirstInstance;
 	uint32 NumVertices;
 	uint32 StartIndex;
 	uint32 NumPrimitives;
 	uint32 NumInstances;
-	FORCEINLINE_DEBUGGABLE FRHICommandDrawIndexedPrimitive(FIndexBufferRHIParamRef InIndexBuffer, uint32 InPrimitiveType, int32 InBaseVertexIndex, uint32 InFirstInstance, uint32 InNumVertices, uint32 InStartIndex, uint32 InNumPrimitives, uint32 InNumInstances)
+	FORCEINLINE_DEBUGGABLE FRHICommandDrawIndexedPrimitive(FIndexBufferRHIParamRef InIndexBuffer, int32 InBaseVertexIndex, uint32 InFirstInstance, uint32 InNumVertices, uint32 InStartIndex, uint32 InNumPrimitives, uint32 InNumInstances)
 		: IndexBuffer(InIndexBuffer)
-		, PrimitiveType(InPrimitiveType)
 		, BaseVertexIndex(InBaseVertexIndex)
 		, FirstInstance(InFirstInstance)
 		, NumVertices(InNumVertices)
@@ -1150,15 +1143,13 @@ struct FRHICommandBindClearMRTValues final : public FRHICommand<FRHICommandBindC
 
 struct FRHICommandEndDrawPrimitiveUP final : public FRHICommand<FRHICommandEndDrawPrimitiveUP>
 {
-	uint32 PrimitiveType;
 	uint32 NumPrimitives;
 	uint32 NumVertices;
 	uint32 VertexDataStride;
 	void* OutVertexData;
 
-	FORCEINLINE_DEBUGGABLE FRHICommandEndDrawPrimitiveUP(uint32 InPrimitiveType, uint32 InNumPrimitives, uint32 InNumVertices, uint32 InVertexDataStride, void* InOutVertexData)
-		: PrimitiveType(InPrimitiveType)
-		, NumPrimitives(InNumPrimitives)
+	FORCEINLINE_DEBUGGABLE FRHICommandEndDrawPrimitiveUP(uint32 InNumPrimitives, uint32 InNumVertices, uint32 InVertexDataStride, void* InOutVertexData)
+		: NumPrimitives(InNumPrimitives)
 		, NumVertices(InNumVertices)
 		, VertexDataStride(InVertexDataStride)
 		, OutVertexData(InOutVertexData)
@@ -1170,7 +1161,6 @@ struct FRHICommandEndDrawPrimitiveUP final : public FRHICommand<FRHICommandEndDr
 
 struct FRHICommandEndDrawIndexedPrimitiveUP final : public FRHICommand<FRHICommandEndDrawIndexedPrimitiveUP>
 {
-	uint32 PrimitiveType;
 	uint32 NumPrimitives;
 	uint32 NumVertices;
 	uint32 VertexDataStride;
@@ -1180,9 +1170,8 @@ struct FRHICommandEndDrawIndexedPrimitiveUP final : public FRHICommand<FRHIComma
 	uint32 IndexDataStride;
 	void* OutIndexData;
 
-	FORCEINLINE_DEBUGGABLE FRHICommandEndDrawIndexedPrimitiveUP(uint32 InPrimitiveType, uint32 InNumPrimitives, uint32 InNumVertices, uint32 InVertexDataStride, void* InOutVertexData, uint32 InMinVertexIndex, uint32 InNumIndices, uint32 InIndexDataStride, void* InOutIndexData)
-		: PrimitiveType(InPrimitiveType)
-		, NumPrimitives(InNumPrimitives)
+	FORCEINLINE_DEBUGGABLE FRHICommandEndDrawIndexedPrimitiveUP(uint32 InNumPrimitives, uint32 InNumVertices, uint32 InVertexDataStride, void* InOutVertexData, uint32 InMinVertexIndex, uint32 InNumIndices, uint32 InIndexDataStride, void* InOutIndexData)
+		: NumPrimitives(InNumPrimitives)
 		, NumVertices(InNumVertices)
 		, VertexDataStride(InVertexDataStride)
 		, OutVertexData(InOutVertexData)
@@ -1273,11 +1262,9 @@ struct FRHICommandFlushComputeShaderCache final : public FRHICommand<FRHICommand
 struct FRHICommandDrawPrimitiveIndirect final : public FRHICommand<FRHICommandDrawPrimitiveIndirect>
 {
 	FVertexBufferRHIParamRef ArgumentBuffer;
-	uint32 PrimitiveType;
 	uint32 ArgumentOffset;
-	FORCEINLINE_DEBUGGABLE FRHICommandDrawPrimitiveIndirect(uint32 InPrimitiveType, FVertexBufferRHIParamRef InArgumentBuffer, uint32 InArgumentOffset)
+	FORCEINLINE_DEBUGGABLE FRHICommandDrawPrimitiveIndirect(FVertexBufferRHIParamRef InArgumentBuffer, uint32 InArgumentOffset)
 		: ArgumentBuffer(InArgumentBuffer)
-		, PrimitiveType(InPrimitiveType)
 		, ArgumentOffset(InArgumentOffset)
 	{
 	}
@@ -1287,14 +1274,12 @@ struct FRHICommandDrawPrimitiveIndirect final : public FRHICommand<FRHICommandDr
 struct FRHICommandDrawIndexedIndirect final : public FRHICommand<FRHICommandDrawIndexedIndirect>
 {
 	FIndexBufferRHIParamRef IndexBufferRHI;
-	uint32 PrimitiveType;
 	FStructuredBufferRHIParamRef ArgumentsBufferRHI;
 	uint32 DrawArgumentsIndex;
 	uint32 NumInstances;
 
-	FORCEINLINE_DEBUGGABLE FRHICommandDrawIndexedIndirect(FIndexBufferRHIParamRef InIndexBufferRHI, uint32 InPrimitiveType, FStructuredBufferRHIParamRef InArgumentsBufferRHI, uint32 InDrawArgumentsIndex, uint32 InNumInstances)
+	FORCEINLINE_DEBUGGABLE FRHICommandDrawIndexedIndirect(FIndexBufferRHIParamRef InIndexBufferRHI, FStructuredBufferRHIParamRef InArgumentsBufferRHI, uint32 InDrawArgumentsIndex, uint32 InNumInstances)
 		: IndexBufferRHI(InIndexBufferRHI)
-		, PrimitiveType(InPrimitiveType)
 		, ArgumentsBufferRHI(InArgumentsBufferRHI)
 		, DrawArgumentsIndex(InDrawArgumentsIndex)
 		, NumInstances(InNumInstances)
@@ -1307,13 +1292,11 @@ struct FRHICommandDrawIndexedPrimitiveIndirect final : public FRHICommand<FRHICo
 {
 	FIndexBufferRHIParamRef IndexBuffer;
 	FVertexBufferRHIParamRef ArgumentsBuffer;
-	uint32 PrimitiveType;
 	uint32 ArgumentOffset;
 
-	FORCEINLINE_DEBUGGABLE FRHICommandDrawIndexedPrimitiveIndirect(uint32 InPrimitiveType, FIndexBufferRHIParamRef InIndexBuffer, FVertexBufferRHIParamRef InArgumentsBuffer, uint32 InArgumentOffset)
+	FORCEINLINE_DEBUGGABLE FRHICommandDrawIndexedPrimitiveIndirect(FIndexBufferRHIParamRef InIndexBuffer, FVertexBufferRHIParamRef InArgumentsBuffer, uint32 InArgumentOffset)
 		: IndexBuffer(InIndexBuffer)
 		, ArgumentsBuffer(InArgumentsBuffer)
-		, PrimitiveType(InPrimitiveType)
 		, ArgumentOffset(InArgumentOffset)
 	{
 	}
@@ -2130,18 +2113,24 @@ public:
 		new (AllocCommand<FRHICommandSetBlendFactor>()) FRHICommandSetBlendFactor(BlendFactor);
 	}
 
-	FORCEINLINE_DEBUGGABLE void DrawPrimitive(uint32 PrimitiveType, uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances)
+	FORCEINLINE_DEBUGGABLE void DrawPrimitive(uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances)
 	{
 		//check(IsOutsideRenderPass());
 		if (Bypass())
 		{
-			CMD_CONTEXT(RHIDrawPrimitive)(PrimitiveType, BaseVertexIndex, NumPrimitives, NumInstances);
+			CMD_CONTEXT(RHIDrawPrimitive)(BaseVertexIndex, NumPrimitives, NumInstances);
 			return;
 		}
-		new (AllocCommand<FRHICommandDrawPrimitive>()) FRHICommandDrawPrimitive(PrimitiveType, BaseVertexIndex, NumPrimitives, NumInstances);
+		new (AllocCommand<FRHICommandDrawPrimitive>()) FRHICommandDrawPrimitive(BaseVertexIndex, NumPrimitives, NumInstances);
 	}
 
-	FORCEINLINE_DEBUGGABLE void DrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuffer, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance, uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
+	DEPRECATED(4.22, "PrimitiveType is now a part of the Graphics Pipeline State.")
+	FORCEINLINE_DEBUGGABLE void DrawPrimitive(uint32 PrimitiveType, uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances)
+	{
+		DrawPrimitive(BaseVertexIndex, NumPrimitives, NumInstances);
+	}
+
+	FORCEINLINE_DEBUGGABLE void DrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuffer, int32 BaseVertexIndex, uint32 FirstInstance, uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
 	{
 		if (!IndexBuffer)
 		{
@@ -2151,10 +2140,16 @@ public:
 		//check(IsOutsideRenderPass());
 		if (Bypass())
 		{
-			CMD_CONTEXT(RHIDrawIndexedPrimitive)(IndexBuffer, PrimitiveType, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
+			CMD_CONTEXT(RHIDrawIndexedPrimitive)(IndexBuffer, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
 			return;
 		}
-		new (AllocCommand<FRHICommandDrawIndexedPrimitive>()) FRHICommandDrawIndexedPrimitive(IndexBuffer, PrimitiveType, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
+		new (AllocCommand<FRHICommandDrawIndexedPrimitive>()) FRHICommandDrawIndexedPrimitive(IndexBuffer, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
+	}
+
+	DEPRECATED(4.22, "PrimitiveType is now a part of the Graphics Pipeline State.")
+	FORCEINLINE_DEBUGGABLE void DrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuffer, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance, uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
+	{
+		DrawIndexedPrimitive(IndexBuffer, BaseVertexIndex, FirstInstance, NumVertices, StartIndex, NumPrimitives, NumInstances);
 	}
 
 	FORCEINLINE_DEBUGGABLE void SetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBuffer, uint32 Offset)
@@ -2325,7 +2320,7 @@ public:
 		//check(IsOutsideRenderPass());
 		if (Bypass())
 		{
-			CMD_CONTEXT(RHIBeginDrawPrimitiveUP)(PrimitiveType, NumPrimitives, NumVertices, VertexDataStride, OutVertexData);
+			CMD_CONTEXT(RHIBeginDrawPrimitiveUP)(NumPrimitives, NumVertices, VertexDataStride, OutVertexData);
 			return;
 		}
 		checkf(!DrawUPData.OutVertexData && NumVertices * VertexDataStride > 0,
@@ -2333,7 +2328,6 @@ public:
 
 		OutVertexData = Alloc(NumVertices * VertexDataStride, 16);
 
-		DrawUPData.PrimitiveType = PrimitiveType;
 		DrawUPData.NumPrimitives = NumPrimitives;
 		DrawUPData.NumVertices = NumVertices;
 		DrawUPData.VertexDataStride = VertexDataStride;
@@ -2350,7 +2344,7 @@ public:
 			return;
 		}
 		check(DrawUPData.OutVertexData && DrawUPData.NumVertices);
-		new (AllocCommand<FRHICommandEndDrawPrimitiveUP>()) FRHICommandEndDrawPrimitiveUP(DrawUPData.PrimitiveType, DrawUPData.NumPrimitives, DrawUPData.NumVertices, DrawUPData.VertexDataStride, DrawUPData.OutVertexData);
+		new (AllocCommand<FRHICommandEndDrawPrimitiveUP>()) FRHICommandEndDrawPrimitiveUP(DrawUPData.NumPrimitives, DrawUPData.NumVertices, DrawUPData.VertexDataStride, DrawUPData.OutVertexData);
 
 		DrawUPData.OutVertexData = nullptr;
 		DrawUPData.NumVertices = 0;
@@ -2362,7 +2356,7 @@ public:
 		//check(IsOutsideRenderPass());
 		if (Bypass())
 		{
-			CMD_CONTEXT(RHIBeginDrawIndexedPrimitiveUP)(PrimitiveType, NumPrimitives, NumVertices, VertexDataStride, OutVertexData, MinVertexIndex, NumIndices, IndexDataStride, OutIndexData);
+			CMD_CONTEXT(RHIBeginDrawIndexedPrimitiveUP)(NumPrimitives, NumVertices, VertexDataStride, OutVertexData, MinVertexIndex, NumIndices, IndexDataStride, OutIndexData);
 			return;
 		}
 		check(!DrawUPData.OutVertexData && !DrawUPData.OutIndexData && NumVertices * VertexDataStride > 0 && NumIndices * IndexDataStride > 0);
@@ -2370,7 +2364,6 @@ public:
 		OutVertexData = Alloc(NumVertices * VertexDataStride, 16);
 		OutIndexData = Alloc(NumIndices * IndexDataStride, 16);
 
-		DrawUPData.PrimitiveType = PrimitiveType;
 		DrawUPData.NumPrimitives = NumPrimitives;
 		DrawUPData.NumVertices = NumVertices;
 		DrawUPData.VertexDataStride = VertexDataStride;
@@ -2393,7 +2386,7 @@ public:
 		}
 		check(DrawUPData.OutVertexData && DrawUPData.OutIndexData && DrawUPData.NumIndices && DrawUPData.NumVertices);
 
-		new (AllocCommand<FRHICommandEndDrawIndexedPrimitiveUP>()) FRHICommandEndDrawIndexedPrimitiveUP(DrawUPData.PrimitiveType, DrawUPData.NumPrimitives, DrawUPData.NumVertices, DrawUPData.VertexDataStride, DrawUPData.OutVertexData, DrawUPData.MinVertexIndex, DrawUPData.NumIndices, DrawUPData.IndexDataStride, DrawUPData.OutIndexData);
+		new (AllocCommand<FRHICommandEndDrawIndexedPrimitiveUP>()) FRHICommandEndDrawIndexedPrimitiveUP(DrawUPData.NumPrimitives, DrawUPData.NumVertices, DrawUPData.VertexDataStride, DrawUPData.OutVertexData, DrawUPData.MinVertexIndex, DrawUPData.NumIndices, DrawUPData.IndexDataStride, DrawUPData.OutIndexData);
 
 		DrawUPData.OutVertexData = nullptr;
 		DrawUPData.OutIndexData = nullptr;
@@ -2477,37 +2470,56 @@ public:
 		new (AllocCommand<FRHICommandFlushComputeShaderCache>()) FRHICommandFlushComputeShaderCache();
 	}
 
+	FORCEINLINE_DEBUGGABLE void DrawPrimitiveIndirect(FVertexBufferRHIParamRef ArgumentBuffer, uint32 ArgumentOffset)
+	{
+		//check(IsOutsideRenderPass());
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIDrawPrimitiveIndirect)(ArgumentBuffer, ArgumentOffset);
+			return;
+		}
+		new (AllocCommand<FRHICommandDrawPrimitiveIndirect>()) FRHICommandDrawPrimitiveIndirect(ArgumentBuffer, ArgumentOffset);
+	}
+
+	DEPRECATED(4.22, "PrimitiveType is now a part of the Graphics Pipeline State.")
 	FORCEINLINE_DEBUGGABLE void DrawPrimitiveIndirect(uint32 PrimitiveType, FVertexBufferRHIParamRef ArgumentBuffer, uint32 ArgumentOffset)
 	{
+		DrawPrimitiveIndirect(ArgumentBuffer, ArgumentOffset);
+	}
+
+
+	FORCEINLINE_DEBUGGABLE void DrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, FStructuredBufferRHIParamRef ArgumentsBufferRHI, uint32 DrawArgumentsIndex, uint32 NumInstances)
+	{
 		//check(IsOutsideRenderPass());
 		if (Bypass())
 		{
-			CMD_CONTEXT(RHIDrawPrimitiveIndirect)(PrimitiveType, ArgumentBuffer, ArgumentOffset);
+			CMD_CONTEXT(RHIDrawIndexedIndirect)(IndexBufferRHI, ArgumentsBufferRHI, DrawArgumentsIndex, NumInstances);
 			return;
 		}
-		new (AllocCommand<FRHICommandDrawPrimitiveIndirect>()) FRHICommandDrawPrimitiveIndirect(PrimitiveType, ArgumentBuffer, ArgumentOffset);
+		new (AllocCommand<FRHICommandDrawIndexedIndirect>()) FRHICommandDrawIndexedIndirect(IndexBufferRHI, ArgumentsBufferRHI, DrawArgumentsIndex, NumInstances);
 	}
 
+	DEPRECATED(4.22, "PrimitiveType is now a part of the Graphics Pipeline State.")
 	FORCEINLINE_DEBUGGABLE void DrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType, FStructuredBufferRHIParamRef ArgumentsBufferRHI, uint32 DrawArgumentsIndex, uint32 NumInstances)
 	{
-		//check(IsOutsideRenderPass());
-		if (Bypass())
-		{
-			CMD_CONTEXT(RHIDrawIndexedIndirect)(IndexBufferRHI, PrimitiveType, ArgumentsBufferRHI, DrawArgumentsIndex, NumInstances);
-			return;
-		}
-		new (AllocCommand<FRHICommandDrawIndexedIndirect>()) FRHICommandDrawIndexedIndirect(IndexBufferRHI, PrimitiveType, ArgumentsBufferRHI, DrawArgumentsIndex, NumInstances);
+		DrawIndexedIndirect(IndexBufferRHI, ArgumentsBufferRHI, DrawArgumentsIndex, NumInstances);
 	}
 
-	FORCEINLINE_DEBUGGABLE void DrawIndexedPrimitiveIndirect(uint32 PrimitiveType, FIndexBufferRHIParamRef IndexBuffer, FVertexBufferRHIParamRef ArgumentsBuffer, uint32 ArgumentOffset)
+	FORCEINLINE_DEBUGGABLE void DrawIndexedPrimitiveIndirect(FIndexBufferRHIParamRef IndexBuffer, FVertexBufferRHIParamRef ArgumentsBuffer, uint32 ArgumentOffset)
 	{
 		//check(IsOutsideRenderPass());
 		if (Bypass())
 		{
-			CMD_CONTEXT(RHIDrawIndexedPrimitiveIndirect)(PrimitiveType, IndexBuffer, ArgumentsBuffer, ArgumentOffset);
+			CMD_CONTEXT(RHIDrawIndexedPrimitiveIndirect)(IndexBuffer, ArgumentsBuffer, ArgumentOffset);
 			return;
 		}
-		new (AllocCommand<FRHICommandDrawIndexedPrimitiveIndirect>()) FRHICommandDrawIndexedPrimitiveIndirect(PrimitiveType, IndexBuffer, ArgumentsBuffer, ArgumentOffset);
+		new (AllocCommand<FRHICommandDrawIndexedPrimitiveIndirect>()) FRHICommandDrawIndexedPrimitiveIndirect(IndexBuffer, ArgumentsBuffer, ArgumentOffset);
+	}
+
+	DEPRECATED(4.22, "PrimitiveType is now a part of the Graphics Pipeline State.")
+	FORCEINLINE_DEBUGGABLE void DrawIndexedPrimitiveIndirect(uint32 PrimitiveType, FIndexBufferRHIParamRef IndexBuffer, FVertexBufferRHIParamRef ArgumentsBuffer, uint32 ArgumentOffset)
+	{
+		DrawIndexedPrimitiveIndirect(IndexBuffer, ArgumentsBuffer, ArgumentOffset);
 	}
 
 	FORCEINLINE_DEBUGGABLE void SetDepthBounds(float MinDepth, float MaxDepth)

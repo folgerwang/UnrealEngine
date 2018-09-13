@@ -1004,7 +1004,7 @@ bool FDeferredShadingSceneRenderer::RenderCapsuleDirectShadows(
 					}
 
 					RHICmdList.SetStreamSource(0, GTileTexCoordVertexBuffer.VertexBufferRHI, 0);
-					RHICmdList.DrawIndexedPrimitive(GTileIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 4, 0, 2 * NumTileQuadsInBuffer, FMath::DivideAndRoundUp(GroupSize.X * GroupSize.Y, NumTileQuadsInBuffer));
+					RHICmdList.DrawIndexedPrimitive(GTileIndexBuffer.IndexBufferRHI, 0, 0, 4, 0, 2 * NumTileQuadsInBuffer, FMath::DivideAndRoundUp(GroupSize.X * GroupSize.Y, NumTileQuadsInBuffer));
 				}
 			}
 		}
@@ -1499,7 +1499,7 @@ void FDeferredShadingSceneRenderer::RenderIndirectCapsuleShadows(
 							}
 
 							RHICmdList.SetStreamSource(0, GTileTexCoordVertexBuffer.VertexBufferRHI, 0);
-							RHICmdList.DrawIndexedPrimitive(GTileIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 4, 0, 2 * NumTileQuadsInBuffer, FMath::DivideAndRoundUp(GroupSize.X * GroupSize.Y, NumTileQuadsInBuffer));
+							RHICmdList.DrawIndexedPrimitive(GTileIndexBuffer.IndexBufferRHI, 0, 0, 4, 0, 2 * NumTileQuadsInBuffer, FMath::DivideAndRoundUp(GroupSize.X * GroupSize.Y, NumTileQuadsInBuffer));
 						}
 					}
 				}

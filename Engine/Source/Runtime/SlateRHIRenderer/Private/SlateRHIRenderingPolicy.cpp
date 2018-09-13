@@ -464,7 +464,7 @@ static void UpdateScissorRect(
 
 						RHIUnlockVertexBuffer(VertexBufferRHI);
 						RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-						RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+						RHICmdList.DrawPrimitive(0, 2, 1);
 					}
 
 					// Now setup the pipeline to use SO_SaturatedIncrement, since we've established the initial
@@ -516,7 +516,7 @@ static void UpdateScissorRect(
 
 					RHIUnlockVertexBuffer(VertexBufferRHI);
 					RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-					RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+					RHICmdList.DrawPrimitive(0, 2, 1);
 				}
 
 				// Setup the stenciling state to be read only now, disable depth writes, and restore the color buffer
@@ -972,13 +972,13 @@ void FSlateRHIRenderingPolicy::DrawElements(
 					if (!GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
 					{
 						RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
-						RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
+						RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
 					}
 					else
 					{
 						uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset;
 						RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
-						RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
+						RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
 					}
 				}
 			}
@@ -1111,13 +1111,13 @@ void FSlateRHIRenderingPolicy::DrawElements(
 									if (!GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
 									{
 										RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
-										RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
+										RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
 									}
 									else
 									{
 										uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset;
 										RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
-										RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
+										RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
 									}
 								}
 							}
@@ -1129,13 +1129,13 @@ void FSlateRHIRenderingPolicy::DrawElements(
 								if (!GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
 								{
 									RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
-									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
+									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
 								}
 								else
 								{
 									uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset;
 									RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
-									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
+									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
 								}
 							}
 						}

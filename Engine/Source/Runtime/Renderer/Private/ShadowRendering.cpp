@@ -728,7 +728,7 @@ void FProjectedShadowInfo::SetupProjectionStencilMask(
 
 		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
 		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShaderNoTransform);
-		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
 
 		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
@@ -762,7 +762,7 @@ void FProjectedShadowInfo::SetupProjectionStencilMask(
 
 		RHIUnlockVertexBuffer(VertexBufferRHI);
 		RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, (CascadeSettings.ShadowSplitIndex > 0) ? 4 : 2, 1);
+		RHICmdList.DrawPrimitive(0, (CascadeSettings.ShadowSplitIndex > 0) ? 4 : 2, 1);
 	}
 	// Not a preshadow, mask the projection to any pixels inside the frustum.
 	else
@@ -820,7 +820,7 @@ void FProjectedShadowInfo::SetupProjectionStencilMask(
 
 		RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
 		// Draw the frustum using the stencil buffer to mask just the pixels which are inside the shadow frustum.
-		RHICmdList.DrawIndexedPrimitive(GCubeIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 8, 0, 12, 1);
+		RHICmdList.DrawIndexedPrimitive(GCubeIndexBuffer.IndexBufferRHI, 0, 0, 8, 0, 12, 1);
 		VertexBufferRHI.SafeRelease();
 
 		// if rendering modulated shadows mask out subject mesh elements to prevent self shadowing.
@@ -997,7 +997,7 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 	if (IsWholeSceneDirectionalShadow())
 	{
 		RHICmdList.SetStreamSource(0, GClearVertexBuffer.VertexBufferRHI, 0);
-		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+		RHICmdList.DrawPrimitive(0, 2, 1);
 	}
 	else
 	{
@@ -1009,7 +1009,7 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 
 		RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
 		// Draw the frustum using the projection shader..
-		RHICmdList.DrawIndexedPrimitive(GCubeIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 8, 0, 12, 1);
+		RHICmdList.DrawIndexedPrimitive(GCubeIndexBuffer.IndexBufferRHI, 0, 0, 8, 0, 12, 1);
 		VertexBufferRHI.SafeRelease();
 	}
 

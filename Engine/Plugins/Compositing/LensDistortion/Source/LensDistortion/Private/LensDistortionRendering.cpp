@@ -220,7 +220,7 @@ static void DrawUVDisplacementToRenderTarget_RenderThread(
 
 	// Draw grid.
 	uint32 PrimitiveCount = kGridSubdivisionX * kGridSubdivisionY * 2;
-	RHICmdList.DrawPrimitive(PT_TriangleList, 0, PrimitiveCount, 1);
+	RHICmdList.DrawPrimitive(0, PrimitiveCount, 1);
 
 	// Resolve render target.
 	RHICmdList.CopyToResolveTarget(

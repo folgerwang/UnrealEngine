@@ -816,7 +816,7 @@ void FBatchedElements::DrawPointElements(FRHICommandList& RHICmdList, const FMat
 
 		RHIUnlockVertexBuffer(VertexBufferRHI);
 		RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-		RHICmdList.DrawPrimitive(PT_TriangleList, 0, NumTris, 1);
+		RHICmdList.DrawPrimitive(0, NumTris, 1);
 	}
 }
 
@@ -913,7 +913,7 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, const FDrawingPolicyRen
 				while( MinVertex < TotalVerts )
 				{
 					int32 NumLinePrims = FMath::Min( MaxVerticesAllowed, TotalVerts - MinVertex ) / 2;
-					RHICmdList.DrawPrimitive(PT_LineList, MinVertex, NumLinePrims, 1);
+					RHICmdList.DrawPrimitive(MinVertex, NumLinePrims, 1);
 					MinVertex += NumLinePrims * 2;
 				}
 
@@ -1040,7 +1040,7 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, const FDrawingPolicyRen
 
 					RHIUnlockVertexBuffer(VertexBufferRHI);
 					RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-					RHICmdList.DrawPrimitive(PT_TriangleList, 0, 8 * NumLinesThisBatch, 1);
+					RHICmdList.DrawPrimitive(0, 8 * NumLinesThisBatch, 1);
 				}
 
 				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
@@ -1091,7 +1091,7 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, const FDrawingPolicyRen
 					RHICmdList.SetStencilRef(StencilRef);
 
 					int32 NumTris = MaxTri - MinTri;
-					RHICmdList.DrawPrimitive(PT_TriangleList, MinTri * 3, NumTris, 1);
+					RHICmdList.DrawPrimitive(MinTri * 3, NumTris, 1);
 					MinTri = MaxTri;
 				}
 				VertexBufferRHI.SafeRelease();
@@ -1186,7 +1186,7 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, const FDrawingPolicyRen
 					RHICmdList.SetStencilRef(StencilRef);
 					RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
 
-					RHICmdList.DrawPrimitive(PT_TriangleList, BaseVertex, PrimCount, 1);
+					RHICmdList.DrawPrimitive(BaseVertex, PrimCount, 1);
 				}
 
 				if (!isVeryLastDummyIndex)
@@ -1233,7 +1233,7 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, const FDrawingPolicyRen
 
 					// Draw the mesh.
 					RHICmdList.SetStreamSource(0, VertexBufferRHI, MeshElement.MinVertex * sizeof(FSimpleElementVertex));
-					RHICmdList.DrawIndexedPrimitive(IndexBufferRHI, PT_TriangleList, 0, 0, MeshElement.MaxVertex - MeshElement.MinVertex + 1, 0, MeshElement.Indices.Num() / 3, 1);
+					RHICmdList.DrawIndexedPrimitive(IndexBufferRHI, 0, 0, MeshElement.MaxVertex - MeshElement.MinVertex + 1, 0, MeshElement.Indices.Num() / 3, 1);
 
 					IndexBufferRHI.SafeRelease();
 				}

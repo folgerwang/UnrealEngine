@@ -204,7 +204,6 @@ static inline void InternalDrawRectangle(
 
 		RHICmdList.DrawIndexedPrimitive(
 			GTesselatedScreenRectangleIndexBuffer.IndexBufferRHI,
-			PT_TriangleList,
 			/*BaseVertexIndex=*/ 0,
 			/*MinIndex=*/ 0,
 			/*NumVertices=*/ GTesselatedScreenRectangleIndexBuffer.NumVertices(),
@@ -225,7 +224,6 @@ static inline void InternalDrawRectangle(
 			// We offset into the index buffer when using the triangle optimization to access the correct vertices.
 			RHICmdList.DrawIndexedPrimitive(
 				GScreenRectangleIndexBuffer.IndexBufferRHI,
-				PT_TriangleList,
 				/*BaseVertexIndex=*/ 0,
 				/*MinIndex=*/ 0,
 				/*NumVertices=*/ 3,
@@ -240,7 +238,6 @@ static inline void InternalDrawRectangle(
 
 			RHICmdList.DrawIndexedPrimitive(
 				GScreenRectangleIndexBuffer.IndexBufferRHI,
-				PT_TriangleList,
 				/*BaseVertexIndex=*/ 0,
 				/*MinIndex=*/ 0,
 				/*NumVertices=*/ 4,
@@ -319,7 +316,7 @@ void DrawTransformedRectangle(
 
 	RHIUnlockVertexBuffer(VertexBufferRHI);
 	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 4, 0, 2, 1);
+	RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, 0, 0, 4, 0, 2, 1);
 	VertexBufferRHI.SafeRelease();
 }
 

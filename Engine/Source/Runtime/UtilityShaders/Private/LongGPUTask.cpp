@@ -72,7 +72,7 @@ void IssueScalableLongGPUTask(FRHICommandListImmediate& RHICmdList, int32 NumIte
 
 	for (int32 Iteration = 0; Iteration < NumIteration; Iteration++)
 	{
-		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+		RHICmdList.DrawPrimitive(0, 2, 1);
 	}
 }
 

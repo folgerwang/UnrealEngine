@@ -58,7 +58,7 @@ float GetLightFadeFactor(const FSceneView& View, const FLightSceneProxy* Proxy)
 void StencilingGeometry::DrawSphere(FRHICommandList& RHICmdList)
 {
 	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilSphereVertexBuffer.VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
+	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, 0, 0,
 		StencilingGeometry::GStencilSphereVertexBuffer.GetVertexCount(), 0, 
 		StencilingGeometry::GStencilSphereIndexBuffer.GetIndexCount() / 3, 1);
 }
@@ -66,7 +66,7 @@ void StencilingGeometry::DrawSphere(FRHICommandList& RHICmdList)
 void StencilingGeometry::DrawVectorSphere(FRHICommandList& RHICmdList)
 {
 	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilSphereVectorBuffer.VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
+	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, 0, 0,
 									StencilingGeometry::GStencilSphereVectorBuffer.GetVertexCount(), 0,
 									StencilingGeometry::GStencilSphereIndexBuffer.GetIndexCount() / 3, 1);
 }
@@ -76,7 +76,7 @@ void StencilingGeometry::DrawCone(FRHICommandList& RHICmdList)
 	// No Stream Source needed since it will generate vertices on the fly
 	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilConeVertexBuffer.VertexBufferRHI, 0);
 
-	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilConeIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
+	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilConeIndexBuffer.IndexBufferRHI, 0, 0,
 		FStencilConeIndexBuffer::NumVerts, 0, StencilingGeometry::GStencilConeIndexBuffer.GetIndexCount() / 3, 1);
 }
 

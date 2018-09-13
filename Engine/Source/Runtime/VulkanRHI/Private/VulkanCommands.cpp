@@ -771,7 +771,7 @@ void FVulkanCommandListContext::RHISetStencilRef(uint32 StencilRef)
 	PendingGfxState->SetStencilRef(StencilRef);
 }
 
-void FVulkanCommandListContext::RHIDrawPrimitive(uint32 PrimitiveType_DEPRECATED, uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances)
+void FVulkanCommandListContext::RHIDrawPrimitive(uint32 BaseVertexIndex, uint32 NumPrimitives, uint32 NumInstances)
 {
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanDrawCallTime);
@@ -790,7 +790,7 @@ void FVulkanCommandListContext::RHIDrawPrimitive(uint32 PrimitiveType_DEPRECATED
 	}
 }
 
-void FVulkanCommandListContext::RHIDrawPrimitiveIndirect(uint32 PrimitiveType_DEPRECATED, FVertexBufferRHIParamRef ArgumentBufferRHI, uint32 ArgumentOffset)
+void FVulkanCommandListContext::RHIDrawPrimitiveIndirect(FVertexBufferRHIParamRef ArgumentBufferRHI, uint32 ArgumentOffset)
 {
 	static_assert(sizeof(FRHIDrawIndirectParameters) == sizeof(VkDrawIndirectCommand), "Draw indirect doesn't match!");
 
@@ -813,7 +813,7 @@ void FVulkanCommandListContext::RHIDrawPrimitiveIndirect(uint32 PrimitiveType_DE
 	}
 }
 
-void FVulkanCommandListContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType_DEPRECATED, int32 BaseVertexIndex, uint32 FirstInstance,
+void FVulkanCommandListContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBufferRHI, int32 BaseVertexIndex, uint32 FirstInstance,
 	uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
 {
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
@@ -838,7 +838,7 @@ void FVulkanCommandListContext::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef 
 	}
 }
 
-void FVulkanCommandListContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType_DEPRECATED, FStructuredBufferRHIParamRef ArgumentsBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances)
+void FVulkanCommandListContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, FStructuredBufferRHIParamRef ArgumentsBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances)
 {
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanDrawCallTime);
@@ -860,7 +860,7 @@ void FVulkanCommandListContext::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef I
 	}
 }
 
-void FVulkanCommandListContext::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType_DEPRECATED,FIndexBufferRHIParamRef IndexBufferRHI,FVertexBufferRHIParamRef ArgumentBufferRHI,uint32 ArgumentOffset)
+void FVulkanCommandListContext::RHIDrawIndexedPrimitiveIndirect(FIndexBufferRHIParamRef IndexBufferRHI,FVertexBufferRHIParamRef ArgumentBufferRHI,uint32 ArgumentOffset)
 {
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanDrawCallTime);
@@ -883,7 +883,7 @@ void FVulkanCommandListContext::RHIDrawIndexedPrimitiveIndirect(uint32 Primitive
 	}
 }
 
-void FVulkanCommandListContext::RHIBeginDrawPrimitiveUP(uint32 PrimitiveType_DEPRECATED, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
+void FVulkanCommandListContext::RHIBeginDrawPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 {
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanUPPrepTime);
@@ -918,7 +918,7 @@ void FVulkanCommandListContext::RHIEndDrawPrimitiveUP()
 	}
 }
 
-void FVulkanCommandListContext::RHIBeginDrawIndexedPrimitiveUP( uint32 PrimitiveType_DEPRECATED, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride,
+void FVulkanCommandListContext::RHIBeginDrawIndexedPrimitiveUP(uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride,
 	void*& OutVertexData, uint32 MinVertexIndex, uint32 NumIndices, uint32 IndexDataStride, void*& OutIndexData)
 {
 	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanMisc);

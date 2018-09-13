@@ -624,7 +624,7 @@ void FDeferredShadingSceneRenderer::RenderLocalLightsForVolumetricFog(
 				RHICmdList.SetStreamSource(0, GCircleRasterizeVertexBuffer.VertexBufferRHI, 0);
 				const int32 NumInstances = VolumeZBounds.Y - VolumeZBounds.X;
 				const int32 NumTriangles = FCircleRasterizeVertexBuffer::NumVertices - 2;
-				RHICmdList.DrawIndexedPrimitive(GCircleRasterizeIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, FCircleRasterizeVertexBuffer::NumVertices, 0, NumTriangles, NumInstances);
+				RHICmdList.DrawIndexedPrimitive(GCircleRasterizeIndexBuffer.IndexBufferRHI, 0, 0, FCircleRasterizeVertexBuffer::NumVertices, 0, NumTriangles, NumInstances);
 			}
 		}
 

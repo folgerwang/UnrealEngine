@@ -594,7 +594,6 @@ void ScatterTilesToObjects(FRHICommandListImmediate& RHICmdList, const FViewInfo
 	RHICmdList.SetStreamSource(0, StencilingGeometry::GLowPolyStencilSphereVertexBuffer.VertexBufferRHI, 0);
 
 	RHICmdList.DrawIndexedPrimitiveIndirect(
-		PT_TriangleList,
 		StencilingGeometry::GLowPolyStencilSphereIndexBuffer.IndexBufferRHI, 
 		GAOCulledObjectBuffers.Buffers.ObjectIndirectArguments.Buffer,
 		0);
