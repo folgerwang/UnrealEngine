@@ -60,11 +60,6 @@ namespace UnrealBuildTool
 
 		public virtual void SetUpGlobalEnvironment(ReadOnlyTargetRules Target)
 		{
-			ParseProjectSettings();
-		}
-
-		public virtual void ParseProjectSettings()
-		{
 		}
 
 		public virtual void ModifyBuildProducts(ReadOnlyTargetRules Target, UEBuildBinary Binary, List<string> Libraries, List<UEBuildBundleResource> BundleResources, Dictionary<FileReference, BuildProductType> BuildProducts)
