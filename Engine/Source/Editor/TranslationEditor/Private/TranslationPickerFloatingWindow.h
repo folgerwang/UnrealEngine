@@ -28,10 +28,10 @@ private:
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 	/** Pull the FText reference out of an SWidget */
-	FText GetTextFromWidget(TSharedRef<SWidget> Widget);
+	void PickTextFromWidget(TSharedRef<SWidget> Widget);
 
 	/** Pull the FText reference out of the child widgets of an SWidget */
-	void GetTextFromChildWidgets(TSharedRef<SWidget> Widget);
+	void PickTextFromChildWidgets(TSharedRef<SWidget> Widget);
 
 	/** Handle key presses */
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
