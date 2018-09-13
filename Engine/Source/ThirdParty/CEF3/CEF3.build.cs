@@ -106,7 +106,7 @@ public class CEF3 : ModuleRules
 					var LocaleFolders = Directory.GetFileSystemEntries(LibraryPath + "/locale", "*.lproj");
 					foreach (var FolderName in LocaleFolders)
 					{
-						AdditionalBundleResources.Add(new UEBuildBundleResource(FolderName, bInShouldLog:false));
+						AdditionalBundleResources.Add(new BundleResource(FolderName, bShouldLog: false));
 					}
 				}
 

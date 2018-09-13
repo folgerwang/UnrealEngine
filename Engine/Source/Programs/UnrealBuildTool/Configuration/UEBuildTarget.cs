@@ -1194,7 +1194,7 @@ namespace UnrealBuildTool
 				ModuleRules Rules = CreateModuleRulesAndSetDefaults(Module.Name, "external file list option");
 
 				// Add Additional Bundle Resources for all modules
-				foreach (UEBuildBundleResource Resource in Rules.AdditionalBundleResources)
+				foreach (ModuleRules.BundleResource Resource in Rules.AdditionalBundleResources)
 				{
 					if (Directory.Exists(Resource.ResourcePath))
 					{

@@ -316,6 +316,58 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// 
+		/// </summary>
+		public class BundleResource
+		{
+			/// <summary>
+			/// 
+			/// </summary>
+			public string ResourcePath = null;
+
+			/// <summary>
+			/// 
+			/// </summary>
+			public string BundleContentsSubdir = null;
+
+			/// <summary>
+			/// 
+			/// </summary>
+			public bool bShouldLog = true;
+
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="ResourcePath"></param>
+			/// <param name="BundleContentsSubdir"></param>
+			/// <param name="bShouldLog"></param>
+			public BundleResource(string ResourcePath, string BundleContentsSubdir = "Resources", bool bShouldLog = true)
+			{
+				this.ResourcePath = ResourcePath;
+				this.BundleContentsSubdir = BundleContentsSubdir;
+				this.bShouldLog = bShouldLog;
+			}
+		}
+
+		/// <summary>
+		/// Deprecated; wrapper for BundleResource.
+		/// </summary>
+		[Obsolete("The UEBuildBundleResource class has been deprecated in UE 4.22. Please use the BundleResource class instead.")]
+		public class UEBuildBundleResource : BundleResource
+		{
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="InResourcePath"></param>
+			/// <param name="InBundleContentsSubdir"></param>
+			/// <param name="bInShouldLog"></param>
+			public UEBuildBundleResource(string InResourcePath, string InBundleContentsSubdir = "Resources", bool bInShouldLog = true)
+				: base(InResourcePath, InBundleContentsSubdir, bInShouldLog)
+			{
+			}
+		}
+
+		/// <summary>
 		/// Name of this module
 		/// </summary>
 		public string Name
@@ -567,7 +619,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of addition resources that should be copied to the app bundle for Mac or iOS
 		/// </summary>
-		public List<UEBuildBundleResource> AdditionalBundleResources = new List<UEBuildBundleResource>();
+		public List<BundleResource> AdditionalBundleResources = new List<BundleResource>();
 
 		/// <summary>
 		/// For builds that execute on a remote machine (e.g. iOS), this list contains additional files that
