@@ -12,6 +12,7 @@
 #define LOCTEXT_NAMESPACE "TranslationPicker"
 
 class SToolTip;
+class FTranslationPickerInputProcessor;
 
 /** Translation picker floating window to show details of FText(s) under cursor, and allow in-place translation via TranslationPickerEditWindow */
 class STranslationPickerFloatingWindow : public SCompoundWidget
@@ -22,9 +23,13 @@ class STranslationPickerFloatingWindow : public SCompoundWidget
 
 	SLATE_END_ARGS()
 
+	virtual ~STranslationPickerFloatingWindow();
+
 	void Construct(const FArguments& InArgs);
 
 private:
+	friend class FTranslationPickerInputProcessor;
+
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 	/** Pull the FText reference out of an SWidget */
@@ -33,14 +38,11 @@ private:
 	/** Pull the FText reference out of the child widgets of an SWidget */
 	void PickTextFromChildWidgets(TSharedRef<SWidget> Widget);
 
-	/** Handle key presses */
-	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+	/** Handle escape being pressed */
+	void OnEscapePressed();
 
-	/** We need to support keyboard focus to process the 'Esc' key */
-	virtual bool SupportsKeyboardFocus() const override
-	{
-		return true;
-	}
+	/** Input processor used to capture the 'Esc' key */
+	TSharedPtr<FTranslationPickerInputProcessor> InputProcessor;
 
 	/** Handle to the window that contains this widget */
 	TWeakPtr<SWindow> ParentWindow;
