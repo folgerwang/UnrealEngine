@@ -66,10 +66,7 @@ namespace UnrealBuildTool
 			Log.TraceInformation("HTML5ToolChain: EnableTracing = "      + bEnableTracing       );
 
 			PrintOnce = new VerbosePrint(PrintOnceOn); // reset
-		}
 
-		public static void PreBuildSync()
-		{
 			Log.TraceInformation("Setting Emscripten SDK: located in " + HTML5SDKInfo.EMSCRIPTEN_ROOT);
 			HTML5SDKInfo.SetupEmscriptenTemp();
 			HTML5SDKInfo.SetUpEmscriptenConfigFile();

@@ -57,11 +57,6 @@ namespace UnrealBuildTool
 			Target.bDeployAfterCompile = true;
 		}
 
-		public override void PreBuildSync()
-		{
-			HTML5ToolChain.PreBuildSync();
-		}
-
 		public override bool CanUseXGE()
 		{
 			return false; // NOTE: setting to true may break CIS builds...
