@@ -108,6 +108,27 @@
 
 #include "GenericPlatform/GenericPlatform.h"
 
+//------------------------------------------------------------------
+// Setup macros for static code analysis
+//------------------------------------------------------------------
+#ifndef PLATFORM_COMPILER_CLANG
+#if defined(__clang__)
+#define PLATFORM_COMPILER_CLANG			1
+#else
+#define PLATFORM_COMPILER_CLANG			0
+#endif // defined(__clang__)
+#endif
+
+#if PLATFORM_WINDOWS
+	#include "Windows/WindowsPlatformCodeAnalysis.h"
+#elif PLATFORM_COMPILER_CLANG
+	#include "Clang/ClangPlatformCodeAnalysis.h"
+#endif
+
+#ifndef USING_ADDRESS_SANITISER
+	#define USING_ADDRESS_SANITISER 0
+#endif
+
 //---------------------------------------------------------
 // Identify the current platform and include that header
 //---------------------------------------------------------
@@ -135,27 +156,6 @@
 	#include "Switch/SwitchPlatform.h"
 #else
 	#error Unknown platform
-#endif
-
-//------------------------------------------------------------------
-// Setup macros for static code analysis
-//------------------------------------------------------------------
-#ifndef PLATFORM_COMPILER_CLANG
-	#if defined(__clang__)
-		#define PLATFORM_COMPILER_CLANG			1
-	#else
-		#define PLATFORM_COMPILER_CLANG			0
-	#endif // defined(__clang__)
-#endif
-
-#if PLATFORM_WINDOWS
-    #include "Windows/WindowsPlatformCodeAnalysis.h"
-#elif PLATFORM_COMPILER_CLANG
-    #include "Clang/ClangPlatformCodeAnalysis.h"
-#endif
-
-#ifndef USING_ADDRESS_SANITISER
-	#define USING_ADDRESS_SANITISER 0
 #endif
 
 //------------------------------------------------------------------
@@ -192,8 +192,8 @@
 #ifndef PLATFORM_LITTLE_ENDIAN
 	#define PLATFORM_LITTLE_ENDIAN				0
 #endif
-#ifndef PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS
-	#define PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS	0
+#ifndef PLATFORM_SUPPORTS_UNALIGNED_LOADS
+	#define PLATFORM_SUPPORTS_UNALIGNED_LOADS	0
 #endif
 #ifndef PLATFORM_EXCEPTIONS_DISABLED
 	#define PLATFORM_EXCEPTIONS_DISABLED		!PLATFORM_DESKTOP
@@ -276,6 +276,9 @@
 #endif
 #ifndef PLATFORM_HAS_BSD_IPV6_SOCKETS
 	#define PLATFORM_HAS_BSD_IPV6_SOCKETS			0
+#endif
+#ifndef PLATFORM_SUPPORTS_UDP_MULTICAST_GROUP
+	#define PLATFORM_SUPPORTS_UDP_MULTICAST_GROUP	1
 #endif
 #ifndef PLATFORM_USE_PTHREADS
 	#define PLATFORM_USE_PTHREADS				1
@@ -672,7 +675,7 @@ int32 main(int32 ArgC, ANSICHAR* Utf8ArgV[]) \
 	{ \
 		FUTF8ToTCHAR ConvertFromUtf8(Utf8ArgV[a]); \
 		ArgV[a] = new TCHAR[ConvertFromUtf8.Length() + 1]; \
-		FCString::Strcpy(ArgV[a], ConvertFromUtf8.Length(), ConvertFromUtf8.Get()); \
+		FCString::Strcpy(ArgV[a], ConvertFromUtf8.Length() + 1, ConvertFromUtf8.Get()); \
 	} \
 	int32 Result = tchar_main(ArgC, ArgV); \
 	for (int32 a = 0; a < ArgC; a++) \

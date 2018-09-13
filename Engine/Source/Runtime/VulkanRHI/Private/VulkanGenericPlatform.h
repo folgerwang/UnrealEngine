@@ -9,6 +9,8 @@
 class FVulkanGenericPlatform 
 {
 public:
+	static bool IsSupported() { return true; }
+
 	static bool LoadVulkanLibrary() { return true; }
 	static bool LoadVulkanInstanceFunctions(VkInstance inInstance) { return true; }
 	static void FreeVulkanLibrary() {}
@@ -92,4 +94,7 @@ public:
 	static void EnablePhysicalDeviceFeatureExtensions(VkDeviceCreateInfo& DeviceInfo) {};
 
 	static bool RequiresSwapchainGeneralInitialLayout() { return false; }
+	
+	// Allow platforms to add extension features to the PresentInfo pNext chain
+	static void EnablePresentInfoExtensions(VkPresentInfoKHR& PresentInfo) {}
 };

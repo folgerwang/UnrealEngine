@@ -430,17 +430,20 @@ RENDERCORE_API int32 GMipColorTextureMipLevels = FMipColorTexture::NumMips;
 // 4: 8x8 cubemap resolution, shader needs to use the same value as preprocessing
 RENDERCORE_API const uint32 GDiffuseConvolveMipLevel = 4;
 
-//
-// FWhiteTextureCube implementation
-//
-
 /** A solid color cube texture. */
 class FSolidColorTextureCube : public FTexture
 {
 public:
-	FSolidColorTextureCube(const FColor& InColor, EPixelFormat InPixelFormat = PF_B8G8R8A8)
-	: Color(InColor)
-	, PixelFormat(InPixelFormat)
+	FSolidColorTextureCube(const FColor& InColor)
+		: bInitToZero(false)
+		, PixelFormat(PF_B8G8R8A8)
+		, ColorData(InColor.DWColor())
+	{}
+
+	FSolidColorTextureCube(EPixelFormat InPixelFormat)
+		: bInitToZero(true)
+		, PixelFormat(InPixelFormat)
+		, ColorData(0)
 	{}
 
 	// FRenderResource interface.
@@ -448,20 +451,27 @@ public:
 	{
 		// Create the texture RHI.
 		FRHIResourceCreateInfo CreateInfo;
-		FTextureCubeRHIRef TextureCube = RHICreateTextureCube(1, PixelFormat,1,0,CreateInfo);
+		FTextureCubeRHIRef TextureCube = RHICreateTextureCube(1, PixelFormat, 1, 0, CreateInfo);
 		TextureRHI = TextureCube;
 
 		// Write the contents of the texture.
-		for(uint32 FaceIndex = 0;FaceIndex < 6;FaceIndex++)
+		for (uint32 FaceIndex = 0; FaceIndex < 6; FaceIndex++)
 		{
 			uint32 DestStride;
-			FColor* DestBuffer = (FColor*)RHILockTextureCubeFace(TextureCube, FaceIndex, 0, 0, RLM_WriteOnly, DestStride, false);
-			*DestBuffer = Color;
+			void* DestBuffer = RHILockTextureCubeFace(TextureCube, FaceIndex, 0, 0, RLM_WriteOnly, DestStride, false);
+			if (bInitToZero)
+			{
+				FMemory::Memzero(DestBuffer, GPixelFormats[PixelFormat].BlockBytes);
+			}
+			else
+			{
+				FMemory::Memcpy(DestBuffer, &ColorData, sizeof(ColorData));
+			}
 			RHIUnlockTextureCubeFace(TextureCube, FaceIndex, 0, 0, false);
 		}
 
 		// Create the sampler state RHI resource.
-		FSamplerStateInitializerRHI SamplerStateInitializer(SF_Point,AM_Wrap,AM_Wrap,AM_Wrap);
+		FSamplerStateInitializerRHI SamplerStateInitializer(SF_Point, AM_Wrap, AM_Wrap, AM_Wrap);
 		SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
 	}
 
@@ -478,8 +488,9 @@ public:
 	}
 
 private:
-	FColor Color;
-	EPixelFormat PixelFormat;
+	const bool bInitToZero;
+	const EPixelFormat PixelFormat;
+	const uint32 ColorData;
 };
 
 /** A white cube texture. */
@@ -494,7 +505,7 @@ FTexture* GWhiteTextureCube = new TGlobalResource<FWhiteTextureCube>;
 class FBlackTextureCube : public FSolidColorTextureCube
 {
 public:
-	FBlackTextureCube(): FSolidColorTextureCube(FColor::Black) {}
+	FBlackTextureCube() : FSolidColorTextureCube(FColor::Black) {}
 };
 FTexture* GBlackTextureCube = new TGlobalResource<FBlackTextureCube>;
 
@@ -502,7 +513,7 @@ FTexture* GBlackTextureCube = new TGlobalResource<FBlackTextureCube>;
 class FBlackTextureDepthCube : public FSolidColorTextureCube
 {
 public:
-	FBlackTextureDepthCube() : FSolidColorTextureCube(FColor::Black, PF_ShadowDepth) {}
+	FBlackTextureDepthCube() : FSolidColorTextureCube(PF_ShadowDepth) {}
 };
 FTexture* GBlackTextureDepthCube = new TGlobalResource<FBlackTextureDepthCube>;
 

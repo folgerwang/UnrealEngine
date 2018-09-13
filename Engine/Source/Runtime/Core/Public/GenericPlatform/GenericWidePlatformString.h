@@ -7,7 +7,7 @@
 #include "GenericPlatform/GenericPlatformStricmp.h"
 #include "GenericPlatform/GenericPlatformString.h"
 
-#if PLATFORM_APPLE || PLATFORM_LINUX || PLATFORM_HTML5 || PLATFORM_PS4 || PLATFORM_SWITCH || PLATFORM_ANDROID
+#if PLATFORM_APPLE || PLATFORM_UNIX || PLATFORM_HTML5 || PLATFORM_PS4 || PLATFORM_SWITCH || PLATFORM_ANDROID
 
 /**
 * Standard implementation
@@ -140,7 +140,7 @@ public:
 			String++;
 		}
 		
-		return (*String == C) ? (TCHAR *)String : nullptr;
+		return (*String == C) ? String : nullptr;
 	}
 
 	static const WIDECHAR* Strrchr( const WIDECHAR* String, WIDECHAR C)

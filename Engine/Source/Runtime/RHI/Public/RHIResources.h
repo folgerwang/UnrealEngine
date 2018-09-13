@@ -913,6 +913,12 @@ public:
 	 * Returns currently set custom present handler.
 	 */
 	virtual class FRHICustomPresent* GetCustomPresent() const { return nullptr; }
+
+
+	/**
+	 * Ticks the viewport on the Game thread
+	 */
+	virtual void Tick(float DeltaTime) {}
 };
 
 //

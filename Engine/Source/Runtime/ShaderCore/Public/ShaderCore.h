@@ -399,6 +399,7 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 	TMap<FString,FResourceTableEntry> ResourceTableMap;
 	TMap<FString,uint32> ResourceTableLayoutHashes;
 	TMap<FString, FString> RemoteServerData;
+	TMap<FString, FString> ShaderFormatCVars;
 
 	/** Default constructor. */
 	FShaderCompilerEnvironment()
@@ -448,6 +449,8 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 		Ar << Environment.ResourceTableMap;
 		Ar << Environment.ResourceTableLayoutHashes;
 		Ar << Environment.RemoteServerData;
+		Ar << Environment.ShaderFormatCVars;
+
 		return Ar;
 	}
 	
@@ -477,6 +480,7 @@ struct FShaderCompilerEnvironment : public FRefCountedObject
 		Definitions.Merge(Other.Definitions);
 		RenderTargetOutputFormatsMap.Append(Other.RenderTargetOutputFormatsMap);
 		RemoteServerData.Append(Other.RemoteServerData);
+		ShaderFormatCVars.Append(Other.ShaderFormatCVars);
 	}
 
 private:
@@ -969,6 +973,8 @@ struct FShaderCompilerOutput
 
 	FString OptionalFinalShaderSource;
 
+	TArray<uint8> PlatformDebugData;
+
 	/** Generates OutputHash from the compiler output. */
 	SHADERCORE_API void GenerateOutputHash();
 
@@ -978,6 +984,7 @@ struct FShaderCompilerOutput
 		Ar << Output.ParameterMap << Output.Errors << Output.Target << Output.ShaderCode << Output.NumInstructions << Output.NumTextureSamplers << Output.bSucceeded;
 		Ar << Output.bFailedRemovingUnused << Output.bSupportsQueryingUsedAttributes << Output.UsedAttributes;
 		Ar << Output.OptionalFinalShaderSource;
+		Ar << Output.PlatformDebugData;
 
 		return Ar;
 	}

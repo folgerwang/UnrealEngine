@@ -87,6 +87,18 @@ public:
 	*/
 	virtual const TCHAR* GetPlatformIncludeDirectory() const = 0;
 
+	/**
+	 * Called before a shader is compiled to allow the platform shader format to modify the shader compiler input,
+	 * e.g. by adding console variable values relevant to shader compilation on that platform.
+	 */
+	virtual void ModifyShaderCompilerInput(FShaderCompilerInput& Input) const { }
+
+	/**
+	 * Called when a shader resource is cooked, so the shader format can perform platform-specific operations on the debug data.
+	 * Does nothing on platforms that make no use of the platform debug data.
+	 */
+	virtual void NotifyShaderCooked(const TArray<uint8>& PlatformDebugData) const { }
+
 public:
 	/** Virtual destructor. */
 	virtual ~IShaderFormat() { }

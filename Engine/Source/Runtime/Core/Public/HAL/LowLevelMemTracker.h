@@ -188,6 +188,8 @@ enum class ELLMTag : LLM_TAG_TYPE
 	// anything above this value is treated as an FName for a stat section
 };
 
+static const uint32 LLM_TAG_COUNT = 256;
+
 /**
  * Passed in to OnLowLevelAlloc to specify the type of allocation. Used to track FMalloc total
  * and pausing for a specific allocation type.
@@ -377,11 +379,14 @@ public:
 
     // get the top active tag for the given tracker
     int64 GetActiveTag(ELLMTracker Tracker);
-    
-	void RegisterPlatformTag(int32 Tag, const TCHAR* Name, FName StatName, FName SummaryStatName);
 
+	void RegisterPlatformTag(int32 Tag, const TCHAR* Name, FName StatName, FName SummaryStatName);
+    
 	// look up the tag associated with the given name
 	bool FindTagByName( const TCHAR* Name, uint64& OutTag ) const;
+
+	// get the name for the given tag
+	const TCHAR* FindTagName(uint64 Tag) const;
 
 private:
 	FLowLevelMemTracker();

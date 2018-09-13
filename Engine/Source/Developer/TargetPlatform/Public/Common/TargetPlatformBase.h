@@ -214,6 +214,9 @@ public:
 		case ETargetPlatformFeatures::DistanceFieldShadows:
 			return TPlatformProperties::SupportsDistanceFieldShadows();
 
+		case ETargetPlatformFeatures::DistanceFieldAO:
+			return TPlatformProperties::SupportsDistanceFieldAO();
+
 		case ETargetPlatformFeatures::GrayscaleSRGB:
 			return TPlatformProperties::SupportsGrayscaleSRGB();
 

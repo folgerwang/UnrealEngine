@@ -27,6 +27,12 @@ struct APPLICATIONCORE_API FLinuxPlatformApplicationMisc : public FGenericPlatfo
 	// Unix specific
 	static void EarlyUnixInitialization(class FString& OutCommandLine);
 	static bool ShouldIncreaseProcessLimits() { return true; }
+
+	// Linux specific
+	/** Informs ApplicationCore that it needs to create Vulkan-compatible windows (mutually exclusive with OpenGL) */
+	static void UsingVulkan();
+	/** Informs ApplicationCore that it needs to create OpenGL-compatible windows (mutually exclusive with Vulkan) */
+	static void UsingOpenGL();
 };
 
 typedef FLinuxPlatformApplicationMisc FPlatformApplicationMisc;

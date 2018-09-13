@@ -21,11 +21,15 @@ DEFINE_LOG_CATEGORY(LogVulkanRHI);
 
 #if VULKAN_HAS_DEBUGGING_ENABLED
 
-#if PLATFORM_ANDROID || PLATFORM_LUMIN || PLATFORM_LUMINGL4
-	#define VULKAN_REPORT_LOG(Format, ...)			UE_LOG(LogVulkanRHI, Warning, Format, __VA_ARGS__)
+#if PLATFORM_ANDROID
+	#define VULKAN_REPORT_LOG(Format, ...)	UE_LOG(LogVulkanRHI, Warning, Format, __VA_ARGS__)
 #else
-	#define VULKAN_REPORT_LOG(Format, ...)			FPlatformMisc::LowLevelOutputDebugStringf(Format, __VA_ARGS__); FPlatformMisc::LowLevelOutputDebugString(TEXT("\n"))
-#endif
+	#define VULKAN_REPORT_LOG(Format, ...)	do { if (FPlatformMisc::IsDebuggerPresent()) \
+											{ \
+												FPlatformMisc::LowLevelOutputDebugStringf(Format, __VA_ARGS__); FPlatformMisc::LowLevelOutputDebugString(TEXT("\n")); \
+											} \
+											UE_LOG(LogVulkanRHI, Warning, Format, __VA_ARGS__); } while (0)
+#endif // PLATFORM_ANDROID
 
 extern TAutoConsoleVariable<int32> GValidationCvar;
 
@@ -233,6 +237,7 @@ static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSev
 	enum class EMsgBucket
 	{
 		General,
+		GeneralValidation,
 		PerfValidation,
 		Validation,
 		Perf,
@@ -242,9 +247,18 @@ static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSev
 	const TCHAR* Type = TEXT("");
 	if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT)
 	{
-		ensure((MsgType & ~VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) == 0);
-		Type = TEXT(" General");
-		MsgBucket = EMsgBucket::General;
+		if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+		{
+			ensure((MsgType & ~(VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)) == 0);
+			Type = TEXT(" General/Validation");
+			MsgBucket = EMsgBucket::GeneralValidation;
+		}
+		else
+		{
+			ensure((MsgType & ~VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) == 0);
+			Type = TEXT(" General");
+			MsgBucket = EMsgBucket::General;
+		}
 	}
 	else if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
 	{

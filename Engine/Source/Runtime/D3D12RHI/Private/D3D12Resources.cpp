@@ -173,7 +173,7 @@ FD3D12Resource::FD3D12Resource(FD3D12Device* ParentDevice,
 	FPlatformAtomics::InterlockedIncrement(&TotalResourceCount);
 #endif
 
-	if (Resource && Desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
+	if (Resource)
 	{
 		GPUVirtualAddress = Resource->GetGPUVirtualAddress();
 	}
@@ -283,54 +283,6 @@ HRESULT FD3D12Adapter::CreateCommittedResource(const D3D12_RESOURCE_DESC& InDesc
 	{
 		// Set the output pointer
 		*ppOutResource = new FD3D12Resource(GetDevice(FRHIGPUMask(HeapProps.CreationNodeMask).ToIndex()), FRHIGPUMask(HeapProps.VisibleNodeMask), pResource, InitialUsage, InDesc, nullptr, HeapProps.Type);
-		(*ppOutResource)->AddRef();
-
-		// Only track resources that cannot be accessed on the CPU.
-		if (IsCPUInaccessible(HeapProps.Type))
-		{
-			(*ppOutResource)->StartTrackingForResidency();
-		}
-	}
-
-	return hr;
-}
-
-HRESULT FD3D12Adapter::CreatePlacedResourceWithHeap(const D3D12_RESOURCE_DESC& InDesc, const D3D12_HEAP_PROPERTIES& HeapProps, const D3D12_RESOURCE_STATES& InitialUsage, const D3D12_CLEAR_VALUE* ClearValue, FD3D12Resource** ppOutResource)
-{
-	if (!ppOutResource)
-	{
-		return E_POINTER;
-	}
-
-	TRefCountPtr<ID3D12Resource> pResource;
-	FD3D12Heap* Heap = nullptr;
-	HRESULT hr;
-	TRefCountPtr<ID3D12Heap> D3DHeap;
-	D3D12_RESOURCE_ALLOCATION_INFO ResInfo = RootDevice->GetResourceAllocationInfo(HeapProps.VisibleNodeMask, 1, &InDesc);
-	D3D12_HEAP_DESC HeapDesc = {};
-	HeapDesc.Properties = HeapProps;
-	HeapDesc.SizeInBytes = ResInfo.SizeInBytes;
-	HeapDesc.Alignment = 0;
-	HeapDesc.Flags = D3D12_HEAP_FLAG_NONE;
-
-	if (InDesc.Flags & D3D12RHI_RESOURCE_FLAG_ALLOW_INDIRECT_BUFFER) //-V616
-	{
-		HeapDesc.Flags |= D3D12RHI_HEAP_FLAG_ALLOW_INDIRECT_BUFFERS; //-V616
-	}
-	hr = RootDevice->CreateHeap(&HeapDesc, IID_PPV_ARGS(D3DHeap.GetInitReference()));
-	check(SUCCEEDED(hr));
-	if (SUCCEEDED(hr))
-	{
-		hr = RootDevice->CreatePlacedResource(D3DHeap, 0, &InDesc, InitialUsage, ClearValue, IID_PPV_ARGS(pResource.GetInitReference()));
-		Heap = new FD3D12Heap(GetDevice(0), FRHIGPUMask(HeapProps.VisibleNodeMask)); // Multi-GPU support : might need to support other GPUs eventually.
-		Heap->SetHeap(D3DHeap);
-		check(SUCCEEDED(hr));
-	}
-
-	if (SUCCEEDED(hr))
-	{
-		// Set the output pointer
-		*ppOutResource = new FD3D12Resource(GetDevice(FRHIGPUMask(HeapProps.CreationNodeMask).ToIndex()), FRHIGPUMask(HeapProps.VisibleNodeMask), pResource, InitialUsage, InDesc, Heap, HeapProps.Type);
 		(*ppOutResource)->AddRef();
 
 		// Only track resources that cannot be accessed on the CPU.
@@ -554,6 +506,11 @@ void FD3D12ResourceLocation::SetResource(FD3D12Resource* Value)
 {
 	check(UnderlyingResource == nullptr);
 	check(ResidencyHandle == nullptr);
+
+	if (Type == ResourceLocationType::eStandAlone)
+	{
+		GPUVirtualAddress = Value->GetGPUVirtualAddress();
+	}
 
 	UnderlyingResource = Value;
 	ResidencyHandle = UnderlyingResource->GetResidencyHandle();

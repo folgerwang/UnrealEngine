@@ -9,6 +9,7 @@
 #include "Features/IModularFeatures.h"
 #include "Linux/LinuxPlatformApplicationMisc.h"
 #include "IInputDeviceModule.h"
+#include "IHapticDevice.h"
 
 //
 // GameController thresholds
@@ -46,30 +47,19 @@ FLinuxApplication* FLinuxApplication::CreateLinuxApplication()
 	check(InitializedSubsystems & SDL_INIT_EVENTS);
 	check(InitializedSubsystems & SDL_INIT_JOYSTICK);
 	check(InitializedSubsystems & SDL_INIT_GAMECONTROLLER);
+ 	check(InitializedSubsystems & SDL_INIT_HAPTIC);
 #endif // DO_CHECK
 
 	LinuxApplication = new FLinuxApplication();
-
-	int32 ControllerIndex = 0;
 
 	for (int i = 0; i < SDL_NumJoysticks(); ++i)
 	{
 		if (SDL_IsGameController(i))
 		{
-			auto Controller = SDL_GameControllerOpen(i);
-			if (Controller == nullptr)
-			{
-				UE_LOG(LogLoad, Warning, TEXT("Could not open gamecontroller %i: %s\n"), i, UTF8_TO_TCHAR(SDL_GetError()) );
-			}
-			else
-			{
-				SDL_JoystickID Id = SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(Controller));
-				LinuxApplication->ControllerStates.Add(Id);
-				LinuxApplication->ControllerStates[Id].Controller = Controller;
-				LinuxApplication->ControllerStates[Id].ControllerIndex = ControllerIndex++;
-			}
+ 			LinuxApplication->AddGameController(i);
 		}
 	}
+
 	return LinuxApplication;
 }
 
@@ -111,6 +101,11 @@ void FLinuxApplication::DestroyApplication()
 		if(ControllerIt.Value().Controller != nullptr)
 		{
 			SDL_GameControllerClose(ControllerIt.Value().Controller);
+		}
+
+		if(ControllerIt.Value().Haptic != nullptr)
+		{
+			SDL_HapticClose(ControllerIt.Value().Haptic);
 		}
 	}
 	ControllerStates.Empty();
@@ -415,6 +410,18 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 			float Amount = WheelEvent->y * fMouseWheelScrollAccel;
 
 			MessageHandler->OnMouseWheel(Amount);
+		}
+		break;
+	case SDL_CONTROLLERDEVICEADDED:
+		{
+			SDL_ControllerDeviceEvent& ControllerEvent = Event.cdevice;
+			AddGameController(ControllerEvent.which);
+		}
+		break;
+	case SDL_CONTROLLERDEVICEREMOVED:
+		{
+			SDL_ControllerDeviceEvent& ControllerEvent = Event.cdevice;
+			RemoveGameController(ControllerEvent.which);
 		}
 		break;
 	case SDL_CONTROLLERAXISMOTION:
@@ -1084,6 +1091,11 @@ void FLinuxApplication::PollGameDeviceState( const float TimeDelta )
 			MessageHandler->OnControllerAnalog(Event.Key(), ControllerIt.Value().ControllerIndex, Event.Value());
 		}
 		ControllerIt.Value().AxisEvents.Empty();
+
+		if (ControllerIt.Value().Haptic != nullptr)
+		{
+			ControllerIt.Value().UpdateHapticEffect();
+		}
 	}
 
 	// initialize any externally-implemented input devices (we delay load initialize the array so any plugins have had time to load)
@@ -1766,4 +1778,226 @@ bool FLinuxApplication::IsMouseAttached() const
 	}
 
 	return false;
+}
+
+void FLinuxApplication::SetForceFeedbackChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value)
+{
+	if (FApp::UseVRFocus() && !FApp::HasVRFocus())
+	{
+		return; // do not proceed if the app uses VR focus but doesn't have it
+	}
+
+	for (auto ControllerIt = ControllerStates.CreateIterator(); ControllerIt; ++ControllerIt)
+	{
+		auto& ControllerState = ControllerIt.Value();
+		if (ControllerState.ControllerIndex == ControllerId)
+		{
+			if (ControllerState.Haptic != nullptr)
+			{
+				switch (ChannelType)
+				{
+				case FForceFeedbackChannelType::LEFT_LARGE:
+					ControllerState.ForceFeedbackValues.LeftLarge = Value;
+					break;
+				case FForceFeedbackChannelType::LEFT_SMALL:
+					ControllerState.ForceFeedbackValues.LeftSmall = Value;
+					break;
+				case FForceFeedbackChannelType::RIGHT_LARGE:
+					ControllerState.ForceFeedbackValues.RightLarge = Value;
+					break;
+				case FForceFeedbackChannelType::RIGHT_SMALL:
+					ControllerState.ForceFeedbackValues.RightSmall = Value;
+					break;
+				}
+			}
+			break;
+		}
+	}
+
+	// send vibration to externally-implemented devices
+	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
+	{
+		(*DeviceIt)->SetChannelValue(ControllerId, ChannelType, Value);
+	}
+}
+void FLinuxApplication::SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values)
+{
+	if (FApp::UseVRFocus() && !FApp::HasVRFocus())
+	{
+		return; // do not proceed if the app uses VR focus but doesn't have it
+	}
+
+	for (auto ControllerIt = ControllerStates.CreateIterator(); ControllerIt; ++ControllerIt)
+	{
+		auto& ControllerState = ControllerIt.Value();
+		if (ControllerState.ControllerIndex == ControllerId)
+		{
+			if (ControllerState.Haptic != nullptr)
+			{
+				ControllerState.ForceFeedbackValues = Values;
+			}
+			break;
+		}
+	}
+
+	// send vibration to externally-implemented devices
+	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
+	{
+		// *N.B 06/20/2016*: Ideally, we would want to use GetHapticDevice instead
+		// but they're not implemented for SteamController and SteamVRController
+		if ((*DeviceIt)->IsGamepadAttached())
+		{
+			(*DeviceIt)->SetChannelValues(ControllerId, Values);
+		}
+	}
+}
+
+void FLinuxApplication::SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values)
+{
+	if (FApp::UseVRFocus() && !FApp::HasVRFocus())
+	{
+		return; // do not proceed if the app uses VR focus but doesn't have it
+	}
+	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
+	{
+		IHapticDevice* HapticDevice = (*DeviceIt)->GetHapticDevice();
+		if (HapticDevice)
+		{
+			HapticDevice->SetHapticFeedbackValues(ControllerId, Hand, Values);
+		}
+	}
+}
+
+void FLinuxApplication::SDLControllerState::UpdateHapticEffect()
+{
+	if (Haptic == nullptr)
+	{
+		return;
+	}
+
+	float LargeValue = FMath::Max(ForceFeedbackValues.LeftLarge, ForceFeedbackValues.RightLarge);
+	float SmallValue = FMath::Max(ForceFeedbackValues.LeftSmall, ForceFeedbackValues.RightSmall);
+
+	if (FMath::IsNearlyEqual(SmallValue, 0.0f) && FMath::IsNearlyEqual(LargeValue, 0.0f))
+	{
+		if (EffectId >= 0 && bEffectRunning)
+		{
+			SDL_HapticStopEffect(Haptic, EffectId);
+			bEffectRunning = false;
+		}
+		return;
+	}
+
+	SDL_HapticEffect Effect;
+	FMemory::Memzero(Effect);
+
+	if (SDL_HapticQuery(Haptic) & SDL_HAPTIC_LEFTRIGHT)
+	{
+		Effect.type = SDL_HAPTIC_LEFTRIGHT;
+		Effect.leftright.length = 1000;
+		Effect.leftright.large_magnitude = 32767.0f * LargeValue;
+		Effect.leftright.small_magnitude = 32767.0f * SmallValue;
+	}
+	else if (SDL_HapticQuery(Haptic) & SDL_HAPTIC_SINE)
+	{
+		Effect.type = SDL_HAPTIC_SINE;
+		Effect.periodic.length = 1000;
+		Effect.periodic.period = 1000;
+		Effect.periodic.magnitude = 32767.0f * FMath::Max(SmallValue, LargeValue);
+	}
+	else
+	{
+		UE_LOG(LogLinux, Warning, TEXT("No available haptic effects"));
+		SDL_HapticClose(Haptic);
+		Haptic = nullptr;
+		return;
+	}
+
+	if (EffectId < 0)
+	{
+		EffectId = SDL_HapticNewEffect(Haptic, &Effect);
+		if (EffectId < 0)
+		{
+			UE_LOG(LogLinux, Warning, TEXT("Failed to create haptic effect: %s"), UTF8_TO_TCHAR(SDL_GetError()) );
+			SDL_HapticClose(Haptic);
+			Haptic = nullptr;
+			return;
+		}
+	}
+
+	if (SDL_HapticUpdateEffect(Haptic, EffectId, &Effect) < 0)
+	{
+		SDL_HapticDestroyEffect(Haptic, EffectId);
+		EffectId = SDL_HapticNewEffect(Haptic, &Effect);
+		if (EffectId < 0)
+		{
+			UE_LOG(LogLinux, Warning, TEXT("Failed to update and recreate haptic effect: %s"), UTF8_TO_TCHAR(SDL_GetError()) );
+			SDL_HapticClose(Haptic);
+			Haptic = nullptr;
+			return;
+		}
+	}
+
+	SDL_HapticRunEffect(Haptic, EffectId, 1);
+	bEffectRunning = true;
+}
+
+void FLinuxApplication::AddGameController(int Index)
+{
+	SDL_JoystickID Id = SDL_JoystickGetDeviceInstanceID(Index);
+	if(ControllerStates.Contains(Id))
+	{
+		return;
+	}
+
+	auto Controller = SDL_GameControllerOpen(Index);
+	if (Controller == nullptr)
+	{
+		UE_LOG(LogLinux, Warning, TEXT("Could not open gamecontroller %i: %s"), Index, UTF8_TO_TCHAR(SDL_GetError()) );
+		return;
+	}
+
+	uint32 UsedBits = 0;
+	for (auto ControllerIt = ControllerStates.CreateIterator(); ControllerIt; ++ControllerIt)
+	{
+		UsedBits |= (1 << ControllerIt.Value().ControllerIndex);
+	}
+
+	int32 FirstUnusedIndex = FMath::CountTrailingZeros(~UsedBits);
+
+	UE_LOG(LogLinux, Verbose, TEXT("Adding controller %i '%s'"), FirstUnusedIndex, UTF8_TO_TCHAR(SDL_GameControllerName(Controller)));
+	auto& ControllerState = ControllerStates.Add(Id);
+	ControllerState.Controller = Controller;
+	ControllerState.ControllerIndex = FirstUnusedIndex;
+	// Check for haptic support.
+	ControllerState.Haptic = SDL_HapticOpenFromJoystick(SDL_GameControllerGetJoystick(Controller));
+
+	if (ControllerState.Haptic != nullptr)
+	{
+		if ((SDL_HapticQuery(ControllerState.Haptic) & (SDL_HAPTIC_SINE | SDL_HAPTIC_LEFTRIGHT)) == 0)
+		{
+			UE_LOG(LogLinux, Warning, TEXT("No supported haptic effects for controller %i"), ControllerState.ControllerIndex);
+			SDL_HapticClose(ControllerState.Haptic);
+			ControllerState.Haptic = nullptr;
+		}
+	}
+}
+
+void FLinuxApplication::RemoveGameController(SDL_JoystickID Id)
+{
+	if (!ControllerStates.Contains(Id))
+	{
+		return;
+	}
+
+	SDLControllerState& ControllerState = ControllerStates[Id];
+	UE_LOG(LogLinux, Verbose, TEXT("Removing controller %i '%s'"), ControllerState.ControllerIndex, UTF8_TO_TCHAR(SDL_GameControllerName(ControllerState.Controller)));
+
+	if (ControllerState.Haptic != nullptr)
+	{
+		SDL_HapticClose(ControllerState.Haptic);
+	}
+
+	SDL_GameControllerClose(ControllerState.Controller);
+	ControllerStates.Remove(Id);
 }

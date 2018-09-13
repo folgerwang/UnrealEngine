@@ -174,7 +174,7 @@ GetMinorVersion()
 ### GetDefaultInterface ###
 GetDefaultInterface()
 {
-	local DEFAULT=`route | grep '^default'`
+	local DEFAULT=`route | grep -m 1 '^default'`
 	local DEFAULT_SPLIT=($DEFAULT)
 	local LENGTH=${#DEFAULT_SPLIT[@]}
 	echo "${DEFAULT_SPLIT[$LENGTH-1]}"

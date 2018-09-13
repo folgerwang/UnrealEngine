@@ -10,6 +10,8 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 #include "Windows.h"
 
+#include "HAL/ThreadHeartBeat.h"
+
 static const uint32 WindowsDefaultNumBackBuffers = 3;
 
 extern FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain, uint32 BackBufferIndex);
@@ -256,6 +258,8 @@ HRESULT FD3D12Viewport::PresentInternal(int32 SyncInterval)
 	{
 		Flags |= DXGI_PRESENT_ALLOW_TEARING;
 	}
+
+	FThreadHeartBeat::Get().PresentFrame();
 
 	return SwapChain1->Present(SyncInterval, Flags);
 }

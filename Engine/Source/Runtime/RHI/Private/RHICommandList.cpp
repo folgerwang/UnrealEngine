@@ -122,6 +122,7 @@ bool GIsRunningRHIInTaskThread_InternalUseOnly = false;
 
 uint32 GWorkingRHIThreadTime = 0;
 uint32 GWorkingRHIThreadStallTime = 0;
+uint32 GWorkingRHIThreadStartCycles = 0;
 
 RHI_API bool GEnableAsyncCompute = true;
 RHI_API FRHICommandListExecutor GRHICommandList;
@@ -374,12 +375,12 @@ public:
 		}
 		{
 			FScopeLock Lock(&GRHIThreadOnTasksCritical);
-			uint32 StartCycles = FPlatformTime::Cycles();
+			GWorkingRHIThreadStartCycles = FPlatformTime::Cycles();
 
 			FRHICommandListExecutor::ExecuteInner_DoExecute(*RHICmdList);
 			delete RHICmdList;
 
-			GWorkingRHIThreadTime += (FPlatformTime::Cycles() - StartCycles); // this subtraction often wraps and the math stuff works
+			GWorkingRHIThreadTime += (FPlatformTime::Cycles() - GWorkingRHIThreadStartCycles); // this subtraction often wraps and the math stuff works
 		}
 		if (IsRunningRHIInTaskThread())
 		{

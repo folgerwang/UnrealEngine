@@ -92,7 +92,7 @@ static TAutoConsoleVariable<int32> CVarMaxSoftKernelSize(
 	TEXT("Mazimum size of the softening kernels in pixels."),
 	ECVF_RenderThreadSafe);
 
-DECLARE_GPU_STAT_NAMED(ShadowProjection, TEXT("Shadow Projection"));
+DEFINE_GPU_STAT(ShadowProjection);
 
 // 0:off, 1:low, 2:med, 3:high, 4:very high, 5:max
 uint32 GetShadowQuality()

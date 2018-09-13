@@ -24,6 +24,9 @@ enum class ETargetPlatformFeatures
 	/** Distance field shadows. */
 	DistanceFieldShadows,
 
+	/** Distance field AO. */
+	DistanceFieldAO,
+
 	/** Gray scale SRGB texture formats support. */
 	GrayscaleSRGB,
 
@@ -65,6 +68,9 @@ enum class ETargetPlatformFeatures
 
 	/* The platform supports half float vertex format */
 	HalfFloatVertexFormat,
+
+	/* The platform supports the experimental Device Output Log window */
+	DeviceOutputLog,
 };
 
 

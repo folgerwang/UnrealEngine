@@ -167,6 +167,8 @@ public:
 
 	virtual void FlushMetadata(FTextureRHIParamRef* InTextures, int32 NumTextures) {};
 
+	D3D12_RESOURCE_STATES SkipFastClearEliminateState;
+
 #if PLATFORM_SUPPORTS_VIRTUAL_TEXTURES
 	bool bNeedFlushTextureCache;
 	void InvalidateTextureCache() { bNeedFlushTextureCache = true; }

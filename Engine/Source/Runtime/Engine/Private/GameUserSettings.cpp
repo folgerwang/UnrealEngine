@@ -24,26 +24,6 @@ const bool GUserSettingsDefaultHDRValue = true;
 const bool GUserSettingsDefaultHDRValue = false;
 #endif
 
-bool IsHDRAllowed()
-{
-	// HDR can be forced on or off on the commandline. Otherwise we check the cvar r.AllowHDR
-	if (FParse::Param(FCommandLine::Get(), TEXT("hdr")))
-	{
-		return true;
-	}
-	else if (FParse::Param(FCommandLine::Get(), TEXT("nohdr")))
-	{
-		return false;
-	}
-
-	static const auto CVarHDRAllow = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowHDR"));
-	if (CVarHDRAllow && CVarHDRAllow->GetValueOnAnyThread() != 0)
-	{
-		return true;
-	}
-	return false;
-}
-
 extern EWindowMode::Type GetWindowModeType(EWindowMode::Type WindowMode);
 
 enum EGameUserSettingsVersion
@@ -592,12 +572,12 @@ void UGameUserSettings::PreloadResolutionSettings()
 	int32 ResolutionY = GetDefaultResolution().Y;
 	EWindowMode::Type WindowMode = GetDefaultWindowMode();
 	bool bUseDesktopResolution = false;
-	bool bUseHDR = false;
+	bool bUseHDR = GUserSettingsDefaultHDRValue;
 
 	int32 Version=0;
-	if( GConfig->GetInt(*GameUserSettingsCategory, TEXT("Version"), Version, GGameUserSettingsIni ) && Version == UE_GAMEUSERSETTINGS_VERSION )
+	if (GConfig->GetInt(*GameUserSettingsCategory, TEXT("Version"), Version, GGameUserSettingsIni) && Version == UE_GAMEUSERSETTINGS_VERSION)
 	{
-		GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseDesktopResolution"), bUseDesktopResolution, GGameUserSettingsIni );
+		GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseDesktopResolution"), bUseDesktopResolution, GGameUserSettingsIni);
 
 		int32 WindowModeInt = (int32)WindowMode;
 		GConfig->GetInt(*GameUserSettingsCategory, TEXT("FullscreenMode"), WindowModeInt, GGameUserSettingsIni);
@@ -617,25 +597,21 @@ void UGameUserSettings::PreloadResolutionSettings()
 			ResolutionY = DisplayMetrics.PrimaryDisplayHeight;
 		}
 #endif
-		// Initialize HDR based on the high level switch and user settings
-		if ( IsHDRAllowed() )
-		{
-			bool bUserSettingsUseHdr = GUserSettingsDefaultHDRValue;
-			if (GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseHDRDisplayOutput"), bUserSettingsUseHdr, GGameUserSettingsIni))
-			{
-				bUseHDR = bUserSettingsUseHdr;
-			}
-		}
+
+		GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseHDRDisplayOutput"), bUseHDR, GGameUserSettingsIni);
+	}
 
 #if !PLATFORM_XBOXONE
-		// Set the HDR switch
+	if ( IsHDRAllowed() )
+	{
+		// Set the user-preference HDR switch
 		static auto CVarHDROutputEnabled = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.EnableHDROutput"));
 		if (CVarHDROutputEnabled)
 		{
 			CVarHDROutputEnabled->Set(bUseHDR ? 1 : 0, ECVF_SetByGameSetting);
 		}
-#endif
 	}
+#endif
 
 	RequestResolutionChange(ResolutionX, ResolutionY, WindowMode);
 

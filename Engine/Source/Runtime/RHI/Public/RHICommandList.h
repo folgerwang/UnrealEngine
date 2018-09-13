@@ -76,6 +76,7 @@ extern RHI_API bool GIsRunningRHIInTaskThread_InternalUseOnly;
 /** private accumulator for the RHI thread. */
 extern RHI_API uint32 GWorkingRHIThreadTime;
 extern RHI_API uint32 GWorkingRHIThreadStallTime;
+extern RHI_API uint32 GWorkingRHIThreadStartCycles;
 
 /**
 * Whether the RHI commands are being run in a thread other than the render thread

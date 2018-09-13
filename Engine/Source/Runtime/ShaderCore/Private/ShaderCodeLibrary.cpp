@@ -686,64 +686,13 @@ private:
 };
 
 #if WITH_EDITOR
-//TODO: Looks like a copy from private ShaderCompiler.cpp - need to move this and FindShaderFormat below maybe into IShaderFormat helper functions
-static const TArray<const IShaderFormat*>& GetShaderFormats()
-{
-	static bool bInitialized = false;
-	static TArray<const IShaderFormat*> Results;
-
-	if (!bInitialized)
-	{
-		bInitialized = true;
-		Results.Empty(Results.Num());
-
-		TArray<FName> Modules;
-		FModuleManager::Get().FindModules(SHADERFORMAT_MODULE_WILDCARD, Modules);
-
-		if (!Modules.Num())
-		{
-			UE_LOG(LogShaderLibrary, Error, TEXT("No target shader formats found!"));
-		}
-
-		for (int32 Index = 0; Index < Modules.Num(); Index++)
-		{
-			IShaderFormat* Format = FModuleManager::LoadModuleChecked<IShaderFormatModule>(Modules[Index]).GetShaderFormat();
-			if (Format != nullptr)
-			{
-				Results.Add(Format);
-			}
-		}
-	}
-	return Results;
-}
-
-static const IShaderFormat* FindShaderFormat(FName Name)
-{
-	const TArray<const IShaderFormat*>& ShaderFormats = GetShaderFormats();
-
-	for (int32 Index = 0; Index < ShaderFormats.Num(); Index++)
-	{
-		TArray<FName> Formats;
-		ShaderFormats[Index]->GetSupportedFormats(Formats);
-		for (int32 FormatIndex = 0; FormatIndex < Formats.Num(); FormatIndex++)
-		{
-			if (Formats[FormatIndex] == Name)
-			{
-				return ShaderFormats[Index];
-			}
-		}
-	}
-
-	return nullptr;
-}
-
 struct FEditorShaderCodeArchive
 {
 	FEditorShaderCodeArchive(FName InFormat)
 		: FormatName(InFormat)
 		, Format(nullptr)
 	{
-		Format = FindShaderFormat(InFormat);
+		Format = GetTargetPlatformManagerRef().FindShaderFormat(InFormat);
 		check(Format);
 	}
 

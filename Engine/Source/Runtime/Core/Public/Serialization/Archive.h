@@ -437,7 +437,7 @@ public:
 		const uint8 * RESTRICT Src = Ar.ActiveFPLB->StartFastPathLoadBuffer;
 		if (Src + sizeof(uint32) <= Ar.ActiveFPLB->EndFastPathLoadBuffer)
 		{
-#if PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 			D = !!*(uint32* RESTRICT)Src;
 #else
 			static_assert(sizeof(uint32) == 4, "assuming sizeof(uint32) == 4");
@@ -1297,7 +1297,7 @@ private:
 		const uint8* RESTRICT Src = ActiveFPLB->StartFastPathLoadBuffer;
 		if (Src + Size <= ActiveFPLB->EndFastPathLoadBuffer)
 		{
-#if PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 			if (Size == 2)
 			{
 				uint16 * RESTRICT Dest = (uint16 * RESTRICT)InDest;

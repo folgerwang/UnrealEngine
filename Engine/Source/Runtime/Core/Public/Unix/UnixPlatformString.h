@@ -1,28 +1,38 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
-	LinuxPlatformString.h: Linux platform string classes, mostly implemented with ANSI C++
+	UnixPlatformString.h: Unix platform string classes, mostly implemented with ANSI C++
 ==============================================================================================*/
 
 #pragma once
 
 #include "CoreTypes.h"
 #include "GenericPlatform/StandardPlatformString.h"
+#include "GenericPlatform/GenericWidePlatformString.h"
 /**
-* Linux string implementation
+* Unix string implementation
 **/
-struct FLinuxPlatformString : public FStandardPlatformString
+struct FUnixPlatformString : public 
+#if PLATFORM_TCHAR_IS_CHAR16
+	FGenericWidePlatformString
+#else
+	FStandardPlatformString
+#endif
 {
-	static void WideCharToMultiByte(const TCHAR *Source, uint32 LengthWM1, ANSICHAR *Dest, uint32 LengthA)
+	template<typename CHAR>
+	static FORCEINLINE int32 Strlen(const CHAR* String)
 	{
-		int ret = wcstombs(Dest, Source, LengthA);
-		if(ret == LengthA) Dest[LengthA - 1] = '\0';
-	}
-	static void MultiByteToWideChar(const ANSICHAR *Source, TCHAR *Dest, uint32 LengthM1)
-	{
-		int ret = mbstowcs(Dest, Source, LengthM1);
-		if(ret == LengthM1) Dest[LengthM1] = '\0';
+		if(!String)
+			return 0;
+
+		int Len = 0;
+		while(String[Len])
+		{
+			++Len;
+		}
+
+		return Len;
 	}
 };
 
-typedef FLinuxPlatformString FPlatformString;
+typedef FUnixPlatformString FPlatformString;

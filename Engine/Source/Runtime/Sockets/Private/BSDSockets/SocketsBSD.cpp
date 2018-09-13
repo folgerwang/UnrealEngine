@@ -409,7 +409,14 @@ bool FSocketBSD::SetMulticastTtl(uint8 TimeToLive)
 bool FSocketBSD::SetReuseAddr(bool bAllowReuse)
 {
 	int Param = bAllowReuse ? 1 : 0;
-	return setsockopt(Socket,SOL_SOCKET,SO_REUSEADDR,(char*)&Param,sizeof(Param)) == 0;
+	int ReuseAddrResult = setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR, (char*)&Param, sizeof(Param));
+#ifdef SO_REUSEPORT // Linux kernel 3.9+ and FreeBSD define this separately
+	if (ReuseAddrResult == 0)
+	{
+		return setsockopt(Socket, SOL_SOCKET, SO_REUSEPORT, (char *)&Param, sizeof(Param)) == 0;
+	}
+#endif
+	return ReuseAddrResult == 0;
 }
 
 

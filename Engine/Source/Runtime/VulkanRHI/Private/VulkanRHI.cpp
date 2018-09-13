@@ -56,7 +56,7 @@ DEFINE_LOG_CATEGORY(LogVulkan)
 
 bool FVulkanDynamicRHIModule::IsSupported()
 {
-	return true;
+	return FVulkanPlatform::IsSupported();
 }
 
 FDynamicRHI* FVulkanDynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type InRequestedFeatureLevel)

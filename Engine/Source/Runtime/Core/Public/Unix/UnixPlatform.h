@@ -10,6 +10,8 @@
 
 struct FGenericPlatformTypes;
 
+#define PLATFORM_UNIX_USE_CHAR16 1
+
 /**
 * Unix specific types
 **/
@@ -18,16 +20,15 @@ struct FUnixPlatformTypes : public FGenericPlatformTypes
 	typedef unsigned int		DWORD;
 	typedef __SIZE_TYPE__		SIZE_T;
 	typedef decltype(__null)	TYPE_OF_NULL;
+#if PLATFORM_UNIX_USE_CHAR16
+	typedef char16_t			WIDECHAR;
+	typedef WIDECHAR			TCHAR;
+#endif
 };
 
 typedef FUnixPlatformTypes FPlatformTypes;
 
 #define UNIX_MAX_PATH				PATH_MAX
-
-// Base defines, must define these for the platform, there are no defaults
-#ifndef PLATFORM_DESKTOP
-	#define PLATFORM_DESKTOP					1
-#endif
 
 #if defined(_LINUX64) || defined(_LP64)
 	#define PLATFORM_64BITS						1
@@ -38,21 +39,25 @@ typedef FUnixPlatformTypes FPlatformTypes;
 
 // Base defines, defaults are commented out
 
-#define PLATFORM_LITTLE_ENDIAN						1
-#define PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS		1
-#define PLATFORM_COMPILER_DISTINGUISHES_INT_AND_LONG 1
-#define PLATFORM_SUPPORTS_PRAGMA_PACK				1
-#define PLATFORM_USE_LS_SPEC_FOR_WIDECHAR			1
-#define PLATFORM_TCHAR_IS_4_BYTES					1
-#define PLATFORM_HAS_BSD_TIME						1
-#define PLATFORM_USE_PTHREADS						1
-#define PLATFORM_MAX_FILEPATH_LENGTH_DEPRECATED		UNIX_MAX_PATH /* @todo linux: avoid using PATH_MAX as it is known to be broken */
-#define PLATFORM_HAS_NO_EPROCLIM					1
-#define PLATFORM_HAS_BSD_SOCKET_FEATURE_IOCTL		1
+#define PLATFORM_LITTLE_ENDIAN							1
+#define PLATFORM_SUPPORTS_UNALIGNED_LOADS				((!PLATFORM_CPU_ARM_FAMILY) || PLATFORM_64BITS) // 32-bit ARM doesn't support unaligned loads, other arch's do
+#define PLATFORM_COMPILER_DISTINGUISHES_INT_AND_LONG	1
+#define PLATFORM_SUPPORTS_PRAGMA_PACK					1
+#define PLATFORM_USE_LS_SPEC_FOR_WIDECHAR				1
+#if PLATFORM_UNIX_USE_CHAR16
+#define PLATFORM_TCHAR_IS_CHAR16						1
+#else
+#define PLATFORM_TCHAR_IS_4_BYTES						1
+#endif
+#define PLATFORM_HAS_BSD_TIME							1
+#define PLATFORM_USE_PTHREADS							1
+#define PLATFORM_MAX_FILEPATH_LENGTH_DEPRECATED			UNIX_MAX_PATH /* @todo linux: avoid using PATH_MAX as it is known to be broken */
+#define PLATFORM_HAS_NO_EPROCLIM						1
+#define PLATFORM_HAS_BSD_SOCKET_FEATURE_IOCTL			1
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_MSG_DONTWAIT	1
-#define PLATFORM_SUPPORTS_STACK_SYMBOLS				1
+#define PLATFORM_SUPPORTS_STACK_SYMBOLS					1
 
-#define PLATFORM_ENABLE_POPCNT_INTRINSIC 1
+#define PLATFORM_ENABLE_POPCNT_INTRINSIC				1
 
 #if __has_feature(cxx_decltype_auto)
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
@@ -101,7 +106,7 @@ typedef FUnixPlatformTypes FPlatformTypes;
 #define GCC_PACK(n)			__attribute__((packed,aligned(n)))
 #define GCC_ALIGN(n)		__attribute__((aligned(n)))
 #if defined(__arm__)
-	#define REQUIRES_ALIGNED_ACCESS					1
+#define REQUIRES_ALIGNED_ACCESS					1
 #endif
 
 // operator new/delete operators

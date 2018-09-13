@@ -63,7 +63,6 @@ typedef FHTML5Types FPlatformTypes;
 // Alignment.
 #define GCC_PACK(n)			__attribute__((packed,aligned(n)))
 #define GCC_ALIGN(n)		__attribute__((aligned(n)))
-#define REQUIRES_ALIGNED_ACCESS 1
 
 // Operator new/delete handling.
 // operator new/delete operators

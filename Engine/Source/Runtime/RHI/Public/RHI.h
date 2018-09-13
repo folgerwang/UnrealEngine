@@ -133,7 +133,9 @@ inline bool RHISupportsMSAA(EShaderPlatform Platform)
 		&& IsMetalPlatform(Platform) && (FPlatformMisc::MacOSXVersionCompare(10, 13, 0) >= 0) && (!IsRHIDeviceIntel() || FPlatformMisc::MacOSXVersionCompare(10, 13, 2) >= 0)
 #endif
 		// @todo marksatt iOS Desktop Forward needs more work internally
-		&& Platform != SP_METAL_MRT;
+		&& Platform != SP_METAL_MRT
+		// @todo optimise MSAA for XboxOne, currently uses significant eRAM.
+		&& Platform != SP_XBOXONE_D3D12;
 }
 
 inline bool RHISupportsBufferLoadTypeConversion(EShaderPlatform Platform)

@@ -94,14 +94,20 @@ FORCEINLINE VectorRegisterInt MakeVectorRegisterInt(int32 X, int32 Y, int32 Z, i
  *
  * @return		VectorRegister(0.0f, 0.0f, 0.0f, 0.0f)
  */
-#define VectorZero()					_mm_setzero_ps()
+FORCEINLINE VectorRegister VectorZero(void)
+{
+	return _mm_setzero_ps();
+}
 
 /**
  * Returns a vector with all ones.
  *
  * @return		VectorRegister(1.0f, 1.0f, 1.0f, 1.0f)
  */
-#define VectorOne()						(GlobalVectorConstants::FloatOne)
+FORCEINLINE VectorRegister VectorOne(void)
+{
+	return (GlobalVectorConstants::FloatOne);
+}
 
 /**
  * Returns an component from a vector.
@@ -121,7 +127,10 @@ FORCEINLINE float VectorGetComponent(VectorRegister Vec, uint32 ComponentIndex)
  * @param Ptr	Unaligned memory pointer to the 4 FLOATs
  * @return		VectorRegister(Ptr[0], Ptr[1], Ptr[2], Ptr[3])
  */
-#define VectorLoad( Ptr )				_mm_loadu_ps( (float*)(Ptr) )
+FORCEINLINE VectorRegister VectorLoad( const void* Ptr )
+{
+	return _mm_loadu_ps((float*)(Ptr));
+}
 
 /**
  * Loads 3 FLOATs from unaligned memory and leaves W undefined.
@@ -199,7 +208,10 @@ FORCEINLINE float VectorGetComponent(VectorRegister Vec, uint32 ComponentIndex)
  * @param W		4th float component
  * @return		VectorRegister(X, Y, Z, W)
  */
-#define VectorSet( X, Y, Z, W )			MakeVectorRegister( X, Y, Z, W )
+FORCEINLINE VectorRegister VectorSet( float X, float Y, float Z, float W )
+{
+	return MakeVectorRegister(X, Y, Z, W);
+}
 
 /**
  * Stores a vector to aligned memory.
@@ -225,7 +237,10 @@ FORCEINLINE float VectorGetComponent(VectorRegister Vec, uint32 ComponentIndex)
  * @param Vec	Vector to store
  * @param Ptr	Memory pointer
  */
-#define VectorStore( Vec, Ptr )			_mm_storeu_ps( (float*)(Ptr), Vec )
+FORCEINLINE void VectorStore( const VectorRegister& Vec, void* Ptr )
+{
+	_mm_storeu_ps((float*)(Ptr), Vec);
+}
 
 /**
  * Stores the XYZ components of a vector to unaligned memory.
@@ -283,7 +298,11 @@ FORCEINLINE void VectorStoreFloat3( const VectorRegister& Vec, void* Ptr )
  * @param Vec2	2nd vector
  * @return		VectorRegister( Vec1.x+Vec2.x, Vec1.y+Vec2.y, Vec1.z+Vec2.z, Vec1.w+Vec2.w )
  */
-#define VectorAdd( Vec1, Vec2 )			_mm_add_ps( Vec1, Vec2 )
+
+FORCEINLINE VectorRegister VectorAdd( const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return _mm_add_ps(Vec1, Vec2);
+}
 
 /**
  * Subtracts a vector from another (component-wise) and returns the result.
@@ -292,7 +311,10 @@ FORCEINLINE void VectorStoreFloat3( const VectorRegister& Vec, void* Ptr )
  * @param Vec2	2nd vector
  * @return		VectorRegister( Vec1.x-Vec2.x, Vec1.y-Vec2.y, Vec1.z-Vec2.z, Vec1.w-Vec2.w )
  */
-#define VectorSubtract( Vec1, Vec2 )	_mm_sub_ps( Vec1, Vec2 )
+FORCEINLINE VectorRegister VectorSubtract( const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return _mm_sub_ps(Vec1, Vec2);
+}
 
 /**
  * Multiplies two vectors (component-wise) and returns the result.
@@ -301,7 +323,11 @@ FORCEINLINE void VectorStoreFloat3( const VectorRegister& Vec, void* Ptr )
  * @param Vec2	2nd vector
  * @return		VectorRegister( Vec1.x*Vec2.x, Vec1.y*Vec2.y, Vec1.z*Vec2.z, Vec1.w*Vec2.w )
  */
-#define VectorMultiply( Vec1, Vec2 )	_mm_mul_ps( Vec1, Vec2 )
+FORCEINLINE VectorRegister VectorMultiply( const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return _mm_mul_ps(Vec1, Vec2);
+}
+
 
 /**
  * Multiplies two vectors (component-wise), adds in the third vector and returns the result.
@@ -875,7 +901,10 @@ FORCEINLINE VectorRegister VectorCombineLow(const VectorRegister& Vec1, const Ve
  * @param Vec2	2nd vector
  * @return		VectorRegister( Vec1.x/Vec2.x, Vec1.y/Vec2.y, Vec1.z/Vec2.z, Vec1.w/Vec2.w )
  */
-#define VectorDivide( Vec1, Vec2 )		_mm_div_ps( Vec1, Vec2 )
+FORCEINLINE VectorRegister VectorDivide( const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return _mm_div_ps(Vec1, Vec2);
+}
 
 /**
  * Merges the XYZ components of one vector with the W component of another vector and returns the result.

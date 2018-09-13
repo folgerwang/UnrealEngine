@@ -82,22 +82,43 @@ FDBufferData DecodeDBufferData(
 	return ret;
 }
 
-// @param UV - UV space in the DBuffer textures (BufferSize resolution)
-FDBufferData GetDBufferData(float2 UV)
-{
 #if SUPPORTS_INDEPENDENT_SAMPLERS
 	// Share samplers to give artists more
-	float4 DBufferA = Texture2DSampleLevel(OpaqueBasePass.DBufferATexture, OpaqueBasePass.DBufferATextureSampler, UV, 0);
-	float4 DBufferB = Texture2DSampleLevel(OpaqueBasePass.DBufferBTexture, OpaqueBasePass.DBufferATextureSampler, UV, 0);
-	float4 DBufferC = Texture2DSampleLevel(OpaqueBasePass.DBufferCTexture, OpaqueBasePass.DBufferATextureSampler, UV, 0);
+	#define OpaqueBasePassDBufferATextureSampler OpaqueBasePass.DBufferATextureSampler
+	#define OpaqueBasePassDBufferBTextureSampler OpaqueBasePass.DBufferATextureSampler
+	#define OpaqueBasePassDBufferCTextureSampler OpaqueBasePass.DBufferATextureSampler
 #else
-	float4 DBufferA = Texture2DSampleLevel(OpaqueBasePass.DBufferATexture, OpaqueBasePass.DBufferATextureSampler, UV, 0);
-	float4 DBufferB = Texture2DSampleLevel(OpaqueBasePass.DBufferBTexture, OpaqueBasePass.DBufferBTextureSampler, UV, 0);
-	float4 DBufferC = Texture2DSampleLevel(OpaqueBasePass.DBufferCTexture, OpaqueBasePass.DBufferCTextureSampler, UV, 0);
+	#define OpaqueBasePassDBufferATextureSampler OpaqueBasePass.DBufferATextureSampler
+	#define OpaqueBasePassDBufferBTextureSampler OpaqueBasePass.DBufferBTextureSampler
+	#define OpaqueBasePassDBufferCTextureSampler OpaqueBasePass.DBufferCTextureSampler
 #endif
+
+#if MATERIALDECALRESPONSEMASK
+// @param UV - UV space in the DBuffer textures (BufferSize resolution)
+FDBufferData GetDBufferData(float2 UV, uint RTWriteMaskBit)
+{
+	float4 DBufferA = float4(0.0, 0.0, 0.0, 1.0);
+	float4 DBufferB = float4(0.5, 0.5, 0.5, 1.0);
+	float4 DBufferC = float4(0.0, 0.0, 0.0, 1.0);
+
+	if ((MATERIALDECALRESPONSEMASK & 0x1) && (RTWriteMaskBit & 0x1))
+	{
+		DBufferA = Texture2DSampleLevel(OpaqueBasePass.DBufferATexture, OpaqueBasePassDBufferATextureSampler, UV, 0);
+	}
+
+	if ((MATERIALDECALRESPONSEMASK & 0x2) && (RTWriteMaskBit & 0x2))
+	{
+		DBufferB = Texture2DSampleLevel(OpaqueBasePass.DBufferBTexture, OpaqueBasePassDBufferBTextureSampler, UV, 0);
+	}
+
+	if ((MATERIALDECALRESPONSEMASK & 0x4) && (RTWriteMaskBit & 0x4))
+	{
+		DBufferC = Texture2DSampleLevel(OpaqueBasePass.DBufferCTexture, OpaqueBasePassDBufferCTextureSampler, UV, 0);
+	}
 	
 	return DecodeDBufferData(DBufferA, DBufferB, DBufferC);
 }
+#endif
 
 /** Populates DBufferA, DBufferB, DBufferC as float4 and puts opacity in alpha for frame buffer blending */
 void ApplyDBufferData(

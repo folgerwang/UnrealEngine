@@ -92,7 +92,7 @@ public:
 				return Container->SetInt(Key, Param.IntValue);
 			case FWebJSParam::PTYPE_STRING:
 			{
-				CefString ConvertedString = **Param.StringValue;
+				CefString ConvertedString = TCHAR_TO_WCHAR(**Param.StringValue);
 				return Container->SetString(Key, ConvertedString);
 			}
 			case FWebJSParam::PTYPE_OBJECT:
@@ -126,7 +126,7 @@ public:
 				CefRefPtr<CefDictionaryValue> ConvertedMap = CefDictionaryValue::Create();
 				for(auto& Pair : *Param.MapValue)
 				{
-					SetConverted(ConvertedMap, *Pair.Key, Pair.Value);
+					SetConverted(ConvertedMap, TCHAR_TO_WCHAR(*Pair.Key), Pair.Value);
 				}
 				return Container->SetDictionary(Key, ConvertedMap);
 			}

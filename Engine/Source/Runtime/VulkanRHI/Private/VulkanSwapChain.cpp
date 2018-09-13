@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanSwapChain.h: Vulkan viewport RHI definitions.
@@ -55,12 +55,61 @@ static FAutoConsoleVariableRef CVarVulkanDebugVsync(
 );
 #endif
 
+#if !UE_BUILD_SHIPPING
+
+bool GSimulateLostSurfaceInNextTick = false;
+bool GSimulateSuboptimalSurfaceInNextTick = false;
+
+// A self registering exec helper to check for the VULKAN_* commands.
+class FVulkanCommandsHelper : public FSelfRegisteringExec
+{
+	virtual bool Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+	{
+		if (FParse::Command(&Cmd, TEXT("VULKAN_SIMULATE_LOST_SURFACE")))
+		{
+			GSimulateLostSurfaceInNextTick = true;
+			Ar.Log(FString::Printf(TEXT("Vulkan: simulating lost surface next frame")));
+			return true;
+		}
+		else if (FParse::Command(&Cmd, TEXT("VULKAN_SIMULATE_SUBOPTIMAL_SURFACE")))
+		{
+			GSimulateSuboptimalSurfaceInNextTick = true;
+			Ar.Log(FString::Printf(TEXT("Vulkan: simulating suboptimal surface next frame")));
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+};
+static FVulkanCommandsHelper GVulkanCommandsHelper;
+
+VkResult SimulateErrors(VkResult Result)
+{
+	if (GSimulateLostSurfaceInNextTick)
+	{
+		GSimulateLostSurfaceInNextTick = false;
+		return VK_ERROR_SURFACE_LOST_KHR;
+	}
+
+	if (GSimulateSuboptimalSurfaceInNextTick)
+	{
+		GSimulateSuboptimalSurfaceInNextTick = false;
+		return VK_SUBOPTIMAL_KHR;
+	}
+
+	return Result;
+}
+
+#endif
+
 extern FAutoConsoleVariable GCVarDelayAcquireBackBuffer;
 extern TAutoConsoleVariable<int32> GAllowPresentOnComputeQueue;
 static TSet<EPixelFormat> GPixelFormatNotSupportedWarning;
 
 FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevice, void* WindowHandle, EPixelFormat& InOutPixelFormat, uint32 Width, uint32 Height,
-	uint32* InOutDesiredNumBackBuffers, TArray<VkImage>& OutImages)
+	uint32* InOutDesiredNumBackBuffers, TArray<VkImage>& OutImages, int8 InLockToVsync)
 	: SwapChain(VK_NULL_HANDLE)
 	, Device(InDevice)
 	, Surface(VK_NULL_HANDLE)
@@ -69,6 +118,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	, NumPresentCalls(0)
 	, NumAcquireCalls(0)
 	, Instance(InInstance)
+	, LockToVsync(InLockToVsync)
 {
 	check(FVulkanPlatform::SupportsStandardSwapchain());
 
@@ -234,11 +284,11 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 		// Until FVulkanViewport::Present honors SyncInterval, we need to disable vsync for the spectator window if using an HMD.
 		const bool bDisableVsyncForHMD = (FVulkanDynamicRHI::HMDVulkanExtensions.IsValid()) ? FVulkanDynamicRHI::HMDVulkanExtensions->ShouldDisableVulkanVSync() : false;
 
-		if (bFoundPresentModeMailbox)
+		if (bFoundPresentModeMailbox && LockToVsync)
 		{
 			PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 		}
-		else if (bFoundPresentModeImmediate && bDisableVsyncForHMD)
+		else if(bFoundPresentModeImmediate && (bDisableVsyncForHMD || !LockToVsync))
 		{
 			PresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 		}
@@ -435,6 +485,7 @@ int32 FVulkanSwapChain::AcquireImageIndex(VulkanRHI::FSemaphore** OutSemaphore)
 			GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUPresent]++;
 		}
 	}
+
 	if (Result == VK_ERROR_OUT_OF_DATE_KHR)
 	{
 		SemaphoreIndex = PrevSemaphoreIndex;
@@ -555,6 +606,7 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 
 	const int32 SyncInterval = RHIGetSyncInterval();
 	ensureMsgf(SyncInterval <= 3 && SyncInterval >= 0, TEXT("Unsupported sync interval: %i"), SyncInterval);
+	FVulkanPlatform::EnablePresentInfoExtensions(Info);
 
 #if VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
 	// These are referenced by VkPresentInfoKHR, so they need to be at the same level in the stack
@@ -785,6 +837,11 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 	{
 		SCOPE_CYCLE_COUNTER(STAT_VulkanQueuePresent);
 		VkResult PresentResult = VulkanRHI::vkQueuePresentKHR(PresentQueue->GetHandle(), &Info);
+
+#if !UE_BUILD_SHIPPING
+		PresentResult = SimulateErrors(PresentResult);
+#endif
+
 		if (PresentResult == VK_ERROR_OUT_OF_DATE_KHR)
 		{
 			return EStatus::OutOfDate;

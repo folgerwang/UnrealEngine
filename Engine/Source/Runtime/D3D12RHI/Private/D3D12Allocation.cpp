@@ -9,18 +9,6 @@
 #include "D3D12Allocation.h"
 #include "Misc/BufferedOutputDevice.h"
 
-#if PLATFORM_XBOXONE
-#define PIX_MEMORY_PROFILING XBOXONE_PROFILING_ENABLED
-#else
-#define PIX_MEMORY_PROFILING 0
-#endif
-
-#if PIX_MEMORY_PROFILING
-#include "Windows/AllowWindowsPlatformTypes.h"
-#include <windows.h>
-#include <pixmemory.h>
-#endif
-
 namespace ED3D12AllocatorID
 {
 	enum Type
@@ -290,14 +278,10 @@ void FD3D12BuddyAllocator::Allocate(uint32 SizeInBytes, uint32 Alignment, FD3D12
 		check(uint64(ResourceLocation.GetGPUVirtualAddress()) % Alignment == 0);
 	}
 
-#if PIX_MEMORY_PROFILING
-	uint64 Addr = (ResourceLocation.GetGPUVirtualAddress() != 0ull) ? (uint64)ResourceLocation.GetGPUVirtualAddress() : AlignedOffsetFromResourceBase;
-	PIXRecordMemoryAllocationEvent(AllocatorID, (void*)(Addr), SizeInBytes, MaximumAllocationSizeForPooling);
-#endif
-
 	// track the allocation
 #if !PLATFORM_WINDOWS
-	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Default, (void*)ResourceLocation.GetGPUVirtualAddress(), SizeInBytes));
+	LLM(uint64 Addr = (ResourceLocation.GetGPUVirtualAddress() != 0ull) ? (uint64)ResourceLocation.GetGPUVirtualAddress() : AlignedOffsetFromResourceBase);
+	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Default, (void*)Addr, SizeInBytes));
 	// Note: Disabling this LLM hook for Windows is due to a work-around in the way that d3d12 buffers are tracked
 	// by LLM. LLM tracks buffer data in the UpdateBufferStats function because that is the easiest place to ensure that LLM
 	// can be updated whenever a buffer is created or released. Unfortunately, some buffers allocate from this allocator
@@ -350,11 +334,6 @@ void FD3D12BuddyAllocator::Deallocate(FD3D12ResourceLocation& ResourceLocation)
 
 	INCREASE_ALLOC_COUNTER(NumBlocksInDeferredDeletionQueue, 1);
 
-#if PIX_MEMORY_PROFILING
-	uint64 Addr = (ResourceLocation.GetGPUVirtualAddress() != 0ull) ? (uint64)ResourceLocation.GetGPUVirtualAddress() : ResourceLocation.GetOffsetFromBaseOfResource();
-	PIXRecordMemoryFreeEvent(AllocatorID, (void*)Addr, 0, MaximumAllocationSizeForPooling);
-#endif
-
 	// track the allocation
 #if !PLATFORM_WINDOWS
 	// Note: Disabling this LLM hook for Windows is due to a work-around in the way that d3d12 buffers are tracked
@@ -363,7 +342,8 @@ void FD3D12BuddyAllocator::Deallocate(FD3D12ResourceLocation& ResourceLocation)
 	// which means that the memory would be counted twice. Because of this the tracking had to be disabled here.
 	// This does mean that non-buffer memory that goes through this allocator won't be tracked, so this does need a better solution.
 	// see UpdateBufferStats for a more detailed explanation.
-	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Default, (void*)ResourceLocation.GetGPUVirtualAddress()));
+	LLM(uint64 Addr = (ResourceLocation.GetGPUVirtualAddress() != 0ull) ? (uint64)ResourceLocation.GetGPUVirtualAddress() : ResourceLocation.GetOffsetFromBaseOfResource());
+	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Default, (void*)Addr));
 #endif
 }
 
@@ -973,14 +953,6 @@ void FD3D12DefaultBufferPool::AllocDefaultResource(const D3D12_RESOURCE_DESC& De
 	VERIFYD3D12RESULT(Adapter->CreateBuffer(D3D12_HEAP_TYPE_DEFAULT, GetGPUMask(), GetVisibilityMask(), Desc.Width, &NewResource, Allocator->ResourceFlags));
 	SetName(NewResource, L"Stand Alone Default Buffer");
 
-#if PIX_MEMORY_PROFILING && 0
-	// Track absolute memory usage
-	{
-		D3D12_RESOURCE_ALLOCATION_INFO Info = Device->GetDevice()->GetResourceAllocationInfo(0, 1, &Desc);
-		PIXRecordMemoryAllocationEvent(ED3D12AllocatorID::DefaultBufferAllocatorFullResources, (void*)(NewResource->GetGPUVirtualAddress()), Info.SizeInBytes, 0);
-	}
-#endif
-
 	ResourceLocation.AsStandAlone(NewResource, Desc.Width);
 }
 
@@ -1102,7 +1074,7 @@ FD3D12TextureAllocator::~FD3D12TextureAllocator()
 	FD3D12DynamicRHI::GetD3DRHI()->UpdataTextureMemorySize(-int32(MaxBlockSize / 1024));
 }
 
-HRESULT FD3D12TextureAllocator::AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState, bool bForcePlacementCreation)
+HRESULT FD3D12TextureAllocator::AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState)
 {
 	FD3D12Device* Device = GetParentDevice();
 	FD3D12Adapter* Adapter = Device->GetParentAdapter();
@@ -1133,14 +1105,7 @@ HRESULT FD3D12TextureAllocator::AllocateTexture(D3D12_RESOURCE_DESC Desc, const 
 	Desc.Alignment = 0;
 	const D3D12_HEAP_PROPERTIES HeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT, (uint32)GetGPUMask(), (uint32)GetVisibilityMask());
 
-	if (bForcePlacementCreation)
-	{
-		hr = Adapter->CreatePlacedResourceWithHeap(Desc, HeapProps, InitialState, ClearValue, &NewResource);
-	}
-	else
-	{
-		hr = Adapter->CreateCommittedResource(Desc, HeapProps, InitialState, ClearValue, &NewResource);
-	}
+	hr = Adapter->CreateCommittedResource(Desc, HeapProps, InitialState, ClearValue, &NewResource);
 
 	TextureLocation.SetType(FD3D12ResourceLocation::ResourceLocationType::eStandAlone);
 	TextureLocation.SetResource(NewResource);
@@ -1154,7 +1119,7 @@ FD3D12TextureAllocatorPool::FD3D12TextureAllocatorPool(FD3D12Device* Device, FRH
 	ReadOnlyTexturePool(Device, VisibilityNode, FString(L"Small Read-Only Texture allocator"), TEXTURE_POOL_SIZE, D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES)
 {};
 
-HRESULT FD3D12TextureAllocatorPool::AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState, bool bForcePlacementCreation)
+HRESULT FD3D12TextureAllocatorPool::AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState)
 {
 	// 4KB alignment is only available for read only textures
 	if ((Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET ||
@@ -1174,15 +1139,7 @@ HRESULT FD3D12TextureAllocatorPool::AllocateTexture(D3D12_RESOURCE_DESC Desc, co
 	FD3D12Resource* Resource = nullptr;
 
 	const D3D12_HEAP_PROPERTIES HeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT, (uint32)GetGPUMask(), (uint32)GetVisibilityMask());
-	HRESULT hr;
-	if (bForcePlacementCreation)
-	{
-		hr = Adapter->CreatePlacedResourceWithHeap(Desc, HeapProps, InitialState, ClearValue, &Resource);
-	}
-	else
-	{
-		hr = Adapter->CreateCommittedResource(Desc, HeapProps, InitialState, ClearValue, &Resource);
-	}
+	HRESULT hr = Adapter->CreateCommittedResource(Desc, HeapProps, InitialState, ClearValue, &Resource);
 
 	TextureLocation.SetType(FD3D12ResourceLocation::ResourceLocationType::eStandAlone);
 	TextureLocation.SetResource(Resource);
@@ -1511,6 +1468,3 @@ void* FD3D12FastConstantAllocator::Allocate(uint32 Bytes, FD3D12ResourceLocation
 	return OutLocation.GetMappedBaseAddress();
 }
 
-#if PIX_MEMORY_PROFILING
-#include "Windows/HideWindowsPlatformTypes.h"
-#endif

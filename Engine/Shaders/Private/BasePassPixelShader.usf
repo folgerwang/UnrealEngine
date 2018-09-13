@@ -818,21 +818,16 @@ void FPixelShaderInOut_MainPS(
 #endif
 	if(Primitive.DecalReceiverMask > 0 && View.ShowDecalsMask > 0)
 	{
-
+		uint DBufferMask = 0x07;
 	#if PLATFORM_SUPPORTS_RENDERTARGET_WRITE_MASK
-		uint RTWriteMaskBit = DecodeRTWriteMaskTexture(In.SvPosition.xy, OpaqueBasePass.DBufferRenderMask);
-		if(RTWriteMaskBit)
+		DBufferMask = DecodeRTWriteMaskTexture(In.SvPosition.xy, OpaqueBasePass.DBufferRenderMask);
+		BRANCH
 	#endif
+		if(DBufferMask)
 		{
 			float2 NDC = MaterialParameters.ScreenPosition.xy / MaterialParameters.ScreenPosition.w;
 			float2 ScreenUV = NDC * ResolvedView.ScreenPositionScaleBias.xy + ResolvedView.ScreenPositionScaleBias.wz;
-
-			FDBufferData DBufferData = GetDBufferData(ScreenUV);
-
-			// the material can disable the DBuffer effects for better performance or control
-			if((MATERIALDECALRESPONSEMASK & 0x1) == 0) { DBufferData.PreMulColor = 0; DBufferData.ColorOpacity = 1; }
-			if((MATERIALDECALRESPONSEMASK & 0x2) == 0) { DBufferData.PreMulWorldNormal = 0; DBufferData.NormalOpacity = 1; }
-			if((MATERIALDECALRESPONSEMASK & 0x4) == 0) { DBufferData.PreMulRoughness = 0; DBufferData.PreMulMetallic = 0; DBufferData.PreMulSpecular = 0; DBufferData.RoughnessOpacity = 1; }
+			FDBufferData DBufferData = GetDBufferData(ScreenUV, DBufferMask);
 
 			ApplyDBufferData(DBufferData, MaterialParameters.WorldNormal, SubsurfaceColor, Roughness, BaseColor, Metallic, Specular);
 		}

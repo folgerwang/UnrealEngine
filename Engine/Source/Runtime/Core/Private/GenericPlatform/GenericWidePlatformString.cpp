@@ -146,6 +146,41 @@ uint64 FGenericWidePlatformString::Strtoui64( const WIDECHAR* Start, WIDECHAR** 
 	return Result;
 }
 
+WIDECHAR* FGenericWidePlatformString::Strtok(WIDECHAR* StrToken, const WIDECHAR* Delim, WIDECHAR** Context)
+{
+	check(Context);
+	check(Delim);
+
+	WIDECHAR* SearchString = StrToken;
+	if (!SearchString)
+	{
+		check(*Context);
+		SearchString = *Context;
+	}
+
+	WIDECHAR* TokenStart = SearchString;
+	while (*TokenStart && Strchr(Delim, *TokenStart))
+	{
+		++TokenStart;
+	}
+
+	if (*TokenStart == 0)
+	{
+		return nullptr;
+	}
+
+	WIDECHAR* TokenEnd = TokenStart;
+	while (*TokenEnd && !Strchr(Delim, *TokenEnd))
+	{
+		++TokenEnd;
+	}
+
+	*TokenEnd = 0;
+	*Context = TokenEnd + 1;
+
+	return TokenStart;
+}
+
 float FGenericWidePlatformString::Atof(const WIDECHAR* String)
 {
 	return Atof(TCHAR_TO_UTF8(String));
@@ -364,6 +399,13 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 			Src = Cur;
 		}
 
+		// check for dynamic field requests
+		if (*Src == '*')
+		{
+			FieldLen = va_arg(ArgPtr, int32);
+			Src++;
+		}
+
 		if (*Src == '.')
 		{
 			const TCHAR *Cur = Src + 1;
@@ -418,9 +460,37 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 
 				// Yes, this is lame.
 				int CpyIdx = 0;
-				while (Percent < Src)
+				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
 				{
 					FmtBuf[CpyIdx] = (ANSICHAR)*Percent;
+					Percent++;
+					CpyIdx++;
+				}
+				FmtBuf[CpyIdx] = 0;
+
+				int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
+				if (!DestIter.Write(AnsiNum, RetCnt))
+				{
+					return -1;
+				}
+				break;
+			}
+
+			case 'z':
+			case 'Z':
+			{
+				Src += 2;
+
+				size_t Val = va_arg(ArgPtr, size_t);
+
+				ANSICHAR AnsiNum[30];
+				ANSICHAR FmtBuf[30];
+
+				// Yes, this is lame.
+				int CpyIdx = 0;
+				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
+				{
+					FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
 					Percent++;
 					CpyIdx++;
 				}
@@ -443,7 +513,7 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 
 				// Yes, this is lame.
 				int CpyIdx = 0;
-				while (Percent < Src)
+				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
 				{
 					FmtBuf[CpyIdx] = (ANSICHAR)*Percent;
 					Percent++;
@@ -461,9 +531,12 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 
 			case 'l':
 			case 'I':
+			case 'h':
 			{
-				// treat %ld as %d
-				if (Src[0] == 'l' && Src[1] == 'd')
+				int RemainingSize = Strlen(Src);
+
+				// treat %ld as %d. Also shorts for %h will be promoted to ints
+				if (RemainingSize >= 2 && ((Src[0] == 'l' && Src[1] == 'd') || Src[0] == 'h'))
 				{
 					Src+=2;
 					int Val = va_arg(ArgPtr, int);
@@ -472,7 +545,7 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 
 					// Yes, this is lame.
 					int CpyIdx = 0;
-					while (Percent < Src)
+					while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
 					{
 						FmtBuf[CpyIdx] = (ANSICHAR)*Percent;
 						Percent++;
@@ -487,10 +560,39 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 					}
 					break;
 				}
+				// Treat %lf as a %f
+				else if (RemainingSize >= 2 && Src[0] == 'l' && Src[1] == 'f')
+				{
+					Src += 2;
+					double Val = va_arg(ArgPtr, double);
+					ANSICHAR AnsiNum[30];
+					ANSICHAR FmtBuf[30];
 
+					// Yes, this is lame.
+					int CpyIdx = 0;
+					while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
+					{
+						FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
+						Percent++;
+						CpyIdx++;
+					}
+					FmtBuf[CpyIdx] = 0;
 
-				if ((Src[0] == 'l' && Src[1] != 'l') ||
-					(Src[0] == 'I' && (Src[1] != '6' || Src[2] != '4')))
+					int RetCnt = snprintf(AnsiNum, sizeof(AnsiNum), FmtBuf, Val);
+					if (!DestIter.Write(AnsiNum, RetCnt))
+					{
+						return -1;
+					}
+					break;
+				}
+
+				if (RemainingSize >= 2 && (Src[0] == 'l' && Src[1] != 'l' && Src[1] != 'u' && Src[1] != 'x'))
+				{
+					printf("Unknown percent [%lc%lc] in FGenericWidePlatformString::GetVarArgs() [%s]\n.", Src[0], Src[1], TCHAR_TO_ANSI(Fmt));
+					Src++;  // skip it, I guess.
+					break;
+				}
+				else if (RemainingSize >= 3 && Src[0] == 'I' && (Src[1] != '6' || Src[2] != '4'))
 				{
 					printf("Unknown percent [%lc%lc%lc] in FGenericWidePlatformString::GetVarArgs() [%s]\n.", Src[0], Src[1], Src[2], TCHAR_TO_ANSI(Fmt));
 					Src++;  // skip it, I guess.
@@ -514,7 +616,7 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 					CpyIdx = 2;
 				}
 
-				while (Percent < Src)
+				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
 				{
 					FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
 					Percent++;
@@ -541,7 +643,7 @@ int32 FGenericWidePlatformString::GetVarArgs( WIDECHAR* Dest, SIZE_T DestSize, c
 
 				// Yes, this is lame.
 				int CpyIdx = 0;
-				while (Percent < Src)
+				while (Percent < Src && CpyIdx < ARRAY_COUNT(FmtBuf))
 				{
 					FmtBuf[CpyIdx] = (ANSICHAR) *Percent;
 					Percent++;

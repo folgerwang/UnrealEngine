@@ -297,6 +297,27 @@ RENDERCORE_API bool IsHDREnabled()
 	return false;
 }
 
+RENDERCORE_API bool IsHDRAllowed()
+{
+	// HDR can be forced on or off on the commandline. Otherwise we check the cvar r.AllowHDR
+	if (FParse::Param(FCommandLine::Get(), TEXT("hdr")))
+	{
+		return true;
+	}
+	else if (FParse::Param(FCommandLine::Get(), TEXT("nohdr")))
+	{
+		return false;
+	}
+
+	static const auto CVarHDRAllow = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowHDR"));
+	if (CVarHDRAllow && CVarHDRAllow->GetValueOnAnyThread() != 0)
+	{
+		return true;
+	}
+
+	return false;
+}
+
 class FUniformBufferMemberAndOffset
 {
 public:

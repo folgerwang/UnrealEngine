@@ -12,13 +12,8 @@ D3D12CommandContext.cpp: RHI  Command Context implementation.
 #include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
-#if PLATFORM_XBOXONE
-// @TODO: We fixed this on PC. Need to check it works on XB before re-enabling. 
 // Aggressive batching saves ~0.1ms on the RHI thread, reduces executecommandlist calls by around 25%
 int32 GCommandListBatchingMode = CLB_AggressiveBatching;
-#else
-int32 GCommandListBatchingMode = CLB_AggressiveBatching;
-#endif 
 
 static FAutoConsoleVariableRef CVarCommandListBatchingMode(
 	TEXT("D3D12.CommandListBatchingMode"),
@@ -97,6 +92,7 @@ FD3D12CommandContext::FD3D12CommandContext(FD3D12Device* InParent, FD3D12SubAllo
 	CommandAllocatorManager(InParent, InIsAsyncComputeContext ? D3D12_COMMAND_LIST_TYPE_COMPUTE : D3D12_COMMAND_LIST_TYPE_DIRECT),
 	StateCache(InParent->GetGPUMask()),
 	OwningRHI(*InParent->GetOwningRHI()),
+	SkipFastClearEliminateState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
 	CurrentDepthStencilTarget(nullptr),
 	CurrentDepthTexture(nullptr),
 	NumSimultaneousRenderTargets(0),
