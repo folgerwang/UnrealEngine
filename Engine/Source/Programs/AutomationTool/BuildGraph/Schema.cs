@@ -36,6 +36,11 @@ namespace AutomationTool
 		public Type ValueType;
 
 		/// <summary>
+		/// The ICollection interface for this type
+		/// </summary>
+		public Type CollectionType;
+
+		/// <summary>
 		/// Validation type for this field
 		/// </summary>
 		public TaskParameterValidationType ValidationType;
@@ -60,6 +65,22 @@ namespace AutomationTool
 			{
 				ValueType = ValueType.GetGenericArguments()[0];
 				bOptional = true;
+			}
+
+			if(ValueType.IsClass)
+			{
+				foreach(Type InterfaceType in ValueType.GetInterfaces())
+				{
+					if(InterfaceType.IsGenericType)
+					{
+						Type GenericInterfaceType = InterfaceType.GetGenericTypeDefinition();
+						if(GenericInterfaceType == typeof(ICollection<>))
+						{
+							CollectionType = InterfaceType;
+							ValueType = InterfaceType.GetGenericArguments()[0];
+						}
+					}
+				}
 			}
 		}
 	}
@@ -261,10 +282,17 @@ namespace AutomationTool
 			{
 				if(!TypeToSchemaTypeName.ContainsKey(Type))
 				{
-					string Name = Type.Name + "UserType";
-					XmlSchemaType SchemaType = CreateUserType(Name, Type);
-					UserTypes.Add(SchemaType);
-					TypeToSchemaTypeName.Add(Type, new XmlQualifiedName(Name, NamespaceURI));
+					if(Type.IsClass && Type.GetInterfaces().Any(x => x.GetGenericTypeDefinition() == typeof(ICollection<>)))
+					{
+						TypeToSchemaTypeName.Add(Type, GetQualifiedTypeName(ScriptSchemaStandardType.BalancedString));
+					}
+					else
+					{
+						string Name = Type.Name + "UserType";
+						XmlSchemaType SchemaType = CreateUserType(Name, Type);
+						UserTypes.Add(SchemaType);
+						TypeToSchemaTypeName.Add(Type, new XmlQualifiedName(Name, NamespaceURI));
+					}
 				}
 			}
 
