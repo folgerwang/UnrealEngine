@@ -5678,29 +5678,55 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 					|| InProperty == MP_Roughness
 					|| InProperty == MP_Opacity;
 
-			case DBM_DBuffer_ColorNormalRoughness:
-				return InProperty == MP_Normal
+			case DBM_DBuffer_AlphaComposite:
+				return InProperty == MP_EmissiveColor
+					|| InProperty == MP_Metallic
+					|| InProperty == MP_Specular
 					|| InProperty == MP_BaseColor
 					|| InProperty == MP_Roughness
 					|| InProperty == MP_Opacity;
 
+			case DBM_DBuffer_ColorNormalRoughness:
+				return InProperty == MP_Normal
+					|| InProperty == MP_BaseColor
+					|| InProperty == MP_Roughness
+					|| InProperty == MP_Metallic
+					|| InProperty == MP_Specular
+					|| InProperty == MP_Opacity
+					|| InProperty == MP_EmissiveColor;
+
+			case DBM_DBuffer_Emissive:
+				return InProperty == MP_EmissiveColor
+					|| InProperty == MP_Opacity;
+
+			case DBM_DBuffer_EmissiveAlphaComposite:
+				return InProperty == MP_EmissiveColor
+					|| InProperty == MP_Opacity;
+
 			case DBM_DBuffer_Color:
 				return InProperty == MP_BaseColor
-					|| InProperty == MP_Opacity;
+					|| InProperty == MP_Opacity
+					|| InProperty == MP_EmissiveColor;
 
 			case DBM_DBuffer_ColorNormal:
 				return InProperty == MP_BaseColor
 					|| InProperty == MP_Normal
-					|| InProperty == MP_Opacity;
+					|| InProperty == MP_Opacity
+					|| InProperty == MP_EmissiveColor;
 
 			case DBM_DBuffer_ColorRoughness:
 				return InProperty == MP_BaseColor
 					|| InProperty == MP_Roughness
-					|| InProperty == MP_Opacity;
+					|| InProperty == MP_Metallic
+					|| InProperty == MP_Specular
+					|| InProperty == MP_Opacity
+					|| InProperty == MP_EmissiveColor;
 
 			case DBM_DBuffer_NormalRoughness:
 				return InProperty == MP_Normal
 					|| InProperty == MP_Roughness
+					|| InProperty == MP_Metallic
+					|| InProperty == MP_Specular
 					|| InProperty == MP_Opacity;
 
 			case DBM_DBuffer_Normal:
@@ -5709,6 +5735,8 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 
 			case DBM_DBuffer_Roughness:
 				return InProperty == MP_Roughness
+					|| InProperty == MP_Metallic
+					|| InProperty == MP_Specular
 					|| InProperty == MP_Opacity;
 
 			case DBM_Volumetric_DistanceFunction:

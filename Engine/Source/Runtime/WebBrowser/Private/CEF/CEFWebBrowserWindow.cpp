@@ -244,7 +244,7 @@ namespace {
 
 		virtual void Visit(const CefString& String) override
 		{
-			Closure(FString(String.ToWString().c_str()));
+			Closure(FString(WCHAR_TO_TCHAR(String.ToWString().c_str())));
 		}
 
 	private:
@@ -1486,19 +1486,19 @@ CefRefPtr<CefBrowser> FCEFWebBrowserWindow::GetCefBrowser()
 
 void FCEFWebBrowserWindow::SetTitle(const CefString& InTitle)
 {
-	Title = InTitle.ToWString().c_str();
+	Title = WCHAR_TO_TCHAR(InTitle.ToWString().c_str());
 	TitleChangedEvent.Broadcast(Title);
 }
 
 void FCEFWebBrowserWindow::SetUrl(const CefString& Url)
 {
-	CurrentUrl = Url.ToWString().c_str();
+	CurrentUrl = WCHAR_TO_TCHAR(Url.ToWString().c_str());
 	OnUrlChanged().Broadcast(CurrentUrl);
 }
 
 void FCEFWebBrowserWindow::SetToolTip(const CefString& CefToolTip)
 {
-	FString NewToolTipText = CefToolTip.ToWString().c_str();
+	FString NewToolTipText = WCHAR_TO_TCHAR(CefToolTip.ToWString().c_str());
 	if (ToolTipText != NewToolTipText)
 	{
 		ToolTipText = NewToolTipText;
@@ -1530,7 +1530,7 @@ void FCEFWebBrowserWindow::NotifyDocumentError(
 	const CefString& ErrorText,
 	const CefString& FailedUrl)
 {
-	FString Url = FailedUrl.ToWString().c_str();
+	FString Url = WCHAR_TO_TCHAR(FailedUrl.ToWString().c_str());
 
 	if (InErrorCode == ERR_ABORTED)
 	{
@@ -1554,7 +1554,7 @@ void FCEFWebBrowserWindow::NotifyDocumentError(
 		FFormatNamedArguments Args;
 		{
 			Args.Add(TEXT("FailedUrl"), FText::FromString(Url));
-			Args.Add(TEXT("ErrorText"), FText::FromString(ErrorText.ToWString().c_str()));
+			Args.Add(TEXT("ErrorText"), FText::FromString(WCHAR_TO_TCHAR(ErrorText.ToWString().c_str())));
 			Args.Add(TEXT("ErrorCode"), FText::AsNumber((int)InErrorCode));
 		}
 		FText ErrorMsg = FText::Format(NSLOCTEXT("WebBrowserHandler", "WebBrowserLoadError", "Failed to load URL {FailedUrl} with error {ErrorText} ({ErrorCode})."), Args);
@@ -1792,7 +1792,7 @@ bool FCEFWebBrowserWindow::OnBeforeBrowse( CefRefPtr<CefBrowser> Browser, CefRef
 		{
 			if(OnBeforeBrowse().IsBound())
 			{
-				FString Url = Request->GetURL().ToWString().c_str();
+				FString Url = WCHAR_TO_TCHAR(Request->GetURL().ToWString().c_str());
 				bool bIsMainFrame = Frame->IsMain();
 
 				FWebNavigationRequest RequestDetails;
@@ -1836,8 +1836,8 @@ TOptional<FString> FCEFWebBrowserWindow::GetResourceContent( CefRefPtr< CefFrame
 	}
 	if (OnLoadUrl().IsBound())
 	{
-		FString Method = Request->GetMethod().ToWString().c_str();
-		FString Url = Request->GetURL().ToWString().c_str();
+		FString Method = WCHAR_TO_TCHAR(Request->GetMethod().ToWString().c_str());
+		FString Url = WCHAR_TO_TCHAR(Request->GetURL().ToWString().c_str());
 		FString Response;
 		if ( OnLoadUrl().Execute(Method, Url, Response))
 		{
@@ -2037,7 +2037,7 @@ void FCEFWebBrowserWindow::ProcessPendingNavigation()
 	CefRefPtr<CefFrame> MainFrame = InternalCefBrowser->GetMainFrame();
 	if (MainFrame.get() != nullptr)
 	{
-		CefString Url = *PendingLoadUrl;
+		CefString Url = TCHAR_TO_WCHAR(*PendingLoadUrl);
 		PendingLoadUrl.Empty();
 		MainFrame->LoadURL(Url);
 	}

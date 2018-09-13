@@ -174,17 +174,9 @@ static TAutoConsoleVariable<int32> CVarDefaultAntiAliasing(
 
 // see ELightUnits
 static TAutoConsoleVariable<int32> CVarDefaultPointLightUnits(
-	TEXT("r.DefaultFeature.PointLightUnits"),
+	TEXT("r.DefaultFeature.LightUnits"),
 	1,
-	TEXT("Default units to use for point lights\n")
-	TEXT(" 0: unitless \n")
-	TEXT(" 1: candelas (default)\n")
-	TEXT(" 2: lumens"));
-
-static TAutoConsoleVariable<int32> CVarDefaultSpotLightUnits(
-	TEXT("r.DefaultFeature.SpotLightUnits"),
-	1,
-	TEXT("Default units to use for point lights\n")
+	TEXT("Default units to use for point, spot and rect lights\n")
 	TEXT(" 0: unitless \n")
 	TEXT(" 1: candelas (default)\n")
 	TEXT(" 2: lumens"));
@@ -2240,6 +2232,7 @@ FSceneViewFamily::FSceneViewFamily(const ConstructionValues& CVS)
 	bRealtimeUpdate(CVS.bRealtimeUpdate),
 	bDeferClear(CVS.bDeferClear),
 	bResolveScene(CVS.bResolveScene),
+	bMultiGPUForkAndJoin(false),
 	SceneCaptureSource(SCS_FinalColorLDR),
 	SceneCaptureCompositeMode(SCCM_Overwrite),
 	bWorldIsPaused(false),

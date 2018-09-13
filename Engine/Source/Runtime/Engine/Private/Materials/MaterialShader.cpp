@@ -816,7 +816,7 @@ void FMaterialShaderMapId::AppendKeyString(FString& KeyString) const
 	KeyString += BytesToHex(&BasePropertyOverridesHash.Hash[0], sizeof(BasePropertyOverridesHash.Hash));
 }
 
-void FMaterialShaderMapId::SetShaderDependencies(const TArray<FShaderType*>& ShaderTypes, const TArray<const FShaderPipelineType*>& ShaderPipelineTypes, const TArray<FVertexFactoryType*>& VFTypes)
+void FMaterialShaderMapId::SetShaderDependencies(const TArray<FShaderType*>& ShaderTypes, const TArray<const FShaderPipelineType*>& ShaderPipelineTypes, const TArray<FVertexFactoryType*>& VFTypes, EShaderPlatform ShaderPlatform)
 {
 	if (!FPlatformProperties::RequiresCookedData())
 	{
@@ -824,7 +824,7 @@ void FMaterialShaderMapId::SetShaderDependencies(const TArray<FShaderType*>& Sha
 		{
 			FShaderTypeDependency Dependency;
 			Dependency.ShaderType = ShaderTypes[ShaderTypeIndex];
-			Dependency.SourceHash = ShaderTypes[ShaderTypeIndex]->GetSourceHash();
+			Dependency.SourceHash = ShaderTypes[ShaderTypeIndex]->GetSourceHash(ShaderPlatform);
 			ShaderTypeDependencies.Add(Dependency);
 		}
 
@@ -832,7 +832,7 @@ void FMaterialShaderMapId::SetShaderDependencies(const TArray<FShaderType*>& Sha
 		{
 			FVertexFactoryTypeDependency Dependency;
 			Dependency.VertexFactoryType = VFTypes[VFTypeIndex];
-			Dependency.VFSourceHash = VFTypes[VFTypeIndex]->GetSourceHash();
+			Dependency.VFSourceHash = VFTypes[VFTypeIndex]->GetSourceHash(ShaderPlatform);
 			VertexFactoryTypeDependencies.Add(Dependency);
 		}
 
@@ -841,7 +841,7 @@ void FMaterialShaderMapId::SetShaderDependencies(const TArray<FShaderType*>& Sha
 			const FShaderPipelineType* Pipeline = ShaderPipelineTypes[TypeIndex];
 			FShaderPipelineTypeDependency Dependency;
 			Dependency.ShaderPipelineType = Pipeline;
-			Dependency.StagesSourceHash = Pipeline->GetSourceHash();
+			Dependency.StagesSourceHash = Pipeline->GetSourceHash(ShaderPlatform);
 			ShaderPipelineTypeDependencies.Add(Dependency);
 		}
 	}
@@ -2130,18 +2130,23 @@ void FMaterialShaderMap::Register(EShaderPlatform InShaderPlatform)
 		INC_DWORD_STAT_BY(STAT_Shaders_ShaderMapMemory, GetSizeBytes());
 	}
 
+	checkf(!bRegistered && !GIdToMaterialShaderMap[GetShaderPlatform()].Contains(ShaderMapId), TEXT("Hashcollision or inserting element twice in global ShaderMapTable. bRegistered: %s"), bRegistered ? TEXT("true") : TEXT("false"));
 	GIdToMaterialShaderMap[GetShaderPlatform()].Add(ShaderMapId,this);
 	bRegistered = true;
 }
 
 void FMaterialShaderMap::AddRef()
 {
+	//#todo-mw: re-enable to try to find potential corruption of the global shader map ID array
+	//check(IsInGameThread());
 	check(!bDeletedThroughDeferredCleanup);
 	++NumRefs;
 }
 
 void FMaterialShaderMap::Release()
 {
+	//#todo-mw: re-enable to try to find potential corruption of the global shader map ID array
+	//check(IsInGameThread());
 	check(NumRefs > 0);
 	if(--NumRefs == 0)
 	{

@@ -7,14 +7,46 @@
 
 #include "BSDIPv6Sockets/IPAddressBSDIPv6.h"
 
-
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 class FSocketBSDIPv6* FSocketSubsystemBSDIPv6::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)
 {
 	// return a new socket object
 	return new FSocketBSDIPv6(Socket, SocketType, SocketDescription, this);
 }
 
-FSocket* FSocketSubsystemBSDIPv6::CreateSocket(const FName& SocketType, const FString& SocketDescription, bool bForceUDP)
+ESocketErrors FSocketSubsystemBSDIPv6::TranslateGAIErrorCode(int32 Code) const
+{
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
+	switch (Code)
+	{
+		// getaddrinfo() has its own error codes
+	case EAI_AGAIN:			return SE_TRY_AGAIN;
+	case EAI_BADFLAGS:		return SE_EINVAL;
+	case EAI_FAIL:			return SE_NO_RECOVERY;
+	case EAI_FAMILY:		return SE_EAFNOSUPPORT;
+	case EAI_MEMORY:		return SE_ENOBUFS;
+	case EAI_NONAME:		return SE_HOST_NOT_FOUND;
+	case EAI_SERVICE:		return SE_EPFNOSUPPORT;
+	case EAI_SOCKTYPE:		return SE_ESOCKTNOSUPPORT;
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS
+	case WSANO_DATA:		return SE_NO_DATA;
+	case WSANOTINITIALISED: return SE_NOTINITIALISED;
+#else			
+	case EAI_NODATA:		return SE_NO_DATA;
+	case EAI_ADDRFAMILY:	return SE_ADDRFAMILY;
+	case EAI_SYSTEM:		return SE_SYSTEM;
+#endif
+	case 0:					break; // 0 means success
+	default:
+		UE_LOG(LogSockets, Warning, TEXT("Unhandled getaddrinfo() socket error! Code: %d"), Code);
+		return SE_EINVAL;
+	}
+#endif // PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
+
+	return SE_NO_ERROR;
+}
+
+FSocket* FSocketSubsystemBSDIPv6::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP)
 {
 	SOCKET Socket = INVALID_SOCKET;
 	FSocket* NewSocket = NULL;
@@ -50,51 +82,109 @@ void FSocketSubsystemBSDIPv6::DestroySocket(FSocket* Socket)
 	delete Socket;
 }
 
-ESocketErrors FSocketSubsystemBSDIPv6::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
+FAddressInfoResult FSocketSubsystemBSDIPv6::GetAddressInfo(const TCHAR* HostName, const TCHAR* ServiceName,
+	EAddressInfoFlags QueryFlags, ESocketProtocolFamily ProtocolType, ESocketType SocketType)
 {
-	FScopeLock ScopeLock(&HostByNameSynch);
-	addrinfo* AddrInfo = NULL;
+	FAddressInfoResult AddrQueryResult = FAddressInfoResult(HostName, ServiceName);
 
-	// We are only interested in IPv6 addresses.
+	if (HostName == nullptr && ServiceName == nullptr)
+	{
+		UE_LOG(LogSockets, Warning, TEXT("GetAddressInfo was passed with both a null host and service name, returning empty array"));
+		return AddrQueryResult;
+	}
+
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
+	addrinfo* AddrInfo = nullptr;
+
 	addrinfo HintAddrInfo;
 	FMemory::Memzero(&HintAddrInfo, sizeof(HintAddrInfo));
 	HintAddrInfo.ai_family = AF_UNSPEC;
+	HintAddrInfo.ai_flags = GetAddressInfoHintFlag(QueryFlags);
 
-	int32 ErrorCode = getaddrinfo(HostName, NULL, &HintAddrInfo, &AddrInfo);
+	if (SocketType != ESocketType::SOCKTYPE_Unknown)
+	{
+		bool bIsUDP = (SocketType == ESocketType::SOCKTYPE_Datagram);
+		HintAddrInfo.ai_protocol = bIsUDP ? IPPROTO_UDP : IPPROTO_TCP;
+		HintAddrInfo.ai_socktype = bIsUDP ? SOCK_DGRAM : SOCK_STREAM;
+	}
+
+	int32 ErrorCode = getaddrinfo(TCHAR_TO_UTF8(HostName), TCHAR_TO_UTF8(ServiceName), &HintAddrInfo, &AddrInfo);
 	ESocketErrors SocketError = TranslateGAIErrorCode(ErrorCode);
 	if (SocketError == SE_NO_ERROR)
 	{
+		addrinfo* AddrInfoHead = AddrInfo;
+		if (AddrInfo != nullptr && AddrInfo->ai_canonname != nullptr)
+		{
+			AddrQueryResult.CanonicalNameResult = UTF8_TO_TCHAR(AddrInfo->ai_canonname);
+		}
+
 		for (; AddrInfo != nullptr; AddrInfo = AddrInfo->ai_next)
 		{
-			if (AddrInfo->ai_family == AF_INET6)
+			if (AddrInfo->ai_family == AF_INET6 || AddrInfo->ai_family == AF_INET)
 			{
-				sockaddr_in6* IPv6SockAddr = reinterpret_cast<sockaddr_in6*>(AddrInfo->ai_addr);
-				if (IPv6SockAddr != nullptr)
+				TSharedRef<FInternetAddrBSDIPv6> NewAddress = MakeShareable(new FInternetAddrBSDIPv6);
+				if (AddrInfo->ai_family == AF_INET6)
 				{
+					sockaddr_in6* IPv6SockAddr = reinterpret_cast<sockaddr_in6*>(AddrInfo->ai_addr);
+					if (IPv6SockAddr != nullptr)
+					{
 #if PLATFORM_IOS
-					static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetIp(*IPv6SockAddr);
+						NewAddress->SetIp(*IPv6SockAddr);
 #else
-					static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetIp(IPv6SockAddr->sin6_addr);
+						NewAddress->SetIp(IPv6SockAddr->sin6_addr);
 #endif
-					freeaddrinfo(AddrInfo);
-					return SE_NO_ERROR;
+						NewAddress->SetPort(IPv6SockAddr->sin6_port);
+					}
 				}
-			}
-			else if (AddrInfo->ai_family == AF_INET)
-			{
-				sockaddr_in* IPv4SockAddr = reinterpret_cast<sockaddr_in*>(AddrInfo->ai_addr);
-				if (IPv4SockAddr != nullptr)
+				else if (AddrInfo->ai_family == AF_INET)
 				{
-					static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetIp(IPv4SockAddr->sin_addr);
-					freeaddrinfo(AddrInfo);
-					return SE_NO_ERROR;
+					sockaddr_in* IPv4SockAddr = reinterpret_cast<sockaddr_in*>(AddrInfo->ai_addr);
+					if (IPv4SockAddr != nullptr)
+					{
+						NewAddress->SetIp(IPv4SockAddr->sin_addr);
+						NewAddress->SetPort(IPv4SockAddr->sin_port);
+					}
 				}
+
+				ESocketType ResultAddrConfiguration;
+				switch (AddrInfo->ai_protocol)
+				{
+					case IPPROTO_TCP:
+						ResultAddrConfiguration = SOCKTYPE_Streaming;
+						break;
+					case IPPROTO_UDP:
+						ResultAddrConfiguration = SOCKTYPE_Datagram;
+						break;
+					default:
+						ResultAddrConfiguration = SOCKTYPE_Unknown;
+						break;
+				}
+
+				// Everything in this class is stored internally as IPv6
+				AddrQueryResult.Results.Add(FAddressInfoResultData(NewAddress, AddrInfo->ai_addrlen,
+					ESocketProtocolFamily::IPv6, ResultAddrConfiguration));
 			}
 		}
-		freeaddrinfo(AddrInfo);
-		return SE_HOST_NOT_FOUND;
+		freeaddrinfo(AddrInfoHead);
 	}
-	return SocketError;
+#else
+	UE_LOG(LogSockets, Error, TEXT("Platform has no getaddrinfo(), but did not override FSocketSubsystem::GetAddressInfo()"));
+#endif
+	return AddrQueryResult;
+}
+
+ESocketErrors FSocketSubsystemBSDIPv6::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
+{
+	FAddressInfoResult GAIResult = GetAddressInfo(ANSI_TO_TCHAR(HostName), nullptr,
+		EAddressInfoFlags::AllResultsWithMapping | EAddressInfoFlags::OnlyUsableAddresses | EAddressInfoFlags::BindableAddress);
+
+	if (GAIResult.Results.Num() > 0)
+	{
+		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
+		return SE_NO_ERROR;
+	}
+
+	return SE_HOST_NOT_FOUND;
 }
 
 bool FSocketSubsystemBSDIPv6::GetHostName(FString& HostName)
@@ -201,4 +291,64 @@ ESocketErrors FSocketSubsystemBSDIPv6::TranslateErrorCode(int32 Code)
 	return SE_EINVAL;
 }
 
+int32 FSocketSubsystemBSDIPv6::GetAddressInfoHintFlag(EAddressInfoFlags InFlags) const
+{
+	int32 ReturnFlagsCode = 0;
+
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
+	if (InFlags == EAddressInfoFlags::Default)
+	{
+		return ReturnFlagsCode;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::NoResolveHost))
+	{
+		ReturnFlagsCode |= AI_NUMERICHOST;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::NoResolveService))
+	{
+		ReturnFlagsCode |= AI_NUMERICSERV;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::OnlyUsableAddresses))
+	{
+		ReturnFlagsCode |= AI_ADDRCONFIG;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::BindableAddress))
+	{
+		ReturnFlagsCode |= AI_PASSIVE;
+	}
+
+	/* This means nothing unless AI_ALL is also specified. */
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::AllowV4MappedAddresses))
+	{
+		ReturnFlagsCode |= AI_V4MAPPED;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::AllResults))
+	{
+		ReturnFlagsCode |= AI_ALL;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::CanonicalName))
+	{
+		ReturnFlagsCode |= AI_CANONNAME;
+	}
+
+	if (EnumHasAnyFlags(InFlags, EAddressInfoFlags::FQDomainName))
+	{
+#ifdef AI_FQDN
+		ReturnFlagsCode |= AI_FQDN;
+#else
+		ReturnFlagsCode |= AI_CANONNAME;
+#endif
+	}
+#endif
+
+	return ReturnFlagsCode;
+}
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif

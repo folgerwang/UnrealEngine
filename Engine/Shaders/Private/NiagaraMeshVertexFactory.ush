@@ -513,11 +513,11 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float3 ParticleVelocity;
 	if (NiagaraMeshVF.VelocityDataOffset == -1)
 	{
-		ParticleVelocity = float4(0.0f, 0.0f, 0.0f, 1);
+		ParticleVelocity = float3(0.0f, 0.0f, 0.0f);
 	}
 	else
 	{
-		ParticleVelocity = float4(GetVec3(NiagaraMeshVF.VelocityDataOffset, Input.InstanceId), 1);
+		ParticleVelocity = float3(GetVec3(NiagaraMeshVF.VelocityDataOffset, Input.InstanceId));
 	}
 
 #if NUM_DYNAMIC_PARAMETERS > 0

@@ -771,8 +771,20 @@ void FStaticMeshRenderData::Serialize(FArchive& Ar, UStaticMesh* Owner, bool bCo
 	// Inline the distance field derived data for cooked builds
 	if (bCooked)
 	{
-		FStripDataFlags StripFlags( Ar );
-		if ( !StripFlags.IsDataStrippedForServer() )
+		// Defined class flags for possible stripping
+		const uint8 DistanceFieldDataStripFlag = 1;
+
+		// Actual flags used during serialization
+		uint8 ClassDataStripFlags = 0;
+
+#if WITH_EDITOR
+		const bool bWantToStripDistanceFieldData = Ar.IsCooking() && (!Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::DeferredRendering) || !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::DistanceFieldAO));
+
+		ClassDataStripFlags |= (bWantToStripDistanceFieldData ? DistanceFieldDataStripFlag : 0);
+#endif
+
+		FStripDataFlags StripFlags(Ar, ClassDataStripFlags);
+		if (!StripFlags.IsDataStrippedForServer() && !StripFlags.IsClassDataStripped(DistanceFieldDataStripFlag))
 		{
 			if (Ar.IsSaving())
 			{
@@ -783,13 +795,7 @@ void FStaticMeshRenderData::Serialize(FArchive& Ar, UStaticMesh* Owner, bool bCo
 			{
 				FStaticMeshLODResources& LOD = LODResources[ResourceIndex];
 				
-				bool bStripDistanceFields = false;
-				if (Ar.IsCooking())
-				{
-					bStripDistanceFields = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::DeferredRendering);
-				}
-				
-				bool bValid = (LOD.DistanceFieldData != NULL) && !bStripDistanceFields;
+				bool bValid = (LOD.DistanceFieldData != NULL);
 
 				Ar << bValid;
 

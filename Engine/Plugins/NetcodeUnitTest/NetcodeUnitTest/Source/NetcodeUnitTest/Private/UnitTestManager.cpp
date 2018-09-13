@@ -17,11 +17,13 @@
 #include "TimerManager.h"
 
 #include "NetcodeUnitTest.h"
+#include "UnitLogging.h"
 #include "UnitTestEnvironment.h"
 #include "UnitTest.h"
 #include "ProcessUnitTest.h"
 #include "ClientUnitTest.h"
 #include "MinimalClient.h"
+#include "NUTGlobals.h"
 
 #include "UI/SLogWidget.h"
 #include "UI/SLogWindow.h"
@@ -1508,6 +1510,44 @@ bool UUnitTestManager::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 	}
 
 
+	// Gather a list of unit test packages, and make sure all of them implement FNUTModuleInterface - required for hot reload support
+	TArray<UPackage*> PackageList;
+	UNUTGlobals& NUTGlobals = UNUTGlobals::Get();
+
+	for (UUnitTest* CurUnitTest : UnitTestClassDefaults)
+	{
+		PackageList.AddUnique(CurUnitTest->GetClass()->GetOutermost());
+	}
+
+	for (UPackage* CurPackage : PackageList)
+	{
+		FString CurModuleName = NUTUtil::GetPackageModule(CurPackage);
+
+		if (!NUTGlobals.UnitTestModules.Contains(CurModuleName))
+		{
+			STATUS_LOG(ELogType::StatusWarning,
+					TEXT("Unit Test Package '%s' does not implement FNUTModuleInterface! This is required for Hot Reload support."),
+					*CurModuleName);
+		}
+	}
+
+
+	auto FindUnitTestByWorld =
+		[&InWorld](const UUnitTest* InElement)
+		{
+			const UClientUnitTest* CurUnitTest = Cast<UClientUnitTest>(InElement);
+			UMinimalClient* CurMinClient = (CurUnitTest != nullptr ? CurUnitTest->MinClient : nullptr);
+
+			return InWorld != nullptr && CurMinClient != nullptr && CurMinClient->GetUnitWorld() == InWorld;
+		};
+
+	auto FindUnitTestByLog =
+		[](const UUnitTest* InElement)
+		{
+			return InElement == GActiveLogInterface;
+		};
+
+
 	if (UnitTestName == TEXT("status"))
 	{
 		DumpStatus(true);
@@ -1550,28 +1590,74 @@ bool UUnitTestManager::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 	// If this command was triggered within a specific unit test (as identified by InWorld), abort it
 	else if (UnitTestName == TEXT("abort"))
 	{
-		if (InWorld != NULL)
+		UUnitTest** UnitTestRef = (InWorld != nullptr ? ActiveUnitTests.FindByPredicate(FindUnitTestByWorld) :
+									ActiveUnitTests.FindByPredicate(FindUnitTestByLog));
+
+		UUnitTest* AbortUnitTest = (UnitTestRef != nullptr ? *UnitTestRef : nullptr);
+
+		if (AbortUnitTest != nullptr)
 		{
-			UUnitTest** AbortUnitTestRef = ActiveUnitTests.FindByPredicate(
-				[&InWorld](const UUnitTest* InElement)
-				{
-					const UClientUnitTest* CurUnitTest = Cast<UClientUnitTest>(InElement);
-					UMinimalClient* CurMinClient = (CurUnitTest != nullptr ? CurUnitTest->MinClient : nullptr);
-
-					return CurMinClient != nullptr && CurMinClient->GetUnitWorld() == InWorld;
-				});
-
-			UUnitTest* AbortUnitTest = (AbortUnitTestRef != NULL ? *AbortUnitTestRef : NULL);
-
-			if (AbortUnitTest != NULL)
-			{
-				AbortUnitTest->AbortUnitTest();
-			}
+			AbortUnitTest->AbortUnitTest();
 		}
 		else
 		{
 			UE_LOG(LogUnitTest, Log, TEXT("Unit test abort command, must be called within a specific unit test window."));
 		}
+
+		bValidUnitTestName = true;
+	}
+	// If this command was triggered within a specific unit test, restart the unit test
+	else if (UnitTestName == TEXT("restart"))
+	{
+		UUnitTest** UnitTestRef = (InWorld != nullptr ? ActiveUnitTests.FindByPredicate(FindUnitTestByWorld) :
+									ActiveUnitTests.FindByPredicate(FindUnitTestByLog));
+
+		UUnitTest* RestartUnitTest = (UnitTestRef != nullptr ? *UnitTestRef : nullptr);
+
+		if (RestartUnitTest != nullptr)
+		{
+			if (RestartUnitTest->CanResetUnitTest())
+			{
+				// @todo #JohnB: Reset stage? (maybe in another command)
+				RestartUnitTest->ResetUnitTest();
+
+				if (UUnitTest::UnitEnv != nullptr)
+				{
+					UUnitTest::UnitEnv->UnitTest = RestartUnitTest;
+
+					double OldStartTime = RestartUnitTest->StartTime;
+
+					// Hack-disable 'HasStarted' for the unit test - while preserving the start time
+					RestartUnitTest->StartTime = 0.0;
+
+					RestartUnitTest->InitializeEnvironmentSettings();
+
+					RestartUnitTest->StartTime = OldStartTime;
+
+					UUnitTest::UnitEnv->UnitTest = nullptr;
+				}
+
+				if (RestartUnitTest->StartUnitTest())
+				{
+					STATUS_LOG(ELogType::StatusImportant, TEXT("Started unit test '%s'"), *RestartUnitTest->GetUnitTestName());
+				}
+				else
+				{
+					STATUS_LOG(ELogType::StatusError | ELogType::StyleBold, TEXT("Failed to kickoff unit test '%s'"),
+									*RestartUnitTest->GetUnitTestName());
+				}
+			}
+			else
+			{
+				UE_LOG(LogUnitTest, Log, TEXT("Unit test does not support resetting, can't restart unit test."));
+			}
+		}
+		else
+		{
+			UE_LOG(LogUnitTest, Log, TEXT("Unit test restart command, must be called within a specific unit test window."));
+		}
+
+		bValidUnitTestName = true;
 	}
 	// Debug unit test commands
 	else if (UnitTestName == TEXT("debug"))
@@ -1950,7 +2036,26 @@ void UUnitTestManager::Serialize(const TCHAR* Data, ELogVerbosity::Type Verbosit
 
 			if (SourceInterface != nullptr && (CurLogType & ELogType::OriginMask) != ELogType::None)
 			{
-				SourceInterface->NotifyLocalLog(CurLogType, Data, Verbosity, Category);
+				// Don't pass logs to unit tests undergoing a Hot Reload, or it will trigger a crash
+				bool bModuleUnloaded = false;
+				UNUTGlobals& NUTGlobals = UNUTGlobals::Get();
+
+				if (NUTGlobals.UnloadedModules.Num() > 0)
+				{
+					UUnitTest* CurUnitTest = (ActiveUnitTests.Contains(SourceInterface) ? (UUnitTest*)SourceInterface : nullptr);
+
+					if (CurUnitTest != nullptr)
+					{
+						FString CurModuleName = NUTUtil::GetPackageModule(CurUnitTest->GetClass()->GetOutermost(), false);
+
+						bModuleUnloaded = NUTGlobals.UnloadedModules.Contains(CurModuleName);
+					}
+				}
+
+				if (!bModuleUnloaded)
+				{
+					SourceInterface->NotifyLocalLog(CurLogType, Data, Verbosity, Category);
+				}
 			}
 
 

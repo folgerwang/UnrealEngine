@@ -32,8 +32,15 @@ const uint32 BufferOffsetAlignment = 256;
 const uint32 BufferOffsetAlignment = 16;
 #endif
 
-// The buffer page size that can be uploaded in a set*Bytes call
+// The maximum buffer page size that can be uploaded in a set*Bytes call
 const uint32 MetalBufferPageSize = 4096;
+
+// The buffer size that is more efficiently uploaded in a set*Bytes call - defined in terms of BufferOffsetAlignment
+#if PLATFORM_MAC
+const uint32 MetalBufferBytesSize = BufferOffsetAlignment * 2;
+#else
+const uint32 MetalBufferBytesSize = BufferOffsetAlignment * 32;
+#endif
 
 #define BUFFER_CACHE_MODE mtlpp::ResourceOptions::CpuCacheModeDefaultCache
 
@@ -216,6 +223,10 @@ static FORCEINLINE typename TMetalResourceTraits<TRHIType>::TConcreteType* Resou
 }
 
 uint32 SafeGetRuntimeDebuggingLevel();
+
+extern int32 GMetalBufferZeroFill;
+
+mtlpp::LanguageVersion ValidateVersion(uint8 Version);
 
 #include "MetalStateCache.h"
 #include "MetalContext.h"

@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 
 import android.annotation.TargetApi;
 
@@ -2973,7 +2974,12 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				// note: not available so get what we can
 				getWindowManager().getDefaultDisplay().getMetrics(metrics);
 			}
-			String screenDPI = new DecimalFormat("###.##").format(metrics.xdpi) + "," + new DecimalFormat("###.##").format(metrics.ydpi) + "," + new DecimalFormat("###.##").format(metrics.densityDpi);
+
+			DecimalFormatSymbols symbols = new DecimalFormatSymbols();
+			symbols.setDecimalSeparator('.');
+			DecimalFormat decimalFormat = new DecimalFormat("###.##", symbols);
+
+			String screenDPI = decimalFormat.format(metrics.xdpi) + "," + decimalFormat.format(metrics.ydpi) + "," + decimalFormat.format(metrics.densityDpi);
 			return screenDPI;
 		}
 		else
@@ -3127,6 +3133,13 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				nativeVirtualKeyboardSendKey(KeyEvent.KEYCODE_BACK);
 		    }
 		    return super.dispatchKeyEvent(event);
+		}
+
+		// listen for cursor position changes &  send message to the UMG widget
+		@Override   
+		protected void onSelectionChanged(int selStart, int selEnd) 
+		{
+			nativeVirtualKeyboardSendSelection(selStart, selEnd);
 		}
 
 		//extend associated InputConnection to handle special keys 
@@ -3469,6 +3482,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	public native void nativeVirtualKeyboardChanged(String contents);
 	public native void nativeVirtualKeyboardResult(boolean update, String contents);
 	public native void nativeVirtualKeyboardSendKey(int keyCode);
+	public native void nativeVirtualKeyboardSendTextSelection(String contents, int selStart, int selEnd);
+	public native void nativeVirtualKeyboardSendSelection(int selStart, int selEnd);
 
 	public native void nativeInitHMDs();
 

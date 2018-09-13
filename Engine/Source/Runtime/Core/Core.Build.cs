@@ -104,8 +104,7 @@ public class Core : ModuleRules
 			PublicIncludePaths.Add(string.Format("Runtime/Core/Public/{0}", Target.Platform.ToString()));
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib",
-				"jemalloc",
-				"elftoolchain"
+				"jemalloc"
                 );
 
 			// Core uses dlopen()

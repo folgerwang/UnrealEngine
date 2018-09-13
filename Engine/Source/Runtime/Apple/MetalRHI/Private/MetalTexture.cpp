@@ -1949,66 +1949,121 @@ void FMetalDynamicRHI::RHIUnlockTexture2DArray(FTexture2DArrayRHIParamRef Textur
 	}
 }
 
+#if PLATFORM_MAC
+static void InternalExpandR8ToStandardRGBA(uint32* pDest, const struct FUpdateTextureRegion2D& UpdateRegion, uint32& InOutSourcePitch, const uint8* pSrc)
+{
+	const uint32 ExpandedPitch = UpdateRegion.Width * sizeof(uint32);
+	
+	for(uint y = 0; y < UpdateRegion.Height; y++)
+	{
+		for(uint x = 0; x < UpdateRegion.Width; x++)
+		{
+			uint8 Value = pSrc[(y * InOutSourcePitch) + x];
+			*(pDest++) = (Value | (Value << 8) | (Value << 16) | (Value << 24));
+		}
+	}
+	
+	InOutSourcePitch = ExpandedPitch;
+}
+#endif
+
+static FMetalBuffer InternalCopyTexture2DUpdateRegion(FTexture2DRHIParamRef TextureRHI, const struct FUpdateTextureRegion2D& UpdateRegion, uint32& InOutSourcePitch, const uint8* SourceData)
+{	
+	const uint32 InSourcePitch = InOutSourcePitch;
+
+	FMetalBuffer Buffer;
+
+	FMetalTexture2D* Texture = ResourceCast(TextureRHI);	
+
+#if PLATFORM_MAC
+	// Expand R8_sRGB into RGBA8_sRGB for Mac.
+	if(Texture->GetFormat() == PF_G8 && (Texture->GetFlags() & TexCreate_SRGB))
+	{
+		const uint32 BufferSize = UpdateRegion.Height * UpdateRegion.Width * sizeof(uint32);		
+		Buffer = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), BufferSize, mtlpp::StorageMode::Shared));
+		InternalExpandR8ToStandardRGBA((uint32*)Buffer.GetContents(), UpdateRegion, InOutSourcePitch, SourceData);
+	}
+
+	if(Buffer.GetPtr() == nil)
+#endif
+	{
+		const uint32 BufferSize = UpdateRegion.Height * InSourcePitch;
+		Buffer = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), BufferSize, mtlpp::StorageMode::Shared));
+
+		// Limit copy to line by line by update region pitch otherwise we can go off the end of source data on the last row
+		uint8* pDestRow = (uint8*)Buffer.GetContents();
+		uint8* pSourceRow = (uint8*)SourceData;
+		uint32 CopyPitch = FMath::DivideAndRoundUp(UpdateRegion.Width, (uint32)GPixelFormats[Texture->GetFormat()].BlockSizeX) * GPixelFormats[Texture->GetFormat()].BlockBytes;
+		check(CopyPitch <= InSourcePitch);
+		
+		for (uint32 i = 0;i < UpdateRegion.Height;++i)
+		{
+			FMemory::Memcpy(pDestRow, pSourceRow, CopyPitch);
+			pSourceRow += InSourcePitch;
+			pDestRow += InSourcePitch;
+		}
+	}
+
+	return Buffer;
+}
+
+static void InternalUpdateTexture2D(FMetalContext& Context, FTexture2DRHIParamRef TextureRHI, uint32 MipIndex, FUpdateTextureRegion2D const& UpdateRegion, uint32 SourcePitch, FMetalBuffer Buffer)
+{
+	FMetalTexture2D* Texture = ResourceCast(TextureRHI);
+	FMetalTexture Tex = Texture->Surface.Texture;
+	
+	mtlpp::Region Region = mtlpp::Region(UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.Width, UpdateRegion.Height);
+	
+	if(GetMetalDeviceContext().SupportsFeature(EMetalFeaturesResourceOptions) && Tex.GetStorageMode() == mtlpp::StorageMode::Private)
+	{
+		SCOPED_AUTORELEASE_POOL;
+		
+		uint32 BytesPerImage = SourcePitch * UpdateRegion.Height;
+		
+		mtlpp::BlitOption Options = mtlpp::BlitOption::None;
+#if !PLATFORM_MAC
+		if (Tex.GetPixelFormat() >= mtlpp::PixelFormat::PVRTC_RGB_2BPP && Tex.GetPixelFormat() <= mtlpp::PixelFormat::PVRTC_RGBA_4BPP_sRGB)
+		{
+			Options = mtlpp::BlitOption::RowLinearPVRTC;
+		}
+#endif
+		if(Context.AsyncCopyFromBufferToTexture(Buffer, 0, SourcePitch, BytesPerImage, Region.size, Tex, 0, MipIndex, Region.origin, Options))
+		{
+			Context.SubmitAsyncCommands(nil, nil, false);
+		}
+	}
+	else
+	{
+		MTLPP_VALIDATE(mtlpp::Texture, Tex, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Replace(Region, MipIndex, 0, MTLPP_VALIDATE(mtlpp::Buffer, Buffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, GetContents()), SourcePitch, 0));
+	}
+
+	FPlatformAtomics::InterlockedExchange(&Texture->Surface.Written, 1);
+}
+
 struct FMetalRHICommandUpdateTexture2D final : public FRHICommand<FMetalRHICommandUpdateTexture2D>
 {
 	FMetalContext& Context;
-	FMetalTexture2D* Texture;
+	FTexture2DRHIParamRef Texture;
 	uint32 MipIndex;
 	FUpdateTextureRegion2D UpdateRegion;
 	uint32 SourcePitch;
-	FMetalBuffer SourceData;
-	
-	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpdateTexture2D(FMetalContext& InContext, FMetalTexture2D* InTexture, uint32 InMipIndex, FUpdateTextureRegion2D InUpdateRegion, uint32 InSourcePitch, FMetalBuffer InSourceData)
+	FMetalBuffer SourceBuffer;
+
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpdateTexture2D(FMetalContext& InContext, FTexture2DRHIParamRef InTexture, uint32 InMipIndex, FUpdateTextureRegion2D InUpdateRegion, uint32 InSourcePitch, FMetalBuffer InSourceBuffer)
 	: Context(InContext)
 	, Texture(InTexture)
 	, MipIndex(InMipIndex)
 	, UpdateRegion(InUpdateRegion)
 	, SourcePitch(InSourcePitch)
-	, SourceData(InSourceData)
+	, SourceBuffer(InSourceBuffer)
 	{
 	}
 	
 	void Execute(FRHICommandListBase& CmdList)
-	{
-		INC_DWORD_STAT_BY(STAT_MetalTextureMemUpdate, UpdateRegion.Height*SourcePitch);
-		
-		UpdateFromBuffer(Context, Texture->Surface.Texture, MipIndex, UpdateRegion, SourcePitch, SourceData);
-		
-		FPlatformAtomics::InterlockedExchange(&Texture->Surface.Written, 1);
-	}
-	
-	static void UpdateFromBuffer(FMetalContext& Context, FMetalTexture Tex, uint32 MipIndex, FUpdateTextureRegion2D const& UpdateRegion, uint32 SourcePitch, FMetalBuffer LockedMemory)
-	{
-		static bool const bSupportsResourceOptions = GetMetalDeviceContext().SupportsFeature(EMetalFeaturesResourceOptions);
-		
-		mtlpp::Region Region = mtlpp::Region(UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.Width, UpdateRegion.Height);
-		
-		if(bSupportsResourceOptions && Tex.GetStorageMode() == mtlpp::StorageMode::Private)
-		{
-			SCOPED_AUTORELEASE_POOL;
-			
-			uint32 BytesPerImage = SourcePitch * UpdateRegion.Height;
-			
-			const uint32 BufferSize = UpdateRegion.Height*SourcePitch;
-			
-			mtlpp::BlitOption Options = mtlpp::BlitOption::None;
-#if !PLATFORM_MAC
-			if (Tex.GetPixelFormat() >= mtlpp::PixelFormat::PVRTC_RGB_2BPP && Tex.GetPixelFormat() <= mtlpp::PixelFormat::PVRTC_RGBA_4BPP_sRGB)
-			{
-				Options = mtlpp::BlitOption::RowLinearPVRTC;
-			}
-#endif
-			if(Context.AsyncCopyFromBufferToTexture(LockedMemory, 0, SourcePitch, BytesPerImage, Region.size, Tex, 0, MipIndex, Region.origin, Options))
-			{
-				Context.SubmitAsyncCommands(nil, nil, false);
-			}
-		}
-		else
-		{
-			MTLPP_VALIDATE(mtlpp::Texture, Tex, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Replace(Region, MipIndex, 0, MTLPP_VALIDATE(mtlpp::Buffer, LockedMemory, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, GetContents()), SourcePitch, 0));
-		}
-		
-		GetMetalDeviceContext().ReleaseBuffer(LockedMemory);
+	{		
+		InternalUpdateTexture2D(Context, Texture, MipIndex, UpdateRegion, SourcePitch, SourceBuffer);
+		GetMetalDeviceContext().ReleaseBuffer(SourceBuffer);
+		INC_DWORD_STAT_BY(STAT_MetalTextureMemUpdate, UpdateRegion.Height * SourcePitch);
 	}
 };
 
@@ -2021,147 +2076,131 @@ void FMetalDynamicRHI::UpdateTexture2D_RenderThread(class FRHICommandListImmedia
 		}
 		else
 		{
-			FMetalTexture2D* TextureMTL = ResourceCast(Texture);
-			
-			FMetalTexture Tex = TextureMTL->Surface.Texture;
-			
-			bool const bSupportsResourceOptions = GetMetalDeviceContext().SupportsFeature(EMetalFeaturesResourceOptions);
-			
-#if PLATFORM_MAC
-			// Expand R8_sRGB into RGBA8_sRGB for Mac.
-			TArray<uint32> Data;
-			if (Texture->GetFormat() == PF_G8 && (Texture->GetFlags() & TexCreate_SRGB))
-			{
-				Data.AddZeroed(UpdateRegion.Height * UpdateRegion.Width);
-				uint32* Dest = Data.GetData();
-				check(Dest);
-				
-				for(uint y = 0; y < UpdateRegion.Height; y++)
-				{
-					for(uint x = 0; x < UpdateRegion.Width; x++)
-					{
-						uint8 Value = SourceData[(y * SourcePitch) + x];
-						*(Dest++) = (Value | (Value << 8) | (Value << 16) | (Value << 24));
-					}
-				}
-				
-				SourceData = (uint8*)Data.GetData();
-				SourcePitch = UpdateRegion.Width * sizeof(uint32);
-			}
-#endif
-			mtlpp::StorageMode ResMode = mtlpp::StorageMode::Shared;
-			
-			const uint32 BufferSize = UpdateRegion.Height*SourcePitch;
-			
-			FMetalBuffer LockedMemory = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), BufferSize, ResMode));
-			
-			FMemory::Memcpy(LockedMemory.GetContents(), SourceData, BufferSize);
-			
-			new (RHICmdList.AllocCommand<FMetalRHICommandUpdateTexture2D>()) FMetalRHICommandUpdateTexture2D(ImmediateContext.GetInternalContext(), TextureMTL, MipIndex, UpdateRegion, SourcePitch, LockedMemory);
+			FMetalBuffer Buffer = InternalCopyTexture2DUpdateRegion(Texture, UpdateRegion, SourcePitch, SourceData);
+			new (RHICmdList.AllocCommand<FMetalRHICommandUpdateTexture2D>()) FMetalRHICommandUpdateTexture2D(ImmediateContext.GetInternalContext(), Texture, MipIndex, UpdateRegion, SourcePitch, Buffer);
 		}
 	}
 }
 
 void FMetalDynamicRHI::RHIUpdateTexture2D(FTexture2DRHIParamRef TextureRHI, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData)
 {
-	@autoreleasepool {
+	@autoreleasepool 
+	{
 		FMetalTexture2D* Texture = ResourceCast(TextureRHI);
-		
 		FMetalTexture Tex = Texture->Surface.Texture;
+		bool const bUseIntermediateMetalBuffer = GetMetalDeviceContext().SupportsFeature(EMetalFeaturesResourceOptions) && Tex.GetStorageMode() == mtlpp::StorageMode::Private;
 		
-		mtlpp::Region Region = mtlpp::Region(UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.Width, UpdateRegion.Height);
-		
-		bool const bSupportsResourceOptions = GetMetalDeviceContext().SupportsFeature(EMetalFeaturesResourceOptions);
-		
-#if PLATFORM_MAC
-		// Expand R8_sRGB into RGBA8_sRGB for Mac.
-		TArray<uint32> Data;
-		if (Texture->GetFormat() == PF_G8 && (Texture->GetFlags() & TexCreate_SRGB))
+		if(bUseIntermediateMetalBuffer)
 		{
-			Data.AddZeroed(UpdateRegion.Height * UpdateRegion.Width);
-			uint32* Dest = Data.GetData();
-			check(Dest);
-			
-			for(uint y = 0; y < UpdateRegion.Height; y++)
-			{
-				for(uint x = 0; x < UpdateRegion.Width; x++)
-				{
-					uint8 Value = SourceData[(y * SourcePitch) + x];
-					*(Dest++) = (Value | (Value << 8) | (Value << 16) | (Value << 24));
-				}
-			}
-			
-			SourceData = (uint8*)Data.GetData();
-			SourcePitch = UpdateRegion.Width * sizeof(uint32);
-		}
-#endif
-		
-		INC_DWORD_STAT_BY(STAT_MetalTextureMemUpdate, UpdateRegion.Height*SourcePitch);
-		
-		if(bSupportsResourceOptions && Tex.GetStorageMode() == mtlpp::StorageMode::Private)
-		{
-			SCOPED_AUTORELEASE_POOL;
-			
-			uint32 BytesPerImage = SourcePitch * UpdateRegion.Height;
-			
-			mtlpp::StorageMode ResMode = mtlpp::StorageMode::Shared;
-			
-			const uint32 BufferSize = UpdateRegion.Height*SourcePitch;
-			
-			FMetalBuffer LockedMemory = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), BufferSize, ResMode));
-			
-			FMemory::Memcpy(LockedMemory.GetContents(), SourceData, BufferSize);
-			
-			mtlpp::BlitOption Options = mtlpp::BlitOption::None;
-#if !PLATFORM_MAC
-			if (Tex.GetPixelFormat() >= mtlpp::PixelFormat::PVRTC_RGB_2BPP && Tex.GetPixelFormat() <= mtlpp::PixelFormat::PVRTC_RGBA_4BPP_sRGB)
-			{
-				Options = mtlpp::BlitOption::RowLinearPVRTC;
-			}
-#endif
-			if(ImmediateContext.GetInternalContext().AsyncCopyFromBufferToTexture(LockedMemory, 0, SourcePitch, BytesPerImage, Region.size, Tex, 0, MipIndex, Region.origin, Options))
-			{
-				ImmediateContext.GetInternalContext().SubmitAsyncCommands(nil, nil, false);
-			}
-			
-			GetMetalDeviceContext().ReleaseBuffer(LockedMemory);
+			FMetalBuffer Buffer = InternalCopyTexture2DUpdateRegion(TextureRHI, UpdateRegion, SourcePitch, SourceData);
+			InternalUpdateTexture2D(ImmediateContext.GetInternalContext(), TextureRHI, MipIndex, UpdateRegion, SourcePitch, Buffer);
+			GetMetalDeviceContext().ReleaseBuffer(Buffer);
 		}
 		else
 		{
+#if PLATFORM_MAC
+			TArray<uint32> ExpandedData;
+			if(Texture->GetFormat() == PF_G8 && (Texture->GetFlags() & TexCreate_SRGB))
+			{
+				ExpandedData.AddZeroed(UpdateRegion.Height * UpdateRegion.Width);
+				InternalExpandR8ToStandardRGBA((uint32*)ExpandedData.GetData(), UpdateRegion, SourcePitch, SourceData);
+				SourceData = (uint8*)ExpandedData.GetData();
+			}
+#endif
+			mtlpp::Region Region = mtlpp::Region(UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.Width, UpdateRegion.Height);
 			MTLPP_VALIDATE(mtlpp::Texture, Tex, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Replace(Region, MipIndex, 0, SourceData, SourcePitch, 0));
+
+			FPlatformAtomics::InterlockedExchange(&Texture->Surface.Written, 1);
 		}
 		
-		FPlatformAtomics::InterlockedExchange(&Texture->Surface.Written, 1);
+		INC_DWORD_STAT_BY(STAT_MetalTextureMemUpdate, UpdateRegion.Height*SourcePitch);
 	}
+}
+
+static void InternalCopyTexture3DUpdateRegionData(FTexture3DRHIParamRef TextureRHI, const struct FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData, uint8* DestData)
+{
+	// Perform safe line copy
+	FMetalTexture3D* Texture = ResourceCast(TextureRHI);	
+	
+	uint8* pDest = DestData;
+	uint32 CopyPitch = FMath::DivideAndRoundUp(UpdateRegion.Width, (uint32)GPixelFormats[Texture->GetFormat()].BlockSizeX) * GPixelFormats[Texture->GetFormat()].BlockBytes;
+
+	for (uint32 i = 0; i < UpdateRegion.Depth;++i)
+	{
+		const uint8* pSourceRowData = SourceData + (SourceDepthPitch * i);
+		uint8* pDestRowData = pDest + (SourceDepthPitch * i);
+
+		for (uint32 j = 0;j < UpdateRegion.Height;++j)
+		{
+			FMemory::Memcpy(pDestRowData, pSourceRowData, CopyPitch);
+			pSourceRowData += SourceRowPitch;
+			pDestRowData += SourceRowPitch;
+		}
+	}
+}
+
+
+static void InternalUpdateTexture3D(FMetalContext& Context, FTexture3DRHIParamRef TextureRHI, uint32 MipIndex, const FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, FMetalBuffer Buffer)
+{
+	FMetalTexture3D* Texture = ResourceCast(TextureRHI);
+	FMetalTexture Tex = Texture->Surface.Texture;
+	
+	mtlpp::Region Region = mtlpp::Region(UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.DestZ, UpdateRegion.Width, UpdateRegion.Height, UpdateRegion.Depth);
+	
+	if(GetMetalDeviceContext().SupportsFeature(EMetalFeaturesResourceOptions) && Tex.GetStorageMode() == mtlpp::StorageMode::Private)
+	{
+		const uint32 BytesPerImage = SourceRowPitch * UpdateRegion.Height;
+		mtlpp::BlitOption Options = mtlpp::BlitOption::None;
+#if !PLATFORM_MAC
+		if (Tex.GetPixelFormat() >= mtlpp::PixelFormat::PVRTC_RGB_2BPP && Tex.GetPixelFormat() <= mtlpp::PixelFormat::PVRTC_RGBA_4BPP_sRGB)
+		{
+			Options = mtlpp::BlitOption::RowLinearPVRTC;
+		}
+#endif
+		if(Context.AsyncCopyFromBufferToTexture(Buffer, 0, SourceRowPitch, BytesPerImage, Region.size, Tex, 0, MipIndex, Region.origin, Options))
+		{
+			Context.SubmitAsyncCommands(nil, nil, false);
+		}
+	}
+	else
+	{
+		MTLPP_VALIDATE(mtlpp::Texture, Tex, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Replace(Region, MipIndex, 0, (uint8*)Buffer.GetContents(), SourceRowPitch, SourceDepthPitch));
+	}
+
+	FPlatformAtomics::InterlockedExchange(&Texture->Surface.Written, 1);
 }
 
 struct FMetalDynamicRHIUpdateTexture3DCommand final : public FRHICommand<FMetalDynamicRHIUpdateTexture3DCommand>
 {
+	FMetalContext& Context;
 	FTexture3DRHIParamRef DestinationTexture;
 	uint32 MipIndex;
 	FUpdateTextureRegion3D UpdateRegion;
 	uint32 SourceRowPitch;
 	uint32 SourceDepthPitch;
-	uint8* Data;
+	FMetalBuffer Buffer;
 	
-	FORCEINLINE_DEBUGGABLE FMetalDynamicRHIUpdateTexture3DCommand(FTexture3DRHIParamRef Texture, uint32 InMipIndex, const struct FUpdateTextureRegion3D& InUpdateRegion, uint32 InSourceRowPitch, uint32 InSourceDepthPitch, const uint8* SourceData)
-	: DestinationTexture(Texture)
+	FORCEINLINE_DEBUGGABLE FMetalDynamicRHIUpdateTexture3DCommand(FMetalContext& InContext, FTexture3DRHIParamRef TextureRHI, uint32 InMipIndex, const struct FUpdateTextureRegion3D& InUpdateRegion, uint32 InSourceRowPitch, uint32 InSourceDepthPitch, const uint8* SourceData)
+	: Context(InContext)
+	, DestinationTexture(TextureRHI)
 	, MipIndex(InMipIndex)
 	, UpdateRegion(InUpdateRegion)
 	, SourceRowPitch(InSourceRowPitch)
 	, SourceDepthPitch(InSourceDepthPitch)
-	, Data(nullptr)
 	{
-		uint32 BytesPerImage = SourceRowPitch * UpdateRegion.Height;
-		const uint32 BufferSize = UpdateRegion.Height*UpdateRegion.Depth*SourceRowPitch;
-		Data = (uint8*)FMemory::Malloc(BufferSize);
-		FMemory::Memcpy(Data, SourceData, BufferSize);
+		FMetalTexture3D* Texture = ResourceCast(TextureRHI);
+		FMetalTexture Tex = Texture->Surface.Texture;
+		const uint32 BufferSize = UpdateRegion.Height * UpdateRegion.Depth* SourceRowPitch;
+		
+		Buffer = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), BufferSize, mtlpp::StorageMode::Shared));
+		InternalCopyTexture3DUpdateRegionData(Texture, UpdateRegion, SourceRowPitch, SourceDepthPitch, SourceData, (uint8*)Buffer.GetContents());
 	}
 	
 	void Execute(FRHICommandListBase& CmdList)
 	{
-		GDynamicRHI->RHIUpdateTexture3D(DestinationTexture, MipIndex, UpdateRegion, SourceRowPitch, SourceDepthPitch, Data);
-		FMemory::Free(Data);
+		InternalUpdateTexture3D(Context, DestinationTexture, MipIndex, UpdateRegion, SourceRowPitch, SourceDepthPitch, Buffer);
+		GetMetalDeviceContext().ReleaseBuffer(Buffer);
+		INC_DWORD_STAT_BY(STAT_MetalTextureMemUpdate, UpdateRegion.Height * UpdateRegion.Width * SourceDepthPitch);
 	}
 };
 
@@ -2173,7 +2212,7 @@ void FMetalDynamicRHI::UpdateTexture3D_RenderThread(class FRHICommandListImmedia
 	}
 	else
 	{
-		new (RHICmdList.AllocCommand<FMetalDynamicRHIUpdateTexture3DCommand>()) FMetalDynamicRHIUpdateTexture3DCommand(Texture, MipIndex, UpdateRegion, SourceRowPitch, SourceDepthPitch, SourceData);
+		new (RHICmdList.AllocCommand<FMetalDynamicRHIUpdateTexture3DCommand>()) FMetalDynamicRHIUpdateTexture3DCommand(ImmediateContext.GetInternalContext(), Texture, MipIndex, UpdateRegion, SourceRowPitch, SourceDepthPitch, SourceData);
 	}
 }
 
@@ -2202,23 +2241,19 @@ void FMetalDynamicRHI::EndUpdateTexture3D_RenderThread(class FRHICommandListImme
 	}
 	else
 	{
-		new (RHICmdList.AllocCommand<FMetalDynamicRHIUpdateTexture3DCommand>()) FMetalDynamicRHIUpdateTexture3DCommand(UpdateData.Texture, UpdateData.MipIndex, UpdateData.UpdateRegion, UpdateData.RowPitch, UpdateData.DepthPitch, UpdateData.Data);
+		new (RHICmdList.AllocCommand<FMetalDynamicRHIUpdateTexture3DCommand>()) FMetalDynamicRHIUpdateTexture3DCommand(ImmediateContext.GetInternalContext(), UpdateData.Texture, UpdateData.MipIndex, UpdateData.UpdateRegion, UpdateData.RowPitch, UpdateData.DepthPitch, UpdateData.Data);
 	}
 	
 	FMemory::Free(UpdateData.Data);
 	UpdateData.Data = nullptr;
 }
 
-void FMetalDynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI,uint32 MipIndex,const FUpdateTextureRegion3D& UpdateRegion,uint32 SourceRowPitch,uint32 SourceDepthPitch,const uint8* SourceData)
+void FMetalDynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI,uint32 MipIndex,const FUpdateTextureRegion3D& UpdateRegion,uint32 SourceRowPitch,uint32 SourceDepthPitch, const uint8* SourceData)
 {
 	@autoreleasepool {
+	
 		FMetalTexture3D* Texture = ResourceCast(TextureRHI);
-		
 		FMetalTexture Tex = Texture->Surface.Texture;
-		
-		mtlpp::Region Region = mtlpp::Region(UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.DestZ, UpdateRegion.Width, UpdateRegion.Height, UpdateRegion.Depth);
-		
-		INC_DWORD_STAT_BY(STAT_MetalTextureMemUpdate, SourceRowPitch * UpdateRegion.Height * Region.size.depth);
 		
 		bool const bSupportsResourceOptions = GetMetalDeviceContext().SupportsFeature(EMetalFeaturesResourceOptions);
 		
@@ -2228,39 +2263,23 @@ void FMetalDynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI,uint3
 		if(bSupportsResourceOptions && Tex.GetStorageMode() == mtlpp::StorageMode::Private)
 		{
 			SCOPED_AUTORELEASE_POOL;
-			
-			uint32 BytesPerImage = SourceRowPitch * UpdateRegion.Height;
-			
-			mtlpp::StorageMode ResMode = mtlpp::StorageMode::Shared;
-			const uint32 BufferSize = UpdateRegion.Height*UpdateRegion.Depth*SourceRowPitch;
-			
-			FMetalBuffer LockedMemory = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), BufferSize, ResMode));
-			
-			FMemory::Memcpy(LockedMemory.GetContents(), SourceData, BufferSize);
-			
-			mtlpp::BlitOption Options = mtlpp::BlitOption::None;
-#if !PLATFORM_MAC
-			if (Tex.GetPixelFormat() >= mtlpp::PixelFormat::PVRTC_RGB_2BPP && Tex.GetPixelFormat() <= mtlpp::PixelFormat::PVRTC_RGBA_4BPP_sRGB)
-			{
-				Options = mtlpp::BlitOption::RowLinearPVRTC;
-			}
-#endif
-			if(ImmediateContext.GetInternalContext().AsyncCopyFromBufferToTexture(LockedMemory, 0, SourceRowPitch, BytesPerImage, Region.size, Tex, 0, MipIndex, Region.origin, Options))
-			{
-				ImmediateContext.GetInternalContext().SubmitAsyncCommands(nil, nil, false);
-			}
-			
-			GetMetalDeviceContext().ReleaseBuffer(LockedMemory);
+
+			const uint32 BufferSize = UpdateRegion.Height * UpdateRegion.Depth * SourceRowPitch;
+			FMetalBuffer IntermediateBuffer = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), BufferSize, mtlpp::StorageMode::Shared));
+			InternalCopyTexture3DUpdateRegionData(TextureRHI, UpdateRegion, SourceRowPitch, SourceDepthPitch, SourceData, (uint8*)IntermediateBuffer.GetContents());
+			InternalUpdateTexture3D(ImmediateContext.GetInternalContext(), TextureRHI, MipIndex, UpdateRegion, SourceRowPitch, SourceDepthPitch, IntermediateBuffer);
+			GetMetalDeviceContext().ReleaseBuffer(IntermediateBuffer);
 		}
 		else
 		{
+			mtlpp::Region Region = mtlpp::Region(UpdateRegion.DestX, UpdateRegion.DestY, UpdateRegion.DestZ, UpdateRegion.Width, UpdateRegion.Height, UpdateRegion.Depth);
 			MTLPP_VALIDATE(mtlpp::Texture, Tex, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Replace(Region, MipIndex, 0, SourceData, SourceRowPitch, SourceDepthPitch));
+			FPlatformAtomics::InterlockedExchange(&Texture->Surface.Written, 1);
 		}
 		
-		FPlatformAtomics::InterlockedExchange(&Texture->Surface.Written, 1);
+		INC_DWORD_STAT_BY(STAT_MetalTextureMemUpdate, UpdateRegion.Height * UpdateRegion.Width * SourceDepthPitch);
 	}
 }
-
 
 /*-----------------------------------------------------------------------------
  Cubemap texture support.

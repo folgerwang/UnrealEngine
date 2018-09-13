@@ -702,10 +702,12 @@ protected:
 	int32 MaterialIndexPreview;
 #endif
 
-#if STATICMESH_ENABLE_DEBUG_RENDERING
 private:
-	AActor* Owner;
+
 	const UStaticMesh* StaticMesh;
+
+#if STATICMESH_ENABLE_DEBUG_RENDERING
+	AActor* Owner;
 	/** Hierarchical LOD Index used for rendering */
 	uint8 HierarchicalLODIndex;
 	/** LightMap resolution used for VMI_LightmapDensity */
@@ -722,9 +724,9 @@ private:
 	uint32 bDrawMeshCollisionIfComplex : 1;
 	/** Draw mesh collision if used for simple collision */
 	uint32 bDrawMeshCollisionIfSimple : 1;
+#endif
 
 public:
-#endif
 
 	/**
 	 * Returns the display factor for the given LOD level

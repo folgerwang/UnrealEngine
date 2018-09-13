@@ -610,54 +610,6 @@ FORCEINLINE FD3D11TextureBase* GetD3D11TextureFromRHITexture(FRHITexture* Textur
 }
 
 
-
-/* D3D11 implementation of generic GPU fence
- * The D3D11 always returns false for Poll until the next frame from the frame the fence was inserted
- * because D3D11.0 doesn't have a GPU/CPU sync object, we need to fake it
-*/
-class FD3D11GPUFence : public FRHIGPUFence
-{
-public:
-	FD3D11GPUFence(FName InName)
-		: FRHIGPUFence(InName)
-	{
-		Write();
-	}
-
-	~FD3D11GPUFence()
-	{
-
-	}
-
-	virtual bool Write()
-	{
-		InsertedFrameNumber = GFrameNumberRenderThread;
-		return true;
-	}
-
-	virtual bool Poll() const override
-	{
-		if (GFrameNumberRenderThread > InsertedFrameNumber )
-		{
-			return true;
-		}
-		return false;
-	}
-
-	virtual bool Wait(float TimeoutMs) const override
-	{
-		if (GFrameNumberRenderThread > InsertedFrameNumber )
-		{
-			return true;
-		}
-		return false;
-	}
-
-private:
-	uint32 InsertedFrameNumber;
-};
-
-
 /** D3D11 render query */
 class FD3D11RenderQuery : public FRHIRenderQuery
 {

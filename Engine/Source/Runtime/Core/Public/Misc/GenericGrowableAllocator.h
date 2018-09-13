@@ -6,10 +6,10 @@
 
 #pragma once
 
-#include "CoreTypes.h"
+#include "CoreMinimal.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "Misc/ScopeLock.h"
 #include "Stats/Stats.h"
-
 
 //////////////
 // - Don't use a shared CriticalSection, must pass in to the GrowableAllocator
@@ -20,6 +20,7 @@
 // - Can maybe just make virtuals in FGrowableAllocationBase ??
 /////////////
 
+#define ALLOCATION_HISTOGRAM
 
 struct FGrowableAllocationBase
 {
@@ -31,7 +32,7 @@ struct FGrowableAllocationBase
 #endif
 };
 
-// a base class for both the classes below, for usage trgacking only
+// a base class for both the classes below, for usage tracking only
 class FGrowableMallocBase
 {
 public:
@@ -78,6 +79,8 @@ public:
 
 	/**
 	 * Lets the implementation allocate the backing memory for the chunk
+	 * 
+	 * Implementation needs to pause LLM tracking for ELLMTracker::Default if it's allocating from an allocator that tracks via ELLMTracker::Default
 	 *
 	 * @param Size Minimum size needed for this allocation. The implementation will likely allocate more, and return that amount
 	 * @return The actual size of the chunk that was allocated (could be much larger than Size)
@@ -86,6 +89,9 @@ public:
 
 	/**
 	 * Destroys the backing memory for the chunk
+	 *
+	 * Implementation needs to pause LLM tracking for ELLMTracker::Default if it's allocating from an allocator that tracks via ELLMTracker::Default
+	 *
 	 */
 	virtual void DestroyInternalMemory() = 0;
 
@@ -130,7 +136,6 @@ public:
 	{
 		// create the pool object (note that this will update and return the new HeapSize for the implementations internal aligned size - we then update how big we track)
 		HeapSize = CreateInternalMemory(HeapSize);
-
 		// entire chunk is free
 		FreeList = new FFreeEntry(NULL, 0, HeapSize);
 	}
@@ -217,6 +222,8 @@ public:
 #if !UE_BUILD_SHIPPING
 				Allocation->OwnerType = OwnerType;
 #endif
+				LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Default, GetAddressForTracking(Offset), Size));
+
 				// let the implementation fill in any more
 				InitializeAllocationStruct(Allocation);
 				return Allocation;
@@ -238,6 +245,8 @@ public:
 		uint64 Size = Memory->Size;
 		uint64 AllocationSize = Padding + Size;
 		uint32 Offset = Memory->Offset;
+
+		LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Default, GetAddressForTracking(Offset)));
 
 		// we are now done with the Allocation object
 		DestroyAllocationStruct(Memory);
@@ -301,82 +310,122 @@ public:
 		Free = HeapSize - UsedMemorySize;
 	}
 
+	void ShowFullAllocationList()
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Full Free List:\n"));
+
+		TMap<uint64, uint32> FreeBlockSizeHistogram;
+
+		uint32 Count = 0;
+		uint64 Total = 0;
+
+		FFreeEntry* Entry = FreeList;
+
+		while (Entry)
+		{
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT(" Location: %d Size: %d\n"), Entry->Location, Entry->BlockSize);
+			if (FreeBlockSizeHistogram.Contains(Entry->BlockSize))
+			{
+				FreeBlockSizeHistogram.FindChecked(Entry->BlockSize)++;
+			}
+			else
+			{
+				FreeBlockSizeHistogram.Add(Entry->BlockSize) = 1;
+			}
+
+			Count++;
+			Total += Entry->BlockSize;
+
+			Entry = Entry->Next;
+		}
+
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Num Blocks: %d Total Size: %d\n"), Count, Total);
+
+		for (auto It = FreeBlockSizeHistogram.CreateIterator(); It; ++It)
+		{
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT(" %d, %d\n"), It.Key(), It.Value());
+		}
+	
+
+	}
+
+	// returns an address usable FOR TRACKING ONLY!
+	virtual void* GetAddressForTracking(uint32 Offset) = 0;
 
 private:
-	private:
-		class FFreeEntry
+	class FFreeEntry
+	{
+	public:
+		/** Constructor */
+		FFreeEntry(FFreeEntry *NextEntry, uint32 InLocation, uint64 InSize)
+			: Location(InLocation)
+			, BlockSize(InSize)
+			, Next(NextEntry)
 		{
-		public:
-			/** Constructor */
-			FFreeEntry(FFreeEntry *NextEntry, uint32 InLocation, uint64 InSize)
-				: Location(InLocation)
-				, BlockSize(InSize)
-				, Next(NextEntry)
+		}
+
+		/**
+		* Determine if the given allocation with this alignment and size will fit
+		* @param AllocationSize	Already aligned size of an allocation
+		* @param Alignment			Alignment of the allocation (location may need to increase to match alignment)
+		* @return true if the allocation will fit
+		*/
+		bool CanFit(uint64 AlignedSize, uint32 Alignment)
+		{
+			// location of the aligned allocation
+			uint32 AlignedLocation = Align(Location, Alignment);
+
+			// if we fit even after moving up the location for alignment, then we are good
+			return (AlignedSize + (AlignedLocation - Location)) <= BlockSize;
+		}
+
+		/**
+		* Take a free chunk, and split it into a used chunk and a free chunk
+		* @param UsedSize	The size of the used amount (anything left over becomes free chunk)
+		* @param Alignment	The alignment of the allocation (location and size)
+		* @param bDelete Whether or not to delete this FreeEntry (ie no more is left over after splitting)
+		*
+		* @return The location of the free data
+		*/
+		uint32 Split(uint64 UsedSize, uint32 Alignment, bool &bDelete, uint32& Padding, uint32 MinSize)
+		{
+			// make sure we are already aligned
+			check((UsedSize & (Alignment - 1)) == 0);
+
+			// this is the pointer to the free data
+			uint32 FreeLoc = Align(Location, Alignment);
+
+			// Adjust the allocated size for any alignment padding
+			Padding = FreeLoc - Location;
+			uint64 AllocationSize = UsedSize + uint64(Padding);
+
+			// see if there's enough space left over for a new free chunk (of at least a certain size)
+			if (BlockSize - AllocationSize >= MinSize)
 			{
+				// update this free entry to just point to what's left after using the UsedSize
+				Location += AllocationSize;
+				BlockSize -= AllocationSize;
+				bDelete = false;
+			}
+			// if no more room, then just remove this entry from the list of free items
+			else
+			{
+				bDelete = true;
 			}
 
-			/**
-			* Determine if the given allocation with this alignment and size will fit
-			* @param AllocationSize	Already aligned size of an allocation
-			* @param Alignment			Alignment of the allocation (location may need to increase to match alignment)
-			* @return true if the allocation will fit
-			*/
-			bool CanFit(uint64 AlignedSize, uint32 Alignment)
-			{
-				// location of the aligned allocation
-				uint32 AlignedLocation = Align(Location, Alignment);
+			// return a usable pointer!
+			return FreeLoc;
+		}
 
-				// if we fit even after moving up the location for alignment, then we are good
-				return (AlignedSize + (AlignedLocation - Location)) <= BlockSize;
-			}
+		/** Offset in the heap */
+		uint32		Location;
 
-			/**
-			* Take a free chunk, and split it into a used chunk and a free chunk
-			* @param UsedSize	The size of the used amount (anything left over becomes free chunk)
-			* @param Alignment	The alignment of the allocation (location and size)
-			* @param bDelete Whether or not to delete this FreeEntry (ie no more is left over after splitting)
-			*
-			* @return The location of the free data
-			*/
-			uint32 Split(uint64 UsedSize, uint32 Alignment, bool &bDelete, uint32& Padding, uint32 MinSize)
-			{
-				// make sure we are already aligned
-				check((UsedSize & (Alignment - 1)) == 0);
+		/** Size of the free block */
+		uint32		BlockSize;
 
-				// this is the pointer to the free data
-				uint32 FreeLoc = Align(Location, Alignment);
-
-				// Adjust the allocated size for any alignment padding
-				Padding = FreeLoc - Location;
-				uint64 AllocationSize = UsedSize + uint64(Padding);
-
-				// see if there's enough space left over for a new free chunk (of at least a certain size)
-				if (BlockSize - AllocationSize >= MinSize)
-				{
-					// update this free entry to just point to what's left after using the UsedSize
-					Location += AllocationSize;
-					BlockSize -= AllocationSize;
-					bDelete = false;
-				}
-				// if no more room, then just remove this entry from the list of free items
-				else
-				{
-					bDelete = true;
-				}
-
-				// return a usable pointer!
-				return FreeLoc;
-			}
-
-			/** Offset in the heap */
-			uint32		Location;
-
-			/** Size of the free block */
-			uint32		BlockSize;
-
-			/** Next block of free memory. */
-			FFreeEntry*	Next;
-		};
+		/** Next block of free memory. */
+		FFreeEntry*	Next;
+	};
 
 //protected:
 // @todo make accessors for TGenericGrowableAllocator to call
@@ -396,9 +445,6 @@ public:
 
 	/** Shared critical section */
 	FCriticalSection* CriticalSection;
-
-
-
 };
 
 
@@ -507,11 +553,21 @@ public:
 			return nullptr;
 		}
 
-#if !UE_BUILD_SHIPPING
-		// track per type allocation info
-		uint64& TypeAllocInfo = PerTypeAllocationInfo.FindOrAdd(Result->OwnerType);
-		TypeAllocInfo += Result->Size;
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		TotalAllocationsHistogram.FindOrAdd(AlignedSize)++;
+		PeakAllocationsHistogram.FindOrAdd(AlignedSize)++;
 
+		// track per type allocation info
+		AllocationInfo& TypeAllocInfo = PerTypeAllocationInfo.FindOrAdd(Result->OwnerType);
+
+		TypeAllocInfo.Counts.Allocations++;
+		TypeAllocInfo.TotalAllocated += Result->Size;
+#ifdef ALLOCATION_HISTOGRAM
+		TypeAllocInfo.AllocationHistogram.FindOrAdd(Result->Size).Allocations++;
+#endif
+#endif // #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+#if !UE_BUILD_SHIPPING
 		if (OwnerTypeToStatIdMap)
 		{
 			INC_MEMORY_STAT_BY_FName(OwnerTypeToStatIdMap[Result->OwnerType], Result->Size);
@@ -520,7 +576,6 @@ public:
 
 		return Result;
 	}
-
 
 	bool Free(GrowableAllocationBaseType* Memory)
 	{
@@ -538,11 +593,20 @@ public:
 			ChunkAllocatorType* Chunk = AllocChunks[ChunkIndex];
 			if (Chunk && Chunk->DoesChunkContainAllocation(Memory))
 			{
-#if !UE_BUILD_SHIPPING
-				// untrack per type allocation info
-				uint64& TypeAllocInfo = PerTypeAllocationInfo.FindOrAdd(Memory->OwnerType);
-				TypeAllocInfo -= Memory->Size;
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+				PeakAllocationsHistogram[Memory->Size]--;
 
+				// untrack per type allocation info
+				AllocationInfo& TypeAllocInfo = PerTypeAllocationInfo.FindOrAdd(Memory->OwnerType);
+
+				TypeAllocInfo.TotalAllocated -= Memory->Size;
+				TypeAllocInfo.Counts.Frees++;
+#ifdef ALLOCATION_HISTOGRAM
+				TypeAllocInfo.AllocationHistogram[Memory->Size].Frees++;
+#endif
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+#if !UE_BUILD_SHIPPING
 				if (OwnerTypeToStatIdMap)
 				{
 					DEC_MEMORY_STAT_BY_FName(OwnerTypeToStatIdMap[Memory->OwnerType], Memory->Size);
@@ -570,12 +634,12 @@ public:
 	}
 
 
-	void GetAllocationInfo(uint64& Used, uint64& Free)
+	void GetAllocationInfo(uint32&Chunks, uint64& Used, uint64& Free)
 	{
 		// multi-thread protection
 		FScopeLock ScopeLock(&CriticalSection);
 
-		int32 NumChunks = 0;
+		Chunks = 0;
 		// pass off to individual alloc chunks
 		for (int32 ChunkIndex = 0; ChunkIndex < AllocChunks.Num(); ChunkIndex++)
 		{
@@ -587,31 +651,67 @@ public:
 				Chunk->GetAllocationInfo(ChunkUsed, ChunkFree);
 				Used += ChunkUsed;
 				Free += ChunkFree;
-				NumChunks++;
+				Chunks++;
 			}
 		}
-
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("   Allocator has %d chunks\n"), NumChunks);
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("   Allocator average allocation size is %d (%lld over %lld allocs)\n"), (uint32)((float)TotalAllocated / (float)TotalAllocs), TotalAllocated, TotalAllocs);
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("   Allocator average waste (on top of allocation) size is %d (%lld over %lld allocs)\n"), (uint32)((float)TotalWaste / (float)TotalAllocs), TotalWaste, TotalAllocs);
 	}
 
+	void ShowAllocationInfo()
+	{
+ 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("   Allocator has %d chunks\n"), AllocChunks.Num());
+ 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("   Allocator average allocation size is %d (%lld over %lld allocs)\n"), (uint32)((float)TotalAllocated / (float)TotalAllocs), TotalAllocated, TotalAllocs);
+ 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("   Allocator average waste (on top of allocation) size is %d (%lld over %lld allocs)\n"), (uint32)((float)TotalWaste / (float)TotalAllocs), TotalWaste, TotalAllocs);
+	}
+
+	void ShowFullAllocationInfo()
+	{
+		// multi-thread protection
+		FScopeLock ScopeLock(&CriticalSection);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Total Allocations Histogram:\n"));
+		for (auto It = TotalAllocationsHistogram.CreateIterator(); It; ++It)
+		{
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT(" %d, %d\n"), It.Key(), It.Value());
+		}
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST
+
+		int32 NumChunks = 0;
+		// pass off to individual alloc chunks
+		for (int32 ChunkIndex = 0; ChunkIndex < AllocChunks.Num(); ChunkIndex++)
+		{
+			ChunkAllocatorType* Chunk = AllocChunks[ChunkIndex];
+			if (Chunk)
+			{
+				Chunk->ShowFullAllocationList();
+			}
+		}
+	}
 
 	void DumpMemoryInfo()
 	{
-#if STATS
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		// we use LowLevel here because we are usually dumping this out while 
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("   Per type allocation sizes in allocator type %d:\n"), (int32)MemoryType);
-
-		for (auto It = PerTypeAllocationInfo.CreateIterator(); It; ++It)
+		for (auto InfoIt = PerTypeAllocationInfo.CreateConstIterator(); InfoIt; ++InfoIt)
 		{
+			const AllocationInfo& Info = InfoIt.Value();
+
 			if (OwnerTypeToStatIdMap)
 			{
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("      %d '%s': %lld\n"), It.Key(), *OwnerTypeToStatIdMap[It.Key()].ToString(), It.Value());
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("      '%s': Total: %lld Allocs: %d Frees: %d\n"),  *OwnerTypeToStatIdMap[InfoIt.Key()].ToString(), Info.TotalAllocated, Info.Counts.Allocations, Info.Counts.Frees);
 			}
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("      %d 'OwnerType %d': %lld\n"), It.Key(), It.Key(), It.Value());
-		}
+			else
+			{
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("      'OwnerType %d': %lld Allocs: %d Frees: %d\n"), InfoIt.Key(), Info.TotalAllocated, Info.Counts.Allocations, Info.Counts.Frees);
+			}
+#ifdef ALLOCATION_HISTOGRAM
+			for (auto HistoIt = Info.AllocationHistogram.CreateConstIterator(); HistoIt; ++HistoIt)
+			{
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("           %d, %lld, %lld\n"), HistoIt.Key(), HistoIt.Value().Allocations, HistoIt.Value().Frees);
+			}
 #endif
+		}
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	}
 
 private:
@@ -643,10 +743,6 @@ private:
 			AllocChunks[EmptyEntryIdx] = NewChunk;
 		}
 
-		//	uint64 Used, Free;
-		//	GetAllocationInfo(Used, Free);
-		//	UE_LOG(LogCore, Display, TEXT("Created chunk, stats are: %.2f Used, %.2f Free"), (double)Used / (1024.0 * 1024.0), (double)Free / (1024.0 * 1024.0));
-
 #if STATS
 		UpdateMemoryStatMaxSizes();
 #endif
@@ -674,10 +770,6 @@ private:
 		Chunk->Destroy();
 		delete Chunk;
 
-		//	uint64 Used, Free;
-		//	GetAllocationInfo(Used, Free);
-		//	UE_LOG(LogNVN, Display, TEXT("Deleted chunk, stats are: %.2f Used, %.2f Free"), (double)Used / (1024.0 * 1024.0), (double)Free / (1024.0 * 1024.0));
-
 #if STATS
 		UpdateMemoryStatMaxSizes();
 #endif
@@ -693,12 +785,6 @@ private:
 #endif
 	 }
 
-
-
-
-
-
-
 	 // size must be aligned at least to this
 	 const uint32 SubAllocationAlignment;
 
@@ -708,8 +794,6 @@ private:
 	 /** Just stat tracking */
 	 uint64 TotalAllocationSize;
 	 uint64 NumAllocations;
-
-	 TMap<int32, uint64> PerTypeAllocationInfo;
 
 	 /** The type of memory this allocator allocates from the kernel */
 	 uint32 MemoryType;
@@ -728,5 +812,28 @@ private:
 
 	 // a critical section used to coordinate all access in this instance of the allocator and it's chunks
 	 FCriticalSection CriticalSection;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	 struct AllocFreeCounts
+	 {
+		 uint32 Allocations;
+		 uint32 Frees;
+	 };
+	 struct AllocationInfo
+	 {
+		 uint64 TotalAllocated;
+#ifdef ALLOCATION_HISTOGRAM
+		 TMap<uint32, AllocFreeCounts> AllocationHistogram;
+#endif
+		 AllocFreeCounts Counts;
+	 };
+
+	 TMap<int32, AllocationInfo> PerTypeAllocationInfo;
+
+	 TMap<uint64, uint32> TotalAllocationsHistogram;
+	 TMap<uint64, uint32> OutstandingAllocationsHistogram;
+	 TMap<uint64, uint32> PeakAllocationsHistogram;
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
 };
 

@@ -548,6 +548,11 @@ public:
 	CORE_API bool Serialize(FArchive& Ar);
 
 	/**
+	* Serializes this date and time for network transmission
+	*/
+	CORE_API bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
+
+	/**
 	 * Return the string representation of this time span using a default format.
 	 *
 	 * The returned string has the following format:

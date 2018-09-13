@@ -646,6 +646,9 @@ public:
 	/** Gets a delegate that is invoked in the editor when a windows dpi scale changes or when a widget window may have changed and DPI scale info needs to be checked */
 	DECLARE_EVENT_OneParam(FSlateApplication, FOnWindowDPIScaleChanged, TSharedRef<SWindow>);
 	FOnWindowDPIScaleChanged& OnWindowDPIScaleChanged() { return OnWindowDPIScaleChangedEvent; }
+
+	/** Event used to signal that a DPI change is about to happen */
+	FOnWindowDPIScaleChanged& OnSystemSignalsDPIChanged() { return OnSignalSystemDPIChangedEvent; }
 #endif //WITH_EDITOR
 
 	/**
@@ -1454,6 +1457,7 @@ public:
 	virtual void OnResizingWindow( const TSharedRef< FGenericWindow >& PlatformWindow ) override;
 	virtual bool BeginReshapingWindow( const TSharedRef< FGenericWindow >& PlatformWindow ) override;
 	virtual void FinishedReshapingWindow( const TSharedRef< FGenericWindow >& PlatformWindow ) override;
+	virtual void SignalSystemDPIChanged(const TSharedRef<FGenericWindow>& Window) override;
 	virtual void HandleDPIScaleChanged(const TSharedRef<FGenericWindow>& Window) override;
 	virtual void OnMovedWindow( const TSharedRef< FGenericWindow >& PlatformWindow, const int32 X, const int32 Y ) override;
 	virtual bool OnWindowActivationChanged( const TSharedRef< FGenericWindow >& PlatformWindow, const EWindowActivation ActivationType ) override;
@@ -2223,6 +2227,11 @@ private:
 	 * User Function cannot mark the input as handled.
 	 */
 	FOnApplicationMousePreInputButtonDownListener OnApplicationMousePreInputButtonDownListenerEvent;
+
+	/**
+	* Called before the dpi scale of a particular window is about to changed
+	*/
+	FOnWindowDPIScaleChanged OnSignalSystemDPIChangedEvent;
 
 	/**
 	 * Called when an editor window dpi scale is changed

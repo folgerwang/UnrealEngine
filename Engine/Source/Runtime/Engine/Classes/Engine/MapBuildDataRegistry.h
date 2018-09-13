@@ -336,6 +336,8 @@ public:
 
 	ENGINE_API bool IsLegacyBuildData() const;
 
+	ENGINE_API bool IsVTLightingValid() const;
+
 private:
 
 	ENGINE_API void ReleaseResources(const TSet<FGuid>* ResourcesToKeep = nullptr);

@@ -182,8 +182,7 @@ public:
 		: current(NULL)
 	{
 		this->mem_ctx = ralloc_context(NULL);
-		this->function_hash = hash_table_ctor(0, hash_table_pointer_hash,
-			hash_table_pointer_compare);
+		this->function_hash = hash_table_ctor(0, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 	}
 
 	~has_recursion_visitor()

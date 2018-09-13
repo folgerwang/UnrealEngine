@@ -125,8 +125,8 @@ if [ -e /etc/os-release ]; then
   fi
 fi
 
-# Install our bundled toolchain unless we are running a Perforce build
-if [ ! -f Build/PerforceBuild.txt ]; then
+# Install our bundled toolchain unless we are running a Perforce build or a an our of source toolchain is available.
+if [ ! -f Build/PerforceBuild.txt ] && [ -z "$LINUX_MULTIARCH_ROOT" ] && [ -z "$UE_SDKS_ROOT" ]; then
   echo "Installing a bundled clang toolchain"
   pushd Build/BatchFiles/Linux > /dev/null
   ./SetupToolchain.sh

@@ -2995,7 +2995,23 @@ public:
 	/** This function should be called to notify the editor that new materials were added to our scene or some materials were modified */
 	void OnSceneMaterialsModified();
 
+	/** Call this function to change the feature level and to override the material quality platform of the editor and PIE worlds */
+	void SetPreviewPlatform(const FName MaterialQualityPlatform, const ERHIFeatureLevel::Type PreviewFeatureLevel, const bool bSaveSettings = true);
+
 protected:
+	/** Call this function to change the feature level of the editor and PIE worlds */
+	void SetFeatureLevelPreview(const ERHIFeatureLevel::Type InPreviewFeatureLevel);
+
+	/** call this function to change the feature level for all materials */
+	void SetMaterialsFeatureLevel(const ERHIFeatureLevel::Type InFeatureLevel);
+
+	/** call this to recompile the materials */
+	void AllMaterialsCacheResourceShadersForRendering();
+
+	/** Function pair used to save and restore the global feature level */
+	void LoadEditorFeatureLevel();
+	void SaveEditorFeatureLevel();
+
 	/** For some platforms (e.g. mobiles), when running in editor mode, we emulate the shaders functionality on available running GPU (e.g. DirectX),
 	 *  but when displaying the shader complexity we need to be able compile and extract statistics (instruction count) from the real shaders that
 	 *  will be compiled when the game will run on the specific platform. Thus (if compiler available) we perform an 'offline' shader compilation step,

@@ -60,8 +60,13 @@ inline static void ComputeEyeAdaptationValues(const ERHIFeatureLevel::Type MinFe
 	float MinAverageLuminance = 1;
 	float MaxAverageLuminance = 1;
 
+	// Disable exposure for buffer visualization. so it doesn't influence buffer visualization brightness.
+	const bool bDisableExposure = !(EngineShowFlags.Lighting && EngineShowFlags.EyeAdaptation && View.GetFeatureLevel() >= MinFeatureLevel)
+		|| (EngineShowFlags.VisualizeBuffer && View.CurrentBufferVisualizationMode != NAME_None)
+		|| View.Family->UseDebugViewPS();
+
 	// This scales the average luminance after it gets clamped, affecting the exposure value directly.
-	float LocalExposureMultipler = View.Family->ExposureSettings.bFixed ? 1.f : FMath::Pow(2.0f, Settings.AutoExposureBias);
+	const float LocalExposureMultipler = (bDisableExposure || View.Family->ExposureSettings.bFixed) ? 1.f : FMath::Pow(2.0f, Settings.AutoExposureBias);
 
 	// This is used in the basic mode as a premultiplier before clamping between [MinLuminance, MaxLuminance]
 	// Because this happens before clamping, the calibration constant has no impact on fixed EV100 modes.
@@ -74,7 +79,7 @@ inline static void ComputeEyeAdaptationValues(const ERHIFeatureLevel::Type MinFe
 	HistogramLogMin = FMath::Min<float>(HistogramLogMin, HistogramLogMax - 1);
 
 	// Eye adaptation is disabled except for highend right now because the histogram is not computed.
-	if (EngineShowFlags.Lighting && EngineShowFlags.EyeAdaptation && View.GetFeatureLevel() >= MinFeatureLevel)
+	if (!bDisableExposure)
 	{
 		if (View.Family->ExposureSettings.bFixed || Settings.AutoExposureMethod == EAutoExposureMethod::AEM_Manual)
 		{

@@ -21,6 +21,7 @@ class FLightTileIntersectionResources;
 class FProjectedShadowInfo;
 class FScene;
 class FViewInfo;
+class FGlobalDistanceFieldClipmap;
 struct Rect;
 
 class FHeightfieldLightingAtlas : public FRenderResource
@@ -130,8 +131,9 @@ public:
 		FRHICommandList& RHICmdList,
 		const FScene* Scene,
 		const FViewInfo& View,
-		float MaxOcclusionDistance,
+		float GlobalMaxSphereQueryRadius,
 		const class FGlobalDistanceFieldInfo& GlobalDistanceFieldInfo,
+		const FGlobalDistanceFieldClipmap& Clipmap,
 		int32 ClipmapIndexValue,
 		const class FVolumeUpdateRegion& UpdateRegion) const;
 

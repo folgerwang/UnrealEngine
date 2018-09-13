@@ -26,9 +26,11 @@ namespace VulkanRHI
 {
 	class FFenceManager;
 
+	extern int32 GVulkanUseBufferBinning;
+
 	enum
 	{
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID || PLATFORM_LUMIN || PLATFORM_LUMINGL4
 		NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS = 3,
 #else
 		NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS = 10,
@@ -366,6 +368,11 @@ namespace VulkanRHI
 		void BindBuffer(FVulkanDevice* Device, VkBuffer Buffer);
 		void BindImage(FVulkanDevice* Device, VkImage Image);
 
+#if VULKAN_USE_LLM
+		void SetLLMTrackerID(uint64 InTrackerID) { LLMTrackerID = InTrackerID; }
+		uint64 GetLLMTrackerID() { return LLMTrackerID; }
+#endif
+
 	private:
 		FOldResourceHeapPage* Owner;
 
@@ -389,6 +396,10 @@ namespace VulkanRHI
 #endif
 #if VULKAN_MEMORY_TRACK_CALLSTACK
 		FString Callstack;
+#endif
+
+#if VULKAN_USE_LLM
+		uint64 LLMTrackerID;
 #endif
 
 		friend class FOldResourceHeapPage;
@@ -476,6 +487,10 @@ namespace VulkanRHI
 			return RequestedSize;
 		}
 
+#if VULKAN_USE_LLM
+		void SetLLMTrackerID(uint64 InTrackerID) { LLMTrackerID = InTrackerID; }
+		uint64 GetLLMTrackerID() { return LLMTrackerID; }
+#endif
 	protected:
 		uint32 RequestedSize;
 		uint32 AlignedOffset;
@@ -487,6 +502,9 @@ namespace VulkanRHI
 #endif
 #if VULKAN_MEMORY_TRACK_CALLSTACK
 		FString Callstack;
+#endif
+#if VULKAN_USE_LLM
+		uint64 LLMTrackerID;
 #endif
 #if VULKAN_MEMORY_TRACK_CALLSTACK || VULKAN_MEMORY_TRACK_FILE_LINE
 		friend class FSubresourceAllocator;
@@ -598,10 +616,11 @@ namespace VulkanRHI
 		FBufferAllocation(FResourceHeapManager* InOwner, FDeviceMemoryAllocation* InDeviceMemoryAllocation,
 			uint32 InMemoryTypeIndex, VkMemoryPropertyFlags InMemoryPropertyFlags,
 			uint32 InAlignment,
-			VkBuffer InBuffer, VkBufferUsageFlags InBufferUsageFlags)
+			VkBuffer InBuffer, VkBufferUsageFlags InBufferUsageFlags, int32 InPoolSizeIndex)
 			: FSubresourceAllocator(InOwner, InDeviceMemoryAllocation, InMemoryTypeIndex, InMemoryPropertyFlags, InAlignment)
 			, BufferUsageFlags(InBufferUsageFlags)
 			, Buffer(InBuffer)
+			, PoolSizeIndex(InPoolSizeIndex)
 		{
 		}
 
@@ -626,6 +645,7 @@ namespace VulkanRHI
 	protected:
 		VkBufferUsageFlags BufferUsageFlags;
 		VkBuffer Buffer;
+		int32 PoolSizeIndex;
 		friend class FResourceHeapManager;
 	};
 
@@ -804,8 +824,68 @@ namespace VulkanRHI
 			UniformBufferAllocationSize = 2 * 1024 * 1024,
 		};
 
-		TArray<FBufferAllocation*> UsedBufferAllocations;
-		TArray<FBufferAllocation*> FreeBufferAllocations;
+
+		// pool sizes that we support
+		enum class EPoolSizes : uint8
+		{
+// 			E32,
+// 			E64,
+			E128,
+			E256,
+			E512,
+			E1k,
+			E2k,
+			E8k,
+			E16k,
+			SizesCount,
+		};
+
+		constexpr static uint32 PoolSizes[(int32)EPoolSizes::SizesCount] =
+		{
+// 			32,
+// 			64,
+			128,
+			256,
+			512,
+			1024,
+			2048,
+			8192,
+// 			16 * 1024,
+		};
+
+		constexpr static uint32 BufferSizes[(int32)EPoolSizes::SizesCount + 1] =
+		{
+// 			64 * 1024,
+// 			64 * 1024,
+			128 * 1024,
+			128 * 1024,
+			256 * 1024,
+			256 * 1024,
+			512 * 1024,
+			512 * 1024,
+			1024 * 1024,
+			1 * 1024 * 1024,
+		};
+
+		EPoolSizes GetPoolTypeForAlloc(uint32 Size, uint32 Alignment)
+		{
+			EPoolSizes PoolSize = EPoolSizes::SizesCount;
+			if (GVulkanUseBufferBinning != 0)
+			{
+				for (int32 i = 0; i < (int32)EPoolSizes::SizesCount; ++i)
+				{
+					if (PoolSizes[i] >= Size)
+					{
+						PoolSize = (EPoolSizes)i;
+						break;
+					}
+				}
+			}
+			return PoolSize;
+		}
+
+		TArray<FBufferAllocation*> UsedBufferAllocations[(int32)EPoolSizes::SizesCount + 1];
+		TArray<FBufferAllocation*> FreeBufferAllocations[(int32)EPoolSizes::SizesCount + 1];
 #if 0
 		TArray<FImageAllocation*> UsedImageAllocations;
 		TArray<FImageAllocation*> FreeImageAllocations;

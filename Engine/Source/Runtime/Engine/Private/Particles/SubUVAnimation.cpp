@@ -331,139 +331,46 @@ void FindOptimalPolygon(int32 TargetVertexCount, const TArray<int32>& ConvexHull
 	{
 		float MinArea = FLT_MAX;
 
-		const int64 NumLinesSq = Lines.Num() * Lines.Num();
-		const int64 NumCombinations = NumLinesSq * NumLinesSq * NumLinesSq * NumLinesSq;
 		const int32 MaxCombinationsForFullSearch = 100000;
 
-		if (NumCombinations > (int64)MaxCombinationsForFullSearch)
+		FRandomStream RandomStream(12345);
+
+		// Search a random subset of the possibility space to guarantee reasonable execution time
+		for (int32 SampleIndex = 0; SampleIndex < MaxCombinationsForFullSearch; SampleIndex++)
 		{
-			FRandomStream RandomStream(12345);
-
-			// Search a random subset of the possibility space to guarantee reasonable execution time
-			for (int32 SampleIndex = 0; SampleIndex < MaxCombinationsForFullSearch; SampleIndex++)
+			int32 x = FMath::TruncToInt(RandomStream.GetFraction() * Lines.Num());
 			{
-				int32 x = FMath::TruncToInt(RandomStream.GetFraction() * Lines.Num());
-				{
-					int32 y = GetRandomLineIndex(x + 1, Lines.Num(), RandomStream);
-					{
-						FVector2D V0;
-						if (ComputePointIntersectionBetweenLines2D(Lines[x], Lines[y], V0) && IsValidUV(V0))
-						{
-							int32 z = GetRandomLineIndex(y + 1, Lines.Num(), RandomStream);
-							{
-								FVector2D V1;
-								if (ComputePointIntersectionBetweenLines2D(Lines[y], Lines[z], V1) && IsValidUV(V1))
-								{
-									int32 w = GetRandomLineIndex(z + 1, Lines.Num(), RandomStream);
-									{
-										FVector2D V2;
-										if (ComputePointIntersectionBetweenLines2D(Lines[z], Lines[w], V2) && IsValidUV(V2))
-										{
-											int32 r = GetRandomLineIndex(w + 1, Lines.Num(), RandomStream);
-											{
-												FVector2D V3;
-												if (ComputePointIntersectionBetweenLines2D(Lines[w], Lines[r], V3) && IsValidUV(V3))
-												{
-													int32 s = GetRandomLineIndex(r + 1, Lines.Num(), RandomStream);
-													{
-														FVector2D V4;
-														if (ComputePointIntersectionBetweenLines2D(Lines[r], Lines[s], V4) && IsValidUV(V4))
-														{
-															int32 t = GetRandomLineIndex(s + 1, Lines.Num(), RandomStream);
-															{
-																FVector2D V5;
-																if (ComputePointIntersectionBetweenLines2D(Lines[s], Lines[t], V5) && IsValidUV(V5))
-																{
-																	int32 u = GetRandomLineIndex(t + 1, Lines.Num(), RandomStream);
-																	{
-																		FVector2D V6;
-																		if (ComputePointIntersectionBetweenLines2D(Lines[t], Lines[u], V6) && IsValidUV(V6))
-																		{
-																			FVector2D V7;
-																			if (ComputePointIntersectionBetweenLines2D(Lines[u], Lines[x], V7) && IsValidUV(V7))
-																			{
-																				FVector2D U0 = V1 - V0;
-																				FVector2D U1 = V2 - V0;
-																				FVector2D U2 = V3 - V0;
-																				FVector2D U3 = V4 - V0;
-																				FVector2D U4 = V5 - V0;
-																				FVector2D U5 = V6 - V0;
-																				FVector2D U6 = V7 - V0;
-
-																				float Area = 
-																					(U0.Y * U1.X - U0.X * U1.Y) +
-																					(U1.Y * U2.X - U1.X * U2.Y) +
-																					(U2.Y * U3.X - U2.X * U3.Y) +
-																					(U3.Y * U4.X - U3.X * U4.Y) +
-																					(U4.Y * U5.X - U4.X * U5.Y) +
-																					(U5.Y * U6.X - U5.X * U6.Y);
-
-																				if (Area < MinArea)
-																				{
-																					MinArea = Area;
-																					OutBoundingVertices[0] = V0;
-																					OutBoundingVertices[1] = V1;
-																					OutBoundingVertices[2] = V2;
-																					OutBoundingVertices[3] = V3;
-																					OutBoundingVertices[4] = V4;
-																					OutBoundingVertices[5] = V5;
-																					OutBoundingVertices[6] = V6;
-																					OutBoundingVertices[7] = V7;
-																				}
-																			}
-																		}
-																	}
-																}
-															}
-														}
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		else
-		{
-			// Warning: O(N^8)
-			for (int32 x = 0; x < Lines.Num(); x++)
-			{
-				for (int32 y = x + 1; y < Lines.Num(); y++)
+				int32 y = GetRandomLineIndex(x + 1, Lines.Num(), RandomStream);
 				{
 					FVector2D V0;
 					if (ComputePointIntersectionBetweenLines2D(Lines[x], Lines[y], V0) && IsValidUV(V0))
 					{
-						for (int32 z = y + 1; z < Lines.Num(); z++)
+						int32 z = GetRandomLineIndex(y + 1, Lines.Num(), RandomStream);
 						{
 							FVector2D V1;
 							if (ComputePointIntersectionBetweenLines2D(Lines[y], Lines[z], V1) && IsValidUV(V1))
 							{
-								for (int32 w = z + 1; w < Lines.Num(); w++)
+								int32 w = GetRandomLineIndex(z + 1, Lines.Num(), RandomStream);
 								{
 									FVector2D V2;
 									if (ComputePointIntersectionBetweenLines2D(Lines[z], Lines[w], V2) && IsValidUV(V2))
 									{
-										for (int32 r = w + 1; r < Lines.Num(); r++)
+										int32 r = GetRandomLineIndex(w + 1, Lines.Num(), RandomStream);
 										{
 											FVector2D V3;
 											if (ComputePointIntersectionBetweenLines2D(Lines[w], Lines[r], V3) && IsValidUV(V3))
 											{
-												for (int32 s = r + 1; s < Lines.Num(); s++)
+												int32 s = GetRandomLineIndex(r + 1, Lines.Num(), RandomStream);
 												{
 													FVector2D V4;
 													if (ComputePointIntersectionBetweenLines2D(Lines[r], Lines[s], V4) && IsValidUV(V4))
 													{
-														for (int32 t = s + 1; t < Lines.Num(); t++)
+														int32 t = GetRandomLineIndex(s + 1, Lines.Num(), RandomStream);
 														{
 															FVector2D V5;
 															if (ComputePointIntersectionBetweenLines2D(Lines[s], Lines[t], V5) && IsValidUV(V5))
 															{
-																for (int32 u = t + 1; u < Lines.Num(); u++)
+																int32 u = GetRandomLineIndex(t + 1, Lines.Num(), RandomStream);
 																{
 																	FVector2D V6;
 																	if (ComputePointIntersectionBetweenLines2D(Lines[t], Lines[u], V6) && IsValidUV(V6))

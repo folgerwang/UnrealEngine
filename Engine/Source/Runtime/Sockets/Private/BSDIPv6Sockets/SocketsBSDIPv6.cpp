@@ -6,6 +6,19 @@
 
 #include "BSDIPv6Sockets/IPAddressBSDIPv6.h"
 #include "BSDIPv6Sockets/SocketSubsystemBSDIPv6.h"
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
+FSocketBSDIPv6::~FSocketBSDIPv6()
+{
+	FSocketBSDIPv6::Close();
+}
+
+SOCKET FSocketBSDIPv6::GetNativeSocket()
+{
+	return Socket;
+}
+
 //#include "Net/NetworkProfiler.h"
 
 bool FSocketBSDIPv6::Close(void)
@@ -120,7 +133,7 @@ bool FSocketBSDIPv6::HasPendingData(uint32& PendingDataSize)
 }
 
 
-FSocket* FSocketBSDIPv6::Accept(const FString& SocketDescription)
+FSocket* FSocketBSDIPv6::Accept(const FString& InSocketDescription)
 {
 	SOCKET NewSocket = accept(Socket,NULL,NULL);
 
@@ -129,14 +142,14 @@ FSocket* FSocketBSDIPv6::Accept(const FString& SocketDescription)
 		// we need the subclass to create the actual FSocket object
 		check(SocketSubsystem);
 		FSocketSubsystemBSDIPv6* BSDSystem = static_cast<FSocketSubsystemBSDIPv6*>(SocketSubsystem);
-		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, SocketDescription);
+		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, InSocketDescription);
 	}
 
 	return NULL;
 }
 
 
-FSocket* FSocketBSDIPv6::Accept(FInternetAddr& OutAddr, const FString& SocketDescription)
+FSocket* FSocketBSDIPv6::Accept(FInternetAddr& OutAddr, const FString& InSocketDescription)
 {
 	SOCKLEN SizeOf = sizeof(sockaddr_in6);
 	SOCKET NewSocket = accept(Socket, *(FInternetAddrBSDIPv6*)(&OutAddr), &SizeOf);
@@ -146,7 +159,7 @@ FSocket* FSocketBSDIPv6::Accept(FInternetAddr& OutAddr, const FString& SocketDes
 		// we need the subclass to create the actual FSocket object
 		check(SocketSubsystem);
 		FSocketSubsystemBSDIPv6* BSDSystem = static_cast<FSocketSubsystemBSDIPv6*>(SocketSubsystem);
-		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, SocketDescription);
+		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, InSocketDescription);
 	}
 
 	return NULL;
@@ -374,7 +387,14 @@ bool FSocketBSDIPv6::SetMulticastTtl(uint8 TimeToLive)
 bool FSocketBSDIPv6::SetReuseAddr(bool bAllowReuse)
 {
 	int Param = bAllowReuse ? 1 : 0;
-	return setsockopt(Socket,SOL_SOCKET,SO_REUSEADDR,(char*)&Param,sizeof(Param)) == 0;
+	int ReuseAddrResult = setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR, (char*)&Param, sizeof(Param));
+#ifdef SO_REUSEPORT // Linux kernel 3.9+ and FreeBSD define this separately
+	if (ReuseAddrResult == 0)
+	{
+		return setsockopt(Socket, SOL_SOCKET, SO_REUSEPORT, (char *)&Param, sizeof(Param)) == 0;
+	}
+#endif
+	return ReuseAddrResult == 0;
 }
 
 
@@ -454,5 +474,7 @@ bool FSocketBSDIPv6::SetIPv6Only(bool bIPv6Only)
 
 	return bOk;
 }
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 #endif

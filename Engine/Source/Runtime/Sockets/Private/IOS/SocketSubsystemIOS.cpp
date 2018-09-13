@@ -5,15 +5,17 @@
 #include "Modules/ModuleManager.h"
 #include "BSDSockets/SocketsBSD.h"
 #include "IPAddress.h"
+#include <net/if.h>
 #include <ifaddrs.h>
-#include "SocketsBSDIPv6IOS.h"
-#include "IPAddressBSDIPv6IOS.h"
+#include "SocketsBSDIOS.h"
+#include "IPAddressBSDIOS.h"
+
 FSocketSubsystemIOS* FSocketSubsystemIOS::SocketSingleton = NULL;
 
-class FSocketBSDIPv6* FSocketSubsystemIOS::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)
+class FSocketBSD* FSocketSubsystemIOS::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)
 {
 	UE_LOG(LogIOS, Log, TEXT(" FSocketSubsystemIOS::InternalBSDSocketFactory"));
-	return new FSocketBSDIPv6IOS(Socket, SocketType, SocketDescription, this);
+	return new FSocketBSDIOS(Socket, SocketType, SocketDescription, this);
 }
 
 FName CreateSocketSubsystem( FSocketSubsystemModule& SocketSubsystemModule )
@@ -75,9 +77,28 @@ bool FSocketSubsystemIOS::HasNetworkDevice()
 	return true;
 }
 
-FSocket* FSocketSubsystemIOS::CreateSocket(const FName& SocketType, const FString& SocketDescription, bool bForceUDP)
+ESocketErrors FSocketSubsystemIOS::CreateAddressFromIP(const ANSICHAR* IPAddress, FInternetAddr& OutAddr)
 {
-	FSocketBSDIPv6* NewSocket = (FSocketBSDIPv6*)FSocketSubsystemBSDIPv6::CreateSocket(SocketType, SocketDescription, bForceUDP);
+	return GetHostByName(IPAddress, OutAddr);
+}
+
+ESocketErrors FSocketSubsystemIOS::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
+{
+	FAddressInfoResult GAIResult = GetAddressInfo(ANSI_TO_TCHAR(HostName), nullptr,
+		EAddressInfoFlags::AllResultsWithMapping | EAddressInfoFlags::OnlyUsableAddresses, ESocketProtocolFamily::IPv6);
+
+	if (GAIResult.Results.Num() > 0)
+	{
+		OutAddr.SetRawIp(GAIResult.Results[0].Address->GetRawIp());
+		return SE_NO_ERROR;
+	}
+
+	return SE_HOST_NOT_FOUND;
+}
+
+FSocket* FSocketSubsystemIOS::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP)
+{
+	FSocketBSD* NewSocket = (FSocketBSD*)FSocketSubsystemBSD::CreateSocket(SocketType, SocketDescription, ProtocolType, bForceUDP);
 	if (NewSocket)
 	{
 		NewSocket->SetIPv6Only(false);
@@ -91,7 +112,7 @@ FSocket* FSocketSubsystemIOS::CreateSocket(const FName& SocketType, const FStrin
 
 TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll)
 {
-	TSharedRef<FInternetAddrBSDIPv6IOS> HostAddr = MakeShareable(new FInternetAddrBSDIPv6IOS);
+	TSharedRef<FInternetAddrBSDIOS> HostAddr = MakeShareable(new FInternetAddrBSDIOS(this));
 	HostAddr->SetAnyAddress();
 
 	ifaddrs* Interfaces = NULL;
@@ -105,31 +126,46 @@ TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& O
 		// Loop through linked list of interfaces
 		for (ifaddrs* Travel = Interfaces; Travel != NULL; Travel = Travel->ifa_next)
 		{
+			if (Travel->ifa_addr == NULL)
+			{
+				continue;
+			}
+
+			sockaddr_storage* AddrData = reinterpret_cast<sockaddr_storage*>(Travel->ifa_addr);
+			uint32 ScopeInterfaceId = ntohl(if_nametoindex(Travel->ifa_name));
 			if (Travel->ifa_addr->sa_family == AF_INET6)
 			{
 				if (strcmp(Travel->ifa_name, "en0") == 0)
 				{
-					HostAddr->SetIp(*((sockaddr_in6*)Travel->ifa_addr));
+					HostAddr->SetIp(*AddrData);
+					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasWifiSet = true;
 					bWasIPv6Set = true;
+					UE_LOG(LogSockets, Verbose, TEXT("Set IP to WIFI %s"), *HostAddr->ToString(false));
 				}
 				else if (!bWasWifiSet && strcmp(Travel->ifa_name, "pdp_ip0") == 0)
 				{
-					HostAddr->SetIp(*((sockaddr_in6*)Travel->ifa_addr));
+					HostAddr->SetIp(*AddrData);
+					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasCellSet = true;
+					UE_LOG(LogSockets, Verbose, TEXT("Set IP to CELL %s"), *HostAddr->ToString(false));
 				}
 			}
 			else if (!bWasIPv6Set && Travel->ifa_addr->sa_family == AF_INET)
 			{
 				if (strcmp(Travel->ifa_name, "en0") == 0)
 				{
-					HostAddr->SetIp(ntohl(((sockaddr_in*)Travel->ifa_addr)->sin_addr.s_addr));
+					HostAddr->SetIp(*AddrData);
+					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasWifiSet = true;
+					UE_LOG(LogSockets, Verbose, TEXT("Set IP to WIFI IPv4 %s"), *HostAddr->ToString(false));
 				}
 				else if (!bWasWifiSet && strcmp(Travel->ifa_name, "pdp_ip0") == 0)
 				{
-					HostAddr->SetIp(((sockaddr_in*)Travel->ifa_addr)->sin_addr.s_addr);
+					HostAddr->SetIp(*AddrData);
+					HostAddr->SetScopeId(ScopeInterfaceId);
 					bWasCellSet = true;
+					UE_LOG(LogSockets, Verbose, TEXT("Set IP to CELL IPv4 %s"), *HostAddr->ToString(false));
 				}
 			}
 		}
@@ -158,7 +194,7 @@ TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& O
 
 TSharedRef<FInternetAddr> FSocketSubsystemIOS::CreateInternetAddr(uint32 Address, uint32 Port)
 {
-	TSharedRef<FInternetAddr> Result = MakeShareable(new FInternetAddrBSDIPv6IOS);
+	TSharedRef<FInternetAddr> Result = MakeShareable(new FInternetAddrBSDIOS(this));
 	Result->SetIp(Address);
 	Result->SetPort(Port);
 	return Result;

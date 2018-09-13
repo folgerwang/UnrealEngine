@@ -43,6 +43,7 @@
 #include "DeviceProfiles/DeviceProfile.h"
 #include "PostProcess/PostProcessing.h"
 #include "SceneSoftwareOcclusion.h"
+#include "VirtualTexturing.h"
 
 /*-----------------------------------------------------------------------------
 	Globals
@@ -231,6 +232,13 @@ static TAutoConsoleVariable<float> CVarNormalCurvatureToRoughnessScale(
 	TEXT("Scales the roughness resulting from screen space normal changes for materials with NormalCurvatureToRoughness enabled.  Valid range [0, 2]"),
 	ECVF_RenderThreadSafe | ECVF_Scalability);
 
+static TAutoConsoleVariable<int32> CVarEnableMultiGPUForkAndJoin(
+	TEXT("r.EnableMultiGPUForkAndJoin"),
+	1,
+	TEXT("Whether to allow unused GPUs to speedup rendering by sharing work.\n"),
+	ECVF_Default
+	);
+
 /*-----------------------------------------------------------------------------
 	FParallelCommandListSet
 -----------------------------------------------------------------------------*/
@@ -380,6 +388,7 @@ FASTVRAM_CVAR(DistanceFieldCulledObjectBuffers, 1);
 FASTVRAM_CVAR(DistanceFieldTileIntersectionResources, 1);
 FASTVRAM_CVAR(DistanceFieldAOScreenGridResources, 1);
 FASTVRAM_CVAR(ForwardLightingCullingResources, 1);
+FASTVRAM_CVAR(GlobalDistanceFieldCullGridBuffers, 1);
 
 
 #if !UE_BUILD_SHIPPING
@@ -504,6 +513,7 @@ void FFastVramConfig::Update()
 	bDirty |= UpdateBufferFlagFromCVar(CVarFastVRam_DistanceFieldTileIntersectionResources, DistanceFieldTileIntersectionResources);
 	bDirty |= UpdateBufferFlagFromCVar(CVarFastVRam_DistanceFieldAOScreenGridResources, DistanceFieldAOScreenGridResources);
 	bDirty |= UpdateBufferFlagFromCVar(CVarFastVRam_ForwardLightingCullingResources, ForwardLightingCullingResources);
+	bDirty |= UpdateBufferFlagFromCVar(CVarFastVRam_GlobalDistanceFieldCullGridBuffers, GlobalDistanceFieldCullGridBuffers);
 }
 
 bool FFastVramConfig::UpdateTextureFlagFromCVar(TAutoConsoleVariable<int32>& CVar, uint32& InOutValue)
@@ -1702,9 +1712,6 @@ FSceneRenderer::FSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyCon
 		ViewInfo->Family = &ViewFamily;
 		bAnyViewIsLocked |= ViewInfo->bIsLocked;
 
-		// Apply multi-GPU strategy here.
-		ViewInfo->GPUMask = GetNodeMaskFromMultiGPUMode(GetMultiGPUMode(), ViewIndex, ViewFamily.FrameNumber);
-
 		check(ViewInfo->ViewRect.Area() == 0);
 
 #if WITH_EDITOR
@@ -2054,6 +2061,90 @@ void FSceneRenderer::PrepareViewRectsForRendering()
 		}
 	}
 }
+
+void FSceneRenderer::ComputeViewGPUMasks(FRHIGPUMask RenderTargetGPUMask)
+{
+#if WITH_MGPU
+	// First check whether we are in multi-GPU and if fork and join cross-gpu transfers are enabled.
+	// Otherwise fallback on rendering the whole view family on each relevant GPU using broadcast logic.
+	if (GNumExplicitGPUsForRendering > 1 && CVarEnableMultiGPUForkAndJoin.GetValueOnAnyThread() != 0)
+	{
+		// Check whether this looks like an AFR setup (note that the logic also applies when there is only one AFR group).
+		FRHIGPUMask UsableGPUMask = RenderTargetGPUMask;
+		if (RenderTargetGPUMask.HasSingleIndex() && RenderTargetGPUMask.ToIndex() < GNumAlternateFrameRenderingGroups)
+		{
+			// Each AFR group uses multiple GPU. AFRGroup(i) = { i, NumAFRGroups + i,  2 * NumAFRGroups + i, ... } up to NumGPUs.
+			// Each view rendered gets assigned to the next GPU in that group. 
+			for (uint32 GPUIndex = RenderTargetGPUMask.ToIndex() + GNumAlternateFrameRenderingGroups; GPUIndex < GNumExplicitGPUsForRendering; GPUIndex += GNumAlternateFrameRenderingGroups)
+			{
+				UsableGPUMask |= FRHIGPUMask::FromIndex(GPUIndex);
+			}
+		}
+
+		FRHIGPUMask::FIterator GPUIterator(UsableGPUMask);
+		for (FViewInfo& ViewInfo : Views)
+		{
+			// Only handle views that are to be rendered (this excludes instance stereo).
+			if (ViewInfo.ShouldRenderView())
+			{
+				ViewInfo.GPUMask = FRHIGPUMask::FromIndex(*GPUIterator);
+				ViewFamily.bMultiGPUForkAndJoin |= (ViewInfo.GPUMask != RenderTargetGPUMask);
+					
+				// Increment and wrap around if we reach the last index.
+				++GPUIterator;
+				if (!GPUIterator)
+				{
+					GPUIterator = FRHIGPUMask::FIterator(UsableGPUMask);
+				}
+			}
+			else
+			{
+				ViewInfo.GPUMask = RenderTargetGPUMask;
+			}
+		}
+	}
+	else
+#endif
+	{
+		for (FViewInfo& ViewInfo : Views)
+		{
+			if (ViewInfo.ShouldRenderView())
+			{
+				ViewInfo.GPUMask = RenderTargetGPUMask;
+			}
+		}
+	}
+}
+
+void FSceneRenderer::DoCrossGPUTransfers(FRHICommandListImmediate& RHICmdList, FRHIGPUMask RenderTargetGPUMask)
+{
+#if WITH_MGPU
+	if (ViewFamily.bMultiGPUForkAndJoin)
+	{
+		const FTexture2DRHIRef& SceneRenderTarget = ViewFamily.RenderTarget->GetRenderTargetTexture();
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+		{
+			const FViewInfo& ViewInfo = Views[ViewIndex];
+			if (ViewInfo.GPUMask != RenderTargetGPUMask)
+			{
+				// Clamp the view rect by the rendertarget rect to prevent issues when resizing the viewport.
+				const FIntRect TransferRect(ViewInfo.ViewRect.Min.ComponentMin(SceneRenderTarget->GetSizeXY()), ViewInfo.ViewRect.Max.ComponentMin(SceneRenderTarget->GetSizeXY()));
+				if (TransferRect.Width() > 0 && TransferRect.Height() > 0)
+				{
+					for (uint32 RenderTargetGPUIndex : RenderTargetGPUMask)
+					{
+						if (!ViewInfo.GPUMask.Contains(RenderTargetGPUIndex))
+						{
+							RHICmdList.TransferTexture(SceneRenderTarget, TransferRect, ViewInfo.GPUMask.GetFirstIndex(), RenderTargetGPUIndex, true);
+						}
+					}
+				}
+			}
+		}
+	}
+#endif
+}
+
 
 void FSceneRenderer::ComputeFamilySize()
 {
@@ -3197,6 +3288,16 @@ void FRendererModule::RenderOverlayExtensions(const FViewInfo& View, FRHICommand
 void FRendererModule::RenderPostResolvedSceneColorExtension(FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext)
 {
 	PostResolvedSceneColorCallbacks.Broadcast(RHICmdList, SceneContext);
+}
+
+IVirtualTextureSpace *FRendererModule::CreateVirtualTextureSpace(const FVirtualTextureSpaceDesc &Desc)
+{
+	return IVirtualTextureSpace::Create(Desc);
+}
+
+void FRendererModule::DestroyVirtualTextureSpace(IVirtualTextureSpace *Space)
+{
+	IVirtualTextureSpace::Delete(Space);
 }
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

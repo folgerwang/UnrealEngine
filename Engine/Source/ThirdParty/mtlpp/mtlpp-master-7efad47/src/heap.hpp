@@ -47,7 +47,9 @@ namespace mtlpp
     class HeapDescriptor : public ns::Object<MTLHeapDescriptor*>
     {
     public:
-        HeapDescriptor(MTLHeapDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLHeapDescriptor*>(handle, retain) { }
+		HeapDescriptor();
+		
+		HeapDescriptor(MTLHeapDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLHeapDescriptor*>(handle, retain) { }
 
         NSUInteger     GetSize() const;
         StorageMode  GetStorageMode() const;

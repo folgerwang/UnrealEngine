@@ -266,12 +266,8 @@ bool FillSessionFromLobbyData(FUniqueNetIdSteam& LobbyId, FOnlineSession& Sessio
 		}
 		else if (FCStringAnsi::Stricmp(Key, STEAMKEY_BUILDUNIQUEID) == 0)
 		{
-			int32 BuildUniqueId = FCString::Atoi(ANSI_TO_TCHAR(Value));
-			if (BuildUniqueId != 0)
-			{
-				Session.SessionSettings.BuildUniqueId = BuildUniqueId;
-				KeysFound++;
-			}
+			Session.SessionSettings.BuildUniqueId = FCString::Atoi(ANSI_TO_TCHAR(Value));
+			KeysFound++;
 		}
 		else if (FCStringAnsi::Stricmp(Key, STEAMKEY_OWNINGUSERID) == 0)
 		{
@@ -353,7 +349,7 @@ bool FillSessionFromLobbyData(FUniqueNetIdSteam& LobbyId, FOnlineSession& Sessio
 	if (bSuccess && (KeysFound == STEAMKEY_NUMREQUIREDLOBBYKEYS) && (HostKeysFound == 2 || SteamAddrKeysFound == 2))
 	{
 		int32 BuildUniqueId = GetBuildUniqueId();
-		if (Session.SessionSettings.BuildUniqueId != 0 && Session.SessionSettings.BuildUniqueId == BuildUniqueId)
+		if (Session.SessionSettings.BuildUniqueId == BuildUniqueId)
 		{
 			if (HostKeysFound == 2)
 			{

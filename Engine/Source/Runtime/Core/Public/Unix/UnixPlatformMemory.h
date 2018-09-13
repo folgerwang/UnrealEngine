@@ -73,7 +73,7 @@ struct CORE_API FUnixPlatformMemory : public FGenericPlatformMemory
 	static bool PageProtect(void* const Ptr, const SIZE_T Size, const bool bCanRead, const bool bCanWrite);
 	static void* BinnedAllocFromOS(SIZE_T Size);
 	static void BinnedFreeToOS(void* Ptr, SIZE_T Size);
-	static bool BinnedPlatformHasMemoryPoolForThisSize(SIZE_T Size);
+	static bool MemoryRangeDecommit(void* Ptr, SIZE_T Size);
 	static FSharedMemoryRegion * MapNamedSharedMemoryRegion(const FString& InName, bool bCreate, uint32 AccessMode, SIZE_T Size);
 	static bool UnmapNamedSharedMemoryRegion(FSharedMemoryRegion * MemoryRegion);
 	static bool GetLLMAllocFunctions(void*(*&OutAllocFunction)(size_t), void(*&OutFreeFunction)(void*, size_t), int32& OutAlignment);

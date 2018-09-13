@@ -52,6 +52,7 @@ public class OSVRInput : ModuleRules
                             });
 
             AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
         }
     }
 }

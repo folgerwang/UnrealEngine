@@ -3,10 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
-#include "Styling/SlateColor.h"
+#include "Containers/ArrayView.h"
 #include "Misc/App.h"
 #include "Misc/OutputDeviceFile.h"
+#include "Styling/SlateColor.h"
+#include "UObject/ObjectMacros.h"
 
 #include "NetcodeUnitTest.h"
 #include "UnitTestBase.h"
@@ -45,6 +46,26 @@ enum class EUnitTestVerification : uint8
 	/** Unit test is verified as having executed unreliably */
 	VerifiedUnreliable,
 };
+
+/**
+ * The different stages that unit tests can be reset to - a global/non-locally-customizable list, for now
+ * NOTE: Stages MUST be sequential! (e.g. ResetConnection implies ResetExecute, FullReset implies both ResetConnection and ResetExecute)
+ * NOTE: Apart from checking for 'None', all comparisons should be either <= or >=, to support potential enum additions
+ */
+UENUM()
+enum class EUnitTestResetStage : uint8
+{
+	/** No reset stage */
+	None,
+	/** Resets the entire unit test, allowing restart from the beginning */
+	FullReset,
+	/** For ClientUnitTest's, resets the net connection and minimal client - but not the server - allowing a restart from connecting */
+	ResetConnection,
+	/** Resets unit tests to the point prior to 'ExecuteUnitTest' - usually implemented individually per unit test */
+	ResetExecute
+};
+
+FString GetUnitTestResetStageName(EUnitTestResetStage Stage);
 
 
 /**
@@ -423,18 +444,37 @@ public:
 	/**
 	 * Aborts execution of the unit test, part-way through
 	 */
-	virtual void AbortUnitTest();
+	void AbortUnitTest();
 
 	/**
 	 * Called upon completion of the unit test (may not happen during same tick), for tearing down created worlds/connections/etc.
 	 * NOTE: Should be called last, in overridden functions, as this triggers deletion of the unit test object
 	 */
-	virtual void EndUnitTest();
+	void EndUnitTest();
 
 	/**
 	 * Cleans up all items needing destruction, and removes the unit test from tracking, before deleting the unit test itself
+	 *
+	 * @param ResetStage	If called from ResetUnitTest, restricts what is cleaned up based on the current reset stage
 	 */
-	virtual void CleanupUnitTest();
+	virtual void CleanupUnitTest(EUnitTestResetStage ResetStage=EUnitTestResetStage::None);
+
+
+	/**
+	 * Resets the unit test to its initial state, allowing it to restart from scratch
+	 * NOTE: Must be implemented for every unit test that intends to support it, through CleanupUnitTest
+	 *
+	 * @param ResetStage	If specified, only partially resets the unit test state, to allow replaying only a portion of the unit test
+	 */
+	void ResetUnitTest(EUnitTestResetStage ResetStage=EUnitTestResetStage::FullReset);
+
+	/**
+	 * Whether or not this unit test supports resetting
+	 */
+	virtual bool CanResetUnitTest()
+	{
+		return false;
+	}
 
 
 	virtual void NotifyLocalLog(ELogType InLogType, const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category)

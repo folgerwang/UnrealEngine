@@ -28,9 +28,6 @@
 #define JPGD_TRUE (1)
 #define JPGD_FALSE (0)
 
-//@UE3 - use UE3 BGRA encoding instead of assuming RGBA
-#define DECODE_TO_BGRA 1
-
 #define JPGD_MAX(a,b) (((a)>(b)) ? (a) : (b))
 #define JPGD_MIN(a,b) (((a)<(b)) ? (a) : (b))
 
@@ -38,6 +35,19 @@ namespace jpgd {
 
 	static inline void *jpgd_malloc(size_t nSize) { return FMemory::Malloc(nSize); }
 	static inline void jpgd_free(void *p) { FMemory::Free(p); }
+
+// BEGIN EPIC MOD
+//@UE3 - use UE3 BGRA encoding instead of assuming RGBA
+	// stolen from IImageWrapper.h
+	enum ERGBFormatJPG
+	{
+		Invalid = -1,
+		RGBA =  0,
+		BGRA =  1,
+		Gray =  2,
+	};
+	static ERGBFormatJPG jpg_format;
+// END EPIC MOD
 
 	// DCT coefficients are stored in this sequence.
 	static int g_ZAG[64] = {  0,1,8,16,9,2,3,10,17,24,32,25,18,11,4,5,12,19,26,33,40,48,41,34,27,20,13,6,7,14,21,28,35,42,49,56,57,50,43,36,29,22,15,23,30,37,44,51,58,59,52,45,38,31,39,46,53,60,61,54,47,55,62,63 };
@@ -1889,17 +1899,20 @@ namespace jpgd {
 				int cb = s[64+j];
 				int cr = s[128+j];
 
-#if DECODE_TO_BGRA
-				d[0] = clamp(y + m_cbb[cb]);
-				d[1] = clamp(y + ((m_crg[cr] + m_cbg[cb]) >> 16));
-				d[2] = clamp(y + m_crr[cr]);
-				d[3] = 255;
-#else
-				d[0] = clamp(y + m_crr[cr]);
-				d[1] = clamp(y + ((m_crg[cr] + m_cbg[cb]) >> 16));
-				d[2] = clamp(y + m_cbb[cb]);
-				d[3] = 255;
-#endif
+				if (jpg_format == ERGBFormatJPG::BGRA)
+				{
+					d[0] = clamp(y + m_cbb[cb]);
+					d[1] = clamp(y + ((m_crg[cr] + m_cbg[cb]) >> 16));
+					d[2] = clamp(y + m_crr[cr]);
+					d[3] = 255;
+				}
+				else
+				{
+					d[0] = clamp(y + m_crr[cr]);
+					d[1] = clamp(y + ((m_crg[cr] + m_cbg[cb]) >> 16));
+					d[2] = clamp(y + m_cbb[cb]);
+					d[3] = 255;
+				}
 				d += 4;
 			}
 
@@ -1929,30 +1942,30 @@ namespace jpgd {
 					int bc = m_cbb[cb];
 
 					int yy = y[j<<1];
-#if DECODE_TO_BGRA
-					d0[0] = clamp(yy+bc);
-					d0[1] = clamp(yy+gc);
-					d0[2] = clamp(yy+rc);
-					d0[3] = 255;
-#else
-					d0[0] = clamp(yy+rc);
-					d0[1] = clamp(yy+gc);
-					d0[2] = clamp(yy+bc);
-					d0[3] = 255;
-#endif
-
-					yy = y[(j<<1)+1];
-#if DECODE_TO_BGRA
-					d0[4] = clamp(yy+bc);
-					d0[5] = clamp(yy+gc);
-					d0[6] = clamp(yy+rc);
-					d0[7] = 255;
-#else
-					d0[4] = clamp(yy+rc);
-					d0[5] = clamp(yy+gc);
-					d0[6] = clamp(yy+bc);
-					d0[7] = 255;
-#endif
+					if (jpg_format == ERGBFormatJPG::BGRA)
+					{
+						d0[0] = clamp(yy+bc);
+						d0[1] = clamp(yy+gc);
+						d0[2] = clamp(yy+rc);
+						d0[3] = 255;
+						yy = y[(j<<1)+1];
+						d0[4] = clamp(yy+bc);
+						d0[5] = clamp(yy+gc);
+						d0[6] = clamp(yy+rc);
+						d0[7] = 255;
+					}
+					else
+					{
+						d0[0] = clamp(yy+rc);
+						d0[1] = clamp(yy+gc);
+						d0[2] = clamp(yy+bc);
+						d0[3] = 255;
+						yy = y[(j<<1)+1];
+						d0[4] = clamp(yy+rc);
+						d0[5] = clamp(yy+gc);
+						d0[6] = clamp(yy+bc);
+						d0[7] = 255;
+					}
 
 					d0 += 8;
 
@@ -1994,30 +2007,30 @@ namespace jpgd {
 				int bc = m_cbb[cb];
 
 				int yy = y[j];
-#if DECODE_TO_BGRA
-				d0[0] = clamp(yy+bc);
-				d0[1] = clamp(yy+gc);
-				d0[2] = clamp(yy+rc);
-				d0[3] = 255;
-#else
-				d0[0] = clamp(yy+rc);
-				d0[1] = clamp(yy+gc);
-				d0[2] = clamp(yy+bc);
-				d0[3] = 255;
-#endif
-
-				yy = y[8+j];
-#if DECODE_TO_BGRA
-				d1[0] = clamp(yy+bc);
-				d1[1] = clamp(yy+gc);
-				d1[2] = clamp(yy+rc);
-				d1[3] = 255;
-#else
-				d1[0] = clamp(yy+rc);
-				d1[1] = clamp(yy+gc);
-				d1[2] = clamp(yy+bc);
-				d1[3] = 255;
-#endif
+				if (jpg_format == ERGBFormatJPG::BGRA)
+				{
+					d0[0] = clamp(yy+bc);
+					d0[1] = clamp(yy+gc);
+					d0[2] = clamp(yy+rc);
+					d0[3] = 255;
+					yy = y[8+j];
+					d1[0] = clamp(yy+bc);
+					d1[1] = clamp(yy+gc);
+					d1[2] = clamp(yy+rc);
+					d1[3] = 255;
+				}
+				else
+				{
+					d0[0] = clamp(yy+rc);
+					d0[1] = clamp(yy+gc);
+					d0[2] = clamp(yy+bc);
+					d0[3] = 255;
+					yy = y[8+j];
+					d1[0] = clamp(yy+rc);
+					d1[1] = clamp(yy+gc);
+					d1[2] = clamp(yy+bc);
+					d1[3] = 255;
+				}
 
 				d0 += 4;
 				d1 += 4;
@@ -2058,56 +2071,50 @@ namespace jpgd {
 					int bc = m_cbb[cb];
 
 					int yy = y[j];
-#if DECODE_TO_BGRA
-					d0[0] = clamp(yy+bc);
-					d0[1] = clamp(yy+gc);
-					d0[2] = clamp(yy+rc);
-					d0[3] = 255;
-#else
-					d0[0] = clamp(yy+rc);
-					d0[1] = clamp(yy+gc);
-					d0[2] = clamp(yy+bc);
-					d0[3] = 255;
-#endif
-
-					yy = y[j+1];
-#if DECODE_TO_BGRA
-					d0[4] = clamp(yy+bc);
-					d0[5] = clamp(yy+gc);
-					d0[6] = clamp(yy+rc);
-					d0[7] = 255;
-#else
-					d0[4] = clamp(yy+rc);
-					d0[5] = clamp(yy+gc);
-					d0[6] = clamp(yy+bc);
-					d0[7] = 255;
-#endif
-
-					yy = y[j+8];
-#if DECODE_TO_BGRA
-					d1[0] = clamp(yy+bc);
-					d1[1] = clamp(yy+gc);
-					d1[2] = clamp(yy+rc);
-					d1[3] = 255;
-#else
-					d1[0] = clamp(yy+rc);
-					d1[1] = clamp(yy+gc);
-					d1[2] = clamp(yy+bc);
-					d1[3] = 255;
-#endif
-
-					yy = y[j+8+1];
-#if DECODE_TO_BGRA
-					d1[4] = clamp(yy+bc);
-					d1[5] = clamp(yy+gc);
-					d1[6] = clamp(yy+rc);
-					d1[7] = 255;					
-#else
-					d1[4] = clamp(yy+rc);
-					d1[5] = clamp(yy+gc);
-					d1[6] = clamp(yy+bc);
-					d1[7] = 255;
-#endif
+					if (jpg_format == ERGBFormatJPG::BGRA)
+					{
+						d0[0] = clamp(yy+bc);
+						d0[1] = clamp(yy+gc);
+						d0[2] = clamp(yy+rc);
+						d0[3] = 255;
+						yy = y[j+1];
+						d0[4] = clamp(yy+bc);
+						d0[5] = clamp(yy+gc);
+						d0[6] = clamp(yy+rc);
+						d0[7] = 255;
+						yy = y[j+8];
+						d1[0] = clamp(yy+bc);
+						d1[1] = clamp(yy+gc);
+						d1[2] = clamp(yy+rc);
+						d1[3] = 255;
+						yy = y[j+8+1];
+						d1[4] = clamp(yy+bc);
+						d1[5] = clamp(yy+gc);
+						d1[6] = clamp(yy+rc);
+						d1[7] = 255;
+					}
+					else
+					{
+						d0[0] = clamp(yy+rc);
+						d0[1] = clamp(yy+gc);
+						d0[2] = clamp(yy+bc);
+						d0[3] = 255;
+						yy = y[j+1];
+						d0[4] = clamp(yy+rc);
+						d0[5] = clamp(yy+gc);
+						d0[6] = clamp(yy+bc);
+						d0[7] = 255;
+						yy = y[j+8];
+						d1[0] = clamp(yy+rc);
+						d1[1] = clamp(yy+gc);
+						d1[2] = clamp(yy+bc);
+						d1[3] = 255;
+						yy = y[j+8+1];
+						d1[4] = clamp(yy+rc);
+						d1[5] = clamp(yy+gc);
+						d1[6] = clamp(yy+bc);
+						d1[7] = 255;
+					}
 
 					d0 += 8;
 					d1 += 8;
@@ -2160,17 +2167,20 @@ namespace jpgd {
 					int cb = Py[Cb_ofs + j];
 					int cr = Py[Cr_ofs + j];
 
-#if DECODE_TO_BGRA
-					d[0] = clamp(y + m_cbb[cb]);
-					d[1] = clamp(y + ((m_crg[cr] + m_cbg[cb]) >> 16));
-					d[2] = clamp(y + m_crr[cr]);
-					d[3] = 255;
-#else
-					d[0] = clamp(y + m_crr[cr]);
-					d[1] = clamp(y + ((m_crg[cr] + m_cbg[cb]) >> 16));
-					d[2] = clamp(y + m_cbb[cb]);
-					d[3] = 255;
-#endif
+					if (jpg_format == ERGBFormatJPG::BGRA)
+					{
+						d[0] = clamp(y + m_cbb[cb]);
+						d[1] = clamp(y + ((m_crg[cr] + m_cbg[cb]) >> 16));
+						d[2] = clamp(y + m_crr[cr]);
+						d[3] = 255;
+					}
+					else
+					{
+						d[0] = clamp(y + m_crr[cr]);
+						d[1] = clamp(y + ((m_crg[cr] + m_cbg[cb]) >> 16));
+						d[2] = clamp(y + m_cbb[cb]);
+						d[3] = 255;
+					}
 
 					d += 4;
 				}
@@ -3246,8 +3256,11 @@ namespace jpgd {
 		return pImage_data;
 	}
 
-	unsigned char *decompress_jpeg_image_from_memory(const unsigned char *pSrc_data, int src_data_size, int *width, int *height, int *actual_comps, int req_comps)
+// BEGIN EPIC MOD
+	unsigned char *decompress_jpeg_image_from_memory(const unsigned char *pSrc_data, int src_data_size, int *width, int *height, int *actual_comps, int req_comps, int format)
 	{
+		jpg_format = (ERGBFormatJPG)format;
+// EMD EPIC MOD
 		jpgd::jpeg_decoder_mem_stream mem_stream(pSrc_data, src_data_size);
 		return decompress_jpeg_image_from_stream(&mem_stream, width, height, actual_comps, req_comps);
 	}

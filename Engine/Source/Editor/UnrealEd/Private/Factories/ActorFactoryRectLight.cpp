@@ -17,10 +17,11 @@ void UActorFactoryRectLight::PostSpawnActor(UObject* Asset, AActor* NewActor)
 	{
 		if (Component && Component->CreationMethod == EComponentCreationMethod::Native)
 		{
-			static const auto CVarDefaultSpotLightUnits = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultFeature.SpotLightUnits"));
-			ELightUnits DefaultUnits = (ELightUnits)CVarDefaultSpotLightUnits->GetValueOnAnyThread();
+			static const auto CVarDefaultLightUnits = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultFeature.LightUnits"));
+			ELightUnits DefaultUnits = (ELightUnits)CVarDefaultLightUnits->GetValueOnAnyThread();
 
-			Component->Intensity *= URectLightComponent::GetUnitsConversionFactor(Component->IntensityUnits, DefaultUnits);
+			// Passing .5 as CosHalfConeAngle  since URectLightComponent::SetLightBrightness() lumens conversion use only PI
+			Component->Intensity *= URectLightComponent::GetUnitsConversionFactor(Component->IntensityUnits, DefaultUnits, .5f);
 			Component->IntensityUnits = DefaultUnits;
 		}
 	}

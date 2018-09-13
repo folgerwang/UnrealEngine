@@ -33,6 +33,7 @@ public:
 			return;
 		}
 
+		ReleaseDynamicRHI();
 		InternalInitializeTextures(RHICmdList, InFeatureLevel);
 	}
 

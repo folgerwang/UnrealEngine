@@ -1752,7 +1752,7 @@ struct FPostProcessSettings
 
 
 	// Default number of blade of the diaphragm to simulate in depth of field.
-	static constexpr int32 kDefaultDepthOfFieldBladeCount = 7;
+	static constexpr int32 kDefaultDepthOfFieldBladeCount = 5;
 };
 
 UCLASS()

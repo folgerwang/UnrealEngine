@@ -1073,6 +1073,11 @@ namespace UnrealBuildTool
 		public LuminTargetRules LuminPlatform = new LuminTargetRules();
 
 		/// <summary>
+		/// Linux-specific target settings.
+		/// </summary>
+		public LinuxTargetRules LinuxPlatform = new LinuxTargetRules();
+
+		/// <summary>
 		/// Mac-specific target settings.
 		/// </summary>
 		public MacTargetRules MacPlatform = new MacTargetRules();
@@ -1304,6 +1309,7 @@ namespace UnrealBuildTool
 			yield return AndroidPlatform;
 			yield return IOSPlatform;
 			yield return LuminPlatform;
+			yield return LinuxPlatform;
 			yield return MacPlatform;
 			yield return PS4Platform;
 			yield return SwitchPlatform;
@@ -1357,6 +1363,7 @@ namespace UnrealBuildTool
 			AndroidPlatform = new ReadOnlyAndroidTargetRules(Inner.AndroidPlatform);
 			IOSPlatform = new ReadOnlyIOSTargetRules(Inner.IOSPlatform);
 			LuminPlatform = new ReadOnlyLuminTargetRules(Inner.LuminPlatform);
+			LinuxPlatform = new ReadOnlyLinuxTargetRules(Inner.LinuxPlatform);
 			MacPlatform = new ReadOnlyMacTargetRules(Inner.MacPlatform);
 			PS4Platform = new ReadOnlyPS4TargetRules(Inner.PS4Platform);
 			SwitchPlatform = new ReadOnlySwitchTargetRules(Inner.SwitchPlatform);
@@ -2069,6 +2076,12 @@ namespace UnrealBuildTool
 			private set;
 		}
 		public ReadOnlyLuminTargetRules LuminPlatform
+		{
+			get;
+			private set;
+		}
+
+		public ReadOnlyLinuxTargetRules LinuxPlatform
 		{
 			get;
 			private set;

@@ -1239,6 +1239,48 @@ FGameplayTagContainer UGameplayTagsManager::RequestGameplayTagChildrenInDictiona
 	return TagContainer;
 }
 
+#if WITH_EDITORONLY_DATA
+FGameplayTagContainer UGameplayTagsManager::RequestGameplayTagDirectDescendantsInDictionary(const FGameplayTag& GameplayTag, EGameplayTagSelectionType SelectionType) const
+{
+	bool bIncludeRestrictedTags = (SelectionType == EGameplayTagSelectionType::RestrictedOnly || SelectionType == EGameplayTagSelectionType::All);
+	bool bIncludeNonRestrictedTags = (SelectionType == EGameplayTagSelectionType::NonRestrictedOnly || SelectionType == EGameplayTagSelectionType::All);
+
+	// Note this purposefully does not include the passed in GameplayTag in the container.
+	FGameplayTagContainer TagContainer;
+
+	TSharedPtr<FGameplayTagNode> GameplayTagNode = FindTagNode(GameplayTag);
+	if (GameplayTagNode.IsValid())
+	{
+		TArray< TSharedPtr<FGameplayTagNode> >& ChildrenNodes = GameplayTagNode->GetChildTagNodes();
+		int32 CurrArraySize = ChildrenNodes.Num();
+		for (int32 Idx = 0; Idx < CurrArraySize; ++Idx)
+		{
+			TSharedPtr<FGameplayTagNode> ChildNode = ChildrenNodes[Idx];
+			if (ChildNode.IsValid())
+			{
+				// if the tag isn't in the dictionary, add its children to the list
+				if (ChildNode->SourceName == NAME_None)
+				{
+					TArray< TSharedPtr<FGameplayTagNode> >& GrandChildrenNodes = ChildNode->GetChildTagNodes();
+					ChildrenNodes.Append(GrandChildrenNodes);
+					CurrArraySize = ChildrenNodes.Num();
+				}
+				else
+				{
+					// this tag is in the dictionary so add it to the list
+					if ((ChildNode->bIsRestrictedTag && bIncludeRestrictedTags) ||
+						(!ChildNode->bIsRestrictedTag && bIncludeNonRestrictedTags))
+					{
+						TagContainer.AddTag(ChildNode->GetCompleteTag());
+					}
+				}
+			}
+		}
+	}
+	return TagContainer;
+}
+#endif // WITH_EDITORONLY_DATA
+
 void UGameplayTagsManager::NotifyGameplayTagDoubleClickedEditor(FString TagName)
 {
 	FGameplayTag Tag = RequestGameplayTag(FName(*TagName), false);

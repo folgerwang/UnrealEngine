@@ -30,7 +30,7 @@
 
 // on 64 bit Linux, it is easier to run out of vm.max_map_count than of other limits. Due to that, trade VIRT (address space) size for smaller amount of distinct mappings
 // by not leaving holes between them (kernel will coalesce the adjoining mappings into a single one)
-#define UE4_PLATFORM_REDUCE_NUMBER_OF_MAPS					(PLATFORM_UNIX && PLATFORM_64BITS)
+#define UE4_PLATFORM_REDUCE_NUMBER_OF_MAPS					(0 && PLATFORM_UNIX && PLATFORM_64BITS)
 
 #ifndef MALLOC_LEAKDETECTION
 	#define MALLOC_LEAKDETECTION 0
@@ -279,6 +279,41 @@ void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 	// Descriptor is only used if we're sanity checking. However, #ifdef'ing its use would make the code more fragile. Size needs to be at least one page.
 	const SIZE_T DescriptorSize = (UE4_PLATFORM_REDUCE_NUMBER_OF_MAPS != 0 || UE4_PLATFORM_SANITY_CHECK_OS_ALLOCATIONS != 0) ? OSPageSize : 0;
 
+#if PLATFORM_UNIX
+	// If we are not using descriptors lets see if a mmap of the requested size happens to return a pointer aligned with ExpectedAlignment
+	// Such pointer will likely be coalesced with an existing mapping, reducing the number of disjoint mappings (VMAs)
+	// This is important on Linux where we can run out VMAs; other platforms seem to be fine with holes in the virtual address space, so spare them an extra syscall
+	if (DescriptorSize == 0)
+	{
+		void* PointerWeGotFromMMap = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+
+		if (PointerWeGotFromMMap == MAP_FAILED)
+		{
+			const int ErrNo = errno;
+			UE_LOG(LogHAL, Fatal, TEXT("mmap(len=%llu) failed with errno = %d (%s)"), (uint64)(Size),
+				ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+			// unreachable
+			return nullptr;
+		}
+
+		// If we happen to be aligned we can return early with out having to unmap anything
+		if (reinterpret_cast<SIZE_T>(PointerWeGotFromMMap) % ExpectedAlignment == 0)
+		{
+			return PointerWeGotFromMMap;
+		}
+
+		// We have failed to get an aligned pointer, lets unmap and fall back
+		if (munmap(PointerWeGotFromMMap, Size) != 0)
+		{
+			const int ErrNo = errno;
+			UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), PointerWeGotFromMMap, (uint64)(Size),
+				ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+			// unreachable
+			return nullptr;
+		}
+	}
+#endif
+
 	SIZE_T ActualSizeMapped = SizeInWholePages + ExpectedAlignment;
 
 	// the remainder of the map will be used for the descriptor, if any.
@@ -430,6 +465,33 @@ void FGenericPlatformMemory::BinnedFreeToOS( void* Ptr, SIZE_T Size )
 		}
 	}
 #endif // UE4_PLATFORM_USES_MMAP_FOR_BINNED_OS_ALLOCS
+}
+
+void* FGenericPlatformMemory::MemoryRangeReserve(SIZE_T Size, bool bCommit, int32 Node)
+{
+#if UE4_PLATFORM_USES_MMAP_FOR_BINNED_OS_ALLOCS
+	void* Ptr = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+	return Ptr != MAP_FAILED ? Ptr : nullptr;
+#else
+	UE_LOG(LogMemory, Fatal, TEXT("FGenericPlatformMemory::MemoryRangeReserve not implemented on this platform"));
+	// unreachable
+	return nullptr;
+#endif
+}
+
+void FGenericPlatformMemory::MemoryRangeFree(void* Ptr, SIZE_T Size)
+{
+#if UE4_PLATFORM_USES_MMAP_FOR_BINNED_OS_ALLOCS
+	if (munmap(Ptr, Size) != 0)
+	{
+		// we can ran out of VMAs here
+		FPlatformMemory::OnOutOfMemory(Size, 0);
+		// unreachable
+	}
+#else
+	UE_LOG(LogMemory, Fatal, TEXT("FGenericPlatformMemory::MemoryRangeFree not implemented on this platform"));
+	// unreachable
+#endif
 }
 
 void FGenericPlatformMemory::DumpStats( class FOutputDevice& Ar )

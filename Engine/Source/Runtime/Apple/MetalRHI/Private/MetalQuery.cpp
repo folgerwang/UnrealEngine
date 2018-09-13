@@ -9,10 +9,6 @@
 #include "MetalLLM.h"
 #include "MetalCommandBuffer.h"
 
-#if METAL_DEBUG_OPTIONS
-extern int32 GMetalBufferZeroFill;
-#endif
-
 void FMetalQueryBufferPool::Allocate(FMetalQueryResult& NewQuery)
 {
 	FMetalQueryBuffer* QB = IsValidRef(CurrentBuffer) ? CurrentBuffer.GetReference() : GetCurrentQueryBuffer();
@@ -335,8 +331,15 @@ bool FMetalDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI,
 		
 			bOK = Query->Buffer.Wait(WaitMS);
 			
-			GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUQuery] += FPlatformTime::Cycles() - IdleStart;
-			GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUQuery]++;
+			if (IsInRHIThread())
+			{
+				GWorkingRHIThreadStallTime += FPlatformTime::Cycles() - IdleStart;
+			}
+			else
+			{
+				GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUQuery] += FPlatformTime::Cycles() - IdleStart;
+				GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUQuery]++;
+			}
 			
 			// Never wait for a failed signal again.
 			Query->bAvailable = Query->Buffer.bCompleted;
@@ -401,43 +404,43 @@ void FMetalRHICommandContext::RHIEndOcclusionQueryBatch()
 
 void FMetalDynamicRHI::RHICalibrateTimers()
 {
-	check(IsInRenderingThread());
-#if METAL_STATISTICS
-	FMetalContext& Context = ImmediateContext.GetInternalContext();
-	if (Context.GetCommandQueue().GetStatistics())
-	{
-		FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList());
-		mtlpp::CommandBuffer Buffer = Context.GetCommandQueue().CreateCommandBuffer();
-		
-		id<IMetalStatisticsSamples> Samples = Context.GetCommandQueue().GetStatistics()->RegisterEncoderStatistics(Buffer.GetPtr(), EMetalSampleComputeEncoderStart);
-		mtlpp::ComputeCommandEncoder Encoder = Buffer.ComputeCommandEncoder();
-#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
-		FMetalComputeCommandEncoderDebugging Debugging;
-		if (SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
-		{
-			FMetalCommandBufferDebugging CmdDebug = FMetalCommandBufferDebugging::Get(Buffer);
-			Debugging = FMetalComputeCommandEncoderDebugging(Encoder, CmdDebug);
-		}
-#endif
-		
-		Context.GetCommandQueue().GetStatistics()->RegisterEncoderStatistics(Buffer.GetPtr(), EMetalSampleComputeEncoderEnd);
-		check(Samples);
-		[Samples retain];
-		Encoder.EndEncoding();
-		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging.EndEncoder());
-		
-		FMetalProfiler* Profiler = ImmediateContext.GetProfiler();
-		Buffer.AddCompletedHandler(^(const mtlpp::CommandBuffer & theBuffer) {
-			double GpuTimeSeconds = theBuffer.GetGpuStartTime();
-			const double CyclesPerSecond = 1.0 / FPlatformTime::GetSecondsPerCycle();
-			NSUInteger EndTime = GpuTimeSeconds * CyclesPerSecond;
-			NSUInteger StatsTime = Samples.Array[0];
-			Profiler->TimingSupport.SetCalibrationTimestamp(StatsTime / 1000, EndTime / 1000);
-			[Samples release];
-		});
-		
-		Context.GetCommandQueue().CommitCommandBuffer(Buffer);
-		Buffer.WaitUntilCompleted();
-	}
-#endif
+//	check(IsInRenderingThread());
+//#if METAL_STATISTICS
+//	FMetalContext& Context = ImmediateContext.GetInternalContext();
+//	if (Context.GetCommandQueue().GetStatistics())
+//	{
+//		FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList());
+//		mtlpp::CommandBuffer Buffer = Context.GetCommandQueue().CreateCommandBuffer();
+//		
+//		id<IMetalStatisticsSamples> Samples = Context.GetCommandQueue().GetStatistics()->RegisterEncoderStatistics(Buffer.GetPtr(), EMetalSampleComputeEncoderStart);
+//		mtlpp::ComputeCommandEncoder Encoder = Buffer.ComputeCommandEncoder();
+//#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
+//		FMetalComputeCommandEncoderDebugging Debugging;
+//		if (SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+//		{
+//			FMetalCommandBufferDebugging CmdDebug = FMetalCommandBufferDebugging::Get(Buffer);
+//			Debugging = FMetalComputeCommandEncoderDebugging(Encoder, CmdDebug);
+//		}
+//#endif
+//		
+//		Context.GetCommandQueue().GetStatistics()->RegisterEncoderStatistics(Buffer.GetPtr(), EMetalSampleComputeEncoderEnd);
+//		check(Samples);
+//		[Samples retain];
+//		Encoder.EndEncoding();
+//		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging.EndEncoder());
+//		
+//		FMetalProfiler* Profiler = ImmediateContext.GetProfiler();
+//		Buffer.AddCompletedHandler(^(const mtlpp::CommandBuffer & theBuffer) {
+//			double GpuTimeSeconds = theBuffer.GetGpuStartTime();
+//			const double CyclesPerSecond = 1.0 / FPlatformTime::GetSecondsPerCycle();
+//			NSUInteger EndTime = GpuTimeSeconds * CyclesPerSecond;
+//			NSUInteger StatsTime = Samples.Array[0];
+//			Profiler->TimingSupport.SetCalibrationTimestamp(StatsTime / 1000, EndTime / 1000);
+//			[Samples release];
+//		});
+//		
+//		Context.GetCommandQueue().CommitCommandBuffer(Buffer);
+//		Buffer.WaitUntilCompleted();
+//	}
+//#endif
 }

@@ -451,13 +451,20 @@ static void UpdateScissorRect(
 
 						SCOPE_CYCLE_COUNTER(STAT_SlateRTStencilDrawCall);
 
+						FRHIResourceCreateInfo CreateInfo;
+						FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FVector2D) * 4, BUF_Volatile, CreateInfo);
+						void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FVector2D) * 4, RLM_WriteOnly);
 						//TODO Slate If we ever decided to add masking with a texture, we could do that here.
-						FVector2D Vertices[4];
+						FVector2D* Vertices = (FVector2D*)VoidPtr;
+
 						Vertices[0].Set(MaskQuad.TopLeft.X, MaskQuad.TopLeft.Y);
 						Vertices[1].Set(MaskQuad.TopRight.X, MaskQuad.TopRight.Y);
 						Vertices[2].Set(MaskQuad.BottomLeft.X, MaskQuad.BottomLeft.Y);
 						Vertices[3].Set(MaskQuad.BottomRight.X, MaskQuad.BottomRight.Y);
-						DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+
+						RHIUnlockVertexBuffer(VertexBufferRHI);
+						RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+						RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 					}
 
 					// Now setup the pipeline to use SO_SaturatedIncrement, since we've established the initial
@@ -496,12 +503,20 @@ static void UpdateScissorRect(
 
 					SCOPE_CYCLE_COUNTER(STAT_SlateRTStencilDrawCall);
 					//TODO Slate If we ever decided to add masking with a texture, we could do that here.
-					FVector2D Vertices[4];
+					FRHIResourceCreateInfo CreateInfo;
+					FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FVector2D) * 4, BUF_Volatile, CreateInfo);
+					void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FVector2D) * 4, RLM_WriteOnly);
+					// Generate the vertices used
+					FVector2D* Vertices = (FVector2D*)VoidPtr;
+
 					Vertices[0].Set(MaskQuad.TopLeft.X, MaskQuad.TopLeft.Y);
 					Vertices[1].Set(MaskQuad.TopRight.X, MaskQuad.TopRight.Y);
 					Vertices[2].Set(MaskQuad.BottomLeft.X, MaskQuad.BottomLeft.Y);
 					Vertices[3].Set(MaskQuad.BottomRight.X, MaskQuad.BottomRight.Y);
-					DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+
+					RHIUnlockVertexBuffer(VertexBufferRHI);
+					RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+					RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 				}
 
 				// Setup the stenciling state to be read only now, disable depth writes, and restore the color buffer

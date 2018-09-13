@@ -20,6 +20,7 @@ struct FOneColorVertexOutput
 #endif
 };
 
+float InputDepth;
 
 #ifndef USING_NDC_POSITIONS
 	#define USING_NDC_POSITIONS 1
@@ -33,10 +34,11 @@ void MainVertexShader(
 	out FOneColorVertexOutput Output
 	)
 {
-	Output.Position = InPosition;
+	float4 Position = float4(InPosition.xy, InputDepth, 1.0f);
+	Output.Position = Position;
 
 #if !USING_NDC_POSITIONS
-	DrawRectangle( InPosition, Output.Position);
+	DrawRectangle(Position, Output.Position);
 #endif
 
 #if USING_VERTEX_SHADER_LAYER && USING_LAYERS

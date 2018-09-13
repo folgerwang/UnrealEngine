@@ -786,11 +786,6 @@ FRenderingCompositeOutput *FRenderingCompositeOutputRef::GetOutput() const
 	return Source->GetOutput(PassOutputId); 
 }
 
-FRenderingCompositePass* FRenderingCompositeOutputRef::GetPass() const
-{
-	return Source;
-}
-
 // -----------------------------------------------------------------
 
 void FPostProcessPassParameters::Bind(const FShaderParameterMap& ParameterMap)

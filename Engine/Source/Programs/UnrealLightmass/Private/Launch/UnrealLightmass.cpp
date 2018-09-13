@@ -200,10 +200,10 @@ int LightmassMain(int argc, ANSICHAR* argv[])
 			SceneGuid.C = _tcstoul(*Arg.Mid(16, 8), NULL, 16);
 			SceneGuid.D = _tcstoul(*Arg.Mid(24, 8), NULL, 16);
 #else
-			SceneGuid.A = wcstoul(*Arg.Mid(0, 8), NULL, 16);
-			SceneGuid.B = wcstoul(*Arg.Mid(8, 8), NULL, 16);
-			SceneGuid.C = wcstoul(*Arg.Mid(16, 8), NULL, 16);
-			SceneGuid.D = wcstoul(*Arg.Mid(24, 8), NULL, 16);
+			SceneGuid.A = FCString::Strtoui64(*Arg.Mid(0, 8), NULL, 16);
+			SceneGuid.B = FCString::Strtoui64(*Arg.Mid(8, 8), NULL, 16);
+			SceneGuid.C = FCString::Strtoui64(*Arg.Mid(16, 8), NULL, 16);
+			SceneGuid.D = FCString::Strtoui64(*Arg.Mid(24, 8), NULL, 16);
 #endif
 		}
 	}

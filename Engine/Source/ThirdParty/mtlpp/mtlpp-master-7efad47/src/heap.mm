@@ -12,6 +12,11 @@ MTLPP_BEGIN
 
 namespace mtlpp
 {
+	HeapDescriptor::HeapDescriptor()
+	: ns::Object<MTLHeapDescriptor*>([[MTLHeapDescriptor alloc] init], ns::Ownership::Assign)
+	{
+	}
+	
     NSUInteger HeapDescriptor::GetSize() const
     {
         Validate();

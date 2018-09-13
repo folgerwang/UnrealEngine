@@ -169,7 +169,7 @@ namespace {
 		}
 
 		FGuid CallbackID;
-		if (!FGuid::Parse(FString(Dictionary->GetString("$id").ToWString().c_str()), CallbackID))
+		if (!FGuid::Parse(FString(WCHAR_TO_TCHAR(Dictionary->GetString("$id").ToWString().c_str())), CallbackID))
 		{
 			// Invalid GUID
 			return false;
@@ -183,7 +183,7 @@ namespace {
 	{
 		if (Container->GetType(Key) == VTYPE_STRING)
 		{
-			FString StringValue = Container->GetString(Key).ToWString().c_str();
+			FString StringValue = WCHAR_TO_TCHAR(Container->GetString(Key).ToWString().c_str());
 
 			if (UStrProperty* StrProperty = Cast<UStrProperty>(Property))
 			{
@@ -293,7 +293,7 @@ TSharedPtr<ICefContainerWalker> FCefDictionaryValueWalker::GetNextToken(EStructD
 	else if ( Index < Keys.size() )
 	{
 		AssignTokenFromContainer(Dictionary, Keys[Index], OutToken, PropertyName, Retval);
-		PropertyName = Keys[Index].ToWString().c_str();
+		PropertyName = WCHAR_TO_TCHAR(Keys[Index].ToWString().c_str());
 	}
 	else
 	{

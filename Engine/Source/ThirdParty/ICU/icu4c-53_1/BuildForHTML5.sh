@@ -70,16 +70,19 @@ build_all()
 	echo BUILDING $OPTIMIZATION
 	echo
 
-	if [ ! -d html5_build$OPTIMIZATION ]; then
+	rm -rf html5_build$OPTIMIZATION
+#	if [ ! -d html5_build$OPTIMIZATION ]; then
 		mkdir html5_build$OPTIMIZATION
-	fi
+#	fi
 	cd html5_build$OPTIMIZATION
 
 	COMMONCOMPILERFLAGS="$OPTIMIZATION -DUCONFIG_NO_TRANSLITERATION=1 -DU_USING_ICU_NAMESPACE=0 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -DU_STATIC_IMPLEMENTATION -DU_OVERRIDE_CXX_ALLOCATION=1"
-#	EMFLAGS="-msse -msse2 -s FULL_ES2=1 -s USE_PTHREADS=1"
-	EMFLAGS=""
+#	EMFLAGS="-msse2 -s SIMD=1 -s USE_PTHREADS=1"
+#	EMFLAGS="-msse2 -s USE_PTHREADS=1 -s WASM=1 -s BINARYEN=1" # WASM still does not play nice with SIMD
+	EMFLAGS="-s SIMD=0 -s USE_PTHREADS=1"
 
-	emconfigure ../source/configure CFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS" CXXFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS -std=c++14" CPPFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS" LDFLAGS="$OPTIMIZATION $EMFLAGS" ICULIBSUFFIX="$LIB_SUFFIX" AR="emcc" ARFLAGS="$OPTIMIZATION $EMFLAGS -o" RANLIB="echo" --disable-debug --enable-release --enable-static --disable-shared --disable-extras --disable-samples --disable-tools --disable-tests
+#	emconfigure ../source/configure CFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS" CXXFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS -std=c++14" CPPFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS" LDFLAGS="$OPTIMIZATION $EMFLAGS" ICULIBSUFFIX="$LIB_SUFFIX" AR="emcc" ARFLAGS="$OPTIMIZATION $EMFLAGS -o" RANLIB="echo" --disable-debug --enable-release --enable-static --disable-shared --disable-extras --disable-samples --disable-tools --disable-tests
+	emconfigure ../source/configure CFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS" CXXFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS -std=c++14" CPPFLAGS="$COMMONCOMPILERFLAGS $EMFLAGS" LDFLAGS="$OPTIMIZATION $EMFLAGS"                            AR="emcc" ARFLAGS="$OPTIMIZATION $EMFLAGS -o" RANLIB="echo" --disable-debug --enable-release --enable-static --disable-shared --disable-extras --disable-samples --disable-tools --disable-tests
 
 	# for some reason ICULIBSUFFIX needs to be manually edited
 	mv icudefs.mk icudefs.mk.save
@@ -92,8 +95,8 @@ build_all()
 ' >> icudefs.mk
 
 	# finally...
-	emmake make clean VERBOSE=1
-	emmake make -j VERBOSE=1 | tee log_build.txt
+#	emmake make clean VERBOSE=1
+	emmake make -j VERBOSE=1 | tee zzz_build.log
 
 	cd ..
 }

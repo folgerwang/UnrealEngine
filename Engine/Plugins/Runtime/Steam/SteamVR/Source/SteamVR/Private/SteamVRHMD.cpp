@@ -1751,12 +1751,16 @@ static void SetupHiddenAreaMeshes(vr::IVRSystem* const VRSystem, FHMDViewMesh Re
 
 void FSteamVRHMD::SetupOcclusionMeshes()
 {	
-	SetupHiddenAreaMeshes(VRSystem, HiddenAreaMeshes, vr::EHiddenAreaMeshType::k_eHiddenAreaMesh_Standard);
-	
-	if(CUseSteamVRVisibleAreaMesh.GetValueOnAnyThread() > 0)
+	FSteamVRHMD* const Self = this;
+	ENQUEUE_RENDER_COMMAND(SetupOcclusionMeshesCmd)([Self](FRHICommandListImmediate& RHICmdList)
 	{
-		SetupHiddenAreaMeshes(VRSystem, VisibleAreaMeshes, vr::EHiddenAreaMeshType::k_eHiddenAreaMesh_Inverse);
-	}
+		SetupHiddenAreaMeshes(Self->VRSystem, Self->HiddenAreaMeshes, vr::EHiddenAreaMeshType::k_eHiddenAreaMesh_Standard);
+
+		if (CUseSteamVRVisibleAreaMesh.GetValueOnAnyThread() > 0)
+		{
+			SetupHiddenAreaMeshes(Self->VRSystem, Self->VisibleAreaMeshes, vr::EHiddenAreaMeshType::k_eHiddenAreaMesh_Inverse);
+		}
+	});
 }
 
 const FSteamVRHMD::FTrackingFrame& FSteamVRHMD::GetTrackingFrame() const

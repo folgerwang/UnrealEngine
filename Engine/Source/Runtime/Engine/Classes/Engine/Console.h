@@ -238,6 +238,9 @@ class ENGINE_API UConsole
 	/** Perform actions on transition to the Open state */
 	virtual void BeginState_Open(FName PreviousStateName);
 
+	/** Perform actions on transition from Open state */
+	virtual void EndState_Open(FName NextStateName);
+
 	virtual bool InputChar(int32 ControllerId, const FString& Unicode);
 	virtual bool InputKey(int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed=1.f, bool bGamepad=false);
 	virtual bool InputAxis(int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples=1, bool bGamepad=false) { return false; };

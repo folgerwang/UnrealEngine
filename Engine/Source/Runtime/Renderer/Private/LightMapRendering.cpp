@@ -10,6 +10,10 @@ LightMapRendering.cpp: Light map rendering implementations.
 #include "ScenePrivate.h"
 #include "PrecomputedVolumetricLightmap.h"
 
+#include "Runtime/Engine/Classes/VT/VirtualTexture.h"
+#include "Runtime/Engine/Classes/VT/VirtualTextureSpace.h"
+#include "VT/VirtualTextureSpace.h"
+
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FPrecomputedLightingParameters, TEXT("PrecomputedLightingBuffer"));
 
 const TCHAR* GLightmapDefineName[2] =
@@ -319,18 +323,89 @@ void GetPrecomputedLightingParameters(
 		const FVector2D LightmapCoordinateBias = LightMapInteraction.GetCoordinateBias();
 		Parameters.LightMapCoordinateScaleBias = FVector4(LightmapCoordinateScale.X, LightmapCoordinateScale.Y, LightmapCoordinateBias.X, LightmapCoordinateBias.Y);
 
-		// Pixel Shader
-		const ULightMapTexture2D* LightMapTexture = LightMapInteraction.GetTexture(bAllowHighQualityLightMaps);
-		const ULightMapTexture2D* SkyOcclusionTexture = LightMapInteraction.GetSkyOcclusionTexture();
-		const ULightMapTexture2D* AOMaterialMaskTexture = LightMapInteraction.GetAOMaterialMaskTexture();
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+		if (CVar->GetValueOnRenderThread() == 0)
+		{
+			// Pixel Shader
+			const ULightMapTexture2D* LightMapTexture = LightMapInteraction.GetTexture(bAllowHighQualityLightMaps);
+			const ULightMapTexture2D* SkyOcclusionTexture = LightMapInteraction.GetSkyOcclusionTexture();
+			const ULightMapTexture2D* AOMaterialMaskTexture = LightMapInteraction.GetAOMaterialMaskTexture();
 
-		Parameters.LightMapTexture = LightMapTexture ? LightMapTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
-		Parameters.SkyOcclusionTexture  = SkyOcclusionTexture ? SkyOcclusionTexture->TextureReference.TextureReferenceRHI.GetReference() : GWhiteTexture->TextureRHI;
-		Parameters.AOMaterialMaskTexture  = AOMaterialMaskTexture ? AOMaterialMaskTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
+			Parameters.LightMapTexture = LightMapTexture ? LightMapTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
+			Parameters.LightMapTexture_1 = GBlackTexture->TextureRHI;
+			Parameters.SkyOcclusionTexture = SkyOcclusionTexture ? SkyOcclusionTexture->TextureReference.TextureReferenceRHI.GetReference() : GWhiteTexture->TextureRHI;
+			Parameters.AOMaterialMaskTexture = AOMaterialMaskTexture ? AOMaterialMaskTexture->TextureReference.TextureReferenceRHI.GetReference() : GBlackTexture->TextureRHI;
 
-		Parameters.LightMapSampler = (LightMapTexture && LightMapTexture->Resource) ? LightMapTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
-		Parameters.SkyOcclusionSampler = (SkyOcclusionTexture && SkyOcclusionTexture->Resource) ? SkyOcclusionTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
-		Parameters.AOMaterialMaskSampler = (AOMaterialMaskTexture && AOMaterialMaskTexture->Resource) ? AOMaterialMaskTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
+			Parameters.LightMapSampler = (LightMapTexture && LightMapTexture->Resource) ? LightMapTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
+			Parameters.SkyOcclusionSampler = (SkyOcclusionTexture && SkyOcclusionTexture->Resource) ? SkyOcclusionTexture->Resource->SamplerStateRHI : GWhiteTexture->SamplerStateRHI;
+			Parameters.AOMaterialMaskSampler = (AOMaterialMaskTexture && AOMaterialMaskTexture->Resource) ? AOMaterialMaskTexture->Resource->SamplerStateRHI : GBlackTexture->SamplerStateRHI;
+
+			Parameters.LightmapVirtualTextureUniformData = FVirtualTextureUniformData::Invalid;
+			Parameters.LightmapVirtualTexturePageTable = GBlackTexture->TextureRHI;
+#if LIGHTMAP_VT_16BIT==0
+			Parameters.LightmapVirtualTexturePageTableSampler = GBlackTexture->SamplerStateRHI;
+#endif
+		}
+		else
+		{
+			const ULightMapVirtualTexture *VirtualTexture = LightMapInteraction.GetVirtualTexture();
+			
+			//LIGHTMAP_VT_16BIT only has support for pools of size 64
+			check((VirtualTexture->Space->PoolSize <= 64 && LIGHTMAP_VT_16BIT) || !LIGHTMAP_VT_16BIT);
+
+			FVirtualTextureSpace* Space = (FVirtualTextureSpace*)VirtualTexture->Space->GetRenderResource();
+			
+			// Bind VT here
+			Parameters.LightMapTexture = Space->GetPhysicalTexture(
+				LightMapVirtualTextureLayerFlags::GetLayerIndex(VirtualTexture->LayerFlags, LightMapVirtualTextureLayerFlags::HqLayers));
+			Parameters.LightMapTexture_1 = Space->GetPhysicalTexture(
+				LightMapVirtualTextureLayerFlags::GetLayerIndex(VirtualTexture->LayerFlags, LightMapVirtualTextureLayerFlags::HqLayers)+1);
+
+			if (VirtualTexture->LayerFlags & LightMapVirtualTextureLayerFlags::SkyOcclusionLayer)
+			{
+				Parameters.SkyOcclusionTexture = Space->GetPhysicalTexture(
+					LightMapVirtualTextureLayerFlags::GetLayerIndex(VirtualTexture->LayerFlags, LightMapVirtualTextureLayerFlags::SkyOcclusionLayer));
+			}
+			else
+			{
+				Parameters.SkyOcclusionTexture = GWhiteTexture->TextureRHI;
+			}
+
+			if (VirtualTexture->LayerFlags & LightMapVirtualTextureLayerFlags::AOMaterialMaskLayer)
+			{
+				Parameters.AOMaterialMaskTexture = Space->GetPhysicalTexture(
+					LightMapVirtualTextureLayerFlags::GetLayerIndex(VirtualTexture->LayerFlags, LightMapVirtualTextureLayerFlags::AOMaterialMaskLayer));
+			}
+			else
+			{
+				Parameters.AOMaterialMaskTexture = GBlackTexture->TextureRHI;
+			}
+
+			const uint32 MaxAniso = 8;
+
+			Parameters.LightMapSampler = TStaticSamplerState<SF_AnisotropicLinear, AM_Clamp, AM_Clamp, AM_Clamp, 0, MaxAniso>::GetRHI();
+			Parameters.SkyOcclusionSampler = TStaticSamplerState<SF_AnisotropicLinear, AM_Clamp, AM_Clamp, AM_Clamp, 0, MaxAniso>::GetRHI();
+			Parameters.AOMaterialMaskSampler = TStaticSamplerState<SF_AnisotropicLinear, AM_Clamp, AM_Clamp, AM_Clamp, 0, MaxAniso>::GetRHI();
+
+			Parameters.LightMapCoordinateScaleBias = VirtualTexture->GetTransform(Parameters.LightMapCoordinateScaleBias);
+
+			FVirtualTextureUniformData VTData;
+
+			VTData.MaxAnisotropic = MaxAniso;
+			VTData.PageTableSize = VirtualTexture->Space->Size;
+			VTData.pPageBorder = VirtualTexture->Space->BorderWidth;
+			VTData.pTextureSize = VirtualTexture->Space->GetRenderResource()->Get2DPhysicalTextureSize();
+			VTData.SpaceID = VirtualTexture->Space->GetRenderResource()->GetSpaceID();
+			VTData.vPageSize = VirtualTexture->Space->TileSize;
+			VTData.MaxAssetLevel = VirtualTexture->GetMaxLevel();
+
+			Parameters.LightmapVirtualTextureUniformData = VTData.Pack();
+
+			Parameters.LightmapVirtualTexturePageTable = VirtualTexture->Space->GetRenderResource()->GetPageTableTexture();
+#if LIGHTMAP_VT_16BIT==0
+			Parameters.LightmapVirtualTexturePageTableSampler = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+#endif
+		}
 
 		const uint32 NumCoef = bAllowHighQualityLightMaps ? NUM_HQ_LIGHTMAP_COEF : NUM_LQ_LIGHTMAP_COEF;
 		const FVector4* Scales = LightMapInteraction.GetScaleArray();
@@ -348,6 +423,7 @@ void GetPrecomputedLightingParameters(
 
 		// Pixel Shader
 		Parameters.LightMapTexture = GBlackTexture->TextureRHI;
+		Parameters.LightMapTexture_1 = GBlackTexture->TextureRHI;
 		Parameters.SkyOcclusionTexture  = GWhiteTexture->TextureRHI;
 		Parameters.AOMaterialMaskTexture  = GBlackTexture->TextureRHI;
 
@@ -361,6 +437,12 @@ void GetPrecomputedLightingParameters(
 			Parameters.LightMapScale[CoefIndex] = FVector4(1, 1, 1, 1);
 			Parameters.LightMapAdd[CoefIndex] = FVector4(0, 0, 0, 0);
 		}
+
+		Parameters.LightmapVirtualTextureUniformData = FVirtualTextureUniformData::Invalid;
+		Parameters.LightmapVirtualTexturePageTable = GBlackTexture->TextureRHI;
+#if LIGHTMAP_VT_16BIT==0
+		Parameters.LightmapVirtualTexturePageTableSampler = GBlackTexture->SamplerStateRHI;
+#endif
 	}
 }
 

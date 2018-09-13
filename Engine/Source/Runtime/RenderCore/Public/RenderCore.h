@@ -290,4 +290,4 @@ RENDERCORE_API int32 GetCVarForceLODShadow();
 
 RENDERCORE_API bool IsHDREnabled();
 
-
+RENDERCORE_API bool IsHDRAllowed();

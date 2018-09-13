@@ -152,7 +152,6 @@
 	#include "MoviePlayer.h"
 
 	#include "ShaderCodeLibrary.h"
-	#include "ShaderCache.h"
 	#include "ShaderPipelineCache.h"
 
 #if !UE_BUILD_SHIPPING
@@ -1182,7 +1181,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 #if WITH_ENGINE
 	// Add the default engine shader dir
-	FGenericPlatformProcess::AddShaderSourceDirectoryMapping(TEXT("/Engine"), FGenericPlatformProcess::ShaderDir());
+	AddShaderSourceDirectoryMapping(TEXT("/Engine"), FGenericPlatformProcess::ShaderDir());
 
 	TArray<FString> Tokens;
 	TArray<FString> Switches;
@@ -1460,9 +1459,17 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 #endif
 
-	// initialize task graph sub-system with potential multiple threads
-	FTaskGraphInterface::Startup(FPlatformMisc::NumberOfCores());
-	FTaskGraphInterface::Get().AttachToThread(ENamedThreads::GameThread);
+	// Some programs might not use the taskgraph or thread pool
+	bool bCreateTaskGraphAndThreadPools = true;
+#if IS_PROGRAM
+	bCreateTaskGraphAndThreadPools = !FParse::Param(FCommandLine::Get(), TEXT("ReduceThreadUsage"));
+#endif
+	if (bCreateTaskGraphAndThreadPools)
+	{
+		// initialize task graph sub-system with potential multiple threads
+		FTaskGraphInterface::Startup(FPlatformMisc::NumberOfCores());
+		FTaskGraphInterface::Get().AttachToThread(ENamedThreads::GameThread);
+	}
 
 #if STATS
 	FThreadStats::StartThread();
@@ -1512,7 +1519,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 #endif //WITH_EDITOR
 
-	if (FPlatformProcess::SupportsMultithreading())
+	if (FPlatformProcess::SupportsMultithreading() && bCreateTaskGraphAndThreadPools)
 	{
 		int StackSize = 128;
 		bool bForceEditorStackSize = false;
@@ -1765,7 +1772,33 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 
 	// Delete temporary files in cache.
-	FPlatformProcess::CleanFileCache();
+	{
+		bool bShouldCleanShaderWorkingDirectory = true;
+#if !(UE_BUILD_SHIPPING && WITH_EDITOR)
+		// Only clean the shader working directory if we are the first instance, to avoid deleting files in use by other instances
+		//@todo - check if any other instances are running right now
+		bShouldCleanShaderWorkingDirectory = GIsFirstInstance;
+#endif
+
+		if (bShouldCleanShaderWorkingDirectory && !FParse::Param(FCommandLine::Get(), TEXT("Multiprocess")))
+		{
+			// get shader path, and convert it to the userdirectory
+			for (const auto& SHaderSourceDirectoryEntry : AllShaderSourceDirectoryMappings())
+			{
+				FString ShaderDir = FString(FPlatformProcess::BaseDir()) / SHaderSourceDirectoryEntry.Value;
+				FString UserShaderDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ShaderDir);
+				FPaths::CollapseRelativeDirectories(ShaderDir);
+
+				// make sure we don't delete from the source directory
+				if (ShaderDir != UserShaderDir)
+				{
+					IFileManager::Get().DeleteDirectory(*UserShaderDir, false, true);
+				}
+			}
+
+			FPlatformProcess::CleanShaderWorkingDir();
+		}
+	}
 
 #if !UE_BUILD_SHIPPING
 	GIsDemoMode = FParse::Param(FCommandLine::Get(), TEXT("DEMOMODE"));
@@ -1869,8 +1902,6 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		FShaderPipelineCache::Initialize(GMaxRHIShaderPlatform);
 	}
 
-	FShaderCache::LoadBinaryCache();
-
 	FString Commandline = FCommandLine::Get();
 	bool EnableShaderCompile = !FParse::Param(*Commandline, TEXT("NoShaderCompile"));
 
@@ -1881,13 +1912,15 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 		check(!GDistanceFieldAsyncQueue);
 		GDistanceFieldAsyncQueue = new FDistanceFieldAsyncQueue();
+
+		// Shader hash cache is required only for shader compilation.
+		InitializeShaderHashCache();
 	}
 
 	// Cache the renderer module in the main thread so that we can safely retrieve it later from the rendering thread.
 	GetRendererModule();
 
 	{
-
 		// Initialize shader types before loading any shaders
 		InitializeShaderTypes();
 
@@ -2754,6 +2787,7 @@ bool FEngineLoop::LoadStartupCoreModules()
 		FModuleManager::Get().LoadModule(TEXT("Blutility"));
 	}
 
+	//FModuleManager::Get().LoadModule(TEXT("VirtualTexturingEditor"));
 #endif //(WITH_EDITOR && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
 
 #if WITH_ENGINE
@@ -3083,10 +3117,6 @@ void FEngineLoop::Exit()
 
 	// Stop the rendering thread.
 	StopRenderingThread();
-
-
-	// Disable the shader cache
-	FShaderCache::ShutdownShaderCache();
 
 	// Close shader code map, if any
 	FShaderCodeLibrary::Shutdown();

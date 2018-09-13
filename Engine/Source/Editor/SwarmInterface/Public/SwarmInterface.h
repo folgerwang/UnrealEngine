@@ -420,8 +420,11 @@ public:
 	 */
 	SWARMINTERFACE_API static FSwarmInterface& Get( void );
 
-	/** Initializes the Swarm singleton, must be called before FSwarmInterface::Get(). */
-	SWARMINTERFACE_API static void Initialize(const TCHAR* SwarmInterfacePath);
+	/** Initializes the Swarm singleton, must be called before FSwarmInterface::Get().
+	*
+	* @return A boolean indicating if the initialization was successful 
+	*/
+	SWARMINTERFACE_API static bool Initialize(const TCHAR* SwarmInterfacePath);
 
 	/**
 	 * Opens a new connection to the Swarm

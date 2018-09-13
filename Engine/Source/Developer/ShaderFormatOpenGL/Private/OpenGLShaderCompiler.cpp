@@ -1413,7 +1413,7 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 	const bool bCompileES2With310 = (Version == GLSL_ES2 && Input.Environment.CompilerFlags.Contains(CFLAG_FeatureLevelES31));
 	if (bCompileES2With310)
 	{
-		Version = GLSL_310_ES_EXT;
+		Version = GLSL_ES3_1_ANDROID;
 	}
 
 	// set up compiler env based on version

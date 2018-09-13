@@ -1349,6 +1349,7 @@ void UStaticMeshComponent::PrivateFixupOverrideColors()
 				Vertex->Normal = CurRenderData.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(VertIndex);
 				Vertex->Color = LODInfo.OverrideVertexColors->VertexColor(VertIndex);
 			}
+
 			BeginInitResource(LODInfo.OverrideVertexColors);
 			UpdateStaticMeshDeriveDataKey = true;
 		}
@@ -1357,6 +1358,7 @@ void UStaticMeshComponent::PrivateFixupOverrideColors()
 			delete LODInfo.OverrideVertexColors;
 			LODInfo.OverrideVertexColors = nullptr;
 		}
+		
 	}
 
 	if (UpdateStaticMeshDeriveDataKey)
@@ -1524,6 +1526,7 @@ void UStaticMeshComponent::ImportCustomProperties(const TCHAR* SourceText, FFeed
 
 			LODInfo.OverrideVertexColors = new FColorVertexBuffer;
 			LODInfo.OverrideVertexColors->ImportText(SourceText);
+			check(LODInfo.OverrideVertexColors->GetStride() > 0);
 		}
 	}
 }
@@ -2534,10 +2537,19 @@ void FStaticMeshComponentLODInfo::CleanUp()
 		DEC_DWORD_STAT_BY( STAT_InstVertexColorMemory, OverrideVertexColors->GetAllocatedSize() );
 	}
 
-	delete OverrideVertexColors;
-	OverrideVertexColors = NULL;
-
+	FColorVertexBuffer* LocalOverrideVertexColors = OverrideVertexColors;
+	OverrideVertexColors = nullptr;
 	PaintedVertices.Empty();
+
+	if (LocalOverrideVertexColors != nullptr)
+	{
+		ENQUEUE_RENDER_COMMAND(FStaticMeshComponentLODInfoCleanUp)(
+		[LocalOverrideVertexColors](FRHICommandList&)
+		{
+			LocalOverrideVertexColors->ReleaseResource();
+			delete LocalOverrideVertexColors;
+		});
+	}
 }
 
 
@@ -2554,12 +2566,10 @@ void FStaticMeshComponentLODInfo::ReleaseOverrideVertexColorsAndBlock()
 {
 	if(OverrideVertexColors)
 	{
-		// enqueue a rendering command to release
-		BeginReleaseResource(OverrideVertexColors);
-		// Ensure the RT no longer accessed the data, might slow down
-		FlushRenderingCommands();
 		// The RT thread has no access to it any more so it's safe to delete it.
 		CleanUp();
+		// Ensure the RT no longer accessed the data, might slow down
+		FlushRenderingCommands();
 	}
 }
 
@@ -2699,7 +2709,8 @@ FArchive& operator<<(FArchive& Ar,FStaticMeshComponentLODInfo& I)
 	if( !StripFlags.IsClassDataStripped( OverrideColorsStripFlag ) )
 	{
 		// Bulk serialization (new method)
-		uint8 bLoadVertexColorData = (I.OverrideVertexColors != NULL);
+		//Avoid saving empty override vertex colors buffer. When loading, this variable will be override by the serialization.
+		uint8 bLoadVertexColorData = (I.OverrideVertexColors != nullptr && I.OverrideVertexColors->GetNumVertices() > 0 && I.OverrideVertexColors->GetStride() > 0);
 		Ar << bLoadVertexColorData;
 
 		if(bLoadVertexColorData)
@@ -2712,7 +2723,17 @@ FArchive& operator<<(FArchive& Ar,FStaticMeshComponentLODInfo& I)
 
 			//we want to discard the vertex colors after rhi init when in cooked/client builds.
 			const bool bNeedsCPUAccess = !Ar.IsLoading() || GIsEditor || IsRunningCommandlet() || (GKeepKeepOverrideVertexColorsOnCPU != 0);
+			check(I.OverrideVertexColors != nullptr);
 			I.OverrideVertexColors->Serialize(Ar, bNeedsCPUAccess);
+			
+			//When IsSaving, we cannot have this situation since it is check before
+			if (Ar.IsLoading() && (I.OverrideVertexColors->GetNumVertices() <= 0 || I.OverrideVertexColors->GetStride() <= 0))
+			{
+				UE_LOG(LogStaticMesh, Log, TEXT("Loading a staticmesh component that is flag with override vertex color buffer, but the buffer is empty after loading(serializing) it. Resave the map to fix the component override vertex color data."));
+				//Avoid saving an empty array
+				delete I.OverrideVertexColors;
+				I.OverrideVertexColors = nullptr;
+			}
 		}
 	}
 

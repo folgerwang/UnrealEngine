@@ -1482,7 +1482,7 @@ void UEngine::StartFPSChart(const FString& Label, bool bRecordPerFrameTimes)
 			FString OutputDirectory = FPerformanceTrackingSystem::CreateOutputDirectory(CaptureStartTime);
 			const FString PlatformName = FPlatformProperties::PlatformName();
 			FString CsvProfileFilename = TEXT("CsvProfile-") + CaptureStartTime.ToString() + TEXT("-") + PlatformName + TEXT(".csv");
-			FCsvProfiler::Get()->BeginCapture(-1, OutputDirectory, CsvProfileFilename, false);
+			FCsvProfiler::Get()->BeginCapture(-1, OutputDirectory, CsvProfileFilename, FString(), false);
 		}
 	}
 #endif

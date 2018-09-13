@@ -42,10 +42,6 @@
 // Set rather to use BinnedMalloc2 for binned malloc, can be overridden below
 #define USE_MALLOC_BINNED2 (1)
 
-// Used in UnixPlatformStackwalk for now. Once the old crash symbolicator is gone remove this
-bool CORE_API GUseNewCrashSymbolicator = true;
-bool CORE_API GSuppressDwarfParsing    = false;
-
 // Used in UnixPlatformStackwalk to skip the crash handling callstack frames.
 bool CORE_API GFullCrashCallstack = false;
 
@@ -62,6 +58,12 @@ namespace
 	const int32 MaximumAllowedMaxNumFileMappingCache = 1000000;
 }
 
+/** Controls growth of pools - see PooledVirtualMemoryAllocator.cpp */
+extern float GVMAPoolScale;
+
+/** Make Decommit no-op (this significantly speeds up freeing memory at the expense of larger resident footprint) */
+bool GMemoryRangeDecommitIsNoOp = (UE_SERVER == 0);
+
 void FUnixPlatformMemory::Init()
 {
 	FGenericPlatformMemory::Init();
@@ -72,6 +74,9 @@ void FUnixPlatformMemory::Init()
 		MemoryConstants.TotalPhysical / ( 1024ULL * 1024ULL ), 
 		MemoryConstants.TotalPhysical / 1024ULL, 
 		MemoryConstants.TotalPhysical);
+	UE_LOG(LogInit, Log, TEXT(" - VirtualMemoryAllocator pools will grow at scale %g"), GVMAPoolScale);
+	UE_LOG(LogInit, Log, TEXT(" - MemoryRangeDecommit() will %s"), 
+		GMemoryRangeDecommitIsNoOp ? TEXT("be a no-op (re-run with -vmapoolevict to change)") : TEXT("will evict the memory from RAM (re-run with -novmapoolevict to change)"));
 }
 
 class FMalloc* FUnixPlatformMemory::BaseAllocator()
@@ -139,15 +144,6 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 					AllocatorToUse = EMemoryAllocatorToUse::Binned2;
 					break;
 				}
-				if (FCStringAnsi::Stricmp(Arg, "-oldcrashsymbolicator") == 0)
-				{
-					GUseNewCrashSymbolicator = false;
-				}
-
-				if (FCStringAnsi::Stricmp(Arg, "-nodwarf") == 0)
-				{
-					GSuppressDwarfParsing = true;
-				}
 
 				if (FCStringAnsi::Stricmp(Arg, "-fullcrashcallstack") == 0)
 				{
@@ -174,6 +170,22 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 					break;
 				}
 #endif // WITH_MALLOC_STOMP
+
+				const char VMAPoolScaleSwitch[] = "-vmapoolscale=";
+				if (const char* Cmd = FCStringAnsi::Stristr(Arg, VMAPoolScaleSwitch))
+				{
+					float PoolScale = FCStringAnsi::Atof(Cmd + sizeof(VMAPoolScaleSwitch) - 1);
+					GVMAPoolScale = FMath::Max(PoolScale, 1.0f);
+				}
+
+				if (FCStringAnsi::Stricmp(Arg, "-vmapoolevict") == 0)
+				{
+					GMemoryRangeDecommitIsNoOp = true;
+				}
+				if (FCStringAnsi::Stricmp(Arg, "-novmapoolevict") == 0)
+				{
+					GMemoryRangeDecommitIsNoOp = false;
+				}
 			}
 			free(Arg);
 			fclose(CmdLineFile);
@@ -211,7 +223,7 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 	}
 
 #if UE_BUILD_DEBUG
-	printf("Using %ls.\n", Allocator ? Allocator->GetDescriptiveName() : TEXT("NULL allocator! We will probably crash right away"));
+	printf("Using %s.\n", Allocator ? TCHAR_TO_UTF8(Allocator->GetDescriptiveName()) : "NULL allocator! We will probably crash right away");
 #endif // UE_BUILD_DEBUG
 
 #if UE_USE_MALLOC_REPLAY_PROXY
@@ -246,241 +258,26 @@ bool FUnixPlatformMemory::PageProtect(void* const Ptr, const SIZE_T Size, const 
 	return mprotect(Ptr, Size, ProtectMode) == 0;
 }
 
-#if UE4_POOL_BAFO_ALLOCATIONS
-namespace UnixMemoryPool
-{
-	enum
-	{
-	#if UE_SERVER
-		LargestPoolSize = 65536,
-	#else
-		LargestPoolSize = 32 * 1024 * 1024,
-	#endif // UE_SERVER
-
-		RequiredAlignment = 65536,	// should match BinnedPageSize
-		ExtraSizeToAllocate = 60 * 1024,	// BinnedPageSize - SystemPageSize (4KB on most platforms)
-	};
-
-	/** Table used to describe an array of pools.
-	 *	Format:
-	 *	  Each entry is two int32, one is block size in bytes, another is number of such blocks in pool.
-	 *    Block size should be divisible by RequiredAlignment
-	 *	  -1 for the first number is the end marker.
-	 *	  Entries should be sorted ascending by block size.
-	 */
-	int32 PoolTable[] =
-	{
-	#if UE_SERVER
-		// 1GB of 64K blocks
-		65536, 16384,
-	#else
-		// 512 MB of 64K blocks
-		65536, 8192,
-		// 256 MB of 256K blocks
-		262144, 1024,
-		// 256 MB of 1MB blocks
-		1024 * 1024, 256,
-		// 192 MB of 8MB blocks
-		8 * 1024 * 1024, 24,
-		// 192 MB of 32MB blocks
-		UnixMemoryPool::LargestPoolSize, 6,
-	#endif // UE_SERVER
-		-1
-	};
-
-	/** Reserves the address space (mmap on Unix, VirtualAlloc(MEM_RESERVE) on Windows. Failure is fatal. */
-	bool ReserveAddressRange(void** OutReturnedPointer, SIZE_T Size)
-	{
-		void* Ptr = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-		if (Ptr == MAP_FAILED)
-		{
-			const int ErrNo = errno;
-			UE_LOG(LogHAL, Fatal, TEXT("mmap(len=%llu) failed with errno = %d (%s)"), (uint64)Size,
-				ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
-			// unreachable
-			return false;
-		}
-
-		*OutReturnedPointer = Ptr;
-		return true;
-	}
-
-	/**
-	* Frees the address space (munmap on Unix, VirtualFree() on Windows.
-	* To be compatible with all platforms, Size should exactly match the size requested in ReserveAddressRange,
-	* and Address should be the same as the pointer returned from RAR. Number of RAR/FAR calls should match, too.
-	*/
-	bool FreeAddressRange(void* Address, SIZE_T Size)
-	{
-		if (munmap(Address, Size) != 0)
-		{
-			const int ErrNo = errno;
-			UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Address, (uint64)Size,
-				ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
-			// unreachable
-			return false;
-		}
-		return true;
-	}
-
-	/** Let the OS know that we need this range to be backed by physical RAM. */
-	bool CommitAddressRange(void* AddrStart, SIZE_T Size)
-	{
-		return madvise(AddrStart, Size, MADV_WILLNEED) == 0;
-	}
-
-	/** Let the OS know that we the RAM pages backing this address range can be evicted. */
-	bool EvictAddressRange(void* AddrStart, SIZE_T Size)
-	{
-		return madvise(AddrStart, Size, MADV_DONTNEED) == 0;
-	}
-
-	typedef TMemoryPoolArray<
-		&ReserveAddressRange,
-		&FreeAddressRange,
-		&CommitAddressRange,
-		&EvictAddressRange,
-		RequiredAlignment,
-		ExtraSizeToAllocate >
-		TUnixMemoryPoolArray;
-
-	/**
-	 * This function tries to scale the pool table according to the available memory.
-	 * Why scale the pool: with new BAFO behavior, it is rather easy to run into
-	 * limit of VMAs (mmaps), which is about 64k mappings by default. Pool size should thus
-	 * be adequate to hold most of the actually used memory, which is specially important for the editor (and cooker).
-	 */
-	int32* ScalePoolTable(int32* InOutPoolTable)
-	{
-		uint64 PoolSize = 0;
-		uint64 MaxPooledAllocs = 0;
-		for (int32* PoolPtr = InOutPoolTable; *PoolPtr != -1; PoolPtr += 2)
-		{
-			uint64 BlockSize = static_cast<uint64>(PoolPtr[0]);
-			uint64 NumBlocks = static_cast<uint64>(PoolPtr[1]);
-			PoolSize += (BlockSize * NumBlocks);
-			MaxPooledAllocs += NumBlocks;
-		}
-
-		uint64 TotalPhysicalMemory = FPlatformMemory::GetConstants().TotalPhysical;
-		uint64 DesiredPoolSize = 0;
-
-		// do not scale up for a non-editor
-		if (UE_EDITOR && PoolSize < TotalPhysicalMemory)
-		{
-			// scale up it so it is roughly 25% of total physical memory
-			DesiredPoolSize = TotalPhysicalMemory / 4;
-		}
-		else if (PoolSize >= TotalPhysicalMemory)
-		{
-			// scale down to try to fit roughly 50% of the total physical memory
-			DesiredPoolSize = TotalPhysicalMemory / 2;
-		}
-
-		double Multiplier = FMath::Max(static_cast<double>(DesiredPoolSize) / static_cast<double>(PoolSize), 0.0);
-
-		// if we need to scale to a desired pool size
-		if (DesiredPoolSize > 0)
-		{
-			PoolSize = 0;
-			MaxPooledAllocs = 0;
-			for (int32* PoolPtr = InOutPoolTable; *PoolPtr != -1; PoolPtr += 2)
-			{
-				uint64 BlockSize = static_cast<uint64>(PoolPtr[0]);
-				PoolPtr[1] = FMath::Max(static_cast<uint32>(PoolPtr[1] * Multiplier), 1u);
-				uint64 NumBlocks = static_cast<uint64>(PoolPtr[1]);
-				PoolSize += (BlockSize * NumBlocks);
-				MaxPooledAllocs += NumBlocks;
-			}
-		}
-
-#if UE_BUILD_DEBUG
-		printf("Pooling OS allocations (pool size: %llu MB, maximum allocations: %llu).\n", PoolSize / (1024ULL * 1024ULL), MaxPooledAllocs);
-#endif // UE_BUILD_DEBUG
-
-		return InOutPoolTable;
-	}
-
-	TUnixMemoryPoolArray& GetPoolArray()
-	{
-		static TUnixMemoryPoolArray PoolArray(ScalePoolTable(UnixMemoryPool::PoolTable));
-		return PoolArray;
-	}
-}
-
-
-FCriticalSection* GetGlobalUnixMemPoolLock()
-{
-	static FCriticalSection MemPoolLock;
-	return &MemPoolLock;
-};
-
-#endif // UE4_POOL_BAFO_ALLOCATIONS
-
 void* FUnixPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 {
-#if UE4_POOL_BAFO_ALLOCATIONS
-	FScopeLock Lock(GetGlobalUnixMemPoolLock());
-
-	UnixMemoryPool::TUnixMemoryPoolArray& PoolArray = UnixMemoryPool::GetPoolArray();
-	void* RetVal = PoolArray.Allocate(Size);
-	if (LIKELY(RetVal))
-	{
-		LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, RetVal, Size));
-		return RetVal;
-	}
-	// otherwise, let generic BAFO deal with it
-#endif // UE4_POOL_BAFO_ALLOCATIONS
-
-#if UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
-	// only store BAFO allocs
-	if (LIKELY(AllocationHistogram::CurAlloc < AllocationHistogram::MaxAllocs))
-	{
-		AllocationHistogram::Sizes[AllocationHistogram::CurAlloc++] = Size;
-	}
-#endif // UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
-
 	void* Ret = FGenericPlatformMemory::BinnedAllocFromOS(Size);
-
-#if UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
-	if (Ret == nullptr)
-	{
-		AllocationHistogram::PrintDebugInfo();
-		UnixMemoryPool::GetPoolArray().PrintDebugInfo();
-		for (;;) {};	// hang on here so we can attach the debugger and inspect the details
-	}
-#endif // UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
-
 	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ret, Size));
-
 	return Ret;
 }
 
 void FUnixPlatformMemory::BinnedFreeToOS(void* Ptr, SIZE_T Size)
 {
 	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr));
-
-#if UE4_POOL_BAFO_ALLOCATIONS
-	FScopeLock Lock(GetGlobalUnixMemPoolLock());
-
-	UnixMemoryPool::TUnixMemoryPoolArray& PoolArray = UnixMemoryPool::GetPoolArray();
-	if (LIKELY(PoolArray.Free(Ptr, Size)))
-	{
-		return;
-	}
-	// otherwise, let generic BFTO deal with it
-#endif // UE4_POOL_BAFO_ALLOCATIONS
-
 	return FGenericPlatformMemory::BinnedFreeToOS(Ptr, Size);
 }
 
-bool FUnixPlatformMemory::BinnedPlatformHasMemoryPoolForThisSize(SIZE_T Size)
+bool FUnixPlatformMemory::MemoryRangeDecommit(void* Ptr, SIZE_T Size)
 {
-#if UE4_POOL_BAFO_ALLOCATIONS
-	return Size <= UnixMemoryPool::LargestPoolSize;
-#else
-	return false;
-#endif // UE4_POOL_BAFO_ALLOCATIONS
+	if (LIKELY(GMemoryRangeDecommitIsNoOp))
+	{
+		return true;
+	}
+	return madvise(Ptr, Size, MADV_DONTNEED) != 0;
 }
 
 namespace UnixPlatformMemory

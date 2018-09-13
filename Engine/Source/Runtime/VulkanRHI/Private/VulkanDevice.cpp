@@ -12,6 +12,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
 #include "VulkanPlatform.h"
+#include "VulkanLLM.h"
 
 TAutoConsoleVariable<int32> GRHIAllowAsyncComputeCvar(
 	TEXT("r.Vulkan.AllowAsyncCompute"),
@@ -25,6 +26,14 @@ TAutoConsoleVariable<int32> GAllowPresentOnComputeQueue(
 	0,
 	TEXT("0 to present on the graphics queue")
 	TEXT("1 to allow presenting on the compute queue if available")
+);
+
+static TAutoConsoleVariable<int32> GCVarRobustBufferAccess(
+	TEXT("r.Vulkan.RobustBufferAccess"),
+	1,
+	TEXT("0 to disable robust buffer access")
+	TEXT("1 to enable (default)"),
+	ECVF_ReadOnly
 );
 
 
@@ -98,7 +107,7 @@ static void LoadValidationCache(VkDevice Device, VkValidationCacheEXT& OutValida
 	PFN_vkCreateValidationCacheEXT vkCreateValidationCache = (PFN_vkCreateValidationCacheEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCreateValidationCacheEXT");
 	if (vkCreateValidationCache)
 	{
-		VkResult Result = vkCreateValidationCache(Device, &ValidationCreateInfo, VulkanRHI::GetMemoryAllocator(nullptr), &OutValidationCache);
+		VkResult Result = vkCreateValidationCache(Device, &ValidationCreateInfo, VULKAN_CPU_ALLOCATOR, &OutValidationCache);
 		if (Result != VK_SUCCESS)
 		{
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Failed to create Vulkan validation cache, VkResult=%d"), Result);
@@ -109,13 +118,13 @@ static void LoadValidationCache(VkDevice Device, VkValidationCacheEXT& OutValida
 
 
 FVulkanDevice::FVulkanDevice(VkPhysicalDevice InGpu)
-	: Gpu(InGpu)
-	, Device(VK_NULL_HANDLE)
+	: Device(VK_NULL_HANDLE)
 	, ResourceHeapManager(this)
 	, DeferredDeletionQueue(this)
 	, DefaultSampler(nullptr)
 	, DefaultImage(nullptr)
 	, DefaultImageView(VK_NULL_HANDLE)
+	, Gpu(InGpu)
 	, GfxQueue(nullptr)
 	, ComputeQueue(nullptr)
 	, TransferQueue(nullptr)
@@ -128,7 +137,7 @@ FVulkanDevice::FVulkanDevice(VkPhysicalDevice InGpu)
 #if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 	FMemory::Memzero(GpuIdProps);
 #endif
-	FMemory::Memzero(Features);
+	FMemory::Memzero(PhysicalFeatures);
 	FMemory::Memzero(FormatProperties);
 	FMemory::Memzero(PixelFormatComponentMapping);
 }
@@ -144,6 +153,7 @@ FVulkanDevice::~FVulkanDevice()
 
 void FVulkanDevice::CreateDevice()
 {
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanMisc);
 	check(Device == VK_NULL_HANDLE);
 
 	// Setup extension and layer info
@@ -265,14 +275,14 @@ void FVulkanDevice::CreateDevice()
 	DeviceInfo.queueCreateInfoCount = QueueFamilyInfos.Num();
 	DeviceInfo.pQueueCreateInfos = QueueFamilyInfos.GetData();
 
-	VkPhysicalDeviceFeatures EnabledFeatures;
-	FVulkanPlatform::RestrictEnabledPhysicalDeviceFeatures(Features, EnabledFeatures);
-	DeviceInfo.pEnabledFeatures = &EnabledFeatures;
+	PhysicalFeatures.robustBufferAccess = GCVarRobustBufferAccess.GetValueOnAnyThread() > 0 ? VK_TRUE : VK_FALSE;
+	FVulkanPlatform::RestrictEnabledPhysicalDeviceFeatures(PhysicalFeatures);
+	DeviceInfo.pEnabledFeatures = &PhysicalFeatures;
 
 	FVulkanPlatform::EnablePhysicalDeviceFeatureExtensions(DeviceInfo);
 
 	// Create the device
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateDevice(Gpu, &DeviceInfo, nullptr, &Device));
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateDevice(Gpu, &DeviceInfo, VULKAN_CPU_ALLOCATOR, &Device));
 
 	// Create Graphics Queue, here we submit command buffers for execution
 	GfxQueue = new FVulkanQueue(this, GfxQueueFamilyIndex);
@@ -296,6 +306,21 @@ void FVulkanDevice::CreateDevice()
 		TransferQueueFamilyIndex = ComputeQueueFamilyIndex;
 	}
 	TransferQueue = new FVulkanQueue(this, TransferQueueFamilyIndex);
+
+	uint64 NumBits = QueueFamilyProps[GfxQueueFamilyIndex].timestampValidBits;
+	if (NumBits > 0)
+	{
+		ensure(NumBits == QueueFamilyProps[ComputeQueueFamilyIndex].timestampValidBits);
+		if (NumBits == 64)
+		{
+			// Undefined behavior trying to 1 << 64 on uint64
+			TimestampValidBitsMask = UINT64_MAX;
+		}
+		else
+		{
+			TimestampValidBitsMask = ((uint64)1 << (uint64)NumBits) - (uint64)1;
+		}
+	}
 
 #if VULKAN_ENABLE_DRAW_MARKERS
 #if 0//VULKAN_SUPPORTS_DEBUG_UTILS
@@ -711,10 +736,12 @@ bool FVulkanDevice::QueryGPU(int32 DeviceIndex)
 
 void FVulkanDevice::InitGPU(int32 DeviceIndex)
 {
-	// Query features
-	VulkanRHI::vkGetPhysicalDeviceFeatures(Gpu, &Features);
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanMisc);
 
-	UE_LOG(LogVulkanRHI, Display, TEXT("Using Device %d: Geometry %d Tessellation %d"), DeviceIndex, Features.geometryShader, Features.tessellationShader);
+	// Query features
+	VulkanRHI::vkGetPhysicalDeviceFeatures(Gpu, &PhysicalFeatures);
+
+	UE_LOG(LogVulkanRHI, Display, TEXT("Using Device %d: Geometry %d Tessellation %d"), DeviceIndex, PhysicalFeatures.geometryShader, PhysicalFeatures.tessellationShader);
 
 	CreateDevice();
 
@@ -735,7 +762,7 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 		ZeroVulkanStruct(CreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
 		CreateInfo.size = GMaxCrashBufferEntries * sizeof(uint32_t);
 		CreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		VERIFYVULKANRESULT(VulkanRHI::vkCreateBuffer(Device, &CreateInfo, nullptr, &CrashMarker.Buffer));
+		VERIFYVULKANRESULT(VulkanRHI::vkCreateBuffer(Device, &CreateInfo, VULKAN_CPU_ALLOCATOR, &CrashMarker.Buffer));
 
 		VkMemoryRequirements MemReq;
 		FMemory::Memzero(MemReq);
@@ -752,10 +779,8 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 	}
 #endif
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 	DescriptorPoolsManager = new FVulkanDescriptorPoolsManager();
 	DescriptorPoolsManager->Init(this);
-#endif
 	PipelineStateCache = new FVulkanPipelineStateCacheManager(this);
 
 	TArray<FString> CacheFilenames;
@@ -814,13 +839,6 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 		DefaultImage = new FVulkanSurface(*this, VK_IMAGE_VIEW_TYPE_2D, PF_B8G8R8A8, 1, 1, 1, false, 0, 1, 1, TexCreate_RenderTargetable | TexCreate_ShaderResource, CreateInfo);
 		DefaultImageView = FVulkanTextureView::StaticCreate(*this, DefaultImage->Image, VK_IMAGE_VIEW_TYPE_2D, DefaultImage->GetFullAspectMask(), PF_B8G8R8A8, VK_FORMAT_B8G8R8A8_UNORM, 0, 1, 0, 1);
 	}
-
-#if VULKAN_USE_NEW_QUERIES
-	const auto* NumBufferedQueriesVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.NumBufferedOcclusionQueries"));
-	int32 NumOcclusionQueryPools = (NumBufferedQueriesVar ? NumBufferedQueriesVar->GetValueOnAnyThread() : 3);
-	// Plus 2 for syncing purposes
-	OcclusionQueryPools.AddZeroed(32);
-#endif
 }
 
 void FVulkanDevice::PrepareForDestroy()
@@ -836,18 +854,16 @@ void FVulkanDevice::Destroy()
 		PFN_vkDestroyValidationCacheEXT vkDestroyValidationCache = (PFN_vkDestroyValidationCacheEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkDestroyValidationCacheEXT");
 		if (vkDestroyValidationCache)
 		{
-			vkDestroyValidationCache(Device, ValidationCache, VulkanRHI::GetMemoryAllocator(nullptr));
+			vkDestroyValidationCache(Device, ValidationCache, VULKAN_CPU_ALLOCATOR);
 		}
 	}
 #endif
 
-	VulkanRHI::vkDestroyImageView(GetInstanceHandle(), DefaultImageView, nullptr);
+	VulkanRHI::vkDestroyImageView(GetInstanceHandle(), DefaultImageView, VULKAN_CPU_ALLOCATOR);
 	DefaultImageView = VK_NULL_HANDLE;
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 	delete DescriptorPoolsManager;
 	DescriptorPoolsManager = nullptr;
-#endif
 
 	// No need to delete as it's stored in SamplerMap
 	DefaultSampler = nullptr;
@@ -878,28 +894,19 @@ void FVulkanDevice::Destroy()
 	delete ImmediateContext;
 	ImmediateContext = nullptr;
 
-#if VULKAN_USE_NEW_QUERIES
-	for (FVulkanOcclusionQueryPool* Pool : OcclusionQueryPools)
+	for (FVulkanOcclusionQueryPool* Pool : UsedOcclusionQueryPools)
 	{
 		delete Pool;
 	}
-
+	UsedOcclusionQueryPools.SetNum(0, false);
+	for (FVulkanOcclusionQueryPool* Pool : FreeOcclusionQueryPools)
+	{
+		delete Pool;
+	}
+	FreeOcclusionQueryPools.SetNum(0, false);
+/*
 	delete TimestampQueryPool;
-#else
-	for (FVulkanQueryPool* QueryPool : OcclusionQueryPools)
-	{
-		QueryPool->Destroy();
-		delete QueryPool;
-	}
-
-	for (FVulkanQueryPool* QueryPool : TimestampQueryPools)
-	{
-		QueryPool->Destroy();
-		delete QueryPool;
-	}
-	TimestampQueryPools.SetNum(0, false);
-#endif
-	OcclusionQueryPools.SetNum(0, false);
+*/
 
 	delete PipelineStateCache;
 	PipelineStateCache = nullptr;
@@ -910,7 +917,7 @@ void FVulkanDevice::Destroy()
 	if (GGPUCrashDebuggingEnabled && OptionalDeviceExtensions.HasAMDBufferMarker)
 	{
 		CrashMarker.Allocation->Unmap();
-		VulkanRHI::vkDestroyBuffer(Device, CrashMarker.Buffer, nullptr);
+		VulkanRHI::vkDestroyBuffer(Device, CrashMarker.Buffer, VULKAN_CPU_ALLOCATOR);
 		CrashMarker.Buffer = VK_NULL_HANDLE;
 
 		MemoryManager.Free(CrashMarker.Allocation);
@@ -929,7 +936,7 @@ void FVulkanDevice::Destroy()
 	FenceManager.Deinit();
 	MemoryManager.Deinit();
 
-	VulkanRHI::vkDestroyDevice(Device, nullptr);
+	VulkanRHI::vkDestroyDevice(Device, VULKAN_CPU_ALLOCATOR);
 	Device = VK_NULL_HANDLE;
 }
 

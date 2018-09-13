@@ -8,6 +8,7 @@ TextureStreamingHelpers.cpp: Definitions of classes used for texture streaming.
 #include "UnrealEngine.h"
 #include "Engine/Texture2D.h"
 #include "GenericPlatform/GenericPlatformMemoryPoolStats.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 /** Streaming stats */
 
@@ -44,6 +45,8 @@ DECLARE_MEMORY_STAT_POOL(TEXT("     UI Group"),			STAT_StreamingOverview07_UIGro
 DECLARE_MEMORY_STAT_POOL(TEXT("Average Required PoolSize"),	STAT_StreamingOverview08_AverageRequiredPool, STATGROUP_StreamingOverview, FPlatformMemory::MCR_StreamingPool);
 
 DEFINE_STAT(STAT_TextureStreaming_GameThreadUpdateTime);
+
+CSV_DEFINE_CATEGORY(TextureStreaming, true);
 
 DEFINE_LOG_CATEGORY(LogContentStreaming);
 
@@ -329,6 +332,8 @@ void FTextureStreamingStats::Apply()
 	GRequiredPoolSizeSum += RequiredPool + (GPoolSizeVRAMPercentage > 0 ? 0 : NonStreamingMips);
 	GRequiredPoolSizeCount += 1;
 	GAverageRequiredPool = (int64)((double)GRequiredPoolSizeSum / (double)FMath::Max<int64>(1, GRequiredPoolSizeCount));
+
+	CSV_CUSTOM_STAT(TextureStreaming, StreamingPoolSize, ((float)(RequiredPool + (GPoolSizeVRAMPercentage > 0 ? 0 : NonStreamingMips))) / (1024.0f * 1024.0f), ECsvCustomStatOp::Set);
 #endif
 
 	SET_MEMORY_STAT(STAT_StreamingOverview01_StreamableTextures, RequiredPool + CachedMips); 

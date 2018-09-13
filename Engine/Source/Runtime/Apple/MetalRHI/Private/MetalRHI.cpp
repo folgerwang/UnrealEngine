@@ -14,7 +14,6 @@
 #include "Mac/MacApplication.h"
 #include "HAL/PlatformApplicationMisc.h"
 #endif
-#include "ShaderCache.h"
 #include "MetalProfiler.h"
 #include "GenericPlatform/GenericPlatformDriver.h"
 #include "MetalShaderResources.h"
@@ -121,6 +120,29 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 #else
 	bool bCanUseWideMRTs = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v1];
 	bool bCanUseASTC = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v1] && !FParse::Param(FCommandLine::Get(),TEXT("noastc"));
+	
+	const mtlpp::FeatureSet FeatureSets[] = {
+		mtlpp::FeatureSet::iOS_GPUFamily1_v1,
+		mtlpp::FeatureSet::iOS_GPUFamily2_v1,
+		mtlpp::FeatureSet::iOS_GPUFamily3_v1,
+		mtlpp::FeatureSet::iOS_GPUFamily4_v1
+	};
+		
+	const uint8 FeatureSetVersions[][3] = {
+		{8, 0, 0},
+		{8, 3, 0},
+		{10, 0, 0},
+		{11, 0, 0}
+	};
+	
+	GRHIDeviceId = 0;
+	for (uint32 i = 0; i < 4; i++)
+	{
+		if (FPlatformMisc::IOSVersionCompare(FeatureSetVersions[i][0],FeatureSetVersions[i][1],FeatureSetVersions[i][2]) >= 0 && Device.SupportsFeatureSet(FeatureSets[i]))
+		{
+			GRHIDeviceId++;
+		}
+	}
 #endif
 
     bool bProjectSupportsMRTs = false;
@@ -326,6 +348,18 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	{
 		GMetalCommandBufferHasStartEndTimeAPI = true;
 	}
+		
+	if(
+	   #if PLATFORM_MAC
+	   (Device.SupportsFeatureSet(mtlpp::FeatureSet::macOS_GPUFamily1_v3) && FPlatformMisc::MacOSXVersionCompare(10,13,0) >= 0)
+	   #elif PLATFORM_IOS || PLATFORM_TVOS
+	   FPlatformMisc::IOSVersionCompare(10,3,0)
+	   #endif
+	   )
+	{
+		GRHISupportsDynamicResolution = true;
+		GRHISupportsFrameCyclesBubblesRemoval = true;
+	}
 
 	GPoolSizeVRAMPercentage = 0;
 	GTexturePoolSize = 0;
@@ -382,6 +416,8 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 		GSupportsEfficientAsyncCompute = false;
 		GSupportsParallelOcclusionQueries = false;
 	}
+
+	GRHISupportsGPUFence = true;
 
 	if (FPlatformMisc::IsDebuggerPresent() && UE_BUILD_DEBUG)
 	{
@@ -448,15 +484,30 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GMaxShadowDepthBufferSizeX = 16384;
 	GMaxShadowDepthBufferSizeY = 16384;
     bSupportsD16 = !FParse::Param(FCommandLine::Get(),TEXT("nometalv2")) && Device.SupportsFeatureSet(mtlpp::FeatureSet::macOS_GPUFamily1_v2);
-    GRHISupportsHDROutput = ((!GIsEditor || FPlatformMisc::MacOSXVersionCompare(10,13,0) >= 0) ? Device.SupportsFeatureSet(mtlpp::FeatureSet::macOS_GPUFamily1_v2) : false);
+    GRHISupportsHDROutput = FPlatformMisc::MacOSXVersionCompare(10,13,0) >= 0 && Device.SupportsFeatureSet(mtlpp::FeatureSet::macOS_GPUFamily1_v2);
+	GRHIHDRDisplayOutputFormat = (GRHISupportsHDROutput) ? PF_PLATFORM_HDR_0 : PF_B8G8R8A8;
 #else
 #if PLATFORM_TVOS
 	GRHISupportsBaseVertexIndex = false;
 	GRHISupportsFirstInstance = false; // Supported on macOS & iOS but not tvOS.
+	GRHISupportsHDROutput = false;
+	GRHIHDRDisplayOutputFormat = PF_Unknown;
 #else
 	// Only A9+ can support this, so for now we need to limit this to the desktop-forward renderer only.
 	GRHISupportsBaseVertexIndex = [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v1] && (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5);
 	GRHISupportsFirstInstance = GRHISupportsBaseVertexIndex;
+	
+	// TODO: Move this into IOSPlatform
+	if (@available(iOS 11.0, *))
+	{
+		@autoreleasepool {
+			UIScreen* mainScreen = [UIScreen mainScreen];
+			UIDisplayGamut gamut = mainScreen.traitCollection.displayGamut;
+			GRHISupportsHDROutput = FPlatformMisc::IOSVersionCompare(10, 0, 0) && gamut == UIDisplayGamutP3;
+		}
+	}
+	
+	GRHIHDRDisplayOutputFormat = (GRHISupportsHDROutput) ? PF_PLATFORM_HDR_0 : PF_B8G8R8A8;
 #endif
 	GMaxTextureDimensions = 4096;
 	GMaxCubeTextureDimensions = 4096;
@@ -536,6 +587,9 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GMetalBufferFormats[PF_R8G8B8A8_SNORM		] = { mtlpp::PixelFormat::RGBA8Snorm, EMetalBufferFormat::RGBA8Snorm };
 	GMetalBufferFormats[PF_R16G16B16A16_UNORM	] = { mtlpp::PixelFormat::RGBA16Unorm, EMetalBufferFormat::RGBA16Unorm };
 	GMetalBufferFormats[PF_R16G16B16A16_SNORM	] = { mtlpp::PixelFormat::RGBA16Snorm, EMetalBufferFormat::RGBA16Snorm };
+	GMetalBufferFormats[PF_PLATFORM_HDR_0		] = { mtlpp::PixelFormat::Invalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_PLATFORM_HDR_1		] = { mtlpp::PixelFormat::Invalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_PLATFORM_HDR_2		] = { mtlpp::PixelFormat::Invalid, EMetalBufferFormat::Unknown };
 		
 	// Initialize the platform pixel format map.
 	GPixelFormats[PF_Unknown			].PlatformFormat	= (uint32)mtlpp::PixelFormat::Invalid;
@@ -566,6 +620,14 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GPixelFormats[PF_ASTC_10x10			].Supported			= bCanUseASTC;
 	GPixelFormats[PF_ASTC_12x12			].PlatformFormat	= (uint32)mtlpp::PixelFormat::ASTC_12x12_LDR;
 	GPixelFormats[PF_ASTC_12x12			].Supported			= bCanUseASTC;
+	// IOS HDR format is BGR10_XR (32bits, 3 components)
+	GPixelFormats[PF_PLATFORM_HDR_0		].BlockSizeX		= 1;
+	GPixelFormats[PF_PLATFORM_HDR_0		].BlockSizeY		= 1;
+	GPixelFormats[PF_PLATFORM_HDR_0		].BlockSizeZ		= 1;
+	GPixelFormats[PF_PLATFORM_HDR_0		].BlockBytes		= 4;
+	GPixelFormats[PF_PLATFORM_HDR_0		].NumComponents		= 3;
+	GPixelFormats[PF_PLATFORM_HDR_0		].PlatformFormat	= (uint32)mtlpp::PixelFormat::BGR10_XR_sRGB;
+	GPixelFormats[PF_PLATFORM_HDR_0		].Supported			= GRHISupportsHDROutput;
 		
 #if !PLATFORM_TVOS
 	if (![Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2])
@@ -608,6 +670,15 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GPixelFormats[PF_FloatRGB			].BlockBytes		= 4;
 	GPixelFormats[PF_FloatR11G11B10		].PlatformFormat	= (uint32)mtlpp::PixelFormat::RG11B10Float;
 	GPixelFormats[PF_FloatR11G11B10		].BlockBytes		= 4;
+	
+	// Only one HDR format for OSX.
+	GPixelFormats[PF_PLATFORM_HDR_0		].BlockSizeX		= 1;
+	GPixelFormats[PF_PLATFORM_HDR_0		].BlockSizeY		= 1;
+	GPixelFormats[PF_PLATFORM_HDR_0		].BlockSizeZ		= 1;
+	GPixelFormats[PF_PLATFORM_HDR_0		].BlockBytes		= 8;
+	GPixelFormats[PF_PLATFORM_HDR_0		].NumComponents		= 4;
+	GPixelFormats[PF_PLATFORM_HDR_0		].PlatformFormat	= (uint32)mtlpp::PixelFormat::RGBA16Float;
+	GPixelFormats[PF_PLATFORM_HDR_0		].Supported			= GRHISupportsHDROutput;
 		
 	// Use Depth28_Stencil8 when it is available for consistency
 	if(bSupportsD24S8)
@@ -715,29 +786,39 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 #endif
 	}
 
+#if PLATFORM_MAC
+	if(!FPlatformProcess::IsSandboxedApplication())
+	{
+		FString Version;
+		if (GRHIAdapterUserDriverVersion.Len())	
+		{
+			Version = GRHIAdapterUserDriverVersion;
+		}
+		else
+		{
+			auto OSVersion = [[NSProcessInfo processInfo] operatingSystemVersion];
+			Version = FString::Printf(TEXT("%ld.%ld.%ld"), OSVersion.majorVersion, OSVersion.minorVersion, OSVersion.patchVersion);
+		}
+
+		NSString* DstPath = [NSString stringWithFormat:@"%@/BinaryPSOs/%@/com.apple.metal", FPaths::ProjectSavedDir().GetNSString(), Version.GetNSString()];
+		if([[NSFileManager defaultManager] fileExistsAtPath:DstPath])
+		{
+			NSString* TempDir = [NSString stringWithFormat:@"%@/../C/%@/com.apple.metal", NSTemporaryDirectory(), [NSBundle mainBundle].bundleIdentifier];
+
+			NSError* Err = nil;
+			BOOL bOK = [[NSFileManager defaultManager] removeItemAtPath:TempDir
+						error:&Err];
+
+			bOK = [[NSFileManager defaultManager] copyItemAtPath:DstPath
+						toPath:TempDir
+						error:&Err];
+		}
+	}
+#endif
+
 	((FMetalDeviceContext&)ImmediateContext.GetInternalContext()).Init();
 		
 	GDynamicRHI = this;
-
-	// Without optimisation the shader loading can be so slow we mustn't attempt to preload all the shaders at load.
-	static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.Optimize"));
-	if (CVar->GetInt() == 0)
-	{
-		FShaderCache::InitShaderCache(SCO_NoShaderPreload, GMaxRHIShaderPlatform);
-		ImmediateContext.GetInternalContext().GetCurrentState().SetShaderCacheStateObject(FShaderCache::CreateOrFindCacheStateForContext(&ImmediateContext));
-	}
-	else
-	{
-		FShaderCache::InitShaderCache(SCO_Default, GMaxRHIShaderPlatform);
-		ImmediateContext.GetInternalContext().GetCurrentState().SetShaderCacheStateObject(FShaderCache::CreateOrFindCacheStateForContext(&ImmediateContext));
-	}
-	
-#if PLATFORM_MAC
-	FShaderCache::SetMaxShaderResources(128);
-#else
-	FShaderCache::SetMaxShaderResources(32);
-#endif
-		
 	GIsMetalInitialized = true;
 
 	ImmediateContext.Profiler = nullptr;
@@ -764,6 +845,39 @@ FMetalDynamicRHI::~FMetalDynamicRHI()
 {
 	check(IsInGameThread() && IsInRenderingThread());
 	
+#if PLATFORM_MAC
+	if(!FPlatformProcess::IsSandboxedApplication())
+	{
+		NSString* TempDir = [NSString stringWithFormat:@"%@/../C/%@/com.apple.metal", NSTemporaryDirectory(), [NSBundle mainBundle].bundleIdentifier];
+
+		FString Version;
+		if (GRHIAdapterUserDriverVersion.Len())	
+		{
+			Version = GRHIAdapterUserDriverVersion;
+		}
+		else
+		{
+			auto OSVersion = [[NSProcessInfo processInfo] operatingSystemVersion];
+			Version = FString::Printf(TEXT("%ld.%ld.%ld"), OSVersion.majorVersion, OSVersion.minorVersion, OSVersion.patchVersion);
+		}
+
+		NSString* DstPath = [NSString stringWithFormat:@"%@/BinaryPSOs/%@/com.apple.metal", FPaths::ProjectSavedDir().GetNSString(), Version.GetNSString()];
+
+		NSError* Err = nil;
+		BOOL bOK = [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithFormat:@"%@/BinaryPSOs", FPaths::ProjectSavedDir().GetNSString()]
+					error:&Err];
+
+		bOK = [[NSFileManager defaultManager] createDirectoryAtPath:[NSString stringWithFormat:@"%@/BinaryPSOs/%@", FPaths::ProjectSavedDir().GetNSString(), Version.GetNSString()]
+					withIntermediateDirectories:YES
+					attributes:nil
+							error:&Err];
+
+		bOK = [[NSFileManager defaultManager] copyItemAtPath:TempDir
+					toPath:DstPath 
+					error:&Err];
+	}
+#endif
+
 	// Ask all initialized FRenderResources to release their RHI resources.
 	for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
 	{

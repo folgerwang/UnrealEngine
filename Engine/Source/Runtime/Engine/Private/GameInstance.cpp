@@ -213,6 +213,8 @@ FGameInstancePIEResult UGameInstance::InitializeForPlayInEditor(int32 PIEInstanc
 		WorldContext->PIEInstance = PIEInstanceIndex;
 	}
 
+	WorldContext->PIEWorldFeatureLevel = Params.WorldFeatureLevel;
+
 	WorldContext->RunAsDedicated = Params.bRunAsDedicated;
 
 	WorldContext->OwningGameInstance = this;

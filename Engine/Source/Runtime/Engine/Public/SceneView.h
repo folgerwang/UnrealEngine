@@ -1497,6 +1497,9 @@ public:
 	/** if true then results of scene rendering are copied/resolved to the RenderTarget. */
 	bool bResolveScene;
 
+	/** if true then each view is not rendered using the same GPUMask. */
+	bool bMultiGPUForkAndJoin;
+
 	/** 
 	 * Which component of the scene rendering should be output to the final render target.
 	 * If SCS_FinalColorLDR this indicates do nothing.

@@ -544,7 +544,7 @@ class FPostProcessTemporalAACS : public FGlobalShader
 
 IMPLEMENT_GLOBAL_SHADER(FPostProcessTemporalAACS, "/Engine/Private/PostProcessTemporalAA.usf", "MainCS", SF_Compute);
 
-static void TransitionShaderResources(FRenderingCompositePassContext& Context)
+static inline void TransitionPixelPassResources(FRenderingCompositePassContext& Context)
 {
 	TShaderMapRef< FPostProcessTonemapVS > VertexShader(Context.GetShaderMap());
 	VertexShader->TransitionResources(Context);
@@ -856,7 +856,8 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 		// Inform MultiGPU systems that we're starting to update this resource
 		Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
 
-		TransitionShaderResources(Context);
+		// make sure we transition resources before we begin the render pass on Vulkan (which happens when we call SetRenderTargets)
+		TransitionPixelPassResources(Context);
 
 		// Setup render targets.
 		{

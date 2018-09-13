@@ -30,6 +30,7 @@ public:
 	FString LowLevelDescribe() override;
 	virtual void FinishDestroy() override;
 
+	virtual TSharedPtr<FInternetAddr> GetInternetAddr() override;
 	virtual FString RemoteAddressToString() override;
 	// End NetConnection Interface
 	
