@@ -512,33 +512,6 @@ void FKismetCompilerUtilities::RemoveObjectRedirectorIfPresent(UObject* Package,
 	}
 }
 
-void FKismetCompilerUtilities::EnsureFreeNameForNewClass(UClass* ClassToConsign, FString& ClassName, UBlueprint* Blueprint)
-{
-	check(Blueprint);
-
-	UObject* OwnerOutermost = Blueprint->GetOutermost();
-
-	// Try to find a class with the name we want to use in the scope
-	UClass* AnyClassWithGoodName = (UClass*)StaticFindObject(UClass::StaticClass(), OwnerOutermost, *ClassName, false);
-	if (AnyClassWithGoodName == ClassToConsign)
-	{
-		// Ignore it if it's the class we're already consigning anyway
-		AnyClassWithGoodName = NULL;
-	}
-
-	if( ClassToConsign )
-	{
-		ConsignToOblivion(ClassToConsign, Blueprint->bIsRegeneratingOnLoad);
-	}
-
-	// Consign the class with the name we want to use
-	if( AnyClassWithGoodName )
-	{
-		ConsignToOblivion(AnyClassWithGoodName, Blueprint->bIsRegeneratingOnLoad);
-	}
-}
-
-
 /** Finds a property by name, starting in the specified scope; Validates property type and returns NULL along with emitting an error if there is a mismatch. */
 UProperty* FKismetCompilerUtilities::FindPropertyInScope(UStruct* Scope, UEdGraphPin* Pin, FCompilerResultsLog& MessageLog, const UEdGraphSchema_K2* Schema, UClass* SelfClass)
 {
