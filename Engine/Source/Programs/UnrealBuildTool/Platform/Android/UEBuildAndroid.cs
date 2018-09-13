@@ -462,7 +462,7 @@ namespace UnrealBuildTool
 			bool bUseLdGold = Target.bUseUnityBuild;
 			return new AndroidToolChain(Target.ProjectFile, bUseLdGold, Target.AndroidPlatform.Architectures, Target.AndroidPlatform.GPUArchitectures);
 		}
-		public override UEToolChain CreateTempToolChainForProject(FileReference ProjectFile)
+		public virtual UEToolChain CreateTempToolChainForProject(FileReference ProjectFile)
 		{
 			return new AndroidToolChain(ProjectFile, true, null, null);
 		}
