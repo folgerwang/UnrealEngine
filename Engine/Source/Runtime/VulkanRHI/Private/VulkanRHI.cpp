@@ -391,6 +391,11 @@ void FVulkanDynamicRHI::CreateInstance()
 #if VULKAN_HAS_DEBUGGING_ENABLED
 	SetupDebugLayerCallback();
 #endif
+
+	if (!GRHISupportsRHIThread || GRenderDocFound)
+	{
+		EnableIdealGPUCaptureOptions(true);
+	}
 }
 
 //#todo-rco: Common RHI should handle this...
