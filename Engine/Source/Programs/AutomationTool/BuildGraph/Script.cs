@@ -1268,6 +1268,14 @@ namespace AutomationTool
 						{
 							Value = Condition.Evaluate(ExpandedValue);
 						}
+						else if (Parameter.ValueType == typeof(FileReference))
+						{
+							Value = CustomTask.ResolveFile(ExpandedValue);
+						}
+						else if (Parameter.ValueType == typeof(DirectoryReference))
+						{
+							Value = CustomTask.ResolveDirectory(ExpandedValue);
+						}
 						else
 						{
 							Value = Convert.ChangeType(ExpandedValue, Parameter.ValueType);

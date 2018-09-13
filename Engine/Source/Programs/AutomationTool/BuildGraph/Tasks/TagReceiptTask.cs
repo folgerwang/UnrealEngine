@@ -26,14 +26,14 @@ namespace AutomationTool.Tasks
 		/// <summary>
 		/// Path to the Engine folder, used to expand $(EngineDir) properties in receipt files. Defaults to the Engine directory for the current workspace.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string EngineDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference EngineDir;
 
 		/// <summary>
 		/// Path to the project folder, used to expand $(ProjectDir) properties in receipt files. Defaults to the Engine directory for the current workspace.
 		/// </summary>
-		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
-		public string ProjectDir;
+		[TaskParameter(Optional = true)]
+		public DirectoryReference ProjectDir;
 
 		/// <summary>
 		/// Whether to tag the Build Products listed in receipts
@@ -114,18 +114,10 @@ namespace AutomationTool.Tasks
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
 			// Set the Engine directory
-			DirectoryReference EngineDir = DirectoryReference.Combine(CommandUtils.RootDirectory, "Engine");
-			if (!String.IsNullOrEmpty(Parameters.EngineDir))
-			{
-				EngineDir = DirectoryReference.Combine(CommandUtils.RootDirectory, Parameters.EngineDir);
-			}
+			DirectoryReference EngineDir = Parameters.EngineDir ?? CommandUtils.EngineDirectory;
 
 			// Set the Project directory
-			DirectoryReference ProjectDir = DirectoryReference.Combine(CommandUtils.RootDirectory, "Engine");
-			if (!String.IsNullOrEmpty(Parameters.ProjectDir))
-			{
-				ProjectDir = DirectoryReference.Combine(CommandUtils.RootDirectory, Parameters.ProjectDir);
-			}
+			DirectoryReference ProjectDir = Parameters.ProjectDir ?? EngineDir;
 
 			// Resolve the input list
 			IEnumerable<FileReference> TargetFiles = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet);
