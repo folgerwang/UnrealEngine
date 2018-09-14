@@ -9,7 +9,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Base class for exceptions thrown by UBT
 	/// </summary>
-	public class BuildException : Exception
+	class BuildException : Exception
 	{
 		/// <summary>
 		/// Constructor
@@ -26,7 +26,7 @@ namespace UnrealBuildTool
 		/// <param name="InnerException">An inner exception to wrap</param>
 		/// <param name="Message">The error message to display.</param>
 		public BuildException(Exception InnerException, string Message)
-			: base(Message)
+			: base(Message, InnerException)
 		{
 		}
 

@@ -234,7 +234,7 @@ class BuildPhysX : BuildCommand
 						// don't register if we don't have an NDKROOT specified
 						if (String.IsNullOrEmpty(NDKDirectory))
 						{
-							throw new BuildException("NDKROOT is not specified; cannot build Android.");
+							throw new AutomationException("NDKROOT is not specified; cannot build Android.");
 						}
 
 						NDKDirectory = NDKDirectory.Replace("\"", "");
@@ -571,7 +571,7 @@ class BuildPhysX : BuildCommand
 			}
 			catch (Exception ex)
 			{
-				throw new BuildException(ex, "Failed to start local process for action (\"{0}\"): {1} {2}", ex.Message, LocalProcess.StartInfo.FileName, LocalProcess.StartInfo.Arguments);
+				throw new AutomationException(ex, "Failed to start local process for action (\"{0}\"): {1} {2}", ex.Message, LocalProcess.StartInfo.FileName, LocalProcess.StartInfo.Arguments);
 			}
 		}
 
@@ -1001,7 +1001,7 @@ class BuildPhysX : BuildCommand
 					// don't register if we don't have an NDKROOT specified
 					if (String.IsNullOrEmpty(NDKDirectory))
 					{
-						throw new BuildException("NDKROOT is not specified; cannot build Android.");
+						throw new AutomationException("NDKROOT is not specified; cannot build Android.");
 					}
 		
 					NDKDirectory = NDKDirectory.Replace("\"", "");
