@@ -9,7 +9,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Base class for exceptions thrown by UBT
 	/// </summary>
-	class BuildException : Exception
+	public class BuildException : Exception
 	{
 		/// <summary>
 		/// Constructor
