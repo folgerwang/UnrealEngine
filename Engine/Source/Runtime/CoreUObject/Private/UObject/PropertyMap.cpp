@@ -244,6 +244,12 @@ void UMapProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, co
 	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
 	FStructuredArchive::FRecord Record = Slot.EnterRecord();
 
+	// If we're doing delta serialization, act as if there are no defaults
+	if (!UnderlyingArchive.DoDelta())
+	{
+		Defaults = nullptr;
+	}
+
 	// Ar related calls in this function must be mirrored in UMapProperty::ConvertFromType
 	checkSlow(KeyProp);
 	checkSlow(ValueProp);

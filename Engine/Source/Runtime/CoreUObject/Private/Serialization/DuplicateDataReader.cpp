@@ -27,6 +27,7 @@ FDuplicateDataReader::FDuplicateDataReader( class FUObjectAnnotationSparse<FDupl
 {
 	this->SetIsLoading(true);
 	this->SetIsPersistent(true);
+	this->ArNoDelta = true;
 	ArPortFlags |= PPF_Duplicate | InPortFlags;
 
 #if USE_STABLE_LOCALIZATION_KEYS

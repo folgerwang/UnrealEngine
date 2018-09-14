@@ -33,6 +33,7 @@ FDuplicateDataWriter::FDuplicateDataWriter( FUObjectAnnotationSparse<FDuplicated
 {
 	this->SetIsSaving(true);
 	this->SetIsPersistent(true);
+	this->ArNoDelta = true;
 	ArAllowLazyLoading	= false;
 	ArPortFlags |= PPF_Duplicate | InPortFlags;
 
