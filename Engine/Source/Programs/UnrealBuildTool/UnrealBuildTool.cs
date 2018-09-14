@@ -114,11 +114,6 @@ namespace UnrealBuildTool
 		static string RemoteIniPath = null;
 
 		/// <summary>
-		/// Cached array of all the supported target platforms
-		/// </summary>
-		static public UnrealTargetPlatform[] AllPlatforms = (UnrealTargetPlatform[])Enum.GetValues(typeof(UnrealTargetPlatform));
-
-		/// <summary>
 		/// Whether to print debug information out to the log
 		/// </summary>
 		static public bool bPrintDebugInfo
