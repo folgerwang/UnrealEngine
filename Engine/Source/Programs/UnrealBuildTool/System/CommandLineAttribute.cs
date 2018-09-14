@@ -26,6 +26,11 @@ namespace UnrealBuildTool
 		public string Value = null;
 
 		/// <summary>
+		/// Whether this argument is required
+		/// </summary>
+		public bool Required;
+
+		/// <summary>
 		/// For collection types, specifies the separator character between multiple arguments
 		/// </summary>
 		public char ListSeparator = '\0';

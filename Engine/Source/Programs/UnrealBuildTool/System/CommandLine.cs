@@ -134,6 +134,27 @@ namespace UnrealBuildTool
 					}
 				}
 			}
+
+			// Make sure there are no required parameters that are missing
+			Dictionary<FieldInfo, Parameter> MissingFieldToParameter = new Dictionary<FieldInfo, Parameter>();
+			foreach(Parameter Parameter in PrefixToParameter.Values)
+			{
+				if(Parameter.Attribute.Required && !AssignedFieldToParameter.ContainsKey(Parameter.FieldInfo) && !MissingFieldToParameter.ContainsKey(Parameter.FieldInfo))
+				{
+					MissingFieldToParameter.Add(Parameter.FieldInfo, Parameter);
+				}
+			}
+			if(MissingFieldToParameter.Count > 0)
+			{
+				if(MissingFieldToParameter.Count == 1)
+				{
+					throw new BuildException("Missing {0} argument", MissingFieldToParameter.First().Value.Prefix.Replace("=", "=..."));
+				}
+				else
+				{
+					throw new BuildException("Missing {0} arguments", Utils.FormatList(MissingFieldToParameter.Values.Select(x => x.Prefix.Replace("=", "=..."))));
+				}
+			}
 		}
 
 		/// <summary>
