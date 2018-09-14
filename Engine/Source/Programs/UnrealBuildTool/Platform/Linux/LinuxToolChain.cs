@@ -566,7 +566,7 @@ namespace UnrealBuildTool
 					{
 						Result += " -fdiagnostics-format=msvc";     // make diagnostics compatible with MSVC when cross-compiling
 					}
-					else if (Log.ColorConsoleOutput())
+					else if (Log.ColorConsoleOutput)
 					{
 						Result += " -fcolor-diagnostics";
 					}

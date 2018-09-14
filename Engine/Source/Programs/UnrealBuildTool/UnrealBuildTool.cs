@@ -326,32 +326,21 @@ namespace UnrealBuildTool
 			ECompilationResult Result = ECompilationResult.Succeeded;
 
 			// Parse the log level argument
-			LogEventType LogLevel = LogEventType.Log;
 			if (Arguments.Any(x => x.Equals("-Verbose", StringComparison.InvariantCultureIgnoreCase)))
 			{
-				LogLevel = LogEventType.Verbose;
+				Log.OutputLevel = LogEventType.Verbose;
 			}
 			else if (Arguments.Any(x => x.Equals("-VeryVerbose", StringComparison.InvariantCultureIgnoreCase)))
 			{
-				LogLevel = LogEventType.VeryVerbose;
+				Log.OutputLevel = LogEventType.VeryVerbose;
 			}
 
 			// Initialize the log system, buffering the output until we can create the log file
 			StartupTraceListener StartupListener = new StartupTraceListener();
-			bool bLogProgramNameWithSeverity = Arguments.Any(x => x.Equals("-FromMsBuild", StringComparison.InvariantCultureIgnoreCase));
-			Log.InitLogging(
-				bLogTimestamps: Arguments.Any(x => x.Equals("-Timestamps", StringComparison.InvariantCultureIgnoreCase)),
-				InLogLevel: LogLevel,
-				bLogSeverity: true,
-				bLogProgramNameWithSeverity: bLogProgramNameWithSeverity,
-				bLogSources: true,
-				bLogSourcesToConsole: false,
-				bColorConsoleOutput: true,
-				TraceListeners: new TraceListener[]
-				{
-					StartupListener
-				}
-			);
+			Trace.Listeners.Add(StartupListener);
+
+			// If we're running from MsBuild, we need to include the program name to avoid it formatting messages as EXEC : UnrealBuildTool : ERROR
+			Log.IncludeProgramNameWithSeverityPrefix = Arguments.Any(x => x.Equals("-FromMsBuild", StringComparison.InvariantCultureIgnoreCase));
 
 			// Write the command line
 			Log.TraceLog("Command line: {0}", Environment.CommandLine);
@@ -504,7 +493,7 @@ namespace UnrealBuildTool
 					CommandLine.ParseArguments(Arguments, BuildConfiguration);
 
 					// Copy some of the static settings that are being deprecated from BuildConfiguration
-					bPrintDebugInfo = BuildConfiguration.bPrintDebugInfo || LogLevel == LogEventType.Verbose || LogLevel == LogEventType.VeryVerbose;
+					bPrintDebugInfo = BuildConfiguration.bPrintDebugInfo || Log.OutputLevel == LogEventType.Verbose || Log.OutputLevel == LogEventType.VeryVerbose;
 					bPrintPerformanceInfo = BuildConfiguration.bPrintPerformanceInfo;
 
 					// Don't run junk deleter if we're just setting up autosdks
@@ -952,10 +941,7 @@ namespace UnrealBuildTool
 			}
 			catch (Exception Exception)
 			{
-				if (Log.IsInitialized())
-				{
-					Log.TraceError("UnrealBuildTool Exception: " + Exception.ToString());
-				}
+				Log.TraceError("UnrealBuildTool Exception: " + Exception.ToString());
 				return (int)ECompilationResult.OtherCompilationError;
 			}
 		}
