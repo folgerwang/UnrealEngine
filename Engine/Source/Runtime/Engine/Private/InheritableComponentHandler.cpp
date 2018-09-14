@@ -73,11 +73,6 @@ void UInheritableComponentHandler::PostLoad()
 					Record.ComponentTemplate->MarkPendingKill(); // hack needed to be able to identify if NewObject returns this back to us in the future
 					Records.RemoveAtSwap(Index);
 				}
-				else if (Record.CookedComponentInstancingData.bIsValid)
-				{
-					// Generate "fast path" instancing data. This data may also be used to override components inherited from a nativized BP parent class.
-					Record.CookedComponentInstancingData.LoadCachedPropertyDataForSerialization(Record.ComponentTemplate);
-				}
 			}
 		}
 	}

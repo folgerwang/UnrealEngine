@@ -475,12 +475,6 @@ void USCS_Node::PostLoad()
 #if WITH_EDITOR
 	ValidateGuid();
 #endif
-
-	// If valid, load cooked component instancing data.
-	if (ComponentTemplate && CookedComponentInstancingData.bIsValid)
-	{
-		CookedComponentInstancingData.LoadCachedPropertyDataForSerialization(ComponentTemplate);
-	}
 }
 
 
