@@ -801,7 +801,9 @@ void FTextLocalizationManager::UpdateFromLocalizationResource(const FString& Loc
 {
 	TSharedPtr<FTextLocalizationResource> TextLocalizationResource = MakeShared<FTextLocalizationResource>();
 	TextLocalizationResource->LoadFromFile(LocalizationResourceFilePath);
+#if !UE_BUILD_SHIPPING
 	TextLocalizationResource->DetectAndLogConflicts();
+#endif
 
 	UpdateFromLocalizations(TArrayView<const TSharedPtr<FTextLocalizationResource>>(&TextLocalizationResource, 1));
 }
