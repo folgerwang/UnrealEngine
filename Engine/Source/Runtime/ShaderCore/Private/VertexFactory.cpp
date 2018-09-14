@@ -11,13 +11,14 @@
 uint32 FVertexFactoryType::NextHashIndex = 0;
 bool FVertexFactoryType::bInitializedSerializationHistory = false;
 
+static TLinkedList<FVertexFactoryType*>* GVFTypeList = nullptr;
+
 /**
  * @return The global shader factory list.
  */
 TLinkedList<FVertexFactoryType*>*& FVertexFactoryType::GetTypeList()
 {
-	static TLinkedList<FVertexFactoryType*>* TypeList = NULL;
-	return TypeList;
+	return GVFTypeList;
 }
 
 /**

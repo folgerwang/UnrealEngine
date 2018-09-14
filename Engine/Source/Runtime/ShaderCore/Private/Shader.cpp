@@ -37,6 +37,7 @@ static TAutoConsoleVariable<int32> CVarUsePipelines(
 
 static TLinkedList<FShaderType*>*			GShaderTypeList = nullptr;
 static TLinkedList<FShaderPipelineType*>*	GShaderPipelineList = nullptr;
+static TMap<FName, FShaderType*>*			GShaderNameToTypeMap = nullptr;
 
 static FSHAHash ShaderSourceDefaultHash; //will only be read (never written) for the cooking case
 
@@ -216,7 +217,6 @@ TArray<FShaderType*> FShaderType::GetShaderTypesByFilename(const TCHAR* Filename
 
 TMap<FName, FShaderType*>& FShaderType::GetNameToTypeMap()
 {
-	static TMap<FName, FShaderType*>* GShaderNameToTypeMap = NULL;
 	if(!GShaderNameToTypeMap)
 	{
 		GShaderNameToTypeMap = new TMap<FName, FShaderType*>();

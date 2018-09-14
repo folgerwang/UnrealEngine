@@ -104,7 +104,6 @@ public:
 
 private:
 	TSet<FSceneInterface*> AllocatedScenes;
-	ICustomCulling* CustomCullingImpl;
 	FPostOpaqueRenderDelegate PostOpaqueRenderDelegate;
 	FPostOpaqueRenderDelegate OverlayRenderDelegate;
 	FOnResolvedSceneColor PostResolvedSceneColorCallbacks;

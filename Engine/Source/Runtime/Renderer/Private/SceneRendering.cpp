@@ -3053,7 +3053,6 @@ void OnChangeCVarRequiringRecreateRenderState(IConsoleVariable* Var)
 }
 
 FRendererModule::FRendererModule()
-	: CustomCullingImpl(nullptr)
 {
 	CVarSimpleForwardShading_PreviousValue = CVarSimpleForwardShading.AsVariable()->GetInt();
 	CVarSimpleForwardShading.AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnChangeSimpleForwardShading));

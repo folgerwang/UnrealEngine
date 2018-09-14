@@ -178,6 +178,11 @@ DEFINE_STAT(STAT_RenderTargetPoolSize);
 DEFINE_STAT(STAT_RenderTargetPoolUsed);
 DEFINE_STAT(STAT_RenderTargetPoolCount);
 
+
+static TLinkedList<FUniformBufferStruct*>* GUniformStructList = nullptr;
+static TMap<FName, FUniformBufferStruct*> GGlobalNameStructMap;
+
+
 #define EXPOSE_FORCE_LOD !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 #if EXPOSE_FORCE_LOD
@@ -234,14 +239,12 @@ void FInputLatencyTimer::GameThreadTick()
 
 TLinkedList<FUniformBufferStruct*>*& FUniformBufferStruct::GetStructList()
 {
-	static TLinkedList<FUniformBufferStruct*>* GUniformStructList = NULL;
 	return GUniformStructList;
 }
 
 TMap<FName, FUniformBufferStruct*>& FUniformBufferStruct::GetNameStructMap()
 {
-	static 	TMap<FName, FUniformBufferStruct*> GlobalNameStructMap;
-	return GlobalNameStructMap;
+	return GGlobalNameStructMap;
 }
 
 
