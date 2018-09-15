@@ -158,6 +158,25 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Checks that the list of arguments is empty. If not, throws an exception listing them.
+		/// </summary>
+		/// <param name="RemainingArguments">List of remaining arguments</param>
+		public static void CheckNoRemainingArguments(List<string> RemainingArguments)
+		{
+			if(RemainingArguments.Count > 0)
+			{
+				if(RemainingArguments.Count == 1)
+				{
+					Log.TraceWarning("Invalid argument: {0}", RemainingArguments[0]);
+				}
+				else
+				{
+					Log.TraceWarning("Invalid arguments:\n{0}", String.Join("\n", RemainingArguments));
+				}
+			}
+		}
+
+		/// <summary>
 		/// Parses and assigns a value to a field
 		/// </summary>
 		/// <param name="Parameter">The parameter being parsed</param>

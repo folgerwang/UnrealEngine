@@ -320,27 +320,14 @@ namespace UnrealBuildTool
 		/// This should be very minimal startup code.
 		/// </summary>
 		/// <param name="Arguments">Cmdline arguments</param>
-		private static int GuardedMain(string[] Arguments)
+		internal static int GuardedMain(string[] Arguments)
 		{
 			DateTime StartTime = DateTime.UtcNow;
 			ECompilationResult Result = ECompilationResult.Succeeded;
 
-			// Parse the log level argument
-			if (Arguments.Any(x => x.Equals("-Verbose", StringComparison.InvariantCultureIgnoreCase)))
-			{
-				Log.OutputLevel = LogEventType.Verbose;
-			}
-			else if (Arguments.Any(x => x.Equals("-VeryVerbose", StringComparison.InvariantCultureIgnoreCase)))
-			{
-				Log.OutputLevel = LogEventType.VeryVerbose;
-			}
-
 			// Initialize the log system, buffering the output until we can create the log file
 			StartupTraceListener StartupListener = new StartupTraceListener();
 			Trace.Listeners.Add(StartupListener);
-
-			// If we're running from MsBuild, we need to include the program name to avoid it formatting messages as EXEC : UnrealBuildTool : ERROR
-			Log.IncludeProgramNameWithSeverityPrefix = Arguments.Any(x => x.Equals("-FromMsBuild", StringComparison.InvariantCultureIgnoreCase));
 
 			// Write the command line
 			Log.TraceLog("Command line: {0}", Environment.CommandLine);
@@ -391,7 +378,6 @@ namespace UnrealBuildTool
 					bValidatePlatforms = true;
 				}
 			}
-
 
 			// Don't allow simultaneous execution of Unreal Built Tool. Multi-selection in the UI e.g. causes this and you want serial
 			// execution in this case to avoid contention issues with shared produced items.
@@ -503,12 +489,13 @@ namespace UnrealBuildTool
 					}
 
 					// Then let the command lines override any configs necessary.
+					string LogSuffix = "";
 					foreach (string Argument in Arguments)
 					{
 						string LowercaseArg = Argument.ToLowerInvariant();
-						if (LowercaseArg.StartsWith("-log="))
+						if (LowercaseArg.StartsWith("-LogSuffix=", StringComparison.OrdinalIgnoreCase))
 						{
-							BuildConfiguration.LogFileName = Argument.Substring("-log=".Length);
+							LogSuffix += "_" + Argument.Substring("-LogSuffix=".Length);
 						}
 						else if (LowercaseArg == "-nolog")
 						{
@@ -524,38 +511,19 @@ namespace UnrealBuildTool
 							BuildConfiguration.bUseUBTMakefiles = false;
 							BuildConfiguration.SingleFileToCompile = LowercaseArg.Replace("-singlefile=", "");
 						}
-						else if (LowercaseArg.StartsWith("-buildconfigurationdoc="))
-						{
-							XmlConfig.WriteDocumentation(new FileReference(Argument.Substring("-buildconfigurationdoc=".Length)));
-							return 0;
-						}
-						else if (LowercaseArg.StartsWith("-modulerulesdoc="))
-						{
-							RulesDocumentation.WriteDocumentation(typeof(ModuleRules), new FileReference(Argument.Substring("-modulerulesdoc=".Length)));
-							return 0;
-						}
-						else if (LowercaseArg.StartsWith("-targetrulesdoc="))
-						{
-							RulesDocumentation.WriteDocumentation(typeof(TargetRules), new FileReference(Argument.Substring("-targetrulesdoc=".Length)));
-							return 0;
-						}
 					}
 
 					// Create the log file, and flush the startup listener to it
-					if (!String.IsNullOrEmpty(BuildConfiguration.LogFileName))
+					if (!String.IsNullOrEmpty(BuildConfiguration.LogFileName) && !Log.HasFileWriter())
 					{
 						FileReference LogLocation = new FileReference(BuildConfiguration.LogFileName);
-						try
+						if(LogSuffix.Length > 0)
 						{
-							DirectoryReference.CreateDirectory(LogLocation.Directory);
-							TextWriterTraceListener LogTraceListener = new TextWriterTraceListener(new StreamWriter(LogLocation.FullName), "LogTraceListener");
-							StartupListener.CopyTo(LogTraceListener);
-							Trace.Listeners.Add(LogTraceListener);
+							LogLocation = LogLocation.ChangeExtension(null) + LogSuffix + LogLocation.GetExtension();
 						}
-						catch (Exception Ex)
-						{
-							throw new BuildException(Ex, "Unable to open log file for writing ({0})", LogLocation);
-						}
+
+						TextWriterTraceListener LogTraceListener = Log.AddFileWriter("DefaultLogTraceListener", LogLocation);
+						StartupListener.CopyTo(LogTraceListener);
 					}
 					Trace.Listeners.Remove(StartupListener);
 
@@ -930,19 +898,115 @@ namespace UnrealBuildTool
 			return (int)Result;
 		}
 
+		/// <summary>
+		/// Global options for UBT (any modes)
+		/// </summary>
+		class GlobalOptions
+		{
+			/// <summary>
+			/// The amount of detail to write to the log
+			/// </summary>
+			[CommandLine(Prefix = "-Verbose", Value ="Verbose")]
+			[CommandLine(Prefix = "-VeryVerbose", Value ="VeryVerbose")]
+			public LogEventType LogOutputLevel = LogEventType.Log;
+
+			/// <summary>
+			/// Specifies the path to a log file to write. Note that the default mode (eg. building, generating project files) will create a log file by default if this not specified.
+			/// </summary>
+			[CommandLine(Prefix = "-Log")]
+			public FileReference LogFileName = null;
+
+			/// <summary>
+			/// Whether to include timestamps in the log
+			/// </summary>
+			[CommandLine(Prefix = "-Timestamps")]
+			public bool bLogTimestamps = false;
+
+			/// <summary>
+			/// Whether to format messages in MsBuild format
+			/// </summary>
+			[CommandLine(Prefix = "-FromMsBuild")]
+			public bool bLogFromMsBuild = false;
+
+			/// <summary>
+			/// The mode to execute
+			/// </summary>
+			[CommandLine]
+			public string Mode = "Default";
+		}
+
+		/// <summary>
+		/// Main entry point. Parses any global options and initializes the logging system, then invokes the appropriate command.
+		/// </summary>
+		/// <param name="Arguments">Command line arguments</param>
+		/// <returns>Zero on success, non-zero on error</returns>
 		private static int Main(string[] Arguments)
 		{
-			// make sure we catch any exceptions and return an appropriate error code.
-			// Some inner code already does this (to ensure the Mutex is released),
-			// but we need something to cover all outer code as well.
 			try
 			{
-				return GuardedMain(Arguments);
+				// Copy the arguments into a list. We remove entries from this list as they are parsed, so after we've parsed all the options we can we can identify any incorrect arguments and warn the user appropriately.
+				List<string> RemainingArguments = new List<string>(Arguments);
+
+				// Parse the global options
+				GlobalOptions Options = new GlobalOptions();
+				CommandLine.ParseAndRemoveArguments(RemainingArguments, Options);
+
+				// Configure the log system
+				Log.OutputLevel = Options.LogOutputLevel;
+				Log.IncludeTimestamps = Options.bLogTimestamps;
+				Log.IncludeProgramNameWithSeverityPrefix = Options.bLogFromMsBuild;
+
+				// Add the log writer if requested. When building a target, we'll create the writer for the default log file later.
+				if(Options.LogFileName != null)
+				{
+					Log.AddFileWriter("LogTraceListener", Options.LogFileName);
+				}
+
+				// Find all the valid modes
+				Dictionary<string, Type> ModeNameToType = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
+				foreach(Type Type in Assembly.GetExecutingAssembly().GetTypes())
+				{
+					if(Type.IsClass && !Type.IsAbstract && Type.IsSubclassOf(typeof(ToolMode)))
+					{
+						ToolModeAttribute Attribute = Type.GetCustomAttribute<ToolModeAttribute>();
+						if(Attribute == null)
+						{
+							throw new BuildException("Class '{0}' should have a ToolModeAttribute", Type.Name);
+						}
+						ModeNameToType.Add(Attribute.Name, Type);
+					}
+				}
+
+				// Try to get the correct mode
+				Type ModeType;
+				if(!ModeNameToType.TryGetValue(Options.Mode, out ModeType))
+				{
+					Log.TraceError("No mode named '{0}'. Available modes are:\n  {1}", Options.Mode, String.Join("\n  ", ModeNameToType.Keys));
+					return 1;
+				}
+
+				// Create the appropriate handler
+				ToolMode Mode = (ToolMode)Activator.CreateInstance(ModeType);
+				return Mode.Execute(RemainingArguments);
 			}
-			catch (Exception Exception)
+			catch (BuildException Ex)
 			{
-				Log.TraceError("UnrealBuildTool Exception: " + Exception.ToString());
+				// BuildExceptions should have nicely formatted messages. We can log these directly.
+				Log.TraceError(Ex.Message.ToString());
+				Log.TraceLog(ExceptionUtils.FormatExceptionDetails(Ex));
 				return (int)ECompilationResult.OtherCompilationError;
+			}
+			catch (Exception Ex)
+			{
+				// Unhandled exception. 
+				Log.TraceError("Unhandled exception: {0}", Ex);
+				Log.TraceLog(ExceptionUtils.FormatExceptionDetails(Ex));
+				return (int)ECompilationResult.OtherCompilationError;
+			}
+			finally
+			{
+				// Make sure we flush the logs however we exit
+				Trace.Close();
 			}
 		}
 
@@ -2257,6 +2321,15 @@ namespace UnrealBuildTool
 				Target.PatchModuleManifestsForHotReloadAssembling(OnlyModulesLocal);
 				Target.WriteReceipts(false);
 			}
+		}
+	}
+
+	[ToolMode("Default")]
+	class DefaultToolMode : ToolMode
+	{
+		public override int Execute(List<string> Arguments)
+		{
+			return UnrealBuildTool.GuardedMain(Arguments.ToArray());
 		}
 	}
 }

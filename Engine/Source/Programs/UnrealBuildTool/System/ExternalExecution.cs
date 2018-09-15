@@ -1188,7 +1188,7 @@ namespace UnrealBuildTool
 						}
 						else
 						{
-							UBTArguments.AppendFormat(" -log=\"{0}\"", Path.Combine(Path.GetDirectoryName(BuildConfiguration.LogFileName), Path.GetFileNameWithoutExtension(BuildConfiguration.LogFileName) + "_UHT.txt"));
+							UBTArguments.Append(" -logsuffix=UHT");
 						}
 
 						if (RunExternalDotNETExecutable(UnrealBuildTool.GetUBTPath(), UBTArguments.ToString()) != 0)

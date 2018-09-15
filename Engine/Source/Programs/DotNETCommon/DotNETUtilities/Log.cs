@@ -227,6 +227,42 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Adds a trace listener that writes to a log file
+		/// </summary>
+		/// <param name="OutputFile">The file to write to</param>
+		/// <returns>The created trace listener</returns>
+		public static TextWriterTraceListener AddFileWriter(string Name, FileReference OutputFile)
+		{
+			try
+			{
+				DirectoryReference.CreateDirectory(OutputFile.Directory);
+				TextWriterTraceListener LogTraceListener = new TextWriterTraceListener(new StreamWriter(OutputFile.FullName), Name);
+				Trace.Listeners.Add(LogTraceListener);
+				return LogTraceListener;
+			}
+			catch (Exception Ex)
+			{
+				throw new Exception(String.Format("Unable to open log file for writing ({0})", OutputFile), Ex);
+			}
+		}
+
+		/// <summary>
+		/// Determines if a TextWriterTraceListener has been added to the list of trace listeners
+		/// </summary>
+		/// <returns>True if a TextWriterTraceListener has been added</returns>
+		public static bool HasFileWriter()
+		{
+			foreach(TraceListener Listener in Trace.Listeners)
+			{
+				if(Listener is TextWriterTraceListener)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/// <summary>
 		/// Gets the name of the Method N levels deep in the stack frame. Used to trap what method actually made the logging call.
 		/// Only used when bLogSources is true.
 		/// </summary>
