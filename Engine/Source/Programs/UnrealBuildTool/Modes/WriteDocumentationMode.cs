@@ -39,10 +39,10 @@ namespace UnrealBuildTool
 		/// Entry point for this command
 		/// </summary>
 		/// <returns></returns>
-		public override int Execute(List<string> Arguments)
+		public override int Execute(CommandLineArguments Arguments)
 		{
-			CommandLine.ParseAndRemoveArguments(Arguments, this);
-			CommandLine.CheckNoRemainingArguments(Arguments);
+			Arguments.ApplyTo(this);
+			Arguments.CheckAllArgumentsUsed();
 
 			switch(Type)
 			{

@@ -933,23 +933,31 @@ namespace UnrealBuildTool
 			/// </summary>
 			[CommandLine]
 			public string Mode = "Default";
+
+			/// <summary>
+			/// Initialize the options with the given commnad line arguments
+			/// </summary>
+			/// <param name="Arguments"></param>
+			public GlobalOptions(CommandLineArguments Arguments)
+			{
+				Arguments.ApplyTo(this);
+			}
 		}
 
 		/// <summary>
 		/// Main entry point. Parses any global options and initializes the logging system, then invokes the appropriate command.
 		/// </summary>
-		/// <param name="Arguments">Command line arguments</param>
+		/// <param name="ArgumentsArray">Command line arguments</param>
 		/// <returns>Zero on success, non-zero on error</returns>
-		private static int Main(string[] Arguments)
+		private static int Main(string[] ArgumentsArray)
 		{
 			try
 			{
-				// Copy the arguments into a list. We remove entries from this list as they are parsed, so after we've parsed all the options we can we can identify any incorrect arguments and warn the user appropriately.
-				List<string> RemainingArguments = new List<string>(Arguments);
+				// Parse the command line arguments
+				CommandLineArguments Arguments = new CommandLineArguments(ArgumentsArray);
 
 				// Parse the global options
-				GlobalOptions Options = new GlobalOptions();
-				CommandLine.ParseAndRemoveArguments(RemainingArguments, Options);
+				GlobalOptions Options = new GlobalOptions(Arguments);
 
 				// Configure the log system
 				Log.OutputLevel = Options.LogOutputLevel;
@@ -987,7 +995,7 @@ namespace UnrealBuildTool
 
 				// Create the appropriate handler
 				ToolMode Mode = (ToolMode)Activator.CreateInstance(ModeType);
-				return Mode.Execute(RemainingArguments);
+				return Mode.Execute(Arguments);
 			}
 			catch (BuildException Ex)
 			{
@@ -2327,9 +2335,9 @@ namespace UnrealBuildTool
 	[ToolMode("Default")]
 	class DefaultToolMode : ToolMode
 	{
-		public override int Execute(List<string> Arguments)
+		public override int Execute(CommandLineArguments Arguments)
 		{
-			return UnrealBuildTool.GuardedMain(Arguments.ToArray());
+			return UnrealBuildTool.GuardedMain(Arguments.GetRawArray());
 		}
 	}
 }

@@ -38,6 +38,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Arguments">List of command line arguments</param>
 		/// <returns>Exit code for the process</returns>
-		public abstract int Execute(List<string> Arguments);
+		public abstract int Execute(CommandLineArguments Arguments);
 	}
 }
