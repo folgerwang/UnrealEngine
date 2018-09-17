@@ -1117,8 +1117,6 @@ void BuildMetalShaderOutput(
         }
 	}
 
-	bool bHasRegularUniformBuffers = false;
-
 	// Then 'normal' uniform buffers.
 	for (auto& UniformBlock : CCHeader.UniformBlocks)
 	{
@@ -1129,7 +1127,6 @@ void BuildMetalShaderOutput(
 		}
 		UsedUniformBufferSlots[UBIndex] = true;
 		ParameterMap.AddParameterAllocation(*UniformBlock.Name, UBIndex, 0, 0);
-		bHasRegularUniformBuffers = true;
 	}
 
 	// Packed global uniforms
@@ -1150,75 +1147,21 @@ void BuildMetalShaderOutput(
 
 	// Packed Uniform Buffers
 	TMap<int, TMap<ANSICHAR, uint16> > PackedUniformBuffersSize;
-	if ((CCFlags & HLSLCC_PackUniformsIntoUniformBufferWithNames) == HLSLCC_PackUniformsIntoUniformBufferWithNames)
+	for (auto& PackedUB : CCHeader.PackedUBs)
 	{
-		for (auto& PackedUB : CCHeader.PackedUBs)
+		for (auto& Member : PackedUB.Members)
 		{
-			for (auto& Member : PackedUB.Members)
-			{
-				ParameterMap.AddParameterAllocation(
-													*Member.Name,
-													EArrayType_FloatHighp,
-													Member.Offset * BytesPerComponent,
-													Member.Count * BytesPerComponent
-													);
-				
-				uint16& Size = PackedUniformBuffersSize.FindOrAdd(PackedUB.Attribute.Index).FindOrAdd(EArrayType_FloatHighp);
-				Size = FMath::Max<uint16>(BytesPerComponent * (Member.Offset + Member.Count), Size);
-			}
-		}
-	}
-	else
-	{
-		for (auto& PackedUB : CCHeader.PackedUBs)
-		{
-			check(PackedUB.Attribute.Index == Header.Bindings.NumUniformBuffers);
-			UsedUniformBufferSlots[PackedUB.Attribute.Index] = true;
-			ParameterMap.AddParameterAllocation(*PackedUB.Attribute.Name, Header.Bindings.NumUniformBuffers++, 0, 0);
+			ParameterMap.AddParameterAllocation(
+												*Member.Name,
+												EArrayType_FloatHighp,
+												Member.Offset * BytesPerComponent,
+												Member.Count * BytesPerComponent
+												);
 			
-			// Nothing else...
-			//for (auto& Member : PackedUB.Members)
-			//{
-			//}
-		}
-		
-		// Packed Uniform Buffers copy lists & setup sizes for each UB/Precision entry
-		for (auto& PackedUBCopy : CCHeader.PackedUBCopies)
-		{
-			CrossCompiler::FUniformBufferCopyInfo CopyInfo;
-			CopyInfo.SourceUBIndex = PackedUBCopy.SourceUB;
-			CopyInfo.SourceOffsetInFloats = PackedUBCopy.SourceOffset;
-			CopyInfo.DestUBIndex = PackedUBCopy.DestUB;
-			CopyInfo.DestUBTypeName = PackedUBCopy.DestPackedType;
-			CopyInfo.DestUBTypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(CopyInfo.DestUBTypeName);
-			CopyInfo.DestOffsetInFloats = PackedUBCopy.DestOffset;
-			CopyInfo.SizeInFloats = PackedUBCopy.Count;
-
-			Header.UniformBuffersCopyInfo.Add(CopyInfo);
-
-			auto& UniformBufferSize = PackedUniformBuffersSize.FindOrAdd(CopyInfo.DestUBIndex);
-			uint16& Size = UniformBufferSize.FindOrAdd(CopyInfo.DestUBTypeName);
-			Size = FMath::Max<uint16>(BytesPerComponent * (CopyInfo.DestOffsetInFloats + CopyInfo.SizeInFloats), Size);
-		}
-
-		for (auto& PackedUBCopy : CCHeader.PackedUBGlobalCopies)
-		{
-			CrossCompiler::FUniformBufferCopyInfo CopyInfo;
-			CopyInfo.SourceUBIndex = PackedUBCopy.SourceUB;
-			CopyInfo.SourceOffsetInFloats = PackedUBCopy.SourceOffset;
-			CopyInfo.DestUBIndex = PackedUBCopy.DestUB;
-			CopyInfo.DestUBTypeName = PackedUBCopy.DestPackedType;
-			CopyInfo.DestUBTypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(CopyInfo.DestUBTypeName);
-			CopyInfo.DestOffsetInFloats = PackedUBCopy.DestOffset;
-			CopyInfo.SizeInFloats = PackedUBCopy.Count;
-
-			Header.UniformBuffersCopyInfo.Add(CopyInfo);
-
-			uint16& Size = PackedGlobalArraySize.FindOrAdd(CopyInfo.DestUBTypeName);
-			Size = FMath::Max<uint16>(BytesPerComponent * (CopyInfo.DestOffsetInFloats + CopyInfo.SizeInFloats), Size);
+			uint16& Size = PackedUniformBuffersSize.FindOrAdd(PackedUB.Attribute.Index).FindOrAdd(EArrayType_FloatHighp);
+			Size = FMath::Max<uint16>(BytesPerComponent * (Member.Offset + Member.Count), Size);
 		}
 	}
-	Header.Bindings.bHasRegularUniformBuffers = bHasRegularUniformBuffers;
 
 	// Setup Packed Array info
 	Header.Bindings.PackedGlobalArrays.Reserve(PackedGlobalArraySize.Num());
@@ -1237,48 +1180,22 @@ void BuildMetalShaderOutput(
 	// Setup Packed Uniform Buffers info
 	Header.Bindings.PackedUniformBuffers.Reserve(PackedUniformBuffersSize.Num());
 	
-	if ((CCFlags & HLSLCC_PackUniformsIntoUniformBufferWithNames) == HLSLCC_PackUniformsIntoUniformBufferWithNames)
+	// In this mode there should only be 0 or 1 packed UB that contains all the aligned & named global uniform parameters
+	check(PackedUniformBuffersSize.Num() <= 1);
+	for (auto Iterator = PackedUniformBuffersSize.CreateIterator(); Iterator; ++Iterator)
 	{
-		// In this mode there should only be 0 or 1 packed UB that contains all the aligned & named global uniform parameters
-		check(PackedUniformBuffersSize.Num() <= 1);
-		for (auto Iterator = PackedUniformBuffersSize.CreateIterator(); Iterator; ++Iterator)
+		int BufferIndex = Iterator.Key();
+		auto& ArraySizes = Iterator.Value();
+		for (auto IterSizes = ArraySizes.CreateIterator(); IterSizes; ++IterSizes)
 		{
-			int BufferIndex = Iterator.Key();
-			auto& ArraySizes = Iterator.Value();
-			for (auto IterSizes = ArraySizes.CreateIterator(); IterSizes; ++IterSizes)
-			{
-				ANSICHAR TypeName = IterSizes.Key();
-				uint16 Size = IterSizes.Value();
-				Size = (Size + 0xf) & (~0xf);
-				CrossCompiler::FPackedArrayInfo Info;
-				Info.Size = Size;
-				Info.TypeName = TypeName;
-				Info.TypeIndex = BufferIndex;
-				Header.Bindings.PackedGlobalArrays.Add(Info);
-			}
-		}
-	}
-	else
-	{
-		for (auto Iterator = PackedUniformBuffersSize.CreateIterator(); Iterator; ++Iterator)
-		{
-			int BufferIndex = Iterator.Key();
-			auto& ArraySizes = Iterator.Value();
-			TArray<CrossCompiler::FPackedArrayInfo> InfoArray;
-			InfoArray.Reserve(ArraySizes.Num());
-			for (auto IterSizes = ArraySizes.CreateIterator(); IterSizes; ++IterSizes)
-			{
-				ANSICHAR TypeName = IterSizes.Key();
-				uint16 Size = IterSizes.Value();
-				Size = (Size + 0xf) & (~0xf);
-				CrossCompiler::FPackedArrayInfo Info;
-				Info.Size = Size;
-				Info.TypeName = TypeName;
-				Info.TypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(TypeName);
-				InfoArray.Add(Info);
-			}
-			
-			Header.Bindings.PackedUniformBuffers.Add(InfoArray);
+			ANSICHAR TypeName = IterSizes.Key();
+			uint16 Size = IterSizes.Value();
+			Size = (Size + 0xf) & (~0xf);
+			CrossCompiler::FPackedArrayInfo Info;
+			Info.Size = Size;
+			Info.TypeName = TypeName;
+			Info.TypeIndex = BufferIndex;
+			Header.Bindings.PackedGlobalArrays.Add(Info);
 		}
 	}
 
