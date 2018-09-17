@@ -37,6 +37,7 @@
 #include "SequencerSettings.h"
 #include "Misc/MovieSceneSequenceEditor_LevelSequence.h"
 #include "KismetCompilerModule.h"
+#include "KismetCompiler.h"
 #include "BlueprintAssetHandler.h"
 
 #define LOCTEXT_NAMESPACE "LevelSequenceEditor"
@@ -75,6 +76,8 @@ public:
 
 		IKismetCompilerInterface& KismetCompilerModule = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>("KismetCompiler");
 		KismetCompilerModule.GetCompilers().Add(this);
+
+		FKismetCompilerContext::RegisterCompilerForBP(ULevelSequenceDirectorBlueprint::StaticClass(), &FactoryCompilerContext);
 
 		class FLevelSequenceAssetBlueprintHandler : public IBlueprintAssetHandler
 		{
@@ -319,6 +322,11 @@ protected:
 	}
 
 protected:
+
+	static TSharedPtr<FKismetCompilerContext> FactoryCompilerContext(UBlueprint* BP, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions)
+	{
+		return MakeShared<FLevelSequenceDirectorBlueprintCompiler>(CastChecked<ULevelSequenceDirectorBlueprint>(BP), InMessageLog, InCompileOptions, nullptr);
+	}
 
 	virtual bool CanCompile(const UBlueprint* Blueprint) override
 	{
