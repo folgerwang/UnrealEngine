@@ -382,10 +382,10 @@ namespace UnrealBuildTool
 			get { return UnrealTargetPlatform.Lumin; }
 		}
 
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		protected override void RegisterBuildPlatforms()
 		{
 			LuminPlatformSDK SDK = new LuminPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (SDK.HasRequiredSDKsInstalled() == SDKStatus.Valid) || Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
 			{

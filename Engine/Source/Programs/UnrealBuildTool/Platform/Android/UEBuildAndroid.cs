@@ -661,10 +661,10 @@ namespace UnrealBuildTool
 			get { return UnrealTargetPlatform.Android; }
 		}
 
-		protected override void RegisterBuildPlatforms(SDKOutputLevel OutputLevel)
+		protected override void RegisterBuildPlatforms()
 		{
 			AndroidPlatformSDK SDK = new AndroidPlatformSDK();
-			SDK.ManageAndValidateSDK(OutputLevel);
+			SDK.ManageAndValidateSDK();
 
 			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (SDK.HasRequiredSDKsInstalled() == SDKStatus.Valid) || Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
 			{

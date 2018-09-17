@@ -215,7 +215,7 @@ namespace UnrealBuildTool
 				InDirectory.IsUnderDirectory(UnrealBuildTool.EnterprisePluginsDirectory) || InDirectory.IsUnderDirectory(UnrealBuildTool.EnterpriseIntermediateDirectory);
 		}
 
-		public static void RegisterAllUBTClasses(SDKOutputLevel OutputLevel, bool bValidatingPlatforms)
+		public static void RegisterAllUBTClasses(bool bValidatingPlatforms)
 		{
 			// Find and register all tool chains and build platforms that are present
 			Assembly UBTAssembly = Assembly.GetExecutingAssembly();
@@ -235,7 +235,7 @@ namespace UnrealBuildTool
 						{
 							Log.TraceVerbose("    Registering build platform: {0}", CheckType.ToString());
 							UEBuildPlatformFactory TempInst = (UEBuildPlatformFactory)(UBTAssembly.CreateInstance(CheckType.FullName, true));
-							TempInst.TryRegisterBuildPlatforms(OutputLevel, bValidatingPlatforms);
+							TempInst.TryRegisterBuildPlatforms(bValidatingPlatforms);
 						}
 					}
 				}
@@ -726,20 +726,7 @@ namespace UnrealBuildTool
 					}
 
 					// Find and register all tool chains, build platforms, etc. that are present
-					SDKOutputLevel OutputLevel;
-					if (UnrealBuildTool.bPrintDebugInfo)
-					{
-						OutputLevel = SDKOutputLevel.Verbose;
-					}
-					else if (Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
-					{
-						OutputLevel = SDKOutputLevel.Minimal;
-					}
-					else
-					{
-						OutputLevel = SDKOutputLevel.Quiet;
-					}
-					RegisterAllUBTClasses(OutputLevel, bValidatePlatforms);
+					RegisterAllUBTClasses(bValidatePlatforms);
 
 					if (UnrealBuildTool.bPrintPerformanceInfo)
 					{

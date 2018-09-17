@@ -162,7 +162,7 @@ namespace UnrealBuildTool
 			}
 
 			// Register all the platform classes
-			UnrealBuildTool.RegisterAllUBTClasses(SDKOutputLevel.Quiet, false);
+			UnrealBuildTool.RegisterAllUBTClasses(false);
 			return true;
 		}
 	}

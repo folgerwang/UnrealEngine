@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -16,12 +16,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Attempt to register a build platform, checking whether it is a valid platform in installed builds
 		/// </summary>
-		public void TryRegisterBuildPlatforms(SDKOutputLevel OutputLevel, bool bValidatingPlatforms)
+		public void TryRegisterBuildPlatforms(bool bValidatingPlatforms)
 		{
 			// We need all platforms to be registered when we run -validateplatform command to check SDK status of each
 			if (bValidatingPlatforms || InstalledPlatformInfo.IsValidPlatform(TargetPlatform))
 			{
-				RegisterBuildPlatforms(OutputLevel);
+				RegisterBuildPlatforms();
 			}
 		}
 
@@ -36,6 +36,6 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		protected abstract void RegisterBuildPlatforms(SDKOutputLevel OutputLevel);
+		protected abstract void RegisterBuildPlatforms();
 	}
 }
