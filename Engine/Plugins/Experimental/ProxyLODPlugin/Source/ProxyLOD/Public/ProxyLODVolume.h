@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 
 struct FMeshMergeData;
-struct FRawMesh;
+struct FMeshDescription;
 
 class PROXYLODMESHREDUCTION_API IProxyLODVolume
 {
@@ -45,7 +45,7 @@ public:
 	virtual void CloseGaps(const double GapRadius, const int32 MaxDilations) = 0;
 
 	/** Extract iso distance 0 from OpenVDB volume as a RawMesh */
-	virtual void ConvertToRawMesh(FRawMesh& OutRawMesh) const = 0;
+	virtual void ConvertToRawMesh(FMeshDescription& OutRawMesh) const = 0;
 
 	/** Expand exterior and interior narrow band of OpenVDB volume by given amount */
 	virtual void ExpandNarrowBand(float ExteriorWidth, float InteriorWidth) = 0;
