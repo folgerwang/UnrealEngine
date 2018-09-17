@@ -56,6 +56,23 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Create a FileReference from a string. If the string is null, returns a null FileReference.
+		/// </summary>
+		/// <param name="FileName">FileName for the string</param>
+		/// <returns>Returns a FileReference representing the given string, or null.</returns>
+		public static FileReference FromString(string FileName)
+		{
+			if(String.IsNullOrEmpty(FileName))
+			{
+				return null;
+			}
+			else
+			{
+				return new FileReference(FileName);
+			}
+		}
+
+		/// <summary>
 		/// Gets the file name without path information
 		/// </summary>
 		/// <returns>A string containing the file name</returns>

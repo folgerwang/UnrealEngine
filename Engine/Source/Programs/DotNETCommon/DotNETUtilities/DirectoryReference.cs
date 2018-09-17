@@ -231,7 +231,31 @@ namespace Tools.DotNETCommon
 		/// <returns>The directory containing the file  </returns>
 		public static DirectoryReference FromFile(FileReference File)
 		{
-			return (File == null)? null : File.Directory;
+			if(File == null)
+			{
+				return null;
+			}
+			else
+			{
+				return File.Directory;
+			}
+		}
+
+		/// <summary>
+		/// Create a DirectoryReference from a string. If the string is null, returns a null DirectoryReference.
+		/// </summary>
+		/// <param name="DirectoryName">Path for the new object</param>
+		/// <returns>Returns a FileReference representing the given string, or null.</returns>
+		public static DirectoryReference FromString(string DirectoryName)
+		{
+			if(String.IsNullOrEmpty(DirectoryName))
+			{
+				return null;
+			}
+			else
+			{
+				return new DirectoryReference(DirectoryName);
+			}
 		}
 
 		#region System.IO.Directory Wrapper Methods
