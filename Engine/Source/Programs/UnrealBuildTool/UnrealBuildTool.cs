@@ -1579,7 +1579,7 @@ namespace UnrealBuildTool
 							UBTMakefile.SourceFileWorkingSet = Unity.SourceFileWorkingSet;
 							UBTMakefile.CandidateSourceFilesForWorkingSet = Unity.CandidateSourceFilesForWorkingSet;
 
-							if (BuildConfiguration.bUseUBTMakefiles && !UBTMakefile.PrerequisiteActions.Any(x => x.ActionHandler != null))
+							if (BuildConfiguration.bUseUBTMakefiles)
 							{
 								if(UBTMakefile.PrerequisiteActions.Length == 0)
 								{

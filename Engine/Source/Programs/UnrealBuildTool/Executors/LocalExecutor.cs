@@ -89,156 +89,132 @@ namespace UnrealBuildTool
 			// thread start time
 			Action.StartTime = DateTimeOffset.Now;
 
-			if (Action.ActionHandler != null)
+			// batch files (.bat, .cmd) need to be run via or cmd /c or shellexecute, 
+			// the latter which we can't use because we want to redirect input/output
+			bool bLaunchViaCmdExe = !Utils.IsRunningOnMono && !Path.GetExtension(Action.CommandPath).ToLower().EndsWith("exe");
+
+			// Create the action's process.
+			ProcessStartInfo ActionStartInfo = new ProcessStartInfo();
+			ActionStartInfo.WorkingDirectory = ExpandEnvironmentVariables(Action.WorkingDirectory);
+
+
+			string ExpandedCommandPath = ExpandEnvironmentVariables(Action.CommandPath);
+			if (bLaunchViaCmdExe)
 			{
-				// call the function and get the ExitCode and an output string
-				string Output;
-				Action.ActionHandler(Action, out ExitCode, out Output);
-
-				// Output status description (file name) when no output is returned
-				if (string.IsNullOrEmpty(Output))
-				{
-					if (Action.bShouldOutputStatusDescription)
-					{
-						Output = string.Format("[{0}/{1}] {2} {3}", JobNumber, TotalJobs, Action.CommandDescription, Action.StatusDescription);
-					}
-					else
-					{
-						Output = Action.StatusDescription;
-					}
-				}
-
-				Log.TraceInformation(Output);
+				ActionStartInfo.FileName = "cmd.exe";
+				ActionStartInfo.Arguments = string.Format
+				(
+					"/c \"{0} {1}\"",
+					ExpandEnvironmentVariables(ExpandedCommandPath),
+					ExpandEnvironmentVariables(Action.CommandArguments)
+				);
 			}
 			else
 			{
-				// batch files (.bat, .cmd) need to be run via or cmd /c or shellexecute, 
-				// the latter which we can't use because we want to redirect input/output
-				bool bLaunchViaCmdExe = !Utils.IsRunningOnMono && !Path.GetExtension(Action.CommandPath).ToLower().EndsWith("exe");
+				ActionStartInfo.FileName = ExpandedCommandPath;
+				ActionStartInfo.Arguments = ExpandEnvironmentVariables(Action.CommandArguments);
+			}
 
-				// Create the action's process.
-				ProcessStartInfo ActionStartInfo = new ProcessStartInfo();
-				ActionStartInfo.WorkingDirectory = ExpandEnvironmentVariables(Action.WorkingDirectory);
+			ActionStartInfo.UseShellExecute = false;
+			ActionStartInfo.RedirectStandardInput = false;
+			ActionStartInfo.RedirectStandardOutput = false;
+			ActionStartInfo.RedirectStandardError = false;
 
-
-				string ExpandedCommandPath = ExpandEnvironmentVariables(Action.CommandPath);
-				if (bLaunchViaCmdExe)
+			// Log command-line used to execute task if debug info printing is enabled.
+			if (UnrealBuildTool.bPrintDebugInfo)
+			{
+				Log.TraceVerbose("Executing: {0} {1}", ExpandedCommandPath, ActionStartInfo.Arguments);
+			}
+			// Log summary if wanted.
+			else if (Action.bShouldOutputStatusDescription)
+			{
+				string CommandDescription = Action.CommandDescription != null ? Action.CommandDescription : Path.GetFileName(ExpandedCommandPath);
+				if (string.IsNullOrEmpty(CommandDescription))
 				{
-					ActionStartInfo.FileName = "cmd.exe";
-					ActionStartInfo.Arguments = string.Format
-					(
-						"/c \"{0} {1}\"",
-						ExpandEnvironmentVariables(ExpandedCommandPath),
-						ExpandEnvironmentVariables(Action.CommandArguments)
-					);
+					Log.TraceInformation(Action.StatusDescription);
 				}
 				else
 				{
-					ActionStartInfo.FileName = ExpandedCommandPath;
-					ActionStartInfo.Arguments = ExpandEnvironmentVariables(Action.CommandArguments);
+					Log.TraceInformation("[{0}/{1}] {2} {3}", JobNumber, TotalJobs, CommandDescription, Action.StatusDescription);
 				}
+			}
 
-				ActionStartInfo.UseShellExecute = false;
-				ActionStartInfo.RedirectStandardInput = false;
-				ActionStartInfo.RedirectStandardOutput = false;
-				ActionStartInfo.RedirectStandardError = false;
-
-				// Log command-line used to execute task if debug info printing is enabled.
-				if (UnrealBuildTool.bPrintDebugInfo)
-				{
-					Log.TraceVerbose("Executing: {0} {1}", ExpandedCommandPath, ActionStartInfo.Arguments);
-				}
-				// Log summary if wanted.
-				else if (Action.bShouldOutputStatusDescription)
-				{
-					string CommandDescription = Action.CommandDescription != null ? Action.CommandDescription : Path.GetFileName(ExpandedCommandPath);
-					if (string.IsNullOrEmpty(CommandDescription))
-					{
-						Log.TraceInformation(Action.StatusDescription);
-					}
-					else
-					{
-						Log.TraceInformation("[{0}/{1}] {2} {3}", JobNumber, TotalJobs, CommandDescription, Action.StatusDescription);
-					}
-				}
-
-				// Try to launch the action's process, and produce a friendly error message if it fails.
-				Process ActionProcess = null;
+			// Try to launch the action's process, and produce a friendly error message if it fails.
+			Process ActionProcess = null;
+			try
+			{
 				try
 				{
-					try
-					{
-						ActionProcess = new Process();
-						ActionProcess.StartInfo = ActionStartInfo;
-						ActionStartInfo.RedirectStandardOutput = true;
-						ActionStartInfo.RedirectStandardError = true;
-						ActionProcess.OutputDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
-						ActionProcess.ErrorDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
-						ActionProcess.Start();
+					ActionProcess = new Process();
+					ActionProcess.StartInfo = ActionStartInfo;
+					ActionStartInfo.RedirectStandardOutput = true;
+					ActionStartInfo.RedirectStandardError = true;
+					ActionProcess.OutputDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
+					ActionProcess.ErrorDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
+					ActionProcess.Start();
 
-						ActionProcess.BeginOutputReadLine();
-						ActionProcess.BeginErrorReadLine();
-					}
-					catch (Exception ex)
-					{
-						Log.TraceError("Failed to start local process for action: {0} {1}", Action.CommandPath, Action.CommandArguments);
-						Log.WriteException(ex, null);
-						ExitCode = 1;
-						bComplete = true;
-						return;
-					}
-
-					// wait for process to start
-					// NOTE: this may or may not be necessary; seems to depend on whether the system UBT is running on start the process in a timely manner.
-					int checkIterations = 0;
-					bool haveConfiguredProcess = false;
-					do
-					{
-						if (ActionProcess.HasExited)
-						{
-							if (haveConfiguredProcess == false)
-								Debug.WriteLine("Process for action exited before able to configure!");
-							break;
-						}
-
-						if (!haveConfiguredProcess)
-						{
-							try
-							{
-								ActionProcess.PriorityClass = ProcessPriorityClass.BelowNormal;
-								haveConfiguredProcess = true;
-							}
-							catch (Exception)
-							{
-							}
-							break;
-						}
-
-						Thread.Sleep(10);
-
-						checkIterations++;
-					} while (checkIterations < 100);
-					if (checkIterations == 100)
-					{
-						throw new BuildException("Failed to configure local process for action: {0} {1}", Action.CommandPath, Action.CommandArguments);
-					}
-
-					// block until it's complete
-					// @todo iosmerge: UBT had started looking at:	if (Utils.IsValidProcess(Process))
-					//    do we need to check that in the thread model?
-					ActionProcess.WaitForExit();
-
-					// capture exit code
-					ExitCode = ActionProcess.ExitCode;
+					ActionProcess.BeginOutputReadLine();
+					ActionProcess.BeginErrorReadLine();
 				}
-				finally
+				catch (Exception ex)
 				{
-					// As the process has finished now, free its resources. On non-Windows platforms, processes depend 
-					// on POSIX/BSD threading and these are limited per application. Disposing the Process releases 
-					// these thread resources.
-					if (ActionProcess != null)
-						ActionProcess.Close();
+					Log.TraceError("Failed to start local process for action: {0} {1}", Action.CommandPath, Action.CommandArguments);
+					Log.WriteException(ex, null);
+					ExitCode = 1;
+					bComplete = true;
+					return;
 				}
+
+				// wait for process to start
+				// NOTE: this may or may not be necessary; seems to depend on whether the system UBT is running on start the process in a timely manner.
+				int checkIterations = 0;
+				bool haveConfiguredProcess = false;
+				do
+				{
+					if (ActionProcess.HasExited)
+					{
+						if (haveConfiguredProcess == false)
+							Debug.WriteLine("Process for action exited before able to configure!");
+						break;
+					}
+
+					if (!haveConfiguredProcess)
+					{
+						try
+						{
+							ActionProcess.PriorityClass = ProcessPriorityClass.BelowNormal;
+							haveConfiguredProcess = true;
+						}
+						catch (Exception)
+						{
+						}
+						break;
+					}
+
+					Thread.Sleep(10);
+
+					checkIterations++;
+				} while (checkIterations < 100);
+				if (checkIterations == 100)
+				{
+					throw new BuildException("Failed to configure local process for action: {0} {1}", Action.CommandPath, Action.CommandArguments);
+				}
+
+				// block until it's complete
+				// @todo iosmerge: UBT had started looking at:	if (Utils.IsValidProcess(Process))
+				//    do we need to check that in the thread model?
+				ActionProcess.WaitForExit();
+
+				// capture exit code
+				ExitCode = ActionProcess.ExitCode;
+			}
+			finally
+			{
+				// As the process has finished now, free its resources. On non-Windows platforms, processes depend 
+				// on POSIX/BSD threading and these are limited per application. Disposing the Process releases 
+				// these thread resources.
+				if (ActionProcess != null)
+					ActionProcess.Close();
 			}
 
 			// track how long it took

@@ -117,12 +117,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		public bool bProducesImportLibrary = false;
 
-		/// <summary>
-		/// Callback used to perform a special action instead of a generic command line
-		/// </summary>
-		public delegate void BlockingActionHandler(Action Action, out int ExitCode, out string Output);
-		public BlockingActionHandler ActionHandler = null;		// @todo ubtmake urgent: Delegate variables are not saved, but we are comparing against this in ExecuteActions() for XGE!
-
 
 
 		///
@@ -436,11 +430,7 @@ namespace UnrealBuildTool
 				DateTime StartTime = DateTime.UtcNow;
 
 				ActionExecutor Executor;
-				if(ActionsToExecute.Any(x => x.ActionHandler != null))
-				{
-					Executor = new LocalExecutor();
-				}
-				else if ((XGE.IsAvailable() && BuildConfiguration.bAllowXGE) || BuildConfiguration.bXGEExport)
+				if ((XGE.IsAvailable() && BuildConfiguration.bAllowXGE) || BuildConfiguration.bXGEExport)
 				{
 					Executor = new XGE();
 				}
