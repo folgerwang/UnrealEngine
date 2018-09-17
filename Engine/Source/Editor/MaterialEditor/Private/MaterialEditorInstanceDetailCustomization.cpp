@@ -257,9 +257,19 @@ void FMaterialInstanceParameterDetails::CreateGroupsWidget(TSharedRef<IPropertyH
 			for (int32 ParamIdx = 0; ParamIdx < ParameterGroup.Parameters.Num(); ++ParamIdx)
 			{
 				UDEditorParameterValue* Parameter = ParameterGroup.Parameters[ParamIdx];
-				if (MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo))
+				if (MaterialEditorInstance->bShowOnlyOverrides)
 				{
-					bCreateGroup = true;
+					if (MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo) && FMaterialPropertyHelpers::IsOverriddenExpression(Parameter))
+					{
+						bCreateGroup = true;
+					}
+				}
+				else
+				{
+					if (MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo))
+					{
+						bCreateGroup = true;
+					}
 				}
 			}
 			if (bCreateGroup)
@@ -743,31 +753,46 @@ void FMaterialInstanceParameterDetails::CreateBasePropertyOverrideWidgets(IDetai
 	OpacityClipMaskValuePropertyRow
 		.DisplayName(OpacityClipMaskValueProperty->GetPropertyDisplayName())
 		.ToolTip(OpacityClipMaskValueProperty->GetToolTipText())
-		.EditCondition(IsOverrideOpacityClipMaskValueEnabled, FOnBooleanValueChanged::CreateSP(this, &FMaterialInstanceParameterDetails::OnOverrideOpacityClipMaskValueChanged));
+		.EditCondition(IsOverrideOpacityClipMaskValueEnabled, FOnBooleanValueChanged::CreateSP(this, &FMaterialInstanceParameterDetails::OnOverrideOpacityClipMaskValueChanged))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FMaterialInstanceParameterDetails::IsOverriddenAndVisible, IsOverrideOpacityClipMaskValueEnabled)));
 
 	IDetailPropertyRow& BlendModePropertyRow = BasePropertyOverrideGroup.AddPropertyRow(BlendModeProperty.ToSharedRef());
 	BlendModePropertyRow
 		.DisplayName(BlendModeProperty->GetPropertyDisplayName())
 		.ToolTip(BlendModeProperty->GetToolTipText())
-		.EditCondition(IsOverrideBlendModeEnabled, FOnBooleanValueChanged::CreateSP(this, &FMaterialInstanceParameterDetails::OnOverrideBlendModeChanged));
+		.EditCondition(IsOverrideBlendModeEnabled, FOnBooleanValueChanged::CreateSP(this, &FMaterialInstanceParameterDetails::OnOverrideBlendModeChanged))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FMaterialInstanceParameterDetails::IsOverriddenAndVisible, IsOverrideBlendModeEnabled)));
 
 	IDetailPropertyRow& ShadingModelPropertyRow = BasePropertyOverrideGroup.AddPropertyRow(ShadingModelProperty.ToSharedRef());
 	ShadingModelPropertyRow
 		.DisplayName(ShadingModelProperty->GetPropertyDisplayName())
 		.ToolTip(ShadingModelProperty->GetToolTipText())
-		.EditCondition(IsOverrideShadingModelEnabled, FOnBooleanValueChanged::CreateSP(this, &FMaterialInstanceParameterDetails::OnOverrideShadingModelChanged));
+		.EditCondition(IsOverrideShadingModelEnabled, FOnBooleanValueChanged::CreateSP(this, &FMaterialInstanceParameterDetails::OnOverrideShadingModelChanged))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FMaterialInstanceParameterDetails::IsOverriddenAndVisible, IsOverrideShadingModelEnabled)));
 
 	IDetailPropertyRow& TwoSidedPropertyRow = BasePropertyOverrideGroup.AddPropertyRow(TwoSidedProperty.ToSharedRef());
 	TwoSidedPropertyRow
 		.DisplayName(TwoSidedProperty->GetPropertyDisplayName())
 		.ToolTip(TwoSidedProperty->GetToolTipText())
-		.EditCondition(IsOverrideTwoSidedEnabled, FOnBooleanValueChanged::CreateSP(this, &FMaterialInstanceParameterDetails::OnOverrideTwoSidedChanged));
+		.EditCondition(IsOverrideTwoSidedEnabled, FOnBooleanValueChanged::CreateSP(this, &FMaterialInstanceParameterDetails::OnOverrideTwoSidedChanged))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FMaterialInstanceParameterDetails::IsOverriddenAndVisible, IsOverrideTwoSidedEnabled)));
 
 	IDetailPropertyRow& DitheredLODTransitionPropertyRow = BasePropertyOverrideGroup.AddPropertyRow(DitheredLODTransitionProperty.ToSharedRef());
 	DitheredLODTransitionPropertyRow
 		.DisplayName(DitheredLODTransitionProperty->GetPropertyDisplayName())
 		.ToolTip(DitheredLODTransitionProperty->GetToolTipText())
-		.EditCondition(IsOverrideDitheredLODTransitionEnabled, FOnBooleanValueChanged::CreateSP(this, &FMaterialInstanceParameterDetails::OnOverrideDitheredLODTransitionChanged));
+		.EditCondition(IsOverrideDitheredLODTransitionEnabled, FOnBooleanValueChanged::CreateSP(this, &FMaterialInstanceParameterDetails::OnOverrideDitheredLODTransitionChanged))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FMaterialInstanceParameterDetails::IsOverriddenAndVisible, IsOverrideDitheredLODTransitionEnabled)));
+}
+
+EVisibility FMaterialInstanceParameterDetails::IsOverriddenAndVisible(TAttribute<bool> IsOverridden) const
+{
+	bool bShouldBeVisible = true;
+	if (MaterialEditorInstance->bShowOnlyOverrides)
+	{
+		bShouldBeVisible = IsOverridden.Get();
+	}
+	return bShouldBeVisible ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 bool FMaterialInstanceParameterDetails::OverrideOpacityClipMaskValueEnabled() const

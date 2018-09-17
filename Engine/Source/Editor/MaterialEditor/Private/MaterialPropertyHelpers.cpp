@@ -101,7 +101,14 @@ EVisibility FMaterialPropertyHelpers::ShouldShowExpression(UDEditorParameterValu
 
 	ShowHiddenDelegate.ExecuteIfBound(bShowHidden);
 
-	return (bShowHidden || MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo))? EVisibility::Visible: EVisibility::Collapsed;
+	const bool bShouldShowExpression = (bShowHidden || MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo));
+
+	if (MaterialEditorInstance->bShowOnlyOverrides)
+	{
+		return (IsOverriddenExpression(Parameter) && bShouldShowExpression) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	return bShouldShowExpression ? EVisibility::Visible: EVisibility::Collapsed;
 }
 
 void FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(const struct FAssetData& InAssetData, int32 Index, EMaterialParameterAssociation MaterialType, TSharedPtr<class IPropertyHandle> InHandle, FMaterialLayersFunctions* InMaterialFunction)

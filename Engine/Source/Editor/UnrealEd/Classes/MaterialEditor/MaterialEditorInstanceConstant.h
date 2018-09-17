@@ -331,5 +331,8 @@ class UNREALED_API UMaterialEditorInstanceConstant : public UObject
 	UPROPERTY()
 	TArray<class UMaterialInstanceConstant*> StoredBlendPreviews;
 #endif
+
+	/** Whether or not we should show only overridden properties*/
+	bool bShowOnlyOverrides;
 };
 

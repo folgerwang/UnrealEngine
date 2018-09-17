@@ -79,6 +79,8 @@ private:
 	/** Creates all the base property override widgets. */
 	void CreateBasePropertyOverrideWidgets(IDetailLayoutBuilder& DetailLayout);
 
+	EVisibility IsOverriddenAndVisible(TAttribute<bool> IsOverridden) const;
+
 	bool OverrideOpacityClipMaskValueEnabled() const;
 	bool OverrideBlendModeEnabled() const;
 	bool OverrideShadingModelEnabled() const;

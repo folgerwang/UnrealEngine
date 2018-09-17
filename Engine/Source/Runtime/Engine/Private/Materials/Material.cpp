@@ -2843,7 +2843,11 @@ FMaterialRenderProxy* UMaterial::GetRenderProxy(bool Selected,bool Hovered) cons
 
 UPhysicalMaterial* UMaterial::GetPhysicalMaterial() const
 {
-	return (PhysMaterial != NULL) ? PhysMaterial : GEngine->DefaultPhysMaterial;
+	if (GEngine)
+	{
+		return (PhysMaterial != nullptr) ? PhysMaterial : GEngine->DefaultPhysMaterial;
+	}
+	return nullptr;
 }
 
 /** Helper functions for text output of properties... */

@@ -789,6 +789,7 @@ UMaterialEditorInstanceConstant::UMaterialEditorInstanceConstant(const FObjectIn
 	: Super(ObjectInitializer)
 {
 	bIsFunctionPreviewMaterial = false;
+	bShowOnlyOverrides = false;
 }
 
 void UMaterialEditorInstanceConstant::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
