@@ -235,7 +235,12 @@ namespace UnrealBuildTool
 						{
 							Log.TraceVerbose("    Registering build platform: {0}", CheckType.ToString());
 							UEBuildPlatformFactory TempInst = (UEBuildPlatformFactory)(UBTAssembly.CreateInstance(CheckType.FullName, true));
-							TempInst.TryRegisterBuildPlatforms(bValidatingPlatforms);
+
+							// We need all platforms to be registered when we run -validateplatform command to check SDK status of each
+							if (bValidatingPlatforms || InstalledPlatformInfo.IsValidPlatform(TempInst.TargetPlatform))
+							{
+								TempInst.RegisterBuildPlatforms();
+							}
 						}
 					}
 				}

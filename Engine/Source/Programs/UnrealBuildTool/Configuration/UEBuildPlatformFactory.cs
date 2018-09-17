@@ -14,21 +14,9 @@ namespace UnrealBuildTool
 	abstract class UEBuildPlatformFactory
 	{
 		/// <summary>
-		/// Attempt to register a build platform, checking whether it is a valid platform in installed builds
-		/// </summary>
-		public void TryRegisterBuildPlatforms(bool bValidatingPlatforms)
-		{
-			// We need all platforms to be registered when we run -validateplatform command to check SDK status of each
-			if (bValidatingPlatforms || InstalledPlatformInfo.IsValidPlatform(TargetPlatform))
-			{
-				RegisterBuildPlatforms();
-			}
-		}
-
-		/// <summary>
 		/// Gets the target platform for an individual factory
 		/// </summary>
-		protected abstract UnrealTargetPlatform TargetPlatform
+		public abstract UnrealTargetPlatform TargetPlatform
 		{
 			get;
 		}
@@ -36,6 +24,6 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Register the platform with the UEBuildPlatform class
 		/// </summary>
-		protected abstract void RegisterBuildPlatforms();
+		public abstract void RegisterBuildPlatforms();
 	}
 }
