@@ -74,6 +74,7 @@ public:
 		{
 			ChildSlot [ SNew(STextBlock).Text(NSLOCTEXT("SObjectTableRow", "InvalidWidgetClass", "Any UserWidget generated as a table row must implement the IUserListEntry interface")) ];
 		}
+		SetCanTick(true);
 	}
 
 	virtual ~SObjectTableRow()
