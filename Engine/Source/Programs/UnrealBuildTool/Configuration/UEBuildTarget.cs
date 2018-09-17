@@ -2178,6 +2178,17 @@ namespace UnrealBuildTool
 			}
 			BuildProducts.AddRange(RuntimeDependencyTargetFileToSourceFile.Select(x => new KeyValuePair<FileReference, BuildProductType>(x.Key, BuildProductType.RequiredResource)));
 
+			// Also add any explicitly specified build products
+			if(Rules.AdditionalBuildProducts.Count > 0)
+			{
+				Dictionary<string, string> Variables = GetTargetVariables(null);
+				foreach(string AdditionalBuildProduct in Rules.AdditionalBuildProducts)
+				{
+					FileReference BuildProductFile = new FileReference(Utils.ExpandVariables(AdditionalBuildProduct, Variables));
+					BuildProducts.Add(new KeyValuePair<FileReference, BuildProductType>(BuildProductFile, BuildProductType.RequiredResource));
+				}
+			}
+
 			// Create a receipt for the target
 			if (!ProjectFileGenerator.bGenerateProjectFiles)
 			{
@@ -2602,6 +2613,33 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets a list of variables that can be expanded in paths referenced by this target
+		/// </summary>
+		/// <param name="Plugin">The current plugin</param>
+		/// <returns>Map of variable names to values</returns>
+		private Dictionary<string, string> GetTargetVariables(UEBuildPlugin Plugin)
+		{
+			Dictionary<string, string> Variables = new Dictionary<string,string>();
+			Variables.Add("RootDir", UnrealBuildTool.RootDirectory.FullName);
+			Variables.Add("EngineDir", UnrealBuildTool.EngineDirectory.FullName);
+			Variables.Add("EnterpriseDir", UnrealBuildTool.EnterpriseDirectory.FullName);
+			Variables.Add("ProjectDir", ProjectDirectory.FullName);
+			Variables.Add("TargetName", TargetName);
+			Variables.Add("TargetPlatform", Platform.ToString());
+			Variables.Add("TargetConfiguration", Configuration.ToString());
+			Variables.Add("TargetType", TargetType.ToString());
+			if(ProjectFile != null)
+			{
+				Variables.Add("ProjectFile", ProjectFile.FullName);
+			}
+			if(Plugin != null)
+			{
+				Variables.Add("PluginDir", Plugin.Directory.FullName);
+			}
+			return Variables;
+		}
+
+		/// <summary>
 		/// Write scripts containing the custom build steps for the given host platform
 		/// </summary>
 		/// <param name="HostPlatform">The current host platform</param>
@@ -2615,23 +2653,7 @@ namespace UnrealBuildTool
 			foreach(Tuple<string[], UEBuildPlugin> CommandBatch in CommandBatches)
 			{
 				// Find all the standard variables
-				Dictionary<string, string> Variables = new Dictionary<string,string>();
-				Variables.Add("RootDir", UnrealBuildTool.RootDirectory.FullName);
-				Variables.Add("EngineDir", UnrealBuildTool.EngineDirectory.FullName);
-				Variables.Add("EnterpriseDir", UnrealBuildTool.EnterpriseDirectory.FullName);
-				Variables.Add("ProjectDir", ProjectDirectory.FullName);
-				Variables.Add("TargetName", TargetName);
-				Variables.Add("TargetPlatform", Platform.ToString());
-				Variables.Add("TargetConfiguration", Configuration.ToString());
-				Variables.Add("TargetType", TargetType.ToString());
-				if(ProjectFile != null)
-				{
-					Variables.Add("ProjectFile", ProjectFile.FullName);
-				}
-				if(CommandBatch.Item2 != null)
-				{
-					Variables.Add("PluginDir", CommandBatch.Item2.Directory.FullName);
-				}
+				Dictionary<string, string> Variables = GetTargetVariables(CommandBatch.Item2);
 
 				// Get the output path to the script
 				string ScriptExtension = (HostPlatform == UnrealTargetPlatform.Win64)? ".bat" : ".sh";

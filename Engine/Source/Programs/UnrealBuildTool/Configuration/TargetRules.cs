@@ -1046,6 +1046,11 @@ namespace UnrealBuildTool
 		public List<string> PostBuildSteps = new List<string>();
 
 		/// <summary>
+		/// Specifies additional build products produced as part of this target.
+		/// </summary>
+		public List<string> AdditionalBuildProducts = new List<string>();
+
+		/// <summary>
 		/// Additional arguments to pass to the compiler
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
@@ -2058,6 +2063,11 @@ namespace UnrealBuildTool
 		public IReadOnlyList<string> PostBuildSteps
 		{
 			get { return Inner.PostBuildSteps; }
+		}
+
+		public IReadOnlyList<string> AdditionalBuildProducts
+		{
+			get { return Inner.AdditionalBuildProducts; }
 		}
 
 		public string AdditionalCompilerArguments

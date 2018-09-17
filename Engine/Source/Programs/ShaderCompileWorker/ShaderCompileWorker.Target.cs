@@ -14,7 +14,7 @@ public class ShaderCompileWorkerTarget : TargetRules
 
 		LaunchModuleName = "ShaderCompileWorker";
 
-        if (bUseXGEController && (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64))
+        if (bUseXGEController && (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64) && Configuration == UnrealTargetConfiguration.Development)
         {
             // The interception interface in XGE requires that the parent and child processes have different filenames on disk.
             // To avoid building an entire separate worker just for this, we duplicate the ShaderCompileWorker in a post build step.
@@ -22,7 +22,9 @@ public class ShaderCompileWorkerTarget : TargetRules
             const string DestPath = "$(EngineDir)\\Binaries\\$(TargetPlatform)\\XGEControlWorker.exe";
 
             PostBuildSteps.Add(string.Format("echo Copying {0} to {1}", SrcPath, DestPath));
-            PostBuildSteps.Add(string.Format("copy /Y /B \"{0}\" /B \"{1}\"", SrcPath, DestPath));
+            PostBuildSteps.Add(string.Format("copy /Y /B \"{0}\" /B \"{1}\" >nul:", SrcPath, DestPath));
+
+			AdditionalBuildProducts.Add(DestPath);
         }
 
 		// Turn off various third party features we don't need
