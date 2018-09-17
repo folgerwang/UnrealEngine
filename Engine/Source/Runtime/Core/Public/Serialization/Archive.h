@@ -986,6 +986,11 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		return !ArNoDelta;
 	}
 
+	FORCEINLINE bool DoIntraPropertyDelta() const
+	{
+		return !ArNoIntraPropertyDelta;
+	}
+
 	FORCEINLINE bool IsIgnoringOuterRef() const
 	{
 		return ArIgnoreOuterRef;
@@ -1412,8 +1417,11 @@ public:
 	/** If true, we will not serialize the ObjectArchetype reference in UObject. */
 	uint8 ArIgnoreArchetypeRef : 1;
 
-	/** If true, we will not serialize the ObjectArchetype reference in UObject. */
+	/** If true, do not perform delta serialization of properties. */
 	uint8 ArNoDelta : 1;
+
+	/** If true, do not perform delta serialization within properties (e.g. TMaps and TSets). */
+	uint8 ArNoIntraPropertyDelta : 1;
 
 	/** If true, we will not serialize the Outer reference in UObject. */
 	uint8 ArIgnoreOuterRef : 1;
