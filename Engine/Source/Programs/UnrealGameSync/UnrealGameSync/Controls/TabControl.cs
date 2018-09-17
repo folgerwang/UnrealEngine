@@ -243,14 +243,17 @@ namespace UnrealGameSync
 		{
 			using(Graphics Graphics = CreateGraphics())
 			{
+				float DpiScaleX = Graphics.DpiX / 96.0f;
+				float DpiScaleY = Graphics.DpiY / 96.0f;
+
 				for(int Idx = 0; Idx < Tabs.Count; Idx++)
 				{
 					TabData Tab = Tabs[Idx];
 					Tab.TextSize = TextRenderer.MeasureText(Graphics, Tab.Name, Font, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
-					Tab.Width = TabPadding + Tab.TextSize.Width + TabPadding;
+					Tab.Width = TabPadding + Tab.TextSize.Width + (int)(TabPadding * DpiScaleX);
 					if(Idx == SelectedTabIdx)
 					{
-						Tab.Width += TabCloseButtonWidth;
+						Tab.Width += (int)(TabCloseButtonWidth * DpiScaleX);
 					}
 				}
 
@@ -515,17 +518,21 @@ namespace UnrealGameSync
 				SmoothingMode PrevSmoothingMode = e.Graphics.SmoothingMode;
 				e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-				int CloseMidX = SelectedTab.MinX + SelectedTab.Width - (TabPadding + TabCloseButtonWidth) / 2;// + (13 / 2);
-				int CloseMidY = (ClientSize.Height - 4) / 2;
+				float DpiScaleX = e.Graphics.DpiX / 96.0f;
+				float DpiScaleY = e.Graphics.DpiY / 96.0f;
 
-				Rectangle CloseButton = new Rectangle(CloseMidX - (13 / 2), CloseMidY - (13 / 2), 13, 13);
+				int CloseMidX = SelectedTab.MinX + SelectedTab.Width - (int)((TabPadding + TabCloseButtonWidth) * DpiScaleX / 2);// + (13 / 2);
+				int CloseMidY = (ClientSize.Height - (int)(4 * DpiScaleY)) / 2;
+
+				Rectangle CloseButton = new Rectangle(CloseMidX - (int)((13 / 2) * DpiScaleX), CloseMidY - (int)((13 / 2) * DpiScaleY), (int)(13 * DpiScaleX), (int)(13 * DpiScaleY));
 				e.Graphics.FillEllipse(SystemBrushes.ControlDark, CloseButton);
 
-				using(Pen CrossPen = new Pen(SystemBrushes.Window, 2.0f))
+				using(Pen CrossPen = new Pen(SystemBrushes.Window, 2.0f * DpiScaleX))
 				{
-					const float Indent = 3.5f;
-					e.Graphics.DrawLine(CrossPen, CloseButton.Left + Indent, CloseButton.Top + Indent, CloseButton.Right - Indent, CloseButton.Bottom - Indent);
-					e.Graphics.DrawLine(CrossPen, CloseButton.Left + Indent, CloseButton.Bottom - Indent, CloseButton.Right - Indent, CloseButton.Top + Indent);
+					float IndentX = 3.5f * DpiScaleX;
+					float IndentY = 3.5f * DpiScaleY;
+					e.Graphics.DrawLine(CrossPen, CloseButton.Left + IndentX, CloseButton.Top + IndentY, CloseButton.Right - IndentX, CloseButton.Bottom - IndentY);
+					e.Graphics.DrawLine(CrossPen, CloseButton.Left + IndentX, CloseButton.Bottom - IndentY, CloseButton.Right - IndentX, CloseButton.Top + IndentY);
 				}
 				e.Graphics.SmoothingMode = PrevSmoothingMode;
 
@@ -541,22 +548,26 @@ namespace UnrealGameSync
 
 		void DrawBackground(Graphics Graphics, TabData Tab, Brush BackgroundBrush, Brush StripeBrush, Tuple<Color, float> Highlight)
 		{
+			float DpiScaleY = Graphics.DpiY / 96.0f;
+
 			Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
 			Graphics.FillRectangle(BackgroundBrush, Tab.MinX + 1, 1, Tab.Width - 1, ClientSize.Height - 3);
-			Graphics.FillRectangle(StripeBrush, Tab.MinX + 1, ClientSize.Height - 5, Tab.Width - 1, 3);
+			Graphics.FillRectangle(StripeBrush, Tab.MinX + 1, ClientSize.Height - (int)(5 * DpiScaleY), Tab.Width - 1, (int)(5 * DpiScaleY) - 2);
 
 			if(Highlight != null && Highlight.Item2 > 0.0f)
 			{
 				using(SolidBrush Brush = new SolidBrush(Highlight.Item1))
 				{
-					Graphics.FillRectangle(Brush, Tab.MinX + 1, ClientSize.Height - 5, (int)((Tab.Width - 2) * Highlight.Item2), 3);
+					Graphics.FillRectangle(Brush, Tab.MinX + 1, ClientSize.Height - (int)(5 * DpiScaleY), (int)((Tab.Width - 2) * Highlight.Item2), (int)(5 * DpiScaleY) - 2);
 				}
 			}
 		}
 
 		void DrawText(Graphics Graphics, TabData Tab)
 		{
-			TextRenderer.DrawText(Graphics, Tab.Name, Font, new Rectangle(Tab.MinX + TabPadding, 0, Tab.TextSize.Width, ClientSize.Height - 3), Color.Black, TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis | TextFormatFlags.VerticalCenter);
+			float DpiScaleX = Graphics.DpiX / 96.0f;
+			float DpiScaleY = Graphics.DpiY / 96.0f;
+			TextRenderer.DrawText(Graphics, Tab.Name, Font, new Rectangle(Tab.MinX + (int)(TabPadding * DpiScaleX), 0, Tab.TextSize.Width, ClientSize.Height - (int)(3 * DpiScaleY)), Color.Black, TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis | TextFormatFlags.VerticalCenter);
 		}
 	}
 }

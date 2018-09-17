@@ -545,7 +545,15 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 		Window->SetWindowMode(WindowMode);
 	}
 
-	Window->ShowWindow();
+	// No need to show window in off-screen rendering mode as it does not render to screen
+	if (FSlateApplication::Get().IsRenderingOffScreen())
+	{
+		FSlateApplicationBase::Get().GetRenderer()->CreateViewport(Window);
+	}
+	else
+	{
+		Window->ShowWindow();
+	}
 
 	// Tick now to force a redraw of the window and ensure correct fullscreen application
 	FSlateApplication::Get().Tick();
@@ -1413,7 +1421,11 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			FPlatformSplash::Hide();
 			if ( GameViewportWindow.IsValid() )
 			{
-				GameViewportWindow.Pin()->ShowWindow();
+				// Don't show window in off-screen rendering mode as it doesn't render to screen
+				if (!FSlateApplication::Get().IsRenderingOffScreen())
+				{
+					GameViewportWindow.Pin()->ShowWindow();
+				}
 				FSlateApplication::Get().RegisterGameViewport( GameViewportWidget.ToSharedRef() );
 			}
 		}

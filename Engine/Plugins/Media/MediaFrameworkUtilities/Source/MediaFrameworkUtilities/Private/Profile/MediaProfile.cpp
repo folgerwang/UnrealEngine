@@ -6,6 +6,8 @@
 #include "MediaFrameworkUtilitiesModule.h"
 
 #include "Engine/Engine.h"
+#include "Engine/EngineCustomTimeStep.h"
+#include "Engine/TimecodeProvider.h"
 #include "MediaAssets/ProxyMediaOutput.h"
 #include "MediaAssets/ProxyMediaSource.h"
 #include "MediaOutput.h"
@@ -30,6 +32,18 @@ UMediaOutput* UMediaProfile::GetMediaOutput(int32 Index) const
 		return MediaOutputs[Index];
 	}
 	return nullptr;
+}
+
+
+UTimecodeProvider* UMediaProfile::GetTimecodeProvider() const
+{
+	return bOverrideTimecodeProvider ? TimecodeProvider : nullptr;
+}
+
+
+UEngineCustomTimeStep* UMediaProfile::GetCustomTimeStep() const
+{
+	return bOverrideCustomTimeStep ? CustomTimeStep : nullptr;
 }
 
 
@@ -93,5 +107,80 @@ void UMediaProfile::Apply()
 				Proxy->SetDynamicMediaOutput(nullptr);
 			}
 		}
+	}
+
+	if (bOverrideTimecodeProvider)
+	{
+		if (TimecodeProvider)
+		{
+			bool bResult = GEngine->SetTimecodeProvider(TimecodeProvider);
+			if (!bResult)
+			{
+				UE_LOG(LogMediaFrameworkUtilities, Error, TEXT("The TimecodeProvider '%s' could not be initialized."), *TimecodeProvider->GetName());
+			}
+		}
+		else
+		{
+			GEngine->SetTimecodeProvider(nullptr);
+		}
+	}
+
+	if (bOverrideCustomTimeStep)
+	{
+		if (CustomTimeStep)
+		{
+			bool bResult = GEngine->SetCustomTimeStep(CustomTimeStep);
+			if (!bResult)
+			{
+				UE_LOG(LogMediaFrameworkUtilities, Error, TEXT("The Custom Time Step '%s' could not be initialized."), *CustomTimeStep->GetName());
+			}
+		}
+		else
+		{
+			GEngine->SetCustomTimeStep(nullptr);
+		}
+	}
+}
+
+
+void UMediaProfile::Reset()
+{
+	if (GEngine == nullptr)
+	{
+		UE_LOG(LogMediaFrameworkUtilities, Error, TEXT("The MediaProfile '%s' could not be reset. The Engine is not initialized."), *GetName());
+		return;
+	}
+
+	{
+		// Reset the proxies
+		TArray<UProxyMediaSource*> SourceProxies = GetDefault<UMediaProfileSettings>()->GetAllMediaSourceProxy();
+		for (UProxyMediaSource* Proxy : SourceProxies)
+		{
+			if (Proxy)
+			{
+				Proxy->SetDynamicMediaSource(nullptr);
+			}
+		}
+	}
+
+	{
+		TArray<UProxyMediaOutput*> OutputProxies = GetDefault<UMediaProfileSettings>()->GetAllMediaOutputProxy();
+		for (UProxyMediaOutput* Proxy : OutputProxies)
+		{
+			if (Proxy)
+			{
+				Proxy->SetDynamicMediaOutput(nullptr);
+			}
+		}
+	}
+
+	if (bOverrideTimecodeProvider)
+	{
+		GEngine->SetTimecodeProvider(nullptr);
+	}
+
+	if (bOverrideCustomTimeStep)
+	{
+		GEngine->SetCustomTimeStep(GEngine->GetDefaultCustomTimeStep());
 	}
 }

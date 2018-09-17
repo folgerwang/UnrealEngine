@@ -75,6 +75,14 @@ struct ENGINE_API FSoundSubmixSendInfo
 */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSubmixRecordedFileDone,const USoundWave*, ResultingSoundWave);
 
+/** 
+* Called when a new submix envelope value is generated on the given audio device id (different for multiple PIE). Array is an envelope value for each channel.
+*/
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSubmixEnvelope, const TArray<float>&, Envelope);
+
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnSubmixEnvelopeBP, const TArray<float>&, Envelope);
+
+
 #if WITH_EDITOR
 
 /** Interface for sound submix graph interaction with the AudioEditor module. */
@@ -116,6 +124,14 @@ class ENGINE_API USoundSubmix : public UObject
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SoundSubmix)
 	UAmbisonicsSubmixSettingsBase* AmbisonicsPluginSettings;
 
+	/** The attack time in milliseconds for the envelope follower. Delegate callbacks can be registered to get the envelope value of sounds played with this submix. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = EnvelopeFollower, meta = (ClampMin = "0", UIMin = "0"))
+	int32 EnvelopeFollowerAttackTime;
+
+	/** The release time in milliseconds for the envelope follower. Delegate callbacks can be registered to get the envelope value of sounds played with this submix. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = EnvelopeFollower, meta = (ClampMin = "0", UIMin = "0"))
+	int32 EnvelopeFollowerReleaseTime;
+
 	// Blueprint delegate for when a recorded file is finished exporting.
 	UPROPERTY(BlueprintAssignable)
 	FOnSubmixRecordedFileDone OnSubmixRecordedFileDone;
@@ -132,6 +148,21 @@ class ENGINE_API USoundSubmix : public UObject
 
 	void StopRecordingOutput(FAudioDevice* InDevice, EAudioRecordingExportType ExportType, const FString& Name, FString Path, USoundWave* ExistingSoundWaveToOverwrite = nullptr);
 
+	// Start envelope following the submix output. Register with OnSubmixEnvelope to receive envelope follower data in BP.
+	UFUNCTION(BlueprintCallable, Category = "Audio|EnvelopeFollowing", meta = (WorldContext = "WorldContextObject"))
+	void StartEnvelopeFollowing(const UObject* WorldContextObject);
+
+	void StartEnvelopeFollowing(FAudioDevice* InDevice);
+
+	// Start envelope following the submix output. Register with OnSubmixEnvelope to receive envelope follower data in BP.
+	UFUNCTION(BlueprintCallable, Category = "Audio|EnvelopeFollowing", meta = (WorldContext = "WorldContextObject"))
+	void StopEnvelopeFollowing(const UObject* WorldContextObject);
+
+	void StopEnvelopeFollowing(FAudioDevice* InDevice);
+
+	UFUNCTION(BlueprintCallable, Category = "Audio|EnvelopeFollowing", meta = (WorldContext = "WorldContextObject"))
+	void AddEnvelopeFollowerDelegate(const UObject* WorldContextObject, const FOnSubmixEnvelopeBP& OnSubmixEnvelopeBP);
+
 	// Registers and unregisters buffer listeners with the submix
 	void RegisterSubmixBufferListener(ISubmixBufferListener* InBufferListener);
 	void UnregisterSubmixBufferListener(ISubmixBufferListener* InBufferListener);
@@ -147,7 +178,7 @@ protected:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 	//~ End UObject Interface.
-
+	
 	// State handling for bouncing output.
 	TUniquePtr<Audio::FAudioRecordingData> RecordingData;
 
@@ -195,6 +226,8 @@ private:
 	static TSharedPtr<ISoundSubmixAudioEditor> SoundSubmixAudioEditor;
 
 #endif
+
+
 
 };
 

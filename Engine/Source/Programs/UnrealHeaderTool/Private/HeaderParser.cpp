@@ -951,6 +951,61 @@ namespace
 			}
 			break;
 
+			case ECheckedMetadataSpecifier::CommutativeAssociativeBinaryOperator:
+			{
+				if (UFunction* Function = Cast<UFunction>(Field))
+				{
+					bool bGoodParams = (Function->NumParms == 3);
+					if (bGoodParams)
+					{
+						UProperty* FirstParam = nullptr;
+						UProperty* SecondParam = nullptr;
+						UProperty* ReturnValue = nullptr;
+
+						TFieldIterator<UProperty> It(Function);
+
+						auto GetNextParam = [&]()
+						{
+							if (It)
+							{
+								if (It->HasAnyPropertyFlags(CPF_ReturnParm))
+								{
+									ReturnValue = *It;
+								}
+								else
+								{
+									if (FirstParam == nullptr)
+									{
+										FirstParam = *It;
+									}
+									else if (SecondParam == nullptr)
+									{
+										SecondParam = *It;
+									}
+								}
+								++It;
+							}
+						};
+
+						GetNextParam();
+						GetNextParam();
+						GetNextParam();
+						ensure(!It);
+
+						if (ReturnValue == nullptr || SecondParam == nullptr || !SecondParam->SameType(FirstParam))
+						{
+							bGoodParams = false;
+						}
+					}
+
+					if (!bGoodParams)
+					{
+						UE_LOG_ERROR_UHT(TEXT("Commutative asssociative binary operators must have exactly 2 parameters of the same type and a return value."));
+					}
+				}
+			}
+			break;
+
 			case ECheckedMetadataSpecifier::ExpandEnumAsExecs:
 			{
 				if (UFunction* Function = Cast<UFunction>(Field))
@@ -2698,6 +2753,14 @@ void FHeaderParser::FixupDelegateProperties( FClasses& AllClasses, UStruct* Stru
 							for (TFieldIterator<UProperty> PropIt(SourceDelegateFunction); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
 							{
 								UProperty* FuncParam = *PropIt;
+
+								if (!IsPropertySupportedByBlueprint(FuncParam, false))
+								{
+									FString ExtendedCPPType;
+									FString CPPType = FuncParam->GetCPPType(&ExtendedCPPType);
+									UE_LOG_ERROR_UHT(TEXT("Type '%s%s' is not supported by blueprint. %s.%s"), *CPPType, *ExtendedCPPType, *SourceDelegateFunction->GetName(), *FuncParam->GetName());
+								}
+
 								if(FuncParam->HasAllPropertyFlags(CPF_OutParm) && !FuncParam->HasAllPropertyFlags(CPF_ConstParm)  )
 								{
 									const bool bClassGeneratedFromBP = FClass::IsDynamic(Struct);
@@ -8738,7 +8801,45 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 		}
 		else if( Property->IsA(UTextProperty::StaticClass()) )
 		{
-			return FDefaultValueHelper::StringFromCppString(CppForm, TEXT("FText"), OutForm);
+			// Handle legacy cases of FText::FromString being used as default values
+			// These should be replaced with INVTEXT as FText::FromString can produce inconsistent keys
+			if (FDefaultValueHelper::StringFromCppString(CppForm, TEXT("FText::FromString"), OutForm))
+			{
+				UE_LOG_WARNING_UHT(TEXT("FText::FromString should be replaced with INVTEXT for default parameter values"));
+				return true;
+			}
+
+			// Parse the potential value into an instance
+			FText ParsedText;
+			if (FDefaultValueHelper::Is(CppForm, TEXT("FText()")) || FDefaultValueHelper::Is(CppForm, TEXT("FText::GetEmpty()")))
+			{
+				ParsedText = FText::GetEmpty();
+			}
+			else
+			{
+				static const FString UHTDummyNamespace = TEXT("__UHT_DUMMY_NAMESPACE__");
+
+				if (!FTextStringHelper::ReadFromString(*CppForm, ParsedText, *UHTDummyNamespace, nullptr, nullptr, /*bRequiresQuotes*/true, EStringTableLoadingPolicy::Find))
+				{
+					return false;
+				}
+
+				// If the namespace of the parsed text matches the default we gave then this was a LOCTEXT macro which we 
+				// don't allow in default values as they rely on an external macro that is known to C++ but not to UHT
+				// TODO: UHT could parse these if it tracked the current LOCTEXT_NAMESPACE macro as it parsed
+				if (TOptional<FString> ParsedTextNamespace = FTextInspector::GetNamespace(ParsedText))
+				{
+					if (ParsedTextNamespace.GetValue().Equals(UHTDummyNamespace))
+					{
+						FError::Throwf(TEXT("LOCTEXT default parameter values are not supported; use NSLOCTEXT instead: %s \"%s\" "), *Property->GetName(), *CppForm);
+						return false;
+					}
+				}
+			}
+
+			// Normalize the default value from the parsed value
+			FTextStringHelper::WriteToString(OutForm, ParsedText, /*bRequiresQuotes*/false);
+			return true;
 		}
 		else if( Property->IsA(UStrProperty::StaticClass()) )
 		{

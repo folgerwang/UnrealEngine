@@ -726,7 +726,7 @@ void FICUInternationalization::InitializeTimeZone()
 	const int32 DefaultTzOffsetMinutes = ICUDefaultTz->getRawOffset() / 60000;
 	const int32 RawOffsetHours = DefaultTzOffsetMinutes / 60;
 	const int32 RawOffsetMinutes = DefaultTzOffsetMinutes % 60;
-	UE_LOG(LogICUInternationalization, Display, TEXT("ICU TimeZone Detection - Raw Offset: %+d:%02d, Platform Override: '%s'"), RawOffsetHours, RawOffsetMinutes, *TimeZoneId);
+	UE_LOG(LogICUInternationalization, Log, TEXT("ICU TimeZone Detection - Raw Offset: %+d:%02d, Platform Override: '%s'"), RawOffsetHours, RawOffsetMinutes, *TimeZoneId);
 }
 
 void FICUInternationalization::InitializeInvariantGregorianCalendar()

@@ -117,6 +117,15 @@ FDisplayClusterMessage::Ptr FDisplayClusterClusterSyncService::ProcessMessage(FD
 		response->SetArg(FDisplayClusterClusterSyncMsg::GetDeltaTime::argDeltaTime, deltaTime);
 		return response;
 	}
+	else if (msgName == FDisplayClusterClusterSyncMsg::GetTimecode::name)
+	{
+		FTimecode timecode;
+		FFrameRate frameRate;
+		GetTimecode(timecode, frameRate);
+		response->SetArg(FDisplayClusterClusterSyncMsg::GetTimecode::argTimecode, timecode);
+		response->SetArg(FDisplayClusterClusterSyncMsg::GetTimecode::argFrameRate, frameRate);
+		return response;
+	}
 	else if (msgName == FDisplayClusterClusterSyncMsg::GetSyncData::name)
 	{
 		FDisplayClusterMessage::DataType data;
@@ -178,6 +187,11 @@ void FDisplayClusterClusterSyncService::WaitForTickEnd()
 void FDisplayClusterClusterSyncService::GetDeltaTime(float& deltaTime)
 {
 	deltaTime = GDisplayCluster->GetPrivateClusterMgr()->GetDeltaTime();
+}
+
+void FDisplayClusterClusterSyncService::GetTimecode(FTimecode& timecode, FFrameRate& frameRate)
+{
+	GDisplayCluster->GetPrivateClusterMgr()->GetTimecode(timecode, frameRate);
 }
 
 void FDisplayClusterClusterSyncService::GetSyncData(FDisplayClusterMessage::DataType& data)

@@ -5,7 +5,7 @@
 void FSourceEffectRingModulation::Init(const FSoundEffectSourceInitData& InitData)
 {
 	bIsActive = true;
-	RingModulation.Init(InitData.SampleRate);
+	RingModulation.Init(InitData.SampleRate, InitData.NumSourceChannels);
 }
 
 void FSourceEffectRingModulation::OnPresetChanged()
@@ -34,21 +34,13 @@ void FSourceEffectRingModulation::OnPresetChanged()
 
 	RingModulation.SetModulationDepth(Settings.Depth);
 	RingModulation.SetModulationFrequency(Settings.Frequency);
+	RingModulation.SetDryLevel(Settings.DryLevel);
+	RingModulation.SetWetLevel(Settings.WetLevel);
 }
 
-void FSourceEffectRingModulation::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectRingModulation::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	if (InData.AudioFrame.Num() == 2)
-	{
-		RingModulation.ProcessAudio(InData.AudioFrame[0], InData.AudioFrame[1], OutData.AudioFrame[0], OutData.AudioFrame[1]);
-	}
-	else
-	{
-		float OutLeft = 0.0f;
-		float OutRight = 0.0f;
-		RingModulation.ProcessAudio(InData.AudioFrame[0], 0.0f, OutLeft, OutRight);
-		OutData.AudioFrame[0] = OutLeft;
-	}
+	RingModulation.ProcessAudio(InData.InputSourceEffectBufferPtr, InData.NumSamples, OutAudioBufferData);
 }
 
 void USourceEffectRingModulationPreset::SetSettings(const FSourceEffectRingModulationSettings& InSettings)

@@ -5,7 +5,7 @@
 void FSourceEffectBitCrusher::Init(const FSoundEffectSourceInitData& InitData)
 {
 	bIsActive = true;
-	BitCrusher.Init(InitData.SampleRate);
+	BitCrusher.Init(InitData.SampleRate, InitData.NumSourceChannels);
 }
 
 void FSourceEffectBitCrusher::OnPresetChanged()
@@ -16,16 +16,9 @@ void FSourceEffectBitCrusher::OnPresetChanged()
 	BitCrusher.SetSampleRateCrush(Settings.CrushedSampleRate);
 }
 
-void FSourceEffectBitCrusher::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectBitCrusher::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	if (InData.AudioFrame.Num() == 2)
-	{
-		BitCrusher.ProcessAudio(InData.AudioFrame[0], InData.AudioFrame[1], OutData.AudioFrame[0], OutData.AudioFrame[1]);
-	}
-	else
-	{
-		BitCrusher.ProcessAudio(InData.AudioFrame[0], OutData.AudioFrame[0]);
-	}
+	BitCrusher.ProcessAudio(InData.InputSourceEffectBufferPtr, InData.NumSamples, OutAudioBufferData);
 }
 
 void USourceEffectBitCrusherPreset::SetSettings(const FSourceEffectBitCrusherSettings& InSettings)

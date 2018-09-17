@@ -1519,6 +1519,8 @@ public:
 			FName AttachParentName;
 			FName SocketName;
 			FTransform RelativeTransform;
+
+			friend FArchive& operator<<(FArchive& Ar, FAttachedActorInfo& ActorInfo);
 		};
 
 		// The RootComponent's transform
@@ -1532,28 +1534,45 @@ public:
 
 		// Actors that are attached to this RootComponent
 		TArray<FAttachedActorInfo> AttachedToInfo;
+
+		friend FArchive& operator<<(FArchive& Ar, FActorRootComponentReconstructionData& RootComponentData);
 	};
 
 	class FActorTransactionAnnotation : public ITransactionObjectAnnotation
 	{
 	public:
-		FActorTransactionAnnotation(const AActor* Actor, const bool bCacheRootComponentData = true);
+		/** Create an empty instance */
+		static TSharedRef<FActorTransactionAnnotation> Create();
 
+		/** Create an instance from the given actor, optionally caching root component data */
+		static TSharedRef<FActorTransactionAnnotation> Create(const AActor* InActor, const bool InCacheRootComponentData = true);
+
+		/** Create an instance from the given actor if required (UActorTransactionAnnotation::HasInstanceData would return true), optionally caching root component data */
+		static TSharedPtr<FActorTransactionAnnotation> CreateIfRequired(const AActor* InActor, const bool InCacheRootComponentData = true);
+
+		//~ ITransactionObjectAnnotation interface
 		virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+		virtual void Serialize(FArchive& Ar) override;
 
 		bool HasInstanceData() const;
 
+		// Actor and component data
+		TWeakObjectPtr<const AActor> Actor;
 		FComponentInstanceDataCache ComponentInstanceData;
 
 		// Root component reconstruction data
 		bool bRootComponentDataCached;
 		FActorRootComponentReconstructionData RootComponentData;
+
+	private:
+		FActorTransactionAnnotation();
+		FActorTransactionAnnotation(const AActor* InActor, FComponentInstanceDataCache&& InComponentInstanceData, const bool InCacheRootComponentData = true);
 	};
 
 	/** Cached pointer to the transaction annotation data from PostEditUndo to be used in the next RerunConstructionScript */
 	TSharedPtr<FActorTransactionAnnotation> CurrentTransactionAnnotation;
 
-	virtual TSharedPtr<ITransactionObjectAnnotation> GetTransactionAnnotation() const override;
+	virtual TSharedPtr<ITransactionObjectAnnotation> FactoryTransactionAnnotation(const ETransactionAnnotationCreationMode InCreationMode) const override;
 	virtual void PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAnnotation) override;
 
 	/** @return true if the component is allowed to re-register its components when modified.  False for CDOs or PIE instances. */
@@ -1726,7 +1745,7 @@ public:
 	virtual bool IsSelectable() const { return true; }
 
 	/** @return	Returns true if this actor should be shown in the scene outliner */
-	bool IsListedInSceneOutliner() const;
+	virtual bool IsListedInSceneOutliner() const;
 
 	/** @return	Returns true if this actor is allowed to be attached to the given actor */
 	virtual bool EditorCanAttachTo(const AActor* InParent, FText& OutReason) const;
@@ -2238,7 +2257,10 @@ public:
 	/** Invalidate lighting cache with default options. */
 	void InvalidateLightingCache()
 	{
-		InvalidateLightingCacheDetailed(false);
+		if (GIsEditor && !GIsDemoMode)
+		{
+			InvalidateLightingCacheDetailed(false);
+		}
 	}
 
 	/** Invalidates anything produced by the last lighting build. */

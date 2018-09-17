@@ -2593,32 +2593,38 @@ void UVREditorUISystem::UpdateExternalSlateUI(TSharedRef<SWidget> InWidget, FNam
 	}
 }
 
-void UVREditorUISystem::TransitionWorld(UWorld* NewWorld)
+void UVREditorUISystem::TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState)
 {
-	for (auto& CurrentUI : FloatingUIs)
+	check(NewWorld != nullptr);
+	
+	if (TransitionState == EEditorWorldExtensionTransitionState::TransitionAll ||
+		TransitionState == EEditorWorldExtensionTransitionState::TransitionNonPIEOnly)
 	{
-		AVREditorFloatingUI* FloatingUI = CurrentUI.Value;
-		if (FloatingUI != nullptr)
+		for (auto& CurrentUI : FloatingUIs)
 		{
-			UUserWidget* UserWidget = FloatingUI->GetUserWidget();
-			if (UserWidget != nullptr)
+			AVREditorFloatingUI* FloatingUI = CurrentUI.Value;
+			if (FloatingUI != nullptr)
 			{
-				// Only reparent the UserWidget if it was parented to a level to begin with.  It may have been parented to an actor or
-				// some other object that doesn't require us to rename anything
-				ULevel* ExistingWidgetOuterLevel = Cast<ULevel>(UserWidget->GetOuter());
-				if (ExistingWidgetOuterLevel != nullptr && ExistingWidgetOuterLevel != NewWorld->PersistentLevel)
+				UUserWidget* UserWidget = FloatingUI->GetUserWidget();
+				if (UserWidget != nullptr)
 				{
-					UserWidget->Rename(nullptr, NewWorld->PersistentLevel);
+					// Only reparent the UserWidget if it was parented to a level to begin with.  It may have been parented to an actor or
+					// some other object that doesn't require us to rename anything
+					ULevel* ExistingWidgetOuterLevel = Cast<ULevel>(UserWidget->GetOuter());
+					if (ExistingWidgetOuterLevel != nullptr && ExistingWidgetOuterLevel != NewWorld->PersistentLevel)
+					{
+						UserWidget->Rename(nullptr, NewWorld->PersistentLevel);
+					}
 				}
 			}
 		}
-	}	
-	
-	AVREditorFloatingUI* TabManagerUI = GetPanel(TabManagerPanelID);
-	if (TabManagerUI != nullptr)
-	{
-		TabManagerUI->GetWidgetComponent()->UpdateWidget();
-		ProxyTabManager->SetParentWindow(TabManagerUI->GetWidgetComponent()->GetSlateWindow().ToSharedRef());
+
+		AVREditorFloatingUI* TabManagerUI = GetPanel(TabManagerPanelID);
+		if (TabManagerUI != nullptr)
+		{
+			TabManagerUI->GetWidgetComponent()->UpdateWidget();
+			ProxyTabManager->SetParentWindow(TabManagerUI->GetWidgetComponent()->GetSlateWindow().ToSharedRef());
+		}
 	}
 }
 

@@ -15,7 +15,7 @@ UMovieSceneVectorTrack::UMovieSceneVectorTrack( const FObjectInitializer& Object
 
 UMovieSceneSection* UMovieSceneVectorTrack::CreateNewSection()
 {
-	UMovieSceneVectorSection* NewSection = NewObject<UMovieSceneVectorSection>(this, UMovieSceneVectorSection::StaticClass(), NAME_None, RF_Transactional);
+	UMovieSceneVectorSection* NewSection = NewObject<UMovieSceneVectorSection>(this, NAME_None, RF_Transactional);
 	NewSection->SetChannelsUsed(NumChannelsUsed);
 	return NewSection;
 }

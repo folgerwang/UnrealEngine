@@ -49,11 +49,8 @@ namespace Audio
 		// Write the input and increment read/write pointers
 		void WriteDelayAndInc(const float InDelayInput);
 
-		// Process audio input and output buffer
-		virtual void ProcessAudio(const float* InAudio, float* OutAudio);
-
 		// Process audio in the delay line, return the delayed value
-		float ProcessAudio(const float InAudio);
+		virtual float ProcessAudioSample(const float InAudio);
 
 	protected:
 

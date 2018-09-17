@@ -486,6 +486,18 @@ namespace AutomationTool
 				throw new AutomationException(String.Format("Failed to delete file '{0}'", NormalizedFilename));
 			}
 		}
+
+		/// <summary>
+		/// Deletes a file(s). 
+		/// If the file does not exist, silently succeeds.
+		/// If the deletion of the file fails, this function throws an Exception.
+		/// </summary>
+		/// <param name="Filenames">Filename</param>
+		public static void DeleteFile(FileReference FileName)
+		{
+			DeleteFile(FileName.FullName);
+		}
+
         /// <summary>
         /// Deletes a file(s). 
         /// If the file does not exist, silently succeeds.
@@ -1469,12 +1481,12 @@ namespace AutomationTool
 		/// <summary>
 		/// Reads a file manifest and returns it
 		/// </summary>
-		/// <param name="ManifestName">ManifestName</param>
+		/// <param name="ManifestFile">ManifestName</param>
 		/// <returns></returns>
-		public static UnrealBuildTool.BuildManifest ReadManifest(string ManifestName)
+		public static BuildManifest ReadManifest(FileReference ManifestFile)
 		{
 			// Create a new default instance of the type
-			UnrealBuildTool.BuildManifest Instance = new UnrealBuildTool.BuildManifest();
+			BuildManifest Instance = new UnrealBuildTool.BuildManifest();
 			XmlReader XmlStream = null;
 			try
 			{
@@ -1484,13 +1496,13 @@ namespace AutomationTool
 				ReaderSettings.IgnoreComments = true;
 
 				// Get the xml data stream to read from
-				XmlStream = XmlReader.Create( ManifestName, ReaderSettings );
+				XmlStream = XmlReader.Create( ManifestFile.FullName, ReaderSettings );
 
 				// Creates an instance of the XmlSerializer class so we can read the settings object
 				XmlSerializer ObjectReader = new XmlSerializer( typeof( UnrealBuildTool.BuildManifest ) );
 
 				// Create an object from the xml data
-				Instance = ( UnrealBuildTool.BuildManifest )ObjectReader.Deserialize( XmlStream );
+				Instance = ( BuildManifest )ObjectReader.Deserialize( XmlStream );
 			}
 			catch( Exception Ex )
 			{

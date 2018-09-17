@@ -75,6 +75,16 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Genlock options")
 	bool bUseReferenceIn;
 
+	/**
+	 * If true, the Engine will wait for the frame to be read.
+	 * This will introduce random latency (the time it takes to read a frame).
+     * Use this option when you want to synchronize the engine with the incoming frame and discard the buffered frames.
+     * @note If false, there is no guarantee that the incoming frame will be ready since it takes some time to read a frame.
+     * @note This will not work as intended with interlaced transport because both fields are processed at the same time.
+	 */
+	UPROPERTY(EditAnywhere, Category = "Genlock options", meta=(EditCondition="!bUseReferenceIn"))
+	bool bWaitForFrameToBeReady;
+
 	/** The type of Timecode to read from SDI stream. */
 	UPROPERTY(EditAnywhere, Category="Genlock options", meta=(EditCondition="!bUseReferenceIn"))
 	EAjaMediaTimecodeFormat TimecodeFormat;

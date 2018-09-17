@@ -14,21 +14,26 @@
 
 #define LOCTEXT_NAMESPACE "MediaIOCorePlayerBase"
 
+/* FMediaIOCoreMediaOption structors
+ *****************************************************************************/
+const FName FMediaIOCoreMediaOption::FrameRateNumerator("FrameRateNumerator");
+const FName FMediaIOCoreMediaOption::FrameRateDenominator("FrameRateDenominator");
+const FName FMediaIOCoreMediaOption::ResolutionWidth("ResolutionWidth");
+const FName FMediaIOCoreMediaOption::ResolutionHeight("ResolutionHeight");
+const FName FMediaIOCoreMediaOption::VideoStandard("VideoStandard");
+
 /* FMediaIOCorePlayerBase structors
  *****************************************************************************/
 
 FMediaIOCorePlayerBase::FMediaIOCorePlayerBase(IMediaEventSink& InEventSink)
-	:bIsTimecodeLogEnable(false)
+	: bIsTimecodeLogEnable(false)
 	, CurrentState(EMediaState::Closed)
 	, CurrentTime(FTimespan::Zero())
 	, EventSink(InEventSink)
-	, LastAudioChannels(0)
-	, LastAudioSampleRate(0)
 	, LastVideoDim(FIntPoint::ZeroValue)
 	, VideoFrameRate(30, 1)
 	, LastFrameDropCount(0)
 	, Samples(new FMediaIOCoreSamples)
-	, bUseFrameTimecode(false)
 	, bUseTimeSynchronization(false)
 	, VideoSampleFormat(EMediaTextureSampleFormat::CharBGRA)
 	, PreviousFrameTimespan(FTimespan::Zero())
@@ -49,6 +54,10 @@ void FMediaIOCorePlayerBase::Close()
 	CurrentState = EMediaState::Closed;
 	CurrentTime = FTimespan::Zero();
 	LastVideoDim = FIntPoint::ZeroValue;
+	AudioTrackFormat.NumChannels = 0;
+	AudioTrackFormat.SampleRate = 0;
+
+	Samples->FlushSamples();
 	EventSink.ReceiveMediaEvent(EMediaEvent::TracksChanged);
 	EventSink.ReceiveMediaEvent(EMediaEvent::MediaClosed);
 }
@@ -57,12 +66,12 @@ FString FMediaIOCorePlayerBase::GetInfo() const
 {
 	FString Info;
 
-	if (LastAudioChannels > 0)
+	if (AudioTrackFormat.NumChannels > 0)
 	{
 		Info += FString::Printf(TEXT("Stream\n"));
 		Info += FString::Printf(TEXT("    Type: Audio\n"));
-		Info += FString::Printf(TEXT("    Channels: %i\n"), LastAudioChannels);
-		Info += FString::Printf(TEXT("    Sample Rate: %i Hz\n"), LastAudioSampleRate);
+		Info += FString::Printf(TEXT("    Channels: %i\n"), AudioTrackFormat.NumChannels);
+		Info += FString::Printf(TEXT("    Sample Rate: %i Hz\n"), AudioTrackFormat.SampleRate);
 		Info += FString::Printf(TEXT("    Bits Per Sample: 32\n"));
 	}
 
@@ -95,6 +104,11 @@ IMediaSamples& FMediaIOCorePlayerBase::GetSamples()
 	return *Samples;
 }
 
+const FMediaIOCoreSamples& FMediaIOCorePlayerBase::GetSamples() const
+{
+	return *Samples;
+}
+
 FString FMediaIOCorePlayerBase::GetStats() const
 {
 	return FString();
@@ -105,14 +119,22 @@ IMediaTracks& FMediaIOCorePlayerBase::GetTracks()
 	return *this;
 }
 
+FString FMediaIOCorePlayerBase::GetUrl() const
+{
+	return OpenUrl;
+}
+
 IMediaView& FMediaIOCorePlayerBase::GetView()
 {
 	return *this;
 }
 
-bool FMediaIOCorePlayerBase::Open(const FString& /*Url*/, const IMediaOptions* /*Options*/)
+bool FMediaIOCorePlayerBase::Open(const FString& Url, const IMediaOptions* Options)
 {
-	return false;
+	Close();
+
+	OpenUrl = Url;
+	return ReadMediaOptions(Options);
 }
 
 bool FMediaIOCorePlayerBase::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& /*Archive*/, const FString& /*OriginalUrl*/, const IMediaOptions* /*Options*/)
@@ -120,33 +142,28 @@ bool FMediaIOCorePlayerBase::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe
 	return false;
 }
 
-bool FMediaIOCorePlayerBase::TickTimeManagement()
+void FMediaIOCorePlayerBase::TickTimeManagement()
 {
-	bool bUseDefaultTime = true;
+	bool bUseTimecode = false;
 	if (bUseTimeSynchronization)
 	{
-		FTimecode Timecode = FApp::GetTimecode();
-		FFrameRate FrameRate;
 		if (const UTimecodeProvider* Provider = GEngine->GetTimecodeProvider())
 		{
-			if (Provider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized)
-			{
-				FrameRate = Provider->GetFrameRate();
-				bUseDefaultTime = false;
-			}
-		}
-		else
-		{
-			FrameRate = GEngine->DefaultTimecodeFrameRate;
-			bUseDefaultTime = false;
-		}
-
-		if (!bUseDefaultTime)
-		{
-			CurrentTime = FTimespan(0, Timecode.Hours, Timecode.Minutes, Timecode.Seconds, static_cast<int32>((ETimespan::TicksPerSecond * Timecode.Frames) / FrameRate.AsDecimal()) * ETimespan::NanosecondsPerTick);
+			bUseTimecode = (Provider->GetSynchronizationState() == ETimecodeProviderSynchronizationState::Synchronized);
 		}
 	}
-	return bUseDefaultTime;
+
+	if (bUseTimecode)
+	{
+		FTimecode Timecode = FApp::GetTimecode();
+		FFrameRate FrameRate = FApp::GetTimecodeFrameRate();
+		CurrentTime = FTimespan(0, Timecode.Hours, Timecode.Minutes, Timecode.Seconds, static_cast<int32>((ETimespan::TicksPerSecond * Timecode.Frames) / FrameRate.AsDecimal()) * ETimespan::NanosecondsPerTick);
+	}
+	else
+	{
+		// As default, use the App time
+		CurrentTime = FTimespan::FromSeconds(FApp::GetCurrentTime());
+	}
 }
 
 /* IMediaCache interface
@@ -370,6 +387,19 @@ bool FMediaIOCorePlayerBase::SetTrackFormat(EMediaTrackType TrackType, int32 Tra
 bool FMediaIOCorePlayerBase::ReadMediaOptions(const IMediaOptions* Options)
 {
 	bUseTimeSynchronization = Options->GetMediaOption(TimeSynchronizableMedia::UseTimeSynchronizatioOption, false);
+	{
+		int32 Numerator = Options->GetMediaOption(FMediaIOCoreMediaOption::FrameRateNumerator, (int64)30);
+		int32 Denominator = Options->GetMediaOption(FMediaIOCoreMediaOption::FrameRateDenominator, (int64)1);
+		VideoFrameRate = FFrameRate(Numerator, Denominator);
+	}
+	{
+		int32 ResolutionX = Options->GetMediaOption(FMediaIOCoreMediaOption::ResolutionWidth, (int64)1920);
+		int32 ResolutionY = Options->GetMediaOption(FMediaIOCoreMediaOption::ResolutionHeight, (int64)1080);
+		VideoTrackFormat.Dim = FIntPoint(ResolutionX, ResolutionY);
+		VideoTrackFormat.FrameRates = TRange<float>(VideoFrameRate.AsDecimal());
+		VideoTrackFormat.FrameRate = VideoFrameRate.AsDecimal();
+		VideoTrackFormat.TypeName = Options->GetMediaOption(FMediaIOCoreMediaOption::VideoStandard, FString(TEXT("1080p30fps")));
+	}
 	return true;
 }
 

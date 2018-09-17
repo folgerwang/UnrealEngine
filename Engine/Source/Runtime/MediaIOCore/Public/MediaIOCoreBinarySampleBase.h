@@ -24,9 +24,10 @@ public:
 	 *
 	 * @param InBinaryBuffer The metadata frame data.
 	 * @param InBufferSize The size of the InBinaryBuffer.
+	 * @param InTimecode The sample timecode if available.
 	 * @param InTime The sample time (in the player's own clock).
 	 */
-	bool Initialize(const uint8* InBinaryBuffer, uint32 InBufferSize, FTimespan InTime)
+	bool Initialize(const uint8* InBinaryBuffer, uint32 InBufferSize, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
 	{
 		if (InBinaryBuffer == nullptr)
 		{
@@ -37,6 +38,7 @@ public:
 		Buffer.Reset(InBufferSize);
 		Buffer.Append(InBinaryBuffer, InBufferSize);
 		Time = InTime;
+		Timecode = InTimecode;
 
 		return true;
 	}
@@ -45,12 +47,14 @@ public:
 	 * Initialize the sample.
 	 *
 	 * @param InBinaryBuffer The metadata frame data.
+	 * @param InTimecode The sample timecode if available.
 	 * @param InTime The sample time (in the player's own clock).
 	 */
-	bool Initialize(TArray<uint8> InBinaryBuffer, FTimespan InTime)
+	bool Initialize(TArray<uint8> InBinaryBuffer, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
 	{
 		Buffer = MoveTemp(InBinaryBuffer);
 		Time = InTime;
+		Timecode = InTimecode;
 
 		return true;
 	}
@@ -79,6 +83,11 @@ public:
 		return Time;
 	}
 
+	virtual TOptional<FTimecode> GetTimecode() const override
+	{
+		return Timecode;
+	}
+
 public:
 
 	//~ IMediaPoolable interface
@@ -102,4 +111,7 @@ protected:
 
 	/** Sample time. */
 	FTimespan Time;
+
+	/** Sample timecode. */
+	TOptional<FTimecode> Timecode;
 };

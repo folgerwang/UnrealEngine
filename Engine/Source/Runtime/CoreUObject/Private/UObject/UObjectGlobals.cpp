@@ -2197,12 +2197,13 @@ bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty)
 {
 	bool bSavedToTransactionBuffer = false;
 
-	// Neither PIE world objects nor script packages should end up in the transaction buffer. Additionally, in order
+	// Script packages should not end up in the transaction buffer.
+	// PIE objects should go through however. Additionally, in order
 	// to save a copy of the object, we must have a transactor and the object must be transactional.
-	const bool IsTransactional = Object->HasAnyFlags(RF_Transactional);
-	const bool IsNotPIEOrContainsScriptObject = (Object->GetOutermost()->HasAnyPackageFlags( PKG_PlayInEditor | PKG_ContainsScript) == false);
+	const bool bIsTransactional = Object->HasAnyFlags(RF_Transactional);
+	const bool bIsNotScriptPackage = (Object->GetOutermost()->HasAnyPackageFlags(PKG_ContainsScript) == false);
 
-	if ( GUndo && IsTransactional && IsNotPIEOrContainsScriptObject )
+	if ( GUndo && bIsTransactional && bIsNotScriptPackage)
 	{
 		// Mark the package dirty, if requested
 		if ( bMarkDirty )
@@ -2227,12 +2228,13 @@ bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty)
  */
 void SnapshotTransactionBuffer(UObject* Object)
 {
-	// Neither PIE world objects nor script packages should end up in the transaction buffer. Additionally, in order
+	// Script packages should not end up in the transaction buffer.
+	// PIE objects should go through however. Additionally, in order
 	// to save a copy of the object, we must have a transactor and the object must be transactional.
-	const bool IsTransactional = Object->HasAnyFlags(RF_Transactional);
-	const bool IsNotPIEOrContainsScriptObject = (Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript) == false);
+	const bool bIsTransactional = Object->HasAnyFlags(RF_Transactional);
+	const bool bIsNotScriptPackage = (Object->GetOutermost()->HasAnyPackageFlags(PKG_ContainsScript) == false);
 
-	if (GUndo && IsTransactional && IsNotPIEOrContainsScriptObject)
+	if (GUndo && bIsTransactional && bIsNotScriptPackage)
 	{
 		GUndo->SnapshotObject(Object);
 	}

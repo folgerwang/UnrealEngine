@@ -18,6 +18,26 @@ class FViewport;
 class AActor;
 class FEditorViewportClient;
 
+enum class EEditorWorldExtensionTransitionState : uint8
+{
+	TransitionNone,
+	TransitionAll,
+	TransitionPIEOnly,
+	TransitionNonPIEOnly
+};
+
+USTRUCT()
+struct FEditorWorldExtensionActorData
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	AActor* Actor;
+
+	UPROPERTY()
+	bool bValidForPIE;
+};
+
 UCLASS()
 class UNREALED_API UEditorWorldExtension : public UObject
 {
@@ -47,15 +67,18 @@ public:
 	/** Gets the world owning this extension */
 	virtual UWorld* GetWorld() const override;
 
+	/** Gets the world owning this extension's non-PIE valid actors when current world is a play world */
+	virtual UWorld* GetLastEditorWorld() const;
+
 	/**  Spawns a transient actor that we can use in the current world of this extension (templated for convenience) */
 	template<class T>
-	inline T* SpawnTransientSceneActor(const FString& ActorName, const bool bWithSceneComponent = false, const EObjectFlags InObjectFlags = EObjectFlags::RF_Transient | EObjectFlags::RF_DuplicateTransient )
+	inline T* SpawnTransientSceneActor(const FString& ActorName, const bool bWithSceneComponent = false, const EObjectFlags InObjectFlags = EObjectFlags::RF_Transient | EObjectFlags::RF_DuplicateTransient, const bool bValidForPIE = false )
 	{
-		return CastChecked<T>(SpawnTransientSceneActor(T::StaticClass(), ActorName, bWithSceneComponent, InObjectFlags));
+		return CastChecked<T>(SpawnTransientSceneActor(T::StaticClass(), ActorName, bWithSceneComponent, InObjectFlags, bValidForPIE));
 	}
 
 	/** Spawns a transient actor that we can use in the current world of this extension */
-	AActor* SpawnTransientSceneActor(TSubclassOf<AActor> ActorClass, const FString& ActorName, const bool bWithSceneComponent = false, const EObjectFlags InObjectFlags = EObjectFlags::RF_Transient | EObjectFlags::RF_DuplicateTransient );
+	AActor* SpawnTransientSceneActor(TSubclassOf<AActor> ActorClass, const FString& ActorName, const bool bWithSceneComponent = false, const EObjectFlags InObjectFlags = EObjectFlags::RF_Transient | EObjectFlags::RF_DuplicateTransient, const bool bValidForPIE = false);
 
 	/** Destroys a transient actor we created earlier */
 	void DestroyTransientActor(AActor* Actor);
@@ -75,7 +98,7 @@ public:
 protected:
 	
 	/** Reparent actors to a new world */
-	virtual void TransitionWorld(UWorld* NewWorld);
+	virtual void TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState);
 
 	/** Give child class a chance to act on entering simulate mode */
 	virtual void EnteredSimulateInEditor() {};
@@ -95,7 +118,7 @@ private:
 	void InitInternal(UEditorWorldExtensionCollection* InOwningExtensionsCollection);
 
 	UPROPERTY()
-	TArray<AActor*> ExtensionActors;
+	TArray<FEditorWorldExtensionActorData> ExtensionActors;
 
 	/** If this extension is currently being ticked */
 	bool bActive;
@@ -120,6 +143,9 @@ public:
 
 	/** Gets the world from the world context */
 	virtual UWorld* GetWorld() const override;
+
+	/** Gets the last editor world, will only be non-null when current world is a play world. */
+	UWorld* GetLastEditorWorld() const;
 
 	/**
 	 * Checks if the passed extension already exists and creates one if it doesn't.
@@ -161,7 +187,10 @@ public:
 private:
 
 	/** Sets the world for this collection and gives every extension an opportunity to transition */
-	void SetWorld(UWorld* World);
+	void SetWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState /* = EEditorWorldExtensionTransitionState::TransitionAll */);
+
+	/** Transitions actors in every extension to the specified world */
+	void TransitionWorld(UWorld* NewWorld, EEditorWorldExtensionTransitionState TransitionState);
 
 	/** Called by the editor after PIE or Simulate is started */
 	void PostPIEStarted( bool bIsSimulatingInEditor );
@@ -178,9 +207,9 @@ private:
 	/** World context */
 	TWeakObjectPtr<UWorld> Currentworld;
 
-	/** After entering Simulate, this stores the counterpart editor world to the Simulate world, so that we
-        know this collection needs to transition back to editor world after Simulate finishes */
-	TWeakObjectPtr<UWorld> EditorWorldOnSimulate;
+	/** After entering Simulate or PIE, this stores the counterpart editor world to the play world, so that we
+        know this collection needs to transition back to editor world after Simulate or PIE finishes. */
+	TWeakObjectPtr<UWorld> LastEditorWorld;
 
 	/** List of extensions along with their reference count.  Extensions will only be truly removed and Shutdown() after their
 	    reference count drops to zero. */

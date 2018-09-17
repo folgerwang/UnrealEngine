@@ -223,11 +223,11 @@ struct TUnaryKernel
 template<typename Kernel>
 struct TUnaryScalarKernel : public TUnaryKernel<Kernel, FRegisterHandler<float>, FConstantHandler<float>, FRegisterHandler<float>, 1> {};
 template<typename Kernel>
-struct TUnaryVectorKernel : public TUnaryKernel<Kernel, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
+struct TUnaryVectorKernel : public TUnaryKernel<Kernel, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
 template<typename Kernel>
 struct TUnaryScalarIntKernel : public TUnaryKernel<Kernel, FRegisterHandler<int32>, FConstantHandler<int32>, FRegisterHandler<int32>, 1> {};
 template<typename Kernel>
-struct TUnaryVectorIntKernel : public TUnaryKernel<Kernel, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
+struct TUnaryVectorIntKernel : public TUnaryKernel<Kernel, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
 
 /** Base class of Vector kernels with 2 operands. */
 template <typename Kernel, typename DstHandler, typename ConstHandler, typename RegisterHandler, uint32 NumInstancesPerOp>
@@ -249,9 +249,9 @@ struct TBinaryKernel
 template<typename Kernel>
 struct TBinaryScalarKernel : public TBinaryKernel<Kernel, FRegisterHandler<float>, FConstantHandler<float>, FRegisterHandler<float>, 1> {};
 template<typename Kernel>
-struct TBinaryVectorKernel : public TBinaryKernel<Kernel, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
+struct TBinaryVectorKernel : public TBinaryKernel<Kernel, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
 template<typename Kernel>
-struct TBinaryVectorIntKernel : public TBinaryKernel<Kernel, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
+struct TBinaryVectorIntKernel : public TBinaryKernel<Kernel, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
 
 /** Base class of Vector kernels with 3 operands. */
 template <typename Kernel, typename DstHandler, typename ConstHandler, typename RegisterHandler, uint32 NumInstancesPerOp>
@@ -278,9 +278,9 @@ struct TTrinaryKernel
 template<typename Kernel>
 struct TTrinaryScalarKernel : public TTrinaryKernel<Kernel, FRegisterHandler<float>, FConstantHandler<float>, FRegisterHandler<float>, 1> {};
 template<typename Kernel>
-struct TTrinaryVectorKernel : public TTrinaryKernel<Kernel, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
+struct TTrinaryVectorKernel : public TTrinaryKernel<Kernel, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS> {};
 template<typename Kernel>
-struct TTrinaryVectorIntKernel : public TTrinaryKernel<Kernel, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
+struct TTrinaryVectorIntKernel : public TTrinaryKernel<Kernel, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS> {};
 
 
 /*------------------------------------------------------------------------------
@@ -590,7 +590,7 @@ struct FVectorKernelExecutionIndex
 		VectorRegisterInt VectorStride = MakeVectorRegisterInt(VECTOR_WIDTH_FLOATS, VECTOR_WIDTH_FLOATS, VECTOR_WIDTH_FLOATS, VECTOR_WIDTH_FLOATS);
 		VectorRegisterInt Index = MakeVectorRegisterInt(Context.StartInstance, Context.StartInstance + 1, Context.StartInstance + 2, Context.StartInstance + 3);
 		
-		FRegisterDestHandler<VectorRegisterInt> Dest(Context);
+		FRegisterHandler<VectorRegisterInt> Dest(Context);
 		int32 Loops = Align(Context.NumInstances, VECTOR_WIDTH_FLOATS) / VECTOR_WIDTH_FLOATS;
 		for (int32 i = 0; i < Loops; ++i)
 		{
@@ -1113,8 +1113,8 @@ struct FScalarKernelAcquireCounterIndex
 		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
 		switch (SrcOpTypes)
 		{
-		case SRCOP_RRR: TBinaryKernelHandler<FScalarKernelAcquireCounterIndex, FRegisterDestHandler<int32>, FDataSetCounterHandler, FRegisterHandler<int32>, 1>::Exec(Context); break;
-		case SRCOP_RRC:	TBinaryKernelHandler<FScalarKernelAcquireCounterIndex, FRegisterDestHandler<int32>, FDataSetCounterHandler, FConstantHandler<int32>, 1>::Exec(Context); break;
+		case SRCOP_RRR: TBinaryKernelHandler<FScalarKernelAcquireCounterIndex, FRegisterHandler<int32>, FDataSetCounterHandler, FRegisterHandler<int32>, 1>::Exec(Context); break;
+		case SRCOP_RRC:	TBinaryKernelHandler<FScalarKernelAcquireCounterIndex, FRegisterHandler<int32>, FDataSetCounterHandler, FConstantHandler<int32>, 1>::Exec(Context); break;
 		default: check(0); break;
 		};
 	}
@@ -1398,7 +1398,7 @@ struct FVectorIntKernelLogicNot : TUnaryVectorIntKernel<FVectorIntKernelLogicNot
 
 //conversions
 //f2i,
-struct FVectorKernelFloatToInt : TUnaryKernel<FVectorKernelFloatToInt, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelFloatToInt : TUnaryKernel<FVectorKernelFloatToInt, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegisterInt* Dst, VectorRegister Src0)
 	{
@@ -1407,7 +1407,7 @@ struct FVectorKernelFloatToInt : TUnaryKernel<FVectorKernelFloatToInt, FRegister
 };
 
 //i2f,
-struct FVectorKernelIntToFloat : TUnaryKernel<FVectorKernelIntToFloat, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelIntToFloat : TUnaryKernel<FVectorKernelIntToFloat, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegister* Dst, VectorRegisterInt Src0)
 	{
@@ -1416,7 +1416,7 @@ struct FVectorKernelIntToFloat : TUnaryKernel<FVectorKernelIntToFloat, FRegister
 };
 
 //f2b,
-struct FVectorKernelFloatToBool : TUnaryKernel<FVectorKernelFloatToBool, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelFloatToBool : TUnaryKernel<FVectorKernelFloatToBool, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegister* Dst, VectorRegister Src0)
 	{		
@@ -1425,7 +1425,7 @@ struct FVectorKernelFloatToBool : TUnaryKernel<FVectorKernelFloatToBool, FRegist
 };
 
 //b2f,
-struct FVectorKernelBoolToFloat : TUnaryKernel<FVectorKernelBoolToFloat, FRegisterDestHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelBoolToFloat : TUnaryKernel<FVectorKernelBoolToFloat, FRegisterHandler<VectorRegister>, FConstantHandler<VectorRegister>, FRegisterHandler<VectorRegister>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegister* Dst, VectorRegister Src0)
 	{
@@ -1434,7 +1434,7 @@ struct FVectorKernelBoolToFloat : TUnaryKernel<FVectorKernelBoolToFloat, FRegist
 };
 
 //i2b,
-struct FVectorKernelIntToBool : TUnaryKernel<FVectorKernelIntToBool, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelIntToBool : TUnaryKernel<FVectorKernelIntToBool, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegisterInt* Dst, VectorRegisterInt Src0)
 	{
@@ -1443,7 +1443,7 @@ struct FVectorKernelIntToBool : TUnaryKernel<FVectorKernelIntToBool, FRegisterDe
 };
 
 //b2i,
-struct FVectorKernelBoolToInt : TUnaryKernel<FVectorKernelBoolToInt, FRegisterDestHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
+struct FVectorKernelBoolToInt : TUnaryKernel<FVectorKernelBoolToInt, FRegisterHandler<VectorRegisterInt>, FConstantHandler<VectorRegisterInt>, FRegisterHandler<VectorRegisterInt>, VECTOR_WIDTH_FLOATS>
 {
 	static void VM_FORCEINLINE DoKernel(FVectorVMContext& Context, VectorRegisterInt* Dst, VectorRegisterInt Src0)
 	{

@@ -479,10 +479,16 @@ namespace UnrealBuildTool
 			if (Rules.bCompileLeanAndMeanUE)
 			{
 				Rules.bBuildEditor = false;
-				Rules.bBuildDeveloperTools = false;
+				Rules.bBuildDeveloperTools = Rules.bBuildDeveloperTools ?? false;
 				Rules.bCompileSimplygon = false;
 				Rules.bCompileSimplygonSSF = false;
 				Rules.bCompileSpeedTree = false;
+			}
+
+			// if the bBuildDeveloperTools switch hasn't been defined, default it to the bCompileAgainstEngine switch.
+			if (!Rules.bBuildDeveloperTools.HasValue)
+			{
+				Rules.bBuildDeveloperTools = Rules.bCompileAgainstEngine;
 			}
 
 			// Automatically include CoreUObject

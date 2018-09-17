@@ -162,11 +162,6 @@ void FMessageLogListingViewModel::ClearMessages()
 	MessageLogListingModel->ClearMessages();
 }
 
-TSharedPtr<FTokenizedMessage> FMessageLogListingViewModel::GetMessageFromData(const struct FTokenizedMiscData& MessageData) const
-{
-	return MessageLogListingModel->GetMessageFromData(MessageData);
-}
-
 void FMessageLogListingViewModel::SelectMessages( const TArray< TSharedRef<FTokenizedMessage> >& InSelectedMessages )
 {
 	SelectedFilteredMessages.Empty();

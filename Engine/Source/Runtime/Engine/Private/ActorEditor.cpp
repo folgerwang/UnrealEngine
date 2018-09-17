@@ -174,6 +174,13 @@ void AActor::PostEditMove(bool bFinished)
 	{
 		FNavigationSystem::OnPostEditActorMove(*this);
 	}
+
+	if (!bFinished)
+	{
+		// Snapshot the transaction buffer for this actor if we've not finished moving yet
+		// This allows listeners to be notified of intermediate changes of state
+		SnapshotTransactionBuffer(this);
+	}
 }
 
 bool AActor::ReregisterComponentsWhenModified() const
@@ -268,11 +275,112 @@ void AActor::DebugShowOneComponentHierarchy( USceneComponent* SceneComp, int32& 
 	}
 }
 
-AActor::FActorTransactionAnnotation::FActorTransactionAnnotation(const AActor* Actor, const bool bCacheRootComponentData)
-	: ComponentInstanceData(Actor)
+FArchive& operator<<(FArchive& Ar, AActor::FActorRootComponentReconstructionData::FAttachedActorInfo& ActorInfo)
 {
-	USceneComponent* ActorRootComponent = Actor->GetRootComponent();
-	if (bCacheRootComponentData && ActorRootComponent && ActorRootComponent->IsCreatedByConstructionScript())
+	enum class EVersion : uint8
+	{
+		InitialVersion = 0,
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+
+	EVersion Version = EVersion::LatestVersion;
+	Ar << Version;
+
+	if (Version > EVersion::LatestVersion)
+	{
+		Ar.SetError();
+		return Ar;
+	}
+
+	Ar << ActorInfo.Actor;
+	Ar << ActorInfo.AttachParent;
+	Ar << ActorInfo.AttachParentName;
+	Ar << ActorInfo.SocketName;
+	Ar << ActorInfo.RelativeTransform;
+
+	return Ar;
+}
+
+FArchive& operator<<(FArchive& Ar, AActor::FActorRootComponentReconstructionData& RootComponentData)
+{
+	enum class EVersion : uint8
+	{
+		InitialVersion = 0,
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+
+	EVersion Version = EVersion::LatestVersion;
+	Ar << Version;
+
+	if (Version > EVersion::LatestVersion)
+	{
+		Ar.SetError();
+		return Ar;
+	}
+
+	Ar << RootComponentData.Transform;
+
+	if (Ar.IsSaving())
+	{
+		FQuat TransformRotationQuat = RootComponentData.TransformRotationCache.GetCachedQuat();
+		Ar << TransformRotationQuat;
+	}
+	else if (Ar.IsLoading())
+	{
+		FQuat TransformRotationQuat;
+		Ar << TransformRotationQuat;
+		RootComponentData.TransformRotationCache.NormalizedQuatToRotator(TransformRotationQuat);
+	}
+	
+	Ar << RootComponentData.AttachedParentInfo;
+	
+	Ar << RootComponentData.AttachedToInfo;
+
+	return Ar;
+}
+
+TSharedRef<AActor::FActorTransactionAnnotation> AActor::FActorTransactionAnnotation::Create()
+{
+	return MakeShareable(new FActorTransactionAnnotation());
+}
+
+TSharedRef<AActor::FActorTransactionAnnotation> AActor::FActorTransactionAnnotation::Create(const AActor* InActor, const bool InCacheRootComponentData)
+{
+	return MakeShareable(new FActorTransactionAnnotation(InActor, FComponentInstanceDataCache(InActor), InCacheRootComponentData));
+}
+
+TSharedPtr<AActor::FActorTransactionAnnotation> AActor::FActorTransactionAnnotation::CreateIfRequired(const AActor* InActor, const bool InCacheRootComponentData)
+{
+	// Don't create a transaction annotation for something that has no instance data, or a root component that's created by a construction script
+	FComponentInstanceDataCache TempComponentInstanceData(InActor);
+	if (!TempComponentInstanceData.HasInstanceData())
+	{
+		USceneComponent* ActorRootComponent = InActor->GetRootComponent();
+		if (!InCacheRootComponentData || !ActorRootComponent || !ActorRootComponent->IsCreatedByConstructionScript())
+		{
+			return nullptr;
+		}
+	}
+
+	return MakeShareable(new FActorTransactionAnnotation(InActor, MoveTemp(TempComponentInstanceData), InCacheRootComponentData));
+}
+
+AActor::FActorTransactionAnnotation::FActorTransactionAnnotation()
+	: bRootComponentDataCached(false)
+{
+}
+
+AActor::FActorTransactionAnnotation::FActorTransactionAnnotation(const AActor* InActor, FComponentInstanceDataCache&& InComponentInstanceData, const bool InCacheRootComponentData)
+	: ComponentInstanceData(MoveTemp(InComponentInstanceData))
+{
+	Actor = InActor;
+
+	USceneComponent* ActorRootComponent = InActor->GetRootComponent();
+	if (InCacheRootComponentData && ActorRootComponent && ActorRootComponent->IsCreatedByConstructionScript())
 	{
 		bRootComponentDataCached = true;
 		RootComponentData.Transform = ActorRootComponent->GetComponentTransform();
@@ -291,7 +399,7 @@ AActor::FActorTransactionAnnotation::FActorTransactionAnnotation(const AActor* A
 		for (USceneComponent* AttachChild : ActorRootComponent->GetAttachChildren())
 		{
 			AActor* ChildOwner = (AttachChild ? AttachChild->GetOwner() : NULL);
-			if (ChildOwner && ChildOwner != Actor)
+			if (ChildOwner && ChildOwner != InActor)
 			{
 				// Save info about actor to reattach
 				FActorRootComponentReconstructionData::FAttachedActorInfo Info;
@@ -313,27 +421,57 @@ void AActor::FActorTransactionAnnotation::AddReferencedObjects(FReferenceCollect
 	ComponentInstanceData.AddReferencedObjects(Collector);
 }
 
+void AActor::FActorTransactionAnnotation::Serialize(FArchive& Ar)
+{
+	enum class EVersion : uint8
+	{
+		InitialVersion = 0,
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+
+	EVersion Version = EVersion::LatestVersion;
+	Ar << Version;
+
+	if (Version > EVersion::LatestVersion)
+	{
+		Ar.SetError();
+		return;
+	}
+
+	Ar << Actor;
+	if (Ar.IsLoading())
+	{
+		ComponentInstanceData = FComponentInstanceDataCache(Actor.Get());
+	}
+
+	Ar << bRootComponentDataCached;
+
+	if (bRootComponentDataCached)
+	{
+		Ar << RootComponentData;
+	}
+}
+
 bool AActor::FActorTransactionAnnotation::HasInstanceData() const
 {
 	return (bRootComponentDataCached || ComponentInstanceData.HasInstanceData());
 }
 
-TSharedPtr<ITransactionObjectAnnotation> AActor::GetTransactionAnnotation() const
+TSharedPtr<ITransactionObjectAnnotation> AActor::FactoryTransactionAnnotation(const ETransactionAnnotationCreationMode InCreationMode) const
 {
+	if (InCreationMode == ETransactionAnnotationCreationMode::DefaultInstance)
+	{
+		return FActorTransactionAnnotation::Create();
+	}
+
 	if (CurrentTransactionAnnotation.IsValid())
 	{
 		return CurrentTransactionAnnotation;
 	}
 
-	TSharedPtr<FActorTransactionAnnotation> TransactionAnnotation = MakeShareable(new FActorTransactionAnnotation(this));
-
-	if (!TransactionAnnotation->HasInstanceData())
-	{
-		// If there is nothing in the annotation don't bother storing it.
-		TransactionAnnotation = nullptr;
-	}
-
-	return TransactionAnnotation;
+	return FActorTransactionAnnotation::CreateIfRequired(this);
 }
 
 void AActor::PreEditUndo()

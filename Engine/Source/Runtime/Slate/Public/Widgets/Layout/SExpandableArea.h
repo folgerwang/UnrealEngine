@@ -48,7 +48,7 @@ public:
 		/** Background color to apply to the border image */
 		SLATE_ATTRIBUTE( FSlateColor, BorderBackgroundColor )
 		/** Border to use around the area */
-		SLATE_ARGUMENT( const FSlateBrush*, BorderImage )
+		SLATE_ATTRIBUTE( const FSlateBrush*, BorderImage )
 		/** Background color to apply to the body's border image. Unspecified uses BorderBackgroundColor */
 		SLATE_ATTRIBUTE( FSlateColor, BodyBorderBackgroundColor )
 		/** Border to use around the body. Unspecified uses BorderImage */

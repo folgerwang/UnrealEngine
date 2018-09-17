@@ -33,7 +33,7 @@ private:
 #endif
 
 UCLASS()
-class UVoipListenerSynthComponent : public USynthComponent
+class ONLINESUBSYSTEMUTILS_API UVoipListenerSynthComponent : public USynthComponent
 {
 
 	GENERATED_BODY()
@@ -73,7 +73,7 @@ public:
 	 * @param InBuffer pointer to a single channel buffer of audio samples.
 	 * @param NumBytes the number of bytes referenced by InBuffer.
 	 * @param InStartSample the Starting Sample associated with this packet.
-	 * @param DataFormat the format of this sample (float, fixed16, etc.
+	 * @param DataFormat the format of this sample (float, fixed16, etc.)
 	*/
 	void SubmitPacket(void* InBuffer, int32 NumBytes, int64 InStartSample, EVoipStreamDataFormat DataFormat);
 

@@ -92,6 +92,7 @@ struct FNiagaraComputeExecutionContext
 		, RTUpdateScript(0)
 		, RTSpawnScript(0)
 		, RTGPUScript(0)
+		, CBufferLayout(TEXT("Niagara Compute Sim CBuffer"))
 		, GPUDataReadback(nullptr)
 		, AccumulatedSpawnRate(0)
 		, NumIndicesPerInstance(0)
@@ -185,7 +186,8 @@ struct FNiagaraComputeExecutionContext
 	UNiagaraScript* GPUScript;
 	class FNiagaraShaderScript*  RTUpdateScript;
 	class FNiagaraShaderScript*  RTSpawnScript;
-	class FNiagaraShaderScript*  RTGPUScript;
+	class FNiagaraShaderScript*  RTGPUScript;	
+	FRHIUniformBufferLayout CBufferLayout; // Persistent layouts used to create Compute Sim CBuffer
 	TArray<uint8, TAlignedHeapAllocator<16>> ParamData_RT;		// RT side copy of the parameter data
 	FNiagaraScriptExecutionParameterStore CombinedParamStore;
 	static uint32 TickCounter;

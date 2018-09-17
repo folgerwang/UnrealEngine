@@ -47,6 +47,7 @@ public:
 	virtual TSharedPtr<IMessageContext, ESPMode::ThreadSafe> GetOriginalContext() const override;
 	virtual const TArray<FMessageAddress>& GetRecipients() const override;
 	virtual EMessageScope GetScope() const override;
+	virtual EMessageFlags GetFlags() const override;
 	virtual const FMessageAddress& GetSender() const override;
 	virtual ENamedThreads::Type GetSenderThread() const override;
 	virtual const FDateTime& GetTimeForwarded() const override;

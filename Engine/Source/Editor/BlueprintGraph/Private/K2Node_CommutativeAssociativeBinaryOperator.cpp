@@ -103,50 +103,57 @@ FEdGraphPinType UK2Node_CommutativeAssociativeBinaryOperator::GetType() const
 	return FEdGraphPinType();
 }
 
+void UK2Node_CommutativeAssociativeBinaryOperator::ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const
+{
+	Super::ValidateNodeDuringCompilation(MessageLog);
+
+	if (const UFunction* Function = GetTargetFunction())
+	{
+		if (Function->HasAnyFunctionFlags(FUNC_BlueprintPure))
+		{
+			UEdGraphPin* SelfPin = FindSelfPin();
+			const FEdGraphPinType InputType = GetType();
+			int32 OutPinCount = 0;
+			bool bConsistentPinType = true;
+
+			for (UEdGraphPin* Pin : Pins)
+			{
+				if (Pin->Direction == EEdGraphPinDirection::EGPD_Output)
+				{
+					++OutPinCount;
+				}
+				else if (Pin != SelfPin)
+				{
+					if (Pin->PinType != InputType)
+					{
+						bConsistentPinType = false;
+					}
+				}
+			}
+
+			if (OutPinCount != 1)
+			{
+				MessageLog.Error(*LOCTEXT("InvalidOutPin", "@@ - Commutative associative binary operators must have a single output pin.").ToString(), this);
+			}
+			if (!bConsistentPinType)
+			{
+				MessageLog.Error(*LOCTEXT("InconsistentType", "@@ - Commutative associative binary operator inputs must all be of the same type.").ToString(), this);
+			}
+		}
+		else
+		{
+			MessageLog.Error(*LOCTEXT("MustBePure", "@@ - Commutative associative binary operators must be pure functions.").ToString(), this);
+		}
+	}
+}
+
 void UK2Node_CommutativeAssociativeBinaryOperator::AllocateDefaultPins()
 {
 	Super::AllocateDefaultPins();
 
-	const UFunction* Function = GetTargetFunction();
-	if(NULL != Function)
+	for (int32 i = 0; i < NumAdditionalInputs; ++i)
 	{
-		check(Function->HasAnyFunctionFlags(FUNC_BlueprintPure));
-	
-#if DO_CHECK
-		ensure(FindOutPin());
-		ensure((FindSelfPin() ? 4 : 3) ==  Pins.Num());
-		{
-			//VALIDATION
-			const FEdGraphPinType InputType = GetType();
-			int32 NativeInputPinsNum = 0;
-			for (int32 PinIt = 0; PinIt < Pins.Num(); PinIt++)
-			{
-				const UEdGraphPin* Pin = Pins[PinIt];
-				if (Pin != FindSelfPin())
-				{
-					ensure(InputType == Pin->PinType);
-					NativeInputPinsNum += (EEdGraphPinDirection::EGPD_Input ==  Pin->Direction) ? 1 : 0;
-				}
-			}
-			ensure(BinaryOperatorInputsNum == NativeInputPinsNum);
-		}
-#endif // DO_CHECK
-
-		for (int32 i = 0; i < NumAdditionalInputs; ++i)
-		{
-			AddInputPinInner(i);
-		}
-	}
-	else
-	{
-		const UClass* FunctionParentClass = FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode());
-		Message_Error(
-			FText::Format(
-				LOCTEXT("NoFunction_ErrorFmt", "CommutativeAssociativeBinaryOperator has no function: '{0}' class: '{1}'"),
-				FText::FromString(FunctionReference.GetMemberName().ToString()),
-				FunctionParentClass ? FText::FromString(FunctionParentClass->GetName()) : LOCTEXT("NoFunction_ErrorNone", "None")
-			).ToString()
-		);
+		AddInputPinInner(i);
 	}
 }
 

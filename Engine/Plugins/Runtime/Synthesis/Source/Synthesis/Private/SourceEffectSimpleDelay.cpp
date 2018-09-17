@@ -6,10 +6,12 @@ void FSourceEffectSimpleDelay::Init(const FSoundEffectSourceInitData& InitData)
 {
 	bIsActive = true;
 
-	for (int32 i = 0; i < 2; ++i)
+	FeedbackSamples.AddZeroed(InitData.NumSourceChannels);
+	Delays.AddDefaulted(InitData.NumSourceChannels);
+
+	for (int32 i = 0; i < InitData.NumSourceChannels; ++i)
 	{
-		DelayLines[i].Init(InitData.SampleRate, 2.0f);
-		FeedbackSamples[i] = 0.0f;
+		Delays[i].Init(InitData.SampleRate, 2.0f);
 	}
 }
 
@@ -22,36 +24,41 @@ void FSourceEffectSimpleDelay::OnPresetChanged()
 	// If we are manually setting the delay, lets set it now on the delay line
 	if (!SettingsCopy.bDelayBasedOnDistance)
 	{
-		for (int32 i = 0; i < 2; ++i)
+		for (Audio::FDelay& Delay : Delays)
 		{
-			DelayLines[i].SetEasedDelayMsec(SettingsCopy.DelayAmount * 1000.0f);
+			Delay.SetEasedDelayMsec(SettingsCopy.DelayAmount * 1000.0f);
 		}
 	}
 }
 
-void FSourceEffectSimpleDelay::ProcessAudio(const FSoundEffectSourceInputData& InData, FSoundEffectSourceOutputData& OutData)
+void FSourceEffectSimpleDelay::ProcessAudio(const FSoundEffectSourceInputData& InData, float* OutAudioBufferData)
 {
-	const int32 NumChannels = InData.AudioFrame.Num();
-
 	if (SettingsCopy.bDelayBasedOnDistance)
 	{
-		const float DistanceMeters = InData.Distance * 100.0f;
+		const float DistanceMeters = InData.SpatParams.Distance * 0.01f;
 		const float DelayAmountMsec = 1000.0f * DistanceMeters / SettingsCopy.SpeedOfSound;
 
-		for (int32 i = 0; i < NumChannels; ++i)
+		for (Audio::FDelay& Delay : Delays)
 		{
-			DelayLines[i].SetDelayMsec(DelayAmountMsec * 1000.0f);
+			Delay.SetEasedDelayMsec(DelayAmountMsec);
 		}
 	}
 
-	const float* InAudioBufferFrame = InData.AudioFrame.GetData();
-	float* OutAudioBufferFrame = OutData.AudioFrame.GetData();
-
-	for (int32 i = 0; i < NumChannels; ++i)
+	int32 NumChannels = Delays.Num();
+	for (int32 SampleIndex = 0; SampleIndex < InData.NumSamples; SampleIndex += NumChannels)
 	{
-		OutAudioBufferFrame[i] = DelayLines[i].ProcessAudio(InAudioBufferFrame[i] + FeedbackSamples[i] * SettingsCopy.Feedback);
-		FeedbackSamples[i] = OutAudioBufferFrame[i];
+		for (int32 ChannelIndex = 0; ChannelIndex < NumChannels; ++ChannelIndex)
+		{
+			Audio::FDelay& Delay = Delays[ChannelIndex];
+
+			const float DrySample = InData.InputSourceEffectBufferPtr[SampleIndex + ChannelIndex] * SettingsCopy.DryAmount;
+			const float WetSample = SettingsCopy.WetAmount * Delay.ProcessAudioSample(InData.InputSourceEffectBufferPtr[SampleIndex + ChannelIndex] + FeedbackSamples[ChannelIndex] * SettingsCopy.Feedback);
+
+			OutAudioBufferData[SampleIndex + ChannelIndex] = DrySample + WetSample;
+			FeedbackSamples[ChannelIndex] = OutAudioBufferData[SampleIndex + ChannelIndex];
+		}
 	}
+
 }
 
 void USourceEffectSimpleDelayPreset::SetSettings(const FSourceEffectSimpleDelaySettings& InSettings)

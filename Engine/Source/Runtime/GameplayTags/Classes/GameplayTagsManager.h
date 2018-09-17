@@ -72,6 +72,15 @@ enum class EGameplayTagSourceType : uint8
 	Invalid,			// Not a real source
 };
 
+UENUM()
+enum class EGameplayTagSelectionType : uint8
+{
+	None,
+	NonRestrictedOnly,
+	RestrictedOnly,
+	All
+};
+
 /** Struct defining where gameplay tags are loaded/saved from. Mostly for the editor */
 USTRUCT()
 struct FGameplayTagSource
@@ -511,8 +520,12 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Refresh the gameplaytag tree due to an editor change */
 	void EditorRefreshGameplayTagTree();
 
-	/** Gets a Tag Container containing the all tags in the hierarchy that are children of this tag, and were explicitly added to the dictionary */
+	/** Gets a Tag Container containing all of the tags in the hierarchy that are children of this tag, and were explicitly added to the dictionary */
 	FGameplayTagContainer RequestGameplayTagChildrenInDictionary(const FGameplayTag& GameplayTag) const;
+#if WITH_EDITORONLY_DATA
+	/** Gets a Tag Container containing all of the tags in the hierarchy that are children of this tag, were explicitly added to the dictionary, and do not have any explicitly added tags between them and the specified tag */
+	FGameplayTagContainer RequestGameplayTagDirectDescendantsInDictionary(const FGameplayTag& GameplayTag, EGameplayTagSelectionType SelectionType) const;
+#endif // WITH_EDITORONLY_DATA
 
 	/** This is called when EditorRefreshGameplayTagTree. Useful if you need to do anything editor related when tags are added or removed */
 	static FSimpleMulticastDelegate OnEditorRefreshGameplayTagTree;

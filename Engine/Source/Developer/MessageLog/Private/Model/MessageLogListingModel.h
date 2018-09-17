@@ -52,9 +52,6 @@ public:
 	/** Returns the message at the specified index */
 	const TSharedPtr<FTokenizedMessage> GetMessageAtIndex( const uint32 PageIndex, const int32 MessageIndex ) const;
 
-	/** Tries to find the first message that matches the message data */
-	const TSharedPtr<FTokenizedMessage> GetMessageFromData( const FTokenizedMiscData& MessageData ) const;
-
 	/** Gets all messages as a string */
 	FText GetAllMessagesAsText(const uint32 PageIndex) const;
 

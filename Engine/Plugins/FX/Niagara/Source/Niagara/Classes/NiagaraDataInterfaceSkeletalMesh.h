@@ -256,6 +256,14 @@ struct FNDISkeletalMesh_InstanceData
 	/** Time separating Transform and PrevTransform. */
 	float DeltaSeconds;
 
+	/** Indices of the bones specifically referenced by the interface. */
+	TArray<int32> SpecificBones;
+
+	/** Indices of the sockets specifically referenced by the interface. */
+	TArray<int32> SpecificSockets;
+	/** The bone indices for the specific sockets. */
+	TArray<int32> SpecificSocketBones;
+
 	uint32 ChangeId;
 
 	FORCEINLINE_DEBUGGABLE bool ResetRequired(UNiagaraDataInterfaceSkeletalMesh* Interface)const;
@@ -307,9 +315,16 @@ public:
 	UPROPERTY(EditAnywhere, Category="Mesh")
 	int32 WholeMeshLOD;
 
+	/** Set of specific bones that can be used for sampling. Select from these with GetSpecificBoneAt and RandomSpecificBone. */
+	UPROPERTY(EditAnywhere, Category = "Skeleton")
+	TArray<FName> SpecificBones;
+
+	/** Set of specific sockets that can be used for sampling. Select from these with GetSpecificSocketAt and RandomSpecificSocket. */
+	UPROPERTY(EditAnywhere, Category = "Skeleton")
+	TArray<FName> SpecificSockets;
+	
 	/** Cached change id off of the data interface.*/
 	uint32 ChangeId;
-public:
 
 	//~ UObject interface
 #if WITH_EDITOR
@@ -318,7 +333,6 @@ public:
 #endif
 	//~ UObject interface END
 
-public:
 
 	//~ UNiagaraDataInterface interface
 	virtual bool InitPerInstanceData(void* PerInstanceData, FNiagaraSystemInstance* SystemInstance)override;
@@ -332,9 +346,21 @@ public:
 	virtual bool CanExecuteOnTarget(ENiagaraSimTarget Target)const override { return Target == ENiagaraSimTarget::CPUSim; }
 #if WITH_EDITOR	
 	virtual TArray<FNiagaraDataInterfaceError> GetErrors() override;
+	virtual void ValidateFunction(const FNiagaraFunctionSignature& Function, TArray<FText>& OutValidationErrors) override;
 #endif
 	//~ UNiagaraDataInterface interface END
+
+	static USkeletalMesh* GetSkeletalMeshHelper(UNiagaraDataInterfaceSkeletalMesh* Interface, class UNiagaraComponent* OwningComponent, TWeakObjectPtr<USceneComponent>& SceneComponent, USkeletalMeshComponent*& FoundSkelComp);
+protected:
+	virtual bool CopyToInternal(UNiagaraDataInterface* Destination) const override;
+
+	//////////////////////////////////////////////////////////////////////////
+	//Triangle sampling
+	//Triangles are sampled a using MeshTriangleCoordinates which are composed of Triangle index and a bary centric coordinate on that triangle.
 public:
+
+	void GetTriangleSamplingFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions);
+	void BindTriangleSamplingFunction(const FVMExternalFunctionBindingInfo& BindingInfo, FNDISkeletalMesh_InstanceData* InstData, FVMExternalFunction &OutFunc);
 
 	template<typename FilterMode, typename AreaWeightingMode>
 	void GetFilteredTriangleCount(FVectorVMContext& Context);
@@ -345,38 +371,103 @@ public:
 	template<typename FilterMode, typename AreaWeightingMode>
 	void RandomTriCoord(FVectorVMContext& Context);
 
-
 	template<typename FilterMode, typename AreaWeightingMode, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
 	void IsValidTriCoord(FVectorVMContext& Context);
 
-	template<typename SkinningHandlerType, typename TransformHandlerType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
-	void GetTriCoordPosition(FVectorVMContext& Context);
+	template<typename SkinningHandlerType, typename TransformHandlerType, typename VertexAccessorType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
+	void GetTriCoordSkinnedData(FVectorVMContext& Context);
 
-	template<typename SkinningHandlerType, typename TransformHandlerType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
-	void GetTriCoordPositionVelocityAndNormal(FVectorVMContext& Context);
-
-	template<typename SkinningHandlerType, typename TransformHandlerType, typename VertexAccessorType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType, typename UVSetType>
-	void GetTriCoordPositionVelocityAndNormalBinormalTangent(FVectorVMContext& Context);
-	
 	template<typename TriType, typename BaryXType, typename BaryYType, typename BaryZType>
 	void GetTriCoordColor(FVectorVMContext& Context);
 
 	template<typename VertexAccessorType, typename TriType, typename BaryXType, typename BaryYType, typename BaryZType, typename UVSetType>
 	void GetTriCoordUV(FVectorVMContext& Context);
 
-	static USkeletalMesh* GetSkeletalMeshHelper(UNiagaraDataInterfaceSkeletalMesh* Interface, class UNiagaraComponent* OwningComponent, TWeakObjectPtr<USceneComponent>& SceneComponent, USkeletalMeshComponent*& FoundSkelComp);
-protected:
-	virtual bool CopyToInternal(UNiagaraDataInterface* Destination) const override;
+	template<typename SkinningHandlerType, typename TriType>
+	void GetTriCoordVertices(FVectorVMContext& Context);
+		
+private:
+	template<typename FilterMode, typename AreaWeightingMode>
+	FORCEINLINE int32 RandomTriIndex(FRandomStream& RandStream, FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData);
+
+	template<typename FilterMode, typename AreaWeightingMode>
+	FORCEINLINE int32 GetSpecificTriangleCount(FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData);
+
+	template<typename FilterMode, typename AreaWeightingMode>
+	FORCEINLINE int32 GetSpecificTriangleAt(FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData, int32 FilteredIdx);
+	//End of Mesh Sampling
+	//////////////////////////////////////////////////////////////////////////
+
+	//////////////////////////////////////////////////////////////////////////
+	//Vertex Sampling
+	//Vertex sampling done with direct vertex indices.
+public:
+	
+	void GetVertexSamplingFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions);
+	void BindVertexSamplingFunction(const FVMExternalFunctionBindingInfo& BindingInfo, FNDISkeletalMesh_InstanceData* InstData, FVMExternalFunction &OutFunc);
+
+	template<typename FilterMode>
+	void GetFilteredVertexCount(FVectorVMContext& Context);
+
+	template<typename FilterMode, typename VertexType>
+	void GetFilteredVertexAt(FVectorVMContext& Context);
+
+	template<typename FilterMode>
+	void RandomVertex(FVectorVMContext& Context);
+
+	template<typename FilterMode, typename VertexType>
+	void IsValidVertex(FVectorVMContext& Context);
+
+	template<typename SkinningHandlerType, typename TransformHandlerType, typename VertexAccessorType, typename VertexType>
+	void GetVertexSkinnedData(FVectorVMContext& Context);
+
+	template<typename VertexType>
+	void GetVertexColor(FVectorVMContext& Context);
+
+	template<typename VertexAccessorType, typename VertexType, typename UVSetType>
+	void GetVertexUV(FVectorVMContext& Context);
 
 private:
+	template<typename FilterMode>
+	FORCEINLINE int32 RandomVertIndex(FRandomStream& RandStream, FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData);
 
-	template<typename FilterMode, typename AreaWeightingMode>
-	FORCEINLINE_DEBUGGABLE int32 RandomTriIndex(FRandomStream& RandStream, FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData);
+	template<typename FilterMode>
+	FORCEINLINE int32 GetSpecificVertexCount(FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData);
 
-	template<typename FilterMode, typename AreaWeightingMode>
-	FORCEINLINE_DEBUGGABLE int32 GetSpecificTriangleCount(FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData);
+	template<typename FilterMode>
+	FORCEINLINE int32 GetSpecificVertexAt(FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData, int32 FilteredIdx);
 
-	template<typename FilterMode, typename AreaWeightingMode>
-	FORCEINLINE_DEBUGGABLE int32 GetSpecificTriangleAt(FSkeletalMeshAccessorHelper& Accessor, FNDISkeletalMesh_InstanceData* InstData, int32 FilteredIdx);
+	//End of Vertex Sampling
+	//////////////////////////////////////////////////////////////////////////
 
+	//////////////////////////////////////////////////////////////////////////
+	// Direct Bone + Socket Sampling
+
+public:
+	void GetSkeletonSamplingFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions);
+	void BindSkeletonSamplingFunction(const FVMExternalFunctionBindingInfo& BindingInfo, FNDISkeletalMesh_InstanceData* InstData, FVMExternalFunction &OutFunc);
+
+	template<typename BoneType>
+	void IsValidBone(FVectorVMContext& Context);
+
+	void GetSpecificBoneCount(FVectorVMContext& Context);
+
+	template<typename BoneType>
+	void GetSpecificBoneAt(FVectorVMContext& Context);
+
+	void RandomSpecificBone(FVectorVMContext& Context);
+
+	template<typename SkinningHandlerType, typename TransformHandlerType, typename BoneType>
+	void GetSkinnedBoneData(FVectorVMContext& Context);
+	
+	void GetSpecificSocketCount(FVectorVMContext& Context);
+
+	template<typename SocketType>
+	void GetSpecificSocketBoneAt(FVectorVMContext& Context);
+
+	void RandomSpecificSocketBone(FVectorVMContext& Context);
+		
+	// End of Direct Bone + Socket Sampling
+	//////////////////////////////////////////////////////////////////////////
 };
+

@@ -289,12 +289,28 @@ void FAnimLinkableElement::SetTimeFromProportional(float NewTime, EAnimLinkMetho
 	{
 		case EAnimLinkMethod::Absolute:
 		{
-			LinkValue = (NewTime - SegmentBeginTime) / SegmentLength;
+			if(SegmentLength != 0.0f)
+			{
+				LinkValue = (NewTime - SegmentBeginTime) / SegmentLength;
+			}
+			else
+			{
+				// if segment length is 0, we can't set anywhere else but 0.f
+				LinkValue = 0.f;
+			}
 		}
 			break;
 		case EAnimLinkMethod::Relative:
 		{
-			LinkValue = NewTime / SegmentLength;
+			if(SegmentLength != 0.0f)
+			{
+				LinkValue = NewTime / SegmentLength;
+			}
+			else
+			{
+				// if segment length is 0, we can't set anywhere else but 0.f
+				LinkValue = 0.f;			
+			}
 		}
 			break;
 	}

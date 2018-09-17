@@ -425,14 +425,6 @@ public:
 	void SetLastKeyViewport();
 
 	/** 
-	 * Gets the world space cursor info from the current mouse position
-	 * 
-	 * @param InViewportClient	The viewport client to check for mouse position and to set up the scene view.
-	 * @return					An FViewportCursorLocation containing information about the mouse position in world space.
-	 */
-	FViewportCursorLocation GetCursorWorldLocationFromMousePos();
-	
-	/** 
 	 * Access the 'active' actor lock. This is the actor locked to the viewport via the viewport menus.
 	 * It is forced to be inactive if Matinee is controlling locking.
 	 * 

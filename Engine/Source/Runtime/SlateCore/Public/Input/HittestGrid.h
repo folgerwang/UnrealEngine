@@ -93,6 +93,26 @@ public:
 	 */
 	TSharedPtr<SWidget> FindNextFocusableWidget(const FArrangedWidget& StartingWidget, const EUINavigation Direction, const FNavigationReply& NavigationReply, const FArrangedWidget& RuleWidget);
 
+	/**
+	 * Get the size of the grid in cells.
+	 * @returns - The size of the grid in cells.
+	 */
+	FIntPoint GetNumCells() const
+	{
+		return NumCells;
+	}
+	
+	/**
+	 * Set an excess of cells which will increase the size of the grid. This
+	 * extends the desktop space beyond the norm and allows hits to take place
+	 * on areas outside the desktop.
+	 * @param InNumCellsExcess - The excess of cells.
+	 */
+	void SetNumCellsExcess(const FIntPoint& InNumCellsExcess)
+	{
+		NumCellsExcess = InNumCellsExcess;
+	}
+
 private:
 
 	/**
@@ -195,6 +215,9 @@ private:
 
 	/** The size of the grid in cells. */
 	FIntPoint NumCells;
+
+	/** The excess of cells which will increase the size of the grid. */
+	FIntPoint NumCellsExcess;
 
 	/** The clipping manager that manages any clipping for hit testable widgets. */
 	FSlateClippingManager ClippingManager;

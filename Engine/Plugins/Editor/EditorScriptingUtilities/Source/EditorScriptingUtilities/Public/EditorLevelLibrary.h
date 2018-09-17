@@ -12,7 +12,7 @@
 USTRUCT(BlueprintType)
 struct FEditorScriptingJoinStaticMeshActorsOptions
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	FEditorScriptingJoinStaticMeshActorsOptions()
 		: bDestroySourceActors(true)
@@ -35,7 +35,7 @@ struct FEditorScriptingJoinStaticMeshActorsOptions
 USTRUCT(BlueprintType)
 struct FEditorScriptingMergeStaticMeshActorsOptions : public FEditorScriptingJoinStaticMeshActorsOptions
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	FEditorScriptingMergeStaticMeshActorsOptions()
 		: bSpawnMergedActor(true)
@@ -51,6 +51,27 @@ struct FEditorScriptingMergeStaticMeshActorsOptions : public FEditorScriptingJoi
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Options)
 	FMeshMergingSettings MeshMergingSettings;
+};
+
+USTRUCT(BlueprintType)
+struct FEditorScriptingCreateProxyMeshActorOptions : public FEditorScriptingJoinStaticMeshActorsOptions
+{
+	GENERATED_BODY()
+
+	FEditorScriptingCreateProxyMeshActorOptions()
+		: bSpawnMergedActor(true)
+	{ }
+
+	// Spawn the new merged actors
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Options)
+	bool bSpawnMergedActor;
+
+	// The package path you want to save to. ie: /Game/MyFolder
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Options)
+	FString BasePackageName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Options)
+	FMeshProxySettings MeshProxySettings;
 };
 
 /**
@@ -111,7 +132,7 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Level Utility", meta = (DeterminesOutputType = "ActorClass"))
 	static AActor* SpawnActorFromClass(TSubclassOf<class AActor> ActorClass, FVector Location, FRotator Rotation = FRotator::ZeroRotator);
-	
+
 	/**
 	 * Destroy the actor from the world editor. Notify the Editor that the actor got destroyed.
 	 * @param	ToDestroyActor	Actor to destroy.
@@ -243,12 +264,22 @@ public:
 	 * Merge the meshes into a unique mesh with the provided StaticMeshActors. There are multiple options on how to merge the meshes and their materials.
 	 * The ActorsToMerge need to be in the same Level.
 	 * This may have a high impact on performance depending of the MeshMergingSettings options.
-	 * @param	ActorsToMerge			List of Actors to join.
-	 * @param	MergeOptions			Options on how to join the actors.
+	 * @param	ActorsToMerge			List of Actors to merge.
+	 * @param	MergeOptions			Options on how to merge the actors.
 	 * @param	OutMergedActor			The new created actor, if requested.
 	 * @return	if the operation is successful.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | DataPrep")
 	static bool MergeStaticMeshActors(const TArray<class AStaticMeshActor*>& ActorsToMerge, const FEditorScriptingMergeStaticMeshActorsOptions& MergeOptions, class AStaticMeshActor*& OutMergedActor);
+
+	/**
+	 * Build a proxy mesh actor that can replace a set of mesh actors.
+	 * @param   ActorsToMerge  List of actors to build a proxy for.
+	 * @param   MergeOptions
+	 * @param   OutMergedActor generated actor if requested
+	 * @return  Success of the proxy creation
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | DataPrep")
+	static bool CreateProxyMeshActor(const TArray<class AStaticMeshActor*>& ActorsToMerge, const FEditorScriptingCreateProxyMeshActorOptions& MergeOptions, class AStaticMeshActor*& OutMergedActor);
 };
 

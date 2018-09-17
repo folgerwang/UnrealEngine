@@ -248,7 +248,7 @@ void SOculusToolWidget::RebuildLayout()
 		}
 	}
 
-	box = NewCategory(scroller, LOCTEXT("MiscHeader", ""));
+	box = NewCategory(scroller, FText::GetEmpty());
 	box.Get().AddSlot()
 	.Padding(10, 5)
 	[

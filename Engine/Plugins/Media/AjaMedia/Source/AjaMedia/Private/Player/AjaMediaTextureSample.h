@@ -10,12 +10,7 @@
 class FAjaMediaTextureSample
 	: public FMediaIOCoreTextureSampleBase
 {
-public:
-	/** Virtual destructor. */
-	virtual ~FAjaMediaTextureSample()
-	{
-		FreeSample();
-	}
+	using Super = FMediaIOCoreTextureSampleBase;
 
 public:
 
@@ -26,25 +21,16 @@ public:
 	 * @param InSampleFormat The sample format.
 	 * @param InTime The sample time (in the player's own clock).
 	 */
-	bool InitializeProgressive(const AJA::AJAVideoFrameData& InVideoData, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime)
+	bool InitializeProgressive(const AJA::AJAVideoFrameData& InVideoData, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const TOptional<FTimecode>& InTimecode)
 	{
-		FreeSample();
-
-		if ((InVideoData.VideoBuffer == nullptr) || (InSampleFormat == EMediaTextureSampleFormat::Undefined))
-		{
-			return false;
-		}
-
-		Buffer.Reset(InVideoData.VideoBufferSize);
-		Buffer.Append(InVideoData.VideoBuffer, InVideoData.VideoBufferSize);
-		Stride = InVideoData.Stride;
-		Width = InVideoData.Width;
-		Height = InVideoData.Height;
-		SampleFormat = InSampleFormat;
-		Time = InTime;
-		PixelBuffer = Buffer.GetData();
-
-		return true;
+		return Super::Initialize(InVideoData.VideoBuffer
+			, InVideoData.VideoBufferSize
+			, InVideoData.Stride
+			, InVideoData.Width
+			, InVideoData.Height
+			, InSampleFormat
+			, InTime
+			, InTimecode);
 	}
 
 	/**
@@ -55,7 +41,7 @@ public:
 	 * @param InTime The sample time (in the player's own clock).
 	 * @param bEven Only take the even frame from the image.
 	 */
-	bool InitializeInterlaced_Halfed(const AJA::AJAVideoFrameData& InVideoData, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, bool bInEven)
+	bool InitializeInterlaced_Halfed(const AJA::AJAVideoFrameData& InVideoData, EMediaTextureSampleFormat InSampleFormat, FTimespan InTime, const TOptional<FTimecode>& InTimecode, bool bInEven)
 	{
 		FreeSample();
 
@@ -69,6 +55,7 @@ public:
 		Width = InVideoData.Width;
 		Height = InVideoData.Height / 2;
 		SampleFormat = InSampleFormat;
+		Timecode = InTimecode;
 		Time = InTime;
 
 		for (uint32 IndexY = (bInEven ? 0 : 1); IndexY < InVideoData.Height; IndexY += 2)
@@ -77,25 +64,11 @@ public:
 			Buffer.Append(Source, Stride);
 		}
 
-		PixelBuffer = Buffer.GetData();
 		return true;
 	}
-
-protected:
-
-	/** Free the video frame data. */
-	virtual void FreeSample() override
-	{
-		Buffer.Reset();
-	}
-
-private:
-	/** Image buffer */
-	TArray<uint8> Buffer;
 };
 
 /*
  * Implements a pool for AJA texture sample objects.
  */
-
 class FAjaMediaTextureSamplePool : public TMediaObjectPool<FAjaMediaTextureSample> { };

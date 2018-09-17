@@ -178,6 +178,11 @@ EMessageScope FTcpDeserializedMessage::GetScope() const
 	return Scope;
 }
 
+EMessageFlags FTcpDeserializedMessage::GetFlags() const
+{
+	return EMessageFlags::None;
+}
+
 
 const FMessageAddress& FTcpDeserializedMessage::GetSender() const
 {

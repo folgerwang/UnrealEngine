@@ -12,7 +12,7 @@ UMovieSceneActorReferenceTrack::UMovieSceneActorReferenceTrack( const FObjectIni
 
 UMovieSceneSection* UMovieSceneActorReferenceTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneActorReferenceSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneActorReferenceSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneActorReferenceTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const

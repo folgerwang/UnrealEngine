@@ -89,12 +89,41 @@ void UUserDefinedStructEditorData::PostEditUndo()
 class FStructureTransactionAnnotation : public ITransactionObjectAnnotation
 {
 public:
-	FStructureTransactionAnnotation(FStructureEditorUtils::EStructureEditorChangeInfo ChangeInfo)
+	FStructureTransactionAnnotation()
+		: ActiveChange(FStructureEditorUtils::Unknown)
+	{
+	}
+
+	explicit FStructureTransactionAnnotation(FStructureEditorUtils::EStructureEditorChangeInfo ChangeInfo)
 		: ActiveChange(ChangeInfo)
 	{
 	}
 
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override { /** Don't need this functionality for now */ }
+	//~ ITransactionObjectAnnotation interface
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override {}
+	virtual void Serialize(FArchive& Ar) override
+	{
+		enum class EVersion : uint8
+		{
+			InitialVersion = 0,
+			// -----<new versions can be added above this line>-------------------------------------------------
+			VersionPlusOne,
+			LatestVersion = VersionPlusOne - 1
+		};
+
+		EVersion Version = EVersion::LatestVersion;
+		Ar << Version;
+
+		if (Version > EVersion::LatestVersion)
+		{
+			Ar.SetError();
+			return;
+		}
+
+		int32 ActiveChangeInt = (int32)ActiveChange;
+		Ar << ActiveChangeInt;
+		ActiveChange = (FStructureEditorUtils::EStructureEditorChangeInfo)ActiveChangeInt;
+	}
 
 	FStructureEditorUtils::EStructureEditorChangeInfo GetActiveChange()
 	{
@@ -105,9 +134,14 @@ protected:
 	FStructureEditorUtils::EStructureEditorChangeInfo ActiveChange;
 };
 
-TSharedPtr<ITransactionObjectAnnotation> UUserDefinedStructEditorData::GetTransactionAnnotation() const
+TSharedPtr<ITransactionObjectAnnotation> UUserDefinedStructEditorData::FactoryTransactionAnnotation(const ETransactionAnnotationCreationMode InCreationMode) const
 {
-	return MakeShareable(new FStructureTransactionAnnotation(FStructureEditorUtils::FStructEditorManager::ActiveChange));
+	if (InCreationMode == UObject::ETransactionAnnotationCreationMode::DefaultInstance)
+	{
+		return MakeShared<FStructureTransactionAnnotation>();
+	}
+
+	return MakeShared<FStructureTransactionAnnotation>(FStructureEditorUtils::FStructEditorManager::ActiveChange);
 }
 
 void UUserDefinedStructEditorData::PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAnnotation)
@@ -181,6 +215,9 @@ void UUserDefinedStructEditorData::RecreateDefaultInstance(FString* OutLog)
 			}
 		}
 	}
+
+	// Make sure StructFlags are in sync with the new default instance:
+	ScriptStruct->UpdateStructFlags();
 }
 
 void UUserDefinedStructEditorData::CleanDefaultInstance()

@@ -24,10 +24,16 @@ void FLiveLinkInstanceProxy::UpdateAnimationNode(float DeltaSeconds)
 
 	FAnimationUpdateContext UpdateContext(this, DeltaSeconds);
 	PoseNode.Update_AnyThread(UpdateContext);
+	
+	if(ULiveLinkInstance* Instance = Cast<ULiveLinkInstance>(GetAnimInstanceObject()))
+	{
+		Instance->CurrentRetargetAsset = PoseNode.CurrentRetargetAsset; //Cache for GC
+	}
 }
 
 ULiveLinkInstance::ULiveLinkInstance(const FObjectInitializer& Initializer)
 	: Super(Initializer)
+	, CurrentRetargetAsset(nullptr)
 {
 
 }
@@ -35,4 +41,10 @@ ULiveLinkInstance::ULiveLinkInstance(const FObjectInitializer& Initializer)
 FAnimInstanceProxy* ULiveLinkInstance::CreateAnimInstanceProxy()
 {
 	return new FLiveLinkInstanceProxy(this);
+}
+
+void ULiveLinkInstance::DestroyAnimInstanceProxy(FAnimInstanceProxy* InProxy)
+{
+	Super::DestroyAnimInstanceProxy(InProxy);
+	CurrentRetargetAsset = nullptr;
 }

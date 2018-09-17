@@ -156,7 +156,13 @@ struct FSetterExpressionBuilder
 void FBlueprintCompilerCppBackend::EmitAssignmentStatment(FEmitterLocalContext& EmitterContext, FKismetFunctionContext& FunctionContext, FBlueprintCompiledStatement& Statement)
 {
 	check(Statement.LHS && Statement.RHS[0]);
-	const FString SourceExpression = TermToText(EmitterContext, Statement.RHS[0], ENativizedTermUsage::Getter);
+
+	FTermToTextParams SrcTermParams;
+	SrcTermParams.Term = Statement.RHS[0];
+	SrcTermParams.TermUsage = ENativizedTermUsage::Getter;
+	SrcTermParams.CoerceProperty = Statement.LHS->AssociatedVarProperty;
+
+	const FString SourceExpression = TermToText(EmitterContext, SrcTermParams);
 	FSetterExpressionBuilder SetterExpression(*this, EmitterContext, Statement.LHS);
 	FSafeContextScopedEmmitter SafeContextScope(EmitterContext, Statement.LHS->Context, *this);
 
@@ -908,20 +914,29 @@ FString FBlueprintCompilerCppBackend::EmitArrayGetByRef(FEmitterLocalContext& Em
 	return Result;
 }
 
-FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterContext, const FBPTerminal* Term, const ENativizedTermUsage TermUsage, const bool bUseSafeContext, FString* EndCustomSetExpression)
+FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterContext, const FTermToTextParams& Params)
 {
-	ensure((TermUsage != ENativizedTermUsage::Setter) || !bUseSafeContext);
-	ensure((TermUsage == ENativizedTermUsage::Setter) == (EndCustomSetExpression != nullptr));
-	if (EndCustomSetExpression)
+	const FBPTerminal* Term = Params.Term;
+	
+	ensure((Params.TermUsage != ENativizedTermUsage::Setter) || !Params.bUseSafeContext);
+	ensure((Params.TermUsage == ENativizedTermUsage::Setter) == (Params.EndCustomSetExpression != nullptr));
+	if (Params.EndCustomSetExpression)
 	{
-		EndCustomSetExpression->Reset();
+		Params.EndCustomSetExpression->Reset();
 	}
 
-	const bool bGetter = (TermUsage == ENativizedTermUsage::Getter);
+	const bool bGetter = (Params.TermUsage == ENativizedTermUsage::Getter);
 	const FString PSC_Self(TEXT("self"));
 	if (Term->bIsLiteral)
 	{
-		return FEmitHelper::LiteralTerm(EmitterContext, Term->Type, Term->Name, Term->ObjectLiteral, &Term->TextLiteral);
+		FEmitHelper::FLiteralTermParams LiteralTermParams;
+		LiteralTermParams.Type = Term->Type;
+		LiteralTermParams.CustomValue = Term->Name;
+		LiteralTermParams.LiteralText = Term->TextLiteral;
+		LiteralTermParams.LiteralObject = Term->ObjectLiteral;
+		LiteralTermParams.CoerceProperty = Params.CoerceProperty;
+
+		return FEmitHelper::LiteralTerm(EmitterContext, LiteralTermParams);
 	}
 	else if (Term->InlineGeneratedParameter)
 	{
@@ -953,11 +968,9 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 				? EmitterContext.ExportCppDeclaration(Term->AssociatedVarProperty, EExportedDeclaration::Local, PropertyExportFlags, FEmitterLocalContext::EPropertyNameInDeclaration::Skip)
 				: FEmitHelper::PinTypeToNativeType(Term->Type);
 
-			const FString DefaultValueConstructor = (!Term->Type.IsContainer())
-				? FEmitHelper::LiteralTerm(EmitterContext, Term->Type, FString(), nullptr, &FText::GetEmpty())
-				: FString::Printf(TEXT("%s{}"), *CppType);
-
-			EmitterContext.AddLine(*FString::Printf(TEXT("%s %s = %s;"), *CppType, *DefaultValueVariable, *DefaultValueConstructor));
+			FEmitHelper::FLiteralTermParams DefaultValueTermParams;
+			DefaultValueTermParams.Type = Term->Type;
+			EmitterContext.AddLine(*FString::Printf(TEXT("%s %s = %s;"), *CppType, *DefaultValueVariable, *FEmitHelper::LiteralTerm(EmitterContext, DefaultValueTermParams)));
 
 			return DefaultValueVariable;
 		};
@@ -1005,7 +1018,7 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 			bIsAccessible &= !Term->AssociatedVarProperty->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPrivate | CPF_NativeAccessSpecifierProtected);
 			if (!bIsAccessible)
 			{
-				ResultPath = FEmitHelper::AccessInaccessibleProperty(EmitterContext, Term->AssociatedVarProperty, FString(), ContextStr, TEXT("&"), 0, TermUsage, EndCustomSetExpression);
+				ResultPath = FEmitHelper::AccessInaccessibleProperty(EmitterContext, Term->AssociatedVarProperty, FString(), ContextStr, TEXT("&"), 0, Params.TermUsage, Params.EndCustomSetExpression);
 			}
 			else
 			{
@@ -1044,7 +1057,7 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 					ensure(ContextStr.IsEmpty());
 					ContextStr = TEXT("this");
 				}
-				ResultPath = FEmitHelper::AccessInaccessibleProperty(EmitterContext, Term->AssociatedVarProperty, FString(), ContextStr, FString(), 0, TermUsage, EndCustomSetExpression);
+				ResultPath = FEmitHelper::AccessInaccessibleProperty(EmitterContext, Term->AssociatedVarProperty, FString(), ContextStr, FString(), 0, Params.TermUsage, Params.EndCustomSetExpression);
 			}
 			else
 			{
@@ -1092,7 +1105,7 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 			ResultPath = FString::Printf(TEXT("const_cast<%s>(%s)"), *CppType, *ResultPath);
 		}
 
-		const FString Conditions = bUseSafeContext ? FSafeContextScopedEmmitter::ValidationChain(EmitterContext, Term->Context, *this) : FString();
+		const FString Conditions = Params.bUseSafeContext ? FSafeContextScopedEmmitter::ValidationChain(EmitterContext, Term->Context, *this) : FString();
 		if (!Conditions.IsEmpty())
 		{
 			const FString DefaultValueVariable = GenerateDefaultLocalVariable(Term);
@@ -1121,23 +1134,25 @@ FString FBlueprintCompilerCppBackend::LatentFunctionInfoTermToText(FEmitterLocal
 
 	check(!FixupTermName.IsEmpty());
 
-	FString StructValues = Term->Name;
+	FEmitHelper::FLiteralTermParams LiteralTermParams;
+	LiteralTermParams.Type = Term->Type;
+	LiteralTermParams.CustomValue = Term->Name;
 
 	// Index 0 is always the ubergraph
 	const int32 TargetStateIndex = StateMapPerFunction[0].StatementToStateIndex(TargetLabel);
-	const int32 LinkageTermStartIdx = StructValues.Find(FixupTermName);
+	const int32 LinkageTermStartIdx = LiteralTermParams.CustomValue.Find(FixupTermName);
 	check(LinkageTermStartIdx != INDEX_NONE);
-	StructValues = StructValues.Replace(TEXT("-1"), *FString::FromInt(TargetStateIndex));
+	LiteralTermParams.CustomValue = LiteralTermParams.CustomValue.Replace(TEXT("-1"), *FString::FromInt(TargetStateIndex));
 
 	int32* ExecutionGroupPtr = UberGraphStatementToExecutionGroup.Find(TargetLabel);
 	if (ExecutionGroupPtr && UberGraphContext)
 	{
 		const FString OldExecutionFunctionName = UEdGraphSchema_K2::FN_ExecuteUbergraphBase.ToString() + TEXT("_") + UberGraphContext->Blueprint->GetName();
 		const FString NewExecutionFunctionName = OldExecutionFunctionName + FString::Printf(TEXT("_%d"), *ExecutionGroupPtr);
-		StructValues = StructValues.Replace(*OldExecutionFunctionName, *NewExecutionFunctionName);
+		LiteralTermParams.CustomValue = LiteralTermParams.CustomValue.Replace(*OldExecutionFunctionName, *NewExecutionFunctionName);
 	}
 
-	return FEmitHelper::LiteralTerm(EmitterContext, Term->Type, StructValues, nullptr);
+	return FEmitHelper::LiteralTerm(EmitterContext, LiteralTermParams);
 }
 
 bool FBlueprintCompilerCppBackend::InnerFunctionImplementation(FKismetFunctionContext& FunctionContext, FEmitterLocalContext& EmitterContext, int32 ExecutionGroup)

@@ -37,6 +37,7 @@ public:
 		: Expiration(FDateTime::MaxValue())
 		, Message(InMessage)
 		, Scope(EMessageScope::Network)
+		, Flags(EMessageFlags::None)
 		, SenderThread(ENamedThreads::AnyThread)
 		, TimeSent(InTimeSent)
 		, TypeInfo(FUdpMockMessage::StaticStruct())
@@ -69,6 +70,8 @@ public:
 	virtual TSharedPtr<IMessageContext, ESPMode::ThreadSafe> GetOriginalContext() const override { return OriginalContext; }
 	virtual const TArray<FMessageAddress>& GetRecipients() const override { return Recipients; }
 	virtual EMessageScope GetScope() const override { return Scope; }
+	virtual EMessageFlags GetFlags() const override { return Flags; }
+
 	virtual const FMessageAddress& GetSender() const override { return Sender; }
 	virtual ENamedThreads::Type GetSenderThread() const override { return SenderThread; }
 	virtual const FDateTime& GetTimeForwarded() const override { return TimeSent; }
@@ -83,6 +86,7 @@ private:
 	TSharedPtr<IMessageContext, ESPMode::ThreadSafe> OriginalContext;
 	TArray<FMessageAddress> Recipients;
 	EMessageScope Scope;
+	EMessageFlags Flags;
 	FMessageAddress Sender;
 	ENamedThreads::Type SenderThread;
 	FDateTime TimeSent;

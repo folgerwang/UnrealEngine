@@ -35,14 +35,26 @@ TValueOrError<FNewSpawnable, FText> FLevelSequenceEditorActorSpawner::CreateNewS
 
 	FText ErrorText;
 
-	// First off, deal with creating a spawnable from a class
 	// Deal with creating a spawnable from an instance of an actor
 	if (AActor* Actor = Cast<AActor>(&SourceObject))
 	{
-		AActor* SpawnedActor = Cast<AActor>(StaticDuplicateObject(Actor, &OwnerMovieScene, TemplateName, RF_AllFlags & ~RF_Transactional));
+		// If the source actor is not transactional, temporarily add the flag to ensure that the duplicated object is created with the transactional flag.
+		// This is necessary for the creation of the object to exist in the transaction buffer for multi-user workflows
+		const bool bWasTransactional = Actor->HasAnyFlags(RF_Transactional);
+		if (!bWasTransactional)
+		{
+			Actor->SetFlags(RF_Transactional);
+		}
+
+		AActor* SpawnedActor = Cast<AActor>(StaticDuplicateObject(Actor, &OwnerMovieScene, TemplateName, RF_AllFlags));
 		SpawnedActor->bIsEditorPreviewActor = false;
 		NewSpawnable.ObjectTemplate = SpawnedActor;
-		NewSpawnable.Name = Actor->GetActorLabel();		
+		NewSpawnable.Name = Actor->GetActorLabel();
+
+		if (!bWasTransactional)
+		{
+			Actor->ClearFlags(RF_Transactional);
+		}
 	}
 
 	// If it's a blueprint, we need some special handling
@@ -54,7 +66,7 @@ TValueOrError<FNewSpawnable, FText> FLevelSequenceEditorActorSpawner::CreateNewS
 			return MakeError(ErrorText);
 		}
 
-		NewSpawnable.ObjectTemplate = NewObject<UObject>(&OwnerMovieScene, SourceBlueprint->GeneratedClass, TemplateName);
+		NewSpawnable.ObjectTemplate = NewObject<UObject>(&OwnerMovieScene, SourceBlueprint->GeneratedClass, TemplateName, RF_Transactional);
 	}
 
 	// At this point we have to assume it's an asset
@@ -80,7 +92,7 @@ TValueOrError<FNewSpawnable, FText> FLevelSequenceEditorActorSpawner::CreateNewS
 				}
 			}
 
-			AActor* Instance = FactoryToUse->CreateActor(&SourceObject, GWorld->PersistentLevel, FTransform(), RF_Transient, TemplateName );
+			AActor* Instance = FactoryToUse->CreateActor(&SourceObject, GWorld->PersistentLevel, FTransform(), RF_Transient | RF_Transactional, TemplateName );
 			Instance->bIsEditorPreviewActor = false;
 			NewSpawnable.ObjectTemplate = StaticDuplicateObject(Instance, &OwnerMovieScene, TemplateName, RF_AllFlags & ~RF_Transient);
 
@@ -100,7 +112,7 @@ TValueOrError<FNewSpawnable, FText> FLevelSequenceEditorActorSpawner::CreateNewS
 				return MakeError(ErrorText);
 			}
 
-			NewSpawnable.ObjectTemplate = NewObject<UObject>(&OwnerMovieScene, InClass, TemplateName);
+			NewSpawnable.ObjectTemplate = NewObject<UObject>(&OwnerMovieScene, InClass, TemplateName, RF_Transactional);
 		}
 
 		if (!NewSpawnable.ObjectTemplate || !NewSpawnable.ObjectTemplate->IsA<AActor>())

@@ -8,7 +8,7 @@
 
 UMovieSceneSection* UMovieSceneNiagaraBoolParameterTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneBoolSection>(this);
+	return NewObject<UMovieSceneBoolSection>(this, NAME_None, RF_Transactional);
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneNiagaraBoolParameterTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const

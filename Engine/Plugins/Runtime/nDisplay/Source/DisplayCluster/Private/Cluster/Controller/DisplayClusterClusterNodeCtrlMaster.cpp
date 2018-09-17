@@ -11,6 +11,8 @@
 #include "DisplayClusterGlobals.h"
 #include "IPDisplayCluster.h"
 
+#include "Misc/App.h"
+
 
 FDisplayClusterClusterNodeCtrlMaster::FDisplayClusterClusterNodeCtrlMaster(const FString& ctrlName, const FString& nodeName) :
 	FDisplayClusterClusterNodeCtrlSlave(ctrlName, nodeName)
@@ -21,6 +23,15 @@ FDisplayClusterClusterNodeCtrlMaster::~FDisplayClusterClusterNodeCtrlMaster()
 {
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////
+// IPDisplayClusterClusterSyncProtocol
+//////////////////////////////////////////////////////////////////////////////////////////////
+void FDisplayClusterClusterNodeCtrlMaster::GetTimecode(FTimecode& timecode, FFrameRate& frameRate)
+{
+	// This values are updated in UEngine::UpdateTimeAndHandleMaxTickRate (via UpdateTimecode).
+	timecode = FApp::GetTimecode();
+	frameRate = FApp::GetTimecodeFrameRate();
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // IPDisplayClusterNodeController

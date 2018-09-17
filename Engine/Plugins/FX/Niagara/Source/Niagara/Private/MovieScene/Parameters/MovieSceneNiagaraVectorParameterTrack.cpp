@@ -7,7 +7,7 @@
 
 UMovieSceneSection* UMovieSceneNiagaraVectorParameterTrack::CreateNewSection()
 {
-	UMovieSceneVectorSection* VectorSection = NewObject<UMovieSceneVectorSection>(this);
+	UMovieSceneVectorSection* VectorSection = NewObject<UMovieSceneVectorSection>(this, NAME_None, RF_Transactional);
 	VectorSection->SetChannelsUsed(ChannelsUsed);
 	return VectorSection;
 }

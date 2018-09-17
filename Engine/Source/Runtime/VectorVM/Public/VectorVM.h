@@ -293,28 +293,28 @@ struct FVectorVMContext : TThreadSingleton<FVectorVMContext>
 	}
 };
 
-static FORCEINLINE uint8 DecodeU8(FVectorVMContext& Context)
+FORCEINLINE uint8 DecodeU8(FVectorVMContext& Context)
 {
 	return *Context.Code++;
 }
 
-static FORCEINLINE uint16 DecodeU16(FVectorVMContext& Context)
+FORCEINLINE uint16 DecodeU16(FVectorVMContext& Context)
 {
 	return ((uint16)DecodeU8(Context) << 8) + DecodeU8(Context);
 }
 
-static FORCEINLINE uint32 DecodeU32(FVectorVMContext& Context)
+FORCEINLINE uint32 DecodeU32(FVectorVMContext& Context)
 {
 	return ((uint32)DecodeU8(Context) << 24) + (uint32)(DecodeU8(Context) << 16) + (uint32)(DecodeU8(Context) << 8) + DecodeU8(Context);
 }
 
 /** Decode the next operation contained in the bytecode. */
-static FORCEINLINE EVectorVMOp DecodeOp(FVectorVMContext& Context)
+FORCEINLINE EVectorVMOp DecodeOp(FVectorVMContext& Context)
 {
 	return static_cast<EVectorVMOp>(DecodeU8(Context));
 }
 
-static FORCEINLINE uint8 DecodeSrcOperandTypes(FVectorVMContext& Context)
+FORCEINLINE uint8 DecodeSrcOperandTypes(FVectorVMContext& Context)
 {
 	return DecodeU8(Context);
 }
@@ -390,9 +390,11 @@ struct FConstantHandler<VectorRegisterInt> : public FConstantHandlerBase
 struct FRegisterHandlerBase
 {
 	int32 RegisterIndex;
-	FRegisterHandlerBase(FVectorVMContext& Context)
+	FORCEINLINE FRegisterHandlerBase(FVectorVMContext& Context)
 		: RegisterIndex(DecodeU16(Context))
 	{}
+
+	FORCEINLINE bool IsValid() const { return RegisterIndex != 0xFFFF; }
 };
 
 template<typename T>
@@ -414,86 +416,30 @@ struct FUserPtrHandler
 template<typename T>
 struct FRegisterHandler : public FRegisterHandlerBase
 {
+private:
+	T Dummy;
 	T* RESTRICT Register;
-	FRegisterHandler(FVectorVMContext& Context)
+	uint32 AdvanceOffset;
+public:
+	FORCEINLINE FRegisterHandler(FVectorVMContext& Context)
 		: FRegisterHandlerBase(Context)
-		, Register((T*)Context.RegisterTable[RegisterIndex])
+		, Register(IsValid() ? (T*)Context.RegisterTable[RegisterIndex] : &Dummy)
+		, AdvanceOffset(IsValid() ? 1 : 0)
 	{}
 	FORCEINLINE const T Get() { return *Register; }
 	FORCEINLINE T* GetDest() { return Register; }
-	FORCEINLINE void Advance() { ++Register; }
-	FORCEINLINE const T GetAndAdvance() { return *Register++; }
-	FORCEINLINE T* GetDestAndAdvance() { return Register++; }
-};
-
-template<> struct FRegisterHandler<VectorRegister> : public FRegisterHandlerBase
-{
-	VectorRegister* RESTRICT Register;
-
-	FRegisterHandler(FVectorVMContext& Context)
-		: FRegisterHandlerBase(Context)
-		, Register((VectorRegister*)Context.RegisterTable[RegisterIndex])
-	{}
-	FORCEINLINE const VectorRegister Get() { return VectorLoadAligned(Register); }
-	FORCEINLINE VectorRegister* GetDest() { return Register; }
-	FORCEINLINE void Advance() { ++Register; }
-	FORCEINLINE const VectorRegister  GetAndAdvance() { return *Register++; }
-};
-
-template<> struct FRegisterHandler<VectorRegisterInt> : public FRegisterHandlerBase
-{
-	VectorRegisterInt* RESTRICT Register;
-
-	FRegisterHandler(FVectorVMContext& Context)
-		: FRegisterHandlerBase(Context)
-		, Register((VectorRegisterInt*)Context.RegisterTable[RegisterIndex])
-	{}
-	FORCEINLINE const VectorRegisterInt Get() { return VectorIntLoadAligned(Register); }
-	FORCEINLINE VectorRegisterInt* GetDest() { return Register; }
-	FORCEINLINE void Advance() { ++Register; }
-	FORCEINLINE const VectorRegisterInt GetAndAdvance() { return *Register++; }
-};
-
-/** Handles writing to a register, advancing the pointer with each write. */
-template<typename T>
-struct FRegisterDestHandler : public FRegisterHandlerBase
-{
-	T* RESTRICT Register;
-	FRegisterDestHandler(FVectorVMContext& Context)
-		: FRegisterHandlerBase(Context)
-		, Register((T*)Context.RegisterTable[RegisterIndex])
-	{}
-	FORCEINLINE T* RESTRICT GetDest() { return Register; }
-	FORCEINLINE T GetValue() { return *Register; }
-	FORCEINLINE void Advance() { ++Register; }
-	FORCEINLINE T* GetDestAndAdvance() { return Register++; }
-};
-
-template<> struct FRegisterDestHandler<VectorRegister> : public FRegisterHandlerBase
-{
-	VectorRegister* RESTRICT Register;
-	FRegisterDestHandler(FVectorVMContext& Context)
-		: FRegisterHandlerBase(Context)
-		, Register((VectorRegister*)Context.RegisterTable[RegisterIndex])
+	FORCEINLINE void Advance() { Register += AdvanceOffset; }
+	FORCEINLINE const T GetAndAdvance()
 	{
+		T* Ret = Register;
+		Register += AdvanceOffset;
+		return *Ret;
 	}
-
-	FORCEINLINE VectorRegister* RESTRICT GetDest() { return Register; }
-	FORCEINLINE void Advance() { ++Register; }
-	FORCEINLINE VectorRegister* GetDestAndAdvance() { return Register++; }
-};
-
-template<> struct FRegisterDestHandler<VectorRegisterInt> : public FRegisterHandlerBase
-{
-	VectorRegisterInt* RESTRICT Register;
-	FRegisterDestHandler(FVectorVMContext& Context)
-		: FRegisterHandlerBase(Context)
-		, Register((VectorRegisterInt*)Context.RegisterTable[RegisterIndex])
+	FORCEINLINE T* GetDestAndAdvance()
 	{
+		T* Ret = Register;
+		Register += AdvanceOffset;
+		return Ret;
 	}
-
-	FORCEINLINE VectorRegisterInt* RESTRICT GetDest() { return Register; }
-	FORCEINLINE void Advance() { ++Register; }
-	FORCEINLINE VectorRegisterInt* GetDestAndAdvance() { return Register++; }
 };
 

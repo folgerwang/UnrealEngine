@@ -183,7 +183,7 @@ TSharedPtr<SWidget> SFbxMaterialConflictWindow::ConstructMaterialComparison()
 						(
 							SNew(SHeaderRow)
 							+ SHeaderRow::Column("RowIndex")
-							.DefaultLabel(LOCTEXT("SFbxMaterialConflictWindow_RowIndex_ColumnHeader", ""))
+							.DefaultLabel(FText::GetEmpty())
 							.FixedWidth(25)
 							+ SHeaderRow::Column("Current")
 							.DefaultLabel(LOCTEXT("SFbxMaterialConflictWindow_Current_ColumnHeader", "Current Asset Materials"))
@@ -361,7 +361,7 @@ TSharedRef<SWidget> FMaterialConflictData::ConstructCellCurrent()
 			.Padding(FMargin(5.0f, 2.0f, 0.0f, 2.0f))
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("FMaterialConflictData_EmptyCell", ""))
+				.Text(FText::GetEmpty())
 			];
 	}
 
@@ -384,7 +384,7 @@ TSharedRef<SWidget> FMaterialConflictData::ConstructCellFbx()
 			.Padding(FMargin(5.0f, 2.0f, 0.0f, 2.0f))
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("FMaterialConflictData_EmptyCell", ""))
+				.Text(FText::GetEmpty())
 			];
 	}
 

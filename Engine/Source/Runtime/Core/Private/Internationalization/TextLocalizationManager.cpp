@@ -24,7 +24,12 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextLocalizationManager, Log, All);
 
-static FString AccessedStringBeforeLocLoadedErrorMsg = TEXT("Can't access string. Loc System hasn't been initialized yet!");
+const FString& GetAccessedStringBeforeLocLoadedErrorMsg()
+{
+	// Note: This is in a function to ensure it is initialized before we use it (eg, so that a file-scope static FText isn't being initialized before this string)
+	static const FString AccessedStringBeforeLocLoadedErrorMsg = TEXT("Can't access string. Loc System hasn't been initialized yet!");
+	return AccessedStringBeforeLocLoadedErrorMsg;
+}
 
 bool IsLocalizationLockedByConfig()
 {
@@ -652,7 +657,7 @@ FTextDisplayStringRef FTextLocalizationManager::GetDisplayString(const FString& 
 		{
 			if (!bIsInitialized)
 			{
-				*(UnlocalizedString) = AccessedStringBeforeLocLoadedErrorMsg;
+				*(UnlocalizedString) = GetAccessedStringBeforeLocLoadedErrorMsg();
 			}
 		}
 
@@ -981,7 +986,7 @@ void FTextLocalizationManager::UpdateFromNative(const FTextLocalizationResource&
 			}
 			else
 			{
-				if (!LiveStringEntry.bIsLocalized && *LiveStringEntry.DisplayString == AccessedStringBeforeLocLoadedErrorMsg)
+				if (!LiveStringEntry.bIsLocalized && LiveStringEntry.DisplayString->Equals(GetAccessedStringBeforeLocLoadedErrorMsg(), ESearchCase::CaseSensitive))
 				{
 					*LiveStringEntry.DisplayString = FString();
 				}
@@ -1088,7 +1093,7 @@ void FTextLocalizationManager::UpdateFromLocalizations(TArrayView<const TSharedP
 			}
 			else
 			{
-				if ( !LiveStringEntry.bIsLocalized && *LiveStringEntry.DisplayString == AccessedStringBeforeLocLoadedErrorMsg )
+				if (!LiveStringEntry.bIsLocalized && LiveStringEntry.DisplayString->Equals(GetAccessedStringBeforeLocLoadedErrorMsg(), ESearchCase::CaseSensitive))
 				{
 					*(LiveStringEntry.DisplayString) = FString();
 				}
