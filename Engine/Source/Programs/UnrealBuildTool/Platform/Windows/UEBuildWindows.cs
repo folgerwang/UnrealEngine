@@ -808,6 +808,16 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Determines if an IDE for the given compiler is installed.
+		/// </summary>
+		/// <param name="Compiler">Compiler to check for</param>
+		/// <returns>True if the given compiler is installed</returns>
+		public static bool HasIDE(WindowsCompiler Compiler)
+		{
+			return FindVSInstallDirs(Compiler).Count > 0;
+		}
+
+		/// <summary>
 		/// Determines if a given compiler is installed
 		/// </summary>
 		/// <param name="Compiler">Compiler to check for</param>
