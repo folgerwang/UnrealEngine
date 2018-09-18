@@ -5442,10 +5442,13 @@ void FAsyncPackage::FlushObjectLinkerCache()
 {
 	for (UObject* Obj : PackageObjLoaded)
 	{
-		FLinkerLoad* ObjLinker = Obj->GetLinker();
-		if (ObjLinker)
+		if (Obj)
 		{
-			ObjLinker->FlushCache();
+			FLinkerLoad* ObjLinker = Obj->GetLinker();
+			if (ObjLinker)
+			{
+				ObjLinker->FlushCache();
+			}
 		}
 	}
 }
