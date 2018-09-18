@@ -382,7 +382,7 @@ template<typename WidgetType> struct TSlateBaseNamedArgs;
  */
 #define SLATE_SUPPORTS_SLOT_WITH_ARGS( SlotType ) \
 	TArray< SlotType* > Slots; \
-	WidgetArgsType& operator + (const SlotType::FArguments& ArgumentsForNewSlot) \
+	WidgetArgsType& operator + (const typename SlotType::FArguments& ArgumentsForNewSlot) \
 		{ \
 			Slots.Add( new SlotType( ArgumentsForNewSlot ) ); \
 			return *this; \

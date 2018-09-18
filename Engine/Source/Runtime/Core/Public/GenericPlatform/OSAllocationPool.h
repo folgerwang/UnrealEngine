@@ -307,6 +307,6 @@ public:
 
 	void PrintDebugInfo()
 	{
-		printf("BlockSize: %llu NumAllocated/TotalBlocks = %lu/%lu\n", (uint64)BlockSize, (NumBlocks - NumFreeBlocks), NumBlocks);
+		printf("BlockSize: %llu NumAllocated/TotalBlocks = %llu/%llu\n", (uint64)BlockSize, (uint64)(NumBlocks - NumFreeBlocks), (uint64)NumBlocks);
 	}
 };
