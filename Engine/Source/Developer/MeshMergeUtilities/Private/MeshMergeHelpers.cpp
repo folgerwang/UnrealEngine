@@ -8,6 +8,11 @@
 #include "MaterialOptions.h"
 #include "RawMesh.h"
 
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+#include "MeshDescriptionOperations.h"
+
 #include "Misc/PackageName.h"
 #include "MaterialUtilities.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -799,11 +804,21 @@ void FMeshMergeHelpers::RetrieveCullingLandscapeAndVolumes(UWorld* InWorld, cons
 	for (ALandscapeProxy* Landscape : LandscapeActors)
 	{
 		// Export the landscape to raw mesh format
-		FRawMesh* LandscapeRawMesh = new FRawMesh();
+		FMeshDescription MeshDescription;
+		UStaticMesh::RegisterMeshAttributes(MeshDescription);
 		FBoxSphereBounds LandscapeBounds = EstimatedMeshProxyBounds;
-		Landscape->ExportToRawMesh(LandscapeExportLOD, *LandscapeRawMesh, LandscapeBounds);
-		if (LandscapeRawMesh->VertexPositions.Num())
+		Landscape->ExportToRawMesh(LandscapeExportLOD, MeshDescription, LandscapeBounds);
+		if (MeshDescription.Vertices().Num())
 		{
+			TMap<FName, int32> MaterialMap;
+			TPolygonGroupAttributesConstRef<FName> PolygonGroupNames = MeshDescription.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+			int32 MaterialIndex = 0;
+			for (const FPolygonGroupID PolygonGroupID : MeshDescription.PolygonGroups().GetElementIDs())
+			{
+				MaterialMap.Add(PolygonGroupNames[PolygonGroupID], MaterialIndex++);
+			}
+			FRawMesh* LandscapeRawMesh = new FRawMesh();
+			FMeshDescriptionOperations::ConvertToRawMesh(MeshDescription, *LandscapeRawMesh, MaterialMap);
 			CullingRawMeshes.Add(LandscapeRawMesh);
 		}
 	}

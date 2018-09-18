@@ -53,9 +53,12 @@ FMeshDescription* GetMeshDescriptionFromMeshMergeData(const FMeshMergeData* Merg
 	FMeshDescription *MeshDescription = new FMeshDescription();
 	UStaticMesh::RegisterMeshAttributes(*MeshDescription);
 	TMap<int32, FName> MaterialMap;
-	for (int32 MaterialIndex = 0; MaterialIndex < MergeData->SourceStaticMesh->StaticMaterials.Num(); ++MaterialIndex)
+	if (MergeData->SourceStaticMesh)
 	{
-		MaterialMap.Add(MaterialIndex, MergeData->SourceStaticMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
+		for (int32 MaterialIndex = 0; MaterialIndex < MergeData->SourceStaticMesh->StaticMaterials.Num(); ++MaterialIndex)
+		{
+			MaterialMap.Add(MaterialIndex, MergeData->SourceStaticMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
+		}
 	}
 	FMeshDescriptionOperations::ConvertFromRawMesh(*(MergeData->RawMesh), *MeshDescription, MaterialMap);
 	return MeshDescription;

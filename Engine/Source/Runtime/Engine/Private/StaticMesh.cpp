@@ -2731,8 +2731,8 @@ void UStaticMesh::LoadMeshDescriptions()
 				// If the MeshDescriptions are out of sync with the SourceModels RawMesh, perform a conversion here.
 				// @todo: once all tools are ported, we can replace this with a check() instead.
 				FMeshDescription* MeshDescription = MeshDescriptions->Create(LodIndex);
-				SourceModels[LodIndex].OriginalMeshDescription = MeshDescription;
 				RegisterMeshAttributes(*MeshDescription);
+				SourceModels[LodIndex].OriginalMeshDescription = MeshDescription;
 
 				FRawMesh LodRawMesh;
 				SourceModels[LodIndex].LoadRawMesh(LodRawMesh);
@@ -2843,8 +2843,9 @@ FMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex)
 			// If the MeshDescriptions are out of sync with the SourceModels RawMesh, perform a conversion here.
 			// @todo: once all tools are ported, we can replace this with the disabled check() above.
 			FMeshDescription* MeshDescription = MeshDescriptions->Create(LodIndex);
-			SourceModels[LodIndex].OriginalMeshDescription = MeshDescription;
 			RegisterMeshAttributes(*MeshDescription);
+			SourceModels[LodIndex].OriginalMeshDescription = MeshDescription;
+			
 
 			FRawMesh LodRawMesh;
 			SourceModels[LodIndex].LoadRawMesh(LodRawMesh);
@@ -2871,6 +2872,7 @@ FMeshDescription* UStaticMesh::CreateOriginalMeshDescription(int32 LodIndex)
 
 		check(MeshDescriptions->Num() == SourceModels.Num());
 		FMeshDescription* MeshDescription = MeshDescriptions->Create(LodIndex);
+		UStaticMesh::RegisterMeshAttributes(*MeshDescription);
 		SourceModels[LodIndex].OriginalMeshDescription = MeshDescription;
 		return MeshDescription;
 	}

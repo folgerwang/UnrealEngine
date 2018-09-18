@@ -30,7 +30,7 @@ class USplineComponent;
 class UTexture2D;
 struct FAsyncGrassBuilder;
 struct FLandscapeInfoLayerSettings;
-struct FRawMesh;
+struct FMeshDescription;
 enum class ENavDataGatheringMode : uint8;
 
 /** Structure storing channel usage for weightmap textures */
@@ -798,7 +798,7 @@ public:
 	 * @param OutRawMesh - Resulting raw mesh
 	 * @return true if successful
 	 */
-	LANDSCAPE_API bool ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh) const;
+	LANDSCAPE_API bool ExportToRawMesh(int32 InExportLOD, FMeshDescription& OutRawMesh) const;
 
 
 	/**
@@ -809,7 +809,7 @@ public:
 	* @param InBounds - Box/Sphere bounds which limit the geometry exported out into OutRawMesh
 	* @return true if successful
 	*/
-	LANDSCAPE_API bool ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh, const FBoxSphereBounds& InBounds ) const;
+	LANDSCAPE_API bool ExportToRawMesh(int32 InExportLOD, FMeshDescription& OutRawMesh, const FBoxSphereBounds& InBounds, bool bIgnoreBounds = false) const;
 
 	/** Generate platform data if it's missing or outdated */
 	LANDSCAPE_API void CheckGenerateLandscapePlatformData(bool bIsCooking, const ITargetPlatform* TargetPlatform);

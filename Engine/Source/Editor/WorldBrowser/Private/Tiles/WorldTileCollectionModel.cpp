@@ -22,7 +22,11 @@
 #include "IDetailsView.h"
 #include "AssetRegistryModule.h"
 #include "MeshUtilities.h"
-#include "RawMesh.h"
+
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
+
 #include "Materials/Material.h"
 #include "MaterialUtilities.h"
 #include "LandscapeLayerInfoObject.h"
@@ -2064,21 +2068,13 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 		{
 			GWarn->StatusUpdate(LandscapeActorIndex, LandscapeActors.Num(), LOCTEXT("ExportingLandscape", "Exporting Landscape Actors"));
 
-			FRawMesh LandscapeRawMesh;
 			FFlattenMaterial LandscapeFlattenMaterial;
 			FVector LandscapeWorldLocation = Landscape->GetActorLocation();
-			
+
 			int32 LandscapeLOD = SimplificationDetails.LandscapeExportLOD;
 			if (!SimplificationDetails.bOverrideLandscapeExportLOD)
 			{
 				LandscapeLOD = Landscape->MaxLODLevel >= 0 ? Landscape->MaxLODLevel : FMath::CeilLogTwo(Landscape->SubsectionSizeQuads + 1) - 1;
-			}
-		
-			Landscape->ExportToRawMesh(LandscapeLOD, LandscapeRawMesh);
-		
-			for (FVector& VertexPos : LandscapeRawMesh.VertexPositions)
-			{
-				VertexPos-= LandscapeWorldLocation;
 			}
 
 			// Filter out primitives for landscape texture flattening
@@ -2138,10 +2134,8 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			}
 
 			auto StaticMesh = NewObject<UStaticMesh>(MeshOuter, *LandscapeMeshAssetName, RF_Public | RF_Standalone);
-			StaticMesh->InitResources();
 			{
-				FString OutputPath = StaticMesh->GetPathName();
-
+				StaticMesh->InitResources();
 				// make sure it has a new lighting guid
 				StaticMesh->LightingGuid = FGuid::NewGuid();
 
@@ -2156,14 +2150,26 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				SrcModel.BuildSettings.bRemoveDegenerates = false;
 				SrcModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
 				SrcModel.BuildSettings.bUseFullPrecisionUVs = false;
-				SrcModel.SaveRawMesh(LandscapeRawMesh);
 
 				//Assign the proxy material to the static mesh
 				StaticMesh->StaticMaterials.Add(FStaticMaterial(StaticLandscapeMaterial));
 
 				//Set the Imported version before calling the build
 				StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
+			}
+			FMeshDescription& LandscapeRawMesh = *(StaticMesh->CreateOriginalMeshDescription(0));
+		
+			Landscape->ExportToRawMesh(LandscapeLOD, LandscapeRawMesh);
+		
+			TVertexAttributesRef<FVector> VertexPositions = LandscapeRawMesh.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+			for (const FVertexID& VertexID : LandscapeRawMesh.Vertices().GetElementIDs())
+			{
+				VertexPositions[VertexID] -= LandscapeWorldLocation;
+			}
 
+			//Commit raw mesh and build the staticmesh
+			{
+				StaticMesh->CommitOriginalMeshDescription(0);
 				StaticMesh->Build();
 				StaticMesh->PostEditChange();
 			}
