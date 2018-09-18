@@ -233,6 +233,11 @@ void FSteamAuthHandlerComponent::SendPacket(FBitWriter& OutboundPacket)
 		OutboundPacket.SetError();
 	}
 
+	if (AuthInterface->bDropAll)
+	{
+		return;
+	}
+
 	if (AuthInterface->bRandomDrop && FMath::RandBool() == false)
 	{
 		UE_LOG_ONLINE(Warning, TEXT("AUTH HANDLER: Random packet was dropped!"));
@@ -246,7 +251,7 @@ void FSteamAuthHandlerComponent::SendPacket(FBitWriter& OutboundPacket)
 
 void FSteamAuthHandlerComponent::RequestResend()
 {
-	FBitWriter ResendWriter(sizeof(FSteamAuthInfoData) + 1);
+	FBitWriter ResendWriter(sizeof(FSteamAuthInfoData) * 8 + 1);
 	FSteamAuthInfoData ResendingPacket;
 
 	ResendWriter.WriteBit(1);
