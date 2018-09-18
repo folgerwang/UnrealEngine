@@ -208,7 +208,8 @@ void FMaterialInstanceParameterDetails::CustomizeDetails(IDetailLayoutBuilder& D
 
 
 		// Add/hide other properties
-		DefaultCategory.AddProperty("LightmassSettings");
+		DetailLayout.HideProperty("LightmassSettings");
+		CreateLightmassOverrideWidgets(DetailLayout);
 		DetailLayout.HideProperty("bUseOldStyleMICEditorGroups");
 		DetailLayout.HideProperty("ParameterGroups");
 
@@ -728,6 +729,70 @@ EVisibility FMaterialInstanceParameterDetails::ShouldShowSubsurfaceProfile() con
 	return UseSubsurfaceProfile(Model) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
+
+void FMaterialInstanceParameterDetails::CreateLightmassOverrideWidgets(IDetailLayoutBuilder& DetailLayout)
+{
+	IDetailCategoryBuilder& DetailCategory = DetailLayout.EditCategory(NAME_None);
+
+	static FName GroupName(TEXT("LightmassSettings"));
+	IDetailGroup& LightmassSettingsGroup = DetailCategory.AddGroup(GroupName, LOCTEXT("LightmassSettingsGroup", "Lightmass Settings"), false, false);
+
+	TAttribute<bool> IsOverrideCastShadowAsMaskedEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([this] { return MaterialEditorInstance->LightmassSettings.CastShadowAsMasked.bOverride; }));
+	TAttribute<bool> IsOverrideEmissiveBoostEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([this] { return MaterialEditorInstance->LightmassSettings.EmissiveBoost.bOverride; }));
+	TAttribute<bool> IsOverrideDiffuseBoostEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([this] { return MaterialEditorInstance->LightmassSettings.DiffuseBoost.bOverride; }));
+	TAttribute<bool> IsOverrideExportResolutionScaleEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([this] { return MaterialEditorInstance->LightmassSettings.ExportResolutionScale.bOverride; }));
+	
+	TSharedRef<IPropertyHandle> LightmassSettings = DetailLayout.GetProperty("LightmassSettings");
+	TSharedPtr<IPropertyHandle> CastShadowAsMaskedProperty = LightmassSettings->GetChildHandle("CastShadowAsMasked");
+	TSharedPtr<IPropertyHandle> EmissiveBoostProperty = LightmassSettings->GetChildHandle("EmissiveBoost");
+	TSharedPtr<IPropertyHandle> DiffuseBoostProperty = LightmassSettings->GetChildHandle("DiffuseBoost");
+	TSharedPtr<IPropertyHandle> ExportResolutionScaleProperty = LightmassSettings->GetChildHandle("ExportResolutionScale");
+
+
+	IDetailPropertyRow& CastShadowAsMaskedPropertyRow = LightmassSettingsGroup.AddPropertyRow(CastShadowAsMaskedProperty->GetChildHandle(0).ToSharedRef());
+	CastShadowAsMaskedPropertyRow
+		.DisplayName(CastShadowAsMaskedProperty->GetPropertyDisplayName())
+		.ToolTip(CastShadowAsMaskedProperty->GetToolTipText())
+		.EditCondition(IsOverrideCastShadowAsMaskedEnabled, FOnBooleanValueChanged::CreateLambda([this](bool NewValue) {
+			MaterialEditorInstance->LightmassSettings.CastShadowAsMasked.bOverride = NewValue;
+			MaterialEditorInstance->PostEditChange();
+			FEditorSupportDelegates::RedrawAllViewports.Broadcast();
+		}))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FMaterialInstanceParameterDetails::IsOverriddenAndVisible, IsOverrideCastShadowAsMaskedEnabled)));
+
+	IDetailPropertyRow& EmissiveBoostPropertyRow = LightmassSettingsGroup.AddPropertyRow(EmissiveBoostProperty->GetChildHandle(0).ToSharedRef());
+	EmissiveBoostPropertyRow
+		.DisplayName(EmissiveBoostProperty->GetPropertyDisplayName())
+		.ToolTip(EmissiveBoostProperty->GetToolTipText())
+		.EditCondition(IsOverrideEmissiveBoostEnabled, FOnBooleanValueChanged::CreateLambda([this](bool NewValue) {
+			MaterialEditorInstance->LightmassSettings.EmissiveBoost.bOverride = NewValue;
+			MaterialEditorInstance->PostEditChange();
+			FEditorSupportDelegates::RedrawAllViewports.Broadcast();
+		}))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FMaterialInstanceParameterDetails::IsOverriddenAndVisible, IsOverrideEmissiveBoostEnabled)));
+	
+	IDetailPropertyRow& DiffuseBoostPropertyRow = LightmassSettingsGroup.AddPropertyRow(DiffuseBoostProperty->GetChildHandle(0).ToSharedRef());
+	DiffuseBoostPropertyRow
+		.DisplayName(DiffuseBoostProperty->GetPropertyDisplayName())
+		.ToolTip(DiffuseBoostProperty->GetToolTipText())
+		.EditCondition(IsOverrideDiffuseBoostEnabled, FOnBooleanValueChanged::CreateLambda([this](bool NewValue) {
+			MaterialEditorInstance->LightmassSettings.DiffuseBoost.bOverride = NewValue;
+			MaterialEditorInstance->PostEditChange();
+			FEditorSupportDelegates::RedrawAllViewports.Broadcast();
+		}))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FMaterialInstanceParameterDetails::IsOverriddenAndVisible, IsOverrideDiffuseBoostEnabled)));
+
+	IDetailPropertyRow& ExportResolutionScalePropertyRow = LightmassSettingsGroup.AddPropertyRow(ExportResolutionScaleProperty->GetChildHandle(0).ToSharedRef());
+	ExportResolutionScalePropertyRow
+		.DisplayName(ExportResolutionScaleProperty->GetPropertyDisplayName())
+		.ToolTip(ExportResolutionScaleProperty->GetToolTipText())
+		.EditCondition(IsOverrideExportResolutionScaleEnabled, FOnBooleanValueChanged::CreateLambda([this](bool NewValue) {
+			MaterialEditorInstance->LightmassSettings.ExportResolutionScale.bOverride = NewValue;
+			MaterialEditorInstance->PostEditChange();
+			FEditorSupportDelegates::RedrawAllViewports.Broadcast();
+		}))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FMaterialInstanceParameterDetails::IsOverriddenAndVisible, IsOverrideExportResolutionScaleEnabled)));
+}
 
 void FMaterialInstanceParameterDetails::CreateBasePropertyOverrideWidgets(IDetailLayoutBuilder& DetailLayout)
 {

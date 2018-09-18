@@ -2395,7 +2395,7 @@ void UMaterialInstance::InitStaticPermutation()
 
 void UMaterialInstance::UpdateOverridableBaseProperties()
 {
-	//Parents base property overrides have to be cashed by now.
+	//Parents base property overrides have to be cached by now.
 	//This should be done on PostLoad()
 	//Or via an FMaterialUpdateContext when editing.
 
@@ -2416,6 +2416,7 @@ void UMaterialInstance::UpdateOverridableBaseProperties()
 	else
 	{
 		OpacityMaskClipValue = Parent->GetOpacityMaskClipValue();
+		BasePropertyOverrides.OpacityMaskClipValue = OpacityMaskClipValue;
 	}
 
 	if ( BasePropertyOverrides.bOverride_CastDynamicShadowAsMasked )
@@ -2425,6 +2426,7 @@ void UMaterialInstance::UpdateOverridableBaseProperties()
 	else
 	{
 		bCastDynamicShadowAsMasked = Parent->GetCastDynamicShadowAsMasked();
+		BasePropertyOverrides.bCastDynamicShadowAsMasked = bCastDynamicShadowAsMasked;
 	}
 
 	if (BasePropertyOverrides.bOverride_BlendMode)
@@ -2434,6 +2436,7 @@ void UMaterialInstance::UpdateOverridableBaseProperties()
 	else
 	{
 		BlendMode = Parent->GetBlendMode();
+		BasePropertyOverrides.BlendMode = BlendMode;
 	}
 
 	if (BasePropertyOverrides.bOverride_ShadingModel)
@@ -2443,6 +2446,7 @@ void UMaterialInstance::UpdateOverridableBaseProperties()
 	else
 	{
 		ShadingModel = Parent->GetShadingModel();
+		BasePropertyOverrides.ShadingModel = ShadingModel;
 	}
 
 	if (BasePropertyOverrides.bOverride_TwoSided)
@@ -2452,6 +2456,7 @@ void UMaterialInstance::UpdateOverridableBaseProperties()
 	else
 	{
 		TwoSided = Parent->IsTwoSided();
+		BasePropertyOverrides.TwoSided = TwoSided;
 	}
 
 	if (BasePropertyOverrides.bOverride_DitheredLODTransition)
@@ -2461,6 +2466,7 @@ void UMaterialInstance::UpdateOverridableBaseProperties()
 	else
 	{
 		DitheredLODTransition = Parent->IsDitheredLODTransition();
+		BasePropertyOverrides.DitheredLODTransition = DitheredLODTransition;
 	}
 }
 
