@@ -25,4 +25,15 @@ public:
 	UPROPERTY()
 	TMap< TSubclassOf< class UDatasmithObjectTemplate >, UDatasmithObjectTemplate* > ObjectTemplates;
 #endif
+
+protected:
+	/** Overridden serialize function to read in/write out the unexposed data */
+	virtual void Serialize(FArchive& Ar) override
+	{
+		Super::Serialize(Ar);
+		if ( HasAnyFlags(RF_Transactional) )
+		{
+			ClearFlags(RF_Transactional);
+		}
+	}
 };

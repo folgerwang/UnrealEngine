@@ -1009,8 +1009,9 @@ public:
 
 	/**
 	 * Sets a Material given a Material Index
+	 * @note Only available in editor.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | StaticMesh", meta=(DisplayName="Set Material Editor Only"))
 	ENGINE_API void SetMaterial(int32 MaterialIndex, UMaterialInterface* NewMaterial);
 
 	/**

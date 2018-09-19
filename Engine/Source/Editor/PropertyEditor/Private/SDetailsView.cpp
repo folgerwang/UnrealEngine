@@ -792,6 +792,7 @@ void SDetailsView::PreSetObject(int32 InNewNumObjects)
 	}
 
 	RootPropertyNodes.Empty(InNewNumObjects);
+	ExpandedDetailNodes.Empty();
 
 	if(DetailsViewArgs.bAllowMultipleTopLevelObjects)
 	{
@@ -879,6 +880,8 @@ void SDetailsView::PostSetObject()
 		FObjectPropertyNode* RootPropertyNode = ComplexRootNode->AsObjectNode();
 
 		RootPropertyNode->InitNode( InitParams );
+
+		RestoreExpandedItems(ComplexRootNode.ToSharedRef());
 	}
 
 	UpdatePropertyMaps();

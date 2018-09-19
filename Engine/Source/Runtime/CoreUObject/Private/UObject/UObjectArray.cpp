@@ -66,7 +66,10 @@ void FUObjectArray::CloseDisregardForGC()
 	check(OpenForDisregardForGC);
 
 	// Make sure all classes that have been loaded/created so far are properly initialized
-	ProcessNewlyLoadedUObjects();
+	if (!GIsRequestingExit)
+	{
+		ProcessNewlyLoadedUObjects();
+	}
 
 	UClass::AssembleReferenceTokenStreams();
 

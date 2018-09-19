@@ -98,7 +98,7 @@ namespace UnrealBuildTool
 				CopyFromListToList(Other.RCFiles, RCFiles);
 				CopyFromListToList(Other.OtherFiles, OtherFiles);
 			}
-		}
+			}
 
 		/// <summary>
 		/// Adds additional source cpp files for this module.
@@ -139,9 +139,9 @@ namespace UnrealBuildTool
 
 		public class ProcessedDependenciesClass
 		{
-			/// <summary>
+		/// <summary>
 			/// The file, if any, which is used as the unique PCH for this module
-			/// </summary>
+		/// </summary>
 			public FileItem UniquePCHHeaderFile = null;
 		}
 
@@ -386,13 +386,6 @@ namespace UnrealBuildTool
 			ProjectFile.AddIntelliSensePreprocessorDefinitions(ModuleCompileEnvironment.Definitions);
 			ProjectFile.AddInteliiSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.SystemIncludePaths, true);
 			ProjectFile.AddInteliiSenseIncludePaths(ModuleCompileEnvironment.IncludePaths.UserIncludePaths, false);
-
-			// This directory may not exist for this module (or ever exist, if it doesn't contain any generated headers), but we want the project files
-			// to search it so we can pick up generated code definitions after UHT is run for the first time.
-			if(GeneratedCodeDirectory != null)
-			{
-				ProjectFile.AddInteliiSenseIncludePaths(new HashSet<DirectoryReference>{ GeneratedCodeDirectory }, false);
-			}
 		}
 
 		/// <summary>
@@ -407,7 +400,9 @@ namespace UnrealBuildTool
 			bool bLegacyPublicIncludePaths
 			)
 		{
-			if(AutoGenerateCppInfo != null)
+			// This directory may not exist for this module (or ever exist, if it doesn't contain any generated headers), but we want the project files
+			// to search it so we can pick up generated code definitions after UHT is run for the first time.
+			if(AutoGenerateCppInfo != null || (ProjectFileGenerator.bGenerateProjectFiles && GeneratedCodeDirectory != null))
 			{
 				IncludePaths.Add(GeneratedCodeDirectory);
 			}
@@ -450,18 +445,18 @@ namespace UnrealBuildTool
 			}
 
 			{
-				// Process all of the header file dependencies for this module
+			// Process all of the header file dependencies for this module
 				this.CachePCHUsageForModuleSourceFiles(Target, ModuleCompileEnvironment);
 
-				// Make sure our RC files have cached includes.  
-				foreach (FileItem RCFile in SourceFilesToBuild.RCFiles)
+			// Make sure our RC files have cached includes.  
+			foreach (FileItem RCFile in SourceFilesToBuild.RCFiles)
+			{
+				// The default resource file (PCLaunch.rc) is created in a module-agnostic way, so we want to avoid overriding the include paths for it
+				if(RCFile.CachedIncludePaths == null)
 				{
-					// The default resource file (PCLaunch.rc) is created in a module-agnostic way, so we want to avoid overriding the include paths for it
-					if(RCFile.CachedIncludePaths == null)
-					{
-						RCFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
-					}
+					RCFile.CachedIncludePaths = ModuleCompileEnvironment.IncludePaths;
 				}
+			}
 			}
 
 			// Should we force a precompiled header to be generated for this module?  Usually, we only bother with a

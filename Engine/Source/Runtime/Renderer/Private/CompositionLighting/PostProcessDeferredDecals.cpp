@@ -747,7 +747,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 		FScene& Scene = *(FScene*)ViewFamily.Scene;
 
 		//don't early return. Resolves must be run for fast clears to work.
-		if (Scene.Decals.Num())
+		if (Scene.Decals.Num() || Context.View.MeshDecalPrimSet.NumPrims() > 0)
 		{
 			check(bNeedsDBufferTargets || CurrentStage != DRS_BeforeBasePass);
 			FDecalRenderTargetManager RenderTargetManager(RHICmdList, Context.GetShaderPlatform(), CurrentStage);
