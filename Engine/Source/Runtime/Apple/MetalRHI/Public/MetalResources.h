@@ -950,35 +950,29 @@ private:
 	void ResizeGlobalUniforms(uint32 TypeIndex, uint32 UniformArraySize);
 };
 
+class FMetalFence;
+
 class FMetalComputeFence : public FRHIComputeFence
 {
 public:
 	
 	FMetalComputeFence(FName InName)
 	: FRHIComputeFence(InName)
+	, Fence(nullptr)
 	{}
 	
 	virtual ~FMetalComputeFence()
 	{
 	}
 	
-	virtual void Reset() final override
-	{
-		FRHIComputeFence::Reset();
-		Fence = nil;
-	}
+	virtual void Reset() final override;
 	
-	void Write(mtlpp::Fence InFence)
-	{
-		check(Fence.GetPtr() == nil);
-		Fence = InFence;
-		FRHIComputeFence::WriteFence();
-	}
+	void Write(FMetalFence* InFence);
 	
 	void Wait(FMetalContext& Context);
 	
 private:
-	mtlpp::Fence Fence;
+	FMetalFence* Fence;
 };
 
 class FMetalGPUFence final : public FRHIGPUFence

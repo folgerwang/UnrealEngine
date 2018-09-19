@@ -329,6 +329,11 @@ FMetalDeviceContext* FMetalDeviceContext::CreateDeviceContext()
 	FMetalCommandQueue* Queue = new FMetalCommandQueue(Device, GMetalCommandQueueSize);
 	check(Queue);
 	
+	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesFences))
+	{
+		FMetalFencePool::Get().Initialise(Device);
+	}
+	
 	return new FMetalDeviceContext(Device, DeviceIndex, Queue);
 }
 
@@ -467,6 +472,10 @@ void FMetalDeviceContext::ClearFreeList()
 					Heap.ReleaseTexture(nullptr, Texture);
 				}
 			}
+			for ( FMetalFence* Fence : Pair->FenceFreeList )
+			{
+				FMetalFencePool::Get().ReleaseFence(Fence);
+			}
 			delete Pair;
 			DelayedFreeLists.RemoveAt(Index, 1, false);
 		}
@@ -567,7 +576,7 @@ bool FMetalDeviceContext::FMetalDelayedFreeList::IsComplete() const
 	return bFinished;
 }
 
-void FMetalDeviceContext::FlushFreeList()
+void FMetalDeviceContext::FlushFreeList(bool const bFlushFences)
 {
 	FMetalDelayedFreeList* NewList = new FMetalDelayedFreeList;
 	
@@ -579,6 +588,10 @@ void FMetalDeviceContext::FlushFreeList()
 	NewList->UsedBuffers = MoveTemp(UsedBuffers);
 	NewList->UsedTextures = MoveTemp(UsedTextures);
 	NewList->ObjectFreeList = ObjectFreeList;
+	if (bFlushFences)
+	{
+		NewList->FenceFreeList = MoveTemp(FenceFreeList);
+	}
 #if METAL_DEBUG_OPTIONS
 	if (FrameFences.Num())
 	{
@@ -677,7 +690,7 @@ void FMetalDeviceContext::ReleaseTexture(FMetalTexture& Texture)
 	}
 }
 
-void FMetalDeviceContext::ReleaseFence(mtlpp::Fence Fence)
+void FMetalDeviceContext::ReleaseFence(FMetalFence* Fence)
 {
 #if METAL_DEBUG_OPTIONS
 	if(GetCommandList().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)
@@ -687,7 +700,16 @@ void FMetalDeviceContext::ReleaseFence(mtlpp::Fence Fence)
 	}
 #endif
 	
-	ReleaseObject([Fence.GetPtr() retain]);
+	if (GIsMetalInitialized) // @todo zebra: there seems to be some race condition at exit when the framerate is very low
+	{
+		check(Fence);
+		FreeListMutex.Lock();
+		if(!FenceFreeList.Contains(Fence))
+		{
+			FenceFreeList.Add(Fence);
+		}
+		FreeListMutex.Unlock();
+	}
 }
 
 FMetalTexture FMetalDeviceContext::CreateTexture(FMetalSurface* Surface, mtlpp::TextureDescriptor Descriptor)
@@ -733,10 +755,10 @@ void FMetalDeviceContext::ReleaseBuffer(FMetalBuffer& Buffer)
 
 struct FMetalRHICommandUpdateFence final : public FRHICommand<FMetalRHICommandUpdateFence>
 {
-	FMetalFence Fence;
+	FMetalFence* Fence;
 	uint32 Num;
 	
-	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpdateFence(FMetalFence const& InFence, uint32 InNum)
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandUpdateFence(FMetalFence* InFence, uint32 InNum)
 	: Fence(InFence)
 	, Num(InNum)
 	{
@@ -777,8 +799,8 @@ FMetalRHICommandContext* FMetalDeviceContext::AcquireContext(int32 NewIndex, int
 	EndLabel = [NSString stringWithFormat:@"End Parallel Context Index %d Num %d", NewIndex, NewNum];
 #endif
 	
-	FMetalFence StartFence(NewIndex == 0 ? CommandList.GetCommandQueue().CreateFence(StartLabel) : ParallelFences[NewIndex - 1]);
-	FMetalFence EndFence(CommandList.GetCommandQueue().CreateFence(EndLabel));
+	FMetalFence* StartFence(NewIndex == 0 ? CommandList.GetCommandQueue().CreateFence(StartLabel) : ParallelFences[NewIndex - 1]);
+	FMetalFence* EndFence(CommandList.GetCommandQueue().CreateFence(EndLabel));
 	ParallelFences[NewIndex] = EndFence;
 	
 	// Give the context the fences so that we can properly order the parallel contexts.
@@ -951,19 +973,19 @@ void FMetalContext::MakeCurrent(FMetalContext* Context)
 }
 #endif
 
-void FMetalContext::SetParallelPassFences(mtlpp::Fence Start, mtlpp::Fence End)
+void FMetalContext::SetParallelPassFences(FMetalFence* Start, FMetalFence* End)
 {
-	check(!StartFence.IsValid() && !EndFence.IsValid());
+	check(!StartFence && !EndFence);
 	StartFence = Start;
 	EndFence = End;
 }
 
-FMetalFence const& FMetalContext::GetParallelPassStartFence(void) const
+FMetalFence* FMetalContext::GetParallelPassStartFence(void) const
 {
 	return StartFence;
 }
 
-FMetalFence const& FMetalContext::GetParallelPassEndFence(void) const
+FMetalFence* FMetalContext::GetParallelPassEndFence(void) const
 {
 	return EndFence;
 }
@@ -977,13 +999,8 @@ void FMetalContext::InitFrame(bool const bImmediateContext, uint32 Index, uint32
 	// Reset cached state in the encoder
 	StateCache.Reset();
 
-	bool bStatistics = false;
-#if METAL_STATISTICS
-	bStatistics = GetCommandQueue().GetStatistics() != nullptr;
-#endif
-
 	// Sets the index of the parallel context within the pass
-	if (!bImmediateContext && !bStatistics)
+	if (!bImmediateContext && FMetalCommandQueue::SupportsFeature(EMetalFeaturesParallelRenderEncoders))
 	{
 		CommandList.SetParallelIndex(Index, Num);
 	}
@@ -999,7 +1016,8 @@ void FMetalContext::InitFrame(bool const bImmediateContext, uint32 Index, uint32
 	RenderPass.Begin(StartFence);
 	
 	// Unset the start fence, the render-pass owns it and we can consider it encoded now!
-	StartFence.Reset();
+	SafeReleaseMetalFence(StartFence);
+	StartFence = nullptr;
 	
 	// make sure first SetRenderTarget goes through
 	StateCache.InvalidateRenderTargets();
@@ -1011,7 +1029,8 @@ void FMetalContext::FinishFrame()
 	RenderPass.Update(EndFence);
 	
 	// Unset the end fence, the render-pass owns it and we can consider it encoded now!
-	EndFence.Reset();
+	SafeReleaseMetalFence(EndFence);
+	EndFence = nullptr;
 	
 	// End the render pass
 	RenderPass.End();
@@ -1497,7 +1516,8 @@ void FMetalDeviceContext::SetParallelRenderPassDescriptor(FRHISetRenderTargetsIn
 	if (!RenderPass.IsWithinParallelPass())
 	{
 		RenderPass.Begin(EndFence);
-		EndFence.Reset();
+		SafeReleaseMetalFence(EndFence);
+		EndFence = nullptr;
 		StateCache.InvalidateRenderTargets();
 		SetRenderTargetsInfo(TargetInfo, false);
 	}
@@ -1519,8 +1539,9 @@ void FMetalDeviceContext::EndParallelRenderCommandEncoding(void)
 	if (FPlatformAtomics::InterlockedDecrement(&ActiveParallelContexts) == 0)
 	{
 		RenderPass.EndRenderPass();
-		RenderPass.Begin(StartFence);
-		StartFence.Reset();
+		RenderPass.Begin(StartFence, true);
+		SafeReleaseMetalFence(StartFence);
+		StartFence = nullptr;
 		FPlatformAtomics::AtomicStore(&NumParallelContextsInPass, 0);
 	}
 }
@@ -1572,7 +1593,7 @@ public:
 			
 			if (Index == (Num - 1))
 			{
-				mtlpp::Fence Fence = CmdContext->GetInternalContext().GetParallelPassEndFence();
+				FMetalFence* Fence = CmdContext->GetInternalContext().GetParallelPassEndFence();
 				GetMetalDeviceContext().SetParallelPassFences(Fence, nil);
 			}
 

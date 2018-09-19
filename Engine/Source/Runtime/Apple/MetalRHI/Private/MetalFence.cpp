@@ -98,9 +98,89 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugFence)
 #if METAL_DEBUG_OPTIONS
 void FMetalFence::Validate(void) const
 {
-	if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation && Object)
+	if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation && GetPtr())
 	{
-		[(FMetalDebugFence*)Object.GetPtr() validate];
+		[(FMetalDebugFence*)GetPtr() validate];
 	}
 }
 #endif
+
+FMetalFencePool FMetalFencePool::sSelf;
+#if METAL_DEBUG_OPTIONS
+extern int32 GMetalRuntimeDebugLevel;
+#endif
+
+void FMetalFencePool::Initialise(mtlpp::Device const& InDevice)
+{
+	Device = InDevice;
+	for (int32 i = 0; i < FMetalFencePool::NumFences; i++)
+	{
+#if METAL_DEBUG_OPTIONS
+		if (GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
+		{
+			FMetalDebugFence* Fence = [[FMetalDebugFence new] autorelease];
+			Fence.Inner = Device.NewFence();
+			FMetalFence* F = new FMetalFence(Fence);
+			Fences.Add(F);
+			Lifo.Push(F);
+		}
+		else
+#endif
+		{
+			FMetalFence* F = new FMetalFence(Device.NewFence());
+			Fences.Add(F);
+			Lifo.Push(F);
+		}
+	}
+	Count = FMetalFencePool::NumFences;
+}
+
+FMetalFence* FMetalFencePool::AllocateFence()
+{
+	FMetalFence* Fence = Lifo.Pop();
+	if (Fence)
+	{
+		FPlatformAtomics::InterlockedDecrement(&Count);
+		{
+			FScopeLock Lock(&Mutex);
+			check(Fences.Contains(Fence));
+			Fences.Remove(Fence);
+		}
+	}
+	check(Fence);
+	Fence->Reset();
+	return Fence;
+}
+
+void FMetalFence::ValidateUsage(FMetalFence* InFence)
+{
+	if (InFence)
+	{
+		if (InFence->NumWrites(mtlpp::RenderStages::Vertex) != InFence->NumWaits(mtlpp::RenderStages::Vertex))
+		{
+			UE_LOG(LogMetal, Warning, TEXT("%p (%s) writes %d waits %d"), InFence, *FString(InFence->GetLabel()), (uint32)InFence->NumWrites(mtlpp::RenderStages::Vertex), (uint32)InFence->NumWaits(mtlpp::RenderStages::Vertex));
+		}
+		if (InFence->NumWrites(mtlpp::RenderStages::Fragment) != InFence->NumWaits(mtlpp::RenderStages::Fragment))
+		{
+			UE_LOG(LogMetal, Warning, TEXT("%p (%s) writes %d waits %d"), InFence, *FString(InFence->GetLabel()), (uint32)InFence->NumWrites(mtlpp::RenderStages::Fragment), (uint32)InFence->NumWaits(mtlpp::RenderStages::Fragment));
+		}
+	}
+}
+
+void FMetalFencePool::ReleaseFence(FMetalFence* const InFence)
+{
+	if (InFence)
+	{
+		FMetalFence::ValidateUsage(InFence);
+		
+		{
+			FScopeLock Lock(&Mutex);
+			check(!Fences.Contains(InFence));
+			Fences.Add(InFence);
+		}
+		
+		FPlatformAtomics::InterlockedIncrement(&Count);
+		check(Count <= FMetalFencePool::NumFences);
+		Lifo.Push(InFence);
+	}
+}

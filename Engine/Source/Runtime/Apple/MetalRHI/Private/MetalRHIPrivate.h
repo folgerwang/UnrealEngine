@@ -146,7 +146,7 @@ void SafeReleaseMetalTexture(FMetalTexture& Object);
 void SafeReleaseMetalBuffer(FMetalBuffer& Buffer);
 
 // Safely release a fence, correctly handling cases where fences aren't supported or the debug implementation is used.
-void SafeReleaseMetalFence(id Object);
+void SafeReleaseMetalFence(class FMetalFence* Object);
 
 // Access the underlying surface object from any kind of texture
 FMetalSurface* GetMetalSurfaceFromRHITexture(FRHITexture* Texture);

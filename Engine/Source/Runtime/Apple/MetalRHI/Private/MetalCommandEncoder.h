@@ -128,7 +128,7 @@ public:
 	mtlpp::BlitCommandEncoder& GetBlitCommandEncoder(void);
 	
 	/** @returns The MTLFence for the current encoder or nil if there isn't one. */
-	mtlpp::Fence GetEncoderFence(void) const;
+	FMetalFence* GetEncoderFence(void) const;
 	
 #pragma mark - Public Command Encoder Mutators -
 
@@ -147,10 +147,10 @@ public:
 	void BeginComputeCommandEncoding(void);
 	
 	/** Begins encoding blit commands into the current command buffer. No other encoder may be active. */
-	void BeginBlitCommandEncoding(void);
+	void BeginBlitCommandEncoding(bool const bSuppressFence = false);
 	
 	/** Declare that all command generation from this encoder is complete, and detach from the MTLCommandBuffer if there is an encoder active or does nothing if there isn't. */
-	mtlpp::Fence EndEncoding(void);
+	FMetalFence* EndEncoding(void);
 	
 	/** Initialises a fence for the current command-buffer optionally adding a command-buffer completion handler to the command-buffer */
 	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler);
@@ -159,10 +159,10 @@ public:
 	void AddCompletionHandler(mtlpp::CommandBufferHandler Handler);
 	
 	/** Update the event to capture all GPU work so far enqueued by this encoder. */
-	void UpdateFence(mtlpp::Fence Fence);
+	void UpdateFence(FMetalFence* Fence);
 	
 	/** Prevent further GPU work until the event is reached. */
-	void WaitForFence(mtlpp::Fence Fence);
+	void WaitForFence(FMetalFence* Fence);
 
 #pragma mark - Public Debug Support -
 	
@@ -433,7 +433,7 @@ private:
 	METAL_DEBUG_ONLY(FMetalBlitCommandEncoderDebugging BlitEncoderDebug);
 	METAL_DEBUG_ONLY(FMetalParallelRenderCommandEncoderDebugging ParallelEncoderDebug);
 	
-	FMetalFence EncoderFence;
+	FMetalFence* EncoderFence;
 #if ENABLE_METAL_GPUPROFILE
 	FMetalCommandBufferStats* CommandBufferStats;
 #endif

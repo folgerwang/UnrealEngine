@@ -71,7 +71,7 @@ public:
 	 * True iff the command-list is part of an MTLParallelRenderCommandEncoder pass.
 	 * @returns True iff the command-list is part of an MTLParallelRenderCommandEncoder pass, false for immediate and parallel-command-buffer contexts.
 	 */
-	bool IsParallel(void) const { return !bImmediate && Num > 0 && !IsRHIDeviceNVIDIA(); }
+	bool IsParallel(void) const { return !bImmediate && Num > 0 && FMetalCommandQueue::SupportsFeature(EMetalFeaturesParallelRenderEncoders); }
 	
 	/**
 	 * The index of this command-list within the parallel pass.

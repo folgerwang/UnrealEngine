@@ -768,6 +768,13 @@ FComputeFenceRHIRef FMetalDynamicRHI::RHICreateComputeFence(const FName& Name)
 	}
 }
 
+void FMetalComputeFence::Write(FMetalFence* InFence)
+{
+	check(!Fence);
+	Fence = InFence;
+	FRHIComputeFence::WriteFence();
+}
+
 void FMetalComputeFence::Wait(FMetalContext& Context)
 {
 	if (Context.GetCurrentCommandBuffer())
@@ -775,6 +782,13 @@ void FMetalComputeFence::Wait(FMetalContext& Context)
 		Context.SubmitCommandsHint(EMetalSubmitFlagsNone);
 	}
 	Context.GetCurrentRenderPass().Begin(Fence);
+	Fence = nullptr;
+}
+
+void FMetalComputeFence::Reset()
+{
+	FRHIComputeFence::Reset();
+	Fence = nullptr;
 }
 
 void FMetalRHICommandContext::RHITransitionResources(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs, FComputeFenceRHIParamRef WriteComputeFence)

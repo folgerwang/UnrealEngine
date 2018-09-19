@@ -1856,9 +1856,9 @@ void FMetalStateCache::FlushVisibilityResults(FMetalCommandEncoder& CommandEncod
 #if PLATFORM_MAC
 	if(VisibilityResults && VisibilityResults->Buffer && VisibilityResults->Buffer.GetStorageMode() == mtlpp::StorageMode::Managed && VisibilityWritten && CommandEncoder.IsRenderCommandEncoderActive())
 	{
-		mtlpp::Fence Fence = CommandEncoder.EndEncoding();
+		FMetalFence* Fence = CommandEncoder.EndEncoding();
 		
-		CommandEncoder.BeginBlitCommandEncoding();
+        CommandEncoder.BeginBlitCommandEncoding();
 		CommandEncoder.WaitForFence(Fence);
 		
 		mtlpp::BlitCommandEncoder& Encoder = CommandEncoder.GetBlitCommandEncoder();

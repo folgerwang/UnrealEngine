@@ -50,14 +50,14 @@ void SafeReleaseMetalBuffer(FMetalBuffer& Buffer)
 	}
 }
 
-void SafeReleaseMetalFence(id Object)
+void SafeReleaseMetalFence(FMetalFence* Object)
 {
 	if(GIsMetalInitialized && GDynamicRHI && Object)
 	{
 		FMetalRHICommandContext* Context = static_cast<FMetalRHICommandContext*>(RHIGetDefaultContext());
 		if(Context)
 		{
-			((FMetalDeviceContext&)Context->GetInternalContext()).ReleaseFence((id<MTLFence>)Object);
+			((FMetalDeviceContext&)Context->GetInternalContext()).ReleaseFence(Object);
 			return;
 		}
 	}

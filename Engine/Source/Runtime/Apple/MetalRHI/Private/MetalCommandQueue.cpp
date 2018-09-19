@@ -127,7 +127,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		
 		if(Vers.majorVersion >= 11)
 		{
-			Features |= EMetalFeaturesPresentMinDuration | EMetalFeaturesGPUCaptureManager | EMetalFeaturesBufferSubAllocation;
+			Features |= EMetalFeaturesPresentMinDuration | EMetalFeaturesGPUCaptureManager | EMetalFeaturesBufferSubAllocation | EMetalFeaturesParallelRenderEncoders;
         }
 #endif
 	}
@@ -164,6 +164,16 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 	        if (!DeviceName.Contains(TEXT("Vega")) || FPlatformMisc::MacOSXVersionCompare(10,13,5) >= 0)
 	        {
 				Features |= EMetalFeaturesPrivateBufferSubAllocation;
+			}
+		}
+		
+		// On 10.13.5+ we can use MTLParallelRenderEncoder
+		if (FPlatformMisc::MacOSXVersionCompare(10,13,5) >= 0)
+		{
+			// Except on Nvidia for the moment
+			if ([Device.GetName().GetPtr() rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location == NSNotFound)
+			{
+				Features |= EMetalFeaturesParallelRenderEncoders;
 			}
 		}
 
@@ -236,6 +246,9 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 			{
 				GSupportsTimestampRenderQueries = true;
 				Features |= EMetalFeaturesStatistics;
+				
+				// Stats doesn't support Parallel Encoders yet
+				Features &= ~(EMetalFeaturesParallelRenderEncoders);
 			}
 			else
 			{
@@ -345,28 +358,30 @@ void FMetalCommandQueue::SubmitCommandBuffers(TArray<mtlpp::CommandBuffer> Buffe
 	}
 }
 
-mtlpp::Fence FMetalCommandQueue::CreateFence(ns::String const& Label) const
+FMetalFence* FMetalCommandQueue::CreateFence(ns::String const& Label) const
 {
-	mtlpp::Fence InternalFence;
-	if(Features & EMetalFeaturesFences)
+	if ((Features & EMetalFeaturesFences) != 0)
 	{
-		InternalFence = Device.NewFence();
-	}
+		FMetalFence* InternalFence = FMetalFencePool::Get().AllocateFence();
+		NSString* String = [NSString stringWithFormat:@"%p: %@", InternalFence->GetPtr(), Label.GetPtr()];
 #if METAL_DEBUG_OPTIONS
-	if (RuntimeDebuggingLevel >= EMetalDebugLevelValidation)
-	{
-		FMetalDebugFence* Fence = [[FMetalDebugFence new] autorelease];
-		Fence.Inner = InternalFence;
-		InternalFence = Fence;
-		Fence.label = Label;
+		if (RuntimeDebuggingLevel >= EMetalDebugLevelValidation)
+		{
+			FMetalDebugFence* Fence = (FMetalDebugFence*)InternalFence->GetPtr();
+			Fence.label = String;
+		}
+		else
+#endif
+		if(InternalFence && Label)
+		{
+			InternalFence->SetLabel(String);
+		}
+		return InternalFence;
 	}
 	else
-#endif
-	if(InternalFence && Label)
 	{
-		InternalFence.SetLabel(Label);
+		return nullptr;
 	}
-	return InternalFence;
 }
 
 void FMetalCommandQueue::GetCommittedCommandBufferFences(TArray<mtlpp::CommandBufferFence>& Fences)

@@ -22,11 +22,11 @@ public:
 	~FMetalRenderPass(void);
 	
 #pragma mark -
-    void Begin(mtlpp::Fence Fence);
+    void Begin(FMetalFence* Fence, bool const bParallelBegin = false);
 	
-	void Wait(mtlpp::Fence Fence);
+	void Wait(FMetalFence* Fence);
 
-	void Update(mtlpp::Fence Fence);
+	void Update(FMetalFence* Fence);
 	
     void BeginParallelRenderPass(mtlpp::RenderPassDescriptor RenderPass, uint32 NumParallelContextsInPass);
 
@@ -52,7 +52,7 @@ public:
     
     void DispatchIndirect(FMetalVertexBuffer* ArgumentBufferRHI, uint32 ArgumentOffset);
     
-    mtlpp::Fence EndRenderPass(void);
+    FMetalFence* EndRenderPass(void);
     
     void CopyFromTextureToBuffer(FMetalTexture const& Texture, uint32 sourceSlice, uint32 sourceLevel, mtlpp::Origin sourceOrigin, mtlpp::Size sourceSize, FMetalBuffer const& toBuffer, uint32 destinationOffset, uint32 destinationBytesPerRow, uint32 destinationBytesPerImage, mtlpp::BlitOption options);
     
@@ -78,9 +78,9 @@ public:
 	
 	void AsyncGenerateMipmapsForTexture(FMetalTexture const& Texture);
 	
-    mtlpp::Fence Submit(EMetalSubmitFlags SubmissionFlags);
+    FMetalFence* Submit(EMetalSubmitFlags SubmissionFlags);
     
-    mtlpp::Fence End(void);
+    FMetalFence* End(void);
 	
 	void InsertCommandBufferFence(FMetalCommandBufferFence& Fence, mtlpp::CommandBufferHandler Handler);
 	
@@ -142,7 +142,7 @@ private:
     void ConditionalSwitchToRender(void);
     void ConditionalSwitchToTessellation(void);
     void ConditionalSwitchToCompute(void);
-	void ConditionalSwitchToBlit(void);
+	void ConditionalSwitchToBlit(bool const bSuppressFence = false);
 	void ConditionalSwitchToAsyncBlit(void);
 	
     void PrepareToRender(uint32 PrimType);
@@ -172,9 +172,9 @@ private:
 	// Disjoint ranges *are* permitted!
 	TMap<id<MTLBuffer>, TArray<NSRange>> OutstandingBufferUploads;
     
-    FMetalFence PassStartFence;
-    FMetalFence CurrentEncoderFence;
-    FMetalFence PrologueEncoderFence;
+    FMetalFence* PassStartFence;
+    FMetalFence* CurrentEncoderFence;
+    FMetalFence* PrologueEncoderFence;
     
     mtlpp::RenderPassDescriptor RenderPassDesc;
     
