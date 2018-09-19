@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SLevelViewport.h"
 #include "Materials/MaterialInterface.h"
@@ -205,6 +205,9 @@ void SLevelViewport::Construct(const FArguments& InArgs)
 	LevelEditor.OnMapChanged().AddRaw( this, &SLevelViewport::OnMapChanged );
 
 	GEngine->OnLevelActorDeleted().AddRaw( this, &SLevelViewport::OnLevelActorsRemoved );
+
+	FEditorDelegates::PostPIEStarted.AddSP(this, &SLevelViewport::TransitionToPIE);
+	FEditorDelegates::PrePIEEnded.AddSP(this, &SLevelViewport::TransitionFromPIE);
 }
 
 void SLevelViewport::ConstructViewportOverlayContent()
@@ -466,6 +469,28 @@ void SLevelViewport::ConstructLevelEditorViewportClient( const FArguments& InArg
 const FSceneViewport* SLevelViewport::GetGameSceneViewport() const
 {
 	return ActiveViewport.Get();
+}
+
+void SLevelViewport::TransitionToPIE(bool bIsSimulating)
+{
+	for (FViewportActorPreview& ActorPreview : ActorPreviews)
+	{
+		if (ActorPreview.LevelViewportClient.IsValid() && !ActorPreview.LevelViewportClient->IsSimulateInEditorViewport())
+		{
+			ActorPreview.LevelViewportClient->SetIsSimulateInEditorViewport(true);
+		}
+	}
+}
+
+void SLevelViewport::TransitionFromPIE(bool bIsSimulating)
+{
+	for (FViewportActorPreview& ActorPreview : ActorPreviews)
+	{
+		if (ActorPreview.LevelViewportClient.IsValid() && ActorPreview.LevelViewportClient->IsSimulateInEditorViewport())
+		{
+			ActorPreview.LevelViewportClient->SetIsSimulateInEditorViewport(false);
+		}
+	}
 }
 
 FReply SLevelViewport::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
@@ -3140,7 +3165,13 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview, co
 				// Push actor transform to view.  From here on out, this will happen automatically in FLevelEditorViewportClient::Tick.
 				// The reason we allow the viewport client to update this is to avoid off-by-one-frame issues when dragging actors around.
 				ActorPreviewLevelViewportClient->SetActorLock( CurActor );
-				ActorPreviewLevelViewportClient->UpdateViewForLockedActor();			
+				ActorPreviewLevelViewportClient->UpdateViewForLockedActor();	
+
+				// Preview the play world if the current actor is in the play world
+				if (CurActor->GetWorld()->IsGameWorld())
+				{
+					ActorPreviewLevelViewportClient->SetIsSimulateInEditorViewport(true);
+				}
 			}
 
 			TSharedPtr< SActorPreview > ActorPreviewWidget = SNew(SActorPreview)
