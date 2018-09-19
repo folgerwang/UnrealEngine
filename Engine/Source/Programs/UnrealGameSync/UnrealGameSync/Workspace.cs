@@ -697,8 +697,8 @@ namespace UnrealGameSync
 							Log.WriteLine("Executing post-sync steps...");
 
 							Dictionary<string, string> PostSyncVariables = new Dictionary<string, string>(Context.Variables);
-							PostSyncVariables.Add("Change", PendingChangeNumber.ToString());
-							PostSyncVariables.Add("CodeChange", VersionChangeNumber.ToString());
+							PostSyncVariables["Change"] = PendingChangeNumber.ToString();
+							PostSyncVariables["CodeChange"] = VersionChangeNumber.ToString();
 
 							foreach (string PostSyncStep in PostSyncSteps.Select(x => x.Trim()))
 							{
