@@ -1235,3 +1235,28 @@ void FMeshMergeHelpers::MergeImpostersToRawMesh(TArray<const UStaticMeshComponen
 		}
 	}
 }
+
+FMeshDescription* FMeshMergeData::GetMeshDescription()
+{
+	if (MeshDescription != nullptr)
+	{
+		return MeshDescription;
+	}
+	if (RawMesh == nullptr)
+	{
+		return nullptr;
+	}
+
+	MeshDescription = new FMeshDescription();
+	UStaticMesh::RegisterMeshAttributes(*MeshDescription);
+	TMap<int32, FName> MaterialMap;
+	if (SourceStaticMesh)
+	{
+		for (int32 MaterialIndex = 0; MaterialIndex < SourceStaticMesh->StaticMaterials.Num(); ++MaterialIndex)
+		{
+			MaterialMap.Add(MaterialIndex, SourceStaticMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
+		}
+	}
+	FMeshDescriptionOperations::ConvertFromRawMesh(*RawMesh, *MeshDescription, MaterialMap);
+	return MeshDescription;
+}

@@ -20,6 +20,7 @@ public:
 	virtual ~IMeshReduction() {}
 
 	/**
+	* DEPRECATED Please use ReduceMeshDescription instead.
 	* Reduces the raw mesh using the provided reduction settings.
 	* @param OutReducedMesh - Upon return contains the reduced mesh.
 	* @param OutMaxDeviation - Upon return contains the maximum distance by which the reduced mesh deviates from the original.

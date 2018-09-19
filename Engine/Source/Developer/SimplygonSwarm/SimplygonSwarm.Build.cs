@@ -26,13 +26,15 @@ public class SimplygonSwarm : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"RenderCore",
-				"RawMesh",
+                "MeshDescription",
+                "MeshDescriptionOperations",
                 "MeshBoneReduction",
                 "ImageWrapper",
                 "HTTP",
                 "Json",
                 "UnrealEd",
-                "MaterialUtilities"
+                "MaterialUtilities",
+                "MeshMergeUtilities"
 			}
         );
 
