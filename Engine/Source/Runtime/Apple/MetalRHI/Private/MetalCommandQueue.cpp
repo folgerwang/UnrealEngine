@@ -72,7 +72,17 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		
 		if([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v3] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v3])
 		{
-			Features |= EMetalFeaturesStencilView | EMetalFeaturesFunctionConstants | EMetalFeaturesGraphicsUAVs | EMetalFeaturesMemoryLessResources /*| EMetalFeaturesHeaps | EMetalFeaturesFences*/;
+			Features |= EMetalFeaturesStencilView | EMetalFeaturesFunctionConstants | EMetalFeaturesGraphicsUAVs | EMetalFeaturesMemoryLessResources;
+			
+			if (FParse::Param(FCommandLine::Get(),TEXT("metalfence")))
+			{
+				Features |= EMetalFeaturesFences;
+			}
+			
+			if (FParse::Param(FCommandLine::Get(),TEXT("metalheap")))
+			{
+				Features |= EMetalFeaturesHeaps;
+			}
 		}
 		
 		if([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2])
@@ -117,7 +127,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		
 		if(Vers.majorVersion >= 11)
 		{
-			Features |= EMetalFeaturesPresentMinDuration | EMetalFeaturesGPUCaptureManager;
+			Features |= EMetalFeaturesPresentMinDuration | EMetalFeaturesGPUCaptureManager | EMetalFeaturesBufferSubAllocation;
         }
 #endif
 	}
@@ -185,7 +195,12 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		
 		if (FParse::Param(FCommandLine::Get(),TEXT("metalfence")))
 		{
-			Features |=  EMetalFeaturesHeaps | EMetalFeaturesFences;
+			Features |= EMetalFeaturesFences;
+		}
+		
+		if (FParse::Param(FCommandLine::Get(),TEXT("metalheap")))
+		{
+			Features |= EMetalFeaturesHeaps;
 		}
     }
 	else
@@ -246,7 +261,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 			PermittedOptions |= mtlpp::ResourceOptions::StorageModeMemoryless;
 		}
 #endif
-		if ((Features & EMetalFeaturesFences) && (!PLATFORM_MAC || (FParse::Param(FCommandLine::Get(),TEXT("metaluntracktextures")))))
+		if ((Features & EMetalFeaturesFences) && FParse::Param(FCommandLine::Get(),TEXT("metaluntracktextures")))
 		{
 			PermittedOptions |= mtlpp::ResourceOptions::HazardTrackingModeUntracked;
 		}

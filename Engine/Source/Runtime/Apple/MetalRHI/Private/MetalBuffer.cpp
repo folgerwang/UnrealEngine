@@ -149,7 +149,7 @@ FMetalSubBufferHeap::FMetalSubBufferHeap(NSUInteger Size, NSUInteger Alignment, 
 	check(Storage != mtlpp::StorageMode::Managed /* Managed memory cannot be safely suballocated! When you overwrite existing data the GPU buffer is immediately disposed of! */);
 #endif
 
-	if (bSupportsHeaps && (!PLATFORM_MAC || Storage == mtlpp::StorageMode::Private))
+	if (bSupportsHeaps && Storage == mtlpp::StorageMode::Private)
 	{
 		mtlpp::HeapDescriptor Desc;
 		Desc.SetSize(FullSize);
@@ -580,7 +580,7 @@ FMetalSubBufferMagazine::FMetalSubBufferMagazine(NSUInteger Size, NSUInteger Chu
 #endif
 
 	static bool bSupportsHeaps = GetMetalDeviceContext().SupportsFeature(EMetalFeaturesHeaps);
-	if (bSupportsHeaps && (!PLATFORM_MAC || Storage == mtlpp::StorageMode::Private))
+	if (bSupportsHeaps && Storage == mtlpp::StorageMode::Private)
 	{
 		mtlpp::HeapDescriptor Desc;
 		Desc.SetSize(FullSize);
@@ -1258,8 +1258,9 @@ FMetalBuffer FMetalResourceHeap::CreateBuffer(uint32 Size, uint32 Alignment, mtl
 	LLM_SCOPE_METAL(ELLMTagMetal::Buffers);
 	LLM_PLATFORM_SCOPE_METAL(ELLMTagMetal::Buffers);
 	
+	static bool bSupportsHeaps = GetMetalDeviceContext().SupportsFeature(EMetalFeaturesHeaps);
 	static bool bSupportsBufferSubAllocation = FMetalCommandQueue::SupportsFeature(EMetalFeaturesBufferSubAllocation);
-	bForceUnique |= !(bSupportsBufferSubAllocation);
+	bForceUnique |= (!bSupportsBufferSubAllocation && !bSupportsHeaps);
 	
 	FMetalBuffer Buffer;
 	uint32 BlockSize = Align(Size, Alignment);
