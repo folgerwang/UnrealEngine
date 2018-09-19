@@ -1386,6 +1386,14 @@ public:
 	UPROPERTY(transient)
 	uint32 bAreConstraintsDirty:1;
 
+	/** Indicates that the world has marked contained objects as pending kill */
+	bool HasMarkedObjectsPendingKill() const { return bMarkedObjectsPendingKill; }
+private:
+	uint32 bCleanedUpWorld:1;
+
+	uint32 bMarkedObjectsPendingKill:1;
+
+public:
 #if WITH_EDITORONLY_DATA
 	/** List of DDC async requests we need to wait on before we register components. Game thread only. */
 	TArray<TSharedPtr<FAsyncPreRegisterDDCRequest>> AsyncPreRegisterDDCRequests;
