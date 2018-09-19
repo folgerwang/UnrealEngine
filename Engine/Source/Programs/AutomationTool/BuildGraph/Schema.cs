@@ -158,6 +158,7 @@ namespace AutomationTool
 		Option,
 		EnvVar,
 		Property,
+		Regex,
 		Macro,
 		Expand,
 		Trace,
@@ -335,6 +336,7 @@ namespace AutomationTool
 			NewSchema.Items.Add(CreateOptionType());
 			NewSchema.Items.Add(CreateEnvVarType());
 			NewSchema.Items.Add(CreatePropertyType());
+			NewSchema.Items.Add(CreateRegexType());
 			NewSchema.Items.Add(CreateMacroType());
 			NewSchema.Items.Add(CreateExpandType());
 			NewSchema.Items.Add(CreateDiagnosticType(ScriptSchemaStandardType.Trace));
@@ -444,6 +446,7 @@ namespace AutomationTool
 			GraphChoice.Items.Add(CreateSchemaElement("Option", ScriptSchemaStandardType.Option));
 			GraphChoice.Items.Add(CreateSchemaElement("EnvVar", ScriptSchemaStandardType.EnvVar));
 			GraphChoice.Items.Add(CreateSchemaElement("Property", ScriptSchemaStandardType.Property));
+			GraphChoice.Items.Add(CreateSchemaElement("Regex", ScriptSchemaStandardType.Regex));
 			GraphChoice.Items.Add(CreateSchemaElement("Macro", ScriptSchemaStandardType.Macro));
 			GraphChoice.Items.Add(CreateSchemaElement("Agent", ScriptSchemaStandardType.Agent));
 			GraphChoice.Items.Add(CreateSchemaElement("Trigger", ScriptSchemaStandardType.Trigger));
@@ -494,6 +497,7 @@ namespace AutomationTool
 			TriggerChoice.MinOccurs = 0;
 			TriggerChoice.MaxOccursString = "unbounded";
 			TriggerChoice.Items.Add(CreateSchemaElement("Property", ScriptSchemaStandardType.Property));
+			TriggerChoice.Items.Add(CreateSchemaElement("Regex", ScriptSchemaStandardType.Regex));
 			TriggerChoice.Items.Add(CreateSchemaElement("EnvVar", ScriptSchemaStandardType.EnvVar));
 			TriggerChoice.Items.Add(CreateSchemaElement("Agent", ScriptSchemaStandardType.Agent));
 			TriggerChoice.Items.Add(CreateSchemaElement("Aggregate", ScriptSchemaStandardType.Aggregate));
@@ -541,6 +545,7 @@ namespace AutomationTool
 			AgentChoice.MinOccurs = 0;
 			AgentChoice.MaxOccursString = "unbounded";
 			AgentChoice.Items.Add(CreateSchemaElement("Property", ScriptSchemaStandardType.Property));
+			AgentChoice.Items.Add(CreateSchemaElement("Regex", ScriptSchemaStandardType.Regex));
 			AgentChoice.Items.Add(CreateSchemaElement("EnvVar", ScriptSchemaStandardType.EnvVar));
 			AgentChoice.Items.Add(CreateSchemaElement("Node", ScriptSchemaStandardType.Node));
 			AgentChoice.Items.Add(CreateSchemaElement("Trace", ScriptSchemaStandardType.Trace));
@@ -592,6 +597,7 @@ namespace AutomationTool
 			NodeChoice.MinOccurs = 0;
 			NodeChoice.MaxOccursString = "unbounded";
 			NodeChoice.Items.Add(CreateSchemaElement("Property", ScriptSchemaStandardType.Property));
+			NodeChoice.Items.Add(CreateSchemaElement("Regex", ScriptSchemaStandardType.Regex));
 			NodeChoice.Items.Add(CreateSchemaElement("EnvVar", ScriptSchemaStandardType.EnvVar));
 			NodeChoice.Items.Add(CreateSchemaElement("Trace", ScriptSchemaStandardType.Trace));
 			NodeChoice.Items.Add(CreateSchemaElement("Warning", ScriptSchemaStandardType.Warning));
@@ -737,6 +743,29 @@ namespace AutomationTool
 			PropertyType.Name = GetTypeName(ScriptSchemaStandardType.Property);
 			PropertyType.ContentModel = ContentModel;
 			return PropertyType;
+		}
+
+		/// <summary>
+		/// Creates the schema type representing a regex type
+		/// </summary>
+		/// <returns>Type definition for a regex</returns>
+		static XmlSchemaType CreateRegexType()
+		{
+			XmlSchemaSimpleContentExtension Extension = new XmlSchemaSimpleContentExtension();
+			Extension.BaseTypeName = StringTypeName;
+
+			Extension.Attributes.Add(CreateSchemaAttribute("Input", StringTypeName, XmlSchemaUse.Required));
+			Extension.Attributes.Add(CreateSchemaAttribute("Pattern", StringTypeName, XmlSchemaUse.Required));
+			Extension.Attributes.Add(CreateSchemaAttribute("Capture", ScriptSchemaStandardType.NameList, XmlSchemaUse.Required));
+			Extension.Attributes.Add(CreateSchemaAttribute("If", ScriptSchemaStandardType.BalancedString, XmlSchemaUse.Optional));
+
+			XmlSchemaSimpleContent ContentModel = new XmlSchemaSimpleContent();
+			ContentModel.Content = Extension;
+
+			XmlSchemaComplexType RegexType  = new XmlSchemaComplexType();
+			RegexType.Name = GetTypeName(ScriptSchemaStandardType.Regex);
+			RegexType.ContentModel = ContentModel;
+			return RegexType;
 		}
 
 		/// <summary>
