@@ -438,7 +438,6 @@ bool FFontEditorViewportClient::InputKey(FViewport* Viewport, int32 ControllerId
 		
 			// Force a redraw
 			Viewport->Invalidate();
-			Viewport->InvalidateDisplay();
 
 			bHandled = true;
 		}
