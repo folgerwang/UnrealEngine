@@ -50,6 +50,8 @@ private:
 
 	bool IsWidgetCDOSelected() const;
 
+	EVisibility GetBorderAreaVisibility() const;
+
 	EVisibility GetNameAreaVisibility() const;
 
 	const FSlateBrush* GetNameIcon() const;

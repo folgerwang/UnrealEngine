@@ -7738,6 +7738,7 @@ void FSlateEditorStyle::FStyle::SetupUMGEditorStyles()
 	Set("UMGEditor.Mirror", new IMAGE_BRUSH("Icons/UMG/Icon_Mirror_v3", Icon16x16));
 
 	Set("UMGEditor.ResizeResolutionFont", DEFAULT_FONT("Bold", 10));
+	Set("UMGEditor.CategoryIcon", new IMAGE_BRUSH("Icons/hiererchy_16x", Icon16x16));
 }
 
 void FSlateEditorStyle::FStyle::SetupTranslationEditorStyles()

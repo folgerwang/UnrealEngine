@@ -72,80 +72,101 @@ void SWidgetDetailsView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetB
 
 		+ SVerticalBox::Slot()
 		.AutoHeight()
-		.Padding(0, 0, 0, 6)
+		.Padding(0, 2)
 		[
-			SNew(SHorizontalBox)
-			.Visibility(this, &SWidgetDetailsView::GetCategoryAreaVisibility)
-
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(0, 0, 6, 0)
+			SNew(SBorder)
+			.BorderImage(FEditorStyle::GetBrush(TEXT("ToolPanel.GroupBorder")))
+			.Visibility(this, &SWidgetDetailsView::GetBorderAreaVisibility)
 			[
-				SNew(SBox)
-				.WidthOverride(200.0f)
-				.VAlign(VAlign_Center)
+				SNew(SVerticalBox)
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(4)
 				[
-					SNew(SEditableTextBox)
-					.SelectAllTextWhenFocused(true)
-					.ToolTipText(LOCTEXT("CategoryToolTip", "Sets the category of the widget"))
-					.HintText(LOCTEXT("Category", "Category"))
-					.Text(this, &SWidgetDetailsView::GetCategoryText)
-					.OnTextCommitted(this, &SWidgetDetailsView::HandleCategoryTextCommitted)
+					SNew(SHorizontalBox)
+					.Visibility(this, &SWidgetDetailsView::GetCategoryAreaVisibility)
+
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(0, 0, 3, 0)
+					.VAlign(VAlign_Center)
+					[
+						SNew(SImage)
+						.Image(FEditorStyle::GetBrush(TEXT("UMGEditor.CategoryIcon")))
+					]
+
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(0, 0, 6, 0)
+					[
+						SNew(SBox)
+						.WidthOverride(200.0f)
+						.VAlign(VAlign_Center)
+						[
+							SNew(SEditableTextBox)
+							.SelectAllTextWhenFocused(true)
+							.ToolTipText(LOCTEXT("CategoryToolTip", "Sets the category of the widget"))
+							.HintText(LOCTEXT("Category", "Category"))
+							.Text(this, &SWidgetDetailsView::GetCategoryText)
+							.OnTextCommitted(this, &SWidgetDetailsView::HandleCategoryTextCommitted)
+						]
+					]
 				]
-			]
-		]
 
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(0, 0, 0, 6)
-		[
-			SNew(SHorizontalBox)
-			.Visibility(this, &SWidgetDetailsView::GetNameAreaVisibility)
-
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(0, 0, 3, 0)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SImage)
-				.Image(this, &SWidgetDetailsView::GetNameIcon)
-			]
-
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(0, 0, 6, 0)
-			[
-				SNew(SBox)
-				.WidthOverride(200.0f)
-				.VAlign(VAlign_Center)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(4)
 				[
-					SAssignNew(NameTextBox, SEditableTextBox)
-					.SelectAllTextWhenFocused(true)
-					.HintText(LOCTEXT("Name", "Name"))
-					.Text(this, &SWidgetDetailsView::GetNameText)
-					.OnTextChanged(this, &SWidgetDetailsView::HandleNameTextChanged)
-					.OnTextCommitted(this, &SWidgetDetailsView::HandleNameTextCommitted)
-				]
-			]
+					SNew(SHorizontalBox)
+					.Visibility(this, &SWidgetDetailsView::GetNameAreaVisibility)
 
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SCheckBox)
-				.IsChecked(this, &SWidgetDetailsView::GetIsVariable)
-				.OnCheckStateChanged(this, &SWidgetDetailsView::HandleIsVariableChanged)
-				.Padding(FMargin(3,1,3,1))
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("IsVariable", "Is Variable"))
-				]
-			]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(0, 0, 3, 0)
+					.VAlign(VAlign_Center)
+					[
+						SNew(SImage)
+						.Image(this, &SWidgetDetailsView::GetNameIcon)
+					]
 
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(15,0,0,0)
-			[
-				SAssignNew(ClassLinkArea, SBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(0, 0, 6, 0)
+					[
+						SNew(SBox)
+						.WidthOverride(200.0f)
+						.VAlign(VAlign_Center)
+						[
+							SAssignNew(NameTextBox, SEditableTextBox)
+							.SelectAllTextWhenFocused(true)
+							.HintText(LOCTEXT("Name", "Name"))
+							.Text(this, &SWidgetDetailsView::GetNameText)
+							.OnTextChanged(this, &SWidgetDetailsView::HandleNameTextChanged)
+							.OnTextCommitted(this, &SWidgetDetailsView::HandleNameTextCommitted)
+						]
+					]
+
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SCheckBox)
+						.IsChecked(this, &SWidgetDetailsView::GetIsVariable)
+						.OnCheckStateChanged(this, &SWidgetDetailsView::HandleIsVariableChanged)
+						.Padding(FMargin(3,1,3,1))
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("IsVariable", "Is Variable"))
+						]
+					]
+
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(15,0,0,0)
+					[
+						SAssignNew(ClassLinkArea, SBox)
+					]
+				]
 			]
 		]
 
@@ -317,6 +338,11 @@ bool SWidgetDetailsView::IsWidgetCDOSelected() const
 	return false;
 }
 
+EVisibility SWidgetDetailsView::GetBorderAreaVisibility() const
+{
+	return (SelectedObjects.Num() == 0) ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
 EVisibility SWidgetDetailsView::GetNameAreaVisibility() const
 {
 	return IsWidgetCDOSelected() ? EVisibility::Collapsed : EVisibility::Visible;
@@ -324,11 +350,6 @@ EVisibility SWidgetDetailsView::GetNameAreaVisibility() const
 
 EVisibility SWidgetDetailsView::GetCategoryAreaVisibility() const
 {
-	if ( SelectedObjects.Num() == 0 )
-	{
-		return EVisibility::Collapsed;
-	}
-
 	return IsWidgetCDOSelected() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 

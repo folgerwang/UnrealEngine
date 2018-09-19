@@ -204,7 +204,7 @@ void SDetailsView::Construct(const FArguments& InArgs)
 				.Visibility_Lambda([&](){ return this->bHasActiveFilter ? EVisibility::Visible : EVisibility::Collapsed; })
 			]
 			+SOverlay::Slot()
-			.Padding(4.0f, 2.0f)
+			.Padding(0.f, 2.0f, 4.f, 2.f)
 			.VAlign( VAlign_Center )
 			[
 				// Create the search box
