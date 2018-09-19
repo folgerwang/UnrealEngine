@@ -45,7 +45,7 @@ public:
 	virtual class USkeletalMeshSocket* DuplicateSocket(const struct FSelectedSocketInfo& SocketInfoToDuplicate, const FName& NewParentBoneName, USkeletalMesh* InSkeletalMesh) = 0;
 
 	/** Rename a socket on the mesh or the skeleton */
-	virtual void RenameSocket(const FName& OldSocketName, const FName& NewSocketName, USkeletalMesh* InSkeletalMesh) = 0;
+	virtual void RenameSocket(const FName OldSocketName, const FName NewSocketName, USkeletalMesh* InSkeletalMesh) = 0;
 
 	/** Set the parent of a socket */
 	virtual void SetSocketParent(const FName& SocketName, const FName& NewParentName, USkeletalMesh* InSkeletalMesh) = 0;
@@ -57,7 +57,7 @@ public:
 	virtual bool AddSmartname(const FName& InContainerName, const FName& InNewName, FSmartName& OutSmartName) = 0;
 
 	/** Rename the specified smart name */
-	virtual void RenameSmartname(const FName& InContainerName, SmartName::UID_Type InNameUid, const FName& InNewName) = 0;
+	virtual void RenameSmartname(const FName InContainerName, SmartName::UID_Type InNameUid, const FName InNewName) = 0;
 
 	/** Remove all the specified smart names and fixup animations that use them */
 	virtual void RemoveSmartnamesAndFixupAnimations(const FName& InContainerName, const TArray<FName>& InNames) = 0;
@@ -106,7 +106,7 @@ public:
 	 * Rename a notify
 	 * @return the number of animations modified
 	 */	
-	virtual int32 RenameNotify(const FName& NewName, const FName& OldName) = 0;
+	virtual int32 RenameNotify(const FName NewName, const FName OldName) = 0;
 
 	/**
 	* Add a sync marker
@@ -129,7 +129,7 @@ public:
 	virtual void SetAdditionalPreviewSkeletalMeshes(class UDataAsset* InPreviewCollectionAsset) = 0;
 
 	/** Rename the specified retarget source */
-	virtual void RenameRetargetSource(const FName& InOldName, const FName& InNewName) = 0;
+	virtual void RenameRetargetSource(const FName InOldName, const FName InNewName) = 0;
 
 	/** Add a retarget source */
 	virtual void AddRetargetSource(const FName& InName, USkeletalMesh* InReferenceMesh) = 0;
@@ -171,7 +171,7 @@ public:
 	virtual void DeleteSlotGroup(const FName& InGroupName) = 0;
 
 	/** Rename a slot name */
-	virtual void RenameSlotName(const FName& InOldSlotName, const FName& InNewSlotName) = 0;
+	virtual void RenameSlotName(const FName InOldSlotName, const FName InNewSlotName) = 0;
 
 	/** Register a delegate to be called when a set of smart names are removed */
 	virtual FDelegateHandle RegisterOnSmartNameChanged(const FOnSmartNameChanged::FDelegate& InOnSmartNameChanged) = 0;
@@ -195,7 +195,7 @@ public:
 	virtual bool DoesVirtualBoneAlreadyExist(const FString& InVBName) const = 0;
 
 	/** Rename an existing virtual bone */
-	virtual void RenameVirtualBone(const FName& OriginalName, const FName& InVBName) = 0;
+	virtual void RenameVirtualBone(const FName OriginalName, const FName InVBName) = 0;
 
 	/** Broadcasts tree refresh delegate */
 	virtual void RefreshBoneTree() = 0;
