@@ -98,7 +98,25 @@ inline TRange<FFrameNumber> MakeDiscreteRangeFromUpper(const TRangeBound<FFrameN
  */
 inline int32 DiscreteSize(const TRange<FFrameNumber>& InRange)
 {
-	return ( DiscreteExclusiveUpper(InRange) - DiscreteInclusiveLower(InRange) ).Value;
+	return (int64)DiscreteExclusiveUpper(InRange).Value - (int64)DiscreteInclusiveLower(InRange).Value;
+}
+
+/**
+ * Check whether the two specified discrete ranges share any common discrete values
+ * 
+ * @return The size of the range (considering inclusive and exclusive boundaries)
+ */
+inline bool DiscreteRangesOverlap(const TRange<FFrameNumber>& A, const TRange<FFrameNumber>& B)
+{
+	TRange<FFrameNumber> Intersection = TRange<FFrameNumber>::Intersection(A, B);
+	if (Intersection.GetLowerBound().IsOpen() || Intersection.GetUpperBound().IsOpen())
+	{
+		return true;
+	}
+	else
+	{
+		return DiscreteSize(Intersection) > 0;
+	}
 }
 
 

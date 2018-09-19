@@ -51,14 +51,13 @@ public:
 	MOVIESCENE_API static void Compile(UMovieSceneSequence& InCompileSequence, IMovieSceneSequenceTemplateStore& InTemplateStore);
 
 	/**
-	 * Compile the evaluation data that is relevant for the specified time
+	 * Compile the evaluation data that is relevant for the specified range
 	 *
-	 * @param InGlobalTime 				The time at which to compile the evaluation data, in the time-space of InCompileSequence
+	 * @param InGlobalRange 			The range for which to compile the evaluation data, in the time-space of InCompileSequence
 	 * @param InCompileSequence 		The Sequence to compile
 	 * @param InTemplateStore 			A template store that contains (or knows how to fetch) evaluation templates for a given sequence
-	 * @return The compiled data, ready for insertion into an FMovieSceneEvaluationField
 	 */
-	MOVIESCENE_API static TOptional<FCompiledGroupResult> CompileTime(FFrameNumber InGlobalTime, UMovieSceneSequence& InCompileSequence, IMovieSceneSequenceTemplateStore& InTemplateStore);
+	MOVIESCENE_API static void CompileRange(TRange<FFrameNumber> InGlobalRange, UMovieSceneSequence& InCompileSequence, IMovieSceneSequenceTemplateStore& InTemplateStore);
 
 	/**
 	 * Compile the hierarchy data for the specified sequence into a specific hierarchy
