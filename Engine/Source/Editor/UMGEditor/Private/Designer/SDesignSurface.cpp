@@ -262,7 +262,7 @@ FReply SDesignSurface::OnMouseMove(const FGeometry& MyGeometry, const FPointerEv
 	{
 		const FVector2D CursorDelta = MouseEvent.GetCursorDelta();
 
-		const bool bShouldZoom = bIsRightMouseButtonDown && FSlateApplication::Get().IsUsingTrackpad();
+		const bool bShouldZoom = bIsRightMouseButtonDown && (bIsLeftMouseButtonDown || bIsMiddleMouseButtonDown || ModifierKeysState.IsAltDown() || FSlateApplication::Get().IsUsingTrackpad());
 		if ( bShouldZoom )
 		{
 			FReply ReplyState = FReply::Handled();
