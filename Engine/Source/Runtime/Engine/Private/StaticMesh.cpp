@@ -843,6 +843,7 @@ void FStaticMeshRenderData::InitResources(ERHIFeatureLevel::Type InFeatureLevel,
 			LODVertexFactories[LODIndex].InitResources(LODResources[LODIndex], Owner);
 		}
 	}
+	bIsInitialized = true;
 }
 
 void FStaticMeshRenderData::ReleaseResources()
