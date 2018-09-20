@@ -147,6 +147,7 @@ struct APPLICATIONCORE_API FGenericPlatformApplicationMisc
 		return 1.0f;
 	}
 
+
 	/** @return true if the application is high dpi aware */
 
 	static bool IsHighDPIAwarenessEnabled();

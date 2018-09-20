@@ -29,8 +29,6 @@
 DEFINE_STAT(STAT_Sleep);
 DEFINE_STAT(STAT_EventWait);
 
-static TMap<FString, FString> GShaderSourceDirectoryMappings;
-
 void* FGenericPlatformProcess::GetDllHandle( const TCHAR* Filename )
 {
 	UE_LOG(LogHAL, Fatal, TEXT("FPlatformProcess::GetDllHandle not implemented on this platform"));
@@ -132,45 +130,6 @@ void FGenericPlatformProcess::SetShaderDir(const TCHAR*Where)
 	{
 		Generic_ShaderDir = TEXT("");
 	}
-}
-
-
-const TMap<FString, FString>& FGenericPlatformProcess::AllShaderSourceDirectoryMappings()
-{
-	return GShaderSourceDirectoryMappings;
-}
-
-void FGenericPlatformProcess::ResetAllShaderSourceDirectoryMappings()
-{
-	GShaderSourceDirectoryMappings.Reset();
-}
-
-void FGenericPlatformProcess::AddShaderSourceDirectoryMapping(const FString& VirtualShaderDirectory, const FString& RealShaderDirectory)
-{
-	check(IsInGameThread());
-
-	if (FPlatformProperties::RequiresCookedData())
-	{
-		return;
-	}
-
-	// Do sanity checks of the virtual shader directory to map.
-	check(VirtualShaderDirectory.StartsWith(TEXT("/")));
-	check(!VirtualShaderDirectory.EndsWith(TEXT("/")));
-	check(!VirtualShaderDirectory.Contains(FString(TEXT("."))));
-
-	// Detect collisions with any other mappings.
-	check(!GShaderSourceDirectoryMappings.Contains(VirtualShaderDirectory));
-
-	// Make sure the real directory to map exists.
-	check(FPaths::DirectoryExists(RealShaderDirectory));
-
-	// Make sure the Generated directory does not exist, because is reserved for C++ generated shader source
-	// by the FShaderCompilerEnvironment::IncludeVirtualPathToContentsMap member.
-	checkf(!FPaths::DirectoryExists(RealShaderDirectory / TEXT("Generated")),
-		TEXT("\"%s/Generated\" is not permitted to exist since C++ generated shader file would be mapped to this directory."), *RealShaderDirectory);
-
-	GShaderSourceDirectoryMappings.Add(VirtualShaderDirectory, RealShaderDirectory);
 }
 
 /**

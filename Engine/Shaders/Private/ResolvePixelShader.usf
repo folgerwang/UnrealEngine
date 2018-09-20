@@ -6,7 +6,7 @@
 
 #include "Common.ush"
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5 || SIMULATED_PLATFORM  
 
 Texture2DMS<float4> UnresolvedSurface;
 

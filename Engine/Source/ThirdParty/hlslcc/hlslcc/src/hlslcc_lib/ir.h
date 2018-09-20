@@ -2194,4 +2194,8 @@ ir_rvalue* validate_assignment(struct _mesa_glsl_parse_state *state, exec_list *
 const struct glsl_type* arithmetic_result_type(ir_rvalue * &value_a, ir_rvalue * &value_b,
 	exec_list *instructions, _mesa_glsl_parse_state *state, YYLTYPE *loc, bool bAIsLHS);
 
+unsigned ir_hash_table_pointer_hash(const void *key);
+
+int ir_hash_table_pointer_compare(const void *key1, const void *key2);
+
 #endif /* IR_H */

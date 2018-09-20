@@ -55,11 +55,27 @@ public:
 		uint64 ShaderId = AppendShader_Metal(Format, ArchivePath, Hash, Code);
 		if (ShaderId)
 		{
-			//add Id to our list of shaders processed successfully
-			Shaders.Add(ShaderId);
+			uint32 Index = 0;
+
+			// Add Id to our list of shaders processed successfully
+			uint32* IndexPtr = Shaders.Find(ShaderId);
+			if (IndexPtr)
+			{
+				Index = *IndexPtr;
+			}
+			else
+			{
+				Index = (Shaders.Num() / 10000);
+				Shaders.Add(ShaderId, Index);
+				if (SubLibraries.Num() <= (int32)Index)
+				{
+					SubLibraries.Add(TSet<uint64>());
+				}
+				SubLibraries[Index].Add(ShaderId);
+			}
 			
-			//Note code copy in the map is uncompressed
-			Map.HashMap.Add(Hash, TPairInitializer<uint8, TArray<uint8>>(Frequency, Code));
+			// Note code copy in the map is uncompressed
+			Map.HashMap.Add(Hash, FMetalShadeEntry(Code, Index, Frequency));
 		}
 		return (ShaderId > 0);
 	}
@@ -67,27 +83,136 @@ public:
 	virtual bool Finalize( FString OutputDir, FString DebugOutputDir, TArray<FString>* OutputFiles )
 	{
 		bool bOK = false;
+
 		FString LibraryPlatformName = FString::Printf(TEXT("%s_%s"), *LibraryName, *Format.GetPlainNameString());
-		FString LibraryPath = (OutputDir / LibraryPlatformName) + METAL_LIB_EXTENSION;
-		
-		if (FinalizeLibrary_Metal(Format, ArchivePath, LibraryPath, Shaders, DebugOutputDir))
+		volatile int32 CompiledLibraries = 0;
+		TArray<FGraphEventRef> Tasks;
+
+		for (uint32 Index = 0; Index < (uint32)SubLibraries.Num(); Index++)
+		{
+			TSet<uint64>& PartialShaders = SubLibraries[Index];
+
+			FString LibraryPath = (OutputDir / LibraryPlatformName) + FString::Printf(TEXT(".%d"), Index) + METAL_LIB_EXTENSION;
+			if (OutputFiles)
+			{
+				OutputFiles->Add(LibraryPath);
+			}
+
+			// Enqueue the library compilation as a task so we can go wide
+			FGraphEventRef CompletionFence = FFunctionGraphTask::CreateAndDispatchWhenReady([this, LibraryPath, PartialShaders, DebugOutputDir, &CompiledLibraries]()
+			{
+				if (FinalizeLibrary_Metal(Format, ArchivePath, LibraryPath, PartialShaders, DebugOutputDir))
+				{
+					FPlatformAtomics::InterlockedIncrement(&CompiledLibraries);
+				}
+			}, TStatId(), NULL, ENamedThreads::AnyThread);
+
+			Tasks.Add(CompletionFence);
+		}
+
+		// Wait for tasks
+		for (auto& Task : Tasks)
+		{
+			FTaskGraphInterface::Get().WaitUntilTaskCompletes(Task);
+		}
+				
+		if (CompiledLibraries == SubLibraries.Num())
 		{
 			FString BinaryShaderFile = (OutputDir / LibraryPlatformName) + METAL_MAP_EXTENSION;
 			FArchive* BinaryShaderAr = IFileManager::Get().CreateFileWriter(*BinaryShaderFile);
 			if( BinaryShaderAr != NULL )
 			{
+				Map.Count = SubLibraries.Num();
 				*BinaryShaderAr << Map;
 				BinaryShaderAr->Flush();
 				delete BinaryShaderAr;
 				
 				if (OutputFiles)
 				{
-					OutputFiles->Add(LibraryPath);
 					OutputFiles->Add(BinaryShaderFile);
 				}
 				
 				bOK = true;
 			}
+
+#if PLATFORM_MAC
+			if(bOK)
+			{
+				//TODO add a check in here - this will only work if we have shader archiving with debug info set.
+				
+				//We want to archive all the metal shader source files so that they can be unarchived into a debug location
+				//This allows the debugging of optimised metal shaders within the xcode tool set
+				//Currently using the 'tar' system tool to create a compressed tape archive
+				
+				//Place the archive in the same position as the .metallib file
+				FString CompressedPath = (OutputDir / LibraryPlatformName) + TEXT(".tgz");
+				
+				FString ArchiveCommand = TEXT("/usr/bin/tar");
+				
+				// Iterative support for pre-stripped shaders - unpack existing tgz archive without file overwrite - if it exists in cooked dir we're in iterative mode
+				if(FPaths::FileExists(CompressedPath))
+				{
+					int32 ReturnCode = -1;
+					FString Result;
+					FString Errors;
+					
+					FString ExtractCommandParams = FString::Printf(TEXT("xopfk \"%s\" -C \"%s\""), *CompressedPath, *DebugOutputDir);
+					FPlatformProcess::ExecProcess( *ArchiveCommand, *ExtractCommandParams, &ReturnCode, &Result, &Errors );
+				}
+				
+				//Due to the limitations of the 'tar' command and running through NSTask,
+				//the most reliable way is to feed it a list of local file name (-T) with a working path set (-C)
+				//if we built the list with absolute paths without -C then we'd get the full folder structure in the archive
+				//I don't think we want this here
+				
+				//Build a file list that 'tar' can access
+				const FString FileListPath = DebugOutputDir / TEXT("ArchiveInput.txt");
+				IFileManager::Get().Delete( *FileListPath );
+				
+				{
+					//Find the metal source files
+					TArray<FString> FilesToArchive;
+					IFileManager::Get().FindFilesRecursive( FilesToArchive, *DebugOutputDir, TEXT("*.metal"), true, false, false );
+					
+					//Write the local file names into the target file
+					FArchive* FileListHandle = IFileManager::Get().CreateFileWriter( *FileListPath );
+					if(FileListHandle)
+					{
+						const FString NewLine = TEXT("\n");
+						
+						const FString DebugDir = DebugOutputDir / *Format.GetPlainNameString();
+						
+						for(FString FileName : FilesToArchive)
+						{
+							FPaths::MakePathRelativeTo(FileName, *DebugDir);
+							
+							FString TextLine = FileName + NewLine;
+							
+							//We don't want the string to archive through the << operator otherwise we'd be creating a binary file - we need text
+							auto AnsiFullPath = StringCast<ANSICHAR>( *TextLine );
+							FileListHandle->Serialize( (ANSICHAR*)AnsiFullPath.Get(), AnsiFullPath.Length() );
+						}
+						
+						//Clean up
+						FileListHandle->Close();
+						delete FileListHandle;
+					}
+				}
+				
+				int32 ReturnCode = -1;
+				FString Result;
+				FString Errors;
+				
+				//Setup the NSTask command and parameter list, Archive (-c) and Compress (-z) to target file (-f) the metal file list (-T) using a local dir in archive (-C).
+				FString ArchiveCommandParams = FString::Printf( TEXT("czf \"%s\" -C \"%s\" -T \"%s\""), *CompressedPath, *DebugOutputDir, *FileListPath );
+				
+				//Execute command, this should end up with a .tgz file in the same location at the .metallib file
+				if(!FPlatformProcess::ExecProcess( *ArchiveCommand, *ArchiveCommandParams, &ReturnCode, &Result, &Errors ) || ReturnCode != 0)
+				{
+					UE_LOG(LogShaders, Error, TEXT("Archive Shader Source failed %d: %s"), ReturnCode, *Errors);
+				}
+			}
+#endif
 		}
 
 		return bOK;
@@ -101,7 +226,8 @@ private:
 	FName Format;
 	FString WorkingDir;
 	FString ArchivePath;
-	TSet<uint64> Shaders;
+	TMap<uint64, uint32> Shaders;
+	TArray<TSet<uint64>> SubLibraries;
 	TSet<FString> SourceFiles;
 	FMetalShaderMap Map;
 };
@@ -111,7 +237,7 @@ class FMetalShaderFormat : public IShaderFormat
 public:
 	enum
 	{
-		HEADER_VERSION = 57,
+		HEADER_VERSION = 58,
 	};
 	
 	struct FVersion
@@ -163,6 +289,10 @@ public:
 #else
 		return IsRemoteBuildingConfigured();
 #endif
+	}
+	virtual const TCHAR* GetPlatformIncludeDirectory() const
+	{
+		return TEXT("Metal");
 	}
 };
 

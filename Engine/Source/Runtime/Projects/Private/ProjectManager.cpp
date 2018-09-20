@@ -32,13 +32,6 @@ bool FProjectManager::LoadProjectFile( const FString& InProjectFile )
 	TSharedPtr<FProjectDescriptor> Descriptor = MakeShareable(new FProjectDescriptor());
 	if(Descriptor->Load(InProjectFile, FailureReason))
 	{
-		// Add existing project's shader directory
-		FString RealShaderSourceDir = FPaths::Combine(FPaths::GetPath(InProjectFile), TEXT("Shaders"));
-		if (FPaths::DirectoryExists(RealShaderSourceDir))
-		{
-			FGenericPlatformProcess::AddShaderSourceDirectoryMapping(TEXT("/Project"), RealShaderSourceDir);
-		}
-
 		// Create the project
 		CurrentProject = Descriptor;
 		CurrentProjectModuleContextInfos.Reset();

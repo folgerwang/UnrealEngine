@@ -21,6 +21,16 @@ struct FScreenVertex
 	FVector2D UV;
 };
 
+inline bool operator== (const FScreenVertex &a, const FScreenVertex &b)
+{
+	return a.Position == b.Position && a.UV == b.UV;
+}
+
+inline bool operator!= (const FScreenVertex &a, const FScreenVertex &b)
+{
+	return !(a == b);
+}
+
 /** The filter vertex declaration resource type. */
 class FScreenVertexDeclaration : public FRenderResource
 {

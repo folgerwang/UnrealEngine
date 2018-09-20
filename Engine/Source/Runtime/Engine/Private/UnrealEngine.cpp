@@ -396,6 +396,16 @@ FCachedSystemScalabilityCVars::FCachedSystemScalabilityCVars()
 
 }
 
+bool FCachedSystemScalabilityCVars::operator==(const FCachedSystemScalabilityCVars& Other)
+{
+	return DetailMode == Other.DetailMode &&
+		MaterialQualityLevel == Other.MaterialQualityLevel &&
+		MaxShadowResolution == Other.MaxShadowResolution &&
+		MaxCSMShadowResolution == Other.MaxCSMShadowResolution &&
+		ViewDistanceScale == Other.ViewDistanceScale &&
+		ViewDistanceScaleSquared == Other.ViewDistanceScaleSquared;
+}
+
 void ScalabilityCVarsSinkCallback()
 {
 	IConsoleManager& ConsoleMan = IConsoleManager::Get();
@@ -457,6 +467,11 @@ void ScalabilityCVarsSinkCallback()
 
 	LocalScalabilityCVars.bInitialized = true;
 
+	if (LocalScalabilityCVars == GCachedScalabilityCVars)
+	{
+		return;
+	}
+
 	FlushRenderingCommands();
 
 	if (!GCachedScalabilityCVars.bInitialized)
@@ -500,8 +515,6 @@ void ScalabilityCVarsSinkCallback()
 		}
 	}
 }
-
-static bool GHDROutputEnabled = false;
 
 bool ParseResolution(const TCHAR* InResolution, uint32& OutX, uint32& OutY, int32& OutWindowMode)
 {
@@ -570,14 +583,83 @@ bool ParseResolution(const TCHAR* InResolution, uint32& OutX, uint32& OutY, int3
 	return false;
 }
 
+void HDRSettingChangedSinkCallback()
+{
+	static const auto CVarHDROutputEnabled = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.HDR.EnableHDROutput"));
+	check(CVarHDROutputEnabled);
+	
+	bool bIsHDREnabled = CVarHDROutputEnabled->GetValueOnAnyThread() != 0;
+	
+	if(bIsHDREnabled != GRHIIsHDREnabled)
+	{
+		// We'll naively fall back to 1000 if DisplayNits is 0
+		uint32 DisplayNitLevel = GEngine->GetGameUserSettings()->GetCurrentHDRDisplayNits();
+		if(DisplayNitLevel == 0)
+		{
+			DisplayNitLevel = 1000;
+		}
+		
+		int32 OutputDevice = 0;
+		int32 ColorGamut = 0;
+		
+		// If we are turning HDR on we must set the appropriate OutputDevice and ColorGamut.
+		// If we are turning it off, we'll reset back to 0/0
+		if(bIsHDREnabled)
+		{
+#if PLATFORM_WINDOWS
+			if (IsRHIDeviceNVIDIA() || IsRHIDeviceAMD())
+			{
+				// ScRGB, 1000 or 2000 nits, Rec2020
+				OutputDevice = (DisplayNitLevel == 1000) ? 5 : 6;
+				ColorGamut = 2;
+			}
+#elif PLATFORM_PS4
+			{
+				// PQ, 1000 or 2000 nits, Rec2020
+				OutputDevice = (DisplayNitLevel == 1000) ? 3 : 4;
+				ColorGamut = 2;
+			}
+
+#elif PLATFORM_MAC
+			{
+				// ScRGB, 1000 or 2000 nits, DCI-P3
+				OutputDevice = DisplayNitLevel == 1000 ? 5 : 6;
+				ColorGamut = 1;
+			}
+#elif PLATFORM_IOS
+			{
+				// Linear output to Apple's specific format.
+				OutputDevice = 7;
+				ColorGamut = 0;
+			}
+#elif PLATFORM_XBOXONE
+			{
+				// PQ, 1000 or 2000 nits, Rec2020
+				OutputDevice = (DisplayNitLevel == 1000) ? 3 : 4;
+				ColorGamut = 2;
+			}
+#endif
+		}
+		
+		static IConsoleVariable* CVarHDROutputDevice = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.OutputDevice"));
+		static IConsoleVariable* CVarHDRColorGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.ColorGamut"));
+		check(CVarHDROutputDevice);
+		check(CVarHDRColorGamut);
+		
+		CVarHDROutputDevice->Set(OutputDevice, ECVF_SetByDeviceProfile);
+		CVarHDRColorGamut->Set(ColorGamut, ECVF_SetByDeviceProfile);
+		
+		// Now set the HDR setting.
+		GRHIIsHDREnabled = CVarHDROutputEnabled->GetValueOnAnyThread() != 0;
+	}
+}
+
 void SystemResolutionSinkCallback()
 {
 	auto ResString = CVarSystemResolution->GetString();
 
 	uint32 ResX, ResY;
 	int32 WindowModeInt = GSystemResolution.WindowMode;
-
-	bool bHDROutputEnabled = GRHISupportsHDROutput && IsHDREnabled();
 
 	if (ParseResolution(*ResString, ResX, ResY, WindowModeInt))
 	{
@@ -586,14 +668,12 @@ void SystemResolutionSinkCallback()
 		if( GSystemResolution.ResX != ResX ||
 			GSystemResolution.ResY != ResY ||
 			GSystemResolution.WindowMode != WindowMode ||
-			GHDROutputEnabled != bHDROutputEnabled ||
 			GSystemResolution.bForceRefresh)
 		{
 			GSystemResolution.ResX = ResX;
 			GSystemResolution.ResY = ResY;
 			GSystemResolution.WindowMode = WindowMode;
 			GSystemResolution.bForceRefresh = false;
-			GHDROutputEnabled = bHDROutputEnabled;
 
 			// tell anyone listening about the change
 			FCoreDelegates::OnSystemResolutionChanged.Broadcast(ResX, ResY);
@@ -684,6 +764,7 @@ void RefreshEngineSettings()
 {
 	extern void FreeSkeletalMeshBuffersSinkCallback();
 
+	HDRSettingChangedSinkCallback();
 	RefreshSamplerStatesCallback();
 	ScalabilityCVarsSinkCallback();
 	FreeSkeletalMeshBuffersSinkCallback();
@@ -11523,8 +11604,17 @@ EBrowseReturnVal::Type UEngine::Browse( FWorldContext& WorldContext, FURL URL, F
 		}
 
 		WorldContext.PendingNetGame = NewObject<UPendingNetGame>();
-		WorldContext.PendingNetGame->Initialize(URL);
-		WorldContext.PendingNetGame->InitNetDriver();
+		WorldContext.PendingNetGame->Initialize(URL); //-V595
+		WorldContext.PendingNetGame->InitNetDriver(); //-V595
+
+		if( !WorldContext.PendingNetGame )
+		{
+			// If the inital packet sent in InitNetDriver results in a socket error, HandleDisconnect() and CancelPending() may be called, which will null the PendingNetGame.
+			Error = NSLOCTEXT("Engine", "PendingNetGameInitFailure", "Error initializing the network driver.").ToString();
+			BroadcastTravelFailure(WorldContext.World(), ETravelFailure::PendingNetGameCreateFailure, Error);
+			return EBrowseReturnVal::Failure;
+		}
+
 		if( !WorldContext.PendingNetGame->NetDriver )
 		{
 			// UPendingNetGame will set the appropriate error code and connection lost type, so
@@ -11734,10 +11824,18 @@ void UEngine::TickWorldTravel(FWorldContext& Context, float DeltaSeconds)
 
 				const bool bLoadedMapSuccessfully = LoadMap(Context, Context.PendingNetGame->URL, Context.PendingNetGame, Error);
 
-				Context.PendingNetGame->LoadMapCompleted(this, Context, bLoadedMapSuccessfully, Error);
+				if (Context.PendingNetGame != nullptr)
+				{
+					Context.PendingNetGame->LoadMapCompleted(this, Context, bLoadedMapSuccessfully, Error);
 
-				// Kill the pending level.
-				Context.PendingNetGame = NULL;
+					// Kill the pending level.
+					Context.PendingNetGame = nullptr;
+				}
+				else
+				{
+					BrowseToDefaultMap(Context);
+					BroadcastTravelFailure(Context.World(), ETravelFailure::TravelFailure, Error);
+				}
 			}
 		}
 	}
@@ -12099,6 +12197,14 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 				NewWorld->RenameToPIEWorld(WorldContext.PIEInstance);
 			}
 			ResetPIEAudioSetting(NewWorld);
+
+#if WITH_EDITOR
+			// PIE worlds should use the same feature level as the editor
+			if (WorldContext.PIEWorldFeatureLevel != ERHIFeatureLevel::Num && NewWorld->FeatureLevel != WorldContext.PIEWorldFeatureLevel)
+			{
+				NewWorld->ChangeFeatureLevel(WorldContext.PIEWorldFeatureLevel);
+			}
+#endif
 		}
 		else if (WorldContext.WorldType == EWorldType::Game)
 		{

@@ -39,6 +39,7 @@ class IWebBrowserCookieManager;
 class IWebBrowserWindow;
 struct FWebBrowserWindowInfo;
 struct FWebBrowserInitSettings;
+class UMaterialInterface;
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
@@ -121,6 +122,30 @@ public:
 		bJSBindingsToLoweringEnabled = bEnabled;
 	}
 
+	/** Set a reference to UWebBrowser's default material*/
+	virtual void SetDefaultMaterial(UMaterialInterface* InDefaultMaterial) override
+	{
+		DefaultMaterial = InDefaultMaterial;
+	}
+
+	/** Set a reference to UWebBrowser's translucent material*/
+	virtual void SetDefaultTranslucentMaterial(UMaterialInterface* InDefaultMaterial) override
+	{
+		DefaultTranslucentMaterial = InDefaultMaterial;
+	}
+
+	/** Get a reference to UWebBrowser's default material*/
+	virtual UMaterialInterface* GetDefaultMaterial() override
+	{
+		return DefaultMaterial;
+	}
+
+	/** Get a reference to UWebBrowser's translucent material*/
+	virtual UMaterialInterface* GetDefaultTranslucentMaterial() override
+	{
+		return DefaultTranslucentMaterial;
+	}
+
 public:
 
 	// FTickerObjectBase Interface
@@ -136,20 +161,31 @@ private:
 	void HandleRenderProcessCreated(CefRefPtr<CefListValue> ExtraInfo);
 	/** Pointer to the CEF App implementation */
 	CefRefPtr<FCEFBrowserApp>			CEFBrowserApp;
-	/** List of currently existing browser windows */
-	TArray<TWeakPtr<FCEFWebBrowserWindow>>	WindowInterfaces;
-	/** Critical section for thread safe modification of WindowInterfaces array. */
-	FCriticalSection WindowInterfacesCS;
 
 	TMap<FString, CefRefPtr<CefRequestContext>> RequestContexts;
 	FCefSchemeHandlerFactories SchemeHandlerFactories;
 #endif
+
+	/** List of currently existing browser windows */
+#if WITH_CEF3
+	TArray<TWeakPtr<FCEFWebBrowserWindow>>	WindowInterfaces;
+#elif PLATFORM_IOS || PLATFORM_PS4 || (PLATFORM_ANDROID && USE_ANDROID_JNI)
+	TArray<TWeakPtr<IWebBrowserWindow>>	WindowInterfaces;
+#endif
+
+	/** Critical section for thread safe modification of WindowInterfaces array. */
+	FCriticalSection WindowInterfacesCS;
 
 	TSharedRef<IWebBrowserWindowFactory> WebBrowserWindowFactory;
 
 	bool bDevToolsShortcutEnabled;
 
 	bool bJSBindingsToLoweringEnabled;
+
+	/** Reference to UWebBrowser's default material*/
+	UMaterialInterface* DefaultMaterial;
+	/** Reference to UWebBrowser's translucent material*/
+	UMaterialInterface* DefaultTranslucentMaterial;
 
 };
 

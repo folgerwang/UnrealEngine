@@ -23,6 +23,8 @@ public:
 	/** Get the profiler pointer */
 	FORCEINLINE class FMetalProfiler* GetProfiler() const { return Profiler; }
 	
+	virtual void RHIInsertGPUFence(FGPUFenceRHIParamRef Fence) final override;
+
 	/**
 	 *Sets the current compute shader.  Mostly for compliance with platforms
 	 *that require shader setting before resource binding.

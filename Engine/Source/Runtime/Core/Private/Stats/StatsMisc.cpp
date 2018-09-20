@@ -15,7 +15,7 @@ void FLightweightStatScope::ReportHitch()
 {
 	if (StatString)
 	{
-		float Delta = float(FPlatformTime::Seconds() - FGameThreadHitchHeartBeat::Get().GetFrameStartTime()) * 1000.0f;
+		float Delta = float(FGameThreadHitchHeartBeat::Get().GetCurrentTime() - FGameThreadHitchHeartBeat::Get().GetFrameStartTime()) * 1000.0f;
 		FString ThreadString(FPlatformTLS::GetCurrentThreadId() == GGameThreadId ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
 		UE_LOG(LogCore, Error, TEXT("Leaving stat scope on hitch (+%8.2fms) [%s] %s"), Delta, *ThreadString, StatString);
 	}

@@ -1649,6 +1649,11 @@ void FSceneViewport::Tick( const FGeometry& AllottedGeometry, double InCurrentTi
 {
 	UpdateCachedGeometry(AllottedGeometry);
 	ProcessInput( DeltaTime );
+
+	if(IsValidRef(ViewportRHI))
+	{
+		ViewportRHI->Tick(DeltaTime);
+	}
 }
 
 void FSceneViewport::OnPlayWorldViewportSwapped( const FSceneViewport& OtherViewport )

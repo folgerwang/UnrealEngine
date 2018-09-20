@@ -499,5 +499,9 @@ namespace UAudio
 	}
 
 }
+#else
+
+// Workaround for module not having any exported symbols
+UNREALAUDIO_API int UnrealAudioExportedSymbol = 0;
 
 #endif // #if ENABLE_UNREAL_AUDIO

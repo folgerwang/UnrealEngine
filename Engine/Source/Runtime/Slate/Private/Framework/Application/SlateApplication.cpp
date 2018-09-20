@@ -1376,10 +1376,14 @@ void FSlateApplication::DrawWindowAndChildren( const TSharedRef<SWindow>& Window
 				
 				if (CursorWidget.IsValid())
 				{
-					CursorWidget->SlatePrepass(GetApplicationScale()*CursorWindow->GetNativeWindow()->GetDPIScaleFactor());
+					const float WindowRootScale = GetApplicationScale() * CursorWindow->GetNativeWindow()->GetDPIScaleFactor();
 
-					FVector2D CursorPosInWindowSpace = WindowToDraw->GetWindowGeometryInScreen().AbsoluteToLocal(GetCursorPos());
-					CursorPosInWindowSpace += (CursorWidget->GetDesiredSize() * -0.5);
+					CursorWidget->SetVisibility(EVisibility::HitTestInvisible);
+					CursorWidget->SlatePrepass(WindowRootScale);
+
+					FVector2D CursorInScreen = GetCursorPos();
+					FVector2D CursorPosInWindowSpace = WindowToDraw->GetWindowGeometryInScreen().AbsoluteToLocal(CursorInScreen) * WindowRootScale;
+					CursorPosInWindowSpace += (CursorWidget->GetDesiredSize() * -0.5) * WindowRootScale;
 					const FGeometry CursorGeometry = FGeometry::MakeRoot(CursorWidget->GetDesiredSize(), FSlateLayoutTransform(CursorPosInWindowSpace));
 
 					CursorWidget->Paint(
@@ -2055,6 +2059,8 @@ TSharedRef< FGenericWindow > FSlateApplication::MakeWindow( TSharedRef<SWindow> 
 	Definition->CornerRadius = InSlateWindow->GetCornerRadius();
 
 	Definition->SizeLimits = InSlateWindow->GetSizeLimits();
+
+	Definition->bManualDPI = InSlateWindow->IsManualManageDPIChanges();
 
 	TSharedRef< FGenericWindow > NewWindow = PlatformApplication->MakeWindow();
 
@@ -6666,6 +6672,18 @@ void FSlateApplication::FinishedReshapingWindow( const TSharedRef< FGenericWindo
 	}
 }
 
+void FSlateApplication::SignalSystemDPIChanged(const TSharedRef<FGenericWindow>& PlatformWindow)
+{
+#if WITH_EDITOR
+	TSharedPtr< SWindow > SlateWindow = FSlateWindowHelper::FindWindowByPlatformWindow(SlateWindows, PlatformWindow);
+
+	if (SlateWindow.IsValid() && SlateWindow->IsRegularWindow())
+	{
+		OnSignalSystemDPIChangedEvent.Broadcast(SlateWindow.ToSharedRef());
+	}
+#endif
+}
+
 void FSlateApplication::HandleDPIScaleChanged(const TSharedRef<FGenericWindow>& PlatformWindow)
 {
 #if WITH_EDITOR
@@ -6677,7 +6695,6 @@ void FSlateApplication::HandleDPIScaleChanged(const TSharedRef<FGenericWindow>& 
 	}
 #endif
 }
-
 
 void FSlateApplication::OnMovedWindow( const TSharedRef< FGenericWindow >& PlatformWindow, const int32 X, const int32 Y )
 {

@@ -43,7 +43,7 @@ namespace AnimationCompressionUtils
 	template<typename ValueType>
 	inline ValueType UnalignedRead(const void* Ptr)
 	{
-#if PLATFORM_SUPPORTS_UNALIGNED_INT_LOADS
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 		return *reinterpret_cast<const ValueType*>(Ptr);
 #else
 		// TODO: On ARM devices this will be slower than it needs to be.

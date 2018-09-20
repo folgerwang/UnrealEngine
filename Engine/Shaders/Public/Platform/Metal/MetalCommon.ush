@@ -1,0 +1,38 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	MetalCommon.usf: Common Metal shader code
+=============================================================================*/
+
+// Update this GUID to improve shader recompilation for Metal only shaders
+// GUID = 5d230808-3764-4f90-b958-c52675865ca9
+  
+#pragma once
+
+#if VERTEXSHADER && HULLSHADER
+#ifndef TESSELLATIONSHADER
+#define TESSELLATIONSHADER 1
+#endif
+#endif
+
+#if MAX_SHADER_LANGUAGE_VERSION >= 3
+#define STRONG_TYPE 
+#define StrongTypedBuffer Buffer
+#else
+// Abuse the GLSL-style "invariant" keyword that hlslcc exposes to modify Buffer<>/RWBuffer<> declarations to assume that they input type is always the same as that declared in the shader
+// The MetalRHI runtime will then assert when it isn't. For Metal 1.1 and below all Buffer<>/RWBuffer<> objects will *assume* this type matches as there is no way to gracefully handle it there.
+#define STRONG_TYPE invariant
+// Note: this is assuming that Metal Buffers and StructuredBuffers are interchangeable
+#define StrongTypedBuffer StructuredBuffer
+#endif
+
+/* Too many bugs to enable wave-intrinsics just yet, but we are getting there.
+#if ((MAX_SHADER_LANGUAGE_VERSION >= 3 && COMPUTESHADER) || (MAX_SHADER_LANGUAGE_VERSION >= 4 && PIXELSHADER))
+#define COMPILER_SUPPORTS_WAVE_ONCE 1
+#define COMPILER_SUPPORTS_WAVE_VOTE 1
+#define COMPILER_SUPPORTS_WAVE_MINMAX 1
+#define COMPILER_SUPPORTS_WAVE_BIT_ORAND 1
+#endif
+*/
+
+#define COMPILER_SUPPORTS_MINMAX3 0

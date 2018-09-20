@@ -657,8 +657,7 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& InShaderCode, FRHIShader* R
 	Shader->Bindings = Header.Bindings;
 	Shader->UniformBuffersCopyInfo = Header.UniformBuffersCopyInfo;
 	
-	// If there is no shader cache then we must assign the hash here
-	if (FOpenGL::SupportsSeparateShaderObjects() && !FShaderCache::GetShaderCache())
+	if (FOpenGL::SupportsSeparateShaderObjects())
 	{
 		// Just use the CRC - if it isn't being cached & logged we'll be dependent on the CRC alone anyway
 		FSHAHash Hash;
@@ -2153,14 +2152,6 @@ FComputeShaderRHIRef FOpenGLDynamicRHI::RHICreateComputeShader(const TArray<uint
 
 	check( ComputeShader != 0);
 
-	// @todo WARNING: We have to hash here because of the way we immediately link and don't afford the cache a chance to set the OutputHash from ShaderCore.
-	if (FShaderCache::GetShaderCache())
-	{
-		FSHAHash Hash;
-		FSHA1::HashBuffer(Code.GetData(), Code.Num(), Hash.Hash);
-		ComputeShader->SetHash(Hash);
-	}
-
 	FOpenGLLinkedProgramConfiguration Config;
 
 	Config.Shaders[CrossCompiler::SHADER_STAGE_COMPUTE].Resource = ComputeShader->Resource;
@@ -2652,31 +2643,20 @@ FBoundShaderStateRHIRef FOpenGLDynamicRHI::RHICreateBoundShaderState_OnThisThrea
 			}
 		}
 
-		if(FShaderCache::IsPrebindCall(FShaderCache::GetDefaultCacheState()) && !VertexDeclarationRHI)
-		{
-			return nullptr;
-		}
-		else
-		{
-			check(VertexDeclarationRHI);
-			
-			FOpenGLVertexDeclaration* VertexDeclaration = ResourceCast(VertexDeclarationRHI);
-			FOpenGLBoundShaderState* BoundShaderState = new FOpenGLBoundShaderState(
-				LinkedProgram,
-				VertexDeclarationRHI,
-				VertexShaderRHI,
-				PixelShaderRHI,
-				GeometryShaderRHI,
-				HullShaderRHI,
-				DomainShaderRHI
-				);
+		check(VertexDeclarationRHI);
+		
+		FOpenGLVertexDeclaration* VertexDeclaration = ResourceCast(VertexDeclarationRHI);
+		FOpenGLBoundShaderState* BoundShaderState = new FOpenGLBoundShaderState(
+			LinkedProgram,
+			VertexDeclarationRHI,
+			VertexShaderRHI,
+			PixelShaderRHI,
+			GeometryShaderRHI,
+			HullShaderRHI,
+			DomainShaderRHI
+			);
 
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-			FShaderCache::LogBoundShaderState(FShaderCache::GetDefaultCacheState(), FOpenGL::GetShaderPlatform(), VertexDeclarationRHI, VertexShaderRHI, PixelShaderRHI, HullShaderRHI, DomainShaderRHI, GeometryShaderRHI, BoundShaderState);
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
-			return BoundShaderState;
-		}
+		return BoundShaderState;
 	}
 }
 

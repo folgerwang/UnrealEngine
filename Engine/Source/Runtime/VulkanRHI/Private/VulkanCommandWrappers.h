@@ -71,6 +71,7 @@ struct FWrapLayer
 	static void PipelineBarrier(VkResult Result, VkCommandBuffer CommandBuffer, VkPipelineStageFlags SrcStageMask, VkPipelineStageFlags DstStageMask, VkDependencyFlags DependencyFlags, uint32 MemoryBarrierCount, const VkMemoryBarrier* MemoryBarriers, uint32 BufferMemoryBarrierCount, const VkBufferMemoryBarrier* BufferMemoryBarriers, uint32 ImageMemoryBarrierCount, const VkImageMemoryBarrier* ImageMemoryBarriers) VULKAN_LAYER_BODY
 	static void BeginRenderPass(VkResult Result, VkCommandBuffer CommandBuffer, const VkRenderPassBeginInfo* RenderPassBegin, VkSubpassContents Contents) VULKAN_LAYER_BODY
 	static void EndRenderPass(VkResult Result, VkCommandBuffer CommandBuffer) VULKAN_LAYER_BODY
+	static void NextSubpass(VkResult Result, VkCommandBuffer CommandBuffer, VkSubpassContents Contents) VULKAN_LAYER_BODY
 	static void QueuePresent(VkResult Result, VkQueue Queue, const VkPresentInfoKHR* PresentInfo) VULKAN_LAYER_BODY
 	static void GetPhysicalDeviceMemoryProperties(VkResult Result, VkPhysicalDevice PhysicalDevice, VkPhysicalDeviceMemoryProperties* Properties) VULKAN_LAYER_BODY
 	static void CreateDevice(VkResult Result, VkPhysicalDevice PhysicalDevice, const VkDeviceCreateInfo* CreateInfo, VkDevice* Device) VULKAN_LAYER_BODY
@@ -179,7 +180,7 @@ namespace VulkanRHI
 	FORCEINLINE_DEBUGGABLE VkResult  vkCreateInstance(const VkInstanceCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkInstance* Instance)
 	{
 		FWrapLayer::CreateInstance(VK_RESULT_MAX_ENUM, CreateInfo, Instance);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateInstance(CreateInfo, GetMemoryAllocator(Allocator), Instance);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateInstance(CreateInfo, Allocator, Instance);
 		FWrapLayer::CreateInstance(Result, CreateInfo, Instance);
 		return Result;
 	}
@@ -187,7 +188,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyInstance(VkInstance Instance, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyInstance(VK_RESULT_MAX_ENUM, Instance);
-		VULKANAPINAMESPACE::vkDestroyInstance(Instance, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyInstance(Instance, Allocator);
 		FWrapLayer::DestroyInstance(VK_SUCCESS, Instance);
 	}
 
@@ -275,7 +276,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateDevice(VkPhysicalDevice PhysicalDevice, const VkDeviceCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkDevice* Device)
 	{
 		FWrapLayer::CreateDevice(VK_RESULT_MAX_ENUM, PhysicalDevice, CreateInfo, Device);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateDevice(PhysicalDevice, CreateInfo, GetMemoryAllocator(Allocator), Device);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateDevice(PhysicalDevice, CreateInfo, Allocator, Device);
 		FWrapLayer::CreateDevice(Result, PhysicalDevice, CreateInfo, Device);
 		return Result;
 	}
@@ -283,7 +284,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyDevice(VkDevice Device, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyDevice(VK_RESULT_MAX_ENUM, Device);
-		VULKANAPINAMESPACE::vkDestroyDevice(Device, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyDevice(Device, Allocator);
 		FWrapLayer::DestroyDevice(VK_SUCCESS, Device);
 	}
 
@@ -352,7 +353,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkAllocateMemory(VkDevice Device, const VkMemoryAllocateInfo* AllocateInfo, const VkAllocationCallbacks* Allocator, VkDeviceMemory* Memory)
 	{
 		FWrapLayer::AllocateMemory(VK_RESULT_MAX_ENUM, Device, AllocateInfo, Memory);
-		VkResult Result = VULKANAPINAMESPACE::vkAllocateMemory(Device, AllocateInfo, GetMemoryAllocator(Allocator), Memory);
+		VkResult Result = VULKANAPINAMESPACE::vkAllocateMemory(Device, AllocateInfo, Allocator, Memory);
 		FWrapLayer::AllocateMemory(Result, Device, AllocateInfo, Memory);
 		return Result;
 	}
@@ -360,7 +361,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkFreeMemory(VkDevice Device, VkDeviceMemory Memory, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::FreeMemory(VK_RESULT_MAX_ENUM, Device, Memory);
-		VULKANAPINAMESPACE::vkFreeMemory(Device, Memory, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkFreeMemory(Device, Memory, Allocator);
 		FWrapLayer::FreeMemory(VK_SUCCESS, Device, Memory);
 	}
 
@@ -456,7 +457,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateFence(VkDevice Device, const VkFenceCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkFence* Fence)
 	{
 		FWrapLayer::CreateFence(VK_RESULT_MAX_ENUM, Device, CreateInfo, Fence);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateFence(Device, CreateInfo, GetMemoryAllocator(Allocator), Fence);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateFence(Device, CreateInfo, Allocator, Fence);
 		FWrapLayer::CreateFence(Result, Device, CreateInfo, Fence);
 		return Result;
 	}
@@ -464,7 +465,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyFence(VkDevice Device, VkFence Fence, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyFence(VK_RESULT_MAX_ENUM, Device, Fence);
-		VULKANAPINAMESPACE::vkDestroyFence(Device, Fence, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyFence(Device, Fence, Allocator);
 		FWrapLayer::DestroyFence(VK_SUCCESS, Device, Fence);
 	}
 
@@ -495,7 +496,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateSemaphore(VkDevice Device, const VkSemaphoreCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkSemaphore* Semaphore)
 	{
 		FWrapLayer::CreateSemaphore(VK_RESULT_MAX_ENUM, Device, CreateInfo, Semaphore);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateSemaphore(Device, CreateInfo, GetMemoryAllocator(Allocator), Semaphore);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateSemaphore(Device, CreateInfo, Allocator, Semaphore);
 		FWrapLayer::CreateSemaphore(Result, Device, CreateInfo, Semaphore);
 		return Result;
 	}
@@ -504,14 +505,14 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroySemaphore(VkDevice Device, VkSemaphore Semaphore, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroySemaphore(VK_RESULT_MAX_ENUM, Device, Semaphore);
-		VULKANAPINAMESPACE::vkDestroySemaphore(Device, Semaphore, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroySemaphore(Device, Semaphore, Allocator);
 		FWrapLayer::DestroySemaphore(VK_SUCCESS, Device, Semaphore);
 	}
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateEvent(VkDevice Device, const VkEventCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkEvent* Event)
 	{
 		FWrapLayer::CreateEvent(VK_RESULT_MAX_ENUM, Device, CreateInfo, Event);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateEvent(Device, CreateInfo, GetMemoryAllocator(Allocator), Event);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateEvent(Device, CreateInfo, Allocator, Event);
 		FWrapLayer::CreateEvent(Result, Device, CreateInfo, Event);
 		return Result;
 	}
@@ -519,7 +520,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyEvent(VkDevice Device, VkEvent Event, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyEvent(VK_RESULT_MAX_ENUM, Device, Event);
-		VULKANAPINAMESPACE::vkDestroyEvent(Device, Event, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyEvent(Device, Event, Allocator);
 		FWrapLayer::DestroyEvent(VK_SUCCESS, Device, Event);
 	}
 #if 0
@@ -538,7 +539,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateQueryPool(VkDevice Device, const VkQueryPoolCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkQueryPool* QueryPool)
 	{
 		FWrapLayer::CreateQueryPool(VK_RESULT_MAX_ENUM, Device, CreateInfo, QueryPool);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateQueryPool(Device, CreateInfo, GetMemoryAllocator(Allocator), QueryPool);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateQueryPool(Device, CreateInfo, Allocator, QueryPool);
 		FWrapLayer::CreateQueryPool(Result, Device, CreateInfo, QueryPool);
 		return Result;
 	}
@@ -546,7 +547,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyQueryPool(VkDevice Device, VkQueryPool QueryPool, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyQueryPool(VK_RESULT_MAX_ENUM, Device, QueryPool);
-		VULKANAPINAMESPACE::vkDestroyQueryPool(Device, QueryPool, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyQueryPool(Device, QueryPool, Allocator);
 		FWrapLayer::DestroyQueryPool(VK_SUCCESS, Device, QueryPool);
 	}
 
@@ -562,7 +563,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateBuffer(VkDevice Device, const VkBufferCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkBuffer* Buffer)
 	{
 		FWrapLayer::CreateBuffer(VK_RESULT_MAX_ENUM, Device, CreateInfo, Buffer);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateBuffer(Device, CreateInfo, GetMemoryAllocator(Allocator), Buffer);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateBuffer(Device, CreateInfo, Allocator, Buffer);
 		FWrapLayer::CreateBuffer(Result, Device, CreateInfo, Buffer);
 		return Result;
 	}
@@ -570,14 +571,14 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyBuffer(VkDevice Device, VkBuffer Buffer, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyBuffer(VK_RESULT_MAX_ENUM, Device, Buffer);
-		VULKANAPINAMESPACE::vkDestroyBuffer(Device, Buffer, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyBuffer(Device, Buffer, Allocator);
 		FWrapLayer::DestroyBuffer(VK_SUCCESS, Device, Buffer);
 	}
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateBufferView(VkDevice Device, const VkBufferViewCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkBufferView* View)
 	{
 		FWrapLayer::CreateBufferView(VK_RESULT_MAX_ENUM, Device, CreateInfo, View);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateBufferView(Device, CreateInfo, GetMemoryAllocator(Allocator), View);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateBufferView(Device, CreateInfo, Allocator, View);
 		FWrapLayer::CreateBufferView(Result, Device, CreateInfo, View);
 		return Result;
 	}
@@ -585,14 +586,14 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyBufferView(VkDevice Device, VkBufferView BufferView, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyBufferView(VK_RESULT_MAX_ENUM, Device, BufferView);
-		VULKANAPINAMESPACE::vkDestroyBufferView(Device, BufferView, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyBufferView(Device, BufferView, Allocator);
 		FWrapLayer::DestroyBufferView(VK_RESULT_MAX_ENUM, Device, BufferView);
 	}
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateImage(VkDevice Device, const VkImageCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkImage* Image)
 	{
 		FWrapLayer::CreateImage(VK_RESULT_MAX_ENUM, Device, CreateInfo, Image);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateImage(Device, CreateInfo, GetMemoryAllocator(Allocator), Image);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateImage(Device, CreateInfo, Allocator, Image);
 		FWrapLayer::CreateImage(Result, Device, CreateInfo, Image);
 		return Result;
 	}
@@ -600,7 +601,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyImage(VkDevice Device, VkImage Image, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyImage(VK_RESULT_MAX_ENUM, Device, Image);
-		VULKANAPINAMESPACE::vkDestroyImage(Device, Image, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyImage(Device, Image, Allocator);
 		FWrapLayer::DestroyImage(VK_SUCCESS, Device, Image);
 	}
 
@@ -614,7 +615,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateImageView(VkDevice Device, const VkImageViewCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkImageView* View)
 	{
 		FWrapLayer::CreateImageView(VK_RESULT_MAX_ENUM, Device, CreateInfo, View);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateImageView(Device, CreateInfo, GetMemoryAllocator(Allocator), View);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateImageView(Device, CreateInfo, Allocator, View);
 		FWrapLayer::CreateImageView(Result, Device, CreateInfo, View);
 		return Result;
 	}
@@ -622,14 +623,14 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyImageView(VkDevice Device, VkImageView ImageView, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyImageView(VK_RESULT_MAX_ENUM, Device, ImageView);
-		VULKANAPINAMESPACE::vkDestroyImageView(Device, ImageView, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyImageView(Device, ImageView, Allocator);
 		FWrapLayer::DestroyImageView(VK_SUCCESS, Device, ImageView);
 	}
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateShaderModule(VkDevice Device, const VkShaderModuleCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkShaderModule* ShaderModule)
 	{
 		FWrapLayer::CreateShaderModule(VK_RESULT_MAX_ENUM, Device, CreateInfo, ShaderModule);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateShaderModule(Device, CreateInfo, GetMemoryAllocator(Allocator), ShaderModule);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateShaderModule(Device, CreateInfo, Allocator, ShaderModule);
 		FWrapLayer::CreateShaderModule(Result, Device, CreateInfo, ShaderModule);
 		return Result;
 	}
@@ -637,14 +638,14 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyShaderModule(VkDevice Device, VkShaderModule ShaderModule, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyShaderModule(VK_RESULT_MAX_ENUM, Device, ShaderModule);
-		VULKANAPINAMESPACE::vkDestroyShaderModule(Device, ShaderModule, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyShaderModule(Device, ShaderModule, Allocator);
 		FWrapLayer::DestroyShaderModule(VK_SUCCESS, Device, ShaderModule);
 	}
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreatePipelineCache(VkDevice Device, const VkPipelineCacheCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkPipelineCache* PipelineCache)
 	{
 		FWrapLayer::CreatePipelineCache(VK_RESULT_MAX_ENUM, Device, CreateInfo, PipelineCache);
-		VkResult Result = VULKANAPINAMESPACE::vkCreatePipelineCache(Device, CreateInfo, GetMemoryAllocator(Allocator), PipelineCache);
+		VkResult Result = VULKANAPINAMESPACE::vkCreatePipelineCache(Device, CreateInfo, Allocator, PipelineCache);
 		FWrapLayer::CreatePipelineCache(Result, Device, CreateInfo, PipelineCache);
 		return Result;
 	}
@@ -652,7 +653,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyPipelineCache(VkDevice Device, VkPipelineCache PipelineCache, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyPipelineCache(VK_RESULT_MAX_ENUM, Device, PipelineCache);
-		VULKANAPINAMESPACE::vkDestroyPipelineCache(Device, PipelineCache, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyPipelineCache(Device, PipelineCache, Allocator);
 		FWrapLayer::DestroyPipelineCache(VK_SUCCESS, Device, PipelineCache);
 	}
 
@@ -675,7 +676,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateGraphicsPipelines(VkDevice Device, VkPipelineCache PipelineCache, uint32 CreateInfoCount, const VkGraphicsPipelineCreateInfo* CreateInfos, const VkAllocationCallbacks* Allocator, VkPipeline* Pipelines)
 	{
 		FWrapLayer::CreateGraphicsPipelines(VK_RESULT_MAX_ENUM, Device, PipelineCache, CreateInfoCount, CreateInfos, Pipelines);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateGraphicsPipelines(Device, PipelineCache, CreateInfoCount, CreateInfos, GetMemoryAllocator(Allocator), Pipelines);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateGraphicsPipelines(Device, PipelineCache, CreateInfoCount, CreateInfos, Allocator, Pipelines);
 		FWrapLayer::CreateGraphicsPipelines(Result, Device, PipelineCache, CreateInfoCount, CreateInfos, Pipelines);
 		return Result;
 	}
@@ -683,7 +684,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateComputePipelines(VkDevice Device, VkPipelineCache PipelineCache, uint32 CreateInfoCount, const VkComputePipelineCreateInfo* CreateInfos, const VkAllocationCallbacks* Allocator, VkPipeline* Pipelines)
 	{
 		FWrapLayer::CreateComputePipelines(VK_RESULT_MAX_ENUM, Device, PipelineCache, CreateInfoCount, CreateInfos, Pipelines);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateComputePipelines(Device, PipelineCache, CreateInfoCount, CreateInfos, GetMemoryAllocator(Allocator), Pipelines);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateComputePipelines(Device, PipelineCache, CreateInfoCount, CreateInfos, Allocator, Pipelines);
 		FWrapLayer::CreateComputePipelines(Result, Device, PipelineCache, CreateInfoCount, CreateInfos, Pipelines);
 		return Result;
 	}
@@ -691,14 +692,14 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyPipeline(VkDevice Device, VkPipeline Pipeline, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyPipeline(VK_RESULT_MAX_ENUM, Device, Pipeline);
-		VULKANAPINAMESPACE::vkDestroyPipeline(Device, Pipeline, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyPipeline(Device, Pipeline, Allocator);
 		FWrapLayer::DestroyPipeline(VK_SUCCESS, Device, Pipeline);
 	}
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreatePipelineLayout(VkDevice Device, const VkPipelineLayoutCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkPipelineLayout* PipelineLayout)
 	{
 		FWrapLayer::CreatePipelineLayout(VK_RESULT_MAX_ENUM, Device, CreateInfo, PipelineLayout);
-		VkResult Result = VULKANAPINAMESPACE::vkCreatePipelineLayout(Device, CreateInfo, GetMemoryAllocator(Allocator), PipelineLayout);
+		VkResult Result = VULKANAPINAMESPACE::vkCreatePipelineLayout(Device, CreateInfo, Allocator, PipelineLayout);
 		FWrapLayer::CreatePipelineLayout(Result, Device, CreateInfo, PipelineLayout);
 		return Result;
 	}
@@ -706,14 +707,14 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyPipelineLayout(VkDevice Device, VkPipelineLayout PipelineLayout, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyPipelineLayout(VK_RESULT_MAX_ENUM, Device, PipelineLayout);
-		VULKANAPINAMESPACE::vkDestroyPipelineLayout(Device, PipelineLayout, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyPipelineLayout(Device, PipelineLayout, Allocator);
 		FWrapLayer::DestroyPipelineLayout(VK_SUCCESS, Device, PipelineLayout);
 	}
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateSampler(VkDevice Device, const VkSamplerCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkSampler* Sampler)
 	{
 		FWrapLayer::CreateSampler(VK_RESULT_MAX_ENUM, Device, CreateInfo, Sampler);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateSampler(Device, CreateInfo, GetMemoryAllocator(Allocator), Sampler);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateSampler(Device, CreateInfo, Allocator, Sampler);
 		FWrapLayer::CreateSampler(Result, Device, CreateInfo, Sampler);
 		return Result;
 	}
@@ -721,14 +722,14 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroySampler(VkDevice Device, VkSampler Sampler, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroySampler(VK_RESULT_MAX_ENUM, Device, Sampler);
-		VULKANAPINAMESPACE::vkDestroySampler(Device, Sampler, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroySampler(Device, Sampler, Allocator);
 		FWrapLayer::DestroySampler(VK_RESULT_MAX_ENUM, Device, Sampler);
 	}
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateDescriptorSetLayout(VkDevice Device, const VkDescriptorSetLayoutCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkDescriptorSetLayout* SetLayout)
 	{
 		FWrapLayer::CreateDescriptorSetLayout(VK_RESULT_MAX_ENUM, Device, CreateInfo, SetLayout);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateDescriptorSetLayout(Device, CreateInfo, GetMemoryAllocator(Allocator), SetLayout);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateDescriptorSetLayout(Device, CreateInfo, Allocator, SetLayout);
 		FWrapLayer::CreateDescriptorSetLayout(Result, Device, CreateInfo, SetLayout);
 		return Result;
 	}
@@ -736,14 +737,14 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyDescriptorSetLayout(VkDevice Device, VkDescriptorSetLayout DescriptorSetLayout, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyDescriptorSetLayout(VK_RESULT_MAX_ENUM, Device, DescriptorSetLayout);
-		VULKANAPINAMESPACE::vkDestroyDescriptorSetLayout(Device, DescriptorSetLayout, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyDescriptorSetLayout(Device, DescriptorSetLayout, Allocator);
 		FWrapLayer::DestroyDescriptorSetLayout(VK_SUCCESS, Device, DescriptorSetLayout);
 	}
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateDescriptorPool(VkDevice Device, const VkDescriptorPoolCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkDescriptorPool* DescriptorPool)
 	{
 		FWrapLayer::CreateDescriptorPool(VK_RESULT_MAX_ENUM, Device, CreateInfo, DescriptorPool);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateDescriptorPool(Device, CreateInfo, GetMemoryAllocator(Allocator), DescriptorPool);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateDescriptorPool(Device, CreateInfo, Allocator, DescriptorPool);
 		FWrapLayer::CreateDescriptorPool(Result, Device, CreateInfo, DescriptorPool);
 		return Result;
 	}
@@ -751,7 +752,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyDescriptorPool(VkDevice Device, VkDescriptorPool DescriptorPool, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyDescriptorPool(VK_RESULT_MAX_ENUM, Device, DescriptorPool);
-		VULKANAPINAMESPACE::vkDestroyDescriptorPool(Device, DescriptorPool, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyDescriptorPool(Device, DescriptorPool, Allocator);
 		FWrapLayer::DestroyDescriptorPool(VK_SUCCESS, Device, DescriptorPool);
 	}
 
@@ -789,7 +790,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateFramebuffer(VkDevice Device, const VkFramebufferCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkFramebuffer* Framebuffer)
 	{
 		FWrapLayer::CreateFramebuffer(VK_RESULT_MAX_ENUM, Device, CreateInfo, Framebuffer);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateFramebuffer(Device, CreateInfo, GetMemoryAllocator(Allocator), Framebuffer);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateFramebuffer(Device, CreateInfo, Allocator, Framebuffer);
 		FWrapLayer::CreateFramebuffer(Result, Device, CreateInfo, Framebuffer);
 		return Result;
 	}
@@ -797,14 +798,14 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyFramebuffer(VkDevice Device, VkFramebuffer Framebuffer, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyFramebuffer(VK_RESULT_MAX_ENUM, Device, Framebuffer);
-		VULKANAPINAMESPACE::vkDestroyFramebuffer(Device, Framebuffer, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyFramebuffer(Device, Framebuffer, Allocator);
 		FWrapLayer::DestroyFramebuffer(VK_SUCCESS, Device, Framebuffer);
 	}
 
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateRenderPass(VkDevice Device, const VkRenderPassCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkRenderPass* RenderPass)
 	{
 		FWrapLayer::CreateRenderPass(VK_RESULT_MAX_ENUM, Device, CreateInfo, RenderPass);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateRenderPass(Device, CreateInfo, GetMemoryAllocator(Allocator), RenderPass);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateRenderPass(Device, CreateInfo, Allocator, RenderPass);
 		FWrapLayer::CreateRenderPass(Result, Device, CreateInfo, RenderPass);
 		return Result;
 	}
@@ -812,7 +813,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyRenderPass(VkDevice Device, VkRenderPass RenderPass, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyRenderPass(VK_RESULT_MAX_ENUM, Device, RenderPass);
-		VULKANAPINAMESPACE::vkDestroyRenderPass(Device, RenderPass, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyRenderPass(Device, RenderPass, Allocator);
 		FWrapLayer::DestroyRenderPass(VK_SUCCESS, Device, RenderPass);
 	}
 #if 0
@@ -824,7 +825,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult  vkCreateCommandPool(VkDevice Device, const VkCommandPoolCreateInfo* CreateInfo, const VkAllocationCallbacks* Allocator, VkCommandPool* CommandPool)
 	{
 		FWrapLayer::CreateCommandPool(VK_RESULT_MAX_ENUM, Device, CreateInfo, CommandPool);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateCommandPool(Device, CreateInfo, GetMemoryAllocator(Allocator), CommandPool);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateCommandPool(Device, CreateInfo, Allocator, CommandPool);
 		FWrapLayer::CreateCommandPool(Result, Device, CreateInfo, CommandPool);
 		return Result;
 	}
@@ -832,7 +833,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void  vkDestroyCommandPool(VkDevice Device, VkCommandPool CommandPool, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroyCommandPool(VK_RESULT_MAX_ENUM, Device, CommandPool);
-		VULKANAPINAMESPACE::vkDestroyCommandPool(Device, CommandPool, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroyCommandPool(Device, CommandPool, Allocator);
 		FWrapLayer::DestroyCommandPool(VK_SUCCESS, Device, CommandPool);
 	}
 
@@ -1189,11 +1190,14 @@ namespace VulkanRHI
 		VULKANAPINAMESPACE::vkCmdBeginRenderPass(CommandBuffer, RenderPassBegin, Contents);
 		FWrapLayer::BeginRenderPass(VK_SUCCESS, CommandBuffer, RenderPassBegin, Contents);
 	}
-#if 0
-	static FORCEINLINE_DEBUGGABLE void  vkCmdNextSubpass(
-		VkCommandBuffer                             commandBuffer,
-		VkSubpassContents                           contents);
-#endif
+
+	static FORCEINLINE_DEBUGGABLE void  vkCmdNextSubpass(VkCommandBuffer CommandBuffer, VkSubpassContents Contents)
+	{
+		FWrapLayer::NextSubpass(VK_RESULT_MAX_ENUM, CommandBuffer, Contents);
+		VULKANAPINAMESPACE::vkCmdNextSubpass(CommandBuffer, Contents);
+		FWrapLayer::NextSubpass(VK_SUCCESS, CommandBuffer, Contents);
+	}
+
 	static FORCEINLINE_DEBUGGABLE void  vkCmdEndRenderPass(VkCommandBuffer CommandBuffer)
 	{
 		FWrapLayer::EndRenderPass(VK_RESULT_MAX_ENUM, CommandBuffer);
@@ -1211,7 +1215,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult vkCreateSwapchainKHR(VkDevice Device, const VkSwapchainCreateInfoKHR* CreateInfo, const VkAllocationCallbacks* Allocator, VkSwapchainKHR* Swapchain)
 	{
 		FWrapLayer::CreateSwapchainKHR(VK_RESULT_MAX_ENUM, Device, CreateInfo, Swapchain);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateSwapchainKHR(Device, CreateInfo, GetMemoryAllocator(Allocator), Swapchain);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateSwapchainKHR(Device, CreateInfo, Allocator, Swapchain);
 		FWrapLayer::CreateSwapchainKHR(Result, Device, CreateInfo, Swapchain);
 		return Result;
 	}
@@ -1219,7 +1223,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE void vkDestroySwapchainKHR(VkDevice Device, VkSwapchainKHR Swapchain, const VkAllocationCallbacks* Allocator)
 	{
 		FWrapLayer::DestroySwapchainKHR(VK_RESULT_MAX_ENUM, Device, Swapchain);
-		VULKANAPINAMESPACE::vkDestroySwapchainKHR(Device, Swapchain, GetMemoryAllocator(Allocator));
+		VULKANAPINAMESPACE::vkDestroySwapchainKHR(Device, Swapchain, Allocator);
 		FWrapLayer::DestroySwapchainKHR(VK_SUCCESS, Device, Swapchain);
 	}
 
@@ -1283,7 +1287,7 @@ namespace VulkanRHI
 	FORCEINLINE_DEBUGGABLE VkResult vkCreateWin32SurfaceKHR(VkInstance Instance, const VkWin32SurfaceCreateInfoKHR* CreateInfo, const VkAllocationCallbacks* Allocator, VkSurfaceKHR* Surface)
 	{
 		FWrapLayer::CreateWin32SurfaceKHR(VK_RESULT_MAX_ENUM, Instance, CreateInfo, Surface);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateWin32SurfaceKHR(Instance, CreateInfo, GetMemoryAllocator(Allocator), Surface);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateWin32SurfaceKHR(Instance, CreateInfo, Allocator, Surface);
 		FWrapLayer::CreateWin32SurfaceKHR(Result, Instance, CreateInfo, Surface);
 		return Result;
 	}
@@ -1293,7 +1297,7 @@ namespace VulkanRHI
 	static FORCEINLINE_DEBUGGABLE VkResult vkCreateAndroidSurfaceKHR(VkInstance Instance, const VkAndroidSurfaceCreateInfoKHR* CreateInfo, const VkAllocationCallbacks* Allocator, VkSurfaceKHR* Surface)
 	{
 		FWrapLayer::CreateAndroidSurfaceKHR(VK_RESULT_MAX_ENUM, Instance, CreateInfo, Surface);
-		VkResult Result = VULKANAPINAMESPACE::vkCreateAndroidSurfaceKHR(Instance, CreateInfo, GetMemoryAllocator(Allocator), Surface);
+		VkResult Result = VULKANAPINAMESPACE::vkCreateAndroidSurfaceKHR(Instance, CreateInfo, Allocator, Surface);
 		FWrapLayer::CreateAndroidSurfaceKHR(Result, Instance, CreateInfo, Surface);
 		return Result;
 	}

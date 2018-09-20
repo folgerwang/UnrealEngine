@@ -48,4 +48,13 @@ public:
 	{
 		// The report folder is currently always sent on the command-line on Linux
 	}
+
+	/**
+	 * Get the full path of the crashed app from the report
+	 */
+	FString FindCrashedAppPath() const
+	{
+		FString AppPath = FPaths::Combine(FPrimaryCrashProperties::Get()->BaseDir, FPrimaryCrashProperties::Get()->ExecutableName);
+		return AppPath;
+	}
 };

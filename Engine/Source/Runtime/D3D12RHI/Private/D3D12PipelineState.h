@@ -4,6 +4,8 @@
 
 #pragma once
 
+#define D3D12_USE_DERIVED_PSO PLATFORM_XBOXONE
+
 static bool GCPUSupportsSSE4;
 
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Graphics: Num high-level cache entries"), STAT_PSOGraphicsNumHighlevelCacheEntries, STATGROUP_D3D12PipelineState);
@@ -20,6 +22,7 @@ DECLARE_DWORD_COUNTER_STAT(TEXT("Compute: Low-level cache miss"), STAT_PSOComput
 DECLARE_DWORD_COUNTER_STAT(TEXT("Compute: High-level cache hit"), STAT_PSOComputeHighlevelCacheHit, STATGROUP_D3D12PipelineState);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Compute: High-level cache miss"), STAT_PSOComputeHighlevelCacheMiss, STATGROUP_D3D12PipelineState);
 
+
 // Graphics pipeline struct that represents the latest versions of PSO subobjects currently supported by the RHI.
 struct FD3D12_GRAPHICS_PIPELINE_STATE_DESC
 {
@@ -30,12 +33,12 @@ struct FD3D12_GRAPHICS_PIPELINE_STATE_DESC
 	D3D12_SHADER_BYTECODE HS;
 	D3D12_SHADER_BYTECODE GS;
 	D3D12_STREAM_OUTPUT_DESC StreamOutput;
-#if !PLATFORM_XBOXONE	// On XboxOne, the pipeline state doesn't depend on those properties.
+#if !D3D12_USE_DERIVED_PSO
 	D3D12_BLEND_DESC BlendState;
 	uint32 SampleMask;
 	D3D12_RASTERIZER_DESC RasterizerState;
 	D3D12_DEPTH_STENCIL_DESC1 DepthStencilState;
-#endif // !PLATFORM_XBOXONE
+#endif // !D3D12_USE_DERIVED_PSO
 	D3D12_INPUT_LAYOUT_DESC InputLayout;
 	D3D12_INDEX_BUFFER_STRIP_CUT_VALUE IBStripCutValue;
 	D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType;
@@ -132,7 +135,7 @@ template <> struct equality_pipeline_state_desc<FD3D12LowLevelGraphicsPipelineSt
 		PSO_IF_NOT_EQUAL_RETURN_FALSE(Desc.PrimitiveTopologyType)
 		PSO_IF_NOT_EQUAL_RETURN_FALSE(Desc.Flags)
 		PSO_IF_NOT_EQUAL_RETURN_FALSE(Desc.pRootSignature)
-#if !PLATFORM_XBOXONE	// On XboxOne, the pipeline state doesn't depens on those properties.
+#if !D3D12_USE_DERIVED_PSO
 		PSO_IF_MEMCMP_FAILS_RETURN_FALSE(Desc.BlendState)
 		PSO_IF_NOT_EQUAL_RETURN_FALSE(Desc.SampleMask)
 		PSO_IF_MEMCMP_FAILS_RETURN_FALSE(Desc.RasterizerState)
@@ -287,7 +290,7 @@ public:
 	// Indicates this PSO should be added to any disk caches.
 	void MarkForDiskCacheAdd()
 	{
-		bAddToDiskCache = true;
+		bAddToDiskCache = PipelineState.GetReference() ? true : false;
 	}
 
 	bool ShouldAddToDiskCache() const
@@ -393,7 +396,7 @@ protected:
 
 	void CleanupPipelineStateCaches();
 
-	typedef TFunction<void(FD3D12PipelineState*, const FD3D12LowLevelGraphicsPipelineStateDesc&)> FPostCreateGraphicCallback;
+	typedef TFunction<void(FD3D12PipelineState**, const FD3D12LowLevelGraphicsPipelineStateDesc&)> FPostCreateGraphicCallback;
 	typedef TFunction<void(FD3D12PipelineState*, const FD3D12ComputePipelineStateDesc&)> FPostCreateComputeCallback;
 
 	virtual FD3D12GraphicsPipelineState* AddToRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32 InitializerHash, FD3D12BoundShaderState* BoundShaderState, FD3D12PipelineState* PipelineState);

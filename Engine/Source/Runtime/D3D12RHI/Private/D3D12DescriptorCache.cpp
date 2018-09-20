@@ -600,6 +600,10 @@ void FD3D12DescriptorCache::SetSRVs(FD3D12ShaderResourceViewCache& Cache, const 
 			{
 				FD3D12DynamicRHI::TransitionResource(CommandList, SRVs[SlotIndex], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_DEPTH_READ);
 			}
+			else if (SRVs[SlotIndex]->GetSkipFastClearFinalize())
+			{
+				FD3D12DynamicRHI::TransitionResource(CommandList, SRVs[SlotIndex], CmdContext->SkipFastClearEliminateState);
+			}
 			else
 			{
 				FD3D12DynamicRHI::TransitionResource(CommandList, SRVs[SlotIndex], D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);

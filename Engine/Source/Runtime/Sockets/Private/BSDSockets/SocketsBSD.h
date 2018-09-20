@@ -7,7 +7,7 @@
 
 class FInternetAddr;
 
-#if PLATFORM_HAS_BSD_SOCKETS
+#if PLATFORM_HAS_BSD_SOCKETS || PLATFORM_HAS_BSD_IPV6_SOCKETS
 
 #include "Sockets.h"
 
@@ -15,7 +15,7 @@ class FInternetAddr;
 /**
  * Enumerates BSD socket state parameters.
  */
-enum class ESocketBSDParam
+enum class ESocketBSDParam : uint8
 {
 	CanRead,
 	CanWrite,
@@ -26,7 +26,7 @@ enum class ESocketBSDParam
 /**
  * Enumerates BSD socket state return values.
  */
-enum class ESocketBSDReturn
+enum class ESocketBSDReturn : uint8
 {
 	Yes,
 	No,
@@ -110,6 +110,8 @@ public:
 	virtual bool SetSendBufferSize(int32 Size,int32& NewSize) override;
 	virtual bool SetReceiveBufferSize(int32 Size,int32& NewSize) override;
 	virtual int32 GetPortNo() override;
+
+	bool SetIPv6Only(bool bIPv6Only);
 
 protected:
 

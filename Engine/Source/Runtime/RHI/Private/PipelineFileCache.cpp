@@ -300,8 +300,8 @@ FString FPipelineCacheFileFormatPSO::GraphicsDescriptor::StateToString() const
 		Result += FString::Printf(TEXT("%d,%d,%d,%d,")
 			, uint32(RenderTargetFormats[Index])
 			, RenderTargetFlags[Index]
-			, uint32(RenderTargetsLoad[Index])
-			, uint32(RenderTargetsStore[Index])
+			, 0/*Load*/
+			, 0/*Store*/
 		);
 	}
 
@@ -361,8 +361,9 @@ void FPipelineCacheFileFormatPSO::GraphicsDescriptor::StateFromString(const FStr
 		check(Parts.Num() - PartIndex >= 4 && sizeof(ERenderTargetLoadAction) == 1 && sizeof(ERenderTargetStoreAction) == 1 && sizeof(EPixelFormat) == sizeof(uint32)); //not a very robust parser
 		LexFromString((uint32&)(RenderTargetFormats[Index]), *Parts[PartIndex++]);
 		LexFromString(RenderTargetFlags[Index], *Parts[PartIndex++]);
-		LexFromString((uint8&)RenderTargetsLoad[Index], *Parts[PartIndex++]);
-		LexFromString((uint8&)RenderTargetsStore[Index], *Parts[PartIndex++]);
+		uint8 Load, Store;
+		LexFromString(Load, *Parts[PartIndex++]);
+		LexFromString(Store, *Parts[PartIndex++]);
 	}
 
 	check(Parts.Num() - PartIndex >= 1); //not a very robust parser
@@ -530,8 +531,6 @@ FString FPipelineCacheFileFormatPSO::GraphicsDescriptor::HeaderLine()
 
 				KeyHash = FCrc::MemCrc32(&Key.GraphicsDesc.RenderTargetFormats, sizeof(Key.GraphicsDesc.RenderTargetFormats), KeyHash);
 				KeyHash = FCrc::MemCrc32(&Key.GraphicsDesc.RenderTargetFlags, sizeof(Key.GraphicsDesc.RenderTargetFlags), KeyHash);
-				KeyHash = FCrc::MemCrc32(&Key.GraphicsDesc.RenderTargetsLoad, sizeof(Key.GraphicsDesc.RenderTargetsLoad), KeyHash);
-				KeyHash = FCrc::MemCrc32(&Key.GraphicsDesc.RenderTargetsStore, sizeof(Key.GraphicsDesc.RenderTargetsStore), KeyHash);
 
 				for(auto const& Element : Key.GraphicsDesc.VertexDescriptor)
 				{
@@ -662,8 +661,9 @@ FString FPipelineCacheFileFormatPSO::GraphicsDescriptor::HeaderLine()
 				Ar << Format;
 				Info.GraphicsDesc.RenderTargetFormats[i] = (EPixelFormat)Format;
 				Ar << Info.GraphicsDesc.RenderTargetFlags[i];
-				Ar << Info.GraphicsDesc.RenderTargetsLoad[i];
-				Ar << Info.GraphicsDesc.RenderTargetsStore[i];
+				uint8 LoadStore = 0;
+				Ar << LoadStore;
+				Ar << LoadStore;
 			}
 			Ar << Info.GraphicsDesc.RenderTargetsActive;
 			Ar << Info.GraphicsDesc.MSAASamples;
@@ -804,8 +804,6 @@ FPipelineCacheFileFormatPSO::FPipelineCacheFileFormatPSO()
 	{
 		PSO.GraphicsDesc.RenderTargetFormats[i] = Init.RenderTargetFormats[i];
 		PSO.GraphicsDesc.RenderTargetFlags[i] = Init.RenderTargetFlags[i];
-		PSO.GraphicsDesc.RenderTargetsLoad[i] = Init.RenderTargetLoadActions[i];
-		PSO.GraphicsDesc.RenderTargetsStore[i] = Init.RenderTargetStoreActions[i];
 	}
 	
 	PSO.GraphicsDesc.RenderTargetsActive = Init.RenderTargetsEnabled;
@@ -861,9 +859,7 @@ bool FPipelineCacheFileFormatPSO::operator==(const FPipelineCacheFileFormatPSO& 
 					FMemory::Memcmp(&GraphicsDesc.RasterizerState, &Other.GraphicsDesc.RasterizerState, sizeof(FPipelineFileCacheRasterizerState)) == 0 &&
 					FMemory::Memcmp(&GraphicsDesc.DepthStencilState, &Other.GraphicsDesc.DepthStencilState, sizeof(FDepthStencilStateInitializerRHI)) == 0 &&
 					FMemory::Memcmp(&GraphicsDesc.RenderTargetFormats, &Other.GraphicsDesc.RenderTargetFormats, sizeof(GraphicsDesc.RenderTargetFormats)) == 0 &&
-					FMemory::Memcmp(&GraphicsDesc.RenderTargetFlags, &Other.GraphicsDesc.RenderTargetFlags, sizeof(GraphicsDesc.RenderTargetFlags)) == 0 &&
-					FMemory::Memcmp(&GraphicsDesc.RenderTargetsLoad, &Other.GraphicsDesc.RenderTargetsLoad, sizeof(GraphicsDesc.RenderTargetsLoad)) == 0 &&
-					FMemory::Memcmp(&GraphicsDesc.RenderTargetsStore, &Other.GraphicsDesc.RenderTargetsStore, sizeof(GraphicsDesc.RenderTargetsStore)) == 0;
+					FMemory::Memcmp(&GraphicsDesc.RenderTargetFlags, &Other.GraphicsDesc.RenderTargetFlags, sizeof(GraphicsDesc.RenderTargetFlags)) == 0;
 					break;
 				}
 				default:

@@ -24,26 +24,6 @@ const bool GUserSettingsDefaultHDRValue = true;
 const bool GUserSettingsDefaultHDRValue = false;
 #endif
 
-bool IsHDRAllowed()
-{
-	// HDR can be forced on or off on the commandline. Otherwise we check the cvar r.AllowHDR
-	if (FParse::Param(FCommandLine::Get(), TEXT("hdr")))
-	{
-		return true;
-	}
-	else if (FParse::Param(FCommandLine::Get(), TEXT("nohdr")))
-	{
-		return false;
-	}
-
-	static const auto CVarHDRAllow = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowHDR"));
-	if (CVarHDRAllow && CVarHDRAllow->GetValueOnAnyThread() != 0)
-	{
-		return true;
-	}
-	return false;
-}
-
 extern EWindowMode::Type GetWindowModeType(EWindowMode::Type WindowMode);
 
 enum EGameUserSettingsVersion
@@ -592,12 +572,12 @@ void UGameUserSettings::PreloadResolutionSettings()
 	int32 ResolutionY = GetDefaultResolution().Y;
 	EWindowMode::Type WindowMode = GetDefaultWindowMode();
 	bool bUseDesktopResolution = false;
-	bool bUseHDR = false;
+	bool bUseHDR = GUserSettingsDefaultHDRValue;
 
 	int32 Version=0;
-	if( GConfig->GetInt(*GameUserSettingsCategory, TEXT("Version"), Version, GGameUserSettingsIni ) && Version == UE_GAMEUSERSETTINGS_VERSION )
+	if (GConfig->GetInt(*GameUserSettingsCategory, TEXT("Version"), Version, GGameUserSettingsIni) && Version == UE_GAMEUSERSETTINGS_VERSION)
 	{
-		GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseDesktopResolution"), bUseDesktopResolution, GGameUserSettingsIni );
+		GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseDesktopResolution"), bUseDesktopResolution, GGameUserSettingsIni);
 
 		int32 WindowModeInt = (int32)WindowMode;
 		GConfig->GetInt(*GameUserSettingsCategory, TEXT("FullscreenMode"), WindowModeInt, GGameUserSettingsIni);
@@ -617,25 +597,21 @@ void UGameUserSettings::PreloadResolutionSettings()
 			ResolutionY = DisplayMetrics.PrimaryDisplayHeight;
 		}
 #endif
-		// Initialize HDR based on the high level switch and user settings
-		if ( IsHDRAllowed() )
-		{
-			bool bUserSettingsUseHdr = GUserSettingsDefaultHDRValue;
-			if (GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseHDRDisplayOutput"), bUserSettingsUseHdr, GGameUserSettingsIni))
-			{
-				bUseHDR = bUserSettingsUseHdr;
-			}
-		}
+
+		GConfig->GetBool(*GameUserSettingsCategory, TEXT("bUseHDRDisplayOutput"), bUseHDR, GGameUserSettingsIni);
+	}
 
 #if !PLATFORM_XBOXONE
-		// Set the HDR switch
+	if ( IsHDRAllowed() )
+	{
+		// Set the user-preference HDR switch
 		static auto CVarHDROutputEnabled = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.EnableHDROutput"));
 		if (CVarHDROutputEnabled)
 		{
 			CVarHDROutputEnabled->Set(bUseHDR ? 1 : 0, ECVF_SetByGameSetting);
 		}
-#endif
 	}
+#endif
 
 	RequestResolutionChange(ResolutionX, ResolutionY, WindowMode);
 
@@ -873,11 +849,9 @@ bool UGameUserSettings::SupportsHDRDisplayOutput() const
 
 void UGameUserSettings::EnableHDRDisplayOutput(bool bEnable, int32 DisplayNits /*= 1000*/)
 {
-	static IConsoleVariable* CVarHDROutputDevice = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.OutputDevice"));
-	static IConsoleVariable* CVarHDRColorGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.ColorGamut"));
 	static IConsoleVariable* CVarHDROutputEnabled = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.EnableHDROutput"));
 
-	if (ensure(CVarHDROutputDevice && CVarHDRColorGamut && CVarHDROutputEnabled))
+	if (CVarHDROutputEnabled)
 	{
 		if (bEnable && !(GRHISupportsHDROutput && IsHDRAllowed()))
 		{
@@ -891,59 +865,21 @@ void UGameUserSettings::EnableHDRDisplayOutput(bool bEnable, int32 DisplayNits /
 		// Apply device-specific output encoding
 		if (bEnable)
 		{
-			int32 OutputDevice = 0;
-			int32 ColorGamut = 0;
-
 #if PLATFORM_WINDOWS
 			if (IsRHIDeviceNVIDIA() || IsRHIDeviceAMD())
 			{
-				// ScRGB, 1000 or 2000 nits, Rec2020
-				OutputDevice = (DisplayNitLevel == 1000) ? 5 : 6;
-				ColorGamut = 2;
-
 				// Force exclusive fullscreen
 				SetPreferredFullscreenMode(0);
 				SetFullscreenMode(GetPreferredFullscreenMode());
 				ApplyResolutionSettings(false);
 			}
-#elif PLATFORM_PS4
-			{
-				// PQ, 1000 or 2000 nits, Rec2020
-				OutputDevice = (DisplayNitLevel == 1000) ? 3 : 4;
-				ColorGamut = 2;
-			}
-#elif PLATFORM_MAC
-			{
-				// ScRGB, 1000 or 2000 nits, DCI-P3
-				OutputDevice = (DisplayNitLevel == 1000) ? 5 : 6;
-				ColorGamut = 1;
-			}
-#elif PLATFORM_XBOXONE
-			{
-				// PQ, 1000 or 2000 nits, Rec2020
-				OutputDevice = (DisplayNitLevel == 1000) ? 3 : 4;
-				ColorGamut = 2;
-			}
 #endif
-
-			if (ensure(OutputDevice > 0 && ColorGamut > 0))
-			{
-				CVarHDROutputDevice->Set(OutputDevice, ECVF_SetByGameSetting);
-				CVarHDRColorGamut->Set(ColorGamut, ECVF_SetByGameSetting);
-				CVarHDROutputEnabled->Set(1, ECVF_SetByGameSetting);
-			}
-			else
-			{
-				UE_LOG(LogConsoleResponse, Display, TEXT("Tried to enable HDR display output but failed to find platform defaults, forcing off."));
-				bEnable = false;
-			}
+			CVarHDROutputEnabled->Set(1, ECVF_SetByGameSetting);
 		}
 
 		// Always test this branch as can be used to flush errors
 		if (!bEnable)
 		{
-			CVarHDROutputDevice->Set(0, ECVF_SetByGameSetting);
-			CVarHDRColorGamut->Set(0, ECVF_SetByGameSetting);
 			CVarHDROutputEnabled->Set(0, ECVF_SetByGameSetting);
 		}
 

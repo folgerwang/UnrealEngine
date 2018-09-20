@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanState.h: Vulkan state definitions.
@@ -16,7 +16,7 @@ class FVulkanSamplerState : public FRHISamplerState
 public:
 	FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVulkanDevice& InDevice, const bool bInIsImmutable = false);
 	
-	virtual bool IsImmutable() const override { return bIsImmutable; }
+	virtual bool IsImmutable() const final override { return bIsImmutable; }
 
 	VkSampler Sampler;
 
@@ -29,7 +29,7 @@ private:
 class FVulkanRasterizerState : public FRHIRasterizerState
 {
 public:
-	FVulkanRasterizerState(const FRasterizerStateInitializerRHI& Initializer);
+	FVulkanRasterizerState(const FRasterizerStateInitializerRHI& InInitializer);
 
 	static void ResetCreateInfo(VkPipelineRasterizationStateCreateInfo& OutInfo)
 	{
@@ -38,7 +38,14 @@ public:
 		OutInfo.lineWidth = 1.0f;
 	}
 
-	VkPipelineRasterizationStateCreateInfo RasterizerState;
+	virtual bool GetInitializer(FRasterizerStateInitializerRHI& Out) override final
+	{
+		Out = Initializer;
+		return true;
+	}
+
+	VkPipelineRasterizationStateCreateInfo	RasterizerState;
+	FRasterizerStateInitializerRHI			Initializer;
 };
 
 class FVulkanDepthStencilState : public FRHIDepthStencilState
@@ -49,6 +56,12 @@ public:
 		Initializer = InInitializer;
 	}
 
+	virtual bool GetInitializer(FDepthStencilStateInitializerRHI& Out) override final
+	{
+		Out = Initializer;
+		return true;
+	}
+
 	void SetupCreateInfo(const FGraphicsPipelineStateInitializer& GfxPSOInit, VkPipelineDepthStencilStateCreateInfo& OutDepthStencilState);
 
 	FDepthStencilStateInitializerRHI Initializer;
@@ -57,8 +70,16 @@ public:
 class FVulkanBlendState : public FRHIBlendState
 {
 public:
-	FVulkanBlendState(const FBlendStateInitializerRHI& Initializer);
+	FVulkanBlendState(const FBlendStateInitializerRHI& InInitializer);
+
+	virtual bool GetInitializer(FBlendStateInitializerRHI& Out) override final
+	{
+		Out = Initializer;
+		return true;
+	}
 
 	// array the pipeline state can point right to
 	VkPipelineColorBlendAttachmentState BlendStates[MaxSimultaneousRenderTargets];
+
+	FBlendStateInitializerRHI Initializer;
 };

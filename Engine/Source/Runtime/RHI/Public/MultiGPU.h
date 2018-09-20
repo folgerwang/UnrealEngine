@@ -64,7 +64,7 @@ public:
 #endif
 	}
 
-	FORCEINLINE uint32 GetLastIndex()
+	FORCEINLINE uint32 GetLastIndex() const
 	{
 #if WITH_MGPU
 		return FPlatformMath::FloorLog2(GPUMask);
@@ -73,7 +73,7 @@ public:
 #endif
 	}
 
-	FORCEINLINE uint32 GetFirstIndex()
+	FORCEINLINE uint32 GetFirstIndex() const
 	{
 #if WITH_MGPU
 		return FPlatformMath::CountTrailingZeros(GPUMask);
@@ -124,8 +124,9 @@ public:
 		}
 
 		FORCEINLINE uint32 operator*() const { return FirstGPUIndexInMask; }
-
 		FORCEINLINE bool operator !=(const FIterator& Rhs) const { return GPUMask != Rhs.GPUMask; }
+		FORCEINLINE explicit operator bool() const { return GPUMask != 0; }
+		FORCEINLINE bool operator !() const { return !(bool)*this; }
 
 	private:
 		uint32 GPUMask;

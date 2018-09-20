@@ -73,6 +73,51 @@ void SetComputePipelineState(FRHICommandList& RHICmdList, FRHIComputeShader* Com
 extern RHI_API FRHIComputePipelineState* ExecuteSetComputePipelineState(FComputePipelineState* ComputePipelineState);
 extern RHI_API FRHIGraphicsPipelineState* ExecuteSetGraphicsPipelineState(FGraphicsPipelineState* GraphicsPipelineState);
 
+// Prints out information about a failed compilation from Init.
+// This is fatal unless the compilation request is from the PSO cache preload.
+static void HandlePipelineCreationFailure(const FGraphicsPipelineStateInitializer& Init)
+{
+	UE_LOG(LogRHI, Error, TEXT("Failed to create GraphicsPipeline"));
+	// Failure to compile is Fatal unless this is from the PSO file cache preloading.
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if(Init.BoundShaderState.VertexShaderRHI)
+	{
+		UE_LOG(LogRHI, Error, TEXT("Vertex: %s"), *Init.BoundShaderState.VertexShaderRHI->ShaderName);
+	}
+	if(Init.BoundShaderState.HullShaderRHI)
+	{
+		UE_LOG(LogRHI, Error, TEXT("Hull: %s"), *Init.BoundShaderState.HullShaderRHI->ShaderName);
+	}
+	if(Init.BoundShaderState.DomainShaderRHI)
+	{
+		UE_LOG(LogRHI, Error, TEXT("Domain: %s"), *Init.BoundShaderState.DomainShaderRHI->ShaderName);
+	}
+	if(Init.BoundShaderState.GeometryShaderRHI)
+	{
+		UE_LOG(LogRHI, Error, TEXT("Geometry: %s"), *Init.BoundShaderState.GeometryShaderRHI->ShaderName);
+	}
+	if(Init.BoundShaderState.PixelShaderRHI)
+	{
+		UE_LOG(LogRHI, Error, TEXT("Pixel: %s"), *Init.BoundShaderState.PixelShaderRHI->ShaderName);
+	}
+	
+	UE_LOG(LogRHI, Error, TEXT("Render Targets: (%u)"), Init.RenderTargetFormats.Num());
+	for(int32 i = 0; i < Init.RenderTargetFormats.Num(); ++i)
+	{
+		//#todo-mattc GetPixelFormatString is not available in scw. Need to move it so we can print more info here.
+		UE_LOG(LogRHI, Error, TEXT("0x%x"), Init.RenderTargetFormats[i]);
+	}
+	
+	UE_LOG(LogRHI, Error, TEXT("Depth Stencil Format:"));
+	UE_LOG(LogRHI, Error, TEXT("0x%x"), Init.DepthStencilTargetFormat);
+#endif
+	
+	if(!Init.bFromPSOFileCache)
+	{
+		UE_LOG(LogRHI, Fatal, TEXT("Shader compilation failures are Fatal."));
+	}
+}
+
 /**
  * Base class to hold pipeline state (and optionally stats)
  */
@@ -181,12 +226,15 @@ public:
 void SetGraphicsPipelineState(FRHICommandList& RHICmdList, const FGraphicsPipelineStateInitializer& Initializer, EApplyRendertargetOption ApplyFlags)
 {
 	FGraphicsPipelineState* PipelineState = PipelineStateCache::GetAndOrCreateGraphicsPipelineState(RHICmdList, Initializer, ApplyFlags);
+	if (PipelineState && (PipelineState->RHIPipeline || !Initializer.bFromPSOFileCache))
+	{
 #if PIPELINESTATECACHE_VERIFYTHREADSAFE
-	int32 Result = PipelineState->InUseCount.Increment();
-	check(Result >= 1);
+		int32 Result = PipelineState->InUseCount.Increment();
+		check(Result >= 1);
 #endif
-	check(IsInRenderingThread() || IsInParallelRenderingThread());
-	RHICmdList.SetGraphicsPipelineState(PipelineState);
+		check(IsInRenderingThread() || IsInParallelRenderingThread());
+		RHICmdList.SetGraphicsPipelineState(PipelineState);
+	}
 }
 
 /* TSharedPipelineStateCache
@@ -495,6 +543,11 @@ public:
 			FGraphicsPipelineState* GfxPipeline = static_cast<FGraphicsPipelineState*>(Pipeline);
 			GfxPipeline->RHIPipeline = RHICreateGraphicsPipelineState(Initializer);
 			
+			if(!GfxPipeline->RHIPipeline)
+			{
+				HandlePipelineCreationFailure(Initializer);
+			}
+			
 			if (Initializer.BoundShaderState.VertexDeclarationRHI)
 				Initializer.BoundShaderState.VertexDeclarationRHI->Release();
 			if (Initializer.BoundShaderState.VertexShaderRHI)
@@ -747,9 +800,6 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 			{
 				AnyFailed |= (NewInitializer.RenderTargetFormats[i] != OriginalInitializer.RenderTargetFormats[i]) << 1;
 				AnyFailed |= (NewInitializer.RenderTargetFlags[i] != OriginalInitializer.RenderTargetFlags[i]) << 2;
-				AnyFailed |= (NewInitializer.RenderTargetLoadActions[i] != OriginalInitializer.RenderTargetLoadActions[i]) << 3;
-				AnyFailed |= (NewInitializer.RenderTargetStoreActions[i] != OriginalInitializer.RenderTargetStoreActions[i]) << 4;
-
 				if (AnyFailed)
 				{
 					AnyFailed |= i << 24;
@@ -758,12 +808,12 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 			}
 		}
 
-		AnyFailed |= (NewInitializer.DepthStencilTargetFormat != OriginalInitializer.DepthStencilTargetFormat) << 5;
-		AnyFailed |= (NewInitializer.DepthStencilTargetFlag != OriginalInitializer.DepthStencilTargetFlag) << 6;
-		AnyFailed |= (NewInitializer.DepthTargetLoadAction != OriginalInitializer.DepthTargetLoadAction) << 7;
-		AnyFailed |= (NewInitializer.DepthTargetStoreAction != OriginalInitializer.DepthTargetStoreAction) << 8;
-		AnyFailed |= (NewInitializer.StencilTargetLoadAction != OriginalInitializer.StencilTargetLoadAction) << 9;
-		AnyFailed |= (NewInitializer.StencilTargetStoreAction != OriginalInitializer.StencilTargetStoreAction) << 10;
+		AnyFailed |= (NewInitializer.DepthStencilTargetFormat != OriginalInitializer.DepthStencilTargetFormat) << 3;
+		AnyFailed |= (NewInitializer.DepthStencilTargetFlag != OriginalInitializer.DepthStencilTargetFlag) << 4;
+		AnyFailed |= (NewInitializer.DepthTargetLoadAction != OriginalInitializer.DepthTargetLoadAction) << 5;
+		AnyFailed |= (NewInitializer.DepthTargetStoreAction != OriginalInitializer.DepthTargetStoreAction) << 6;
+		AnyFailed |= (NewInitializer.StencilTargetLoadAction != OriginalInitializer.StencilTargetLoadAction) << 7;
+		AnyFailed |= (NewInitializer.StencilTargetStoreAction != OriginalInitializer.StencilTargetStoreAction) << 8;
 
 		static double LastTime = 0;
 		if (AnyFailed != 0 && (FPlatformTime::Seconds() - LastTime) >= 10.0f)
@@ -798,6 +848,10 @@ FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(
 		else
 		{
 			OutCachedState->RHIPipeline = RHICreateGraphicsPipelineState(*Initializer);
+			if(!OutCachedState->RHIPipeline)
+			{
+				HandlePipelineCreationFailure(*Initializer);
+			}
 		}
 
 		// GGraphicsPipelineCache.Add(*Initializer, OutCachedState, LockFlags);

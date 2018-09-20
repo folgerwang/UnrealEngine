@@ -69,15 +69,10 @@ public:
 	exec_list list;
 };
 
-unsigned ir_constant_variable_visitor_pointer_hash(const void *key)
-{
-    return (unsigned)((uintptr_t)key >> 4);
-}
-
 ir_constant_variable_visitor::ir_constant_variable_visitor()
 : ht(nullptr)
 {
-	ht = hash_table_ctor(1543, ir_constant_variable_visitor_pointer_hash, hash_table_pointer_compare);
+	ht = hash_table_ctor(1543, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 }
 
 ir_constant_variable_visitor::~ir_constant_variable_visitor()

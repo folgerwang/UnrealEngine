@@ -429,6 +429,8 @@ struct FCachedSystemScalabilityCVars
 
 	FCachedSystemScalabilityCVars();
 
+	bool operator==(const FCachedSystemScalabilityCVars& Other);
+
 protected:
 	// This isn't public as it's only used to detect the change. Use ComputeAnisotropyRT()
 	int32 MaxAnisotropy;

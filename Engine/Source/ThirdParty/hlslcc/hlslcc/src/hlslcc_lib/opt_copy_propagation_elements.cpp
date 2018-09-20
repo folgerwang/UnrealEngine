@@ -93,11 +93,6 @@ struct acpe_hash_entry : public exec_node
     acpe_entry* acpe_entry;
 };
 
-unsigned acpe_hash_table_pointer_hash(const void *key)
-{
-    return (unsigned)((uintptr_t)key >> 4);
-}
-
 class acpe_hash_table
 {
 public:
@@ -107,7 +102,7 @@ public:
     , mem_ctx(imem_ctx)
     {
         this->acp = new(mem_ctx)exec_list;
-        this->acp_ht = hash_table_ctor(1543, acpe_hash_table_pointer_hash, hash_table_pointer_compare);
+        this->acp_ht = hash_table_ctor(1543, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
     }
     
     ~acpe_hash_table()

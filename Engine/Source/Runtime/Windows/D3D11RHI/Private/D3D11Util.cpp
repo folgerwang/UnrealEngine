@@ -273,7 +273,9 @@ void VerifyD3D11ShaderResult(FRHIShader* Shader, HRESULT D3DResult, const ANSICH
 	}
 }
 
-void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const ANSICHAR* Code,const ANSICHAR* Filename,uint32 Line,uint32 SizeX,uint32 SizeY,uint32 SizeZ,uint8 Format,uint32 NumMips,uint32 Flags, ID3D11Device* Device)
+void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const ANSICHAR* Code,const ANSICHAR* Filename,uint32 Line,uint32 SizeX,uint32 SizeY,uint32 SizeZ,uint8 Format,uint32 NumMips,uint32 Flags,
+	D3D11_USAGE Usage, uint32 CPUAccessFlags, uint32 MiscFlags, uint32 SampleCount, uint32 SampleQuality,
+	const void* SubResPtr, uint32 SubResPitch, uint32 SubResSlicePitch, ID3D11Device* Device)
 {
 	check(FAILED(D3DResult));
 
@@ -281,7 +283,7 @@ void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const ANSICHAR* Code,const
 	const TCHAR* D3DFormatString = GetD3D11TextureFormatString((DXGI_FORMAT)Format);
 
 	UE_LOG(LogD3D11RHI, Error,
-		TEXT("%s failed \n at %s:%u \n with error %s, \n Size=%ix%ix%i Format=%s(0x%08X), NumMips=%i, Flags=%s"),
+		TEXT("%s failed \n at %s:%u \n with error %s, \n Size=%ix%ix%i Format=%s(0x%08X), NumMips=%i, Flags=%s, Usage:0x%x, CPUFlags:0x%x, MiscFlags:0x%x, SampleCount:0x%x, SampleQuality:0x%x, SubresPtr:0x%p, SubresPitch:%i, SubresSlicePitch:%i"),
 		ANSI_TO_TCHAR(Code),
 		ANSI_TO_TCHAR(Filename),
 		Line,
@@ -292,24 +294,40 @@ void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const ANSICHAR* Code,const
 		D3DFormatString,
 		Format,
 		NumMips,
-		*GetD3D11TextureFlagString(Flags));
+		*GetD3D11TextureFlagString(Flags),
+		Usage,
+		CPUAccessFlags,
+		MiscFlags,
+		SampleCount,
+		SampleQuality,
+		SubResPtr,
+		SubResPitch,
+		SubResSlicePitch);
 
 	TerminateOnDeviceRemoved(D3DResult, Device);
 	TerminateOnOutOfMemory(D3DResult, true);
 
 	UE_LOG(LogD3D11RHI, Fatal,
-		TEXT("%s failed \n at %s:%u \n with error %s, \n Size=%ix%ix%i Format=%s(0x%08X), NumMips=%i, Flags=%s"),
+		TEXT("%s failed \n at %s:%u \n with error %s, \n Size=%ix%ix%i Format=%s(0x%08X), NumMips=%i, Flags=%s, Usage:0x%x, CPUFlags:0x%x, MiscFlags:0x%x, SampleCount:0x%x, SampleQuality:0x%x, SubresPtr:0x%p, SubresPitch:%i, SubresSlicePitch:%i"),
 		ANSI_TO_TCHAR(Code),
 		ANSI_TO_TCHAR(Filename),
 		Line,
-		*ErrorString, 
-		SizeX, 
-		SizeY, 
-		SizeZ, 
+		*ErrorString,
+		SizeX,
+		SizeY,
+		SizeZ,
 		D3DFormatString,
 		Format,
-		NumMips, 
-		*GetD3D11TextureFlagString(Flags));
+		NumMips,
+		*GetD3D11TextureFlagString(Flags),
+		Usage,
+		CPUAccessFlags,
+		MiscFlags,
+		SampleCount,
+		SampleQuality,
+		SubResPtr,
+		SubResPitch,
+		SubResSlicePitch);
 }
 
 void VerifyD3D11ResizeViewportResult(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, uint32 SizeX, uint32 SizeY, uint8 Format, ID3D11Device* Device)

@@ -14,9 +14,7 @@ class FVulkanCommandBufferPool;
 class FVulkanCommandBufferManager;
 class FVulkanRenderTargetLayout;
 class FVulkanQueue;
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 class FVulkanDescriptorPoolSetContainer;
-#endif
 
 namespace VulkanRHI
 {
@@ -31,7 +29,7 @@ protected:
 	friend class FVulkanCommandBufferPool;
 	friend class FVulkanQueue;
 
-	FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBufferPool* InCommandBufferPool);
+	FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBufferPool* InCommandBufferPool, bool bInIsUploadOnly);
 	~FVulkanCmdBuffer();
 
 public:
@@ -118,22 +116,20 @@ public:
 		State = EState::IsInsideBegin;
 	}
 
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	//#todo-rco: Hide this
 	FVulkanDescriptorPoolSetContainer* CurrentDescriptorPoolSetContainer = nullptr;
-#endif
+
+	bool AcquirePoolSetAndDescriptorsIfNeeded(const class FVulkanDescriptorSetsLayout& Layout, bool bNeedDescriptors, VkDescriptorSet* OutDescriptors);
 
 private:
 	FVulkanDevice* Device;
 	VkCommandBuffer CommandBufferHandle;
 	EState State;
+	double SubmittedTime = 0.0f;
 
 	TArray<VkPipelineStageFlags> WaitFlags;
 	TArray<VulkanRHI::FSemaphore*> WaitSemaphores;
 	TArray<VulkanRHI::FSemaphore*> SubmittedWaitSemaphores;
-
-#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
-	void AcquirePoolSet();
-#endif
 
 	void MarkSemaphoresAsSubmitted()
 	{
@@ -154,10 +150,17 @@ private:
 	void RefreshFenceStatus();
 	void InitializeTimings(FVulkanCommandListContext* InContext);
 
+	bool bIsUploadOnly;
 	FVulkanCommandBufferPool* CommandBufferPool;
 
 	FVulkanGPUTiming* Timing;
 	uint64 LastValidTiming;
+
+	void AcquirePoolSetContainer();
+
+public:
+	//#todo-rco: Hide this
+	TMap<uint32, class FVulkanTypedDescriptorPoolSet*> TypedDescriptorPoolSets;
 
 	friend class FVulkanDynamicRHI;
 	friend class FTransitionAndLayoutManager;
@@ -166,25 +169,40 @@ private:
 class FVulkanCommandBufferPool
 {
 public:
-	FVulkanCommandBufferPool(FVulkanDevice* InDevice);
-
+	FVulkanCommandBufferPool(FVulkanDevice* InDevice, FVulkanCommandBufferManager& InMgr);
 	~FVulkanCommandBufferPool();
 
 	void RefreshFenceStatus(FVulkanCmdBuffer* SkipCmdBuffer = nullptr);
 
 	inline VkCommandPool GetHandle() const
 	{
-		check(Handle != VK_NULL_HANDLE);
 		return Handle;
 	}
 
+	inline FCriticalSection* GetCS()
+	{
+		return &CS;
+	}
+
+	void FreeUnusedCmdBuffers();
+
+	inline FVulkanCommandBufferManager& GetMgr()
+	{
+		return Mgr;
+	}
+
 private:
-	FVulkanDevice* Device;
 	VkCommandPool Handle;
 
-	FVulkanCmdBuffer* Create();
-
 	TArray<FVulkanCmdBuffer*> CmdBuffers;
+
+	FCriticalSection CS;
+	FVulkanDevice* Device;
+
+	FVulkanCommandBufferManager& Mgr;
+
+	FVulkanCmdBuffer* Create(bool bIsUploadOnly);
+
 
 	void Create(uint32 QueueFamilyIndex);
 	friend class FVulkanCommandBufferManager;
@@ -238,6 +256,8 @@ public:
 	}
 
 	uint32 CalculateGPUTime();
+
+	void FreeUnusedCmdBuffers();
 
 private:
 	FVulkanDevice* Device;

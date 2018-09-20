@@ -43,64 +43,24 @@ bool RayHitRect( float3 L, FRect Rect )
 	return t >= 0 && InExtentX && InExtentY;
 }
 
-void Bicubic2D( in float2 UV, in float2 Size, in float2 InvSize, out float2 Sample[2], out float2 Weight[2] )
-{
-	UV *= Size;
-
-	float2 tc = floor( UV - 0.5 ) + 0.5;
-	float2 f = UV - tc;
-
-	float2 w0 = 0.1666 * Pow2( 1 - f );
-	float2 w1 = 0.6666 - ( 0.5 * f - 1 ) * f*f;
-	float2 w2 = 0.6666 + 0.5 * Pow3(1 - f) - Pow2(1 - f);
-	float2 w3 = 0.1666 * f*f*f;
-
-	float2 s0 = w0 + w1;
-	float2 s1 = w2 + w3;
-
-	float2 t0 = tc - 1 + w1 / (w0 + w1);
-	float2 t1 = tc + 1 + w3 / (w2 + w3);
-
-	Weight[0] = w0 + w1;
-	Weight[1] = w2 + w3;
-
-	Sample[0] = tc - 1 + w1 / Weight[0];
-	Sample[1] = tc + 1 + w3 / Weight[1];
- 
-	Sample[0] *= InvSize;
-	Sample[1] *= InvSize;
-}
-
-float4 BicubicSample( Texture2D Texture, SamplerState Sampler, float2 UV, float Level, float2 Size, float2 InvSize )
-{
-	float2 Weight[2];
-	float2 Sample[2];
-	Bicubic2D( UV, Size, InvSize, Sample, Weight );
-
-	return	Texture.SampleLevel( Sampler, float2( Sample[0].x, Sample[0].y ), Level ) * Weight[0].x * Weight[0].y +
-			Texture.SampleLevel( Sampler, float2( Sample[1].x, Sample[0].y ), Level ) * Weight[1].x * Weight[0].y +
-			Texture.SampleLevel( Sampler, float2( Sample[0].x, Sample[1].y ), Level ) * Weight[0].x * Weight[1].y +
-			Texture.SampleLevel( Sampler, float2( Sample[1].x, Sample[1].y ), Level ) * Weight[1].x * Weight[1].y;
-}
-
 float IntegrateLight( FRect Rect )
 {
 	float NoL;
 	float Falloff;
 
 #if 0	// Reference quality
-	RectIrradianceRef( 0, Rect, Falloff, NoL );
+	float3 L = RectIrradianceRef( 0, Rect, Falloff, NoL );
 #elif !CHEAP_RECT	// Optimized Lambert
-	RectIrradianceLambert( 0, Rect, Falloff, NoL );
+	float3 L = RectIrradianceLambert( 0, Rect, Falloff, NoL );
 #elif 1	// Karis
-	RectIrradianceApproxKaris( 0, Rect, Falloff, NoL );
+	float3 L = RectIrradianceApproxKaris( 0, Rect, Falloff, NoL );
 #elif 1	// Lagarde
-	RectIrradianceApproxLagarde( 0, Rect, Falloff, NoL );
+	float3 L = RectIrradianceApproxLagarde( 0, Rect, Falloff, NoL );
 #else	// Drobot
-	RectIrradianceApproxDrobot( 0, Rect, Falloff, NoL );
+	float3 L = RectIrradianceApproxDrobot( 0, Rect, Falloff, NoL );
 #endif
 
-	float3 FalloffColor = 1;//SampleSourceTexture( L, Rect, DeferredLightUniforms.SourceTexture );
+	float3 FalloffColor = SampleSourceTexture( L, Rect, DeferredLightUniforms.SourceTexture );
 	
 	return Falloff;
 }
@@ -122,7 +82,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 	float3 L = RectIrradianceApproxDrobot( N, Rect, Falloff, NoL );
 #endif
 
-	float3 FalloffColor = 1;//SampleSourceTexture( L, Rect, DeferredLightUniforms.SourceTexture );
+	float3 FalloffColor = SampleSourceTexture( L, Rect, DeferredLightUniforms.SourceTexture );
 
 #if CHEAP_RECT
 	float3 R = reflect( -V, N );
@@ -267,7 +227,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 	AreaLight.LineCosSubtended = 1;
 	AreaLight.FalloffColor = 1;
 	AreaLight.Rect = Rect;
-	//AreaLight.Texture = DeferredLightUniforms.SourceTexture;
+	AreaLight.Texture = DeferredLightUniforms.SourceTexture;
 	AreaLight.bIsRect = false;
 #else
 	FAreaLight AreaLight;
@@ -276,7 +236,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 	AreaLight.LineCosSubtended = 1;
 	AreaLight.FalloffColor = FalloffColor;
 	AreaLight.Rect = Rect;
-	//AreaLight.Texture = DeferredLightUniforms.SourceTexture;
+	AreaLight.Texture = DeferredLightUniforms.SourceTexture;
 	AreaLight.bIsRect = true;
 #endif
 
@@ -367,7 +327,8 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 				PointInRect.x = dot( Rect.Axis[0], PointOnPlane - Rect.Origin );
 				PointInRect.y = dot( Rect.Axis[1], PointOnPlane - Rect.Origin );
 
-				float3 LightColor = 1;//DeferredLightUniforms.SourceTexture.SampleLevel( View.SharedBilinearClampedSampler, PointInRect / Rect.Extent * 0.5 + 0.5, 0 ).rgb;
+				float2 RectUV = PointInRect / Rect.Extent * float2( 0.5, -0.5 ) + 0.5;
+				float3 LightColor = DeferredLightUniforms.SourceTexture.SampleLevel( View.SharedBilinearClampedSampler, RectUV, 0 ).rgb;
 
 				if( Set == 0 || Set == 1 )
 				{
@@ -386,7 +347,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 				{
 					NoL * (1 / PI),
 					D_GGX( Pow4(GBuffer.Roughness), NoH ) * NoH / (4 * VoH),
-					dot( PointOnPlane, PointOnPlane ) / ( SurfaceArea * saturate( dot( L, Rect.Axis[2] ) ) ),
+					dot( PointOnPlane, PointOnPlane ) / ( SurfaceArea * abs( dot( L, Rect.Axis[2] ) ) ),
 					1.0 / SphericalRect.SolidAngle,
 				};
 

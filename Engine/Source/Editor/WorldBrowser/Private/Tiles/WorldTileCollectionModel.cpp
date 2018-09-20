@@ -1578,6 +1578,7 @@ static void SetupLandscapeImportLayers(const FTiledLandscapeImportSettings& InIm
 		}
 
 		LayerImportInfo.LayerInfo = GetLandscapeLayerInfoObject(LayerImportInfo.LayerName, ContentPath);
+		LayerImportInfo.LayerInfo->Modify();
 		LayerImportInfo.LayerInfo->bNoWeightBlend = LayerSettings.bNoBlendWeight;
 
 		OutLayerInfo.Add(LayerImportInfo);

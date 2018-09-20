@@ -44,6 +44,26 @@ struct FMediaElementVertex
 	{ }
 };
 
+inline FVertexBufferRHIRef CreateTempMediaVertexBuffer(float ULeft = 0.0f, float URight = 1.0f, float VTop = 0.0f, float VBottom = 1.0f)
+{
+	FRHIResourceCreateInfo CreateInfo;
+	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FMediaElementVertex) * 4, BUF_Volatile, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FMediaElementVertex) * 4, RLM_WriteOnly);
+
+	FMediaElementVertex* Vertices = (FMediaElementVertex*)VoidPtr;
+	Vertices[0].Position.Set(-1.0f, 1.0f, 1.0f, 1.0f); // Top Left
+	Vertices[1].Position.Set(1.0f, 1.0f, 1.0f, 1.0f); // Top Right
+	Vertices[2].Position.Set(-1.0f, -1.0f, 1.0f, 1.0f); // Bottom Left
+	Vertices[3].Position.Set(1.0f, -1.0f, 1.0f, 1.0f); // Bottom Right
+
+	Vertices[0].TextureCoordinate.Set(ULeft, VTop);
+	Vertices[1].TextureCoordinate.Set(URight, VTop);
+	Vertices[2].TextureCoordinate.Set(ULeft, VBottom);
+	Vertices[3].TextureCoordinate.Set(URight, VBottom);
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+
+	return VertexBufferRHI;
+}
 
 /**
  * The simple element vertex declaration resource type.

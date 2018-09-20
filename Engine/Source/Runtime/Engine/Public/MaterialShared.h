@@ -552,7 +552,7 @@ public:
 	~FMaterialShaderMapId()
 	{ }
 
-	ENGINE_API void SetShaderDependencies(const TArray<FShaderType*>& ShaderTypes, const TArray<const FShaderPipelineType*>& ShaderPipelineTypes, const TArray<FVertexFactoryType*>& VFTypes);
+	ENGINE_API void SetShaderDependencies(const TArray<FShaderType*>& ShaderTypes, const TArray<const FShaderPipelineType*>& ShaderPipelineTypes, const TArray<FVertexFactoryType*>& VFTypes, EShaderPlatform ShaderPlatform);
 
 	void Serialize(FArchive& Ar);
 
@@ -1243,6 +1243,7 @@ public:
 	virtual uint32 GetDecalBlendMode() const { return 0; }
 	virtual uint32 GetMaterialDecalResponse() const { return 0; }
 	virtual bool HasNormalConnected() const { return false; }
+	virtual bool HasEmissiveColorConnected() const { return false; }
 	virtual bool RequiresSynchronousCompilation() const { return false; };
 	virtual bool IsDefaultMaterial() const { return false; };
 	virtual int32 GetNumCustomizedUVs() const { return 0; }
@@ -1916,6 +1917,7 @@ public:
 	ENGINE_API virtual uint32 GetDecalBlendMode() const override;
 	ENGINE_API virtual uint32 GetMaterialDecalResponse() const override;
 	ENGINE_API virtual bool HasNormalConnected() const override;
+	ENGINE_API virtual bool HasEmissiveColorConnected() const override;
 	ENGINE_API virtual enum EMaterialShadingModel GetShadingModel() const override;
 	ENGINE_API virtual enum ETranslucencyLightingMode GetTranslucencyLightingMode() const override;
 	ENGINE_API virtual float GetOpacityMaskClipValue() const override;

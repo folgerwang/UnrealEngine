@@ -285,7 +285,8 @@ static uint32 GMacTargetSettingsMinOSVers[][3] = {
 	{10,11,6},
 	{10,11,6},
 	{10,12,6},
-	{10,13,0}
+	{10,13,0},
+	{10,14,0}
 };
 
 TSharedRef<SWidget> FMacTargetSettingsDetails::OnGetShaderVersionContent()
@@ -327,6 +328,15 @@ FText FMacTargetSettingsDetails::GetShaderVersionDesc() const
 
 void FMacTargetSettingsDetails::SetShaderStandard(int32 Value)
 {
+	FText Message;
+	
+	if (Value == 2)
+	{
+		Message = LOCTEXT("DeprecatedMacMetalShaderVersion1_2","Metal Shader Standard v1.2 required for macOS 10.12 Sierra is deprecated in 4.21 and will be removed in the next version.");
+	}
+	
+	ShaderVersionWarningTextBox->SetError(Message);
+	
 	FPropertyAccess::Result Res = ShaderVersionPropertyHandle->SetValue((uint8)Value);
 	check(Res == FPropertyAccess::Success);
 }

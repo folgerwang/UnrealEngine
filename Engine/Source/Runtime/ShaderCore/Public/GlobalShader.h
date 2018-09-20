@@ -27,11 +27,13 @@ public:
 	SHADERCORE_API FGlobalShaderMapId(EShaderPlatform Platform);
 
 	/** Append to a string that will be used as a DDC key. */
-	SHADERCORE_API void AppendKeyString(FString& KeyString) const;
+	SHADERCORE_API void AppendKeyString(FString& KeyString, const TArray<FShaderTypeDependency>& Dependencies) const;
+
+	SHADERCORE_API const TMap<FString, TArray<FShaderTypeDependency>>& GetShaderFilenameToDependeciesMap() const { return ShaderFilenameToDependenciesMap; }
 
 private:
-	/** Shader types that this shader map is dependent on and their stored state. */
-	TArray<FShaderTypeDependency> ShaderTypeDependencies;
+	/** Shader types that this shader map is dependent on and their stored state. Mapped by shader filename, so every filename can have it's own DDC key. */
+	TMap<FString, TArray<FShaderTypeDependency>> ShaderFilenameToDependenciesMap;
 
 	/** Shader pipeline types that this shader map is dependent on and their stored state. */
 	TArray<FShaderPipelineTypeDependency> ShaderPipelineTypeDependencies;

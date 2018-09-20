@@ -37,7 +37,7 @@ public:
 
 	virtual void SetMimeType(const TCHAR* InMimeType) override
 	{
-		MimeType = InMimeType;
+		MimeType = TCHAR_TO_WCHAR(InMimeType);
 	}
 
 	virtual void SetStatusCode(int32 InStatusCode) override
@@ -52,12 +52,12 @@ public:
 
 	virtual void SetRedirect(const TCHAR* InRedirectUrl) override
 	{
-		RedirectUrl = InRedirectUrl;
+		RedirectUrl = TCHAR_TO_WCHAR(InRedirectUrl);
 	}
 
 	virtual void SetHeader(const TCHAR* Key, const TCHAR* Value) override
 	{
-		Headers.insert(std::make_pair(CefString(Key), CefString(Value)));
+		Headers.insert(std::make_pair(CefString(TCHAR_TO_WCHAR(Key)), CefString(TCHAR_TO_WCHAR(Value))));
 	}
 
 private:
@@ -88,8 +88,8 @@ public:
 		if (HandlerImplementation.IsValid())
 		{
 			return HandlerImplementation->ProcessRequest(
-				Request->GetMethod().ToWString().c_str(),
-				Request->GetURL().ToWString().c_str(),
+				WCHAR_TO_TCHAR(Request->GetMethod().ToWString().c_str()),
+				WCHAR_TO_TCHAR(Request->GetURL().ToWString().c_str()),
 				FSimpleDelegate::CreateLambda([Callback](){ Callback->Continue(); })
 			);
 		}
@@ -151,8 +151,8 @@ public:
 	virtual CefRefPtr<CefResourceHandler> Create(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, const CefString& Scheme, CefRefPtr<CefRequest> Request) override
 	{
 		return new FCefSchemeHandler(WebBrowserSchemeHandlerFactory->Create(
-			Request->GetMethod().ToWString().c_str(),
-			Request->GetURL().ToWString().c_str()));
+			WCHAR_TO_TCHAR(Request->GetMethod().ToWString().c_str()),
+			WCHAR_TO_TCHAR(Request->GetURL().ToWString().c_str())));
 	}
 	// End CefSchemeHandlerFactory interface.
 
@@ -172,7 +172,7 @@ void FCefSchemeHandlerFactories::AddSchemeHandlerFactory(FString Scheme, FString
 {
 	checkf(WebBrowserSchemeHandlerFactory != nullptr, TEXT("WebBrowserSchemeHandlerFactory must be provided."));
 	CefRefPtr<CefSchemeHandlerFactory> Factory = new FCefSchemeHandlerFactory(WebBrowserSchemeHandlerFactory);
-	CefRegisterSchemeHandlerFactory(*Scheme, *Domain, Factory);
+	CefRegisterSchemeHandlerFactory(TCHAR_TO_WCHAR(*Scheme), TCHAR_TO_WCHAR(*Domain), Factory);
 	SchemeHandlerFactories.Emplace(MoveTemp(Scheme), MoveTemp(Domain), MoveTemp(Factory));
 }
 
@@ -191,7 +191,7 @@ void FCefSchemeHandlerFactories::RegisterFactoriesWith(CefRefPtr<CefRequestConte
 	{
 		for (const FFactory& SchemeHandlerFactory : SchemeHandlerFactories)
 		{
-			Context->RegisterSchemeHandlerFactory(*SchemeHandlerFactory.Scheme, *SchemeHandlerFactory.Domain, SchemeHandlerFactory.Factory);
+			Context->RegisterSchemeHandlerFactory(TCHAR_TO_WCHAR(*SchemeHandlerFactory.Scheme), TCHAR_TO_WCHAR(*SchemeHandlerFactory.Domain), SchemeHandlerFactory.Factory);
 		}
 	}
 }

@@ -260,6 +260,9 @@ public:
 		/** The margin around the edges of the window that will be detected as places the user can grab to resize the window. */
 		SLATE_ARGUMENT(FMargin, UserResizeBorder)
 
+		/** true if this window will self handle any eventual DPI adjustments */
+		SLATE_ARGUMENT(bool, bManualManageDPI)
+
 		SLATE_DEFAULT_SLOT( FArguments, Content )
 
 	SLATE_END_ARGS()
@@ -446,6 +449,17 @@ public:
 
 	/** Returns the DPI scale factor of the native window */
 	float GetDPIScaleFactor() const;
+
+	/** Overrides the DPI scale factor of the native window */
+	void SetDPIScaleFactor(const float Factor);
+
+	/** Will inform the native window that we need to handle any DPI changes from within the application */
+	void SetManualManageDPIChanges(const bool bManualDPI);
+
+	bool IsManualManageDPIChanges() const
+	{
+		return bManualManageDPI;
+	}
 
 	/** 
 	 * Returns whether or not this window is a descendant of the specfied parent window
@@ -979,6 +993,8 @@ protected:
 
 	/** True if the window should preserve its aspect ratio when resized by user */
 	bool bShouldPreserveAspectRatio : 1;
+
+	bool bManualManageDPI : 1;
 
 	/** When should the window be activated upon being shown */
 	EWindowActivationPolicy WindowActivationPolicy;

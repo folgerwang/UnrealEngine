@@ -10,17 +10,68 @@
 #include "MetalCommandBuffer.h"
 #include "HAL/LowLevelMemTracker.h"
 
+struct FMetalRHICommandInitialiseUniformdBuffer : public FRHICommand<FMetalRHICommandInitialiseUniformdBuffer>
+{
+	TRefCountPtr<FMetalUniformBuffer> Buffer;
+	
+	FORCEINLINE_DEBUGGABLE FMetalRHICommandInitialiseUniformdBuffer(FMetalUniformBuffer* InBuffer)
+	: Buffer(InBuffer)
+	{
+	}
+	
+	virtual ~FMetalRHICommandInitialiseUniformdBuffer()
+	{
+	}
+	
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		if (Buffer->CPUBuffer)
+		{
+			GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(Buffer->CPUBuffer, 0, Buffer->Buffer, 0, Buffer->Buffer.GetLength());
+			LLM_SCOPE(ELLMTag::VertexBuffer);
+			SafeReleaseMetalBuffer(Buffer->CPUBuffer);
+		}
+		else if (GMetalBufferZeroFill)
+		{
+			GetMetalDeviceContext().FillBuffer(Buffer->Buffer, ns::Range(0, Buffer->Buffer.GetLength()), 0);
+		}
+	}
+};
+
+static EBufferUsageFlags MetalUniformBufferUsage(uint32 Size, EUniformBufferUsage InUsage)
+{
+	EBufferUsageFlags Result = (!(InUsage & UniformBuffer_SingleDraw) && Size >= MetalBufferBytesSize && (IsInRHIThread() || IsInRenderingThread()) ? BUF_Static : BUF_Volatile);
+	return Result;
+}
+
 FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage InUsage)
 	: FRHIUniformBuffer(Layout)
-	, FMetalRHIBuffer(Layout.ConstantBufferSize, BUF_Volatile, RRT_UniformBuffer)
+	, FMetalRHIBuffer(Layout.ConstantBufferSize, MetalUniformBufferUsage(Layout.ConstantBufferSize, InUsage), RRT_UniformBuffer)
 {
 	if (Layout.ConstantBufferSize > 0)
 	{
 		UE_CLOG(Layout.ConstantBufferSize > 65536, LogMetal, Fatal, TEXT("Trying to allocated a uniform layout of size %d that is greater than the maximum permitted 64k."), Layout.ConstantBufferSize);
 		
-		void* Data = Lock(RLM_WriteOnly, 0);
-		FMemory::Memcpy(Data, Contents, Layout.ConstantBufferSize);
-		Unlock();
+		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+		if (!(InUsage & UniformBuffer_SingleDraw) && CPUBuffer && IsRunningRHIInSeparateThread() && !RHICmdList.Bypass() && !IsInRHIThread())
+		{
+			FMemory::Memcpy(CPUBuffer.GetContents(), Contents, Layout.ConstantBufferSize);
+
+#if PLATFORM_MAC
+			if(CPUBuffer.GetStorageMode() == mtlpp::StorageMode::Managed)
+			{
+				MTLPP_VALIDATE(mtlpp::Buffer, CPUBuffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, DidModify(ns::Range(0, GMetalBufferZeroFill ? CPUBuffer.GetLength() : Layout.ConstantBufferSize)));
+			}
+#endif
+
+			new (RHICmdList.AllocCommand<FMetalRHICommandInitialiseUniformdBuffer>()) FMetalRHICommandInitialiseUniformdBuffer(this);
+		}
+		else
+		{
+			void* Data = Lock(RLM_WriteOnly, 0);
+			FMemory::Memcpy(Data, Contents, Layout.ConstantBufferSize);
+			Unlock();
+		}
 	}
 
 	// set up an SRT-style uniform buffer

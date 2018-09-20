@@ -119,11 +119,6 @@ struct acp_hash_entry : public Pool<acp_hash_entry, 50>::Type
 	acp_entry* acp_entry;
 };
 
-unsigned acp_hash_table_pointer_hash(const void *key)
-{
-    return (unsigned)((uintptr_t)key >> 4);
-}
-
 struct acp_list : public Pool<acp_list, 50>::Type
 {
 	exec_list list;
@@ -142,7 +137,7 @@ public:
 		acp_list_pool.mem_ctx = imem_ctx;
 		
 		this->acp = new(mem_ctx)exec_list;
-		this->acp_ht = hash_table_ctor(1543, acp_hash_table_pointer_hash, hash_table_pointer_compare);
+		this->acp_ht = hash_table_ctor(1543, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 	}
 	
 	~acp_hash_table()

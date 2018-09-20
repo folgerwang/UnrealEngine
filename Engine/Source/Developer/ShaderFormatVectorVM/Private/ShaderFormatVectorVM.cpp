@@ -62,6 +62,11 @@ public:
 			check(0);
 		}
 	}
+
+	virtual const TCHAR* GetPlatformIncludeDirectory() const
+	{
+		return TEXT("");
+	}
 };
 
 /**

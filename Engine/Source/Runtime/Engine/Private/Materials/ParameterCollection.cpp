@@ -426,6 +426,10 @@ void UMaterialParameterCollection::CreateBufferStruct()
 	NextMemberOffset += VectorArraySize;
 	static FName LayoutName(TEXT("MaterialCollection"));
 	const uint32 StructSize = Align(NextMemberOffset,UNIFORM_BUFFER_STRUCT_ALIGNMENT);
+
+	// If Collections ever get non-numeric resources (eg Textures), OutEnvironment.ResourceTableMap has a map by name
+	// and the N ParameterCollection Uniform Buffers ALL are named "MaterialCollection" with different hashes!
+	// (and the hlsl cbuffers are named MaterialCollection0, etc, so the names don't match the layout)
 	UniformBufferStruct = MakeUnique<FUniformBufferStruct>(
 		LayoutName,
 		TEXT("MaterialCollection"),
@@ -723,6 +727,7 @@ void FMaterialParameterCollectionInstanceResource::UpdateContents(const FGuid& I
 	if (InId != FGuid() && Data.Num() > 0)
 	{
 		UniformBufferLayout.ConstantBufferSize = Data.GetTypeSize() * Data.Num();
+		UniformBufferLayout.ComputeHash();
 		check(UniformBufferLayout.Resources.Num() == 0);
 		UniformBuffer = RHICreateUniformBuffer(Data.GetData(), UniformBufferLayout, UniformBuffer_MultiFrame);
 	}

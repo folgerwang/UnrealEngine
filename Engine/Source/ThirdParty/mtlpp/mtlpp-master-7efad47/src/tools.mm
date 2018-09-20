@@ -99,7 +99,7 @@ namespace mtlpp
 {
 	static ns::String PlatformStandards[] = {
 		@"ios",
-		@"osx",
+		@"macos",
 		@"tvos",
 		@"watchos",
 	};
@@ -150,6 +150,9 @@ namespace mtlpp
 			ns::String Ver;
 			switch(options.GetLanguageVersion())
 			{
+				case LanguageVersion::Version2_1:
+					Ver = @"2.1";
+					break;
 				case LanguageVersion::Version2_0:
 					Ver = @"2.0";
 					break;
@@ -170,7 +173,7 @@ namespace mtlpp
 			ns::String Debug = options.KeepDebugInfo ? @"-gline-tables-only" : @"";
 			ns::String MinOS = options.MinOS[0] > 0 ? [NSString stringWithFormat:@"-m%@-version-min=%d.%d", PlatformNames[(int)options.Platform].GetPtr(), options.MinOS[0], options.MinOS[1]] : @"";
 
-			Task.arguments = @[ @"-sdk", PlatformNames[(int)options.Platform].GetPtr(), @"metal", Std.GetPtr(), Math.GetPtr(), Debug.GetPtr(), MinOS.GetPtr(), @"-Wno-null-character", @"-fbracket-depth=1024", source.GetPtr(), @"-o", output.GetPtr() ];
+			Task.arguments = @[ @"-sdk", PlatformNames[(int)options.Platform].GetPtr(), @"metal", Std.GetPtr(), Math.GetPtr(), Debug.GetPtr(), MinOS.GetPtr(), @"-c", @"-Wno-null-character", @"-fbracket-depth=1024", source.GetPtr(), @"-o", output.GetPtr() ];
 			
 			NSAutoReadPipe* StdOutPipe = [[NSAutoReadPipe new] autorelease];
 			[Task setStandardOutput: (id)[StdOutPipe Pipe]];

@@ -78,6 +78,7 @@ void UEnumProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, v
 
 	if (Enum && UnderlyingArchive.UseToResolveEnumerators())
 	{
+		Slot.EnterStream();
 		int64 IntValue = UnderlyingProp->GetSignedIntPropertyValue(Value);
 		int64 ResolvedIndex = Enum->ResolveEnumerator(UnderlyingArchive, IntValue);
 		UnderlyingProp->SetIntPropertyValue(Value, ResolvedIndex);

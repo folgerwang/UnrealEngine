@@ -941,17 +941,8 @@ namespace OculusHMD
 		const FHMDViewMesh& Mesh = MeshAssets[MeshIndex];
 		check(Mesh.IsValid());
 
-		DrawIndexedPrimitiveUP(
-			RHICmdList,
-			PT_TriangleList,
-			0,
-			Mesh.NumVertices,
-			Mesh.NumTriangles,
-			Mesh.pIndices,
-			sizeof(Mesh.pIndices[0]),
-			Mesh.pVertices,
-			sizeof(Mesh.pVertices[0])
-		);
+		RHICmdList.SetStreamSource(0, Mesh.VertexBufferRHI, 0);
+		RHICmdList.DrawIndexedPrimitive(Mesh.IndexBufferRHI, PT_TriangleList, 0, 0, Mesh.NumVertices, 0, Mesh.NumTriangles, 1);
 	}
 
 
@@ -2113,16 +2104,22 @@ namespace OculusHMD
 			return;
 		}
 
-		Mesh.pVertices = new FFilterVertex[VertexCount];
+		FRHIResourceCreateInfo CreateInfo;
+		Mesh.VertexBufferRHI = RHICreateVertexBuffer(sizeof(FFilterVertex) * VertexCount, BUF_Static, CreateInfo);
+		void* VoidPtr = RHILockVertexBuffer(Mesh.VertexBufferRHI, 0, sizeof(FFilterVertex) * VertexCount, RLM_WriteOnly);
+		FFilterVertex* pVertices = reinterpret_cast<FFilterVertex*>(VoidPtr);
+
+		Mesh.IndexBufferRHI = RHICreateIndexBuffer(sizeof(uint16), sizeof(uint16) * IndexCount, BUF_Static, CreateInfo);
+		void* VoidPtr2 = RHILockIndexBuffer(Mesh.IndexBufferRHI, 0, sizeof(uint16) * IndexCount, RLM_WriteOnly);
+		uint16* pIndices = reinterpret_cast<uint16*>(VoidPtr2);
+
 		ovrpVector2f* const ovrpVertices = new ovrpVector2f[VertexCount];
 
-		Mesh.pIndices = new uint16[IndexCount];
-
-		ovrp_GetViewportStencil(Eye, MeshType, ovrpVertices, &VertexCount, Mesh.pIndices, &IndexCount);
+		ovrp_GetViewportStencil(Eye, MeshType, ovrpVertices, &VertexCount, pIndices, &IndexCount);
 
 		for (int i = 0; i < VertexCount; ++i)
 		{
-			FFilterVertex& Vertex = Mesh.pVertices[i];
+			FFilterVertex& Vertex = pVertices[i];
 			CA_SUPPRESS(6385); //  warning C6385: Reading invalid data from 'ovrpVertices':  the readable size is 'VertexCount*8' bytes, but '16' bytes may be read
 			const ovrpVector2f& Position = ovrpVertices[i];
 			if (MeshType == ovrpViewportStencilType_HiddenArea)
@@ -2154,16 +2151,23 @@ namespace OculusHMD
 		Mesh.NumTriangles = IndexCount / 3;
 
 		delete [] ovrpVertices;
+
+		RHIUnlockVertexBuffer(Mesh.VertexBufferRHI);
+		RHIUnlockIndexBuffer(Mesh.IndexBufferRHI);
 	}
 
 	void FOculusHMD::SetupOcclusionMeshes()
 	{
 		CheckInGameThread();
 
-		BuildOcclusionMesh(HiddenAreaMeshes[0], ovrpEye_Left, ovrpViewportStencilType_HiddenArea);
-		BuildOcclusionMesh(HiddenAreaMeshes[1], ovrpEye_Right, ovrpViewportStencilType_HiddenArea);
-		BuildOcclusionMesh(VisibleAreaMeshes[0], ovrpEye_Left, ovrpViewportStencilType_VisibleArea);
-		BuildOcclusionMesh(VisibleAreaMeshes[1], ovrpEye_Right, ovrpViewportStencilType_VisibleArea);
+		FOculusHMD* const Self = this;
+		ENQUEUE_RENDER_COMMAND(SetupOcclusionMeshesCmd)([Self](FRHICommandListImmediate& RHICmdList)
+		{
+			BuildOcclusionMesh(Self->HiddenAreaMeshes[0], ovrpEye_Left, ovrpViewportStencilType_HiddenArea);
+			BuildOcclusionMesh(Self->HiddenAreaMeshes[1], ovrpEye_Right, ovrpViewportStencilType_HiddenArea);
+			BuildOcclusionMesh(Self->VisibleAreaMeshes[0], ovrpEye_Left, ovrpViewportStencilType_VisibleArea);
+			BuildOcclusionMesh(Self->VisibleAreaMeshes[1], ovrpEye_Right, ovrpViewportStencilType_VisibleArea);
+		});
 	}
 
 

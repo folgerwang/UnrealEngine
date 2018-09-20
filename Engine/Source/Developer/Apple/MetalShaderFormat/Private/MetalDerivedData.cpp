@@ -33,6 +33,7 @@ extern void BuildMetalShaderOutput(
 	FShaderCompilerOutput& ShaderOutput,
 	const FShaderCompilerInput& ShaderInput,
 	FSHAHash const& GUIDHash,
+	uint32 CCFlags,
 	const ANSICHAR* InShaderSource,
 	uint32 SourceLen,
 	uint32 SourceCRCLen,
@@ -437,7 +438,7 @@ bool FMetalShaderOutputCooker::Build(TArray<uint8>& OutData)
 	if (Result != 0)
 	{
 		Output.Target = Input.Target;
-		BuildMetalShaderOutput(Output, Input, GUIDHash, MetalShaderSource, SourceLen, CRCLen, CRC, VersionEnum, *Standard, *MinOSVersion, TypeMode, Output.Errors, Attribs, MetalBackEnd.TypedBuffers, MetalBackEnd.InvariantBuffers, MetalBackEnd.TypedUAVs, MetalBackEnd.ConstantBuffers, MetalBackEnd.TypedBufferFormats, bAllowFastIntriniscs);
+		BuildMetalShaderOutput(Output, Input, GUIDHash, CCFlags, MetalShaderSource, SourceLen, CRCLen, CRC, VersionEnum, *Standard, *MinOSVersion, TypeMode, Output.Errors, Attribs, MetalBackEnd.TypedBuffers, MetalBackEnd.InvariantBuffers, MetalBackEnd.TypedUAVs, MetalBackEnd.ConstantBuffers, MetalBackEnd.TypedBufferFormats, bAllowFastIntriniscs);
 
 		FMemoryWriter Ar(OutData);
 		Ar << Output;

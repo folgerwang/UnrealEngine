@@ -26,29 +26,59 @@ static TAutoConsoleVariable<int32> CVarVTMaskedPageTableUpdates(
 	);
 
 
-FVirtualTextureSpace::FVirtualTextureSpace( uint32 InSize, uint8 InDimensions, EPixelFormat InFormat, FTexturePagePool* InPool )
+FVirtualTextureSpace::FVirtualTextureSpace(const FVirtualTextureSpaceDesc& desc)
 	: ID( 0xff )
-	, Dimensions( InDimensions )
-	, Pool( InPool )
-	, Allocator( InSize, InDimensions )
+	, Dimensions( desc.Dimensions )
+	, Allocator( desc.Size, desc.Dimensions)
+	, bForceEntireUpdate(false)
 {
-	PageTableSize = InSize;
-	PageTableLevels = FMath::FloorLog2( PageTableSize ) + 1;
-	PageTableFormat = InFormat;
+	Pool = new FTexturePagePool(desc.Poolsize * desc.Poolsize, desc.Dimensions);
+	PhysicalTextureSize = FIntPoint(desc.Poolsize * desc.PhysicalTileSize, desc.Poolsize * desc.PhysicalTileSize);
+	FMemory::Memcpy(PhysicalTextureFormats, desc.PhysicalTextureFormats, sizeof(EPixelFormat) * VIRTUALTEXTURESPACE_MAXLAYERS);
 
-	GVirtualTextureSystem.RegisterSpace( this );
+	PageTableSize = desc.Size;
+	PageTableLevels = FMath::FloorLog2( PageTableSize ) + 1;
+	PageTableFormat = desc.PageTableFormat;
+
+	GetVirtualTextureSystem()->RegisterSpace( this );
 }
 
 FVirtualTextureSpace::~FVirtualTextureSpace()
 {
-	GVirtualTextureSystem.UnregisterSpace( this );
+	delete Pool;
+	Pool = nullptr;
+
+	GetVirtualTextureSystem()->UnregisterSpace( this );
 }
 
 void FVirtualTextureSpace::InitDynamicRHI()
 {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	const TCHAR* DebugNames[VIRTUALTEXTURESPACE_MAXLAYERS] =
+	{
+		TEXT("PhysicalTexture_0"),
+		TEXT("PhysicalTexture_1"),
+		TEXT("PhysicalTexture_2"),
+		TEXT("PhysicalTexture_3"),
+	};
+
+	for (uint32 i = 0; i < VIRTUALTEXTURESPACE_MAXLAYERS; ++i)
+	{
+		if (PhysicalTextureFormats[i] == PF_Unknown)
+		{
+			continue;
+		}
+
+		FPooledRenderTargetDesc Desc = FPooledRenderTargetDesc::Create2DDesc(PhysicalTextureSize, PhysicalTextureFormats[i], FClearValueBinding::None,
+			TexCreate_None, TexCreate_ShaderResource, false);
+
+		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, PhysicalTextures[i], DebugNames[i]);
+	}
+
+
 	{
 		// Page Table
-		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
 		FPooledRenderTargetDesc Desc( FPooledRenderTargetDesc::Create2DDesc( FIntPoint( PageTableSize, PageTableSize ), PageTableFormat, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource, false, PageTableLevels ) );
 		GRenderTargetPool.FindFreeElement( RHICmdList, Desc, PageTable, TEXT("PageTable") );
 	}
@@ -71,6 +101,11 @@ void FVirtualTextureSpace::InitDynamicRHI()
 
 void FVirtualTextureSpace::ReleaseDynamicRHI()
 {
+	for (uint32 i = 0; i < VIRTUALTEXTURESPACE_MAXLAYERS; ++i)
+	{
+		GRenderTargetPool.FreeUnusedResource(PhysicalTextures[i]);
+	}
+
 	GRenderTargetPool.FreeUnusedResource( PageTable );
 
 	UpdateBuffer.SafeRelease();
@@ -190,14 +225,19 @@ IMPLEMENT_SHADER_TYPE( template<>, TPageTableUpdateVS<1>, TEXT("/Engine/Private/
 IMPLEMENT_SHADER_TYPE( template<>, TPageTableUpdatePS<0>, TEXT("/Engine/Private/PageTableUpdate.usf"), TEXT("PageTableUpdatePS"), SF_Pixel );
 IMPLEMENT_SHADER_TYPE( template<>, TPageTableUpdatePS<1>, TEXT("/Engine/Private/PageTableUpdate.usf"), TEXT("PageTableUpdatePS"), SF_Pixel );
 
+void FVirtualTextureSpace::QueueUpdateEntirePageTable()
+{
+	bForceEntireUpdate = true;
+}
 
 void FVirtualTextureSpace::ApplyUpdates( FRHICommandList& RHICmdList )
 {
 	static TArray< FPageTableUpdate > ExpandedUpdates[16];
 
-	if( CVarVTRefreshEntirePageTable.GetValueOnRenderThread() )
+	if( bForceEntireUpdate ||  CVarVTRefreshEntirePageTable.GetValueOnRenderThread() )
 	{
 		Pool->RefreshEntirePageTable( ID, ExpandedUpdates );
+		bForceEntireUpdate = false;
 	}
 	else
 	{

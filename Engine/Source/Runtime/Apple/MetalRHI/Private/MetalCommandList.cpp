@@ -20,6 +20,8 @@ extern bool GIsSuspended;
 
 FMetalCommandList::FMetalCommandList(FMetalCommandQueue& InCommandQueue, bool const bInImmediate)
 : CommandQueue(InCommandQueue)
+, Index(0)
+, Num(0)
 , bImmediate(bInImmediate)
 {
 }
@@ -63,11 +65,9 @@ static void ReportMetalCommandBufferFailure(mtlpp::CommandBuffer const& Complete
 		UE_LOG(LogMetal, Warning, TEXT("%s"), *FString(Desc));
 	}
 	
-    if (bDoCheck
 #if PLATFORM_IOS
-        && !GIsSuspended && !GIsRenderingThreadSuspended
+    if (bDoCheck && !GIsSuspended && !GIsRenderingThreadSuspended)
 #endif
-        )
     {
 		UE_LOG(LogMetal, Fatal, TEXT("Command Buffer %s Failed with %s Error! Error Domain: %s Code: %d Description %s %s %s"), *LabelString, ErrorType, *DomainString, Code, *ErrorString, *FailureString, *RecoveryString);
     }
@@ -186,11 +186,20 @@ void FMetalCommandList::HandleMetalCommandBufferFailure(mtlpp::CommandBuffer con
 	}
 }
 
-void FMetalCommandList::Commit(mtlpp::CommandBuffer& Buffer, TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers, bool const bWait)
+void FMetalCommandList::SetParallelIndex(uint32 InIndex, uint32 InNum)
+{
+	if (!IsImmediate())
+	{
+		Index = InIndex;
+		Num = InNum;
+	}
+}
+
+void FMetalCommandList::Commit(mtlpp::CommandBuffer& Buffer, TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers, bool const bWait, bool const bIsLastCommandBuffer)
 {
 	check(Buffer);
 	
-	Buffer.AddCompletedHandler([CompletionHandlers](mtlpp::CommandBuffer const& CompletedBuffer)
+	Buffer.AddCompletedHandler([CompletionHandlers, bIsLastCommandBuffer](mtlpp::CommandBuffer const& CompletedBuffer)
 	{
 		if (CompletedBuffer.GetStatus() == mtlpp::CommandBufferStatus::Error)
 		{
@@ -203,10 +212,17 @@ void FMetalCommandList::Commit(mtlpp::CommandBuffer& Buffer, TArray<ns::Object<m
 				Handler.GetPtr()(CompletedBuffer);
 			}
 		}
+		
+		FMetalGPUProfiler::RecordCommandBuffer(CompletedBuffer);
+		
+		// The final command buffer in a frame will publish its frame
+		// stats and reset the counters for the next frame.
+		if(bIsLastCommandBuffer)
+		{
+			FMetalGPUProfiler::RecordFrame();
+		}
 	});
-    
-    FMetalGPUProfiler::RecordCommandBuffer(Buffer);
-    
+
 	if (bImmediate)
 	{
 		CommandQueue.CommitCommandBuffer(Buffer);
@@ -222,12 +238,12 @@ void FMetalCommandList::Commit(mtlpp::CommandBuffer& Buffer, TArray<ns::Object<m
 	}
 }
 
-void FMetalCommandList::Submit(uint32 Index, uint32 Count)
+void FMetalCommandList::Submit(uint32 InIndex, uint32 Count)
 {
 	// Only deferred contexts should call Submit, the immediate context commits directly to the command-queue.
 	check(!bImmediate);
 
 	// Command queue takes ownership of the array
-	CommandQueue.SubmitCommandBuffers(SubmittedBuffers, Index, Count);
+	CommandQueue.SubmitCommandBuffers(SubmittedBuffers, InIndex, Count);
 	SubmittedBuffers.Empty();
 }

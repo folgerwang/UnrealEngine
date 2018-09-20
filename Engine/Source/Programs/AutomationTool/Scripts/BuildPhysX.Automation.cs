@@ -788,7 +788,7 @@ class BuildPhysX : BuildCommand
 		return null;
 	}
 
-	private static string RemoveOtherMakeFromPath(string WindowsPath)
+	private static string RemoveOtherMakeAndCygwinFromPath(string WindowsPath)
 	{
 		string[] PathComponents = WindowsPath.Split(';');
 		string NewPath = "";
@@ -797,7 +797,7 @@ class BuildPhysX : BuildCommand
 			// everything what contains /bin or /sbin is suspicious, check if it has make in it
 			if (PathComponent.Contains("\\bin") || PathComponent.Contains("/bin") || PathComponent.Contains("\\sbin") || PathComponent.Contains("/sbin"))
 			{
-				if (File.Exists(PathComponent + "/make.exe") || File.Exists(PathComponent + "make.exe"))
+				if (File.Exists(PathComponent + "/make.exe") || File.Exists(PathComponent + "make.exe") || File.Exists(PathComponent + "/cygwin1.dll"))
 				{
 					// gotcha!
 					LogInformation("Removing {0} from PATH since it contains possibly colliding make.exe", PathComponent);
@@ -832,7 +832,7 @@ class BuildPhysX : BuildCommand
 
 				string PrevPath = Environment.GetEnvironmentVariable("PATH");
 				// mixing bundled make and cygwin make is no good. Try to detect and remove cygwin paths.
-				string PathWithoutCygwin = RemoveOtherMakeFromPath(PrevPath);
+				string PathWithoutCygwin = RemoveOtherMakeAndCygwinFromPath(PrevPath);
 				Environment.SetEnvironmentVariable("PATH", CMakePath + ";" + MakePath + ";" + PathWithoutCygwin);
 				Environment.SetEnvironmentVariable("PATH", CMakePath + ";" + MakePath + ";" + Environment.GetEnvironmentVariable("PATH"));
 				LogInformation("set {0}={1}", "PATH", Environment.GetEnvironmentVariable("PATH"));

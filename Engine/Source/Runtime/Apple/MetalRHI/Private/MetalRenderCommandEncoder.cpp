@@ -37,6 +37,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+@interface FMetalDebugParallelRenderCommandEncoder : FApplePlatformObject
+{
+@public
+	TArray<FMetalRenderCommandEncoderDebugging> RenderEncoders;
+	MTLRenderPassDescriptor* RenderPassDesc;
+	id<MTLParallelRenderCommandEncoder> Inner;
+	FMetalCommandBufferDebugging Buffer;
+}
+-(id)initWithEncoder:(id<MTLParallelRenderCommandEncoder>)Encoder fromDescriptor:(MTLRenderPassDescriptor*)RenderPassDesc andCommandBuffer:(FMetalCommandBufferDebugging const&)Buffer;
+@end
+
 
 #if METAL_DEBUG_OPTIONS
 static NSString* GMetalDebugVertexShader = @"#include <metal_stdlib>\n"
@@ -105,6 +116,30 @@ static id <MTLRenderPipelineState> GetDebugVertexShaderState(id<MTLDevice> Devic
 	return State;
 }
 #endif
+
+@implementation FMetalDebugParallelRenderCommandEncoder
+
+APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugParallelRenderCommandEncoder)
+
+-(id)initWithEncoder:(id<MTLParallelRenderCommandEncoder>)Encoder fromDescriptor:(MTLRenderPassDescriptor*)Desc andCommandBuffer:(FMetalCommandBufferDebugging const&)SourceBuffer
+{
+	id Self = [super init];
+	if (Self)
+	{
+        Inner = Encoder;
+		Buffer = SourceBuffer;
+		RenderPassDesc = [Desc retain];
+	}
+	return Self;
+}
+
+-(void)dealloc
+{
+	[RenderPassDesc release];
+	[super dealloc];
+}
+
+@end
 
 @implementation FMetalDebugRenderCommandEncoder
 
@@ -197,7 +232,7 @@ FMetalRenderCommandEncoderDebugging::FMetalRenderCommandEncoderDebugging()
 	
 }
 FMetalRenderCommandEncoderDebugging::FMetalRenderCommandEncoderDebugging(mtlpp::RenderCommandEncoder& Encoder, mtlpp::RenderPassDescriptor const& Desc, FMetalCommandBufferDebugging& Buffer)
-: FMetalCommandEncoderDebugging((FMetalDebugCommandEncoder*)[[FMetalDebugRenderCommandEncoder alloc] initWithEncoder:Encoder.GetPtr() fromDescriptor:Desc.GetPtr() andCommandBuffer:Buffer])
+: FMetalCommandEncoderDebugging((FMetalDebugCommandEncoder*)[[[FMetalDebugRenderCommandEncoder alloc] initWithEncoder:Encoder.GetPtr() fromDescriptor:Desc.GetPtr() andCommandBuffer:Buffer] autorelease])
 {
 	Buffer.BeginRenderCommandEncoder([NSString stringWithFormat:@"Render: %@", Encoder.GetLabel().GetPtr()], Desc);
 	Encoder.SetAssociatedObject((void const*)&FMetalRenderCommandEncoderDebugging::Get, (FMetalCommandEncoderDebugging const&)*this);
@@ -952,5 +987,67 @@ void FMetalRenderCommandEncoderDebugging::EndEncoder()
 {
 	((FMetalDebugRenderCommandEncoder*)m_ptr)->Buffer.EndCommandEncoder();
 }
+
+FMetalParallelRenderCommandEncoderDebugging::FMetalParallelRenderCommandEncoderDebugging()
+{
+
+}
+
+FMetalParallelRenderCommandEncoderDebugging::FMetalParallelRenderCommandEncoderDebugging(mtlpp::ParallelRenderCommandEncoder& Encoder, mtlpp::RenderPassDescriptor const& Desc, FMetalCommandBufferDebugging& Buffer)
+: ns::Object<FMetalDebugParallelRenderCommandEncoder*>([[FMetalDebugParallelRenderCommandEncoder alloc] initWithEncoder:Encoder.GetPtr() fromDescriptor:Desc.GetPtr() andCommandBuffer:Buffer], ns::Ownership::Assign)
+{
+	Buffer.BeginRenderCommandEncoder([NSString stringWithFormat:@"ParallelRender: %@", Encoder.GetLabel().GetPtr()], Desc);
+	Encoder.SetAssociatedObject((void const*)&FMetalParallelRenderCommandEncoderDebugging::Get, *this);
+}
+
+FMetalParallelRenderCommandEncoderDebugging::FMetalParallelRenderCommandEncoderDebugging(FMetalDebugParallelRenderCommandEncoder* handle)
+: ns::Object<FMetalDebugParallelRenderCommandEncoder*>(handle)
+{
+
+}
+
+FMetalDebugParallelRenderCommandEncoder* FMetalParallelRenderCommandEncoderDebugging::Get(mtlpp::ParallelRenderCommandEncoder& Buffer)
+{
+	return Buffer.GetAssociatedObject<FMetalParallelRenderCommandEncoderDebugging>((void const*)&FMetalParallelRenderCommandEncoderDebugging::Get);
+}
+
+FMetalRenderCommandEncoderDebugging FMetalParallelRenderCommandEncoderDebugging::GetRenderCommandEncoderDebugger(mtlpp::RenderCommandEncoder& Encoder)
+{
+	mtlpp::RenderPassDescriptor Desc(m_ptr->RenderPassDesc);
+	FMetalCommandBufferDebugging IndirectBuffer([[FMetalDebugCommandBuffer alloc] initWithCommandBuffer:m_ptr->Buffer.GetPtr()->InnerBuffer]);
+	FMetalRenderCommandEncoderDebugging EncoderDebugging(Encoder, Desc, IndirectBuffer);
+	m_ptr->RenderEncoders.Add(EncoderDebugging);
+	return EncoderDebugging;
+}
+
+void FMetalParallelRenderCommandEncoderDebugging::InsertDebugSignpost(ns::String const& Label)
+{
+	m_ptr->Buffer.InsertDebugSignpost(Label);
+}
+
+void FMetalParallelRenderCommandEncoderDebugging::PushDebugGroup(ns::String const& Group)
+{
+    m_ptr->Buffer.PushDebugGroup(Group);
+}
+
+void FMetalParallelRenderCommandEncoderDebugging::PopDebugGroup()
+{
+    m_ptr->Buffer.PopDebugGroup();
+}
+
+void FMetalParallelRenderCommandEncoderDebugging::EndEncoder()
+{
+	FMetalDebugCommandBuffer* CommandBuffer = m_ptr->Buffer.GetPtr();
+	for (FMetalRenderCommandEncoderDebugging& EncoderDebug : m_ptr->RenderEncoders)
+	{
+		FMetalDebugCommandBuffer* CmdBuffer = ((FMetalDebugRenderCommandEncoder*)EncoderDebug.GetPtr())->Buffer.GetPtr();
+		[CommandBuffer->DebugGroup addObjectsFromArray:CmdBuffer->DebugGroup];
+		CommandBuffer->Resources.Append(CmdBuffer->Resources);
+		CommandBuffer->States.Append(CmdBuffer->States);
+		CommandBuffer->DebugCommands.Append(CmdBuffer->DebugCommands);
+	}
+	m_ptr->Buffer.EndCommandEncoder();
+}
+
 #endif
 

@@ -339,13 +339,20 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 		// decal are distracting when looking at LightCulling.
 		bool bDoDecal = Context.View.Family->EngineShowFlags.Decals && !Context.View.Family->EngineShowFlags.VisualizeLightCulling;
 
-		// decals are before AmbientOcclusion so the decal can output a normal that AO is affected by
-		if (bDoDecal)
+		if (bDoDecal && IsUsingGBuffers(View.GetShaderPlatform()))
 		{
-			FRenderingCompositePass* Pass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessDeferredDecals(DRS_BeforeLighting));
-			Pass->SetInput(ePId_Input0, Context.FinalOutput);
+			// decals are before AmbientOcclusion so the decal can output a normal that AO is affected by
+			FRenderingCompositePass* BeforeLightingPass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessDeferredDecals(DRS_BeforeLighting));
+			BeforeLightingPass->SetInput(ePId_Input0, Context.FinalOutput);
+			Context.FinalOutput = FRenderingCompositeOutputRef(BeforeLightingPass);
+		}
 
-			Context.FinalOutput = FRenderingCompositeOutputRef(Pass);
+		if (bDoDecal && !IsSimpleForwardShadingEnabled(View.GetShaderPlatform()))
+		{
+			// DBuffer decals with emissive component
+			FRenderingCompositePass* EmissivePass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessDeferredDecals(DRS_Emissive));
+			EmissivePass->SetInput(ePId_Input0, Context.FinalOutput);
+			Context.FinalOutput = FRenderingCompositeOutputRef(EmissivePass);
 		}
 
 		FRenderingCompositeOutputRef AmbientOcclusion;

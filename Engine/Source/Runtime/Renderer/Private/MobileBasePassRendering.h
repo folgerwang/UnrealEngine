@@ -243,10 +243,13 @@ public:
 		{
 			// MobileSkyReflectionValues.x == max sky cube mip.
 			// if >0 this will disable shader's RGBM decoding and enable sky light tinting of this envmap.
-			FTexture* ReflectionTexture;
+			FTexture* ReflectionTexture = GBlackTextureCube;
 			float AverageBrightness = 1.0f;
 			FVector4 MobileSkyReflectionValues(ForceInit);
-			GetSkyTextureParams(RenderScene, AverageBrightness, ReflectionTexture, MobileSkyReflectionValues.X);
+			if (View->GetFeatureLevel() > ERHIFeatureLevel::ES2) // not-supported on ES2 at the moment
+			{
+				GetSkyTextureParams(RenderScene, AverageBrightness, ReflectionTexture, MobileSkyReflectionValues.X);
+			}
 			FRHIPixelShader* PixelShader = GetPixelShader();
 			// Set the reflection cubemap
 			SetTextureParameter(RHICmdList, PixelShader, ReflectionCubemap, ReflectionSampler, ReflectionTexture);

@@ -184,6 +184,17 @@ UGameEngine::UGameEngine(const FObjectInitializer& ObjectInitializer)
 void UGameEngine::CreateGameViewportWidget( UGameViewportClient* GameViewportClient )
 {
 	bool bRenderDirectlyToWindow = (!StartupMovieCaptureHandle.IsValid() || IMovieSceneCaptureModule::Get().IsStereoAllowed()) && GIsDumpingMovie == 0;
+
+	// when we're running in a "device simulation" window, render the scene to an intermediate texture
+	// in the mobile device "emulation" case this is needed to properly position the viewport (as a widget) inside its bezel
+#if WITH_EDITOR
+	auto PIEPreviewDeviceModule = FModuleManager::LoadModulePtr<IPIEPreviewDeviceModule>("PIEPreviewDeviceProfileSelector");
+	if (PIEPreviewDeviceModule && FPIEPreviewDeviceModule::IsRequestingPreviewDevice())
+	{
+		bRenderDirectlyToWindow = false;
+	}
+#endif
+
 	const bool bStereoAllowed = bRenderDirectlyToWindow;
 	TSharedRef<SOverlay> ViewportOverlayWidgetRef = SNew( SOverlay );
 
@@ -528,7 +539,7 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 		Window = PIEPreviewDeviceModule->CreatePIEPreviewDeviceWindow(FVector2D(ResX, ResY), WindowTitle, AutoCenterType, FVector2D(WinX, WinY), MaxWindowWidth, MaxWindowHeight);
 	}
 #endif
-			
+
 	const bool bShowImmediately = false;
 
 	FSlateApplication::Get().AddWindow( Window, bShowImmediately );
@@ -554,6 +565,13 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 	{
 		Window->ShowWindow();
 	}
+
+#if WITH_EDITOR
+	if (PIEPreviewDeviceModule && FPIEPreviewDeviceModule::IsRequestingPreviewDevice())
+	{
+		PIEPreviewDeviceModule->PrepareDeviceDisplay();
+	}
+#endif
 
 	// Tick now to force a redraw of the window and ensure correct fullscreen application
 	FSlateApplication::Get().Tick();

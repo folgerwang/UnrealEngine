@@ -181,13 +181,14 @@ void FSkeletalMeshLODRenderData::InitResources(bool bNeedsVertexColors, int32 LO
 		MorphTargetVertexInfoBuffers.WorkItemsPerMorph.Empty(InMorphTargets.Num());
 		MorphTargetVertexInfoBuffers.MaximumValuePerMorph.Empty(InMorphTargets.Num());
 		MorphTargetVertexInfoBuffers.MinimumValuePerMorph.Empty(InMorphTargets.Num());
+		MorphTargetVertexInfoBuffers.NumSplitsPerMorph.Empty(InMorphTargets.Num());
 
 		uint32 MaxVertexIndex = 0;
 		// Populate the arrays to be filled in later in the render thread
 		for (int32 AnimIdx = 0; AnimIdx < InMorphTargets.Num(); ++AnimIdx)
 		{
 			uint32 StartOffset = MorphTargetVertexInfoBuffers.NumTotalWorkItems;
-			MorphTargetVertexInfoBuffers.StartOffsetPerMorph.Add(StartOffset);
+			MorphTargetVertexInfoBuffers.NumSplitsPerMorph.Add(0);
 
 			float MaximumValues[4] = { -FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX };
 			float MinimumValues[4] = { +FLT_MAX, +FLT_MAX, +FLT_MAX, +FLT_MAX };
@@ -222,9 +223,17 @@ void FSkeletalMeshLODRenderData::InitResources(bool bNeedsVertexColors, int32 LO
 				ensureMsgf(MinimumValues[0] > -32752.0f && MinimumValues[1] > -32752.0f && MinimumValues[2] > -32752.0f && MaximumValues[3] > -32752.0f, TEXT("Huge MorphTarget Delta found in %s at index %i, might break down because we use half float storage"), *MorphTarget->GetName(), AnimIdx);
 			}
 
-			MorphTargetVertexInfoBuffers.WorkItemsPerMorph.Add(MorphTargetSize);
-			MorphTargetVertexInfoBuffers.MaximumValuePerMorph.Add(FVector4(MaximumValues[0], MaximumValues[1], MaximumValues[2], MaximumValues[3]));
-			MorphTargetVertexInfoBuffers.MinimumValuePerMorph.Add(FVector4(MinimumValues[0], MinimumValues[1], MinimumValues[2], MinimumValues[3]));
+			do 
+			{
+				MorphTargetVertexInfoBuffers.StartOffsetPerMorph.Add(StartOffset);
+				MorphTargetVertexInfoBuffers.WorkItemsPerMorph.Add((MorphTargetSize <= FMorphTargetVertexInfoBuffers::GetMaximumThreadGroupSize()) ? MorphTargetSize : FMorphTargetVertexInfoBuffers::GetMaximumThreadGroupSize());
+				MorphTargetVertexInfoBuffers.MaximumValuePerMorph.Add(FVector4(MaximumValues[0], MaximumValues[1], MaximumValues[2], MaximumValues[3]));
+				MorphTargetVertexInfoBuffers.MinimumValuePerMorph.Add(FVector4(MinimumValues[0], MinimumValues[1], MinimumValues[2], MinimumValues[3]));
+				MorphTargetVertexInfoBuffers.NumSplitsPerMorph[AnimIdx]++;
+
+				MorphTargetSize = (MorphTargetSize > FMorphTargetVertexInfoBuffers::GetMaximumThreadGroupSize()) ? MorphTargetSize - FMorphTargetVertexInfoBuffers::GetMaximumThreadGroupSize() : 0;
+				StartOffset += FMorphTargetVertexInfoBuffers::GetMaximumThreadGroupSize();
+			} while (MorphTargetSize > 0);
 		}
 
 		//this block recomputes morph target permutations. And build a rule set to efficiently compute their accumulated weights using as few additions as possible.

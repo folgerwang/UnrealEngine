@@ -63,26 +63,31 @@ enum EDecalBlendMode
 {
 	/** Blend full material, updating the GBuffer, does not work for baked lighting. */
 	DBM_Translucent UMETA(DisplayName="Translucent"),
-	/** Modulate BaseColor, blend rest, updating the GBuffer, does not work for baked lighting. */
+	/** Modulate BaseColor, blend rest, updating the GBuffer, does not work for baked lighting. Does not work in DBuffer mode (approximated as Translucent). */
 	DBM_Stain UMETA(DisplayName="Stain"),
 	/** Only blend normal, updating the GBuffer, does not work for baked lighting. */
 	DBM_Normal UMETA(DisplayName="Normal"),
 	/** Additive emissive only. */
 	DBM_Emissive UMETA(DisplayName="Emissive"),
-	/** Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_TranslucentNormal if normal is not hooked up). */
+	/** Put into DBuffer to work for baked lighting as well (becomes DBM_TranslucentNormal if normal is not hooked up). */
 	DBM_DBuffer_ColorNormalRoughness UMETA(DisplayName="DBuffer Translucent Color,Normal,Roughness"),
-	/** Non metal, put into DBuffer to work for baked lighting as well. */
+	/** Put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_Color UMETA(DisplayName="DBuffer Translucent Color"),
-	/** Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Color if normal is not hooked up). */
+	/** Put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Color if normal is not hooked up). */
 	DBM_DBuffer_ColorNormal UMETA(DisplayName="DBuffer Translucent Color,Normal"),
-	/** Non metal, put into DBuffer to work for baked lighting as well. */
+	/** Put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_ColorRoughness UMETA(DisplayName="DBuffer Translucent Color,Roughness"),
-	/** Non metal, put into DBuffer to work for baked lighting as well. */
+	/** Put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_Normal UMETA(DisplayName="DBuffer Translucent Normal"),
-	/** Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Roughness if normal is not hooked up). */
+	/** Put into DBuffer to work for baked lighting as well (becomes DBM_DBuffer_Roughness if normal is not hooked up). */
 	DBM_DBuffer_NormalRoughness UMETA(DisplayName="DBuffer Translucent Normal,Roughness"),
-	/** Non metal, put into DBuffer to work for baked lighting as well. */
+	/** Put into DBuffer to work for baked lighting as well. */
 	DBM_DBuffer_Roughness UMETA(DisplayName="DBuffer Translucent Roughness"),
+
+	/** Internal DBffer decal blend modes used for auto-converted decals */
+	DBM_DBuffer_Emissive UMETA(DisplayName = "DBuffer Emissive", Hidden),
+	DBM_DBuffer_AlphaComposite UMETA(DisplayName = "DBuffer AlphaComposite (Premultiplied Alpha)", Hidden),
+	DBM_DBuffer_EmissiveAlphaComposite UMETA(DisplayName = "DBuffer Emissive AlphaComposite (Premultiplied Alpha)", Hidden),
 
 	/** Output signed distance in Opacity depending on LightVector. Note: Can be costly, no shadow casting but receiving, no per pixel normal yet, no quality settings yet */
 	DBM_Volumetric_DistanceFunction UMETA(DisplayName="Volumetric Distance Function (experimental)"),
@@ -107,6 +112,9 @@ inline bool IsDBufferDecalBlendMode(EDecalBlendMode In)
 		case DBM_DBuffer_Normal:
 		case DBM_DBuffer_NormalRoughness:
 		case DBM_DBuffer_Roughness:
+		case DBM_DBuffer_Emissive:
+		case DBM_DBuffer_AlphaComposite:
+		case DBM_DBuffer_EmissiveAlphaComposite:
 			return true;
 	}
 
@@ -1625,6 +1633,7 @@ public:
 	ENGINE_API virtual void SaveShaderStableKeysInner(const class ITargetPlatform* TP, const struct FStableShaderKeyAndValue& SaveKeyVal) override;
 
 	bool HasNormalConnected() const { return Normal.IsConnected(); }
+	bool HasEmissiveColorConnected() const { return EmissiveColor.IsConnected(); }
 
 	static void NotifyCompilationFinished(UMaterialInterface* Material);
 

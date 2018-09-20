@@ -100,6 +100,14 @@ struct FNiagaraComputeExecutionContext
 	{
 	}
 
+	~FNiagaraComputeExecutionContext()
+	{
+		if (GPUDataReadback)
+		{
+			delete GPUDataReadback;
+		}
+	}
+
 	void Reset()
 	{
 		AccumulatedSpawnRate = 0;

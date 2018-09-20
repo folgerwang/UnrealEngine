@@ -9,6 +9,9 @@
 #include "RendererModule.h"
 #include "ScenePrivate.h"
 #include "ParameterCollection.h"
+#include "VT/VirtualTextureTest.h"
+#include "VT/VirtualTextureSpace.h"
+#include "VT/VirtualTextureSystem.h"
 
 /** If true, cached uniform expressions are allowed. */
 int32 FMaterialShader::bAllowCachedUniformExpressions = true;
@@ -377,6 +380,11 @@ bool FMaterialShader::Serialize(FArchive& Ar)
 		Ar << DebugUniformExpressionUBLayout.Resources;
 	}
 	Ar << DebugDescription;
+	Ar << VTFeedbackBuffer;
+	Ar << PhysicalTexture;
+	Ar << PhysicalTextureSampler;
+	Ar << PageTable;
+	Ar << PageTableSampler;
 
 	Ar << InstanceCount;
 	Ar << InstanceOffset;

@@ -4,27 +4,10 @@
 #include "OneColorShader.h"
 #include "PipelineStateCache.h"
 #include "RHIStaticStates.h"
+#include "RenderUtils.h"
+#include "ClearQuad.h"
 
 IMPLEMENT_SHADER_TYPE(, FLongGPUTaskPS, TEXT("/Engine/Private/OneColorShader.usf"), TEXT("MainLongGPUTask"), SF_Pixel);
-
-/** Vertex declaration for just one FVector4 position. */
-class FVector4VertexDeclaration : public FRenderResource
-{
-public:
-	FVertexDeclarationRHIRef VertexDeclarationRHI;
-	virtual void InitRHI() override
-	{
-		FVertexDeclarationElementList Elements;
-		Elements.Add(FVertexElement(0, 0, VET_Float4, 0, sizeof(FVector4)));
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
-	}
-	virtual void ReleaseRHI() override
-	{
-		VertexDeclarationRHI.SafeRelease();
-	}
-};
-
-TGlobalResource<FVector4VertexDeclaration> GLongGPUTaskVector4VertexDeclaration;
 
 int32 NumMeasuredIterationsToAchieve100ms = 0;
 
@@ -52,19 +35,15 @@ void IssueScalableLongGPUTask(FRHICommandListImmediate& RHICmdList, int32 NumIte
 	TShaderMapRef<TOneColorVS<true>> VertexShader(ShaderMap);
 	TShaderMapRef<FLongGPUTaskPS> PixelShader(ShaderMap);
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GLongGPUTaskVector4VertexDeclaration.VertexDeclarationRHI;
+	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = VertexShader->GetVertexShader();
 	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = PixelShader->GetPixelShader();
 	GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
 
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+	VertexShader->SetDepthParameter(RHICmdList, 0.0f);
 
-	FVector4 Vertices[4];
-	Vertices[0].Set(-1.0f, 1.0f, 0, 1.0f);
-	Vertices[1].Set(1.0f, 1.0f, 0, 1.0f);
-	Vertices[2].Set(-1.0f, -1.0f, 0, 1.0f);
-	Vertices[3].Set(1.0f, -1.0f, 0, 1.0f);
-
+	RHICmdList.SetStreamSource(0, GClearVertexBuffer.VertexBufferRHI, 0);
 	if (NumIteration == -1)
 	{
 		// Use the measured number of iterations to achieve 100ms
@@ -93,7 +72,7 @@ void IssueScalableLongGPUTask(FRHICommandListImmediate& RHICmdList, int32 NumIte
 
 	for (int32 Iteration = 0; Iteration < NumIteration; Iteration++)
 	{
-		DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+		RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 	}
 }
 

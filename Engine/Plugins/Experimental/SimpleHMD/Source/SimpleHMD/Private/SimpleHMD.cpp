@@ -200,10 +200,24 @@ void FSimpleHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePassC
 		{ FVector2D(0.1f, 0.9f), FVector2D(0.5f, 0.0f), FVector2D(0.5f, 0.0f), FVector2D(0.5f, 0.0f), 1.0f, 0.0f },
 	};
 
+	FRHIResourceCreateInfo CreateInfo;
+	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FDistortionVertex) * 8, BUF_Volatile, CreateInfo);
+	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FDistortionVertex) * 8, RLM_WriteOnly);
+	FPlatformMemory::Memcpy(VoidPtr, Verts, sizeof(FDistortionVertex) * 8);
+	RHIUnlockVertexBuffer(VertexBufferRHI);
+
 	static const uint16 Indices[12] = { /*Left*/ 0, 1, 2, 0, 2, 3, /*Right*/ 4, 5, 6, 4, 6, 7 };
 
-	DrawIndexedPrimitiveUP(Context.RHICmdList, PT_TriangleList, 0, NumVerts, NumTris, &Indices,
-		sizeof(Indices[0]), &Verts, sizeof(Verts[0]));
+	FIndexBufferRHIRef IndexBufferRHI = RHICreateIndexBuffer(sizeof(uint16), sizeof(uint16) * 12, BUF_Volatile, CreateInfo);
+	void* VoidPtr2 = RHILockIndexBuffer(IndexBufferRHI, 0, sizeof(uint16) * 12, RLM_WriteOnly);
+	FPlatformMemory::Memcpy(VoidPtr2, Indices, sizeof(uint16) * 12);
+	RHIUnlockIndexBuffer(IndexBufferRHI);
+
+	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+	RHICmdList.DrawIndexedPrimitive(IndexBufferRHI, PT_TriangleList, 0, 0, NumVerts, 0, NumTris, 1);
+
+	IndexBufferRHI.SafeRelease();
+	VertexBufferRHI.SafeRelease();
 }
 
 bool FSimpleHMD::IsStereoEnabled() const

@@ -9,7 +9,6 @@
 
 #include "MetalRenderPass.h"
 #include "MetalCommandBuffer.h"
-#include "ShaderCache.h"
 #include "MetalProfiler.h"
 
 #pragma mark - Private Console Variables -
@@ -31,6 +30,12 @@ static FAutoConsoleVariableRef CVarMetalTessellationRunDomainStage(
 	TEXT("rhi.Metal.RunDomainStage"),
 	GMetalTessellationRunDomainStage,
 	TEXT("Whether to run the DS+PS domain stage when performing tessellated draw calls in Metal or not. (Default: 1)"));
+
+static int32 GMetalDeferRenderPasses = 1;
+static FAutoConsoleVariableRef CVarMetalDeferRenderPasses(
+	TEXT("rhi.Metal.DeferRenderPasses"),
+	GMetalDeferRenderPasses,
+	TEXT("Whether to defer creating render command encoders. (Default: 1)"));
 
 #pragma mark - Public C++ Boilerplate -
 
@@ -57,13 +62,14 @@ FMetalRenderPass::~FMetalRenderPass(void)
 
 void FMetalRenderPass::Begin(mtlpp::Fence Fence)
 {
-	check(!CurrentEncoder.GetCommandBuffer());
-	check(!PrologueEncoder.GetCommandBuffer());
 	check(!PassStartFence.IsValid());
 	PassStartFence = Fence;
 	
-	CurrentEncoder.StartCommandBuffer();
-	check(CurrentEncoder.GetCommandBuffer());
+	if (!CmdList.IsParallel() && !CurrentEncoder.GetCommandBuffer())
+	{
+		CurrentEncoder.StartCommandBuffer();
+		check(CurrentEncoder.GetCommandBuffer());
+	}
 }
 
 void FMetalRenderPass::Wait(mtlpp::Fence Fence)
@@ -136,10 +142,36 @@ mtlpp::Fence FMetalRenderPass::Submit(EMetalSubmitFlags Flags)
 		CurrentEncoder.Reset();
 	}
 	
-	check((Flags & (EMetalSubmitFlagsCreateCommandBuffer|EMetalSubmitFlagsAsyncCommandBuffer)) || !CurrentEncoder.GetCommandBuffer());
-	check(!PrologueEncoder.GetCommandBuffer());
-	
 	return CurrentEncoderFence;
+}
+
+void FMetalRenderPass::BeginParallelRenderPass(mtlpp::RenderPassDescriptor RenderPass, uint32 NumParallelContextsInPass)
+{
+	check(!bWithinRenderPass);
+	check(!RenderPassDesc);
+	check(RenderPass);
+	check(CurrentEncoder.GetCommandBuffer());
+
+	if (!CurrentEncoder.GetParallelRenderCommandEncoder())
+	{
+		if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
+		{
+			PrologueEncoderFence = PrologueEncoder.EndEncoding();
+		}
+		if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
+		{
+			State.FlushVisibilityResults(CurrentEncoder);
+			CurrentEncoderFence = CurrentEncoder.EndEncoding();
+		}
+
+		CurrentEncoder.SetRenderPassDescriptor(RenderPass);
+
+		CurrentEncoder.BeginParallelRenderCommandEncoding(NumParallelContextsInPass);
+
+		RenderPassDesc = RenderPass;
+
+		bWithinRenderPass = true;
+	}
 }
 
 void FMetalRenderPass::BeginRenderPass(mtlpp::RenderPassDescriptor RenderPass)
@@ -147,8 +179,12 @@ void FMetalRenderPass::BeginRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 	check(!bWithinRenderPass);
 	check(!RenderPassDesc);
 	check(RenderPass);
-	check(CurrentEncoder.GetCommandBuffer());
 	check(!CurrentEncoder.IsRenderCommandEncoderActive());
+	if (!CmdList.IsParallel() && !CmdList.IsImmediate() && !CurrentEncoder.GetCommandBuffer())
+	{
+		CurrentEncoder.StartCommandBuffer();
+	}
+	check(CmdList.IsParallel() || CurrentEncoder.GetCommandBuffer());
 	
 	// EndEncoding should provide the encoder fence...
 	if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
@@ -166,24 +202,28 @@ void FMetalRenderPass::BeginRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 	RenderPassDesc = RenderPass;
 	
 	CurrentEncoder.SetRenderPassDescriptor(RenderPassDesc);
-	CurrentEncoder.BeginRenderCommandEncoding();
-	if (PassStartFence.IsValid())
+
+	if (!GMetalDeferRenderPasses || !State.CanRestartRenderPass() || CmdList.IsParallel())
 	{
-		CurrentEncoder.WaitForFence(PassStartFence);
+		CurrentEncoder.BeginRenderCommandEncoding();
+		if (PassStartFence.IsValid())
+		{
+			CurrentEncoder.WaitForFence(PassStartFence);
+		}
+		if (CurrentEncoderFence.IsValid())
+		{
+			CurrentEncoder.WaitForFence(CurrentEncoderFence);
+		}
+		if (PrologueEncoderFence.IsValid())
+		{
+			CurrentEncoder.WaitForFence(PrologueEncoderFence);
+		}
+		State.SetRenderStoreActions(CurrentEncoder, false);
+		check(CurrentEncoder.IsRenderCommandEncoderActive());
 	}
-	if (CurrentEncoderFence.IsValid())
-	{
-		CurrentEncoder.WaitForFence(CurrentEncoderFence);
-	}
-	if (PrologueEncoderFence.IsValid())
-	{
-		CurrentEncoder.WaitForFence(PrologueEncoderFence);
-	}
-	State.SetRenderStoreActions(CurrentEncoder, false);
 	
 	bWithinRenderPass = true;
 	
-	check(CurrentEncoder.IsRenderCommandEncoderActive());
 	check(!PrologueEncoder.IsBlitCommandEncoderActive() && !PrologueEncoder.IsComputeCommandEncoderActive());
 }
 
@@ -191,7 +231,7 @@ void FMetalRenderPass::RestartRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 {
 	check(bWithinRenderPass);
 	check(RenderPassDesc);
-	check(CurrentEncoder.GetCommandBuffer());
+	check(CmdList.IsParallel() || CurrentEncoder.GetCommandBuffer());
 	
 	mtlpp::RenderPassDescriptor StartDesc;
 	if (RenderPass != nil)
@@ -278,7 +318,7 @@ void FMetalRenderPass::RestartRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 	{
 		CurrentEncoder.WaitForFence(CurrentEncoderFence);
 	}
-	else
+	else if (PassStartFence.IsValid())
 	{
 		CurrentEncoder.WaitForFence(PassStartFence);
 	}
@@ -304,15 +344,12 @@ void FMetalRenderPass::DrawPrimitive(uint32 PrimitiveType, uint32 BaseVertexInde
 		PrepareToRender(PrimitiveType);
 	
 		// draw!
-		if(!FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
-		{
-			// how many verts to render
-			uint32 NumVertices = GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType);
-			
-			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, NumPrimitives, NumVertices, NumInstances));
-			CurrentEncoder.GetRenderCommandEncoder().Draw(TranslatePrimitiveType(PrimitiveType), BaseVertexIndex, NumVertices, NumInstances);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().Draw(TranslatePrimitiveType(PrimitiveType), BaseVertexIndex, NumVertices, NumInstances));
-		}
+		// how many verts to render
+		uint32 NumVertices = GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType);
+		
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, NumPrimitives, NumVertices, NumInstances));
+		CurrentEncoder.GetRenderCommandEncoder().Draw(TranslatePrimitiveType(PrimitiveType), BaseVertexIndex, NumVertices, NumInstances);
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().Draw(TranslatePrimitiveType(PrimitiveType), BaseVertexIndex, NumVertices, NumInstances));
 	}
 	else
 	{
@@ -332,12 +369,10 @@ void FMetalRenderPass::DrawPrimitiveIndirect(uint32 PrimitiveType, FMetalVertexB
 		
 		PrepareToRender(PrimitiveType);
 		
-		if(!FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
-		{
-			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, 1, 1, 1));
-			CurrentEncoder.GetRenderCommandEncoder().Draw(TranslatePrimitiveType(PrimitiveType), VertexBuffer->Buffer, ArgumentOffset);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().Draw(TranslatePrimitiveType(PrimitiveType), VertexBuffer->Buffer, ArgumentOffset));
-		}
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, 1, 1, 1));
+		CurrentEncoder.GetRenderCommandEncoder().Draw(TranslatePrimitiveType(PrimitiveType), VertexBuffer->Buffer, ArgumentOffset);
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().Draw(TranslatePrimitiveType(PrimitiveType), VertexBuffer->Buffer, ArgumentOffset));
+
 		ConditionalSubmit();
 	}
 	else
@@ -406,19 +441,16 @@ void FMetalRenderPass::DrawIndexedPrimitive(FMetalBuffer const& IndexBuffer, uin
 		
 		uint32 NumIndices = GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType);
 		
-		if(!FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, NumPrimitives, NumVertices, NumInstances));
+		if (GRHISupportsBaseVertexIndex && GRHISupportsFirstInstance)
 		{
-			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, NumPrimitives, NumVertices, NumInstances));
-			if (GRHISupportsBaseVertexIndex && GRHISupportsFirstInstance)
-			{
-				CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), NumIndices, ((IndexStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32), IndexBuffer, StartIndex * IndexStride, NumInstances, BaseVertexIndex, FirstInstance);
-				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().DrawIndexed(TranslatePrimitiveType(PrimitiveType), NumIndices, ((IndexStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32), IndexBuffer, StartIndex * IndexStride, NumInstances, BaseVertexIndex, FirstInstance));
-			}
-			else
-			{
-				CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), NumIndices, ((IndexStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32), IndexBuffer, StartIndex * IndexStride, NumInstances);
-				METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().DrawIndexed(TranslatePrimitiveType(PrimitiveType), NumIndices, ((IndexStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32), IndexBuffer, StartIndex * IndexStride, NumInstances));
-			}
+			CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), NumIndices, ((IndexStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32), IndexBuffer, StartIndex * IndexStride, NumInstances, BaseVertexIndex, FirstInstance);
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().DrawIndexed(TranslatePrimitiveType(PrimitiveType), NumIndices, ((IndexStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32), IndexBuffer, StartIndex * IndexStride, NumInstances, BaseVertexIndex, FirstInstance));
+		}
+		else
+		{
+			CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), NumIndices, ((IndexStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32), IndexBuffer, StartIndex * IndexStride, NumInstances);
+			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().DrawIndexed(TranslatePrimitiveType(PrimitiveType), NumIndices, ((IndexStride == 2) ? mtlpp::IndexType::UInt16 : mtlpp::IndexType::UInt32), IndexBuffer, StartIndex * IndexStride, NumInstances));
 		}
 	}
 	else
@@ -442,12 +474,10 @@ void FMetalRenderPass::DrawIndexedIndirect(FMetalIndexBuffer* IndexBuffer, uint3
 		// finalize any pending state
 		PrepareToRender(PrimitiveType);
 		
-		if(!FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
-		{
-			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, 1, 1, 1));
-			CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), (mtlpp::IndexType)IndexBuffer->IndexType, IndexBuffer->Buffer, 0, VertexBuffer->Buffer, (DrawArgumentsIndex * 5 * sizeof(uint32)));
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().DrawIndexed(TranslatePrimitiveType(PrimitiveType), (mtlpp::IndexType)IndexBuffer->IndexType, IndexBuffer->Buffer, 0, VertexBuffer->Buffer, (DrawArgumentsIndex * 5 * sizeof(uint32))));
-		}
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, 1, 1, 1));
+		CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), (mtlpp::IndexType)IndexBuffer->IndexType, IndexBuffer->Buffer, 0, VertexBuffer->Buffer, (DrawArgumentsIndex * 5 * sizeof(uint32)));
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().DrawIndexed(TranslatePrimitiveType(PrimitiveType), (mtlpp::IndexType)IndexBuffer->IndexType, IndexBuffer->Buffer, 0, VertexBuffer->Buffer, (DrawArgumentsIndex * 5 * sizeof(uint32))));
+
 		ConditionalSubmit();
 	}
 	else
@@ -466,12 +496,10 @@ void FMetalRenderPass::DrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FMetalI
 		
 		PrepareToRender(PrimitiveType);
 		
-		if(!FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
-		{
-			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, 1, 1, 1));
-			CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), (mtlpp::IndexType)IndexBuffer->IndexType, IndexBuffer->Buffer, 0, VertexBuffer->Buffer, ArgumentOffset);
-			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().DrawIndexed(TranslatePrimitiveType(PrimitiveType), (mtlpp::IndexType)IndexBuffer->IndexType, IndexBuffer->Buffer, 0, VertexBuffer->Buffer, ArgumentOffset));
-		}
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, 1, 1, 1));
+		CurrentEncoder.GetRenderCommandEncoder().DrawIndexed(TranslatePrimitiveType(PrimitiveType), (mtlpp::IndexType)IndexBuffer->IndexType, IndexBuffer->Buffer, 0, VertexBuffer->Buffer, ArgumentOffset);
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().DrawIndexed(TranslatePrimitiveType(PrimitiveType), (mtlpp::IndexType)IndexBuffer->IndexType, IndexBuffer->Buffer, 0, VertexBuffer->Buffer, ArgumentOffset));
+
 		ConditionalSubmit();
 	}
 	else
@@ -594,7 +622,7 @@ void FMetalRenderPass::DrawPatches(uint32 PrimitiveType,FMetalBuffer const& Inde
 		auto threadsPerThreadgroup = mtlpp::Size(boundShaderState->VertexShader->TessellationInputControlPoints * patchesPerThreadGroup, 1, 1);
 		
 		computeEncoder.SetStageInRegion(mtlpp::Region(BaseVertexIndex, FirstInstance, boundShaderState->VertexShader->TessellationInputControlPoints * NumPrimitives, NumInstances));
-		if(GMetalTessellationRunTessellationStage && !FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
+		if(GMetalTessellationRunTessellationStage)
 		{
 			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDispatch(PrologueEncoder.GetCommandBufferStats(), __FUNCTION__));
 			computeEncoder.DispatchThreadgroups(threadgroups, threadsPerThreadgroup);
@@ -609,7 +637,7 @@ void FMetalRenderPass::DrawPatches(uint32 PrimitiveType,FMetalBuffer const& Inde
 			renderEncoder.SetTessellationFactorBuffer(tessellationFactorBuffer, tessellationFactorsOffset, 0);
 			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetRenderCommandEncoderDebugging().SetTessellationFactorBuffer(tessellationFactorBuffer, tessellationFactorsOffset, 0));
 		}
-		if(GMetalTessellationRunDomainStage && !FShaderCache::IsPredrawCall(State.GetShaderCacheStateObject()))
+		if(GMetalTessellationRunDomainStage)
 		{
 			METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeDraw(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__, NumPrimitives, GetVertexCountForPrimitiveCount(NumPrimitives, PrimitiveType), NumInstances));
 			renderEncoder.DrawPatches(boundShaderState->VertexShader->TessellationOutputControlPoints, 0, NumPrimitives * NumInstances, nil, 0, 1, 0);
@@ -824,7 +852,7 @@ void FMetalRenderPass::FillBuffer(FMetalBuffer const& Buffer, ns::Range Range, u
 	check(TargetEncoder.GetPtr());
 	
 	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, TargetEncoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Fill(Buffer, Range, Value));
-	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetBlitCommandEncoderDebugging().Fill(Buffer, Range, Value));
+	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, (bAsync ? PrologueEncoder.GetBlitCommandEncoderDebugging() : CurrentEncoder.GetBlitCommandEncoderDebugging()).Fill(Buffer, Range, Value));
 	
 	if (!bAsync)
 	{
@@ -945,6 +973,11 @@ mtlpp::Fence FMetalRenderPass::End(void)
 	if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
 	{
 		State.FlushVisibilityResults(CurrentEncoder);
+
+		if (CmdList.IsImmediate() && IsWithinParallelPass())
+		{
+			State.SetRenderStoreActions(CurrentEncoder, false);
+		}
 		CurrentEncoderFence = CurrentEncoder.EndEncoding();
 	}
 	
@@ -986,7 +1019,22 @@ void FMetalRenderPass::AddAsyncCommandBufferHandlers(mtlpp::CommandBufferHandler
 void FMetalRenderPass::InsertDebugEncoder()
 {
 	FMetalBuffer NewBuf = CurrentEncoder.GetRingBuffer().NewBuffer(BufferOffsetAlignment, BufferOffsetAlignment);
-	FillBuffer(NewBuf, ns::Range(0, BufferOffsetAlignment), 0xff);
+	
+	check(NewBuf);
+	
+	mtlpp::BlitCommandEncoder TargetEncoder;
+	METAL_DEBUG_ONLY(FMetalBlitCommandEncoderDebugging Debugging);
+	ConditionalSwitchToBlit();
+	TargetEncoder = CurrentEncoder.GetBlitCommandEncoder();
+	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
+	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging = CurrentEncoder.GetBlitCommandEncoderDebugging());
+	
+	check(TargetEncoder.GetPtr());
+	
+	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, TargetEncoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Fill(NewBuf, ns::Range(0, BufferOffsetAlignment), 0xff));
+	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetBlitCommandEncoderDebugging().Fill(NewBuf, ns::Range(0, BufferOffsetAlignment), 0xff));
+	
+	ConditionalSubmit();
 }
 
 void FMetalRenderPass::InsertDebugSignpost(ns::String const& String)
@@ -1024,11 +1072,23 @@ FMetalSubBufferRing& FMetalRenderPass::GetRingBuffer(void)
 	return CurrentEncoder.GetRingBuffer();
 }
 
+bool FMetalRenderPass::IsWithinParallelPass(void)
+{
+	return bWithinRenderPass && CurrentEncoder.IsParallelRenderCommandEncoderActive();
+}
+
+mtlpp::RenderCommandEncoder FMetalRenderPass::GetParallelRenderCommandEncoder(uint32 Index, mtlpp::ParallelRenderCommandEncoder& ParallelEncoder)
+{
+	check(IsWithinParallelPass());
+	ParallelEncoder = CurrentEncoder.GetParallelRenderCommandEncoder();
+	return CurrentEncoder.GetChildRenderCommandEncoder(Index);
+}
+
 void FMetalRenderPass::ConditionalSwitchToRender(void)
 {
 	check(bWithinRenderPass);
 	check(RenderPassDesc);
-	check(CurrentEncoder.GetCommandBuffer());
+	check(CmdList.IsParallel() || CurrentEncoder.GetCommandBuffer());
 	
 	if (CurrentEncoder.IsComputeCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive())
 	{
@@ -1114,6 +1174,7 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 void FMetalRenderPass::ConditionalSwitchToCompute(void)
 {
 	check(CurrentEncoder.GetCommandBuffer());
+	check(!CurrentEncoder.IsParallel());
 	
 	if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive())
 	{
@@ -1146,6 +1207,7 @@ void FMetalRenderPass::ConditionalSwitchToCompute(void)
 void FMetalRenderPass::ConditionalSwitchToBlit(void)
 {
 	check(CurrentEncoder.GetCommandBuffer());
+	check(!CurrentEncoder.IsParallel());
 	
 	if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
 	{
@@ -1373,7 +1435,7 @@ void FMetalRenderPass::ConditionalSubmit()
 	}
 #endif
 	
-	if (GMetalCommandBufferCommitThreshold > 0 && NumOutstandingOps > 0 && NumOutstandingOps >= GMetalCommandBufferCommitThreshold && bCanForceSubmit)
+	if (GMetalCommandBufferCommitThreshold > 0 && NumOutstandingOps > 0 && NumOutstandingOps >= GMetalCommandBufferCommitThreshold && bCanForceSubmit && !CurrentEncoder.IsParallel())
 	{
 		if (CurrentEncoder.GetCommandBuffer())
 		{

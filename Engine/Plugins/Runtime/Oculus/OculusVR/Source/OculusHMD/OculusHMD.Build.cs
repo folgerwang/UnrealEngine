@@ -56,7 +56,8 @@ namespace UnrealBuildTool.Rules
 					"VulkanRHI",
 					"OVRPlugin",
 					"ProceduralMeshComponent",
-				});
+                    "Projects",
+                });
 
 			if (Target.bBuildEditor == true)
 			{
@@ -91,7 +92,8 @@ namespace UnrealBuildTool.Rules
 					AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11Audio");
 					AddEngineThirdPartyPrivateStaticDependencies(Target, "DirectSound");
 					AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
-				}
+                    AddEngineThirdPartyPrivateStaticDependencies(Target, "IntelMetricsDiscovery");
+                }
 
 				// Vulkan
 				{

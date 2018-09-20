@@ -298,7 +298,7 @@ static void ExtractMaterialInfoFromNode(UnFbx::FFbxImporter* FbxImporter, FbxNod
 					IllegalChar[1] = '\0';
 					if (MaterialInfo->Name.Contains(&IllegalChar[0]))
 					{
-						MaterialInfo->Name = MaterialInfo->Name.Replace(&IllegalChar[0], L"_");
+						MaterialInfo->Name = MaterialInfo->Name.Replace(&IllegalChar[0], TEXT("_"));
 						DisplayInvalidNameError = true;
 					}
 				}

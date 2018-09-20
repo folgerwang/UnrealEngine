@@ -103,9 +103,6 @@ void UnixPlatform_UpdateCacheLineSize()
 	}
 }
 
-// Init'ed in UnixPlatformMemory for now. Once the old crash symbolicator is gone remove this
-extern bool CORE_API GUseNewCrashSymbolicator;
-
 void FUnixPlatformMisc::PlatformInit()
 {
 	// install a platform-specific signal handler
@@ -114,15 +111,6 @@ void FUnixPlatformMisc::PlatformInit()
 	// do not remove the below check for IsFirstInstance() - it is not just for logging, it actually lays the claim to be first
 	bool bFirstInstance = FPlatformProcess::IsFirstInstance();
 	bool bIsNullRHI = !FApp::CanEverRender();
-
-	if (GUseNewCrashSymbolicator)
-	{
-		UE_LOG(LogInit, Log, TEXT("Using custom *.sym to symbolicate"));
-	}
-	else
-	{
-		UE_LOG(LogInit, Log, TEXT("Using libdwarf/libelf to symbolicate"));
-	}
 
 	UE_LOG(LogInit, Log, TEXT("Unix hardware info:"));
 	UE_LOG(LogInit, Log, TEXT(" - we are %sthe first instance of this executable"), bFirstInstance ? TEXT("") : TEXT("not "));
@@ -142,8 +130,6 @@ void FUnixPlatformMisc::PlatformInit()
 	FPlatformTime::PrintCalibrationLog();
 
 	UE_LOG(LogInit, Log, TEXT("Unix-specific commandline switches:"));
-	UE_LOG(LogInit, Log, TEXT(" -%s (currently %s): suppress parsing of DWARF debug info (callstacks will be generated faster, but won't have line numbers)"), 
-		TEXT(CMDARG_SUPPRESS_DWARF_PARSING), FParse::Param( FCommandLine::Get(), TEXT(CMDARG_SUPPRESS_DWARF_PARSING)) ? TEXT("ON") : TEXT("OFF"));
 	UE_LOG(LogInit, Log, TEXT(" -ansimalloc - use malloc()/free() from libc (useful for tools like valgrind and electric fence)"));
 	UE_LOG(LogInit, Log, TEXT(" -jemalloc - use jemalloc for all memory allocation"));
 	UE_LOG(LogInit, Log, TEXT(" -binnedmalloc - use binned malloc  for all memory allocation"));
@@ -194,7 +180,7 @@ void FUnixPlatformMisc::GetEnvironmentVariable(const TCHAR* InVariableName, TCHA
 	ANSICHAR *AnsiResult = secure_getenv(TCHAR_TO_ANSI(*VariableName));
 	if (AnsiResult)
 	{
-		wcsncpy(Result, UTF8_TO_TCHAR(AnsiResult), ResultLength);
+		FCString::Strncpy(Result, UTF8_TO_TCHAR(AnsiResult), ResultLength);
 	}
 	else
 	{
@@ -234,7 +220,7 @@ void FUnixPlatformMisc::SetEnvironmentVar(const TCHAR* InVariableName, const TCH
 void FUnixPlatformMisc::LowLevelOutputDebugString(const TCHAR *Message)
 {
 	static_assert(PLATFORM_USE_LS_SPEC_FOR_WIDECHAR, "Check printf format");
-	fprintf(stderr, "%ls", Message);	// there's no good way to implement that really
+	fprintf(stderr, "%s", TCHAR_TO_UTF8(Message));	// there's no good way to implement that really
 }
 
 extern volatile sig_atomic_t GEnteredSignalHandler;

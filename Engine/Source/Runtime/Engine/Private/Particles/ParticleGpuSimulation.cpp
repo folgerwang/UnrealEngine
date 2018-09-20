@@ -273,10 +273,16 @@ public:
 			VelocityTextureRHI
 			);
 
-		static FName PositionTextureName(TEXT("ParticleStatePosition"));
-		static FName VelocityTextureName(TEXT("ParticleStateVelocity"));
+#define PARTICLE_STATE_POSITION_TEXTURE_NAME	TEXT("ParticleStatePosition")
+#define PARTICLE_STATE_VELOCITY_TEXTURE_NAME	TEXT("ParticleStateVelocity")
+		static FName PositionTextureName(PARTICLE_STATE_POSITION_TEXTURE_NAME);
+		static FName VelocityTextureName(PARTICLE_STATE_VELOCITY_TEXTURE_NAME);
 		PositionTextureTargetRHI->SetName(PositionTextureName);
 		VelocityTextureTargetRHI->SetName(VelocityTextureName);
+		RHIBindDebugLabelName(PositionTextureTargetRHI, PARTICLE_STATE_POSITION_TEXTURE_NAME);
+		RHIBindDebugLabelName(VelocityTextureTargetRHI, PARTICLE_STATE_VELOCITY_TEXTURE_NAME);
+#undef PARTICLE_STATE_VELOCITY_TEXTURE_NAME
+#undef PARTICLE_STATE_POSITION_TEXTURE_NAME
 
 		bTexturesCleared = false;
 	}
@@ -329,8 +335,11 @@ public:
 			TextureRHI
 			);
 
-		static FName AttributesTextureName(TEXT("ParticleAttributes"));	
-		TextureTargetRHI->SetName(AttributesTextureName);	
+#define ATTRIBUTES_TEXTURE_NAME	TEXT("ParticleAttributes")
+		static FName AttributesTextureName(ATTRIBUTES_TEXTURE_NAME);
+		TextureTargetRHI->SetName(AttributesTextureName);
+		RHIBindDebugLabelName(TextureTargetRHI, ATTRIBUTES_TEXTURE_NAME);
+#undef ATTRIBUTES_TEXTURE_NAME
 		
 		{
 			FRHIRenderPassInfo RPInfo(TextureTargetRHI, ERenderTargetActions::Clear_Store);
@@ -406,15 +415,19 @@ public:
 	 */
 	void Init()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FInitParticleSimulationResourcesCommand,
-			FParticleSimulationResources*, ParticleResources, this,
+		FParticleSimulationResources* ParticleResources = this;
+		ENQUEUE_RENDER_COMMAND(FInitParticleSimulationResourcesCommand)([ParticleResources](FRHICommandList& RHICmdList)
 		{
 			ParticleResources->StateTextures[0].InitResource();
 			ParticleResources->StateTextures[1].InitResource();
 			ParticleResources->RenderAttributesTexture.InitResource();
 			ParticleResources->SimulationAttributesTexture.InitResource();
 			ParticleResources->SortedVertexBuffer.InitResource();
+
+			FTextureRHIParamRef AttributeTextures[2];
+			AttributeTextures[0] = ParticleResources->RenderAttributesTexture.TextureRHI;
+			AttributeTextures[1] = ParticleResources->SimulationAttributesTexture.TextureRHI;
+			RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, AttributeTextures, 2);
 		});
 	}
 
@@ -423,9 +436,8 @@ public:
 	 */
 	void Release()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FReleaseParticleSimulationResourcesCommand,
-			FParticleSimulationResources*, ParticleResources, this,
+		FParticleSimulationResources* ParticleResources = this;
+		ENQUEUE_RENDER_COMMAND(FReleaseParticleSimulationResourcesCommand)([ParticleResources](FRHICommandList& RHICmdList)
 		{
 			ParticleResources->StateTextures[0].ReleaseResource();
 			ParticleResources->StateTextures[1].ReleaseResource();

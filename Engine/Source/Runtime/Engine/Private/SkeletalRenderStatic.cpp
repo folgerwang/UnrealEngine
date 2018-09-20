@@ -32,14 +32,18 @@ void FSkeletalMeshObjectStatic::InitResources(USkinnedMeshComponent* InMeshCompo
 	for( int32 LODIndex=0;LODIndex < LODs.Num();LODIndex++ )
 	{
 		FSkeletalMeshObjectLOD& SkelLOD = LODs[LODIndex];
-
-		FSkelMeshComponentLODInfo* CompLODInfo = nullptr;
-		if (InMeshComponent->LODInfo.IsValidIndex(LODIndex))
+		
+		// Skip LODs that have their render data stripped
+		if (SkelLOD.SkelMeshRenderData->LODRenderData[LODIndex].GetNumVertices() > 0)
 		{
-			CompLODInfo = &InMeshComponent->LODInfo[LODIndex];
-		}
+			FSkelMeshComponentLODInfo* CompLODInfo = nullptr;
+			if (InMeshComponent->LODInfo.IsValidIndex(LODIndex))
+			{
+				CompLODInfo = &InMeshComponent->LODInfo[LODIndex];
+			}
 
-		SkelLOD.InitResources(CompLODInfo);
+			SkelLOD.InitResources(CompLODInfo);
+		}
 	}
 }
 
@@ -48,7 +52,12 @@ void FSkeletalMeshObjectStatic::ReleaseResources()
 	for( int32 LODIndex=0;LODIndex < LODs.Num();LODIndex++ )
 	{
 		FSkeletalMeshObjectLOD& SkelLOD = LODs[LODIndex];
-		SkelLOD.ReleaseResources();
+		
+		// Skip LODs that have their render data stripped
+		if (SkelLOD.SkelMeshRenderData->LODRenderData[LODIndex].GetNumVertices() > 0)
+		{
+			SkelLOD.ReleaseResources();
+		}
 	}
 }
 
@@ -76,8 +85,8 @@ void FSkeletalMeshObjectStatic::FSkeletalMeshObjectLOD::InitResources(FSkelMeshC
 
 	FSkeletalMeshLODRenderData& LODData = SkelMeshRenderData->LODRenderData[LODIndex];
 	
-	const FPositionVertexBuffer* PositionVertexBufferPtr = &LODData.StaticVertexBuffers.PositionVertexBuffer;
-	const FStaticMeshVertexBuffer* StaticMeshVertexBufferPtr = &LODData.StaticVertexBuffers.StaticMeshVertexBuffer;
+	FPositionVertexBuffer* PositionVertexBufferPtr = &LODData.StaticVertexBuffers.PositionVertexBuffer;
+	FStaticMeshVertexBuffer* StaticMeshVertexBufferPtr = &LODData.StaticVertexBuffers.StaticMeshVertexBuffer;
 	
 	// If we have a vertex color override buffer (and it's the right size) use it
 	if (CompLODInfo &&
@@ -92,12 +101,15 @@ void FSkeletalMeshObjectStatic::FSkeletalMeshObjectLOD::InitResources(FSkelMeshC
 	}
 
 	FLocalVertexFactory* VertexFactoryPtr = &VertexFactory;
-	const FColorVertexBuffer* ColorVertexBufferPtr = ColorVertexBuffer;
-		
+	FColorVertexBuffer* ColorVertexBufferPtr = ColorVertexBuffer;
+
 	ENQUEUE_RENDER_COMMAND(InitSkeletalMeshStaticSkinVertexFactory)(
 		[VertexFactoryPtr, PositionVertexBufferPtr, StaticMeshVertexBufferPtr, ColorVertexBufferPtr](FRHICommandListImmediate& RHICmdList)
 		{
 			FLocalVertexFactory::FDataType Data;
+			PositionVertexBufferPtr->InitResource();
+			StaticMeshVertexBufferPtr->InitResource();
+			ColorVertexBufferPtr->InitResource();
 
 			PositionVertexBufferPtr->BindPositionVertexBuffer(VertexFactoryPtr, Data);
 			StaticMeshVertexBufferPtr->BindTangentVertexBuffer(VertexFactoryPtr, Data);

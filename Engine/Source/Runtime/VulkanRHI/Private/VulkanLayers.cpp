@@ -39,6 +39,12 @@ static const ANSICHAR* GValidationLayersInstance[] =
 {
 #if VULKAN_ENABLE_STANDARD_VALIDATION
 	"VK_LAYER_LUNARG_standard_validation",
+#elif PLATFORM_ANDROID
+	"VK_LAYER_GOOGLE_threading",
+	"VK_LAYER_LUNARG_parameter_validation",
+	"VK_LAYER_LUNARG_object_tracker",
+	"VK_LAYER_LUNARG_core_validation",
+	"VK_LAYER_GOOGLE_unique_objects",
 #else
 	"VK_LAYER_GOOGLE_threading",
 	"VK_LAYER_LUNARG_parameter_validation",
@@ -53,6 +59,12 @@ static const ANSICHAR* GValidationLayersDevice[] =
 {
 #if VULKAN_ENABLE_STANDARD_VALIDATION
 	"VK_LAYER_LUNARG_standard_validation",
+#elif PLATFORM_ANDROID
+	"VK_LAYER_GOOGLE_threading",
+	"VK_LAYER_LUNARG_parameter_validation",
+	"VK_LAYER_LUNARG_object_tracker",
+	"VK_LAYER_LUNARG_core_validation",
+	"VK_LAYER_GOOGLE_unique_objects",
 #else
 	"VK_LAYER_GOOGLE_threading",
 	"VK_LAYER_LUNARG_parameter_validation",
@@ -397,9 +409,8 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 	{
 		OutInstanceExtensions.Add(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
-	//else if (!bOutDebugUtils)
 #endif
-	if (!bVkTrace && GValidationCvar.GetValueOnAnyThread() > 0)
+	if (!bVkTrace && !bOutDebugUtils && GValidationCvar.GetValueOnAnyThread() > 0)
 	{
 		if (FindLayerExtensionInList(GlobalLayerExtensions, VK_EXT_DEBUG_REPORT_EXTENSION_NAME))
 		{
@@ -609,7 +620,7 @@ void FVulkanDevice::GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDev
 
 #if VULKAN_ENABLE_DRAW_MARKERS
 	if (!bOutDebugMarkers &&
-		((GValidationCvar.GetValueOnAnyThread() == 0 && ListContains(AvailableExtensions, VK_EXT_DEBUG_MARKER_EXTENSION_NAME)) || FVulkanPlatform::ForceEnableDebugMarkers()))
+		(((GRenderDocFound || GValidationCvar.GetValueOnAnyThread() == 0) && ListContains(AvailableExtensions, VK_EXT_DEBUG_MARKER_EXTENSION_NAME)) || FVulkanPlatform::ForceEnableDebugMarkers()))
 	{
 		// HACK: Lumin Nvidia driver unofficially supports this extension, but will return false if we try to load it explicitly.
 #if !PLATFORM_LUMIN
@@ -675,5 +686,9 @@ void FVulkanDevice::ParseOptionalDeviceExtensions(const TArray<const ANSICHAR *>
 
 #if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
 	OptionalDeviceExtensions.HasAMDBufferMarker = HasExtension(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
+#endif
+
+#if VULKAN_SUPPORTS_GOOGLE_DISPLAY_TIMING
+	OptionalDeviceExtensions.HasGoogleDisplayTiming = HasExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
 #endif
 }

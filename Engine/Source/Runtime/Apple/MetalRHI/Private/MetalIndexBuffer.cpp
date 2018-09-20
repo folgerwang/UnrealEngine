@@ -45,6 +45,26 @@ FIndexBufferRHIRef FMetalDynamicRHI::RHICreateIndexBuffer(uint32 Stride,uint32 S
 		// Discard the resource array's contents.
 		CreateInfo.ResourceArray->Discard();
 	}
+	else if (IndexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Private)
+	{
+		if (IndexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+		{
+			LLM_SCOPE(ELLMTag::IndexBuffer);
+			SafeReleaseMetalBuffer(IndexBuffer->CPUBuffer);
+			IndexBuffer->CPUBuffer = nil;
+		}
+
+		if (GMetalBufferZeroFill)
+		{
+			GetMetalDeviceContext().FillBuffer(IndexBuffer->Buffer, ns::Range(0, IndexBuffer->Buffer.GetLength()), 0);
+		}
+	}
+#if PLATFORM_MAC
+	else if (GMetalBufferZeroFill && IndexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Managed)
+	{
+		MTLPP_VALIDATE(mtlpp::Buffer, IndexBuffer->Buffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, DidModify(ns::Range(0, IndexBuffer->Buffer.GetLength())));
+	}
+#endif
 
 	return IndexBuffer;
 	}
@@ -83,15 +103,22 @@ struct FMetalRHICommandInitialiseIndexBuffer : public FRHICommand<FMetalRHIComma
 	
 	void Execute(FRHICommandListBase& CmdList)
 	{
-		GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(Buffer->CPUBuffer, 0, Buffer->Buffer, 0, Buffer->Buffer.GetLength());
-		if (Buffer->GetUsage() & (BUF_Dynamic|BUF_Static))
-        {
-            LLM_SCOPE(ELLMTag::IndexBuffer);
-			SafeReleaseMetalBuffer(Buffer->CPUBuffer);
-		}
-		else
+		if (Buffer->CPUBuffer)
 		{
-			Buffer->LastUpdate = GFrameNumberRenderThread;
+			GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(Buffer->CPUBuffer, 0, Buffer->Buffer, 0, Buffer->Buffer.GetLength());
+			if (Buffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+			{
+				LLM_SCOPE(ELLMTag::IndexBuffer);
+				SafeReleaseMetalBuffer(Buffer->CPUBuffer);
+			}
+			else
+			{
+				Buffer->LastUpdate = GFrameNumberRenderThread;
+			}
+		}
+		else if (GMetalBufferZeroFill)
+		{
+			GetMetalDeviceContext().FillBuffer(Buffer->Buffer, ns::Range(0, Buffer->Buffer.GetLength()), 0);
 		}
 	}
 };
@@ -108,9 +135,14 @@ FIndexBufferRHIRef FMetalDynamicRHI::CreateIndexBuffer_RenderThread(class FRHICo
 			
 			if (IndexBuffer->CPUBuffer)
 			{
-				FMemory::Memzero(IndexBuffer->CPUBuffer.GetContents(), IndexBuffer->CPUBuffer.GetLength());
-				
 				FMemory::Memcpy(IndexBuffer->CPUBuffer.GetContents(), CreateInfo.ResourceArray->GetResourceData(), Size);
+
+#if PLATFORM_MAC
+				if(IndexBuffer->CPUBuffer.GetStorageMode() == mtlpp::StorageMode::Managed)
+				{
+					MTLPP_VALIDATE(mtlpp::Buffer, IndexBuffer->CPUBuffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, DidModify(ns::Range(0, GMetalBufferZeroFill ? IndexBuffer->CPUBuffer.GetLength() : Size)));
+				}
+#endif
 				
 				if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
 				{
@@ -136,6 +168,34 @@ FIndexBufferRHIRef FMetalDynamicRHI::CreateIndexBuffer_RenderThread(class FRHICo
 			// Discard the resource array's contents.
 			CreateInfo.ResourceArray->Discard();
 		}
+		else if (IndexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Private)
+		{
+			if (IndexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static))
+			{
+				LLM_SCOPE(ELLMTag::IndexBuffer);
+				SafeReleaseMetalBuffer(IndexBuffer->CPUBuffer);
+				IndexBuffer->CPUBuffer = nil;
+			}
+			
+			if (GMetalBufferZeroFill)
+			{
+				if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+				{
+					FMetalRHICommandInitialiseIndexBuffer UpdateCommand(IndexBuffer);
+					UpdateCommand.Execute(RHICmdList);
+				}
+				else
+				{
+					new (RHICmdList.AllocCommand<FMetalRHICommandInitialiseIndexBuffer>()) FMetalRHICommandInitialiseIndexBuffer(IndexBuffer);
+				}
+			}
+		}
+#if PLATFORM_MAC
+		else if (GMetalBufferZeroFill && IndexBuffer->Buffer.GetStorageMode() == mtlpp::StorageMode::Managed)
+		{
+			MTLPP_VALIDATE(mtlpp::Buffer, IndexBuffer->Buffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, DidModify(ns::Range(0, IndexBuffer->Buffer.GetLength())));
+		}
+#endif
 		
 		return IndexBuffer.GetReference();
 	}

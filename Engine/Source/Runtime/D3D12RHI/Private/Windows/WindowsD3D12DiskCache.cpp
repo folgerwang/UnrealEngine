@@ -97,7 +97,8 @@ void FDiskCacheInterface::GrowMapping(SIZE_T size, bool firstrun)
 
 	uint32 flag = (mCacheExists) ? OPEN_EXISTING : CREATE_NEW;
 	// open the shader cache file
-	mFile = CreateFile(mFileName.GetCharArray().GetData(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, flag, FILE_ATTRIBUTE_NORMAL, NULL);
+	mFile = CreateFile(mFileName.GetCharArray().GetData(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, flag, FILE_ATTRIBUTE_NORMAL, NULL);
+
 	if (mFile == INVALID_HANDLE_VALUE)
 	{
 		//error state!

@@ -250,7 +250,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				throw new BuildException("Couldn't find 32-bit or 64-bit versions of the Android toolchain");
+				throw new BuildException("Couldn't find 32-bit or 64-bit versions of the Android toolchain with NDKROOT: " + NDKPath);
 			}
 
 			// prefer clang 3.6, but fall back if needed for now
@@ -294,7 +294,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				throw new BuildException("Cannot find supported Android toolchain");
+				throw new BuildException("Cannot find supported Android toolchain with NDKPath:" + NDKPath);
 			}
 
 			// set up the path to our toolchains
@@ -1290,9 +1290,12 @@ namespace UnrealBuildTool
 					string PCHArguments = "";
 					if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 					{
+						// add the platform-specific PCH reference
+						PCHArguments += string.Format(" -include-pch \"{0}\"", InlineArchName(BasePCHName, Arch, GPUArchitecture) + PCHExtension);
+
 						// Add the precompiled header file's path to the include path so Clang can find it.
 						// This needs to be before the other include paths to ensure Clang uses it instead of the source header file.
-						PCHArguments += string.Format(" -include \"{0}\"", InlineArchName(BasePCHName, Arch, GPUArchitecture));
+						PCHArguments += string.Format(" -include \"{0}\"", BasePCHName);
 					}
 
 					foreach (FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)

@@ -4,12 +4,36 @@
 
 #include "CoreMinimal.h"
 #include "RHIDefinitions.h"
+#include "RenderResource.h"
 
 class FRHICommandList;
 struct FRWBufferStructured;
 struct FRWBuffer;
 struct FSceneRenderTargetItem;
 class FRHIUnorderedAccessView;
+
+class FClearVertexBuffer : public FVertexBuffer
+{
+public:
+	/**
+	* Initialize the RHI for this rendering resource
+	*/
+	virtual void InitRHI() override
+	{
+		// create a static vertex buffer
+		FRHIResourceCreateInfo CreateInfo;
+		VertexBufferRHI = RHICreateVertexBuffer(sizeof(FVector4) * 4, BUF_Static, CreateInfo);
+		void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FVector4) * 4, RLM_WriteOnly);
+		// Generate the vertices used
+		FVector4* Vertices = reinterpret_cast<FVector4*>(VoidPtr);
+		Vertices[0] = FVector4(-1.0f, 1.0f, 0.0f, 1.0f);
+		Vertices[1] = FVector4(1.0f, 1.0f, 0.0f, 1.0f);
+		Vertices[2] = FVector4(-1.0f, -1.0f, 0.0f, 1.0f);
+		Vertices[3] = FVector4(1.0f, -1.0f, 0.0f, 1.0f);
+		RHIUnlockVertexBuffer(VertexBufferRHI);
+	}
+};
+extern UTILITYSHADERS_API TGlobalResource<FClearVertexBuffer> GClearVertexBuffer;
 
 extern UTILITYSHADERS_API const uint32 GMaxSizeUAVDMA;
 extern UTILITYSHADERS_API void ClearUAV(FRHICommandList& RHICmdList, const FRWBufferStructured& StructuredBuffer, uint32 Value);

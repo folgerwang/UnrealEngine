@@ -44,7 +44,7 @@ struct FLinearColor
 	FORCEINLINE explicit FLinearColor(EForceInit)
 	: R(0), G(0), B(0), A(0)
 	{}
-	FORCEINLINE FLinearColor(float InR,float InG,float InB,float InA = 1.0f): R(InR), G(InG), B(InB), A(InA) {}
+	constexpr FORCEINLINE FLinearColor(float InR,float InG,float InB,float InA = 1.0f): R(InR), G(InG), B(InB), A(InA) {}
 	
 	/**
 	 * Converts an FColor which is assumed to be in sRGB space, into linear color space.
@@ -438,15 +438,14 @@ public:
 		// put these into the body for proper ordering with INTEL vs non-INTEL_BYTE_ORDER
 		R = G = B = A = 0;
 	}
-	FORCEINLINE FColor( uint8 InR, uint8 InG, uint8 InB, uint8 InA = 255 )
-	{
+	constexpr FORCEINLINE FColor( uint8 InR, uint8 InG, uint8 InB, uint8 InA = 255 )
 		// put these into the body for proper ordering with INTEL vs non-INTEL_BYTE_ORDER
-		R = InR;
-		G = InG;
-		B = InB;
-		A = InA;
-
-	}
+#if PLATFORM_LITTLE_ENDIAN
+		: B(InB), G(InG), R(InR), A(InA)
+#else
+		: A(InA), R(InR), G(InG), B(InB)
+#endif
+	{}
 
 	FORCEINLINE explicit FColor( uint32 InColor )
 	{ 

@@ -80,11 +80,19 @@ public:
 	// UNavMovementComponent override for input operations
 	virtual void RequestPathMove(const FVector& MoveInput) override;
 
+	virtual void OnTeleported() override;
+
 protected:
 
 	/** Pawn that owns this component. */
 	UPROPERTY(Transient, DuplicateTransient)
 	class APawn* PawnOwner;
+
+	/**
+	 * Attempts to mark the PlayerCameraManager as dirty.
+	 * This will have no effect if called from the server.
+	 */
+	void MarkForClientCameraUpdate();
 
 public:
 

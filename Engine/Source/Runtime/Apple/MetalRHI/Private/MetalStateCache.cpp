@@ -4,7 +4,6 @@
 #include "MetalRHIPrivate.h"
 #include "MetalStateCache.h"
 #include "MetalProfiler.h"
-#include "ShaderCache.h"
 #include "MetalCommandBuffer.h"
 
 static mtlpp::TriangleFillMode TranslateFillMode(ERasterizerFillMode FillMode)
@@ -122,11 +121,11 @@ FMetalStateCache::~FMetalStateCache()
 		ShaderSamplers[Frequency].Bound = 0;
 		for (uint32 i = 0; i < ML_MaxSamplers; i++)
 		{
-			ShaderSamplers[Frequency].Samplers[i].SafeRelease();
+			ShaderSamplers[Frequency].Samplers[i] = nil;
 		}
 		for (uint32 i = 0; i < ML_MaxBuffers; i++)
 		{
-			BoundUniformBuffers[Frequency][i].SafeRelease();
+			BoundUniformBuffers[Frequency][i] = nullptr;
 			ShaderBuffers[Frequency].Buffers[i].Buffer = nil;
 			ShaderBuffers[Frequency].Buffers[i].Bytes = nil;
 			ShaderBuffers[Frequency].Buffers[i].Length = 0;
@@ -147,8 +146,6 @@ FMetalStateCache::~FMetalStateCache()
 
 void FMetalStateCache::Reset(void)
 {
-	SetStateDirty();
-	
 	IndexType = EMetalIndexType_None;
 	SampleCount = 0;
 	
@@ -165,6 +162,8 @@ void FMetalStateCache::Reset(void)
 	bScissorRectEnabled = false;
 	
 	FMemory::Memzero(DirtyUniformBuffers);
+	FMemory::Memzero(BoundUniformBuffers);
+	ActiveUniformBuffers.Empty();
 	
 	for (uint32 i = 0; i < MaxVertexElementCount; i++)
 	{
@@ -178,11 +177,10 @@ void FMetalStateCache::Reset(void)
 		ShaderSamplers[Frequency].Bound = 0;
 		for (uint32 i = 0; i < ML_MaxSamplers; i++)
 		{
-			ShaderSamplers[Frequency].Samplers[i].SafeRelease();
+			ShaderSamplers[Frequency].Samplers[i] = nil;
 		}
 		for (uint32 i = 0; i < ML_MaxBuffers; i++)
 		{
-			BoundUniformBuffers[Frequency][i].SafeRelease();
 			ShaderBuffers[Frequency].Buffers[i].Buffer = nil;
 			ShaderBuffers[Frequency].Buffers[i].Bytes = nil;
 			ShaderBuffers[Frequency].Buffers[i].Length = 0;
@@ -313,7 +311,7 @@ void FMetalStateCache::SetComputeShader(FMetalComputeShader* InComputeShader)
 
 		for (const auto& PackedGlobalArray : InComputeShader->Bindings.PackedGlobalArrays)
 		{
-			ShaderParameters[CrossCompiler::SHADER_STAGE_COMPUTE].PrepareGlobalUniforms(PackedGlobalArray.TypeIndex, PackedGlobalArray.Size);
+			ShaderParameters[CrossCompiler::SHADER_STAGE_COMPUTE].PrepareGlobalUniforms(CrossCompiler::PackedTypeNameToTypeIndex(PackedGlobalArray.TypeName), PackedGlobalArray.Size);
 		}
 	}
 }
@@ -462,7 +460,7 @@ bool FMetalStateCache::SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRe
 					// set up an MSAA attachment
 					ColorAttachment.SetTexture(Surface.MSAATexture);
 					NewColorStore[RenderTargetIndex] = GetMetalRTStoreAction(ERenderTargetStoreAction::EMultisampleResolve);
-					ColorAttachment.SetStoreAction(bSupportsDeferredStore ? mtlpp::StoreAction::Unknown : NewColorStore[RenderTargetIndex]);
+					ColorAttachment.SetStoreAction(bSupportsDeferredStore && GRHIDeviceId > 2 ? mtlpp::StoreAction::Unknown : NewColorStore[RenderTargetIndex]);
 					ColorAttachment.SetResolveTexture(Surface.MSAAResolveTexture ? Surface.MSAAResolveTexture : Surface.Texture);
 					SampleCount = Surface.MSAATexture.GetSampleCount();
                     
@@ -600,11 +598,19 @@ bool FMetalStateCache::SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRe
 			}
 			else if (SampleCount != DepthSampleCount)
             {
-                //in the case of NOT support separate MSAA resolve the high level may legitimately cause a mismatch which we need to handle by binding the resolved target which we normally wouldn't do.
-                checkf(!bSupportSeparateMSAAResolve, TEXT("If we support separate targets the high level should always give us matching counts"));
-                DepthTexture = Surface.Texture;
-                bDepthStencilSampleCountMismatchFixup = true;
-				DepthSampleCount = 1;
+				static bool bLogged = false;
+				if (!bSupportSeparateMSAAResolve)
+				{
+					//in the case of NOT support separate MSAA resolve the high level may legitimately cause a mismatch which we need to handle by binding the resolved target which we normally wouldn't do.
+					DepthTexture = Surface.Texture;
+					bDepthStencilSampleCountMismatchFixup = true;
+					DepthSampleCount = 1;
+				}
+				else if (!bLogged)
+				{
+					UE_LOG(LogMetal, Error, TEXT("If we support separate targets the high level should always give us matching counts"));
+					bLogged = true;
+				}
             }
 
 			switch (DepthStencilPixelFormat)
@@ -659,9 +665,10 @@ bool FMetalStateCache::SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRe
 				DepthClearValue = 1.0f;
 			}
 
-			bool const bCombinedDepthStencilUsingStencil = (DepthTexture && (mtlpp::PixelFormat)DepthTexture.GetPixelFormat() != mtlpp::PixelFormat::Depth32Float && RenderTargetsInfo.DepthStencilRenderTarget.GetDepthStencilAccess().IsUsingStencil());
-			
-			bool const bUsingDepth = (RenderTargetsInfo.DepthStencilRenderTarget.GetDepthStencilAccess().IsUsingDepth() || (bCombinedDepthStencilUsingStencil));
+            static bool const bUsingValidation = FMetalCommandQueue::SupportsFeature(EMetalFeaturesValidation) && !FApplePlatformMisc::IsOSAtLeastVersion((uint32[]){10, 14, 0}, (uint32[]){12, 0, 0}, (uint32[]){12, 0, 0});
+            
+            bool const bCombinedDepthStencilUsingStencil = (DepthTexture && (mtlpp::PixelFormat)DepthTexture.GetPixelFormat() != mtlpp::PixelFormat::Depth32Float && RenderTargetsInfo.DepthStencilRenderTarget.GetDepthStencilAccess().IsUsingStencil());			
+			bool const bUsingDepth = (RenderTargetsInfo.DepthStencilRenderTarget.GetDepthStencilAccess().IsUsingDepth() || (bUsingValidation && bCombinedDepthStencilUsingStencil));
 			if (DepthTexture && bUsingDepth)
 			{
 				mtlpp::RenderPassDepthAttachmentDescriptor DepthAttachment;
@@ -691,7 +698,7 @@ bool FMetalStateCache::SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRe
 				//But with deferredstore we don't set the real one until submit time.
 				const bool bSupportsMSAADepthResolve = GetMetalDeviceContext().SupportsFeature(EMetalFeaturesMSAADepthResolve);
 				NewDepthStore = !Surface.MSAATexture || bSupportsMSAADepthResolve ? GetMetalRTStoreAction(HighLevelStoreAction) : mtlpp::StoreAction::DontCare;
-				DepthAttachment.SetStoreAction(bSupportsDeferredStore ? mtlpp::StoreAction::Unknown : NewDepthStore);
+				DepthAttachment.SetStoreAction(bSupportsDeferredStore && Surface.MSAATexture && GRHIDeviceId > 2 ? mtlpp::StoreAction::Unknown : NewDepthStore);
 				DepthAttachment.SetClearDepth(DepthClearValue);
 				check(SampleCount > 0);
 
@@ -722,7 +729,7 @@ bool FMetalStateCache::SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRe
             //doesn't have an autoresolve target to use.
 			
 			bool const bCombinedDepthStencilUsingDepth = (StencilTexture && StencilTexture.GetPixelFormat() != mtlpp::PixelFormat::Stencil8 && RenderTargetsInfo.DepthStencilRenderTarget.GetDepthStencilAccess().IsUsingDepth());
-			bool const bUsingStencil = RenderTargetsInfo.DepthStencilRenderTarget.GetDepthStencilAccess().IsUsingStencil() || (bCombinedDepthStencilUsingDepth);
+			bool const bUsingStencil = RenderTargetsInfo.DepthStencilRenderTarget.GetDepthStencilAccess().IsUsingStencil() || (bUsingValidation && bCombinedDepthStencilUsingDepth);
 			if (StencilTexture && bUsingStencil && (FMetalCommandQueue::SupportsFeature(EMetalFeaturesCombinedDepthStencil) || !bDepthStencilSampleCountMismatchFixup))
 			{
                 if (!FMetalCommandQueue::SupportsFeature(EMetalFeaturesCombinedDepthStencil) && bDepthStencilSampleCountMismatchFixup)
@@ -750,7 +757,7 @@ bool FMetalStateCache::SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRe
 					// For the case where Depth+Stencil is MSAA we can't Resolve depth and Store stencil - we can only Resolve + DontCare or StoreResolve + Store (on newer H/W and iOS).
 					// We only allow use of StoreResolve in the Desktop renderers as the mobile renderer does not and should not assume hardware support for it.
 					NewStencilStore = (StencilTexture.GetSampleCount() == 1  || GetMetalRTStoreAction(ERenderTargetStoreAction::EMultisampleResolve) == mtlpp::StoreAction::StoreAndMultisampleResolve) ? GetMetalRTStoreAction(HighLevelStoreAction) : mtlpp::StoreAction::DontCare;
-					StencilAttachment.SetStoreAction(bSupportsDeferredStore ? mtlpp::StoreAction::Unknown : NewStencilStore);
+					StencilAttachment.SetStoreAction(bSupportsDeferredStore && StencilTexture.GetSampleCount() > 1 && GRHIDeviceId > 2 ? mtlpp::StoreAction::Unknown : NewStencilStore);
                     StencilAttachment.SetClearStencil(StencilClearValue);
 
                     if (SampleCount == 0)
@@ -975,7 +982,7 @@ void FMetalStateCache::SetGraphicsPipelineState(FMetalGraphicsPipelineState* Sta
 			
 			for (uint32 i = 0; i < ML_MaxBuffers; i++)
 			{
-				BoundUniformBuffers[SF_Hull][i].SafeRelease();
+				BoundUniformBuffers[SF_Hull][i] = nullptr;
 				ShaderBuffers[SF_Hull].Buffers[i].Buffer = nil;
 				ShaderBuffers[SF_Hull].Buffers[i].Bytes = nil;
 				ShaderBuffers[SF_Hull].Buffers[i].Length = 0;
@@ -989,17 +996,17 @@ void FMetalStateCache::SetGraphicsPipelineState(FMetalGraphicsPipelineState* Sta
 			
 			for (uint32 i = 0; i < ML_MaxSamplers; i++)
 			{
-				ShaderSamplers[SF_Hull].Samplers[i].SafeRelease();
+				ShaderSamplers[SF_Hull].Samplers[i] = nil;
 			}
 
 			for (const auto& PackedGlobalArray : State->HullShader->Bindings.PackedGlobalArrays)
 			{
-				ShaderParameters[CrossCompiler::SHADER_STAGE_HULL].PrepareGlobalUniforms(PackedGlobalArray.TypeIndex, PackedGlobalArray.Size);
+				ShaderParameters[CrossCompiler::SHADER_STAGE_HULL].PrepareGlobalUniforms(CrossCompiler::PackedTypeNameToTypeIndex(PackedGlobalArray.TypeName), PackedGlobalArray.Size);
 			}
 
 			for (const auto& PackedGlobalArray : State->DomainShader->Bindings.PackedGlobalArrays)
 			{
-				ShaderParameters[CrossCompiler::SHADER_STAGE_DOMAIN].PrepareGlobalUniforms(PackedGlobalArray.TypeIndex, PackedGlobalArray.Size);
+				ShaderParameters[CrossCompiler::SHADER_STAGE_DOMAIN].PrepareGlobalUniforms(CrossCompiler::PackedTypeNameToTypeIndex(PackedGlobalArray.TypeName), PackedGlobalArray.Size);
 			}
 		}
 		bUsingTessellation = bNewUsingTessellation;
@@ -1017,14 +1024,27 @@ void FMetalStateCache::SetGraphicsPipelineState(FMetalGraphicsPipelineState* Sta
 
 		for (const auto& PackedGlobalArray : State->VertexShader->Bindings.PackedGlobalArrays)
 		{
-			ShaderParameters[CrossCompiler::SHADER_STAGE_VERTEX].PrepareGlobalUniforms(PackedGlobalArray.TypeIndex, PackedGlobalArray.Size);
+			ShaderParameters[CrossCompiler::SHADER_STAGE_VERTEX].PrepareGlobalUniforms(CrossCompiler::PackedTypeNameToTypeIndex(PackedGlobalArray.TypeName), PackedGlobalArray.Size);
 		}
 
 		if (State->PixelShader)
 		{
 			for (const auto& PackedGlobalArray : State->PixelShader->Bindings.PackedGlobalArrays)
 			{
-				ShaderParameters[CrossCompiler::SHADER_STAGE_PIXEL].PrepareGlobalUniforms(PackedGlobalArray.TypeIndex, PackedGlobalArray.Size);
+				ShaderParameters[CrossCompiler::SHADER_STAGE_PIXEL].PrepareGlobalUniforms(CrossCompiler::PackedTypeNameToTypeIndex(PackedGlobalArray.TypeName), PackedGlobalArray.Size);
+			}
+		}
+		
+		static bool bSupportsUAVs = GetMetalDeviceContext().GetCommandQueue().SupportsFeature(EMetalFeaturesGraphicsUAVs);
+		if (bSupportsUAVs)
+		{
+			for (uint32 i = 0; i < RenderTargetsInfo.NumUAVs; i++)
+			{
+				if (IsValidRef(RenderTargetsInfo.UnorderedAccessView[i]))
+				{
+					FMetalUnorderedAccessView* UAV = ResourceCast(RenderTargetsInfo.UnorderedAccessView[i].GetReference());
+					SetShaderUnorderedAccessView(SF_Pixel, i, UAV);
+				}
 			}
 		}
 	}
@@ -1045,6 +1065,7 @@ void FMetalStateCache::BindUniformBuffer(EShaderFrequency const Freq, uint32 con
 	check(BufferIndex < ML_MaxBuffers);
 	if (BoundUniformBuffers[Freq][BufferIndex] != BufferRHI)
 	{
+		ActiveUniformBuffers.Add(BufferRHI);
 		BoundUniformBuffers[Freq][BufferIndex] = BufferRHI;
 		DirtyUniformBuffers[Freq] |= 1 << BufferIndex;
 	}
@@ -1263,16 +1284,20 @@ void FMetalStateCache::SetShaderSamplerState(EShaderFrequency const Frequency, F
 	check(Frequency < SF_NumFrequencies);
 	check(Index < ML_MaxSamplers);
 	
-	if (ShaderSamplers[Frequency].Samplers[Index] != Sampler)
+	if (ShaderSamplers[Frequency].Samplers[Index].GetPtr() != (Sampler ? Sampler->State.GetPtr() : nil))
 	{
-		ShaderSamplers[Frequency].Samplers[Index] = Sampler;
-
 		if (Sampler)
 		{
+#if !PLATFORM_MAC
+			ShaderSamplers[Frequency].Samplers[Index] = ((Frequency == SF_Vertex || Frequency == SF_Compute) && Sampler->NoAnisoState) ? Sampler->NoAnisoState : Sampler->State;
+#else
+			ShaderSamplers[Frequency].Samplers[Index] = Sampler->State;
+#endif
 			ShaderSamplers[Frequency].Bound |= (1 << Index);
 		}
 		else
 		{
+			ShaderSamplers[Frequency].Samplers[Index] = nil;
 			ShaderSamplers[Frequency].Bound &= ~(1 << Index);
 		}
 	}
@@ -1281,7 +1306,7 @@ void FMetalStateCache::SetShaderSamplerState(EShaderFrequency const Frequency, F
 void FMetalStateCache::SetResource(uint32 ShaderStage, uint32 BindIndex, FRHITexture* RESTRICT TextureRHI, float CurrentTime)
 {
 	FMetalSurface* Surface = GetMetalSurfaceFromRHITexture(TextureRHI);
-	FMetalTexture Texture = nil;
+	ns::AutoReleased<FMetalTexture> Texture;
 	if (Surface != nullptr)
 	{
 		TextureRHI->SetLastRenderTime(CurrentTime);
@@ -1546,7 +1571,7 @@ void FMetalStateCache::SetResource(uint32 ShaderStage, uint32 BindIndex, FMetalS
 
 void FMetalStateCache::SetResource(uint32 ShaderStage, uint32 BindIndex, FMetalSamplerState* RESTRICT SamplerState, float CurrentTime)
 {
-	check(SamplerState->State != nil);
+	check(SamplerState->State);
 	switch (ShaderStage)
 	{
 		case CrossCompiler::SHADER_STAGE_PIXEL:
@@ -1639,57 +1664,54 @@ void FMetalStateCache::SetResourcesFromTables(ShaderType Shader, uint32 ShaderSt
 {
 	checkSlow(Shader);
 	
-	if (!FShaderCache::IsPredrawCall(ShaderCacheContextState))
+	EShaderFrequency Frequency;
+	switch(ShaderStage)
 	{
-		EShaderFrequency Frequency;
-		switch(ShaderStage)
-		{
-			case CrossCompiler::SHADER_STAGE_VERTEX:
-				Frequency = SF_Vertex;
-				break;
-			case CrossCompiler::SHADER_STAGE_HULL:
-				Frequency = SF_Hull;
-				break;
-			case CrossCompiler::SHADER_STAGE_DOMAIN:
-				Frequency = SF_Domain;
-				break;
-			case CrossCompiler::SHADER_STAGE_PIXEL:
-				Frequency = SF_Pixel;
-				break;
-			case CrossCompiler::SHADER_STAGE_COMPUTE:
-				Frequency = SF_Compute;
-				break;
-			default:
-				Frequency = SF_NumFrequencies; //Silence a compiler warning/error
-				check(false);
-				break;
-		}
-
-        float CurrentTime = FPlatformTime::Seconds();
-
-		// Mask the dirty bits by those buffers from which the shader has bound resources.
-		uint32 DirtyBits = Shader->Bindings.ShaderResourceTable.ResourceTableBits & GetDirtyUniformBuffers(Frequency);
-		while (DirtyBits)
-		{
-			// Scan for the lowest set bit, compute its index, clear it in the set of dirty bits.
-			const uint32 LowestBitMask = (DirtyBits)& (-(int32)DirtyBits);
-			const int32 BufferIndex = FMath::FloorLog2(LowestBitMask); // todo: This has a branch on zero, we know it could never be zero...
-			DirtyBits ^= LowestBitMask;
-			FMetalUniformBuffer* Buffer = (FMetalUniformBuffer*)GetBoundUniformBuffers(Frequency)[BufferIndex].GetReference();
-			if (Buffer)
-			{
-				check(BufferIndex < Shader->Bindings.ShaderResourceTable.ResourceTableLayoutHashes.Num());
-				check(Buffer->GetLayout().GetHash() == Shader->Bindings.ShaderResourceTable.ResourceTableLayoutHashes[BufferIndex]);
-				
-				// todo: could make this two pass: gather then set
-				SetShaderResourcesFromBuffer<FRHITexture>(ShaderStage, Buffer, Shader->Bindings.ShaderResourceTable.TextureMap.GetData(), BufferIndex, CurrentTime);
-				SetShaderResourcesFromBuffer<FMetalShaderResourceView>(ShaderStage, Buffer, Shader->Bindings.ShaderResourceTable.ShaderResourceViewMap.GetData(), BufferIndex, CurrentTime);
-				SetShaderResourcesFromBuffer<FMetalSamplerState>(ShaderStage, Buffer, Shader->Bindings.ShaderResourceTable.SamplerMap.GetData(), BufferIndex, CurrentTime);
-				SetShaderResourcesFromBuffer<FMetalUnorderedAccessView>(ShaderStage, Buffer, Shader->Bindings.ShaderResourceTable.UnorderedAccessViewMap.GetData(), BufferIndex, CurrentTime);
-			}
-		}
-		SetDirtyUniformBuffers(Frequency, 0);
+		case CrossCompiler::SHADER_STAGE_VERTEX:
+			Frequency = SF_Vertex;
+			break;
+		case CrossCompiler::SHADER_STAGE_HULL:
+			Frequency = SF_Hull;
+			break;
+		case CrossCompiler::SHADER_STAGE_DOMAIN:
+			Frequency = SF_Domain;
+			break;
+		case CrossCompiler::SHADER_STAGE_PIXEL:
+			Frequency = SF_Pixel;
+			break;
+		case CrossCompiler::SHADER_STAGE_COMPUTE:
+			Frequency = SF_Compute;
+			break;
+		default:
+			Frequency = SF_NumFrequencies; //Silence a compiler warning/error
+			check(false);
+			break;
 	}
+
+	float CurrentTime = FPlatformTime::Seconds();
+
+	// Mask the dirty bits by those buffers from which the shader has bound resources.
+	uint32 DirtyBits = Shader->Bindings.ShaderResourceTable.ResourceTableBits & GetDirtyUniformBuffers(Frequency);
+	while (DirtyBits)
+	{
+		// Scan for the lowest set bit, compute its index, clear it in the set of dirty bits.
+		const uint32 LowestBitMask = (DirtyBits)& (-(int32)DirtyBits);
+		const int32 BufferIndex = FMath::FloorLog2(LowestBitMask); // todo: This has a branch on zero, we know it could never be zero...
+		DirtyBits ^= LowestBitMask;
+		FMetalUniformBuffer* Buffer = (FMetalUniformBuffer*)GetBoundUniformBuffers(Frequency)[BufferIndex];
+		if (Buffer)
+		{
+			check(BufferIndex < Shader->Bindings.ShaderResourceTable.ResourceTableLayoutHashes.Num());
+			check(Buffer->GetLayout().GetHash() == Shader->Bindings.ShaderResourceTable.ResourceTableLayoutHashes[BufferIndex]);
+			
+			// todo: could make this two pass: gather then set
+			SetShaderResourcesFromBuffer<FRHITexture>(ShaderStage, Buffer, Shader->Bindings.ShaderResourceTable.TextureMap.GetData(), BufferIndex, CurrentTime);
+			SetShaderResourcesFromBuffer<FMetalShaderResourceView>(ShaderStage, Buffer, Shader->Bindings.ShaderResourceTable.ShaderResourceViewMap.GetData(), BufferIndex, CurrentTime);
+			SetShaderResourcesFromBuffer<FMetalSamplerState>(ShaderStage, Buffer, Shader->Bindings.ShaderResourceTable.SamplerMap.GetData(), BufferIndex, CurrentTime);
+			SetShaderResourcesFromBuffer<FMetalUnorderedAccessView>(ShaderStage, Buffer, Shader->Bindings.ShaderResourceTable.UnorderedAccessViewMap.GetData(), BufferIndex, CurrentTime);
+		}
+	}
+	SetDirtyUniformBuffers(Frequency, 0);
 }
 
 void FMetalStateCache::CommitRenderResources(FMetalCommandEncoder* Raster)
@@ -1879,7 +1901,7 @@ void FMetalStateCache::SetRenderState(FMetalCommandEncoder& CommandEncoder, FMet
 			check(IsValidRef(RasterizerState));
 			CommandEncoder.SetDepthBias(RasterizerState->State.DepthBias, RasterizerState->State.SlopeScaleDepthBias, FLT_MAX);
 		}
-		if ((RasterBits & EMetalRenderFlagScissorRect) && !FShaderCache::IsPredrawCall(ShaderCacheContextState))
+		if ((RasterBits & EMetalRenderFlagScissorRect))
 		{
 			CommandEncoder.SetScissorRect(Scissor, ActiveScissors);
 		}
@@ -2054,9 +2076,9 @@ void FMetalStateCache::CommitResourceTable(EShaderFrequency const Frequency, mtl
 		uint32 Index = __builtin_ctz(SamplerBindings.Bound);
 		SamplerBindings.Bound &= ~(1 << Index);
 		
-		if (Index < ML_MaxSamplers && IsValidRef(SamplerBindings.Samplers[Index]))
+		if (Index < ML_MaxSamplers && SamplerBindings.Samplers[Index])
 		{
-			CommandEncoder.SetShaderSamplerState(Type, SamplerBindings.Samplers[Index]->State, Index);
+			CommandEncoder.SetShaderSamplerState(Type, SamplerBindings.Samplers[Index], Index);
 		}
 	}
 }

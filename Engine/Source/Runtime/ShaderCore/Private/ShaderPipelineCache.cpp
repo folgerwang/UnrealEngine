@@ -60,6 +60,18 @@ static TAutoConsoleVariable<int32> CVarPSOFileCacheBatchSize(
 														   TEXT("Set the number of PipelineStateObjects to compile in a single batch operation when compiling takes priority. Defaults to a maximum of 50 per frame, due to async. file IO it is less in practice."),
 														   ECVF_Default | ECVF_RenderThreadSafe
 														   );
+static TAutoConsoleVariable<float> CVarPSOFileCacheBackgroundBatchTime(
+														  TEXT("r.ShaderPipelineCache.BackgroundBatchTime"),
+														  0.0f,
+														  TEXT("The target time (in ms) to spend precompiling each frame when in the background or 0.0 to disable. When precompiling is faster the batch size will grow and when slower will shrink to attempt to occupy the full amount. Defaults to 0.0 (off)."),
+														  ECVF_Default | ECVF_RenderThreadSafe
+														  );
+static TAutoConsoleVariable<float> CVarPSOFileCacheBatchTime(
+														   TEXT("r.ShaderPipelineCache.BatchTime"),
+														   16.0f,
+														   TEXT("The target time (in ms) to spend precompiling each frame when compiling takes priority or 0.0 to disable. When precompiling is faster the batch size will grow and when slower will shrink to attempt to occupy the full amount. Defaults to 16.0 (max. ms per-frame of precompilation)."),
+														   ECVF_Default | ECVF_RenderThreadSafe
+														   );
 static TAutoConsoleVariable<int32> CVarPSOFileCacheSaveAfterPSOsLogged(
 														   TEXT("r.ShaderPipelineCache.SaveAfterPSOsLogged"),
 #if !UE_BUILD_SHIPPING
@@ -296,12 +308,14 @@ void FShaderPipelineCache::SetBatchMode(BatchMode Mode)
 			case BatchMode::Fast:
 			{
 				ShaderPipelineCache->BatchSize = CVarPSOFileCacheBatchSize.GetValueOnAnyThread();
+				ShaderPipelineCache->BatchTime = CVarPSOFileCacheBatchTime.GetValueOnAnyThread();
 				break;
 			}
 			case BatchMode::Background:
 			default:
 			{
 				ShaderPipelineCache->BatchSize = CVarPSOFileCacheBackgroundBatchSize.GetValueOnAnyThread();
+				ShaderPipelineCache->BatchTime = CVarPSOFileCacheBackgroundBatchTime.GetValueOnAnyThread();
 				break;
 			}
 		}
@@ -448,8 +462,6 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 		{
 			GraphicsInitializer.RenderTargetFormats[i] = PSO.GraphicsDesc.RenderTargetFormats[i];
 			GraphicsInitializer.RenderTargetFlags[i] = PSO.GraphicsDesc.RenderTargetFlags[i];
-			GraphicsInitializer.RenderTargetLoadActions[i] = PSO.GraphicsDesc.RenderTargetsLoad[i];
-			GraphicsInitializer.RenderTargetStoreActions[i] = PSO.GraphicsDesc.RenderTargetsStore[i];
 		}
 		
 		GraphicsInitializer.RenderTargetsEnabled = PSO.GraphicsDesc.RenderTargetsActive;
@@ -463,6 +475,10 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 		GraphicsInitializer.StencilTargetStoreAction = PSO.GraphicsDesc.StencilStore;
 		
 		GraphicsInitializer.PrimitiveType = PSO.GraphicsDesc.PrimitiveType;
+		
+		// This indicates we do not want a fatal error if this compilation fails
+		// (ie, if this entry in the file cache is bad)
+		GraphicsInitializer.bFromPSOFileCache = 1;
 		
 		// Use SetGraphicsPipelineState to call down into PipelineStateCache and also handle the fallback case used by OpenGL.
 		SetGraphicsPipelineState(RHICmdList, GraphicsInitializer, EApplyRendertargetOption::DoNothing);
@@ -686,7 +702,9 @@ void FShaderPipelineCache::PrecompilePipelineBatch()
 	INC_DWORD_STAT(STAT_PreCompileBatchTotal);
 	INC_DWORD_STAT(STAT_PreCompileBatchNum);
 	
-	for(uint32 i = 0; i < (uint32)CompileTasks.Num(); i++)
+    int32 NumToPrecompile = FMath::Min<int32>(CompileTasks.Num(), BatchSize);
+    
+	for(uint32 i = 0; i < (uint32)NumToPrecompile; i++)
 	{
 		check(CompileTasks[i].ReadRequests && CompileTasks[i].ReadRequests->PollExternalReadDependencies());
 		Precompile(GRHICommandList.GetImmediateCommandList(), GMaxRHIShaderPlatform, CompileTasks[i].PSO);
@@ -713,9 +731,9 @@ void FShaderPipelineCache::PrecompilePipelineBatch()
 #endif
 		delete CompileTasks[i].ReadRequests;
 	}
-	int64 PrecompileCount = CompileTasks.Num();
-    FPlatformAtomics::InterlockedAdd(&TotalActiveTasks, - PrecompileCount);
-	CompileTasks.Empty();
+	
+    FPlatformAtomics::InterlockedAdd(&TotalActiveTasks, -NumToPrecompile);
+	CompileTasks.RemoveAt(0, NumToPrecompile);
 }
 
 bool FShaderPipelineCache::ReadyForNextBatch() const
@@ -878,6 +896,7 @@ void FShaderPipelineCache::Flush()
 FShaderPipelineCache::FShaderPipelineCache(EShaderPlatform Platform)
 : FTickableObjectRenderThread(true, false) // (RegisterNow, HighFrequency)
 , BatchSize(0)
+, BatchTime(0.0f)
 , bPaused(false)
 , TotalActiveTasks(0)
 , TotalWaitingTasks(0)
@@ -892,6 +911,7 @@ FShaderPipelineCache::FShaderPipelineCache(EShaderPlatform Platform)
     SET_DWORD_STAT(STAT_ShaderPipelineActiveTaskCount, 0);
 	
 	BatchSize = CVarPSOFileCacheBatchSize.GetValueOnAnyThread();
+	BatchTime = CVarPSOFileCacheBatchTime.GetValueOnAnyThread();
 	
 	FCoreDelegates::ApplicationWillDeactivateDelegate.AddStatic(&PipelineStateCacheOnAppDeactivate);
 	
@@ -1018,7 +1038,23 @@ void FShaderPipelineCache::Tick( float DeltaTime )
 		SCOPE_SECONDS_ACCUMULATOR(STAT_PreCompileTotalTime);
 		SCOPE_CYCLE_COUNTER(STAT_PreCompileTime);
 		
+		uint32 Start = FPlatformTime::Cycles();
+
 		PrecompilePipelineBatch();
+
+		uint32 End = FPlatformTime::Cycles();
+
+		if (BatchTime > 0.0f)
+		{
+			if (FPlatformTime::ToMilliseconds(End - Start) < BatchTime)
+			{
+				BatchSize++;
+			}
+			else if (FPlatformTime::ToMilliseconds(End - Start) > BatchTime)
+			{
+				BatchSize--;
+			}
+		}
 	}
 	
 	if (ReadyForNextBatch() && (OrderedCompileTasks.Num() || FetchTasks.Num()))
@@ -1059,10 +1095,10 @@ void FShaderPipelineCache::Tick( float DeltaTime )
 			
 			FetchTasks.Append(NewBatch);
 		}		
-		
-        if (FetchTasks.Num() > CVarPSOFileCacheBatchSize.GetValueOnAnyThread())
+
+        if (static_cast<uint32>(FetchTasks.Num()) > BatchSize)
         {
-            UE_LOG(LogRHI, Warning, TEXT("FSahderPipelineCache: Attempting to pre-compile more jobs (%d) than the batch size (%d)"), FetchTasks.Num(), CVarPSOFileCacheBatchSize.GetValueOnAnyThread());
+            UE_LOG(LogRHI, Warning, TEXT("FShaderPipelineCache: Attempting to pre-compile more jobs (%d) than the batch size (%d)"), FetchTasks.Num(), BatchSize);
         }
         
 		PreparePipelineBatch(FetchTasks);

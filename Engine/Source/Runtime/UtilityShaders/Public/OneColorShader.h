@@ -7,6 +7,7 @@
 #include "ShaderParameters.h"
 #include "Shader.h"
 #include "GlobalShader.h"
+#include "ShaderParameterUtils.h"
 
 /**
  * Vertex shader for rendering a single, constant color.
@@ -23,13 +24,28 @@ public:
 
 	TOneColorVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
-	{}
+	{
+		DepthParameter.Bind(Initializer.ParameterMap, TEXT("InputDepth"), SPF_Mandatory);
+	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("USING_NDC_POSITIONS"), (uint32)(bUsingNDCPositions ? 1 : 0));
 		OutEnvironment.SetDefine(TEXT("USING_LAYERS"), (uint32)(bUsingVertexLayers ? 1 : 0));
+	}
+
+	void SetDepthParameter(FRHICommandList& RHICmdList, float Depth)
+	{
+		SetShaderValue(RHICmdList, GetVertexShader(), DepthParameter, Depth);
+	}
+
+	// FShader interface.
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		Ar << DepthParameter;
+		return bShaderHasOutdatedParameters;
 	}
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
@@ -46,6 +62,9 @@ public:
 	{
 		return TEXT("MainVertexShader");
 	}
+
+private:
+	FShaderParameter DepthParameter;
 };
 
 /**
