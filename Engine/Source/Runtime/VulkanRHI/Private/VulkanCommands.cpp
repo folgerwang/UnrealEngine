@@ -131,7 +131,7 @@ void FVulkanCommandListContext::RHIDispatchComputeShader(uint32 ThreadGroupCount
 	}
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() > 1)
+	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 2)
 	{
 		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer);
 	}
@@ -166,7 +166,7 @@ void FVulkanCommandListContext::RHIDispatchIndirectComputeShader(FVertexBufferRH
 	}
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() > 1)
+	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 2)
 	{
 		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer);
 	}

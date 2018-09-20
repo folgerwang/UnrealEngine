@@ -38,10 +38,13 @@ static TMap<FVulkanTextureBase*, VulkanRHI::FStagingBuffer*> GPendingLockedStagi
 TAutoConsoleVariable<int32> CVarVulkanDebugBarrier(
 	TEXT("r.Vulkan.DebugBarrier"),
 	0,
-	TEXT("Forces a full barrier for debugging.\n")
+	TEXT("Forces a full barrier for debugging. This is a mask/bitfield (so add up the values)!\n")
 	TEXT(" 0: Don't (default)\n")
-	TEXT(" 1: Enable barriers after EndRenderPass()\n")
-	TEXT(" 2: Enable barriers after EndRenderPass() AND every dispatch\n"),
+	TEXT(" 1: Enable heavy barriers after EndRenderPass()\n")
+	TEXT(" 2: Enable heavy barriers after every dispatch\n")
+	TEXT(" 4: Enable heavy barriers after upload cmd buffers\n")
+	TEXT(" 8: Enable heavy barriers after active cmd buffers\n")
+	/*TEXT(" 8: Enable heavy barrier after swapchain\n")*/,
 	ECVF_Default
 );
 #endif
@@ -220,7 +223,7 @@ void FTransitionAndLayoutManager::EndEmulatedRenderPass(FVulkanCmdBuffer* CmdBuf
 	CurrentRenderPass = nullptr;
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() > 0)
+	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 1)
 	{
 		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer->GetHandle());
 	}
@@ -429,7 +432,7 @@ void FTransitionAndLayoutManager::EndRealRenderPass(FVulkanCmdBuffer* CmdBuffer)
 	bInsideRealRenderPass = false;
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() > 0)
+	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 1)
 	{
 		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer->GetHandle());
 	}
