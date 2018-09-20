@@ -247,7 +247,6 @@ FReply FDragConnection::DroppedOnNode(FVector2D ScreenPosition, FVector2D GraphP
 		TArray<UEdGraphPin*> ValidSourcePins;
 		ValidateGraphPinList(/*out*/ ValidSourcePins);
 
-
 		if (ValidSourcePins.Num())
 		{
 			for (UEdGraphPin* SourcePin : ValidSourcePins)
@@ -261,7 +260,7 @@ FReply FDragConnection::DroppedOnNode(FVector2D ScreenPosition, FVector2D GraphP
 					// Find which pin name to use and drop the pin on the node
 					const FName PinName = SourcePin->PinFriendlyName.IsEmpty()? SourcePin->PinName : *SourcePin->PinFriendlyName.ToString();
 
-					const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "AddInParam", "Add In Parameter" ) );
+					const FScopedTransaction Transaction((SourcePin->Direction == EGPD_Output) ? NSLOCTEXT("UnrealEd", "AddInParam", "Add In Parameter" ) : NSLOCTEXT("UnrealEd", "AddOutParam", "Add Out Parameter"));
 
 					UEdGraphPin* EdGraphPin = NodeOver->GetSchema()->DropPinOnNode(GetHoveredNode(), PinName, SourcePin->PinType, SourcePin->Direction);
 
