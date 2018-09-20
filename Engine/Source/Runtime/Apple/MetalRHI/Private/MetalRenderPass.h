@@ -177,6 +177,7 @@ private:
     FMetalFence* PassStartFence;
     FMetalFence* CurrentEncoderFence;
     FMetalFence* PrologueEncoderFence;
+	FMetalFence* LastPrologueEncoderFence;
     
     mtlpp::RenderPassDescriptor RenderPassDesc;
     

@@ -47,6 +47,7 @@ FMetalRenderPass::FMetalRenderPass(FMetalCommandList& InCmdList, FMetalStateCach
 , PassStartFence(nil)
 , CurrentEncoderFence(nil)
 , PrologueEncoderFence(nil)
+, LastPrologueEncoderFence(nil)
 , RenderPassDesc(nil)
 , ComputeDispatchType(mtlpp::DispatchType::Serial)
 , NumOutstandingOps(0)
@@ -143,6 +144,7 @@ FMetalFence* FMetalRenderPass::Submit(EMetalSubmitFlags Flags)
 		{
 			check(PrologueEncoder.GetCommandBuffer());
 			PrologueEncoderFence = PrologueEncoder.EndEncoding();
+			LastPrologueEncoderFence = PrologueEncoderFence;
 		}
 		if (PrologueEncoder.GetCommandBuffer())
 		{
@@ -187,6 +189,7 @@ void FMetalRenderPass::BeginParallelRenderPass(mtlpp::RenderPassDescriptor Rende
 		if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
 		{
 			PrologueEncoderFence = PrologueEncoder.EndEncoding();
+			LastPrologueEncoderFence = PrologueEncoderFence;
 		}
 		if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
 		{
@@ -220,6 +223,7 @@ void FMetalRenderPass::BeginRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 	if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
 	{
 		PrologueEncoderFence = PrologueEncoder.EndEncoding();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 	}
 	if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
 	{
@@ -1005,6 +1009,7 @@ FMetalFence* FMetalRenderPass::End(void)
 	if (PrologueEncoder.IsBlitCommandEncoderActive() || PrologueEncoder.IsComputeCommandEncoderActive())
 	{
 		PrologueEncoderFence = PrologueEncoder.EndEncoding();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 	}
 	
 	if (CmdList.IsImmediate() && IsWithinParallelPass() && CurrentEncoder.IsParallelRenderCommandEncoderActive())
@@ -1163,6 +1168,7 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 	if (PrologueEncoder.IsBlitCommandEncoderActive())
 	{
 		PrologueEncoderFence = PrologueEncoder.EndEncoding();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 	}
 	
 	if (CurrentEncoder.IsComputeCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive())
@@ -1184,6 +1190,12 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 		{
 			PrologueEncoder.WaitForFence(PrologueEncoderFence);
 			PrologueEncoderFence = nullptr;
+			LastPrologueEncoderFence = nullptr;
+		}
+		if (LastPrologueEncoderFence)
+		{
+			PrologueEncoder.WaitAndUpdateFence(LastPrologueEncoderFence);
+			LastPrologueEncoderFence = nullptr;
 		}
 		if (CurrentEncoderFence)
 		{
@@ -1196,6 +1208,7 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 			PassStartFence = nullptr;
 		}
 		PrologueEncoderFence = PrologueEncoder.GetEncoderFence();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 #if METAL_DEBUG_OPTIONS
 		if (GetEmitDrawEvents() && PrologueEncoderFence)
 		{
@@ -1299,6 +1312,7 @@ void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 	if (PrologueEncoder.IsComputeCommandEncoderActive())
 	{
 		PrologueEncoderFence = PrologueEncoder.EndEncoding();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 	}
 	
 	if (!PrologueEncoder.IsBlitCommandEncoderActive())
@@ -1312,6 +1326,12 @@ void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 		{
 			PrologueEncoder.WaitForFence(PrologueEncoderFence);
 			PrologueEncoderFence = nullptr;
+			LastPrologueEncoderFence = nullptr;
+		}
+		if (LastPrologueEncoderFence)
+		{
+			PrologueEncoder.WaitAndUpdateFence(LastPrologueEncoderFence);
+			LastPrologueEncoderFence = nullptr;
 		}
 		if (PassStartFence)
 		{
@@ -1319,6 +1339,7 @@ void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 			PassStartFence = nullptr;
 		}
 		PrologueEncoderFence = PrologueEncoder.GetEncoderFence();
+		LastPrologueEncoderFence = PrologueEncoderFence;
 #if METAL_DEBUG_OPTIONS
 		if (GetEmitDrawEvents() && PrologueEncoderFence)
 		{

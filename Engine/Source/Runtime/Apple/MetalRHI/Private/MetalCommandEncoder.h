@@ -163,6 +163,12 @@ public:
 	
 	/** Prevent further GPU work until the event is reached. */
 	void WaitForFence(FMetalFence* Fence);
+	
+	/**
+	 * Prevent further GPU work until the event is reached and then kick the fence again so future encoders may wait on it.
+	 * Unlike the functions above this is not guarded and the caller must ensure proper matching waits & updates.
+	 */
+	void WaitAndUpdateFence(FMetalFence* Fence);
 
 #pragma mark - Public Debug Support -
 	
