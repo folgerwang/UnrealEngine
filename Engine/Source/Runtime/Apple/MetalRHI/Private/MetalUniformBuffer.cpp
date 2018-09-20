@@ -31,7 +31,7 @@ struct FMetalRHICommandInitialiseUniformdBuffer : public FRHICommand<FMetalRHICo
 			LLM_SCOPE(ELLMTag::VertexBuffer);
 			SafeReleaseMetalBuffer(Buffer->CPUBuffer);
 		}
-		else if (GMetalBufferZeroFill)
+		else if (GMetalBufferZeroFill && !FMetalCommandQueue::SupportsFeature(EMetalFeaturesHeaps))
 		{
 			GetMetalDeviceContext().FillBuffer(Buffer->Buffer, ns::Range(0, Buffer->Buffer.GetLength()), 0);
 		}
