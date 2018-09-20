@@ -722,14 +722,7 @@ NSUInteger FMetalSubBufferMagazine::GetUsedSize() const
 
 NSUInteger FMetalSubBufferMagazine::GetFreeSize() const 
 {
-	if (ParentHeap)
-	{
-		return ParentHeap.MaxAvailableSizeWithAlignment(MinAlign);
-	}
-	else
-	{
-		return GetSize() - GetUsedSize();
-	}
+	return GetSize() - GetUsedSize();
 }
 
 void FMetalSubBufferMagazine::SetLabel(const ns::String& label)
