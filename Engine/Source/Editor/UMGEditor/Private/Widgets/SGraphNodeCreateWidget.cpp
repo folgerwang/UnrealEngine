@@ -100,27 +100,17 @@ protected:
 //////////////////////////////////////////////////////////////////////////
 // SGraphNodeCreateWidget
 
-void SGraphNodeCreateWidget::CreatePinWidgets()
+TSharedPtr<SGraphPin> SGraphNodeCreateWidget::CreatePinWidget(UEdGraphPin* Pin) const
 {
 	UK2Node_CreateWidget* CreateWidgetNode = CastChecked<UK2Node_CreateWidget>(GraphNode);
 	UEdGraphPin* ClassPin = CreateWidgetNode->GetClassPin();
-
-	for (auto PinIt = GraphNode->Pins.CreateConstIterator(); PinIt; ++PinIt)
+	if ((ClassPin == Pin) && (!ClassPin->bHidden || (ClassPin->LinkedTo.Num() > 0)))
 	{
-		UEdGraphPin* CurrentPin = *PinIt;
-		if ((!CurrentPin->bHidden) && (CurrentPin != ClassPin))
-		{
-			TSharedPtr<SGraphPin> NewPin = FNodeFactory::CreatePinWidget(CurrentPin);
-			check(NewPin.IsValid());
-			this->AddPin(NewPin.ToSharedRef());
-		}
-		else if ((ClassPin == CurrentPin) && (!ClassPin->bHidden || (ClassPin->LinkedTo.Num() > 0)))
-		{
-			TSharedPtr<SGraphPinUserWidgetBasedClass> NewPin = SNew(SGraphPinUserWidgetBasedClass, ClassPin);
-			check(NewPin.IsValid());
-			this->AddPin(NewPin.ToSharedRef());
-		}
+		TSharedPtr<SGraphPinUserWidgetBasedClass> NewPin = SNew(SGraphPinUserWidgetBasedClass, ClassPin);
+		check(NewPin.IsValid());
+		return NewPin;
 	}
+	return SGraphNodeK2Default::CreatePinWidget(Pin);
 }
 
 #undef LOCTEXT_NAMESPACE

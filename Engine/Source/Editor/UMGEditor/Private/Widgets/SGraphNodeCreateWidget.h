@@ -9,6 +9,6 @@ class SGraphNodeCreateWidget : public SGraphNodeK2Default
 {
 public:
 	// SGraphNode interface
-	virtual void CreatePinWidgets() override;
+	virtual TSharedPtr<SGraphPin> CreatePinWidget(UEdGraphPin* Pin) const override;
 	// End of SGraphNode interface
 };
