@@ -144,7 +144,7 @@ public:
 	void BeginRenderCommandEncoding(void);
 	
 	/** Begins encoding compute commands into the current command buffer. No other encoder may be active. */
-	void BeginComputeCommandEncoding(void);
+	void BeginComputeCommandEncoding(mtlpp::DispatchType Type = mtlpp::DispatchType::Serial);
 	
 	/** Begins encoding blit commands into the current command buffer. No other encoder may be active. */
 	void BeginBlitCommandEncoding(bool const bSuppressFence = false);

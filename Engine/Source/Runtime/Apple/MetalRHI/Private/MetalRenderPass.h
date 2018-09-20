@@ -22,6 +22,8 @@ public:
 	~FMetalRenderPass(void);
 	
 #pragma mark -
+	void SetDispatchType(mtlpp::DispatchType Type);
+	
     void Begin(FMetalFence* Fence, bool const bParallelBegin = false);
 	
 	void Wait(FMetalFence* Fence);
@@ -178,6 +180,7 @@ private:
     
     mtlpp::RenderPassDescriptor RenderPassDesc;
     
+	mtlpp::DispatchType ComputeDispatchType;
     uint32 NumOutstandingOps;
     bool bWithinRenderPass;
 };

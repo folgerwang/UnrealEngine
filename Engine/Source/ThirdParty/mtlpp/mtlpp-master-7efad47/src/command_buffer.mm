@@ -372,6 +372,24 @@ namespace mtlpp
 #endif
 		return Encoder;
     }
+	
+	
+	ComputeCommandEncoder CommandBuffer::ComputeCommandEncoder(DispatchType Type)
+	{
+		Validate();
+		class ComputeCommandEncoder Encoder;
+#if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
+		Encoder = mtlpp::ComputeCommandEncoder(m_table->ComputeCommandEncoderWithType(m_ptr, (MTLDispatchType)Type), m_table->TableCache);
+#else
+		Encoder = mtlpp::ComputeCommandEncoder([(id<MTLCommandBuffer>)m_ptr computeCommandEncoderWithDispatchType:(MTLDispatchType)Type], m_table->TableCache);
+#endif
+#if MTLPP_CONFIG_VALIDATE
+		Encoder.SetCommandBufferFence(GetCompletionFence());
+#endif
+#endif
+		return Encoder;
+	}
 
     ParallelRenderCommandEncoder CommandBuffer::ParallelRenderCommandEncoder(const RenderPassDescriptor& renderPassDescriptor)
     {

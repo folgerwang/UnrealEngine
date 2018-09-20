@@ -390,12 +390,19 @@ void FMetalCommandEncoder::BeginRenderCommandEncoding(void)
 	}
 }
 
-void FMetalCommandEncoder::BeginComputeCommandEncoding(void)
+void FMetalCommandEncoder::BeginComputeCommandEncoding(mtlpp::DispatchType Type)
 {
 	check(CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
 	
-	ComputeCommandEncoder = MTLPP_VALIDATE(mtlpp::CommandBuffer, CommandBuffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, ComputeCommandEncoder());
+	if (Type == mtlpp::DispatchType::Serial)
+	{
+		ComputeCommandEncoder = MTLPP_VALIDATE(mtlpp::CommandBuffer, CommandBuffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, ComputeCommandEncoder());
+	}
+	else
+	{
+		ComputeCommandEncoder = MTLPP_VALIDATE(mtlpp::CommandBuffer, CommandBuffer, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, ComputeCommandEncoder(Type));
+	}
 	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug = FMetalComputeCommandEncoderDebugging(ComputeCommandEncoder, CommandBufferDebug));
 
 	EncoderNum++;

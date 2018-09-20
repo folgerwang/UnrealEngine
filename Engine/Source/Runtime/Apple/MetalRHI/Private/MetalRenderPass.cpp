@@ -48,6 +48,7 @@ FMetalRenderPass::FMetalRenderPass(FMetalCommandList& InCmdList, FMetalStateCach
 , CurrentEncoderFence(nil)
 , PrologueEncoderFence(nil)
 , RenderPassDesc(nil)
+, ComputeDispatchType(mtlpp::DispatchType::Serial)
 , NumOutstandingOps(0)
 , bWithinRenderPass(false)
 {
@@ -58,6 +59,11 @@ FMetalRenderPass::~FMetalRenderPass(void)
 	check(!CurrentEncoder.GetCommandBuffer());
 	check(!PrologueEncoder.GetCommandBuffer());
 	check(!PassStartFence);
+}
+
+void FMetalRenderPass::SetDispatchType(mtlpp::DispatchType Type)
+{
+	ComputeDispatchType = Type;
 }
 
 void FMetalRenderPass::Begin(FMetalFence* Fence, bool const bParallelBegin)
@@ -1172,7 +1178,7 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 		{
 			PrologueEncoder.StartCommandBuffer();
 		}
-		PrologueEncoder.BeginComputeCommandEncoding();
+		PrologueEncoder.BeginComputeCommandEncoding(ComputeDispatchType);
 		
 		if (PrologueEncoderFence)
 		{
@@ -1238,7 +1244,7 @@ void FMetalRenderPass::ConditionalSwitchToCompute(void)
 	if (!CurrentEncoder.IsComputeCommandEncoderActive())
 	{
 		State.SetStateDirty();
-		CurrentEncoder.BeginComputeCommandEncoding();
+		CurrentEncoder.BeginComputeCommandEncoding(ComputeDispatchType);
 		if (CurrentEncoderFence)
 		{
 			CurrentEncoder.WaitForFence(CurrentEncoderFence);
