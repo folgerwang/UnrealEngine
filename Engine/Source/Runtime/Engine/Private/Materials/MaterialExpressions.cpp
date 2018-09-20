@@ -10935,6 +10935,7 @@ static const TCHAR* GetInputTypeName(uint8 InputType)
 		TEXT("V4"),
 		TEXT("T2d"),
 		TEXT("TCube"),
+		TEXT("TVol"),
 		TEXT("B"),
 		TEXT("MA"),
 		TEXT("TExt")
