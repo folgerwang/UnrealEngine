@@ -25,6 +25,7 @@
 #include "K2Node_Event.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_CallArrayFunction.h"
+#include "K2Node_CallParentFunction.h"
 #include "K2Node_ExecutionSequence.h"
 #include "K2Node_FunctionEntry.h"
 #include "K2Node_FunctionResult.h"
@@ -1517,6 +1518,52 @@ bool FKismetCompilerUtilities::IsMissingMemberPotentiallyLoading(const UBlueprin
 		}
 	}
 	return bCouldBeCompiledInOnLoad;
+}
+
+bool FKismetCompilerUtilities::IsIntermediateFunctionGraphTrivial(FName FunctionName, const UEdGraph* FunctionGraph)
+{
+	const auto HasFunctionEntry = [](const UEdGraph* InFunctionGraph ) -> bool
+	{
+		return InFunctionGraph->Nodes.FindByPredicate(
+			[](const UEdGraphNode* Node) { return Cast<UK2Node_FunctionEntry>(Node); }
+		) != nullptr;
+	};
+
+	const auto HasCallToParent = [](const UEdGraph* InFunctionGraph) -> bool
+	{
+		return InFunctionGraph->Nodes.FindByPredicate(
+			[](const UEdGraphNode* Node) { return Cast<UK2Node_CallParentFunction>(Node); }
+		) != nullptr;
+	};
+
+	if(FunctionGraph->Nodes.Num() <= 2)
+	{
+		if(const UBlueprint* OwningBP = FBlueprintEditorUtils::FindBlueprintForGraph(FunctionGraph))
+		{
+			if(UFunction* Fn = OwningBP->ParentClass->FindFunctionByName(FunctionName))
+			{
+				// this is an override, we consider this implementation trivial iff it contains
+				// an entry node and a call to the parent or it contains only an entry node
+				// and the parent is native and the FN is a Blueprint Event:
+				if(FunctionGraph->Nodes.Num() == 2)
+				{
+					return HasFunctionEntry(FunctionGraph) && HasCallToParent(FunctionGraph);
+				}
+				else if(Fn->HasAnyFunctionFlags(FUNC_BlueprintEvent))
+				{
+					return FunctionGraph->Nodes.Num() == 1 &&
+						HasFunctionEntry(FunctionGraph);
+				}
+			}
+			else
+			{
+				return FunctionGraph->Nodes.Num() == 1&&
+					HasFunctionEntry(FunctionGraph);
+			}
+		}
+	}
+
+	return false;
 }
 
 //////////////////////////////////////////////////////////////////////////

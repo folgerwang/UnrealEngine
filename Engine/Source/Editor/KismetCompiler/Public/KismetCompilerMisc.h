@@ -114,6 +114,9 @@ public:
 	 * Blueprint's bytecode is recompiled.
 	 */
 	static bool IsMissingMemberPotentiallyLoading(const UBlueprint* SelfBlueprint, const UStruct* MemberOwner);
+
+	/** @return true if the graph in question contains only an entry node or only an entry node and a call to its parent if the graph is an override */
+	static bool IsIntermediateFunctionGraphTrivial(FName FunctionName, const UEdGraph* FunctionGraph);
 };
 
 //////////////////////////////////////////////////////////////////////////

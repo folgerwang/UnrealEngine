@@ -3624,6 +3624,15 @@ void FKismetCompilerContext::ProcessOneFunctionGraph(UEdGraph* SourceGraph, bool
 
 	ExpansionStep(FunctionGraph, false);
 
+	// Cull the entire construction script graph if after node culling it's trivial, this reduces event spam on object construction:
+	if (SourceGraph->GetFName() == Schema->FN_UserConstructionScript )
+	{
+		if(FKismetCompilerUtilities::IsIntermediateFunctionGraphTrivial(Schema->FN_UserConstructionScript, FunctionGraph))
+		{
+			return;
+		}
+	}
+
 	// If a function in the graph cannot be overridden/placed as event make sure that it is not.
 	VerifyValidOverrideFunction(FunctionGraph);
 
