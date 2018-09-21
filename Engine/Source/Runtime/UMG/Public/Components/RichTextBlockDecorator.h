@@ -16,7 +16,7 @@ class ISlateStyle;
 class URichTextBlockDecorator;
 class URichTextBlock;
 
-class FRichTextDecorator : public ITextDecorator
+class UMG_API FRichTextDecorator : public ITextDecorator
 {
 public:
 	FRichTextDecorator(URichTextBlock* InOwner);
