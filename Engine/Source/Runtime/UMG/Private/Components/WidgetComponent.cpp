@@ -48,6 +48,10 @@ public:
 				{
 					ScreenLayer.Pin()->AddComponent(Component, UserWidget->TakeWidget());
 				}
+				else if (Component->GetSlateWidget().IsValid())
+				{
+					ScreenLayer.Pin()->AddComponent(Component, Component->GetSlateWidget().ToSharedRef());
+				}
 			}
 		}
 	}
@@ -83,6 +87,10 @@ public:
 				if ( UUserWidget* UserWidget = Component->GetUserWidgetObject() )
 				{
 					NewScreenLayer->AddComponent(Component, UserWidget->TakeWidget());
+				}
+				else if (Component->GetSlateWidget().IsValid())
+				{
+					NewScreenLayer->AddComponent(Component, Component->GetSlateWidget().ToSharedRef()); 
 				}
 			}
 		}
@@ -882,6 +890,12 @@ void UWidgetComponent::ReleaseResources()
 		Widget = nullptr;
 	}
 
+	if (SlateWidget.IsValid())
+	{
+		RemoveWidgetFromScreen();
+		SlateWidget.Reset();
+	}
+	
 	if (WidgetRenderer)
 	{
 		BeginCleanup(WidgetRenderer);
@@ -995,7 +1009,11 @@ void UWidgetComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 								
 									bAddedToScreen = true;
 								
-									Widget->SetPlayerContext(PlayerContext);
+									if (Widget && Widget->IsValidLowLevel())
+									{
+										Widget->SetPlayerContext(PlayerContext);
+									}
+									
 									ScreenLayer->AddComponent(this);
 								}
 							}
