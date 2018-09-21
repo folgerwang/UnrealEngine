@@ -290,6 +290,8 @@ public:
 	/** Reverse a merge */
 	TSharedPtr< FUICommandInfo > SeparatePolys;
 
+	/** Align brush verticies to the grid */
+	TSharedPtr<FUICommandInfo> AlignBrushVerticesToGrid;
 
 	/**
 	 * Actor group commands
@@ -1254,6 +1256,11 @@ public:
 	 * @param InUsePivot		Whether or not to use the pivot position.
 	 */
 	static void SnapActorToActor_Clicked( bool InAlign, bool InUseLineTrace, bool InUseBounds, bool InUsePivot );
+
+	/**
+	 * Aligns brush verticies to the nearest grid point.
+	 */
+	static void AlignBrushVerticesToGrid_Execute();
 
 	/**
 	 * Checks to see if multiple actors are selected
