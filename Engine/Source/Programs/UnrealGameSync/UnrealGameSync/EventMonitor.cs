@@ -34,12 +34,14 @@ namespace UnrealGameSync
 		Investigating,
 		Resolved,
 	}
+
 	class LatestData
 	{
 		public long LastEventId { get; set; }
 		public long LastCommentId { get; set; }
 		public long LastBuildId { get; set; }
 	}
+
 	class EventData
 	{
 		public long Id { get; set; }
@@ -58,7 +60,7 @@ namespace UnrealGameSync
 		public string Project { get; set; }
 	}
 
-	enum BuildDataResult
+	enum BadgeResult
 	{
 		Starting,
 		Failure,
@@ -67,23 +69,23 @@ namespace UnrealGameSync
 		Skipped,
 	}
 
-	class BuildData
+	class BadgeData
 	{
 		public long Id { get; set; }
 		public int ChangeNumber { get; set; }
 		public string BuildType { get; set; }
-		public BuildDataResult Result { get; set; }
+		public BadgeResult Result { get; set; }
 		public string Url { get; set; }
 		public string Project { get; set; }
 
 		public bool IsSuccess
 		{
-			get { return Result == BuildDataResult.Success || Result == BuildDataResult.Warning; }
+			get { return Result == BadgeResult.Success || Result == BadgeResult.Warning; }
 		}
 
 		public bool IsFailure
 		{
-			get { return Result == BuildDataResult.Failure; }
+			get { return Result == BadgeResult.Failure; }
 		}
 
 		public string BadgeName
@@ -135,7 +137,7 @@ namespace UnrealGameSync
 		public List<EventData> Reviews = new List<EventData>();
 		public List<string> CurrentUsers = new List<string>();
 		public EventData LastStarReview;
-		public List<BuildData> Builds = new List<BuildData>();
+		public List<BadgeData> Badges = new List<BadgeData>();
 		public List<CommentData> Comments = new List<CommentData>();
 	}
 
@@ -150,10 +152,10 @@ namespace UnrealGameSync
 		ConcurrentQueue<EventData> IncomingEvents = new ConcurrentQueue<EventData>();
 		ConcurrentQueue<CommentData> OutgoingComments = new ConcurrentQueue<CommentData>();
 		ConcurrentQueue<CommentData> IncomingComments = new ConcurrentQueue<CommentData>();
-		ConcurrentQueue<BuildData> IncomingBuilds = new ConcurrentQueue<BuildData>();
+		ConcurrentQueue<BadgeData> IncomingBadges = new ConcurrentQueue<BadgeData>();
 		Dictionary<int, EventSummary> ChangeNumberToSummary = new Dictionary<int, EventSummary>();
 		Dictionary<string, EventData> UserNameToLastSyncEvent = new Dictionary<string, EventData>(StringComparer.InvariantCultureIgnoreCase);
-		Dictionary<string, BuildData> BadgeNameToLatestBuild = new Dictionary<string, BuildData>();
+		Dictionary<string, BadgeData> BadgeNameToLatestData = new Dictionary<string, BadgeData>();
 		BoundedLogWriter LogWriter;
 		bool bDisposing;
 		LatestData LatestIds;
@@ -258,10 +260,10 @@ namespace UnrealGameSync
 				ApplyEventUpdate(Event);
 			}
 
-			BuildData Build;
-			while(IncomingBuilds.TryDequeue(out Build))
+			BadgeData Badge;
+			while(IncomingBadges.TryDequeue(out Badge))
 			{
-				ApplyBuildUpdate(Build);
+				ApplyBadgeUpdate(Badge);
 			}
 
 			CommentData Comment;
@@ -320,7 +322,7 @@ namespace UnrealGameSync
 
 				// Add the new review, and find the new verdict for this change
 				Summary.Reviews.Add(Event);
-				Summary.Verdict = GetVerdict(Summary.Reviews, Summary.Builds);
+				Summary.Verdict = GetVerdict(Summary.Reviews, Summary.Badges);
 			}
 			else
 			{
@@ -328,16 +330,16 @@ namespace UnrealGameSync
 			}
 		}
 
-		void ApplyBuildUpdate(BuildData Build)
+		void ApplyBadgeUpdate(BadgeData Badge)
 		{
-			EventSummary Summary = FindOrAddSummary(Build.ChangeNumber);
+			EventSummary Summary = FindOrAddSummary(Badge.ChangeNumber);
 
-			BuildData ExistingBuild = Summary.Builds.Find(x => x.ChangeNumber == Build.ChangeNumber && x.BuildType == Build.BuildType);
-			if(ExistingBuild != null)
+			BadgeData ExistingBadge = Summary.Badges.Find(x => x.ChangeNumber == Badge.ChangeNumber && x.BuildType == Badge.BuildType);
+			if(ExistingBadge != null)
 			{
-				if(ExistingBuild.Id <= Build.Id)
+				if(ExistingBadge.Id <= Badge.Id)
 				{
-					Summary.Builds.Remove(ExistingBuild);
+					Summary.Badges.Remove(ExistingBadge);
 				}
 				else
 				{
@@ -345,13 +347,13 @@ namespace UnrealGameSync
 				}
 			}
 
-			Summary.Builds.Add(Build);
-			Summary.Verdict = GetVerdict(Summary.Reviews, Summary.Builds);
+			Summary.Badges.Add(Badge);
+			Summary.Verdict = GetVerdict(Summary.Reviews, Summary.Badges);
 
-			BuildData LatestBuild;
-			if(!BadgeNameToLatestBuild.TryGetValue(Build.BadgeName, out LatestBuild) || Build.ChangeNumber > LatestBuild.ChangeNumber || (Build.ChangeNumber == LatestBuild.ChangeNumber && Build.Id > LatestBuild.Id))
+			BadgeData LatestBadge;
+			if(!BadgeNameToLatestData.TryGetValue(Badge.BadgeName, out LatestBadge) || Badge.ChangeNumber > LatestBadge.ChangeNumber || (Badge.ChangeNumber == LatestBadge.ChangeNumber && Badge.Id > LatestBadge.Id))
 			{
-				BadgeNameToLatestBuild[Build.BadgeName] = Build;
+				BadgeNameToLatestData[Badge.BadgeName] = Badge;
 			}
 		}
 
@@ -391,7 +393,7 @@ namespace UnrealGameSync
 			return true;
 		}
 
-		static ReviewVerdict GetVerdict(IEnumerable<EventData> Events, IEnumerable<BuildData> Builds)
+		static ReviewVerdict GetVerdict(IEnumerable<EventData> Events, IEnumerable<BadgeData> Badges)
 		{
 			int NumPositiveReviews = Events.Count(x => x.Type == EventType.Good);
 			int NumNegativeReviews = Events.Count(x => x.Type == EventType.Bad);
@@ -407,11 +409,11 @@ namespace UnrealGameSync
 				return GetVerdict(NumCompiles, NumFailedCompiles);
 			}
 
-			int NumBuilds = Builds.Count(x => x.BuildType == "Editor" && x.IsSuccess);
-			int NumFailedBuilds = Builds.Count(x => x.BuildType == "Editor" && x.IsFailure);
-			if(NumBuilds > 0 || NumFailedBuilds > 0)
+			int NumBadges = Badges.Count(x => x.BuildType == "Editor" && x.IsSuccess);
+			int NumFailedBadges = Badges.Count(x => x.BuildType == "Editor" && x.IsFailure);
+			if(NumBadges > 0 || NumFailedBadges > 0)
 			{
-				return GetVerdict(NumBuilds, NumFailedBuilds);
+				return GetVerdict(NumBadges, NumFailedBadges);
 			}
 
 			return ReviewVerdict.Unknown;
@@ -483,7 +485,7 @@ namespace UnrealGameSync
 					ReadEventsFromBackend();
 
 					// Send a notification that we're ready to update
-					if((IncomingEvents.Count > 0 || IncomingBuilds.Count > 0 || IncomingComments.Count > 0) && OnUpdatesReady != null)
+					if((IncomingEvents.Count > 0 || IncomingBadges.Count > 0 || IncomingComments.Count > 0) && OnUpdatesReady != null)
 					{
 						OnUpdatesReady();
 					}
@@ -568,10 +570,10 @@ namespace UnrealGameSync
 				//////////////
 				/// Bulids
 				//////////////
-				List<BuildData> Builds = RESTApi.GET<List<BuildData>>(ApiUrl, "build", string.Format("project={0}", Project), string.Format("lastbuildid={0}", LatestIds.LastBuildId));
-				foreach (BuildData Build in Builds)
+				List<BadgeData> Builds = RESTApi.GET<List<BadgeData>>(ApiUrl, "build", string.Format("project={0}", Project), string.Format("lastbuildid={0}", LatestIds.LastBuildId));
+				foreach (BadgeData Build in Builds)
 				{
-					IncomingBuilds.Enqueue(Build);
+					IncomingBadges.Enqueue(Build);
 					LatestIds.LastBuildId = Math.Max(LatestIds.LastBuildId, Build.Id);
 				}
 
@@ -671,9 +673,9 @@ namespace UnrealGameSync
 			return Summary;
 		}
 
-		public bool TryGetLatestBuild(string BuildType, out BuildData BuildData)
+		public bool TryGetLatestBadge(string BuildType, out BadgeData BadgeData)
 		{
-			return BadgeNameToLatestBuild.TryGetValue(BuildType, out BuildData);
+			return BadgeNameToLatestData.TryGetValue(BuildType, out BadgeData);
 		}
 
 		public static bool IsReview(EventType Type)
