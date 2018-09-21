@@ -30,6 +30,10 @@ FMetalCommandEncoder::FMetalCommandEncoder(FMetalCommandList& CmdList)
 #if ENABLE_METAL_GPUPROFILE
 , CommandBufferStats(nullptr)
 #endif
+#if METAL_DEBUG_OPTIONS
+, WaitCount(0)
+, UpdateCount(0)
+#endif
 , DebugGroups([NSMutableArray new])
 , EncoderNum(0)
 {
@@ -432,7 +436,7 @@ void FMetalCommandEncoder::BeginComputeCommandEncoding(mtlpp::DispatchType Type)
 	EncoderFence = CommandList.GetCommandQueue().CreateFence(Label);
 }
 
-void FMetalCommandEncoder::BeginBlitCommandEncoding(bool const bSuppressFence)
+void FMetalCommandEncoder::BeginBlitCommandEncoding(void)
 {
 	check(CommandBuffer);
 	check(IsRenderCommandEncoderActive() == false && IsComputeCommandEncoderActive() == false && IsBlitCommandEncoderActive() == false);
@@ -464,10 +468,8 @@ void FMetalCommandEncoder::BeginBlitCommandEncoding(bool const bSuppressFence)
 		}
 	}
 	METAL_STATISTIC(FMetalProfiler::GetProfiler()->BeginEncoder(CommandBufferStats, BlitCommandEncoder));
-	if (!bSuppressFence)
-	{
-		EncoderFence = CommandList.GetCommandQueue().CreateFence(Label);
-	}
+	
+	EncoderFence = CommandList.GetCommandQueue().CreateFence(Label);
 }
 
 FMetalFence* FMetalCommandEncoder::EndEncoding(void)
@@ -515,6 +517,16 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 					Fence = EncoderFence;
 				}
 				UpdateFence(EncoderFence);
+				
+#if METAL_DEBUG_OPTIONS
+				if (bSupportsFences && (!WaitCount || !UpdateCount))
+				{
+					UE_LOG(LogMetal, Error, TEXT("%s has incorrect fence waits (%u) vs. updates (%u)."), *FString(RenderCommandEncoder.GetLabel()), WaitCount, UpdateCount);
+					check(UpdateCount);
+				}
+				WaitCount = 0;
+				UpdateCount = 0;
+#endif
 				
 				METAL_STATISTIC(FMetalProfiler::GetProfiler()->EndEncoder(CommandBufferStats, RenderCommandEncoder));
 				RenderCommandEncoder.EndEncoding();
@@ -610,6 +622,16 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 			}
 			UpdateFence(EncoderFence);
 			
+#if METAL_DEBUG_OPTIONS
+			if (bSupportsFences && (!WaitCount || !UpdateCount))
+			{
+				UE_LOG(LogMetal, Error, TEXT("%s has incorrect fence waits (%u) vs. updates (%u)."), *FString(ComputeCommandEncoder.GetLabel()), WaitCount, UpdateCount);
+				check(UpdateCount);
+			}
+			WaitCount = 0;
+			UpdateCount = 0;
+#endif
+			
 			METAL_STATISTIC(FMetalProfiler::GetProfiler()->EndEncoder(CommandBufferStats, ComputeCommandEncoder));
 			ComputeCommandEncoder.EndEncoding();
 			METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, ComputeEncoderDebug.EndEncoder());
@@ -625,6 +647,16 @@ FMetalFence* FMetalCommandEncoder::EndEncoding(void)
 				Fence = EncoderFence;
 			}
 			UpdateFence(EncoderFence);
+			
+#if METAL_DEBUG_OPTIONS
+			if (bSupportsFences && (!WaitCount || !UpdateCount))
+			{
+				UE_LOG(LogMetal, Error, TEXT("%s has incorrect fence waits (%u) vs. updates (%u)."), *FString(BlitCommandEncoder.GetLabel()), WaitCount, UpdateCount);
+				check(UpdateCount);
+			}
+			WaitCount = 0;
+			UpdateCount = 0;
+#endif
 			
 			METAL_STATISTIC(FMetalProfiler::GetProfiler()->EndEncoder(CommandBufferStats, RenderCommandEncoder));
 			BlitCommandEncoder.EndEncoding();
@@ -676,13 +708,14 @@ void FMetalCommandEncoder::UpdateFence(FMetalFence* Fence)
 	static bool bSupportsFences = CommandList.GetCommandQueue().SupportsFeature(EMetalFeaturesFences);
 	if ((bSupportsFences METAL_DEBUG_OPTION(|| CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)) && Fence && Fence->NeedsWrite(mtlpp::RenderStages::Fragment))
 	{
-#if ENABLE_METAL_GPUPROFILE
+#if ENABLE_METAL_GPUPROFILE && METAL_STATISTICS
 		FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
 		if (Profiler)
 		{
-			Profiler->EncodeFence(GetCommandBufferStats(), TEXT("UpdateFence"), Fence);
+			Profiler->EncodeFence(GetCommandBufferStats(), TEXT("UpdateFence"), Fence, EMTLFenceTypeUpdate);
 		}
 #endif
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, UpdateCount++);
 		
 		mtlpp::Fence InnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)Fence->GetPtr()).Inner) :) *Fence;
 		if (RenderCommandEncoder)
@@ -715,13 +748,14 @@ void FMetalCommandEncoder::WaitForFence(FMetalFence* Fence)
 	static bool bSupportsFences = CommandList.GetCommandQueue().SupportsFeature(EMetalFeaturesFences);
 	if ((bSupportsFences METAL_DEBUG_OPTION(|| CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)) && Fence && Fence->NeedsWait(mtlpp::RenderStages::Fragment))
 	{
-#if ENABLE_METAL_GPUPROFILE
+#if ENABLE_METAL_GPUPROFILE && METAL_STATISTICS
 		FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
 		if (Profiler)
 		{
-			Profiler->EncodeFence(GetCommandBufferStats(), TEXT("WaitForFence"), Fence);
+			Profiler->EncodeFence(GetCommandBufferStats(), TEXT("WaitForFence"), Fence, EMTLFenceTypeWait);
 		}
 #endif
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, WaitCount++);
 		
 		mtlpp::Fence InnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)Fence->GetPtr()).Inner) :) *Fence;
 		if (RenderCommandEncoder)
@@ -754,13 +788,16 @@ void FMetalCommandEncoder::WaitAndUpdateFence(FMetalFence* Fence)
 	static bool bSupportsFences = CommandList.GetCommandQueue().SupportsFeature(EMetalFeaturesFences);
 	if ((bSupportsFences METAL_DEBUG_OPTION(|| CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation)) && Fence)
 	{
-#if ENABLE_METAL_GPUPROFILE
+#if ENABLE_METAL_GPUPROFILE && METAL_STATISTICS
 		FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
 		if (Profiler)
 		{
-			Profiler->EncodeFence(GetCommandBufferStats(), TEXT("WaitAndUpdateFence"), Fence);
+			Profiler->EncodeFence(GetCommandBufferStats(), TEXT("WaitForFence"), Fence, EMTLFenceTypeWait);
+			Profiler->EncodeFence(GetCommandBufferStats(), TEXT("UpdateFence"), Fence, EMTLFenceTypeUpdate);
 		}
 #endif
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, WaitCount++);
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, UpdateCount++);
 		
 		mtlpp::Fence InnerFence = METAL_DEBUG_OPTION(CommandList.GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation ? mtlpp::Fence(((FMetalDebugFence*)Fence->GetPtr()).Inner) :) *Fence;
 		if (RenderCommandEncoder)

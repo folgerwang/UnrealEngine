@@ -45,6 +45,7 @@ FMetalRenderPass::FMetalRenderPass(FMetalCommandList& InCmdList, FMetalStateCach
 , CurrentEncoder(InCmdList)
 , PrologueEncoder(InCmdList)
 , PassStartFence(nil)
+, ParallelPassEndFence(nil)
 , CurrentEncoderFence(nil)
 , PrologueEncoderFence(nil)
 , LastPrologueEncoderFence(nil)
@@ -79,10 +80,10 @@ void FMetalRenderPass::Begin(FMetalFence* Fence, bool const bParallelBegin)
 	}
 	else
 	{
-		check(!CurrentEncoderFence || Fence == nullptr);
+		check(!ParallelPassEndFence || Fence == nullptr);
 		if (Fence)
 		{
-			CurrentEncoderFence = Fence;
+			ParallelPassEndFence = Fence;
 		}
 	}
 	
@@ -123,7 +124,7 @@ void FMetalRenderPass::Update(FMetalFence* Fence)
 		// the higher-level can generate empty contexts but we have no sane way to deal with that.
 		if (!CurrentEncoder.IsRenderCommandEncoderActive() && !CurrentEncoder.IsBlitCommandEncoderActive() && !CurrentEncoder.IsComputeCommandEncoderActive())
 		{
-			ConditionalSwitchToBlit(true);
+			ConditionalSwitchToBlit();
 		}
 		CurrentEncoder.UpdateFence(Fence);
 		State.FlushVisibilityResults(CurrentEncoder);
@@ -172,6 +173,11 @@ FMetalFence* FMetalRenderPass::Submit(EMetalSubmitFlags Flags)
 	{
 		PrologueEncoder.Reset();
 		CurrentEncoder.Reset();
+		
+		if (!LastPrologueEncoderFence || !LastPrologueEncoderFence->NeedsWait(mtlpp::RenderStages::Fragment))
+		{
+			LastPrologueEncoderFence = CurrentEncoderFence;
+		}
 	}
 	
 	return CurrentEncoderFence;
@@ -244,6 +250,11 @@ void FMetalRenderPass::BeginRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 		{
 			CurrentEncoder.WaitForFence(PassStartFence);
 			PassStartFence = nullptr;
+		}
+		if (ParallelPassEndFence)
+		{
+			CurrentEncoder.WaitForFence(ParallelPassEndFence);
+			ParallelPassEndFence = nullptr;
 		}
 		if (CurrentEncoderFence)
 		{
@@ -360,6 +371,11 @@ void FMetalRenderPass::RestartRenderPass(mtlpp::RenderPassDescriptor RenderPass)
 	{
 		CurrentEncoder.WaitForFence(PassStartFence);
 		PassStartFence = nullptr;
+	}
+	if (ParallelPassEndFence)
+	{
+		CurrentEncoder.WaitForFence(ParallelPassEndFence);
+		ParallelPassEndFence = nullptr;
 	}
 	if (PrologueEncoderFence)
 	{
@@ -1017,9 +1033,10 @@ FMetalFence* FMetalRenderPass::End(void)
 		State.SetRenderStoreActions(CurrentEncoder, false);
 		CurrentEncoder.EndEncoding();
 		
-		ConditionalSwitchToBlit(true);
+		ConditionalSwitchToBlit();
 		CurrentEncoder.WaitForFence(PassStartFence);
 		CurrentEncoder.WaitForFence(CurrentEncoderFence);
+		CurrentEncoder.WaitForFence(ParallelPassEndFence);
 		CurrentEncoderFence = CurrentEncoder.EndEncoding();
 	}
 	else if (CurrentEncoder.IsRenderCommandEncoderActive() || CurrentEncoder.IsBlitCommandEncoderActive() || CurrentEncoder.IsComputeCommandEncoderActive())
@@ -1027,16 +1044,27 @@ FMetalFence* FMetalRenderPass::End(void)
 		State.FlushVisibilityResults(CurrentEncoder);
 		CurrentEncoder.WaitForFence(PassStartFence);
 		CurrentEncoder.WaitForFence(CurrentEncoderFence);
+		CurrentEncoder.WaitForFence(ParallelPassEndFence);
 		CurrentEncoderFence = CurrentEncoder.EndEncoding();
 	}
 	else if (PassStartFence)
 	{
-		ConditionalSwitchToBlit(true);
+		ConditionalSwitchToBlit();
 		CurrentEncoder.WaitForFence(PassStartFence);
 		CurrentEncoder.WaitForFence(CurrentEncoderFence);
+		CurrentEncoder.WaitForFence(ParallelPassEndFence);
+		CurrentEncoderFence = CurrentEncoder.EndEncoding();
+	}
+	else if (ParallelPassEndFence)
+	{
+		ConditionalSwitchToBlit();
+		CurrentEncoder.WaitForFence(PassStartFence);
+		CurrentEncoder.WaitForFence(CurrentEncoderFence);
+		CurrentEncoder.WaitForFence(ParallelPassEndFence);
 		CurrentEncoderFence = CurrentEncoder.EndEncoding();
 	}
 	
+	ParallelPassEndFence = nullptr;
 	PassStartFence = nullptr;
 	
 	State.SetRenderTargetsActive(false);
@@ -1207,6 +1235,11 @@ void FMetalRenderPass::ConditionalSwitchToTessellation(void)
 			PrologueEncoder.WaitForFence(PassStartFence);
 			PassStartFence = nullptr;
 		}
+		if (ParallelPassEndFence)
+		{
+			PrologueEncoder.WaitForFence(ParallelPassEndFence);
+			ParallelPassEndFence = nullptr;
+		}
 		PrologueEncoderFence = PrologueEncoder.GetEncoderFence();
 		LastPrologueEncoderFence = PrologueEncoderFence;
 #if METAL_DEBUG_OPTIONS
@@ -1273,7 +1306,7 @@ void FMetalRenderPass::ConditionalSwitchToCompute(void)
 	check(CurrentEncoder.IsComputeCommandEncoderActive());
 }
 
-void FMetalRenderPass::ConditionalSwitchToBlit(bool const bSuppressFence)
+void FMetalRenderPass::ConditionalSwitchToBlit(void)
 {
 	check(CurrentEncoder.GetCommandBuffer());
 	check(!CurrentEncoder.IsParallel());
@@ -1291,7 +1324,7 @@ void FMetalRenderPass::ConditionalSwitchToBlit(bool const bSuppressFence)
 	
 	if (!CurrentEncoder.IsBlitCommandEncoderActive())
 	{
-		CurrentEncoder.BeginBlitCommandEncoding(bSuppressFence);
+		CurrentEncoder.BeginBlitCommandEncoding();
 		if (CurrentEncoderFence)
 		{
 			CurrentEncoder.WaitForFence(CurrentEncoderFence);
@@ -1324,9 +1357,12 @@ void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 		PrologueEncoder.BeginBlitCommandEncoding();
 		if (PrologueEncoderFence)
 		{
+			if (PrologueEncoderFence->NeedsWait(mtlpp::RenderStages::Fragment))
+			{
+				LastPrologueEncoderFence = nullptr;
+			}
 			PrologueEncoder.WaitForFence(PrologueEncoderFence);
 			PrologueEncoderFence = nullptr;
-			LastPrologueEncoderFence = nullptr;
 		}
 		if (LastPrologueEncoderFence)
 		{
@@ -1337,6 +1373,11 @@ void FMetalRenderPass::ConditionalSwitchToAsyncBlit(void)
 		{
 			PrologueEncoder.WaitForFence(PassStartFence);
 			PassStartFence = nullptr;
+		}
+		if (ParallelPassEndFence)
+		{
+			PrologueEncoder.WaitForFence(ParallelPassEndFence);
+			ParallelPassEndFence = nullptr;
 		}
 		PrologueEncoderFence = PrologueEncoder.GetEncoderFence();
 		LastPrologueEncoderFence = PrologueEncoderFence;

@@ -144,7 +144,7 @@ private:
     void ConditionalSwitchToRender(void);
     void ConditionalSwitchToTessellation(void);
     void ConditionalSwitchToCompute(void);
-	void ConditionalSwitchToBlit(bool const bSuppressFence = false);
+	void ConditionalSwitchToBlit(void);
 	void ConditionalSwitchToAsyncBlit(void);
 	
     void PrepareToRender(uint32 PrimType);
@@ -175,7 +175,8 @@ private:
 	TMap<id<MTLBuffer>, TArray<NSRange>> OutstandingBufferUploads;
     
     FMetalFence* PassStartFence;
-    FMetalFence* CurrentEncoderFence;
+    FMetalFence* ParallelPassEndFence;
+	FMetalFence* CurrentEncoderFence;
     FMetalFence* PrologueEncoderFence;
 	FMetalFence* LastPrologueEncoderFence;
     

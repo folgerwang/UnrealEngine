@@ -925,10 +925,26 @@ void FMetalEncoderStats::End(mtlpp::CommandBuffer const& Buffer)
 	CPUEndTime = FPlatformTime::ToMilliseconds64(mach_absolute_time()) * 1000.0;
 	IMetalStatistics* Stats = FMetalProfiler::GetStatistics();
 	EndSample = [Stats->RegisterEncoderStatistics(CmdBufferStats, (EMetalSamples)EndPoint) retain];
+	for (auto Stat : FenceUpdates)
+	{
+		Stat->StartSample = [EndSample retain];
+		Stat->EndSample = [EndSample retain];
+		check(Stat->StartSample && Stat->EndSample);
+	}
 }
 
-void FMetalEncoderStats::EncodeFence(FMetalEventStats* Stat)
+void FMetalEncoderStats::EncodeFence(FMetalEventStats* Stat, EMTLFenceType Type)
 {
+	if(Type == EMTLFenceTypeWait)
+	{
+		Stat->StartSample = [StartSample retain];
+		Stat->EndSample = [StartSample retain];
+		check(Stat->StartSample && Stat->EndSample);
+	}
+	else
+	{
+		FenceUpdates.Add(Stat);
+	}
 	Children.Add(Stat);
 }
 
@@ -1505,15 +1521,13 @@ void FMetalProfiler::AddCommandBuffer(FMetalCommandBufferStats *CommandBuffer)
 	}
 }
 
-void FMetalProfiler::EncodeFence(FMetalCommandBufferStats* CmdBufStats, const TCHAR* Name, FMetalFence* Fence)
+void FMetalProfiler::EncodeFence(FMetalCommandBufferStats* CmdBufStats, const TCHAR* Name, FMetalFence* Fence, EMTLFenceType Type)
 {
 #if METAL_STATISTICS
 	if (MetalGPUProfilerIsInSafeThread() && Fence && bEnabled && StatisticsAPI && CmdBufStats->ActiveEncoderStats)
 	{
 		FMetalEventStats* Event = new FMetalEventStats(*FString::Printf(TEXT("%s: %s"), Name, *FString(Fence->GetLabel())), 0);
-		Event->Start(Context->GetCurrentCommandBuffer());
-		Event->End(Context->GetCurrentCommandBuffer());
-		CmdBufStats->ActiveEncoderStats->EncodeFence(Event);
+		CmdBufStats->ActiveEncoderStats->EncodeFence(Event, Type);
 	}
 #endif
 }

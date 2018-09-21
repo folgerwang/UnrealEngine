@@ -147,7 +147,7 @@ public:
 	void BeginComputeCommandEncoding(mtlpp::DispatchType Type = mtlpp::DispatchType::Serial);
 	
 	/** Begins encoding blit commands into the current command buffer. No other encoder may be active. */
-	void BeginBlitCommandEncoding(bool const bSuppressFence = false);
+	void BeginBlitCommandEncoding(void);
 	
 	/** Declare that all command generation from this encoder is complete, and detach from the MTLCommandBuffer if there is an encoder active or does nothing if there isn't. */
 	FMetalFence* EndEncoding(void);
@@ -443,7 +443,11 @@ private:
 #if ENABLE_METAL_GPUPROFILE
 	FMetalCommandBufferStats* CommandBufferStats;
 #endif
-	
+#if METAL_DEBUG_OPTIONS
+	uint8 WaitCount;
+	uint8 UpdateCount;
+#endif
+
 	TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers;
 	NSMutableArray* DebugGroups;
     

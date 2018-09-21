@@ -264,6 +264,11 @@ struct FMetalShaderPipelineStats : public IMetalStatsScope
 	FMetalShaderPipeline* Pipeline;
 };
 
+enum EMTLFenceType
+{
+	EMTLFenceTypeWait,
+	EMTLFenceTypeUpdate,
+};
 struct FMetalEncoderStats : public IMetalStatsScope
 {
 	FMetalEncoderStats(mtlpp::RenderCommandEncoder const& Encoder, uint64 GPUThreadIndex);
@@ -279,7 +284,7 @@ struct FMetalEncoderStats : public IMetalStatsScope
 	void EncodeBlit(char const* DrawCall);
 	void EncodeDispatch(char const* DrawCall);
 	void EncodePipeline(FMetalShaderPipeline* PipelineStat);
-	void EncodeFence(FMetalEventStats* Stat);
+	void EncodeFence(FMetalEventStats* Stat, EMTLFenceType Type);
 	
 	id<IMetalCommandBufferStats> CmdBufferStats;
 	ns::AutoReleased<mtlpp::CommandBuffer> CmdBuffer;
@@ -287,6 +292,7 @@ struct FMetalEncoderStats : public IMetalStatsScope
 	uint32 EndPoint;
 	id<IMetalStatisticsSamples> StartSample;
 	id<IMetalStatisticsSamples> EndSample;
+	TArray<FMetalEventStats*> FenceUpdates;
 };
 #endif
 
@@ -425,7 +431,7 @@ public:
 	void RemoveCounter(NSString* Counter);
 	TMap<FString, EMTLCounterType> const& GetCounterTypes() const { return CounterTypes; }
 	
-	void EncodeFence(FMetalCommandBufferStats* CmdBufStats, const TCHAR* Name, FMetalFence* Fence);
+	void EncodeFence(FMetalCommandBufferStats* CmdBufStats, const TCHAR* Name, FMetalFence* Fence, EMTLFenceType Type);
 	
 	void DumpPipeline(FMetalShaderPipeline* PipelineStat);
 #endif
