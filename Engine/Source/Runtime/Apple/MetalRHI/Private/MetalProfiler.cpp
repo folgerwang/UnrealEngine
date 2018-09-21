@@ -447,7 +447,7 @@ FString IMetalStatsScope::GetJSONRepresentation(uint32 Pid)
 		if (GPUStartTime && GPUEndTime)
 		{
 			uint64 ChildStartCallTime = GPUStartTime;
-			uint64 ChildDrawCallTime = GPUEndTime - GPUStartTime;
+			uint64 ChildDrawCallTime = FMath::Max(GPUEndTime - GPUStartTime, 1llu);
 			
 			if (DrawStat.PSOPerformanceStats)
 			{
@@ -569,7 +569,7 @@ FString IMetalStatsScope::GetJSONRepresentation(uint32 Pid)
 	if (CPUStartTime && CPUEndTime)
 	{
 		uint64 ChildStartCallTime = CPUStartTime;
-		uint64 ChildDrawCallTime = CPUEndTime - CPUStartTime;
+		uint64 ChildDrawCallTime = FMath::Max(CPUEndTime - CPUStartTime, 1llu);
 		
 		JSONOutput += FString::Printf(TEXT("{\"pid\":%d, \"tid\":%d, \"ph\": \"X\", \"name\": \"%s\", \"ts\": %llu, \"dur\": %llu, \"args\":{\"num_child\":%u}},\n"),
 			 Pid,
@@ -591,6 +591,23 @@ FMetalEventStats::FMetalEventStats(const TCHAR* InName, FColor Color)
 	
 	CPUThreadIndex = FPlatformTLS::GetCurrentThreadId();
 	GPUThreadIndex = 1;
+	
+	CPUStartTime = FPlatformTime::ToMilliseconds64(mach_absolute_time()) * 1000.0;
+	CPUEndTime = 0;
+	
+	GPUStartTime = 0;
+	GPUEndTime = 0;
+	
+	StartSample = nullptr;
+	EndSample = nullptr;
+}
+
+FMetalEventStats::FMetalEventStats(const TCHAR* InName, uint64 InGPUIdx)
+{
+	Name = InName;
+	
+	CPUThreadIndex = FPlatformTLS::GetCurrentThreadId();
+	GPUThreadIndex = InGPUIdx;
 	
 	CPUStartTime = FPlatformTime::ToMilliseconds64(mach_absolute_time()) * 1000.0;
 	CPUEndTime = 0;
@@ -908,6 +925,11 @@ void FMetalEncoderStats::End(mtlpp::CommandBuffer const& Buffer)
 	CPUEndTime = FPlatformTime::ToMilliseconds64(mach_absolute_time()) * 1000.0;
 	IMetalStatistics* Stats = FMetalProfiler::GetStatistics();
 	EndSample = [Stats->RegisterEncoderStatistics(CmdBufferStats, (EMetalSamples)EndPoint) retain];
+}
+
+void FMetalEncoderStats::EncodeFence(FMetalEventStats* Stat)
+{
+	Children.Add(Stat);
 }
 
 void FMetalEncoderStats::EncodeDraw(char const* DrawCall, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances)
@@ -1233,6 +1255,12 @@ FMetalProfiler* FMetalProfiler::CreateProfiler(FMetalContext *InContext)
 	if (!Self)
 	{
 		Self = new FMetalProfiler(InContext);
+		
+		int32 CaptureFrames = 0;
+		if (FParse::Value(FCommandLine::Get(), TEXT("MetalProfileFrames="), CaptureFrames))
+		{
+			Self->BeginCapture(CaptureFrames);
+		}
 	}
 	return Self;
 }
@@ -1477,6 +1505,24 @@ void FMetalProfiler::AddCommandBuffer(FMetalCommandBufferStats *CommandBuffer)
 	}
 }
 
+void FMetalProfiler::EncodeFence(FMetalCommandBufferStats* CmdBufStats, const TCHAR* Name, FMetalFence* Fence)
+{
+#if METAL_STATISTICS
+	if (MetalGPUProfilerIsInSafeThread() && Fence && bEnabled && StatisticsAPI)
+	{
+		if (!Context->GetCurrentCommandBuffer().GetPtr() || !StatisticsAPI->GetLastStatisticsSample(Context->GetCurrentCommandBuffer().GetPtr()))
+		{
+			Context->GetCurrentRenderPass().InsertDebugEncoder();
+		}
+		
+		FMetalEventStats* Event = new FMetalEventStats(*FString::Printf(TEXT("%s: %s"), Name, *FString(Fence->GetLabel())), 0);
+		Event->Start(Context->GetCurrentCommandBuffer());
+		Event->End(Context->GetCurrentCommandBuffer());
+		CmdBufStats->ActiveEncoderStats->EncodeFence(Event);
+	}
+#endif
+}
+
 void FMetalProfiler::PushEvent(const TCHAR *Name, FColor Color)
 {
 #if METAL_STATISTICS
@@ -1628,7 +1674,7 @@ void FMetalProfiler::SaveTrace()
 			if (Event->DriverStats.Num())
 			{
 				uint64 ChildStartCallTime = Event->CPUStartTime;
-				uint64 ChildDrawCallTime = Event->CPUEndTime - Event->CPUStartTime;
+				uint64 ChildDrawCallTime = FMath::Max(Event->CPUEndTime - Event->CPUStartTime, 1llu);
 				
 				FString Output;
 				FString DriverStats;

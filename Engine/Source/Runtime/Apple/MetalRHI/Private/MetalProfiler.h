@@ -218,6 +218,7 @@ struct FMetalDisplayStats : public IMetalStatsScope
 struct FMetalEventStats : public IMetalStatsScope
 {
 	FMetalEventStats(const TCHAR* Name, FColor Color);
+	FMetalEventStats(const TCHAR* Name, uint64 InGPUIdx);
 	virtual ~FMetalEventStats();
 	
 	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
@@ -278,6 +279,7 @@ struct FMetalEncoderStats : public IMetalStatsScope
 	void EncodeBlit(char const* DrawCall);
 	void EncodeDispatch(char const* DrawCall);
 	void EncodePipeline(FMetalShaderPipeline* PipelineStat);
+	void EncodeFence(FMetalEventStats* Stat);
 	
 	id<IMetalCommandBufferStats> CmdBufferStats;
 	ns::AutoReleased<mtlpp::CommandBuffer> CmdBuffer;
@@ -422,6 +424,8 @@ public:
 	void AddCounter(NSString* Counter, EMTLCounterType Type);
 	void RemoveCounter(NSString* Counter);
 	TMap<FString, EMTLCounterType> const& GetCounterTypes() const { return CounterTypes; }
+	
+	void EncodeFence(FMetalCommandBufferStats* CmdBufStats, const TCHAR* Name, FMetalFence* Fence);
 	
 	void DumpPipeline(FMetalShaderPipeline* PipelineStat);
 #endif
