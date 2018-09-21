@@ -216,6 +216,7 @@ private:
 			Blueprint->Modify();
 			Blueprint->Animations.Add(WidgetAnimation);
 			ListItem.Pin()->bNewAnimation = false;
+			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 		}
 	}
 private:
