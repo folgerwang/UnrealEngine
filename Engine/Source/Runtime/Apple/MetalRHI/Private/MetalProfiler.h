@@ -214,6 +214,12 @@ struct FMetalDisplayStats : public IMetalStatsScope
 #endif
 };
 
+enum EMTLFenceType
+{
+	EMTLFenceTypeWait,
+	EMTLFenceTypeUpdate,
+};
+
 #if METAL_STATISTICS
 struct FMetalEventStats : public IMetalStatsScope
 {
@@ -264,11 +270,6 @@ struct FMetalShaderPipelineStats : public IMetalStatsScope
 	FMetalShaderPipeline* Pipeline;
 };
 
-enum EMTLFenceType
-{
-	EMTLFenceTypeWait,
-	EMTLFenceTypeUpdate,
-};
 struct FMetalEncoderStats : public IMetalStatsScope
 {
 	FMetalEncoderStats(mtlpp::RenderCommandEncoder const& Encoder, uint64 GPUThreadIndex);
