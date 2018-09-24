@@ -804,6 +804,28 @@ FMetalOperationStats::FMetalOperationStats(char const* DrawCall, uint64 InGPUThr
 	RHIInstances = 0;
 }
 
+FMetalOperationStats::FMetalOperationStats(FString DrawCall, uint64 InGPUThreadIndex, uint32 InStartPoint, uint32 InEndPoint)
+{
+	Name = DrawCall;
+	CmdBufferStats = nullptr;
+	
+	CPUThreadIndex = FPlatformTLS::GetCurrentThreadId();
+	GPUThreadIndex = InGPUThreadIndex;
+	
+	CPUStartTime = FPlatformTime::ToMilliseconds64(mach_absolute_time()) * 1000.0;
+	CPUEndTime = 0;
+	
+	GPUStartTime = 0;
+	GPUEndTime = 0;
+	
+	StartPoint = InStartPoint;
+	EndPoint = InEndPoint;
+	DrawStats = nullptr;
+	RHIPrimitives = 0;
+	RHIVertices = 0;
+	RHIInstances = 0;
+}
+
 FMetalOperationStats::~FMetalOperationStats()
 {
 	delete DrawStats;
@@ -967,6 +989,16 @@ void FMetalEncoderStats::EncodeBlit(char const* DrawCall)
 	Draw->Start(CmdBuffer);
 	Draw->End(CmdBuffer);
 	
+}
+
+void FMetalEncoderStats::EncodeBlit(FString DrawCall)
+{
+	check(CmdBuffer);
+	FMetalOperationStats* Draw = new FMetalOperationStats(DrawCall, GPUThreadIndex, EMetalSampleBeforeBlit, EMetalSampleAfterBlit);
+	Draw->CmdBufferStats = CmdBufferStats;
+	Children.Add(Draw);
+	Draw->Start(CmdBuffer);
+	Draw->End(CmdBuffer);
 }
 
 void FMetalEncoderStats::EncodeDispatch(char const* DrawCall)
@@ -1400,6 +1432,17 @@ void FMetalProfiler::EncodeDraw(FMetalCommandBufferStats* CmdBufStats, char cons
 }
 
 void FMetalProfiler::EncodeBlit(FMetalCommandBufferStats* CmdBufStats, char const* DrawCall)
+{
+	if (MetalGPUProfilerIsInSafeThread())
+		FMetalGPUProfiler::RegisterGPUWork(1, 1);
+	
+#if METAL_STATISTICS
+	if (StatisticsAPI)
+		CmdBufStats->ActiveEncoderStats->EncodeBlit(DrawCall);
+#endif
+}
+
+void FMetalProfiler::EncodeBlit(FMetalCommandBufferStats* CmdBufStats, FString DrawCall)
 {
 	if (MetalGPUProfilerIsInSafeThread())
 		FMetalGPUProfiler::RegisterGPUWork(1, 1);

@@ -241,6 +241,7 @@ struct FMetalOperationStats : public IMetalStatsScope
 {
 	FMetalOperationStats(char const* DrawCall, uint64 GPUThreadIndex, uint32 StartPoint, uint32 EndPoint, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances);
 	FMetalOperationStats(char const* DrawCall, uint64 GPUThreadIndex, uint32 StartPoint, uint32 EndPoint);
+	FMetalOperationStats(FString DrawCall, uint64 GPUThreadIndex, uint32 StartPoint, uint32 EndPoint);
 	virtual ~FMetalOperationStats();
 	
 	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
@@ -283,6 +284,7 @@ struct FMetalEncoderStats : public IMetalStatsScope
 	
 	void EncodeDraw(char const* DrawCall, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances);
 	void EncodeBlit(char const* DrawCall);
+	void EncodeBlit(FString DrawCall);
 	void EncodeDispatch(char const* DrawCall);
 	void EncodePipeline(FMetalShaderPipeline* PipelineStat);
 	void EncodeFence(FMetalEventStats* Stat, EMTLFenceType Type);
@@ -408,6 +410,7 @@ public:
 	
 	void EncodeDraw(FMetalCommandBufferStats* CmdBufStats, char const* DrawCall, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances);
 	void EncodeBlit(FMetalCommandBufferStats* CmdBufStats, char const* DrawCall);
+	void EncodeBlit(FMetalCommandBufferStats* CmdBufStats, FString DrawCall);
 	void EncodeDispatch(FMetalCommandBufferStats* CmdBufStats, char const* DrawCall);
 	
 #if METAL_STATISTICS
