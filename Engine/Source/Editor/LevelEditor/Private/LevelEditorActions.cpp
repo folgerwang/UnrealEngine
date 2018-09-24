@@ -358,10 +358,15 @@ void FLevelEditorActionCallbacks::RemoveFavorite( int32 FavoriteFileIndex )
 
 bool FLevelEditorActionCallbacks::ToggleFavorite_CanExecute()
 {
-	const FMainMRUFavoritesList& MRUFavorites = *FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame").GetMRUFavoritesList();
-	const int32 NumFavorites = MRUFavorites.GetNumFavorites();
-	// Disable the favorites button if the map isn't associated to a file yet (new map, never before saved, etc.)
-	return LevelEditorActionsHelpers::IsPersistentWorld(GetWorld()) && NumFavorites <= FLevelEditorCommands::Get().OpenFavoriteFileCommands.Num();
+	if (LevelEditorActionsHelpers::IsPersistentWorld(GetWorld()))
+	{
+		const FMainMRUFavoritesList& MRUFavorites = *FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame").GetMRUFavoritesList();
+		const int32 NumFavorites = MRUFavorites.GetNumFavorites();
+		// Disable the favorites button if the map isn't associated to a file yet (new map, never before saved, etc.)
+		const FString PackageName = GetWorld()->GetOutermost()->GetName();
+		return (NumFavorites <= FLevelEditorCommands::Get().OpenFavoriteFileCommands.Num() || MRUFavorites.ContainsFavoritesItem(PackageName));
+	}
+	return false;
 }
 
 
