@@ -32,12 +32,11 @@ class ENGINE_API FLocalVertexFactory : public FVertexFactory
 	DECLARE_VERTEX_FACTORY_TYPE(FLocalVertexFactory);
 public:
 
-	FLocalVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const char* InDebugName, const FStaticMeshDataType* InStaticMeshDataType = nullptr)
+	FLocalVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const char* InDebugName)
 		: FVertexFactory(InFeatureLevel)
 		, ColorStreamIndex(-1)
 		, DebugName(InDebugName)
 	{
-		StaticMeshDataType = InStaticMeshDataType ? InStaticMeshDataType : &Data;
 		bSupportsManualVertexFetch = true;
 	}
 
@@ -93,37 +92,37 @@ public:
 
 	inline const FShaderResourceViewRHIParamRef GetPositionsSRV() const
 	{
-		return StaticMeshDataType->PositionComponentSRV;
+		return Data.PositionComponentSRV;
 	}
 
 	inline const FShaderResourceViewRHIParamRef GetTangentsSRV() const
 	{
-		return StaticMeshDataType->TangentsSRV;
+		return Data.TangentsSRV;
 	}
 
 	inline const FShaderResourceViewRHIParamRef GetTextureCoordinatesSRV() const
 	{
-		return StaticMeshDataType->TextureCoordinatesSRV;
+		return Data.TextureCoordinatesSRV;
 	}
 
 	inline const FShaderResourceViewRHIParamRef GetColorComponentsSRV() const
 	{
-		return StaticMeshDataType->ColorComponentsSRV;
+		return Data.ColorComponentsSRV;
 	}
 
 	inline const uint32 GetColorIndexMask() const
 	{
-		return StaticMeshDataType->ColorIndexMask;
+		return Data.ColorIndexMask;
 	}
 
 	inline const int GetLightMapCoordinateIndex() const
 	{
-		return StaticMeshDataType->LightMapCoordinateIndex;
+		return Data.LightMapCoordinateIndex;
 	}
 
 	inline const int GetNumTexcoords() const
 	{
-		return StaticMeshDataType->NumTexCoords;
+		return Data.NumTexCoords;
 	}
 
 	FUniformBufferRHIParamRef GetUniformBuffer() const
@@ -135,7 +134,6 @@ protected:
 	const FDataType& GetData() const { return Data; }
 
 	FDataType Data;
-	const FStaticMeshDataType* StaticMeshDataType;
 	TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> UniformBuffer;
 
 	int32 ColorStreamIndex;

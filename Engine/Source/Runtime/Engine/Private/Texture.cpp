@@ -19,6 +19,7 @@
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
 #include "Interfaces/ITargetPlatform.h"
+#include "Engine/TextureLODSettings.h"
 
 #if WITH_EDITORONLY_DATA
 	#include "EditorFramework/AssetImportData.h"
@@ -967,7 +968,6 @@ FName GetDefaultTextureFormatName( const ITargetPlatform* TargetPlatform, const 
 	 * IF you add a format to this function don't forget to update GetAllDefaultTextureFormatNames 
 	 */
 
-
 #if WITH_EDITOR
 	// Supported texture format names.
 	static FName NameDXT1(TEXT("DXT1"));
@@ -985,6 +985,8 @@ FName GetDefaultTextureFormatName( const ITargetPlatform* TargetPlatform, const 
 	static FName NameBC6H(TEXT("BC6H"));
 	static FName NameBC7(TEXT("BC7"));
 
+	check(TargetPlatform);
+
 	bool bNoCompression = Texture->CompressionNone				// Code wants the texture uncompressed.
 		|| (TargetPlatform->HasEditorOnlyData() && Texture->DeferCompression)	// The user wishes to defer compression, this is ok for the Editor only.
 		|| (Texture->CompressionSettings == TC_EditorIcon)
@@ -993,12 +995,18 @@ FName GetDefaultTextureFormatName( const ITargetPlatform* TargetPlatform, const 
 		|| (Texture->LODGroup == TEXTUREGROUP_IESLightProfile)
 		|| (Texture->GetMaterialType() == MCT_VolumeTexture && !bSupportCompressedVolumeTexture);
 
-	if (Texture->PowerOfTwoMode == ETexturePowerOfTwoSetting::None)
+	if (!bNoCompression && Texture->PowerOfTwoMode == ETexturePowerOfTwoSetting::None)
 	{
-		bNoCompression |= (Texture->Source.GetSizeX() < 4) // Don't compress textures smaller than the DXT block size.
-			|| (Texture->Source.GetSizeY() < 4)
-			|| (Texture->Source.GetSizeX() % 4 != 0)
-			|| (Texture->Source.GetSizeY() % 4 != 0);
+		uint32 SizeX = Texture->Source.GetSizeX();
+		uint32 SizeY = Texture->Source.GetSizeY();
+#if WITH_EDITORONLY_DATA
+		const UTextureLODSettings& LODSettings = TargetPlatform->GetTextureLODSettings();
+ 		const uint32 LODBiasNoCinematics = FMath::Max<uint32>(LODSettings.CalculateLODBias(SizeX, SizeY, Texture->MaxTextureSize, Texture->LODGroup, Texture->LODBias, 0, Texture->MipGenSettings), 0);
+		SizeX = FMath::Max<uint32>(SizeX >> LODBiasNoCinematics, 1);
+		SizeY = FMath::Max<uint32>(SizeY >> LODBiasNoCinematics, 1);
+#endif
+		// Don't compress textures smaller than the DXT block size.
+		bNoCompression |= (SizeX < 4) || (SizeY < 4) || (SizeX % 4 != 0) || (SizeY % 4 != 0);
 	}
 
 	bool bUseDXT5NormalMap = false;

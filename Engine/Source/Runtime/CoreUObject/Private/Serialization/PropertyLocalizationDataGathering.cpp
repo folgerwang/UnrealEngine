@@ -285,11 +285,11 @@ void FPropertyLocalizationDataGatherer::GatherLocalizationDataFromChildTextPrope
 				const uint8* MapPairPtr = ScriptMapHelper.GetPairPtr(j);
 				if (CanGatherFromInnerProperty(MapProperty->KeyProp))
 				{
-					GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d - Key)"), ElementIndex), MapProperty->KeyProp, MapPairPtr + MapProperty->MapLayout.KeyOffset, nullptr, ChildPropertyGatherTextFlags);
+				GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d - Key)"), ElementIndex), MapProperty->KeyProp, MapPairPtr + MapProperty->MapLayout.KeyOffset, nullptr, ChildPropertyGatherTextFlags);
 				}
 				if (CanGatherFromInnerProperty(MapProperty->ValueProp))
 				{
-					GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d - Value)"), ElementIndex), MapProperty->ValueProp, MapPairPtr + MapProperty->MapLayout.ValueOffset, nullptr, ChildPropertyGatherTextFlags);
+				GatherLocalizationDataFromChildTextProperties(PathToElement + FString::Printf(TEXT("(%d - Value)"), ElementIndex), MapProperty->ValueProp, MapPairPtr + MapProperty->MapLayout.ValueOffset, nullptr, ChildPropertyGatherTextFlags);
 				}
 				++ElementIndex;
 			}
@@ -482,10 +482,10 @@ private:
 			do
 			{
 				uint16 UnicodeChar = 0;
-#ifdef REQUIRES_ALIGNED_INT_ACCESS
-				FMemory::Memcpy(&UnicodeChar, &Script[iCode], sizeof(uint16));
-#else
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 				UnicodeChar = *((uint16*)(&Script[iCode]));
+#else
+				FMemory::Memcpy(&UnicodeChar, &Script[iCode], sizeof(uint16));
 #endif
 				LastParsedString += (TCHAR)UnicodeChar;
 

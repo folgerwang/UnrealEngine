@@ -21,6 +21,10 @@ const uint16 GCubeIndices[12*3] =
 	1, 7, 5,
 };
 
+TGlobalResource<FCubeIndexBuffer> GCubeIndexBuffer;
+TGlobalResource<FTwoTrianglesIndexBuffer> GTwoTrianglesIndexBuffer;
+TGlobalResource<FScreenSpaceVertexBuffer> GScreenSpaceVertexBuffer;
+
 //
 // FPackedNormal serializer
 //
@@ -125,6 +129,9 @@ FPixelFormatInfo	GPixelFormats[PF_MAX] =
 
 	{ TEXT("R16G16B16A16_UINT"),1,			1,			1,			8,			4,				0,				1,				PF_R16G16B16A16_UNORM },
 	{ TEXT("R16G16B16A16_SINT"),1,			1,			1,			8,			4,				0,				1,				PF_R16G16B16A16_SNORM },
+	{ TEXT("PLATFORM_HDR_0"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_0 },
+	{ TEXT("PLATFORM_HDR_1"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_1 },
+	{ TEXT("PLATFORM_HDR_2"),	0,			0,			0,			0,			0,				0,				0,				PF_PLATFORM_HDR_2 },
 };
 
 static struct FValidatePixelFormats
@@ -423,17 +430,20 @@ RENDERCORE_API int32 GMipColorTextureMipLevels = FMipColorTexture::NumMips;
 // 4: 8x8 cubemap resolution, shader needs to use the same value as preprocessing
 RENDERCORE_API const uint32 GDiffuseConvolveMipLevel = 4;
 
-//
-// FWhiteTextureCube implementation
-//
-
 /** A solid color cube texture. */
 class FSolidColorTextureCube : public FTexture
 {
 public:
-	FSolidColorTextureCube(const FColor& InColor, EPixelFormat InPixelFormat = PF_B8G8R8A8)
-	: Color(InColor)
-	, PixelFormat(InPixelFormat)
+	FSolidColorTextureCube(const FColor& InColor)
+		: bInitToZero(false)
+		, PixelFormat(PF_B8G8R8A8)
+		, ColorData(InColor.DWColor())
+	{}
+
+	FSolidColorTextureCube(EPixelFormat InPixelFormat)
+		: bInitToZero(true)
+		, PixelFormat(InPixelFormat)
+		, ColorData(0)
 	{}
 
 	// FRenderResource interface.
@@ -441,20 +451,27 @@ public:
 	{
 		// Create the texture RHI.
 		FRHIResourceCreateInfo CreateInfo;
-		FTextureCubeRHIRef TextureCube = RHICreateTextureCube(1, PixelFormat,1,0,CreateInfo);
+		FTextureCubeRHIRef TextureCube = RHICreateTextureCube(1, PixelFormat, 1, 0, CreateInfo);
 		TextureRHI = TextureCube;
 
 		// Write the contents of the texture.
-		for(uint32 FaceIndex = 0;FaceIndex < 6;FaceIndex++)
+		for (uint32 FaceIndex = 0; FaceIndex < 6; FaceIndex++)
 		{
 			uint32 DestStride;
-			FColor* DestBuffer = (FColor*)RHILockTextureCubeFace(TextureCube, FaceIndex, 0, 0, RLM_WriteOnly, DestStride, false);
-			*DestBuffer = Color;
+			void* DestBuffer = RHILockTextureCubeFace(TextureCube, FaceIndex, 0, 0, RLM_WriteOnly, DestStride, false);
+			if (bInitToZero)
+			{
+				FMemory::Memzero(DestBuffer, GPixelFormats[PixelFormat].BlockBytes);
+			}
+			else
+			{
+				FMemory::Memcpy(DestBuffer, &ColorData, sizeof(ColorData));
+			}
 			RHIUnlockTextureCubeFace(TextureCube, FaceIndex, 0, 0, false);
 		}
 
 		// Create the sampler state RHI resource.
-		FSamplerStateInitializerRHI SamplerStateInitializer(SF_Point,AM_Wrap,AM_Wrap,AM_Wrap);
+		FSamplerStateInitializerRHI SamplerStateInitializer(SF_Point, AM_Wrap, AM_Wrap, AM_Wrap);
 		SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
 	}
 
@@ -471,8 +488,9 @@ public:
 	}
 
 private:
-	FColor Color;
-	EPixelFormat PixelFormat;
+	const bool bInitToZero;
+	const EPixelFormat PixelFormat;
+	const uint32 ColorData;
 };
 
 /** A white cube texture. */
@@ -487,7 +505,7 @@ FTexture* GWhiteTextureCube = new TGlobalResource<FWhiteTextureCube>;
 class FBlackTextureCube : public FSolidColorTextureCube
 {
 public:
-	FBlackTextureCube(): FSolidColorTextureCube(FColor::Black) {}
+	FBlackTextureCube() : FSolidColorTextureCube(FColor::Black) {}
 };
 FTexture* GBlackTextureCube = new TGlobalResource<FBlackTextureCube>;
 
@@ -495,7 +513,7 @@ FTexture* GBlackTextureCube = new TGlobalResource<FBlackTextureCube>;
 class FBlackTextureDepthCube : public FSolidColorTextureCube
 {
 public:
-	FBlackTextureDepthCube() : FSolidColorTextureCube(FColor::Black, PF_ShadowDepth) {}
+	FBlackTextureDepthCube() : FSolidColorTextureCube(PF_ShadowDepth) {}
 };
 FTexture* GBlackTextureDepthCube = new TGlobalResource<FBlackTextureDepthCube>;
 
@@ -818,6 +836,29 @@ TGlobalResource<FVector3VertexDeclaration> GVector3VertexDeclaration;
 RENDERCORE_API FVertexDeclarationRHIRef& GetVertexDeclarationFVector3()
 {
 	return GVector3VertexDeclaration.VertexDeclarationRHI;
+}
+
+class FVector2VertexDeclaration : public FRenderResource
+{
+public:
+	FVertexDeclarationRHIRef VertexDeclarationRHI;
+	virtual void InitRHI() override
+	{
+		FVertexDeclarationElementList Elements;
+		Elements.Add(FVertexElement(0, 0, VET_Float2, 0, sizeof(FVector2D)));
+		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+	}
+	virtual void ReleaseRHI() override
+	{
+		VertexDeclarationRHI.SafeRelease();
+	}
+};
+
+TGlobalResource<FVector2VertexDeclaration> GVector2VertexDeclaration;
+
+RENDERCORE_API FVertexDeclarationRHIRef& GetVertexDeclarationFVector2()
+{
+	return GVector2VertexDeclaration.VertexDeclarationRHI;
 }
 
 RENDERCORE_API bool PlatformSupportsSimpleForwardShading(EShaderPlatform Platform)

@@ -133,7 +133,7 @@ static const TCHAR* GetShaderProfileName(FShaderTarget Target)
 			return TEXT("cs_5_0");
 		}
 	}
-	else if(Target.Platform == SP_PCD3D_SM4 || Target.Platform == SP_PCD3D_ES2 || Target.Platform == SP_PCD3D_ES3_1)
+	else if(Target.Platform == SP_PCD3D_SM4)
 	{
 		checkSlow(Target.Frequency == SF_Vertex ||
 			Target.Frequency == SF_Pixel ||
@@ -148,6 +148,23 @@ static const TCHAR* GetShaderProfileName(FShaderTarget Target)
 			return TEXT("vs_4_0");
 		case SF_Geometry:
 			return TEXT("gs_4_0");
+		}
+	}
+	else if (Target.Platform == SP_PCD3D_ES2 || Target.Platform == SP_PCD3D_ES3_1)
+	{
+		checkSlow(Target.Frequency == SF_Vertex ||
+			Target.Frequency == SF_Pixel ||
+			Target.Frequency == SF_Geometry);
+
+		//set defines and profiles for the appropriate shader paths
+		switch(Target.Frequency)
+		{
+		case SF_Pixel:
+			return TEXT("ps_5_0");
+		case SF_Vertex:
+			return TEXT("vs_5_0");
+		case SF_Geometry:
+			return TEXT("gs_5_0");
 		}
 	}
 

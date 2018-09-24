@@ -34,30 +34,27 @@ public class CrashReportClient : ModuleRules
 			}
 			);
 
-		if (Target.Platform != UnrealTargetPlatform.Linux)
-		{
-			PrivateDependencyModuleNames.AddRange(
-				new string[] 
-				{
-					"Slate",
-					"SlateCore",
-					"StandaloneRenderer",
-					"MessageLog",
-				}
-			);
+		PrivateDependencyModuleNames.AddRange(
+			new string[] 
+			{
+				"Slate",
+				"SlateCore",
+				"StandaloneRenderer",
+				"MessageLog",
+			}
+		);
 
-			PrivateIncludePathModuleNames.AddRange(
-				new string[] {
-					"SlateReflector",
-				}
-			);
+		PrivateIncludePathModuleNames.AddRange(
+			new string[] {
+				"SlateReflector",
+			}
+		);
 
-			DynamicallyLoadedModuleNames.AddRange(
-				new string[] {
-					"SlateReflector",
-				}
-			);
-		}
+		DynamicallyLoadedModuleNames.AddRange(
+			new string[] {
+				"SlateReflector",
+			}
+		);
 
 		PrivateIncludePaths.Add("Runtime/Launch/Private");		// For LaunchEngineLoop.cpp include
 

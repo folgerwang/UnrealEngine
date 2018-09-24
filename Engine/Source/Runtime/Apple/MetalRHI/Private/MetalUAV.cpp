@@ -82,12 +82,16 @@ FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView_Render
 
 FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint8 Format)
 {
-	return GDynamicRHI->RHICreateUnorderedAccessView(VertexBuffer, Format);
+	FUnorderedAccessViewRHIRef Result = GDynamicRHI->RHICreateUnorderedAccessView(VertexBuffer, Format);
+	if (IsRunningRHIInSeparateThread() && !RHICmdList.Bypass()) 	{ 		RHICmdList.RHIThreadFence(true); 	}
+	return Result;
 }
 
 FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef IndexBuffer, uint8 Format)
 {
-	return GDynamicRHI->RHICreateUnorderedAccessView(IndexBuffer, Format);
+	FUnorderedAccessViewRHIRef Result = GDynamicRHI->RHICreateUnorderedAccessView(IndexBuffer, Format);
+	if (IsRunningRHIInSeparateThread() && !RHICmdList.Bypass()) 	{ 		RHICmdList.RHIThreadFence(true); 	}
+	return Result;
 }
 
 FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView(FStructuredBufferRHIParamRef StructuredBufferRHI, bool bUseUAVCounter, bool bAppendBuffer)
@@ -153,8 +157,7 @@ FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView(FVerte
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextureUAVs))
 	{
 		check(VertexBuffer->GetUsage() & BUF_UnorderedAccess);
-		ns::AutoReleased<FMetalTexture> Tex = VertexBuffer->CreateLinearTexture((EPixelFormat)Format);
-		check(Tex);
+		VertexBuffer->CreateLinearTexture((EPixelFormat)Format, VertexBuffer);
 	}
 		
 	// create the UAV buffer to point to the structured buffer's memory
@@ -180,8 +183,7 @@ FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView(FIndex
 		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextureUAVs))
 		{
 			check(IndexBuffer->GetUsage() & BUF_UnorderedAccess);
-			ns::AutoReleased<FMetalTexture> Tex = IndexBuffer->CreateLinearTexture((EPixelFormat)Format);
-			check(Tex);
+			IndexBuffer->CreateLinearTexture((EPixelFormat)Format, IndexBuffer);
 		}
 		
 		// create the UAV buffer to point to the structured buffer's memory
@@ -269,22 +271,30 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderTh
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::CreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format)
 {
-	return GDynamicRHI->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
+	FShaderResourceViewRHIRef Result = GDynamicRHI->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
+	if (IsRunningRHIInSeparateThread() && !RHICmdList.Bypass()) 	{ 		RHICmdList.RHIThreadFence(true); 	}
+	return Result;
 }
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::CreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef Buffer)
 {
-	return GDynamicRHI->RHICreateShaderResourceView(Buffer);
+	FShaderResourceViewRHIRef Result = GDynamicRHI->RHICreateShaderResourceView(Buffer);
+	if (IsRunningRHIInSeparateThread() && !RHICmdList.Bypass()) 	{ 		RHICmdList.RHIThreadFence(true); 	}
+	return Result;
 }
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format)
 {
-	return GDynamicRHI->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
+	FShaderResourceViewRHIRef Result = GDynamicRHI->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
+	if (IsRunningRHIInSeparateThread() && !RHICmdList.Bypass()) 	{ 		RHICmdList.RHIThreadFence(true); 	}
+	return Result;
 }
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef Buffer)
 {
-	return GDynamicRHI->RHICreateShaderResourceView(Buffer);
+	FShaderResourceViewRHIRef Result = GDynamicRHI->RHICreateShaderResourceView(Buffer);
+	if (IsRunningRHIInSeparateThread() && !RHICmdList.Bypass()) 	{ 		RHICmdList.RHIThreadFence(true); 	}
+	return Result;
 }
 
 FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FStructuredBufferRHIParamRef StructuredBuffer)
@@ -324,8 +334,7 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView(FVertexB
 		check(Stride == GPixelFormats[Format].BlockBytes);
 		check(VertexBuffer->GetUsage() & BUF_ShaderResource);
 		
-		ns::AutoReleased<FMetalTexture> Tex = VertexBuffer->CreateLinearTexture((EPixelFormat)Format);
-		check(Tex);
+		VertexBuffer->CreateLinearTexture((EPixelFormat)Format, VertexBuffer);
 	}
 	
 	return SRV;
@@ -346,8 +355,7 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView(FIndexBu
 	
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures))
 	{
-		ns::AutoReleased<FMetalTexture> Tex = Buffer->CreateLinearTexture((EPixelFormat)SRV->Format);
-		check(Tex);
+		Buffer->CreateLinearTexture((EPixelFormat)SRV->Format, Buffer);
 	}
 	
 	return SRV;
@@ -531,17 +539,9 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 			FMetalBuffer Temp = nil;
 			bool bBufferPooled = false;
 			
-			if (AlignedSize > (1024 * 1024))
-			{
-				FMetalPooledBufferArgs Args(GetMetalDeviceContext().GetDevice(), AlignedSize, mtlpp::StorageMode::Shared);
-				Temp = GetMetalDeviceContext().CreatePooledBuffer(Args);
-				bBufferPooled = true;
-			}
-			else
-			{
-				Temp = Context->AllocateFromRingBuffer(AlignedSize);
-				Temp.MarkSingleUse();
-			}
+			FMetalPooledBufferArgs Args(GetMetalDeviceContext().GetDevice(), AlignedSize, mtlpp::StorageMode::Shared);
+			Temp = GetMetalDeviceContext().CreatePooledBuffer(Args);
+			bBufferPooled = true;
 			
 			// Construct a pattern that can be encoded into the temporary buffer (handles packing & 2-byte formats).
 			uint32 Pattern[4];
@@ -803,4 +803,45 @@ void FMetalRHICommandContext::RHIWaitComputeFence(FComputeFenceRHIParamRef InFen
 		Fence->Wait(*Context);
 	}
 	}
+}
+
+void FMetalRHICommandContext::RHIInsertGPUFence(FGPUFenceRHIParamRef InFence)
+{
+	@autoreleasepool {
+	if (InFence)
+	{
+		FMetalGPUFence* Fence = ResourceCast(InFence);
+		Fence->Fence = Context->GetCurrentCommandBuffer().GetCompletionFence();
+		check(Fence->Fence);
+	}
+	}
+}
+
+FGPUFenceRHIRef FMetalDynamicRHI::RHICreateGPUFence(const FName &Name)
+{
+	@autoreleasepool {
+	return new FMetalGPUFence(Name);
+	}
+}
+
+bool FMetalGPUFence::Poll() const
+{
+	if (Fence)
+	{
+		return Fence.Wait(0);
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool FMetalGPUFence::Wait(float TimeoutMs) const
+{
+	if (Fence.GetPtr() == nil)
+	{
+		FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+	}
+	check(Fence);
+	return Fence.Wait(TimeoutMs);
 }

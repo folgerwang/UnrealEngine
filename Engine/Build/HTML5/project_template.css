@@ -1,0 +1,117 @@
+﻿/* CSS style sheet used with Epic Games HTML5 projects
+ *
+ * much of this is for UE4 development purposes.
+ *
+ * to create a custom CSS file for your project:
+ * - make a copy of this file - or make one from scratch
+ * - and put it in: "your project folder"/Build/HTML/GameX.css.template
+ */
+
+html, body, .container {
+	height: 100%;
+	font-family: "Helvetica Neue", "HelveticaNeue", Helvetica, Arial, sans-serif;
+}
+
+.h4, h4 {
+	margin-top: 1pt;
+	margin-bottom: 1pt;
+	font-size: 10pt;
+}
+
+.container {
+	display: table;
+	vertical-align: middle;
+	border: 0px;
+	border-spacing: 0px;
+}
+
+.glyphicon-spin {
+	animation: spin 2000ms infinite linear;
+}
+
+@keyframes spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(359deg);
+	}
+}
+
+@-webkit-keyframes spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(359deg);
+	}
+}
+
+.wrapper {
+	position: relative;
+	margin: 1em auto 10px auto;
+	text-align: center;
+	min-width: 640px;
+	width: 100%;
+	height: 480px; /* initial height, will be dynamically adjusted at runtime */
+	max-width: 95%;
+	display: block;
+	align-items: center;
+	position: relative;
+	text-align: center;
+	justify-content: center;
+}
+
+ .emscripten {
+	padding-right: 0;
+	margin-left: auto;
+	margin-right: auto;
+	display: block;
+	display: -webkit-box;
+	display: -moz-box;
+	display: box;
+
+	-webkit-box-align: center;
+	-moz-box-align: center;
+	box-align: center;
+
+	-webkit-box-pack: center;
+	-moz-box-pack: center;
+	box-pack: center;
+}
+
+#canvas:not([fullscreen]) {
+	padding-right: 0;
+	margin-left: auto;
+	margin-right: auto;
+	width: 100%;
+}
+
+.texthalf {
+	height: 37%;
+	border: 0px;
+	padding: 0px;
+	overflow-y: scroll;
+	font-size: 2em;
+}
+
+.buttonarea {
+	min-height: 3%;
+	border-top: 0px;
+	border-bottom: 0px;
+	padding: 0px;
+	margin-right: 0px;
+	margin-top: 0px;
+	margin-bottom: 0px;
+ }
+
+.btn { padding: 0px; text-align: center; min-width: 150px }
+.progress { background: rgba(245, 245, 245, 1); border: 0px solid rgba(245, 245, 245, 1); border-radius: 0px; height: 4px; }
+.progress-bar-custom { background: rgba(153, 153, 153, 1); }
+.centered-axis-xy {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%,-50%);
+}
+

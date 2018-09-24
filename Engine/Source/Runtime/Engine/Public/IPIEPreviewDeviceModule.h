@@ -32,6 +32,11 @@ class IPIEPreviewDeviceModule : public IDeviceProfileSelectorModule
 		virtual  TSharedRef<SWindow>   CreatePIEPreviewDeviceWindow(FVector2D ClientSize, FText WindowTitle, EAutoCenter AutoCenterType, FVector2D ScreenPosition, TOptional<float> MaxWindowWidth, TOptional<float> MaxWindowHeight) = 0;
 
 		/**
+		 * should be called after the window is created and registered and before scene rendering begins
+		*/
+		virtual void PrepareDeviceDisplay() {};
+
+		/**
 		* Apply PieWindow device parameters
 		*/
 		virtual void ApplyPreviewDeviceState() = 0;

@@ -366,6 +366,11 @@ namespace iPhonePackager
 		public static string Certificate = "";
 
 		/// <summary>
+		/// Certificate to be output
+		/// </summary>
+		public static string OutputCertificate = null;
+
+		/// <summary>
 		/// An override server Mac name
 		/// </summary>
 		public static string OverrideMacName = null;

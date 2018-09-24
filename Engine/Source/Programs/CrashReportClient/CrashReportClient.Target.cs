@@ -33,12 +33,6 @@ public class CrashReportClientTarget : TargetRules
 		bUseLoggingInShipping = true;
 
 		bIncludeADO = false;
-		
-		// Do not include ICU for Linux (this is a temporary workaround, separate headless CrashReportClient target should be created, see UECORE-14 for details).
-		if (Target.Platform == UnrealTargetPlatform.Linux)
-		{
-			bCompileICU = false;
-		}
 
 		// CrashReportClient.exe has no exports, so no need to verify that a .lib and .exp file was emitted by
 		// the linker.

@@ -26,6 +26,90 @@ namespace UnrealBuildTool
 		I686UnknownLinuxGnu
 	}
 
+	/// <summary>
+	/// Linux-specific target settings
+	/// </summary>
+	public class LinuxTargetRules
+	{
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		public LinuxTargetRules()
+		{
+			XmlConfig.ApplyTo(this);
+		}
+
+		/// <summary>
+		/// Enables address sanitizer (ASan)
+		/// </summary>
+		[CommandLine("-EnableASan")]
+		[XmlConfigFile(Category = "BuildConfiguration", Name = "bEnableAddressSanitizer")]
+		public bool bEnableAddressSanitizer = false;
+
+		/// <summary>
+		/// Enables thread sanitizer (TSan)
+		/// </summary>
+		[CommandLine("-EnableTSan")]
+		[XmlConfigFile(Category = "BuildConfiguration", Name = "bEnableThreadSanitizer")]
+		public bool bEnableThreadSanitizer = false;
+
+		/// <summary>
+		/// Enables undefined behavior sanitizer (UBSan)
+		/// </summary>
+		[CommandLine("-EnableUBSan")]
+		[XmlConfigFile(Category = "BuildConfiguration", Name = "bEnableUndefinedBehaviorSanitizer")]
+		public bool bEnableUndefinedBehaviorSanitizer = false;
+	}
+
+	/// <summary>
+	/// Read-only wrapper for Linux-specific target settings
+	/// </summary>
+	public class ReadOnlyLinuxTargetRules
+	{
+		/// <summary>
+		/// The private mutable settings object
+		/// </summary>
+		private LinuxTargetRules Inner;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Inner">The settings object to wrap</param>
+		public ReadOnlyLinuxTargetRules(LinuxTargetRules Inner)
+		{
+			this.Inner = Inner;
+		}
+
+		/// <summary>
+		/// Accessors for fields on the inner TargetRules instance
+		/// </summary>
+
+        #region Read-only accessor properties
+        #if !__MonoCS__
+        #pragma warning disable CS1591
+        #endif
+
+		public bool bEnableAddressSanitizer
+		{
+			get { return Inner.bEnableAddressSanitizer; }
+		}
+
+		public bool bEnableThreadSanitizer
+		{
+			get { return Inner.bEnableThreadSanitizer; }
+		}
+
+		public bool bEnableUndefinedBehaviorSanitizer
+		{
+			get { return Inner.bEnableUndefinedBehaviorSanitizer; }
+		}
+
+        #if !__MonoCS__
+        #pragma warning restore CS1591
+        #endif
+        #endregion
+	}
+
 	class LinuxPlatform : UEBuildPlatform
 	{
 		/// <summary>
@@ -151,6 +235,12 @@ namespace UnrealBuildTool
 				Target.bCompileSimplygon = false;
 				Target.bCompileSimplygonSSF = false;
 				Target.bCompileCEF3 = false;
+			}
+
+			// Force using the ANSI allocator if ASan is enabled
+			if (Target.LinuxPlatform.bEnableAddressSanitizer)
+			{
+				Target.GlobalDefinitions.Add("FORCE_ANSI_ALLOCATOR=1");
 			}
 
 			// check if OS update invalidated our build
@@ -363,11 +453,6 @@ namespace UnrealBuildTool
 				CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
 			}
 
-			if (Target.Architecture.StartsWith("arm"))	// AArch64 doesn't strictly need that - aligned access improves perf, but this will be likely offset by memcpys we're doing to guarantee it.
-			{
-				CompileEnvironment.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
-			}
-
 			if (CompileEnvironment.bAllowLTCG != LinkEnvironment.bAllowLTCG)
 			{
 				Log.TraceWarning("Inconsistency between LTCG settings in Compile and Link environments: link one takes priority");
@@ -415,7 +500,22 @@ namespace UnrealBuildTool
 		/// <returns>New toolchain instance.</returns>
 		public override UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target)
 		{
-			return new LinuxToolChain(Target.Architecture, SDK);
+			LinuxToolChainOptions Options = LinuxToolChainOptions.None;
+
+			if(Target.LinuxPlatform.bEnableAddressSanitizer)
+			{
+				Options |= LinuxToolChainOptions.EnableAddressSanitizer;
+			}
+			if(Target.LinuxPlatform.bEnableThreadSanitizer)
+			{
+				Options |= LinuxToolChainOptions.EnableThreadSanitizer;
+			}
+			if(Target.LinuxPlatform.bEnableUndefinedBehaviorSanitizer)
+			{
+				Options |= LinuxToolChainOptions.EnableUndefinedBehaviorSanitizer;
+			}
+
+			return new LinuxToolChain(Target.Architecture, SDK, Options);
 		}
 
 		/// <summary>
@@ -432,7 +532,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// This is the SDK version we support
 		/// </summary>
-		static string ExpectedSDKVersion = "v11_clang-5.0.0-centos7";	// now unified for all the architectures
+		static string ExpectedSDKVersion = "v12_clang-6.0.1-centos7";	// now unified for all the architectures
 
 		/// <summary>
 		/// Platform name (embeds architecture for now)

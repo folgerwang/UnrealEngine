@@ -12,7 +12,6 @@
 #include "MetalCommandQueue.h"
 #include "MetalCommandBuffer.h"
 #include "RenderUtils.h"
-#include "ShaderCache.h"
 #include "Misc/ScopeRWLock.h"
 #include <objc/runtime.h>
 
@@ -826,7 +825,14 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Hull shader: %s"), HullShader ? *FString(HullShader->GetSourceCode()) : TEXT("NULL"));
 		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Domain shader: %s"), DomainShader ? *FString(DomainShader->GetSourceCode()) : TEXT("NULL"));
 		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Descriptor: %s"), *FString(RenderPipelineDesc.GetPtr().description));
-		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Fatal, TEXT("Failed to generate a render pipeline state object:\n\n %s\n\n"), *FString(Error.GetLocalizedDescription()));
+		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Failed to generate a render pipeline state object:\n\n %s\n\n"), *FString(Error.GetLocalizedDescription()));
+		
+		// We need to pass a failure up the chain, so we'll clean up here.
+		if(Pipeline->RenderPipelineState == nil)
+		{
+			[Pipeline release];
+			return nil;
+		}
 		
     #if METAL_DEBUG_OPTIONS
         Pipeline->ComputeSource = DomainShader ? VertexShader->GetSourceCode() : nil;
@@ -886,6 +892,12 @@ static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphi
 	if (Desc == nil)
 	{
 		Desc = CreateMTLRenderPipeline(bSync, Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);
+		
+		// Bail cleanly if compilation fails.
+		if(!Desc)
+		{
+			return nil;
+		}
 
 		// Now we are a writer as we want to create & add the new pipeline
 		Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
@@ -901,15 +913,19 @@ static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphi
 	return Desc;
 }
 
-FMetalGraphicsPipelineState::FMetalGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Init)
-: Initializer(Init)
+bool FMetalGraphicsPipelineState::Compile()
 {
 	FMemory::Memzero(PipelineStates);
 	for (uint32 i = 0; i < EMetalIndexType_Num; i++)
 	{
-		PipelineStates[i][0][0][0] = [GetMTLRenderPipeline(true, this, Init, (EMetalIndexType)i, nullptr, nullptr, nullptr) retain];
-        check(PipelineStates[i][0][0][0]);
+		PipelineStates[i][0][0][0] = [GetMTLRenderPipeline(true, this, Initializer, (EMetalIndexType)i, nullptr, nullptr, nullptr) retain];
+		if(!PipelineStates[i][0][0][0])
+		{
+			return false;
+		}
 	}
+	
+	return true;
 }
 
 FMetalGraphicsPipelineState::~FMetalGraphicsPipelineState()
@@ -963,7 +979,14 @@ FGraphicsPipelineStateRHIRef FMetalDynamicRHI::RHICreateGraphicsPipelineState(co
 {
 	@autoreleasepool {
 	FMetalGraphicsPipelineState* State = new FMetalGraphicsPipelineState(Initializer);
-	check(State);
+		
+	if(!State->Compile())
+	{
+		// Compilation failures are propagated up to the caller.
+		State->DoNoDeferDelete();
+		delete State;
+		return nullptr;
+	}
 	State->VertexDeclaration = ResourceCast(Initializer.BoundShaderState.VertexDeclarationRHI);
 	State->VertexShader = ResourceCast(Initializer.BoundShaderState.VertexShaderRHI);
 	State->PixelShader = ResourceCast(Initializer.BoundShaderState.PixelShaderRHI);
@@ -972,7 +995,6 @@ FGraphicsPipelineStateRHIRef FMetalDynamicRHI::RHICreateGraphicsPipelineState(co
 	State->GeometryShader = ResourceCast(Initializer.BoundShaderState.GeometryShaderRHI);
 	State->DepthStencilState = ResourceCast(Initializer.DepthStencilState);
 	State->RasterizerState = ResourceCast(Initializer.RasterizerState);
-	FShaderCache::LogGraphicsPipelineState(ImmediateContext.GetInternalContext().GetCurrentState().GetShaderCacheStateObject(), GMaxRHIShaderPlatform, Initializer, State);
 	return State;
 	}
 }

@@ -118,7 +118,7 @@ ir_call::generate_inline(ir_instruction *next_ir)
 	int i;
 	struct hash_table *ht;
 
-	ht = hash_table_ctor(0, hash_table_pointer_hash, hash_table_pointer_compare);
+	ht = hash_table_ctor(0, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 
 	num_parameters = 0;
 	foreach_iter(exec_list_iterator, iter_sig, this->callee->parameters)

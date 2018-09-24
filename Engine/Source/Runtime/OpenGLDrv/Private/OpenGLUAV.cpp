@@ -3,7 +3,6 @@
 
 #include "CoreMinimal.h"
 #include "RenderUtils.h"
-#include "ShaderCache.h"
 #include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
 
@@ -41,7 +40,7 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FVertex
 
 		return new FOpenGLShaderResourceView(OGLRHI, TextureID, GL_TEXTURE_BUFFER, VertexBufferRHI, Format);
 	});
-	FShaderCache::LogSRV(Result, VertexBufferRHI, Stride, Format);
+
 	return Result;
 }
 

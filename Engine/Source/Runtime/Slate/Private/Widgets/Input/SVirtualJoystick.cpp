@@ -339,6 +339,9 @@ void SVirtualJoystick::Tick( const FGeometry& AllottedGeometry, const double InC
 	// count how many controls are active
 	int32 NumActiveControls = 0;
 
+	// figure out how much to scale the control sizes
+	float ScaleFactor = GetScaleFactor(AllottedGeometry);
+
 	for (int32 ControlIndex = 0; ControlIndex < Controls.Num(); ControlIndex++)
 	{
 		FControlInfo& Control = Controls[ControlIndex];
@@ -362,11 +365,8 @@ void SVirtualJoystick::Tick( const FGeometry& AllottedGeometry, const double InC
 
 		// calculate absolute positions based on geometry
 		// @todo: Need to manage geometry changing!
-		if (!Control.bHasBeenPositioned)
+		if (!Control.bHasBeenPositioned || ScaleFactor != PreviousScalingFactor)
 		{
-			// figure out how much to scale the control sizes
-			float ScaleFactor = GetScaleFactor(AllottedGeometry);
-
 			// update all the sizes
 			Control.CorrectedCenter = FVector2D(ResolveRelativePosition(Control.Center.X, AllottedGeometry.GetLocalSize().X, ScaleFactor), ResolveRelativePosition(Control.Center.Y, AllottedGeometry.GetLocalSize().Y, ScaleFactor));
 			Control.VisualCenter = Control.CorrectedCenter;
@@ -403,7 +403,6 @@ void SVirtualJoystick::Tick( const FGeometry& AllottedGeometry, const double InC
 			const FGamepadKeyNames::Type XAxis = (Control.MainInputKey.IsValid() ? Control.MainInputKey.GetFName() : (ControlIndex == 0 ? FGamepadKeyNames::LeftAnalogX : FGamepadKeyNames::RightAnalogX));
 			const FGamepadKeyNames::Type YAxis = (Control.AltInputKey.IsValid() ? Control.AltInputKey.GetFName() : (ControlIndex == 0 ? FGamepadKeyNames::LeftAnalogY : FGamepadKeyNames::RightAnalogY));
 
-	//		UE_LOG(LogTemp, Log, TEXT("Joysticking %f,%f"), NormalizedOffset.X, -NormalizedOffset.Y);
 			FSlateApplication::Get().SetAllUserFocusToGameViewport();
 			FSlateApplication::Get().OnControllerAnalog(XAxis, 0, NormalizedOffset.X);
 			FSlateApplication::Get().OnControllerAnalog(YAxis, 0, -NormalizedOffset.Y);
@@ -416,6 +415,8 @@ void SVirtualJoystick::Tick( const FGeometry& AllottedGeometry, const double InC
 		}
 	}
 
+	// we need to store the computed scale factor so we can compare it with the value computed in the following frame and, if necessary, recompute widget position
+	PreviousScalingFactor = ScaleFactor;
 
 	// STATE MACHINE!
 	if (NumActiveControls > 0 || bPreventReCenter)

@@ -89,7 +89,7 @@ struct FBokehModel
 	// Number of blades of the diaphragm.
 	int32 DiaphragmBladeCount;
 	
-	// Rotation angle of the diaphragm.
+	// Rotation angle of the diaphragm in radians.
 	float DiaphragmRotation;
 
 	// BokehShape == RoundedBlades specific parameters.

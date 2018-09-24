@@ -168,8 +168,12 @@ void FMetalRHICommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceT
                     RHICmdList.SetShaderTexture(ResolvePixelShader->GetPixelShader(), TextureIndex, SourceTextureRHI);
                 }
 
+				FRHIResourceCreateInfo CreateInfo;
+				FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FScreenVertex) * 4, BUF_Volatile, CreateInfo);
+				void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FScreenVertex) * 4, RLM_WriteOnly);
+
                 // Generate the vertices used
-                FScreenVertex Vertices[4];
+                FScreenVertex* Vertices = (FScreenVertex*)VoidPtr;
 
                 Vertices[0].Position.X = MaxX;
                 Vertices[0].Position.Y = MinY;
@@ -191,7 +195,9 @@ void FMetalRHICommandContext::RHICopyToResolveTarget(FTextureRHIParamRef SourceT
                 Vertices[3].UV.X = MinU;
                 Vertices[3].UV.Y = MaxV;
 
-                DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+				RHIUnlockVertexBuffer(VertexBufferRHI);
+				RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
+				RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
 
                 RHICmdList.Flush();
             }
@@ -544,6 +550,21 @@ static void ConvertSurfaceDataToFColor(EPixelFormat Format, uint32 Width, uint32
 	{
 		// not supported yet
 		NOT_SUPPORTED("RHIReadSurfaceData Format");
+	}
+}
+
+void FMetalDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntRect InRect, TArray<FLinearColor>& OutData, FReadSurfaceDataFlags InFlags)
+{
+	// Use our current surface read implemtation and convert to linear - should refactor to make optimal
+	TArray<FColor> OutDataUnConverted;
+	RHIReadSurfaceData(TextureRHI, InRect, OutDataUnConverted, InFlags);
+	
+	OutData.Empty();
+	OutData.AddUninitialized(OutDataUnConverted.Num());
+	
+	for(uint32 i = 0;i < OutDataUnConverted.Num();++i)
+	{
+		OutData[i] = OutDataUnConverted[i].ReinterpretAsLinear();
 	}
 }
 

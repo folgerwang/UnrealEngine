@@ -423,6 +423,247 @@ void FlattenUniformBufferStructures(exec_list* Instructions, _mesa_glsl_parse_st
 	//	IRDump(Instructions, ParseState, "After FlattenUniformBufferStructures()");
 }
 
+struct ir_dereference_array_compare {
+	bool operator() (const ir_dereference_array* const& lhs, const ir_dereference_array* const& rhs) const {
+		return lhs->id < rhs->id;
+	}
+};
+
+// Expands arrays inside a uniform buffer into uniform variables
+//		cbuffer CB
+//		{
+//			float4 Values[3];
+//		};
+//	to:
+//		cbuffer CB
+//		{
+//			float4 Value_0;
+//			float4 Value_1;
+//			float4 Value_2;
+//		}
+void ExpandUniformBufferArrays(exec_list* Instructions, _mesa_glsl_parse_state* ParseState)
+{
+	typedef std::set<ir_dereference_array*, ir_dereference_array_compare> TArrayRefsSet;
+	typedef std::map<std::string, TArrayRefsSet> TSemanticToRefMap;
+	typedef std::map<ir_variable*, std::vector<ir_variable*>, ir_variable_compare> TExpandedArrayMap;
+	
+	// Visitor to find referenced UB array members
+	struct SFindArrayMembersVisitor : public ir_rvalue_visitor
+	{
+		TSemanticToRefMap& FoundRefs;
+		SFindArrayMembersVisitor(TSemanticToRefMap& InFoundRefs)
+			: FoundRefs(InFoundRefs)
+		{
+		}
+
+		virtual void handle_rvalue(ir_rvalue** RValuePointer) override
+		{
+			if (RValuePointer && *RValuePointer)
+			{
+				ir_dereference_array* RValue = (*RValuePointer)->as_dereference_array();
+				if (RValue)
+				{
+					ir_variable* ArrayVar = RValue->variable_referenced();
+					if (ArrayVar && 
+						ArrayVar->mode == ir_var_uniform && 
+						ArrayVar->semantic && 
+						ArrayVar->type->is_array())
+					{
+						check(*ArrayVar->semantic);
+						FoundRefs[ArrayVar->semantic].insert(RValue);
+					}
+				}
+			}
+		}
+	};
+
+	// Visitor to replace references to UB array members
+	struct SReplaceArrayMembersRefsVisitor : public ir_rvalue_visitor
+	{
+		_mesa_glsl_parse_state* ParseState;
+		const TExpandedArrayMap& ExpandedArrayMap;
+
+		SReplaceArrayMembersRefsVisitor(_mesa_glsl_parse_state* InParseState, const TExpandedArrayMap& InExpandedArrayMap)
+			: ParseState(InParseState)			
+			, ExpandedArrayMap(InExpandedArrayMap)
+		{
+		}
+
+		virtual void handle_rvalue(ir_rvalue** RValuePointer) override
+		{
+			if (RValuePointer && *RValuePointer)
+			{
+				ir_dereference_array* RValue = (*RValuePointer)->as_dereference_array();
+				if (RValue)
+				{
+					ir_variable* ArrayVar = RValue->variable_referenced();
+					auto ExpIt = ExpandedArrayMap.find(ArrayVar);
+					if (ExpIt != ExpandedArrayMap.end())
+					{
+						ir_constant* IndexVar = RValue->array_index->as_constant();
+						check(IndexVar);
+						uint32 ArrayIndex = IndexVar->get_uint_component(0);
+						check(ArrayIndex < ExpIt->second.size());
+						
+						ir_variable* NewVar = ExpIt->second.at(ArrayIndex);
+						*RValuePointer = new(ParseState) ir_dereference_variable(NewVar);
+					}
+				}
+			}
+		}
+	};
+		
+	// Find all references to UB array members
+	TSemanticToRefMap ArrayRefs;
+	foreach_iter(exec_list_iterator, Iter, *Instructions)
+	{
+		ir_instruction* Instruction = (ir_instruction*)Iter.get();
+		ir_function* Function = Instruction->as_function();
+		if (Function)
+		{
+			foreach_iter(exec_list_iterator, SigIter, *Function)
+			{
+				ir_function_signature* Sig = (ir_function_signature *)SigIter.get();
+				if (!Sig->is_builtin && Sig->is_defined)
+				{
+					SFindArrayMembersVisitor FindArrayMembersVisitor(ArrayRefs);
+					FindArrayMembersVisitor.run(&Sig->body);
+				}
+			}
+		}
+	}
+
+	if (ArrayRefs.empty())
+	{
+		// Nothing to do
+		return;
+	}
+
+	// filter out UBs that has non-constant dereferences
+	for (auto SemIter = ArrayRefs.begin(); SemIter != ArrayRefs.end();)
+	{
+		bool bConstRefs = true;
+		const TArrayRefsSet& Refs = SemIter->second;
+		
+		for (auto RefIter = Refs.begin(); RefIter != Refs.end(); ++RefIter)
+		{
+			ir_dereference_array* RValue = *RefIter;
+			ir_constant* ConstIndex = RValue->array_index->as_constant();
+			if (ConstIndex == nullptr)
+			{
+				bConstRefs = false;
+				break;
+			}
+		}
+
+		if (!bConstRefs)
+		{
+			SemIter = ArrayRefs.erase(SemIter);
+		}
+		else
+		{
+			++SemIter;
+		}
+	}
+
+	// expand UB array members
+	TExpandedArrayMap ExpandedArrayMap;
+	for (auto SemIter = ArrayRefs.begin(); SemIter != ArrayRefs.end(); ++SemIter)
+	{
+		const std::string& UBName = SemIter->first;
+		const TArrayRefsSet& Refs = SemIter->second;
+
+		const glsl_uniform_block* OriginalUB = nullptr;
+		int32 UBIndex = 0;
+		for (; UBIndex < ParseState->num_uniform_blocks; ++UBIndex)
+		{
+			if (UBName == ParseState->uniform_blocks[UBIndex]->name)
+			{
+				OriginalUB = ParseState->uniform_blocks[UBIndex];
+				break;
+			}
+		}
+
+		if (OriginalUB == nullptr)
+		{
+			continue;
+		}
+		
+		// compute size of expanded UB
+		int32 NumVarsAfterExpand = 0;
+		for (int32 VarIdx = 0; VarIdx < OriginalUB->num_vars; ++VarIdx)
+		{
+			ir_variable* Var = OriginalUB->vars[VarIdx];
+			if (Var->type->is_array())
+			{
+				NumVarsAfterExpand+= Var->type->length;
+			}
+			else
+			{
+				NumVarsAfterExpand++;
+			}
+		}
+		
+		
+		if (NumVarsAfterExpand > 0)
+		{
+			// expand UB
+			glsl_uniform_block* NewUniformBlock = glsl_uniform_block::alloc(ParseState, NumVarsAfterExpand);
+			NewUniformBlock->name = OriginalUB->name;
+
+			SCBuffer* CBuffer = ParseState->FindCBufferByName(true, OriginalUB->name);
+			CBuffer->Members.clear();
+			
+			int32 ExpandedVarsIndex = 0;
+			for (int32 VarIdx = 0; VarIdx < OriginalUB->num_vars; ++VarIdx)
+			{
+				ir_variable* Var = OriginalUB->vars[VarIdx];
+				if (Var->type->is_array())
+				{
+					int32 NumArrayVars = Var->type->length;
+					for (int32 i = 0; i < NumArrayVars; ++i)
+					{
+						ir_variable* NewLocal = new (ParseState) ir_variable(Var->type->element_type(), ralloc_asprintf(ParseState, "%s_%d", Var->name, i), ir_var_uniform);
+						NewLocal->semantic = Var->semantic; // alias semantic to specify the uniform block.
+						NewLocal->read_only = true;
+						
+						NewUniformBlock->vars[ExpandedVarsIndex++] = NewLocal;
+						CBuffer->AddMember(NewLocal->type, NewLocal);
+						Instructions->push_head(NewLocal);
+						ExpandedArrayMap[Var].push_back(NewLocal);
+					}
+				}
+				else
+				{
+					NewUniformBlock->vars[ExpandedVarsIndex++] = Var;
+					CBuffer->AddMember(Var->type, Var);
+				}
+			}
+
+			// replace UB with expanded one
+			ParseState->uniform_blocks[UBIndex] = NewUniformBlock;
+		}
+	}
+	
+	// patch array references
+	foreach_iter(exec_list_iterator, Iter, *Instructions)
+	{
+		ir_instruction* Instruction = (ir_instruction*)Iter.get();
+		ir_function* Function = Instruction->as_function();
+		if (Function)
+		{
+			foreach_iter(exec_list_iterator, SigIter, *Function)
+			{
+				ir_function_signature* Sig = (ir_function_signature *)SigIter.get();
+				if (!Sig->is_builtin && Sig->is_defined)
+				{
+					SReplaceArrayMembersRefsVisitor Visitor(ParseState, ExpandedArrayMap);
+					Visitor.run(&Sig->body);
+				}
+			}
+		}
+	}
+}
 
 void RemovePackedUniformBufferReferences(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, TVarVarMap& UniformMap)
 {
@@ -587,10 +828,28 @@ done:
 	return;
 }
 
-static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, SPackedUniformsInfo& PUInfo, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, TVarVarMap& OutUniformMap)
+static bool SortByVariableSize(ir_variable* Var, ir_variable* SVar)
+{
+	auto const* Type = Var->type->is_array() ? Var->type->element_type() : Var->type;
+	int NumElements = Type->components();
+	int Stride = MAX2(NumElements, 1);
+	int NumRows = Var->type->is_array() ? Var->type->length : 1;
+	int TotalElements = Stride * NumRows;
+	
+	auto const* SType = SVar->type->is_array() ? SVar->type->element_type() : SVar->type;
+	int SNumElements = SType->components();
+	int SStride = MAX2(SNumElements, 1);
+	int SNumRows = SVar->type->is_array() ? SVar->type->length : 1;
+	int STotalElements = SStride * SNumRows;
+	
+	return (TotalElements < STotalElements);
+}
+
+static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, SPackedUniformsInfo& PUInfo, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool PackUniformsIntoUniformBufferWithNames, TVarVarMap& OutUniformMap)
 {
 	// First organize all uniforms by location (CB or Global) and Precision
 	int UniformIndex = 0;
+	TIRVarVector PackedVariables;
 	std::map<std::string, std::map<char, TIRVarVector> > OrganizedVars;
 	for (int NumUniforms = UniformVariables.Num(); UniformIndex < NumUniforms; ++UniformIndex)
 	{
@@ -601,17 +860,24 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 		{
 			break;
 		}
-
+		
 		char ArrayType = GetArrayCharFromPrecisionType(array_base_type, true);
 		if (!ArrayType)
 		{
 			_mesa_glsl_error(ParseState, "uniform '%s' has invalid type '%s'", var->name, var->type->name);
 			return -1;
 		}
-
-		OrganizedVars[var->semantic ? var->semantic : ""][ArrayType].Add(var);
+		
+		if (!bFlattenStructure && !bGroupFlattenedUBs && bPackGlobalArraysIntoUniformBuffers && PackUniformsIntoUniformBufferWithNames)
+		{
+			PackedVariables.Add(var);
+		}
+		else
+		{
+			OrganizedVars[var->semantic ? var->semantic : ""][ArrayType].Add(var);
+		}
 	}
-
+	
 	// Now create the list of used cb's to get their index
 	std::map<std::string, int> CBIndices;
 	int CBIndex = 0;
@@ -625,7 +891,7 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 			++CBIndex;
 		}
 	}
-
+	
 	// Make sure any CB's with big matrices get at the end
 	std::vector<std::string> CBOrder;
 	{
@@ -643,13 +909,13 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 						break;
 					}
 				}
-
+				
 				if (bNonArrayFound)
 				{
 					break;
 				}
 			}
-
+			
 			if (bNonArrayFound)
 			{
 				CBOrder.push_back(Pair.first);
@@ -659,155 +925,285 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 				EndOrganizedVars.push_back(Pair.first);
 			}
 		}
-
+		
 		CBOrder.insert(CBOrder.end(), EndOrganizedVars.begin(), EndOrganizedVars.end());
 	}
-
-	// Now actually create the packed variables
-	TStringIRVarMap UniformArrayVarMap;
-	std::map<std::string, std::map<char, int> > NumElementsMap;
-	for (auto& SourceCB : CBOrder)
+	
+	if (PackedVariables.Num())
 	{
-		std::string DestCB = bGroupFlattenedUBs ? SourceCB : "";
-		check(OrganizedVars.find(SourceCB) != OrganizedVars.end());
-		for (auto& VarSetPair : OrganizedVars[SourceCB])
+		glsl_uniform_block* block = glsl_uniform_block::alloc(ParseState, PackedVariables.Num());
+		block->name = ralloc_asprintf(ParseState, "_GlobalUniforms");
+		SCBuffer CBuffer;
+		CBuffer.Name = block->name;
+		const glsl_uniform_block** blocks = reralloc(ParseState, ParseState->uniform_blocks,
+													 const glsl_uniform_block *,
+													 ParseState->num_uniform_blocks + 1);
+		if (blocks != NULL)
 		{
-			ir_variable* UniformArrayVar = nullptr;
-			char ArrayType = VarSetPair.first;
-			auto& Vars = VarSetPair.second;
-			for (auto* var : Vars)
+			blocks[ParseState->num_uniform_blocks] = block;
+			ParseState->uniform_blocks = blocks;
+			ParseState->num_uniform_blocks++;
+		}
+		
+		std::sort(PackedVariables.Vector.begin(), PackedVariables.Vector.end(), SortByVariableSize);
+		
+		ParseState->CBuffersOriginal.push_back(CBuffer);
+		int Offset = 0;
+		for (uint32 i = 0; i < PackedVariables.Num(); i++)
+		{
+			auto Var = PackedVariables[i];
+			
+			ir_variable* NewVar = Var;
+			
+			if (Var->type->is_array() && Var->type->element_type()->is_matrix() && (Var->type->element_type()->vector_elements < 4 || Var->type->element_type()->matrix_columns < 4))
 			{
-				const glsl_type* type = var->type->is_array() ? var->type->fields.array : var->type;
-				const glsl_base_type array_base_type = (type->base_type == GLSL_TYPE_BOOL) ? GLSL_TYPE_UINT : type->base_type;
-				if (!UniformArrayVar)
-				{
-					std::string UniformArrayName = GetUniformArrayName(ParseState->target, type->base_type, CBIndices[DestCB]);
-					auto IterFound = UniformArrayVarMap.find(UniformArrayName);
-					if (IterFound == UniformArrayVarMap.end())
-					{
-						const glsl_type* ArrayElementType = glsl_type::get_instance(array_base_type, 4, 1);
-						int NumElementsAligned = (PUInfo.UniformArrays[ArrayType].SizeInFloats + 3) / 4;
-						UniformArrayVar = new(ctx) ir_variable(
-							glsl_type::get_array_instance(ArrayElementType, NumElementsAligned),
-							ralloc_asprintf(ParseState, "%s", UniformArrayName.c_str()),
-							ir_var_uniform
-							);
-						UniformArrayVar->semantic = ralloc_asprintf(ParseState, "%c", ArrayType);
-
-						Instructions->push_head(UniformArrayVar);
-						if (NumElementsMap.find(DestCB) == NumElementsMap.end() || NumElementsMap[DestCB].find(ArrayType) == NumElementsMap[DestCB].end())
-						{
-							NumElementsMap[DestCB][ArrayType] = 0;
-						}
-
-						UniformArrayVarMap[UniformArrayName] = UniformArrayVar;
-					}
-					else
-					{
-						UniformArrayVar = IterFound->second;
-					}
-				}
-
-				int& NumElements = NumElementsMap[DestCB][ArrayType];
-				int Stride = (type->vector_elements > 2 || var->type->is_array()) ? 4 : MAX2(type->vector_elements, 1u);
-				int NumRows = var->type->is_array() ? var->type->length : 1;
-				NumRows = NumRows * MAX2(type->matrix_columns, 1u);
-
-				glsl_packed_uniform PackedUniform;
-				check(var->name);
-				PackedUniform.Name = var->name;
-				PackedUniform.offset = NumElements;
-				PackedUniform.num_components = Stride * NumRows;
-				if (!SourceCB.empty())
-				{
-					PackedUniform.CB_PackedSampler = SourceCB;
-					ParseState->FindOffsetIntoCBufferInFloats(bFlattenStructure, var->semantic, var->name, PackedUniform.OffsetIntoCBufferInFloats, PackedUniform.SizeInFloats);
-					ParseState->CBPackedArraysMap[PackedUniform.CB_PackedSampler][ArrayType].push_back(PackedUniform);
-				}
-				else
-				{
-					ParseState->GlobalPackedArraysMap[ArrayType].push_back(PackedUniform);
-				}
-
-				SUniformVarEntry Entry = { UniformArrayVar, NumElements / 4, NumElements % 4, NumRows };
-				OutUniformMap[var] = Entry;
-
+				_mesa_glsl_error(ParseState, "Unable to correctly pack global uniform '%s' "
+								 "of type '%s'", Var->name, Var->type->name);
+				return -1;
+			}
+			
+			if (Var->type->is_array() && !Var->type->element_type()->is_matrix() && Var->type->element_type()->vector_elements < 4)
+			{
+				const glsl_type* OriginalType = Var->type->element_type();
+				int NumRows = Var->type->length;
+				
+				const glsl_type* ArrayElementType = glsl_type::get_instance(Var->type->get_scalar_type()->base_type, 4, 1);
+				const glsl_type* ArrayType = glsl_type::get_array_instance(ArrayElementType, Var->type->array_size());
+				int NumElements = ArrayElementType->vector_elements;
+				
+				NewVar = new (ParseState) ir_variable(ArrayType, ralloc_strdup(ParseState, Var->name),ir_var_uniform);
+				Var->mode = ir_var_auto;
+				
 				for (int RowIndex = 0; RowIndex < NumRows; ++RowIndex)
 				{
-					int SrcIndex = NumElements / 4;
 					int SrcComponents = NumElements % 4;
 					ir_rvalue* Src = new(ctx) ir_dereference_array(
-						new(ctx) ir_dereference_variable(UniformArrayVar),
-						new(ctx) ir_constant(SrcIndex)
-						);
-					if (type->is_numeric() || type->is_boolean())
+																   new(ctx) ir_dereference_variable(Var),
+																   new(ctx) ir_constant(RowIndex)
+																   );
+					if (OriginalType->is_numeric() || OriginalType->is_boolean())
 					{
 						Src = new(ctx) ir_swizzle(
-							Src,
-							MIN2(SrcComponents + 0, 3),
-							MIN2(SrcComponents + 1, 3),
-							MIN2(SrcComponents + 2, 3),
-							MIN2(SrcComponents + 3, 3),
-							type->vector_elements
-							);
+												  Src,
+												  MIN2(SrcComponents + 0, 3),
+												  MIN2(SrcComponents + 1, 3),
+												  MIN2(SrcComponents + 2, 3),
+												  MIN2(SrcComponents + 3, 3),
+												  OriginalType->vector_elements
+												  );
 					}
-					if (type->is_boolean())
+					if (OriginalType->is_boolean())
 					{
 						Src = new(ctx) ir_expression(ir_unop_u2b, Src);
 					}
-					ir_dereference* Dest = new(ctx) ir_dereference_variable(var);
-					if (NumRows > 1 || var->type->is_array())
+					ir_dereference* Dest = new(ctx) ir_dereference_variable(Var);
+					Dest = new(ctx) ir_dereference_array(Dest, new(ctx) ir_constant(RowIndex));
+					Var->insert_after(new(ctx) ir_assignment(Dest, Src));
+				}
+				
+				PackedVariables[i] = NewVar;
+			}
+			else
+			{
+				Var->remove();
+			}
+			
+			block->vars[i] = NewVar;
+			
+			CBuffer.AddMember(NewVar->type, NewVar);
+			ParseState->CBuffersOriginal.pop_back();
+			ParseState->CBuffersOriginal.push_back(CBuffer);
+			
+			{
+				auto const* Type = NewVar->type->is_array() ? NewVar->type->element_type() : NewVar->type;
+				int NumElements = Type->components();
+				int Stride = MAX2(NumElements, 1);
+				int NumRows = NewVar->type->is_array() ? NewVar->type->length : 1;
+				int AlignmentElements = Type->is_matrix() ? Type->matrix_columns : Type->vector_elements;
+				int Alignment = AlignmentElements > 2 ? 4 : AlignmentElements;
+				if (Type->is_vector() && AlignmentElements > 1 && AlignmentElements < 4)
+				{
+					Alignment = 1;
+				}
+				
+				if ((Offset % Alignment) > 0)
+				{
+					int NumAlign = (Offset > Alignment) ? Alignment - (Offset % Alignment) : (Alignment - Offset);
+					Offset += NumAlign;
+				}
+				
+				glsl_packed_uniform PackedUniform;
+				check(Var->name);
+				PackedUniform.Name = NewVar->name;
+				PackedUniform.offset = Offset;
+				PackedUniform.num_components = Stride * NumRows;
+				PackedUniform.CB_PackedSampler = block->name;
+				
+				char ArrayType = GetArrayCharFromPrecisionType(GLSL_TYPE_FLOAT, true);
+				
+				ParseState->FindOffsetIntoCBufferInFloats(bFlattenStructure, PackedUniform.CB_PackedSampler.c_str(), PackedUniform.Name.c_str(), PackedUniform.OffsetIntoCBufferInFloats, PackedUniform.SizeInFloats);
+				
+				PackedUniform.OffsetIntoCBufferInFloats = Offset;
+				
+				ParseState->CBPackedArraysMap[PackedUniform.CB_PackedSampler][ArrayType].push_back(PackedUniform);
+				
+				SUniformVarEntry Entry = { NewVar, (int)0, (int)PackedUniform.SizeInFloats % 4, NumRows };
+				OutUniformMap[Var] = Entry;
+				
+				Offset += Stride * NumRows;
+			}
+			
+			NewVar->semantic = ralloc_strdup(ParseState, CBuffer.Name.c_str());
+		}
+	}
+	else
+	{
+		// Now actually create the packed variables
+		TStringIRVarMap UniformArrayVarMap;
+		std::map<std::string, std::map<char, int> > NumElementsMap;
+		for (auto& SourceCB : CBOrder)
+		{
+			std::string DestCB = bGroupFlattenedUBs ? SourceCB : "";
+			check(OrganizedVars.find(SourceCB) != OrganizedVars.end());
+			for (auto& VarSetPair : OrganizedVars[SourceCB])
+			{
+				ir_variable* UniformArrayVar = nullptr;
+				char ArrayType = VarSetPair.first;
+				auto& Vars = VarSetPair.second;
+				for (auto* var : Vars)
+				{
+					const glsl_type* type = var->type->is_array() ? var->type->fields.array : var->type;
+					const glsl_base_type array_base_type = (type->base_type == GLSL_TYPE_BOOL) ? GLSL_TYPE_UINT : type->base_type;
+					if (!UniformArrayVar)
 					{
-						if (var->type->is_array() && var->type->fields.array->matrix_columns > 1)
+						std::string UniformArrayName = GetUniformArrayName(ParseState->target, type->base_type, CBIndices[DestCB]);
+						auto IterFound = UniformArrayVarMap.find(UniformArrayName);
+						if (IterFound == UniformArrayVarMap.end())
 						{
-							int MatrixNum = RowIndex / var->type->fields.array->matrix_columns;
-							int MatrixRow = RowIndex - (var->type->fields.array->matrix_columns * MatrixNum);
-							Dest = new(ctx) ir_dereference_array(Dest, new(ctx) ir_constant(MatrixNum));
-							Dest = new(ctx) ir_dereference_array(Dest, new(ctx) ir_constant(MatrixRow));
+							const glsl_type* ArrayElementType = glsl_type::get_instance(array_base_type, 4, 1);
+							int NumElementsAligned = (PUInfo.UniformArrays[ArrayType].SizeInFloats + 3) / 4;
+							UniformArrayVar = new(ctx) ir_variable(
+																   glsl_type::get_array_instance(ArrayElementType, NumElementsAligned),
+																   ralloc_asprintf(ParseState, "%s", UniformArrayName.c_str()),
+																   ir_var_uniform
+																   );
+							UniformArrayVar->semantic = ralloc_asprintf(ParseState, "%c", ArrayType);
+							
+							Instructions->push_head(UniformArrayVar);
+							if (NumElementsMap.find(DestCB) == NumElementsMap.end() || NumElementsMap[DestCB].find(ArrayType) == NumElementsMap[DestCB].end())
+							{
+								NumElementsMap[DestCB][ArrayType] = 0;
+							}
+							
+							UniformArrayVarMap[UniformArrayName] = UniformArrayVar;
 						}
 						else
 						{
-							Dest = new(ctx) ir_dereference_array(Dest, new(ctx) ir_constant(RowIndex));
+							UniformArrayVar = IterFound->second;
 						}
 					}
-					var->insert_after(new(ctx) ir_assignment(Dest, Src));
-					NumElements += Stride;
+					
+					int& NumElements = NumElementsMap[DestCB][ArrayType];
+					int Stride = (type->vector_elements > 2 || var->type->is_array()) ? 4 : MAX2(type->vector_elements, 1u);
+					int NumRows = var->type->is_array() ? var->type->length : 1;
+					NumRows = NumRows * MAX2(type->matrix_columns, 1u);
+					
+					glsl_packed_uniform PackedUniform;
+					check(var->name);
+					PackedUniform.Name = var->name;
+					PackedUniform.offset = NumElements;
+					PackedUniform.num_components = Stride * NumRows;
+					if (!SourceCB.empty())
+					{
+						PackedUniform.CB_PackedSampler = SourceCB;
+						ParseState->FindOffsetIntoCBufferInFloats(bFlattenStructure, var->semantic, var->name, PackedUniform.OffsetIntoCBufferInFloats, PackedUniform.SizeInFloats);
+						ParseState->CBPackedArraysMap[PackedUniform.CB_PackedSampler][ArrayType].push_back(PackedUniform);
+					}
+					else
+					{
+						ParseState->GlobalPackedArraysMap[ArrayType].push_back(PackedUniform);
+					}
+					
+					SUniformVarEntry Entry = { UniformArrayVar, NumElements / 4, NumElements % 4, NumRows };
+					OutUniformMap[var] = Entry;
+					
+					for (int RowIndex = 0; RowIndex < NumRows; ++RowIndex)
+					{
+						int SrcIndex = NumElements / 4;
+						int SrcComponents = NumElements % 4;
+						ir_rvalue* Src = new(ctx) ir_dereference_array(
+																	   new(ctx) ir_dereference_variable(UniformArrayVar),
+																	   new(ctx) ir_constant(SrcIndex)
+																	   );
+						if (type->is_numeric() || type->is_boolean())
+						{
+							Src = new(ctx) ir_swizzle(
+													  Src,
+													  MIN2(SrcComponents + 0, 3),
+													  MIN2(SrcComponents + 1, 3),
+													  MIN2(SrcComponents + 2, 3),
+													  MIN2(SrcComponents + 3, 3),
+													  type->vector_elements
+													  );
+						}
+						if (type->is_boolean())
+						{
+							Src = new(ctx) ir_expression(ir_unop_u2b, Src);
+						}
+						ir_dereference* Dest = new(ctx) ir_dereference_variable(var);
+						if (NumRows > 1 || var->type->is_array())
+						{
+							if (var->type->is_array() && var->type->fields.array->matrix_columns > 1)
+							{
+								int MatrixNum = RowIndex / var->type->fields.array->matrix_columns;
+								int MatrixRow = RowIndex - (var->type->fields.array->matrix_columns * MatrixNum);
+								Dest = new(ctx) ir_dereference_array(Dest, new(ctx) ir_constant(MatrixNum));
+								Dest = new(ctx) ir_dereference_array(Dest, new(ctx) ir_constant(MatrixRow));
+							}
+							else
+							{
+								Dest = new(ctx) ir_dereference_array(Dest, new(ctx) ir_constant(RowIndex));
+							}
+						}
+						var->insert_after(new(ctx) ir_assignment(Dest, Src));
+						NumElements += Stride;
+					}
+					var->mode = ir_var_auto;
+					
+					// Update Uniform Array size to match actual usage
+					NumElements = (NumElements + 3) & ~3;
+					UniformArrayVar->type = glsl_type::get_array_instance(UniformArrayVar->type->fields.array, NumElements / 4);
 				}
-				var->mode = ir_var_auto;
-
-				// Update Uniform Array size to match actual usage
-				NumElements = (NumElements + 3) & ~3;
-				UniformArrayVar->type = glsl_type::get_array_instance(UniformArrayVar->type->fields.array, NumElements / 4);
 			}
 		}
-	}
-
-	if (bPackGlobalArraysIntoUniformBuffers)
-	{
-		for (auto& Pair : UniformArrayVarMap)
+		
+		if (bPackGlobalArraysIntoUniformBuffers)
 		{
-			auto* Var = Pair.second;
-
-			glsl_uniform_block* block = glsl_uniform_block::alloc(ParseState, 1);
-			block->name = ralloc_asprintf(ParseState, "HLSLCC_CB%c", Var->name[3]);
-			block->vars[0] = Var;
-
-			SCBuffer CBuffer;
-			CBuffer.Name = block->name;
-			CBuffer.AddMember(Var->type, Var);
-
-			const glsl_uniform_block** blocks = reralloc(ParseState, ParseState->uniform_blocks,
-				const glsl_uniform_block *,
-				ParseState->num_uniform_blocks + 1);
-			if (blocks != NULL)
+			for (auto& Pair : UniformArrayVarMap)
 			{
-				blocks[ParseState->num_uniform_blocks] = block;
-				ParseState->uniform_blocks = blocks;
-				ParseState->num_uniform_blocks++;
+				auto* Var = Pair.second;
+				
+				glsl_uniform_block* block = glsl_uniform_block::alloc(ParseState, 1);
+				block->name = ralloc_asprintf(ParseState, "HLSLCC_CB%c", Var->name[3]);
+				block->vars[0] = Var;
+				
+				SCBuffer CBuffer;
+				CBuffer.Name = block->name;
+				CBuffer.AddMember(Var->type, Var);
+				
+				const glsl_uniform_block** blocks = reralloc(ParseState, ParseState->uniform_blocks,
+															 const glsl_uniform_block *,
+															 ParseState->num_uniform_blocks + 1);
+				if (blocks != NULL)
+				{
+					blocks[ParseState->num_uniform_blocks] = block;
+					ParseState->uniform_blocks = blocks;
+					ParseState->num_uniform_blocks++;
+				}
+				Var->remove();
+				Var->semantic = ralloc_strdup(ParseState, CBuffer.Name.c_str());
+				ParseState->CBuffersOriginal.push_back(CBuffer);
 			}
-			Var->remove();
-			Var->semantic = ralloc_strdup(ParseState, CBuffer.Name.c_str());
-			ParseState->CBuffersOriginal.push_back(CBuffer);
 		}
 	}
 
@@ -1209,7 +1605,7 @@ namespace DebugPackUniforms
 * @param Instructions - The IR for which to pack uniforms.
 * @param ParseState - Parse state.
 */
-void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool bKeepNames, TVarVarMap& OutUniformMap)
+void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool PackUniformsIntoUniformBufferWithNames, bool bKeepNames, TVarVarMap& OutUniformMap)
 {
 	//IRDump(Instructions);
 	void* ctx = ParseState;
@@ -1223,7 +1619,7 @@ void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, b
 	if (MainSig && UniformVariables.Num())
 	{
 		std::sort(UniformVariables.begin(), UniformVariables.end(), SSortUniformsPredicate());
-		int UniformIndex = ProcessPackedUniformArrays(Instructions, ctx, ParseState, UniformVariables, PUInfo, bFlattenStructure, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, OutUniformMap);
+		int UniformIndex = ProcessPackedUniformArrays(Instructions, ctx, ParseState, UniformVariables, PUInfo, bFlattenStructure, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, PackUniformsIntoUniformBufferWithNames, OutUniformMap);
 		if (UniformIndex == -1)
 		{
 			goto done;
@@ -1493,7 +1889,7 @@ void FixRedundantCasts(exec_list* ir)
 // Converts matrices to arrays in order to remove non-square matrices
 namespace ArraysToMatrices
 {
-	typedef std::map<ir_variable*, int> TArrayReplacedMap;
+	typedef std::map<ir_variable*, int, ir_variable_compare> TArrayReplacedMap;
 
 	// Convert matrix types to array types
 	struct SConvertTypes : public ir_hierarchical_visitor

@@ -142,7 +142,9 @@ void FRCPassPostProcessBufferInspector::Process(FRenderingCompositePassContext& 
 			const FTexture2DRHIRef &DestinationBufferSceneColor = Scene->PixelInspectorData.RenderTargetBufferSceneColor[PixelInspectorRequest->BufferIndex]->GetRenderTargetTexture();
 			if (DestinationBufferSceneColor.IsValid())
 			{
-				FVector2D SourcePoint = SourceViewportUV * FVector2D(View.ViewRect.Size());
+				FVector2D SourcePoint(
+					FMath::FloorToInt(SourceViewportUV.X * View.ViewRect.Width()),
+					FMath::FloorToInt(SourceViewportUV.Y * View.ViewRect.Height()));
 				FBox2D SourceBox(SourcePoint, SourcePoint + ExtendSize);
 
 				const FRenderingCompositeOutputRef* OutputRef0 = GetInput(ePId_Input2);

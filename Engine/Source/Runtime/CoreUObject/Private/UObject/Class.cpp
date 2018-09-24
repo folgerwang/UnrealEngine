@@ -1517,13 +1517,13 @@ const UStruct* UStruct::HasMetaDataHierarchical(const FName& Key) const
 	 */
 	static void HandlePlaceholderScriptRef(ScriptPointerType& ScriptPtr)
 	{
-#ifdef REQUIRES_ALIGNED_INT_ACCESS
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
+		UObject*& ExprPtrRef = (UObject*&)ScriptPtr;
+#else
 		ScriptPointerType  Temp; 
 		FMemory::Memcpy(&Temp, &ScriptPtr, sizeof(ScriptPointerType));
 		UObject*& ExprPtrRef = (UObject*&)Temp;
-#else
-		UObject*& ExprPtrRef = (UObject*&)ScriptPtr;
-#endif 
+#endif
 		if (ULinkerPlaceholderClass* PlaceholderObj = Cast<ULinkerPlaceholderClass>(ExprPtrRef))
 		{
 			PlaceholderObj->AddReferencingScriptExpr((UClass**)(&ExprPtrRef));

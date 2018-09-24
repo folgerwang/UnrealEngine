@@ -85,9 +85,11 @@ bool FUdpMessageTransport::StartTransport(IMessageTransportHandler& Handler)
 		.BoundToAddress(UnicastEndpoint.Address)
 #endif
 		.BoundToPort(MulticastEndpoint.Port)
+#if PLATFORM_SUPPORTS_UDP_MULTICAST_GROUP
 		.JoinedToGroup(MulticastEndpoint.Address)
 		.WithMulticastLoopback()
 		.WithMulticastTtl(MulticastTtl)
+#endif
 		.WithReceiveBufferSize(UDP_MESSAGING_RECEIVE_BUFFER_SIZE);
 
 	if (MulticastSocket == nullptr)

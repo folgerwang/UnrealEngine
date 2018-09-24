@@ -400,19 +400,6 @@ void SetFogShaders(FRHICommandList& RHICmdList, FGraphicsPipelineStateInitialize
 
 void FDeferredShadingSceneRenderer::RenderViewFog(FRHICommandList& RHICmdList, const FViewInfo& View, const FLightShaftsOutput& LightShaftsOutput)
 {
-	static const FVector2D Vertices[4] =
-	{
-		FVector2D(-1,-1),
-		FVector2D(-1,+1),
-		FVector2D(+1,+1),
-		FVector2D(+1,-1),
-	};
-	static const uint16 Indices[6] =
-	{
-		0, 1, 2,
-		0, 2, 3
-	};
-
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
 	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
@@ -433,17 +420,8 @@ void FDeferredShadingSceneRenderer::RenderViewFog(FRHICommandList& RHICmdList, c
 	SetFogShaders(RHICmdList, GraphicsPSOInit, Scene, View, ShouldRenderVolumetricFog(), LightShaftsOutput);
 
 	// Draw a quad covering the view.
-	DrawIndexedPrimitiveUP(
-		RHICmdList,
-		PT_TriangleList,
-		0,
-		ARRAY_COUNT(Vertices),
-		2,
-		Indices,
-		sizeof(Indices[0]),
-		Vertices,
-		sizeof(Vertices[0])
-		);
+	RHICmdList.SetStreamSource(0, GScreenSpaceVertexBuffer.VertexBufferRHI, 0);
+	RHICmdList.DrawIndexedPrimitive(GTwoTrianglesIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 4, 0, 2, 1);
 }
 
 bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput)

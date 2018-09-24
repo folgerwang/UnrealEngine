@@ -67,6 +67,7 @@ struct FTextureStreamingSettings
 	FORCEINLINE bool operator ==(const FTextureStreamingSettings& Rhs) const { return FMemory::Memcmp(this, &Rhs, sizeof(FTextureStreamingSettings)) == 0; }
 	FORCEINLINE bool operator !=(const FTextureStreamingSettings& Rhs) const { return FMemory::Memcmp(this, &Rhs, sizeof(FTextureStreamingSettings)) != 0; }
 
+
 	float MaxEffectiveScreenSize;
 	int32 MaxTempMemoryAllowed;
 	int32 DropMips;

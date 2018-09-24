@@ -32,8 +32,8 @@ public class Renderer : ModuleRules
 				"ImageWriteQueue",
 				"RHI", 
 				"ShaderCore",
-				"UtilityShaders",
-			}
+				"UtilityShaders"
+            }
             );
 
         PrivateIncludePathModuleNames.AddRange(new string[] { "HeadMountedDisplay" });

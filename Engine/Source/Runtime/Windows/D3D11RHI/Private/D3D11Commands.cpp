@@ -660,6 +660,7 @@ void FD3D11DynamicRHI::RHISetShaderSampler(FComputeShaderRHIParamRef ComputeShad
 
 void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FVertexShaderRHIParamRef VertexShader,uint32 BufferIndex,FUniformBufferRHIParamRef BufferRHI)
 {
+	check(BufferRHI->GetLayout().GetHash());
 	VALIDATE_BOUND_SHADER(VertexShader);
 	FD3D11UniformBuffer* Buffer = ResourceCast(BufferRHI);
 	{
@@ -673,6 +674,7 @@ void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FVertexShaderRHIParamRef Vertex
 
 void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FHullShaderRHIParamRef HullShader,uint32 BufferIndex,FUniformBufferRHIParamRef BufferRHI)
 {
+	check(BufferRHI->GetLayout().GetHash());
 	VALIDATE_BOUND_SHADER(HullShader);
 	FD3D11UniformBuffer* Buffer = ResourceCast(BufferRHI);
 	{
@@ -686,6 +688,7 @@ void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FHullShaderRHIParamRef HullShad
 
 void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FDomainShaderRHIParamRef DomainShader,uint32 BufferIndex,FUniformBufferRHIParamRef BufferRHI)
 {
+	check(BufferRHI->GetLayout().GetHash());
 	VALIDATE_BOUND_SHADER(DomainShader);
 	FD3D11UniformBuffer* Buffer = ResourceCast(BufferRHI);
 	{
@@ -699,6 +702,7 @@ void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FDomainShaderRHIParamRef Domain
 
 void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FGeometryShaderRHIParamRef GeometryShader,uint32 BufferIndex,FUniformBufferRHIParamRef BufferRHI)
 {
+	check(BufferRHI->GetLayout().GetHash());
 	VALIDATE_BOUND_SHADER(GeometryShader);
 	FD3D11UniformBuffer* Buffer = ResourceCast(BufferRHI);
 	{
@@ -712,6 +716,7 @@ void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FGeometryShaderRHIParamRef Geom
 
 void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FPixelShaderRHIParamRef PixelShader,uint32 BufferIndex,FUniformBufferRHIParamRef BufferRHI)
 {
+	check(BufferRHI->GetLayout().GetHash());
 	VALIDATE_BOUND_SHADER(PixelShader);
 	FD3D11UniformBuffer* Buffer = ResourceCast(BufferRHI);
 
@@ -726,6 +731,7 @@ void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FPixelShaderRHIParamRef PixelSh
 
 void FD3D11DynamicRHI::RHISetShaderUniformBuffer(FComputeShaderRHIParamRef ComputeShader,uint32 BufferIndex,FUniformBufferRHIParamRef BufferRHI)
 {
+	check(BufferRHI->GetLayout().GetHash());
 	//VALIDATE_BOUND_SHADER(ComputeShader);
 	FD3D11UniformBuffer* Buffer = ResourceCast(BufferRHI);
 	{
@@ -1897,6 +1903,12 @@ void FD3D11DynamicRHI::RHIBlockUntilGPUIdle()
  */
 uint32 FD3D11DynamicRHI::RHIGetGPUFrameCycles()
 {
+#if INTEL_METRICSDISCOVERY
+	if (GDX11IntelMetricsDiscoveryEnabled)
+	{
+		return IntelMetricsDicoveryGetGPUTime();
+	}
+#endif // INTEL_METRICSDISCOVERY
 	return GGPUFrameTime;
 }
 
@@ -2034,66 +2046,108 @@ void FD3D11DynamicRHI::RHITransitionResources(EResourceTransitionAccess Transiti
 	}
 }
 
-static TAutoConsoleVariable<int32> CVarAllowUAVFlushNV(
+static TAutoConsoleVariable<int32> CVarAllowUAVFlushExt(
 	TEXT("r.D3D11.NVAutoFlushUAV"),
 	1,
-	TEXT("If enabled, use NVAPI on Nvidia to not flush between dispatches")
+	TEXT("If enabled, use NVAPI (Nvidia) or AGS (AMD) to not flush between dispatches/draw calls")
 	TEXT(" 1: on (default)\n")
 	TEXT(" 0: off"),
 	ECVF_RenderThreadSafe);
 
-static bool GAllowUAVFlushNV = true;
+static bool GAllowUAVFlushExt = true;
 static bool GOverlapUAVOBegin = false;
+
+// Enable this to test if NvAPI/AGS returned an error during UAV overlap enabling/disabling.
+// By default we do not test because this is an optimalisation (if overlapping is not enabled, GPU execution is slower)
+// Enable it here to validate if overlapping is actually used.
+#if 0
+	#define CHECK_AGS(x) {AGSReturnCode err = (x); check(err == AGS_SUCCESS);}
+	#define CHECK_NVAPI(x) {NvAPI_Status err = (x); check(err == NVAPI_OK);}
+#else
+	#define CHECK_AGS(x) {(x);}
+	#define CHECK_NVAPI(x) {(x);}
+#endif
+
+static bool IsUAVOverlapSupported()
+{
+	if (!GAllowUAVFlushExt ||
+		!IsRHIDeviceNVIDIA() ||
+		!IsRHIDeviceAMD())
+	{
+		return false;
+	}
+	return true;
+}
+
+void FD3D11DynamicRHI::BeginUAVOverlap()
+{
+	if (!GOverlapUAVOBegin)
+	{
+		if (IsRHIDeviceNVIDIA())
+		{
+			CHECK_NVAPI(NvAPI_D3D11_BeginUAVOverlap(Direct3DDevice));
+		}
+		else if (IsRHIDeviceAMD())
+		{
+			CHECK_AGS(agsDriverExtensionsDX11_BeginUAVOverlap(AmdAgsContext));
+		}
+		else ensure(false);
+
+		GOverlapUAVOBegin = true;
+	}
+}
+void FD3D11DynamicRHI::EndUAVOverlap()
+{
+	if (GOverlapUAVOBegin)
+	{
+		if (IsRHIDeviceNVIDIA())
+		{
+			CHECK_NVAPI(NvAPI_D3D11_EndUAVOverlap(Direct3DDevice));
+		}
+		else if (IsRHIDeviceAMD())
+		{
+			CHECK_AGS(agsDriverExtensionsDX11_EndUAVOverlap(AmdAgsContext));
+		}
+		else ensure(false);
+
+		GOverlapUAVOBegin = false;
+	}
+}
+
 
 void FD3D11DynamicRHI::RHIAutomaticCacheFlushAfterComputeShader(bool bEnable)
 {
-	bool bCVarEnabled = CVarAllowUAVFlushNV.GetValueOnRenderThread() != 0;
+	const bool bCVarEnabled = CVarAllowUAVFlushExt.GetValueOnRenderThread() != 0;
 
-	if (GAllowUAVFlushNV != bCVarEnabled)
+	if (GAllowUAVFlushExt != bCVarEnabled)
 	{
 		// Make sure to disable first
-		if (GOverlapUAVOBegin)
-		{
-			NvAPI_D3D11_EndUAVOverlap(Direct3DDevice);
-			GOverlapUAVOBegin = false;
-		}
+		EndUAVOverlap();
 	}
 
-	GAllowUAVFlushNV = bCVarEnabled;
+	GAllowUAVFlushExt = bCVarEnabled;
 
-	if (!IsRHIDeviceNVIDIA() || !GAllowUAVFlushNV)
+	if (!IsUAVOverlapSupported())
 	{
 		return;
 	}
 
 	if (bEnable)
 	{
-		if (GOverlapUAVOBegin)
-		{
-			NvAPI_D3D11_EndUAVOverlap(Direct3DDevice);
-			GOverlapUAVOBegin = false;
-		}
+		EndUAVOverlap();
 	}
 	else
 	{
-		if (!GOverlapUAVOBegin)
-		{
-			NvAPI_D3D11_BeginUAVOverlap(Direct3DDevice);
-			GOverlapUAVOBegin = true;
-		}
+		BeginUAVOverlap();
 	}
 }
 
 void FD3D11DynamicRHI::RHIFlushComputeShaderCache()
 {
-	if (!IsRHIDeviceNVIDIA() || !GAllowUAVFlushNV)
+	if (!IsUAVOverlapSupported())
 	{
 		return;
 	}
 
-	if (GOverlapUAVOBegin)
-	{
-		NvAPI_D3D11_EndUAVOverlap(Direct3DDevice);
-		GOverlapUAVOBegin = false;
-	}
+	EndUAVOverlap();
 }

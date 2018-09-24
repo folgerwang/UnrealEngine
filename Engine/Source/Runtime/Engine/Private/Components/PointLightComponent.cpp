@@ -170,6 +170,31 @@ float UPointLightComponent::ComputeLightBrightness() const
 	return LightBrightness;
 }
 
+#if WITH_EDITOR
+void UPointLightComponent::SetLightBrightness(float InBrightness)
+{
+	if (bUseInverseSquaredFalloff)
+	{
+		if (IntensityUnits == ELightUnits::Candelas)
+		{
+			Super::SetLightBrightness(InBrightness / (100.f * 100.f)); // Conversion from cm2 to m2
+		}
+		else if (IntensityUnits == ELightUnits::Lumens)
+		{
+			Super::SetLightBrightness(InBrightness / (100.f * 100.f / 4 / PI)); // Conversion from cm2 to m2 and 4PI from the sphere area in the 1/r2 attenuation
+		}
+		else
+		{
+			Super::SetLightBrightness(InBrightness / 16); // Legacy scale of 16
+		}
+	}
+	else
+	{
+		Super::SetLightBrightness(InBrightness);
+	}
+}
+#endif // WITH_EDITOR
+
 /**
 * @return ELightComponentType for the light component class 
 */

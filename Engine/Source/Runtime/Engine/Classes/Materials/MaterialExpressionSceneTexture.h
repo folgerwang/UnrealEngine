@@ -58,7 +58,9 @@ enum ESceneTextureId
 	/** Decal Mask, single bit (was moved to stencil for better performance, not accessible at the moment) */
 	PPI_DecalMask UMETA(DisplayName="Decal Mask"),
 	/** Shading model */
-	PPI_ShadingModel UMETA(DisplayName="Shading Model"),
+	PPI_ShadingModelColor UMETA(DisplayName="Shading Model Color"),
+	/** Shading model ID */
+	PPI_ShadingModelID UMETA(DisplayName="Shading Model ID"),
 	/** Ambient Occlusion, single channel */
 	PPI_AmbientOcclusion UMETA(DisplayName="Ambient Occlusion"),
 	/** Scene stencil, contains CustomStencil mesh property of the opaque objects rendered with CustomDepth */

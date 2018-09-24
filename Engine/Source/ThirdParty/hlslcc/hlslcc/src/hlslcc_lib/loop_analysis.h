@@ -144,8 +144,8 @@ public:
       this->num_loop_jumps = 0;
       this->contains_calls = false;
 	  this->only_builtin_calls = true;
-      this->var_hash = hash_table_ctor(0, hash_table_pointer_hash,
-				       hash_table_pointer_compare);
+      this->var_hash = hash_table_ctor(0, ir_hash_table_pointer_hash,
+				       ir_hash_table_pointer_compare);
    }
 
    ~loop_variable_state()

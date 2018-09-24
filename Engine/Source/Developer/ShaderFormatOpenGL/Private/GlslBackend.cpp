@@ -1400,7 +1400,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 
 		bool bEmitEXT = false;
 
-		if (bIsES && op == ir_txl)
+		if (bIsES && op == ir_txl && ShaderTarget == fragment_shader)
 		{
 			// See http://www.khronos.org/registry/gles/extensions/EXT/EXT_shader_texture_lod.txt
 			bUsesES2TextureLODExtension = true;
@@ -3547,28 +3547,6 @@ struct SPromoteSampleLevelES2 : public ir_hierarchical_visitor
 
 	virtual ir_visitor_status visit_leave(ir_texture* IR) override
 	{
-		if (IR->op == ir_txl)
-		{
-			if (bIsVertexShader && bIsES2)
-			{
-				YYLTYPE loc;
-				loc.first_column = IR->SourceLocation.Column;
-				loc.first_line = IR->SourceLocation.Line;
-				loc.source_file = IR->SourceLocation.SourceFile;
-				_mesa_glsl_error(&loc, ParseState, "Vertex texture fetch currently not supported on GLSL ES\n");
-			}
-			else
-			{
-				//@todo-mobile: allowing lod texture functions for now, as they are supported on some devices via glsl extension.
-				// http://www.khronos.org/registry/gles/extensions/EXT/EXT_shader_texture_lod.txt
-				// Compat work will be required for devices which do not support it.
-				/*
-				_mesa_glsl_warning(ParseState, "%s(%u, %u) Converting SampleLevel() to Sample()\n", IR->SourceLocation.SourceFile.c_str(), IR->SourceLocation.Line, IR->SourceLocation.Column);
-				IR->op = ir_tex;
-				*/
-			}
-		}
-
 		if (IR->offset)
 		{
 			YYLTYPE loc;

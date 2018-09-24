@@ -3,6 +3,7 @@
 #include "LightComponentDetails.h"
 #include "Components/SceneComponent.h"
 #include "Components/LightComponentBase.h"
+#include "Components/LocalLightComponent.h"
 #include "Misc/Attribute.h"
 #include "Components/LightComponent.h"
 #include "PropertyHandle.h"
@@ -19,6 +20,10 @@ TSharedRef<IDetailCustomization> FLightComponentDetails::MakeInstance()
 
 void FLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
+	TArray<TWeakObjectPtr<UObject>> Objects;
+	DetailBuilder.GetObjectsBeingCustomized(Objects);
+	ULightComponent* Component = Cast<ULightComponent>(Objects[0].Get());
+
 	// Mobility property is on the scene component base class not the light component and that is why we have to use USceneComponent::StaticClass
 	TSharedRef<IPropertyHandle> MobilityHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULightComponent, Mobility), USceneComponent::StaticClass());
 	// Set a mobility tooltip specific to lights
@@ -46,7 +51,8 @@ void FLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuild
 		IDetailCategoryBuilder& LightProfilesCategory = DetailBuilder.EditCategory( "Light Profiles", FText::GetEmpty(), ECategoryPriority::Default );
 
 		LightCategory.AddProperty( LightIntensityProperty )
-			.IsEnabled( TAttribute<bool>( this, &FLightComponentDetails::IsLightBrightnessEnabled ) );
+			.IsEnabled( TAttribute<bool>( this, &FLightComponentDetails::IsLightBrightnessEnabled ) )
+			.OverrideResetToDefault(FResetToDefaultOverride::Create(FIsResetToDefaultVisible::CreateSP(this, &FLightComponentDetails::IsIntensityResetToDefaultVisible, Component), FResetToDefaultHandler::CreateSP(this, &FLightComponentDetails::ResetIntensityToDefault, Component)));
 
 		LightCategory.AddProperty( DetailBuilder.GetProperty("LightColor", ULightComponentBase::StaticClass() ) );
 
@@ -79,5 +85,59 @@ bool FLightComponentDetails::IsIESBrightnessScaleEnabled() const
 	return IsUseIESBrightnessEnabled() && Enabled;
 }
 
+void FLightComponentDetails::SetComponentIntensity(ULightComponent* Component, float InIntensity)
+{
+	check(Component);
+
+	UProperty* IntensityProperty = FindFieldChecked<UProperty>(ULightComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(ULightComponent, Intensity));
+	FPropertyChangedEvent PropertyChangedEvent(IntensityProperty);
+
+	const float PreviousIntensity = Component->Intensity;
+	Component->SetLightBrightness(InIntensity);
+	Component->PostEditChangeProperty(PropertyChangedEvent);
+	Component->MarkRenderStateDirty();
+
+	// Propagate changes to instances.
+	TArray<UObject*> Instances;
+	Component->GetArchetypeInstances(Instances);
+	for (UObject* Instance : Instances)
+	{
+		ULocalLightComponent* InstanceComponent = Cast<ULocalLightComponent>(Instance);
+		if (InstanceComponent && InstanceComponent->Intensity == PreviousIntensity)
+		{
+			InstanceComponent->Intensity = Component->Intensity;
+			InstanceComponent->PostEditChangeProperty(PropertyChangedEvent);
+			InstanceComponent->MarkRenderStateDirty();
+		}
+	}
+}
+
+void FLightComponentDetails::ResetIntensityToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, ULightComponent* Component)
+{
+	ULightComponent* ArchetypeComponent = Component ? Cast<ULocalLightComponent>(Component->GetArchetype()) : nullptr;
+	if (ArchetypeComponent)
+	{
+		SetComponentIntensity(Component, ArchetypeComponent->ComputeLightBrightness());
+	}
+	else
+	{
+		// Fall back to default handler. 
+		PropertyHandle->ResetToDefault();
+	}
+}
+
+bool FLightComponentDetails::IsIntensityResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, ULightComponent* Component) const
+{
+	ULightComponent* ArchetypeComponent = Component ? Cast<ULocalLightComponent>(Component->GetArchetype()) : nullptr;
+	if (ArchetypeComponent)
+	{
+		return !FMath::IsNearlyEqual(Component->ComputeLightBrightness(), ArchetypeComponent->ComputeLightBrightness());
+	}
+	else
+	{
+		// Fall back to default handler
+		return PropertyHandle->DiffersFromDefault();
+	}
+}
 
 #undef LOCTEXT_NAMESPACE

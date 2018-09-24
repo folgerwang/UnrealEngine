@@ -301,8 +301,6 @@ struct SHADERCORE_API FShaderCacheGraphicsPipelineState
 	FDepthStencilStateInitializerRHI DepthStencilState;
 	uint32 RenderTargets[MaxSimultaneousRenderTargets];
 	uint32 RenderTargetFlags[MaxSimultaneousRenderTargets];
-	uint8 RenderTargetLoad[MaxSimultaneousRenderTargets];
-	uint8 RenderTargetStore[MaxSimultaneousRenderTargets];
 	uint32 DepthStencilTarget;
 	uint32 DepthStencilTargetFlags;
 	uint8 DepthLoad;
@@ -335,8 +333,6 @@ struct SHADERCORE_API FShaderCacheGraphicsPipelineState
 		FMemory::Memzero(&DepthStencilState, sizeof(DepthStencilState));
 		FMemory::Memset(RenderTargets, 255, sizeof(RenderTargets));
 		FMemory::Memset(RenderTargetFlags, 0, sizeof(RenderTargetFlags));
-		FMemory::Memset(RenderTargetLoad, 0, sizeof(RenderTargetLoad));
-		FMemory::Memset(RenderTargetStore, 0, sizeof(RenderTargetStore));
 	}
 	
 	friend bool operator ==(const FShaderCacheGraphicsPipelineState& A,const FShaderCacheGraphicsPipelineState& B)
@@ -349,9 +345,7 @@ struct SHADERCORE_API FShaderCacheGraphicsPipelineState
 		FMemory::Memcmp(&A.RasterizerState, &B.RasterizerState, sizeof(FShaderCacheRasterizerState)) == 0 &&
 		FMemory::Memcmp(&A.DepthStencilState, &B.DepthStencilState, sizeof(FDepthStencilStateInitializerRHI)) == 0 &&
 		FMemory::Memcmp(&A.RenderTargets, &B.RenderTargets, sizeof(A.RenderTargets)) == 0 &&
-		FMemory::Memcmp(&A.RenderTargetFlags, &B.RenderTargetFlags, sizeof(A.RenderTargetFlags)) == 0 &&
-		FMemory::Memcmp(&A.RenderTargetLoad, &B.RenderTargetLoad, sizeof(A.RenderTargetLoad)) == 0 &&
-		FMemory::Memcmp(&A.RenderTargetStore, &B.RenderTargetStore, sizeof(A.RenderTargetStore)) == 0;
+		FMemory::Memcmp(&A.RenderTargetFlags, &B.RenderTargetFlags, sizeof(A.RenderTargetFlags)) == 0;
 		return Compare;
 	}
 	
@@ -376,8 +370,6 @@ struct SHADERCORE_API FShaderCacheGraphicsPipelineState
 				Key.Hash ^= (Key.BlendState.RenderTargets[i].AlphaDestBlend << 8);
 				Key.Hash ^= Key.RenderTargets[i];
 				Key.Hash ^= Key.RenderTargetFlags[i];
-				Key.Hash ^= Key.RenderTargetLoad[i] << 24;
-				Key.Hash ^= Key.RenderTargetStore[i] << 16;
 			}
 			
 			Key.Hash ^= (Key.DepthStencilState.bEnableDepthWrite ? (1 << 31) : 0);
@@ -417,8 +409,9 @@ struct SHADERCORE_API FShaderCacheGraphicsPipelineState
 		{
 			Ar << Info.RenderTargets[i];
 			Ar << Info.RenderTargetFlags[i];
-			Ar << Info.RenderTargetLoad[i];
-			Ar << Info.RenderTargetStore[i];
+			uint8 LoadStore;
+			Ar << LoadStore;
+			Ar << LoadStore;
 		}
 		Ar << Info.DepthStencilTarget << Info.DepthStencilTargetFlags << Info.DepthLoad << Info.DepthStore << Info.StencilLoad << Info.StencilStore;
 		return Ar << Info.BlendState << Info.RasterizerState << Info.DepthStencilState << Info.Hash;
@@ -769,5 +762,3 @@ struct FShaderTextureBinding
 	FVertexBufferRHIRef VertexBuffer;
 	FTextureRHIRef Texture;
 };
-
-//};

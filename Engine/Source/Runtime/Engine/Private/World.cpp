@@ -1365,8 +1365,24 @@ void UWorld::InitWorld(const InitializationValues IVS)
 			}
 		}
 	}
-#endif // WITH_EDITOR
 
+	// invalidate lighting if VT is enabled but no valid data is present
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTexturedLightmaps"));
+	if (CVar && CVar->GetValueOnAnyThread() != 0)
+	{
+		for (auto Level : Levels) //Note: PersistentLevel is part of this array
+		{
+			if (Level && Level->MapBuildData)
+			{
+				if (Level->MapBuildData->IsVTLightingValid() == false)
+				{
+					Level->MapBuildData->InvalidateStaticLighting(this);
+				}
+			}
+		}
+	}
+
+#endif // WITH_EDITOR
 
 	// update it's bIsDefaultLevel
 	bIsDefaultLevel = (FPaths::GetBaseFilename(GetMapName()) == FPaths::GetBaseFilename(UGameMapsSettings::GetGameDefaultMap()));
@@ -6893,25 +6909,6 @@ void UWorld::ChangeFeatureLevel(ERHIFeatureLevel::Type InFeatureLevel, bool bSho
 			SlowTask.EnterProgressFrame(10.0f);
 			FGlobalComponentReregisterContext RecreateComponents;
 			FlushRenderingCommands();
-
-			// Decrement refcount on old feature level
-			UMaterialInterface::SetGlobalRequiredFeatureLevel(InFeatureLevel, true);
-
-            SlowTask.EnterProgressFrame(10.0f);
-            UMaterial::AllMaterialsCacheResourceShadersForRendering();
-            SlowTask.EnterProgressFrame(10.0f);
-            UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
-            SlowTask.EnterProgressFrame(10.0f);
-            CompileGlobalShaderMap(InFeatureLevel);
-            SlowTask.EnterProgressFrame(10.0f);
-            GShaderCompilingManager->ProcessAsyncResults(false, true);
-
-			SlowTask.EnterProgressFrame(10.0f);
-			//invalidate global bound shader states so they will be created with the new shaders the next time they are set (in SetGlobalBoundShaderState)
-			for (TLinkedList<FGlobalBoundShaderStateResource*>::TIterator It(FGlobalBoundShaderStateResource::GetGlobalBoundShaderStateList()); It; It.Next())
-			{
-				BeginUpdateResourceRHI(*It);
-			}
 
 			FeatureLevel = InFeatureLevel;
 

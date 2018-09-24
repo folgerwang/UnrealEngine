@@ -84,7 +84,7 @@ public class OnlineSubsystemGoogle : ModuleRules
 		{
 			bUsesRestfulImpl = true;
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			bUsesRestfulImpl = true;
 		}

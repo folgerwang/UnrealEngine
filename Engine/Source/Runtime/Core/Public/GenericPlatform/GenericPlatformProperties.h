@@ -219,6 +219,11 @@ struct FGenericPlatformProperties
 		return true;
 	}
 
+	static FORCEINLINE bool SupportsDistanceFieldAO()
+	{
+		return true;
+	}
+
 	static FORCEINLINE bool SupportsTextureStreaming()
 	{
 		return true;

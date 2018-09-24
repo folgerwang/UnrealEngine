@@ -117,6 +117,7 @@ class FDeferredLightPS : public FGlobalShader
 	DECLARE_GLOBAL_SHADER(FDeferredLightPS)
 
 	class FSourceShapeDim		: SHADER_PERMUTATION_ENUM_CLASS("LIGHT_SOURCE_SHAPE", ELightSourceShape);
+	class FSourceTextureDim		: SHADER_PERMUTATION_BOOL("USE_SOURCE_TEXTURE");
 	class FIESProfileDim		: SHADER_PERMUTATION_BOOL("USE_IES_PROFILE");
 	class FInverseSquaredDim	: SHADER_PERMUTATION_BOOL("INVERSE_SQUARED_FALLOFF");
 	class FVisualizeCullingDim	: SHADER_PERMUTATION_BOOL("VISUALIZE_LIGHT_CULLING");
@@ -125,6 +126,7 @@ class FDeferredLightPS : public FGlobalShader
 
 	using FPermutationDomain = TShaderPermutationDomain<
 		FSourceShapeDim,
+		FSourceTextureDim,
 		FIESProfileDim,
 		FInverseSquaredDim,
 		FVisualizeCullingDim,
@@ -142,10 +144,19 @@ class FDeferredLightPS : public FGlobalShader
 			return false;
 		}
 
-		if( PermutationVector.Get< FSourceShapeDim >() == ELightSourceShape::Rect &&
-			!PermutationVector.Get< FInverseSquaredDim >() )
+		if( PermutationVector.Get< FSourceShapeDim >() == ELightSourceShape::Rect )
 		{
-			return false;
+			if(	!PermutationVector.Get< FInverseSquaredDim >() )
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if( PermutationVector.Get< FSourceTextureDim >() )
+			{
+				return false;
+			}
 		}
 
 		/*if( PermutationVector.Get< FVisualizeCullingDim >() && (
@@ -1054,6 +1065,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			{
 				FDeferredLightPS::FPermutationDomain PermutationVector;
 				PermutationVector.Set< FDeferredLightPS::FSourceShapeDim >( LightSceneInfo->Proxy->IsRectLight() ? ELightSourceShape::Rect : ELightSourceShape::Capsule );
+				PermutationVector.Set< FDeferredLightPS::FSourceTextureDim >( LightSceneInfo->Proxy->IsRectLight() && LightSceneInfo->Proxy->HasSourceTexture() );
 				PermutationVector.Set< FDeferredLightPS::FIESProfileDim >( bUseIESTexture );
 				PermutationVector.Set< FDeferredLightPS::FInverseSquaredDim >( LightSceneInfo->Proxy->IsInverseSquared() );
 				PermutationVector.Set< FDeferredLightPS::FVisualizeCullingDim >( View.Family->EngineShowFlags.VisualizeLightCulling );

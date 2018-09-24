@@ -2254,14 +2254,6 @@ static TAutoConsoleVariable<int32> CVarPS4MixeedModeShaderDebugInfo(
 	TEXT(" 1: Mixed mode)"),
 	ECVF_ReadOnly);
 
-static TAutoConsoleVariable<int32> CVarPS4DumpShaderSDB(
-	TEXT("r.PS4DumpShaderSDB"),
-	0,
-	TEXT("Whether to dump shader sdb files used for shader association.\n")
-	TEXT(" 0: Disabled\n")
-	TEXT(" 1: Enabled)"),
-	ECVF_ReadOnly);
-
 static TAutoConsoleVariable<int32> CVarDontLimitOnBattery(
 	TEXT("r.DontLimitOnBattery"),
 	0,

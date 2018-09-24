@@ -382,7 +382,7 @@ void FMaterial::GetShaderMapId(EShaderPlatform Platform, FMaterialShaderMapId& O
 		OutId.BaseMaterialId = GetMaterialId();
 		OutId.QualityLevel = GetQualityLevelForShaderMapId();
 		OutId.FeatureLevel = GetFeatureLevel();
-		OutId.SetShaderDependencies(ShaderTypes, ShaderPipelineTypes, VFTypes);
+		OutId.SetShaderDependencies(ShaderTypes, ShaderPipelineTypes, VFTypes, Platform);
 		GetReferencedTexturesHash(Platform, OutId.TextureReferencesHash);
 	}
 }
@@ -1118,6 +1118,11 @@ bool FMaterialResource::HasNormalConnected() const
 	return HasMaterialAttributesConnected() || Material->HasNormalConnected();
 }
 
+bool FMaterialResource::HasEmissiveColorConnected() const
+{
+	return HasMaterialAttributesConnected() || Material->HasEmissiveColorConnected();
+}
+
 bool FMaterialResource::RequiresSynchronousCompilation() const
 {
 	return Material->IsDefaultMaterial();
@@ -1226,31 +1231,6 @@ FMaterial::~FMaterial()
 	ClearAllDebugViewMaterials();
 }
 
-// could be more to a more central DBuffer file
-// @return e.g. 1+2+4 means DBufferA(1) + DBufferB(2) + DBufferC(4) is used
-static uint8 ComputeDBufferMRTMask(EDecalBlendMode DecalBlendMode)
-{
-	switch(DecalBlendMode)
-	{
-		case DBM_DBuffer_ColorNormalRoughness:
-			return 1 + 2 + 4;
-		case DBM_DBuffer_Color:
-			return 1;
-		case DBM_DBuffer_ColorNormal:
-			return 1 + 2;
-		case DBM_DBuffer_ColorRoughness:
-			return 1 + 4;
-		case DBM_DBuffer_Normal:
-			return 2;
-		case DBM_DBuffer_NormalRoughness:
-			return 2 + 4;
-		case DBM_DBuffer_Roughness:
-			return 4;
-	}
-
-	return 0;
-}
-
 /** Populates OutEnvironment with defines needed to compile shaders for this material. */
 void FMaterial::SetupMaterialEnvironment(
 	EShaderPlatform Platform,
@@ -1261,7 +1241,7 @@ void FMaterial::SetupMaterialEnvironment(
 	// Add the material uniform buffer definition.
 	FShaderUniformBufferParameter::ModifyCompilationEnvironment(TEXT("Material"),InUniformExpressionSet.GetUniformBufferStruct(),Platform,OutEnvironment);
 
-	// Mark as using external texture if uniformexpression contains external texture
+	// Mark as using external texture if uniform expression contains external texture
 	if (InUniformExpressionSet.UniformExternalTextureExpressions.Num() > 0)
 	{
 		OutEnvironment.CompilerFlags.Add(CFLAG_UsesExternalTexture);
@@ -1393,32 +1373,8 @@ void FMaterial::SetupMaterialEnvironment(
 		OutEnvironment.CompilerFlags.Add(CFLAG_UseFullPrecisionInPS);
 	}
 
-	{
-		auto DecalBlendMode = (EDecalBlendMode)GetDecalBlendMode();
-
-		uint8 bDBufferMask = ComputeDBufferMRTMask(DecalBlendMode);
-
-		OutEnvironment.SetDefine(TEXT("MATERIAL_DBUFFERA"), (bDBufferMask & 0x1) != 0);
-		OutEnvironment.SetDefine(TEXT("MATERIAL_DBUFFERB"), (bDBufferMask & 0x2) != 0);
-		OutEnvironment.SetDefine(TEXT("MATERIAL_DBUFFERC"), (bDBufferMask & 0x4) != 0);
-	}
-
 	if(GetMaterialDomain() == MD_DeferredDecal)
 	{
-		bool bHasNormalConnected = HasNormalConnected();
-		EDecalBlendMode DecalBlendMode = FDecalRenderingCommon::ComputeFinalDecalBlendMode(Platform, (EDecalBlendMode)GetDecalBlendMode(), bHasNormalConnected);
-		FDecalRenderingCommon::ERenderTargetMode RenderTargetMode = FDecalRenderingCommon::ComputeRenderTargetMode(Platform, DecalBlendMode, bHasNormalConnected);
-		uint32 RenderTargetCount = FDecalRenderingCommon::ComputeRenderTargetCount(Platform, RenderTargetMode);
-
-		uint32 BindTarget1 = (RenderTargetMode == FDecalRenderingCommon::RTM_SceneColorAndGBufferNoNormal || RenderTargetMode == FDecalRenderingCommon::RTM_SceneColorAndGBufferDepthWriteNoNormal) ? 0 : 1;
-		OutEnvironment.SetDefine(TEXT("BIND_RENDERTARGET1"), BindTarget1);
-
-		// avoid using the index directly, better use DECALBLENDMODEID_VOLUMETRIC, DECALBLENDMODEID_STAIN, ...
-		OutEnvironment.SetDefine(TEXT("DECAL_BLEND_MODE"), (uint32)DecalBlendMode);
-		OutEnvironment.SetDefine(TEXT("DECAL_PROJECTION"), 1);
-		OutEnvironment.SetDefine(TEXT("DECAL_RENDERTARGET_COUNT"), RenderTargetCount);
-		OutEnvironment.SetDefine(TEXT("DECAL_RENDERSTAGE"), (uint32)FDecalRenderingCommon::ComputeRenderStage(Platform, DecalBlendMode));
-
 		// to compare against DECAL_BLEND_MODE, we can expose more if needed
 		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_VOLUMETRIC"), (uint32)DBM_Volumetric_DistanceFunction);
 		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_STAIN"), (uint32)DBM_Stain);

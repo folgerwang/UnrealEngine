@@ -14,12 +14,13 @@
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include "GenericPlatform/GenericWindowDefinition.h"
 #include "GenericPlatform/GenericApplication.h"
+#include "GenericPlatform/IInputInterface.h"
 #include "Linux/LinuxWindow.h"
 #include "Linux/LinuxCursor.h"
 
 class IInputDevice;
 
-class FLinuxApplication : public GenericApplication, public FSelfRegisteringExec
+class FLinuxApplication : public GenericApplication, public FSelfRegisteringExec, public IInputInterface
 {
 
 public:
@@ -198,6 +199,21 @@ private:
 	/** Gets the location from a given touch event. */
 	FVector2D GetTouchEventLocation(SDL_Event TouchEvent);
 
+public:
+	virtual IInputInterface* GetInputInterface() override
+	{
+		return this;
+	}
+	// IInputInterface overrides
+	virtual void SetForceFeedbackChannelValue (int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) override;
+	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values) override;
+	virtual void SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values) override;
+	virtual void SetLightColor(int32 ControllerId, FColor Color) override { }
+
+private:
+	void AddGameController(int Index);
+	void RemoveGameController(SDL_JoystickID Id);
+
 	/** Stores context information about a currently active touch. */
 	struct FTouchContext
 	{
@@ -228,12 +244,26 @@ private:
 		/** Store axis values from events here to be handled once per frame. */
 		TMap<FGamepadKeyNames::Type, float> AxisEvents;
 
+		/** SDL haptic, will be nullptr if not supported by the controller */
+		SDL_Haptic* Haptic;
+		/** ID of the haptic effect */
+		int EffectId;
+		/** Whether the effect is currently running */
+		bool bEffectRunning;
+		/** Current force feedback values */
+		FForceFeedbackValues ForceFeedbackValues;
+
 		SDLControllerState()
 			:	Controller(nullptr)
 			,	ControllerIndex(-1)
+			,	Haptic(nullptr)
+			,	EffectId(-1)
+			,	bEffectRunning(false)
 		{
 			FMemory::Memzero(AnalogOverThreshold);
 		}
+
+		void UpdateHapticEffect();
 	};
 
 	TArray< SDL_Event > PendingEvents;

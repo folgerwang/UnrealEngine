@@ -417,7 +417,12 @@ namespace UnrealBuildTool
 					{
 						Arguments.AppendFormat(" \"{0}\"", TargetDesc.ProjectFile.Directory);
 					}
-					Arguments.AppendFormat(" -certificate \"{0}\"", CertificateFile);
+					if(TargetDesc.Platform == UnrealTargetPlatform.TVOS)
+					{
+						Arguments.Append(" -tvos");
+					}
+					Arguments.AppendFormat(" -outputcertificate \"{0}\"", CertificateFile);
+					Arguments.AppendFormat(" -provisioninguuid {0}", ProvisioningData.MobileProvisionUUID);
 
 					ProcessStartInfo StartInfo = new ProcessStartInfo();
 					StartInfo.FileName = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Binaries", "DotNET", "IOS", "IPhonePackager.exe").FullName;

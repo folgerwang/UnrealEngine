@@ -84,12 +84,10 @@ private:
 	int32 NumActiveTimers = 0;
 	struct FBeginEndPair
 	{
-#if VULKAN_USE_NEW_QUERIES
 		FVulkanCmdBuffer* BeginCmdBuffer = nullptr;
 		uint64 BeginFenceCounter = 0;
 		FVulkanCmdBuffer* EndCmdBuffer = nullptr;
 		uint64 EndFenceCounter = 0;
-#endif
 		FVulkanRenderQuery* Begin;
 		FVulkanRenderQuery* End;
 	};

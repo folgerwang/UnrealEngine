@@ -632,6 +632,9 @@ static void GetMonitorsInfo(TArray<FMonitorInfo>& OutMonitorInfo)
 					{
 						Info.ID = Monitor.DeviceID;
 						Info.bIsPrimary = (DisplayDevice.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) > 0;
+
+						Info.DPI = FWindowsPlatformApplicationMisc::GetMonitorDPI(Info);
+
 						OutMonitorInfo.Add(Info);
 
 						if (PrimaryDevice == nullptr && Info.bIsPrimary)
@@ -2033,15 +2036,19 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 
 		case WM_DPICHANGED:
 			{
-				if( CurrentNativeEventWindowPtr.IsValid() )
+				if( CurrentNativeEventWindowPtr.IsValid())
 				{
-					CurrentNativeEventWindowPtr->SetDPIScaleFactor(LOWORD(wParam) / 96.0f);
+					MessageHandler->SignalSystemDPIChanged(CurrentNativeEventWindowPtr.ToSharedRef());
 
+					if (!CurrentNativeEventWindowPtr->IsManualManageDPIChanges())
+					{
+						CurrentNativeEventWindowPtr->SetDPIScaleFactor(LOWORD(wParam) / 96.0f);
 
-					LPRECT NewRect = (LPRECT)lParam;
-					SetWindowPos(hwnd, nullptr, NewRect->left, NewRect->top, NewRect->right - NewRect->left, NewRect->bottom - NewRect->top, SWP_NOZORDER | SWP_NOACTIVATE);
+						LPRECT NewRect = (LPRECT)lParam;
+						SetWindowPos(hwnd, nullptr, NewRect->left, NewRect->top, NewRect->right - NewRect->left, NewRect->bottom - NewRect->top, SWP_NOZORDER | SWP_NOACTIVATE);
 
-					MessageHandler->HandleDPIScaleChanged(CurrentNativeEventWindowPtr.ToSharedRef());
+						MessageHandler->HandleDPIScaleChanged(CurrentNativeEventWindowPtr.ToSharedRef());
+					}
 				}
 			}
 			break;

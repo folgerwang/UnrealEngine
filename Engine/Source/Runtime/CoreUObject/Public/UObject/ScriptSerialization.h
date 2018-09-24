@@ -1,5 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
+#include "HAL/Platform.h"
+
 /**
  * This header contains the code for serialization of script bytecode and [eventually] tagged property values.
  * Extracted to header file to allow custom definitions of the macros used by these methods
@@ -13,24 +15,24 @@
 #endif
 
 #ifndef XFER
-#ifdef REQUIRES_ALIGNED_INT_ACCESS
-	#define XFER(T) \
-		{ \
-		T Temp; \
-		if (!Ar.IsLoading()) \
-		{ \
-			FMemory::Memcpy( &Temp, &Script[iCode], sizeof(T) ); \
-		} \
-		Ar << Temp; \
-		if (!Ar.IsSaving()) \
-		{ \
-			FMemory::Memcpy( &Script[iCode], &Temp, sizeof(T) ); \
-		} \
-		iCode += sizeof(T); \
-		}
-#else
-	#define XFER(T) {Ar << *(T*)&Script[iCode]; iCode += sizeof(T); }
-#endif
+	#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
+		#define XFER(T) {Ar << *(T*)&Script[iCode]; iCode += sizeof(T); }
+	#else
+		#define XFER(T) \
+			{ \
+			T Temp; \
+			if (!Ar.IsLoading()) \
+			{ \
+				FMemory::Memcpy( &Temp, &Script[iCode], sizeof(T) ); \
+			} \
+			Ar << Temp; \
+			if (!Ar.IsSaving()) \
+			{ \
+				FMemory::Memcpy( &Script[iCode], &Temp, sizeof(T) ); \
+			} \
+			iCode += sizeof(T); \
+			}
+	#endif
 #endif
 
 //FScriptName
@@ -519,11 +521,11 @@
 		case EX_SwitchValue:
 		{
 			XFER(uint16); // number of cases, without default one
-#ifdef REQUIRES_ALIGNED_INT_ACCESS
-			uint16 NumCases;
-			FMemory::Memcpy( &NumCases, &Script[iCode - sizeof(uint16)], sizeof(uint16) );
-#else
+#if PLATFORM_SUPPORTS_UNALIGNED_LOADS
 			const uint16 NumCases = *(uint16*)(&Script[iCode - sizeof(uint16)]);
+#else
+			uint16 NumCases;
+			FMemory::Memcpy( &NumCases, &Script[iCode - sizeof(uint16)], sizeof(uint16) );	
 #endif
 			XFER(CodeSkipSizeType); // Code offset, go to it, when done.
 			SerializeExpr(iCode, Ar);	//index term

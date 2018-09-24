@@ -203,7 +203,7 @@ static TAutoConsoleVariable<int32> CVarShadowFadeResolution(
 	TEXT("r.Shadow.FadeResolution"),
 	64,
 	TEXT("Resolution in texels below which shadows are faded out"),
-	ECVF_RenderThreadSafe);
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarMinShadowResolution(
 	TEXT("r.Shadow.MinResolution"),
@@ -3362,11 +3362,11 @@ void FSceneRenderer::AllocateShadowDepthTargets(FRHICommandListImmediate& RHICmd
 					}
 				}
 			}
-
-			// Sort cascades, this is needed for blending between cascades to work
-			VisibleLightInfo.ShadowsToProject.Sort(FCompareFProjectedShadowInfoBySplitIndex());
-			VisibleLightInfo.RSMsToProject.Sort(FCompareFProjectedShadowInfoBySplitIndex());
 		}
+
+		// Sort cascades, this is needed for blending between cascades to work
+		VisibleLightInfo.ShadowsToProject.Sort(FCompareFProjectedShadowInfoBySplitIndex());
+		VisibleLightInfo.RSMsToProject.Sort(FCompareFProjectedShadowInfoBySplitIndex());
 
 		AllocateCSMDepthTargets(RHICmdList, WholeSceneDirectionalShadows);
 	}

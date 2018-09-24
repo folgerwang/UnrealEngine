@@ -54,8 +54,7 @@ public:
 	ir_validate(_mesa_glsl_parse_state *in_state)
 		: state(in_state)
 	{
-		this->ht = hash_table_ctor(0, hash_table_pointer_hash,
-			hash_table_pointer_compare);
+		this->ht = hash_table_ctor(0, ir_hash_table_pointer_hash, ir_hash_table_pointer_compare);
 
 		this->current_function = NULL;
 
@@ -788,7 +787,7 @@ ir_visitor_status ir_validate::visit_leave(ir_expression *ir)
 	case ir_invalid_opcode:
 	case ir_opcode_count:
 		// Added here to shut up Mac compiler
-		validate_expr(!"Should not get here.");
+		// validate_expr(!"Should not get here.");
 		break;
 	}
 

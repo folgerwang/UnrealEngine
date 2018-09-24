@@ -30,7 +30,7 @@ struct SUniformVarEntry
 	int				NumRows;
 };
 
-typedef std::map<ir_variable*, SUniformVarEntry> TVarVarMap;
+typedef std::map<ir_variable*, SUniformVarEntry, ir_variable_compare> TVarVarMap;
 
 // Remove typeA(typeB(typeA(x)) to typeA(x)
 void FixRedundantCasts(exec_list* IR);
@@ -69,6 +69,20 @@ void RemovePackedUniformBufferReferences( exec_list* Instructions, _mesa_glsl_pa
 //		};
 void FlattenUniformBufferStructures(exec_list* Instructions, _mesa_glsl_parse_state* ParseState);
 
+// Expands arrays inside a uniform buffer into uniform variables
+//		cbuffer CB
+//		{
+//			float4 Values[3];
+//		};
+//	to:
+//		cbuffer CB
+//		{
+//			float4 Value_0;
+//			float4 Value_1;
+//			float4 Value_2;
+//		}
+void ExpandUniformBufferArrays(exec_list* Instructions, _mesa_glsl_parse_state* ParseState);
+
 
 /**
  * Pack uniforms in to typed arrays.
@@ -78,7 +92,7 @@ void FlattenUniformBufferStructures(exec_list* Instructions, _mesa_glsl_parse_st
  * @param bGroupFlattenedUBs - 
  * @param OutUniformMap - Mapping table used during backend code gen for cross referencing source/packed uniforms
  */
-void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool bKeepNames, TVarVarMap& OutUniformMap);
+void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool PackUniformsIntoUniformBufferWithNames, bool bKeepNames, TVarVarMap& OutUniformMap);
 
 // Expand any full assignments (a = b) to per element (a[0] = b[0]; a[1] = b[1]; etc) so the array can be split
 bool ExpandArrayAssignments(exec_list* ir, _mesa_glsl_parse_state* State);

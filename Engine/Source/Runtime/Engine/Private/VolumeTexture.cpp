@@ -431,12 +431,12 @@ public:
 	/** Returns the width of the texture in pixels. */
 	uint32 GetSizeX() const override
 	{
-		return SizeX;
+		return FMath::Max<uint32>(SizeX >> CurrentFirstMip, 1);
 	}
 	/** Returns the height of the texture in pixels. */
 	uint32 GetSizeY() const override
 	{
-		return SizeY;
+		return FMath::Max<uint32>(SizeY >> CurrentFirstMip, 1);
 	}
 
 private:

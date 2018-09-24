@@ -995,6 +995,7 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 		GPUExecContext.CombinedParamStore.CopyParameterDataToPaddedBuffer(GPUExecContext.ParamData_RT.GetData(), ParmSize);
 		// Because each context is only ran once each frame, the CBuffer layout stays constant for the lifetime duration of the CBuffer (one frame).
 		GPUExecContext.CBufferLayout.ConstantBufferSize = ParmSize;
+		GPUExecContext.CBufferLayout.ComputeHash();
 
 		// push event data sets to the context
 		for (FNiagaraDataSet *Set : UpdateScriptEventDataSets)

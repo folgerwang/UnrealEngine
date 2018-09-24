@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "VulkanRHIPrivate.h"
+#include "VulkanLLM.h"
 
 enum
 {
@@ -61,9 +62,8 @@ static inline EBufferUsageFlags UniformBufferToBufferUsage(EUniformBufferUsage U
 	}
 }
 
-FVulkanUniformBuffer::FVulkanUniformBuffer(FVulkanDevice& Device, const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage Usage)
+FVulkanUniformBuffer::FVulkanUniformBuffer(const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage Usage, bool bCopyIntoConstantData)
 	: FRHIUniformBuffer(InLayout)
-	, FVulkanResourceMultiBuffer(&Device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, InLayout.ConstantBufferSize, UniformBufferToBufferUsage(Usage), GEmptyCreateInfo)
 {
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanUniformBufferCreateTime);
@@ -73,61 +73,72 @@ FVulkanUniformBuffer::FVulkanUniformBuffer(FVulkanDevice& Device, const FRHIUnif
 	//	- If we have at least one resource, we also expect ResourceOffset to have an offset
 	//	- Meaning, there is always a uniform buffer with a size specified larged than 0 bytes
 	check(InLayout.Resources.Num() > 0 || InLayout.ConstantBufferSize > 0);
-	check(Contents);
 
-	if (InLayout.ConstantBufferSize)
+	// Contents might be null but size > 0 as the data doesn't need a CPU copy (it lives inside the 'real' VkBuffer)
+	if (bCopyIntoConstantData && InLayout.ConstantBufferSize)
 	{
-		static TConsoleVariableData<int32>* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
-		if (CVar && CVar->GetValueOnAnyThread() != 0)
+		// Create uniform buffer, which is stored on the CPU, the buffer is uploaded to a correct GPU buffer in UpdateDescriptorSets()
+		ConstantData.AddUninitialized(InLayout.ConstantBufferSize);
+		if (Contents)
 		{
-			const bool bRT = IsInRenderingThread();
-			void* Data = Lock(bRT, RLM_WriteOnly, InLayout.ConstantBufferSize, 0);
-			FMemory::Memcpy(Data, Contents, InLayout.ConstantBufferSize);
-			Unlock(bRT);
-		}
-		else
-		{
-			// Create uniform buffer, which is stored on the CPU, the buffer is uploaded to a correct GPU buffer in UpdateDescriptorSets()
-			ConstantData.AddUninitialized(InLayout.ConstantBufferSize);
-			if (Contents)
-			{
-				FMemory::Memcpy(ConstantData.GetData(), Contents, InLayout.ConstantBufferSize);
-			}
+			FMemory::Memcpy(ConstantData.GetData(), Contents, InLayout.ConstantBufferSize);
 		}
 	}
 
 	// Parse Sampler and Texture resources, if necessary
 	const uint32 NumResources = InLayout.Resources.Num();
-	if (NumResources == 0)
+	if (NumResources > 0)
 	{
-		return;
-	}
-
-	// Transfer the resource table to an internal resource-array
-	ResourceTable.Empty(NumResources);
-	ResourceTable.AddZeroed(NumResources);
-	for(uint32 Index = 0; Index < NumResources; Index++)
-	{
-		FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + InLayout.ResourceOffsets[Index]);
-
-		// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
-		if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && InLayout.Resources[Index] == UBMT_SRV))
+		// Transfer the resource table to an internal resource-array
+		ResourceTable.Empty(NumResources);
+		ResourceTable.AddZeroed(NumResources);
+		for (uint32 Index = 0; Index < NumResources; Index++)
 		{
-			checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *InLayout.GetDebugName().ToString(), Index, InLayout.Resources[Index]);
+			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + InLayout.ResourceOffsets[Index]);
+
+			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
+			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && InLayout.Resources[Index] == UBMT_SRV))
+			{
+				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *InLayout.GetDebugName().ToString(), Index, InLayout.Resources[Index]);
+			}
+			ResourceTable[Index] = Resource;
 		}
-		ResourceTable[Index] = Resource;
 	}
 }
 
-FVulkanUniformBuffer::~FVulkanUniformBuffer()
+FVulkanRealUniformBuffer::FVulkanRealUniformBuffer(FVulkanDevice& Device, const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage Usage)
+	: FVulkanUniformBuffer(InLayout, Contents, Usage, false)
+	, FVulkanResourceMultiBuffer(&Device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, InLayout.ConstantBufferSize, UniformBufferToBufferUsage(Usage), GEmptyCreateInfo)
 {
+#if VULKAN_ENABLE_AGGRESSIVE_STATS
+	SCOPE_CYCLE_COUNTER(STAT_VulkanUniformBufferCreateTime);
+#endif
+
+	if (InLayout.ConstantBufferSize)
+	{
+		//#todo-rco: Optimize
+		const bool bRT = IsInRenderingThread();
+		void* Data = Lock(bRT, RLM_WriteOnly, InLayout.ConstantBufferSize, 0);
+		FMemory::Memcpy(Data, Contents, InLayout.ConstantBufferSize);
+		Unlock(bRT);
+	}
 }
 
 FUniformBufferRHIRef FVulkanDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
 {
-	// Emulation: Creates and returns a CPU-Only buffer.
-	// Parts of the buffer are later on copied for each shader stage into the packed uniform buffer
-	return new FVulkanUniformBuffer(*Device, Layout, Contents, Usage);
+	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanUniformBuffers);
+
+	static TConsoleVariableData<int32>* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
+	const bool bHasRealUBs = FVulkanPlatform::UseRealUBsOptimization(CVar && CVar->GetValueOnAnyThread() > 0);
+	if (bHasRealUBs)
+	{
+		return new FVulkanRealUniformBuffer(*Device, Layout, Contents, Usage);
+	}
+	else
+	{
+		// Parts of the buffer are later on copied for each shader stage into the packed uniform buffer
+		return new FVulkanUniformBuffer(Layout, Contents, Usage, true);
+	}
 }
 
 

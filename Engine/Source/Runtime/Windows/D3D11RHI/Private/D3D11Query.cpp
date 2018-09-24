@@ -6,12 +6,6 @@
 
 #include "D3D11RHIPrivate.h"
 
-
-FGPUFenceRHIRef FD3D11DynamicRHI::RHICreateGPUFence(const FName &Name)
-{
-	return new FD3D11GPUFence(Name);
-}
-
 void FD3D11DynamicRHI::RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
 {
 	check(RequestedOcclusionQueriesInBatch == 0);

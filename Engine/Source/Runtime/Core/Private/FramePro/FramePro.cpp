@@ -25,8 +25,7 @@
 // BEGIN EPIC 
 #include "FramePro/FramePro.h"
 #include "CoreGlobals.h"
-#include "GenericPlatform/GenericPlatformFile.h"
-#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 //END EPIC 
 //------------------------------------------------------------------------
@@ -3842,7 +3841,7 @@ namespace FramePro
 		bool SendSendBuffer(SendBuffer* p_send_buffer, Socket& socket);
 
 // START EPIC
-		void WriteSendBuffer(SendBuffer* p_send_buffer, IFileHandle* p_file, int64& file_size);
+		void WriteSendBuffer(SendBuffer* p_send_buffer, FArchive* p_file, int64& file_size);
 // END EPIC
 		
 		void SendFrameBuffer();
@@ -3950,7 +3949,7 @@ namespace FramePro
 
 		RelaxedAtomic<bool> m_Interactive;
 // START EPIC
-		IFileHandle* mp_NonInteractiveRecordingFile;
+		FArchive* mp_NonInteractiveRecordingFile;
 // END EPIC
 		int64 m_NonInteractiveRecordingFileSize;
 
@@ -3959,7 +3958,7 @@ namespace FramePro
 		Array<int> m_NamedThreads;
 
 // START EPIC
-		IFileHandle* mp_RecordingFile;
+		FArchive* mp_RecordingFile;
 // END EPIC
 		int64 m_RecordingFileSize;
 		int64 m_MaxRecordingFileSize;
@@ -5643,9 +5642,12 @@ namespace FramePro
 							FRAMEPRO_ASSERT(!mp_NonInteractiveRecordingFile);
 // START EPIC
 							FString FileName = FPaths::ProfilingDir() + TEXT("FramePro/") + g_NonInteractiveRecordingFilePath;
-							
-							IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-							mp_NonInteractiveRecordingFile = PlatformFile.OpenWrite(*FileName);
+
+#if ALLOW_DEBUG_FILES
+							mp_NonInteractiveRecordingFile = IFileManager::Get().CreateDebugFileWriter(*FileName);
+#else
+							mp_NonInteractiveRecordingFile = IFileManager::Get().CreateFileWriter(*FileName);
+#endif
 // END EPIC
 						}
 
@@ -6199,10 +6201,10 @@ namespace FramePro
 
 	//------------------------------------------------------------------------
 // START EPIC
-	void FrameProSession::WriteSendBuffer(SendBuffer* p_send_buffer, IFileHandle* p_file, int64& file_size)
+	void FrameProSession::WriteSendBuffer(SendBuffer* p_send_buffer, FArchive* p_file, int64& file_size)
 	{
 		int size = p_send_buffer->GetSize();
-		p_file->Write((uint8*)p_send_buffer->GetBuffer(), size);
+		p_file->Serialize((uint8*)p_send_buffer->GetBuffer(), size);
 		file_size += size;
 	}
 // END EPIC
@@ -6292,25 +6294,26 @@ namespace FramePro
 		g_Connected = false;
 
 // START EPIC
+		mp_NonInteractiveRecordingFile->Close();
 		delete mp_NonInteractiveRecordingFile;
 		mp_NonInteractiveRecordingFile = NULL;
 
 		FString FileName = FPaths::ProfilingDir() + TEXT("FramePro/") + g_NonInteractiveRecordingFilePath;
 
-		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-		IFileHandle* p_read_file = PlatformFile.OpenRead(*FileName);
+		FArchive* p_read_file = IFileManager::Get().CreateFileReader(*FileName);
 
-		size_t bytes_to_read = p_read_file->Size();
+		size_t bytes_to_read = p_read_file->TotalSize();
 
 		const int block_size = 64*1024;
 		uint8* p_read_buffer = (uint8*)mp_Allocator->Alloc(block_size);
 		while(bytes_to_read)
 		{
 			size_t size_to_read = block_size < bytes_to_read ? block_size : bytes_to_read;
-			p_read_file->Read(p_read_buffer, size_to_read);
+			p_read_file->Serialize(p_read_buffer, size_to_read);
 			m_ClientSocket.Send(p_read_buffer, size_to_read);
 			bytes_to_read -= size_to_read;
 		}
+		p_read_file->Close();
 		delete p_read_file;
 		p_read_file = NULL;
 // END EPIC
@@ -6375,6 +6378,7 @@ namespace FramePro
             if(mp_RecordingFile)
             {
                 // START EPIC
+                mp_RecordingFile->Close();
                 delete mp_RecordingFile;
                 // END EPIC
                 mp_RecordingFile = NULL;
@@ -6772,13 +6776,16 @@ namespace FramePro
 		if(mp_RecordingFile)
 			StopRecording();
 
-		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-		mp_RecordingFile = PlatformFile.OpenWrite(*p_filename);
+#if ALLOW_DEBUG_FILES
+		mp_RecordingFile = IFileManager::Get().CreateDebugFileWriter(*p_filename);
+#else
+		mp_RecordingFile = IFileManager::Get().CreateFileWriter(*p_filename);
+#endif
 
 		if(mp_RecordingFile)
 		{
 			const char* p_id = "framepro_recording";
-			mp_RecordingFile->Write((uint8*)p_id, strlen(p_id));
+			mp_RecordingFile->Serialize((uint8*)p_id, strlen(p_id));
 
 			#if FRAMEPRO_SOCKETS_ENABLED
 				m_ListenSocket.Disconnect();		// don't allow connections while recording

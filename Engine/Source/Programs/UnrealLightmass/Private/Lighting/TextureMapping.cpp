@@ -382,6 +382,7 @@ void FStaticLightingSystem::RasterizeToSurfaceCacheTextureMapping(FStaticLightin
 
 void FStaticLightingSystem::FinalizeSurfaceCacheTextureMapping(FStaticLightingTextureMapping* TextureMapping)
 {
+#if LIGHTMASS_DO_PROCESSING
 	checkSlow(TextureMapping);
 	FStaticLightingMappingContext MappingContext(TextureMapping->Mesh,*this,&StartupDebugOutput);
 	const FBoxSphereBounds ImportanceBounds = Scene.GetImportanceBounds();
@@ -463,6 +464,7 @@ void FStaticLightingSystem::FinalizeSurfaceCacheTextureMapping(FStaticLightingTe
 	}
 
 	TextureMapping->CachedIrradiancePhotons.Empty();
+#endif
 }
 
 /**
@@ -550,7 +552,7 @@ void FStaticLightingSystem::ProcessTextureMapping(FStaticLightingTextureMapping*
 	}
 #endif
 
-#if !LIGHTMASS_NOPROCESSING
+#if LIGHTMASS_DO_PROCESSING
 
 	if (bCalculateThisMapping)
 	{

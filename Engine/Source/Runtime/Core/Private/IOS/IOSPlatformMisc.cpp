@@ -1338,6 +1338,8 @@ void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* 
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
 #endif // FRAMEPRO_ENABLED
+
+	FApplePlatformMisc::BeginNamedEvent(Color, Text);
 }
 
 void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
@@ -1345,6 +1347,8 @@ void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHA
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
 #endif // FRAMEPRO_ENABLED
+
+	FApplePlatformMisc::BeginNamedEvent(Color, Text);
 }
 
 void FIOSPlatformMisc::EndNamedEvent()
@@ -1352,6 +1356,8 @@ void FIOSPlatformMisc::EndNamedEvent()
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PopEvent();
 #endif // FRAMEPRO_ENABLED
+
+	FApplePlatformMisc::EndNamedEvent();
 }
 
 void FIOSPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)

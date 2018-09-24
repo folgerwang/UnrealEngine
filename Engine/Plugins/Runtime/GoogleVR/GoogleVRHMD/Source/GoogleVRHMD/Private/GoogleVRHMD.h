@@ -394,9 +394,10 @@ private:
 	float PixelDensity;
 	FIntPoint GVRRenderTargetSize;
 	IRendererModule* RendererModule;
-	uint16* DistortionMeshIndices;
-	FDistortionVertex* DistortionMeshVerticesLeftEye;
-	FDistortionVertex* DistortionMeshVerticesRightEye;
+
+	FIndexBufferRHIRef DistortionMeshIndices;
+	FVertexBufferRHIRef DistortionMeshVerticesLeftEye;
+	FVertexBufferRHIRef DistortionMeshVerticesRightEye;
 
 #if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
 	GVROverlayView* OverlayView;

@@ -637,8 +637,8 @@ public:
 	/** Allocates an implementation of FStaticLightingMesh that will handle static lighting for this component */
 	virtual FStaticMeshStaticLightingMesh* AllocateStaticLightingMesh(int32 LODIndex, const TArray<ULightComponent*>& InRelevantLights);
 
-	/** Add or remove elements to have the size in the specified range. Reconstructs elements if MaxSize<MinSize */
-	void SetLODDataCount( const uint32 MinSize, const uint32 MaxSize );
+	/** Add or remove elements to have the size in the specified range. Reconstructs elements if MaxSize<MinSize. Returns true if an element was added or removed. */
+	bool SetLODDataCount( const uint32 MinSize, const uint32 MaxSize );
 
 	/**
 	 *	Switches the static mesh component to use either Texture or Vertex static lighting.

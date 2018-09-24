@@ -4,7 +4,7 @@
 SelfName=`basename $0`
 PlatformBuildPrefix=host-build
 OutputFolder=CrossToolchainMultiarch
-ToolchainVersion=v11_clang-5.0.0-centos7
+ToolchainVersion=v12_clang-6.0.1-centos7
 
 mkdir -p ./src
 
@@ -218,7 +218,7 @@ BuildPlatformClang()
 		return 0
 	fi
 
-	local LLVM_VERSION=5.0.0
+	local LLVM_VERSION=6.0.1
 	local LLVM=llvm-$LLVM_VERSION
 	local CLANG=cfe-$LLVM_VERSION
 	local LLD=lld-$LLVM_VERSION
@@ -246,7 +246,7 @@ BuildPlatformClang()
 	if [ ! -d $ToolchainDir/python ]; then
 		tar -xvf $ToolchainDir/src/Python-2.7.tgz 
 		pushd Python-2.7
-		./configure --prefix=$ToolchainDir/python
+		./configure --prefix=$ToolchainDir/python --enable-shared
 		make -j8
 		make install	
 		popd
@@ -280,8 +280,9 @@ BuildPlatformClang()
 		popd
 	fi
 	
-	export PATH=$ToolchainDir/python/bin:$ToolchainDir/cmake/bin/:$PATH
-	export PKG_CONFIG_PATH=$ToolchainDir/python/lib
+	export PATH=$ToolchainDir/python/bin:$ToolchainDir/cmake/bin:$PATH
+	export PKG_CONFIG_PATH=$ToolchainDir/python/lib/pkgconfig:$PKG_CONFIG_PATH
+	export LD_LIBRARY_PATH=$ToolchainDir/python/lib:$LD_LIBRARY_PATH
 
 	mkdir -p llvm
 	tar -xvf $ToolchainDir/src/$LLVM.src.tar.xz --strip-components 1 -C llvm
@@ -305,7 +306,7 @@ BuildPlatformClang()
 				echo "Please build Linux Platform toolchain first"
 				exit
 			fi
-			cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ToolchainDir/clang -DCMAKE_SYSROOT=$LinuxSysRoot -DCMAKE_CXX_COMPILER=$LinuxToolsPrefix-g++ -DCMAKE_C_COMPILER=$LinuxToolsPrefix-gcc -DCMAKE_CROSSCOMPILING=True -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_C_FLAGS="--sysroot=$LinuxSysRoot" -DCMAKE_CXX_FLAGS="--sysroot=$LinuxSysRoot" -G "Unix Makefiles" ..
+			cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$ToolchainDir/clang -DCMAKE_SYSROOT=$LinuxSysRoot -DCMAKE_CXX_COMPILER=$LinuxToolsPrefix-g++ -DCMAKE_C_COMPILER=$LinuxToolsPrefix-gcc -DCMAKE_CROSSCOMPILING=True -DLLVM_TARGETS_TO_BUILD="X86" -DCMAKE_C_FLAGS="--sysroot=$LinuxSysRoot" -DLLVM_ENABLE_LIBXML2=OFF -DCMAKE_CXX_FLAGS="--sysroot=$LinuxSysRoot" -G "Unix Makefiles" ..
 			make -j8
 			make install
 		fi
@@ -317,7 +318,7 @@ BuildPlatformClang()
 	local Linker="-fuse-ld=$ClangDir/ld.lld"
 
 	# Finally build clang against a static libc++ for our target platform this should be shippable without any C++ dependency issues
-	cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_LIBCXX=1 -DCMAKE_SYSROOT=$SysRoot -DCMAKE_CXX_COMPILER=$ClangDir/clang++ -DCMAKE_C_COMPILER=$ClangDir/clang -DCMAKE_CROSSCOMPILING=True -DLLVM_TARGETS_TO_BUILD="AArch64;ARM;X86" -DCMAKE_C_FLAGS="$Linker -target $HostPlatformTriple -Wno-unused-command-line-argument -pthread" -DCMAKE_CXX_FLAGS="$Linker -target $HostPlatformTriple -stdlib=libc++ -lc++abi -I$LibCxxIncludeDir -L$LibCxxStaticDir -Wno-unused-command-line-argument -pthread" -G "Unix Makefiles" ..
+	cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_LIBCXX=1 -DCMAKE_SYSROOT=$SysRoot -DCMAKE_CXX_COMPILER=$ClangDir/clang++ -DCMAKE_C_COMPILER=$ClangDir/clang -DCMAKE_CROSSCOMPILING=True -DLLVM_TARGETS_TO_BUILD="AArch64;ARM;X86" -DCMAKE_C_FLAGS="$Linker -target $HostPlatformTriple -Wno-unused-command-line-argument -pthread" -DLLVM_ENABLE_LIBXML2=OFF -DCMAKE_CXX_FLAGS="$Linker -target $HostPlatformTriple -stdlib=libc++ -lc++abi -I$LibCxxIncludeDir -L$LibCxxStaticDir -Wno-unused-command-line-argument -pthread" -G "Unix Makefiles" ..
 	make -j8
 
 	# Copy clang into toolchain platform root

@@ -5,7 +5,6 @@
 =============================================================================*/
 
 #include "CoreMinimal.h"
-#include "ShaderCache.h"
 #include "OpenGLDrv.h"
 
 static FORCEINLINE void SetupGLElement(FOpenGLVertexElement& GLElement, GLenum Type, GLuint Size, bool bNormalized, bool bShouldConvertToFloat)
@@ -186,7 +185,6 @@ FVertexDeclarationRHIRef FOpenGLDynamicRHI::RHICreateVertexDeclaration(const FVe
 		
 		check(VertexDeclarationRefPtr);
 		check(IsValidRef(*VertexDeclarationRefPtr));
-		FShaderCache::LogVertexDeclaration(FShaderCache::GetDefaultCacheState(), Elements, *VertexDeclarationRefPtr);
 	}
 
 	// The cached declaration must match the input declaration!

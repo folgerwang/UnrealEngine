@@ -9,7 +9,7 @@
 #endif
 
 //#todo-Lumin: Remove this define when it becomes untangled from Android
-#if !PLATFORM_LUMIN && !PLATFORM_LUMINGL4
+#if (!defined(PLATFORM_LUMIN) && !defined(PLATFORM_LUMINGL4)) || (!PLATFORM_LUMIN && !PLATFORM_LUMINGL4)
 #include "VulkanAndroidPlatform.h"
 #include "../VulkanRHIPrivate.h"
 #include <dlfcn.h>
@@ -46,8 +46,6 @@ bool FVulkanAndroidPlatform::LoadVulkanLibrary()
 
 	ENUM_VK_ENTRYPOINTS_BASE(GET_VK_ENTRYPOINTS);
 	ENUM_VK_ENTRYPOINTS_BASE(CHECK_VK_ENTRYPOINTS);
-	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(GET_VK_ENTRYPOINTS);
-	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
 	if (!bFoundAllEntryPoints)
 	{
 		dlclose(VulkanLib);
@@ -83,8 +81,10 @@ bool FVulkanAndroidPlatform::LoadVulkanInstanceFunctions(VkInstance inInstance)
 	}
 
 	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
 #if UE_BUILD_DEBUG
 	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(CHECK_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
 #endif
 
 #undef GETINSTANCE_VK_ENTRYPOINTS
@@ -113,7 +113,7 @@ void FVulkanAndroidPlatform::CreateSurface(void* WindowHandle, VkInstance Instan
 	ZeroVulkanStruct(SurfaceCreateInfo, VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR);
 	SurfaceCreateInfo.window = (ANativeWindow*)WindowHandle;
 
-	VERIFYVULKANRESULT(vkCreateAndroidSurfaceKHR(Instance, &SurfaceCreateInfo, nullptr, OutSurface));
+	VERIFYVULKANRESULT(VulkanDynamicAPI::vkCreateAndroidSurfaceKHR(Instance, &SurfaceCreateInfo, VULKAN_CPU_ALLOCATOR, OutSurface));
 }
 
 
@@ -122,12 +122,14 @@ void FVulkanAndroidPlatform::GetInstanceExtensions(TArray<const ANSICHAR*>& OutE
 {
 	OutExtensions.Add(VK_KHR_SURFACE_EXTENSION_NAME);
 	OutExtensions.Add(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+	OutExtensions.Add(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
 }
 
 void FVulkanAndroidPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExtensions)
 {
 	OutExtensions.Add(VK_KHR_SURFACE_EXTENSION_NAME);
 	OutExtensions.Add(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+	OutExtensions.Add(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
 }
 
 bool FVulkanAndroidPlatform::SupportsStandardSwapchain()
@@ -154,11 +156,19 @@ EPixelFormat FVulkanAndroidPlatform::GetPixelFormatForNonDefaultSwapchain()
 	}
 }
 
-void FVulkanAndroidPlatform::OverrideCrashHandlers()
+void FVulkanAndroidPlatform::OverridePlatformHandlers(bool bInit)
 {
-	// Want to see the actual crash report on Android so unregister signal handlers
-	FPlatformMisc::SetCrashHandler((void(*)(const FGenericCrashContext& Context)) -1);
-	FPlatformMisc::SetOnReInitWindowCallback(FVulkanDynamicRHI::RecreateSwapChain);
+	if (bInit)
+	{
+		// Want to see the actual crash report on Android so unregister signal handlers
+		FPlatformMisc::SetCrashHandler((void(*)(const FGenericCrashContext& Context)) -1);
+		FPlatformMisc::SetOnReInitWindowCallback(FVulkanDynamicRHI::RecreateSwapChain);
+	}
+	else
+	{
+		FPlatformMisc::SetCrashHandler(nullptr);
+		FPlatformMisc::SetOnReInitWindowCallback(nullptr);
+	}
 }
 
 #endif

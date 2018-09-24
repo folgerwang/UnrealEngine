@@ -167,12 +167,6 @@ struct CORE_API FGenericPlatformProcess
 
 	}
 
-	/** Deletes 1) all temporary files; 2) all cache files that are no longer wanted. **/
-	FORCEINLINE static void CleanFileCache()
-	{
-
-	}
-
 	/**
 	 * Retrieves the ProcessId of this process.
 	 *
@@ -592,23 +586,6 @@ struct CORE_API FGenericPlatformProcess
 	 * Checks if we're the first instance. An instance can become first if the previous first instance quits before it.
 	 */
 	static bool IsFirstInstance();
-
-	/**
-	 * Returns the map virtual shader directory path -> real shader directory path.
-	 */
-	static const TMap<FString, FString>& AllShaderSourceDirectoryMappings();
-	
-	/**
-	 * Clears all shader source directory mappings.
-	 */
-	static void ResetAllShaderSourceDirectoryMappings();
-
-	/**
-	 * Maps a real shader directory existing on disk to a virtual shader directory.
-	 * @param VirtualShaderDirectory Unique absolute path of the virtual shader directory (ex: /Project).
-	 * @param RealShaderDirectory FPlatformProcess::BaseDir() relative path of the directory map.
-	 */
-	static void AddShaderSourceDirectoryMapping(const FString& VirtualShaderDirectory, const FString& RealShaderDirectory);
 };
 
 

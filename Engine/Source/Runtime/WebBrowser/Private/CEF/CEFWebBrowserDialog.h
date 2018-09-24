@@ -60,7 +60,7 @@ public:
 	virtual void Continue(bool Success = true, const FText& UserResponse = FText::GetEmpty()) override
 	{
 		check(Type == EWebBrowserDialogType::Prompt || UserResponse.IsEmpty());
-		Callback->Continue(Success, *UserResponse.ToString());
+		Callback->Continue(Success, TCHAR_TO_WCHAR(*UserResponse.ToString()));
 	}
 
 private:
@@ -76,8 +76,8 @@ private:
 	// Create a dialog from OnJSDialog arguments
 	FCEFWebBrowserDialog(CefJSDialogHandler::JSDialogType InDialogType, const CefString& InMessageText, const CefString& InDefaultPrompt, CefRefPtr<CefJSDialogCallback> InCallback)
 		: Type((EWebBrowserDialogType)InDialogType)
-		, MessageText(FText::FromString(InMessageText.ToWString().c_str()))
-		, DefaultPrompt(FText::FromString(InDefaultPrompt.ToWString().c_str()))
+		, MessageText(FText::FromString(WCHAR_TO_TCHAR(InMessageText.ToWString().c_str())))
+		, DefaultPrompt(FText::FromString(WCHAR_TO_TCHAR(InDefaultPrompt.ToWString().c_str())))
 		, bIsReload(false)
 		, Callback(InCallback)
 	{}
@@ -85,7 +85,7 @@ private:
 	// Create a dialog from OnBeforeUnloadDialog arguments
 	FCEFWebBrowserDialog(const CefString& InMessageText, bool InIsReload, CefRefPtr<CefJSDialogCallback> InCallback)
 		: Type(EWebBrowserDialogType::Unload)
-		, MessageText(FText::FromString(InMessageText.ToWString().c_str()))
+		, MessageText(FText::FromString(WCHAR_TO_TCHAR(InMessageText.ToWString().c_str())))
 		, DefaultPrompt(FText::GetEmpty())
 		, bIsReload(InIsReload)
 		, Callback(InCallback)

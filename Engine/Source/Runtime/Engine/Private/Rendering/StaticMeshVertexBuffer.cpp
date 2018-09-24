@@ -40,6 +40,7 @@ void FStaticMeshVertexBuffer::Init(uint32 InNumVertices, uint32 InNumTexCoords, 
 {
 	NumTexCoords = InNumTexCoords;
 	NumVertices = InNumVertices;
+	NeedsCPUAccess = bNeedsCPUAccess;
 
 	// Allocate the vertex data storage type.
 	AllocateData(bNeedsCPUAccess);
@@ -56,9 +57,9 @@ void FStaticMeshVertexBuffer::Init(uint32 InNumVertices, uint32 InNumTexCoords, 
 * @param InVertices - The vertices to initialize the buffer with.
 * @param InNumTexCoords - The number of texture coordinate to store in the buffer.
 */
-void FStaticMeshVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVertices, uint32 InNumTexCoords)
+void FStaticMeshVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVertices, uint32 InNumTexCoords, bool bNeedsCPUAccess)
 {
-	Init(InVertices.Num(), InNumTexCoords);
+	Init(InVertices.Num(), InNumTexCoords, bNeedsCPUAccess);
 
 	// Copy the vertices into the buffer.
 	for (int32 VertexIndex = 0; VertexIndex < InVertices.Num(); VertexIndex++)
@@ -78,8 +79,9 @@ void FStaticMeshVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVerti
 * Initializes this vertex buffer with the contents of the given vertex buffer.
 * @param InVertexBuffer - The vertex buffer to initialize from.
 */
-void FStaticMeshVertexBuffer::Init(const FStaticMeshVertexBuffer& InVertexBuffer)
+void FStaticMeshVertexBuffer::Init(const FStaticMeshVertexBuffer& InVertexBuffer, bool bNeedsCPUAccess)
 {
+	NeedsCPUAccess = bNeedsCPUAccess;
 	NumTexCoords = InVertexBuffer.GetNumTexCoords();
 	NumVertices = InVertexBuffer.GetNumVertices();
 	bUseFullPrecisionUVs = InVertexBuffer.GetUseFullPrecisionUVs();
@@ -87,7 +89,7 @@ void FStaticMeshVertexBuffer::Init(const FStaticMeshVertexBuffer& InVertexBuffer
 
 	if (NumVertices)
 	{
-		AllocateData();
+		AllocateData(bNeedsCPUAccess);
 		{
 			check(TangentsData->GetStride() == InVertexBuffer.TangentsData->GetStride());
 			TangentsData->ResizeBuffer(NumVertices);
@@ -148,7 +150,7 @@ void FStaticMeshVertexBuffer::AppendVertices( const FStaticMeshBuildVertex* Vert
 		NumTexCoords = 1;
 
 		// Allocate the vertex data storage type if it has never been allocated before
-		AllocateData();
+		AllocateData(NeedsCPUAccess);
 	}
 
 	if( NumVerticesToAppend > 0 )
@@ -192,6 +194,8 @@ void FStaticMeshVertexBuffer::AppendVertices( const FStaticMeshBuildVertex* Vert
 */
 void FStaticMeshVertexBuffer::Serialize(FArchive& Ar, bool bNeedsCPUAccess)
 {
+	NeedsCPUAccess = bNeedsCPUAccess;
+
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FStaticMeshVertexBuffer::Serialize"), STAT_StaticMeshVertexBuffer_Serialize, STATGROUP_LoadTime);
 
 	FStripDataFlags StripFlags(Ar, 0, VER_UE4_STATIC_SKELETAL_MESH_SERIALIZATION_FIX);

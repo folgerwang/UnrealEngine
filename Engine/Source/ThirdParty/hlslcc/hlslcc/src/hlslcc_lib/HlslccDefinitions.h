@@ -55,6 +55,10 @@ enum EHlslCompileFlag
 	HLSLCC_KeepSamplerAndImageNames = 0x8000,
 	// Shaders uses external texture so may need special runtime handling
 	HLSLCC_UsesExternalTexture = 0x10000,
+	// Expand UB member arrays into separate variables before packing them (implies FlattenUniformBuffers)
+	HLSLCC_ExpandUBMemberArrays = 0x20000 | HLSLCC_FlattenUniformBuffers,
+	// Use a single uniform block struct for all global uniform parameters while preserving names, implies PackUniformsIntoUniformBuffers
+	HLSLCC_PackUniformsIntoUniformBufferWithNames = 0x40000 | HLSLCC_PackUniformsIntoUniformBuffers,
 };
 
 /**

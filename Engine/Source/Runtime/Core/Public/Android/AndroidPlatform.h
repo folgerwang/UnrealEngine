@@ -121,7 +121,6 @@ typedef FAndroidTypes FPlatformTypes;
 // Alignment.
 #define GCC_PACK(n)			__attribute__((packed,aligned(n)))
 #define GCC_ALIGN(n)		__attribute__((aligned(n)))
-#define REQUIRES_ALIGNED_ACCESS 1
 
 // operator new/delete operators
 // As of 10.9 we need to use _NOEXCEPT & cxx_noexcept compatible definitions

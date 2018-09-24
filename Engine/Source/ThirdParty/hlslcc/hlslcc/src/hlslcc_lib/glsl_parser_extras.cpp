@@ -42,6 +42,11 @@
 /* TODO: Move this in to _mesa_glsl_parse_state. */
 static unsigned int g_anon_struct_count = 0;
 
+bool ir_variable_compare::operator() (const ir_variable* const& lhs, const ir_variable* const& rhs) const
+{
+	return lhs->id < rhs->id;
+}
+
 _mesa_glsl_parse_state::_mesa_glsl_parse_state(void *mem_ctx, _mesa_glsl_parser_targets InTarget, ILanguageSpec* InLanguageSpec, int glsl_version) :
 	scanner(nullptr),
 	base_source_file(nullptr),

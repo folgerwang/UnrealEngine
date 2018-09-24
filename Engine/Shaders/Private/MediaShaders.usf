@@ -130,14 +130,13 @@ void RGBConvertPS(
 	out float4 OutColor : SV_Target0)
 {
 	float2 ScaledUV = InUV * RGBConvertUB.UVScale;
-    if (YCbCrConvertUB.SrgbToLinear == 0)
+	if (RGBConvertUB.SrgbToLinear == 0)
 	{
 		OutColor = RGBConvertUB.Texture.Sample(RGBConvertUB.Sampler, ScaledUV);
 	}
 	else
 	{
-		OutColor.xyz = sRGBToLinear(RGBConvertUB.Texture.Sample(RGBConvertUB.Sampler, ScaledUV).xyz);
-		OutColor.w = OutColor.w;
+		OutColor = float4(sRGBToLinear(RGBConvertUB.Texture.Sample(RGBConvertUB.Sampler, ScaledUV).xyz), 1.0);
 	}
 }
 
