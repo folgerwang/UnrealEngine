@@ -49,6 +49,7 @@ FCurveEditorViewportClient::FCurveEditorViewportClient(TWeakPtr<SDistributionCur
 	MovementAxisLock = AxisLock_None;
 	bBoxSelecting = false;
 	bKeyAdded = false;
+	bNeedsRedraw = true;
 	BoxStartX = 0;
 	BoxStartY = 0;
 	BoxEndX = 0;
@@ -783,6 +784,11 @@ bool FCurveEditorViewportClient::InputAxis(FViewport* Viewport, int32 Controller
 		return true;
 	}
 	return false;
+}
+
+void FCurveEditorViewportClient::RedrawRequested(FViewport* InViewport)
+{
+	bNeedsRedraw = true;
 }
 
 void FCurveEditorViewportClient::Exec(const TCHAR* Cmd)

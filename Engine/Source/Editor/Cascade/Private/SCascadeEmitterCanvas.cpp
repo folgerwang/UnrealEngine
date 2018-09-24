@@ -77,7 +77,6 @@ void SCascadeEmitterCanvas::Construct(const FArguments& InArgs)
 void SCascadeEmitterCanvas::RefreshViewport()
 {
 	Viewport->Invalidate();
-	Viewport->InvalidateDisplay();
 }
 
 bool SCascadeEmitterCanvas::IsVisible() const

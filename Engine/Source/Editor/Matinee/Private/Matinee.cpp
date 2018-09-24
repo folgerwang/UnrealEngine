@@ -439,6 +439,7 @@ void FMatinee::BuildCurveEditor()
 	CurveEd->SetEndMarker(true, IData->InterpLength);
 	CurveEd->SetPositionMarker(true, 0.f, PosMarkerColor);
 	CurveEd->SetRegionMarker(true, IData->EdSectionStart, IData->EdSectionEnd, RegionFillColor);
+	CurveEd->DrawViewport();
 };
 
 /** Should NOT open an InterpEd unless InInterp has a valid MatineeData attached! */
@@ -2641,6 +2642,7 @@ void FMatinee::NotifyPreChange( UProperty* PropertyAboutToChange )
 void FMatinee::NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged )
 {
 	CurveEd->CurveChanged();
+	CurveEd->DrawViewport();
 
 	// Dirty the track window viewports
 	InvalidateTrackWindowViewports();

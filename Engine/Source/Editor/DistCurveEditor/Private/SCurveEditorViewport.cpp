@@ -63,10 +63,22 @@ void SCurveEditorViewport::Construct(const FArguments& InArgs)
 	AdjustScrollBar();
 }
 
+void SCurveEditorViewport::DrawViewport()
+{
+	if (Viewport.IsValid())
+	{
+		Viewport->Draw();
+	}
+
+	if (ViewportClient.IsValid())
+	{
+		ViewportClient->SetNeedsRedraw(false);
+	}
+}
+
 void SCurveEditorViewport::RefreshViewport()
 {
 	Viewport->Invalidate();
-	Viewport->InvalidateDisplay();
 }
 
 void SCurveEditorViewport::SetVerticalScrollBarPosition(float Position)
