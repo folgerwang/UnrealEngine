@@ -157,6 +157,9 @@ void USynthComponent::Deactivate()
 
 void USynthComponent::Initialize(int32 SampleRateOverride)
 {
+	// This will try to create the audio component if it hasn't yet been created
+	CreateAudioComponent();
+
 	// Try to get a proper sample rate
 	int32 SampleRate = SampleRateOverride;
 	if (SampleRate == INDEX_NONE)
@@ -348,9 +351,6 @@ void USynthComponent::Start()
 	{
 		return;
 	}
-		
-	// This will try to create the audio component if it hasn't yet been created
-	CreateAudioComponent();
 
 	// We will also ensure that this synth was initialized before attempting to play.
 	Initialize();
