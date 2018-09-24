@@ -1328,7 +1328,7 @@ void FScene::AddLightSceneInfo_RenderThread(FLightSceneInfo* LightSceneInfo)
 
 	const bool bForwardShading = IsForwardShadingEnabled(FeatureLevel);
 
-	if (bForwardShading && LightSceneInfo->Proxy->CastsDynamicShadow())
+	if (bForwardShading && (LightSceneInfo->Proxy->CastsDynamicShadow() || LightSceneInfo->Proxy->GetLightFunctionMaterial()))
 	{
 		if (LightSceneInfo->Proxy->HasStaticShadowing())
 		{
