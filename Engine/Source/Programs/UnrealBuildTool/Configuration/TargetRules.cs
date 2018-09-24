@@ -2143,6 +2143,11 @@ namespace UnrealBuildTool
 			get { return Inner.bGenerateProjectFiles; }
 		}
 
+		public bool bIsEngineInstalled
+		{
+			get { return Inner.bIsEngineInstalled; }
+		}
+
 		#if !__MonoCS__
 		#pragma warning restore C1591
 		#endif
