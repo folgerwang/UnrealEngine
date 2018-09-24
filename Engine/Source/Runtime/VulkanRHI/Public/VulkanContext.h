@@ -358,7 +358,7 @@ public:
 		}
 #endif
 
-		return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		return TransitionAndLayoutManager.FindLayoutChecked(Surface.Image);
 	}
 
 	inline VkImageLayout FindOrAddLayout(VkImage Image, VkImageLayout NewLayout)
