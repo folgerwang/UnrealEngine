@@ -28,7 +28,6 @@ namespace Gauntlet.SelfTest
 			DevicePool.Instance.RegisterDevices(new ITargetDevice[] {
 				new TargetDeviceWindows("Local PC1", Globals.TempDir)
 				, new TargetDeviceWindows("Local PC2", Globals.TempDir)
-				, new TargetDevicePS4(this.PS4Name)
 			});
 			
 			// Create a new build (params come from our base class will be similar to "OrionGame" and "p:\builds\orion\branch-cl")
