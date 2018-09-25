@@ -165,6 +165,7 @@ private:
 struct IMetalStatsScope
 {
 	FString Name;
+	FString Parent;
 	TArray<IMetalStatsScope*> Children;
 	
 	uint64 CPUStartTime;
