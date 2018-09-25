@@ -44,7 +44,7 @@ TAutoConsoleVariable<int32> CVarVulkanDebugBarrier(
 	TEXT(" 2: Enable heavy barriers after every dispatch\n")
 	TEXT(" 4: Enable heavy barriers after upload cmd buffers\n")
 	TEXT(" 8: Enable heavy barriers after active cmd buffers\n")
-	/*TEXT(" 8: Enable heavy barrier after swapchain\n")*/,
+	TEXT(" 16: Enable heavy buffer barrier after uploads\n"),
 	ECVF_Default
 );
 #endif

@@ -10,6 +10,12 @@
 #include "Containers/ResourceArray.h"
 #include "VulkanLLM.h"
 
+
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+extern TAutoConsoleVariable<int32> CVarVulkanDebugBarrier;
+#endif
+
+
 static TMap<FVulkanResourceMultiBuffer*, VulkanRHI::FPendingBufferLock> GPendingLockIBs;
 static FCriticalSection GPendingLockIBsMutex;
 
@@ -232,6 +238,13 @@ inline void FVulkanResourceMultiBuffer::InternalUnlock(FVulkanCommandListContext
 	}
 	ensure(Cmd->IsOutsideRenderPass());
 	VkCommandBuffer CmdBuffer = Cmd->GetHandle();
+
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+	if (CVarVulkanDebugBarrier.GetValueOnRenderThread() & 16)
+	{
+		VulkanRHI::InsertHeavyWeightBarrier(CmdBuffer);
+	}
+#endif
 
 	VkBufferCopy Region;
 	FMemory::Memzero(Region);
