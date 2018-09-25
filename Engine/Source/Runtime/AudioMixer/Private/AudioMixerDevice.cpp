@@ -909,6 +909,10 @@ namespace Audio
 		}
 	}
 
+	void FMixerDevice::FlushAudioRenderingCommands()
+	{
+		SourceManager.FlushCommandQueue();
+	}
 
 	bool FMixerDevice::IsMasterSubmixType(USoundSubmix* InSubmix) const
 	{
