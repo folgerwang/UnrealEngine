@@ -127,7 +127,6 @@ public:
 		{
 			FBlueprintCompiledStatement& NextExecutionState = Context.AppendStatementForNode(Node);
 			NextExecutionState.Type = KCST_EndOfThread;
-			CompilerContext.MessageLog.Warning(*LOCTEXT("NoValidOutput_Warning", "@@ has no valid output").ToString(), Node);
 		}
 	}
 };

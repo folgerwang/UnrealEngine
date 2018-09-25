@@ -8,6 +8,8 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/Images/SImage.h"
+#include "Engine/AssetManager.h"
+#include "Engine/StreamableManager.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -89,129 +91,184 @@ const FSlateBrush* UImage::ConvertImage(TAttribute<FSlateBrush> InImageAsset) co
 
 void UImage::SetBrush(const FSlateBrush& InBrush)
 {
-	Brush = InBrush;
-
-	if ( MyImage.IsValid() )
+	if(Brush != InBrush)
 	{
-		MyImage->SetImage(&Brush);
-		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		Brush = InBrush;
+
+		if (MyImage.IsValid())
+		{
+			MyImage->SetImage(&Brush);
+			MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		}
 	}
 }
 
 void UImage::SetBrushSize(FVector2D DesiredSize)
 {
-	Brush.ImageSize = DesiredSize;
-	
-	if (MyImage.IsValid())
+	if(Brush.ImageSize != DesiredSize)
 	{
-		MyImage->SetImage(&Brush);
-		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		Brush.ImageSize = DesiredSize;
+
+		if (MyImage.IsValid())
+		{
+			MyImage->SetImage(&Brush);
+			MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		}
 	}
 }
 
 void UImage::SetBrushTintColor(FSlateColor TintColor)
 {
-	Brush.TintColor = TintColor;
-
-	if (MyImage.IsValid())
+	if(Brush.TintColor != TintColor)
 	{
-		MyImage->SetImage(&Brush);
-		MyImage->Invalidate(EInvalidateWidget::PaintAndVolatility);
+		Brush.TintColor = TintColor;
+
+		if (MyImage.IsValid())
+		{
+			MyImage->SetImage(&Brush);
+			MyImage->Invalidate(EInvalidateWidget::PaintAndVolatility);
+		}
 	}
 }
 
 void UImage::SetBrushFromAsset(USlateBrushAsset* Asset)
 {
-	Brush = Asset ? Asset->Brush : FSlateBrush();
-
-	if ( MyImage.IsValid() )
+	if(!Asset || Brush != Asset->Brush)
 	{
-		MyImage->SetImage(&Brush);
-		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		CancelTextureStreaming();
+		Brush = Asset ? Asset->Brush : FSlateBrush();
+
+		if (MyImage.IsValid())
+		{
+			MyImage->SetImage(&Brush);
+			MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		}
 	}
 }
 
 void UImage::SetBrushFromTexture(UTexture2D* Texture, bool bMatchSize)
 {
-	Brush.SetResourceObject(Texture);
+	CancelTextureStreaming();
 
-	if (Texture) // Since this texture is used as UI, don't allow it affected by budget.
+	if(Brush.GetResourceObject() != Texture)
 	{
-		Texture->bIgnoreStreamingMipBias = true;
-	}
+		Brush.SetResourceObject(Texture);
 
-	if (bMatchSize)
-	{
-		if (Texture)
+		if (Texture) // Since this texture is used as UI, don't allow it affected by budget.
 		{
-			Brush.ImageSize.X = Texture->GetSizeX();
-			Brush.ImageSize.Y = Texture->GetSizeY();
+			Texture->bIgnoreStreamingMipBias = true;
 		}
-		else
-		{
-			Brush.ImageSize = FVector2D(0, 0);
-		}
-	}
 
-	if ( MyImage.IsValid() )
-	{
-		MyImage->SetImage(&Brush);
-		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		if (bMatchSize)
+		{
+			if (Texture)
+			{
+				Brush.ImageSize.X = Texture->GetSizeX();
+				Brush.ImageSize.Y = Texture->GetSizeY();
+			}
+			else
+			{
+				Brush.ImageSize = FVector2D(0, 0);
+			}
+		}
+
+		if (MyImage.IsValid())
+		{
+			MyImage->SetImage(&Brush);
+			MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		}
 	}
 }
 
 void UImage::SetBrushFromAtlasInterface(TScriptInterface<ISlateTextureAtlasInterface> AtlasRegion, bool bMatchSize)
 {
-	Brush.SetResourceObject(AtlasRegion.GetObject());
-
-	if (bMatchSize)
+	if(Brush.GetResourceObject() != AtlasRegion.GetObject())
 	{
-		if (AtlasRegion)
-		{
-			FSlateAtlasData AtlasData = AtlasRegion->GetSlateAtlasData();
-			Brush.ImageSize = AtlasData.GetSourceDimensions();
-		}
-		else
-		{
-			Brush.ImageSize = FVector2D(0, 0);
-		}
-	}
+		CancelTextureStreaming();
+		Brush.SetResourceObject(AtlasRegion.GetObject());
 
-	if (MyImage.IsValid())
-	{
-		MyImage->SetImage(&Brush);
-		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		if (bMatchSize)
+		{
+			if (AtlasRegion)
+			{
+				FSlateAtlasData AtlasData = AtlasRegion->GetSlateAtlasData();
+				Brush.ImageSize = AtlasData.GetSourceDimensions();
+			}
+			else
+			{
+				Brush.ImageSize = FVector2D(0, 0);
+			}
+		}
+
+		if (MyImage.IsValid())
+		{
+			MyImage->SetImage(&Brush);
+			MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		}
 	}
 }
 
 void UImage::SetBrushFromTextureDynamic(UTexture2DDynamic* Texture, bool bMatchSize)
 {
-	Brush.SetResourceObject(Texture);
-
-	if (bMatchSize && Texture)
+	if(Brush.GetResourceObject() != Texture)
 	{
-		Brush.ImageSize.X = Texture->SizeX;
-		Brush.ImageSize.Y = Texture->SizeY;
-	}
+		CancelTextureStreaming();
+		Brush.SetResourceObject(Texture);
 
-	if (MyImage.IsValid())
-	{
-		MyImage->SetImage(&Brush);
-		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		if (bMatchSize && Texture)
+		{
+			Brush.ImageSize.X = Texture->SizeX;
+			Brush.ImageSize.Y = Texture->SizeY;
+		}
+
+		if (MyImage.IsValid())
+		{
+			MyImage->SetImage(&Brush);
+			MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		}
 	}
 }
 
 void UImage::SetBrushFromMaterial(UMaterialInterface* Material)
 {
-	Brush.SetResourceObject(Material);
-
-	//TODO UMG Check if the material can be used with the UI
-
-	if ( MyImage.IsValid() )
+	if(Brush.GetResourceObject() != Material)
 	{
-		MyImage->SetImage(&Brush);
-		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		CancelTextureStreaming();
+		Brush.SetResourceObject(Material);
+
+		//TODO UMG Check if the material can be used with the UI
+
+		if (MyImage.IsValid())
+		{
+			MyImage->SetImage(&Brush);
+			MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		}
 	}
+}
+
+void UImage::CancelTextureStreaming()
+{
+	if (StreamingHandle.IsValid())
+	{
+		StreamingHandle->CancelHandle();
+		StreamingHandle.Reset();
+	}
+}
+
+void UImage::SetBrushFromSoftTexture(TSoftObjectPtr<UTexture2D> SoftTexture, bool bMatchSize)
+{
+	CancelTextureStreaming();
+
+	TWeakObjectPtr<UImage> WeakThis(this); // using weak ptr in case 'this' has gone out of scope by the time this lambda is called
+
+	StreamingHandle =
+		UAssetManager::GetStreamableManager().RequestAsyncLoad(SoftTexture.ToSoftObjectPath(),
+			[WeakThis, SoftTexture, bMatchSize]() {
+				if (WeakThis.IsValid())
+				{
+					WeakThis->SetBrushFromTexture(SoftTexture.Get(), bMatchSize);
+				}
+			}, FStreamableManager::AsyncLoadHighPriority);
 }
 
 UMaterialInstanceDynamic* UImage::GetDynamicMaterial()

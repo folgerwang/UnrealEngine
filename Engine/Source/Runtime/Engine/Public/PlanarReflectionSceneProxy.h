@@ -123,6 +123,7 @@ public:
 	
 
 	FBox WorldBounds;
+	bool bIsStereo;
 	FPlane ReflectionPlane;
 	FVector PlanarReflectionOrigin;
 	float DistanceFromPlaneFadeEnd;
@@ -130,14 +131,13 @@ public:
 	FVector4 PlanarReflectionYAxis;
 	FVector PlanarReflectionParameters;
 	FVector2D PlanarReflectionParameters2;
+	int32 PlanarReflectionId;
+	float PrefilterRoughness;
+	float PrefilterRoughnessDistance;
 	FMatrix ProjectionWithExtraFOV[GMaxPlanarReflectionViews];
 	FIntRect ViewRect[GMaxPlanarReflectionViews];
 	FVector4 InverseTransposeMirrorMatrix[3];
 	FName OwnerName;
-	int32 PlanarReflectionId;
-	float PrefilterRoughness;
-	float PrefilterRoughnessDistance;
-	bool bIsStereo;
 
 	/** This is specific to a certain view and should actually be stored in FSceneViewState. */
 	FPlanarReflectionRenderTarget* RenderTarget;

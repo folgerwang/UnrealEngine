@@ -26,7 +26,7 @@ public:
 
 	SSpacer()
 	{
-		bCanTick = false;
+		SetCanTick(false);
 		bCanSupportFocus = false;
 	}
 

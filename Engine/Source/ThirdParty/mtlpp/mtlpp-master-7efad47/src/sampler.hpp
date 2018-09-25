@@ -73,7 +73,7 @@ namespace mtlpp
         OpaqueWhite = 2,       // {1,1,1,1}
     };
 
-    class SamplerDescriptor : public ns::Object<MTLSamplerDescriptor*>
+    class MTLPP_EXPORT SamplerDescriptor : public ns::Object<MTLSamplerDescriptor*>
     {
     public:
         SamplerDescriptor();
@@ -111,7 +111,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class SamplerState : public ns::Object<ns::Protocol<id<MTLSamplerState>>::type>
+    class MTLPP_EXPORT SamplerState : public ns::Object<ns::Protocol<id<MTLSamplerState>>::type>
     {
     public:
         SamplerState() { }

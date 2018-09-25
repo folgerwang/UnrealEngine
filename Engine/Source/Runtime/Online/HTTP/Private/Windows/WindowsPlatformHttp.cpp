@@ -1,76 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsPlatformHttp.h"
-#include "HttpWinInet.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Curl/CurlHttp.h"
 #include "Curl/CurlHttpManager.h"
+#include "Http.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
-
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpragma-pack"
-#endif
-
-// recreating parts of winhttp.h in here because winhttp.h and wininet.h do not play well with each other.
-#if defined(_WIN64)
-#include <pshpack8.h>
-#else
-#include <pshpack4.h>
-#endif
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
-#if !defined(_WINHTTP_INTERNAL_)
-#define WINHTTPAPI DECLSPEC_IMPORT
-#else
-#define WINHTTPAPI
-
-#endif
-
-// WinHttpOpen dwAccessType values (also for WINHTTP_PROXY_INFO::dwAccessType)
-#define WINHTTP_ACCESS_TYPE_DEFAULT_PROXY               0
-#define WINHTTP_ACCESS_TYPE_NO_PROXY                    1
-#define WINHTTP_ACCESS_TYPE_NAMED_PROXY                 3
-#define WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY             4
-
-	typedef struct
-	{
-		DWORD  dwAccessType;      // see WINHTTP_ACCESS_* types below
-		LPWSTR lpszProxy;         // proxy server list
-		LPWSTR lpszProxyBypass;   // proxy bypass list
-	}
-	WINHTTP_PROXY_INFO, *LPWINHTTP_PROXY_INFO;
-	WINHTTPAPI BOOL WINAPI WinHttpGetDefaultProxyConfiguration(WINHTTP_PROXY_INFO* pProxyInfo);
-
-	typedef struct
-	{
-		BOOL    fAutoDetect;
-		LPWSTR  lpszAutoConfigUrl;
-		LPWSTR  lpszProxy;
-		LPWSTR  lpszProxyBypass;
-	} WINHTTP_CURRENT_USER_IE_PROXY_CONFIG;
-	WINHTTPAPI BOOL WINAPI WinHttpGetIEProxyConfigForCurrentUser(WINHTTP_CURRENT_USER_IE_PROXY_CONFIG* pProxyConfig);
-
-#if defined(__cplusplus)
-}
-#endif
-
-#include <poppack.h>
-
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-
+#include <winhttp.h>
 #include "Windows/HideWindowsPlatformTypes.h"
 
-
-bool bUseCurl = true;
 
 static bool IsUnsignedInteger(const FString& InString)
 {
@@ -131,70 +72,31 @@ static bool IsValidIPv4Address(const FString& InString)
 
 void FWindowsPlatformHttp::Init()
 {
-	if (GConfig)
-	{
-		bool bUseCurlConfigValue = false;
-		if (GConfig->GetBool(TEXT("Networking"), TEXT("UseLibCurl"), bUseCurlConfigValue, GEngineIni))
-		{
-			bUseCurl = bUseCurlConfigValue;
-		}
-	}
-
-	// allow override on command line
+	// warn when old http command line argument is used
 	FString HttpMode;
 	if (FParse::Value(FCommandLine::Get(), TEXT("HTTP="), HttpMode) &&
 		(HttpMode.Equals(TEXT("WinInet"), ESearchCase::IgnoreCase)))
 	{
-		bUseCurl = false;
+		UE_LOG(LogHttp, Warning, TEXT("-HTTP=WinInet is no longer valid"));
 	}
 
-#if WITH_LIBCURL
-	if (bUseCurl)
-	{
 		FCurlHttpManager::InitCurl();
 	}
-#endif
-}
 
 void FWindowsPlatformHttp::Shutdown()
 {
-#if WITH_LIBCURL
-	if (bUseCurl)
-	{
 		FCurlHttpManager::ShutdownCurl();
 	}
-	else
-#endif
-	{
-		FWinInetConnection::Get().ShutdownConnection();
-	}
-}
 
 FHttpManager * FWindowsPlatformHttp::CreatePlatformHttpManager()
 {
-#if WITH_LIBCURL
-	if (bUseCurl)
-	{
 		return new FCurlHttpManager();
 	}
-#endif
-	// allow default to be used
-	return NULL;
-}
 
 IHttpRequest* FWindowsPlatformHttp::ConstructRequest()
 {
-#if WITH_LIBCURL
-	if (bUseCurl)
-	{
 		return new FCurlHttpRequest();
 	}
-	else
-#endif
-	{
-		return new FHttpRequestWinInet();
-	}
-}
 
 FString FWindowsPlatformHttp::GetMimeType(const FString& FilePath)
 {

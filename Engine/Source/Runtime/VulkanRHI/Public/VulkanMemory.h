@@ -697,14 +697,25 @@ namespace VulkanRHI
 		bool bIsHostCachedSupported;
 		bool bIsLazilyAllocatedSupported;
 
+#if VULKAN_FREEPAGE_FOR_TYPE
+		uint32 DefaultPageSizeForImage;
+		uint32 DefaultPageSizeForBuffer;
+#endif
 		uint32 DefaultPageSize;
+
 		uint32 PeakPageSize;
 		uint64 UsedMemory;
 		uint32 PageIDCounter;
 
 		TArray<FOldResourceHeapPage*> UsedBufferPages;
 		TArray<FOldResourceHeapPage*> UsedImagePages;
+
+#if VULKAN_FREEPAGE_FOR_TYPE
+		TArray<FOldResourceHeapPage*> FreeBufferPages;
+		TArray<FOldResourceHeapPage*> FreeImagePages;
+#else
 		TArray<FOldResourceHeapPage*> FreePages;
+#endif
 
 		FOldResourceAllocation* AllocateResource(EType Type, uint32 Size, uint32 Alignment, bool bMapAllocation, const char* File, uint32 Line);
 

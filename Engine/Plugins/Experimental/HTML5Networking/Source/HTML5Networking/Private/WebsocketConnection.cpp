@@ -66,29 +66,29 @@ void UWebSocketConnection::InitRemoteConnection(UNetDriver* InDriver, class FSoc
 	SetExpectedClientLoginMsgType(NMT_Hello);
 }
 
-void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
+void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
 	const uint8* DataToSend = reinterpret_cast<uint8*>(Data);
+	uint32 CountBytes = 0;
 
 	// Process any packet modifiers
 	if (Handler.IsValid() && !Handler->GetRawSend())
 	{
-		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits);
+		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits, Traits);
 
 		if (!ProcessedData.bError)
 		{
 			DataToSend = ProcessedData.Data;
-			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
 			CountBits = ProcessedData.CountBits;
+			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
 		}
 		else
 		{
-			CountBytes = 0;
 			CountBits = 0;
 		}
 	}
 
-	if ( CountBytes > MaxPacket )
+	if (CountBits > (MaxPacket * 8))
 	{
 		UE_LOG( LogNet, Warning, TEXT( "UWebSocketConnection::LowLevelSend: CountBytes > MaxPacketSize! Count: %i, MaxPacket: %i %s" ), CountBytes, MaxPacket, *Describe() );
 	}

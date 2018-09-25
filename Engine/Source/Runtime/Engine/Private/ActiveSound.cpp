@@ -687,9 +687,6 @@ bool FActiveSound::UpdateStoppingSources(uint64 CurrentTick, bool bEnsureStopped
 			FSoundSource* Source = AudioDevice->GetSoundSource(WaveInstance);
 			if (Source)
 			{
-				// We should have a stopping source here
-				check(Source->IsStopping());
-
 				// The source has finished (totally faded out)
 				if (Source->IsFinished() || bEnsureStopped)
 				{
@@ -794,11 +791,7 @@ void FActiveSound::OcclusionTraceDone(const FTraceHandle& TraceHandle, FTraceDat
 
 				FAudioThread::RunCommandOnAudioThread([AudioDevice, ActiveSound, bFoundBlockingHit]()
 				{
-					if (AudioDevice->GetActiveSounds().Contains(ActiveSound))
-					{
-						ActiveSound->bIsOccluded = bFoundBlockingHit;
-						ActiveSound->bAsyncOcclusionPending = false;
-					}
+					AudioDevice->NotifyActiveSoundOcclusionTraceDone(ActiveSound, bFoundBlockingHit);
 				}, GET_STATID(STAT_OcclusionTraceDone));
 			}
 		}

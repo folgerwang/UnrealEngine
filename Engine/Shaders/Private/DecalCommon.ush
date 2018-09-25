@@ -58,6 +58,10 @@ void DecalCommonOutput(inout FPixelShaderIn In, inout FPixelShaderOut Out, float
 		float3 MultiOpacity = Opacity;
 
 		EncodeDBufferData(Data, MultiOpacity, Out.MRT[0], Out.MRT[1], Out.MRT[2]);
+
+		#if DECAL_RENDERTARGET_COUNT == 4
+		Out.MRT[3] = 1.0f; // DBufferMask
+		#endif
 	}
 	#elif DECAL_RENDERSTAGE == 1
 	{
@@ -93,7 +97,7 @@ void DecalCommonOutput(inout FPixelShaderIn In, inout FPixelShaderOut Out, float
 	#endif // DECAL_RENDERSTAGE
 #endif //DECAL_RENDERTARGET_COUNT > 1
 
-#if DECAL_RENDERTARGET_COUNT > 1 && !BIND_RENDERTARGET1
+#if DECAL_RENDERTARGET_COUNT > 1 && !BIND_RENDERTARGET1 && (COMPILER_METAL || COMPILER_SWITCH)
 	Out.MRT[1] = 0;
 #endif
 }

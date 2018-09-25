@@ -50,6 +50,8 @@ CSV_DEFINE_CATEGORY(TextureStreaming, true);
 
 DEFINE_LOG_CATEGORY(LogContentStreaming);
 
+int32 FTextureStreamingSettings::ExtraIOLatency = 0;
+
 ENGINE_API TAutoConsoleVariable<int32> CVarStreamingUseNewMetrics(
 	TEXT("r.Streaming.UseNewMetrics"),
 	1,
@@ -233,12 +235,34 @@ TAutoConsoleVariable<float> CVarStreamingMaxTextureUVDensity(
 	TEXT("Component with bigger entries become handled as dynamic component.\n"),
 	ECVF_Default);
 
+ENGINE_API TAutoConsoleVariable<int32> CVarFramesForFullUpdate(
+	TEXT("r.Streaming.FramesForFullUpdate"),
+	5,
+	TEXT("Texture streaming is time sliced per frame. This values gives the number of frames to visit all textures."));
+
+static TAutoConsoleVariable<int32> CVarStreamingStressTest(
+	TEXT("r.Streaming.StressTest"),
+	0,
+	TEXT("Set to non zero to stress test the streaming update.\n")
+	TEXT("Negative values also slow down the IO.\n"),
+	ECVF_Cheat);
+
+static TAutoConsoleVariable<int32> CVarStreamingStressTestExtraIOLatency(
+	TEXT("r.Streaming.StressTest.ExtaIOLatency"),
+	10,
+	TEXT("An extra latency in milliseconds for each stream-in requests when doing the stress test."),
+	ECVF_Cheat);
+
+static TAutoConsoleVariable<int32> CVarStreamingStressTestFramesForFullUpdate(
+	TEXT("r.Streaming.StressTest.FramesForFullUpdate"),
+	1,
+	TEXT("Num frames to update texture states when doing the stress tests."),
+	ECVF_Cheat);
 
 void FTextureStreamingSettings::Update()
 {
 	MaxEffectiveScreenSize = CVarStreamingScreenSizeEffectiveMax.GetValueOnAnyThread();
 	MaxTempMemoryAllowed = CVarStreamingMaxTempMemoryAllowed.GetValueOnAnyThread();
-	DropMips = CVarStreamingDropMips.GetValueOnAnyThread();
 	HLODStrategy = CVarStreamingHLODStrategy.GetValueOnAnyThread();
 	GlobalMipBias = !GIsEditor ? FMath::FloorToInt(FMath::Max<float>(0.f, CVarStreamingMipBias.GetValueOnAnyThread())) : 0;
 	PoolSize = CVarStreamingPoolSize.GetValueOnAnyThread();
@@ -252,7 +276,6 @@ void FTextureStreamingSettings::Update()
 	MaxHiddenPrimitiveViewBoost = FMath::Max<float>(1.f, CVarStreamingMaxHiddenPrimitiveViewBoost.GetValueOnAnyThread());
 	MinLevelTextureScreenSize = CVarStreamingMinLevelTextureScreenSize.GetValueOnAnyThread();
 	MaxTextureUVDensity = CVarStreamingMaxTextureUVDensity.GetValueOnAnyThread();
-
 	bUseMaterialData = bUseNewMetrics && CVarStreamingUseMaterialData.GetValueOnAnyThread() != 0;
 	HiddenPrimitiveScale = bUseNewMetrics ? CVarStreamingHiddenPrimitiveScale.GetValueOnAnyThread() : 1.f;
 
@@ -268,6 +291,26 @@ void FTextureStreamingSettings::Update()
 		bUsePerTextureBias = false;
 		GlobalMipBias = 0;
 	}
+
+#if !UE_BUILD_SHIPPING
+	if (CVarStreamingStressTest.GetValueOnAnyThread() != 0)
+	{
+		bStressTest = true;
+		// Increase threading stress between the gamethread update and the async task.
+		FramesForFullUpdate = FMath::Max<int32>(CVarStreamingStressTestFramesForFullUpdate.GetValueOnAnyThread(), 0);
+		// This will create cancelation requests.
+		DropMips = 2; 
+		// Increase chances of canceling IO while they are not yet completed.
+		ExtraIOLatency = CVarStreamingStressTestExtraIOLatency.GetValueOnAnyThread();
+	}
+    else
+#endif
+    {
+		bStressTest = false;
+		FramesForFullUpdate = FMath::Max<int32>(CVarFramesForFullUpdate.GetValueOnAnyThread(), 0);
+		DropMips = CVarStreamingDropMips.GetValueOnAnyThread();
+		ExtraIOLatency = 0;
+    }
 }
 
 

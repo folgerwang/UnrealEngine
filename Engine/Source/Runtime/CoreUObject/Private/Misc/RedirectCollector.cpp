@@ -172,6 +172,19 @@ void FRedirectCollector::AddAssetPathRedirection(FName OriginalPath, FName Redir
 {
 	FScopeLock ScopeLock(&CriticalSection);
 
+	if (!ensureMsgf(OriginalPath != NAME_None, TEXT("Cannot add redirect from Name_None!")))
+	{
+		return;
+	}
+
+	FName FinalRedirection = GetAssetPathRedirection(RedirectedPath);
+	if (FinalRedirection == OriginalPath)
+	{
+		// If RedirectedPath points back to OriginalPath, remove that to avoid a circular reference
+		// This can happen when renaming assets in the editor but not actually dropping redirectors because it was new
+		AssetPathRedirectionMap.Remove(RedirectedPath);
+	}
+
 	// This replaces an existing mapping, can happen in the editor if things are renamed twice
 	AssetPathRedirectionMap.Add(OriginalPath, RedirectedPath);
 }
@@ -191,8 +204,38 @@ void FRedirectCollector::RemoveAssetPathRedirection(FName OriginalPath)
 FName FRedirectCollector::GetAssetPathRedirection(FName OriginalPath)
 {
 	FScopeLock ScopeLock(&CriticalSection);
+	TArray<FName> SeenPaths;
 
-	return AssetPathRedirectionMap.FindRef(OriginalPath);
+	// We need to follow the redirect chain recursively
+	FName CurrentPath = OriginalPath;
+
+	while (CurrentPath != NAME_None)
+	{
+		SeenPaths.Add(CurrentPath);
+		FName NewPath = AssetPathRedirectionMap.FindRef(CurrentPath);
+
+		if (NewPath != NAME_None)
+		{
+			if (!ensureMsgf(!SeenPaths.Contains(NewPath), TEXT("Found circular redirect from %s to %s! Returning None instead"), *CurrentPath.ToString(), *NewPath.ToString()))
+			{
+				return NAME_None;
+			}
+
+			// Continue trying to follow chain
+			CurrentPath = NewPath;
+		}
+		else
+		{
+			// No more redirections
+			break;
+		}
+	}
+
+	if (CurrentPath != OriginalPath)
+	{
+		return CurrentPath;
+	}
+	return NAME_None;
 }
 
 FRedirectCollector GRedirectCollector;

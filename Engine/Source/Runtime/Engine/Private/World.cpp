@@ -119,6 +119,7 @@
 #include "InGamePerformanceTracker.h"
 #include "Engine/AssetManager.h"
 #include "Engine/HLODProxy.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogWorld, Log, All);
 DEFINE_LOG_CATEGORY(LogSpawn);
@@ -1232,7 +1233,7 @@ void UWorld::InitWorld(const InitializationValues IVS)
 		{
 			if (IVS.bCreateNavigation)
 			{
-				FNavigationSystem::AddNavigationSystemToWorld(*this, FNavigationSystemRunMode::InvalidMode, /*bInitializeForWorld=*/false);
+				FNavigationSystem::AddNavigationSystemToWorld(*this, FNavigationSystemRunMode::InvalidMode, WorldSettings->GetNavigationSystemConfig(), /*bInitializeForWorld=*/false);
 			}
 			if (IVS.bCreateAISystem && WorldSettings->bEnableAISystem)
 			{
@@ -1406,6 +1407,8 @@ void UWorld::InitWorld(const InitializationValues IVS)
 
 void UWorld::ConditionallyCreateDefaultLevelCollections()
 {
+	LevelCollections.Reserve((int32)ELevelCollectionType::MAX);
+
 	// Create main level collection. The persistent level will always be considered dynamic.
 	if (!FindCollectionByType(ELevelCollectionType::DynamicSourceLevels))
 	{
@@ -2067,6 +2070,7 @@ private:
 void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool bConsiderTimeLimit )
 {
 	SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime);
+	CSV_SCOPED_TIMING_STAT(Basic, AddToWorldTime);
 
 	check(Level);
 	check(!Level->IsPendingKill());
@@ -2126,6 +2130,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 
 	if( bExecuteNextStep && !Level->bAlreadyMovedActors )
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime_MoveActors);
 		SCOPE_TIME_TO_VAR(&MoveActorTime);
 
 		FLevelUtils::ApplyLevelTransform( Level, LevelTransform, false );
@@ -2136,6 +2141,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 
 	if( bExecuteNextStep && !Level->bAlreadyShiftedActors )
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime_ShiftActors);
 		SCOPE_TIME_TO_VAR(&ShiftActorsTime);
 
 		// Notify world composition: will place level actors according to current world origin
@@ -2183,6 +2189,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 	// Updates the level components (Actor components and UModelComponents).
 	if( bExecuteNextStep && !Level->bAlreadyUpdatedComponents )
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime_UpdatingComponents);
 		SCOPE_TIME_TO_VAR(&UpdateComponentsTime);
 
 		// Make sure code thinks components are not currently attached.
@@ -2219,16 +2226,19 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 		// Initialize all actors and start execution.
 		if (bExecuteNextStep && !Level->bAlreadyInitializedNetworkActors)
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime_InitializeNetworkActors);
 			SCOPE_TIME_TO_VAR(&InitActorTime);
 
 			Level->InitializeNetworkActors();
 			Level->bAlreadyInitializedNetworkActors = true;
-			bExecuteNextStep = (!bConsiderTimeLimit || !IsTimeLimitExceeded( TEXT("initializing network actors"), StartTime, Level, TimeLimit ));
+			const float PreventNextStepTimeLimit = 0.0; // We will always run route actor initialize in its own frame if we are using a time limit
+			bExecuteNextStep = (!bConsiderTimeLimit || !IsTimeLimitExceeded( TEXT("initializing network actors"), StartTime, Level, PreventNextStepTimeLimit )); 
 		}
 
 		// Route various initialization functions and set volumes.
 		if( bExecuteNextStep && !Level->bAlreadyRoutedActorInitialize )
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime_RouteActorInitialize);
 			SCOPE_TIME_TO_VAR(&RouteActorInitializeTime);
 			bStartup = 1;
 			Level->RouteActorInitialize();
@@ -2286,17 +2296,24 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 		// Set visibility before adding the rendering resource and adding to streaming.
 		Level->bIsVisible = true;
 
-		Level->InitializeRenderingResources();
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime_InitializeRenderingResources);
+			Level->InitializeRenderingResources();
+		}
 
-		// Notify the texture streaming system now that everything is set up.
-		IStreamingManager::Get().AddLevel( Level );
-	
-		// send a callback that a level was added to the world
-		FWorldDelegates::LevelAddedToWorld.Broadcast(Level, this);
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime_NotifyLevelVisible);
 
-		BroadcastLevelsChanged();
+			// Notify the texture streaming system now that everything is set up.
+			IStreamingManager::Get().AddLevel(Level);
 
-		ULevelStreaming::BroadcastLevelVisibleStatus(this, Level->GetOutermost()->GetFName(), true);
+			// send a callback that a level was added to the world
+			FWorldDelegates::LevelAddedToWorld.Broadcast(Level, this);
+
+			BroadcastLevelsChanged();
+
+			ULevelStreaming::BroadcastLevelVisibleStatus(this, Level->GetOutermost()->GetFName(), true);
+		}
 	}
 
 #if PERF_TRACK_DETAILED_ASYNC_STATS
@@ -2333,6 +2350,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool b
 void UWorld::RemoveFromWorld( ULevel* Level, bool bAllowIncrementalRemoval )
 {
 	SCOPE_CYCLE_COUNTER(STAT_RemoveFromWorldTime);
+	CSV_SCOPED_TIMING_STAT(Basic, RemoveFromWorldTime);
 	
 	FScopeCycleCounterUObject Context(Level);
 	check(Level);
@@ -4066,7 +4084,7 @@ void UWorld::SetPhysicsScene(FPhysScene* InScene)
 	}
 }
 
-APhysicsVolume* UWorld::GetDefaultPhysicsVolume() const
+APhysicsVolume* UWorld::InternalGetDefaultPhysicsVolume() const
 {
 	// Create on demand.
 	if (DefaultPhysicsVolume == nullptr)
@@ -4105,17 +4123,6 @@ void UWorld::RemovePhysicsVolume(APhysicsVolume* Volume)
 	NonDefaultPhysicsVolumeList.RemoveSwap(Volume);
 	// Also remove null entries that may accumulate as items become invalidated
 	NonDefaultPhysicsVolumeList.RemoveSwap(nullptr);
-}
-
-FConstPhysicsVolumeIterator UWorld::GetNonDefaultPhysicsVolumeIterator() const
-{
-	auto Result = NonDefaultPhysicsVolumeList.CreateConstIterator();
-	return (const FConstPhysicsVolumeIterator&)Result;
-}
-
-int32 UWorld::GetNonDefaultPhysicsVolumeCount() const
-{
-	return NonDefaultPhysicsVolumeList.Num();
 }
 
 ALevelScriptActor* UWorld::GetLevelScriptActor( ULevel* OwnerLevel ) const
@@ -4543,9 +4550,7 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 
 				if (bReceived)
 				{
-					UE_LOG(LogNet, Log, TEXT("Login request: %s userId: %s"), *Connection->RequestURL,
-							(UniqueIdRepl.IsValid() ? *UniqueIdRepl->ToString() : TEXT("Invalid")));
-
+					UE_LOG(LogNet, Log, TEXT("Login request: %s userId: %s platform: %s"), *Connection->RequestURL, UniqueIdRepl.IsValid() ? *UniqueIdRepl.ToDebugString() : TEXT("UNKNOWN"), *OnlinePlatformName);
 
 					// Compromise for passing splitscreen playercount through to gameplay login code,
 					// without adding a lot of extra unnecessary complexity throughout the login code.
@@ -6428,13 +6433,17 @@ ENetMode UWorld::InternalGetNetMode() const
 		return DemoNetDriver->GetNetMode();
 	}
 
-// PIE: NetDriver is not initialized so use PlayInSettings
-// to determine the Net Mode
 #if WITH_EDITOR
-	return AttemptDeriveFromPlayInSettings();
-#endif
+	if (WorldType == EWorldType::PIE)
+	{
+		// PIE: NetDriver is not initialized so use PlayInSettings
+		// to determine the Net Mode
 
-	// Use NextURL or PendingNetURL to derive NetMode
+		// This function only works for PIE, do not use for -game/-server standalone editor builds
+		// otherwise it will always return NM_Standalone which is wrong once we have a PendingNetGame
+		return AttemptDeriveFromPlayInSettings();
+	}
+#endif
 	return AttemptDeriveFromURL();
 }
 
@@ -6451,10 +6460,15 @@ bool UWorld::IsRecordingClientReplay() const
 	return false;
 }
 
+bool UWorld::IsPlayingClientReplay() const
+{
+	return (DemoNetDriver != nullptr && DemoNetDriver->IsPlayingClientReplay());
+}
+
 #if WITH_EDITOR
 ENetMode UWorld::AttemptDeriveFromPlayInSettings() const
 {
-	if (WorldType == EWorldType::PIE)
+	if (ensure(WorldType == EWorldType::PIE))
 	{
 		const ULevelEditorPlaySettings* PlayInSettings = GetDefault<ULevelEditorPlaySettings>();
 		if (PlayInSettings)

@@ -581,6 +581,12 @@ void FRHICommandSubmitCommandsHint<CmdListType>::Execute(FRHICommandListBase& Cm
 template struct FRHICommandSubmitCommandsHint<ECmdList::EGfx>;
 template struct FRHICommandSubmitCommandsHint<ECmdList::ECompute>;
 
+void FRHICommandPollOcclusionQueries::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(PollOcclusionQueries);
+	INTERNAL_DECORATOR(RHIPollOcclusionQueries)();
+}
+
 void FRHICommandUpdateTextureReference::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(UpdateTextureReference);

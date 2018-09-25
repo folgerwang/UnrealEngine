@@ -23,22 +23,24 @@ class PIEPREVIEWDEVICESPECIFICATION_API UPIEPreviewDeviceSpecification : public 
 	GENERATED_UCLASS_BODY()
 public:
 	UPROPERTY()
-		EPIEPreviewDeviceType PreviewDeviceType;
+	EPIEPreviewDeviceType PreviewDeviceType;
 
 	UPROPERTY()
-		FString GPUFamily;
+	FString GPUFamily;
 	UPROPERTY()
-		FString GLVersion;
+	FString GLVersion;
 	UPROPERTY()
-		FString VulkanVersion;
+	FString VulkanVersion;
 	UPROPERTY()
-		FString AndroidVersion;
+	FString AndroidVersion;
 	UPROPERTY()
-		FString DeviceMake;
+	FString DeviceMake;
 	UPROPERTY()
-		FString DeviceModel;
+	FString DeviceModel;
 	UPROPERTY()
-		bool UsingHoudini;
+	FString DeviceBuildNumber;
+	UPROPERTY()
+	bool UsingHoudini;
 };
 
 USTRUCT()
@@ -82,6 +84,8 @@ public:
 	FString DeviceMake;
 	UPROPERTY()
 	FString DeviceModel;
+	UPROPERTY()
+	FString DeviceBuildNumber;
 	UPROPERTY()
 	bool VulkanAvailable;
 	UPROPERTY()

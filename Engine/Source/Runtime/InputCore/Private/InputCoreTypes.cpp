@@ -347,6 +347,7 @@ void FKeyDetails::CommonInit(const uint8 InKeyFlags)
 {
 	bIsModifierKey = ((InKeyFlags & EKeyFlags::ModifierKey) != 0);
 	bIsGamepadKey = ((InKeyFlags & EKeyFlags::GamepadKey) != 0);
+	bIsTouch = ((InKeyFlags & EKeyFlags::Touch) != 0);
 	bIsMouseButton = ((InKeyFlags & EKeyFlags::MouseButton) != 0);
 	bIsBindableInBlueprints = ((~InKeyFlags & EKeyFlags::NotBlueprintBindableKey) != 0);
 	bShouldUpdateAxisWithoutSamples = ((InKeyFlags & EKeyFlags::UpdateAxisWithoutSamples) != 0);
@@ -597,7 +598,7 @@ void EKeys::Initialize()
 	static_assert(EKeys::NUM_TOUCH_KEYS == ETouchIndex::MAX_TOUCHES, "The number of touch keys should be equal to the max number of TouchIndexes");
 	for (int TouchIndex = 0; TouchIndex < (EKeys::NUM_TOUCH_KEYS - 1); TouchIndex++)
 	{
-		AddKey(FKeyDetails(EKeys::TouchKeys[TouchIndex], FText::Format(LOCTEXT("TouchFormat", "Touch {0}"), FText::AsNumber(TouchIndex + 1)), 0, "Touch"));
+		AddKey(FKeyDetails(EKeys::TouchKeys[TouchIndex], FText::Format(LOCTEXT("TouchFormat", "Touch {0}"), FText::AsNumber(TouchIndex + 1)), FKeyDetails::Touch, "Touch"));
 	}
 
 	// Make sure the Touch key for the cursor pointer is invalid, we don't want there to be an FKey for "Touch (Mouse Index)".
@@ -986,6 +987,12 @@ bool FKey::IsGamepadKey() const
 	return (KeyDetails.IsValid() ? KeyDetails->IsGamepadKey() : false);
 }
 
+bool FKey::IsTouch() const
+{
+	ConditionalLookupKeyDetails();
+	return (KeyDetails.IsValid() ? KeyDetails->IsTouch() : false);
+}
+
 bool FKey::IsMouseButton() const
 {
 	ConditionalLookupKeyDetails();
@@ -1021,10 +1028,10 @@ FText FKeyDetails::GetDisplayName(const bool bLongDisplayName) const
 	return ((bLongDisplayName || !ShortDisplayName.IsSet()) ? LongDisplayName.Get() : ShortDisplayName.Get());
 }
 
-FText FKey::GetDisplayName() const
+FText FKey::GetDisplayName(const bool bLongDisplayName) const
 {
 	ConditionalLookupKeyDetails();
-	return (KeyDetails.IsValid() ? KeyDetails->GetDisplayName() : FText::FromName(KeyName));
+	return (KeyDetails.IsValid() ? KeyDetails->GetDisplayName(bLongDisplayName) : FText::FromName(KeyName));
 }
 
 FName FKey::GetMenuCategory() const

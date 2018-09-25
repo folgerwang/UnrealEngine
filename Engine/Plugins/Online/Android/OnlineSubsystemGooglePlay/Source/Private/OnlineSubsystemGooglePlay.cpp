@@ -30,17 +30,6 @@ THIRD_PARTY_INCLUDES_END
 
 using namespace gpg;
 
-FOnlineSubsystemGooglePlay::FOnlineSubsystemGooglePlay()
-	: IdentityInterface(nullptr)
-	, LeaderboardsInterface(nullptr)
-	, AchievementsInterface(nullptr)
-	, StoreInterface(nullptr)
-	, CurrentLoginTask(nullptr)
-	, CurrentShowLoginUITask(nullptr)
-	, CurrentLogoutTask(nullptr)
-{
-}
-
 FOnlineSubsystemGooglePlay::FOnlineSubsystemGooglePlay(FName InInstanceName)
 	: FOnlineSubsystemImpl(GOOGLEPLAY_SUBSYSTEM, InInstanceName)
 	, IdentityInterface(nullptr)
@@ -199,7 +188,7 @@ bool FOnlineSubsystemGooglePlay::Tick(float DeltaTime)
 
 bool FOnlineSubsystemGooglePlay::Shutdown() 
 {
-	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGooglePlay::Shutdown()"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemGooglePlay::Shutdown()"));
 
 	FOnlineSubsystemImpl::Shutdown();
 
@@ -257,7 +246,7 @@ bool FOnlineSubsystemGooglePlay::IsEnabled() const
 	// GameCircleRuntimeSettings holds a value for editor ease of use
 	if (!GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bEnableGooglePlaySupport"), bEnabled, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("The [/Script/AndroidRuntimeSettings.AndroidRuntimeSettings]:bEnableGooglePlaySupport flag has not been set"));
+		UE_LOG_ONLINE(Warning, TEXT("The [/Script/AndroidRuntimeSettings.AndroidRuntimeSettings]:bEnableGooglePlaySupport flag has not been set"));
 
 		// Fallback to regular OSS location
 		bEnabled = FOnlineSubsystemImpl::IsEnabled();
@@ -284,11 +273,11 @@ bool FOnlineSubsystemGooglePlay::IsInAppPurchasingEnabled()
 
 void FOnlineSubsystemGooglePlay::StartShowLoginUITask(int PlayerId, const FOnLoginUIClosedDelegate& Delegate)
 {
-	UE_LOG(LogOnline, Log, TEXT("StartShowLoginUITask PlayerId: %d"), PlayerId);
+	UE_LOG_ONLINE(Log, TEXT("StartShowLoginUITask PlayerId: %d"), PlayerId);
 
 	if (AreAnyAsyncLoginTasksRunning())
 	{
-		UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemGooglePlay::StartShowLoginUITask: An asynchronous login task is already running."));
+		UE_LOG_ONLINE(Log, TEXT("FOnlineSubsystemGooglePlay::StartShowLoginUITask: An asynchronous login task is already running."));
 		FOnlineError Error(false);
 		Error.SetFromErrorCode(TEXT("FOnlineSubsystemGooglePlay::StartShowLoginUITask: An asynchronous login task is already running."));
 		Delegate.ExecuteIfBound(nullptr, PlayerId, Error);
@@ -297,7 +286,7 @@ void FOnlineSubsystemGooglePlay::StartShowLoginUITask(int PlayerId, const FOnLog
 
 	if (GameServicesPtr.get() == nullptr)
 	{
-		UE_LOG(LogOnline, Log, TEXT("StartShowLoginUITask Game Services was null"));
+		UE_LOG_ONLINE(Log, TEXT("StartShowLoginUITask Game Services was null"));
 		// This is likely the first login attempt during this run. Attempt to create the
 		// GameServices object, which will automatically start a "silent" login attempt.
 		// If that succeeds, there's no need to show the login UI explicitly. If it fails,
@@ -305,7 +294,7 @@ void FOnlineSubsystemGooglePlay::StartShowLoginUITask(int PlayerId, const FOnLog
 		
 		auto TheDelegate = FOnlineAsyncTaskGooglePlayLogin::FOnCompletedDelegate::CreateLambda([this, PlayerId, Delegate]()
 		{
-			UE_LOG(LogOnline, Log, TEXT("StartShowLoginUITask starting ShowLoginUITask_Internal"));
+			UE_LOG_ONLINE(Log, TEXT("StartShowLoginUITask starting ShowLoginUITask_Internal"));
 			 StartShowLoginUITask_Internal(PlayerId, Delegate);
 		});
 
@@ -314,7 +303,7 @@ void FOnlineSubsystemGooglePlay::StartShowLoginUITask(int PlayerId, const FOnLog
 	}
 	else
 	{
-		UE_LOG(LogOnline, Log, TEXT("StartShowLoginUITask GameServicesPtr valid"));
+		UE_LOG_ONLINE(Log, TEXT("StartShowLoginUITask GameServicesPtr valid"));
 		// We already have a GameServices object, so we can directly go to ShowAuthorizationUI.
 		StartShowLoginUITask_Internal(PlayerId, Delegate);
 	}
@@ -324,7 +313,7 @@ void FOnlineSubsystemGooglePlay::StartLogoutTask(int32 LocalUserNum)
 {
 	if (CurrentLogoutTask != nullptr)
 	{
-		UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemGooglePlay::StartLogoutTask: A logout task is already in progress."));
+		UE_LOG_ONLINE(Log, TEXT("FOnlineSubsystemGooglePlay::StartLogoutTask: A logout task is already in progress."));
 		IdentityInterface->TriggerOnLogoutCompleteDelegates(LocalUserNum, false);
 		return;
 	}
@@ -348,7 +337,7 @@ void FOnlineSubsystemGooglePlay::StartShowLoginUITask_Internal(int PlayerId, con
 {
 	check(!AreAnyAsyncLoginTasksRunning());
 
-	UE_LOG(LogOnline, Log, TEXT("StartShowLoginUITask_Internal"));
+	UE_LOG_ONLINE(Log, TEXT("StartShowLoginUITask_Internal"));
 	CurrentShowLoginUITask = new FOnlineAsyncTaskGooglePlayShowLoginUI(this, PlayerId, Delegate);
 	QueueAsyncTask(CurrentShowLoginUITask);
 }
@@ -363,7 +352,7 @@ void FOnlineSubsystemGooglePlay::OnAuthActionFinished(AuthOperation Op, AuthStat
 {
 	if (Op == AuthOperation::SIGN_IN)
 	{
-		UE_LOG(LogOnline, Log, TEXT("OnAuthActionFinished SIGN IN %d"), (int32)Status);
+		UE_LOG_ONLINE(Log, TEXT("OnAuthActionFinished SIGN IN %d"), (int32)Status);
 		if (CurrentLoginTask != nullptr)
 		{
 			// Only one login task should be active at a time
@@ -380,12 +369,12 @@ void FOnlineSubsystemGooglePlay::OnAuthActionFinished(AuthOperation Op, AuthStat
 		}
 		else
 		{
-			UE_LOG(LogOnline, Log, TEXT("OnAuthActionFinished no handler!"));
+			UE_LOG_ONLINE(Log, TEXT("OnAuthActionFinished no handler!"));
 		}
 	}
 	else if (Op == AuthOperation::SIGN_OUT)
 	{
-		UE_LOG(LogOnline, Log, TEXT("OnAuthActionFinished SIGN OUT %d"), (int32)Status);
+		UE_LOG_ONLINE(Log, TEXT("OnAuthActionFinished SIGN OUT %d"), (int32)Status);
 		if (CurrentLogoutTask != nullptr)
 		{
 			CurrentLogoutTask->OnAuthActionFinished(Op, Status);
@@ -421,7 +410,7 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeGoogleClientConnectCom
 		jenv->ReleaseStringUTFChars(accessToken, charsToken);
 	}
 
-	UE_LOG(LogOnline, Log, TEXT("nativeGoogleClientConnectCompleted Success: %d Token: %s"), bSuccess, *AccessToken);
+	UE_LOG_ONLINE(Log, TEXT("nativeGoogleClientConnectCompleted Success: %d Token: %s"), bSuccess, *AccessToken);
 
 	DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.ProcessGoogleClientConnectResult"), STAT_FSimpleDelegateGraphTask_ProcessGoogleClientConnectResult, STATGROUP_TaskGraphTasks);
 

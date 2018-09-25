@@ -115,7 +115,7 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 	TaskbarList = FTaskbarList::Create();
 
 	// Get initial display metrics. (display information for existing desktop, before we start changing resolutions)
-	FDisplayMetrics::GetDisplayMetrics(InitialDisplayMetrics);
+	FDisplayMetrics::RebuildDisplayMetrics(InitialDisplayMetrics);
 
 	// Save the current sticky/toggle/filter key settings so they can be restored them later
 	// If there are .ini settings, use them instead of the current system settings.
@@ -656,7 +656,7 @@ static void GetMonitorsInfo(TArray<FMonitorInfo>& OutMonitorInfo)
 	}
 }
 
-void FDisplayMetrics::GetDisplayMetrics(struct FDisplayMetrics& OutDisplayMetrics)
+void FDisplayMetrics::RebuildDisplayMetrics(struct FDisplayMetrics& OutDisplayMetrics)
 {
 	// Total screen size of the primary monitor
 	OutDisplayMetrics.PrimaryDisplayWidth = ::GetSystemMetrics( SM_CXSCREEN );
@@ -1053,6 +1053,65 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 					int32 NewWidth = Rect->right - Rect->left;
 					int32 NewHeight = Rect->bottom - Rect->top;
 
+					FWindowSizeLimits SizeLimits = MessageHandler->GetSizeLimitsForWindow(CurrentNativeEventWindow);
+
+					switch (wParam)
+					{
+					case WMSZ_LEFT:
+					case WMSZ_RIGHT:
+					case WMSZ_BOTTOMLEFT:
+					case WMSZ_BOTTOMRIGHT:
+					case WMSZ_TOPLEFT:
+					case WMSZ_TOPRIGHT:
+					{
+						int32 MinWidth = SizeLimits.GetMinWidth().GetValue();
+						if (SizeLimits.GetMinHeight().GetValue() < SizeLimits.GetMinWidth().GetValue())
+						{
+							MinWidth = SizeLimits.GetMinHeight().GetValue() * AspectRatio;
+						}
+
+						if (NewWidth < MinWidth)
+						{
+							if (wParam == WMSZ_LEFT || wParam == WMSZ_BOTTOMLEFT || wParam == WMSZ_TOPLEFT)
+							{
+								Rect->left -= (MinWidth - NewWidth);
+							}
+							else if (wParam == WMSZ_RIGHT || wParam == WMSZ_BOTTOMRIGHT || wParam == WMSZ_TOPRIGHT)
+							{
+								Rect->right += (MinWidth - NewWidth);
+							}
+
+							NewWidth = MinWidth;
+						}
+
+						break;
+					}
+					case WMSZ_TOP:
+					case WMSZ_BOTTOM:
+					{
+						int32 MinHeight = SizeLimits.GetMinHeight().GetValue();
+						if (SizeLimits.GetMinWidth().GetValue() < SizeLimits.GetMinHeight().GetValue())
+						{
+							MinHeight = SizeLimits.GetMinWidth().GetValue() / AspectRatio;
+						}
+
+						if (NewHeight < MinHeight)
+						{
+							if (wParam == WMSZ_TOP)
+							{
+								Rect->top -= (MinHeight - NewHeight);
+							}
+							else
+							{
+								Rect->bottom += (MinHeight - NewHeight);
+							}
+
+							NewHeight = MinHeight;
+						}
+						break;
+					}
+					}
+
 					switch (wParam)
 					{
 					case WMSZ_LEFT:
@@ -1388,7 +1447,7 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 			{
 				// Slate needs to know when desktop size changes.
 				FDisplayMetrics DisplayMetrics;
-				FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+				FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 				BroadcastDisplayMetricsChanged(DisplayMetrics);
 			}
 			break;

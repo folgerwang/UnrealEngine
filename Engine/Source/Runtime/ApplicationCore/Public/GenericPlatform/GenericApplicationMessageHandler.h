@@ -364,6 +364,16 @@ public:
 		return false;
 	}
 
+	virtual bool OnTouchForceChanged(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
+	{
+		return false;
+	}
+
+	virtual bool OnTouchFirstMove(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId)
+	{
+		return false;
+	}
+
 	virtual void ShouldSimulateGesture(EGestureEvent Gesture, bool bEnable)
 	{
 

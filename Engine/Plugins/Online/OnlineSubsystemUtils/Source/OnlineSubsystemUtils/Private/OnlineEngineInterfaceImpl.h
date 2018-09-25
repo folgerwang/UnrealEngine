@@ -41,9 +41,7 @@ private:
 	UPROPERTY(config)
 	FName VoiceSubsystemNameOverride;
 
-	/** Cache the name of the default subsystem, returned by GetDefaultOnlineSubsystemName(). */
-	FName DefaultSubsystemName;
-
+	/** @return the identifier/context handle associated with a UWorld */
 	FName GetOnlineIdentifier(UWorld* World);
 
 	/** Returns the name of a corresponding dedicated server subsystem for the given subsystem, or NAME_None if such a system doesn't exist. */

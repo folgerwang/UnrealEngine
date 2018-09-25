@@ -19,6 +19,11 @@ class ENGINE_API UNavigationSystemConfig : public UObject
 public:
 	UPROPERTY(EditAnywhere, Category=Navigation, meta = (MetaClass = "NavigationSystemBase", NoResetToDefault))
 	FSoftClassPath NavigationSystemClass;
+
+protected:
+	/** If true it means the navigation system settings are overridden from another source (like a NavConfigOverrideActor) */
+	UPROPERTY(VisibleAnywhere, Category = Navigation)
+	uint32 bIsOverriden : 1; 
 	
 public:
 	UNavigationSystemConfig(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
@@ -28,6 +33,8 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
+
+	void SetIsOverriden(const bool bInNewValue) { bIsOverriden = bInNewValue; }
 
 	static TSubclassOf<UNavigationSystemConfig> GetDefaultConfigClass();
 };

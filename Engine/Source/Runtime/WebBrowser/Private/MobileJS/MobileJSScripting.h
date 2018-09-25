@@ -22,10 +22,12 @@ public:
 	static const FString JSMessageTag;
 	static const FString JSMessageHandler;
 
-	FMobileJSScripting(bool bJSBindingToLoweringEnabled);
+	FMobileJSScripting(bool bJSBindingToLoweringEnabled, TSharedRef<class IWebBrowserWindow> InWindow);
 
 	virtual void BindUObject(const FString& Name, UObject* Object, bool bIsPermanent = true) override;
 	virtual void UnbindUObject(const FString& Name, UObject* Object = nullptr, bool bIsPermanent = true) override;
+	void BindUObject(TSharedRef<class IWebBrowserWindow> InWindow, const FString& Name, UObject* Object, bool bIsPermanent = true);
+	void UnbindUObject(TSharedRef<class IWebBrowserWindow> InWindow, const FString& Name, UObject* Object = nullptr, bool bIsPermanent = true);
 
 	/**
 	 * Called when a message was received from the browser process.
@@ -44,11 +46,14 @@ public:
 	void PageLoaded(TSharedRef<class IWebBrowserWindow> InWindow); // Called on page load
 
 private:
+	void InitializeScript(TSharedRef<class IWebBrowserWindow> InWindow);
 	void InvokeJSFunctionRaw(FGuid FunctionId, const FString& JSValue, bool bIsError=false);
 	bool IsValid()
 	{
 		return WindowPtr.Pin().IsValid();
 	}
+	void AddPermanentBind(const FString& Name, UObject* Object);
+	void RemovePermanentBind(const FString& Name, UObject* Object);
 
 	/** Message handling helpers */
 

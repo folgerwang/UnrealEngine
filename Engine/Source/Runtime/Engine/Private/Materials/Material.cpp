@@ -24,6 +24,7 @@
 #include "Materials/MaterialExpressionFontSampleParameter.h"
 #include "Materials/MaterialExpressionQualitySwitch.h"
 #include "Materials/MaterialExpressionFeatureLevelSwitch.h"
+#include "Materials/MaterialExpressionShadingPathSwitch.h"
 #include "Materials/MaterialExpressionMakeMaterialAttributes.h"
 #include "Materials/MaterialExpressionParameter.h"
 #include "Materials/MaterialExpressionScalarParameter.h"
@@ -109,7 +110,9 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 
 	int32 SelectionColorIndex = INDEX_NONE;
 
-	if (ShaderFrequency == SF_Pixel && GetMaterialDomain() != MD_Volume)
+	if (ShaderFrequency == SF_Pixel && 
+		GetMaterialDomain() != MD_Volume && 
+		Compiler->IsDevelopmentFeatureEnabled(NAME_SelectionColor))
 	{
 		SelectionColorIndex = Compiler->ComponentMask(Compiler->VectorParameter(NAME_SelectionColor,FLinearColor::Black),1,1,1,0);
 	}
@@ -610,14 +613,18 @@ FString MaterialDomainString(EMaterialDomain MaterialDomain)
 static TAutoConsoleVariable<int32> CVarDiscardUnusedQualityLevels(
 	TEXT("r.DiscardUnusedQuality"),
 	0,
-	TEXT("Wether to keep or discard unused quality level shadermaps in memory.\n")
+	TEXT("Whether to keep or discard unused quality level shadermaps in memory.\n")
 	TEXT("0: keep all quality levels in memory. (default)\n")
 	TEXT("1: Discard unused quality levels on load."),
 	ECVF_ReadOnly);
 
-void SerializeInlineShaderMaps(const TMap<const ITargetPlatform*, TArray<FMaterialResource*>>* PlatformMaterialResourcesToSavePtr, FArchive& Ar, TArray<FMaterialResource>& OutLoadedResources)
+void SerializeInlineShaderMaps(
+	const TMap<const ITargetPlatform*, TArray<FMaterialResource*>>* PlatformMaterialResourcesToSavePtr,
+	FArchive& Ar,
+	TArray<FMaterialResource>& OutLoadedResources,
+	uint32* OutOffsetToFirstResource)
 {
-	LLM_SCOPE(ELLMTag::Materials);
+	LLM_SCOPE(ELLMTag::MaterialShaderMaps);
 	SCOPED_LOADTIMER(SerializeInlineShaderMaps);
 
 	if (Ar.IsSaving())
@@ -639,48 +646,79 @@ void SerializeInlineShaderMaps(const TMap<const ITargetPlatform*, TArray<FMateri
 
 		Ar << NumResourcesToSave;
 
-		if ( MaterialResourcesToSavePtr )
+		if (MaterialResourcesToSavePtr
+			&& NumResourcesToSave > 0)
 		{
+			FMaterialResourceMemoryWriter ResourceAr(Ar);
 			const TArray<FMaterialResource*> &MaterialResourcesToSave = *MaterialResourcesToSavePtr;
 			for (int32 ResourceIndex = 0; ResourceIndex < NumResourcesToSave; ResourceIndex++)
 			{
-				MaterialResourcesToSave[ResourceIndex]->SerializeInlineShaderMap(Ar);
+				FMaterialResourceWriteScope Scope(&ResourceAr, *MaterialResourcesToSave[ResourceIndex]);
+				MaterialResourcesToSave[ResourceIndex]->SerializeInlineShaderMap(ResourceAr);
 			}
 		}
-		
 	}
 	else if (Ar.IsLoading())
 	{
 		int32 NumLoadedResources = 0;
 		Ar << NumLoadedResources;
 
-		OutLoadedResources.Empty(NumLoadedResources);
-
-		for (int32 ResourceIndex = 0; ResourceIndex < NumLoadedResources; ResourceIndex++)
+		if (OutOffsetToFirstResource)
 		{
-			FMaterialResource LoadedResource;
-			LoadedResource.SerializeInlineShaderMap(Ar);
-			OutLoadedResources.Add(LoadedResource);
+			int64 Tmp = Ar.Tell() - Ar.GetLinker()->Summary.TotalHeaderSize;
+			check(Tmp >= 0 && Tmp <= 0xffffffffLL);
+			*OutOffsetToFirstResource = uint32(Tmp);
+		}
+
+		if (NumLoadedResources > 0)
+		{
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+			ERHIFeatureLevel::Type FeatureLevel = GMaxRHIFeatureLevel;
+			EMaterialQualityLevel::Type QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
+			FMaterialResourceProxyReader ResourceAr(Ar, FeatureLevel, QualityLevel);
+			OutLoadedResources.Empty(1);
+			OutLoadedResources[OutLoadedResources.AddDefaulted()].SerializeInlineShaderMap(ResourceAr);
+#else
+			ERHIFeatureLevel::Type FeatureLevel = ERHIFeatureLevel::Num;
+			EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num;
+			OutLoadedResources.Empty(NumLoadedResources);
+			FMaterialResourceProxyReader ResourceAr(Ar, FeatureLevel, QualityLevel);
+			for (int32 ResourceIndex = 0; ResourceIndex < NumLoadedResources; ++ResourceIndex)
+			{
+				FMaterialResource& LoadedResource = OutLoadedResources[OutLoadedResources.AddDefaulted()];
+				LoadedResource.SerializeInlineShaderMap(ResourceAr);
+			}
+#endif
 		}
 	}
 }
 
 void ProcessSerializedInlineShaderMaps(UMaterialInterface* Owner, TArray<FMaterialResource>& LoadedResources, FMaterialResource* (&OutMaterialResourcesLoaded)[EMaterialQualityLevel::Num][ERHIFeatureLevel::Num])
 {
-	LLM_SCOPE(ELLMTag::Materials);
+	LLM_SCOPE(ELLMTag::MaterialShaderMaps);
 	check(IsInGameThread());
 
 	UMaterial* OwnerMaterial = Cast<UMaterial>(Owner);
 	UMaterialInstance* OwnerMaterialInstance = Cast<UMaterialInstance>(Owner);
 
+	for (FMaterialResource& Resource : LoadedResources)
+	{
+		Resource.RegisterInlineShaderMap();
+	}
+	
 	if (CVarDiscardUnusedQualityLevels.GetValueOnAnyThread())
 	{
 		// Scan through all incoming material resources and retain only those with shadermaps
 		// which are either shared across all QLs (== EMaterialQualityLevel::Num) or which == r.MaterialQualityLevel.
 
-		const int32 DesiredQL = (int32)GetCachedScalabilityCVars().MaterialQualityLevel;
 		// Find the material resources that best match the desired QL.
+		const int32 DesiredQL = (int32)GetCachedScalabilityCVars().MaterialQualityLevel;		
 		FMaterialResource* DesiredQLMaterialResource[ERHIFeatureLevel::Num] = { 0 };
+
+		// Prioritize generic or common qualities if desired is unavailable
+		int32 BestQL[EMaterialQualityLevel::Num] = {0};
+		int32 QLPriorities[EMaterialQualityLevel::Num+1] = {1,3,2,4}; // Num > High > Med > Low
+
 		for (FMaterialResource& Resource : LoadedResources)
 		{
 			FMaterialShaderMap* LoadedShaderMap = Resource.GetGameThreadShaderMap();
@@ -688,34 +726,15 @@ void ProcessSerializedInlineShaderMaps(UMaterialInterface* Owner, TArray<FMateri
 			{
 				const EMaterialQualityLevel::Type LoadedQualityLevel = LoadedShaderMap->GetShaderMapId().QualityLevel;
 				const ERHIFeatureLevel::Type LoadedFeatureLevel = LoadedShaderMap->GetShaderMapId().FeatureLevel;
+				const int32 LoadedQLPriority = QLPriorities[LoadedQualityLevel];
+				int32& BestQLRef = BestQL[LoadedQualityLevel];
 
-				if (LoadedQualityLevel == DesiredQL)
-				{
-					// We always choose an exact match.
+				if ((LoadedQualityLevel == DesiredQL)								// We always choose an exact match
+				|| (BestQLRef != DesiredQL && LoadedQLPriority > BestQLRef)			// Favor higher quality if still searching
+				|| (DesiredQLMaterialResource[LoadedFeatureLevel] == nullptr))		// If there's nothing, take anything valid
+				{	
 					DesiredQLMaterialResource[LoadedFeatureLevel] = &Resource;
-				}
-				else if (DesiredQLMaterialResource[LoadedFeatureLevel] == nullptr && LoadedQualityLevel == EMaterialQualityLevel::Num)
-				{
-					// QLs of EMaterialQualityLevel::Num are applicable to all QLs.
-					DesiredQLMaterialResource[LoadedFeatureLevel] = &Resource;
-				}
-			}
-		}
-
-		// Register inline shader maps we're going to use, discard any unused.
-		for (FMaterialResource& Resource : LoadedResources)
-		{
-			FMaterialShaderMap* LoadedShaderMap = Resource.GetGameThreadShaderMap();
-			if (LoadedShaderMap && LoadedShaderMap->GetShaderPlatform() == GMaxRHIShaderPlatform)
-			{
-				if (DesiredQLMaterialResource[LoadedShaderMap->GetShaderMapId().FeatureLevel] == &Resource)
-				{
-					Resource.RegisterInlineShaderMap();
-				}
-				else
-				{
-					// We don't need this shadermap, free it up.
-					Resource.DiscardShaderMap();
+					BestQLRef = LoadedQLPriority;
 				}
 			}
 		}
@@ -729,19 +748,39 @@ void ProcessSerializedInlineShaderMaps(UMaterialInterface* Owner, TArray<FMateri
 				check(DesiredQLShaderMap);
 				for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
 				{
-					OutMaterialResourcesLoaded[QualityLevelIndex][FeatureIdx] =
-						OwnerMaterialInstance ? OwnerMaterialInstance->AllocatePermutationResource() : OwnerMaterial->AllocateResource();
+					if (!OutMaterialResourcesLoaded[QualityLevelIndex][FeatureIdx])
+					{
+						OutMaterialResourcesLoaded[QualityLevelIndex][FeatureIdx] =
+							OwnerMaterialInstance ? OwnerMaterialInstance->AllocatePermutationResource() : OwnerMaterial->AllocateResource();
+					}
+					OutMaterialResourcesLoaded[QualityLevelIndex][FeatureIdx]->ReleaseShaderMap();
 					OutMaterialResourcesLoaded[QualityLevelIndex][FeatureIdx]->SetInlineShaderMap(DesiredQLShaderMap);
 				}
 			}
 		}
 	}
 	else
-	{
-		for (FMaterialResource& Resource : LoadedResources)
+	{ 
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+		if (LoadedResources.Num() > 0)
 		{
-			Resource.RegisterInlineShaderMap();
+			check(LoadedResources.Num() == 1);
+			FMaterialShaderMap* LoadedShaderMap = LoadedResources[0].GetGameThreadShaderMap();
+			if (LoadedShaderMap)
+			{
+				check(LoadedShaderMap->GetShaderPlatform() == GMaxRHIShaderPlatform);
+				int32 LoadedQualityLevel = LoadedShaderMap->GetShaderMapId().QualityLevel;
+				int32 LoadedFeatureLevel = LoadedShaderMap->GetShaderMapId().FeatureLevel;
+				if (!OutMaterialResourcesLoaded[LoadedQualityLevel][LoadedFeatureLevel])
+				{
+					OutMaterialResourcesLoaded[LoadedQualityLevel][LoadedFeatureLevel] =
+						OwnerMaterialInstance ? OwnerMaterialInstance->AllocatePermutationResource() : OwnerMaterial->AllocateResource();
+				}
+				OutMaterialResourcesLoaded[LoadedQualityLevel][LoadedFeatureLevel]->SetInlineShaderMap(LoadedShaderMap);
+			}
 		}
+#else
+		const EMaterialQualityLevel::Type ActiveQualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
 
 		// Apply in 2 passes - first pass is for shader maps without a specified quality level
 		// Second pass is where shader maps with a specified quality level override
@@ -756,10 +795,11 @@ void ProcessSerializedInlineShaderMaps(UMaterialInterface* Owner, TArray<FMateri
 				{
 					EMaterialQualityLevel::Type LoadedQualityLevel = LoadedShaderMap->GetShaderMapId().QualityLevel;
 					ERHIFeatureLevel::Type LoadedFeatureLevel = LoadedShaderMap->GetShaderMapId().FeatureLevel;
+
 					for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
 					{
 						// Apply to all resources in the first pass if the shader map does not have a quality level specified
-						if ((PassIndex == 0 && LoadedQualityLevel == EMaterialQualityLevel::Num)
+						if ((PassIndex == 0 && LoadedQualityLevel == EMaterialQualityLevel::High)
 							// Apply to just the corresponding resource in the second pass if the shader map has a quality level specified
 							|| (PassIndex == 1 && QualityLevelIndex == LoadedQualityLevel))
 						{
@@ -775,6 +815,7 @@ void ProcessSerializedInlineShaderMaps(UMaterialInterface* Owner, TArray<FMateri
 				}
 			}
 		}
+#endif
 	}
 }
 
@@ -812,6 +853,7 @@ UMaterial::UMaterial(const FObjectInitializer& ObjectInitializer)
 	TranslucentMultipleScatteringExtinction = FLinearColor(1.0f, 0.833f, 0.588f, 1.0f);
 	TranslucentShadowStartOffset = 100.0f;
 
+#if WITH_EDITORONLY_DATA
 	DiffuseColor_DEPRECATED.Constant = FColor(128,128,128);
 	SpecularColor_DEPRECATED.Constant = FColor(128,128,128);
 	BaseColor.Constant = FColor(128,128,128);	
@@ -821,6 +863,7 @@ UMaterial::UMaterial(const FObjectInitializer& ObjectInitializer)
 	
 	Opacity.Constant = 1.0f;
 	OpacityMask.Constant = 1.0f;
+#endif
 	OpacityMaskClipValue = 0.3333f;
 	bCastDynamicShadowAsMasked = false;
 	bUsedWithStaticLighting = false;
@@ -2041,6 +2084,7 @@ const UMaterial* UMaterial::GetMaterial_Concurrent(TMicRecursionGuard&) const
 	return this;
 }
 
+#if WITH_EDITOR
 bool UMaterial::GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutGroup) const
 {
 	for (const UMaterialExpression* Expression : Expressions)
@@ -2123,7 +2167,6 @@ bool UMaterial::GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName&
 	return false;
 }
 
-#if WITH_EDITOR
 bool UMaterial::GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc, const TArray<FStaticMaterialLayersParameter>* MaterialLayersParameters) const
 {
 	for (const UMaterialExpression* Expression : Expressions)
@@ -2248,8 +2291,11 @@ bool UMaterial::GetScalarParameterValue(const FMaterialParameterInfo& ParameterI
 						return true;
 					}
 
-					Parameter->IsNamedParameter(ParameterInfo, OutValue);
-					return !bOveriddenOnly;
+					if (Parameter)
+					{
+						Parameter->IsNamedParameter(ParameterInfo, OutValue);
+						return !bOveriddenOnly;
+					}
 				}
 			}
 		}
@@ -2315,14 +2361,20 @@ bool UMaterial::IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInf
 
 				if (Function && Function->GetNamedParameterOfType(ParameterInfo, Parameter, &ParameterOwner))
 				{
-					OutValue = Parameter->IsUsedAsAtlasPosition();
-					if (OutValue)
+					if (Parameter)
 					{
-						UMaterialExpressionCurveAtlasRowParameter* AtlasParameter = Cast<UMaterialExpressionCurveAtlasRowParameter>(Parameter);
-						Curve = TSoftObjectPtr<UCurveLinearColor>(FSoftObjectPath(AtlasParameter->Curve->GetPathName()));
-						Atlas = TSoftObjectPtr<UCurveLinearColorAtlas>(FSoftObjectPath(AtlasParameter->Atlas->GetPathName()));
+						OutValue = Parameter->IsUsedAsAtlasPosition();
+						if (OutValue)
+						{
+							UMaterialExpressionCurveAtlasRowParameter* AtlasParameter = Cast<UMaterialExpressionCurveAtlasRowParameter>(Parameter);
+							if (AtlasParameter && AtlasParameter->ParameterName == ParameterInfo.Name)
+							{
+								Curve = TSoftObjectPtr<UCurveLinearColor>(FSoftObjectPath(AtlasParameter->Curve->GetPathName()));
+								Atlas = TSoftObjectPtr<UCurveLinearColorAtlas>(FSoftObjectPath(AtlasParameter->Atlas->GetPathName()));
+								return true;
+							}
+						}
 					}
-					return true;
 				}
 			}
 		}
@@ -2335,14 +2387,20 @@ bool UMaterial::IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInf
 
 				if (Function && Function->GetNamedParameterOfType(ParameterInfo, Parameter, &ParameterOwner))
 				{
-					OutValue = Parameter->IsUsedAsAtlasPosition();
-					if (OutValue)
+					if (Parameter)
 					{
-						UMaterialExpressionCurveAtlasRowParameter* AtlasParameter = Cast<UMaterialExpressionCurveAtlasRowParameter>(Parameter);
-						Curve = TSoftObjectPtr<UCurveLinearColor>(FSoftObjectPath(AtlasParameter->Curve->GetPathName()));
-						Atlas = TSoftObjectPtr<UCurveLinearColorAtlas>(FSoftObjectPath(AtlasParameter->Atlas->GetPathName()));
+						OutValue = Parameter->IsUsedAsAtlasPosition();
+						if (OutValue)
+						{
+							UMaterialExpressionCurveAtlasRowParameter* AtlasParameter = Cast<UMaterialExpressionCurveAtlasRowParameter>(Parameter);
+							if (AtlasParameter && AtlasParameter->ParameterName == ParameterInfo.Name)
+							{
+								Curve = TSoftObjectPtr<UCurveLinearColor>(FSoftObjectPath(AtlasParameter->Curve->GetPathName()));
+								Atlas = TSoftObjectPtr<UCurveLinearColorAtlas>(FSoftObjectPath(AtlasParameter->Atlas->GetPathName()));
+								return true;
+							}
+						}
 					}
-					return true;
 				}
 			}
 		}
@@ -2351,6 +2409,7 @@ bool UMaterial::IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInf
 	return false;
 }
 
+#if WITH_EDITOR
 bool UMaterial::GetScalarParameterSliderMinMax(const FMaterialParameterInfo& ParameterInfo, float& OutSliderMin, float& OutSliderMax) const
 {
 	// In the case of duplicate parameters with different values, this will return the
@@ -2400,6 +2459,7 @@ bool UMaterial::GetScalarParameterSliderMinMax(const FMaterialParameterInfo& Par
 
 	return false;
 }
+#endif // WITH_EDITOR
 
 bool UMaterial::GetVectorParameterValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor& OutValue, bool bOveriddenOnly) const
 {
@@ -3005,17 +3065,31 @@ void UMaterial::CacheResourceShadersForRendering(bool bRegenerateId)
 
 		while (FeatureLevelsToCompile != 0)
 		{
-			ERHIFeatureLevel::Type FeatureLevel = (ERHIFeatureLevel::Type)FBitSet::GetAndClearNextBit(FeatureLevelsToCompile); 
+			ERHIFeatureLevel::Type FeatureLevel = (ERHIFeatureLevel::Type)FBitSet::GetAndClearNextBit(FeatureLevelsToCompile);
 			EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
+			EMaterialQualityLevel::Type LocalActiveQL = ActiveQualityLevel;
 
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+			if (!HasMaterialResource(this, FeatureLevel, ActiveQualityLevel))
+			{
+				LocalActiveQL = EMaterialQualityLevel::High;
+			}
+			FMaterialResource* MaterialResource = MaterialResources[LocalActiveQL][FeatureLevel];
+			if (MaterialResource && !MaterialResource->GetGameThreadShaderMap())
+			{
+				FMaterialResource Tmp;
+				if (ReloadMaterialResource(&Tmp, GetOutermost()->GetPathName(), OffsetToFirstResource, FeatureLevel, LocalActiveQL))
+				{
+					MaterialResource->SetInlineShaderMap(Tmp.GetGameThreadShaderMap());
+				}
+			}
+#endif
 			// Only cache shaders for the quality level that will actually be used to render
+			// In cooked build, there is no shader compilation but this is still needed
+			// to register the loaded shadermap
 			ResourcesToCache.Reset();
-
-			FMaterialResource* MaterialResource = MaterialResources[ActiveQualityLevel][FeatureLevel];
-
-			check(MaterialResource);
-
-			ResourcesToCache.Add(MaterialResource);
+			check(MaterialResources[LocalActiveQL][FeatureLevel]);
+			ResourcesToCache.Add(MaterialResources[LocalActiveQL][FeatureLevel]);
 			CacheShadersForResources(ShaderPlatform, ResourcesToCache, true);
 		}
 
@@ -3049,24 +3123,22 @@ void UMaterial::CacheResourceShadersForCooking(EShaderPlatform ShaderPlatform, T
 	GetQualityLevelUsage(QualityLevelsUsed, ShaderPlatform);
 
 	bool bAnyQualityLevelUsed = false;
-
 	for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
 	{
-		bAnyQualityLevelUsed = bAnyQualityLevelUsed || QualityLevelsUsed[QualityLevelIndex];
+		bAnyQualityLevelUsed |= QualityLevelsUsed[QualityLevelIndex];
 	}
+	check(bAnyQualityLevelUsed);
 
 	for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
 	{
-		// Add all quality levels if multiple are needed (due to different node graphs), otherwise just add the high quality entry
-		if (bAnyQualityLevelUsed || QualityLevelIndex == EMaterialQualityLevel::High)
+		// Add all quality levels actually used
+		if (QualityLevelsUsed[QualityLevelIndex])
 		{
 			FMaterialResource* NewResource = AllocateResource();
 			NewResource->SetMaterial(this, (EMaterialQualityLevel::Type)QualityLevelIndex, QualityLevelsUsed[QualityLevelIndex], (ERHIFeatureLevel::Type)TargetFeatureLevel);
 			ResourcesToCache.Add(NewResource);
 		}
 	}
-
-	check(ResourcesToCache.Num() > 0);
 
 	CacheShadersForResources(ShaderPlatform, ResourcesToCache, false);
 
@@ -3184,8 +3256,6 @@ void UMaterial::RebuildMaterialFunctionInfo()
 	}
 }
 
-#endif // WITH_EDITOR
-
 void UMaterial::RebuildMaterialParameterCollectionInfo()
 {
 	MaterialParameterCollectionInfos.Empty();
@@ -3250,6 +3320,8 @@ void UMaterial::RebuildMaterialParameterCollectionInfo()
 	}
 }
 
+#endif // WITH_EDITOR
+
 void UMaterial::CacheExpressionTextureReferences()
 {
 	if ( ExpressionTextureReferences.Num() <= 0 )
@@ -3298,14 +3370,7 @@ void UMaterial::RebuildExpressionTextureReferences()
 
 FMaterialResource* UMaterial::GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel)
 {
-	check(InFeatureLevel != ERHIFeatureLevel::Num);
-
-	if (QualityLevel == EMaterialQualityLevel::Num)
-	{
-		QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
-	}
-
-	return MaterialResources[QualityLevel][InFeatureLevel];
+	return const_cast<FMaterialResource*>(static_cast<const UMaterial*>(this)->GetMaterialResource(InFeatureLevel, QualityLevel));
 }
 
 const FMaterialResource* UMaterial::GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel) const
@@ -3314,8 +3379,13 @@ const FMaterialResource* UMaterial::GetMaterialResource(ERHIFeatureLevel::Type I
 	{
 		QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
 	}
-
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+	return MaterialResources[QualityLevel][InFeatureLevel] ?
+		MaterialResources[QualityLevel][InFeatureLevel] :
+		MaterialResources[EMaterialQualityLevel::High][InFeatureLevel];
+#else
 	return MaterialResources[QualityLevel][InFeatureLevel];
+#endif
 }
 
 void UMaterial::Serialize(FArchive& Ar)
@@ -3344,9 +3414,17 @@ void UMaterial::Serialize(FArchive& Ar)
 	if (Ar.UE4Ver() >= VER_UE4_PURGED_FMATERIAL_COMPILE_OUTPUTS)
 	{
 #if WITH_EDITOR
+		static_assert(!STORE_ONLY_ACTIVE_SHADERMAPS, "Only discard unused SMs in cooked build");
 		SerializeInlineShaderMaps(&CachedMaterialResourcesForCooking, Ar, LoadedMaterialResources);
 #else
-		SerializeInlineShaderMaps(NULL, Ar, LoadedMaterialResources);
+		SerializeInlineShaderMaps(
+			NULL,
+			Ar,
+			LoadedMaterialResources
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+			, &OffsetToFirstResource
+#endif
+		);
 #endif
 	}
 	else
@@ -3481,13 +3559,26 @@ void UMaterial::GetQualityLevelUsage(TArray<bool, TInlineAllocator<EMaterialQual
 	}
 #endif
 
-	// OR in the quality overrides if we're a valid shader platform
 	if (ShaderPlatform != SP_NumPlatforms)
 	{
+		// OR in the quality overrides if we're a valid shader platform
 		const UShaderPlatformQualitySettings* MaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(ShaderPlatform);
 		OutQualityLevelsUsed[EMaterialQualityLevel::Low] |= MaterialQualitySettings->GetQualityOverrides(EMaterialQualityLevel::Low).bEnableOverride;
 		OutQualityLevelsUsed[EMaterialQualityLevel::Medium] |= MaterialQualitySettings->GetQualityOverrides(EMaterialQualityLevel::Medium).bEnableOverride;
-		// No need for EMaterialQualityLevel::High as this is always available
+
+		// AND in the quality allowances
+		bool bAnyQualityEnabled = false;
+		for (int32 Quality = 0; Quality < EMaterialQualityLevel::Num; ++Quality)
+		{
+			OutQualityLevelsUsed[Quality] &= !MaterialQualitySettings->GetQualityOverrides((EMaterialQualityLevel::Type)Quality).bDiscardQualityDuringCook;
+			bAnyQualityEnabled |= OutQualityLevelsUsed[Quality];
+		}
+
+		// As a fallback re-enable High (Default) quality if project has disabled everything incorrectly
+		if (!bAnyQualityEnabled || bUsedAsSpecialEngineMaterial)
+		{
+			OutQualityLevelsUsed[EMaterialQualityLevel::High] = true;
+		}
 	}
 }
 
@@ -3511,6 +3602,11 @@ void UMaterial::GetQualityLevelNodeUsage(TArray<bool, TInlineAllocator<EMaterial
 					OutQualityLevelsUsed[InputIndex] = true;
 				}
 			}
+
+			if (QualitySwitchNode->Default.IsConnected())
+			{
+				OutQualityLevelsUsed[EMaterialQualityLevel::High] = true;
+			}
 		}
 		else if (MaterialFunctionNode && MaterialFunctionNode->MaterialFunction)
 		{
@@ -3532,6 +3628,11 @@ void UMaterial::GetQualityLevelNodeUsage(TArray<bool, TInlineAllocator<EMaterial
 							{
 								OutQualityLevelsUsed[InputIndex] = true;
 							}
+						}
+
+						if (SwitchNode->Default.IsConnected())
+						{
+							OutQualityLevelsUsed[EMaterialQualityLevel::High] = true;
 						}
 					}
 				}
@@ -3555,10 +3656,32 @@ void UMaterial::GetQualityLevelNodeUsage(TArray<bool, TInlineAllocator<EMaterial
 								OutQualityLevelsUsed[InputIndex] = true;
 							}
 						}
+
+						if (SwitchNode->Default.IsConnected())
+						{
+							OutQualityLevelsUsed[EMaterialQualityLevel::High] = true;
+						}
 					}
 				}
 			}
 		}
+	}
+
+	// Always append a default high quality level if nothing else is set
+	
+	bool bAnyQualityLevelsSet = false;
+	for (bool Value : OutQualityLevelsUsed)
+	{
+		if (Value)
+		{
+			bAnyQualityLevelsSet = true;
+			break;
+		}
+	}
+
+	if (!bAnyQualityLevelsSet)
+	{
+		OutQualityLevelsUsed[EMaterialQualityLevel::High] = true;
 	}
 }
 
@@ -3566,10 +3689,38 @@ void UMaterial::UpdateResourceAllocations()
 {
 	if (FApp::CanEverRender())
 	{
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+		EMaterialQualityLevel::Type ActiveQualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
+		const ERHIFeatureLevel::Type ActiveFeatureLevel = GMaxRHIFeatureLevel;
+		if (!HasMaterialResource(this, ActiveFeatureLevel, ActiveQualityLevel))
+		{
+			ActiveQualityLevel = EMaterialQualityLevel::High;
+		}
+		for (int32 Feature = 0; Feature < ERHIFeatureLevel::Num; ++Feature)
+		{
+			for (int32 Quality = 0; Quality < EMaterialQualityLevel::Num; ++Quality)
+			{
+				FMaterialResource*& Resource = MaterialResources[Quality][Feature];
+				if (Feature != ActiveFeatureLevel || Quality != ActiveQualityLevel)
+				{
+					delete Resource;
+					Resource = nullptr;
+				}
+				else
+				{
+					if (!Resource)
+					{
+						Resource = AllocateResource();
+					}
+					Resource->SetMaterial(this, ActiveQualityLevel, true, ActiveFeatureLevel);
+				}
+			}
+		}
+#else
 		for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ERHIFeatureLevel::Num; FeatureLevelIndex++)
 		{
-			TArray<bool, TInlineAllocator<EMaterialQualityLevel::Num> > QualityLevelsUsed;
 			EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevelIndex];
+			TArray<bool, TInlineAllocator<EMaterialQualityLevel::Num> > QualityLevelsUsed;
 			GetQualityLevelUsage(QualityLevelsUsed, ShaderPlatform);
 			for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
 			{
@@ -3585,6 +3736,7 @@ void UMaterial::UpdateResourceAllocations()
 				CurrentResource->SetMaterial(this, (EMaterialQualityLevel::Type)QualityLevelIndex, bHasQualityLevelUsage, (ERHIFeatureLevel::Type)FeatureLevelIndex);
 			}
 		}
+#endif
 	}
 }
 
@@ -3611,7 +3763,7 @@ void UMaterial::PostLoad()
 			Resource.DiscardShaderMap();
 		}		
 	}
-	// Empty the lsit of loaded resources, we don't need it anymore
+	// Empty the list of loaded resources, we don't need it anymore
 	LoadedMaterialResources.Empty();
 
 #if WITH_EDITORONLY_DATA
@@ -4888,7 +5040,7 @@ bool UMaterial::UpdateLightmassTextureTracking()
 	return bTexturesHaveChanged;
 }
 
-
+#if WITH_EDITOR
 FExpressionInput* UMaterial::GetExpressionInputForProperty(EMaterialProperty InProperty)
 {
 	switch (InProperty)
@@ -4920,6 +5072,7 @@ FExpressionInput* UMaterial::GetExpressionInputForProperty(EMaterialProperty InP
 
 	return nullptr;
 }
+#endif
 
 void UMaterial::GetAllCustomOutputExpressions(TArray<class UMaterialExpressionCustomOutput*>& OutCustomOutputs) const
 {
@@ -4949,7 +5102,7 @@ void UMaterial::GetAllExpressionsForCustomInterpolators(TArray<class UMaterialEx
 
 #if WITH_EDITOR
 bool UMaterial::GetAllReferencedExpressions(TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet,
-	ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality)
+	ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality, ERHIShadingPath::Type InShadingPath)
 {
 	OutExpressions.Empty();
 
@@ -4959,7 +5112,7 @@ bool UMaterial::GetAllReferencedExpressions(TArray<UMaterialExpression*>& OutExp
 		if (bUseMaterialAttributes)
 		{
 			TArray<UMaterialExpression*> MPRefdExpressions;
-			if (GetExpressionsInPropertyChain(MP_MaterialAttributes, MPRefdExpressions, InStaticParameterSet, InFeatureLevel, InQuality) == true)
+			if (GetExpressionsInPropertyChain(MP_MaterialAttributes, MPRefdExpressions, InStaticParameterSet, InFeatureLevel, InQuality, InShadingPath) == true)
 			{
 				for (int32 AddIdx = 0; AddIdx < MPRefdExpressions.Num(); AddIdx++)
 				{
@@ -4984,7 +5137,7 @@ bool UMaterial::GetAllReferencedExpressions(TArray<UMaterialExpression*>& OutExp
 			for (EMaterialProperty MaterialProp : MobileRelevantMaterialProperties)
 			{
 				TArray<UMaterialExpression*> MPRefdExpressions;
-				if (GetExpressionsInPropertyChain(MaterialProp, MPRefdExpressions, InStaticParameterSet, InFeatureLevel, InQuality) == true)
+				if (GetExpressionsInPropertyChain(MaterialProp, MPRefdExpressions, InStaticParameterSet, InFeatureLevel, InQuality, InShadingPath) == true)
 				{
 					for (int32 AddIdx = 0; AddIdx < MPRefdExpressions.Num(); AddIdx++)
 					{
@@ -5000,7 +5153,7 @@ bool UMaterial::GetAllReferencedExpressions(TArray<UMaterialExpression*>& OutExp
 	    {
 		    EMaterialProperty MaterialProp = EMaterialProperty(MPIdx);
 		    TArray<UMaterialExpression*> MPRefdExpressions;
-			if (GetExpressionsInPropertyChain(MaterialProp, MPRefdExpressions, InStaticParameterSet, InFeatureLevel, InQuality) == true)
+			if (GetExpressionsInPropertyChain(MaterialProp, MPRefdExpressions, InStaticParameterSet, InFeatureLevel, InQuality, InShadingPath) == true)
 			{
 			    for (int32 AddIdx = 0; AddIdx < MPRefdExpressions.Num(); AddIdx++)
 			    {
@@ -5014,7 +5167,7 @@ bool UMaterial::GetAllReferencedExpressions(TArray<UMaterialExpression*>& OutExp
 	    for (UMaterialExpressionCustomOutput* Expression : CustomOutputExpressions)
 	    {
 		    TArray<FExpressionInput*> ProcessedInputs;
-			RecursiveGetExpressionChain(Expression, ProcessedInputs, OutExpressions, InStaticParameterSet, InFeatureLevel, InQuality);
+			RecursiveGetExpressionChain(Expression, ProcessedInputs, OutExpressions, InStaticParameterSet, InFeatureLevel, InQuality, InShadingPath);
 		}
 	}
 
@@ -5024,7 +5177,7 @@ bool UMaterial::GetAllReferencedExpressions(TArray<UMaterialExpression*>& OutExp
 
 bool UMaterial::GetExpressionsInPropertyChain(EMaterialProperty InProperty, 
 	TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet,
-	ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality)
+	ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality, ERHIShadingPath::Type InShadingPath)
 {
 	OutExpressions.Empty();
 	FExpressionInput* StartingExpression = GetExpressionInputForProperty(InProperty);
@@ -5039,12 +5192,11 @@ bool UMaterial::GetExpressionsInPropertyChain(EMaterialProperty InProperty,
 	if (StartingExpression->Expression)
 	{
 		ProcessedInputs.AddUnique(StartingExpression);
-		RecursiveGetExpressionChain(StartingExpression->Expression, ProcessedInputs, OutExpressions, InStaticParameterSet, InFeatureLevel, InQuality);
+		RecursiveGetExpressionChain(StartingExpression->Expression, ProcessedInputs, OutExpressions, InStaticParameterSet, InFeatureLevel, InQuality, InShadingPath);
 	}
 	return true;
 }
 
-#if WITH_EDITOR
 bool UMaterial::GetParameterSortPriority(const FMaterialParameterInfo& ParameterInfo, int32& OutSortPriority, const TArray<FStaticMaterialLayersParameter>* MaterialLayersParameters) const
 {
 	for (UMaterialExpression* Expression : Expressions)
@@ -5177,17 +5329,17 @@ bool UMaterial::GetTexturesInPropertyChain(EMaterialProperty InProperty, TArray<
 
 	return false;
 }
-#endif // WITH_EDITOR
 
 bool UMaterial::RecursiveGetExpressionChain(UMaterialExpression* InExpression, TArray<FExpressionInput*>& InOutProcessedInputs, 
 	TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet,
-	ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality)
+	ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality, ERHIShadingPath::Type InShadingPath)
 {
 	OutExpressions.AddUnique(InExpression);
 	TArray<FExpressionInput*> Inputs;
 	
 	UMaterialExpressionFeatureLevelSwitch* FeatureLevelSwitchExp;
 	UMaterialExpressionQualitySwitch* QualitySwitchExp;
+	UMaterialExpressionShadingPathSwitch* ShadingPathSwitchExp;
 	UMaterialExpressionMakeMaterialAttributes* MakeMaterialAttributesExp;
 
 	if (InFeatureLevel != ERHIFeatureLevel::Num && (FeatureLevelSwitchExp = Cast<UMaterialExpressionFeatureLevelSwitch>(InExpression)) != nullptr)
@@ -5210,6 +5362,17 @@ bool UMaterial::RecursiveGetExpressionChain(UMaterialExpression* InExpression, T
 		else
 		{
 			Inputs.Add(&QualitySwitchExp->Default);
+		}
+	}
+	else if (InShadingPath != ERHIShadingPath::Num && (ShadingPathSwitchExp = Cast<UMaterialExpressionShadingPathSwitch>(InExpression)) != nullptr)
+	{
+		if (ShadingPathSwitchExp->Inputs[InShadingPath].IsConnected())
+		{
+			Inputs.Add(&ShadingPathSwitchExp->Inputs[InShadingPath]);
+		}
+		else
+		{
+			Inputs.Add(&ShadingPathSwitchExp->Default);
 		}
 	}
 	else if (InFeatureLevel <= ERHIFeatureLevel::ES3_1 && (MakeMaterialAttributesExp = Cast<UMaterialExpressionMakeMaterialAttributes>(InExpression)) != nullptr)
@@ -5491,12 +5654,25 @@ UMaterial::FMaterialCompilationFinished& UMaterial::OnMaterialCompilationFinishe
 
 void UMaterial::AllMaterialsCacheResourceShadersForRendering()
 {
+#if STORE_ONLY_ACTIVE_SHADERMAPS
+	TArray<UMaterial*> Materials;
+	for (TObjectIterator<UMaterial> It; It; ++It)
+	{
+		Materials.Add(*It);
+	}
+	Materials.Sort([](const UMaterial& A, const UMaterial& B) { return A.OffsetToFirstResource < B.OffsetToFirstResource; });
+	for (UMaterial* Material : Materials)
+	{
+		Material->CacheResourceShadersForRendering(false);
+	}
+#else
 	for (TObjectIterator<UMaterial> It; It; ++It)
 	{
 		UMaterial* Material = *It;
 
 		Material->CacheResourceShadersForRendering(false);
 	}
+#endif
 }
 
 /**

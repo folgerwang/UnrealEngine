@@ -114,7 +114,7 @@ protected:
 	virtual void OnRefreshDesignerItems() override;
 #endif
 
-	virtual UUserWidget& OnGenerateEntryWidgetInternal(UObject* Item, const TSharedRef<STableViewBase>& OwnerTable) override;
+	virtual UUserWidget& OnGenerateEntryWidgetInternal(UObject* Item, TSubclassOf<UUserWidget> DesiredEntryClass, const TSharedRef<STableViewBase>& OwnerTable) override;
 	virtual FMargin GetDesiredEntryPadding(UObject* Item) const override;
 
 	virtual void OnItemClickedInternal(UObject* Item) override;

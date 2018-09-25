@@ -35,6 +35,7 @@ const FString FAndroidDeviceProfileSelectorModule::GetDeviceProfileName(const TM
 	FString AndroidVersion = DeviceParameters.FindChecked("AndroidVersion");
 	FString DeviceMake = DeviceParameters.FindChecked("DeviceMake");
 	FString DeviceModel = DeviceParameters.FindChecked("DeviceModel");
+	FString DeviceBuildNumber = DeviceParameters.FindChecked("DeviceBuildNumber");
 	FString UsingHoudini = DeviceParameters.FindChecked("UsingHoudini");
 
 	UE_LOG(LogAndroid, Log, TEXT("Checking %d rules from DeviceProfile ini file."), FAndroidDeviceProfileSelector::GetNumProfiles() );
@@ -46,9 +47,10 @@ const FString FAndroidDeviceProfileSelectorModule::GetDeviceProfileName(const TM
 	UE_LOG(LogAndroid, Log, TEXT("  AndroidVersion: %s"), *AndroidVersion);
 	UE_LOG(LogAndroid, Log, TEXT("  DeviceMake: %s"), *DeviceMake);
 	UE_LOG(LogAndroid, Log, TEXT("  DeviceModel: %s"), *DeviceModel);
+	UE_LOG(LogAndroid, Log, TEXT("  DeviceBuildNumber: %s"), *DeviceBuildNumber);
 	UE_LOG(LogAndroid, Log, TEXT("  UsingHoudini: %s"), *UsingHoudini);
 
-	ProfileName = FAndroidDeviceProfileSelector::FindMatchingProfile(GPUFamily, GLVersion, AndroidVersion, DeviceMake, DeviceModel, VulkanAvailable, VulkanVersion, UsingHoudini, ProfileName);
+	ProfileName = FAndroidDeviceProfileSelector::FindMatchingProfile(GPUFamily, GLVersion, AndroidVersion, DeviceMake, DeviceModel, DeviceBuildNumber, VulkanAvailable, VulkanVersion, UsingHoudini, ProfileName);
 
 	UE_LOG(LogAndroid, Log, TEXT("Selected Device Profile: [%s]"), *ProfileName);
 

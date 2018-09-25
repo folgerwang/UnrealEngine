@@ -26,6 +26,7 @@ namespace WatchdogDefs
 	static const FString RunningSessionToken(TEXT("Running"));
 	static const FString ShutdownSessionToken(TEXT("Shutdown"));
 	static const FString CrashSessionToken(TEXT("Crashed"));
+	static const FString TerminatedSessionToken(TEXT("Terminated"));
 	static const FString TrueValueString(TEXT("1"));
 
 	static const FTimespan SendWatchdogHeartbeatPeriod(0, 5, 0);
@@ -92,7 +93,7 @@ FString GetWatchdogStoredTimestamp(const FString& WatchdogSectionName)
  *
  * @Trigger Event raised by UnrealWatchdog at startup. Records an instance of the watchdog running and whether the watched process was found successfully.
  *
- * @Type Static
+ * @Type Client
  * @Owner Chris.Wood
  *
  * @EventParam RunType - Editor or Game
@@ -107,11 +108,12 @@ void SendStartupEvent(IAnalyticsProviderET& Analytics, const FWatchdogCommandLin
 {
 	TArray< FAnalyticsEventAttribute > StartupAttributes;
 	GetCommonEventAttributes(CommandLine, StartupAttributes);
-	StartupAttributes.Add(FAnalyticsEventAttribute(TEXT("bValidPID"), CommandLine.bHasProcessId ? TEXT("True") : TEXT("False")));
-	StartupAttributes.Add(FAnalyticsEventAttribute(TEXT("bProcessFound"), bInitiallyRunning ? TEXT("True") : TEXT("False")));
+	StartupAttributes.Add(FAnalyticsEventAttribute(TEXT("bValidPID"), CommandLine.bHasProcessId));
+	StartupAttributes.Add(FAnalyticsEventAttribute(TEXT("bProcessFound"), bInitiallyRunning));
 
 	UE_LOG(UnrealWatchdogLog, Log, TEXT("Sending event UnrealWatchdog.Initialized"));
 	Analytics.RecordEvent(TEXT("UnrealWatchdog.Initialized"), MoveTemp(StartupAttributes));
+	Analytics.FlushEvents(); // flush immediately to ensure we get this.
 }
 
 /**
@@ -119,7 +121,7 @@ void SendStartupEvent(IAnalyticsProviderET& Analytics, const FWatchdogCommandLin
  *
  * @Trigger Event raised by a running UnrealWatchdog process while waiting for a process to exit.
  *
- * @Type Static
+ * @Type Client
  * @Owner Chris.Wood
  *
  * @EventParam RunType - Editor or Game
@@ -170,7 +172,7 @@ bool CheckParentHeartbeat(IAnalyticsProviderET& Analytics, const FWatchdogComman
  *
  * @Trigger Event raised when the watchdog detects an interruption in the heartbeat of the watched process.
  *
- * @Type Static
+ * @Type Client
  * @Owner Chris.Wood
  *
  * @EventParam RunType - Editor or Game
@@ -201,7 +203,7 @@ void SendHangDetectedEvent(IAnalyticsProviderET& Analytics, const FWatchdogComma
 		if (HangAnswer == EAppReturnType::Yes)
 		{
 			UE_LOG(UnrealWatchdogLog, Log, TEXT("User confirmed hang"));
-			HangResponse= TEXT("Confirmed");
+			HangResponse = TEXT("Confirmed");
 
 			FText RecoveredMessage(LOCTEXT("WatchdogPopupRecoveredMessage", "Has the application recovered?"));
 
@@ -243,7 +245,7 @@ void SendHangDetectedEvent(IAnalyticsProviderET& Analytics, const FWatchdogComma
  *
  * @Trigger Event raised when the watchdog detects that the heartbeat of the watched process has resumed updating after a hang was detected.
  *
- * @Type Static
+ * @Type Client
  * @Owner Chris.Wood
  *
  * @EventParam RunType - Editor or Game
@@ -266,7 +268,7 @@ void SendHangRecoveredEvent(IAnalyticsProviderET& Analytics, const FWatchdogComm
  *
  * @Trigger Event raised by UnrealWatchdog at shutdown. The watched process has exited (or wasn't found).
  *
- * @Type Static
+ * @Type Client
  * @Owner Chris.Wood
  *
  * @EventParam RunType - Editor or Game
@@ -274,32 +276,35 @@ void SendHangRecoveredEvent(IAnalyticsProviderET& Analytics, const FWatchdogComm
  * @EventParam Platform - Windows, Mac, Linux
  * @EventParam SessionId - Analytics SessionID of the session that abnormally terminated.
  * @EventParam EngineVersion - EngineVersion of the session that abnormally terminated.
- * @EventParam bReturnCodeObtained - Did the Watchdog get the return/exit code from the process? (True or False)
- * @EventParam OSReturnCode - The exit code of the watched process.
+ * @EventParam OSReturnCode - The exit code of the watched process. Omitted in the rare event we can't determine the exit code.
  * @EventParam CommandLine - Full command line that ran the watched process.
  * @EventParam StartTime - The time the watched process initialized the watchdog.
  * @EventParam LastTimestamp - The last time the watched process updated its stored status (not necessarily the shutdown time).
- * @EventParam LastExecutionStatus - The last updated status of the watched process when it was running. (Running, Shutdown, Crashed or Hang)
+ * @EventParam LastExecutionStatus - The last updated status of the watched process when it was running. (Running, Shutdown, Terminated, Crashed or Hang)
  * @EventParam LastUserActivity - The last updated user activity, if any, of the watched process.
+ * @EventParam WasDebugged - Whether the watched process ran via debugger.
  * @EventParam AbnormalShutdownUserResponse - Indicates the response, if any, from the user when asked about the shutdown by the watchdog (Unattended, Confirmed, False)
  */
 void SendShutdownEvent(IAnalyticsProviderET& Analytics, const FWatchdogCommandLine& CommandLine, bool bReturnCodeObtained, uint32 ReturnCode, FAnalyticsEventAttribute& UserResponse, const FWatchdogStoredValues& StoredValues, const FDateTime& StartupTime)
 {
 	TArray< FAnalyticsEventAttribute > ShutdownAttributes;
 	GetCommonEventAttributes(CommandLine, ShutdownAttributes);
-	ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("bReturnCodeObtained"), bReturnCodeObtained ? TEXT("True") : TEXT("False")));
-	ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("OSReturnCode"), ReturnCode));
+	if (bReturnCodeObtained)
+	{
+		ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("OSReturnCode"), ReturnCode));
+	}
 	ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("CommandLine"), StoredValues.CommandLine));
 	ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("StartTime"), StoredValues.StartTime));
 	ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("LastTimestamp"), StoredValues.LastTimestamp));
 	ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("LastExecutionStatus"), StoredValues.ExecutionStatus));
 	ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("LastUserActivity"), StoredValues.UserActivity));
-	ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("WasDebugged"), StoredValues.WasDebugged));
+	ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("WasDebugged"), StoredValues.WasDebugged == WatchdogDefs::TrueValueString));
 	ShutdownAttributes.Add(FAnalyticsEventAttribute(TEXT("TotalRunTimeSeconds"), (int)((FDateTime::UtcNow() - StartupTime).GetTotalSeconds())));
 	ShutdownAttributes.Add(UserResponse);
 
 	UE_LOG(UnrealWatchdogLog, Log, TEXT("Sending event UnrealWatchdog.Shutdown"));
 	Analytics.RecordEvent(TEXT("UnrealWatchdog.Shutdown"), MoveTemp(ShutdownAttributes));
+	Analytics.FlushEvents(); // flush immediately to ensure we get this.
 }
 
 void TickHeartbeat(IAnalyticsProviderET& Analytics, const FWatchdogCommandLine& CommandLine, FDateTime& InOutNextHeartbeatSend)
@@ -355,9 +360,10 @@ void TickHangCheck(IAnalyticsProviderET& Analytics, const FWatchdogCommandLine& 
 
 bool WaitForProcess(IAnalyticsProviderET& Analytics, const FWatchdogCommandLine& CommandLine, int32& OutReturnCode, bool& bOutHang, const FString& WatchdogSectionName)
 {
-	FDateTime NextHeartbeatSend = FDateTime::UtcNow();
-	FDateTime NextProcessCheck = FDateTime::UtcNow();
-	FDateTime NextHeartbeatCheck = FDateTime::UtcNow();
+	FDateTime UtcNow = FDateTime::UtcNow();
+	FDateTime NextHeartbeatSend = UtcNow;
+	FDateTime NextProcessCheck = UtcNow;
+	FDateTime NextHeartbeatCheck = UtcNow;
 	bool bSuccess = false;
 	bOutHang = false;
 	OutReturnCode = -1;
@@ -382,6 +388,18 @@ bool WaitForProcess(IAnalyticsProviderET& Analytics, const FWatchdogCommandLine&
 			}
 
 			FPlatformProcess::Sleep(WatchdogDefs::TickSleepSeconds);
+
+			// update various core timers and stuff that would normally be updated by the Engine Tick loop.
+			// This is not necessarily ALL things that must be update, but seems sufficient to handle what we need
+			const double NowAppTime = FPlatformTime::Seconds();
+			const double DeltaTime = FMath::Max(0.0, NowAppTime - FApp::GetCurrentTime());
+			FApp::SetDeltaTime(DeltaTime);
+			FApp::SetCurrentTime(NowAppTime);
+			FApp::UpdateLastTime();
+			FApp::SetIdleTime(WatchdogDefs::TickSleepSeconds);
+			GFrameCounter++;
+			FTicker::GetCoreTicker().Tick(FApp::GetDeltaTime());
+			FThreadManager::Get().Tick();
 		}
 
 		FPlatformProcess::CloseProc(ParentProcess);
@@ -399,7 +417,7 @@ bool WaitForProcess(IAnalyticsProviderET& Analytics, const FWatchdogCommandLine&
 *
 * @Trigger Event raised by UnrealWatchdog as part of MTBF tracking. Records an instance of a watchdog protected process shutting down abnormally.
 *
-* @Type Static
+* @Type Client
 * @Owner Chris.Wood
 *
 * @EventParam RunType - Editor or Game
@@ -413,6 +431,8 @@ int RunUnrealWatchdog(const TCHAR* CommandLine)
 {
 	// start up the main loop
 	GEngineLoop.PreInit(CommandLine);
+	FApp::SetCurrentTime(FPlatformTime::Seconds());
+
 	FDateTime StartupTime = FDateTime::UtcNow();
 
 	check(GConfig && GConfig->IsReadyForUse());
@@ -456,34 +476,42 @@ int RunUnrealWatchdog(const TCHAR* CommandLine)
 	FString ShutdownResponse = TEXT("Unattended");
 	if (WatchdogCommandLine.bAllowDialogs && !bHang && StoredValues.WasDebugged != WatchdogDefs::TrueValueString)
 	{
+		// Copy the watched program's log before it has a chance to restart & overwrite the file.
+		FString LogContents;
+		const bool bLoadedLogContents = FFileHelper::LoadFileToString(LogContents, *WatchdogCommandLine.LogPath);
+
 		EAppReturnType::Type UserAnswer = EAppReturnType::Cancel;
 		FText SessionLabel = FText::Format(LOCTEXT("SessionLabel", "{0} ({1})"), FText::FromString(WatchdogCommandLine.ProjectName), FText::FromString(WatchdogCommandLine.RunType));
 		FString EnsureText;
 
 		if (StoredValues.ExecutionStatus == WatchdogDefs::CrashSessionToken)
 		{
-			// Crashed status
-			FText MessageTitleFormat(LOCTEXT("WatchdogPopupTitleCrashed", "{0} crashed"));
-			FText MessageTitle = FText::Format(MessageTitleFormat, SessionLabel);
-			FText Message(LOCTEXT("WatchdogPopupQuestionCrashed", "We think a crash occurred, was handled correctly, and the Crash Reporter appeared. Please tell us if you saw the Crash Reporter?"));
-
-			EnsureText = FString::Printf(TEXT("Watchdog detected crash in %s."), *SessionLabel.ToString());
-			UserAnswer = FMessageDialog::Open(EAppMsgType::YesNo, Message, &MessageTitle);
-
-			if (UserAnswer == EAppReturnType::Yes)
+			constexpr bool bUserShouldVerifyCrashReporter = false;
+			if (bUserShouldVerifyCrashReporter)
 			{
-				UE_LOG(UnrealWatchdogLog, Log, TEXT("User confirmed crash and crash report client"));
-				ShutdownResponse = TEXT("Confirmed");
-			}
-			else if (UserAnswer == EAppReturnType::No)
-			{
-				UE_LOG(UnrealWatchdogLog, Warning, TEXT("User didn't witness crash and crash report client. False positive warning!"));
-				ShutdownResponse = TEXT("False");
+				// Crashed status
+				FText MessageTitleFormat(LOCTEXT("WatchdogPopupTitleCrashed", "{0} crashed"));
+				FText MessageTitle = FText::Format(MessageTitleFormat, SessionLabel);
+				FText Message(LOCTEXT("WatchdogPopupQuestionCrashed", "We think a crash occurred, was handled correctly, and the Crash Reporter appeared. Please tell us if you saw the Crash Reporter?"));
 
-				FText CRCMessage(LOCTEXT("WatchdogPopupCRCMessage", "We will now open the Crash Reporter for you to tell us what happened."));
-				FMessageDialog::Open(EAppMsgType::Ok, CRCMessage, &MessageTitle);
+				EnsureText = FString::Printf(TEXT("Watchdog detected crash in %s."), *SessionLabel.ToString());
+				UserAnswer = FMessageDialog::Open(EAppMsgType::YesNo, Message, &MessageTitle);
 
-				ReportInteractiveEnsure(*EnsureText);
+				if (UserAnswer == EAppReturnType::Yes)
+				{
+					UE_LOG(UnrealWatchdogLog, Log, TEXT("User confirmed crash and crash report client"));
+					ShutdownResponse = TEXT("Confirmed");
+				}
+				else if (UserAnswer == EAppReturnType::No)
+				{
+					UE_LOG(UnrealWatchdogLog, Warning, TEXT("User didn't witness crash and crash report client. False positive warning!"));
+					ShutdownResponse = TEXT("False");
+
+					FText CRCMessage(LOCTEXT("WatchdogPopupCRCMessage", "We will now open the Crash Reporter for you to tell us what happened."));
+					FMessageDialog::Open(EAppMsgType::Ok, CRCMessage, &MessageTitle);
+
+					ReportInteractiveEnsure(*EnsureText);
+				}
 			}
 		}
 		else
@@ -491,7 +519,27 @@ int RunUnrealWatchdog(const TCHAR* CommandLine)
 			// Non-crash status
 			const bool bBadReturnCode = bReturnCodeObtained && ReturnCode != WatchdogCommandLine.SuccessReturnCode;
 
-			if (StoredValues.ExecutionStatus == WatchdogDefs::RunningSessionToken)
+			if (StoredValues.ExecutionStatus == WatchdogDefs::TerminatedSessionToken)
+			{
+				// Terminated for a known reason we should ignore?
+#if PLATFORM_WINDOWS
+				if (bReturnCodeObtained && ReturnCode == 0xC000013A) // Ctrl-C, also includes closing the console log window to exit
+#else
+				if (false)
+#endif
+				{
+					// Do not show dialog. Watchdog will send only basic telemetry.
+				}
+				else
+				{
+					FText MessageTitleFormat(LOCTEXT("WatchdogPopupTitleAbnormalShutdown", "{0} terminated unexpectedly"));
+					FText MessageTitle = FText::Format(MessageTitleFormat, SessionLabel);
+					FText Message = LOCTEXT("WatchdogPopupQuestionTermination", "Did the application terminate without showing the Crash Reporter?");
+
+					EnsureText = FString::Printf(TEXT("Watchdog detected abnormal termination and returned code %d in %s."), ReturnCode, *SessionLabel.ToString());
+				}
+			}
+			else if (StoredValues.ExecutionStatus == WatchdogDefs::RunningSessionToken)
 			{
 				// Abnormal shutdown status
 				FText MessageTitle;
@@ -560,6 +608,18 @@ int RunUnrealWatchdog(const TCHAR* CommandLine)
 
 				FMessageDialog::Open(EAppMsgType::Ok, Message, &MessageTitle);
 
+				// Append the watched program's log to the end of Watchdog's log
+				// Crash reporter will send this as part of its payload
+				if (bLoadedLogContents)
+				{
+					UE_LOG(UnrealWatchdogLog, Log, TEXT("=== BEGIN LOG OF INTEREST ===\n\n%s\n\n%s"), *WatchdogCommandLine.LogPath, *LogContents);
+					UE_LOG(UnrealWatchdogLog, Log, TEXT("=== END LOG OF INTEREST ==="));
+				}
+				else
+				{
+					UE_LOG(UnrealWatchdogLog, Warning, TEXT("Unable to load '%s'"), *WatchdogCommandLine.LogPath);
+				}
+
 				ReportInteractiveEnsure(*EnsureText);
 			}
 			else if (UserAnswer == EAppReturnType::No)
@@ -571,8 +631,8 @@ int RunUnrealWatchdog(const TCHAR* CommandLine)
 	}
 
 	// Send watchdog shutdown event
-	UE_LOG(UnrealWatchdogLog, Log, TEXT("Watchdog watched process exited. bReturnCodeObtained=%s, ReturnCode=%u, RecordedShutdownType=%s"),
-		bReturnCodeObtained ? TEXT("1") : TEXT("0"), ReturnCode, *StoredValues.ExecutionStatus);
+	UE_LOG(UnrealWatchdogLog, Log, TEXT("Watchdog watched process exited. ReturnCode=%s, RecordedShutdownType=%s"),
+		bReturnCodeObtained ? *FString::FromInt(ReturnCode) : TEXT("<none>"), *StoredValues.ExecutionStatus);
 	FAnalyticsEventAttribute UserResponse(TEXT("AbnormalShutdownUserResponse"), ShutdownResponse);
 	SendShutdownEvent(Analytics, WatchdogCommandLine, bReturnCodeObtained, ReturnCode, UserResponse, StoredValues, StartupTime);
 

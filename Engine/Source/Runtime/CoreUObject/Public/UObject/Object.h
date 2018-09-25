@@ -1123,6 +1123,11 @@ public:
 
 	virtual void MarkAsEditorOnlySubobject() { }
 
+	/**
+	 * Abort with a member function call at the top of the callstack, helping to ensure that most platforms will stuff this object's memory into the resulting minidump.
+	 */
+	void AbortInsideMemberFunction() const;
+
 	// UnrealScript intrinsics.
 
 	// Undefined native handler

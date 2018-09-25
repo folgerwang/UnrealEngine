@@ -2444,7 +2444,7 @@ void FMeshMaterialsLayout::OnMaterialNameCommitted(const FText& InValue, ETextCo
 bool FMeshMaterialsLayout::CanDeleteMaterialSlot(int32 MaterialIndex) const
 {
 	UStaticMesh& StaticMesh = GetStaticMesh();
-	return (MaterialIndex + 1) == StaticMesh.StaticMaterials.Num();
+	return StaticMesh.StaticMaterials.IsValidIndex(MaterialIndex);
 }
 
 void FMeshMaterialsLayout::OnDeleteMaterialSlot(int32 MaterialIndex)
@@ -2452,10 +2452,37 @@ void FMeshMaterialsLayout::OnDeleteMaterialSlot(int32 MaterialIndex)
 	UStaticMesh& StaticMesh = GetStaticMesh();
 	if (CanDeleteMaterialSlot(MaterialIndex))
 	{
+		if (!bDeleteWarningConsumed)
+		{
+			EAppReturnType::Type Answer = FMessageDialog::Open(EAppMsgType::OkCancel, LOCTEXT("FMeshMaterialsLayout_DeleteMaterialSlot", "WARNING - Deleting a material slot can break the game play blueprint or the game play code. All indexes after the delete slot will change"));
+			if (Answer == EAppReturnType::Cancel)
+			{
+				return;
+			}
+			bDeleteWarningConsumed = true;
+		}
+
 		FScopedTransaction Transaction(LOCTEXT("StaticMeshEditorDeletedMaterialSlot", "Staticmesh editor: Deleted material slot"));
 
 		StaticMesh.Modify();
 		StaticMesh.StaticMaterials.RemoveAt(MaterialIndex);
+
+		//Fix the section info, the FMeshDescription use FName to retrieve the indexes when we build so no need to fix it
+		for (int32 LodIndex = 0; LodIndex < StaticMesh.GetNumLODs(); ++LodIndex)
+		{
+			for (int32 SectionIndex = 0; SectionIndex < StaticMesh.GetNumSections(LodIndex); ++SectionIndex)
+			{
+				if (StaticMesh.SectionInfoMap.IsValidSection(LodIndex, SectionIndex))
+				{
+					FMeshSectionInfo SectionInfo = StaticMesh.SectionInfoMap.Get(LodIndex, SectionIndex);
+					if (SectionInfo.MaterialIndex > MaterialIndex)
+					{
+						SectionInfo.MaterialIndex -= 1;
+						StaticMesh.SectionInfoMap.Set(LodIndex, SectionIndex, SectionInfo);
+					}
+				}
+			}
+		}
 
 		StaticMesh.PostEditChange();
 	}

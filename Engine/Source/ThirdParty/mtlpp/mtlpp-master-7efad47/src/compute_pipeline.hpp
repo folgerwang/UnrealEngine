@@ -20,7 +20,7 @@ MTLPP_BEGIN
 namespace ue4
 {
 	template<>
-	struct ITable<id<MTLComputePipelineState>, void> : public IMPTable<id<MTLComputePipelineState>, void>, public ITableCacheRef
+	struct MTLPP_EXPORT ITable<id<MTLComputePipelineState>, void> : public IMPTable<id<MTLComputePipelineState>, void>, public ITableCacheRef
 	{
 		ITable()
 		{
@@ -35,14 +35,14 @@ namespace ue4
 	template<>
 	inline ITable<MTLComputePipelineReflection*, void>* CreateIMPTable(MTLComputePipelineReflection* handle)
 	{
-		static ITable<MTLComputePipelineReflection*, void> Table(object_getClass(handle));
+		static MTLPP_EXPORT ITable<MTLComputePipelineReflection*, void> Table(object_getClass(handle));
 		return &Table;
 	}
 	
 	template<>
 	inline ITable<MTLComputePipelineDescriptor*, void>* CreateIMPTable(MTLComputePipelineDescriptor* handle)
 	{
-		static ITable<MTLComputePipelineDescriptor*, void> Table(object_getClass(handle));
+		static MTLPP_EXPORT ITable<MTLComputePipelineDescriptor*, void> Table(object_getClass(handle));
 		return &Table;
 	}
 }
@@ -51,7 +51,7 @@ namespace mtlpp
 {
 	class PipelineBufferDescriptor;
 	
-    class ComputePipelineReflection : public ns::Object<MTLComputePipelineReflection*>
+    class MTLPP_EXPORT ComputePipelineReflection : public ns::Object<MTLComputePipelineReflection*>
 	{
 	public:
 		ComputePipelineReflection();
@@ -63,7 +63,7 @@ namespace mtlpp
 	MTLPP_AVAILABLE(10_11, 9_0);
 	typedef ns::AutoReleased<ComputePipelineReflection> AutoReleasedComputePipelineReflection;
 
-	class ComputePipelineDescriptor : public ns::Object<MTLComputePipelineDescriptor*>
+	class MTLPP_EXPORT ComputePipelineDescriptor : public ns::Object<MTLComputePipelineDescriptor*>
     {
     public:
         ComputePipelineDescriptor();
@@ -86,7 +86,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 9_0);
 
-    class ComputePipelineState : public ns::Object<ns::Protocol<id<MTLComputePipelineState>>::type>
+    class MTLPP_EXPORT ComputePipelineState : public ns::Object<ns::Protocol<id<MTLComputePipelineState>>::type>
     {
     public:
         ComputePipelineState() { }

@@ -7,6 +7,7 @@
 #include "Serialization/BitWriter.h"
 #include "Modules/ModuleInterface.h"
 #include "Containers/Queue.h"
+#include "PacketTraits.h"
 
 PACKETHANDLER_API DECLARE_LOG_CATEGORY_EXTERN(PacketHandlerLog, Log, All);
 
@@ -16,6 +17,8 @@ class HandlerComponent;
 class FEncryptionComponent;
 class ReliabilityHandlerComponent;
 class FDDoSDetection;
+class IAnalyticsProvider;
+class FNetAnalyticsAggregator;
 
 
 /**
@@ -23,7 +26,7 @@ class FDDoSDetection;
  */
 
 // Delegate for allowing access to LowLevelSend, without a dependency upon Engine
-DECLARE_DELEGATE_ThreeParams(FPacketHandlerLowLevelSend, void* /* Data */, int32 /* CountBytes */, int32 /* CountBits */);
+DECLARE_DELEGATE_ThreeParams(FPacketHandlerLowLevelSend, void* /* Data */, int32 /* CountBits */, FOutPacketTraits& /* Traits */);
 
 /**
  * Callback for notifying higher-level code that handshaking has completed, and that packets are now ready to send without buffering
@@ -40,7 +43,7 @@ namespace Handler
 	/**
 	 * State of PacketHandler
 	 */
-	enum State
+	enum class State : uint8
 	{
 		Uninitialized,			// PacketHandler is uninitialized
 		InitializingComponents,	// PacketHandler is initializing HandlerComponents
@@ -50,7 +53,7 @@ namespace Handler
 	/**
 	 * Mode of Packet Handler
 	 */
-	enum Mode
+	enum class Mode : uint8
 	{
 		Client,					// Clientside PacketHandler
 		Server					// Serverside PacketHandler
@@ -61,7 +64,7 @@ namespace Handler
 		/**
 		 * HandlerComponent State
 		 */
-		enum State
+		enum class State : uint8
 		{
 			UnInitialized,		// HandlerComponent not yet initialized
 			InitializedOnLocal, // Initialized on local instance
@@ -115,8 +118,11 @@ struct PACKETHANDLER_API BufferedPacket
 	/** Size of buffered packet in bits */
 	uint32 CountBits;
 
+	/** Traits applied to the packet, if applicable */
+	FOutPacketTraits Traits;
+
 	/** Used by ReliabilityHandlerComponent, to mark a packet for resending */
-	float ResendTime;
+	double ResendTime;
 
 	/** Used by ReliabilityHandlerComponent, to track packet id's */
 	uint32 Id;
@@ -127,23 +133,25 @@ struct PACKETHANDLER_API BufferedPacket
 	/** If buffering a packet through 'SendHandlerPacket', track the originating component */
 	HandlerComponent* FromComponent;
 
-
-public:
+private:
 	/**
 	 * Base constructor
 	 */
 	BufferedPacket()
 		: Data(nullptr)
 		, CountBits(0)
-		, ResendTime(0.f)
+		, Traits()
+		, ResendTime(0.0)
 		, Id(0)
 		, Address()
 		, FromComponent(nullptr)
 	{
 	}
 
-	BufferedPacket(uint8* InCopyData, uint32 InCountBits, float InResendTime=0.f, uint32 InId=0)
+public:
+	BufferedPacket(uint8* InCopyData, uint32 InCountBits, FOutPacketTraits& InTraits, double InResendTime=0.0, uint32 InId=0)
 		: CountBits(InCountBits)
+		, Traits(InTraits)
 		, ResendTime(InResendTime)
 		, Id(InId)
 		, Address()
@@ -155,8 +163,8 @@ public:
 		FMemory::Memcpy(Data, InCopyData, FMath::DivideAndRoundUp(InCountBits, 8u));
 	}
 
-	BufferedPacket(FString InAddress, uint8* InCopyData, uint32 InCountBits, float InResendTime=0.f, uint32 InId=0)
-		: BufferedPacket(InCopyData, InCountBits, InResendTime, InId)
+	BufferedPacket(const FString& InAddress, uint8* InCopyData, uint32 InCountBits, FOutPacketTraits& InTraits, double InResendTime=0.0, uint32 InId=0)
+		: BufferedPacket(InCopyData, InCountBits, InTraits, InResendTime, InId)
 	{
 		Address = InAddress;
 	}
@@ -166,30 +174,22 @@ public:
 	 */
 	~BufferedPacket()
 	{
-		if (Data != nullptr)
-		{
-			delete Data;
-		}
+		delete [] Data;
 	}
 };
 
 /**
  * This class maintains an array of all PacketHandler Components and forwards incoming and outgoing packets the each component
  */
-class PACKETHANDLER_API PacketHandler
+class PACKETHANDLER_API PacketHandler : public FVirtualDestructor
 {
 public:
 	/**
 	 * Base constructor
+	 *
+	 * @param InDDoS			Reference to the owning net drivers DDoS detection handler
 	 */
-	PacketHandler();
-
-	/**
-	 * Base Destructor
-	 */
-	virtual ~PacketHandler()
-	{
-	};
+	PacketHandler(FDDoSDetection* InDDoS=nullptr);
 
 	/**
 	 * Handles initialization of manager
@@ -214,6 +214,15 @@ public:
 	}
 
 	/**
+	 * Notification that the NetDriver analytics provider has been updated (NOT called on first initialization)
+	 * NOTE: Can also mean disabled, e.g. during hotfix
+	 *
+	 * @param InProvider		The analytics provider
+	 * @param InAggregator		The net analytics aggregator
+	 */
+	void NotifyAnalyticsProvider(TSharedPtr<IAnalyticsProvider> InProvider, TSharedPtr<FNetAnalyticsAggregator> InAggregator);
+
+	/**
 	 * Triggers initialization of HandlerComponents.
 	 */
 	void InitializeComponents();
@@ -233,7 +242,7 @@ public:
 	 * @param NewHandler		The HandlerComponent to add
 	 * @param bDeferInitialize	Whether or not to defer triggering Initialize (for batch-adds - code calling this, triggers it instead)
 	 */
-	void AddHandler(TSharedPtr<HandlerComponent> NewHandler, bool bDeferInitialize=false);
+	void AddHandler(TSharedPtr<HandlerComponent>& NewHandler, bool bDeferInitialize=false);
 
 	/**
 	 * As above, but initializes from a string specifying the component module, and (optionally) additional options
@@ -241,7 +250,7 @@ public:
 	 * @param ComponentStr		The handler component to load
 	 * @param bDeferInitialize	Whether or not to defer triggering Initialize (for batch-adds - code calling this, triggers it instead)
 	 */
-	TSharedPtr<HandlerComponent> AddHandler(FString ComponentStr, bool bDeferInitialize=false);
+	TSharedPtr<HandlerComponent> AddHandler(const FString& ComponentStr, bool bDeferInitialize=false);
 
 
 	// @todo #JohnB: Add runtime-calculated arrays for each packet pipeline type, to reduce redundant iterations,
@@ -285,7 +294,8 @@ public:
 	 */
 	FORCEINLINE const ProcessedPacket Incoming(uint8* Packet, int32 CountBytes)
 	{
-		return Incoming_Internal(Packet, CountBytes);
+		static const FString EmptyString(TEXT(""));
+		return Incoming_Internal(Packet, CountBytes, false, EmptyString);
 	}
 
 	/**
@@ -296,11 +306,13 @@ public:
 	 *
 	 * @param Packet		The packet data to be processed
 	 * @param CountBits		The size of the packet data in bits
+	 * @param Traits		Traits for the packet, passed down from the NetConnection
 	 * @return				Returns the final packet
 	 */
-	FORCEINLINE const ProcessedPacket Outgoing(uint8* Packet, int32 CountBits)
+	FORCEINLINE const ProcessedPacket Outgoing(uint8* Packet, int32 CountBits, FOutPacketTraits& Traits)
 	{
-		return Outgoing_Internal(Packet, CountBits);
+		static const FString EmptyString(TEXT(""));
+		return Outgoing_Internal(Packet, CountBits, Traits, false, EmptyString);
 	}
 
 	/**
@@ -313,7 +325,7 @@ public:
 	 * @param CountBytes	The size of the packet data in bytes
 	 * @return				Returns the final packet
 	 */
-	FORCEINLINE const ProcessedPacket IncomingConnectionless(FString Address, uint8* Packet, int32 CountBytes)
+	FORCEINLINE const ProcessedPacket IncomingConnectionless(const FString& Address, uint8* Packet, int32 CountBytes)
 	{
 		return Incoming_Internal(Packet, CountBytes, true, Address);
 	}
@@ -325,11 +337,12 @@ public:
 	 * @param Address		The address the packet is being sent to (format is abstract, determined by active net driver)
 	 * @param Packet		The packet data to be processed
 	 * @param CountBits		The size of the packet data in bits
+	 * @param Traits		Traits for the packet, if applicable
 	 * @return				Returns the final packet
 	 */
-	FORCEINLINE const ProcessedPacket OutgoingConnectionless(FString Address, uint8* Packet, int32 CountBits)
+	FORCEINLINE const ProcessedPacket OutgoingConnectionless(const FString& Address, uint8* Packet, int32 CountBits, FOutPacketTraits& Traits)
 	{
-		return Outgoing_Internal(Packet, CountBits, true, Address);
+		return Outgoing_Internal(Packet, CountBits, Traits, true, Address);
 	}
 
 	/** Returns a pointer to the component set as the encryption handler, if any. */
@@ -348,20 +361,19 @@ protected:
 	 * @param Address			The address the packet was received from (format is abstract, determined by active net driver)
 	 * @return					Returns the final packet
 	 */
-	const ProcessedPacket Incoming_Internal(uint8* Packet, int32 CountBytes, bool bConnectionless=false,
-													FString Address=TEXT(""));
+	const ProcessedPacket Incoming_Internal(uint8* Packet, int32 CountBytes, bool bConnectionless, const FString& Address);
 
 	/**
 	 * Internal handling for Outgoing/OutgoingConnectionless
 	 *
 	 * @param Packet			The packet data to be processed
 	 * @param CountBits			The size of the packet data in bits
+	 * @param Traits			Traits for the packet, passed down from the NetConnection, if applicable
 	 * @param bConnectionless	Whether or not this should be sent as a connectionless packet
 	 * @param Address			The address the packet is being sent to (format is abstract, determined by active net driver)
 	 * @return					Returns the final packet
 	 */
-	const ProcessedPacket Outgoing_Internal(uint8* Packet, int32 CountBits, bool bConnectionless=false,
-													FString Address=TEXT(""));
+	const ProcessedPacket Outgoing_Internal(uint8* Packet, int32 CountBits, FOutPacketTraits& Traits, bool bConnectionless, const FString& Address );
 
 public:
 	/**
@@ -371,8 +383,9 @@ public:
 	 *
 	 * @param Component		The HandlerComponent sending the packet
 	 * @param Writer		The packet being sent
+	 * @param Traits		The traits applied to the packet, if applicable
 	 */
-	void SendHandlerPacket(HandlerComponent* InComponent, FBitWriter& Writer);
+	void SendHandlerPacket(HandlerComponent* InComponent, FBitWriter& Writer, FOutPacketTraits& Traits);
 
 
 	/**
@@ -459,6 +472,12 @@ public:
 	/** Returns a pointer to the DDoS detection handler */
 	FDDoSDetection* GetDDoS() const { return DDoS; }
 
+	/** Returns the analytics provider */
+	TSharedPtr<IAnalyticsProvider> GetProvider() const { return Provider; }
+
+	/** Returns the analytics aggregator */
+	TSharedPtr<FNetAnalyticsAggregator> GetAggregator() const { return Aggregator; }
+
 
 private:
 	/**
@@ -497,9 +516,7 @@ public:
 	/** Mode of the handler, Client or Server */
 	Handler::Mode Mode;
 
-	/** Time, updated by Tick */
-	float Time;
-
+private:
 
 private:
 	/** Whether or not this PacketHandler handles connectionless (i.e. non-UNetConnection) data */
@@ -514,13 +531,11 @@ private:
 	/** Delegate used for notifying that handshaking has completed */
 	FPacketHandlerHandshakeComplete HandshakeCompleteDel;
 
-
 	/** Used for packing outgoing packets */
 	FBitWriter OutgoingPacket;
 
 	/** Used for unpacking incoming packets */
 	FBitReader IncomingPacket;
-
 
 	/** The HandlerComponent pipeline, for processing incoming/outgoing packets */
 	TArray<TSharedPtr<HandlerComponent>> HandlerComponents;
@@ -531,10 +546,8 @@ private:
 	/** The maximum supported packet size (reflects UNetConnection::MaxPacket) */
 	uint32 MaxPacketBits;
 
-
 	/** State of the handler */
 	Handler::State State;
-	
 
 	/** Packets that are buffered while HandlerComponents are being initialized */
 	TArray<BufferedPacket*> BufferedPackets;
@@ -561,7 +574,10 @@ private:
 	bool bRawSend;
 
 	/** The analytics provider */
-	TSharedPtr<class IAnalyticsProvider> Provider;
+	TSharedPtr<IAnalyticsProvider> Provider;
+
+	/** The NetDriver level aggregator for the analytics provider */
+	TSharedPtr<FNetAnalyticsAggregator> Aggregator;
 	
 	/** Whether or not component handshaking has begun */
 	bool bBeganHandshaking;
@@ -600,7 +616,7 @@ public:
 	/**
 	 * Return whether this handler is valid
 	 */
-	virtual bool IsValid() const PURE_VIRTUAL(Handler::Component::IsValid, return false;);
+	virtual bool IsValid() const = 0;
 
 	/**
 	 * Returns whether this handler is initialized
@@ -608,24 +624,35 @@ public:
 	bool IsInitialized() const;
 
 	/**
-	 * Returns whether this handler requires a tick every frame
-	 */
-	bool DoesTick() const;
+	* Returns whether this handler perform a network handshake during initialization
+	*/
+	bool RequiresHandshake() const
+	{
+		return bRequiresHandshake;
+	}
 
-
+	/**
+	* Returns whether this handler perform a network handshake during initialization
+	*/
+	bool RequiresReliability() const
+	{
+		return bRequiresReliability;
+	}
+	
 	/**
 	 * Handles incoming packets
 	 *
 	 * @param Packet	The packet to be handled
 	 */
-	virtual void Incoming(FBitReader& Packet) PURE_VIRTUAL(HandlerComponent::Incoming,);
+	virtual void Incoming(FBitReader& Packet) = 0;
 
 	/**
 	 * Handles any outgoing packets
 	 *
 	 * @param Packet	The packet to be handled
+	 * @param Traits	Traits for the packet, passed down through the packet pipeline (likely from the NetConnection)
 	 */
-	virtual void Outgoing(FBitWriter& Packet) PURE_VIRTUAL(HandlerComponent::Outgoing,);
+	virtual void Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits) = 0;
 
 	/**
 	 * Handles incoming packets not associated with a UNetConnection
@@ -633,15 +660,16 @@ public:
 	 * @param Address	The address the packet was received from (format is abstract, determined by active net driver)
 	 * @param Packet	The packet to be handled
 	 */
-	virtual void IncomingConnectionless(FString Address, FBitReader& Packet) PURE_VIRTUAL(HandlerComponent::IncomingConnectionless,);
+	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) = 0;
 
 	/**
 	 * Handles any outgoing packets not associated with a UNetConnection
 	 *
 	 * @param Address	The address the packet is being sent to (format is abstract, determined by active net driver)
 	 * @param Packet	The packet to be handled
+	 * @param Traits	Traits for the packet, passed down through the packet pipeline (if applicable)
 	 */
-	virtual void OutgoingConnectionless(FString Address, FBitWriter& Packet) PURE_VIRTUAL(HandlerComponent::OutgoingConnectionless,);
+	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet, FOutPacketTraits& Traits) = 0;
 
 
 	/**
@@ -650,7 +678,7 @@ public:
 	 *
 	 * @return	Whether or not the above is supported
 	 */
-	virtual bool CanReadUnaligned()
+	virtual bool CanReadUnaligned() const
 	{
 		return false;
 	}
@@ -659,7 +687,7 @@ public:
 	/**
 	 * Initialization functionality should be placed here
 	 */
-	virtual void Initialize() PURE_VIRTUAL(HandlerComponent::Initialize,);
+	virtual void Initialize() = 0;
 
 	/**
 	 * Notification to this component that it is ready to begin handshaking
@@ -671,9 +699,7 @@ public:
 	/**
 	 * Tick functionality should be placed here
 	 */
-	virtual void Tick(float DeltaTime)
-	{
-	}
+	virtual void Tick(float DeltaTime) {}
 
 	/**
 	 * Sets whether this handler is currently active
@@ -690,17 +716,16 @@ public:
 	 *
 	 * @return	The worst-case reserved packet bits for the component
 	 */
-	virtual int32 GetReservedPacketBits() PURE_VIRTUAL(Handler::Component::GetReservedPacketBits, return -1;);
+	virtual int32 GetReservedPacketBits() const = 0;
 
 	/** Returns the name of this component. */
 	FName GetName() const { return Name; }
 
 	/**
-	* Sets the analytics provider that can be used to send analytics events as needed.
-	*
-	* @param Provider The analytics provider
-	*/
-	virtual void SetAnalyticsProvider(TSharedPtr<class IAnalyticsProvider> Provider) {}
+	 * Notification that the analytics provider has been updated
+	 * NOTE: Can also mean disabled, e.g. during hotfix
+	 */
+	virtual void NotifyAnalyticsProvider() {}
 
 protected:
 	/**
@@ -752,7 +777,9 @@ class PACKETHANDLER_API FPacketHandlerComponentModuleInterface : public IModuleI
 public:
 	/* Creates an instance of this component */
 	virtual TSharedPtr<HandlerComponent> CreateComponentInstance(FString& Options)
-		PURE_VIRTUAL(FPacketHandlerModuleInterface::CreateComponentInstance, return TSharedPtr<HandlerComponent>(NULL););
+	{
+		return nullptr;
+	}
 
 	virtual void StartupModule() override;
 

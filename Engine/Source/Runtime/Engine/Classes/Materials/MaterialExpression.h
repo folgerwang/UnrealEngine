@@ -31,6 +31,7 @@ struct FExpressionInput
 	UPROPERTY()
 	int32 OutputIndex;
 
+#if WITH_EDITORONLY_DATA
 	/** 
 	 * optional FName of the input.  
 	 * Note that this is the only member which is not derived from the output currently connected. 
@@ -52,6 +53,7 @@ struct FExpressionInput
 
 	UPROPERTY()
 	int32 MaskA;
+#endif
 
 	/** Material expression name that this input is connected to, or None if not connected. Used only in cooked builds */
 	UPROPERTY()
@@ -75,6 +77,7 @@ struct FExpressionOutput
 	UPROPERTY()
 	FName OutputName;
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	int32 Mask;
 
@@ -89,7 +92,7 @@ struct FExpressionOutput
 
 	UPROPERTY()
 	int32 MaskA;
-
+#endif
 };
 #endif
 

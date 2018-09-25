@@ -281,10 +281,12 @@ bool UMaterialInterface::IsVectorParameterUsedAsChannelMask(const FMaterialParam
 	return false;
 }
 
+#if WITH_EDITOR
 bool UMaterialInterface::GetScalarParameterSliderMinMax(const FMaterialParameterInfo& ParameterInfo, float& OutSliderMin, float& OutSliderMax) const
 {
 	return false;
 }
+#endif
 
 bool UMaterialInterface::GetScalarParameterValue(const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly) const
 {
@@ -337,11 +339,12 @@ bool UMaterialInterface::GetParameterDesc(const FMaterialParameterInfo& Paramete
 {
 	return false;
 }
-#endif // WITH_EDITOR
+
 bool UMaterialInterface::GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutDesc) const
 {
 	return false;
 }
+#endif // WITH_EDITOR
 
 UMaterial* UMaterialInterface::GetBaseMaterial()
 {

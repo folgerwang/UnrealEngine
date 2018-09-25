@@ -316,15 +316,15 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SkeletalControlBase : public FAnimNode_Bas
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
 	EAnimAlphaInputType AlphaInputType;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault, DisplayName = "bEnabled"))
+	mutable bool bAlphaBoolEnabled;
+
 	// Current strength of the skeletal control
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
 	mutable float Alpha;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
 	FInputScaleBias AlphaScaleBias;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault, DisplayName = "bEnabled"))
-	mutable bool bAlphaBoolEnabled;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (DisplayName = "Blend Settings"))
 	FInputAlphaBoolBlend AlphaBoolBlend;
@@ -341,8 +341,8 @@ public:
 		: LODThreshold(INDEX_NONE)
 		, ActualAlpha(0.f)
 		, AlphaInputType(EAnimAlphaInputType::Float)
-		, Alpha(1.0f)
 		, bAlphaBoolEnabled(true)
+		, Alpha(1.0f)
 	{
 	}
 

@@ -44,7 +44,9 @@ public:
 
 	static bool IsBasePassAmbientOcclusionRequired(const FViewInfo& View);
 	static bool IsAmbientOcclusionAsyncCompute(const FViewInfo& View, uint32 AOPassCount);
-		
+
+	// @return 0:off, 0..3
+	static uint32 ComputeAmbientOcclusionPassCount(const FViewInfo& View);
 };
 
 // ePId_Input0: SceneDepth
@@ -84,7 +86,7 @@ public:
 private:
 	
 	void ProcessCS(FRenderingCompositePassContext& Context, const FSceneRenderTargetItem* DestRenderTarget, const FIntRect& ViewRect, const FIntPoint& TexSize, int32 ShaderQuality, bool bDoUpsample);
-	void ProcessPS(FRenderingCompositePassContext& Context, const FSceneRenderTargetItem* DestRenderTarget, const FIntRect& ViewRect, const FIntPoint& TexSize, int32 ShaderQuality, bool bDoUpsample);
+	void ProcessPS(FRenderingCompositePassContext& Context, const FSceneRenderTargetItem* DestRenderTarget, const FSceneRenderTargetItem* SceneDepthBuffer, const FIntRect& ViewRect, const FIntPoint& TexSize, int32 ShaderQuality, bool bDoUpsample);
 
 	template <uint32 bAOSetupAsInput, uint32 bDoUpsample, uint32 SampleSetQuality>
 	FShader* SetShaderTemplPS(const FRenderingCompositePassContext& Context, FGraphicsPipelineStateInitializer& GraphicsPSOInit);

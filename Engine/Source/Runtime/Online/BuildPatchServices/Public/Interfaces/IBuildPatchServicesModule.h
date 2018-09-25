@@ -61,10 +61,9 @@ public:
 	 * Saves a Build Manifest to file
 	 * @param Filename		The file to save to
 	 * @param Manifest		The manifest to save out
-	 * @param bUseBinary	Whether to save binary format instead of json
 	 * @return		If the save was successful.
 	 */
-	virtual bool SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest, bool bUseBinary = true) = 0;
+	virtual bool SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest) = 0;
 
 	/**
 	 * Gets an array of prerequisite identifiers that are registered as installed on this system.
@@ -235,10 +234,11 @@ public:
 	 * @param TagSetA                   The tag set to use to filter desired files from ManifestA.
 	 * @param ManifestFilePathB         A full file path for the manifest to be used as the target.
 	 * @param TagSetB                   The tag set to use to filter desired files from ManifestB.
+	 * @param CompareTagSets            Tag sets that will be used to calculate additional differential size statistics between manifests.
 	 * @param OutputFilePath            A full file path where a JSON object will be saved for the diff details. Empty string if not desired.
 	 * @return true if successful.
 	 */
-	virtual bool DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const FString& OutputFilePath) = 0;
+	virtual bool DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const TArray<TSet<FString>>& CompareTagSets, const FString& OutputFilePath) = 0;
 
 	DEPRECATED(4.21, "MakeManifestFromJSON(const FString& ManifestJSON) has been deprecated.  Please use MakeManifestFromData(const TArray<uint8>& ManifestData) instead.")
 	virtual IBuildManifestPtr MakeManifestFromJSON(const FString& ManifestJSON) = 0;

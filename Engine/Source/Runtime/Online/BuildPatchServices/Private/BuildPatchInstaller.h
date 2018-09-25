@@ -32,6 +32,7 @@ namespace BuildPatchServices
 	class IMemoryChunkStoreAggregateStatistics;
 	class IDiskChunkStoreStatistics;
 	class ISpeedRecorder;
+	class IChunkDataSizeProvider;
 	class IDownloadServiceStatistics;
 	class IChunkDbChunkSourceStatistics;
 	class ICloudChunkSourceStatistics;
@@ -158,6 +159,7 @@ namespace BuildPatchServices
 		TUniquePtr<ISpeedRecorder> DiskReadSpeedRecorder;
 		TUniquePtr<ISpeedRecorder> DiskWriteSpeedRecorder;
 		TUniquePtr<ISpeedRecorder> ChunkDbReadSpeedRecorder;
+		TUniquePtr<IChunkDataSizeProvider> ChunkDataSizeProvider;
 		TUniquePtr<IDownloadServiceStatistics> DownloadServiceStatistics;
 		TUniquePtr<IChunkDbChunkSourceStatistics> ChunkDbChunkSourceStatistics;
 		TUniquePtr<IInstallChunkSourceStatistics> InstallChunkSourceStatistics;

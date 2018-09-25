@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -321,7 +321,8 @@ namespace UnrealBuildTool
 		/// <param name="Command">Command to run</param>
 		/// <param name="Args">Arguments to Command</param>
 		/// <param name="ExitCode">The return code from the process after it exits</param>
-		public static string RunLocalProcessAndReturnStdOut(string Command, string Args, out int ExitCode)
+		/// <param name="LogOutput">Whether to also log standard output and standard error</param>
+		public static string RunLocalProcessAndReturnStdOut(string Command, string Args, out int ExitCode, bool LogOutput = false)
 		{
 			//LUMIN_MERGE
 			ProcessStartInfo StartInfo = new ProcessStartInfo(Command, Args);
@@ -341,6 +342,18 @@ namespace UnrealBuildTool
 				StreamReader ErrorReader = LocalProcess.StandardError;
 				// trim off any extraneous new lines, helpful for those one-line outputs
 				ErrorOutput = ErrorReader.ReadToEnd().Trim();
+				if (LogOutput)
+				{
+					if(FullOutput.Length > 0)
+					{
+						Log.TraceInformation(FullOutput);
+					}
+
+					if (ErrorOutput.Length > 0)
+					{
+						Log.TraceError(ErrorOutput);
+					}
+				}
 
 				LocalProcess.WaitForExit();
 				ExitCode = LocalProcess.ExitCode;

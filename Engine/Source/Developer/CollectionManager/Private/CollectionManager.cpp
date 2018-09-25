@@ -724,7 +724,7 @@ bool FCollectionManager::CreateCollection(FName CollectionName, ECollectionShare
 		return false;
 	}
 
-	if (NewCollection->Save(LastError))
+	if (InternalSaveCollection(NewCollection, LastError))
 	{
 		CollectionFileCaches[ShareType]->IgnoreNewFile(NewCollection->GetSourceFilename());
 
@@ -775,7 +775,7 @@ bool FCollectionManager::RenameCollection(FName CurrentCollectionName, ECollecti
 			return false;
 		}
 
-		if (!NewCollection->Save(LastError))
+		if (!InternalSaveCollection(NewCollection.ToSharedRef(), LastError))
 		{
 			// Collection failed to save, remove it from the cache
 			RemoveCollection(NewCollection.ToSharedRef(), NewShareType);
@@ -849,7 +849,7 @@ bool FCollectionManager::ReparentCollection(FName CollectionName, ECollectionSha
 		if ((*ParentCollectionRefPtr)->GetCollectionVersion() < ECollectionVersion::AddedCollectionGuid)
 		{
 			// Try and re-save the parent collection now
-			if ((*ParentCollectionRefPtr)->Save(LastError))
+			if (InternalSaveCollection(*ParentCollectionRefPtr, LastError))
 			{
 				CollectionFileCaches[ParentShareType]->IgnoreFileModification((*ParentCollectionRefPtr)->GetSourceFilename());
 			}
@@ -877,7 +877,7 @@ bool FCollectionManager::ReparentCollection(FName CollectionName, ECollectionSha
 	(*CollectionRefPtr)->SetParentCollectionGuid(NewParentGuid);
 
 	// Try and save with the new parent GUID
-	if ((*CollectionRefPtr)->Save(LastError))
+	if (InternalSaveCollection(*CollectionRefPtr, LastError))
 	{
 		CollectionFileCaches[ShareType]->IgnoreFileModification((*CollectionRefPtr)->GetSourceFilename());
 	}
@@ -986,7 +986,7 @@ bool FCollectionManager::AddToCollection(FName CollectionName, ECollectionShareT
 
 	if (NumAdded > 0)
 	{
-		if ((*CollectionRefPtr)->Save(LastError))
+		if (InternalSaveCollection(*CollectionRefPtr, LastError))
 		{
 			CollectionFileCaches[ShareType]->IgnoreFileModification((*CollectionRefPtr)->GetSourceFilename());
 
@@ -1070,7 +1070,7 @@ bool FCollectionManager::RemoveFromCollection(FName CollectionName, ECollectionS
 		return false;
 	}
 			
-	if ((*CollectionRefPtr)->Save(LastError))
+	if (InternalSaveCollection(*CollectionRefPtr, LastError))
 	{
 		CollectionFileCaches[ShareType]->IgnoreFileModification((*CollectionRefPtr)->GetSourceFilename());
 
@@ -1121,7 +1121,7 @@ bool FCollectionManager::SetDynamicQueryText(FName CollectionName, ECollectionSh
 
 	(*CollectionRefPtr)->SetDynamicQueryText(InQueryText);
 	
-	if ((*CollectionRefPtr)->Save(LastError))
+	if (InternalSaveCollection(*CollectionRefPtr, LastError))
 	{
 		CollectionFileCaches[ShareType]->IgnoreFileModification((*CollectionRefPtr)->GetSourceFilename());
 
@@ -1215,7 +1215,7 @@ bool FCollectionManager::EmptyCollection(FName CollectionName, ECollectionShareT
 
 	(*CollectionRefPtr)->Empty();
 	
-	if ((*CollectionRefPtr)->Save(LastError))
+	if (InternalSaveCollection(*CollectionRefPtr, LastError))
 	{
 		CollectionFileCaches[ShareType]->IgnoreFileModification((*CollectionRefPtr)->GetSourceFilename());
 
@@ -1249,7 +1249,7 @@ bool FCollectionManager::SaveCollection(FName CollectionName, ECollectionShareTy
 			return true;
 		}
 
-		if ((*CollectionRefPtr)->Save(LastError))
+		if (InternalSaveCollection(*CollectionRefPtr, LastError))
 		{
 			CollectionFileCaches[ShareType]->IgnoreFileModification((*CollectionRefPtr)->GetSourceFilename());
 
@@ -1500,7 +1500,7 @@ bool FCollectionManager::HandleRedirectorDeleted(const FName& ObjectPath)
 		if (Collection->IsRedirectorInCollection(ObjectPath))
 		{
 			FText SaveError;
-			if (Collection->Save(SaveError))
+			if (InternalSaveCollection(Collection, SaveError))
 			{
 				CollectionFileCaches[CollectionKey.Type]->IgnoreFileModification(Collection->GetSourceFilename());
 
@@ -1843,6 +1843,13 @@ void FCollectionManager::ReplaceObjectInCollections(const FName& OldObjectPath, 
 			}
 		}
 	}
+}
+
+bool FCollectionManager::InternalSaveCollection(const TSharedRef<FCollection>& CollectionRef, FText& OutError)
+{
+	TArray<FText> AdditionalChangelistText;
+	AddToCollectionCheckinDescriptionEvent.Broadcast(CollectionRef->GetCollectionName(), AdditionalChangelistText);
+	return CollectionRef->Save(AdditionalChangelistText, OutError);
 }
 
 #undef LOCTEXT_NAMESPACE

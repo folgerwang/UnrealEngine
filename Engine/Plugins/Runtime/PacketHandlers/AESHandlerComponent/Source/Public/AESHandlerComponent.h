@@ -43,15 +43,17 @@ public:
 	virtual void Initialize() override;
 	virtual bool IsValid() const override;
 	virtual void Incoming(FBitReader& Packet) override;
-	virtual void Outgoing(FBitWriter& Packet) override;
-	virtual void IncomingConnectionless(FString Address, FBitReader& Packet) override;
-	virtual void OutgoingConnectionless(FString Address, FBitWriter& Packet) override;
-	virtual int32 GetReservedPacketBits() override;
+	virtual void Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits) override;
+	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) override;
+	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet, FOutPacketTraits& Traits) override;
+	virtual int32 GetReservedPacketBits() const override;
 
 private:
 	TUniquePtr<FEncryptionContext> EncryptionContext;
 
 	TArray<uint8> Key;
+
+	TArray<uint8> Ciphertext;
 
 	bool bEncryptionEnabled;
 };

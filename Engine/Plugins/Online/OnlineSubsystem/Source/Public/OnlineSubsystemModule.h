@@ -33,6 +33,14 @@ private:
 	 */
 	FName NativePlatformService;
 
+	/**
+	* Name of the online service associated with User Defined strings
+	* Specified in Base<Platform>Engine.ini
+	*	[OnlineSubsystem]
+	*	ConfigDefinedPlatformServices
+	*/
+	TMap<FString, FName> ConfigDefinedSubsystems;
+
 	/** Existing instances of any online subsystems created <PlatformName:InstanceName> */
 	TMap<FName, class IOnlineFactory*> OnlineFactories;
 
@@ -59,6 +67,11 @@ private:
 	 * @return Properly formatted key name for accessing the online subsystem in the TMap
 	 */
 	FName ParseOnlineSubsystemName(const FName& FullName, FName& SubsystemName, FName& InstanceName) const;
+
+	/**
+	* Read any config defined subsystems from the configuration file
+	*/
+	void ProcessConfigDefinedSubsystems();
 
 	/**
 	 * Attempt to load the default subsystem specified in the configuration file
@@ -106,6 +119,16 @@ public:
 	 * @return pointer to the appropriate online subsystem
 	 */
 	virtual IOnlineSubsystem* GetNativeSubsystem(bool bAutoLoad);
+
+	/**
+	* Get the online subsystem associated with the given config string
+	*
+	* @param ConfigString - Key to query for
+	* @param bAutoLoad - load the module if not already loaded
+	*
+	* @return pointer to the appropriate online subsystem
+	*/
+	virtual IOnlineSubsystem* GetSubsystemByConfig(const FString& ConfigString, bool bAutoLoad);
 
 	/**
 	 * Destroys an online subsystem created internally via access with GetOnlineSubsystem

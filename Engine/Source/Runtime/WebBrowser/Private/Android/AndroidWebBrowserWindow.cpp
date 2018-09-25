@@ -28,7 +28,7 @@ FAndroidWebBrowserWindow::FAndroidWebBrowserWindow(FString InUrl, TOptional<FStr
 	, bUseTransparency(InUseTransparency)
 	, DocumentState(EWebBrowserDocumentState::NoDocument)
 	, ErrorCode(0)
-	, Scripting(new FMobileJSScripting(bInJSBindingToLoweringEnabled))
+	, Scripting(new FMobileJSScripting(bInJSBindingToLoweringEnabled, SharedThis(this)))
 	, AndroidWindowSize(FIntPoint(500, 500))
 	, bIsDisabled(false)
 	, bIsVisible(true)
@@ -294,12 +294,12 @@ bool FAndroidWebBrowserWindow::OnJsMessageReceived(const FString& Command, const
 
 void FAndroidWebBrowserWindow::BindUObject(const FString& Name, UObject* Object, bool bIsPermanent /*= true*/)
 {
-	Scripting->BindUObject(Name, Object, bIsPermanent);
+	Scripting->BindUObject(SharedThis(this), Name, Object, bIsPermanent);
 }
 
 void FAndroidWebBrowserWindow::UnbindUObject(const FString& Name, UObject* Object /*= nullptr*/, bool bIsPermanent /*= true*/)
 {
-	Scripting->UnbindUObject(Name, Object, bIsPermanent);
+	Scripting->UnbindUObject(SharedThis(this), Name, Object, bIsPermanent);
 }
 
 void FAndroidWebBrowserWindow::CheckTickActivity()

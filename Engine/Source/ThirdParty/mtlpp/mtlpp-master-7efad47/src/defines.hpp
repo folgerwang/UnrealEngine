@@ -50,6 +50,10 @@
 #define MTLPP_PLATFORM_AX (MTLPP_PLATFORM_IOS || MTLPP_PLATFORM_TVOS)
 #endif
 
+#ifndef MTLPP_EXPORT
+#define MTLPP_EXPORT __attribute__ ((visibility("default")))
+#endif
+
 #if MTLPP_CONFIG_USE_AVAILABILITY
 #   if __has_feature(attribute_availability_with_version_underscores) || (__has_feature(attribute_availability_with_message) && __clang__ && __clang_major__ >= 7)
 #		define MTLPP_AVAILABILITY(_os, _vers) 						__attribute__((availability(_os,introduced=_vers)))

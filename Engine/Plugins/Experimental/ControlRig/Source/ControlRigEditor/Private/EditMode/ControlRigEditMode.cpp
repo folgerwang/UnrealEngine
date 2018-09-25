@@ -487,7 +487,7 @@ bool FControlRigEditMode::UsesTransformWidget() const
 		}
 	}
 
-	if (AreJointSelected())
+	if (AreJointSelectedAndMovable())
 	{
 		return true;
 	}
@@ -509,11 +509,11 @@ bool FControlRigEditMode::UsesTransformWidget(FWidget::EWidgetMode CheckMode) co
 				}
 			}
 		}
-	}
 
-	if (AreJointSelected())
-	{
-		return true;
+		if (AreJointSelectedAndMovable())
+		{
+			return true;
+		}
 	}
 
 	return FEdMode::UsesTransformWidget(CheckMode);
@@ -536,7 +536,7 @@ FVector FControlRigEditMode::GetWidgetLocation() const
 
 		// @todo: we only supports the first ast one for now
 		// later we support multi select
-		if (AreJointSelected())
+		if (AreJointSelectedAndMovable())
 		{
 			return ComponentTransform.TransformPosition(OnGetJointTransformDelegate.Execute(SelectedJoints[0], false).GetLocation());
 		}
@@ -558,7 +558,7 @@ bool FControlRigEditMode::GetCustomDrawingCoordinateSystem(FMatrix& OutMatrix, v
 			}
 		}
 
-		if (AreJointSelected())
+		if (AreJointSelectedAndMovable())
 		{
 			USceneComponent* Component = Cast<USkeletalMeshComponent>(ControlRig->GetObjectBinding()->GetBoundObject());
 			FTransform ComponentTransform = Component ? Component->GetComponentTransform() : FTransform::Identity;
@@ -791,7 +791,7 @@ bool FControlRigEditMode::InputDelta(FEditorViewportClient* InViewportClient, FV
 
 				return true;
 			}
-			else if (AreJointSelected())
+			else if (AreJointSelectedAndMovable())
 			{
 				// set joint transform
 				// that will set initial joint transform
@@ -838,7 +838,7 @@ bool FControlRigEditMode::InputDelta(FEditorViewportClient* InViewportClient, FV
 
 bool FControlRigEditMode::ShouldDrawWidget() const
 {
-	if (AreControlsSelected() || AreJointSelected())
+	if (AreControlsSelected() || AreJointSelectedAndMovable())
 	{
 		return true;
 	}
@@ -1362,9 +1362,19 @@ void FControlRigEditMode::OnObjectsReplaced(const TMap<UObject*, UObject*>& OldT
 	}
 }
 
+bool FControlRigEditMode::AreJointSelectedAndMovable() const
+{
+	if (UControlRig* ControlRig = WeakControlRig.Get())
+	{
+		return (!ControlRig->bExecutionOn && OnGetJointTransformDelegate.IsBound() && OnSetJointTransformDelegate.IsBound() && SelectedJoints.Num() > 0);
+	}
+
+	return false;
+}
+
 bool FControlRigEditMode::AreJointSelected() const
 {
-	return (OnGetJointTransformDelegate.IsBound() && OnSetJointTransformDelegate.IsBound() && SelectedJoints.Num() > 0);
+	return (SelectedJoints.Num() > 0);
 }
 
 void FControlRigEditMode::SelectJoint(const FName& InJoint)
@@ -1372,6 +1382,9 @@ void FControlRigEditMode::SelectJoint(const FName& InJoint)
 	ClearControlSelection();
 
 	SelectedJoints.Reset();
-	SelectedJoints.Add(InJoint);
+	if (InJoint != NAME_None)
+	{
+		SelectedJoints.Add(InJoint);
+	}
 }
 #undef LOCTEXT_NAMESPACE

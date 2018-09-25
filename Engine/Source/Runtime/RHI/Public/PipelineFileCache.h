@@ -238,7 +238,8 @@ public:
 	static bool SavePipelineFileCacheFrom(uint32 GameVersion, EShaderPlatform Platform, FString const& Path, const TSet<FPipelineCacheFileFormatPSO>& PSOs);
 	static bool MergePipelineFileCaches(FString const& PathA, FString const& PathB, FPipelineFileCache::PSOOrder Order, FString const& OutputPath);
 
-	static bool OpenPipelineFileCache(FString const& Name, EShaderPlatform Platform);
+	/* Open the pipeline file cache for the specfied name and platform. If successful, the GUID of the game file will be returned in OutGameFileGuid */
+	static bool OpenPipelineFileCache(FString const& Name, EShaderPlatform Platform, FGuid& OutGameFileGuid);
 	static bool SavePipelineFileCache(FString const& Name, SaveMode Mode);
 	static void ClosePipelineFileCache();
 	

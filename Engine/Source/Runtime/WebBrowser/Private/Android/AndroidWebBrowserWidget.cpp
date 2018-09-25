@@ -108,8 +108,9 @@ void SAndroidWebBrowserWidget::Construct(const FArguments& Args)
 		AllWebControls.Add(reinterpret_cast<int64>(this), StaticCastSharedRef<SAndroidWebBrowserWidget>(AsShared()));
 	}
 
-	IsAndroid3DBrowser = true;
 	WebBrowserWindowPtr = Args._WebBrowserWindow;
+	IsAndroid3DBrowser = true;
+
 	HistorySize = 0;
 	HistoryPosition = 0;
 	
@@ -126,8 +127,11 @@ void SAndroidWebBrowserWidget::Construct(const FArguments& Args)
 	// create external texture
 	WebBrowserTexture = NewObject<UWebBrowserTexture>((UObject*)GetTransientPackage(), NAME_None, RF_Transient | RF_Public);
 
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("SAndroidWebBrowserWidget::Construct0"));
 	if (WebBrowserTexture != nullptr)
 	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("SAndroidWebBrowserWidget::Construct01"));
+
 		WebBrowserTexture->UpdateResource();
 		WebBrowserTexture->AddToRoot();
 	}
@@ -138,11 +142,13 @@ void SAndroidWebBrowserWidget::Construct(const FArguments& Args)
 	UMaterialInterface* DefaultWBMaterial = Args._UseTransparency? WebBrowserSingleton->GetDefaultTranslucentMaterial(): WebBrowserSingleton->GetDefaultMaterial();
 	if (WebBrowserSingleton && DefaultWBMaterial)
 	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("SAndroidWebBrowserWidget::Construct1"));
 		// create wrapper material
 		WebBrowserMaterial = UMaterialInstanceDynamic::Create(DefaultWBMaterial, nullptr);
 
 		if (WebBrowserMaterial)
 		{
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("SAndroidWebBrowserWidget::Construct2"));
 			WebBrowserMaterial->SetTextureParameterValue("SlateUI", WebBrowserTexture);
 			WebBrowserMaterial->AddToRoot();
 

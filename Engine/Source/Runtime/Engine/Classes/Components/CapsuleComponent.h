@@ -32,9 +32,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, export, Category=Shape, meta=(ClampMin="0", UIMin="0"))
 	float CapsuleRadius;
 
-protected:
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	float CapsuleHeight_DEPRECATED;
+#endif
 
 public:
 	/** 
@@ -65,8 +66,10 @@ public:
 	void SetCapsuleHalfHeight(float HalfHeight, bool bUpdateOverlaps=true);
 
 	//~ Begin UObject Interface
-	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
+#if WITH_EDITORONLY_DATA
+	virtual void Serialize(FArchive& Ar) override;
+#endif
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR

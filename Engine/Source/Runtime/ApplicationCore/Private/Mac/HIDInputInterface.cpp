@@ -189,8 +189,8 @@ void HIDInputInterface::FHIDDeviceInfo::SetupMappings()
 		ButtonsMapping[6]	= 5;	// Right Shoulder
 		ButtonsMapping[7]	= 8;	// Left Thumbstick
 		ButtonsMapping[8]	= 9;	// Right Thumbstick
-		ButtonsMapping[9]	= 7;	// Menu
-		ButtonsMapping[10]	= 6;	// View
+		ButtonsMapping[9]	= 6;	// Menu
+		ButtonsMapping[10]	= 7;	// View
 		ButtonsMapping[12]	= 12;	// DPad Up
 		ButtonsMapping[13]	= 13;	// DPad Down
 		ButtonsMapping[14]	= 14;	// DPad Left
@@ -198,10 +198,10 @@ void HIDInputInterface::FHIDDeviceInfo::SetupMappings()
 
 		LeftAnalogXMapping = kHIDUsage_GD_X;
 		LeftAnalogYMapping = kHIDUsage_GD_Y;
-		LeftTriggerAnalogMapping = kHIDUsage_GD_Ry;
-		RightAnalogXMapping = kHIDUsage_GD_Z;
-		RightAnalogYMapping = kHIDUsage_GD_Rx;
-		RightTriggerAnalogMapping = kHIDUsage_GD_Rz;	
+		LeftTriggerAnalogMapping = kHIDUsage_GD_Z;
+		RightAnalogXMapping = kHIDUsage_GD_Rx;
+		RightAnalogYMapping = kHIDUsage_GD_Ry;
+		RightTriggerAnalogMapping = kHIDUsage_GD_Rz;
 	}
 	else
 	{

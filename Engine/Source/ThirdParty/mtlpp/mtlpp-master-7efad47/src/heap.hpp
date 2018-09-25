@@ -44,7 +44,7 @@ namespace ue4
 
 namespace mtlpp
 {
-    class HeapDescriptor : public ns::Object<MTLHeapDescriptor*>
+    class MTLPP_EXPORT HeapDescriptor : public ns::Object<MTLHeapDescriptor*>
     {
     public:
 		HeapDescriptor();
@@ -61,7 +61,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_13, 10_0);
 
-    class Heap : public ns::Object<ns::Protocol<id<MTLHeap>>::type>
+    class MTLPP_EXPORT Heap : public ns::Object<ns::Protocol<id<MTLHeap>>::type>
     {
     public:
 		Heap(ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLHeap>>::type>(retain) { }

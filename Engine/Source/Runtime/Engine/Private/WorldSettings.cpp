@@ -450,7 +450,7 @@ void AWorldSettings::PostLoad()
 	if (bEnableNavigationSystem && NavigationSystemConfig == nullptr)
 	{
 		ULevel* Level = GetLevel();
-		if (Level && Level->IsPersistentLevel())
+		if (Level)
 		{
 			TSubclassOf<UNavigationSystemConfig> NavSystemConfigClass = UNavigationSystemConfig::GetDefaultConfigClass();
 			if (*NavSystemConfigClass)
@@ -465,6 +465,15 @@ void AWorldSettings::PostLoad()
 bool AWorldSettings::IsNavigationSystemEnabled() const
 {
 	return NavigationSystemConfig && NavigationSystemConfig->NavigationSystemClass.IsValid();
+}
+
+void AWorldSettings::SetNavigationSystemConfigOverride(UNavigationSystemConfig* NewConfig)
+{
+	NavigationSystemConfigOverride = NewConfig;
+	if (NavigationSystemConfig)
+	{
+		NavigationSystemConfig->SetIsOverriden(NewConfig != nullptr && NewConfig != NavigationSystemConfig);
+	}
 }
 
 

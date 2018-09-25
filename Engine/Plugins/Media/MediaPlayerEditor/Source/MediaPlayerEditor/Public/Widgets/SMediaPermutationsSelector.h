@@ -122,7 +122,7 @@ public:
 		: _ColumnHeight(200)
 	{}
 		/** Array of columns */
-		SLATE_SUPPORTS_SLOT_WITH_ARGS(typename FColumn)
+		SLATE_SUPPORTS_SLOT_WITH_ARGS(FColumn)
 		/** Array of data items that we are displaying */
 		SLATE_ARGUMENT(TArray<ItemType>, PermutationsSource)
 		/** Default selected item in ItemsSource */

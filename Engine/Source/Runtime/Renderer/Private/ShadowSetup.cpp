@@ -489,6 +489,8 @@ FProjectedShadowInfo::FProjectedShadowInfo()
 	, DependentView(0)
 	, ShadowId(INDEX_NONE)
 	, PreShadowTranslation(0, 0, 0)
+	, MaxSubjectZ(0)
+	, MinSubjectZ(0)
 	, ShadowBounds(0)
 	, X(0)
 	, Y(0)
@@ -3274,7 +3276,7 @@ void FSceneRenderer::AllocateShadowDepthTargets(FRHICommandListImmediate& RHICmd
 				bShadowIsVisible = false;
 			}
 
-			if (IsForwardShadingEnabled(FeatureLevel) 
+			if (IsForwardShadingEnabled(ShaderPlatform)
 				&& ProjectedShadowInfo->GetLightSceneInfo().GetDynamicShadowMapChannel() == -1)
 			{
 				// With forward shading, dynamic shadows are projected into channels of the light attenuation texture based on their assigned DynamicShadowMapChannel

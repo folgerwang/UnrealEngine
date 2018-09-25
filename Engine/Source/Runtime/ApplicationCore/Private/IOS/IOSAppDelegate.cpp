@@ -20,6 +20,11 @@
 #include "Misc/OutputDeviceError.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Misc/FeedbackContext.h"
+#include "Algo/AllOf.h"
+#if USE_MUTE_SWITCH_DETECTION
+#include "SharkfoodMuteSwitchDetector.h"
+#include "SharkfoodMuteSwitchDetector.m"
+#endif
 
 #include <AudioToolbox/AudioToolbox.h>
 #include <AVFoundation/AVAudioSession.h>
@@ -44,6 +49,7 @@ int GAudio_ForceAmbientCategory = 1;
 extern bool GShowSplashScreen;
 
 FIOSCoreDelegates::FOnOpenURL FIOSCoreDelegates::OnOpenURL;
+TArray<FIOSCoreDelegates::FFilterDelegateAndHandle> FIOSCoreDelegates::PushNotificationFilters;
 
 /*
 	From: https://developer.apple.com/library/ios/documentation/UIKit/Reference/UIApplicationDelegate_Protocol/#//apple_ref/occ/intfm/UIApplicationDelegate/applicationDidEnterBackground:
@@ -109,6 +115,27 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
         GError->HandleError();
     }
     return Context.GenerateCrashInfo();
+}
+
+FDelegateHandle FIOSCoreDelegates::AddPushNotificationFilter(const FPushNotificationFilter& FilterDel)
+{
+	FDelegateHandle NewHandle(FDelegateHandle::EGenerateNewHandleType::GenerateNewHandle);
+	PushNotificationFilters.Push({FilterDel, NewHandle});
+	return NewHandle;
+}
+
+void FIOSCoreDelegates::RemovePushNotificationFilter(FDelegateHandle Handle)
+{
+	PushNotificationFilters.RemoveAll([Handle](const FFilterDelegateAndHandle& Entry) {
+		return Entry.Handle == Handle;
+	});
+}
+
+bool FIOSCoreDelegates::PassesPushNotificationFilters(NSDictionary* Payload)
+{
+	return Algo::AllOf(PushNotificationFilters, [Payload](const FFilterDelegateAndHandle& Entry) {
+		return Entry.Filter.Execute(Payload);
+	});
 }
 
 @implementation IOSAppDelegate
@@ -182,7 +209,7 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 
 	// check to see if we are using the network file system, if so, disable the idle timer
 	FString HostIP;
-	if (FParse::Value(FCommandLine::Get(), TEXT("-FileHostIP="), HostIP))
+//	if (FParse::Value(FCommandLine::Get(), TEXT("-FileHostIP="), HostIP))
 	{
 		[UIApplication sharedApplication].idleTimerDisabled = YES;
 	}
@@ -243,7 +270,7 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
         else
         {
 			bool bOtherAudioPlayingNow = [self IsBackgroundAudioPlaying];
-			if (bOtherAudioPlayingNow != self.bLastOtherAudioPlaying)
+			if (bOtherAudioPlayingNow != self.bLastOtherAudioPlaying || self.bForceEmitOtherAudioPlaying)
 			{
 				FGraphEventRef UserMusicInterruptTask = FFunctionGraphTask::CreateAndDispatchWhenReady([bOtherAudioPlayingNow]()
 				   {
@@ -252,8 +279,40 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 				   }, TStatId(), NULL, ENamedThreads::GameThread);
 				
 				self.bLastOtherAudioPlaying = bOtherAudioPlayingNow;
+				self.bForceEmitOtherAudioPlaying = false;
 			}
 			
+			int OutputVolume = [self GetAudioVolume];
+			bool bMuted = false;
+			
+#if USE_MUTE_SWITCH_DETECTION
+			SharkfoodMuteSwitchDetector* MuteDetector = [SharkfoodMuteSwitchDetector shared];
+			bMuted = MuteDetector.isMute;
+			if (bMuted != self.bLastMutedState || self.bForceEmitMutedState)
+			{
+				FGraphEventRef AudioMuteTask = FFunctionGraphTask::CreateAndDispatchWhenReady([bMuted, OutputVolume]()
+					{
+						//NSLog(@"Audio Session %s", bMuted ? "MUTED" : "UNMUTED");
+						FCoreDelegates::AudioMuteDelegate.Broadcast(bMuted, OutputVolume);
+					}, TStatId(), NULL, ENamedThreads::GameThread);
+				
+				self.bLastMutedState = bMuted;
+				self.bForceEmitMutedState = false;
+			}
+#endif
+
+			if (OutputVolume != self.LastVolume || self.bForceEmitVolume)
+			{
+				FGraphEventRef AudioMuteTask = FFunctionGraphTask::CreateAndDispatchWhenReady([bMuted, OutputVolume]()
+					{
+						//NSLog(@"Audio Volume: %d", OutputVolume);
+						FCoreDelegates::AudioMuteDelegate.Broadcast(bMuted, OutputVolume);
+					}, TStatId(), NULL, ENamedThreads::GameThread);
+
+				self.LastVolume = OutputVolume;
+				self.bForceEmitVolume = false;
+			}
+
             FAppEntry::Tick();
         
             // free any autoreleased objects every once in awhile to keep memory use down (strings, splash screens, etc)
@@ -306,6 +365,11 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	[self EnableIdleTimer : bEnableTimer];
 }
 
+-(bool)IsIdleTimerEnabled
+{
+	return ([UIApplication sharedApplication].idleTimerDisabled == NO);
+}
+
 -(void)DeferredEnableIdleTimer
 {
 	[UIApplication sharedApplication].idleTimerDisabled = NO;
@@ -349,24 +413,40 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 {
 	[[NSNotificationCenter defaultCenter] addObserverForName:AVAudioSessionInterruptionNotification object:nil queue:nil usingBlock:^(NSNotification *notification)
 	{
-		//NSLog(@"AVAudioSessionInterruptionNotification: AVAudioSessionInterruptionType: %d, AVAudioSessionInterruptionOption: %d", (int)[[[notification userInfo] objectForKey:AVAudioSessionInterruptionTypeKey] unsignedIntegerValue], (int)[[[notification userInfo] objectForKey:AVAudioSessionInterruptionOptionKey] unsignedIntegerValue]);
 		switch ([[[notification userInfo] objectForKey:AVAudioSessionInterruptionTypeKey] unsignedIntegerValue])
 		{
 			case AVAudioSessionInterruptionTypeBegan:
 				self.bAudioActive = false;
-				FAppEntry::Suspend();
+				FAppEntry::Suspend(true);
 				break;
 				
 			case AVAudioSessionInterruptionTypeEnded:
-				FAppEntry::Resume();
+				FAppEntry::Resume(true);
 				[self ToggleAudioSession:true force:true];
 				break;
 		}
 	}];
 
 	self.bUsingBackgroundMusic = [self IsBackgroundAudioPlaying];
-	self.bLastOtherAudioPlaying = !self.bUsingBackgroundMusic;
+	self.bForceEmitOtherAudioPlaying = true;
 
+#if USE_MUTE_SWITCH_DETECTION
+	// Initialize the mute switch detector.
+	[SharkfoodMuteSwitchDetector shared];
+	self.bForceEmitMutedState = true;
+#endif
+	
+	self.bForceEmitVolume = true;
+	
+	FCoreDelegates::ApplicationRequestAudioState.AddLambda([self]()
+		{
+			self.bForceEmitOtherAudioPlaying = true;
+#if USE_MUTE_SWITCH_DETECTION
+			self.bForceEmitMutedState = true;
+#endif
+			self.bForceEmitVolume = true;
+		});
+	
 	[self ToggleAudioSession:true force:true];
 }
 
@@ -574,14 +654,7 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	// TVOS does not have a battery, return fully charged
 	return 100;
 #else
-	UIDevice* Device = [UIDevice currentDevice];
-	Device.batteryMonitoringEnabled = YES;
-	
-	// Battery level is from 0.0 to 1.0, get it in terms of 0-100
-	int Level = ((int)([Device batteryLevel] * 100));
-	
-	Device.batteryMonitoringEnabled = NO;
-	return Level;
+    return self.BatteryLevel;
 #endif
 }
 
@@ -591,14 +664,13 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	// TVOS does not have a battery, return plugged in
 	return false;
 #else
-	UIDevice* Device = [UIDevice currentDevice];
-	Device.batteryMonitoringEnabled = YES;
-
-	UIDeviceBatteryState State = Device.batteryState;
-
-	Device.batteryMonitoringEnabled = NO;
-	return State == UIDeviceBatteryStateUnplugged || State == UIDeviceBatteryStateUnknown;
+    return self.bBatteryState;
 #endif
+}
+
+- (NSProcessInfoThermalState)GetThermalState
+{
+    return self.ThermalState;
 }
 
 /**
@@ -874,8 +946,11 @@ static FAutoConsoleVariableRef CVarGEnableThermalsReport(
 				// Uncomment to view the state of the AVAudioSession category, mode, and options.
 //#define VIEW_AVAUDIOSESSION_INFO
 #if defined(VIEW_AVAUDIOSESSION_INFO)
-				FString Message = FString::Printf(TEXT("Session Category: %s, Mode: %s, Options: %x"), UTF8_TO_TCHAR([[AVAudioSession sharedInstance].category UTF8String]), UTF8_TO_TCHAR([[AVAudioSession sharedInstance].mode UTF8String]),
-												[AVAudioSession sharedInstance].categoryOptions);
+				FString Message = FString::Printf(
+					TEXT("Session Category: %s, Mode: %s, Options: %x"),
+					UTF8_TO_TCHAR([[AVAudioSession sharedInstance].category UTF8String]),
+					UTF8_TO_TCHAR([[AVAudioSession sharedInstance].mode UTF8String]),
+					[AVAudioSession sharedInstance].categoryOptions);
 				OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(Message));
 #endif // defined(VIEW_AVAUDIOSESSION_INFO)
 			});
@@ -884,11 +959,24 @@ static FAutoConsoleVariableRef CVarGEnableThermalsReport(
 
 #endif
 
-	if (@available(iOS 11, tvOS 11, *))
+#if !PLATFORM_TVOS
+	if (@available(iOS 11, *))
 	{
+        UIDevice* UiDevice = [UIDevice currentDevice];
+        UiDevice.batteryMonitoringEnabled = YES;
+        
+        // Battery level is from 0.0 to 1.0, get it in terms of 0-100
+        self.BatteryLevel = ((int)([UiDevice batteryLevel] * 100));
+        UIDeviceBatteryState State = UiDevice.batteryState;
+        self.bBatteryState = State == UIDeviceBatteryStateUnplugged || State == UIDeviceBatteryStateUnknown;
+        self.ThermalState = [[NSProcessInfo processInfo] thermalState];
+
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(temperatureChanged:) name:NSProcessInfoThermalStateDidChangeNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(lowPowerModeChanged:) name:NSProcessInfoPowerStateDidChangeNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(batteryChanged:) name:UIDeviceBatteryLevelDidChangeNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(batteryStateChanged:) name:UIDeviceBatteryStateDidChangeNotification object:nil];
 	}
+#endif
     
 	[self InitializeAudioSession];
 	
@@ -974,9 +1062,15 @@ FCriticalSection RenderSuspend;
     
     FIOSPlatformMisc::ResetBrightness();
     
-	/*
-	 Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
-	 Use this method to pause ongoing tasks, disable timers, and throttle down OpenGL ES frame rates. Games should use this method to pause the game.
+    /*
+		Sent when the application is about to move from active to inactive
+		state. This can occur for certain types of temporary interruptions (such
+		as an incoming phone call or SMS message) or when the user quits the
+		application and it begins the transition to the background state.
+
+		Use this method to pause ongoing tasks, disable timers, and throttle
+	 	down OpenGL ES frame rates. Games should use this method to pause the
+		game.
 	 */
     if (bEngineInit)
     {
@@ -996,6 +1090,8 @@ FCriticalSection RenderSuspend;
 			}
 		}
     }
+	[self ToggleSuspend:true];
+	[self ToggleAudioSession:false force:true];
     
     RenderSuspend.TryLock();
     if (FTaskGraphInterface::IsRunning())
@@ -1015,15 +1111,17 @@ FCriticalSection RenderSuspend;
             }, TStatId(), NULL, ENamedThreads::ActualRenderingThread);
         }
     }
-	[self ToggleSuspend:true];
-	[self ToggleAudioSession:false force:true];
 }
 
 - (void)applicationDidEnterBackground:(UIApplication *)application
 {
 	/*
-	 Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later. 
-	 If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+	 Use this method to release shared resources, save user data, invalidate
+	 timers, and store enough application state information to restore your
+	 application to its current state in case it is terminated later.
+	 
+	 If your application supports background execution, this method is called
+	 instead of applicationWillTerminate: when the user quits.
 	 */
     FCoreDelegates::ApplicationWillEnterBackgroundDelegate.Broadcast();
 }
@@ -1042,8 +1140,8 @@ FCriticalSection RenderSuspend;
 	 Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
 	 */
 	RenderSuspend.Unlock();
+    [self ToggleAudioSession:true force:true];
 	[self ToggleSuspend : false];
-	[self ToggleAudioSession:true force:true];
 
     if (bEngineInit)
     {
@@ -1077,10 +1175,18 @@ FCriticalSection RenderSuspend;
     // note that we are shutting down
     GIsRequestingExit = true;
     
-    // wait for the game thread to shut down
-    while (self.bHasStarted == true)
+    if (!bEngineInit)
     {
-        usleep(3);
+        // we haven't yet made it to the point where the engine is initialized, so just exit the app
+        _Exit(0);
+    }
+    else
+    {
+        // wait for the game thread to shut down
+        while (self.bHasStarted == true)
+        {
+            usleep(3);
+        }
     }
 }
 
@@ -1091,6 +1197,22 @@ FCriticalSection RenderSuspend;
 	*/
 	FPlatformMisc::HandleLowMemoryWarning();
 }
+
+#if !PLATFORM_TVOS && BACKGROUNDFETCH_ENABLED // NOTE: TVOS can do this starting in tvOS 11
+- (void)application:(UIApplication *)application performFetchWithCompletionHandler:(void(^)(UIBackgroundFetchResult result))completionHandler
+{
+    // NOTE: the completionHandler must be called within 30 seconds
+    FCoreDelegates::ApplicationPerformFetchDelegate.Broadcast();
+    completionHandler(UIBackgroundFetchResultNewData);
+}
+
+- (void)application:(UIApplication *)application handleEventsForBackgroundURLSession:(NSString *)identifier completionHandler:(void (^)(void))completionHandler
+{
+    FString Id(identifier);
+    FCoreDelegates::ApplicationBackgroundSessionEventDelegate.Broadcast(Id);
+    completionHandler();
+}
+#endif
 
 #if !PLATFORM_TVOS && NOTIFICATIONS_ENABLED
 
@@ -1141,7 +1263,7 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 -(void)application : (UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo fetchCompletionHandler:(void(^)(UIBackgroundFetchResult result))handler
 {
-	if (bEngineInit)
+	if (bEngineInit && FIOSCoreDelegates::PassesPushNotificationFilters(userInfo))
 	{
 		NSString* JsonString = @"{}";
 		NSError* JsonError;
@@ -1345,32 +1467,66 @@ CORE_API bool IOSShowAchievementsUI()
 	return true;
 }
 
+-(void)batteryChanged:(NSNotification*)notification
+{
+#if !PLATFORM_TVOS
+    UIDevice* Device = [UIDevice currentDevice];
+    
+    // Battery level is from 0.0 to 1.0, get it in terms of 0-100
+    self.BatteryLevel = ((int)([Device batteryLevel] * 100));
+    UE_LOG(LogIOS, Display, TEXT("Battery Level Changed: %d"), self.BatteryLevel);
+#endif
+}
+
+-(void)batteryStateChanged:(NSNotification*)notification
+{
+#if !PLATFORM_TVOS
+    UIDevice* Device = [UIDevice currentDevice];
+    UIDeviceBatteryState State = Device.batteryState;
+    self.bBatteryState = State == UIDeviceBatteryStateUnplugged || State == UIDeviceBatteryStateUnknown;
+    UE_LOG(LogIOS, Display, TEXT("Battery State Changed: %d"), self.bBatteryState);
+#endif
+}
 
 -(void)temperatureChanged:(NSNotification *)notification
 {
+#if !PLATFORM_TVOS
 	if (@available(iOS 11, *))
 	{
 		// send game callback with new temperature severity
 		FCoreDelegates::ETemperatureSeverity Severity;
-		switch ([[NSProcessInfo processInfo] thermalState])
+        FString Level = TEXT("Unknown");
+        self.ThermalState = [[NSProcessInfo processInfo] thermalState];
+		switch (self.ThermalState)
 		{
-			case NSProcessInfoThermalStateNominal:	Severity = FCoreDelegates::ETemperatureSeverity::Good; break;
-			case NSProcessInfoThermalStateFair:		Severity = FCoreDelegates::ETemperatureSeverity::Bad; break;
-			case NSProcessInfoThermalStateSerious:	Severity = FCoreDelegates::ETemperatureSeverity::Serious; break;
-			case NSProcessInfoThermalStateCritical:	Severity = FCoreDelegates::ETemperatureSeverity::Critical; break;
+			case NSProcessInfoThermalStateNominal:	Severity = FCoreDelegates::ETemperatureSeverity::Good; Level = TEXT("Good"); break;
+			case NSProcessInfoThermalStateFair:		Severity = FCoreDelegates::ETemperatureSeverity::Bad; Level = TEXT("Bad"); break;
+			case NSProcessInfoThermalStateSerious:	Severity = FCoreDelegates::ETemperatureSeverity::Serious; Level = TEXT("Serious"); break;
+			case NSProcessInfoThermalStateCritical:	Severity = FCoreDelegates::ETemperatureSeverity::Critical; Level = TEXT("Critical"); break;
 		}
 
+        UE_LOG(LogIOS, Display, TEXT("Temperaure Changed: %s"), *Level);
 		FCoreDelegates::OnTemperatureChange.Broadcast(Severity);
 	}
+#endif
 }
 
 -(void)lowPowerModeChanged:(NSNotification *)notification
 {
+#if !PLATFORM_TVOS
 	if (@available(iOS 11, *))
-	{
-		bool bInLowPowerMode = [[NSProcessInfo processInfo] isLowPowerModeEnabled];
-		FCoreDelegates::OnLowPowerMode.Broadcast(bInLowPowerMode);
+	{	
+        FIOSAsyncTask* AsyncTask = [[FIOSAsyncTask alloc] init];
+        AsyncTask.GameThreadCallback = ^ bool(void)
+        {
+            bool bInLowPowerMode = [[NSProcessInfo processInfo] isLowPowerModeEnabled];
+            UE_LOG(LogIOS, Display, TEXT("Low Power Mode Changed: %d"), bInLowPowerMode);
+            FCoreDelegates::OnLowPowerMode.Broadcast(bInLowPowerMode);
+            return true;
+        };
+        [AsyncTask FinishedTask];
 	}
+#endif
 }
 
 -(UIWindow*)window

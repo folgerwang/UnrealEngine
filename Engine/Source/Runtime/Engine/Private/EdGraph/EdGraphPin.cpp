@@ -41,7 +41,6 @@ public:
 	{
 		FPinDeletionQueue* PinDeletionQueue = Get();
 	
-		checkSlow(!PinDeletionQueue->PinsToDelete.Contains(PinToDelete));
 		PinDeletionQueue->PinsToDelete.Add(PinToDelete);
 	}
 

@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "OnlineKeyValuePair.h"
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineEvents, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineEvents, Log, All);
 #define UE_LOG_ONLINE_EVENTS(Verbosity, Format, ...) \
 { \
 	UE_LOG(LogOnlineEvents, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \

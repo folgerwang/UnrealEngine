@@ -15,7 +15,7 @@ typedef TSharedPtr<class FOnlineExternalUIFacebook, ESPMode::ThreadSafe> FOnline
 /**
  *	OnlineSubsystemFacebook - Implementation of the online subsystem for Facebook services
  */
-class ONLINESUBSYSTEMFACEBOOK_API FOnlineSubsystemFacebook 
+class ONLINESUBSYSTEMFACEBOOK_API FOnlineSubsystemFacebook
 	: public FOnlineSubsystemFacebookCommon
 {
 public:
@@ -35,8 +35,8 @@ public:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemFacebook();
-	FOnlineSubsystemFacebook(FName InInstanceName);
+	FOnlineSubsystemFacebook() = delete;
+	explicit FOnlineSubsystemFacebook(FName InInstanceName);
 };
 
 typedef TSharedPtr<FOnlineSubsystemFacebook, ESPMode::ThreadSafe> FOnlineSubsystemFacebookPtr;

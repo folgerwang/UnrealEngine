@@ -8,6 +8,18 @@
 #include "AudioDecompress.h"
 #include "ContentStreaming.h"
 
+// Keep track of OpenSLES track counts, if they exceed 12, then log the error but prevent new sounds
+static int32 GTrackCount = 0;
+
+// Track when the last realize error ocurred, if they 
+static double GLastRealizeErrorTimeSec = 0.0;
+
+// How much time is needed to pass since last error before a new sound is allowed to play
+int32 GCVarAndroidRealizeErrorWaitThresholdMs = 35;
+TAutoConsoleVariable<int32> CVarAndroidRealizeErrorWaitThresholdMs(TEXT("au.AndroidRealizeErrorWaitThresholdMs"), GCVarAndroidRealizeErrorWaitThresholdMs, TEXT("Sets number of ms to wait before allowing new player request after realize buffer error (default: 35)"), ECVF_Default);
+
+
+
 // Callback that is registered if the source needs to loop
 void OpenSLBufferQueueCallback( SLAndroidSimpleBufferQueueItf InQueueInterface, void* pContext ) 
 {
@@ -83,6 +95,20 @@ void FSLESSoundSource::OnRequeueBufferCallback( SLAndroidSimpleBufferQueueItf In
 
 bool FSLESSoundSource::CreatePlayer()
 {
+	if (GTrackCount >= 12)
+	{
+		UE_LOG(LogAndroidAudio, Warning, TEXT("Too many audio tracks to create new player! (%d)"), GTrackCount);
+		return false;
+	}
+
+	const double CurrentTimeSec = FPlatformTime::Seconds();
+	const double LastTimeSinceErrorMs = (CurrentTimeSec - GLastRealizeErrorTimeSec) * 1000.0;
+	if (LastTimeSinceErrorMs < (double)GCVarAndroidRealizeErrorWaitThresholdMs)
+	{
+		UE_LOG(LogAndroidAudio, Warning, TEXT("Last time since Realize Error: %f ms"), LastTimeSinceErrorMs);
+		return false;
+	}
+
 	// data info
 	SLDataLocator_AndroidSimpleBufferQueue LocationBuffer	= {		SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 1 };
 		
@@ -98,22 +124,41 @@ bool FSLESSoundSource::CreatePlayer()
 	SLDataLocator_OutputMix Output_Mix		= {		SL_DATALOCATOR_OUTPUTMIX, ((FSLESAudioDevice *)AudioDevice)->SL_OutputMixObject};
 	SLDataSink AudioSink					= {		&Output_Mix, NULL};
 
+
 	// create audio player
 	const SLInterfaceID	ids[] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME};
 	const SLboolean		req[] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
-	SLresult result = (*Device->SL_EngineEngine)->CreateAudioPlayer( Device->SL_EngineEngine, &SL_PlayerObject, 
-																	&SoundDataSource, &AudioSink, sizeof(ids) / sizeof(SLInterfaceID), ids, req );
-	if(result != SL_RESULT_SUCCESS)
+	SLresult result;
+
 	{
-		UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER CreateAudioPlayer 0x%x"), result);
-		return false;
+		SCOPE_CYCLE_COUNTER(STAT_AudioAndroidSourcePlayerCreateTime);
+
+		result = (*Device->SL_EngineEngine)->CreateAudioPlayer(Device->SL_EngineEngine, &SL_PlayerObject, &SoundDataSource, &AudioSink, sizeof(ids) / sizeof(SLInterfaceID), ids, req);
+		if (result != SL_RESULT_SUCCESS)
+		{
+			UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER CreateAudioPlayer 0x%x"), result);
+			return false;
+		}
+
 	}
 	
 	bool bFailedSetup = false;
 	
 	// realize the player
-	result = (*SL_PlayerObject)->Realize(SL_PlayerObject, SL_BOOLEAN_FALSE);
-	if (result != SL_RESULT_SUCCESS) { UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER Realize 0x%x"), result); return false; }
+	{
+		SCOPE_CYCLE_COUNTER(STAT_AudioAndroidSourcePlayerRealize);
+
+		result = (*SL_PlayerObject)->Realize(SL_PlayerObject, SL_BOOLEAN_FALSE);
+
+		++GTrackCount;
+
+		if (result != SL_RESULT_SUCCESS)
+		{
+			GLastRealizeErrorTimeSec = FPlatformTime::Seconds();
+			UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER Realize 0x%x. NumChannels: %d, SampleRate: %d, TrackCount: %d"), result, SLESBuffer->NumChannels, SLESBuffer->SampleRate, GTrackCount);
+			return false;
+		}
+	}
 		
 	// get the play interface
 	result = (*SL_PlayerObject)->GetInterface(SL_PlayerObject, SL_IID_PLAY, &SL_PlayerPlayInterface);
@@ -138,6 +183,8 @@ void FSLESSoundSource::DestroyPlayer()
 		SL_PlayerPlayInterface	= NULL;
 		SL_PlayerBufferQueue	= NULL;
 		SL_VolumeInterface		= NULL;
+
+		--GTrackCount;
 	}
 }
 
@@ -230,6 +277,8 @@ bool FSLESSoundSource::EnqueuePCMRTBuffer( bool bLoop )
 	}
 	else
 	{
+		UE_LOG(LogAndroidAudio, Warning, TEXT("Performing synchronous decode on audio thread with '%s'. This may cause hitching on the game thread if performed too often."), *WaveInstance->WaveData->GetName());
+
 		ReadMorePCMData(0, EDataReadMode::Synchronous);
 		ReadMorePCMData(1, EDataReadMode::Asynchronous);
 	}

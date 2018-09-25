@@ -11,6 +11,8 @@ bool GAndroidGPUInfoReady = false;
 
 // call out to JNI to see if the application was packaged for Gear VR
 extern bool AndroidThunkCpp_IsGearVRApplication();
+extern bool ShouldUseGPUFencesToLimitLatency();
+
 
 class FAndroidGPUInfo
 {

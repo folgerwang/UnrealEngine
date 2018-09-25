@@ -167,6 +167,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Utility|Collision")
 	FTraceQueryTestResultsInner ProfileResults;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Utility|Collision")
 	FTraceChannelTestBatchOptions BatchOptions;
 
 	/** Output string value */

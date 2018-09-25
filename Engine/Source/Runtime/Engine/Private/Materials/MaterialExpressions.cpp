@@ -149,6 +149,7 @@
 #include "Materials/MaterialExpressionPreSkinnedNormal.h"
 #include "Materials/MaterialExpressionPreSkinnedPosition.h"
 #include "Materials/MaterialExpressionQualitySwitch.h"
+#include "Materials/MaterialExpressionShadingPathSwitch.h"
 #include "Materials/MaterialExpressionReflectionVectorWS.h"
 #include "Materials/MaterialExpressionRotateAboutAxis.h"
 #include "Materials/MaterialExpressionRotator.h"
@@ -6968,6 +6969,130 @@ bool UMaterialExpressionFeatureLevelSwitch::NeedsLoadForClient() const
 }
 
 //
+//	UMaterialExpressionShadingPathSwitch
+//
+
+UMaterialExpressionShadingPathSwitch::UMaterialExpressionShadingPathSwitch(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Utility;
+		FConstructorStatics()
+			: NAME_Utility(LOCTEXT("Utility", "Utility"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+#if WITH_EDITORONLY_DATA
+	MenuCategories.Add(ConstructorStatics.NAME_Utility);
+#endif
+}
+
+#if WITH_EDITOR
+int32 UMaterialExpressionShadingPathSwitch::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
+{
+	const EShaderPlatform ShaderPlatform = Compiler->GetShaderPlatform();
+	ERHIShadingPath::Type ShadingPathToCompile = ERHIShadingPath::Deferred;
+
+	if (IsForwardShadingEnabled(ShaderPlatform))
+	{
+		ShadingPathToCompile = ERHIShadingPath::Forward;
+	}
+	else if (Compiler->GetFeatureLevel() < ERHIFeatureLevel::SM4)
+	{
+		ShadingPathToCompile = ERHIShadingPath::Mobile;
+	}
+
+	check(ShadingPathToCompile < ARRAY_COUNT(Inputs));
+	FExpressionInput ShadingPathInput = Inputs[ShadingPathToCompile].GetTracedInput();
+	FExpressionInput DefaultTraced = Default.GetTracedInput();
+
+	if (!DefaultTraced.Expression)
+	{
+		return Compiler->Errorf(TEXT("Shading path switch missing default input"));
+	}
+
+	if (ShadingPathInput.Expression)
+	{
+		return ShadingPathInput.Compile(Compiler);
+	}
+
+	return DefaultTraced.Compile(Compiler);
+}
+
+void UMaterialExpressionShadingPathSwitch::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(FString(TEXT("Shading Path Switch")));
+}
+
+const TArray<FExpressionInput*> UMaterialExpressionShadingPathSwitch::GetInputs()
+{
+	TArray<FExpressionInput*> OutInputs;
+
+	OutInputs.Add(&Default);
+
+	for (int32 InputIndex = 0; InputIndex < ARRAY_COUNT(Inputs); InputIndex++)
+	{
+		OutInputs.Add(&Inputs[InputIndex]);
+	}
+
+	return OutInputs;
+}
+
+FExpressionInput* UMaterialExpressionShadingPathSwitch::GetInput(int32 InputIndex)
+{
+	if (InputIndex == 0)
+	{
+		return &Default;
+	}
+
+	return &Inputs[InputIndex - 1];
+}
+
+FName UMaterialExpressionShadingPathSwitch::GetInputName(int32 InputIndex) const
+{
+	if (InputIndex == 0)
+	{
+		return TEXT("Default");
+	}
+
+	FName ShadingPathName;
+	GetShadingPathName((ERHIShadingPath::Type)(InputIndex - 1), ShadingPathName);
+	return ShadingPathName;
+}
+
+bool UMaterialExpressionShadingPathSwitch::IsInputConnectionRequired(int32 InputIndex) const
+{
+	return InputIndex == 0;
+}
+
+bool UMaterialExpressionShadingPathSwitch::IsResultMaterialAttributes(int32 OutputIndex)
+{
+	check(OutputIndex == 0);
+	TArray<FExpressionInput*> ExpressionInputs = GetInputs();
+
+	for (FExpressionInput* ExpressionInput : ExpressionInputs)
+	{
+		// If there is a loop anywhere in this expression's inputs then we can't risk checking them
+		if (ExpressionInput->Expression && !ExpressionInput->Expression->ContainsInputLoop() && ExpressionInput->Expression->IsResultMaterialAttributes(ExpressionInput->OutputIndex))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+#endif // WITH_EDITOR
+
+bool UMaterialExpressionShadingPathSwitch::NeedsLoadForClient() const
+{
+	return true;
+}
+
+//
 //	UMaterialExpressionNormalize
 //
 UMaterialExpressionNormalize::UMaterialExpressionNormalize(const FObjectInitializer& ObjectInitializer)
@@ -13479,7 +13604,21 @@ int32 UMaterialExpressionDepthFade::Compile(class FMaterialCompiler* Compiler, i
 	// Result = Opacity * saturate((SceneDepth - PixelDepth) / max(FadeDistance, DELTA))
 	const int32 OpacityIndex = InOpacity.GetTracedInput().Expression ? InOpacity.Compile(Compiler) : Compiler->Constant(OpacityDefault);
 	const int32 FadeDistanceIndex = Compiler->Max(FadeDistance.GetTracedInput().Expression ? FadeDistance.Compile(Compiler) : Compiler->Constant(FadeDistanceDefault), Compiler->Constant(DELTA));
-	const int32 FadeIndex = CompileHelperSaturate(Compiler, Compiler->Div(Compiler->Sub(Compiler->SceneDepth(INDEX_NONE, INDEX_NONE, false), Compiler->PixelDepth()), FadeDistanceIndex));
+
+	int32 PixelDepthIndex = -1; 
+	// On mobile scene depth is limited to 65500 
+	// to avoid false fading on objects that are close or exceed this limit we clamp pixel depth to (65500 - FadeDistance)
+	if (Compiler->GetFeatureLevel() <= ERHIFeatureLevel::ES3_1)
+	{
+		PixelDepthIndex = Compiler->Min(Compiler->PixelDepth(), Compiler->Sub(Compiler->Constant(65500.f), FadeDistanceIndex));
+	}
+	else
+	{
+		PixelDepthIndex = Compiler->PixelDepth();
+	}
+	
+	const int32 FadeIndex = CompileHelperSaturate(Compiler, Compiler->Div(Compiler->Sub(Compiler->SceneDepth(INDEX_NONE, INDEX_NONE, false), PixelDepthIndex), FadeDistanceIndex));
+	
 	return Compiler->Mul(OpacityIndex, FadeIndex);
 }
 #endif // WITH_EDITOR
@@ -14284,8 +14423,22 @@ int32 UMaterialExpressionVertexInterpolator::Compile(class FMaterialCompiler* Co
 {
 	if (Input.GetTracedInput().Expression)
 	{
-		if (InterpolatorIndex == INDEX_NONE)
+		if (InterpolatorIndex == INDEX_NONE || CompileErrors.Num() > 0)
 		{
+			// Now this node is confirmed part of the graph, append all errors from the input compilation
+			check(CompileErrors.Num() == CompileErrorExpressions.Num());
+			for (int32 Error = 0; Error < CompileErrors.Num(); ++Error)
+			{
+				if (CompileErrorExpressions[Error])
+				{
+					Compiler->AppendExpressionError(CompileErrorExpressions[Error], *CompileErrors[Error]);
+				}
+				else
+				{
+					Compiler->Errorf(*CompileErrors[Error]);
+				}
+			}
+			
 			return Compiler->Errorf(TEXT("Failed to compile interpolator input."));
 		}
 		else
@@ -14305,6 +14458,9 @@ int32 UMaterialExpressionVertexInterpolator::CompileInput(class FMaterialCompile
 	InterpolatorIndex = INDEX_NONE;
 	InterpolatedType = MCT_Unknown;
 	InterpolatorOffset = INDEX_NONE;
+
+	CompileErrors.Empty();
+	CompileErrorExpressions.Empty();
 
 	if (Input.GetTracedInput().Expression)
 	{

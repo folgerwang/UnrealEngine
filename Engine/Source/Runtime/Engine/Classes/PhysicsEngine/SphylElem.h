@@ -16,10 +16,12 @@ struct FKSphylElem : public FKShapeElem
 {
 	GENERATED_USTRUCT_BODY()
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FMatrix TM_DEPRECATED;
 	UPROPERTY()
 	FQuat Orientation_DEPRECATED;
+#endif
 
 	/** Position of the capsule's origin */
 	UPROPERTY(Category=Capsule, EditAnywhere)
@@ -39,18 +41,23 @@ struct FKSphylElem : public FKShapeElem
 
 	FKSphylElem()
 	: FKShapeElem(EAggCollisionShape::Sphyl)
+#if WITH_EDITORONLY_DATA
+	, TM_DEPRECATED(ForceInitToZero)
 	, Orientation_DEPRECATED( FQuat::Identity )
+#endif
 	, Center( FVector::ZeroVector )
 	, Rotation(FRotator::ZeroRotator)
 	, Radius(1), Length(1)
-
 	{
 
 	}
 
 	FKSphylElem( float InRadius, float InLength )
 	: FKShapeElem(EAggCollisionShape::Sphyl)
+#if WITH_EDITORONLY_DATA
+	, TM_DEPRECATED(ForceInitToZero)
 	, Orientation_DEPRECATED( FQuat::Identity )
+#endif
 	, Center( FVector::ZeroVector )
 	, Rotation(FRotator::ZeroRotator)
 	, Radius(InRadius), Length(InLength)
@@ -58,7 +65,9 @@ struct FKSphylElem : public FKShapeElem
 
 	}
 
+#if WITH_EDITORONLY_DATA
 	void FixupDeprecated( FArchive& Ar );
+#endif
 
 	friend bool operator==( const FKSphylElem& LHS, const FKSphylElem& RHS )
 	{

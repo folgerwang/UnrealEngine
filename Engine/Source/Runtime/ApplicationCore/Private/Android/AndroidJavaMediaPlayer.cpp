@@ -45,9 +45,7 @@ FJavaAndroidMediaPlayer::FJavaAndroidMediaPlayer(bool swizzlePixels, bool vulkan
 	, GetVideoWidthMethod(GetClassMethod("getVideoWidth", "()I"))
 	, SetVideoEnabledMethod(GetClassMethod("setVideoEnabled", "(Z)V"))
 	, SetAudioEnabledMethod(GetClassMethod("setAudioEnabled", "(Z)V"))
-#if PLATFORM_LUMIN
 	, SetAudioVolumeMethod(GetClassMethod("setAudioVolume", "(F)V"))
-#endif
 	, GetVideoLastFrameDataMethod(GetClassMethod("getVideoLastFrameData", "()Ljava/nio/Buffer;"))
 	, StartMethod(GetClassMethod("start", "()V"))
 	, PauseMethod(GetClassMethod("pause", "()V"))
@@ -250,9 +248,7 @@ void FJavaAndroidMediaPlayer::SetAudioEnabled(bool enabled /*= true*/)
 
 void FJavaAndroidMediaPlayer::SetAudioVolume(float Volume)
 {
-#if PLATFORM_LUMIN
 	CallMethod<void>(SetAudioVolumeMethod, Volume);
-#endif
 }
 
 bool FJavaAndroidMediaPlayer::GetVideoLastFrameData(void* & outPixels, int64 & outCount)

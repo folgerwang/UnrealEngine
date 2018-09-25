@@ -1069,14 +1069,14 @@ bool UClientUnitTest::ConnectMinimalClient(const TCHAR* InNetID/*=nullptr*/)
 	Parms.BeaconType = ServerBeaconType;
 	Parms.Timeout = UnitTestTimeout;
 
+	Parms.AllowedClientRPCs = AllowedClientRPCs;
+
+	NotifyAlterMinClient(Parms);
+
 	if (InNetID != nullptr)
 	{
 		Parms.JoinUID = InNetID;
 	}
-
-	Parms.AllowedClientRPCs = AllowedClientRPCs;
-
-	NotifyAlterMinClient(Parms);
 
 	MinClient = NewObject<UMinimalClient>(GetTransientPackage(), MinClientClass);
 

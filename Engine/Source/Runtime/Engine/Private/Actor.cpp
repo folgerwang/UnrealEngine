@@ -915,22 +915,25 @@ void AActor::TickActor( float DeltaSeconds, ELevelTick TickType, FActorTickFunct
 
 void AActor::Tick( float DeltaSeconds )
 {
-	// Blueprint code outside of the construction script should not run in the editor
-	// Allow tick if we are not a dedicated server, or we allow this tick on dedicated servers
-	if (GetWorldSettings() != nullptr && (bAllowReceiveTickEventOnDedicatedServer || !IsRunningDedicatedServer()))
+	if (GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
 	{
-		ReceiveTick(DeltaSeconds);
+		// Blueprint code outside of the construction script should not run in the editor
+		// Allow tick if we are not a dedicated server, or we allow this tick on dedicated servers
+		if (GetWorldSettings() != nullptr && (bAllowReceiveTickEventOnDedicatedServer || !IsRunningDedicatedServer()))
+		{
+			ReceiveTick(DeltaSeconds);
+		}
+
+
+		// Update any latent actions we have for this actor
+
+		// If this tick is skipped on a frame because we've got a TickInterval, our latent actions will be ticked
+		// anyway by UWorld::Tick(). Given that, our latent actions don't need to be passed a larger
+		// DeltaSeconds to make up the frames that they missed (because they wouldn't have missed any).
+		// So pass in the world's DeltaSeconds value rather than our specific DeltaSeconds value.
+		UWorld* MyWorld = GetWorld();
+		MyWorld->GetLatentActionManager().ProcessLatentActions(this, MyWorld->GetDeltaSeconds());
 	}
-
-
-	// Update any latent actions we have for this actor
-
-	// If this tick is skipped on a frame because we've got a TickInterval, our latent actions will be ticked
-	// anyway by UWorld::Tick(). Given that, our latent actions don't need to be passed a larger
-	// DeltaSeconds to make up the frames that they missed (because they wouldn't have missed any).
-	// So pass in the world's DeltaSeconds value rather than our specific DeltaSeconds value.
-	UWorld* MyWorld = GetWorld();
-	MyWorld->GetLatentActionManager().ProcessLatentActions(this, MyWorld->GetDeltaSeconds());
 
 	if (bAutoDestroyWhenFinished)
 	{
@@ -1203,6 +1206,12 @@ bool AActor::CheckStillInWorld()
 		return false;
 	}
 
+	// Only authority or non-networked actors should be destroyed, otherwise misprediction can destroy something the server is intending to keep alive.
+	if (!(HasAuthority() || Role == ROLE_None))
+	{
+		return true;
+	}
+
 	// check the variations of KillZ
 	AWorldSettings* WorldSettings = MyWorld->GetWorldSettings( true );
 
@@ -1464,7 +1473,16 @@ bool AActor::WasRecentlyRendered(float Tolerance) const
 	{
 		// Adjust tolerance, so visibility is not affected by bad frame rate / hitches.
 		const float RenderTimeThreshold = FMath::Max(Tolerance, World->DeltaTimeSeconds + KINDA_SMALL_NUMBER);
-		return World->TimeSince(GetLastRenderTime()) <= RenderTimeThreshold;
+
+		// If the current cached value is less than the tolerance then we don't need to go look at the components
+		if (World->TimeSince(CachedLastRenderTime) <= RenderTimeThreshold)
+		{
+			return true;
+		}
+
+		CachedLastRenderTime = GetLastRenderTime(); // Store this off as an overriden version of GetLastRenderTime will not have set it directly internally
+
+		return (World->TimeSince(CachedLastRenderTime) <= RenderTimeThreshold);
 	}
 	return false;
 }
@@ -1472,17 +1490,16 @@ bool AActor::WasRecentlyRendered(float Tolerance) const
 float AActor::GetLastRenderTime() const
 {
 	// return most recent of Components' LastRenderTime
-	// @todo UE4 maybe check base component and components attached to it instead?
-	float LastRenderTime = -1000.f;
 	for (const UActorComponent* ActorComponent : GetComponents())
 	{
 		const UPrimitiveComponent* PrimComp = Cast<const UPrimitiveComponent>(ActorComponent);
 		if (PrimComp && PrimComp->IsRegistered())
 		{
-			LastRenderTime = FMath::Max(LastRenderTime, PrimComp->LastRenderTime);
+			CachedLastRenderTime = FMath::Max(CachedLastRenderTime, PrimComp->LastRenderTime);
 		}
 	}
-	return LastRenderTime;
+
+	return CachedLastRenderTime;
 }
 
 void AActor::SetOwner( AActor *NewOwner )
@@ -1820,20 +1837,25 @@ bool AActor::IsRelevancyOwnerFor(const AActor* ReplicatedActor, const AActor* Ac
 
 void AActor::ForceNetUpdate()
 {
-	if (UNetDriver* NetDriver = GetNetDriver())
+	if (Role == ROLE_Authority)
 	{
-		NetDriver->ForceNetUpdate(this);
-
-		UWorld* MyWorld = GetWorld();
-		if (MyWorld && MyWorld->DemoNetDriver && MyWorld->DemoNetDriver != NetDriver)
+		// ForceNetUpdate on the game net driver only if we are the authority...
+		UNetDriver* NetDriver = GetNetDriver();
+		if (NetDriver && NetDriver->GetNetMode() < ENetMode::NM_Client) // ... and not a client
 		{
-			MyWorld->DemoNetDriver->ForceNetUpdate(this);
+			NetDriver->ForceNetUpdate(this);
+			if (NetDormancy > DORM_Awake)
+			{
+				FlushNetDormancy(); 
+			}
 		}
-
-		if (NetDormancy > DORM_Awake)
-		{
-			FlushNetDormancy(); 
-		}
+	}
+	
+	// Even if not authority, still need to ForceNetUpdate on the demo net driver
+	UWorld* MyWorld = GetWorld();
+	if (MyWorld && MyWorld->DemoNetDriver)
+	{
+		MyWorld->DemoNetDriver->ForceNetUpdate(this);
 	}
 }
 
@@ -1890,6 +1912,8 @@ void AActor::FlushNetDormancy()
 		return;
 	}
 
+	QUICK_SCOPE_CYCLE_COUNTER(NET_AActor_FlushNetDormancy);
+
 	bool bWasDormInitial = false;
 	if (NetDormancy == DORM_Initial)
 	{
@@ -1904,19 +1928,21 @@ void AActor::FlushNetDormancy()
 		return;
 	}
 
-	UWorld* MyWorld = GetWorld();
-
-	// Add to network actors list if needed
-	MyWorld->AddNetworkActor( this );
-	
-	UNetDriver* NetDriver = GetNetDriver();
-	if (NetDriver)
+	UWorld* const MyWorld = GetWorld();
+	if (MyWorld)
 	{
-		NetDriver->FlushActorDormancy(this);
-
-		if (MyWorld->DemoNetDriver && MyWorld->DemoNetDriver!= NetDriver)
+		// Add to network actors list if needed
+		MyWorld->AddNetworkActor(this);
+	
+		UNetDriver* const NetDriver = GetNetDriver();
+		if (NetDriver)
 		{
-			MyWorld->DemoNetDriver->FlushActorDormancy(this, bWasDormInitial);
+			NetDriver->FlushActorDormancy(this);
+
+			if (MyWorld->DemoNetDriver && MyWorld->DemoNetDriver != NetDriver)
+			{
+				MyWorld->DemoNetDriver->FlushActorDormancy(this, bWasDormInitial);
+			}
 		}
 	}
 }
@@ -2088,10 +2114,14 @@ void AActor::Reset()
 
 void AActor::FellOutOfWorld(const UDamageType& dmgType)
 {
-	DisableComponentsSimulatePhysics();
-	SetActorHiddenInGame(true);
-	SetActorEnableCollision(false);
-	Destroy();
+	// Only authority or non-networked actors should be destroyed, otherwise misprediction can destroy something the server is intending to keep alive.
+	if (HasAuthority() || Role == ROLE_None)
+	{
+		DisableComponentsSimulatePhysics();
+		SetActorHiddenInGame(true);
+		SetActorEnableCollision(false);
+		Destroy();
+	}
 }
 
 void AActor::MakeNoise(float Loudness, APawn* NoiseInstigator, FVector NoiseLocation, float MaxRange, FName Tag)

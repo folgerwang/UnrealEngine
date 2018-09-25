@@ -120,6 +120,16 @@ struct FGenericPlatformProperties
 	}
 
 	/**
+	* Checks whether shipped data on this platform is secure, and doesn't require extra encryption/signing to protect it.
+	*
+	* @return true if packaged data is considered secure, false otherwise.
+	*/
+	static FORCEINLINE bool HasSecurePackageFormat()
+	{
+		return false;
+	}
+
+	/**
 	 * Checks whether this platform requires user credentials (typically server platforms).
 	 *
 	 * @return true if this platform requires user credentials, false otherwise.

@@ -767,64 +767,74 @@ bool UWorld::FindTeleportSpot(const AActor* TestActor, FVector& TestLocation, FR
 	}
 	FVector Adjust(0.f);
 
+	const FVector OriginalTestLocation = TestLocation;
+
 	// check if fits at desired location
 	if( !EncroachingBlockingGeometry(TestActor, TestLocation, TestRotation, &Adjust) )
 	{
 		return true;
 	}
 
+	if ( Adjust.IsNearlyZero() )
+	{
+		// Reset in case Adjust is not actually zero
+		TestLocation = OriginalTestLocation;
+		return false;
+	}
+
 	// first do only Z
 	if (!FMath::IsNearlyZero(Adjust.Z)) 
 	{
 		TestLocation.Z += Adjust.Z;
-		if( !EncroachingBlockingGeometry(TestActor, TestLocation, TestRotation, &Adjust) )
+		if( !EncroachingBlockingGeometry(TestActor, TestLocation, TestRotation) )
 		{
 			return true;
 		}
+
+		TestLocation = OriginalTestLocation;
 	}
 
 	// now try just XY
 	if (!FMath::IsNearlyZero(Adjust.X) || !FMath::IsNearlyZero(Adjust.Y))
 	{
-		const FVector OriginalTestLocation = TestLocation;
-		const FVector OriginalAdjust = Adjust;
 		// If initially spawning allow testing a few permutations (though this needs improvement).
 		// During play only test the first adjustment, permuting axes could put the location on other sides of geometry.
 		const int32 Iterations = (TestActor->HasActorBegunPlay() ? 1 : 8);
 		for (int i = 0; i < Iterations; ++i)
 		{
+			TestLocation = OriginalTestLocation;
 			TestLocation.X += (i < 4 ? Adjust.X : Adjust.Y) * (i % 2 == 0 ? 1 : -1);
 			TestLocation.Y += (i < 4 ? Adjust.Y : Adjust.X) * (i % 4 < 2 ? 1 : -1);
-			if (!EncroachingBlockingGeometry(TestActor, TestLocation, TestRotation, &Adjust))
+			if (!EncroachingBlockingGeometry(TestActor, TestLocation, TestRotation))
 			{
 				return true;
 			}
+		}
 
-			// Restore original location and adjust, previous iterations should not affect the next test
-			TestLocation = OriginalTestLocation;
-			Adjust = OriginalAdjust;
+		// now z again (with the last XY offset we tried)
+		if (!FMath::IsNearlyZero(Adjust.Z))
+		{
+			TestLocation.Z += Adjust.Z;
+			if( !EncroachingBlockingGeometry(TestActor, TestLocation, TestRotation) )
+			{
+				return true;
+			}
 		}
 	}
 
-	// now z again
-	if (!FMath::IsNearlyZero(Adjust.Z))
+	// Now try full adjustment (only if we're not in a match, otherwise this test is actually redundant because we did it right above.)
+	if (!TestActor->HasActorBegunPlay())
 	{
-		TestLocation.Z += Adjust.Z;
+		TestLocation = OriginalTestLocation + Adjust;
 		if( !EncroachingBlockingGeometry(TestActor, TestLocation, TestRotation, &Adjust) )
 		{
 			return true;
 		}
 	}
 
-	if ( Adjust.IsNearlyZero() )
-	{
-		return false;
-	}
-
-	// Now try full adjustment
-	TestLocation += Adjust;
-	//DrawDebugSphere(this, TestLocation, 32, 10, FLinearColor::Blue, true);
-	return !EncroachingBlockingGeometry(TestActor, TestLocation, TestRotation, &Adjust);
+	// Don't write out the last failed test location, we promised to only if we find a good spot, in case the caller re-uses the original input.
+	TestLocation = OriginalTestLocation;
+	return false;
 }
 
 /** Tests shape components more efficiently than the with-adjustment case, but does less-efficient ppr-poly collision for meshes. */
@@ -870,6 +880,21 @@ static bool ComponentEncroachesBlockingGeometry_NoAdjustment(UWorld const* World
 	}
 
 	return false;
+}
+
+static FVector CombineAdjustments(FVector CurrentAdjustment, FVector AdjustmentToAdd)
+{
+	// remove the part of the new adjustment that's parallel to the current adjustment
+	if (CurrentAdjustment.IsZero())
+	{
+		return AdjustmentToAdd;
+	}
+
+	FVector Projection = AdjustmentToAdd.ProjectOnTo(CurrentAdjustment);
+	Projection = Projection.GetClampedToMaxSize(CurrentAdjustment.Size());
+
+	FVector OrthogalAdjustmentToAdd = AdjustmentToAdd - Projection;
+	return CurrentAdjustment + OrthogalAdjustmentToAdd;
 }
 
 /** Tests shape components less efficiently than the no-adjustment case, but does quicker aabb collision for meshes. */
@@ -990,21 +1015,6 @@ static bool ComponentEncroachesBlockingGeometry(UWorld const* World, AActor cons
 		: ComponentEncroachesBlockingGeometry_NoAdjustment(World, TestActor, PrimComp, TestWorldTransform, IgnoreActors);
 }
 
-
-static FVector CombineAdjustments(FVector CurrentAdjustment, FVector AdjustmentToAdd)
-{
-	// remove the part of the new adjustment that's parallel to the current adjustment
-	if (CurrentAdjustment.IsZero())
-	{
-		return AdjustmentToAdd;
-	}
-
-	FVector Projection = AdjustmentToAdd.ProjectOnTo(CurrentAdjustment);
-	Projection = Projection.GetClampedToMaxSize(CurrentAdjustment.Size());
-
-	FVector OrthogalAdjustmentToAdd = AdjustmentToAdd - Projection;
-	return CurrentAdjustment + OrthogalAdjustmentToAdd;
-}
 
 // perf note: this is faster if ProposedAdjustment is null, since it can early out on first penetration
 bool UWorld::EncroachingBlockingGeometry(const AActor* TestActor, FVector TestLocation, FRotator TestRotation, FVector* ProposedAdjustment)
@@ -1296,6 +1306,8 @@ void UWorld::RefreshStreamingLevels( const TArray<class ULevelStreaming*>& InLev
 		// Load and associate levels if necessary.
 		FlushLevelStreaming();
 
+		bIsRefreshingStreamingLevels = true;
+
 		// Remove all currently visible levels.
 		for (ULevelStreaming* StreamingLevel : InLevelsToRefresh)
 		{
@@ -1314,6 +1326,8 @@ void UWorld::RefreshStreamingLevels( const TArray<class ULevelStreaming*>& InLev
 
 		// Update the level browser so it always contains valid data
 		FEditorSupportDelegates::WorldChange.Broadcast();
+
+		bIsRefreshingStreamingLevels = false;
 	}
 }
 

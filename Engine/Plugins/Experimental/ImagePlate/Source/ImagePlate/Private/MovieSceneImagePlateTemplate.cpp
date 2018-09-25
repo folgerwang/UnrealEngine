@@ -137,6 +137,14 @@ struct FImagePlateExecutionToken : IMovieSceneExecutionToken
 	}
 };
 
+FMovieSceneImagePlateSectionParams::FMovieSceneImagePlateSectionParams()
+	: SectionStartTime(), FileSequence(nullptr), bReuseExistingTexture(false)
+{}
+
+FMovieSceneImagePlateSectionTemplate::FMovieSceneImagePlateSectionTemplate()
+	: PropertyData(), Params()
+{}
+
 FMovieSceneImagePlateSectionTemplate::FMovieSceneImagePlateSectionTemplate(const UMovieSceneImagePlateSection& InSection, const UMovieSceneImagePlateTrack& InTrack)
 	: PropertyData(InTrack.GetPropertyName(), InTrack.GetPropertyPath(), NAME_None, "OnRenderTextureChanged")
 {

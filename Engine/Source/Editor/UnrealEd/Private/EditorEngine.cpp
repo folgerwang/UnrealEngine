@@ -7309,8 +7309,10 @@ void UEditorEngine::AutomationLoadMap(const FString& MapName, FString* OutError)
 		{
 			*OutError = TEXT("Error encountered.");
 		}
-
-		ADD_LATENT_AUTOMATION_COMMAND(FWaitForMapToLoadCommand);
+		else
+		{
+			ADD_LATENT_AUTOMATION_COMMAND(FWaitForMapToLoadCommand);
+		}
 	}
 #endif
 	return;

@@ -665,9 +665,9 @@ FString FPaths::GetCleanFilename(const FString& InPath)
 	static_assert(INDEX_NONE == -1, "INDEX_NONE assumed to be -1");
 
 	int32 EndPos   = InPath.FindLastCharByPredicate(UE4Paths_Private::IsNotSlashOrBackslash) + 1;
-	int32 StartPos = InPath.FindLastCharByPredicate(UE4Paths_Private::IsSlashOrBackslash, EndPos) + 1;
+	int32 StartPos = InPath.FindLastCharByPredicate(UE4Paths_Private::IsSlashOrBackslash) + 1;
 
-	FString Result = InPath.Mid(StartPos, EndPos - StartPos);
+	FString Result = (StartPos <= EndPos) ? InPath.Mid(StartPos, EndPos - StartPos) : "";
 	return Result;
 }
 
@@ -676,10 +676,17 @@ FString FPaths::GetCleanFilename(FString&& InPath)
 	static_assert(INDEX_NONE == -1, "INDEX_NONE assumed to be -1");
 
 	int32 EndPos   = InPath.FindLastCharByPredicate(UE4Paths_Private::IsNotSlashOrBackslash) + 1;
-	int32 StartPos = InPath.FindLastCharByPredicate(UE4Paths_Private::IsSlashOrBackslash, EndPos) + 1;
+	int32 StartPos = InPath.FindLastCharByPredicate(UE4Paths_Private::IsSlashOrBackslash) + 1;
 
-	InPath.RemoveAt(EndPos, InPath.Len() - EndPos, false);
-	InPath.RemoveAt(0, StartPos, false);
+	if (StartPos <= EndPos)
+	{
+		InPath.RemoveAt(EndPos, InPath.Len() - EndPos, false);
+		InPath.RemoveAt(0, StartPos, false);
+	}
+	else
+	{
+		InPath.Empty();
+	}
 
 	return MoveTemp(InPath);
 }

@@ -37,44 +37,47 @@ UNavLinkRenderingComponent::UNavLinkRenderingComponent(const FObjectInitializer&
 FBoxSphereBounds UNavLinkRenderingComponent::CalcBounds(const FTransform& InLocalToWorld) const
 {
 	AActor* LinkOwnerActor = GetOwner();
-	INavLinkHostInterface* LinkOwnerHost = Cast<INavLinkHostInterface>(GetOwner());
-
-	if (LinkOwnerActor != NULL && LinkOwnerHost != NULL)
+	if (LinkOwnerActor != NULL)
 	{
 		FBox BoundingBox(ForceInit);
 		const FTransform LocalToWorld = LinkOwnerActor->ActorToWorld();
-		TArray<TSubclassOf<UNavLinkDefinition> > NavLinkClasses;
-		TArray<FNavigationLink> SimpleLinks;
-		TArray<FNavigationSegmentLink> DummySegmentLinks;
 
-		if (LinkOwnerHost->GetNavigationLinksClasses(NavLinkClasses))
+		INavLinkHostInterface* LinkOwnerHost = Cast<INavLinkHostInterface>(LinkOwnerActor);
+		if (LinkOwnerHost != NULL)
 		{
-			for (int32 NavLinkClassIdx = 0; NavLinkClassIdx < NavLinkClasses.Num(); ++NavLinkClassIdx)
+			TArray<TSubclassOf<UNavLinkDefinition> > NavLinkClasses;
+			TArray<FNavigationLink> SimpleLinks;
+			TArray<FNavigationSegmentLink> DummySegmentLinks;
+
+			if (LinkOwnerHost->GetNavigationLinksClasses(NavLinkClasses))
 			{
-				if (NavLinkClasses[NavLinkClassIdx] != NULL)
+				for (int32 NavLinkClassIdx = 0; NavLinkClassIdx < NavLinkClasses.Num(); ++NavLinkClassIdx)
 				{
-					const TArray<FNavigationLink>& Links = UNavLinkDefinition::GetLinksDefinition(NavLinkClasses[NavLinkClassIdx]);
-					for (const auto& Link : Links)
+					if (NavLinkClasses[NavLinkClassIdx] != NULL)
 					{
-						BoundingBox += Link.Left;
-						BoundingBox += Link.Right;
+						const TArray<FNavigationLink>& Links = UNavLinkDefinition::GetLinksDefinition(NavLinkClasses[NavLinkClassIdx]);
+						for (const auto& Link : Links)
+						{
+							BoundingBox += Link.Left;
+							BoundingBox += Link.Right;
+						}
 					}
 				}
 			}
-		}
-		if (LinkOwnerHost->GetNavigationLinksArray(SimpleLinks, DummySegmentLinks))
-		{
-			for (const auto& Link : SimpleLinks)
+			if (LinkOwnerHost->GetNavigationLinksArray(SimpleLinks, DummySegmentLinks))
 			{
-				BoundingBox += Link.Left;
-				BoundingBox += Link.Right;
+				for (const auto& Link : SimpleLinks)
+				{
+					BoundingBox += Link.Left;
+					BoundingBox += Link.Right;
+				}
 			}
 		}
 
 		return FBoxSphereBounds(BoundingBox).TransformBy(LocalToWorld);
 	}
 
-	return FBoxSphereBounds(EForceInit::ForceInitToZero);
+	return FBoxSphereBounds(ForceInitToZero);
 }
 
 FPrimitiveSceneProxy* UNavLinkRenderingComponent::CreateSceneProxy()

@@ -46,7 +46,7 @@ public:
 	GENERATED_USTRUCT_BODY()
 
 	// Time for this frame. Used during interpolation. If this goes backwards we will dump already stored frames. 
-	UPROPERTY()
+	UPROPERTY(meta=(IgnoreForMemberInitializationTest))
 	double Time;
 
 	// Value calculated on create to represent the different between the source time and client time
@@ -183,7 +183,7 @@ public:
 	UPROPERTY()
 	TArray<FLiveLinkCurveElement> CurveElements;
 	
-	UPROPERTY()
+	UPROPERTY(meta=(IgnoreForMemberInitializationTest))
 	FLiveLinkWorldTime WorldTime;
 
 	UPROPERTY()

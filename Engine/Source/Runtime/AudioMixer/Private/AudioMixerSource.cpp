@@ -282,9 +282,6 @@ namespace Audio
 			// Update the buffer sample rate to the wave instance sample rate in case it was serialized incorrectly
 			MixerBuffer->InitSampleRate(WaveInstance->WaveData->GetSampleRateForCurrentPlatform());
 
-			// Now we init the mixer source buffer
-			MixerSourceBuffer->Init();
-
 			// Hand off the mixer source buffer decoder
 			InitParams.MixerSourceBuffer = MixerSourceBuffer;
 			MixerSourceBuffer = nullptr;
@@ -391,6 +388,9 @@ namespace Audio
 				return true;
 			}
 		}
+
+		// Clear out our mixer source buffer if things failed
+		MixerSourceBuffer = nullptr;
 
 		// Something went wrong with initializing the generator
 		return false;
@@ -512,7 +512,6 @@ namespace Audio
 					StopNow();
 				}
 			}
-
 			Paused = false;
 		}
 	}
@@ -524,7 +523,7 @@ namespace Audio
 		// Immediately stop the sound source
 
 		InitializationState = EMixerSourceInitializationState::NotInitialized;
-		
+
 		IStreamingManager::Get().GetAudioStreamingManager().RemoveStreamingSoundSource(this);
 
 		bIsStopping = false;

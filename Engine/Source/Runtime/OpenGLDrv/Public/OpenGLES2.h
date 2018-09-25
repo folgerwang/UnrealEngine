@@ -146,6 +146,7 @@ struct FOpenGLES2 : public FOpenGLBase
 	static FORCEINLINE bool RequiresTextureCubeLodEXTToTextureCubeLodDefine() { return bRequiresTextureCubeLodEXTToTextureCubeLodDefine; }
 	static FORCEINLINE bool SupportsStandardDerivativesExtension()		{ return bSupportsStandardDerivativesExtension; }
 	static FORCEINLINE bool RequiresGLFragCoordVaryingLimitHack()		{ return bRequiresGLFragCoordVaryingLimitHack; }
+	static FORCEINLINE bool HasBinaryProgramRetrievalFailed()			{ return bBinaryProgramRetrievalFailed; }
 	static FORCEINLINE bool RequiresTexture2DPrecisionHack()			{ return bRequiresTexture2DPrecisionHack; }
 	static FORCEINLINE bool RequiresRoundFunctionHack()					{ return bRequiresRoundFunctionHack; }
 	static FORCEINLINE bool RequiresARMShaderFramebufferFetchDepthStencilUndef() { return bRequiresARMShaderFramebufferFetchDepthStencilUndef; }
@@ -535,6 +536,9 @@ public:
 
 	/* This is a hack to remove the gl_FragCoord if shader will fail to link if exceeding the max varying on android platforms */
 	static bool bRequiresGLFragCoordVaryingLimitHack;
+
+	/* This indicates failure when attempting to retrieve driver's binary representation of the hack program  */
+	static bool bBinaryProgramRetrievalFailed;
 
 	/* This hack fixes an issue with SGX540 compiler which can get upset with some operations that mix highp and mediump */
 	static bool bRequiresTexture2DPrecisionHack;

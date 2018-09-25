@@ -11,6 +11,7 @@
 #include "IMediaTicker.h"
 #include "IMediaTracks.h"
 #include "MediaPlayerFacade.h"
+#include "MediaPlayerOptions.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
@@ -445,7 +446,7 @@ bool UMediaPlayer::OpenPlaylistIndex(UMediaPlaylist* InPlaylist, int32 Index)
 }
 
 
-bool UMediaPlayer::OpenSource(UMediaSource* MediaSource)
+bool UMediaPlayer::OpenSourceInternal(UMediaSource* MediaSource, const FMediaPlayerOptions* PlayerOptions)
 {
 	Close();
 
@@ -465,10 +466,21 @@ bool UMediaPlayer::OpenSource(UMediaSource* MediaSource)
 
 	check(Playlist != nullptr);
 	Playlist->Add(MediaSource);
+	PlayOnNext |= PlayerFacade->IsPlaying();
+	Playlist->GetNext(PlaylistIndex);
 
-	return Next();
+	return PlayerFacade->Open(MediaSource->GetUrl(), MediaSource, PlayerOptions);
 }
 
+bool UMediaPlayer::OpenSourceWithOptions(UMediaSource* MediaSource, const FMediaPlayerOptions& PlayerOptions)
+{
+	return OpenSourceInternal(MediaSource, &PlayerOptions);
+}
+
+bool UMediaPlayer::OpenSource(UMediaSource* MediaSource)
+{
+	return OpenSourceInternal(MediaSource, nullptr);
+}
 
 bool UMediaPlayer::OpenUrl(const FString& Url)
 {

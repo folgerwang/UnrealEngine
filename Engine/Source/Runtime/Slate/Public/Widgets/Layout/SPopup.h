@@ -25,7 +25,7 @@ public:
 
 	SPopup()
 	{
-		bCanTick = false;
+		SetCanTick(false);
 		bCanSupportFocus = false;
 	}
 

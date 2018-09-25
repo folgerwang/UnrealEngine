@@ -196,6 +196,11 @@ public:
 	 */
 	bool GetIsEnsure() const { return bIsEnsure; }
 
+	/**
+	 * Set the current deployment name (ie. EpicApp)
+	 */
+	static void SetDeploymentName(const FString& EpicApp);
+
 protected:
 	bool bIsEnsure;
 
@@ -221,6 +226,9 @@ private:
 
 	/** Called once when GConfig is initialized. Opportunity to cache values from config. */
 	static void InitializeFromConfig();
+
+	/** Called to update any localized strings in the crash context */
+	static void UpdateLocalizedStrings();
 
 	/**	Whether the Initialize() has been called */
 	static bool bIsInitialized;

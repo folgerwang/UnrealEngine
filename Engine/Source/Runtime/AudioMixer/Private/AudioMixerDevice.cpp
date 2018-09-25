@@ -122,6 +122,8 @@ namespace Audio
 	{
 		AUDIO_MIXER_CHECK_GAME_THREAD(this);
 	
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		// Log that we're inside the audio mixer
 		UE_LOG(LogAudioMixer, Display, TEXT("Initializing audio mixer."));
 
@@ -477,6 +479,8 @@ namespace Audio
 
 	bool FMixerDevice::OnProcessAudioStream(AlignedFloatBuffer& Output)
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 #if WITH_EDITOR
 		// Turn on to only hear PIE audio
 		bool bBypassMainAudioDevice = FParse::Param(FCommandLine::Get(), TEXT("AudioPIEOnly"));

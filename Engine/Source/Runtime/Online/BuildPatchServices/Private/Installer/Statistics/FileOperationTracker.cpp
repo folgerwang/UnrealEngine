@@ -70,12 +70,12 @@ namespace BuildPatchServices
 		{
 			const FFileManifest* FileManifest = Manifest->GetFileManifest(Filename);
 			uint64 FileOffset = 0;
-			for (const FChunkPart& FileChunkPart : FileManifest->FileChunkParts)
+			for (const FChunkPart& FileChunkPart : FileManifest->ChunkParts)
 			{
 				FileOperationStates.Emplace(Filename, FileChunkPart.Guid, FileOffset, FileChunkPart.Size, EFileOperationState::Unknown);
 				FileOffset += FileChunkPart.Size;
 			}
-			if (FileManifest->FileChunkParts.Num() == 0)
+			if (FileManifest->ChunkParts.Num() == 0)
 			{
 				DummyOperationStates.Emplace(Filename, FGuid(), 0, 0, EFileOperationState::Unknown);
 			}

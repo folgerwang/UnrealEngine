@@ -38,7 +38,7 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 			LoginCompletionDelegate = FOnInternalLoginComplete::CreateLambda(
 				[this, LocalUserNum](EFacebookLoginResponse InResponseCode, const FString& InAccessToken)
 			{
-				UE_LOG_ONLINE(Verbose, TEXT("FOnInternalLoginComplete %s %s"), ToString(InResponseCode), *InAccessToken);
+				UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("FOnInternalLoginComplete %s %s"), ToString(InResponseCode), *InAccessToken);
 				if (InResponseCode == EFacebookLoginResponse::RESPONSE_OK &&
 					!InAccessToken.IsEmpty())
 				{
@@ -121,7 +121,7 @@ void FOnlineIdentityFacebook::OnLoginAttemptComplete(int32 LocalUserNum, const F
 	if (GetLoginStatus(LocalUserNum) == ELoginStatus::LoggedIn)
 	{
 		extern FString AndroidThunkCpp_Facebook_GetAccessToken();
-		UE_LOG(LogOnline, Display, TEXT("Facebook login was successful %s"), *AndroidThunkCpp_Facebook_GetAccessToken());
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("Facebook login was successful %s"), *AndroidThunkCpp_Facebook_GetAccessToken());
 		TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 		check(UserId.IsValid());
 		
@@ -136,7 +136,7 @@ void FOnlineIdentityFacebook::OnLoginAttemptComplete(int32 LocalUserNum, const F
 		LogoutCompletionDelegate = FOnInternalLogoutComplete::CreateLambda(
 			[this, LocalUserNum, ErrorStrCopy](EFacebookLoginResponse InResponseCode)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Facebook login failed: %s"), *ErrorStrCopy);
+			UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Facebook login failed: %s"), *ErrorStrCopy);
 
 			TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 			if (UserId.IsValid())
@@ -176,7 +176,7 @@ bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)
 			LogoutCompletionDelegate = FOnInternalLogoutComplete::CreateLambda(
 				[this, LocalUserNum](EFacebookLoginResponse InResponseCode)
 			{
-				UE_LOG_ONLINE(Verbose, TEXT("FOnInternalLogoutComplete %s"), ToString(InResponseCode));
+				UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("FOnInternalLogoutComplete %s"), ToString(InResponseCode));
 				TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 				if (UserId.IsValid())
 				{
@@ -207,12 +207,12 @@ bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("No logged in user found for LocalUserNum=%d."), LocalUserNum);
+			UE_LOG_ONLINE_IDENTITY(Warning, TEXT("No logged in user found for LocalUserNum=%d."), LocalUserNum);
 		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Operation already in progress"));
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Operation already in progress"));
 	}
 
 	if (!bTriggeredLogout)
@@ -228,7 +228,7 @@ bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)
 
 void FOnlineIdentityFacebook::OnLoginComplete(EFacebookLoginResponse InResponseCode, const FString& InAccessToken)
 {
-	UE_LOG_ONLINE(Verbose, TEXT("OnLoginComplete %s %s"), ToString(InResponseCode), *InAccessToken);
+	UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("OnLoginComplete %s %s"), ToString(InResponseCode), *InAccessToken);
 	ensure(LoginCompletionDelegate.IsBound());
 	LoginCompletionDelegate.ExecuteIfBound(InResponseCode, InAccessToken);
 	LoginCompletionDelegate.Unbind();
@@ -236,7 +236,7 @@ void FOnlineIdentityFacebook::OnLoginComplete(EFacebookLoginResponse InResponseC
 
 void FOnlineIdentityFacebook::OnLogoutComplete(EFacebookLoginResponse InResponseCode)
 {
-	UE_LOG_ONLINE(Verbose, TEXT("OnLogoutComplete %s"), ToString(InResponseCode));
+	UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("OnLogoutComplete %s"), ToString(InResponseCode));
 	ensure(LogoutCompletionDelegate.IsBound());
 	LogoutCompletionDelegate.ExecuteIfBound(InResponseCode);
 	LogoutCompletionDelegate.Unbind();
@@ -246,7 +246,7 @@ void FOnlineIdentityFacebook::OnLogoutComplete(EFacebookLoginResponse InResponse
 
 FString AndroidThunkCpp_Facebook_GetAccessToken()
 {
-	UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Facebook_GetAccessToken"));
+	UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("AndroidThunkCpp_Facebook_GetAccessToken"));
 
 	FString AccessToken;
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
@@ -268,7 +268,7 @@ FString AndroidThunkCpp_Facebook_GetAccessToken()
 
 bool AndroidThunkCpp_Facebook_Login(const TArray<FString>& InScopeFields)
 {
-	UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Facebook_Login"));
+	UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("AndroidThunkCpp_Facebook_Login"));
 	bool bSuccess = false;
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
@@ -303,7 +303,7 @@ JNI_METHOD void Java_com_epicgames_ue4_FacebookLogin_nativeLoginComplete(JNIEnv*
 	FString AccessToken = FString(UTF8_TO_TCHAR(charsAccessToken));
 	jenv->ReleaseStringUTFChars(accessToken, charsAccessToken);
 
-	UE_LOG_ONLINE(VeryVerbose, TEXT("nativeLoginComplete Response: %d Token: %s"), (int)LoginResponse, *AccessToken);
+	UE_LOG_ONLINE_IDENTITY(VeryVerbose, TEXT("nativeLoginComplete Response: %d Token: %s"), (int)LoginResponse, *AccessToken);
 
 	DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.ProcessFacebookLogin"), STAT_FSimpleDelegateGraphTask_ProcessFacebookLogin, STATGROUP_TaskGraphTasks);
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
@@ -327,7 +327,7 @@ JNI_METHOD void Java_com_epicgames_ue4_FacebookLogin_nativeLoginComplete(JNIEnv*
 
 bool AndroidThunkCpp_Facebook_Logout()
 {
-	UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Facebook_Logout"));
+	UE_LOG_ONLINE_IDENTITY(Verbose, TEXT("AndroidThunkCpp_Facebook_Logout"));
 	bool bSuccess = false;
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
@@ -344,7 +344,7 @@ bool AndroidThunkCpp_Facebook_Logout()
 JNI_METHOD void Java_com_epicgames_ue4_FacebookLogin_nativeLogoutComplete(JNIEnv* jenv, jobject thiz, jsize responseCode)
 {
 	EFacebookLoginResponse LogoutResponse = (EFacebookLoginResponse)responseCode;
-	UE_LOG_ONLINE(VeryVerbose, TEXT("nativeLogoutComplete %s"), ToString(LogoutResponse));
+	UE_LOG_ONLINE_IDENTITY(VeryVerbose, TEXT("nativeLogoutComplete %s"), ToString(LogoutResponse));
 
 	DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.ProcessFacebookLogout"), STAT_FSimpleDelegateGraphTask_ProcessFacebookLogout, STATGROUP_TaskGraphTasks);
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(

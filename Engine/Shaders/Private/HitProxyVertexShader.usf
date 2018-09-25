@@ -18,6 +18,9 @@ struct FHitProxyVSToPS
 	float4 InstanceHitProxyId : HIT_PROXY_ID;
 #endif
 	float4 PixelPosition : TEXCOORD6;
+#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+	float3 PixelPositionExcludingWPO : TEXCOORD7;
+#endif
 	float4 Position : SV_POSITION;
 };
 
@@ -29,6 +32,9 @@ struct FHitProxyVSToPS
 		    float4 InstanceHitProxyId : HIT_PROXY_ID;
 	    #endif
 		float4 Position : VS_To_DS_Position;
+		#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+			float3 PixelPositionExcludingWPO : TEXCOORD7;
+		#endif
 		OPTIONAL_VertexID_VS_To_DS
 	};
 	
@@ -51,6 +57,10 @@ struct FHitProxyVSToPS
 			TESSELLATION_INTERPOLATE_MEMBER(InstanceHitProxyId);
 		#endif
 
+		#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+			TESSELLATION_INTERPOLATE_MEMBER(PixelPositionExcludingWPO);
+		#endif
+
 		return O;
 	}
 
@@ -60,11 +70,6 @@ struct FHitProxyVSToPS
 		
 		O.FactoryInterpolants = VertexFactoryAssignInterpolants(Interpolants.FactoryInterpolants);
 		
-		// Calc displacement mapping
-		float3 WorldDisplacement = GetMaterialWorldDisplacement(MaterialParameters);
-
-		WorldPosition.xyz += WorldDisplacement;
-
 		#if USE_INSTANCING	
 			O.InstanceHitProxyId = Interpolants.InstanceHitProxyId;
 		#endif
@@ -76,6 +81,10 @@ struct FHitProxyVSToPS
 		}
 			
 		O.PixelPosition = WorldPosition;
+
+		#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+			O.PixelPositionExcludingWPO = Interpolants.PixelPositionExcludingWPO.xyz;
+		#endif
 		
 		return O;
 	}
@@ -97,7 +106,8 @@ void Main(
 	ResolvedView = ResolveView();
 
 	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
-	float4	WorldPosition = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+	float4 WorldPosition = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+	float4 WorldPositionExcludingWPO = WorldPosition;
 	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
 
 	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPosition.xyz, TangentToLocal);
@@ -124,7 +134,10 @@ void Main(
 
 	Output.FactoryInterpolants = VertexFactoryGetInterpolantsVSToPS(Input, VFIntermediates, VertexParameters);
 	Output.PixelPosition = WorldPosition;
-	
+#endif
+
+#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+	Output.PixelPositionExcludingWPO = WorldPositionExcludingWPO.xyz;
 #endif
 
 	OutputVertexID( Output );

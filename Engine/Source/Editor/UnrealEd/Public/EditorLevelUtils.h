@@ -111,7 +111,7 @@ public:
 	 *
 	 * @return								The new level, or NULL if the level couldn't added.
 	 */
-	static UNREALED_API ULevel* AddLevelsToWorld(UWorld* InWorld, const TArray<FString>& LevelPackageNames, UClass* LevelStreamingClass);
+	static UNREALED_API ULevel* AddLevelsToWorld(UWorld* InWorld, TArray<FString> LevelPackageNames, TSubclassOf<ULevelStreaming> LevelStreamingClass);
 
 
 	/**
@@ -123,8 +123,13 @@ public:
 	 *
 	 * @return								The new level, or NULL if the level couldn't added.
 	 */
-	static UNREALED_API ULevelStreaming* AddLevelToWorld(UWorld* InWorld, const TCHAR* LevelPackageName, TSubclassOf<ULevelStreaming> LevelStreamingClass);
+	static UNREALED_API ULevelStreaming* AddLevelToWorld(UWorld* InWorld, const TCHAR* LevelPackageName, TSubclassOf<ULevelStreaming> LevelStreamingClass, const FTransform& LevelTransform = FTransform::Identity);
 
+private:
+
+	static UNREALED_API ULevelStreaming* AddLevelToWorld_Internal(UWorld* InWorld, const TCHAR* LevelPackageName, TSubclassOf<ULevelStreaming> LevelStreamingClass, const FTransform& LevelTransform = FTransform::Identity);
+
+public:
 	/** Sets the LevelStreamingClass for the specified Level 
 	  * @param	InLevel				The level for which to change the streaming class
 	  * @param	LevelStreamingClass	The desired streaming class

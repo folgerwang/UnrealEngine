@@ -33,7 +33,7 @@ namespace ue4
 
 namespace mtlpp
 {
-    class Fence : public ns::Object<ns::Protocol<id<MTLFence>>::type>
+    class MTLPP_EXPORT Fence : public ns::Object<ns::Protocol<id<MTLFence>>::type>
     {
     public:
         Fence() { }

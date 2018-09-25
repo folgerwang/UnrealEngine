@@ -184,6 +184,7 @@ private:
 
 	/** Reference to UWebBrowser's default material*/
 	UMaterialInterface* DefaultMaterial;
+
 	/** Reference to UWebBrowser's translucent material*/
 	UMaterialInterface* DefaultTranslucentMaterial;
 

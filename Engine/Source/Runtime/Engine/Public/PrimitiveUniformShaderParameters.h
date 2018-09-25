@@ -13,23 +13,22 @@
 /** The uniform shader parameters associated with a primitive. */
 BEGIN_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters,ENGINE_API)
 	UNIFORM_MEMBER(FMatrix,LocalToWorld)		// always needed
-	UNIFORM_MEMBER(FMatrix,WorldToLocal)		// rarely needed
+	UNIFORM_MEMBER_EX(FVector4,InvNonUniformScaleAndDeterminantSign,EShaderPrecisionModifier::Half) //often needed
 	UNIFORM_MEMBER(FVector4,ObjectWorldPositionAndRadius)	// needed by some materials
-	UNIFORM_MEMBER(FVector,ObjectBounds)		// only needed for editor/development
-	UNIFORM_MEMBER_EX(float,LocalToWorldDeterminantSign,EShaderPrecisionModifier::Half)	// could be stored in the sign bit of the object radius
+	UNIFORM_MEMBER(FMatrix,WorldToLocal)		// rarely needed
 	UNIFORM_MEMBER(FVector,ActorWorldPosition)
+	UNIFORM_MEMBER_EX(float,UseSingleSampleShadowFromStationaryLights,EShaderPrecisionModifier::Half)	
+	UNIFORM_MEMBER(FVector,ObjectBounds)		// only needed for editor/development
+	UNIFORM_MEMBER(float,LpvBiasMultiplier)
 	UNIFORM_MEMBER_EX(float,DecalReceiverMask,EShaderPrecisionModifier::Half)
 	UNIFORM_MEMBER_EX(float,PerObjectGBufferData,EShaderPrecisionModifier::Half)		// 0..1, 2 bits, bDistanceFieldRepresentation, bHeightfieldRepresentation
-	UNIFORM_MEMBER_EX(float,UseSingleSampleShadowFromStationaryLights,EShaderPrecisionModifier::Half)	
 	UNIFORM_MEMBER_EX(float,UseVolumetricLightmapShadowFromStationaryLights,EShaderPrecisionModifier::Half)		
 	UNIFORM_MEMBER_EX(float,UseEditorDepthTest,EShaderPrecisionModifier::Half)
 	UNIFORM_MEMBER_EX(FVector4,ObjectOrientation,EShaderPrecisionModifier::Half)
 	UNIFORM_MEMBER_EX(FVector4,NonUniformScale,EShaderPrecisionModifier::Half)
-	UNIFORM_MEMBER_EX(FVector4,InvNonUniformScale,EShaderPrecisionModifier::Half)
 	UNIFORM_MEMBER(FVector, LocalObjectBoundsMin)		// This is used in a custom material function (ObjectLocalBounds.uasset)
 	UNIFORM_MEMBER(FVector, LocalObjectBoundsMax)		// This is used in a custom material function (ObjectLocalBounds.uasset)
 	UNIFORM_MEMBER(uint32,LightingChannelMask)
-	UNIFORM_MEMBER(float,LpvBiasMultiplier)
 END_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters)
 
 /** Initializes the primitive uniform shader parameters. */
@@ -69,15 +68,13 @@ inline FPrimitiveUniformShaderParameters GetPrimitiveUniformShaderParameters(
 		float ScaleY = FVector(WorldY).Size();
 		float ScaleZ = FVector(WorldZ).Size();
 		Result.NonUniformScale = FVector4(ScaleX,ScaleY,ScaleZ,0);
-		Result.InvNonUniformScale = FVector4(
+		Result.InvNonUniformScaleAndDeterminantSign = FVector4(
 			ScaleX > KINDA_SMALL_NUMBER ? 1.0f/ScaleX : 0.0f,
 			ScaleY > KINDA_SMALL_NUMBER ? 1.0f/ScaleY : 0.0f,
 			ScaleZ > KINDA_SMALL_NUMBER ? 1.0f/ScaleZ : 0.0f,
-			0.0f
+			FMath::FloatSelect(LocalToWorld.RotDeterminant(),1,-1)
 			);
 	}
-
-	Result.LocalToWorldDeterminantSign = FMath::FloatSelect(LocalToWorld.RotDeterminant(),1,-1);
 	Result.DecalReceiverMask = bReceivesDecals ? 1 : 0;
 	Result.PerObjectGBufferData = (2 * (int32)bHasCapsuleRepresentation + (int32)bHasDistanceFieldRepresentation) / 3.0f;
 	Result.UseSingleSampleShadowFromStationaryLights = bUseSingleSampleShadowFromStationaryLights ? 1.0f : 0.0f;

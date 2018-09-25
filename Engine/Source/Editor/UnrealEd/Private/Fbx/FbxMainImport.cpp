@@ -32,6 +32,8 @@
 #include "Animation/Skeleton.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Editor/EditorPerProjectUserSettings.h"
+#include "Engine/SkeletalMesh.h"
+#include "Engine/StaticMesh.h"
 
 DEFINE_LOG_CATEGORY(LogFbx);
 
@@ -45,9 +47,38 @@ TSharedPtr<FFbxImporter> FFbxImporter::StaticInstance;
 
 TSharedPtr<FFbxImporter> FFbxImporter::StaticPreviewInstance;
 
+template<typename TMaterialType>
+void PrepareAndShowMaterialConflictPreviewDialog(UFbxImportUI* ImportUI)
+{
+	TArray<TMaterialType> CurrentMaterial;
+	TArray<TMaterialType> ResultMaterial;
+	TArray<int32> RemapMaterial;
+	TArray<FName> RemapMaterialName;
+	RemapMaterial.AddZeroed(ImportUI->MaterialCompareData.ResultAsset.Num());
+	RemapMaterialName.AddZeroed(ImportUI->MaterialCompareData.ResultAsset.Num());
+	CurrentMaterial.AddDefaulted(ImportUI->MaterialCompareData.CurrentAsset.Num());
+	for (int32 Materialindex = 0; Materialindex < ImportUI->MaterialCompareData.CurrentAsset.Num(); ++Materialindex)
+	{
+		CurrentMaterial[Materialindex].MaterialSlotName = ImportUI->MaterialCompareData.CurrentAsset[Materialindex].MaterialSlotName;
+		CurrentMaterial[Materialindex].ImportedMaterialSlotName = ImportUI->MaterialCompareData.CurrentAsset[Materialindex].ImportedMaterialSlotName;
+	}
+	ResultMaterial.AddDefaulted(ImportUI->MaterialCompareData.ResultAsset.Num());
+	for (int32 Materialindex = 0; Materialindex < ImportUI->MaterialCompareData.ResultAsset.Num(); ++Materialindex)
+	{
+		ResultMaterial[Materialindex].MaterialSlotName = ImportUI->MaterialCompareData.ResultAsset[Materialindex].MaterialSlotName;
+		ResultMaterial[Materialindex].ImportedMaterialSlotName = ImportUI->MaterialCompareData.ResultAsset[Materialindex].ImportedMaterialSlotName;
+	}
+	UnFbx::EFBXReimportDialogReturnOption OutReturnOption;
+	UnFbx::FFbxImporter::PrepareAndShowMaterialConflictDialog<TMaterialType>(CurrentMaterial, ResultMaterial, RemapMaterial, RemapMaterialName, true, true, OutReturnOption);
+}
 
+void PrepareAndShowSkeletonConflictPreviewDialog(UFbxImportUI* ImportUI)
+{
+	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(ImportUI->ReimportMesh);
+	UnFbx::FFbxImporter::ShowFbxSkeletonConflictWindow(SkeletalMesh, ImportUI->Skeleton, ImportUI->SkeletonCompareData);
+}
 
-FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& bOutImportAll, bool bIsObjFormat, const FString& InFilename, bool bForceImportType, EFBXImportType ImportType, UObject* ReimportObject)
+FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImportUI* ImportUI, bool bShowOptionDialog, bool bIsAutomated, const FString& FullPath, bool& OutOperationCanceled, bool& bOutImportAll, bool bIsObjFormat, const FString& InFilename, bool bForceImportType, EFBXImportType ImportType)
 {
 	OutOperationCanceled = false;
 
@@ -155,6 +186,45 @@ FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImport
 			ImportUI->AnimEndFrame = FString::FromInt(AnimTimeSpan.GetStop().Get() / EachFrame.Get());
 		}
 
+		if (ImportUI->MeshTypeToImport != FBXIT_Animation && ImportUI->ReimportMesh != nullptr)
+		{
+			ImportUI->OnUpdateCompareFbx = FOnUpdateCompareFbx::CreateLambda([&ImportUI, &FbxImporter]
+			{
+				//Fill the importUI compare
+				ImportUI->UpdateCompareData(FbxImporter);
+			});
+
+			ImportUI->OnShowMaterialConflictDialog = FOnShowConflictDialog::CreateLambda([&ImportUI, &FbxImporter]
+			{
+				if (!ImportUI->MaterialCompareData.bHasConflict)
+				{
+					return;
+				}
+				if (ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh)
+				{
+
+					PrepareAndShowMaterialConflictPreviewDialog<FSkeletalMaterial>(ImportUI);
+				}
+				else if (ImportUI->MeshTypeToImport == FBXIT_StaticMesh)
+				{
+					PrepareAndShowMaterialConflictPreviewDialog<FStaticMaterial>(ImportUI);
+				}
+			});
+
+			ImportUI->OnShowSkeletonConflictDialog = FOnShowConflictDialog::CreateLambda([&ImportUI, &FbxImporter]
+			{
+				if (!ImportUI->SkeletonCompareData.bHasConflict)
+				{
+					return;
+				}
+				if (ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh)
+				{
+					PrepareAndShowSkeletonConflictPreviewDialog(ImportUI);
+				}
+			});
+			
+		}
+		
 		TSharedPtr<SWindow> ParentWindow;
 
 		if( FModuleManager::Get().IsModuleLoaded( "MainFrame" ) )
@@ -328,6 +398,8 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	else if ( ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh )
 	{
 		UFbxSkeletalMeshImportData* SkeletalMeshData	= ImportUI->SkeletalMeshImportData;
+		InOutImportOptions.bImportAsSkeletalGeometry    = SkeletalMeshData->ImportContentType == EFBXImportContentType::FBXICT_Geometry;
+		InOutImportOptions.bImportAsSkeletalSkinning	= SkeletalMeshData->ImportContentType == EFBXImportContentType::FBXICT_SkinningWeights;
 		InOutImportOptions.NormalImportMethod			= SkeletalMeshData->NormalImportMethod;
 		InOutImportOptions.NormalGenerationMethod		= SkeletalMeshData->NormalGenerationMethod;
 		InOutImportOptions.ImportTranslation			= SkeletalMeshData->ImportTranslation;
@@ -499,6 +571,12 @@ void FFbxImporter::CleanUp()
 	}
 	SdkManager = NULL;
 	Logger = NULL;
+}
+
+void FFbxImporter::PartialCleanUp()
+{
+	ClearTokenizedErrorMessages();
+	ReleaseScene();
 }
 
 //-------------------------------------------------------------------------
@@ -2385,7 +2463,7 @@ void FFbxImporter::RecursiveFindRigidMesh(FbxNode* Node, TArray< TArray<FbxNode*
 * @param Node Root node to find skeletal meshes
 * @param outSkelMeshArray return Fbx meshes they are grouped by skeleton
 */
-void FFbxImporter::FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<FbxNode*>* >& outSkelMeshArray, bool ExpandLOD, bool bForceFindRigid /*= false*/)
+void FFbxImporter::FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<FbxNode*>* >& outSkelMeshArray, bool ExpandLOD, bool bCombineSkeletalMesh, bool bForceFindRigid /*= false*/)
 {
 	TArray<FbxNode*> SkeletonArray;
 
@@ -2399,39 +2477,7 @@ void FFbxImporter::FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<Fbx
 		RecursiveFixSkeleton(SkeletonArray[SkelIndex], *outSkelMeshArray[SkelIndex], ImportOptions->bImportMeshesInBoneHierarchy );
 	}
 
-	// if it doesn't want group node (or null node) for root, remove them
-	/*
-	if (ImportOptions->bImportGroupNodeAsRoot == false)
-	{
-		// find the last node
-		for ( int32 SkelMeshIndex=0; SkelMeshIndex < outSkelMeshArray.Num() ; ++SkelMeshIndex )
-		{
-			auto SkelMesh = outSkelMeshArray[SkelMeshIndex];
-			if ( SkelMesh->Num() > 0 )
-			{
-				auto Node = SkelMesh->Last();
-
-				if(Node)
-				{
-					DumpFBXNode(Node);
-
-					FbxNodeAttribute* Attr = Node->GetNodeAttribute();
-					if(Attr && Attr->GetAttributeType() == FbxNodeAttribute::eNull)
-					{
-						// if root is null, just remove
-						SkelMesh->Remove(Node);
-						// SkelMesh is still valid?
-						if ( SkelMesh->Num() == 0 )
-						{
-							// we remove this from outSkelMeshArray
-							outSkelMeshArray.RemoveAt(SkelMeshIndex);
-							--SkelMeshIndex;
-						}
-					}
-				}
-			}
-		}
-	}*/
+	
 
 	// b) find rigid mesh
 	
@@ -2512,7 +2558,22 @@ void FFbxImporter::FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<Fbx
 	//Empty the skeleton array
 	SkeletonArray.Empty();
 
-	
+
+	if (bCombineSkeletalMesh)
+	{
+		//Merge all the skeletal mesh arrays into one combine mesh
+		TArray<FbxNode*>* CombineNodes = new TArray<FbxNode*>();
+		for (TArray<FbxNode*> *Parts : outSkelMeshArray)
+		{
+			for (FbxNode* TmpNode : (*Parts))
+			{
+				CombineNodes->Add(TmpNode);
+			}
+			delete Parts;
+		}
+		outSkelMeshArray.Empty();
+		outSkelMeshArray.Add(CombineNodes);
+	}
 }
 
 FbxNode* FFbxImporter::FindFBXMeshesByBone(const FName& RootBoneName, bool bExpandLOD, TArray<FbxNode*>& OutFBXMeshNodeArray)
@@ -2561,7 +2622,7 @@ FbxNode* FFbxImporter::FindFBXMeshesByBone(const FName& RootBoneName, bool bExpa
 	// Get Mesh nodes array that bind to the skeleton system
 	// 1, get all skeltal meshes in the FBX file
 	TArray< TArray<FbxNode*>* > SkelMeshArray;
-	FillFbxSkelMeshArrayInScene(Scene->GetRootNode(), SkelMeshArray, false, ImportOptions->bImportScene);
+	FillFbxSkelMeshArrayInScene(Scene->GetRootNode(), SkelMeshArray, false, ImportOptions->bImportAsSkeletalGeometry || ImportOptions->bImportAsSkeletalSkinning, ImportOptions->bImportScene);
 
 	// 2, then get skeletal meshes that bind to this skeleton
 	for (int32 SkelMeshIndex = 0; SkelMeshIndex < SkelMeshArray.Num(); SkelMeshIndex++)

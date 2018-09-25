@@ -75,6 +75,7 @@ void FNavigationPath::InternalResetNavigationPath()
 	bIsReady = false;
 	bIsPartial = false;
 	bReachedSearchLimit = false;
+	bObservingGoalActor = GoalActor.IsValid();
 
 	// keep:
 	// - GoalActor
@@ -122,6 +123,7 @@ void FNavigationPath::SetGoalActorObservation(const AActor& ActorToObserve, floa
 	checkSlow(GoalActor.IsValid());
 	GoalActorAsNavAgent = Cast<INavAgentInterface>(&ActorToObserve);
 	GoalActorLocationTetherDistanceSq = FMath::Square(TetherDistance);
+	bObservingGoalActor = true;
 	UpdateLastRepathGoalLocation();
 
 	if (RegisterForPathUpdates)
@@ -146,7 +148,7 @@ void FNavigationPath::UpdateLastRepathGoalLocation()
 
 EPathObservationResult::Type FNavigationPath::TickPathObservation()
 {
-	if (GoalActor.IsValid() == false)
+	if (bObservingGoalActor == false || GoalActor.IsValid() == false)
 	{
 		return EPathObservationResult::NoLongerObserving;
 	}
@@ -160,6 +162,7 @@ void FNavigationPath::DisableGoalActorObservation()
 	GoalActor = NULL;
 	GoalActorAsNavAgent = NULL;
 	GoalActorLocationTetherDistanceSq = -1.f;
+	bObservingGoalActor = false;
 }
 
 void FNavigationPath::Invalidate()

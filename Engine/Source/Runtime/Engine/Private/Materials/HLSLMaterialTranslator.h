@@ -188,6 +188,10 @@ protected:
 	/** Current float-width offset for custom vertex interpolators */
 	int32 CurrentCustomVertexInterpolatorOffset;
 
+	/** Used by interpolator pre-translation to hold potential errors until actually confirmed. */
+	TArray<FString>* CompileErrorsSink;
+	TArray<UMaterialExpression*>* CompileErrorExpressionsSink;
+
 	/** Whether the translation succeeded. */
 	uint32 bSuccess : 1;
 	/** Whether the compute shader material inputs were compiled. */
@@ -267,6 +271,8 @@ public:
 	,	MaterialTemplateLineNumber(INDEX_NONE)
 	,	NextSymbolIndex(INDEX_NONE)
 	,	CurrentCustomVertexInterpolatorOffset(0)
+	,	CompileErrorsSink(nullptr)
+	,	CompileErrorExpressionsSink(nullptr)
 	,	bSuccess(false)
 	,	bCompileForComputeShader(false)
 	,	bUsesSceneDepth(false)
@@ -363,11 +369,20 @@ public:
 				TArray<FShaderCodeChunk> CustomExpressionChunks;
 				CurrentScopeChunks = &CustomExpressionChunks;
 
+				// Errors are appended to a temporary pool as it's not known at this stage which interpolators are required
+				CompileErrorsSink = &Interpolator->CompileErrors;
+				CompileErrorExpressionsSink = &Interpolator->CompileErrorExpressions;
+
+				// Compile node and store those successfully translated
 				int32 Ret = Interpolator->CompileInput(this, CustomVertexInterpolators.Num());
 				if (Ret != INDEX_NONE)
 				{
 					CustomVertexInterpolators.Add(Interpolator);
 				}
+
+				// Restore error handling
+				CompileErrorsSink = nullptr;
+				CompileErrorExpressionsSink = nullptr;
 
 				// Each interpolator chain must be handled as an independent compile
 				for (FMaterialFunctionCompileState* FunctionStack : FunctionStacks[SF_Vertex])
@@ -733,8 +748,7 @@ public:
 				Errorf(TEXT("Only unlit materials can output negative emissive color."));
 			}
 
-			static IConsoleVariable* CDBufferVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DBuffer"));
-			bool bDBufferAllowed = CDBufferVar ? CDBufferVar->GetInt() != 0 : false;
+			bool bDBufferAllowed = IsUsingDBuffers(Platform);
 			bool bDBufferBlendMode = IsDBufferDecalBlendMode((EDecalBlendMode)Material->GetDecalBlendMode());
 
 			if (bDBufferBlendMode && !bDBufferAllowed)
@@ -1954,7 +1968,14 @@ protected:
 
 	virtual int32 Error(const TCHAR* Text) override
 	{
+		// Optionally append errors into proxy arrays which allow pre-translation stages to selectively include errors later
+		bool bUsingErrorProxy = (CompileErrorsSink && CompileErrorExpressionsSink);	
+		TArray<FString>& CompileErrors = bUsingErrorProxy ? *CompileErrorsSink : Material->CompileErrors;
+		TArray<UMaterialExpression*>& ErrorExpressions = bUsingErrorProxy ? *CompileErrorExpressionsSink : Material->ErrorExpressions;
+
 		FString ErrorString;
+		UMaterialExpression* ExpressionToError = nullptr;
+
 		check(ShaderFrequency < SF_NumFrequencies);
 		auto& CurrentFunctionStack = FunctionStacks[ShaderFrequency];
 		if (CurrentFunctionStack.Num() > 1)
@@ -1963,8 +1984,8 @@ protected:
 			// Only add the function call node to ErrorExpressions, since we can't add a reference to the expressions inside the function as they are private objects.
 			// Add the first function node on the stack because that's the one visible in the material being compiled, the rest are all nested functions.
 			UMaterialExpressionMaterialFunctionCall* ErrorFunction = CurrentFunctionStack[1]->FunctionCall;
-			Material->ErrorExpressions.Add(ErrorFunction);
-			ErrorFunction->LastErrorText = Text;
+			check(ErrorFunction);
+			ExpressionToError = ErrorFunction;			
 			ErrorString = FString(TEXT("Function ")) + ErrorFunction->MaterialFunction->GetName() + TEXT(": ");
 		}
 
@@ -1978,8 +1999,7 @@ protected:
 				&& ErrorExpression->GetClass() != UMaterialExpressionFunctionOutput::StaticClass())
 			{
 				// Add the expression currently being compiled to ErrorExpressions so we can draw it differently
-				Material->ErrorExpressions.Add(ErrorExpression);
-				ErrorExpression->LastErrorText = Text;
+				ExpressionToError = ErrorExpression;
 
 				const int32 ChopCount = FCString::Strlen(TEXT("MaterialExpression"));
 				const FString ErrorClassName = ErrorExpression->GetClass()->GetName();
@@ -1991,11 +2011,39 @@ protected:
 			
 		ErrorString += Text;
 
-		//add the error string to the material's CompileErrors array
-		Material->CompileErrors.AddUnique(ErrorString);
-		bSuccess = false;
+		if (!bUsingErrorProxy)
+		{
+			// Standard error handling, immediately append one-off errors and signal failure
+			CompileErrors.AddUnique(ErrorString);
+	
+			if (ExpressionToError)
+			{
+				ErrorExpressions.Add(ExpressionToError);
+				ExpressionToError->LastErrorText = Text;
+			}
+
+			bSuccess = false;
+		}
+		else
+		{
+			// When a proxy is intercepting errors, ignore the failure and match arrays to allow later error type selection
+			CompileErrors.Add(ErrorString);
+			ErrorExpressions.Add(ExpressionToError);		
+		}
 		
 		return INDEX_NONE;
+	}
+
+	virtual void AppendExpressionError(UMaterialExpression* Expression, const TCHAR* Text) override
+	{
+		if (Expression && Text)
+		{
+			FString ErrorText(Text);
+
+			Material->ErrorExpressions.Add(Expression);
+			Expression->LastErrorText = ErrorText;
+			Material->CompileErrors.Add(ErrorText);
+		}
 	}
 
 	virtual int32 CallExpression(FMaterialExpressionKey ExpressionKey,FMaterialCompiler* Compiler) override
@@ -2087,6 +2135,11 @@ protected:
 	virtual ERHIFeatureLevel::Type GetFeatureLevel() override
 	{
 		return FeatureLevel;
+	}
+
+	virtual EShaderPlatform GetShaderPlatform() override
+	{
+		return Platform;
 	}
 
 	/** 
@@ -3121,7 +3174,19 @@ protected:
 
 	virtual int32 ActorWorldPosition() override
 	{
-		return AddInlinedCodeChunk(MCT_Float3,TEXT("GetActorWorldPosition()"));		
+		if (bCompilingPreviousFrame && ShaderFrequency == SF_Vertex)
+		{
+			// Decal VS doesn't have material code so FMaterialVertexParameters
+			// and primitve uniform buffer are guaranteed to exist if ActorPosition
+			// material node is used in VS
+			return AddInlinedCodeChunk(
+				MCT_Float3,
+				TEXT("mul(mul(float4(GetActorWorldPosition(), 1), Primitive.WorldToLocal), Parameters.PrevFrameLocalToWorld)"));
+		}
+		else
+		{
+			return AddInlinedCodeChunk(MCT_Float3, TEXT("GetActorWorldPosition()"));
+		}
 	}
 
 	virtual int32 If(int32 A,int32 B,int32 AGreaterThanB,int32 AEqualsB,int32 ALessThanB,int32 ThresholdArg) override
@@ -3652,6 +3717,7 @@ protected:
 		}
 
 		bUsesSceneDepth = true;
+		AddEstimatedTextureSample();
 
 		FString	UserDepthCode(TEXT("CalcSceneDepth(%s)"));
 		int32 TexCoordCode = GetScreenAlignedUV(Offset, ViewportUV, bUseOffset);
@@ -3827,7 +3893,7 @@ protected:
 
 		MaterialCompilationOutput.bNeedsGBuffer = MaterialCompilationOutput.bNeedsGBuffer || bNeedsGBuffer;
 
-		if (bNeedsGBuffer && IsForwardShadingEnabled(FeatureLevel))
+		if (bNeedsGBuffer && IsForwardShadingEnabled(Platform))
 		{
 			Errorf(TEXT("GBuffer scene textures not available with forward shading."));
 		}
@@ -4722,8 +4788,7 @@ protected:
 			{
 				if (DestCoordBasis == MCB_World)
 				{
-					 // TODO: need <PREV>
-					CodeStr = TEXT("TransformLocal<TO>World(Parameters, <A>.xyz)");
+					CodeStr = TEXT("TransformLocal<TO><PREV>World(Parameters, <A>.xyz)");
 				}
 				// else use MCB_World as intermediary basis
 				break;
@@ -5698,6 +5763,30 @@ protected:
 
 	// The compiler can run in a different state and this affects caching of sub expression, Expressions are different (e.g. View.PrevWorldViewOrigin) when using previous frame's values
 	virtual bool IsCurrentlyCompilingForPreviousFrame() const { return bCompilingPreviousFrame; }
+
+	virtual bool IsDevelopmentFeatureEnabled(const FName& FeatureName) const override
+	{ 
+		if (FeatureName == NAME_SelectionColor)
+		{
+			// This is an editor-only feature (see FDefaultMaterialInstance::GetVectorValue).
+
+			// Determine if we're sure the editor will never run using the target shader platform.
+			// The list below may not be comprehensive enough, but it definitely includes platforms which won't use selection color for sure.
+			const bool bEditorMayUseTargetShaderPlatform = IsPCPlatform(Platform);
+			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.CompileShadersForDevelopment"));
+			const bool bCompileShadersForDevelopment = (CVar && CVar->GetValueOnAnyThread() != 0);
+
+			return
+				// Does the material explicitly forbid development features?
+				Material->GetAllowDevelopmentShaderCompile()
+				// Can the editor run using the current shader platform?
+				&& bEditorMayUseTargetShaderPlatform
+				// Are shader development features globally disabled?
+				&& bCompileShadersForDevelopment;
+		}
+
+		return true;
+	}
 };
 
 #endif

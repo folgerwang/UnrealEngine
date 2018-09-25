@@ -355,6 +355,12 @@ public:
 	/** FEdMode: Called when clicking on a hit proxy */
 	virtual bool HandleClick(FEditorViewportClient* InViewportClient, HHitProxy* HitProxy, const FViewportClick& Click) override;
 
+	/** True if we are interactively changing the brush size, falloff, or strength */
+	bool IsAdjustingBrush(FViewport* InViewport) const;
+	void ChangeBrushSize(bool bIncrease);
+	void ChangeBrushFalloff(bool bIncrease);
+	void ChangeBrushStrength(bool bIncrease);
+
 	/** FEdMode: Called when a key is pressed */
 	virtual bool InputKey(FEditorViewportClient* InViewportClient, FViewport* InViewport, FKey InKey, EInputEvent InEvent) override;
 

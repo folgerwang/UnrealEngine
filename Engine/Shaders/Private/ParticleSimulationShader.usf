@@ -35,12 +35,17 @@ float TileSizeY;
 
 struct FVertexInput
 {
+	/** The texture coordinate. */
+	float2 TexCoord	: ATTRIBUTE0;
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 	/** Unique vertex ID. */
 	uint VertexId	: SV_VertexID;
 	/** Unique instance ID. */
 	uint InstanceId	: SV_InstanceID;
-	/** The texture coordinate. */
-	float2 TexCoord	: ATTRIBUTE0;
+#else // Mobile
+	/** Tile offsets in per-instance data */
+	float2 TileOffsets : ATTRIBUTE1;
+#endif
 };
 
 /** Buffer from which to read tile offsets. */
@@ -52,9 +57,14 @@ void VertexMain(
 	out float4 OutPosition : SV_POSITION
 	)
 {
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 	uint InstanceId = Input.InstanceId * TILES_PER_INSTANCE + Input.VertexId / 4;
+	float2 TileOffset = TileOffsets[InstanceId];
+#else
+	float2 TileOffset = Input.TileOffsets.xy;
+#endif
 	
-	float2 TileCoord = Input.TexCoord.xy * float2(TileSizeX,TileSizeY) + TileOffsets[InstanceId];
+	float2 TileCoord = Input.TexCoord.xy * float2(TileSizeX,TileSizeY) + TileOffset;
 
 	OutPosition = float4(
 		TileCoord.xy * float2(2.0f,-2.0f) + float2(-1.0f,1.0f),

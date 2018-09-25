@@ -2424,7 +2424,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 				for (unsigned j = 0; j < s->length; j++)
 				{
 					const glsl_type* field_type = s->fields.structure[j].type;
-					ralloc_asprintf_append(buffer, "\t%s ", (state->language_version == 310 && bEmitPrecision && field_type->base_type != GLSL_TYPE_STRUCT) ? "highp" : "");
+					ralloc_asprintf_append(buffer, "\t");
+					if (bEmitPrecision && field_type->base_type != GLSL_TYPE_STRUCT)
+					{
+						AppendPrecisionModifier(buffer, GetPrecisionModifier(field_type));
+					}
 					print_type_pre(field_type);
 					ralloc_asprintf_append(buffer, " %s", s->fields.structure[j].name);
 					print_type_post(field_type);
@@ -2466,7 +2470,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 						for (unsigned j = 0; j < type->length; j++)
 						{
 							const glsl_type* field_type = type->fields.structure[j].type;
-							ralloc_asprintf_append(buffer, "\t%s", (state->language_version == 310 && bEmitPrecision && field_type->base_type != GLSL_TYPE_STRUCT) ? "highp" : "");
+							ralloc_asprintf_append(buffer, "\t");
+							if (bEmitPrecision && field_type->base_type != GLSL_TYPE_STRUCT)
+							{
+								AppendPrecisionModifier(buffer, GetPrecisionModifier(field_type));
+							}
 							print_type_pre(field_type);
 							ralloc_asprintf_append(buffer, " %s", type->fields.structure[j].name);
 							print_type_post(field_type);
@@ -2488,7 +2496,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 						//EHart - name-mangle variables to prevent colliding names
 						ralloc_asprintf_append(buffer, "#define %s %s%s\n", var->name, var->name, block_name);
 
-						ralloc_asprintf_append(buffer, "\t%s", (state->language_version == 310 && bEmitPrecision &&	type->base_type != GLSL_TYPE_STRUCT) ? "highp " : "");
+						ralloc_asprintf_append(buffer, "\t");
+						if (bEmitPrecision && type->base_type != GLSL_TYPE_STRUCT)
+						{
+							AppendPrecisionModifier(buffer, GetPrecisionModifier(type));
+						}
 						print_type_pre(type);
 						ralloc_asprintf_append(buffer, " %s", var->name);
 						print_type_post(type);
@@ -3160,35 +3172,35 @@ public:
 		char* code_buffer = ralloc_asprintf(mem_ctx, "");
 		buffer = &code_buffer;
 
+		char* default_precision_buffer = ralloc_asprintf(mem_ctx, "");
+
 		if (bEmitPrecision && !(ShaderTarget == vertex_shader))
 		{
 			// TODO: Improve this...
 			
 			const char* DefaultPrecision = bDefaultPrecisionIsHalf ? "mediump" : "highp";
-			ralloc_asprintf_append(buffer, "precision %s float;\n", DefaultPrecision);
-			ralloc_asprintf_append(buffer, "precision %s int;\n", DefaultPrecision);
-			ralloc_asprintf_append(buffer, "\n#ifndef DONTEMITSAMPLERDEFAULTPRECISION\n"); 
-			ralloc_asprintf_append(buffer, "precision %s sampler2D;\n", DefaultPrecision);
-			ralloc_asprintf_append(buffer, "precision %s samplerCube;\n\n", DefaultPrecision);
-			ralloc_asprintf_append(buffer, "#endif\n");
+			ralloc_asprintf_append(&default_precision_buffer, "precision %s float;\n", DefaultPrecision);
+			ralloc_asprintf_append(&default_precision_buffer, "precision %s int;\n", DefaultPrecision);
 
-			// SGX540 compiler can get upset with some operations that mix highp and mediump.
-			// this results in a shader compile fail with output "compile failed."
-			// Although the actual cause of the failure hasnt been determined this code appears to prevent
-			// compile failure for cases so far seen.
-			ralloc_asprintf_append(buffer, "\n#ifdef TEXCOORDPRECISIONWORKAROUND\n");
-			ralloc_asprintf_append(buffer, "vec4 texture2DTexCoordPrecisionWorkaround(sampler2D p, vec2 tcoord)\n");
-			ralloc_asprintf_append(buffer, "{\n");
-			ralloc_asprintf_append(buffer, "	return texture2D(p, tcoord);\n");
-			ralloc_asprintf_append(buffer, "}\n");
-			ralloc_asprintf_append(buffer, "#define texture2D texture2DTexCoordPrecisionWorkaround\n");
-			ralloc_asprintf_append(buffer, "#endif\n");
-		}
+			if (bIsES) // ES2 workarounds
+			{
+				ralloc_asprintf_append(buffer, "\n#ifndef DONTEMITSAMPLERDEFAULTPRECISION\n"); 
+				ralloc_asprintf_append(buffer, "precision %s sampler2D;\n", DefaultPrecision);
+				ralloc_asprintf_append(buffer, "precision %s samplerCube;\n\n", DefaultPrecision);
+				ralloc_asprintf_append(buffer, "#endif\n");
 
-		if ((state->language_version == 310) && (ShaderTarget == fragment_shader) && bEmitPrecision)
-		{
-			ralloc_asprintf_append(buffer, "precision %s float;\n", "highp");
-			ralloc_asprintf_append(buffer, "precision %s int;\n", "highp");
+				// SGX540 compiler can get upset with some operations that mix highp and mediump.
+				// this results in a shader compile fail with output "compile failed."
+				// Although the actual cause of the failure hasnt been determined this code appears to prevent
+				// compile failure for cases so far seen.
+				ralloc_asprintf_append(buffer, "\n#ifdef TEXCOORDPRECISIONWORKAROUND\n");
+				ralloc_asprintf_append(buffer, "vec4 texture2DTexCoordPrecisionWorkaround(sampler2D p, vec2 tcoord)\n");
+				ralloc_asprintf_append(buffer, "{\n");
+				ralloc_asprintf_append(buffer, "	return texture2D(p, tcoord);\n");
+				ralloc_asprintf_append(buffer, "}\n");
+				ralloc_asprintf_append(buffer, "#define texture2D texture2DTexCoordPrecisionWorkaround\n");
+				ralloc_asprintf_append(buffer, "#endif\n");
+			}
 		}
 
 		// HLSLCC_DX11ClipSpace adjustment
@@ -3238,8 +3250,7 @@ bool compiler_internal_AdjustIsFrontFacing(bool isFrontFacing)
 				ralloc_asprintf_append(buffer, "	#define %sout\n", ES31FrameBufferFetchStorageQualifier);
 				ralloc_asprintf_append(buffer, "	vec4 FramebufferFetchES2() { return gl_LastFragColorARM; }\n");
 				ralloc_asprintf_append(buffer, "#else\n");
-				ralloc_asprintf_append(buffer, "	#define %sout\n", ES31FrameBufferFetchStorageQualifier);
-				ralloc_asprintf_append(buffer, "	vec4 FramebufferFetchES2() { return vec4(65000.0, 65000.0, 65000.0, 65000.0); }\n");
+				ralloc_asprintf_append(buffer, "	#error This shader requires framebuffer fetch support.\n");
 				ralloc_asprintf_append(buffer, "#endif\n\n");
 			}
 			else // ES3, ES2
@@ -3383,12 +3394,13 @@ bool compiler_internal_AdjustIsFrontFacing(bool isFrontFacing)
 
 		char* full_buffer = ralloc_asprintf(
 			state,
-			"// Compiled by HLSLCC %d.%d\n%s#version %u %s\n%s%s%s%s%s%s\n",
+			"// Compiled by HLSLCC %d.%d\n%s#version %u %s\n%s%s%s%s%s%s%s\n",
 			HLSLCC_VersionMajor, HLSLCC_VersionMinor,
 			signature,
 			state->language_version,
 			state->language_version == 310 ? "es" : "",
 			Extensions,
+			default_precision_buffer,
 			geometry_layouts,
 			layout,
 			decl_buffer,

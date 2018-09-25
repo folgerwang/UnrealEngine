@@ -1569,7 +1569,9 @@ UMaterialInstanceDynamic* UPrimitiveComponent::CreateDynamicMaterialInstance(int
 	}
 	else if (!MaterialInstance)
 	{
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
 		UE_LOG(LogPrimitiveComponent, Warning, TEXT("CreateDynamicMaterialInstance on %s: Material index %d is invalid."), *GetPathName(), ElementIndex);
+#endif
 	}
 
 	return MID;
@@ -1770,7 +1772,7 @@ static bool ShouldIgnoreHitResult(const UWorld* InWorld, FHitResult const& TestH
 
 
 // Returns true if we should check the GetGenerateOverlapEvents() flag when gathering overlaps, otherwise we'll always just do it.
-static bool ShouldCheckOverlapFlagToQueueOverlaps(const UPrimitiveComponent& ThisComponent)
+static FORCEINLINE_DEBUGGABLE bool ShouldCheckOverlapFlagToQueueOverlaps(const UPrimitiveComponent& ThisComponent)
 {
 	const FScopedMovementUpdate* CurrentUpdate = ThisComponent.GetCurrentScopedMovement();
 	if (CurrentUpdate)

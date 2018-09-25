@@ -40,6 +40,14 @@ struct FMovieSceneMediaSectionParams
 
 	UPROPERTY()
 	bool bLooping;
+
+	FMovieSceneMediaSectionParams()
+		: MediaSoundComponent(nullptr)
+		, MediaSource(nullptr)
+		, MediaTexture(nullptr)
+		, MediaPlayer(nullptr)
+		, bLooping(false)
+	{}
 };
 
 

@@ -8,6 +8,7 @@
 AKillZVolume::AKillZVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	bNetLoadOnClient = false;
 }
 
 void AKillZVolume::ActorEnteredVolume(AActor* Other)

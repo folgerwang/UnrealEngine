@@ -102,8 +102,8 @@ public:
 	FShaderResourceId() {}
 
 	FShaderResourceId(const FShaderTarget& InTarget, const FSHAHash& InOutputHash, const TCHAR* InSpecificShaderTypeName, int32 InSpecificPermutationId) :
-		Target(InTarget),
 		OutputHash(InOutputHash),
+		Target(InTarget),
 		SpecificShaderTypeName(InSpecificShaderTypeName),
 		SpecificPermutationId(InSpecificPermutationId)
 	{
@@ -161,17 +161,17 @@ public:
 		return Ar;
 	}
 
-	/** Target platform and frequency. */
-	FShaderTarget Target;
-
 	/** Hash of the compiled shader output, which is used to create the FShaderResource. */
 	FSHAHash OutputHash;
 
-	/** NULL if type doesn't matter, otherwise the name of the type that this was created specifically for, which is used with geometry shader stream out. */
-	const TCHAR* SpecificShaderTypeName;
+	/** Target platform and frequency. */
+	FShaderTarget Target;
 
 	/** Stores the memory for SpecificShaderTypeName if this is a standalone Id, otherwise is empty and SpecificShaderTypeName points to an FShaderType name. */
 	FString SpecificShaderTypeStorage;
+
+	/** NULL if type doesn't matter, otherwise the name of the type that this was created specifically for, which is used with geometry shader stream out. */
+	const TCHAR* SpecificShaderTypeName;
 
 	/** Specific permutation identifier of the shader when SpecificShaderTypeName is non null, ignored otherwise. */
 	int32 SpecificPermutationId;
@@ -210,7 +210,7 @@ public:
 		{
 			InitializeShaderRHI();
 		}
-		return VertexShader;
+		return (FRHIVertexShader*)Shader.GetReference();
 	}
 	/** @return the shader's pixel shader */
 	FORCEINLINE const FPixelShaderRHIParamRef GetPixelShader()
@@ -220,7 +220,7 @@ public:
 		{
 			InitializeShaderRHI();
 		}
-		return PixelShader;
+		return (FRHIPixelShader*)Shader.GetReference();
 	}
 	/** @return the shader's hull shader */
 	FORCEINLINE const FHullShaderRHIParamRef GetHullShader()
@@ -230,7 +230,7 @@ public:
 		{
 			InitializeShaderRHI();
 		}
-		return HullShader;
+		return (FRHIHullShader*)Shader.GetReference();
 	}
 	/** @return the shader's domain shader */
 	FORCEINLINE const FDomainShaderRHIParamRef GetDomainShader()
@@ -240,7 +240,7 @@ public:
 		{
 			InitializeShaderRHI();
 		}
-		return DomainShader;
+		return (FRHIDomainShader*)Shader.GetReference();
 	}
 	/** @return the shader's geometry shader */
 	FORCEINLINE const FGeometryShaderRHIParamRef GetGeometryShader()
@@ -250,7 +250,7 @@ public:
 		{
 			InitializeShaderRHI();
 		}
-		return GeometryShader;
+		return (FRHIGeometryShader*)Shader.GetReference();
 	}
 	/** @return the shader's compute shader */
 	FORCEINLINE const FComputeShaderRHIParamRef GetComputeShader()
@@ -260,7 +260,7 @@ public:
 		{
 			InitializeShaderRHI();
 		}
-		return ComputeShader;
+		return (FRHIComputeShader*)Shader.GetReference();
 	}
 
 	SHADERCORE_API FShaderResourceId GetId() const;
@@ -314,19 +314,20 @@ private:
 	void SerializePlatformDebugData(FArchive& Ar);
 #endif
 
-	/** Reference to the RHI shader.  Only one of these is ever valid, and it is the one corresponding to Target.Frequency. */
-	FVertexShaderRHIRef VertexShader;
-	FPixelShaderRHIRef PixelShader;
-	FHullShaderRHIRef HullShader;
-	FDomainShaderRHIRef DomainShader;
-	FGeometryShaderRHIRef GeometryShader;
-	FComputeShaderRHIRef ComputeShader;
+	/**
+	 * Hash of the compiled bytecode and the generated parameter map.
+	 * This is used to find existing shader resources in memory or the DDC.
+	 */
+	FSHAHash OutputHash;
+
+	/** Compiled bytecode. */
+	TArray<uint8> Code;
 
 	/** Target platform and frequency. */
 	FShaderTarget Target;
 
-	/** Compiled bytecode. */
-	TArray<uint8> Code;
+	/** Reference to the RHI shader. References the matching shader type of Target.Frequency. */
+	TRefCountPtr<FRHIShader> Shader;
 
 #if WITH_EDITORONLY_DATA
 	/** Platform specific debug data output by the shader compiler. Discarded in cooked builds. */
@@ -336,33 +337,27 @@ private:
 	/** Original bytecode size, before compression */
 	uint32 UncompressedCodeSize = 0;
 
-	/**
-	 * Hash of the compiled bytecode and the generated parameter map.
-	 * This is used to find existing shader resources in memory or the DDC.
-	 */
-	FSHAHash OutputHash;
-
 	/** If not NULL, the shader type this resource must be used with. */
 	class FShaderType* SpecificType;
 
 	/** Specific permutation identifier of the shader when SpecificType is non null, ignored otherwise. */
 	int32 SpecificPermutationId;
 
-	/** The number of instructions the shader takes to execute. */
-	uint32 NumInstructions;
-
-	/** Number of texture samplers the shader uses. */
-	uint32 NumTextureSamplers;
-
 	/** The number of references to this shader. */
 	mutable uint32 NumRefs;
 
-	/** A 'canary' used to detect when a stale shader resource is being rendered with. */
-	uint32 Canary;
+	/** The number of instructions the shader takes to execute. */
+	uint32 NumInstructions;
 
+#if WITH_EDITORONLY_DATA
+	/** Number of texture samplers the shader uses. */
+	uint32 NumTextureSamplers;
+#endif
 
 	/** Whether the shader code is stored in a shader library. */
 	bool bCodeInSharedLocation;
+	/** Whether the shader code was requested (and hence if we need to drop the ref later). */
+	bool bCodeInSharedLocationRequested;
 
 	/** Initialize the shader RHI resources. */
 	SHADERCORE_API void InitializeShaderRHI();
@@ -460,6 +455,15 @@ public:
 	 */ 
 	FSHAHash MaterialShaderMapHash;
 
+	/** Used to detect changes to the vertex factory source files. */
+	FSHAHash VFSourceHash;
+
+	/** Used to detect changes to the shader source files. */
+	FSHAHash SourceHash;
+
+	/** Shader platform and frequency. */
+	FShaderTarget Target;
+
 	/** Shader Pipeline linked to this shader, needed since a single shader might be used on different Pipelines. */
 	const FShaderPipelineType* ShaderPipeline;
 
@@ -469,9 +473,6 @@ public:
 	 * Will be NULL for global shaders.
 	 */
 	FVertexFactoryType* VertexFactoryType;
-
-	/** Used to detect changes to the vertex factory source files. */
-	FSHAHash VFSourceHash;
 
 	/** 
 	 * Used to detect changes to the vertex factory parameter class serialization, or NULL for global shaders. 
@@ -485,14 +486,8 @@ public:
 	/** Unique permutation identifier within the ShaderType. */
 	int32 PermutationId;
 
-	/** Used to detect changes to the shader source files. */
-	FSHAHash SourceHash;
-
 	/** Used to detect changes to the shader serialization.  Note: this is referencing memory in the FShaderType. */
 	const FSerializationHistory& SerializationHistory;
-
-	/** Shader platform and frequency. */
-	FShaderTarget Target;
 
 	/** Create a minimally initialized Id.  Members will have to be assigned individually. */
 	FShaderId(const FSerializationHistory& InSerializationHistory)
@@ -541,6 +536,12 @@ public:
 	 */ 
 	FSHAHash MaterialShaderMapHash;
 
+	/** Used to detect changes to the vertex factory source files. */
+	FSHAHash VFSourceHash;
+
+	/** Used to detect changes to the shader source files. */
+	FSHAHash SourceHash;
+
 	/** 
 	 * Name of the vertex factory type that the shader was created for, 
 	 * This is needed in the Id since a single shader type will be compiled for multiple vertex factories within a material shader map.
@@ -551,9 +552,6 @@ public:
 	// Required to differentiate amongst unique shaders in the global map per Type
 	FString ShaderPipelineName;
 
-	/** Used to detect changes to the vertex factory source files. */
-	FSHAHash VFSourceHash;
-
 	/** Used to detect changes to the vertex factory parameter class serialization, or empty for global shaders. */
 	FSerializationHistory VFSerializationHistory;
 
@@ -562,9 +560,6 @@ public:
 
 	/** Unique permutation identifier within the ShaderType. */
 	int32 PermutationId;
-
-	/** Used to detect changes to the shader source files. */
-	FSHAHash SourceHash;
 
 	/** Used to detect changes to the shader serialization. */
 	FSerializationHistory SerializationHistory;
@@ -702,14 +697,14 @@ public:
 	inline int32 GetPermutationId() const { return PermutationId; }
 	inline uint32 GetNumInstructions() const { return Resource->NumInstructions; }
 	inline void SetNumInstructions(uint32 Num) { Resource->NumInstructions = Num; }
-
+#if WITH_EDITOR
 	inline uint32 GetNumTextureSamplers() const { return Resource->NumTextureSamplers; }
+#endif
 	inline const TArray<uint8>& GetCode() const { return Resource->Code; }
 	inline const FShaderTarget GetTarget() const { return Target; }
 	inline FSHAHash GetOutputHash() const { return OutputHash; }
 	FShaderId GetId() const;
 	inline FVertexFactoryType* GetVertexFactoryType() const { return VFType; }
-	inline FSHAHash GetMaterialShaderMapHash() const { return MaterialShaderMapHash; }
 	inline int32 GetNumRefs() const { return NumRefs; }
 
 	inline FShaderResourceId GetResourceId() const
@@ -771,7 +766,6 @@ public:
 		if (FoundIndex != INDEX_NONE)
 		{
 			const TShaderUniformBufferParameter<UniformBufferStructType>& FoundParameter = (const TShaderUniformBufferParameter<UniformBufferStructType>&)*UniformBufferParameters[FoundIndex];
-			FoundParameter.SetParametersId = SetParametersId;
 			return FoundParameter;
 		}
 		else
@@ -802,7 +796,6 @@ public:
 		if (FoundIndex != INDEX_NONE)
 		{
 			const FShaderUniformBufferParameter& FoundParameter = *UniformBufferParameters[FoundIndex];
-			FoundParameter.SetParametersId = SetParametersId;
 			return FoundParameter;
 		}
 		else
@@ -813,13 +806,9 @@ public:
 		}
 	}
 
-	/** Checks that the shader is valid by asserting the canary value is set as expected. */
-	inline void CheckShaderIsValid() const;
-
-	/** Checks that the shader is valid and returns itself. */
-	inline FShader* GetShaderChecked()
+	/** Gets the shader. */
+	inline FShader* GetShader()
 	{
-		CheckShaderIsValid();
 		return this;
 	}
 
@@ -847,14 +836,20 @@ private:
 	 */
 	FSHAHash OutputHash;
 
-	/** Pointer to the shader resource that has been serialized from disk, to be registered on the main thread later. */
-	FShaderResource* SerializedResource;
+	/** Hash of the material shader map this shader belongs to, stored so that an FShaderId can be constructed from this shader. */
+	FSHAHash MaterialShaderMapHash;
+
+	/** Vertex factory source hash, stored so that an FShaderId can be constructed from this shader. */
+	FSHAHash VFSourceHash;
+
+	/** Hash of this shader's source files generated at compile time, and stored to allow creating an FShaderId. */
+	FSHAHash SourceHash;
 
 	/** Reference to the shader resource, which stores the compiled bytecode and the RHI shader resource. */
 	TRefCountPtr<FShaderResource> Resource;
 
-	/** Hash of the material shader map this shader belongs to, stored so that an FShaderId can be constructed from this shader. */
-	FSHAHash MaterialShaderMapHash;
+	/** Pointer to the shader resource that has been serialized from disk, to be registered on the main thread later. */
+	FShaderResource* SerializedResource;
 
 	/** Shader pipeline this shader belongs to, stored so that an FShaderId can be constructed from this shader. */
 	const FShaderPipelineType* ShaderPipeline;
@@ -862,37 +857,17 @@ private:
 	/** Vertex factory type this shader was created for, stored so that an FShaderId can be constructed from this shader. */
 	FVertexFactoryType* VFType;
 
-	/** Vertex factory source hash, stored so that an FShaderId can be constructed from this shader. */
-	FSHAHash VFSourceHash;
-
 	/** Shader Type metadata for this shader. */
 	FShaderType* Type;
 
 	/** Unique permutation identifier of the shader in the shader type. */
 	int32 PermutationId;
 
-	/** Hash of this shader's source files generated at compile time, and stored to allow creating an FShaderId. */
-	FSHAHash SourceHash;
-
 	/** Target platform and frequency. */
 	FShaderTarget Target;
 
 	/** The number of references to this shader. */
 	mutable uint32 NumRefs;
-
-	/** Transient value used to track when this shader's automatically bound uniform buffer parameters were set last. */
-	mutable uint32 SetParametersId;
-
-	/** A 'canary' used to detect when a stale shader is being rendered with. */
-	uint32 Canary;
-
-public:
-	/** Canary is set to this if the FShader is a valid pointer but uninitialized. */
-	static const uint32 ShaderMagic_Uninitialized = 0xbd9922df;
-	/** Canary is set to this if the FShader is a valid pointer but in the process of being cleaned up. */
-	static const uint32 ShaderMagic_CleaningUp = 0xdc67f93b;
-	/** Canary is set to this if the FShader is a valid pointer and initialized. */
-	static const uint32 ShaderMagic_Initialized = 0x335b43ab;
 };
 
 /**
@@ -1079,8 +1054,7 @@ public:
 
 	void DumpDebugInfo();
 	void SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform);
-	void GetShaderStableKeyParts(FStableShaderKeyAndValue& SaveKeyVal);
-
+	void GetShaderStableKeyParts(struct FStableShaderKeyAndValue& SaveKeyVal);
 private:
 	EShaderTypeForDynamicCast ShaderTypeForDynamicCast;
 	uint32 HashIndex;
@@ -1590,9 +1564,9 @@ class TShaderMap
 		}
 	};
 
-	/** List of serialzied shaders to be processed and registered on the game thread */
+	/** List of serialized shaders to be processed and registered on the game thread */
 	TArray<FShader*> SerializedShaders;
-	/** List of serialzied shader pipeline stages to be processed and registered on the game thread */
+	/** List of serialized shader pipeline stages to be processed and registered on the game thread */
 	TArray<FSerializedShaderPipeline*> SerializedShaderPipelines;
 protected:
 	/** The platform this shader map was compiled with */
@@ -1642,7 +1616,7 @@ public:
 		check(bHasBeenRegistered);
 		const TRefCountPtr<FShader>* ShaderRef = Shaders.Find(FShaderPrimaryKey(&ShaderType::StaticType, PermutationId));
 		checkf(ShaderRef != NULL && *ShaderRef != nullptr, TEXT("Failed to find shader type %s in Platform %s"), ShaderType::StaticType.GetName(), *LegacyShaderPlatformToShaderFormat(Platform).ToString());
-		return (ShaderType*)((*ShaderRef)->GetShaderChecked());
+		return (ShaderType*)((*ShaderRef)->GetShader());
 	}
 
 	/** Finds the shader with the given type.  May return NULL. */
@@ -1650,7 +1624,7 @@ public:
 	{
 		check(bHasBeenRegistered);
 		const TRefCountPtr<FShader>* ShaderRef = Shaders.Find(FShaderPrimaryKey(ShaderType, PermutationId));
-		return ShaderRef ? (*ShaderRef)->GetShaderChecked() : nullptr;
+		return ShaderRef ? (*ShaderRef)->GetShader() : nullptr;
 	}
 
 	/** Finds the shader with the given type. */
@@ -1741,6 +1715,7 @@ public:
 		}
 	}
 
+#if WITH_EDITOR
 	uint32 GetMaxTextureSamplersShaderMap() const
 	{
 		check(bHasBeenRegistered);
@@ -1765,6 +1740,7 @@ public:
 
 		return MaxTextureSamplers;
 	}
+#endif // WITH_EDITOR
 
 	inline void SerializeShaderForSaving(FShader* CurrentShader, FArchive& Ar, bool bHandleShaderKeyChanges, bool bInlineShaderResource)
 	{
@@ -2331,16 +2307,6 @@ private:
 	/** Stored off position of the original archive we are wrapping. */
 	int64 OriginalPosition;
 };
-
-inline void FShader::CheckShaderIsValid() const
-{
-	checkf(Canary == ShaderMagic_Initialized,
-		TEXT("FShader %s is %s. Canary is 0x%08x."),
-		Canary == ShaderMagic_Uninitialized ? GetType()->GetName() : TEXT("[invalid]"),
-		Canary == ShaderMagic_Uninitialized ? TEXT("uninitialized") : TEXT("garbage memory"),
-		Canary
-		);
-}
 
 /**
  * Dumps shader stats to the log. Will also print some shader pipeline information.

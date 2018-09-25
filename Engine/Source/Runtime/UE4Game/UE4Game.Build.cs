@@ -27,7 +27,5 @@ public class UE4Game : ModuleRules
 			DynamicallyLoadedModuleNames.Add("AndroidAdvertising");
             //DynamicallyLoadedModuleNames.Add("OnlineSubsystemGooglePlay");
 		}
-
-		bTreatAsEngineModule = false;
 	}
 }

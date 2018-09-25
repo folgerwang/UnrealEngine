@@ -10,12 +10,6 @@
 #define GOOGLE_CLIENTAUTH_ID TEXT("ClientId")
 #define GOOGLE_SERVERAUTH_ID TEXT("ServerClientId")
 
-FOnlineSubsystemGoogleCommon::FOnlineSubsystemGoogleCommon()
-	: GoogleIdentity(nullptr)
-	, GoogleExternalUI(nullptr)
-{
-}
-
 FOnlineSubsystemGoogleCommon::FOnlineSubsystemGoogleCommon(FName InInstanceName)
 	: FOnlineSubsystemImpl(GOOGLE_SUBSYSTEM, InInstanceName)
 {
@@ -30,12 +24,12 @@ bool FOnlineSubsystemGoogleCommon::Init()
 	static FString ConfigSection(TEXT("OnlineSubsystemGoogle"));
 	if (!GConfig->GetString(*ConfigSection, GOOGLE_CLIENTAUTH_ID, ClientId, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing ClientId= in [%s] of DefaultEngine.ini"), *ConfigSection);
+		UE_LOG_ONLINE(Warning, TEXT("Missing ClientId= in [%s] of DefaultEngine.ini"), *ConfigSection);
 	}
 
 	if (!GConfig->GetString(*ConfigSection, GOOGLE_SERVERAUTH_ID, ServerClientId, GEngineIni))
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing ServerClientId= in [%s] of DefaultEngine.ini"), *ConfigSection);
+		UE_LOG_ONLINE(Warning, TEXT("Missing ServerClientId= in [%s] of DefaultEngine.ini"), *ConfigSection);
 	}
 
 	FString ConfigOverride;
@@ -72,7 +66,7 @@ bool FOnlineSubsystemGoogleCommon::Init()
 
 bool FOnlineSubsystemGoogleCommon::Shutdown()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemGoogleCommon::Shutdown()"));
+	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemGoogleCommon::Shutdown()"));
 
 	FOnlineSubsystemImpl::Shutdown();
 

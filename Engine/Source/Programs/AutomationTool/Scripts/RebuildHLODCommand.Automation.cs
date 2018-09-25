@@ -123,7 +123,7 @@ namespace AutomationScripts.Automation
 		{
 			LogInformation("Running Step:- RebuildHLOD::CheckOutMaps");
 			// Setup a P4 Cl we will use to submit the new HLOD data
-			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} rebuilding HLODs from changelist {1}\n#rb None\n#tests None\n#jira none\n#robomerge #DisregardExcludedAuthors", Params.ShortProjectName, P4Env.Changelist));
+			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} rebuilding HLODs from changelist {1}\n#rb None\n#tests None\n#jira none\n#robomerge[ALL] #DisregardExcludedAuthors", Params.ShortProjectName, P4Env.Changelist));
 			LogInformation("Working in {0}", WorkingCL);
 
 		}

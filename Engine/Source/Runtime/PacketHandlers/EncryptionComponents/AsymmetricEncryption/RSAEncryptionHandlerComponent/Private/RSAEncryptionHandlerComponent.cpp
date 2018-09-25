@@ -7,7 +7,6 @@
 #include "Modules/ModuleManager.h"
 
 
-DEFINE_LOG_CATEGORY(PacketHandlerLog);
 IMPLEMENT_MODULE(FRSAEncryptorHandlerComponentModuleInterface, RSAEncryptionHandlerComponent);
 
 
@@ -68,7 +67,7 @@ void RSAEncryptionHandlerComponent::NotifyHandshakeBegin()
 
 	FPacketAudit::AddStage(TEXT("RSAHandshake"), OutPacket);
 
-	Handler->SendHandlerPacket(this, OutPacket);
+	Handler->SendHandlerPacket(this, OutPacket, FOutPacketTraits());
 }
 
 bool RSAEncryptionHandlerComponent::IsValid() const
@@ -81,7 +80,7 @@ void RSAEncryptionHandlerComponent::SetState(ERSAEncryptionHandler::State InStat
 	State = InState;
 }
 
-void RSAEncryptionHandlerComponent::Outgoing(FBitWriter& Packet)
+void RSAEncryptionHandlerComponent::Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits)
 {
 	if (State == ERSAEncryptionHandler::State::Initialized)
 	{

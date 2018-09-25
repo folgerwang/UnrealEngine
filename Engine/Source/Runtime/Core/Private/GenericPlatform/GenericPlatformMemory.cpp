@@ -30,6 +30,7 @@
 
 // on 64 bit Linux, it is easier to run out of vm.max_map_count than of other limits. Due to that, trade VIRT (address space) size for smaller amount of distinct mappings
 // by not leaving holes between them (kernel will coalesce the adjoining mappings into a single one)
+// Disable by default as this causes large wasted virtual memory areas as we've to cut out 64k aligned pointers from a larger memory area then requested but then leave them mmap'd
 #define UE4_PLATFORM_REDUCE_NUMBER_OF_MAPS					(0 && PLATFORM_UNIX && PLATFORM_64BITS)
 
 #ifndef MALLOC_LEAKDETECTION
@@ -38,6 +39,12 @@
 
 // check bookkeeping info against the passed in parameters in Debug and Development (the latter only in games and servers. also, only if leak detection is disabled, otherwise things are very slow)
 #define UE4_PLATFORM_SANITY_CHECK_OS_ALLOCATIONS			(UE_BUILD_DEBUG || (UE_BUILD_DEVELOPMENT && (UE_GAME || UE_SERVER) && !MALLOC_LEAKDETECTION))
+
+#if PLATFORM_UNIX
+// Defined in UnixPlatformMemory.cpp. If enabled advise mmap'ed memory that its pages are mergable
+extern bool GUseKSM;
+extern bool GKSMMergeAllPages;
+#endif
 
 DEFINE_STAT(MCR_Physical);
 DEFINE_STAT(MCR_PhysicalLLM);
@@ -262,6 +269,31 @@ struct FOSAllocationDescriptor
 	SIZE_T		OriginalSizeAsPassed;
 };
 
+// TODO Move all uses of madvise to UnixPlatformMemory. This requires refactoring BinnedAllocFromOS so we can apply
+// platform specific logic to the memory.
+#if PLATFORM_UNIX
+namespace
+{
+	void MarkMappedMemoryMergable(void* Pointer, SIZE_T Size)
+	{
+		const SIZE_T BinnedPageSize = FPlatformMemory::GetConstants().BinnedPageSize;
+
+		// If we dont want to merge all pages only merge chunks larger then BinnedPageSize
+		if (GUseKSM && (GKSMMergeAllPages || Size > BinnedPageSize))
+		{
+			int Ret = madvise(Pointer, Size, MADV_MERGEABLE);
+			if (Ret != 0)
+			{
+				int ErrNo = errno;
+				UE_LOG(LogHAL, Fatal, TEXT("madvise(addr=%p, length=%d, advice=MADV_MERGEABLE) failed with errno = %d (%s)"),
+					Pointer, Size, ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+				// unreachable
+			}
+		}
+	}
+}
+#endif
+
 void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 {
 #if !UE4_PLATFORM_USES_MMAP_FOR_BINNED_OS_ALLOCS
@@ -289,9 +321,7 @@ void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 
 		if (PointerWeGotFromMMap == MAP_FAILED)
 		{
-			const int ErrNo = errno;
-			UE_LOG(LogHAL, Fatal, TEXT("mmap(len=%llu) failed with errno = %d (%s)"), (uint64)(Size),
-				ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+			FPlatformMemory::OnOutOfMemory(Size, ExpectedAlignment);
 			// unreachable
 			return nullptr;
 		}
@@ -299,15 +329,15 @@ void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 		// If we happen to be aligned we can return early with out having to unmap anything
 		if (reinterpret_cast<SIZE_T>(PointerWeGotFromMMap) % ExpectedAlignment == 0)
 		{
+			MarkMappedMemoryMergable(PointerWeGotFromMMap, Size);
+
 			return PointerWeGotFromMMap;
 		}
 
 		// We have failed to get an aligned pointer, lets unmap and fall back
 		if (munmap(PointerWeGotFromMMap, Size) != 0)
 		{
-			const int ErrNo = errno;
-			UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), PointerWeGotFromMMap, (uint64)(Size),
-				ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+			FPlatformMemory::OnOutOfMemory(Size, ExpectedAlignment);
 			// unreachable
 			return nullptr;
 		}
@@ -360,6 +390,10 @@ void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 	// at this point, Pointer is aligned at the expected alignment - either we lucked out on the initial allocation
 	// or we already got rid of the extra memory that was allocated in the front.
 	checkf((reinterpret_cast<SIZE_T>(Pointer) % ExpectedAlignment) == 0, TEXT("BinnedAllocFromOS(): Internal error: did not align the pointer as expected."));
+
+#if PLATFORM_UNIX
+	MarkMappedMemoryMergable(Pointer, ActualSizeMapped);
+#endif
 
 	// do not unmap if we're trying to reduce the number of distinct maps, since holes prevent the Linux kernel from coalescing two adjoining mmap()s into a single VMA
 	if (!UE4_PLATFORM_REDUCE_NUMBER_OF_MAPS)
@@ -471,7 +505,14 @@ void* FGenericPlatformMemory::MemoryRangeReserve(SIZE_T Size, bool bCommit, int3
 {
 #if UE4_PLATFORM_USES_MMAP_FOR_BINNED_OS_ALLOCS
 	void* Ptr = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-	return Ptr != MAP_FAILED ? Ptr : nullptr;
+	if (LIKELY(Ptr != MAP_FAILED))
+	{
+#if PLATFORM_UNIX
+		MarkMappedMemoryMergable(Ptr, Size);
+#endif
+		return Ptr;
+	}
+	return nullptr;
 #else
 	UE_LOG(LogMemory, Fatal, TEXT("FGenericPlatformMemory::MemoryRangeReserve not implemented on this platform"));
 	// unreachable
@@ -545,7 +586,12 @@ EPlatformMemorySizeBucket FGenericPlatformMemory::GetMemorySizeBucket()
 		// basically all virtual memory possible, some could use it to restrict to 32-bit process space)
 		// @todo should we use a different stat?
 
+#if PLATFORM_ANDROID
+		// we don't exactly want to round up on android
+		uint32 TotalPhysicalGB = (Stats.TotalPhysical + 384 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
+#else
 		uint32 TotalPhysicalGB = (Stats.TotalPhysical + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
+#endif
 		uint32 AddressLimitGB = (Stats.AddressLimit + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
 		int32 CurMemoryGB = (int32)FMath::Min(TotalPhysicalGB, AddressLimitGB);
 

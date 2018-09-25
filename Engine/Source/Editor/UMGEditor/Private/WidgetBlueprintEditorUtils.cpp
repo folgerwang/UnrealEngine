@@ -283,9 +283,12 @@ void FWidgetBlueprintEditorUtils::CreateWidgetContextMenu(FMenuBuilder& MenuBuil
 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Cut);
 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Copy);
 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Paste);
-		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Rename);
 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Duplicate);
 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete);
+	}
+	MenuBuilder.PopCommandList();
+	{
+		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Rename);
 	}
 	MenuBuilder.EndSection();
 
@@ -319,8 +322,6 @@ void FWidgetBlueprintEditorUtils::CreateWidgetContextMenu(FMenuBuilder& MenuBuil
 		}
 	}
 	MenuBuilder.EndSection();
-
-	MenuBuilder.PopCommandList();
 }
 
 void FWidgetBlueprintEditorUtils::ExecuteOpenSelectedWidgetsForEdit( TSet<FWidgetReference> SelectedWidgets )

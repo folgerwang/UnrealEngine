@@ -288,7 +288,7 @@ void FVariantData::GetValue(FString& OutData) const
 	}
 	else
 	{
-		OutData = TEXT("");
+		OutData.Reset();
 	}
 }
 
@@ -553,6 +553,7 @@ FString FVariantData::ToString() const
 			GetValue(Val);
 			return FString::Printf(TEXT("%f"),Val);
 		}
+		case EOnlineKeyValuePairDataType::Json:
 		case EOnlineKeyValuePairDataType::String:
 		{
 			// Copy the string out
@@ -565,7 +566,7 @@ FString FVariantData::ToString() const
 			return FString::Printf(TEXT("%d byte blob"), Value.AsBlob.BlobSize);
 		}
 	}
-	return TEXT("");
+	return FString();
 }
 
 /**
@@ -799,7 +800,7 @@ bool FVariantData::FromJson(const TSharedRef<FJsonObject>& JsonObject)
 	return bResult;
 }
 
-void FVariantData::AddToJsonObject(const TSharedRef<FJsonObject>& JsonObject, const FString& Name) const
+void FVariantData::AddToJsonObject(const TSharedRef<FJsonObject>& JsonObject, const FString& Name, const bool bWithTypeSuffix /* = true*/) const
 {
 	switch (Type)
 	{
@@ -807,59 +808,59 @@ void FVariantData::AddToJsonObject(const TSharedRef<FJsonObject>& JsonObject, co
 	{
 		int32 FieldValue;
 		GetValue(FieldValue);
-		JsonObject->SetNumberField(Name + TEXT("_i"), (double)FieldValue);
+		JsonObject->SetNumberField(bWithTypeSuffix ? Name + TEXT("_i") : Name, (double)FieldValue);
 		break;
 	}
 	case EOnlineKeyValuePairDataType::UInt32:
 	{
 		uint32 FieldValue;
 		GetValue(FieldValue);
-		JsonObject->SetNumberField(Name + TEXT("_u"), (double)FieldValue);
+		JsonObject->SetNumberField(bWithTypeSuffix ? Name + TEXT("_u") : Name, (double)FieldValue);
 		break;
 	}
 	case EOnlineKeyValuePairDataType::Float:
 	{
 		float FieldValue;
 		GetValue(FieldValue);
-		JsonObject->SetNumberField(Name + TEXT("_f"), (double)FieldValue);
+		JsonObject->SetNumberField(bWithTypeSuffix ? Name + TEXT("_f") : Name, (double)FieldValue);
 		break;
 	}
 	case EOnlineKeyValuePairDataType::String:
 	{
 		FString FieldValue;
 		GetValue(FieldValue);
-		JsonObject->SetStringField(Name + TEXT("_s"), FieldValue);
+		JsonObject->SetStringField(bWithTypeSuffix ? Name + TEXT("_s") : Name, FieldValue);
 		break;
 	}
 	case EOnlineKeyValuePairDataType::Bool:
 	{
 		bool FieldValue;
 		GetValue(FieldValue);
-		JsonObject->SetBoolField(Name + TEXT("_b"), FieldValue);
+		JsonObject->SetBoolField(bWithTypeSuffix ? Name + TEXT("_b") : Name, FieldValue);
 		break;
 	}
 	case EOnlineKeyValuePairDataType::Int64:
 	{
-		JsonObject->SetStringField(Name + TEXT("_I"), ToString());
+		JsonObject->SetStringField(bWithTypeSuffix ? Name + TEXT("_I") : Name, ToString());
 		break;
 	}
 	case EOnlineKeyValuePairDataType::UInt64:
 	{
-		JsonObject->SetStringField(Name + TEXT("_U"), ToString());
+		JsonObject->SetStringField(bWithTypeSuffix ? Name + TEXT("_U") : Name, ToString());
 		break;
 	}
 	case EOnlineKeyValuePairDataType::Double:
 	{
 		double FieldValue;
 		GetValue(FieldValue);
-		JsonObject->SetNumberField(Name + TEXT("_d"), (double)FieldValue);
+		JsonObject->SetNumberField(bWithTypeSuffix ? Name + TEXT("_d") : Name, (double)FieldValue);
 		break;
 	}
 	case EOnlineKeyValuePairDataType::Json:
 	{
 		TSharedPtr<FJsonObject> FieldValue;
 		GetValue(FieldValue);
-		JsonObject->SetObjectField(Name + TEXT("_j"), FieldValue);
+		JsonObject->SetObjectField(bWithTypeSuffix ? Name + TEXT("_j") : Name, FieldValue);
 	}
 	case EOnlineKeyValuePairDataType::Empty:
 	case EOnlineKeyValuePairDataType::Blob:

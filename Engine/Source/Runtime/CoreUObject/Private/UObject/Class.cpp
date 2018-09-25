@@ -12,6 +12,7 @@
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/OutputDeviceConsole.h"
+#include "Misc/AutomationTest.h"
 #include "UObject/ErrorException.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/UObjectAllocator.h"
@@ -2680,8 +2681,10 @@ private:
 	uint8* TempBuffer;
 };
 
-void AttemptToFindUninitializedScriptStructPointers()
+int32 FStructUtils::AttemptToFindUninitializedScriptStructMembers()
 {
+	int32 UninitializedScriptStructMemberCount = 0;
+
 	for (TObjectIterator<UScriptStruct> ScriptIt; ScriptIt; ++ScriptIt)
 	{
 		UScriptStruct* ScriptStruct = *ScriptIt;
@@ -2696,13 +2699,22 @@ void AttemptToFindUninitializedScriptStructPointers()
 			
 			for (const UProperty* Property : TFieldRange<UProperty>(ScriptStruct, EFieldIteratorFlags::ExcludeSuper))
 			{
+#if	WITH_EDITOR || HACK_HEADER_GENERATOR
+				static const FName NAME_IgnoreForMemberInitializationTest(TEXT("IgnoreForMemberInitializationTest"));
+				if (Property->HasMetaData(NAME_IgnoreForMemberInitializationTest))
+				{
+					continue;
+				}
+#endif
+
 				if (const UObjectPropertyBase* ObjectProperty = Cast<const UObjectPropertyBase>(Property))
 				{
 					// Check any reflected pointer properties to make sure they got initialized
 					const UObject* PropValue = ObjectProperty->GetObjectPropertyValue_InContainer(WrapperFF.GetData());
 					if (PropValue == BadPointer)
 					{
-						UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+						++UninitializedScriptStructMemberCount;
+						UE_LOG(LogClass, Warning, TEXT("ObjectProperty %s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
 					}
 				}
 				else if (const UBoolProperty* BoolProperty = Cast<const UBoolProperty>(Property))
@@ -2713,7 +2725,8 @@ void AttemptToFindUninitializedScriptStructPointers()
 
 					if (Value0 != Value1)
 					{
-						UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+						++UninitializedScriptStructMemberCount;
+						UE_LOG(LogClass, Warning, TEXT("BoolProperty %s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
 					}
 				}
 				else if (Property->IsA(UNameProperty::StaticClass()))
@@ -2723,15 +2736,37 @@ void AttemptToFindUninitializedScriptStructPointers()
 				}
 				else
 				{
-					// Catch all remaining properties
-					if (!Property->Identical_InContainer(WrapperAA.GetData(), Wrapper55.GetData()))
+					bool ShouldInspect = true;
+					if (Property->IsA(UStructProperty::StaticClass()))
 					{
-						UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+						// Skip user defined structs since we will consider those structs directly.
+						// Calling again here will just result in false positives
+						const UStructProperty* StructProperty = Cast<UStructProperty>(Property);
+						ShouldInspect = (StructProperty->Struct->StructFlags & STRUCT_NoExport) != 0;
+					}
+
+					if (ShouldInspect)
+					{
+						// Catch all remaining properties
+
+						// Uncomment the following line to aid finding crash sources encountered while running this test. A crash usually indicates an uninitialized pointer
+						// UE_LOG(LogClass, Log, TEXT("Testing %s%s::%s for proper initialization"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+						if (!Property->Identical_InContainer(WrapperAA.GetData(), Wrapper55.GetData()))
+						{
+							++UninitializedScriptStructMemberCount;
+							UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+						}
 					}
 				}
 			}
 		}
 	}
+
+	if (UninitializedScriptStructMemberCount > 0)
+	{
+		UE_LOG(LogClass, Display, TEXT("%i Uninitialized script stuct members found"), UninitializedScriptStructMemberCount);
+	}
+	return UninitializedScriptStructMemberCount;
 }
 
 #include "HAL/IConsoleManager.h"
@@ -2742,8 +2777,14 @@ FAutoConsoleCommandWithWorldAndArgs GCmdListBadScriptStructs(
 	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(
 		[](const TArray<FString>& Params, UWorld* World)
 {
-	AttemptToFindUninitializedScriptStructPointers();
+	FStructUtils::AttemptToFindUninitializedScriptStructMembers();
 }));
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAutomationTestAttemptToFindUninitializedScriptStructMembers, "UObject.Class AttemptToFindUninitializedScriptStructMembers", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::ServerContext | EAutomationTestFlags::SmokeFilter)
+bool FAutomationTestAttemptToFindUninitializedScriptStructMembers::RunTest(const FString& Parameters)
+{
+	return FStructUtils::AttemptToFindUninitializedScriptStructMembers() == 0;
+}
 
 #endif
 
@@ -2930,7 +2971,7 @@ UObject* UClass::CreateDefaultObject()
 			if( HasAnyClassFlags(CLASS_CompiledFromBlueprint) && (PropertyLink == NULL) && !GIsDuplicatingClassForReinstancing)
 			{
 				auto ClassLinker = GetLinker();
-				if (ClassLinker)
+				if (ClassLinker && !ClassLinker->bDynamicClassLinker)
 				{
 					if (!GEventDrivenLoaderEnabled)
 					{
@@ -3254,7 +3295,6 @@ void UClass::PostLoad()
 	if (!HasAnyClassFlags(CLASS_Native))
 	{
 		ClassFlags &= ~CLASS_ReplicationDataIsSetUp;
-		SetUpRuntimeReplicationData();
 	}
 }
 
@@ -3286,13 +3326,6 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 {
 	check(!bRelinkExistingProperties || !(ClassFlags & CLASS_Intrinsic));
 	Super::Link(Ar, bRelinkExistingProperties);
-
-	// For non-native classes, this will happen in PostLoad when all its functions
-	// are guaranteed to be loaded. Native classes have to do this now.
-	if (HasAnyClassFlags(CLASS_Native))
-	{
-		SetUpRuntimeReplicationData();
-	}
 }
 
 void UClass::SetUpRuntimeReplicationData()
@@ -4433,11 +4466,17 @@ UFunction* UClass::FindFunctionByName(FName InName, EIncludeSuperFlag::Type Incl
 		UClass* SuperClass = GetSuperClass();
 		if (SuperClass || Interfaces.Num() > 0)
 		{
-			if (UFunction** SuperResult = SuperFuncMap.Find(InName))
+			bool bFoundInSuperFuncMap = false;
 			{
-				Result = *SuperResult;
+				FRWScopeLock ScopeLock(SuperFuncMapLock, FRWScopeLockType::SLT_ReadOnly);
+				if (UFunction** SuperResult = SuperFuncMap.Find(InName))
+				{
+					Result = *SuperResult;
+					bFoundInSuperFuncMap = true;
+				}
 			}
-			else
+
+			if (!bFoundInSuperFuncMap)
 			{
 				for (const FImplementedInterface& Inter : Interfaces)
 				{
@@ -4453,6 +4492,7 @@ UFunction* UClass::FindFunctionByName(FName InName, EIncludeSuperFlag::Type Incl
 					Result = SuperClass->FindFunctionByName(InName);
 				}
 
+				FRWScopeLock ScopeLock(SuperFuncMapLock, FRWScopeLockType::SLT_Write);
 				SuperFuncMap.Add(InName, Result);
 			}
 		}
@@ -4724,7 +4764,7 @@ void GetPrivateStaticClassBody(
 			EC_StaticConstructor,
 			Name,
 			InSize,
-			InClassFlags,
+			InClassFlags|CLASS_CompiledFromBlueprint,
 			InClassCastFlags,
 			InConfigName,
 			EObjectFlags(RF_Public | RF_Standalone | RF_Transient | RF_Dynamic | (GIsInitialLoad ? RF_MarkAsRootSet : RF_NoFlags)),

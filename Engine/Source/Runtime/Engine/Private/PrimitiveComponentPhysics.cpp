@@ -39,7 +39,7 @@ void UPrimitiveComponent::SetRigidBodyReplicatedTarget(FRigidBodyState& UpdatedS
 			if (FPhysicsReplication* PhysicsReplication = PhysScene->GetPhysicsReplication())
 			{
 				FBodyInstance* BI = GetBodyInstance(BoneName);
-				if (BI && BI->IsInstanceSimulatingPhysics())
+				if (BI && BI->IsValidBodyInstance())
 				{
 					PhysicsReplication->SetReplicatedTarget(this, BoneName, UpdatedState);
 				}
@@ -263,7 +263,7 @@ void UPrimitiveComponent::SetPhysicsMaxAngularVelocityInRadians(float NewMaxAngV
 	}
 }
 
-FVector UPrimitiveComponent::GetPhysicsAngularVelocityInRadians(FName BoneName)
+FVector UPrimitiveComponent::GetPhysicsAngularVelocityInRadians(FName BoneName) const
 {
 	FBodyInstance* const BI = GetBodyInstance(BoneName);
 	if(BI != NULL)
@@ -563,7 +563,7 @@ void UPrimitiveComponent::SyncComponentToRBPhysics()
 		}
 	}
 
-	if (IsPendingKill() || !IsSimulatingPhysics())
+	if (IsPendingKill() || !IsSimulatingPhysics() || !RigidBodyIsAwake())
 	{
 		return;
 	}

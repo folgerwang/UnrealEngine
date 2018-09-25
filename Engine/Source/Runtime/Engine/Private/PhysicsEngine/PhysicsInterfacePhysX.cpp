@@ -1466,13 +1466,13 @@ FTransform FPhysicsInterface_PhysX::GetGlobalPose_AssumesLocked(const FPhysicsAc
 	return Actor ? P2UTransform(Actor->getGlobalPose()) : FTransform::Identity;
 }
 
-void FPhysicsInterface_PhysX::SetGlobalPose_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle, const FTransform& InNewPose)
+void FPhysicsInterface_PhysX::SetGlobalPose_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle, const FTransform& InNewPose, bool bAutoWake)
 {
 	PxRigidActor* Actor = GetPxRigidActor_AssumesLocked(InActorHandle);
 
 	if(Actor)
 	{
-		Actor->setGlobalPose(U2PTransform(InNewPose));
+		Actor->setGlobalPose(U2PTransform(InNewPose), bAutoWake);
 	}
 }
 
@@ -1539,14 +1539,14 @@ FVector FPhysicsInterface_PhysX::GetLinearVelocity_AssumesLocked(const FPhysicsA
 	return FVector::ZeroVector;
 }
 
-void FPhysicsInterface_PhysX::SetLinearVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle, const FVector& InNewVelocity)
+void FPhysicsInterface_PhysX::SetLinearVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle, const FVector& InNewVelocity, bool bAutoWake)
 {
 	PxRigidActor* Actor = GetPxRigidActor_AssumesLocked(InActorHandle);
 	PxRigidBody* Body = Actor ? Actor->is<PxRigidBody>() : nullptr;
 
 	if(Body)
 	{
-		Body->setLinearVelocity(U2PVector(InNewVelocity));
+		Body->setLinearVelocity(U2PVector(InNewVelocity), bAutoWake);
 	}
 }
 
@@ -1563,14 +1563,14 @@ FVector FPhysicsInterface_PhysX::GetAngularVelocity_AssumesLocked(const FPhysics
 	return FVector::ZeroVector;
 }
 
-void FPhysicsInterface_PhysX::SetAngularVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle, const FVector& InNewVelocity)
+void FPhysicsInterface_PhysX::SetAngularVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle, const FVector& InNewVelocity, bool bAutoWake)
 {
 	PxRigidActor* Actor = GetPxRigidActor_AssumesLocked(InActorHandle);
 	PxRigidBody* Body = Actor ? Actor->is<PxRigidBody>() : nullptr;
 
 	if(Body)
 	{
-		Body->setAngularVelocity(U2PVector(InNewVelocity));
+		Body->setAngularVelocity(U2PVector(InNewVelocity), bAutoWake);
 	}
 }
 
@@ -1637,6 +1637,21 @@ FTransform FPhysicsInterface_PhysX::GetComTransform_AssumesLocked(const FPhysics
 	}
 
 	return FTransform::Identity;
+}
+
+FTransform FPhysicsInterface_PhysX::GetComTransformLocal_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle)
+{
+	FTransform OutTransform = FTransform::Identity;
+
+	PxRigidActor* Actor = GetPxRigidActor_AssumesLocked(InHandle);
+	PxRigidBody* Body = Actor ? Actor->is<PxRigidBody>() : nullptr;
+
+	if(Body)
+	{
+		OutTransform = P2UTransform(Body->getCMassLocalPose());
+	}
+
+	return OutTransform;
 }
 
 FVector FPhysicsInterface_PhysX::GetLocalInertiaTensor_AssumesLocked(const FPhysicsActorHandle_PhysX& InActorHandle)

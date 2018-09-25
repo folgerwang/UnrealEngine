@@ -416,23 +416,23 @@ struct FMovementProperties
 
 	/** If true, this Pawn is capable of crouching. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MovementProperties)
-	uint32 bCanCrouch:1;
+	uint8 bCanCrouch:1;
 
 	/** If true, this Pawn is capable of jumping. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MovementProperties)
-	uint32 bCanJump:1;
+	uint8 bCanJump:1;
 
 	/** If true, this Pawn is capable of walking or moving on the ground. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MovementProperties)
-	uint32 bCanWalk:1;
+	uint8 bCanWalk:1;
 
 	/** If true, this Pawn is capable of swimming or moving through fluid volumes. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MovementProperties)
-	uint32 bCanSwim:1;
+	uint8 bCanSwim:1;
 
 	/** If true, this Pawn is capable of flying. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MovementProperties)
-	uint32 bCanFly:1;
+	uint8 bCanFly:1;
 
 	FMovementProperties()
 		: bCanCrouch(false)

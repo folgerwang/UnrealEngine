@@ -63,7 +63,7 @@ namespace SkeletalMeshTools
 		return true;
 	}
 
-	void BuildSkeletalMeshChunks( const TArray<FMeshFace>& Faces, const TArray<FSoftSkinBuildVertex>& RawVertices, TArray<FSkeletalMeshVertIndexAndZ>& RawVertIndexAndZ, const FOverlappingThresholds &OverlappingThresholds, TArray<FSkinnedMeshChunk*>& OutChunks, bool& bOutTooManyVerts )
+	void BuildSkeletalMeshChunks( const TArray<SkeletalMeshImportData::FMeshFace>& Faces, const TArray<FSoftSkinBuildVertex>& RawVertices, TArray<FSkeletalMeshVertIndexAndZ>& RawVertIndexAndZ, const FOverlappingThresholds &OverlappingThresholds, TArray<FSkinnedMeshChunk*>& OutChunks, bool& bOutTooManyVerts )
 	{
 		TArray<int32> DupVerts;
 
@@ -112,7 +112,7 @@ namespace SkeletalMeshTools
 		uint32 TriangleIndices[3];
 		for(int32 FaceIndex = 0; FaceIndex < Faces.Num(); FaceIndex++)
 		{
-			const FMeshFace& Face = Faces[FaceIndex];
+			const SkeletalMeshImportData::FMeshFace& Face = Faces[FaceIndex];
 
 			// Find a chunk which matches this triangle.
 			FSkinnedMeshChunk* Chunk = NULL;

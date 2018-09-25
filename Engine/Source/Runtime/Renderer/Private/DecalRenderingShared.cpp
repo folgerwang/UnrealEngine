@@ -182,7 +182,7 @@ public:
 			SetShaderValue(RHICmdList, ShaderRHI, DecalOrientation, ComponentTrans.GetUnitAxis(EAxis::X));
 		}
 		
-		float LifetimeAlpha = FMath::Clamp(View.Family->CurrentWorldTime * -DecalProxy.InvFadeDuration + DecalProxy.FadeStartDelayNormalized, 0.0f, 1.0f);
+		float LifetimeAlpha = FMath::Clamp(FMath::Min(View.Family->CurrentWorldTime * -DecalProxy.InvFadeDuration + DecalProxy.FadeStartDelayNormalized, View.Family->CurrentWorldTime * DecalProxy.InvFadeInDuration + DecalProxy.FadeInStartDelayNormalized), 0.0f, 1.0f);
 		SetShaderValue(RHICmdList, ShaderRHI, DecalParams, FVector2D(FadeAlphaValue, LifetimeAlpha));
 	}
 
@@ -386,9 +386,6 @@ void FDecalRendering::SetShader(FRHICommandList& RHICmdList, FGraphicsPipelineSt
 		// For this to work, decal VS must output compatible interpolants. Currently this requires to use FDebugPSInLean.
 		// Here we pass nullptr for the material interface because the use of a static bound shader state is only compatible with unique shaders.
 		IDebugViewModePSInterface* DebugPixelShader = FDebugViewMode::GetPSInterface(View.ShaderMap, nullptr, DebugViewShaderMode); 
-
-		const uint32 NumPixelShaderInstructions = PixelShader->GetNumInstructions();
-		const uint32 NumVertexShaderInstructions = VertexShader->GetNumInstructions();
 
 		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
 		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);

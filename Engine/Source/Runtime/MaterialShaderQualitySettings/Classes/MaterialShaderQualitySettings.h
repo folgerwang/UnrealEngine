@@ -35,7 +35,7 @@ public:
 	static UMaterialShaderQualitySettings* Get();
 
 private:
-	UShaderPlatformQualitySettings* GetOrCreatePlatformSettings(FName PlatformName);
+	UShaderPlatformQualitySettings* GetOrCreatePlatformSettings(FName ShaderPlatformName);
 
 	UPROPERTY()
 	TMap<FName, UShaderPlatformQualitySettings*> ForwardSettingMap;

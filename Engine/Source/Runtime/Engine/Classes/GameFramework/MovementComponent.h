@@ -79,32 +79,6 @@ class ENGINE_API UMovementComponent : public UActorComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Velocity)
 	FVector Velocity;
 
-	/**
-	 * If true, movement will be constrained to a plane.
-	 * @see PlaneConstraintNormal, PlaneConstraintOrigin, PlaneConstraintAxisSetting
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PlanarMovement)
-	uint32 bConstrainToPlane:1;
-
-	/** If true and plane constraints are enabled, then the updated component will be snapped to the plane when first attached. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PlanarMovement, meta=(editcondition=bConstrainToPlane))
-	uint32 bSnapToPlaneAtStart:1;
-
-private:
-
-#if WITH_EDITOR
-	// Warned about trying to move something with static mobility.
-	uint32 bEditorWarnedStaticMobilityMove:1;
-#endif
-
-	/**
-	 * Setting that controls behavior when movement is restricted to a 2D plane defined by a specific axis/normal,
-	 * so that movement along the locked axis is not be possible.
-	 * @see SetPlaneConstraintAxisSetting
-	 */
-	UPROPERTY(EditAnywhere, Category=PlanarMovement, meta=(editcondition=bConstrainToPlane))
-	EPlaneConstraintAxisSetting PlaneConstraintAxisSetting;
-
 protected:
 
 	/**
@@ -136,14 +110,14 @@ public:
 
 	/** If true, skips TickComponent() if UpdatedComponent was not recently rendered. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MovementComponent)
-	uint32 bUpdateOnlyIfRendered:1;
+	uint8 bUpdateOnlyIfRendered:1;
 
 	/**
 	 * If true, whenever the updated component is changed, this component will enable or disable its tick dependent on whether it has something to update.
 	 * This will NOT enable tick at startup if bAutoActivate is false, because presumably you have a good reason for not wanting it to start ticking initially.
 	 **/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=MovementComponent)
-	uint32 bAutoUpdateTickRegistration:1;
+	uint8 bAutoUpdateTickRegistration:1;
 
 	/**
 	 * If true, after registration we will add a tick dependency to tick before our owner (if we can both tick).
@@ -151,12 +125,60 @@ public:
 	 * Disabling this can improve performance if both objects tick but the order of ticks doesn't matter.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=MovementComponent)
-	uint32 bTickBeforeOwner:1;
+	uint8 bTickBeforeOwner:1;
 
 	/** If true, registers the owner's Root component as the UpdatedComponent if there is not one currently assigned. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=MovementComponent)
-	uint32 bAutoRegisterUpdatedComponent:1;
+	uint8 bAutoRegisterUpdatedComponent:1;
 
+	/**
+	 * If true, movement will be constrained to a plane.
+	 * @see PlaneConstraintNormal, PlaneConstraintOrigin, PlaneConstraintAxisSetting
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PlanarMovement)
+	uint8 bConstrainToPlane:1;
+
+	/** If true and plane constraints are enabled, then the updated component will be snapped to the plane when first attached. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PlanarMovement, meta=(editcondition=bConstrainToPlane))
+	uint8 bSnapToPlaneAtStart:1;
+
+	/**
+	 * If true, then applies the value of bComponentShouldUpdatePhysicsVolume to the UpdatedComponent. If false, will not change bShouldUpdatePhysicsVolume on the UpdatedComponent at all.
+	 * @see bComponentShouldUpdatePhysicsVolume
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=MovementComponent)
+	uint8 bAutoRegisterPhysicsVolumeUpdates:1;
+
+	/**
+	 * If true, enables bShouldUpdatePhysicsVolume on the UpdatedComponent during initialization from SetUpdatedComponent(), otherwise disables such updates.
+	 * Only enabled if bAutoRegisterPhysicsVolumeUpdates is true.
+	 * WARNING: UpdatePhysicsVolume is potentially expensive if overlap events are also *disabled* because it requires a separate query against all physics volumes in the world.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=MovementComponent, meta=(editcondition=bAutoRegisterPhysicsVolumeUpdates))
+	uint8 bComponentShouldUpdatePhysicsVolume:1;
+
+private:
+
+#if WITH_EDITOR
+	// Warned about trying to move something with static mobility.
+	uint8 bEditorWarnedStaticMobilityMove:1;
+#endif
+
+	/** Transient flag indicating whether we are executing OnRegister(). */
+	bool bInOnRegister;
+
+	/** Transient flag indicating whether we are executing InitializeComponent(). */
+	bool bInInitializeComponent;
+
+	/**
+	 * Setting that controls behavior when movement is restricted to a 2D plane defined by a specific axis/normal,
+	 * so that movement along the locked axis is not be possible.
+	 * @see SetPlaneConstraintAxisSetting
+	 */
+	UPROPERTY(EditAnywhere, Category=PlanarMovement, meta=(editcondition=bConstrainToPlane))
+	EPlaneConstraintAxisSetting PlaneConstraintAxisSetting;
+
+public:
 	//~ Begin ActorComponent Interface 
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual void RegisterComponentTickFunctions(bool bRegister) override;
@@ -435,14 +457,6 @@ public:
 
 	/** Called by owning Actor upon successful teleport from AActor::TeleportTo(). */
 	virtual void OnTeleported() {};
-
-private:
-
-	/** Transient flag indicating whether we are executing OnRegister(). */
-	bool bInOnRegister;
-	
-	/** Transient flag indicating whether we are executing InitializeComponent(). */
-	bool bInInitializeComponent;
 };
 
 

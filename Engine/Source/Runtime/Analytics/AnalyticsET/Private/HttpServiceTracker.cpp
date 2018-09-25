@@ -44,7 +44,7 @@ bool FHttpServiceTracker::Tick(float DeltaTime)
 				{
 					Attrs.Emplace(FString(TEXT("Code-")) + LexToString(ResponseCodeMapPair.Key), ResponseCodeMapPair.Value);
 				}
-				AnalyticsProvider->RecordEvent(MetricsMapPair.Key.ToString(), Attrs);
+				AnalyticsProvider->RecordEvent(MetricsMapPair.Key.ToString(), MoveTemp(Attrs));
 			}
 			// force an immediate flush always. We already summarized.
 			AnalyticsProvider->FlushEvents();

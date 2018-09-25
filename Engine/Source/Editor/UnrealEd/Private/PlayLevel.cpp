@@ -552,6 +552,8 @@ void UEditorEngine::EndPlayMap()
 
 	// display any info if required.
 	FMessageLog(NAME_CategoryPIE).Notify(LOCTEXT("PIEErrorsPresent", "Errors/warnings reported while playing in editor."));
+
+	FMessageLog(NAME_CategoryPIE).Open(EMessageSeverity::Warning);
 }
 
 void UEditorEngine::CleanupPIEOnlineSessions(TArray<FName> OnlineIdentifiers)
@@ -975,7 +977,7 @@ void FitWindowPositionToWorkArea(FIntPoint &WinPos, FIntPoint &WinSize, const FM
 	FIntPoint TotalSize( WinSize.X + HorzPad, WinSize.Y + VertPad );
 
 	FDisplayMetrics DisplayMetrics;
-	FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+	FSlateApplication::Get().GetCachedDisplayMetrics(DisplayMetrics);
 
 	// Limit the size, to make sure it fits within the desktop area
 	{
@@ -1407,7 +1409,7 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 
 	// Get desktop metrics
 	FDisplayMetrics DisplayMetrics;
-	FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+	FSlateApplication::Get().GetCachedDisplayMetrics(DisplayMetrics);
 
 	// Force resolution
 	if ((WinSize.X <= 0 || WinSize.X > DisplayMetrics.PrimaryDisplayWidth) || (WinSize.Y <= 0 || WinSize.Y > DisplayMetrics.PrimaryDisplayHeight))
@@ -1463,7 +1465,7 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	SafeZoneRatio.Right /= (PlayInSettings->NewWindowPosition.X / 2.0f);
 	SafeZoneRatio.Bottom /= (PlayInSettings->NewWindowPosition.Y / 2.0f);
 	SafeZoneRatio.Top /= (PlayInSettings->NewWindowPosition.Y / 2.0f);
-	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, false);
 
 	FEditorDelegates::BeginStandaloneLocalPlay.Broadcast(ProcessID);
 }
@@ -2342,6 +2344,21 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor, FPl
 	// Clear any messages from last time
 	GEngine->ClearOnScreenDebugMessages();
 
+	// Start a new PIE log page
+	{
+		const FString WorldPackageName = EditorWorld->GetOutermost()->GetName();
+
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("Package"), FText::FromString(FPackageName::GetLongPackageAssetName(WorldPackageName)));
+		Arguments.Add(TEXT("TimeStamp"), FText::AsDateTime(FDateTime::Now()));
+
+		FText PIESessionLabel = bInSimulateInEditor ?
+			FText::Format(LOCTEXT("SIESessionLabel", "SIE session: {Package} ({TimeStamp})"), Arguments) :
+			FText::Format(LOCTEXT("PIESessionLabel", "PIE session: {Package} ({TimeStamp})"), Arguments);
+
+		FMessageLog(NAME_CategoryPIE).NewPage(PIESessionLabel);
+	}
+
 	// Flush all audio sources from the editor world
 	if (FAudioDevice* AudioDevice = EditorWorld->GetAudioDevice())
 	{
@@ -2497,7 +2514,7 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor, FPl
 	SafeZoneRatio.Right /= (PlayInSettings->NewWindowWidth / 2.0f);
 	SafeZoneRatio.Bottom /= (PlayInSettings->NewWindowHeight / 2.0f);
 	SafeZoneRatio.Top /= (PlayInSettings->NewWindowHeight / 2.0f);
-	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, false);
 
 	FEditorDelegates::PostPIEStarted.Broadcast( bInSimulateInEditor );
 }
@@ -2656,6 +2673,7 @@ void UEditorEngine::LoginPIEInstances(bool bAnyBlueprintErrors, bool bStartInSpe
 	const int32 PlayNumberOfClients = [&PlayInSettings] { int32 NumberOfClients(0); return (PlayInSettings->GetPlayNumberOfClients(NumberOfClients) ? NumberOfClients : 0); }();
 
 	PIEInstancesToLogInCount = PlayNumberOfClients;
+	bAtLeastOnePIELoginFailed = false;
 
 	// Server
 	if (WillAutoConnectToServer || CanPlayNetDedicated)
@@ -2770,13 +2788,14 @@ void UEditorEngine::OnLoginPIEComplete_Deferred(int32 LocalUserNum, bool bWasSuc
 		}
 		else
 		{
+			bAtLeastOnePIELoginFailed = true;
 			if (DataStruct.NetMode != EPlayNetMode::PIE_Client)
 			{
-				FMessageLog(NAME_CategoryPIE).Warning(LOCTEXT("LoggedInServerFailure", "Server failed to login"));
+				FMessageLog(NAME_CategoryPIE).Error(FText::Format(LOCTEXT("LoggedInServerFailure", "Server failed to login. {0}"), FText::FromString(ErrorString)));
 			}
 			else
 			{
-				FMessageLog(NAME_CategoryPIE).Warning(LOCTEXT("LoggedInClientFailure", "Client failed to login"));
+				FMessageLog(NAME_CategoryPIE).Error(FText::Format(LOCTEXT("LoggedInClientFailure", "Client failed to login. {0}"), FText::FromString(ErrorString)));
 			}
 		}
 	}
@@ -2784,7 +2803,14 @@ void UEditorEngine::OnLoginPIEComplete_Deferred(int32 LocalUserNum, bool bWasSuc
 	PIEInstancesToLogInCount--;
 	if (PIEInstancesToLogInCount == 0)
 	{
-		OnLoginPIEAllComplete();
+		if (bAtLeastOnePIELoginFailed)
+		{
+			EndPlayMap();
+		}
+		else
+		{
+			OnLoginPIEAllComplete();
+		}
 	}
 }
 
@@ -2888,21 +2914,6 @@ void UEditorEngine::RequestLateJoin()
 
 UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bRunAsDedicated, bool bPlayStereoscopic, float PIEStartTime)
 {
-	const FString WorldPackageName = EditorWorld->GetOutermost()->GetName();
-	
-		// Start a new PIE log page
-	{
-		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("Package"), FText::FromString(FPackageName::GetLongPackageAssetName(WorldPackageName)));
-		Arguments.Add(TEXT("TimeStamp"), FText::AsDateTime(FDateTime::Now()));
-
-		FText PIESessionLabel = bInSimulateInEditor ?
-			FText::Format(LOCTEXT("SIESessionLabel", "SIE session: {Package} ({TimeStamp})"), Arguments) : 
-			FText::Format(LOCTEXT("PIESessionLabel", "PIE session: {Package} ({TimeStamp})"), Arguments);
-
-		FMessageLog(NAME_CategoryPIE).NewPage(PIESessionLabel);
-	}
-
 	// create a new GameInstance
 	FSoftClassPath GameInstanceClassName = GetDefault<UGameMapsSettings>()->GameInstanceClass;
 	UClass* GameInstanceClass = (GameInstanceClassName.IsValid() ? LoadObject<UClass>(NULL, *GameInstanceClassName.ToString()) : UGameInstance::StaticClass());
@@ -3085,7 +3096,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 				{
 					// Get desktop metrics
 					FDisplayMetrics DisplayMetrics;
-					FSlateApplication::Get().GetDisplayMetrics( DisplayMetrics );
+					FSlateApplication::Get().GetCachedDisplayMetrics( DisplayMetrics );
 
 					const FVector2D DisplaySize(
 						DisplayMetrics.PrimaryDisplayWorkAreaRect.Right - DisplayMetrics.PrimaryDisplayWorkAreaRect.Left,
@@ -3117,14 +3128,28 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 				const bool bHasCustomWindow = PieWindow.IsValid();
 				if (!bHasCustomWindow)
 				{
+					int32 PosX = NewWindowPosition.X;
+					int32 PosY = NewWindowPosition.Y;
+					const bool CanPlayNetDedicated = [&PlayInSettings] { bool PlayNetDedicated(false); return (PlayInSettings->GetPlayNetDedicated(PlayNetDedicated) && PlayNetDedicated); }();
+					int32 idx = PieWorldContext->PIEInstance - (CanPlayNetDedicated ? 1 : 0);
+					if (idx > 0)
+					{
+						ULevelEditorPlaySettings* LevelEditorPlaySettings = ULevelEditorPlaySettings::StaticClass()->GetDefaultObject<ULevelEditorPlaySettings>();
+						if (idx < LevelEditorPlaySettings->MultipleInstancePositions.Num())
+						{
+							PosX = LevelEditorPlaySettings->MultipleInstancePositions[idx].X;
+							PosY = LevelEditorPlaySettings->MultipleInstancePositions[idx].Y;
+						}
+					}
+
 					PieWindow = SNew(SWindow)
-					.Title(ViewportName)
-					.ScreenPosition(FVector2D( NewWindowPosition.X, NewWindowPosition.Y ))
-					.ClientSize(FVector2D( NewWindowWidth, NewWindowHeight ))
-					.AutoCenter(CenterNewWindow ? EAutoCenter::PreferredWorkArea : EAutoCenter::None)
-					.UseOSWindowBorder(bUseOSWndBorder)
-					.SaneWindowPlacement(!CenterNewWindow)
-					.SizingRule(ESizingRule::UserSized);
+						.Title(ViewportName)
+						.ScreenPosition(FVector2D(PosX, PosY))
+						.ClientSize(FVector2D(NewWindowWidth, NewWindowHeight))
+						.AutoCenter(CenterNewWindow ? EAutoCenter::PreferredWorkArea : EAutoCenter::None)
+						.UseOSWindowBorder(bUseOSWndBorder)
+						.SaneWindowPlacement(!CenterNewWindow)
+						.SizingRule(ESizingRule::UserSized);
 				}
 
 
@@ -3338,7 +3363,7 @@ void UEditorEngine::OnViewportCloseRequested(FViewport* InViewport)
 	RequestEndPlayMap();
 }
 
-const FSceneViewport* UEditorEngine::GetGameSceneViewport(UGameViewportClient* ViewportClient) const
+FSceneViewport* UEditorEngine::GetGameSceneViewport(UGameViewportClient* ViewportClient) const
 {
 	return ViewportClient->GetGameViewport();
 }
@@ -3564,36 +3589,6 @@ void UEditorEngine::OnSwitchWorldsForPIE( bool bSwitchToPieWorld )
 	}
 }
 
-bool UEditorEngine::PackageUsingExternalObjects( ULevel* LevelToCheck, bool bAddForMapCheck )
-{
-	check(LevelToCheck);
-	bool bFoundExternal = false;
-	TArray<UObject*> ExternalObjects;
-	if(UPackageTools::CheckForReferencesToExternalPackages(NULL, NULL, LevelToCheck, &ExternalObjects ))
-	{
-		for(int32 ObjectIndex = 0; ObjectIndex < ExternalObjects.Num(); ++ObjectIndex)
-		{
-			// If the object in question has external references and is not pending deletion, add it to the log and tell the user about it below
-			UObject* ExternalObject = ExternalObjects[ObjectIndex];
-
-			if(!ExternalObject->IsPendingKill())
-			{
-				bFoundExternal = true;
-				if( bAddForMapCheck ) 
-				{
-					FFormatNamedArguments Arguments;
-					Arguments.Add(TEXT("ObjectName"), FText::FromString(ExternalObject->GetFullName()));
-					FMessageLog("MapCheck").Warning()
-						->AddToken(FUObjectToken::Create(ExternalObject))
-						->AddToken(FTextToken::Create(FText::Format(LOCTEXT( "MapCheck_Message_UsingExternalObject", "{ObjectName} : Externally referenced"), Arguments ) ))
-						->AddToken(FMapErrorToken::Create(FMapErrors::UsingExternalObject));
-				}
-			}
-		}
-	}
-	return bFoundExternal;
-}
-
 UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext &WorldContext, UWorld* InWorld, FString &PlayWorldMapName)
 {
 	double StartTime = FPlatformTime::Seconds();
@@ -3638,7 +3633,7 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext &WorldContext, 
 		FSoftObjectPath::AddPIEPackageName(FName(*PlayWorldMapName));
 		for (ULevelStreaming* StreamingLevel : InWorld->GetStreamingLevels())
 		{
-			if ( StreamingLevel )
+			if (StreamingLevel && !StreamingLevel->HasAllFlags(RF_DuplicateTransient))
 			{
 				FString StreamingLevelPIEName = UWorld::ConvertToPIEPackageName(StreamingLevel->GetWorldAssetPackageName(), WorldContext.PIEInstance);
 				FSoftObjectPath::AddPIEPackageName(FName(*StreamingLevelPIEName));

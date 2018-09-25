@@ -120,7 +120,59 @@ class UParticleEmitter : public UObject
 	UPROPERTY(EditAnywhere, Category=Cascade)
 	TEnumAsByte<enum EEmitterRenderMode> EmitterRenderMode;
 
+	/** The significance level required of this emitter's owner for this emitter to be active. */
+	UPROPERTY(EditAnywhere, Category = Significance)
+	EParticleSignificanceLevel SignificanceLevel;
+
+	TEnumAsByte<EParticleAxisLock> LockAxisFlags;
+
+	/** If true, maintains some legacy spawning behavior. */
+	UPROPERTY(EditAnywhere, Category = Particle, AdvancedDisplay)
+	uint8 bUseLegacySpawningBehavior : 1;
+
+	//////////////////////////////////////////////////////////////////////////
+	// Below is information udpated by calling CacheEmitterModuleInfo
+
+	uint8 bRequiresLoopNotification : 1;
+	uint8 bAxisLockEnabled : 1;
+	uint8 bMeshRotationActive : 1;
+
+	UPROPERTY()
+	uint8 ConvertedModules:1;
+
+	/** If true, then show only this emitter in the editor */
+	UPROPERTY(transient)
+	uint8 bIsSoloing:1;
+
+	/** 
+	 *	If true, then this emitter was 'cooked out' by the cooker. 
+	 *	This means it was completely disabled, but to preserve any
+	 *	indexing schemes, it is left in place.
+	 */
+	UPROPERTY()
+	uint8 bCookedOut:1;
+
+	/** When true, if the current LOD is disabled the emitter will be kept alive. Otherwise, the emitter will be considered complete if the current LOD is disabled. */
+	UPROPERTY(EditAnywhere, Category = Particle)
+	uint8 bDisabledLODsKeepEmitterAlive : 1;
+	
+	/** When true, emitters deemed insignificant will have their tick and render disabled Instantly. When false they will simple stop spawning new particles. */
+	UPROPERTY(EditAnywhere, Category = Significance)
+	uint8 bDisableWhenInsignficant : 1;
+
+	/** Particle alignment overrides */
+	uint8 bRemoveHMDRollInVR : 1;
+
 #if WITH_EDITORONLY_DATA
+
+	/** This value indicates the emitter should be drawn 'collapsed' in Cascade */
+	UPROPERTY(EditAnywhere, Category=Cascade)
+	uint8 bCollapsed:1;
+
+	/** If detail mode is >= system detail mode, primitive won't be rendered. */
+	UPROPERTY()
+	TEnumAsByte<EDetailMode> DetailMode_DEPRECATED;
+
 	/**
 	 *	The color of the emitter in the curve editor and debug rendering modes.
 	 */
@@ -135,9 +187,6 @@ class UParticleEmitter : public UObject
 	TArray<class UParticleLODLevel*> LODLevels;
 
 	UPROPERTY()
-	uint32 ConvertedModules:1;
-
-	UPROPERTY()
 	int32 PeakActiveParticles;
 
 	//~=============================================================================
@@ -150,21 +199,8 @@ class UParticleEmitter : public UObject
 	UPROPERTY(EditAnywhere, Category=Particle)
 	int32 InitialAllocationCount;
 
-	/** 
-	 * Scales the spawn rate of this emitter when the engine is running in medium or low detail mode.
-	 * This can be used to optimize particle draw cost in splitscreen.
-	 * A value of 0 effectively disables this emitter outside of high detail mode,
-	 * And this does not affect spawn per unit, unless the value is 0.
-	 */
-	UPROPERTY()
-	float MediumDetailSpawnRateScale_DEPRECATED;
-
 	UPROPERTY(EditAnywhere, Category = Particle)
 	float QualityLevelSpawnRateScale;
-
-	/** If detail mode is >= system detail mode, primitive won't be rendered. */
-	UPROPERTY()
-	TEnumAsByte<EDetailMode> DetailMode_DEPRECATED;
 
 	/** Detail mode: Set flags reflecting which system detail mode you want the emitter to be ticked and rendered in */
 	UPROPERTY(EditAnywhere, Category = Particle, meta = (Bitmask, BitmaskEnum = EParticleDetailMode))
@@ -173,47 +209,7 @@ class UParticleEmitter : public UObject
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(Transient, VisibleAnywhere, Category = Particle, DisplayName="Current Detailmodes")
 	FString DetailModeDisplay;
-
-	/** This value indicates the emitter should be drawn 'collapsed' in Cascade */
-	UPROPERTY(EditAnywhere, Category=Cascade)
-	uint32 bCollapsed:1;
 #endif // WITH_EDITORONLY_DATA
-
-	/** If true, then show only this emitter in the editor */
-	UPROPERTY(transient)
-	uint32 bIsSoloing:1;
-
-	/** 
-	 *	If true, then this emitter was 'cooked out' by the cooker. 
-	 *	This means it was completely disabled, but to preserve any
-	 *	indexing schemes, it is left in place.
-	 */
-	UPROPERTY()
-	uint32 bCookedOut:1;
-
-	/** When true, if the current LOD is disabled the emitter will be kept alive. Otherwise, the emitter will be considered complete if the current LOD is disabled. */
-	UPROPERTY(EditAnywhere, Category = Particle)
-	uint32 bDisabledLODsKeepEmitterAlive : 1;
-	
-		/** When true, emitters deemed insignificant will have their tick and render disabled Instantly. When false they will simple stop spawning new particles. */
-	UPROPERTY(EditAnywhere, Category = Significance)
-	uint32 bDisableWhenInsignficant : 1;
-
-	/** The significance level required of this emitter's owner for this emitter to be active. */
-	UPROPERTY(EditAnywhere, Category = Significance)
-	EParticleSignificanceLevel SignificanceLevel;
-
-	/** If true, maintains some legacy spawning behavior. */
-	UPROPERTY(EditAnywhere, Category = Particle, AdvancedDisplay)
-	uint32 bUseLegacySpawningBehavior : 1;
-
-	//////////////////////////////////////////////////////////////////////////
-	// Below is information udpated by calling CacheEmitterModuleInfo
-
-	uint32 bRequiresLoopNotification : 1;
-	uint32 bAxisLockEnabled : 1;
-	uint32 bMeshRotationActive : 1;
-	TEnumAsByte<EParticleAxisLock> LockAxisFlags;
 
 	/** Map module pointers to their offset into the particle data.		*/
 	TMap<UParticleModule*, uint32> ModuleOffsetMap;
@@ -234,8 +230,6 @@ class UParticleEmitter : public UObject
 	int32 TypeDataOffset;
 	int32 TypeDataInstanceOffset;
 
-	/** Particle alignment overrides */
-	uint32 bRemoveHMDRollInVR : 1;
 	float MinFacingCameraBlendDistance;
 	float MaxFacingCameraBlendDistance;
 

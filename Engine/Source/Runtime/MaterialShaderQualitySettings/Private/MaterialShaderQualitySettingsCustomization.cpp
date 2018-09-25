@@ -12,6 +12,7 @@
 #include "DetailWidgetRow.h"
 #include "DetailCategoryBuilder.h"
 #include "ShaderQualityOverridesListItem.h"
+#include "ShaderPlatformQualitySettings.h"
 
 #define LOCTEXT_NAMESPACE "MaterialShaderQualitySettings"
 
@@ -99,8 +100,16 @@ private:
 	{
 		const TSharedRef<IPropertyHandle> ItemHandle = Item->OverrideHandles.FindChecked(QualityLevel);
 
+		// We always allow quality level forced disables
+		static FName FNAME_DiscardQualityDuringCook = GET_MEMBER_NAME_CHECKED(FMaterialQualityOverrides,bDiscardQualityDuringCook);
+		if (ItemHandle->GetProperty()->GetFName() == FNAME_DiscardQualityDuringCook)
+		{
+			return true;
+		}
+
 		// bEnableOverride is always enabled for all levels other than High and disabled for High.
-		if (ItemHandle->GetProperty()->GetFName() == FName("bEnableOverride"))
+		static FName FNAME_EnableOverride = GET_MEMBER_NAME_CHECKED(FMaterialQualityOverrides,bEnableOverride);
+		if (ItemHandle->GetProperty()->GetFName() == FNAME_EnableOverride)
 		{
 			return QualityLevel != EMaterialQualityLevel::High;
 		}
@@ -161,7 +170,7 @@ void FMaterialShaderQualitySettingsCustomization::CustomizeDetails(IDetailLayout
 		}
 
 		// Remember the bEnableOverride properties so they can be referenced when deciding whether to enable the widgets
-		if (OverrideIndex == 0)
+		if (OverrideIndex == 1)
 		{
 			EnabledHandles = OverrideHandles;
 		}

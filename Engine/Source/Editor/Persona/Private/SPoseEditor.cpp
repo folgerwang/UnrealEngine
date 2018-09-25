@@ -784,6 +784,10 @@ void SPoseViewer::RestartPreviewComponent()
 		UDebugSkelMeshComponent* PreviewComponent = PreviewScenePtr.Pin()->GetPreviewMeshComponent();
 		if (PreviewComponent)
 		{
+			// we can't wait until next tick for this in this case
+			// since animation is initialized here
+			// so we calculate curve here
+			PreviewComponent->RecalcRequiredCurves();
 			PreviewComponent->InitAnim(true);
 			for (auto Iter = OverrideCurves.CreateConstIterator(); Iter; ++Iter)
 			{

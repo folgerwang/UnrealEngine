@@ -53,8 +53,7 @@ private:
 		FTexture2DStreamIn_IO* PendingUpdate;
 	};
 
-	typedef FAsyncTask<FCancelIORequestsTask> FAsyncCancelIORequestsTask;
-	TUniquePtr<FAsyncCancelIORequestsTask> AsyncCancelIORequestsTask;
+	typedef FAutoDeleteAsyncTask<FCancelIORequestsTask> FAsyncCancelIORequestsTask;
 	friend class FCancelIORequestsTask;
 
 

@@ -69,7 +69,7 @@ void FOnlineAchievementsGameCircle::WriteAchievements( const FUniqueNetId& Playe
 			}
 		default:
 			{
-				UE_LOG(LogOnline, Error, TEXT("FOnlineAchievementsGameCircle Trying to write an achievement with incompatible format. Not a float or int"));
+				UE_LOG_ONLINE_ACHIEVEMENTS(Error, TEXT("FOnlineAchievementsGameCircle Trying to write an achievement with incompatible format. Not a float or int"));
 				break;
 			}
 		}

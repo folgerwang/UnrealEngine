@@ -5,6 +5,7 @@
 #include "CoreTypes.h"
 #include "Containers/UnrealString.h"
 #include "Misc/Timespan.h"
+#include "Templates/TypeHash.h"
 
 class FArchive;
 class FOutputDevice;

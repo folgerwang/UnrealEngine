@@ -23,7 +23,10 @@ struct FEyeTrackerGazeData
 public:
 
 	FEyeTrackerGazeData()
-		: ConfidenceValue(0.f)
+		: GazeOrigin(ForceInitToZero)
+		, GazeDirection(ForceInitToZero)
+		, FixationPoint(ForceInitToZero)
+		, ConfidenceValue(0.f)
 	{}
 
 	/** Origin of the unified gaze ray. */
@@ -56,7 +59,12 @@ struct FEyeTrackerStereoGazeData
 public:
 
 	FEyeTrackerStereoGazeData()
-		: ConfidenceValue(0.f)
+		: LeftEyeOrigin(ForceInitToZero)
+		, LeftEyeDirection(ForceInitToZero)
+		, RightEyeOrigin(ForceInitToZero)
+		, RightEyeDirection(ForceInitToZero)
+		, FixationPoint(ForceInitToZero)
+		, ConfidenceValue(0.f)
 	{}
 
 	/** Origin of the left eye's gaze ray. */

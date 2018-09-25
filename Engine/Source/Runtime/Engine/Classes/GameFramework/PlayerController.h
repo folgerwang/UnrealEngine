@@ -118,14 +118,14 @@ protected:
 struct ENGINE_API FInputModeUIOnly : public FInputModeDataBase
 {
 	/** Widget to focus */
-	FInputModeUIOnly& SetWidgetToFocus(TSharedPtr<SWidget> InWidgetToFocus) { WidgetToFocus = InWidgetToFocus; return *this; }
+	FInputModeUIOnly& SetWidgetToFocus(TSharedPtr<SWidget> InWidgetToFocus);
 
 	/** Sets the mouse locking behavior of the viewport */
-	FInputModeUIOnly& SetLockMouseToViewportBehavior(EMouseLockMode InMouseLockMode) { MouseLockMode = InMouseLockMode; return *this; }
+	FInputModeUIOnly& SetLockMouseToViewportBehavior(EMouseLockMode InMouseLockMode);
 
 	FInputModeUIOnly()
 		: WidgetToFocus()
-		, MouseLockMode(EMouseLockMode::DoNotLock)
+		, MouseLockMode(EMouseLockMode::LockInFullscreen)
 	{}
 
 protected:
@@ -1625,6 +1625,7 @@ protected:
 	virtual void ProcessPlayerInput(const float DeltaTime, const bool bGamePaused);
 	virtual void BuildInputStack(TArray<UInputComponent*>& InputStack);
 	void ProcessForceFeedbackAndHaptics(const float DeltaTime, const bool bGamePaused);
+	virtual void UpdateForceFeedback(IInputInterface* InputInterface, const int32 ControllerId);
 	virtual bool IsInViewportClient(UGameViewportClient* ViewportClient) const;
 	virtual int32 GetInputIndex() const;
 	virtual ACameraActor* GetAutoActivateCameraForPlayer() const;

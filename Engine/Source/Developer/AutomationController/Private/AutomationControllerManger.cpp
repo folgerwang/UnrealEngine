@@ -160,6 +160,20 @@ void FAutomationControllerManager::StopTests()
 	// Inform the UI we have stopped running tests
 	if ( DeviceClusterManager.HasActiveDevice() )
 	{
+		for (int32 ClusterIndex = 0; ClusterIndex < DeviceClusterManager.GetNumClusters(); ++ClusterIndex)
+		{
+			//for each device in this cluster
+			for (int32 DeviceIndex = 0; DeviceIndex < DeviceClusterManager.GetNumDevicesInCluster(ClusterIndex); ++DeviceIndex)
+			{
+				//mark the device as idle
+				DeviceClusterManager.SetTest(ClusterIndex, DeviceIndex, NULL);
+
+				// Send command to reset tests (delete local files, etc)
+				FMessageAddress MessageAddress = DeviceClusterManager.GetDeviceMessageAddress(ClusterIndex, DeviceIndex);
+				MessageEndpoint->Send(new FAutomationWorkerStopTests(), MessageAddress);
+			}
+		}
+
 		SetControllerStatus(EAutomationControllerModuleState::Ready);
 	}
 	else
@@ -1083,60 +1097,61 @@ void FAutomationControllerManager::HandleRunTestsReplyMessage(const FAutomationW
 
 		// Verify this device thought it was busy
 		TSharedPtr<IAutomationReport> Report = DeviceClusterManager.GetTest(ClusterIndex, DeviceIndex);
-		check(Report.IsValid());
+		if (Report.IsValid())
+		{
+			Report->SetResults(ClusterIndex, CurrentTestPass, TestResults);
 
-		Report->SetResults(ClusterIndex, CurrentTestPass, TestResults);
+			const FAutomationTestResults& FinalResults = Report->GetResults(ClusterIndex, CurrentTestPass);
 
-		const FAutomationTestResults& FinalResults = Report->GetResults(ClusterIndex, CurrentTestPass);
-
-		// Gather all of the data relevant to this test for our json reporting.
-		CollectTestResults(Report, FinalResults);
+			// Gather all of the data relevant to this test for our json reporting.
+			CollectTestResults(Report, FinalResults);
 
 #if WITH_EDITOR
-		FMessageLog AutomationTestingLog("AutomationTestingLog");
-		AutomationTestingLog.Open();
+			FMessageLog AutomationTestingLog("AutomationTestingLog");
+			AutomationTestingLog.Open();
 #endif
 
-		for ( const FAutomationExecutionEntry& Entry : TestResults.GetEntries() )
-		{
-			switch (Entry.Event.Type)
+			for (const FAutomationExecutionEntry& Entry : TestResults.GetEntries())
 			{
-			case EAutomationEventType::Info:
-				GLog->Logf(ELogVerbosity::Log, TEXT("%s"), *Entry.ToString());
+				switch (Entry.Event.Type)
+				{
+				case EAutomationEventType::Info:
+					GLog->Logf(ELogVerbosity::Log, TEXT("%s"), *Entry.ToString());
 #if WITH_EDITOR
-				AutomationTestingLog.Info(FText::FromString(Entry.ToString()));
+					AutomationTestingLog.Info(FText::FromString(Entry.ToString()));
 #endif
-				break;
-			case EAutomationEventType::Warning:
-				GLog->Logf(ELogVerbosity::Warning, TEXT("%s"), *Entry.ToString());
+					break;
+				case EAutomationEventType::Warning:
+					GLog->Logf(ELogVerbosity::Warning, TEXT("%s"), *Entry.ToString());
 #if WITH_EDITOR
-				AutomationTestingLog.Warning(FText::FromString(Entry.ToString()));
+					AutomationTestingLog.Warning(FText::FromString(Entry.ToString()));
 #endif
-				break;
-			case EAutomationEventType::Error:
-				GLog->Logf(ELogVerbosity::Error, TEXT("%s"), *Entry.ToString());
+					break;
+				case EAutomationEventType::Error:
+					GLog->Logf(ELogVerbosity::Error, TEXT("%s"), *Entry.ToString());
 #if WITH_EDITOR
-				AutomationTestingLog.Error(FText::FromString(Entry.ToString()));
+					AutomationTestingLog.Error(FText::FromString(Entry.ToString()));
 #endif
-				break;
+					break;
+				}
 			}
-		}
-		
-		if ( TestResults.State == EAutomationState::Success )
-		{
-			FString SuccessString = FString::Printf(TEXT("...Automation Test Succeeded (%s)"), *Report->GetDisplayName());
-			GLog->Logf(ELogVerbosity::Log, TEXT("%s"), *SuccessString);
+
+			if (TestResults.State == EAutomationState::Success)
+			{
+				FString SuccessString = FString::Printf(TEXT("...Automation Test Succeeded (%s)"), *Report->GetDisplayName());
+				GLog->Logf(ELogVerbosity::Log, TEXT("%s"), *SuccessString);
 #if WITH_EDITOR
-			AutomationTestingLog.Info(FText::FromString(*SuccessString));
+				AutomationTestingLog.Info(FText::FromString(*SuccessString));
 #endif
-		}
-		else
-		{
-			FString FailureString = FString::Printf(TEXT("...Automation Test Failed (%s)"), *Report->GetDisplayName());
-			GLog->Logf(ELogVerbosity::Log, TEXT("%s"), *FailureString);
+			}
+			else
+			{
+				FString FailureString = FString::Printf(TEXT("...Automation Test Failed (%s)"), *Report->GetDisplayName());
+				GLog->Logf(ELogVerbosity::Log, TEXT("%s"), *FailureString);
 #if WITH_EDITOR
-			AutomationTestingLog.Error(FText::FromString(*FailureString));
+				AutomationTestingLog.Error(FText::FromString(*FailureString));
 #endif
+			}
 		}
 
 		// Device is now good to go

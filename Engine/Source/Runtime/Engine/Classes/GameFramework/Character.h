@@ -313,19 +313,19 @@ public:
 
 public:
 	/** Returns Mesh subobject **/
-	class USkeletalMeshComponent* GetMesh() const { return Mesh; }
+	FORCEINLINE class USkeletalMeshComponent* GetMesh() const { return Mesh; }
 
 	/** Name of the MeshComponent. Use this name if you want to prevent creation of the component (with ObjectInitializer.DoNotCreateDefaultSubobject). */
 	static FName MeshComponentName;
 
 	/** Returns CharacterMovement subobject **/
-	class UCharacterMovementComponent* GetCharacterMovement() const { return CharacterMovement; }
+	FORCEINLINE class UCharacterMovementComponent* GetCharacterMovement() const { return CharacterMovement; }
 
 	/** Name of the CharacterMovement component. Use this name if you want to use a different class (with ObjectInitializer.SetDefaultSubobjectClass). */
 	static FName CharacterMovementComponentName;
 
 	/** Returns CapsuleComponent subobject **/
-	class UCapsuleComponent* GetCapsuleComponent() const { return CapsuleComponent; }
+	FORCEINLINE class UCapsuleComponent* GetCapsuleComponent() const { return CapsuleComponent; }
 
 	/** Name of the CapsuleComponent. */
 	static FName CapsuleComponentName;
@@ -383,6 +383,9 @@ protected:
 	UPROPERTY(Replicated)
 	float ReplicatedServerLastTransformUpdateTimeStamp;
 
+	UPROPERTY(ReplicatedUsing=OnRep_ReplayLastTransformUpdateTimeStamp)
+	float ReplayLastTransformUpdateTimeStamp;
+
 	/** CharacterMovement MovementMode (and custom mode) replicated for simulated proxies. Use CharacterMovementComponent::UnpackNetworkMovementMode() to translate it. */
 	UPROPERTY(Replicated)
 	uint8 ReplicatedMovementMode;
@@ -392,6 +395,9 @@ protected:
 	bool bInBaseReplication;
 
 public:
+	UFUNCTION()
+	void OnRep_ReplayLastTransformUpdateTimeStamp();
+
 	/** Accessor for ReplicatedServerLastTransformUpdateTimeStamp. */
 	FORCEINLINE float GetReplicatedServerLastTransformUpdateTimeStamp() const { return ReplicatedServerLastTransformUpdateTimeStamp; }
 
@@ -476,9 +482,7 @@ public:
 	UPROPERTY(Transient, BlueprintReadOnly, VisibleInstanceOnly, Category=Character)
 	float JumpKeyHoldTime;
 
-	/**
-	 * Amount of jump force time remaining, if JumpMaxHoldTime > 0.
-	 */
+	/** Amount of jump force time remaining, if JumpMaxHoldTime > 0. */
 	UPROPERTY(Transient, BlueprintReadOnly, VisibleInstanceOnly, Category=Character)
 	float JumpForceTimeRemaining;
 
@@ -608,7 +612,7 @@ protected:
 public:
 
 	/** Marks character as not trying to jump */
-	void ResetJumpState();
+	virtual void ResetJumpState();
 
 	/**
 	 * True if jump is actively providing a force, such as when the jump key is held and the time it has been held is less than JumpMaxHoldTime.

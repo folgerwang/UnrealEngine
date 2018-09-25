@@ -74,6 +74,8 @@
     <Compile Include="CheckCsprojDotNetVersion.cs" />
     <Compile Include="CheckForHacks.cs" />
     <Compile Include="CheckRestrictedFolders.cs" />
+    <Compile Include="CheckTargetExists.cs" />
+    <Compile Include="CheckXcodeVersion.cs" />
     <Compile Include="CleanAutomationReports.cs" />
     <Compile Include="CleanFormalBuilds.Automation.cs" />
     <Compile Include="CodeSurgery.Automation.cs" />
@@ -84,6 +86,7 @@
     <Compile Include="CopyUsingDistillFileSet.Automation.cs" />
     <Compile Include="CryptoKeys.Automation.cs" />
     <Compile Include="DeployCommand.Automation.cs" />
+    <Compile Include="ExtractPaks.Automation.cs" />
     <Compile Include="GetFileCommand.Automation.cs" />
     <Compile Include="RebasePublicIncludePaths.cs" />
     <Compile Include="FixupRedirects.Automation.cs" />

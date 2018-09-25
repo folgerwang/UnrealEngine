@@ -247,6 +247,15 @@ bool FAssetRegistryGenerator::GenerateStreamingInstallManifest(int64 InExtraFlav
 				}
 			}
 
+			if (bUseAssetManager)
+			{
+				FGuid Guid = UAssetManager::Get().GetChunkEncryptionKeyGuid(Index);
+				if (Guid.IsValid())
+				{
+					PakChunkOptions += TEXT(" encryptionkeyguid=") + Guid.ToString();
+				}
+			}
+
 			++SubChunkIndex;
 			FString PakListFilename = FString::Printf(TEXT("%s/%s"), *TmpPackagingDir, *PakChunkFilename, Index);
 			TUniquePtr<FArchive> PakListFile(IFileManager::Get().CreateFileWriter(*PakListFilename));
@@ -272,14 +281,11 @@ bool FAssetRegistryGenerator::GenerateStreamingInstallManifest(int64 InExtraFlav
 				FString PakListLine = FPaths::ConvertRelativePathToFull(Filename.Replace(TEXT("[Platform]"), *Platform));
 				if (MaxChunkSize > 0)
 				{
-					TArray<FString> FoundFiles;
-					FString FileSearchString = FString::Printf(TEXT("%s.*"), *PakListLine);
-					IFileManager::Get().FindFiles(FoundFiles, *FileSearchString, true,false);
-					const FString Path = FPaths::GetPath(FileSearchString);
-					for ( const FString& FoundFile : FoundFiles )
+					const TCHAR* Extensions[] = { TEXT(".uexp"), TEXT(".uasset"), TEXT(".ubulk"), TEXT(".ufont"), TEXT(".umap"), TEXT(".uptnl") };
+					for (int32 ExtIndex = 0; ExtIndex < ARRAY_COUNT(Extensions); ++ExtIndex)
 					{
-						int64 FileSize = IFileManager::Get().FileSize(*(FPaths::Combine(Path,FoundFile)));
-						CurrentPakSize +=  FileSize > 0 ? FileSize : 0;
+						int64 FileSize = IFileManager::Get().FileSize(*(PakListLine + Extensions[ExtIndex]));
+						CurrentPakSize += FileSize > 0 ? FileSize : 0;
 					}
 					if (MaxChunkSize < CurrentPakSize)
 					{
@@ -725,6 +731,22 @@ void FAssetRegistryGenerator::BuildChunkManifest(const TSet<FName>& InCookedPack
 
 }
 
+void FAssetRegistryGenerator::PreSave()
+{
+	if (bUseAssetManager)
+	{
+		UAssetManager::Get().PreSaveAssetRegistry(TargetPlatform);
+	}
+}
+
+void FAssetRegistryGenerator::PostSave()
+{
+	if (bUseAssetManager)
+	{
+		UAssetManager::Get().PostSaveAssetRegistry();
+	}
+}
+
 void FAssetRegistryGenerator::AddAssetToFileOrderRecursive(const FName& InPackageName, TArray<FName>& OutFileOrder, TSet<FName>& OutEncounteredNames, const TSet<FName>& InPackageNameSet, const TSet<FName>& InTopLevelAssets)
 {
 	if (!OutEncounteredNames.Contains(InPackageName))
@@ -753,7 +775,7 @@ bool FAssetRegistryGenerator::SaveAssetRegistry(const FString& SandboxPath, bool
 {
 	UE_LOG(LogAssetRegistryGenerator, Display, TEXT("Saving asset registry."));
 	const TMap<FName, const FAssetData*>& ObjectToDataMap = State.GetObjectPathToAssetDataMap();
-
+	
 	// Write development first, this will always write
 	FAssetRegistrySerializationOptions DevelopmentSaveOptions;
 	AssetRegistry.InitializeSerializationOptions(DevelopmentSaveOptions, TargetPlatform->IniPlatformName());

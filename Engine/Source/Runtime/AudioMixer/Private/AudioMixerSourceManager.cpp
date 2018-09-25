@@ -553,6 +553,7 @@ namespace Audio
 
 			// Initialize the mixer source buffer decoder with the given mixer buffer
 			SourceInfo.MixerSourceBuffer = InitParams.MixerSourceBuffer;
+			SourceInfo.MixerSourceBuffer->Init();
 			SourceInfo.MixerSourceBuffer->OnBeginGenerate();
 
 			SourceInfo.bIsPlaying = false;
@@ -1400,6 +1401,12 @@ namespace Audio
 	{
 		if (BypassAudioPluginsCvar)
 		{
+			// If we're bypassing audio plugins, our pre- and post-effect channels are the same as the input channels
+			SourceInfo.NumPostEffectChannels = SourceInfo.NumInputChannels;
+
+			// Set the ptr to use for post-effect buffers:
+			SourceInfo.PostEffectBuffers = &SourceInfo.SourceBuffer;
+
 			return;
 		}
 

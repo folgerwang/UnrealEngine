@@ -4,10 +4,13 @@
 
 #include "UObject/Package.h"
 #include "EngineGlobals.h"
+#include "Engine/ActorChannel.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/Actor.h"
+#include "Net/DataBunch.h"
 #include "UObject/ObjectKey.h"
 #include "UObject/UObjectHash.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 class AActor;
 class UNetConnection;
@@ -62,6 +65,12 @@ typedef AActor* FActorRepListType;
 FORCEINLINE FString GetActorRepListTypeDebugString(const FActorRepListType& In) { return GetNameSafe(In); }
 FORCEINLINE UClass* GetActorRepListTypeClass(const FActorRepListType& In) { return In->GetClass(); }
 
+// Generic flags that describe an actor list. Currently only used for "Default" vs "FastShared" path
+enum class EActorRepListTypeFlags : uint8
+{
+	Default = 0,
+	FastShared = 1
+};
 
 // Tests if an actor is valid for replication: not pending kill, etc. Says nothing about wanting to replicate or should replicate, etc.
 FORCEINLINE bool IsActorValidForReplication(const FActorRepListType& In) { return !In->IsPendingKill() && !In->IsPendingKillPending(); }
@@ -173,6 +182,20 @@ struct TActorRepListViewBase
 	
 	PointerType RepList;
 
+	FString BuildDebugString() const
+	{
+		FString Str;
+		if (Num() > 0)
+		{
+			Str += GetActorRepListTypeDebugString(RepList->Data[0]);
+			for (int32 i=1; i < Num(); ++i)
+			{
+				Str += TEXT(", ") + GetActorRepListTypeDebugString(RepList->Data[i]);
+			}
+		}
+		return Str;
+	}
+
 private:
 
 	FORCEINLINE friend FActorRepListType* begin(const TActorRepListViewBase<PointerType>& View) { return View.RepList->Data; }
@@ -269,6 +292,7 @@ struct REPLICATIONGRAPH_API FActorRepListRefView : public TActorRepListViewBase<
 	}
 
 	void CopyContentsFrom(const FActorRepListRefView& Source);
+	void AppendContentsFrom(const FActorRepListRefView& Source);
 	bool VerifyContents_Slow() const;
 
 	int32 Num() const { return CachedNum; }
@@ -319,7 +343,7 @@ REPLICATIONGRAPH_API void PreAllocateRepList(int32 ListSize, int32 NumLists);
 // This represents "the list of gathered lists". This is what we push down the Replication Graph and nodes will either Push/Pop List Categories or will add their Replication Lists.
 struct REPLICATIONGRAPH_API FGatheredReplicationActorLists
 {
-	void AddReplicationActorList(const FActorRepListRefView& List)
+	void AddReplicationActorList(const FActorRepListRefView& List, EActorRepListTypeFlags Flags = EActorRepListTypeFlags::Default)
 	{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		if (CVar_RepGraph_Verify)
@@ -328,21 +352,21 @@ struct REPLICATIONGRAPH_API FGatheredReplicationActorLists
 		repCheck(List.IsValid());
 		if (List.Num() > 0)
 		{
-			OutReplicationLists.Emplace(FActorRepListRawView(List)); 
+
+			OutReplicationLists.FindOrAdd(Flags).Emplace(FActorRepListRawView(List)); 
+			CachedNum++;
 		}
 	}
 
-	void Reset() { OutReplicationLists.Reset(); }	
-
-	FORCEINLINE int32 Num() const { return OutReplicationLists.Num(); }
-	FORCEINLINE const FActorRepListRawView& operator[](int32 idx) const  { return OutReplicationLists[idx]; }
+	FORCEINLINE void Reset() { OutReplicationLists.Reset(); CachedNum =0; }
+	FORCEINLINE int32 NumLists() const { return CachedNum; }
+	FORCEINLINE TArray< FActorRepListRawView>& GetLists(EActorRepListTypeFlags ListFlags) { return OutReplicationLists.FindOrAdd(ListFlags); }
+	FORCEINLINE bool ContainsLists(EActorRepListTypeFlags Flags) { return OutReplicationLists.Contains(Flags); }
 	
-	FORCEINLINE friend FActorRepListRawView* begin(FGatheredReplicationActorLists& Array) { return Array.OutReplicationLists.GetData(); }
-	FORCEINLINE friend FActorRepListRawView* end(FGatheredReplicationActorLists& Array) { return Array.OutReplicationLists.GetData() + Array.OutReplicationLists.Num(); }
+private:
 
-private:	
-
-	TArray< FActorRepListRawView > OutReplicationLists;
+	TMap<EActorRepListTypeFlags, TArray< FActorRepListRawView> > OutReplicationLists;
+	int32 CachedNum = 0;
 };
 
 // --------------------------------------------------------------------------------------------------------------------------------------------
@@ -406,8 +430,10 @@ struct FClassReplicationInfo
 	float StarvationPriorityScale = 1.f;
 	float CullDistanceSquared = 0.f;
 	
-	uint32 ReplicationPeriodFrame = 1;
-	uint32 ActorChannelFrameTimeout = 4;
+	uint8 ReplicationPeriodFrame = 1;
+	uint8 ActorChannelFrameTimeout = 4;
+
+	TFunction<bool(AActor*)> FastSharedReplicationFunc;
 
 	FString BuildDebugStringDelta() const
 	{
@@ -433,11 +459,22 @@ struct FClassReplicationInfo
 		{
 			Str += FString::Printf(TEXT("ActorChannelFrameTimeout: %d "), ActorChannelFrameTimeout);
 		}
+		if (FastSharedReplicationFunc)
+		{
+			Str += FString::Printf(TEXT("FastSharedReplicationFunc is SET."));
+		}
+
 		return Str;
 	}
 };
 
 struct FGlobalActorReplicationInfo;
+
+struct FFastSharedReplicationInfo
+{
+	uint32 LastBuiltFrameNum = 0;
+	FOutBunch Bunch;
+};
 
 DECLARE_MULTICAST_DELEGATE_FourParams(FNotifyActorChangeDormancy, FActorRepListType, FGlobalActorReplicationInfo&, ENetDormancy /*NewVlue*/, ENetDormancy /*OldValue*/);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FNotifyActorFlushDormancy, FActorRepListType, FGlobalActorReplicationInfo&);
@@ -474,12 +511,15 @@ struct FGlobalActorReplicationInfo
 
 	/** When this actor replicates, we replicate these actors immediately afterwards (they are not gathered/prioritized/etc) */
 	FActorRepListRefView DependentActorList;
-
-	// -----------------------------------------------------------
-	//	Class default mirrors: state that is initialized directly from class defaults (and can be later changed on a per-actor basis).
-	// -----------------------------------------------------------
-
+	
+	/** Class default mirrors: state that is initialized directly from class defaults (and can be later changed on a per-actor basis) */
 	FClassReplicationInfo Settings;
+	
+	/**	Fast Shared path data */
+	TUniquePtr<FFastSharedReplicationInfo> FastSharedReplicationInfo;
+
+	/** Last frame FlushNetDormancy was called. Used to early out when it is called multiple times per frame */
+	uint32 LastFlushNetDormancyFrame = 0;
 
 	// -----------------------------------------------------------
 	//	Events: Keep this last/at the bottom of the structure. The event data is the largest chunk but accessed the least
@@ -536,7 +576,7 @@ struct TClassMap
 	/** Sets class info for a given class. Call this in your Replication Graphs setup */
 	void Set(UClass* InClass, const ValueType& Value)
 	{
-		Map.Add(FObjectKey(InClass)) = Value;
+		Map.Emplace(FObjectKey(InClass), Value);
 		
 		// Sets value for all derived classes. This is probably not useful since all classes may not be loaded anyways. TClassMap will 
 		// climb class heir achy when it encounters a new request. This shouldn't be too expensive, so the lazy approach seems better.
@@ -551,6 +591,7 @@ struct TClassMap
 	}
 
 	FORCEINLINE typename TMap<FObjectKey, ValueType>::TIterator CreateIterator() { return Map.CreateIterator(); }
+	FORCEINLINE void Reset() { Map.Reset(); }
 
 private:
 
@@ -569,8 +610,7 @@ private:
 			// Set the original class's data to the super that we found (so that we don't have to climb the chain next time)
 			// Need to make a local copy in case the add reallocates the internal TMap data. This prevents Gil writing a blog post about you.
 			ValueType LocalData = *Ptr;
-			ValueType& NewData = Map.Add(OriginalObjKey);
-			NewData = LocalData;
+			ValueType& NewData = Map.Emplace(OriginalObjKey, LocalData);
 			return &NewData;
 		}
 
@@ -660,9 +700,9 @@ private:
 /** Per-Actor data that is stored per connection */
 struct FConnectionReplicationActorInfo
 {
-	FConnectionReplicationActorInfo() { }
+	FConnectionReplicationActorInfo() : bDormantOnConnection(0), bTearOff(0)  { }
 
-	FConnectionReplicationActorInfo(const FGlobalActorReplicationInfo& GlobalInfo)
+	FConnectionReplicationActorInfo(const FGlobalActorReplicationInfo& GlobalInfo) : bDormantOnConnection(0), bTearOff(0)
 	{
 		// Pull data from the global actor info. This is done for things that we just want to duplicate in both places so that we can avoid a lookup into the global map
 		// and also for things that we want to be overridden per (connection/actor)
@@ -671,15 +711,24 @@ struct FConnectionReplicationActorInfo
 		CullDistanceSquared = GlobalInfo.Settings.CullDistanceSquared;
 	}
 
+	/** Resets the data, except for the "settings" data that we pulled from GlobalInfo */
+	void ResetFrameCounters()
+	{
+		Channel = nullptr;
+		NextReplicationFrameNum = 0;
+		LastRepFrameNum = 0;
+		StarvedFrameNum = 0;
+		ActorChannelCloseFrameNum = 0;		
+
+		// Note: purposefully not clearing bDormantOnConnection or bTearOff.
+	}
+
 	UActorChannel* Channel = nullptr;
 
 	float CullDistanceSquared = 0.f;
 
 	/** The next frame we are allowed to replicate on */
 	uint32 NextReplicationFrameNum = 0;
-
-	/** Min frames that have to pass between subsequent calls to ReplicateActor */
-	uint32 ReplicationPeriodFrame = 1;
 
 	/** The last frame that this actor replicated on to this connection */
 	uint32 LastRepFrameNum = 0;
@@ -690,8 +739,11 @@ struct FConnectionReplicationActorInfo
 	/** The frame num that we will close the actor channel. This will get updated/pushed anytime the actor replicates based on FGlobalActorReplicationInfo::ActorChannelFrameTimeout  */
 	uint32 ActorChannelCloseFrameNum = 0;
 
-	bool bDormantOnConnection = false;
-	bool bTearOff = false;
+	/** Min frames that have to pass between subsequent calls to ReplicateActor */
+	uint8 ReplicationPeriodFrame = 1;
+
+	uint8 bDormantOnConnection:1;
+	uint8 bTearOff:1;
 
 	void LogDebugString(FOutputDevice& Ar) const;
 };
@@ -701,18 +753,19 @@ struct FPerConnectionActorInfoMap
 {
 	FORCEINLINE_DEBUGGABLE FConnectionReplicationActorInfo& FindOrAdd(const FActorRepListType& Actor)
 	{
-		if (TUniquePtr<FConnectionReplicationActorInfo>* ValuePtr = Map.Find(Actor))
+		if (TSharedPtr<FConnectionReplicationActorInfo>* ValuePtr = ActorMap.Find(Actor))
 		{
 			return *ValuePtr->Get();
 		}
+
 		FConnectionReplicationActorInfo* NewInfo = new FConnectionReplicationActorInfo(GlobalMap->Get(Actor));
-		Map.Emplace(Actor, TUniquePtr<FConnectionReplicationActorInfo>(NewInfo) );
+		ActorMap.Emplace(Actor, TSharedPtr<FConnectionReplicationActorInfo>(NewInfo) );
 		return *NewInfo;
 	}
 
 	FORCEINLINE FConnectionReplicationActorInfo* Find(const FActorRepListType& Actor)
 	{
-		if (TUniquePtr<FConnectionReplicationActorInfo>* ValuePtr = Map.Find(Actor))
+		if (TSharedPtr<FConnectionReplicationActorInfo>* ValuePtr = ActorMap.Find(Actor))
 		{
 			return ValuePtr->Get();
 		}
@@ -720,15 +773,37 @@ struct FPerConnectionActorInfoMap
 		return nullptr;
 	}
 
-	FORCEINLINE TMap<FActorRepListType, TUniquePtr<FConnectionReplicationActorInfo>>::TIterator CreateIterator()
+	FORCEINLINE FConnectionReplicationActorInfo* FindByChannel(UActorChannel* Channel)
 	{
-		return Map.CreateIterator();
+		if (TSharedPtr<FConnectionReplicationActorInfo>* ValuePtr = ChannelMap.Find(Channel))
+		{
+			return ValuePtr->Get();
+		}
+
+		return nullptr;
 	}
 
-	FORCEINLINE FConnectionReplicationActorInfo& FindChecked(const FActorRepListType& Actor)
+	FORCEINLINE void AddChannel(const FActorRepListType& Actor, UActorChannel* Channel)
 	{
-		TUniquePtr<FConnectionReplicationActorInfo>& ValuePtr = Map.FindChecked(Actor);
-		return *ValuePtr.Get();
+		if (TSharedPtr<FConnectionReplicationActorInfo>* ValuePtr = ActorMap.Find(Actor))
+		{
+			ChannelMap.Add(Channel, *ValuePtr);
+		}
+	}
+
+	FORCEINLINE void RemoveChannel(UActorChannel* Channel)
+	{
+		ChannelMap.Remove(Channel);
+	}
+
+	FORCEINLINE void RemoveActor(const FActorRepListType& Actor)
+	{
+		ActorMap.Remove(Actor);
+	}
+
+	FORCEINLINE TMap<FActorRepListType, TSharedPtr<FConnectionReplicationActorInfo>>::TIterator CreateIterator()
+	{
+		return ActorMap.CreateIterator();
 	}
 
 	FORCEINLINE void SetGlobalMap(FGlobalActorReplicationInfoMap* InGlobalMap)
@@ -736,10 +811,16 @@ struct FPerConnectionActorInfoMap
 		GlobalMap = InGlobalMap;
 	}
 
-	int32 Num() const { return Map.Num(); }
+	FORCEINLINE TMap<UActorChannel*, TSharedPtr<FConnectionReplicationActorInfo>>::TIterator CreateChannelIterator()
+	{
+		return ChannelMap.CreateIterator();
+	}
+
+	int32 Num() const { return ActorMap.Num(); }
 
 private:
-	TMap<FActorRepListType, TUniquePtr<FConnectionReplicationActorInfo>> Map;
+	TMap<FActorRepListType, TSharedPtr<FConnectionReplicationActorInfo>> ActorMap;
+	TMap<UActorChannel*, TSharedPtr<FConnectionReplicationActorInfo>> ChannelMap;
 	FGlobalActorReplicationInfoMap* GlobalMap;
 };
 
@@ -820,8 +901,8 @@ struct FPrioritizedRepList
 	TArray<FItem> Items;
 
 	void Reset()
-	{ 
-		Items.Reset(); 
+	{
+		Items.Reset();
 #if REPGRAPH_DETAILS
 		FullDebugDetails.Reset();
 		SkippedDebugDetails.Reset();
@@ -887,7 +968,7 @@ struct FNewReplicatedActorInfo
 struct FRPCSendPolicyInfo
 {
 	FRPCSendPolicyInfo(const bool bInSendImmediately) : bSendImmediately(bInSendImmediately) { }
-	bool bSendImmediately;
+	uint8 bSendImmediately:1;
 
 	// Suspect that this will grow over time. Possibly things like "min distance to send immediately" etc
 };
@@ -912,6 +993,7 @@ struct FReplicationGraphDebugInfo
 	
 	FOutputDevice& Ar;
 	EFlags Flags;
+	bool bShowEmptyNodes = false;
 	FString CurrentIndentString;
 	const FString IndentString = TEXT("  ");
 
@@ -972,35 +1054,183 @@ struct FNativeClassAccumulator
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
 
-#define USE_REPCSVPROFILER !UE_BUILD_SHIPPING
-#define USE_REPCSVPROFILER_EX !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
-#if USE_REPCSVPROFILER
-struct FReplicationGraphProfiler
-{
-	FReplicationGraphProfiler()
-	{
-		bEnabled = FParse::Param(FCommandLine::Get(), TEXT("RepGraphProfile"));
-	}
+CSV_DECLARE_CATEGORY_EXTERN(ReplicationGraphMS);
+CSV_DECLARE_CATEGORY_EXTERN(ReplicationGraphKBytes);
+CSV_DECLARE_CATEGORY_EXTERN(ReplicationGraphChannelsOpened);
 
-	~FReplicationGraphProfiler()
-	{
-		End();
-	}
-
-	void OnClientConnect();
-	void StartRepFrame();
-	void EndRepFrame();
-
-private:
-	void End();
-	
-	double StartTime = 0.f;
-
-	bool bEnabled = false;
-	bool bStarted = false;
-	uint32 KillFrame = -1;
-	float TimeLimit = 60.f * 10;
-};
+#ifndef REPGRAPH_CSV_TRACKER
+#define REPGRAPH_CSV_TRACKER (CSV_PROFILER && WITH_SERVER_CODE)
 #endif
 
+/** Helper struct for tracking finer grained ReplicationGraph stats through the CSV profiler. Intention is that it is setup/configured in the UReplicationGraph subclasses */
+struct FReplicationGraphCSVTracker
+{
+	FReplicationGraphCSVTracker() : EverythingElse(TEXT("Other")), FastPathData(TEXT("FastPath"))
+	{
+		ResetTrackedClasses();
+	}
+
+	/** Tracks an explicitly set class. This does NOT include child classes! This is the fastest stat and should be fine to enable in shipping/test builds.  */
+	void SetExplicitClassTracking(UClass* ExactActorClass, FString StatNamePrefix)
+	{
+		ExplicitClassTracker.Emplace(ExactActorClass, StatNamePrefix);
+	}
+
+	/** Tracks a class and all of its children (under a single stat set). This will be a little slower (TMap lookup) but still probably ok if used in moderation (only track your top 3 or so classes) */
+	void SetImplicitClassTracking(UClass* BaseActorClass, FString StatNamePrefix)
+	{
+		
+		ImplicitClassTracker.Set(BaseActorClass, MakeShareable<FTrackedData>(new FTrackedData(StatNamePrefix)) );
+	}
+
+	void PostReplicateActor(UClass* ActorClass, const double Time, const int64 Bits)
+	{
+#if REPGRAPH_CSV_TRACKER
+		if (!bIsCapturing)
+		{
+			return;
+		}
+
+		if (FTrackerItem* Item = ExplicitClassTracker.FindByKey(ActorClass))
+		{
+			Item->Data.BitsAccumulated += Bits;
+			Item->Data.CPUTimeAccumulated += Time;
+		}
+		else if (FTrackedData* Data = ImplicitClassTracker.GetChecked(ActorClass).Get())
+		{
+			Data->BitsAccumulated += Bits;
+			Data->CPUTimeAccumulated += Time;
+		}
+		else
+		{
+			EverythingElse.BitsAccumulated += Bits;
+			EverythingElse.CPUTimeAccumulated += Time;
+		}
+#endif	
+	}
+
+	void PostFastPathReplication(const double Time, const int64 Bits)
+	{
+#if REPGRAPH_CSV_TRACKER
+		if (!bIsCapturing)
+		{
+			return;
+		}
+
+		FastPathData.BitsAccumulated += Bits;
+		FastPathData.CPUTimeAccumulated += Time;
+#endif
+	}
+
+	void PostActorChannelCreated(UClass* ActorClass)
+	{
+#if REPGRAPH_CSV_TRACKER
+		if (!bIsCapturing)
+		{
+			return;
+		}
+
+		if (FTrackerItem* Item = ExplicitClassTracker.FindByKey(ActorClass))
+		{
+			Item->Data.ChannelsOpened++;
+		}
+		else if (FTrackedData* Data = ImplicitClassTracker.GetChecked(ActorClass).Get())
+		{
+			Data->ChannelsOpened++;
+		}
+		else
+		{
+			EverythingElse.ChannelsOpened++;
+		}
+#endif
+	}
+
+	void ResetTrackedClasses()
+	{
+		ExplicitClassTracker.Reset();
+		ImplicitClassTracker.Reset();
+		ImplicitClassTracker.Set(AActor::StaticClass(), TSharedPtr<FTrackedData>()); // forces caching of "no tracking" for all other classes
+		EverythingElse.Reset();
+		FastPathData.Reset();
+	}
+
+	void EndReplicationFrame()
+	{
+#if REPGRAPH_CSV_TRACKER
+		FCsvProfiler* Profiler = FCsvProfiler::Get();
+		bIsCapturing = Profiler->IsCapturing();
+		if (bIsCapturing)
+		{
+			for (FTrackerItem& Item: ExplicitClassTracker)
+			{
+				PushStats(Profiler, Item.Data);	
+			}
+			
+			for (auto MapIt = ImplicitClassTracker.CreateIterator(); MapIt; ++MapIt)
+			{
+				FTrackedData* Data = MapIt.Value().Get();
+				if (Data)
+				{
+					PushStats(Profiler, *Data);
+				}
+			}
+
+			PushStats(Profiler, EverythingElse);
+			PushStats(Profiler, FastPathData);
+		}
+#endif
+	}
+
+private:
+
+	struct FTrackedData
+	{
+		FTrackedData(FString Suffix)
+		{
+#if REPGRAPH_CSV_TRACKER
+			StatName = FName(*(FString(CSV_STAT_NAME_PREFIX) + Suffix));
+#endif
+		}
+
+		double CPUTimeAccumulated = 0.f;
+		int64 BitsAccumulated = 0;
+		int32 ChannelsOpened = 0;
+
+		FName StatName;
+
+		void Reset()
+		{
+			CPUTimeAccumulated = 0.f;
+			BitsAccumulated = 0;
+			ChannelsOpened = 0;
+		}
+	};
+
+	struct FTrackerItem
+	{
+		FTrackerItem(UClass* InClass, FString StatsNamePrefix) : Class(InClass), Data(StatsNamePrefix)	{ }
+		bool operator==(const UClass* InClass) const { return Class == InClass; }
+		UClass* Class;
+		FTrackedData Data;
+	};
+
+	TArray<FTrackerItem, TInlineAllocator<1>> ExplicitClassTracker;
+	TClassMap<TSharedPtr<FTrackedData>> ImplicitClassTracker;
+	FTrackedData EverythingElse;
+	FTrackedData FastPathData;
+	bool bIsCapturing = false;
+
+#if REPGRAPH_CSV_TRACKER
+	void PushStats(FCsvProfiler* Profiler, FTrackedData& Data)
+	{
+		const float Bytes = (float)((Data.BitsAccumulated+7) >> 3);
+		const float KBytes = Bytes / 1024.f;
+
+		Profiler->RecordCustomStat(Data.StatName, CSV_CATEGORY_INDEX(ReplicationGraphKBytes), KBytes, ECsvCustomStatOp::Set);
+		Profiler->RecordCustomStat(Data.StatName, CSV_CATEGORY_INDEX(ReplicationGraphMS), static_cast<float>(Data.CPUTimeAccumulated) * 1000.f, ECsvCustomStatOp::Set);
+		Profiler->RecordCustomStat(Data.StatName, CSV_CATEGORY_INDEX(ReplicationGraphChannelsOpened), static_cast<float>(Data.ChannelsOpened), ECsvCustomStatOp::Set);
+		Data.Reset();
+	}
+#endif
+};

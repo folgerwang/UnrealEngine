@@ -122,7 +122,7 @@ struct FStaticMeshComponentLODInfo
 
 	/** Default constructor */
 	FStaticMeshComponentLODInfo();
-	FStaticMeshComponentLODInfo(UStaticMeshComponent* InOwningComponent);
+	FStaticMeshComponentLODInfo(UStaticMeshComponent* InOwningComponent, int32 LodIndex);
 	/** Destructor */
 	~FStaticMeshComponentLODInfo();
 
@@ -613,7 +613,7 @@ public:
 	virtual bool SupportsDefaultCollision();
 
 	/** Whether we can support dithered LOD transitions (default behavior checks all materials). Used for HISMC LOD. */
-	virtual bool SupportsDitheredLODTransitions();
+	virtual bool SupportsDitheredLODTransitions(ERHIFeatureLevel::Type FeatureLevel);
 
 private:
 	/** Initializes the resources used by the static mesh component. */

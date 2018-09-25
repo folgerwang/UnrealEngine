@@ -54,7 +54,7 @@ UPackFactory::UPackFactory(const FObjectInitializer& PCIP)
 namespace PackFactoryHelper
 {
 	// Utility function to copy a single pak entry out of the Source archive and in to the Destination archive using Buffer as temporary space
-	bool BufferedCopyFile(FArchive& DestAr, FArchive& Source, const FPakEntry& Entry, TArray<uint8>& Buffer)
+	bool BufferedCopyFile(FArchive& DestAr, FArchive& Source, const FPakEntry& Entry, TArray<uint8>& Buffer, const FPakFile& PakFile)
 	{	
 		// Align down
 		const int64 BufferSize = Buffer.Num() & ~(FAES::AESBlockSize-1);
@@ -63,13 +63,13 @@ namespace PackFactoryHelper
 		{
 			const int64 SizeToCopy = FMath::Min(BufferSize, RemainingSizeToCopy);
 			// If file is encrypted so we need to account for padding
-			int64 SizeToRead = Entry.bEncrypted ? Align(SizeToCopy,FAES::AESBlockSize) : SizeToCopy;
+			int64 SizeToRead = Entry.IsEncrypted() ? Align(SizeToCopy,FAES::AESBlockSize) : SizeToCopy;
 
 			Source.Serialize(Buffer.GetData(),SizeToRead);
-			if (Entry.bEncrypted)
+			if (Entry.IsEncrypted())
 			{
 				FAES::FAESKey Key;
-				FPakPlatformFile::GetPakEncryptionKey(Key);
+				FPakPlatformFile::GetPakEncryptionKey(Key, PakFile.GetInfo().EncryptionKeyGuid);
 				checkf(Key.IsValid(), TEXT("Trying to copy an encrypted file between pak files, but no decryption key is available"));
 				FAES::DecryptData(Buffer.GetData(), SizeToRead, Key);
 			}
@@ -102,13 +102,13 @@ namespace PackFactoryHelper
 			uint32 CompressedBlockSize = Entry.CompressionBlocks[BlockIndex].CompressedEnd - Entry.CompressionBlocks[BlockIndex].CompressedStart;
 			uint32 UncompressedBlockSize = (uint32)FMath::Min<int64>(Entry.UncompressedSize - Entry.CompressionBlockSize*BlockIndex, Entry.CompressionBlockSize);
 			Source.Seek(Entry.CompressionBlocks[BlockIndex].CompressedStart + (PakFile.GetInfo().HasRelativeCompressedChunkOffsets() ? Entry.Offset : 0));
-			uint32 SizeToRead = Entry.bEncrypted ? Align(CompressedBlockSize, FAES::AESBlockSize) : CompressedBlockSize;
+			uint32 SizeToRead = Entry.IsEncrypted() ? Align(CompressedBlockSize, FAES::AESBlockSize) : CompressedBlockSize;
 			Source.Serialize(PersistentBuffer.GetData(), SizeToRead);
 
-			if (Entry.bEncrypted)
+			if (Entry.IsEncrypted())
 			{
 				FAES::FAESKey Key;
-				FPakPlatformFile::GetPakEncryptionKey(Key);
+				FPakPlatformFile::GetPakEncryptionKey(Key, PakFile.GetInfo().EncryptionKeyGuid);
 				checkf(Key.IsValid(), TEXT("Trying to copy an encrypted file between pak files, but no decryption key is available"));
 				FAES::DecryptData(PersistentBuffer.GetData(), SizeToRead, Key);
 			}
@@ -129,7 +129,7 @@ namespace PackFactoryHelper
 	{
 		if (Entry.CompressionMethod == COMPRESS_None)
 		{
-			PackFactoryHelper::BufferedCopyFile(DestAr, PakReader, Entry, Buffer);
+			PackFactoryHelper::BufferedCopyFile(DestAr, PakReader, Entry, Buffer, PakFile);
 		}
 		else
 		{

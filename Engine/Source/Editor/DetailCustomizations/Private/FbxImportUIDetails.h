@@ -8,10 +8,17 @@
 #include "IDetailCustomization.h"
 #include "Factories/FbxImportUI.h"
 #include "EditorUndoClient.h"
+#include "Input/Reply.h"
 
 class IDetailLayoutBuilder;
 class IDetailPropertyRow;
 class IPropertyHandle;
+
+enum ConflictDialogType
+{
+	Conflict_Material,
+	Conflict_Skeleton
+};
 
 class FFbxImportUIDetails : public IDetailCustomization, public FEditorUndoClient
 {
@@ -83,6 +90,9 @@ private:
 
 	/** Called to determine the visibility of the VertexOverrideColor property */
 	bool GetVertexOverrideColorEnabledState() const;
+
+	FReply ShowConflictDialog(ConflictDialogType DialogType);
+	bool ShowCompareResult();
 
 	/** LOD group options. */
 	TArray<FName> LODGroupNames;

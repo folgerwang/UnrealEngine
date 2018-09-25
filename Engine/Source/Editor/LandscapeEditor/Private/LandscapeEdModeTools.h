@@ -1188,7 +1188,8 @@ public:
 			FVector HitLocation;
 			if (EdMode->LandscapeMouseTrace(ViewportClient, x, y, HitLocation))
 			{
-				if (EdMode->CurrentBrush)
+				// If we are moving the mouse to adjust the brush size, don't move the brush
+				if (EdMode->CurrentBrush && !EdMode->IsAdjustingBrush(Viewport))
 				{
 					// Inform the brush of the current location, to update the cursor
 					EdMode->CurrentBrush->MouseMove(HitLocation.X, HitLocation.Y);

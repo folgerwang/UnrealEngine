@@ -41,19 +41,31 @@ namespace BuildPatchServices
 			return Writer;
 		}
 
-		bool DeleteFile(const TCHAR* Filename) const
+		virtual bool DirectoryExists(const TCHAR* DirectoryPath) const override
+		{
+			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::DirectoryExists");
+			return false;
+		}
+
+		virtual bool MakeDirectory(const TCHAR* DirectoryPath) const override
+		{
+			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::MakeDirectory");
+			return false;
+		}
+
+		virtual bool DeleteFile(const TCHAR* Filename) const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::DeleteFile");
 			return false;
 		}
 
-		bool MoveFile(const TCHAR* FileDest, const TCHAR* FileSource) const
+		virtual bool MoveFile(const TCHAR* FileDest, const TCHAR* FileSource) const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::MoveFile");
 			return false;
 		}
 
-		bool CopyFile(const TCHAR* FileDest, const TCHAR* FileSource) const
+		virtual bool CopyFile(const TCHAR* FileDest, const TCHAR* FileSource) const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockFileSystem::CopyFile");
 			return false;

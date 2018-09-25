@@ -223,13 +223,13 @@ public:
 	virtual uint32 StartRemoteVoiceProcessing(const FUniqueNetId& UniqueId) override
 	{
 		// Not needed
-		return S_OK;
+		return ONLINE_SUCCESS;
 	}
 
 	virtual uint32 StopRemoteVoiceProcessing(const FUniqueNetId& UniqueId) override
 	{
 		// Not needed
-		return S_OK;
+		return ONLINE_SUCCESS;
 	}
 
 	virtual uint32 RegisterLocalTalker(uint32 LocalUserNum) override
@@ -237,10 +237,10 @@ public:
 		if (OwningUserIndex == INVALID_INDEX)
 		{
 			OwningUserIndex = LocalUserNum;
-			return S_OK;
+			return ONLINE_SUCCESS;
 		}
 
-		return E_FAIL;
+		return ONLINE_FAIL;
 	}
 
 	virtual uint32 UnregisterLocalTalker(uint32 LocalUserNum) override
@@ -248,16 +248,16 @@ public:
 		if (IsOwningUser(LocalUserNum))
 		{
 			OwningUserIndex = INVALID_INDEX;
-			return S_OK;
+			return ONLINE_SUCCESS;
 		}
 
-		return E_FAIL;
+		return ONLINE_FAIL;
 	}
 
 	virtual uint32 RegisterRemoteTalker(const FUniqueNetId& UniqueId) override
 	{
 		// Not needed
-		return S_OK;
+		return ONLINE_SUCCESS;
 	}
 
 	virtual uint32 UnregisterRemoteTalker(const FUniqueNetId& UniqueId) override;
@@ -281,7 +281,7 @@ public:
 	virtual uint32 SetPlaybackPriority(uint32 LocalUserNum, const FUniqueNetId& RemoteTalkerId, uint32 Priority) override
 	{
 		// Not supported
-		return S_OK;
+		return ONLINE_SUCCESS;
 	}
 
 	virtual uint32 ReadLocalVoiceData(uint32 LocalUserNum, uint8* Data, uint32* Size) override { return ReadLocalVoiceData(LocalUserNum, Data, Size, nullptr); }

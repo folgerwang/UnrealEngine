@@ -27,6 +27,13 @@ Notes:
 #define UDP_HEADER_SIZE    (IP_HEADER_SIZE+8)
 
 DECLARE_CYCLE_STAT(TEXT("IpConnection InitRemoteConnection"), Stat_IpConnectionInitRemoteConnection, STATGROUP_Net);
+DECLARE_CYCLE_STAT(TEXT("IpConnection Socket SendTo"), STAT_IpConnection_SendToSocket, STATGROUP_Net);
+DECLARE_CYCLE_STAT(TEXT("IpConnection WaitForSendTasks"), STAT_IpConnection_WaitForSendTasks, STATGROUP_Net);
+
+TAutoConsoleVariable<int32> CVarNetIpConnectionUseSendTasks(
+	TEXT("net.IpConnectionUseSendTasks"),
+	0,
+	TEXT("If true, the IpConnection will call the socket's SendTo function in a task graph task so that it can run off the game thread."));
 
 UIpConnection::UIpConnection(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),
@@ -104,7 +111,44 @@ void UIpConnection::InitRemoteConnection(UNetDriver* InDriver, class FSocket* In
 	SetExpectedClientLoginMsgType( NMT_Hello );
 }
 
-void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
+void UIpConnection::Tick()
+{
+	if (CVarNetIpConnectionUseSendTasks.GetValueOnGameThread() != 0)
+	{
+		ISocketSubsystem* const SocketSubsystem = Driver->GetSocketSubsystem();
+
+		FScopeLock ScopeLock(&SocketSendResultsCriticalSection);
+		
+		for (const FSocketSendResult& Result : SocketSendResults)
+		{
+			HandleSocketSendResult(Result, SocketSubsystem);
+		}
+
+		SocketSendResults.Reset();
+	}
+
+	Super::Tick();
+}
+
+void UIpConnection::CleanUp()
+{
+	Super::CleanUp();
+
+	WaitForSendTasks();
+}
+
+void UIpConnection::WaitForSendTasks()
+{
+	if (CVarNetIpConnectionUseSendTasks.GetValueOnGameThread() != 0 && LastSendTask.IsValid())
+	{
+		check(IsInGameThread());
+
+		SCOPE_CYCLE_COUNTER(STAT_IpConnection_WaitForSendTasks);
+		FTaskGraphInterface::Get().WaitUntilTaskCompletes(LastSendTask, ENamedThreads::GameThread);
+	}
+}
+
+void UIpConnection::LowLevelSend(void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
 	const uint8* DataToSend = reinterpret_cast<uint8*>(Data);
 
@@ -142,22 +186,21 @@ void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 	// Process any packet modifiers
 	if (Handler.IsValid() && !Handler->GetRawSend())
 	{
-		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits);
+		const ProcessedPacket ProcessedData = Handler->Outgoing(reinterpret_cast<uint8*>(Data), CountBits, Traits);
 
 		if (!ProcessedData.bError)
 		{
 			DataToSend = ProcessedData.Data;
-			CountBytes = FMath::DivideAndRoundUp(ProcessedData.CountBits, 8);
 			CountBits = ProcessedData.CountBits;
 		}
 		else
 		{
-			CountBytes = 0;
 			CountBits = 0;
 		}
 	}
 
 	bool bBlockSend = false;
+	int32 CountBytes = FMath::DivideAndRoundUp(CountBits, 8);
 
 #if !UE_BUILD_SHIPPING
 	LowLevelSendDel.ExecuteIfBound((void*)DataToSend, CountBytes, bBlockSend);
@@ -166,7 +209,7 @@ void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 	if (!bBlockSend)
 	{
 		// Send to remote.
-		int32 BytesSent = 0;
+		FSocketSendResult SendResult;
 		CLOCK_CYCLES(Driver->SendCycles);
 
 		if ( CountBytes > MaxPacket )
@@ -178,30 +221,87 @@ void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 
 		if (CountBytes > 0)
 		{
-			const bool bWasSendSuccessful = Socket->SendTo(DataToSend, CountBytes, BytesSent, *RemoteAddr);
-            if (bWasSendSuccessful)
-            {
-                UNCLOCK_CYCLES(Driver->SendCycles);
-                NETWORK_PROFILER(GNetworkProfiler.FlushOutgoingBunches(this));
-                NETWORK_PROFILER(GNetworkProfiler.TrackSocketSendTo(Socket->GetDescription(),DataToSend,BytesSent,NumPacketIdBits,NumBunchBits,NumAckBits,NumPaddingBits,this));
-            }
-            else
-            {
-                ISocketSubsystem* const SocketSubsystem = Driver->GetSocketSubsystem();
-                const ESocketErrors Error = SocketSubsystem->GetLastErrorCode();
-                if (Error != SE_EWOULDBLOCK &&
-                    Error != SE_NO_ERROR)
-                {
-                    FString ErrorString = FString::Printf(TEXT("UIpNetConnection::LowLevelSend: Socket->SendTo failed with error %i (%s). %s"),
-                        static_cast<int32>(Error),
-                        SocketSubsystem->GetSocketError(Error),
-                        *Describe());
-                    
-                    GEngine->BroadcastNetworkFailure(Driver->GetWorld(), Driver, ENetworkFailure::ConnectionLost, ErrorString);
-                    Close();
-                }
-            }
+			if (CVarNetIpConnectionUseSendTasks.GetValueOnAnyThread() != 0)
+			{
+				DECLARE_CYCLE_STAT(TEXT("IpConnection SendTo task"), STAT_IpConnection_SendToTask, STATGROUP_TaskGraphTasks);
+
+				FGraphEventArray Prerequisites;
+				if (LastSendTask.IsValid())
+				{
+					Prerequisites.Add(LastSendTask);
+				}
+
+				ISocketSubsystem* const SocketSubsystem = Driver->GetSocketSubsystem();
+				LastSendTask = FFunctionGraphTask::CreateAndDispatchWhenReady([this, Packet = TArray<uint8>(DataToSend, CountBytes), SocketSubsystem]
+				{
+					bool bWasSendSuccessful = false;
+					UIpConnection::FSocketSendResult Result;
+
+					{
+						SCOPE_CYCLE_COUNTER(STAT_IpConnection_SendToSocket);
+						bWasSendSuccessful = Socket->SendTo(Packet.GetData(), Packet.Num(), Result.BytesSent, *RemoteAddr);
+					}
+
+					if (!bWasSendSuccessful && SocketSubsystem)
+					{
+						Result.Error = SocketSubsystem->GetLastErrorCode();
+						if (Result.Error != SE_EWOULDBLOCK &&
+							Result.Error != SE_NO_ERROR)
+						{
+							FScopeLock ScopeLock(&SocketSendResultsCriticalSection);
+							SocketSendResults.Add(MoveTemp(Result));
+						}
+					}
+				},
+				GET_STATID(STAT_IpConnection_SendToTask), &Prerequisites);
+
+				// Always flush this profiler data now. Technically this could be incorrect if the send in the task fails,
+				// but this keeps the bookkeeping simpler for now.
+				NETWORK_PROFILER(GNetworkProfiler.FlushOutgoingBunches(this));
+				NETWORK_PROFILER(GNetworkProfiler.TrackSocketSendTo(Socket->GetDescription(), DataToSend, CountBytes, NumPacketIdBits, NumBunchBits, NumAckBits, NumPaddingBits, this));
+			}
+			else
+			{
+				bool bWasSendSuccessful = false;
+				{
+					SCOPE_CYCLE_COUNTER(STAT_IpConnection_SendToSocket);
+					bWasSendSuccessful = Socket->SendTo(DataToSend, CountBytes, SendResult.BytesSent, *RemoteAddr);
+				}
+				if (bWasSendSuccessful)
+				{
+					UNCLOCK_CYCLES(Driver->SendCycles);
+					NETWORK_PROFILER(GNetworkProfiler.FlushOutgoingBunches(this));
+					NETWORK_PROFILER(GNetworkProfiler.TrackSocketSendTo(Socket->GetDescription(), DataToSend, SendResult.BytesSent, NumPacketIdBits, NumBunchBits, NumAckBits, NumPaddingBits, this));
+				}
+				else
+				{
+					ISocketSubsystem* const SocketSubsystem = Driver->GetSocketSubsystem();
+					SendResult.Error = SocketSubsystem->GetLastErrorCode();
+
+					HandleSocketSendResult(SendResult, SocketSubsystem);
+				}
+			}
 		}
+	}
+}
+
+void UIpConnection::HandleSocketSendResult(const FSocketSendResult& Result, ISocketSubsystem* SocketSubsystem)
+{
+	if (Result.Error != SE_EWOULDBLOCK &&
+		Result.Error != SE_NO_ERROR)
+	{
+		FString ErrorString = FString::Printf(TEXT("UIpNetConnection::LowLevelSend: Socket->SendTo failed with error %i (%s). %s"),
+			static_cast<int32>(Result.Error),
+			SocketSubsystem->GetSocketError(Result.Error),
+			*Describe());
+
+		GEngine->BroadcastNetworkFailure(Driver->GetWorld(), Driver, ENetworkFailure::ConnectionLost, ErrorString);
+
+		// Reset the send buffer before closing, as it could have been (almost) full and the close process may
+		// write a bunch that could cause an overflow.  We're closing the connection anyway, and given that
+		// the socket is returning errors, the close bunch probably won't be delivered either.
+		InitSendBuffer();
+		Close();
 	}
 }
 

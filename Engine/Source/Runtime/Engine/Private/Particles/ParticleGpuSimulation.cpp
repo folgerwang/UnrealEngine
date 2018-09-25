@@ -1320,6 +1320,46 @@ public:
 TGlobalResource<FParticleTileVertexDeclaration> GParticleTileVertexDeclaration;
 
 /**
+ * Vertex declaration for drawing particle tile with per-instance data (used on mobile)
+ */
+class FInstancedParticleTileVertexDeclaration : public FRenderResource
+{
+public:
+
+	/** The vertex declaration. */
+	FVertexDeclarationRHIRef VertexDeclarationRHI;
+
+	virtual void InitRHI() override
+	{
+		FVertexDeclarationElementList Elements;
+		// TexCoord.
+		Elements.Add(FVertexElement(0, 0, VET_Float2, 0, sizeof(FVector2D), /*bUseInstanceIndex=*/ false));
+		// TileOffsets
+		Elements.Add(FVertexElement(1, 0, VET_Float2, 1, sizeof(FVector2D), /*bUseInstanceIndex=*/ true));
+		VertexDeclarationRHI = RHICreateVertexDeclaration( Elements );
+	}
+
+	virtual void ReleaseRHI() override
+	{
+		VertexDeclarationRHI.SafeRelease();
+	}
+};
+
+TGlobalResource<FInstancedParticleTileVertexDeclaration> GInstancedParticleTileVertexDeclaration;
+
+static FVertexDeclarationRHIParamRef GetParticleTileVertexDeclaration(ERHIFeatureLevel::Type FeatureLevel)
+{
+	if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
+	{
+		return GInstancedParticleTileVertexDeclaration.VertexDeclarationRHI;
+	}
+	else
+	{
+		return GParticleTileVertexDeclaration.VertexDeclarationRHI;
+	}
+}
+
+/**
  * Computes the aligned tile count.
  */
 FORCEINLINE int32 ComputeAlignedTileCount(int32 TileCount)
@@ -1332,10 +1372,10 @@ FORCEINLINE int32 ComputeAlignedTileCount(int32 TileCount)
  * @param TileOffsetsRef - The vertex buffer to fill. Must be at least TileCount * sizeof(FVector4) in size.
  * @param Tiles - The tiles which will be drawn.
  * @param TileCount - The number of tiles in the array.
+ * @param AlignedTileCount - The number of tiles to create in buffer for aligned rendering.
  */
-static void BuildTileVertexBuffer( FParticleBufferParamRef TileOffsetsRef, const uint32* Tiles, int32 TileCount )
+static void BuildTileVertexBuffer(FParticleBufferParamRef TileOffsetsRef, const uint32* Tiles, int32 TileCount, int32 AlignedTileCount)
 {
-	const int32 AlignedTileCount = ComputeAlignedTileCount(TileCount);
 	FVector2D* TileOffset = (FVector2D*)RHILockVertexBuffer( TileOffsetsRef, 0, AlignedTileCount * sizeof(FVector2D), RLM_WriteOnly );
 	for ( int32 Index = 0; Index < TileCount; ++Index )
 	{
@@ -1349,16 +1389,6 @@ static void BuildTileVertexBuffer( FParticleBufferParamRef TileOffsetsRef, const
 		TileOffset[Index].Y = 100.0f;
 	}
 	RHIUnlockVertexBuffer( TileOffsetsRef );
-}
-
-/**
- * Builds a vertex buffer containing the offsets for a set of tiles.
- * @param TileOffsetsRef - The vertex buffer to fill. Must be at least TileCount * sizeof(FVector4) in size.
- * @param Tiles - The tiles which will be drawn.
- */
-static void BuildTileVertexBuffer( FParticleBufferParamRef TileOffsetsRef, const TArray<uint32>& Tiles )
-{
-	BuildTileVertexBuffer( TileOffsetsRef, Tiles.GetData(), Tiles.Num() );
 }
 
 /**
@@ -1389,13 +1419,43 @@ static void DrawAlignedParticleTiles(FRHICommandList& RHICmdList, int32 TileCoun
 		);
 }
 
+static void DrawParticleTiles(FRHICommandList& RHICmdList, FParticleBufferParamRef TileOffsetsRef, int32 TileCount)
+{
+	// Stream 0: TexCoord.
+	RHICmdList.SetStreamSource(
+		0,
+		GParticleTexCoordVertexBuffer.VertexBufferRHI,
+		/*Offset=*/ 0
+		);
+	
+	// Stream 1: TileOffsets
+	RHICmdList.SetStreamSource(
+		1,
+		TileOffsetsRef,
+		/*Offset=*/ 0
+		);
+	
+	// Draw tiles.
+	RHICmdList.DrawIndexedPrimitive(
+		GParticleIndexBuffer.IndexBufferRHI,
+		PT_TriangleList,
+		/*BaseVertexIndex=*/0,
+		/*MinIndex=*/ 0,
+		/*NumVertices=*/ 4,
+		/*StartIndex=*/ 0,
+		/*NumPrimitives=*/ 2,
+		/*NumInstances=*/ TileCount
+		);
+}
+
 /**
  * The data needed to simulate a set of particle tiles on the GPU.
  */
 struct FSimulationCommandGPU
 {
 	/** Buffer containing the offsets of each tile. */
-	FParticleShaderParamRef TileOffsetsRef;
+	FParticleShaderParamRef TileOffsetsShaderRef;
+	FParticleBufferParamRef TileOffsetsBufferRef;
 	/** Uniform buffer containing simulation parameters. */
 	FUniformBufferRHIParamRef UniformBuffer;
 	/** Uniform buffer containing per-frame simulation parameters. */
@@ -1406,15 +1466,16 @@ struct FSimulationCommandGPU
 	/** Vector field volume textures for this simulation. */
 	FTexture3DRHIParamRef VectorFieldTexturesRHI[MAX_VECTOR_FIELDS];
 	/** The number of tiles to simulate. */
-	int32 TileCount;
+	int32 UnalignedTileCount;
 
 	/** Initialization constructor. */
-	FSimulationCommandGPU(FParticleShaderParamRef InTileOffsetsRef, FUniformBufferRHIParamRef InUniformBuffer, const FParticlePerFrameSimulationParameters& InPerFrameParameters, FVectorFieldUniformBufferRef& InVectorFieldsUniformBuffer, int32 InTileCount)
-		: TileOffsetsRef(InTileOffsetsRef)
+	FSimulationCommandGPU(FParticleShaderParamRef InTileOffsetsShaderRef, FParticleBufferParamRef InTileOffsetsBufferRef, FUniformBufferRHIParamRef InUniformBuffer, const FParticlePerFrameSimulationParameters& InPerFrameParameters, FVectorFieldUniformBufferRef& InVectorFieldsUniformBuffer, int32 InTileCount)
+		: TileOffsetsShaderRef(InTileOffsetsShaderRef)
+		, TileOffsetsBufferRef(InTileOffsetsBufferRef)
 		, UniformBuffer(InUniformBuffer)
 		, PerFrameParameters(InPerFrameParameters)
 		, VectorFieldsUniformBuffer(InVectorFieldsUniformBuffer)
-		, TileCount(InTileCount)
+		, UnalignedTileCount(InTileCount)
 	{
 		FTexture3DRHIParamRef BlackVolumeTextureRHI = (FTexture3DRHIParamRef)(FTextureRHIParamRef)GBlackVolumeTexture->TextureRHI;
 		for (int32 i = 0; i < MAX_VECTOR_FIELDS; ++i)
@@ -1464,7 +1525,7 @@ void ExecuteSimulationCommands(
 	TShaderMapRef<FParticleTileVS> VertexShader(GetGlobalShaderMap(FeatureLevel));
 	TShaderMapRef<TParticleSimulationPS<CollisionMode> > PixelShader(GetGlobalShaderMap(FeatureLevel));
 
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GParticleTileVertexDeclaration.VertexDeclarationRHI;
+	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetParticleTileVertexDeclaration(FeatureLevel);
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
@@ -1478,14 +1539,23 @@ void ExecuteSimulationCommands(
 	for (int32 CommandIndex = 0; CommandIndex < CommandCount; ++CommandIndex)
 	{
 		const FSimulationCommandGPU& Command = SimulationCommands[CommandIndex];
-		VertexShader->SetParameters(RHICmdList, Command.TileOffsetsRef);
+		VertexShader->SetParameters(RHICmdList, Command.TileOffsetsShaderRef);
 		PixelShader->SetInstanceParameters(RHICmdList, Command.UniformBuffer, Command.PerFrameParameters, bUseFixDT);
 		PixelShader->SetVectorFieldParameters(
 			RHICmdList, 
 			Command.VectorFieldsUniformBuffer,
 			Command.VectorFieldTexturesRHI
 		);
-		DrawAlignedParticleTiles(RHICmdList, Command.TileCount);
+		
+		if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
+		{
+			DrawParticleTiles(RHICmdList, Command.TileOffsetsBufferRef, Command.UnalignedTileCount);
+		}
+		else
+		{
+			int32 AlignedTileCount = ComputeAlignedTileCount(Command.UnalignedTileCount);
+			DrawAlignedParticleTiles(RHICmdList, AlignedTileCount);
+		}
 	}
 
 	// Unbind input buffers.
@@ -1564,37 +1634,46 @@ void ClearTiles(FRHICommandList& RHICmdList, FGraphicsPipelineStateInitializer& 
 	SCOPED_DRAW_EVENT(RHICmdList, ClearTiles);
 	SCOPED_GPU_STAT(RHICmdList, ParticleSimulation);
 
-	const int32 MaxTilesPerDrawCallUnaligned = GParticleScratchVertexBufferSize / sizeof(FVector2D);
-	const int32 MaxTilesPerDrawCall = MaxTilesPerDrawCallUnaligned & (~(TILES_PER_INSTANCE-1));
-
 	FParticleShaderParamRef ShaderParam = GParticleScratchVertexBuffer.GetShaderParam();
 	check(ShaderParam);
 	FParticleBufferParamRef BufferParam = GParticleScratchVertexBuffer.GetBufferParam();
 	check(BufferParam);
 	
-	int32 TileCount = Tiles.Num();
-	int32 FirstTile = 0;
-
 	// Grab shaders.
 	TShaderMapRef<FParticleTileVS> VertexShader(GetGlobalShaderMap(FeatureLevel));
 	TShaderMapRef<FParticleSimulationClearPS> PixelShader(GetGlobalShaderMap(FeatureLevel));
 	
-	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GParticleTileVertexDeclaration.VertexDeclarationRHI;
+	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetParticleTileVertexDeclaration(FeatureLevel);
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+	
+	const int32 MaxTilesPerDrawCallUnaligned = GParticleScratchVertexBufferSize / sizeof(FVector2D);
+	const int32 MaxTilesPerDrawCall = (FeatureLevel <= ERHIFeatureLevel::ES3_1 ? MaxTilesPerDrawCallUnaligned : MaxTilesPerDrawCallUnaligned & (~(TILES_PER_INSTANCE-1)));
+	int32 TileCount = Tiles.Num();
+	int32 FirstTile = 0;
 
 	while (TileCount > 0)
 	{
 		// Copy new particles in to the vertex buffer.
 		const int32 TilesThisDrawCall = FMath::Min<int32>( TileCount, MaxTilesPerDrawCall );
 		const uint32* TilesPtr = Tiles.GetData() + FirstTile;
-		BuildTileVertexBuffer( BufferParam, TilesPtr, TilesThisDrawCall );
-		
 		VertexShader->SetParameters(RHICmdList, ShaderParam);
-		DrawAlignedParticleTiles(RHICmdList, ComputeAlignedTileCount(TilesThisDrawCall));
+		
+		if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
+		{
+			BuildTileVertexBuffer(BufferParam, TilesPtr, TilesThisDrawCall, TilesThisDrawCall);
+			DrawParticleTiles(RHICmdList, BufferParam, TilesThisDrawCall);
+		}
+		else
+		{
+			const int32 AlignedTilesThisDrawCall = ComputeAlignedTileCount(TilesThisDrawCall);
+			BuildTileVertexBuffer(BufferParam, TilesPtr, TilesThisDrawCall, AlignedTilesThisDrawCall);
+			DrawAlignedParticleTiles(RHICmdList, AlignedTilesThisDrawCall);
+		}
+		
 		TileCount -= TilesThisDrawCall;
 		FirstTile += TilesThisDrawCall;
 	}
@@ -2400,9 +2479,10 @@ public:
 		TileCount = Tiles.Num();
 		AlignedTileCount = ComputeAlignedTileCount(TileCount);
 		InitResource();
-		if ( Tiles.Num() )
+		if (Tiles.Num())
 		{
-			BuildTileVertexBuffer( VertexBufferRHI, Tiles );
+			int32 BufferAlignedTileCount = (GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 ? TileCount : AlignedTileCount);
+			BuildTileVertexBuffer(VertexBufferRHI, Tiles.GetData(), Tiles.Num(), BufferAlignedTileCount);
 		}
 	}
 
@@ -2413,7 +2493,8 @@ public:
 	{
 		if ( AlignedTileCount > 0 )
 		{
-			const int32 TileBufferSize = AlignedTileCount * sizeof(FVector2D);
+			int32 BufferAlignedTileCount = (GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 ? TileCount : AlignedTileCount);
+			const int32 TileBufferSize = BufferAlignedTileCount * sizeof(FVector2D);
 			check(TileBufferSize > 0);
 			FRHIResourceCreateInfo CreateInfo;
 			VertexBufferRHI = RHICreateVertexBuffer( TileBufferSize, BUF_Static | BUF_KeepCPUAccessible | BUF_ShaderResource, CreateInfo );
@@ -4424,6 +4505,10 @@ void FFXSystem::InitGPUResources()
 			FParticleSimulationResources *, ParticleSimulationResources, ParticleSimulationResources,
 			{
 				ParticleSimulationResources->ParticleSortBuffers.InitRHI();
+
+				// Initialize SortedVertexBuffer to a valid resource, ensuring it can be used in GetDynamicMeshElementsEmitter() 
+				ParticleSimulationResources->SortedVertexBuffer.VertexBufferRHI = ParticleSimulationResources->ParticleSortBuffers.GetSortedVertexBufferRHI(0);
+				ParticleSimulationResources->SortedVertexBuffer.VertexBufferSRV = ParticleSimulationResources->ParticleSortBuffers.GetSortedVertexBufferSRV(0);
 			}
 		);
 	}
@@ -4700,15 +4785,16 @@ void FFXSystem::SimulateGPUParticles(
 
 		FParticleSimulationGPU* Simulation = *It;
 		if (Simulation->SimulationPhase == Phase
-			&& Simulation->TileVertexBuffer.AlignedTileCount > 0
+			&& Simulation->TileVertexBuffer.TileCount > 0
 			&& Simulation->bEnabled)
 		{
 			FSimulationCommandGPU* SimulationCommand = new(SimulationCommands) FSimulationCommandGPU(
 				Simulation->TileVertexBuffer.GetShaderParam(),
+				Simulation->TileVertexBuffer.VertexBufferRHI,
 				Simulation->EmitterSimulationResources->SimulationUniformBuffer,
 				Simulation->PerFrameSimulationParameters,
 				EmptyVectorFieldUniformBuffer,
-				Simulation->TileVertexBuffer.AlignedTileCount
+				Simulation->TileVertexBuffer.TileCount
 				);
 
 			// Determine which vector fields affect this simulation and build the appropriate parameters.

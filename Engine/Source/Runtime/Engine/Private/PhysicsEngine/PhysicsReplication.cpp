@@ -17,6 +17,10 @@
 #include "Physics/PhysicsInterfaceCore.h"
 #include "Physics/PhysScene_PhysX.h"
 
+#if WITH_PHYSX
+#include "PhysXPublic.h"
+#endif 
+
 namespace CharacterMovementCVars
 {
 	extern int32 NetShowCorrections;
@@ -25,43 +29,66 @@ namespace CharacterMovementCVars
 	static int32 SkipPhysicsReplication = 0;
 	static FAutoConsoleVariableRef CVarSkipPhysicsReplication(TEXT("p.SkipPhysicsReplication"), SkipPhysicsReplication, TEXT(""));
 
-	static float NetPingExtrapolation = 0.3f;
+	static float NetPingExtrapolation = -1.0f;
 	static FAutoConsoleVariableRef CVarNetPingExtrapolation(TEXT("p.NetPingExtrapolation"), NetPingExtrapolation, TEXT(""));
 
-	static float ErrorPerLinearDifference = 1.0f;
+	static float NetPingLimit = -1.f;
+	static FAutoConsoleVariableRef CVarNetPingLimit(TEXT("p.NetPingLimit"), NetPingLimit, TEXT(""));
+
+	static float ErrorPerLinearDifference = -1.0f;
 	static FAutoConsoleVariableRef CVarErrorPerLinearDifference(TEXT("p.ErrorPerLinearDifference"), ErrorPerLinearDifference, TEXT(""));
 
-	static float ErrorPerAngularDifference = 1.0f;
+	static float ErrorPerAngularDifference = -1.0f;
 	static FAutoConsoleVariableRef CVarErrorPerAngularDifference(TEXT("p.ErrorPerAngularDifference"), ErrorPerAngularDifference, TEXT(""));
 
-	static float ErrorAccumulationSeconds = 0.5f;
+	static float ErrorAccumulationSeconds = -1.0f;
 	static FAutoConsoleVariableRef CVarErrorAccumulation(TEXT("p.ErrorAccumulationSeconds"), ErrorAccumulationSeconds, TEXT(""));
 
-	static float ErrorAccumulationDistanceSq = 15.0f;
+	static float ErrorAccumulationDistanceSq = -1.0f;
 	static FAutoConsoleVariableRef CVarErrorAccumulationDistanceSq(TEXT("p.ErrorAccumulationDistanceSq"), ErrorAccumulationDistanceSq, TEXT(""));
 
-	static float ErrorAccumulationSimilarity = 100.0f;
+	static float ErrorAccumulationSimilarity = -1.f;
 	static FAutoConsoleVariableRef CVarErrorAccumulationSimilarity(TEXT("p.ErrorAccumulationSimilarity"), ErrorAccumulationSimilarity, TEXT(""));
 
-	static float MaxRestoredStateError = 1.0f;
+	static float MaxLinearHardSnapDistance = -1.f;
+	static FAutoConsoleVariableRef CVarMaxLinearHardSnapDistance(TEXT("p.MaxLinearHardSnapDistance"), MaxLinearHardSnapDistance, TEXT(""));
+
+	static float MaxRestoredStateError = -1.0f;
 	static FAutoConsoleVariableRef CVarMaxRestoredStateError(TEXT("p.MaxRestoredStateError"), MaxRestoredStateError, TEXT(""));
 
-	static float PositionLerp = 0.0f;
+	static float PositionLerp = -1.0f;
 	static FAutoConsoleVariableRef CVarLinSet(TEXT("p.PositionLerp"), PositionLerp, TEXT(""));
 
-	static float LinearVelocityCoefficient = 100.0f;
+	static float LinearVelocityCoefficient = -1.0f;
 	static FAutoConsoleVariableRef CVarLinLerp(TEXT("p.LinearVelocityCoefficient"), LinearVelocityCoefficient, TEXT(""));
 
-	static float AngleLerp = 0.2f;
+	static float AngleLerp = -1.0f;
 	static FAutoConsoleVariableRef CVarAngSet(TEXT("p.AngleLerp"), AngleLerp, TEXT(""));
 
-	static float AngularVelocityCoefficient = 10.0f;
+	static float AngularVelocityCoefficient = -1.0f;
 	static FAutoConsoleVariableRef CVarAngLerp(TEXT("p.AngularVelocityCoefficient"), AngularVelocityCoefficient, TEXT(""));
+
+	static int32 AlwaysHardSnap = 0;
+	static FAutoConsoleVariableRef CVarAlwaysHardSnap(TEXT("p.AlwaysHardSnap"), AlwaysHardSnap, TEXT(""));
+
+	static int32 AlwaysResetPhysics = 0;
+	static FAutoConsoleVariableRef CVarAlwaysResetPhysics(TEXT("p.AlwaysResetPhysics"), AlwaysResetPhysics, TEXT(""));
+}
+
+namespace PhysicsReplicationCVars
+{
+	static int32 SkipSkeletalRepOptimization = 1;
+	static FAutoConsoleVariableRef CVarSkipSkeletalRepOptimization(TEXT("p.SkipSkeletalRepOptimization"), SkipSkeletalRepOptimization, TEXT("If true, we don't move the skeletal mesh component during replication. This is ok because the skeletal mesh already polls physx after its results"));
 }
 
 bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance* BI, FReplicatedPhysicsTarget& PhysicsTarget, const FRigidBodyErrorCorrection& ErrorCorrection, const float PingSecondsOneWay)
 {
 	if (CharacterMovementCVars::SkipPhysicsReplication)
+	{
+		return false;
+	}
+
+	if (!BI->IsInstanceSimulatingPhysics())
 	{
 		return false;
 	}
@@ -120,6 +147,7 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 
 	// Grab configuration variables from engine config or from CVars if overriding is turned on.
 	const float NetPingExtrapolation = CharacterMovementCVars::NetPingExtrapolation >= 0.0f ? CharacterMovementCVars::NetPingExtrapolation : ErrorCorrection.PingExtrapolation;
+	const float NetPingLimit = CharacterMovementCVars::NetPingLimit > 0.0f ? CharacterMovementCVars::NetPingLimit : ErrorCorrection.PingLimit;
 	const float ErrorPerLinearDiff = CharacterMovementCVars::ErrorPerLinearDifference >= 0.0f ? CharacterMovementCVars::ErrorPerLinearDifference : ErrorCorrection.ErrorPerLinearDifference;
 	const float ErrorPerAngularDiff = CharacterMovementCVars::ErrorPerAngularDifference >= 0.0f ? CharacterMovementCVars::ErrorPerAngularDifference : ErrorCorrection.ErrorPerAngularDifference;
 	const float MaxRestoredStateError = CharacterMovementCVars::MaxRestoredStateError >= 0.0f ? CharacterMovementCVars::MaxRestoredStateError : ErrorCorrection.MaxRestoredStateError;
@@ -130,6 +158,7 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 	const float LinearVelocityCoefficient = CharacterMovementCVars::LinearVelocityCoefficient >= 0.0f ? CharacterMovementCVars::LinearVelocityCoefficient : ErrorCorrection.LinearVelocityCoefficient;
 	const float AngleLerp = CharacterMovementCVars::AngleLerp >= 0.0f ? CharacterMovementCVars::AngleLerp : ErrorCorrection.AngleLerp;
 	const float AngularVelocityCoefficient = CharacterMovementCVars::AngularVelocityCoefficient >= 0.0f ? CharacterMovementCVars::AngularVelocityCoefficient : ErrorCorrection.AngularVelocityCoefficient;
+	const float MaxLinearHardSnapDistance = CharacterMovementCVars::MaxLinearHardSnapDistance >= 0.f ? CharacterMovementCVars::MaxLinearHardSnapDistance : ErrorCorrection.MaxLinearHardSnapDistance;
 
 	// Get Current state
 	FRigidBodyState CurrentState;
@@ -141,7 +170,8 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 	// Starting from the last known authoritative position, and
 	// extrapolate an approximation using the last known velocity
 	// and ping.
-	const float ExtrapolationDeltaSeconds = PingSecondsOneWay * NetPingExtrapolation;
+	const float PingSeconds = FMath::Clamp(PingSecondsOneWay, 0.f, NetPingLimit);
+	const float ExtrapolationDeltaSeconds = PingSeconds * NetPingExtrapolation;
 	const FVector ExtrapolationDeltaPos = NewState.LinVel * ExtrapolationDeltaSeconds;
 	const FVector_NetQuantize100 TargetPos = NewState.Position + ExtrapolationDeltaPos;
 	float NewStateAngVel;
@@ -154,6 +184,7 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 	/////// COMPUTE DIFFERENCES ///////
 
 	const FVector LinDiff = TargetPos - CurrentState.Position;
+	const float LinDiffSize = LinDiff.Size();
 	FVector AngDiffAxis;
 	float AngDiff;
 	const FQuat DeltaQuat = InvCurrentQuat * TargetQuat;
@@ -162,7 +193,7 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 
 	/////// ACCUMULATE ERROR IF NOT APPROACHING SOLUTION ///////
 
-	const float Error = (LinDiff.Size() * ErrorPerLinearDiff) + (AngDiff * ErrorPerAngularDiff);
+	const float Error = (LinDiffSize * ErrorPerLinearDiff) + (AngDiff * ErrorPerAngularDiff);
 	bRestoredState = Error < MaxRestoredStateError;
 	if (bRestoredState)
 	{
@@ -216,8 +247,11 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 	PhysicsTarget.PrevPosTarget = TargetPos;
 	PhysicsTarget.PrevPos = FVector(CurrentState.Position);
 
-	// Hard snap if error accumulation is big enough, and clear the error accumulator.
-	const bool bHardSnap = PhysicsTarget.AccumulatedErrorSeconds > ErrorAccumulationSeconds;
+	// Hard snap if error accumulation or linear error is big enough, and clear the error accumulator.
+	const bool bHardSnap =
+		LinDiffSize > MaxLinearHardSnapDistance ||
+		PhysicsTarget.AccumulatedErrorSeconds > ErrorAccumulationSeconds ||
+		CharacterMovementCVars::AlwaysHardSnap;
 	if (bHardSnap)
 	{
 		PhysicsTarget.AccumulatedErrorSeconds = 0.0f;
@@ -226,24 +260,27 @@ bool FPhysicsReplication::ApplyRigidBodyState(float DeltaSeconds, FBodyInstance*
 
 	/////// SIMPLE EXPONENTIAL MATCH ///////
 
-	const FVector NewLinVel = bHardSnap ? FVector(NewState.LinVel) : FVector(NewState.LinVel) + (LinDiff * CharacterMovementCVars::LinearVelocityCoefficient * DeltaSeconds);
-	const FVector NewAngVel = bHardSnap ? FVector(NewState.AngVel) : FVector(NewState.AngVel) + (AngDiffAxis * AngDiff * CharacterMovementCVars::AngularVelocityCoefficient * DeltaSeconds);
+	const FVector NewLinVel = bHardSnap ? FVector(NewState.LinVel) : FVector(NewState.LinVel) + (LinDiff * LinearVelocityCoefficient * DeltaSeconds);
+	const FVector NewAngVel = bHardSnap ? FVector(NewState.AngVel) : FVector(NewState.AngVel) + (AngDiffAxis * AngDiff * AngularVelocityCoefficient * DeltaSeconds);
 
-	const FVector NewPos = FMath::Lerp(CurrentState.Position, TargetPos, bHardSnap ? 1.0f : CharacterMovementCVars::PositionLerp);
-	const FQuat NewAng = FQuat::Slerp(CurrentState.Quaternion, TargetQuat, bHardSnap ? 1.0f : CharacterMovementCVars::AngleLerp);
+	const FVector NewPos = FMath::Lerp(CurrentState.Position, TargetPos, bHardSnap ? 1.0f : PositionLerp);
+	const FQuat NewAng = FQuat::Slerp(CurrentState.Quaternion, TargetQuat, bHardSnap ? 1.0f : AngleLerp);
 
 	/////// UPDATE BODY ///////
 
 	// Store sleeping state
 	const bool bShouldSleep = (NewState.Flags & ERigidBodyFlags::Sleeping) != 0;
 	const bool bWasAwake = BI->IsInstanceAwake();
+	const bool bAutoWake = !bShouldSleep;
 
 	// Set the new transform
-	BI->SetBodyTransform(FTransform(NewAng, NewPos), ETeleportType::TeleportPhysics);
+	const bool bResetPhysics = CharacterMovementCVars::AlwaysResetPhysics || bHardSnap;
+	const ETeleportType PhysicsTeleportMode = bResetPhysics ? ETeleportType::ResetPhysics : ETeleportType::TeleportPhysics;
+	BI->SetBodyTransform(FTransform(NewAng, NewPos), PhysicsTeleportMode, bAutoWake);
 
 	// Set the new velocities
-	BI->SetLinearVelocity(NewLinVel, false);
-	BI->SetAngularVelocityInRadians(FMath::DegreesToRadians(NewAngVel), false);
+	BI->SetLinearVelocity(NewLinVel, false, bAutoWake);
+	BI->SetAngularVelocityInRadians(FMath::DegreesToRadians(NewAngVel), false, bAutoWake);
 
 	/////// SLEEP UPDATE ///////
 
@@ -337,12 +374,11 @@ void FPhysicsReplication::OnTick(float DeltaSeconds, TMap<TWeakObjectPtr<UPrimit
 		bool bRemoveItr = false;
 		if (UPrimitiveComponent* PrimComp = Itr.Key().Get())
 		{
-			if(FBodyInstance* BI = PrimComp->GetBodyInstance(Itr.Value().BoneName))
+			if (FBodyInstance* BI = PrimComp->GetBodyInstance(Itr.Value().BoneName))
 			{
 				FReplicatedPhysicsTarget& PhysicsTarget = Itr.Value();
 				FRigidBodyState& UpdatedState = PhysicsTarget.TargetState;
 
-				bool bUpdated = false;
 				AActor* OwningActor = PrimComp->GetOwner();
 				if (OwningActor && OwningActor->Role == ROLE_SimulatedProxy)	//TODO: can we avoid the replication all together?
 				{
@@ -355,24 +391,20 @@ void FPhysicsReplication::OnTick(float DeltaSeconds, TMap<TWeakObjectPtr<UPrimit
 					// NOTE: We divide by 2 to approximate 1-way ping from 2-way ping.
 					const float PingSecondsOneWay = (LocalPing + OwnerPing) * 0.5f * 0.001f;
 
-					// force update if simulation is sleeping on server
-					//if ((UpdatedState.Flags & ERigidBodyFlags::Sleeping) && BI->IsInstanceAwake())
-					//{
-					//	UpdatedState.Flags |= ERigidBodyFlags::NeedsUpdate;
-					//}
-
 					if (UpdatedState.Flags & ERigidBodyFlags::NeedsUpdate)
 					{
 						const bool bRestoredState = ApplyRigidBodyState(DeltaSeconds, BI, PhysicsTarget, PhysicErrorCorrection, PingSecondsOneWay);
+
+						// Need to update the component to match new position.
+						if (PhysicsReplicationCVars::SkipSkeletalRepOptimization == 0 || Cast<USkeletalMeshComponent>(PrimComp) == nullptr)	//simulated skeletal mesh does its own polling of physics results so we don't need to call this as it'll happen at the end of the physics sim
+						{
+							PrimComp->SyncComponentToRBPhysics();
+						}
+
 						if (bRestoredState)
 						{
 							bRemoveItr = true;
 						}
-
-						bUpdated = true;
-
-						// Need to update the component to match new position.
-						PrimComp->SyncComponentToRBPhysics();
 					}
 				}
 			}
@@ -380,6 +412,7 @@ void FPhysicsReplication::OnTick(float DeltaSeconds, TMap<TWeakObjectPtr<UPrimit
 
 		if (bRemoveItr)
 		{
+			OnTargetRestored(Itr.Key().Get(), Itr.Value());
 			Itr.RemoveCurrent();
 		}
 	}
@@ -401,10 +434,25 @@ void FPhysicsReplication::SetReplicatedTarget(UPrimitiveComponent* Component, FN
 	if (UWorld* OwningWorld = GetOwningWorld())
 	{
 		//TODO: there's a faster way to compare this
-		FReplicatedPhysicsTarget& Target = ComponentToTargets.FindOrAdd(TWeakObjectPtr<UPrimitiveComponent>(Component));
-		Target.TargetState = ReplicatedTarget;
-		Target.BoneName = BoneName;
-		Target.ArrivedTimeSeconds = OwningWorld->GetTimeSeconds();
+		TWeakObjectPtr<UPrimitiveComponent> TargetKey(Component);
+		FReplicatedPhysicsTarget* Target = ComponentToTargets.Find(TargetKey);
+		if (!Target)
+		{
+			// First time we add a target, set it's previous and correction
+			// positions to the target position to avoid math with uninitialized
+			// memory.
+			Target = &ComponentToTargets.Add(TargetKey);
+			Target->PrevPos = ReplicatedTarget.Position;
+			Target->PrevPosTarget = ReplicatedTarget.Position;
+		}
+
+		Target->TargetState = ReplicatedTarget;
+		Target->BoneName = BoneName;
+		Target->ArrivedTimeSeconds = OwningWorld->GetTimeSeconds();
+
+		ensure(!Target->PrevPos.ContainsNaN());
+		ensure(!Target->PrevPosTarget.ContainsNaN());
+		ensure(!Target->TargetState.Position.ContainsNaN());
 	}
 }
 

@@ -279,7 +279,7 @@ struct ENGINE_API FPhysicsInterface_PhysX : public FGenericPhysicsInterface
 	static void SetCcdEnabled_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, bool bIsCcdEnabled);
 
 	static FTransform GetGlobalPose_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
-	static void SetGlobalPose_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, const FTransform& InNewPose);
+	static void SetGlobalPose_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, const FTransform& InNewPose, bool bAutoWake = true);
 
 	static FTransform GetTransform_AssumesLocked(const FPhysicsActorHandle& InRef, bool bForceGlobalPose = false);
 
@@ -288,10 +288,10 @@ struct ENGINE_API FPhysicsInterface_PhysX : public FGenericPhysicsInterface
 	static void SetKinematicTarget_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, const FTransform& InNewTarget);
 
 	static FVector GetLinearVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
-	static void SetLinearVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, const FVector& InNewVelocity);
+	static void SetLinearVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, const FVector& InNewVelocity, bool bAutoWake = true);
 
 	static FVector GetAngularVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
-	static void SetAngularVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, const FVector& InNewVelocity);
+	static void SetAngularVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, const FVector& InNewVelocity, bool bAutoWake = true);
 	static float GetMaxAngularVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
 	static void SetMaxAngularVelocity_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, float InMaxAngularVelocity);
 
@@ -301,6 +301,7 @@ struct ENGINE_API FPhysicsInterface_PhysX : public FGenericPhysicsInterface
 	static FVector GetWorldVelocityAtPoint_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle, const FVector& InPoint);
 
 	static FTransform GetComTransform_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
+	static FTransform GetComTransformLocal_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
 
 	static FVector GetLocalInertiaTensor_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);
 	static FBox GetBounds_AssumesLocked(const FPhysicsActorHandle_PhysX& InHandle);

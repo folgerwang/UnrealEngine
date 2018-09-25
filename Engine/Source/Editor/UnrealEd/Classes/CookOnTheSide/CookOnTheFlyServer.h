@@ -99,7 +99,7 @@ class UNREALED_API UCookOnTheFlyServer : public UObject, public FTickableEditorO
 {
 	GENERATED_BODY()
 
-	UCookOnTheFlyServer(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+		UCookOnTheFlyServer(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 private:
 	/** Current cook mode the cook on the fly server is running in */
@@ -190,6 +190,10 @@ private:
 	mutable TMap<FName, FReentryData> PackageReentryData;
 
 	FReentryData& GetReentryData(const UPackage* Package) const;
+
+	int32 LastCookRequestsCount = 0;
+	int32 LastCookedPackagesCount = 0;
+	double LastProgressDisplayTime = 0;
 
 	FString ConvertCookedPathToUncookedPath(const FString& CookedPackageName) const;
 
@@ -641,7 +645,7 @@ private:
 	void SaveCookedPackages(UPackage* PackageToSave, const TArray<FName>& TargetPlatformNames, const TArray<const ITargetPlatform*>& TargetPlatformsToCache, struct FCookerTimer& Timer, uint32& CookedPackageCount, uint32& Result);
 
 	/** Perform any special processing for freshly loaded packages 
-	  */
+	 */
 	void ProcessUnsolicitedPackages();
 
 	/**

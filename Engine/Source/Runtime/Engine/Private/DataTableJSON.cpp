@@ -100,7 +100,7 @@ bool FDataTableExporterJSON::WriteTable(const UDataTable& InDataTable)
 	JsonWriter->WriteArrayStart();
 
 	// Iterate over rows
-	for (auto RowIt = InDataTable.RowMap.CreateConstIterator(); RowIt; ++RowIt)
+	for (auto RowIt = InDataTable.GetRowMap().CreateConstIterator(); RowIt; ++RowIt)
 	{
 		JsonWriter->WriteObjectStart();
 		{
@@ -130,7 +130,7 @@ bool FDataTableExporterJSON::WriteTableAsObject(const UDataTable& InDataTable)
 	JsonWriter->WriteObjectStart(InDataTable.GetName());
 
 	// Iterate over rows
-	for (auto RowIt = InDataTable.RowMap.CreateConstIterator(); RowIt; ++RowIt)
+	for (auto RowIt = InDataTable.GetRowMap().CreateConstIterator(); RowIt; ++RowIt)
 	{
 		// RowName
 		const FName RowName = RowIt.Key();
@@ -434,7 +434,7 @@ bool FDataTableImporterJSON::ReadRow(const TSharedRef<FJsonObject>& InParsedTabl
 	}
 
 	// Check its not a duplicate
-	if (DataTable->RowMap.Find(RowName) != nullptr)
+	if (!DataTable->AllowDuplicateRowsOnImport() && DataTable->GetRowMap().Find(RowName) != nullptr)
 	{
 		ImportProblems.Add(FString::Printf(TEXT("Duplicate row name '%s'."), *RowName.ToString()));
 		return false;
@@ -446,7 +446,7 @@ bool FDataTableImporterJSON::ReadRow(const TSharedRef<FJsonObject>& InParsedTabl
 	// And be sure to call DestroyScriptStruct later
 
 	// Add to row map
-	DataTable->RowMap.Add(RowName, RowData);
+	DataTable->AddRowInternal(RowName, RowData);
 
 	return ReadStruct(InParsedTableRowObject, DataTable->RowStruct, RowName, RowData);
 }

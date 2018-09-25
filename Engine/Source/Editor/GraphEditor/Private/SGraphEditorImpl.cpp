@@ -582,9 +582,13 @@ void SGraphEditorImpl::ReconstructNodes()
 		{
 			if (UEdGraphNode* Node = Cast<UEdGraphNode>(*NodeIt))
 			{
-				TGuardValue<ESaveOrphanPinMode> GuardSaveMode(Node->OrphanedPinSaveMode, ESaveOrphanPinMode::SaveNone);
+				const bool bCurDisableOrphanSaving = Node->bDisableOrphanPinSaving;
+				Node->bDisableOrphanPinSaving = true;
+
 				Schema->ReconstructNode(*Node);
 				Node->ClearCompilerMessage();
+
+				Node->bDisableOrphanPinSaving = bCurDisableOrphanSaving;
 			}
 		}
 	}

@@ -87,6 +87,10 @@ struct FTextureStreamingSettings
 	float MinLevelTextureScreenSize;
 	float MaxTextureUVDensity;
 	int32 MaterialQualityLevel;
+	int32 FramesForFullUpdate;
+
+	bool bStressTest;
+	static int32 ExtraIOLatency;
 
 protected:
 

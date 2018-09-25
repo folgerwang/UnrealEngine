@@ -706,7 +706,7 @@ static void AddAndroidConfigExportSubMenus(FMenuBuilder& InMenuBuilder)
 		FString ModelName = DeviceInfo.Model + TEXT("(") + DeviceInfo.DeviceBrand + TEXT(")");
 
 		// lambda function called to open the save dialog and trigger device export
-		auto LambdaSaveConfigFile = [DeviceName = Pair.Key, DefaultFileName = ModelName]()
+		auto LambdaSaveConfigFile = [DeviceName = Pair.Key, DefaultFileName = ModelName, DeviceDetection]()
 		{
 			TArray<FString> OutputFileName;
 			FString DefaultFolder = FPaths::EngineContentDir() + TEXT("Editor/PIEPreviewDeviceSpecs/Android/");
@@ -722,12 +722,7 @@ static void AddAndroidConfigExportSubMenus(FMenuBuilder& InMenuBuilder)
 
 			if (bResult && OutputFileName.Num())
 			{
-				IAndroidDeviceDetection* DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection();
-
-				if (DeviceDetection != nullptr)
-				{
-					DeviceDetection->ExportDeviceProfile(OutputFileName[0], DeviceName);
-				}
+				DeviceDetection->ExportDeviceProfile(OutputFileName[0], DeviceName);
 			}
 		};
 

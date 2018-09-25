@@ -1344,7 +1344,7 @@ uint32 FOpenGLFrontend::GetMaxSamplers(GLSLVersion Version)
 	}
 }
 
-uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, bool bCompileES2With310, bool bUseFullPrecisionInPS, bool bUsesExternalTexture)
+uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, const TArray<uint32>& CompilerFlags)
 {
 	uint32  CCFlags = HLSLCC_NoPreprocess | HLSLCC_PackUniforms | HLSLCC_DX11ClipSpace;
 	if (IsES2Platform(Version) && !IsPCES2Platform(Version))
@@ -1352,21 +1352,21 @@ uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, bool bC
 		CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
 		// Currently only enabled for ES2, as there are still features to implement for SM4+ (atomics, global store, UAVs, etc)
 		CCFlags |= HLSLCC_ApplyCommonSubexpressionElimination;
+		CCFlags |= HLSLCC_ExpandUBMemberArrays;
 	}
 
-	if (bUseFullPrecisionInPS || Version == GLSL_ES2_WEBGL)
+	if (CompilerFlags.Contains(CFLAG_UseFullPrecisionInPS) || Version == GLSL_ES2_WEBGL)
 	{
 		CCFlags |= HLSLCC_UseFullPrecisionInPS;
 	}
 
-	if (bCompileES2With310)
+	if (Version == GLSL_150_ES2_NOUB ||
+		CompilerFlags.Contains(CFLAG_FeatureLevelES31) ||
+		CompilerFlags.Contains(CFLAG_UseEmulatedUB))
 	{
 		CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
-	}
-
-	if (Version == GLSL_150_ES2_NOUB)
-	{
-		CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
+		CCFlags |= HLSLCC_GroupFlattenedUniformBuffers;
+		CCFlags |= HLSLCC_ExpandUBMemberArrays;
 	}
 
 	if (SupportsSeparateShaderObjects(Version))
@@ -1374,7 +1374,7 @@ uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, bool bC
 		CCFlags |= HLSLCC_SeparateShaderObjects;
 	}
 
-	if (bUsesExternalTexture)
+	if (CompilerFlags.Contains(CFLAG_UsesExternalTexture))
 	{
 		CCFlags |= HLSLCC_UsesExternalTexture;
 	}
@@ -1432,10 +1432,7 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 		AdditionalDefines.SetDefine(TEXT("COMPILER_SUPPORTS_ATTRIBUTES"), (uint32)0);
 	}
 
-	const bool bUsesExternalTexture = Input.Environment.CompilerFlags.Contains(CFLAG_UsesExternalTexture);
-
-	const bool bUseFullPrecisionInPS = Input.Environment.CompilerFlags.Contains(CFLAG_UseFullPrecisionInPS);
-	if (bUseFullPrecisionInPS)
+	if (Input.Environment.CompilerFlags.Contains(CFLAG_UseFullPrecisionInPS))
 	{
 		AdditionalDefines.SetDefine(TEXT("FORCE_FLOATS"), (uint32)1);
 	}
@@ -1511,7 +1508,7 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 		}
 	}
 
-	uint32 CCFlags = CalculateCrossCompilerFlags(Version, bCompileES2With310, bUseFullPrecisionInPS, bUsesExternalTexture);
+	uint32 CCFlags = CalculateCrossCompilerFlags(Version, Input.Environment.CompilerFlags);
 
 	// Required as we added the RemoveUniformBuffersFromSource() function (the cross-compiler won't be able to interpret comments w/o a preprocessor)
 	CCFlags &= ~HLSLCC_NoPreprocess;

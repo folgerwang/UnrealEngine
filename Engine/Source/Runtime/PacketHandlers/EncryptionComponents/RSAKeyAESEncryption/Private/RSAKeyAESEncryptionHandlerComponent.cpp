@@ -102,13 +102,14 @@ void RSAKeyAESEncryptionHandlerComponent::NotifyHandshakeBegin()
 	if (Handler->Mode == Handler::Mode::Server)
 	{
 		FBitWriter OutPacket;
+		FOutPacketTraits Traits;
 
 		PackAsymmetricKey(OutPacket);
 		SetState(ERSAKeyAESEncryptionHandler::State::SentKey);
 
 		FPacketAudit::AddStage(TEXT("RSAHandshake"), OutPacket);
 
-		Handler->SendHandlerPacket(this, OutPacket);
+		Handler->SendHandlerPacket(this, OutPacket, Traits);
 	}
 }
 
@@ -122,7 +123,7 @@ void RSAKeyAESEncryptionHandlerComponent::SetState(ERSAKeyAESEncryptionHandler::
 	State = InState;
 }
 
-void RSAKeyAESEncryptionHandlerComponent::Outgoing(FBitWriter& Packet)
+void RSAKeyAESEncryptionHandlerComponent::Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits)
 {
 	if (State == ERSAKeyAESEncryptionHandler::State::Initialized)
 	{
@@ -317,6 +318,7 @@ void RSAKeyAESEncryptionHandlerComponent::IncomingHandshake(FBitReader& Packet)
 
 				// Now send the initialization vector and session key
 				FBitWriter OutPacket((AES_BLOCK_SIZE + KeySizeBytes) * 8, true);
+				FOutPacketTraits Traits;
 
 				OutPacket.Serialize(InitializationVector.GetData(), AES_BLOCK_SIZE);
 				OutPacket.Serialize(SessionKey.GetData(), KeySizeBytes);
@@ -328,7 +330,7 @@ void RSAKeyAESEncryptionHandlerComponent::IncomingHandshake(FBitReader& Packet)
 
 				FPacketAudit::AddStage(TEXT("SessionKeyExchangeEncrypt"), OutPacket);
 
-				Handler->SendHandlerPacket(this, OutPacket);
+				Handler->SendHandlerPacket(this, OutPacket, Traits);
 
 
 				// Now mark as initialized
@@ -363,7 +365,7 @@ void RSAKeyAESEncryptionHandlerComponent::IncomingHandshake(FBitReader& Packet)
 	}
 }
 
-int32 RSAKeyAESEncryptionHandlerComponent::GetReservedPacketBits()
+int32 RSAKeyAESEncryptionHandlerComponent::GetReservedPacketBits() const
 {
 	int32 ReturnVal = 0;
 

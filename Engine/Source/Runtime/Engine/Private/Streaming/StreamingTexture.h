@@ -108,12 +108,11 @@ public:
 
 	FORCEINLINE void ClearCachedOptionalMipsState_Async()
 	{
-		// if we already have our optional mips there is no need to recache, pak files can't go away!
-		if (OptionalMipsState == EOptionalMipsState::HasOptionalMips)
+		// If we already have our optional mips there is no need to recache, pak files can't go away!
+		if (OptionalMipsState == EOptionalMipsState::NoOptionalMips && NumNonOptionalMips != MipCount)
 		{
-			return;
+			OptionalMipsState = EOptionalMipsState::NotCached;
 		}
-		OptionalMipsState = EOptionalMipsState::NotCached;
 	}
 
 	/***************************************************************
@@ -235,5 +234,5 @@ public:
 	int32 CachedVisibleWantedMips;
 
 private:
-	FORCEINLINE void StreamWantedMips_Internal(FStreamingManagerTexture& Manager, bool bUseCachedData);
+	FORCEINLINE_DEBUGGABLE void StreamWantedMips_Internal(FStreamingManagerTexture& Manager, bool bUseCachedData);
 };

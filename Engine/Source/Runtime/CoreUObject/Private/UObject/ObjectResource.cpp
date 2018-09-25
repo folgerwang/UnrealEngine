@@ -91,6 +91,13 @@ FObjectExport::FObjectExport( UObject* InObject )
 	}
 }
 
+void FObjectExport::ResetObject()
+{
+	Object = nullptr;
+	bExportLoadFailed = false;
+	bWasFiltered = false;
+}
+
 FArchive& operator<<(FArchive& Ar, FObjectExport& E)
 {
 	FStructuredArchiveFromArchive(Ar).GetSlot() << E;

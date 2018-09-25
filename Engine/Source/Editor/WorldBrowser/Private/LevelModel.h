@@ -125,7 +125,10 @@ public:
 
 	/** @return Whether level package file is read only */
 	bool IsFileReadOnly() const;
-		
+
+	/** @return Whether the streaming level object is transient */
+	virtual bool IsTransient() const { return false; }
+
 	/** Loads level into editor */
 	virtual void LoadLevel();
 

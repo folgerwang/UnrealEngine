@@ -184,14 +184,40 @@ class PHYSXVEHICLES_API UWheeledVehicleMovementComponent : public UPawnMovementC
 	UPROPERTY(EditAnywhere, Category = VehicleSetup)
 	uint8 bDeprecatedSpringOffsetMode : 1;
 
-	/** Wheels to create */
-	UPROPERTY(EditAnywhere, Category=VehicleSetup)
-	TArray<FWheelSetup> WheelSetups;
+	/** If true, the brake and reverse controls will behave in a more arcade fashion where holding reverse also functions as brake. For a more realistic approach turn this off*/
+	UPROPERTY(EditAnywhere, Category = VehicleSetup)
+	uint8 bReverseAsBrake : 1;
 
+	/** If set, component will use RVO avoidance */
+	UPROPERTY(Category = "Avoidance", EditAnywhere, BlueprintReadWrite)
+	uint8 bUseRVOAvoidance : 1;
+
+protected:
+	// True if the player is holding the handbrake
+	UPROPERTY(Transient)
+	uint8 bRawHandbrakeInput : 1;
+
+	// True if the player is holding gear up
+	UPROPERTY(Transient)
+	uint8 bRawGearUpInput : 1;
+
+	// True if the player is holding gear down
+	UPROPERTY(Transient)
+	uint8 bRawGearDownInput : 1;
+
+	/** Was avoidance updated in this frame? */
+	UPROPERTY(Transient)
+	uint32 bWasAvoidanceUpdated : 1;
+
+public:
 	/** Mass to set the vehicle chassis to. It's much easier to tweak vehicle settings when
 	 * the mass doesn't change due to tweaks with the physics asset. [kg] */
 	UPROPERTY(EditAnywhere, Category = VehicleSetup, meta = (ClampMin = "0.01", UIMin = "0.01"))
 	float Mass;
+
+	/** Wheels to create */
+	UPROPERTY(EditAnywhere, Category=VehicleSetup)
+	TArray<FWheelSetup> WheelSetups;
 
 	/** DragCoefficient of the vehicle chassis. */
 	UPROPERTY(EditAnywhere, Category = VehicleSetup)
@@ -204,10 +230,6 @@ class PHYSXVEHICLES_API UWheeledVehicleMovementComponent : public UPawnMovementC
 	/** Chassis height used for drag force computation (cm)*/
 	UPROPERTY(EditAnywhere, Category = VehicleSetup, meta = (ClampMin = "0.01", UIMin = "0.01"))
 	float ChassisHeight;
-
-	/** If true, the brake and reverse controls will behave in a more arcade fashion where holding reverse also functions as brake. For a more realistic approach turn this off*/
-	UPROPERTY(EditAnywhere, Category = VehicleSetup)
-	bool bReverseAsBrake;
 
 	// Drag area in cm^2
 	UPROPERTY(transient)
@@ -401,10 +423,6 @@ class PHYSXVEHICLES_API UWheeledVehicleMovementComponent : public UPawnMovementC
 
 	// RVO Avoidance
 
-	/** If set, component will use RVO avoidance */
-	UPROPERTY(Category = "Avoidance", EditAnywhere, BlueprintReadWrite)
-	uint32 bUseRVOAvoidance : 1;
-	
 	/** Vehicle Radius to use for RVO avoidance (usually half of vehicle width) */
 	UPROPERTY(Category = "Avoidance", EditAnywhere, BlueprintReadWrite)
 	float RVOAvoidanceRadius;
@@ -497,18 +515,6 @@ protected:
 	UPROPERTY(Transient)
 	float RawBrakeInput;
 
-	// True if the player is holding the handbrake
-	UPROPERTY(Transient)
-	uint32 bRawHandbrakeInput : 1;
-
-	// True if the player is holding gear up
-	UPROPERTY(Transient)
-	uint32 bRawGearUpInput : 1;
-
-	// True if the player is holding gear down
-	UPROPERTY(Transient)
-	uint32 bRawGearDownInput : 1;
-
 	// Steering output to physics system. Range -1...1
 	UPROPERTY(Transient)
 	float SteeringInput;
@@ -600,10 +606,6 @@ protected:
 	
 	/** lock avoidance velocity */
 	void SetAvoidanceVelocityLock(class UAvoidanceManager* Avoidance, float Duration);
-	
-	/** Was avoidance updated in this frame? */
-	UPROPERTY(Transient)
-	uint32 bWasAvoidanceUpdated : 1;
 	
 	/** Calculated avoidance velocity used to adjust steering and throttle */
 	FVector AvoidanceVelocity;

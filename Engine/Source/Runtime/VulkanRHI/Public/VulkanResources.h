@@ -70,17 +70,22 @@ public:
 };
 
 
-class FVulkanShader
+class FVulkanShader : public IRefCountedObject
 {
 public:
 	FVulkanShader(FVulkanDevice* InDevice, EShaderFrequency InFrequency, VkShaderStageFlagBits InStageFlag)
-		: StageFlag(InStageFlag)
+		: Id(0)
+		, StageFlag(InStageFlag)
 		, Frequency(InFrequency)
 		, Device(InDevice)
+		, ShaderCodeCRC(0)
+		, ShaderCodeLen(0)
 	{
 	}
 
 	virtual ~FVulkanShader();
+
+	void PurgeShaderModules();
 
 	void Setup(const TArray<uint8>& InShaderHeaderAndCode);
 
@@ -107,16 +112,17 @@ public:
 		return CodeHeader;
 	}
 
-	inline VkShaderModule GetDefaultShaderModule() const
+	inline uint64 GetId() const
 	{
-		return DefaultShaderModule;
+		return Id;
 	}
 
 protected:
+	uint64							Id;
+
 	/** External bindings for this shader. */
 	FVulkanShaderHeader				CodeHeader;
 	TMap<uint32, VkShaderModule>	ShaderModules;
-	VkShaderModule					DefaultShaderModule;
 	const VkShaderStageFlagBits		StageFlag;
 	EShaderFrequency				Frequency;
 
@@ -124,24 +130,30 @@ protected:
 
 	FVulkanDevice*					Device;
 
+	// Cached shader key information
+	uint32							ShaderCodeCRC;
+	uint32							ShaderCodeLen;
+
 	VkShaderModule CreateHandle(const FVulkanLayout* Layout, uint32 LayoutHash);
 
 	friend class FVulkanCommandListContext;
 	friend class FVulkanPipelineStateCacheManager;
 	friend class FVulkanComputeShaderState;
 	friend class FVulkanComputePipeline;
+	friend class FVulkanShaderFactory;
 };
 
 /** This represents a vertex shader that hasn't been combined with a specific declaration to create a bound shader. */
 template<typename BaseResourceType, EShaderFrequency ShaderType, VkShaderStageFlagBits StageFlagBits>
-class TVulkanBaseShader : public BaseResourceType, public IRefCountedObject, public FVulkanShader
+class TVulkanBaseShader : public BaseResourceType, public FVulkanShader
 {
-public:
+private:
 	TVulkanBaseShader(FVulkanDevice* InDevice) :
 		FVulkanShader(InDevice, ShaderType, StageFlagBits)
 	{
 	}
-
+	friend class FVulkanShaderFactory;
+public:
 	enum { StaticFrequency = ShaderType };
 
 	// IRefCountedObject interface.
@@ -165,6 +177,37 @@ typedef TVulkanBaseShader<FRHIHullShader, SF_Hull, VK_SHADER_STAGE_TESSELLATION_
 typedef TVulkanBaseShader<FRHIDomainShader, SF_Domain, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT>	FVulkanDomainShader;
 typedef TVulkanBaseShader<FRHIComputeShader, SF_Compute, VK_SHADER_STAGE_COMPUTE_BIT>				FVulkanComputeShader;
 typedef TVulkanBaseShader<FRHIGeometryShader, SF_Geometry, VK_SHADER_STAGE_GEOMETRY_BIT>			FVulkanGeometryShader;
+
+class FVulkanShaderFactory
+{
+public:
+	~FVulkanShaderFactory();
+	
+	template <typename ShaderType> 
+	ShaderType* CreateShader(const TArray<uint8>& Code, FVulkanDevice* Device);
+	
+	void OnDeleteShader(const FVulkanShader& Shader);
+
+private:
+	struct FKey
+	{
+		uint32 CodeLen;
+		uint32 CodeCRC;
+	};
+
+	friend bool operator ==(const FVulkanShaderFactory::FKey& A, const FVulkanShaderFactory::FKey& B)
+	{
+		return A.CodeLen == B.CodeLen && A.CodeCRC == B.CodeCRC;
+	}
+
+	friend uint32 GetTypeHash(const FVulkanShaderFactory::FKey &Key)
+	{
+		return HashCombine(GetTypeHash(Key.CodeLen), GetTypeHash(Key.CodeCRC));
+	}
+	
+	FRWLock Lock;
+	TMap<FKey, FVulkanShader*> ShaderMap[SF_NumFrequencies];
+};
 
 class FVulkanBoundShaderState : public FRHIBoundShaderState
 {
@@ -897,6 +940,23 @@ private:
 	void End(FVulkanCmdBuffer* InCmdBuffer);
 
 	bool GetResult(FVulkanDevice* Device, uint64& OutResult, bool bWait);
+};
+*/
+/*
+class FVulkanRenderQuery : public FRHIRenderQuery
+{
+public:
+	FVulkanRenderQuery(FVulkanDevice* Device, ERenderQueryType InQueryType);
+	virtual ~FVulkanRenderQuery();
+
+	inline bool HasQueryBeenEmitted() const
+	{
+		return State == EState::InEnd;
+	}
+
+	uint32 LastPoolReset = 0;
+
+private:
 };
 */
 

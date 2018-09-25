@@ -6,6 +6,7 @@
 
 #if USE_ANDROID_JNI
 
+#include "Android/AndroidPlatform.h"
 #include "Android/AndroidJava.h"
 #include "RHI.h"
 #include "RHIResources.h"

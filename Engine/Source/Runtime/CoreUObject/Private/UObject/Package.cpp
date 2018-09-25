@@ -71,9 +71,11 @@ void UPackage::SetDirtyFlag( bool bIsDirty )
 		}
 
 		// Update dirty bit
+		const bool bWasDirty = bDirty;
 		bDirty = bIsDirty;
 
-		if( GIsEditor									// Only fire the callback in editor mode
+		if( bWasDirty != bIsDirty						// Only fire the callback if the dirty state actually changes
+			&& GIsEditor								// Only fire the callback in editor mode
 			&& !HasAnyPackageFlags(PKG_ContainsScript)	// Skip script packages
 			&& !HasAnyPackageFlags(PKG_PlayInEditor)	// Skip packages for PIE
 			&& GetTransientPackage() != this )			// Skip the transient package

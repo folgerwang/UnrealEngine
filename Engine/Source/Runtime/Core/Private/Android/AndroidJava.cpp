@@ -9,7 +9,10 @@ FJavaClassObject::FJavaClassObject(FName ClassName, const char* CtorSig, ...)
 {
 	JNIEnv*	JEnv = AndroidJavaEnv::GetJavaEnv();
 
-	Class = AndroidJavaEnv::FindJavaClass(ClassName.GetPlainANSIString());
+	ANSICHAR AnsiClassName[NAME_SIZE];
+	ClassName.GetPlainANSIString(AnsiClassName);
+
+	Class = AndroidJavaEnv::FindJavaClass(AnsiClassName);
 	check(Class);
 	jmethodID Constructor = JEnv->GetMethodID(Class, "<init>", CtorSig);
 	check(Constructor);

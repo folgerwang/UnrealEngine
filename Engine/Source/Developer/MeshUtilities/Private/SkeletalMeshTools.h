@@ -77,7 +77,7 @@ struct FSkinnedModelData
 
 namespace SkeletalMeshTools
 {
-	inline bool SkeletalMesh_UVsEqual(const FMeshWedge& V1, const FMeshWedge& V2, const FOverlappingThresholds& OverlappingThresholds, const int32 UVIndex = 0)
+	inline bool SkeletalMesh_UVsEqual(const SkeletalMeshImportData::FMeshWedge& V1, const SkeletalMeshImportData::FMeshWedge& V2, const FOverlappingThresholds& OverlappingThresholds, const int32 UVIndex = 0)
 	{
 		const FVector2D& UV1 = V1.UVs[UVIndex];
 		const FVector2D& UV2 = V2.UVs[UVIndex];
@@ -103,7 +103,7 @@ namespace SkeletalMeshTools
 	 * @param OverlappingThresholds		The thresholds to use to compute overlap vertex instance
 	 * @param OutChunks					Created array of chunks
 	 */
-	void BuildSkeletalMeshChunks( const TArray<FMeshFace>& Faces, const TArray<FSoftSkinBuildVertex>& RawVertices, TArray<FSkeletalMeshVertIndexAndZ>& RawVertIndexAndZ, const FOverlappingThresholds &OverlappingThresholds, TArray<FSkinnedMeshChunk*>& OutChunks, bool& bOutTooManyVerts );
+	void BuildSkeletalMeshChunks( const TArray<SkeletalMeshImportData::FMeshFace>& Faces, const TArray<FSoftSkinBuildVertex>& RawVertices, TArray<FSkeletalMeshVertIndexAndZ>& RawVertIndexAndZ, const FOverlappingThresholds &OverlappingThresholds, TArray<FSkinnedMeshChunk*>& OutChunks, bool& bOutTooManyVerts );
 
 	/**
 	 * Splits chunks to satisfy the requested maximum number of bones per chunk

@@ -33,7 +33,7 @@ struct FCollectionParameterBase
 	FName ParameterName;
 
 	/** Uniquely identifies the parameter, used for fixing up materials that reference this parameter when renaming. */
-	UPROPERTY()
+	UPROPERTY(meta = (IgnoreForMemberInitializationTest))
 	FGuid Id;
 };
 
@@ -60,6 +60,7 @@ struct FCollectionVectorParameter : public FCollectionParameterBase
 	GENERATED_USTRUCT_BODY()
 	
 	FCollectionVectorParameter()
+		: DefaultValue(ForceInitToZero)
 	{
 		ParameterName = FName(TEXT("Vector"));
 	}

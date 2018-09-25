@@ -8,7 +8,7 @@
 #include "OnlineDelegateMacros.h"
 #include "OnlineKeyValuePair.h"
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlinePresence, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlinePresence, Log, All);
 
 #define UE_LOG_ONLINE_PRESENCE(Verbosity, Format, ...) \
 { \
@@ -123,12 +123,16 @@ public:
 	FOnlineUserPresenceStatus()
 		: State(EOnlinePresenceState::Offline)
 	{
-
 	}
 
-	FString ToDebugString()
+	FString ToDebugString() const
 	{
-		return FString::Printf(TEXT("FOnlineUserPresenceStatus {State: %d, Status: %s}"), static_cast<int32>(State), *StatusStr);
+		FString PropertiesStr;
+		for (const TPair<FPresenceKey, FVariantData>& Pair : Properties)
+		{
+			PropertiesStr += FString::Printf(TEXT("\n%s : %s"), *Pair.Key, *Pair.Value.ToString());
+		}
+		return FString::Printf(TEXT("FOnlineUserPresenceStatus {State: %s, Status: %s, Properties: %s}"), EOnlinePresenceState::ToString(State), *StatusStr, *PropertiesStr);
 	}
 };
 
@@ -190,9 +194,9 @@ public:
 		return Result;
 	}
 
-	FString ToDebugString()
+	FString ToDebugString() const
 	{
-		return FString::Printf(TEXT("FOnlineUserPresence {%s, Online? %d Playing? %d ThisGame? %d Joinable? %d VoiceSupport? %d Status: %s"), SessionId.IsValid() ? *SessionId->ToDebugString() : TEXT("NULL"), bIsOnline, bIsPlaying, bIsPlayingThisGame, bIsJoinable, bHasVoiceSupport, *Status.ToDebugString());
+		return FString::Printf(TEXT("FOnlineUserPresence {Online: %d Playing: %d ThisGame: %d Joinable: %d VoiceSupport: %d SessionId: %s Status: %s"), bIsOnline, bIsPlaying, bIsPlayingThisGame, bIsJoinable, bHasVoiceSupport, SessionId.IsValid() ? *SessionId->ToDebugString() : TEXT("NULL"), *Status.ToDebugString());
 	}
 };
 

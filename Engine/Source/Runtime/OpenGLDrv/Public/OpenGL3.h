@@ -564,9 +564,9 @@ struct FOpenGL3 : public FOpenGLBase
 		glGetIntegerv(GL_MINOR_VERSION, &MinorVersion);
 		return MinorVersion;
 	}
-	static FORCEINLINE void ProgramParameter (GLuint Program, GLenum PName, GLint Value)
+	static FORCEINLINE void ProgramParameter(GLuint Program, GLenum PName, GLint Value)
 	{
-		check(FOpenGL3::SupportsSeparateShaderObjects());
+		check(PName != GL_PROGRAM_SEPARABLE || FOpenGL3::SupportsSeparateShaderObjects());
 		glProgramParameteri(Program, PName, Value);
 	}
 	static FORCEINLINE void UseProgramStages(GLuint Pipeline, GLbitfield Stages, GLuint Program)

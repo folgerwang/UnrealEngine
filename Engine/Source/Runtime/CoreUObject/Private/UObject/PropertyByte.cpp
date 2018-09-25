@@ -25,6 +25,7 @@ void UByteProperty::SerializeItem( FStructuredArchive::FSlot Slot, void* Value, 
 
 	if(Enum && UnderlyingArchive.UseToResolveEnumerators())
 	{
+		Slot.EnterStream();
 		 const int64 ResolvedIndex = Enum->ResolveEnumerator(UnderlyingArchive, *(uint8*)Value);
 		 *(uint8*)Value = static_cast<uint8>(ResolvedIndex);
 		 return;

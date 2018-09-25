@@ -57,6 +57,8 @@ enum class EMouseLockMode : uint8
 	LockOnCapture,
 	/** Always lock the mouse cursor to the viewport */
 	LockAlways,
+	/** Lock the cursor if we're in fullscreen */
+	LockInFullscreen,
 };
 
 /** Type of tick we wish to perform on the level */

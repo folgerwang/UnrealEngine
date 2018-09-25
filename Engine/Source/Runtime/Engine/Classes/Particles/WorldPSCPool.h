@@ -101,7 +101,7 @@ public:
 };
 
 USTRUCT()
-struct FWorldPSCPool
+struct ENGINE_API FWorldPSCPool
 {
 	GENERATED_BODY()
 
