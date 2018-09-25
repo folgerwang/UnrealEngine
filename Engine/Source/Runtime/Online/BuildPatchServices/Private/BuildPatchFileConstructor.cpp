@@ -267,13 +267,14 @@ uint32 FBuildPatchFileConstructor::Run()
 			// Get the file manifest.
 			const FFileManifest* FileManifest = Configuration.BuildManifest->GetFileManifest(FileToConstruct);
 			// Go through each chunk part, and dereference it from the reference tracker.
-			for (const FChunkPart& ChunkPart : FileManifest->FileChunkParts)
+			for (const FChunkPart& ChunkPart : FileManifest->ChunkParts)
 			{
 				bFileSuccess = ChunkReferenceTracker->PopReference(ChunkPart.Guid) && bFileSuccess;
 			}
 		}
 		else
 		{
+			GLog->Logf(TEXT("FBuildPatchFileConstructor::Building file %s"), *FileToConstruct);
 			bFileSuccess = ConstructFileFromChunks(FileToConstruct, bFilePreviouslyStarted);
 		}
 
@@ -299,6 +300,7 @@ uint32 FBuildPatchFileConstructor::Run()
 			// This will only record and log if a failure was not already registered.
 			bShouldAbort = true;
 			InstallerError->SetError(EBuildPatchInstallError::FileConstructionFail, ConstructionErrorCodes::UnknownFail);
+			UE_LOG(LogBuildPatchServices, Error, TEXT("FBuildPatchFileConstructor: Failed to build %s "), *FileToConstruct);
 		}
 		FileConstructorStat->OnFileCompleted(FileToConstruct, bFileSuccess);
 
@@ -455,20 +457,24 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 			TUniquePtr<FArchive> NewFileReader(IFileManager::Get().CreateFileReader(*NewFilename));
 			if (NewFileReader.IsValid())
 			{
+				// Start with a sensible buffer size for reading. 4 MiB.
+				const int32 ReadBufferSize = 4194304;
 				// Read buffer
 				TArray<uint8> ReadBuffer;
-				ReadBuffer.Empty(BuildPatchServices::ChunkDataSize);
-				ReadBuffer.SetNumUninitialized(BuildPatchServices::ChunkDataSize);
+				ReadBuffer.Empty(ReadBufferSize);
+				ReadBuffer.SetNumUninitialized(ReadBufferSize);
 				// Reuse a certain amount of the file
 				StartPosition = FMath::Max<int64>(0, NewFileReader->TotalSize() - NUM_BYTES_RESUME_IGNORE);
 				// We'll also find the correct chunkpart to start writing from
 				int64 ByteCounter = 0;
-				for (int32 ChunkPartIdx = StartChunkPart; ChunkPartIdx < FileManifest->FileChunkParts.Num() && !bShouldAbort; ++ChunkPartIdx)
+				for (int32 ChunkPartIdx = StartChunkPart; ChunkPartIdx < FileManifest->ChunkParts.Num() && !bShouldAbort; ++ChunkPartIdx)
 				{
-					const FChunkPart& ChunkPart = FileManifest->FileChunkParts[ChunkPartIdx];
+					const FChunkPart& ChunkPart = FileManifest->ChunkParts[ChunkPartIdx];
 					const int64 NextBytePosition = ByteCounter + ChunkPart.Size;
 					if (NextBytePosition <= StartPosition)
 					{
+						// Ensure buffer is large enough
+						ReadBuffer.SetNumUninitialized(ChunkPart.Size, false);
 						ISpeedRecorder::FRecord ActivityRecord;
 						// Read data for hash check
 						FileConstructorStat->OnBeforeRead();
@@ -506,7 +512,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 		if (!bInitialDiskSizeCheck)
 		{
 			bInitialDiskSizeCheck = true;
-			const uint64 RequiredSpace = CalculateRequiredDiskSpace(Filename, FileManifest->GetFileSize() - StartPosition);
+			const uint64 RequiredSpace = CalculateRequiredDiskSpace(Filename, FileManifest->FileSize - StartPosition);
 			if (!FileConstructorHelpers::CheckAndReportRemainingDiskSpaceError(InstallerError, Configuration.InstallDirectory, RequiredSpace, DiskSpaceErrorCodes::InitialSpaceCheck))
 			{
 				return false;
@@ -544,9 +550,9 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 			}
 
 			// For each chunk, load it, and place it's data into the file
-			for (int32 ChunkPartIdx = StartChunkPart; ChunkPartIdx < FileManifest->FileChunkParts.Num() && bSuccess && !bShouldAbort; ++ChunkPartIdx)
+			for (int32 ChunkPartIdx = StartChunkPart; ChunkPartIdx < FileManifest->ChunkParts.Num() && bSuccess && !bShouldAbort; ++ChunkPartIdx)
 			{
-				const FChunkPart& ChunkPart = FileManifest->FileChunkParts[ChunkPartIdx];
+				const FChunkPart& ChunkPart = FileManifest->ChunkParts[ChunkPartIdx];
 				bSuccess = InsertChunkData(ChunkPart, *NewFile, HashState);
 				FileConstructorStat->OnFileProgress(Filename, NewFile->Tell());
 				if (bSuccess)
@@ -579,7 +585,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 		else
 		{
 			// Check if drive space was the issue here
-			const uint64 RequiredSpace = CalculateRequiredDiskSpace(Filename, FileManifest->GetFileSize());
+			const uint64 RequiredSpace = CalculateRequiredDiskSpace(Filename, FileManifest->FileSize);
 			bool bError = !FileConstructorHelpers::CheckAndReportRemainingDiskSpaceError(InstallerError, Configuration.InstallDirectory, RequiredSpace, DiskSpaceErrorCodes::DuringInstallation);
 
 			// Otherwise we just couldn't make the file
@@ -628,7 +634,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 	}
 
 #if PLATFORM_MAC
-	if( bSuccess && FileManifest->bIsUnixExecutable )
+	if (bSuccess && EnumHasAllFlags(FileManifest->FileMetaFlags, EFileMetaFlags::UnixExecutable))
 	{
 		// Enable executable permission bit
 		struct stat FileInfo;

@@ -199,7 +199,7 @@ void FAutomationAnalytics::FireEvent_FPSCapture(const FAutomationPerformanceSnap
 		ParamArray.Add(FAnalyticsEventAttribute(GetAutomationParamName(EAutomationAnalyticParam::PercentOfFramesAtLeast30FPS), PerfSnapshot.PercentOfFramesAtLeast30FPS));
 		ParamArray.Add(FAnalyticsEventAttribute(GetAutomationParamName(EAutomationAnalyticParam::PercentOfFramesAtLeast60FPS), PerfSnapshot.PercentOfFramesAtLeast60FPS));
 
-		Analytics->RecordEvent(GetAutomationEventName(EAutomationEventName::FPSCapture), ParamArray);
+		Analytics->RecordEvent(GetAutomationEventName(EAutomationEventName::FPSCapture), MoveTemp(ParamArray));
 	}
 }
 
@@ -242,7 +242,7 @@ void FAutomationAnalytics::FireEvent_AutomationTestResults(const FAutomationWork
 		FString ChangeListString = FString::FromInt(ChangeList);
 		ParamArray.Add(FAnalyticsEventAttribute(GetAutomationParamName(EAutomationAnalyticParam::CL), ChangeListString));
 
-		Analytics->RecordEvent(GetAutomationEventName(EAutomationEventName::AutomationTestResults), ParamArray);
+		Analytics->RecordEvent(GetAutomationEventName(EAutomationEventName::AutomationTestResults), MoveTemp(ParamArray));
 	}
 }
 

@@ -20,16 +20,16 @@ public class WebBrowser : ModuleRules
 				"Slate",
 				"SlateCore",
 				"Serialization",
-                "HTTP"
-            }
-        );
+				"HTTP"
+			}
+		);
 
 		if (Target.Platform == UnrealTargetPlatform.Android ||
-            Target.Platform == UnrealTargetPlatform.IOS ||
-            Target.Platform == UnrealTargetPlatform.TVOS)
+		    Target.Platform == UnrealTargetPlatform.IOS ||
+		    Target.Platform == UnrealTargetPlatform.TVOS)
 		{
-            // We need these on mobile for external texture support
-            PrivateDependencyModuleNames.AddRange(
+			// We need these on mobile for external texture support
+			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
 					"WebBrowserTexture",

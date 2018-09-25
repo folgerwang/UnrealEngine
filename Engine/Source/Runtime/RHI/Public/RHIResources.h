@@ -1024,16 +1024,16 @@ typedef TRefCountPtr<FRHIGraphicsPipelineState> FGraphicsPipelineStateRHIRef;
 class FRHIStagingBuffer : public FRHIResource
 {
 public:
-	FRHIStagingBuffer(FVertexBufferRHIRef InBuffer)
+	FRHIStagingBuffer(FVertexBufferRHIParamRef InBuffer)
 		: BackingBuffer(InBuffer)
 	{
 	}
 
     /** Convenience function to access the vertex-buffer that acts as the backing-store. */
-	FVertexBufferRHIParamRef GetBackingBuffer() const { return BackingBuffer; }
+	FVertexBufferRHIParamRef GetBackingBuffer() const { return BackingBuffer.GetReference(); }
 
 protected:
-	FVertexBufferRHIParamRef BackingBuffer;
+	FVertexBufferRHIRef BackingBuffer;
 };
 
 typedef FRHIStagingBuffer*				FStagingBufferRHIParamRef;
@@ -1590,7 +1590,7 @@ struct FImmutableSamplerState
 	TImmutableSamplers ImmutableSamplers;
 };
 
-class FGraphicsPipelineStateInitializer
+class FGraphicsPipelineStateInitializer final
 {
 public:
 	using TRenderTargetFormats		= TStaticArray<EPixelFormat, MaxSimultaneousRenderTargets>;
@@ -1613,6 +1613,7 @@ public:
 		, NumSamples(0)
 		, Flags(0)
 	{
+		FMemory::Memset(this, 0, sizeof(FGraphicsPipelineStateInitializer));
 	}
 
 	FGraphicsPipelineStateInitializer(
@@ -1654,6 +1655,25 @@ public:
 		, NumSamples(InNumSamples)
 		, Flags(InFlags)
 	{
+		FMemory::Memset(this, 0, sizeof(FGraphicsPipelineStateInitializer));
+		BoundShaderState = InBoundShaderState;
+		BlendState = InBlendState;
+		RasterizerState = InRasterizerState;
+		DepthStencilState = InDepthStencilState;
+		PrimitiveType = InPrimitiveType;
+		ImmutableSamplerState = InImmutableSamplerState;
+		RenderTargetsEnabled = InRenderTargetsEnabled;
+		RenderTargetFormats = InRenderTargetFormats;
+		RenderTargetFlags = InRenderTargetFlags;
+		DepthStencilTargetFormat = InDepthStencilTargetFormat;
+		DepthStencilTargetFlag = InDepthStencilTargetFlag;
+		DepthTargetLoadAction = InDepthTargetLoadAction;
+		DepthTargetStoreAction = InDepthTargetStoreAction;
+		StencilTargetLoadAction = InStencilTargetLoadAction;
+		StencilTargetStoreAction = InStencilTargetStoreAction;
+		DepthStencilAccess = InDepthStencilAccess;
+		NumSamples = InNumSamples;
+		Flags = InFlags;
 	}
 
 	bool operator==(const FGraphicsPipelineStateInitializer& rhs) const
@@ -1800,6 +1820,15 @@ public:
 	friend class FMeshDrawingPolicy;
 };
 
+// TIsTriviallyCopyable (a.k.a. std::is_trivially_copyable) should be used but
+// TIsTriviallyCopyable is not provided by the core module at the moment. Core's
+// implementation of TIsTrivial is actually equivalent to std::is_trivially_copyable
+// since std::is_trivial<T> requires T to have a trivial constructor but TIsTrivial
+// doesn't
+static_assert(
+	TIsTrivial<FGraphicsPipelineStateInitializer>::Value,
+	"Due to the use of memset in ctors, FGraphicsPipelineStateInitializer must have no v-table");
+
 // This PSO is used as a fallback for RHIs that dont support PSOs. It is used to set the graphics state using the legacy state setting APIs
 class FRHIGraphicsPipelineStateFallBack : public FRHIGraphicsPipelineState
 {
@@ -1885,6 +1914,11 @@ public:
 	
 	virtual TRefCountPtr<FShaderLibraryIterator> CreateIterator(void) = 0;
 	virtual bool RequestEntry(const FSHAHash& Hash, FArchive* Ar) = 0;
+	virtual bool RequestEntry(const FSHAHash& Hash, TArray<uint8>& OutRaw)
+	{
+		check(!"This shader code library does not support raw reads!");
+		return false;
+	}
 	virtual bool ContainsEntry(const FSHAHash& Hash) = 0;
 	virtual uint32 GetShaderCount(void) const = 0;
 

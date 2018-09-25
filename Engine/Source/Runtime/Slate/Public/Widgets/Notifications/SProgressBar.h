@@ -124,6 +124,8 @@ private:
 	/** Controls the speed at which the widget is ticked when in slate sleep mode */
 	void SetActiveTimerTickRate(float TickRate);
 
+	void UpdateMarqueeActiveTimer();
+
 	/** Widgets active tick */
 	EActiveTimerReturnType ActiveTick(double InCurrentTime, float InDeltaTime);
 

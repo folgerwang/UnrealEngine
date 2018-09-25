@@ -62,7 +62,7 @@ public:
 		/** Default ctor to ensure all values have their proper default. */
 		Config() : UseLegacyProtocol(false) {}
 		/** Ctor exposing common configurables . */
-		Config(FString InAPIKeyET, FString InAPIServerET, FString InAppVersionET = FString(), bool InUseLegacyProtocol = false, FString InAppEnvironment = FString(), FString InUploadType = FString(), TArray<FString> InAltApiServers = TArray<FString>()) 
+		Config(FString InAPIKeyET, FString InAPIServerET, FString InAppVersionET = FString(), bool InUseLegacyProtocol = false, FString InAppEnvironment = FString(), FString InUploadType = FString(), TArray<FString> InAltApiServers = TArray<FString>())
 			: APIKeyET(MoveTemp(InAPIKeyET))
 			, APIServerET(MoveTemp(InAPIServerET))
 			, AltAPIServersET(MoveTemp(InAltApiServers))

@@ -8,6 +8,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 BEGIN_DEFINE_SPEC(FChunkReferenceTrackerSpec, "BuildPatchServices.Unit", EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+const uint32 TestChunkSize = 128 * 1024;
 // Unit
 TUniquePtr<BuildPatchServices::IChunkReferenceTracker> ChunkReferenceTracker;
 // Mock
@@ -17,7 +18,7 @@ TArray<FString> FileList;
 TArray<FString> SubsetFileList;
 TSet<FGuid> AllChunks;
 TSet<FGuid> SubsetReferencedChunks;
-TMap<FString, FFileManifest> FileManifests;
+TMap<FString, BuildPatchServices::FFileManifest> FileManifests;
 TMap<FGuid, int32> ChunkRefCounts;
 TArray<FGuid> UseOrderForwardSortedSubsetArray;
 TArray<FGuid> UseOrderReverseSortedSubsetArray;
@@ -45,22 +46,22 @@ void FChunkReferenceTrackerSpec::Define()
 		ChunkPartData.Guid = FGuid::NewGuid();
 		AllChunks.Add(ChunkPartData.Guid);
 		ChunkPartData.Offset = 0;
-		ChunkPartData.Size = BuildPatchServices::ChunkDataSize;
-		FileManifest.FileChunkParts.Add(ChunkPartData);
+		ChunkPartData.Size = TestChunkSize;
+		FileManifest.ChunkParts.Add(ChunkPartData);
 		// New chunk.
 		ChunkPartData.Guid = FGuid::NewGuid();
 		AllChunks.Add(ChunkPartData.Guid);
 		ChunkPartData.Offset += ChunkPartData.Size;
-		ChunkPartData.Size = BuildPatchServices::ChunkDataSize;
-		FileManifest.FileChunkParts.Add(ChunkPartData);
+		ChunkPartData.Size = TestChunkSize;
+		FileManifest.ChunkParts.Add(ChunkPartData);
 		// Dupe chunk.
 		ChunkPartData.Offset += ChunkPartData.Size;
-		ChunkPartData.Size = BuildPatchServices::ChunkDataSize;
-		FileManifest.FileChunkParts.Add(ChunkPartData);
+		ChunkPartData.Size = TestChunkSize;
+		FileManifest.ChunkParts.Add(ChunkPartData);
 	}
 	for (const FString& File : SubsetFileList)
 	{
-		for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
+		for (const FChunkPart& FileChunkPart : FileManifests[File].ChunkParts)
 		{
 			SubsetReferencedChunks.Add(FileChunkPart.Guid);
 			UseOrderForwardSortedSubsetArray.Add(FileChunkPart.Guid);
@@ -70,7 +71,7 @@ void FChunkReferenceTrackerSpec::Define()
 	}
 	for (const FString& File : FileList)
 	{
-		for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
+		for (const FChunkPart& FileChunkPart : FileManifests[File].ChunkParts)
 		{
 			++ChunkRefCounts.FindOrAdd(FileChunkPart.Guid);
 		}
@@ -101,7 +102,7 @@ void FChunkReferenceTrackerSpec::Define()
 
 				It("should return all chunks that are still referenced.", [this]()
 				{
-					FGuid FirstChunk = FileManifests[FileList[0]].FileChunkParts[0].Guid;
+					FGuid FirstChunk = FileManifests[FileList[0]].ChunkParts[0].Guid;
 					TEST_EQUAL(ChunkRefCounts[FirstChunk], 1);
 					ChunkReferenceTracker->PopReference(FirstChunk);
 					TSet<FGuid> ReferencedChunks = ChunkReferenceTracker->GetReferencedChunks();
@@ -114,7 +115,7 @@ void FChunkReferenceTrackerSpec::Define()
 				{
 					for (const FString& File : FileList)
 					{
-						for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
+						for (const FChunkPart& FileChunkPart : FileManifests[File].ChunkParts)
 						{
 							ChunkReferenceTracker->PopReference(FileChunkPart.Guid);
 						}
@@ -144,7 +145,7 @@ void FChunkReferenceTrackerSpec::Define()
 
 				It("should return all chunks that are still referenced.", [this]()
 				{
-					FGuid FirstChunk = FileManifests[SubsetFileList[0]].FileChunkParts[0].Guid;
+					FGuid FirstChunk = FileManifests[SubsetFileList[0]].ChunkParts[0].Guid;
 					TEST_EQUAL(ChunkRefCounts[FirstChunk], 1);
 					ChunkReferenceTracker->PopReference(FirstChunk);
 					TSet<FGuid> ReferencedChunks = ChunkReferenceTracker->GetReferencedChunks();
@@ -157,7 +158,7 @@ void FChunkReferenceTrackerSpec::Define()
 				{
 					for (const FString& File : SubsetFileList)
 					{
-						for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
+						for (const FChunkPart& FileChunkPart : FileManifests[File].ChunkParts)
 						{
 							ChunkReferenceTracker->PopReference(FileChunkPart.Guid);
 						}
@@ -194,7 +195,7 @@ void FChunkReferenceTrackerSpec::Define()
 
 			It("should return adjusted count for popped references.", [this]()
 			{
-				FGuid FirstChunk = FileManifests[FileList[0]].FileChunkParts[0].Guid;
+				FGuid FirstChunk = FileManifests[FileList[0]].ChunkParts[0].Guid;
 				TEST_EQUAL(ChunkReferenceTracker->GetReferenceCount(FirstChunk), ChunkRefCounts[FirstChunk]);
 				ChunkReferenceTracker->PopReference(FirstChunk);
 				TEST_EQUAL(ChunkReferenceTracker->GetReferenceCount(FirstChunk), ChunkRefCounts[FirstChunk]-1);
@@ -204,7 +205,7 @@ void FChunkReferenceTrackerSpec::Define()
 			{
 				for (const FString& File : FileList)
 				{
-					for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
+					for (const FChunkPart& FileChunkPart : FileManifests[File].ChunkParts)
 					{
 						ChunkReferenceTracker->PopReference(FileChunkPart.Guid);
 					}
@@ -345,7 +346,7 @@ void FChunkReferenceTrackerSpec::Define()
 
 			It("should return true when popping the top chunk", [this]()
 			{
-				FGuid TopChunk = FileManifests[FileList[0]].FileChunkParts[0].Guid;
+				FGuid TopChunk = FileManifests[FileList[0]].ChunkParts[0].Guid;
 				TEST_TRUE(ChunkReferenceTracker->PopReference(TopChunk));
 			});
 
@@ -358,7 +359,7 @@ void FChunkReferenceTrackerSpec::Define()
 			{
 				for (const FString& File : FileList)
 				{
-					for (const FChunkPart& FileChunkPart : FileManifests[File].FileChunkParts)
+					for (const FChunkPart& FileChunkPart : FileManifests[File].ChunkParts)
 					{
 						TEST_TRUE(ChunkReferenceTracker->PopReference(FileChunkPart.Guid));
 					}
@@ -367,7 +368,7 @@ void FChunkReferenceTrackerSpec::Define()
 
 			It("should return false for all except the top chunk", [this]()
 			{
-				FGuid FirstChunk = FileManifests[FileList[0]].FileChunkParts[0].Guid;
+				FGuid FirstChunk = FileManifests[FileList[0]].ChunkParts[0].Guid;
 				for (const FGuid& ChunkId : AllChunks)
 				{
 					if (ChunkId != FirstChunk)
@@ -379,7 +380,7 @@ void FChunkReferenceTrackerSpec::Define()
 
 			It("should return true for correct pop following many incorrect pops", [this]()
 			{
-				FGuid FirstChunk = FileManifests[FileList[0]].FileChunkParts[0].Guid;
+				FGuid FirstChunk = FileManifests[FileList[0]].ChunkParts[0].Guid;
 				for (const FGuid& ChunkId : AllChunks)
 				{
 					if (ChunkId != FirstChunk)

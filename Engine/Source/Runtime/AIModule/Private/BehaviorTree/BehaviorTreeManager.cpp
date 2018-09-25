@@ -24,6 +24,8 @@ DEFINE_STAT(STAT_AI_BehaviorTree_LoadTime);
 DEFINE_STAT(STAT_AI_BehaviorTree_SearchTime);
 DEFINE_STAT(STAT_AI_BehaviorTree_ExecutionTime);
 DEFINE_STAT(STAT_AI_BehaviorTree_AuxUpdateTime);
+DEFINE_STAT(STAT_AI_BehaviorTree_Cleanup);
+DEFINE_STAT(STAT_AI_BehaviorTree_StopTree);
 DEFINE_STAT(STAT_AI_BehaviorTree_NumTemplates);
 DEFINE_STAT(STAT_AI_BehaviorTree_NumInstances);
 DEFINE_STAT(STAT_AI_BehaviorTree_InstanceMemory);

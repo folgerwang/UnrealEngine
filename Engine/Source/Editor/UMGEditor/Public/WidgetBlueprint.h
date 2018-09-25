@@ -145,6 +145,10 @@ struct UMGEDITOR_API FDelegateEditorBinding
 		return ObjectName == Other.ObjectName && PropertyName == Other.PropertyName;
 	}
 
+	bool IsAttributePropertyBinding(class UWidgetBlueprint* Blueprint) const;
+
+	bool DoesBindingTargetExist(UWidgetBlueprint* Blueprint) const;
+
 	bool IsBindingValid(UClass* Class, class UWidgetBlueprint* Blueprint, FCompilerResultsLog& MessageLog) const;
 
 	FDelegateRuntimeBinding ToRuntimeBinding(class UWidgetBlueprint* Blueprint) const;
@@ -288,6 +292,8 @@ public:
 
 	void UpdateTickabilityStats(bool& OutHasLatentActions, bool& OutHasAnimations, bool& OutClassRequiresNativeTick);
 
+	bool ArePropertyBindingsAllowed() const;
+
 private:
 #if WITH_EDITOR
 	virtual void LoadModulesRequiredForCompilation() override;
@@ -295,35 +301,37 @@ private:
 public:
 
 	/**
-	* The total number of widgets this widget contains.  This is a good way to find the "largest" widgets.
-	*/
+	 * The total number of widgets this widget contains.  This is a good way to find the "largest" widgets.
+	 */
 	UPROPERTY(AssetRegistrySearchable)
 	int32 InclusiveWidgets;
 
 private:
 	/**
-	* The desired tick frequency set by the user on the UserWidget's CDO.
-	*/
+	 * The desired tick frequency set by the user on the UserWidget's CDO.
+	 */
 	UPROPERTY(AssetRegistrySearchable)
 	EWidgetTickFrequency TickFrequency;
 
 	/**
-	* The computed frequency that the widget will need to be ticked at.  You can find the reasons for
-	* this decision by looking at TickPredictionReason.
-	*/
+	 * The computed frequency that the widget will need to be ticked at.  You can find the reasons for
+	 * this decision by looking at TickPredictionReason.
+	 */
 	UPROPERTY(AssetRegistrySearchable)
 	EWidgetCompileTimeTickPrediction TickPrediction;
 
 	/**
-	* The reasons we may need to tick this widget.
-	*/
+	 * The reasons we may need to tick this widget.
+	 */
 	UPROPERTY(AssetRegistrySearchable)
 	FString TickPredictionReason;
 
+public:
+
 	/**
-	* The total number of property bindings.  Consider this as a performance warning.
-	*/
+	 * The total number of property bindings.  Consider this as a performance warning.
+	 */
 	UPROPERTY(AssetRegistrySearchable)
 	int32 PropertyBindings;
-#endif 
+#endif
 };

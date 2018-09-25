@@ -120,7 +120,7 @@ public:
 
 	/** Mark current video mode settings (fullscreenmode/resolution) as being confirmed by the user */
 	UFUNCTION(BlueprintCallable, Category=Settings)
-	void ConfirmVideoMode();
+	virtual void ConfirmVideoMode();
 
 	/** Revert video mode (fullscreenmode/resolution) back to the last user confirmed values */
 	UFUNCTION(BlueprintCallable, Category=Settings)
@@ -376,6 +376,9 @@ protected:
 	UPROPERTY(config)
 	int32 AudioQualityLevel;
 
+	UPROPERTY(config)
+	int32 LastConfirmedAudioQualityLevel;
+
 	/** Frame rate cap */
 	UPROPERTY(config)
 	float FrameRateLimit;
@@ -464,6 +467,11 @@ public:
 	TArray<float> GetLastGPUBenchmarkSteps() const
 	{
 		return LastGPUBenchmarkSteps;
+	}
+
+	void RequestUIUpdate()
+	{
+		OnGameUserSettingsUINeedsUpdate.Broadcast();
 	}
 
 protected:

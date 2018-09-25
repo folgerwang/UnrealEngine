@@ -6,7 +6,7 @@ public class Qos : ModuleRules
 {
 	public Qos(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PublicDefinitions.Add("QOS_PACKAGE=1");
+		PrivateDefinitions.Add("QOS_PACKAGE=1");
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		PrivateIncludePaths.AddRange(
@@ -19,6 +19,7 @@ public class Qos : ModuleRules
 				"Core", 
 				"CoreUObject",
 				"Engine", 
+				"Json",
                 "Icmp",
 				"OnlineSubsystem",
 				"OnlineSubsystemUtils"

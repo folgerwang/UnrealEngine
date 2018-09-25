@@ -316,6 +316,11 @@ FString FGenericPlatformMisc::GetCPUBrand()
 	return FString( TEXT( "GenericCPUBrand" ) );
 }
 
+FString FGenericPlatformMisc::GetCPUChipset()
+{
+	return FString( TEXT( "Unknown" ) );
+}
+
 uint32 FGenericPlatformMisc::GetCPUInfo()
 {
 	// Not implemented cross-platform. Each platform may or may not choose to implement this.
@@ -344,6 +349,16 @@ FString FGenericPlatformMisc::GetDeviceMakeAndModel()
 {
 	const FString CPUVendor = FPlatformMisc::GetCPUVendor().TrimStartAndEnd();
 	const FString CPUBrand = FPlatformMisc::GetCPUBrand().TrimStartAndEnd();
+	const FString CPUChipset = FPlatformMisc::GetCPUChipset().TrimStartAndEnd();
+	if (!CPUChipset.Equals(TEXT("Unknown")))
+	{
+		if (CPUBrand.Contains(TEXT("|")))
+		{
+			FString FixedCPUBrand = CPUBrand.Replace(TEXT("|"), TEXT("_"));
+			return FString::Printf(TEXT("%s|%s|%s"), *CPUVendor, *FixedCPUBrand, *CPUChipset);
+		}
+		return FString::Printf(TEXT("%s|%s|%s"), *CPUVendor, *CPUBrand, *CPUChipset);
+	}
 	return FString::Printf(TEXT("%s|%s"), *CPUVendor, *CPUBrand);
 }
 
@@ -713,6 +728,23 @@ const TCHAR* FGenericPlatformMisc::RootDir()
 		FPaths::RemoveDuplicateSlashes(Path);
 	}
 	return *Path;
+}
+
+const TArray<FString>& FGenericPlatformMisc::GetAdditionalRootDirectories()
+{
+	return Internal_GetAdditionalRootDirectories();
+}
+
+void FGenericPlatformMisc::AddAdditionalRootDirectory(const FString& RootDir)
+{
+	TArray<FString>& RootDirectories = Internal_GetAdditionalRootDirectories();
+	RootDirectories.Add(RootDir);
+}
+
+TArray<FString>& FGenericPlatformMisc::Internal_GetAdditionalRootDirectories() 
+{
+	static TArray<FString> AdditionalRootDirectories;
+	return AdditionalRootDirectories;
 }
 
 const TCHAR* FGenericPlatformMisc::EngineDir()
@@ -1085,6 +1117,11 @@ EDeviceScreenOrientation FGenericPlatformMisc::GetDeviceOrientation()
 	return EDeviceScreenOrientation::Unknown;
 }
 
+int32 FGenericPlatformMisc::GetDeviceVolume()
+{
+	return -1;
+}
+
 FGuid FGenericPlatformMisc::GetMachineId()
 {
 	static FGuid MachineId;
@@ -1195,9 +1232,10 @@ void FGenericPlatformMisc::UnregisterForRemoteNotifications()
 	// not implemented by default
 }
 
-void FGenericPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QueryCompleteFunc)
+bool FGenericPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QuerySucceededFunc, TFunction<void(const FString&, const FString&)> QueryFailedFunc)
 {
 	// not implemented by default
+	return false;
 }
 
 TArray<FChunkTagID> FGenericPlatformMisc::GetOnDemandChunkTagIDs()

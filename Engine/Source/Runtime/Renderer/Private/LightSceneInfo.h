@@ -232,7 +232,15 @@ public:
 
 	void SetDynamicShadowMapChannel(int32 NewChannel)
 	{
-		DynamicShadowMapChannel = NewChannel;
+		if (Proxy->HasStaticShadowing())
+		{
+			// This ensure would trigger if several static shadowing light intersects eachother and have the same channel.
+			// ensure(Proxy->GetPreviewShadowMapChannel() == NewChannel);
+		}
+		else
+		{
+			DynamicShadowMapChannel = NewChannel;
+		}
 	}
 
 	int32 GetDynamicShadowMapChannel() const

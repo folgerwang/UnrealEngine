@@ -33,7 +33,14 @@ void FOutputDeviceRedirector::AddOutputDevice( FOutputDevice* OutputDevice )
 
 	if( OutputDevice )
 	{
-		OutputDevices.AddUnique( OutputDevice );
+		if (OutputDevice->CanBeUsedOnMultipleThreads())
+		{
+			UnbufferedOutputDevices.AddUnique(OutputDevice);
+		}
+		else
+		{
+			BufferedOutputDevices.AddUnique(OutputDevice);
+		}
 	}
 }
 
@@ -45,7 +52,8 @@ void FOutputDeviceRedirector::AddOutputDevice( FOutputDevice* OutputDevice )
 void FOutputDeviceRedirector::RemoveOutputDevice( FOutputDevice* OutputDevice )
 {
 	FScopeLock ScopeLock( &SynchronizationObject );
-	OutputDevices.Remove( OutputDevice );
+	BufferedOutputDevices.Remove( OutputDevice );
+	UnbufferedOutputDevices.Remove(OutputDevice);
 }
 
 /**
@@ -58,7 +66,7 @@ bool FOutputDeviceRedirector::IsRedirectingTo( FOutputDevice* OutputDevice )
 {
 	FScopeLock ScopeLock( &SynchronizationObject );
 
-	return OutputDevices.Find( OutputDevice ) == INDEX_NONE ? false : true;
+	return BufferedOutputDevices.Contains(OutputDevice) || UnbufferedOutputDevices.Contains(OutputDevice);
 }
 
 /**
@@ -71,9 +79,9 @@ void FOutputDeviceRedirector::UnsynchronizedFlushThreadedLogs( bool bUseAllDevic
 	{
 		FBufferedLine BufferedLine = BufferedLines[LineIndex];
 
-		for( int32 OutputDeviceIndex=0; OutputDeviceIndex<OutputDevices.Num(); OutputDeviceIndex++ )
+		for( int32 OutputDeviceIndex=0; OutputDeviceIndex<BufferedOutputDevices.Num(); OutputDeviceIndex++ )
 		{
-			FOutputDevice* OutputDevice = OutputDevices[OutputDeviceIndex];
+			FOutputDevice* OutputDevice = BufferedOutputDevices[OutputDeviceIndex];
 			if( OutputDevice->CanBeUsedOnAnyThread() || bUseAllDevices )
 			{
 				OutputDevice->Serialize( *BufferedLine.Data, BufferedLine.Verbosity, BufferedLine.Category, BufferedLine.Time );
@@ -106,13 +114,18 @@ void FOutputDeviceRedirector::PanicFlushThreadedLogs()
 	UnsynchronizedFlushThreadedLogs( false );
 
 	// Flush devices.
-	for (int32 OutputDeviceIndex = 0; OutputDeviceIndex<OutputDevices.Num(); OutputDeviceIndex++)
+	for (int32 OutputDeviceIndex = 0; OutputDeviceIndex<BufferedOutputDevices.Num(); OutputDeviceIndex++)
 	{
-		FOutputDevice* OutputDevice = OutputDevices[OutputDeviceIndex];
+		FOutputDevice* OutputDevice = BufferedOutputDevices[OutputDeviceIndex];
 		if (OutputDevice->CanBeUsedOnAnyThread())
 		{
 			OutputDevice->Flush();
 		}
+	}
+
+	for (int32 OutputDeviceIndex = 0; OutputDeviceIndex < UnbufferedOutputDevices.Num(); OutputDeviceIndex++)
+	{
+		UnbufferedOutputDevices[OutputDeviceIndex]->Flush();
 	}
 
 	BufferedLines.Empty();
@@ -171,7 +184,7 @@ void FOutputDeviceRedirector::Serialize( const TCHAR* Data, ELogVerbosity::Type 
 
 #if PLATFORM_DESKTOP
 	// this is for errors which occur after shutdown we might be able to salvage information from stdout 
-	if ((OutputDevices.Num() == 0)&& GIsRequestingExit)
+	if ((BufferedOutputDevices.Num() == 0) && GIsRequestingExit)
 	{
 #if PLATFORM_WINDOWS
 		_tprintf(_T("%s\n"), Data);
@@ -183,13 +196,19 @@ void FOutputDeviceRedirector::Serialize( const TCHAR* Data, ELogVerbosity::Type 
 	}
 #endif
 
+	// Serialize directly to any output devices which don't require buffering
+	for (int32 OutputDeviceIndex = 0; OutputDeviceIndex < UnbufferedOutputDevices.Num(); OutputDeviceIndex++)
+	{
+		UnbufferedOutputDevices[OutputDeviceIndex]->Serialize(Data, Verbosity, Category, RealTime);
+	}
+
 
 	if ( bEnableBacklog )
 	{
 		new(BacklogLines)FBufferedLine( Data, Category, Verbosity, RealTime );
 	}
 
-	if(FPlatformTLS::GetCurrentThreadId() != MasterThreadID || OutputDevices.Num() == 0)
+	if(FPlatformTLS::GetCurrentThreadId() != MasterThreadID || BufferedOutputDevices.Num() == 0)
 	{
 		new(BufferedLines)FBufferedLine( Data, Category, Verbosity, RealTime );
 	}
@@ -199,9 +218,9 @@ void FOutputDeviceRedirector::Serialize( const TCHAR* Data, ELogVerbosity::Type 
 		// Since we already hold a lock on SynchronizationObject, call the unsynchronized version.
 		UnsynchronizedFlushThreadedLogs( true );
 
-		for( int32 OutputDeviceIndex=0; OutputDeviceIndex<OutputDevices.Num(); OutputDeviceIndex++ )
+		for( int32 OutputDeviceIndex=0; OutputDeviceIndex<BufferedOutputDevices.Num(); OutputDeviceIndex++ )
 		{
-			OutputDevices[OutputDeviceIndex]->Serialize( Data, Verbosity, Category, RealTime );
+			BufferedOutputDevices[OutputDeviceIndex]->Serialize( Data, Verbosity, Category, RealTime );
 		}
 	}
 }
@@ -216,18 +235,23 @@ void FOutputDeviceRedirector::Serialize( const TCHAR* Data, ELogVerbosity::Type 
  */
 void FOutputDeviceRedirector::Flush()
 {
+	FScopeLock ScopeLock( &SynchronizationObject );
+
 	if(FPlatformTLS::GetCurrentThreadId() == MasterThreadID)
 	{
-		FScopeLock ScopeLock( &SynchronizationObject );
-
 		// Flush previously buffered lines from secondary threads.
 		// Since we already hold a lock on SynchronizationObject, call the unsynchronized version.
 		UnsynchronizedFlushThreadedLogs( true );
 
-		for( int32 OutputDeviceIndex=0; OutputDeviceIndex<OutputDevices.Num(); OutputDeviceIndex++ )
+		for( int32 OutputDeviceIndex=0; OutputDeviceIndex<BufferedOutputDevices.Num(); OutputDeviceIndex++ )
 		{
-			OutputDevices[OutputDeviceIndex]->Flush();
+			BufferedOutputDevices[OutputDeviceIndex]->Flush();
 		}
+	}
+
+	for (int32 OutputDeviceIndex = 0; OutputDeviceIndex < UnbufferedOutputDevices.Num(); OutputDeviceIndex++)
+	{
+		UnbufferedOutputDevices[OutputDeviceIndex]->Flush();
 	}
 }
 
@@ -246,16 +270,24 @@ void FOutputDeviceRedirector::TearDown()
 	// Since we already hold a lock on SynchronizationObject, call the unsynchronized version.
 	UnsynchronizedFlushThreadedLogs( false );
 
-	for( int32 OutputDeviceIndex=0; OutputDeviceIndex<OutputDevices.Num(); OutputDeviceIndex++ )
+	for( int32 OutputDeviceIndex=0; OutputDeviceIndex<BufferedOutputDevices.Num(); OutputDeviceIndex++ )
 	{
-		FOutputDevice* OutputDevice = OutputDevices[OutputDeviceIndex];
+		FOutputDevice* OutputDevice = BufferedOutputDevices[OutputDeviceIndex];
 		if (OutputDevice->CanBeUsedOnAnyThread())
 		{
 			OutputDevice->Flush();
 		}
 		OutputDevice->TearDown();
 	}
-	OutputDevices.Empty();
+	BufferedOutputDevices.Empty();
+
+	for (int32 OutputDeviceIndex = 0; OutputDeviceIndex < UnbufferedOutputDevices.Num(); OutputDeviceIndex++)
+	{
+		FOutputDevice* OutputDevice = UnbufferedOutputDevices[OutputDeviceIndex];
+		OutputDevice->Flush();
+		OutputDevice->TearDown();
+	}
+	UnbufferedOutputDevices.Empty();
 }
 
 CORE_API FOutputDeviceRedirector* GetGlobalLogSingleton()

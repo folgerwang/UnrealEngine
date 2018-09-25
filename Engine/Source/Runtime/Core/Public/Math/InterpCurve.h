@@ -38,6 +38,7 @@ public:
 	/** Default constructor. */
 	FInterpCurve() 
 		: bIsLooped(false)
+		, LoopKeyOffset(0.f)
 	{ 
 	}
 

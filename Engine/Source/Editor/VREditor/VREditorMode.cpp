@@ -155,7 +155,7 @@ void UVREditorMode::Init()
 *
 * @Trigger Entering VR editing mode
 *
-* @Type Static
+* @Type Client
 *
 * @EventParam HMDDevice (string) The name of the HMD Device type
 *

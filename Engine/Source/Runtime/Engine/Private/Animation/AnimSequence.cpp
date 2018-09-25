@@ -2793,7 +2793,7 @@ void UAnimSequence::BakeOutAdditiveIntoRawData()
 			{
 				FCurveElement& CurveEL = Curve.Elements[ArrayIndex];
 				FFloatCurve* RawCurve = GetFloatCurve(NewCurveTracks, CurveUID);
-				if (!RawCurve && CurveEL.Value > 0.f) //Only make a new curve if we are going to give it data
+				if (!RawCurve && CurveEL.Value != 0.f) //Only make a new curve if we are going to give it data
 				{
 					FSmartName NewCurveName;
 					// if we don't have name, there is something wrong here. 

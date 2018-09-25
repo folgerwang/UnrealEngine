@@ -214,6 +214,18 @@ TSharedRef<SWidget> UDynamicEntryBox::RebuildWidget()
 	return EntryBoxWidget.ToSharedRef();
 }
 
+#if WITH_EDITOR
+void UDynamicEntryBox::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (MyPanelWidget.IsValid() && PropertyChangedEvent.GetPropertyName() == TEXT("EntryBoxType"))
+	{
+		MyPanelWidget.Reset();
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif
+
 void UDynamicEntryBox::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();
@@ -231,13 +243,15 @@ void UDynamicEntryBox::SynchronizeProperties()
 		{
 			// When the number of entries to preview changes, the easiest thing to do is just soft-rebuild
 			Reset();
-			while (MyPanelWidget->GetChildren()->Num() < NumDesignerPreviewEntries)
+			int32 StartingNumber = MyPanelWidget->GetChildren()->Num();
+			while (StartingNumber < NumDesignerPreviewEntries)
 			{
-				UUserWidget* PreviewEntry = CreateEntryInternal();
+				UUserWidget* PreviewEntry = CreateEntryInternal(EntryWidgetClass);
 				if (IsDesignTime() && OnPreviewEntryCreatedFunc)
 				{
 					OnPreviewEntryCreatedFunc(PreviewEntry);
 				}
+				StartingNumber++;
 			}
 		}
 		else
@@ -256,11 +270,21 @@ UUserWidget* UDynamicEntryBox::BP_CreateEntry()
 	return CreateEntry();
 }
 
-UUserWidget* UDynamicEntryBox::CreateEntryInternal()
+UUserWidget* UDynamicEntryBox::BP_CreateEntryOfClass(TSubclassOf<UUserWidget> EntryClass)
+{
+	if (EntryClass)
+	{
+		return CreateEntryInternal(EntryClass);
+	}
+
+	return nullptr;
+}
+
+UUserWidget* UDynamicEntryBox::CreateEntryInternal(TSubclassOf<UUserWidget> InEntryClass)
 {
 	if (MyPanelWidget.IsValid())
 	{
-		UUserWidget* NewEntryWidget = EntryWidgetPool.GetOrCreateInstance(EntryWidgetClass);
+		UUserWidget* NewEntryWidget = EntryWidgetPool.GetOrCreateInstance(InEntryClass);
 		AddEntryChild(*NewEntryWidget);
 		return NewEntryWidget;
 	}

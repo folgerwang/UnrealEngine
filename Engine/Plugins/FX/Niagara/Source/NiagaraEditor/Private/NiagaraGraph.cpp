@@ -43,7 +43,7 @@ bool bWriteToLog = false;
 #define LOCTEXT_NAMESPACE "NiagaraGraph"
 
 FNiagaraGraphParameterReferenceCollection::FNiagaraGraphParameterReferenceCollection(const bool bInCreated)
-	: bCreated(bInCreated)
+	: Graph(nullptr), bCreated(bInCreated)
 {
 }
 
@@ -52,7 +52,7 @@ bool FNiagaraGraphParameterReferenceCollection::WasCreated() const
 	return bCreated;
 }
 
-FNiagaraGraphScriptUsageInfo::FNiagaraGraphScriptUsageInfo() 
+FNiagaraGraphScriptUsageInfo::FNiagaraGraphScriptUsageInfo() : UsageType(ENiagaraScriptUsage::Function)
 {
 	DataHash.AddZeroed(sizeof(FSHAHash));
 }

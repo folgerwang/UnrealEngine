@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
@@ -51,6 +52,14 @@ namespace UnrealBuildTool
 		/// </summary>
 		public class EncryptionKey
 		{
+			/// <summary>
+			/// Optional name for this encryption key
+			/// </summary>
+			public string Name;
+			/// <summary>
+			/// Optional guid for this encryption key
+			/// </summary>
+			public string Guid;
 			/// <summary>
 			/// 128 bit AES key
 			/// </summary>
@@ -104,6 +113,11 @@ namespace UnrealBuildTool
 			public bool bDataCryptoRequired = false;
 
 			/// <summary>
+			/// A set of named encryption keys that can be used to encrypt different sets of data with a different key that is delivered dynamically (i.e. not embedded within the game executable)
+			/// </summary>
+			public EncryptionKey[] SecondaryEncryptionKeys;
+
+			/// <summary>
 			/// 
 			/// </summary>
 			public bool IsAnyEncryptionEnabled()
@@ -141,14 +155,7 @@ namespace UnrealBuildTool
 
 			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, InProjectDirectory, InTargetPlatform);
 			Ini.GetBool("PlatformCrypto", "PlatformRequiresDataCrypto", out Settings.bDataCryptoRequired);
-
-			// For now, we'll just not parse any keys if data crypto is disabled for this platform. In the future, we might want to use
-			// these keys for non-data purposes (other general purpose encryption maybe?)
-			if (!Settings.bDataCryptoRequired)
-			{
-				return Settings;
-			}
-
+			
 			{
 				// Start by parsing the legacy encryption.ini settings
 				Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Encryption, InProjectDirectory, InTargetPlatform);
@@ -226,6 +233,43 @@ namespace UnrealBuildTool
 					Settings.EncryptionKey.Key = System.Convert.FromBase64String(EncryptionKeyString);
 				}
 
+				// Parse secondary encryption keys
+				List<EncryptionKey> SecondaryEncryptionKeys = new List<EncryptionKey>();
+				List<string> SecondaryEncryptionKeyStrings;
+
+				if (Ini.GetArray(SectionName, "SecondaryEncryptionKeys", out SecondaryEncryptionKeyStrings))
+				{
+					foreach (string KeySource in SecondaryEncryptionKeyStrings)
+					{
+						EncryptionKey NewKey = new EncryptionKey();
+						SecondaryEncryptionKeys.Add(NewKey);
+
+						Regex Search = new Regex("\\(Guid=(?\'Guid\'.*),Name=\\\"(?\'Name\'.*)\\\",Key=\\\"(?\'Key\'.*)\\\"\\)");
+						Match Match = Search.Match(KeySource);
+						if (Match.Success)
+						{
+							foreach (string GroupName in Search.GetGroupNames())
+							{
+								string Value = Match.Groups[GroupName].Value;
+								if (GroupName == "Guid")
+								{
+									NewKey.Guid = Value;
+								}
+								else if (GroupName == "Name")
+								{
+									NewKey.Name = Value;
+								}
+								else if (GroupName == "Key")
+								{
+									NewKey.Key = System.Convert.FromBase64String(Value);
+								}
+							}
+						}
+					}
+				}
+
+				Settings.SecondaryEncryptionKeys = SecondaryEncryptionKeys.ToArray();
+
 				// Parse signing key
 				string PrivateExponent, PublicExponent, Modulus;
 				Ini.GetString(SectionName, "SigningPrivateExponent", out PrivateExponent);
@@ -240,6 +284,54 @@ namespace UnrealBuildTool
 					Settings.SigningKey.PrivateKey.Exponent = System.Convert.FromBase64String(PrivateExponent);
 					Settings.SigningKey.PrivateKey.Modulus = Settings.SigningKey.PublicKey.Modulus;
 				}
+			}
+
+			// Parse project dynamic keychain keys
+			if (InProjectDirectory != null)
+			{
+				ConfigHierarchy GameIni = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, InProjectDirectory, InTargetPlatform);
+				if (GameIni != null)
+				{
+					string Filename;
+					if (GameIni.GetString("ContentEncryption", "ProjectKeyChain", out Filename))
+					{
+						FileReference ProjectKeyChainFile = FileReference.Combine(InProjectDirectory, "Content", Filename);
+						if (FileReference.Exists(ProjectKeyChainFile))
+						{
+							List<EncryptionKey> EncryptionKeys = new List<EncryptionKey>(Settings.SecondaryEncryptionKeys);
+
+							string[] Lines = FileReference.ReadAllLines(ProjectKeyChainFile);
+							foreach (string Line in Lines)
+							{
+								string[] KeyParts = Line.Split(':');
+								if (KeyParts.Length == 4)
+								{
+									EncryptionKey NewKey = new EncryptionKey();
+
+									NewKey.Name = KeyParts[0];
+									NewKey.Guid = KeyParts[2];
+									NewKey.Key = System.Convert.FromBase64String(KeyParts[3]);
+
+									if (EncryptionKeys.Find((EncryptionKey OtherKey) => { return OtherKey.Guid == NewKey.Guid; }) != null)
+									{
+										throw new Exception("Found a duplicated encryption key guid when merging a project keychain into the secondary key list");
+									}
+
+									EncryptionKeys.Add(NewKey);
+								}
+							}
+
+							Settings.SecondaryEncryptionKeys = EncryptionKeys.ToArray();
+						}
+					}
+				}
+			}
+
+			if (!Settings.bDataCryptoRequired)
+			{
+				CryptoSettings NewSettings = new CryptoSettings();
+				NewSettings.SecondaryEncryptionKeys = Settings.SecondaryEncryptionKeys;
+				Settings = NewSettings;
 			}
 
 			return Settings;

@@ -203,16 +203,15 @@ PRAGMA_DISABLE_OPTIMIZATION
 
 void PrintScriptCallStackImpl()
 {
-	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
-	if( BlueprintExceptionTracker.ScriptStack.Num() > 0 )
+	const FBlueprintExceptionTracker* BlueprintExceptionTracker = FBlueprintExceptionTracker::TryGet();
+	if (BlueprintExceptionTracker)
 	{
-		FString ScriptStack = TEXT( "\n\nScript Stack:\n" );
-		for (int32 FrameIdx = BlueprintExceptionTracker.ScriptStack.Num() - 1; FrameIdx >= 0; --FrameIdx)
+		FString ScriptStack = FString::Printf(TEXT("\n\nScript Stack (%d frames):\n"), BlueprintExceptionTracker->ScriptStack.Num());
+		for (int32 FrameIdx = BlueprintExceptionTracker->ScriptStack.Num() - 1; FrameIdx >= 0; --FrameIdx)
 		{
-			ScriptStack += BlueprintExceptionTracker.ScriptStack[FrameIdx]->GetStackDescription() + TEXT( "\n" );
+			ScriptStack += BlueprintExceptionTracker->ScriptStack[FrameIdx]->GetStackDescription() + TEXT("\n");
 		}
-
-		UE_LOG( LogOutputDevice, Warning, TEXT( "%s" ), *ScriptStack );
+		UE_LOG(LogOutputDevice, Warning, TEXT("%s"), *ScriptStack);
 	}
 }
 

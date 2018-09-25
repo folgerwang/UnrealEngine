@@ -51,7 +51,7 @@ void FXmppConnectionStrophe::Login(const FString& UserId, const FString& Auth)
 	{
 		UE_LOG(LogXmpp, Log, TEXT("Starting Login on connection"));
 		UE_LOG(LogXmpp, Log, TEXT("  Server = %s:%d"), *ServerConfiguration.ServerAddr, ServerConfiguration.ServerPort);
-		UE_LOG(LogXmpp, Log, TEXT("  User = %s"), *NewJid.GetFullPath());
+		UE_LOG(LogXmpp, Log, TEXT("  User = %s"), *NewJid.ToDebugString());
 
 		if (LoginStatus == EXmppLoginStatus::ProcessingLogin)
 		{
@@ -343,7 +343,7 @@ void FXmppConnectionStrophe::ProcessLoginStatusChange(EXmppLoginStatus::Type New
 
 		if (NewLoginStatus == EXmppLoginStatus::LoggedIn)
 		{
-			UE_LOG(LogXmpp, Log, TEXT("Logged IN JID=%s"), *GetUserJid().GetFullPath());
+			UE_LOG(LogXmpp, Log, TEXT("Logged IN JID=%s"), *GetUserJid().ToDebugString());
 			if (OldLoginStatus == EXmppLoginStatus::ProcessingLogin)
 			{
 				OnLoginComplete().Broadcast(GetUserJid(), true, FString());
@@ -352,7 +352,7 @@ void FXmppConnectionStrophe::ProcessLoginStatusChange(EXmppLoginStatus::Type New
 		}
 		else if (NewLoginStatus == EXmppLoginStatus::LoggedOut)
 		{
-			UE_LOG(LogXmpp, Log, TEXT("Logged OUT JID=%s"), *GetUserJid().GetFullPath());
+			UE_LOG(LogXmpp, Log, TEXT("Logged OUT JID=%s"), *GetUserJid().ToDebugString());
 			if (OldLoginStatus == EXmppLoginStatus::ProcessingLogin)
 			{
 				OnLoginComplete().Broadcast(GetUserJid(), false, FString());

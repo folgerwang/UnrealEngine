@@ -98,6 +98,9 @@ void PrintScriptCallstack()
  */
 void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, const TCHAR* Description, bool bIsEnsure )
 {
+	// Print out the blueprint callstack
+	PrintScriptCallstack();
+
 	TCHAR DescriptionAndTrace[4096];
 
 	FCString::Strncpy(DescriptionAndTrace, Description, ARRAY_COUNT(DescriptionAndTrace) - 1);
@@ -219,9 +222,6 @@ void FDebug::LogAssertFailedMessageImpl(const ANSICHAR* Expr, const ANSICHAR* Fi
 	// Ignore this assert if we're already forcibly shutting down because of a critical error.
 	if( !GIsCriticalError )
 	{
-		// Print out the blueprint callstack
-		PrintScriptCallstack();
-
 		TCHAR DescriptionString[4096];
 		GET_VARARGS( DescriptionString, ARRAY_COUNT( DescriptionString ), ARRAY_COUNT( DescriptionString ) - 1, Fmt, Fmt );
 
@@ -258,9 +258,6 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 
 	// Should we spin here?
 	FPlatformAtomics::InterlockedIncrement(&ActiveEnsureCount);
-
-	// Print out the blueprint callstack
-	PrintScriptCallstack();
 
 	// Print initial debug message for this error
 	TCHAR ErrorString[MAX_SPRINTF];

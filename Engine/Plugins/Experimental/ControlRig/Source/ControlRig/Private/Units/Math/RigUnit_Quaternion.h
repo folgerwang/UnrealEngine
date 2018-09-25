@@ -94,6 +94,8 @@ struct FRigUnit_QuaternionFromAxisAndAngle : public FRigUnit
 
 	FRigUnit_QuaternionFromAxisAndAngle()
 		: Axis(1.f, 0.f, 0.f)
+		, Angle(0.f)
+		, Result(ForceInitToZero)
 	{}
 
 	UPROPERTY(meta = (Input))
@@ -119,6 +121,8 @@ struct FRigUnit_QuaternionToAngle : public FRigUnit
 
 	FRigUnit_QuaternionToAngle()
 		: Axis(1.f, 0.f, 0.f)
+		, Argument(ForceInitToZero)
+		, Angle(0.f)
 	{}
 
 	UPROPERTY(meta = (Input))

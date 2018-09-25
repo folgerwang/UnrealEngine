@@ -64,7 +64,8 @@ public:
 	UFUNCTION(BlueprintPure, Category="Mobile Patching|Progress")
 	float GetDownloadSpeed();
 
-	/** Get the current installation status text. Valid during installation */
+	/** DEPRECATED. GetDownloadStatusText has been deprecated. It will no longer be supported in the future */
+	DEPRECATED(4.21, "GetDownloadStatusText has been deprecated.  It will no longer be supported in the future.")
 	UFUNCTION(BlueprintPure, Category="Mobile Patching|Progress")
 	FText GetDownloadStatusText();
 	

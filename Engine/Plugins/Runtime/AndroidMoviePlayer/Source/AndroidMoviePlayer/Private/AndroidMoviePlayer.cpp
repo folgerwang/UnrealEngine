@@ -3,7 +3,7 @@
 #include "AndroidMoviePlayer.h"
 #include "AndroidMovieStreamer.h"
 
-#include "MoviePlayer.h"
+#include "Misc/CoreDelegates.h"
 
 TSharedPtr<FAndroidMediaPlayerStreamer> AndroidMovieStreamer;
 
@@ -14,18 +14,26 @@ class FAndroidMoviePlayerModule : public IModuleInterface
 	{
 		if (IsSupported())
 		{
-			FAndroidMediaPlayerStreamer* Streamer = new FAndroidMediaPlayerStreamer;
+            FAndroidMediaPlayerStreamer* Streamer = new FAndroidMediaPlayerStreamer;
 			AndroidMovieStreamer = MakeShareable(Streamer);
-			GetMoviePlayer()->RegisterMovieStreamer(AndroidMovieStreamer);
+			
+            FCoreDelegates::RegisterMovieStreamerDelegate.Broadcast(AndroidMovieStreamer);
 		}
 	}
 
 	virtual void ShutdownModule() override
 	{
+        if (AndroidMovieStreamer.IsValid())
+        {
+            FCoreDelegates::UnRegisterMovieStreamerDelegate.Broadcast(AndroidMovieStreamer);
+        }
+
 		if (IsSupported())
 		{
-			AndroidMovieStreamer->Cleanup();
+              AndroidMovieStreamer->Cleanup();
 		}
+
+        AndroidMovieStreamer.Reset();
 	}
 
 private:

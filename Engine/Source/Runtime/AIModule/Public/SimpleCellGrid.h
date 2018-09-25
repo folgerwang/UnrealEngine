@@ -38,7 +38,7 @@ public:
 	TSimpleCellGrid()
 		: CellSize(0)
 		, GridCellSize(0.0f)
-		, WorldBounds(EForceInit::ForceInitToZero)
+		, WorldBounds(ForceInitToZero)
 		, Origin(FLT_MAX)
 		, BoundsSize(0)
 	{

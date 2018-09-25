@@ -44,6 +44,7 @@ bool FPlatformApplicationMisc::bChachedMacMenuStateNeedsUpdate = true;
 bool FPlatformApplicationMisc::bLanguageChanged = false;
 bool FPlatformApplicationMisc::bMacApplicationModalMode = false;
 bool FPlatformApplicationMisc::bIsHighResolutionCapable = true;
+bool FPlatformApplicationMisc::bDisplaySleepEnabled = true;
 
 id<NSObject> FPlatformApplicationMisc::CommandletActivity = nil;
 
@@ -368,10 +369,14 @@ bool FMacPlatformApplicationMisc::IsThisApplicationForeground()
 	return [NSApp isActive] && MacApplication && MacApplication->IsWorkspaceSessionActive();
 }
 
+bool FMacPlatformApplicationMisc::IsScreensaverEnabled()
+{
+	return bDisplaySleepEnabled;
+}
+
 bool FMacPlatformApplicationMisc::ControlScreensaver(EScreenSaverAction Action)
 {
 	static uint32 IOPMNoSleepAssertion = 0;
-	static bool bDisplaySleepEnabled = true;
 	
 	switch(Action)
 	{

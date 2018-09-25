@@ -86,8 +86,17 @@ protected:
 	/** Should we build texture streaming for the packages we are saving? **/
 	bool bShouldBuildTextureStreaming;
 
+	/** Similar to above, but applies to all packages rather than just maps **/
+	bool bShouldBuildTextureStreamingForAll;
+
+	/** only process packages containing materials **/
+	bool bOnlyMaterials;
+
 	/** Ignore package version changelist **/
 	bool bIgnoreChangelist;
+
+	/** Filter packages based on a collection **/
+	TSet<FName> CollectionFilter;
 
 	/** Should we generated HLOD proxy meshes */
 	bool bShouldBuildHLOD;
@@ -188,6 +197,7 @@ protected:
 	virtual FText GetChangelistDescription() const;
 
 	bool CheckoutFile(const FString& Filename, bool bAddFile = false, bool bIgnoreAlreadyCheckedOut = false);
+	bool RevertFile(const FString& Filename);
 
 	bool CanCheckoutFile(const FString& Filename, FString& CheckedOutUser);
 

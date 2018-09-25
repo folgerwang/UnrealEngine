@@ -702,87 +702,30 @@ struct SSortUniformsPredicate
 		// Sort by base type.
 		const glsl_base_type BaseType1 = bType1Array ? Type1->fields.array->base_type : Type1->base_type;
 		const glsl_base_type BaseType2 = bType2Array ? Type2->fields.array->base_type : Type2->base_type;
-		if (BaseType1 != BaseType2)
+		static const unsigned BaseTypeOrder[GLSL_TYPE_MAX] =
 		{
-			static const unsigned BaseTypeOrder[GLSL_TYPE_MAX] =
-			{
-				0, // GLSL_TYPE_UINT,
-				2, // GLSL_TYPE_INT,
-				3, // GLSL_TYPE_HALF,
-				4, // GLSL_TYPE_FLOAT,
-				1, // GLSL_TYPE_BOOL,
-				5, // GLSL_TYPE_SAMPLER,
-				6, // GLSL_TYPE_STRUCT,
-				7, // GLSL_TYPE_ARRAY,
-				8, // GLSL_TYPE_VOID,
-				9, // GLSL_TYPE_ERROR,
-				10, // GLSL_TYPE_SAMPLER_STATE,
-				11, // GLSL_TYPE_OUTPUTSTREAM,
-				12, // GLSL_TYPE_IMAGE,
-				13, // GLSL_TYPE_INPUTPATCH,
-				14, // GLSL_TYPE_OUTPUTPATCH,
-			};
+			0, // GLSL_TYPE_UINT,
+			2, // GLSL_TYPE_INT,
+			3, // GLSL_TYPE_HALF,
+			4, // GLSL_TYPE_FLOAT,
+			1, // GLSL_TYPE_BOOL,
+			5, // GLSL_TYPE_SAMPLER,
+			6, // GLSL_TYPE_STRUCT,
+			7, // GLSL_TYPE_ARRAY,
+			8, // GLSL_TYPE_VOID,
+			9, // GLSL_TYPE_ERROR,
+			10, // GLSL_TYPE_SAMPLER_STATE,
+			11, // GLSL_TYPE_OUTPUTSTREAM,
+			12, // GLSL_TYPE_IMAGE,
+			13, // GLSL_TYPE_INPUTPATCH,
+			14, // GLSL_TYPE_OUTPUTPATCH,
+		};
 
-			return BaseTypeOrder[BaseType1] < BaseTypeOrder[BaseType2];
-		}
-
-		//sort by array first
-		// arrays must be aligned on a vec4 boundary, placing them first ensures this
-		if (bType1Array != bType2Array)
-		{
-			return int(bType1Array) > int(bType2Array);
-		}
-
-		// Then number of vector elements.
-		if (Type1->vector_elements != Type2->vector_elements)
-		{
-			return Type1->vector_elements > Type2->vector_elements;
-		}
-
-		// Then matrix columns.
-		if (Type1->matrix_columns != Type2->matrix_columns)
-		{
-			return Type1->matrix_columns > Type2->matrix_columns;
-		}
-
-		// If the types match, sort on the uniform name.
-		return strcmp(v1->name, v2->name) < 0;
+		return BaseTypeOrder[BaseType1] < BaseTypeOrder[BaseType2];
 	}
 };
 
-
-struct SPackedUniformsInfo
-{
-	struct SInfoPerArray
-	{
-		int NumUniforms;
-		int SizeInFloats;
-
-		TIRVarList Variables;
-
-		SInfoPerArray() : NumUniforms(0), SizeInFloats(0) {}
-	};
-
-	typedef std::map<char, SInfoPerArray> TInfoPerArray;
-	TInfoPerArray UniformArrays;
-
-	void AddVar(ir_variable* Var, _mesa_glsl_parse_state* ParseState)
-	{
-		const glsl_type* type = Var->type->is_array() ? Var->type->fields.array : Var->type;
-		char ArrayType = GetArrayCharFromPrecisionType(type->base_type, false);
-		SInfoPerArray& Info = UniformArrays[ArrayType];
-
-		++Info.NumUniforms;
-
-		int Stride = (type->vector_elements > 2 || Var->type->is_array()) ? 4 : MAX2(type->vector_elements, 1u);
-		int NumRows = Var->type->is_array() ? Var->type->length : 1;
-		NumRows = NumRows * MAX2(type->matrix_columns, 1u);
-		Info.SizeInFloats += (Stride * NumRows);
-		Info.Variables.push_back(Var);
-	}
-};
-
-static void FindMainAndCalculateUniformArraySizes(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, ir_function_signature*& OutMain, TIRVarVector& OutUniformVariables, SPackedUniformsInfo& OutInfo)
+static void FindMainAndUniformVariables(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, ir_function_signature*& OutMain, TIRVarVector& OutVariables)
 {
 	foreach_iter(exec_list_iterator, iter, *Instructions)
 	{
@@ -806,8 +749,7 @@ static void FindMainAndCalculateUniformArraySizes(exec_list* Instructions, _mesa
 					goto done;
 				}
 
-				OutUniformVariables.Add(var);
-				OutInfo.AddVar(var, ParseState);
+				OutVariables.Add(var);
 			}
 		}
 		else if (ir->ir_type == ir_type_function && OutMain == NULL)
@@ -828,6 +770,51 @@ done:
 	return;
 }
 
+struct SCBVarInfo
+{
+	unsigned int CB_OffsetInFloats;
+	unsigned int CB_SizeInFloats;
+	ir_variable* Var;
+};
+typedef TArray<SCBVarInfo> TCBVarInfoVector;
+// [CBName -> [ArrayType, SCBVarInfoArray]]
+typedef std::map<std::string, std::map<char, TCBVarInfoVector>> TOrganziedVarsMap;
+
+static int ComputePackedArraySizeFloats(const TOrganziedVarsMap& InMap, const std::string& UBName, char ArrayType, bool bGroupFlattenedUBs)
+{
+	int SizeInFloats = 0;
+	
+	auto IterBegin = InMap.begin();
+	auto IterEnd = InMap.end();
+	if (bGroupFlattenedUBs)
+	{
+		IterBegin = IterEnd = InMap.find(UBName);
+		if (IterEnd != InMap.end())
+		{
+			++IterEnd;
+		}
+	}
+	
+	for (; IterBegin != IterEnd; ++IterBegin)
+	{
+		auto IterVarsType = IterBegin->second.find(ArrayType);
+		if (IterVarsType != IterBegin->second.end())
+		{
+			const TCBVarInfoVector& Vars = IterVarsType->second;
+			for (const SCBVarInfo& VarInfo : Vars)
+			{
+				ir_variable* var = VarInfo.Var;
+				const glsl_type* type = var->type->is_array() ? var->type->fields.array : var->type;
+				int Stride = (type->vector_elements > 2 || var->type->is_array()) ? 4 : MAX2(type->vector_elements, 1u);
+				int NumRows = var->type->is_array() ? var->type->length : 1;
+				NumRows = NumRows * MAX2(type->matrix_columns, 1u);
+				SizeInFloats += (Stride * NumRows);
+			}
+		}
+	}
+	return SizeInFloats;
+}
+
 static bool SortByVariableSize(ir_variable* Var, ir_variable* SVar)
 {
 	auto const* Type = Var->type->is_array() ? Var->type->element_type() : Var->type;
@@ -845,12 +832,12 @@ static bool SortByVariableSize(ir_variable* Var, ir_variable* SVar)
 	return (TotalElements < STotalElements);
 }
 
-static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, SPackedUniformsInfo& PUInfo, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool PackUniformsIntoUniformBufferWithNames, TVarVarMap& OutUniformMap)
+static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, bool PackUniformsIntoUniformBufferWithNames, TVarVarMap& OutUniformMap)
 {
 	// First organize all uniforms by location (CB or Global) and Precision
 	int UniformIndex = 0;
 	TIRVarVector PackedVariables;
-	std::map<std::string, std::map<char, TIRVarVector> > OrganizedVars;
+	TOrganziedVarsMap OrganizedVars;
 	for (int NumUniforms = UniformVariables.Num(); UniformIndex < NumUniforms; ++UniformIndex)
 	{
 		ir_variable* var = UniformVariables[UniformIndex];
@@ -874,7 +861,15 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 		}
 		else
 		{
-			OrganizedVars[var->semantic ? var->semantic : ""][ArrayType].Add(var);
+			SCBVarInfo VarInfo;
+			VarInfo.CB_OffsetInFloats = 0; 
+			VarInfo.CB_SizeInFloats = 0;
+			VarInfo.Var = var;
+			if (var->semantic && *var->semantic)
+			{
+				ParseState->FindOffsetIntoCBufferInFloats(bFlattenStructure, var->semantic, var->name, VarInfo.CB_OffsetInFloats, VarInfo.CB_SizeInFloats);
+			}
+			OrganizedVars[var->semantic ? var->semantic : ""][ArrayType].Add(VarInfo);
 		}
 	}
 	
@@ -901,9 +896,9 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 			bool bNonArrayFound = false;
 			for (auto& PrecListPair : Pair.second)
 			{
-				for (auto* Var : PrecListPair.second)
+				for (const SCBVarInfo& VarInfo : PrecListPair.second)
 				{
-					if (!Var->type->is_array())
+					if (!VarInfo.Var->type->is_array())
 					{
 						bNonArrayFound = true;
 						break;
@@ -1069,9 +1064,16 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 			{
 				ir_variable* UniformArrayVar = nullptr;
 				char ArrayType = VarSetPair.first;
-				auto& Vars = VarSetPair.second;
-				for (auto* var : Vars)
+				TCBVarInfoVector& VarInfos = VarSetPair.second;
+			
+				// order variables as they appear in source buffer
+				std::sort(VarInfos.begin(), VarInfos.end(), [](const SCBVarInfo& A, const SCBVarInfo& B){ 
+					return A.CB_OffsetInFloats < B.CB_OffsetInFloats; 
+				});
+
+				for (const SCBVarInfo& VarInfo : VarInfos)
 				{
+					ir_variable* var = VarInfo.Var;
 					const glsl_type* type = var->type->is_array() ? var->type->fields.array : var->type;
 					const glsl_base_type array_base_type = (type->base_type == GLSL_TYPE_BOOL) ? GLSL_TYPE_UINT : type->base_type;
 					if (!UniformArrayVar)
@@ -1081,7 +1083,8 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 						if (IterFound == UniformArrayVarMap.end())
 						{
 							const glsl_type* ArrayElementType = glsl_type::get_instance(array_base_type, 4, 1);
-							int NumElementsAligned = (PUInfo.UniformArrays[ArrayType].SizeInFloats + 3) / 4;
+							int SizeInFloats = ComputePackedArraySizeFloats(OrganizedVars, DestCB, ArrayType, bGroupFlattenedUBs);
+							int NumElementsAligned = (SizeInFloats + 3) / 4;
 							UniformArrayVar = new(ctx) ir_variable(
 																   glsl_type::get_array_instance(ArrayElementType, NumElementsAligned),
 																   ralloc_asprintf(ParseState, "%s", UniformArrayName.c_str()),
@@ -1116,7 +1119,8 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 					if (!SourceCB.empty())
 					{
 						PackedUniform.CB_PackedSampler = SourceCB;
-						ParseState->FindOffsetIntoCBufferInFloats(bFlattenStructure, var->semantic, var->name, PackedUniform.OffsetIntoCBufferInFloats, PackedUniform.SizeInFloats);
+						PackedUniform.OffsetIntoCBufferInFloats = VarInfo.CB_OffsetInFloats;
+						PackedUniform.SizeInFloats = VarInfo.CB_SizeInFloats;
 						ParseState->CBPackedArraysMap[PackedUniform.CB_PackedSampler][ArrayType].push_back(PackedUniform);
 					}
 					else
@@ -1613,13 +1617,12 @@ void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, b
 	ir_function_signature* MainSig = NULL;
 	TIRVarVector UniformVariables;
 
-	SPackedUniformsInfo PUInfo;
-	FindMainAndCalculateUniformArraySizes(Instructions, ParseState, MainSig, UniformVariables, PUInfo);
+	FindMainAndUniformVariables(Instructions, ParseState, MainSig, UniformVariables);
 
 	if (MainSig && UniformVariables.Num())
 	{
 		std::sort(UniformVariables.begin(), UniformVariables.end(), SSortUniformsPredicate());
-		int UniformIndex = ProcessPackedUniformArrays(Instructions, ctx, ParseState, UniformVariables, PUInfo, bFlattenStructure, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, PackUniformsIntoUniformBufferWithNames, OutUniformMap);
+		int UniformIndex = ProcessPackedUniformArrays(Instructions, ctx, ParseState, UniformVariables, bFlattenStructure, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, PackUniformsIntoUniformBufferWithNames, OutUniformMap);
 		if (UniformIndex == -1)
 		{
 			goto done;

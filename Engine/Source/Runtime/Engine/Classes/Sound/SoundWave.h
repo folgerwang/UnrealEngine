@@ -222,6 +222,7 @@ private:
 
 	/** Number of sounds actively using this sound wave by the audio renderer (in audio mixer). Prevents GC issues with rendering realtime audio. */
 	FThreadSafeCounter NumSoundsActive;
+	int32 GCTimeOutCount;
 
 #if !WITH_EDITOR
 	// This is the sample rate gotten from platform settings.

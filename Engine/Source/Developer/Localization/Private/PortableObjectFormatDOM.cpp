@@ -4,6 +4,8 @@
 #include "Internationalization/Culture.h"
 #include "Containers/MapBuilder.h"
 
+#define LOCTEXT_NAMESPACE "PortableObjectFormatDOM"
+
 static const TCHAR* NewLineDelimiter = TEXT("\n");
 
 /**
@@ -460,14 +462,21 @@ FString FPortableObjectFormatDOM::ToString()
 	return Result;
 }
 
-bool FPortableObjectFormatDOM::FromString( const FString& InStr )
+bool FPortableObjectFormatDOM::FromString( const FString& InStr, FText* OutErrorMsg )
 {
+	auto SetErrorMsg = [OutErrorMsg](const FText& InErrorMsg)
+	{
+		if (OutErrorMsg)
+		{
+			*OutErrorMsg = InErrorMsg;
+		}
+	};
+
 	if( InStr.IsEmpty() )
 	{
+		SetErrorMsg(LOCTEXT("Error_EmptyPOFile", "The PO/POT source was empty."));
 		return false;
 	}
-
-	bool bSuccess = true;
 
 	FString ParseString = InStr;
 	ParseString.ReplaceInline(TEXT("\r\n"), NewLineDelimiter, ESearchCase::CaseSensitive);
@@ -482,6 +491,11 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 	for( uint32 LineIdx = 0; LineIdx < NumFileLines; ++LineIdx )
 	{
 		const FString& Line = LinesToProcess[LineIdx];
+
+		auto SetFailedToParseQuoteDelimitedStringErrorMsg = [&SetErrorMsg, LineIdx, &Line]()
+		{
+			SetErrorMsg(FText::Format(LOCTEXT("Error_FailedToParseQuoteDelimitedString", "Failed to parse a quote-delimited string from line {0}: {1}"), LineIdx + 1, FText::AsCultureInvariant(Line)));
+		};
 
 		if( Line.IsEmpty() )
 		{
@@ -498,6 +512,7 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 					bool bAddedHeader = Header.FromLocPOEntry( ProcessedEntry );
 					if( !bAddedHeader )
 					{
+						SetErrorMsg(LOCTEXT("Error_FailedToAddHeader", "Failed to add PO/POT header information to the DOM."));
 						return false;
 					}
 					ProjectName = Header.GetEntryValue(TEXT("Project-Id-Version"));
@@ -507,6 +522,7 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 					bool bAddEntry = AddEntry( ProcessedEntry );
 					if( !bAddEntry )
 					{
+						SetErrorMsg(LOCTEXT("Error_FailedToAddEntry", "Failed to add PO/POT entry information to the DOM."));
 						return false;
 					}
 				}
@@ -559,8 +575,8 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 			FString RawMsgCtxt;
 			if( !FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgCtxt ) )
 			{
-				bSuccess = false;
-				break;
+				SetFailedToParseQuoteDelimitedStringErrorMsg();
+				return false;
 			}
 			for( uint32 NextLineIdx = LineIdx + 1; NextLineIdx < NumFileLines && LinesToProcess[NextLineIdx].TrimStartAndEnd().StartsWith(TEXT("\"")); ++NextLineIdx)
 			{
@@ -596,8 +612,8 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 			FString RawMsgId;
 			if( !FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgId ) )
 			{
-				bSuccess = false;
-				break;
+				SetFailedToParseQuoteDelimitedStringErrorMsg();
+				return false;
 			}
 			// If the following line contains more info for this element we continue to parse it out
 			uint32 NextLineIdx = LineIdx + 1;
@@ -624,8 +640,8 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 			FString RawMsgIdPlural;
 			if( !FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgIdPlural ) )
 			{
-				bSuccess = false;
-				break;
+				SetFailedToParseQuoteDelimitedStringErrorMsg();
+				return false;
 			}
 			// If the following line contains more info for this element we continue to parse it out
 			uint32 NextLineIdx = LineIdx + 1;
@@ -651,8 +667,8 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 			FString IndexStr;
 			if( !FindDelimitedString(Line, TEXT("["), TEXT("]"), IndexStr ) )
 			{
-				bSuccess = false;
-				break;
+				SetErrorMsg(FText::Format(LOCTEXT("Error_FailedToParseSquareBracketDelimitedString", "Failed to parse a square bracket-delimited string from line {0}: {1}"), LineIdx + 1, FText::AsCultureInvariant(Line)));
+				return false;
 			}
 			int32 Index = -1;
 			TTypeFromString<int32>::FromString(Index, *IndexStr );
@@ -662,8 +678,8 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 			FString RawMsgStr;
 			if( !FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgStr ) )
 			{
-				bSuccess = false;
-				break;
+				SetFailedToParseQuoteDelimitedStringErrorMsg();
+				return false;
 			}
 			// If the following line contains more info for this element we continue to parse it out
 			uint32 NextLineIdx = LineIdx + 1;
@@ -697,8 +713,8 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 			FString RawMsgStr;
 			if( !FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgStr ) )
 			{
-				bSuccess = false;
-				break;
+				SetFailedToParseQuoteDelimitedStringErrorMsg();
+				return false;
 			}
 			// If the following line contains more info for this element we continue to parse it out
 			uint32 NextLineIdx = LineIdx + 1;
@@ -734,9 +750,7 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 		}
 	}
 
-
-
-	return bSuccess;
+	return true;
 }
 
 void FPortableObjectFormatDOM::CreateNewHeader()
@@ -986,3 +1000,5 @@ FString FPortableObjectEntry::ToString() const
 	}
 	return Result;
 }
+
+#undef LOCTEXT_NAMESPACE

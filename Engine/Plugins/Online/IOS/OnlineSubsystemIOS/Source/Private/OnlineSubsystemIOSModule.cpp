@@ -42,13 +42,13 @@ public:
 			{
 				if(!IOSSingleton->Init())
 				{
-					UE_LOG(LogOnline, Warning, TEXT("FOnlineSubsystemIOSModule failed to initialize!"));
+					UE_LOG_ONLINE(Warning, TEXT("FOnlineSubsystemIOSModule failed to initialize!"));
 					DestroySubsystem();
 				}
 			}
 			else
 			{
-				UE_LOG(LogOnline, Warning, TEXT("FOnlineSubsystemIOSModule was disabled"));
+				UE_LOG_ONLINE(Warning, TEXT("FOnlineSubsystemIOSModule was disabled"));
 				DestroySubsystem();
 			}
 
@@ -64,7 +64,7 @@ FOnlineSubsystemIOSPtr FOnlineFactoryIOS::IOSSingleton = NULL;
 
 void FOnlineSubsystemIOSModule::StartupModule()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemIOSModule::StartupModule()"));
+	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemIOSModule::StartupModule()"));
 
 	FHttpModule::Get();
 
@@ -78,7 +78,7 @@ void FOnlineSubsystemIOSModule::StartupModule()
 
 void FOnlineSubsystemIOSModule::ShutdownModule()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemIOSModule::ShutdownModule()"));
+	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemIOSModule::ShutdownModule()"));
 
 	delete IOSFactory;
 	IOSFactory = NULL;

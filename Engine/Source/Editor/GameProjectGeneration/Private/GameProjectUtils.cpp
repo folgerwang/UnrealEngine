@@ -748,56 +748,29 @@ void GameProjectUtils::CheckForOutOfDateGameProjectFile()
 			}
 		}
 
+		// Check if the project file is an older version
 		FProjectStatus ProjectStatus;
+		bool bRequiresUpdate = false;
 		if (IProjectManager::Get().QueryStatusForCurrentProject(ProjectStatus))
 		{
 			if ( ProjectStatus.bRequiresUpdate )
 			{
-				const FText UpdateProjectText = LOCTEXT("UpdateProjectFilePrompt", "Project file is saved in an older format. Would you like to update it?");
-				const FText UpdateProjectConfirmText = LOCTEXT("UpdateProjectFileConfirm", "Update");
-				const FText UpdateProjectCancelText = LOCTEXT("UpdateProjectFileCancel", "Not Now");
-
-				FNotificationInfo Info(UpdateProjectText);
-				Info.bFireAndForget = false;
-				Info.bUseLargeFont = false;
-				Info.bUseThrobber = false;
-				Info.bUseSuccessFailIcons = false;
-				Info.FadeOutDuration = 3.f;
-				Info.ButtonDetails.Add(FNotificationButtonInfo(UpdateProjectConfirmText, FText(), FSimpleDelegate::CreateStatic(&GameProjectUtils::OnUpdateProjectConfirm)));
-				Info.ButtonDetails.Add(FNotificationButtonInfo(UpdateProjectCancelText, FText(), FSimpleDelegate::CreateStatic(&GameProjectUtils::OnUpdateProjectCancel)));
-
-				if (UpdateGameProjectNotification.IsValid())
-				{
-					UpdateGameProjectNotification.Pin()->ExpireAndFadeout();
-					UpdateGameProjectNotification.Reset();
+				bRequiresUpdate = true;
 				}
-
-				UpdateGameProjectNotification = FSlateNotificationManager::Get().AddNotification(Info);
-
-				if (UpdateGameProjectNotification.IsValid())
-				{
-					UpdateGameProjectNotification.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
-				}
-			}
 		}
 
-		// Check if there are any other updates we need to make to the project file
-		if(!UpdateGameProjectNotification.IsValid())
-		{
+		// Get the current project descriptor
 			const FProjectDescriptor* Project = IProjectManager::Get().GetCurrentProject();
-			if(Project != nullptr)
-			{
-				bool bUpdatePluginReferences = false;
-				TArray<FPluginReferenceDescriptor> NewPluginReferences = Project->Plugins;
 
-				// Check if there are any installed plugins which aren't referenced by the project file
+		// Check if there are any installed plugins that need to be added as a reference
+				TArray<FPluginReferenceDescriptor> NewPluginReferences = Project->Plugins;
 				for(TSharedRef<IPlugin>& Plugin: IPluginManager::Get().GetEnabledPlugins())
 				{
 					if(Plugin->GetDescriptor().bInstalled && Project->FindPluginReferenceIndex(Plugin->GetName()) == INDEX_NONE)
 					{
 						FPluginReferenceDescriptor PluginReference(Plugin->GetName(), true);
 						NewPluginReferences.Add(PluginReference);
-						bUpdatePluginReferences = true;
+				bRequiresUpdate = true;
 					}
 				}
 
@@ -813,24 +786,49 @@ void GameProjectUtils::CheckForOutOfDateGameProjectFile()
 							if(Reference.MarketplaceURL != Descriptor.MarketplaceURL)
 							{
 								Reference.MarketplaceURL = Descriptor.MarketplaceURL;
-								bUpdatePluginReferences = true;
+						bRequiresUpdate = true;
 							}
 							if(Reference.SupportedTargetPlatforms != Descriptor.SupportedTargetPlatforms)
 							{
 								Reference.SupportedTargetPlatforms = Descriptor.SupportedTargetPlatforms;
-								bUpdatePluginReferences = true;
+						bRequiresUpdate = true;
 							}
 						}
 					}
 				}
 
-				// Check if the file needs updating
-				if(bUpdatePluginReferences)
+		// If we have updates pending, show the prompt
+		if (bRequiresUpdate)
+		{
+			FProjectDescriptorModifier ModifyProject = FProjectDescriptorModifier::CreateLambda(
+				[NewPluginReferences](FProjectDescriptor& Descriptor) { Descriptor.Plugins = NewPluginReferences; return true; });
+
+			FSimpleDelegate OnUpdateProjectConfirm = FSimpleDelegate::CreateLambda(
+				[ModifyProject]() { UpdateProject_Impl(&ModifyProject); });
+
+			const FText UpdateProjectText = LOCTEXT("UpdateProjectFilePrompt", "Project file is out of date. Would you like to update it?");
+			const FText UpdateProjectConfirmText = LOCTEXT("UpdateProjectFileConfirm", "Update");
+			const FText UpdateProjectCancelText = LOCTEXT("UpdateProjectFileCancel", "Not Now");
+
+			FNotificationInfo Info(UpdateProjectText);
+			Info.bFireAndForget = false;
+			Info.bUseLargeFont = false;
+			Info.bUseThrobber = false;
+			Info.bUseSuccessFailIcons = false;
+			Info.ButtonDetails.Add(FNotificationButtonInfo(UpdateProjectConfirmText, FText(), OnUpdateProjectConfirm));
+			Info.ButtonDetails.Add(FNotificationButtonInfo(UpdateProjectCancelText, FText(), FSimpleDelegate::CreateStatic(&GameProjectUtils::OnUpdateProjectCancel)));
+
+			if (UpdateGameProjectNotification.IsValid())
 				{
-					UpdateProject(FProjectDescriptorModifier::CreateLambda( 
-						[NewPluginReferences](FProjectDescriptor& Descriptor){ Descriptor.Plugins = NewPluginReferences; return true; }
-					));
+				UpdateGameProjectNotification.Pin()->ExpireAndFadeout();
+				UpdateGameProjectNotification.Reset();
 				}
+
+			UpdateGameProjectNotification = FSlateNotificationManager::Get().AddNotification(Info);
+
+			if (UpdateGameProjectNotification.IsValid())
+			{
+				UpdateGameProjectNotification.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
 			}
 		}
 	}

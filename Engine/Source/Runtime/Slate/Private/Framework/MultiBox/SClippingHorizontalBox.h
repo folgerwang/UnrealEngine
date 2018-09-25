@@ -31,7 +31,7 @@ public:
 
 	FORCENOINLINE SClippingHorizontalBox() 
 	{
-		bCanTick = true;
+		SetCanTick(true);
 	}
 
 	/** SWidget interface */

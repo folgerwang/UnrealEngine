@@ -26,7 +26,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnListEntryReleasedDynamic, UUserWi
  * If you are using UObject* items, just use (or inherit from) UListView directly
  * Otherwise, it is up to the child class to propagate events and/or expose functions to BP as needed
  *
- * Use the IMPLEMENT_TYPED_UMG_LIST() for the implementation boilerplate in your implementing class.
+ * Use the IMPLEMENT_TYPED_UMG_LIST() macro for the implementation boilerplate in your implementing class.
  */
 template <typename ItemType>
 class ITypedUMGListView
@@ -34,6 +34,9 @@ class ITypedUMGListView
 public:
 	using NullableItemType = typename SListView<ItemType>::NullableItemType;
 
+	//////////////////////////////////////////////////////////////////////////
+	// Automatically implemented via IMPLEMENT_TYPED_UMG_LIST()
+	//////////////////////////////////////////////////////////////////////////
 	DECLARE_EVENT_OneParam(UListView, FSimpleListItemEvent, ItemType);
 	virtual FSimpleListItemEvent& OnItemClicked() const = 0;
 	virtual FSimpleListItemEvent& OnItemDoubleClicked() const = 0;
@@ -50,12 +53,41 @@ public:
 	DECLARE_EVENT_TwoParams(UTreeView, FOnItemExpansionChanged, ItemType, bool);
 	virtual FOnItemExpansionChanged& OnItemExpansionChanged() const = 0;
 
+	DECLARE_DELEGATE_RetVal_OneParam(TSubclassOf<UUserWidget>, FOnGetEntryClassForItem, ItemType);
+	virtual FOnGetEntryClassForItem& OnGetEntryClassForItem() const = 0;
+
+	virtual TSubclassOf<UUserWidget> GetDefaultEntryClass() const = 0;
+
 protected:
-	/** Override and return a ptr to the SListView owned by the implementing UListViewBase */
 	virtual SListView<ItemType>* GetMyListView() const = 0;
+	virtual uint32 GetOwningUserIndex() const = 0;
+	virtual bool IsDesignerPreview() const = 0;
+	//////////////////////////////////////////////////////////////////////////
 
 public:
+	/**
+	 * Default behavior is to check the delegate, then fall back to the default if that fails.
+	 * Feel free to override directly in child classes to determine the class yourself.
+	 */
+	virtual TSubclassOf<UUserWidget> GetDesiredEntryClassForItem(ItemType Item) const
+	{
+		//@todo DanH: Need some way to allow the design time preview entries to match up with the various possible runtime entries without a possibility for inaccuracy
+		if (!IsDesignerPreview())
+		{
+			TSubclassOf<UUserWidget> CustomClass = OnGetEntryClassForItem().IsBound() ? OnGetEntryClassForItem().Execute(Item) : nullptr;
+			if (CustomClass)
+			{
+				return CustomClass;
+			}
+		}
+		
+		return GetDefaultEntryClass();
+	}
+
+	//////////////////////////////////////////////////////////////////////////
 	// Public API to match that of SListView
+	//////////////////////////////////////////////////////////////////////////
+
 	NullableItemType GetSelectedItem() const
 	{
 		if (SListView<ItemType>* MyListView = GetMyListView())
@@ -142,19 +174,19 @@ public:
 		return MyListView ? MyListView->IsItemSelected(Item) : false;
 	}
 
-	void RequestNavigateToItem(const ItemType& Item, uint32 UserIndex = 0)
+	void RequestNavigateToItem(const ItemType& Item)
 	{
 		if (SListView<ItemType>* MyListView = GetMyListView())
 		{
-			MyListView->RequestNavigateToItem(Item, UserIndex);
+			MyListView->RequestNavigateToItem(Item, GetOwningUserIndex());
 		}
 	}
 
-	void RequestScrollItemIntoView(const ItemType& Item, const uint32 UserIndex = 0)
+	void RequestScrollItemIntoView(const ItemType& Item)
 	{
 		if (SListView<ItemType>* MyListView = GetMyListView())
 		{
-			MyListView->RequestScrollIntoView(Item, UserIndex);
+			MyListView->RequestScrollIntoView(Item, GetOwningUserIndex());
 		}
 	}
 
@@ -165,6 +197,7 @@ public:
 			MyListView->CancelScrollIntoView();
 		}
 	}
+	//////////////////////////////////////////////////////////////////////////
 
 protected:
 	/**
@@ -264,9 +297,9 @@ protected:
 
 	/**
 	 * Generates the actual entry widget that represents the given item.
-	 *Expected to be used in concert with UListViewBase::GenerateTypedEntry().
+	 * Expected to be used in concert with UListViewBase::GenerateTypedEntry().
 	 */
-	virtual UUserWidget& OnGenerateEntryWidgetInternal(ItemType Item, const TSharedRef<STableViewBase>& OwnerTable) = 0;
+	virtual UUserWidget& OnGenerateEntryWidgetInternal(ItemType Item, TSubclassOf<UUserWidget> DesiredEntryClass, const TSharedRef<STableViewBase>& OwnerTable) = 0;
 
 	/** Gets the desired padding for the entry representing the given item */
 	virtual FMargin GetDesiredEntryPadding(ItemType Item) const { return FMargin(0.f); }
@@ -284,7 +317,9 @@ protected:
 private:
 	TSharedRef<ITableRow> HandleGenerateRow(ItemType Item, const TSharedRef<STableViewBase>& OwnerTable)
 	{
-		UUserWidget& EntryWidget = OnGenerateEntryWidgetInternal(Item, OwnerTable);
+		TSubclassOf<UUserWidget> DesiredEntryClass = GetDesiredEntryClassForItem(Item);
+
+		UUserWidget& EntryWidget = OnGenerateEntryWidgetInternal(Item, DesiredEntryClass, OwnerTable);
 		EntryWidget.SetPadding(GetDesiredEntryPadding(Item));
 		return StaticCastSharedPtr<SObjectTableRow<ItemType>>(EntryWidget.GetCachedWidget()).ToSharedRef();
 	}
@@ -412,27 +447,24 @@ protected:
 	virtual void HandleListEntryHovered(UUserWidget& EntryWidget) {}
 	virtual void HandleListEntryUnhovered(UUserWidget& EntryWidget) {}
 
-	/** Expected to be bound to the actual ListView widget created by a child class */
-	void HandleRowReleased(const TSharedRef<ITableRow>& Row);
-
 	/**
 	 * Sets the list to refresh on the next tick.
 	 *
 	 * Note that refreshing, from a list perspective, is limited to accounting for discrepancies between items and entries.
-	 * In other words, it will only release entries that no longer have items and create entries for new items (or newly visible items).
+	 * In other words, it will only release entries that no longer have items and generate entries for new items (or newly visible items).
 	 *
-	 * It does NOT account for changes within existing items - that is up to the item to announce for an entry to listen to as needed.
-	 * This can be onerous to set up for simple cases, so it's also reasonable to call RegenerateAllEntries when changes within N list items need to be reflected.
+	 * It does NOT account for changes within existing items - that is up to the item to announce and an entry to listen to as needed.
+	 * This can be onerous to set up for simple cases, so it's also reasonable (though not ideal) to call RegenerateAllEntries when changes within N list items need to be reflected.
 	 */
 	void RequestRefresh();
 
 	template <typename WidgetEntryT = UUserWidget, typename ObjectTableRowT = SObjectTableRow<UObject*>>
-	WidgetEntryT& GenerateTypedEntry(const TSharedRef<STableViewBase>& OwnerTable)
+	WidgetEntryT& GenerateTypedEntry(TSubclassOf<WidgetEntryT> WidgetClass, const TSharedRef<STableViewBase>& OwnerTable)
 	{
 		static_assert(TIsDerivedFrom<ObjectTableRowT, ITableRow>::IsDerived && TIsDerivedFrom<ObjectTableRowT, SObjectWidget>::IsDerived,
 			"GenerateObjectTableRow can only be used to create SObjectWidget types that also inherit from ITableRow. See SObjectTableRow.");
 
-		WidgetEntryT* ListEntryWidget = EntryWidgetPool.GetOrCreateInstance<WidgetEntryT>(*EntryWidgetClass,
+		WidgetEntryT* ListEntryWidget = EntryWidgetPool.GetOrCreateInstance<WidgetEntryT>(*WidgetClass,
 			[this, &OwnerTable] (UUserWidget* WidgetObject, TSharedRef<SWidget> Content)
 			{
 				return SNew(ObjectTableRowT, OwnerTable, *WidgetObject)
@@ -498,17 +530,19 @@ protected:
 	}
 #endif
 
-private:
-	void FinishGeneratingEntry(UUserWidget& GeneratedEntry);
-	void HandleAnnounceGeneratedEntries();
-
-private:
+	/** Expected to be bound to the actual ListView widget created by a child class (automatically taken care of via the construction helpers within ITypedUMGListView) */
+	void HandleRowReleased(const TSharedRef<ITableRow>& Row);
 
 	// Note: Options for this property can be configured via class and property metadata. See class declaration comment above.
 	/** The type of widget to create for each entry displayed in the list. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ListEntries, meta = (DesignerRebuild, AllowPrivateAccess = true))
 	TSubclassOf<UUserWidget> EntryWidgetClass;
-	
+
+private:
+	void FinishGeneratingEntry(UUserWidget& GeneratedEntry);
+	void HandleAnnounceGeneratedEntries();
+
+private:
 	/** Called when a row widget is generated for a list item */
 	UPROPERTY(BlueprintAssignable, Category = Events, meta = (DisplayName = "On Entry Generated"))
 	FOnListEntryGeneratedDynamic BP_OnEntryGenerated;
@@ -541,6 +575,12 @@ private:
 #define IMPLEMENT_TYPED_UMG_LIST(ItemType, ListPropertyName)	\
 protected:	\
 	virtual SListView<ItemType>* GetMyListView() const override { return ListPropertyName.Get(); }	\
+	virtual uint32 GetOwningUserIndex() const override \
+	{	\
+		const ULocalPlayer* LocalPlayer = GetOwningLocalPlayer();	\
+		return LocalPlayer ? LocalPlayer->GetControllerId() : 0;	\
+	}	\
+	virtual bool IsDesignerPreview() const override { return IsDesignTime(); }	\
 private:	\
 	friend class ITypedUMGListView<ItemType>;	\
 	mutable FSimpleListItemEvent OnItemClickedEvent;	\
@@ -549,10 +589,13 @@ private:	\
 	mutable FOnItemIsHoveredChanged OnItemIsHoveredChangedEvent;	\
 	mutable FOnItemScrolledIntoView OnItemScrolledIntoViewEvent;	\
 	mutable FOnItemExpansionChanged OnItemExpansionChangedEvent;	\
+	mutable FOnGetEntryClassForItem OnGetEntryClassForItemDelegate;	\
 public:	\
+	virtual TSubclassOf<UUserWidget> GetDefaultEntryClass() const override { return EntryWidgetClass; }	\
 	virtual FSimpleListItemEvent& OnItemClicked() const override { return OnItemClickedEvent; }	\
 	virtual FSimpleListItemEvent& OnItemDoubleClicked() const override { return OnItemDoubleClickedEvent; }	\
 	virtual FOnItemIsHoveredChanged& OnItemIsHoveredChanged() const override { return OnItemIsHoveredChangedEvent; }	\
 	virtual FOnItemSelectionChanged& OnItemSelectionChanged() const override { return OnItemSelectionChangedEvent; }	\
 	virtual FOnItemScrolledIntoView& OnItemScrolledIntoView() const override { return OnItemScrolledIntoViewEvent; }	\
-	virtual FOnItemExpansionChanged& OnItemExpansionChanged() const override { return OnItemExpansionChangedEvent; }	
+	virtual FOnItemExpansionChanged& OnItemExpansionChanged() const override { return OnItemExpansionChangedEvent; }	\
+	virtual FOnGetEntryClassForItem& OnGetEntryClassForItem() const override { return OnGetEntryClassForItemDelegate; }

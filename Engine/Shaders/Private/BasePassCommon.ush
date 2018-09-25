@@ -4,6 +4,7 @@
 	BasePassCommon.usf: Base pass definitions used by both vertex and pixel shader
 =============================================================================*/
 
+// Defining SSProfilesTexture here overrides the default definition in SubsurfaceProfileCommon.ush
 #if MATERIALBLENDING_ANY_TRANSLUCENT
 	#define ForwardLightData TranslucentBasePass.Shared.Forward
 	#define ReflectionStruct TranslucentBasePass.Shared.Reflection

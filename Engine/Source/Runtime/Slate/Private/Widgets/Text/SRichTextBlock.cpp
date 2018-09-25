@@ -54,13 +54,21 @@ void SRichTextBlock::Construct( const FArguments& InArgs )
 		TextLayoutCache->SetDebugSourceInfo(TAttribute<FString>::Create(TAttribute<FString>::FGetter::CreateLambda([this]{ return FReflectionMetaData::GetWidgetDebugInfo(this); })));
 	}
 
-	bCanTick = false;
+	SetCanTick(false);
 }
 
 int32 SRichTextBlock::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
 	// OnPaint will also update the text layout cache if required
 	LayerId = TextLayoutCache->OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, ShouldBeEnabled(bParentEnabled));
+
+	// HACK: Due to the nature of wrapping and layout, we may have been arranged in a different box than what we were cached with.  Which
+	// might update wrapping, so make sure we always set the desired size to the current size of the text layout, which may have changed
+	// during paint.
+	if (TextLayoutCache->GetDesiredSize().Y > GetDesiredSize().Y)
+	{
+		const_cast<SRichTextBlock*>(this)->Invalidate(EInvalidateWidget::Layout);
+	}
 
 	return LayerId;
 }

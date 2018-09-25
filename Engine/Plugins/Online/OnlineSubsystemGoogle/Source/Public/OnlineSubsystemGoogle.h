@@ -34,8 +34,8 @@ public:
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
-	FOnlineSubsystemGoogle();
-	FOnlineSubsystemGoogle(FName InInstanceName);
+	FOnlineSubsystemGoogle() = delete;
+	explicit FOnlineSubsystemGoogle(FName InInstanceName);
 
 };
 

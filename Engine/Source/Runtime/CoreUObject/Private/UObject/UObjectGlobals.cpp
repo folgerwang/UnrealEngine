@@ -757,8 +757,6 @@ bool ResolveName(UObject*& InPackage, FString& InOutName, bool Create, bool Thro
 	// Strip off the object class.
 	ConstructorHelpers::StripObjectClass( InOutName );
 
-	InOutName = FPackageName::GetDelegateResolvedPackagePath(InOutName);
-
 	// if you're attempting to find an object in any package using a dotted name that isn't fully
 	// qualified (such as ObjectName.SubobjectName - notice no package name there), you normally call
 	// StaticFindObject and pass in ANY_PACKAGE as the value for InPackage.  When StaticFindObject calls ResolveName,
@@ -1130,8 +1128,8 @@ public:
 		}
 
 		FArchive* OtherFile = IFileManager::Get().CreateFileReader(DiffFilename);
-		FDiffFileArchive* DiffArchive = new FDiffFileArchive(Loader, OtherFile);
-		Loader = DiffArchive;
+		FDiffFileArchive* DiffArchive = new FDiffFileArchive(GetLoader(), OtherFile);
+		SetLoader(DiffArchive);
 
 	}
 };

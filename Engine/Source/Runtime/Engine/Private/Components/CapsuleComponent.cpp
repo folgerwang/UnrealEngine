@@ -113,6 +113,7 @@ void UCapsuleComponent::CalcBoundingCylinder(float& CylinderRadius, float& Cylin
 	CylinderHalfHeight	= ScaledRadius + ZAxis.Z;
 }
 
+#if WITH_EDITORONLY_DATA
 void UCapsuleComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
@@ -126,6 +127,7 @@ void UCapsuleComponent::Serialize(FArchive& Ar)
 		}
 	}
 }
+#endif
 
 void UCapsuleComponent::PostLoad()
 {

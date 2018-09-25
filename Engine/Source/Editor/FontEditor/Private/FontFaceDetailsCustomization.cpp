@@ -151,7 +151,7 @@ void FFontFaceDetailsCustomization::OnFontPathPicked(const FString& InNewFontFil
 
 	FEditorDirectories::Get().SetLastDirectory(ELastDirectory::GENERIC_OPEN, FPaths::GetPath(InNewFontFilename));
 
-	FSlateApplication::Get().GetRenderer()->FlushFontCache();
+	FSlateApplication::Get().GetRenderer()->FlushFontCache(TEXT("FFontFaceDetailsCustomization::OnFontPathPicked"));
 }
 
 #undef LOCTEXT_NAMESPACE

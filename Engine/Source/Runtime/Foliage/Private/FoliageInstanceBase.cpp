@@ -5,6 +5,7 @@
 #include "InstancedFoliageActor.h"
 #include "InstancedFoliage.h"
 #include "Engine/WorldComposition.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 #if WITH_EDITORONLY_DATA
 
@@ -43,7 +44,17 @@ void FFoliageInstanceBaseInfo::UpdateLocationFromComponent(UActorComponent* InCo
 
 FArchive& operator << (FArchive& Ar, FFoliageInstanceBaseInfo& BaseInfo)
 {
-	Ar << BaseInfo.BasePtr;
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
+
+	if (Ar.IsLoading() && Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::FoliageLazyObjPtrToSoftObjPtr)
+	{
+		Ar << BaseInfo.BasePtr_DEPRECATED;
+	}
+	else
+	{
+		Ar << BaseInfo.BasePtr;
+	}
+
 	Ar << BaseInfo.CachedLocation;
 	Ar << BaseInfo.CachedRotation;
 	Ar << BaseInfo.CachedDrawScale;
@@ -63,33 +74,43 @@ FFoliageInstanceBaseCache::FFoliageInstanceBaseCache()
 
 FArchive& operator << (FArchive& Ar, FFoliageInstanceBaseCache& InstanceBaseCache)
 {
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
+
 	Ar << InstanceBaseCache.NextBaseId;
 	Ar << InstanceBaseCache.InstanceBaseMap;
-	Ar << InstanceBaseCache.InstanceBaseLevelMap;
 
-	if (Ar.IsTransacting())
+	if (Ar.IsLoading() && Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::FoliageLazyObjPtrToSoftObjPtr)
 	{
-		Ar << InstanceBaseCache.InstanceBaseInvMap;
+		Ar << InstanceBaseCache.InstanceBaseLevelMap_DEPRECATED;		
 	}
-	else if (Ar.IsLoading()) // Regenerate inverse map whenever we load cache
+	else
 	{
-		InstanceBaseCache.InstanceBaseInvMap.Empty();
-		for (const auto& Pair : InstanceBaseCache.InstanceBaseMap)
+		Ar << InstanceBaseCache.InstanceBaseLevelMap;
+
+		if (Ar.IsTransacting())
 		{
-			const FFoliageInstanceBaseInfo& BaseInfo = Pair.Value;
-			if (InstanceBaseCache.InstanceBaseInvMap.Contains(BaseInfo.BasePtr))
+			Ar << InstanceBaseCache.InstanceBaseInvMap;
+		}
+		else if (Ar.IsLoading()) // Regenerate inverse map whenever we load cache
+		{
+			InstanceBaseCache.InstanceBaseInvMap.Empty();
+			for (const auto& Pair : InstanceBaseCache.InstanceBaseMap)
 			{
-				// more info for UE-30878
-				UE_LOG(LogInstancedFoliage, Warning, TEXT("Instance base cache - integrity verification(3): Counter: %d Size: %d, InvSize: %d (Key: %s)"), 
-					(int32)InstanceBaseCache.NextBaseId, InstanceBaseCache.InstanceBaseMap.Num(), InstanceBaseCache.InstanceBaseInvMap.Num(), 
-					*BaseInfo.BasePtr.GetUniqueID().ToString());
-			}
-			else
-			{
-				InstanceBaseCache.InstanceBaseInvMap.Add(BaseInfo.BasePtr, Pair.Key);
+				const FFoliageInstanceBaseInfo& BaseInfo = Pair.Value;
+				if (InstanceBaseCache.InstanceBaseInvMap.Contains(BaseInfo.BasePtr))
+				{
+					// more info for UE-30878
+					UE_LOG(LogInstancedFoliage, Warning, TEXT("Instance base cache - integrity verification(3): Counter: %d Size: %d, InvSize: %d (Key: %s)"),
+						(int32)InstanceBaseCache.NextBaseId, InstanceBaseCache.InstanceBaseMap.Num(), InstanceBaseCache.InstanceBaseInvMap.Num(),
+						*BaseInfo.BasePtr.GetUniqueID().ToString());
+				}
+				else
+				{
+					InstanceBaseCache.InstanceBaseInvMap.Add(BaseInfo.BasePtr, Pair.Key);
+				}
 			}
 		}
-	}
+	}	
 
 	return Ar;
 }
@@ -114,7 +135,7 @@ FFoliageInstanceBaseId FFoliageInstanceBaseCache::AddInstanceBaseId(UActorCompon
 			// more info for UE-30878
 			if (InstanceBaseInvMap.Contains(BaseInfo.BasePtr))
 			{
-				FUniqueObjectGuid BaseUID = BaseInfo.BasePtr.GetUniqueID();
+				FSoftObjectPath BaseUID = BaseInfo.BasePtr.GetUniqueID();
 				UE_LOG(LogInstancedFoliage, Error, TEXT("Instance base cache - integrity verification(2): Counter: %d Size: %d, InvSize: %d, BaseUID: %s, BaseName: %s"), 
 					(int32)BaseId, InstanceBaseMap.Num(), InstanceBaseInvMap.Num(), *BaseUID.ToString(), *InComponent->GetFullName());
 			}
@@ -142,8 +163,8 @@ FFoliageInstanceBaseId FFoliageInstanceBaseCache::GetInstanceBaseId(UActorCompon
 {
 	if(InstanceBaseInvMap.Num() > 0)
 	{
-		// test if this component has allocated FUniqueObjectGuid, to avoid creating new one in FFoliageInstanceBasePtr ctor
-		if (!FUniqueObjectGuid(InComponent).IsValid())
+		// test if this component has allocated FSoftObjectPath, to avoid creating new one in FFoliageInstanceBasePtr ctor
+		if (!FSoftObjectPath(InComponent).IsValid())
 		{
 			return InvalidBaseId;
 		}
@@ -196,116 +217,114 @@ FFoliageInstanceBaseInfo FFoliageInstanceBaseCache::UpdateInstanceBaseInfoTransf
 
 void FFoliageInstanceBaseCache::CompactInstanceBaseCache(AInstancedFoliageActor* IFA)
 {
-	UWorld* World = IFA->GetWorld();
-	if (!World || World->IsGameWorld())
-	{
-		return;
-	}
-
 	FFoliageInstanceBaseCache& Cache = IFA->InstanceBaseCache;
-	
-	TSet<FFoliageInstanceBaseId> BasesInUse;
-	for (auto& FoliageMeshPair : IFA->FoliageMeshes)
+
+	UWorld* World = IFA->GetWorld();
+	if (World != nullptr)
 	{
-		for (const auto& Pair : FoliageMeshPair.Value->ComponentHash)
+		TSet<FFoliageInstanceBaseId> BasesInUse;
+		for (auto& FoliageMeshPair : IFA->FoliageMeshes)
 		{
-			if (Pair.Key != FFoliageInstanceBaseCache::InvalidBaseId)
+			for (const auto& Pair : FoliageMeshPair.Value->ComponentHash)
 			{
-				BasesInUse.Add(Pair.Key);
+				if (Pair.Key != FFoliageInstanceBaseCache::InvalidBaseId)
+				{
+					BasesInUse.Add(Pair.Key);
+				}
 			}
 		}
-	}
-	
-	// Look for any removed maps
-	TSet<FFoliageInstanceBasePtr> InvalidBasePtrs;
-	for (auto Iter = Cache.InstanceBaseLevelMap.CreateIterator(); Iter; ++Iter)
-	{
-		TPair<TSoftObjectPtr<UWorld>, TArray<FFoliageInstanceBasePtr>>& Pair = *Iter;
 
-		const auto& WorldAsset = Pair.Key;
-		
-		bool bExists = (WorldAsset == World);
-		// Check sub-levels
-		if (!bExists)
+		// Look for any removed maps
+		TSet<FFoliageInstanceBasePtr> InvalidBasePtrs;
+		for (auto Iter = Cache.InstanceBaseLevelMap.CreateIterator(); Iter; ++Iter)
 		{
-			const FName PackageName = FName(*FPackageName::ObjectPathToPackageName(WorldAsset.ToString()));
-			if (World->WorldComposition)
+			TPair<TSoftObjectPtr<UWorld>, TArray<FFoliageInstanceBasePtr>>& Pair = *Iter;
+
+			const auto& WorldAsset = Pair.Key;
+
+			bool bExists = (WorldAsset == World);
+			// Check sub-levels
+			if (!bExists)
 			{
-				bExists = World->WorldComposition->DoesTileExists(PackageName);
+				const FName PackageName = FName(*FPackageName::ObjectPathToPackageName(WorldAsset.ToString()));
+				if (World->WorldComposition)
+				{
+					bExists = World->WorldComposition->DoesTileExists(PackageName);
+				}
+				else
+				{
+					bExists = (World->GetLevelStreamingForPackageName(PackageName) != nullptr);
+				}
+			}
+
+			if (!bExists)
+			{
+				InvalidBasePtrs.Append(Pair.Value);
+				Iter.RemoveCurrent();
 			}
 			else
 			{
-				bExists = (World->GetLevelStreamingForPackageName(PackageName) != nullptr);
-			}
-		}
-
-		if (!bExists)
-		{
-			InvalidBasePtrs.Append(Pair.Value);
-			Iter.RemoveCurrent();
-		}
-		else
-		{
-			// Remove dead links
-			for (int32 i = Pair.Value.Num()-1; i >= 0; --i)
-			{
-				// Base needs to be removed if it's not in use by existing instances or component was removed
-				if (Pair.Value[i].IsNull() || !BasesInUse.Contains(Cache.GetInstanceBaseId(Pair.Value[i])))
+				// Remove dead links
+				for (int32 i = Pair.Value.Num() - 1; i >= 0; --i)
 				{
-					InvalidBasePtrs.Add(Pair.Value[i]);
-					Pair.Value.RemoveAt(i);
+					// Base needs to be removed if it's not in use by existing instances or component was removed
+					if (Pair.Value[i].IsNull() || !BasesInUse.Contains(Cache.GetInstanceBaseId(Pair.Value[i])))
+					{
+						InvalidBasePtrs.Add(Pair.Value[i]);
+						Pair.Value.RemoveAt(i);
+					}
+				}
+
+				if (Pair.Value.Num() == 0)
+				{
+					Iter.RemoveCurrent();
 				}
 			}
+		}
 
-			if (Pair.Value.Num() == 0)
+		TSet<FFoliageInstanceBaseId> InvalidBaseIds;
+		Cache.InstanceBaseInvMap.Empty();
+		// Look for any removed base components
+		for (auto Iter = Cache.InstanceBaseMap.CreateIterator(); Iter; ++Iter)
+		{
+			const TPair<FFoliageInstanceBaseId, FFoliageInstanceBaseInfo>& Pair = *Iter;
+
+			const FFoliageInstanceBaseInfo& BaseInfo = Pair.Value;
+			if (InvalidBasePtrs.Contains(BaseInfo.BasePtr))
 			{
+				InvalidBaseIds.Add(Pair.Key);
 				Iter.RemoveCurrent();
 			}
-		}
-	}
-	
-	TSet<FFoliageInstanceBaseId> InvalidBaseIds;
-	Cache.InstanceBaseInvMap.Empty();
-	// Look for any removed base components
-	for (auto Iter = Cache.InstanceBaseMap.CreateIterator(); Iter; ++Iter)
-	{
-		const TPair<FFoliageInstanceBaseId, FFoliageInstanceBaseInfo>& Pair = *Iter;
-
-		const FFoliageInstanceBaseInfo& BaseInfo = Pair.Value;
-		if (InvalidBasePtrs.Contains(BaseInfo.BasePtr))
-		{
-			InvalidBaseIds.Add(Pair.Key);
-			Iter.RemoveCurrent();
-		}
-		else
-		{
-			// Regenerate inverse map
-			Cache.InstanceBaseInvMap.Add(BaseInfo.BasePtr, Pair.Key);
-		}
-	}
-
-	if (InvalidBaseIds.Num())
-	{
-		for (auto& Pair : IFA->FoliageMeshes)
-		{
-			auto& MeshInfo = Pair.Value;
-			MeshInfo->ComponentHash.Empty();
-			int32 InstanceIdx = 0;
-			
-			for (FFoliageInstance& Instance : MeshInfo->Instances)
+			else
 			{
-				if (InvalidBaseIds.Contains(Instance.BaseId))
-				{
-					Instance.BaseId = FFoliageInstanceBaseCache::InvalidBaseId;
-				}
-
-				MeshInfo->ComponentHash.FindOrAdd(Instance.BaseId).Add(InstanceIdx);
-				InstanceIdx++;
+				// Regenerate inverse map
+				Cache.InstanceBaseInvMap.Add(BaseInfo.BasePtr, Pair.Key);
 			}
 		}
 
-		Cache.InstanceBaseMap.Compact();
-		Cache.InstanceBaseLevelMap.Compact();
+		if (InvalidBaseIds.Num())
+		{
+			for (auto& Pair : IFA->FoliageMeshes)
+			{
+				auto& MeshInfo = Pair.Value;
+				MeshInfo->ComponentHash.Empty();
+				int32 InstanceIdx = 0;
+
+				for (FFoliageInstance& Instance : MeshInfo->Instances)
+				{
+					if (InvalidBaseIds.Contains(Instance.BaseId))
+					{
+						Instance.BaseId = FFoliageInstanceBaseCache::InvalidBaseId;
+					}
+
+					MeshInfo->ComponentHash.FindOrAdd(Instance.BaseId).Add(InstanceIdx);
+					InstanceIdx++;
+				}
+			}
+
+			Cache.InstanceBaseMap.Compact();
+			Cache.InstanceBaseLevelMap.Compact();
+		}
 	}
 }
 

@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "CompositionLighting/PostProcessAmbientOcclusion.h"
+#include "CompositionLighting/CompositionLighting.h"
 #include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
 #include "PostProcess/SceneRenderTargets.h"
@@ -13,6 +14,11 @@
 #include "PostProcess/SceneFilterRendering.h"
 #include "PostProcess/PostProcessing.h"
 #include "PipelineStateCache.h"
+#include "ClearQuad.h"
+
+DECLARE_GPU_STAT_NAMED(SSAOSetup, TEXT("ScreenSpace AO Setup") );
+DECLARE_GPU_STAT_NAMED(SSAO, TEXT("ScreenSpace AO") );
+DECLARE_GPU_STAT_NAMED(BasePassAO, TEXT("BasePass AO") );
 
 // Tile size for the AmbientOcclusion compute shader, tweaked for 680 GTX. */
 // see GCN Performance Tip 21 http://developer.amd.com/wordpress/media/2013/05/GCNPerformanceTweets.pdf 
@@ -74,6 +80,12 @@ static TAutoConsoleVariable<int32> CVarAmbientOcclusionAsyncComputeBudget(
 	TEXT(" 4: most AsyncCompute"),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarAmbientOcclusionDepthBoundsTest(
+	TEXT("r.AmbientOcclusion.DepthBoundsTest"),
+	1,
+	TEXT("Whether to use depth bounds test to cull distant pixels during AO pass. This option is only valid when pixel shader path is used (r.AmbientOcclusion.Compute=0), without upsampling."),
+	ECVF_RenderThreadSafe);
+
 float FSSAOHelper::GetAmbientOcclusionQualityRT(const FSceneView& View)
 {
 	float CVarValue = CVarAmbientOcclusionMaxQuality.GetValueOnRenderThread();
@@ -100,7 +112,7 @@ int32 FSSAOHelper::GetAmbientOcclusionShaderLevel(const FSceneView& View)
 
 bool FSSAOHelper::IsAmbientOcclusionCompute(const FSceneView& View)
 {
-	return View.GetFeatureLevel() >= ERHIFeatureLevel::SM5 && (CVarAmbientOcclusionCompute.GetValueOnRenderThread() >= 1);
+	return View.GetFeatureLevel() >= ERHIFeatureLevel::SM5 && CVarAmbientOcclusionCompute.GetValueOnRenderThread() >= 1;
 }
 
 int32 FSSAOHelper::GetNumAmbientOcclusionLevels()
@@ -123,7 +135,7 @@ EAsyncComputeBudget FSSAOHelper::GetAmbientOcclusionAsyncComputeBudget()
 bool FSSAOHelper::IsBasePassAmbientOcclusionRequired(const FViewInfo& View)
 {
 	// the BaseAO pass is only worth with some AO
-	return (View.FinalPostProcessSettings.AmbientOcclusionStaticFraction >= 1 / 100.0f) && !IsAnyForwardShadingEnabled(View.GetShaderPlatform());
+	return (View.FinalPostProcessSettings.AmbientOcclusionStaticFraction >= 1 / 100.0f) && IsUsingGBuffers(View.GetShaderPlatform());
 }
 
 bool FSSAOHelper::IsAmbientOcclusionAsyncCompute(const FViewInfo& View, uint32 AOPassCount)
@@ -152,6 +164,44 @@ bool FSSAOHelper::IsAmbientOcclusionAsyncCompute(const FViewInfo& View, uint32 A
 	return false;
 }
 
+// @return 0:off, 0..3
+uint32 FSSAOHelper::ComputeAmbientOcclusionPassCount(const FViewInfo& View)
+{
+	// 0:off / 1 / 2 / 3
+	uint32 Ret = 0;
+
+	const bool bEnabled = ShouldRenderScreenSpaceAmbientOcclusion(View);
+
+	if (bEnabled)
+	{
+		if (IsAmbientOcclusionCompute(View) || IsForwardShadingEnabled(View.GetShaderPlatform()))
+		{	
+			// Compute and forward only support one pass currently.
+			return 1;
+		}
+
+		// usually in the range 0..100
+		float QualityPercent = GetAmbientOcclusionQualityRT(View);
+
+		// don't expose 0 as the lowest quality should still render
+		Ret = 1 +
+			(QualityPercent > 70.0f) +
+			(QualityPercent > 35.0f);
+
+		int32 CVarLevel = GetNumAmbientOcclusionLevels();
+
+		if (CVarLevel >= 0)
+		{
+			// cvar can override (for scalability or to profile/test)
+			Ret = CVarLevel;
+		}
+
+		// bring into valid range
+		Ret = FMath::Min<uint32>(Ret, 3);
+	}
+
+	return Ret;
+}
 
 /** Shader parameters needed for screen space AmbientOcclusion passes. */
 class FScreenSpaceAOParameters
@@ -312,6 +362,7 @@ public:
 // --------------------------------------------------------
 void FRCPassPostProcessAmbientOcclusionSetup::Process(FRenderingCompositePassContext& Context)
 {
+	SCOPED_GPU_STAT(Context.RHICmdList, SSAOSetup);
 	const FViewInfo& View = Context.View;
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
@@ -614,12 +665,16 @@ FShader* FRCPassPostProcessAmbientOcclusion::SetShaderTemplPS(const FRenderingCo
 	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
 
 	const FPooledRenderTargetDesc* InputDesc0 = GetInputDesc(ePId_Input0);
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
+	FIntPoint TexSize = InputDesc0 ? InputDesc0->Extent : SceneContext.GetBufferSizeXY();
 
 	VertexShader->SetParameters(Context);
-	PixelShader->SetParametersGfx(Context.RHICmdList, Context, InputDesc0->Extent, 0);
+	PixelShader->SetParametersGfx(Context.RHICmdList, Context, TexSize, 0);
 
 	return *VertexShader;
 }
+
+
 
 template <uint32 bTAOSetupAsInput, uint32 bDoUpsample, uint32 ShaderQuality, typename TRHICmdList>
 void FRCPassPostProcessAmbientOcclusion::DispatchCS(TRHICmdList& RHICmdList, const FRenderingCompositePassContext& Context, const FIntPoint& TexSize, FUnorderedAccessViewRHIParamRef OutUAV)
@@ -719,12 +774,50 @@ void FRCPassPostProcessAmbientOcclusion::ProcessCS(FRenderingCompositePassContex
 #undef SET_SHADER_CASE	
 }
 
-void FRCPassPostProcessAmbientOcclusion::ProcessPS(FRenderingCompositePassContext& Context, const FSceneRenderTargetItem* DestRenderTarget,
+void FRCPassPostProcessAmbientOcclusion::ProcessPS(FRenderingCompositePassContext& Context,
+	const FSceneRenderTargetItem* DestRenderTarget, const FSceneRenderTargetItem* SceneDepthBuffer,
 	const FIntRect& ViewRect, const FIntPoint& TexSize, int32 ShaderQuality, bool bDoUpsample)
 {
+	const bool bDepthBoundsTestEnabled = GSupportsDepthBoundsTest && SceneDepthBuffer && CVarAmbientOcclusionDepthBoundsTest.GetValueOnRenderThread();
+
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget->TargetableTexture, FTextureRHIRef());
+
+	SetRenderTarget(Context.RHICmdList, DestRenderTarget->TargetableTexture,
+		bDepthBoundsTestEnabled ? SceneDepthBuffer->TargetableTexture : FTextureRHIRef(),
+		ESimpleRenderTargetMode::EUninitializedColorExistingDepth, // Color target will be fully over-written and old contents is not needed.
+		FExclusiveDepthStencil::DepthRead_StencilRead); // DepthStencil buffer will not be modified, but will be used for culling.
+
 	Context.SetViewportAndCallRHI(ViewRect);
+
+	float DepthFar = 0.0f;
+
+	if (bDepthBoundsTestEnabled)
+	{
+		const FFinalPostProcessSettings& Settings = Context.View.FinalPostProcessSettings;
+		const FMatrix& ProjectionMatrix = Context.View.ViewMatrices.GetProjectionMatrix();
+		const FVector4 Far = ProjectionMatrix.TransformFVector4(FVector4(0, 0, Settings.AmbientOcclusionFadeDistance));
+		DepthFar = FMath::Min(1.0f, Far.Z / Far.W);
+
+		static_assert(bool(ERHIZBuffer::IsInverted), "Inverted depth buffer is assumed when setting depth bounds test for AO.");
+
+		// We must clear all pixels that won't be touched by AO shader.
+		FClearQuadCallbacks Callbacks;
+		Callbacks.PSOModifier = [](FGraphicsPipelineStateInitializer& PSOInitializer)
+		{
+			PSOInitializer.bDepthBounds = true;
+		};
+		Callbacks.PreClear = [DepthFar](FRHICommandList& InRHICmdList)
+		{
+			// This is done by rendering a clear quad over a depth range from AmbientOcclusionFadeDistance to far plane.
+			InRHICmdList.SetDepthBounds(0, DepthFar);	// NOTE: Inverted depth
+		};
+		Callbacks.PostClear = [DepthFar](FRHICommandList& InRHICmdList)
+		{
+			// Set depth bounds test to cover everything from near plane to AmbientOcclusionFadeDistance and run AO pixel shader.
+			InRHICmdList.SetDepthBounds(DepthFar, 1.0f);
+		};
+		DrawClearQuad(Context.RHICmdList, FLinearColor::White, Callbacks);
+	}
 
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
 	Context.RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -734,6 +827,7 @@ void FRCPassPostProcessAmbientOcclusion::ProcessPS(FRenderingCompositePassContex
 	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
 	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+	GraphicsPSOInit.bDepthBounds = bDepthBoundsTestEnabled;
 
 	FShader* VertexShader = 0;
 
@@ -763,6 +857,11 @@ void FRCPassPostProcessAmbientOcclusion::ProcessPS(FRenderingCompositePassContex
 	};
 #undef SET_SHADER_CASE
 
+	if (bDepthBoundsTestEnabled)
+	{
+		Context.RHICmdList.SetDepthBounds(DepthFar, 1.0f);
+	}
+
 	// Draw a quad mapping scene color to the view's render target
 	DrawRectangle(
 		Context.RHICmdList,
@@ -776,10 +875,17 @@ void FRCPassPostProcessAmbientOcclusion::ProcessPS(FRenderingCompositePassContex
 		EDRF_UseTriangleOptimization);
 
 	Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, DestRenderTarget->TargetableTexture);
+
+	if (bDepthBoundsTestEnabled)
+	{
+		Context.RHICmdList.SetDepthBounds(0, 1.0f);
+	}
 }
 
 void FRCPassPostProcessAmbientOcclusion::Process(FRenderingCompositePassContext& Context)
 {
+	SCOPED_GPU_STAT(Context.RHICmdList, SSAO);
+
 	const FViewInfo& View = Context.View;
 
 	const FPooledRenderTargetDesc* InputDesc0 = GetInputDesc(ePId_Input0);
@@ -815,7 +921,11 @@ void FRCPassPostProcessAmbientOcclusion::Process(FRenderingCompositePassContext&
 
 	if (AOType == ESSAOType::EPS)
 	{
-		ProcessPS(Context, DestRenderTarget, ViewRect, TexSize, ShaderQuality, bDoUpsample);
+		const FSceneRenderTargetItem* SceneDepthBuffer = (!bDoUpsample && ScaleToFullRes == 1 && SceneContext.SceneDepthZ)
+			? &SceneContext.SceneDepthZ->GetRenderTargetItem()
+			: nullptr;
+
+		ProcessPS(Context, DestRenderTarget, SceneDepthBuffer, ViewRect, TexSize, ShaderQuality, bDoUpsample);
 	}
 	else
 	{
@@ -913,6 +1023,8 @@ IMPLEMENT_SHADER_TYPE(,FPostProcessBasePassAOPS,TEXT("/Engine/Private/PostProces
 
 void FRCPassPostProcessBasePassAO::Process(FRenderingCompositePassContext& Context)
 {
+	SCOPED_GPU_STAT(Context.RHICmdList, BasePassAO);
+
 	const FViewInfo& View = Context.View;
 
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, ApplyAOToBasePassSceneColor, TEXT("ApplyAOToBasePassSceneColor %dx%d"), View.ViewRect.Width(), View.ViewRect.Height());

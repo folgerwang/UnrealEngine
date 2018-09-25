@@ -195,7 +195,7 @@ static UWorld* GetFirstPIEWorld()
 {
 	for (const FWorldContext& Context : GEngine->GetWorldContexts())
 	{
-		if (Context.World()->IsPlayInEditor())
+		if (Context.World() != nullptr && Context.World()->IsPlayInEditor())
 		{
 			if(Context.World()->GetNetMode() == ENetMode::NM_Standalone ||
 				(Context.World()->GetNetMode() == ENetMode::NM_Client && Context.PIEInstance == 2))

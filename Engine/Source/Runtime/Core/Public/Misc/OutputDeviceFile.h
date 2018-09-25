@@ -5,14 +5,80 @@
 #include "CoreTypes.h"
 #include "Misc/OutputDevice.h"
 #include "Templates/UniquePtr.h"
+#include "HAL/Runnable.h"
+#include "Serialization/Archive.h"
+#include "Misc/ScopeLock.h"
+#include "Containers/Array.h"
+
 
 /** string added to the filename of timestamped backup log files */
 #define BACKUP_LOG_FILENAME_POSTFIX TEXT("-backup-")
 
-class FAsyncWriter;
+/**
+* Thread heartbeat check class.
+* Used by crash handling code to check for hangs.
+* [] tags identify which thread owns a variable or function
+*/
+class CORE_API FAsyncWriter : public FRunnable, public FArchive
+{
+	enum EConstants
+	{
+		InitialBufferSize = 128 * 1024
+	};
 
-/** Used by FOutputDeviceFile to write to a file on a separate thread */
-class FAsyncWriter;
+	/** Thread to run the worker FRunnable on. Serializes the ring buffer to disk. */
+	volatile FRunnableThread* Thread;
+	/** Stops this thread */
+	FThreadSafeCounter StopTaskCounter;
+
+	/** Writer archive */
+	FArchive& Ar;
+	/** Data ring buffer */
+	TArray<uint8> Buffer;
+	/** [WRITER THREAD] Position where the unserialized data starts in the buffer */
+	TAtomic<int32> BufferStartPos;
+	/** [CLIENT THREAD] Position where the unserialized data ends in the buffer (such as if (BufferEndPos > BufferStartPos) Length = BufferEndPos - BufferStartPos; */
+	TAtomic<int32> BufferEndPos;
+	/** [CLIENT THREAD] Sync object for the buffer pos */
+	FCriticalSection BufferPosCritical;
+	/** [CLIENT/WRITER THREAD] Outstanding serialize request counter. This is to make sure we flush all requests. */
+	FThreadSafeCounter SerializeRequestCounter;
+	/** [CLIENT/WRITER THREAD] Tells the writer thread, the client requested flush. */
+	FThreadSafeCounter WantsArchiveFlush;
+
+	/** [WRITER THREAD] Last time the archive was flushed. used in threaded situations to flush the underlying archive at a certain maximum rate. */
+	double LastArchiveFlushTime;
+
+	/** [WRITER THREAD] Archive flush interval. */
+	double ArchiveFlushIntervalSec;
+
+	/** [WRITER THREAD] Flushes the archive and reset the flush timer. */
+	void FlushArchiveAndResetTimer();
+
+	/** [WRITER THREAD] Serialize the contents of the ring buffer to disk */
+	void SerializeBufferToArchive();
+
+	/** [CLIENT THREAD] Flush the memory buffer (doesn't force the archive to flush). Can only be used from inside of BufferPosCritical lock. */
+	void FlushBuffer();
+
+public:
+
+	FAsyncWriter(FArchive& InAr);
+
+	virtual ~FAsyncWriter();
+
+	/** [CLIENT THREAD] Serialize data to buffer that will later be saved to disk by the async thread */
+	virtual void Serialize(void* InData, int64 Length) override;
+
+	/** Flush all buffers to disk */
+	void Flush();
+
+	//~ Begin FRunnable Interface.
+	virtual bool Init();
+	virtual uint32 Run();
+	virtual void Stop();
+	//~ End FRunnable Interface
+};
 
 enum class EByteOrderMark : int8
 {

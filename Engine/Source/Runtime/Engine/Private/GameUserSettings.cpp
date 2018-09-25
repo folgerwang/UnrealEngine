@@ -61,7 +61,7 @@ FIntPoint UGameUserSettings::GetDesktopResolution() const
 	{
 		if (FApp::CanEverRender())
 		{
-			FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+			FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 		}
 		else
 		{
@@ -193,8 +193,6 @@ void UGameUserSettings::ConfirmVideoMode()
 	LastConfirmedFullscreenMode = FullscreenMode;
 	LastUserConfirmedResolutionSizeX = ResolutionSizeX;
 	LastUserConfirmedResolutionSizeY = ResolutionSizeY;
-
-	OnGameUserSettingsUINeedsUpdate.Broadcast();
 }
 
 void UGameUserSettings::RevertVideoMode()
@@ -408,6 +406,8 @@ void UGameUserSettings::ValidateSettings()
 	}
 #endif
 
+	LastConfirmedAudioQualityLevel = AudioQualityLevel;
+
 	// The user settings have now been validated for the current version.
 	UpdateVersion();
 }
@@ -496,13 +496,13 @@ void UGameUserSettings::ApplyResolutionSettings(bool bCheckForCommandLineOverrid
 
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
 
-	OnGameUserSettingsUINeedsUpdate.Broadcast();
+	RequestUIUpdate();
 }
 
 void UGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 {
-	ApplyNonResolutionSettings();
 	ApplyResolutionSettings(bCheckForCommandLineOverrides);
+	ApplyNonResolutionSettings();
 
 	SaveSettings();
 }
@@ -591,7 +591,7 @@ void UGameUserSettings::PreloadResolutionSettings()
 		{
 			// Grab display metrics so we can get the primary display output size.
 			FDisplayMetrics DisplayMetrics;
-			FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+			FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
 			ResolutionX = DisplayMetrics.PrimaryDisplayWidth;
 			ResolutionY = DisplayMetrics.PrimaryDisplayHeight;
@@ -661,6 +661,9 @@ void UGameUserSettings::ResetToCurrentSettings()
 
 		// Reset the quality settings to the current levels
 		ScalabilityQuality = Scalability::GetQualityLevels();
+
+		// Reset the audio quality level
+		AudioQualityLevel = LastConfirmedAudioQualityLevel;
 
 		UpdateResolutionQuality();
 	}

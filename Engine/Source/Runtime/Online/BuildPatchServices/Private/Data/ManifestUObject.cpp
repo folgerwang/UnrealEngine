@@ -4,7 +4,9 @@
 #include "Serialization/Archive.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
+#include "Algo/Accumulate.h"
 #include "Algo/Transform.h"
+#include "Data/ManifestData.h"
 #include "BuildPatchManifest.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogManifestUObject, Log, All);
@@ -73,7 +75,7 @@ FFileManifestData::FFileManifestData()
 *****************************************************************************/
 UBuildPatchManifest::UBuildPatchManifest(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, ManifestFileVersion(EBuildPatchAppManifestVersion::Invalid)
+	, ManifestFileVersion(static_cast<uint8>(BuildPatchServices::EFeatureLevel::Invalid))
 	, bIsFileData(false)
 	, AppID(INDEX_NONE)
 	, AppName(TEXT(""))
@@ -96,33 +98,33 @@ UBuildPatchManifest::~UBuildPatchManifest()
 
 namespace ManifestUObjectHelpers
 {
-	FChunkPart FromChunkPartData(const FChunkPartData& Input)
+	BuildPatchServices::FChunkPart FromChunkPartData(const FChunkPartData& Input)
 	{
-		FChunkPart Output;
+		BuildPatchServices::FChunkPart Output;
 		Output.Guid = Input.Guid;
 		Output.Offset = Input.Offset;
 		Output.Size = Input.Size;
 		return Output;
 	}
 
-	FFileManifest FromFileManifestData(const FFileManifestData& Input)
+	BuildPatchServices::FFileManifest FromFileManifestData(const FFileManifestData& Input)
 	{
-		FFileManifest Output;
+		BuildPatchServices::FFileManifest Output;
 		Output.Filename = Input.Filename;
 		FMemory::Memcpy(Output.FileHash.Hash, Input.FileHash.Hash, FSHA1::DigestSize);
-		Output.FileChunkParts.Empty(Input.FileChunkParts.Num());
-		Algo::Transform(Input.FileChunkParts, Output.FileChunkParts, &ManifestUObjectHelpers::FromChunkPartData);
+		Output.ChunkParts.Empty(Input.FileChunkParts.Num());
+		Algo::Transform(Input.FileChunkParts, Output.ChunkParts, &ManifestUObjectHelpers::FromChunkPartData);
 		Output.InstallTags = Input.InstallTags;
-		Output.bIsUnixExecutable = Input.bIsUnixExecutable;
 		Output.SymlinkTarget = Input.SymlinkTarget;
-		Output.bIsReadOnly = Input.bIsReadOnly;
-		Output.bIsCompressed = Input.bIsCompressed;
+		Output.FileMetaFlags |= Input.bIsReadOnly ? BuildPatchServices::EFileMetaFlags::ReadOnly : BuildPatchServices::EFileMetaFlags::None;
+		Output.FileMetaFlags |= Input.bIsCompressed ? BuildPatchServices::EFileMetaFlags::Compressed : BuildPatchServices::EFileMetaFlags::None;
+		Output.FileMetaFlags |= Input.bIsUnixExecutable ? BuildPatchServices::EFileMetaFlags::UnixExecutable : BuildPatchServices::EFileMetaFlags::None;
 		return Output;
 	}
 
-	FChunkInfo FromChunkInfoData(const FChunkInfoData& Input)
+	BuildPatchServices::FChunkInfo FromChunkInfoData(const FChunkInfoData& Input)
 	{
-		FChunkInfo Output;
+		BuildPatchServices::FChunkInfo Output;
 		Output.Guid = Input.Guid;
 		Output.Hash = Input.Hash;
 		FMemory::Memcpy(Output.ShaHash.Hash, Input.ShaHash.Hash, FSHA1::DigestSize);
@@ -131,15 +133,7 @@ namespace ManifestUObjectHelpers
 		return Output;
 	}
 
-	FBuildPatchAppManifest::FCustomField FromCustomFieldData(const FCustomFieldData& Input)
-	{
-		FBuildPatchAppManifest::FCustomField Output;
-		Output.Key = Input.Key;
-		Output.Value = Input.Value;
-		return Output;
-	}
-
-	FChunkPartData ToChunkPartData(const FChunkPart& Input)
+	FChunkPartData ToChunkPartData(const BuildPatchServices::FChunkPart& Input)
 	{
 		FChunkPartData Output;
 		Output.Guid = Input.Guid;
@@ -148,22 +142,22 @@ namespace ManifestUObjectHelpers
 		return Output;
 	}
 
-	FFileManifestData ToFileManifestData(const FFileManifest& Input)
+	FFileManifestData ToFileManifestData(const BuildPatchServices::FFileManifest& Input)
 	{
 		FFileManifestData Output;
 		Output.Filename = Input.Filename;
 		FMemory::Memcpy(Output.FileHash.Hash, Input.FileHash.Hash, FSHA1::DigestSize);
-		Output.FileChunkParts.Empty(Input.FileChunkParts.Num());
-		Algo::Transform(Input.FileChunkParts, Output.FileChunkParts, &ManifestUObjectHelpers::ToChunkPartData);
+		Output.FileChunkParts.Empty(Input.ChunkParts.Num());
+		Algo::Transform(Input.ChunkParts, Output.FileChunkParts, &ManifestUObjectHelpers::ToChunkPartData);
 		Output.InstallTags = Input.InstallTags;
-		Output.bIsUnixExecutable = Input.bIsUnixExecutable;
+		Output.bIsUnixExecutable = EnumHasAllFlags(Input.FileMetaFlags, BuildPatchServices::EFileMetaFlags::UnixExecutable);
 		Output.SymlinkTarget = Input.SymlinkTarget;
-		Output.bIsReadOnly = Input.bIsReadOnly;
-		Output.bIsCompressed = Input.bIsCompressed;
+		Output.bIsReadOnly = EnumHasAllFlags(Input.FileMetaFlags, BuildPatchServices::EFileMetaFlags::ReadOnly);
+		Output.bIsCompressed = EnumHasAllFlags(Input.FileMetaFlags, BuildPatchServices::EFileMetaFlags::Compressed);
 		return Output;
 	}
 
-	FChunkInfoData ToChunkInfoData(const FChunkInfo& Input)
+	FChunkInfoData ToChunkInfoData(const BuildPatchServices::FChunkInfo& Input)
 	{
 		FChunkInfoData Output;
 		Output.Guid = Input.Guid;
@@ -174,7 +168,7 @@ namespace ManifestUObjectHelpers
 		return Output;
 	}
 
-	FCustomFieldData ToCustomFieldData(const FBuildPatchAppManifest::FCustomField& Input)
+	FCustomFieldData ToCustomFieldData(const TPair<FString, FString>& Input)
 	{
 		FCustomFieldData Output;
 		Output.Key = Input.Key;
@@ -401,35 +395,37 @@ void FManifestUObject::Init()
 
 bool FManifestUObject::LoadFromMemory(const TArray<uint8>& DataInput, FBuildPatchAppManifest& AppManifest)
 {
+	using namespace BuildPatchServices;
 #if !BUILDPATCHSERVICES_NOUOBJECT
 
 	FMemoryReader ManifestFile(DataInput);
-	FManifestFileHeader Header;
+	FManifestHeader Header;
 	ManifestFile << Header;
 	const int32 SignedHeaderSize = Header.HeaderSize;
-	if (Header.CheckMagic() && DataInput.Num() > SignedHeaderSize)
+	if (!ManifestFile.IsError() && DataInput.Num() > SignedHeaderSize)
 	{
 		FSHAHash DataHash;
 		FSHA1::HashBuffer(&DataInput[Header.HeaderSize], DataInput.Num() - Header.HeaderSize, DataHash.Hash);
 		if (DataHash == Header.SHAHash)
 		{
+			const bool bIsCompressed = EnumHasAllFlags(Header.StoredAs, EManifestStorageFlags::Compressed);
 			TArray<uint8> UncompressedData;
-			if (Header.StoredAs == EManifestFileHeader::STORED_COMPRESSED && (Header.CompressedSize + Header.HeaderSize) == DataInput.Num())
+			if (bIsCompressed && (Header.DataSizeCompressed + Header.HeaderSize) == DataInput.Num())
 			{
-				UncompressedData.AddUninitialized(Header.DataSize);
+				UncompressedData.AddUninitialized(Header.DataSizeUncompressed);
 				if (!FCompression::UncompressMemory(
 					static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
 					UncompressedData.GetData(),
-					Header.DataSize,
+					Header.DataSizeUncompressed,
 					&DataInput[Header.HeaderSize],
 					DataInput.Num() - Header.HeaderSize))
 				{
 					return false;
 				}
 			}
-			else if ((Header.DataSize + Header.HeaderSize) == DataInput.Num())
+			else if ((Header.DataSizeUncompressed + Header.HeaderSize) == DataInput.Num())
 			{
-				UncompressedData.Append(&DataInput[Header.HeaderSize], Header.DataSize);
+				UncompressedData.Append(&DataInput[Header.HeaderSize], Header.DataSizeUncompressed);
 			}
 			else
 			{
@@ -458,6 +454,7 @@ bool FManifestUObject::LoadFromMemory(const TArray<uint8>& DataInput, FBuildPatc
 
 bool FManifestUObject::SaveToArchive(FArchive& Ar, const FBuildPatchAppManifest& AppManifest)
 {
+	using namespace BuildPatchServices;
 #if !BUILDPATCHSERVICES_NOUOBJECT
 
 	if (Ar.IsSaving())
@@ -481,16 +478,14 @@ bool FManifestUObject::SaveToArchive(FArchive& Ar, const FBuildPatchAppManifest&
 
 			TArray<uint8>& FileData = bDataIsCompressed ? TempCompressed : ManifestData.GetBytes();
 
-			FManifestFileHeader Header;
-			Header.StoredAs = bDataIsCompressed ? EManifestFileHeader::STORED_COMPRESSED : EManifestFileHeader::STORED_RAW;
-			Header.DataSize = DataSize;
-			Header.CompressedSize = bDataIsCompressed ? CompressedSize : 0;
+			FManifestHeader Header;
+			Header.Version = AppManifest.ManifestMeta.FeatureLevel;
+			Header.StoredAs = bDataIsCompressed ? EManifestStorageFlags::Compressed : EManifestStorageFlags::None;
+			Header.DataSizeUncompressed = DataSize;
+			Header.DataSizeCompressed = bDataIsCompressed ? CompressedSize : Header.DataSizeUncompressed;
 			FSHA1::HashBuffer(FileData.GetData(), FileData.Num(), Header.SHAHash.Hash);
 
 			// Write to provided archive
-			Ar << Header;
-			Header.HeaderSize = Ar.Tell();
-			Ar.Seek(0);
 			Ar << Header;
 			Ar.Serialize(FileData.GetData(), FileData.Num());
 		}
@@ -514,6 +509,7 @@ bool FManifestUObject::SaveToArchive(FArchive& Ar, const FBuildPatchAppManifest&
 
 bool FManifestUObject::LoadInternal(FArchive& Ar, FBuildPatchAppManifest& AppManifest)
 {
+	using namespace BuildPatchServices;
 #if !BUILDPATCHSERVICES_NOUOBJECT
 
 	UBuildPatchManifest* Data = NewObject<UBuildPatchManifest>();
@@ -528,33 +524,39 @@ bool FManifestUObject::LoadInternal(FArchive& Ar, FBuildPatchAppManifest& AppMan
 		Data->Serialize(Ar);
 
 		AppManifest.DestroyData();
-		AppManifest.ManifestFileVersion = MoveTemp(Data->ManifestFileVersion);
-		AppManifest.bIsFileData = MoveTemp(Data->bIsFileData);
-		AppManifest.AppID = MoveTemp(Data->AppID);
-		AppManifest.AppName = MoveTemp(Data->AppName);
-		AppManifest.BuildVersion = MoveTemp(Data->BuildVersion);
-		AppManifest.LaunchExe = MoveTemp(Data->LaunchExe);
-		AppManifest.LaunchCommand = MoveTemp(Data->LaunchCommand);
-		AppManifest.PrereqIds = MoveTemp(Data->PrereqIds);
-		AppManifest.PrereqName = MoveTemp(Data->PrereqName);
-		AppManifest.PrereqPath = MoveTemp(Data->PrereqPath);
-		AppManifest.PrereqArgs = MoveTemp(Data->PrereqArgs);
+		AppManifest.ManifestMeta.FeatureLevel = static_cast<EFeatureLevel>(Data->ManifestFileVersion);
+		AppManifest.ManifestMeta.bIsFileData = MoveTemp(Data->bIsFileData);
+		AppManifest.ManifestMeta.AppID = MoveTemp(Data->AppID);
+		AppManifest.ManifestMeta.AppName = MoveTemp(Data->AppName);
+		AppManifest.ManifestMeta.BuildVersion = MoveTemp(Data->BuildVersion);
+		AppManifest.ManifestMeta.LaunchExe = MoveTemp(Data->LaunchExe);
+		AppManifest.ManifestMeta.LaunchCommand = MoveTemp(Data->LaunchCommand);
+		AppManifest.ManifestMeta.PrereqIds = MoveTemp(Data->PrereqIds);
+		AppManifest.ManifestMeta.PrereqName = MoveTemp(Data->PrereqName);
+		AppManifest.ManifestMeta.PrereqPath = MoveTemp(Data->PrereqPath);
+		AppManifest.ManifestMeta.PrereqArgs = MoveTemp(Data->PrereqArgs);
 
-		AppManifest.FileManifestList.Empty(Data->FileManifestList.Num());
-		Algo::Transform(Data->FileManifestList, AppManifest.FileManifestList, &ManifestUObjectHelpers::FromFileManifestData);
+		AppManifest.FileManifestList.FileList.Empty(Data->FileManifestList.Num());
+		Algo::Transform(Data->FileManifestList, AppManifest.FileManifestList.FileList, &ManifestUObjectHelpers::FromFileManifestData);
 
-		AppManifest.ChunkList.Empty(Data->ChunkList.Num());
-		Algo::Transform(Data->ChunkList, AppManifest.ChunkList, &ManifestUObjectHelpers::FromChunkInfoData);
+		AppManifest.ChunkDataList.ChunkList.Empty(Data->ChunkList.Num());
+		Algo::Transform(Data->ChunkList, AppManifest.ChunkDataList.ChunkList, &ManifestUObjectHelpers::FromChunkInfoData);
 
-		AppManifest.CustomFields.Empty(Data->CustomFields.Num());
-		Algo::Transform(Data->CustomFields, AppManifest.CustomFields, &ManifestUObjectHelpers::FromCustomFieldData);
+		AppManifest.CustomFields.Fields.Empty(Data->CustomFields.Num());
+		for (const FCustomFieldData& CustomField : Data->CustomFields)
+		{
+			AppManifest.CustomFields.Fields.Add(CustomField.Key, CustomField.Value);
+		}
 
 		// If we didn't load the version number, we know it was skipped when saving therefore must be
 		// the first UObject version
-		if (AppManifest.ManifestFileVersion == static_cast<uint8>(EBuildPatchAppManifestVersion::Invalid))
+		if (AppManifest.ManifestMeta.FeatureLevel == EFeatureLevel::Invalid)
 		{
-			AppManifest.ManifestFileVersion = EBuildPatchAppManifestVersion::StoredAsCompressedUClass;
+			AppManifest.ManifestMeta.FeatureLevel = EFeatureLevel::StoredAsCompressedUClass;
 		}
+
+		// Call OnPostLoad for the file manifest list
+		AppManifest.FileManifestList.OnPostLoad();
 
 		// Setup internal lookups
 		AppManifest.InitLookups();
@@ -605,26 +607,29 @@ bool FManifestUObject::SaveInternal(FArchive& Ar, const FBuildPatchAppManifest& 
 	}
 	else
 	{
-		Data->ManifestFileVersion = AppManifest.ManifestFileVersion;
-		Data->bIsFileData = AppManifest.bIsFileData;
-		Data->AppID = AppManifest.AppID;
-		Data->AppName = AppManifest.AppName;
-		Data->BuildVersion = AppManifest.BuildVersion;
-		Data->LaunchExe = AppManifest.LaunchExe;
-		Data->LaunchCommand = AppManifest.LaunchCommand;
-		Data->PrereqIds = AppManifest.PrereqIds;
-		Data->PrereqName = AppManifest.PrereqName;
-		Data->PrereqPath = AppManifest.PrereqPath;
-		Data->PrereqArgs = AppManifest.PrereqArgs;
+		Data->ManifestFileVersion = static_cast<uint8>(AppManifest.ManifestMeta.FeatureLevel);
+		Data->bIsFileData = AppManifest.ManifestMeta.bIsFileData;
+		Data->AppID = AppManifest.ManifestMeta.AppID;
+		Data->AppName = AppManifest.ManifestMeta.AppName;
+		Data->BuildVersion = AppManifest.ManifestMeta.BuildVersion;
+		Data->LaunchExe = AppManifest.ManifestMeta.LaunchExe;
+		Data->LaunchCommand = AppManifest.ManifestMeta.LaunchCommand;
+		Data->PrereqIds = AppManifest.ManifestMeta.PrereqIds;
+		Data->PrereqName = AppManifest.ManifestMeta.PrereqName;
+		Data->PrereqPath = AppManifest.ManifestMeta.PrereqPath;
+		Data->PrereqArgs = AppManifest.ManifestMeta.PrereqArgs;
 
-		Data->FileManifestList.Empty(AppManifest.FileManifestList.Num());
-		Algo::Transform(AppManifest.FileManifestList, Data->FileManifestList, &ManifestUObjectHelpers::ToFileManifestData);
+		Data->FileManifestList.Empty(AppManifest.FileManifestList.FileList.Num());
+		Algo::Transform(AppManifest.FileManifestList.FileList, Data->FileManifestList, &ManifestUObjectHelpers::ToFileManifestData);
 
-		Data->ChunkList.Empty(AppManifest.ChunkList.Num());
-		Algo::Transform(AppManifest.ChunkList, Data->ChunkList, &ManifestUObjectHelpers::ToChunkInfoData);
+		Data->ChunkList.Empty(AppManifest.ChunkDataList.ChunkList.Num());
+		Algo::Transform(AppManifest.ChunkDataList.ChunkList, Data->ChunkList, &ManifestUObjectHelpers::ToChunkInfoData);
 
-		Data->CustomFields.Empty(AppManifest.CustomFields.Num());
-		Algo::Transform(AppManifest.CustomFields, Data->CustomFields, &ManifestUObjectHelpers::ToCustomFieldData);
+		Data->CustomFields.Empty(AppManifest.CustomFields.Fields.Num());
+		for (const TPair<FString, FString>& CustomField : AppManifest.CustomFields.Fields)
+		{
+			Data->CustomFields.Add(ManifestUObjectHelpers::ToCustomFieldData(CustomField));
+		}
 
 		Data->Serialize(Ar);
 	}

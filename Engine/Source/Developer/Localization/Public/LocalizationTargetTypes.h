@@ -360,7 +360,7 @@ struct FLocalizationTargetSettings
 	UPROPERTY(config, EditAnywhere, Category = "Target")
 	FString Name;
 
-	UPROPERTY(config)
+	UPROPERTY(config, meta=(IgnoreForMemberInitializationTest))
 	FGuid Guid;
 
 	/* Whether the target has outstanding conflicts that require resolution. */

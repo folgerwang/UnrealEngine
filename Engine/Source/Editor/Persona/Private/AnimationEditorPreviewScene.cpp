@@ -26,6 +26,7 @@
 #include "AnimPreviewAttacheInstance.h"
 #include "Animation/PreviewCollectionInterface.h"
 #include "ScopedTransaction.h"
+#include "Preferences/PersonaOptions.h"
 #include "ISkeletonTreeItem.h"
 #include "Engine/SkeletalMeshSocket.h"
 
@@ -301,7 +302,12 @@ void FAnimationEditorPreviewScene::RefreshAdditionalMeshes()
 	// remove all components
 	for (USkeletalMeshComponent* Component : AdditionalMeshes)
 	{
-		UAnimCustomInstance::UnbindFromSkeletalMeshComponent(Component);
+		const UAnimInstance* AnimInst = Component->GetAnimInstance();
+		if (AnimInst && AnimInst->IsA(UAnimCustomInstance::StaticClass()))
+		{
+			UAnimCustomInstance::UnbindFromSkeletalMeshComponent(Component);
+		}
+		
 		RemoveComponent(Component);
 	}
 
@@ -316,13 +322,21 @@ void FAnimationEditorPreviewScene::RefreshAdditionalMeshes()
 
 	if (PreviewSceneAdditionalMeshes != nullptr)
 	{
-		TArray<USkeletalMesh*> ValidMeshes;
+		const bool bUseCustomAnimBP = GetMutableDefault<UPersonaOptions>()->bAllowPreviewMeshCollectionsToUseCustomAnimBP;
 
 		// get preview interface
 		const IPreviewCollectionInterface* PreviewCollection = Cast<IPreviewCollectionInterface>(PreviewSceneAdditionalMeshes);
 		if (PreviewCollection)
 		{
-			PreviewCollection->GetPreviewSkeletalMeshes(ValidMeshes);
+			USkeletalMesh* BaseMesh = PreviewCollection->GetPreviewBaseMesh();
+			if (BaseMesh)
+			{
+				SetPreviewMeshInternal(BaseMesh);
+			}
+
+			TArray<USkeletalMesh*> ValidMeshes;
+			TArray<TSubclassOf<UAnimInstance>> AnimInstances;
+			PreviewCollection->GetPreviewSkeletalMeshes(ValidMeshes, AnimInstances);
 			const int32 NumMeshes = ValidMeshes.Num();
 			for (int32 MeshIndex = 0; MeshIndex < NumMeshes; ++MeshIndex)
 			{
@@ -332,8 +346,17 @@ void FAnimationEditorPreviewScene::RefreshAdditionalMeshes()
 					USkeletalMeshComponent* NewComp = NewObject<USkeletalMeshComponent>(Actor);
 					NewComp->RegisterComponent();
 					NewComp->SetSkeletalMesh(SkeletalMesh);
-					UAnimCustomInstance::BindToSkeletalMeshComponent<UAnimPreviewAttacheInstance>(NewComp);
 					AddComponent(NewComp, FTransform::Identity, true);
+
+					if (bUseCustomAnimBP && AnimInstances.IsValidIndex(MeshIndex) && AnimInstances[MeshIndex] != nullptr)
+					{
+						NewComp->SetAnimInstanceClass(AnimInstances[MeshIndex]);
+					}
+					else
+					{
+						UAnimCustomInstance::BindToSkeletalMeshComponent<UAnimPreviewAttacheInstance>(NewComp);
+					}
+
 					AdditionalMeshes.Add(NewComp);
 				}
 			}

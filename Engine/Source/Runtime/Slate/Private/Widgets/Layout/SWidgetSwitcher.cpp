@@ -9,7 +9,7 @@ SWidgetSwitcher::SWidgetSwitcher()
 	, AllChildren(this)
 	, OneDynamicChild(this, &AllChildren, &WidgetIndex)
 { 
-	bCanTick = false;
+	SetCanTick(false);
 }
 
 
@@ -119,8 +119,11 @@ int32 SWidgetSwitcher::RemoveSlot( TSharedRef<SWidget> WidgetToRemove )
 
 void SWidgetSwitcher::SetActiveWidgetIndex( int32 Index )
 {
-	WidgetIndex = Index;
-	Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	if(WidgetIndex.Get() != Index)
+	{
+		WidgetIndex = Index;
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
 }
 
 #if SLATE_PARENT_POINTERS

@@ -57,6 +57,7 @@
 
 DECLARE_CYCLE_STAT(TEXT("CreateClothing"), STAT_CreateClothing, STATGROUP_Physics);
 
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
 
 TAutoConsoleVariable<int32> CVarEnableClothPhysics(TEXT("p.ClothPhysics"), 1, TEXT("If 1, physics cloth will be used for simulation."));
 
@@ -81,6 +82,8 @@ FString FSkeletalMeshComponentClothTickFunction::DiagnosticMessage()
 void FSkeletalMeshComponentEndPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(FSkeletalMeshComponentEndPhysicsTickFunction_ExecuteTick);
+	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick_AnimGameThread);
+
 	FActorComponentTickFunction::ExecuteTickHelper(Target, /*bTickInEditor=*/ false, DeltaTime, TickType, [this](float DilatedTime)
 	{
 		Target->EndPhysicsTickComponent(*this);
@@ -2380,7 +2383,6 @@ void USkeletalMeshComponent::ExtractCollisionsForCloth(USkeletalMeshComponent* S
 	if(SourceComponent->SkeletalMesh && PhysicsAsset)
 	{
 		const FTransform& ComponentToComponentTransform = SourceComponent->GetComponentTransform() * DestClothComponent->GetComponentTransform().Inverse();
-		const TArray<FTransform>& ComponentSpaceTransforms = SourceComponent->GetComponentSpaceTransforms();
 
 		// Init cache on first copy
 		if(!ClothCollisionSource.bCached || ClothCollisionSource.CachedSkeletalMesh.Get() != SourceComponent->SkeletalMesh)
@@ -2431,17 +2433,27 @@ void USkeletalMeshComponent::ExtractCollisionsForCloth(USkeletalMeshComponent* S
 			ClothCollisionSource.bCached = true;
 		}
 
-		// Copy cached data
-		OutCollisions.Spheres.Append(ClothCollisionSource.CachedSpheres);
-		OutCollisions.SphereConnections.Append(ClothCollisionSource.CachedSphereConnections);
+		// presize array allocations
+		OutCollisions.Spheres.Reserve(OutCollisions.Spheres.Num() + ClothCollisionSource.CachedSpheres.Num());
+		OutCollisions.SphereConnections.Reserve(OutCollisions.SphereConnections.Num() + ClothCollisionSource.CachedSphereConnections.Num());
 
 		// Now transform output data
-		for(FClothCollisionPrim_Sphere& OutSphere : OutCollisions.Spheres)
+		for(const FClothCollisionPrim_Sphere& CachedSphere : ClothCollisionSource.CachedSpheres)
 		{
-			const FTransform& BoneTransform = ComponentSpaceTransforms[OutSphere.BoneIndex] * ComponentToComponentTransform;
+			FClothCollisionPrim_Sphere& OutSphere = OutCollisions.Spheres.Add_GetRef(CachedSphere);
 
+			const FTransform& BoneTransform = SourceComponent->GetBoneTransform(OutSphere.BoneIndex, FTransform::Identity) * ComponentToComponentTransform;
 			OutSphere.LocalPosition = BoneTransform.TransformPosition(OutSphere.LocalPosition);
 			OutSphere.BoneIndex = INDEX_NONE;
+		}
+
+		// Offset connections
+		int32 ConnectionBaseIndex = OutCollisions.SphereConnections.Num();
+		for(const FClothCollisionPrim_SphereConnection& CachedSphereConnection : ClothCollisionSource.CachedSphereConnections)
+		{
+			FClothCollisionPrim_SphereConnection& OutSphereConnection = OutCollisions.SphereConnections.Add_GetRef(CachedSphereConnection);
+			OutSphereConnection.SphereIndices[0] += ConnectionBaseIndex;
+			OutSphereConnection.SphereIndices[1] += ConnectionBaseIndex;
 		}
 	}
 }
@@ -2812,7 +2824,7 @@ void USkeletalMeshComponent::EndPhysicsTickComponent(FSkeletalMeshComponentEndPh
 		return;
 	}
 
-	if (IsRegistered() && IsSimulatingPhysics())
+	if (IsRegistered() && IsSimulatingPhysics() && RigidBodyIsAwake())
 	{
 		SyncComponentToRBPhysics();
 	}

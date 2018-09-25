@@ -1,0 +1,222 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{767B4F85-AB56-4B00-A033-04C7600ACC3D}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Gauntlet.Automation</RootNamespace>
+    <AssemblyName>Gauntlet.Automation</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\..\..\Binaries\DotNET\AutomationScripts\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Development|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\..\Binaries\DotNET\AutomationScripts\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Ionic.Zip.Reduced">
+      <HintPath>..\..\..\..\Binaries\ThirdParty\Ionic\Ionic.Zip.Reduced.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Magick.NET-Q16-HDRI-AnyCPU, Version=7.0.0.0, Culture=neutral, PublicKeyToken=2004825badfa91ec, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>ThirdParty\Magick.NET\Magick.NET-Q16-HDRI-AnyCPU.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=7.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\Binaries\ThirdParty\Newtonsoft\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.ServiceModel" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Editor\EditorTest.BootTest.cs" />
+    <Compile Include="Editor\RunEditorTests.cs" />
+    <Compile Include="EngineTest\RunEngineTests.cs" />
+    <Compile Include="EngineTest\Tests\EngineTest.RunAutomatedTests.cs" />
+    <Compile Include="Framework\Account\Gauntlet.AccountPool.cs" />
+    <Compile Include="Framework\Base\Gauntlet.AppConfig.cs" />
+    <Compile Include="Framework\Base\Gauntlet.AppInstall.cs" />
+    <Compile Include="Framework\Account\Gauntlet.Account.cs" />
+    <Compile Include="Framework\Base\Gauntlet.BaseTestNode.cs" />
+    <Compile Include="Framework\Base\Gauntlet.Blacklist.cs" />
+    <Compile Include="Framework\Base\Gauntlet.ConfigOption.cs" />
+    <Compile Include="Framework\Base\Gauntlet.BuildSource.cs" />
+    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceAndroid.cs" />
+    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceNull.cs" />
+    <Compile Include="Framework\Devices\Gauntlet.TargetDevicePS4.cs" />
+    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceSwitch.cs" />
+    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceXboxOne.cs" />
+    <Compile Include="Framework\FileLockInfo.cs" />
+    <Compile Include="Framework\Gauntlet.AutoParam.cs" />
+    <Compile Include="Framework\Gauntlet.Exception.cs" />
+    <Compile Include="Framework\Gauntlet.Params.cs" />
+    <Compile Include="Framework\Gauntlet.TestGroup.cs" />
+    <Compile Include="Framework\Utils\Gauntlet.MarkdownBuilder.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealBuildParsing.cs" />
+    <Compile Include="Unreal\BuildSource\Gauntlet.AndroidBuildSource.cs" />
+    <Compile Include="Unreal\BuildSource\Gauntlet.PS4BuildSources.cs" />
+    <Compile Include="Unreal\BuildSource\Gauntlet.WindowsBuildSources.cs" />
+    <Compile Include="Unreal\BuildSource\Gauntlet.SwitchBuildSource.cs" />
+    <Compile Include="Unreal\BuildSource\Gauntlet.XboxOneBuildSource.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Framework\Base\Gauntlet.TestContext.cs" />
+    <Compile Include="Framework\Base\Gauntlet.AppInstance.cs" />
+    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceWindows.cs" />
+    <Compile Include="Framework\Devices\Gauntlet.DevicePool.cs" />
+    <Compile Include="Framework\Base\Gauntlet.TestNode.cs" />
+    <Compile Include="Framework\Base\Gauntlet.TargetDevice.cs" />
+    <Compile Include="Framework\Gauntlet.TestExecutor.cs" />
+    <Compile Include="Framework\Gauntlet.Utils.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SelfTest\Devices\Gauntlet.SelfTest.TestTargetDeviceXboxOne.cs" />
+    <Compile Include="SelfTest\Framework\Gauntlet.SelfTest.TestAutoParam.cs" />
+    <Compile Include="SelfTest\Framework\Gauntlet.SelfTest.TestParsing.cs" />
+    <Compile Include="SelfTest\Gauntlet.SelfTest.Blank.cs" />
+    <Compile Include="SelfTest\Framework\Gauntlet.SelfTest.CreateGif.cs" />
+    <Compile Include="SelfTest\Framework\Gauntlet.SelfTest.OrderOfOpsTest.cs" />
+    <Compile Include="SelfTest\Devices\Gauntlet.SelfTest.TestTargetDevice.cs" />
+    <Compile Include="SelfTest\Devices\Gauntlet.SelfTest.TestTargetDevicePS4.cs" />
+    <Compile Include="SelfTest\Devices\Gauntlet.SelfTest.TestTargetDeviceWindows.cs" />
+    <Compile Include="SelfTest\Devices\Gauntlet.SelfTest.TestTargetDeviceMac.cs" />
+    <Compile Include="SelfTest\Framework\Gauntlet.SelfTest.TimeoutTest.cs" />
+    <Compile Include="SelfTest\Gauntlet.SelfTest.Globals.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.LogParserTest.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestShortSoloGame.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealInstallAndRunBase.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealInstallAndRunPS4.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealInstallAndRunXboxOne.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealInstallAndRunMac.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealSession.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealOptions.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealBase.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealBuildSource.cs" />
+    <Compile Include="SelfTest\TestGauntlet.cs" />
+    <Compile Include="Unreal\Base\Gauntlet.UnrealAppConfig.cs" />
+    <Compile Include="Unreal\BuildSource\Gauntlet.UnrealBuildSource.cs" />
+    <Compile Include="Unreal\Base\Gauntlet.UnrealConfigOptions.cs" />
+    <Compile Include="Unreal\Base\Gauntlet.UnrealSession.cs" />
+    <Compile Include="Unreal\Base\Gauntlet.UnrealTestConfiguration.cs" />
+    <Compile Include="Unreal\Base\Gauntlet.UnrealTestContext.cs" />
+    <Compile Include="Unreal\Base\Gauntlet.UnrealTestNode.cs" />
+    <Compile Include="Unreal\Game\EpicGame.TestConfig.cs" />
+    <Compile Include="Unreal\Game\UE4Game.DefaultNode.cs" />
+    <Compile Include="Unreal\RunUnreal.cs" />
+    <Compile Include="Unreal\Game\Samples\ElementalDemoTest.cs" />
+    <Compile Include="Unreal\Game\Samples\FortGPUTestbedPerfTest.cs" />
+    <Compile Include="Unreal\Tasks\Gauntlet.Task.CleanDevices.cs" />
+    <Compile Include="Unreal\Game\Tests\Gauntlet.UnrealTest.ErrorTest.cs" />
+    <Compile Include="Unreal\Game\UE4Game.TestConfig.cs" />
+    <Compile Include="Unreal\Utils\Gauntlet.UnrealHelpers.cs" />
+    <Compile Include="Unreal\Utils\Gauntlet.UnrealLogParser.cs" />
+    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceMac.cs" />
+    <Compile Include="Unreal\BuildSource\Gauntlet.MacBuildSource.cs" />
+    <Compile Include="Unreal\BuildSource\Gauntlet.StagedBuildSource.cs" />
+    <Compile Include="Unreal\Utils\Gauntlet.UnrealSnapshotParser.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\DotNETCommon\DotNETUtilities\DotNETUtilities.csproj">
+      <Project>{5d7d66e8-8c76-4af9-b3ec-2ef03421d730}</Project>
+      <Name>DotNETUtilities</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Android\Android.Automation.csproj">
+      <Project>{32e3a47e-359a-4f78-ae6c-703b87de0b97}</Project>
+      <Name>Android.Automation</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\AutomationUtils\AutomationUtils.Automation.csproj">
+      <Project>{2c96a7f2-b1a3-4258-8e0a-e588ff41a53e}</Project>
+      <Name>AutomationUtils.Automation</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Localization\Localization.Automation.csproj">
+      <Project>{c2f959b1-1727-4598-9c32-3d9acce72750}</Project>
+      <Name>Localization.Automation</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\XLocLocalization\XLocLocalization.Automation.csproj">
+      <Project>{7e2d6784-c9b7-40c6-a89b-0a8afddce60d}</Project>
+      <Name>XLocLocalization.Automation</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\OneSkyLocalization\OneSkyLocalization.Automation.csproj">
+      <Project>{39369368-5603-46da-baae-766bb3cb2b51}</Project>
+      <Name>OneSkyLocalization.Automation</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Scripts\AutomationScripts.Automation.csproj">
+      <Project>{8aa00d65-0954-4a27-ac0d-fb8b1106120f}</Project>
+      <Name>AutomationScripts.Automation</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\UnrealBuildTool\UnrealBuildTool.csproj">
+      <Project>{fd7c5e1a-cfe4-4fd5-a525-1eb1599a39ac}</Project>
+      <Name>UnrealBuildTool</Name>
+      <Private>False</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="SelfTest\Gauntlet.SelfTest.BaseNode.cs" />
+    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealInstallAndRunWindows.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithCheckWin64Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithEnsureWin64Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithExceptionWin64Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithFatalErrorWin64Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithTestFailureWin64Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithTestSuccessWin64Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithTestFailurePS4Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithTestSuccessPS4Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithCheckPS4Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithEnsurePS4Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithExceptionPS4Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionLogWithFatalErrorPS4Client.txt" />
+    <Content Include="SelfTest\TestData\LogParser\OrionPS4ClientLogWithPerf.txt" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

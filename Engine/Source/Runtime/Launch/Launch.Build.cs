@@ -32,9 +32,10 @@ public class Launch : ModuleRules
 				"Slate",
 				"SlateCore",
 				"Sockets",
-                "Overlay",
+				"Overlay",
 				"UtilityShaders",
-		});
+				"PreLoadScreen"
+			});
 
 		// Set a macro allowing us to switch between debuggame/development configuration
 		if(Target.Configuration == UnrealTargetConfiguration.DebugGame)

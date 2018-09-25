@@ -158,7 +158,7 @@ public:
 	virtual void RegisterMovieStreamer(TSharedPtr<IMovieStreamer> InMovieStreamer) = 0;
 
 	/** Initializes this movie player, creating the startup window and hiding the splash screen. To be called in the launch engine loop. */
-	virtual void Initialize(class FSlateRenderer& InSlateRenderer) = 0;
+	virtual void Initialize(class FSlateRenderer& InSlateRenderer, TSharedPtr<SWindow> RenderTarget = nullptr) = 0;
 
 	/** Shutsdown the movie player. */
 	virtual void Shutdown() = 0;

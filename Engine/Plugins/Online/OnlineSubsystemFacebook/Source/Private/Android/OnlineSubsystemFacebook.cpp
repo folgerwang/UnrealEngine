@@ -6,10 +6,6 @@
 #include "OnlineFriendsFacebook.h"
 #include "OnlineSharingFacebook.h"
 
-FOnlineSubsystemFacebook::FOnlineSubsystemFacebook()
-{
-}
-
 FOnlineSubsystemFacebook::FOnlineSubsystemFacebook(FName InInstanceName)
 	: FOnlineSubsystemFacebookCommon(InInstanceName)
 {
@@ -33,7 +29,7 @@ bool FOnlineSubsystemFacebook::Init()
 
 bool FOnlineSubsystemFacebook::Shutdown()
 {
-	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemFacebook::Shutdown()"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemFacebook::Shutdown()"));
 	return FOnlineSubsystemFacebookCommon::Shutdown();
 }
 

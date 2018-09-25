@@ -51,7 +51,7 @@ struct FRestrictedGameplayTagTableRow : public FGameplayTagTableRow
 	bool bAllowNonRestrictedChildren;
 
 	/** Constructors */
-	FRestrictedGameplayTagTableRow() {}
+	FRestrictedGameplayTagTableRow() : bAllowNonRestrictedChildren(false) {}
 	FRestrictedGameplayTagTableRow(FName InTag, const FString& InDevComment = TEXT(""), bool InAllowNonRestrictedChildren = false) : FGameplayTagTableRow(InTag, InDevComment), bAllowNonRestrictedChildren(InAllowNonRestrictedChildren) {}
 	GAMEPLAYTAGS_API FRestrictedGameplayTagTableRow(FRestrictedGameplayTagTableRow const& Other);
 
@@ -433,6 +433,9 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Returns the tag source for a given tag source name and type, or null if not found */
 	const FGameplayTagSource* FindTagSource(FName TagSourceName) const;
 
+	/** Returns the tag source for a given tag source name and type, or null if not found */
+	FGameplayTagSource* FindTagSource(FName TagSourceName);
+
 	/** Fills in an array with all tag sources of a specific type */
 	void FindTagSourcesWithType(EGameplayTagSourceType TagSourceType, TArray<const FGameplayTagSource*>& OutArray) const;
 
@@ -503,9 +506,13 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Gets a Filtered copy of the GameplayRootTags Array based on the comma delimited filter string passed in */
 	void GetFilteredGameplayRootTags(const FString& InFilterString, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray) const;
 
-	/** Returns "Categories" meta property from given handle, used for filtering by tag wiodget */
+	/** Returns "Categories" meta property from given handle, used for filtering by tag widget */
 	FString GetCategoriesMetaFromPropertyHandle(TSharedPtr<class IPropertyHandle> PropertyHandle) const;
 
+	/** Returns "Categories" meta property from given struct, used for filtering by tag widget */
+	FString GetCategoriesMetaFromStruct(UScriptStruct* Struct) const;
+
+	/** Returns "GameplayTagFilter" meta property from given function, used for filtering by tag widget for any parameters of the function that end up as BP pins */
 	FString GetCategoriesMetaFromFunction(UFunction* Func) const;
 
 	/** Gets a list of all gameplay tag nodes added by the specific source */

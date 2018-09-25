@@ -91,6 +91,6 @@ void FVulkanQueue::UpdateLastSubmittedCommandBuffer(FVulkanCmdBuffer* CmdBuffer)
 {
 	FScopeLock ScopeLock(&CS);
 	LastSubmittedCmdBuffer = CmdBuffer;
-	LastSubmittedCmdBufferFenceCounter = CmdBuffer->GetFenceSignaledCounter();
+	LastSubmittedCmdBufferFenceCounter = CmdBuffer->GetFenceSignaledCounterH();
 	++SubmitCounter;
 }

@@ -16,6 +16,8 @@ FSubmixEffectReverb::FSubmixEffectReverb()
 
 void FSubmixEffectReverb::Init(const FSoundEffectSubmixInitData& InitData)
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	Audio::FPlateReverbSettings NewSettings;
 
 	NewSettings.LateDelayMsec = 0.0f;
@@ -46,6 +48,8 @@ void FSubmixEffectReverb::Init(const FSoundEffectSubmixInitData& InitData)
 
 void FSubmixEffectReverb::OnPresetChanged()
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	GET_EFFECT_SETTINGS(SubmixEffectReverb);
 
 	FAudioReverbEffect ReverbEffect;
@@ -70,6 +74,8 @@ void FSubmixEffectReverb::OnPresetChanged()
 
 void FSubmixEffectReverb::OnProcessAudio(const FSoundEffectSubmixInputData& InData, FSoundEffectSubmixOutputData& OutData)
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	check(InData.NumChannels == 2);
  	if (OutData.NumChannels < 2 || !bIsEnabled) 
 	{
@@ -115,6 +121,8 @@ void FSubmixEffectReverb::OnProcessAudio(const FSoundEffectSubmixInputData& InDa
 
 void FSubmixEffectReverb::SetEffectParameters(const FAudioReverbEffect& InParams)
 {
+	LLM_SCOPE(ELLMTag::AudioMixer);
+
 	Audio::FPlateReverbSettings NewSettings;
 
 	NewSettings.EarlyReflections.Gain = FMath::GetMappedRangeValueClamped({ 0.0f, 3.16f }, { 0.0f, 1.0f }, InParams.ReflectionsGain);

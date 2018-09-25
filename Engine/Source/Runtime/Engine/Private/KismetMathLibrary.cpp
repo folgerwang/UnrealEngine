@@ -1126,4 +1126,9 @@ FVector UKismetMathLibrary::RandomUnitVectorInEllipticalConeInRadiansFromStream(
 	return Stream.VRandCone(ConeDir, MaxYawInRadians, MaxPitchInRadians);
 }
 
+float UKismetMathLibrary::PerlinNoise1D(const float Value)
+{
+	return FMath::PerlinNoise1D(Value);
+}
+
 #undef LOCTEXT_NAMESPACE

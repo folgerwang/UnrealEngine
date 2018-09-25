@@ -325,6 +325,11 @@ int32 ExpandPSOSC(const TArray<FString>& Tokens)
 			LoadStableSCL(StableMap, Tokens[Index]);
 		}
 	}
+	if (!StableMap.Num())
+	{
+		UE_LOG(LogShaderPipelineCacheTools, Warning, TEXT("No .scl.csv found or they were all empty. Nothing to do."));
+		return 0;
+	}
 	if (UE_LOG_ACTIVE(LogShaderPipelineCacheTools, Verbose))
 	{
 		UE_LOG(LogShaderPipelineCacheTools, Verbose, TEXT("    %s"), *FStableShaderKeyAndValue::HeaderLine());
@@ -372,6 +377,11 @@ int32 ExpandPSOSC(const TArray<FString>& Tokens)
 		{
 			check(Tokens[Index].EndsWith(TEXT(".scl.csv")));
 		}
+	}
+	if (!PSOs.Num())
+	{
+		UE_LOG(LogShaderPipelineCacheTools, Warning, TEXT("No .upipelinecache files found or they were all empty. Nothing to do."));
+		return 0;
 	}
 	UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Loaded %d PSOs total."), PSOs.Num());
 
@@ -899,6 +909,7 @@ int32 BuildPSOSC(const TArray<FString>& Tokens)
 		}
 	}
 	UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("Re-deduplicated into %d binary PSOs."), PSOs.Num());
+
 	if (PSOs.Num() < 1)
 	{
 		UE_LOG(LogShaderPipelineCacheTools, Error, TEXT("No PSO were created!"));
@@ -927,6 +938,57 @@ int32 BuildPSOSC(const TArray<FString>& Tokens)
 	check(TargetPlatform != NAME_None);
 	EShaderPlatform Platform = ShaderFormatToLegacyShaderPlatform(TargetPlatform);
 	check(Platform != SP_NumPlatforms);
+
+	if (IsOpenGLPlatform(Platform))
+	{
+		UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("OpenGL detected, reducing PSOs to be BSS only as OpenGL doesn't care about the state at all when compiling shaders."));
+
+		TSet<FPipelineCacheFileFormatPSO> KeptPSOs;
+
+		// N^2 not good. 
+		for (const FPipelineCacheFileFormatPSO& Item : PSOs)
+		{
+			bool bMatchedKept = false;
+			if (Item.Type == FPipelineCacheFileFormatPSO::DescriptorType::Graphics)
+			{
+				for (const FPipelineCacheFileFormatPSO& TestItem : KeptPSOs)
+				{
+					FSHAHash VertexShader;
+					FSHAHash FragmentShader;
+					FSHAHash GeometryShader;
+					FSHAHash HullShader;
+					FSHAHash DomainShader;
+					if (TestItem.Type == FPipelineCacheFileFormatPSO::DescriptorType::Graphics)
+					{
+						if (
+							TestItem.GraphicsDesc.VertexShader == Item.GraphicsDesc.VertexShader &&
+							TestItem.GraphicsDesc.FragmentShader == Item.GraphicsDesc.FragmentShader &&
+							TestItem.GraphicsDesc.GeometryShader == Item.GraphicsDesc.GeometryShader &&
+							TestItem.GraphicsDesc.HullShader == Item.GraphicsDesc.HullShader &&
+							TestItem.GraphicsDesc.DomainShader == Item.GraphicsDesc.DomainShader
+							)
+						{
+							bMatchedKept = true;
+							break;
+						}
+					}
+				}
+			}
+			if (!bMatchedKept)
+			{
+				KeptPSOs.Add(Item);
+			}
+		}
+		Exchange(PSOs, KeptPSOs);
+		UE_LOG(LogShaderPipelineCacheTools, Display, TEXT("BSS only reduction produced %d binary PSOs."), PSOs.Num());
+
+		if (PSOs.Num() < 1)
+		{
+			UE_LOG(LogShaderPipelineCacheTools, Error, TEXT("No PSO were created!"));
+			return 1;
+		}
+
+	}
 
 	if (IFileManager::Get().FileExists(*Tokens.Last()))
 	{

@@ -134,6 +134,16 @@ public:
 	 */
 	static UNREALED_API bool EditorBuildTextureStreaming( UWorld* InWorld, EViewModeIndex SelectedViewMode = VMI_Unknown);
 
+
+	/**
+	* Similar to EditorBuildTextureStreaming, but attempts to rebuild TextureStreamingData for all materials in loaded package(s).
+	*
+	* @param	Package				If non-NULL, only looks at materials under the specified package.
+	*
+	* @return	true if any packages were dirtied in the process.
+	*/
+	static UNREALED_API bool EditorBuildMaterialTextureStreamingData(UPackage* Package);
+
 	/**
 	 * Compiled required shader for the given viewmode
 	 *

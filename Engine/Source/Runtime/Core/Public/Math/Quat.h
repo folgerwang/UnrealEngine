@@ -1008,13 +1008,6 @@ float FQuat::AngularDistance(const FQuat& Q) const
 
 FORCEINLINE FVector FQuat::RotateVector(FVector V) const
 {	
-#if WITH_DIRECTXMATH
-	FVector Result;
-	VectorQuaternionVector3Rotate(&Result, &V, this);
-	return Result;
-
-#else
-
 	// http://people.csail.mit.edu/bkph/articles/Quaternions.pdf
 	// V' = V + 2w(Q x V) + (2Q x (Q x V))
 	// refactor:
@@ -1026,23 +1019,14 @@ FORCEINLINE FVector FQuat::RotateVector(FVector V) const
 	const FVector T = 2.f * FVector::CrossProduct(Q, V);
 	const FVector Result = V + (W * T) + FVector::CrossProduct(Q, T);
 	return Result;
-#endif
 }
 
 FORCEINLINE FVector FQuat::UnrotateVector(FVector V) const
 {	
-#if WITH_DIRECTXMATH
-	FVector Result;
-	VectorQuaternionVector3InverseRotate(&Result, &V, this);
-	return Result;
-#else
-	//return Inverse().RotateVector(V);
-
 	const FVector Q(-X, -Y, -Z); // Inverse
 	const FVector T = 2.f * FVector::CrossProduct(Q, V);
 	const FVector Result = V + (W * T) + FVector::CrossProduct(Q, T);
 	return Result;
-#endif
 }
 
 

@@ -123,6 +123,7 @@ public:
 
 	FNiagaraVMExecutableDataId()
 		: CompilerVersionID()
+		, ScriptUsageType(ENiagaraScriptUsage::Function)
 		, BaseScriptID(0, 0, 0, 0)
 	{ }
 

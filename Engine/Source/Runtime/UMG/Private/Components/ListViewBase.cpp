@@ -66,7 +66,7 @@ TSharedRef<SWidget> UListViewBase::RebuildWidget()
 	if (!EntryWidgetClass)
 	{
 		return SNew(STextBlock)
-			.Text(LOCTEXT("Error_MissingEntryWidgetClass", "No EntryWidgetClass specified on this list"));
+			.Text(LOCTEXT("Error_MissingEntryWidgetClass", "There is no EntryWidgetClass specified on this list.\nEven if doing custom stuff, this is always required as a fallback."));
 	}
 
 	MyTableViewBase = RebuildListWidget();

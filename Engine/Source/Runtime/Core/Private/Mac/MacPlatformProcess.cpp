@@ -8,6 +8,7 @@
 #include "Mac/MacPlatform.h"
 #include "Apple/ApplePlatformRunnableThread.h"
 #include "Misc/App.h"
+#include "Misc/CoreDelegates.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
 #include <mach-o/dyld.h>
@@ -143,6 +144,16 @@ void FMacPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, FStri
 	SCOPED_AUTORELEASE_POOL;
 
 	UE_LOG(LogMac, Log,  TEXT("LaunchURL %s %s"), URL, Parms?Parms:TEXT("") );
+
+	if (FCoreDelegates::ShouldLaunchUrl.IsBound() && !FCoreDelegates::ShouldLaunchUrl.Execute(URL))
+	{
+		if (Error)
+		{
+			*Error = TEXT("LaunchURL cancelled by delegate");
+		}
+		return;
+	}
+
 	NSString* Url = (NSString*)FPlatformString::TCHARToCFString( URL );
 	
 	FString SchemeName;

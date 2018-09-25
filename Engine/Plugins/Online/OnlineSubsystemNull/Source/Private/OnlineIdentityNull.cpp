@@ -107,7 +107,7 @@ bool FOnlineIdentityNull::Login(int32 LocalUserNum, const FOnlineAccountCredenti
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Login request failed. %s"), *ErrorStr);
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("Login request failed. %s"), *ErrorStr);
 		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdNull(), ErrorStr);
 		return false;
 	}
@@ -132,7 +132,7 @@ bool FOnlineIdentityNull::Logout(int32 LocalUserNum)
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("No logged in user found for LocalUserNum=%d."),
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("No logged in user found for LocalUserNum=%d."),
 			LocalUserNum);
 		TriggerOnLogoutCompleteDelegates(LocalUserNum, false);
 	}
@@ -161,17 +161,17 @@ bool FOnlineIdentityNull::AutoLogin(int32 LocalUserNum)
 			}
 			else if (bEnableWarning)
 			{
-				UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing AUTH_TYPE=<type>."));
+				UE_LOG_ONLINE_IDENTITY(Warning, TEXT("AutoLogin missing AUTH_TYPE=<type>."));
 			}
 		}
 		else if (bEnableWarning)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing AUTH_PASSWORD=<password>."));
+			UE_LOG_ONLINE_IDENTITY(Warning, TEXT("AutoLogin missing AUTH_PASSWORD=<password>."));
 		}
 	}
 	else if (bEnableWarning)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("AutoLogin missing AUTH_LOGIN=<login id>."));
+		UE_LOG_ONLINE_IDENTITY(Warning, TEXT("AutoLogin missing AUTH_LOGIN=<login id>."));
 	}
 
 	return false;
@@ -281,7 +281,7 @@ FString FOnlineIdentityNull::GetAuthToken(int32 LocalUserNum) const
 
 void FOnlineIdentityNull::RevokeAuthToken(const FUniqueNetId& UserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate)
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineIdentityNull::RevokeAuthToken not implemented"));
+	UE_LOG_ONLINE_IDENTITY(Display, TEXT("FOnlineIdentityNull::RevokeAuthToken not implemented"));
 	TSharedRef<const FUniqueNetId> UserIdRef(UserId.AsShared());
 	NullSubsystem->ExecuteNextTick([UserIdRef, Delegate]()
 	{

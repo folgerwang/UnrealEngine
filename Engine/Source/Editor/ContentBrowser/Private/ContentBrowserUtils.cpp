@@ -681,25 +681,6 @@ void ContentBrowserUtils::GetAssetsInPaths(const TArray<FString>& InPaths, TArra
 
 bool ContentBrowserUtils::SavePackages(const TArray<UPackage*>& Packages)
 {
-	TArray< UPackage* > PackagesWithExternalRefs;
-	FString PackageNames;
-	if( UPackageTools::CheckForReferencesToExternalPackages( &Packages, &PackagesWithExternalRefs ) )
-	{
-		for(int32 PkgIdx = 0; PkgIdx < PackagesWithExternalRefs.Num(); ++PkgIdx)
-		{
-			PackageNames += FString::Printf(TEXT("%s\n"), *PackagesWithExternalRefs[ PkgIdx ]->GetName());
-		}
-		bool bProceed = EAppReturnType::Yes == FMessageDialog::Open(
-			EAppMsgType::YesNo,
-			FText::Format(
-				NSLOCTEXT("UnrealEd", "Warning_ExternalPackageRef", "The following assets have references to external assets: \n{0}\nExternal assets won't be found when in a game and all references will be broken.  Proceed?"),
-				FText::FromString(PackageNames) ) );
-		if(!bProceed)
-		{
-			return false;
-		}
-	}
-
 	const bool bCheckDirty = false;
 	const bool bPromptToSave = false;
 	const FEditorFileUtils::EPromptReturnCode Return = FEditorFileUtils::PromptForCheckoutAndSave(Packages, bCheckDirty, bPromptToSave);

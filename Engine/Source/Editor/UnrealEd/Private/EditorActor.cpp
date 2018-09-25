@@ -58,6 +58,7 @@
 #include "LevelEditor.h"
 #include "Engine/LODActor.h"
 #include "Settings/LevelEditorMiscSettings.h"
+#include "Settings/EditorProjectSettings.h"
 #include "ActorGroupingUtils.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "IAssetTools.h"
@@ -625,8 +626,10 @@ bool UUnrealEdEngine::CanDeleteSelectedActors( const UWorld* InWorld, const bool
 
 		// Only delete transactional actors that aren't a level's builder brush or worldsettings.
 		bool bDeletable	= false;
-		if ( Actor->HasAllFlags( RF_Transactional ) )
+		FText CannotDeleteReason;
+		if (Actor->HasAllFlags(RF_Transactional) && Actor->CanDeleteSelectedActor(CannotDeleteReason))
 		{
+			// TODO: The Brush and WorldSettings logic should be moved to use the CanDeleteSelectedActor virtual
 			ABrush* Brush = Cast< ABrush >( Actor );
 			const bool bIsDefaultBrush = Brush && FActorEditorUtils::IsABuilderBrush(Brush);
 			if ( !bIsDefaultBrush )
@@ -658,8 +661,17 @@ bool UUnrealEdEngine::CanDeleteSelectedActors( const UWorld* InWorld, const bool
 			FFormatNamedArguments Arguments;
 			Arguments.Add(TEXT("Name"), FText::FromString( Actor->GetFullName() ));
 
-			const FText LogText = FText::Format( LOCTEXT( "CannotDeleteSpecialActor", "Cannot delete special actor {Name}" ), Arguments );
-			UE_LOG(LogEditorActor, Log, TEXT("%s"), *LogText.ToString() );
+			FText LogText;
+			if (CannotDeleteReason.IsEmpty())
+			{
+				LogText = FText::Format(LOCTEXT("CannotDeleteSpecialActor", "Cannot delete special actor {Name}"), Arguments);
+			}
+			else
+			{
+				Arguments.Add(TEXT("Reason"), CannotDeleteReason);
+				LogText = FText::Format(LOCTEXT("CannotDeleteActorWithReason", "Cannot delete actor {Name} - {Reason}"), Arguments);
+			}
+			UE_LOG(LogEditorActor, Log, TEXT("%s"), *LogText.ToString());
 		}
 	}
 	return bContainsDeletable;
@@ -765,7 +777,12 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 	{
 		FBlueprintEditorUtils::GetActorReferenceMap(InWorld, ClassTypesToIgnore, ReferencingActorsMap);
 
-		if (bWarnAboutSoftReferences)
+		// For now, don't display the soft reference warning if we won't load packages to validate
+		// Re-evaluate this once we have control over rather less important soft references like foliage is tracked
+		const UBlueprintEditorProjectSettings* EditorProjectSettings = GetDefault<UBlueprintEditorProjectSettings>();
+		bool bLoadPackagesForSoftReferences = EditorProjectSettings->bValidateUnloadedSoftActorReferences;
+
+		if (bWarnAboutSoftReferences && bLoadPackagesForSoftReferences)
 		{
 			FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
 

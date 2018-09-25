@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "283062844632",
+    "firebase_url": "https://epic-games-eg.firebaseio.com",
+    "project_id": "epic-games-eg",
+    "storage_bucket": "epic-games-eg.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:283062844632:android:de262376a1e02297",
+        "android_client_info": {
+          "package_name": "com.epicgames.fortnite"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "283062844632-fc6hs29oig20j42qnl1d07er31iaclsf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnskMJpv_YyFa95HX1QyppXx1k4tsovUw"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

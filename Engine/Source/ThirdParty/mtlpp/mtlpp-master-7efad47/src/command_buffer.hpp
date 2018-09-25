@@ -19,7 +19,7 @@ MTLPP_BEGIN
 namespace ue4
 {
 	template<>
-	struct ITable<id<MTLCommandBuffer>, void> : public IMPTable<id<MTLCommandBuffer>, void>, public ITableCacheRef
+	struct MTLPP_EXPORT ITable<id<MTLCommandBuffer>, void> : public IMPTable<id<MTLCommandBuffer>, void>, public ITableCacheRef
 	{
 		ITable()
 		{
@@ -73,7 +73,7 @@ namespace mtlpp
 
 	MTLPP_CLOSURE(CommandBufferHandler, void, const CommandBuffer&);
 	
-    class CommandBuffer : public ns::Object<ns::Protocol<id<MTLCommandBuffer>>::type>
+    class MTLPP_EXPORT CommandBuffer : public ns::Object<ns::Protocol<id<MTLCommandBuffer>>::type>
     {
 		mutable CommandBufferFence CmdBufferFence;
     public:
@@ -124,7 +124,7 @@ namespace mtlpp
     MTLPP_AVAILABLE(10_11, 8_0);
 	
 #if MTLPP_CONFIG_VALIDATE
-	class ValidatedCommandBuffer : public ns::AutoReleased<CommandBuffer>
+	class MTLPP_EXPORT ValidatedCommandBuffer : public ns::AutoReleased<CommandBuffer>
 	{
 		CommandBufferValidationTable Validator;
 		

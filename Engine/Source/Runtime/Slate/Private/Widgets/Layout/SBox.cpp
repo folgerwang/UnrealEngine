@@ -8,7 +8,7 @@
 SBox::SBox()
 : ChildSlot(this)
 {
-	bCanTick = false;
+	SetCanTick(false);
 	bCanSupportFocus = false;
 }
 

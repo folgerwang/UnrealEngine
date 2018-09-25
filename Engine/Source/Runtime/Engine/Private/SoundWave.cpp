@@ -638,6 +638,9 @@ void USoundWave::BeginDestroy()
 	// Flag that this sound wave is beginning destroying. For procedural sound waves, this will ensure
 	// the audio render thread stops the sound before GC hits.
 	bIsBeginDestroy = true;
+	
+	// Arbitrary count to wait before forcing IsFinishDestroy to return true. Temporary fallback to hunt a deadlock.
+	GCTimeOutCount = 10;
 
 #if WITH_EDITOR
 	// Flush any async results so we dont leak them in the DDC
@@ -891,8 +894,23 @@ bool USoundWave::IsReadyForFinishDestroy()
 			}, GET_STATID(STAT_AudioFreeResources));
 		}
 	
-	// bIsSoundActive is set in audio mixer when decoding sound waves or generating PCM data
-	return ResourceState == ESoundWaveResourceState::Freed && NumSoundsActive.GetValue() == 0;
+	bool AllowFinishDestroy = (ResourceState == ESoundWaveResourceState::Freed);
+
+	if (AllowFinishDestroy)
+	{
+		AllowFinishDestroy = (NumSoundsActive.GetValue() == 0);
+		if (!AllowFinishDestroy && --GCTimeOutCount <= 0)
+		{
+			AllowFinishDestroy = true;
+
+			if (AllowFinishDestroy && NumSoundsActive.GetValue() > 0)
+			{
+				UE_LOG(LogAudio, Warning, TEXT("Sound wave '%s' destroyed while num sounds active was '%d'."), *GetName(), NumSoundsActive.GetValue());
+			}
+		}
+	}
+
+	return AllowFinishDestroy;
 }
 
 

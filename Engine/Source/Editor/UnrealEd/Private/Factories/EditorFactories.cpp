@@ -72,7 +72,6 @@
 #include "Factories/CurveFactory.h"
 #include "Factories/CurveImportFactory.h"
 #include "Factories/DataAssetFactory.h"
-#include "Factories/DataTableFactory.h"
 #include "Factories/DialogueVoiceFactory.h"
 #include "Factories/DialogueWaveFactory.h"
 #include "Factories/EnumFactory.h"
@@ -255,6 +254,7 @@
 #include "MaterialEditorModule.h"
 #include "Factories/CurveLinearColorAtlasFactory.h"
 #include "Curves/CurveLinearColorAtlas.h"
+#include "Rendering/SkeletalMeshModel.h"
 
 #include "Misc/App.h"
 
@@ -2008,19 +2008,19 @@ UObject* UCurveLinearColorAtlasFactory::FactoryCreateNew(UClass* Class, UObject*
 	}
 
 	UCurveLinearColorAtlas* Object = NewObject<UCurveLinearColorAtlas>(InParent, Class, Name, Flags);
-	Object->Source.Init2DWithMipChain(Width, Height, TSF_BGRA8);
-	Object->SrcData.AddUninitialized(Object->TextureSize*Object->TextureSize);
-	uint8* MipData = Object->Source.LockMip(0);
+	Object->Source.Init(Width, Height, 1, 1, TSF_RGBA16F);
+	const int32 TextureDataSize = Object->Source.CalcMipSize(0);
+	Object->SrcData.AddUninitialized(TextureDataSize);
+	uint32* TextureData = (uint32*)Object->Source.LockMip(0);
 	for (uint32 y = 0; y < Object->TextureSize; y++)
 	{
 		// Create base mip for the texture we created.
-		FColor Src = FLinearColor::White.ToFColor(false);
 		for (uint32 x = 0; x < Object->TextureSize; x++)
 		{
-			Object->SrcData[x*Object->TextureSize + y] = Src;
+			Object->SrcData[x*Object->TextureSize + y] = FLinearColor::White;
 		}
 	}
-	FMemory::Memcpy(MipData, Object->SrcData.GetData(), Object->TextureSize*Object->TextureSize * sizeof(FColor));
+	FMemory::Memcpy(TextureData, Object->SrcData.GetData(), TextureDataSize);
 	Object->Source.UnlockMip(0);
 
 	Object->UpdateResource();
@@ -2949,13 +2949,17 @@ public:
 	/* returns False if requires further processing because entire row is filled with zeroed alpha values */
 	bool ProcessHorizontalRow(int32 Y)
 	{
+		const uint32 White = FColor::White.DWColor();
+
 		// Left -> Right
 		int32 NumLeftmostZerosToProcess = 0;
 		const PixelDataType* FillColor = nullptr;
 		for (int32 X = 0; X < TextureWidth; ++X)
 		{
 			PixelDataType* PixelData = SourceData + (Y * TextureWidth + X) * 4;
-			if (PixelData[AIdx] == 0)
+			ColorDataType* ColorData = reinterpret_cast<ColorDataType*>(PixelData);
+			// only wipe out colors that are affected by png turning valid colors white if alpha = 0
+			if (PixelData[AIdx] == 0 && *ColorData == White)
 			{
 				if (FillColor)
 				{
@@ -2966,7 +2970,6 @@ public:
 				else
 				{
 					// Mark pixel as needing fill
-					ColorDataType* ColorData = reinterpret_cast<ColorDataType*>(PixelData);
 					*ColorData = 0;
 
 					// Keep track of how many pixels to fill starting at beginning of row
@@ -5297,8 +5300,6 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	ReimportUI->MeshTypeToImport = FBXIT_StaticMesh;
 	ReimportUI->StaticMeshImportData->bCombineMeshes = true;
 
-	ImportOptions->OriginalMeshCopy = nullptr;
-
 	if (!ImportUI)
 	{
 		ImportUI = NewObject<UFbxImportUI>(this, NAME_None, RF_Public);
@@ -5345,6 +5346,7 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	else
 	{
 		ReimportUI->bIsReimport = true;
+		ReimportUI->ReimportMesh = Mesh;
 		ReimportUI->StaticMeshImportData = ImportData;
 		
 		//Force the bAutoGenerateCollision to false if the Mesh Customize collision is true
@@ -5361,7 +5363,7 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		bool bIsObjFormat = false;
 		bool bIsAutomated = false;
 
-		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_StaticMesh, Mesh);
+		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_StaticMesh);
 		
 		//Put back the original bAutoGenerateCollision settings since the user cancel the re-import
 		if (bOperationCanceled && Mesh->bCustomizedCollision)
@@ -5379,12 +5381,6 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	if( !bOperationCanceled && ensure(ImportData) )
 	{
 		UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
-
-		//Create a copy of the mesh we re-import
-		if (!IsUnattended)
-		{
-			ImportOptions->OriginalMeshCopy = Cast<UStaticMesh>(StaticDuplicateObject(Mesh, GetTransientPackage(), NAME_None, RF_Standalone));
-		}
 
 		bool bImportSucceed = true;
 		if ( FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
@@ -5435,13 +5431,6 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 
 				Mesh->AssetImportData->Update(Filename);
 
-				if (ImportOptions->OriginalMeshCopy)
-				{
-					//Show the compare window in case there is a conflict
-					bool UserCancel = false;
-					FFbxImporter->ShowFbxCompareWindow(ImportOptions->OriginalMeshCopy, Mesh, UserCancel);
-				}
-
 				// Try to find the outer package so we can dirty it up
 				if (Mesh->GetOuter())
 				{
@@ -5467,12 +5456,6 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		}
 
 		FFbxImporter->ReleaseScene(); 
-		if (ImportOptions->OriginalMeshCopy)
-		{
-			ImportOptions->OriginalMeshCopy->ClearFlags(RF_Standalone);
-			ImportOptions->OriginalMeshCopy->MarkPendingKill();
-			ImportOptions->OriginalMeshCopy = nullptr;
-		}
 
 		return bImportSucceed ? EReimportResult::Succeeded : EReimportResult::Failed;
 	}
@@ -5574,8 +5557,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 
 	UFbxSkeletalMeshImportData* ImportData = Cast<UFbxSkeletalMeshImportData>(SkeletalMesh->AssetImportData);
 	
-	ImportOptions->OriginalMeshCopy = nullptr;
-
 	// Prepare the import options
 	UFbxImportUI* ReimportUI = NewObject<UFbxImportUI>();
 	ReimportUI->MeshTypeToImport = FBXIT_SkeletalMesh;
@@ -5620,13 +5601,28 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		//Some options not supported with skeletal mesh
 		ReimportUI->SkeletalMeshImportData->bBakePivotInVertex = false;
 		ReimportUI->SkeletalMeshImportData->bTransformVertexToAbsolute = true;
+
+		const FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
+		ReimportUI->bAllowContentTypeImport = SkeletalMeshModel && SkeletalMeshModel->LODModels.Num() > 0 && !SkeletalMeshModel->LODModels[0].RawSkeletalMeshBulkData.IsEmpty();
+		if (!ReimportUI->bAllowContentTypeImport)
+		{
+			ReimportUI->SkeletalMeshImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+		}
+
 		ApplyImportUIToImportOptions(ReimportUI, *ImportOptions);
 	}
 	else
 	{
 		ReimportUI->bIsReimport = true;
+		ReimportUI->ReimportMesh = Obj;
 		ReimportUI->SkeletalMeshImportData = ImportData;
+		const FSkeletalMeshModel* SkeletalMeshModel = SkeletalMesh->GetImportedModel();
+		ReimportUI->bAllowContentTypeImport = SkeletalMeshModel && SkeletalMeshModel->LODModels.Num() > 0 && !SkeletalMeshModel->LODModels[0].RawSkeletalMeshBulkData.IsEmpty();
 
+		if (!ReimportUI->bAllowContentTypeImport)
+		{
+			ReimportUI->SkeletalMeshImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+		}
 		bool bImportOperationCanceled = false;
 		bool bShowOptionDialog = true;
 		bool bForceImportType = true;
@@ -5638,17 +5634,27 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		ImportOptions->bCreatePhysicsAsset = false;
 		ImportOptions->PhysicsAsset = SkeletalMesh->PhysicsAsset;
 
-		ImportOptions = GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_SkeletalMesh, Obj );
+		ImportOptions = GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, Filename, bForceImportType, FBXIT_SkeletalMesh);
 	}
 
 	if( !bOperationCanceled && ensure(ImportData) )
 	{
 		ImportOptions->bCanShowDialog = !IsUnattended;
 
-		//Create a copy of the mesh we re-import
-		if (!IsUnattended)
+		if (ImportOptions->bImportAsSkeletalSkinning)
 		{
-			ImportOptions->OriginalMeshCopy = Cast<USkeletalMesh>(StaticDuplicateObject(SkeletalMesh, GetTransientPackage(), NAME_None, RF_Standalone));
+			ImportOptions->bImportMaterials = false;
+			ImportOptions->bImportTextures = false;
+			ImportOptions->bImportLOD = false;
+			ImportOptions->bImportSkeletalMeshLODs = false;
+			ImportOptions->bImportAnimations = false;
+			ImportOptions->bImportMorph = false;
+		}
+		else if (ImportOptions->bImportAsSkeletalGeometry)
+		{
+			ImportOptions->bImportAnimations = false;
+			ImportOptions->bUpdateSkeletonReferencePose = false;
+			ImportOptions->bUseT0AsRefPose = false;
 		}
 
 		if ( FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
@@ -5659,13 +5665,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 
 				SkeletalMesh->AssetImportData->Update(Filename);
 				
-				if (ImportOptions->OriginalMeshCopy)
-				{
-					//Show the compare window in case there is a conflict
-					bool UserCancel = false;
-					FFbxImporter->ShowFbxCompareWindow(ImportOptions->OriginalMeshCopy, SkeletalMesh, UserCancel);
-				}
-
 				// Try to find the outer package so we can dirty it up
 				if (SkeletalMesh->GetOuter())
 				{
@@ -5695,13 +5694,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		if(!IsRunningCommandlet() && GEditor->IsObjectInTransactionBuffer( SkeletalMesh ) )
 		{
 			GEditor->ResetTransaction( LOCTEXT("ReimportSkeletalMeshTransactionReset", "Reimporting a skeletal mesh which was in the undo buffer") );
-		}
-
-		if (ImportOptions->OriginalMeshCopy)
-		{
-			ImportOptions->OriginalMeshCopy->ClearFlags(RF_Standalone);
-			ImportOptions->OriginalMeshCopy->MarkPendingKill();
-			ImportOptions->OriginalMeshCopy = nullptr;
 		}
 
 		return bSuccess ? EReimportResult::Succeeded : EReimportResult::Failed;
@@ -6902,149 +6894,6 @@ UObject* UCameraAnimFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FN
 	NewCamAnim->CameraInterpGroup = NewObject<UInterpGroupCamera>(NewCamAnim);
 	NewCamAnim->CameraInterpGroup->GroupName = Name;
 	return NewCamAnim;
-}
-
-/*------------------------------------------------------------------------------
-UDataTableFactory implementation.
-------------------------------------------------------------------------------*/
-UDataTableFactory::UDataTableFactory(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-	SupportedClass = UDataTable::StaticClass();
-	bCreateNew = true;
-	bEditAfterNew = true;
-}
-
-bool UDataTableFactory::ConfigureProperties()
-{
-	class FDataTableFactoryUI : public TSharedFromThis < FDataTableFactoryUI >
-	{
-		TSharedPtr<SWindow> PickerWindow;
-		TSharedPtr<SComboBox<UScriptStruct*>> RowStructCombo;
-		TSharedPtr<SButton> OkButton;
-		UScriptStruct* ResultStruct;
-	public:
-		FDataTableFactoryUI() : ResultStruct(NULL) {}
-
-		TSharedRef<SWidget> MakeRowStructItemWidget(class UScriptStruct* InStruct) const
-		{
-			return SNew(STextBlock).Text(InStruct ? InStruct->GetDisplayNameText() : FText::GetEmpty());
-		}
-
-		FText GetSelectedRowOptionText() const
-		{
-			UScriptStruct* RowStruct = RowStructCombo.IsValid() ? RowStructCombo->GetSelectedItem() : NULL;
-			return RowStruct ? RowStruct->GetDisplayNameText() : FText::GetEmpty();
-		}
-
-		FReply OnCreate()
-		{
-			ResultStruct = RowStructCombo.IsValid() ? RowStructCombo->GetSelectedItem() : NULL;
-			if (PickerWindow.IsValid())
-			{
-				PickerWindow->RequestDestroyWindow();
-			}
-			return FReply::Handled();
-		}
-
-		FReply OnCancel()
-		{
-			ResultStruct = NULL;
-			if (PickerWindow.IsValid())
-			{
-				PickerWindow->RequestDestroyWindow();
-			}
-			return FReply::Handled();
-		}
-
-		bool IsAnyRowSelected() const
-		{
-			return  RowStructCombo.IsValid() && RowStructCombo->GetSelectedItem();
-		}
-
-		UScriptStruct* OpenStructSelector()
-		{
-			ResultStruct = NULL;
-			auto RowStructs = FDataTableEditorUtils::GetPossibleStructs();
-
-			RowStructCombo = SNew(SComboBox<UScriptStruct*>)
-			.OptionsSource(&RowStructs)
-			.OnGenerateWidget(this, &FDataTableFactoryUI::MakeRowStructItemWidget)
-			[
-				SNew(STextBlock)
-				.Text(this, &FDataTableFactoryUI::GetSelectedRowOptionText)
-			];
-
-			PickerWindow = SNew(SWindow)
-			.Title(LOCTEXT("DataTableFactoryOptions", "Pick Structure"))
-			.ClientSize(FVector2D(350, 100))
-			.SupportsMinimize(false).SupportsMaximize(false)
-			[
-				SNew(SBorder)
-				.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
-				.Padding(10)
-				[
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					[
-						RowStructCombo.ToSharedRef()
-					]
-					+ SVerticalBox::Slot()
-					.HAlign(HAlign_Right)
-					.AutoHeight()
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SAssignNew(OkButton, SButton)
-							.Text(LOCTEXT("OK", "OK"))
-							.OnClicked(this, &FDataTableFactoryUI::OnCreate)
-						]
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SButton)
-							.Text(LOCTEXT("Cancel", "Cancel"))
-							.OnClicked(this, &FDataTableFactoryUI::OnCancel)
-						]
-					]
-				]
-			];
-
-			OkButton->SetEnabled(
-				TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FDataTableFactoryUI::IsAnyRowSelected)));
-
-			GEditor->EditorAddModalWindow(PickerWindow.ToSharedRef());
-
-			PickerWindow.Reset();
-			RowStructCombo.Reset();
-
-			return ResultStruct;
-		}
-	};
-
-
-	TSharedRef<FDataTableFactoryUI> StructSelector = MakeShareable(new FDataTableFactoryUI());
-	Struct = StructSelector->OpenStructSelector();
-
-	return Struct != NULL;
-}
-
-UObject* UDataTableFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
-{
-	UDataTable* DataTable = NULL;
-	if (Struct && ensure(UDataTable::StaticClass() == Class))
-	{
-		ensure(0 != (RF_Public & Flags));
-		DataTable = NewObject<UDataTable>(InParent, Name, Flags);
-		if (DataTable)
-		{
-			DataTable->RowStruct = Struct;
-		}
-	}
-	return DataTable;
 }
 
 /*------------------------------------------------------------------------------

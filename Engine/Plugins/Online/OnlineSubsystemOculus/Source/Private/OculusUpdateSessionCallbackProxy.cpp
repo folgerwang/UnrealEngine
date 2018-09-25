@@ -35,7 +35,7 @@ void UOculusUpdateSessionCallbackProxy::Activate()
 	}
 	else
 	{
-		UE_LOG_ONLINE(Error, TEXT("Oculus platform service not available. Skipping UpdateSession."));
+		UE_LOG_ONLINE_SESSION(Error, TEXT("Oculus platform service not available. Skipping UpdateSession."));
 		OnFailure.Broadcast();
 	}
 }

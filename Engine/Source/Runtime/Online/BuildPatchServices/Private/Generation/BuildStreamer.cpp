@@ -16,8 +16,8 @@ namespace BuildPatchServices
 	// Buffer sizes
 	enum
 	{
-		FileBufferSize = 1024 * 1024 * 10,      // 10 MB
-		StreamBufferSize = 1024 * 1024 * 100    // 100 MB
+		FileBufferSize = 1024 * 1024 * 10,      // 10 MiB
+		StreamBufferSize = 1024 * 1024 * 100    // 100 MiB
 	};
 
 	static bool IsUnixExecutable(const TCHAR* Filename)
@@ -60,7 +60,7 @@ namespace BuildPatchServices
 
 	private:
 		mutable FCriticalSection BuildDataStreamCS;
-		TRingBuffer< uint8, BuildPatchServices::StreamBufferSize > BuildDataStream;
+		TRingBuffer<uint8> BuildDataStream;
 		FThreadSafeBool EndOfStream;
 	};
 
@@ -69,7 +69,7 @@ namespace BuildPatchServices
 	{
 
 	public:
-		FBuildStreamerImpl(const FString& BuildRoot, const FString& IgnoreListFile, const FStatsCollectorRef& StatsCollector, IFileManager* FileManager);
+		FBuildStreamerImpl(const FString& BuildRoot, const FString& InputListFile, const FString& IgnoreListFile, const FStatsCollectorRef& StatsCollector, IFileManager* FileManager);
 		virtual ~FBuildStreamerImpl();
 
 		virtual uint32 DequeueData(uint8* Buffer, uint32 ReqSize, bool WaitForData = true) override;
@@ -86,11 +86,13 @@ namespace BuildPatchServices
 		void AddFile(FFileSpan FileSpan);
 		void AddEmptyFile(FString Filename);
 		void SetFileHash(uint64 StartIdx, FSHA1& FileHash);
+		void ReadInputFileList(TArray<FString>& AllFiles);
 		void StripIgnoredFiles(TArray<FString>& AllFiles);
 		void SetEnumeratedFiles(const TArray<FString>& AllFiles);
 
 	private:
 		const FString BuildRoot;
+		const FString InputListFile;
 		const FString IgnoreListFile;
 		FStatsCollectorRef StatsCollector;
 		IFileManager* FileManager;
@@ -107,7 +109,8 @@ namespace BuildPatchServices
 	};
 
 	FDataStream::FDataStream()
-		: EndOfStream(false)
+		: BuildDataStream(BuildPatchServices::StreamBufferSize)
+		, EndOfStream(false)
 	{
 	}
 
@@ -191,8 +194,9 @@ namespace BuildPatchServices
 		EndOfStream = true;
 	}
 
-	FBuildStreamerImpl::FBuildStreamerImpl(const FString& InBuildRoot, const FString& InIgnoreListFile, const FStatsCollectorRef& InStatsCollector, IFileManager* InFileManager)
+	FBuildStreamerImpl::FBuildStreamerImpl(const FString& InBuildRoot, const FString& InInputListFile, const FString& InIgnoreListFile, const FStatsCollectorRef& InStatsCollector, IFileManager* InFileManager)
 		: BuildRoot(InBuildRoot)
+		, InputListFile(InInputListFile)
 		, IgnoreListFile(InIgnoreListFile)
 		, StatsCollector(InStatsCollector)
 		, FileManager(InFileManager)
@@ -294,7 +298,14 @@ namespace BuildPatchServices
 		// Enumerate build files
 		TArray<FString> AllFiles;
 		uint32 FileEnumerationStart = FStatsCollector::GetCycles();
-		FileManager->FindFilesRecursive(AllFiles, *BuildRoot, TEXT("*.*"), true, false);
+		if (InputListFile.IsEmpty())
+		{
+			FileManager->FindFilesRecursive(AllFiles, *BuildRoot, TEXT("*.*"), true, false);
+		}
+		else
+		{
+			ReadInputFileList(AllFiles);
+		}
 		uint32 FileEnumerationEnd = FStatsCollector::GetCycles();
 		uint32 FileEnumerationTime = FileEnumerationEnd - FileEnumerationStart;
 		UE_LOG(LogBuildStreamer, Log, TEXT("Enumerated %d files in %s"), AllFiles.Num(), *FPlatformTime::PrettyTime(FStatsCollector::CyclesToSeconds(FileEnumerationTime)));
@@ -397,6 +408,26 @@ namespace BuildPatchServices
 		FileHash.GetHash(Files[StartIdx].SHAHash.Hash);
 	}
 
+	void FBuildStreamerImpl::ReadInputFileList(TArray<FString>& AllFiles)
+	{
+		FString InputFileList;
+		FFileHelper::LoadFileToString(InputFileList, *InputListFile);
+
+		TArray<FString> InputFiles;
+		InputFileList.ParseIntoArrayLines(InputFiles, true);
+
+		for (FString& InputFile : InputFiles)
+		{
+			InputFile.TrimStartAndEndInline();
+			if (InputFile.Len() > 0)
+			{
+				FString FullInputFile = BuildRoot / InputFile;
+				FPaths::NormalizeFilename(FullInputFile);
+				AllFiles.Add(FullInputFile);
+			}
+		}
+	}
+
 	void FBuildStreamerImpl::StripIgnoredFiles(TArray<FString>& AllFiles)
 	{
 		struct FRemoveMatchingStrings
@@ -458,9 +489,9 @@ namespace BuildPatchServices
 		bFilesEnumerated = true;
 	}
 
-	FBuildStreamerRef FBuildStreamerFactory::Create(const FString& BuildRoot, const FString& IgnoreListFile, const FStatsCollectorRef& StatsCollector, IFileManager* FileManager)
+	FBuildStreamerRef FBuildStreamerFactory::Create(const FString& BuildRoot, const FString& InputListFile, const FString& IgnoreListFile, const FStatsCollectorRef& StatsCollector, IFileManager* FileManager)
 	{
 		check(FileManager != nullptr);
-		return MakeShareable(new FBuildStreamerImpl(BuildRoot, IgnoreListFile, StatsCollector, FileManager));
+		return MakeShareable(new FBuildStreamerImpl(BuildRoot, InputListFile, IgnoreListFile, StatsCollector, FileManager));
 	}
 }

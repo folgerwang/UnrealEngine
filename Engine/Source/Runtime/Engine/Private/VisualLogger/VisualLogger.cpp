@@ -48,7 +48,7 @@ namespace
 	}
 }
 
-TMap<const UWorld*, FVisualLogger::RedirectionMapType> FVisualLogger::WorldToRedirectionMap;
+TMap<const UWorld*, FVisualLogger::FOwnerToChildrenRedirectionMap> FVisualLogger::WorldToRedirectionMap;
 int32 FVisualLogger::bIsRecording = false;
 FVisualLogger::FNavigationDataDump FVisualLogger::NavigationDataDumpDelegate;
 
@@ -390,7 +390,7 @@ void FVisualLogger::Cleanup(UWorld* OldWorld, bool bReleaseMemory)
 		Device->Cleanup(bReleaseMemory);
 	}
 
-	if (OldWorld != nullptr)
+	if (OldWorld != nullptr && WorldToRedirectionMap.Find(OldWorld))
 	{
 		WorldToRedirectionMap.Remove(OldWorld);
 
@@ -398,6 +398,7 @@ void FVisualLogger::Cleanup(UWorld* OldWorld, bool bReleaseMemory)
 		{
 			WorldToRedirectionMap.Reset();
 			ObjectToWorldMap.Reset();
+			ChildToOwnerMap.Reset();
 			CurrentEntryPerObject.Reset();
 			ObjectToNameMap.Reset();
 			ObjectToClassNameMap.Reset();
@@ -417,12 +418,22 @@ void FVisualLogger::Cleanup(UWorld* OldWorld, bool bReleaseMemory)
 					ObjectToPointerMap.Remove(Obj);
 				}
 			}
+
+			for (FChildToOwnerRedirectionMap::TIterator It = ChildToOwnerMap.CreateIterator(); It; ++It)
+			{
+				if (It->Key.IsValid() == false
+					|| It->Key->GetWorld() == OldWorld)
+				{
+					It.RemoveCurrent();
+				}
+			}
 		}
 	}
 	else
 	{
 		WorldToRedirectionMap.Reset();
 		ObjectToWorldMap.Reset();
+		ChildToOwnerMap.Reset();
 		CurrentEntryPerObject.Reset();
 		ObjectToNameMap.Reset();
 		ObjectToClassNameMap.Reset();
@@ -442,7 +453,7 @@ int32 FVisualLogger::GetUniqueId(float Timestamp)
 	return LastUniqueIds.FindOrAdd(Timestamp)++;
 }
 
-FVisualLogger::RedirectionMapType& FVisualLogger::GetRedirectionMap(const UObject* InObject)
+FVisualLogger::FOwnerToChildrenRedirectionMap& FVisualLogger::GetRedirectionMap(const UObject* InObject)
 {
 	const UWorld* World = nullptr;
 	if (FVisualLogger::Get().ObjectToWorldMap.Contains(InObject))
@@ -465,54 +476,54 @@ void FVisualLogger::Redirect(UObject* FromObject, UObject* ToObject)
 		return;
 	}
 
+	TWeakObjectPtr<const UObject> FromWeakPtr(FromObject);
 	UObject* OldRedirection = FindRedirection(FromObject);
 	UObject* NewRedirection = FindRedirection(ToObject);
-	auto& RedirectionMap = GetRedirectionMap(FromObject);
 
 	if (OldRedirection != NewRedirection)
 	{
-		auto OldArray = RedirectionMap.Find(OldRedirection);
+		FOwnerToChildrenRedirectionMap& OwnerToChildrenMap = GetRedirectionMap(FromObject);
+
+		auto OldArray = OwnerToChildrenMap.Find(OldRedirection);
 		if (OldArray)
 		{
-			OldArray->RemoveSingleSwap(FromObject);
+			OldArray->RemoveSingleSwap(FromWeakPtr);
 		}
 
-		RedirectionMap.FindOrAdd(NewRedirection).AddUnique(FromObject);
-
-		UE_CVLOG(FromObject != nullptr, FromObject, LogVisual, Log, TEXT("Redirected '%s' to '%s'"), *FromObject->GetName(), *NewRedirection->GetName());
+		OwnerToChildrenMap.FindOrAdd(NewRedirection).AddUnique(FromWeakPtr);
 	}
+
+	FChildToOwnerRedirectionMap& ChildToOwnerMap = FVisualLogger::Get().GetChildToOwnerRedirectionMap();
+	ChildToOwnerMap.FindOrAdd(FromWeakPtr) = ToObject;
+
+	UE_CVLOG(FromObject != nullptr, FromObject, LogVisual, Log, TEXT("Redirected '%s' to '%s'"), *FromObject->GetName(), *NewRedirection->GetName());
 }
 
 UObject* FVisualLogger::FindRedirection(const UObject* Object)
 {
-	auto& RedirectionMap = GetRedirectionMap(Object);
-	if (RedirectionMap.Contains(Object) == false)
-	{
-		for (RedirectionMapType::TIterator It(RedirectionMap); It; ++It)
-		{
-			if (It.Value().Find(Object) != INDEX_NONE)
-			{
-				// TODO: it really shouldn't keep raw pointers here
-				// TArray<FWeakObjectPtr>::Contains/Find(UObject*) requires converting UObject to weak pointer first,
-				// but that operation is checked against data in GObjectArray and can result in a crash
-				// patch it for now, fix with vlog refactor later
-				//
-				// GUObjectArray.IsValid prints warning in log, try silent check with object index first
-				
-				const UObject* RedirectionKey = It.Key();
-				const bool bIsValid = RedirectionKey && (GUObjectArray.ObjectToIndex(RedirectionKey) >= 0) && GUObjectArray.IsValid(RedirectionKey);
-				if (!bIsValid)
-				{
-					It.RemoveCurrent();
-					break;
-				}
+	FChildToOwnerRedirectionMap& Map = FVisualLogger::Get().GetChildToOwnerRedirectionMap();
 
-				return FindRedirection(RedirectionKey);
+	TWeakObjectPtr<const UObject> TargetWeakPtr(Object);
+	TWeakObjectPtr<const UObject>* Parent = &TargetWeakPtr;
+
+	while (Parent)
+	{
+		Parent = Map.Find(TargetWeakPtr);
+		if (Parent)
+		{
+			if (Parent->IsValid())
+			{
+				TargetWeakPtr = *Parent;
+			}
+			else
+			{
+				Parent = nullptr;
+				Map.Remove(TargetWeakPtr);
 			}
 		}
 	}
 
-	return const_cast<UObject*>(Object);
+	return const_cast<UObject*>(TargetWeakPtr.Get());
 }
 
 void FVisualLogger::SetIsRecording(bool InIsRecording) 

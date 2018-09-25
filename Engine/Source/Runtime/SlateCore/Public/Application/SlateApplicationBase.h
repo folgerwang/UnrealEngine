@@ -10,7 +10,7 @@
 #include "Rendering/SlateRenderer.h"
 #include "Misc/CoreDelegates.h"
 
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnDebugSafeZoneChanged, const FMargin&);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnDebugSafeZoneChanged, const FMargin&, bool);
 
 class FActiveTimerHandle;
 class FSlateApplicationBase;
@@ -197,7 +197,14 @@ public:
 	 *
 	 * @param OutDisplayMetrics Will contain the display metrics.
 	 */
-	void GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics) const;
+	void GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics);
+
+	/**
+	* Gets the application's cached display metrics.
+	*
+	* @param OutDisplayMetrics Will contain the display metrics.
+	*/
+	void GetCachedDisplayMetrics(FDisplayMetrics& OutDisplayMetrics) const;
 
 	void GetSafeZoneSize(FMargin& SafeZone, const FVector2D& OverrideSize);
 
@@ -494,9 +501,25 @@ protected:
 	virtual FWidgetPath LocateWidgetInWindow(FVector2D ScreenspaceMouseCoordinate, const TSharedRef<SWindow>& Window, bool bIgnoreEnabledStatus) const = 0;
 
 #if WITH_EDITOR
-	void UpdateCustomSafeZone(const FMargin& NewSafeZoneRatio) 
+	void UpdateCustomSafeZone(const FMargin& NewSafeZoneRatio, bool bShouldRecacheMetrics) 
 	{
+		if (bShouldRecacheMetrics)
+		{
+			FDisplayMetrics DisplayMetrics;
+			GetDisplayMetrics(DisplayMetrics);
+		}
 		CustomSafeZoneRatio = NewSafeZoneRatio; 
+	}
+	void SwapSafeZoneTypes()
+	{
+		if (FDisplayMetrics::GetDebugTitleSafeZoneRatio() != CachedDebugTitleSafeRatio)
+		{
+			FDisplayMetrics DisplayMetrics;
+			GetDisplayMetrics(DisplayMetrics);
+			CustomSafeZoneRatio = FMargin();
+			OnDebugSafeZoneChanged.Broadcast(FMargin(), false);
+		}
+
 	}
 #endif
 
@@ -516,6 +539,11 @@ protected:
 	// Holds a pointer to the platform application.
 	static TSharedPtr<class GenericApplication> PlatformApplication;
 
+	// Caches the application's display metrics
+	FDisplayMetrics CachedDisplayMetrics;
+
+	// Caches the previous debug safe zone ratio
+	float CachedDebugTitleSafeRatio;
 public:
 
 	/**

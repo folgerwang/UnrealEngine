@@ -284,6 +284,10 @@ public:
 	 */
 	void RemoveHostNameFromCache(const ANSICHAR* HostName);
 
+	/**
+	 * Returns true if FSocket::Wait is supported by this socket subsystem.
+	 */
+	virtual bool IsSocketWaitSupported() const = 0;
 
 private:
 

@@ -11,6 +11,13 @@ namespace BuildPatchServices
 		: public IChunkDataAccess
 	{
 	public:
+		FFakeChunkDataAccess()
+			:ChunkData(nullptr)
+		{
+			ChunkHeader.DataSizeCompressed = 0;
+			ChunkHeader.DataSizeUncompressed = 0;
+		}
+
 		virtual ~FFakeChunkDataAccess()
 		{
 			if (OnDeleted)

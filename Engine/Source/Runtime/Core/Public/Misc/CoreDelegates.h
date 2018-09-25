@@ -8,6 +8,7 @@
 #include "Containers/Map.h"
 #include "Delegates/Delegate.h"
 #include "Math/IntVector.h"
+#include "Misc/AES.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 
 class AActor;
@@ -34,12 +35,15 @@ struct FTestHotFixPayload
 // Parameters passed to CrashOverrideParamsChanged used to customize crash report client behavior/appearance. If the corresponding bool is not true, this value will not be stored.
 struct FCrashOverrideParameters
 {
+	DEPRECATED(4.21, "CrashReportClientMessageText should now be set through the CrashReportClientRichText property in the [CrashContextProperties] section of DefaultEngine.ini.")
 	FString CrashReportClientMessageText;
 	/** Appended to the end of GameName (which is retreived from FApp::GetGameName). */
 	FString GameNameSuffix;
 	/** Default this to true for backward compatibility before these bools were added. */
 	bool bSetCrashReportClientMessageText = true;
 	bool bSetGameNameSuffix = false;
+
+	CORE_API ~FCrashOverrideParameters();
 };
 
 class CORE_API FCoreDelegates
@@ -55,13 +59,16 @@ public:
 	DECLARE_DELEGATE_RetVal_OneParam(int32, FOnMountAllPakFiles, const TArray<FString>&);
 
 	// delegate type for prompting the pak system to mount a new pak
-	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnMountPak, const FString&, uint32, IPlatformFile::FDirectoryVisitor*);
+	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnMountPak, const FString&, int32, IPlatformFile::FDirectoryVisitor*);
 
 	// delegate type for prompting the pak system to mount a new pak
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnUnmountPak, const FString&);
 
 	// delegate for handling when a new pak file is successfully mounted passes in the name of the mounted pak file
 	DECLARE_MULTICAST_DELEGATE_OneParam(FPakFileMountedDelegate, const TCHAR*);
+
+	// delegate to let other systems no that no paks were mounted, in case something wants to handle that case
+	DECLARE_MULTICAST_DELEGATE(FNoPakFilesMountedDelegate);
 
 	/** delegate type for opening a modal message box ( Params: EAppMsgType::Type MessageType, const FText& Text, const FText& Title ) */
 	DECLARE_DELEGATE_RetVal_ThreeParams(EAppReturnType::Type, FOnModalMessageBox, EAppMsgType::Type, const FText&, const FText&);
@@ -72,6 +79,12 @@ public:
 	// Callback for handling an error
 	DECLARE_MULTICAST_DELEGATE(FOnHandleSystemError);
 
+    // Delegate used to register a movie streamer with any movie player modules that bind to this delegate
+    DECLARE_MULTICAST_DELEGATE_OneParam(FRegisterMovieStreamerDelegate, TSharedPtr<class IMovieStreamer>);
+
+    // Delegate used to un-register a movie streamer with any movie player modules that bind to this delegate
+    DECLARE_MULTICAST_DELEGATE_OneParam(FUnRegisterMovieStreamerDelegate, TSharedPtr<class IMovieStreamer>);
+
 	// Callback for handling user login/logout.  first int is UserID, second int is UserIndex
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnUserLoginChangedEvent, bool, int32, int32);
 
@@ -80,6 +93,9 @@ public:
 
 	// Callback for handling accepting invitations - generally for engine code
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnInviteAccepted, const FString&, const FString&);
+
+	// Callback for registering a new encryption key
+	DECLARE_DELEGATE_TwoParams(FRegisterEncryptionKeyDelegate, const FGuid&, const FAES::FAESKey&);
 
 	// Callback for accessing pak encryption key, if it exists
 	DECLARE_DELEGATE_OneParam(FPakEncryptionKeyDelegate, uint8[32]);
@@ -139,6 +155,16 @@ public:
 	// After a pakfile is mounted this callback is called for each new file
 	static FPakFileMountedDelegate PakFileMountedCallback;
 
+	// After an attempt to mount all pak files, but none wre found, this is called
+	static FNoPakFilesMountedDelegate NoPakFilesMountedDelegate;
+
+    // Delegate used to register a movie streamer with any movie player modules that bind to this delegate
+    // Designed to be called when a platform specific movie streamer plugin starts up so that it doesn't need to implement a register for all movie player plugins
+    static FRegisterMovieStreamerDelegate RegisterMovieStreamerDelegate;
+    // Delegate used to un-register a movie streamer with any movie player modules that bind to this delegate
+    // Designed to be called when a platform specific movie streamer plugin shuts down so that it doesn't need to implement a register for all movie player plugins
+    static FUnRegisterMovieStreamerDelegate UnRegisterMovieStreamerDelegate;
+
 	// Callback when an ensure has occurred
 	static FOnHandleSystemEnsure OnHandleSystemEnsure;
 	// Callback when an error (crash) has occurred
@@ -147,6 +173,7 @@ public:
 	// Called when an actor label is changed
 	static FOnActorLabelChanged OnActorLabelChanged;
 
+	static FRegisterEncryptionKeyDelegate& GetRegisterEncryptionKeyDelegate();
 	static FPakEncryptionKeyDelegate& GetPakEncryptionKeyDelegate();
 	static FPakSigningKeysDelegate& GetPakSigningKeysDelegate();
 
@@ -290,9 +317,26 @@ public:
 	// save state when ApplicationWillEnterBackgroundDelegate is called instead.
 	static FApplicationLifetimeDelegate ApplicationWillTerminateDelegate;
 
-	//
+	// Called when the OS needs control of the music (parameter is true) or when the OS returns
+	// control of the music to the application (parameter is false). This can happen due to a
+	// phone call or timer or other OS-level event. This is currently triggered only on iOS
+	// devices.
 	DECLARE_MULTICAST_DELEGATE_OneParam(FUserMusicInterruptDelegate, bool);
 	static FUserMusicInterruptDelegate UserMusicInterruptDelegate;
+	
+	// [iOS only] Called when the mute switch is detected as changed or when the
+	// volume changes. Parameter 1 is the mute switch state (true is muted, false is
+	// unmuted). Parameter 2 is the volume as an integer from 0 to 100.
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FAudioMuteDelegate, bool, int);
+	static FAudioMuteDelegate AudioMuteDelegate;
+	
+	// Generally, events triggering UserMusicInterruptDelegate or AudioMuteDelegate happen only
+	// when a change occurs. When a system comes online needing the current audio state but the
+	// event has already been broadcast, calling ApplicationRequestAudioState will force the
+	// UserMusicInterruptDelegate and AudioMuteDelegate to be called again if the low-level
+	// application layer supports it. Currently, this is available only on iOS.
+	DECLARE_MULTICAST_DELEGATE(FApplicationRequestAudioState);
+	static FApplicationRequestAudioState ApplicationRequestAudioState;
 	
 	// Called when the OS is running low on resources and asks the application to free up any cached resources, drop graphics quality etc.
 	static FApplicationLifetimeDelegate ApplicationShouldUnloadResourcesDelegate;
@@ -308,6 +352,8 @@ public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FApplicationFailedToRegisterForRemoteNotificationsDelegate, FString);
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FApplicationReceivedRemoteNotificationDelegate, FString, int);
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FApplicationReceivedLocalNotificationDelegate, FString, int, int);
+    DECLARE_MULTICAST_DELEGATE(FApplicationPerformFetchDelegate);
+    DECLARE_MULTICAST_DELEGATE_OneParam(FApplicationBackgroundSessionEventDelegate, FString);
 
 	// called when the user grants permission to register for remote notifications
 	static FApplicationRegisteredForRemoteNotificationsDelegate ApplicationRegisteredForRemoteNotificationsDelegate;
@@ -323,6 +369,12 @@ public:
 
 	// called when the application receives a local notification
 	static FApplicationReceivedLocalNotificationDelegate ApplicationReceivedLocalNotificationDelegate;
+
+    // called when the application receives notice to perform a background fetch
+    static FApplicationPerformFetchDelegate ApplicationPerformFetchDelegate;
+
+    // called when the application receives notice that a background download has completed
+    static FApplicationBackgroundSessionEventDelegate ApplicationBackgroundSessionEventDelegate;
 
 	/** Sent when a device screen orientation changes */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FApplicationReceivedOnScreenOrientationChangedNotificationDelegate, int32);
@@ -456,6 +508,11 @@ public:
 
 	DECLARE_DELEGATE_RetVal(bool, FIsLoadingMovieCurrentlyPlaying)
 	static FIsLoadingMovieCurrentlyPlaying IsLoadingMovieCurrentlyPlaying;
+
+	// Callback to allow user code to prevent url from being launched from FPlatformProcess::LaunchURL. Used to apply http whitelist
+	// Return true for to launch the url
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FShouldLaunchUrl, const TCHAR* /* URL */);
+	static FShouldLaunchUrl ShouldLaunchUrl;
 
 private:
 

@@ -132,16 +132,21 @@ public:
 				GetSetByTCHAR((EConsoleVariableFlags)OldPri),
 				*GetString()
 				);
-
-			// If it was set by an ini that has to be hand edited, it is not an issue if a lower priority system tried and failed to set it afterwards
-			const bool bIntentionallyIgnored = (OldPri == ECVF_SetByConsoleVariablesIni || OldPri == ECVF_SetByCommandline || OldPri == ECVF_SetBySystemSettingsIni);
-
-			if ( bIntentionallyIgnored )
+				
+			if (OldPri == ECVF_SetByConsoleVariablesIni || OldPri == ECVF_SetByCommandline || OldPri == ECVF_SetBySystemSettingsIni)
 			{
+				// Set by an ini that has to be hand edited, a deliberate fail
 				UE_LOG(LogConsoleManager, Verbose, TEXT("%s"), *Message);
+			}
+			else if (NewPri == ECVF_SetByScalability && OldPri == ECVF_SetByDeviceProfile)
+			{
+				// Set by a device profile and attempted to update in scalability,
+				// not a warning but very helpful to know when this happens
+				UE_LOG(LogConsoleManager, Log, TEXT("%s"), *Message);
 			}
 			else
 			{
+				// Treat as a warning unless we're intentionally ignoring this priority interaction		
 				UE_LOG(LogConsoleManager, Warning, TEXT("%s"), *Message);
 			}
 		}
@@ -1885,6 +1890,14 @@ static TAutoConsoleVariable<int32> CVarMobileAllowMovableDirectionalLights(
 	TEXT("1: Generate shader permutations to render movable directional lights. (default)"),
 	ECVF_RenderThreadSafe | ECVF_ReadOnly);
 
+static TAutoConsoleVariable<int32> CVarMobileSkyLightPermutation(
+	TEXT("r.Mobile.SkyLightPermutation"),
+	0,
+	TEXT("0: Generate both sky-light and non-skylight permutations. (default)\n")
+	TEXT("1: Generate only non-skylight permutations.\n")
+	TEXT("2: Generate only skylight permutations"),
+	ECVF_RenderThreadSafe | ECVF_ReadOnly);
+
 static TAutoConsoleVariable<int32> CVarMobileHDR32bppMode(
 	TEXT("r.MobileHDR32bppMode"),
 	0,
@@ -1893,6 +1906,20 @@ static TAutoConsoleVariable<int32> CVarMobileHDR32bppMode(
 	TEXT("2: Force Mobile 32bpp HDR with RGBE encoding mode. (device must support framebuffer fetch)\n")
 	TEXT("3: Force Mobile 32bpp HDR with direct RGBA8 rendering."),
 	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarMobileForceFullPrecisionInPS(
+	TEXT("r.Mobile.ForceFullPrecisionInPS"),
+	0,
+	TEXT("0: Use precision specified in shader code (default)\n")
+	TEXT("1: Force use of high precision in pixel shaders.\n"),
+	ECVF_ReadOnly);
+
+static TAutoConsoleVariable<int32> CVarMobileAllowDitheredLODTransition(
+	TEXT("r.Mobile.AllowDitheredLODTransition"),
+	0,
+	TEXT("Whether to support 'Dithered LOD Transition' material option on mobile platforms"),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe
+);
 
 static TAutoConsoleVariable<int32> CVarSetClearSceneMethod(
 	TEXT("r.ClearSceneMethod"),
@@ -2125,21 +2152,6 @@ static TAutoConsoleVariable<FString> CVarNetPackageMapDebugObject(
 	TEXT(""),
 	TEXT("Debugs PackageMap serialization of object")
 	TEXT("Partial name of object to debug"),
-	ECVF_Default);
-
-static TAutoConsoleVariable<FString> CVarNetReplicationDebugProperty(
-	TEXT("net.Replication.DebugProperty"),
-	TEXT(""),
-	TEXT("Debugs Replication of property by name")
-	TEXT("Partial name of property to debug"),
-	ECVF_Default);
-
-static TAutoConsoleVariable<int32> CVarNetRPCDebug(
-	TEXT("net.RPC.Debug"),
-	0,
-	TEXT("Print all RPC bunches sent over the network\n")
-	TEXT(" 0: no print.\n")
-	TEXT(" 1: Print bunches as they are sent."),
 	ECVF_Default);
 
 static TAutoConsoleVariable<int32> CVarNetMontageDebug(

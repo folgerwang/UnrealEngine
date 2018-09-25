@@ -319,14 +319,23 @@ public:
 
 	/** Exec function to change the mouse sensitivity */
 	UFUNCTION(exec)
-	void SetMouseSensitivity(const float Sensitivity);
+	void SetMouseSensitivity(const float SensitivityX, const float SensitivityY);
+
+	/** Sets both X and Y axis sensitivity to the supplied value. */
+	void SetMouseSensitivity(const float Sensitivity) { SetMouseSensitivity(Sensitivity, Sensitivity); }
 
 	/** Exec function to add a debug exec command */
 	UFUNCTION(exec)
 	void SetBind(FName BindName, const FString& Command);
 
 	/** Returns the mouse sensitivity along the X-axis, or the Y-axis, or 1.0 if none are known. */
-	float GetMouseSensitivity();
+	float GetMouseSensitivityX();
+
+	/** Returns the mouse sensitivity along the Y-axis, or 1.0 if none are known. */
+	float GetMouseSensitivityY();
+
+	DEPRECATED(4.21, "Call axis specific GetMouseSensitivityX or GetMouseSensitivityY instead.")
+	float GetMouseSensitivity() { return GetMouseSensitivityX(); }
 
 	/** Returns whether an Axis Key is inverted */
 	bool GetInvertAxisKey(const FKey AxisKey);
@@ -398,17 +407,17 @@ private:
 	TMap<FKey,FInputAxisProperties> AxisProperties;
 
 	/** Map of Action Name to details about the keys mapped to that action */
-	TMap<FName,FActionKeyDetails> ActionKeyMap;
+	mutable TMap<FName,FActionKeyDetails> ActionKeyMap;
 
 	/** Map of Axis Name to details about the keys mapped to that axis */
-	TMap<FName,FAxisKeyDetails> AxisKeyMap;
+	mutable TMap<FName,FAxisKeyDetails> AxisKeyMap;
 
 	/** The current game view of each key */
 	TMap<FKey,FKeyState> KeyStateMap;
 
-	uint32 KeyMapBuildIndex;
+	mutable uint32 KeyMapBuildIndex;
 
-	uint8 bKeyMapsBuilt:1;
+	mutable uint8 bKeyMapsBuilt:1;
 
 public:
 	
@@ -498,8 +507,17 @@ public:
 	/** @return current state of the InKey */
 	float GetRawKeyValue( FKey InKey ) const;
 
-	/** @return current state of the InKey */
-	FVector GetVectorKeyValue( FKey InKey ) const;
+	/** @return processed value of the InKey */
+	FVector GetProcessedVectorKeyValue(FKey InKey) const;
+
+	/** @return raw value of the InKey */
+	FVector GetRawVectorKeyValue(FKey InKey) const;
+
+	DEPRECATED(4.21, "Use GetProcessedVectorKeyValue or GetRawVectorKeyValue instead. GetRawVectorKeyValue will have the same result as GetVectorKeyValue previously.")
+	FVector GetVectorKeyValue(FKey InKey) const
+	{
+		return GetRawVectorKeyValue(InKey);
+	}
 
 	/** @return true if alt key is pressed */
 	bool IsAltPressed() const;
@@ -532,19 +550,26 @@ public:
 #endif
 
 	/** Returns the list of keys mapped to the specified Action Name */
-	const TArray<FInputActionKeyMapping>& GetKeysForAction(const FName ActionName);
+	const TArray<FInputActionKeyMapping>& GetKeysForAction(const FName ActionName) const;
 
 	/** Returns the list of keys mapped to the specified Axis Name */
-	const TArray<FInputAxisKeyMapping>& GetKeysForAxis(const FName AxisName);
+	const TArray<FInputAxisKeyMapping>& GetKeysForAxis(const FName AxisName) const;
 
 	static const TArray<FInputActionKeyMapping>& GetEngineDefinedActionMappings() { return EngineDefinedActionMappings; }
 	static const TArray<FInputAxisKeyMapping>& GetEngineDefinedAxisMappings() { return EngineDefinedAxisMappings; }
 
 private:
-	/** 
-	 * Given raw keystate value, returns the "massaged" value. Override for any custom behavior,
-	 * such as input changes dependent on a particular game state.
- 	 */
+
+	/**
+	* Given raw keystate value of a vector axis, returns the "massaged" value. Override for any custom behavior,
+	* such as input changes dependent on a particular game state.
+	*/
+	virtual FVector MassageVectorAxisInput(FKey Key, FVector RawValue);
+
+	/**
+	* Given raw keystate value, returns the "massaged" value. Override for any custom behavior,
+	* such as input changes dependent on a particular game state.
+	*/
 	virtual float MassageAxisInput(FKey Key, float RawValue);
 
 	/** Process non-axes keystates */
@@ -592,7 +617,7 @@ private:
 	float DetermineAxisValue(const FInputAxisBinding& AxisBinding, const bool bGamePaused, TArray<FKey>& KeysToConsume);
 
 	/** Utility function to ensure the key mapping cache maps are built */
-	FORCEINLINE void ConditionalBuildKeyMappings()
+	FORCEINLINE void ConditionalBuildKeyMappings() const
 	{
 		if (!bKeyMapsBuilt)
 		{
@@ -600,7 +625,7 @@ private:
 		}
 	}
 
-	void ConditionalBuildKeyMappings_Internal();
+	void ConditionalBuildKeyMappings_Internal() const;
 
 	/** Set the Key consumed for the frame so that subsequent input components will not be notified they were pressed */
 	void ConsumeKey(FKey Key);

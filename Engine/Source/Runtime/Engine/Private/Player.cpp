@@ -70,7 +70,7 @@ FString UPlayer::ConsoleCommand(const FString& Cmd, bool bWriteToLog)
 	return TEXT("");
 }
 
-APlayerController* UPlayer::GetPlayerController(UWorld* InWorld) const
+APlayerController* UPlayer::GetPlayerController(const UWorld* const InWorld) const
 {
 	if (InWorld == nullptr)
 	{

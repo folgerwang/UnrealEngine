@@ -12,11 +12,15 @@ class FSLESAudioDevice;
 #include "AudioDecompress.h"
 #include "AudioEffect.h"
 #include "AudioDevice.h"
+#include "Stats/Stats.h"
 
 #include <SLES/OpenSLES.h>
 #include "SLES/OpenSLES_Android.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAndroidAudio,Log,VeryVerbose);
+
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Android Player Create"), STAT_AudioAndroidSourcePlayerCreateTime, STATGROUP_Audio, ENGINE_API);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Android Player Realize"), STAT_AudioAndroidSourcePlayerRealize, STATGROUP_Audio, ENGINE_API);
 
 enum ESoundFormat
 {
@@ -310,7 +314,12 @@ public:
 
 	/** Starts up any platform specific hardware/APIs */
 	virtual bool InitializeHardware() override;
- 
+
+	virtual void TeardownHardware() override
+	{
+		Teardown();
+	}
+
 	/** Check if any background music or sound is playing through the audio device */
 	virtual bool IsExernalBackgroundSoundActive() override;
 

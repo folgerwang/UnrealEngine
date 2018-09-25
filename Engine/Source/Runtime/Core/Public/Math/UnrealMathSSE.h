@@ -1153,16 +1153,17 @@ FORCEINLINE void VectorQuaternionMultiply( void* RESTRICT Result, const void* RE
 }
 
 // Returns true if the vector contains a component that is either NAN or +/-infinite.
-inline bool VectorContainsNaNOrInfinite(const VectorRegister& Vec)
+FORCEINLINE bool VectorContainsNaNOrInfinite(const VectorRegister& Vec)
 {
 	// https://en.wikipedia.org/wiki/IEEE_754-1985
 	// Infinity is represented with all exponent bits set, with the correct sign bit.
 	// NaN is represented with all exponent bits set, plus at least one fraction/significand bit set.
 	// This means finite values will not have all exponent bits set, so check against those bits.
-	
-	// We cannot rely on the initialisation order of global variables between different namespaces so this is a local copy of
-    // the vector we need.
-	static const VectorRegister FloatInfinity = MakeVectorRegister((uint32)0x7F800000, (uint32)0x7F800000, (uint32)0x7F800000, (uint32)0x7F800000);
+
+	union { float F; uint32 U; } InfUnion;
+	InfUnion.U = 0x7F800000;
+	const float Inf = InfUnion.F;
+	const VectorRegister FloatInfinity = MakeVectorRegister(Inf, Inf, Inf, Inf);
 
 	// Mask off Exponent
 	VectorRegister ExpTest = VectorBitwiseAnd(Vec, FloatInfinity);

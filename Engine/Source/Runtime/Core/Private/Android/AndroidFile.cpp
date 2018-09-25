@@ -1547,7 +1547,7 @@ public:
 		FString AssetPath;
 		PathToAndroidPaths(LocalPath, AssetPath, Directory, AllowLocal);
 
-		return mkdir(TCHAR_TO_UTF8(*LocalPath), 0766) || (errno == EEXIST);
+		return (mkdir(TCHAR_TO_UTF8(*LocalPath), 0755) == 0) || (errno == EEXIST);
 	}
 
 	// We assert that modifying dirs are in the local file-system.

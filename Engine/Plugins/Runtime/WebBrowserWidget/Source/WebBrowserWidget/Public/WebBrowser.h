@@ -7,7 +7,6 @@
 #include "WebBrowser.generated.h"
 
 
-class UMaterial;
 /**
  * 
  */
@@ -79,7 +78,6 @@ public:
 	virtual const FText GetPaletteCategory() override;
 #endif
 
-	UMaterial* GetDefaultMaterial() const;
 protected:
 	/** URL that the browser will initially navigate to. The URL should include the protocol, eg http:// */
 	UPROPERTY(EditAnywhere, Category=Appearance)
@@ -99,7 +97,4 @@ protected:
 
 	void HandleOnUrlChanged(const FText& Text);
 	bool HandleOnBeforePopup(FString URL, FString Frame);
-
-private:
-	UMaterial* DefaultMaterial;
 };

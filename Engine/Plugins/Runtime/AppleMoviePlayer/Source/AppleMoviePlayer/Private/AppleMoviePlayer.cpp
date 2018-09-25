@@ -5,6 +5,8 @@
 #include "MoviePlayer.h"
 #include "AppleMovieStreamer.h"
 
+#include "Misc/CoreDelegates.h"
+
 TSharedPtr<FAVPlayerMovieStreamer> AppleMovieStreamer;
 
 class FAppleMoviePlayerModule : public IModuleInterface
@@ -14,12 +16,17 @@ class FAppleMoviePlayerModule : public IModuleInterface
 	{
 		FAVPlayerMovieStreamer *Streamer = new FAVPlayerMovieStreamer;
 		AppleMovieStreamer = MakeShareable(Streamer);
-		GetMoviePlayer()->RegisterMovieStreamer(AppleMovieStreamer);
+
+        FCoreDelegates::RegisterMovieStreamerDelegate.Broadcast(AppleMovieStreamer);
 	}
 
 	virtual void ShutdownModule() override
 	{
-		AppleMovieStreamer.Reset();
+        if (AppleMovieStreamer.IsValid())
+        {
+            FCoreDelegates::UnRegisterMovieStreamerDelegate.Broadcast(AppleMovieStreamer);
+            AppleMovieStreamer.Reset();
+        }
 	}
 };
 

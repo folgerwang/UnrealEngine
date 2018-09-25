@@ -235,7 +235,11 @@ dtStatus dtNavMeshQuery::init(const dtNavMesh* nav, const int maxNodes, dtQueryS
 				m_nodePool = 0;
 			}
 			m_nodePool = new (dtAlloc(sizeof(dtNodePool), DT_ALLOC_PERM)) dtNodePool(maxNodes, dtNextPow2(maxNodes / 4));
-			if (!m_nodePool)
+			if (!m_nodePool
+//@UE4 BEGIN
+				&& maxNodes > 0
+//@UE4 END
+				)
 				return DT_FAILURE | DT_OUT_OF_MEMORY;
 		}
 		else

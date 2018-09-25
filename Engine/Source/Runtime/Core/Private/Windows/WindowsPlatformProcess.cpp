@@ -21,6 +21,8 @@
 #include "Stats/Stats.h"
 #include "Misc/CoreStats.h"
 #include "Windows/WindowsHWrapper.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreDelegates.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
 	#include <shellapi.h>
@@ -253,24 +255,33 @@ void FWindowsPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, F
 {
 	check(URL);
 
-	// Initialize the error to empty string.
-	if (Error)
+	if (FCoreDelegates::ShouldLaunchUrl.IsBound() && !FCoreDelegates::ShouldLaunchUrl.Execute(URL))
 	{
-		*Error = TEXT("");
-	}
-
-	// Use the default handler if we have a URI scheme name that doesn't look like a Windows path, and is not http: or https:
-	FString SchemeName;
-	if(FParse::SchemeNameFromURI(URL, SchemeName) && SchemeName.Len() > 1 && SchemeName != TEXT("http") && SchemeName != TEXT("https"))
-	{
-		LaunchDefaultHandlerForURL(URL, Error);
+		if (Error)
+		{
+			*Error = TEXT("LaunchURL cancelled by delegate");
+		}
 	}
 	else
 	{
-		FString URLParams = FString::Printf(TEXT("%s %s"), URL, Parms ? Parms : TEXT("")).TrimEnd();
-		LaunchWebURL( URLParams, Error );
-	}
+		// Initialize the error to empty string.
+		if (Error)
+		{
+			*Error = TEXT("");
+		}
 
+		// Use the default handler if we have a URI scheme name that doesn't look like a Windows path, and is not http: or https:
+		FString SchemeName;
+		if (FParse::SchemeNameFromURI(URL, SchemeName) && SchemeName.Len() > 1 && SchemeName != TEXT("http") && SchemeName != TEXT("https"))
+		{
+			LaunchDefaultHandlerForURL(URL, Error);
+		}
+		else
+		{
+			FString URLParams = FString::Printf(TEXT("%s %s"), URL, Parms ? Parms : TEXT("")).TrimEnd();
+			LaunchWebURL(URLParams, Error);
+		}
+	}
 }
 
 FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWriteChild, void * PipeReadChild)

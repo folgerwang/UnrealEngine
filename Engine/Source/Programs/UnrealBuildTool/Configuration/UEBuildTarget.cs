@@ -1765,6 +1765,23 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Removes any receipt files in the case of a failed build
+		/// </summary>
+		public void DeleteReceipts()
+		{
+			if (Receipt != null)
+			{
+				if (OnlyModules == null || OnlyModules.Count == 0)
+				{
+					if(!IsFileInstalled(ReceiptFileName) && FileReference.Exists(ReceiptFileName))
+					{
+						FileReference.Delete(ReceiptFileName);
+					}
+				}
+			}
+		}
+
+		/// <summary>
 		/// Checks whether the given file is under an installed directory, and should not be overridden
 		/// </summary>
 		/// <param name="File">File to test</param>

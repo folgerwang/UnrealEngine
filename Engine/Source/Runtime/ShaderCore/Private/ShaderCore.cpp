@@ -17,6 +17,11 @@
 #include "Interfaces/IShaderFormat.h"
 #include "Interfaces/IShaderFormatModule.h"
 #include "RHIShaderFormatDefinitions.inl"
+#if WITH_EDITOR
+#include "Misc/CoreMisc.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#endif
 
 FSHAHash GGlobalShaderMapHash;
 
@@ -267,6 +272,20 @@ bool AllowDebugViewmodes()
 	//bEnabled &= !bForceDisable;
 
 	return (!bForceDisable) && (bForceEnable || (!IsRunningCommandlet() && !FPlatformProperties::RequiresCookedData()));
+}
+
+/** Returns true if debug viewmodes are allowed for the current platform. */
+bool AllowDebugViewmodes(EShaderPlatform Platform)
+{
+#if WITH_EDITOR
+	const int32 ForceDebugViewValue = CVarForceDebugViewModes.GetValueOnAnyThread();
+	bool bForceEnable = ForceDebugViewValue == 1;
+	bool bForceDisable = ForceDebugViewValue == 2;
+	ITargetPlatform* TargetPlatform = GetTargetPlatformManager()->FindTargetPlatform(ShaderPlatformToPlatformName(Platform).ToString());
+	return (!bForceDisable) && (bForceEnable || !TargetPlatform || (!IsRunningCommandlet() && !TargetPlatform->RequiresCookedData()));
+#else
+	return AllowDebugViewmodes();
+#endif
 }
 
 bool FShaderParameterMap::FindParameterAllocation(const TCHAR* ParameterName,uint16& OutBufferIndex,uint16& OutBaseIndex,uint16& OutSize) const

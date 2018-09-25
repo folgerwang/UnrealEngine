@@ -95,7 +95,7 @@ struct FBlueprintCompilationManagerImpl : public FGCObject
 	bool IsGeneratedClassLayoutReady() const;
 	void GetDefaultValue(const UClass* ForClass, const UProperty* Property, FString& OutDefaultValueAsString) const;
 	static void ReinstanceBatch(TArray<FReinstancingJob>& Reinstancers, TMap< UClass*, UClass* >& InOutOldToNewClassMap, TArray<UObject*>* ObjLoaded);
-	static UClass* FastGenerateSkeletonClass(UBlueprint* BP, FKismetCompilerContext& CompilerContext);
+	static UClass* FastGenerateSkeletonClass(UBlueprint* BP, FKismetCompilerContext& CompilerContext, bool bIsSkeletonOnly);
 	static bool IsQueuedForCompilation(UBlueprint* BP);
 	
 	// Declaration of archive to fix up bytecode references of blueprints that are actively compiled:
@@ -309,7 +309,8 @@ struct FCompilerData
 
 		InternalOptions.bRegenerateSkelton = false;
 		InternalOptions.bReinstanceAndStubOnFailure = false;
-		InternalOptions.bSaveIntermediateProducts = (UserOptions & EBlueprintCompileOptions::SaveIntermediateProducts ) != EBlueprintCompileOptions::None;
+		InternalOptions.bSaveIntermediateProducts = (UserOptions & EBlueprintCompileOptions::SaveIntermediateProducts) != EBlueprintCompileOptions::None;
+		InternalOptions.bSkipDefaultObjectValidation = (UserOptions & EBlueprintCompileOptions::SkipDefaultObjectValidation) != EBlueprintCompileOptions::None;
 		InternalOptions.CompileType = bBytecodeOnly ? EKismetCompileType::BytecodeOnly : EKismetCompileType::Full;
 
 		Compiler = FKismetCompilerContext::GetCompilerForBP(BP, *ActiveResultsLog, InternalOptions);
@@ -328,6 +329,7 @@ struct FCompilerData
 	bool ShouldCompileClassFunctions() const { return JobType == ECompilationManagerJobType::Normal; }
 	bool ShouldRegisterCompilerResults() const { return JobType == ECompilationManagerJobType::Normal; }
 	bool ShouldSkipIfDependenciesAreUnchanged() const { return InternalOptions.CompileType == EKismetCompileType::BytecodeOnly || JobType == ECompilationManagerJobType::RelinkOnly; }
+	bool ShouldValidateClassDefaultObject() const { return JobType == ECompilationManagerJobType::Normal && !InternalOptions.bSkipDefaultObjectValidation; }
 
 	UBlueprint* BP;
 	FCompilerResultsLog* ActiveResultsLog;
@@ -629,7 +631,7 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 						BlueprintsCompiledOrSkeletonCompiled->Add(BP);
 					}
 
-					BP->SkeletonGeneratedClass = FastGenerateSkeletonClass(BP, *(CompilerData.Compiler) );
+					BP->SkeletonGeneratedClass = FastGenerateSkeletonClass(BP, *(CompilerData.Compiler), CompilerData.IsSkeletonOnly());
 					UBlueprintGeneratedClass* AuthoritativeClass = Cast<UBlueprintGeneratedClass>(BP->GeneratedClass);
 					if(AuthoritativeClass && bSkipUnneededDependencyCompilation)
 					{
@@ -1025,17 +1027,63 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 		for (FCompilerData& CompilerData : CurrentlyCompilingBPs)
 		{
 			UBlueprint* BP = CompilerData.BP;
-			FBlueprintEditorUtils::UpdateDelegatesInBlueprint(BP);
-			if(!BP->bIsRegeneratingOnLoad && BP->GeneratedClass)
+
+			if (!CompilerData.IsSkeletonOnly())
 			{
-				FKismetEditorUtilities::StripExternalComponents(BP);
-				
-				if(BP->SimpleConstructionScript)
+				FBlueprintEditorUtils::UpdateDelegatesInBlueprint(BP);
+				if (!BP->bIsRegeneratingOnLoad && BP->GeneratedClass)
 				{
-					BP->SimpleConstructionScript->FixupRootNodeParentReferences();
+					FKismetEditorUtilities::StripExternalComponents(BP);
+
+					if (BP->SimpleConstructionScript)
+					{
+						BP->SimpleConstructionScript->FixupRootNodeParentReferences();
+					}
+
+					if (BP->Status != BS_Error)
+					{
+						if (CompilerData.Compiler.IsValid())
+						{
+							// Route through the compiler context in order to perform type-specific Blueprint class validation.
+							CompilerData.Compiler->ValidateGeneratedClass(CastChecked<UBlueprintGeneratedClass>(BP->GeneratedClass));
+
+							if (CompilerData.ShouldValidateClassDefaultObject())
+							{
+								// Our CDO should be properly constructed by this point and should always exist
+								UObject* ClassDefaultObject = BP->GeneratedClass->GetDefaultObject(false);
+								if (ensureAlways(ClassDefaultObject))
+								{
+									FKismetCompilerUtilities::ValidateEnumProperties(ClassDefaultObject, *CompilerData.ActiveResultsLog);
+
+									// Make sure any class-specific validation passes on the CDO
+									TArray<FText> ValidationErrors;
+									EDataValidationResult ValidateCDOResult = ClassDefaultObject->IsDataValid(/*out*/ ValidationErrors);
+									if (ValidateCDOResult == EDataValidationResult::Invalid)
+									{
+										for (const FText& ValidationError : ValidationErrors)
+										{
+											CompilerData.ActiveResultsLog->Error(*ValidationError.ToString());
+										}
+									}
+
+									// Adjust Blueprint status to match anything new that was found during validation.
+									if (CompilerData.ActiveResultsLog->NumErrors > 0)
+									{
+										BP->Status = BS_Error;
+									}
+									else if (BP->Status == BS_UpToDate && CompilerData.ActiveResultsLog->NumWarnings > 0)
+									{
+										BP->Status = BS_UpToDateWithWarnings;
+									}
+								}
+							}
+						}
+						else
+						{
+							UBlueprint::ValidateGeneratedClass(BP->GeneratedClass);
+						}
+					}
 				}
-				
-				UBlueprint::ValidateGeneratedClass(BP->GeneratedClass);
 			}
 
 			if(CompilerData.ShouldRegisterCompilerResults())
@@ -1594,7 +1642,7 @@ void FBlueprintCompilationManagerImpl::ReinstanceBatch(TArray<FReinstancingJob>&
 	Notes to maintainers: any UObject created here and outered to the resulting class must be marked as transient
 	or you will create a cook error!
 */
-UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* BP, FKismetCompilerContext& CompilerContext)
+UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* BP, FKismetCompilerContext& CompilerContext, bool bIsSkeletonOnly)
 {
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 
@@ -1620,6 +1668,12 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 	UBlueprintGeneratedClass* Ret = nullptr;
 	UBlueprintGeneratedClass* OriginalNewClass = CompilerContext.NewClass;
 	FString SkelClassName = FString::Printf(TEXT("SKEL_%s_C"), *BP->GetName());
+
+	// Temporarily set the compile type to indicate that we're generating the skeleton class.
+	TGuardValue<EKismetCompileType::Type> GuardCompileType(CompilerContext.CompileOptions.CompileType, EKismetCompileType::SkeletonOnly);
+
+	// Temporarily set the flag to indicate whether or not we'll only be generating the skeleton class as part of the overall compile request.
+	TGuardValue<bool> GuardSkeletonOnly(CompilerContext.bIsSkeletonOnly, bIsSkeletonOnly);
 
 	if (BP->SkeletonGeneratedClass == nullptr)
 	{
@@ -1979,7 +2033,6 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 		CompilerContext.NewClass = Ret;
 		TGuardValue<bool> GuardAssignDelegateSignatureFunction( CompilerContext.bAssignDelegateSignatureFunction, true);
 		TGuardValue<bool> GuardGenerateSubInstanceVariables( CompilerContext.bGenerateSubInstanceVariables, true);
-		TGuardValue<EKismetCompileType::Type> GuardCompileType( CompilerContext.CompileOptions.CompileType, EKismetCompileType::SkeletonOnly);
 		CompilerContext.CreateClassVariablesFromBlueprint();
 		CompilerContext.NewClass = OriginalNewClass;
 	}

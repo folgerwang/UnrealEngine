@@ -10,6 +10,7 @@
 
 FAnimNode_ScaleChainLength::FAnimNode_ScaleChainLength()
 	: DefaultChainLength(0.0f)
+	, TargetLocation(ForceInitToZero)
 	, Alpha(1.f)
 	, ActualAlpha(0.0f)
 	, bBoneIndicesCached(false)

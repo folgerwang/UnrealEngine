@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<typename ObjC>
-struct IMPTableBase
+struct MTLPP_EXPORT IMPTableBase
 {
 	IMPTableBase()
 	{
@@ -40,14 +40,14 @@ struct IMPTableBase
 		INTERPOSE_REGISTRATION(Release, C);
 		INTERPOSE_REGISTRATION(Dealloc, C);
 	}
-	
+
 	INTERPOSE_SELECTOR(ObjC, retain, Retain, void);
 	INTERPOSE_SELECTOR(ObjC, release, Release, void);
 	INTERPOSE_SELECTOR(ObjC, dealloc, Dealloc, void);
 };
 
 template<typename ObjC, typename Interpose>
-struct IMPTable : public IMPTableBase<ObjC>
+struct MTLPP_EXPORT IMPTable : public IMPTableBase<ObjC>
 {
 	IMPTable()
 	{
@@ -67,7 +67,7 @@ struct IMPTable : public IMPTableBase<ObjC>
 namespace ue4
 {
 	template<typename ObjC, typename Interpose>
-	struct ITable : public IMPTable<ObjC, Interpose>
+	struct MTLPP_EXPORT ITable : public IMPTable<ObjC, Interpose>
 	{
 		ITable() {}
 		ITable(Class Obj) : IMPTable<ObjC, Interpose>(Obj) {}

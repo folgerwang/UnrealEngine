@@ -223,10 +223,12 @@ float UMobilePendingContent::GetTotalDownloadedSize()
 
 FText UMobilePendingContent::GetDownloadStatusText()
 {
-	if (Installer.IsValid())
-	{
-		return GetBuildPatchStateText(Installer->GetState());
-	}
+	// DEPRECATED 4.21
+	
+	//if (Installer.IsValid())
+	//{
+	//	return GetBuildPatchStateText(Installer->GetState());
+	//}
 	return FText::GetEmpty();
 }
 

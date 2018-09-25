@@ -51,7 +51,10 @@ struct APPLEARKIT_API FAppleARKitHitTestResult
     GENERATED_BODY();
 
     // Default constructor
-	FAppleARKitHitTestResult() {};
+	FAppleARKitHitTestResult()
+		: Type(EAppleARKitHitTestResultType::None)
+		, Distance(0.f)
+	{};
 
 #if SUPPORTS_ARKIT_1_0
 

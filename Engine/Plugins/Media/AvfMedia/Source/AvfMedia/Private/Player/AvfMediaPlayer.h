@@ -83,6 +83,9 @@ protected:
 	virtual bool Seek(const FTimespan& Time) override;
 	virtual bool SetLooping(bool Looping) override;
 	virtual bool SetRate(float Rate) override;
+#if PLATFORM_IOS || PLATFORM_TVOS
+	virtual bool SetNativeVolume(float Volume) override;
+#endif
 
 private:
     /**  Callback for when the application is resumed in the foreground */
@@ -145,9 +148,12 @@ private:
 	/** Mutex to ensure thread-safe access */
 	FCriticalSection CriticalSection;
     
-    /** Foreground/background delegate for pause */
-    FDelegateHandle PauseHandle;
-    
     /** Foreground/background delegate for resume */
-    FDelegateHandle ResumeHandle;
+    FDelegateHandle EnteredForegroundHandle;
+    FDelegateHandle HasReactivatedHandle;
+
+    /** Foreground/background delegate for pause */
+    FDelegateHandle EnteredBackgroundHandle;
+    FDelegateHandle WillDeactivateHandle;
+
 };

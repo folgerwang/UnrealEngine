@@ -645,13 +645,6 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		check(Parms.Struct);
 		FBitWriter& Writer = *Parms.Writer;
 
-		// Create a new map from the current state of the array		
-		FNetFastTArrayBaseState * NewState = new FNetFastTArrayBaseState();
-		check(Parms.NewState);
-		*Parms.NewState = TSharedPtr<INetDeltaBaseState>( NewState );
-		TMap<int32, int32> & NewMap = NewState->IDToCLMap;
-		NewState->ArrayReplicationKey = ArraySerializer.ArrayReplicationKey;
-
 		// Get the old map if its there
 		TMap<int32, int32> * OldMap = Parms.OldState ? &((FNetFastTArrayBaseState*)Parms.OldState)->IDToCLMap : NULL;
 		int32 BaseReplicationKey = Parms.OldState ? ((FNetFastTArrayBaseState*)Parms.OldState)->ArrayReplicationKey : -1;
@@ -690,8 +683,30 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				ensureMsgf((OldMap->Num() == ArraySerializer.CachedNumItemsToConsiderForWriting), TEXT("OldMap size (%d) does not match item count (%d)"), OldMap->Num(), ArraySerializer.CachedNumItemsToConsiderForWriting);
 			}
 
+			if (Parms.OldState)
+			{
+				// Nothing changed and we had a valid old state, so just use/share the existing state. No need to create a new one.
+				*Parms.NewState = Parms.OldState->AsShared();
+			}
+			else
+			{
+				// Nothing changed but we don't have an existing state of our own yet so we need to make one here.
+				FNetFastTArrayBaseState * NewState = new FNetFastTArrayBaseState();
+				*Parms.NewState = MakeShareable( NewState );
+				NewState->ArrayReplicationKey = ArraySerializer.ArrayReplicationKey;
+			}
 			return false;
 		}
+
+
+		// Create a new map from the current state of the array		
+		FNetFastTArrayBaseState * NewState = new FNetFastTArrayBaseState();
+
+		check(Parms.NewState);
+		*Parms.NewState = MakeShareable( NewState );
+		TMap<int32, int32> & NewMap = NewState->IDToCLMap;
+		NewState->ArrayReplicationKey = ArraySerializer.ArrayReplicationKey;
+
 
 		int32 NumConsideredItems = CalcNumItemsForConsideration();
 

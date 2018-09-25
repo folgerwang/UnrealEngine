@@ -258,14 +258,16 @@ void UGameEngine::CreateGameViewport( UGameViewportClient* GameViewportClient )
 	// The viewport widget needs an interface so it knows what should render
 	GameViewportWidgetRef->SetViewportInterface( SceneViewport.ToSharedRef() );
 
-	FViewportFrame* ViewportFrame = SceneViewport.Get();
+	FSceneViewport* ViewportFrame = SceneViewport.Get();
 
 	GameViewport->SetViewportFrame(ViewportFrame);
+
+	GameViewport->GetGameLayerManager()->SetSceneViewport(ViewportFrame);
 
 	FViewport::ViewportResizedEvent.AddUObject(this, &UGameEngine::OnViewportResized);
 }
 
-const FSceneViewport* UGameEngine::GetGameSceneViewport(UGameViewportClient* ViewportClient) const
+FSceneViewport* UGameEngine::GetGameSceneViewport(UGameViewportClient* ViewportClient) const
 {
 	return ViewportClient->GetGameViewport();
 }
@@ -315,7 +317,7 @@ void UGameEngine::DetermineGameWindowResolution( int32& ResolutionX, int32& Reso
 	}
 	else
 	{
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 	}
 
 	// Find the maximum allowed resolution
@@ -464,12 +466,22 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 			return Temp;
 		};
 
+	auto GetProjectSettingInt = [](const FString& ParamName, int Default) -> int32
+	{
+		int32 Temp = Default;
+		GConfig->GetInt(TEXT("/Script/EngineSettings.GeneralProjectSettings"), *ParamName, Temp, GGameIni);
+		return Temp;
+	};
+
 	const bool bShouldPreserveAspectRatio = GetProjectSettingBool(TEXT("bShouldWindowPreserveAspectRatio"), true);
 	const bool bUseBorderlessWindow = GetProjectSettingBool(TEXT("bUseBorderlessWindow"), false) && PLATFORM_WINDOWS;
 	const bool bAllowWindowResize = GetProjectSettingBool(TEXT("bAllowWindowResize"), true);
 	const bool bAllowClose = GetProjectSettingBool(TEXT("bAllowClose"), true);
 	const bool bAllowMaximize = GetProjectSettingBool(TEXT("bAllowMaximize"), true);
 	const bool bAllowMinimize = GetProjectSettingBool(TEXT("bAllowMinimize"), true);
+
+	const int32 MinWindowWidth = GetProjectSettingInt(TEXT("MinWindowWidth"), 640);
+	const int32 MinWindowHeight = GetProjectSettingInt(TEXT("MinWindowHeight"), 480);
 
 	// Allow optional winX/winY parameters to set initial window position
 	EAutoCenter AutoCenterType = EAutoCenter::PrimaryWorkArea;
@@ -495,7 +507,7 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 		}
 		else
 		{
-			FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+			FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 		}
 
 		MaxWindowWidth = FMath::Max(DisplayMetrics.VirtualDisplayRect.Right - DisplayMetrics.VirtualDisplayRect.Left, ResX);
@@ -520,6 +532,8 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 	.Title(WindowTitle)
 	.AutoCenter(AutoCenterType)
 	.ScreenPosition(FVector2D(WinX, WinY))
+	.MinWidth(MinWindowWidth)
+	.MinHeight(MinWindowHeight)
 	.MaxWidth(MaxWindowWidth)
 	.MaxHeight(MaxWindowHeight)
 	.FocusWhenFirstShown(true)
@@ -653,6 +667,7 @@ void UGameEngine::OnViewportResized(FViewport* Viewport, uint32 Unused)
 			UGameUserSettings* Settings = GetGameUserSettings();
 			Settings->SetScreenResolution(ViewportSize);
 			Settings->ConfirmVideoMode();
+			Settings->RequestUIUpdate();
 		}
 	}
 }
@@ -996,16 +1011,29 @@ bool UGameEngine::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	{
 		FString CmdName = FParse::Token(Cmd, 0);
 		bool Background = false;
-		if (!CmdName.IsEmpty() && !FCString::Stricmp(*CmdName, TEXT("background")))
+		bool Forced = false;
+
+		if (!CmdName.IsEmpty())
 		{
-			Background = true;
+			if (!FCString::Stricmp(*CmdName, TEXT("background")))
+			{
+				Background = true;
+			}
+
+#if  !UE_BUILD_SHIPPING
+			// in non-shipping let things force an exit on all platforms for automation
+			if (!FCString::Stricmp(*CmdName, TEXT("force")))
+			{
+				Forced = true;
+			}
+#endif
 		}
 
 		if ( Background && FPlatformProperties::SupportsMinimize() )
 		{
 			return HandleMinimizeCommand( Cmd, Ar );
 		}
-		else if ( FPlatformProperties::SupportsQuit() )
+		else if ( FPlatformProperties::SupportsQuit() || Forced )
 		{
 			return HandleExitCommand( Cmd, Ar );
 		}

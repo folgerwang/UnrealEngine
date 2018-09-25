@@ -493,14 +493,6 @@ id<MTLDevice> GMetalDevice = nil;
 		CGPoint Loc = [Touch locationInView:self];
 		CGPoint PrevLoc = [Touch previousLocationInView:self];
 	
-		// skip moves that didn't actually move - this will help input handling to skip over the first
-		// move since it is likely a big pop from the TouchBegan location (iOS filters out small movements
-		// on first press)
-		if (Type == TouchMoved && PrevLoc.x == Loc.x && PrevLoc.y == Loc.y)
-		{
-			continue;
-		}
-
 		// convert TOuch pointer to a unique 0 based index
 		int32 TouchIndex = [self GetTouchIndex:Touch];
 		if (TouchIndex < 0)
@@ -508,7 +500,17 @@ id<MTLDevice> GMetalDevice = nil;
 			continue;
 		}
 
+		// init some things on begin
+		if (Type == TouchBegan)
+		{
+			PreviousForces[TouchIndex] = -1.0;
+			HasMoved[TouchIndex] = 0;
+		}
+
+
 		float Force = Touch.force;
+		float PreviousForce = PreviousForces[TouchIndex];
+
 		// map larger values to 1..10, so 10 is a max across platforms
 		if (Force > 1.0f)
 		{
@@ -527,8 +529,35 @@ id<MTLDevice> GMetalDevice = nil;
 		TouchMessage.Type = Type;
 		TouchMessage.Position = FVector2D(FMath::Min<float>(self.frame.size.width - 1, Loc.x), FMath::Min<float>(self.frame.size.height - 1, Loc.y)) * Scale;
 		TouchMessage.LastPosition = FVector2D(FMath::Min<float>(self.frame.size.width - 1, PrevLoc.x), FMath::Min<float>(self.frame.size.height - 1, PrevLoc.y)) * Scale;
-		TouchMessage.Force = Force;
-		TouchesArray.Add(TouchMessage);
+        TouchMessage.Force = Type != TouchEnded ? Force : 0.0f;
+
+		// skip moves that didn't actually move - this will help input handling to skip over the first
+		// move since it is likely a big pop from the TouchBegan location (iOS filters out small movements
+		// on first press)
+		if (Type != TouchMoved || (PrevLoc.x != Loc.x || PrevLoc.y != Loc.y))
+		{
+			// track first move event, for helping with "pop" on the filtered small movements
+			if (HasMoved[TouchIndex] == 0 && Type == TouchMoved)
+			{
+				TouchInput FirstMoveMessage = TouchMessage;
+				FirstMoveMessage.Type = FirstMove;
+				HasMoved[TouchIndex] = 1;
+
+				TouchesArray.Add(FirstMoveMessage);
+			}
+            
+            TouchesArray.Add(TouchMessage);
+		}
+
+		// if the force changed, send an event!
+		if (PreviousForce != Force)
+		{
+			TouchInput ForceMessage = TouchMessage;
+			ForceMessage.Type = ForceChanged;
+			PreviousForces[TouchIndex] = Force;
+
+			TouchesArray.Add(ForceMessage);
+		}
 		
 		// clear out the touch when it ends
 		if (Type == TouchEnded)

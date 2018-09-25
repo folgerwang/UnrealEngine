@@ -160,7 +160,7 @@ bool FStreamableHandle::BindUpdateDelegate(FStreamableUpdateDelegate NewDelegate
 	return true;
 }
 
-EAsyncPackageState::Type FStreamableHandle::WaitUntilComplete(float Timeout)
+EAsyncPackageState::Type FStreamableHandle::WaitUntilComplete(float Timeout, bool bStartStalledHandles)
 {
 	if (HasLoadCompleted())
 	{
@@ -176,7 +176,7 @@ EAsyncPackageState::Type FStreamableHandle::WaitUntilComplete(float Timeout)
 	{
 		TSharedRef<FStreamableHandle> Handle = HandlesToStart[i];
 
-		if (Handle->IsStalled())
+		if (bStartStalledHandles && Handle->IsStalled())
 		{
 			// If we were stalled, start us now to avoid deadlocks
 			UE_LOG(LogStreamableManager, Warning, TEXT("FStreamableHandle::WaitUntilComplete called on stalled handle %s, forcing load even though resources may not have been acquired yet"), *Handle->GetDebugName());
@@ -192,14 +192,44 @@ EAsyncPackageState::Type FStreamableHandle::WaitUntilComplete(float Timeout)
 		}
 	}
 
-	EAsyncPackageState::Type State = ProcessAsyncLoadingUntilComplete([this]() { return HasLoadCompleted(); }, Timeout);
+	// Finish when all handles are completed or stalled. If we started stalled above then there will be no stalled handles
+	EAsyncPackageState::Type State = ProcessAsyncLoadingUntilComplete([this]() { return HasLoadCompletedOrStalled(); }, Timeout);
 	
 	if (State == EAsyncPackageState::Complete)
 	{
-		ensureMsgf(HasLoadCompleted() || WasCanceled(), TEXT("WaitUntilComplete failed for streamable handle %s, async loading is done but handle is not complete"), *GetDebugName());
+		ensureMsgf(HasLoadCompletedOrStalled() || WasCanceled(), TEXT("WaitUntilComplete failed for streamable handle %s, async loading is done but handle is not complete"), *GetDebugName());
 	}
 
 	return State;
+}
+
+bool FStreamableHandle::HasLoadCompletedOrStalled() const
+{
+	// We need to recursively look for complete or stalled handles
+	TArray<TSharedRef< FStreamableHandle>> HandlesToCheck;
+
+	HandlesToCheck.Add(const_cast<FStreamableHandle*>(this)->AsShared());
+
+	for (int32 i = 0; i < HandlesToCheck.Num(); i++)
+	{
+		TSharedRef<const FStreamableHandle> Handle = HandlesToCheck[i];
+
+		if (!Handle->IsCombinedHandle() && !Handle->HasLoadCompleted() && !Handle->IsStalled())
+		{
+			return false;
+		}
+
+		for (TSharedPtr<FStreamableHandle> ChildHandle : Handle->ChildHandles)
+		{
+			if (ChildHandle.IsValid())
+			{
+				HandlesToCheck.Add(ChildHandle.ToSharedRef());
+			}
+		}
+	}
+
+	// All handles are either completed or stalled
+	return true;
 }
 
 void FStreamableHandle::GetRequestedAssets(TArray<FSoftObjectPath>& AssetList) const
@@ -336,10 +366,14 @@ void FStreamableHandle::CancelHandle()
 	ExecuteDelegate(CancelDelegate, SharedThis);
 	UnbindDelegates();
 
-	// Remove from referenced list
-	for (const FSoftObjectPath& AssetRef : RequestedAssets)
+	// Remove from referenced list. If it is stalled then it won't have been registered with
+	// the manager yet
+	if (!bStalled)
 	{
-		OwningManager->RemoveReferencedAsset(AssetRef, SharedThis);
+		for (const FSoftObjectPath& AssetRef : RequestedAssets)
+		{
+			OwningManager->RemoveReferencedAsset(AssetRef, SharedThis);
+		}
 	}
 
 	// Remove from explicit list
@@ -1319,4 +1353,4 @@ FSoftObjectPath FStreamableManager::HandleLoadedRedirector(UObjectRedirector* Lo
 	return NewPath;
 }
 
-
+PRAGMA_ENABLE_OPTIMIZATION

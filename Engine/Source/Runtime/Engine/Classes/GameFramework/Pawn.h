@@ -99,6 +99,10 @@ public:
 	UPROPERTY(EditAnywhere, Category=Pawn)
 	EAutoPossessAI AutoPossessAI;
 
+	/** Replicated so we can see where remote clients are looking. */
+	UPROPERTY(replicated)
+	uint8 RemoteViewPitch;
+
 	/** Default class to use when pawn is controlled by AI. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayName="AI Controller Class"), Category=Pawn)
 	TSubclassOf<AController> AIControllerClass;
@@ -121,13 +125,26 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=AI)
 	void PawnMakeNoise(float Loudness, FVector NoiseLocation, bool bUseNoiseMakerLocation = true, AActor* NoiseMaker = nullptr);
 
-	/** If Pawn is possessed by a player, points to his playerstate.  Needed for network play as controllers are not replicated to clients. */
-	UPROPERTY(replicatedUsing=OnRep_PlayerState, BlueprintReadOnly, Category=Pawn)
+private:
+	/** If Pawn is possessed by a player, points to its Player State.  Needed for network play as controllers are not replicated to clients. */
+	UPROPERTY(replicatedUsing=OnRep_PlayerState, BlueprintReadOnly, Category=Pawn, meta=(AllowPrivateAccess="true"))
 	APlayerState* PlayerState;
 
-	/** Replicated so we can see where remote clients are looking. */
-	UPROPERTY(replicated)
-	uint8 RemoteViewPitch;
+public:
+
+	/** Set the Pawn's Player State. Keeps bi-directional reference of Pawn to Player State and back in sync. */
+	void SetPlayerState(APlayerState* NewPlayerState);
+
+	/** If Pawn is possessed by a player, returns its Player State.  Needed for network play as controllers are not replicated to clients. */
+	APlayerState* GetPlayerState() const { return PlayerState; }
+
+	/** Templated convenience version of GetPlayerState. */
+	template<class T>
+	T* GetPlayerState() const { return Cast<T>(PlayerState); }
+
+	/** Templated convenience version of GetPlayerState which checks the type is as presumed. */
+	template<class T>
+	T* GetPlayerStateChecked() const { return CastChecked<T>(PlayerState); }
 
 	/** Playback of replays writes blended pitch to this, rather than the RemoteViewPitch. This is to avoid having to compress and interpolated value. */
 	float BlendedReplayViewPitch;

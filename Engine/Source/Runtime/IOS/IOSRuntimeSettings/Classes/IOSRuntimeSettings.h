@@ -209,6 +209,10 @@ public:
     UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
     uint32 bEnableRemoteNotificationsSupport : 1;
     
+    // Should background fetch support be enabled?
+    UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
+    uint32 bEnableBackgroundFetch : 1;
+    
 	// Whether or not to compile iOS Metal shaders for the Mobile renderer (requires iOS 8+ and an A7 processor).
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering, meta = (DisplayName = "Metal Mobile Renderer"))
 	bool bSupportsMetal;

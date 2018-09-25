@@ -1673,8 +1673,13 @@ bool UStaticMeshComponent::SupportsDefaultCollision()
 	return GetStaticMesh() && GetBodySetup() == GetStaticMesh()->BodySetup;
 }
 
-bool UStaticMeshComponent::SupportsDitheredLODTransitions()
+bool UStaticMeshComponent::SupportsDitheredLODTransitions(ERHIFeatureLevel::Type FeatureLevel)
 {
+	if (!AllowDitheredLODTransition(FeatureLevel))
+	{
+		return false;
+	}
+		
 	// Only support dithered transitions if all materials do.
 	TArray<class UMaterialInterface*> Materials = GetMaterials();
 	for (UMaterialInterface* Material : Materials)
@@ -2510,12 +2515,28 @@ FStaticMeshComponentLODInfo::FStaticMeshComponentLODInfo()
 	// Used by deserialization only, MapBuildDataId will be deserialized
 }
 
-FStaticMeshComponentLODInfo::FStaticMeshComponentLODInfo(UStaticMeshComponent* InOwningComponent)
+FStaticMeshComponentLODInfo::FStaticMeshComponentLODInfo(UStaticMeshComponent* InOwningComponent, int32 LodIndex)
 	: LegacyMapBuildData(NULL)
 	, OverrideVertexColors(NULL)
 	, OwningComponent(InOwningComponent)
 	{
-	MapBuildDataId = FGuid::NewGuid();
+	if (LodIndex == 0)
+	{
+		MapBuildDataId = FGuid::NewGuid();
+	}
+	else
+	{
+		FString GuidBaseString = OwningComponent->LODData[0].MapBuildDataId.ToString(EGuidFormats::Digits);
+		GuidBaseString += TEXT("LOD_") + FString::FromInt(LodIndex);
+		
+		FSHA1 Sha;
+		Sha.Update((uint8*)*GuidBaseString, GuidBaseString.Len() * sizeof(TCHAR));
+		Sha.Final();
+		// Retrieve the hash and use it to construct a pseudo-GUID.
+		uint32 Hash[5];
+		Sha.GetHash((uint8*)Hash);
+		MapBuildDataId = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
+	}
 #if WITH_EDITOR
 	bMapBuildDataIdLoaded = false;
 #endif

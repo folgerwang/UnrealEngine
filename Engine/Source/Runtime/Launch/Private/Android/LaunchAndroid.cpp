@@ -32,6 +32,7 @@
 #include "IMessagingModule.h"
 #include "Android/AndroidStats.h"
 #include "MoviePlayer.h"
+#include "PreLoadScreenManager.h"
 #include <jni.h>
 #include <android/sensor.h>
 
@@ -146,6 +147,8 @@ extern FString GFilePathBase;
 
 /** The global EngineLoop instance */
 FEngineLoop	GEngineLoop;
+
+static bool bDidCompleteEngineInit = false;
 
 bool GShowConsoleWindowNextTick = false;
 
@@ -290,6 +293,14 @@ static void InitCommandLine()
 		FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Override Commandline: %s"), FCommandLine::Get());
 	}
+
+#if !UE_BUILD_SHIPPING
+	if (FString* ConfigRulesCmdLineAppend = FAndroidMisc::GetConfigRulesVariable(TEXT("cmdline")))
+	{
+		FCommandLine::Append(**ConfigRulesCmdLineAppend);
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("ConfigRules appended: %s"), **ConfigRulesCmdLineAppend);
+	}
+#endif
 }
 
 extern void AndroidThunkCpp_DismissSplashScreen();
@@ -413,6 +424,7 @@ int32 AndroidMain(struct android_app* state)
 	GLog->SetCurrentThreadAsMasterThread();
 
 	GEngineLoop.Init();
+	bDidCompleteEngineInit = true;
 
 	UE_LOG(LogAndroid, Log, TEXT("Passed GEngineLoop.Init()"));
 
@@ -471,13 +483,6 @@ int32 AndroidMain(struct android_app* state)
 	return 0;
 }
 
-// this is a prototype currently unused, left here for possible future use
-#if !defined(WITH_Android_Choreographer)
-#define WITH_Android_Choreographer (0)
-#endif
-
-#if WITH_Android_Choreographer
-
 struct AChoreographer;
 struct FChoreographer
 {
@@ -486,15 +491,17 @@ struct FChoreographer
 	typedef void(*func_AChoreographer_postFrameCallback)(
 		AChoreographer* choreographer, AChoreographer_frameCallback callback,
 		void* data);
+	typedef void(*func_AChoreographer_postFrameCallbackDelayed)(
+		AChoreographer* choreographer, AChoreographer_frameCallback callback,
+		void* data, long delayMillis);
 
 	func_AChoreographer_getInstance AChoreographer_getInstance_ = nullptr;
 	func_AChoreographer_postFrameCallback AChoreographer_postFrameCallback_ = nullptr;
+	func_AChoreographer_postFrameCallbackDelayed AChoreographer_postFrameCallbackDelayed_ = nullptr;
 
 	FCriticalSection ChoreographerSetupLock;
 
-	TFunction<void(int64)> Callback;
-
-	int64 FrameCounterInc = 0;
+	TFunction<int64(int64)> Callback;
 
 	void SetupChoreographer()
 	{
@@ -512,57 +519,80 @@ struct FChoreographer
 				AChoreographer_postFrameCallback_ =
 					reinterpret_cast<func_AChoreographer_postFrameCallback>(
 						dlsym(lib, "AChoreographer_postFrameCallback"));
+				AChoreographer_postFrameCallbackDelayed_ =
+					reinterpret_cast<func_AChoreographer_postFrameCallbackDelayed>(
+						dlsym(lib, "AChoreographer_postFrameCallbackDelayed"));
 			}
 
-			if (!AChoreographer_getInstance_ || !AChoreographer_postFrameCallback_)
+			if (!AChoreographer_getInstance_ || !AChoreographer_postFrameCallback_ || !AChoreographer_postFrameCallbackDelayed_)
 			{
-				UE_LOG(LogAndroid, Fatal, TEXT("Failed to set up Choreographer"));
+				UE_LOG(LogAndroid, Warning, TEXT("Failed to set up Choreographer"));
+				AChoreographer_getInstance_ = nullptr;
+				AChoreographer_postFrameCallback_ = nullptr;
+				AChoreographer_postFrameCallbackDelayed_ = nullptr;
 			}
-			SetCallback();
+			else
+			{
+				SetCallback(0);
+				UE_LOG(LogAndroid, Display, TEXT("Choreographer set up."));
+			}
 		}
 	}
-	void SetupCallback(TFunction<void(int64)> InCallback)
+	void SetupCallback(TFunction<int64(int64)> InCallback)
 	{
+		check(IsAvailable());
 		FScopeLock Lock(&ChoreographerSetupLock);
-		check(AChoreographer_getInstance_);
 		Callback = InCallback;
 	}
 
-	void SetCallback();
-	void DoCallback(int64 InFrameCounter)
+	void SetCallback(int64 Delay);
+	void DoCallback(long frameTimeNanos)
 	{
-		FScopeLock Lock(&ChoreographerSetupLock);
-		// Post next callback for self.
-		FrameCounterInc++;
-		SetCallback();
-		if (Callback)
+		//static long LastFrameTimeNanos = 0;
+		//UE_LOG(LogAndroid, Warning, TEXT("Choreographer %lld   delta %lld"), frameTimeNanos, frameTimeNanos - LastFrameTimeNanos);
+		//LastFrameTimeNanos = frameTimeNanos;
+		int64 NextDelay = -1;
 		{
-			//Callback(FrameCounterInc);
-			Callback(InFrameCounter);
+			FScopeLock Lock(&ChoreographerSetupLock);
+			if (Callback)
+			{
+				NextDelay = Callback(frameTimeNanos);
+			}
 		}
+		SetCallback((NextDelay >= 0) ? NextDelay : 0);
+	}
+	bool IsAvailable()
+	{
+		return !!AChoreographer_getInstance_;
 	}
 };
 FChoreographer TheChoreographer;
 
-void StartChoreographer(TFunction<void(int64)> Callback)
+bool ChoreographerIsAvailable()
 {
+	return TheChoreographer.IsAvailable();
+}
+
+void StartChoreographer(TFunction<int64(int64)> Callback)
+{
+	check(ChoreographerIsAvailable());
 	TheChoreographer.SetupCallback(Callback);
 }
 
 
 static void choreographer_callback(long frameTimeNanos, void* data)
 {
-	TheChoreographer.DoCallback((frameTimeNanos * 60 + 500000000) / 1000000000);
+	TheChoreographer.DoCallback(frameTimeNanos);
 }
 
-void FChoreographer::SetCallback()
+void FChoreographer::SetCallback(int64 Delay)
 {
+	check(IsAvailable());
+	check(Delay >= 0);
 	AChoreographer* choreographer = AChoreographer_getInstance_();
-	UE_CLOG(!choreographer, LogAndroid, Fatal, TEXT("Choreographer was null."));
-	AChoreographer_postFrameCallback_(choreographer, choreographer_callback, nullptr);
+	UE_CLOG(!choreographer, LogAndroid, Fatal, TEXT("Choreographer was null (wrong thread?)."));
+	AChoreographer_postFrameCallbackDelayed_(choreographer, choreographer_callback, nullptr, Delay / 1000000);
 }
-
-#endif
 
 static void* AndroidEventThreadWorker( void* param )
 {
@@ -586,9 +616,7 @@ static void* AndroidEventThreadWorker( void* param )
 	FPlatformMisc::LowLevelOutputDebugString(TEXT("Passed callback initialization"));
 	FPlatformMisc::LowLevelOutputDebugString(TEXT("Passed sensor initialization"));
 
-#if WITH_Android_Choreographer
 	TheChoreographer.SetupChoreographer();
-#endif
 
 	//continue to process events until the engine is shutting down
 	while (!GIsRequestingExit)
@@ -970,9 +998,16 @@ static bool IsStartupMoviePlaying()
 	return GEngine && GEngine->IsInitialized() && GetMoviePlayer() && GetMoviePlayer()->IsStartupMoviePlaying();
 }
 
+static bool IsPreLoadScreenPlaying()
+{
+    return IsStartupMoviePlaying() 
+        || (FPreLoadScreenManager::Get() && (FPreLoadScreenManager::Get()->HasValidActivePreLoadScreen()));
+}
+
 //Called from the event process thread
 static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 {
+	static bool bDidGainFocus = false;
 	bool bNeedToSync = false;
 	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("OnAppCommandCB cmd: %u, tid = %d"), cmd, gettid());
 
@@ -1031,6 +1066,10 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		 * Command from main thread: the app's activity window has gained
 		 * input focus.
 		 */
+
+		// remember gaining focus so we know any later pauses are not part of first startup
+		bDidGainFocus = true;
+		 
 		// bring back a certain functionality, like monitoring the accelerometer
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_GAINED_FOCUS"));
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_WINDOW_GAINED_FOCUS, NULL);
@@ -1100,6 +1139,8 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_RESUME"));
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_RESUME);
 
+        FPreLoadScreenManager::EnableEarlyRendering(true);
+
 		/*
 		* On the initial loading the restart method must be called immediately
 		* in order to restart the app if the startup movie was playing
@@ -1117,15 +1158,28 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_PAUSE"));
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_PAUSE);
 
+		// Restart on resuming if did not complete engine initialization
+		if (!bDidCompleteEngineInit && bDidGainFocus)
+		{
+			// only do this if early startup enabled
+			FString *EarlyRestart = FAndroidMisc::GetConfigRulesVariable(TEXT("earlyrestart"));
+			if (EarlyRestart != NULL && EarlyRestart->Equals("true", ESearchCase::IgnoreCase))
+			{
+				bShouldRestartFromInterrupt = true;
+			}
+		}
+
 		/*
 		 * On the initial loading the pause method must be called immediately
 		 * in order to stop the startup movie's sound
 		*/
-		if (IsStartupMoviePlaying())
+		if (IsPreLoadScreenPlaying())
 		{
 			bShouldRestartFromInterrupt = true;
 			GetMoviePlayer()->ForceCompletion();
-		}
+        }
+
+        FPreLoadScreenManager::EnableEarlyRendering(false);
 
 		bNeedToSync = true;
 		break;
@@ -1203,7 +1257,14 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeConsoleCommand(JNIEnv*
 {
 	const char* javaChars = jenv->GetStringUTFChars(commandString, 0);
 
-	new(GEngine->DeferredCommands) FString(UTF8_TO_TCHAR(javaChars));
+	if (GEngine != NULL)
+	{
+		new(GEngine->DeferredCommands) FString(UTF8_TO_TCHAR(javaChars));
+	}
+	else
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Ignoring console command (too early): %s"), UTF8_TO_TCHAR(javaChars));
+	}
 
 	//Release the string
 	jenv->ReleaseStringUTFChars(commandString, javaChars);
@@ -1220,21 +1281,29 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeInitHMDs(JNIEnv* jenv,
 	GHMDsInitialized = true;
 }
 
-JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetAndroidVersionInformation(JNIEnv* jenv, jobject thiz, jstring androidVersion, jstring phoneMake, jstring phoneModel, jstring osLanguage )
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetAndroidVersionInformation(JNIEnv* jenv, jobject thiz, jstring androidVersion, jstring phoneMake, jstring phoneModel, jstring phoneBuildNumber, jstring osLanguage )
 {
 	const char *javaAndroidVersion = jenv->GetStringUTFChars(androidVersion, 0 );
 	FString UEAndroidVersion = FString(UTF8_TO_TCHAR( javaAndroidVersion ));
+	jenv->ReleaseStringUTFChars(androidVersion, javaAndroidVersion);
 
 	const char *javaPhoneMake = jenv->GetStringUTFChars(phoneMake, 0 );
 	FString UEPhoneMake = FString(UTF8_TO_TCHAR( javaPhoneMake ));
+	jenv->ReleaseStringUTFChars(phoneMake, javaPhoneMake);
 
 	const char *javaPhoneModel = jenv->GetStringUTFChars(phoneModel, 0 );
 	FString UEPhoneModel = FString(UTF8_TO_TCHAR( javaPhoneModel ));
+	jenv->ReleaseStringUTFChars(phoneModel, javaPhoneModel);
+
+	const char *javaPhoneBuildNumber = jenv->GetStringUTFChars(phoneBuildNumber, 0);
+	FString UEPhoneBuildNumber = FString(UTF8_TO_TCHAR(javaPhoneBuildNumber));
+	jenv->ReleaseStringUTFChars(phoneBuildNumber, javaPhoneBuildNumber);
 
 	const char *javaOSLanguage = jenv->GetStringUTFChars(osLanguage, 0);
 	FString UEOSLanguage = FString(UTF8_TO_TCHAR(javaOSLanguage));
+	jenv->ReleaseStringUTFChars(osLanguage, javaOSLanguage);
 
-	FAndroidMisc::SetVersionInfo( UEAndroidVersion, UEPhoneMake, UEPhoneModel, UEOSLanguage );
+	FAndroidMisc::SetVersionInfo( UEAndroidVersion, UEPhoneMake, UEPhoneModel, UEPhoneBuildNumber, UEOSLanguage );
 }
 
 bool WaitForAndroidLoseFocusEvent(double TimeoutSeconds)

@@ -26,7 +26,8 @@ void SControlRigGraphNode::Construct( const FArguments& InArgs )
  	UControlRigGraphNode* ControlRigGraphNode = InArgs._GraphNodeObj;
 
 	// Re-cache variable info here (unit structure could have changed since last reconstruction, e.g. array add/remove)
-	ControlRigGraphNode->CacheVariableInfo();
+	// and also create missing pins if it hasn't created yet
+	ControlRigGraphNode->CreateVariablePins(false);
 
 	this->UpdateGraphNode();
 
@@ -613,7 +614,7 @@ FSlateColor SControlRigGraphNode::GetPinTextColor(TWeakPtr<SGraphPin> GraphPin) 
 		// If there is no schema there is no owning node (or basically this is a deleted node)
 		if (GraphNode)
 		{
-			if(!GraphNode->IsNodeEnabled() || !GraphPin.Pin()->IsEditingEnabled())
+			if(!GraphNode->IsNodeEnabled() || GraphNode->IsDisplayAsDisabledForced() || !GraphPin.Pin()->IsEditingEnabled())
 			{
 				return FLinearColor(1.0f, 1.0f, 1.0f, 0.5f);
 			}

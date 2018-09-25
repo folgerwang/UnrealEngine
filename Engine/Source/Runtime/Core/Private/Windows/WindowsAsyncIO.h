@@ -113,6 +113,11 @@ public:
 			check(Memory);
 			uint32 NumRead = 0;
 
+			if (Offset + BytesToRead > FileSize || AlignedOffset < 0 || AlignedBytesToRead < 1)
+			{
+				UE_LOG(LogTemp, Fatal, TEXT("FWindowsReadRequest bogus request Offset = %lld BytesToRead = %lld AlignedOffset = %lld AlignedBytesToRead = %lld FileSize = %lld File = %s"), Offset, BytesToRead, AlignedOffset, AlignedBytesToRead, FileSize, GetFileNameForErrorMessagesAndPanicRetry());
+			}
+
 			{
 				ULARGE_INTEGER LI;
 				LI.QuadPart = AlignedOffset;
@@ -128,6 +133,7 @@ public:
 					UE_LOG(LogTemp, Fatal, TEXT("FWindowsReadRequest ReadFile Failed! Error code = %x"), ErrorCode);
 				}
 			}
+
 			Task = new FAsyncTask<FWindowsReadRequestWorker>(this);
 			Start();
 		}
@@ -135,6 +141,7 @@ public:
 	virtual ~FWindowsReadRequest();
 
 	bool CheckForPrecache();
+	const TCHAR* GetFileNameForErrorMessagesAndPanicRetry();
 
 	void PerformRequest()
 	{
@@ -147,17 +154,91 @@ public:
 #endif
 		check(AlignedOffset <= Offset);
 		uint32 BytesRead = 0;
-		if (!GetOverlappedResult(FileHandle, &OverlappedIO, (LPDWORD)&BytesRead, TRUE))
+
+		bool bFailed = false;
+		FString FailedMessage;
+
+		extern bool GTriggerFailedWindowsRead;
+
+		if (GTriggerFailedWindowsRead || !GetOverlappedResult(FileHandle, &OverlappedIO, (LPDWORD)&BytesRead, TRUE))
 		{
+			GTriggerFailedWindowsRead = false;
 			uint32 ErrorCode = GetLastError();
-			UE_LOG(LogTemp, Fatal, TEXT("FWindowsReadRequest GetOverlappedResult failed code = %x!"), ErrorCode);
+			FailedMessage = FString::Printf(TEXT("FWindowsReadRequest GetOverlappedResult Code = %x Offset = %lld Size = %lld FileSize = %lld File = %s"), ErrorCode, AlignedOffset, AlignedBytesToRead, FileSize, GetFileNameForErrorMessagesAndPanicRetry());
+			bFailed = true;
 		}
-		if (int64(BytesRead) < BytesToRead + (Offset - AlignedOffset))
+		if (!bFailed && int64(BytesRead) < BytesToRead + (Offset - AlignedOffset))
 		{
 			uint32 ErrorCode = GetLastError();
-			UE_LOG(LogTemp, Fatal, TEXT("FWindowsReadRequest Short Read code = %x!"), ErrorCode);
+			FailedMessage = FString::Printf(TEXT("FWindowsReadRequest Short Read Code = %x BytesRead = %lld Offset = %lld AlignedOffset = %lld BytesToRead = %lld Size = %lld File = %s"), ErrorCode, int64(BytesRead), Offset, AlignedOffset, BytesToRead, FileSize, GetFileNameForErrorMessagesAndPanicRetry());
+			bFailed = true;
 		}
 
+		if (bFailed)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Bad read, retrying %s"), *FailedMessage);
+
+			for (int32 Try = 0; bFailed && Try < 10; Try++)
+			{
+#if PLATFORM_XBOXONE
+				DWORD  Access = GENERIC_READ;
+				DWORD  WinFlags = FILE_SHARE_READ;
+				DWORD  Create = OPEN_EXISTING;
+				CREATEFILE2_EXTENDED_PARAMETERS Params = { 0 };
+				Params.dwSize = sizeof(CREATEFILE2_EXTENDED_PARAMETERS);
+				Params.dwFileAttributes = FILE_ATTRIBUTE_READONLY;
+				Params.dwFileFlags = FILE_FLAG_NO_BUFFERING;
+				Params.dwSecurityQosFlags = SECURITY_ANONYMOUS;
+				HANDLE Handle = CreateFile2(GetFileNameForErrorMessagesAndPanicRetry(), Access, WinFlags, Create, &Params);
+#else
+				uint32  Access = GENERIC_READ;
+				uint32  WinFlags = FILE_SHARE_READ;
+				uint32  Create = OPEN_EXISTING;
+				HANDLE Handle = CreateFileW(GetFileNameForErrorMessagesAndPanicRetry(), Access, WinFlags, NULL, Create, FILE_ATTRIBUTE_NORMAL, NULL);
+#endif
+				if (Handle != INVALID_HANDLE_VALUE )
+				{
+					ULARGE_INTEGER LI;
+					LI.QuadPart = AlignedOffset;
+					CA_SUPPRESS(6001); // warning C6001: Using uninitialized memory '*Handle'.
+					if (SetFilePointer(Handle, LI.LowPart, (PLONG)&LI.HighPart, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+					{
+						uint32 ErrorCode = GetLastError();
+						UE_LOG(LogTemp, Error, TEXT("Failed to seek for retry. %x"), ErrorCode );
+					}
+					else if (ReadFile(Handle, TempMemory ? TempMemory : Memory, AlignedBytesToRead, (LPDWORD)&BytesRead, nullptr) &&
+						!(int64(BytesRead) < BytesToRead + (Offset - AlignedOffset)))
+					{
+						bFailed = false;
+					}
+					else
+					{
+						uint32 ErrorCode = GetLastError();
+						UE_LOG(LogTemp, Error, TEXT("Failed to read for retry. %x"), ErrorCode );
+					}
+					CloseHandle(Handle);
+				}
+				else
+				{
+					uint32 ErrorCode = GetLastError();
+					UE_LOG(LogTemp, Error, TEXT("Failed to open handle for retry. %x"), ErrorCode );
+				}
+				if (bFailed && Try < 9)
+				{
+					FPlatformProcess::Sleep(.2f);
+				}
+			}
+		}
+		if (bFailed)
+		{
+			UE_LOG(LogTemp, Fatal, TEXT("Unable to recover from a bad read: %s"), *FailedMessage);
+		}
+
+		FinalizeReadAndSetComplete();
+	}
+
+	void FinalizeReadAndSetComplete()
+	{
 		check(Memory);
 		if (TempMemory)
 		{
@@ -276,6 +357,7 @@ class FWindowsAsyncReadFileHandle final : public IAsyncReadFileHandle
 public:
 	HANDLE FileHandle;
 	int64 FileSize;
+	FString FileNameForErrorMessagesAndPanicRetry;
 private:
 	TArray<FWindowsReadRequest*> LiveRequests; // linear searches could be improved
 
@@ -283,9 +365,10 @@ private:
 	FCriticalSection HandleCacheCritical;
 public:
 
-	FWindowsAsyncReadFileHandle(HANDLE InFileHandle)
+	FWindowsAsyncReadFileHandle(HANDLE InFileHandle, const TCHAR* InFileNameForErrorMessagesAndPanicRetry)
 		: FileHandle(InFileHandle)
 		, FileSize(-1)
+		, FileNameForErrorMessagesAndPanicRetry(InFileNameForErrorMessagesAndPanicRetry)
 	{
 		if (FileHandle != INVALID_HANDLE_VALUE)
 		{
@@ -390,4 +473,9 @@ bool FWindowsReadRequest::CheckForPrecache()
 		}
 	}
 	return false;
+}
+
+const TCHAR* FWindowsReadRequest::GetFileNameForErrorMessagesAndPanicRetry()
+{
+	return *Owner->FileNameForErrorMessagesAndPanicRetry;
 }

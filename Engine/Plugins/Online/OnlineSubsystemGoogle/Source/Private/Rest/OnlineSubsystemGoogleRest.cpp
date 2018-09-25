@@ -7,10 +7,6 @@
 #include "OnlineIdentityGoogleRest.h"
 #include "OnlineExternalUIInterfaceGoogleRest.h"
 
-FOnlineSubsystemGoogle::FOnlineSubsystemGoogle()
-{
-}
-
 FOnlineSubsystemGoogle::FOnlineSubsystemGoogle(FName InInstanceName)
 	: FOnlineSubsystemGoogleCommon(InInstanceName)
 {
@@ -34,7 +30,7 @@ bool FOnlineSubsystemGoogle::Init()
 
 bool FOnlineSubsystemGoogle::Shutdown()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
+	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
 	return FOnlineSubsystemGoogleCommon::Shutdown();
 }
 

@@ -114,6 +114,10 @@ public:
 	* @return The selected profile.
 	*/
 	static const FString GetActiveProfileName();
+	
+	/** Retrieves the value of a scalability group cvar if it was set by the active device profile. */
+	static bool GetScalabilityCVar(const FString& CvarName, int32& OutValue);
+	static bool GetScalabilityCVar(const FString& CvarName, float& OutValue);
 
 private:
 	/**
@@ -161,4 +165,7 @@ private:
 
 	// values of CVars set in HandleDeviceProfileOverrideChange, to be popped later
 	TMap<FString, FString> PushedSettings;
+
+	// Stores any scalability group settings set by the active device profile.
+	static TMap<FString, FString> DeviceProfileScalabilityCVars;
 };

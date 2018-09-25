@@ -40,6 +40,7 @@
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
 #include "GenericPlatform/GenericPlatformDriver.h"
 #include "HAL/ThreadHeartBeat.h"
+#include "ProfilingDebugging/ExternalProfiler.h"
 
 // Resource includes.
 #include "Runtime/Launch/Resources/Windows/Resource.h"
@@ -563,10 +564,15 @@ void FWindowsPlatformMisc::PlatformInit()
 /**
  * Handler called for console events like closure, CTRL-C, ...
  *
- * @param Type	unused
+ * @param Type Ctrl-C, Ctrl-Break, Close Console Log Window, Logoff, or Shutdown
  */
 static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
 {
+	// Once this function is called, Windows gives us about 5 seconds to clean up and exit.
+	// There's no way to cancel. Since console is shutting down, logging might not be reliable.
+
+	GIsRequestingExit = true;
+
 	// Notify anyone listening that we're about to terminate
 	FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
 
@@ -584,18 +590,7 @@ static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
 		GError->Flush();
 	}
 
-	// if we are running commandlet we want the application to exit immediately on control-c press
-	if( !GIsRequestingExit && !IsRunningCommandlet())
-	{
-		PostQuitMessage( 0 );
-		GIsRequestingExit = 1;
-	}
-	else
-	{
-		// User has pressed Ctrl-C twice and we should forcibly terminate the application.
-		// ExitProcess would run global destructors, possibly causing assertions.
-		TerminateProcess(GetCurrentProcess(), 0);
-	}
+	// Windows will now terminate this process with ExitCode = 0xC000013A
 	return true;
 }
 
@@ -905,28 +900,52 @@ void FWindowsPlatformMisc::BeginNamedEventFrame()
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::FrameStart();
-#endif // FRAMEPRO_ENABLED
+#elif UE_EXTERNAL_PROFILING_ENABLED
+	FExternalProfiler* Profiler = FActiveExternalProfilerBase::GetActiveProfiler();
+	if (Profiler)
+	{
+		Profiler->FrameSync();
+	}
+#endif
 }
 
 void FWindowsPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
-#endif // FRAMEPRO_ENABLED
+#elif UE_EXTERNAL_PROFILING_ENABLED
+	FExternalProfiler* Profiler = FActiveExternalProfilerBase::GetActiveProfiler();
+	if (Profiler)
+	{
+		Profiler->StartScopedEvent(Text);
+	}
+#endif
 }
 
 void FWindowsPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PushEvent(Text);
-#endif // FRAMEPRO_ENABLED
+#elif UE_EXTERNAL_PROFILING_ENABLED
+	FExternalProfiler* Profiler = FActiveExternalProfilerBase::GetActiveProfiler();
+	if (Profiler)
+	{
+		Profiler->StartScopedEvent(ANSI_TO_TCHAR(Text));
+	}
+#endif
 }
 
 void FWindowsPlatformMisc::EndNamedEvent()
 {
 #if FRAMEPRO_ENABLED
 	FFrameProProfiler::PopEvent();
-#endif // FRAMEPRO_ENABLED
+#elif UE_EXTERNAL_PROFILING_ENABLED
+	FExternalProfiler* Profiler = FActiveExternalProfilerBase::GetActiveProfiler();
+	if (Profiler)
+	{
+		Profiler->EndScopedEvent();
+	}
+#endif
 }
 #endif // UE_BUILD_SHIPPING
 

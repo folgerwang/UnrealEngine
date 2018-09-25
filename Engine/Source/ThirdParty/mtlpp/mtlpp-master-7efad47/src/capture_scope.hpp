@@ -30,7 +30,7 @@ namespace mtlpp
 	class Device;
 	class CommandQueue;
 	
-	class CaptureScope : public ns::Object<ns::Protocol<id<MTLCaptureScope>>::type>
+	class MTLPP_EXPORT CaptureScope : public ns::Object<ns::Protocol<id<MTLCaptureScope>>::type>
 	{
 	public:
 		CaptureScope(ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLCaptureScope>>::type>(retain) { }

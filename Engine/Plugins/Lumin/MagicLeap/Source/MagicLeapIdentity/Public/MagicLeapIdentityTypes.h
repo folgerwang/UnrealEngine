@@ -52,6 +52,7 @@ struct FMagicLeapIdentityAttribute
 
 public:
 	FMagicLeapIdentityAttribute()
+		: Attribute(EMagicLeapIdentityKey::GivenName)
 	{}
 
 	FMagicLeapIdentityAttribute(EMagicLeapIdentityKey attribute, const FString& value)

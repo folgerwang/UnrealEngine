@@ -17,6 +17,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 BEGIN_DEFINE_SPEC(FInstallChunkSourceSpec, "BuildPatchServices.Unit", EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+const uint32 TestChunkSize = 128 * 1024;
 // Unit.
 TUniquePtr<BuildPatchServices::IInstallChunkSource> InstallChunkSource;
 // Mock.
@@ -392,7 +393,7 @@ void FInstallChunkSourceSpec::InventUsableChunkData()
 		}
 		for (const FGuid& ProducibleChunk : MockInstallationManifest->ProducibleChunks)
 		{
-			uint32 ChunkSizeCounter = BuildPatchServices::ChunkDataSize;
+			uint32 ChunkSizeCounter = TestChunkSize;
 			TArray<FFileChunkPart>& FileChunkParts = MockInstallationManifest->FilePartsForChunk.FindOrAdd(ProducibleChunk);
 			for (int32 FileIdx = 0; FileIdx < 3; ++FileIdx)
 			{
@@ -401,8 +402,8 @@ void FInstallChunkSourceSpec::InventUsableChunkData()
 				FileChunkPart.Filename = FString::Printf(TEXT("File%d.dat"), FileCounter++);
 				FileChunkPart.FileOffset = 0;
 				FileChunkPart.ChunkPart.Guid = ProducibleChunk;
-				FileChunkPart.ChunkPart.Offset = BuildPatchServices::ChunkDataSize - ChunkSizeCounter;
-				FileChunkPart.ChunkPart.Size = BuildPatchServices::ChunkDataSize / 4;
+				FileChunkPart.ChunkPart.Offset = TestChunkSize - ChunkSizeCounter;
+				FileChunkPart.ChunkPart.Size = TestChunkSize / 4;
 				ChunkSizeCounter -= FileChunkPart.ChunkPart.Size;
 			}
 			FileChunkParts.AddDefaulted();
@@ -410,11 +411,11 @@ void FInstallChunkSourceSpec::InventUsableChunkData()
 			FileChunkPart.Filename = FString::Printf(TEXT("File%d.dat"), FileCounter++);
 			FileChunkPart.FileOffset = 0;
 			FileChunkPart.ChunkPart.Guid = ProducibleChunk;
-			FileChunkPart.ChunkPart.Offset = BuildPatchServices::ChunkDataSize - ChunkSizeCounter;
+			FileChunkPart.ChunkPart.Offset = TestChunkSize - ChunkSizeCounter;
 			FileChunkPart.ChunkPart.Size = ChunkSizeCounter;
 			ChunkSizeCounter -= FileChunkPart.ChunkPart.Size;
 			check(ChunkSizeCounter == 0);
-			check(FileChunkPart.ChunkPart.Offset + FileChunkPart.ChunkPart.Size == BuildPatchServices::ChunkDataSize);
+			check(FileChunkPart.ChunkPart.Offset + FileChunkPart.ChunkPart.Size == TestChunkSize);
 		}
 		for (const TPair<FGuid, TArray<FFileChunkPart>>& ChunkFileParts : MockInstallationManifest->FilePartsForChunk)
 		{
@@ -435,7 +436,7 @@ void FInstallChunkSourceSpec::InventUsableChunkData()
 		}
 	}
 	TArray<uint8> ChunkData;
-	ChunkData.SetNumUninitialized(BuildPatchServices::ChunkDataSize);
+	ChunkData.SetNumUninitialized(TestChunkSize);
 	for (FMockManifest* MockInstallationManifest : {MockInstallationManifestA, MockInstallationManifestB})
 	{
 		FString MockInstallLocation;
@@ -456,8 +457,8 @@ void FInstallChunkSourceSpec::InventUsableChunkData()
 				uint8* DataPtr = &FileData[FileChunkPart.FileOffset];
 				FMemory::Memcpy(&ChunkData[FileChunkPart.ChunkPart.Offset], DataPtr, FileChunkPart.ChunkPart.Size);
 			}
-			ChunkPolyHash = FCycPoly64Hash::GetHashForDataSet(ChunkData.GetData(), ChunkData.Num());
-			FSHA1::HashBuffer(ChunkData.GetData(), BuildPatchServices::ChunkDataSize, ChunkShaHash.Hash);
+			ChunkPolyHash = FRollingHash::GetHashForDataSet(ChunkData.GetData(), ChunkData.Num());
+			FSHA1::HashBuffer(ChunkData.GetData(), TestChunkSize, ChunkShaHash.Hash);
 			MockInstallationManifest->ChunkHashes.Add(ProducibleChunk, ChunkPolyHash);
 			MockInstallationManifest->ChunkShaHashes.Add(ProducibleChunk, ChunkShaHash);
 		}

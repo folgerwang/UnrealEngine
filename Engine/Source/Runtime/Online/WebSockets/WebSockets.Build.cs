@@ -6,31 +6,32 @@ public class WebSockets : ModuleRules
 {
   public WebSockets(ReadOnlyTargetRules Target) : base(Target)
 	{
-			PublicDefinitions.Add("WEBSOCKETS_PACKAGE=1");
+		PublicDefinitions.Add("WEBSOCKETS_PACKAGE=1");
 
-			PrivateDependencyModuleNames.AddRange(
-				new string[] {
-					"Core",
-				}
-			);
+		PrivateDependencyModuleNames.AddRange(
+			new string[] {
+				"Core",
+				"HTTP"
+			}
+		);
 
-			bool bPlatformSupportsLibWebsockets =
-					Target.Platform == UnrealTargetPlatform.Win32 ||
-					Target.Platform == UnrealTargetPlatform.Win64 ||
-					Target.Platform == UnrealTargetPlatform.Android ||
-					Target.Platform == UnrealTargetPlatform.Mac ||
-					Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
-					Target.Platform == UnrealTargetPlatform.IOS ||
-					Target.Platform == UnrealTargetPlatform.PS4 ||
-					Target.Platform == UnrealTargetPlatform.Switch;
+		bool bPlatformSupportsLibWebsockets =
+				Target.Platform == UnrealTargetPlatform.Win32 ||
+				Target.Platform == UnrealTargetPlatform.Win64 ||
+				Target.Platform == UnrealTargetPlatform.Android ||
+				Target.Platform == UnrealTargetPlatform.Mac ||
+				Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
+				Target.Platform == UnrealTargetPlatform.IOS ||
+				Target.Platform == UnrealTargetPlatform.PS4 ||
+				Target.Platform == UnrealTargetPlatform.Switch;
 
-			bool bUsePlatformSSL = Target.Platform == UnrealTargetPlatform.Switch;
+		bool bUsePlatformSSL = Target.Platform == UnrealTargetPlatform.Switch;
 
-			bool bPlatformSupportsXboxWebsockets = Target.Platform == UnrealTargetPlatform.XboxOne;
+		bool bPlatformSupportsXboxWebsockets = Target.Platform == UnrealTargetPlatform.XboxOne;
 
-			bool bShouldUseModule = 
-					bPlatformSupportsLibWebsockets || 
-					bPlatformSupportsXboxWebsockets;
+		bool bShouldUseModule = 
+				bPlatformSupportsLibWebsockets || 
+				bPlatformSupportsXboxWebsockets;
 
 		if (bShouldUseModule)
 		{

@@ -838,7 +838,7 @@ FWebBrowserWindow::FWebBrowserWindow(FString InUrl, TOptional<FString> InContent
 	, bUseTransparency(InUseTransparency)
 	, DocumentState(EWebBrowserDocumentState::NoDocument)
 	, ErrorCode(0)
-	, Scripting(new FMobileJSScripting(bInJSBindingToLoweringEnabled))
+	, Scripting(new FMobileJSScripting(bInJSBindingToLoweringEnabled, SharedThis(this)))
 	, IOSWindowSize(FIntPoint(500, 500))
 	, bIsDisabled(false)
 	, bIsVisible(true)

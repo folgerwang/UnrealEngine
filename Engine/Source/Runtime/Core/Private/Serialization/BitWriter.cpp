@@ -231,6 +231,7 @@ void FBitWriterMark::Pop( FBitWriter& Writer )
 	Writer.ArIsError = Overflowed;
 	Writer.Num       = Num;
 }
+
 /** Copies the last section into a buffer. Does not clear the FBitWriter like ::Pop does */
 void FBitWriterMark::Copy( FBitWriter& Writer, TArray<uint8> &Buffer )
 {
@@ -245,10 +246,3 @@ void FBitWriterMark::Copy( FBitWriter& Writer, TArray<uint8> &Buffer )
 		appBitsCpy(Buffer.GetData(), 0, Writer.Buffer.GetData(), Num, Writer.Num - Num);
 	}
 }
-
-/** Pops the BitWriter back to the start but doesn't clear what was written. */
-void FBitWriterMark::PopWithoutClear( FBitWriter& Writer )
-{
-	Writer.Num = Num;
-}
-

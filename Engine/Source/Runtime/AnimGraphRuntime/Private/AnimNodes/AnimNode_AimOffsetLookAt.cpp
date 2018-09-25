@@ -179,6 +179,7 @@ void FAnimNode_AimOffsetLookAt::GatherDebugData(FNodeDebugData& DebugData)
 FAnimNode_AimOffsetLookAt::FAnimNode_AimOffsetLookAt()
 	: LODThreshold(INDEX_NONE)
 	, bIsLODEnabled(false)
+	, LookAtLocation(ForceInitToZero)
 	, SocketAxis(1.0f, 0.0f, 0.0f)
 	, Alpha(1.f)
 {

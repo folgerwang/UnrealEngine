@@ -26,7 +26,7 @@ namespace ue4
 
 namespace mtlpp
 {
-    class FunctionConstantValues : public ns::Object<MTLFunctionConstantValues*>
+    class MTLPP_EXPORT FunctionConstantValues : public ns::Object<MTLFunctionConstantValues*>
     {
     public:
         FunctionConstantValues();

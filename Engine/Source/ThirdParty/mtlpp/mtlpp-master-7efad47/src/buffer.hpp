@@ -22,7 +22,7 @@ namespace mtlpp
     class Texture;
     class TextureDescriptor;
 	
-    class Buffer : public Resource
+    class MTLPP_EXPORT Buffer : public Resource
     {
 		ns::Range SubRange;
     public:
@@ -74,7 +74,7 @@ namespace mtlpp
     MTLPP_AVAILABLE(10_11, 8_0);
 	
 #if MTLPP_CONFIG_VALIDATE
-	class ValidatedBuffer : public ns::AutoReleased<Buffer>
+	class MTLPP_EXPORT ValidatedBuffer : public ns::AutoReleased<Buffer>
 	{
 		BufferValidationTable Validator;
 		
@@ -104,7 +104,7 @@ namespace mtlpp
 	};
 	
 	template <>
-	class Validator<Buffer>
+	class MTLPP_EXPORT Validator<Buffer>
 	{
 		public:
 		Validator(Buffer& Val, bool bEnable)

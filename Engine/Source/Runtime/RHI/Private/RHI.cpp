@@ -320,7 +320,12 @@ void FRHIResource::FlushPendingDeletes(bool bFlushDeferredDeletes)
 		}
 	}
 
+#if PLATFORM_XBOXONE
+	// Adding another frame of latency on Xbox. Speculative GPU crash fix.
+	const uint32 NumFramesToExpire = 4;
+#else
 	const uint32 NumFramesToExpire = 3;
+#endif
 
 	if (DeferredDeletionQueue.Num())
 	{
@@ -472,6 +477,8 @@ float GMinClipZ = 0.0f;
 float GProjectionSignY = 1.0f;
 bool GRHINeedsExtraDeletionLatency = false;
 TRHIGlobal<int32> GMaxComputeDispatchDimension((1 << 16) - 1);
+bool GRHILazyShaderCodeLoading = false;
+bool GRHISupportsLazyShaderCodeLoading = false;
 TRHIGlobal<int32> GMaxShadowDepthBufferSizeX(2048);
 TRHIGlobal<int32> GMaxShadowDepthBufferSizeY(2048);
 TRHIGlobal<int32> GMaxTextureDimensions(2048);
@@ -601,6 +608,93 @@ RHI_API void GetFeatureLevelName(ERHIFeatureLevel::Type InFeatureLevel, FName& O
 	{
 		
 		OutName = InvalidFeatureLevelName;
+	}
+}
+
+FName ShadingPathNames[] =
+{
+	FName(TEXT("Deferred")),
+	FName(TEXT("Forward")),
+	FName(TEXT("Mobile")),
+};
+
+static_assert(ARRAY_COUNT(ShadingPathNames) == ERHIShadingPath::Num, "Missing entry from shading path names.");
+
+RHI_API bool GetShadingPathFromName(FName Name, ERHIShadingPath::Type& OutShadingPath)
+{
+	for (int32 NameIndex = 0; NameIndex < ARRAY_COUNT(ShadingPathNames); NameIndex++)
+	{
+		if (ShadingPathNames[NameIndex] == Name)
+		{
+			OutShadingPath = (ERHIShadingPath::Type)NameIndex;
+			return true;
+		}
+	}
+
+	OutShadingPath = ERHIShadingPath::Num;
+	return false;
+}
+
+RHI_API void GetShadingPathName(ERHIShadingPath::Type InShadingPath, FString& OutName)
+{
+	check(InShadingPath < ARRAY_COUNT(ShadingPathNames));
+	if (InShadingPath < ARRAY_COUNT(ShadingPathNames))
+	{
+		ShadingPathNames[(int32)InShadingPath].ToString(OutName);
+	}
+	else
+	{
+		OutName = TEXT("InvalidShadingPath");
+	}
+}
+
+static FName InvalidShadingPathName(TEXT("InvalidShadingPath"));
+RHI_API void GetShadingPathName(ERHIShadingPath::Type InShadingPath, FName& OutName)
+{
+	check(InShadingPath < ARRAY_COUNT(ShadingPathNames));
+	if (InShadingPath < ARRAY_COUNT(ShadingPathNames))
+	{
+		OutName = ShadingPathNames[(int32)InShadingPath];
+	}
+	else
+	{
+
+		OutName = InvalidShadingPathName;
+	}
+}
+
+static FName NAME_PLATFORM_WINDOWS(TEXT("Windows"));
+static FName NAME_PLATFORM_PS4(TEXT("PS4"));
+static FName NAME_PLATFORM_XBOXONE(TEXT("XboxOne"));
+static FName NAME_PLATFORM_ANDROID(TEXT("Android"));
+static FName NAME_PLATFORM_IOS(TEXT("IOS"));
+static FName NAME_PLATFORM_MAC(TEXT("Mac"));
+static FName NAME_PLATFORM_SWITCH(TEXT("Switch"));
+
+FName ShaderPlatformToPlatformName(EShaderPlatform Platform)
+{
+	switch(Platform)
+	{
+	case SP_PCD3D_SM4:
+	case SP_PCD3D_SM5:
+		return NAME_PLATFORM_WINDOWS;
+	case SP_PS4:
+		return NAME_PLATFORM_PS4;
+	case SP_XBOXONE_D3D12:
+		return NAME_PLATFORM_XBOXONE;
+	case SP_OPENGL_ES3_1_ANDROID:
+	case SP_VULKAN_ES3_1_ANDROID:
+		return NAME_PLATFORM_ANDROID;
+	case SP_METAL:
+		return NAME_PLATFORM_IOS;
+	case SP_METAL_SM5:
+		return NAME_PLATFORM_MAC;
+	case SP_SWITCH:
+	case SP_SWITCH_FORWARD:
+		return NAME_PLATFORM_SWITCH;
+
+	default:
+		return FName();
 	}
 }
 
@@ -864,7 +958,7 @@ void FRHIRenderPassInfo::Validate() const
 		// Don't try to resolve a non-msaa
 		ensure(!bIsMSAAResolve || DepthStencilRenderTarget.DepthStencilTarget->GetNumSamples() > 1);
 		// Don't resolve to null
-		ensure(DepthStencilRenderTarget.ResolveTarget || DepthStore != ERenderTargetStoreAction::EStore);
+		//ensure(DepthStencilRenderTarget.ResolveTarget || DepthStore != ERenderTargetStoreAction::EStore);
 		// Don't write to depth if read-only
 		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsDepthWrite() || DepthStore != ERenderTargetStoreAction::EStore);
 		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil.IsStencilWrite() || StencilStore != ERenderTargetStoreAction::EStore);
@@ -874,4 +968,10 @@ void FRHIRenderPassInfo::Validate() const
 		ensure(DepthStencilRenderTarget.Action == EDepthStencilTargetActions::DontLoad_DontStore);
 		ensure(DepthStencilRenderTarget.ExclusiveDepthStencil == FExclusiveDepthStencil::DepthNop_StencilNop);
 	}
+}
+
+static FRHIPanicEvent RHIPanicEvent;
+FRHIPanicEvent& RHIGetPanicDelegate()
+{
+	return RHIPanicEvent;
 }

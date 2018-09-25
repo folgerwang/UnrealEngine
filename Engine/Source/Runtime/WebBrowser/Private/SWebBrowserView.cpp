@@ -2,6 +2,7 @@
 
 #include "SWebBrowserView.h"
 #include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Containers/Ticker.h"
 #include "WebBrowserModule.h"
 #include "Layout/WidgetPath.h"
@@ -97,7 +98,9 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 	{
 
 		static bool AllowCEF = !FParse::Param(FCommandLine::Get(), TEXT("nocef"));
-		if (AllowCEF)
+		bool bBrowserEnabled = true;
+		GConfig->GetBool(TEXT("Browser"), TEXT("bEnabled"), bBrowserEnabled, GEngineIni);
+		if (AllowCEF && bBrowserEnabled)
 		{
 			FCreateBrowserWindowSettings Settings;
 			Settings.InitialURL = InArgs._InitialURL;

@@ -12,6 +12,14 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Character.h"
 
+
+namespace FAbilitySystemTweaks
+{
+	int ClearAbilityTimers = 1;
+	FAutoConsoleVariableRef CVarClearAbilityTimers(TEXT("AbilitySystem.ClearAbilityTimers"), FAbilitySystemTweaks::ClearAbilityTimers, TEXT("Whether to call ClearAllTimersForObject as part of EndAbility call"), ECVF_Default);
+}
+
+
 UGameplayAbility::UGameplayAbility(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -590,7 +598,10 @@ void UGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const
 		if (MyWorld)
 		{
 			MyWorld->GetLatentActionManager().RemoveActionsForObject(this);
-			MyWorld->GetTimerManager().ClearAllTimersForObject(this);
+			if (FAbilitySystemTweaks::ClearAbilityTimers)
+			{
+				MyWorld->GetTimerManager().ClearAllTimersForObject(this);
+			}
 		}
 
 		// Execute our delegate and unbind it, as we are no longer active and listeners can re-register when we become active again.
@@ -1654,10 +1665,17 @@ TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectToTarge
 	else if (HasAuthorityOrPredictionKey(ActorInfo, &ActivationInfo))
 	{
 		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(Handle, ActorInfo, ActivationInfo, GameplayEffectClass, GameplayEffectLevel);
-		SpecHandle.Data->StackCount = Stacks;
+		if (SpecHandle.Data.IsValid())
+		{
+			SpecHandle.Data->StackCount = Stacks;
 
-		SCOPE_CYCLE_UOBJECT(Source, SpecHandle.Data->GetContext().GetSourceObject());
-		EffectHandles.Append(ApplyGameplayEffectSpecToTarget(Handle, ActorInfo, ActivationInfo, SpecHandle, Target));
+			SCOPE_CYCLE_UOBJECT(Source, SpecHandle.Data->GetContext().GetSourceObject());
+			EffectHandles.Append(ApplyGameplayEffectSpecToTarget(Handle, ActorInfo, ActivationInfo, SpecHandle, Target));
+		}
+		else
+		{
+			ABILITY_LOG(Warning, TEXT("UGameplayAbility::ApplyGameplayEffectToTarget failed to create valid spec handle. Ability: %s"), *GetPathName());
+		}
 	}
 
 	return EffectHandles;
@@ -1677,7 +1695,14 @@ TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectSpecToT
 		TARGETLIST_SCOPE_LOCK(*ActorInfo->AbilitySystemComponent);
 		for (TSharedPtr<FGameplayAbilityTargetData> Data : TargetData.Data)
 		{
-			EffectHandles.Append(Data->ApplyGameplayEffectSpec(*SpecHandle.Data.Get(), ActorInfo->AbilitySystemComponent->GetPredictionKeyForNewAction()));
+			if (Data.IsValid())
+			{
+				EffectHandles.Append(Data->ApplyGameplayEffectSpec(*SpecHandle.Data.Get(), ActorInfo->AbilitySystemComponent->GetPredictionKeyForNewAction()));
+			}
+			else
+			{
+				ABILITY_LOG(Warning, TEXT("UGameplayAbility::ApplyGameplayEffectSpecToTarget invalid target data passed in. Ability: %s"), *GetPathName());
+			}
 		}
 	}
 	return EffectHandles;

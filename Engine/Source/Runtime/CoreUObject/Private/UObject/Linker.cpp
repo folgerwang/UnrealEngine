@@ -573,16 +573,11 @@ FLinkerLoad* GetPackageLinker
 			PackageNameToCreate = NewPackageName.PackageName.ToString();
 		}
 
-		// Do not resolve packages that are in memory
-		if (!InOuter->HasAnyPackageFlags(PKG_InMemoryOnly))
-		{
-			PackageNameToCreate = FPackageName::GetDelegateResolvedPackagePath(PackageNameToCreate);
-		}
-
 		// The editor must not redirect packages for localization. We also shouldn't redirect script or in-memory packages.
 		FString PackageNameToLoad = PackageNameToCreate;
 		if (!(GIsEditor || InOuter->HasAnyPackageFlags(PKG_InMemoryOnly) || FPackageName::IsScriptPackage(PackageNameToLoad)))
 		{
+			PackageNameToLoad = FPackageName::GetDelegateResolvedPackagePath(PackageNameToLoad);
 			PackageNameToLoad = FPackageName::GetLocalizedPackagePath(PackageNameToLoad);
 		}
 
@@ -624,13 +619,12 @@ FLinkerLoad* GetPackageLinker
 			PackageNameToCreate = NewPackageName.PackageName.ToString();
 		}
 
-		// Allow delegates to resolve this path
-		PackageNameToCreate = FPackageName::GetDelegateResolvedPackagePath(PackageNameToCreate);
-
 		// The editor must not redirect packages for localization. We also shouldn't redirect script packages.
 		FString PackageNameToLoad = PackageNameToCreate;
 		if (!(GIsEditor || FPackageName::IsScriptPackage(PackageNameToLoad)))
 		{
+			// Allow delegates to resolve this path
+			PackageNameToLoad = FPackageName::GetDelegateResolvedPackagePath(PackageNameToLoad);
 			PackageNameToLoad = FPackageName::GetLocalizedPackagePath(PackageNameToLoad);
 		}
 

@@ -852,9 +852,6 @@ struct FDefaultSubobjectData
 			}
 		}
 
-		// Emit code to handle any post-initialization work.
-		HandlePostPropertyInitialization(Context);
-
 		if (bAddLocalScope)
 		{
 			// Close current scope block (if necessary).
@@ -868,25 +865,79 @@ protected:
 	{
 		bool bWasHandled = true;
 
+		// We treat the 'BodyInstance' property as a special-case, because of the amount of code that would otherwise need to be emitted to the ctor in order to
+		// initialize the default value when it's modified in the Blueprint class defaults. This can occur in an SCS component template owned by a Blueprint class,
+		// or otherwise with a UPrimitiveComponent-based Blueprint subclass. For example, changing the collision profile on the BodyInstance member can result in
+		// several struct fields differing from their default value, resulting in large blocks of initialization code emitted to the BP ctor that looks like this:
+		//
+		//	auto& __Local__10 = __Local__7[2];
+		//	__Local__10.Channel = FName(TEXT("Pawn"));
+		//	__Local__10.Response = ECollisionResponse::ECR_Overlap;
+		//	auto& __Local__11 = __Local__7[3];
+		//	__Local__11.Channel = FName(TEXT("Visibility"));
+		//	__Local__11.Response = ECollisionResponse::ECR_Overlap;
+		//	...
+		//
+		// In most cases, the default that's set by the user conforms to a "standard" collision profile that is configured with the same set of constant channel and
+		// response values. However, since the archetype on which either the SCS component template or Blueprint component subclass is based will default to only one
+		// such profile, any time the user chooses a different standard profile (per each component), it will force us to emit a large block of code to initialize the
+		// Blueprint's default value to match the boilerplate configuration that's associated with that standard profile. Additionally, if we have a large hierarchy
+		// of Blueprint component class types, in which each child might change the standard collision profile in the class defaults as a worst case, each time we
+		// call the nativized parent Blueprint class ctor, we'd be unnecessarily initializing 'BodyInstance' values, since the last ctor in the chain would be the
+		// only collision profile that ultimately would apply. Thus, the incurred overhead can consist of both additional code size and CPU cycles that are wasted.
+		//
+		// To resolve, we can follow the method that's used by native Actor and ActorComponent subclass types at construction time to help us reduce the redundant
+		// code generation that this could otherwise lead to. In C++, invoking the UPrimitiveComponent::SetCollisionProfileName() API allows 'BodyInstance' value
+		// initialization that's based on a standard collision profile to both be set and (when appropriate) deferred until after all ctors in the hierarchy have
+		// finished executing (UPrimitiveComponent::PostInitProperties). As a result, for nativized BP class ctors, as with native C++ class ctors, we emit a single
+		// API call to initialize any non-default collision profile selection for each 'BodyInstance' value per UPrimitiveComponent subobject at construction time.
+		// This applies to both editable native components and non-native (SCS) component templates, since the latter will be converted to native default subobjects.
+		//
+		// In addition to initializing values that will be serialized, SetCollisionProfileName() also indirectly initializes some transient collision response data
+		// that depends on the selected collision profile (see FBodyInstance::LoadProfileData() for custom collision profiles, and UCollisionProfile::ReadConfig()
+		// for standard ones). This must occur at construction time for native component class types, and at load time for any instanced UPrimitiveComponent object,
+		// including non-native, Blueprint-owned SCS and ICH component template objects, in order for the component's transient collision response data to be valid.
+		// This transient data can be found within the FBodyInstance::CollisionResponses field (specifically, the FCollisionResponse::ResponseToChannels subfield).
+		//
+		// How does this differ from non-nativized Blueprint class types? Well, in that case, the Blueprint class-owned SCS template object will start out with a
+		// 'BodyInstance' value that's inherited from its archetype (in most cases, the native C++ component class default object). So, the SetCollisionProfileName()
+		// API has already been called at the C++ level, before we instance the SCS template. The profile can then be changed by the user in the editor UI, in which
+		// case SetCollisionProfileName() will again be called to re-initialize the values based on the new selection. When the Blueprint class asset is saved, so is
+		// the SCS template, and the initialized 'BodyInstance' value is also serialized. When we load the Blueprint class back into the editor, the template is then
+		// deserialized, and UPrimitiveComponent::Serialize() calls UBodyInstance::FixupData() to initialize the transient collision response data that depends on it.
+		//
+		// In a cooked build, all three of native C++, nativized Blueprint class C++ and non-nativized Blueprint generated class cases deserialize the 'BodyInstance'
+		// value that is serialized along with the owned, instanced component, and will call UBodyInstance::FixupData() to initialize the transient collision response
+		// data that depends on it. See UPrimitiveComponent::PostLoad() for the point at which this will occur at runtime for all non-template, instanced components.
 		static const UProperty* BodyInstanceProperty = UPrimitiveComponent::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, BodyInstance));
 
 		if (Property == BodyInstanceProperty)
 		{
+			// Get references to the component template along with its archetype. We expect this to always be a UPrimitiveComponent type.
 			UPrimitiveComponent* Component = CastChecked<UPrimitiveComponent>(Object);
 			const UPrimitiveComponent* ComponentArchetype = CastChecked<UPrimitiveComponent>(Archetype);
 
+			// Get the current collision profile names for each.
 			const FName ComponentCollisionProfileName = Component->BodyInstance.GetCollisionProfileName();
 			const FName ComponentArchetypeCollisionProfileName = ComponentArchetype->BodyInstance.GetCollisionProfileName();
+
+			// Initialize a new struct instance that matches the archetype (represents the default struct value inherited by the component template).
+			FStructOnScope BodyInstanceToCompare(FBodyInstance::StaticStruct());
+			FBodyInstance::StaticStruct()->CopyScriptStruct(BodyInstanceToCompare.GetStructMemory(), &ComponentArchetype->BodyInstance);
+
 			if (ComponentCollisionProfileName != ComponentArchetypeCollisionProfileName)
 			{
-				FStructOnScope BodyInstanceToCompare(FBodyInstance::StaticStruct());
-				FBodyInstance::StaticStruct()->CopyScriptStruct(BodyInstanceToCompare.GetStructMemory(), &ComponentArchetype->BodyInstance);
+				// If the component template's collision profile setting differs from the default value, set it using the API to load the modified collision profile.
+				// This will initialize the struct's default value in the same manner as will occur at runtime, so we don't emit redundant initialization code to the ctor.
 				((FBodyInstance*)BodyInstanceToCompare.GetStructMemory())->SetCollisionProfileName(ComponentCollisionProfileName);
 
-				const FString PathToMember = FString::Printf(TEXT("%s->BodyInstance"), *VariableName);
-				Context.AddLine(FString::Printf(TEXT("%s.SetCollisionProfileName(FName(TEXT(\"%s\")));"), *PathToMember, *ComponentCollisionProfileName.ToString().ReplaceCharWithEscapedChar()));
-				FEmitDefaultValueHelper::InnerGenerate(Context, BodyInstanceProperty, PathToMember, (const uint8*)&Component->BodyInstance, BodyInstanceToCompare.GetStructMemory());
+				// Now emit the code to call SetCollisionProfileName() at runtime to initialize the collision profile within the instanced UPrimitiveComponent (see notes above).
+				Context.AddLine(FString::Printf(TEXT("%s->SetCollisionProfileName(FName(TEXT(\"%s\")));"), *VariableName, *ComponentCollisionProfileName.ToString().ReplaceCharWithEscapedChar()));
 			}
+
+			// Emit the C++ code needed to initialize the remainder of the struct's value within the component that's now being instanced as a default subobject within the converted context.
+			const FString PathToMember = FString::Printf(TEXT("%s->BodyInstance"), *VariableName);
+			FEmitDefaultValueHelper::InnerGenerate(Context, BodyInstanceProperty, PathToMember, (const uint8*)&Component->BodyInstance, BodyInstanceToCompare.GetStructMemory());
 		}
 		else
 		{
@@ -894,24 +945,6 @@ protected:
 		}
 
 		return bWasHandled;
-	}
-
-	// Generate post-initialization code for special-case properties. This could be something that is normally handled through custom serialization or PostLoad() logic.
-	virtual void HandlePostPropertyInitialization(FEmitterLocalContext& Context)
-	{
-		if (Cast<UPrimitiveComponent>(Object))
-		{
-			Context.AddLine(FString::Printf(TEXT("if(!%s->%s())"), *VariableName, GET_FUNCTION_NAME_STRING_CHECKED(UPrimitiveComponent, IsTemplate)));
-			Context.AddLine(TEXT("{"));
-			Context.IncreaseIndent();
-			Context.AddLine(FString::Printf(TEXT("%s->%s.%s(%s);")
-				, *VariableName
-				, GET_MEMBER_NAME_STRING_CHECKED(UPrimitiveComponent, BodyInstance)
-				, GET_FUNCTION_NAME_STRING_CHECKED(FBodyInstance, FixupData)
-				, *VariableName));
-			Context.DecreaseIndent();
-			Context.AddLine(TEXT("}"));
-		}
 	}
 };
 

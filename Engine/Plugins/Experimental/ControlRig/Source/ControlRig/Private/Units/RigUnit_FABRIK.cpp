@@ -39,13 +39,16 @@ void FRigUnit_FABRIK::Execute(const FRigUnitContext& InContext)
 				}
 			}
 		}
+		else
+		{
+			UnitLogHelpers::PrintMissingHierarchy(RigUnitName);
+		}
 	}
 	else  if (InContext.State == EControlRigState::Update)
 	{
 		if (FullLimbLength > 0.f)
 		{
-			
-	
+			UnitLogHelpers::PrintUnimplemented(RigUnitName);
 		}
 	}
 }

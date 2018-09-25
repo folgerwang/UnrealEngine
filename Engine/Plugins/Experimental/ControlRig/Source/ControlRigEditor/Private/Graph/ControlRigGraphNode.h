@@ -127,6 +127,13 @@ private:
 	UPROPERTY()
 	FName PropertyName;
 
+	UPROPERTY()
+	FString StructPath;
+
+	/** Pin Type for property */
+	UPROPERTY()
+	FEdGraphPinType PinType;
+
 	/** Expanded pins */
 	UPROPERTY()
 	TArray<FString> ExpandedPins;
@@ -165,7 +172,8 @@ public:
 	virtual FText GetTooltipText() const override;
 	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* InSchema) const override;
 	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;	
-
+	virtual void PrepareForCopying() override;
+	virtual void PostPasteNode() override;
 	// UK2Node Interface
 	// @TODO: need to find a better way to handle the following functions! 
 	// We cant derive from UK2Node as we don't want most of its functionality
@@ -213,21 +221,24 @@ public:
 	/** Add a new array element to the array referred to by the property path */
 	void HandleAddArrayElement(FString InPropertyPath);
 
+	/** Create Variable Pins on the side */
+	void CreateVariablePins(bool bAlwaysCreatePins = false);
+
+protected:
 	/** Rebuild the cached info about our inputs/outputs */
 	void CacheVariableInfo();
 
-protected:
 	/** Helper function for AllocateDefaultPins */
-	void CreateInputPins();
-	void CreateInputPins_Recursive(const TSharedPtr<FControlRigField>& InputInfo);
+	void CreateInputPins(bool bAlwaysCreatePins);
+	void CreateInputPins_Recursive(const TSharedPtr<FControlRigField>& InputInfo, bool bAlwaysCreatePins);
 
 	/** Helper function for AllocateDefaultPins */
-	void CreateInputOutputPins();
-	void CreateInputOutputPins_Recursive(const TSharedPtr<FControlRigField>& InputOutputInfo);
+	void CreateInputOutputPins(bool bAlwaysCreatePins);
+	void CreateInputOutputPins_Recursive(const TSharedPtr<FControlRigField>& InputOutputInfo, bool bAlwaysCreatePins);
 
 	/** Helper function for AllocateDefaultPins */
-	void CreateOutputPins();
-	void CreateOutputPins_Recursive(const TSharedPtr<FControlRigField>& OutputInfo);
+	void CreateOutputPins(bool bAlwaysCreatePins);
+	void CreateOutputPins_Recursive(const TSharedPtr<FControlRigField>& OutputInfo, bool bAlwaysCreatePins);
 
 	/** Get the generated ControlRig class */
 	UClass* GetControlRigGeneratedClass() const;

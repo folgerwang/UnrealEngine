@@ -99,7 +99,7 @@ void FOnlinePresenceSteam::SetPresence(const FUniqueNetId& User, const FOnlineUs
 {
 	if (SteamFriendsPtr == nullptr || SteamSubsystem == nullptr)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Steam friends is null, cannot set presence!"));
+		UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Steam friends is null, cannot set presence!"));
 		Delegate.ExecuteIfBound(User, false);
 		return;
 	}
@@ -111,7 +111,7 @@ void FOnlinePresenceSteam::SetPresence(const FUniqueNetId& User, const FOnlineUs
 	if (Status.Properties.Num() > k_cchMaxRichPresenceKeys)
 	{
 		// This doesn't account for the rich presence status and the connection information.
-		UE_LOG_ONLINE(Error, TEXT("Number of presence properties (%d) exceeds maximum keys allowed!"), Status.Properties.Num());
+		UE_LOG_ONLINE_PRESENCE(Error, TEXT("Number of presence properties (%d) exceeds maximum keys allowed!"), Status.Properties.Num());
 		Delegate.ExecuteIfBound(User, false);
 		return;
 	}
@@ -121,11 +121,11 @@ void FOnlinePresenceSteam::SetPresence(const FUniqueNetId& User, const FOnlineUs
 	{
 		if (Status.StatusStr.Len() >= k_cchMaxRichPresenceValueLength)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Cannot push rich presence status to steam, string is too long (%d)"), Status.StatusStr.Len());
+			UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Cannot push rich presence status to steam, string is too long (%d)"), Status.StatusStr.Len());
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("An unknown error occurred when trying to push rich presence status to steam!"));
+			UE_LOG_ONLINE_PRESENCE(Warning, TEXT("An unknown error occurred when trying to push rich presence status to steam!"));
 		}
 	}
 
@@ -139,7 +139,7 @@ void FOnlinePresenceSteam::SetPresence(const FUniqueNetId& User, const FOnlineUs
 			FString SteamConnectString = SessionInterface->GetSteamConnectionString(NAME_GameSession);
 			if (!SteamConnectString.IsEmpty() && !SteamFriendsPtr->SetRichPresence(TCHAR_TO_UTF8(*DefaultSteamConnectionKey), TCHAR_TO_UTF8(*SteamConnectString)))
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Could not push the connection information to Steam"));
+				UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Could not push the connection information to Steam"));
 			}
 		}
 	}
@@ -153,17 +153,17 @@ void FOnlinePresenceSteam::SetPresence(const FUniqueNetId& User, const FOnlineUs
 		{
 			if (Key.Len() >= k_cchMaxRichPresenceKeyLength || Key.IsEmpty())
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Steam presence key %s is either empty or over the max length of a key"), *Key);
+				UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Steam presence key %s is either empty or over the max length of a key"), *Key);
 			}
 			else if(Value.Len() >= k_cchMaxRichPresenceValueLength)
 			{
-				UE_LOG_ONLINE(Warning, TEXT("Steam presence value for key %s (%d) is over the max size allowed"), *Key, Value.Len());
+				UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Steam presence value for key %s (%d) is over the max size allowed"), *Key, Value.Len());
 			}
 			else
 			{
 				// Misc errors, typically this means you have too many keys pushed (~20)
 				// If you hit this warning, remember to account for connect and status as keys
-				UE_LOG_ONLINE(Warning, TEXT("Could not push presence key %s to steam!"), *Key);
+				UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Could not push presence key %s to steam!"), *Key);
 			}
 		}
 	}
@@ -178,7 +178,7 @@ void FOnlinePresenceSteam::QueryPresence(const FUniqueNetId& User, const FOnPres
 {
 	if (SteamFriendsPtr == nullptr || SteamSubsystem == nullptr)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Steam friends is null, cannot fetch presence!"));
+		UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Steam friends is null, cannot fetch presence!"));
 		Delegate.ExecuteIfBound(User, false);
 		return;
 	}
@@ -186,7 +186,7 @@ void FOnlinePresenceSteam::QueryPresence(const FUniqueNetId& User, const FOnPres
 	const FUniqueNetIdSteam SteamId(User);
 	if (!SteamId.IsValid())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("User id %s is not valid, cannot query presence"), *SteamId.ToString());
+		UE_LOG_ONLINE_PRESENCE(Warning, TEXT("User id %s is not valid, cannot query presence"), *SteamId.ToString());
 		Delegate.ExecuteIfBound(User, false);
 		return;
 	}

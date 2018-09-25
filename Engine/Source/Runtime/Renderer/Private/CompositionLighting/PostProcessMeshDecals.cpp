@@ -460,7 +460,8 @@ public:
 			FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
 			const FViewInfo& View = Context.View;
 
-			bool bHasNormal = Material->HasNormalConnected();
+			const bool bHasNormal = Material->HasNormalConnected();
+			const bool bPerPixelDBufferMask = IsUsingPerPixelDBufferMask(View.GetShaderPlatform());
 
 			const EDecalBlendMode DecalBlendMode = FDecalRenderingCommon::ComputeDecalBlendModeForRenderStage(
 				FDecalRenderingCommon::ComputeFinalDecalBlendMode(Context.GetShaderPlatform(), (EDecalBlendMode)Material->GetDecalBlendMode(), bHasNormal),
@@ -472,7 +473,7 @@ public:
 			if(LastRenderTargetMode != RenderTargetMode)
 			{
 				LastRenderTargetMode = RenderTargetMode;
-				RenderTargetManager.SetRenderTargetMode(RenderTargetMode, bHasNormal);
+				RenderTargetManager.SetRenderTargetMode(RenderTargetMode, bHasNormal, bPerPixelDBufferMask);
 
 				DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual>::GetRHI());
 

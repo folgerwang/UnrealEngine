@@ -180,7 +180,7 @@ struct FLightmassMaterialCompiler : public FProxyMaterialCompiler
 
 	virtual int32 VertexInterpolator(uint32 InterpolatorIndex) override
 	{
-		return Compiler->Constant4(0.f,0.f,0.f,0.f);
+		return Compiler->VertexInterpolator(InterpolatorIndex);
 	}
 
 	virtual int32 RealTime(bool bPeriodic, float Period) override
@@ -793,6 +793,14 @@ public:
 			break;
 		}
 		return false;
+	}
+
+	virtual void GatherExpressionsForCustomInterpolators(TArray<UMaterialExpression*>& OutExpressions) const override
+	{
+		if (Material)
+		{
+			Material->GetAllExpressionsForCustomInterpolators(OutExpressions);
+		}
 	}
 
 private:

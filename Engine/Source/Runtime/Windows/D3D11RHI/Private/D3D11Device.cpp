@@ -388,6 +388,8 @@ uint32 FD3D11DynamicRHI::GetMaxMSAAQuality(uint32 SampleCount)
 	return 0xffffffff;
 }
 
+static bool GFormatSupportsTypedUAVLoad[PF_MAX];
+
 void FD3D11DynamicRHI::SetupAfterDeviceCreation()
 {
 	// without that the first RHIClear would get a scissor rect of (0,0)-(0,0) which means we get a draw call clear 
@@ -397,11 +399,11 @@ void FD3D11DynamicRHI::SetupAfterDeviceCreation()
 
 	if (GRHISupportsAsyncTextureCreation)
 	{
-		UE_LOG(LogD3D11RHI,Log,TEXT("Async texture creation enabled"));
+		UE_LOG(LogD3D11RHI, Log, TEXT("Async texture creation enabled"));
 	}
 	else
 	{
-		UE_LOG(LogD3D11RHI,Log,TEXT("Async texture creation disabled: %s"),
+		UE_LOG(LogD3D11RHI, Log, TEXT("Async texture creation disabled: %s"),
 			D3D11RHI_ShouldAllowAsyncResourceCreation() ? TEXT("no driver support") : TEXT("disabled by user"));
 	}
 
@@ -417,6 +419,37 @@ void FD3D11DynamicRHI::SetupAfterDeviceCreation()
 		}
 	}
 #endif
+
+	// Check for typed UAV load support
+	for (uint32 PF = 0; PF < PF_MAX; ++PF)
+	{
+		if (GPixelFormats[PF].PlatformFormat != 0)
+		{
+			D3D11_FEATURE_DATA_FORMAT_SUPPORT2 Data;
+			Data.InFormat = static_cast<DXGI_FORMAT>(GPixelFormats[PF].PlatformFormat);
+			Data.OutFormatSupport2 = 0;
+			HRESULT Result = Direct3DDevice->CheckFeatureSupport(D3D11_FEATURE_FORMAT_SUPPORT2, &Data, sizeof(Data));
+			GFormatSupportsTypedUAVLoad[PF] =
+				SUCCEEDED(Result) &&
+				(Data.OutFormatSupport2 & D3D11_FORMAT_SUPPORT2_UAV_TYPED_LOAD) == D3D11_FORMAT_SUPPORT2_UAV_TYPED_LOAD;
+		}
+		else
+		{
+			GFormatSupportsTypedUAVLoad[PF] = false;
+		}
+	}
+
+	if (FeatureLevel >= D3D_FEATURE_LEVEL_11_0)
+	{
+		GFormatSupportsTypedUAVLoad[PF_R32_FLOAT] = true;
+		GFormatSupportsTypedUAVLoad[PF_R32_UINT] = true;
+		GFormatSupportsTypedUAVLoad[PF_R32_SINT] = true;
+	}
+}
+
+bool FD3D11DynamicRHI::RHIIsTypedUAVLoadSupported(EPixelFormat PixelFormat)
+{
+	return GFormatSupportsTypedUAVLoad[PixelFormat];
 }
 
 void FD3D11DynamicRHI::UpdateMSAASettings()

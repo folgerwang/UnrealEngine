@@ -21,12 +21,17 @@ DECLARE_CYCLE_STAT(TEXT("RepLayout AddPropertyCmd"), STAT_RepLayout_AddPropertyC
 DECLARE_CYCLE_STAT(TEXT("RepLayout InitFromObjectClass"), STAT_RepLayout_InitFromObjectClass, STATGROUP_Game);
 
 
-static TAutoConsoleVariable<int32> CVarDoPropertyChecksum( TEXT( "net.DoPropertyChecksum" ), 0, TEXT( "" ) );
+int32 GDoPropertyChecksum = 0;
+static FAutoConsoleVariableRef CVarDoPropertyChecksum( TEXT( "net.DoPropertyChecksum" ), GDoPropertyChecksum, TEXT( "" ) );
 
-FAutoConsoleVariable CVarDoReplicationContextString( TEXT( "net.ContextDebug" ), 0, TEXT( "" ) );
+int32 GDoReplicationContextString = 0;
+static FAutoConsoleVariableRef CVarDoReplicationContextString( TEXT( "net.ContextDebug" ), GDoReplicationContextString, TEXT( "" ) );
 
-FAutoConsoleVariable CVarNetShareSerializedData( TEXT( "net.ShareSerializedData" ), 1, TEXT( "" ) );
-FAutoConsoleVariable CVarNetVerifyShareSerializedData( TEXT( "net.VerifyShareSerializedData" ), 0, TEXT( "" ) );
+int32 GNetSharedSerializedData = 1;
+static FAutoConsoleVariableRef CVarNetShareSerializedData( TEXT( "net.ShareSerializedData" ), GNetSharedSerializedData, TEXT( "" ) );
+
+int32 GNetVerifyShareSerializedData = 0;
+static FAutoConsoleVariableRef CVarNetVerifyShareSerializedData( TEXT( "net.VerifyShareSerializedData" ), GNetVerifyShareSerializedData, TEXT( "" ) );
 
 int32 LogSkippedRepNotifies = 0;
 static FAutoConsoleVariable CVarLogSkippedRepNotifies(TEXT("Net.LogSkippedRepNotifies"), LogSkippedRepNotifies, TEXT("Log when the networking code skips calling a repnotify clientside due to the property value not changing."), ECVF_Default );
@@ -608,7 +613,7 @@ bool FRepLayout::CompareProperties(
 		const int32 SecondHistoryIndex = RepChangelistState->HistoryStart % FRepChangelistState::MAX_CHANGE_HISTORY;
 
 		TArray< uint16 >& FirstChangelistRef = RepChangelistState->ChangeHistory[FirstHistoryIndex].Changed;
-		TArray< uint16 > SecondChangelistCopy = RepChangelistState->ChangeHistory[SecondHistoryIndex].Changed;
+		TArray< uint16 > SecondChangelistCopy = MoveTemp(RepChangelistState->ChangeHistory[SecondHistoryIndex].Changed);
 
 		MergeChangeList( Data, FirstChangelistRef, SecondChangelistCopy, RepChangelistState->ChangeHistory[SecondHistoryIndex].Changed );
 	}
@@ -720,7 +725,7 @@ bool FRepLayout::ReplicateProperties(
 
 		FRepChangedHistory& HistoryItem = RepChangelistState->ChangeHistory[HistoryIndex];
 
-		TArray< uint16 > Temp = Changed;
+		TArray< uint16 > Temp = MoveTemp(Changed);
 		MergeChangeList( Data, HistoryItem.Changed, Temp, Changed );
 	}
 
@@ -738,8 +743,7 @@ bool FRepLayout::ReplicateProperties(
 		{
 			for ( int32 i = 0; i < RepState->PreOpenAckHistory.Num(); i++ )
 			{
-				TArray< uint16 > Temp = Changed;
-				Changed.Empty();
+				TArray< uint16 > Temp = MoveTemp(Changed);
 				MergeChangeList( Data, RepState->PreOpenAckHistory[i].Changed, Temp, Changed );
 			}
 			RepState->PreOpenAckHistory.Empty();
@@ -756,7 +760,7 @@ bool FRepLayout::ReplicateProperties(
 	check( Changed.Num() > 0 );
 
 	// do not build shared state for InternalAck (demo) connections
-	if (!OwningChannel->Connection->InternalAck && (CVarNetShareSerializedData->GetInt() != 0))
+	if (!OwningChannel->Connection->InternalAck && (GNetSharedSerializedData != 0))
 	{
 		// if no shared serialization info exists, build it
 		if (!RepChangelistState->SharedSerialization.IsValid())
@@ -771,7 +775,7 @@ bool FRepLayout::ReplicateProperties(
 	if ( OwningChannel->Connection->InternalAck )
 	{
 		// Remember all properties that have changed since this channel was first opened in case we need it (for bResendAllDataSinceOpen)
-		TArray< uint16 > Temp = RepState->LifetimeChangelist;
+		TArray< uint16 > Temp = MoveTemp(RepState->LifetimeChangelist);
 		MergeChangeList( Data, Changed, Temp, RepState->LifetimeChangelist );
 
 		SendProperties_BackwardsCompatible( RepState, ChangeTracker, Data, OwningChannel->Connection, Writer, Changed );
@@ -827,8 +831,7 @@ void FRepLayout::UpdateChangelistHistory( FRepState * RepState, UClass * ObjectC
 			{
 				// Merge in nak'd change lists
 				check( OutMerged != NULL );
-				TArray< uint16 > Temp = *OutMerged;
-				OutMerged->Empty();
+				TArray< uint16 > Temp = MoveTemp(*OutMerged);
 				MergeChangeList( Data, HistoryItem.Changed, Temp, *OutMerged );
 				HistoryItem.Changed.Empty();
 
@@ -1355,7 +1358,7 @@ void FRepLayout::SendProperties_r(
 		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if ( CVarDoReplicationContextString->GetInt() > 0 )
+		if ( GDoReplicationContextString > 0 )
 		{
 			Writer.PackageMap->SetDebugContextString( FString::Printf( TEXT( "%s - %s" ), *Owner->GetPathName(), *Cmd.Property->GetPathName() ) );
 		}
@@ -1363,7 +1366,7 @@ void FRepLayout::SendProperties_r(
 
 		const FRepSerializedPropertyInfo* SharedPropInfo = nullptr;
 
-		if ((CVarNetShareSerializedData->GetInt() != 0) && ((Cmd.Flags & ERepLayoutFlags::IsSharedSerialization) != ERepLayoutFlags::None))
+		if ((GNetSharedSerializedData != 0) && ((Cmd.Flags & ERepLayoutFlags::IsSharedSerialization) != ERepLayoutFlags::None))
 		{
 			FGuid PropertyGuid(HandleIterator.CmdIndex, HandleIterator.ArrayIndex, ArrayDepth, (int32)((PTRINT)Data & 0xFFFFFFFF));
 
@@ -1378,7 +1381,7 @@ void FRepLayout::SendProperties_r(
 		{
 			GNumSharedSerializationHit++;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			if (CVarNetVerifyShareSerializedData->GetInt() != 0)
+			if (GNetVerifyShareSerializedData != 0)
 			{
 				FBitWriterMark BitWriterMark(Writer);
 			
@@ -1435,7 +1438,7 @@ void FRepLayout::SendProperties_r(
 		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if ( CVarDoReplicationContextString->GetInt() > 0 )
+		if ( GDoReplicationContextString > 0 )
 		{
 			Writer.PackageMap->ClearDebugContextString();
 		}
@@ -1455,7 +1458,7 @@ void FRepLayout::SendProperties(
 	SCOPE_CYCLE_COUNTER(STAT_NetReplicateDynamicPropSendTime);
 
 #ifdef ENABLE_PROPERTY_CHECKSUMS
-	const bool bDoChecksum = CVarDoPropertyChecksum.GetValueOnAnyThread() == 1;
+	const bool bDoChecksum = (GDoPropertyChecksum == 1);
 #else
 	const bool bDoChecksum = false;
 #endif
@@ -1524,7 +1527,7 @@ TSharedPtr< FNetFieldExportGroup > FRepLayout::CreateNetfieldExportGroup() const
 static FORCEINLINE void WriteProperty_BackwardsCompatible( FNetBitWriter& Writer, const FRepLayoutCmd& Cmd, const int32 CmdIndex, const UObject* Owner, const uint8* Data, const bool bDoChecksum )
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if ( CVarDoReplicationContextString->GetInt() > 0 )
+	if ( GDoReplicationContextString > 0 )
 	{
 		Writer.PackageMap->SetDebugContextString( FString::Printf( TEXT( "%s - %s" ), *Owner->GetPathName(), *Cmd.Property->GetPathName() ) );
 	}
@@ -1546,7 +1549,7 @@ static FORCEINLINE void WriteProperty_BackwardsCompatible( FNetBitWriter& Writer
 	NETWORK_PROFILER( GNetworkProfiler.TrackReplicateProperty( Cmd.Property, NumEndBits - NumStartBits, nullptr ) );
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if ( CVarDoReplicationContextString->GetInt() > 0 )
+	if ( GDoReplicationContextString > 0 )
 	{
 		Writer.PackageMap->ClearDebugContextString();
 	}
@@ -1736,7 +1739,7 @@ void FRepLayout::SendProperties_BackwardsCompatible(
 	FBitWriterMark Mark( Writer );
 
 #ifdef ENABLE_PROPERTY_CHECKSUMS
-	const bool bDoChecksum = CVarDoPropertyChecksum.GetValueOnAnyThread() == 1;
+	const bool bDoChecksum = (GDoPropertyChecksum == 1);
 	Writer.WriteBit( bDoChecksum ? 1 : 0 );
 #else
 	const bool bDoChecksum = false;
@@ -2917,9 +2920,9 @@ public:
 				return;
 			}
 
-			// Make the shadow state match the actual state
-			FScriptArrayHelper ShadowArrayHelper( (UArrayProperty *)Cmd.Property, ShadowData );
-			ShadowArrayHelper.Resize( StackState.DataArray->Num() );
+			// Do not adjust source data, only the destination
+			FScriptArrayHelper ArrayHelper( (UArrayProperty *)Cmd.Property, Data );
+			ArrayHelper.Resize( StackState.ShadowArray->Num() );
 		}
 
 		StackState.BaseData			= (uint8*)StackState.DataArray->GetData();
@@ -2952,7 +2955,7 @@ public:
 
 			if (Cmd.Type == ERepLayoutCmdType::PropertyObject)
 			{
-				UObjectPropertyBase * ObjProperty = CastChecked< UObjectPropertyBase>( Cmd.Property );
+				UObjectPropertyBase * ObjProperty = CastChecked<UObjectPropertyBase>( Cmd.Property );
 				if (ObjProperty)
 				{
 					if (ObjProperty->PropertyClass && (ObjProperty->PropertyClass->IsChildOf(AActor::StaticClass()) || ObjProperty->PropertyClass->IsChildOf(UActorComponent::StaticClass())))
@@ -2962,15 +2965,19 @@ public:
 					}
 
 					UObject* ObjValue = ObjProperty->GetObjectPropertyValue( (const void*)( ShadowData + Cmd.Offset ) );
-					if (ObjValue && !ObjValue->IsNameStableForNetworking())
+					if (ObjValue)
 					{
-						// skip object references without a stable name
-						return;
-					}
+						const bool bStableForNetworking = (ObjValue->HasAnyFlags(RF_WasLoaded | RF_DefaultSubObject) || ObjValue->IsNative() || ObjValue->IsDefaultSubobject());
+						if (!bStableForNetworking)
+						{
+							// skip object references without a stable name
+							return;
+						}
 
-					if (ObjValue && ObjReferences)
-					{
-						ObjReferences->AddUnique(ObjValue);
+						if (ObjReferences)
+						{
+							ObjReferences->AddUnique(ObjValue);
+						}
 					}
 				}
 			}
@@ -3508,7 +3515,7 @@ void FRepLayout::SerializeProperties_r(
 		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if (CVarDoReplicationContextString->GetInt() > 0)
+		if (GDoReplicationContextString > 0)
 		{
 			Map->SetDebugContextString( FString::Printf(TEXT("%s - %s"), *Owner->GetPathName(), *Cmd.Property->GetPathName() ) );
 		}
@@ -3516,7 +3523,7 @@ void FRepLayout::SerializeProperties_r(
 
 		const FRepSerializedPropertyInfo* SharedPropInfo = nullptr;
 
-		if ((CVarNetShareSerializedData->GetInt() != 0) && Ar.IsSaving() && ((Cmd.Flags & ERepLayoutFlags::IsSharedSerialization) != ERepLayoutFlags::None))
+		if ((GNetSharedSerializedData != 0) && Ar.IsSaving() && ((Cmd.Flags & ERepLayoutFlags::IsSharedSerialization) != ERepLayoutFlags::None))
 		{
 			FGuid PropertyGuid(CmdIndex, ArrayIndex, ArrayDepth, (int32)((PTRINT)((uint8*)Data + Cmd.Offset) & 0xFFFFFFFF));
 
@@ -3532,7 +3539,7 @@ void FRepLayout::SerializeProperties_r(
 		{
 			GNumSharedSerializationHit++;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			if (CVarNetVerifyShareSerializedData->GetInt() != 0 && Ar.IsSaving())
+			if ((GNetVerifyShareSerializedData != 0) && Ar.IsSaving())
 			{
 				FBitWriter& Writer = static_cast<FBitWriter&>(Ar);
 
@@ -3570,7 +3577,7 @@ void FRepLayout::SerializeProperties_r(
 		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if (CVarDoReplicationContextString->GetInt() > 0)
+		if (GDoReplicationContextString > 0)
 		{
 			Map->ClearDebugContextString();
 		}
@@ -3629,7 +3636,7 @@ void FRepLayout::BuildSharedSerialization(
 	FRepSerializationSharedInfo& SharedInfo) const
 {
 #ifdef ENABLE_PROPERTY_CHECKSUMS
-	const bool bDoChecksum = CVarDoPropertyChecksum.GetValueOnAnyThread() == 1;
+	const bool bDoChecksum = (GDoPropertyChecksum == 1);
 #else
 	const bool bDoChecksum = false;
 #endif
@@ -3733,7 +3740,7 @@ void FRepLayout::BuildSharedSerializationForRPC_r(const int32 CmdStart, const in
 
 void FRepLayout::BuildSharedSerializationForRPC( void* Data )
 {
-	if (CVarNetShareSerializedData->GetInt() != 0 && !SharedInfoRPC.IsValid())
+	if ((GNetSharedSerializedData != 0) && !SharedInfoRPC.IsValid())
 	{
 		SharedInfoRPCParentsChanged.Init(false, Parents.Num());
 
@@ -3803,7 +3810,7 @@ void FRepLayout::SendPropertiesForRPC( UFunction * Function, UActorChannel * Cha
 		if ( !Cast<UBoolProperty>( Parents[i].Property ) )
 		{
 			// Used cached comparison result if possible
-			if (CVarNetShareSerializedData->GetInt() != 0 && SharedInfoRPC.IsValid() && !Parents[i].Property->HasAnyPropertyFlags(CPF_OutParm))
+			if ((GNetSharedSerializedData != 0) && SharedInfoRPC.IsValid() && !Parents[i].Property->HasAnyPropertyFlags(CPF_OutParm))
 			{
 				Send = SharedInfoRPCParentsChanged[i];
 			}

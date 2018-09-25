@@ -219,6 +219,7 @@ public:
 		return SetLayouts;
 	}
 
+	void AddBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::EStage DescSet, const FVulkanShaderHeader& CodeHeader, const FImmutableSamplerState* const ImmutableSamplerState = nullptr);
 	void ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::EStage DescSetStage, const FVulkanShaderHeader& CodeHeader, FUniformBufferGatherInfo& OutUBGatherInfo) const;
 
 	template<bool bIsCompute>
@@ -339,7 +340,7 @@ private:
 class FVulkanDescriptorPool
 {
 public:
-	FVulkanDescriptorPool(FVulkanDevice* InDevice, const FVulkanDescriptorSetsLayout& Layout);
+	FVulkanDescriptorPool(FVulkanDevice* InDevice, const FVulkanDescriptorSetsLayout& Layout, uint32 MaxSetsAllocations);
 	~FVulkanDescriptorPool();
 
 	inline VkDescriptorPool GetHandle() const
@@ -396,6 +397,7 @@ protected:
 	FVulkanTypedDescriptorPoolSet(FVulkanDevice* InDevice, const FVulkanDescriptorSetsLayout& InLayout)
 		: Device(InDevice)
 		, Layout(InLayout)
+		, PoolsCount(0)
 	{
 		PushNewPool();
 	};
@@ -410,6 +412,7 @@ public:
 private:
 	FVulkanDevice* Device;
 	const FVulkanDescriptorSetsLayout& Layout;
+	uint32 PoolsCount;
 
 	FPoolList* PoolListHead = nullptr;
 	FPoolList* PoolListCurrent = nullptr;

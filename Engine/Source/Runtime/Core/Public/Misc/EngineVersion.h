@@ -5,6 +5,7 @@
 #include "CoreTypes.h"
 #include "Misc/EngineVersionBase.h"
 #include "Containers/UnrealString.h"
+#include "Serialization/StructuredArchive.h"
 
 /** Utility functions. */
 class CORE_API FEngineVersion : public FEngineVersionBase

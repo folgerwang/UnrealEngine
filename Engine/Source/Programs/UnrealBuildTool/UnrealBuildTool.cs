@@ -1669,6 +1669,12 @@ namespace UnrealBuildTool
 									}
 								}
 
+								// Remove the receipts, so we know the target is not valid if the compile fails
+								foreach (UEBuildTarget Target in Targets)
+								{
+									Target.DeleteReceipts();
+								}
+
 								// Execute the actions.
 								string TargetInfoForTelemetry = String.Join("|", Targets.Select(x => String.Format("{0} {1} {2}{3}", x.TargetName, x.Platform, x.Configuration, "")));
 								DateTime ExecutorStartTime = DateTime.UtcNow;

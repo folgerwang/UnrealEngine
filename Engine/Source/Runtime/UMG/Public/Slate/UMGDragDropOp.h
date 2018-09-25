@@ -29,6 +29,7 @@ public:
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 	// End FGCObject
 
+	virtual bool AffectedByPointerEvent(const FPointerEvent& PointerEvent) override;
 	virtual void OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent ) override;
 	virtual void OnDragged( const class FDragDropEvent& DragDropEvent ) override;
 	virtual FCursorReply OnCursorQuery() override;

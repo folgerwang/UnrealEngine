@@ -1226,7 +1226,8 @@ void CreateTranslucentBasePassUniformBuffer(
 	const FViewInfo& View, 
 	IPooledRenderTarget* SceneColorCopy,
 	ESceneTextureSetupMode SceneTextureSetupMode,
-	TUniformBufferRef<FTranslucentBasePassUniformParameters>& BasePassUniformBuffer)
+	TUniformBufferRef<FTranslucentBasePassUniformParameters>& BasePassUniformBuffer,
+	const int32 ViewIndex)
 {
 	FSceneRenderTargets& SceneRenderTargets = FSceneRenderTargets::Get(RHICmdList);
 
@@ -1237,7 +1238,7 @@ void CreateTranslucentBasePassUniformBuffer(
 		SetupSceneTextureUniformParameters(SceneRenderTargets, View.FeatureLevel, SceneTextureSetupMode, BasePassParameters.SceneTextures);
 		BasePassParameters.SceneTextures.EyeAdaptation = GetEyeAdaptation(View);
 	}
-
+	
 	// Material SSR
 	{
 		float PrevSceneColorPreExposureInvValue = 1.0f / View.PreExposure;
@@ -1311,10 +1312,10 @@ void CreateTranslucentBasePassUniformBuffer(
 	{
 		if (SceneRenderTargets.GetTranslucencyVolumeAmbient(TVC_Inner) != nullptr)
 		{
-			BasePassParameters.TranslucencyLightingVolumeAmbientInner = SceneRenderTargets.GetTranslucencyVolumeAmbient(TVC_Inner)->GetRenderTargetItem().ShaderResourceTexture;
-			BasePassParameters.TranslucencyLightingVolumeAmbientOuter = SceneRenderTargets.GetTranslucencyVolumeAmbient(TVC_Outer)->GetRenderTargetItem().ShaderResourceTexture;
-			BasePassParameters.TranslucencyLightingVolumeDirectionalInner = SceneRenderTargets.GetTranslucencyVolumeDirectional(TVC_Inner)->GetRenderTargetItem().ShaderResourceTexture;
-			BasePassParameters.TranslucencyLightingVolumeDirectionalOuter = SceneRenderTargets.GetTranslucencyVolumeDirectional(TVC_Outer)->GetRenderTargetItem().ShaderResourceTexture;
+			BasePassParameters.TranslucencyLightingVolumeAmbientInner = SceneRenderTargets.GetTranslucencyVolumeAmbient(TVC_Inner, ViewIndex)->GetRenderTargetItem().ShaderResourceTexture;
+			BasePassParameters.TranslucencyLightingVolumeAmbientOuter = SceneRenderTargets.GetTranslucencyVolumeAmbient(TVC_Outer, ViewIndex)->GetRenderTargetItem().ShaderResourceTexture;
+			BasePassParameters.TranslucencyLightingVolumeDirectionalInner = SceneRenderTargets.GetTranslucencyVolumeDirectional(TVC_Inner, ViewIndex)->GetRenderTargetItem().ShaderResourceTexture;
+			BasePassParameters.TranslucencyLightingVolumeDirectionalOuter = SceneRenderTargets.GetTranslucencyVolumeDirectional(TVC_Outer, ViewIndex)->GetRenderTargetItem().ShaderResourceTexture;
 		}
 		else
 		{
@@ -1373,7 +1374,7 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 #endif
 
 		TUniformBufferRef<FTranslucentBasePassUniformParameters> BasePassUniformBuffer;
-		CreateTranslucentBasePassUniformBuffer(RHICmdList, View, SceneColorCopy, ESceneTextureSetupMode::All, BasePassUniformBuffer);
+		CreateTranslucentBasePassUniformBuffer(RHICmdList, View, SceneColorCopy, ESceneTextureSetupMode::All, BasePassUniformBuffer, ViewIndex);
 		FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
 
 		// If downsampling we need to render in the separate buffer. Otherwise we also need to render offscreen to apply TPT_TranslucencyAfterDOF

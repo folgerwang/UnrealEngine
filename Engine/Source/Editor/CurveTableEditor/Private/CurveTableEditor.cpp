@@ -150,21 +150,9 @@ FCurveTableEditor::~FCurveTableEditor()
 
 void FCurveTableEditor::InitCurveTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UCurveTable* Table )
 {
-	const TSharedRef< FTabManager::FLayout > StandaloneDefaultLayout = FTabManager::NewLayout("Standalone_CurveTableEditor_Layout_v1.1")
-	->AddArea
-	(
-		FTabManager::NewPrimaryArea()
-		->Split
-		(
-			FTabManager::NewStack()
-			->AddTab( CurveTableTabId, ETabState::OpenedTab )
-			->SetHideTabWell(true)
-		)
-	);
+	const TSharedRef< FTabManager::FLayout > StandaloneDefaultLayout = InitCurveTableLayout();
 
-	const bool bCreateDefaultStandaloneMenu = true;
-	const bool bCreateDefaultToolbar = false;
-	FAssetEditorToolkit::InitAssetEditor( Mode, InitToolkitHost, FCurveTableEditorModule::CurveTableEditorAppIdentifier, StandaloneDefaultLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, Table );
+	FAssetEditorToolkit::InitAssetEditor( Mode, InitToolkitHost, FCurveTableEditorModule::CurveTableEditorAppIdentifier, StandaloneDefaultLayout, ShouldCreateDefaultStandaloneMenu(), ShouldCreateDefaultToolbar(), Table );
 	
 	BindCommands();
 	ExtendMenu();
@@ -181,6 +169,21 @@ void FCurveTableEditor::InitCurveTableEditor( const EToolkitMode::Type Mode, con
 	}*/
 
 	// NOTE: Could fill in asset editor commands here!
+}
+
+TSharedRef< FTabManager::FLayout > FCurveTableEditor::InitCurveTableLayout()
+{
+	return FTabManager::NewLayout("Standalone_CurveTableEditor_Layout_v1.1")
+		->AddArea
+		(
+			FTabManager::NewPrimaryArea()
+			->Split
+			(
+				FTabManager::NewStack()
+				->AddTab(CurveTableTabId, ETabState::OpenedTab)
+				->SetHideTabWell(true)
+			)
+		);
 }
 
 void FCurveTableEditor::BindCommands()
@@ -232,22 +235,37 @@ FText FCurveTableEditor::GetBaseToolkitName() const
 	return LOCTEXT( "AppLabel", "CurveTable Editor" );
 }
 
-
 FString FCurveTableEditor::GetWorldCentricTabPrefix() const
 {
 	return LOCTEXT("WorldCentricTabPrefix", "CurveTable ").ToString();
 }
-
 
 FLinearColor FCurveTableEditor::GetWorldCentricTabColorScale() const
 {
 	return FLinearColor( 0.0f, 0.0f, 0.2f, 0.5f );
 }
 
+void FCurveTableEditor::PreChange(const UCurveTable* Changed, FCurveTableEditorUtils::ECurveTableChangeInfo Info)
+{
+}
+
+void FCurveTableEditor::PostChange(const UCurveTable* Changed, FCurveTableEditorUtils::ECurveTableChangeInfo Info)
+{
+	const UCurveTable* Table = GetCurveTable();
+	if (Changed == Table)
+	{
+		HandlePostChange();
+	}
+}
 
 const UCurveTable* FCurveTableEditor::GetCurveTable() const
 {
 	return Cast<const UCurveTable>(GetEditingObject());
+}
+
+void FCurveTableEditor::HandlePostChange()
+{
+	RefreshCachedCurveTable();
 }
 
 TSharedRef<SDockTab> FCurveTableEditor::SpawnTab_CurveTable( const FSpawnTabArgs& Args )
@@ -365,10 +383,9 @@ TSharedRef<SDockTab> FCurveTableEditor::SpawnTab_CurveTable( const FSpawnTabArgs
 		];
 }
 
-
 void FCurveTableEditor::RefreshCachedCurveTable()
 {
-	CacheDataTableForEditing();
+	CacheCurveTableForEditing();
 
 	ColumnNamesHeaderRow->ClearColumns();
 	for (int32 ColumnIndex = 0; ColumnIndex < AvailableColumns.Num(); ++ColumnIndex)
@@ -387,7 +404,7 @@ void FCurveTableEditor::RefreshCachedCurveTable()
 }
 
 
-void FCurveTableEditor::CacheDataTableForEditing()
+void FCurveTableEditor::CacheCurveTableForEditing()
 {
 	RowNameColumnWidth = 10.0f;
 
@@ -518,12 +535,18 @@ TSharedRef<SWidget> FCurveTableEditor::MakeCellWidget(FCurveTableEditorRowListVi
 	// Valid column ID?
 	if (AvailableColumns.IsValidIndex(ColumnIndex))
 	{
+		FText ColumnText;
+		if (InRowDataPtr->CellData.IsValidIndex(ColumnIndex))
+		{
+			ColumnText = InRowDataPtr->CellData[ColumnIndex];
+		}
+
 		return SNew(SBox)
 			.Padding(FMargin(4, 2, 4, 2))
 			[
 				SNew(STextBlock)
 				.TextStyle(FEditorStyle::Get(), "DataTableEditor.CellText")
-				.Text(InRowDataPtr->CellData[ColumnIndex])
+				.Text(ColumnText)
 			];
 	}
 

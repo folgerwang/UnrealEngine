@@ -11,6 +11,7 @@ struct FRWBufferStructured;
 struct FRWBuffer;
 struct FSceneRenderTargetItem;
 class FRHIUnorderedAccessView;
+class FGraphicsPipelineStateInitializer;
 
 class FClearVertexBuffer : public FVertexBuffer
 {
@@ -35,6 +36,13 @@ public:
 };
 extern UTILITYSHADERS_API TGlobalResource<FClearVertexBuffer> GClearVertexBuffer;
 
+struct FClearQuadCallbacks
+{
+	TFunction<void(FGraphicsPipelineStateInitializer&)> PSOModifier = nullptr;
+	TFunction<void(FRHICommandList&)> PreClear = nullptr;
+	TFunction<void(FRHICommandList&)> PostClear = nullptr;
+};
+
 extern UTILITYSHADERS_API const uint32 GMaxSizeUAVDMA;
 extern UTILITYSHADERS_API void ClearUAV(FRHICommandList& RHICmdList, const FRWBufferStructured& StructuredBuffer, uint32 Value);
 extern UTILITYSHADERS_API void ClearUAV(FRHICommandList& RHICmdList, const FRWBuffer& Buffer, uint32 Value);
@@ -48,6 +56,7 @@ extern UTILITYSHADERS_API void ClearTexture2DUAV(FRHICommandList& RHICmdList, FR
 
 
 extern UTILITYSHADERS_API void DrawClearQuadMRT( FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil );
+extern UTILITYSHADERS_API void DrawClearQuadMRT(FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FClearQuadCallbacks ClearQuadCallbacks);
 extern UTILITYSHADERS_API void DrawClearQuadMRT( FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntPoint ViewSize, FIntRect ExcludeRect );
 
 inline void DrawClearQuad(FRHICommandList& RHICmdList, bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil)
@@ -63,4 +72,9 @@ inline void DrawClearQuad(FRHICommandList& RHICmdList, bool bClearColor, const F
 inline void DrawClearQuad(FRHICommandList& RHICmdList, const FLinearColor& Color)
 {
 	DrawClearQuadMRT(RHICmdList, true, 1, &Color, false, 0, false, 0);
+}
+
+inline void DrawClearQuad(FRHICommandList& RHICmdList, const FLinearColor& Color, FClearQuadCallbacks ClearQuadCallbacks)
+{
+	DrawClearQuadMRT(RHICmdList, true, 1, &Color, false, 0, false, 0, ClearQuadCallbacks);
 }

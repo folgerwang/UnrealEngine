@@ -2,6 +2,8 @@
 
 #include "GameplayTagsSettings.h"
 #include "GameplayTagsModule.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 
 UGameplayTagsList::UGameplayTagsList(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -83,11 +85,17 @@ void UGameplayTagsSettings::PostEditChangeProperty(FPropertyChangedEvent& Proper
 		if (PropertyChangedEvent.Property->GetName() == "RestrictedConfigName")
 		{
 			UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
-			for (const FRestrictedConfigInfo& Info : RestrictedConfigFiles)
+			for (FRestrictedConfigInfo& Info : RestrictedConfigFiles)
 			{
 				if (!Info.RestrictedConfigName.IsEmpty())
 				{
-					Manager.FindOrAddTagSource(*Info.RestrictedConfigName, EGameplayTagSourceType::RestrictedTagList);
+					FGameplayTagSource* Source = Manager.FindOrAddTagSource(*Info.RestrictedConfigName, EGameplayTagSourceType::RestrictedTagList);
+					if (!Source)
+					{
+						FNotificationInfo NotificationInfo(FText::Format(NSLOCTEXT("GameplayTagsSettings", "UnableToAddRestrictedTagSource", "Unable to add restricted tag source {0}. It may already be in use."), FText::FromString(Info.RestrictedConfigName)));
+						FSlateNotificationManager::Get().AddNotification(NotificationInfo);
+						Info.RestrictedConfigName.Empty();
+					}
 				}
 			}
 		}

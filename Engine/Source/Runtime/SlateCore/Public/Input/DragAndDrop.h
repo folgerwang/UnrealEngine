@@ -38,6 +38,14 @@ public:
 	}
 
 	/**
+	* Checks if this drag and drop operation is affected by a given PointerEvent.
+	*
+	* @param PointerEvent        The mouse event we are checking against
+	* @return true if the the pointer event affects this drag and drop operation (default true).
+	*/
+	virtual bool AffectedByPointerEvent(const FPointerEvent& PointerEvent) {return true;}
+
+	/**
 	 * Invoked when the drag and drop operation has ended.
 	 * 
 	 * @param bDropWasHandled   true when the drop was handled by some widget; false otherwise

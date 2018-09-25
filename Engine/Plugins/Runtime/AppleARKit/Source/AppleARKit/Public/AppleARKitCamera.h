@@ -41,7 +41,12 @@ struct APPLEARKIT_API FAppleARKitCamera
 	
 	// Default constructor
 	FAppleARKitCamera()
-	: Orientation(EForceInit::ForceInit)
+		: TrackingQuality(EARTrackingQuality::NotTracking)
+		, Orientation(ForceInit)
+		, Translation(ForceInitToZero)
+		, ImageResolution(ForceInitToZero)
+		, FocalLength(ForceInitToZero)
+		, PrincipalPoint(ForceInitToZero)
 	{};
 
 #if SUPPORTS_ARKIT_1_0

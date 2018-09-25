@@ -21,10 +21,11 @@ public:
 	virtual void PerformAssetDiff(UObject* Asset1, UObject* Asset2, const struct FRevisionInfo& OldRevision, const struct FRevisionInfo& NewRevision) const override;
 	// End IAssetTypeActions
 
-private:
+protected:
 	/** Handler for when CSV is selected */
 	void ExecuteExportAsCSV(TArray< TWeakObjectPtr<UObject> > Objects);
 
 	/** Handler for when JSON is selected */
 	void ExecuteExportAsJSON(TArray< TWeakObjectPtr<UObject> > Objects);
 };
+

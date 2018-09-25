@@ -9,7 +9,7 @@
 
 class FVoicePacket;
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogVoiceEngine, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogVoiceEngine, Log, All);
 #define UE_LOG_ONLINE_VOICEENGINE(Verbosity, Format, ...) \
 { \
 	UE_LOG(LogVoiceEngine, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
@@ -20,7 +20,7 @@ ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogVoiceEngine, Display, All);
 	UE_CLOG(Conditional, LogVoiceEngine, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
 }
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineVoice, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineVoice, Log, All);
 
 #define UE_LOG_ONLINE_VOICE(Verbosity, Format, ...) \
 { \

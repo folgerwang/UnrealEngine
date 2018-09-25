@@ -129,6 +129,10 @@ public:
 	virtual FString GetAuthType() const override;
 
 	// FOnlineIdentityTwitch
+
+	/** @return an invalid/empty unique id */
+	static const FUniqueNetId& GetEmptyUniqueId();
+
 	/** 
 	 * Set the state prefix
 	 * @param StatePrefix the state prefix
@@ -257,9 +261,6 @@ private:
 	FString CurrentLoginNonce;
 	/** Whether we have a registration in flight or not */
 	bool bHasLoginOutstanding;
-
-	/** Re-usable empty unique id for errors */
-	TSharedRef<FUniqueNetId> ZeroId;
 };
 
 typedef TSharedPtr<FOnlineIdentityTwitch, ESPMode::ThreadSafe> FOnlineIdentityTwitchPtr;

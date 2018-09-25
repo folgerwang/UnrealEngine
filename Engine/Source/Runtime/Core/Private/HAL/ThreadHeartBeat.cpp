@@ -750,7 +750,7 @@ void FGameThreadHitchHeartBeat::FrameStart(bool bSkipThisFrame)
 	{
 		FrameStartTime = bSkipThisFrame ? 0.0 : Now;
 	}
-#if !ENABLE_STATNAMEDEVENTS && defined(USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION) && USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION
+#if !STATS && !UE_BUILD_DEBUG && defined(USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION) && USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION
 	if (GHitchDetected)
 	{
 		TFunction<void(ENamedThreads::Type CurrentThread)> Broadcast =

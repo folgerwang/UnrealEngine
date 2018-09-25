@@ -47,8 +47,8 @@ UUnitTestManager* GUnitTestManager = nullptr;
 static TMap<FString, FString> UnsupportedUnitTests;
 
 
-IMPLEMENT_GET_PRIVATE_VAR(FTimerManager, CurrentlyExecutingTimer, FTimerData);
-
+IMPLEMENT_GET_PRIVATE_VAR(FTimerManager, CurrentlyExecutingTimer, FTimerHandle);
+IMPLEMENT_GET_PROTECTED_FUNC(FTimerManager, FindTimer, FTimerData*, FTimerHandle InHandle, InHandle);
 
 
 // @todo #JohnBHighPri: Add detection for unit tests that either 1: Never end (e.g. if they become outdated and break, or 2: keep on hitting
@@ -2003,19 +2003,20 @@ void UUnitTestManager::Serialize(const TCHAR* Data, ELogVerbosity::Type Verbosit
 				if (BaseWorld != nullptr)
 				{
 					FTimerManager& TimerMan = BaseWorld->GetTimerManager();
-					FTimerData& TimerData = GET_PRIVATE_REF(FTimerManager, &TimerMan, CurrentlyExecutingTimer);
+					FTimerHandle CurrentlyExecutingTimer = GET_PRIVATE_REF(FTimerManager, &TimerMan, CurrentlyExecutingTimer);
+					FTimerData* TimerData = CALL_PROTECTED(FTimerManager, &TimerMan, FindTimer)(CurrentlyExecutingTimer);
 
 					// @todo #JohnB: Abort this, as the calls you want to catch are lambda's, so there's no standard/nice way of hooking
 					//					(there is still a way though...raw memory-scanning lambda objects...very nasty, but possible)
 					//					NOTE: The use-case for this, is UFortMCPTask's online logging, happening through timer manager
 
-					if (TimerData.TimerDelegate.IsBound())
+					if (TimerData != nullptr && TimerData->TimerDelegate.IsBound())
 					{
-						UObject* TimerObj = TimerData.TimerDelegate.FuncDelegate.GetUObject();
+						UObject* TimerObj = TimerData->TimerDelegate.FuncDelegate.GetUObject();
 
 						if (TimerObj == nullptr)
 						{
-							TimerObj = TimerData.TimerDelegate.FuncDynDelegate.GetUObject();
+							TimerObj = TimerData->TimerDelegate.FuncDynDelegate.GetUObject();
 						}
 
 						if (TimerObj != nullptr)

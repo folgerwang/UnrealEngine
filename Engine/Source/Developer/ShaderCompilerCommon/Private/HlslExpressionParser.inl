@@ -529,9 +529,25 @@ namespace CrossCompiler
 			{
 				const auto* Peek1 = Scanner.PeekToken(1);
 				const auto* Peek2 = Scanner.PeekToken(2);
+
+				bool bFoundConst = false;
+				//#todo-rco: Workaround for weird const cast in RHS codegen from HLSLTranslator:
+				//		const uint exp2 = ((((const int) ((uRes32>>23)&0xff))-127+15) << 10);
+				if (Peek1->Token == EHlslToken::Const)
+				{
+					bFoundConst = true;
+					Peek1 = Scanner.PeekToken(2);
+					Peek2 = Scanner.PeekToken(3);
+				}
+
 				AST::FTypeSpecifier* TypeSpecifier = nullptr;
 				if (Peek1 && ParseGeneralTypeFromToken(Peek1, ETF_BUILTIN_NUMERIC | ETF_USER_TYPES, SymbolScope, Allocator, &TypeSpecifier) == EParseResult::Matched && Peek2 && Peek2->Token == EHlslToken::RightParenthesis)
 				{
+					if (bFoundConst)
+					{
+						Scanner.Advance();
+					}
+
 					// Cast
 					Scanner.Advance();
 					Scanner.Advance();

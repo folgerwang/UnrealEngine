@@ -258,19 +258,12 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 FText SWorldHierarchyItem::GetDisplayNameText() const
 {
-	FString DisplayString = WorldTreeItem->GetDisplayString();
-	FText DisplayText;
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("DisplayText"), FText::FromString(WorldTreeItem->GetDisplayString()));
+	Args.Add(TEXT("Transient"), (WorldTreeItem->IsTransient() ? LOCTEXT("WorldItem_Transient", " (Transient)") : FText::GetEmpty()));
+	Args.Add(TEXT("ReadOnly"), (WorldTreeItem->IsReadOnly() ? LOCTEXT("WorldItem_ReadOnly", " (Read-Only)") : FText::GetEmpty()));
 
-	if (WorldTreeItem->IsReadOnly())
-	{
-		DisplayText = FText::Format(LOCTEXT("WorldItem_ReadOnly", "{0} (Read-Only)"), FText::FromString(DisplayString));
-	}
-	else
-	{
-		DisplayText = FText::FromString(DisplayString);
-	}
-
-	return DisplayText;
+	return FText::Format(LOCTEXT("WorldItem", "{DisplayText}{Transient}{ReadOnly}"), Args);
 }
 
 void SWorldHierarchyItem::OnLabelCommitted(const FText& InLabel, ETextCommit::Type InCommitInfo)

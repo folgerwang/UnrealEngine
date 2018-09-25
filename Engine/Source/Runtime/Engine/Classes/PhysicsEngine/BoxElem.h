@@ -16,10 +16,12 @@ struct FKBoxElem : public FKShapeElem
 {
 	GENERATED_USTRUCT_BODY()
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FMatrix TM_DEPRECATED;
 	UPROPERTY()
 	FQuat Orientation_DEPRECATED;
+#endif
 
 	/** Position of the box's origin */
 	UPROPERTY(Category=Box, EditAnywhere)
@@ -44,7 +46,10 @@ struct FKBoxElem : public FKShapeElem
 
 	FKBoxElem()
 	: FKShapeElem(EAggCollisionShape::Box)
+#if WITH_EDITORONLY_DATA
+	, TM_DEPRECATED(ForceInitToZero)
 	, Orientation_DEPRECATED( FQuat::Identity )
+#endif
 	, Center( FVector::ZeroVector )
 	, Rotation( FRotator::ZeroRotator )
 	, X(1), Y(1), Z(1)
@@ -54,7 +59,10 @@ struct FKBoxElem : public FKShapeElem
 
 	FKBoxElem( float s )
 	: FKShapeElem(EAggCollisionShape::Box)
+#if WITH_EDITORONLY_DATA
+	, TM_DEPRECATED(ForceInitToZero)
 	, Orientation_DEPRECATED( FQuat::Identity )
+#endif
 	, Center( FVector::ZeroVector )
 	, Rotation(FRotator::ZeroRotator)
 	, X(s), Y(s), Z(s)
@@ -64,16 +72,20 @@ struct FKBoxElem : public FKShapeElem
 
 	FKBoxElem( float InX, float InY, float InZ ) 
 	: FKShapeElem(EAggCollisionShape::Box)
+#if WITH_EDITORONLY_DATA
+	, TM_DEPRECATED(ForceInitToZero)
 	, Orientation_DEPRECATED( FQuat::Identity )
+#endif
 	, Center( FVector::ZeroVector )
 	, Rotation(FRotator::ZeroRotator)
 	, X(InX), Y(InY), Z(InZ)
-
 	{
 
 	}
 
+#if WITH_EDITORONLY_DATA
 	void FixupDeprecated( FArchive& Ar );
+#endif
 
 	friend bool operator==( const FKBoxElem& LHS, const FKBoxElem& RHS )
 	{

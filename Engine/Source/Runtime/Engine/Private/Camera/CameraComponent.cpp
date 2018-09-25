@@ -35,6 +35,8 @@ UCameraComponent::UCameraComponent(const FObjectInitializer& ObjectInitializer)
 		static ConstructorHelpers::FObjectFinder<UStaticMesh> EditorCameraMesh(TEXT("/Engine/EditorMeshes/MatineeCam_SM"));
 		CameraMesh = EditorCameraMesh.Object;
 	}
+
+	bUseControllerViewRotation_DEPRECATED = true; // the previous default value before bUsePawnControlRotation replaced this var.
 #endif
 
 	FieldOfView = 90.0f;
@@ -45,7 +47,6 @@ UCameraComponent::UCameraComponent(const FObjectInitializer& ObjectInitializer)
 	bConstrainAspectRatio = false;
 	bUseFieldOfViewForLOD = true;
 	PostProcessBlendWeight = 1.0f;
-	bUseControllerViewRotation_DEPRECATED = true; // the previous default value before bUsePawnControlRotation replaced this var.
 	bUsePawnControlRotation = false;
 	bAutoActivate = true;
 	bLockToHmd = true;
@@ -128,6 +129,8 @@ void UCameraComponent::OnRegister()
 	Super::OnRegister();
 }
 
+#if WITH_EDITORONLY_DATA
+
 void UCameraComponent::PostLoad()
 {
 	Super::PostLoad();
@@ -139,8 +142,6 @@ void UCameraComponent::PostLoad()
 		bUsePawnControlRotation = bUseControllerViewRotation_DEPRECATED;
 	}
 }
-
-#if WITH_EDITORONLY_DATA
 
  void UCameraComponent::SetCameraMesh(UStaticMesh* Mesh)
  {
@@ -231,7 +232,6 @@ void UCameraComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyCha
 
 	RefreshVisualRepresentation();
 }
-#endif	// WITH_EDITORONLY_DATA
 
 void UCameraComponent::Serialize(FArchive& Ar)
 {
@@ -242,6 +242,7 @@ void UCameraComponent::Serialize(FArchive& Ar)
 		PostProcessSettings.OnAfterLoad();
 	}
 }
+#endif	// WITH_EDITORONLY_DATA
 
 void UCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView)
 {

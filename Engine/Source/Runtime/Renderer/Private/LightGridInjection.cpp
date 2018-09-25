@@ -439,7 +439,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			bAnyViewUsesForwardLighting |= View.bTranslucentSurfaceLighting || ShouldRenderVolumetricFog();
 		}
 
-		const bool bCullLightsToGrid = GLightCullingQuality && ((IsForwardShadingEnabled(FeatureLevel) || bAnyViewUsesForwardLighting) && ViewFamily.EngineShowFlags.DirectLighting);
+		const bool bCullLightsToGrid = GLightCullingQuality && ((IsForwardShadingEnabled(ShaderPlatform) || bAnyViewUsesForwardLighting) && ViewFamily.EngineShowFlags.DirectLighting);
 
 		FSimpleLightArray SimpleLights;
 

@@ -34,6 +34,11 @@ FString FQosInterface::GetDatacenterId()
 	return UQosRegionManager::GetDatacenterId();
 }
 
+FString FQosInterface::GetAdvertisedSubregionId()
+{
+	return UQosRegionManager::GetAdvertisedSubregionId();
+}
+
 void FQosInterface::BeginQosEvaluation(UWorld* World, const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider, const FSimpleDelegate& OnComplete)
 {
 	check(RegionManager);
@@ -58,10 +63,16 @@ bool FQosInterface::AllRegionsFound() const
 	return RegionManager->AllRegionsFound();
 }
 
-const TArray<FQosRegionInfo>& FQosInterface::GetRegionOptions() const
+const TArray<FRegionQosInstance>& FQosInterface::GetRegionOptions() const
 {
 	check(RegionManager);
 	return RegionManager->GetRegionOptions();
+}
+
+void FQosInterface::GetSubregionPreferences(const FString& RegionId, TArray<FString>& OutSubregions) const
+{
+	check(RegionManager);
+	return RegionManager->GetSubregionPreferences(RegionId, OutSubregions);
 }
 
 void FQosInterface::ForceSelectRegion(const FString& InRegionId)

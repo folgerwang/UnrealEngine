@@ -132,7 +132,7 @@ inline bool SteamKeyToSessionSetting(const TCHAR* SteamKey, const ANSICHAR* Stea
 	
 	if (!bSuccess)
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Unknown or unsupported data type from Steam key data %s %s"), SteamKey, ANSI_TO_TCHAR(SteamValue));
+		UE_LOG_ONLINE_SESSION(Warning, TEXT("Unknown or unsupported data type from Steam key data %s %s"), SteamKey, ANSI_TO_TCHAR(SteamValue));
 	}
 
 	return bSuccess;

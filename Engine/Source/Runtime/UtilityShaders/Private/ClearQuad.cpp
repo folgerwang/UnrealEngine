@@ -13,7 +13,7 @@ TGlobalResource<FClearVertexBuffer> GClearVertexBuffer;
 
 DEFINE_LOG_CATEGORY_STATIC(LogClearQuad, Log, Log)
 
-static void ClearQuadSetup( FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil )
+static void ClearQuadSetup( FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, TFunction<void(FGraphicsPipelineStateInitializer&)> PSOModifier = nullptr)
 {
 	if (UNLIKELY(!FApp::CanEverRender()))
 	{
@@ -108,6 +108,11 @@ static void ClearQuadSetup( FRHICommandList& RHICmdList, bool bClearColor, int32
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
 	GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
+
+	if (PSOModifier)
+	{
+		PSOModifier(GraphicsPSOInit);
+	}
 
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 	RHICmdList.SetStencilRef(Stencil);
@@ -261,6 +266,25 @@ void DrawClearQuadMRT(FRHICommandList& RHICmdList, bool bClearColor, int32 NumCl
 
 	RHICmdList.SetStreamSource(0, GClearVertexBuffer.VertexBufferRHI, 0);
 	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+}
+
+void DrawClearQuadMRT(FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FClearQuadCallbacks ClearQuadCallbacks)
+{
+	ClearQuadSetup(RHICmdList, bClearColor, NumClearColors, ClearColorArray, bClearDepth, Depth, bClearStencil, Stencil, ClearQuadCallbacks.PSOModifier);
+
+	if (ClearQuadCallbacks.PreClear)
+	{
+		ClearQuadCallbacks.PreClear(RHICmdList);
+	}
+
+	// Draw a fullscreen quad without a hole
+	RHICmdList.SetStreamSource(0, GClearVertexBuffer.VertexBufferRHI, 0);
+	RHICmdList.DrawPrimitive(PT_TriangleStrip, 0, 2, 1);
+
+	if (ClearQuadCallbacks.PostClear)
+	{
+		ClearQuadCallbacks.PostClear(RHICmdList);
+	}
 }
 
 void DrawClearQuadMRT(FRHICommandList& RHICmdList, bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntPoint ViewSize, FIntRect ExcludeRect)

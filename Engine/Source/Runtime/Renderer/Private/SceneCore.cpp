@@ -354,11 +354,11 @@ void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* S
 
 	if (Scene->GetShadingPath() == EShadingPath::Deferred)
 	{
-		extern void GetEarlyZPassMode(ERHIFeatureLevel::Type FeatureLevel, EDepthDrawingMode& EarlyZPassMode, bool& bEarlyZPassMovable);
+		extern void GetEarlyZPassMode(EShaderPlatform ShaderPlatform, EDepthDrawingMode& EarlyZPassMode, bool& bEarlyZPassMovable);
 
 		EDepthDrawingMode EarlyZPassMode;
 		bool bEarlyZPassMovable;
-		GetEarlyZPassMode(Scene->GetFeatureLevel(), EarlyZPassMode, bEarlyZPassMovable);
+		GetEarlyZPassMode(Scene->GetShaderPlatform(), EarlyZPassMode, bEarlyZPassMovable);
 
 		if (bUseAsOccluder || EarlyZPassMode == DDM_AllOpaque)
 		{

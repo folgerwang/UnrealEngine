@@ -214,8 +214,11 @@ static UObject* GetAssetRevisionObject(TSharedPtr<FHistoryTreeItem> HistoryTreeI
 		}
 		else // if we want the current working version of this asset
 		{
-			FString AssetPackageName = FPackageName::FilenameToLongPackageName(FileListItem->FileName);
-			AssetPackage = FindObject<UPackage>(NULL, *AssetPackageName);
+			FString AssetPackageName;
+			if (FPackageName::TryConvertFilenameToLongPackageName(FileListItem->FileName, /*out*/ AssetPackageName))
+			{
+				AssetPackage = FindObject<UPackage>(NULL, *AssetPackageName);
+			}
 		}
 
 		// grab the asset from the package - we assume asset name matches file name
@@ -1225,8 +1228,11 @@ private:
 				check(SelectedItem->FileListItem.IsValid());
 
 				FString const AssetName = SelectedAsset->GetName();
-				FString const PackageName = FPackageName::FilenameToLongPackageName(SelectedItem->FileListItem->FileName);
-				AssetToolsModule.Get().DiffAgainstDepot(SelectedAsset, PackageName, AssetName);
+				FString PackageName;
+				if (FPackageName::TryConvertFilenameToLongPackageName(SelectedItem->FileListItem->FileName, /*out*/ PackageName))
+				{
+					AssetToolsModule.Get().DiffAgainstDepot(SelectedAsset, PackageName, AssetName);
+				}
 			}
 		}
 	}

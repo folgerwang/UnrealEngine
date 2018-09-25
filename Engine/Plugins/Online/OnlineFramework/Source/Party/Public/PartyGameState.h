@@ -68,7 +68,9 @@ enum class EJoinPartyDenialReason : uint8
 	/** Player has crossplay restriction that would be violated */
 	JoinerCrossplayRestricted,
 	/** Party member has crossplay restriction that would be violated */
-	MemberCrossplayRestricted
+	MemberCrossplayRestricted,
+	/** Player is currently banned */
+	Banned
 };
 
 enum class EApprovalAction : uint8
@@ -806,6 +808,22 @@ inline const TCHAR* ToString(EJoinPartyDenialReason Type)
 	case EJoinPartyDenialReason::NeedsTutorial:
 	{
 		return TEXT("NeedsTutorial");
+	}
+	case EJoinPartyDenialReason::GameModeRestricted:
+	{
+		return TEXT("GameModeRestricted");
+	}
+	case EJoinPartyDenialReason::JoinerCrossplayRestricted:
+	{
+		return TEXT("JoinerCrossplayRestricted");
+	}
+	case EJoinPartyDenialReason::MemberCrossplayRestricted:
+	{
+		return TEXT("MemberCrossplayRestricted");
+	}
+	case EJoinPartyDenialReason::Banned:
+	{
+		return TEXT("Banned");
 	}
 	default:
 	{

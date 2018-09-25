@@ -13,12 +13,16 @@ bool bIsInstancedStereoEmulated;
 #endif
 
 #define IOSZBIASWORKAROUND (IOS && (ES2_PROFILE || ES3_1_PROFILE))
+#define USE_RAW_WORLD_POSITION ((!MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET) && USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS)
 
 struct FDepthOnlyVSToPS
 {
 	#if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 		FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
 		float4 PixelPosition : TEXCOORD6;
+	#endif
+	#if USE_RAW_WORLD_POSITION
+		float3 PixelPositionExcludingWPO : TEXCOORD7;
 	#endif
 
 	float4 Position : SV_POSITION;
@@ -29,6 +33,9 @@ struct FDepthOnlyVSToPS
 	{
 		FVertexFactoryInterpolantsVSToDS FactoryInterpolants;
 		float4 Position : VS_To_DS_Position;
+		#if USE_RAW_WORLD_POSITION
+			float3 PixelPositionExcludingWPO : TEXCOORD7;
+		#endif
 		OPTIONAL_VertexID_VS_To_DS
 	};
 	
@@ -49,6 +56,10 @@ struct FDepthOnlyVSToPS
 		
 		O.FactoryInterpolants = VertexFactoryInterpolate(a.FactoryInterpolants, aInterp, b.FactoryInterpolants, bInterp);
 
+		#if USE_RAW_WORLD_POSITION
+			TESSELLATION_INTERPOLATE_MEMBER(PixelPositionExcludingWPO);
+		#endif
+
 		return O;
 	}
 
@@ -68,6 +79,10 @@ struct FDepthOnlyVSToPS
 			
 		#if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 			O.PixelPosition = WorldPosition;
+		#endif
+
+		#if USE_RAW_WORLD_POSITION
+			O.PixelPositionExcludingWPO = Interpolants.PixelPositionExcludingWPO;
 		#endif
 		
 		return O;
@@ -119,6 +134,7 @@ void Main(
 
 	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
 	float4 WorldPos = VertexFactoryGetWorldPosition(Input, VFIntermediates);
+	float4 WorldPositionExcludingWPO = WorldPos;
 
 	float3x3 TangentToLocal = VertexFactoryGetTangentToLocal(Input, VFIntermediates);
 	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, WorldPos.xyz, TangentToLocal);
@@ -197,7 +213,10 @@ void Main(
 	#if !USING_TESSELLATION	
 		Output.PixelPosition = WorldPos;
 	#endif
+#endif
 
+#if USE_RAW_WORLD_POSITION
+	Output.PixelPositionExcludingWPO = WorldPositionExcludingWPO.xyz;
 #endif
 
 	OutputVertexID( Output );

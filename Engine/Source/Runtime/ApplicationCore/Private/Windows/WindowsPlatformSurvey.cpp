@@ -141,8 +141,14 @@ void FWindowsPlatformSurvey::BeginSurveyHardware()
 	FPaths::MakePlatformFilename(DxDiagFilepath);
 	FPaths::MakePlatformFilename(OutputFilepath);
 
+	// Optional arguments for more consistent operation
+	// /whql:off	- Do not allow dxdiag to check for WHQL digital signatures
+	// /dontskip	- Don't bypass any diagnostics due to previous crashes in DxDiag
+	// /64bit		- Launch 64-bit dxdiag
+	FString OptionalArgs = TEXT("/dontskip /whql:off");
+
 	// Run dxdiag as a external process, outputting to a text file
-	FString ProcessArgs = FString::Printf(TEXT("/t %s"), *OutputFilepath);
+	FString ProcessArgs = FString::Printf(TEXT("%s /t %s"), *OptionalArgs, *OutputFilepath);
 	if (!FPlatformProcess::CreateProc(*DxDiagFilepath, *ProcessArgs, true, false, false, NULL, 0, NULL, NULL ).IsValid())
 	{
 		UE_LOG(LogWindows, Error, TEXT("FWindowsPlatformSurvey::BeginSurveyHardware() couldn't start up the dxdiag process"));
