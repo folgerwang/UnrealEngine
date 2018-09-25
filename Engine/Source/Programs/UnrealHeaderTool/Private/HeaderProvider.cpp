@@ -13,22 +13,6 @@ FHeaderProvider::FHeaderProvider(EHeaderProviderSourceType InType, FString&& InI
 
 }
 
-template <class Predicate>
-bool TryFindSourceFileWithPredicate(FUnrealSourceFile*& Out, Predicate Pred)
-{
-	for (const TPair<FString, TSharedRef<FUnrealSourceFile>>& MapPair : GUnrealSourceFilesMap)
-	{
-		if (Pred(MapPair.Value.Get()))
-		{
-			Out = &(MapPair.Value.Get());
-			return true;
-		}
-	}
-
-	return false;
-}
-
-
 FUnrealSourceFile* FHeaderProvider::Resolve()
 {
 	if (Type != EHeaderProviderSourceType::Resolved)
@@ -44,29 +28,9 @@ FUnrealSourceFile* FHeaderProvider::Resolve()
 				}
 			}
 		}
-		else
+		else if (const TSharedRef<FUnrealSourceFile>* Source = GUnrealSourceFilesMap.Find(Id))
 		{
-			auto* SourceFileSharedPtr = GUnrealSourceFilesMap.Find(Id);
-
-			if (SourceFileSharedPtr != nullptr)
-			{
-				Cache = &SourceFileSharedPtr->Get();
-			}
-			else
-			{
-				if (!TryFindSourceFileWithPredicate(Cache, [this](const FUnrealSourceFile& SourceFile) { return SourceFile.GetIncludePath() == Id; }))
-				{
-					FString SlashId     = TEXT("/") + Id;
-					FString BackslashId = TEXT("\\") + Id;
-					TryFindSourceFileWithPredicate(
-						Cache,
-						[&SlashId, &BackslashId](const FUnrealSourceFile& SourceFile)
-						{
-							return SourceFile.GetFilename().EndsWith(SlashId) || SourceFile.GetFilename().EndsWith(BackslashId);
-						}
-					);
-				}
-			}
+			Cache = &Source->Get();
 		}
 
 		Type = EHeaderProviderSourceType::Resolved;
