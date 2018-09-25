@@ -40,7 +40,7 @@ namespace Gauntlet.SelfTest
 		{
 			string GameName = this.GameName;
 			string BuildPath = this.BuildPath;
-			string DevKit = this.PS4Name;
+			string DevKit = this.DevkitName;
 
 			if (GameName.Equals("OrionGame", StringComparison.OrdinalIgnoreCase) == false)
 			{
