@@ -36,6 +36,7 @@
 #include "Curves/CurveBase.h"
 #include "Interfaces/ITargetPlatform.h"
 #include "UObject/MetaData.h"
+#include "BlueprintAssetHandler.h"
 #endif
 #include "Engine/InheritableComponentHandler.h"
 
@@ -829,6 +830,21 @@ bool UBlueprint::SupportsNativization(FText* OutReason) const
 			*OutReason = NSLOCTEXT("Blueprint", "LevelScriptNativizationReason", "Level Blueprints cannot be nativized.");
 		}
 		return false;
+	}
+	else if (!GetOuter()->IsA<UPackage>())
+	{
+		// If this blueprint is not an asset itself, check whether the asset supports nativization
+		UObject* Asset = GetOuter();
+		while (Asset && !Asset->GetOuter()->IsA<UPackage>())
+		{
+			Asset = Asset->GetOuter();
+		}
+
+		const IBlueprintAssetHandler* Handler = FBlueprintAssetHandler::Get().FindHandler(Asset->GetClass());
+		if (Handler && !Handler->SupportsNativization(Asset, this, OutReason))
+		{
+			return false;
+		}
 	}
 	return true;
 }
