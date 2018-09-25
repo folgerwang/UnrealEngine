@@ -274,7 +274,7 @@ namespace Gauntlet
 		/// <returns></returns>
 		static private void OutputMessage(string Message, string Prefix="", bool Sanitize=true)
 		{
-			// EC detects the error message in the logs from PS4DevkitUtil as a failure. Need to investigate best way of 
+			// EC detects error statements in the log as a failure. Need to investigate best way of 
 			// reporting errors, but not errors we've handled from tools.
 			// Probably have Log.Error which does not sanitize?
 			if (Sanitize)
@@ -687,24 +687,6 @@ namespace Gauntlet
 			}
 			
 			/// <summary>
-			/// Transforms a path into the unreal PS4 convention of being all lowercase, other
-			/// than two types of Sony files..
-			/// </summary>
-			/// <param name="Path"></param>
-			/// <returns></returns>
-			public static string TransformPathForPS4(string Path)
-			{
-				if (Path.StartsWith("CUSA", StringComparison.OrdinalIgnoreCase)
-					|| Path.IndexOf("sce_", StringComparison.OrdinalIgnoreCase) != -1
-					)
-				{
-					return Path;
-				}
-
-				return Path.ToLower();
-			}
-
-			/// <summary>
 			/// Convenience function that removes some of the more esoteric options
 			/// </summary>
 			/// <param name="SourceDirPath"></param>
@@ -819,7 +801,6 @@ namespace Gauntlet
 						}
 						catch (Exception Ex)
 						{
-							// mostly as there's no current way to kill a PS4 process :/
 							Log.Warning("Failed to delete file {0}. {1}", DestInfo.FullName, Ex);
 						}
 					}
@@ -842,7 +823,7 @@ namespace Gauntlet
 						}
 						catch (Exception Ex)
 						{
-							// handle the case where a file is locked (on PS4 we may not have rebooted yet)
+							// handle the case where a file is locked
 							Log.Info("Failed to delete directory {0}. {1}", SubDir.FullName, Ex);
 						}
 					}
@@ -973,16 +954,6 @@ namespace Gauntlet
 				return false;
 			}
 		}
-
-		public static class ConsoleHelpers
-		{
-			/*public static ProcessResult ExecutePS4DevKitUtilCommand(String CommandLine)
-			{
-				String DevKitUtilPath = Path.Combine(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/PS4/PS4DevKitUtil.exe");
-				return CommandUtils.Run(DevKitUtilPath, CommandLine);
-			}*/
-		}
-
 
 		public class Image
 		{

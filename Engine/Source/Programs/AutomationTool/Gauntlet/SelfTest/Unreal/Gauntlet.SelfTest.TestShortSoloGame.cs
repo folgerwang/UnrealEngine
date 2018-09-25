@@ -40,7 +40,7 @@ namespace Gauntlet.SelfTest
 		{
 			string GameName = this.GameName;
 			string BuildPath = this.BuildPath;
-			string DevKit = this.PS4Name;
+			string DevKit = this.DevkitName;
 
 			if (GameName.Equals("OrionGame", StringComparison.OrdinalIgnoreCase) == false)
 			{
@@ -61,11 +61,11 @@ namespace Gauntlet.SelfTest
 
 			// Create devices to run the client and server
 			ITargetDevice ServerDevice = new TargetDeviceWindows("PC Server", Gauntlet.Globals.TempDir);
-			ITargetDevice ClientDevice;
+			ITargetDevice ClientDevice = null;
 
 			if (Platform == UnrealTargetPlatform.PS4)
 			{
-				ClientDevice = new TargetDevicePS4(this.PS4Name);
+				//ClientDevice = new TargetDevicePS4(this.PS4Name);
 			}
 			else
 			{

@@ -28,9 +28,9 @@ namespace Gauntlet.SelfTest
 		public bool UsesSharedBuildType { get; protected set; }
 
 		/// <summary>
-		/// Name of PS4 devkit to use for tests
+		/// Name of devkit to use for tests
 		/// </summary>
-		public string PS4Name { get; protected set; }
+		public string DevkitName { get; protected set; }
 
 		/// <summary>
 		/// Path of the build to test against
@@ -56,7 +56,7 @@ namespace Gauntlet.SelfTest
 		{
 			GameName = "Fortnite";
 			UsesSharedBuildType = false;
-			PS4Name = "Default";
+			DevkitName = "Default";
 
 			//BuildPath = FindValidBuild(GameName);
 
