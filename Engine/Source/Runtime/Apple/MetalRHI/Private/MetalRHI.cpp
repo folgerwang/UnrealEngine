@@ -824,7 +824,10 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	ImmediateContext.Profiler = nullptr;
 #if ENABLE_METAL_GPUPROFILE
 	ImmediateContext.Profiler = FMetalProfiler::CreateProfiler(ImmediateContext.Context);
+	if (ImmediateContext.Profiler)
+		ImmediateContext.Profiler->BeginFrame();
 #endif
+		
 		
 	// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 	for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
@@ -838,6 +841,11 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	}
 	
 	AsyncComputeContext = GSupportsEfficientAsyncCompute ? new FMetalRHIComputeContext(ImmediateContext.Profiler, new FMetalContext(ImmediateContext.Context->GetDevice(), ImmediateContext.Context->GetCommandQueue(), true)) : nullptr;
+
+#if ENABLE_METAL_GPUPROFILE
+		if (ImmediateContext.Profiler)
+			ImmediateContext.Profiler->EndFrame();
+#endif
 	}
 }
 

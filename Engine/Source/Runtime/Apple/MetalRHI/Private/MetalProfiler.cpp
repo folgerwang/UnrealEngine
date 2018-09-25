@@ -197,7 +197,7 @@ mtlpp::CommandBufferHandler FMetalEventNode::Stop(void)
 
 bool MetalGPUProfilerIsInSafeThread()
 {
-	return IsInRHIThread() || IsInActualRenderingThread();
+	return (GIsMetalInitialized && !GIsRHIInitialized) || (IsInRHIThread() || IsInActualRenderingThread());
 }
 	
 /** Start this frame of per tracking */
