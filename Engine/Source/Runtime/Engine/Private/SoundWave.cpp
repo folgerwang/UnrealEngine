@@ -639,9 +639,6 @@ void USoundWave::BeginDestroy()
 	// the audio render thread stops the sound before GC hits.
 	bIsBeginDestroy = true;
 	
-	// Arbitrary count to wait before forcing IsFinishDestroy to return true. Temporary fallback to hunt a deadlock.
-	GCTimeOutCount = 10;
-
 #if WITH_EDITOR
 	// Flush any async results so we dont leak them in the DDC
 	if (GetDerivedDataCache() && AsyncLoadingDataFormats.Num() > 0)
@@ -859,22 +856,6 @@ FWaveInstance* USoundWave::HandleStart( FActiveSound& ActiveSound, const UPTRINT
 	return WaveInstance;
 }
 
-int32 USoundWave::GetNumSoundsActive()
-{
-	return NumSoundsActive.GetValue();
-}
-
-void USoundWave::IncrementNumSounds()
-{
-	NumSoundsActive.Increment();
-}
-
-void USoundWave::DecrementNumSounds()
-{
-	int32 NewValue = NumSoundsActive.Decrement();
-	check(NewValue >= 0);
-}
-
 bool USoundWave::IsReadyForFinishDestroy()
 {
 	const bool bIsStreamingInProgress = IStreamingManager::Get().GetAudioStreamingManager().IsStreamingInProgress(this);
@@ -894,23 +875,7 @@ bool USoundWave::IsReadyForFinishDestroy()
 			}, GET_STATID(STAT_AudioFreeResources));
 		}
 	
-	bool AllowFinishDestroy = (ResourceState == ESoundWaveResourceState::Freed);
-
-	if (AllowFinishDestroy)
-	{
-		AllowFinishDestroy = (NumSoundsActive.GetValue() == 0);
-		if (!AllowFinishDestroy && --GCTimeOutCount <= 0)
-		{
-			AllowFinishDestroy = true;
-
-			if (AllowFinishDestroy && NumSoundsActive.GetValue() > 0)
-			{
-				UE_LOG(LogAudio, Warning, TEXT("Sound wave '%s' destroyed while num sounds active was '%d'."), *GetName(), NumSoundsActive.GetValue());
-			}
-		}
-	}
-
-	return AllowFinishDestroy;
+	return !bGenerating && ResourceState == ESoundWaveResourceState::Freed;
 }
 
 

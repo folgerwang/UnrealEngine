@@ -105,9 +105,11 @@ namespace Audio
 	bool FMixerSourceBuffer::Init()
 	{
 		check(SoundWave);
-
-		// We flag that this sound wave is active for the lifetime of this object since we use it for decoding, etc.
-		SoundWave->IncrementNumSounds();
+		if (SoundWave->bProcedural && SoundWave->IsGenerating())
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("Procedural sound wave is reinitializing even though it is currently actively generating audio. Please stop sound before trying to play it again."));
+			return false;
+		}
 
 		// We have successfully initialized which means our SoundWave has been flagged as bIsActive
 		// GC can run between PreInit and Init so when cleaning up FMixerSourceBuffer, we don't want to touch SoundWave unless bInitailized is true.
@@ -399,9 +401,9 @@ namespace Audio
 		{
 			if (SoundWave->bProcedural)
 			{
+				SoundWave->SetGenerating(true);
 				SoundWave->OnBeginGenerate();
 			}
-
 		}
 	}
 
@@ -416,9 +418,9 @@ namespace Audio
 			if (SoundWave->bProcedural)
 			{
 				SoundWave->OnEndGenerate();
+				SoundWave->SetGenerating(false);
 			}
 
-			SoundWave->DecrementNumSounds();
 			SoundWave = nullptr;
 			bInitialized = false;
 		}
@@ -430,7 +432,6 @@ namespace Audio
 			{
 				delete MixerBuffer;
 			}
-
 			MixerBuffer = nullptr;
 		}
 	}

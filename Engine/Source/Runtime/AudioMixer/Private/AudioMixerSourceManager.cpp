@@ -2137,6 +2137,16 @@ namespace Audio
 		RenderThreadCommandBufferIndex.Set(!CurrentRenderThreadIndex);
 	}
 
+	void FMixerSourceManager::FlushCommandQueue()
+	{
+		bPumpQueue = true;
+		while (bPumpQueue)
+		{
+			FPlatformProcess::Sleep(0);
+		}
+		bPumpQueue = true;
+	}
+
 	void FMixerSourceManager::UpdatePendingReleaseData(bool bForceWait)
 	{
 		// Check for any pending delete procedural sound waves
