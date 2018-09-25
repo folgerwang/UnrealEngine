@@ -56,7 +56,7 @@ namespace ns
 	};
 	
 	template<typename T, CallingConvention C = CallingConvention::C>
-	class Object
+	class MTLPP_EXPORT Object
     {
     public:
 		typedef T Type;
@@ -136,7 +136,7 @@ namespace ns
 	 * So we need a variant of the class that doesn't retain on copy/assign but that can be assigned from to our normal 'retained' class.
 	 */
 	template<typename T>
-	class AutoReleased : public T
+	class MTLPP_EXPORT AutoReleased : public T
 	{
 	public:
 		AutoReleased() : T(ns::Ownership::AutoRelease) {}
@@ -170,7 +170,7 @@ namespace ns
 #endif
 	};
 
-    struct Range
+    struct MTLPP_EXPORT Range
     {
 		inline Range() :
 		Location(0),
@@ -186,7 +186,7 @@ namespace ns
         NSUInteger Length;
     };
 
-	class ArrayBase
+	class MTLPP_EXPORT ArrayBase
     {
     public:
         static NSUInteger GetSize(NSArray<id<NSObject>>* const handle);
@@ -194,7 +194,7 @@ namespace ns
     };
 
     template<typename T>
-    class Array : public Object<NSArray<typename T::Type>*, CallingConvention::ObjectiveC>
+    class MTLPP_EXPORT Array : public Object<NSArray<typename T::Type>*, CallingConvention::ObjectiveC>
     {
     public:
 		Array(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSArray<typename T::Type>*, CallingConvention::ObjectiveC>(retain) { }
@@ -257,25 +257,25 @@ namespace ns
 		}
     };
 
-    class DictionaryBase : public Object<NSDictionary<id<NSObject>, id<NSObject>>*>
-    {
-    public:
-		DictionaryBase(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSDictionary<id<NSObject>, id<NSObject>>*>(retain) { }
-        DictionaryBase(NSDictionary<id<NSObject>, id<NSObject>>* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSDictionary<id<NSObject>, id<NSObject>>*>(handle, retain) { }
-
-    protected:
-
-    };
+//    class MTLPP_EXPORT DictionaryBase : public Object<NSDictionary<id<NSObject>, id<NSObject>>*>
+//    {
+//    public:
+//		DictionaryBase(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSDictionary<id<NSObject>, id<NSObject>>*>(retain) { }
+//        DictionaryBase(NSDictionary<id<NSObject>, id<NSObject>>* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSDictionary<id<NSObject>, id<NSObject>>*>(handle, retain) { }
+//
+//    protected:
+//
+//    };
 
     template<typename KeyT, typename ValueT>
-    class Dictionary : public DictionaryBase
+    class MTLPP_EXPORT Dictionary : public Object<NSDictionary*>/*: public DictionaryBase*/
     {
     public:
-        Dictionary(ns::Ownership const retain = ns::Ownership::Retain) : DictionaryBase(retain) { }
-        Dictionary(NSDictionary<typename KeyT::Type, typename ValueT::Type>* const handle) : DictionaryBase(handle) { }
+        Dictionary(ns::Ownership const retain = ns::Ownership::Retain) /*: DictionaryBase(retain) */{ }
+        Dictionary(NSDictionary<typename KeyT::Type, typename ValueT::Type>* const handle) /*: DictionaryBase(handle) */ { }
     };
 
-    class String : public Object<NSString*, CallingConvention::ObjectiveC>
+    class MTLPP_EXPORT String : public Object<NSString*, CallingConvention::ObjectiveC>
     {
     public:
 		String(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSString*, CallingConvention::ObjectiveC>(retain) { }
@@ -286,17 +286,17 @@ namespace ns
         NSUInteger    GetLength() const;
     };
 	
-	class URL : public Object<NSURL*>
+	class MTLPP_EXPORT URL : public Object<NSURL*>
 	{
 	public:
 		URL(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSURL*>(retain) { }
 		URL(NSURL* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSURL*>(handle, retain) { }
 	};
 
-	class Error : public Object<NSError*>
+	class MTLPP_EXPORT Error : public Object<NSError*>
 	{
 	public:
-		Error(ns::Ownership const retain = ns::Ownership::Retain);
+		Error(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSError*>(retain) {}
 		Error(NSError* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSError*>(handle, retain) { }
 		
 		AutoReleased<String>   GetDomain() const;
@@ -311,21 +311,21 @@ namespace ns
 	};
 	typedef AutoReleased<Error> AutoReleasedError;
 	
-	class IOSurface : public Object<IOSurfaceRef>
+	class MTLPP_EXPORT IOSurface : public Object<IOSurfaceRef>
 	{
 	public:
 		IOSurface(ns::Ownership const retain = ns::Ownership::Retain) : Object<IOSurfaceRef>(retain) {}
 		IOSurface(IOSurfaceRef const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<IOSurfaceRef>(handle, retain) { }
 	};
 	
-	class Bundle : public Object<NSBundle*>
+	class MTLPP_EXPORT Bundle : public Object<NSBundle*>
 	{
 	public:
 		Bundle(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSBundle*>(retain) {}
 		Bundle(NSBundle* const handle, ns::Ownership const retain = ns::Ownership::Retain) : Object<NSBundle*>(handle, retain) { }
 	};
 	
-	class Condition : public Object<NSCondition*, CallingConvention::ObjectiveC>
+	class MTLPP_EXPORT Condition : public Object<NSCondition*, CallingConvention::ObjectiveC>
 	{
 	public:
 		Condition(ns::Ownership const retain = ns::Ownership::Retain) : Object<NSCondition*, CallingConvention::ObjectiveC>(retain) {}

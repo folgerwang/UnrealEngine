@@ -59,6 +59,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/MessageDialog.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Misc/HotReloadInterface.h"
 
 
 #define LOCTEXT_NAMESPACE "AssetManagerEditor"
@@ -351,6 +352,8 @@ private:
 	FDelegateHandle ReferenceViewerDelegateHandle;
 	FDelegateHandle AssetEditorExtenderDelegateHandle;
 	FDelegateHandle LevelEditorExtenderDelegateHandle;
+	FDelegateHandle HotReloadDelegateHandle;
+	FDelegateHandle MarkPackageDirtyDelegateHandle;
 
 	TWeakPtr<SDockTab> AssetAuditTab;
 	TWeakPtr<SDockTab> ReferenceViewerTab;
@@ -374,6 +377,8 @@ private:
 	TSharedRef<FExtender> OnExtendContentBrowserPathSelectionMenu(const TArray<FString>& SelectedPaths);
 	TSharedRef<FExtender> OnExtendAssetEditor(const TSharedRef<FUICommandList> CommandList, const TArray<UObject*> ContextSensitiveObjects);
 	TSharedRef<FExtender> OnExtendLevelEditor(const TSharedRef<FUICommandList> CommandList, const TArray<AActor*> SelectedActors);
+	void OnHotReload(bool bWasTriggeredAutomatically);
+	void OnMarkPackageDirty(UPackage* Pkg, bool bWasDirty);
 
 	TSharedRef<SDockTab> SpawnAssetAuditTab(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnReferenceViewerTab(const FSpawnTabArgs& Args);
@@ -491,6 +496,12 @@ void FAssetManagerEditorModule::StartupModule()
 		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(SizeMapTabName, FOnSpawnTab::CreateRaw(this, &FAssetManagerEditorModule::SpawnSizeMapTab))
 			.SetDisplayName(LOCTEXT("SizeMapTitle", "Size Map"))
 			.SetMenuType(ETabSpawnerMenuType::Hidden);
+
+		// Register for hot reload and package dirty to invalidate data
+		IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
+		HotReloadDelegateHandle = HotReloadSupport.OnHotReload().AddRaw(this, &FAssetManagerEditorModule::OnHotReload);
+
+		MarkPackageDirtyDelegateHandle = UPackage::PackageMarkedDirtyEvent.AddRaw(this, &FAssetManagerEditorModule::OnMarkPackageDirty);
 	}
 }
 
@@ -569,6 +580,14 @@ void FAssetManagerEditorModule::ShutdownModule()
 		{
 			SizeMapTab.Pin()->RequestCloseTab();
 		}
+
+		if (FModuleManager::Get().IsModuleLoaded("HotReload"))
+		{
+			IHotReloadInterface& HotReloadSupport = FModuleManager::GetModuleChecked<IHotReloadInterface>("HotReload");
+			HotReloadSupport.OnHotReload().Remove(HotReloadDelegateHandle);
+		}
+
+		UPackage::PackageMarkedDirtyEvent.Remove(MarkPackageDirtyDelegateHandle);
 	}
 }
 
@@ -868,6 +887,33 @@ TSharedRef<FExtender> FAssetManagerEditorModule::OnExtendLevelEditor(const TShar
 	}
 
 	return Extender;
+}
+
+void FAssetManagerEditorModule::OnHotReload(bool bWasTriggeredAutomatically)
+{
+	UAssetManager* AssetManager = UAssetManager::GetIfValid();
+
+	if (AssetManager)
+	{
+		// Invalidate on a hot reload
+		AssetManager->InvalidatePrimaryAssetDirectory();
+	}
+}
+
+void FAssetManagerEditorModule::OnMarkPackageDirty(UPackage* Pkg, bool bWasDirty)
+{
+	UAssetManager* AssetManager = UAssetManager::GetIfValid();
+
+	if (AssetManager)
+	{
+		// Check if this package is managed, if so invalidate
+		FPrimaryAssetId AssetId = AssetManager->GetPrimaryAssetIdForPackage(Pkg->GetFName());
+
+		if (AssetId.IsValid())
+		{
+			AssetManager->InvalidatePrimaryAssetDirectory();
+		}
+	}
 }
 
 bool FAssetManagerEditorModule::GetManagedPackageListForAssetData(const FAssetData& AssetData, TSet<FName>& ManagedPackageSet)

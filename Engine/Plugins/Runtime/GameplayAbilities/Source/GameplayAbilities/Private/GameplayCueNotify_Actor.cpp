@@ -8,6 +8,14 @@
 #include "AbilitySystemGlobals.h"
 #include "GameplayCueManager.h"
 
+
+namespace FAbilitySystemTweaks
+{
+	int ClearCueNotifyTimers = 1;
+	FAutoConsoleVariableRef CVarClearCueNotifyTimers(TEXT("AbilitySystem.ClearCueNotifyTimers"), FAbilitySystemTweaks::ClearCueNotifyTimers, TEXT("Whether to call ClearAllTimersForObject when cue is getting recycled"), ECVF_Default);
+}
+
+
 AGameplayCueNotify_Actor::AGameplayCueNotify_Actor(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -337,8 +345,11 @@ bool AGameplayCueNotify_Actor::Recycle()
 		// End latent actions
 		MyWorld->GetLatentActionManager().RemoveActionsForObject(this);
 
-		// End all timers
-		MyWorld->GetTimerManager().ClearAllTimersForObject(this);
+		if (FAbilitySystemTweaks::ClearCueNotifyTimers)
+		{
+			// End all timers
+			MyWorld->GetTimerManager().ClearAllTimersForObject(this);
+		}
 	}
 
 	// Clear owner, hide, detach from parent

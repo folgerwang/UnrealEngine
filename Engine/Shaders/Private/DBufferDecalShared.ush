@@ -134,3 +134,10 @@ void ApplyDBufferData(
 
 	BaseColor = BaseColor * DBufferData.ColorOpacity + DBufferData.PreMulColor;
 }
+
+uint GetDBufferMask(in float2 ScreenPosition, in Texture2D<uint> DBufferMaskTexture)
+{
+	int2 PixelPos = int2(ScreenPosition.xy);
+	uint Mask = DBufferMaskTexture.Load( int3(PixelPos, 0) );
+	return Mask > 0 ? 0x07 : 0x00;
+}

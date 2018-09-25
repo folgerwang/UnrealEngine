@@ -9,10 +9,6 @@
 #include "OnlineSharingFacebookRest.h"
 #include "OnlineExternalUIInterfaceFacebookRest.h"
 
-FOnlineSubsystemFacebook::FOnlineSubsystemFacebook()
-{
-}
-
 FOnlineSubsystemFacebook::FOnlineSubsystemFacebook(FName InInstanceName)
 	: FOnlineSubsystemFacebookCommon(InInstanceName)
 {
@@ -38,7 +34,7 @@ bool FOnlineSubsystemFacebook::Init()
 
 bool FOnlineSubsystemFacebook::Shutdown()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemFacebook::Shutdown()"));
+	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemFacebook::Shutdown()"));
 	return FOnlineSubsystemFacebookCommon::Shutdown();
 }
 

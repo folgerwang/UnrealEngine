@@ -3425,6 +3425,7 @@ void FOpenGLDynamicRHI::RHIBlockUntilGPUIdle()
 void FOpenGLDynamicRHI::RHISubmitCommandsAndFlushGPU()
 {
 	FOpenGL::Flush();
+	RHIPollOcclusionQueries();
 }
 
 /**
@@ -3570,6 +3571,7 @@ void FOpenGLDynamicRHI::RHISetDepthBounds(float MinDepth, float MaxDepth)
 
 void FOpenGLDynamicRHI::RHISubmitCommandsHint()
 {
+	FOpenGL::Flush();
 }
 
 IRHICommandContext* FOpenGLDynamicRHI::RHIGetDefaultContext()

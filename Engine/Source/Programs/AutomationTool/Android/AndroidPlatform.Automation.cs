@@ -14,8 +14,9 @@ using Tools.DotNETCommon;
 
 public class AndroidPlatform : Platform
 {
-	// Maximum allowed OBB size (2 GiB)
-	private const Int64 MaxOBBSizeAllowed = 2147483648;
+	// Maximum allowed OBB size (2 GiB or 4 GiB based on project setting)
+	private const Int64 NormalOBBSizeAllowed = 2147483648;
+	private const Int64 MaxOBBSizeAllowed = 4294967296;
 
 	private const int DeployMaxParallelCommands = 6;
 
@@ -99,35 +100,15 @@ public class AndroidPlatform : Platform
 		return EngineMajorVersion + "." + EngineMinorVersion + "." + EnginePatchVersion;
 	}
 
-	private static int GetStoreVersion(DeploymentContext SC)
+	private static string GetFinalSymbolizedSODirectory(string ApkName, DeploymentContext SC, string Architecture, string GPUArchitecture)
 	{
-		ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(SC.RawProjectPath), SC.StageTargetPlatform.PlatformType);
-		int StoreVersion = 1;
-		Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "StoreVersion", out StoreVersion);
-
-		bool bUseChangeListAsStoreVersion = false;
-		Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bUseChangeListAsStoreVersion", out bUseChangeListAsStoreVersion);
-
-		// override store version with changelist if enabled and is build machine
-		if (bUseChangeListAsStoreVersion && Environment.GetEnvironmentVariable("IsBuildMachine") == "1")
+		string PackageVersion = GetPackageInfo(ApkName, true);
+		if (PackageVersion == null || PackageVersion.Length == 0)
 		{
-			int Changelist = 0;
-			ReadEngineVersion(SC.EngineRoot.FullName);
-			if (int.TryParse(EngineChangelist, out Changelist))
-			{
-				if (Changelist != 0)
-				{
-					StoreVersion = Changelist;
-				}
-			}
+			throw new AutomationException(ExitCode.Error_FailureGettingPackageInfo, "Failed to get package version from " + ApkName);
 		}
 
-		return StoreVersion;
-	}
-
-	private static string GetFinalSymbolizedSODirectory(DeploymentContext SC, string Architecture, string GPUArchitecture)
-	{
-		return SC.ShortProjectName + "_Symbols_v" + GetStoreVersion(SC) + "/" + SC.ShortProjectName + Architecture + GPUArchitecture;
+		return SC.ShortProjectName + "_Symbols_v" + PackageVersion + "/" + SC.ShortProjectName + Architecture + GPUArchitecture;
 	}
 
 	private static string GetFinalObbName(string ApkName, bool bUseAppType = true)
@@ -258,6 +239,7 @@ public class AndroidPlatform : Platform
 		}
 		return PluginExtras;
 	}
+
 	private bool BuildWithHiddenSymbolVisibility(DeploymentContext SC)
 	{
 		UnrealTargetConfiguration TargetConfiguration = SC.StageTargetConfigurations[0];
@@ -265,11 +247,20 @@ public class AndroidPlatform : Platform
 		bool bBuild = false;
 		return TargetConfiguration == UnrealTargetConfiguration.Shipping && (Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bBuildWithHiddenSymbolVisibility", out bBuild) && bBuild);
 	}
+
 	private bool GetSaveSymbols(DeploymentContext SC)
 	{
 		ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(SC.RawProjectPath), SC.StageTargetPlatform.PlatformType);
 		bool bSave = false;
 		return (Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bSaveSymbols", out bSave) && bSave);
+	}
+
+	private Int64 GetMaxOBBSizeAllowed(DeploymentContext SC)
+	{
+		ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(SC.RawProjectPath), SC.StageTargetPlatform.PlatformType);
+		bool bAllowLargeOBBFiles = false;
+		Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bAllowLargeOBBFiles", out bAllowLargeOBBFiles);
+		return bAllowLargeOBBFiles ? MaxOBBSizeAllowed : NormalOBBSizeAllowed;
 	}
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
@@ -360,13 +351,15 @@ public class AndroidPlatform : Platform
 			}
 		}
 
-		// make sure the OBB is <= 2GiB
+		// make sure the OBB is <= 2GiB (or 4GiB if large OBB enabled)
 		FileInfo OBBFileInfo = new FileInfo(LocalObbName);
+		Int64 OBBSizeAllowed = GetMaxOBBSizeAllowed(SC);
 		Int64 ObbFileLength = OBBFileInfo.Length;
-		if (ObbFileLength > MaxOBBSizeAllowed)
+		if (ObbFileLength > OBBSizeAllowed)
 		{
-			LogInformation("OBB exceeds 2 GiB limit: " + ObbFileLength + " bytes");
-			throw new AutomationException(ExitCode.Error_AndroidOBBError, "Stage Failed. OBB {0} exceeds 2 GiB limit)", LocalObbName);
+			string LimitString = (OBBSizeAllowed < MaxOBBSizeAllowed) ? "2 GiB" : "4 GiB";
+			LogInformation("OBB exceeds " + LimitString + " limit: " + ObbFileLength + " bytes");
+			throw new AutomationException(ExitCode.Error_AndroidOBBError, "Stage Failed. OBB {0} exceeds {1} limit)", LocalObbName, LimitString);
 		}
 
 		// collect plugin extra data paths from target receipts
@@ -437,7 +430,7 @@ public class AndroidPlatform : Platform
 					string SymbolizeBatchName = GetFinalBatchName(ApkName, SC, Architecture, GPUArchitecture, false, EBatchType.Symbolize, Target);
 					if(bBuildWithHiddenSymbolVisibility || bSaveSymbols)
 					{
-						BatchLines = GenerateSymbolizeBatchFile(Params, PackageName, SC, Architecture, GPUArchitecture, bIsPC);
+						BatchLines = GenerateSymbolizeBatchFile(Params, PackageName, ApkName, SC, Architecture, GPUArchitecture, bIsPC);
 						File.WriteAllLines(SymbolizeBatchName, BatchLines);
 					}
 
@@ -655,7 +648,7 @@ public class AndroidPlatform : Platform
 		return BatchLines;
 	}
 
-	private string[] GenerateSymbolizeBatchFile(ProjectParams Params, string PackageName, DeploymentContext SC, string Architecture, string GPUArchitecture, bool bIsPC)
+	private string[] GenerateSymbolizeBatchFile(ProjectParams Params, string PackageName, string ApkName, DeploymentContext SC, string Architecture, string GPUArchitecture, bool bIsPC)
 	{
 		string[] BatchLines = null;
 
@@ -671,7 +664,7 @@ public class AndroidPlatform : Platform
 				"cd \"`dirname \"$0\"`\"",
 				"NDKSTACK=",
 				"if [ \"$ANDROID_NDK_ROOT\" != \"\" ]; then NDKSTACK=$%ANDROID_NDK_ROOT/ndk-stack; else ADB=" + Environment.GetEnvironmentVariable("ANDROID_NDK_ROOT") + "/ndk-stack; fi",
-				"$NDKSTACK -sym " + GetFinalSymbolizedSODirectory(SC, Architecture, GPUArchitecture) + " -dump \"%1\" > " + Params.ShortProjectName + "_SymbolizedCallStackOutput.txt",
+				"$NDKSTACK -sym " + GetFinalSymbolizedSODirectory(ApkName, SC, Architecture, GPUArchitecture) + " -dump \"%1\" > " + Params.ShortProjectName + "_SymbolizedCallStackOutput.txt",
 				"exit 0",
 				};
 		}
@@ -686,7 +679,7 @@ public class AndroidPlatform : Platform
 						"if \"%ANDROID_NDK_ROOT%\"==\"\" set NDK_ROOT=\""+Environment.GetEnvironmentVariable("ANDROID_NDK_ROOT")+"\"",
 						"set NDKSTACK=%NDK_ROOT%\ndk-stack.cmd",
 						"",
-						"%NDKSTACK% -sym "+GetFinalSymbolizedSODirectory(SC, Architecture, GPUArchitecture)+" -dump \"%1\" > "+ Params.ShortProjectName+"_SymbolizedCallStackOutput.txt",
+						"%NDKSTACK% -sym "+GetFinalSymbolizedSODirectory(ApkName, SC, Architecture, GPUArchitecture)+" -dump \"%1\" > "+ Params.ShortProjectName+"_SymbolizedCallStackOutput.txt",
 						"",
 						"goto:eof",
 						"",
@@ -737,7 +730,7 @@ public class AndroidPlatform : Platform
 
 				if (bBuildWithHiddenSymbolVisibility || bSaveSymbols)
 				{
-					string SymbolizedSODirectory = GetFinalSymbolizedSODirectory(SC, Architecture, GPUArchitecture);
+					string SymbolizedSODirectory = GetFinalSymbolizedSODirectory(ApkName, SC, Architecture, GPUArchitecture);
 					string SymbolizedSOPath = Path.Combine(Path.Combine(Path.GetDirectoryName(ApkName), SymbolizedSODirectory), "libUE4.so");
 					if (!FileExists(SymbolizedSOPath))
 					{
@@ -753,6 +746,20 @@ public class AndroidPlatform : Platform
 				{
 					bAddedOBB = true;
 					SC.ArchiveFiles(Path.GetDirectoryName(ObbName), Path.GetFileName(ObbName));
+				}
+
+				// copy optional unprotected APK if exists
+				string UnprotectedApkName = Path.Combine(Path.GetDirectoryName(ApkName), "unprotected_" + Path.GetFileName(ApkName));
+				if (FileExists(UnprotectedApkName))
+				{
+					SC.ArchiveFiles(Path.GetDirectoryName(UnprotectedApkName), Path.GetFileName(UnprotectedApkName));
+				}
+
+				// copy optional logs directory if exists
+				string LogsDirName = Path.Combine(Path.GetDirectoryName(ApkName), Path.GetFileName(ApkName) + ".logs");
+				if (DirectoryExists(LogsDirName))
+				{
+					SC.ArchiveFiles(LogsDirName);
 				}
 
 				bool bNeedsPCInstall = false;
@@ -951,21 +958,17 @@ public class AndroidPlatform : Platform
 		String StorageLocation = StorageResult.Output.Trim();
 		string RemoteDir = StorageLocation + "/UE4Game/" + Params.ShortProjectName;
 
-		// Note: appends the device name to make the filename unique; these files will be deleted later during delta manifest generation
-		// Replace colon with underscore for legal filename (colon may be present for wifi connected devices)
-		string SanitizedDeviceName = DeviceName.Replace(":", "_");
-
 		// Try retrieving the UFS files manifest files from the device
-		string UFSManifestFileName = CombinePaths(SC.StageDirectory.FullName, SC.UFSDeployedManifestFileName + "_" + SanitizedDeviceName);
-		IProcessResult UFSResult = RunAdbCommand(Params, DeviceName, " pull " + RemoteDir + "/" + SC.UFSDeployedManifestFileName + " \"" + UFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
+		string UFSManifestFileName = CombinePaths(SC.StageDirectory.FullName, SC.GetUFSDeployedManifestFileName(DeviceName));
+		IProcessResult UFSResult = RunAdbCommand(Params, DeviceName, " pull " + RemoteDir + "/" + SC.GetUFSDeployedManifestFileName(null) + " \"" + UFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
 		if (!(UFSResult.Output.Contains("bytes") || UFSResult.Output.Contains("[100%]")))
 		{
 			return false;
 		}
 
 		// Try retrieving the non UFS files manifest files from the device
-		string NonUFSManifestFileName = CombinePaths(SC.StageDirectory.FullName, SC.NonUFSDeployedManifestFileName + "_" + SanitizedDeviceName);
-		IProcessResult NonUFSResult = RunAdbCommand(Params, DeviceName, " pull " + RemoteDir + "/" + SC.NonUFSDeployedManifestFileName + " \"" + NonUFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
+		string NonUFSManifestFileName = CombinePaths(SC.StageDirectory.FullName, SC.GetNonUFSDeployedManifestFileName(DeviceName));
+		IProcessResult NonUFSResult = RunAdbCommand(Params, DeviceName, " pull " + RemoteDir + "/" + SC.GetNonUFSDeployedManifestFileName(null) + " \"" + NonUFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
 		if (!(NonUFSResult.Output.Contains("bytes") || NonUFSResult.Output.Contains("[100%]")))
 		{
 			// Did not retrieve both so delete one we did retrieve
@@ -1621,7 +1624,7 @@ public class AndroidPlatform : Platform
 			PackageNames.Add(PackageName);
 
 			// Message back to the UE4 Editor to correctly set the app id for each device
-            Console.WriteLine("Running Package@Device:{0}@{1}", PackageName, DeviceName);
+			Console.WriteLine("Running Package@Device:{0}@{1}", PackageName, DeviceName);
 
 			// clear the log for the device
 			RunAdbCommand(Params, DeviceName, "logcat -c");

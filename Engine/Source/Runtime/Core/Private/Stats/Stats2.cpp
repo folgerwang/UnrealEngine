@@ -1065,9 +1065,13 @@ FThreadStatsPool::FThreadStatsPool()
 FThreadStats* FThreadStatsPool::GetFromPool()
 {
 	FPlatformMisc::MemoryBarrier();
-	FThreadStats* Result = new(Pool.Pop()) FThreadStats();
-	check(Result && "Increase NUM_ELEMENTS_IN_POOL");
-	return Result;
+	FThreadStats* Address = Pool.Pop();
+	while (!Address)
+	{
+		Pool.Push(new FThreadStats(EConstructor::FOR_POOL));
+		Address = Pool.Pop();
+	}
+	return new(Address) FThreadStats();
 }
 
 void FThreadStatsPool::ReturnToPool( FThreadStats* Instance )

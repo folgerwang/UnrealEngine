@@ -23,7 +23,7 @@
 	// Retrieve the bundle metadata for the given id and the given region (ISO-2A country code)
 	NSString* AppStoreURL = [NSString stringWithFormat:@"http://itunes.apple.com/lookup?bundleId=%@&country=%@", BundleId, CountryCodeStr];
 	NSURL* Url = [NSURL URLWithString:AppStoreURL];
-	UE_LOG(LogOnline, Verbose, TEXT("Contacting %s for app store metadata"), *FString(AppStoreURL));
+	UE_LOG_ONLINE(Verbose, TEXT("Contacting %s for app store metadata"), *FString(AppStoreURL));
 
 	NSURLSession* DefaultSession = [NSURLSession sharedSession];
 	NSURLSessionDataTask* DataTask = [DefaultSession dataTaskWithURL: Url completionHandler:^(NSData* Data, NSURLResponse* Response, NSError* Error)

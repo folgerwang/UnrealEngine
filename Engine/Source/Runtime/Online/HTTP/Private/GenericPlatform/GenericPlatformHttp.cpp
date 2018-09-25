@@ -37,22 +37,25 @@ public:
 	virtual float GetElapsedTime() const override { return 0.0f; }
 };
 
-
 void FGenericPlatformHttp::Init()
 {
 }
 
-
 void FGenericPlatformHttp::Shutdown()
 {
 }
-
 
 IHttpRequest* FGenericPlatformHttp::ConstructRequest()
 {
 	return new FGenericPlatformHttpRequest();
 }
 
+bool FGenericPlatformHttp::UsesThreadedHttp()
+{
+	// Many platforms use libcurl.  Our libcurl implementation uses threading.
+	// Platforms that don't use libcurl but have threading will need to override UsesThreadedHttp to return true for their platform.
+	return WITH_LIBCURL;
+}
 
 static bool IsAllowedChar(UTF8CHAR LookupChar)
 {
@@ -74,7 +77,6 @@ static bool IsAllowedChar(UTF8CHAR LookupChar)
 
 	return AllowedTable[LookupChar];
 }
-
 
 FString FGenericPlatformHttp::UrlEncode(const FString &UnencodedString)
 {
@@ -189,7 +191,6 @@ FString FGenericPlatformHttp::HtmlEncode(const FString& UnencodedString)
 	return EncodedString;
 }
 
-
 FString FGenericPlatformHttp::GetUrlDomain(const FString& Url)
 {
 	FString Protocol;
@@ -197,10 +198,8 @@ FString FGenericPlatformHttp::GetUrlDomain(const FString& Url)
 	// split the http protocol portion from domain
 	Url.Split(TEXT("://"), &Protocol, &Domain);
 	// strip off everything but the domain portion
-	int32 Idx = Domain.Find(TEXT("/"));
-	int32 IdxOpt = Domain.Find(TEXT("?"));
-	Idx = IdxOpt >= 0 && IdxOpt < Idx ? IdxOpt : Idx;
-	if (Idx > 0)
+	const int32 Idx = Domain.GetCharArray().IndexOfByPredicate([](TCHAR Character) { return Character == TEXT('/') || Character == TEXT('?') || Character == TEXT(':'); });
+	if (Idx != INDEX_NONE)
 	{
 		Domain = Domain.Left(Idx);
 	}

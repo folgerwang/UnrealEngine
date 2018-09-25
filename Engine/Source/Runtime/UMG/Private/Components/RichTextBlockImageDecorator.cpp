@@ -14,6 +14,9 @@
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Layout/SScaleBox.h"
 #include "Widgets/Layout/SBox.h"
+#include "Misc/DefaultValueHelper.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Package.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -26,25 +29,37 @@ public:
 	SLATE_END_ARGS()
 
 public:
-	void Construct(const FArguments& InArgs, const FRichImageRow* ImageRow, const FTextBlockStyle& TextStyle)
+	void Construct(const FArguments& InArgs, const FSlateBrush* Brush, const FTextBlockStyle& TextStyle, TOptional<int32> Width, TOptional<int32> Height, EStretch::Type Stretch)
 	{
-		if (ensure(ImageRow))
+		if (ensure(Brush))
 		{
 			const TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-			const float IconSize = FMath::Min((float)FontMeasure->GetMaxCharacterHeight(TextStyle.Font, 1.0f), ImageRow->Brush.ImageSize.Y);
+			float IconHeight = FMath::Min((float)FontMeasure->GetMaxCharacterHeight(TextStyle.Font, 1.0f), Brush->ImageSize.Y);
+			float IconWidth = IconHeight;
+
+			if (Width.IsSet())
+			{
+				IconWidth = Width.GetValue();
+			}
+
+			if (Height.IsSet())
+			{
+				IconHeight = Height.GetValue();
+			}
 
 			ChildSlot
 			[
 				SNew(SBox)
-				.HeightOverride(IconSize)
-				.WidthOverride(IconSize)
+				.HeightOverride(IconHeight)
+				.WidthOverride(IconWidth)
 				[
 					SNew(SScaleBox)
-					.Stretch(EStretch::ScaleToFit)
+					.Stretch(Stretch)
 					.StretchDirection(EStretchDirection::DownOnly)
+					.VAlign(VAlign_Center)
 					[
 						SNew(SImage)
-						.Image(&ImageRow->Brush)
+						.Image(Brush)
 					]
 				]
 			];
@@ -69,7 +84,7 @@ public:
 			const FString TagId = Text.Mid(IdRange.BeginIndex, IdRange.EndIndex - IdRange.BeginIndex);
 
 			const bool bWarnIfMissing = false;
-			return Decorator->FindImageRow(*TagId, bWarnIfMissing) != nullptr;
+			return Decorator->FindImageBrush(*TagId, bWarnIfMissing) != nullptr;
 		}
 
 		return false;
@@ -79,9 +94,34 @@ protected:
 	virtual TSharedPtr<SWidget> CreateDecoratorWidget(const FTextRunInfo& RunInfo, const FTextBlockStyle& TextStyle) const override
 	{
 		const bool bWarnIfMissing = true;
-		const FRichImageRow* ImageRow = Decorator->FindImageRow(*RunInfo.MetaData[TEXT("id")], bWarnIfMissing);
+		const FSlateBrush* Brush = Decorator->FindImageBrush(*RunInfo.MetaData[TEXT("id")], bWarnIfMissing);
 
-		return SNew(SRichInlineImage, ImageRow, TextStyle);
+		TOptional<int32> Width;
+		if (const FString* WidthString = RunInfo.MetaData.Find(TEXT("width")))
+		{
+			int32 WidthTemp;
+			Width = FDefaultValueHelper::ParseInt(*WidthString, WidthTemp) ? WidthTemp : TOptional<int32>();
+		}
+
+		TOptional<int32> Height;
+		if (const FString* HeightString = RunInfo.MetaData.Find(TEXT("height")))
+		{
+			int32 HeightTemp;
+			Height = FDefaultValueHelper::ParseInt(*HeightString, HeightTemp) ? HeightTemp : TOptional<int32>();
+		}
+
+		EStretch::Type Stretch = EStretch::ScaleToFit;
+		if (const FString* SstretchString = RunInfo.MetaData.Find(TEXT("stretch")))
+		{
+			static const UEnum* StretchEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EStretch"));
+			int64 StretchValue = StretchEnum->GetValueByNameString(*SstretchString);
+			if (StretchValue != INDEX_NONE)
+			{
+				Stretch = static_cast<EStretch::Type>(StretchValue);
+			}
+		}
+
+		return SNew(SRichInlineImage, Brush, TextStyle, Width, Height, Stretch);
 	}
 
 private:
@@ -94,6 +134,17 @@ private:
 URichTextBlockImageDecorator::URichTextBlockImageDecorator(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+}
+
+const FSlateBrush* URichTextBlockImageDecorator::FindImageBrush(FName TagOrId, bool bWarnIfMissing)
+{
+	const FRichImageRow* ImageRow = FindImageRow(TagOrId, bWarnIfMissing);
+	if (ImageRow)
+	{
+		return &ImageRow->Brush;
+	}
+
+	return nullptr;
 }
 
 FRichImageRow* URichTextBlockImageDecorator::FindImageRow(FName TagOrId, bool bWarnIfMissing)

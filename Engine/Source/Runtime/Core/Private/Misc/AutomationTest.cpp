@@ -332,6 +332,20 @@ bool FAutomationTestFramework::ExecuteNetworkCommands()
 	return !bHadAnyNetworkCommands;
 }
 
+void FAutomationTestFramework::DequeueAllCommands()
+{
+	while (!LatentCommands.IsEmpty())
+	{
+		TSharedPtr<IAutomationLatentCommand> TempCommand;
+		LatentCommands.Dequeue(TempCommand);
+	}
+	while (!NetworkCommands.IsEmpty())
+	{
+		TSharedPtr<IAutomationNetworkCommand> TempCommand;
+		NetworkCommands.Dequeue(TempCommand);
+	}
+}
+
 void FAutomationTestFramework::LoadTestModules( )
 {
 	const bool bRunningEditor = GIsEditor && !IsRunningCommandlet();

@@ -183,10 +183,9 @@ bool FVulkanComputePipelineDescriptorState::InternalUpdateDescriptorSets(FVulkan
 }
 
 
-FVulkanGraphicsPipelineDescriptorState::FVulkanGraphicsPipelineDescriptorState(FVulkanDevice* InDevice, FVulkanRHIGraphicsPipelineState* InGfxPipeline, FVulkanBoundShaderState* InBSS)
+FVulkanGraphicsPipelineDescriptorState::FVulkanGraphicsPipelineDescriptorState(FVulkanDevice* InDevice, FVulkanRHIGraphicsPipelineState* InGfxPipeline)
 	: FVulkanCommonPipelineDescriptorState(InDevice)
 	, GfxPipeline(InGfxPipeline)
-	, BSS(InBSS)
 {
 	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanShaders);
 	FMemory::Memzero(PackedUniformBuffersMask);
@@ -201,22 +200,22 @@ FVulkanGraphicsPipelineDescriptorState::FVulkanGraphicsPipelineDescriptorState(F
 
 	UsedSetsMask = PipelineDescriptorInfo->HasDescriptorsInSetMask;
 
-	PackedUniformBuffers[ShaderStage::Vertex].Init(InBSS->GetVertexShader()->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Vertex]);
+	PackedUniformBuffers[ShaderStage::Vertex].Init(InGfxPipeline->GetShader(SF_Vertex)->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Vertex]);
 	UsedStagesMask |= 1 << ShaderStage::Vertex;
 	HasDescriptorsPerStageMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Vertex].IsEmpty() ? 0 : (1 << ShaderStage::Vertex);
 	UsedPackedUBStagesMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Vertex].PackedUBBindingIndices.Num() > 0 ? (1 << ShaderStage::Vertex) : 0;
 
-	if (BSS->GetPixelShader())
+	if (InGfxPipeline->GetShader(SF_Pixel))
 	{
-		PackedUniformBuffers[ShaderStage::Pixel].Init(InBSS->GetPixelShader()->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Pixel]);
+		PackedUniformBuffers[ShaderStage::Pixel].Init(InGfxPipeline->GetShader(SF_Pixel)->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Pixel]);
 		UsedStagesMask |= 1 << ShaderStage::Pixel;
 		HasDescriptorsPerStageMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Pixel].IsEmpty() ? 0 : (1 << ShaderStage::Pixel);
 		UsedPackedUBStagesMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Pixel].PackedUBBindingIndices.Num() > 0 ? (1 << ShaderStage::Pixel) : 0;
 	}
-	if (BSS->GetGeometryShader())
+	if (InGfxPipeline->GetShader(SF_Geometry))
 	{
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
-		PackedUniformBuffers[ShaderStage::Geometry].Init(InBSS->GetGeometryShader()->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Geometry]);
+		PackedUniformBuffers[ShaderStage::Geometry].Init(InGfxPipeline->GetShader(SF_Geometry)->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Geometry]);
 		UsedStagesMask |= 1 << ShaderStage::Geometry;
 		HasDescriptorsPerStageMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Geometry].IsEmpty() ? 0 : (1 << ShaderStage::Geometry);
 		UsedPackedUBStagesMask |= DescriptorSetsLayout->RemappingInfo.StageInfos[ShaderStage::Geometry].PackedUBBindingIndices.Num() > 0 ? (1 << ShaderStage::Geometry) : 0;
@@ -224,7 +223,7 @@ FVulkanGraphicsPipelineDescriptorState::FVulkanGraphicsPipelineDescriptorState(F
 		ensureMsgf(0, TEXT("Geometry not supported!"));
 #endif
 	}
-	if (BSS->GetHullShader())
+	if (InGfxPipeline->GetShader(SF_Hull))
 	{
 		ensureMsgf(0, TEXT("Tessellation not supported yet!"));
 /*
@@ -250,7 +249,6 @@ FVulkanGraphicsPipelineDescriptorState::FVulkanGraphicsPipelineDescriptorState(F
 	//UE_LOG(LogVulkanRHI, Warning, TEXT("GfxPSOState %p For PSO %p Writes:%d"), this, InGfxPipeline, DSWriteContainer.DescriptorWrites.Num());
 
 	InGfxPipeline->AddRef();
-	BSS->AddRef();
 }
 
 void FVulkanGraphicsPipelineDescriptorState::CreateDescriptorWriteInfos()

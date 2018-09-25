@@ -335,7 +335,7 @@ public:
 	* @param ClusterRootOrObjectFromCluster Object that belongs to the cluster we want to add this object to.
 	* @param Add this object to the target cluster as a mutable object without adding this object's references.
 	*/
-	virtual void AddToCluster(UObjectBaseUtility* ClusterRootOrObjectFromCluster, bool bAddAsMutableObject = false);
+	void AddToCluster(UObjectBaseUtility* ClusterRootOrObjectFromCluster, bool bAddAsMutableObject = false);
 
 protected:
 

@@ -30,17 +30,28 @@ TSharedRef<FQosInterface> FQosModule::GetQosInterface()
 
 bool FQosModule::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
+	bool bWasHandled = false;
+
 	// Ignore any execs that don't start with Qos
 	if (FParse::Command(&Cmd, TEXT("Qos")))
 	{
-		if (FParse::Command(&Cmd, TEXT("DumpRegions")))
+		if (FParse::Command(&Cmd, TEXT("Ping")))
+		{
+			GetQosInterface()->BeginQosEvaluation(InWorld, nullptr, FSimpleDelegate::CreateLambda([this]()
+			{
+				UE_LOG(LogQos, Log, TEXT("ExecQosPingComplete!"));
+				GetQosInterface()->DumpRegionStats();
+			}));
+			bWasHandled = true;
+		}
+		else if (FParse::Command(&Cmd, TEXT("DumpRegions")))
 		{
 			GetQosInterface()->DumpRegionStats();
+			bWasHandled = true;
 		}
-		return true;
 	}
 
-	return false;
+	return bWasHandled;
 }
 
 

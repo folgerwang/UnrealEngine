@@ -466,7 +466,7 @@ void SLevelViewport::ConstructLevelEditorViewportClient( const FArguments& InArg
 	bShowFullToolbar = ViewportInstanceSettings.bShowFullToolbar;
 }
 
-const FSceneViewport* SLevelViewport::GetGameSceneViewport() const
+FSceneViewport* SLevelViewport::GetGameSceneViewport() const
 {
 	return ActiveViewport.Get();
 }
@@ -3552,6 +3552,12 @@ void SLevelViewport::StartPlayInEditorSession(UGameViewportClient* PlayClient, c
 	PlayClient->SetViewportOverlayWidget(ParentWindow, PIEViewportOverlayWidget.ToSharedRef());
 	PlayClient->SetGameLayerManager(GameLayerManager);
 
+	// Set the scene viewport on PIE
+	if (GameLayerManager.IsValid())
+	{
+		GameLayerManager->SetSceneViewport(ActiveViewport.Get());
+	}
+
 	// Our viewport widget should start rendering the new viewport for the play in editor scene
 	ViewportWidget->SetViewportInterface( ActiveViewport.ToSharedRef() );
 
@@ -3766,6 +3772,9 @@ void SLevelViewport::EndPlayInEditorSession()
 	{
 		InactiveViewport->SetViewportClient( nullptr );
 	}
+
+	// Reset our game layer manager's active to that of the active editor viewport
+	GameLayerManager->SetSceneViewport(ActiveViewport.Get());
 
 	// Reset the inactive viewport
 	InactiveViewport.Reset();

@@ -428,7 +428,7 @@ void SPIEPreviewWindow::ComputeScaleToDeviceSizeFactor(float& OutScreenFactor, f
 	OutDPIScaleFactor = 1.0f;
 
 	FDisplayMetrics DisplayMetrics;
-	FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+	FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
 	FVector2D WindowPos = GetPositionInScreen();
 	int32 PointX = FMath::RoundToInt(WindowPos.X);
@@ -527,7 +527,7 @@ void SPIEPreviewWindow::UpdateWindow()
 	int32 PosY = (int32)WindowPos.Y;
 
 	FDisplayMetrics DisplayMetrics;
-	FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+	FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
 	if (PosX + Device->GetWindowWidth() > DisplayMetrics.VirtualDisplayRect.Right)
 	{

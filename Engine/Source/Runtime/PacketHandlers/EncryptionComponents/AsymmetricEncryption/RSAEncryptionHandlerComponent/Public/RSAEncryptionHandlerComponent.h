@@ -4,8 +4,10 @@
 
 #include "PacketHandler.h"
 
+THIRD_PARTY_INCLUDES_START
 #include "CryptoPP/5.6.5/include/rsa.h"
 #include "CryptoPP/5.6.5/include/osrng.h"
+THIRD_PARTY_INCLUDES_END
 
 /* RSA Encryptor Module Interface */
 class FRSAEncryptorHandlerComponentModuleInterface : public FPacketHandlerComponentModuleInterface
@@ -50,9 +52,12 @@ public:
 	virtual void Incoming(FBitReader& Packet) override;
 
 	/* Handles any outgoing packets */
-	virtual void Outgoing(FBitWriter& Packet) override;
+	virtual void Outgoing(FBitWriter& Packet, FOutPacketTraits& Traits) override;
 
-	virtual int32 GetReservedPacketBits() override
+	virtual void IncomingConnectionless(const FString& Address, FBitReader& Packet) override {}
+	virtual void OutgoingConnectionless(const FString& Address, FBitWriter& Packet, FOutPacketTraits& Traits) override {}
+
+	virtual int32 GetReservedPacketBits() const override
 	{
 		return 0;
 	}

@@ -404,6 +404,10 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 	// Manually copy bUsedAsSpecialEngineMaterial as it is duplicate transient to prevent accidental creation of new special engine materials
 	Material->bUsedAsSpecialEngineMaterial = OriginalMaterial->bUsedAsSpecialEngineMaterial;
 	
+	NodeQualityLevel = EMaterialQualityLevel::Num;
+	NodeFeatureLevel = ERHIFeatureLevel::Num;
+	bPreviewFeaturesChanged = true;
+
 	// Register our commands. This will only register them if not previously registered
 	FGraphEditorCommands::Register();
 	FMaterialEditorCommands::Register();
@@ -846,6 +850,28 @@ void FMaterialEditor::UpdatePreviewViewportsVisibility()
 	}
 }
 
+void FMaterialEditor::SetQualityPreview(EMaterialQualityLevel::Type NewQuality)
+{
+	NodeQualityLevel = NewQuality;
+	bPreviewFeaturesChanged = true;
+}
+
+bool FMaterialEditor::IsQualityPreviewChecked(EMaterialQualityLevel::Type TestQuality)
+{
+	return NodeQualityLevel == TestQuality;
+}
+
+void FMaterialEditor::SetFeaturePreview(ERHIFeatureLevel::Type NewFeatureLevel)
+{
+	NodeFeatureLevel = NewFeatureLevel;
+	bPreviewFeaturesChanged = true;
+}
+
+bool FMaterialEditor::IsFeaturePreviewChecked(ERHIFeatureLevel::Type TestFeatureLevel)
+{
+	return NodeFeatureLevel == TestFeatureLevel;
+}
+
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FMaterialEditor::CreateInternalWidgets()
 {
@@ -1047,44 +1073,13 @@ void FMaterialEditor::UpdateThumbnailInfoPreviewMesh(UMaterialInterface* MatInte
 
 void FMaterialEditor::ExtendToolbar()
 {
-	struct Local
-	{
-		static void FillToolbar(FToolBarBuilder& ToolbarBuilder)
-		{
-			ToolbarBuilder.BeginSection("Apply");
-			{
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().Apply);
-			}
-			ToolbarBuilder.EndSection();
-	
-			ToolbarBuilder.BeginSection("Search");
-			{
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().FindInMaterial);
-			}
-			ToolbarBuilder.EndSection();
-
-			ToolbarBuilder.BeginSection("Graph");
-			{
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().CameraHome);
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().CleanUnusedExpressions);
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ShowHideConnectors); 
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ToggleLivePreview);
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ToggleRealtimeExpressions);
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().AlwaysRefreshAllPreviews);
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ToggleMaterialStats);
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().TogglePlatformStats);
-			}
-			ToolbarBuilder.EndSection();
-		}
-	};
-
 	TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
 
 	ToolbarExtender->AddToolBarExtension(
 		"Asset",
 		EExtensionHook::After,
 		GetToolkitCommands(),
-		FToolBarExtensionDelegate::CreateStatic( &Local::FillToolbar )
+		FToolBarExtensionDelegate::CreateSP( this, &FMaterialEditor::FillToolbar )
 		);
 	
 	AddToolbarExtender(ToolbarExtender);
@@ -1095,6 +1090,76 @@ void FMaterialEditor::ExtendToolbar()
 	AddToolbarExtender(MaterialEditorModule->GetToolBarExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects()));
 }
 
+void FMaterialEditor::FillToolbar(FToolBarBuilder& ToolbarBuilder)
+{
+	ToolbarBuilder.BeginSection("Apply");
+	{
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().Apply);
+	}
+	ToolbarBuilder.EndSection();
+
+	ToolbarBuilder.BeginSection("Search");
+	{
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().FindInMaterial);
+	}
+	ToolbarBuilder.EndSection();
+
+	ToolbarBuilder.BeginSection("Graph");
+	{
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().CameraHome);
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().CleanUnusedExpressions);
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ShowHideConnectors);
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ToggleLivePreview);
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ToggleRealtimeExpressions);
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().AlwaysRefreshAllPreviews);
+	}
+	ToolbarBuilder.EndSection();
+
+	ToolbarBuilder.AddSeparator();
+
+	ToolbarBuilder.BeginSection("Stats");
+	{
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ToggleMaterialStats);
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().TogglePlatformStats);
+		ToolbarBuilder.AddComboButton(
+			FUIAction(),
+			FOnGetContent::CreateSP(this, &FMaterialEditor::GeneratePreviewMenuContent),
+			LOCTEXT("NodePreview_Label", "Preview Nodes"),
+			LOCTEXT("NodePreviewToolTip", "Preview the nodes for a given feature level and/or material quality."),
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "FullBlueprintEditor.SwitchToScriptingMode"),
+			false);
+	}
+	ToolbarBuilder.EndSection();
+};
+
+TSharedRef< SWidget > FMaterialEditor::GeneratePreviewMenuContent()
+{
+	bool bShouldCloseWindowAfterMenuSelection = true;
+	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, GetToolkitCommands());
+
+	MenuBuilder.BeginSection("MaterialEditorQualityPreview", LOCTEXT("MaterialQualityHeading", "Quality Level"));
+	{
+		MenuBuilder.AddMenuEntry(FMaterialEditorCommands::Get().QualityLevel_All);
+		MenuBuilder.AddMenuEntry(FMaterialEditorCommands::Get().QualityLevel_High);
+		MenuBuilder.AddMenuEntry(FMaterialEditorCommands::Get().QualityLevel_Medium);
+		MenuBuilder.AddMenuEntry(FMaterialEditorCommands::Get().QualityLevel_Low);
+	}
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection("MaterialEditorFeaturePreview", LOCTEXT("MaterialFeatureHeading", "Feature Level"));
+	{
+		MenuBuilder.AddMenuEntry(FMaterialEditorCommands::Get().FeatureLevel_All);
+		MenuBuilder.AddMenuEntry(FMaterialEditorCommands::Get().FeatureLevel_ES2);
+		MenuBuilder.AddMenuEntry(FMaterialEditorCommands::Get().FeatureLevel_ES31);
+		MenuBuilder.AddMenuEntry(FMaterialEditorCommands::Get().FeatureLevel_SM4);
+		MenuBuilder.AddMenuEntry(FMaterialEditorCommands::Get().FeatureLevel_SM5);
+	}
+
+	MenuBuilder.EndSection();
+
+	return MenuBuilder.MakeWidget();
+
+}
 
 UMaterialInterface* FMaterialEditor::GetMaterialInterface() const
 {
@@ -2038,7 +2103,20 @@ void FMaterialEditor::UpdateGraphNodeStates()
 	const FMaterialResource* ErrorMaterialResourceES2 = NULL;
 
 	bool bUpdatedErrorState = false;
+	bool bToggledVisibleState = bPreviewFeaturesChanged;
+	bool bShowAllNodes = true;
 
+	TArray<UMaterialExpression*> VisibleExpressions;
+
+	if (bPreviewFeaturesChanged)
+	{
+		Material->GetAllReferencedExpressions(VisibleExpressions, nullptr, NodeFeatureLevel, NodeQualityLevel);
+		if (NodeFeatureLevel != ERHIFeatureLevel::Num || NodeQualityLevel != EMaterialQualityLevel::Num)
+		{
+			bShowAllNodes = false;
+		}
+	}
+	
 	// Have to loop through everything here as there's no way to be notified when the material resource updates
 	for (int32 Index = 0; Index < Material->MaterialGraph->Nodes.Num(); ++Index)
 	{
@@ -2063,10 +2141,23 @@ void FMaterialEditor::UpdateGraphNodeStates()
 				bUpdatedErrorState = true;
 				MaterialNode->bHasCompilerMessage = false;
 			}
+			if (MaterialNode->MaterialExpression && bPreviewFeaturesChanged)
+			{
+				if ((bShowAllNodes || VisibleExpressions.Contains(MaterialNode->MaterialExpression)))
+				{
+					MaterialNode->SetForceDisplayAsDisabled(false);
+				}
+				else if (!bShowAllNodes && !VisibleExpressions.Contains(MaterialNode->MaterialExpression))
+				{
+					MaterialNode->SetForceDisplayAsDisabled(true);
+				}
+			}
 		}
 	}
 
-	if (bUpdatedErrorState)
+	bPreviewFeaturesChanged = false;
+
+	if (bUpdatedErrorState || bToggledVisibleState)
 	{
 		// Rebuild the SGraphNodes to display/hide error block
 		GraphEditor->NotifyGraphChanged();
@@ -2205,6 +2296,53 @@ void FMaterialEditor::BindCommands()
 	ToolkitCommands->MapAction(
 		Commands.FindInMaterial,
 		FExecuteAction::CreateSP(this, &FMaterialEditor::OnFindInMaterial));
+
+	ToolkitCommands->MapAction(
+		Commands.QualityLevel_All,
+		FExecuteAction::CreateSP(this, &FMaterialEditor::SetQualityPreview, EMaterialQualityLevel::Num),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsQualityPreviewChecked, EMaterialQualityLevel::Num));
+	ToolkitCommands->MapAction(
+		Commands.QualityLevel_High,
+		FExecuteAction::CreateSP(this, &FMaterialEditor::SetQualityPreview, EMaterialQualityLevel::High),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsQualityPreviewChecked, EMaterialQualityLevel::High));
+	ToolkitCommands->MapAction(
+		Commands.QualityLevel_Medium,
+		FExecuteAction::CreateSP(this, &FMaterialEditor::SetQualityPreview, EMaterialQualityLevel::Medium),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsQualityPreviewChecked, EMaterialQualityLevel::Medium));
+	ToolkitCommands->MapAction(
+		Commands.QualityLevel_Low,
+		FExecuteAction::CreateSP(this, &FMaterialEditor::SetQualityPreview, EMaterialQualityLevel::Low),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsQualityPreviewChecked, EMaterialQualityLevel::Low));
+
+	ToolkitCommands->MapAction(
+		Commands.FeatureLevel_All,
+		FExecuteAction::CreateSP(this, &FMaterialEditor::SetFeaturePreview, ERHIFeatureLevel::Num),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsFeaturePreviewChecked, ERHIFeatureLevel::Num));
+	ToolkitCommands->MapAction(
+		Commands.FeatureLevel_ES2,
+		FExecuteAction::CreateSP(this, &FMaterialEditor::SetFeaturePreview, ERHIFeatureLevel::ES2),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsFeaturePreviewChecked, ERHIFeatureLevel::ES2));
+	ToolkitCommands->MapAction(
+		Commands.FeatureLevel_ES31,
+		FExecuteAction::CreateSP(this, &FMaterialEditor::SetFeaturePreview, ERHIFeatureLevel::ES3_1),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsFeaturePreviewChecked, ERHIFeatureLevel::ES3_1));
+	ToolkitCommands->MapAction(
+		Commands.FeatureLevel_SM4,
+		FExecuteAction::CreateSP(this, &FMaterialEditor::SetFeaturePreview, ERHIFeatureLevel::SM4),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsFeaturePreviewChecked, ERHIFeatureLevel::SM4));
+	ToolkitCommands->MapAction(
+		Commands.FeatureLevel_SM5,
+		FExecuteAction::CreateSP(this, &FMaterialEditor::SetFeaturePreview, ERHIFeatureLevel::SM5),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsFeaturePreviewChecked, ERHIFeatureLevel::SM5));
 }
 
 void FMaterialEditor::OnApply()

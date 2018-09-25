@@ -203,6 +203,11 @@ TSharedRef<FInternetAddr> FSocketSubsystemBSD::CreateInternetAddr(uint32 Address
 	return ReturnAddr;
 }
 
+bool FSocketSubsystemBSD::IsSocketWaitSupported() const
+{
+	return true;
+}
+
 ESocketErrors FSocketSubsystemBSD::GetLastErrorCode()
 {
 	return TranslateErrorCode(errno);

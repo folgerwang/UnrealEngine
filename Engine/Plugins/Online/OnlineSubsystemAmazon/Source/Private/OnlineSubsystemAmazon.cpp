@@ -26,14 +26,14 @@ public:
 		{
 			if(!OnlineSub->Init())
 			{
-				UE_LOG(LogOnline, Warning, TEXT("Amazon API failed to initialize!"));
+				UE_LOG_ONLINE(Warning, TEXT("Amazon API failed to initialize!"));
 				OnlineSub->Shutdown();
 				OnlineSub.Reset();
 			}
 		}
 		else
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Amazon API disabled!"));
+			UE_LOG_ONLINE(Warning, TEXT("Amazon API disabled!"));
 			OnlineSub->Shutdown();
 			OnlineSub.Reset();
 		}
@@ -44,7 +44,7 @@ public:
 
 void FOnlineSubsystemAmazonModule::StartupModule()
 {
-	UE_LOG(LogOnline, Log, TEXT("Amazon Startup!"));
+	UE_LOG_ONLINE(Log, TEXT("Amazon Startup!"));
 
 	AmazonFactory = new FOnlineFactoryAmazon();
 
@@ -55,7 +55,7 @@ void FOnlineSubsystemAmazonModule::StartupModule()
 
 void FOnlineSubsystemAmazonModule::ShutdownModule()
 {
-	UE_LOG(LogOnline, Log, TEXT("Amazon Shutdown!"));
+	UE_LOG_ONLINE(Log, TEXT("Amazon Shutdown!"));
 
 	FOnlineSubsystemModule& OSS = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>("OnlineSubsystem");
 	OSS.UnregisterPlatformService(AMAZON_SUBSYSTEM);
@@ -93,7 +93,7 @@ bool FOnlineSubsystemAmazon::Init()
 
 bool FOnlineSubsystemAmazon::Shutdown()
 {
-	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemAmazon::Shutdown()"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemAmazon::Shutdown()"));
 	IdentityInterface = NULL;
 	FOnlineSubsystemImpl::Shutdown();
 	return true;
@@ -131,12 +131,6 @@ bool FOnlineSubsystemAmazon::IsEnabled() const
 	return bEnableAmazon;
 }
 
-FOnlineSubsystemAmazon::FOnlineSubsystemAmazon() 
-	: IdentityInterface(nullptr)
-	, TickToggle(0)
-{
-}
-
 FOnlineSubsystemAmazon::FOnlineSubsystemAmazon(FName InInstanceName) 
 	: FOnlineSubsystemImpl(AMAZON_SUBSYSTEM, InInstanceName)
 	, IdentityInterface(nullptr)
@@ -146,5 +140,4 @@ FOnlineSubsystemAmazon::FOnlineSubsystemAmazon(FName InInstanceName)
 
 FOnlineSubsystemAmazon::~FOnlineSubsystemAmazon()
 {
-
 }

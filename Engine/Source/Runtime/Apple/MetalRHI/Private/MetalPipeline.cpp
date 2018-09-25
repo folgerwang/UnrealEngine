@@ -395,9 +395,9 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
         for (uint32 i = 0; i < NumActiveTargets; i++)
         {
             EPixelFormat TargetFormat = Init.RenderTargetFormats[i];
-            if (TargetFormat == PF_Unknown)
+            if (TargetFormat == PF_Unknown && PixelShader && (((PixelShader->Bindings.InOutMask & 0x7fff) & (1 << i))))
             {
-                UE_CLOG(PixelShader && (((PixelShader->Bindings.InOutMask & 0x7fff) & (1 << i))), LogMetal, Warning, TEXT("Pipeline pixel shader expects target %u to be bound but it isn't."), i);
+				UE_LOG(LogMetal, Fatal, TEXT("Pipeline pixel shader expects target %u to be bound but it isn't: %s."), i, *FString(PixelShader->GetSourceCode()));
                 continue;
             }
             
@@ -418,7 +418,7 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
             Attachment.SetPixelFormat(MetalFormat);
             
             mtlpp::RenderPipelineColorAttachmentDescriptor Blend = BlendState->RenderTargetStates[i].BlendState;
-            if(Attachment)
+            if(TargetFormat != PF_Unknown)
             {
                 // assign each property manually, would be nice if this was faster
                 Attachment.SetBlendingEnabled(Blend.IsBlendingEnabled());
@@ -930,13 +930,14 @@ bool FMetalGraphicsPipelineState::Compile()
 
 FMetalGraphicsPipelineState::~FMetalGraphicsPipelineState()
 {
+    static uint32 MaxBufferNum = (GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5) ? EMetalBufferType_Num : 1u;
 	for (uint32 i = 0; i < EMetalIndexType_Num; i++)
 	{
-        for (uint32 v = 0; v < EMetalBufferType_Num; v++)
+        for (uint32 v = 0; v < MaxBufferNum; v++)
         {
-            for (uint32 f = 0; f < EMetalBufferType_Num; f++)
+            for (uint32 f = 0; f < MaxBufferNum; f++)
             {
-                for (uint32 c = 0; c < EMetalBufferType_Num; c++)
+                for (uint32 c = 0; c < MaxBufferNum; c++)
                 {
                 	if (PipelineStates[i][v][f][c])
                 	{
@@ -957,8 +958,8 @@ FMetalShaderPipeline* FMetalGraphicsPipelineState::GetPipeline(EMetalIndexType I
 	EMetalBufferType Fragment = PixelShader && (PixelShader->BufferTypeHash && PixelShader->BufferTypeHash == PixelBufferHash) ? EMetalBufferType_Static : EMetalBufferType_Dynamic;
 	EMetalBufferType Compute = DomainShader && (DomainShader->BufferTypeHash && DomainShader->BufferTypeHash == DomainBufferHash) ? EMetalBufferType_Static : EMetalBufferType_Dynamic;
 
-    FMetalShaderPipeline* Pipe = PipelineStates[IndexType][Vertex][Fragment][Compute];
-	if (!Pipe)
+    FMetalShaderPipeline* Pipe = (GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5) ? PipelineStates[IndexType][Vertex][Fragment][Compute] : nullptr;
+	if ((GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5) && !Pipe)
 	{
 		Pipe = PipelineStates[IndexType][Vertex][Fragment][Compute] = [GetMTLRenderPipeline(true, this, Initializer, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes) retain];
 	}

@@ -513,7 +513,7 @@ void UMaterialParameterCollectionInstance::SetCollection(UMaterialParameterColle
 
 bool UMaterialParameterCollectionInstance::SetScalarParameterValue(FName ParameterName, float ParameterValue)
 {
-	check(World && Collection);
+	check(World.IsValid() && Collection);
 
 	if (Collection->GetScalarParameterByName(ParameterName))
 	{
@@ -547,7 +547,7 @@ bool UMaterialParameterCollectionInstance::SetScalarParameterValue(FName Paramet
 
 bool UMaterialParameterCollectionInstance::SetVectorParameterValue(FName ParameterName, const FLinearColor& ParameterValue)
 {
-	check(World && Collection);
+	check(World.IsValid() && Collection);
 
 	if (Collection->GetVectorParameterByName(ParameterName))
 	{
@@ -610,7 +610,7 @@ bool UMaterialParameterCollectionInstance::GetVectorParameterValue(FName Paramet
 void UMaterialParameterCollectionInstance::UpdateRenderState()
 {
 	// Don't need material parameters on the server
-	if (World && World->GetNetMode() == NM_DedicatedServer)
+	if (!World.IsValid() || World->GetNetMode() == NM_DedicatedServer)
 	{
 		return;
 	}
@@ -626,7 +626,7 @@ void UMaterialParameterCollectionInstance::UpdateRenderState()
 
 void UMaterialParameterCollectionInstance::DeferredUpdateRenderState()
 {
-	if (bNeedsRenderStateUpdate)
+	if (bNeedsRenderStateUpdate && World.IsValid())
 	{
 		// Propagate the new values to the rendering thread
 		TArray<FVector4> ParameterData;

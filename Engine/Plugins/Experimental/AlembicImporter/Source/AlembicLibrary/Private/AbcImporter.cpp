@@ -1448,7 +1448,7 @@ bool FAbcImporter::BuildSkeletalMesh( FSkeletalMeshLODModel& LODModel, const FRe
 
 	// Populate faces
 	const uint32 NumFaces = Sample->Indices.Num() / 3;
-	TArray<FMeshFace> Faces;
+	TArray<SkeletalMeshImportData::FMeshFace> Faces;
 	Faces.AddZeroed(NumFaces);
 
 	TArray<FMeshSection> MeshSections;

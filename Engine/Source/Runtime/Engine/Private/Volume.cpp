@@ -65,7 +65,7 @@ FBoxSphereBounds AVolume::GetBounds() const
 	else
 	{
 		UE_LOG(LogVolume, Error, TEXT("AVolume::GetBounds : No BrushComponent"));
-		return FBoxSphereBounds(EForceInit::ForceInitToZero);
+		return FBoxSphereBounds(ForceInitToZero);
 	}
 }
 

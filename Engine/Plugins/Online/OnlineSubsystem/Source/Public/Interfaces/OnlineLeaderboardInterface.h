@@ -7,7 +7,7 @@
 #include "OnlineDelegateMacros.h"
 #include "OnlineStats.h"
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineLeaderboard, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineLeaderboard, Log, All);
 
 #define UE_LOG_ONLINE_LEADERBOARD(Verbosity, Format, ...) \
 { \

@@ -81,7 +81,7 @@ FOnlineFriendsFacebookCommon::FOnlineFriendsFacebookCommon(FOnlineSubsystemFaceb
 
 	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook.OnlineFriendsFacebook"), TEXT("FriendsUrl"), FriendsUrl, GEngineIni))
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Missing FriendsUrl= in [OnlineSubsystemFacebook.OnlineFriendsFacebook] of DefaultEngine.ini"));
+		UE_LOG_ONLINE_FRIEND(Warning, TEXT("Missing FriendsUrl= in [OnlineSubsystemFacebook.OnlineFriendsFacebook] of DefaultEngine.ini"));
 	}
 
 	FriendsUrl.ReplaceInline(TEXT("`ver"), *InSubsystem->GetAPIVer());
@@ -137,7 +137,7 @@ bool FOnlineFriendsFacebookCommon::ReadFriendsList(int32 LocalUserNum, const FSt
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("ReadFriendsList request failed. %s"), *ErrorStr);
+		UE_LOG_ONLINE_FRIEND(Warning, TEXT("ReadFriendsList request failed. %s"), *ErrorStr);
 		Delegate.ExecuteIfBound(LocalUserNum, false, ListName, ErrorStr);
 		return false;
 	}
@@ -216,7 +216,7 @@ bool FOnlineFriendsFacebookCommon::GetFriendsList(int32 LocalUserNum, const FStr
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Only the default friends list is supported"));
+		UE_LOG_ONLINE_FRIEND(Warning, TEXT("Only the default friends list is supported"));
 	}
 	return bResult;
 }
@@ -246,7 +246,7 @@ TSharedPtr<FOnlineFriend> FOnlineFriendsFacebookCommon::GetFriend(int32 LocalUse
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Only the default friends list is supported"));
+		UE_LOG_ONLINE_FRIEND(Warning, TEXT("Only the default friends list is supported"));
 	}
 
 	return Result;
@@ -265,7 +265,7 @@ bool FOnlineFriendsFacebookCommon::IsFriend(int32 LocalUserNum, const FUniqueNet
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Only the default friends list is supported"));
+		UE_LOG_ONLINE_FRIEND(Warning, TEXT("Only the default friends list is supported"));
 	}
 
 	return false;
@@ -273,7 +273,7 @@ bool FOnlineFriendsFacebookCommon::IsFriend(int32 LocalUserNum, const FUniqueNet
 
 bool FOnlineFriendsFacebookCommon::QueryRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlineFriendsFacebookCommon::QueryRecentPlayers()"));
+	UE_LOG_ONLINE_FRIEND(Verbose, TEXT("FOnlineFriendsFacebookCommon::QueryRecentPlayers()"));
 
 	TriggerOnQueryRecentPlayersCompleteDelegates(UserId, Namespace, false, TEXT("not implemented"));
 
@@ -283,6 +283,11 @@ bool FOnlineFriendsFacebookCommon::QueryRecentPlayers(const FUniqueNetId& UserId
 bool FOnlineFriendsFacebookCommon::GetRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace, TArray< TSharedRef<FOnlineRecentPlayer> >& OutRecentPlayers)
 {
 	return false;
+}
+
+void FOnlineFriendsFacebookCommon::DumpRecentPlayers() const
+{
+
 }
 
 bool FOnlineFriendsFacebookCommon::BlockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)
@@ -321,7 +326,7 @@ void FOnlineFriendsFacebookCommon::QueryFriendsList_HttpRequestComplete(FHttpReq
 		ResponseStr = HttpResponse->GetContentAsString();
 		if (EHttpResponseCodes::IsOk(HttpResponse->GetResponseCode()))
 		{
-			UE_LOG(LogOnline, Verbose, TEXT("Query friends request complete. url=%s code=%d response=%s"),
+			UE_LOG_ONLINE_FRIEND(Verbose, TEXT("Query friends request complete. url=%s code=%d response=%s"),
 				*HttpRequest->GetURL(), HttpResponse->GetResponseCode(), *ResponseStr);
 
 			// Create the Json parser
@@ -346,7 +351,7 @@ void FOnlineFriendsFacebookCommon::QueryFriendsList_HttpRequestComplete(FHttpReq
 					// This is not present when permissions aren't there
 					int32 TotalCount = 0;
 					(*JsonSummary)->TryGetNumberField(TEXT(FRIEND_JSON_FRIENDCOUNT), TotalCount);
-					UE_LOG(LogOnline, Verbose, TEXT("Total friend count %d"), TotalCount);
+					UE_LOG_ONLINE_FRIEND(Verbose, TEXT("Total friend count %d"), TotalCount);
 				}
 
 				FOnlineFriendsList& FriendsList = FriendsMap.FindOrAdd(PendingFriendsQuery.LocalUserNum);
@@ -393,7 +398,7 @@ void FOnlineFriendsFacebookCommon::QueryFriendsList_HttpRequestComplete(FHttpReq
 
 	if (!ErrorStr.IsEmpty())
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Query friends list request failed. %s"), *ErrorStr);
+		UE_LOG_ONLINE_FRIEND(Warning, TEXT("Query friends list request failed. %s"), *ErrorStr);
 	}
 
 	if (!bMoreToProcess)

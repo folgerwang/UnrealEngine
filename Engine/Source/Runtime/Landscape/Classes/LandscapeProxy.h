@@ -11,6 +11,8 @@
 #include "PhysicsEngine/BodyInstance.h"
 #include "Async/AsyncWork.h"
 #include "Engine/Texture.h"
+#include "PerPlatformProperties.h"
+
 #include "LandscapeProxy.generated.h"
 
 class ALandscape;
@@ -326,6 +328,18 @@ public:
 	~FAsyncGrassTask();
 };
 
+USTRUCT()
+struct FLandscapeProxyMaterialOverride
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, Category = Landscape)
+	FPerPlatformInt LODIndex;
+
+	UPROPERTY(EditAnywhere, Category = Landscape)
+	UMaterialInterface* Material;
+};
+
 UCLASS(Abstract, MinimalAPI, NotBlueprintable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Lighting, Rendering, "Utilities|Transformation"), hidecategories=(Mobility))
 class ALandscapeProxy : public AActor
 {
@@ -424,6 +438,9 @@ public:
 	/** Material used to render landscape components with holes. If not set, LandscapeMaterial will be used (blend mode will be overridden to Masked if it is set to Opaque) */
 	UPROPERTY(EditAnywhere, Category=Landscape, AdvancedDisplay)
 	UMaterialInterface* LandscapeHoleMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Landscape)
+	TArray<FLandscapeProxyMaterialOverride> LandscapeMaterialsOverride;
 
 	/** Allows overriding the landscape bounds. This is useful if you distort the landscape with world-position-offset, for example
 	 *  Extension value in the negative Z axis, positive value increases bound size
@@ -711,7 +728,7 @@ public:
 	/** Frame counter to count down to the next time we check to update baked textures, so we don't check every frame */
 	int32 UpdateBakedTexturesCountdown;
 
-	/** Editor notification when changing feature level, used to flush grass */
+	/** Editor notification when changing feature level */
 	void OnFeatureLevelChanged(ERHIFeatureLevel::Type NewFeatureLevel);
 
 	/** Handle so we can unregister the delegate */
@@ -743,7 +760,7 @@ public:
 	LANDSCAPE_API ULandscapeInfo* GetLandscapeInfo() const;
 
 	// Get Landscape Material assigned to this Landscape
-	virtual UMaterialInterface* GetLandscapeMaterial() const;
+	virtual UMaterialInterface* GetLandscapeMaterial(int8 InLODIndex = INDEX_NONE) const;
 
 	// Get Hole Landscape Material assigned to this Landscape
 	virtual UMaterialInterface* GetLandscapeHoleMaterial() const;
@@ -818,7 +835,7 @@ public:
 	LANDSCAPE_API FIntRect GetBoundingRect() const;
 
 	/** Creates a Texture2D for use by this landscape proxy or one of it's components. If OptionalOverrideOuter is not specified, the level is used. */
-	LANDSCAPE_API UTexture2D* CreateLandscapeTexture(int32 InSizeX, int32 InSizeY, TextureGroup InLODGroup, ETextureSourceFormat InFormat, UObject* OptionalOverrideOuter = nullptr) const;
+	LANDSCAPE_API UTexture2D* CreateLandscapeTexture(int32 InSizeX, int32 InSizeY, TextureGroup InLODGroup, ETextureSourceFormat InFormat, UObject* OptionalOverrideOuter = nullptr, bool bCompress = false) const;
 
 	/* For the grassmap rendering notification */
 	int32 NumComponentsNeedingGrassMapRender;
@@ -843,16 +860,37 @@ public:
 
 	/**
 	* Overwrites a landscape heightmap with render target data
+	* @param InRenderTarget - Valid render target with a format of RTF_RGBA16f, RTF_RGBA32f or RTF_RGBA8
+	* @param InImportHeightFromRGChannel - Only relevant when using format RTF_RGBA16f or RTF_RGBA32f, and will tell us if we should import the height data from the R channel only of the Render target or from R & G. 
+	*									   Note that using RTF_RGBA16f with InImportHeightFromRGChannel == false, could have precision loss
 	* Only works in the editor
 	*/
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Landscape Import Heightmap from RenderTarget", Keywords = "Push RenderTarget to Landscape Heightmap", UnsafeDuringActorConstruction = "true"), Category = Rendering)
-	bool LandscapeImportHeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget);
+	bool LandscapeImportHeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget, bool InImportHeightFromRGChannel = false);
+
+	/**
+	* Output a landscape heightmap to a render target
+	* @param InRenderTarget - Valid render target with a format of RTF_RGBA16f, RTF_RGBA32f or RTF_RGBA8
+	* @param InExportHeightIntoRGChannel - Tell us if we should export the height that is internally stored as R & G (for 16 bits) to a single R channel of the render target (the format need to be RTF_RGBA16f or RTF_RGBA32f)
+	*									   Note that using RTF_RGBA16f with InExportHeightIntoRGChannel == false, could have precision loss.
+	*/
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Landscape Export Heightmap to RenderTarget", Keywords = "Push Landscape Heightmap to RenderTarget", UnsafeDuringActorConstruction = "true"), Category = Rendering)
+	bool LandscapeExportHeightmapToRenderTarget(UTextureRenderTarget2D* InRenderTarget, bool InExportHeightIntoRGChannel = false);
+	
 	/**
 	* Overwrites a landscape weightmap with render target data
 	* Only works in the editor
 	*/
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Landscape Import Weightmap from RenderTarget", Keywords = "Push RenderTarget to Landscape Heightmap", UnsafeDuringActorConstruction = "true"), Category = Rendering)
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Landscape Import Weightmap from RenderTarget", Keywords = "Push RenderTarget to Landscape Weightmap", UnsafeDuringActorConstruction = "true"), Category = Rendering)
 	bool LandscapeImportWeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget, FName InLayerName);
+
+	
+	/**
+	* Output a landscape weightmap to a render target
+	* Only works in the editor
+	*/
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Landscape Export Weightmap to RenderTarget", Keywords = "Push Landscape Weightmap to RenderTarget", UnsafeDuringActorConstruction = "true"), Category = Rendering)
+	bool LandscapeExportWeightmapToRenderTarget(UTextureRenderTarget2D* InRenderTarget, FName InLayerName);
 
 	DECLARE_EVENT(ALandscape, FLandscapeMaterialChangedDelegate);
 	FLandscapeMaterialChangedDelegate& OnMaterialChangedDelegate() { return LandscapeMaterialChangedDelegate; }

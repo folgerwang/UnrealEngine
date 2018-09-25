@@ -878,14 +878,16 @@ namespace CommandlineOverrideSpecifiers
 	FString	PropertySeperator		= TEXT(",");
 }
 
+#endif
 /**
 * Looks for any overrides on the commandline for this file
 *
 * @param File Config to possibly modify
 * @param Filename Name of the .ini file to look for overrides
 */
-static void OverrideFromCommandline(FConfigFile* File, const FString& Filename)
+void FConfigFile::OverrideFromCommandline(FConfigFile* File, const FString& Filename)
 {
+#if ALLOW_INI_OVERRIDE_FROM_COMMANDLINE
 	FString Settings;
 	// look for this filename on the commandline in the format:
 	//		-ini:IniName:[Section1]:Key1=Value1,[Section2]:Key2=Value2
@@ -929,8 +931,8 @@ static void OverrideFromCommandline(FConfigFile* File, const FString& Filename)
 			}
 		}
 	}
-}
 #endif
+}
 
 
 /**
@@ -1688,7 +1690,7 @@ FConfigFile* FConfigCacheIni::Find( const FString& Filename, bool CreateIfNotFou
 	{
 		Result = &Add( Filename, FConfigFile() );
 		Result->Read( Filename );
-		UE_LOG(LogConfig, Log, TEXT( "GConfig::Find has loaded file:  %s" ), *Filename );
+		UE_LOG(LogConfig, Verbose, TEXT( "GConfig::Find has loaded file:  %s" ), *Filename );
 	}
 	return Result;
 }
@@ -1905,12 +1907,12 @@ void FConfigCacheIni::LoadFile( const FString& Filename, const FConfigFile* Fall
 		bool bDoEmptyConfig = false;
 		bool bDoCombine = false;
 		ProcessIniContents(*Filename, *Filename, Result, bDoEmptyConfig, bDoCombine);
-		UE_LOG(LogConfig, Log, TEXT( "GConfig::LoadFile has loaded file:  %s" ), *Filename);
+		UE_LOG(LogConfig, Verbose, TEXT( "GConfig::LoadFile has loaded file:  %s" ), *Filename);
 	}
 	else if( Fallback )
 	{
 		Add( *Filename, *Fallback );
-		UE_LOG(LogConfig, Log, TEXT( "GConfig::LoadFile associated file:  %s" ), *Filename);
+		UE_LOG(LogConfig, Verbose, TEXT( "GConfig::LoadFile associated file:  %s" ), *Filename);
 	}
 	else
 	{
@@ -2906,7 +2908,7 @@ static bool GenerateDestIniFile(FConfigFile& DestConfigFile, const FString& Dest
 
 #if ALLOW_INI_OVERRIDE_FROM_COMMANDLINE
 	// process any commandline overrides
-	OverrideFromCommandline(&DestConfigFile, DestIniFilename);
+	FConfigFile::OverrideFromCommandline(&DestConfigFile, DestIniFilename);
 #endif
 
 	bool bForceRegenerate = false;
@@ -3772,7 +3774,7 @@ CORE_API void OnSetCVarFromIniEntry(const TCHAR *IniFile, const TCHAR *Key, cons
 		
 		if(SetBy == ECVF_SetByScalability)
 		{
-			if(!CVar->TestFlags(EConsoleVariableFlags::ECVF_Scalability))
+			if(!CVar->TestFlags(EConsoleVariableFlags::ECVF_Scalability) && !CVar->TestFlags(EConsoleVariableFlags::ECVF_ScalabilityGroup))
 			{
 				ensureMsgf(false, TEXT("Scalability.ini can only set ECVF_Scalability console variables ('%s'='%s' is ignored)"), Key, Value);
 				return;
@@ -3783,6 +3785,7 @@ CORE_API void OnSetCVarFromIniEntry(const TCHAR *IniFile, const TCHAR *Key, cons
 
 		if(bAllowChange)
 		{
+			UE_LOG(LogConfig,Log,TEXT("Setting CVar [[%s:%s]]"),Key,Value);
 			CVar->Set(Value, (EConsoleVariableFlags)SetBy);
 		}
 		else
@@ -3813,6 +3816,8 @@ CORE_API void OnSetCVarFromIniEntry(const TCHAR *IniFile, const TCHAR *Key, cons
 void ApplyCVarSettingsFromIni(const TCHAR* InSectionName, const TCHAR* InIniFilename, uint32 SetBy, bool bAllowCheating)
 {
 	FCoreDelegates::OnApplyCVarFromIni.Broadcast(InSectionName, InIniFilename, SetBy, bAllowCheating);
+
+	UE_LOG(LogConfig,Log,TEXT("Applying CVar settings from Section [%s] File [%s]"),InSectionName,InIniFilename);
 
 	if(FConfigSection* Section = GConfig->GetSectionPrivate(InSectionName, false, true, InIniFilename))
 	{

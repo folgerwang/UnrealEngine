@@ -138,7 +138,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_12, 10_0);
 
-    class BufferLayoutDescriptor : public ns::Object<MTLBufferLayoutDescriptor*>
+    class MTLPP_EXPORT BufferLayoutDescriptor : public ns::Object<MTLBufferLayoutDescriptor*>
     {
     public:
         BufferLayoutDescriptor();
@@ -155,7 +155,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_12, 10_0);
 
-    class AttributeDescriptor : public ns::Object<MTLAttributeDescriptor*>
+    class MTLPP_EXPORT AttributeDescriptor : public ns::Object<MTLAttributeDescriptor*>
     {
     public:
         AttributeDescriptor();
@@ -172,7 +172,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_12, 10_0);
 
-    class StageInputOutputDescriptor : public ns::Object<MTLStageInputOutputDescriptor*>
+    class MTLPP_EXPORT StageInputOutputDescriptor : public ns::Object<MTLStageInputOutputDescriptor*>
     {
     public:
         StageInputOutputDescriptor();

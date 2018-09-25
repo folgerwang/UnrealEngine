@@ -58,7 +58,7 @@ static const FName CueTagColumnName("GameplayCueTags");
 static const FName CueHandlerColumnName("GameplayCueHandlers");
 
 // Whether to show the Hotreload button in the GC editor.
-#define GAMEPLAYCUEEDITOR_HOTRELOAD_BUTTON 1
+#define GAMEPLAYCUEEDITOR_HOTRELOAD_BUTTON 0
 
 // Whether to enable the "show only leaf tags option", if 0, the option is enabled by default. (This is probably not a useful thing to have, in case it ever is, this can be reenabled)
 #define GAMEPLAYCUEEDITOR_SHOW_ONLY_LEAFTAGS_OPTION 0

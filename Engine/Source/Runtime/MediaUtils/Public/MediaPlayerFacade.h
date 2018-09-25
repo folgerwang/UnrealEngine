@@ -9,6 +9,7 @@
 #include "IMediaClockSink.h"
 #include "IMediaEventSink.h"
 #include "IMediaTickable.h"
+#include "MediaPlayerOptions.h"
 #include "Math/Quat.h"
 #include "Math/Range.h"
 #include "Math/RangeSet.h"
@@ -484,9 +485,10 @@ public:
 	 *
 	 * @param Url The URL of the media to open (file name or web address).
 	 * @param Options Optional media parameters.
+	 * @param PlayerOptions Optional player parameters.
 	 * @return true if the media is being opened, false otherwise.
 	 */
-	bool Open(const FString& Url, const IMediaOptions* Options);
+	bool Open(const FString& Url, const IMediaOptions* Options, const FMediaPlayerOptions* PlayerOptions = nullptr);
 
 	/**
 	 * Query the time ranges of cached media samples for the specified caching state.
@@ -776,4 +778,7 @@ private:
 
 	/** Media player event queue. */
 	TQueue<EMediaEvent, EQueueMode::Mpsc> QueuedEvents;
+
+	/** Active media player options. */
+	TOptional<FMediaPlayerOptions> ActivePlayerOptions;
 };

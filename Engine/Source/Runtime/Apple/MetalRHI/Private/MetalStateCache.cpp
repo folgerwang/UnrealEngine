@@ -1719,13 +1719,11 @@ void FMetalStateCache::CommitRenderResources(FMetalCommandEncoder* Raster)
 	check(IsValidRef(GraphicsPSO));
     
     SetResourcesFromTables(GraphicsPSO->VertexShader, CrossCompiler::SHADER_STAGE_VERTEX);
-    GetShaderParameters(CrossCompiler::SHADER_STAGE_VERTEX).CommitPackedUniformBuffers(this, GraphicsPSO, nullptr, CrossCompiler::SHADER_STAGE_VERTEX, GetBoundUniformBuffers(SF_Vertex), GraphicsPSO->VertexShader->UniformBuffersCopyInfo);
     GetShaderParameters(CrossCompiler::SHADER_STAGE_VERTEX).CommitPackedGlobals(this, Raster, SF_Vertex, GraphicsPSO->VertexShader->Bindings);
 	
     if (IsValidRef(GraphicsPSO->PixelShader))
     {
     	SetResourcesFromTables(GraphicsPSO->PixelShader, CrossCompiler::SHADER_STAGE_PIXEL);
-        GetShaderParameters(CrossCompiler::SHADER_STAGE_PIXEL).CommitPackedUniformBuffers(this, GraphicsPSO, nullptr, CrossCompiler::SHADER_STAGE_PIXEL, GetBoundUniformBuffers(SF_Pixel), GraphicsPSO->PixelShader->UniformBuffersCopyInfo);
         GetShaderParameters(CrossCompiler::SHADER_STAGE_PIXEL).CommitPackedGlobals(this, Raster, SF_Pixel, GraphicsPSO->PixelShader->Bindings);
     }
 }
@@ -1736,22 +1734,18 @@ void FMetalStateCache::CommitTessellationResources(FMetalCommandEncoder* Raster,
     check(IsValidRef(GraphicsPSO->HullShader) && IsValidRef(GraphicsPSO->DomainShader));
     
     SetResourcesFromTables(GraphicsPSO->VertexShader, CrossCompiler::SHADER_STAGE_VERTEX);
-    GetShaderParameters(CrossCompiler::SHADER_STAGE_VERTEX).CommitPackedUniformBuffers(this, GraphicsPSO, nullptr, CrossCompiler::SHADER_STAGE_VERTEX, GetBoundUniformBuffers(SF_Vertex), GraphicsPSO->VertexShader->UniformBuffersCopyInfo);
     GetShaderParameters(CrossCompiler::SHADER_STAGE_VERTEX).CommitPackedGlobals(this, Compute, SF_Vertex, GraphicsPSO->VertexShader->Bindings);
 	
     if (IsValidRef(GraphicsPSO->PixelShader))
     {
     	SetResourcesFromTables(GraphicsPSO->PixelShader, CrossCompiler::SHADER_STAGE_PIXEL);
-        GetShaderParameters(CrossCompiler::SHADER_STAGE_PIXEL).CommitPackedUniformBuffers(this, GraphicsPSO, nullptr, CrossCompiler::SHADER_STAGE_PIXEL, GetBoundUniformBuffers(SF_Pixel), GraphicsPSO->PixelShader->UniformBuffersCopyInfo);
         GetShaderParameters(CrossCompiler::SHADER_STAGE_PIXEL).CommitPackedGlobals(this, Raster, SF_Pixel, GraphicsPSO->PixelShader->Bindings);
     }
     
     SetResourcesFromTables(GraphicsPSO->HullShader, CrossCompiler::SHADER_STAGE_HULL);
-    GetShaderParameters(CrossCompiler::SHADER_STAGE_HULL).CommitPackedUniformBuffers(this, GraphicsPSO, nullptr, CrossCompiler::SHADER_STAGE_HULL, GetBoundUniformBuffers(SF_Hull), GraphicsPSO->HullShader->UniformBuffersCopyInfo);
     GetShaderParameters(CrossCompiler::SHADER_STAGE_HULL).CommitPackedGlobals(this, Compute, SF_Hull, GraphicsPSO->HullShader->Bindings);
 	
 	SetResourcesFromTables(GraphicsPSO->DomainShader, CrossCompiler::SHADER_STAGE_DOMAIN);
-    GetShaderParameters(CrossCompiler::SHADER_STAGE_DOMAIN).CommitPackedUniformBuffers(this, GraphicsPSO, nullptr, CrossCompiler::SHADER_STAGE_DOMAIN, GetBoundUniformBuffers(SF_Domain), GraphicsPSO->DomainShader->UniformBuffersCopyInfo);
     GetShaderParameters(CrossCompiler::SHADER_STAGE_DOMAIN).CommitPackedGlobals(this, Raster, SF_Domain, GraphicsPSO->DomainShader->Bindings);
 }
 
@@ -1760,7 +1754,6 @@ void FMetalStateCache::CommitComputeResources(FMetalCommandEncoder* Compute)
 	check(IsValidRef(ComputeShader));
 	SetResourcesFromTables(ComputeShader, CrossCompiler::SHADER_STAGE_COMPUTE);
 	
-	GetShaderParameters(CrossCompiler::SHADER_STAGE_COMPUTE).CommitPackedUniformBuffers(this, GraphicsPSO, ComputeShader, CrossCompiler::SHADER_STAGE_COMPUTE, GetBoundUniformBuffers(SF_Compute), ComputeShader->UniformBuffersCopyInfo);
 	GetShaderParameters(CrossCompiler::SHADER_STAGE_COMPUTE).CommitPackedGlobals(this, Compute, SF_Compute, ComputeShader->Bindings);
 }
 

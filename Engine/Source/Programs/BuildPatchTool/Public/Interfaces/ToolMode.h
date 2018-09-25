@@ -97,6 +97,16 @@ namespace BuildPatchTool
 			}
 			return false;
 		}
+
+		bool ParseValue(const FString& ValueIn, uint32& ValueOut)
+		{
+			if (FCString::IsNumeric(*ValueIn) && !ValueIn.Contains(TEXT("-"), ESearchCase::CaseSensitive))
+			{
+				ValueOut = (uint32)FCString::Strtoi(*ValueIn, nullptr, 10);
+				return true;
+			}
+			return false;
+		}
 	};
 
 	typedef TSharedRef<IToolMode> IToolModeRef;

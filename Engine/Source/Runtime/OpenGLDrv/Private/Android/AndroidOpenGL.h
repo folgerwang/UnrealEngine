@@ -155,8 +155,33 @@ extern PFNGLDELETESAMPLERSPROC			glDeleteSamplers;
 extern PFNGLSAMPLERPARAMETERIPROC		glSamplerParameteri;
 extern PFNGLBINDSAMPLERPROC				glBindSampler;
 
+extern PFNGLPROGRAMPARAMETERIPROC		glProgramParameteri;
+
 #include "OpenGLES2.h"
 
+typedef khronos_stime_nanoseconds_t EGLnsecsANDROID;
+
+typedef GLboolean(GL_APIENTRYP PFNeglPresentationTimeANDROID) (EGLDisplay dpy, EGLSurface surface, EGLnsecsANDROID time);
+typedef GLboolean(GL_APIENTRYP PFNeglGetNextFrameIdANDROID) (EGLDisplay dpy, EGLSurface surface, EGLuint64KHR *frameId);
+typedef GLboolean(GL_APIENTRYP PFNeglGetCompositorTimingANDROID) (EGLDisplay dpy, EGLSurface surface, EGLint numTimestamps, const EGLint *names, EGLnsecsANDROID *values);
+typedef GLboolean(GL_APIENTRYP PFNeglGetFrameTimestampsANDROID) (EGLDisplay dpy, EGLSurface surface, EGLuint64KHR frameId, EGLint numTimestamps, const EGLint *timestamps, EGLnsecsANDROID *values);
+typedef GLboolean(GL_APIENTRYP PFNeglQueryTimestampSupportedANDROID) (EGLDisplay dpy, EGLSurface surface, EGLint timestamp);
+
+#define EGL_TIMESTAMPS_ANDROID 0x3430
+#define EGL_COMPOSITE_DEADLINE_ANDROID 0x3431
+#define EGL_COMPOSITE_INTERVAL_ANDROID 0x3432
+#define EGL_COMPOSITE_TO_PRESENT_LATENCY_ANDROID 0x3433
+#define EGL_REQUESTED_PRESENT_TIME_ANDROID 0x3434
+#define EGL_RENDERING_COMPLETE_TIME_ANDROID 0x3435
+#define EGL_COMPOSITION_LATCH_TIME_ANDROID 0x3436
+#define EGL_FIRST_COMPOSITION_START_TIME_ANDROID 0x3437
+#define EGL_LAST_COMPOSITION_START_TIME_ANDROID 0x3438
+#define EGL_FIRST_COMPOSITION_GPU_FINISHED_TIME_ANDROID 0x3439
+#define EGL_DISPLAY_PRESENT_TIME_ANDROID 0x343A
+#define EGL_DEQUEUE_READY_TIME_ANDROID 0x343B
+#define EGL_READS_DONE_TIME_ANDROID 0x343C
+#define EGL_TIMESTAMP_PENDING_ANDROID - 2
+#define EGL_TIMESTAMP_INVALID_ANDROID - 1
 
 extern "C"
 {
@@ -164,6 +189,15 @@ extern "C"
 	extern PFNEGLCREATESYNCKHRPROC eglCreateSyncKHR_p;
 	extern PFNEGLDESTROYSYNCKHRPROC eglDestroySyncKHR_p;
 	extern PFNEGLCLIENTWAITSYNCKHRPROC eglClientWaitSyncKHR_p;
+	extern PFNEGLGETSYNCATTRIBKHRPROC eglGetSyncAttribKHR_p;
+
+	extern PFNeglPresentationTimeANDROID eglPresentationTimeANDROID_p;
+	extern PFNeglGetNextFrameIdANDROID eglGetNextFrameIdANDROID_p;
+	extern PFNeglGetCompositorTimingANDROID eglGetCompositorTimingANDROID_p;
+	extern PFNeglGetFrameTimestampsANDROID eglGetFrameTimestampsANDROID_p;
+	extern PFNeglQueryTimestampSupportedANDROID eglQueryTimestampSupportedANDROID_p;
+	extern PFNeglQueryTimestampSupportedANDROID eglGetCompositorTimingSupportedANDROID_p;
+	extern PFNeglQueryTimestampSupportedANDROID eglGetFrameTimestampsSupportedANDROID_p;
 }
 
 struct FAndroidOpenGL : public FOpenGLES2
@@ -435,9 +469,15 @@ struct FAndroidOpenGL : public FOpenGLES2
 		glGetProgramBinary(Program, BufSize, Length, BinaryFormat, Binary);
 	}
 
-	static FORCEINLINE void ProgramBinary(GLuint Program, GLenum BinaryFormat, void *Binary, GLsizei Length)
+	static FORCEINLINE void ProgramBinary(GLuint Program, GLenum BinaryFormat, const void *Binary, GLsizei Length)
 	{
 		glProgramBinary(Program, BinaryFormat, Binary, Length);
+	}
+
+	static FORCEINLINE void ProgramParameter(GLuint Program, GLenum PName, GLint Value)
+	{
+		check(glProgramParameteri);
+		glProgramParameteri(Program, PName, Value);
 	}
 
 	static FORCEINLINE void BindBufferBase(GLenum Target, GLuint Index, GLuint Buffer)

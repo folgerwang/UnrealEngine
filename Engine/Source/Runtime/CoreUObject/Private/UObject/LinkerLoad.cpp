@@ -442,7 +442,7 @@ FLinkerLoad* FLinkerLoad::CreateLinker(UPackage* Parent, const TCHAR* Filename, 
 		{
 			// The linker can't have an associated loader here if we have a loader override
 			check(!Linker->Loader);
-			Linker->Loader = InLoader;
+			Linker->SetLoader(InLoader);
 			// Set the basic archive flags on the linker
 			Linker->ResetStatusInfo();
 		}
@@ -456,6 +456,20 @@ FLinkerLoad* FLinkerLoad::CreateLinker(UPackage* Parent, const TCHAR* Filename, 
 	}
 	FCoreUObjectDelegates::PackageCreatedForLoad.Broadcast(Parent);
 	return Linker;
+}
+
+void FLinkerLoad::SetLoader(FArchive* InLoader)
+{
+	Loader = InLoader;
+
+	check(StructuredArchive == nullptr);
+	check(!StructuredArchiveRootRecord.IsSet());
+	check(StructuredArchiveFormatter == nullptr);
+	
+	// Create structured archive wrapper
+	StructuredArchiveFormatter = new FBinaryArchiveFormatter(*this);
+	StructuredArchive = new FStructuredArchive(*StructuredArchiveFormatter);
+	StructuredArchiveRootRecord.Emplace(StructuredArchive->Open().EnterRecord());
 }
 
 /**
@@ -820,7 +834,7 @@ FLinkerLoad::FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InL
 	FMemory::Memset(ExportHash, INDEX_NONE, sizeof(ExportHash));
 	INC_DWORD_STAT(STAT_LinkerCount);
 	INC_DWORD_STAT(STAT_LiveLinkerCount);
-#if !UE_BUILD_SHIPPING
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
 	FLinkerManager::Get().GetLiveLinkers().Add(this);
 #endif
 
@@ -829,7 +843,7 @@ FLinkerLoad::FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InL
 
 FLinkerLoad::~FLinkerLoad()
 {
-#if !UE_BUILD_SHIPPING
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
 	FLinkerManager::Get().GetLiveLinkers().Remove(this);
 #endif
 
@@ -974,8 +988,8 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader(
 				if (bCanUseFArchiveAsync2)
 				{
 					Loader = new FArchiveAsync2(*Filename
-						, GEventDrivenLoaderEnabled ? Forward<TFunction<void()>>(InSummaryReadyCallback) : TFunction<void()>([]() {})
-					);
+							, GEventDrivenLoaderEnabled ? Forward<TFunction<void()>>(InSummaryReadyCallback) : TFunction<void()>([]() {})
+						);
 				}
 				else
 				{
@@ -1027,14 +1041,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader(
 			}
 		} 
 
-		// Create structured archive wrapper
-		if (StructuredArchiveFormatter == nullptr)
-		{
-			StructuredArchiveFormatter = new FBinaryArchiveFormatter(*this);
-		}
-
-		StructuredArchive = new FStructuredArchive(*StructuredArchiveFormatter);
-		StructuredArchiveRootRecord.Emplace(StructuredArchive->Open().EnterRecord());
+		SetLoader(Loader);
 
 		check(bDynamicClassLinker || Loader);
 		check(bDynamicClassLinker || !Loader->IsError());
@@ -4205,7 +4212,7 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			// to be refreshed and regenerated.  If so, regenerate and patch it 
 			// back into the export table
 			if( !LoadClass->bCooked && bIsBlueprintCDO && (LoadClass->GetOutermost() != GetTransientPackage()) )
-			{							
+			{
 				{
 					// For classes that are about to be regenerated, make sure we register them with the linker, so future references to this linker index will be valid
 					const EObjectFlags OldFlags = Export.Object->GetFlags();
@@ -4607,8 +4614,7 @@ void FLinkerLoad::Detach()
 	}
 
 	// Remove from object manager, if it has been added.
-	FLinkerManager::Get().RemoveLoader(this);
-	FLinkerManager::Get().RemoveLoaderWithNewImports(this);
+	FLinkerManager::Get().RemoveLoaderFromObjectLoadersAndLoadersWithNewImports(this);
 	if (!FPlatformProperties::HasEditorOnlyData())
 	{
 		FUObjectThreadContext::Get().DelayedLinkerClosePackages.Remove(this);
@@ -4623,7 +4629,7 @@ void FLinkerLoad::Detach()
 	{
 		delete Loader;
 		Loader = nullptr;
-	}	
+	}
 
 	// Empty out no longer used arrays.
 	NameMap.Empty();

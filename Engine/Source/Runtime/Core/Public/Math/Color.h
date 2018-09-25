@@ -7,6 +7,7 @@
 #include "Math/UnrealMathUtility.h"
 #include "Containers/UnrealString.h"
 #include "Misc/Parse.h"
+#include "Serialization/StructuredArchive.h"
 
 class FFloat16Color;
 

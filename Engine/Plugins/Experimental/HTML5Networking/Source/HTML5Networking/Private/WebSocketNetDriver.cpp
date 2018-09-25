@@ -121,7 +121,7 @@ void UWebSocketNetDriver::TickDispatch(float DeltaTime)
 		WebSocketServer->Tick();
 }
 
-void UWebSocketNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits)
+void UWebSocketNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits, FOutPacketTraits& Traits)
 {
 	bool bValidAddress = !Address.IsEmpty();
 	TSharedRef<FInternetAddr> RemoteAddr = GetSocketSubsystem()->CreateInternetAddr();
@@ -138,7 +138,7 @@ void UWebSocketNetDriver::LowLevelSend(FString Address, void* Data, int32 CountB
 		if (ConnectionlessHandler.IsValid())
 		{
 			const ProcessedPacket ProcessedData =
-					ConnectionlessHandler->OutgoingConnectionless(Address, (uint8*)DataToSend, CountBits);
+					ConnectionlessHandler->OutgoingConnectionless(Address, (uint8*)DataToSend, CountBits, Traits);
 
 			if (!ProcessedData.bError)
 			{

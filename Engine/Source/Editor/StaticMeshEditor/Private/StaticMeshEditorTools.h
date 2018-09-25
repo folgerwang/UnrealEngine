@@ -372,7 +372,9 @@ class FMeshMaterialsLayout : public TSharedFromThis<FMeshMaterialsLayout>
 public:
 	FMeshMaterialsLayout(IStaticMeshEditor& InStaticMeshEditor)
 		: StaticMeshEditor(InStaticMeshEditor)
-	{}
+	{
+		bDeleteWarningConsumed = false;
+	}
 
 	virtual ~FMeshMaterialsLayout();
 
@@ -432,6 +434,11 @@ private:
 	
 	/* This is to know if material are used by any LODs sections. */
 	TMap<int32, TArray<FSectionLocalizer>> MaterialUsedMap;
+
+	/*
+	* This prevent showing the delete material slot warning dialog more then once per editor session
+	*/
+	bool bDeleteWarningConsumed;
 };
 
 class FUVChannelsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FUVChannelsLayout>

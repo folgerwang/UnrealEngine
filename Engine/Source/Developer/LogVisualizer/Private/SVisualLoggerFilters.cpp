@@ -194,7 +194,7 @@ TSharedRef<SWidget> SVisualLoggerFilters::MakeGraphsFilterMenu()
 
 
 	FDisplayMetrics DisplayMetrics;
-	FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+	FSlateApplication::Get().GetCachedDisplayMetrics(DisplayMetrics);
 
 	const FVector2D DisplaySize(
 		DisplayMetrics.PrimaryDisplayWorkAreaRect.Right - DisplayMetrics.PrimaryDisplayWorkAreaRect.Left,

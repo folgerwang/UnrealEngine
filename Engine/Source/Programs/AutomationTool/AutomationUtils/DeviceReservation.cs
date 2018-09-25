@@ -8,6 +8,7 @@ using System.Xml.Serialization;
 using System.Net;
 using UnrealBuildTool;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace AutomationTool.DeviceReservation
 {
@@ -25,6 +26,10 @@ namespace AutomationTool.DeviceReservation
 		private static readonly TimeSpan ReserveTime = TimeSpan.FromMinutes(10);
 		private static readonly TimeSpan RenewTime = TimeSpan.FromMinutes(5);
 
+		// Max times to attempt reservation renewal, in case reservation service is being restarted, etc
+		private static readonly int RenewRetryMax = 4;
+		private static readonly TimeSpan RenewRetryTime = TimeSpan.FromMinutes(1);
+		
 		private Thread RenewThread;
 		private AutoResetEvent WaitEvent = new AutoResetEvent(false);
 
@@ -46,13 +51,13 @@ namespace AutomationTool.DeviceReservation
 		/// </summary>
 		/// <param name="InWorkingDirectory">Working directory which contains the devices.xml and reservations.xml files. Usually a network share.</param>
 		/// <param name="InDeviceTypes">An array of device types to reserve, one for each device requested. These must match the device types listed in devices.xml.</param>
-		public DeviceReservationAutoRenew(string InReservationBaseUri, params string[] InDeviceTypes)
+		public DeviceReservationAutoRenew(string InReservationBaseUri, int RetryMax, params string[] InDeviceTypes)
 		{
 			ReservationBaseUri = new Uri(InReservationBaseUri);
 
 			// Make a device reservation for all the required device types.
 			// This blocks until the reservation is successful.
-			ActiveReservation = Reservation.Create(ReservationBaseUri, InDeviceTypes, ReserveTime);
+			ActiveReservation = Reservation.Create(ReservationBaseUri, InDeviceTypes, ReserveTime, RetryMax);
 
 			// Resolve the device IPs
 			ReservedDevices = new List<Device>();
@@ -67,9 +72,31 @@ namespace AutomationTool.DeviceReservation
 
 		private void DoAutoRenew()
 		{
-			while (!WaitEvent.WaitOne(RenewTime))
+			int RetryCurrent = 0;
+			TimeSpan RenewTimeCurrent = RenewTime;
+
+			while (!WaitEvent.WaitOne(RenewTimeCurrent))
 			{
-				ActiveReservation.Renew(ReservationBaseUri, ReserveTime);
+				try
+				{
+					ActiveReservation.Renew(ReservationBaseUri, ReserveTime);
+					RetryCurrent = 0;
+					RenewTimeCurrent = RenewTime;					
+				}
+				catch (AutomationException ex)
+				{
+					// @todo: finer grain on renew error from service
+					if (RetryCurrent == RenewRetryMax)
+					{
+						throw new AutomationException(ex, "Reserveration renew exception.");
+					}
+					else
+					{											
+						// try again
+						RetryCurrent++;
+						RenewTimeCurrent = RenewRetryTime;
+					}
+				}				
 			}
 
 			ActiveReservation.Delete(ReservationBaseUri);
@@ -159,6 +186,7 @@ namespace AutomationTool.DeviceReservation
 		public DateTime StartDateTime { get; set; }
 		public TimeSpan Duration { get; set; }
 		public Guid Guid { get; set; }
+		public static string ReservationDetails = "";
 
 		private void Copy(Reservation Other)
 		{
@@ -174,19 +202,22 @@ namespace AutomationTool.DeviceReservation
 			public string[] DeviceTypes;
 			public string Hostname;
 			public TimeSpan Duration;
+			public string ReservationDetails;
 		}
 
-		public static Reservation Create(Uri BaseUri, string[] DeviceTypes, TimeSpan Duration)
+		public static Reservation Create(Uri BaseUri, string[] DeviceTypes, TimeSpan Duration, int RetryMax = 5)
 		{
 			bool bFirst = true;
+			TimeSpan RetryTime = TimeSpan.FromMinutes(1);
+			int RetryCount = 0;
+
 			while (true)
 			{
 				if (!bFirst)
-				{
-					TimeSpan RetryTime = TimeSpan.FromMinutes(1);
-					Console.WriteLine("Retrying in {0} seconds ...", RetryTime.TotalSeconds);
+				{					
 					Thread.Sleep(RetryTime);
 				}
+
 				bFirst = false;
 
 				Console.WriteLine("Requesting device reservation...");
@@ -199,25 +230,54 @@ namespace AutomationTool.DeviceReservation
 					{
 						DeviceTypes = DeviceTypes,
 						Hostname = Environment.MachineName,
-						Duration = Duration
+						Duration = Duration,
+						ReservationDetails = ReservationDetails
 					});
 				}
 				catch (WebException WebEx)
 				{
-					if ((WebEx.Response as HttpWebResponse).StatusCode == HttpStatusCode.Conflict)
+
+					if (RetryCount == RetryMax)
 					{
-						Console.WriteLine("No devices currently available.");
-						continue; // Retry 
+						Console.WriteLine("Device reservation unsuccessful");
+						throw new AutomationException(WebEx, "Device reservation unsuccessful, devices unavailable");
 					}
 
+					string RetryMessage = String.Format("retry {0} of {1} in {2} minutes", RetryCount + 1, RetryMax, RetryTime.Minutes);
+					string Message = String.Format("Unknown device server error, {0}", RetryMessage);
+
+					if (WebEx.Response == null)
+					{
+						Message = String.Format("Devices service currently not available, {0}", RetryMessage);
+					}
+					else if ((WebEx.Response as HttpWebResponse).StatusCode == HttpStatusCode.Conflict)
+					{
+						Message = String.Format("No devices currently available, {0}", RetryMessage);
+					}
+
+					Console.WriteLine(Message);
+					RetryCount++;
 					UnknownException = WebEx;
 				}
 				catch (Exception Ex)
 				{
 					UnknownException = Ex;
-				}
 
-				Console.WriteLine("Warning: Device reservation unsuccessful: {0}", UnknownException.Message);
+					string Line = UnknownException.Message;
+
+					string[] TriggersSrc = { "Warning:", "Error:", "Exception:" };
+					string[] TriggersDst = { "Warn1ng:", "Err0r:", "Except10n:" };
+
+					for (int Index = 0; Index < TriggersSrc.Length; ++Index)
+					{
+						if (Line.IndexOf(TriggersSrc[Index], StringComparison.OrdinalIgnoreCase) != -1)
+						{
+							Line = Regex.Replace(Line, TriggersSrc[Index], TriggersDst[Index], RegexOptions.IgnoreCase);
+						}
+					}
+
+					Console.WriteLine("Device reservation unsuccessful: {0}", Line);
+				}
 			}
 		}
 
@@ -253,9 +313,11 @@ namespace AutomationTool.DeviceReservation
 		public string Name { get; set; }
 		public string Type { get; set; }
 		public string IPOrHostName { get; set; }
+		public string PerfSpec { get; set; }
 		public TimeSpan AvailableStartTime { get; set; }
 		public TimeSpan AvailableEndTime { get; set; }
 		public bool Enabled { get; set; }
+		public string DeviceData { get; set; }
 
 		public Device Clone() { return (Device)MemberwiseClone(); }
 

@@ -22,6 +22,7 @@
 #include "BuildPatchServicesPrivate.h"
 #include "Common/HttpManager.h"
 #include "Common/FileSystem.h"
+#include "Common/ChunkDataSizeProvider.h"
 #include "Installer/InstallerError.h"
 #include "Installer/DiskChunkStore.h"
 #include "Installer/CloudChunkSource.h"
@@ -206,6 +207,7 @@ namespace InstallerHelpers
 
 	TSet<FGuid> GetMultipleReferencedChunks(const FBuildPatchAppManifestRef& Manifest)
 	{
+		using namespace BuildPatchServices;
 		TSet<FGuid> MultipleReferencedChunks;
 		TSet<FGuid> AllReferencedChunks;
 		TArray<FString> AllFiles;
@@ -215,7 +217,7 @@ namespace InstallerHelpers
 			const FFileManifest* NewFileManifest = Manifest->GetFileManifest(File);
 			if (NewFileManifest != nullptr)
 			{
-				for (const FChunkPart& ChunkPart : NewFileManifest->FileChunkParts)
+				for (const FChunkPart& ChunkPart : NewFileManifest->ChunkParts)
 				{
 					if (AllReferencedChunks.Contains(ChunkPart.Guid))
 					{
@@ -369,7 +371,8 @@ namespace BuildPatchServices
 		, DiskReadSpeedRecorder(FSpeedRecorderFactory::Create())
 		, DiskWriteSpeedRecorder(FSpeedRecorderFactory::Create())
 		, ChunkDbReadSpeedRecorder(FSpeedRecorderFactory::Create())
-		, DownloadServiceStatistics(FDownloadServiceStatisticsFactory::Create(DownloadSpeedRecorder.Get(), InstallerAnalytics.Get(), &NewBuildManifest.Get()))
+		, ChunkDataSizeProvider(FChunkDataSizeProviderFactory::Create())
+		, DownloadServiceStatistics(FDownloadServiceStatisticsFactory::Create(DownloadSpeedRecorder.Get(), ChunkDataSizeProvider.Get(), InstallerAnalytics.Get()))
 		, ChunkDbChunkSourceStatistics(FChunkDbChunkSourceStatisticsFactory::Create(ChunkDbReadSpeedRecorder.Get(), FileOperationTracker.Get()))
 		, InstallChunkSourceStatistics(FInstallChunkSourceStatisticsFactory::Create(DiskReadSpeedRecorder.Get(), InstallerAnalytics.Get(), FileOperationTracker.Get()))
 		, CloudChunkSourceStatistics(FCloudChunkSourceStatisticsFactory::Create(InstallerAnalytics.Get(), &BuildProgress, FileOperationTracker.Get()))
@@ -384,6 +387,8 @@ namespace BuildPatchServices
 		UE_LOG(LogBuildPatchServices, Log, TEXT("FBuildPatchInstaller CTOR CurrentBuildManifest Check:   0x%p"), CurrentBuildManifest.Get());
 		UE_LOG(LogBuildPatchServices, Log, TEXT("FBuildPatchInstaller CTOR NewBuildManifest Check:   0x%p"), &NewBuildManifest.Get());
 
+		ChunkDataSizeProvider->AddManifestData(CurrentBuildManifest.Get());
+		ChunkDataSizeProvider->AddManifestData(&NewBuildManifest.Get());
 		FPaths::NormalizeDirectoryName(Configuration.InstallDirectory);
 		FPaths::CollapseRelativeDirectories(Configuration.InstallDirectory);
 		if (InstallationInfo.Contains(Configuration.InstallDirectory) == false && CurrentBuildManifest.IsValid())
@@ -1530,8 +1535,8 @@ namespace BuildPatchServices
 			const FFileManifest* OldFileManifest = CurrentBuildManifest.IsValid() ? CurrentBuildManifest->GetFileManifest(Filename) : nullptr;
 			const FFileManifest* NewFileManifest = NewBuildManifest->GetFileManifest(Filename);
 			const int64 InstalledFilesize = IFileManager::Get().FileSize(*InstalledFilename);
-			const int64 OriginalFileSize = OldFileManifest ? OldFileManifest->GetFileSize() : INDEX_NONE;
-			const int64 NewFileSize = NewFileManifest ? NewFileManifest->GetFileSize() : INDEX_NONE;
+			const int64 OriginalFileSize = OldFileManifest ? OldFileManifest->FileSize : INDEX_NONE;
+			const int64 NewFileSize = NewFileManifest ? NewFileManifest->FileSize : INDEX_NONE;
 			const FSHAHash HashZero;
 			const FSHAHash& HashOld = OldFileManifest ? OldFileManifest->FileHash : HashZero;
 			const FSHAHash& HashNew = NewFileManifest ? NewFileManifest->FileHash : HashZero;

@@ -145,6 +145,7 @@ bool UEditorEngine::ReimportFbxAnimation( USkeleton* Skeleton, UAnimSequence* An
 			AnimSequence->AssetImportData = ImportData;
 		}
 		ReimportUI->bIsReimport = true;
+		ReimportUI->ReimportMesh = AnimSequence;
 		ReimportUI->AnimSequenceImportData = ImportData;
 
 		bool bImportOperationCanceled = false;
@@ -157,7 +158,7 @@ bool UEditorEngine::ReimportFbxAnimation( USkeleton* Skeleton, UAnimSequence* An
 		// @hack to make sure skeleton is set before opening the dialog
 		FbxImporter->ImportOptions->SkeletonForAnimation = Skeleton;
 
-		GetImportOptions(FbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, AnimSequence->GetPathName(), bImportOperationCanceled, bOutImportAll, bIsObjFormat, InFilename, bForceImportType, FBXIT_Animation, AnimSequence);
+		GetImportOptions(FbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, AnimSequence->GetPathName(), bImportOperationCanceled, bOutImportAll, bIsObjFormat, InFilename, bForceImportType, FBXIT_Animation);
 
 		if (bImportOperationCanceled)
 		{

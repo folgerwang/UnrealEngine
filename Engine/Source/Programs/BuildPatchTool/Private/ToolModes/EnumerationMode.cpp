@@ -29,24 +29,24 @@ public:
 		// Print help if requested
 		if (bHelp)
 		{
-			UE_LOG(LogBuildPatchTool, Log, TEXT("ENUMERATION MODE"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("This tool supports enumerating patch data referenced by a build manifest."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Required arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -mode=Enumeration    Must be specified to launch the tool in enumeration mode."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -InputFile=\"\"        Specifies in quotes the file path to the manifest to enumerate from."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -OutputFile=\"\"       Specifies in quotes the file path to a file where the list will be saved out."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("Optional arguments:"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("  -includesizes        When specified, the size of each file in bytes will also be output (see notes)."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT(""));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("NB: If InputFile is a manifest, the output file format will be text file with one line per chunk, each containing cloud relative path."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("    e.g. path/to/chunk"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("    If InputFile is a chunk package, the output file format will be text file with one line per chunk, each containing tab separated hex chunk"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("    GUID, hex chunk rolling hash, and hex chunk SHA1."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("    e.g. 2CC26D05B64363780D5CF292E6B570A3\\t078070129133079067060057\\t527490FCA1DA6FAAB0E6F6E369E372FA693CCFBB"));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("    Line endings are \\r\\n."));
-			UE_LOG(LogBuildPatchTool, Log, TEXT("NB: If includesizes is specified, each line of the output text file will end with a tab then the number of bytes of the chunk file."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("ENUMERATION MODE"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("This tool supports enumerating patch data referenced by a build manifest."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Required arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -mode=Enumeration    Must be specified to launch the tool in enumeration mode."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -InputFile=\"\"        Specifies in quotes the file path to the manifest to enumerate from."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -OutputFile=\"\"       Specifies in quotes the file path to a file where the list will be saved out."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("Optional arguments:"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("  -includesizes        When specified, the size of each file in bytes will also be output (see notes)."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT(""));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: If InputFile is a manifest, the output file format will be text file with one line per chunk, each containing cloud relative path."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("    e.g. path/to/chunk"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("    If InputFile is a chunk package, the output file format will be text file with one line per chunk, each containing tab separated hex chunk"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("    GUID, hex chunk rolling hash, and hex chunk SHA1."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("    e.g. 2CC26D05B64363780D5CF292E6B570A3\\t078070129133079067060057\\t527490FCA1DA6FAAB0E6F6E369E372FA693CCFBB"));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("    Line endings are \\r\\n."));
+			UE_LOG(LogBuildPatchTool, Display, TEXT("NB: If includesizes is specified, each line of the output text file will end with a tab then the number of bytes of the chunk file."));
 			return EReturnCode::OK;
 		}
 

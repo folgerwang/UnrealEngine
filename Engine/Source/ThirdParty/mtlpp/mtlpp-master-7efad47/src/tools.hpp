@@ -26,7 +26,7 @@ namespace mtlpp
 		verbose = 2
 	};
 	
-	class CompilerOptions : public CompileOptions
+	class MTLPP_EXPORT CompilerOptions : public CompileOptions
 	{
 	public:
 		CompilerOptions() : Platform(Platform::macOS), KeepDebugInfo(false), AirOptions(AIROptions::none), AirString(nullptr) { MinOS[0] = 0; MinOS[1] = 0; }
@@ -41,7 +41,7 @@ namespace mtlpp
 	}
 	MTLPP_AVAILABLE(10_11, 8_0);
 	
-	class Compiler
+	class MTLPP_EXPORT Compiler
 	{
 	public:
 		static bool Compile(const char* source, ns::String const& output, const CompilerOptions& options, ns::AutoReleasedError* error);

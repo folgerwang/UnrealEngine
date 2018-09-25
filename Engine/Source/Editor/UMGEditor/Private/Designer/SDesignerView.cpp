@@ -490,6 +490,7 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 
 	ZoomToFit(/*bInstantZoom*/ true);
 
+	FCoreDelegates::OnSafeFrameChangedEvent.AddSP(this, &SDesignerView::SwapSafeZoneTypes);
 	//RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SDesignerView::EnsureTick));
 }
 
@@ -975,7 +976,7 @@ void SDesignerView::SetStartupResolution()
 	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
 	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
 	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
-	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 
 }
 
@@ -2017,7 +2018,11 @@ void SDesignerView::PopulateWidgetGeometryCache_Loop(FArrangedWidget& CurrentWid
 	{
 		bool bRespectLocks = IsRespectingLocks();
 
-		if (bRespectLocks && CandidateUWidget->IsLockedInDesigner())
+		if (!CandidateUWidget->GetVisibilityInDesigner().IsVisible())
+		{
+			bIncludeInHitTestGrid = false;
+		}
+		else if (bRespectLocks && CandidateUWidget->IsLockedInDesigner())
 		{
 			bIncludeInHitTestGrid = false;
 		}
@@ -2638,6 +2643,14 @@ void SDesignerView::DetermineDragDropPreviewWidgets(TArray<UWidget*>& OutWidgets
 	}
 }
 
+void SDesignerView::SwapSafeZoneTypes()
+{
+	if (FDisplayMetrics::GetDebugTitleSafeZoneRatio() < 1.f)
+	{
+		PreviewOverrideName = FString();
+	}
+}
+
 void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, const bool bIsPreview)
 {
 	TSharedPtr<FDragDropOperation> DragOperation = DragDropEvent.GetOperation();
@@ -3255,7 +3268,7 @@ void SDesignerView::HandleOnCommonResolutionSelected(FPlayScreenResolution InRes
 	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
 	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
 	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
-	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 
 	if (UUserWidget* DefaultWidget = GetDefaultWidget())
 	{
@@ -3582,7 +3595,7 @@ FReply SDesignerView::HandleSwapAspectRatioClicked()
 	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
 	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
 	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
-	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 
 	if (UUserWidget* DefaultWidget = GetDefaultWidget())
 	{
@@ -3618,7 +3631,7 @@ FReply SDesignerView::HandleFlipSafeZonesClicked()
 	SafeZoneRatio.Right /= (PreviewWidth / 2.0f);
 	SafeZoneRatio.Bottom /= (PreviewHeight / 2.0f);
 	SafeZoneRatio.Top /= (PreviewHeight / 2.0f);
-	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio, true);
 
 	if (UUserWidget* DefaultWidget = GetDefaultWidget())
 	{

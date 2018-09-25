@@ -401,6 +401,10 @@
 	#define PLATFORM_USES_ANSI_STRING_FOR_EXTERNAL_PROFILING	1
 #endif
 
+#ifndef PLATFORM_IMPLEMENTS_BeginNamedEventStatic
+	#define PLATFORM_IMPLEMENTS_BeginNamedEventStatic			0
+#endif
+
 #ifndef PLATFORM_RHITHREAD_DEFAULT_BYPASS
 	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					1
 #endif
@@ -444,6 +448,7 @@
 #ifndef PLATFORM_HAS_CRC_INTRINSICS
 	#define PLATFORM_HAS_CRC_INTRINSICS							0
 #endif
+
 // deprecated, do not use
 #define PLATFORM_HAS_THREADSAFE_RHIGetRenderQueryResult	#
 #define PLATFORM_SUPPORTS_RHI_THREAD #

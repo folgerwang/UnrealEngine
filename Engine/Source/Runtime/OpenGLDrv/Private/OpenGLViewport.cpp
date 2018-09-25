@@ -198,6 +198,8 @@ void FOpenGLDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,b
 		GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUPresent]++;
 	}
 
+	// TODO: find better location to poll this, or create programs on separate thread. Gil had a prototype of this.
+	FOpenGLProgramBinaryCache::CheckPendingGLProgramCreateRequests();
 }
 
 

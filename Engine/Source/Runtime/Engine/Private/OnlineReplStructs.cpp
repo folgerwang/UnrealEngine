@@ -529,7 +529,7 @@ void TestUniqueIdRepl(UWorld* InWorld)
 
 			if (EmptyIdOut.IsValid())
 			{
-				UE_LOG(LogNet, Warning, TEXT("EmptyId %s should have been invalid"), *EmptyIdOut->ToString());
+				UE_LOG(LogNet, Warning, TEXT("EmptyId %s should have been invalid"), *EmptyIdOut->ToDebugString());
 				bRegularSerializationSuccess = false;
 			}
 
@@ -614,7 +614,7 @@ void TestUniqueIdRepl(UWorld* InWorld)
 
 				if (EmptyIdOut.IsValid())
 				{
-					UE_LOG(LogNet, Warning, TEXT("EmptyId %s should have been invalid"), *EmptyIdOut->ToString());
+					UE_LOG(LogNet, Warning, TEXT("EmptyId %s should have been invalid"), *EmptyIdOut->ToDebugString());
 					bNetworkSerializationSuccess = false;
 				}
 

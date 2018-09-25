@@ -90,6 +90,7 @@ struct FAbcSamplingSettings
 		FrameSteps = 1;
 		TimeSteps = 0.0f;
 		FrameStart = FrameEnd = 0;
+		bSkipEmpty = false;
 	}
 
 	/** Type of sampling performed while importing the animation*/

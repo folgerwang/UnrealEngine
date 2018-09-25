@@ -13,6 +13,7 @@
 #include "Misc/ObjectThumbnail.h"
 #include "Serialization/CustomVersion.h"
 #include "Templates/UniquePtr.h"
+#include "Misc/SecureHash.h"
 
 class Error;
 
@@ -50,10 +51,14 @@ struct FSavePackageResultStruct
 	/** Total size of all files written out, including bulk data */
 	int64 TotalFileSize;
 
+	/** MD5 hash of the cooked data */
+	FMD5Hash CookedHash;
+
 	/** Constructors, it will implicitly construct from the result enum */
 	FSavePackageResultStruct() : Result(ESavePackageResult::Error), TotalFileSize(0) {}
 	FSavePackageResultStruct(ESavePackageResult InResult) : Result(InResult), TotalFileSize(0) {}
 	FSavePackageResultStruct(ESavePackageResult InResult, int64 InTotalFileSize) : Result(InResult), TotalFileSize(InTotalFileSize) {}
+	FSavePackageResultStruct(ESavePackageResult InResult, int64 InTotalFileSize, FMD5Hash InHash) : Result(InResult), TotalFileSize(InTotalFileSize), CookedHash(InHash) {}
 
 	bool operator==(const FSavePackageResultStruct& Other) const
 	{

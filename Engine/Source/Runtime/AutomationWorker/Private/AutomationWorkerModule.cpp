@@ -140,6 +140,7 @@ void FAutomationWorkerModule::Initialize()
 			.Handling<FAutomationWorkerRunTests>(this, &FAutomationWorkerModule::HandleRunTestsMessage)
 			.Handling<FAutomationWorkerImageComparisonResults>(this, &FAutomationWorkerModule::HandleScreenShotCompared)
 			.Handling<FAutomationWorkerTestDataResponse>(this, &FAutomationWorkerModule::HandleTestDataRetrieved)
+			.Handling<FAutomationWorkerStopTests>(this, &FAutomationWorkerModule::HandleStopTestsMessage)
 			.WithInbox();
 
 		if (MessageEndpoint.IsValid())
@@ -461,6 +462,16 @@ void FAutomationWorkerModule::HandleRunTestsMessage( const FAutomationWorkerRunT
 	bExecutingNetworkCommandResults = false;
 
 	FAutomationTestFramework::Get().StartTestByName(Message.TestName, Message.RoleIndex);
+}
+
+
+void FAutomationWorkerModule::HandleStopTestsMessage(const FAutomationWorkerStopTests& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
+{
+	if (GIsAutomationTesting)
+	{
+		FAutomationTestFramework::Get().DequeueAllCommands();
+	}
+	ReportTestComplete();
 }
 
 

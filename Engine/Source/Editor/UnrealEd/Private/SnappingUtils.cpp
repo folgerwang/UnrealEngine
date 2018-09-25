@@ -391,7 +391,7 @@ bool FEditorViewportSnapping::SnapLocationToNearestVertex( FVector& Location, co
 	}
 	else
 	{
-		OutVertexNormal = FVector(EForceInit::ForceInitToZero);
+		OutVertexNormal = FVector(ForceInitToZero);
 	}
 
 	return bSnapped;

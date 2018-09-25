@@ -504,6 +504,11 @@ private:
 	/** Builds the toolbar widget for the material editor */
 	void ExtendToolbar();
 
+	/** Creates the toolbar buttons. Bound by ExtendToolbar*/
+	void FillToolbar(FToolBarBuilder& ToolbarBuilder);
+
+	TSharedRef< SWidget > GeneratePreviewMenuContent();
+
 	/** Allows editor to veto the setting of a preview asset */
 	virtual bool ApproveSetPreviewAsset(UObject* InAsset) override;
 
@@ -515,6 +520,15 @@ private:
 
 	/** Updates the 3D and UI preview viewport visibility based on material domain */
 	void UpdatePreviewViewportsVisibility();
+
+	/** Helper functions for the quality level node display toggling */
+	void SetQualityPreview(EMaterialQualityLevel::Type NewQuality);
+	bool IsQualityPreviewChecked(EMaterialQualityLevel::Type TestQuality);
+
+	/** Helper functions for the feature level node display toggling */
+	void SetFeaturePreview(ERHIFeatureLevel::Type NewFeatureLevel);
+	bool IsFeaturePreviewChecked(ERHIFeatureLevel::Type TestFeatureLevel);
+
 
 public:
 
@@ -784,4 +798,14 @@ private:
 
 	/** Tab that holds the details panel */
 	TSharedPtr<SDockTab> SpawnedDetailsTab;
+
+	/** Stores the quality level used to preview the material graph */
+	EMaterialQualityLevel::Type NodeQualityLevel;
+
+	/** Stores the feature level used to preview the material graph */
+	ERHIFeatureLevel::Type NodeFeatureLevel;
+
+	/** True if the quality level or feature level to preview has been changed */
+	bool bPreviewFeaturesChanged;
+
 };

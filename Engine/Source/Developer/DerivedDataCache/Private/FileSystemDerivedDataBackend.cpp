@@ -282,6 +282,10 @@ public:
 					IFileManager::Get().Delete(*TempFilename, false, false, true);
 				}
 			}
+			else
+			{
+				COOK_STAT(Timer.AddMiss(Data.Num()));
+			}
 
 			// If not using a shared cache, update estimated build time
 			if (!GetDerivedDataCacheRef().GetUsingSharedDDC())

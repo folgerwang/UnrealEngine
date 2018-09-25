@@ -647,6 +647,7 @@ protected:
 
 	/** Count of how many PIE instances are waiting to log in */
 	int32 PIEInstancesToLogInCount;
+	bool bAtLeastOnePIELoginFailed;
 
 	/* These are parameters that we need to cache for late joining */
 	FString ServerPrefix;
@@ -2079,15 +2080,6 @@ public:
 	bool PackageIsAMapFile( const TCHAR* PackageFilename, FText& OutNotMapReason );
 
 	/**
-	 *	Searches through the given ULevel for any external references. Prints any found UObjects to the log and informs the user
-	 *
-	 *	@param	LevelToCheck		ULevel to search through for external objects
-	 *	@param	bAddForMapCheck		Optional flag to add any found references to the Map Check dialog (defaults to false)
-	 *	@return	true if the given package has external references and the user does not want to ignore the warning (via prompt)
-	 */
-	bool PackageUsingExternalObjects(ULevel* LevelToCheck, bool bAddForMapCheck=false);
-
-	/**
 	 * Synchronizes the content or generic browser's selected objects to the collection specified.
 	 *
 	 * @param	ObjectSet	the list of objects to sync to
@@ -2632,7 +2624,7 @@ public:
 
 private:
 	/** Gets the scene viewport for a viewport client */
-	const FSceneViewport* GetGameSceneViewport(UGameViewportClient* ViewportClient) const;
+	FSceneViewport* GetGameSceneViewport(UGameViewportClient* ViewportClient) const;
 
 	/**
 	 * Non Online PIE creation flow, creates all instances of PIE at once when online isn't requested/required

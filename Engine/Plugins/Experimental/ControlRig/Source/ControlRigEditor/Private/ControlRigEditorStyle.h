@@ -60,6 +60,9 @@ public:
 			// icons for control units
 			Set("ControlRig.ControlUnitOn", new IMAGE_BRUSH(TEXT("ControlUnit_On"), Icon32x32));
 			Set("ControlRig.ControlUnitOff", new IMAGE_BRUSH(TEXT("ControlUnit_Off"), Icon32x32));
+
+			Set("ControlRig.ExecuteGraph", new IMAGE_BRUSH("ExecuteGraph", Icon40x40));
+			Set("ControlRig.ExecuteGraph.Small", new IMAGE_BRUSH("ExecuteGraph", Icon20x20));
 		}
 
 		// Graph styles

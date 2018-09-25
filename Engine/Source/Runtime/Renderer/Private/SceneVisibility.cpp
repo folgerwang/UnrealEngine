@@ -185,7 +185,7 @@ static FAutoConsoleVariableRef CVarNeverOcclusionTestDistance(
 	TEXT("r.NeverOcclusionTestDistance"),
 	GNeverOcclusionTestDistance,
 	TEXT("When the distance between the viewpoint and the bounding sphere center is less than this, never occlusion cull."),
-	ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe | ECVF_Scalability
 );
 
 /** Distance fade cvars */
@@ -713,6 +713,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 	const bool bNewlyConsideredBBoxExpandActive = GExpandNewlyOcclusionTestedBBoxesAmount > 0.0f && GFramesToExpandNewlyOcclusionTestedBBoxes > 0 && GFramesNotOcclusionTestedToExpandBBoxes > 0;
 	const float NeverOcclusionTestDistanceSquared = GNeverOcclusionTestDistance * GNeverOcclusionTestDistance;
+	const FVector ViewOrigin = View.ViewMatrices.GetViewOrigin();
 
 	const int32 ReserveAmount = NumToProcess;
 	if (!bSingleThreaded)
@@ -958,7 +959,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 					bool bAllowBoundsTest;
 					const FBoxSphereBounds OcclusionBounds = (bSubQueries ? (*SubBounds)[SubQuery] : Scene->PrimitiveOcclusionBounds[BitIt.GetIndex()]).ExpandBy(GExpandAllTestedBBoxesAmount + (bSkipNewlyConsidered ? GExpandNewlyOcclusionTestedBBoxesAmount : 0.0));
-					if (FVector::DistSquared(View.ViewLocation, OcclusionBounds.Origin) < NeverOcclusionTestDistanceSquared)
+					if (FVector::DistSquared(ViewOrigin, OcclusionBounds.Origin) < NeverOcclusionTestDistanceSquared)
 					{
 						bAllowBoundsTest = false;
 					}
@@ -1495,9 +1496,9 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 	int32 NumOccludedPrimitives = 0;
 	FSceneViewState* ViewState = (FSceneViewState*)View.State;
 	
-	// Disable HZB on OpenGL platforms to avoid rendering artefacts
+	// Disable HZB on OpenGL platforms to avoid rendering artifacts
 	// It can be forced on by setting HZBOcclusion to 2
-	bool bHZBOcclusion = (!IsOpenGLPlatform(GShaderPlatformForFeatureLevel[Scene->GetFeatureLevel()]) && GHZBOcclusion) || (GHZBOcclusion == 2);
+	bool bHZBOcclusion = (!IsOpenGLPlatform(GShaderPlatformForFeatureLevel[Scene->GetFeatureLevel()]) && !IsSwitchPlatform(GShaderPlatformForFeatureLevel[Scene->GetFeatureLevel()]) && GHZBOcclusion) || (GHZBOcclusion == 2);
 
 	// Use precomputed visibility data if it is available.
 	if (View.PrecomputedVisibilityData)
@@ -1645,8 +1646,8 @@ struct FMarkRelevantStaticMeshesForViewData
 		MinScreenRadiusForCSMDepthSquared = GMinScreenRadiusForCSMDepth * GMinScreenRadiusForCSMDepth;
 		MinScreenRadiusForDepthPrepassSquared = GMinScreenRadiusForDepthPrepass * GMinScreenRadiusForDepthPrepass;
 
-		extern bool ShouldForceFullDepthPass(ERHIFeatureLevel::Type FeatureLevel);
-		bFullEarlyZPass = ShouldForceFullDepthPass(View.GetFeatureLevel());
+		extern bool ShouldForceFullDepthPass(EShaderPlatform ShaderPlatform);
+		bFullEarlyZPass = ShouldForceFullDepthPass(View.GetShaderPlatform());
 	}
 };
 
@@ -1897,7 +1898,7 @@ struct FRelevancePacket
 			// Cache the nearest reflection proxy if needed
 			if (PrimitiveSceneInfo->bNeedsCachedReflectionCaptureUpdate
 				// For mobile, the per-object reflection is used for everything
-				&& (Scene->GetShadingPath() == EShadingPath::Mobile || bTranslucentRelevance || IsForwardShadingEnabled(Scene->GetFeatureLevel())))
+				&& (Scene->GetShadingPath() == EShadingPath::Mobile || bTranslucentRelevance || IsForwardShadingEnabled(Scene->GetShaderPlatform())))
 			{
 				PrimitiveSceneInfo->CachedReflectionCaptureProxy = Scene->FindClosestReflectionCapture(Scene->PrimitiveBounds[BitIndex].BoxSphereBounds.Origin);
 				PrimitiveSceneInfo->CachedPlanarReflectionProxy = Scene->FindClosestPlanarReflection(Scene->PrimitiveBounds[BitIndex].BoxSphereBounds);
@@ -3562,7 +3563,7 @@ void FDeferredShadingSceneRenderer::InitViewsPossiblyAfterPrepass(FRHICommandLis
 		FTaskGraphInterface::Get().WaitUntilTasksComplete(SortEvents, ENamedThreads::GetRenderThread());
 	}
 
-	if (ViewFamily.EngineShowFlags.DynamicShadows && !IsSimpleForwardShadingEnabled(GetFeatureLevelShaderPlatform(FeatureLevel)))
+	if (ViewFamily.EngineShowFlags.DynamicShadows && !IsSimpleForwardShadingEnabled(ShaderPlatform))
 	{
 		// Setup dynamic shadows.
 		InitDynamicShadows(RHICmdList);

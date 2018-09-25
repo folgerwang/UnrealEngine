@@ -2,9 +2,11 @@
 
 #include "Engine/PreviewMeshCollection.h"
 
-void UPreviewMeshCollection::GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList) const
+void UPreviewMeshCollection::GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& OutList, TArray<TSubclassOf<UAnimInstance>>& OutAnimBP) const
 {
 	OutList.Empty();
+	OutAnimBP.Empty();
+	
 	for (int32 MeshIndex = 0; MeshIndex < SkeletalMeshes.Num(); ++MeshIndex)
 	{
 		const FPreviewMeshCollectionEntry& Entry = SkeletalMeshes[MeshIndex];
@@ -15,4 +17,7 @@ void UPreviewMeshCollection::GetPreviewSkeletalMeshes(TArray<USkeletalMesh*>& Ou
 			OutList.Add(Entry.SkeletalMesh.Get());
 		}
 	}
+
+	// no class, but just send it out
+	OutAnimBP.AddZeroed(OutList.Num());
 }

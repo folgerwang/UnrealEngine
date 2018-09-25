@@ -4,6 +4,7 @@
 #include "AnimationCoreLibrary.h"
 #include "Animation/AnimInstanceProxy.h"
 #include "AnimationRuntime.h"
+#include "AngularLimit.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_ApplyLimits
@@ -24,22 +25,6 @@ void FAnimNode_ApplyLimits::GatherDebugData(FNodeDebugData& DebugData)
 	ComponentPose.GatherDebugData(DebugData);
 }
 
-bool ConstrainAngularRange(FQuat& InOutQuatRotation, const FQuat& InRefRotation, const FVector& InLimitMinDegrees, const FVector& InLimitMaxDegrees)
-{
-	// Simple clamping of euler angles. This might be better off refactored to use switch/twist decomposition and maybe an ellipsoid clamp
-
-	FQuat DeltaQuat = InRefRotation * InOutQuatRotation.Inverse();
-	FRotator DeltaRotator = DeltaQuat.Rotator();
-	FRotator NewRotator;
-	NewRotator.Pitch = FMath::Clamp(DeltaRotator.Pitch, InLimitMinDegrees.Y, InLimitMaxDegrees.Y);
-	NewRotator.Yaw = FMath::Clamp(DeltaRotator.Yaw, InLimitMinDegrees.X, InLimitMaxDegrees.X);
-	NewRotator.Roll = FMath::Clamp(DeltaRotator.Roll, InLimitMinDegrees.Z, InLimitMaxDegrees.Z);
-	DeltaQuat = FQuat(NewRotator);
-
-	InOutQuatRotation = DeltaQuat.Inverse() * InRefRotation;
-
-	return !NewRotator.Equals(DeltaRotator);
-}
 
 void FAnimNode_ApplyLimits::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms)
 {
@@ -67,7 +52,7 @@ void FAnimNode_ApplyLimits::EvaluateSkeletalControl_AnyThread(FComponentSpacePos
 		const FTransform& RefBoneTransform = BoneContainer.GetRefPoseTransform(BoneIndex);
 
 		FQuat BoneRotation = BoneTransform.GetRotation();
-		if (ConstrainAngularRange(BoneRotation, RefBoneTransform.GetRotation(), AngularLimit.LimitMin + AngularOffsets[AngularLimitIndex], AngularLimit.LimitMax + AngularOffsets[AngularLimitIndex]))
+		if (AnimationCore::ConstrainAngularRangeUsingEuler(BoneRotation, RefBoneTransform.GetRotation(), AngularLimit.LimitMin + AngularOffsets[AngularLimitIndex], AngularLimit.LimitMax + AngularOffsets[AngularLimitIndex]))
 		{
 			BoneTransform.SetRotation(BoneRotation);
 			bAppliedLimit = true;

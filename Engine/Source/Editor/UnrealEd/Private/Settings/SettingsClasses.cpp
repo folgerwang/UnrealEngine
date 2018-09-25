@@ -415,7 +415,21 @@ void ULevelEditorPlaySettings::PostInitProperties()
 
 	NewWindowWidth = FMath::Max(0, NewWindowWidth);
 	NewWindowHeight = FMath::Max(0, NewWindowHeight);
+
+#if WITH_EDITOR
+	FCoreDelegates::OnSafeFrameChangedEvent.AddUObject(this, &ULevelEditorPlaySettings::SwapSafeZoneTypes);
+#endif
 }
+
+#if WITH_EDITOR
+void ULevelEditorPlaySettings::SwapSafeZoneTypes()
+{
+	if (FDisplayMetrics::GetDebugTitleSafeZoneRatio() < 1.f)
+	{
+		DeviceToEmulate = FString();
+	}
+}
+#endif
 
 FMargin ULevelEditorPlaySettings::CalculateCustomUnsafeZones(TArray<FVector2D>& CustomSafeZoneStarts, TArray<FVector2D>& CustomSafeZoneDimensions, FString& DeviceType, FVector2D PreviewSize)
 {

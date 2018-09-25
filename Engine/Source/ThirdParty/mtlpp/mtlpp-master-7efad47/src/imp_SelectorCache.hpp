@@ -203,9 +203,9 @@ template<typename ObjClass, SEL (*Original)(), typename... Params>
 typename InterposeSelector<ObjClass, Original, void, Params...>::ReplacementIMP InterposeSelector<ObjClass, Original, void, Params...>::Replacement = nullptr;
 
 #define INTERPOSE_SELECTOR(ObjCClass, Select, FuncName, ...)	\
-	static SEL Get##FuncName##Selector() { static SEL Selector = @selector(Select); return Selector; } \
+	static SEL Get##FuncName##Selector() MTLPP_EXPORT { return @selector(Select); } \
 	typedef InterposeSelector<ObjCClass, &Get##FuncName##Selector, __VA_ARGS__> FuncName##Type;	\
-	FuncName##Type FuncName;
+	MTLPP_EXPORT FuncName##Type FuncName;
 
 #define INTERPOSE_REGISTRATION(FuncName, Class)	\
 	FuncName.Register(Class, &InterposeClass::FuncName##Impl)

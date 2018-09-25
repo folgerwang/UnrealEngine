@@ -455,6 +455,11 @@ struct FPreAnimatedCameraShakeTokenProducer : IMovieScenePreAnimatedTokenProduce
 	}
 };
 
+FMovieSceneCameraShakeSectionTemplate::FMovieSceneCameraShakeSectionTemplate()
+	: SourceData()
+{
+}
+
 FMovieSceneCameraShakeSectionTemplate::FMovieSceneCameraShakeSectionTemplate(const UMovieSceneCameraShakeSection& Section)
 	: SourceData(Section.ShakeData)
 	, SectionStartTime(Section.HasStartFrame() ? Section.GetInclusiveStartFrame() : 0)

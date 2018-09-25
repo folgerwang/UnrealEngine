@@ -25,7 +25,6 @@
 #include "Widgets/SWidgetReflectorTreeWidgetItem.h"
 #include "Widgets/SWidgetReflectorToolTipWidget.h"
 #include "ISlateReflectorModule.h"
-#include "Stats/SlateStats.h"
 #include "Widgets/SInvalidationPanel.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Framework/Notifications/NotificationManager.h"
@@ -34,6 +33,11 @@
 #include "Widgets/SWidgetSnapshotVisualizer.h"
 #include "WidgetSnapshotService.h"
 #include "Widgets/Input/SNumericDropDown.h"
+#include "Types/ReflectionMetadata.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
+#include "Debugging/SlateDebugging.h"
+#include "VisualTreeCapture.h"
 
 #if SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM
 #include "DesktopPlatformModule.h"
@@ -44,15 +48,14 @@
 #include "ISessionServicesModule.h"
 #endif // SLATE_REFLECTOR_HAS_SESSION_SERVICES
 
+#if WITH_EDITOR
+#include "PropertyEditorModule.h"
+#endif
+
 #define LOCTEXT_NAMESPACE "SWidgetReflector"
 #define WITH_EVENT_LOGGING 0
 
-#if SLATE_STATS
-extern SLATECORE_API int32 GSlateStatsFlatEnable;
-extern SLATECORE_API int32 GSlateStatsFlatLogOutput;
-extern SLATECORE_API int32 GSlateStatsHierarchyTrigger;
-extern SLATECORE_API float GSlateStatsFlatIntervalWindowSec;
-#endif
+
 static const int32 MaxLoggedEvents = 100;
 
 /**
@@ -107,7 +110,17 @@ namespace WidgetReflectorTabID
 	static const FName WidgetHierarchy = "WidgetReflector.WidgetHierarchyTab";
 	static const FName SlateStats = "WidgetReflector.SlateStatsTab";
 	static const FName SnapshotWidgetPicker = "WidgetReflector.SnapshotWidgetPickerTab";
+	static const FName WidgetDetails = "WidgetReflector.WidgetDetailsTab";
 }
+
+
+enum class EWidgetPickingMode : uint8
+{
+	None,
+	Focus,
+	HitTesting,
+	Drawable
+};
 
 /**
  * Widget reflector implementation
@@ -126,14 +139,19 @@ private:
 	virtual void Construct( const FArguments& InArgs ) override;
 
 	TSharedRef<SDockTab> SpawnWidgetHierarchyTab(const FSpawnTabArgs& Args);
-#if SLATE_STATS
-	TSharedRef<SDockTab> SpawnSlateStatsTab(const FSpawnTabArgs& Args);
-#endif
+
 	TSharedRef<SDockTab> SpawnSnapshotWidgetPicker(const FSpawnTabArgs& Args);
+
+#if WITH_EDITOR
+	TSharedRef<SDockTab> SpawnWidgetDetails(const FSpawnTabArgs& Args);
+#endif
 
 	void OnTabSpawned(const FName& TabIdentifier, const TSharedRef<SDockTab>& SpawnedTab);
 
 	void CloseTab(const FName& TabIdentifier);
+
+	void OnFilterTextChanged(const FText& InFilterText);
+	void OnFilterTextCommitted(const FText& InText, ETextCommit::Type CommitInfo);
 
 	void SetUIMode(const EWidgetReflectorUIMode InNewMode);
 
@@ -146,22 +164,22 @@ private:
 
 	virtual bool IsInPickingMode() const override
 	{
-		return bIsPicking;
+		return PickingMode == EWidgetPickingMode::HitTesting || PickingMode == EWidgetPickingMode::Drawable;
 	}
 
 	virtual bool IsShowingFocus() const override
 	{
-		return bShowFocus;
+		return PickingMode == EWidgetPickingMode::Focus;
 	}
 
 	virtual bool IsVisualizingLayoutUnderCursor() const override
 	{
-		return bIsPicking;
+		return PickingMode == EWidgetPickingMode::HitTesting || PickingMode == EWidgetPickingMode::Drawable;
 	}
 
 	virtual void OnWidgetPicked() override
 	{
-		bIsPicking = false;
+		SetPickingMode(EWidgetPickingMode::None);
 	}
 
 	virtual bool ReflectorNeedsToDrawIn( TSharedRef<SWindow> ThisWindow ) const override;
@@ -237,43 +255,58 @@ private:
 	/** Callback for getting the checked state of the focus check box. */
 	ECheckBoxState HandleFocusCheckBoxIsChecked() const
 	{
-		return bShowFocus ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		return PickingMode == EWidgetPickingMode::Focus ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 
-	/** Callback for getting the text of the frame rate text block. */
-	FString HandleFrameRateText() const;
-
 	/** Callback for clicking the pick button. */
-	FReply HandlePickButtonClicked()
+	FReply HandlePickButtonClicked(EWidgetPickingMode InPickingMode)
 	{
-		bIsPicking = !bIsPicking;
+		SetPickingMode(PickingMode != InPickingMode ? InPickingMode : EWidgetPickingMode::None);
 
-		if (bIsPicking)
+		if (IsVisualizingLayoutUnderCursor())
 		{
-			bShowFocus = false;
 			SetUIMode(EWidgetReflectorUIMode::Live);
-			SInvalidationPanel::SetEnableWidgetCaching(false);
-		}
-		else
-		{
-			SInvalidationPanel::SetEnableWidgetCaching(true);
 		}
 
 		return FReply::Handled();
 	}
 
+	void SetPickingMode(EWidgetPickingMode InMode)
+	{
+		if (PickingMode != InMode)
+		{
+			{
+				SInvalidationPanel::SetEnableWidgetCaching(true);
+
+				VisualCapture.Disable();
+			}
+
+			PickingMode = InMode;
+
+			if (PickingMode == EWidgetPickingMode::Drawable || PickingMode == EWidgetPickingMode::HitTesting)
+			{
+				SInvalidationPanel::SetEnableWidgetCaching(false);
+			}
+
+			if (PickingMode == EWidgetPickingMode::Drawable)
+			{
+				VisualCapture.Enable();
+			}
+		}
+	}
+
 	/** Callback for getting the color of the pick button text. */
-	FSlateColor HandlePickButtonColorAndOpacity() const
+	FSlateColor HandlePickButtonColorAndOpacity(EWidgetPickingMode InPickingMode) const
 	{
 		static const FName SelectionColor("SelectionColor");
 
-		return bIsPicking
+		return PickingMode == InPickingMode
 			? FCoreStyle::Get().GetSlateColor(SelectionColor)
 			: FLinearColor::White;
 	}
 
 	/** Callback for getting the text of the pick button. */
-	FText HandlePickButtonText() const;
+	FText HandlePickButtonText(EWidgetPickingMode InPickingMode) const;
 
 	/** Callback to see whether the "Snapshot Target" combo should be enabled */
 	bool IsSnapshotTargetComboEnabled() const;
@@ -336,6 +369,11 @@ private:
 	TSharedPtr< SListView< TSharedRef< FLoggedEvent > > > EventListView;
 	TSharedPtr<SReflectorTree> ReflectorTree;
 
+	TSharedPtr<SSearchBox> SearchBox;
+
+	/** Compiled filter search terms. */
+	TSharedPtr<FTextFilterExpressionEvaluator> TextFilterPtr;
+
 	TArray<TSharedRef<FWidgetReflectorNodeBase>> SelectedNodes;
 	TArray<TSharedRef<FWidgetReflectorNodeBase>> ReflectorTreeRoot;
 	TArray<TSharedRef<FWidgetReflectorNodeBase>> PickedPath;
@@ -357,20 +395,14 @@ private:
 	FAccessSourceCode SourceAccessDelegate;
 	FAccessAsset AsseetAccessDelegate;
 
-	bool bShowFocus;
-	bool bIsPicking;
+	EWidgetPickingMode PickingMode;
 
-#if SLATE_STATS
-	// STATS
-	TSharedPtr<SBorder> StatsBorder;
-	TArray< TSharedRef<class FStatItem> > StatsItems;
-	TSharedPtr< SListView< TSharedRef<FStatItem> > > StatsList;
 
-	TSharedRef<SWidget> MakeStatViewer();
-	void UpdateStats();
-	TSharedRef<ITableRow> GenerateStatRow(TSharedRef<FStatItem> StatItem, const TSharedRef<STableViewBase>& OwnerTable);
+#if WITH_EDITOR
+	TSharedPtr<IDetailsView> PropertyViewPtr;
 #endif
 
+	FVisualTreeCapture VisualCapture;
 
 private:
 	// DEMO MODE
@@ -397,8 +429,7 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 
 	CurrentUIMode = EWidgetReflectorUIMode::Live;
 
-	bShowFocus = false;
-	bIsPicking = false;
+	PickingMode = EWidgetPickingMode::None;
 
 	bEnableDemoMode = false;
 	LastMouseClickTime = -1.0;
@@ -422,34 +453,42 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 	SelectedSnapshotTargetInstanceId = FApp::GetInstanceId();
 	UpdateAvailableSnapshotTargets();
 
-#if SLATE_STATS
-	const FName TabLayoutName = "WidgetReflector_Layout_v1";
-#else
 	const FName TabLayoutName = "WidgetReflector_Layout_NoStats_v1";
-#endif
 
 	TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout(TabLayoutName)
 	->AddArea
 	(
 		FTabManager::NewPrimaryArea()
-		->SetOrientation(Orient_Vertical)
+		->SetOrientation(Orient_Horizontal)
 		->Split
 		(
-			FTabManager::NewStack()
-			->SetHideTabWell(true)
-			->SetSizeCoefficient(0.7f)
-			->AddTab(WidgetReflectorTabID::WidgetHierarchy, ETabState::OpenedTab)
+			// Main application area
+			FTabManager::NewSplitter()
+			->SetOrientation(Orient_Vertical)
+			->Split
+			(
+				FTabManager::NewStack()
+				->SetHideTabWell(true)
+				->SetSizeCoefficient(0.7f)
+				->AddTab(WidgetReflectorTabID::WidgetHierarchy, ETabState::OpenedTab)
+			)
+			->Split
+			(
+				FTabManager::NewStack()
+				->SetHideTabWell(true)
+				->SetSizeCoefficient(0.3f)
+				->AddTab(WidgetReflectorTabID::SnapshotWidgetPicker, ETabState::ClosedTab)
+			)
 		)
+#if WITH_EDITOR
 		->Split
 		(
 			FTabManager::NewStack()
 			->SetHideTabWell(true)
 			->SetSizeCoefficient(0.3f)
-#if SLATE_STATS
-			->AddTab(WidgetReflectorTabID::SlateStats, ETabState::ClosedTab)
-#endif
-			->AddTab(WidgetReflectorTabID::SnapshotWidgetPicker, ETabState::ClosedTab)
+			->AddTab(WidgetReflectorTabID::WidgetDetails, ETabState::ClosedTab)
 		)
+#endif
 	);
 
 	auto RegisterTrackedTabSpawner = [this](const FName& TabId, const FOnSpawnTab& OnSpawnTab) -> FTabSpawnerEntry&
@@ -468,13 +507,16 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 	RegisterTrackedTabSpawner(WidgetReflectorTabID::WidgetHierarchy, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnWidgetHierarchyTab))
 		.SetDisplayName(LOCTEXT("WidgetHierarchyTab", "Widget Hierarchy"));
 
-#if SLATE_STATS
-	RegisterTrackedTabSpawner(WidgetReflectorTabID::SlateStats, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnSlateStatsTab))
-		.SetDisplayName(LOCTEXT("SlateStatsTab", "Slate Stats"));
-#endif
-
 	RegisterTrackedTabSpawner(WidgetReflectorTabID::SnapshotWidgetPicker, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnSnapshotWidgetPicker))
 		.SetDisplayName(LOCTEXT("SnapshotWidgetPickerTab", "Snapshot Widget Picker"));
+
+#if WITH_EDITOR
+	if (GIsEditor)
+	{
+		RegisterTrackedTabSpawner(WidgetReflectorTabID::WidgetDetails, FOnSpawnTab::CreateSP(this, &SWidgetReflector::SpawnWidgetDetails))
+			.SetDisplayName(LOCTEXT("WidgetDetailsTab", "Widget Details"));
+	}
+#endif
 
 	this->ChildSlot
 	[
@@ -593,63 +635,6 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 						]
 					]
 				]
-
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(FMargin(5.0f, 0.0f))
-				[
-					SNew(SCheckBox)
-					.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
-#if !SLATE_STATS
-					.IsEnabled(false)
-#endif
-					.IsChecked_Static([]
-					{
-#if SLATE_STATS
-						return GSlateStatsFlatEnable == 0 ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
-#else
-						return ECheckBoxState::Unchecked;
-#endif
-					})
-					.OnCheckStateChanged_Lambda( [=]( const ECheckBoxState NewState )
-					{
-#if SLATE_STATS
-						GSlateStatsFlatEnable = (NewState == ECheckBoxState::Checked) ? 1 : 0;
-						if (GSlateStatsFlatEnable)
-						{
-							TabManager->InvokeTab(WidgetReflectorTabID::SlateStats);
-						}
-						else
-						{
-							CloseTab(WidgetReflectorTabID::SlateStats);
-						}
-#endif
-					})
-					.ToolTip
-					(
-						SNew(SToolTip)
-						[
-							SNew(STextBlock)
-							.WrapTextAt(200.0f)
-#if SLATE_STATS
-							.Text( LOCTEXT("ToggleStatsTooltip", "Enables flat stats view.") )
-#else
-							.Text( LOCTEXT("ToggleStatsUnavailableTooltip", "To enable slate stats, compile with SLATE_STATS defined to one (see SlateStats.h).") )
-#endif
-						]
-					)
-					[
-						SNew(SBox)
-						.VAlign( VAlign_Center )
-						.HAlign( HAlign_Center )
-						.Padding(FMargin(4.0, 2.0))
-						[
-							SNew(STextBlock)	
-							.Text( LOCTEXT("ToggleStats", "Toggle Stats") )
-						]
-					]
-				]
-
 				+SHorizontalBox::Slot()
 				.FillWidth(1.0f)
 				[
@@ -681,17 +666,6 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 			]
 		]
 	];
-
-#if SLATE_STATS
-	if (GSlateStatsFlatEnable)
-	{
-		TabManager->InvokeTab(WidgetReflectorTabID::SlateStats);
-	}
-	else
-	{
-		CloseTab(WidgetReflectorTabID::SlateStats);
-	}
-#endif
 }
 
 
@@ -733,13 +707,38 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetHierarchyTab(const FSpawnTabAr
 					// Check box that controls PICKING A WIDGET TO INSPECT
 					SNew(SButton)
 					.IsEnabled_Lambda([this]() { return !bIsPendingDelayedSnapshot; })
-					.OnClicked(this, &SWidgetReflector::HandlePickButtonClicked)
-					.ButtonColorAndOpacity(this, &SWidgetReflector::HandlePickButtonColorAndOpacity)
+					.OnClicked(this, &SWidgetReflector::HandlePickButtonClicked, EWidgetPickingMode::HitTesting)
+					.ButtonColorAndOpacity(this, &SWidgetReflector::HandlePickButtonColorAndOpacity, EWidgetPickingMode::HitTesting)
 					[
 						SNew(STextBlock)
-						.Text(this, &SWidgetReflector::HandlePickButtonText)
+						.Text(this, &SWidgetReflector::HandlePickButtonText, EWidgetPickingMode::HitTesting)
 					]
 				]
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(5.0f, 0.0f))
+				[
+					// Check box that controls PICKING A WIDGET TO INSPECT
+					SNew(SButton)
+					.IsEnabled_Lambda([this]() { return !bIsPendingDelayedSnapshot; })
+					.OnClicked(this, &SWidgetReflector::HandlePickButtonClicked, EWidgetPickingMode::Drawable)
+					.ButtonColorAndOpacity(this, &SWidgetReflector::HandlePickButtonColorAndOpacity, EWidgetPickingMode::Drawable)
+					[
+						SNew(STextBlock)
+						.Text(this, &SWidgetReflector::HandlePickButtonText, EWidgetPickingMode::Drawable)
+					]
+				]
+
+				//+ SHorizontalBox::Slot()
+				//.AutoWidth()
+				//.Padding(FMargin(5.0f, 0.0f))
+				//[
+				//	SAssignNew(SearchBox, SSearchBox)
+				//	.MinDesiredWidth(210.0f)
+				//	.OnTextChanged(this, &SWidgetReflector::OnFilterTextChanged)
+				//	.OnTextCommitted(this, &SWidgetReflector::OnFilterTextCommitted)
+				//]
 
 				+SHorizontalBox::Slot()
 				[
@@ -832,7 +831,7 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetHierarchyTab(const FSpawnTabAr
 
 						+SHeaderRow::Column(SReflectorTreeWidgetItem::NAME_WidgetName)
 						.DefaultLabel(LOCTEXT("WidgetName", "Widget Name"))
-						.FillWidth(0.65f)
+						.FillWidth(0.80f)
 
 						+SHeaderRow::Column(SReflectorTreeWidgetItem::NAME_ForegroundColor)
 						.FixedWidth(24.0f)
@@ -856,14 +855,14 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetHierarchyTab(const FSpawnTabAr
 						]
 
 						+ SHeaderRow::Column(SReflectorTreeWidgetItem::NAME_Focusable)
-						.DefaultLabel(LOCTEXT("Focusable", "Focusable?"))
-						.FixedWidth(125.0f)
+						.DefaultLabel(LOCTEXT("Focus", "Focus?"))
+						.FixedWidth(50.0f)
 						.HAlignHeader(HAlign_Center)
 						.VAlignHeader(VAlign_Center)
 						.HeaderContent()
 						[
 							SNew(STextBlock)
-							.Text(LOCTEXT("Focusable", "Focusable?"))
+							.Text(LOCTEXT("Focus", "Focus?"))
 							.ToolTipText(LOCTEXT("FocusableTooltip", "Focusability (Note that for hit-test directional navigation to work it must be Focusable and \"Visible\"!)"))
 						]
 
@@ -872,12 +871,12 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetHierarchyTab(const FSpawnTabAr
 						.FixedWidth(100.0f)
 
 						+SHeaderRow::Column(SReflectorTreeWidgetItem::NAME_WidgetInfo)
-						.DefaultLabel(LOCTEXT("WidgetInfo", "Widget Info" ))
-						.FillWidth(0.25f)
+						.DefaultLabel(LOCTEXT("Source", "Source" ))
+						.FillWidth(0.20f)
 
 						+SHeaderRow::Column(SReflectorTreeWidgetItem::NAME_Address)
 						.DefaultLabel( LOCTEXT("Address", "Address") )
-						.FixedWidth(140.0f)
+						.FixedWidth(170.0f)
 					)
 				]
 			]
@@ -887,163 +886,6 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetHierarchyTab(const FSpawnTabAr
 
 	return SpawnedTab;
 }
-
-
-#if SLATE_STATS
-
-TSharedRef<SDockTab> SWidgetReflector::SpawnSlateStatsTab(const FSpawnTabArgs& Args)
-{
-	auto OnTabClosed = [](TSharedRef<SDockTab>)
-	{
-		// Tab closed - disable stats
-		GSlateStatsFlatEnable = 0;
-	};
-
-	return SNew(SDockTab)
-		.Label(LOCTEXT("SlateStatsTab", "Slate Stats"))
-		.OnTabClosed_Lambda(OnTabClosed)
-		[
-			SNew(SVerticalBox)
-				
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(FMargin(0.0f, 2.0f))
-			[
-				SNew(SHorizontalBox)
-
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(FMargin(5.0f, 0.0f))
-				[
-					SNew(SCheckBox)
-					.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
-					.IsChecked_Static([]
-					{
-						return GSlateStatsFlatLogOutput == 0 ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
-					})
-					.OnCheckStateChanged_Static([]( const ECheckBoxState NewState )
-					{
-						GSlateStatsFlatLogOutput = (NewState == ECheckBoxState::Checked) ? 1 : 0;
-					})
-					.ToolTip
-					(
-						SNew(SToolTip)
-						[
-							SNew(STextBlock)
-							.WrapTextAt(200.0f)
-							.Text( LOCTEXT("LogStatsTooltip", "Enables outputting stats to the log at the given interval.") )
-						]
-					)
-					[
-						SNew(SBox)
-						.VAlign( VAlign_Center )
-						.HAlign( HAlign_Center )
-						[
-							SNew(STextBlock)	
-							.Text( LOCTEXT("ToggleLogStats", "Log Stats") )
-						]
-					]
-				]
-
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(FMargin(5.0f, 0.0f))
-				[
-					SNew(SButton)
-					.OnClicked_Static([]
-					{
-						GSlateStatsHierarchyTrigger = 1;
-						return FReply::Handled();
-					})
-					.ToolTip
-					(
-						SNew(SToolTip)
-						[
-							SNew(STextBlock)
-							.WrapTextAt(200.0f)
-							.Text( LOCTEXT("CaptureStatsHierarchyTooltip", "When clicked, the next rendered frame will capture hierarchical stats and save them to file in the Saved/ folder with the following name: SlateHierarchyStats-<timestamp>.csv") )
-						]
-					)
-					[
-						SNew(STextBlock)
-							.Text(LOCTEXT("CaptureHierarchy", "Capture Hierarchy"))
-					]
-				]
-
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.ToolTip
-					(
-						SNew(SToolTip)
-						[
-							SNew(STextBlock)
-							.WrapTextAt(200.0f)
-							.Text( LOCTEXT("StatsSamplingIntervalLabelTooltip", "the interval (in seconds) to integrate stats before updating the averages.") )
-						]
-					)
-					.Text(LOCTEXT("StatsSampleWindow", "Sampling Interval: "))
-				]
-
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew(SBox)
-					.MinDesiredWidth(100)
-					.MaxDesiredWidth(250)
-					[
-						SNew(SSpinBox<float>)
-						.ToolTip
-						(
-							SNew(SToolTip)
-							[
-								SNew(STextBlock)
-								.WrapTextAt(200.0f)
-								.Text( LOCTEXT("StatsSamplingIntervalTooltip", "the interval (in seconds) to integrate stats before updating the stats.") )
-							]
-						)
-						.Value_Static([]
-						{
-							return GSlateStatsFlatIntervalWindowSec;
-						})
-						.MinValue(0.1f)
-						.MaxValue(15.0f)
-						.Delta(0.1f)
-						.OnValueChanged_Static([](float NewValue)
-						{
-							GSlateStatsFlatIntervalWindowSec = NewValue;
-						})
-					]
-				]
-			]
-
-#if WITH_EVENT_LOGGING
-			+SVerticalBox::Slot()
-			.FillHeight(1.0f)
-			[
-				SNew(SBorder)
-				.Padding(0)
-				.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
-				[
-					SAssignNew(EventListView, SListView<TSharedRef<FLoggedEvent>>)
-					.ListItemsSource( &LoggedEvents )
-					.OnGenerateRow(this, &SWidgetReflector::GenerateEventLogRow)
-				]
-			]
-#endif //WITH_EVENT_LOGGING
-
-			+SVerticalBox::Slot()
-			.FillHeight(1.0f)
-			[
-				MakeStatViewer()
-			]
-		];
-}
-
-#endif // #if SLATE_STATS
-
 
 TSharedRef<SDockTab> SWidgetReflector::SpawnSnapshotWidgetPicker(const FSpawnTabArgs& Args)
 {
@@ -1067,6 +909,37 @@ TSharedRef<SDockTab> SWidgetReflector::SpawnSnapshotWidgetPicker(const FSpawnTab
 			.OnWidgetPathPicked_Lambda(OnWidgetPathPicked)
 		];
 }
+
+#if WITH_EDITOR
+
+TSharedRef<SDockTab> SWidgetReflector::SpawnWidgetDetails(const FSpawnTabArgs& Args)
+{
+	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	FDetailsViewArgs DetailsViewArgs;
+	{
+		DetailsViewArgs.bAllowSearch = true;
+		DetailsViewArgs.bShowOptions = true;
+		DetailsViewArgs.bAllowMultipleTopLevelObjects = false;
+		DetailsViewArgs.bAllowFavoriteSystem = true;
+		DetailsViewArgs.bShowActorLabel = false;
+		DetailsViewArgs.bHideSelectionTip = true;
+	}
+	TSharedRef<IDetailsView> PropertyView = PropertyEditorModule.CreateDetailView(DetailsViewArgs);
+	PropertyViewPtr = PropertyView;
+
+	auto OnTabClosed = [this](TSharedRef<SDockTab>)
+	{
+	};
+
+	return SNew(SDockTab)
+		.Label(LOCTEXT("WidgetDetailsTab", "Widget Details"))
+		.OnTabClosed_Lambda(OnTabClosed)
+		[
+			PropertyView
+		];
+}
+
+#endif
 
 
 void SWidgetReflector::OnTabSpawned(const FName& TabIdentifier, const TSharedRef<SDockTab>& SpawnedTab)
@@ -1094,6 +967,24 @@ void SWidgetReflector::CloseTab(const FName& TabIdentifier)
 		{
 			ExistingTabPin->RequestCloseTab();
 		}
+	}
+}
+
+void SWidgetReflector::OnFilterTextChanged(const FText& InFilterText)
+{
+	// Update the compiled filter and report any syntax error information back to the user
+	TextFilterPtr->SetFilterText(InFilterText);
+	SearchBox->SetError(TextFilterPtr->GetFilterErrorText());
+
+	// Repopulate the list to show only what has not been filtered out.
+	//Refresh();
+}
+
+void SWidgetReflector::OnFilterTextCommitted(const FText& InText, ETextCommit::Type CommitInfo)
+{
+	if (CommitInfo == ETextCommit::OnEnter)
+	{
+		//ReflectorTree->SetFilterText(InText);
 	}
 }
 
@@ -1133,10 +1024,6 @@ void SWidgetReflector::SetUIMode(const EWidgetReflectorUIMode InNewMode)
 
 void SWidgetReflector::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-#if SLATE_STATS
-	UpdateStats();
-#endif
-
 	if (bIsPendingDelayedSnapshot && FSlateApplication::Get().GetCurrentTime() > TimeOfScheduledSnapshot)
 	{
 		// TakeSnapshot leads to the widget being ticked indirectly recursively,
@@ -1189,10 +1076,21 @@ void SWidgetReflector::SetWidgetsToVisualize( const FWidgetPath& InWidgetsToVisu
 
 	if (InWidgetsToVisualize.IsValid())
 	{
-		ReflectorTreeRoot.Add(FWidgetReflectorNodeUtils::NewLiveNodeTreeFrom(InWidgetsToVisualize.Widgets[0]));
+		FWidgetPath WidgetsToVisualize = InWidgetsToVisualize;
+
+		//int32 Index = WidgetsToVisualize.Widgets.GetInternalArray().IndexOfByPredicate([](const FArrangedWidget& Entry) {
+		//	return Entry.Widget->GetType() == TEXT("SGameLayerManager");
+		//});
+
+		//if (Index != INDEX_NONE)
+		//{
+		//	WidgetsToVisualize.Widgets.Remove(0, Index + 1);
+		//}
+
+		ReflectorTreeRoot.Add(FWidgetReflectorNodeUtils::NewLiveNodeTreeFrom(WidgetsToVisualize.Widgets[0]));
 		PickedPath.Empty();
 
-		FWidgetReflectorNodeUtils::FindLiveWidgetPath(ReflectorTreeRoot, InWidgetsToVisualize, PickedPath);
+		FWidgetReflectorNodeUtils::FindLiveWidgetPath(ReflectorTreeRoot, WidgetsToVisualize, PickedPath);
 		VisualizeAsTree(PickedPath);
 	}
 
@@ -1202,9 +1100,9 @@ void SWidgetReflector::SetWidgetsToVisualize( const FWidgetPath& InWidgetsToVisu
 
 int32 SWidgetReflector::Visualize( const FWidgetPath& InWidgetsToVisualize, FSlateWindowElementList& OutDrawElements, int32 LayerId )
 {
-	const bool bAttemptingToVisualizeReflector = InWidgetsToVisualize.ContainsWidget(ReflectorTree.ToSharedRef());
+	FWidgetPath WidgetsToVisualize = InWidgetsToVisualize;
 
-	if (!InWidgetsToVisualize.IsValid() && SelectedNodes.Num() > 0 && ReflectorTreeRoot.Num() > 0)
+	if (!WidgetsToVisualize.IsValid() && SelectedNodes.Num() > 0 && ReflectorTreeRoot.Num() > 0)
 	{
 		TSharedPtr<SWidget> WindowWidget = ReflectorTreeRoot[0]->GetLiveWidget();
 		if (WindowWidget.IsValid())
@@ -1214,10 +1112,25 @@ int32 SWidgetReflector::Visualize( const FWidgetPath& InWidgetsToVisualize, FSla
 		}
 	}
 
+	const bool bAttemptingToVisualizeReflector = WidgetsToVisualize.ContainsWidget(ReflectorTree.ToSharedRef());
+
+	TSharedPtr<FVisualTreeSnapshot> Tree = VisualCapture.GetVisualTreeForWindow(OutDrawElements.GetPaintWindow());
+	if (Tree.IsValid())
+	{
+		FVector2D AbsPoint = FSlateApplication::Get().GetCursorPos();
+		FVector2D WindowPoint = AbsPoint - OutDrawElements.GetPaintWindow()->GetPositionInScreen();
+		TSharedPtr<const SWidget> PickedWidget = Tree->Pick(WindowPoint);
+
+		if (PickedWidget.IsValid())
+		{
+			FSlateApplication::Get().FindPathToWidget(PickedWidget.ToSharedRef(), WidgetsToVisualize, EVisibility::All);
+		}
+	}
+
 	if (!bAttemptingToVisualizeReflector)
 	{
-		SetWidgetsToVisualize(InWidgetsToVisualize);
-		return VisualizePickAsRectangles(InWidgetsToVisualize, OutDrawElements, LayerId);
+		SetWidgetsToVisualize(WidgetsToVisualize);
+		return VisualizePickAsRectangles(WidgetsToVisualize, OutDrawElements, LayerId);
 	}
 
 	return LayerId;
@@ -1377,32 +1290,29 @@ FReply SWidgetReflector::HandleDisplayFontAtlases()
 
 void SWidgetReflector::HandleFocusCheckBoxCheckedStateChanged( ECheckBoxState NewValue )
 {
-	bShowFocus = NewValue != ECheckBoxState::Unchecked;
-
-	if (bShowFocus)
-	{
-		bIsPicking = false;
-	}
+	bool bShowFocus = NewValue != ECheckBoxState::Unchecked;
+	SetPickingMode(bShowFocus ? EWidgetPickingMode::Focus : EWidgetPickingMode::None);
 }
 
-
-FString SWidgetReflector::HandleFrameRateText() const
+FText SWidgetReflector::HandlePickButtonText(EWidgetPickingMode InPickingMode) const
 {
-	FString MyString;
-#if 0 // the new stats system does not support this
-	MyString = FString::Printf(TEXT("FPS: %0.2f (%0.2f ms)"), (float)( 1.0f / FPSCounter.GetAverage()), (float)FPSCounter.GetAverage() * 1000.0f);
-#endif
-
-	return MyString;
-}
-
-
-FText SWidgetReflector::HandlePickButtonText() const
-{
-	static const FText NotPicking = LOCTEXT("PickLiveWidget", "Pick Live Widget");
+	static const FText HitTestPicking = LOCTEXT("PickHitTestable", "Pick Hit-Testable Widgets");
+	static const FText VisualPicking = LOCTEXT("PickVisual", "Pick Painted Widgets");
 	static const FText Picking = LOCTEXT("PickingWidget", "Picking (Esc to Stop)");
 
-	return bIsPicking ? Picking : NotPicking;
+	if (PickingMode == InPickingMode)
+	{
+		return Picking;
+	}
+
+	switch (InPickingMode)
+	{
+	default:
+	case EWidgetPickingMode::HitTesting:
+		return HitTestPicking;
+	case EWidgetPickingMode::Drawable:
+		return VisualPicking;
+	}
 }
 
 
@@ -1734,8 +1644,39 @@ void SWidgetReflector::HandleReflectorTreeSelectionChanged( TSharedPtr<FWidgetRe
 	{
 		WidgetSnapshotVisualizer->SetSelectedWidgets(SelectedNodes);
 	}
-}
 
+#if WITH_EDITOR
+	TArray<UObject*> SelectedWidgetObjects;
+	for (TSharedRef<FWidgetReflectorNodeBase>& Node : SelectedNodes)
+	{
+		TSharedPtr<SWidget> Widget = Node->GetLiveWidget();
+		if (Widget.IsValid())
+		{
+			TSharedPtr<FReflectionMetaData> ReflectinMetaData = Widget->GetMetaData<FReflectionMetaData>();
+			if (ReflectinMetaData.IsValid())
+			{
+				if (UObject* SourceObject = ReflectinMetaData->SourceObject.Get())
+				{
+					SelectedWidgetObjects.Add(SourceObject);
+				}
+			}
+		}
+	}
+
+	if (SelectedWidgetObjects.Num() > 0)
+	{
+		TabManager->InvokeTab(WidgetReflectorTabID::WidgetDetails);
+		if (PropertyViewPtr.IsValid())
+		{
+			PropertyViewPtr->SetObjects(SelectedWidgetObjects);
+		}
+	}
+	//else
+	//{
+	//	CloseTab(WidgetReflectorTabID::WidgetDetails);
+	//}
+#endif
+}
 
 TSharedRef<ITableRow> SWidgetReflector::GenerateEventLogRow( TSharedRef<FLoggedEvent> InLoggedEvent, const TSharedRef<STableViewBase>& OwnerTable )
 {
@@ -1746,172 +1687,6 @@ TSharedRef<ITableRow> SWidgetReflector::GenerateEventLogRow( TSharedRef<FLoggedE
 	];
 }
 
-#if SLATE_STATS
-
-//
-// STATS
-//
-
-class FStatItem
-{
-public:
-	
-	FStatItem(FSlateStatCycleCounter* InCounter)
-	: Counter(InCounter)
-	{
-		UpdateValues();
-	}
-
-	FText GetStatName() const { return StatName; }
-	FText GetInclusiveAvgMsText() const { return InclusiveAvgMsText; }
-	float GetInclusiveAvgMs() const { return InclusiveAvgMs; }
-	void UpdateValues()
-	{
-		StatName = FText::FromName(Counter->GetName());
-		InclusiveAvgMsText = FText::AsNumber(Counter->GetLastComputedAverageInclusiveTime(), &FNumberFormattingOptions().SetMinimumIntegralDigits(1).SetMinimumFractionalDigits(3).SetMaximumFractionalDigits(3));
-		InclusiveAvgMs = (float)(Counter->GetLastComputedAverageInclusiveTime());
-	}
-private:
-	FSlateStatCycleCounter* Counter;
-	FText StatName;
-	FText InclusiveAvgMsText;
-	float InclusiveAvgMs;
-};
-
-static const FName ColumnId_StatName("StatName");
-static const FName ColumnId_InclusiveAvgMs("InclusiveAvgMs");
-static const FName ColumnId_InclusiveAvgMsGraph("InclusiveAvgMsGraph");
-
-TSharedRef<SWidget> SWidgetReflector::MakeStatViewer()
-{
-	// the list of registered counters must remain constant throughout program execution.
-	// As long as all counters are declared globally this will be true.
-	for (auto Stat : FSlateStatCycleCounter::GetRegisteredCounters())
-	{
-		StatsItems.Add(MakeShareable(new FStatItem(Stat)));
-	}
-
-	return
-		SAssignNew(StatsBorder, SBorder)
-		.Padding(0)
-		.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
-		.Visibility_Lambda([]
-		{
-			return GSlateStatsFlatEnable > 0 ? EVisibility::Visible : EVisibility::Collapsed;
-		})
-		[
-			// STATS LIST
-			SAssignNew( StatsList, SListView< TSharedRef<FStatItem> > )
-			.OnGenerateRow( this, &SWidgetReflector::GenerateStatRow )
-			.ListItemsSource( &StatsItems )
-			.HeaderRow
-			(
-				// STATS HEADER
-				SNew(SHeaderRow)
-				
-				+SHeaderRow::Column(ColumnId_StatName)
-				.FillWidth( 5.0f )
-				.HAlignCell(HAlign_Right)
-				.DefaultLabel( LOCTEXT("Stats_StatNameColumn", "Statistic") )
-
-				+SHeaderRow::Column(ColumnId_InclusiveAvgMs)
-				.FixedWidth(80.0f)
-				.HAlignCell(HAlign_Right)
-				.DefaultLabel( LOCTEXT("Stats_InclusiveAvgMsColumn", "AvgTime (ms)") )
-
-				+SHeaderRow::Column(ColumnId_InclusiveAvgMsGraph)
-				.FillWidth( 7.0f )
-				.DefaultLabel( LOCTEXT("Stats_InclusiveAvgMsGraphColumn", " ") )
-			)
-		];
-}
-
-void SWidgetReflector::UpdateStats()
-{
-	if (FSlateStatCycleCounter::AverageInclusiveTimesWereUpdatedThisFrame())
-	{
-		for (auto& StatsItem : StatsItems)
-		{
-			StatsItem->UpdateValues();
-		}
-		//StatsList->RequestListRefresh();
-	}
-}
-
-
-class SStatTableRow : public SMultiColumnTableRow< TSharedRef<FSlateStatCycleCounter> >
-{
-	
-public:
-	SLATE_BEGIN_ARGS( SStatTableRow )
-	{}
-	SLATE_END_ARGS();
-
-	void Construct( const FArguments& InArgs, const TSharedRef<STableViewBase>& OwnerTable, const TSharedPtr<FStatItem>& InStatItem )
-	{
-		StatItem = InStatItem;
-		FSuperRowType::Construct( FTableRowArgs(), OwnerTable );
-	}
-
-	float GetValue() const { return 6.0f; }
-
-	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override;
-
-private:
-	TSharedPtr<FStatItem> StatItem;
-};
-
-TSharedRef<SWidget> SStatTableRow::GenerateWidgetForColumn(const FName& ColumnName)
-{
-	if (ColumnName == ColumnId_StatName)
-	{
-		// STAT NAME
-		return
-			SNew(STextBlock)
-			.Text_Lambda([=] { return StatItem->GetStatName(); });
-	}
-	else if (ColumnName == ColumnId_InclusiveAvgMs)
-	{
-		// STAT NUMBER
-		return
-			SNew(SBox)
-			.Padding(FMargin(5, 0))
-			[
-				SNew(STextBlock)
-				.TextStyle(FCoreStyle::Get(), "MonospacedText")
-				.Text_Lambda([=] { return StatItem->GetInclusiveAvgMsText(); })
-			];
-	}
-	else if (ColumnName == ColumnId_InclusiveAvgMsGraph)
-	{
-		// BAR GRAPH
-		return
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(0, 1)
-			.FillWidth(TAttribute<float>::Create(TAttribute<float>::FGetter::CreateLambda([=] { return StatItem->GetInclusiveAvgMs(); })))
-			[
-				SNew(SImage)
-				.Image(FCoreStyle::Get().GetBrush("WhiteBrush"))
-				.ColorAndOpacity_Lambda([=] { return FMath::Lerp(FLinearColor::Green, FLinearColor::Red, StatItem->GetInclusiveAvgMs() / 30.0f); })
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(0, 1)
-			.FillWidth(TAttribute<float>::Create(TAttribute<float>::FGetter::CreateLambda([=] { return 60.0f - StatItem->GetInclusiveAvgMs(); })))
-			;
-	}
-	else
-	{
-		return SNew(SSpacer);
-	}
-}
-
-TSharedRef<ITableRow> SWidgetReflector::GenerateStatRow( TSharedRef<FStatItem> StatItem, const TSharedRef<STableViewBase>& OwnerTable )
-{
-	return SNew(SStatTableRow, OwnerTable, StatItem);
-}
-
-#endif // SLATE_STATS
 
 } // namespace WidgetReflectorImpl
 

@@ -4,6 +4,7 @@
 #include "Misc/Paths.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Internationalization/Culture.h"
 #include "Misc/App.h"
 #include "WebBrowserModule.h"
@@ -244,7 +245,11 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	Settings.command_line_args_disabled = true;
 #if !PLATFORM_LINUX
 	Settings.enable_net_security_expiration = true;
+	Settings.external_message_pump = true;
 #endif
+	//@todo change to threaded version instead of using external_message_pump & OnScheduleMessagePumpWork
+	Settings.multi_threaded_message_loop = false;
+	
 
 	FString CefLogFile(FPaths::Combine(*FPaths::ProjectLogDir(), TEXT("cef3.log")));
 	CefLogFile = FPaths::ConvertRelativePathToFull(CefLogFile);
@@ -431,6 +436,13 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 
 TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FCreateBrowserWindowSettings& WindowSettings)
 {
+	bool bBrowserEnabled = true;
+	GConfig->GetBool(TEXT("Browser"), TEXT("bEnabled"), bBrowserEnabled, GEngineIni);
+	if (!bBrowserEnabled)
+	{
+		return nullptr;
+	}
+
 #if WITH_CEF3
 	static bool AllowCEF = !FParse::Param(FCommandLine::Get(), TEXT("nocef"));
 	if (AllowCEF)
@@ -597,7 +609,15 @@ bool FWebBrowserSingleton::Tick(float DeltaTime)
 		}
 	}
 
-	CefDoMessageLoopWork();
+	bool bForceMessageLoop = false;
+	GConfig->GetBool(TEXT("Browser"), TEXT("bForceMessageLoop"), bForceMessageLoop, GEngineIni);
+	if (CEFBrowserApp != nullptr)
+	{
+		// force via config override or if there are active browser windows
+		const bool bForce = bForceMessageLoop || WindowInterfaces.Num() > 0;
+		// tick the CEF app to determine when to run CefDoMessageLoopWork
+		CEFBrowserApp->TickMessagePump(DeltaTime, bForce);
+	}
 
 	// Update video buffering for any windows that need it
 	for (int32 Index = 0; Index < WindowInterfaces.Num(); Index++)

@@ -1099,7 +1099,7 @@ bool FUnixPlatformFile::CreateDirectoriesFromPath(const TCHAR* Path)
 				if (mkdir(SubPath, 0755) == -1)
 				{
 					int ErrNo = errno;
-					UE_LOG_UNIX_FILE(Warning, TEXT( "create dir('%s') failed: errno=%d (%s)" ), DirPath, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
+					UE_LOG_UNIX_FILE(Warning, TEXT( "create dir('%s') failed: errno=%d (%s)" ), UTF8_TO_TCHAR(DirPath), ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
 					FMemory::Free(DirPath);
 					FMemory::Free(SubPath);
 					return false;

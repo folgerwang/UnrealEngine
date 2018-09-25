@@ -8,6 +8,7 @@
 #include "Misc/CoreStats.h"
 #include "Misc/App.h"
 #include "Misc/SingleThreadEvent.h"
+#include "Misc/CoreDelegates.h"
 
 #include <emscripten/emscripten.h>
 
@@ -83,6 +84,15 @@ bool FHTML5PlatformProcess::SupportsMultithreading()
 
 void FHTML5PlatformProcess::LaunchURL(const TCHAR* URL, const TCHAR* Parms, FString* Error)
 {
+	if (FCoreDelegates::ShouldLaunchUrl.IsBound() && !FCoreDelegates::ShouldLaunchUrl.Execute(URL))
+	{
+		if (Error)
+		{
+			*Error = TEXT("LaunchURL cancelled by delegate");
+		}
+		return;
+	}
+
 	auto TmpURL = StringCast<ANSICHAR>(URL);
 	EM_ASM_ARGS({var InUrl = Pointer_stringify($0); console.log("Opening "+InUrl); window.open(InUrl);}, (ANSICHAR*)TmpURL.Get());
 }

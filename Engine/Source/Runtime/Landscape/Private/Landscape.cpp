@@ -54,6 +54,7 @@ Landscape.cpp: Terrain rendering
 #include "MaterialUtilities.h"
 #endif
 #include "LandscapeVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 /** Landscape stats */
 
@@ -90,8 +91,11 @@ namespace LandscapeCookStats
 // Set this to 0 to disable landscape cooking and thus disable it on device.
 #define ENABLE_LANDSCAPE_COOKING 1
 
-// Increment this to regenerate mobile landscape data
-#define LANDSCAPE_MOBILE_COOK_VERSION 2
+// If mobile landscape data data needs to be rebuilt (new format, serialization
+// differences, etc.) replace the version GUID below with a new one.
+// In case of merge conflicts with DDC versions, you MUST generate a new GUID
+// and set this new GUID as the version.                                       
+#define LANDSCAPE_MOBILE_COOK_VERSION TEXT("A048A0D4A24644BA9948FB08068AE8D7")
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -133,6 +137,7 @@ ULandscapeComponent::ULandscapeComponent(const FObjectInitializer& ObjectInitial
 	StaticLightingResolution = 0.f; // Default value 0 means no overriding
 
 	MaterialInstances.AddDefaulted(); // make sure we always have a MaterialInstances[0]	
+	LODIndexToMaterialIndex.AddDefaulted(); // make sure we always have a MaterialInstances[0]	
 
 	HeightmapScaleBias = FVector4(0.0f, 0.0f, 0.0f, 1.0f);
 	WeightmapScaleBias = FVector4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -154,6 +159,18 @@ ULandscapeComponent::ULandscapeComponent(const FObjectInitializer& ObjectInitial
 
 	// We don't want to load this on the server, this component is for graphical purposes only
 	AlwaysLoadOnServer = false;
+}
+
+int32 ULandscapeComponent::GetMaterialInstanceCount(bool InDynamic) const
+{
+	ALandscapeProxy* Actor = GetLandscapeProxy();
+
+	if (Actor != nullptr && Actor->bUseDynamicMaterialInstance && InDynamic)
+	{
+		return MaterialInstancesDynamic.Num();
+	}
+
+	return MaterialInstances.Num();
 }
 
 UMaterialInstance* ULandscapeComponent::GetMaterialInstance(int32 InIndex, bool InDynamic) const
@@ -219,8 +236,8 @@ void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking, co
 	FBufferArchive ComponentStateAr;
 	SerializeStateHashes(ComponentStateAr);
 
-	// Serialize the version number as part of the hash so we can invalidate DDC data if needed
-	int32 Version = LANDSCAPE_MOBILE_COOK_VERSION;
+	// Serialize the version guid as part of the hash so we can invalidate DDC data if needed
+	FString Version(LANDSCAPE_MOBILE_COOK_VERSION);
 	ComponentStateAr << Version;
 	
 	uint32 Hash[5];
@@ -229,8 +246,8 @@ void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking, co
 
 	bool bHashMismatch = MobileDataSourceHash != NewSourceHash;
 	bool bMissingVertexData = !PlatformData.HasValidPlatformData();
-	bool bMissingPixelData = MobileMaterialInterface == nullptr || MobileWeightmapTextures.Num() == 0;
-	
+	bool bMissingPixelData = MobileMaterialInterfaces.Num() == 0 || MobileWeightmapTextures.Num() == 0 || MaterialPerLOD.Num() == 0;
+
 	bool bRegenerateVertexData = bMissingVertexData || bMissingPixelData || bHashMismatch;
 	
 	if (bRegenerateVertexData)
@@ -276,6 +293,7 @@ void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking, co
 void ULandscapeComponent::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 #if WITH_EDITOR
 	if (Ar.IsCooking() && !HasAnyFlags(RF_ClassDefaultObject) && Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::MobileRendering))
@@ -310,15 +328,15 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 	if (Ar.IsCooking() && !HasAnyFlags(RF_ClassDefaultObject) && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::MobileRendering))
 	{
 		// These properties are only used for mobile so we back them up and clear them before serializing them.
-		UMaterialInterface* BackupMobileMaterialInterface = nullptr;
+		TArray<UMaterialInterface*> BackupMobileMaterialInterfaces;
 		TArray<UTexture2D*> BackupMobileWeightmapTextures;
 
-		Exchange(MobileMaterialInterface, BackupMobileMaterialInterface);
+		Exchange(MobileMaterialInterfaces, BackupMobileMaterialInterfaces);
 		Exchange(MobileWeightmapTextures, BackupMobileWeightmapTextures);
 
 		Super::Serialize(Ar);
 
-		Exchange(MobileMaterialInterface, BackupMobileMaterialInterface);
+		Exchange(MobileMaterialInterfaces, BackupMobileMaterialInterfaces);
 		Exchange(MobileWeightmapTextures, BackupMobileWeightmapTextures);
 	}
 	else
@@ -337,6 +355,21 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 		FMeshMapBuildLegacyData LegacyComponentData;
 		LegacyComponentData.Data.Emplace(MapBuildDataId, LegacyMapBuildData);
 		GComponentsWithLegacyLightmaps.AddAnnotation(this, LegacyComponentData);
+	}
+
+	if (Ar.IsLoading() && Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::NewLandscapeMaterialPerLOD)
+	{
+		if (MobileMaterialInterface_DEPRECATED != nullptr)
+		{
+			MobileMaterialInterfaces.AddUnique(MobileMaterialInterface_DEPRECATED);
+		}
+
+#if WITH_EDITORONLY_DATA
+		if (MobileCombinationMaterialInstance_DEPRECATED != nullptr)
+		{
+			MobileCombinationMaterialInstances.AddUnique(MobileCombinationMaterialInstance_DEPRECATED);
+		}
+#endif
 	}
 
 	if (Ar.UE4Ver() >= VER_UE4_SERIALIZE_LANDSCAPE_GRASS_DATA)
@@ -418,17 +451,40 @@ void ULandscapeComponent::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceS
 }
 
 #if WITH_EDITOR
-UMaterialInterface* ULandscapeComponent::GetLandscapeMaterial() const
+UMaterialInterface* ULandscapeComponent::GetLandscapeMaterial(int8 InLODIndex) const
+{
+	if (InLODIndex != INDEX_NONE)
 	{		
-	if (OverrideMaterial)
+		UWorld* World = GetWorld();
+
+		if (World != nullptr)
+		{
+			for (const FLandscapeComponentMaterialOverride& Material : OverrideMaterials)
+			{
+				if (Material.LODIndex.GetValueForFeatureLevel(World->FeatureLevel) == InLODIndex)
+				{
+					if (Material.Material != nullptr)
+					{
+						return Material.Material;
+					}
+
+					break;
+				}
+			}
+		}
+	}
+	
+	if (OverrideMaterial != nullptr)
 	{
 		return OverrideMaterial;
 	}
+
 	ALandscapeProxy* Proxy = GetLandscapeProxy();
 	if (Proxy)
 	{
-		return Proxy->GetLandscapeMaterial();
+		return Proxy->GetLandscapeMaterial(InLODIndex);
 	}
+	
 	return UMaterial::GetDefaultMaterial(MD_Surface);
 }
 
@@ -457,39 +513,6 @@ bool ULandscapeComponent::ComponentHasVisibilityPainted() const
 	}
 
 	return false;
-}
-
-FString ULandscapeComponent::GetLayerAllocationKey(const TArray<FWeightmapLayerAllocationInfo>& Allocations, UMaterialInterface* LandscapeMaterial, bool bMobile /*= false*/)
-{
-	if (!LandscapeMaterial)
-	{
-		return FString();
-	}
-
-	FString Result = LandscapeMaterial->GetPathName();
-
-	// Sort the allocations
-	TArray<FString> LayerStrings;
-	for (int32 LayerIdx = 0; LayerIdx < Allocations.Num(); LayerIdx++)
-	{
-		LayerStrings.Add(FString::Printf(TEXT("_%s_%d"), *Allocations[LayerIdx].GetLayerName().ToString(), Allocations[LayerIdx].WeightmapTextureIndex));
-	}
-	/**
-	 * Generate a key for this component's layer allocations to use with MaterialInstanceConstantMap.
-	 */
-	LayerStrings.Sort(TGreater<FString>());
-
-	for (int32 LayerIdx = 0; LayerIdx < LayerStrings.Num(); LayerIdx++)
-	{
-		Result += LayerStrings[LayerIdx];
-	}
-
-	if (bMobile)
-	{
-		Result += TEXT("M");
-	}
-
-	return Result;
 }
 
 void ULandscapeComponent::GetLayerDebugColorKey(int32& R, int32& G, int32& B) const
@@ -649,15 +672,6 @@ void ULandscapeComponent::PostLoad()
 	}
 #endif
 
-	if (!HasAnyFlags(RF_ClassDefaultObject))
-	{
-		// If we're loading on a platform that doesn't require cooked data, but *only* supports OpenGL ES, generate or preload data from the DDC
-		if (!FPlatformProperties::RequiresCookedData() && GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1)
-		{
-			CheckGenerateLandscapePlatformData(false, nullptr);
-		}
-	}
-
 #if WITH_EDITORONLY_DATA
 	// Handle old MaterialInstance
 	if (MaterialInstance_DEPRECATED)
@@ -677,10 +691,69 @@ void ULandscapeComponent::PostLoad()
 #endif
 
 #if !UE_BUILD_SHIPPING
-	// Be sure we have the appropriate material count
-	const bool bTessellationEnabled = (MaterialInstances.Num() > 0 && MaterialInstances[0] != nullptr && MaterialInstances[0]->Parent != nullptr && MaterialInstances[0]->Parent->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation);
+	// This will fix the data in case there is mismatch between save of asset/maps
+	int8 MaxLOD = FMath::CeilLogTwo(SubsectionSizeQuads + 1) - 1;
 
-	if (bTessellationEnabled && MaterialInstances.Num() < 2)
+	TArray<ULandscapeMaterialInstanceConstant*> ResolvedMaterials;
+
+	if (MaterialIndexToDisabledTessellationMaterial.Num() < MaxLOD)
+	{
+		MaterialIndexToDisabledTessellationMaterial.Init(INDEX_NONE, MaxLOD+1);
+	}
+
+	// Be sure we have the appropriate material count
+	for (int32 i = 0; i < MaterialInstances.Num(); ++i)
+	{
+		ULandscapeMaterialInstanceConstant* LandscapeMIC = Cast<ULandscapeMaterialInstanceConstant>(MaterialInstances[i]);
+
+		if (LandscapeMIC == nullptr || LandscapeMIC->Parent == nullptr || ResolvedMaterials.Contains(LandscapeMIC))
+		{
+			continue;
+		}
+
+		UMaterial* Material = LandscapeMIC->GetMaterial();
+		bool FoundMatchingDisablingMaterial = false;
+
+		// If we have tessellation, find the equivalent with disable tessellation set
+		if (Material->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation)
+		{
+			for (int32 j = i + 1; j < MaterialInstances.Num(); ++j)
+			{
+				ULandscapeMaterialInstanceConstant* OtherLandscapeMIC = Cast<ULandscapeMaterialInstanceConstant>(MaterialInstances[j]);
+
+				if (OtherLandscapeMIC == nullptr || OtherLandscapeMIC->Parent == nullptr)
+				{
+					continue;
+				}
+
+				UMaterial* OtherMaterial = OtherLandscapeMIC->GetMaterial();
+
+				if (OtherMaterial == Material && OtherLandscapeMIC->bDisableTessellation)  // we have a matching material
+				{			
+					FoundMatchingDisablingMaterial = true;
+					ResolvedMaterials.Add(LandscapeMIC);
+					ResolvedMaterials.Add(OtherLandscapeMIC);
+					MaterialIndexToDisabledTessellationMaterial[i] = j;
+					break;
+				}
+			}
+
+			if (!FoundMatchingDisablingMaterial)
+			{
+				if (GIsEditor)
+				{
+					UpdateMaterialInstances();
+					break;
+				}
+				else
+				{
+					UE_LOG(LogLandscape, Error, TEXT("Landscape component (%d, %d) have a material with Tessellation enabled but we do not have the corresponding disabling one. To correct this issue, open the map in the editor and resave the map."), SectionBaseX, SectionBaseY);
+				}
+			}
+		}
+	}	
+
+	if (LODIndexToMaterialIndex.Num() != MaxLOD+1)
 	{
 		if (GIsEditor)
 		{
@@ -688,7 +761,23 @@ void ULandscapeComponent::PostLoad()
 		}
 		else
 		{
-			UE_LOG(LogLandscape, Error, TEXT("Landscape component (%d, %d) have a material with Tessellation enabled but we do not have the right amount of MaterialInstances. To correct this issue, open the map in the editor and resave the map."),	SectionBaseX, SectionBaseY);
+			// Correct in-place differences by applying the highest LOD value we have to the newly added items as most case will be missing items added at the end
+			LODIndexToMaterialIndex.SetNumZeroed(MaxLOD + 1);
+
+			int8 LastLODIndex = 0;
+
+			for (int32 i = 0; i < LODIndexToMaterialIndex.Num(); ++i)
+			{
+				if (LODIndexToMaterialIndex[i] > LastLODIndex)
+				{
+					LastLODIndex = LODIndexToMaterialIndex[i];
+				}
+
+				if (LODIndexToMaterialIndex[i] == 0 && LastLODIndex != 0)
+				{
+					LODIndexToMaterialIndex[i] = LastLODIndex;
+				}
+			}
 		}
 	}
 #endif // UE_BUILD_SHIPPING
@@ -719,7 +808,7 @@ void ULandscapeComponent::PostLoad()
 #endif
 
 #if !UE_BUILD_SHIPPING
-	if (MobileCombinationMaterialInstance == nullptr)
+	if (MobileCombinationMaterialInstances.Num() == 0)
 	{
 		if (GIsEditor)
 		{
@@ -734,6 +823,15 @@ void ULandscapeComponent::PostLoad()
 		}
 	}
 #endif // UE_BUILD_SHIPPING
+
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		// If we're loading on a platform that doesn't require cooked data, but *only* supports OpenGL ES, generate or preload data from the DDC
+		if (!FPlatformProperties::RequiresCookedData() && GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1)
+		{
+			CheckGenerateLandscapePlatformData(false, nullptr);
+		}
+	}
 
 	GrassData->ConditionalDiscardDataOnLoad();
 }
@@ -814,6 +912,12 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 	#endif
 		VisibilityLayer->LayerUsageDebugColor = FLinearColor(0, 0, 0, 0);
 		VisibilityLayer->AddToRoot();
+	}
+
+	if (!HasAnyFlags(RF_ArchetypeObject | RF_ClassDefaultObject) && GetWorld() != nullptr)
+	{
+		FOnFeatureLevelChanged::FDelegate FeatureLevelChangedDelegate = FOnFeatureLevelChanged::FDelegate::CreateUObject(this, &ALandscapeProxy::OnFeatureLevelChanged);
+		FeatureLevelChangedDelegateHandle = GetWorld()->AddOnFeatureLevelChangedHandler(FeatureLevelChangedDelegate);
 	}
 #endif
 
@@ -1131,9 +1235,15 @@ void ULandscapeComponent::OnUnregister()
 {
 	Super::OnUnregister();
 
-#if WITH_EDITOR
 	if (GetLandscapeProxy())
 	{
+		// Generate MID representing the MIC
+		if (GetLandscapeProxy()->bUseDynamicMaterialInstance)
+		{
+			MaterialInstancesDynamic.Empty();
+		}
+
+#if WITH_EDITOR
 		// AActor::GetWorld checks for Unreachable and BeginDestroyed
 		UWorld* World = GetLandscapeProxy()->GetWorld();
 
@@ -1146,8 +1256,8 @@ void ULandscapeComponent::OnUnregister()
 				Info->UnregisterActorComponent(this);
 			}
 		}
-	}
 #endif
+	}
 }
 
 void ALandscapeProxy::PostRegisterAllComponents()
@@ -1274,6 +1384,26 @@ void ALandscape::PostLoad()
 
 	Super::PostLoad();
 }
+
+#if WITH_EDITOR
+void ALandscapeProxy::OnFeatureLevelChanged(ERHIFeatureLevel::Type NewFeatureLevel)
+{
+	FlushGrassComponents();
+
+	UpdateAllComponentMaterialInstances();
+
+	if (NewFeatureLevel <= ERHIFeatureLevel::ES3_1)
+	{
+		for (ULandscapeComponent * Component : LandscapeComponents)
+		{
+			if (Component != nullptr)
+			{
+				Component->CheckGenerateLandscapePlatformData(false, nullptr);
+			}
+		}
+	}
+}
+#endif
 
 void ALandscapeProxy::PreSave(const class ITargetPlatform* TargetPlatform)
 {
@@ -1743,6 +1873,7 @@ void ALandscapeProxy::GetSharedProperties(ALandscapeProxy* Landscape)
 		if (!LandscapeMaterial)
 		{
 			LandscapeMaterial = Landscape->LandscapeMaterial;
+			LandscapeMaterialsOverride = Landscape->LandscapeMaterialsOverride;
 		}
 		if (!LandscapeHoleMaterial)
 		{
@@ -1900,13 +2031,30 @@ void ALandscapeProxy::RecreateComponentsState()
 	}
 }
 
-UMaterialInterface* ALandscapeProxy::GetLandscapeMaterial() const
+UMaterialInterface* ALandscapeProxy::GetLandscapeMaterial(int8 InLODIndex) const
 {
-	if (LandscapeMaterial)
+	if (InLODIndex != INDEX_NONE)
 	{
-		return LandscapeMaterial;
+		UWorld* World = GetWorld();
+
+		if (World != nullptr)
+		{
+			for (const FLandscapeProxyMaterialOverride& OverrideMaterial : LandscapeMaterialsOverride)
+			{
+				if (OverrideMaterial.LODIndex.GetValueForFeatureLevel(World->FeatureLevel) == InLODIndex)
+				{
+					if (OverrideMaterial.Material != nullptr)
+					{
+						return OverrideMaterial.Material;
 					}
-	return UMaterial::GetDefaultMaterial(MD_Surface);
+
+					break;
+				}
+			}
+		}
+	}
+	
+	return LandscapeMaterial != nullptr ? LandscapeMaterial : UMaterial::GetDefaultMaterial(MD_Surface);
 }
 
 UMaterialInterface* ALandscapeProxy::GetLandscapeHoleMaterial() const
@@ -1918,16 +2066,39 @@ UMaterialInterface* ALandscapeProxy::GetLandscapeHoleMaterial() const
 	return nullptr;
 }
 
-UMaterialInterface* ALandscapeStreamingProxy::GetLandscapeMaterial() const
+UMaterialInterface* ALandscapeStreamingProxy::GetLandscapeMaterial(int8 InLODIndex) const
+{
+	if (InLODIndex != INDEX_NONE)
+	{
+		UWorld* World = GetWorld();
+
+		if (World != nullptr)
+		{
+			for (const FLandscapeProxyMaterialOverride& OverrideMaterial : LandscapeMaterialsOverride)
 			{
-	if (LandscapeMaterial)
+				if (OverrideMaterial.LODIndex.GetValueForFeatureLevel(World->FeatureLevel) == InLODIndex)
+				{
+					if (OverrideMaterial.Material != nullptr)
+					{
+						return OverrideMaterial.Material;
+					}
+
+					break;
+				}
+			}
+		}
+	}
+	
+	if (LandscapeMaterial != nullptr)
 	{
 		return LandscapeMaterial;
 	}
-	else if (LandscapeActor)
+
+	if (LandscapeActor != nullptr)
 	{
-		return LandscapeActor->GetLandscapeMaterial();
+		return LandscapeActor->GetLandscapeMaterial(InLODIndex);
 	}
+
 	return UMaterial::GetDefaultMaterial(MD_Surface);
 }
 
@@ -2575,13 +2746,6 @@ void ULandscapeMeshProxyComponent::InitializeForLandscape(ALandscapeProxy* Lands
 #if WITH_EDITOR
 void ULandscapeComponent::SerializeStateHashes(FArchive& Ar)
 {
-	if (GetMaterialInstance(0, false))
-	{
-		UMaterialInterface::TMicRecursionGuard RecursionGuard;
-		FGuid LocalStateId = MaterialInstances[0]->GetMaterial_Concurrent(RecursionGuard)->StateId;
-		Ar << LocalStateId;
-	}
-
 	FGuid HeightmapGuid = HeightmapTexture->Source.GetId();
 	Ar << HeightmapGuid;
 	for (auto WeightmapTexture : WeightmapTextures)
@@ -2596,6 +2760,38 @@ void ULandscapeComponent::SerializeStateHashes(FArchive& Ar)
 	// Take into account the Heightmap offset per component
 	Ar << HeightmapScaleBias.Z;
 	Ar << HeightmapScaleBias.W;
+
+	if (OverrideMaterial != nullptr)
+	{
+		UMaterialInterface::TMicRecursionGuard RecursionGuard;
+		FGuid LocalStateId = OverrideMaterial->GetMaterial_Concurrent(RecursionGuard)->StateId;
+		Ar << LocalStateId;
+	}
+
+	for (FLandscapeComponentMaterialOverride& MaterialOverride : OverrideMaterials)
+	{
+		UMaterialInterface::TMicRecursionGuard RecursionGuard;
+		FGuid LocalStateId = MaterialOverride.Material->GetMaterial_Concurrent(RecursionGuard)->StateId;
+		Ar << LocalStateId;
+		Ar << MaterialOverride.LODIndex;
+	}	
+
+	ALandscapeProxy* Proxy = GetLandscapeProxy();
+
+	if (Proxy->LandscapeMaterial != nullptr)
+	{
+		UMaterialInterface::TMicRecursionGuard RecursionGuard;
+		FGuid LocalStateId = Proxy->LandscapeMaterial->GetMaterial_Concurrent(RecursionGuard)->StateId;
+		Ar << LocalStateId;
+	}
+
+	for (FLandscapeProxyMaterialOverride& MaterialOverride : Proxy->LandscapeMaterialsOverride)
+	{
+		UMaterialInterface::TMicRecursionGuard RecursionGuard;
+		FGuid LocalStateId = MaterialOverride.Material->GetMaterial_Concurrent(RecursionGuard)->StateId;
+		Ar << LocalStateId;
+		Ar << MaterialOverride.LODIndex;
+	}
 }
 
 void ALandscapeProxy::UpdateBakedTextures()

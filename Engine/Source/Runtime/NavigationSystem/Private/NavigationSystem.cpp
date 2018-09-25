@@ -98,6 +98,8 @@ DEFINE_STAT(STAT_Navigation_PathVisibilityOptimisation);
 DEFINE_STAT(STAT_Navigation_ObservedPathsCount);
 DEFINE_STAT(STAT_Navigation_RecastMemory);
 
+CSV_DEFINE_CATEGORY(NAV_SYSTEM, true);
+
 //----------------------------------------------------------------------//
 // consts
 //----------------------------------------------------------------------//
@@ -149,6 +151,15 @@ namespace FNavigationSystem
 			? (GEngine->NavigationSystemClass->GetDefaultObject<const UNavigationSystemV1>())
 			: (const UNavigationSystemV1*)nullptr;
 		return NavSysCDO == nullptr || NavSysCDO->ShouldDiscardSubLevelNavData(&NavData);
+	}
+
+	void MakeAllComponentsNeverAffectNav(AActor& Actor)
+	{
+		const TSet<UActorComponent*> Components = Actor.GetComponents();
+		for (UActorComponent* ActorComp : Components)
+		{
+			ActorComp->SetCanEverAffectNavigation(false);
+		}
 	}
 }
 
@@ -982,6 +993,8 @@ void UNavigationSystemV1::Tick(float DeltaSeconds)
 	if (!bAsyncBuildPaused)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_Navigation_TickAsyncBuild);
+		CSV_SCOPED_TIMING_STAT(NAV_SYSTEM, Navigation_TickAsyncBuild);
+
 		for (ANavigationData* NavData : NavDataSet)
 		{
 			if (NavData)
@@ -1607,7 +1620,15 @@ bool UNavigationSystemV1::IsThereAnywhereToBuildNavigation() const
 		return true;
 	}
 
-	// @TODO this should be done more flexible to be able to trigger this from game-specific 
+	for (const FNavigationBounds& Bounds : RegisteredNavBounds)
+	{
+		if (Bounds.AreaBox.IsValid)
+		{
+			return true;
+		}
+	}
+
+	// @TODO this should be made more flexible to be able to trigger this from game-specific 
 	// code (like Navigation System's subclass maybe)
 	bool bCreateNavigation = false;
 
@@ -1711,13 +1732,7 @@ void UNavigationSystemV1::ApplyWorldOffset(const FVector& InOffset, bool bWorldS
 	if (GetRuntimeGenerationType() == ERuntimeGenerationType::Dynamic)
 	{
 		//stop generators from building navmesh
-		for (ANavigationData* NavData : NavDataSet)
-		{
-			if (NavData)
-			{
-				if (NavData->GetGenerator()) NavData->GetGenerator()->CancelBuild();
-			}
-		}
+		CancelBuild();
 
 		ConditionalPopulateNavOctree();
 		Build();
@@ -1985,7 +2000,7 @@ void UNavigationSystemV1::RegisterCustomLink(INavLinkCustomInterface& CustomLink
 			const FVector WorldPtA = OwnerActorTM.TransformPosition(RelativePtA);
 			const FVector WorldPtB = OwnerActorTM.TransformPosition(RelativePtB);
 
-			FBox LinkBounds(EForceInit::ForceInitToZero);
+			FBox LinkBounds(ForceInitToZero);
 			LinkBounds += WorldPtA;
 			LinkBounds += WorldPtB;
 
@@ -3106,24 +3121,11 @@ void UNavigationSystemV1::AddNavigationBoundsUpdateRequest(const FNavigationBoun
 
 void UNavigationSystemV1::PerformNavigationBoundsUpdate(const TArray<FNavigationBoundsUpdateRequest>& UpdateRequests)
 {
-	if (NavDataSet.Num() == 0)
-	{
-		//TODO: will hitch when user places first navigation volume in the world 
-		
-		if (NavDataRegistrationQueue.Num() > 0)
-		{
-			ProcessRegistrationCandidates();
-		}
+	// NOTE: we used to create missing nav data first, before updating nav bounds, 
+	// but some nav data classes (like RecastNavMesh) may depend on the nav bounds
+	// being already known at the moment of creation or serialization, so it makes more 
+	// sense to update bounds first 
 
-		if (NavDataSet.Num() == 0)
-		{
-			SpawnMissingNavigationData();
-			ProcessRegistrationCandidates();
-		}
-				
-		ConditionalPopulateNavOctree();
-	}
-	
 	// Create list of areas that needs to be updated
 	TArray<FBox> UpdatedAreas;
 	for (const FNavigationBoundsUpdateRequest& Request : UpdateRequests)
@@ -3185,6 +3187,27 @@ void UNavigationSystemV1::PerformNavigationBoundsUpdate(const TArray<FNavigation
 		// Propagate to generators areas that needs to be updated
 		AddDirtyAreas(UpdatedAreas, ENavigationDirtyFlag::All | ENavigationDirtyFlag::NavigationBounds);
 	}
+
+	// I'm not sure why we even do the following as part of this function
+	// @TODO investigate if we can extract it into a separate function and
+	// call it directly
+	if (NavDataSet.Num() == 0)
+	{
+		//TODO: will hitch when user places first navigation volume in the world 
+
+		if (NavDataRegistrationQueue.Num() > 0)
+		{
+			ProcessRegistrationCandidates();
+		}
+
+		if (NavDataSet.Num() == 0 && bAutoCreateNavigationData == true)
+		{
+			SpawnMissingNavigationData();
+			ProcessRegistrationCandidates();
+		}
+
+		ConditionalPopulateNavOctree();
+	}
 }
 
 void UNavigationSystemV1::AddNavigationBounds(const FNavigationBounds& NewBounds)
@@ -3232,7 +3255,14 @@ void UNavigationSystemV1::Build()
 
 	const double BuildStartTime = FPlatformTime::Seconds();
 
-	SpawnMissingNavigationData();
+	if (bAutoCreateNavigationData == true
+#if WITH_EDITOR
+		|| OperationMode == FNavigationSystemRunMode::EditorMode
+#endif // WITH_EDITOR
+		)
+	{
+		SpawnMissingNavigationData();
+	}
 
 	// make sure freshly created navigation instances are registered before we try to build them
 	ProcessRegistrationCandidates();
@@ -3255,6 +3285,20 @@ void UNavigationSystemV1::Build()
 #endif // !UE_BUILD_SHIPPING
 
 	UE_LOG(LogNavigation, Display, TEXT("UNavigationSystemV1::Build total execution time: %.5f"), float(FPlatformTime::Seconds() - BuildStartTime));
+}
+
+void UNavigationSystemV1::CancelBuild()
+{
+	for (ANavigationData* NavData : NavDataSet)
+	{
+		if (NavData)
+		{
+			if (NavData->GetGenerator())
+			{
+				NavData->GetGenerator()->CancelBuild();
+			}
+		}
+	}
 }
 
 void UNavigationSystemV1::SpawnMissingNavigationData()
@@ -4379,6 +4423,12 @@ void UNavigationSystemV1::Configure(const UNavigationSystemConfig& Config)
 UNavigationSystemModuleConfig::UNavigationSystemModuleConfig(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+}
+
+void UNavigationSystemModuleConfig::PostInitProperties()
+{
+	Super::PostInitProperties();
+
 	const UNavigationSystemV1* NavSysCDO = GetDefault<UNavigationSystemV1>();
 	if (NavSysCDO)
 	{
@@ -4388,7 +4438,7 @@ UNavigationSystemModuleConfig::UNavigationSystemModuleConfig(const FObjectInitia
 
 void UNavigationSystemModuleConfig::UpdateWithNavSysCDO(const UNavigationSystemV1& NavSysCDO)
 {
-	if (NavigationSystemClass.TryLoad() == NavSysCDO.GetClass())
+	if (NavigationSystemClass.ResolveClass() == NavSysCDO.GetClass())
 	{
 		bStrictlyStatic = NavSysCDO.bStaticRuntimeNavigation;
 		bCreateOnClient = NavSysCDO.bAllowClientSideNavigation;
@@ -4403,9 +4453,10 @@ UNavigationSystemBase* UNavigationSystemModuleConfig::CreateAndConfigureNavigati
 	{
 		return nullptr;
 	}
-	
-	UNavigationSystemV1* NavSysInstance = Cast<UNavigationSystemV1>(Super::CreateAndConfigureNavigationSystem(World));
-	UE_CLOG(NavSysInstance == nullptr, LogNavigation, Error
+
+	UNavigationSystemBase* NewNavSys = Super::CreateAndConfigureNavigationSystem(World);
+	UNavigationSystemV1* NavSysInstance = Cast<UNavigationSystemV1>(NewNavSys);
+	UE_CLOG(NavSysInstance == nullptr && NewNavSys != nullptr, LogNavigation, Error
 		, TEXT("Unable to spawn navsys instance of class %s - unable to cast to UNavigationSystemV1")
 		, *NavigationSystemClass.GetAssetName()
 	);

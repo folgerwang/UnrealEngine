@@ -505,6 +505,29 @@ bool USkeletalMesh::HasActiveClothingAssets() const
 #endif
 }
 
+bool USkeletalMesh::HasActiveClothingAssetsForLOD(int32 LODIndex) const
+{
+	if(FSkeletalMeshRenderData* Resource = GetResourceForRendering())
+	{
+		if (Resource->LODRenderData.IsValidIndex(LODIndex))
+		{
+			const FSkeletalMeshLODRenderData& LodData = Resource->LODRenderData[LODIndex];
+			const int32 NumSections = LodData.RenderSections.Num();
+			for(int32 SectionIdx = 0; SectionIdx < NumSections; ++SectionIdx)
+			{
+				const FSkelMeshRenderSection& Section = LodData.RenderSections[SectionIdx];
+
+				if(Section.ClothingData.AssetGuid.IsValid())
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
 bool USkeletalMesh::ComputeActiveClothingAssets() const
 {
 	if(FSkeletalMeshRenderData* Resource = GetResourceForRendering())
@@ -710,10 +733,12 @@ FArchive &operator<<( FArchive& Ar, FSkeletalMeshLODInfo& I )
 {
 	Ar << I.LODMaterialMap;
 
+#if WITH_EDITORONLY_DATA
 	if ( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_MOVE_SKELETALMESH_SHADOWCASTING )
 	{
 		Ar << I.bEnableShadowCasting_DEPRECATED;
 	}
+#endif
 
 	Ar.UsingCustomVersion(FSkeletalMeshCustomVersion::GUID);
 	if (Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) < FSkeletalMeshCustomVersion::RemoveTriangleSorting)
@@ -907,6 +932,7 @@ void USkeletalMesh::BeginDestroy()
 		Skeleton->RemoveLinkup(this);
 	}
 
+#if WITH_EDITORONLY_DATA
 #if WITH_APEX_CLOTHING
 	// release clothing assets
 	for (FClothingAssetData_Legacy& Data : ClothingAssets_DEPRECATED)
@@ -918,6 +944,7 @@ void USkeletalMesh::BeginDestroy()
 		}
 	}
 #endif // #if WITH_APEX_CLOTHING
+#endif // WITH_EDITORONLY_DATA
 
 	// Release the mesh's render resources.
 	ReleaseResources();
@@ -2194,6 +2221,7 @@ FArchive& operator<<(FArchive& Ar, FSkeletalMaterial& Elem)
 		}
 #endif //#if WITH_EDITORONLY_DATA
 	}
+#if WITH_EDITORONLY_DATA
 	else
 	{
 		if (Ar.UE4Ver() >= VER_UE4_MOVE_SKELETALMESH_SHADOWCASTING)
@@ -2207,6 +2235,7 @@ FArchive& operator<<(FArchive& Ar, FSkeletalMaterial& Elem)
 			Ar << Elem.bRecomputeTangent_DEPRECATED;
 		}
 	}
+#endif
 	
 	if (!Ar.IsLoading() || Ar.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::TextureStreamingMeshUVChannelData)
 	{
@@ -3100,9 +3129,9 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 		,	bForceWireframe(Component->bForceWireframe)
 		,	bCanHighlightSelectedSections(Component->bCanHighlightSelectedSections)
 		,	bRenderStatic(Component->bRenderStatic)
-		,	MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
 		,	FeatureLevel(GetScene().GetFeatureLevel())
 		,	bMaterialsNeedMorphUsage_GameThread(false)
+		,	MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
 #if WITH_EDITORONLY_DATA
 		,	StreamingDistanceMultiplier(FMath::Max(0.0f, Component->StreamingDistanceMultiplier))
 #endif

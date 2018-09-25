@@ -149,3 +149,24 @@ namespace ESocketWaitConditions
 		WaitForReadOrWrite
 	};
 }
+
+/**
+ * Enumerates socket shutdown modes.
+ */
+enum class ESocketShutdownMode
+{
+	/**
+	 * Disables reading on the socket.
+	 */
+	Read,
+	
+	/**
+	 * Disables writing on the socket.
+	 */
+	Write,
+	
+	/**
+	 * Disables reading and writing on the socket.
+	 */
+	ReadWrite
+};

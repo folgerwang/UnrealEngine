@@ -95,8 +95,8 @@ class ENGINE_API UParticleModuleLocationBoneSocket : public UParticleModuleLocat
 	UPROPERTY(EditAnywhere, Category=BoneSocket)
 	uint32 bUpdatePositionEachFrame:1;
 
-	/** If true, rotate mesh emitter meshes to orient w/ the socket */
-	UPROPERTY(EditAnywhere, Category=BoneSocket)
+	/** If true, rotate mesh emitter meshes to orient w/ the socket. Currently does nothing. */
+	UPROPERTY()
 	uint32 bOrientMeshEmitters:1;
 
 	/** If true, particles inherit the associated bone velocity when spawned */

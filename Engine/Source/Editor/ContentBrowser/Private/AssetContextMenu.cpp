@@ -1832,26 +1832,9 @@ void FAssetContextMenu::ExecuteSaveAsset()
 	TArray<UPackage*> PackagesToSave;
 	GetSelectedPackages(PackagesToSave);
 
-	TArray< UPackage* > PackagesWithExternalRefs;
-	FString PackageNames;
-	if( UPackageTools::CheckForReferencesToExternalPackages( &PackagesToSave, &PackagesWithExternalRefs ) )
-	{
-		for(int32 PkgIdx = 0; PkgIdx < PackagesWithExternalRefs.Num(); ++PkgIdx)
-		{
-			PackageNames += FString::Printf(TEXT("%s\n"), *PackagesWithExternalRefs[ PkgIdx ]->GetName());
-		}
-		bool bProceed = EAppReturnType::Yes == FMessageDialog::Open( EAppMsgType::YesNo, FText::Format( NSLOCTEXT("UnrealEd", "Warning_ExternalPackageRef", "The following assets have references to external assets: \n{0}\nExternal assets won't be found when in a game and all references will be broken.  Proceed?"), FText::FromString(PackageNames) ) );
-		if(!bProceed)
-		{
-			return;
-		}
-	}
-
 	const bool bCheckDirty = false;
 	const bool bPromptToSave = false;
-	const FEditorFileUtils::EPromptReturnCode Return = FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, bCheckDirty, bPromptToSave);
-
-	//return Return == FEditorFileUtils::EPromptReturnCode::PR_Success;
+	FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, bCheckDirty, bPromptToSave);
 }
 
 void FAssetContextMenu::ExecuteDiffSelected() const
@@ -2104,6 +2087,7 @@ void FAssetContextMenu::ExecuteMigrateAsset()
 {
 	// Get a list of package names for input into MigratePackages
 	TArray<FName> PackageNames;
+	PackageNames.Reserve(SelectedAssets.Num());
 	for (int32 AssetIdx = 0; AssetIdx < SelectedAssets.Num(); ++AssetIdx)
 	{
 		PackageNames.Add(SelectedAssets[AssetIdx].PackageName);

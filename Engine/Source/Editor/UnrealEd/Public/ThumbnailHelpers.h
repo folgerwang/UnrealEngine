@@ -326,6 +326,8 @@ public:
 			if (InstancedThumbnailScenes.Num() >= MaxNumScenes)
 			{
 				InstancedThumbnailScenes.Reset();
+				// Will hitch but is better than a crash
+				CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 			}
 
 			ExistingThumbnailScene = MakeShareable(new ThumbnailSceneType());

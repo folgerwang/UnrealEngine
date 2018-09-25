@@ -97,6 +97,17 @@ struct APPLICATIONCORE_API FGenericPlatformApplicationMisc
 	};
 
 	/**
+	 * Returns state of screensaver (if platform supports it)
+	 *
+	 * @return	true if screensaver enabled (returns false if platform does not support it)
+	 *
+	 */
+	static bool IsScreensaverEnabled()
+	{
+		return false;
+	}
+
+	/**
 	 * Disables screensaver (if platform supports such an API)
 	 *
 	 * @param Action enable or disable

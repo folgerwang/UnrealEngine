@@ -804,7 +804,7 @@ namespace
 					// access to the value we are going to update
 					ValueType&  DstValue = OutGrid(i, j);
 
-					DstValue = ValueType(EForceInit::ForceInitToZero);
+					DstValue = ValueType(ForceInitToZero);
 
 					double TotalIntersectArea = 0.;
 					// loop over the src region that contributes to the dst region
@@ -837,7 +837,7 @@ namespace
 					}
 					else
 					{
-						DstValue = ValueType(EForceInit::ForceInitToZero);
+						DstValue = ValueType(ForceInitToZero);
 					}
 
 				}

@@ -14,7 +14,7 @@
 class ULevelSequence;
 
 UENUM()
-enum class EMediaPlayerRecordingNumerationStyle
+enum class EMediaPlayerRecordingNumerationStyle : uint8
 {
 	AppendFrameNumber,
 	AppendSampleTime
@@ -36,7 +36,9 @@ struct FMediaPlayerRecordingSettings
 
 	FMediaPlayerRecordingSettings()
 		: bActive(true)
+		, bRecordMediaFrame(false)
 		, BaseFilename(TEXT("Frame"))
+		, NumerationStyle(EMediaPlayerRecordingNumerationStyle::AppendFrameNumber)
 		, ImageFormat(EMediaPlayerRecordingImageFormat::BMP)
 		, CompressionQuality(0)
 		, bResetAlpha(false)

@@ -60,7 +60,7 @@ public:
 
 	void DrawThumbnail(class FCanvas* Canvas, FVector2D StartXY, FVector2D SizeXY);
 
-	void PushToSourceData(TArray<FColor> &SrcData, int32 StartXY, FVector2D SizeXY);
+	void PushToSourceData(TArray<FFloat16Color> &SrcData, int32 StartXY, FVector2D SizeXY);
 
 	virtual void OnCurveChanged(const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos) override;
 #endif

@@ -432,30 +432,42 @@ bool FHTML5HttpRequest::ProcessRequest()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::ProcessRequest()"));
 
-	if (!StartRequest())
+	bool bStarted = false;
+	if (!FHttpModule::Get().GetHttpManager().IsDomainAllowed(URL))
+	{
+		UE_LOG(LogHttp, Warning, TEXT("ProcessRequest failed. URL '%s' is not using a whitelisted domain. %p"), *URL, this);
+	}
+	else if (!StartRequest())
 	{
 		UE_LOG(LogHttp, Warning, TEXT("Processing HTTP request failed. Increase verbosity for additional information."));
-
-		// No response since connection failed
-		Response = NULL;
-		// Cleanup and call delegate
-		FinishedRequest();
-
-		return false;
+	}
+	else
+	{
+		bStarted = true;
 	}
 
-	// Mark as in-flight to prevent overlapped requests using the same object
-	CompletionStatus = EHttpRequestStatus::Processing;
-	// Response object to handle data that comes back after starting this request
-	Response = MakeShareable(new FHTML5HttpResponse(*this));
-	// Add to global list while being processed so that the ref counted request does not get deleted
-	FHttpModule::Get().GetHttpManager().AddRequest(SharedThis(this));
-	// reset timeout
-	ElapsedTime = 0.0f;
+	if (!bStarted)
+	{
+		// No response since connection failed
+		Response = nullptr;
+		// Cleanup and call delegate
+		FinishedRequest();
+	}
+	else
+	{
+		// Mark as in-flight to prevent overlapped requests using the same object
+		CompletionStatus = EHttpRequestStatus::Processing;
+		// Response object to handle data that comes back after starting this request
+		Response = MakeShareable(new FHTML5HttpResponse(*this));
+		// Add to global list while being processed so that the ref counted request does not get deleted
+		FHttpModule::Get().GetHttpManager().AddRequest(SharedThis(this));
+		// reset timeout
+		ElapsedTime = 0.0f;
 
-	UE_LOG(LogHttp, Verbose, TEXT("Request is waiting for processing"), this );
+		UE_LOG(LogHttp, Verbose, TEXT("Request is waiting for processing"), this);
+	}
 
-	return true;
+	return bStarted;
 }
 
 void FHTML5HttpRequest::FinishedRequest()

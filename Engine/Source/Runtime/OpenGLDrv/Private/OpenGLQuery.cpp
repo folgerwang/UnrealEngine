@@ -117,34 +117,17 @@ struct FGLQueryBatcher
 		}
 	}
 
-	void PerFrameFlush()
+	// this just tries to readback queries until it finds one that is not ready
+	void SoftFlush(FOpenGLDynamicRHI& RHI, bool bResetHasFlushedSinceLastWait = false)
 	{
-		NextFrameNumberRenderThread++;
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FGLQueryBatcher_SoftFlushScan);
 		for (int32 Index = 0; Index < Batches.Num(); Index++)
 		{
 			FGLQueryBatch* Batch = Batches[Index];
-			if (Batch->FrameNumberRenderThread <= NextFrameNumberRenderThread - 5)
+			if (bResetHasFlushedSinceLastWait)
 			{
-				delete Batch;
-				Batches.RemoveAt(Index--);
+				Batch->bHasFlushedSinceLastWait = false; // we will try a full scan if we get around to initviews
 			}
-		}
-	}
-
-	void StartNewBatch(FOpenGLDynamicRHI& RHI)
-	{
-		check(!NewBatch);
-		NewBatch = new FGLQueryBatch();
-		NewBatch->FrameNumberRenderThread = NextFrameNumberRenderThread;
-	}
-	void EndBatch(FOpenGLDynamicRHI& RHI)
-	{
-#if 1 // this look will try to scan ahead for any stale entires that were reused
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_FGLQueryBatcher_EndBatch);
-		for (int32 Index = 0; Index < Batches.Num(); Index++)
-		{
-			FGLQueryBatch* Batch = Batches[Index];
-			Batch->bHasFlushedSinceLastWait = false; // we will try a full scan if we get around to initviews
 
 			for (int32 IndexInner = 0; IndexInner < Batch->BatchContents.Num(); IndexInner++)
 			{
@@ -177,7 +160,32 @@ struct FGLQueryBatcher
 				break;
 			}
 		}
-#endif
+	}
+
+	void PerFrameFlush()
+	{
+		NextFrameNumberRenderThread++;
+		for (int32 Index = 0; Index < Batches.Num(); Index++)
+		{
+			FGLQueryBatch* Batch = Batches[Index];
+			if (Batch->FrameNumberRenderThread <= NextFrameNumberRenderThread - 5)
+			{
+				delete Batch;
+				Batches.RemoveAt(Index--);
+			}
+		}
+	}
+
+	void StartNewBatch(FOpenGLDynamicRHI& RHI)
+	{
+		check(!NewBatch);
+		NewBatch = new FGLQueryBatch();
+		NewBatch->FrameNumberRenderThread = NextFrameNumberRenderThread;
+	}
+	void EndBatch(FOpenGLDynamicRHI& RHI)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FGLQueryBatcher_EndBatch);
+		SoftFlush(RHI, true);
 		if (NewBatch)
 		{
 			Batches.Add(NewBatch);
@@ -206,6 +214,14 @@ void EndOcclusionQueryBatch()
 	if (IsRunningRHIInSeparateThread())
 	{
 		GBatcher.EndBatch(*(FOpenGLDynamicRHI*)GDynamicRHI);
+	}
+}
+
+void FOpenGLDynamicRHI::RHIPollOcclusionQueries()
+{
+	if (IsRunningRHIInSeparateThread())
+	{
+		GBatcher.SoftFlush(*(FOpenGLDynamicRHI*)GDynamicRHI);
 	}
 }
 
@@ -431,6 +447,52 @@ void FOpenGLDynamicRHI::GetRenderQueryResult_OnThisThread(FOpenGLRenderQuery* Qu
 	}
 }
 
+class FPollQueriesRHIThreadTask
+{
+	FOpenGLRenderQuery* Query;
+	FOpenGLDynamicRHI* RHI;
+	bool bWait;
+
+public:
+
+	FPollQueriesRHIThreadTask(FOpenGLRenderQuery* InQuery, FOpenGLDynamicRHI* InRHI, bool bInWait)
+		: Query(InQuery)
+		, RHI(InRHI)
+		, bWait(bInWait)
+	{
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FPollQueriesRHIThreadTask, STATGROUP_TaskGraphTasks);
+	}
+
+	ENamedThreads::Type GetDesiredThread()
+	{
+		return ENamedThreads::SetTaskPriority(ENamedThreads::RHIThread, ENamedThreads::HighTaskPriority);
+	}
+
+	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		check(IsRunningRHIInDedicatedThread() && IsInRHIThread()); // this should never be used on a platform that doesn't support the RHI thread, and it can't quite work when running the RHI stuff on task threads
+		if (bWait)
+		{
+			RHI->GetRenderQueryResult_OnThisThread(Query, true); // we must get this one if bWait is true;
+			RHI->RHIPollOcclusionQueries(); // finish any other ones, but don't wait
+		}
+		else
+		{
+			RHI->GetRenderQueryResult_OnThisThread(Query, false);
+			if (Query->TotalResults.GetValue() == Query->TotalBegins.GetValue())
+			{
+				RHI->RHIPollOcclusionQueries(); // If the target query was ready, then go ahead and scan to see what else is ready.
+			}
+		}
+	}
+};
+
 
 bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI,uint64& OutResult,bool bWait)
 {
@@ -459,11 +521,36 @@ bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI
 		{
 			if (bWait)
 			{
-				new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), true);});
-				FGraphEventRef Done = RHICmdList.RHIThreadFence(false);
-				new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GBatcher.Flush(*this, QueryRHI);});
-				RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
-				FRHICommandListExecutor::WaitOnRHIThreadFence(Done);
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_WaitForRHIThreadOcclusionReadback);
+				if (IsRunningRHIInDedicatedThread())
+				{
+					// send a command that will wait, so if the RHIT runs out of work, it just blocks and waits for the GPU
+					new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), true); });
+					FGraphEventRef Done = RHICmdList.RHIThreadFence(false);
+					new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GBatcher.Flush(*this, QueryRHI); });
+					RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+					while (!Done->IsComplete())
+					{
+						FGraphEventRef RHITask = TGraphTask<FPollQueriesRHIThreadTask>::CreateTask().ConstructAndDispatchWhenReady(ResourceCast(QueryRHI), this, false);
+						FTaskGraphInterface::Get().WaitUntilTaskCompletes(RHITask);
+
+						if (Query->TotalResults.GetValue() == Query->TotalBegins.GetValue())
+						{
+							break;
+						}
+						// We want to keep the RHIT working, but we want keep checking between command lists so that we can get the results as soon as the GPU has them
+
+						// this isn't really a spin, the ping-pong between threads will not consume CPU (usually a bad thing, not here).
+					}
+				}
+				else
+				{
+					new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), true); });
+					FGraphEventRef Done = RHICmdList.RHIThreadFence(false);
+					new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GBatcher.Flush(*this, QueryRHI); });
+					RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+					FRHICommandListExecutor::WaitOnRHIThreadFence(Done);
+				}
 				check(Query->TotalResults.GetValue() == Query->TotalBegins.GetValue());
 			}
 			else

@@ -220,7 +220,7 @@ void UInheritableComponentHandler::ValidateTemplates()
 			}
 			else
 			{
-				UE_LOG(LogBlueprint, Warning, TEXT("ValidateTemplates '%s': overridden template is invalid and will be removed - component '%s' from '%s'"),
+				UE_LOG(LogBlueprint, Log, TEXT("ValidateTemplates '%s': overridden template is invalid and will be removed - component '%s' from '%s' (this can happen when a class was recently reparented)"),
 					*GetPathNameSafe(this), *VarName.ToString(), *GetPathNameSafe(ComponentKey.GetComponentOwner()));
 			}
 		}

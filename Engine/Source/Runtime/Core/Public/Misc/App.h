@@ -59,15 +59,6 @@ public:
 	static const TCHAR* GetBuildVersion();
 
 	/**
-	 * Gets the deployment name (also known as "EpicApp" in the launcher), e.g. DevPlaytest, PublicTest, Live etc.
-	 *
-	 * Does not return FString because it can be used during crash handling, so it should avoid memory allocation.
-	 *
-	 * @return The branch name (guaranteed not to be nullptr).
-	 */
-	static const TCHAR * GetDeploymentName();
-
-	/**
 	 * Gets the date at which this application was built.
 	 *
 	 * @return Build date string.
@@ -697,6 +688,9 @@ public:
 	
 	/* If the random seed started with a constant or on time, can be affected by -FIXEDSEED or -BENCHMARK */
 	static bool bUseFixedSeed;
+
+	/* Print all initial startup logging */
+	static void PrintStartupLogMessages();
 
 private:
 

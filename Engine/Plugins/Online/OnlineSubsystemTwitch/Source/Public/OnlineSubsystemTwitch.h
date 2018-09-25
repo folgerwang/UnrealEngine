@@ -77,7 +77,7 @@ public:
 PACKAGE_SCOPE:
 
  	/** Only the factory makes instances */
-	FOnlineSubsystemTwitch(FName InInstanceName);
+	explicit FOnlineSubsystemTwitch(FName InInstanceName);
 	
 	/** Default constructor unavailable */
 	FOnlineSubsystemTwitch() = delete;

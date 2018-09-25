@@ -8,7 +8,7 @@
 MTLPP_BEGIN
 
 template<>
-struct IMPTable<id<MTLFunction>, void> : public IMPTableBase<id<MTLFunction>>
+struct MTLPP_EXPORT IMPTable<id<MTLFunction>, void> : public IMPTableBase<id<MTLFunction>>
 {
 	IMPTable()
 	{
@@ -47,7 +47,7 @@ struct IMPTable<id<MTLFunction>, void> : public IMPTableBase<id<MTLFunction>>
 };
 
 template<typename InterposeClass>
-struct IMPTable<id<MTLFunction>, InterposeClass> : public IMPTable<id<MTLFunction>, void>
+struct MTLPP_EXPORT IMPTable<id<MTLFunction>, InterposeClass> : public IMPTable<id<MTLFunction>, void>
 {
 	IMPTable()
 	{
@@ -70,7 +70,7 @@ struct IMPTable<id<MTLFunction>, InterposeClass> : public IMPTable<id<MTLFunctio
 };
 
 template<>
-struct IMPTable<id<MTLLibrary>, void> : public IMPTableBase<id<MTLLibrary>>
+struct MTLPP_EXPORT IMPTable<id<MTLLibrary>, void> : public IMPTableBase<id<MTLLibrary>>
 {
 	IMPTable()
 	{
@@ -98,7 +98,7 @@ struct IMPTable<id<MTLLibrary>, void> : public IMPTableBase<id<MTLLibrary>>
 };
 
 template<typename InterposeClass>
-struct IMPTable<id<MTLLibrary>, InterposeClass> : public IMPTable<id<MTLLibrary>, void>
+struct MTLPP_EXPORT IMPTable<id<MTLLibrary>, InterposeClass> : public IMPTable<id<MTLLibrary>, void>
 {
 	IMPTable()
 	{

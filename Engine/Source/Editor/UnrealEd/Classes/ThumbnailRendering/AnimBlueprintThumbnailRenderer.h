@@ -30,6 +30,6 @@ class UAnimBlueprintThumbnailRenderer : public UDefaultSizedThumbnailRenderer
 	// End UObject Implementation
 
 private:
-	TClassInstanceThumbnailScene<FAnimBlueprintThumbnailScene, 400> ThumbnailScenes;
+	TClassInstanceThumbnailScene<FAnimBlueprintThumbnailScene, 100> ThumbnailScenes;
 };
 

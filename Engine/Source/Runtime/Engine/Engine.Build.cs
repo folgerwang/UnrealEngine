@@ -81,8 +81,9 @@ public class Engine : ModuleRules
 				"GameplayTags",
 				"DatabaseSupport",
 				"PacketHandler",
-                "AudioPlatformConfiguration",
+				"AudioPlatformConfiguration",
 				"MeshDescription",
+				"PakFile",
 			}
 		);
 

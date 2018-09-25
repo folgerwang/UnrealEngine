@@ -8,6 +8,7 @@
 #include "Curves/CurveFloat.h"
 #include "BonePose.h"
 #include "BoneControllers/AnimNode_SkeletalControlBase.h"
+#include "BoneControllers/AnimNode_AnimDynamics.h"
 #include "AnimNode_Trail.generated.h"
 
 class USkeletalMeshComponent;
@@ -18,6 +19,23 @@ struct FPerJointTrailSetup
 {
 	/** How quickly we 'relax' the bones to their animated positions. */
 	float	TrailRelaxationSpeedPerSecond;
+};
+
+USTRUCT()
+struct FRotationLimit
+{
+	GENERATED_BODY()
+
+	FRotationLimit()
+		: LimitMin(-180, -180, -180)
+		, LimitMax(+180, +180, +180)
+	{}
+
+	UPROPERTY(EditAnywhere, Category = Angular, meta = (UIMin = "-180", UIMax = "180", ClampMin = "-180", ClampMax = "180"))
+	FVector LimitMin;
+
+	UPROPERTY(EditAnywhere, Category = Angular, meta = (UIMin = "-180", UIMax = "180", ClampMin = "-180", ClampMax = "180"))
+	FVector LimitMax;
 };
 
 /**
@@ -43,47 +61,107 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_Trail : public FAnimNode_SkeletalControlBa
 
 	/** Invert the direction specified in ChainBoneAxis. */
 	UPROPERTY(EditAnywhere, Category=Trail)
-	bool	bInvertChainBoneAxis;
+	uint8 bInvertChainBoneAxis:1;
+
+	/** Limit the amount that a bone can stretch from its ref-pose length. */
+	UPROPERTY(EditAnywhere, Category=Limit)
+	uint8 bLimitStretch:1;
+
+	/** Limit the amount that a bone can stretch from its ref-pose length. */
+	UPROPERTY(EditAnywhere, Category = Limit)
+	uint8 bLimitRotation:1;
+
+	/** Whether to evaluate planar limits */
+	UPROPERTY(EditAnywhere, Category=Limit)
+	uint8 bUsePlanarLimit:1;
+
+	/** Whether 'fake' velocity should be applied in actor or world space. */
+	UPROPERTY(EditAnywhere,  Category=Velocity)
+	uint8 bActorSpaceFakeVel:1;
+
+	/** Fix up rotation to face child for the parent*/
+	UPROPERTY(EditAnywhere, Category = Rotation)
+	uint8 bReorientParentToChild:1;
+
+	/** Did we have a non-zero ControlStrength last frame. */
+	uint8 bHadValidStrength:1;
+
+#if WITH_EDITORONLY_DATA
+	/** Enable Debug in the PIE. This doesn't work in game*/
+	UPROPERTY(EditAnywhere, Category = Debug)
+	uint8 bEnableDebug:1;
+
+	/** Show Base Motion */
+	UPROPERTY(EditAnywhere, Category = Debug)
+	uint8 bShowBaseMotion:1;
+
+	/** Show Trail Location **/
+	UPROPERTY(EditAnywhere, Category = Debug)
+	uint8 bShowTrailLocation:1;
+
+	/** Show Planar Limits **/
+	UPROPERTY(EditAnywhere, Category = Debug)
+	uint8 bShowLimit:1;
+
+	/** This is used by selection node. Use this transient flag. */
+	uint8 bEditorDebugEnabled:1;
+
+	/** Debug Life Time */
+	UPROPERTY(EditAnywhere, Category = Debug)
+	float DebugLifeTime;
 
 	/** How quickly we 'relax' the bones to their animated positions. Deprecated. Replaced to TrailRelaxationCurve */
 	UPROPERTY()
-	float	TrailRelaxation_DEPRECATED;
+	float TrailRelaxation_DEPRECATED;
+#endif // WITH_EDITORONLY_DATA
+
+	/** If you want to avoid loop, how many you want to unwind at once. 
+	 * Bigger value can cause jitter as it becomes more unstable in the ordering
+	 * Defaulted to 3. It will use this length to unwind at once 
+	 */
+	UPROPERTY(EditAnywhere, Category = Trail, meta = (EditCondition = "!bAllowLoop", ClampMin = "3", UIMin = "3"))
+	uint32 UnwindingSize;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Trail, meta = (PinHiddenByDefault))
+	float RelaxationSpeedScale;
 
 	/** How quickly we 'relax' the bones to their animated positions. Time 0 will map to top root joint, time 1 will map to the bottom joint. */
 	UPROPERTY(EditAnywhere, Category=Trail, meta=(CustomizeProperty))
 	FRuntimeFloatCurve TrailRelaxationSpeed;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Trail, meta = (PinHiddenByDefault))
-	float RelaxationSpeedScale;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Trail)
 	FInputScaleBiasClamp RelaxationSpeedScaleInputProcessor;
 
-	/** Limit the amount that a bone can stretch from its ref-pose length. */
-	UPROPERTY(EditAnywhere, Category=Limit)
-	bool	bLimitStretch;
+	UPROPERTY(EditAnywhere, EditFixedSize, Category = Limit, meta = (EditCondition =bLimitRotation))
+	TArray<FRotationLimit> RotationLimits;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, EditFixedSize, Category = Limit, meta = (PinHiddenByDefault, EditCondition = bLimitRotation))
+	TArray<FVector> RotationOffsets;
+
+	/** List of available planar limits for this node */
+	UPROPERTY(EditAnywhere, Category=Limit, meta = (EditCondition = bUsePlanarLimit))
+	TArray<FAnimPhysPlanarLimit> PlanarLimits;
 
 	/** If bLimitStretch is true, this indicates how long a bone can stretch beyond its length in the ref-pose. */
 	UPROPERTY(EditAnywhere, Category=Limit)
 	float	StretchLimit;
 
 	/** 'Fake' velocity applied to bones. */
-	UPROPERTY(EditAnywhere, Category=Velocity)
+	UPROPERTY(EditAnywhere, Category=Velocity, meta = (PinHiddenByDefault))
 	FVector	FakeVelocity;
-
-	/** Whether 'fake' velocity should be applied in actor or world space. */
-	UPROPERTY(EditAnywhere,  Category=Velocity)
-	bool	bActorSpaceFakeVel;
 
 	/** Base Joint to calculate velocity from. If none, it will use Component's World Transform. . */
 	UPROPERTY(EditAnywhere, Category=Velocity)
 	FBoneReference BaseJoint;
 
+	/* How to set last bone rotation. It copies from previous joint if alpha is 1.f, or 0.f will use animated pose 
+	 * This alpha dictates the blend between parent joint and animated pose
+	 */
+	UPROPERTY(EditAnywhere, Category = Rotation, meta = (EditCondition = bReorientParentToChild))
+	float TrailBoneRotationBlendAlpha;
+
 	/** Internal use - we need the timestep to do the relaxation in CalculateNewBoneTransforms. */
 	float	ThisTimstep;
-
-	/** Did we have a non-zero ControlStrength last frame. */
-	bool	bHadValidStrength;
 
 	/** Component-space locations of the bones from last frame. Each frame these are moved towards their 'animated' locations. */
 	TArray<FVector>	TrailBoneLocations;
@@ -93,6 +171,12 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_Trail : public FAnimNode_SkeletalControlBa
 
 	/** Per Joint Trail Set up*/
 	TArray<FPerJointTrailSetup> PerJointTrailData;
+
+#if WITH_EDITORONLY_DATA
+	/** debug transient data to draw debug better */
+	TArray<FColor>	TrailDebugColors;
+	TArray<FColor>	PlaneDebugColors;
+#endif // WITH_EDITORONLY_DATA
 
 	FAnimNode_Trail();
 
@@ -109,6 +193,9 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_Trail : public FAnimNode_SkeletalControlBa
 
 	void PostLoad();
 
+#if WITH_EDITOR
+	void EnsureChainSize();
+#endif // WITH_EDITOR
 private:
 	// FAnimNode_SkeletalControlBase interface
 	virtual void InitializeBoneReferences(const FBoneContainer& RequiredBones) override;

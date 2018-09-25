@@ -25,6 +25,7 @@
 #include "UObject/PropertyPortFlags.h"
 #include "Compilation/MovieSceneCompiler.h"
 #include "TimerManager.h"
+#include "UObject/Package.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -149,23 +150,27 @@ void UUserWidget::TemplateInitInner()
 	{
 		for ( UWidgetAnimation* Animation : WidgetClass->Animations )
 		{
-			//UWidgetAnimation* DuplicatedAnimation = NewObject<UWidgetAnimation>(this, Animation->GetFName());
-			//DuplicatedAnimation->MovieScene = Animation->MovieScene;
-			//DuplicatedAnimation->AnimationBindings = Animation->AnimationBindings;
-			UWidgetAnimation* DuplicatedAnimation = DuplicateObject<UWidgetAnimation>(Animation, this);
-
-			if ( DuplicatedAnimation->GetMovieScene() )
+			// Find property with the same name as the animation and assign the new widget to it.
+			UObjectPropertyBase* AnimationProperty = Animation->GetMovieScene() ? FindField<UObjectPropertyBase>(WidgetClass, Animation->GetMovieScene()->GetFName()) : nullptr;
+			if (AnimationProperty)
 			{
+				// If there is already an animation assigned to this property, consign it to oblivion to make space for the new one
+				// Duplicated object's name has to match that of the BPGC to ensure that subobject reinstancing works correctly
+				UObject* ExistingPropertyValue = AnimationProperty->GetObjectPropertyValue_InContainer(this);
+				if (ExistingPropertyValue)
+				{
+					FName UniqueDeadName = MakeUniqueObjectName(GetTransientPackage(), UWidgetAnimation::StaticClass(), *(ExistingPropertyValue->GetName() + TEXT("_DEAD")));
+					ExistingPropertyValue->Rename(*UniqueDeadName.ToString(), GetTransientPackage(), REN_DoNotDirty);
+				}
+
+				UWidgetAnimation* DuplicatedAnimation = DuplicateObject<UWidgetAnimation>(Animation, this);
+
 				// Compile the animation template here since PreSave will not get called on the duplicated animation that was itself created during PreSave
 				FMovieSceneSequencePrecompiledTemplateStore Store;
 				FMovieSceneCompiler::Compile(*DuplicatedAnimation, Store);
 
 				// Find property with the same name as the template and assign the new widget to it.
-				UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(WidgetClass, DuplicatedAnimation->GetMovieScene()->GetFName());
-				if ( Prop )
-				{
-					Prop->SetObjectPropertyValue_InContainer(this, DuplicatedAnimation);
-				}
+				AnimationProperty->SetObjectPropertyValue_InContainer(this, DuplicatedAnimation);
 			}
 		}
 
@@ -308,8 +313,11 @@ bool UUserWidget::VerifyTemplateIntegrity(UUserWidget* TemplateRoot, TArray<FTex
 				UObject* Value = Prop->GetObjectPropertyValue_InContainer(this);
 				if ( Value != Widget )
 				{
-					OutErrors.Add(FText::Format(LOCTEXT("WidgetTreeVerify", "Property in widget template did not load correctly, {0}."),
-						FText::FromName(Prop->GetFName())));
+					OutErrors.Add(FText::Format(LOCTEXT("WidgetTreeVerify", "Property in widget template did not load correctly, {0}. Value was {1} but should have been {2}"),
+						FText::FromName(Prop->GetFName()),
+						FText::FromString(GetPathNameSafe(Value)),
+						FText::FromString(GetPathNameSafe(Widget))
+						));
 
 					bIsTemplateSafe = false;
 				}
@@ -359,6 +367,15 @@ bool UUserWidget::Initialize()
 	{
 		bInitialized = true;
 
+		// If this is a sub-widget of another UserWidget, default designer flags and player context to match those of the owning widget
+		if (UUserWidget* OwningUserWidget = GetTypedOuter<UUserWidget>())
+		{
+#if WITH_EDITOR
+			SetDesignerFlags(OwningUserWidget->GetDesignerFlags());
+#endif
+			SetPlayerContext(OwningUserWidget->GetPlayerContext());
+		}
+
 		UWidgetBlueprintGeneratedClass* BGClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass());
 		if (BGClass && !BGClass->HasTemplate())
 		{
@@ -388,15 +405,9 @@ bool UUserWidget::Initialize()
 			InitializeNamedSlots(bReparentToWidgetTree);
 		}
 
-		// Setup the player context on sub user widgets, if we have a valid context
-		if (PlayerContext.IsValid())
+		if (!IsDesignTime() && PlayerContext.IsValid())
 		{
-			WidgetTree->ForEachWidget([&](UWidget* Widget) {
-				if (UUserWidget* UserWidget = Cast<UUserWidget>(Widget))
-				{
-					UserWidget->SetPlayerContext(PlayerContext);
-				}
-			});
+			NativeOnInitialized();
 		}
 
 		return true;
@@ -699,7 +710,10 @@ void UUserWidget::StopAllAnimations()
 	bStoppingAllAnimations = true;
 	for (UUMGSequencePlayer* FoundPlayer : ActiveSequencePlayers)
 	{
-		FoundPlayer->Stop();
+		if (FoundPlayer->GetPlaybackStatus() == EMovieScenePlayerStatus::Playing)
+		{
+			FoundPlayer->Stop();
+		}
 	}
 	bStoppingAllAnimations = false;
 
@@ -1144,12 +1158,18 @@ void UUserWidget::SetPlayerContext(const FLocalPlayerContext& InPlayerContext)
 {
 	PlayerContext = InPlayerContext;
 
-	WidgetTree->ForEachWidget([&InPlayerContext](UWidget* Widget) {
-		if (UUserWidget* UserWidget = Cast<UUserWidget>(Widget))
-		{
-			UserWidget->SetPlayerContext(InPlayerContext);
-		}
-	});
+	if (WidgetTree)
+	{
+		WidgetTree->ForEachWidget(
+			[&InPlayerContext] (UWidget* Widget) 
+			{
+				if (UUserWidget* UserWidget = Cast<UUserWidget>(Widget))
+				{
+					UserWidget->SetPlayerContext(InPlayerContext);
+				}
+			});
+	}
+	
 }
 
 const FLocalPlayerContext& UUserWidget::GetPlayerContext() const
@@ -1284,7 +1304,7 @@ void UUserWidget::SetDesignerFlags(EWidgetDesignFlags::Type NewFlags)
 {
 	UWidget::SetDesignerFlags(NewFlags);
 
-	if ( ensure(WidgetTree) )
+	if (WidgetTree)
 	{
 		if (WidgetTree->RootWidget)
 		{
@@ -1345,6 +1365,11 @@ void UUserWidget::OnAnimationFinished_Implementation(const UWidgetAnimation* Ani
 }
 
 // Native handling for SObjectWidget
+
+void UUserWidget::NativeOnInitialized()
+{
+	OnInitialized();
+}
 
 void UUserWidget::NativePreConstruct()
 {
@@ -1782,6 +1807,11 @@ FReply UUserWidget::NativeOnMotionDetected( const FGeometry& InGeometry, const F
 	return OnMotionDetected( InGeometry, InMotionEvent ).NativeReply;
 }
 
+FReply UUserWidget::NativeOnTouchForceChanged(const FGeometry& InGeometry, const FPointerEvent& InTouchEvent)
+{
+	return OnTouchForceChanged(InGeometry, InTouchEvent).NativeReply;
+}
+
 FCursorReply UUserWidget::NativeOnCursorQuery( const FGeometry& InGeometry, const FPointerEvent& InCursorEvent )
 {
 	return FCursorReply::Unhandled();
@@ -2069,12 +2099,12 @@ UUserWidget* UUserWidget::CreateInstanceInternal(UObject* Outer, TSubclassOf<UUs
 		NewWidget = NewObject<UUserWidget>(Outer, UserWidgetClass, InstanceName, RF_NoFlags);
 	}
 	
-	NewWidget->Initialize();
-	
 	if (LocalPlayer)
 	{
 		NewWidget->SetPlayerContext(FLocalPlayerContext(LocalPlayer, World));
 	}
+
+	NewWidget->Initialize();
 
 	return NewWidget;
 }
@@ -2084,7 +2114,19 @@ void UUserWidget::OnLatentActionsChanged(UObject* ObjectWhichChanged, ELatentAct
 {
 	if (UUserWidget* WidgetThatChanged = Cast<UUserWidget>(ObjectWhichChanged))
 	{
-		WidgetThatChanged->UpdateCanTick();
+		TSharedPtr<SObjectWidget> SafeGCWidget = WidgetThatChanged->MyGCWidget.Pin();
+		if (SafeGCWidget.IsValid())
+		{
+			bool bCanTick = SafeGCWidget->GetCanTick();
+
+			WidgetThatChanged->UpdateCanTick();
+
+			if (SafeGCWidget->GetCanTick() && !bCanTick)
+			{
+				// If the widget can now tick, recache the volatility of the widget.
+				WidgetThatChanged->Invalidate();
+			}
+		}
 	}
 }
 

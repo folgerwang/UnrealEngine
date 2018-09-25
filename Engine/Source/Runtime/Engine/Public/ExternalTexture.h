@@ -6,6 +6,7 @@
 #include "RHI.h"
 #include "RHIResources.h"
 #include "MaterialShared.h"
+#include "HAL/CriticalSection.h"
 
 /**
  * Stores a registry of external textures mapped to their GUIDs.
@@ -43,6 +44,9 @@ class ENGINE_API FExternalTextureRegistry
 
 	/** Set of registered material render proxies. */
 	TSet<const FMaterialRenderProxy*> ReferencingMaterialRenderProxies;
+
+	/** Critical section to protect the set and map above from modification during access with threaded rendering. */
+	FCriticalSection CriticalSection;
 
 public:
 

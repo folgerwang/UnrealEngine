@@ -11,7 +11,7 @@ MTLPP_BEGIN
 namespace ue4
 {
 	template<typename ObjC, typename Interpose>
-	class imp_cache
+	class MTLPP_EXPORT imp_cache
 	{
 		imp_cache() {}
 		~imp_cache()
@@ -25,7 +25,7 @@ namespace ue4
 	public:
 		typedef ITable<ObjC, Interpose> table;
 		
-		static table* Register(ObjC Object)
+		MTLPP_EXPORT static table* Register(ObjC Object)
 		{
 			static imp_cache* Self = new imp_cache();
 			table* impTable = nullptr;
@@ -97,7 +97,7 @@ namespace ue4
 		return &Table;
 	}
 	
-	class ITableCache
+	class MTLPP_EXPORT ITableCache
 	{
 	public:
 		ITableCache()
@@ -165,7 +165,7 @@ namespace ue4
 		ITable<id<MTLCaptureScope>, void>* CaptureScope;
 	};
 	
-	struct ITableCacheRef
+	struct MTLPP_EXPORT ITableCacheRef
 	{
 		ITableCacheRef()
 		: TableCache(nullptr)

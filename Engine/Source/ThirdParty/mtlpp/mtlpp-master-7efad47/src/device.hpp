@@ -78,7 +78,7 @@ namespace mtlpp
 	typedef ns::AutoReleased<RenderPipelineReflection> AutoReleasedRenderPipelineReflection;
 	class TileRenderPipelineDescriptor;
     class ComputePipelineDescriptor;
-    class ComputePipelineReflection;
+    class MTLPP_EXPORT ComputePipelineReflection;
 	typedef ns::AutoReleased<ComputePipelineReflection> AutoReleasedComputePipelineReflection;
     class CommandQueueDescriptor;
     class HeapDescriptor;
@@ -146,7 +146,7 @@ namespace mtlpp
         NSUInteger Align;
     };
 	
-	class ArgumentDescriptor : public ns::Object<MTLArgumentDescriptor*>
+	class MTLPP_EXPORT ArgumentDescriptor : public ns::Object<MTLArgumentDescriptor*>
 	{
 	public:
 		ArgumentDescriptor();
@@ -169,7 +169,7 @@ namespace mtlpp
 	MTLPP_CLOSURE(ComputePipelineStateHandler, void, const ComputePipelineState&, const ns::AutoReleasedError&);
 	MTLPP_CLOSURE(ComputePipelineStateReflectionHandler, void, const ComputePipelineState&, const AutoReleasedComputePipelineReflection&, const ns::AutoReleasedError&);
 
-	class Device : public ns::Object<ns::Protocol<id<MTLDevice>>::type>
+	class MTLPP_EXPORT Device : public ns::Object<ns::Protocol<id<MTLDevice>>::type>
     {
     public:
 		Device(ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLDevice>>::type>(retain) { }
@@ -226,7 +226,7 @@ namespace mtlpp
         void NewRenderPipelineState(const RenderPipelineDescriptor& descriptor, RenderPipelineStateHandler completionHandler);
         void NewRenderPipelineState(const RenderPipelineDescriptor& descriptor, PipelineOption options, RenderPipelineStateReflectionHandler completionHandler);
         ComputePipelineState NewComputePipelineState(const Function& computeFunction, ns::AutoReleasedError* error);
-        ComputePipelineState NewComputePipelineState(const Function& computeFunction, PipelineOption options, AutoReleasedComputePipelineReflection& outReflection, ns::AutoReleasedError* error);
+        ComputePipelineState NewComputePipelineState(const Function& computeFunction, PipelineOption options, AutoReleasedComputePipelineReflection* outReflection, ns::AutoReleasedError* error);
         void NewComputePipelineState(const Function& computeFunction, ComputePipelineStateHandler completionHandler);
         void NewComputePipelineState(const Function& computeFunction, PipelineOption options, ComputePipelineStateReflectionHandler completionHandler);
         ComputePipelineState NewComputePipelineState(const ComputePipelineDescriptor& descriptor, PipelineOption options, AutoReleasedComputePipelineReflection* outReflection, ns::AutoReleasedError* error);
@@ -245,7 +245,7 @@ namespace mtlpp
     MTLPP_AVAILABLE(10_11, 8_0);
 	
 #if MTLPP_CONFIG_VALIDATE
-	class ValidatedDevice : public ns::AutoReleased<Device>
+	class MTLPP_EXPORT ValidatedDevice : public ns::AutoReleased<Device>
 	{
 		DeviceValidationTable Validator;
 		

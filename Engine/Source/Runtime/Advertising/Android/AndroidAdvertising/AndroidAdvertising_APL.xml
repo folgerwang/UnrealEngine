@@ -6,6 +6,7 @@
 		<log text="AndroidAdvertising init"/>
 
 		<!-- get packaging with ad support -->
+		<setBoolFromProperty result="bRequestGAID" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="bRequestGAID" default="false"/>
 		<setBoolFromProperty result="bSupportAdMob" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="bSupportAdMob" default="true"/>
 		<if condition="bSupportAdMob">
 			<true>
@@ -13,6 +14,7 @@
 			</true>
 			<false>
 				<log text="Not including AdMob support. Enable in Android project settings if you need to use it."/>
+				<setBool result="bRequestGAID" value="false"/>
 			</false>
 		</if>
 
@@ -63,7 +65,7 @@ import com.google.android.gms.ads.AdSize;
 import com.google.android.gms.ads.AdListener;
 import com.google.android.gms.ads.InterstitialAd;
 import com.google.android.gms.ads.identifier.AdvertisingIdClient;
-import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;				
+import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
 				</insert>
 			</true>
 		</if>
@@ -85,6 +87,7 @@ import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
     private boolean isInterstitialAdLoaded = false;
     private boolean isInterstitialAdRequested = false;
     private AdRequest interstitialAdRequest;
+    private String advertisingID = null;
 
 	/** true when the application has requested that an ad be displayed */
 	private boolean adWantsToBeShown = false;
@@ -336,15 +339,38 @@ import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
 		}
 	}
 
+	private class GetAdvertisingIdTask extends android.os.AsyncTask<String, Integer, String>
+	{
+		@Override
+		protected String doInBackground(String... values)
+		{
+			AdvertisingIdClient.Info adInfo = null;
+			try
+			{
+				adInfo = AdvertisingIdClient.getAdvertisingIdInfo(GameActivity.Get().getApplicationContext());
+				if (adInfo.isLimitAdTrackingEnabled())
+				{
+					Log.debug("GetAdvertisingId: User opted out of ad tracking");
+					adInfo = null;
+				}
+				Log.debug("GetAdvertisingID: success");
+			}
+			catch (Exception e) {
+				Log.debug("GetAdvertisingId failed: " + e.getMessage());
+			}
+			return (adInfo == null) ? "" : adInfo.getId();
+		}
+		
+		@Override
+		protected void onPostExecute(String s)
+		{
+			advertisingID = s;
+		}
+	}
+
 	public String AndroidThunkJava_GetAdvertisingId()
 	{
-		try {
-	        AdvertisingIdClient.Info adInfo = AdvertisingIdClient.getAdvertisingIdInfo(getApplicationContext());
-		    return adInfo.getId();
-		} catch (Exception e) {
-			Log.debug("GetAdvertisingId failed: " + e.getMessage());
-		}
-		return null;
+		return advertisingID;
 	}
 ]]>
 				</insert>
@@ -384,10 +410,33 @@ import com.google.android.gms.ads.identifier.AdvertisingIdClient.Info;
 	public String AndroidThunkJava_GetAdvertisingId()
 	{
 		return null;
-    }
+	}
 				</insert>
 			</false>
 		</if>
 	</gameActivityClassAdditions>
+
+	<gameActivityBeforeConfigRulesAppliedAdditions>
+		<if condition="bRequestGAID">
+			<true>
+				<insert>
+			try
+			{
+				if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this) == 0)
+				{
+					GetAdvertisingIdTask task = new GetAdvertisingIdTask();
+					task.execute();
+
+					// wait for up to 2 seconds (if we don't wait another plugin may request it and cause us to fail)
+					task.get(2000, java.util.concurrent.TimeUnit.MILLISECONDS);
+				}
+			}
+			catch (Exception e)
+			{
+			}
+				</insert>
+			</true>
+		</if>
+	</gameActivityBeforeConfigRulesAppliedAdditions>
 
 </root>

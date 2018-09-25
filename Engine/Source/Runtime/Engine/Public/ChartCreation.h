@@ -10,6 +10,7 @@
 #include "CoreMinimal.h"
 #include "ProfilingDebugging/Histogram.h"
 #include "Scalability.h"
+#include "Delegates/IDelegateInstance.h"
 
 //////////////////////////////////////////////////////////////////////
 
@@ -128,15 +129,18 @@ public:
 //////////////////////////////////////////////////////////////////////
 // FPerformanceTrackingChart
 
- // Chart for a single portion of gameplay (e.g., gameplay or in-game-shop or settings menu open)
+/**
+ * Chart for a single portion of gameplay (e.g., gameplay or in-game-shop or settings menu open)
+ * WARNING: If you add members here, you MUST also update AccumulateWith() as it accumulates each measure from another chart. 
+ */
 class ENGINE_API FPerformanceTrackingChart : public IPerformanceDataConsumer
 {
 public:
 	// The mode being tracked by this chart
 	FString ChartLabel;
 
-	// Frame rate histogram (thresholds in frames/second, values in seconds)
-	FHistogram FramerateHistogram;
+	// Frame time histogram (in seconds)
+	FHistogram FrametimeHistogram;
 
 	// Hitch time histogram (in seconds)
 	FHistogram HitchTimeHistogram;
@@ -184,7 +188,7 @@ public:
 	/** Total number of primitives drawn */
 	int32 MaxDrawnPrimitives;
 	int32 MinDrawnPrimitives;
-	int32 TotalDrawnPrimitives;
+	int64 TotalDrawnPrimitives;
 
 	/** Start time of the capture */
 	FDateTime CaptureStartTime;
@@ -192,52 +196,76 @@ public:
 	/** Total accumulated raw (including idle) time spent with the chart registered */
 	double AccumulatedChartTime;
 
+	/** Total time (sec) that were disregarded because the frame was too long. This is probably a clock glitch or an app returning from background, suspend, etc, and can really skew the data. */
+	double TimeDisregarded;
+	/** Number of frames that were disregarded because the frame was too long. This is probably a clock glitch or an app returning from background, suspend, etc, and can really skew the data. */
+	int FramesDisregarded;
+
 	float StartTemperatureLevel;
 	float StopTemperatureLevel;
-	float MinTemperatureLevel;
-	float MaxTemperatureLevel;
 
 	int StartBatteryLevel;
 	int StopBatteryLevel;
-	FHistogram BatteryLevelHistogram;
+
+	FString DeviceProfileName;
+	FDelegateHandle DeviceProfilesUpdatedDelegateHandle;
 
 public:
+	FPerformanceTrackingChart();
 	FPerformanceTrackingChart(const FDateTime& InStartTime, const FString& InChartLabel);
+	virtual ~FPerformanceTrackingChart();
 
 	// Discard all accumulated data
 	void Reset(const FDateTime& InStartTime);
 
+	void AccumulateWith(const FPerformanceTrackingChart& Chart);
+
+	double GetTotalTime() const
+	{
+		return FrametimeHistogram.GetSumOfAllMeasures();
+	}
+
+	int64 GetNumFrames() const
+	{
+		return FrametimeHistogram.GetNumMeasurements();
+	}
+
 	double GetAverageFramerate() const
 	{
-		return FramerateHistogram.GetNumMeasurements() / FramerateHistogram.GetSumOfAllMeasures();
+		return GetNumFrames() / GetTotalTime();
+	}
+
+	int64 GetNumHitches() const
+	{
+		return HitchTimeHistogram.GetNumMeasurements();
+	}
+
+	int64 GetTotalHitchFrameTime() const
+	{
+		return HitchTimeHistogram.GetNumMeasurements();
 	}
 
 	double GetPercentMissedVSync(int32 TargetFPS) const
 	{
-		const int64 TotalTargetFrames = TargetFPS * FramerateHistogram.GetSumOfAllMeasures();
-		const int64 MissedFrames = FMath::Max<int64>(TotalTargetFrames - FramerateHistogram.GetNumMeasurements(), 0);
+		const int64 TotalTargetFrames = TargetFPS * GetTotalTime();
+		const int64 MissedFrames = FMath::Max<int64>(TotalTargetFrames - GetNumFrames(), 0);
 		return ((MissedFrames * 100.0) / (double)TotalTargetFrames);
 	}
 
 	double GetAvgHitchesPerMinute() const
 	{
-		const double TotalTime = FramerateHistogram.GetSumOfAllMeasures();
-		const int32 TotalHitchCount = HitchTimeHistogram.GetNumMeasurements();
+		const double TotalTime = GetTotalTime();
+		const int32 TotalHitchCount = (int32)GetNumHitches();
 
 		return (TotalTime > 0.0) ? (TotalHitchCount / (TotalTime / 60.0f)) : 0.0;
 	}
 
 	double GetAvgHitchFrameLength() const
 	{
-		const double TotalTime = FramerateHistogram.GetSumOfAllMeasures();
-		const int32 TotalHitchFrameTime = HitchTimeHistogram.GetSumOfAllMeasures();
+		const double TotalTime = GetTotalTime();
+		const int32 TotalHitchFrameTime = GetTotalHitchFrameTime();
 
 		return (TotalTime > 0.0) ? (TotalHitchFrameTime / TotalTime) : 0.0;
-	}
-
-	int64 GetNumFrames() const
-	{
-		return FramerateHistogram.GetNumMeasurements();
 	}
 
 	void ChangeLabel(const FString& NewLabel)
@@ -252,15 +280,17 @@ public:
 
 
 	// Dumps the FPS chart information to the log.
-	static void DumpChartsToOutputLog(double WallClockElapsed, const TArray<const FPerformanceTrackingChart*>& Charts, const FString& InMapName);
+	void DumpChartsToOutputLog(double WallClockElapsed, const TArray<const FPerformanceTrackingChart*>& Charts, const FString& InMapName);
 
 #if ALLOW_DEBUG_FILES
 	// Dumps the FPS chart information to HTML.
-	static void DumpChartsToHTML(double WallClockElapsed, const TArray<const FPerformanceTrackingChart*>& Charts, const FString& InMapName, const FString& HTMLFilename);
+	void DumpChartsToHTML(double WallClockElapsed, const TArray<const FPerformanceTrackingChart*>& Charts, const FString& InMapName, const FString& HTMLFilename);
 
 	// Dumps the FPS chart information to the special stats log file.
-	static void DumpChartsToLogFile(double WallClockElapsed, const TArray<const FPerformanceTrackingChart*>& Charts, const FString& InMapName, const FString& LogFileName);
+	void DumpChartsToLogFile(double WallClockElapsed, const TArray<const FPerformanceTrackingChart*>& Charts, const FString& InMapName, const FString& LogFileName);
 #endif
+
+	void OnDeviceProfileManagerUpdated();
 
 	// IPerformanceDataConsumer interface
 	virtual void StartCharting() override;
@@ -379,7 +409,7 @@ public:
 	/**
 	* Dumps a chart, allowing subclasses to format the data in their own way via various protected virtuals to be overridden
 	*/
-	void DumpChart(double InWallClockTimeFromStartOfCharting, const FString& InMapName);
+	void DumpChart(double InWallClockTimeFromStartOfCharting, FString InMapName, FString InDeviceProfileName = FString(TEXT("Unknown")));
 
 	FDumpFPSChartToEndpoint(const FPerformanceTrackingChart& InChart)
 		: Chart(InChart)
@@ -389,13 +419,10 @@ public:
 	virtual ~FDumpFPSChartToEndpoint() { }
 
 protected:
-	double TotalTime;
 	double WallClockTimeFromStartOfCharting; // This can be much larger than TotalTime if the chart was paused or long frames were omitted
-	int32 NumFrames;
 	FString MapName;
+	FString DeviceProfileName;
 
-	float AvgFPS;
-	float TimeDisregarded;
 	float AvgGPUFrameTime;
 	float AvgRenderThreadFrameTime;
 	float AvgGameThreadFrameTime;
@@ -412,6 +439,9 @@ protected:
 	float BoundGPUPct;
 
 	Scalability::FQualityLevels ScalabilityQuality;
+	FIntPoint GameResolution;
+	FString WindowMode;
+
 	FString OSMajor;
 	FString OSMinor;
 
@@ -428,10 +458,9 @@ protected:
 	virtual void PrintToEndpoint(const FString& Text) = 0;
 
 	virtual void FillOutMemberStats();
-	virtual void HandleFPSBucket(float BucketTimePercentage, float BucketFramePercentage, double StartFPS, double EndFPS);
 	virtual void HandleHitchBucket(const FHistogram& HitchHistogram, int32 BucketIndex);
 	virtual void HandleHitchSummary(int32 TotalHitchCount, double TotalTimeSpentInHitchBuckets);
-	virtual void HandleFPSThreshold(int32 TargetFPS, int32 NumFramesBelow, float PctTimeAbove, float PctMissedFrames);
+	virtual void HandleFPSThreshold(int32 TargetFPS, float PctMissedFrames);
 	virtual void HandleDynamicResThreshold(int32 TargetScreenPercentage, float PctTimeAbove);
 	virtual void HandleBasicStats();
 };

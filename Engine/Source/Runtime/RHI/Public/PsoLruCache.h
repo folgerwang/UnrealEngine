@@ -342,6 +342,19 @@ public:
 		}
 	}
 
+	bool Remove(const KeyType& Key, ValueType& RemovedValue)
+	{
+		FCacheEntry** EntryPtr = LookupSet.Find(Key);
+
+		if (EntryPtr != nullptr)
+		{
+			RemovedValue = MoveTemp((*EntryPtr)->Value);
+			Remove(*EntryPtr);
+			return true;
+		}
+		return false;
+	}
+
 	/**
 	 * Remove all entries using a predicate.
 	 *
@@ -377,6 +390,19 @@ public:
 		ValueType LeastRecentElement = MoveTemp(LeastRecent->Value);
 		Remove(LeastRecent);
 		return LeastRecentElement;
+	}
+
+	/**
+	* Remove and return the most recent element from the cache.
+	*
+	* @return Copy of removed value.
+	*/
+	FORCEINLINE ValueType RemoveMostRecent()
+	{
+		check(MostRecent);
+		ValueType MostRecentElement = MoveTemp(MostRecent->Value);
+		Remove(MostRecent);
+		return MostRecentElement;
 	}
 
 	FORCEINLINE void MarkAsRecent(const FSetElementId& LRUNode)

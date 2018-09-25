@@ -441,6 +441,10 @@ class Localise : BuildCommand
 		foreach (var LocalizationBatch in LocalizationBatches)
 		{
 			var LocalizationPath = CombinePaths(UEProjectRoot, LocalizationBatch.LocalizationTargetDirectory, "Content", "Localization");
+			if (!Directory.Exists(LocalizationPath))
+			{
+				continue;
+			}
 
 			string[] POFileNames = Directory.GetFiles(LocalizationPath, "*.po", SearchOption.AllDirectories);
 			foreach (var POFileName in POFileNames)

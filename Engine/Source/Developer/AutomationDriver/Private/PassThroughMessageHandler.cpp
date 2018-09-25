@@ -268,6 +268,26 @@ public:
 		return RealMessageHandler->OnTouchEnded(Location, TouchIndex, ControllerId);
 	}
 
+	virtual bool OnTouchForceChanged(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId) override
+	{
+		if (!bAllowMessageHandling)
+		{
+			return false;
+		}
+
+		return RealMessageHandler->OnTouchForceChanged(Location, Force, TouchIndex, ControllerId);
+	}
+
+	virtual bool OnTouchFirstMove(const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId) override
+	{
+		if (!bAllowMessageHandling)
+		{
+			return false;
+		}
+
+		return RealMessageHandler->OnTouchFirstMove(Location, Force, TouchIndex, ControllerId);
+	}
+
 	virtual bool OnMotionDetected(const FVector& Tilt, const FVector& RotationRate, const FVector& Gravity, const FVector& Acceleration, int32 ControllerId) override
 	{
 		if (!bAllowMessageHandling)

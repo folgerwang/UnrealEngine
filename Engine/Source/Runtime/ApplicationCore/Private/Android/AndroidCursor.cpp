@@ -40,7 +40,7 @@ void FAndroidCursor::Lock(const RECT* const Bounds)
 	if (Bounds == NULL)
 	{
 		FDisplayMetrics DisplayMetrics;
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 
 		// The Android cursor should never leave the screen
 		CursorClipRect.Min = FIntPoint::ZeroValue;

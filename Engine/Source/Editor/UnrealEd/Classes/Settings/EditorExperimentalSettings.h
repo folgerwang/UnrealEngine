@@ -43,7 +43,7 @@ public:
 	bool bEnableFavoriteSystem;
 
 
-	/** Device output log window (currently implemented for some platforms only)*/
+	/** Device output log window (currently implemented for Android, Switch & XboxOne only)*/
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Device Output Log"))
 	bool bDeviceOutputLog;
 

@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "GameFramework/MovementComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "AI/RVOAvoidanceInterface.h"
 #include "AI/Navigation/NavEdgeProviderInterface.h"
 
@@ -162,6 +163,13 @@ FVector UAvoidanceManager::GetAvoidanceVelocityForComponent(UMovementComponent* 
 	return FVector::ZeroVector;
 }
 
+FVector UAvoidanceManager::GetAvoidanceVelocityForComponent(UCharacterMovementComponent* MovementComp)
+{
+	check(MovementComp);
+	FNavAvoidanceData AvoidanceData(this, MovementComp);
+	return GetAvoidanceVelocityIgnoringUID(AvoidanceData, DeltaTimeToPredict, MovementComp->GetRVOAvoidanceUIDFast());
+}
+
 FVector UAvoidanceManager::GetAvoidanceVelocityIgnoringUID(const FNavAvoidanceData& inAvoidanceData, float DeltaTime, int32 inIgnoreThisUID)
 {
 	return GetAvoidanceVelocity_Internal(inAvoidanceData, DeltaTime, &inIgnoreThisUID);
@@ -179,6 +187,13 @@ void UAvoidanceManager::UpdateRVO(UMovementComponent* MovementComp)
 		FNavAvoidanceData NewAvoidanceData(this, AvoidingComp);
 		UpdateRVO_Internal(AvoidingComp->GetRVOAvoidanceUID(), NewAvoidanceData);
 	}
+}
+
+void UAvoidanceManager::UpdateRVO(UCharacterMovementComponent* MovementComp)
+{
+	check(MovementComp);
+	FNavAvoidanceData NewAvoidanceData(this, MovementComp);
+	UpdateRVO_Internal(MovementComp->GetRVOAvoidanceUIDFast(), NewAvoidanceData);
 }
 
 void UAvoidanceManager::UpdateRVO_Internal(int32 inAvoidanceUID, const FNavAvoidanceData& inAvoidanceData)

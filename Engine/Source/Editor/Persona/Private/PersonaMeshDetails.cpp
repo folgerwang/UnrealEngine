@@ -2065,7 +2065,7 @@ bool FPersonaMeshDetails::CanDeleteMaterialSlot(int32 MaterialIndex) const
 		return false;
 	}
 
-	return (MaterialIndex + 1) == SkeletalMeshPtr->Materials.Num();
+	return SkeletalMeshPtr->Materials.IsValidIndex(MaterialIndex);
 	}
 	
 void FPersonaMeshDetails::OnDeleteMaterialSlot(int32 MaterialIndex)
@@ -2075,9 +2075,31 @@ void FPersonaMeshDetails::OnDeleteMaterialSlot(int32 MaterialIndex)
 		return;
 	}
 
+	if (!bDeleteWarningConsumed)
+	{
+		EAppReturnType::Type Answer = FMessageDialog::Open(EAppMsgType::OkCancel, LOCTEXT("FPersonaMeshDetails_DeleteMaterialSlot", "WARNING - Deleting a material slot can break the game play blueprint or the game play code. All indexes after the delete slot will change"));
+		if (Answer == EAppReturnType::Cancel)
+		{
+			return;
+		}
+		bDeleteWarningConsumed = true;
+	}
+
 	FScopedTransaction Transaction(LOCTEXT("PersonaOnDeleteMaterialSlotTransaction", "Persona editor: Delete material slot"));
 	SkeletalMeshPtr->Modify();
 	SkeletalMeshPtr->Materials.RemoveAt(MaterialIndex);
+	FSkeletalMeshModel* Model = SkeletalMeshPtr->GetImportedModel();
+	
+	for (int32 LodIndex = 0; LodIndex < Model->LODModels.Num(); ++LodIndex)
+	{
+		for (int32 SectionIndex = 0; SectionIndex < Model->LODModels[LodIndex].Sections.Num(); ++SectionIndex)
+		{
+			if (Model->LODModels[LodIndex].Sections[SectionIndex].MaterialIndex > MaterialIndex)
+			{
+				Model->LODModels[LodIndex].Sections[SectionIndex].MaterialIndex -= 1;
+			}
+		}
+	}
 
 	SkeletalMeshPtr->PostEditChange();
 }

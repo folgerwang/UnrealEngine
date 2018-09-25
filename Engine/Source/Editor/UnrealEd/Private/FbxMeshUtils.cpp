@@ -317,6 +317,22 @@ namespace FbxMeshUtils
 				ImportOptions->bImportTextures = false;
 			}
 			ImportOptions->bImportAnimations = false;
+			//Adjust the option in case we import only the skinning or the geometry
+			if (ImportOptions->bImportAsSkeletalSkinning)
+			{
+				ImportOptions->bImportMaterials = false;
+				ImportOptions->bImportTextures = false;
+				ImportOptions->bImportLOD = false;
+				ImportOptions->bImportSkeletalMeshLODs = false;
+				ImportOptions->bImportAnimations = false;
+				ImportOptions->bImportMorph = false;
+			}
+			else if (ImportOptions->bImportAsSkeletalGeometry)
+			{
+				ImportOptions->bImportAnimations = false;
+				ImportOptions->bUpdateSkeletonReferencePose = false;
+				ImportOptions->bUseT0AsRefPose = false;
+			}
 
 			if ( !FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
 			{
@@ -332,7 +348,7 @@ namespace FbxMeshUtils
 				TArray<FbxNode*>* MeshObject = NULL;;
 
 				// Populate the mesh array
-				FFbxImporter->FillFbxSkelMeshArrayInScene(FFbxImporter->Scene->GetRootNode(), MeshArray, false, ImportOptions->bImportScene);
+				FFbxImporter->FillFbxSkelMeshArrayInScene(FFbxImporter->Scene->GetRootNode(), MeshArray, false, ImportOptions->bImportAsSkeletalGeometry || ImportOptions->bImportAsSkeletalSkinning, ImportOptions->bImportScene);
 
 				// Nothing found, error out
 				if (MeshArray.Num() == 0)
@@ -469,7 +485,7 @@ namespace FbxMeshUtils
 
 						if (SkelMeshDataPtr != nullptr)
 						{
-							RestoreExistingSkelMeshData(SkelMeshDataPtr, SelectedSkelMesh, SelectedLOD, false);
+							RestoreExistingSkelMeshData(SkelMeshDataPtr, SelectedSkelMesh, SelectedLOD, false, ImportOptions->bImportAsSkeletalSkinning);
 						}
 						SelectedSkelMesh->PostEditChange();
 						// Mark package containing skeletal mesh as dirty.

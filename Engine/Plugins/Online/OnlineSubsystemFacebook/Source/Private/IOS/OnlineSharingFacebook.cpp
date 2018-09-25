@@ -56,7 +56,7 @@ bool FOnlineSharingFacebook::RequestNewReadPermissions(int32 LocalUserNum, EOnli
 										fromViewController:nil
 										handler: ^(FBSDKLoginManagerLoginResult* result, NSError* error)
 						{
-							UE_LOG(LogOnline, Display, TEXT("logInWithReadPermissions : Success - %d"), error == nil);
+							UE_LOG_ONLINE_SHARING(Display, TEXT("logInWithReadPermissions : Success - %d"), error == nil);
 							[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 							{
 								if (error == nil)
@@ -146,7 +146,7 @@ bool FOnlineSharingFacebook::RequestNewPublishPermissions(int32 LocalUserNum, EO
 										fromViewController:nil
 										handler: ^(FBSDKLoginManagerLoginResult* result, NSError* error)
 						{
-							UE_LOG(LogOnline, Display, TEXT("logInWithPublishPermissions : Success - %d"), error == nil);
+							UE_LOG_ONLINE_SHARING(Display, TEXT("logInWithPublishPermissions : Success - %d"), error == nil);
 							[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 							{
 								if (error == nil)
@@ -260,7 +260,7 @@ bool FOnlineSharingFacebook::ShareStatusUpdate(int32 LocalUserNum, const FOnline
 					HTTPMethod:@"POST"]
 					startWithCompletionHandler:^(FBSDKGraphRequestConnection *connection, id result, NSError *error)
 					{
-						UE_LOG(LogOnline, Display, TEXT("startWithGraphPath : Success - %d"), error == nil);
+						UE_LOG_ONLINE_SHARING(Display, TEXT("startWithGraphPath : Success - %d"), error == nil);
 						TriggerOnSharePostCompleteDelegates( LocalUserNum, error == nil );
 					}
 				];
@@ -302,7 +302,7 @@ bool FOnlineSharingFacebook::ReadNewsFeed(int32 LocalUserNum, int32 NumPostsToRe
 					{
 						if( error )
 						{
-							UE_LOG(LogOnline, Display, TEXT("FOnlineSharingFacebook::ReadStatusFeed - error[%s]"), *FString([error localizedDescription]));
+							UE_LOG_ONLINE_SHARING(Display, TEXT("FOnlineSharingFacebook::ReadStatusFeed - error[%s]"), *FString([error localizedDescription]));
 						}
 
 						TriggerOnReadNewsFeedCompleteDelegates(LocalUserNum, error==nil);

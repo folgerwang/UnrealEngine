@@ -503,6 +503,11 @@ void UNiagaraComponent::Activate(bool bReset /* = false */)
 {
 	bAwaitingActivationDueToNotReady = false;
 
+	if (IsES2Platform(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]))
+	{
+		GbSuppressNiagaraSystems = 1;
+	}
+
 	if (GbSuppressNiagaraSystems != 0)
 	{
 		OnSystemComplete();

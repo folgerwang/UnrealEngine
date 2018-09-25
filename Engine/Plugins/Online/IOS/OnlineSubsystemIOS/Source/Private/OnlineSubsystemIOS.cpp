@@ -4,13 +4,6 @@
 #import "OnlineStoreKitHelper.h"
 #import "OnlineAppStoreUtils.h"
 
-FOnlineSubsystemIOS::FOnlineSubsystemIOS()
-	: StoreHelper(nil)
-	, AppStoreHelper(nil)
-{
-	StoreHelper = nil;
-}
-
 FOnlineSubsystemIOS::FOnlineSubsystemIOS(FName InInstanceName)
 	: FOnlineSubsystemImpl(IOS_SUBSYSTEM, InInstanceName)
 	, StoreHelper(nil)
@@ -147,17 +140,17 @@ IOnlineTournamentPtr FOnlineSubsystemIOS::GetTournamentInterface() const
 bool FOnlineSubsystemIOS::Init() 
 {
 	bool bSuccessfullyStartedUp = true;
-	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemIOS::Init()"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemIOS::Init()"));
 	
 	bool bIsGameCenterSupported = ([IOSAppDelegate GetDelegate].OSVersion >= 4.1f);
 	if( !bIsGameCenterSupported )
 	{
-		UE_LOG(LogOnline, Warning, TEXT("GameCenter is not supported on systems running IOS 4.0 or earlier."));
+		UE_LOG_ONLINE(Warning, TEXT("GameCenter is not supported on systems running IOS 4.0 or earlier."));
 		bSuccessfullyStartedUp = false;
 	}
 	else if( !IsEnabled() )
 	{
-		UE_LOG(LogOnline, Warning, TEXT("GameCenter has been disabled in the system settings"));
+		UE_LOG_ONLINE(Warning, TEXT("GameCenter has been disabled in the system settings"));
 		bSuccessfullyStartedUp = false;
 	}
 	else
@@ -250,14 +243,14 @@ FText FOnlineSubsystemIOS::GetOnlineServiceName() const
 bool FOnlineSubsystemIOS::Shutdown() 
 {
 	bool bSuccessfullyShutdown = true;
-	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemIOS::Shutdown()"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemIOS::Shutdown()"));
 
 	bSuccessfullyShutdown = FOnlineSubsystemImpl::Shutdown();
 	
 #define DESTRUCT_INTERFACE(Interface) \
 	if (Interface.IsValid()) \
 	{ \
-		UE_LOG(LogOnline, Display, TEXT(#Interface));\
+		UE_LOG_ONLINE(Display, TEXT(#Interface));\
 		ensure(Interface.IsUnique()); \
 		Interface = nullptr; \
 	}
@@ -291,11 +284,32 @@ FString FOnlineSubsystemIOS::GetAppId() const
 
 bool FOnlineSubsystemIOS::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)  
 {
+	bool bWasHandled = false;
 	if (FOnlineSubsystemImpl::Exec(InWorld, Cmd, Ar))
 	{
-		return true;
+		bWasHandled = true;
 	}
-	return false;
+	else
+	{ 
+		if (FParse::Command(&Cmd, TEXT("PURCHASE")))
+		{
+			bWasHandled = HandlePurchaseExecCommands(InWorld, Cmd, Ar);
+		}
+	}
+
+	return bWasHandled;
+}
+
+bool FOnlineSubsystemIOS::HandlePurchaseExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	bool bWasHandled = false;
+
+	if (FParse::Command(&Cmd, TEXT("DUMPAPPRECEIPT")))
+	{
+		[StoreHelper dumpAppReceipt];
+	}
+
+	return bWasHandled;
 }
 
 bool FOnlineSubsystemIOS::IsEnabled() const

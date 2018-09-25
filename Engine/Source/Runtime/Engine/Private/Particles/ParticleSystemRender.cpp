@@ -37,6 +37,7 @@
 #include "Renderer/Private/SceneRendering.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Engine/StaticMesh.h"
+#include "UnrealEngine.h"
 
 DECLARE_CYCLE_STAT(TEXT("ParticleSystemSceneProxy Create GT"), STAT_FParticleSystemSceneProxy_Create, STATGROUP_Particles);
 DECLARE_CYCLE_STAT(TEXT("ParticleSystemSceneProxy GetMeshElements RT"), STAT_FParticleSystemSceneProxy_GetMeshElements, STATGROUP_Particles);
@@ -1396,6 +1397,7 @@ FDynamicMeshEmitterData::FDynamicMeshEmitterData(const UParticleModuleRequired* 
 	, bUseMeshLockedAxis(false)
 	, bUseCameraFacing(false)
 	, bApplyParticleRotationAsSpin(false)
+	, bFaceCameraDirectionRatherThanPosition(false)
 	, CameraFacingOption(0)
 	, LastCalculatedMeshLOD(0)
 	, EmitterInstance(nullptr)
@@ -1490,6 +1492,13 @@ void FDynamicMeshEmitterData::Init( bool bInSelected,
 			CameraFacingOption = MeshTD->CameraFacingOption;
 			bApplyParticleRotationAsSpin = MeshTD->bApplyParticleRotationAsSpin;
 			bFaceCameraDirectionRatherThanPosition = MeshTD->bFaceCameraDirectionRatherThanPosition;
+		}
+		else
+		{
+			bUseCameraFacing = false;
+			CameraFacingOption = 0;
+			bApplyParticleRotationAsSpin = false;
+			bFaceCameraDirectionRatherThanPosition = false;
 		}
 
 		// Camera facing trumps locked axis... but can still use it.
@@ -1651,7 +1660,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 				// For OpenGL & Metal we can't assume that it is OK to leave the PrevTransformBuffer buffer unbound.
 				// Doing so can lead to undefined behaviour if the buffer is referenced in the shader even if protected by a branch that is not meant to be taken.
 				bool const bGeneratePrevTransformBuffer = (FeatureLevel >= ERHIFeatureLevel::SM4) && 
-                                                          (Source.MeshMotionBlurOffset || IsOpenGLPlatform(ShaderPlatform) || IsMetalPlatform(ShaderPlatform) || IsPS4Platform(ShaderPlatform));
+														  (Source.MeshMotionBlurOffset || IsOpenGLPlatform(ShaderPlatform) || IsMetalPlatform(ShaderPlatform) || IsPS4Platform(ShaderPlatform));
 
 
 				if (bInstanced)
@@ -2402,8 +2411,9 @@ void FDynamicMeshEmitterData::GetInstanceData(void* InstanceData, void* DynamicP
 	uint8* TempPrevTranformVert = (uint8*)PrevTransformBuffer;
 
 	LastCalculatedMeshLOD = MAX_STATIC_MESH_LODS;
-	static TConsoleVariableData<float>* CVarStaticMeshLODDistanceScale = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.StaticMeshLODDistanceScale"));
-	float InvScreenSizeScale = 1.f / CVarStaticMeshLODDistanceScale->GetValueOnRenderThread();
+	FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
+
+	float InvScreenSizeScale = (CachedSystemScalabilityCVars.StaticMeshLODDistanceScale != 0.f) ? (1.0f / CachedSystemScalabilityCVars.StaticMeshLODDistanceScale) : 1.0f;
 	float TotalLODSizeScale = InvScreenSizeScale*LODSizeScale;
 
 	for (int32 i = ParticleCount - 1; i >= 0; i--)
@@ -6837,6 +6847,10 @@ FParticleSystemSceneProxy::FParticleSystemSceneProxy(const UParticleSystemCompon
 	, Owner(Component->GetOwner())
 	, bCastShadow(Component->CastShadow)
 	, bManagingSignificance(Component->ShouldManageSignificance())
+	, bVertexFactoriesDirty(false)
+	, bCanBeOccluded(InbCanBeOccluded)
+	, bHasCustomOcclusionBounds(false)
+	, FeatureLevel(GetScene().GetFeatureLevel())
 	, MaterialRelevance(
 		((Component->GetCurrentLODIndex() >= 0) && (Component->GetCurrentLODIndex() < Component->CachedViewRelevanceFlags.Num())) ?
 			Component->CachedViewRelevanceFlags[Component->GetCurrentLODIndex()] :
@@ -6854,10 +6868,6 @@ FParticleSystemSceneProxy::FParticleSystemSceneProxy(const UParticleSystemCompon
 	, VisualizeLODIndex(Component->GetCurrentLODIndex())
 	, LastFramePreRendered(-1)
 	, FirstFreeMeshBatch(0)
-	, bVertexFactoriesDirty(false)
-	, FeatureLevel(GetScene().GetFeatureLevel())
-	, bCanBeOccluded(InbCanBeOccluded)
-	, bHasCustomOcclusionBounds(false)
 {
 	SetWireframeColor(FLinearColor(3.0f, 0.0f, 0.0f));
 	SetLevelColor(FLinearColor(1.0f, 1.0f, 0.0f));

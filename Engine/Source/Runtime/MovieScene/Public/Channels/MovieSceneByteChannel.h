@@ -16,7 +16,10 @@ struct MOVIESCENE_API FMovieSceneByteChannel : public FMovieSceneChannel
 	GENERATED_BODY()
 
 	FMovieSceneByteChannel()
-		: DefaultValue(), bHasDefaultValue(false)
+		: DefaultValue()
+		, bHasDefaultValue(false)
+		, Enum(nullptr)
+		, KeyHandles()
 	{}
 
 	/**

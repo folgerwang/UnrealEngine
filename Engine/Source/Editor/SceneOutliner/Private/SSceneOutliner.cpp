@@ -2486,7 +2486,7 @@ namespace SceneOutliner
 						}
 					}
 
-					if (GUnrealEd->CanDeleteSelectedActors( SharedData->RepresentingWorld, true, false ))
+					if (GUnrealEd->CanDeleteSelectedActors( SharedData->RepresentingWorld, true, true ))
 					{
 						GEditor->edactDeleteSelected( SharedData->RepresentingWorld );
 					}

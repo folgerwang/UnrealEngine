@@ -889,23 +889,23 @@ public:
 	const USkyLightComponent* LightComponent;
 	FTexture* ProcessedTexture;
 	float BlendFraction;
-	FTexture* BlendDestinationProcessedTexture;
 	float SkyDistanceThreshold;
-	bool bCastShadows;
-	bool bWantsStaticShadowing;
-	bool bHasStaticLighting;
-	bool bCastVolumetricShadow;
+	FTexture* BlendDestinationProcessedTexture;
+	uint8 bCastShadows:1;
+	uint8 bWantsStaticShadowing:1;
+	uint8 bHasStaticLighting:1;
+	uint8 bCastVolumetricShadow:1;
+	TEnumAsByte<EOcclusionCombineMode> OcclusionCombineMode;
 	FLinearColor LightColor;
-	FSHVectorRGB3 IrradianceEnvironmentMap;
 	float AverageBrightness;
 	float IndirectLightingIntensity;
 	float VolumetricScatteringIntensity;
+	FSHVectorRGB3 IrradianceEnvironmentMap;
 	float OcclusionMaxDistance;
 	float Contrast;
 	float OcclusionExponent;
 	float MinOcclusion;
 	FLinearColor OcclusionTint;
-	EOcclusionCombineMode OcclusionCombineMode;
 };
 
 struct FLightParameters
@@ -1145,8 +1145,11 @@ protected:
 	/** The scene the primitive is in. */
 	FSceneInterface* SceneInterface;
 
-	/** The light's scene info. */
-	class FLightSceneInfo* LightSceneInfo;
+	/** The homogenous position of the light. */
+	FVector4 Position;
+
+	/** The light color. */
+	FLinearColor Color;
 
 	/** A transform from world space into light space. */
 	FMatrix WorldToLight;
@@ -1154,11 +1157,8 @@ protected:
 	/** A transform from light space into world space. */
 	FMatrix LightToWorld;
 
-	/** The homogenous position of the light. */
-	FVector4 Position;
-
-	/** The light color. */
-	FLinearColor Color;
+	/** The light's scene info. */
+	class FLightSceneInfo* LightSceneInfo;
 
 	/** Scale for indirect lighting from this light.  When 0, indirect lighting is disabled. */
 	float IndirectLightingScale;
@@ -1177,9 +1177,6 @@ protected:
 	/** Length of screen space ray trace for sharp contact shadows. */
 	float ContactShadowLength;
 
-	/** True: length of screen space ray trace for sharp contact shadows is in world space. False: in screen space. */
-	bool bContactShadowLengthInWS : 1;
-
 	/** Specular scale */
 	float SpecularScale;
 
@@ -1195,6 +1192,8 @@ protected:
 	/** Transient shadowmap channel used to preview the results of stationary light shadowmap packing. */
 	int32 PreviewShadowMapChannel;
 
+	float RayStartOffsetDepthScale;
+
 	const class FStaticShadowDepthMap* StaticShadowDepthMap;
 
 	/** Light function parameters. */
@@ -1209,74 +1208,75 @@ protected:
 	 */
 	UTextureLightProfile* IESTexture;
 
+	/** True: length of screen space ray trace for sharp contact shadows is in world space. False: in screen space. */
+	uint8 bContactShadowLengthInWS : 1;
+
 	/* True if the light's Mobility is set to Movable. */
-	const uint32 bMovable : 1;
+	const uint8 bMovable : 1;
 
 	/**
 	 * Return True if a light's parameters as well as its position is static during gameplay, and can thus use static lighting.
 	 * A light with HasStaticLighting() == true will always have HasStaticShadowing() == true as well.
 	 */
-	const uint32 bStaticLighting : 1;
+	const uint8 bStaticLighting : 1;
 
 	/** 
 	 * Whether the light has static direct shadowing.  
 	 * The light may still have dynamic brightness and color. 
 	 * The light may or may not also have static lighting.
 	 */
-	const uint32 bStaticShadowing : 1;
+	const uint8 bStaticShadowing : 1;
 
 	/** True if the light casts dynamic shadows. */
-	const uint32 bCastDynamicShadow : 1;
+	const uint8 bCastDynamicShadow : 1;
 
 	/** True if the light casts static shadows. */
-	const uint32 bCastStaticShadow : 1;
+	const uint8 bCastStaticShadow : 1;
 
 	/** Whether the light is allowed to cast dynamic shadows from translucency. */
-	const uint32 bCastTranslucentShadows : 1;
+	const uint8 bCastTranslucentShadows : 1;
 
 	/** Whether light from this light transmits through surfaces with subsurface scattering profiles. Requires light to be movable. */
-	const uint32 bTransmission : 1;
+	const uint8 bTransmission : 1;
 
-	const uint32 bCastVolumetricShadow : 1;
+	const uint8 bCastVolumetricShadow : 1;
 
-	const uint32 bCastShadowsFromCinematicObjectsOnly : 1;
+	const uint8 bCastShadowsFromCinematicObjectsOnly : 1;
 
-	const uint32 bForceCachedShadowsForMovablePrimitives : 1;
+	const uint8 bForceCachedShadowsForMovablePrimitives : 1;
 
 	/** Whether the light affects translucency or not.  Disabling this can save GPU time when there are many small lights. */
-	const uint32 bAffectTranslucentLighting : 1;
+	const uint8 bAffectTranslucentLighting : 1;
 
 	/** Whether to consider light as a sunlight for atmospheric scattering and exponential height fog. */
-	const uint32 bUsedAsAtmosphereSunLight : 1;
+	const uint8 bUsedAsAtmosphereSunLight : 1;
 
 	/** Does the light have dynamic GI? */
-	const uint32 bAffectDynamicIndirectLighting : 1;
-	const uint32 bHasReflectiveShadowMap : 1;
+	const uint8 bAffectDynamicIndirectLighting : 1;
+	const uint8 bHasReflectiveShadowMap : 1;
 
 	/** Whether to use ray traced distance field area shadows. */
-	const uint32 bUseRayTracedDistanceFieldShadows : 1;
+	const uint8 bUseRayTracedDistanceFieldShadows : 1;
 
 	/** Whether the light will cast modulated shadows when using the forward renderer (mobile). */
-	uint32 bCastModulatedShadows : 1;
+	uint8 bCastModulatedShadows : 1;
 
 	/** Whether to render csm shadows for movable objects only (mobile). */
-	uint32 bUseWholeSceneCSMForMovableObjects : 1;
-
-	float RayStartOffsetDepthScale;
+	uint8 bUseWholeSceneCSMForMovableObjects : 1;
 
 	/** The light type (ELightComponentType) */
 	const uint8 LightType;
 
 	uint8 LightingChannelMask;
 
+	/** Used for dynamic stats */
+	TStatId StatId;
+
 	/** The name of the light component. */
 	FName ComponentName;
 
 	/** The name of the level the light is in. */
 	FName LevelName;
-
-	/** Used for dynamic stats */
-	TStatId StatId;
 
 	/** Only for whole scene directional lights, if FarShadowCascadeCount > 0 and FarShadowDistance >= WholeSceneDynamicShadowRadius, where far shadow cascade should end. */
 	float FarShadowDistance;
@@ -1312,7 +1312,7 @@ public:
 	 */
 	void SetTransformIncludingDecalSize(const FTransform& InComponentToWorldIncludingDecalSize);
 
-	void InitializeFadingParameters(float AbsSpawnTime, float FadeDuration, float FadeStartDelay);
+	void InitializeFadingParameters(float AbsSpawnTime, float FadeDuration, float FadeStartDelay, float FadeInDuration, float FadeInStartDelay);
 
 	/** @return True if the decal is visible in the given view. */
 	bool IsShown( const FSceneView* View ) const;
@@ -1341,6 +1341,8 @@ public:
 
 	float InvFadeDuration;
 
+	float InvFadeInDuration;
+
 	/**
 	* FadeT = saturate(1 - (AbsTime - FadeStartDelay - AbsSpawnTime) / FadeDuration)
 	*
@@ -1348,6 +1350,8 @@ public:
 	*		FadeT = saturate((AbsTime * -InvFadeDuration) + ((FadeStartDelay + AbsSpawnTime + FadeDuration) * InvFadeDuration))
 	*/
 	float FadeStartDelayNormalized;
+
+	float FadeInStartDelayNormalized;
 
 	float FadeScreenSize;
 };
@@ -2587,7 +2591,6 @@ struct FReadOnlyCVARCache
 	bool bEnableStationarySkylight;
 	bool bEnableAtmosphericFog;
 	bool bEnableLowQualityLightmaps;
-	bool bEnableVertexFoggingForOpaque;
 	bool bAllowStaticLighting;
 
 	// Mobile specific
@@ -2595,8 +2598,9 @@ struct FReadOnlyCVARCache
 	bool bMobileAllowDistanceFieldShadows;
 	bool bMobileEnableStaticAndCSMShadowReceivers;
 	int32 NumMobileMovablePointLights;
+	int32 MobileSkyLightPermutation;
 	bool bMobileMovablePointLightsUseStaticBranch;
-
+	
 	bool bInitialized;
 	void Init();
 };

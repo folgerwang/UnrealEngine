@@ -16,6 +16,8 @@
 
 #include "Android/AndroidJavaEnv.h"
 
+#include "Misc/CoreDelegates.h"
+
 #if !PLATFORM_LUMIN
 int64 FAndroidAffinity::GameThreadMask = FPlatformAffinity::GetNoAffinityMask();
 int64 FAndroidAffinity::RenderingThreadMask = FPlatformAffinity::GetNoAffinityMask();
@@ -83,6 +85,15 @@ CORE_API FAndroidLaunchURLDelegate OnAndroidLaunchURL;
 
 void FAndroidPlatformProcess::LaunchURL(const TCHAR* URL, const TCHAR* Parms, FString* Error)
 {
+	if (FCoreDelegates::ShouldLaunchUrl.IsBound() && !FCoreDelegates::ShouldLaunchUrl.Execute(URL))
+	{
+		if (Error)
+		{
+			*Error = TEXT("LaunchURL cancelled by delegate");
+		}
+		return;
+	}
+
 	check(URL);
 	const FString URLWithParams = FString::Printf(TEXT("%s %s"), URL, Parms ? Parms : TEXT("")).TrimEnd();
 
@@ -188,3 +199,32 @@ void AndroidSetupDefaultThreadAffinity()
 	// Watch for CVar update
 	CVarAndroidDefaultThreadAffinity->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&ApplyDefaultThreadAffinity));
 }
+
+#if !PLATFORM_LUMIN
+static bool EnableLittleCoreAffinity = false;
+static int32 BigCoreMask = 0;
+static int32 LittleCoreMask = 0;
+
+//This function is declared in the Java-defined class, GameActivity.java: "public native void nativeSetAffinityInfo(boolean bEnableAffinity, int bigCoreMask, int littleCoreMask);
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetAffinityInfo(JNIEnv* jenv, jobject thiz, jboolean bEnableAffinity, jint bigCoreMask, jint littleCoreMask)
+{
+	EnableLittleCoreAffinity = bEnableAffinity;
+	BigCoreMask = bigCoreMask;
+	LittleCoreMask = littleCoreMask;
+}
+
+uint64 FAndroidAffinity::GetLittleCoreMask()
+{
+	static int Mask = 0;
+	if (Mask == 0)
+	{
+		Mask = FGenericPlatformAffinity::GetNoAffinityMask();
+		if (EnableLittleCoreAffinity)
+		{
+			Mask = LittleCoreMask;
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("LittleCore Affinity applying mask: 0x%0x"), Mask);
+		}
+	}
+	return Mask;
+}
+#endif

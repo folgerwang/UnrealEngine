@@ -104,6 +104,22 @@ void UMaterialExpressionLandscapeLayerWeight::GetCaption(TArray<FString>& OutCap
 {
 	OutCaptions.Add(FString::Printf(TEXT("Layer '%s'"), *ParameterName.ToString()));
 }
+
+bool UMaterialExpressionLandscapeLayerWeight::MatchesSearchQuery(const TCHAR* SearchQuery)
+{
+	TArray<FString> Captions;
+	GetCaption(Captions);
+	for (const FString Caption : Captions)
+	{
+		if (Caption.Contains(SearchQuery))
+		{
+			return true;
+		}
+	}
+
+	return Super::MatchesSearchQuery(SearchQuery);
+}
+
 #endif // WITH_EDITOR
 
 void UMaterialExpressionLandscapeLayerWeight::GetAllParameterInfo(TArray<FMaterialParameterInfo> &OutParameterInfo, TArray<FGuid> &OutParameterIds, const FMaterialParameterInfo& InBaseParameterInfo) const

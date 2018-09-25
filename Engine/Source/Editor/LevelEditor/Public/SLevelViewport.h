@@ -676,7 +676,7 @@ private:
 	void ResetNewLevelViewFlags();
 
 	/** Gets the active scene viewport for the game */
-	const FSceneViewport* GetGameSceneViewport() const;
+	FSceneViewport* GetGameSceneViewport() const;
 
 	/** Called when the user toggles the full toolbar */
 	void OnToggleShowFullToolbar() { bShowFullToolbar = !bShowFullToolbar; }

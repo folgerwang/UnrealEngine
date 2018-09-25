@@ -285,14 +285,14 @@ public:
 	/** Initialization constructor. */
 	FWidget3DSceneProxy( UWidgetComponent* InComponent, ISlate3DRenderer& InRenderer )
 		: FPrimitiveSceneProxy( InComponent )
+		, ArcAngle(FMath::DegreesToRadians(InComponent->GetCylinderArcAngle()))
 		, Pivot( InComponent->GetPivot() )
 		, Renderer( InRenderer )
 		, RenderTarget( InComponent->GetRenderTarget() )
 		, MaterialInstance( InComponent->GetMaterialInstance() )
-		, BodySetup( InComponent->GetBodySetup() )
 		, BlendMode( InComponent->GetBlendMode() )
 		, GeometryMode(InComponent->GetGeometryMode())
-		, ArcAngle(FMath::DegreesToRadians(InComponent->GetCylinderArcAngle()))
+		, BodySetup(InComponent->GetBodySetup())
 	{
 		bWillEverBeLit = false;
 
@@ -543,15 +543,15 @@ public:
 
 private:
 	FVector Origin;
+	float ArcAngle;
 	FVector2D Pivot;
 	ISlate3DRenderer& Renderer;
 	UTextureRenderTarget2D* RenderTarget;
 	UMaterialInstanceDynamic* MaterialInstance;
 	FMaterialRelevance MaterialRelevance;
-	UBodySetup* BodySetup;
 	EWidgetBlendMode BlendMode;
 	EWidgetGeometryMode GeometryMode;
-	float ArcAngle;
+	UBodySetup* BodySetup;
 };
 
 
@@ -614,6 +614,13 @@ UWidgetComponent::UWidgetComponent( const FObjectInitializer& PCIP )
 	Pivot = FVector2D(0.5f, 0.5f);
 
 	bAddedToScreen = false;
+}
+
+void UWidgetComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	InitWidget();
 }
 
 void UWidgetComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -783,9 +790,10 @@ void UWidgetComponent::OnRegister()
 #if !UE_SERVER
 	if ( !IsRunningDedicatedServer() )
 	{
+		const bool bIsGameWorld = GetWorld()->IsGameWorld();
 		if ( Space != EWidgetSpace::Screen )
 		{
-			if ( CanReceiveHardwareInput() && GetWorld()->IsGameWorld() )
+			if ( CanReceiveHardwareInput() && bIsGameWorld )
 			{
 				TSharedPtr<SViewport> GameViewportWidget = GEngine->GetGameViewportWidget();
 				RegisterHitTesterWithViewport(GameViewportWidget);
@@ -799,7 +807,12 @@ void UWidgetComponent::OnRegister()
 
 		BodySetup = nullptr;
 
-		InitWidget();
+#if WITH_EDITOR
+		if (!bIsGameWorld)
+		{
+			InitWidget();
+		}
+#endif
 	}
 #endif // !UE_SERVER
 }

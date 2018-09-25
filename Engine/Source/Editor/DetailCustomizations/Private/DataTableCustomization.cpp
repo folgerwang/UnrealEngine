@@ -15,13 +15,13 @@ TSharedPtr<FString> FDataTableCustomizationLayout::InitWidgetContent()
 	RowNames.Empty();
 
 	/** Get the properties we wish to work with */
-	UDataTable* DataTable = NULL;
+	const UDataTable* DataTable = nullptr;
 	DataTablePropertyHandle->GetValue((UObject*&)DataTable);
 
-	if (DataTable != NULL)
+	if (DataTable != nullptr)
 	{
 		/** Extract all the row names from the RowMap */
-		for (TMap<FName, uint8*>::TConstIterator Iterator(DataTable->RowMap); Iterator; ++Iterator)
+		for (TMap<FName, uint8*>::TConstIterator Iterator(DataTable->GetRowMap()); Iterator; ++Iterator)
 		{
 			/** Create a simple array of the row names */
 			TSharedRef<FString> RowNameItem = MakeShareable(new FString(Iterator.Key().ToString()));
@@ -220,13 +220,13 @@ void FDataTableCustomizationLayout::OnFilterTextChanged(const FText& InFilterTex
 	RowNames.Empty();
 
 	/** Get the properties we wish to work with */
-	UDataTable* DataTable = nullptr;
+	const UDataTable* DataTable = nullptr;
 	DataTablePropertyHandle->GetValue((UObject*&)DataTable);
 
 	TArray<FString> AllRowNames;
 	if (DataTable != nullptr)
 	{
-		for (TMap<FName, uint8*>::TConstIterator Iterator(DataTable->RowMap); Iterator; ++Iterator)
+		for (TMap<FName, uint8*>::TConstIterator Iterator(DataTable->GetRowMap()); Iterator; ++Iterator)
 		{
 			FString RowString = Iterator.Key().ToString();
 			AllRowNames.Add(RowString);

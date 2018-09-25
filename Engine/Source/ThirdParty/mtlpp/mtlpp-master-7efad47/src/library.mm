@@ -5,7 +5,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 // Modifications for Unreal Engine
 
+#pragma clang push visibility(default)
+#include <Foundation/NSDictionary.h>
+#pragma clang pop visibility
+
 #include <Metal/MTLLibrary.h>
+
 #include "library.hpp"
 #include "device.hpp"
 #include "function_constant_values.hpp"

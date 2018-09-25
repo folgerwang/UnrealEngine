@@ -63,7 +63,7 @@ public:
 	 * @param Name The target platform's short or long name.
 	 * @return The target platform, or nullptr if not found.
 	 */
-	virtual ITargetPlatform* FindTargetPlatform( FString Name ) = 0;
+	virtual ITargetPlatform* FindTargetPlatform( const FString& Name ) = 0;
 
 	/**
 	 * Return the list of platforms which we need to support when cooking (only set when actually cooking)
@@ -149,7 +149,7 @@ public:
 	/**
 	 * Allows changes to environment for a given platform
 	 */
-	virtual bool UpdatePlatformEnvironment(FString PlatformName, TArray<FString> &Keys, TArray<FString> &Values) = 0;
+	virtual bool UpdatePlatformEnvironment(const FString& PlatformName, TArray<FString> &Keys, TArray<FString> &Values) = 0;
 
 public:
 

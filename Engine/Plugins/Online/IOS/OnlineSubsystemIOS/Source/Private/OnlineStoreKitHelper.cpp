@@ -26,7 +26,7 @@ FString convertReceiptToString(const SKPaymentTransaction* transaction)
 		}
 		else
 		{
-			UE_LOG(LogOnline, Log, TEXT("No receipt data found for transaction"));
+			UE_LOG_ONLINE_STORE(Log, TEXT("No receipt data found for transaction"));
 		}
 	}
 	else
@@ -39,7 +39,7 @@ FString convertReceiptToString(const SKPaymentTransaction* transaction)
 #endif
 	}
 	
-	UE_LOG(LogOnline, VeryVerbose, TEXT("FStoreKitHelper::convertReceiptToString %s"), *ReceiptData);
+	UE_LOG_ONLINE_STORE(VeryVerbose, TEXT("FStoreKitHelper::convertReceiptToString %s"), *ReceiptData);
 	return ReceiptData;
 }
 
@@ -59,7 +59,7 @@ FString GetOriginalTransactionId(const SKPaymentTransaction* Transaction)
 	{
 		if (Transaction.transactionState != SKPaymentTransactionStateRestored)
 		{
-			UE_LOG(LogOnline, Log, TEXT("Original transaction id in state %d"), static_cast<int32>(Transaction.transactionState));
+			UE_LOG_ONLINE_STORE(Log, TEXT("Original transaction id in state %d"), static_cast<int32>(Transaction.transactionState));
 		}
 		
 		int32 RecurseCount = 0;
@@ -76,7 +76,7 @@ FString GetOriginalTransactionId(const SKPaymentTransaction* Transaction)
 		
 		if (RecurseCount > 0)
 		{
-			UE_LOG(LogOnline, Log, TEXT("Original transaction id recurse count %d"), RecurseCount);
+			UE_LOG_ONLINE_STORE(Log, TEXT("Original transaction id recurse count %d"), RecurseCount);
 		}
 	}
 	
@@ -136,33 +136,33 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 -(void)paymentQueue:(SKPaymentQueue *)queue updatedTransactions : (NSArray *)transactions
 {
 	// Parse the generic transaction update into appropriate execution paths
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::updatedTransactions"));
+	UE_LOG_ONLINE_STORE(Log, TEXT("FStoreKitHelper::updatedTransactions"));
 	for (SKPaymentTransaction *transaction in transactions)
 	{
 		switch ([transaction transactionState])
 		{
 			case SKPaymentTransactionStatePurchased:
-				UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelper::completeTransaction"));
+				UE_LOG_ONLINE_STORE(Verbose, TEXT("FStoreKitHelper::completeTransaction"));
 				[self completeTransaction : transaction];
 				break;
 			case SKPaymentTransactionStateFailed:
-				UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelper::failedTransaction"));
+				UE_LOG_ONLINE_STORE(Verbose, TEXT("FStoreKitHelper::failedTransaction"));
 				[self failedTransaction : transaction];
 				break;
 			case SKPaymentTransactionStateRestored:
-				UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelper::restoreTransaction"));
+				UE_LOG_ONLINE_STORE(Verbose, TEXT("FStoreKitHelper::restoreTransaction"));
 				[self restoreTransaction : transaction];
 				break;
 			case SKPaymentTransactionStatePurchasing:
-				UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelper::purchasingInProgress"));
+				UE_LOG_ONLINE_STORE(Verbose, TEXT("FStoreKitHelper::purchasingInProgress"));
 				[self purchaseInProgress : transaction];
 				continue;
 			case SKPaymentTransactionStateDeferred:
-				UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelper::purchaseDeferred"));
+				UE_LOG_ONLINE_STORE(Verbose, TEXT("FStoreKitHelper::purchaseDeferred"));
 				[self purchaseDeferred : transaction];
 				continue;
 			default:
-				UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelper::other: %d"), [transaction transactionState]);
+				UE_LOG_ONLINE_STORE(Verbose, TEXT("FStoreKitHelper::other: %d"), [transaction transactionState]);
 				break;
 		}
 	}
@@ -170,12 +170,12 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)paymentQueue:(SKPaymentQueue *)queue removedTransactions : (NSArray *)transactions
 {
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::removedTransactions"));
+	UE_LOG_ONLINE_STORE(Log, TEXT("FStoreKitHelper::removedTransactions"));
 }
 
 -(void)paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue
 {
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::paymentQueueRestoreCompletedTransactionsFinished"));
+	UE_LOG_ONLINE_STORE(Log, TEXT("FStoreKitHelper::paymentQueueRestoreCompletedTransactionsFinished"));
 
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
@@ -194,7 +194,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)paymentQueue: (SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError : (NSError *)error
 {
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::failedRestore - %s"), *FString([error localizedDescription]));
+	UE_LOG_ONLINE_STORE(Log, TEXT("FStoreKitHelper::failedRestore - %s"), *FString([error localizedDescription]));
 	
 	EInAppPurchaseState::Type CompletionState = EInAppPurchaseState::Unknown;
 	switch (error.code)
@@ -229,7 +229,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)completeTransaction: (SKPaymentTransaction *)transaction
 {
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::completeTransaction"));
+	UE_LOG_ONLINE_STORE(Log, TEXT("FStoreKitHelper::completeTransaction"));
 
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
@@ -256,7 +256,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)restoreTransaction: (SKPaymentTransaction *)transaction
 {
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::restoreTransaction"));
+	UE_LOG_ONLINE_STORE(Log, TEXT("FStoreKitHelper::restoreTransaction"));
 
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
@@ -281,7 +281,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)failedTransaction: (SKPaymentTransaction *)transaction
 {
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::failedTransaction - %s"), *FString([transaction.error localizedDescription]));
+	UE_LOG_ONLINE_STORE(Log, TEXT("FStoreKitHelper::failedTransaction - %s"), *FString([transaction.error localizedDescription]));
 
 	EInAppPurchaseState::Type CompletionState = EInAppPurchaseState::Unknown;
 	switch (transaction.error.code)
@@ -317,17 +317,17 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)purchaseInProgress: (SKPaymentTransaction *)transaction
 {
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::purchaseInProgress"));
+	UE_LOG_ONLINE_STORE(Log, TEXT("FStoreKitHelper::purchaseInProgress"));
 }
 
 -(void)purchaseDeferred: (SKPaymentTransaction *)transaction
 {
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::purchaseDeferred"));
+	UE_LOG_ONLINE_STORE(Log, TEXT("FStoreKitHelper::purchaseDeferred"));
 }
 
 -(void)requestProductData: (NSMutableSet*)productIDs
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelper::requestProductData"));
+	UE_LOG_ONLINE_STORE(Verbose, TEXT("FStoreKitHelper::requestProductData"));
 
 	Request = [[SKProductsRequest alloc] initWithProductIdentifiers:productIDs];
 	Request.delegate = self;
@@ -337,7 +337,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)makePurchase: (NSMutableSet*)productIDs
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelper::makePurchase"));
+	UE_LOG_ONLINE_STORE(Verbose, TEXT("FStoreKitHelper::makePurchase"));
 
 	Request = [[SKProductsRequest alloc] initWithProductIdentifiers:productIDs];
 	Request.delegate = self;
@@ -347,7 +347,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)productsRequest: (SKProductsRequest *)request didReceiveResponse : (SKProductsResponse *)response
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelper::didReceiveResponse"));
+	UE_LOG_ONLINE_STORE(Verbose, TEXT("FStoreKitHelper::didReceiveResponse"));
 	// Direct the response back to the store interface
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
@@ -421,7 +421,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue
 {
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelperV2::paymentQueueRestoreCompletedTransactionsFinished"));
+	UE_LOG_ONLINE_STOREV2(Log, TEXT("FStoreKitHelperV2::paymentQueueRestoreCompletedTransactionsFinished"));
 	
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
@@ -432,7 +432,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)paymentQueue: (SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError : (NSError *)error
 {
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelperV2::failedRestore - %s"), *FString([error localizedDescription]));
+	UE_LOG_ONLINE_STOREV2(Log, TEXT("FStoreKitHelperV2::failedRestore - %s"), *FString([error localizedDescription]));
 	
 	EPurchaseTransactionState CompletionState = EPurchaseTransactionState::Failed;
 	switch (error.code)
@@ -459,7 +459,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)makePurchase:(NSArray*)products WithUserId: (const FString&) userId SimulateAskToBuy: (bool) bAskToBuy;
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelperV2::makePurchase by SKProduct with UserId"));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FStoreKitHelperV2::makePurchase by SKProduct with UserId"));
 	
 	for (SKProduct* Product in products)
 	{
@@ -480,14 +480,14 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)makePurchase:(NSArray*)products SimulateAskToBuy: (bool) bAskToBuy
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelperV2::makePurchase by SKProduct"));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FStoreKitHelperV2::makePurchase by SKProduct"));
 	FString EmptyString;
 	[self makePurchase: products WithUserId: EmptyString SimulateAskToBuy: bAskToBuy];
 }
 
 -(void)requestProductData: (NSMutableSet*)productIDs WithDelegate : (const FOnQueryOnlineStoreOffersComplete&)delegate
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelperV2::requestProductData"));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FStoreKitHelperV2::requestProductData"));
 	
 	FSKProductsRequestHelper* TempRequest = [[FSKProductsRequestHelper alloc] initWithProductIdentifiers:productIDs];
 	TempRequest.OfferDelegate = delegate;
@@ -501,7 +501,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 {
 	if (request == self.Request)
 	{
-		UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelperV2::didReceiveResponse"));
+		UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FStoreKitHelperV2::didReceiveResponse"));
 		
 		if ([request isKindOfClass : [FSKProductsRequestHelper class]])
 		{
@@ -516,7 +516,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 		}
 		else
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Wrong class associated with product request"));
+			UE_LOG_ONLINE_STOREV2(Warning, TEXT("Wrong class associated with product request"));
 		}
 		
 		[request autorelease];
@@ -526,7 +526,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 -(void)completeTransaction: (SKPaymentTransaction *)transaction
 {
 	FStoreKitTransactionData TransactionData(transaction);
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelperV2::completeTransaction - %s"), *TransactionData.ToDebugString());
+	UE_LOG_ONLINE_STOREV2(Log, TEXT("FStoreKitHelperV2::completeTransaction - %s"), *TransactionData.ToDebugString());
 	
 	EPurchaseTransactionState Result = EPurchaseTransactionState::Failed;
 	
@@ -550,7 +550,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 -(void)failedTransaction: (SKPaymentTransaction *)transaction
 {
 	FStoreKitTransactionData TransactionData(transaction);
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelperV2::failedTransaction - %s"), *TransactionData.ToDebugString());
+	UE_LOG_ONLINE_STOREV2(Log, TEXT("FStoreKitHelperV2::failedTransaction - %s"), *TransactionData.ToDebugString());
 
 	EPurchaseTransactionState CompletionState = EPurchaseTransactionState::Failed;
 	switch (transaction.error.code)
@@ -582,7 +582,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 -(void)restoreTransaction: (SKPaymentTransaction *)transaction
 {
 	FStoreKitTransactionData TransactionData(transaction);
-    UE_LOG(LogOnline, Log, TEXT("FStoreKitHelperV2::restoreTransaction - %s"), *TransactionData.ToDebugString());
+	UE_LOG_ONLINE_STOREV2(Log, TEXT("FStoreKitHelperV2::restoreTransaction - %s"), *TransactionData.ToDebugString());
 
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
@@ -599,7 +599,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 -(void)purchaseInProgress: (SKPaymentTransaction *)transaction
 {
 	FStoreKitTransactionData TransactionData(transaction);
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelperV2::purchaseInProgress - %s"), *TransactionData.ToDebugString());
+	UE_LOG_ONLINE_STOREV2(Log, TEXT("FStoreKitHelperV2::purchaseInProgress - %s"), *TransactionData.ToDebugString());
 	
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
@@ -612,7 +612,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 -(void)purchaseDeferred: (SKPaymentTransaction *)transaction
 {
 	FStoreKitTransactionData TransactionData(transaction);
-	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelperV2::purchaseDeferred - %s"), *TransactionData.ToDebugString());
+	UE_LOG_ONLINE_STOREV2(Log, TEXT("FStoreKitHelperV2::purchaseDeferred - %s"), *TransactionData.ToDebugString());
 	
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
@@ -624,18 +624,18 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 
 -(void)finalizeTransaction: (const FString&) receiptId
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelperV2::finalizeTransaction - %s"), *receiptId);
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FStoreKitHelperV2::finalizeTransaction - %s"), *receiptId);
 	for (SKPaymentTransaction* pendingTransaction in self.PendingTransactions)
 	{
 		if (pendingTransaction)
 		{
 			const FString transId = pendingTransaction.transactionIdentifier;
 			const FString originalTransId = GetOriginalTransactionId(pendingTransaction);
-			UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelperV2::checking - id: %s origId: %s"), *transId,  *originalTransId);
+			UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FStoreKitHelperV2::checking - id: %s origId: %s"), *transId,  *originalTransId);
 
 			if ((!originalTransId.IsEmpty()) && (originalTransId == receiptId))
 			{
-				UE_LOG(LogOnline, Log, TEXT("FStoreKitHelperV2::finalizeTransaction - %s"), *receiptId);
+				UE_LOG_ONLINE_STOREV2(Log, TEXT("FStoreKitHelperV2::finalizeTransaction - %s"), *receiptId);
 
 				// Remove the transaction from the payment queue.
 				[[SKPaymentQueue defaultQueue] finishTransaction:pendingTransaction];
@@ -645,7 +645,7 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 		}
 		else
 		{
-			UE_LOG(LogOnline, Verbose, TEXT("null transaction"));
+			UE_LOG_ONLINE_STOREV2(Verbose, TEXT("null transaction"));
 		}
 	}
 }
@@ -654,8 +654,8 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 {
 #ifdef __IPHONE_7_0
 	FString receiptData = convertReceiptToString(nullptr);
-	UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelper::dumpAppReceipt"));
-	UE_LOG(LogOnline, Verbose, TEXT("%s"), *receiptData);
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("FStoreKitHelper::dumpAppReceipt"));
+	UE_LOG_ONLINE_STOREV2(Verbose, TEXT("%s"), *receiptData);
 #endif
 }
 

@@ -59,64 +59,64 @@ void UBlueprintGeneratedClass::PostLoad()
 {
 	Super::PostLoad();
 
-	if(GetAuthoritativeClass()!= this)
-	{
-		return;
-	}
-
-	UObject* ClassCDO = ClassDefaultObject;
-
-	// Go through the CDO of the class, and make sure we don't have any legacy components that aren't instanced hanging on.
-	struct FCheckIfComponentChildHelper
-	{
-		static bool IsComponentChild(UObject* CurrObj, const UObject* CDO)
-		{
-			UObject*  OuterObject = CurrObj ? CurrObj->GetOuter() : nullptr;
-			const bool bValidOuter = OuterObject && (OuterObject != CDO);
-			return bValidOuter ? (OuterObject->IsDefaultSubobject() || IsComponentChild(OuterObject, CDO)) : false;
-		};
-	};
-
-	if(ClassCDO)
-	{
-		ForEachObjectWithOuter(ClassCDO, [ClassCDO](UObject* CurrObj)
-		{
-			const bool bComponentChild = FCheckIfComponentChildHelper::IsComponentChild(CurrObj, ClassCDO);
-			if (!CurrObj->IsDefaultSubobject() && !CurrObj->IsRooted() && !bComponentChild)
-			{
-				CurrObj->MarkPendingKill();
-			}
-		});
-	}
-	
 #if WITH_EDITORONLY_DATA
-	if (GetLinkerUE4Version() < VER_UE4_CLASS_NOTPLACEABLE_ADDED)
-	{
-		// Make sure the placeable flag is correct for all blueprints
-		UBlueprint* Blueprint = Cast<UBlueprint>(ClassGeneratedBy);
-		if (ensure(Blueprint) && Blueprint->BlueprintType != BPTYPE_MacroLibrary)
-		{
-			ClassFlags &= ~CLASS_NotPlaceable;
-		}
-	}
-
 	UPackage* Package = GetOutermost();
-	if (Package != nullptr)
+	if (Package == nullptr || !Package->bIsCookedForEditor)
 	{
-		if (Package->HasAnyPackageFlags(PKG_ForDiffing))
+		if (GetAuthoritativeClass() != this)
+		{
+			return;
+		}
+
+		UObject* ClassCDO = ClassDefaultObject;
+
+		// Go through the CDO of the class, and make sure we don't have any legacy components that aren't instanced hanging on.
+		struct FCheckIfComponentChildHelper
+		{
+			static bool IsComponentChild(UObject* CurrObj, const UObject* CDO)
+			{
+				UObject*  OuterObject = CurrObj ? CurrObj->GetOuter() : nullptr;
+				const bool bValidOuter = OuterObject && (OuterObject != CDO);
+				return bValidOuter ? (OuterObject->IsDefaultSubobject() || IsComponentChild(OuterObject, CDO)) : false;
+			};
+		};
+
+		if (ClassCDO)
+		{
+			ForEachObjectWithOuter(ClassCDO, [ClassCDO](UObject* CurrObj)
+			{
+				const bool bComponentChild = FCheckIfComponentChildHelper::IsComponentChild(CurrObj, ClassCDO);
+				if (!CurrObj->IsDefaultSubobject() && !CurrObj->IsRooted() && !bComponentChild)
+				{
+					CurrObj->MarkPendingKill();
+				}
+			});
+		}
+
+		if (GetLinkerUE4Version() < VER_UE4_CLASS_NOTPLACEABLE_ADDED)
+		{
+			// Make sure the placeable flag is correct for all blueprints
+			UBlueprint* Blueprint = Cast<UBlueprint>(ClassGeneratedBy);
+			if (ensure(Blueprint) && Blueprint->BlueprintType != BPTYPE_MacroLibrary)
+			{
+				ClassFlags &= ~CLASS_NotPlaceable;
+			}
+		}
+
+		if (Package && Package->HasAnyPackageFlags(PKG_ForDiffing))
 		{
 			ClassFlags |= CLASS_Deprecated;
 		}
-	}
 
 #if UE_BLUEPRINT_EVENTGRAPH_FASTCALLS
-	// Patch the fast calls (needed as we can't bump engine version to serialize it directly in UFunction right now)
-	for (const FEventGraphFastCallPair& Pair : FastCallPairs_DEPRECATED)
-	{
-		Pair.FunctionToPatch->EventGraphFunction = UberGraphFunction;
-		Pair.FunctionToPatch->EventGraphCallOffset = Pair.EventGraphCallOffset;
-	}
+		// Patch the fast calls (needed as we can't bump engine version to serialize it directly in UFunction right now)
+		for (const FEventGraphFastCallPair& Pair : FastCallPairs_DEPRECATED)
+		{
+			Pair.FunctionToPatch->EventGraphFunction = UberGraphFunction;
+			Pair.FunctionToPatch->EventGraphCallOffset = Pair.EventGraphCallOffset;
+		}
 #endif
+	}
 #endif // WITH_EDITORONLY_DATA
 
 	// Generate "fast path" instancing data for UCS/AddComponent node templates.

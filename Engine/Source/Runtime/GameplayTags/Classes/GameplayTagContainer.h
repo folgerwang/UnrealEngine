@@ -254,6 +254,7 @@ struct TStructOpsTypeTraits< FGameplayTag > : public TStructOpsTypeTraitsBase2< 
 	enum
 	{
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithPostSerialize = true,
 		WithSerializeFromMismatchedTag = true,
 		WithImportTextItem = true,
@@ -861,6 +862,7 @@ struct TStructOpsTypeTraits<FGameplayTagContainer> : public TStructOpsTypeTraits
 		WithSerializer = true,
 		WithIdenticalViaEquality = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithImportTextItem = true,
 		WithCopy = true,
 		WithPostScriptConstruct = true,

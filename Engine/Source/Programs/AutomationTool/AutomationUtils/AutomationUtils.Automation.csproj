@@ -72,6 +72,7 @@
     <Compile Include="P4Blame.cs" />
     <Compile Include="P4Environment.cs" />
     <Compile Include="P4Utils.cs" />
+    <Compile Include="PackageUtils.cs" />
     <Compile Include="ParallelExecutor.cs" />
     <Compile Include="Platform.cs" />
     <Compile Include="ProcessUtils.cs" />

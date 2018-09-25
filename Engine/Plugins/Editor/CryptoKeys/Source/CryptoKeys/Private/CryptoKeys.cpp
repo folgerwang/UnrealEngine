@@ -5,6 +5,7 @@
 #include "ISettingsModule.h"
 #include "PropertyEditorModule.h"
 #include "CryptoKeysSettings.h"
+#include "CryptoKeysHelpers.h"
 #include "CryptoKeysSettingsDetails.h"
 #include "CryptoKeysProjectBuildMutatorFeature.h"
 #include "Features/IModularFeatures.h"
@@ -62,6 +63,14 @@ private:
 
 	FCryptoKeysProjectBuildMutatorFeature ProjectBuildMutator;
 };
+
+namespace CryptoKeys
+{
+	void GenerateEncryptionKey(FString& OutBase64Key)
+	{
+		CryptoKeysHelpers::GenerateEncryptionKey(OutBase64Key);
+	}
+}
 
 #undef LOCTEXT_NAMESPACE
 	

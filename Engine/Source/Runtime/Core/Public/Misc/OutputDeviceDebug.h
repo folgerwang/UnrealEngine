@@ -22,5 +22,7 @@ public:
 	{
 		return true;
 	}
+
+	virtual bool CanBeUsedOnMultipleThreads() const override;
 };
 

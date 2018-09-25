@@ -60,8 +60,7 @@ struct FDecalRenderingCommon
 	
 	static EDecalBlendMode ComputeFinalDecalBlendMode(EShaderPlatform Platform, EDecalBlendMode DecalBlendMode, bool bUseNormal)
 	{
-		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DBuffer"));
-		const bool bShouldConvertToDBuffer = !IsUsingGBuffers(Platform) && !IsSimpleForwardShadingEnabled(Platform) && CVar->GetValueOnAnyThread();
+		const bool bShouldConvertToDBuffer = !IsUsingGBuffers(Platform) && !IsSimpleForwardShadingEnabled(Platform) && IsUsingDBuffers(Platform);
 
 		if (bShouldConvertToDBuffer)
 		{
@@ -244,7 +243,7 @@ struct FDecalRenderingCommon
 			case RTM_SceneColorAndGBufferNoNormal:					return 4;
 			case RTM_SceneColorAndGBufferDepthWriteWithNormal:		return 5;
 			case RTM_SceneColorAndGBufferDepthWriteNoNormal:		return 5;
-			case RTM_DBuffer:										return 3;
+			case RTM_DBuffer:										return IsUsingPerPixelDBufferMask(Platform) ? 4 : 3;
 			case RTM_GBufferNormal:									return 1;
 			case RTM_SceneColor:									return 1;
 			case RTM_AmbientOcclusion:								return 1;

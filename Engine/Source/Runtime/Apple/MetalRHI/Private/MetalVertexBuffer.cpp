@@ -14,7 +14,7 @@
 #include <objc/runtime.h>
 #include "HAL/LowLevelMemTracker.h"
 
-#if ENABLE_LOW_LEVEL_MEM_TRACKER || STATS
+#if ENABLE_LOW_LEVEL_MEM_TRACKER/* || STATS*/
 #define METAL_LLM_BUFFER_SCOPE(Type) \
 	ELLMTag Tag; \
 	switch(Type)	{ \
@@ -774,7 +774,7 @@ FStagingBufferRHIRef FMetalDynamicRHI::RHICreateStagingBuffer(FVertexBufferRHIPa
 void *FMetalStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 {
 	check(BackingBuffer);
-	FMetalVertexBuffer* VertexBuffer = (FMetalVertexBuffer*)BackingBuffer;
+	FMetalVertexBuffer* VertexBuffer = ResourceCast(BackingBuffer.GetReference());
 	uint8* BytePtr = nullptr;
 	if (VertexBuffer->CPUBuffer)
 	{
@@ -793,7 +793,7 @@ void *FMetalStagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 void FMetalStagingBuffer::Unlock()
 {
 	check(BackingBuffer);
-	FMetalVertexBuffer* VertexBuffer = (FMetalVertexBuffer*)BackingBuffer;
+	FMetalVertexBuffer* VertexBuffer = ResourceCast(BackingBuffer.GetReference());
 	if (VertexBuffer->CPUBuffer && (VertexBuffer->GetUsage() & (BUF_Dynamic|BUF_Static)))
 	{
 		LLM_SCOPE(ELLMTag::VertexBuffer);

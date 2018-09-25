@@ -1092,6 +1092,9 @@ private:
 	/** Event to gather up all net drivers and call TickDispatch at once */
 	FOnNetTickEvent TickDispatchEvent;
 
+	/** Event to gather up all net drivers and call PostTickDispatch at once */
+	FOnTickFlushEvent PostTickDispatchEvent;
+
 	/** Event to gather up all net drivers and call TickFlush at once */
 	FOnNetTickEvent TickFlushEvent;
 	
@@ -1099,9 +1102,14 @@ private:
 	FOnTickFlushEvent PostTickFlushEvent;
 
 	/** All registered net drivers TickDispatch() */
-	void BroadcastTickDispatch(float DeltaTime)
+	void BroadcastTickDispatch(float DeltaTime)	
 	{
 		TickDispatchEvent.Broadcast(DeltaTime);
+	}
+	/** All registered net drivers PostTickDispatch() */
+	void BroadcastPostTickDispatch()
+	{
+		PostTickDispatchEvent.Broadcast();
 	}
 	/** All registered net drivers TickFlush() */
 	void BroadcastTickFlush(float DeltaTime)
@@ -2081,7 +2089,7 @@ public:
 	 * 
 	 * @return default physics volume
 	 */
-	APhysicsVolume* GetDefaultPhysicsVolume() const;
+	APhysicsVolume* GetDefaultPhysicsVolume() const { return DefaultPhysicsVolume ? DefaultPhysicsVolume : InternalGetDefaultPhysicsVolume(); }
 
 	/** Returns true if a DefaultPhysicsVolume has been created. */
 	bool HasDefaultPhysicsVolume() const { return DefaultPhysicsVolume != nullptr; }
@@ -2480,11 +2488,10 @@ public:
 
 public:
 
-	/** Get the event that broadcasts TickDispatch */
+	/** Network Tick events */
 	FOnNetTickEvent& OnTickDispatch() { return TickDispatchEvent; }
-	/** Get the event that broadcasts TickFlush */
+	FOnTickFlushEvent& OnPostTickDispatch() { return PostTickDispatchEvent; }	
 	FOnNetTickEvent& OnTickFlush() { return TickFlushEvent; }
-	/** Get the event that broadcasts TickFlush */
 	FOnTickFlushEvent& OnPostTickFlush() { return PostTickFlushEvent; }
 
 	/**
@@ -2937,7 +2944,11 @@ public:
 	APlayerController* SpawnPlayActor(class UPlayer* Player, ENetRole RemoteRole, const FURL& InURL, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& Error, uint8 InNetPlayerIndex = 0);
 	APlayerController* SpawnPlayActor(class UPlayer* Player, ENetRole RemoteRole, const FURL& InURL, const FUniqueNetIdRepl& UniqueId, FString& Error, uint8 InNetPlayerIndex = 0);
 	
-	/** Try to find an acceptable position to place TestActor as close to possible to PlaceLocation.  Expects PlaceLocation to be a valid location inside the level. */
+	/**
+	 * Try to find an acceptable non-colliding location to place TestActor as close to possible to PlaceLocation. Expects PlaceLocation to be a valid location inside the level.
+	 * Returns true if a location without blocking collision is found, in which case PlaceLocation is overwritten with the new clear location.
+	 * Returns false if no suitable location could be found, in which case PlaceLocation is unmodified.
+	 */
 	bool FindTeleportSpot( const AActor* TestActor, FVector& PlaceLocation, FRotator PlaceRotation );
 
 	/** @Return true if Actor would encroach at TestLocation on something that blocks it.  Returns a ProposedAdjustment that might result in an unblocked TestLocation. */
@@ -3009,12 +3020,6 @@ private:
 	/** Private version without inlining that does *not* check Dedicated server build flags (which should already have been done). */
 	ENetMode InternalGetNetMode() const;
 
-	// Sends the NMT_Challenge message to Connection.
-	void SendChallengeControlMessage(UNetConnection* Connection);
-	void SendChallengeControlMessage(const FEncryptionKeyResponse& Response, TWeakObjectPtr<UNetConnection> WeakConnection);
-
-public:
-
 #if WITH_EDITOR
 	/** Attempts to derive the net mode from PlayInSettings for PIE*/
 	ENetMode AttemptDeriveFromPlayInSettings() const;
@@ -3022,6 +3027,14 @@ public:
 
 	/** Attempts to derive the net mode from URL */
 	ENetMode AttemptDeriveFromURL() const;
+
+	APhysicsVolume* InternalGetDefaultPhysicsVolume() const;
+
+	// Sends the NMT_Challenge message to Connection.
+	void SendChallengeControlMessage(UNetConnection* Connection);
+	void SendChallengeControlMessage(const FEncryptionKeyResponse& Response, TWeakObjectPtr<UNetConnection> WeakConnection);
+
+public:
 
 	/**
 	 * Sets the net driver to use for this world
@@ -3036,6 +3049,11 @@ public:
 	 * Returns true if the game net driver exists and is a client and the demo net driver exists and is a server.
 	 */
 	bool IsRecordingClientReplay() const;
+
+	/**
+	* Returns true if the demo net driver exists and is playing a client recorded replay.
+	*/
+	bool IsPlayingClientReplay() const;
 
 	/**
 	 * Sets the number of frames to delay Streaming Volume updating, 
@@ -3152,6 +3170,13 @@ public:
 	 * @param LevelsToRefresh A TArray<ULevelStreaming*> containing pointers to the levels to refresh
 	 */
 	void RefreshStreamingLevels( const TArray<class ULevelStreaming*>& InLevelsToRefresh );
+		
+private:
+	bool bIsRefreshingStreamingLevels;
+
+public:
+
+	bool IsRefreshingStreamingLevels() const { return bIsRefreshingStreamingLevels; }
 
 	void IssueEditorLoadWarnings();
 
@@ -3457,6 +3482,17 @@ FORCEINLINE_DEBUGGABLE float UWorld::GetDeltaSeconds() const
 FORCEINLINE_DEBUGGABLE float UWorld::TimeSince(float Time) const
 {
 	return GetTimeSeconds() - Time;
+}
+
+FORCEINLINE_DEBUGGABLE FConstPhysicsVolumeIterator UWorld::GetNonDefaultPhysicsVolumeIterator() const
+{
+	auto Result = NonDefaultPhysicsVolumeList.CreateConstIterator();
+	return (const FConstPhysicsVolumeIterator&)Result;
+}
+
+FORCEINLINE_DEBUGGABLE int32 UWorld::GetNonDefaultPhysicsVolumeCount() const
+{
+	return NonDefaultPhysicsVolumeList.Num();
 }
 
 FORCEINLINE_DEBUGGABLE bool UWorld::ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UPrimitiveComponent* PrimComp, const FVector& Pos, const FRotator& Rot, const FComponentQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams) const

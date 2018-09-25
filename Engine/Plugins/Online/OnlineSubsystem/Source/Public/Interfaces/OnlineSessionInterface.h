@@ -12,14 +12,14 @@ class FOnlineSessionSearch;
 class FOnlineSessionSearchResult;
 class FOnlineSessionSettings;
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineSession, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineSession, Log, All);
 
 #define UE_LOG_ONLINE_SESSION(Verbosity, Format, ...) \
 { \
 	UE_LOG(LogOnlineSession, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
 }
 
-#define UE_CLOG_ONLINESESSION(Conditional, Verbosity, Format, ...) \
+#define UE_CLOG_ONLINE_SESSION(Conditional, Verbosity, Format, ...) \
 { \
 	UE_CLOG(Conditional, LogOnlineSession, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
 }
@@ -586,7 +586,7 @@ public:
 	 * Delegate fired when the joining process for an online session has completed
 	 *
 	 * @param SessionName the name of the session this callback is for
-	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
+	 * @param Result EOnJoinSessionCompleteResult describing the outcome of the call 
 	 */
 	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnJoinSessionComplete, FName, EOnJoinSessionCompleteResult::Type);
 

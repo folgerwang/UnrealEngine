@@ -9,7 +9,7 @@
 
 struct FOnlineError;
 
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineIdentity, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineIdentity, Log, All);
 
 #define UE_LOG_ONLINE_IDENTITY(Verbosity, Format, ...) \
 { \
@@ -182,9 +182,11 @@ public:
 		/** User restricted from User Generated Content */
 		UGCRestriction			=	1 << 7,
 		/** Platform failed for unknown reason and handles its own dialogs */
-		GenericFailure			=	1 << 8, 
+		GenericFailure			=	1 << 8,
 		/** Online play is restricted */
-		OnlinePlayRestricted	=	1 << 9, 
+		OnlinePlayRestricted	=	1 << 9,
+		/** Check failed because network is unavailable */
+		NetworkConnectionUnavailable =	1 << 10,
 	};
 
 	virtual ~IOnlineIdentity() {};

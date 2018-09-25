@@ -8,6 +8,7 @@
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "Interfaces/OnlineFriendsInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
 #include "Interfaces/OnlinePurchaseInterface.h"
 
 #if UE_BUILD_SHIPPING
@@ -28,15 +29,6 @@ namespace OSSConsoleVariables
 }
 
 const FName FOnlineSubsystemImpl::DefaultInstanceName(TEXT("DefaultInstance"));
-
-FOnlineSubsystemImpl::FOnlineSubsystemImpl() :
-	SubsystemName(NAME_None),
-	InstanceName(DefaultInstanceName),
-	bForceDedicated(false),
-	NamedInterfaces(nullptr)
-{
-	StartTicker();
-}
 
 FOnlineSubsystemImpl::FOnlineSubsystemImpl(FName InSubsystemName, FName InInstanceName) :
 	SubsystemName(InSubsystemName),
@@ -227,10 +219,15 @@ bool FOnlineSubsystemImpl::IsLocalPlayer(const FUniqueNetId& UniqueId) const
 IMessageSanitizerPtr FOnlineSubsystemImpl::GetMessageSanitizer(int32 LocalUserNum, FString& OutAuthTypeToExclude) const
 {
 	IMessageSanitizerPtr MessageSanitizer;
-	IOnlineSubsystem* PlatformSubsystem = IOnlineSubsystem::GetByPlatform();
-	if (PlatformSubsystem && PlatformSubsystem != static_cast<const IOnlineSubsystem*>(this))
+	IOnlineSubsystem* SanitizerSubsystem = IOnlineSubsystem::GetByConfig(TEXT("SanitizerPlatformService"));
+	if (!SanitizerSubsystem)
 	{
-		MessageSanitizer = PlatformSubsystem->GetMessageSanitizer(LocalUserNum, OutAuthTypeToExclude);
+		SanitizerSubsystem = IOnlineSubsystem::GetByPlatform();
+	}
+
+	if (SanitizerSubsystem && SanitizerSubsystem != static_cast<const IOnlineSubsystem*>(this))
+	{
+		MessageSanitizer = SanitizerSubsystem->GetMessageSanitizer(LocalUserNum, OutAuthTypeToExclude);
 	}
 	return MessageSanitizer;
 }
@@ -246,6 +243,10 @@ bool FOnlineSubsystemImpl::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice
 	else if (FParse::Command(&Cmd, TEXT("SESSION")))
 	{
 		bWasHandled = HandleSessionExecCommands(InWorld, Cmd, Ar);
+	}
+	else if (FParse::Command(&Cmd, TEXT("PRESENCE")))
+	{
+		bWasHandled = HandlePresenceExecCommands(InWorld, Cmd, Ar);
 	}
 	else if (FParse::Command(&Cmd, TEXT("PURCHASE")))
 	{
@@ -267,29 +268,77 @@ void FOnlineSubsystemImpl::DumpReceipts(const FUniqueNetId& UserId)
 	{
 		TArray<FPurchaseReceipt> Receipts;
 		PurchaseInt->GetReceipts(UserId, Receipts);
+		if (Receipts.Num() > 0)
+		{
+			for (const FPurchaseReceipt& Receipt : Receipts)
+			{
+				UE_LOG_ONLINE(Display, TEXT("Receipt: %s %d"),
+							  *Receipt.TransactionId,
+							  (int32)Receipt.TransactionState);
+
+				UE_LOG_ONLINE(Display, TEXT("-Offers:"));
+				for (const FPurchaseReceipt::FReceiptOfferEntry& ReceiptOffer : Receipt.ReceiptOffers)
+				{
+					UE_LOG_ONLINE(Display, TEXT(" -Namespace: %s Id: %s Quantity: %d"),
+								  *ReceiptOffer.Namespace,
+								  *ReceiptOffer.OfferId,
+								  ReceiptOffer.Quantity);
+
+					UE_LOG_ONLINE(Display, TEXT(" -LineItems:"));
+					for (const FPurchaseReceipt::FLineItemInfo& LineItem : ReceiptOffer.LineItems)
+					{
+						UE_LOG_ONLINE(Display, TEXT("  -Name: %s Id: %s ValidationInfo: %d bytes"),
+									  *LineItem.ItemName,
+									  *LineItem.UniqueId,
+									  LineItem.ValidationInfo.Len());
+					}
+				}
+			}
+		}
+		else
+		{
+			UE_LOG_ONLINE(Display, TEXT("No receipts!"));
+		}
+	}
+}
+
+void FOnlineSubsystemImpl::FinalizeReceipts(const FUniqueNetId& UserId)
+{
+	IOnlinePurchasePtr PurchaseInt = GetPurchaseInterface();
+	if (PurchaseInt.IsValid())
+	{
+		TArray<FPurchaseReceipt> Receipts;
+		PurchaseInt->GetReceipts(UserId, Receipts);
 		for (const FPurchaseReceipt& Receipt : Receipts)
 		{
 			UE_LOG_ONLINE(Display, TEXT("Receipt: %s %d"),
-						  *Receipt.TransactionId,
-						  (int32)Receipt.TransactionState);
-			
-			UE_LOG_ONLINE(Display, TEXT("-Offers:"));
+				*Receipt.TransactionId,
+				(int32)Receipt.TransactionState);
 			for (const FPurchaseReceipt::FReceiptOfferEntry& ReceiptOffer : Receipt.ReceiptOffers)
 			{
 				UE_LOG_ONLINE(Display, TEXT(" -Namespace: %s Id: %s Quantity: %d"),
-							  *ReceiptOffer.Namespace,
-							  *ReceiptOffer.OfferId,
-							  ReceiptOffer.Quantity);
-				
+					*ReceiptOffer.Namespace,
+					*ReceiptOffer.OfferId,
+					ReceiptOffer.Quantity);
+
 				UE_LOG_ONLINE(Display, TEXT(" -LineItems:"));
 				for (const FPurchaseReceipt::FLineItemInfo& LineItem : ReceiptOffer.LineItems)
 				{
 					UE_LOG_ONLINE(Display, TEXT("  -Name: %s Id: %s ValidationInfo: %d bytes"),
-								  *LineItem.ItemName,
-								  *LineItem.UniqueId,
-								  LineItem.ValidationInfo.Len());
+						*LineItem.ItemName,
+						*LineItem.UniqueId,
+						LineItem.ValidationInfo.Len());
+					if (LineItem.IsRedeemable())
+					{
+						UE_LOG_ONLINE(Display, TEXT("Finalizing %s!"), *Receipt.TransactionId);
+						PurchaseInt->FinalizePurchase(UserId, LineItem.UniqueId);
+					}
+					else
+					{
+						UE_LOG_ONLINE(Display, TEXT("Not redeemable"));
+					}
 				}
-			}
+			}	
 		}
 	}
 }
@@ -340,6 +389,11 @@ bool FOnlineSubsystemImpl::HandlePurchaseExecCommands(UWorld* InWorld, const TCH
 							DumpReceipts(*UserId);
 							bWasHandled = true;
 						}
+						else if (CommandStr == TEXT("FINALIZE"))
+						{
+							FinalizeReceipts(*UserId);
+							bWasHandled = true;
+						}
 					}
 				}
 			}
@@ -377,12 +431,104 @@ bool FOnlineSubsystemImpl::HandleFriendExecCommands(UWorld* InWorld, const TCHAR
 			}
 		}
 	}
+	else if (FParse::Command(&Cmd, TEXT("QUERYRECENT")))
+	{
+		IOnlineIdentityPtr IdentityInt = GetIdentityInterface();
+		if (IdentityInt.IsValid())
+		{
+			int32 LocalUserNum = 0;
+			FString LocalUserNumStr = FParse::Token(Cmd, false);
+			if (!LocalUserNumStr.IsEmpty())
+			{
+				LocalUserNum = FCString::Atoi(*LocalUserNumStr);
+			}
+			FString Namespace = FParse::Token(Cmd, false);
+
+			TSharedPtr<const FUniqueNetId> UserId = IdentityInt->GetUniquePlayerId(LocalUserNum);
+			IOnlineFriendsPtr FriendsInt = GetFriendsInterface();
+			if (FriendsInt.IsValid())
+			{
+				FriendsInt->QueryRecentPlayers(*UserId, Namespace);
+			}
+		}
+
+		bWasHandled = true;
+	}
+	else if (FParse::Command(&Cmd, TEXT("DUMPRECENT")))
+	{
+		IOnlineFriendsPtr FriendsInt = GetFriendsInterface();
+		if (FriendsInt.IsValid())
+		{
+			FriendsInt->DumpRecentPlayers();
+		}
+		bWasHandled = true;
+	}
 	else if (FParse::Command(&Cmd, TEXT("DUMPBLOCKED")))
 	{
 		IOnlineFriendsPtr FriendsInt = GetFriendsInterface();
 		if (FriendsInt.IsValid())
 		{
 			FriendsInt->DumpBlockedPlayers();
+		}
+		bWasHandled = true;
+	}
+
+	return bWasHandled;
+}
+
+bool FOnlineSubsystemImpl::HandlePresenceExecCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	bool bWasHandled = false;
+	if (FParse::Command(&Cmd, TEXT("DUMP")))
+	{
+		IOnlinePresencePtr PresenceInt = GetPresenceInterface();
+		if (PresenceInt.IsValid())
+		{
+			IOnlinePresence::FOnPresenceTaskCompleteDelegate CompletionDelegate = IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateLambda([this](const FUniqueNetId& UserId, const bool bWasSuccessful)
+			{
+				UE_LOG_ONLINE(Display, TEXT("Presence [%s]"), *UserId.ToDebugString());
+				if (bWasSuccessful)
+				{
+					IOnlinePresencePtr LambdaPresenceInt = GetPresenceInterface();
+					if (LambdaPresenceInt.IsValid())
+					{
+						TSharedPtr<FOnlineUserPresence> UserPresence;
+						if (LambdaPresenceInt->GetCachedPresence(UserId, UserPresence) == EOnlineCachedResult::Success &&
+							UserPresence.IsValid())
+						{
+							UE_LOG_ONLINE(Display, TEXT("- %s"), *UserPresence->ToDebugString());
+						}
+						else
+						{
+							UE_LOG_ONLINE(Display, TEXT("Failed to get cached presence"));
+						}
+					}
+				}
+				else
+				{
+					UE_LOG_ONLINE(Display, TEXT("Failed to query presence"));
+				}
+			});
+
+			TArray<TSharedRef<FOnlineFriend>> FriendsList;
+			IOnlineFriendsPtr FriendsInt = GetFriendsInterface();
+			if (FriendsInt.IsValid())
+			{
+				FriendsInt->GetFriendsList(0, EFriendsLists::ToString(EFriendsLists::Default), FriendsList);
+			}
+
+			// Query and dump friends presence
+			for (const TSharedRef<FOnlineFriend>& Friend : FriendsList)
+			{
+				PresenceInt->QueryPresence(*Friend->GetUserId(), CompletionDelegate);
+			}
+
+			// Query own presence
+			TSharedPtr<const FUniqueNetId> UserId = GetFirstSignedInUser(GetIdentityInterface());
+			if (UserId.IsValid())
+			{
+				PresenceInt->QueryPresence(*UserId, CompletionDelegate);
+			}
 		}
 		bWasHandled = true;
 	}

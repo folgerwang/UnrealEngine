@@ -218,15 +218,15 @@ void UActorRecording::GetAllComponents(TArray<UActorComponent*>& OutArray, bool 
 void UActorRecording::GetSceneComponents(TArray<UActorComponent*>& OutArray, bool bIncludeNonCDO/*=true*/)
 {
 	TArray<USceneComponent*> SceneComponents;
-	// it is not enough to just go through the owned components array here
-	// we need to traverse the scene component hierarchy as well, as some components may be 
-	// owned by other actors (e.g. for pooling) and some may not be part of the hierarchy
 	if(GetActorToRecord() != nullptr)
 	{
 		USceneComponent* RootComponent = GetActorToRecord()->GetRootComponent();
 		if(RootComponent)
 		{
-			RootComponent->GetChildrenComponents(true, SceneComponents);
+			// Get the owned components only. This used to be far more aggressive and
+			// would include scene component hierarchy for components not owned by this
+			// actor. That led to problems where components would be doubly recorded. 
+			GetActorToRecord()->GetComponents(SceneComponents);
 			OutArray.Add(RootComponent);
 			//Add Scene Components to the OutArray
 			for (USceneComponent* SceneComponent : SceneComponents)

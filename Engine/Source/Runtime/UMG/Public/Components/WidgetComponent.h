@@ -74,7 +74,8 @@ class UMG_API UWidgetComponent : public UMeshComponent
 
 public:
 	/** UActorComponent Interface */
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason);
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/* UPrimitiveComponent Interface */
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;

@@ -36,7 +36,9 @@ namespace MaterialShaderCookStats
 // Globals
 //
 TMap<FMaterialShaderMapId,FMaterialShaderMap*> FMaterialShaderMap::GIdToMaterialShaderMap[SP_NumPlatforms];
+#if ALLOW_SHADERMAP_DEBUG_DATA
 TArray<FMaterialShaderMap*> FMaterialShaderMap::AllMaterialShaderMaps;
+#endif
 // The Id of 0 is reserved for global shaders
 uint32 FMaterialShaderMap::NextCompilingId = 2;
 /** 
@@ -967,6 +969,7 @@ FMaterialShaderMap* FMaterialShaderMap::FindId(const FMaterialShaderMapId& Shade
 	return GIdToMaterialShaderMap[InPlatform].FindRef(ShaderMapId);
 }
 
+#if ALLOW_SHADERMAP_DEBUG_DATA
 /** Flushes the given shader types from any loaded FMaterialShaderMap's. */
 void FMaterialShaderMap::FlushShaderTypes(TArray<FShaderType*>& ShaderTypesToFlush, TArray<const FShaderPipelineType*>& ShaderPipelineTypesToFlush, TArray<const FVertexFactoryType*>& VFTypesToFlush)
 {
@@ -988,6 +991,7 @@ void FMaterialShaderMap::FlushShaderTypes(TArray<FShaderType*>& ShaderTypesToFlu
 		}
 	}
 }
+#endif
 
 void FMaterialShaderMap::FixupShaderTypes(EShaderPlatform Platform, const TMap<FShaderType*, FString>& ShaderTypeNames, const TMap<const FShaderPipelineType*, FString>& ShaderPipelineTypeNames, const TMap<FVertexFactoryType*, FString>& VertexFactoryTypeNames)
 {
@@ -2176,7 +2180,9 @@ FMaterialShaderMap::FMaterialShaderMap(EShaderPlatform InPlatform) :
 	bIsPersistent(true)
 {
 	checkSlow(IsInGameThread() || IsAsyncLoading());
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	AllMaterialShaderMaps.Add(this);
+#endif
 }
 
 FMaterialShaderMap::~FMaterialShaderMap()
@@ -2184,7 +2190,9 @@ FMaterialShaderMap::~FMaterialShaderMap()
 	checkSlow(IsInGameThread() || IsAsyncLoading());
 	check(bDeletedThroughDeferredCleanup);
 	check(!bRegistered);
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	AllMaterialShaderMaps.RemoveSwap(this);
+#endif
 }
 
 /**
@@ -2256,6 +2264,7 @@ struct FCompareMeshShaderMaps
 
 void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 {
+	LLM_SCOPE(ELLMTag::MaterialShaderMaps);
 	// Note: This is saved to the DDC, not into packages (except when cooked)
 	// Backwards compatibility therefore will not work based on the version of Ar
 	// Instead, just bump MATERIALSHADERMAP_DERIVEDDATA_VER
@@ -2491,6 +2500,7 @@ const FMaterialShaderMap* FMaterialShaderMap::GetShaderMapBeingCompiled(const FM
 	return NULL;
 }
 
+#if WITH_EDITOR
 uint32 FMaterialShaderMap::GetMaxTextureSamplers() const
 {
 	uint32 MaxTextureSamplers = GetMaxTextureSamplersShaderMap();
@@ -2502,6 +2512,7 @@ uint32 FMaterialShaderMap::GetMaxTextureSamplers() const
 
 	return MaxTextureSamplers;
 }
+#endif // WITH_EDITOR
 
 const FMeshMaterialShaderMap* FMaterialShaderMap::GetMeshShaderMap(FVertexFactoryType* VertexFactoryType) const
 {
@@ -2571,7 +2582,7 @@ void FMaterialShaderMap::SaveShaderStableKeys(EShaderPlatform TargetShaderPlatfo
  */
 void DumpMaterialStats(EShaderPlatform Platform)
 {
-#if ALLOW_DEBUG_FILES
+#if ALLOW_DEBUG_FILES && ALLOW_SHADERMAP_DEBUG_DATA
 	FDiagnosticTableViewer MaterialViewer(*FDiagnosticTableViewer::GetUniqueTemporaryFilePath(TEXT("MaterialStats")));
 
 	//#todo-rco: Pipelines
@@ -2658,6 +2669,6 @@ void DumpMaterialStats(EShaderPlatform Platform)
 	MaterialViewer.AddColumn(TEXT("%u"),TotalCodeSize);
 	MaterialViewer.AddColumn(TEXT("%u"), TotalShaderPipelineCount);
 	MaterialViewer.CycleRow();
-#endif
+#endif // ALLOW_DEBUG_FILES && ALLOW_SHADERMAP_DEBUG_DATA
 }
 

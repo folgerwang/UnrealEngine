@@ -17,7 +17,7 @@
 #include "Modules/ModuleManager.h"
 #include "HttpModule.h"
 #include "HttpManager.h"
-#include "Data/ManifestUObject.h"
+#include "Data/ManifestData.h"
 #include "Installer/BuildStatistics.h"
 #include "Installer/MachineConfig.h"
 #include "BuildPatchCompactifier.h"
@@ -91,7 +91,7 @@ void FBuildPatchServicesModule::StartupModule()
 	check( CheckRollingHashAlgorithm() );
 
 	// Init Manifest serialization
-	FManifestUObject::Init();
+	FManifestData::Init();
 }
 
 void FBuildPatchServicesModule::ShutdownModule()
@@ -148,9 +148,9 @@ IBuildManifestPtr FBuildPatchServicesModule::MakeManifestFromJSON( const FString
 }
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
-bool FBuildPatchServicesModule::SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest, bool bUseBinary/* = true*/)
+bool FBuildPatchServicesModule::SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest)
 {
-	return StaticCastSharedRef< FBuildPatchAppManifest >(Manifest)->SaveToFile(Filename, bUseBinary);
+	return StaticCastSharedRef<FBuildPatchAppManifest>(Manifest)->SaveToFile(Filename);
 }
 
 TSet<FString> FBuildPatchServicesModule::GetInstalledPrereqIds() const
@@ -297,9 +297,9 @@ bool FBuildPatchServicesModule::MergeManifests(const FString& ManifestFilePathA,
 	return FBuildMergeManifests::MergeManifests(ManifestFilePathA, ManifestFilePathB, ManifestFilePathC, NewVersionString, SelectionDetailFilePath);
 }
 
-bool FBuildPatchServicesModule::DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const FString& OutputFilePath)
+bool FBuildPatchServicesModule::DiffManifests(const FString& ManifestFilePathA, const TSet<FString>& TagSetA, const FString& ManifestFilePathB, const TSet<FString>& TagSetB, const TArray<TSet<FString>>& CompareTagSets, const FString& OutputFilePath)
 {
-	return FBuildDiffManifests::DiffManifests(ManifestFilePathA, TagSetA, ManifestFilePathB, TagSetB, OutputFilePath);
+	return FBuildDiffManifests::DiffManifests(ManifestFilePathA, TagSetA, ManifestFilePathB, TagSetB, CompareTagSets, OutputFilePath);
 }
 
 void FBuildPatchServicesModule::SetStagingDirectory( const FString& StagingDir )

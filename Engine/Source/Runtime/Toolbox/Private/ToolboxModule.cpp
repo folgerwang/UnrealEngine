@@ -124,7 +124,7 @@ public:
 
 	FReply OnFlushFontCacheClicked()
 	{
-		FSlateApplication::Get().GetRenderer()->FlushFontCache();
+		FSlateApplication::Get().GetRenderer()->FlushFontCache(TEXT("SDebugPanel::OnFlushFontCacheClicked"));
 		return FReply::Handled();
 	}
 

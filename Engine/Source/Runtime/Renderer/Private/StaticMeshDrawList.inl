@@ -857,7 +857,7 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBackInner(
 
 	int32 NumDraws = 0;
 	TArray<FDrawListSortKey,SceneRenderingAllocator> SortKeys;
-	const FVector ViewLocation = View.ViewLocation;
+	const FVector ViewLocation = View.ViewMatrices.GetViewOrigin();
 	SortKeys.Reserve(128);
 
 	TArray<const TArray<uint64, SceneRenderingAllocator>*, SceneRenderingAllocator> ElementVisibility;

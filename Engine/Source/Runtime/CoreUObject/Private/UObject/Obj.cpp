@@ -1187,112 +1187,141 @@ void UObject::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 	}
 }
 
+// This is a terrible hack to allow the checking of redirected
+// soft object paths in CDOs at cook time.  Redirects in CDOs
+// cause non-determinism issues and need to be reported.
+//
+// This global is extern'd and handled in SoftObjectPath.cpp.
+bool* GReportSoftObjectPathRedirects = nullptr;
+
 IMPLEMENT_FARCHIVE_SERIALIZER(UObject)
 
-void UObject::Serialize( FStructuredArchive::FRecord Record )
+void UObject::Serialize(FStructuredArchive::FRecord Record)
 {
-	FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
+#if WITH_EDITOR
+	bool bReportSoftObjectPathRedirects = false;
 
-	// These three items are very special items from a serialization standpoint. They aren't actually serialized.
-	UClass *ObjClass = GetClass();
-	UObject* LoadOuter = GetOuter();
-	FName LoadName = GetFName();
-
-	// Make sure this object's class's data is loaded.
-	if(ObjClass->HasAnyFlags(RF_NeedLoad) )
 	{
-		UnderlyingArchive.Preload(ObjClass);
+		TGuardValue<bool*> GuardValue(
+			GReportSoftObjectPathRedirects,
+			  GReportSoftObjectPathRedirects
+			? GReportSoftObjectPathRedirects
+			: (GIsCookerLoadingPackage && HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
+			? &bReportSoftObjectPathRedirects
+			: nullptr
+		);
+#endif
 
-		// make sure this object's template data is loaded - the only objects
-		// this should actually affect are those that don't have any defaults
-		// to serialize.  for objects with defaults that actually require loading
-		// the class default object should be serialized in FLinkerLoad::Preload, before
-		// we've hit this code.
-		if ( !HasAnyFlags(RF_ClassDefaultObject) && ObjClass->GetDefaultsCount() > 0 )
-		{
-			UnderlyingArchive.Preload(ObjClass->GetDefaultObject());
-		}
-	}
+		FArchive& UnderlyingArchive = Record.GetUnderlyingArchive();
 
-	// Special info.
-	if( (!UnderlyingArchive.IsLoading() && !UnderlyingArchive.IsSaving() && !UnderlyingArchive.IsObjectReferenceCollector()) )
-	{
-		Record << NAMED_FIELD(LoadName);
-		if(!UnderlyingArchive.IsIgnoringOuterRef())
+		// These three items are very special items from a serialization standpoint. They aren't actually serialized.
+		UClass *ObjClass = GetClass();
+		UObject* LoadOuter = GetOuter();
+		FName LoadName = GetFName();
+
+		// Make sure this object's class's data is loaded.
+		if(ObjClass->HasAnyFlags(RF_NeedLoad) )
 		{
-			Record << NAMED_FIELD(LoadOuter);
-		}
-		if ( !UnderlyingArchive.IsIgnoringClassRef() )
-		{
-			Record << NAMED_FIELD(ObjClass);
-		}
-	}
-	// Special support for supporting undo/redo of renaming and changing Archetype.
-	else if( UnderlyingArchive.IsTransacting() )
-	{
-		if(!UnderlyingArchive.IsIgnoringOuterRef())
-		{
-			if(UnderlyingArchive.IsLoading())
+			UnderlyingArchive.Preload(ObjClass);
+
+			// make sure this object's template data is loaded - the only objects
+			// this should actually affect are those that don't have any defaults
+			// to serialize.  for objects with defaults that actually require loading
+			// the class default object should be serialized in FLinkerLoad::Preload, before
+			// we've hit this code.
+			if ( !HasAnyFlags(RF_ClassDefaultObject) && ObjClass->GetDefaultsCount() > 0 )
 			{
-				Record << NAMED_FIELD(LoadName) << NAMED_FIELD(LoadOuter);
+				UnderlyingArchive.Preload(ObjClass->GetDefaultObject());
+			}
+		}
 
-				// If the name we loaded is different from the current one,
-				// unhash the object, change the name and hash it again.
-				bool bDifferentName = GetFName() != NAME_None && LoadName != GetFName();
-				bool bDifferentOuter = LoadOuter != GetOuter();
-				if ( bDifferentName == true || bDifferentOuter == true )
+		// Special info.
+		if ((!UnderlyingArchive.IsLoading() && !UnderlyingArchive.IsSaving() && !UnderlyingArchive.IsObjectReferenceCollector()))
+		{
+			Record << NAMED_FIELD(LoadName);
+			if (!UnderlyingArchive.IsIgnoringOuterRef())
+			{
+				Record << NAMED_FIELD(LoadOuter);
+			}
+			if (!UnderlyingArchive.IsIgnoringClassRef())
+			{
+				Record << NAMED_FIELD(ObjClass);
+			}
+		}
+		// Special support for supporting undo/redo of renaming and changing Archetype.
+		else if (UnderlyingArchive.IsTransacting())
+		{
+			if (!UnderlyingArchive.IsIgnoringOuterRef())
+			{
+				if (UnderlyingArchive.IsLoading())
 				{
-					LowLevelRename(LoadName,LoadOuter);
+					Record << NAMED_FIELD(LoadName) << NAMED_FIELD(LoadOuter);
+
+					// If the name we loaded is different from the current one,
+					// unhash the object, change the name and hash it again.
+					bool bDifferentName = GetFName() != NAME_None && LoadName != GetFName();
+					bool bDifferentOuter = LoadOuter != GetOuter();
+					if ( bDifferentName == true || bDifferentOuter == true )
+					{
+						LowLevelRename(LoadName,LoadOuter);
+					}
+				}
+				else
+				{
+					Record << NAMED_FIELD(LoadName) << NAMED_FIELD(LoadOuter);
 				}
 			}
-			else
-			{
-				Record << NAMED_FIELD(LoadName) << NAMED_FIELD(LoadOuter);
-			}
 		}
-	}
 
-	// Serialize object properties which are defined in the class.
-	// Handle derived UClass objects (exact UClass objects are native only and shouldn't be touched)
-	if (ObjClass != UClass::StaticClass())
-	{
-		SerializeScriptProperties(Record.EnterField(FIELD_NAME_TEXT("Properties")));
-	}
-
-	// Keep track of pending kill
-	if( UnderlyingArchive.IsTransacting() )
-	{
-		bool WasKill = IsPendingKill();
-		if( UnderlyingArchive.IsLoading() )
+		// Serialize object properties which are defined in the class.
+		// Handle derived UClass objects (exact UClass objects are native only and shouldn't be touched)
+		if (ObjClass != UClass::StaticClass())
 		{
-			Record << NAMED_FIELD(WasKill);
-			if (WasKill)
-			{
-				MarkPendingKill();
-			}
-			else
-			{
-				ClearPendingKill();
-			}
+			SerializeScriptProperties(Record.EnterField(FIELD_NAME_TEXT("Properties")));
 		}
-		else if( UnderlyingArchive.IsSaving() )
+
+		// Keep track of pending kill
+		if (UnderlyingArchive.IsTransacting())
 		{
-			Record << NAMED_FIELD(WasKill);
+			bool WasKill = IsPendingKill();
+			if (UnderlyingArchive.IsLoading())
+			{
+				Record << NAMED_FIELD(WasKill);
+				if (WasKill)
+				{
+					MarkPendingKill();
+				}
+				else
+				{
+					ClearPendingKill();
+				}
+			}
+			else if (UnderlyingArchive.IsSaving())
+			{
+				Record << NAMED_FIELD(WasKill);
+			}
 		}
+
+		// Serialize a GUID if this object has one mapped to it
+		FLazyObjectPtr::PossiblySerializeObjectGuid(this, Record);
+
+		// Invalidate asset pointer caches when loading a new object
+		if (UnderlyingArchive.IsLoading())
+		{
+			FSoftObjectPath::InvalidateTag();
+		}
+
+		// Memory counting (with proper alignment to match C++)
+		SIZE_T Size = GetClass()->GetStructureSize();
+		UnderlyingArchive.CountBytes(Size, Size);
+#if WITH_EDITOR
 	}
 
-	// Serialize a GUID if this object has one mapped to it
-	FLazyObjectPtr::PossiblySerializeObjectGuid(this, Record);
-
-	// Invalidate asset pointer caches when loading a new object
-	if (UnderlyingArchive.IsLoading() )
+	if (bReportSoftObjectPathRedirects && !GReportSoftObjectPathRedirects)
 	{
-		FSoftObjectPath::InvalidateTag();
+		UE_ASSET_LOG(LogCore, Warning, this, TEXT("Soft object paths were redirected during cook of '%s' - package should be resaved."), *GetName());
 	}
-
-	// Memory counting (with proper alignment to match C++)
-	SIZE_T Size = GetClass()->GetStructureSize();
-	UnderlyingArchive.CountBytes( Size, Size );
+#endif
 }
 
 void UObject::SerializeScriptProperties(FArchive& Ar) const
@@ -3419,31 +3448,6 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 		}
 		return true;
 	}
-	else if (FParse::Command(&Str, TEXT("GETALLSTATE")))
-	{
-		// iterate through all objects of the specified class and log the state they're in
-		TCHAR ClassName[256];
-		UClass* Class;
-
-		if ( FParse::Token(Str, ClassName, ARRAY_COUNT(ClassName), 1) &&
-			(Class = FindObject<UClass>(ANY_PACKAGE, ClassName)) != NULL )
-		{
-			bool bShowPendingKills = FParse::Command(&Str, TEXT("SHOWPENDINGKILLS"));
-			int32 cnt = 0;
-			for (TObjectIterator<UObject> It; It; ++It)
-			{
-				if ((bShowPendingKills || !It->IsPendingKill()) && It->IsA(Class))
-				{
-					Ar.Logf( TEXT("%i) %s"), cnt++, *It->GetFullName() );
-				}
-			}
-		}
-		else
-		{
-			UE_SUPPRESS(LogExec, Warning, Ar.Logf(TEXT("Unrecognized class %s"), ClassName));
-		}
-		return true;
-	}
 	else if( FParse::Command(&Str,TEXT("SET")) )
 	{
 		PerformSetCommand( Str, Ar, true );
@@ -4348,6 +4352,26 @@ void StaticExit()
 UPackage* GetTransientPackage()
 {
 	return GObjTransientPkg;
+}
+
+//keep this global to ensure that an actual write is prepared
+volatile const UObject** GUObjectAbortNullPointer = nullptr;
+
+/**
+ * Abort with a member function call at the top of the callstack, helping to ensure that most platforms will stuff this object's memory into the resulting minidump.
+ */
+void UObject::AbortInsideMemberFunction() const
+{
+	//put a trace of this in the log to help diagnostics at a glance.
+	UE_LOG(LogObj, Warning, TEXT("UObject::AbortInsideMemberFunction called on object %s."), *GetFullName());
+	//a bit more ideally, we could set GIsCriticalError = true and call FPlatformMisc::RequestExit. however, not all platforms would generate a dump as a result of this.
+	//as such, we commit an access violation right here. we explicitly want to avoid the standard platform error/AssertFailed paths as they are likely to pollute the
+	//callstack. this in turn is more likely to prevent useful (e.g. this object) memory from making its way into a minidump.
+
+	//this'll result in the address of this object being conveniently loaded into a register, so we don't have to dig a pointer out of the stack in the event of any
+	//ambiguity/reg-stomping resulting from the log call above. in a test ps4 minidump, this also ensured that the debugger was able to automatically find the address of
+	//"this" within the stack frame, which was otherwise made impossible due to register reuse in the log call above.
+	*GUObjectAbortNullPointer = this;
 }
 
 /*-----------------------------------------------------------------------------

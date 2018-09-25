@@ -400,6 +400,31 @@ FDynamicPropertyPath FEditorPropertyPath::ToPropertyPath() const
 	return FDynamicPropertyPath(PropertyChain);
 }
 
+bool FDelegateEditorBinding::IsAttributePropertyBinding(UWidgetBlueprint* Blueprint) const
+{
+	// First find the target widget we'll be attaching the binding to.
+	if (UWidget* TargetWidget = Blueprint->WidgetTree->FindWidget(FName(*ObjectName)))
+	{
+		// Next find the underlying delegate we're actually binding to, if it's an event the name will be the same,
+		// for properties we need to lookup the delegate property we're actually going to be binding to.
+		UDelegateProperty* BindableProperty = FindField<UDelegateProperty>(TargetWidget->GetClass(), FName(*(PropertyName.ToString() + TEXT("Delegate"))));
+		return BindableProperty != nullptr;
+	}
+
+	return false;
+}
+
+bool FDelegateEditorBinding::DoesBindingTargetExist(UWidgetBlueprint* Blueprint) const
+{
+	// First find the target widget we'll be attaching the binding to.
+	if (UWidget* TargetWidget = Blueprint->WidgetTree->FindWidget(FName(*ObjectName)))
+	{
+		return true;
+	}
+
+	return false;
+}
+
 bool FDelegateEditorBinding::IsBindingValid(UClass* BlueprintGeneratedClass, UWidgetBlueprint* Blueprint, FCompilerResultsLog& MessageLog) const
 {
 	FDelegateRuntimeBinding RuntimeBinding = ToRuntimeBinding(Blueprint);
@@ -545,8 +570,6 @@ void UWidgetBlueprint::ReplaceDeprecatedNodes()
 void UWidgetBlueprint::PreSave(const class ITargetPlatform* TargetPlatform)
 {
 	Super::PreSave(TargetPlatform);
-
-	PropertyBindings = Bindings.Num();
 }
 #endif // WITH_EDITORONLY_DATA
 
@@ -613,8 +636,6 @@ void UWidgetBlueprint::PostLoad()
 			Graph->Schema = UWidgetGraphSchema::StaticClass();
 		}
 	}
-
-	PropertyBindings = Bindings.Num();
 }
 
 void UWidgetBlueprint::PostDuplicate(bool bDuplicateForPIE)
@@ -666,8 +687,6 @@ void UWidgetBlueprint::GatherDependencies(TSet<TWeakObjectPtr<UBlueprint>>& InDe
 
 bool UWidgetBlueprint::ValidateGeneratedClass(const UClass* InClass)
 {
-	bool Result = Super::ValidateGeneratedClass(InClass);
-
 	const UWidgetBlueprintGeneratedClass* GeneratedClass = Cast<const UWidgetBlueprintGeneratedClass>(InClass);
 	if ( !ensure(GeneratedClass) )
 	{
@@ -713,7 +732,7 @@ bool UWidgetBlueprint::ValidateGeneratedClass(const UClass* InClass)
 		}
 	}
 
-	return Result;
+	return true;
 }
 
 TSharedPtr<FKismetCompilerContext> UWidgetBlueprint::GetCompilerForWidgetBP(UBlueprint* BP, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompileOptions)
@@ -915,8 +934,13 @@ bool UWidgetBlueprint::WidgetSupportsDynamicCreation() const
 		return false;
 	case EWidgetSupportsDynamicCreation::Default:
 	default:
-		return GetDefault<UUMGEditorProjectSettings>()->bWidgetSupportsDynamicCreation;
+		return GetDefault<UUMGEditorProjectSettings>()->CompilerOption_SupportsDynamicCreation(this);
 	}
+}
+
+bool UWidgetBlueprint::ArePropertyBindingsAllowed() const
+{
+	return GetDefault<UUMGEditorProjectSettings>()->CompilerOption_PropertyBindingRule(this) == EPropertyBindingPermissionLevel::Allow;
 }
 
 #if WITH_EDITOR

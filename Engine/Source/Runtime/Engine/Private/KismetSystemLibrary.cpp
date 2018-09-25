@@ -338,7 +338,9 @@ int32 UKismetSystemLibrary::GetConsoleVariableIntValue(UObject* WorldContextObje
 }
 
 
-void UKismetSystemLibrary::QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference)
+
+
+void UKismetSystemLibrary::QuitGame(UObject* WorldContextObject, class APlayerController* SpecificPlayer, TEnumAsByte<EQuitPreference::Type> QuitPreference, bool bIgnorePlatformRestrictions)
 {
 	APlayerController* TargetPC = SpecificPlayer ? SpecificPlayer : UGameplayStatics::GetPlayerController(WorldContextObject, 0);
 	if( TargetPC )
@@ -349,7 +351,14 @@ void UKismetSystemLibrary::QuitGame(UObject* WorldContextObject, class APlayerCo
 		}
 		else
 		{
-			TargetPC->ConsoleCommand("quit");
+			if (bIgnorePlatformRestrictions)
+			{
+				TargetPC->ConsoleCommand("quit force");
+			}
+			else
+			{
+				TargetPC->ConsoleCommand("quit");
+			}
 		}
 	}
 }
@@ -2186,7 +2195,7 @@ bool UKismetSystemLibrary::GetConvenientWindowedResolutions(TArray<FIntPoint>& R
 	}
 	else
 	{
-		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FDisplayMetrics::RebuildDisplayMetrics(DisplayMetrics);
 	}
 
 	extern void GenerateConvenientWindowedResolutions(const struct FDisplayMetrics& InDisplayMetrics, TArray<FIntPoint>& OutResolutions);
@@ -2360,6 +2369,11 @@ void UKismetSystemLibrary::SetStructurePropertyByName(UObject* Object, FName Pro
 {
 	// We should never hit these!  They're stubs to avoid NoExport on the class.
 	check(0);
+}
+
+bool UKismetSystemLibrary::IsScreensaverEnabled()
+{
+	return FPlatformApplicationMisc::IsScreensaverEnabled();
 }
 
 void UKismetSystemLibrary::ControlScreensaver(bool bAllowScreenSaver)
@@ -2551,6 +2565,11 @@ void UKismetSystemLibrary::SetUserActivity(const FUserActivity& UserActivity)
 FString UKismetSystemLibrary::GetCommandLine()
 {
 	return FString(FCommandLine::Get());
+}
+
+bool UKismetSystemLibrary::IsUnattended()
+{
+	return FApp::IsUnattended();
 }
 
 int32 UKismetSystemLibrary::BeginTransaction(const FString& Context, FText Description, UObject* PrimaryObject)

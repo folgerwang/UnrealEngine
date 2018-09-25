@@ -214,6 +214,12 @@ namespace UnrealBuildTool
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableRemoteNotificationsSupport")]
         public readonly bool bNotificationsEnabled = false;
 
+        /// <summary>
+        /// true if notifications are enabled
+        /// </summary>
+        [ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableBackgroundFetch")]
+        public readonly bool bBackgroundFetchEnabled = false;
+
 		/// <summary>
 		/// The bundle identifier
 		/// </summary>
@@ -777,7 +783,7 @@ namespace UnrealBuildTool
 				"bDevForArmV7", "bDevForArm64", "bDevForArmV7S", "bShipForArmV7", 
 				"bShipForArm64", "bShipForArmV7S", "bShipForBitcode", "bGeneratedSYMFile",
 				"bGeneratedSYMBundle", "bEnableRemoteNotificationsSupport", "bEnableCloudKitSupport",
-                "bGenerateCrashReportSymbols"
+                "bGenerateCrashReportSymbols", "bEnableBackgroundFetch"
             };
 			string[] StringKeys = new string[] {
 				"MinimumiOSVersion", 
@@ -910,6 +916,14 @@ namespace UnrealBuildTool
 			{
 				CompileEnvironment.Definitions.Add("NOTIFICATIONS_ENABLED=0");
 			}
+            if (ProjectSettings.bBackgroundFetchEnabled)
+            {
+                CompileEnvironment.Definitions.Add("BACKGROUNDFETCH_ENABLED=1");
+            }
+            else
+            {
+                CompileEnvironment.Definitions.Add("BACKGROUNDFETCH_ENABLED=0");
+            }
 
 			CompileEnvironment.Definitions.Add("UE_DISABLE_FORCE_INLINE=" + (ProjectSettings.bDisableForceInline ? "1" : "0"));
 
@@ -920,6 +934,18 @@ namespace UnrealBuildTool
 			else
 			{
 				CompileEnvironment.Definitions.Add("WITH_SIMULATOR=0");
+			}
+
+			// if the project has an Oodle compression Dll, enable the decompressor on IOS
+			if (Target.ProjectFile != null)
+			{
+				DirectoryReference ProjectDir = DirectoryReference.GetParentDirectory(Target.ProjectFile);
+				string OodleDllPath = DirectoryReference.Combine(ProjectDir, "Binaries/ThirdParty/Oodle/Mac/libUnrealPakPlugin.dylib").FullName;
+				if (File.Exists(OodleDllPath))
+				{
+					Log.TraceVerbose("        Registering custom oodle compressor for {0}", UnrealTargetPlatform.IOS.ToString());
+					CompileEnvironment.Definitions.Add("REGISTER_OODLE_CUSTOM_COMPRESSOR=1");
+				}
 			}
 
 			LinkEnvironment.AdditionalFrameworks.Add(new UEBuildFramework("GameKit"));

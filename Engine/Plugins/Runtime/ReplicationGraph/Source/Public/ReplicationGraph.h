@@ -70,11 +70,6 @@ class REPLICATIONGRAPH_API UReplicationGraphNode : public UObject
 
 public:
 
-	typedef TFunction< UReplicationGraphNode*(UReplicationGraphNode* Parent)> FCreateChildNodeFunc;
-
-	/** This is the default value of CreateChildSceneNodeFunc. It will create a UReplicationGraphNode_ActorList. Projects may want to override this if they want their own custom leafs nodes on the graph.  */
-	static FCreateChildNodeFunc DefaultCreatChildNodeFunc;
-
 	UReplicationGraphNode();
 
 	/** Called when a network actor is spawned or an actor changes replication status */
@@ -94,6 +89,9 @@ public:
 	/** Called once per frame prior to replication ONLY on root nodes (nodes created via UReplicationGraph::CreateNode) has RequiresPrepareForReplicationCall=true */
 	virtual void PrepareForReplication() { };
 
+	/** Debugging only function to return a normal TArray of actor rep list (for logging, debug UIs, etc) */
+	virtual void GetAllActorsInNode_Debugging(TArray<FActorRepListType>& OutArray) const { }
+
 	// -----------------------------------------------------
 
 	bool GetRequiresPrepareForReplication() const { return bRequiresPrepareForReplicationCall; }
@@ -102,17 +100,9 @@ public:
 
 	virtual UWorld* GetWorld() const override final { return  GraphGlobals.IsValid() ? GraphGlobals->World : nullptr; }
 
-	void SetCreateChildNodeFunc(const FCreateChildNodeFunc& InFunc) { CreateChildSceneNodeFunc = InFunc; }
-
 	virtual void LogNode(FReplicationGraphDebugInfo& DebugInfo, const FString& NodeName) const;
 
 	virtual FString GetDebugString() const { return GetName(); }
-
-	/** Allocates and initializes a ChildNode of the default type, which is defined by CreateChildSceneNodeFunc. This is what you will want to call in your subclasses to create child nodes.  */
-	UReplicationGraphNode* CreateChildNode()
-	{
-		return CreateChildSceneNodeFunc(this);
-	}
 
 	/** Allocates and initializes ChildNode of a specific type T. This is what you will want to call in your FCreateChildNodeFuncs.  */
 	template< class T >
@@ -135,10 +125,6 @@ protected:
 
 	/** Determines if PrepareForReplication() is called. This currently must be set in the constructor, not dynamically. */
 	bool bRequiresPrepareForReplicationCall = false;
-
-private:
-
-	FCreateChildNodeFunc CreateChildSceneNodeFunc;
 };
 
 // -----------------------------------
@@ -193,9 +179,13 @@ public:
 
 	virtual void GetAllActorsInNode_Debugging(TArray<FActorRepListType>& OutArray) const;
 
+	/** Copies the contents of Source into this node. Note this does not copy child nodes, just the ReplicationActorList/StreamingLevelCollection lists on this node. */
 	void DeepCopyActorListsFrom(const UReplicationGraphNode_ActorList* Source);
 
 protected:
+
+	/** Just logs our ReplicationActorList and StreamingLevelCollection (not our child nodes). Useful when subclasses override LogNode */
+	void LogActorList(FReplicationGraphDebugInfo& DebugInfo) const;
 
 	/** The base list that most actors will go in */
 	FActorRepListRefView ReplicationActorList;
@@ -216,20 +206,32 @@ class REPLICATIONGRAPH_API UReplicationGraphNode_ActorListFrequencyBuckets : pub
 
 public:
 
-	static int32 DefaultNumBuckets;
-	static int32 DefaultListSize;
-
-	// Threshold for dynamically balancing buckets bsaed on number of actors in this node. E.g, more buckets when there are more actors.
-	struct FBucketThresholds
+	struct FSettings
 	{
-		FBucketThresholds(int32 InMaxActors, int32 InNumBuckets) : MaxActors(InMaxActors), NumBuckets(InNumBuckets) { }
-		int32 MaxActors;	// When num actors <= to MaxActors
-		int32 NumBuckets;	// use this NumBuckets
+		int32 NumBuckets = 3;
+		int32 ListSize = 12;
+		bool EnableFastPath = false; // Whether to return lists as FastPath in "off frames". Defaults to false.
+
+		// Threshold for dynamically balancing buckets bsaed on number of actors in this node. E.g, more buckets when there are more actors.
+		struct FBucketThresholds
+		{
+			FBucketThresholds(int32 InMaxActors, int32 InNumBuckets) : MaxActors(InMaxActors), NumBuckets(InNumBuckets) { }
+			int32 MaxActors;	// When num actors <= to MaxActors
+			int32 NumBuckets;	// use this NumBuckets
+		};
+
+		TArray<FBucketThresholds, TInlineAllocator<4>> BucketThresholds;
 	};
 
-	static TArray<FBucketThresholds, TInlineAllocator<4>> DefaultBucketThresholds;
+	/** Default settings for all nodes. By being static, this allows games to easily override the settings are all nodes without having to subclass every graph node class */
+	static FSettings DefaultSettings;
+
+	/** Settings for this specific node. If not set we will fallback to the static/global DefaultSettings */
+	TSharedPtr<FSettings> Settings;
+
+	const FSettings& GetSettings() const { return Settings.IsValid() ? *Settings.Get() : DefaultSettings; }
 	
-	UReplicationGraphNode_ActorListFrequencyBuckets() { if (!HasAnyFlags(RF_ClassDefaultObject)) { SetNonStreamingCollectionSize(DefaultNumBuckets); } }
+	UReplicationGraphNode_ActorListFrequencyBuckets() { if (!HasAnyFlags(RF_ClassDefaultObject)) { SetNonStreamingCollectionSize(GetSettings().NumBuckets); } }
 
 	virtual void NotifyAddNetworkActor(const FNewReplicatedActorInfo& ActorInfo) override;
 	
@@ -323,9 +325,7 @@ class REPLICATIONGRAPH_API UReplicationGraphNode_GridCell : public UReplicationG
 public:
 
 	virtual void NotifyAddNetworkActor(const FNewReplicatedActorInfo& ActorInfo) override { ensureMsgf(false, TEXT("UReplicationGraphNode_Simple2DSpatializationLeaf::NotifyAddNetworkActor not functional.")); }
-	virtual bool NotifyRemoveNetworkActor(const FNewReplicatedActorInfo& ActorInfo, bool bWarnIfNotFound=true) override { ensureMsgf(false, TEXT("UReplicationGraphNode_Simple2DSpatializationLeaf::NotifyRemoveNetworkActor not functional.")); return false; }	
-	virtual void NotifyResetAllNetworkActors() override;
-	virtual void GatherActorListsForConnection(const FConnectionGatherActorListParameters& Params) override;
+	virtual bool NotifyRemoveNetworkActor(const FNewReplicatedActorInfo& ActorInfo, bool bWarnIfNotFound=true) override { ensureMsgf(false, TEXT("UReplicationGraphNode_Simple2DSpatializationLeaf::NotifyRemoveNetworkActor not functional.")); return false; }
 	virtual void LogNode(FReplicationGraphDebugInfo& DebugInfo, const FString& NodeName) const override;
 	virtual void GetAllActorsInNode_Debugging(TArray<FActorRepListType>& OutArray) const override;
 
@@ -335,21 +335,24 @@ public:
 	void RemoveStaticActor(const FNewReplicatedActorInfo& ActorInfo, FGlobalActorReplicationInfo& ActorRepInfo, bool bWasAddedAsDormantActor);
 	void RemoveDynamicActor(const FNewReplicatedActorInfo& ActorInfo);
 
+	// Allow graph to override function for creating the dynamic node in the cell
+	TFunction<UReplicationGraphNode*(UReplicationGraphNode_GridCell* Parent)> CreateDynamicNodeOverride;
+
 private:
 
 	UPROPERTY()
-	UReplicationGraphNode_ActorListFrequencyBuckets* DynamicNode = nullptr;
+	UReplicationGraphNode* DynamicNode = nullptr;
 
 	UPROPERTY()
 	UReplicationGraphNode_DormancyNode* DormancyNode = nullptr;
 
-	UReplicationGraphNode_ActorListFrequencyBuckets* GetDynamicNode();
+	UReplicationGraphNode* GetDynamicNode();
 	UReplicationGraphNode_DormancyNode* GetDormancyNode();
 
 	void OnActorDormancyFlush(FActorRepListType Actor, FGlobalActorReplicationInfo& GlobalInfo, UReplicationGraphNode_DormancyNode* DormancyNode );
 
 	void ConditionalCopyDormantActors(FActorRepListRefView& FromList, UReplicationGraphNode_DormancyNode* ToNode);	
-	void OnNetDormancyChange(FActorRepListType Actor, FGlobalActorReplicationInfo& GlobalInfo, ENetDormancy NewVlue, ENetDormancy OldValue);
+	void OnStaticActorNetDormancyChange(FActorRepListType Actor, FGlobalActorReplicationInfo& GlobalInfo, ENetDormancy NewVlue, ENetDormancy OldValue);
 };
 
 // -----------------------------------
@@ -384,6 +387,9 @@ public:
 	float		CellSize;
 	FVector2D	SpatialBias;
 	float		ConnectionMaxZ = WORLD_MAX; // Connection locations have to be <= to this to pull from the grid
+	
+	// Allow graph to override function for creating cell nodes in this grid.
+	TFunction<UReplicationGraphNode_GridCell*(UReplicationGraphNode_GridSpatialization2D* Parent)>	CreateCellNodeOverride;
 
 	void ForceRebuild() { bNeedsRebuild = true; }
 
@@ -407,7 +413,7 @@ private:
 	/** Called when an actor is out of spatial bounds */
 	void HandleActorOutOfSpatialBounds(AActor* Actor, const FVector& Location3D, const bool bStaticActor);
 
-	// Classmap of actor classes which CANNOT force a rebulid of the spatialization tree. They will be clamped instead. E.g, projectiles.
+	// Classmap of actor classes which CANNOT force a rebuild of the spatialization tree. They will be clamped instead. E.g, projectiles.
 	TClassMap<bool> RebuildSpatialBlacklistMap;
 	
 	struct FActorCellInfo
@@ -443,14 +449,21 @@ private:
 	
 	void PutStaticActorIntoCell(const FNewReplicatedActorInfo& ActorInfo, FGlobalActorReplicationInfo& ActorRepInfo, bool bDormancyDriven);
 
-	UReplicationGraphNode_GridCell* GetLeafNode(UReplicationGraphNode_GridCell*& BucketPtr)
+	UReplicationGraphNode_GridCell* GetCellNode(UReplicationGraphNode_GridCell*& NodePtr)
 	{
-		if (BucketPtr == nullptr)
+		if (NodePtr == nullptr)
 		{
-			BucketPtr = CastChecked<UReplicationGraphNode_GridCell>(CreateChildNode());
+			if (CreateCellNodeOverride)
+			{
+				NodePtr = CreateCellNodeOverride(this);
+			}
+			else
+			{
+				NodePtr = CreateChildNode<UReplicationGraphNode_GridCell>();
+			}
 		}
 
-		return BucketPtr;
+		return NodePtr;
 	}
 
 	TArray< TArray<UReplicationGraphNode_GridCell*> > Grid;
@@ -609,8 +622,10 @@ public:
 	// --------------------------------------------------------------
 
 	virtual void InitForNetDriver(UNetDriver* InNetDriver) override;
+	
+	virtual void SetRepDriverWorld(UWorld* InWorld) override;
 
-	virtual void SetWorld(UWorld* InWorld) override;
+	virtual void InitializeActorsInWorld(UWorld* InWorld) override;
 
 	virtual void ResetGameWorldState() override { }
 
@@ -641,6 +656,8 @@ public:
 
 	virtual bool ProcessRemoteFunction(class AActor* Actor, UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack, class UObject* SubObject ) override;
 
+	void PostTickDispatch() override;
+
 	bool IsConnectionReady(UNetConnection* Connection);
 
 	// --------------------------------------------------------------
@@ -668,7 +685,9 @@ public:
 
 	virtual UWorld* GetWorld() const override final { return GraphGlobals.IsValid() ? GraphGlobals->World : nullptr; }
 
-	void LogGraph(FReplicationGraphDebugInfo& DebugInfo) const;
+	virtual void LogGraph(FReplicationGraphDebugInfo& DebugInfo) const;
+	virtual void LogGlobalGraphNodes(FReplicationGraphDebugInfo& DebugInfo) const;
+	virtual void LogConnectionGraphNodes(FReplicationGraphDebugInfo& DebugInfo) const;
 
 	const TSharedPtr<FReplicationGraphGlobalData>& GetGraphGlobals() const { return GraphGlobals; }
 
@@ -678,11 +697,22 @@ public:
 	/** Prioritization Constants: these affect how the final priority of an actor is calculated in the prioritize phase */
 	struct FPrioritizationConstants
 	{
-		float MaxDistanceScaling = 3000.f * 3000.f; // Distance scaling for prioritization scales up to this distance, everything passed this distance is the same or "capped"
-		uint32 MaxFramesSinceLastRep = 20;			// Time since last rep scales up to this
+		float MaxDistanceScaling = 3000.f * 3000.f;		// Distance scaling for prioritization scales up to this distance, everything passed this distance is the same or "capped"
+		uint32 MaxFramesSinceLastRep = 20;				// Time since last rep scales up to this
+		
 	};
-
 	FPrioritizationConstants PrioritizationConstants;
+
+	struct FFastSharedPathConstants
+	{
+		float DistanceRequirementPct = 0.1f;	// Must be this close, as a factor of cull distance *squared*, to use fast shared replication path
+		int32 MaxBitsPerFrame = 2048;			// 5kBytes/sec @ 20hz
+		int32 ListSkipPerFrame = 3;
+	};
+	FFastSharedPathConstants FastSharedPathConstants;
+
+	/** Invoked when a rep list is requested that exceeds the size of the preallocated lists */
+	static TFunction<void(int32)> OnListRequestExceedsPooledSize;
 
 protected:
 
@@ -703,7 +733,7 @@ protected:
 
 	void HandleStarvedActorList(const FPrioritizedRepList& List, int32 StartIdx, FPerConnectionActorInfoMap& ConnectionActorInfoMap, uint32 FrameNum);
 
-	void UpdateActorChannelCloseFrameNum(FConnectionReplicationActorInfo& ConnectionData, const FGlobalActorReplicationInfo& GlobalData, const uint32 FrameNum) const;
+	void UpdateActorChannelCloseFrameNum(AActor* Actor, FConnectionReplicationActorInfo& ConnectionData, const FGlobalActorReplicationInfo& GlobalData, const uint32 FrameNum) const;
 
 	/** How long, in frames, without replicating before an actor channel is closed on a connection. This is a global value added to the individual actor's ActorChannelFrameTimeout */
 	uint32 GlobalActorChannelFrameNumTimeout;
@@ -729,9 +759,23 @@ protected:
 	/** Special case handling of specific RPCs. Currently supports immediate send/flush for multicasts */
 	TMap<FObjectKey /** UFunction* */, FRPCSendPolicyInfo> RPCSendPolicyMap;
 
+	FReplicationGraphCSVTracker CSVTracker;
+
+	FOutBunch* FastSharedReplicationBunch = nullptr;
+	class UActorChannel* FastSharedReplicationChannel = nullptr;
+
 #if REPGRAPH_DETAILS
 	bool bEnableFullActorPrioritizationDetailsAllConnections = false;
 #endif
+
+	/** Default Replication Path */
+	void ReplicateActorListsForConnection_Default(UNetReplicationGraphConnection* ConnectionManager, FGatheredReplicationActorLists& GatheredReplicationListsForConnection, FNetViewer& Viewer);
+
+	/** "FastShared" Replication Path */
+	void ReplicateActorListsForConnection_FastShared(UNetReplicationGraphConnection* ConnectionManager, FGatheredReplicationActorLists& GatheredReplicationListsForConnection, FNetViewer& Viewer);
+
+	/** Connections needing a FlushNet in PostTickDispatch */
+	TArray<UNetConnection*> ConnectionsNeedingsPostTickDispatchFlush;
 
 private:
 
@@ -759,6 +803,8 @@ class REPLICATIONGRAPH_API UNetReplicationGraphConnection : public UReplicationC
 public:
 
 	UNetReplicationGraphConnection();
+
+	virtual void TearDown() override;
 
 	UPROPERTY()
 	UNetConnection* NetConnection;
@@ -888,6 +934,9 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerSetCullDistanceForClass(UClass* Class, float CullDistance);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSetPeriodFrameForClass(UClass* Class, int32 PeriodFrame);
 
 	UFUNCTION(Client, Reliable)
 	void ClientCellInfo(FVector CellLocation, FVector CellExtent, const TArray<AActor*>& Actors);

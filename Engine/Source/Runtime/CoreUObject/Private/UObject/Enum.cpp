@@ -606,7 +606,7 @@ bool UEnum::HasMetaData( const TCHAR* Key, int32 NameIndex/*=INDEX_NONE*/ ) cons
 	return bResult;
 }
 
-const FString& UEnum::GetMetaData( const TCHAR* Key, int32 NameIndex/*=INDEX_NONE*/ ) const
+FString UEnum::GetMetaData( const TCHAR* Key, int32 NameIndex/*=INDEX_NONE*/, bool bAllowRemap/*=true*/ ) const
 {
 	UPackage* Package = GetOutermost();
 	check(Package);
@@ -628,8 +628,18 @@ const FString& UEnum::GetMetaData( const TCHAR* Key, int32 NameIndex/*=INDEX_NON
 		KeyString = Key;
 	}
 
-	const FString& ResultString = MetaData->GetValue( this, *KeyString );
+	FString ResultString = MetaData->GetValue( this, *KeyString );
 	
+	// look in the engine ini, in a section named after the metadata key we are looking for, and the enum's name (KeyString)
+	if (bAllowRemap && ResultString.StartsWith(TEXT("ini:")))
+	{
+		if (!GConfig->GetString(TEXT("EnumRemap"), *KeyString, ResultString, GEngineIni))
+		{
+			// if this fails, then use what's after the ini:
+			ResultString = ResultString.Mid(4);
+		}
+	}
+
 	return ResultString;
 }
 

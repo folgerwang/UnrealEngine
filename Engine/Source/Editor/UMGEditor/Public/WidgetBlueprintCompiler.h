@@ -75,6 +75,8 @@ protected:
 	virtual void PostCompile() override;
 	// End FKismetCompilerContext
 
+	void SanitizeBindings(UBlueprintGeneratedClass* Class);
+
 	void VerifyEventReplysAreNotEmpty(FKismetFunctionContext& Context);
 
 protected:

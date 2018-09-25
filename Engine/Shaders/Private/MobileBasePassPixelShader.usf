@@ -469,7 +469,7 @@ void Main(
 			FPCFSamplerSettings Settings;
 			Settings.ShadowDepthTexture = MobileDirectionalLight.DirectionalLightShadowTexture;
 			Settings.ShadowDepthTextureSampler = MobileDirectionalLight.DirectionalLightShadowSampler;
-			Settings.TransitionScale = MobileDirectionalLight.DirectionalLightShadowTransition;
+			Settings.TransitionScale = MobileDirectionalLight.DirectionalLightDirectionAndShadowTransition.w;
 			Settings.ShadowBufferSize = MobileDirectionalLight.DirectionalLightShadowSize;
 			Settings.bSubsurface = false;
 			Settings.bTreatMaxDepthUnshadowed = false;
@@ -519,9 +519,9 @@ void Main(
 		}
 		#endif /* DIRECTIONAL_LIGHT_CSM */
 
-		float NoL = max(0, dot(float3(MaterialParameters.WorldNormal), float3(MobileDirectionalLight.DirectionalLightDirection)));
-		float RoL = max(0, dot(float3(MaterialParameters.ReflectionVector), float3(MobileDirectionalLight.DirectionalLightDirection)));
-		float3 H = normalize(MaterialParameters.CameraVector + MobileDirectionalLight.DirectionalLightDirection);
+		float NoL = max(0, dot(float3(MaterialParameters.WorldNormal), float3(MobileDirectionalLight.DirectionalLightDirectionAndShadowTransition.xyz)));
+		float RoL = max(0, dot(float3(MaterialParameters.ReflectionVector), float3(MobileDirectionalLight.DirectionalLightDirectionAndShadowTransition.xyz)));
+		float3 H = normalize(MaterialParameters.CameraVector + MobileDirectionalLight.DirectionalLightDirectionAndShadowTransition.xyz);
 		float NoH = max(0,dot(MaterialParameters.WorldNormal, H));
 
 		#if FULLY_ROUGH

@@ -15,9 +15,11 @@ enum ESourceType
 	SRC_AndroidVersion,
 	SRC_DeviceMake,
 	SRC_DeviceModel,
+	SRC_DeviceBuildNumber,
 	SRC_VulkanVersion,
 	SRC_UsingHoudini,
 	SRC_VulkanAvailable,
+	SRC_CommandLine,
 	SRC_MAX,
 };
 
@@ -31,6 +33,12 @@ enum ECompareType
 	CMP_GreaterEqual,
 	CMP_NotEqual,
 	CMP_Regex,
+	CMP_EqualIgnore,
+	CMP_LessIgnore,
+	CMP_LessEqualIgnore,
+	CMP_GreaterIgnore,
+	CMP_GreaterEqualIgnore,
+	CMP_NotEqualIgnore,
 	CMP_MAX,
 };
 

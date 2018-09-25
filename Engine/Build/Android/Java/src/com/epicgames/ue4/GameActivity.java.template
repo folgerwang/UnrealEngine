@@ -3,24 +3,73 @@
 
 package com.epicgames.ue4;
 
+import android.opengl.EGL14;
+import android.opengl.EGLConfig;
+import android.opengl.EGLContext;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
+import android.opengl.GLES20;
+
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
+import org.json.JSONObject;
+import org.json.JSONArray;
+import org.json.JSONException;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
+
 import java.io.File;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import android.hardware.SensorManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import java.lang.Override;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.zip.Inflater;
+import java.util.Timer;
+import java.util.TimerTask;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.Reader;
+import java.io.Writer;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.StringWriter;
 
 import android.annotation.TargetApi;
 
 import android.app.Activity;
 import android.app.NativeActivity;
 import android.app.ActivityManager;
+import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -100,14 +149,18 @@ import com.google.android.gms.plus.Plus;
 
 import com.google.vr.sdk.samples.permission.PermissionHelper;
 
+import java.nio.charset.StandardCharsets;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
+import java.util.UUID;
 
 import com.epicgames.ue4.GooglePlayStoreHelper;
 import com.epicgames.ue4.GooglePlayLicensing;
@@ -129,6 +182,7 @@ import android.graphics.Rect;
 import android.view.ViewTreeObserver;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 
 import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
@@ -157,6 +211,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 															GoogleApiClient.ConnectionCallbacks,
 															GoogleApiClient.OnConnectionFailedListener,
 															SensorEventListener,
+															Logger.ILoggerCallback,
+//$${gameActivityImplementsAdditions}$$
 															ComponentCallbacks2
 {
 	private boolean bAllowIMU = true;
@@ -225,8 +281,28 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	static Bundle _bundle;
 	static Bundle _extrasBundle;
 
+	private Timer memoryTimer;
+	private TimerTask memoryTask;
+	public int UsedMemory;
+
+	public String InternalFilesDir;
+	public String ExternalFilesDir;
+
 	protected Dialog mSplashDialog;
 	private int noActionAnimID = -1;
+
+	protected ProgressDialog mProgressDialog;
+
+	// Commandline arguments and flags
+	String CommandLineFull = "";
+	ArrayList<String> CommandLineArguments = new ArrayList<String>();
+	HashMap<String, String> CommandLineFlags = new HashMap<String, String>();
+
+	// Engine branch from manifest
+	String EngineBranch = "UE4";
+
+	// Project versiom from manifest
+	String ProjectVersion = "1.0.0";
 
 	// Console
 	private static final String CONSOLE_SPINNER_ITEMS[] = {"Common Console Commands", "stat FPS", "stat Anim","stat OpenGLRHI","stat VulkanRHI","stat DumpEvents","stat DumpFrame",
@@ -243,6 +319,9 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	float consoleDistance;
 	float consoleVelocity;
 
+	// remember screensaver state to restore
+	private boolean bKeepScreenOn = false;
+	
 	// Virtual keyboard
 	AlertDialog virtualKeyboardAlert;
 	EditText virtualKeyboardInputBox;
@@ -308,13 +387,25 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	/** Flag to ensure we have finished startup before allowing nativeOnActivityResult to get called */
 	private boolean InitCompletedOK = false;
 
+	private boolean bConfigRulesError = false;
+
+	/** Dialog for force game dialog */
+	private AlertDialog ForceGameDialog = null;
+
 	/** Flag to force game to end with error on resume */
 	private boolean bForceGameEndWithError = false;
+
+	/** Flag to force game to show warning on resume */
+	private boolean bForceGameEndWithWarning = false;
 
 	/** Text to show the error state for bForceGameEndWithError */
 	private String ForceExitCaption = "";
 	private String ForceExitMessage = "";
-	private String ForceExitButtonText = "";
+	private String ForceExitQuitButtonText = "";
+	private String ForceExitHelpButtonText = "";
+	private String ForceExitContinueButtonText = "";
+	private String ForceExitUpdateButtonText = "";
+	private String ForceExitLink = "";
 	
 	private boolean ShouldHideUI = false;
 
@@ -340,6 +431,16 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	/** Discovered Vulkan Version and Level from getSystemAvailableFeatures() */
 	private int VulkanVersion = 0;
 	private int VulkanLevel = 0;
+	private String VulkanVersionString = "0.0.0";
+	private boolean bSupportsVulkan = false;
+
+	/** OpenGL information */
+	public String OpenGLVendor = "";
+	public String OpenGLDevice = "";
+	public String OpenGLVersion = "";
+	public String OpenGLDriver = "";
+	public String TextureFormats = "ETC1";
+	public boolean bSupportsFloatingPointRenderTargets = false;
 
 	/** Used for LocalNotification support*/
 	private boolean localNotificationAppLaunched = false;
@@ -440,6 +541,1387 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		} 
 	}
 
+	private String getResourceStringOrDefault(String PackageName, String ResourceName, String DefaultString)
+	{
+		int resourceId = getResourceId(ResourceName, "string", PackageName);
+		return (resourceId < 1) ? DefaultString : getString(resourceId);
+	}
+
+    public static List<String> getInstalledPackages(final Context context)
+    {
+        List<String> result = new ArrayList<>();
+        final PackageManager pm = context.getPackageManager();
+        try
+		{
+            List<PackageInfo> apps = pm.getInstalledPackages(0);
+            for (PackageInfo packageInfo : apps) {
+                result.add(packageInfo.packageName);
+            }
+            return result;
+        }
+		catch (Exception ignored)
+		{
+            // could have failed depending on bugs in Android version
+        }
+
+        // use fallback
+        BufferedReader bufferedReader = null;
+        try
+		{
+            Process process = Runtime.getRuntime().exec("pm list packages");
+            bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                final String packageName = line.substring(line.indexOf(':') + 1);
+                result.add(packageName);
+            }
+            bufferedReader.close();
+            process.waitFor();
+        }
+		catch (Exception e)
+		{
+            e.printStackTrace();
+        }
+        if (bufferedReader != null)
+        {
+            try
+			{
+                bufferedReader.close();
+            }
+            catch (Exception e) {
+            }
+        }
+        return result;
+    }
+
+    public boolean AndroidThunkJava_IsPackageInstalled(String packagename)
+	{
+        List<String> packages = getInstalledPackages(getApplicationContext());
+        return packages.contains(packagename);
+    }
+
+	private void ParseCommandline(String ProjectName)
+	{
+		File file;
+		InputStream stream = null;
+		BufferedReader reader = null;
+
+		// first look for an override in the project directory
+		file = new File(android.os.Environment.getExternalStorageDirectory().getAbsolutePath() + "/UE4Game/" + ProjectName + "/UE4CommandLine.txt");
+		if (file.exists())
+		{
+			try
+			{
+				reader = new BufferedReader(new FileReader(file));
+			}
+			catch (IOException ie)
+			{
+				reader = null;
+			}
+		}
+
+		// then look in assets in APK
+		if (reader == null)
+		{
+			try
+			{
+				stream = AssetManagerReference.open("UE4CommandLine.txt");
+				reader = new BufferedReader(new InputStreamReader(stream));
+			}
+			catch (FileNotFoundException fe)
+			{
+			}
+			catch (IOException ie)
+			{
+			}
+		}
+
+		// parse the commandline
+		if (reader != null)
+		{
+			try
+			{
+				String line = reader.readLine();
+				if (line != null)
+				{
+					line = line.trim();
+					if (line.length() > 0)
+					{
+						// remember full commandline for regex checks by configrules
+						CommandLineFull = line;
+
+						// parse the line
+						ArrayList<String> sets = ParseSegments(line, " ", "\"", "\"");
+						for (String set : sets)
+						{
+							String argument = set.trim();
+
+							if (argument.startsWith("-"))
+							{
+								argument = argument.substring(1);
+								ArrayList<String> keyvalues = ParseSegments(argument, "=", "\"", "\"");
+								if (keyvalues.size() == 2)
+								{
+									CommandLineFlags.put(keyvalues.get(0).toLowerCase(), RemoveSurrounds(keyvalues.get(1), "\"", "\""));
+								}
+								else
+								{
+									CommandLineFlags.put(argument.toLowerCase(), "");
+								}
+							}
+							else
+							{
+								CommandLineArguments.add(RemoveSurrounds(argument, "\"", "\""));
+							}
+						}
+					}
+				}
+			}
+			catch (IOException ie)
+			{
+				Log.debug("failed to read commandline: " + ie);
+			}
+			if (reader != null)
+			{
+				try
+				{
+					reader.close();
+				}
+				catch (IOException ie)
+				{
+				}
+			}
+		}
+	}
+
+	private byte[] getByteArrayFromFile(String filename)
+	{
+		try
+		{
+			File file = new File(filename);
+			if (file.exists())
+			{
+				long fileLength = file.length();
+				byte[] buffer = new byte[(int)fileLength];
+				InputStream inStream = new FileInputStream(file);
+				inStream.read(buffer);
+				inStream.close();
+				return buffer;
+			}
+		}
+		catch (IOException e)
+		{
+		}
+		return null;
+	}
+
+	private byte[] getByteArrayFromAssets(String filename)
+	{
+		InputStream stream = null;
+		try
+		{
+			stream = AssetManagerReference.open("configrules.bin.png");
+			byte[] fileBytes = new byte[stream.available()];
+			stream.read(fileBytes);
+			stream.close();
+			return fileBytes;
+		}
+		catch (FileNotFoundException fe)
+		{
+		}
+		catch (IOException ie)
+		{
+		}
+		return null;
+	}
+
+	private int getConfigRulesVersion(byte[] bytesToDecompress)
+	{
+		if (bytesToDecompress == null)
+		{
+			return -1;
+		}
+
+		int headerSize = 2 + 4 + 4;
+		int sizeCompressed = bytesToDecompress.length - headerSize;
+		if (sizeCompressed < 0)
+		{
+			return -1;
+		}
+
+		ByteBuffer buffer = ByteBuffer.wrap(bytesToDecompress);
+		int signature = buffer.getShort();
+		if (signature != 0x39d8)
+		{
+			return -1;
+		}
+		return buffer.getInt();
+	}
+
+	private SecretKey generateAESKey(String password)
+	{
+		byte[] salt = new byte[] { 0x23, 0x71, (byte)0xd3, (byte)0xa3, 0x30, 0x71, 0x63, (byte)0xe3 };
+		try
+		{
+			SecretKey secret = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1").generateSecret(new PBEKeySpec(password.toCharArray(), salt, 1000, 128));
+			return new SecretKeySpec(secret.getEncoded(), "AES");
+		}
+		catch (Exception e)
+		{
+		}
+		return new SecretKeySpec(salt, "AES");
+	}
+
+	private InputStream getConfigRulesDecompressed(byte[] bytesToDecompress)
+	{
+		if (bytesToDecompress == null)
+		{
+			return null;
+		}
+
+		int headerSize = 2 + 4 + 4;
+		int sizeCompressed = bytesToDecompress.length - headerSize;
+		if (sizeCompressed < 0)
+		{
+			return null;
+		}
+
+		ByteBuffer buffer = ByteBuffer.wrap(bytesToDecompress);
+
+		// validate signature
+		int signature = buffer.getShort();
+		if (signature != 0x39d8)
+		{
+			return null;
+		}
+		int version = buffer.getInt();
+		int sizeUncompressed = buffer.getInt();
+		byte[] bytesDecompressed = new byte[sizeUncompressed];
+
+		// decrypt if key provided
+		try
+		{
+			Field keyField = this.getClass().getDeclaredField("CONFIGRULES_KEY");
+			String key = (String)keyField.get(this);
+
+			Cipher cipher = Cipher.getInstance("AES");
+			cipher.init(Cipher.DECRYPT_MODE, generateAESKey(key));
+			byte[] decrypted = cipher.doFinal(bytesToDecompress, headerSize, sizeCompressed);
+			sizeCompressed = decrypted.length;
+
+			// decompress it
+			Inflater inflater = new Inflater();
+			inflater.setInput(decrypted, 0, sizeCompressed);
+			int resultLength = inflater.inflate(bytesDecompressed);
+			inflater.end();
+			if (resultLength != sizeUncompressed)
+			{
+				return null;
+			}
+		}
+		catch (Exception e)
+		{
+			// decompress it without decrypting
+			try
+			{
+				Inflater inflater = new Inflater();
+				inflater.setInput(bytesToDecompress, headerSize, sizeCompressed);
+				int resultLength = inflater.inflate(bytesDecompressed);
+				inflater.end();
+				if (resultLength != sizeUncompressed)
+				{
+					return null;
+				}
+			}
+			catch (Exception ee)
+			{
+				return null;
+			}
+		}
+
+		// now provide a BufferedReader for final buffer
+		InputStream inputStream = null;
+		try
+		{
+			inputStream = new ByteArrayInputStream(bytesDecompressed);
+			return inputStream;
+		}
+		catch (Exception e)
+		{
+        }
+		return null;
+	}
+
+	// returns InputStream to most up to date version of configrules
+	private InputStream getConfigRulesStream(String ProjectName)
+	{
+		byte[] configBytesAssets = getByteArrayFromAssets("configrules.bin.png");
+		byte[] configBytesInternal = getByteArrayFromFile(InternalFilesDir + "configrules.bin.png");
+		byte[] configBytesExternal = getByteArrayFromFile(android.os.Environment.getExternalStorageDirectory().getAbsolutePath() + "/UE4Game/" + ProjectName + "/configrules.bin.png");
+
+		int assetsVersion = getConfigRulesVersion(configBytesAssets);
+		int internalVersion = getConfigRulesVersion(configBytesInternal);
+		int externalVersion = getConfigRulesVersion(configBytesExternal);
+
+		// is there one at all?
+		if (assetsVersion == -1 && internalVersion == -1 && externalVersion == -1)
+		{
+			return null;
+		}
+
+		InputStream result = null;
+		if (assetsVersion >= internalVersion && assetsVersion >= externalVersion)
+		{
+			result = getConfigRulesDecompressed(configBytesAssets);
+		}
+		else if (internalVersion >= assetsVersion && internalVersion >= externalVersion)
+		{
+			result = getConfigRulesDecompressed(configBytesInternal);
+			if (result == null && assetsVersion != -1)
+			{
+				result = getConfigRulesDecompressed(configBytesAssets);
+			}
+		}
+		else
+		{
+			result = getConfigRulesDecompressed(configBytesExternal);
+			if (result == null && internalVersion != -1)
+			{
+				result = getConfigRulesDecompressed(configBytesInternal);
+			}
+			if (result == null && assetsVersion != -1)
+			{
+				result = getConfigRulesDecompressed(configBytesAssets);
+			}
+		}
+		if (result == null)
+		{
+			bConfigRulesError = true;
+		}
+		return result;
+	}
+
+	// returns parsed /proc/cpuinfo with per processor fields prefix with id: (ex. 3:Features is Features for 4th CPU).
+	// processorCount returns the total processor count found referenced.
+	private Map<String, String> getCpuInfo()
+	{
+		Map<String, String> cpuInfo = new HashMap<String, String>();
+		File file = new File("/proc/cpuinfo");
+		if (file.exists())
+		{
+			BufferedReader reader = null;
+			try
+			{
+				reader = new BufferedReader(new FileReader(file));
+				String line;
+				int processorId = -1;
+				int processorCount = 0;
+				while ((line = reader.readLine()) != null)
+				{
+					if (line.length() > 1)
+					{
+						String[] keyvalue = line.split(": ");
+						if (keyvalue.length > 1)
+						{
+							keyvalue[0] = keyvalue[0].trim();
+							keyvalue[1] = keyvalue[1].trim();
+
+							if (keyvalue[0].equals("processor"))
+							{
+								try
+								{
+									processorId = Integer.parseInt(keyvalue[1]);
+									processorCount = processorId > processorCount ? processorId : processorCount;
+								}
+								catch (NumberFormatException ne)
+								{
+									processorId = -1;
+								}
+							}
+							else
+							{
+								cpuInfo.put((processorId == -1 ? "" : processorId + ":") + keyvalue[0], keyvalue[1]);
+							}
+						}
+					}
+					else
+					{
+						processorId = -1;
+					}
+				}
+				processorCount++;
+				cpuInfo.put("processorCount", Integer.toString(processorCount));
+			}
+			catch (IOException ie)
+			{
+				Log.debug("failed to read /proc/cpuinfo: " + ie);
+			}
+			if (reader != null)
+			{
+				try
+				{
+					reader.close();
+				}
+				catch (IOException ie)
+				{
+				}
+			}
+		}
+		else
+		{
+			Log.debug("failed to open /proc/cpuinfo!");
+		}
+		return cpuInfo;
+	}
+
+	private String getProp(String property)
+	{
+		// first try SystemProperties reflection
+		try
+		{
+			java.lang.reflect.Method get = Class.forName("android.os.SystemProperties").getMethod("get", new Class[]{String.class});
+			String propValue = (String)get.invoke(null, property);
+			if (propValue != null)
+			{
+				return propValue;
+			}
+			return "";
+		}
+		catch (Exception e)
+		{
+		}
+
+		// fall back to getprop command
+		Process process = null;
+		BufferedReader reader = null;
+		String result = "";
+
+		try
+		{
+			process = new ProcessBuilder().command("/system/bin/getprop", property).redirectErrorStream(true).start();
+			reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+			String line = reader.readLine();
+			result = (line == null) ? "" : line;
+		}
+		catch (Exception e)
+		{
+			Log.debug("Unable to use getprop: " + e);
+		}
+		if (reader != null)
+		{
+			try
+			{
+				reader.close();
+			}
+			catch (IOException e)
+			{
+			}
+		}
+		if (process != null)
+		{
+			process.destroy();
+		}
+		return result;
+	}
+
+	private void getGraphicsInformation()
+    {
+		EGLDisplay display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+		int[] version = new int[2];
+		EGL14.eglInitialize(display, version, 0, version, 1);
+
+		// find a config from EGL
+		int[] configAttr = {EGL14.EGL_COLOR_BUFFER_TYPE, EGL14.EGL_RGB_BUFFER,
+			EGL14.EGL_LEVEL, 0,
+			EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+			EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT,
+			EGL14.EGL_NONE};
+		EGLConfig[] configs = new EGLConfig[1];
+		int[] numConfig = new int[1];
+		EGL14.eglChooseConfig(display, configAttr, 0, configs, 0, 1, numConfig, 0);
+		if (numConfig[0] == 0)
+		{
+			Log.debug("Did not find an EGL config");
+			return;
+		}
+		EGLConfig config = configs[0];
+
+		// small surface just to make a context
+		int[] surfAttr = {EGL14.EGL_WIDTH, 8, EGL14.EGL_HEIGHT, 8, EGL14.EGL_NONE};
+		EGLSurface surface = EGL14.eglCreatePbufferSurface(display, config, surfAttr, 0);
+
+		// create the context (ES 2)
+		int[] contextAttr = {EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE};
+		EGLContext context = EGL14.eglCreateContext(display, config, EGL14.EGL_NO_CONTEXT, contextAttr, 0);
+
+		// make context to gather information
+		EGL14.eglMakeCurrent(display, surface, surface, context);
+
+		// grab info now
+		String Extensions = GLES20.glGetString(GLES20.GL_EXTENSIONS);
+		OpenGLVendor = GLES20.glGetString(GLES20.GL_VENDOR);
+		OpenGLDevice = GLES20.glGetString(GLES20.GL_RENDERER);
+		OpenGLDriver = GLES20.glGetString(GLES20.GL_VERSION);
+		boolean bES30Support = OpenGLDriver.contains("OpenGL ES 3.");
+
+		// tear it down
+		EGL14.eglMakeCurrent(display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
+		EGL14.eglDestroySurface(display, surface);
+		EGL14.eglDestroyContext(display, context);
+		EGL14.eglTerminate(display);
+
+		// Common GPU types
+		boolean bIsNvidiaBased = OpenGLDevice.contains("NVIDIA");
+		boolean bIsPowerVRBased = OpenGLDevice.contains("PowerVR");
+		boolean bIsAdrenoBased = OpenGLDevice.contains("Adreno");
+		boolean bIsMaliBased = OpenGLDevice.contains("Mali");
+		boolean bIsVideoCoreBased = OpenGLDevice.contains("VideoCore");
+
+		// match up vendors
+		//if (bIsNvidiaBased) OpenGLVendor = "Nvidia";
+		//else if (bIsPowerVRBased) OpenGLVendor = "ImageTec";
+		//else if (bIsAdrenoBased) OpenGLVendor = "Qualcomm";
+		//else if (bIsMaliBased) OpenGLVendor = "ARM";
+		//else if (bIsVideoCoreBased) OpenGLVendor = "Broadcom";
+		//else OpenGLVendor = "Unknown";
+
+		// extract the OpenGL version
+		OpenGLVersion = "";
+		int index = OpenGLDriver.indexOf("OpenGL ES ");
+		if (index >= 0)
+		{
+			OpenGLVersion = OpenGLDriver.substring(index + 10);
+			index = OpenGLVersion.indexOf(" ");
+			if (index > 0)
+			{
+				OpenGLVersion = OpenGLVersion.substring(0, index);
+			}
+		}
+
+		bSupportsFloatingPointRenderTargets = Extensions.contains("GL_EXT_color_buffer_half_float")
+				|| (bES30Support && Extensions.contains("GL_EXT_color_buffer_float"));
+
+		// figure out supported texture formats from extensions
+		TextureFormats = "";
+		if (Extensions.contains("GL_KHR_texture_compression_astc_ldr"))
+		{
+			TextureFormats += "ASTC,";
+		}
+		if (Extensions.contains("GL_IMG_texture_compression_pvrtc"))
+		{
+			TextureFormats += ",PVRTC";
+		}
+		if (Extensions.contains("GL_NV_texture_compression_s3tc") || Extensions.contains("GL_EXT_texture_compression_s3tc"))
+		{
+			TextureFormats += "DXT,";
+		}
+		if (Extensions.contains("GL_ATI_texture_compression_atitc") || Extensions.contains("GL_AMD_compressed_ATC_texture"))
+		{
+			TextureFormats += "ATC,";
+		}
+		if (OpenGLVersion.charAt(0) >= '3')
+		{
+			TextureFormats += "ETC2,";
+		}
+		TextureFormats += "ETC1";
+    }
+
+	// removes the entry and exit from ends of the string if present and paired
+	private String RemoveSurrounds(String input, String entry, String exit)
+	{
+		int entryLength = entry.length();
+		int exitLength = exit.length();
+		int inputLength = input.length();
+
+		if (inputLength >=2 && entryLength > 0 && entryLength == exitLength)
+		{
+			String start = input.substring(0,1);
+			String end = input.substring(inputLength-1);
+
+			for (int index=0; index < entryLength; index++)
+			{
+				if (entry.substring(index, index+1).equals(start) && exit.substring(index, index+1).equals(end))
+				{
+					return input.substring(1, inputLength-1);
+				}
+			}
+		}
+		return input;
+	}
+
+	// returns list of strings separated by split using entry/exit as pairing sets (ex. "(" and ")").  The entry and exit characters need to be in same order
+	private ArrayList<String> ParseSegments(String input, String split, String entry, String exit)
+	{
+		ArrayList<String> output = new ArrayList<String>();
+		ArrayList<Integer> entryStack = new ArrayList<Integer>();
+
+		int startIndex = 0;
+		int scanIndex = 0;
+		int exitIndex = -1;
+		int inputLength = input.length();
+		while (scanIndex < inputLength)
+		{
+			String scan = input.substring(scanIndex, scanIndex+1);
+
+			if (scan.equals(split) && entryStack.size() == 0)
+			{
+				output.add(input.substring(startIndex, scanIndex).trim());
+				scanIndex++;
+				startIndex = scanIndex;
+				continue;
+			}
+			scanIndex++;
+
+			if (scan.equals("\\"))
+			{
+				scanIndex++;
+				continue;
+			}
+
+			if (entryStack.size() > 0 && exit.indexOf(scan) == exitIndex)
+			{
+				int stackLength = entryStack.size() - 1;
+				entryStack.remove(stackLength);
+				exitIndex = stackLength > 0 ? entryStack.get(stackLength - 1) : -1;
+				continue;
+			}
+
+			int entryIndex = entry.indexOf(scan);
+			if (entryIndex >= 0)
+			{
+				entryStack.add(entryIndex);
+				exitIndex = entryIndex;
+				continue;
+			}
+		}
+		if (startIndex < inputLength)
+		{
+			output.add(input.substring(startIndex).trim());
+		}
+
+		return output;
+	}
+
+	private String ExpandVariables(Map<String, String> variables, String input)
+	{
+		String Result = input;
+		int Idx;
+		for (Idx = Result.indexOf("$("); Idx != -1; Idx = Result.indexOf("$(", Idx))
+		{
+			// Find the end of the variable name
+			int EndIdx = Result.indexOf(')', Idx + 2);
+			if (EndIdx == -1)
+			{
+				break;
+			}
+
+			// Extract the variable name from the string
+			String Name = Result.substring(Idx + 2, EndIdx);
+
+			// Find the value for it if it exists
+			if (!variables.containsKey(Name))
+			{
+				Idx = EndIdx + 1;
+				continue;
+			}
+
+			// Replace the variable, or skip past it
+			Result = Result.substring(0, Idx) + variables.get(Name) + Result.substring(EndIdx + 1);
+		}
+		return Result;
+	}
+
+	private boolean processSystemInfo(String ProjectName, String PackageName)
+	{
+		// check OpenGL information
+		getGraphicsInformation();
+
+		// get CPU / chipset information
+		Map<String, String> cpuInfo = getCpuInfo();
+		int processorCount = 1;
+		if (cpuInfo.containsKey("processorCount"))
+		{
+			processorCount = Integer.parseInt(cpuInfo.get("processorCount"));
+		}
+
+		// check for libhoudini.so to identify Intel Atom
+		File houdiniFile = new File("/system/lib/libhoudini.so");
+		boolean bHasHoudini = houdiniFile.exists();
+
+		// check for a processor id
+		boolean bIsARM64 = false;
+		boolean bHasNEON = false;
+		String processor = "";
+		if (cpuInfo.containsKey("Processor"))
+		{
+			processor = cpuInfo.get("Processor");
+		}
+		if (processor.contains("aarch64"))
+		{
+			bIsARM64 = true;
+			bHasNEON = true;
+		}
+
+		// check each processor featureset
+		for (int id=0; id < processorCount; id++)
+		{
+			String key = id + ":Features";
+			if (cpuInfo.containsKey(key))
+			{
+				String features = cpuInfo.get(key);
+
+				if (features.contains("neon"))
+				{
+					bHasNEON = true;
+				}
+				if (features.contains("asimd"))
+				{
+					// advanced SIMD is ARM64-v8a
+					bHasNEON = true;
+					bIsARM64 = true;
+				}
+			}
+		}
+
+		// try to get chip info
+		// use getprop ro.hardware as fallback (not useful on Qualcomm, just returns qcom)
+		String roHardware = getProp("ro.hardware");
+		String hardware = roHardware;
+		if (cpuInfo.containsKey("Hardware"))
+		{
+			hardware = cpuInfo.get("Hardware");
+		}
+		Log.debug("Hardware: " + hardware);
+		Log.debug("ro.hardware: " + roHardware);
+
+		// register variables for the program to access
+		Map<String, String> variables = new HashMap<String, String>();
+
+		ActivityManager activityManager = (ActivityManager)getSystemService(Context.ACTIVITY_SERVICE);
+		ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
+		activityManager.getMemoryInfo(memoryInfo);
+
+		int totalMemory = (int)(memoryInfo.totalMem / 1024 / 1024);
+		Log.debug("Memory: " + totalMemory + " MB");
+		variables.put("memory", Integer.toString(totalMemory));
+
+		//variables.put("Profile", "Android");
+		variables.put("hardware", hardware);
+		variables.put("ro.hardware", roHardware);
+		variables.put("processor", processor);
+		variables.put("processorCount", Integer.toString(processorCount));
+		variables.put("useAffinity", "false");
+		variables.put("hasNEON", bHasNEON ? "true" : "false");
+		variables.put("isARM64", bIsARM64 ? "true" : "false");
+		variables.put("littleCoreMask", "0x0");
+		variables.put("bigCoreMask", "0xffff");
+
+		variables.put("SRC_GpuFamily", OpenGLDevice);
+		variables.put("SRC_GlVersion", OpenGLDriver);
+		variables.put("SRC_AndroidVersion", android.os.Build.VERSION.RELEASE);
+		variables.put("SRC_DeviceMake", android.os.Build.MANUFACTURER);
+		variables.put("SRC_DeviceModel", android.os.Build.MODEL);
+		variables.put("SRC_DeviceBuildNumber", android.os.Build.DISPLAY);
+		variables.put("SRC_VulkanVersion", VulkanVersionString);
+		variables.put("SRC_VulkanAvailable", (bSupportsVulkan && VulkanVersionString != "0.0.0") ? "true" : "false");  // commandline could still disable!
+		variables.put("SRC_UsingHoudini", bHasHoudini ? "true" : "false");
+
+		variables.put("SRC_GpuVendor", OpenGLVendor);
+		variables.put("SRC_SDKLevel", Integer.toString(android.os.Build.VERSION.SDK_INT));
+		variables.put("supportsFloatingPointRenderTargets", bSupportsFloatingPointRenderTargets ? "true" : "false");
+		variables.put("TextureFormats", TextureFormats);
+
+		// get the status bar and navigation bar heights (only works for 5.0+)
+		int statusBarHeight = 0;
+		int navigationBarHeight = 0;
+		if (Build.VERSION.SDK_INT >= 21)
+		{
+			android.content.res.Resources resources = getApplicationContext().getResources();
+			int resourceId = resources.getIdentifier("status_bar_height", "dimen", "android");
+			if (resourceId > 0) {
+				statusBarHeight += resources.getDimensionPixelSize(resourceId);
+			}
+			resourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android");
+			if (resourceId > 0) {
+				navigationBarHeight += resources.getDimensionPixelSize(resourceId);
+			}
+		}
+		variables.put("statusBarHeight", Integer.toString(statusBarHeight));
+		variables.put("navigationBarHeight", Integer.toString(navigationBarHeight));
+
+		// store the screen resolution (adjusted for immersive mode)
+		android.view.Display display = getWindowManager().getDefaultDisplay();
+		android.graphics.Point displaySize = new android.graphics.Point();
+		if (ShouldHideUI)
+		{
+			display.getRealSize(displaySize);
+		}
+		else
+		{
+			display.getSize(displaySize);
+		}
+		variables.put("screenWidth", Integer.toString(displaySize.x));
+		variables.put("screenHeight", Integer.toString(displaySize.y));
+
+		// set early restart if -noearlyrestart not on commandline (configrules can clear this to disable or set to false)
+		if (!CommandLineFlags.containsKey("noearlyrestart"))
+		{
+			variables.put("earlyrestart", "true");
+		}
+
+		String SaveError = "";
+		String SaveWarning = "";
+
+		// commandline flag may be used to skip dialog if not a shipping build
+		boolean bIgnoreDialog = !nativeIsShippingBuild() && CommandLineFlags.containsKey("noconfigrulesdialog");
+
+		// read the configuration file (configrules.bin.png)
+		int configRulesVersion = 0;
+		BufferedReader reader = null;
+		InputStream stream = getConfigRulesStream(ProjectName);
+		if (stream != null)
+		{
+			try
+			{
+				reader = new BufferedReader(new InputStreamReader(stream));
+			}
+			catch (Exception e)
+			{
+				reader = null;
+			}
+		}
+
+		// process the rules
+		if (reader != null)
+		{
+			try
+			{
+				String line;
+				while ((line = reader.readLine()) != null)
+				{
+					line = line.trim();
+					if (line.length() < 1)
+					{
+						continue;
+					}
+					if (line.startsWith("//") || line.startsWith(";"))
+					{
+						if (line.startsWith("// version:"))
+						{
+							configRulesVersion = Integer.parseInt(line.substring(11));
+						}
+						continue;
+					}
+
+					// look for command
+					int index = line.indexOf(":");
+					if (index == -1)
+					{
+						continue;
+					}
+					String command = line.substring(0, index).trim();
+					line = line.substring(index + 1).trim();
+
+					// handle commands
+					if (command.equals("set"))
+					{
+						// set:(a=b[,c=d,...])
+						ArrayList<String> sets = ParseSegments(RemoveSurrounds(line, "(", ")"), ",", "(\"", ")\"");
+						for (String assignment : sets)
+						{
+							ArrayList<String> keyvalue = ParseSegments(assignment, "=", "\"", "\"");
+							if (keyvalue.size() == 2)
+							{
+								String key = RemoveSurrounds(keyvalue.get(0), "\"", "\"");
+								String value = ExpandVariables(variables, RemoveSurrounds(keyvalue.get(1), "\"", "\""));
+								if (key.startsWith("APPEND_"))
+								{
+									key = key.substring(7);
+									if (variables.containsKey(key))
+									{
+										value = variables.get(key) + value;
+									}
+									variables.put(key, value);
+								}
+								else
+								{
+									variables.put(key, value);
+								}
+							}
+						}
+					}
+					else if (command.equals("clear"))
+					{
+						// clear:(a[,b,...])
+						ArrayList<String> sets = ParseSegments(RemoveSurrounds(line, "(", ")"), ",", "(\"", ")\"");
+						for (String key : sets)
+						{
+							variables.remove(RemoveSurrounds(key, "\"", "\""));
+						}
+					}
+					else if (command.equals("chipset"))
+					{
+						// chipset:"hardware",useAffinity,"chipset","cpu",processorCount,bigCoreMask,littleCoreMask
+
+						// only check if haven't already set chipset
+						if (!variables.containsKey("chipset"))
+						{
+							ArrayList<String> values = ParseSegments(line, ",", "\"", "\"");
+							if (values.size() == 7)
+							{
+								String key = RemoveSurrounds(values.get(0), "\"", "\"");
+								if (hardware.contains(key))
+								{
+									variables.put("useAffinity", RemoveSurrounds(values.get(1), "\"", "\""));
+									variables.put("chipset", RemoveSurrounds(values.get(2), "\"", "\""));
+									variables.put("gpu", RemoveSurrounds(values.get(3), "\"", "\""));
+									variables.put("processorCount", RemoveSurrounds(values.get(4), "\"", "\""));
+									variables.put("bigCoreMask", RemoveSurrounds(values.get(5), "\"", "\""));
+									variables.put("littleCoreMask", RemoveSurrounds(values.get(6), "\"", "\""));
+
+									Log.debug("Chipset: " + variables.get("chipset"));
+									Log.debug("GPU: " + variables.get("gpu"));
+								}
+							}
+						}
+					}
+					else if (command.equals("condition"))
+					{
+						// condition:((SourceType=SRC_DeviceMake,CompareType=CMP_Equal,MatchString="samsung")),(SourceType=,CompareType=,MatchString=),...]),(a=b[,c=d,...]),(a[,b,...])
+						// if all the conditions are true, execute the optional sets and/or clears
+						ArrayList<String> conditionAndSets = ParseSegments(line, ",", "(\"", ")\"");
+						int setsize = conditionAndSets.size();
+						if (setsize == 2 || setsize == 3)
+						{
+							ArrayList<String> conditions = ParseSegments(RemoveSurrounds(conditionAndSets.get(0), "(", ")"), ",", "(\"", ")\"");
+							ArrayList<String> sets = ParseSegments(RemoveSurrounds(conditionAndSets.get(1), "(", ")"), ",", "(\"", ")\"");
+							ArrayList<String> clears = (setsize == 3) ? ParseSegments(RemoveSurrounds(conditionAndSets.get(2), "(", ")"), ",", "(\"", ")\"") : new ArrayList<String>();
+
+							String PreviousRegexMatch = "";
+							boolean bConditionTrue = true;
+							for (String condition : conditions)
+							{
+								String SourceType = "";
+								String CompareType = "";
+								String MatchString = "";
+
+								// deal with condition group (src,cmp,match)
+								ArrayList<String> groups = ParseSegments(RemoveSurrounds(condition, "(", ")"), ",", "\"", "\"");
+								for (String group : groups)
+								{
+									ArrayList<String> keyvalue = ParseSegments(group, "=", "\"", "\"");
+									if (keyvalue.size() == 2)
+									{
+										String key = RemoveSurrounds(keyvalue.get(0), "\"", "\"");
+										String value = RemoveSurrounds(keyvalue.get(1), "\"", "\"");
+
+										if (key.equals("SourceType"))
+										{
+											SourceType = value;
+										}
+										else if (key.equals("CompareType"))
+										{
+											CompareType = value;
+										}
+										else if (key.equals("MatchString"))
+										{
+											MatchString = value;
+										}
+									}
+								}
+
+								String Source = "";
+								boolean bSourceIsCommandLine = false;
+								if (SourceType.equals("SRC_PreviousRegexMatch"))
+								{
+									Source = PreviousRegexMatch;
+								}
+								else if (SourceType.equals("SRC_CommandLine"))
+								{
+									bSourceIsCommandLine = true;
+									Source = CommandLineFull;;
+								}
+								else if (variables.containsKey(SourceType))
+								{
+									Source = variables.get(SourceType);
+								}
+								else if (SourceType.equals("[EXIST]"))
+								{
+									Source = MatchString;
+								}
+								else
+								{
+									bConditionTrue = false;
+									break;
+								}
+
+								// apply operation
+								if (CompareType.equals("CMP_Exist"))
+								{
+									if (!variables.containsKey(Source))
+									{
+										bConditionTrue = false;
+										break;
+									}
+								}
+								else if (CompareType.equals("CMP_NotExist"))
+								{
+									if (variables.containsKey(Source))
+									{
+										bConditionTrue = false;
+										break;
+									}
+								}
+								else if (CompareType.equals("CMP_Equal"))
+								{
+									if (bSourceIsCommandLine)
+									{
+										if (!CommandLineFlags.containsKey(MatchString))
+										{
+											bConditionTrue = false;
+											break;
+										}
+									}
+									else if (!Source.equals(MatchString))
+									{
+										bConditionTrue = false;
+										break;
+									}
+								}
+								else if (CompareType.equals("CMP_NotEqual"))
+								{
+									if (bSourceIsCommandLine)
+									{
+										if (CommandLineFlags.containsKey(MatchString))
+										{
+											bConditionTrue = false;
+											break;
+										}
+									}
+									else if (Source.equals(MatchString))
+									{
+										bConditionTrue = false;
+										break;
+									}
+								}
+								else if (CompareType.equals("CMP_EqualIgnore"))
+								{
+									if (!Source.toLowerCase().equals(MatchString.toLowerCase()))
+									{
+										bConditionTrue = false;
+										break;
+									}
+								}
+								else if (CompareType.equals("CMP_NotEqualIgnore"))
+								{
+									if (Source.toLowerCase().equals(MatchString.toLowerCase()))
+									{
+										bConditionTrue = false;
+										break;
+									}
+								}
+								else if (CompareType.equals("CMP_Regex"))
+								{
+									Pattern pattern = Pattern.compile(MatchString);
+									Matcher matcher = pattern.matcher(Source);
+									if (matcher.find())
+									{
+										int groupCount = matcher.groupCount();
+										PreviousRegexMatch = matcher.group(groupCount >= 1 ? 1 : 0);
+									}
+									else
+									{
+										bConditionTrue = false;
+										break;
+									}
+								}
+								else
+								{
+									boolean bNumericOperands = true;
+									float SourceFloat = 0.0f;
+									float MatchFloat = 0.0f;
+
+									// convert source and match to float if numeric
+									try
+									{
+										SourceFloat = Float.parseFloat(Source);
+									}
+									catch (NumberFormatException ne)
+									{
+										bNumericOperands = false;
+									}
+									try
+									{
+										MatchFloat = Float.parseFloat(MatchString);
+									}
+									catch (NumberFormatException ne)
+									{
+										bNumericOperands = false;
+									}
+
+									// if comparison ends with Ignore, do case-insensitive compare by converting both to lowercase
+									if (CompareType.endsWith("Ignore"))
+									{
+										bNumericOperands = false;
+										CompareType = CompareType.substring(0, CompareType.length() - 6);
+
+										Source = Source.toLowerCase();
+										MatchString = MatchString.toLowerCase();
+									}
+
+									if (CompareType.equals("CMP_Less"))
+									{
+										if ((bNumericOperands && (SourceFloat >= MatchFloat)) || (!bNumericOperands && (Source.compareTo(MatchString) >= 0)))
+										{
+											bConditionTrue = false;
+											break;
+										}
+									}
+									else if (CompareType.equals("CMP_LessEqual"))
+									{
+										if ((bNumericOperands && (SourceFloat > MatchFloat)) || (!bNumericOperands && (Source.compareTo(MatchString) > 0)))
+										{
+											bConditionTrue = false;
+											break;
+										}
+									}
+									else if (CompareType.equals("CMP_Greater"))
+									{
+										if ((bNumericOperands && (SourceFloat <= MatchFloat)) || (!bNumericOperands && (Source.compareTo(MatchString) <= 0)))
+										{
+											bConditionTrue = false;
+											break;
+										}
+									}
+									else if (CompareType.equals("CMP_GreaterEqual"))
+									{
+										if ((bNumericOperands && (SourceFloat <= MatchFloat)) || (!bNumericOperands && (Source.compareTo(MatchString) < 0)))
+										{
+											bConditionTrue = false;
+											break;
+										}
+									}
+									else
+									{
+										bConditionTrue = false;
+										break;
+									}
+								}
+							}
+
+							if (bConditionTrue)
+							{
+								// run the sets
+								for (String assignment : sets)
+								{
+									ArrayList<String> keyvalue = ParseSegments(assignment, "=", "\"", "\"");
+									if (keyvalue.size() == 2)
+									{
+										String key = RemoveSurrounds(keyvalue.get(0), "\"", "\"");
+										String value = ExpandVariables(variables, RemoveSurrounds(keyvalue.get(1), "\"", "\""));
+										if (key.startsWith("APPEND_"))
+										{
+											key = key.substring(7);
+											if (variables.containsKey(key))
+											{
+												value = variables.get(key) + value;
+											}
+											variables.put(key, value);
+										}
+										else
+										{
+											variables.put(key, value);
+										}
+									}
+								}
+
+								// run the clears
+								for (String key : clears)
+								{
+									variables.remove(RemoveSurrounds(key, "\"", "\""));
+								}
+							}
+						}
+					}
+
+					// see if log message requested
+					if (variables.containsKey("log"))
+					{
+						Log.debug(variables.get("log"));
+						variables.remove("log");
+					}
+
+					// check if requested to dump cpu info to the log
+					if (variables.containsKey("dumpcpuinfo"))
+					{
+						variables.remove("dumpcpuinfo");
+						Log.debug("cpuInfo:");
+						for (Map.Entry<String, String> entry : cpuInfo.entrySet())
+						{
+							Log.debug("  " + entry.getKey() + " = " + entry.getValue());
+						}
+					}
+
+					// check if requested to dump variables to the log
+					if (variables.containsKey("dumpvars"))
+					{
+						variables.remove("dumpvars");
+						Log.debug("variables:");
+						for (Map.Entry<String, String> entry : variables.entrySet())
+						{
+							Log.debug("  " + entry.getKey() + " = " + entry.getValue());
+						}
+					}
+
+					// if there was a raised error, stop
+					boolean hasError = variables.containsKey("error");
+					boolean hasWarning = variables.containsKey("warning");
+					if (hasError || hasWarning)
+					{
+						ForceExitLink = "";
+						if (variables.containsKey("link"))
+						{
+							ForceExitLink = variables.get("link");
+						}
+
+						ForceExitUpdateButtonText = "";
+						if (variables.containsKey("updatebutton"))
+						{
+							ForceExitUpdateButtonText = getResourceStringOrDefault(PackageName, variables.get("updatebutton"), ForceExitUpdateButtonText);
+						}
+
+						ForceExitHelpButtonText = "Help";
+						if (variables.containsKey("helpbutton"))
+						{
+							ForceExitHelpButtonText = getResourceStringOrDefault(PackageName, variables.get("helpbutton"), ForceExitHelpButtonText);
+						}
+
+						ForceExitQuitButtonText = "Quit";
+						if (variables.containsKey("exitbutton"))
+						{
+							ForceExitQuitButtonText = getResourceStringOrDefault(PackageName, variables.get("exitbutton"), ForceExitQuitButtonText);
+						}
+
+						ForceExitContinueButtonText = "Continue";
+						if (variables.containsKey("continuebutton"))
+						{
+							ForceExitContinueButtonText = getResourceStringOrDefault(PackageName, variables.get("continuebutton"), ForceExitContinueButtonText);
+						}
+
+						// localize caption string from string table
+						ForceExitCaption = "Device not supported";
+						if (variables.containsKey("caption"))
+						{
+							ForceExitCaption = getResourceStringOrDefault(PackageName, variables.get("caption"), ForceExitCaption);
+						}
+
+						// check if ignoring the warnings and errors
+						if (bIgnoreDialog)
+						{
+							if (hasWarning)
+							{
+								hasWarning = false;
+								variables.remove("warning");
+							}
+							if (hasError)
+							{
+								hasError = false;
+								variables.remove("error");
+							}
+						}
+
+						if (hasWarning)
+						{
+							SaveWarning = variables.get("warning");
+
+							// localize error string from string table
+							ForceExitMessage = getResourceStringOrDefault(PackageName, SaveWarning, "This device may not run this game.");
+							variables.remove("warning");
+							bForceGameEndWithWarning = true;
+						}
+
+						if (hasError)
+						{
+							SaveError = variables.get("error");
+
+							// localize error string from string table
+							ForceExitMessage = getResourceStringOrDefault(PackageName, SaveError, "This device cannot run this game.");
+							bForceGameEndWithError = true;
+							break;
+						}
+					}
+
+					// stop if user wants to break
+					if (variables.containsKey("break"))
+					{
+						break;
+					}
+				}
+			}
+			catch (IOException ie)
+			{
+				Log.debug("failed to read configuration rules: " + ie);
+			}
+			if (reader != null)
+			{
+				try
+				{
+					reader.close();
+				}
+				catch (IOException ie)
+				{
+				}
+			}
+		}
+		else if (bConfigRulesError)
+		{
+			// there was an issue with the configrules so can't continue
+			ForceExitCaption = getResourceStringOrDefault(PackageName, "CR_Caption_DeviceNotSupported", "Device Not Supported");
+			ForceExitQuitButtonText = getResourceStringOrDefault(PackageName, "CR_Button_Quit", "Quit");
+			ForceExitMessage = getResourceStringOrDefault(PackageName, "CR_Info_DeviceNotSupportedYet", "This device is in supported yet.");
+			SaveError = "ConfigRules_Problem";
+			bForceGameEndWithError = true;
+		}
+		if (stream != null)
+		{
+			try
+			{
+				stream.close();
+			}
+			catch (Exception e)
+			{
+			}
+		}
+
+		// notify AndroidProcess of the core masks and affinity enable state
+		boolean bUseAffinity = variables.get("useAffinity").equals("true");
+		int littleCoreMask = Integer.decode(variables.get("littleCoreMask"));
+		int bigCoreMask = Integer.decode(variables.get("bigCoreMask"));
+		Log.debug("UseAffinity: " + (bUseAffinity ? "true" : "false"));
+		Log.debug("BigCoreMask: 0x" + Integer.toHexString(bigCoreMask));
+		Log.debug("LittleCoreMask: 0x" + Integer.toHexString(littleCoreMask));
+		nativeSetAffinityInfo(bUseAffinity, bigCoreMask, littleCoreMask);
+
+		// send the variables to the engine
+		String[] keyValues = new String[variables.size() * 2];
+		int keyValueIndex = 0;
+		for (Map.Entry<String, String> entry : variables.entrySet())
+		{
+			keyValues[keyValueIndex++] = entry.getKey();
+			keyValues[keyValueIndex++] = entry.getValue();
+		}
+		nativeSetConfigRulesVariables(keyValues);
+
+//$${gameActivityPostConfigRulesAdditions}$$
+
+		return !bForceGameEndWithError;
+	}
+
+	public void LoggerCallback(String Level, String Tag, String Message)
+	{
+//$${gameActivityLoggerCallbackAdditions}$$
+	}
+
 	@Override
 	public void onCreate(Bundle savedInstanceState)
 	{
@@ -448,6 +1930,9 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 		magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 		gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+
+		InternalFilesDir = getFilesDir().getAbsolutePath() + "/";
+		ExternalFilesDir = getExternalFilesDir(null).getAbsolutePath() + "/";
 
 		// create splashscreen dialog (if launched by SplashActivity)
 		_extrasBundle = getIntent().getExtras();
@@ -529,6 +2014,41 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		}
 
 		_activity = this;
+
+		// update memory stats every 10 seconds
+		memoryTask = new TimerTask() {
+			@Override
+			public void run()
+			{
+				int ProcessMemory = 0;
+
+				ActivityManager activityManager = (ActivityManager)_activity.getSystemService(Context.ACTIVITY_SERVICE);
+				int pid = android.os.Process.myPid();
+				int pids[] = new int[] { pid };
+				android.os.Debug.MemoryInfo[] memoryInfo = activityManager.getProcessMemoryInfo(pids);
+				if (memoryInfo.length > 0)
+				{
+					ProcessMemory = memoryInfo[0].dalvikPss + memoryInfo[0].nativePss + memoryInfo[0].otherPss;
+
+					if (Build.VERSION.SDK_INT >= 23)
+					{
+						Map<String, String> memstats = memoryInfo[0].getMemoryStats();
+						if (memstats.containsKey("summary.total-pss") && memstats.containsKey("summary.total-swap") && memstats.containsKey("summary.system"))
+						{
+							ProcessMemory = Integer.parseInt(memstats.get("summary.total-pss")) + Integer.parseInt(memstats.get("summary.total-swap")) - Integer.parseInt(memstats.get("summary.system"));
+						}
+					}
+				}
+				Log.debug("Used memory: " + ProcessMemory);
+
+				synchronized(_activity)
+				{
+					_activity.UsedMemory = ProcessMemory;
+				}
+			}
+		};
+		memoryTimer = new Timer();
+		memoryTimer.schedule(memoryTask, 0, 10000);
 
 		// layout required by popups, e.g ads, native controls
 		MarginLayoutParams params = new MarginLayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
@@ -618,6 +2138,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 								int VersionMajor = (VulkanVersion >> 22) & 0x03ff;
 								int VersionMinor = (VulkanVersion >> 12) & 0x03ff;
 								int VersionPatch = VulkanVersion & 0x0fff;
+								VulkanVersionString = VersionMajor + "." + VersionMinor + "." + VersionPatch;
 								Log.debug("Vulkan version: " + VersionMajor + "." + VersionMinor + "." + VersionPatch);
 							}
 						}
@@ -799,6 +2320,22 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				Log.debug( "AllowIMU set to " + bAllowIMU);
 			}
 
+			if(bundle.containsKey("com.epicgames.ue4.GameActivity.bSupportsVulkan"))
+			{
+				bSupportsVulkan = bundle.getBoolean("com.epicgames.ue4.GameActivity.bSupportsVulkan");
+				Log.debug( "SupportsVulkan set to " + bSupportsVulkan);
+			}
+
+			if(bundle.containsKey("com.epicgames.ue4.GameActivity.EngineBranch"))
+			{
+				EngineBranch = bundle.getString("com.epicgames.ue4.GameActivity.EngineBranch");
+			}
+
+			if(bundle.containsKey("com.epicgames.ue4.GameActivity.ProjectVersion"))
+			{
+				ProjectVersion = bundle.getString("com.epicgames.ue4.GameActivity.ProjectVersion");
+			}
+
 //$${gameActivityReadMetadataAdditions}$$
 		}
 		catch (NameNotFoundException e)
@@ -808,6 +2345,18 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		catch (NullPointerException e)
 		{
 			Log.debug( "Failed to load meta-data: NullPointer: " + e.getMessage());
+		}
+
+		// parse the commandline
+		ParseCommandline(ProjectName);
+
+//$${gameActivityBeforeConfigRulesAppliedAdditions}$$
+
+		// run configuration rules
+		if (!processSystemInfo(ProjectName, appPackageName))
+		{
+			// configuration failed (show error)
+			return;
 		}
 
 		Log.debug("APK path: " + getPackageResourcePath());
@@ -827,10 +2376,11 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		Log.debug( "Android version is " + android.os.Build.VERSION.RELEASE );
 		Log.debug( "Android manufacturer is " + android.os.Build.MANUFACTURER );
 		Log.debug( "Android model is " + android.os.Build.MODEL );
+		Log.debug( "Android build number is " + android.os.Build.DISPLAY );
 		Log.debug( "OS language is set to " + Language );
 		Log.debug( "Debugger attached is " + bDebuggerAttached );
 
-		nativeSetAndroidVersionInformation( android.os.Build.VERSION.RELEASE, android.os.Build.MANUFACTURER, android.os.Build.MODEL, Language );
+		nativeSetAndroidVersionInformation( android.os.Build.VERSION.RELEASE, android.os.Build.MANUFACTURER, android.os.Build.MODEL, android.os.Build.DISPLAY, Language );
 
 		try
 		{
@@ -1185,44 +2735,8 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		return super.onKeyDown(keyCode, event);
 	}
 	
-	@Override
-	public void onResume()
+	private void onResumeBody()
 	{
-		super.onResume();
-
-		if (bForceGameEndWithError)
-		{
-			_activity.runOnUiThread(new Runnable()
-			{
-				@Override
-				public void run()
-				{
-					AlertDialog.Builder Builder = new AlertDialog.Builder(_activity);
-					Builder.setTitle(ForceExitCaption);
-					Builder.setMessage(ForceExitMessage);
-					Builder.setPositiveButton("Exit", null);
-
-					AlertDialog.Builder dialog = new AlertDialog.Builder(_activity);
-					dialog.setCancelable(false);
-					dialog.setTitle(ForceExitCaption);
-					dialog.setMessage(ForceExitMessage);
-					dialog.setPositiveButton(ForceExitButtonText, new DialogInterface.OnClickListener() {
-						@Override
-						public void onClick(DialogInterface dialog, int id) {
-							dialog.dismiss();
-							System.exit(0);
-						}
-					});
-
-					final AlertDialog alert = dialog.create();
-					alert.show();
-					return;
-				}
-			});
-
-			return;
-		}
-
 		if (bAllowIMU)
 		{
 			Log.debug("Registering sensor listeners");
@@ -1242,7 +2756,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 
 		// invalidate window cache
 		nativeSetWindowInfo(getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT, DepthBufferPreference);
-		
+
 		// only do this on KitKat and above
 		if (ShouldHideUI)
 		{ 
@@ -1267,7 +2781,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				}
 			});
 		}
-		
+
 		if(HasAllFiles)
 		{
 			Log.debug("==============> Resuming main init");
@@ -1301,6 +2815,129 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 
 //$${gameActivityOnResumeAdditions}$$
 		Log.debug("==============> GameActive.onResume complete!");
+	}
+
+	@Override
+	public void onResume()
+	{
+		super.onResume();
+
+		// only do this on KitKat and above
+		if (ShouldHideUI)
+		{ 
+			restoreTransparentBars();
+			View decorView = getWindow().getDecorView(); 
+
+			decorView.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
+				@Override 
+				public void onSystemUiVisibilityChange(int visibility) 
+				{
+					Log.debug("=== Restoring Transparent Bars due to Visibility Change ===");
+					restoreTransparentBars();
+				}
+			});
+
+			decorView.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+				@Override
+				public void onFocusChange(View v, boolean hasFocus) 
+				{
+					Log.debug("=== Restoring Transparent Bars due to Focus Change ===");
+					restoreTransparentBars();
+				}
+			});
+		}
+
+		// restore screensaver state
+		AndroidThunkJava_KeepScreenOn(bKeepScreenOn);
+		
+		if (bForceGameEndWithError || bForceGameEndWithWarning)
+		{
+			final boolean bWarning = bForceGameEndWithWarning;
+
+			_activity.runOnUiThread(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+					if (ForceGameDialog != null)
+					{
+						return;
+					}
+
+					AlertDialog.Builder dialog = new AlertDialog.Builder(_activity);
+					dialog.setCancelable(false);
+					dialog.setTitle(ForceExitCaption);
+					dialog.setMessage(ForceExitMessage);
+					if (!ForceExitLink.equals(""))
+					{
+						dialog.setNeutralButton(ForceExitHelpButtonText, new DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(DialogInterface dialog, int id) {
+								dialog.dismiss();
+								AndroidThunkJava_LaunchURL(ForceExitLink);
+								System.exit(0);
+							}
+						});
+					}
+					if (bForceGameEndWithWarning)
+					{
+						dialog.setNegativeButton(ForceExitContinueButtonText, new DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(DialogInterface dialog, int id) {
+								dialog.dismiss();
+								ForceGameDialog = null;
+								bForceGameEndWithWarning = false;
+								onResumeBody();
+							}
+						});
+					}
+					if (!ForceExitUpdateButtonText.equals(""))
+					{
+						dialog.setPositiveButton(ForceExitUpdateButtonText, new DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(DialogInterface dialog, int id) {
+								dialog.dismiss();
+								// just open settings on Jellybean
+								if (ANDROID_BUILD_VERSION >= 16 && ANDROID_BUILD_VERSION < 19)
+								{
+									AndroidThunkJava_OpenIntentAction("android.settings.SETTINGS");
+								}
+								else {
+									// see if we can open directly to update settings
+									if (AndroidThunkJava_isIntentActionAvailable("android.settings.SYSTEM_UPDATE_SETTINGS"))
+									{
+										AndroidThunkJava_OpenIntentAction("android.settings.SYSTEM_UPDATE_SETTINGS");
+									}
+									else {
+										// fall back to just settings
+										AndroidThunkJava_OpenIntentAction("android.settings.SETTINGS");
+									}
+								}
+								System.exit(0);
+							}
+						});
+					}
+					else
+					{
+						dialog.setPositiveButton(ForceExitQuitButtonText, new DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(DialogInterface dialog, int id) {
+								dialog.dismiss();
+								System.exit(0);
+							}
+						});
+					}
+
+					ForceGameDialog = dialog.create();
+					ForceGameDialog.show();
+					return;
+				}
+			});
+
+			return;
+		}
+
+		onResumeBody();
 	}
 
 	@Override
@@ -1583,8 +3220,14 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		}
 	}
 
+	public boolean AndroidThunkJava_IsScreensaverEnabled()
+	{
+		return !bKeepScreenOn;
+	}
+
 	public void AndroidThunkJava_KeepScreenOn(boolean Enable)
 	{
+		bKeepScreenOn = Enable;
 		if (Enable)
 		{
 			_activity.runOnUiThread(new Runnable()
@@ -1592,6 +3235,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				@Override
 				public void run()
 				{
+					Log.debug("==============> [JAVA] AndroidThunkJava_KeepScreenOn(true) - Disabled screen saver");
 					_activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 				}
 			});
@@ -1603,6 +3247,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 				@Override
 				public void run()
 				{
+					Log.debug("==============> [JAVA] AndroidThunkJava_KeepScreenOn(false) - Enabled screen saver");
 					_activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 				}
 			});
@@ -1907,6 +3552,20 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		}, checkLastVirtualKeyboardCommandDelay);
 	}
 
+	private boolean AndroidThunkJava_isIntentActionAvailable(String intentAction)
+	{
+		Intent intent = new Intent(intentAction, null);
+		List<android.content.pm.ResolveInfo> activities = getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
+	    return activities != null && activities.size() > 0;
+	}
+
+	public void AndroidThunkJava_OpenIntentAction(String intentAction)
+	{
+		Intent intent = new Intent(intentAction, null);
+		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		startActivity(intent);
+	}
+
 	public void AndroidThunkJava_LaunchURL(String URL)
 	{
 		Log.debug("[JAVA} AndroidThunkJava_LaunchURL: URL = " + URL);
@@ -1949,6 +3608,75 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			Log.debug("GetAndroidId failed: " + e.getMessage());
 		}
 		return null;
+	}
+
+	public String AndroidThunkJava_GetLoginId()
+	{
+		String loginId = null;
+
+		// check for existing GUID fallback in internal
+		File file = new File(InternalFilesDir + "login-identifier.txt");
+		if (file.exists())
+		{
+            BufferedReader reader = null;
+			try {
+				reader = new BufferedReader(new FileReader(file));
+				loginId = reader.readLine();
+				reader.close();
+				return loginId;
+			} catch (IOException ie) {
+				Log.debug("failed to read login-identifier.txt: " + ie);
+			}
+		}
+
+		// check for one in external storage (and write to internal if found)
+		file = new File(ExternalFilesDir + "login-identifier.txt");
+		if (file.exists())
+		{
+            BufferedReader reader = null;
+			try {
+				reader = new BufferedReader(new FileReader(file));
+				loginId = reader.readLine();
+				reader.close();
+				writeLoginId(InternalFilesDir, loginId);
+				return loginId;
+			} catch (IOException ie) {
+				Log.debug("failed to read login-identifier.txt: " + ie);
+			}
+		}
+
+		// generate a GUID and save it for next run
+		UUID uuid = UUID.randomUUID();
+		loginId = uuid.toString();
+		writeLoginId(InternalFilesDir, loginId);
+
+		return loginId;
+	}
+
+	public boolean writeFile(String filename, String contents)
+	{
+		File file = new File(filename);
+
+		try
+		{
+			FileWriter outputWriter = new FileWriter(file);
+			outputWriter.write(contents);
+			outputWriter.close();
+			return true;
+		}
+		catch (IOException e)
+		{
+			Log.debug("Exception: " + e);
+		}
+		return false;
+	}	
+
+	public void writeLoginId(String path, String id)
+	{
+		if (!writeFile(path + "/" + "login-identifier.txt", id))
+		{
+			Log.debug("failed to create login-identifier.txt");
+		}
 	}
 
 	public void AndroidThunkJava_ShareURL(String URL, String Description, String Prompt, int LocationX, int LocationY)
@@ -2405,6 +4133,58 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			mSplashDialog.dismiss();
 			mSplashDialog = null;
 		}
+	}
+
+	public void AndroidThunkJava_ShowProgressDialog(boolean bShow, String message, boolean bHorizontal, int maxValue)
+	{
+		final boolean bShowFinal = bShow;
+		final String messageFinal = message;
+		final boolean bHorizontalFinal = bHorizontal;
+		final int maxValueFinal = maxValue;
+		_activity.runOnUiThread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				if (bShowFinal)
+				{
+					mProgressDialog = new ProgressDialog(_activity);
+					mProgressDialog.setMessage(messageFinal);
+					mProgressDialog.setProgress(0);
+					mProgressDialog.setMax(maxValueFinal);
+					mProgressDialog.setProgressStyle(bHorizontalFinal ? ProgressDialog.STYLE_HORIZONTAL : ProgressDialog.STYLE_SPINNER);
+					//mProgressDialog.setIndeterminate(true);
+					// Setting NOT_FOCUSABLE prevents the splash dialog from kicking some devices out of immersive mode.
+					mProgressDialog.getWindow().setFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+					mProgressDialog.show();
+				}
+				else
+				{
+					mProgressDialog.dismiss();
+					mProgressDialog = null;
+				}
+			}
+		});
+	}
+
+	public void AndroidThunkJava_UpdateProgressDialog(int value)
+	{
+		if (mProgressDialog == null)
+		{
+			return;
+		}
+		final int valueFinal = value;
+		_activity.runOnUiThread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				if (mProgressDialog != null)
+				{
+					mProgressDialog.setProgress(valueFinal);
+				}
+			}
+		});
 	}
 
 	private static class DeviceInfoData {
@@ -2903,23 +4683,9 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		if (key.equals("ue4.getUsedMemory"))
 		{
 			int ProcessMemory = 0;
-
-			ActivityManager activityManager = (ActivityManager)_activity.getSystemService(Context.ACTIVITY_SERVICE);
-			int pid = android.os.Process.myPid();
-			int pids[] = new int[] { pid };
-			android.os.Debug.MemoryInfo[] memoryInfo = activityManager.getProcessMemoryInfo(pids);
-			if (memoryInfo.length > 0)
+			synchronized(_activity)
 			{
-				ProcessMemory = memoryInfo[0].dalvikPss + memoryInfo[0].nativePss + memoryInfo[0].otherPss;
-
-				if (Build.VERSION.SDK_INT >= 23)
-				{
-					Map<String, String> memstats = memoryInfo[0].getMemoryStats();
-					if (memstats.containsKey("summary.total-pss") && memstats.containsKey("summary.system"))
-					{
-						ProcessMemory = Integer.parseInt(memstats.get("summary.total-pss")) - Integer.parseInt(memstats.get("summary.system"));
-					}
-				}
+				ProcessMemory = _activity.UsedMemory;
 			}
 			return ProcessMemory;
 		}
@@ -2950,8 +4716,48 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		return _bundle.getInt(key);
 	}
 
+	public long AndroidThunkJava_GetMetaDataLong(String key)
+	{
+		if (key.equals("ue4.display.PresentationDeadlineNanos"))
+		{
+			WindowManager windowManager = (WindowManager)getSystemService(WINDOW_SERVICE);
+			android.view.Display display = windowManager.getDefaultDisplay();
+			return display.getPresentationDeadlineNanos();
+		}
+		else
+		if (key.equals("ue4.display.AppVsyncOffsetNanos"))
+		{
+			if (android.os.Build.VERSION.SDK_INT >= 21)
+			{
+				WindowManager windowManager = (WindowManager)getSystemService(WINDOW_SERVICE);
+				android.view.Display display = windowManager.getDefaultDisplay();
+				return display.getAppVsyncOffsetNanos();
+			}
+			return -1;
+		}
+		return 0;
+	}
+
+	public float AndroidThunkJava_GetMetaDataFloat(String key)
+	{
+		if (key.equals("ue4.display.getRefreshRate"))
+		{
+			WindowManager windowManager = (WindowManager)getSystemService(WINDOW_SERVICE);
+			android.view.Display display = windowManager.getDefaultDisplay();
+			float rate = display.getRefreshRate();
+			// make sure it is sane.. some drivers returned crazy values
+			return rate < 15.0f ? 60.0f : rate;
+		}
+		return 0.0f;
+	}
+
 	public String AndroidThunkJava_GetMetaDataString(String key)
 	{
+		if (key.startsWith("getprop:"))
+		{
+			return getProp(key.substring(8));
+		}
+		else
 		if (key.equals("ue4.http.proxy.proxyHost"))
 		{
 			if (ANDROID_BUILD_VERSION >= 14)
@@ -3395,17 +5201,41 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		//Log.debug("VK: AndroidThunkJava_VirtualInputIgnoreClick false");
 		return false;
 	}
-	
 	public boolean AndroidThunkJava_LaunchPackage(String packageName, String extraKey, String extraValue)
 	{
 		Intent intent;
-		
+		String intentAction = "";
+		String intentComponent = "";
+
 		int intentActionIndex = packageName.indexOf(":");
 		if (intentActionIndex >= 0)
 		{
-			String intentAction = packageName.substring(intentActionIndex+1);
+			intentAction = packageName.substring(intentActionIndex + 1);
 			packageName = packageName.substring(0, intentActionIndex);
 
+			intentActionIndex = intentAction.indexOf(":");
+			if (intentActionIndex >= 0)
+			{
+				intentComponent = intentAction.substring(intentActionIndex + 1);
+				intentAction = intentAction.substring(0, intentActionIndex);
+			}
+		}
+
+		if (!AndroidThunkJava_IsPackageInstalled(packageName))
+		{
+			return false;
+		}
+
+		if (intentAction.equals(""))
+		{
+			intent = getPackageManager().getLaunchIntentForPackage(packageName);
+			if (intent == null)
+			{
+				return false;
+			}
+		}
+		else
+		{
 			intent = new Intent(intentAction);
 			if (intent == null)
 			{
@@ -3414,24 +5244,89 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			intent.setPackage(packageName);
 			intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 		}
-		else
+
+		if (!extraKey.equals(""))
 		{
-			intent = getPackageManager().getLaunchIntentForPackage(packageName);
+			intent.putExtra(extraKey, extraValue);
 		}
 
-		if (intent != null)
+		if (!intentComponent.equals(""))
 		{
-			if (extraKey != "")
+			intent.setComponent(new android.content.ComponentName(packageName, intentComponent));
+		}
+
+		if (intent.resolveActivity(getPackageManager()) != null)
+		{
+			startActivity(intent);
+			System.exit(0);
+			return true;
+		}
+
+		return false;
+	}
+
+	public boolean AndroidThunkJava_SendBroadcast(String packageName, String extraKey, String extraValue, boolean bExit)
+	{
+		Intent intent;
+		String intentAction = "";
+		String intentComponent = "";
+
+		int intentActionIndex = packageName.indexOf(":");
+		if (intentActionIndex >= 0)
+		{
+			intentAction = packageName.substring(intentActionIndex + 1);
+			packageName = packageName.substring(0, intentActionIndex);
+
+			intentActionIndex = intentAction.indexOf(":");
+			if (intentActionIndex >= 0)
 			{
-				intent.putExtra(extraKey, extraValue);
-			}
-			if (intent.resolveActivity(getPackageManager()) != null)
-			{
-				startActivity(intent);
-				System.exit(0);
+				intentComponent = intentAction.substring(intentActionIndex + 1);
+				intentAction = intentAction.substring(0, intentActionIndex);
 			}
 		}
-		return false;
+
+		if (!AndroidThunkJava_IsPackageInstalled(packageName))
+		{
+			return false;
+		}
+
+		if (intentAction.equals(""))
+		{
+			intent = getPackageManager().getLaunchIntentForPackage(packageName);
+			if (intent == null)
+			{
+				return false;
+			}
+		}
+		else
+		{
+			intent = new Intent(intentAction);
+			if (intent == null)
+			{
+				return false;
+			}
+			intent.setPackage(packageName);
+			intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		}
+
+		if (!extraKey.equals(""))
+		{
+			intent.putExtra(extraKey, extraValue);
+		}
+
+		if (!intentComponent.equals(""))
+		{
+			intent.setComponent(new android.content.ComponentName(packageName, intentComponent));
+		}
+
+		getApplicationContext().sendBroadcast(intent);
+
+		if (bExit)
+		{
+			System.exit(0);
+		}
+		
+		return true;
 	}
 
 	public void AndroidThunkJava_RestartApplication() 
@@ -3468,13 +5363,15 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 
 	public native int nativeGetCPUFamily();
 	public native boolean nativeSupportsNEON();
+	public native void nativeSetAffinityInfo(boolean bEnableAffinity, int bigCoreMask, int littleCoreMask);
+	public native void nativeSetConfigRulesVariables(String[] KeyValuePairs);
 
 	public native boolean nativeIsShippingBuild();
 	public native void nativeSetAndroidStartupState(boolean bDebuggerAttached);
 	public native void nativeSetGlobalActivity(boolean bUseExternalFilesDir, String internalFilePath, String externalFilePath, boolean bOBBInAPK, String APKPath);
 	public native void nativeSetWindowInfo(boolean bIsPortrait, int DepthBufferPreference);
 	public native void nativeSetObbInfo(String ProjectName, String PackageName, int Version, int PatchVersion, String AppType);
-	public native void nativeSetAndroidVersionInformation( String AndroidVersion, String PhoneMake, String PhoneModel, String OSLanguage );
+	public native void nativeSetAndroidVersionInformation( String AndroidVersion, String PhoneMake, String PhoneModel, String PhoneBuildNumber, String OSLanguage );
 
 	public native void nativeSetSurfaceViewInfo(int width, int height);
 

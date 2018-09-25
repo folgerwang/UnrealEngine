@@ -2,7 +2,8 @@
 
 #include "FileMediaSource.h"
 #include "Misc/Paths.h"
-
+#include "HAL/FileManager.h"
+#include "Misc/PackageName.h"
 
 namespace FileMediaSource
 {
@@ -16,22 +17,14 @@ namespace FileMediaSource
 
 FString UFileMediaSource::GetFullPath() const
 {
-	if (!FPaths::IsRelative(FilePath))
-	{
-		return FilePath;
-	}
-
-	if (FilePath.StartsWith(TEXT("./")))
-	{
-		return FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir(), FilePath.RightChop(2));
-	}
-
-	return FPaths::ConvertRelativePathToFull(FilePath);
+	ResolveFullPath();
+	return ResolvedFullPath;
 }
 
 
 void UFileMediaSource::SetFilePath(const FString& Path)
 {
+	ClearResolvedFullPath();
 	if (Path.IsEmpty() || Path.StartsWith(TEXT("./")))
 	{
 		FilePath = Path;
@@ -51,6 +44,53 @@ void UFileMediaSource::SetFilePath(const FString& Path)
 	}
 }
 
+void UFileMediaSource::ClearResolvedFullPath() const
+{
+	ResolvedFullPath.Empty();
+}
+
+void UFileMediaSource::ResolveFullPath() const
+{
+	if (!ResolvedFullPath.IsEmpty())
+	{
+		return;
+	}
+
+	ResolvedFullPath = FilePath;// prevent reentry on the fail case
+
+	if (!FPaths::IsRelative(FilePath))
+	{
+		return;
+	}
+    
+	if (ResolvedFullPath.StartsWith(TEXT("./")))
+	{
+        ResolvedFullPath = FPaths::Combine(FPaths::ProjectContentDir(), FilePath.RightChop(2));
+        FString FinalFullPath = FPaths::ConvertRelativePathToFull(ResolvedFullPath);
+        if (FPaths::FileExists(FinalFullPath))
+        {
+            ResolvedFullPath = FinalFullPath;
+            return;
+        }
+    }
+
+	const TArray<FString>& RootDirectories = FPlatformMisc::GetAdditionalRootDirectories();
+    FString RelativeToRootPath = ResolvedFullPath;
+    if ( ResolvedFullPath.StartsWith( FPaths::GetRelativePathToRoot() ) )
+    {
+        // if we start with the relative path to root then remove that so we can change the root directory below
+        RelativeToRootPath = ResolvedFullPath.Mid( FPaths::GetRelativePathToRoot().Len());
+    }
+    for (const FString& RootPath : RootDirectories)
+	{
+        FString FinalFullPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(RootPath, RelativeToRootPath));
+		if (FPaths::FileExists(FinalFullPath))
+		{
+			ResolvedFullPath = FinalFullPath;
+		}
+	}
+    
+}
 
 /* IMediaSource overrides
  *****************************************************************************/
@@ -76,7 +116,6 @@ bool UFileMediaSource::HasMediaOption(const FName& Key) const
 	return Super::HasMediaOption(Key);
 }
 
-
 /* UMediaSource overrides
  *****************************************************************************/
 
@@ -85,8 +124,11 @@ FString UFileMediaSource::GetUrl() const
 	return FString(TEXT("file://")) + GetFullPath();
 }
 
-
 bool UFileMediaSource::Validate() const
 {
-	return FPaths::FileExists(GetFullPath());
+	ResolveFullPath();
+
+	check( (ResolvedFullPath.IsEmpty() == false) || FilePath.IsEmpty() );
+
+	return FPaths::FileExists(ResolvedFullPath);
 }

@@ -30,9 +30,16 @@ FSlateApplicationBase::FSlateApplicationBase()
 
 }
 
-void FSlateApplicationBase::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics) const 
+void FSlateApplicationBase::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics) 
 { 
-	FDisplayMetrics::GetDisplayMetrics(OutDisplayMetrics); 
+	FDisplayMetrics::RebuildDisplayMetrics(OutDisplayMetrics); 
+	CachedDisplayMetrics = OutDisplayMetrics;
+	CachedDebugTitleSafeRatio = FDisplayMetrics::GetDebugTitleSafeZoneRatio();
+}
+
+void FSlateApplicationBase::GetCachedDisplayMetrics(FDisplayMetrics& OutDisplayMetrics) const
+{
+	OutDisplayMetrics = CachedDisplayMetrics;
 }
 
 void FSlateApplicationBase::GetSafeZoneSize(FMargin& SafeZone, const FVector2D& OverrideSize)
@@ -46,7 +53,7 @@ void FSlateApplicationBase::GetSafeZoneSize(FMargin& SafeZone, const FVector2D& 
 	if (ContainerSize.IsZero())
 	{
 		FDisplayMetrics Metrics;
-		FDisplayMetrics::GetDisplayMetrics(Metrics);
+		GetCachedDisplayMetrics(Metrics);
 		ContainerSize = FVector2D(Metrics.PrimaryDisplayWidth, Metrics.PrimaryDisplayHeight);
 	}
 
@@ -69,7 +76,7 @@ void FSlateApplicationBase::GetSafeZoneRatio(FMargin& SafeZoneRatio)
 #endif
 	{
 		FDisplayMetrics Metrics;
-		FDisplayMetrics::GetDisplayMetrics(Metrics);
+		GetCachedDisplayMetrics(Metrics);
 		float HalfWidth = (Metrics.PrimaryDisplayWidth * 0.5f);
 		float HalfHeight = (Metrics.PrimaryDisplayHeight * 0.5f);
 		SafeZoneRatio = Metrics.TitleSafePaddingSize;

@@ -68,7 +68,7 @@ public partial class Project : CommandUtils
 	/// </summary>
 	/// <param name="Filename"></param>
 	/// <param name="ResponseFile"></param>
-	private static void WritePakResponseFile(string Filename, Dictionary<string, string> ResponseFile, bool Compressed, EncryptionAndSigning.CryptoSettings CryptoSettings)
+	private static void WritePakResponseFile(string Filename, Dictionary<string, string> ResponseFile, bool Compressed, EncryptionAndSigning.CryptoSettings CryptoSettings, bool bForceFullEncryption)
 	{
 		using (var Writer = new StreamWriter(Filename, false, new System.Text.UTF8Encoding(true)))
 		{
@@ -82,7 +82,7 @@ public partial class Project : CommandUtils
 
 				if(CryptoSettings != null)
 				{
-					bool bEncryptFile = CryptoSettings.bEnablePakFullAssetEncryption;
+					bool bEncryptFile = bForceFullEncryption || CryptoSettings.bEnablePakFullAssetEncryption;
 					bEncryptFile = bEncryptFile || (CryptoSettings.bEnablePakUAssetEncryption && Path.GetExtension(Entry.Key).Contains(".uasset"));
 					bEncryptFile = bEncryptFile || (CryptoSettings.bEnablePakIniEncryption && Path.GetExtension(Entry.Key).Contains(".ini"));
 
@@ -109,13 +109,16 @@ public partial class Project : CommandUtils
 		return Result;
 	}
 
-	static public string GetUnrealPakArguments(Dictionary<string, string> UnrealPakResponseFile, FileReference OutputLocation, FileReference PakOrderFileLocation, string PlatformOptions, bool Compressed, EncryptionAndSigning.CryptoSettings CryptoSettings, FileReference CryptoKeysCacheFilename, String PatchSourceContentPath)
+	static public string GetUnrealPakArguments(Dictionary<string, string> UnrealPakResponseFile, FileReference OutputLocation, FileReference PakOrderFileLocation, string PlatformOptions, bool Compressed, EncryptionAndSigning.CryptoSettings CryptoSettings, FileReference CryptoKeysCacheFilename, String PatchSourceContentPath, string EncryptionKeyGuid)
 	{
 		StringBuilder CmdLine = new StringBuilder(MakePathSafeToUseWithCommandLine(OutputLocation.FullName));
 
+		// Force encryption of ALL files if we're using specific encryption key. This should be made an option per encryption key in the settings, but for our initial
+		// implementation we will just assume that we require maximum security for this data.
+		bool bForceEncryption = !string.IsNullOrEmpty(EncryptionKeyGuid);
 		string PakName = Path.GetFileNameWithoutExtension(OutputLocation.FullName);
 		string UnrealPakResponseFileName = CombinePaths(CmdEnv.LogFolder, "PakList_" + PakName + ".txt");
-		WritePakResponseFile(UnrealPakResponseFileName, UnrealPakResponseFile, Compressed, CryptoSettings);
+		WritePakResponseFile(UnrealPakResponseFileName, UnrealPakResponseFile, Compressed, CryptoSettings, bForceEncryption);
 		CmdLine.AppendFormat(" -create={0}", CommandUtils.MakePathSafeToUseWithCommandLine(UnrealPakResponseFileName));
 
 		if(CryptoKeysCacheFilename != null)
@@ -134,6 +137,10 @@ public partial class Project : CommandUtils
 		{
 			CmdLine.AppendFormat(" -encryptindex");
 		}
+		if (!string.IsNullOrEmpty(EncryptionKeyGuid))
+		{
+			CmdLine.AppendFormat(" -EncryptionKeyOverrideGuid={0}", EncryptionKeyGuid);
+		}
 		CmdLine.Append(PlatformOptions);
 
 		return CmdLine.ToString();
@@ -151,14 +158,14 @@ public partial class Project : CommandUtils
 		}
 	}
 
-	static public void RunUnrealPak(ProjectParams Params, Dictionary<string, string> UnrealPakResponseFile, FileReference OutputLocation, FileReference PakOrderFileLocation, string PlatformOptions, bool Compressed, EncryptionAndSigning.CryptoSettings CryptoSettings, FileReference CryptoKeysCacheFilename, String PatchSourceContentPath)
+	static public void RunUnrealPak(ProjectParams Params, Dictionary<string, string> UnrealPakResponseFile, FileReference OutputLocation, FileReference PakOrderFileLocation, string PlatformOptions, bool Compressed, EncryptionAndSigning.CryptoSettings CryptoSettings, FileReference CryptoKeysCacheFilename, String PatchSourceContentPath, string EncryptionKeyGuid)
 	{
 		if (UnrealPakResponseFile.Count < 1)
 		{
 			return;
 		}
 
-		string Arguments = GetUnrealPakArguments(UnrealPakResponseFile, OutputLocation, PakOrderFileLocation, PlatformOptions, Compressed, CryptoSettings, CryptoKeysCacheFilename, PatchSourceContentPath);
+		string Arguments = GetUnrealPakArguments(UnrealPakResponseFile, OutputLocation, PakOrderFileLocation, PlatformOptions, Compressed, CryptoSettings, CryptoKeysCacheFilename, PatchSourceContentPath, EncryptionKeyGuid);
 		RunAndLog(CmdEnv, GetUnrealPakLocation().FullName, Arguments, Options: ERunOptions.Default | ERunOptions.UTF8Output);
 	}
 
@@ -322,9 +329,9 @@ public partial class Project : CommandUtils
 			}
 
 			// Put all of the cooked dir into the staged dir
-			DirectoryReference PlatformCookDir = String.IsNullOrEmpty(Params.CookOutputDir) ? DirectoryReference.Combine(DLCRoot, "Saved", "Cooked", SC.CookPlatform) : DirectoryReference.Combine(new DirectoryReference(Params.CookOutputDir), SC.CookPlatform);
-			DirectoryReference PlatformEngineDir = DirectoryReference.Combine(PlatformCookDir, "Engine");
-			SC.MetadataDir = DirectoryReference.Combine(PlatformCookDir, SC.ShortProjectName, "Metadata");
+			SC.PlatformCookDir = String.IsNullOrEmpty(Params.CookOutputDir) ? DirectoryReference.Combine(DLCRoot, "Saved", "Cooked", SC.CookPlatform) : DirectoryReference.Combine(new DirectoryReference(Params.CookOutputDir), SC.CookPlatform);
+			DirectoryReference PlatformEngineDir = DirectoryReference.Combine(SC.PlatformCookDir, "Engine");
+			SC.MetadataDir = DirectoryReference.Combine(SC.PlatformCookDir, SC.ShortProjectName, "Metadata");
 
 			// Put the config files into the staged dir
 			DirectoryReference ConfigDir = DirectoryReference.Combine(DLCRoot, "Config");
@@ -344,7 +351,7 @@ public partial class Project : CommandUtils
 			}
 
 			// Stage all the cooked data, this is the same rule as normal stage except we may skip Engine
-			List<FileReference> CookedFiles = DirectoryReference.EnumerateFiles(PlatformCookDir, "*", SearchOption.AllDirectories).ToList();
+			List<FileReference> CookedFiles = DirectoryReference.EnumerateFiles(SC.PlatformCookDir, "*", SearchOption.AllDirectories).ToList();
 			foreach (FileReference CookedFile in CookedFiles)
 			{
 				// Skip metadata directory
@@ -363,7 +370,7 @@ public partial class Project : CommandUtils
 				// metallib files cannot *currently* be staged as UFS as the Metal API needs to mmap them from files on disk in order to function efficiently
 				if (!CookedFile.HasExtension(".json") && !CookedFile.HasExtension(".metallib"))
 				{
-					SC.StageFile(StagedFileType.UFS, CookedFile, new StagedFileReference(CookedFile.MakeRelativeTo(PlatformCookDir)));
+					SC.StageFile(StagedFileType.UFS, CookedFile, new StagedFileReference(CookedFile.MakeRelativeTo(SC.PlatformCookDir)));
 				}
 			}
 
@@ -645,9 +652,12 @@ public partial class Project : CommandUtils
 					CookOutputDir = DirectoryReference.Combine(SC.ProjectRoot, "Saved", "Cooked", SC.CookPlatform);
 				}
 
+				SC.PlatformCookDir = CookOutputDir;
 				SC.MetadataDir = DirectoryReference.Combine(CookOutputDir, SC.ShortProjectName, "Metadata");
 
 				// Stage all the cooked data. Currently not filtering this by restricted folders, since we shouldn't mask invalid references by filtering them out.
+				if(DirectoryReference.Exists(CookOutputDir))
+				{
 				List<FileReference> CookedFiles = DirectoryReference.EnumerateFiles(CookOutputDir, "*", SearchOption.AllDirectories).ToList();
 				foreach (FileReference CookedFile in CookedFiles)
 				{
@@ -663,6 +673,7 @@ public partial class Project : CommandUtils
 					{
 						SC.StageFile(StagedFileType.UFS, CookedFile, new StagedFileReference(CookedFile.MakeRelativeTo(CookOutputDir)));
 					}
+				}
 				}
 
 				// CrashReportClient is a standalone slate app that does not look in the generated pak file, so it needs the Content/Slate and Shaders/StandaloneRenderer folders Non-UFS
@@ -1013,7 +1024,6 @@ public partial class Project : CommandUtils
 			case "scalability.ini":
 			case "runtimeoptions.ini":
 				return true;
-			case "encryption.ini":
 			case "crypto.ini":
 			case "editor.ini":
 			case "editorgameagnostic.ini":
@@ -1236,7 +1246,7 @@ public partial class Project : CommandUtils
 		PakCryptoSettings.Save(CryptoKeysCacheFilename);
 
 		List<CreatePakParams> PakInputs = new List<CreatePakParams>();
-		PakInputs.Add(new CreatePakParams(SC.ShortProjectName, UnrealPakResponseFile, Params.Compressed));
+		PakInputs.Add(new CreatePakParams(SC.ShortProjectName, UnrealPakResponseFile, Params.Compressed, null));
 		CreatePaks(Params, SC, PakInputs, PakCryptoSettings, CryptoKeysCacheFilename);
 	}
 
@@ -1252,7 +1262,7 @@ public partial class Project : CommandUtils
 		Dictionary<string, string> PakResponseFile = CreatePakResponseFileFromStagingManifest(SC, SC.CrashReporterUFSFiles);
 		FileReference OutputLocation = FileReference.Combine(SC.RuntimeRootDir, "Engine", "Programs", "CrashReportClient", "Content", "Paks", "CrashReportClient.pak");
 
-		RunUnrealPak(Params, PakResponseFile, OutputLocation, null, null, Params.Compressed, null, null, null);
+		RunUnrealPak(Params, PakResponseFile, OutputLocation, null, null, Params.Compressed, null, null, null, null);
 	}
 
 	/// <summary>
@@ -1369,16 +1379,22 @@ public partial class Project : CommandUtils
 		public bool bCompressed;
 
 		/// <summary>
+		/// GUID of the encryption key for this pak file
+		/// </summary>
+		public string EncryptionKeyGuid;
+
+		/// <summary>
 		/// Constructor
 		/// </summary>
 		/// <param name="PakName">Path to the base output file for this pak file</param>
 		/// <param name="UnrealPakResponseFile">Map of files within the pak file to their source file on disk</param>
 		/// <param name="bCompressed">Whether to enable compression</param>
-		public CreatePakParams(string PakName, Dictionary<string, string> UnrealPakResponseFile, bool bCompressed)
+		public CreatePakParams(string PakName, Dictionary<string, string> UnrealPakResponseFile, bool bCompressed, string EncryptionKeyGuid)
 		{
 			this.PakName = PakName;
 			this.UnrealPakResponseFile = UnrealPakResponseFile;
 			this.bCompressed = bCompressed;
+			this.EncryptionKeyGuid = EncryptionKeyGuid;
 		}
 	}
 
@@ -1455,7 +1471,7 @@ public partial class Project : CommandUtils
 			StagedFileReference OutputRelativeLocation;
 			if (Params.HasDLCName)
 			{
-				OutputRelativeLocation = StagedFileReference.Combine(SC.RelativeProjectRootForStage, Params.DLCFile.Directory.MakeRelativeTo(SC.ProjectRoot), "Content", "Paks", SC.FinalCookPlatform, Params.DLCFile.GetFileNameWithoutExtension() + ".pak");
+				OutputRelativeLocation = StagedFileReference.Combine(SC.RelativeProjectRootForStage, Params.DLCFile.Directory.MakeRelativeTo(SC.ProjectRoot), "Content", "Paks", SC.FinalCookPlatform, Params.DLCFile.GetFileNameWithoutExtension() + OutputFilename + ".pak");
 			}
 			else
 			{
@@ -1468,19 +1484,33 @@ public partial class Project : CommandUtils
 			OutputRelativeLocation = SC.StageTargetPlatform.Remap(OutputRelativeLocation);
 
 			FileReference OutputLocation = FileReference.Combine(SC.RuntimeRootDir, OutputRelativeLocation.Name);
-			// Add input file to control order of file within the pak
-			DirectoryReference PakOrderFileLocationBase = DirectoryReference.Combine(SC.ProjectRoot, "Build", SC.FinalCookPlatform, "FileOpenOrder");
 
 			FileReference PakOrderFileLocation = null;
 
+			// preferred files
 			string[] OrderFileNames = new string[] { "GameOpenOrder.log", "CookerOpenOrder.log", "EditorOpenOrder.log" };
+    
+			// search CookPlaform (e.g. IOSClient and then regular platform (e.g. IOS).
+			string[] OrderLocations = new string[] { SC.FinalCookPlatform, SC.StageTargetPlatform.GetTargetPlatformDescriptor().Type.ToString() };
+    
 			foreach (string OrderFileName in OrderFileNames)
 			{
-				FileReference FileLocation = FileReference.Combine(PakOrderFileLocationBase, OrderFileName);
-
-				if (FileExists_NoExceptions(FileLocation.FullName))
+				foreach (string OrderLocation in OrderLocations)
 				{
-					PakOrderFileLocation = FileLocation;
+					// Add input file to control order of file within the pak
+					DirectoryReference PakOrderFileLocationBase = DirectoryReference.Combine(SC.ProjectRoot, "Build", OrderLocation, "FileOpenOrder");
+    
+					FileReference FileLocation = FileReference.Combine(PakOrderFileLocationBase, OrderFileName);
+    
+					if (FileExists_NoExceptions(FileLocation.FullName))
+					{
+						PakOrderFileLocation = FileLocation;
+						break;
+					}
+				}
+    
+				if (PakOrderFileLocation != null)
+				{
 					break;
 				}
 			}
@@ -1491,7 +1521,7 @@ public partial class Project : CommandUtils
 			{
 				// Check to see if we have an existing pak file we can use
 
-					StagedFileReference SourceOutputRelativeLocation = StagedFileReference.Combine(SC.RelativeProjectRootForStage, "Content/Paks/", PakParams.PakName + "-" + SC.CookPlatform + PostFix + ".pak");
+				StagedFileReference SourceOutputRelativeLocation = StagedFileReference.Combine(SC.RelativeProjectRootForStage, "Content/Paks/", PakParams.PakName + "-" + SC.CookPlatform + PostFix + ".pak");
 				if (SC.CookSourcePlatform.DeployLowerCaseFilenames())
 				{
 					SourceOutputRelativeLocation = SourceOutputRelativeLocation.ToLowerInvariant();
@@ -1550,7 +1580,7 @@ public partial class Project : CommandUtils
 				}
 				if (!bCopiedExistingPak)
 				{
-					Commands.Add(GetUnrealPakArguments(PakParams.UnrealPakResponseFile, OutputLocation, PakOrderFileLocation, SC.StageTargetPlatform.GetPlatformPakCommandLine(Params, SC) + " " + Params.AdditionalPakOptions, PakParams.bCompressed, CryptoSettings, CryptoKeysCacheFilename, PatchSourceContentPath));
+					Commands.Add(GetUnrealPakArguments(PakParams.UnrealPakResponseFile, OutputLocation, PakOrderFileLocation, SC.StageTargetPlatform.GetPlatformPakCommandLine(Params, SC) + " " + Params.AdditionalPakOptions, PakParams.bCompressed, CryptoSettings, CryptoKeysCacheFilename, PatchSourceContentPath, PakParams.EncryptionKeyGuid));
 				}
 			}
 
@@ -1657,6 +1687,9 @@ public partial class Project : CommandUtils
 				RunAndLog(CmdEnv, BPTExe, CmdLine, BuildPatchToolLogFileName, Options: ERunOptions.Default | ERunOptions.UTF8Output);
 
 				InternalUtils.SafeCopyFile(SourceManifestPath, DestManifestPath);
+
+				// generate the master manifest
+				GenerateMasterChunkManifest(CloudDir, Params.ChunkInstallVersionString, SC.FinalCookPlatform);
 			}
 			else
 			{
@@ -1814,6 +1847,8 @@ public partial class Project : CommandUtils
 		public Dictionary<string, string> ResponseFile;
 		public HashSet<string> Manifest;
 		public bool bCompressed;
+		public string EncryptionKeyGuid;
+		public string RequestedEncryptionKeyGuid;
 	}
 
     /// <summary>
@@ -1831,6 +1866,10 @@ public partial class Project : CommandUtils
 
 		var TmpPackagingPath = GetTmpPackagingPath(Params, SC);
 
+		// Parse and cache crypto settings from INI file
+		EncryptionAndSigning.CryptoSettings PakCryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
+		FileReference CryptoKeysCacheFilename = FileReference.Combine(SC.MetadataDir, "Crypto.json");
+		PakCryptoSettings.Save(CryptoKeysCacheFilename);
 
 		// We still want to have a list of all files to stage. We will use the chunk manifests
 		// to put the files from staging manifest into the right chunk
@@ -1854,6 +1893,22 @@ public partial class Project : CommandUtils
 					{
 						CD.bCompressed = true;
 					}
+					else if (ChunkOptions[I].StartsWith("encryptionkeyguid="))
+					{
+						CD.RequestedEncryptionKeyGuid = ChunkOptions[I].Substring(ChunkOptions[I].IndexOf('=') + 1); ;
+						
+						if (PakCryptoSettings.SecondaryEncryptionKeys != null)
+						{
+							foreach (EncryptionAndSigning.EncryptionKey Key in PakCryptoSettings.SecondaryEncryptionKeys)
+							{
+								if (string.Compare(Key.Guid, CD.RequestedEncryptionKeyGuid, true) == 0)
+								{
+									CD.EncryptionKeyGuid = CD.RequestedEncryptionKeyGuid;
+									break;
+								}
+							}
+						}
+					}
 				}
 				CD.Manifest = ReadPakChunkManifest(ChunkManifestFilename);
 				ChunkDefinitions.Add(CD);
@@ -1861,8 +1916,6 @@ public partial class Project : CommandUtils
 
 			const string OptionalBulkDataFileExtension = ".uptnl";
 			Dictionary<string, ChunkDefinition> OptionalChunks = new Dictionary<string, ChunkDefinition>();
-			
-			
 			ChunkDefinition DefaultChunk = ChunkDefinitions[DefaultChunkIndex];
 
 		foreach (var StagingFile in StagingManifestResponseFile)
@@ -1873,6 +1926,7 @@ public partial class Project : CommandUtils
 					ChunkDefinition Chunk = ChunkDefinitions[ChunkIndex];
 				string OriginalFilename = StagingFile.Key;
 				string NoExtension = CombinePaths(Path.GetDirectoryName(OriginalFilename), Path.GetFileNameWithoutExtension(OriginalFilename));
+					string NoExtensionWithDot = NoExtension + ".";
 				string OriginalReplaceSlashes = OriginalFilename.Replace('/', '\\');
 				string NoExtensionReplaceSlashes = NoExtension.Replace('/', '\\');
 
@@ -1881,23 +1935,23 @@ public partial class Project : CommandUtils
 								Chunk.Manifest.Contains(NoExtension) ||
 								Chunk.Manifest.Contains(NoExtensionReplaceSlashes))
 					{
+						ChunkDefinition TargetChunk = Chunk;
+
 						string OrigExt = Path.GetExtension(OriginalFilename);
 						if (OrigExt.Equals(OptionalBulkDataFileExtension))
 						{
 							// any optional files encountered we want to put in a separate pak file
 							string OptionalChunkName = Path.GetFileNameWithoutExtension(Chunk.ChunkName) + "optional.txt";
-							ChunkDefinition OptionalChunk = null;
-							if ( !OptionalChunks.TryGetValue(OptionalChunkName, out OptionalChunk) )
+							if ( !OptionalChunks.TryGetValue(OptionalChunkName, out TargetChunk) )
 				{
-								OptionalChunk = new ChunkDefinition(OptionalChunkName);
-								OptionalChunks.Add(OptionalChunkName, OptionalChunk);
+								TargetChunk = new ChunkDefinition(OptionalChunkName);
+								TargetChunk.RequestedEncryptionKeyGuid = Chunk.RequestedEncryptionKeyGuid;
+								TargetChunk.EncryptionKeyGuid = Chunk.EncryptionKeyGuid;
+								OptionalChunks.Add(OptionalChunkName, TargetChunk);
 							}
-							OptionalChunk.ResponseFile.Add(StagingFile.Key, StagingFile.Value);
 						}
-						else
-						{
-							Chunk.ResponseFile.Add(StagingFile.Key, StagingFile.Value);
-						}
+
+						TargetChunk.ResponseFile.Add(StagingFile.Key, StagingFile.Value);
 					bAddedToChunk = true;
 				}
 			}
@@ -1979,15 +2033,20 @@ public partial class Project : CommandUtils
 			}
 		}
 
-		// Parse and cache crypto settings from INI file
-		EncryptionAndSigning.CryptoSettings PakCryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
-		FileReference CryptoKeysCacheFilename = FileReference.Combine(SC.MetadataDir, "Crypto.json");
-		PakCryptoSettings.Save(CryptoKeysCacheFilename);
-
 		System.Threading.Tasks.ParallelOptions Options = new System.Threading.Tasks.ParallelOptions();
 
 		LogInformation("Creating Pak files utilizing {0} cores", Environment.ProcessorCount);
 		Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
+
+		// Check for chunks that requested an encryption key that we don't have. This can happen for Epic contractors who don't have access to our keychains. Emit a warning though, just in case
+		// this somehow happens when the keychain is available
+		foreach (ChunkDefinition CD in ChunkDefinitions)
+		{
+			if (!string.IsNullOrEmpty(CD.RequestedEncryptionKeyGuid) && (CD.RequestedEncryptionKeyGuid != CD.EncryptionKeyGuid))
+			{
+				LogWarning("Chunk '" + CD.ChunkName + "' requested encryption key '" + CD.RequestedEncryptionKeyGuid + "' but it couldn't be found in the project keychain.");
+			}
+		}
 
 		List<CreatePakParams> PakInputs = new List<CreatePakParams>();
 		foreach (ChunkDefinition Chunk in ChunkDefinitions)
@@ -1995,20 +2054,12 @@ public partial class Project : CommandUtils
 			string ChunkName = Path.GetFileNameWithoutExtension(Chunk.ChunkName);
 			if (Chunk.ResponseFile.Count > 0)
 			{
-				PakInputs.Add(new CreatePakParams(ChunkName, Chunk.ResponseFile, Params.Compressed || Chunk.bCompressed));
+				PakInputs.Add(new CreatePakParams(ChunkName, Chunk.ResponseFile, Params.Compressed || Chunk.bCompressed, Chunk.EncryptionKeyGuid));
 				//CreatePak(Params, SC, Chunk.ResponseFile, ChunkName, PakCryptoSettings, CryptoKeysCacheFilename, bCompression);
 			}
 		}
 
 		CreatePaks(Params, SC, PakInputs, PakCryptoSettings, CryptoKeysCacheFilename);
-
-		if (Params.CreateChunkInstall)
-		{
-			// generate the master manifest
-			string ChunkInstallBasePath = CombinePaths(Params.ChunkInstallDirectory, SC.FinalCookPlatform);
-			string CloudDir = MakePathSafeToUseWithCommandLine(CombinePaths(ChunkInstallBasePath, "CloudDir"));
-			GenerateMasterChunkManifest(CloudDir, Params.ChunkInstallVersionString, SC.FinalCookPlatform);
-		}
 
 		String ChunkLayerFilename = CombinePaths(GetTmpPackagingPath(Params, SC), GetChunkPakLayerListName());
 		String OutputChunkLayerFilename = Path.Combine(SC.ProjectRoot.FullName, "Build", SC.FinalCookPlatform, "ChunkLayerInfo", GetChunkPakLayerListName());
@@ -2136,11 +2187,39 @@ public partial class Project : CommandUtils
 		StagedFilesDir.GetFiles("*.pak", SearchOption.AllDirectories).ToList().ForEach(File => File.Delete());
 	}
 
+	protected static void CleanDirectoryExcludingPakFiles(DirectoryInfo StagingDirectory)
+	{
+		foreach(DirectoryInfo SubDir in StagingDirectory.EnumerateDirectories())
+		{
+			if(!SubDir.Name.Equals("Paks", StringComparison.OrdinalIgnoreCase))
+			{
+				CleanDirectoryExcludingPakFiles(SubDir);
+				try { SubDir.Delete(); } catch { }
+			}
+		}
+
+		foreach(System.IO.FileInfo File in StagingDirectory.EnumerateFiles())
+		{
+			try { File.Delete(); } catch { }
+		}
+	}
+
 	public static void CleanStagingDirectory(ProjectParams Params, DeploymentContext SC)
 	{
-		LogInformation("Cleaning Stage Directory: {0}", SC.StageDirectory.FullName);
-		if (SC.Stage && !Params.NoCleanStage && !Params.SkipStage && !Params.IterativeDeploy)
+		if (Params.NoCleanStage)
 		{
+			LogInformation("Skipping clean of staging directory due to -NoCleanStage argument.");
+		}
+		else if (SC.Stage && !Params.SkipStage && !Params.IterativeDeploy)
+		{
+			if(Params.SkipPak)
+			{
+				LogInformation("Cleaning Stage Directory (exluding PAK files): {0}", SC.StageDirectory.FullName);
+				CleanDirectoryExcludingPakFiles(new DirectoryInfo(SC.StageDirectory.FullName));
+			}
+			else
+			{
+		LogInformation("Cleaning Stage Directory: {0}", SC.StageDirectory.FullName);
 			try
 			{
 				DeleteDirectory(SC.StageDirectory.FullName);
@@ -2151,8 +2230,10 @@ public partial class Project : CommandUtils
 				throw new AutomationException(ExitCode.Error_FailedToDeleteStagingDirectory, Ex, "Stage Failed. Failed to delete staging directory " + SC.StageDirectory.FullName);
 			}
 		}
+		}
 		else
 		{
+			LogInformation("Cleaning pak files: {0}", SC.StageDirectory.FullName);
 			try
 			{
 				// delete old pak files
@@ -2188,11 +2269,18 @@ public partial class Project : CommandUtils
 				CreatePakUsingStagingManifest(Params, SC);
 			}
 		}
+
+		string BaseManifestFileName = CombinePaths(CmdEnv.LogFolder, "FinalCopy" + (SC.DedicatedServer ? "_Server" : ""));
+		DumpManifest(SC.FilesToStage.UFSFiles, BaseManifestFileName + "_UFSFiles.txt");
+
 		if (!SC.Stage || Params.SkipStage)
 		{
 			return;
 		}
-		DumpManifest(SC, CombinePaths(CmdEnv.LogFolder, "FinalCopy" + (SC.DedicatedServer ? "_Server" : ""))/*, !Params.UsePak(SC.StageTargetPlatform)*/);
+
+		DumpManifest(SC.FilesToStage.NonUFSFiles, BaseManifestFileName + "_NonUFSFiles.txt");
+		DumpManifest(SC.FilesToStage.NonUFSDebugFiles, BaseManifestFileName + "_NonUFSFilesDebug.txt");
+
 		CopyUsingStagingManifest(Params, SC);
 
 		var ThisPlatform = SC.StageTargetPlatform;
@@ -2201,7 +2289,7 @@ public partial class Project : CommandUtils
 
 	private static DirectoryReference GetIntermediateCommandlineDir(DeploymentContext SC)
 	{
-		return DirectoryReference.Combine(SC.EngineRoot, "Intermediate", "UAT", SC.FinalCookPlatform);
+		return DirectoryReference.Combine(SC.LocalRoot, "Intermediate", "UAT", SC.FinalCookPlatform);
 	}
 
 	public static void WriteStageCommandline(FileReference IntermediateCmdLineFile, ProjectParams Params, DeploymentContext SC)
@@ -2497,47 +2585,47 @@ public partial class Project : CommandUtils
 		}
 
 		// write out to the deltamanifest.json
-		FileReference ManifestFile = FileReference.Combine(SC.StageDirectory, ObsoleteManifest);
-		StreamWriter Writer = System.IO.File.CreateText(ManifestFile.FullName);
-		foreach (StagedFileReference ObsoleteFile in ObsoleteFiles)
+		using (var Writer = File.CreateText(ObsoleteManifest))
 		{
-			Writer.WriteLine(ObsoleteFile);
+			foreach (StagedFileReference ObsoleteFile in ObsoleteFiles)
+			{
+				Writer.WriteLine(ObsoleteFile);
+			}
 		}
-		Writer.Close();
 	}
 
 	protected static void WriteDeltaManifest(ProjectParams Params, DeploymentContext SC, Dictionary<StagedFileReference, string> DeployedFiles, Dictionary<StagedFileReference, string> StagedFiles, string DeltaManifest)
 	{
 		HashSet<StagedFileReference> CRCFiles = SC.StageTargetPlatform.GetFilesForCRCCheck();
 		List<string> DeltaFiles = new List<string>();
-		foreach (KeyValuePair<StagedFileReference, string> StagedFile in StagedFiles)
+		foreach (KeyValuePair<StagedFileReference, string> File in StagedFiles)
 		{
 			bool bNeedsDeploy = true;
-			if (DeployedFiles.ContainsKey(StagedFile.Key))
+			if (DeployedFiles.ContainsKey(File.Key))
 			{
-				if (CRCFiles.Contains(StagedFile.Key))
+				if (CRCFiles.Contains(File.Key))
 				{
-					bNeedsDeploy = (StagedFile.Value != DeployedFiles[StagedFile.Key]);
+					bNeedsDeploy = (File.Value != DeployedFiles[File.Key]);
 				}
 				else
 				{
-					DateTime Staged = DateTime.Parse(StagedFile.Value);
-					DateTime Deployed = DateTime.Parse(DeployedFiles[StagedFile.Key]);
+					DateTime Staged = DateTime.Parse(File.Value);
+					DateTime Deployed = DateTime.Parse(DeployedFiles[File.Key]);
 					bNeedsDeploy = (Staged > Deployed);
 				}
 			}
 
 			if (bNeedsDeploy)
 			{
-				DeltaFiles.Add(StagedFile.Key.Name);
+				DeltaFiles.Add(File.Key.Name);
 			}
 		}
 
 		// add the manifest
 		if (!DeltaManifest.Contains("NonUFS"))
 		{
-			DeltaFiles.Add(SC.NonUFSDeployedManifestFileName);
-			DeltaFiles.Add(SC.UFSDeployedManifestFileName);
+			DeltaFiles.Add(SC.GetNonUFSDeployedManifestFileName(null));
+			DeltaFiles.Add(SC.GetUFSDeployedManifestFileName(null));
 		}
 
 		// TODO: determine files which need to be removed
@@ -2634,8 +2722,7 @@ public partial class Project : CommandUtils
 							if (bRequireStagedFilesToExist)
 							{
 								// if we aren't collecting multiple platforms, then it is expected to exist
-								continue;
-//								throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Missing receipt '{0}'. Check that this target has been built.", ReceiptFileName);
+								throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Missing receipt '{0}'. Check that this target has been built.", ReceiptFileName);
 							}
 							else
 							{
@@ -2710,8 +2797,6 @@ public partial class Project : CommandUtils
 				// clean the staging directories first
 				foreach (var SC in DeployContextList)
 				{
-                    SC.StageTargetPlatform.PreStage(Params, SC);
-
 					// write out the commandline file now so it can go into the manifest
 					WriteStageCommandline(Params, SC);
 					CreateStagingManifest(Params, SC);
@@ -2719,9 +2804,6 @@ public partial class Project : CommandUtils
 				}
 				foreach (var SC in DeployContextList)
 				{
-					//ensure this directory exists so these writes work
-					DirectoryReference.CreateDirectory(GetIntermediateCommandlineDir(SC));
-
 					ApplyStagingManifest(Params, SC);
 
 					if (Params.Deploy)
@@ -2730,8 +2812,8 @@ public partial class Project : CommandUtils
 						List<string> NonUFSManifests;
 
 						// get the staged file data
-						Dictionary<StagedFileReference, string> StagedUFSFiles = ReadStagedManifest(Params, SC, SC.UFSDeployedManifestFileName);
-						Dictionary<StagedFileReference, string> StagedNonUFSFiles = ReadStagedManifest(Params, SC, SC.NonUFSDeployedManifestFileName);
+						Dictionary<StagedFileReference, string> StagedUFSFiles = ReadStagedManifest(Params, SC, SC.GetUFSDeployedManifestFileName(null));
+						Dictionary<StagedFileReference, string> StagedNonUFSFiles = ReadStagedManifest(Params, SC, SC.GetNonUFSDeployedManifestFileName(null));
 
 						foreach (var DeviceName in Params.DeviceNames)
 						{
@@ -2757,7 +2839,7 @@ public partial class Project : CommandUtils
 						}
 					}
 
-					if (Params.bCodeSign)
+					if (Params.bCodeSign && !Params.SkipStage)
 					{
 						SC.StageTargetPlatform.SignExecutables(SC, Params);
 					}

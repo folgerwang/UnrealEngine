@@ -42,6 +42,7 @@ FMaterialVertexParameters GetPostProcessMaterialVSParameters(float2 UV)
 	// Most params irrelevant so not a lot to fill out here
 	FMaterialVertexParameters Result = (FMaterialVertexParameters)0;
 	Result.VertexColor = 1.f.xxxx;
+	Result.WorldPosition = float3(UV, 0.f); 
 	
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 	UNROLL
@@ -189,12 +190,20 @@ void MainPS_VideoOverlay(
 void MainVS_ES2(
 	in float4 InPosition : ATTRIBUTE0,
 	in float2 InTexCoord : ATTRIBUTE1,
-	out FPostProcessMaterialVSToPS Output
+	out FPostProcessMaterialVSToPS Output,
+	out float2 OutViewportUV : TEXCOORD8
 	)
 {
+	// flip UV.y if we rendering to backbuffer in OpenGL space
+#if !POST_PROCESS_MATERIAL_BEFORE_TONEMAP && (COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1)
+	InTexCoord.y = 1.0 - InTexCoord.y;
+#endif
+	
 	Output = (FPostProcessMaterialVSToPS)0;
 	float2 OutUV;
 	DrawRectangle(InPosition, InTexCoord, Output.Position, OutUV);
+
+	OutViewportUV = OutUV;
 	
 #if NUM_TEX_COORD_INTERPOLATORS
 	FMaterialVertexParameters VertexParameters = GetPostProcessMaterialVSParameters(OutUV);
@@ -218,14 +227,13 @@ void MainVS_ES2(
 
 void MainPS_ES2(
 	in FPostProcessMaterialVSToPS Input,
+	in float2 InViewportUV : TEXCOORD8,
 	out half4 OutColor : SV_Target0
 	)
 {
 	ResolvedView = ResolveView();
 	FMaterialPixelParameters Parameters = MakeInitializedMaterialPixelParameters();
 	FPixelMaterialInputs PixelMaterialInputs;
-
-	float4 SvPosition = Input.Position;
 
 #if NUM_TEX_COORD_INTERPOLATORS
 	UNROLL
@@ -236,9 +244,16 @@ void MainPS_ES2(
 #endif
 
 	Parameters.VertexColor = 1;
-
+	
+	float4 SvPosition = Input.Position;
+	float4 SvPositionMP = SvPosition;
+	#if !POST_PROCESS_MATERIAL_BEFORE_TONEMAP && (COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1)
+		SvPositionMP.y = View.ViewSizeAndInvSize.y - SvPositionMP.y; 
+	#endif
+	SvPositionMP.z = LookupDeviceZ(InViewportUV);
+	SvPositionMP.z = max(SvPositionMP.z, 1e-18);
 	// fill out other related material parameters
-	CalcMaterialParametersPost(Parameters, PixelMaterialInputs, SvPosition, true);
+	CalcMaterialParametersPost(Parameters, PixelMaterialInputs, SvPositionMP, true);
 
 	// Grab emissive colour as output
 	half3 EmissiveColor = GetMaterialEmissive(PixelMaterialInputs);

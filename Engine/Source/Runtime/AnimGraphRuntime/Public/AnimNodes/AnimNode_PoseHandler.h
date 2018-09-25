@@ -55,7 +55,9 @@ protected:
 	// weight to blend pose per joint - has to be cached whenever cache bones for LOD
 	// note this is for mesh bone
 	TArray<float> BoneBlendWeights;
-	TArray<SmartName::UID_Type> PoseUIDList;
+
+	/* Rebuild pose list */
+	virtual void RebuildPoseList(const FBoneContainer& InBoneContainer, const UPoseAsset* InPoseAsset);
 
 private:
 	void UpdatePoseAssetProperty(struct FAnimInstanceProxy* InstanceProxy);

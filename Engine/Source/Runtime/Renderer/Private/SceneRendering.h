@@ -1441,8 +1441,9 @@ public:
 	/** Lights added if wholescenepointlight shadow would have been rendered (ignoring r.SupportPointLightWholeSceneShadows). Used for warning about unsupported features. */	
 	TArray<FName, SceneRenderingAllocator> UsedWholeScenePointLightNames;
 
-	/** Feature level being rendered */
+	/** Feature level and shader platform being used for rendering */
 	ERHIFeatureLevel::Type FeatureLevel;
+	EShaderPlatform ShaderPlatform;
 	
 	/** 
 	 * The width in pixels of the stereo view family being rendered. This may be different than FamilySizeX if
@@ -1612,6 +1613,9 @@ protected:
 	/** Gathers simple lights from visible primtives in the passed in views. */
 	static void GatherSimpleLights(const FSceneViewFamily& ViewFamily, const TArray<FViewInfo>& Views, FSimpleLightArray& SimpleLights);
 
+	/** Splits the gathered simple lights into arrays based on which view they should be rendered in */
+	static void SplitSimpleLightsByView(const FSceneViewFamily& ViewFamily, const TArray<FViewInfo>& Views, const FSimpleLightArray& SimpleLights, FSimpleLightArray* SimpleLightsByView);
+
 	/** Calculates projected shadow visibility. */
 	void InitProjectedShadowVisibility(FRHICommandListImmediate& RHICmdList);	
 
@@ -1732,7 +1736,7 @@ protected:
 	void RenderDecals(FRHICommandListImmediate& RHICmdList);
 
 	/** Renders the base pass for translucency. */
-	void RenderTranslucency(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews);
+	void RenderTranslucency(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews, bool bRenderToSceneColor);
 
 	/** Perform upscaling when post process is not used. */
 	void BasicPostProcess(FRHICommandListImmediate& RHICmdList, FViewInfo &View, bool bDoUpscale, bool bDoEditorPrimitives);

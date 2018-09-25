@@ -47,7 +47,7 @@ void UOculusCreateSessionCallbackProxy::Activate()
 	}
 	else
 	{
-		UE_LOG_ONLINE(Error, TEXT("Oculus platform service not available. Skipping CreateSession."));
+		UE_LOG_ONLINE_SESSION(Error, TEXT("Oculus platform service not available. Skipping CreateSession."));
 		OnFailure.Broadcast();
 	}
 }

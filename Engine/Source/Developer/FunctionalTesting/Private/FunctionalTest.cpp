@@ -90,7 +90,7 @@ AFunctionalTest::AFunctionalTest( const FObjectInitializer& ObjectInitializer )
 	, Result(EFunctionalTestResult::Invalid)
 	, PreparationTimeLimit(15.0f)
 	, TimeLimit(60.0f)
-	, TimesUpMessage( NSLOCTEXT("FunctionalTest", "DefaultTimesUpMessage", "Time's up!") )
+	, TimesUpMessage( NSLOCTEXT("FunctionalTest", "DefaultTimesUpMessage", "Time's Up.") )
 	, TimesUpResult(EFunctionalTestResult::Failed)
 	, bIsRunning(false)
 	, TotalTime(0.f)
@@ -238,7 +238,20 @@ void AFunctionalTest::StartTest()
 
 void AFunctionalTest::OnTimeout()
 {
-	FinishTest(TimesUpResult, TimesUpMessage.ToString());
+	FText FailureReason;
+
+	if (bIsReady)
+	{
+		FailureReason = FText::Format(NSLOCTEXT("FunctionalTest", "TimeOutInTest", "{0}. Test timed out in {1} seconds"),
+			TimesUpMessage, FText::AsNumber(TotalTime));
+	}
+	else
+	{
+		FailureReason = FText::Format(NSLOCTEXT("FunctionalTest", "TimeOutInTestPrep", "{0}. Test preparation timed out in {1} seconds"),
+			TimesUpMessage, FText::AsNumber(TotalTime));
+	}
+
+	FinishTest(TimesUpResult, FailureReason.ToString());
 }
 
 void AFunctionalTest::Tick(float DeltaSeconds)
@@ -252,6 +265,8 @@ void AFunctionalTest::Tick(float DeltaSeconds)
 	//Do not collect garbage during the test. We force GC at the end.
 	GEngine->DelayGarbageCollection();
 
+	TotalTime += DeltaSeconds;
+
 	if ( !bIsReady )
 	{
 		bIsReady = IsReady();
@@ -261,28 +276,23 @@ void AFunctionalTest::Tick(float DeltaSeconds)
 		{
 			StartTest();
 		}
-	}
-
-	if ( bIsReady )
-	{
-		TotalTime += DeltaSeconds;
-		if ( TimeLimit > 0.f && TotalTime > TimeLimit )
-		{
-			OnTimeout();
-		}
 		else
 		{
-			Super::Tick(DeltaSeconds);
+			if (PreparationTimeLimit > 0.f && TotalTime > PreparationTimeLimit)
+			{
+				OnTimeout();
+			}
 		}
 	}
 	else
 	{
-		TotalTime += DeltaSeconds;
-		if ( PreparationTimeLimit > 0.f && TotalTime > PreparationTimeLimit )
+		if (TimeLimit > 0.f && TotalTime > TimeLimit)
 		{
 			OnTimeout();
 		}
 	}
+
+	Super::Tick(DeltaSeconds);
 }
 
 bool AFunctionalTest::IsReady_Implementation()

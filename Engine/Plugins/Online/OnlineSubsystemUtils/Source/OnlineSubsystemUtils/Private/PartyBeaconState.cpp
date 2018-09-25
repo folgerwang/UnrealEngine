@@ -50,7 +50,7 @@ void FPartyReservation::Dump() const
 {
 	UE_LOG(LogPartyBeacon, Display, TEXT("Party Reservation:"));
 	UE_LOG(LogPartyBeacon, Display, TEXT("  TeamNum: %d"), TeamNum);
-	UE_LOG(LogPartyBeacon, Display, TEXT("  PartyLeader: %s"), *PartyLeader.ToString());
+	UE_LOG(LogPartyBeacon, Display, TEXT("  PartyLeader: %s"), *PartyLeader.ToDebugString());
 	UE_LOG(LogPartyBeacon, Display, TEXT("  PartyMembers(%d):"), PartyMembers.Num());
 	
 	int32 PartyMemberIdx = 0;
@@ -58,7 +58,7 @@ void FPartyReservation::Dump() const
 	{
 		UE_LOG(LogPartyBeacon, Display, TEXT("    Member %d"), PartyMemberIdx);
 		++PartyMemberIdx;
-		UE_LOG(LogPartyBeacon, Display, TEXT("      UniqueId: %s"), *PartyMember.UniqueId.ToString());
+		UE_LOG(LogPartyBeacon, Display, TEXT("      UniqueId: %s"), *PartyMember.UniqueId.ToDebugString());
 		UE_LOG(LogPartyBeacon, Display, TEXT("		Crossplay: %s"), *LexToString(PartyMember.bAllowCrossplay));
 #if UE_BUILD_SHIPPING
 		UE_LOG(LogPartyBeacon, Display, TEXT("      ValidationStr: %d bytes"), PartyMember.ValidationStr.Len());
@@ -76,7 +76,7 @@ void FPartyReservation::DumpUniqueIdsOnly() const
 	int32 PartyMemberIdx = 0;
 	for (const FPlayerReservation& PartyMember : PartyMembers)
 	{
-		UE_LOG(LogPartyBeacon, Display, TEXT("  UniqueId: %s"), *PartyMember.UniqueId.ToString());
+		UE_LOG(LogPartyBeacon, Display, TEXT("  UniqueId: %s"), *PartyMember.UniqueId.ToDebugString());
 	}
 }
 
@@ -331,44 +331,56 @@ int32 UPartyBeaconState::GetTeamAssignment(const FPartyReservation& Party)
 {
 	if (NumTeams > 1)
 	{
-		TArray<FTeamBalanceInfo> PotentialTeamChoices;
-		for (int32 TeamIdx = 0; TeamIdx < NumTeams; TeamIdx++)
+		if (TeamAssignmentMethod == ETeamAssignmentMethod::Manual)
 		{
-			const int32 CurrentPlayersOnTeam = GetNumPlayersOnTeam(TeamIdx);
+			const int32 CurrentPlayersOnTeam = GetNumPlayersOnTeam(Party.TeamNum);
 			if ((CurrentPlayersOnTeam + Party.PartyMembers.Num()) <= NumPlayersPerTeam)
-			{
-				new (PotentialTeamChoices)FTeamBalanceInfo(TeamIdx, CurrentPlayersOnTeam);
-			}
-		}
-
-		// Grab one from our list of choices
-		if (PotentialTeamChoices.Num() > 0)
-		{
-			if (TeamAssignmentMethod == ETeamAssignmentMethod::Smallest)
-			{
-				PotentialTeamChoices.Sort(FSortTeamSizeSmallestToLargest());
-				return PotentialTeamChoices[0].TeamIdx;
-			}
-			else if (TeamAssignmentMethod == ETeamAssignmentMethod::BestFit)
-			{
-				PotentialTeamChoices.Sort(FSortTeamSizeSmallestToLargest());
-				return PotentialTeamChoices[PotentialTeamChoices.Num() - 1].TeamIdx;
-			}
-			else if (TeamAssignmentMethod == ETeamAssignmentMethod::Random)
-			{
-				int32 TeamIndex = FMath::Rand() % PotentialTeamChoices.Num();
-				return PotentialTeamChoices[TeamIndex].TeamIdx;
-			}
-			else if (TeamAssignmentMethod == ETeamAssignmentMethod::Manual)
 			{
 				// It is expected that the caller making the reservation has manually assigned the team number
 				return Party.TeamNum;
 			}
+			else
+			{
+				UE_LOG(LogPartyBeacon, Warning, TEXT("UPartyBeaconHost::GetTeamAssignment: manually assigned team %d has no room."), Party.TeamNum);
+				return INDEX_NONE;
+			}
 		}
 		else
 		{
-			UE_LOG(LogPartyBeacon, Warning, TEXT("UPartyBeaconHost::GetTeamAssignment: couldn't find an open team for party members."));
-			return INDEX_NONE;
+			TArray<FTeamBalanceInfo> PotentialTeamChoices;
+			for (int32 TeamIdx = 0; TeamIdx < NumTeams; TeamIdx++)
+			{
+				const int32 CurrentPlayersOnTeam = GetNumPlayersOnTeam(TeamIdx);
+				if ((CurrentPlayersOnTeam + Party.PartyMembers.Num()) <= NumPlayersPerTeam)
+				{
+					new (PotentialTeamChoices)FTeamBalanceInfo(TeamIdx, CurrentPlayersOnTeam);
+				}
+			}
+
+			// Grab one from our list of choices
+			if (PotentialTeamChoices.Num() > 0)
+			{
+				if (TeamAssignmentMethod == ETeamAssignmentMethod::Smallest)
+				{
+					PotentialTeamChoices.Sort(FSortTeamSizeSmallestToLargest());
+					return PotentialTeamChoices[0].TeamIdx;
+				}
+				else if (TeamAssignmentMethod == ETeamAssignmentMethod::BestFit)
+				{
+					PotentialTeamChoices.Sort(FSortTeamSizeSmallestToLargest());
+					return PotentialTeamChoices[PotentialTeamChoices.Num() - 1].TeamIdx;
+				}
+				else if (TeamAssignmentMethod == ETeamAssignmentMethod::Random)
+				{
+					int32 TeamIndex = FMath::Rand() % PotentialTeamChoices.Num();
+					return PotentialTeamChoices[TeamIndex].TeamIdx;
+				}
+			}
+			else
+			{
+				UE_LOG(LogPartyBeacon, Warning, TEXT("UPartyBeaconHost::GetTeamAssignment: couldn't find an open team for party members."));
+				return INDEX_NONE;
+			}
 		}
 	}
 
@@ -480,9 +492,9 @@ bool UPartyBeaconState::CrossPlayAllowed(const FPartyReservation& ReservationReq
 			{
 				ExistingPlatforms.Add(OSS_PLATFORM_NAME_XBOX);
 			}
-			else if (ExistingPlayer.Platform == OSS_PLATFORM_NAME_EREBUS)
+			else if (ExistingPlayer.Platform == OSS_PLATFORM_NAME_SWITCH)
 			{
-				ExistingPlatforms.Add(OSS_PLATFORM_NAME_EREBUS);
+				ExistingPlatforms.Add(OSS_PLATFORM_NAME_SWITCH);
 			}
 			else
 			{
@@ -506,9 +518,9 @@ bool UPartyBeaconState::CrossPlayAllowed(const FPartyReservation& ReservationReq
 			{
 				PartyPlatforms.Add(OSS_PLATFORM_NAME_PS4);
 			}
-			else if (Player.Platform == OSS_PLATFORM_NAME_EREBUS)
+			else if (Player.Platform == OSS_PLATFORM_NAME_SWITCH)
 			{
-				PartyPlatforms.Add(OSS_PLATFORM_NAME_EREBUS);
+				PartyPlatforms.Add(OSS_PLATFORM_NAME_SWITCH);
 			}
 			else
 			{
@@ -517,8 +529,8 @@ bool UPartyBeaconState::CrossPlayAllowed(const FPartyReservation& ReservationReq
 		}
 
 		const bool bPS4SeenOtherConsole = (
-			((PartyPlatforms.Contains(OSS_PLATFORM_NAME_XBOX) || PartyPlatforms.Contains(OSS_PLATFORM_NAME_EREBUS)) && ExistingPlatforms.Contains(OSS_PLATFORM_NAME_PS4)) ||
-			(PartyPlatforms.Contains(OSS_PLATFORM_NAME_PS4) && (ExistingPlatforms.Contains(OSS_PLATFORM_NAME_XBOX) || ExistingPlatforms.Contains(OSS_PLATFORM_NAME_EREBUS)))
+			((PartyPlatforms.Contains(OSS_PLATFORM_NAME_XBOX) || PartyPlatforms.Contains(OSS_PLATFORM_NAME_SWITCH)) && ExistingPlatforms.Contains(OSS_PLATFORM_NAME_PS4)) ||
+			(PartyPlatforms.Contains(OSS_PLATFORM_NAME_PS4) && (ExistingPlatforms.Contains(OSS_PLATFORM_NAME_XBOX) || ExistingPlatforms.Contains(OSS_PLATFORM_NAME_SWITCH)))
 		);
 
 
@@ -526,13 +538,17 @@ bool UPartyBeaconState::CrossPlayAllowed(const FPartyReservation& ReservationReq
 
 		// The intersection of party/existing will be less if something new is added
 		const bool bPartyAddsNewPlatform = (Delta.Num() != PartyPlatforms.Num());
-		// There is something foreign if our party makeup doesn't exactly match the existing parties
-		const bool bExistingMatchesParty = (Delta.Num() == ExistingPlatforms.Num());
+		// The incoming party platform makeup, if anyone in that party doesn't allow crossplay, must be a super set of the platforms already present
+		// Otherwise there is a foreign existing platform that the incoming party wouldn't allow 
+		// (ABC) joining and existing (BC) is ok, but (ABC) joining and existing (BD) is not
+		const bool bNewPartyIsStrictSuperset = (Delta.Num() == ExistingPlatforms.Num());
 
-		// Don't cross mingle consoles
+		// Don't cross mingle consoles if restriction is set
 		const bool bCrossConsoleAllowed = (!bPS4SeenOtherConsole) || (bPS4SeenOtherConsole && !bRestrictCrossConsole);
+		// All the existing players must be ok with cross play for the new party to join or incoming party is subset of existing platforms
 		const bool bExistingPlayersOk = (!bPartyAddsNewPlatform || (bPartyAddsNewPlatform && bEveryoneAllowsCrossplay));
-		const bool bIncomingPlayersOk = (bPartyAllowsCrossplay || bExistingMatchesParty);
+		// All the incoming players must be ok with cross play for the new party to join or existing platforms are subset of incoming party
+		const bool bIncomingPlayersOk = (bPartyAllowsCrossplay || bNewPartyIsStrictSuperset);
 
 		bCrossplayAllowed = bCrossConsoleAllowed && bExistingPlayersOk && bIncomingPlayersOk;
 
@@ -646,11 +662,11 @@ void UPartyBeaconState::RegisterAuthTicket(const FUniqueNetIdRepl& InPartyMember
 			{
 				if (PlayerRes->ValidationStr.IsEmpty())
 				{
-					UE_LOG(LogPartyBeacon, VeryVerbose, TEXT("Setting auth ticket for member %s."), *InPartyMemberId.ToString());
+					UE_LOG(LogPartyBeacon, VeryVerbose, TEXT("Setting auth ticket for member %s."), *InPartyMemberId.ToDebugString());
 				}
 				else if (PlayerRes->ValidationStr != InAuthTicket)
 				{
-					UE_LOG(LogPartyBeacon, Warning, TEXT("Auth ticket changing for member %s."), *InPartyMemberId.ToString());
+					UE_LOG(LogPartyBeacon, Warning, TEXT("Auth ticket changing for member %s."), *InPartyMemberId.ToDebugString());
 				}
 
 				PlayerRes->ValidationStr = InAuthTicket;
@@ -661,7 +677,7 @@ void UPartyBeaconState::RegisterAuthTicket(const FUniqueNetIdRepl& InPartyMember
 
 		if (!bFoundReservation)
 		{
-			UE_LOG(LogPartyBeacon, Warning, TEXT("Found no reservation for player %s, while registering auth ticket."), *InPartyMemberId.ToString());
+			UE_LOG(LogPartyBeacon, Warning, TEXT("Found no reservation for player %s, while registering auth ticket."), *InPartyMemberId.ToDebugString());
 		}
 	}
 }
@@ -737,7 +753,7 @@ void UPartyBeaconState::UpdatePartyLeader(const FUniqueNetIdRepl& InPartyMemberI
 					}
 					else
 					{
-						UE_LOG(LogPartyBeacon, Warning, TEXT("UpdatePartyLeader:  Member %s not found in their own reservation!"), *InPartyMemberId.ToString());
+						UE_LOG(LogPartyBeacon, Warning, TEXT("UpdatePartyLeader:  Member %s not found in their own reservation!"), *InPartyMemberId.ToDebugString());
 					}
 				}
 				else
@@ -754,7 +770,7 @@ void UPartyBeaconState::UpdatePartyLeader(const FUniqueNetIdRepl& InPartyMemberI
 		}
 		else
 		{
-			UE_LOG(LogPartyBeacon, Warning, TEXT("UpdatePartyLeader:  No reservation found for player %s!"), *InPartyMemberId.ToString());
+			UE_LOG(LogPartyBeacon, Warning, TEXT("UpdatePartyLeader:  No reservation found for player %s!"), *InPartyMemberId.ToDebugString());
 		}
 	}
 }
@@ -826,7 +842,7 @@ bool UPartyBeaconState::ChangeTeam(const FUniqueNetIdRepl& PartyLeader, int32 Ne
 
 bool UPartyBeaconState::RemovePlayer(const FUniqueNetIdRepl& PlayerId)
 {
-	UE_LOG(LogPartyBeacon, VeryVerbose, TEXT("UPartyBeaconState::RemovePlayer: %s"), *PlayerId.ToString());
+	UE_LOG(LogPartyBeacon, VeryVerbose, TEXT("UPartyBeaconState::RemovePlayer: %s"), *PlayerId.ToDebugString());
 	bool bWasRemoved = false;
 
 	for (int32 ResIdx = 0; ResIdx < Reservations.Num() && !bWasRemoved; ResIdx++)
@@ -851,7 +867,7 @@ bool UPartyBeaconState::RemovePlayer(const FUniqueNetIdRepl& PlayerId)
 					GetExistingReservation(PlayerEntry.UniqueId) == INDEX_NONE)
 				{
 					// Promote to party leader (for now)
-					UE_LOG(LogPartyBeacon, Display, TEXT("UPartyBeaconState::RemovePlayer: Promoting member %s to leader"), *PlayerEntry.UniqueId.ToString());
+					UE_LOG(LogPartyBeacon, Display, TEXT("UPartyBeaconState::RemovePlayer: Promoting member %s to leader"), *PlayerEntry.UniqueId.ToDebugString());
 					Reservation.PartyLeader = PlayerEntry.UniqueId;
 					bAnyMemberPromoted = true;
 					break;
@@ -1000,7 +1016,7 @@ bool UPartyBeaconState::GetPartyLeader(const FUniqueNetIdRepl& InPartyMemberId, 
 
 			if (PlayerRes)
 			{
-				UE_LOG(LogPartyBeacon, Display, TEXT("Found party leader for member %s."), *InPartyMemberId.ToString());
+				UE_LOG(LogPartyBeacon, Display, TEXT("Found party leader for member %s."), *InPartyMemberId.ToDebugString());
 				OutPartyLeaderId = ReservationEntry.PartyLeader;
 				bFoundReservation = true;
 				break;
@@ -1009,7 +1025,7 @@ bool UPartyBeaconState::GetPartyLeader(const FUniqueNetIdRepl& InPartyMemberId, 
 
 		if (!bFoundReservation)
 		{
-			UE_LOG(LogPartyBeacon, Warning, TEXT("Found no reservation for player %s, while looking for party leader."), *InPartyMemberId.ToString());
+			UE_LOG(LogPartyBeacon, Warning, TEXT("Found no reservation for player %s, while looking for party leader."), *InPartyMemberId.ToDebugString());
 		}
 	}
 
@@ -1032,7 +1048,7 @@ void UPartyBeaconState::DumpReservations() const
 	for (int32 PartyIndex = 0; PartyIndex < Reservations.Num(); PartyIndex++)
 	{
 		NetId = Reservations[PartyIndex].PartyLeader;
-		UE_LOG(LogPartyBeacon, Display, TEXT("\t Party leader: %s"), *NetId->ToString());
+		UE_LOG(LogPartyBeacon, Display, TEXT("\t Party leader: %s"), *NetId->ToDebugString());
 		UE_LOG(LogPartyBeacon, Display, TEXT("\t Party team: %d"), Reservations[PartyIndex].TeamNum);
 		UE_LOG(LogPartyBeacon, Display, TEXT("\t Party size: %d"), Reservations[PartyIndex].PartyMembers.Num());
 		// Log each member of the party

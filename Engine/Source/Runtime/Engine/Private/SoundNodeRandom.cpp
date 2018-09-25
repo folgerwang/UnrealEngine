@@ -9,6 +9,14 @@
 	#include "Editor.h"
 #endif
 
+static int32 MaxRandomBranchesCVar = 0;
+FAutoConsoleVariableRef CVarMaxRandomBranches(
+	TEXT("au.MaxRandomBranches"),
+	MaxRandomBranchesCVar,
+	TEXT("Sets the max amount of branches to play from for any random node. The rest of the branches will be released from memory.\n")
+	TEXT("0: No culling, Any other value: The amount of branches we should use as a maximum for any random node."),
+	ECVF_Default);
+
 /*-----------------------------------------------------------------------------
     USoundNodeRandom implementation.
 -----------------------------------------------------------------------------*/
@@ -51,21 +59,12 @@ void USoundNodeRandom::PostLoad()
 {
 	Super::PostLoad();
 
-	// get a per-platform override
+	// get a per-platform override:
 	if (!bShouldExcludeFromBranchCulling && !bSoundCueExcludedFromBranchCulling)
 	{
-		int32 AmountOfBranchesToPreselect = 0;
-		int32 PlatformOverride = FPlatformCompressionUtilities::GetMaxPreloadedBranchesForCurrentPlatform();
-		if (PreselectAtLevelLoad > 0 && PlatformOverride > 0)
-		{
-			// If we have to decide between the two, use the minimum of either:
-			AmountOfBranchesToPreselect = FMath::Min(PreselectAtLevelLoad, PlatformOverride);
-		}
-		else
-		{
-			AmountOfBranchesToPreselect = PlatformOverride;
-		}
+		int32 AmountOfBranchesToPreselect = DetermineAmountOfBranchesToPreselect();
 
+		// Use the amount we determined above to remove branches:
 		if (!GIsEditor && AmountOfBranchesToPreselect > 0)
 		{
 			// Cull branches from the end:
@@ -82,6 +81,7 @@ void USoundNodeRandom::PostLoad()
 		}
 #endif //WITH_EDITOR
 	}
+
 	FixWeightsArray();
 	FixHasBeenUsedArray();
 }
@@ -143,6 +143,38 @@ int32 USoundNodeRandom::ChooseNodeIndex(FActiveSound& ActiveSound)
 	}
 
 	return NodeIndex;
+}
+
+int32 USoundNodeRandom::DetermineAmountOfBranchesToPreselect()
+{
+	int32 AmountOfBranchesToPreselect = 0;
+	int32 OverrideForAmountOfBranchesToPreselect = 0;
+
+
+	if (MaxRandomBranchesCVar > 0)
+	{
+		// If the CVar has been set, allow it to override our .ini setting:
+		OverrideForAmountOfBranchesToPreselect = MaxRandomBranchesCVar;
+	}
+	else
+	{
+		// Otherwise, we use the value from the ini setting, if we have one:
+		OverrideForAmountOfBranchesToPreselect = FPlatformCompressionUtilities::GetMaxPreloadedBranchesForCurrentPlatform();
+	}
+
+	if (PreselectAtLevelLoad > 0 && OverrideForAmountOfBranchesToPreselect > 0)
+	{
+		// If we have to decide between the override and this node's PreselectAtLevelLoad property,
+		// use the minimum of either:
+		AmountOfBranchesToPreselect = FMath::Min(PreselectAtLevelLoad, OverrideForAmountOfBranchesToPreselect);
+	}
+	else
+	{
+		// Otherwise, just use the override:
+		AmountOfBranchesToPreselect = OverrideForAmountOfBranchesToPreselect;
+	}
+
+	return AmountOfBranchesToPreselect;
 }
 
 void USoundNodeRandom::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )

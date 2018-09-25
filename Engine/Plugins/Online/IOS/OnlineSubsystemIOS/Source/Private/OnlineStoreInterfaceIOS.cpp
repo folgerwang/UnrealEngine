@@ -11,7 +11,7 @@
 
 FOnlineStoreInterfaceIOS::FOnlineStoreInterfaceIOS() 
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreInterfaceIOS::FOnlineStoreInterfaceIOS" ));
+	UE_LOG_ONLINE_STORE(Verbose, TEXT( "FOnlineStoreInterfaceIOS::FOnlineStoreInterfaceIOS" ));
 	StoreHelper = [[FStoreKitHelper alloc] init];
     
     [[SKPaymentQueue defaultQueue] addTransactionObserver:StoreHelper];
@@ -24,25 +24,25 @@ FOnlineStoreInterfaceIOS::FOnlineStoreInterfaceIOS()
 
 FOnlineStoreInterfaceIOS::~FOnlineStoreInterfaceIOS() 
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreInterfaceIOS::~FOnlineStoreInterfaceIOS" ));
+	UE_LOG_ONLINE_STORE(Verbose, TEXT( "FOnlineStoreInterfaceIOS::~FOnlineStoreInterfaceIOS" ));
 	[StoreHelper release];
 }
 
 
 bool FOnlineStoreInterfaceIOS::QueryForAvailablePurchases(const TArray<FString>& ProductIDs, FOnlineProductInformationReadRef& InReadObject)
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreInterfaceIOS::QueryForAvailablePurchases" ));
+	UE_LOG_ONLINE_STORE(Verbose, TEXT( "FOnlineStoreInterfaceIOS::QueryForAvailablePurchases" ));
 	bool bSentAQueryRequest = false;
 
 	CachedReadObject = InReadObject;
 	
 	if( bIsPurchasing || bIsProductRequestInFlight || bIsRestoringPurchases )
 	{
-		UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreInterfaceIOS::BeginPurchase - cannot make a purchase whilst one is in transaction." ));
+		UE_LOG_ONLINE_STORE(Verbose, TEXT( "FOnlineStoreInterfaceIOS::BeginPurchase - cannot make a purchase whilst one is in transaction." ));
 	}
 	else if (ProductIDs.Num() == 0)
 	{
-		UE_LOG(LogOnline, Verbose, TEXT( "There are no product IDs configured for Microtransactions in the engine.ini" ));
+		UE_LOG_ONLINE_STORE(Verbose, TEXT( "There are no product IDs configured for Microtransactions in the engine.ini" ));
 	}
 	else
 	{
@@ -71,7 +71,7 @@ bool FOnlineStoreInterfaceIOS::QueryForAvailablePurchases(const TArray<FString>&
 
 bool FOnlineStoreInterfaceIOS::IsAllowedToMakePurchases()
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreInterfaceIOS::IsAllowedToMakePurchases" ));
+	UE_LOG_ONLINE_STORE(Verbose, TEXT( "FOnlineStoreInterfaceIOS::IsAllowedToMakePurchases" ));
 	bool bCanMakePurchases = [SKPaymentQueue canMakePayments];
 	return bCanMakePurchases;
 }
@@ -79,20 +79,20 @@ bool FOnlineStoreInterfaceIOS::IsAllowedToMakePurchases()
 
 bool FOnlineStoreInterfaceIOS::BeginPurchase(const FInAppPurchaseProductRequest& ProductRequest, FOnlineInAppPurchaseTransactionRef& InPurchaseStateObject)
 {
-	UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreInterfaceIOS::BeginPurchase" ));
+	UE_LOG_ONLINE_STORE(Verbose, TEXT( "FOnlineStoreInterfaceIOS::BeginPurchase" ));
 	bool bCreatedNewTransaction = false;
 	
 	const FString& ProductId = ProductRequest.ProductIdentifier;
 
 	if( bIsPurchasing || bIsProductRequestInFlight || bIsRestoringPurchases)
 	{
-		UE_LOG(LogOnline, Verbose, TEXT( "FOnlineStoreInterfaceIOS::BeginPurchase - cannot make a purchase whilst one is in transaction." ));
+		UE_LOG_ONLINE_STORE(Verbose, TEXT( "FOnlineStoreInterfaceIOS::BeginPurchase - cannot make a purchase whilst one is in transaction." ));
         
 		TriggerOnInAppPurchaseCompleteDelegates(EInAppPurchaseState::Failed);
 	}
 	else if( IsAllowedToMakePurchases() )
 	{
-		UE_LOG(LogOnline, Verbose, TEXT("FOnlineStoreInterfaceIOS - Making a transaction of product %s"), *ProductId);
+		UE_LOG_ONLINE_STORE(Verbose, TEXT("FOnlineStoreInterfaceIOS - Making a transaction of product %s"), *ProductId);
 
 		NSString* ID = [NSString stringWithFString : ProductId];
         
@@ -117,7 +117,7 @@ bool FOnlineStoreInterfaceIOS::BeginPurchase(const FInAppPurchaseProductRequest&
 	}
 	else
 	{
-		UE_LOG(LogOnline, Verbose, TEXT("This device is not able to make purchases."));
+		UE_LOG_ONLINE_STORE(Verbose, TEXT("This device is not able to make purchases."));
 		InPurchaseStateObject->ReadState = EOnlineAsyncTaskState::Failed;
         
         TriggerOnInAppPurchaseCompleteDelegates(EInAppPurchaseState::NotAllowed);
@@ -134,7 +134,7 @@ bool FOnlineStoreInterfaceIOS::RestorePurchases(const TArray<FInAppPurchaseProdu
 
 	if (bIsPurchasing || bIsProductRequestInFlight || bIsRestoringPurchases)
 	{
-		UE_LOG(LogOnline, Verbose, TEXT("FOnlineStoreInterfaceIOS::BeginPurchase - cannot make a purchase whilst one is in transaction."));
+		UE_LOG_ONLINE_STORE(Verbose, TEXT("FOnlineStoreInterfaceIOS::BeginPurchase - cannot make a purchase whilst one is in transaction."));
 		TriggerOnInAppPurchaseRestoreCompleteDelegates(EInAppPurchaseState::Failed);
 	}
 	else
@@ -161,7 +161,7 @@ void FOnlineStoreInterfaceIOS::ProcessProductsResponse( SKProductsResponse* Resp
 			[numberFormatter setNumberStyle:NSNumberFormatterCurrencyStyle];
 			[numberFormatter setLocale:Product.priceLocale];
 
-			UE_LOG(LogOnline, Log, TEXT("Making a purchase: Product: %s, Price: %s"), *FString([Product localizedTitle]), *FString([numberFormatter stringFromNumber:Product.price]));
+			UE_LOG_ONLINE_STORE(Log, TEXT("Making a purchase: Product: %s, Price: %s"), *FString([Product localizedTitle]), *FString([numberFormatter stringFromNumber:Product.price]));
 
 			FInAppPurchaseProductInfo PurchaseProductInfo;
 			PurchaseProductInfo.Identifier = [Product productIdentifier];
@@ -187,13 +187,13 @@ void FOnlineStoreInterfaceIOS::ProcessProductsResponse( SKProductsResponse* Resp
 		}
 		else if( [Response.products count] > 1 )
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Wrong number of products, [%d], in the response when trying to make a single purchase"), [Response.products count]);
+			UE_LOG_ONLINE_STORE(Warning, TEXT("Wrong number of products, [%d], in the response when trying to make a single purchase"), [Response.products count]);
 		}
 		else
 		{
 			for(NSString *invalidProduct in Response.invalidProductIdentifiers)
 			{
-				UE_LOG(LogOnline, Error, TEXT("Problem in iTunes connect configuration for product: %s"), *FString(invalidProduct));
+				UE_LOG_ONLINE_STORE(Error, TEXT("Problem in iTunes connect configuration for product: %s"), *FString(invalidProduct));
 			}
 		}
 
@@ -204,7 +204,7 @@ void FOnlineStoreInterfaceIOS::ProcessProductsResponse( SKProductsResponse* Resp
 		bool bWasSuccessful = [Response.products count] > 0;
 		if( [Response.products count] == 0 && [Response.invalidProductIdentifiers count] == 0 )
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Wrong number of products [%d] in the response when trying to make a single purchase"), [Response.products count]);
+			UE_LOG_ONLINE_STORE(Warning, TEXT("Wrong number of products [%d] in the response when trying to make a single purchase"), [Response.products count]);
 		}
 
 		if( CachedReadObject.IsValid() )
@@ -227,7 +227,7 @@ void FOnlineStoreInterfaceIOS::ProcessProductsResponse( SKProductsResponse* Resp
 				NewProductInfo.DecimalSeparator = [Product.priceLocale objectForKey : NSLocaleDecimalSeparator];
 				NewProductInfo.GroupingSeparator = [Product.priceLocale objectForKey : NSLocaleGroupingSeparator];
 
-				UE_LOG(LogOnline, Log, TEXT("\nProduct Identifier: %s, Name: %s, Description: %s, Price: %s\n"),
+				UE_LOG_ONLINE_STORE(Log, TEXT("\nProduct Identifier: %s, Name: %s, Description: %s, Price: %s\n"),
 					*NewProductInfo.Identifier,
 					*NewProductInfo.DisplayName,
 					*NewProductInfo.DisplayDescription,
@@ -240,13 +240,13 @@ void FOnlineStoreInterfaceIOS::ProcessProductsResponse( SKProductsResponse* Resp
 		}
 		else
 		{
-			UE_LOG(LogOnline, Log, TEXT("Read Object is invalid."));
+			UE_LOG_ONLINE_STORE(Log, TEXT("Read Object is invalid."));
 		}
 
 		
 		for( NSString *invalidProduct in Response.invalidProductIdentifiers )
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Problem in iTunes connect configuration for product: %s"), *FString(invalidProduct));
+			UE_LOG_ONLINE_STORE(Warning, TEXT("Problem in iTunes connect configuration for product: %s"), *FString(invalidProduct));
 		}
 
 		TriggerOnQueryForAvailablePurchasesCompleteDelegates( bWasSuccessful );

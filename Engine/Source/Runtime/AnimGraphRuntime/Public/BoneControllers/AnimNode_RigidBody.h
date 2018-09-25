@@ -15,6 +15,9 @@ namespace ImmediatePhysics
 struct FBodyInstance;
 struct FConstraintInstance;
 
+extern ANIMGRAPHRUNTIME_API TAutoConsoleVariable<int32> CVarEnableRigidBodyNode;
+extern ANIMGRAPHRUNTIME_API TAutoConsoleVariable<int32> CVarRigidBodyLODThreshold;
+
 /** Determines in what space the simulation should run */
 UENUM()
 enum class ESimulationSpace

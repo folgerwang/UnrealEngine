@@ -715,7 +715,7 @@ namespace UnrealBuildTool
 		/// Whether to disable debug info generation for generated files. This improves link times for modules that have a lot of generated glue code.
 		/// </summary>
 		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bDisableDebugInfoForGeneratedCode = true;
+		public bool bDisableDebugInfoForGeneratedCode = false;
 
 		/// <summary>
 		/// Whether to disable debug info on PC in development builds (for faster developer iteration, as link times are extremely fast with debug info disabled).
@@ -2131,6 +2131,11 @@ namespace UnrealBuildTool
 		public bool bGenerateProjectFiles
 		{
 			get { return Inner.bGenerateProjectFiles; }
+		}
+
+		public bool bIsEngineInstalled
+		{
+			get { return Inner.bIsEngineInstalled; }
 		}
 
 		#if !__MonoCS__

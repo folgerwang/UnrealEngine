@@ -15,10 +15,10 @@
 #include "Templates/UnrealTemplate.h"
 #include "Math/NumericLimits.h"
 #include "Containers/Array.h"
-#include "Containers/Set.h"
 #include "Misc/CString.h"
 #include "Misc/Crc.h"
 #include "Math/UnrealMathUtility.h"
+#include "Templates/Invoke.h"
 #include "Templates/IsValidVariadicFunctionArg.h"
 #include "Templates/AndOrNot.h"
 #include "Templates/IsArrayOrRefOfType.h"
@@ -1771,19 +1771,19 @@ public:
 	static FString SanitizeFloat( double InFloat, const int32 InMinFractionalDigits = 1 );
 
 	/**
-	 * Joins an array of 'something that can be concatentated to strings with +=' together into a single string with separators.
+	 * Joins a range of 'something that can be concatentated to strings with +=' together into a single string with separators.
 	 *
-	 * @param	Array		The array of 'things' to concatenate.
+	 * @param	Range		The range of 'things' to concatenate.
 	 * @param	Separator	The string used to separate each element.
 	 *
 	 * @return	The final, joined, separated string.
 	 */
-	template <typename T, typename Allocator>
-	static FString Join(const TArray<T, Allocator>& Array, const TCHAR* Separator)
+	template <typename RangeType>
+	static FString Join(const RangeType& Range, const TCHAR* Separator)
 	{
 		FString Result;
 		bool    First = true;
-		for (const T& Element : Array)
+		for (const auto& Element : Range)
 		{
 			if (First)
 			{
@@ -1801,19 +1801,20 @@ public:
 	}
 
 	/**
-	* Joins a Set of 'something that can be concatentated to strings with +=' together into a single string with separators.
-	*
-	* @param	Set		The Set of 'things' to concatenate.
-	* @param	Separator	The string used to separate each element.
-	*
-	* @return	The final, joined, separated string.
-	*/
-	template <typename T, typename Allocator>
-	static FString Join(const TSet<T, Allocator>& Set, const TCHAR* Separator)
+	 * Joins a range of elements together into a single string with separators using a projection function.
+	 *
+	 * @param	Range		The range of 'things' to concatenate.
+	 * @param	Separator	The string used to separate each element.
+	 * @param	Proj		The projection used to get a string for each element.
+	 *
+	 * @return	The final, joined, separated string.
+	 */
+	template <typename RangeType, typename ProjectionType>
+	static FString JoinBy(const RangeType& Range, const TCHAR* Separator, ProjectionType Proj)
 	{
 		FString Result;
 		bool    First = true;
-		for (const T& Element : Set)
+		for (const auto& Element : Range)
 		{
 			if (First)
 			{
@@ -1824,7 +1825,7 @@ public:
 				Result += Separator;
 			}
 
-			Result += Element;
+			Result += Invoke(Proj, Element);
 		}
 
 		return Result;

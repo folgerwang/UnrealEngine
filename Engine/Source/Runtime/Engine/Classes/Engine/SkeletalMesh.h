@@ -162,21 +162,19 @@ struct FSkeletalMeshLODInfo
 	UPROPERTY()
 	TArray<int32> LODMaterialMap;
 
+#if WITH_EDITORONLY_DATA
 	/** Per-section control over whether to enable shadow casting. */
 	UPROPERTY()
 	TArray<bool> bEnableShadowCasting_DEPRECATED;
 
-	/** Whether to disable morph targets for this LOD. */
+	/** This has been removed in editor. We could re-apply this in import time or by mesh reduction utilities*/
 	UPROPERTY()
-	uint32 bHasBeenSimplified:1;
+	TArray<FName> RemovedBones_DEPRECATED;
+#endif
 
 	/** Reduction settings to apply when building render data. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
 	FSkeletalMeshOptimizationSettings ReductionSettings;
-
-	/** This has been removed in editor. We could re-apply this in import time or by mesh reduction utilities*/
-	UPROPERTY()
-	TArray<FName> RemovedBones_DEPRECATED;
 
 	/** Bones which should be removed from the skeleton for the LOD level */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
@@ -190,12 +188,16 @@ struct FSkeletalMeshLODInfo
 	UPROPERTY(VisibleAnywhere, Category= SkeletalMeshLODInfo, AdvancedDisplay)
 	FString SourceImportFilename;
 
+	/** Whether to disable morph targets for this LOD. */
 	UPROPERTY()
-	uint32 bHasPerLODVertexColors : 1;
+	uint8 bHasBeenSimplified:1;
+
+	UPROPERTY()
+	uint8 bHasPerLODVertexColors : 1;
 
 	/** Keeps this LODs data on the CPU so it can be used for things such as sampling in FX. */
 	UPROPERTY(EditAnywhere, Category = SkeletalMeshLODInfo)
-	uint32 bAllowCPUAccess : 1;
+	uint8 bAllowCPUAccess : 1;
 
 	/**
 	Mesh supports uniformly distributed sampling in constant time.
@@ -203,21 +205,21 @@ struct FSkeletalMeshLODInfo
 	Example usage is uniform spawning of particles.
 	*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = SkeletalMeshLODInfo, meta=(EditCondition="bAllowCPUAccess"))
-	uint32 bSupportUniformlyDistributedSampling : 1;
+	uint8 bSupportUniformlyDistributedSampling : 1;
 
 #if WITH_EDITORONLY_DATA
 	/*
 	 * This boolean specify if the LOD was imported with the base mesh or not.
 	 */
 	UPROPERTY()
-	bool bImportWithBaseMesh;
+	uint8 bImportWithBaseMesh:1;
 #endif
 
 	FSkeletalMeshLODInfo()
 		: ScreenSize(1.0)
 		, LODHysteresis(0.0f)
-		, bHasBeenSimplified(false)
 		, BakePose(nullptr)
+		, bHasBeenSimplified(false)
 		, bHasPerLODVertexColors(false)
 		, bAllowCPUAccess(false)
 		, bSupportUniformlyDistributedSampling(false)
@@ -278,6 +280,29 @@ struct FClothPhysicsProperties_Legacy
 	UPROPERTY()
 	float FiberResistance;
 
+	FClothPhysicsProperties_Legacy()
+		: VerticalResistance(0.f)
+		, HorizontalResistance(0.f)
+		, BendResistance(0.f)
+		, ShearResistance(0.f)
+		, Friction(0.f)
+		, Damping(0.f)
+		, TetherStiffness(0.f)
+		, TetherLimit(0.f)
+		, Drag(0.f)
+		, StiffnessFrequency(0.f)
+		, GravityScale(0.f)
+		, MassScale(0.f)
+		, InertiaBlend(0.f)
+		, SelfCollisionThickness(0.f)
+		, SelfCollisionSquashScale(0.f)
+		, SelfCollisionStiffness(0.f)
+		, SolverFrequency(0.f)
+		, FiberCompression(0.f)
+		, FiberExpansion(0.f)
+		, FiberResistance(0.f)
+	{
+	}
 };
 
 
@@ -295,13 +320,19 @@ struct FClothingAssetData_Legacy
 	bool bClothPropertiesChanged;
 	UPROPERTY()
 	FClothPhysicsProperties_Legacy PhysicsProperties;
+
 #if WITH_APEX_CLOTHING
 	nvidia::apex::ClothingAsset* ApexClothingAsset;
+#endif// #if WITH_APEX_CLOTHING
+
 	FClothingAssetData_Legacy()
-		: bClothPropertiesChanged(false), ApexClothingAsset(nullptr)
+		: bClothPropertiesChanged(false), PhysicsProperties()
+#if WITH_APEX_CLOTHING
+		, ApexClothingAsset(nullptr)
+#endif// #if WITH_APEX_CLOTHING
 	{
 	}
-#endif// #if WITH_APEX_CLOTHING
+
 	// serialization
 	friend FArchive& operator<<(FArchive& Ar, FClothingAssetData_Legacy& A);
 };
@@ -314,10 +345,10 @@ struct FSkeletalMaterial
 
 	FSkeletalMaterial()
 		: MaterialInterface( NULL )
-		, bEnableShadowCasting_DEPRECATED( true )
-		, bRecomputeTangent_DEPRECATED( false )
 		, MaterialSlotName( NAME_None )
 #if WITH_EDITORONLY_DATA
+		, bEnableShadowCasting_DEPRECATED(true)
+		, bRecomputeTangent_DEPRECATED(false)
 		, ImportedMaterialSlotName( NAME_None )
 #endif
 	{
@@ -330,10 +361,10 @@ struct FSkeletalMaterial
 						, FName InMaterialSlotName = NAME_None
 						, FName InImportedMaterialSlotName = NAME_None)
 		: MaterialInterface( InMaterialInterface )
-		, bEnableShadowCasting_DEPRECATED( bInEnableShadowCasting )
-		, bRecomputeTangent_DEPRECATED( bInRecomputeTangent )
 		, MaterialSlotName(InMaterialSlotName)
 #if WITH_EDITORONLY_DATA
+		, bEnableShadowCasting_DEPRECATED(bInEnableShadowCasting)
+		, bRecomputeTangent_DEPRECATED(bInRecomputeTangent)
 		, ImportedMaterialSlotName(InImportedMaterialSlotName)
 #endif //WITH_EDITORONLY_DATA
 	{
@@ -348,15 +379,15 @@ struct FSkeletalMaterial
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=SkeletalMesh)
 	class UMaterialInterface *	MaterialInterface;
-	UPROPERTY()
-	bool						bEnableShadowCasting_DEPRECATED;
-	UPROPERTY()
-	bool						bRecomputeTangent_DEPRECATED;
 	
 	/*This name should be use by the gameplay to avoid error if the skeletal mesh Materials array topology change*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = SkeletalMesh)
 	FName						MaterialSlotName;
 #if WITH_EDITORONLY_DATA
+	UPROPERTY()
+	bool						bEnableShadowCasting_DEPRECATED;
+	UPROPERTY()
+	bool						bRecomputeTangent_DEPRECATED;
 	/*This name should be use when we re-import a skeletal mesh so we can order the Materials array like it should be*/
 	UPROPERTY(VisibleAnywhere, Category = SkeletalMesh)
 	FName						ImportedMaterialSlotName;
@@ -487,12 +518,6 @@ public:
 	UPROPERTY(EditAnywhere, editfixedsize, Category=Mirroring)
 	TArray<struct FBoneMirrorInfo> SkelMirrorTable;
 
-	UPROPERTY(EditAnywhere, Category=Mirroring)
-	TEnumAsByte<EAxis::Type> SkelMirrorAxis;
-
-	UPROPERTY(EditAnywhere, Category=Mirroring)
-	TEnumAsByte<EAxis::Type> SkelMirrorFlipAxis;
-
 private:
 	/** Struct containing information for each LOD level, such as materials to use, and when use the LOD. */
 	UPROPERTY(EditAnywhere, EditFixedSize, Category=LevelOfDetail)
@@ -512,34 +537,40 @@ public:
 	UFUNCTION(BlueprintSetter)
 	void SetLODSettings(USkeletalMeshLODSettings* InLODSettings);
 
+	UPROPERTY(EditAnywhere, Category=Mirroring)
+	TEnumAsByte<EAxis::Type> SkelMirrorAxis;
+
+	UPROPERTY(EditAnywhere, Category=Mirroring)
+	TEnumAsByte<EAxis::Type> SkelMirrorFlipAxis;
+
 	/** If true, use 32 bit UVs. If false, use 16 bit UVs to save memory */
 	UPROPERTY(EditAnywhere, Category=Mesh)
-	uint32 bUseFullPrecisionUVs:1;
+	uint8 bUseFullPrecisionUVs:1;
 
 	/** If true, tangents will be stored at 16 bit vs 8 bit precision */
 	UPROPERTY(EditAnywhere, Category = Mesh)
-	uint32 bUseHighPrecisionTangentBasis : 1;
+	uint8 bUseHighPrecisionTangentBasis : 1;
 
 	/** true if this mesh has ever been simplified with Simplygon. */
 	UPROPERTY()
-	uint32 bHasBeenSimplified:1;
+	uint8 bHasBeenSimplified:1;
 
 	/** Whether or not the mesh has vertex colors */
 	UPROPERTY()
-	uint32 bHasVertexColors:1;
+	uint8 bHasVertexColors:1;
+
+	//caching optimization to avoid recalculating in non-editor builds
+	uint8 bHasActiveClothingAssets:1;
+
+	/** Uses skinned data for collision data. Per poly collision cannot be used for simulation, in most cases you are better off using the physics asset */
+	UPROPERTY(EditAnywhere, Category = Physics)
+	uint8 bEnablePerPolyCollision : 1;
 
 #if WITH_EDITORONLY_DATA
 	/** The guid to compute the ddc key, it must be dirty when we change the vertex color. */
 	UPROPERTY()
 	FGuid VertexColorGuid;
 #endif
-
-	//caching optimization to avoid recalculating in non-editor builds
-	uint32 bHasActiveClothingAssets:1;
-
-	/** Uses skinned data for collision data. Per poly collision cannot be used for simulation, in most cases you are better off using the physics asset */
-	UPROPERTY(EditAnywhere, Category = Physics)
-	uint32 bEnablePerPolyCollision : 1;
 
 	// Physics data for the per poly collision case. In 99% of cases you will not need this and are better off using simple ragdoll collision (physics asset)
 	UPROPERTY(transient)
@@ -644,11 +675,10 @@ public:
 	UPROPERTY()
 	TArray<FTransform> RetargetBasePose;
 
-#endif
-
 	/** Legacy clothing asset data, will be converted to new assets after loading */
 	UPROPERTY()
 	TArray<FClothingAssetData_Legacy>		ClothingAssets_DEPRECATED;
+#endif
 
 	/** Animation Blueprint class to run as a post process for this mesh.
 	 *  This blueprint will be ran before physics, but after the main
@@ -706,6 +736,10 @@ public:
 
 	/* Get whether or not any bound clothing assets exist for this mesh **/
 	bool HasActiveClothingAssets() const;
+
+	/* Get whether or not any bound clothing assets exist for this mesh's given LOD**/
+	bool HasActiveClothingAssetsForLOD(int32 LODIndex) const;
+
 	/* Compute whether or not any bound clothing assets exist for this mesh **/
 	bool ComputeActiveClothingAssets() const;
 

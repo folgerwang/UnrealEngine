@@ -19,7 +19,7 @@ namespace mtlpp
 {
     class CommandBuffer;
 	
-	class CommandBufferFence : public ns::Object<CommandBufferFenceImpl*, ns::CallingConvention::ObjectiveC>
+	class MTLPP_EXPORT CommandBufferFence : public ns::Object<CommandBufferFenceImpl*, ns::CallingConvention::ObjectiveC>
 	{
 		friend class CommandBuffer;
 	public:

@@ -26,7 +26,7 @@ public:
 	/**
 	 * UMG Editor Commands
 	 */
-	
+	TSharedPtr< FUICommandInfo > CreateNativeBaseClass;
 
 	/**
 	 * Initialize commands

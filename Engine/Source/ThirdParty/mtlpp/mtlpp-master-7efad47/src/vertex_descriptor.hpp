@@ -124,7 +124,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class VertexBufferLayoutDescriptor : public ns::Object<MTLVertexBufferLayoutDescriptor*>
+    class MTLPP_EXPORT VertexBufferLayoutDescriptor : public ns::Object<MTLVertexBufferLayoutDescriptor*>
     {
     public:
         VertexBufferLayoutDescriptor();
@@ -141,7 +141,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class VertexAttributeDescriptor : public ns::Object<MTLVertexAttributeDescriptor*>
+    class MTLPP_EXPORT VertexAttributeDescriptor : public ns::Object<MTLVertexAttributeDescriptor*>
     {
     public:
         VertexAttributeDescriptor();
@@ -158,7 +158,7 @@ namespace mtlpp
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    class VertexDescriptor : public ns::Object<MTLVertexDescriptor*>
+    class MTLPP_EXPORT VertexDescriptor : public ns::Object<MTLVertexDescriptor*>
     {
     public:
         VertexDescriptor();

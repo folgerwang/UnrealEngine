@@ -10,6 +10,7 @@ struct APPLICATIONCORE_API FIOSPlatformApplicationMisc : public FGenericPlatform
 
 	static class FOutputDeviceError* GetErrorOutputDevice();
 	static class GenericApplication* CreateApplication();
+	static bool IsScreensaverEnabled();
 	static bool ControlScreensaver(EScreenSaverAction Action);
 
 	static void ResetGamepadAssignments();

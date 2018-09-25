@@ -181,6 +181,8 @@ bool FFbxImportAssetsAutomationTest::RunTest(const FString& Parameters)
 				if (FbxFactory->ImportUI->bImportAsSkeletal)
 				{
 					FbxFactory->ImportUI->MeshTypeToImport = FBXIT_SkeletalMesh;
+					//AUtomation test do not support yet skeletalmesh geometry
+					FbxFactory->ImportUI->SkeletalMeshImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
 				}
 
 				//Import the test object
@@ -318,6 +320,7 @@ bool FFbxImportAssetsAutomationTest::RunTest(const FString& Parameters)
 					UFbxSkeletalMeshImportData* ImportData = Cast<UFbxSkeletalMeshImportData>(ReimportSkeletalMesh->AssetImportData);
 
 					//Copy UFbxSkeletalMeshImportData
+					ImportData->ImportContentType = TestPlan->ImportUI->SkeletalMeshImportData->ImportContentType;
 					ImportData->bImportMeshesInBoneHierarchy = TestPlan->ImportUI->SkeletalMeshImportData->bImportMeshesInBoneHierarchy;
 					ImportData->bImportMorphTargets = TestPlan->ImportUI->SkeletalMeshImportData->bImportMorphTargets;
 					ImportData->ThresholdPosition = TestPlan->ImportUI->SkeletalMeshImportData->ThresholdPosition;
@@ -412,6 +415,7 @@ bool FFbxImportAssetsAutomationTest::RunTest(const FString& Parameters)
 					UFbxSkeletalMeshImportData* ImportData = Cast<UFbxSkeletalMeshImportData>(ExistingSkeletalMesh->AssetImportData);
 
 					//Copy UFbxSkeletalMeshImportData
+					ImportData->ImportContentType = TestPlan->ImportUI->SkeletalMeshImportData->ImportContentType;
 					ImportData->bImportMeshesInBoneHierarchy = TestPlan->ImportUI->SkeletalMeshImportData->bImportMeshesInBoneHierarchy;
 					ImportData->bImportMorphTargets = TestPlan->ImportUI->SkeletalMeshImportData->bImportMorphTargets;
 					ImportData->ThresholdPosition = TestPlan->ImportUI->SkeletalMeshImportData->ThresholdPosition;

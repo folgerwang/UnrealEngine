@@ -12,6 +12,9 @@ extern JavaVM* GJavaVM;
 
 DECLARE_MULTICAST_DELEGATE_SixParams(FOnActivityResult, JNIEnv *, jobject, jobject, jint, jint, jobject);
 
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnSafetyNetAttestationResult, bool, const FString&, int32);
+
+
 // Define all the Java classes/methods that the game will need to access to
 class FJavaWrapper
 {
@@ -34,14 +37,19 @@ public:
 	static jmethodID AndroidThunkJava_GetFontDirectory;
 	static jmethodID AndroidThunkJava_Vibrate;
 	static jmethodID AndroidThunkJava_IsMusicActive;
+	static jmethodID AndroidThunkJava_IsScreensaverEnabled;
 	static jmethodID AndroidThunkJava_KeepScreenOn;
 	static jmethodID AndroidThunkJava_InitHMDs;
 	static jmethodID AndroidThunkJava_DismissSplashScreen;
+	static jmethodID AndroidThunkJava_ShowProgressDialog;
+	static jmethodID AndroidThunkJava_UpdateProgressDialog;
 	static jmethodID AndroidThunkJava_GetInputDeviceInfo;
 	static jmethodID AndroidThunkJava_IsGamepadAttached;
 	static jmethodID AndroidThunkJava_HasMetaDataKey;
 	static jmethodID AndroidThunkJava_GetMetaDataBoolean;
 	static jmethodID AndroidThunkJava_GetMetaDataInt;
+	static jmethodID AndroidThunkJava_GetMetaDataLong;
+	static jmethodID AndroidThunkJava_GetMetaDataFloat;
 	static jmethodID AndroidThunkJava_GetMetaDataString;
 	static jmethodID AndroidThunkJava_IsGearVRApplication;
 	static jmethodID AndroidThunkJava_ShowHiddenAlertDialog;
@@ -53,6 +61,8 @@ public:
 	static jmethodID AndroidThunkJava_GetAndroidId;
 	static jmethodID AndroidThunkJava_ShareURL;
 	static jmethodID AndroidThunkJava_LaunchPackage;
+	static jmethodID AndroidThunkJava_IsPackageInstalled;
+	static jmethodID AndroidThunkJava_SendBroadcast;
 	static jmethodID AndroidThunkJava_HasIntentExtrasKey;
 	static jmethodID AndroidThunkJava_GetIntentExtrasBoolean;
 	static jmethodID AndroidThunkJava_GetIntentExtrasInt;
@@ -141,6 +151,9 @@ public:
 
 	// Delegate that can be registered to that is called when an activity is finished
 	static FOnActivityResult OnActivityResultDelegate;
+
+	// Delegate that can be registered to that is called when an SafetyNet Attestation is finished
+	static FOnSafetyNetAttestationResult OnSafetyNetAttestationResultDelegate;
 
 private:
 
