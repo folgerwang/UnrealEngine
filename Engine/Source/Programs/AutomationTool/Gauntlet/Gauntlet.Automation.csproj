@@ -76,23 +76,14 @@
     <Compile Include="Framework\Base\Gauntlet.Blacklist.cs" />
     <Compile Include="Framework\Base\Gauntlet.ConfigOption.cs" />
     <Compile Include="Framework\Base\Gauntlet.BuildSource.cs" />
-    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceAndroid.cs" />
-    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceNull.cs" />
-    <Compile Include="Framework\Devices\Gauntlet.TargetDevicePS4.cs" />
-    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceSwitch.cs" />
-    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceXboxOne.cs" />
     <Compile Include="Framework\FileLockInfo.cs" />
     <Compile Include="Framework\Gauntlet.AutoParam.cs" />
     <Compile Include="Framework\Gauntlet.Exception.cs" />
     <Compile Include="Framework\Gauntlet.Params.cs" />
     <Compile Include="Framework\Gauntlet.TestGroup.cs" />
     <Compile Include="Framework\Utils\Gauntlet.MarkdownBuilder.cs" />
+    <Compile Include="Platform\Null\Gauntlet.TargetDeviceNull.cs" />
     <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealBuildParsing.cs" />
-    <Compile Include="Unreal\BuildSource\Gauntlet.AndroidBuildSource.cs" />
-    <Compile Include="Unreal\BuildSource\Gauntlet.PS4BuildSources.cs" />
-    <Compile Include="Unreal\BuildSource\Gauntlet.WindowsBuildSources.cs" />
-    <Compile Include="Unreal\BuildSource\Gauntlet.SwitchBuildSource.cs" />
-    <Compile Include="Unreal\BuildSource\Gauntlet.XboxOneBuildSource.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -100,31 +91,23 @@
     </Compile>
     <Compile Include="Framework\Base\Gauntlet.TestContext.cs" />
     <Compile Include="Framework\Base\Gauntlet.AppInstance.cs" />
-    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceWindows.cs" />
     <Compile Include="Framework\Devices\Gauntlet.DevicePool.cs" />
     <Compile Include="Framework\Base\Gauntlet.TestNode.cs" />
     <Compile Include="Framework\Base\Gauntlet.TargetDevice.cs" />
     <Compile Include="Framework\Gauntlet.TestExecutor.cs" />
     <Compile Include="Framework\Gauntlet.Utils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SelfTest\Devices\Gauntlet.SelfTest.TestTargetDeviceXboxOne.cs" />
     <Compile Include="SelfTest\Framework\Gauntlet.SelfTest.TestAutoParam.cs" />
     <Compile Include="SelfTest\Framework\Gauntlet.SelfTest.TestParsing.cs" />
     <Compile Include="SelfTest\Gauntlet.SelfTest.Blank.cs" />
     <Compile Include="SelfTest\Framework\Gauntlet.SelfTest.CreateGif.cs" />
     <Compile Include="SelfTest\Framework\Gauntlet.SelfTest.OrderOfOpsTest.cs" />
     <Compile Include="SelfTest\Devices\Gauntlet.SelfTest.TestTargetDevice.cs" />
-    <Compile Include="SelfTest\Devices\Gauntlet.SelfTest.TestTargetDevicePS4.cs" />
-    <Compile Include="SelfTest\Devices\Gauntlet.SelfTest.TestTargetDeviceWindows.cs" />
-    <Compile Include="SelfTest\Devices\Gauntlet.SelfTest.TestTargetDeviceMac.cs" />
     <Compile Include="SelfTest\Framework\Gauntlet.SelfTest.TimeoutTest.cs" />
     <Compile Include="SelfTest\Gauntlet.SelfTest.Globals.cs" />
     <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.LogParserTest.cs" />
     <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestShortSoloGame.cs" />
     <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealInstallAndRunBase.cs" />
-    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealInstallAndRunPS4.cs" />
-    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealInstallAndRunXboxOne.cs" />
-    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealInstallAndRunMac.cs" />
     <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealSession.cs" />
     <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealOptions.cs" />
     <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealBase.cs" />
@@ -147,8 +130,6 @@
     <Compile Include="Unreal\Game\UE4Game.TestConfig.cs" />
     <Compile Include="Unreal\Utils\Gauntlet.UnrealHelpers.cs" />
     <Compile Include="Unreal\Utils\Gauntlet.UnrealLogParser.cs" />
-    <Compile Include="Framework\Devices\Gauntlet.TargetDeviceMac.cs" />
-    <Compile Include="Unreal\BuildSource\Gauntlet.MacBuildSource.cs" />
     <Compile Include="Unreal\BuildSource\Gauntlet.StagedBuildSource.cs" />
     <Compile Include="Unreal\Utils\Gauntlet.UnrealSnapshotParser.cs" />
   </ItemGroup>
@@ -193,7 +174,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SelfTest\Gauntlet.SelfTest.BaseNode.cs" />
-    <Compile Include="SelfTest\Unreal\Gauntlet.SelfTest.TestUnrealInstallAndRunWindows.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -218,5 +198,60 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup />
+  <Choose>
+    <When Condition="Exists('Platform\Android\Gauntlet.TargetDeviceAndroid.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\Android\Gauntlet.TargetDeviceAndroid.cs" />
+        <Compile Include="Platform\Android\Gauntlet.AndroidBuildSource.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\Mac\Gauntlet.TargetDeviceMac.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\Mac\Gauntlet.TargetDeviceMac.cs" />
+        <Compile Include="Platform\Mac\Gauntlet.MacBuildSource.cs" />
+        <Compile Include="Platform\Mac\Gauntlet.SelfTest.TestUnrealInstallAndRunMac.cs" />
+        <Compile Include="Platform\Mac\Gauntlet.SelfTest.TestTargetDeviceMac.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\PS4\Gauntlet.TargetDevicePS4.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\PS4\Gauntlet.TargetDevicePS4.cs" />
+        <Compile Include="Platform\PS4\Gauntlet.PS4BuildSources.cs" />
+        <Compile Include="Platform\PS4\Gauntlet.SelfTest.TestUnrealInstallAndRunPS4.cs" />
+        <Compile Include="Platform\PS4\Gauntlet.SelfTest.TestTargetDevicePS4.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\Switch\Gauntlet.TargetDeviceSwitch.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\Switch\Gauntlet.TargetDeviceSwitch.cs" />
+        <Compile Include="Platform\Switch\Gauntlet.SwitchBuildSource.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\Windows\Gauntlet.TargetDeviceWindows.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\Windows\Gauntlet.TargetDeviceWindows.cs" />
+        <Compile Include="Platform\Windows\Gauntlet.WindowsBuildSources.cs" />
+        <Compile Include="Platform\Windows\Gauntlet.SelfTest.TestTargetDeviceWindows.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\XboxOne\Gauntlet.TargetDeviceXboxOne.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\XboxOne\Gauntlet.TargetDeviceXboxOne.cs" />
+        <Compile Include="Platform\XboxOne\Gauntlet.XboxOneBuildSource.cs" />
+        <Compile Include="Platform\XboxOne\Gauntlet.SelfTest.TestUnrealInstallAndRunXboxOne.cs" />
+        <Compile Include="Platform\XboxOne\Gauntlet.SelfTest.TestTargetDeviceXboxOne.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
