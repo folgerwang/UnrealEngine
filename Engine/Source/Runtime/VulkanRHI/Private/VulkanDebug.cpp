@@ -1329,7 +1329,7 @@ namespace VulkanRHI
 }
 #endif
 
-#if VULKAN_ENABLE_CUSTOM_LAYER
+#if VULKAN_ENABLE_WRAP_LAYER
 void FWrapLayer::GetPhysicalDeviceMemoryProperties(VkResult Result, VkPhysicalDevice PhysicalDevice, VkPhysicalDeviceMemoryProperties* Properties)
 {
 	if (Result == VK_RESULT_MAX_ENUM)
@@ -3879,7 +3879,7 @@ namespace VulkanRHI
 }
 #endif
 
-#endif	// VULKAN_ENABLE_CUSTOM_LAYER
+#endif	// VULKAN_ENABLE_WRAP_LAYER
 
 #if VULKAN_ENABLE_DUMP_LAYER
 namespace VulkanRHI
