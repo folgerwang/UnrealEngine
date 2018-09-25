@@ -364,7 +364,13 @@ FMetalTexture FMetalViewport::GetDrawableTexture(EMetalViewportAccessFlag Access
 		}
 	}
 #endif
+	DrawableTextures[Accessor] = CurrentDrawable.texture;
 	return CurrentDrawable.texture;
+}
+
+ns::AutoReleased<FMetalTexture> FMetalViewport::GetCurrentTexture(EMetalViewportAccessFlag Accessor)
+{
+	return DrawableTextures[Accessor];
 }
 
 void FMetalViewport::ReleaseDrawable()

@@ -592,7 +592,7 @@ void FMetalDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntRe
 	FMetalTexture Texture = Surface->Texture;
     if(!Texture && (Surface->Flags & TexCreate_Presentable))
     {
-        Texture = Surface->GetDrawableTexture();
+        Texture = Surface->GetCurrentTexture();
     }
     if(!Texture)
     {
@@ -736,7 +736,7 @@ void FMetalDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, F
     FMetalTexture Texture = Surface->Texture;
     if(!Texture && (Surface->Flags & TexCreate_Presentable))
     {
-		Texture = Surface->GetDrawableTexture();
+		Texture = Surface->GetCurrentTexture();
     }
     if(!Texture)
     {

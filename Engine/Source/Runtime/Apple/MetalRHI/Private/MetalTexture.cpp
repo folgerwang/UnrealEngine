@@ -1649,6 +1649,17 @@ FMetalTexture FMetalSurface::GetDrawableTexture()
 	return Texture;
 }
 
+ns::AutoReleased<FMetalTexture> FMetalSurface::GetCurrentTexture()
+{
+	ns::AutoReleased<FMetalTexture> Tex;
+	if (Viewport && (Flags & TexCreate_Presentable))
+	{
+		check(Viewport);
+		Tex = Viewport->GetCurrentTexture(EMetalViewportAccessRHI);
+	}
+	return Tex;
+}
+
 
 /*-----------------------------------------------------------------------------
  Texture allocator support.

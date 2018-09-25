@@ -273,7 +273,15 @@ void FMetalRHICommandContext::RHISetShaderTexture(FVertexShaderRHIParamRef Verte
 	FMetalSurface* Surface = GetMetalSurfaceFromRHITexture(NewTextureRHI);
 	if (Surface != nullptr)
 	{
-		Context->GetCurrentState().SetShaderTexture(SF_Vertex, Surface->Texture, TextureIndex);
+        if (Surface->Texture || !(Surface->Flags & TexCreate_Presentable))
+        {
+            Context->GetCurrentState().SetShaderTexture(SF_Vertex, Surface->Texture, TextureIndex);
+        }
+        else
+        {
+            FMetalTexture Tex = Surface->GetCurrentTexture();
+            Context->GetCurrentState().SetShaderTexture(SF_Vertex, Tex, TextureIndex);
+        }
 	}
 	else
 	{
@@ -287,8 +295,16 @@ void FMetalRHICommandContext::RHISetShaderTexture(FHullShaderRHIParamRef HullSha
 	@autoreleasepool {
 	FMetalSurface* Surface = GetMetalSurfaceFromRHITexture(NewTextureRHI);
 	if (Surface != nullptr)
-	{
-		Context->GetCurrentState().SetShaderTexture(SF_Hull, Surface->Texture, TextureIndex);
+    {
+        if (Surface->Texture || !(Surface->Flags & TexCreate_Presentable))
+        {
+            Context->GetCurrentState().SetShaderTexture(SF_Hull, Surface->Texture, TextureIndex);
+        }
+        else
+        {
+            FMetalTexture Tex = Surface->GetCurrentTexture();
+            Context->GetCurrentState().SetShaderTexture(SF_Hull, Tex, TextureIndex);
+        }
 	}
 	else
 	{
@@ -302,8 +318,16 @@ void FMetalRHICommandContext::RHISetShaderTexture(FDomainShaderRHIParamRef Domai
 	@autoreleasepool {
 	FMetalSurface* Surface = GetMetalSurfaceFromRHITexture(NewTextureRHI);
 	if (Surface != nullptr)
-	{
-		Context->GetCurrentState().SetShaderTexture(SF_Domain, Surface->Texture, TextureIndex);
+    {
+        if (Surface->Texture || !(Surface->Flags & TexCreate_Presentable))
+        {
+            Context->GetCurrentState().SetShaderTexture(SF_Domain, Surface->Texture, TextureIndex);
+        }
+        else
+        {
+            FMetalTexture Tex = Surface->GetCurrentTexture();
+            Context->GetCurrentState().SetShaderTexture(SF_Domain, Tex, TextureIndex);
+        }
 	}
 	else
 	{
@@ -323,8 +347,16 @@ void FMetalRHICommandContext::RHISetShaderTexture(FPixelShaderRHIParamRef PixelS
 	@autoreleasepool {
 	FMetalSurface* Surface = GetMetalSurfaceFromRHITexture(NewTextureRHI);
 	if (Surface != nullptr)
-	{
-		Context->GetCurrentState().SetShaderTexture(SF_Pixel, Surface->Texture, TextureIndex);
+    {
+        if (Surface->Texture || !(Surface->Flags & TexCreate_Presentable))
+        {
+            Context->GetCurrentState().SetShaderTexture(SF_Pixel, Surface->Texture, TextureIndex);
+        }
+        else
+        {
+            FMetalTexture Tex = Surface->GetCurrentTexture();
+            Context->GetCurrentState().SetShaderTexture(SF_Pixel, Tex, TextureIndex);
+        }
 	}
 	else
 	{
@@ -338,8 +370,16 @@ void FMetalRHICommandContext::RHISetShaderTexture(FComputeShaderRHIParamRef Comp
 	@autoreleasepool {
 	FMetalSurface* Surface = GetMetalSurfaceFromRHITexture(NewTextureRHI);
 	if (Surface != nullptr)
-	{
-		Context->GetCurrentState().SetShaderTexture(SF_Compute, Surface->Texture, TextureIndex);
+    {
+        if (Surface->Texture || !(Surface->Flags & TexCreate_Presentable))
+        {
+            Context->GetCurrentState().SetShaderTexture(SF_Compute, Surface->Texture, TextureIndex);
+        }
+        else
+        {
+            FMetalTexture Tex = Surface->GetCurrentTexture();
+            Context->GetCurrentState().SetShaderTexture(SF_Compute, Tex, TextureIndex);
+        }
 	}
 	else
 	{

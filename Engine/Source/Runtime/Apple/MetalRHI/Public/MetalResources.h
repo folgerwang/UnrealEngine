@@ -500,6 +500,7 @@ public:
 	
 	/** Gets the drawable texture if this is a back-buffer surface. */
 	FMetalTexture GetDrawableTexture();
+	ns::AutoReleased<FMetalTexture> GetCurrentTexture();
 
 	FMetalTexture Reallocate(FMetalTexture Texture, mtlpp::TextureUsage UsageModifier);
 	void ReplaceTexture(FMetalContext& Context, FMetalTexture OldTexture, FMetalTexture NewTexture);

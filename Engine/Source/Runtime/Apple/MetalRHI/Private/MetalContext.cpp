@@ -13,11 +13,11 @@
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
 
-int32 GMetalSupportsIntermediateBackBuffer = PLATFORM_MAC ? 1 : 0;
+int32 GMetalSupportsIntermediateBackBuffer = 0;
 static FAutoConsoleVariableRef CVarMetalSupportsIntermediateBackBuffer(
 	TEXT("rhi.Metal.SupportsIntermediateBackBuffer"),
 	GMetalSupportsIntermediateBackBuffer,
-	TEXT("When enabled (> 0) allocate an intermediate texture to use as the back-buffer & blit from there into the actual device back-buffer, thereby allowing screenshots & video capture that would otherwise be impossible as the texture required has already been released back to the OS as required by Metal's API. (Off by default (0) on iOS/tvOS but enabled (1) on Mac)"), ECVF_ReadOnly);
+	TEXT("When enabled (> 0) allocate an intermediate texture to use as the back-buffer & blit from there into the actual device back-buffer, this is required if we use the experimental separate presentation thread. (Off by default (0))"), ECVF_ReadOnly);
 
 int32 GMetalSeparatePresentThread = 0;
 static FAutoConsoleVariableRef CVarMetalSeparatePresentThread(
@@ -25,7 +25,6 @@ static FAutoConsoleVariableRef CVarMetalSeparatePresentThread(
 	GMetalSeparatePresentThread,
 	TEXT("When enabled (> 0) requires rhi.Metal.SupportsIntermediateBackBuffer be enabled and will cause two intermediate back-buffers be allocated so that the presentation of frames to the screen can be run on a separate thread.\n")
 	TEXT("This option uncouples the Render/RHI thread from calls to -[CAMetalLayer nextDrawable] and will run arbitrarily fast by rendering but not waiting to present all frames. This is equivalent to running without V-Sync, but without the screen tearing.\n")
-	TEXT("On macOS 10.12 this will not be beneficial, but on later macOS versions this is the only way to ensure that we keep the CPU & GPU saturated with commands and don't ever stall waiting for V-Sync.\n")
 	TEXT("On iOS/tvOS this is the only way to run without locking the CPU to V-Sync somewhere - this shouldn't be used in a shipping title without understanding the power/heat implications.\n")
 	TEXT("(Off by default (0))"), ECVF_ReadOnly);
 
